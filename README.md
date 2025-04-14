@@ -7,7 +7,7 @@
 想要语法高亮和智能补全，无奈没有root权限，也不想安装几千次fish，使用Chaterm一键解决！
 
 ## Demo Display
-![Preview image](demo.png)
+![Preview image](demo.jpg)
 
 ## Main Features
 
