@@ -7,7 +7,7 @@
 想要语法高亮和智能补全，无奈没有root权限，也不想安装几千次fish，使用Chaterm一键解决！
 
 ## Demo Display
-![Preview image](demo.jpg)
+![Preview image](demo.png)
 
 ## Main Features
 
@@ -23,8 +23,54 @@
 - 🔏 Privacy watermark：screen recording, Clipboard and data transmission control.
 - 🔎 Behavior Audits：Advanced pattern recognition and anomaly detection in user operations.
 
-## Demo Download
-Coming soon!
+## Project Setup
+
+### Install Electron
+
+```sh
+1、更换npm源为最新淘宝源
+npm config set registry https://registry.npmmirror.com
+
+2、编辑npm 配置文件
+npm config edit
+
+3、在打开的配置文件中，添加以下镜像源配置：
+electron_mirror=https://cdn.npmmirror.com/binaries/electron/
+electron_builder_binaries_mirror=https://npmmirror.com/mirrors/electron-builder-binaries/
+
+4、保存并关闭配置文件后，在命令行中安装 Electron：
+npm i electron -D
+
+```
+
+### Install
+
+```bash
+$ npm install
+```
+
+### Development
+
+```bash
+$ npm run dev
+```
+
+### Build
+
+```bash
+# For windows
+$ npm run build:win
+
+# For macOS
+$ npm run build:mac
+
+# For Linux
+$ npm run build:linux
+```
+
+### 本地前后端调试
+
+<p>打开electron.vite.config.ts文件，将target指向改为本地url地址即可。</p>
 
 ## Contributors
 
