@@ -1,6 +1,15 @@
 <div align="center">
-  <a href="./README_zh.md">中文</a> / English
+  中文 / <a href="./README.md">English</a> 
 </div>
+<br>
+<p align="center">
+<img src="https://img.shields.io/github/package-json/dependency-version/alex8088/electron-vite-boilerplate/dev/electron" alt="electron-version">
+<img src="https://img.shields.io/github/package-json/dependency-version/alex8088/electron-vite-boilerplate/dev/electron-vite" alt="electron-vite-version" />
+<img src="https://img.shields.io/github/package-json/dependency-version/alex8088/electron-vite-boilerplate/dev/electron-builder" alt="electron-builder-version" />
+<img src="https://img.shields.io/github/package-json/dependency-version/alex8088/electron-vite-boilerplate/dev/vite" alt="vite-version" />
+<img src="https://img.shields.io/github/package-json/dependency-version/alex8088/electron-vite-boilerplate/dev/vue" alt="vue-version" />
+<img src="https://img.shields.io/github/package-json/dependency-version/alex8088/electron-vite-boilerplate/dev/typescript" alt="typescript-version" />
+</p>
 
 # Chaterm
 无需再学习复杂的正则表达式，Perl和Python，交换机和Linux命令，SQL语法也能轻松管理上千台设备！
