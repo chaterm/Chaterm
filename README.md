@@ -1,10 +1,13 @@
+<div align="center">
+  <a href="./README_zh.md">中文</a> / English
+</div>
+
 # Chaterm
+No need to learn complicated regular expressions, Perl and Python, switches and Linux commands, SQL syntax can easily manage thousands of devices!
 
-无需再学习复杂的正则表达式，Perl和Python，交换机和Linux命令，SQL语法也能轻松管理上千台设备！
+Is the full screen of errors difficult to understand? Massive log output, don't know how to locate the problem? Ask @host directly!
 
-满屏的报错难以理解？海量的日志输出不知道如何定位问题？直接@host提问吧！
-
-想要语法高亮和智能补全，无奈没有root权限，也不想安装几千次fish，使用Chaterm一键解决！
+Want syntax highlighting and smart completion, but don't have root privileges, and don't want to install fish thousands of times, use Chaterm to solve it with one click!
 
 ## Demo Display
 ![Preview image](demo.jpg)
@@ -28,17 +31,17 @@
 ### Install Electron
 
 ```sh
-1、更换npm源为最新淘宝源
+1、update npm registry
 npm config set registry https://registry.npmmirror.com
 
-2、编辑npm 配置文件
+2、npm config
 npm config edit
 
-3、在打开的配置文件中，添加以下镜像源配置：
+3、Set configuration at the end:
 electron_mirror=https://cdn.npmmirror.com/binaries/electron/
 electron_builder_binaries_mirror=https://npmmirror.com/mirrors/electron-builder-binaries/
 
-4、保存并关闭配置文件后，在命令行中安装 Electron：
+4、install Electron：
 npm i electron -D
 
 ```
@@ -68,13 +71,14 @@ $ npm run build:mac
 $ npm run build:linux
 ```
 
-### 本地前后端调试
+### Local front-end and back-end debugging
 
-<p>打开electron.vite.config.ts文件，将target指向改为本地url地址即可。</p>
+<p>Modify the electron.vite.config.ts file and set the target to the local URL address.</p>
 
 ## Contributors
 
-In this era of AI full of infinite possibilities, a group of devops from diverse backgrounds but with like-minded goals have come together here out of their love for technology and their shared pursuit of improving industry efficiency and enhancing the quality of life. They have crafted this ingenious tool in their spare time.
-We hope this tool can light up a guiding light on your development journey and become a reliable partner to help you boost efficiency and improve your quality of life. We look forward to more like-minded friends joining us and working together to create a better future!
+In this era full of unlimited opportunities and challenges, a group of DevOps partners from different backgrounds gathered here with their dreams. They used their spare time to create this ingenious tool.
+
+We hope it will become a reliable partner for you to improve efficiency and quality of life. At the same time, we also look forward to more like-minded friends joining us to create a better future together!
 
 
