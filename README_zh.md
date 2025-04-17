@@ -12,7 +12,7 @@
 </p>
 
 # Chaterm
-无需再学习复杂的正则表达式，Perl和Python，交换机和Linux命令，SQL语法也能轻松管理上千台设备！
+Chaterm是一款类似Cursor的终端上工具，无需再学习复杂的正则表达式，Perl和Python，交换机和Linux命令，SQL语法也能轻松管理上千台设备！
 
 满屏的报错难以理解？海量的日志输出不知道如何定位问题？直接@host提问吧！
 

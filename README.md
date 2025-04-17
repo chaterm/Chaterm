@@ -12,7 +12,7 @@
 </p>
 
 # Chaterm
-No need to learn complicated regular expressions, Perl and Python, switches and Linux commands, SQL syntax can easily manage thousands of devices!
+A terminal tool with AI Agent, makes you no need to learn complicated regular expressions, Perl and Python, switches and Linux commands, SQL syntax can easily manage thousands of devices!
 
 Is the full screen of errors difficult to understand? Massive log output, don't know how to locate the problem? Ask Agent with @host directly!
 
