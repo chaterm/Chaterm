@@ -109,8 +109,12 @@ import { userInfoStore } from '@/store'
 
 const searchText = ref('')
 const list = ref()
-const editFlag = ref(true)
-const cloneRecord = ref({})
+const cloneRecord = ref({
+  alias: '',
+  command: '',
+  edit: false,
+  id: -1
+})
 const { t } = i18n.global
 const columns = computed(() => [
   {
@@ -128,41 +132,19 @@ const columns = computed(() => [
     title: t('extensions.action'),
     dataIndex: 'action',
     key: 'action',
-    width: '20%'
+    width: '15%'
   }
 ])
 
-const pageTable = ref({
-  total: 0,
-  current: 1,
-  pageSize: 1000,
-  totalPage: 0
-})
-const handleTableChange = (page = null) => {
-  if (page) {
-    pageTable.value.total = page.total
-    pageTable.value.current = page.current
-    pageTable.value.pageSize = page.pageSize
-  }
+const handleTableChange = () => {
   listUserQuickCommand({
     searchText: searchText.value
-    // pageNo: pageTable.value.current,
-    // pageSize: pageTable.value.pageSize
   })
     .then((res) => {
       if (res.data.data) {
         list.value = res.data.data
-        // pageTable.value.total = res.data.totalCount
-        // pageTable.value.current = res.data.pageNo
-        // pageTable.value.pageSize = res.data.pageSize
-        // pageTable.value.totalPage = res.data.totalPage
-        // console.log(pageTable.value)
       } else {
         list.value = []
-        // pageTable.value.total = 0
-        // pageTable.value.current = 1
-        // pageTable.value.pageSize = 10
-        // console.log(pageTable.value)
       }
     })
     .catch((err) => {
@@ -173,14 +155,18 @@ const handleTableChange = (page = null) => {
 const columnOpt = (type, record) => {
   switch (type) {
     case 'edit':
-      if (editFlag.value) {
-        record.edit = true
-        editFlag.value = false
-        cloneRecord.value = cloneDeep(record)
-        // console.log('this.cloneRecord', cloneRecord.value)
-      } else {
-        // console.log('每次只能编辑一条数据')
+      if (list.value[0].id === 0) {
+        list.value.splice(0, 1)
+      } else if (cloneRecord.value.id !== 0) {
+        const index = list.value.findIndex((item) => item.id === cloneRecord.value.id)
+        if (index !== -1) {
+          list.value[index].alias = cloneRecord.value.alias
+          list.value[index].command = cloneRecord.value.command
+          list.value[index].edit = false
+        }
       }
+      record.edit = true
+      cloneRecord.value = cloneDeep(record)
       break
     case 'del':
       deleteUserQuickCommand({ id: record.id })
@@ -188,6 +174,7 @@ const columnOpt = (type, record) => {
           if (res.code === 200) {
             handleTableChange()
             aliasConfigRefresh()
+            cloneRecordReset()
           }
         })
         .catch((err) => {
@@ -204,26 +191,26 @@ const columnOpt = (type, record) => {
           .then((res) => {
             if (res.code === 200) {
               record.edit = false
-              editFlag.value = true
               handleTableChange()
               aliasConfigRefresh()
+              cloneRecordReset()
             }
           })
           .catch((err) => {
-            console.log(err, 'err')
+            // console.log(err, 'err')
           })
       } else {
         updateUserQuickCommand(record)
           .then((res) => {
             if (res.code === 200) {
               record.edit = false
-              editFlag.value = true
               handleTableChange()
               aliasConfigRefresh()
+              cloneRecordReset()
             }
           })
           .catch((err) => {
-            console.log(err, 'err')
+            // console.log(err, 'err')
           })
       }
       break
@@ -235,8 +222,7 @@ const columnOpt = (type, record) => {
         record.command = cloneRecord.value.command
       }
       record.edit = false
-      editFlag.value = true
-      cloneRecord.value = {}
+      cloneRecordReset()
       break
   }
 }
@@ -249,10 +235,16 @@ onMounted(() => {
 // 销毁时清理资源
 onBeforeUnmount(() => {})
 
-const handleAdd = () => {
-  if (!editFlag.value) {
-    return
+const cloneRecordReset = () => {
+  cloneRecord.value = {
+    alias: '',
+    command: '',
+    edit: false,
+    id: -1
   }
+}
+
+const handleAdd = () => {
   if (list.value.length) {
     list.value = [
       {
@@ -270,6 +262,20 @@ const handleAdd = () => {
       edit: true,
       id: 0
     })
+  }
+  if (cloneRecord.value.edit === true && cloneRecord.value.id !== 0) {
+    const index = list.value.findIndex((item) => item.id === cloneRecord.value.id)
+    if (index !== -1) {
+      list.value[index].alias = cloneRecord.value.alias
+      list.value[index].command = cloneRecord.value.command
+      list.value[index].edit = false
+    }
+  }
+  cloneRecord.value = {
+    alias: '',
+    command: '',
+    edit: true,
+    id: 0
   }
 }
 
@@ -326,9 +332,6 @@ const aliasConfigRefresh = () => {
 }
 
 .alias-config-table :deep(.ant-table-thead > tr > th) {
-  /* 可以选择保留默认样式或自定义 */
-  /* 例如: */
-  //background: #1a1a1a; /* 深灰色表头 */
   background: #1a1a1a; /* 深灰色表头 */
   color: #fff;
   padding: 8px;
@@ -337,14 +340,22 @@ const aliasConfigRefresh = () => {
   border-bottom: 1px solid #f0f0f0 !important; /* 可选：保留表头底部边框 */
 }
 
-.alias-config-table :deep(.ant-table-tbody > tr > td) {
+.alias-config-table :deep(.ant-table-tbody > tr:nth-child(even) > td) {
   /* 可以选择保留默认样式或自定义 */
   /* 例如: */
-  background: #1a1a1a; /* 深灰色表头 */
+  background: #2f2f2f;
   color: #fff;
   padding: 8px;
   border: none !important;
-  border-bottom: 1px solid #333;
+}
+
+.alias-config-table :deep(.ant-table-tbody > tr:nth-child(odd) > td) {
+  /* 可以选择保留默认样式或自定义 */
+  /* 例如: */
+  background: #1f1f1f;
+  color: #fff;
+  padding: 8px;
+  border: none !important;
 }
 
 .alias-config-table :deep(.ant-input) {
@@ -352,6 +363,16 @@ const aliasConfigRefresh = () => {
   border: none; /* 移除边框 */
   box-shadow: none; /* 移除阴影 */
   color: #fff; /* 输入文字为白色 */
+}
+
+.alias-config-table :deep(.ant-table-container table > thead > tr:first-child > *:last-child) {
+  border-start-end-radius: 0 !important;
+  border-end-end-radius: 0 !important;
+}
+
+.alias-config-table :deep(.ant-table-container table > thead > tr:first-child > *:first-child) {
+  border-start-start-radius: 0 !important;
+  border-end-start-radius: 0 !important;
 }
 
 .alias-config-table {
@@ -366,6 +387,17 @@ const aliasConfigRefresh = () => {
   .textarea-command {
     white-space: pre-wrap;
   }
+}
+
+/* 处理滚动条轨道和滑块 */
+.alias-config-table .textarea-command::-webkit-scrollbar-track,
+.alias-config-table .textarea-command::-webkit-scrollbar-thumb,
+.alias-config-table .textarea-command :deep(.ant-input::-webkit-scrollbar-track),
+.alias-config-table .textarea-command :deep(.ant-input::-webkit-scrollbar-thumb),
+.alias-config-table :deep(.textarea-command .ant-input::-webkit-scrollbar-track),
+.alias-config-table :deep(.textarea-command .ant-input::-webkit-scrollbar-thumb) {
+  display: none !important;
+  background: transparent !important;
 }
 
 .responsive-table {
