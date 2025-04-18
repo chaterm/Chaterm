@@ -1,5 +1,5 @@
 appId: com.electron.app
-productName: CTM
+productName: Chaterm
 directories:
   buildResources: build
 files:
@@ -13,7 +13,7 @@ asarUnpack:
   - resources/**
 icon: resources/icon.ico
 win:
-  executableName: CTM
+  executableName: Chaterm
 nsis:
   artifactName: ${name}-${version}-setup.${ext}
   shortcutName: ${productName}
@@ -21,7 +21,6 @@ nsis:
   createDesktopShortcut: always
 mac:
   icon: resources/icon.icns
-  # entitlementsInherit: build/entitlements.mac.plist
   extendInfo:
     - NSCameraUsageDescription: Application requests access to the device's camera.
     - NSMicrophoneUsageDescription: Application requests access to the device's microphone.
