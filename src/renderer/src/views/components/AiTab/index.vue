@@ -54,6 +54,7 @@
               class="assistant-message-container"
             >
               <div class="message-actions">
+                <div v-html="message.content" class="message-content"></div>
                 <a-button
                   type="primary"
                   size="small"
@@ -71,7 +72,6 @@
                   Run
                 </a-button>
               </div>
-              <div v-html="message.content" class="message-content"></div>
             </div>
             <div v-else :class="`message ${message.role}`" v-html="message.content"></div>
           </template>
@@ -953,6 +953,11 @@ const closeWebSocket = (ws: WebSocket | null): WebSocket | null => {
   /* 添加底部边框 */
   margin: -10px -10px 10px -10px;
   /* 负边距使其延伸到边缘 */
+}
+
+.message-content {
+  margin-right: 10px;
+  text-align: left;
 }
 
 /* 调整按钮样式以配合新的背景 */

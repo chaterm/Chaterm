@@ -48,8 +48,6 @@ const name = userInfoStore().userInfo.name
 const terminalElement = ref(null)
 const terminalContainer = ref(null)
 const terminalId = `${email.split('@')[0]}@${props.serverInfo.id}:${uuidv4()}`
-console.log(terminalId, 'terminalIdterminalId')
-// const terminalId = ``
 const suggestions = ref([]) //返回的补全列表
 const activeSuggestion = ref(0) //高亮的补全项
 const socket = ref(null) //ws实例
@@ -97,6 +95,7 @@ onBeforeUnmount(() => {
   pingInterval.value = null
   window.removeEventListener('resize', handleResize)
 })
+// 获取当前机器所有命令
 const getALlCmdList = () => {
   const authData2 = {
     uuid: terminalId
@@ -174,7 +173,7 @@ const connectWebsocket = () => {
     }, 5000)
     setTimeout(() => {
       getALlCmdList()
-    },1000)
+    }, 1000)
   }
   socket.value.binaryType = 'arraybuffer'
   socket.value.onmessage = (event) => {
@@ -211,8 +210,6 @@ const connectWebsocket = () => {
         //非初始输入且非特殊按键
         if (typeof event.data !== 'object') {
           const data = JSON.parse(event.data)
-          console.log(data, '22222')
-
           if (data.highLightData) {
             highlightSyntax(data.highLightData)
           }
@@ -308,7 +305,6 @@ const highlightSyntax = (allData) => {
     activeMarkers.value.push(commandMarker)
     term.write(`\x1b[${startY + 1};${cursorStartX.value + 1}H`)
     const colorCode = isValidCommand ? '38;2;24;144;255' : '31'
-    console.log(command, 'command')
     term.write(`\x1b[${colorCode}m${command}\x1b[0m`)
     setTimeout(() => {
       term.write(`\x1b[${cursorY.value + 1};${currentCursorX + 1}H`)
@@ -322,17 +318,13 @@ const highlightSyntax = (allData) => {
     let unMatchFlag = false
     for (let i = 0; i < afterCommandArr.length; i++) {
       if (afterCommandArr[i].type == 'unmatched') {
-        console.log('unmatchedunmatched')
         term.write(`\x1b[${startY + 1};${cursorStartX.value + 1}H`)
-        // term.write(`\x1b[31m${currentLine.value}\x1b[0m`)
         term.write(`\x1b[31m${allContent}\x1b[0m`)
         term.write(`\x1b[${cursorY.value + 1};${currentCursorX + 1}H`)
         unMatchFlag = true
       }
     }
     if (!unMatchFlag) {
-      console.log('matchedmatched')
-      console.log(afterCommandArr, 'afterCommandArr')
       for (let i = 0; i < afterCommandArr.length; i++) {
         if (afterCommandArr[i].content == ' ') {
           term.write(
@@ -350,22 +342,18 @@ const highlightSyntax = (allData) => {
       }
     }
   } else {
-    console.log('普通输入')
     if (index == -1 && currentCursorX >= cursorStartX.value + command.length) {
       // 没有空格 且 光标在命令末尾
-      console.log(arg, 'arg111')
       term.write(`\x1b[${startY + 1};${cursorStartX.value + command.length + 1}H`)
       term.write(`\x1b[38;2;126;193;255m${arg}\x1b[0m`)
       term.write(`\x1b[${cursorY.value + 1};${currentCursorX + 1}H`)
     } else if (currentCursorX < cursorStartX.value + command.length) {
       // 光标在命令中间
-      console.log(arg, 'arg222')
       term.write(`\x1b[${startY + 1};${cursorStartX.value + command.length + 1}H`)
       term.write(`\x1b[38;2;126;193;255m${arg}\x1b[0m`)
       term.write(`\x1b[${cursorY.value + 1};${currentCursorX + 1}H`)
     } else {
       // 光标不在命令范围内
-      console.log(arg, 'arg333')
       term.write(`\x1b[${startY + 1};${cursorStartX.value + command.length + 1}H`)
       term.write(`\x1b[38;2;126;193;255m${arg}\x1b[0m`)
       term.write(`\x1b[${cursorY.value + 1};${currentCursorX}H`)
@@ -517,9 +505,7 @@ const handleKeyInput = (e) => {
     specialCode.value = true
   } else if (ev.keyCode == 37 || ev.keyCode == 39) {
     // 左箭头
-    console.log(currentLine.value, 'currentLine.value')
     stashLine.value = JSON.parse(JSON.stringify(currentLine.value))
-    console.log(stashLine.value, 'stashLine.value')
     specialCode.value = true
     // this.initList()
   } else if (printable) {
@@ -547,5 +533,8 @@ defineExpose({
 .terminal {
   width: 100%;
   height: 100%;
+}
+.terminal ::-webkit-scrollbar {
+  width: 0px !important;
 }
 </style>
