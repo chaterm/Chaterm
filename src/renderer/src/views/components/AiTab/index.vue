@@ -160,7 +160,7 @@ const chatInputValue = ref('')
 const composerInputValue = ref('')
 const composerModelValue = ref('qwen-chat')
 const chatrModelValue = ref('qwen-chat')
-const activeKey = ref('ctm-chat')
+const activeKey = ref('ctm-cmd')
 
 // 当前活动对话的 ID
 const currentChatId = ref<string | null>(null)

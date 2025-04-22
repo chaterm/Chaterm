@@ -36,7 +36,6 @@
                     @close-tab="closeTab"
                     @change-tab="switchTab"
                     @update-tabs="updateTabs"
-                    @refresh-tab-name="refreshTabName"
                   />
                 </pane>
                 <pane :size="rightSize">
@@ -72,7 +71,7 @@ import TabsPanel from './tabsPanel.vue'
 import { reactive } from 'vue'
 import { v4 as uuidv4 } from 'uuid'
 import { userInfoStore } from '@/store'
-import i18n from '@/locales'
+
 const headerRef = ref<InstanceType<typeof Header> | null>(null)
 const extensionsRef = ref<InstanceType<typeof Extensions> | null>(null)
 const allTabs = ref<InstanceType<typeof TabsPanel> | null>(null)
@@ -195,7 +194,7 @@ interface TabItem {
   content: string
   type: string // 可选属性
   organizationId: string
-  uniqueKey: string
+  ip: string
 }
 
 // 已打开的标签页
@@ -204,26 +203,24 @@ const openedTabs = ref<TabItem[]>([])
 const activeTabId = ref('')
 // 点击服务器列表中的服务器
 const currentClickServer = (item) => {
-  const { t } = i18n.global
-  const existingTabIndex = openedTabs.value.findIndex((tab) => tab.id === item.title)
+  console.log(item, 'item')
+  // const existingTabIndex = openedTabs.value.findIndex((tab) => tab.id === item.title)
   if (item.children) return
-  if (existingTabIndex === -1) {
-    // 如果标签页不存在，则添加新标签页
-    let title = item.title
-    if (title === 'userInfo' || title === 'setting' || title === 'alias') {
-      title = t('common.' + title)
-    }
-    openedTabs.value.push({
-      id: item.title,
-      title: title,
-      content: item.key,
-      type: item.type ? item.type : 'term',
-      organizationId: item.organizationId ? item.organizationId : '',
-      uniqueKey: uuidv4()
-    })
-  }
+  // if (existingTabIndex === -1) {
+  const id_ = uuidv4()
+  openedTabs.value.push({
+    id: id_,
+    // title: item.ip ? item.title : `${t('common.' + title)}`,
+    title: item.title,
+    // title: title,
+    content: item.key,
+    type: item.type ? item.type : 'term',
+    organizationId: item.organizationId ? item.organizationId : '',
+    ip: item.ip ? item.ip : ''
+  })
+  // }
   // 激活点击的标签页
-  activeTabId.value = item.title
+  activeTabId.value = id_
 }
 const closeTab = (tabId) => {
   const index = openedTabs.value.findIndex((tab) => tab.id === tabId)
@@ -269,12 +266,6 @@ const openUserTab = function (value) {
     type: value
   }
   switch (value) {
-    case 'userInfo':
-      p.title = 'userInfo'
-      break
-    case 'userConfig':
-      p.title = 'setting'
-      break
     case 'aliasConfig':
       p.title = 'alias'
       p.type = 'extensions'
@@ -283,21 +274,6 @@ const openUserTab = function (value) {
   currentClickServer(p)
 }
 
-const refreshTabName = function () {
-  const { t } = i18n.global
-  let index = openedTabs.value.findIndex((tab) => tab.id === 'userInfo')
-  if (index !== -1) {
-    openedTabs.value[index].title = t('common.userInfo')
-  }
-  index = openedTabs.value.findIndex((tab) => tab.id === 'setting')
-  if (index !== -1) {
-    openedTabs.value[index].title = t('common.setting')
-  }
-  index = openedTabs.value.findIndex((tab) => tab.id === 'alias')
-  if (index !== -1) {
-    openedTabs.value[index].title = t('common.alias')
-  }
-}
 const changeCompany = () => {
   openedTabs.value = []
 }

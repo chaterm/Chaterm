@@ -11,7 +11,9 @@
       >
         <template #item="{ element: tab }">
           <div :class="{ 'tab-item': true, active: tab.id === activeTab }">
-            <span class="tab-title" @click="$emit('change-tab', tab.id)">{{ tab.title }}</span>
+            <span class="tab-title" @click="$emit('change-tab', tab.id)">{{
+              tab.ip ? tab.title : $t(`common.${tab.title}`)
+            }}</span>
             <button class="close-btn" @click.stop="$emit('close-tab', tab.id)">&times;</button>
           </div>
         </template>
@@ -24,7 +26,7 @@
         >
           <Term :ref="(el) => setTermRef(el, tab.id)" v-if="tab.type == 'term'" :serverInfo="tab" />
           <UserInfo v-if="tab.content === 'userInfo'" />
-          <userConfig v-if="tab.content === 'userConfig'" @refresh-tab-name="refreshTabName" />
+          <userConfig v-if="tab.content === 'userConfig'" />
           <aliasConfig v-if="tab.content === 'aliasConfig'" />
         </div>
       </div>
