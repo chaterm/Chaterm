@@ -1,7 +1,7 @@
 {
   "name": "Chaterm",
-  "version": "1.0.0",
-  "description": "An Electron application with Vue and TypeScript",
+  "version": "0.0.1",
+  "description": "A terminal tool with AI Agent, makes you no need to learn complicated regular expressions, Perl and Python, switches and Linux commands, SQL syntax can easily manage thousands of devices!",
   "main": "./out/main/index.js",
   "author": "example.com",
   "homepage": "Welcome to Chaterm",
