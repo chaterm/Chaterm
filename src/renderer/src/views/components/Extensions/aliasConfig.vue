@@ -306,7 +306,7 @@ const aliasConfigRefresh = () => {
   border-radius: 6px;
   //overflow: hidden;
   padding: 4px;
-  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0);
   color: #ffffff;
 }
 
@@ -337,13 +337,13 @@ const aliasConfigRefresh = () => {
   padding: 8px;
   border-radius: 0;
   border: none !important;
-  border-bottom: 1px solid #f0f0f0 !important; /* 可选：保留表头底部边框 */
+  border-bottom: 1px solid #4a4a4a !important; /* 可选：保留表头底部边框 */
 }
 
 .alias-config-table :deep(.ant-table-tbody > tr:nth-child(even) > td) {
   /* 可以选择保留默认样式或自定义 */
   /* 例如: */
-  background: #2f2f2f;
+  background: #1f1f1f;
   color: #fff;
   padding: 8px;
   border: none !important;
@@ -352,7 +352,7 @@ const aliasConfigRefresh = () => {
 .alias-config-table :deep(.ant-table-tbody > tr:nth-child(odd) > td) {
   /* 可以选择保留默认样式或自定义 */
   /* 例如: */
-  background: #1f1f1f;
+  background: #1a1a1a;
   color: #fff;
   padding: 8px;
   border: none !important;

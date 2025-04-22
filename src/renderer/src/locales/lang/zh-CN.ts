@@ -11,6 +11,7 @@ export default {
     notice: '通知',
     logout: '退出登录',
     userInfo: '个人信息',
+    userConfig: '设置',
     alias: 'Alias配置'
   },
   term: {
