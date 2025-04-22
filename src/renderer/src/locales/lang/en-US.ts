@@ -11,6 +11,7 @@ export default {
     notice: 'Notice',
     logout: 'Logout',
     userInfo: 'User Info',
+    userConfig: 'Setting',
     alias: 'Alias Config'
   },
   term: {
