@@ -3,8 +3,8 @@
     <div ref="terminalElement" class="terminal"></div>
     <!-- 考虑到后期分屏等操作，同一个机器会打开多次，这个ref需要独一无二 -->
     <SuggComp
-      v-bind="{ ref: (el) => setRef(el, infos.uniqueKey) }"
-      :uniqueKey="infos.uniqueKey"
+      v-bind="{ ref: (el) => setRef(el, infos.id) }"
+      :uniqueKey="infos.id"
       :suggestions="suggestions"
       :activeSuggestion="activeSuggestion"
     />
@@ -33,7 +33,6 @@ const props = defineProps({
 })
 const configStore = userConfigStore()
 const infos = ref(props.serverInfo)
-
 // 用于存储引用的对象
 const componentRefs = ref({})
 // 设置动态引用的函数
@@ -47,7 +46,7 @@ const email = userInfoStore().userInfo.email
 const name = userInfoStore().userInfo.name
 const terminalElement = ref(null)
 const terminalContainer = ref(null)
-const terminalId = `${email.split('@')[0]}@${props.serverInfo.id}:${uuidv4()}`
+const terminalId = `${email.split('@')[0]}@${props.serverInfo.ip}:${uuidv4()}`
 const suggestions = ref([]) //返回的补全列表
 const activeSuggestion = ref(0) //高亮的补全项
 const socket = ref(null) //ws实例
@@ -70,8 +69,7 @@ const stashCursorX = ref(0)
 
 const authData = {
   email: email,
-  // ip: '172.31.64.249',
-  ip: props.serverInfo.id,
+  ip: props.serverInfo.ip,
   uid: userInfoStore().userInfo.uid,
   organizationId: props.serverInfo.organizationId,
   terminalId: terminalId
@@ -132,11 +130,22 @@ const initTerminal = () => {
   }
   // 处理用户输入
   term.onData((data) => {
+    // console.log(data, 'data')
     if (socket.value && socket.value.readyState === WebSocket.OPEN) {
       //   socket.value.send(data)
       if (data === '\t') {
         // Tab键
         selectSuggestion(suggestions.value[activeSuggestion.value])
+      } else if (data == '\x0b') {
+        specialCode.value = true
+        // Ctrl+K 清屏
+        const msgType = 'TERMINAL_DATA'
+        const data = 'clear\r'
+        socket.value.send(JSON.stringify({ terminalId, msgType, data }))
+      } else if (data == '\x0c' || data == '\x04') {
+        specialCode.value = true
+        const msgType = 'TERMINAL_DATA'
+        socket.value.send(JSON.stringify({ terminalId, msgType, data }))
       } else {
         const msgType = 'TERMINAL_DATA'
         // socket.value.send(JSON.stringify({ terminalId, msgType, data }))
@@ -158,7 +167,7 @@ const initTerminal = () => {
 const connectWebsocket = () => {
   if (socket.value) return
   const auth = encrypt(authData)
-  const wsUrl = 'ws://47.83.241.209:8088/ws?&uuid=' + auth // 后端WebSocket地址
+  const wsUrl = 'ws://demo.chaterm.ai:8088/ws?&uuid=' + auth // 后端WebSocket地址
   socket.value = new WebSocket(wsUrl)
   socket.value.onopen = () => {
     let welcome = '\x1b[1;32m' + name + ', 欢迎您使用CTM \x1b[m\r\n'
@@ -180,7 +189,7 @@ const connectWebsocket = () => {
     if (typeof event.data !== 'object') {
       // dispatch(term, event.data, socket.value)
       const o = JSON.parse(event.data)
-      const componentInstance = componentRefs.value[infos.value.uniqueKey]
+      const componentInstance = componentRefs.value[infos.value.id]
       if (o.msgType == 'TERMINAL_AUTO_COMPLEMENT') {
         o.autoComplement
           ? ((suggestions.value = o.autoComplement),
