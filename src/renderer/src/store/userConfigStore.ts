@@ -6,13 +6,46 @@ export const userConfigStore = defineStore('userConfig', {
       userConfig: {
         language: 'en-US',
         aliasStatus: 2,
-        uid: 0
+        uid: 0,
+        autoCompleteStatus: 2,
+        commonVimStatus: 2,
+        quickVimStatus: 2,
+        cursorStyle: 'bar',
+        fontSize: 12,
+        highlightStatus: 2,
+        scrollBack: 1000
       }
     }
   },
   getters: {
-    getUserConfig: (state): { language: string; aliasStatus: number; uid: number } => {
-      return state?.userConfig || { language: 'en-US', aliasStatus: 2, uid: 0 }
+    getUserConfig: (
+      state
+    ): {
+      language: string
+      aliasStatus: number
+      uid: number
+      autoCompleteStatus: number
+      commonVimStatus: number
+      quickVimStatus: number
+      cursorStyle: string
+      fontSize: number
+      highlightStatus: number
+      scrollBack: number
+    } => {
+      return (
+        state?.userConfig || {
+          language: 'en-US',
+          aliasStatus: 2,
+          uid: 0,
+          autoCompleteStatus: 2,
+          commonVimStatus: 2,
+          quickVimStatus: 2,
+          cursorStyle: 'bar',
+          fontSize: 12,
+          highlightStatus: 2,
+          scrollBack: 1000
+        }
+      )
     }
   },
   actions: {

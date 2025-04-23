@@ -107,8 +107,8 @@ const getALlCmdList = () => {
 const initTerminal = () => {
   term = new Terminal({
     cursorBlink: true,
-    cursorStyle: 'block',
-    fontSize: 12,
+    cursorStyle: configStore.getUserConfig.cursorStyle,
+    fontSize: configStore.getUserConfig.fontSize,
     fontFamily: 'Menlo, Monaco, "Courier New", Courier, monospace',
     theme: {
       background: '#1a1a1a',
