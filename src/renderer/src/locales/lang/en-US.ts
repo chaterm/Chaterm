@@ -74,6 +74,11 @@ export default {
     aliasDescription: 'Global alias config',
     fuzzySearch: 'Fuzzy Search',
     command: 'Command',
-    action: 'Action'
+    action: 'Action',
+    error: 'error',
+    errorDescription: 'creation failed!',
+    errorNetWork: 'network request exception',
+    warning: 'warning',
+    missingAliasCommand: 'missing alias or command!'
   }
 }
