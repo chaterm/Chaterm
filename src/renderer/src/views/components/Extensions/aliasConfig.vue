@@ -106,6 +106,7 @@ import {
 import { cloneDeep } from 'lodash'
 import i18n from '@/locales'
 import { userInfoStore } from '@/store'
+import { notification } from 'ant-design-vue'
 
 const searchText = ref('')
 const list = ref()
@@ -178,12 +179,17 @@ const columnOpt = (type, record) => {
           }
         })
         .catch((err) => {
-          // console.log(err)
+          console.log(err)
         })
       break
     case 'save':
       if (record.alias.length === 0 || record.command.length === 0) {
-        // console.log('缺少别名或命令')
+        notification.warning({
+          message: t('extensions.warning'),
+          description: t('extensions.missingAliasCommand'),
+          placement: 'topRight',
+          duration: 1
+        })
         return
       }
       if (record.id === 0) {
@@ -194,10 +200,25 @@ const columnOpt = (type, record) => {
               handleTableChange()
               aliasConfigRefresh()
               cloneRecordReset()
+            } else {
+              notification.error({
+                message: t('extensions.error'),
+                description: t('extensions.errorDescription'),
+                placement: 'topRight',
+                duration: 1
+              })
             }
           })
           .catch((err) => {
-            // console.log(err, 'err')
+            const errorMessage = err.response?.data?.message
+              || err.message
+              || t('extensions.errorNetWork')
+            notification.error({
+              message: t('extensions.error'),
+              description: `${errorMessage}`,
+              placement: 'topRight',
+              duration: 1
+            })
           })
       } else {
         updateUserQuickCommand(record)
@@ -207,10 +228,25 @@ const columnOpt = (type, record) => {
               handleTableChange()
               aliasConfigRefresh()
               cloneRecordReset()
+            } else {
+              notification.error({
+                message: t('extensions.error'),
+                description: t('extensions.errorDescription'),
+                placement: 'topRight',
+                duration: 1
+              })
             }
           })
           .catch((err) => {
-            // console.log(err, 'err')
+            const errorMessage = err.response?.data?.message
+              || err.message
+              || t('extensions.errorNetWork')
+            notification.error({
+              message: t('extensions.error'),
+              description: `${errorMessage}`,
+              placement: 'topRight',
+              duration: 1
+            })
           })
       }
       break

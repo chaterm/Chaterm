@@ -74,6 +74,11 @@ export default {
     fuzzySearch: '模糊搜索',
     aliasDescription: '全局Alias配置',
     command: '命令',
-    action: '操作'
+    action: '操作',
+    error: '错误',
+    errorDescription: '创建失败！',
+    errorNetWork: '网络请求异常',
+    warning: '提示',
+    missingAliasCommand: '缺少别名或命令！'
   }
 }

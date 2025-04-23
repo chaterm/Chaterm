@@ -56,7 +56,7 @@ const props = defineProps({
     default: ''
   }
 })
-const emit = defineEmits(['close-tab', 'change-tab', 'update-tabs', 'refresh-tab-name'])
+const emit = defineEmits(['close-tab', 'change-tab', 'update-tabs'])
 const localTabs = computed({
   get: () => props.tabs,
   set: (value) => {
@@ -84,9 +84,6 @@ const resizeTerm = (termid = '') => {
       termRefMap.value[keys[i]].handleResize()
     }
   }
-}
-const refreshTabName = function () {
-  emit('refresh-tab-name')
 }
 
 defineExpose({

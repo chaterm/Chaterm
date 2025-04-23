@@ -157,8 +157,8 @@ import { QuestionCircleOutlined } from '@ant-design/icons-vue'
 import { userConfigStore } from '@/store/userConfigStore'
 import { cloneDeep } from 'lodash'
 import { encrypt } from '@/utils/util'
+import { notification } from 'ant-design-vue'
 
-const emit = defineEmits(['refresh-tab-name'])
 const configStore = userConfigStore()
 const instance = getCurrentInstance()
 const { appContext } = instance
@@ -181,7 +181,13 @@ const getUserConfig = () => {
       configStore.setUserConfig(userConfigTmp)
     })
     .catch((err) => {
-      console.log('getUserTermConfig error', err)
+      const errorMessage = err.response?.data?.message || err.message || '网络请求异常'
+      notification.error({
+        message: '请求失败',
+        description: `${errorMessage}`,
+        placement: 'topRight',
+        duration: 1
+      })
     })
 }
 
@@ -235,7 +241,6 @@ const updateTermCommonConfig = (name, data) => {
       break
     case 'language':
       appContext.config.globalProperties.$i18n.locale = data
-      emit('refresh-tab-name')
     // eslint-disable-next-line no-fallthrough
     default:
       requestParameters[name] = data
@@ -247,12 +252,16 @@ const updateTermCommonConfig = (name, data) => {
         if (userConfigTmp.aliasStatus !== requestParameters.aliasStatus) {
           aliasConfigUpdate()
         }
-      } else {
-        // console.error('更新失败')
       }
     })
-    .catch(() => {
-      // console.error('更新失败')
+    .catch((err) => {
+      const errorMessage = err.response?.data?.message || err.message || '网络请求异常'
+      notification.error({
+        message: '更新失败',
+        description: `${errorMessage}`,
+        placement: 'topRight',
+        duration: 1
+      })
     })
 }
 
@@ -260,13 +269,16 @@ const aliasConfigUpdate = () => {
   const authData = {
     uid: userConfigStore()?.getUserConfig.uid
   }
-  // console.log('aliasConfigUpdate', userConfigStore()?.getUserConfig.uid, authData)
   const auth = decodeURIComponent(encrypt(authData))
-  aliasUpdate({ data: auth }).then((response) => {
-    if (response) {
-      // console.log(response)
-    }
-  })
+  aliasUpdate({ data: auth })
+    .then((response) => {
+      if (response) {
+        // console.log(response)
+      }
+    })
+    .catch((err) => {
+      console.log(err)
+    })
 }
 </script>
 
