@@ -33,13 +33,8 @@ export default defineConfig({
     },
     server: {
       proxy: {
-        '/api/term-api': {
-          target: 'http://demo.chaterm.ai:8088',
-          changeOrigin: true,
-          rewrite: (path) => path.replace('/api/term-api', '')
-        },
         '/api': {
-          target: 'http://demo.chaterm.ai:8000/v1',
+          target: 'http://demo.chaterm.ai/v1',
           changeOrigin: true,
           rewrite: (path) => path.replace(/^\/api/, '')
         }
