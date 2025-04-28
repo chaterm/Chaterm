@@ -195,7 +195,7 @@ const createWebSocket = (type: string) => {
   const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
   // console.log('当前协议:', protocol)
   let token = JSON.parse(JSON.stringify(authTokenInCookie.value))
-  const wsUrl = `${protocol}//demo.chaterm.ai:8000/v1/ai/chat/ws?token=${token}`
+  const wsUrl = `${protocol}//demo.chaterm.ai/v1/ai/chat/ws?token=${token}`
   const ws = new WebSocket(wsUrl)
   const currentHistory = type === 'ctm-chat' ? chatHistoryChat : chatHistoryCmd
 
