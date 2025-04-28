@@ -167,7 +167,7 @@ const initTerminal = () => {
 const connectWebsocket = () => {
   if (socket.value) return
   const auth = encrypt(authData)
-  const wsUrl = 'ws://demo.chaterm.ai:8088/ws?&uuid=' + auth // 后端WebSocket地址
+  const wsUrl = 'ws://demo.chaterm.ai/v1/term-api/ws?&uuid=' + auth // 后端WebSocket地址
   socket.value = new WebSocket(wsUrl)
   socket.value.onopen = () => {
     let welcome = '\x1b[1;32m' + name + ', 欢迎您使用CTM \x1b[m\r\n'
