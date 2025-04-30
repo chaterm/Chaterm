@@ -1,6 +1,10 @@
 <template>
   <div class="term_login">
-    <img src="@/assets/logo.svg" class="logo" alt=""/>
+    <img
+      src="@/assets/logo.svg"
+      class="logo"
+      alt=""
+    />
     <div
       class="connetus"
       :style="{ right: platform.includes('darwin') ? '0px' : '120px' }"
