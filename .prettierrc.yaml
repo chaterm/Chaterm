@@ -1,4 +1,19 @@
-singleQuote: true
-semi: false
-printWidth: 100
-trailingComma: none
+singleQuote: true # 字符串使用单引号（推荐用于JS/TS）
+semi: false # 语句结尾不加分号（需与ESLint semi规则保持一致）
+printWidth: 100 # 每行最大100字符（超长自动换行）
+trailingComma: none # 不使用尾随逗号（可选值: 'none'|'es5'|'all'）
+tabWidth: 2 # 缩进使用2个空格（Vue社区主流选择）
+useTabs: false # 禁用制表符（强制使用空格缩进）
+bracketSpacing: true # 对象花括号两侧保留空格（如 { foo: bar }）
+arrowParens: 'always' # 箭头函数参数始终加括号（提高可读性）
+proseWrap: 'preserve' # Markdown文本不自动换行（保持原样）
+endOfLine: 'auto' # 自动识别系统换行符（CRLF/LF）
+bracketSameLine: false # 换行时保持花括号在同一行（如 { foo: bar }）
+vueIndentScriptAndStyle: false # Vue的<script>/<style>不缩进
+htmlWhitespaceSensitivity: 'strict' # 精确处理HTML元素间的空白字符
+singleAttributePerLine: true # 单个属性独占一行（增强长属性可读性）
+# 启用TypeScript自动识别
+overrides:
+  - files: '**/*.ts'
+    options:
+      parser: 'typescript'

@@ -24,7 +24,7 @@ request.interceptors.response.use(
     return res.data
   },
   function (error) {
-    console.log(error,'error.response')
+    console.log(error, 'error.response')
     const data = error.response.data
     if (error.response.status === 401 && !(data.result && data.result.isLogin)) {
       removeToken()

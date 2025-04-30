@@ -20,10 +20,16 @@
         theme="dark"
         @select="handleSelect"
       >
-        <template v-for="item in filteredList" :key="item.tabName">
+        <template
+          v-for="item in filteredList"
+          :key="item.tabName"
+        >
           <a-menu-item :title="item.name">
             <template #icon>
-              <img :src="getIconSrc(item.icon)" alt="" />
+              <img
+                :src="getIconSrc(item.icon)"
+                alt=""
+              />
             </template>
             <div class="menu_list_item_name">
               {{ item.name }}
