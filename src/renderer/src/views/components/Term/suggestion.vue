@@ -1,5 +1,9 @@
 <template>
-  <div v-if="suggestions.length" :id="uniqueKey" class="suggestions">
+  <div
+    v-if="suggestions.length"
+    :id="uniqueKey"
+    class="suggestions"
+  >
     <div
       v-for="(suggestion, index) in suggestions"
       :key="index"

@@ -9,7 +9,11 @@
         size="small"
         @change="companyChange"
       >
-        <a-select-option v-for="item1 in workspaceData" :key="item1.key" :value="item1.key">
+        <a-select-option
+          v-for="item1 in workspaceData"
+          :key="item1.key"
+          :value="item1.key"
+        >
           {{ item1.label }}
         </a-select-option>
       </a-select>
@@ -37,11 +41,20 @@
             @select="handleSelect"
           >
             <template #title="{ title, dataRef }">
-              <div class="custom-tree-node" @click="clickServer(dataRef)">
-                <span v-if="!isSecondLevel(dataRef)" class="title-with-icon">
+              <div
+                class="custom-tree-node"
+                @click="clickServer(dataRef)"
+              >
+                <span
+                  v-if="!isSecondLevel(dataRef)"
+                  class="title-with-icon"
+                >
                   <span v-if="editingNode !== dataRef.key">{{ title }}</span>
                 </span>
-                <span v-else class="title-with-icon">
+                <span
+                  v-else
+                  class="title-with-icon"
+                >
                   <laptop-outlined class="computer-icon" />
                   <a-tooltip
                     v-if="editingNode !== dataRef.key"
@@ -49,9 +62,18 @@
                   >
                     <span v-if="editingNode !== dataRef.key">{{ title }}</span>
                   </a-tooltip>
-                  <span v-else class="edit-container">
-                    <a-input v-model:value="editingTitle" size="small" />
-                    <check-outlined class="confirm-icon" @click.stop="confirmEdit(dataRef)" />
+                  <span
+                    v-else
+                    class="edit-container"
+                  >
+                    <a-input
+                      v-model:value="editingTitle"
+                      size="small"
+                    />
+                    <check-outlined
+                      class="confirm-icon"
+                      @click.stop="confirmEdit(dataRef)"
+                    />
                   </span>
                 </span>
                 <edit-outlined
@@ -69,8 +91,14 @@
                   class="favorite-icon"
                   @click.stop="toggleFavorite(dataRef)"
                 >
-                  <star-filled v-if="dataRef.favorite" class="favorite-filled" />
-                  <star-outlined v-else class="favorite-outlined" />
+                  <star-filled
+                    v-if="dataRef.favorite"
+                    class="favorite-filled"
+                  />
+                  <star-outlined
+                    v-else
+                    class="favorite-outlined"
+                  />
                 </span>
               </div>
             </template>

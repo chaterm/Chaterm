@@ -1,14 +1,24 @@
 <template>
   <div class="term_login">
-    <img src="@/assets/logo.svg" class="logo" alt="" />
-    <div class="connetus" :style="{ right: platform.includes('darwin') ? '0px' : '120px' }">
+    <img src="@/assets/logo.svg" class="logo" alt=""/>
+    <div
+      class="connetus"
+      :style="{ right: platform.includes('darwin') ? '0px' : '120px' }"
+    >
       <a-dropdown>
-        <a class="ant-dropdown-link" @click.prevent>
+        <a
+          class="ant-dropdown-link"
+          @click.prevent
+        >
           <GlobalOutlined />
         </a>
         <template #overlay>
           <a-menu @click="configLang">
-            <a-menu-item v-for="item in config.LANG" :key="item.value">{{ item.name }}</a-menu-item>
+            <a-menu-item
+              v-for="item in config.LANG"
+              :key="item.value"
+              >{{ item.name }}</a-menu-item
+            >
           </a-menu>
         </template>
       </a-dropdown>
@@ -37,7 +47,7 @@
           :wrapper-col="{ span: 24 }"
           autocomplete="off"
           @finish="onFinish"
-          @finishFailed="onFinishFailed"
+          @finish-failed="onFinishFailed"
         >
           <a-form-item
             label=""
@@ -45,9 +55,9 @@
             :rules="[{ required: true, message: '请输入账号!' }]"
           >
             <a-input
+              v-model:value="formState.username"
               style="width: 300px"
               class="custom-borderless-input"
-              v-model:value="formState.username"
               placeholder="请输入账号"
             >
               <template #prefix>
@@ -67,8 +77,8 @@
             :rules="[{ required: true, message: '请输入密码' }]"
           >
             <a-input-password
-              style="width: 300px"
               v-model:value="formState.password"
+              style="width: 300px"
               placeholder="请输入密码"
             >
               <template #prefix>
