@@ -1,6 +1,9 @@
 <template>
   <div class="userInfo">
-    <a-card :bordered="false" class="userInfo-container">
+    <a-card
+      :bordered="false"
+      class="userInfo-container"
+    >
       <div class="user_avatar">
         <img :src="userInfo.avatar" />
       </div>
@@ -10,17 +13,33 @@
       <div class="divider-container">
         <a-divider style="border-color: #4a4a4a; margin-bottom: 40px" />
       </div>
-      <a-form :label-col="{ span: 10, offset: 2 }" :wrapper-col="{ span: 12 }" class="custom-form">
-        <a-form-item label="UID" class="user_my-ant-form-item">
+      <a-form
+        :label-col="{ span: 10, offset: 2 }"
+        :wrapper-col="{ span: 12 }"
+        class="custom-form"
+      >
+        <a-form-item
+          label="UID"
+          class="user_my-ant-form-item"
+        >
           {{ userInfo.uid }}
         </a-form-item>
-        <a-form-item :label="$t('user.name')" class="user_my-ant-form-item">
+        <a-form-item
+          :label="$t('user.name')"
+          class="user_my-ant-form-item"
+        >
           {{ userInfo.name }}
         </a-form-item>
-        <a-form-item :label="$t('user.email')" class="user_my-ant-form-item">
+        <a-form-item
+          :label="$t('user.email')"
+          class="user_my-ant-form-item"
+        >
           {{ userInfo.email }}
         </a-form-item>
-        <a-form-item :label="$t('user.mobile')" class="user_my-ant-form-item">
+        <a-form-item
+          :label="$t('user.mobile')"
+          class="user_my-ant-form-item"
+        >
           {{ userInfo.mobile }}
         </a-form-item>
         <a-form-item
@@ -32,10 +51,16 @@
             userInfo.team
           }}
         </a-form-item>
-        <a-form-item :label="$t('user.ip')" class="user_my-ant-form-item">
+        <a-form-item
+          :label="$t('user.ip')"
+          class="user_my-ant-form-item"
+        >
           {{ userInfo.localIp }}
         </a-form-item>
-        <a-form-item :label="$t('user.macAddress')" class="user_my-ant-form-item">
+        <a-form-item
+          :label="$t('user.macAddress')"
+          class="user_my-ant-form-item"
+        >
           {{ userInfo.macAddress }}
         </a-form-item>
       </a-form>

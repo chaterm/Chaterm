@@ -1,12 +1,18 @@
 <template>
-  <div ref="terminalContainer" class="terminal-container">
-    <div ref="terminalElement" class="terminal"></div>
+  <div
+    ref="terminalContainer"
+    class="terminal-container"
+  >
+    <div
+      ref="terminalElement"
+      class="terminal"
+    ></div>
     <!-- 考虑到后期分屏等操作，同一个机器会打开多次，这个ref需要独一无二 -->
     <SuggComp
       v-bind="{ ref: (el) => setRef(el, infos.id) }"
-      :uniqueKey="infos.id"
+      :unique-key="infos.id"
       :suggestions="suggestions"
-      :activeSuggestion="activeSuggestion"
+      :active-suggestion="activeSuggestion"
     />
   </div>
 </template>

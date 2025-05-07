@@ -2,15 +2,24 @@
   <a-watermark v-bind="watermarkContent">
     <div class="terminal-layout">
       <div class="term_header">
-        <Header ref="headerRef" @toggle-sidebar="toggleSideBar"></Header>
+        <Header
+          ref="headerRef"
+          @toggle-sidebar="toggleSideBar"
+        ></Header>
       </div>
       <div class="term_body">
         <div class="term_left_menu">
-          <LeftTab @toggle-menu="toggleMenu" @open-user-tab="openUserTab"></LeftTab>
+          <LeftTab
+            @toggle-menu="toggleMenu"
+            @open-user-tab="openUserTab"
+          ></LeftTab>
         </div>
         <div class="term_content">
           <splitpanes @resize="(params: ResizeParams) => (leftPaneSize = params.prevPane.size)">
-            <pane class="term_content_left" :size="leftPaneSize">
+            <pane
+              class="term_content_left"
+              :size="leftPaneSize"
+            >
               <Workspace
                 v-if="currentMenu == 'workspace'"
                 :toggle-sidebar="toggleSideBar"

@@ -8,6 +8,7 @@
   "scripts": {
     "format": "prettier --write .",
     "lint": "eslint . --ext .js,.jsx,.cjs,.mjs,.ts,.tsx,.cts,.mts,.vue --fix",
+    "lint:staged": "lint-staged",
     "typecheck:node": "tsc --noEmit -p tsconfig.node.json --composite false",
     "typecheck:web": "vue-tsc --noEmit -p tsconfig.web.json --composite false",
     "typecheck": "npm run typecheck:node && npm run typecheck:web",
@@ -18,7 +19,14 @@
     "build:unpack": "npm run build && electron-builder --dir",
     "build:win": "npm run build && electron-builder --win",
     "build:mac": "npm run build && electron-builder --mac",
-    "build:linux": "npm run build && electron-builder --linux"
+    "build:linux": "npm run build && electron-builder --linux",
+    "prepare": "husky install"
+  },
+  "lint-staged": {
+    "*.{js,jsx,.cjs,mjs,ts,tsx,cts,mts,vue}": [
+      "prettier --write ",
+      "eslint --fix"
+    ]
   },
   "dependencies": {
     "@ant-design/icons-vue": "^7.0.1",
@@ -56,8 +64,10 @@
     "eslint": "^8.56.0",
     "eslint-plugin-vue": "^9.20.1",
     "highlight.js": "^11.11.1",
+    "husky": "^9.1.7",
     "js-cookie": "^3.0.5",
     "less": "^4.2.2",
+    "lint-staged": "^15.5.1",
     "marked": "^15.0.7",
     "prettier": "^3.2.4",
     "typescript": "^5.3.3",

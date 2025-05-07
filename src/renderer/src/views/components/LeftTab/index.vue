@@ -2,42 +2,101 @@
   <div class="term_left_tab">
     <div class="main-menu">
       <a-tooltip
-        :key="i.key"
         v-for="i in menuTabsData.slice(0, -3)"
+        :key="i.key"
         :title="i.name"
         placement="right"
       >
-        <p class="term_menu" @click="menuClick(i.key)">
-          <img v-if="activeKey !== i.key" :src="i.icon" alt="" />
-          <img v-else :src="i.activeIcon" alt="" />
+        <p
+          class="term_menu"
+          @click="menuClick(i.key)"
+        >
+          <img
+            v-if="activeKey !== i.key"
+            :src="i.icon"
+            alt=""
+          />
+          <img
+            v-else
+            :src="i.activeIcon"
+            alt=""
+          />
         </p>
       </a-tooltip>
     </div>
     <div class="bottom-menu">
-      <a-tooltip v-for="i in menuTabsData.slice(-3)" :key="i.key" :title="i.name">
+      <a-tooltip
+        v-for="i in menuTabsData.slice(-3)"
+        :key="i.key"
+        :title="i.name"
+      >
         <div v-if="i.key === 'user'">
-          <p class="setting_menu" @click="showUserMenu = !showUserMenu">
-            <img v-if="activeKey !== i.key" :src="i.icon" alt="" />
-            <img v-else :src="i.activeIcon" alt="" />
+          <p
+            class="setting_menu"
+            @click="showUserMenu = !showUserMenu"
+          >
+            <img
+              v-if="activeKey !== i.key"
+              :src="i.icon"
+              alt=""
+            />
+            <img
+              v-else
+              :src="i.activeIcon"
+              alt=""
+            />
           </p>
         </div>
         <div v-else-if="i.key === 'setting'">
-          <p class="setting_menu" @click="userConfig">
-            <img v-if="activeKey !== i.key" :src="i.icon" alt="" />
-            <img v-else :src="i.activeIcon" alt="" />
+          <p
+            class="setting_menu"
+            @click="userConfig"
+          >
+            <img
+              v-if="activeKey !== i.key"
+              :src="i.icon"
+              alt=""
+            />
+            <img
+              v-else
+              :src="i.activeIcon"
+              alt=""
+            />
           </p>
         </div>
         <div v-else>
-          <p class="setting_menu" @click="menuClick(i.key)">
-            <img v-if="activeKey !== i.key" :src="i.icon" alt="" />
-            <img v-else :src="i.activeIcon" alt="" />
+          <p
+            class="setting_menu"
+            @click="menuClick(i.key)"
+          >
+            <img
+              v-if="activeKey !== i.key"
+              :src="i.icon"
+              alt=""
+            />
+            <img
+              v-else
+              :src="i.activeIcon"
+              alt=""
+            />
           </p>
         </div>
       </a-tooltip>
     </div>
-    <div v-if="showUserMenu" class="user-menu">
-      <div class="menu-item" @click="userInfo">{{ $t('common.userInfo') }}</div>
-      <div class="menu-item" @click="logout">{{ $t('common.logout') }}</div>
+    <div
+      v-if="showUserMenu"
+      class="user-menu"
+    >
+      <div
+        class="menu-item"
+        @click="userInfo"
+        >{{ $t('common.userInfo') }}</div
+      >
+      <div
+        class="menu-item"
+        @click="logout"
+        >{{ $t('common.logout') }}</div
+      >
     </div>
   </div>
 </template>
