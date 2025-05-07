@@ -11,10 +11,16 @@
       >
         <template #item="{ element: tab }">
           <div :class="{ 'tab-item': true, active: tab.id === activeTab }">
-            <span class="tab-title" @click="$emit('change-tab', tab.id)">{{
-              tab.ip ? tab.title : $t(`common.${tab.title}`)
-            }}</span>
-            <button class="close-btn" @click.stop="$emit('close-tab', tab.id)">&times;</button>
+            <span
+              class="tab-title"
+              @click="$emit('change-tab', tab.id)"
+              >{{ tab.ip ? tab.title : $t(`common.${tab.title}`) }}</span
+            >
+            <button
+              class="close-btn"
+              @click.stop="$emit('close-tab', tab.id)"
+              >&times;</button
+            >
           </div>
         </template>
       </draggable>
@@ -24,7 +30,11 @@
           :key="tab.id"
           :class="{ 'tab-content': true, active: tab.id === activeTab }"
         >
-          <Term :ref="(el) => setTermRef(el, tab.id)" v-if="tab.type == 'term'" :serverInfo="tab" />
+          <Term
+            v-if="tab.type == 'term'"
+            :ref="(el) => setTermRef(el, tab.id)"
+            :server-info="tab"
+          />
           <UserInfo v-if="tab.content === 'userInfo'" />
           <userConfig v-if="tab.content === 'userConfig'" />
           <aliasConfig v-if="tab.content === 'aliasConfig'" />

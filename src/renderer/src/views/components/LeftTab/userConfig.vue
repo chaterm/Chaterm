@@ -1,6 +1,9 @@
 <template>
   <div class="userInfo">
-    <a-card :bordered="false" class="userInfo-container">
+    <a-card
+      :bordered="false"
+      class="userInfo-container"
+    >
       <a-form
         :colon="false"
         label-align="left"
@@ -17,7 +20,10 @@
         <div class="divider-container">
           <a-divider style="border-color: #4a4a4a" />
         </div>
-        <a-form-item :label="$t('user.fontSize')" class="user_my-ant-form-item">
+        <a-form-item
+          :label="$t('user.fontSize')"
+          class="user_my-ant-form-item"
+        >
           <a-input-number
             v-model:value="userConfig.fontSize"
             :bordered="false"
@@ -29,7 +35,10 @@
             @blur="updateTermCommonConfig('fontSize', userConfig.fontSize)"
           />
         </a-form-item>
-        <a-form-item :label="$t('user.scrollBack')" class="user_my-ant-form-item">
+        <a-form-item
+          :label="$t('user.scrollBack')"
+          class="user_my-ant-form-item"
+        >
           <a-input-number
             v-model:value="userConfig.scrollBack"
             :bordered="false"
@@ -40,7 +49,10 @@
             @blur="updateTermCommonConfig('scrollBack', userConfig.scrollBack)"
           />
         </a-form-item>
-        <a-form-item :label="$t('user.language')" class="user_my-ant-form-item">
+        <a-form-item
+          :label="$t('user.language')"
+          class="user_my-ant-form-item"
+        >
           <a-radio-group
             v-model:value="userConfig.language"
             class="custom-radio-group"
@@ -50,7 +62,10 @@
             <a-radio value="en-US">English</a-radio>
           </a-radio-group>
         </a-form-item>
-        <a-form-item :label="$t('user.cursorStyle')" class="user_my-ant-form-item">
+        <a-form-item
+          :label="$t('user.cursorStyle')"
+          class="user_my-ant-form-item"
+        >
           <a-radio-group
             v-model:value="userConfig.cursorStyle"
             class="custom-radio-group"
@@ -69,7 +84,10 @@
         <div class="divider-container">
           <a-divider style="border-color: #4a4a4a" />
         </div>
-        <a-form-item :label="$t('user.autoCompleteStatus')" class="user_my-ant-form-item">
+        <a-form-item
+          :label="$t('user.autoCompleteStatus')"
+          class="user_my-ant-form-item"
+        >
           <a-switch
             v-model:checked="userConfig.autoCompleteStatus"
             class="user_my-ant-form-item-content"
@@ -130,14 +148,20 @@
             </div>
           </a-form-item>
         </div>
-        <a-form-item :label="$t('user.aliasStatus')" class="user_my-ant-form-item">
+        <a-form-item
+          :label="$t('user.aliasStatus')"
+          class="user_my-ant-form-item"
+        >
           <a-switch
             v-model:checked="userConfig.aliasStatus"
             class="user_my-ant-form-item-content"
             @change="updateTermCommonConfig('aliasStatus', userConfig.aliasStatus)"
           />
         </a-form-item>
-        <a-form-item :label="$t('user.highlightStatus')" class="user_my-ant-form-item">
+        <a-form-item
+          :label="$t('user.highlightStatus')"
+          class="user_my-ant-form-item"
+        >
           <a-switch
             v-model:checked="userConfig.highlightStatus"
             class="user_my-ant-form-item-content"

@@ -12,6 +12,7 @@
 </p>
 
 # Chaterm
+
 A terminal tool with AI Agent, makes you no need to learn complicated regular expressions, Perl and Python, switches and Linux commands, SQL syntax can easily manage thousands of devices!
 
 Is the full screen of errors difficult to understand? Massive log output, don't know how to locate the problem? Ask Agent with @host directly!
@@ -19,6 +20,7 @@ Is the full screen of errors difficult to understand? Massive log output, don't 
 Want syntax highlighting and smart completion, but don't have root privileges, and don't want to install fish thousands of times, use Chaterm to solve it with one click!
 
 ## Demo Display
+
 ![Preview image](demo.jpg)
 
 ## Main Features
@@ -30,6 +32,7 @@ Want syntax highlighting and smart completion, but don't have root privileges, a
 - 🎹 Short aliases：instead of complex code snippets across multiple terminal.
 
 ## Security Features
+
 - 🔐 Zero Trust：No need to worry about update passwords and SSH certificates monthly again.
 - 💼 IAM and Workspace：Make collaboration easier in same team and isolation between different teams.
 - 🔏 Privacy watermark：screen recording, Clipboard and data transmission control.
@@ -89,5 +92,3 @@ $ npm run build:linux
 In this era full of unlimited opportunities and challenges, a group of DevOps partners from different backgrounds gathered here with their dreams. They used their spare time to create this ingenious tool.
 
 We hope it will become a reliable partner for you to improve efficiency and quality of life. At the same time, we also look forward to more like-minded friends joining us to create a better future together!
-
-

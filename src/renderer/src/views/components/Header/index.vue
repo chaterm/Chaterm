@@ -1,10 +1,16 @@
 <template>
-  <div class="term_tab" @mousedown="mousedown">
+  <div
+    class="term_tab"
+    @mousedown="mousedown"
+  >
     <div
       class="term_tab_Info"
       :style="{ marginRight: platform.includes('darwin') ? '0px' : '140px' }"
     >
-      <div class="toggle-right-btn" @click="toggleSidebarLeft('left')">
+      <div
+        class="toggle-right-btn"
+        @click="toggleSidebarLeft('left')"
+      >
         <img
           v-if="isLeftSidebarCollapsed"
           src="@/assets/menu/left_bar_open.svg"
@@ -18,7 +24,10 @@
           :class="platform.includes('darwin') ? 'sidebar-toggle-icon_mac' : 'sidebar-toggle-icon'"
         />
       </div>
-      <div class="toggle-right-btn" @click="toggleSidebarRight('right')">
+      <div
+        class="toggle-right-btn"
+        @click="toggleSidebarRight('right')"
+      >
         <img
           v-if="isRightSidebarCollapsed"
           src="@/assets/menu/right_bar_open.svg"

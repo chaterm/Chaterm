@@ -1,6 +1,9 @@
 <template>
   <div class="alias-config">
-    <a-card :bordered="false" class="alias-config-container responsive-table">
+    <a-card
+      :bordered="false"
+      class="alias-config-container responsive-table"
+    >
       <a-row>
         <a-col :span="10">
           <a-input-search
@@ -210,9 +213,8 @@ const columnOpt = (type, record) => {
             }
           })
           .catch((err) => {
-            const errorMessage = err.response?.data?.message
-              || err.message
-              || t('extensions.errorNetWork')
+            const errorMessage =
+              err.response?.data?.message || err.message || t('extensions.errorNetWork')
             notification.error({
               message: t('extensions.error'),
               description: `${errorMessage}`,
@@ -238,9 +240,8 @@ const columnOpt = (type, record) => {
             }
           })
           .catch((err) => {
-            const errorMessage = err.response?.data?.message
-              || err.message
-              || t('extensions.errorNetWork')
+            const errorMessage =
+              err.response?.data?.message || err.message || t('extensions.errorNetWork')
             notification.error({
               message: t('extensions.error'),
               description: `${errorMessage}`,

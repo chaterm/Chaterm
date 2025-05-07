@@ -119,7 +119,7 @@ export function aliasUpdate(data) {
   return request({
     url: urls.aliasUpdateTerm,
     method: 'post',
-    data: data,
+    data: data
   })
 }
 

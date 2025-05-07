@@ -1,17 +1,33 @@
 <template>
   <a-tabs
-    v-model:activeKey="activeKey"
+    v-model:active-key="activeKey"
     class="ai-chat-custom-tabs ai-chat-flex-container"
     @change="handleTabChange"
   >
-    <a-tab-pane key="ctm-chat" tab="Chat">
-      <div class="chat-response-container" v-if="chatHistoryChat.length > 0">
+    <a-tab-pane
+      key="ctm-chat"
+      tab="Chat"
+    >
+      <div
+        v-if="chatHistoryChat.length > 0"
+        class="chat-response-container"
+      >
         <div class="chat-response">
-          <template v-for="message in chatHistoryChat" :key="message">
+          <template
+            v-for="message in chatHistoryChat"
+            :key="message"
+          >
             <div v-if="message.role === 'assistant'">
-              <MarkdownRenderer :content="message.content" :class="`message ${message.role}`" />
+              <MarkdownRenderer
+                :content="message.content"
+                :class="`message ${message.role}`"
+              />
             </div>
-            <div v-else :class="`message ${message.role}`" v-html="message.content"></div>
+            <div
+              v-else
+              :class="`message ${message.role}`"
+              v-html="message.content"
+            ></div>
           </template>
         </div>
       </div>
@@ -34,9 +50,9 @@
             <a-button
               type="primary"
               size="small"
-              @click="sendMessage"
               class="custom-round-button compact-button"
               style="margin-left: 8px"
+              @click="sendMessage"
             >
               Send ⏎
             </a-button>
@@ -44,17 +60,30 @@
         </div>
       </div>
     </a-tab-pane>
-    <a-tab-pane key="ctm-cmd" tab="Cmd" force-render>
-      <div class="chat-response-container" v-if="chatHistoryCmd.length > 0">
+    <a-tab-pane
+      key="ctm-cmd"
+      tab="Cmd"
+      force-render
+    >
+      <div
+        v-if="chatHistoryCmd.length > 0"
+        class="chat-response-container"
+      >
         <div class="chat-response">
-          <template v-for="message in chatHistoryCmd" :key="message">
+          <template
+            v-for="message in chatHistoryCmd"
+            :key="message"
+          >
             <div
               v-if="message.role === 'assistant'"
               :class="`message ${message.role}`"
               class="assistant-message-container"
             >
               <div class="message-actions">
-                <div v-html="message.content" class="message-content"></div>
+                <div
+                  class="message-content"
+                  v-html="message.content"
+                ></div>
                 <a-button
                   type="primary"
                   size="small"
@@ -73,7 +102,11 @@
                 </a-button>
               </div>
             </div>
-            <div v-else :class="`message ${message.role}`" v-html="message.content"></div>
+            <div
+              v-else
+              :class="`message ${message.role}`"
+              v-html="message.content"
+            ></div>
           </template>
         </div>
       </div>
@@ -96,9 +129,9 @@
             <a-button
               type="primary"
               size="small"
-              @click="sendMessage"
               class="custom-round-button compact-button"
               style="margin-left: 8px"
+              @click="sendMessage"
             >
               Send⏎
             </a-button>
@@ -108,14 +141,14 @@
     </a-tab-pane>
     <template #rightExtra>
       <PlusOutlined
-        @click="handlePlusClick"
         style="color: #fff; margin-left: 1px; font-size: 13x"
+        @click="handlePlusClick"
       />
 
       <a-dropdown :trigger="['click']">
         <HistoryOutlined
-          @click="handleHistoryClick"
           style="color: #fff; margin-left: 10px; font-size: 13px"
+          @click="handleHistoryClick"
         />
         <template #overlay>
           <a-menu>
@@ -130,7 +163,10 @@
         </template>
       </a-dropdown>
 
-      <CloseOutlined @click="handleClose" style="color: #fff; margin-left: 13px; font-size: 11px" />
+      <CloseOutlined
+        style="color: #fff; margin-left: 13px; font-size: 11px"
+        @click="handleClose"
+      />
     </template>
   </a-tabs>
 </template>
@@ -194,7 +230,7 @@ const handleTabChange = (key: string) => {
 const createWebSocket = (type: string) => {
   const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
   // console.log('当前协议:', protocol)
-  let token = JSON.parse(JSON.stringify(authTokenInCookie.value))
+  const token = JSON.parse(JSON.stringify(authTokenInCookie.value))
   const wsUrl = `${protocol}//demo.chaterm.ai/v1/ai/chat/ws?token=${token}`
   const ws = new WebSocket(wsUrl)
   const currentHistory = type === 'ctm-chat' ? chatHistoryChat : chatHistoryCmd
