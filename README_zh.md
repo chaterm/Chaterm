@@ -23,6 +23,10 @@ Chaterm是一款类似Cursor的终端上工具，无需再学习复杂的正则�
 
 ![Preview image](demo.jpg)
 
+## 部署架构
+
+![Preview image](deploy.jpg)
+
 ## 核心功能
 
 - 🤖️ 智能Agent：那些复杂又低频的操作命令想不起来？Agent帮你使用自然语言管理机器！
