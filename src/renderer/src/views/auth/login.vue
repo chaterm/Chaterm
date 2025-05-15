@@ -149,8 +149,6 @@ const formState = reactive<FormState>({
   remember: true
 })
 const onFinish = () => {
-  // router.push('/')
-  // console.log(formState, 'formState')
   userLogin({
     username: formState.username,
     password: formState.password
@@ -177,7 +175,8 @@ const onFinishFailed = (errorInfo: any) => {
 //   loginType.value = type
 // }
 onMounted(async () => {
-  platform.value = await window.api.getPlatform()
+  const api = window.api as any
+  platform.value = await api.getPlatform()
 })
 </script>
 <style lang="less" scoped>

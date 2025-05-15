@@ -8,6 +8,23 @@
         placement="right"
       >
         <p
+          v-if="i.key === 'files'"
+          class="term_menu"
+          @click="files"
+        >
+          <img
+            v-if="activeKey !== i.key"
+            :src="i.icon"
+            alt=""
+          />
+          <img
+            v-else
+            :src="i.activeIcon"
+            alt=""
+          />
+        </p>
+        <p
+          v-else
           class="term_menu"
           @click="menuClick(i.key)"
         >
@@ -102,9 +119,9 @@
 </template>
 <script setup lang="ts">
 const emit = defineEmits(['toggle-menu', 'open-user-tab'])
-import { removeToken } from '@/utils/permission'
 import { menuTabsData } from './data'
 import { ref } from 'vue'
+import { useRouter } from 'vue-router'
 import { userLogOut } from '@/api/user/user'
 import { userInfoStore } from '@/store/index'
 import { pinia } from '@/main'
@@ -112,6 +129,7 @@ import { pinia } from '@/main'
 const userStore = userInfoStore(pinia)
 const activeKey = ref('workspace')
 const showUserMenu = ref<boolean>(false)
+const router = useRouter()
 const menuClick = (key) => {
   let type = ''
   let beforeActive = ''
@@ -141,11 +159,17 @@ const userConfig = () => {
   emit('open-user-tab', 'userConfig')
   showUserMenu.value = false
 }
+
+const files = () => {
+  emit('open-user-tab', 'files')
+  showUserMenu.value = false
+}
 const logout = () => {
   userLogOut()
     .then((res) => {
       console.log(res, 'logout')
-      removeToken()
+      localStorage.removeItem('ctm-token')
+      router.push('/login')
     })
     .catch((err) => {
       console.log(err, 'err')

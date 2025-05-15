@@ -25,7 +25,8 @@ const urls = {
   userQuickCommand: '/user/quick-command',
   userQuickCommandInfo: '/user/quick-command/info',
   aliasUpdateTerm: '/term-api/alias/update',
-  aliasRefreshTerm: '/term-api/alias/refresh'
+  aliasRefreshTerm: '/term-api/alias/refresh',
+  ssoToBearerToken: '/user/login-sso'
 }
 
 export function sayHello(params) {
@@ -35,7 +36,12 @@ export function sayHello(params) {
     params: params
   })
 }
-
+export function ssoBearerToken() {
+  return request({
+    method: 'get',
+    url: urls.ssoToBearerToken
+  })
+}
 export function userLogin(params): ApiResponsePromise<LoginResponse> {
   return request({
     method: 'post',

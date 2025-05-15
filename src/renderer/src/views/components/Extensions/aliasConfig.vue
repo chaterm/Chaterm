@@ -98,26 +98,19 @@ import {
   CloseSquareOutlined
 } from '@ant-design/icons-vue'
 import 'xterm/css/xterm.css'
-import { encrypt } from '@/utils/util'
-import {
-  listUserQuickCommand,
-  updateUserQuickCommand,
-  createUserQuickCommand,
-  deleteUserQuickCommand,
-  aliasRefresh
-} from '@api/user/user'
 import { cloneDeep } from 'lodash'
 import i18n from '@/locales'
-import { userInfoStore } from '@/store'
 import { notification } from 'ant-design-vue'
+import { commandStore } from '@/services/commandStoreService' // 引入 commandStoreService
+import { aliasConfigStore } from '@/store/aliasConfigStore'
 
 const searchText = ref('')
-const list = ref()
+const list = ref([])
 const cloneRecord = ref({
   alias: '',
   command: '',
   edit: false,
-  id: -1
+  id: ''
 })
 const { t } = i18n.global
 const columns = computed(() => [
@@ -139,30 +132,31 @@ const columns = computed(() => [
     width: '15%'
   }
 ])
-
-const handleTableChange = () => {
-  listUserQuickCommand({
-    searchText: searchText.value
-  })
-    .then((res) => {
-      if (res.data.data) {
-        list.value = res.data.data
-      } else {
-        list.value = []
-      }
+const aliasStore = aliasConfigStore()
+// 使用 CommandStoreService 处理数据
+const handleTableChange = async () => {
+  try {
+    // 使用搜索功能获取过滤后的别名
+    list.value = await commandStore.search(searchText.value)
+  } catch (err) {
+    console.error('Error loading aliases:', err)
+    notification.error({
+      message: t('extensions.error'),
+      placement: 'topRight',
+      duration: 3
     })
-    .catch((err) => {
-      console.log(err, 'err')
-    })
+    list.value = []
+  }
 }
 
-const columnOpt = (type, record) => {
+const columnOpt = async (type, record) => {
   switch (type) {
     case 'edit':
-      if (list.value[0].id === 0) {
+      // 处理编辑前的状态清理
+      if (list.value.length > 0 && list.value[0]?.id === 'new') {
         list.value.splice(0, 1)
-      } else if (cloneRecord.value.id !== 0) {
-        const index = list.value.findIndex((item) => item.id === cloneRecord.value.id)
+      } else if (cloneRecord.value.id && cloneRecord.value.id !== 'new') {
+        const index = list.value.findIndex((item) => item.alias === cloneRecord.value.alias)
         if (index !== -1) {
           list.value[index].alias = cloneRecord.value.alias
           list.value[index].command = cloneRecord.value.command
@@ -171,90 +165,137 @@ const columnOpt = (type, record) => {
       }
       record.edit = true
       cloneRecord.value = cloneDeep(record)
+      await aliasConfigRefresh()
       break
+
     case 'del':
-      deleteUserQuickCommand({ id: record.id })
-        .then((res) => {
-          if (res.code === 200) {
-            handleTableChange()
-            aliasConfigRefresh()
-            cloneRecordReset()
-          }
+      try {
+        // 使用 alias 删除记录
+        await commandStore.delete(record.alias)
+        await handleTableChange()
+        await aliasConfigRefresh()
+        cloneRecordReset()
+        notification.success({
+          message: t('extensions.success'),
+          placement: 'topRight',
+          duration: 2
         })
-        .catch((err) => {
-          console.log(err)
+      } catch (err) {
+        console.error('Error deleting alias:', err)
+        notification.error({
+          message: t('extensions.error'),
+          placement: 'topRight',
+          duration: 3
         })
+      }
       break
+
     case 'save':
       if (record.alias.length === 0 || record.command.length === 0) {
         notification.warning({
           message: t('extensions.warning'),
           description: t('extensions.missingAliasCommand'),
           placement: 'topRight',
-          duration: 1
+          duration: 2
         })
         return
       }
-      if (record.id === 0) {
-        createUserQuickCommand(record)
-          .then((res) => {
-            if (res.code === 200) {
-              record.edit = false
-              handleTableChange()
-              aliasConfigRefresh()
-              cloneRecordReset()
-            } else {
-              notification.error({
-                message: t('extensions.error'),
-                description: t('extensions.errorDescription'),
-                placement: 'topRight',
-                duration: 1
-              })
-            }
-          })
-          .catch((err) => {
-            const errorMessage =
-              err.response?.data?.message || err.message || t('extensions.errorNetWork')
-            notification.error({
-              message: t('extensions.error'),
-              description: `${errorMessage}`,
+
+      try {
+        // 如果是编辑现有记录且别名发生了变更
+        if (record.id && record.id !== 'new' && record.alias !== cloneRecord.value.alias) {
+          // 检查新别名是否存在
+          const existingAlias = await commandStore.getByAlias(record.alias)
+          if (existingAlias) {
+            notification.warning({
+              message: t('extensions.warning'),
+              description: t('extensions.aliasAlreadyExists'),
               placement: 'topRight',
-              duration: 1
+              duration: 2
             })
+            return
+          }
+
+          // 需要重命名别名
+          const success = await commandStore.renameAlias(cloneRecord.value.alias, record.alias)
+          if (!success) {
+            throw new Error('Failed to rename alias')
+          }
+
+          // 更新内容
+          await commandStore.update({
+            id: record.id,
+            alias: record.alias,
+            command: record.command
           })
-      } else {
-        updateUserQuickCommand(record)
-          .then((res) => {
-            if (res.code === 200) {
-              record.edit = false
-              handleTableChange()
-              aliasConfigRefresh()
-              cloneRecordReset()
-            } else {
-              notification.error({
-                message: t('extensions.error'),
-                description: t('extensions.errorDescription'),
-                placement: 'topRight',
-                duration: 1
-              })
-            }
+
+          notification.success({
+            message: t('extensions.success'),
+            placement: 'topRight',
+            duration: 2
           })
-          .catch((err) => {
-            const errorMessage =
-              err.response?.data?.message || err.message || t('extensions.errorNetWork')
-            notification.error({
-              message: t('extensions.error'),
-              description: `${errorMessage}`,
+        } else if (record.id === 'new') {
+          // 检查别名是否已存在
+          const existingAlias = await commandStore.getByAlias(record.alias)
+          if (existingAlias) {
+            notification.warning({
+              message: t('extensions.warning'),
+              description: t('extensions.aliasAlreadyExists'),
               placement: 'topRight',
-              duration: 1
+              duration: 2
             })
+            return
+          }
+
+          // 新建别名
+          const newId = Date.now().toString(36) + Math.random().toString(36).substring(2)
+          await commandStore.add({
+            id: newId,
+            alias: record.alias,
+            command: record.command
           })
+
+          notification.success({
+            message: t('extensions.success'),
+            placement: 'topRight',
+            duration: 2
+          })
+        } else {
+          // 更新别名内容但不更改别名名称
+          await commandStore.update({
+            id: record.id,
+            alias: record.alias,
+            command: record.command
+          })
+
+          notification.success({
+            message: t('extensions.success'),
+            placement: 'topRight',
+            duration: 2
+          })
+        }
+
+        record.edit = false
+        await handleTableChange()
+        await aliasConfigRefresh()
+        cloneRecordReset()
+      } catch (err) {
+        console.error('Error saving alias:', err)
+        notification.error({
+          message: t('extensions.error'),
+          description: t('extensions.errorSavingAlias'),
+          placement: 'topRight',
+          duration: 3
+        })
       }
       break
+
     case 'cancel':
-      if (record.id === 0) {
+      if (record.id === 'new') {
+        // 移除新添加的空记录
         list.value.splice(0, 1)
       } else {
+        // 恢复原始值
         record.alias = cloneRecord.value.alias
         record.command = cloneRecord.value.command
       }
@@ -264,69 +305,67 @@ const columnOpt = (type, record) => {
   }
 }
 
-// 初始化终端
+// 初始化
 onMounted(() => {
   handleTableChange()
 })
 
 // 销毁时清理资源
-onBeforeUnmount(() => {})
+onBeforeUnmount(() => {
+  // 清理工作如果需要
+})
 
 const cloneRecordReset = () => {
   cloneRecord.value = {
     alias: '',
     command: '',
     edit: false,
-    id: -1
+    id: ''
   }
 }
 
 const handleAdd = () => {
-  if (list.value.length) {
-    list.value = [
-      {
-        alias: '',
-        command: '',
-        edit: true,
-        id: 0
-      },
-      ...list.value
-    ]
-  } else {
-    list.value.push({
-      alias: '',
-      command: '',
-      edit: true,
-      id: 0
-    })
+  // 检查是否已有正在编辑的新记录
+  const existingNewRecord = list.value.find((item) => item.id === 'new')
+  if (existingNewRecord) {
+    return // 如果已有新记录正在编辑，不再添加
   }
-  if (cloneRecord.value.edit === true && cloneRecord.value.id !== 0) {
-    const index = list.value.findIndex((item) => item.id === cloneRecord.value.id)
+
+  // 新的记录 ID 使用特殊标识 'new'
+  const newRecord = {
+    alias: '',
+    command: '',
+    edit: true,
+    id: 'new'
+  }
+
+  if (list.value.length) {
+    list.value = [newRecord, ...list.value]
+  } else {
+    list.value.push(newRecord)
+  }
+
+  // 如果有其他正在编辑的记录，先恢复其状态
+  if (cloneRecord.value.edit === true && cloneRecord.value.id && cloneRecord.value.id !== 'new') {
+    const index = list.value.findIndex((item) => item.alias === cloneRecord.value.alias)
     if (index !== -1) {
       list.value[index].alias = cloneRecord.value.alias
       list.value[index].command = cloneRecord.value.command
       list.value[index].edit = false
     }
   }
+
   cloneRecord.value = {
     alias: '',
     command: '',
     edit: true,
-    id: 0
+    id: 'new'
   }
 }
 
-const aliasConfigRefresh = () => {
-  const authData = {
-    uid: userInfoStore()?.userInfo.uid
-  }
-  // console.log('aliasConfigRefresh', userInfoStore()?.userInfo.uid, authData)
-  const auth = decodeURIComponent(encrypt(authData))
-  aliasRefresh({ data: auth }).then((response) => {
-    if (response) {
-      // console.log(response)
-    }
-  })
+// 刷新别名配置 - 在本地存储环境下，主要是触发其他使用别名的组件刷新
+const aliasConfigRefresh = async () => {
+  await aliasStore.refreshAliasesFromDB()
 }
 </script>
 
@@ -341,7 +380,6 @@ const aliasConfigRefresh = () => {
   height: 100%;
   background-color: #1a1a1a;
   border-radius: 6px;
-  //overflow: hidden;
   padding: 4px;
   box-shadow: 0 4px 10px rgba(0, 0, 0, 0);
   color: #ffffff;

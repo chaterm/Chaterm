@@ -1,4 +1,5 @@
 import Home from '@/views/index.vue'
+import Login from '@/views/auth/login.vue'
 
 export const AppRoutes = [
   {
@@ -15,6 +16,6 @@ export const AppRoutes = [
     meta: {
       requiresAuth: false
     },
-    component: () => import('@/views/auth/login.vue')
+    component: Login
   }
 ]
