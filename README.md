@@ -23,6 +23,10 @@ Want syntax highlighting and smart completion, but don't have root privileges, a
 
 ![Preview image](demo.jpg)
 
+## Deployment Architecture
+
+![Preview image](deploy.jpg)
+
 ## Main Features
 
 - 🤖️ AI Agent：Use natural language to instead of remember the complex command line.
