@@ -81,7 +81,8 @@ const mousedown = (e: MouseEvent) => {
         appX: x,
         appY: y
       }
-      window.api.invokeCustomAdsorption(data)
+      const api = window.api as any
+      api.invokeCustomAdsorption(data)
     }
   }
   document.onmouseup = () => {
@@ -110,15 +111,16 @@ defineExpose({
   switchIcon
 })
 onMounted(async () => {
-  platform.value = await window.api.getPlatform()
+  const api = window.api as any
+  platform.value = await api.getPlatform()
   try {
-    const localIP = await window.api.getLocalIP()
+    const localIP = await api.getLocalIP()
     deviceStore.setDeviceIp(localIP)
   } catch (error) {
     console.error('获取IP失败:', error)
   }
   try {
-    const macAddress = await window.api.getMacAddress()
+    const macAddress = await api.getMacAddress()
     deviceStore.setMacAddress(macAddress)
   } catch (error) {
     console.error('获取MacAddress失败:', error)

@@ -141,13 +141,13 @@
     </a-tab-pane>
     <template #rightExtra>
       <PlusOutlined
-        style="color: #fff; margin-left: 1px; font-size: 13x"
+        style="color: #fff; margin-left: 1px; font-size: 14px"
         @click="handlePlusClick"
       />
 
       <a-dropdown :trigger="['click']">
         <HistoryOutlined
-          style="color: #fff; margin-left: 10px; font-size: 13px"
+          style="color: #fff; margin-left: 10px; font-size: 14px"
           @click="handleHistoryClick"
         />
         <template #overlay>
@@ -172,12 +172,12 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted, defineAsyncComponent } from 'vue'
+import { ref, reactive, onMounted, defineAsyncComponent, defineEmits } from 'vue'
 import { PlusOutlined, CloseOutlined, HistoryOutlined, CopyOutlined } from '@ant-design/icons-vue'
 import { notification } from 'ant-design-vue'
 import { v4 as uuidv4 } from 'uuid'
 import { getAiModel, getChatDetailList, getConversationList } from '@/api/ai/ai'
-
+const emit = defineEmits(['runCmd'])
 // 异步加载 Markdown 渲染组件
 const MarkdownRenderer = defineAsyncComponent(
   () => import('@views/components/MarkdownRenderer.vue')
@@ -554,6 +554,7 @@ const handleApplyCommand = (message: { content: string }) => {
     placement: 'topRight',
     duration: 1
   })
+  emit('runCmd', message.content)
   console.log('执行命令:', message.content)
 }
 
@@ -637,8 +638,27 @@ const closeWebSocket = (ws: WebSocket | null): WebSocket | null => {
 }
 </script>
 
-<style>
-/* 移除 scoped 属性，让样式全局生效 */
+<style lang="less" scoped>
+.ai-chat-custom-tabs {
+  :deep(.ant-tabs-tab:not(.ant-tabs-tab-active) .ant-tabs-tab-btn) {
+    color: #81b0bf;
+    font-weight: 600;
+    transition:
+      color 0.2s,
+      text-shadow 0.2s;
+  }
+
+  :deep(.ant-tabs-nav) {
+    height: 22px;
+  }
+
+  :deep(.ant-tabs-tab) {
+    padding: 0 4px;
+    height: 22px;
+    line-height: 22px;
+    font-size: 12px;
+  }
+}
 .ai-chat-custom-tabs .ant-tabs-tab {
   color: #ccc;
   font-size: 12px;
@@ -684,7 +704,7 @@ const closeWebSocket = (ws: WebSocket | null): WebSocket | null => {
 }
 
 .ai-chat-custom-tabs .ant-select-selector {
-  background-color: #333 !important;
+  background-color: #1a1a1a !important;
   color: #7b7a7a !important;
 }
 
@@ -696,14 +716,9 @@ const closeWebSocket = (ws: WebSocket | null): WebSocket | null => {
 .ai-chat-custom-tabs .chat-response-container {
   flex-grow: 1;
   overflow-y: auto;
-  border: 1px solid #333;
   border-radius: 4px;
   background-color: #1a1a1a;
   scrollbar-width: thin;
-  /* Firefox */
-  scrollbar-color: #4a4a4a;
-  /* Firefox */
-
   /* 限制最大高度为视窗高度的80% */
   max-height: 70vh;
 }
@@ -889,6 +904,21 @@ const closeWebSocket = (ws: WebSocket | null): WebSocket | null => {
 /* 链接样式 */
 .ai-chat-custom-tabs .chat-response .message a {
   text-decoration: none !important;
+}
+
+:deep(.ant-tabs-ink-bar) {
+  background-color: #4caf50 !important; /* 绿色下划线 */
+}
+:deep(.ant-tabs-tab.ant-tabs-tab-active .ant-tabs-tab-btn) {
+  color: #4caf50 !important; /* 选中的文字也改成绿色 */
+}
+:deep(.ai-chat-custom-tabs .ant-tabs-nav) {
+  height: 14px; /* 原来写的是 28px */
+}
+:deep(.ai-chat-custom-tabs .ant-tabs-tab) {
+  padding: 3px 2px; /* 原来 padding: 6px 2px */
+  height: 14px; /* 原来 28px */
+  line-height: 14px; /* 保证文字垂直居中 */
 }
 
 /* 引用块样式 */
@@ -1097,13 +1127,13 @@ const closeWebSocket = (ws: WebSocket | null): WebSocket | null => {
 /* 下拉菜单圆角 */
 .ant-select-dropdown {
   border-radius: 8px !important;
-  background-color: #333 !important;
+  background-color: #1a1a1a !important;
   border-color: #444 !important;
 }
 
 /* 下拉选项圆角 */
 .ant-select-dropdown .ant-select-item {
-  background-color: #333 !important;
+  background-color: #1a1a1a !important;
   color: #e0e0e0 !important;
   border-radius: 4px !important;
   margin: 2px 4px !important;
@@ -1123,12 +1153,19 @@ const closeWebSocket = (ws: WebSocket | null): WebSocket | null => {
   background-color: #444 !important;
   color: #4caf50 !important;
 }
-
+:deep(.ant-select-single:not(.ant-select-customize-input) .ant-select-selector) {
+  background-color: #1a1a1a !important; /* 你想要的灰色 */
+  color: #e0e0e0; /* 可选：让文字也保持浅色 */
+}
+:deep(.ant-select-single:not(.ant-select-customize-input) .ant-select-selector) {
+  background-color: #1a1a1a !important; /* 深灰背景 */
+  border-color: rgba(255, 255, 255, 0.08) !important; /* 几乎透明的白色边框 */
+}
 /* 选择器本身的圆角 */
 .ant-select-selector {
   border-radius: 6px !important;
   border: none !important;
-  background-color: #333 !important;
+  background-color: #1a1a1a !important;
   box-shadow: none !important;
 }
 

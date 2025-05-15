@@ -31,13 +31,20 @@
           :class="{ 'tab-content': true, active: tab.id === activeTab }"
         >
           <Term
-            v-if="tab.type == 'term'"
+            v-if="tab.type === 'term' && tab.organizationId !== 'personal'"
             :ref="(el) => setTermRef(el, tab.id)"
             :server-info="tab"
           />
+          <SshConnect
+            v-if="tab.content === 'demo' || tab.organizationId === 'personal'"
+            :connect-data="tab.data"
+          />
           <UserInfo v-if="tab.content === 'userInfo'" />
           <userConfig v-if="tab.content === 'userConfig'" />
+          <Files v-if="tab.content === 'files'" />
           <aliasConfig v-if="tab.content === 'aliasConfig'" />
+          <assetConfig v-if="tab.content === 'assetConfig'" />
+          <keyChainConfig v-if="tab.content === 'keyChainConfig'" />
         </div>
       </div>
     </template>
@@ -46,7 +53,6 @@
     </template>
   </div>
 </template>
-
 <script setup>
 import { computed, ref } from 'vue'
 import draggable from 'vuedraggable'
@@ -54,7 +60,11 @@ import Term from '@views/components/Term/index.vue'
 import Dashboard from '@views/components/Term/dashboard.vue'
 import UserInfo from '@views/components/LeftTab/userInfo.vue'
 import userConfig from '@views/components/LeftTab/userConfig.vue'
+import assetConfig from '@views/components/LeftTab/assetConfig.vue'
 import aliasConfig from '@views/components/Extensions/aliasConfig.vue'
+import keyChainConfig from '@views/components/LeftTab/keyChainConfig.vue'
+import SshConnect from '@views/components/sshConnect/sshConnect.vue'
+import Files from '@views/components/Files/index.vue'
 
 const props = defineProps({
   tabs: {
@@ -82,6 +92,10 @@ const setTermRef = (el, tabId) => {
     delete termRefMap.value[tabId]
   }
 }
+const termExcuteCmd = (cmd) => {
+  console.log(termRefMap.value[props.activeTab], 'vvvvv')
+  termRefMap.value[props.activeTab]?.autoExecuteCode(cmd)
+}
 const resizeTerm = (termid = '') => {
   if (termid) {
     setTimeout(() => {
@@ -97,7 +111,8 @@ const resizeTerm = (termid = '') => {
 }
 
 defineExpose({
-  resizeTerm
+  resizeTerm,
+  termExcuteCmd
 })
 </script>
 

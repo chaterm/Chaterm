@@ -7,7 +7,8 @@ export const userInfoStore = defineStore('userInfo', {
       email: '',
       avatar: '',
       registrationType: '',
-      token: ''
+      token: '',
+      uid: 0
     },
     stashMenu: ''
   }),
@@ -24,7 +25,8 @@ export const userInfoStore = defineStore('userInfo', {
         email: '',
         avatar: '',
         registrationType: '',
-        token: ''
+        token: '',
+        uid: 0
       }
     }
   },

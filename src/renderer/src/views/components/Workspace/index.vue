@@ -1,23 +1,71 @@
 <template>
   <div class="term_host_list">
     <div class="term_host_header">
-      <p style="display: inline-block; font-size: 14px">{{ $t('workspace.workspace') }}</p>
-      <a-select
-        v-model:value="company"
-        class="term_com_list"
-        style="width: 100px"
-        size="small"
-        @change="companyChange"
-      >
-        <a-select-option
-          v-for="item1 in workspaceData"
-          :key="item1.key"
-          :value="item1.key"
+      <div style="display: flex; align-items: center; justify-content: space-between; width: 100%">
+        <div style="display: flex; align-items: center; gap: 10px">
+          <p
+            v-if="!isPersonalWorkspace"
+            style="display: inline-block; font-size: 14px; margin: 0"
+          >
+            {{ $t('workspace.workspace') }}
+          </p>
+          <div
+            v-else
+            style="display: flex; gap: 2px"
+          >
+            <a-button
+              type="primary"
+              size="small"
+              class="workspace-button"
+              @click="assetManagement"
+            >
+              <template #icon><laptop-outlined /></template>{{ $t('personal.host') }}
+            </a-button>
+            <a-dropdown>
+              <a-button
+                type="primary"
+                size="small"
+                class="workspace-button"
+              >
+                <down-outlined />
+              </a-button>
+              <template #overlay>
+                <a-menu>
+                  <a-menu-item
+                    key="chain"
+                    @click="keyChainConfig"
+                    ><template #icon>
+                      <KeyOutlined />
+                    </template>
+                    {{ $t('personal.keyChain') }}</a-menu-item
+                  >
+                </a-menu>
+              </template>
+            </a-dropdown>
+          </div>
+        </div>
+        <a-select
+          v-model:value="company"
+          class="term_com_list"
+          style="width: 100px"
+          size="small"
+          @change="companyChange"
         >
-          {{ item1.label }}
-        </a-select-option>
-      </a-select>
+          <a-select-option
+            v-for="item1 in workspaceData"
+            :key="item1.key"
+            :value="item1.key"
+          >
+            {{ item1.label }}
+          </a-select-option>
+        </a-select>
+      </div>
+
+      <!-- 资产管理 -->
       <div style="width: 100%; margin-top: 10px">
+        <!-- <a-button @click="queryCommand">查询命令</a-button> -->
+        <!-- 功能自动补全接入示例，不要删除 -->
+        <!-- <a-button @click="insertCommand">插入命令</a-button> -->
         <a-input
           v-model:value="searchValue"
           placeholder="请选择机器"
@@ -105,23 +153,39 @@
           </a-tree>
         </div>
       </div>
+      <!-- 资产创建 -->
     </div>
     <div></div>
   </div>
 </template>
 
 <script setup lang="ts">
+interface ApiType {
+  queryCommand: (data: { command: string; ip: string }) => Promise<any>
+  insertCommand: (data: { command: string; ip: string }) => Promise<any>
+  getLocalAssetRoute: (data: { searchType: string; params?: any[] }) => Promise<any>
+  updateLocalAssetLabel: (data: { uuid: string; label: string }) => Promise<any>
+  updateLocalAsseFavorite: (data: { uuid: string; status: number }) => Promise<any>
+}
+declare global {
+  interface Window {
+    api: ApiType
+  }
+}
 import { getassetMenu, setUserfavorite, getUserWorkSpace, setAlias } from '@/api/asset/asset'
 import { deepClone } from '@/utils/util'
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import {
   StarFilled,
   StarOutlined,
   LaptopOutlined,
   SearchOutlined,
   EditOutlined,
-  CheckOutlined
+  CheckOutlined,
+  DownOutlined,
+  KeyOutlined
 } from '@ant-design/icons-vue'
+// import { message } from 'ant-design-vue'
 
 const searchValue = ref('')
 const editingNode = ref(null)
@@ -129,13 +193,21 @@ const editingTitle = ref('')
 const selectedKeys = ref([])
 const expandedKeys = ref<string[]>([])
 const company = ref('firm-0001')
-const emit = defineEmits(['currentClickServer', 'change-company'])
+
+const emit = defineEmits(['currentClickServer', 'change-company', 'open-user-tab'])
 
 interface WorkspaceItem {
   key: string
   label: string
+  type: string
 }
-const workspaceData = ref<WorkspaceItem[]>([])
+const workspaceData = ref<WorkspaceItem[]>([
+  {
+    key: 'personal_user_id',
+    label: 'Personal',
+    type: 'personal'
+  }
+])
 
 interface AssetNode {
   key: string
@@ -161,10 +233,40 @@ const companyChange = (company) => {
   searchValue.value = ''
   editingNode.value = null
   editingTitle.value = ''
-  getUserAssetMenu(company)
+  if (isPersonalWorkspace.value) {
+    getLocalAssetMenu()
+  } else {
+    getUserAssetMenu(company)
+  }
   emit('change-company')
 }
 
+const isPersonalWorkspace = computed(() => {
+  const currentWorkspace = workspaceData.value.find((item) => item.key === company.value)
+  return currentWorkspace?.type === 'personal'
+})
+
+const keyChainConfig = () => {
+  emit('open-user-tab', 'keyChainConfig')
+}
+
+const getLocalAssetMenu = () => {
+  window.api
+    .getLocalAssetRoute({ searchType: 'tree', params: [] })
+    .then((res) => {
+      if (res && res.data) {
+        const data = res.data.routers || []
+
+        originalTreeData.value = deepClone(data) as AssetNode[]
+        assetTreeData.value = deepClone(data) as AssetNode[]
+        expandDefaultNodes()
+      } else {
+        originalTreeData.value = []
+        assetTreeData.value = []
+      }
+    })
+    .catch((err) => console.error(err))
+}
 const getUserAssetMenu = (orgId: string) => {
   getassetMenu({ organizationId: orgId })
     .then((res) => {
@@ -180,7 +282,8 @@ const GetUserWorkSpace = () => {
   getUserWorkSpace()
     .then((res) => {
       const data = res.data.data
-      workspaceData.value = deepClone(data) as WorkspaceItem[]
+      const newData = deepClone(data) as WorkspaceItem[]
+      workspaceData.value = [...workspaceData.value, ...newData]
     })
     .catch((err) => console.error(err))
 }
@@ -267,17 +370,29 @@ const isSecondLevel = (node) => {
 }
 
 const toggleFavorite = (dataRef: any): void => {
-  const keyString = dataRef.key || ''
-  const lastUnderscoreIndex = keyString.lastIndexOf('_')
-  const ip = lastUnderscoreIndex !== -1 ? keyString.substring(lastUnderscoreIndex + 1) : keyString
-  setUserfavorite({ assetIp: ip, action: dataRef.favorite ? 'unfavorite' : 'favorite' })
-    .then((res) => {
-      if (res.data.message === 'success') {
-        dataRef.favorite = !dataRef.favorite
-        getUserAssetMenu(company.value)
-      }
-    })
-    .catch((err) => console.error(err))
+  if (isPersonalWorkspace.value) {
+    window.api
+      .updateLocalAsseFavorite({ uuid: dataRef.uuid, status: dataRef.favorite ? 2 : 1 })
+      .then((res) => {
+        if (res.data.message === 'success') {
+          dataRef.favorite = !dataRef.favorite
+          getLocalAssetMenu()
+        }
+      })
+      .catch((err) => console.error(err))
+  } else {
+    const keyString = dataRef.key || ''
+    const lastUnderscoreIndex = keyString.lastIndexOf('_')
+    const ip = lastUnderscoreIndex !== -1 ? keyString.substring(lastUnderscoreIndex + 1) : keyString
+    setUserfavorite({ assetIp: ip, action: dataRef.favorite ? 'unfavorite' : 'favorite' })
+      .then((res) => {
+        if (res.data.message === 'success') {
+          dataRef.favorite = !dataRef.favorite
+          getUserAssetMenu(company.value)
+        }
+      })
+      .catch((err) => console.error(err))
+  }
 }
 const handleEdit = (dataRef) => {
   editingNode.value = dataRef.key
@@ -293,17 +408,59 @@ const confirmEdit = (dataRef) => {
   editingNode.value = null
   editingTitle.value = ''
 
-  setAlias({ key: dataRef.key, alias: dataRef.title })
-    .then((res) => {
-      if (res.data.message === 'success') {
-        getUserAssetMenu(company.value)
-      }
-    })
-    .catch((err) => console.error(err))
+  if (isPersonalWorkspace.value) {
+    window.api
+      .updateLocalAssetLabel({ uuid: dataRef.uuid, label: dataRef.title })
+      .then((res) => {
+        if (res.data.message === 'success') {
+          getLocalAssetMenu()
+        }
+      })
+      .catch((err) => console.error(err))
+  } else {
+    setAlias({ key: dataRef.key, alias: dataRef.title })
+      .then((res) => {
+        if (res.data.message === 'success') {
+          getUserAssetMenu(company.value)
+        }
+      })
+      .catch((err) => console.error(err))
+  }
 }
 const clickServer = (item) => {
   emit('currentClickServer', item)
 }
+
+const assetManagement = () => {
+  emit('open-user-tab', 'assetConfig')
+}
+
+// const queryCommand = async () => {
+//   try {
+//     const result = await window.api.queryCommand({ command: 'git checkout -b', ip: '10.23.2.2' })
+//     if (result) {
+//       message.success(`查询成功: ${JSON.stringify(result)}`)
+//     } else {
+//       message.info('未找到命令')
+//     }
+//   } catch (error) {
+//     console.log(error)
+//     message.error('查询失败' + error)
+//   }
+// }
+
+// const insertCommand = async () => {
+//   try {
+//     await window.api.insertCommand({
+//       command: 'git checkout -b new-branch',
+//       ip: '10.23.2.2'
+//     })
+//     message.success('命令插入成功')
+//   } catch (error) {
+//     message.error('命令插入失败')
+//   }
+// }
+
 getUserAssetMenu(company.value)
 GetUserWorkSpace()
 </script>
@@ -335,6 +492,11 @@ GetUserWorkSpace()
   }
   :deep(.term_com_list .ant-select-selector) {
     color: #fff !important;
+    background-color: #333 !important;
+    border-color: #444 !important;
+  }
+  :deep(.term_com_list .ant-select-arrow) {
+    color: #ccc !important;
   }
 }
 .tree-container {
@@ -458,5 +620,57 @@ GetUserWorkSpace()
       color: #40a9ff;
     }
   }
+}
+.workspace-button {
+  font-size: 14px;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  background-color: rgb(90, 94, 115);
+  border-color: rgb(90, 94, 115);
+
+  &:hover {
+    background-color: rgb(110, 114, 135);
+    border-color: rgb(110, 114, 135);
+  }
+
+  &:active {
+    background-color: rgb(130, 134, 155);
+    border-color: rgb(130, 134, 155);
+  }
+}
+
+.ant-dropdown-menu {
+  width: 100px !important;
+}
+
+:deep(.ant-form-item-label > label) {
+  color: #ffffff !important;
+}
+.top-icon {
+  &:hover {
+    color: #52c41a;
+    transition: color 0.3s;
+  }
+}
+:deep(.ant-card) {
+  background-color: #f5f4f4; // 浅灰色背景
+  border: 1px solid #333; // 稍深的边框色
+}
+
+/* 下拉菜单样式 */
+:global(.ant-select-dropdown) {
+  background-color: #333 !important;
+  border-color: #444 !important;
+}
+:global(.ant-select-dropdown .ant-select-item) {
+  color: #e0e0e0 !important;
+}
+:global(.ant-select-item-option-selected:not(.ant-select-item-option-disabled)) {
+  background-color: #444 !important;
+  color: #fff !important;
+}
+:global(.ant-select-item-option-active:not(.ant-select-item-option-disabled)) {
+  background-color: #444 !important;
 }
 </style>
