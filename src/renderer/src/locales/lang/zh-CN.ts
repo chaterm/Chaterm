@@ -12,7 +12,9 @@ export default {
     logout: '退出登录',
     userInfo: '个人信息',
     userConfig: '设置',
-    alias: 'Alias配置'
+    alias: 'Alias配置',
+    assetConfig: '资产管理',
+    keyChainConfig: '秘钥管理'
   },
   term: {
     welcome: '欢迎使用智能堡垒机Chaterm'
@@ -75,10 +77,20 @@ export default {
     aliasDescription: '全局Alias配置',
     command: '命令',
     action: '操作',
-    error: '错误',
+    success: '成功',
+    error: '失败',
     errorDescription: '创建失败！',
     errorNetWork: '网络请求异常',
     warning: '提示',
-    missingAliasCommand: '缺少别名或命令！'
+    missingAliasCommand: '缺少别名或命令！',
+    deleteSuccess: '删除成功！',
+    errorDeletingAlias: '删除失败！',
+    aliasAlreadyExists: '别名已存在！'
+  },
+  personal: {
+    host: '主机',
+    newHost: '添加主机',
+    keyChain: '密钥',
+    newKey: '添加密钥'
   }
 }
