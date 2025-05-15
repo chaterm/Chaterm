@@ -3,11 +3,18 @@ import { join } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
 
+import { registerSSHHandlers } from './sshHandle'
+import { autoCompleteDatabaseService, ChatermDatabaseService } from './database'
 let mainWindow: BrowserWindow
 let COOKIE_URL = ''
+let browserWindow: BrowserWindow | null = null
 
-function createWindow(): void {
-  // Create the browser window.
+let autoCompleteService: autoCompleteDatabaseService
+let chatermDbService: ChatermDatabaseService
+
+async function createWindow(): Promise<void> {
+  autoCompleteService = await autoCompleteDatabaseService.getInstance()
+  chatermDbService = await ChatermDatabaseService.getInstance()
   mainWindow = new BrowserWindow({
     width: 1344,
     height: 756,
@@ -86,8 +93,11 @@ app.whenReady().then(() => {
 
   // IPC test
   ipcMain.on('ping', () => console.log('pong'))
-
+  setupIPC()
   createWindow()
+
+  // 注册ssh组件
+  registerSSHHandlers()
 
   app.on('activate', function () {
     // On macOS it's common to re-create a window in the app when the
@@ -174,5 +184,272 @@ ipcMain.handle('remove-cookie', async (_, { name }) => {
   return await removeCookie(name)
 })
 
-// In this file you can include the rest of your app"s specific main process
-// code. You can also put them in separate files and require them here.
+function createBrowserWindow(url: string): void {
+  // 如果浏览器窗口已经存在，就聚焦
+  if (browserWindow && !browserWindow.isDestroyed()) {
+    browserWindow.focus()
+    browserWindow.loadURL(url)
+    return
+  }
+
+  // 创建新的浏览器窗口
+  browserWindow = new BrowserWindow({
+    width: 1024,
+    height: 768,
+    parent: mainWindow,
+    webPreferences: {
+      preload: join(__dirname, '../preload/browser-preload.js'),
+      contextIsolation: true,
+      nodeIntegration: false,
+      sandbox: false
+    }
+  })
+
+  // 加载指定 URL
+  browserWindow.loadURL(url)
+
+  // 监听 URL 变化
+  browserWindow.webContents.on('did-navigate', (_, url) => {
+    console.log('新窗口导航到了:', url)
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('url-changed', url)
+    }
+
+    // 更新导航状态
+    updateNavigationState()
+  })
+
+  browserWindow.webContents.on('did-navigate-in-page', (_, url) => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('url-changed', url)
+    }
+
+    // 更新导航状态
+    updateNavigationState()
+  })
+
+  // 处理窗口关闭事件
+  browserWindow.on('closed', () => {
+    browserWindow = null
+  })
+}
+
+function updateNavigationState(): void {
+  if (browserWindow && !browserWindow.isDestroyed() && mainWindow && !mainWindow.isDestroyed()) {
+    const canGoBack = browserWindow.webContents.canGoBack()
+    const canGoForward = browserWindow.webContents.canGoForward()
+
+    mainWindow.webContents.send('navigation-state-changed', {
+      canGoBack,
+      canGoForward
+    })
+  }
+}
+// 设置 IPC 处理
+function setupIPC(): void {
+  // 打开浏览器窗口
+  ipcMain.on('open-browser-window', (_, url) => {
+    createBrowserWindow(url)
+  })
+
+  // 浏览器导航控制
+  ipcMain.on('browser-go-back', () => {
+    if (browserWindow && !browserWindow.isDestroyed() && browserWindow.webContents.canGoBack()) {
+      browserWindow.webContents.goBack()
+      // 导航完成后会触发 did-navigate 事件，从而更新导航状态
+    }
+  })
+
+  ipcMain.on('browser-go-forward', () => {
+    if (browserWindow && !browserWindow.isDestroyed() && browserWindow.webContents.canGoForward()) {
+      browserWindow.webContents.goForward()
+      // 导航完成后会触发 did-navigate 事件，从而更新导航状态
+    }
+  })
+
+  ipcMain.on('browser-refresh', () => {
+    if (browserWindow && !browserWindow.isDestroyed()) {
+      browserWindow.webContents.reload()
+    }
+  })
+
+  // 处理 SPA 路由变化
+  ipcMain.on('spa-url-changed', (_, url) => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('url-changed', url)
+    }
+  })
+}
+
+ipcMain.handle('query-command', async (_, data) => {
+  try {
+    const { command, ip } = data
+    const result = autoCompleteService.queryCommand(command, ip)
+    return result
+  } catch (error) {
+    console.error('查询命令失败:', error)
+    return null
+  }
+})
+
+ipcMain.handle('insert-command', async (_, data) => {
+  try {
+    const { command, ip } = data
+    const result = autoCompleteService.insertCommand(command, ip)
+    return result
+  } catch (error) {
+    console.error('插入命令失败:', error)
+    return null
+  }
+})
+
+// Chaterm数据库相关的IPC处理程序
+ipcMain.handle('asset-route-local-get', async (_, data) => {
+  try {
+    const { searchType, params } = data
+    const result = chatermDbService.getLocalAssetRoute(searchType, params || [])
+    return result
+  } catch (error) {
+    console.error('Chaterm查询失败:', error)
+    return null
+  }
+})
+
+ipcMain.handle('asset-route-local-update', async (_, data) => {
+  try {
+    const { uuid, label } = data
+    const result = chatermDbService.updateLocalAssetLabel(uuid, label)
+    return result
+  } catch (error) {
+    console.error('Chaterm修改数据失败:', error)
+    return null
+  }
+})
+
+ipcMain.handle('asset-route-local-favorite', async (_, data) => {
+  try {
+    const { uuid, status } = data
+    const result = chatermDbService.updateLocalAsseFavorite(uuid, status)
+    return result
+  } catch (error) {
+    console.error('Chaterm修改数据失败:', error)
+    return null
+  }
+})
+
+ipcMain.handle('key-chain-local-get', async () => {
+  try {
+    const result = chatermDbService.getKeyChainSelect()
+    return result
+  } catch (error) {
+    console.error('Chaterm获取数据失败:', error)
+    return null
+  }
+})
+
+ipcMain.handle('asset-group-local-get', async () => {
+  try {
+    const result = chatermDbService.getAssetGroup()
+    return result
+  } catch (error) {
+    console.error('Chaterm获取数据失败:', error)
+    return null
+  }
+})
+
+ipcMain.handle('asset-delete', async (_, data) => {
+  try {
+    const { uuid } = data
+    const result = chatermDbService.deleteAsset(uuid)
+    return result
+  } catch (error) {
+    console.error('Chaterm删除数据失败:', error)
+    return null
+  }
+})
+
+ipcMain.handle('asset-create', async (_, data) => {
+  try {
+    const { form } = data
+    const result = chatermDbService.createAsset(form)
+    return result
+  } catch (error) {
+    console.error('Chaterm创建资产失败:', error)
+    return null
+  }
+})
+
+ipcMain.handle('asset-update', async (_, data) => {
+  try {
+    const { form } = data
+    const result = chatermDbService.updateAsset(form)
+    return result
+  } catch (error) {
+    console.error('Chaterm修改资产失败:', error)
+    return null
+  }
+})
+
+ipcMain.handle('key-chain-local-get-list', async () => {
+  try {
+    const result = chatermDbService.getKeyChainList()
+    return result
+  } catch (error) {
+    console.error('Chaterm获取资产失败:', error)
+    return null
+  }
+})
+
+ipcMain.handle('key-chain-local-create', async (_, data) => {
+  try {
+    const { form } = data
+    const result = chatermDbService.createKeyChain(form)
+    return result
+  } catch (error) {
+    console.error('Chaterm创建密钥失败:', error)
+    return null
+  }
+})
+
+ipcMain.handle('key-chain-local-delete', async (_, data) => {
+  try {
+    const { id } = data
+    const result = chatermDbService.deleteKeyChain(id)
+    return result
+  } catch (error) {
+    console.error('Chaterm删除密钥失败:', error)
+    return null
+  }
+})
+
+ipcMain.handle('key-chain-local-get-info', async (_, data) => {
+  try {
+    const { id } = data
+    const result = chatermDbService.getKeyChainInfo(id)
+    return result
+  } catch (error) {
+    console.error('Chaterm获取密钥失败:', error)
+    return null
+  }
+})
+
+ipcMain.handle('key-chain-local-update', async (_, data) => {
+  try {
+    const { form } = data
+    const result = chatermDbService.updateKeyChain(form)
+    return result
+  } catch (error) {
+    console.error('Chaterm修改密钥失败:', error)
+    return null
+  }
+})
+ipcMain.handle('chaterm-connect-asset-info', async (_, data) => {
+  try {
+    const { uuid } = data
+    const result = chatermDbService.connectAssetInfo(uuid)
+    return result
+  } catch (error) {
+    console.error('Chaterm获取资产信息失败:', error)
+    return null
+  }
+})

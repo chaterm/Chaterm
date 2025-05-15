@@ -5,6 +5,7 @@
   >
     <div
       ref="terminalElement"
+      v-contextmenu:contextmenu
       class="terminal"
     ></div>
     <!-- 考虑到后期分屏等操作，同一个机器会打开多次，这个ref需要独一无二 -->
@@ -14,12 +15,28 @@
       :suggestions="suggestions"
       :active-suggestion="activeSuggestion"
     />
+    <v-contextmenu ref="contextmenu">
+      <v-contextmenu-item>菜单1</v-contextmenu-item>
+      <v-contextmenu-item>菜单2</v-contextmenu-item>
+      <v-contextmenu-item>菜单3</v-contextmenu-item>
+    </v-contextmenu>
+  </div>
+  <div
+    v-for="editor in openEditors"
+    v-show="editor.visible"
+    :key="editor.filePath"
+  >
+    <EditorCode
+      :editor="editor"
+      @close-vim-editor="closeVimEditor"
+      @handle-save="handleSave"
+    />
   </div>
 </template>
 
 <script setup>
 import SuggComp from './suggestion.vue'
-import { ref, onMounted, nextTick, onBeforeUnmount, defineProps } from 'vue'
+import { ref, onMounted, nextTick, onBeforeUnmount, defineProps, reactive } from 'vue'
 import { Terminal } from 'xterm'
 import { FitAddon } from 'xterm-addon-fit'
 import { WebLinksAddon } from 'xterm-addon-web-links'
@@ -28,7 +45,14 @@ import { encrypt } from '@/utils/util'
 import 'xterm/css/xterm.css'
 import { userInfoStore } from '@/store'
 import { userConfigStore } from '@/store/userConfigStore'
+
+import { termFileContent, termFileContentSave } from '@/api/term/term'
+import { notification } from 'ant-design-vue'
+import EditorCode from './Editor/dragEditor.vue'
+import { Modal } from 'ant-design-vue'
+
 import { getListCmd } from '@/api/asset/asset'
+const contextmenu = ref()
 const props = defineProps({
   serverInfo: {
     type: Object,
@@ -52,7 +76,7 @@ const email = userInfoStore().userInfo.email
 const name = userInfoStore().userInfo.name
 const terminalElement = ref(null)
 const terminalContainer = ref(null)
-const terminalId = `${email.split('@')[0]}@${props.serverInfo.ip}:${uuidv4()}`
+const terminalId = `${email.split('@')[0]}@${props.serverInfo.ip}:remote:${uuidv4()}`
 const suggestions = ref([]) //返回的补全列表
 const activeSuggestion = ref(0) //高亮的补全项
 const socket = ref(null) //ws实例
@@ -136,7 +160,6 @@ const initTerminal = () => {
   }
   // 处理用户输入
   term.onData((data) => {
-    // console.log(data, 'data')
     if (socket.value && socket.value.readyState === WebSocket.OPEN) {
       //   socket.value.send(data)
       if (data === '\t') {
@@ -154,12 +177,14 @@ const initTerminal = () => {
         socket.value.send(JSON.stringify({ terminalId, msgType, data }))
       } else {
         const msgType = 'TERMINAL_DATA'
-        // socket.value.send(JSON.stringify({ terminalId, msgType, data }))
         if (suggestions.value.length && (data == '\u001b[A' || data == '\u001b[B')) {
+          // 键盘上下选中提示项目
           data == '\u001b[A' && activeSuggestion.value > 0 ? (activeSuggestion.value -= 1) : ''
           data == '\u001b[B' && activeSuggestion.value < suggestions.value.length - 1
             ? (activeSuggestion.value += 1)
             : ''
+        } else if (suggestions.value.length && data == '\u001b[C') {
+          selectSuggestion(suggestions.value[activeSuggestion.value])
         } else {
           socket.value.send(JSON.stringify({ terminalId, msgType, data }))
         }
@@ -259,6 +284,12 @@ const handleResize = () => {
   //   )
   // }
 }
+// 别的组件通过按钮执行命令
+const autoExecuteCode = (cmd) => {
+  const msgType = 'TERMINAL_DATA'
+  console.log(msgType, 'msgTypemsgTypemsgType')
+  socket.value.send(JSON.stringify({ terminalId, msgType, data: cmd }))
+}
 const dispatch = (term, msgData, ws) => {
   if (msgData === undefined) {
     return
@@ -278,6 +309,9 @@ const dispatch = (term, msgData, ws) => {
       pingInterval.value = null
       break
     case 'PING':
+      break
+    case 'TERMINAL_ACTION_VIM':
+      handleMessage(msg, terminalId)
       break
   }
 }
@@ -467,6 +501,7 @@ const processString = (str) => {
       lastIndex = i // 更新 lastIndex
     }
   }
+  console.log('lastType:', lastType)
   // 处理末尾文本
   if (lastIndex < str.length - 1) {
     result.push({
@@ -498,7 +533,7 @@ const handleKeyInput = (e) => {
   cursorY.value = buffer.cursorY
   keyCode.value = ev.keyCode
   let index = 0
-  // 当前行开始输入时的光标ddd位置，0是初始状态，需要跟当前光标一样，非0时需要小于当前光标位置
+  // 当前行开始输入时的光标的位置，0是初始状态，需要跟当前光标一样，非0时需要小于当前光标位置
   if (cursorStartX.value == 0) {
     cursorStartX.value = cursorX.value
   } else {
@@ -528,8 +563,157 @@ const handleKeyInput = (e) => {
     // currentLine.value = `${currentLine.value.slice(0, index)}${e.key}${currentLine.value.slice(index)}`
   }
 }
+
+const openEditors = reactive([])
+const submitData = async (filePath) => {
+  const authData = {
+    uuid: terminalId,
+    filePath: filePath
+  }
+  const auth = decodeURIComponent(encrypt(authData))
+  try {
+    const response = await termFileContent({ uuid: auth })
+    if (response.error && response.error !== '') {
+      console.log('!ERR', response.error)
+    } else {
+      const existingEditor = openEditors.find((editor) => editor.filePath === filePath)
+      if (!existingEditor) {
+        // const rect = terminalElement.value.getBoundingClientRect()
+        console.log(window.innerHeight, window.innerWidth, window.screenX, window.screenY)
+        openEditors.push({
+          filePath: filePath,
+          visible: true,
+          vimText: response.content,
+          originVimText: response.content,
+          action: response.action,
+          vimEditorX:
+            Math.round(window.innerWidth * 0.5) - Math.round(window.innerWidth * 0.7 * 0.5),
+          vimEditorY:
+            Math.round(window.innerHeight * 0.5) - Math.round(window.innerHeight * 0.7 * 0.5),
+          contentType: response.contentType,
+          vimEditorHeight: Math.round(window.innerHeight * 0.7),
+          vimEditorWidth: Math.round(window.innerWidth * 0.7),
+          loading: false,
+          fileChange: false,
+          saved: false,
+          key: terminalId
+        })
+      } else {
+        existingEditor.visible = true
+        existingEditor.vimText = response.content
+      }
+    }
+  } catch (error) {
+    console.error('打开文件失败', error)
+  }
+}
+//
+
+const closeVimEditor = (data) => {
+  const { filePath } = data
+  const editor = openEditors.find((editor) => editor.filePath === filePath)
+  if (editor.fileChange) {
+    if (!editor.saved) {
+      Modal.confirm({
+        content: `您想将更改保存到 ${editor.filePath} 吗？`,
+        okText: '确定',
+        cancelText: '取消',
+        onOk() {
+          handleSave({ filePath: editor.filePath, needClose: true })
+        },
+        onCancel() {
+          const index = openEditors.indexOf(editor)
+          if (index !== -1) {
+            openEditors.splice(index, 1)
+          }
+        }
+      })
+    }
+  } else {
+    const index = openEditors.indexOf(editor)
+    if (index !== -1) {
+      openEditors.splice(index, 1)
+    }
+  }
+}
+
+const handleSave = async (data) => {
+  const { filePath, needClose } = data
+  const editor = openEditors.find((editor) => editor.filePath === filePath)
+  const authData = {
+    uuid: terminalId,
+    filePath: filePath,
+    content: editor.vimText
+  }
+  const auth = decodeURIComponent(encrypt(authData))
+  try {
+    if (editor.fileChange) {
+      editor.loading = true
+      const response = await termFileContentSave({ data: auth })
+      if (response.error !== '') {
+        notification.error({
+          message: '保存失败！',
+          class: 'notification-common'
+        })
+      } else {
+        notification.success({
+          message: '保存成功'
+        })
+        // 关闭
+        if (needClose) {
+          const index = openEditors.indexOf(editor)
+          if (index !== -1) {
+            openEditors.splice(index, 1)
+          }
+        } else {
+          editor.loading = false
+          editor.saved = true
+          editor.fileChange = false
+        }
+      }
+    } else {
+      notification.success({
+        message: '保存成功'
+      })
+    }
+  } catch (error) {
+    // 处理异常
+    notification.error({
+      message: '保存失败！'
+    })
+  }
+}
+
+// // 处理消息的函数
+const handleMessage = (msg, terminalId) => {
+  const regexPath = /\/[\w\-./&\u4E00-\u9FFF]+/g
+  const matchPath = msg.data.match(regexPath)
+  let filePath = ''
+  const msgType = 'TERMINAL_DATA'
+  if (matchPath) {
+    filePath = matchPath[0]
+    console.log(msgType, filePath)
+    submitData(filePath)
+    if (!openEditors.find((editor) => editor.filePath === filePath)) {
+      const data = '\r'
+      socket.value.send(
+        JSON.stringify({
+          terminalId,
+          msgType,
+          data
+        })
+      )
+      // 直接调用函数，不需要 that
+      submitData(filePath)
+    }
+  } else {
+    console.log('Pwd No match found.')
+  }
+}
+
 defineExpose({
-  handleResize
+  handleResize,
+  autoExecuteCode
 })
 </script>
 
@@ -549,6 +733,7 @@ defineExpose({
   width: 100%;
   height: 100%;
 }
+
 .terminal ::-webkit-scrollbar {
   width: 0px !important;
 }

@@ -25,8 +25,8 @@
                 :toggle-sidebar="toggleSideBar"
                 @change-company="changeCompany"
                 @current-click-server="currentClickServer"
+                @open-user-tab="openUserTab"
               />
-              <div v-if="currentMenu == 'files'">{{ $t('common.files') }}</div>
               <Extensions
                 v-if="currentMenu == 'extensions'"
                 ref="extensionsRef"
@@ -50,7 +50,10 @@
                 <pane :size="rightSize">
                   <div class="rigth-sidebar">
                     <div class="rigth-bar">
-                      <AiTab :toggle-sidebar="toggleSideBar" />
+                      <AiTab
+                        :toggle-sidebar="toggleSideBar"
+                        @run-cmd="runCmd"
+                      />
                     </div>
                   </div>
                 </pane>
@@ -80,7 +83,10 @@ import TabsPanel from './tabsPanel.vue'
 import { reactive } from 'vue'
 import { v4 as uuidv4 } from 'uuid'
 import { userInfoStore } from '@/store'
+import { aliasConfigStore } from '@/store/aliasConfigStore'
+import eventBus from '@/utils/eventBus'
 
+const aliasConfig = aliasConfigStore()
 const headerRef = ref<InstanceType<typeof Header> | null>(null)
 const extensionsRef = ref<InstanceType<typeof Extensions> | null>(null)
 const allTabs = ref<InstanceType<typeof TabsPanel> | null>(null)
@@ -102,6 +108,8 @@ onMounted(() => {
     updatePaneSize()
   })
   window.addEventListener('resize', updatePaneSize)
+  aliasConfig.initialize()
+  eventBus.on('currentClickServer', currentClickServer)
 })
 const timer = ref<number | null>(null)
 watch(rightSize, () => {
@@ -158,6 +166,9 @@ const toggleSideBar = (value: string) => {
       break
   }
 }
+const runCmd = (cmd) => {
+  allTabs.value?.termExcuteCmd(cmd)
+}
 
 const toggleMenu = function (params) {
   const type = params?.type
@@ -197,6 +208,16 @@ const toggleMenu = function (params) {
   }
 }
 
+interface formData {
+  host: string
+  port: number
+  username: string
+  password: string
+  privateKeyPath: string
+  authType: string
+  passphrase: string
+}
+
 interface TabItem {
   id: string
   title: string
@@ -204,6 +225,7 @@ interface TabItem {
   type: string // 可选属性
   organizationId: string
   ip: string
+  data: formData
 }
 
 // 已打开的标签页
@@ -211,10 +233,10 @@ const openedTabs = ref<TabItem[]>([])
 // 选中的tab
 const activeTabId = ref('')
 // 点击服务器列表中的服务器
-const currentClickServer = (item) => {
+const currentClickServer = async (item) => {
   console.log(item, 'item')
-  // const existingTabIndex = openedTabs.value.findIndex((tab) => tab.id === item.title)
   if (item.children) return
+
   // if (existingTabIndex === -1) {
   const id_ = uuidv4()
   openedTabs.value.push({
@@ -225,7 +247,8 @@ const currentClickServer = (item) => {
     content: item.key,
     type: item.type ? item.type : 'term',
     organizationId: item.organizationId ? item.organizationId : '',
-    ip: item.ip ? item.ip : ''
+    ip: item.ip ? item.ip : '',
+    data: item
   })
   // }
   // 激活点击的标签页
@@ -266,6 +289,7 @@ const updateTabs = (newTabs) => {
 onUnmounted(() => {
   // 清理事件监听
   window.removeEventListener('resize', updatePaneSize)
+  eventBus.off('currentClickServer', currentClickServer)
 })
 const openUserTab = function (value) {
   activeKey.value = value
@@ -358,10 +382,6 @@ const changeCompany = () => {
 
       .term_content_left {
         width: 190px;
-      }
-
-      .v-contextmenu-divider {
-        width: 3px !important;
       }
     }
   }

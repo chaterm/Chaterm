@@ -12,7 +12,9 @@ export default {
     logout: 'Logout',
     userInfo: 'User Info',
     userConfig: 'Setting',
-    alias: 'Alias Config'
+    alias: 'Alias Config',
+    assetConfig: 'Asset Config',
+    keyChainConfig: 'Key Chain'
   },
   term: {
     welcome: 'Welcome to use Chaterm'
@@ -75,10 +77,18 @@ export default {
     fuzzySearch: 'Fuzzy Search',
     command: 'Command',
     action: 'Action',
-    error: 'error',
-    errorDescription: 'creation failed!',
-    errorNetWork: 'network request exception',
-    warning: 'warning',
-    missingAliasCommand: 'missing alias or command!'
+    success: 'Success',
+    error: 'Error',
+    errorDescription: 'Creation failed!',
+    errorNetWork: 'Network request exception',
+    warning: 'Warning',
+    missingAliasCommand: 'Missing alias or command!',
+    aliasAlreadyExists: 'Alias already exists！'
+  },
+  personal: {
+    host: 'Host',
+    newHost: 'New Host',
+    keyChain: 'KeyChain',
+    newKey: 'New Key'
   }
 }
