@@ -58,6 +58,7 @@ electron_mirror=https://cdn.npmmirror.com/binaries/electron/
 electron_builder_binaries_mirror=https://npmmirror.com/mirrors/electron-builder-binaries/
 
 4、install Electron：
+npm i node-gyp
 npm i electron -D
 
 ```
