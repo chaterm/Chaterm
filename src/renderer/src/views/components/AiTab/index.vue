@@ -133,7 +133,7 @@
               style="margin-left: 8px"
               @click="sendMessage"
             >
-              Send⏎
+              Send ⏎
             </a-button>
           </div>
         </div>
@@ -650,6 +650,7 @@ const closeWebSocket = (ws: WebSocket | null): WebSocket | null => {
 
   :deep(.ant-tabs-nav) {
     height: 22px;
+    margin-bottom: 8px;
   }
 
   :deep(.ant-tabs-tab) {
@@ -659,530 +660,200 @@ const closeWebSocket = (ws: WebSocket | null): WebSocket | null => {
     font-size: 12px;
   }
 }
-.ai-chat-custom-tabs .ant-tabs-tab {
-  color: #ccc;
-  font-size: 12px;
-  padding: 6px 2px;
-  height: 28px;
-  line-height: 16px;
-  width: 30px;
-  min-width: 30px;
-  max-width: 30px;
-  text-align: center;
-  /* overflow: hidden; */
-}
 
-.ai-chat-custom-tabs .ant-tabs-tab-active {
-  color: #404040;
-  width: 30px;
-}
-
-.ai-chat-custom-tabs .ant-tabs-nav {
-  margin-bottom: 0;
-  margin-top: 0;
-  height: 22px;
-}
-
-.ai-chat-custom-tabs .ant-tabs-content-holder {
-  font-size: 12px;
-}
-
-.ai-chat-custom-tabs .ant-tabs-ink-bar {
-  background-color: #4caf50;
-}
-
-.ai-chat-custom-tabs .ant-tabs-tab:hover {
-  color: #4caf50;
-}
-
-.ai-chat-custom-tabs .ant-tabs-tab-active .ant-tabs-tab-btn {
-  color: #4caf50 !important;
-}
-
-.ai-chat-custom-tabs .ant-tabs-nav::before {
-  border-bottom: none;
-}
-
-.ai-chat-custom-tabs .ant-select-selector {
-  background-color: #1a1a1a !important;
-  color: #7b7a7a !important;
-}
-
-.ai-chat-custom-tabs .ant-select-selection-item {
-  color: #7b7a7a !important;
-}
-
-/* 修改 chat-response-container 的样式 */
-.ai-chat-custom-tabs .chat-response-container {
-  flex-grow: 1;
-  overflow-y: auto;
-  border-radius: 4px;
-  background-color: #1a1a1a;
-  scrollbar-width: thin;
-  /* 限制最大高度为视窗高度的80% */
-  max-height: 70vh;
-}
-
-/* 添加 flex 布局以确保正确的高度分配 */
 .ai-chat-flex-container {
   display: flex;
   flex-direction: column;
   height: 100%;
+  background-color: #1a1a1a;
+  border-radius: 8px;
+  overflow: hidden;
 }
 
-/* 修改 input-container 的样式 */
-.ai-chat-custom-tabs .input-container {
+.chat-response-container {
+  flex-grow: 1;
+  overflow-y: auto;
+  padding: 16px;
+  scrollbar-width: thin;
+  max-height: calc(100vh - 200px);
+
+  &::-webkit-scrollbar {
+    width: 6px;
+  }
+
+  &::-webkit-scrollbar-thumb {
+    background-color: #4a4a4a;
+    border-radius: 3px;
+
+    &:hover {
+      background-color: #5a5a5a;
+    }
+  }
+}
+
+.chat-response {
   display: flex;
   flex-direction: column;
-  margin-top: 10px;
-  height: 20vh;
+  gap: 16px;
+
+  .message {
+    max-width: 85%;
+    padding: 12px 16px;
+    border-radius: 12px;
+    font-size: 13px;
+    line-height: 1.5;
+
+    &.user {
+      align-self: flex-end;
+      background-color: #2c3e50;
+      color: #e0e0e0;
+      border: 1px solid #34495e;
+    }
+
+    &.assistant {
+      align-self: flex-start;
+      background-color: #1e2a38;
+      color: #e0e0e0;
+      border: 1px solid #2c3e50;
+    }
+  }
 }
 
-.ai-chat-custom-tabs .input-container .ant-textarea {
-  flex-grow: 1;
-  margin-bottom: 10px;
-}
-
-.ai-chat-custom-tabs .input-container .ant-select {
-  align-self: flex-start;
-  width: 100%;
-  /* 使 select 宽度填满容器 */
-  max-width: 200px;
-  /* 限制最大宽度 */
-  margin-top: 5px;
-  /* 添加一些间距 */
-}
-
-.ai-chat-custom-tabs .chat-response {
-  padding: 8px;
-  color: #ffffff;
-  white-space: pre-wrap;
-  word-wrap: break-word;
-  max-height: 100%;
-  overflow-y: auto;
-  user-select: text;
-  -webkit-user-select: text;
-  -moz-user-select: text;
-  -ms-user-select: text;
-}
-
-.ai-chat-custom-tabs .chat-response .message {
-  margin-bottom: 10px;
-  user-select: text;
-  -webkit-user-select: text;
-  -moz-user-select: text;
-  -ms-user-select: text;
-}
-
-.ai-chat-custom-tabs .chat-response .message.assistant {
-  user-select: text;
-  -webkit-user-select: text;
-  -moz-user-select: text;
-  -ms-user-select: text;
-}
-
-.ai-chat-custom-tabs .chat-response .message.user {
-  background-color: #2c3e50;
-  /* 深蓝色背景 */
-  color: #c9c8c8;
-  /* 浅色文字 */
-  align-self: flex-end;
-  /* 靠右对齐 */
-  margin-left: auto;
-  border: 1px solid #34495e;
-  max-width: 96%;
-  border-radius: 8px;
-  padding: 10px;
-  word-wrap: break-word;
-  font-size: 11px;
-}
-
-.ai-chat-custom-tabs .chat-response .message.assistant {
-  background-color: #1e2a38;
-  /* 深灰色背景 */
-  color: #bdc3c7;
-  /* 灰色文字 */
-  align-self: flex-start;
-  /* 靠左对齐 */
-  margin-right: auto;
-  border: 1px solid #2c3e50;
-  max-width: 100%;
-  border-radius: 8px;
-  padding: 11px;
-  word-wrap: break-word;
-}
-
-/* 其他滚动条样式保持不变 */
-.ai-chat-custom-tabs .chat-response-container::-webkit-scrollbar {
-  width: 8px;
-}
-
-.ai-chat-custom-tabs .chat-response-container::-webkit-scrollbar-thumb {
-  background-color: #4a4a4a;
-  border-radius: 4px;
-}
-
-.ai-chat-custom-tabs .chat-response-container::-webkit-scrollbar-thumb:hover {
-  background-color: #5a5a5a;
-}
-
-/* 添加 Markdown 相关样式 */
-.ai-chat-custom-tabs .chat-response .message pre {
-  padding: 10px;
-  border-radius: 4px;
-  overflow-x: auto;
-}
-
-.ai-chat-custom-tabs .chat-response .message code {
-  font-family: 'Cascadia Code', 'Fira Code', Consolas, monospace;
-  font-size: 0.9em;
-}
-
-/* 统一所有 Markdown 元素的样式 */
-/* 重置所有元素的基础样式 */
-.ai-chat-custom-tabs .chat-response .message * {
-  font-size: 12px !important;
-  color: #bdc3c7 !important;
-  font-weight: normal !important;
-  margin: 0 !important;
-  padding: 0 !important;
-  line-height: 1.5 !important;
-  border-spacing: 0 !important;
-}
-
-/* 段落和块级元素间距 */
-.ai-chat-custom-tabs .chat-response .message p,
-.ai-chat-custom-tabs .chat-response .message div,
-.ai-chat-custom-tabs .chat-response .message h1,
-.ai-chat-custom-tabs .chat-response .message h2,
-.ai-chat-custom-tabs .chat-response .message h3,
-.ai-chat-custom-tabs .chat-response .message h4,
-.ai-chat-custom-tabs .chat-response .message h5,
-.ai-chat-custom-tabs .chat-response .message h6,
-.ai-chat-custom-tabs .chat-response .message ul,
-.ai-chat-custom-tabs .chat-response .message ol,
-.ai-chat-custom-tabs .chat-response .message li,
-.ai-chat-custom-tabs .chat-response .message pre,
-.ai-chat-custom-tabs .chat-response .message blockquote {
-  margin-top: 5px !important;
-  margin-bottom: 5px !important;
-}
-
-/* 列表项特殊处理 */
-.ai-chat-custom-tabs .chat-response .message li {
-  margin-left: 20px !important;
-  display: list-item !important;
-}
-
-/* 有序列表数字样式统一 */
-.ai-chat-custom-tabs .chat-response .message ol {
-  list-style-type: decimal !important;
-  padding-left: 20px !important;
-}
-
-/* 无序列表样式统一 */
-.ai-chat-custom-tabs .chat-response .message ul {
-  list-style-type: disc !important;
-  padding-left: 20px !important;
-}
-
-/* 清除列表和列表项之间的额外间距 */
-.ai-chat-custom-tabs .chat-response .message ul li,
-.ai-chat-custom-tabs .chat-response .message ol li {
-  padding: 0 !important;
-  margin-top: 5px !important;
-  margin-bottom: 5px !important;
-}
-
-/* 水平线样式 */
-.ai-chat-custom-tabs .chat-response .message hr {
-  border: none !important;
-  border-top: 1px solid #3a3a3a !important;
-  margin: 10px 0 !important;
-}
-
-/* 链接样式 */
-.ai-chat-custom-tabs .chat-response .message a {
-  text-decoration: none !important;
-}
-
-:deep(.ant-tabs-ink-bar) {
-  background-color: #4caf50 !important; /* 绿色下划线 */
-}
-:deep(.ant-tabs-tab.ant-tabs-tab-active .ant-tabs-tab-btn) {
-  color: #4caf50 !important; /* 选中的文字也改成绿色 */
-}
-:deep(.ai-chat-custom-tabs .ant-tabs-nav) {
-  height: 14px; /* 原来写的是 28px */
-}
-:deep(.ai-chat-custom-tabs .ant-tabs-tab) {
-  padding: 3px 2px; /* 原来 padding: 6px 2px */
-  height: 14px; /* 原来 28px */
-  line-height: 14px; /* 保证文字垂直居中 */
-}
-
-/* 引用块样式 */
-.ai-chat-custom-tabs .chat-response .message blockquote {
-  border-left: 4px solid #4caf50 !important;
-  padding-left: 10px !important;
-}
-
-代码样式 .ai-chat-custom-tabs .chat-response .message code,
-.ai-chat-custom-tabs .chat-response .message pre {
-  background-color: #282828 !important;
-  border-radius: 3px !important;
-}
-
-.ai-chat-custom-tabs .chat-response .message pre {
-  padding: 10px !important;
-  overflow-x: auto !important;
-  margin: 5px 0 !important;
-}
-
-/* 确保内容区域内的间距一致 */
-.ai-chat-custom-tabs .chat-response .message {
-  line-height: 1.5 !important;
-}
-
-/* 更新下拉菜单样式 */
-.ant-dropdown {
-  background-color: transparent !important;
-}
-
-.ant-dropdown-menu {
-  max-height: 300px !important;
-  overflow-y: auto;
-  overflow-x: hidden;
-  background-color: #333 !important;
-  border-radius: 4px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
-  width: 195px !important;
-  /* 固定宽度 */
-  border: 0.1px solid #6e6e6e;
-}
-
-.ant-dropdown-menu::-webkit-scrollbar {
-  width: 6px;
-  /* 调整为你想要的宽度 */
-}
-
-/* 滚动条轨道 */
-.ant-dropdown-menu::-webkit-scrollbar-track {
-  background: rgba(18, 18, 18, 0.8);
-  border-radius: 3px;
-}
-
-/* 滚动条滑块 */
-.ant-dropdown-menu::-webkit-scrollbar-thumb {
-  background: rgba(150, 150, 150, 0.5);
-  border-radius: 3px;
-}
-
-.ant-dropdown-menu-item {
-  color: #ffffff !important;
-  background-color: #333 !important;
-  transition: all 0.3s;
-  font-size: 12px !important;
-  padding: 2px 7px !important;
-  /* 减小内边距 */
-  margin: 2px 0 !important;
-  /* 设置项目间距为5px (2px + 2px + 1px border) */
-  border-bottom: 1px solid #444;
-  /* 添加分隔线 */
-}
-
-.ant-dropdown-menu-item:last-child {
-  border-bottom: none;
-  /* 最后一项不需要分隔线 */
-}
-
-.ant-dropdown-menu-item:hover {
-  background-color: #4a4a4a !important;
-  color: #4caf50 !important;
-}
-
-/* 为 Apply 按钮添加样式 */
-.assistant-message-container {
-  position: relative;
-}
-
-.message-actions {
+.input-container {
+  padding: 16px;
   background-color: #1a1a1a;
-  /* 更深的背景色 */
-  padding: 4px 8px;
-  border-top-left-radius: 8px;
-  border-top-right-radius: 8px;
-  display: flex;
-  justify-content: flex-end;
-  gap: 6px;
-  border-bottom: 1px solid #333;
-  /* 添加底部边框 */
-  margin: -10px -10px 10px -10px;
-  /* 负边距使其延伸到边缘 */
-}
-
-.message-content {
-  margin-right: 10px;
-  text-align: left;
-}
-
-/* 调整按钮样式以配合新的背景 */
-.action-btn {
-  height: 14px;
-  min-width: 14px;
-  padding: 0;
-  font-size: 10px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  line-height: 14px;
-}
-
-.copy-btn {
-  background-color: #444 !important;
-  border-color: #444 !important;
-}
-
-.apply-btn {
-  background-color: #444 !important;
-  border-color: #444 !important;
-  min-width: 30px;
-}
-
-.action-btn:hover {
-  background-color: #555 !important;
-  border-color: #555 !important;
-}
-
-.action-btn .anticon {
-  font-size: 10px;
+  border-top: 1px solid #333;
 }
 
 .input-send-container {
   display: flex;
   flex-direction: column;
+  gap: 8px;
+
+  .ant-textarea {
+    background-color: #2a2a2a !important;
+    border: 1px solid #3a3a3a !important;
+    border-radius: 8px !important;
+    color: #e0e0e0 !important;
+    padding: 8px 12px !important;
+    font-size: 13px !important;
+
+    &:hover,
+    &:focus {
+      border-color: #4caf50 !important;
+      box-shadow: 0 0 0 2px rgba(76, 175, 80, 0.1) !important;
+    }
+  }
 }
 
 .input-controls {
   display: flex;
   align-items: center;
-  margin-top: 1px;
   justify-content: space-between;
-  /* 使内容分散对齐 */
+  gap: 8px;
+
+  .ant-select {
+    width: 150px;
+
+    :deep(.ant-select-selector) {
+      background-color: #2a2a2a !important;
+      border: 1px solid #3a3a3a !important;
+      border-radius: 6px !important;
+      color: #e0e0e0 !important;
+
+      &:hover {
+        border-color: #4caf50 !important;
+      }
+    }
+  }
+
+  .custom-round-button {
+    height: 32px;
+    padding: 0 16px;
+    border-radius: 6px;
+    font-size: 13px;
+    background-color: #4caf50;
+    border-color: #4caf50;
+    color: white;
+    transition: all 0.2s ease;
+
+    &:hover {
+      background-color: #45a049;
+      border-color: #45a049;
+      transform: translateY(-1px);
+    }
+
+    &:active {
+      transform: translateY(0);
+    }
+  }
 }
 
-.ai-chat-custom-tabs .input-container .ant-select {
-  flex-grow: 1;
-  max-width: 150px;
-  margin-right: 8px;
-  /* 添加右侧间距 */
+.assistant-message-container {
+  .message-actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px solid #333;
+
+    .action-btn {
+      height: 28px;
+      padding: 0 12px;
+      border-radius: 4px;
+      font-size: 12px;
+      background-color: #2a2a2a;
+      border-color: #3a3a3a;
+      color: #e0e0e0;
+
+      &:hover {
+        background-color: #3a3a3a;
+        border-color: #4a4a4a;
+      }
+
+      &.copy-btn,
+      &.apply-btn {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+      }
+    }
+  }
 }
 
-.input-controls .send-button {
-  margin-left: auto;
-  /* 确保按钮靠右 */
-}
-
-.custom-round-button {
-  border-radius: 5px;
-  height: 14px;
-  width: 50px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 12px;
-  gap: 4px;
-}
-
-.custom-round-button .anticon {
-  font-size: 12px;
-}
-
-.custom-round-button.ant-btn-primary {
-  background-color: #4caf50;
-  border-color: #4caf50;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
-  transition: all 0.3s ease;
-}
-
-.custom-round-button.ant-btn-primary:hover {
-  background-color: #45a049;
-  border-color: #45a049;
-  box-shadow: 0 3px 6px rgba(0, 0, 0, 0.3);
-}
-
-.custom-round-button.compact-button {
-  border-radius: 4px;
-  height: 19px;
-  min-width: 40px;
-  padding: 0 8px;
-  font-size: 11px;
-  gap: 2px;
-}
-
-.custom-round-button.compact-button .anticon {
-  font-size: 10px;
-}
-
-/* 下拉菜单圆角 */
-.ant-select-dropdown {
-  border-radius: 8px !important;
-  background-color: #1a1a1a !important;
-  border-color: #444 !important;
-}
-
-/* 下拉选项圆角 */
-.ant-select-dropdown .ant-select-item {
-  background-color: #1a1a1a !important;
-  color: #e0e0e0 !important;
-  border-radius: 4px !important;
-  margin: 2px 4px !important;
-}
-
-.ant-select-dropdown .ant-select-item:first-child {
-  border-top-left-radius: 8px !important;
-  border-top-right-radius: 8px !important;
-}
-
-.ant-select-dropdown .ant-select-item:last-child {
-  border-bottom-left-radius: 8px !important;
-  border-bottom-right-radius: 8px !important;
-}
-
-.ant-select-dropdown .ant-select-item:hover {
-  background-color: #444 !important;
-  color: #4caf50 !important;
-}
-:deep(.ant-select-single:not(.ant-select-customize-input) .ant-select-selector) {
-  background-color: #1a1a1a !important; /* 你想要的灰色 */
-  color: #e0e0e0; /* 可选：让文字也保持浅色 */
-}
-:deep(.ant-select-single:not(.ant-select-customize-input) .ant-select-selector) {
-  background-color: #1a1a1a !important; /* 深灰背景 */
-  border-color: rgba(255, 255, 255, 0.08) !important; /* 几乎透明的白色边框 */
-}
-/* 选择器本身的圆角 */
-.ant-select-selector {
-  border-radius: 6px !important;
-  border: none !important;
-  background-color: #1a1a1a !important;
-  box-shadow: none !important;
-}
-
-/* 为新建按钮添加动画效果 */
-.ai-chat-custom-tabs .anticon-plus {
-  transition: all 0.2s ease;
-  cursor: pointer;
+:deep(.ant-dropdown-menu) {
+  background-color: #2a2a2a;
+  border: 1px solid #3a3a3a;
+  border-radius: 8px;
   padding: 4px;
-  border-radius: 4px;
+
+  .ant-dropdown-menu-item {
+    color: #e0e0e0;
+    font-size: 13px;
+    padding: 8px 12px;
+    border-radius: 4px;
+
+    &:hover {
+      background-color: #3a3a3a;
+      color: #4caf50;
+    }
+  }
 }
 
-.ai-chat-custom-tabs .anticon-plus:active {
-  transform: scale(0.85);
-  background-color: rgba(255, 255, 255, 0.1);
-}
+:deep(.ant-select-dropdown) {
+  background-color: #2a2a2a;
+  border: 1px solid #3a3a3a;
+  border-radius: 8px;
 
-.ai-chat-custom-tabs .anticon-plus:hover {
-  background-color: rgba(255, 255, 255, 0.05);
+  .ant-select-item {
+    color: #e0e0e0;
+    font-size: 13px;
+    padding: 8px 12px;
+
+    &:hover {
+      background-color: #3a3a3a;
+      color: #4caf50;
+    }
+  }
 }
 </style>
