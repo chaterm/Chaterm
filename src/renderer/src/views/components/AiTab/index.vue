@@ -136,6 +136,82 @@
         </div>
       </div>
     </a-tab-pane>
+    <a-tab-pane
+      key="ctm-agent"
+      tab="Agent"
+      force-render
+    >
+      <div
+        v-if="chatHistoryCmd.length > 0"
+        class="chat-response-container"
+      >
+        <div class="chat-response">
+          <template
+            v-for="message in chatHistoryCmd"
+            :key="message"
+          >
+            <div
+              v-if="message.role === 'assistant'"
+              :class="`message ${message.role}`"
+              class="assistant-message-container"
+            >
+              <div class="message-actions">
+                <div
+                  class="message-content"
+                  v-html="message.content"
+                ></div>
+                <a-button
+                  size="small"
+                  class="action-btn copy-btn"
+                  @click="handleCopyContent(message)"
+                >
+                  {{ $t('ai.copy') }}
+                </a-button>
+                <a-button
+                  size="small"
+                  class="action-btn apply-btn"
+                  @click="handleApplyCommand(message)"
+                >
+                  {{ $t('ai.run') }}
+                </a-button>
+              </div>
+            </div>
+            <div
+              v-else
+              :class="`message ${message.role}`"
+              v-html="message.content"
+            ></div>
+          </template>
+        </div>
+      </div>
+      <div class="input-container">
+        <div class="input-send-container">
+          <a-textarea
+            v-model:value="composerInputValue"
+            :placeholder="$t('ai.agentMessage')"
+            style="background-color: gray; color: #fff"
+            :auto-size="{ minRows: 3, maxRows: 20 }"
+            @keydown="handleKeyDown"
+          />
+          <div class="input-controls">
+            <a-select
+              v-model:value="composerModelValue"
+              size="small"
+              :options="AiModelsOptions"
+              show-search
+            ></a-select>
+            <a-button
+              size="small"
+              class="custom-round-button compact-button"
+              style="margin-left: 8px"
+              @click="sendMessage"
+            >
+              {{ $t('ai.send') }} ⏎
+            </a-button>
+          </div>
+        </div>
+      </div>
+    </a-tab-pane>
     <template #rightExtra>
       <PlusOutlined
         style="color: #fff; margin-left: 1px; font-size: 14px"
