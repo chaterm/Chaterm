@@ -90,5 +90,12 @@ export default {
     newHost: 'New Host',
     keyChain: 'KeyChain',
     newKey: 'New Key'
+  },
+  ai: {
+    chatMessage: 'Ask AI chat',
+    commandMessage: 'Search command',
+    copy: 'Copy',
+    run: 'Run',
+    send: 'Send'
   }
 }

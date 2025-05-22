@@ -35,7 +35,7 @@
         <div class="input-send-container">
           <a-textarea
             v-model:value="chatInputValue"
-            placeholder="Ask AI chat"
+            :placeholder="$t('ai.chatMessage')"
             style="background-color: gray; color: #fff"
             :auto-size="{ minRows: 3, maxRows: 20 }"
             @keydown="handleKeyDown"
@@ -54,7 +54,7 @@
               style="margin-left: 8px"
               @click="sendMessage"
             >
-              Send ⏎
+              {{ $t('ai.send') }} ⏎
             </a-button>
           </div>
         </div>
@@ -85,20 +85,18 @@
                   v-html="message.content"
                 ></div>
                 <a-button
-                  type="primary"
                   size="small"
                   class="action-btn copy-btn"
-                  @click="handleCopyContent(message.content)"
+                  @click="handleCopyContent(message)"
                 >
-                  <CopyOutlined />
+                  {{ $t('ai.copy') }}
                 </a-button>
                 <a-button
-                  type="primary"
                   size="small"
                   class="action-btn apply-btn"
                   @click="handleApplyCommand(message)"
                 >
-                  Run
+                  {{ $t('ai.run') }}
                 </a-button>
               </div>
             </div>
@@ -114,7 +112,7 @@
         <div class="input-send-container">
           <a-textarea
             v-model:value="composerInputValue"
-            placeholder="查询命令"
+            :placeholder="$t('ai.commandMessage')"
             style="background-color: gray; color: #fff"
             :auto-size="{ minRows: 3, maxRows: 20 }"
             @keydown="handleKeyDown"
@@ -127,13 +125,12 @@
               show-search
             ></a-select>
             <a-button
-              type="primary"
               size="small"
               class="custom-round-button compact-button"
               style="margin-left: 8px"
               @click="sendMessage"
             >
-              Send ⏎
+              {{ $t('ai.send') }} ⏎
             </a-button>
           </div>
         </div>
@@ -162,7 +159,6 @@
           </a-menu>
         </template>
       </a-dropdown>
-
       <CloseOutlined
         style="color: #fff; margin-left: 13px; font-size: 11px"
         @click="handleClose"
@@ -173,7 +169,7 @@
 
 <script setup lang="ts">
 import { ref, reactive, onMounted, defineAsyncComponent, defineEmits } from 'vue'
-import { PlusOutlined, CloseOutlined, HistoryOutlined, CopyOutlined } from '@ant-design/icons-vue'
+import { PlusOutlined, CloseOutlined, HistoryOutlined } from '@ant-design/icons-vue'
 import { notification } from 'ant-design-vue'
 import { v4 as uuidv4 } from 'uuid'
 import { getAiModel, getChatDetailList, getConversationList } from '@/api/ai/ai'
@@ -548,26 +544,27 @@ const handleHistoryClick = () => {
 }
 
 const handleApplyCommand = (message: { content: string }) => {
-  notification.success({
-    message: '成功',
-    description: '命令执行成功！',
-    placement: 'topRight',
-    duration: 1
-  })
-  emit('runCmd', message.content)
+  // notification.success({
+  //   message: '成功',
+  //   description: '命令执行成功！',
+  //   placement: 'topRight',
+  //   duration: 1
+  // })
+  emit('runCmd', message.content + '\n')
   console.log('执行命令:', message.content)
 }
 
-const handleCopyContent = (content: string) => {
+const handleCopyContent = (message: { content: string }) => {
   navigator.clipboard
-    .writeText(content)
+    .writeText(message.content)
     .then(() => {
-      notification.success({
-        message: '成功',
-        description: '已复制到剪贴板',
-        placement: 'topRight',
-        duration: 1
-      })
+      // notification.success({
+      //   message: '成功',
+      //   description: '已复制到终端',
+      //   placement: 'topRight',
+      //   duration: 1
+      // })
+      emit('runCmd', message.content)
     })
     .catch((err) => {
       console.error('复制失败:', err)
@@ -768,10 +765,10 @@ const closeWebSocket = (ws: WebSocket | null): WebSocket | null => {
   }
 
   .custom-round-button {
-    height: 32px;
+    height: 24px;
     padding: 0 16px;
     border-radius: 6px;
-    font-size: 13px;
+    font-size: 10px;
     background-color: #4caf50;
     border-color: #4caf50;
     color: white;
