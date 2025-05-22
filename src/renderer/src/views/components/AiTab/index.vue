@@ -235,13 +235,19 @@
             <HistoryOutlined />
           </a-button>
           <template #overlay>
-            <a-menu>
+            <a-menu class="history-dropdown-menu">
               <a-menu-item
                 v-for="(history, index) in historyList"
                 :key="index"
+                class="history-menu-item"
                 @click="restoreHistoryTab(history)"
               >
-                {{ history.chatTitle }}
+                <div class="history-item-content">
+                  <div class="history-title">{{ history.chatTitle }}</div>
+                  <div class="history-type">{{
+                    history.chatType === 'ctm-chat' ? 'Chat' : 'Cmd'
+                  }}</div>
+                </div>
               </a-menu-item>
             </a-menu>
           </template>
@@ -1179,5 +1185,73 @@ const closeWebSocket = (ws: WebSocket | null): WebSocket | null => {
       }
     }
   }
+}
+
+.history-dropdown-menu {
+  max-height: 400px;
+  overflow-y: auto;
+  padding: 4px;
+  background-color: #2a2a2a;
+  border: 1px solid #3a3a3a;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+
+  &::-webkit-scrollbar {
+    width: 4px;
+  }
+
+  &::-webkit-scrollbar-thumb {
+    background-color: #4a4a4a;
+    border-radius: 2px;
+
+    &:hover {
+      background-color: #5a5a5a;
+    }
+  }
+}
+
+.history-menu-item {
+  padding: 6px 8px !important;
+  margin: 2px 0 !important;
+  border-radius: 4px !important;
+  transition: all 0.2s ease !important;
+  min-height: unset !important;
+
+  &:hover {
+    background-color: #3a3a3a !important;
+    transform: translateX(2px);
+  }
+
+  &:active {
+    background-color: #4a4a4a !important;
+  }
+}
+
+.history-item-content {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+}
+
+.history-title {
+  color: #e0e0e0;
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex: 1;
+}
+
+.history-type {
+  color: #888;
+  font-size: 10px;
+  padding: 1px 4px;
+  background-color: #333;
+  border-radius: 3px;
+  display: inline-block;
+  width: fit-content;
+  flex-shrink: 0;
 }
 </style>
