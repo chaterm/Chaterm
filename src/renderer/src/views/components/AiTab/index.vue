@@ -79,16 +79,17 @@
               :class="`message ${message.role}`"
               class="assistant-message-container"
             >
+              <div
+                class="message-content"
+                v-html="message.content"
+              ></div>
               <div class="message-actions">
-                <div
-                  class="message-content"
-                  v-html="message.content"
-                ></div>
                 <a-button
                   size="small"
                   class="action-btn copy-btn"
                   @click="handleCopyContent(message)"
                 >
+                  <template #icon><CopyOutlined /></template>
                   {{ $t('ai.copy') }}
                 </a-button>
                 <a-button
@@ -96,6 +97,7 @@
                   class="action-btn apply-btn"
                   @click="handleApplyCommand(message)"
                 >
+                  <template #icon><PlayCircleOutlined /></template>
                   {{ $t('ai.run') }}
                 </a-button>
               </div>
@@ -155,16 +157,17 @@
               :class="`message ${message.role}`"
               class="assistant-message-container"
             >
+              <div
+                class="message-content"
+                v-html="message.content"
+              ></div>
               <div class="message-actions">
-                <div
-                  class="message-content"
-                  v-html="message.content"
-                ></div>
                 <a-button
                   size="small"
                   class="action-btn copy-btn"
                   @click="handleCopyContent(message)"
                 >
+                  <template #icon><CopyOutlined /></template>
                   {{ $t('ai.copy') }}
                 </a-button>
                 <a-button
@@ -172,6 +175,7 @@
                   class="action-btn apply-btn"
                   @click="handleApplyCommand(message)"
                 >
+                  <template #icon><PlayCircleOutlined /></template>
                   {{ $t('ai.run') }}
                 </a-button>
               </div>
@@ -213,39 +217,57 @@
       </div>
     </a-tab-pane>
     <template #rightExtra>
-      <PlusOutlined
-        style="color: #fff; margin-left: 1px; font-size: 14px"
-        @click="handlePlusClick"
-      />
+      <div class="right-extra-buttons">
+        <a-button
+          type="text"
+          class="action-icon-btn"
+          @click="handlePlusClick"
+        >
+          <PlusOutlined />
+        </a-button>
 
-      <a-dropdown :trigger="['click']">
-        <HistoryOutlined
-          style="color: #fff; margin-left: 10px; font-size: 14px"
-          @click="handleHistoryClick"
-        />
-        <template #overlay>
-          <a-menu>
-            <a-menu-item
-              v-for="(history, index) in historyList"
-              :key="index"
-              @click="restoreHistoryTab(history)"
-            >
-              {{ history.chatTitle }}
-            </a-menu-item>
-          </a-menu>
-        </template>
-      </a-dropdown>
-      <CloseOutlined
-        style="color: #fff; margin-left: 13px; font-size: 11px"
-        @click="handleClose"
-      />
+        <a-dropdown :trigger="['click']">
+          <a-button
+            type="text"
+            class="action-icon-btn"
+            @click="handleHistoryClick"
+          >
+            <HistoryOutlined />
+          </a-button>
+          <template #overlay>
+            <a-menu>
+              <a-menu-item
+                v-for="(history, index) in historyList"
+                :key="index"
+                @click="restoreHistoryTab(history)"
+              >
+                {{ history.chatTitle }}
+              </a-menu-item>
+            </a-menu>
+          </template>
+        </a-dropdown>
+
+        <a-button
+          type="text"
+          class="action-icon-btn"
+          @click="handleClose"
+        >
+          <CloseOutlined />
+        </a-button>
+      </div>
     </template>
   </a-tabs>
 </template>
 
 <script setup lang="ts">
 import { ref, reactive, onMounted, defineAsyncComponent, defineEmits } from 'vue'
-import { PlusOutlined, CloseOutlined, HistoryOutlined } from '@ant-design/icons-vue'
+import {
+  PlusOutlined,
+  CloseOutlined,
+  HistoryOutlined,
+  CopyOutlined,
+  PlayCircleOutlined
+} from '@ant-design/icons-vue'
 import { notification } from 'ant-design-vue'
 import { v4 as uuidv4 } from 'uuid'
 import { getAiModel, getChatDetailList, getConversationList } from '@/api/ai/ai'
@@ -768,12 +790,13 @@ const closeWebSocket = (ws: WebSocket | null): WebSocket | null => {
   display: flex;
   flex-direction: column;
   gap: 16px;
+  width: 100%;
 
   .message {
-    max-width: 85%;
+    width: 100%;
     padding: 12px 16px;
     border-radius: 12px;
-    font-size: 13px;
+    font-size: 12px;
     line-height: 1.5;
 
     &.user {
@@ -781,6 +804,7 @@ const closeWebSocket = (ws: WebSocket | null): WebSocket | null => {
       background-color: #2c3e50;
       color: #e0e0e0;
       border: 1px solid #34495e;
+      max-width: 85%;
     }
 
     &.assistant {
@@ -788,6 +812,7 @@ const closeWebSocket = (ws: WebSocket | null): WebSocket | null => {
       background-color: #1e2a38;
       color: #e0e0e0;
       border: 1px solid #2c3e50;
+      width: 100%;
     }
   }
 }
@@ -863,32 +888,214 @@ const closeWebSocket = (ws: WebSocket | null): WebSocket | null => {
 }
 
 .assistant-message-container {
-  .message-actions {
-    display: flex;
-    gap: 8px;
-    margin-top: 8px;
-    padding-top: 8px;
-    border-top: 1px solid #333;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
 
-    .action-btn {
-      height: 28px;
-      padding: 0 12px;
-      border-radius: 4px;
-      font-size: 12px;
+  .message-content {
+    width: 100%;
+    font-size: 12px;
+    line-height: 1.6;
+    color: #e0e0e0;
+    word-break: break-word;
+    overflow-wrap: break-word;
+
+    // 代码块样式
+    pre {
+      background-color: #1e1e1e;
+      border-radius: 6px;
+      padding: 12px;
+      margin: 8px 0;
+      overflow-x: auto;
+      border: 1px solid #333;
+
+      code {
+        font-family: 'Fira Code', 'Consolas', 'Monaco', monospace;
+        font-size: 12px;
+        line-height: 1.5;
+      }
+    }
+
+    // 行内代码样式
+    code:not(pre code) {
       background-color: #2a2a2a;
-      border-color: #3a3a3a;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-family: 'Fira Code', 'Consolas', 'Monaco', monospace;
+      font-size: 12px;
       color: #e0e0e0;
+      border: 1px solid #3a3a3a;
+    }
 
-      &:hover {
-        background-color: #3a3a3a;
-        border-color: #4a4a4a;
+    // 列表样式
+    ul,
+    ol {
+      padding-left: 20px;
+      margin: 8px 0;
+
+      li {
+        margin: 4px 0;
+      }
+    }
+
+    // 引用块样式
+    blockquote {
+      border-left: 4px solid #4caf50;
+      margin: 8px 0;
+      padding: 8px 16px;
+      background-color: #1e2a38;
+      border-radius: 0 4px 4px 0;
+    }
+
+    // 标题样式
+    h1,
+    h2,
+    h3,
+    h4,
+    h5,
+    h6 {
+      margin: 16px 0 8px;
+      color: #fff;
+      font-weight: 600;
+      line-height: 1.4;
+
+      &:first-child {
+        margin-top: 0;
+      }
+    }
+
+    h1 {
+      font-size: 1.8em;
+    }
+    h2 {
+      font-size: 1.5em;
+    }
+    h3 {
+      font-size: 1.3em;
+    }
+    h4 {
+      font-size: 1.2em;
+    }
+    h5 {
+      font-size: 1.1em;
+    }
+    h6 {
+      font-size: 1em;
+    }
+
+    // 表格样式
+    table {
+      border-collapse: collapse;
+      width: 100%;
+      margin: 8px 0;
+      background-color: #1e2a38;
+      border-radius: 4px;
+      overflow: hidden;
+
+      th,
+      td {
+        padding: 8px 12px;
+        border: 1px solid #333;
       }
 
-      &.copy-btn,
+      th {
+        background-color: #2c3e50;
+        font-weight: 600;
+      }
+
+      tr:nth-child(even) {
+        background-color: #1a2530;
+      }
+    }
+
+    // 水平线样式
+    hr {
+      border: none;
+      border-top: 1px solid #333;
+      margin: 16px 0;
+    }
+
+    // 链接样式
+    a {
+      color: #4caf50;
+      text-decoration: none;
+      transition: color 0.2s;
+
+      &:hover {
+        color: #45a049;
+        text-decoration: underline;
+      }
+    }
+
+    // 图片样式
+    img {
+      max-width: 100%;
+      border-radius: 4px;
+      margin: 8px 0;
+    }
+
+    // 强调文本样式
+    strong {
+      font-weight: 600;
+      color: #fff;
+    }
+
+    em {
+      font-style: italic;
+      color: #ccc;
+    }
+  }
+
+  .message-actions {
+    display: flex;
+    gap: 6px;
+    margin-top: 4px;
+    justify-content: flex-end;
+
+    .action-btn {
+      height: 24px;
+      padding: 0 8px;
+      border-radius: 4px;
+      font-size: 11px;
+      display: flex;
+      align-items: center;
+      gap: 3px;
+      transition: all 0.3s ease;
+      border: none;
+
+      &.copy-btn {
+        background-color: #2a2a2a;
+        color: #e0e0e0;
+
+        &:hover {
+          background-color: #3a3a3a;
+          transform: translateY(-1px);
+          box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+        }
+
+        &:active {
+          transform: translateY(0);
+        }
+      }
+
       &.apply-btn {
-        display: flex;
-        align-items: center;
-        gap: 4px;
+        background-color: #4caf50;
+        color: white;
+
+        &:hover {
+          background-color: #45a049;
+          transform: translateY(-1px);
+          box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+        }
+
+        &:active {
+          transform: translateY(0);
+        }
+      }
+
+      .anticon {
+        font-size: 12px;
       }
     }
   }
@@ -926,6 +1133,50 @@ const closeWebSocket = (ws: WebSocket | null): WebSocket | null => {
     &:hover {
       background-color: #3a3a3a;
       color: #4caf50;
+    }
+  }
+}
+
+.right-extra-buttons {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0 4px;
+
+  .action-icon-btn {
+    width: 24px;
+    height: 24px;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #e0e0e0;
+    border-radius: 4px;
+    transition: all 0.3s ease;
+
+    &:hover {
+      background-color: rgba(255, 255, 255, 0.1);
+      color: #fff;
+    }
+
+    &:active {
+      background-color: rgba(255, 255, 255, 0.15);
+    }
+
+    .anticon {
+      font-size: 14px;
+    }
+  }
+}
+
+:deep(.ant-tabs-nav) {
+  .ant-tabs-nav-wrap {
+    .ant-tabs-nav-list {
+      .ant-tabs-tab {
+        &:last-child {
+          margin-right: 0;
+        }
+      }
     }
   }
 }
