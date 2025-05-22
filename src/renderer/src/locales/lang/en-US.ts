@@ -94,6 +94,7 @@ export default {
   ai: {
     chatMessage: 'Ask AI chat',
     commandMessage: 'Search command',
+    agentMessage: 'Plan,search,execute anything',
     copy: 'Copy',
     run: 'Run',
     send: 'Send'
