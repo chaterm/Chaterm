@@ -92,5 +92,13 @@ export default {
     newHost: '添加主机',
     keyChain: '密钥',
     newKey: '添加密钥'
+  },
+  ai: {
+    chatMessage: 'AI聊天',
+    commandMessage: '查询命令',
+    agentMessage: '制定计划,搜索和执行命令等任何事情',
+    copy: '复制',
+    run: '执行',
+    send: '发送'
   }
 }
