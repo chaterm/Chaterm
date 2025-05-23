@@ -3,9 +3,10 @@ import * as vscode from 'vscode'
 import fs from 'fs/promises'
 import { Anthropic } from '@anthropic-ai/sdk'
 import { fileExistsAtPath } from '@utils/fs'
-import { ClineMessage } from '@shared/ExtensionMessage'
+import { ClineMessage } from '../../shared/ExtensionMessage'
 import { TaskMetadata } from '@core/context/context-tracking/ContextTrackerTypes'
 import os from 'os'
+// export { execa } from "execa"
 import { execa } from '@packages/execa'
 
 export const GlobalFileNames = {
@@ -15,9 +16,6 @@ export const GlobalFileNames = {
   openRouterModels: 'openrouter_models.json',
   mcpSettings: 'cline_mcp_settings.json',
   clineRules: '.clinerules',
-  cursorRulesDir: '.cursor/rules',
-  cursorRulesFile: '.cursorrules',
-  windsurfRules: '.windsurfrules',
   taskMetadata: 'task_metadata.json'
 }
 
