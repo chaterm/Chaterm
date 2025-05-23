@@ -97,6 +97,8 @@ export default {
     agentMessage: 'Plan,search,execute anything',
     copy: 'Copy',
     run: 'Run',
-    send: 'Send'
+    send: 'Send',
+    approve: 'Approve',
+    reject: 'Reject'
   }
 }
