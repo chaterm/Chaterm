@@ -49,6 +49,7 @@ import { ref, onMounted, defineEmits, getCurrentInstance } from 'vue'
 import { useDeviceStore } from '@/store/useDeviceStore'
 import { userConfigStore } from '@/store/userConfigStore'
 import { getUserTermConfig } from '@/api/user/user'
+import eventBus from '@/utils/eventBus'
 const platform = ref<string>('')
 const deviceStore = useDeviceStore()
 const configStore = userConfigStore()
@@ -128,6 +129,11 @@ onMounted(async () => {
   getUserTermConfig({}).then((res) => {
     configStore.setUserConfig(res.data)
     appContext.config.globalProperties.$i18n.locale = configStore.getUserConfig.language
+  })
+
+  // 监听右侧图标更新事件
+  eventBus.on('updateRightIcon', (value: boolean) => {
+    isRightSidebarCollapsed.value = value
   })
 })
 </script>
