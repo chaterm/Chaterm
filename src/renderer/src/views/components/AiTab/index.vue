@@ -36,7 +36,7 @@
           <a-textarea
             v-model:value="chatInputValue"
             :placeholder="$t('ai.chatMessage')"
-            style="background-color: gray; color: #fff"
+            style="background-color: #2b2b2b; color: #fff; border: none; box-shadow: none"
             :auto-size="{ minRows: 3, maxRows: 20 }"
             @keydown="handleKeyDown"
           />
@@ -89,7 +89,9 @@
                   class="action-btn copy-btn"
                   @click="handleCopyContent(message)"
                 >
-                  <template #icon><CopyOutlined /></template>
+                  <template #icon>
+                    <CopyOutlined />
+                  </template>
                   {{ $t('ai.copy') }}
                 </a-button>
                 <a-button
@@ -97,7 +99,9 @@
                   class="action-btn apply-btn"
                   @click="handleApplyCommand(message)"
                 >
-                  <template #icon><PlayCircleOutlined /></template>
+                  <template #icon>
+                    <PlayCircleOutlined />
+                  </template>
                   {{ $t('ai.run') }}
                 </a-button>
               </div>
@@ -115,7 +119,7 @@
           <a-textarea
             v-model:value="composerInputValue"
             :placeholder="$t('ai.commandMessage')"
-            style="background-color: gray; color: #fff"
+            style="background-color: #2b2b2b; color: #fff; border: none; box-shadow: none"
             :auto-size="{ minRows: 3, maxRows: 20 }"
             @keydown="handleKeyDown"
           />
@@ -167,7 +171,9 @@
                   class="action-btn copy-btn"
                   @click="handleCopyContent(message)"
                 >
-                  <template #icon><CopyOutlined /></template>
+                  <template #icon>
+                    <CopyOutlined />
+                  </template>
                   {{ $t('ai.copy') }}
                 </a-button>
                 <a-button
@@ -175,7 +181,9 @@
                   class="action-btn apply-btn"
                   @click="handleApplyCommand(message)"
                 >
-                  <template #icon><PlayCircleOutlined /></template>
+                  <template #icon>
+                    <PlayCircleOutlined />
+                  </template>
                   {{ $t('ai.run') }}
                 </a-button>
               </div>
@@ -193,7 +201,7 @@
           <a-textarea
             v-model:value="composerInputValue"
             :placeholder="$t('ai.agentMessage')"
-            style="background-color: gray; color: #fff"
+            style="background-color: #2b2b2b; color: #fff; border: none; box-shadow: none"
             :auto-size="{ minRows: 3, maxRows: 20 }"
             @keydown="handleKeyDown"
           />
@@ -252,7 +260,6 @@
             </a-menu>
           </template>
         </a-dropdown>
-
         <a-button
           type="text"
           class="action-icon-btn"
@@ -976,18 +983,23 @@ const closeWebSocket = (ws: WebSocket | null): WebSocket | null => {
     h1 {
       font-size: 1.8em;
     }
+
     h2 {
       font-size: 1.5em;
     }
+
     h3 {
       font-size: 1.3em;
     }
+
     h4 {
       font-size: 1.2em;
     }
+
     h5 {
       font-size: 1.1em;
     }
+
     h6 {
       font-size: 1em;
     }
