@@ -277,6 +277,7 @@ import {
 import { notification } from 'ant-design-vue'
 import { v4 as uuidv4 } from 'uuid'
 import { getAiModel, getChatDetailList, getConversationList } from '@/api/ai/ai'
+import eventBus from '@/utils/eventBus'
 const emit = defineEmits(['runCmd'])
 // 异步加载 Markdown 渲染组件
 const MarkdownRenderer = defineAsyncComponent(
@@ -503,6 +504,7 @@ const sendWebSocketMessage = (ws: WebSocket, type: string) => {
 
 const handleClose = () => {
   props.toggleSidebar('right')
+  eventBus.emit('updateRightIcon', false)
 }
 
 const handleKeyDown = (e: KeyboardEvent) => {
