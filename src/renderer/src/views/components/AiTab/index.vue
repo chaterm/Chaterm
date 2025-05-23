@@ -148,12 +148,12 @@
       force-render
     >
       <div
-        v-if="chatHistoryCmd.length > 0"
+        v-if="chatHistoryAgent.length > 0"
         class="chat-response-container"
       >
         <div class="chat-response">
           <template
-            v-for="message in chatHistoryCmd"
+            v-for="message in chatHistoryAgent"
             :key="message"
           >
             <div
@@ -169,22 +169,22 @@
                 <a-button
                   size="small"
                   class="action-btn copy-btn"
-                  @click="handleCopyContent(message)"
+                  @click="handleRejectContent(message)"
                 >
                   <template #icon>
-                    <CopyOutlined />
+                    <CloseOutlined />
                   </template>
-                  {{ $t('ai.copy') }}
+                  {{ $t('ai.reject') }}
                 </a-button>
                 <a-button
                   size="small"
                   class="action-btn apply-btn"
-                  @click="handleApplyCommand(message)"
+                  @click="handleApproveCommand(message)"
                 >
                   <template #icon>
-                    <PlayCircleOutlined />
+                    <CheckOutlined />
                   </template>
-                  {{ $t('ai.run') }}
+                  {{ $t('ai.approve') }}
                 </a-button>
               </div>
             </div>
@@ -199,7 +199,7 @@
       <div class="input-container">
         <div class="input-send-container">
           <a-textarea
-            v-model:value="composerInputValue"
+            v-model:value="agentInputValue"
             :placeholder="$t('ai.agentMessage')"
             style="background-color: #2b2b2b; color: #fff; border: none; box-shadow: none"
             :auto-size="{ minRows: 3, maxRows: 20 }"
@@ -253,7 +253,11 @@
                 <div class="history-item-content">
                   <div class="history-title">{{ history.chatTitle }}</div>
                   <div class="history-type">{{
-                    history.chatType === 'ctm-chat' ? 'Chat' : 'Cmd'
+                    history.chatType === 'ctm-chat'
+                      ? 'Chat'
+                      : history.chatType === 'ctm-cmd'
+                        ? 'Cmd'
+                        : 'Agent'
                   }}</div>
                 </div>
               </a-menu-item>
@@ -279,6 +283,7 @@ import {
   CloseOutlined,
   HistoryOutlined,
   CopyOutlined,
+  CheckOutlined,
   PlayCircleOutlined
 } from '@ant-design/icons-vue'
 import { notification } from 'ant-design-vue'
@@ -302,20 +307,24 @@ const historyList = ref<
 
 const chatInputValue = ref('')
 const composerInputValue = ref('')
+const agentInputValue = ref('')
 const composerModelValue = ref('qwen-chat')
 const chatrModelValue = ref('qwen-chat')
+const agentModelValue = ref('qwen-chat')
 const activeKey = ref('ctm-cmd')
 
 // 当前活动对话的 ID
 const currentChatId = ref<string | null>(null)
 const authTokenInCookie = ref<string | null>(null)
 
-// 为 CHAT 和 CMD 分别创建独立的聊天历史记录
+// 为 CHAT ，CMD 和 Agent 分别创建独立的聊天历史记录
 const chatHistoryChat = reactive<Array<{ role: string; content: string }>>([])
 const chatHistoryCmd = reactive<Array<{ role: string; content: string }>>([])
+const chatHistoryAgent = reactive<Array<{ role: string; content: string }>>([])
 
 const chatWebSocket = ref<WebSocket | null>(null)
 const cmdWebSocket = ref<WebSocket | null>(null)
+const agentWebSocket = ref<WebSocket | null>(null)
 
 const props = defineProps({
   toggleSidebar: {
@@ -341,7 +350,8 @@ const createWebSocket = (type: string) => {
   const token = JSON.parse(JSON.stringify(authTokenInCookie.value))
   const wsUrl = `${protocol}//demo.chaterm.ai/v1/ai/chat/ws?token=${token}`
   const ws = new WebSocket(wsUrl)
-  const currentHistory = type === 'ctm-chat' ? chatHistoryChat : chatHistoryCmd
+  const currentHistory =
+    type === 'ctm-chat' ? chatHistoryChat : type === 'ctm-cmd' ? chatHistoryCmd : chatHistoryAgent
 
   ws.onopen = () => {
     // console.log(`${type} WebSocket 连接成功`)
@@ -360,8 +370,10 @@ const createWebSocket = (type: string) => {
       // console.log(`${type} WebSocket连接已关闭`)
       if (type === 'ctm-chat') {
         chatWebSocket.value = null
-      } else {
+      } else if (type === 'ctm-cmd') {
         cmdWebSocket.value = null
+      } else if (type === 'ctm-agent') {
+        agentWebSocket.value = null
       }
     }
   }
@@ -435,9 +447,15 @@ const createWebSocket = (type: string) => {
 }
 
 const sendMessage = () => {
-  const currentWebSocket = activeKey.value === 'ctm-chat' ? chatWebSocket : cmdWebSocket
-  const userContent =
-    activeKey.value === 'ctm-chat' ? chatInputValue.value : composerInputValue.value
+  let currentWebSocket = chatWebSocket
+  let userContent = chatInputValue.value
+  if (activeKey.value === 'ctm-cmd') {
+    currentWebSocket = cmdWebSocket
+    userContent = composerInputValue.value
+  } else if (activeKey.value === 'ctm-agent') {
+    currentWebSocket = agentWebSocket
+    userContent = agentInputValue.value
+  }
 
   if (userContent.trim() === '') {
     return
@@ -463,9 +481,20 @@ const sendMessage = () => {
 }
 
 const sendWebSocketMessage = (ws: WebSocket, type: string) => {
-  const userContent = type === 'ctm-chat' ? chatInputValue.value : composerInputValue.value
-  const currentHistory = type === 'ctm-chat' ? chatHistoryChat : chatHistoryCmd
-  const currentModel = type === 'ctm-chat' ? chatrModelValue.value : composerModelValue.value
+  const userContent =
+    type === 'ctm-chat'
+      ? chatInputValue.value
+      : type === 'ctm-cmd'
+        ? composerInputValue.value
+        : agentInputValue.value
+  const currentHistory =
+    type === 'ctm-chat' ? chatHistoryChat : type === 'ctm-cmd' ? chatHistoryCmd : chatHistoryAgent
+  const currentModel =
+    type === 'ctm-chat'
+      ? chatrModelValue.value
+      : type === 'ctm-cmd'
+        ? composerModelValue.value
+        : agentModelValue.value
 
   // 将消息添加到当前对话的历史记录中
   const currentHistoryEntry = historyList.value.find((entry) => entry.id === currentChatId.value)
@@ -504,8 +533,10 @@ const sendWebSocketMessage = (ws: WebSocket, type: string) => {
 
   if (type === 'ctm-chat') {
     chatInputValue.value = ''
-  } else {
+  } else if (type === 'ctm-cmd') {
     composerInputValue.value = ''
+  } else if (type === 'ctm-agent') {
+    agentInputValue.value = ''
   }
 }
 
@@ -527,9 +558,16 @@ const newTabWithType = (tabType: string) => {
     chatWebSocket.value = closeWebSocket(chatWebSocket.value)
   } else if (tabType === 'ctm-cmd' && cmdWebSocket.value) {
     cmdWebSocket.value = closeWebSocket(cmdWebSocket.value)
+  } else if (tabType === 'ctm-agent' && agentWebSocket.value) {
+    agentWebSocket.value = closeWebSocket(agentWebSocket.value)
   }
 
-  const currentInput = tabType === 'ctm-chat' ? chatInputValue.value : composerInputValue.value
+  const currentInput =
+    tabType === 'ctm-chat'
+      ? chatInputValue.value
+      : tabType === 'ctm-cmd'
+        ? composerInputValue.value
+        : agentInputValue.value
 
   // 始终创建新的对话记录，不依赖于之前的 currentChatId
   const newChatId = uuidv4()
@@ -560,6 +598,10 @@ const newTabWithType = (tabType: string) => {
     composerInputValue.value = ''
     chatHistoryCmd.length = 0
     activeKey.value = 'ctm-cmd'
+  } else if (tabType === 'ctm-agent') {
+    agentInputValue.value = ''
+    chatHistoryAgent.length = 0
+    activeKey.value = 'ctm-agent'
   }
 
   if (currentInput.trim() !== '') {
@@ -568,9 +610,18 @@ const newTabWithType = (tabType: string) => {
 }
 
 const handlePlusClick = () => {
-  const currentTabType = activeKey.value === 'ctm-chat' ? 'ctm-chat' : 'ctm-cmd'
+  const currentTabType =
+    activeKey.value === 'ctm-chat'
+      ? 'ctm-chat'
+      : activeKey.value === 'ctm-cmd'
+        ? 'ctm-cmd'
+        : 'ctm-agent'
   const currentInput =
-    currentTabType === 'ctm-chat' ? chatInputValue.value : composerInputValue.value
+    currentTabType === 'ctm-chat'
+      ? chatInputValue.value
+      : currentTabType === 'ctm-cmd'
+        ? composerInputValue.value
+        : agentInputValue.value
   if (!currentInput.trim()) {
     return
   }
@@ -591,6 +642,10 @@ const restoreHistoryTab = (history: {
   if (cmdWebSocket.value) {
     cmdWebSocket.value.close()
     cmdWebSocket.value = null
+  }
+  if (agentWebSocket.value) {
+    agentWebSocket.value.close()
+    agentWebSocket.value = null
   }
 
   // 重置当前对话 ID
@@ -630,10 +685,14 @@ const restoreHistoryTab = (history: {
         chatHistoryChat.length = 0
         chatHistoryChat.push(...chatContentTemp)
         chatInputValue.value = ''
-      } else {
+      } else if (history.chatType === 'ctm-cmd') {
         chatHistoryCmd.length = 0
         chatHistoryCmd.push(...chatContentTemp)
         composerInputValue.value = ''
+      } else if (history.chatType === 'ctm-agent') {
+        chatHistoryAgent.length = 0
+        chatHistoryAgent.push(...chatContentTemp)
+        agentInputValue.value = ''
       }
     })
     .catch((err) => console.error(err))
@@ -690,6 +749,14 @@ const handleCopyContent = (message: { content: string }) => {
     })
 }
 
+const handleRejectContent = (message: { content: string }) => {
+  console.log('拒绝执行命令:', message.content)
+}
+
+const handleApproveCommand = (message: { content: string }) => {
+  console.log('同意执行命令:', message.content)
+}
+
 // 修改 onMounted 中的初始化代码
 onMounted(async () => {
   authTokenInCookie.value = localStorage.getItem('ctm-token')
@@ -708,6 +775,15 @@ onMounted(async () => {
     id: cmdId,
     chatTitle: '新对话 (CMD)',
     chatType: 'ctm-cmd',
+    chatContent: []
+  })
+
+  // 为 AGENT 标签创建初始会话
+  const agentId = uuidv4()
+  historyList.value.unshift({
+    id: agentId,
+    chatTitle: '新对话 (AGENT)',
+    chatType: 'ctm-agent',
     chatContent: []
   })
 
