@@ -137,7 +137,7 @@ watch(leftPaneSize, () => {
   }
 })
 const DEFAULT_WIDTH_PX = 240
-const DEFAULT_WIDTH_RIGHT_PX = 400
+const DEFAULT_WIDTH_RIGHT_PX = 550
 const currentMenu = ref('workspace')
 const activeKey = ref('mainTerminal')
 const updatePaneSize = () => {
@@ -313,7 +313,7 @@ const changeCompany = () => {
 </script>
 <style lang="less">
 .rigth-bar {
-  padding: 2px;
+  padding: 1px;
 }
 
 .terminal-layout {
