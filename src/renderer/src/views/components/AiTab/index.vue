@@ -792,7 +792,7 @@ onMounted(async () => {
 
   :deep(.ant-tabs-nav) {
     height: 22px;
-    margin-bottom: 8px;
+    margin-bottom: 2px;
   }
 
   :deep(.ant-tabs-tab) {
