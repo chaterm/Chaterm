@@ -99,6 +99,9 @@ export default {
     run: 'Run',
     send: 'Send',
     approve: 'Approve',
-    reject: 'Reject'
+    reject: 'Reject',
+    newChat: 'New Chat',
+    showChatHistory: 'Show Chat History',
+    closeAiSidebar: 'Close AI Sidebar'
   }
 }
