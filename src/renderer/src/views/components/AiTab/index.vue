@@ -552,24 +552,16 @@ const handleKeyDown = (e: KeyboardEvent) => {
   }
 }
 
-const newTabWithType = (tabType: string) => {
-  // 关闭之前的 WebSocket
-  if (tabType === 'ctm-chat' && chatWebSocket.value) {
-    chatWebSocket.value = closeWebSocket(chatWebSocket.value)
-  } else if (tabType === 'ctm-cmd' && cmdWebSocket.value) {
-    cmdWebSocket.value = closeWebSocket(cmdWebSocket.value)
-  } else if (tabType === 'ctm-agent' && agentWebSocket.value) {
-    agentWebSocket.value = closeWebSocket(agentWebSocket.value)
-  }
-
+const handlePlusClick = () => {
+  const currentTabType = activeKey.value
   const currentInput =
-    tabType === 'ctm-chat'
+    currentTabType === 'ctm-chat'
       ? chatInputValue.value
-      : tabType === 'ctm-cmd'
+      : currentTabType === 'ctm-cmd'
         ? composerInputValue.value
         : agentInputValue.value
 
-  // 始终创建新的对话记录，不依赖于之前的 currentChatId
+  // 创建新的会话
   const newChatId = uuidv4()
   currentChatId.value = newChatId
 
@@ -583,49 +575,29 @@ const newTabWithType = (tabType: string) => {
   const newHistoryEntry = {
     id: newChatId,
     chatTitle: chatTitle,
-    chatType: tabType,
+    chatType: currentTabType,
     chatContent: []
   }
 
   // 使用 unshift 将新的历史记录项插入到数组开头
   historyList.value.unshift(newHistoryEntry)
 
-  if (tabType === 'ctm-chat') {
+  // 清空当前输入和聊天历史
+  if (currentTabType === 'ctm-chat') {
     chatInputValue.value = ''
     chatHistoryChat.length = 0
-    activeKey.value = 'ctm-chat'
-  } else if (tabType === 'ctm-cmd') {
+  } else if (currentTabType === 'ctm-cmd') {
     composerInputValue.value = ''
     chatHistoryCmd.length = 0
-    activeKey.value = 'ctm-cmd'
-  } else if (tabType === 'ctm-agent') {
+  } else if (currentTabType === 'ctm-agent') {
     agentInputValue.value = ''
     chatHistoryAgent.length = 0
-    activeKey.value = 'ctm-agent'
   }
 
+  // 如果有输入内容，发送消息
   if (currentInput.trim() !== '') {
     sendMessage()
   }
-}
-
-const handlePlusClick = () => {
-  const currentTabType =
-    activeKey.value === 'ctm-chat'
-      ? 'ctm-chat'
-      : activeKey.value === 'ctm-cmd'
-        ? 'ctm-cmd'
-        : 'ctm-agent'
-  const currentInput =
-    currentTabType === 'ctm-chat'
-      ? chatInputValue.value
-      : currentTabType === 'ctm-cmd'
-        ? composerInputValue.value
-        : agentInputValue.value
-  if (!currentInput.trim()) {
-    return
-  }
-  newTabWithType(currentTabType)
 }
 
 const restoreHistoryTab = (history: {
@@ -802,26 +774,6 @@ onMounted(async () => {
     })
     .catch((err) => console.error(err))
 })
-
-const closeWebSocket = (ws: WebSocket | null): WebSocket | null => {
-  if (!ws) return null
-  try {
-    if (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING) {
-      ws.close(1000, '正常关闭')
-      setTimeout(() => {
-        if (ws.readyState !== WebSocket.CLOSED) {
-          console.warn('WebSocket 关闭超时，强制置为 null')
-        }
-      }, 1000)
-    } else {
-      console.log(`WebSocket 当前状态: ${ws.readyState}，不需要关闭`)
-    }
-  } catch (error) {
-    console.error('关闭 WebSocket 时发生错误:', error)
-  }
-
-  return null
-}
 </script>
 
 <style lang="less" scoped>
@@ -926,6 +878,10 @@ const closeWebSocket = (ws: WebSocket | null): WebSocket | null => {
     color: #e0e0e0 !important;
     padding: 8px 12px !important;
     font-size: 13px !important;
+
+    :deep(.ant-input::placeholder) {
+      color: #666 !important;
+    }
 
     &:hover,
     &:focus {
@@ -1343,5 +1299,9 @@ const closeWebSocket = (ws: WebSocket | null): WebSocket | null => {
   display: inline-block;
   width: fit-content;
   flex-shrink: 0;
+}
+
+:deep(.ant-input::placeholder) {
+  color: #666 !important;
 }
 </style>
