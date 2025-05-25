@@ -784,8 +784,7 @@ onMounted(async () => {
 <style lang="less" scoped>
 .ai-chat-custom-tabs {
   :deep(.ant-tabs-tab:not(.ant-tabs-tab-active) .ant-tabs-tab-btn) {
-    color: #81b0bf;
-    font-weight: 600;
+    color: #e0e0e0;
     transition:
       color 0.2s,
       text-shadow 0.2s;
@@ -1161,12 +1160,12 @@ onMounted(async () => {
 :deep(.ant-dropdown-menu) {
   background-color: #2a2a2a;
   border: 1px solid #3a3a3a;
-  border-radius: 8px;
+  border-radius: 6px;
   padding: 4px;
 
   .ant-dropdown-menu-item {
     color: #e0e0e0;
-    font-size: 13px;
+    font-size: 12px;
     padding: 8px 12px;
     border-radius: 4px;
 
