@@ -226,51 +226,56 @@
     </a-tab-pane>
     <template #rightExtra>
       <div class="right-extra-buttons">
-        <a-button
-          type="text"
-          class="action-icon-btn"
-          @click="handlePlusClick"
-        >
-          <PlusOutlined />
-        </a-button>
-
-        <a-dropdown :trigger="['click']">
+        <a-tooltip :title="$t('ai.newChat')">
           <a-button
             type="text"
             class="action-icon-btn"
-            @click="handleHistoryClick"
+            @click="handlePlusClick"
           >
-            <HistoryOutlined />
+            <PlusOutlined />
           </a-button>
-          <template #overlay>
-            <a-menu class="history-dropdown-menu">
-              <a-menu-item
-                v-for="(history, index) in historyList"
-                :key="index"
-                class="history-menu-item"
-                @click="restoreHistoryTab(history)"
-              >
-                <div class="history-item-content">
-                  <div class="history-title">{{ history.chatTitle }}</div>
-                  <div class="history-type">{{
-                    history.chatType === 'ctm-chat'
-                      ? 'Chat'
-                      : history.chatType === 'ctm-cmd'
-                        ? 'Cmd'
-                        : 'Agent'
-                  }}</div>
-                </div>
-              </a-menu-item>
-            </a-menu>
-          </template>
-        </a-dropdown>
-        <a-button
-          type="text"
-          class="action-icon-btn"
-          @click="handleClose"
-        >
-          <CloseOutlined />
-        </a-button>
+        </a-tooltip>
+        <a-tooltip :title="$t('ai.showChatHistory')">
+          <a-dropdown :trigger="['click']">
+            <a-button
+              type="text"
+              class="action-icon-btn"
+              @click="handleHistoryClick"
+            >
+              <HistoryOutlined />
+            </a-button>
+            <template #overlay>
+              <a-menu class="history-dropdown-menu">
+                <a-menu-item
+                  v-for="(history, index) in historyList"
+                  :key="index"
+                  class="history-menu-item"
+                  @click="restoreHistoryTab(history)"
+                >
+                  <div class="history-item-content">
+                    <div class="history-title">{{ history.chatTitle }}</div>
+                    <div class="history-type">{{
+                      history.chatType === 'ctm-chat'
+                        ? 'Chat'
+                        : history.chatType === 'ctm-cmd'
+                          ? 'Cmd'
+                          : 'Agent'
+                    }}</div>
+                  </div>
+                </a-menu-item>
+              </a-menu>
+            </template>
+          </a-dropdown>
+        </a-tooltip>
+        <a-tooltip :title="$t('ai.closeAiSidebar')">
+          <a-button
+            type="text"
+            class="action-icon-btn"
+            @click="handleClose"
+          >
+            <CloseOutlined />
+          </a-button>
+        </a-tooltip>
       </div>
     </template>
   </a-tabs>

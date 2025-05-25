@@ -101,6 +101,9 @@ export default {
     run: '执行',
     send: '发送',
     approve: '同意',
-    reject: '拒绝'
+    reject: '拒绝',
+    newChat: '开启新对话',
+    showChatHistory: '查看历史记录',
+    closeAiSidebar: '收起AI助手'
   }
 }
