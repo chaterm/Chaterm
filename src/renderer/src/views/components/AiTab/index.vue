@@ -344,7 +344,7 @@ interface ModelOption {
 const AiModelsOptions = ref<ModelOption[]>([])
 
 // 切换标签时候，当前的对话ID修改为对应的chat tag的id
-const handleTabChange = (key: string) => {
+const handleTabChange = (key: string | number) => {
   currentChatId.value = historyList.value.find((item) => item.chatType === key)?.id || null
 }
 
