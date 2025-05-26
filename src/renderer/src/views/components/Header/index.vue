@@ -47,11 +47,11 @@
 <script setup lang="ts">
 import { ref, onMounted, defineEmits, getCurrentInstance } from 'vue'
 import { useDeviceStore } from '@/store/useDeviceStore'
-import { userConfigStore } from '@/store/userConfigStore'
-import { getUserTermConfig } from '@/api/user/user'
+import { userConfigStore } from '@/services/userConfigStoreService'
+import eventBus from '@/utils/eventBus'
+
 const platform = ref<string>('')
 const deviceStore = useDeviceStore()
-const configStore = userConfigStore()
 const instance = getCurrentInstance()!
 const { appContext } = instance
 
@@ -68,8 +68,13 @@ const { appContext } = instance
 const isKeyDown = ref(false)
 const dinatesX = ref(0)
 const dinatesY = ref(0)
+let lastWidth: number, lastHeight: number
 
 const mousedown = (e: MouseEvent) => {
+  if (isKeyDown.value == false) {
+    lastWidth = window.outerWidth
+    lastHeight = window.outerHeight
+  }
   isKeyDown.value = true
   dinatesX.value = e.x
   dinatesY.value = e.y
@@ -79,7 +84,9 @@ const mousedown = (e: MouseEvent) => {
       const y = ev.screenY - dinatesY.value
       const data = {
         appX: x,
-        appY: y
+        appY: y,
+        width: lastWidth,
+        height: lastHeight
       }
       const api = window.api as any
       api.invokeCustomAdsorption(data)
@@ -125,9 +132,12 @@ onMounted(async () => {
   } catch (error) {
     console.error('获取MacAddress失败:', error)
   }
-  getUserTermConfig({}).then((res) => {
-    configStore.setUserConfig(res.data)
-    appContext.config.globalProperties.$i18n.locale = configStore.getUserConfig.language
+  const userConfig = await userConfigStore.getConfig()
+  appContext.config.globalProperties.$i18n.locale = userConfig.language
+
+  // 监听右侧图标更新事件
+  eventBus.on('updateRightIcon', (value: boolean) => {
+    isRightSidebarCollapsed.value = value
   })
 })
 </script>
@@ -186,6 +196,7 @@ onMounted(async () => {
     display: block;
     margin-right: 18px;
   }
+
   .sidebar-toggle-icon_mac {
     width: 20px;
     height: 20px;

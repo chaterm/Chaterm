@@ -417,6 +417,14 @@ const api = {
   chatermConnectAssetInfo: async (data) => {
     const result = await ipcRenderer.invoke('chaterm-connect-asset-info', data)
     return result
+  },
+  sendToMain: (message: any) => ipcRenderer.invoke('webview-to-main', message),
+  onMainMessage: (callback) => {
+    const handler = (_event, message) => callback(message)
+    ipcRenderer.on('main-to-webview', handler)
+    return () => {
+      ipcRenderer.removeListener('main-to-webview', handler)
+    }
   }
 }
 // 自定义 API 用于浏览器控制

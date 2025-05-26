@@ -10,7 +10,32 @@ const envDir = resolve('build')
 
 export default defineConfig({
   main: {
-    plugins: [externalizeDepsPlugin(), bytecodePlugin()]
+    plugins: [
+      externalizeDepsPlugin({
+        exclude: [
+          'p-wait-for',
+          'chrome-launcher',
+          'globby',
+          'execa',
+          'p-timeout',
+          'get-folder-size',
+          'serialize-error',
+          'os-name'
+        ]
+      }),
+      bytecodePlugin()
+    ],
+    resolve: {
+      alias: {
+        '@shared': resolve('src/main/shared'),
+        '@core': resolve('src/main/core'),
+        '@services': resolve('src/main/services'),
+        '@integrations': resolve('src/main/integrations'),
+        '@utils': resolve('src/main/utils'),
+        '@api': resolve('src/main/api'),
+        vscode: resolve('src/main/vscode-mock.ts')
+      }
+    }
   },
   preload: {
     plugins: [externalizeDepsPlugin(), bytecodePlugin()]
