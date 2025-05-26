@@ -3,7 +3,9 @@
   "references": [{ "path": "./tsconfig.node.json" }, { "path": "./tsconfig.web.json" }],
   "compilerOptions": {
     "baseUrl": ".",
-    "types": ["marked", "shiki"],
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true,
+    "types": ["marked", "shiki","node", "mocha", "should"],
     "paths": {
       "@/*": ["src/renderer/src/*"] 
     }
