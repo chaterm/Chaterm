@@ -108,12 +108,15 @@
     "zod": "^3.24.2"
   },
   "devDependencies": {
+    "@babel/preset-env": "^7.27.2",
+    "@babel/preset-typescript": "^7.27.1",
     "@changesets/cli": "^2.27.12",
     "@electron-toolkit/eslint-config": "^1.0.2",
     "@electron-toolkit/eslint-config-ts": "^1.0.1",
     "@electron-toolkit/tsconfig": "^1.0.1",
     "@electron/rebuild": "^4.0.1",
     "@rushstack/eslint-patch": "^1.7.1",
+    "@types/jest": "^29.5.14",
     "@types/chai": "^5.0.1",
     "@types/clone-deep": "^4.0.4",
     "@types/diff": "^5.2.1",
@@ -146,6 +149,7 @@
     "grpc-tools": "^1.13.0",
     "highlight.js": "^11.11.1",
     "husky": "^9.1.7",
+    "jest": "^29.7.0",
     "js-cookie": "^3.0.5",
     "less": "^4.2.2",
     "lint-staged": "^15.5.1",

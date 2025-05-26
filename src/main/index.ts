@@ -479,6 +479,7 @@ ipcMain.handle('key-chain-local-update', async (_, data) => {
     return null
   }
 })
+
 ipcMain.handle('chaterm-connect-asset-info', async (_, data) => {
   try {
     const { uuid } = data
@@ -487,5 +488,94 @@ ipcMain.handle('chaterm-connect-asset-info', async (_, data) => {
   } catch (error) {
     console.error('Chaterm获取资产信息失败:', error)
     return null
+  }
+})
+
+// Agent相关的IPC处理器
+ipcMain.handle('agent-get-api-conversation-history', async (_, data) => {
+  try {
+    const { taskId } = data
+    const result = await chatermDbService.getSavedApiConversationHistory(taskId)
+    return { success: true, data: result }
+  } catch (error) {
+    console.error('获取API对话历史失败:', error)
+    return { success: false, error: String(error) }
+  }
+})
+
+ipcMain.handle('agent-save-api-conversation-history', async (_, data) => {
+  try {
+    const { taskId, apiConversationHistory } = data
+    await chatermDbService.saveApiConversationHistory(taskId, apiConversationHistory)
+    return { success: true }
+  } catch (error) {
+    console.error('保存API对话历史失败:', error)
+    return { success: false, error: String(error) }
+  }
+})
+
+ipcMain.handle('agent-get-cline-messages', async (_, data) => {
+  try {
+    const { taskId } = data
+    const result = await chatermDbService.getSavedClineMessages(taskId)
+    return { success: true, data: result }
+  } catch (error) {
+    console.error('获取Cline消息失败:', error)
+    return { success: false, error: String(error) }
+  }
+})
+
+ipcMain.handle('agent-save-cline-messages', async (_, data) => {
+  try {
+    const { taskId, uiMessages } = data
+    await chatermDbService.saveClineMessages(taskId, uiMessages)
+    return { success: true }
+  } catch (error) {
+    console.error('保存Cline消息失败:', error)
+    return { success: false, error: String(error) }
+  }
+})
+
+ipcMain.handle('agent-get-task-metadata', async (_, data) => {
+  try {
+    const { taskId } = data
+    const result = await chatermDbService.getTaskMetadata(taskId)
+    return { success: true, data: result }
+  } catch (error) {
+    console.error('获取任务元数据失败:', error)
+    return { success: false, error: String(error) }
+  }
+})
+
+ipcMain.handle('agent-save-task-metadata', async (_, data) => {
+  try {
+    const { taskId, metadata } = data
+    await chatermDbService.saveTaskMetadata(taskId, metadata)
+    return { success: true }
+  } catch (error) {
+    console.error('保存任务元数据失败:', error)
+    return { success: false, error: String(error) }
+  }
+})
+
+ipcMain.handle('agent-get-context-history', async (_, data) => {
+  try {
+    const { taskId } = data
+    const result = await chatermDbService.getSavedContextHistory(taskId)
+    return { success: true, data: result }
+  } catch (error) {
+    console.error('获取上下文历史失败:', error)
+    return { success: false, error: String(error) }
+  }
+})
+
+ipcMain.handle('agent-save-context-history', async (_, data) => {
+  try {
+    const { taskId, contextHistory } = data
+    await chatermDbService.saveContextHistory(taskId, contextHistory)
+    return { success: true }
+  } catch (error) {
+    console.error('保存上下文历史失败:', error)
+    return { success: false, error: String(error) }
   }
 })
