@@ -321,7 +321,7 @@ defineExpose({
 .term_host_list {
   width: 100%;
   height: 100%;
-  padding: 10px;
+  padding: 4px;
   display: flex;
   justify-content: space-between;
   flex-wrap: wrap;

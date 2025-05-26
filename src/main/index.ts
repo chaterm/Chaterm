@@ -5,12 +5,17 @@ import icon from '../../resources/icon.png?asset'
 
 import { registerSSHHandlers } from './sshHandle'
 import { autoCompleteDatabaseService, ChatermDatabaseService } from './database'
+import { Controller } from './core/controller'
+import { createExtensionContext } from './core/controller/context'
+import { ElectronOutputChannel } from './core/controller/outputChannel'
+
 let mainWindow: BrowserWindow
 let COOKIE_URL = ''
 let browserWindow: BrowserWindow | null = null
 
 let autoCompleteService: autoCompleteDatabaseService
 let chatermDbService: ChatermDatabaseService
+let controller: Controller
 
 async function createWindow(): Promise<void> {
   autoCompleteService = await autoCompleteDatabaseService.getInstance()
@@ -84,7 +89,13 @@ app.whenReady().then(() => {
 
   // 注册窗口拖拽处理程序（只注册一次）
   ipcMain.handle('custom-adsorption', (_, res) => {
-    mainWindow.setPosition(res.appX, res.appY)
+    const newBounds = {
+      x: res.appX,
+      y: res.appY,
+      width: res.width,
+      height: res.height
+    }
+    mainWindow.setBounds(newBounds, true)
   })
 
   app.on('browser-window-created', (_, window) => {
@@ -103,6 +114,16 @@ app.whenReady().then(() => {
     // On macOS it's common to re-create a window in the app when the
     // dock icon is clicked and there are no other windows open.
     if (BrowserWindow.getAllWindows().length === 0) createWindow()
+  })
+  const context = createExtensionContext()
+  const outputChannel = new ElectronOutputChannel()
+
+  controller = new Controller(context, outputChannel, (message) => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('main-to-webview', message)
+      return Promise.resolve(true)
+    }
+    return Promise.resolve(false)
   })
 })
 
@@ -247,6 +268,21 @@ function updateNavigationState(): void {
 }
 // 设置 IPC 处理
 function setupIPC(): void {
+  // 添加从渲染进程到主进程的消息处理器
+  ipcMain.handle('webview-to-main', async (_, message) => {
+    console.log('webview-to-main', message)
+    if (controller) {
+      return await controller.handleWebviewMessage(message)
+    }
+    return null
+  })
+
+  // 添加从主进程到渲染进程的消息处理器
+  ipcMain.on('main-to-webview', (_, message) => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('main-to-webview', message)
+    }
+  })
   // 打开浏览器窗口
   ipcMain.on('open-browser-window', (_, url) => {
     createBrowserWindow(url)

@@ -60,6 +60,8 @@ interface ApiType {
   sshSftpList: (opts: { id: string; remotePath: string }) => Promise<any>
   sftpConnList: () => Promise<string[]>
   sshConnExec: (args: { id: string; cmd: string }) => Promise<any>
+  sendToMain: (message: any) => Promise<any>
+  onMainMessage: (callback: (message: any) => void) => () => void
 }
 
 declare global {
