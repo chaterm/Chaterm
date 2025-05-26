@@ -6,6 +6,12 @@ const menuTabsData = [
     activeIcon: new URL('@/assets/menu/host_active.svg', import.meta.url).href
   },
   {
+    name: 'Keychain',
+    key: 'keychain',
+    icon: new URL('@/assets/menu/key.svg', import.meta.url).href,
+    activeIcon: new URL('@/assets/menu/key_active.svg', import.meta.url).href
+  },
+  {
     name: 'Files',
     key: 'files',
     icon: new URL('@/assets/menu/files.svg', import.meta.url).href,
