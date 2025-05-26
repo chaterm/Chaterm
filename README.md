@@ -23,7 +23,7 @@ Want syntax highlighting and smart completion, but don't have root privileges, a
 
 ![Preview image](demo.jpg)
 
-## Deployment Architecture
+## Usecase
 
 ![Preview image](deploy.jpg)
 
@@ -91,6 +91,21 @@ $ npm run build:linux
 ### Local front-end and back-end debugging
 
 <p>Modify the electron.vite.config.ts file and set the target to the local URL address.</p>
+
+### Contributing Guide
+
+We use the [ESLint](https://eslint.org/) for code quality and [Prettier](https://prettier.io/) for code formatting. Please download the plugins for your IDE to get the best experience.
+You can add following code into `.vscode/settings.json` (if you are using VSCode) to enable Prettier aoto-formatting:
+
+```json
+{
+  "editor.defaultFormatter": "esbenp.prettier-vscode",
+  "editor.formatOnSave": true,
+  "[vue]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  }
+}
+```
 
 ## Contributors
 
