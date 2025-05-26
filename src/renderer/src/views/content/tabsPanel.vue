@@ -130,7 +130,7 @@ defineExpose({
   border-bottom: 1px solid #414141;
   overflow-x: auto;
   user-select: none;
-  height: 35px;
+  height: 26px;
 }
 
 .tab-item {
@@ -139,7 +139,7 @@ defineExpose({
   padding: 0 4px;
   border-right: 1px solid #414141;
   background-color: #1a1a1a;
-  width: 170px;
+  width: 120px;
 }
 
 .tab-item.active {
@@ -149,6 +149,7 @@ defineExpose({
 
 .tab-title {
   flex: 1;
+  font-size: 12px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -159,7 +160,7 @@ defineExpose({
   background: none;
   border: none;
   cursor: pointer;
-  font-size: 16px;
+  font-size: 12px;
   margin-left: 8px;
   padding: 0 4px;
   color: #666;
