@@ -89,7 +89,19 @@ export default {
     shellIntegrationTimeout: 'Shell integration timeout (seconds)',
     shellIntegrationTimeoutPh: 'Enter timeout in seconds',
     shellIntegrationTimeoutDescribe: 'Set how long to wait for shell integration to activate',
-    terminal: 'Terminal'
+    terminal: 'Terminal',
+    apiConfiguration: 'API Configuration',
+    apiProvider: 'API Provider',
+    apiProviderDescribe:
+      'Authenticate by either providing the keys above or use the default AWS credential providers, i.e. ~/.aws/credentials or environment variables. These credentials are only used locally to make API requests from this extension.\n',
+    awsAccessKey: 'AWS Access Key',
+    awsAccessKeyPh: 'Enter Access Key',
+    awsSecretKey: 'AWS Secret Key',
+    awsSecretKeyPh: 'Enter Secret Key',
+    awsSessionToken: 'AWS Session Token',
+    awsSessionTokenPh: 'Enter Session Token',
+    awsRegion: 'AWS Region',
+    awsRegionPh: 'Select a region...'
   },
   extensions: {
     extensions: 'Extensions',
