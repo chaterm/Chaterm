@@ -1,4 +1,4 @@
-import { ClineMessage } from './ExtensionMessage'
+import { ChatermMessage } from "./ExtensionMessage"
 
 /**
  * Combines API request start and finish messages in an array of ClineMessages.
@@ -18,48 +18,48 @@ import { ClineMessage } from './ExtensionMessage'
  * const result = combineApiRequests(messages);
  * // Result: [{ type: "say", say: "api_req_started", text: '{"request":"GET /api/data","cost":0.005}', ts: 1000 }]
  */
-export function combineApiRequests(messages: ClineMessage[]): ClineMessage[] {
-  const combinedApiRequests: ClineMessage[] = []
+export function combineApiRequests(messages: ChatermMessage[]): ChatermMessage[] {
+	const combinedApiRequests: ChatermMessage[] = []
 
-  for (let i = 0; i < messages.length; i++) {
-    if (messages[i].type === 'say' && messages[i].say === 'api_req_started') {
-      const startedRequest = JSON.parse(messages[i].text || '{}')
-      let j = i + 1
+	for (let i = 0; i < messages.length; i++) {
+		if (messages[i].type === "say" && messages[i].say === "api_req_started") {
+			const startedRequest = JSON.parse(messages[i].text || "{}")
+			let j = i + 1
 
-      while (j < messages.length) {
-        if (messages[j].type === 'say' && messages[j].say === 'api_req_finished') {
-          const finishedRequest = JSON.parse(messages[j].text || '{}')
-          const combinedRequest = {
-            ...startedRequest,
-            ...finishedRequest
-          }
+			while (j < messages.length) {
+				if (messages[j].type === "say" && messages[j].say === "api_req_finished") {
+					const finishedRequest = JSON.parse(messages[j].text || "{}")
+					const combinedRequest = {
+						...startedRequest,
+						...finishedRequest,
+					}
 
-          combinedApiRequests.push({
-            ...messages[i],
-            text: JSON.stringify(combinedRequest)
-          })
+					combinedApiRequests.push({
+						...messages[i],
+						text: JSON.stringify(combinedRequest),
+					})
 
-          i = j // Skip to the api_req_finished message
-          break
-        }
-        j++
-      }
+					i = j // Skip to the api_req_finished message
+					break
+				}
+				j++
+			}
 
-      if (j === messages.length) {
-        // If no matching api_req_finished found, keep the original api_req_started
-        combinedApiRequests.push(messages[i])
-      }
-    }
-  }
+			if (j === messages.length) {
+				// If no matching api_req_finished found, keep the original api_req_started
+				combinedApiRequests.push(messages[i])
+			}
+		}
+	}
 
-  // Replace original api_req_started and remove api_req_finished
-  return messages
-    .filter((msg) => !(msg.type === 'say' && msg.say === 'api_req_finished'))
-    .map((msg) => {
-      if (msg.type === 'say' && msg.say === 'api_req_started') {
-        const combinedRequest = combinedApiRequests.find((req) => req.ts === msg.ts)
-        return combinedRequest || msg
-      }
-      return msg
-    })
+	// Replace original api_req_started and remove api_req_finished
+	return messages
+		.filter((msg) => !(msg.type === "say" && msg.say === "api_req_finished"))
+		.map((msg) => {
+			if (msg.type === "say" && msg.say === "api_req_started") {
+				const combinedRequest = combinedApiRequests.find((req) => req.ts === msg.ts)
+				return combinedRequest || msg
+			}
+			return msg
+		})
 }
