@@ -32,7 +32,8 @@ export default {
   },
   workspace: {
     workspace: 'Workspace',
-    personal: 'Personal'
+    personal: 'Personal',
+    searchHost: 'Search host'
   },
   header: {
     title: 'Smart Bastion Host Management System'
