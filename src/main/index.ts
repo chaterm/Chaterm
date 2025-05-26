@@ -459,7 +459,7 @@ ipcMain.handle('chaterm-connect-asset-info', async (_, data) => {
 ipcMain.handle('agent-get-api-conversation-history', async (_, data) => {
   try {
     const { taskId } = data
-    const result = await chatermDbService.getSavedApiConversationHistory(taskId)
+    const result = await chatermDbService.getApiConversationHistory(taskId)
     return { success: true, data: result }
   } catch (error) {
     console.error('获取API对话历史失败:', error)
@@ -525,7 +525,7 @@ ipcMain.handle('agent-save-task-metadata', async (_, data) => {
 ipcMain.handle('agent-get-context-history', async (_, data) => {
   try {
     const { taskId } = data
-    const result = await chatermDbService.getSavedContextHistory(taskId)
+    const result = await chatermDbService.getContextHistory(taskId)
     return { success: true, data: result }
   } catch (error) {
     console.error('获取上下文历史失败:', error)
@@ -539,7 +539,7 @@ ipcMain.handle('agent-save-context-history', async (_, data) => {
     await chatermDbService.saveContextHistory(taskId, contextHistory)
     return { success: true }
   } catch (error) {
-    console.error('保存上下文历史失败:', error)
+    console.error('保存Context历史失败 (IPC Handler):', error)
     return { success: false, error: String(error) }
   }
 })
