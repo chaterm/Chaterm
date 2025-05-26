@@ -84,7 +84,13 @@ app.whenReady().then(() => {
 
   // 注册窗口拖拽处理程序（只注册一次）
   ipcMain.handle('custom-adsorption', (_, res) => {
-    mainWindow.setPosition(res.appX, res.appY)
+    const newBounds = {
+      x: res.appX,
+      y: res.appY,
+      width: res.width,
+      height: res.height
+    }
+    mainWindow.setBounds(newBounds, true)
   })
 
   app.on('browser-window-created', (_, window) => {
