@@ -18,7 +18,7 @@ import { getTheme } from '@integrations/theme/getTheme'
 import WorkspaceTracker from '@integrations/workspace/WorkspaceTracker'
 import { ClineAccountService } from '@services/account/ClineAccountService'
 import { BrowserSession } from '@services/browser/BrowserSession'
-// import { McpHub } from '@services/mcp/McpHub'
+import { McpHub } from '@services/mcp/McpHub'
 import { searchWorkspaceFiles } from '@services/search/file-search'
 import { telemetryService } from '@services/telemetry/TelemetryService'
 import { ApiProvider, ModelInfo } from '@shared/api'
@@ -117,7 +117,7 @@ export class Controller {
       }
     }
     this.workspaceTracker.dispose()
-    this.mcpHub.dispose()
+    // this.mcpHub.dispose()
     this.outputChannel.appendLine('Disposed all disposables')
 
     console.error('Controller disposed')
@@ -410,10 +410,7 @@ export class Controller {
         )
         this.postMessageToWebview({ type: 'openAiModels', openAiModels })
         break
-      // case "refreshClineRules":
-      // 	await refreshClineRulesToggles(this.context, cwd)
-      // 	await this.postStateToWebview()
-      // 	break
+
       case 'openInBrowser':
         if (message.url) {
           vscode.env.openExternal(vscode.Uri.parse(message.url))
@@ -425,36 +422,6 @@ export class Controller {
       case 'checkIsImageUrl':
         this.checkIsImageUrl(message.text!)
         break
-      // case "createRuleFile":
-      // 	if (typeof message.isGlobal !== "boolean" || typeof message.filename !== "string" || !message.filename) {
-      // 		console.error("createRuleFile: Missing or invalid parameters", {
-      // 			isGlobal:
-      // 				typeof message.isGlobal === "boolean" ? message.isGlobal : `Invalid: ${typeof message.isGlobal}`,
-      // 			filename: typeof message.filename === "string" ? message.filename : `Invalid: ${typeof message.filename}`,
-      // 		})
-      // 		return
-      // 	}
-      // 	const { filePath, fileExists } = await createRuleFile(message.isGlobal, message.filename, cwd)
-      // 	if (fileExists && filePath) {
-      // 		vscode.window.showWarningMessage(`Rule file "${message.filename}" already exists.`)
-      // 		// Still open it for editing
-      // 		await handleFileServiceRequest(this, "openFile", { value: filePath })
-      // 		return
-      // 	} else if (filePath && !fileExists) {
-      // 		await refreshClineRulesToggles(this.context, cwd)
-      // 		await this.postStateToWebview()
-
-      // 		await handleFileServiceRequest(this, "openFile", { value: filePath })
-
-      // 		vscode.window.showInformationMessage(
-      // 			`Created new ${message.isGlobal ? "global" : "workspace"} rule file: ${message.filename}`,
-      // 		)
-      // 	} else {
-      // 		// null filePath
-      // 		vscode.window.showErrorMessage(`Failed to create rule file.`)
-      // 	}
-
-      // 	break
       case 'openMention':
         openMention(message.text)
         break
@@ -512,41 +479,6 @@ export class Controller {
           telemetryService.captureTaskFeedback(this.task.taskId, message.feedbackType)
         }
         break
-      // case "openMcpMarketplaceServerDetails": {
-      // 	if (message.text) {
-      // 		const response = await fetch(`https://api.cline.bot/v1/mcp/marketplace/item?mcpId=${message.mcpId}`)
-      // 		const details: McpDownloadResponse = await response.json()
-
-      // 		if (details.readmeContent) {
-      // 			// Disable markdown preview markers
-      // 			const config = vscode.workspace.getConfiguration("markdown")
-      // 			await config.update("preview.markEditorSelection", false, true)
-
-      // 			// Create URI with base64 encoded markdown content
-      // 			const uri = vscode.Uri.parse(
-      // 				`${DIFF_VIEW_URI_SCHEME}:${details.name} README?${Buffer.from(details.readmeContent).toString("base64")}`,
-      // 			)
-
-      // 			// close existing
-      // 			const tabs = vscode.window.tabGroups.all
-      // 				.flatMap((tg) => tg.tabs)
-      // 				.filter((tab) => tab.label && tab.label.includes("README") && tab.label.includes("Preview"))
-      // 			for (const tab of tabs) {
-      // 				await vscode.window.tabGroups.close(tab)
-      // 			}
-
-      // 			// Show only the preview
-      // 			await vscode.commands.executeCommand("markdown.showPreview", uri, {
-      // 				sideBySide: true,
-      // 				preserveFocus: true,
-      // 			})
-      // 		}
-      // 	}
-
-      // 	this.postMessageToWebview({ type: "relinquishControl" })
-
-      // 	break
-      // }
       case 'toggleToolAutoApprove': {
         try {
           await this.mcpHub?.toggleToolAutoApprove(
@@ -599,24 +531,6 @@ export class Controller {
         }
         break
       }
-      // case "deleteClineRule": {
-      // 	const { isGlobal, rulePath } = message
-      // 	if (rulePath && typeof isGlobal === "boolean") {
-      // 		const result = await deleteRuleFile(this.context, rulePath, isGlobal)
-      // 		if (result.success) {
-      // 			await refreshClineRulesToggles(this.context, cwd)
-      // 			await this.postStateToWebview()
-      // 		} else {
-      // 			console.error("Failed to delete rule file:", result.message)
-      // 		}
-      // 	} else {
-      // 		console.error("deleteClineRule: Missing or invalid parameters", {
-      // 			rulePath,
-      // 			isGlobal: typeof isGlobal === "boolean" ? isGlobal : `Invalid: ${typeof isGlobal}`,
-      // 		})
-      // 	}
-      // 	break
-      // }
       case 'requestTotalTasksSize': {
         this.refreshTotalTasksSize()
         break
