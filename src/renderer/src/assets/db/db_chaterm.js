@@ -43,34 +43,36 @@ CREATE TABLE IF NOT EXISTS t_asset_chains (
 );
 
 CREATE TABLE IF NOT EXISTS agent_api_conversation_history_v1 (
-  created_at INTEGER DEFAULT (strftime('%s', 'now')), -- 写入时间戳 (新增)
-  task_id TEXT PRIMARY KEY,                           -- 会话任务ID (主键)
-  ts INTEGER NOT NULL,                              -- 消息时间戳 (毫秒级)
-  role TEXT NOT NULL,                               -- 角色 (user/assistant)
-  content_type TEXT,                                -- 内容类型 (text/tool_use/tool_result)
-  content_data TEXT,                                -- 内容数据 (JSON格式)
-  tool_use_id TEXT,                                 -- 工具使用ID
-  sequence_order INTEGER                            -- 消息顺序
+  id INTEGER PRIMARY KEY AUTOINCREMENT,                -- 新增自增主键
+  created_at INTEGER DEFAULT (strftime('%s', 'now')),  -- 写入时间戳
+  task_id TEXT NOT NULL,                               -- 会话任务ID
+  ts INTEGER NOT NULL,                                 -- 消息时间戳
+  role TEXT NOT NULL,                                  -- 角色
+  content_type TEXT,                                   -- 内容类型
+  content_data TEXT,                                   -- 内容数据
+  tool_use_id TEXT,                                    -- 工具使用ID
+  sequence_order INTEGER                               -- 消息顺序
 );
 CREATE INDEX IF NOT EXISTS idx_task_time ON agent_api_conversation_history_v1(task_id, ts DESC);
 CREATE INDEX IF NOT EXISTS idx_time_desc ON agent_api_conversation_history_v1(ts DESC);
 
 CREATE TABLE IF NOT EXISTS agent_ui_messages_v1 (
-  task_id TEXT PRIMARY KEY,                          -- 会话任务ID (主键)
-  created_at INTEGER DEFAULT (strftime('%s', 'now')), -- 写入时间戳 (新增)
-  ts INTEGER NOT NULL,                              -- 消息时间戳 (毫秒级)
-  type TEXT NOT NULL,                               -- 消息类型 ("ask" | "say")
-  ask_type TEXT,                                    -- ask类型 (ClineAsk)
-  say_type TEXT,                                    -- say类型 (ClineSay)
-  text TEXT,                                        -- 文本内容
-  reasoning TEXT,                                   -- 推理内容
-  images TEXT,                                      -- 图片数组 (JSON格式)
-  partial INTEGER DEFAULT 0,                        -- 是否部分消息 (boolean as 0/1)
-  last_checkpoint_hash TEXT,                        -- 最后检查点哈希
-  is_checkpoint_checked_out INTEGER DEFAULT 0,      -- 是否检查点已检出 (boolean as 0/1)
-  is_operation_outside_workspace INTEGER DEFAULT 0, -- 是否工作区外操作 (boolean as 0/1)
-  conversation_history_index INTEGER,               -- 对话历史索引
-  conversation_history_deleted_range TEXT           -- 删除范围 (JSON格式 [number, number])
+  id INTEGER PRIMARY KEY AUTOINCREMENT,                -- 新增自增主键
+  task_id TEXT NOT NULL,                               -- 会话任务ID
+  created_at INTEGER DEFAULT (strftime('%s', 'now')),  -- 写入时间戳
+  ts INTEGER NOT NULL,                                 -- 消息时间戳
+  type TEXT NOT NULL,                                  -- 消息类型
+  ask_type TEXT,
+  say_type TEXT,
+  text TEXT,
+  reasoning TEXT,
+  images TEXT,
+  partial INTEGER DEFAULT 0,
+  last_checkpoint_hash TEXT,
+  is_checkpoint_checked_out INTEGER DEFAULT 0,
+  is_operation_outside_workspace INTEGER DEFAULT 0,
+  conversation_history_index INTEGER,
+  conversation_history_deleted_range TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_task_ts ON agent_ui_messages_v1(task_id, ts ASC);
 CREATE INDEX IF NOT EXISTS idx_ts_desc ON agent_ui_messages_v1(ts DESC);
