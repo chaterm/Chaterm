@@ -68,8 +68,13 @@ const { appContext } = instance
 const isKeyDown = ref(false)
 const dinatesX = ref(0)
 const dinatesY = ref(0)
+let lastWidth: number, lastHeight: number
 
 const mousedown = (e: MouseEvent) => {
+  if (isKeyDown.value == false) {
+    lastWidth = window.outerWidth
+    lastHeight = window.outerHeight
+  }
   isKeyDown.value = true
   dinatesX.value = e.x
   dinatesY.value = e.y
@@ -79,7 +84,9 @@ const mousedown = (e: MouseEvent) => {
       const y = ev.screenY - dinatesY.value
       const data = {
         appX: x,
-        appY: y
+        appY: y,
+        width: lastWidth,
+        height: lastHeight
       }
       const api = window.api as any
       api.invokeCustomAdsorption(data)
