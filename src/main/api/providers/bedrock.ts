@@ -9,7 +9,7 @@ import {
   BedrockModelId,
   bedrockModels,
   ModelInfo
-} from '@shared/api'
+} from '../../shared/api'
 import { calculateApiCostOpenAI } from '../../utils/cost'
 import { ApiStream } from '../transform/stream'
 import { fromNodeProviderChain } from '@aws-sdk/credential-providers'
@@ -28,7 +28,7 @@ export class AwsBedrockHandler implements ApiHandler {
     this.options = options
   }
 
-  // @withRetry()
+  @withRetry()
   async *createMessage(
     systemPrompt: string,
     messages: Anthropic.Messages.MessageParam[]
@@ -112,7 +112,7 @@ export class AwsBedrockHandler implements ApiHandler {
 
     for await (const chunk of stream) {
       switch (chunk.type) {
-        case 'message_start':
+        case 'message_start': {
           const usage = chunk.message.usage
           yield {
             type: 'usage',
@@ -122,22 +122,25 @@ export class AwsBedrockHandler implements ApiHandler {
             cacheReadTokens: usage.cache_read_input_tokens || undefined
           }
           break
-        case 'message_delta':
+        }
+        case 'message_delta': {
           yield {
             type: 'usage',
             inputTokens: 0,
             outputTokens: chunk.usage.output_tokens || 0
           }
           break
-        case 'content_block_start':
+        }
+        case 'content_block_start': {
           switch (chunk.content_block.type) {
-            case 'thinking':
+            case 'thinking': {
               yield {
                 type: 'reasoning',
                 reasoning: chunk.content_block.thinking || ''
               }
               break
-            case 'redacted_thinking':
+            }
+            case 'redacted_thinking': {
               // Handle redacted thinking blocks - we still mark it as reasoning
               // but note that the content is encrypted
               yield {
@@ -145,7 +148,8 @@ export class AwsBedrockHandler implements ApiHandler {
                 reasoning: '[Redacted thinking block]'
               }
               break
-            case 'text':
+            }
+            case 'text': {
               if (chunk.index > 0) {
                 yield {
                   type: 'text',
@@ -157,24 +161,29 @@ export class AwsBedrockHandler implements ApiHandler {
                 text: chunk.content_block.text
               }
               break
+            }
           }
           break
-        case 'content_block_delta':
+        }
+        case 'content_block_delta': {
           switch (chunk.delta.type) {
-            case 'thinking_delta':
+            case 'thinking_delta': {
               yield {
                 type: 'reasoning',
                 reasoning: chunk.delta.thinking
               }
               break
-            case 'text_delta':
+            }
+            case 'text_delta': {
               yield {
                 type: 'text',
                 text: chunk.delta.text
               }
               break
+            }
           }
           break
+        }
       }
     }
   }
@@ -532,7 +541,7 @@ export class AwsBedrockHandler implements ApiHandler {
       const response = await client.send(command)
 
       if (response.stream) {
-        let hasReportedInputTokens = false
+        // let hasReportedInputTokens = false
 
         for await (const chunk of response.stream) {
           // Handle metadata events with token usage information
@@ -546,7 +555,7 @@ export class AwsBedrockHandler implements ApiHandler {
               outputTokens,
               totalCost: calculateApiCostOpenAI(model.info, inputTokens, outputTokens, 0, 0)
             }
-            hasReportedInputTokens = true
+            // hasReportedInputTokens = true
           }
 
           // Handle content delta (text generation)

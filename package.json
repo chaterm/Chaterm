@@ -22,7 +22,7 @@
     "build:mac": "npm run build && electron-builder --mac",
     "build:linux": "npm run build && electron-builder --linux",
     "prepare": "husky",
-    "test": "mocha --require ts-node/register 'src/renderer/src/**/*.test.ts'"
+    "test": "mocha --require ts-node/register 'src/**/*.test.ts'"
   },
   "lint-staged": {
     "*.{js,jsx,.cjs,mjs,ts,tsx,cts,mts,vue}": [
