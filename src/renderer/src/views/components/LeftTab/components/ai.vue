@@ -407,7 +407,7 @@ watch(
   }
 
   &::placeholder {
-    color: rgba(255, 255, 255, 0.65) !important;
+    color: rgba(255, 255, 255, 0.25) !important;
   }
 }
 
@@ -418,7 +418,7 @@ watch(
     border: none;
 
     .ant-select-selection-placeholder {
-      color: rgba(255, 255, 255, 0.65) !important;
+      color: rgba(255, 255, 255, 0.25) !important;
     }
   }
 
