@@ -371,7 +371,16 @@ const api = {
     return () => ipcRenderer.removeListener(`ssh:shell:close:${id}`, listener)
   },
   recordTerminalState: (params) => ipcRenderer.invoke('ssh:recordTerminalState', params),
-  recordCommand: (params) => ipcRenderer.invoke('ssh:recordCommand', params)
+  recordCommand: (params) => ipcRenderer.invoke('ssh:recordCommand', params),
+
+  sendToMain: (message: any) => ipcRenderer.invoke('webview-to-main', message),
+  onMainMessage: (callback) => {
+    const handler = (_event, message) => callback(message)
+    ipcRenderer.on('main-to-webview', handler)
+    return () => {
+      ipcRenderer.removeListener('main-to-webview', handler)
+    }
+  }
 }
 // 自定义 API 用于浏览器控制
 
