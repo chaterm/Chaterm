@@ -349,107 +349,107 @@ const handleTabChange = (key: string) => {
 }
 
 // 创建 WebSocket 连接的函数
-// const createWebSocket = (type: string) => {
-//   const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
-//   // console.log('当前协议:', protocol)
-//   const token = JSON.parse(JSON.stringify(authTokenInCookie.value))
-//   const wsUrl = `${protocol}//demo.chaterm.ai/v1/ai/chat/ws?token=${token}`
-//   const ws = new WebSocket(wsUrl)
-//   const currentHistory =
-//     type === 'ctm-chat' ? chatHistoryChat : type === 'ctm-cmd' ? chatHistoryCmd : chatHistoryAgent
+const createWebSocket = (type: string) => {
+  const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
+  // console.log('当前协议:', protocol)
+  const token = JSON.parse(JSON.stringify(authTokenInCookie.value))
+  const wsUrl = `${protocol}//demo.chaterm.ai/v1/ai/chat/ws?token=${token}`
+  const ws = new WebSocket(wsUrl)
+  const currentHistory =
+    type === 'ctm-chat' ? chatHistoryChat : type === 'ctm-cmd' ? chatHistoryCmd : chatHistoryAgent
 
-//   ws.onopen = () => {
-//     // console.log(`${type} WebSocket 连接成功`)
-//     // 设置定时发送ping
-//     const pingInterval = setInterval(() => {
-//       if (ws.readyState === WebSocket.OPEN) {
-//         ws.send(JSON.stringify({ type: 'ping' }))
-//       } else {
-//         clearInterval(pingInterval)
-//       }
-//     }, 30000) // 每30秒发送一次ping
+  ws.onopen = () => {
+    // console.log(`${type} WebSocket 连接成功`)
+    // 设置定时发送ping
+    const pingInterval = setInterval(() => {
+      if (ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ type: 'ping' }))
+      } else {
+        clearInterval(pingInterval)
+      }
+    }, 30000) // 每30秒发送一次ping
 
-//     // 在WebSocket关闭时清除定时器
-//     ws.onclose = () => {
-//       clearInterval(pingInterval)
-//       // console.log(`${type} WebSocket连接已关闭`)
-//       if (type === 'ctm-chat') {
-//         chatWebSocket.value = null
-//       } else if (type === 'ctm-cmd') {
-//         cmdWebSocket.value = null
-//       } else if (type === 'ctm-agent') {
-//         agentWebSocket.value = null
-//       }
-//     }
-//   }
+    // 在WebSocket关闭时清除定时器
+    ws.onclose = () => {
+      clearInterval(pingInterval)
+      // console.log(`${type} WebSocket连接已关闭`)
+      if (type === 'ctm-chat') {
+        chatWebSocket.value = null
+      } else if (type === 'ctm-cmd') {
+        cmdWebSocket.value = null
+      } else if (type === 'ctm-agent') {
+        agentWebSocket.value = null
+      }
+    }
+  }
 
-//   ws.onmessage = (e) => {
-//     try {
-//       const parsedData = JSON.parse(e.data)
-//       // 处理pong消息
-//       if (parsedData.type === 'pong') {
-//         // console.log('收到服务器pong响应')
-//         return
-//       }
-//       if (parsedData.conversation_id) {
-//         // console.log('更新会话ID:', parsedData.conversation_id)
-//         currentChatId.value = parsedData.conversation_id
-//       }
-//       if (
-//         parsedData.choices &&
-//         parsedData.choices[0] &&
-//         parsedData.choices[0].delta &&
-//         parsedData.choices[0].delta.content
-//       ) {
-//         const currentHistoryEntry = historyList.value.find(
-//           (entry) => entry.id === currentChatId.value
-//         )
+  ws.onmessage = (e) => {
+    try {
+      const parsedData = JSON.parse(e.data)
+      // 处理pong消息
+      if (parsedData.type === 'pong') {
+        // console.log('收到服务器pong响应')
+        return
+      }
+      if (parsedData.conversation_id) {
+        // console.log('更新会话ID:', parsedData.conversation_id)
+        currentChatId.value = parsedData.conversation_id
+      }
+      if (
+        parsedData.choices &&
+        parsedData.choices[0] &&
+        parsedData.choices[0].delta &&
+        parsedData.choices[0].delta.content
+      ) {
+        const currentHistoryEntry = historyList.value.find(
+          (entry) => entry.id === currentChatId.value
+        )
 
-//         if (
-//           currentHistory.length > 0 &&
-//           currentHistory[currentHistory.length - 1].role === 'assistant'
-//         ) {
-//           const lastAssistantMessage = currentHistory[currentHistory.length - 1]
-//           lastAssistantMessage.content += parsedData.choices[0].delta.content
+        if (
+          currentHistory.length > 0 &&
+          currentHistory[currentHistory.length - 1].role === 'assistant'
+        ) {
+          const lastAssistantMessage = currentHistory[currentHistory.length - 1]
+          lastAssistantMessage.content += parsedData.choices[0].delta.content
 
-//           // 同时更新 historyList 中的记录
-//           if (currentHistoryEntry) {
-//             const lastHistoryContent =
-//               currentHistoryEntry.chatContent[currentHistoryEntry.chatContent.length - 1]
-//             if (lastHistoryContent && lastHistoryContent.role === 'assistant') {
-//               lastHistoryContent.content += parsedData.choices[0].delta.content
-//             }
-//           }
-//         } else {
-//           currentHistory.push({
-//             role: 'assistant',
-//             content: parsedData.choices[0].delta.content
-//           })
+          // 同时更新 historyList 中的记录
+          if (currentHistoryEntry) {
+            const lastHistoryContent =
+              currentHistoryEntry.chatContent[currentHistoryEntry.chatContent.length - 1]
+            if (lastHistoryContent && lastHistoryContent.role === 'assistant') {
+              lastHistoryContent.content += parsedData.choices[0].delta.content
+            }
+          }
+        } else {
+          currentHistory.push({
+            role: 'assistant',
+            content: parsedData.choices[0].delta.content
+          })
 
-//           // 同时更新 historyList 中的记录
-//           if (currentHistoryEntry) {
-//             currentHistoryEntry.chatContent.push({
-//               role: 'assistant',
-//               content: parsedData.choices[0].delta.content
-//             })
-//           }
-//         }
-//       }
-//     } catch (error) {
-//       console.error('解析消息错误:', error)
-//     }
-//   }
+          // 同时更新 historyList 中的记录
+          if (currentHistoryEntry) {
+            currentHistoryEntry.chatContent.push({
+              role: 'assistant',
+              content: parsedData.choices[0].delta.content
+            })
+          }
+        }
+      }
+    } catch (error) {
+      console.error('解析消息错误:', error)
+    }
+  }
 
-//   ws.onerror = (error) => {
-//     console.error(`${type} WebSocket错误:`, error)
-//     currentHistory.push({
-//       role: 'assistant',
-//       content: '连接失败，请检查服务器状态'
-//     })
-//   }
+  ws.onerror = (error) => {
+    console.error(`${type} WebSocket错误:`, error)
+    currentHistory.push({
+      role: 'assistant',
+      content: '连接失败，请检查服务器状态'
+    })
+  }
 
-//   return ws
-// }
+  return ws
+}
 
 const sendMessage = () => {
   let currentWebSocket = chatWebSocket
@@ -460,30 +460,31 @@ const sendMessage = () => {
   } else if (activeKey.value === 'ctm-agent') {
     currentWebSocket = agentWebSocket
     userContent = agentInputValue.value
+    if (userContent.trim()) sendMessageToMain(userContent)
+    return
   }
 
   if (userContent.trim() === '') {
     return
   }
-  sendMessageToMain(userContent)
 
   // 如果没有 WebSocket 连接，创建新的连接
-  // if (!currentWebSocket.value) {
-  //   currentWebSocket.value = createWebSocket(activeKey.value)
-  // }
+  if (!currentWebSocket.value) {
+    currentWebSocket.value = createWebSocket(activeKey.value)
+  }
 
-  // // 等待连接建立
-  // if (currentWebSocket.value.readyState === WebSocket.CONNECTING) {
-  //   currentWebSocket.value.onopen = () => {
-  //     sendWebSocketMessage(currentWebSocket.value!, activeKey.value)
-  //   }
-  //   return
-  // }
+  // 等待连接建立
+  if (currentWebSocket.value.readyState === WebSocket.CONNECTING) {
+    currentWebSocket.value.onopen = () => {
+      sendWebSocketMessage(currentWebSocket.value!, activeKey.value)
+    }
+    return
+  }
 
-  // // 如果连接已经打开，直接发送消息
-  // if (currentWebSocket.value.readyState === WebSocket.OPEN) {
-  //   sendWebSocketMessage(currentWebSocket.value, activeKey.value)
-  // }
+  // 如果连接已经打开，直接发送消息
+  if (currentWebSocket.value.readyState === WebSocket.OPEN) {
+    sendWebSocketMessage(currentWebSocket.value, activeKey.value)
+  }
 }
 
 const sendWebSocketMessage = (ws: WebSocket, type: string) => {
