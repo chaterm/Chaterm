@@ -36,6 +36,8 @@ export interface BrowserSettings {
   viewport?: Viewport | undefined
   remoteBrowserHost?: string | undefined
   remoteBrowserEnabled?: boolean | undefined
+  chromeExecutablePath?: string | undefined
+  disableToolUse?: boolean | undefined
 }
 
 export interface UpdateBrowserSettingsRequest {
@@ -43,6 +45,8 @@ export interface UpdateBrowserSettingsRequest {
   viewport?: Viewport | undefined
   remoteBrowserHost?: string | undefined
   remoteBrowserEnabled?: boolean | undefined
+  chromeExecutablePath?: string | undefined
+  disableToolUse?: boolean | undefined
 }
 
 function createBaseBrowserConnectionInfo(): BrowserConnectionInfo {
@@ -384,7 +388,13 @@ export const Viewport: MessageFns<Viewport> = {
 }
 
 function createBaseBrowserSettings(): BrowserSettings {
-  return { viewport: undefined, remoteBrowserHost: undefined, remoteBrowserEnabled: undefined }
+  return {
+    viewport: undefined,
+    remoteBrowserHost: undefined,
+    remoteBrowserEnabled: undefined,
+    chromeExecutablePath: undefined,
+    disableToolUse: undefined
+  }
 }
 
 export const BrowserSettings: MessageFns<BrowserSettings> = {
@@ -397,6 +407,12 @@ export const BrowserSettings: MessageFns<BrowserSettings> = {
     }
     if (message.remoteBrowserEnabled !== undefined) {
       writer.uint32(24).bool(message.remoteBrowserEnabled)
+    }
+    if (message.chromeExecutablePath !== undefined) {
+      writer.uint32(34).string(message.chromeExecutablePath)
+    }
+    if (message.disableToolUse !== undefined) {
+      writer.uint32(40).bool(message.disableToolUse)
     }
     return writer
   },
@@ -432,6 +448,22 @@ export const BrowserSettings: MessageFns<BrowserSettings> = {
           message.remoteBrowserEnabled = reader.bool()
           continue
         }
+        case 4: {
+          if (tag !== 34) {
+            break
+          }
+
+          message.chromeExecutablePath = reader.string()
+          continue
+        }
+        case 5: {
+          if (tag !== 40) {
+            break
+          }
+
+          message.disableToolUse = reader.bool()
+          continue
+        }
       }
       if ((tag & 7) === 4 || tag === 0) {
         break
@@ -449,6 +481,12 @@ export const BrowserSettings: MessageFns<BrowserSettings> = {
         : undefined,
       remoteBrowserEnabled: isSet(object.remoteBrowserEnabled)
         ? globalThis.Boolean(object.remoteBrowserEnabled)
+        : undefined,
+      chromeExecutablePath: isSet(object.chromeExecutablePath)
+        ? globalThis.String(object.chromeExecutablePath)
+        : undefined,
+      disableToolUse: isSet(object.disableToolUse)
+        ? globalThis.Boolean(object.disableToolUse)
         : undefined
     }
   },
@@ -464,6 +502,12 @@ export const BrowserSettings: MessageFns<BrowserSettings> = {
     if (message.remoteBrowserEnabled !== undefined) {
       obj.remoteBrowserEnabled = message.remoteBrowserEnabled
     }
+    if (message.chromeExecutablePath !== undefined) {
+      obj.chromeExecutablePath = message.chromeExecutablePath
+    }
+    if (message.disableToolUse !== undefined) {
+      obj.disableToolUse = message.disableToolUse
+    }
     return obj
   },
 
@@ -478,6 +522,8 @@ export const BrowserSettings: MessageFns<BrowserSettings> = {
         : undefined
     message.remoteBrowserHost = object.remoteBrowserHost ?? undefined
     message.remoteBrowserEnabled = object.remoteBrowserEnabled ?? undefined
+    message.chromeExecutablePath = object.chromeExecutablePath ?? undefined
+    message.disableToolUse = object.disableToolUse ?? undefined
     return message
   }
 }
@@ -487,7 +533,9 @@ function createBaseUpdateBrowserSettingsRequest(): UpdateBrowserSettingsRequest 
     metadata: undefined,
     viewport: undefined,
     remoteBrowserHost: undefined,
-    remoteBrowserEnabled: undefined
+    remoteBrowserEnabled: undefined,
+    chromeExecutablePath: undefined,
+    disableToolUse: undefined
   }
 }
 
@@ -507,6 +555,12 @@ export const UpdateBrowserSettingsRequest: MessageFns<UpdateBrowserSettingsReque
     }
     if (message.remoteBrowserEnabled !== undefined) {
       writer.uint32(32).bool(message.remoteBrowserEnabled)
+    }
+    if (message.chromeExecutablePath !== undefined) {
+      writer.uint32(42).string(message.chromeExecutablePath)
+    }
+    if (message.disableToolUse !== undefined) {
+      writer.uint32(48).bool(message.disableToolUse)
     }
     return writer
   },
@@ -550,6 +604,22 @@ export const UpdateBrowserSettingsRequest: MessageFns<UpdateBrowserSettingsReque
           message.remoteBrowserEnabled = reader.bool()
           continue
         }
+        case 5: {
+          if (tag !== 42) {
+            break
+          }
+
+          message.chromeExecutablePath = reader.string()
+          continue
+        }
+        case 6: {
+          if (tag !== 48) {
+            break
+          }
+
+          message.disableToolUse = reader.bool()
+          continue
+        }
       }
       if ((tag & 7) === 4 || tag === 0) {
         break
@@ -568,6 +638,12 @@ export const UpdateBrowserSettingsRequest: MessageFns<UpdateBrowserSettingsReque
         : undefined,
       remoteBrowserEnabled: isSet(object.remoteBrowserEnabled)
         ? globalThis.Boolean(object.remoteBrowserEnabled)
+        : undefined,
+      chromeExecutablePath: isSet(object.chromeExecutablePath)
+        ? globalThis.String(object.chromeExecutablePath)
+        : undefined,
+      disableToolUse: isSet(object.disableToolUse)
+        ? globalThis.Boolean(object.disableToolUse)
         : undefined
     }
   },
@@ -585,6 +661,12 @@ export const UpdateBrowserSettingsRequest: MessageFns<UpdateBrowserSettingsReque
     }
     if (message.remoteBrowserEnabled !== undefined) {
       obj.remoteBrowserEnabled = message.remoteBrowserEnabled
+    }
+    if (message.chromeExecutablePath !== undefined) {
+      obj.chromeExecutablePath = message.chromeExecutablePath
+    }
+    if (message.disableToolUse !== undefined) {
+      obj.disableToolUse = message.disableToolUse
     }
     return obj
   },
@@ -608,6 +690,8 @@ export const UpdateBrowserSettingsRequest: MessageFns<UpdateBrowserSettingsReque
         : undefined
     message.remoteBrowserHost = object.remoteBrowserHost ?? undefined
     message.remoteBrowserEnabled = object.remoteBrowserEnabled ?? undefined
+    message.chromeExecutablePath = object.chromeExecutablePath ?? undefined
+    message.disableToolUse = object.disableToolUse ?? undefined
     return message
   }
 }
