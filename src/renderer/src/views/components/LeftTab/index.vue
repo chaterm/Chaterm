@@ -24,6 +24,22 @@
           />
         </p>
         <p
+          v-else-if="i.key === 'keychain'"
+          class="term_menu"
+          @click="keychainConfigClick"
+        >
+          <img
+            v-if="activeKey !== i.key"
+            :src="i.icon"
+            alt=""
+          />
+          <img
+            v-else
+            :src="i.activeIcon"
+            alt=""
+          />
+        </p>
+        <p
           v-else
           class="term_menu"
           @click="menuClick(i.key)"
@@ -130,6 +146,9 @@ const userStore = userInfoStore(pinia)
 const activeKey = ref('workspace')
 const showUserMenu = ref<boolean>(false)
 const router = useRouter()
+const keychainConfigClick = () => {
+  emit('open-user-tab', 'keyChainConfig')
+}
 const menuClick = (key) => {
   let type = ''
   let beforeActive = ''
