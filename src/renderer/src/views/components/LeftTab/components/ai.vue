@@ -1,6 +1,86 @@
 <template>
   <div>
     <div class="section-header">
+      <h3>{{ $t('user.apiConfiguration') }}</h3>
+    </div>
+    <a-card
+      class="settings-section"
+      :bordered="false"
+    >
+      <!-- API Configuration Selection -->
+      <div class="setting-item">
+        <a-form-item
+          :label="$t('user.apiProvider')"
+          :label-col="{ span: 24 }"
+          :wrapper-col="{ span: 24 }"
+        >
+          <a-select
+            v-model:value="userConfig.apiProvider"
+            size="small"
+            :options="apiProviderOptions"
+            show-search
+          />
+        </a-form-item>
+      </div>
+      <div v-if="userConfig.apiProvider">
+        <div class="setting-item">
+          <a-form-item
+            :label="$t('user.awsAccessKey')"
+            :label-col="{ span: 24 }"
+            :wrapper-col="{ span: 24 }"
+          >
+            <a-input
+              v-model:value="userConfig.awsAccessKey"
+              :placeholder="$t('user.awsAccessKeyPh')"
+            />
+          </a-form-item>
+        </div>
+        <div class="setting-item">
+          <a-form-item
+            :label="$t('user.awsSecretKey')"
+            :label-col="{ span: 24 }"
+            :wrapper-col="{ span: 24 }"
+          >
+            <a-input
+              v-model:value="userConfig.awsSecretKey"
+              :placeholder="$t('user.awsSecretKeyPh')"
+            />
+          </a-form-item>
+        </div>
+        <div class="setting-item">
+          <a-form-item
+            :label="$t('user.awsSessionToken')"
+            :label-col="{ span: 24 }"
+            :wrapper-col="{ span: 24 }"
+          >
+            <a-input
+              v-model:value="userConfig.awsSessionToken"
+              :placeholder="$t('user.awsSessionTokenPh')"
+            />
+          </a-form-item>
+        </div>
+        <div class="setting-item">
+          <a-form-item
+            :label="$t('user.awsRegion')"
+            :label-col="{ span: 24 }"
+            :wrapper-col="{ span: 24 }"
+          >
+            <a-select
+              v-model:value="userConfig.awsRegion"
+              size="small"
+              :options="awsRegionOptions"
+              :placeholder="$t('user.awsRegionPh')"
+              show-search
+            />
+          </a-form-item>
+        </div>
+        <p class="setting-description-no-padding">
+          {{ $t('user.apiProviderDescribe') }}
+        </p>
+      </div>
+    </a-card>
+
+    <div class="section-header">
       <h3>{{ $t('user.general') }}</h3>
     </div>
     <a-card
@@ -17,7 +97,7 @@
           <a-select
             v-model:value="userConfig.model"
             size="small"
-            :options="aiModelsOptions"
+            :options="aiModelOptions"
             show-search
           />
         </a-form-item>
@@ -103,7 +183,7 @@
     </a-card>
 
     <div class="section-header">
-      <h3>Terminal</h3>
+      <h3>{{ $t('user.terminal') }}</h3>
     </div>
     <a-card
       class="settings-section"
@@ -137,7 +217,11 @@ import { ref, onMounted, watch } from 'vue'
 import { notification } from 'ant-design-vue'
 import { userConfigStore } from '@/services/userConfigStoreService'
 
-const aiModelsOptions = ref([
+const apiProviderOptions = ref([{ value: 'Amazon Bedrock', label: 'Amazon Bedrock' }])
+
+const awsRegionOptions = ref([{ value: 'Amazon Bedrock', label: 'Amazon Bedrock' }])
+
+const aiModelOptions = ref([
   { value: 'amazon.nova-pro-v1:0', label: 'amazon.nova-pro-v1:0' },
   { value: 'amazon.nova-lite-v1:0', label: 'amazon.nova-lite-v1:0' },
   { value: 'amazon.nova-micro-v1:0', label: 'amazon.nova-micro-v1:0' },
@@ -179,7 +263,12 @@ const userConfig = ref({
   enableCheckpoints: false,
   autoApproval: false,
   reasoningEffort: 'low',
-  shellIntegrationTimeout: 4
+  shellIntegrationTimeout: 4,
+  apiProvider: 'Amazon Bedrock',
+  awsAccessKey: '',
+  awsSecretKey: '',
+  awsSessionToken: '',
+  awsRegion: ''
 })
 
 const inputError = ref('')
@@ -316,6 +405,10 @@ watch(
   &:focus {
     border-color: #1890ff;
   }
+
+  &::placeholder {
+    color: rgba(255, 255, 255, 0.65) !important;
+  }
 }
 
 // 添加选择框的特定样式
@@ -323,6 +416,10 @@ watch(
   .ant-select-selector {
     background-color: #4a4a4a !important;
     border: none;
+
+    .ant-select-selection-placeholder {
+      color: rgba(255, 255, 255, 0.65) !important;
+    }
   }
 
   &.ant-select-focused {
