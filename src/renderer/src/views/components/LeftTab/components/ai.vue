@@ -219,7 +219,7 @@ import { userConfigStore } from '@/services/userConfigStoreService'
 
 const apiProviderOptions = ref([{ value: 'Amazon Bedrock', label: 'Amazon Bedrock' }])
 
-const awsRegionOptions = ref([{ value: 'Amazon Bedrock', label: 'Amazon Bedrock' }])
+const awsRegionOptions = ref([{ value: 'us-east-1', label: 'us-east-1' }])
 
 const aiModelOptions = ref([
   { value: 'amazon.nova-pro-v1:0', label: 'amazon.nova-pro-v1:0' },
