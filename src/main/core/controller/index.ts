@@ -34,11 +34,7 @@ import { searchCommits } from '@utils/git'
 import { getWorkspacePath } from '@utils/path'
 import { getTotalTasksSize } from '@utils/storage'
 import { openMention } from '../mentions'
-import {
-  ensureMcpServersDirectoryExists,
-  ensureSettingsDirectoryExists,
-  GlobalFileNames
-} from '../storage/disk'
+import { ensureMcpServersDirectoryExists, GlobalFileNames } from '../storage/disk'
 import {
   getAllExtensionState,
   getGlobalState,

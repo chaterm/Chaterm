@@ -1,198 +1,162 @@
-import * as path from 'path'
-import * as vscode from 'vscode'
-import fs from 'fs/promises'
 import { Anthropic } from '@anthropic-ai/sdk'
-import { fileExistsAtPath } from '@utils/fs'
-import { ClineMessage } from '@shared/ExtensionMessage'
-import { TaskMetadata } from '@core/context/context-tracking/ContextTrackerTypes'
-import os from 'os'
-import { execa } from 'execa'
+import { ClineMessage } from '../../shared/ExtensionMessage'
+import { TaskMetadata } from '../context/context-tracking/ContextTrackerTypes'
+import path from 'path'
+import fs from 'fs/promises'
 
 export const GlobalFileNames = {
   apiConversationHistory: 'api_conversation_history.json',
   contextHistory: 'context_history.json',
   uiMessages: 'ui_messages.json',
-  openRouterModels: 'openrouter_models.json',
-  mcpSettings: 'cline_mcp_settings.json',
-  clineRules: '.clinerules',
   taskMetadata: 'task_metadata.json'
 }
 
+// 获取文档路径 - 保留原有接口但不再使用
 export async function getDocumentsPath(): Promise<string> {
-  if (process.platform === 'win32') {
-    try {
-      const { stdout: docsPath } = await execa('powershell', [
-        '-NoProfile', // Ignore user's PowerShell profile(s)
-        '-Command',
-        '[System.Environment]::GetFolderPath([System.Environment+SpecialFolder]::MyDocuments)'
-      ])
-      const trimmedPath = docsPath.trim()
-      if (trimmedPath) {
-        return trimmedPath
-      }
-    } catch (err) {
-      console.error('Failed to retrieve Windows Documents path. Falling back to homedir/Documents.')
-    }
-  } else if (process.platform === 'linux') {
-    try {
-      // First check if xdg-user-dir exists
-      await execa('which', ['xdg-user-dir'])
-
-      // If it exists, try to get XDG documents path
-      const { stdout } = await execa('xdg-user-dir', ['DOCUMENTS'])
-      const trimmedPath = stdout.trim()
-      if (trimmedPath) {
-        return trimmedPath
-      }
-    } catch {
-      // Log error but continue to fallback
-      console.error('Failed to retrieve XDG Documents path. Falling back to homedir/Documents.')
-    }
-  }
-
-  // Default fallback for all platforms
-  return path.join(os.homedir(), 'Documents')
+  // 保留原有接口，但实际上不再使用文件系统
+  return ''
 }
 
-export async function ensureTaskDirectoryExists(
-  context: vscode.ExtensionContext,
-  taskId: string
-): Promise<string> {
-  const globalStoragePath = context.globalStorageUri.fsPath
-  const taskDir = path.join(globalStoragePath, 'tasks', taskId)
+// 确保规则目录存在 - 保留原有接口但不再使用
+export async function ensureRulesDirectoryExists(): Promise<string> {
+  // 保留原有接口，但实际上不再使用文件系统
+  return ''
+}
+
+// 确保MCP服务器目录存在 - 保留原有接口但不再使用
+export async function ensureMcpServersDirectoryExists(): Promise<string> {
+  // 保留原有接口，但实际上不再使用文件系统
+  return ''
+}
+
+// 确保任务目录存在
+export async function ensureTaskDirectoryExists(taskId: string): Promise<string> {
+  const taskDir = path.join(process.env.GLOBAL_STORAGE_PATH || '', 'tasks', taskId)
   await fs.mkdir(taskDir, { recursive: true })
   return taskDir
 }
 
-export async function ensureRulesDirectoryExists(): Promise<string> {
-  const userDocumentsPath = await getDocumentsPath()
-  const clineRulesDir = path.join(userDocumentsPath, 'Cline', 'Rules')
-  try {
-    await fs.mkdir(clineRulesDir, { recursive: true })
-  } catch (error) {
-    return path.join(os.homedir(), 'Documents', 'Cline', 'Rules') // in case creating a directory in documents fails for whatever reason (e.g. permissions) - this is fine because we will fail gracefully with a path that does not exist
-  }
-  return clineRulesDir
-}
-
-export async function ensureMcpServersDirectoryExists(): Promise<string> {
-  const userDocumentsPath = await getDocumentsPath()
-  const mcpServersDir = path.join(userDocumentsPath, 'Cline', 'MCP')
-  try {
-    await fs.mkdir(mcpServersDir, { recursive: true })
-  } catch (error) {
-    return '~/Documents/Cline/MCP' // in case creating a directory in documents fails for whatever reason (e.g. permissions) - this is fine since this path is only ever used in the system prompt
-  }
-  return mcpServersDir
-}
-
-export async function ensureSettingsDirectoryExists(
-  context: vscode.ExtensionContext
-): Promise<string> {
-  const settingsDir = path.join(context.globalStorageUri.fsPath, 'settings')
-  await fs.mkdir(settingsDir, { recursive: true })
-  return settingsDir
-}
-
+// 获取保存的API对话历史
 export async function getSavedApiConversationHistory(
-  context: vscode.ExtensionContext,
   taskId: string
 ): Promise<Anthropic.MessageParam[]> {
-  const filePath = path.join(
-    await ensureTaskDirectoryExists(context, taskId),
-    GlobalFileNames.apiConversationHistory
-  )
-  const fileExists = await fileExistsAtPath(filePath)
-  if (fileExists) {
-    return JSON.parse(await fs.readFile(filePath, 'utf8'))
+  try {
+    const result = await (window as any).api.agentGetApiConversationHistory({ taskId })
+    if (result.success) {
+      return result.data || []
+    }
+    console.error('Failed to get API conversation history:', result.error)
+    return []
+  } catch (error) {
+    console.error('Failed to get API conversation history:', error)
+    return []
   }
-  return []
 }
 
+// 保存API对话历史
 export async function saveApiConversationHistory(
-  context: vscode.ExtensionContext,
   taskId: string,
   apiConversationHistory: Anthropic.MessageParam[]
 ) {
   try {
-    const filePath = path.join(
-      await ensureTaskDirectoryExists(context, taskId),
-      GlobalFileNames.apiConversationHistory
-    )
-    await fs.writeFile(filePath, JSON.stringify(apiConversationHistory))
+    const result = await (window as any).api.agentSaveApiConversationHistory({
+      taskId,
+      apiConversationHistory
+    })
+    if (!result.success) {
+      console.error('Failed to save API conversation history:', result.error)
+    }
   } catch (error) {
-    // in the off chance this fails, we don't want to stop the task
     console.error('Failed to save API conversation history:', error)
   }
 }
 
-export async function getSavedClineMessages(
-  context: vscode.ExtensionContext,
-  taskId: string
-): Promise<ClineMessage[]> {
-  const filePath = path.join(
-    await ensureTaskDirectoryExists(context, taskId),
-    GlobalFileNames.uiMessages
-  )
-  if (await fileExistsAtPath(filePath)) {
-    return JSON.parse(await fs.readFile(filePath, 'utf8'))
-  } else {
-    // check old location
-    const oldPath = path.join(
-      await ensureTaskDirectoryExists(context, taskId),
-      'claude_messages.json'
-    )
-    if (await fileExistsAtPath(oldPath)) {
-      const data = JSON.parse(await fs.readFile(oldPath, 'utf8'))
-      await fs.unlink(oldPath) // remove old file
-      return data
+// 获取保存的Cline消息
+export async function getSavedClineMessages(taskId: string): Promise<ClineMessage[]> {
+  try {
+    const result = await (window as any).api.agentGetClineMessages({ taskId })
+    if (result.success) {
+      return result.data || []
     }
-  }
-  return []
-}
-
-export async function saveClineMessages(
-  context: vscode.ExtensionContext,
-  taskId: string,
-  uiMessages: ClineMessage[]
-) {
-  try {
-    const taskDir = await ensureTaskDirectoryExists(context, taskId)
-    const filePath = path.join(taskDir, GlobalFileNames.uiMessages)
-    await fs.writeFile(filePath, JSON.stringify(uiMessages))
+    console.error('Failed to get Cline messages:', result.error)
+    return []
   } catch (error) {
-    console.error('Failed to save ui messages:', error)
+    console.error('Failed to get Cline messages:', error)
+    return []
   }
 }
 
-export async function getTaskMetadata(
-  context: vscode.ExtensionContext,
-  taskId: string
-): Promise<TaskMetadata> {
-  const filePath = path.join(
-    await ensureTaskDirectoryExists(context, taskId),
-    GlobalFileNames.taskMetadata
-  )
+// 保存Cline消息
+export async function saveClineMessages(taskId: string, uiMessages: ClineMessage[]) {
   try {
-    if (await fileExistsAtPath(filePath)) {
-      return JSON.parse(await fs.readFile(filePath, 'utf8'))
+    const result = await (window as any).api.agentSaveClineMessages({
+      taskId,
+      uiMessages
+    })
+    if (!result.success) {
+      console.error('Failed to save Cline messages:', result.error)
     }
   } catch (error) {
-    console.error('Failed to read task metadata:', error)
+    console.error('Failed to save Cline messages:', error)
   }
-  return { files_in_context: [], model_usage: [] }
 }
 
-export async function saveTaskMetadata(
-  context: vscode.ExtensionContext,
-  taskId: string,
-  metadata: TaskMetadata
-) {
+// 获取任务元数据
+export async function getTaskMetadata(taskId: string): Promise<TaskMetadata> {
   try {
-    const taskDir = await ensureTaskDirectoryExists(context, taskId)
-    const filePath = path.join(taskDir, GlobalFileNames.taskMetadata)
-    await fs.writeFile(filePath, JSON.stringify(metadata, null, 2))
+    const result = await (window as any).api.agentGetTaskMetadata({ taskId })
+    if (result.success) {
+      return result.data || { files_in_context: [], model_usage: [] }
+    }
+    console.error('Failed to get task metadata:', result.error)
+    return { files_in_context: [], model_usage: [] }
+  } catch (error) {
+    console.error('Failed to get task metadata:', error)
+    return { files_in_context: [], model_usage: [] }
+  }
+}
+
+// 保存任务元数据
+export async function saveTaskMetadata(taskId: string, metadata: TaskMetadata) {
+  try {
+    const result = await (window as any).api.agentSaveTaskMetadata({
+      taskId,
+      metadata
+    })
+    if (!result.success) {
+      console.error('Failed to save task metadata:', result.error)
+    }
   } catch (error) {
     console.error('Failed to save task metadata:', error)
+  }
+}
+
+// 获取上下文历史 - 新增方法
+export async function getSavedContextHistory(taskId: string): Promise<any> {
+  try {
+    const result = await (window as any).api.agentGetContextHistory({ taskId })
+    if (result.success) {
+      return result.data
+    }
+    console.error('Failed to get context history:', result.error)
+    return null
+  } catch (error) {
+    console.error('Failed to get context history:', error)
+    return null
+  }
+}
+
+// 保存上下文历史 - 新增方法
+export async function saveContextHistory(taskId: string, contextHistory: any) {
+  try {
+    const result = await (window as any).api.agentSaveContextHistory({
+      taskId,
+      contextHistory
+    })
+    if (!result.success) {
+      console.error('Failed to save context history:', result.error)
+    }
+  } catch (error) {
+    console.error('Failed to save context history:', error)
   }
 }
