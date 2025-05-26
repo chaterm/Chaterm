@@ -10,8 +10,8 @@ import {
   resetExtensionState
 } from '../state'
 import { storageContext } from '../storage-context'
-import { DEFAULT_CHAT_SETTINGS } from '../../../shared/ChatSettings'
-import { ApiProvider } from '../../../shared/api'
+import { DEFAULT_CHAT_SETTINGS } from '../../shared/ChatSettings'
+import { ApiProvider } from '../../shared/api'
 import { GlobalStateKey } from '../state-keys'
 
 // Mock storageContext

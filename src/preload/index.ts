@@ -371,7 +371,53 @@ const api = {
     return () => ipcRenderer.removeListener(`ssh:shell:close:${id}`, listener)
   },
   recordTerminalState: (params) => ipcRenderer.invoke('ssh:recordTerminalState', params),
-  recordCommand: (params) => ipcRenderer.invoke('ssh:recordCommand', params)
+  recordCommand: (params) => ipcRenderer.invoke('ssh:recordCommand', params),
+
+  // Agent相关的API
+  agentGetApiConversationHistory: async (data) => {
+    const result = await ipcRenderer.invoke('agent-get-api-conversation-history', data)
+    return result
+  },
+
+  agentSaveApiConversationHistory: async (data) => {
+    const result = await ipcRenderer.invoke('agent-save-api-conversation-history', data)
+    return result
+  },
+
+  agentGetClineMessages: async (data) => {
+    const result = await ipcRenderer.invoke('agent-get-cline-messages', data)
+    return result
+  },
+
+  agentSaveClineMessages: async (data) => {
+    const result = await ipcRenderer.invoke('agent-save-cline-messages', data)
+    return result
+  },
+
+  agentGetTaskMetadata: async (data) => {
+    const result = await ipcRenderer.invoke('agent-get-task-metadata', data)
+    return result
+  },
+
+  agentSaveTaskMetadata: async (data) => {
+    const result = await ipcRenderer.invoke('agent-save-task-metadata', data)
+    return result
+  },
+
+  agentGetContextHistory: async (data) => {
+    const result = await ipcRenderer.invoke('agent-get-context-history', data)
+    return result
+  },
+
+  agentSaveContextHistory: async (data) => {
+    const result = await ipcRenderer.invoke('agent-save-context-history', data)
+    return result
+  },
+
+  chatermConnectAssetInfo: async (data) => {
+    const result = await ipcRenderer.invoke('chaterm-connect-asset-info', data)
+    return result
+  }
 }
 // 自定义 API 用于浏览器控制
 
