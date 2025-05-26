@@ -33,11 +33,9 @@ import { LanguageMap } from '@/views/components/Term/Editor/languageMap'
 import EditorCode from '@/views/components//Term/Editor/dragEditor.vue'
 import { Modal, notification } from 'ant-design-vue'
 import { aliasConfigStore } from '@/store/aliasConfigStore'
-import { userConfigStore } from '../../../store/userConfigStore'
+import { userConfigStore } from '@/services/userConfigStoreService'
 import { v4 as uuidv4 } from 'uuid'
 import { userInfoStore } from '@/store/index'
-
-const configStore = userConfigStore()
 
 const props = defineProps({
   connectData: {
@@ -68,7 +66,24 @@ const terminalContainer = ref(null)
 const cursorStartX = ref(0)
 const api = window.api as any
 
-onMounted(() => {
+const userConfig = ref({
+  aliasStatus: 2,
+  quickVimStatus: 2
+})
+
+const loadUserConfig = async () => {
+  try {
+    const config = await userConfigStore.getConfig()
+    if (config) {
+      userConfig.value = config
+    }
+  } catch (error) {
+    console.error('Failed to load user config:', error)
+  }
+}
+
+onMounted(async () => {
+  await loadUserConfig()
   terminal.value = new Terminal({
     cursorBlink: true,
     cursorStyle: 'bar',
@@ -471,9 +486,9 @@ const setupTerminalInput = () => {
       const aliasStore = aliasConfigStore()
       console.log(aliasStore.aliasMap)
       const newCommand = aliasStore.getCommand(command) // 全局alias
-      if (configStore.getUserConfig.aliasStatus === 1 && newCommand !== null) {
+      if (userConfig.value.aliasStatus === 1 && newCommand !== null) {
         sendData(originalData.repeat(command.length) + newCommand + '\r')
-      } else if (configStore.getUserConfig.quickVimStatus === 1) {
+      } else if (userConfig.value.quickVimStatus === 1) {
         const vimMatch = command.match(/vim\s+(.+)$/i)
         if (vimMatch) {
           data =
@@ -515,6 +530,7 @@ const sendMarkedData = (data, marker) => {
     marker: marker
   })
 }
+
 export interface MarkedResponse {
   data: string // 服务器返回的原始数据
   marker?: string // 关联的命令标记（如果有）
@@ -612,9 +628,11 @@ const disconnectSSH = async () => {
 .ant-form-item .ant-form-item-label > label {
   color: white;
 }
+
 .ant-radio-wrapper {
   color: white;
 }
+
 .terminal-container {
   width: 100%;
   height: 100%;
