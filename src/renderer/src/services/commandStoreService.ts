@@ -1,68 +1,48 @@
+import { indexedDBService, DB_CONFIG } from './indexedDBService'
+
+interface AliasItem {
+  id: string
+  alias: string
+  command: string
+  createdAt: number
+}
+
+interface AliasItemInput extends Partial<AliasItem> {
+  key?: string
+}
+
 export class CommandStoreService {
-  private dbName = 'chatermDB'
-  private storeName = 'aliases'
+  private readonly storeName = 'aliases'
   private db: IDBDatabase | null = null
 
   constructor() {
     this.initDB()
   }
 
-  initDB(): Promise<void> {
-    return new Promise((resolve, reject) => {
-      try {
-        const request = indexedDB.open(this.dbName, 1) // 增加版本号，触发 onupgradeneeded
-
-        request.onerror = (event) => {
-          console.error('IndexedDB error:', event)
-          reject('Failed to open IndexedDB')
-        }
-
-        request.onsuccess = (event) => {
-          this.db = (event.target as IDBOpenDBRequest).result
-          resolve()
-        }
-
-        request.onupgradeneeded = (event) => {
-          const db = (event.target as IDBOpenDBRequest).result
-
-          // 如果存在旧版的 store，则删除
-          if (db.objectStoreNames.contains(this.storeName)) {
-            db.deleteObjectStore(this.storeName)
-          }
-
-          // 创建新的 store，使用 alias 作为 keyPath
-          const store = db.createObjectStore(this.storeName, { keyPath: 'alias' })
-
-          // 为 id 字段创建索引，方便通过 id 查询
-          store.createIndex('id', 'id', { unique: true })
-
-          // 为创建时间创建索引，用于排序
-          store.createIndex('createdAt', 'createdAt', { unique: false })
-        }
-      } catch (error) {
-        console.error('Error initializing IndexedDB:', error)
-        reject(error)
-      }
-    })
-  }
-
-  // 安全地克隆对象以避免结构化克隆错误
-  private sanitizeForStorage(item: any): any {
-    return {
-      id: item.id || Date.now().toString(36) + Math.random().toString(36).substring(2),
-      alias: item.alias || item.key, // 使用 alias 作为主键
-      command: item.command,
-      createdAt: item.createdAt || Date.now() // 添加创建时间戳
-      // 只保留必要的字段，避免不可克隆的属性
+  async initDB(): Promise<void> {
+    try {
+      this.db = await indexedDBService.initDatabase(DB_CONFIG)
+    } catch (error) {
+      console.error('Error initializing IndexedDB:', error)
+      throw error
     }
   }
 
-  async getAll(): Promise<any[]> {
+  private sanitizeForStorage(item: AliasItemInput): AliasItem {
+    return {
+      id: item.id || `${Date.now().toString(36)}${Math.random().toString(36).substring(2)}`,
+      alias: item.alias || item.key || '',
+      command: item.command || '',
+      createdAt: item.createdAt || Date.now()
+    }
+  }
+
+  async getAll(): Promise<AliasItem[]> {
     await this.ensureDBReady()
 
     return new Promise((resolve) => {
       if (!this.db) {
-        resolve([]) // 返回空数组而不是拒绝 Promise
+        resolve([])
         return
       }
 
@@ -73,28 +53,26 @@ export class CommandStoreService {
 
         request.onsuccess = () => {
           const results = request.result || []
-          // 按创建时间降序排序（最新的在前面）
-          results.sort((a, b) => {
-            // 如果没有 createdAt，使用 id 作为回退
+          results.sort((a: AliasItem, b: AliasItem) => {
             const timeA = a.createdAt || 0
             const timeB = b.createdAt || 0
-            return timeB - timeA // 降序排列
+            return timeB - timeA
           })
           resolve(results)
         }
 
         request.onerror = (event) => {
           console.error('Error getting items:', event)
-          resolve([]) // 返回空数组而不是拒绝 Promise
+          resolve([])
         }
       } catch (error) {
         console.error('Error in getAll transaction:', error)
-        resolve([]) // 处理任何事务错误
+        resolve([])
       }
     })
   }
 
-  async get(id: string): Promise<any> {
+  async get(id: string): Promise<AliasItem | null> {
     await this.ensureDBReady()
 
     return new Promise((resolve) => {
@@ -124,7 +102,7 @@ export class CommandStoreService {
     })
   }
 
-  async getByAlias(aliasName: string): Promise<any> {
+  async getByAlias(aliasName: string): Promise<AliasItem | null> {
     await this.ensureDBReady()
 
     return new Promise((resolve) => {
@@ -153,25 +131,14 @@ export class CommandStoreService {
     })
   }
 
-  async add(item: any): Promise<string> {
+  async add(item: AliasItemInput): Promise<string> {
     await this.ensureDBReady()
 
-    // 确保 item 有 ID
-    if (!item.id) {
-      item.id = Date.now().toString(36) + Math.random().toString(36).substring(2)
-    }
-
-    // 确保有创建时间
-    if (!item.createdAt) {
-      item.createdAt = Date.now()
-    }
-
-    // 安全克隆
     const sanitizedItem = this.sanitizeForStorage(item)
 
     return new Promise((resolve, reject) => {
       if (!this.db) {
-        reject('Database not initialized')
+        reject(new Error('Database not initialized'))
         return
       }
 
@@ -186,7 +153,7 @@ export class CommandStoreService {
 
         request.onerror = (event) => {
           console.error('Error adding item:', event)
-          reject('Failed to add item. Alias may already exist.')
+          reject(new Error('Failed to add item. Alias may already exist.'))
         }
       } catch (error) {
         console.error('Error in add transaction:', error)
@@ -195,18 +162,16 @@ export class CommandStoreService {
     })
   }
 
-  async update(item: any): Promise<void> {
+  async update(item: AliasItemInput): Promise<void> {
     await this.ensureDBReady()
 
-    // 获取现有记录以保留创建时间
-    let existingItem = { createdAt: Date.now() }
+    let existingItem: AliasItem | null = null
     try {
-      existingItem = await this.getByAlias(item.alias)
+      existingItem = await this.getByAlias(item.alias as string)
     } catch (error) {
       console.error('Error getting existing item:', error)
     }
 
-    // 合并现有记录和新记录
     const updatedItem = {
       ...this.sanitizeForStorage(item),
       createdAt: existingItem?.createdAt || item.createdAt || Date.now()
@@ -214,7 +179,7 @@ export class CommandStoreService {
 
     return new Promise((resolve, reject) => {
       if (!this.db) {
-        reject('Database not initialized')
+        reject(new Error('Database not initialized'))
         return
       }
 
@@ -229,7 +194,7 @@ export class CommandStoreService {
 
         request.onerror = (event) => {
           console.error('Error updating item:', event)
-          reject('Failed to update item')
+          reject(new Error('Failed to update item'))
         }
       } catch (error) {
         console.error('Error in update transaction:', error)
@@ -241,7 +206,6 @@ export class CommandStoreService {
   async deleteById(id: string): Promise<void> {
     await this.ensureDBReady()
 
-    // 首先需要通过 id 查找对应的 alias
     const item = await this.get(id)
     if (!item) {
       throw new Error(`Item with id ${id} not found`)
@@ -255,7 +219,7 @@ export class CommandStoreService {
 
     return new Promise((resolve, reject) => {
       if (!this.db) {
-        reject('Database not initialized')
+        reject(new Error('Database not initialized'))
         return
       }
 
@@ -270,7 +234,7 @@ export class CommandStoreService {
 
         request.onerror = (event) => {
           console.error('Error deleting item:', event)
-          reject('Failed to delete item')
+          reject(new Error('Failed to delete item'))
         }
       } catch (error) {
         console.error('Error in delete transaction:', error)
@@ -284,7 +248,7 @@ export class CommandStoreService {
 
     return new Promise((resolve, reject) => {
       if (!this.db) {
-        reject('Database not initialized')
+        reject(new Error('Database not initialized'))
         return
       }
 
@@ -299,7 +263,7 @@ export class CommandStoreService {
 
         request.onerror = (event) => {
           console.error('Error clearing store:', event)
-          reject('Failed to clear store')
+          reject(new Error('Failed to clear store'))
         }
       } catch (error) {
         console.error('Error in clear transaction:', error)
@@ -308,13 +272,12 @@ export class CommandStoreService {
     })
   }
 
-  // 根据别名名称查询,模糊查询
-  async search(searchText: string): Promise<any[]> {
+  async search(searchText: string): Promise<AliasItem[]> {
     try {
       const allItems = await this.getAll()
-      // 注意: getAll 方法已经将结果排序为倒序
-
-      if (!searchText) return allItems
+      if (!searchText) {
+        return allItems
+      }
 
       const searchLower = searchText.toLowerCase()
       return allItems.filter((item) => {
@@ -328,7 +291,6 @@ export class CommandStoreService {
     }
   }
 
-  // 如果是重命名别名,需要使用此方法
   async renameAlias(oldAlias: string, newAlias: string): Promise<boolean> {
     try {
       const item = await this.getByAlias(oldAlias)
@@ -337,11 +299,7 @@ export class CommandStoreService {
       }
 
       const updatedItem = { ...item, alias: newAlias }
-
-      // 添加新别名
       await this.add(updatedItem)
-
-      // 删除旧别名
       await this.delete(oldAlias)
 
       return true
@@ -357,6 +315,7 @@ export class CommandStoreService {
         await this.initDB()
       } catch (error) {
         console.error('Failed to initialize database:', error)
+        throw error
       }
     }
   }
