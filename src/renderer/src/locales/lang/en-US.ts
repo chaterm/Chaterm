@@ -68,7 +68,27 @@ export default {
     mobile: 'Mobile',
     organization: 'Organization',
     ip: 'IP Address',
-    macAddress: 'Mac Address'
+    macAddress: 'Mac Address',
+    general: 'General',
+    extensions: 'Extensions',
+    model: 'Model',
+    enableExtendedThinking: 'Enable extended thinking',
+    enableExtendedThinkingDescribe:
+      'Higher budgets may allow you to achieve more comprehensive and nuanced reasoning',
+    autoApproval: 'Auto Approval',
+    autoApprovalDescribe: 'Allow Agent to run tools without asking for confirmation',
+    features: 'Features',
+    enableCheckpoints: 'Enable Checkpoints',
+    enableCheckpointsDescribe:
+      'Enables extension to save checkpoints of workspace throughout the task',
+    openAIReasoningEffort: 'OpenAI Reasoning Effort',
+    openAIReasoningEffortLow: 'Low',
+    openAIReasoningEffortMedium: 'Medium',
+    openAIReasoningEffortHigh: 'High',
+    shellIntegrationTimeout: 'Shell integration timeout (seconds)',
+    shellIntegrationTimeoutPh: 'Enter timeout in seconds',
+    shellIntegrationTimeoutDescribe: 'Set how long to wait for shell integration to activate',
+    terminal: 'Terminal'
   },
   extensions: {
     extensions: 'Extensions',
