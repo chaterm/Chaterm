@@ -45,58 +45,91 @@
 </template>
 
 <script setup lang="ts">
-const emit = defineEmits(['open-user-tab'])
 import { SearchOutlined } from '@ant-design/icons-vue'
-import { computed, ref } from 'vue'
-import i18n from '@/locales' // 导入 i18n 实例
+import { computed, ref, watch, onMounted } from 'vue'
+import i18n from '@/locales'
 import iconAlias from '@/assets/img/alias.svg'
+import { userConfigStore } from '@/services/userConfigStoreService'
 import { defineExpose } from 'vue'
-import { userConfigStore } from '@/store/userConfigStore'
 
-const configStore = userConfigStore()
+const emit = defineEmits(['open-user-tab'])
+const searchValue = ref('')
+const userConfig = ref({
+  aliasStatus: 2
+})
+
 const iconMap = {
   'alias.svg': iconAlias
 }
-const searchValue = ref('')
 
 const { t } = i18n.global
-
-const list = computed(() => [
-  {
-    name: 'Alias',
-    description: t('extensions.aliasDescription'),
-    icon: 'alias.svg',
-    tabName: 'aliasConfig',
-    show: configStore.getUserConfig.aliasStatus === 1
-  }
-])
-
-const filteredList = computed(() => {
-  if (!searchValue.value) {
-    return list.value.filter((item) => item.show) // 如果搜索框为空，返回全部列表
-  }
-  const query = searchValue.value.toLowerCase().trim()
-  return list.value.filter((item) => item.name.toLowerCase().includes(query) && item.show)
-})
 
 const handleSelect = (item) => {
   emit('open-user-tab', item.key)
 }
 
 const getIconSrc = (iconName) => {
-  return iconMap[iconName] || '' // 返回导入的图片URL或空字符串
+  return iconMap[iconName] || ''
 }
 
 const selectedKeys = ref([])
 const openKeys = ref([])
+
 const handleExplorerActive = (tabId) => {
   const index = selectedKeys.value.findIndex((item) => item === tabId)
   if (index !== -1) {
     selectedKeys.value.splice(index, 1)
   }
 }
+
 defineExpose({
   handleExplorerActive
+})
+
+// 加载配置
+const loadConfig = async () => {
+  try {
+    const config = await userConfigStore.getConfig()
+    if (config) {
+      userConfig.value = config
+    }
+  } catch (error) {
+    console.error('Failed to load config:', error)
+  }
+}
+
+// 监听配置变化
+watch(
+  () => userConfig.value.aliasStatus,
+  () => {
+    // 当 aliasStatus 变化时，重新加载配置
+    loadConfig()
+  }
+)
+
+// 初始加载配置
+onMounted(() => {
+  loadConfig()
+})
+
+const list = computed(() => {
+  return [
+    {
+      name: 'Alias',
+      description: t('extensions.aliasDescription'),
+      icon: 'alias.svg',
+      tabName: 'aliasConfig',
+      show: userConfig.value.aliasStatus === 1
+    }
+  ]
+})
+
+const filteredList = computed(() => {
+  if (!searchValue.value) {
+    return list.value.filter((item) => item.show)
+  }
+  const query = searchValue.value.toLowerCase().trim()
+  return list.value.filter((item) => item.name.toLowerCase().includes(query) && item.show)
 })
 </script>
 

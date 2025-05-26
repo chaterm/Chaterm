@@ -47,12 +47,11 @@
 <script setup lang="ts">
 import { ref, onMounted, defineEmits, getCurrentInstance } from 'vue'
 import { useDeviceStore } from '@/store/useDeviceStore'
-import { userConfigStore } from '@/store/userConfigStore'
-import { getUserTermConfig } from '@/api/user/user'
+import { userConfigStore } from '@/services/userConfigStoreService'
 import eventBus from '@/utils/eventBus'
+
 const platform = ref<string>('')
 const deviceStore = useDeviceStore()
-const configStore = userConfigStore()
 const instance = getCurrentInstance()!
 const { appContext } = instance
 
@@ -133,10 +132,8 @@ onMounted(async () => {
   } catch (error) {
     console.error('获取MacAddress失败:', error)
   }
-  getUserTermConfig({}).then((res) => {
-    configStore.setUserConfig(res.data)
-    appContext.config.globalProperties.$i18n.locale = configStore.getUserConfig.language
-  })
+  const userConfig = await userConfigStore.getConfig()
+  appContext.config.globalProperties.$i18n.locale = userConfig.language
 
   // 监听右侧图标更新事件
   eventBus.on('updateRightIcon', (value: boolean) => {
@@ -199,6 +196,7 @@ onMounted(async () => {
     display: block;
     margin-right: 18px;
   }
+
   .sidebar-toggle-icon_mac {
     width: 20px;
     height: 20px;
