@@ -32,7 +32,8 @@ export default {
   },
   workspace: {
     workspace: '工作空间',
-    personal: '个人空间'
+    personal: '个人空间',
+    searchHost: '搜索主机'
   },
   header: {
     title: '智能堡垒机管理系统'
