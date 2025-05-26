@@ -555,7 +555,7 @@ export class ChatermDatabaseService {
   }
 
   // Agent API对话历史相关方法
-  async getSavedApiConversationHistory(taskId: string): Promise<any[]> {
+  async getApiConversationHistory(taskId: string): Promise<any[]> {
     try {
       const stmt = this.db.prepare(`
         SELECT content_data, role, content_type, tool_use_id, sequence_order
@@ -611,14 +611,14 @@ export class ChatermDatabaseService {
 
   async saveApiConversationHistory(taskId: string, apiConversationHistory: any[]): Promise<void> {
     try {
-      this.db.transaction(() => {
-        // 清除现有记录
-        const deleteStmt = this.db.prepare(
-          'DELETE FROM agent_api_conversation_history_v1 WHERE task_id = ?'
-        )
-        deleteStmt.run(taskId)
+      // 首先清除现有记录（事务之外）
+      const deleteStmt = this.db.prepare(
+        'DELETE FROM agent_api_conversation_history_v1 WHERE task_id = ?'
+      )
+      deleteStmt.run(taskId)
 
-        // 插入新记录
+      // 然后在一个新事务中插入所有记录
+      this.db.transaction(() => {
         const insertStmt = this.db.prepare(`
           INSERT INTO agent_api_conversation_history_v1 
           (task_id, ts, role, content_type, content_data, tool_use_id, sequence_order)
@@ -668,9 +668,12 @@ export class ChatermDatabaseService {
             )
           }
         }
+        console.log('保存API对话历史成功 (事务内)')
       })()
+      console.log('API对话历史保存操作完成')
     } catch (error) {
       console.error('Failed to save API conversation history:', error)
+      throw error // Re-throw the error to be caught by the IPC handler
     }
   }
 
@@ -798,7 +801,7 @@ export class ChatermDatabaseService {
   }
 
   // Agent上下文历史相关方法
-  async getSavedContextHistory(taskId: string): Promise<any> {
+  async getContextHistory(taskId: string): Promise<any> {
     try {
       const stmt = this.db.prepare(`
         SELECT context_history_data
@@ -819,6 +822,37 @@ export class ChatermDatabaseService {
   }
 
   async saveContextHistory(taskId: string, contextHistory: any): Promise<void> {
+    console.log('[saveContextHistory] Attempting to save. Task ID:', taskId, 'Type:', typeof taskId)
+    let jsonDataString: string | undefined
+    try {
+      jsonDataString = JSON.stringify(contextHistory)
+      console.log(
+        '[saveContextHistory] JSON.stringify successful. Data:',
+        jsonDataString,
+        'Type:',
+        typeof jsonDataString
+      )
+    } catch (stringifyError) {
+      console.error('[saveContextHistory] Error during JSON.stringify:', stringifyError)
+      console.error(
+        '[saveContextHistory] Original contextHistory object that caused error:',
+        contextHistory
+      )
+      if (stringifyError instanceof Error) {
+        throw new Error(`Failed to stringify contextHistory: ${stringifyError.message}`)
+      } else {
+        throw new Error(`Failed to stringify contextHistory: ${String(stringifyError)}`)
+      }
+    }
+
+    if (typeof jsonDataString !== 'string') {
+      console.error(
+        '[saveContextHistory] jsonDataString is not a string after stringify. Value:',
+        jsonDataString
+      )
+      throw new Error('jsonDataString is not a string after JSON.stringify')
+    }
+
     try {
       const upsertStmt = this.db.prepare(`
         INSERT INTO agent_context_history_v1 (task_id, context_history_data, updated_at)
@@ -828,9 +862,23 @@ export class ChatermDatabaseService {
           updated_at = strftime('%s', 'now')
       `)
 
-      upsertStmt.run(taskId, JSON.stringify(contextHistory))
+      console.log(
+        '[saveContextHistory] Executing upsert. Task ID:',
+        taskId,
+        'Data:',
+        jsonDataString
+      )
+      upsertStmt.run(taskId, jsonDataString)
+      console.log('[saveContextHistory] Upsert successful for Task ID:', taskId)
     } catch (error) {
-      console.error('Failed to save context history:', error)
+      console.error(
+        '[saveContextHistory] Failed to save context history to DB. Task ID:',
+        taskId,
+        'Error:',
+        error
+      )
+      console.error('[saveContextHistory] Data that caused error:', jsonDataString)
+      throw error
     }
   }
 }
