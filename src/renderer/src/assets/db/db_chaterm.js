@@ -72,6 +72,7 @@ CREATE TABLE IF NOT EXISTS agent_ui_messages_v1 (
   conversation_history_index INTEGER,               -- 对话历史索引
   conversation_history_deleted_range TEXT           -- 删除范围 (JSON格式 [number, number])
 );
+CREATE INDEX IF NOT EXISTS idx_task_ts ON agent_ui_messages_v1(task_id, ts ASC);
 CREATE INDEX IF NOT EXISTS idx_ts_desc ON agent_ui_messages_v1(ts DESC);
 CREATE INDEX IF NOT EXISTS idx_created_at ON agent_ui_messages_v1(created_at DESC);
 
