@@ -89,7 +89,19 @@ export default {
     shellIntegrationTimeout: 'Shell集成超时（秒）',
     shellIntegrationTimeoutPh: '请输入超时时间（秒）',
     shellIntegrationTimeoutDescribe: '设置等待shell集成激活的时间',
-    terminal: '终端'
+    terminal: '终端',
+    apiConfiguration: 'API 配置',
+    apiProvider: 'API 提供商',
+    apiProviderDescribe:
+      '通过提供上述密钥或使用默认的AWS凭据提供程序（即~/.AWS/rentials或环境变量）进行身份验证。这些凭据仅在本地用于从此扩展发出API请求。',
+    awsAccessKey: 'AWS Access Key',
+    awsAccessKeyPh: '请输入AWS Access Key',
+    awsSecretKey: 'AWS Secret Key',
+    awsSecretKeyPh: '请输入AWS Secret Key',
+    awsSessionToken: 'AWS Session Token',
+    awsSessionTokenPh: '请输入AWS  Session Token',
+    awsRegion: 'AWS 区域',
+    awsRegionPh: '请选择区域'
   },
   extensions: {
     extensions: '插件',
