@@ -282,7 +282,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted, defineAsyncComponent, defineEmits } from 'vue'
+import { ref, reactive, onMounted, defineAsyncComponent, defineEmits, onUnmounted } from 'vue'
 import {
   PlusOutlined,
   CloseOutlined,
@@ -460,6 +460,8 @@ const sendMessage = () => {
   } else if (activeKey.value === 'ctm-agent') {
     currentWebSocket = agentWebSocket
     userContent = agentInputValue.value
+    if (userContent.trim()) sendMessageToMain(userContent)
+    return
   }
 
   if (userContent.trim() === '') {
@@ -778,7 +780,34 @@ onMounted(async () => {
       })
     })
     .catch((err) => console.error(err))
+
+  // 添加主进程消息监听
+  const removeListener = (window.api as any).onMainMessage((message) => {
+    console.log('收到主进程消息:', message)
+    // 在这里处理从主进程接收到的消息
+  })
+
+  // 在组件卸载时移除监听器
+  onUnmounted(() => {
+    removeListener()
+  })
 })
+
+// 添加发送消息到主进程的方法
+const sendMessageToMain = async (userContent: string) => {
+  try {
+    const message = {
+      type: 'askResponse',
+      askResponse: 'messageResponse',
+      message: userContent
+    }
+    console.log('发送消息到主进程:', message)
+    const response = await (window.api as any).sendToMain(message)
+    console.log('主进程响应:', response)
+  } catch (error) {
+    console.error('发送消息到主进程失败:', error)
+  }
+}
 </script>
 
 <style lang="less" scoped>
