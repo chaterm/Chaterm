@@ -66,17 +66,13 @@
         <!-- <a-button @click="queryCommand">查询命令</a-button> -->
         <!-- 功能自动补全接入示例，不要删除 -->
         <!-- <a-button @click="insertCommand">插入命令</a-button> -->
-        <a-input
+        <a-input-search
           v-model:value="searchValue"
-          placeholder="请选择机器"
-          style="width: 100%"
-          allow-clear
-          @input="onSearchInput"
-        >
-          <template #suffix>
-            <search-outlined />
-          </template>
-        </a-input>
+          :placeholder="$t('workspace.searchHost')"
+          size="small"
+          class="custom-search"
+          @search="onSearchInput"
+        />
 
         <div class="tree-container">
           <a-tree
@@ -179,7 +175,6 @@ import {
   StarFilled,
   StarOutlined,
   LaptopOutlined,
-  SearchOutlined,
   EditOutlined,
   CheckOutlined,
   DownOutlined,
@@ -469,7 +464,7 @@ GetUserWorkSpace()
 .term_host_list {
   width: 100%;
   height: 100%;
-  padding: 10px;
+  padding: 4px;
   display: flex;
   justify-content: space-between;
   flex-wrap: wrap;
@@ -672,5 +667,20 @@ GetUserWorkSpace()
 }
 :global(.ant-select-item-option-active:not(.ant-select-item-option-disabled)) {
   background-color: #444 !important;
+}
+
+.custom-search {
+  width: 100%;
+  background-color: #2b2b2b;
+  border-radius: 4px;
+  :deep(.ant-input) {
+    color: #999;
+    &::placeholder {
+      color: #999;
+    }
+  }
+  :deep(.ant-input-search-button) {
+    color: #999;
+  }
 }
 </style>
