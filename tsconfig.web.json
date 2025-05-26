@@ -18,45 +18,14 @@
     "outDir": "dist/renderer",
     "noEmit": false,
     "paths": {
-      "@renderer/*": [
-        "src/renderer/src/*"
-      ],
-      "@views/*": [
-        "src/renderer/src/views/*"
-      ],
-      "@router/*": [
-        "src/renderer/src/router/*"
-      ],
-      "@store/*": [
-        "src/renderer/src/store/*"
-      ],
-      "@utils/*": [
-        "src/renderer/src/utils/*"
-      ],
-      "@api/*": [
-        "src/renderer/src/api/*"
-      ],
-      "@config/*": [
-        "src/renderer/src/config/*"
-      ],
-      "@core/*": [
-        "src/renderer/src/core/*"
-      ],
-      "@integrations/*": [
-        "src/renderer/src/integrations/*"
-      ],
-      "@services/*": [
-        "src/renderer/src/services/*"
-      ],
-      "@shared/*": [
-        "src/renderer/src/shared/*"
-      ],
-      "@packages/*": [
-        "src/renderer/src/packages/*"
-      ],
-      "@/*": [
-        "src/renderer/src/*"
-      ]
+      "@renderer/*": ["src/renderer/src/*"],
+      "@views/*": ["src/renderer/src/views/*"],
+      "@router/*": ["src/renderer/src/router/*"],
+      "@store/*": ["src/renderer/src/store/*"],
+      "@utils/*": ["src/renderer/src/utils/*"],
+      "@api/*": ["src/renderer/src/api/*"],
+      "@config/*": ["src/renderer/src/config/*"],
+      "@/*": ["src/renderer/src/*"]
     }
   }
 }
