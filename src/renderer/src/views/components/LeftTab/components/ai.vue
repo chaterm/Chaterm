@@ -15,14 +15,14 @@
           :wrapper-col="{ span: 24 }"
         >
           <a-select
-            v-model:value="userConfig.apiProvider"
+            v-model:value="apiProvider"
             size="small"
             :options="apiProviderOptions"
             show-search
           />
         </a-form-item>
       </div>
-      <div v-if="userConfig.apiProvider">
+      <div v-if="apiProvider">
         <div class="setting-item">
           <a-form-item
             :label="$t('user.awsAccessKey')"
@@ -30,7 +30,7 @@
             :wrapper-col="{ span: 24 }"
           >
             <a-input
-              v-model:value="userConfig.awsAccessKey"
+              v-model:value="awsAccessKey"
               :placeholder="$t('user.awsAccessKeyPh')"
             />
           </a-form-item>
@@ -42,7 +42,7 @@
             :wrapper-col="{ span: 24 }"
           >
             <a-input
-              v-model:value="userConfig.awsSecretKey"
+              v-model:value="awsSecretKey"
               :placeholder="$t('user.awsSecretKeyPh')"
             />
           </a-form-item>
@@ -54,7 +54,7 @@
             :wrapper-col="{ span: 24 }"
           >
             <a-input
-              v-model:value="userConfig.awsSessionToken"
+              v-model:value="awsSessionToken"
               :placeholder="$t('user.awsSessionTokenPh')"
             />
           </a-form-item>
@@ -66,7 +66,7 @@
             :wrapper-col="{ span: 24 }"
           >
             <a-select
-              v-model:value="userConfig.awsRegion"
+              v-model:value="awsRegion"
               size="small"
               :options="awsRegionOptions"
               :placeholder="$t('user.awsRegionPh')"
@@ -77,9 +77,29 @@
         <p class="setting-description-no-padding">
           {{ $t('user.apiProviderDescribe') }}
         </p>
+        <div class="setting-item">
+          <!-- AWS VPC Endpoint Checkbox -->
+          <a-checkbox v-model:checked="awsEndpointSelected">
+            {{ $t('user.awsEndpointSelected') }}
+          </a-checkbox>
+
+          <!-- AWS VPC Endpoint Input -->
+          <template v-if="awsEndpointSelected">
+            <a-input
+              v-model:value="awsBedrockEndpoint"
+              type="url"
+              :placeholder="$t('user.awsBedrockEndpointPh')"
+            />
+          </template>
+        </div>
+        <div class="setting-item">
+          <!-- Cross Region Inference Checkbox -->
+          <a-checkbox v-model:checked="awsUseCrossRegionInference">
+            {{ $t('user.awsUseCrossRegionInference') }}
+          </a-checkbox>
+        </div>
       </div>
     </a-card>
-
     <div class="section-header">
       <h3>{{ $t('user.general') }}</h3>
     </div>
@@ -95,29 +115,48 @@
           :wrapper-col="{ span: 24 }"
         >
           <a-select
-            v-model:value="userConfig.model"
+            v-model:value="apiModelId"
             size="small"
             :options="aiModelOptions"
             show-search
           />
         </a-form-item>
       </div>
-
+      <!-- ChatSetting -->
+      <div class="setting-item">
+        <a-form-item
+          :label="$t('user.chatSettings')"
+          :label-col="{ span: 24 }"
+          :wrapper-col="{ span: 24 }"
+        >
+          <a-select
+            v-model:value="chatSettings.mode"
+            size="small"
+          >
+            <a-select-option value="chat">Chat</a-select-option>
+            <a-select-option value="cmd">Cmd</a-select-option>
+            <a-select-option value="agent">Agent</a-select-option>
+          </a-select>
+        </a-form-item>
+      </div>
       <!-- Extended Thinking -->
       <div class="setting-item">
-        <a-checkbox v-model:checked="userConfig.enableExtendedThinking">
+        <a-checkbox
+          v-model:checked="enableExtendedThinking"
+          @change="handleEnableExtendedThinking"
+        >
           {{ $t('user.enableExtendedThinking') }}
         </a-checkbox>
-        <template v-if="userConfig.enableExtendedThinking">
+        <template v-if="enableExtendedThinking">
           <div class="label-container">
             <label class="budget-label">
-              <strong>Budget:</strong> {{ userConfig.budget.toLocaleString() }} tokens
+              <strong>Budget:</strong> {{ thinkingBudgetTokens.toLocaleString() }} tokens
             </label>
           </div>
 
           <div class="slider-container">
             <a-slider
-              v-model:value="userConfig.budget"
+              v-model:value="thinkingBudgetTokens"
               :min="1024"
               :max="6553"
               :step="1"
@@ -133,7 +172,7 @@
 
       <!-- Auto Approval -->
       <div class="setting-item">
-        <a-checkbox v-model:checked="userConfig.autoApproval">
+        <a-checkbox v-model:checked="autoApprovalSettings.enabled">
           {{ $t('user.autoApproval') }}
         </a-checkbox>
         <p class="setting-description">
@@ -149,16 +188,6 @@
       class="settings-section"
       :bordered="false"
     >
-      <!-- Checkpoints -->
-      <div class="setting-item">
-        <a-checkbox v-model:checked="userConfig.enableCheckpoints">
-          {{ $t('user.enableCheckpoints') }}
-        </a-checkbox>
-        <p class="setting-description">
-          {{ $t('user.enableCheckpointsDescribe') }}
-        </p>
-      </div>
-
       <!-- Reasoning Effort -->
       <div class="setting-item">
         <a-form-item
@@ -167,7 +196,7 @@
           :wrapper-col="{ span: 24 }"
         >
           <a-select
-            v-model:value="userConfig.reasoningEffort"
+            v-model:value="reasoningEffort"
             size="small"
           >
             <a-select-option value="low">{{ $t('user.openAIReasoningEffortLow') }}</a-select-option>
@@ -196,7 +225,7 @@
           :wrapper-col="{ span: 24 }"
         >
           <a-input
-            v-model:value="userConfig.shellIntegrationTimeout"
+            v-model:value="shellIntegrationTimeout"
             :placeholder="$t('user.shellIntegrationTimeoutPh')"
             :status="inputError ? 'error' : ''"
           />
@@ -213,13 +242,43 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, watch } from 'vue'
+import { ref, onMounted, watch, computed } from 'vue'
 import { notification } from 'ant-design-vue'
-import { userConfigStore } from '@/services/userConfigStoreService'
+import {
+  updateGlobalState,
+  getGlobalState,
+  getSecret,
+  storeSecret
+} from '@/agent/core/storage/state'
+import {
+  AutoApprovalSettings,
+  DEFAULT_AUTO_APPROVAL_SETTINGS
+} from '@/agent/shared/AutoApprovalSettings'
+import { ChatSettings, DEFAULT_CHAT_SETTINGS } from '@/agent/shared/ChatSettings'
 
 const apiProviderOptions = ref([{ value: 'Amazon Bedrock', label: 'Amazon Bedrock' }])
 
-const awsRegionOptions = ref([{ value: 'us-east-1', label: 'us-east-1' }])
+const awsRegionOptions = ref([
+  { value: 'us-east-1', label: 'us-east-1' },
+  { value: 'us-east-2', label: 'us-east-2' },
+  { value: 'us-west-2', label: 'us-west-2' },
+  { value: 'ap-south-1', label: 'ap-south-1' },
+  { value: 'ap-northeast-1', label: 'ap-northeast-1' },
+  { value: 'ap-northeast-2', label: 'ap-northeast-2' },
+  { value: 'ap-northeast-3', label: 'ap-northeast-3' },
+  { value: 'ap-southeast-1', label: 'ap-southeast-1' },
+  { value: 'ap-southeast-2', label: 'ap-southeast-2' },
+  { value: 'ca-central-1', label: 'ca-central-1' },
+  { value: 'eu-central-1', label: 'eu-central-1' },
+  { value: 'eu-central-2', label: 'eu-central-2' },
+  { value: 'eu-west-1', label: 'eu-west-1' },
+  { value: 'eu-west-2', label: 'eu-west-2' },
+  { value: 'eu-west-3', label: 'eu-west-3' },
+  { value: 'eu-north-1', label: 'eu-north-1' },
+  { value: 'sa-east-1', label: 'sa-east-1' },
+  { value: 'us-gov-east-1', label: 'us-gov-east-1' },
+  { value: 'us-gov-west-1', label: 'us-gov-west-1' }
+])
 
 const aiModelOptions = ref([
   { value: 'amazon.nova-pro-v1:0', label: 'amazon.nova-pro-v1:0' },
@@ -256,30 +315,69 @@ const aiModelOptions = ref([
   { value: 'deepseek.r1-v1:0', label: 'deepseek.r1-v1:0' }
 ])
 
-const userConfig = ref({
-  model: 'anthropic.claude-3-7-sonnet-20250219-v1:0',
-  enableExtendedThinking: false,
-  budget: 1024,
-  enableCheckpoints: false,
-  autoApproval: false,
-  reasoningEffort: 'low',
-  shellIntegrationTimeout: 4,
-  apiProvider: 'Amazon Bedrock',
-  awsAccessKey: '',
-  awsSecretKey: '',
-  awsSessionToken: '',
-  awsRegion: ''
-})
+const apiModelId = ref('anthropic.claude-3-7-sonnet-20250219-v1:0')
+const thinkingBudgetTokens = ref(0)
+const enableExtendedThinking = ref(false)
+// const enableCheckpoints = ref(false)
+const reasoningEffort = ref('low')
+const shellIntegrationTimeout = ref(4)
+const apiProvider = ref('Amazon Bedrock')
+const awsAccessKey = ref('')
+const awsSecretKey = ref('')
+const awsSessionToken = ref('')
+const awsRegion = ref('')
+const awsUseCrossRegionInference = ref(false)
+const awsEndpointSelected = ref(false)
+const awsBedrockEndpoint = ref('')
+
+const autoApprovalSettings = ref<AutoApprovalSettings>(DEFAULT_AUTO_APPROVAL_SETTINGS)
+const chatSettings = ref<ChatSettings>(DEFAULT_CHAT_SETTINGS)
 
 const inputError = ref('')
 
 // 加载保存的配置
 const loadSavedConfig = async () => {
   try {
-    const savedConfig = await userConfigStore.getConfig()
-    if (savedConfig) {
-      userConfig.value = { ...userConfig.value, ...savedConfig }
+    // 加载API相关配置
+    apiProvider.value = (await getGlobalState('apiProvider')) || 'Amazon Bedrock'
+    apiModelId.value =
+      (await getGlobalState('apiModelId')) || 'anthropic.claude-3-7-sonnet-20250219-v1:0'
+    awsRegion.value = (await getGlobalState('awsRegion')) || ''
+    awsUseCrossRegionInference.value = (await getGlobalState('awsUseCrossRegionInference')) || false
+    awsBedrockEndpoint.value = (await getGlobalState('awsBedrockEndpoint')) || ''
+
+    // 加载敏感信息
+    awsAccessKey.value = (await getSecret('awsAccessKey')) || ''
+    awsSecretKey.value = (await getSecret('awsSecretKey')) || ''
+    awsSessionToken.value = (await getSecret('awsSessionToken')) || ''
+
+    // 加载其他配置
+    thinkingBudgetTokens.value = (await getGlobalState('thinkingBudgetTokens')) || 0
+    // enableCheckpoints.value = (await getGlobalState('enableCheckpoints')) || false
+
+    const savedAutoApprovalSettings = await getGlobalState('autoApprovalSettings')
+    if (savedAutoApprovalSettings) {
+      autoApprovalSettings.value = {
+        ...DEFAULT_AUTO_APPROVAL_SETTINGS,
+        ...savedAutoApprovalSettings
+      }
+    } else {
+      autoApprovalSettings.value = DEFAULT_AUTO_APPROVAL_SETTINGS
     }
+
+    const savedChatSettings = await getGlobalState('chatSettings')
+    if (savedChatSettings) {
+      chatSettings.value = {
+        ...DEFAULT_CHAT_SETTINGS,
+        ...savedChatSettings
+      }
+    } else {
+      chatSettings.value = DEFAULT_CHAT_SETTINGS
+    }
+
+    reasoningEffort.value = (await getGlobalState('reasoningEffort')) || 'low'
+    shellIntegrationTimeout.value = (await getGlobalState('shellIntegrationTimeout')) || 4
+    awsEndpointSelected.value = (await getGlobalState('awsEndpointSelected')) || false
   } catch (error) {
     console.error('Failed to load config:', error)
     notification.error({
@@ -289,10 +387,33 @@ const loadSavedConfig = async () => {
   }
 }
 
-// 保存配置到 IndexedDB
+// 保存配置到存储
 const saveConfig = async () => {
   try {
-    await userConfigStore.saveConfig(userConfig.value)
+    // 保存API相关配置
+    await updateGlobalState('apiProvider', apiProvider.value)
+    await updateGlobalState('apiModelId', apiModelId.value)
+    await updateGlobalState('awsRegion', awsRegion.value)
+    await updateGlobalState('awsUseCrossRegionInference', awsUseCrossRegionInference.value)
+    await updateGlobalState('awsBedrockEndpoint', awsBedrockEndpoint.value)
+    await updateGlobalState('awsEndpointSelected', awsEndpointSelected.value)
+
+    // 保存敏感信息
+    await storeSecret('awsAccessKey', awsAccessKey.value)
+    await storeSecret('awsSecretKey', awsSecretKey.value)
+    await storeSecret('awsSessionToken', awsSessionToken.value)
+
+    // 保存其他配置
+    await updateGlobalState('thinkingBudgetTokens', thinkingBudgetTokens.value)
+    // await updateGlobalState('enableCheckpoints', enableCheckpoints.value)
+    await updateGlobalState('autoApprovalSettings', {
+      enabled: autoApprovalSettings.value.enabled
+    })
+    await updateGlobalState('chatSettings', {
+      mode: chatSettings.value.mode
+    })
+    await updateGlobalState('reasoningEffort', reasoningEffort.value)
+    await updateGlobalState('shellIntegrationTimeout', shellIntegrationTimeout.value)
   } catch (error) {
     console.error('Failed to save config:', error)
     notification.error({
@@ -304,11 +425,47 @@ const saveConfig = async () => {
 
 // 监听配置变化
 watch(
-  () => userConfig.value,
+  [
+    apiModelId,
+    thinkingBudgetTokens,
+    enableExtendedThinking,
+    // enableCheckpoints,
+    autoApprovalSettings,
+    chatSettings,
+    reasoningEffort,
+    shellIntegrationTimeout,
+    apiProvider,
+    awsAccessKey,
+    awsSecretKey,
+    awsSessionToken,
+    awsRegion,
+    awsUseCrossRegionInference,
+    awsEndpointSelected,
+    awsBedrockEndpoint
+  ],
   async () => {
     await saveConfig()
-  },
-  { deep: true }
+  }
+)
+
+// 监听thinkingBudgetTokens变化来同步enableExtendedThinking状态
+watch(
+  () => thinkingBudgetTokens.value,
+  (newValue) => {
+    enableExtendedThinking.value = newValue > 0
+  }
+)
+
+// 监听enableExtendedThinking变化来同步thinkingBudgetTokens
+watch(
+  () => enableExtendedThinking.value,
+  (newValue) => {
+    if (!newValue && thinkingBudgetTokens.value > 0) {
+      thinkingBudgetTokens.value = 0
+    } else if (newValue && thinkingBudgetTokens.value === 0) {
+      thinkingBudgetTokens.value = 1024
+    }
+  }
 )
 
 // 组件挂载时加载保存的配置
@@ -337,13 +494,22 @@ const validateTimeout = (value: string) => {
 
 // 处理 shell integration timeout 变化
 watch(
-  () => userConfig.value.shellIntegrationTimeout,
+  () => shellIntegrationTimeout.value,
   (newValue) => {
     if (validateTimeout(String(newValue))) {
       saveConfig()
     }
   }
 )
+
+// 处理扩展思考开关
+const handleEnableExtendedThinking = (checked: boolean) => {
+  if (!checked) {
+    thinkingBudgetTokens.value = 0
+  } else if (thinkingBudgetTokens.value === 0) {
+    thinkingBudgetTokens.value = 1024 // 默认值
+  }
+}
 </script>
 
 <style lang="less" scoped>
@@ -521,5 +687,19 @@ watch(
   color: #ff4d4f;
   font-size: 12px;
   margin-top: 4px;
+}
+
+// 减小表单项之间的间距
+:deep(.ant-form-item) {
+  margin-bottom: 8px; // 减小底部边距
+}
+
+// 减小label和输入框之间的间距
+:deep(.ant-form-item-label) {
+  padding-bottom: 0; // 移除label的底部padding
+  > label {
+    height: 24px; // 减小label高度
+    line-height: 24px; // 调整行高以匹配高度
+  }
 }
 </style>

@@ -84,12 +84,6 @@ class IndexedDBService {
       this.dbConnections.delete(dbName)
     }
   }
-
-  closeAllDatabases(): void {
-    this.dbConnections.forEach((db, name) => {
-      this.closeDatabase(name)
-    })
-  }
 }
 
 // 导出单例实例
