@@ -49,12 +49,10 @@
                 </pane>
                 <pane :size="rightSize">
                   <div class="rigth-sidebar">
-                    <div class="rigth-bar">
-                      <AiTab
-                        :toggle-sidebar="toggleSideBar"
-                        @run-cmd="runCmd"
-                      />
-                    </div>
+                    <AiTab
+                      :toggle-sidebar="toggleSideBar"
+                      @run-cmd="runCmd"
+                    />
                   </div>
                 </pane>
               </splitpanes>
@@ -137,7 +135,7 @@ watch(leftPaneSize, () => {
   }
 })
 const DEFAULT_WIDTH_PX = 240
-const DEFAULT_WIDTH_RIGHT_PX = 550
+const DEFAULT_WIDTH_RIGHT_PX = 400
 const currentMenu = ref('workspace')
 const activeKey = ref('mainTerminal')
 const updatePaneSize = () => {
@@ -312,10 +310,6 @@ const changeCompany = () => {
 }
 </script>
 <style lang="less">
-.rigth-bar {
-  padding: 1px;
-}
-
 .terminal-layout {
   height: 100vh;
   width: 100vw;
@@ -372,7 +366,7 @@ const changeCompany = () => {
     }
 
     .term_content {
-      width: calc(100% - 50px);
+      width: calc(100% - 40px);
       height: 100%;
       box-sizing: border-box;
 
@@ -389,6 +383,7 @@ const changeCompany = () => {
 
 .rigth-sidebar {
   width: 100%;
+  height: 100%;
   background: #252525;
   // border-right: 1px solid #404040;
   transition: width 0.3s ease;
