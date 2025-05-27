@@ -45,13 +45,13 @@ import { encrypt } from '@/utils/util'
 import 'xterm/css/xterm.css'
 import { userInfoStore } from '@/store'
 import { userConfigStore } from '@/store/userConfigStore'
-
 import { termFileContent, termFileContentSave } from '@/api/term/term'
 import { notification } from 'ant-design-vue'
 import EditorCode from './Editor/dragEditor.vue'
 import { Modal } from 'ant-design-vue'
-
 import { getListCmd } from '@/api/asset/asset'
+import eventBus from '@/utils/eventBus'
+
 const contextmenu = ref()
 const props = defineProps({
   serverInfo: {
@@ -110,6 +110,10 @@ onMounted(() => {
   connectWebsocket()
   window.addEventListener('resize', handleResize)
   terminalContainer.value.addEventListener('resize', handleResize)
+  // 监听 executeTerminalCommand 事件
+  eventBus.on('executeTerminalCommand', (command) => {
+    autoExecuteCode(command)
+  })
 })
 
 onBeforeUnmount(() => {
@@ -122,6 +126,8 @@ onBeforeUnmount(() => {
   clearInterval(pingInterval.value)
   pingInterval.value = null
   window.removeEventListener('resize', handleResize)
+  // 移除事件监听
+  eventBus.off('executeTerminalCommand')
 })
 // 获取当前机器所有命令
 const getALlCmdList = () => {
