@@ -366,7 +366,7 @@ const changeCompany = () => {
     display: flex;
 
     .term_left_menu {
-      width: 50px;
+      width: 40px;
       height: 100%;
       box-sizing: border-box;
     }
