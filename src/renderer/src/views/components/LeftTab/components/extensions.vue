@@ -148,7 +148,24 @@ const loadSavedConfig = async () => {
 // 保存配置到 IndexedDB
 const saveConfig = async () => {
   try {
-    await userConfigStore.saveConfig(userConfig.value)
+    // Create a clean object with only the data we want to store
+    const configToStore = {
+      autoCompleteStatus: userConfig.value.autoCompleteStatus,
+      vimStatus: userConfig.value.vimStatus,
+      quickVimStatus: userConfig.value.quickVimStatus,
+      commonVimStatus: userConfig.value.commonVimStatus,
+      aliasStatus: userConfig.value.aliasStatus,
+      highlightStatus: userConfig.value.highlightStatus
+    }
+
+    // Get existing config and merge with new config
+    const existingConfig = (await userConfigStore.getConfig()) || {}
+    const mergedConfig = {
+      ...existingConfig,
+      ...configToStore
+    }
+
+    await userConfigStore.saveConfig(mergedConfig)
   } catch (error) {
     console.error('Failed to save config:', error)
     notification.error({
