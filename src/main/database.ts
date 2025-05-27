@@ -42,26 +42,120 @@ export async function initDatabase(): Promise<Database.Database> {
 
 export async function initChatermDatabase(): Promise<Database.Database> {
   try {
-    // 检查目标数据库是否存在
-    if (!fs.existsSync(Chaterm_DB_PATH)) {
-      // 确保 init_chaterm.db 存在
-      if (!fs.existsSync(INIT_CDB_PATH)) {
-        throw new Error('Initial database (init_chaterm.db) not found')
-      }
-      const sourceDb = new Database(INIT_CDB_PATH, { readonly: true })
-
-      await sourceDb.backup(Chaterm_DB_PATH)
-      sourceDb.close()
-    } else {
-      console.log('Chaterm database already exists, skipping initialization')
+    const dbDir = path.dirname(Chaterm_DB_PATH)
+    if (!fs.existsSync(dbDir)) {
+      fs.mkdirSync(dbDir, { recursive: true })
     }
 
-    // 返回数据库实例
-    const db = new Database(Chaterm_DB_PATH)
-    console.log('Chaterm database connection established')
-    return db
-  } catch (error) {
-    console.error('Chaterm database initialization failed:', error)
+    if (!fs.existsSync(INIT_CDB_PATH)) {
+      throw new Error(`Initial database (init_chaterm.db) not found at ${INIT_CDB_PATH}`)
+    }
+
+    const targetDbExists = fs.existsSync(Chaterm_DB_PATH)
+
+    if (!targetDbExists) {
+      console.log('Target Chaterm database does not exist. Copying from initial database.')
+      const sourceDb = new Database(INIT_CDB_PATH, { readonly: true, fileMustExist: true })
+      try {
+        await sourceDb.backup(Chaterm_DB_PATH)
+        console.log('Chaterm database successfully copied.')
+      } finally {
+        sourceDb.close()
+      }
+    } else {
+      console.log('Target Chaterm database exists. Attempting schema synchronization.')
+      let mainDb: Database.Database | null = null
+      let initDb: Database.Database | null = null
+      try {
+        mainDb = new Database(Chaterm_DB_PATH)
+        initDb = new Database(INIT_CDB_PATH, { readonly: true, fileMustExist: true })
+
+        const initTables = initDb
+          .prepare(
+            "SELECT name, sql FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'"
+          )
+          .all() as { name: string; sql: string }[]
+
+        for (const initTable of initTables) {
+          const tableName = initTable.name
+          const createTableSql = initTable.sql
+
+          const tableExists = mainDb
+            .prepare("SELECT name FROM sqlite_master WHERE type='table' AND name = ?")
+            .get(tableName)
+
+          if (!tableExists) {
+            console.log(`Table ${tableName} not found in target DB. Creating table.`)
+            mainDb.exec(createTableSql)
+          } else {
+            console.log(`Table ${tableName} found in target DB. Checking for missing columns.`)
+            const initTableInfo = initDb.pragma(`table_info(${tableName})`) as {
+              name: string
+              type: string
+              notnull: number
+              dflt_value: any
+              pk: number
+            }[]
+            const mainTableInfo = mainDb.pragma(`table_info(${tableName})`) as { name: string }[]
+            const mainTableColumnNames = new Set(mainTableInfo.map((col) => col.name))
+
+            for (const initColumn of initTableInfo) {
+              if (!mainTableColumnNames.has(initColumn.name)) {
+                let addColumnSql = `ALTER TABLE ${tableName} ADD COLUMN ${initColumn.name} ${initColumn.type}`
+
+                if (initColumn.dflt_value !== null) {
+                  let defaultValueFormatted
+                  if (typeof initColumn.dflt_value === 'string') {
+                    // PRAGMA dflt_value is already SQL-literal like for strings (e.g. 'text' or "'text'")
+                    defaultValueFormatted = initColumn.dflt_value
+                  } else {
+                    defaultValueFormatted = initColumn.dflt_value
+                  }
+                  addColumnSql += ` DEFAULT ${defaultValueFormatted}`
+                }
+
+                if (initColumn.notnull) {
+                  // 1 if NOT NULL, 0 otherwise
+                  if (initColumn.dflt_value !== null) {
+                    addColumnSql += ' NOT NULL'
+                  } else {
+                    console.warn(
+                      `Column '${initColumn.name}' in table '${tableName}' is defined as NOT NULL without a default value in the initial schema. Adding it as nullable to the existing table to avoid errors. Manual schema adjustment might be needed if strict NOT NULL is required and the table contains data.`
+                    )
+                  }
+                }
+                try {
+                  console.log(
+                    `Attempting to add column ${initColumn.name} to table ${tableName} with SQL: ${addColumnSql}`
+                  )
+                  mainDb.exec(addColumnSql)
+                  console.log(`Successfully added column ${initColumn.name} to table ${tableName}.`)
+                } catch (e: any) {
+                  console.error(
+                    `Failed to add column ${initColumn.name} to table ${tableName}: ${e.message}. SQL: ${addColumnSql}`
+                  )
+                }
+              }
+            }
+          }
+        }
+        console.log('Chaterm database schema synchronization attempt complete.')
+      } catch (syncError: any) {
+        console.error('Error during Chaterm database schema synchronization:', syncError.message)
+        // Rethrow if we want the entire init to fail.
+        // throw syncError;
+      } finally {
+        if (mainDb && mainDb.open) mainDb.close()
+        if (initDb && initDb.open) initDb.close()
+      }
+    }
+
+    // Return the database instance (always from Chaterm_DB_PATH)
+    const finalDb = new Database(Chaterm_DB_PATH)
+    console.log('Chaterm database connection established. Path: ' + Chaterm_DB_PATH)
+    return finalDb
+  } catch (error: any) {
+    console.error('Chaterm database initialization/synchronization failed:', error.message)
     throw error
   }
 }
@@ -555,7 +649,7 @@ export class ChatermDatabaseService {
   }
 
   // Agent API对话历史相关方法
-  async getSavedApiConversationHistory(taskId: string): Promise<any[]> {
+  async getApiConversationHistory(taskId: string): Promise<any[]> {
     try {
       const stmt = this.db.prepare(`
         SELECT content_data, role, content_type, tool_use_id, sequence_order
@@ -611,14 +705,14 @@ export class ChatermDatabaseService {
 
   async saveApiConversationHistory(taskId: string, apiConversationHistory: any[]): Promise<void> {
     try {
-      this.db.transaction(() => {
-        // 清除现有记录
-        const deleteStmt = this.db.prepare(
-          'DELETE FROM agent_api_conversation_history_v1 WHERE task_id = ?'
-        )
-        deleteStmt.run(taskId)
+      // 首先清除现有记录（事务之外）
+      const deleteStmt = this.db.prepare(
+        'DELETE FROM agent_api_conversation_history_v1 WHERE task_id = ?'
+      )
+      deleteStmt.run(taskId)
 
-        // 插入新记录
+      // 然后在一个新事务中插入所有记录
+      this.db.transaction(() => {
         const insertStmt = this.db.prepare(`
           INSERT INTO agent_api_conversation_history_v1 
           (task_id, ts, role, content_type, content_data, tool_use_id, sequence_order)
@@ -668,9 +762,12 @@ export class ChatermDatabaseService {
             )
           }
         }
+        console.log('保存API对话历史成功 (事务内)')
       })()
+      console.log('API对话历史保存操作完成')
     } catch (error) {
       console.error('Failed to save API conversation history:', error)
+      throw error // Re-throw the error to be caught by the IPC handler
     }
   }
 
@@ -798,7 +895,7 @@ export class ChatermDatabaseService {
   }
 
   // Agent上下文历史相关方法
-  async getSavedContextHistory(taskId: string): Promise<any> {
+  async getContextHistory(taskId: string): Promise<any> {
     try {
       const stmt = this.db.prepare(`
         SELECT context_history_data
@@ -819,6 +916,37 @@ export class ChatermDatabaseService {
   }
 
   async saveContextHistory(taskId: string, contextHistory: any): Promise<void> {
+    console.log('[saveContextHistory] Attempting to save. Task ID:', taskId, 'Type:', typeof taskId)
+    let jsonDataString: string | undefined
+    try {
+      jsonDataString = JSON.stringify(contextHistory)
+      console.log(
+        '[saveContextHistory] JSON.stringify successful. Data:',
+        jsonDataString,
+        'Type:',
+        typeof jsonDataString
+      )
+    } catch (stringifyError) {
+      console.error('[saveContextHistory] Error during JSON.stringify:', stringifyError)
+      console.error(
+        '[saveContextHistory] Original contextHistory object that caused error:',
+        contextHistory
+      )
+      if (stringifyError instanceof Error) {
+        throw new Error(`Failed to stringify contextHistory: ${stringifyError.message}`)
+      } else {
+        throw new Error(`Failed to stringify contextHistory: ${String(stringifyError)}`)
+      }
+    }
+
+    if (typeof jsonDataString !== 'string') {
+      console.error(
+        '[saveContextHistory] jsonDataString is not a string after stringify. Value:',
+        jsonDataString
+      )
+      throw new Error('jsonDataString is not a string after JSON.stringify')
+    }
+
     try {
       const upsertStmt = this.db.prepare(`
         INSERT INTO agent_context_history_v1 (task_id, context_history_data, updated_at)
@@ -828,9 +956,23 @@ export class ChatermDatabaseService {
           updated_at = strftime('%s', 'now')
       `)
 
-      upsertStmt.run(taskId, JSON.stringify(contextHistory))
+      console.log(
+        '[saveContextHistory] Executing upsert. Task ID:',
+        taskId,
+        'Data:',
+        jsonDataString
+      )
+      upsertStmt.run(taskId, jsonDataString)
+      console.log('[saveContextHistory] Upsert successful for Task ID:', taskId)
     } catch (error) {
-      console.error('Failed to save context history:', error)
+      console.error(
+        '[saveContextHistory] Failed to save context history to DB. Task ID:',
+        taskId,
+        'Error:',
+        error
+      )
+      console.error('[saveContextHistory] Data that caused error:', jsonDataString)
+      throw error
     }
   }
 }

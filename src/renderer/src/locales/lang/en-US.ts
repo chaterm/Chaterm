@@ -3,6 +3,7 @@ export default {
     language: 'English',
     workspace: 'WorkSpace',
     files: 'Files',
+    keychain: 'Keychain',
     extensions: 'Extensions',
     monitor: 'Monitor',
     ai: 'AI',
@@ -54,6 +55,7 @@ export default {
     uninstalling: 'Uninstalling',
     baseSetting: 'Base setting',
     ai: 'AI',
+    keychain: 'Keychain',
     textEditor: 'Text editor',
     commandLineOpen: 'Command line open',
     fileManagerPlugin: 'File manager plugin',
@@ -89,7 +91,19 @@ export default {
     shellIntegrationTimeout: 'Shell integration timeout (seconds)',
     shellIntegrationTimeoutPh: 'Enter timeout in seconds',
     shellIntegrationTimeoutDescribe: 'Set how long to wait for shell integration to activate',
-    terminal: 'Terminal'
+    terminal: 'Terminal',
+    apiConfiguration: 'API Configuration',
+    apiProvider: 'API Provider',
+    apiProviderDescribe:
+      'Authenticate by either providing the keys above or use the default AWS credential providers, i.e. ~/.aws/credentials or environment variables. These credentials are only used locally to make API requests from this extension.\n',
+    awsAccessKey: 'AWS Access Key',
+    awsAccessKeyPh: 'Enter Access Key',
+    awsSecretKey: 'AWS Secret Key',
+    awsSecretKeyPh: 'Enter Secret Key',
+    awsSessionToken: 'AWS Session Token',
+    awsSessionTokenPh: 'Enter Session Token',
+    awsRegion: 'AWS Region',
+    awsRegionPh: 'Select a region...'
   },
   extensions: {
     extensions: 'Extensions',

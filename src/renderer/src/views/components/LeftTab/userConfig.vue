@@ -50,8 +50,9 @@ import AI from '@/views/components/LeftTab/components/ai.vue'
 }
 
 .user-config-title {
-  line-height: 50px;
-  font-size: 18px;
+  line-height: 30px;
+  font-size: 16px;
+  font-weight: 600;
   margin-left: 10px;
   flex-shrink: 0;
 }
@@ -76,7 +77,7 @@ import AI from '@/views/components/LeftTab/components/ai.vue'
   // 修改左侧 tab 栏样式
   :deep(.ant-tabs-nav) {
     height: 100%;
-    width: 20%;
+    width: 100px;
 
     &::before {
       display: none; // 移除默认的上边框
