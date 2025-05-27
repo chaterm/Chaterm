@@ -1,6 +1,17 @@
 // vscode-mock.ts - VSCode API mock for Electron environment
 
-// 导出现有的 vscode 类型定义
+// 添加 LanguageModelAccessInformation 接口
+export interface LanguageModelAccessInformation {
+  onDidChange: (listener: () => void) => { dispose(): void }
+  canSendRequest: (chat: LanguageModelChat) => boolean
+}
+
+export interface LanguageModelChat {
+  readonly id: string
+  readonly name: string
+}
+
+// 导出现有的 vscode 类型定义，但排除冲突的类型
 export * from './api/providers/types'
 
 // Thenable 类型定义
@@ -279,7 +290,23 @@ export const workspace = {
     }
   },
   workspaceFolders: [] as WorkspaceFolder[],
-  rootPath: undefined as string | undefined
+  rootPath: undefined as string | undefined,
+  onDidCreateFiles: (listener: (e: FileCreateEvent) => any) => {
+    return { dispose: () => {} }
+  },
+  onDidDeleteFiles: (listener: (e: FileDeleteEvent) => any) => {
+    return { dispose: () => {} }
+  },
+  onDidRenameFiles: (listener: (e: FileRenameEvent) => any) => {
+    return { dispose: () => {} }
+  },
+  fs: {
+    stat: async (uri: Uri) => ({ type: FileType.File }),
+    readFile: async (uri: Uri) => new Uint8Array(),
+    writeFile: async (uri: Uri, content: Uint8Array) => {},
+    delete: async (uri: Uri) => {},
+    rename: async (source: Uri, target: Uri) => {}
+  } as FileSystem
 }
 
 // Language Model API mock (基于之前提供的文件中的定义)
@@ -935,6 +962,111 @@ export const languages = {
   }
 }
 
+// 添加 ExtensionKind 枚举
+export enum ExtensionKind {
+  Workspace = 1,
+  UI = 2
+}
+
+// 修改 GlobalEnvironmentVariableCollection 接口
+export interface GlobalEnvironmentVariableCollection extends EnvironmentVariableCollection {
+  getScoped(scope: EnvironmentVariableScope): EnvironmentVariableCollection
+  description: string | undefined
+}
+
+// 修改 environmentVariableCollection 的实现
+const environmentVariableCollection: GlobalEnvironmentVariableCollection = {
+  persistent: true,
+  replace: (variable: string, value: string) => {},
+  append: (variable: string, value: string) => {},
+  prepend: (variable: string, value: string) => {},
+  get: (variable: string) => undefined,
+  forEach: (
+    callback: (
+      variable: string,
+      mutator: EnvironmentVariableMutator,
+      collection: EnvironmentVariableCollection
+    ) => any
+  ) => {},
+  delete: (variable: string) => {},
+  clear: () => {},
+  getScoped: (scope: EnvironmentVariableScope) => environmentVariableCollection,
+  description: 'Example Environment Variables'
+}
+
+// 修改 extension 的实现
+const extension: Extension<any> = {
+  id: 'example.extension',
+  extensionUri: Uri.file('/path/to/extension'),
+  extensionPath: '/path/to/extension',
+  isActive: true,
+  packageJSON: {},
+  exports: {},
+  activate: () => Promise.resolve({})
+}
+
+// 添加基础接口
+export interface Disposable {
+  dispose(): any
+}
+
+// 添加文件类型枚举
+export enum FileType {
+  Unknown = 0,
+  File = 1,
+  Directory = 2,
+  SymbolicLink = 64
+}
+
+// 添加文件事件相关接口
+export interface FileCreateEvent {
+  files: Uri[]
+}
+
+export interface FileDeleteEvent {
+  files: Uri[]
+}
+
+export interface FileRenameEvent {
+  files: { oldUri: Uri; newUri: Uri }[]
+}
+
+// 添加文件系统接口
+export interface FileSystem {
+  stat(uri: Uri): Promise<{ type: FileType }>
+  readFile(uri: Uri): Promise<Uint8Array>
+  writeFile(uri: Uri, content: Uint8Array): Promise<void>
+  delete(uri: Uri): Promise<void>
+  rename(source: Uri, target: Uri): Promise<void>
+}
+
+// 添加 OutputChannel 接口
+export interface OutputChannel {
+  name: string
+  append(value: string): void
+  appendLine(value: string): void
+  clear(): void
+  show(): void
+  hide(): void
+  dispose(): void
+  replace(value: string): void
+}
+
+// 添加 Diagnostic 相关定义
+export enum DiagnosticSeverity {
+  Error = 0,
+  Warning = 1,
+  Information = 2,
+  Hint = 3
+}
+
+export interface Diagnostic {
+  message: string
+  range: Range
+  severity: DiagnosticSeverity
+  source?: string
+}
+
 // 更新默认导出
 export default {
   Uri,
@@ -963,5 +1095,8 @@ export default {
   LanguageModelToolCallPart,
   LanguageModelPromptTsxPart,
   LanguageModelToolResultPart,
-  LanguageModelChatMessage
+  LanguageModelChatMessage,
+  ExtensionKind,
+  FileType,
+  DiagnosticSeverity
 }
