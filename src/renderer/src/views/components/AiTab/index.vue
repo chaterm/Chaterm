@@ -1142,10 +1142,10 @@ const sendMessageToMain = async (userContent: string) => {
     justify-content: flex-end;
 
     .action-btn {
-      height: 24px;
-      padding: 0 8px;
+      height: 18px;
+      padding: 0 6px;
       border-radius: 4px;
-      font-size: 11px;
+      font-size: 10px;
       display: flex;
       align-items: center;
       gap: 3px;
