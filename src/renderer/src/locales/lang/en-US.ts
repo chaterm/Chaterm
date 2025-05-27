@@ -131,8 +131,6 @@ export default {
     newKey: 'New Key'
   },
   ai: {
-    chatMessage: 'Ask AI chat',
-    commandMessage: 'Search command',
     agentMessage: 'Plan,search,execute anything',
     copy: 'Copy',
     run: 'Run',

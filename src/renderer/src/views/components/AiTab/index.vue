@@ -5,84 +5,34 @@
     @change="handleTabChange"
   >
     <a-tab-pane
-      key="ctm-chat"
-      tab="Chat"
+      key="chat"
+      :tab="
+        currentChatId
+          ? historyList.find((item) => item.id === currentChatId)?.chatTitle || 'New chat'
+          : 'New chat'
+      "
     >
       <div
-        v-if="chatHistoryChat.length > 0"
+        v-if="chatHistory.length > 0"
         class="chat-response-container"
       >
         <div class="chat-response">
           <template
-            v-for="message in chatHistoryChat"
-            :key="message"
-          >
-            <div v-if="message.role === 'assistant'">
-              <MarkdownRenderer
-                :content="message.content"
-                :class="`message ${message.role}`"
-              />
-            </div>
-            <div
-              v-else
-              :class="`message ${message.role}`"
-              v-html="message.content"
-            ></div>
-          </template>
-        </div>
-      </div>
-      <div class="input-send-container">
-        <a-textarea
-          v-model:value="chatInputValue"
-          :placeholder="$t('ai.chatMessage')"
-          style="background-color: #161616; color: #fff; border: none; box-shadow: none"
-          :auto-size="{ minRows: 2, maxRows: 20 }"
-          @keydown="handleKeyDown"
-        />
-        <div class="input-controls">
-          <a-select
-            v-model:value="chatrModelValue"
-            size="small"
-            :options="AiModelsOptions"
-            show-search
-          ></a-select>
-          <a-button
-            type="primary"
-            size="small"
-            class="custom-round-button compact-button"
-            style="margin-left: 8px"
-            @click="sendMessage"
-          >
-            {{ $t('ai.send') }} ⏎
-          </a-button>
-        </div>
-      </div>
-    </a-tab-pane>
-    <a-tab-pane
-      key="ctm-cmd"
-      tab="Cmd"
-      force-render
-    >
-      <div
-        v-if="chatHistoryCmd.length > 0"
-        class="chat-response-container"
-      >
-        <div class="chat-response">
-          <template
-            v-for="message in chatHistoryCmd"
+            v-for="message in chatHistory"
             :key="message"
           >
             <div
               v-if="message.role === 'assistant'"
-              :class="`message ${message.role}`"
               class="assistant-message-container"
             >
-              <div
-                class="message-content"
-                v-html="message.content"
-              ></div>
+              <MarkdownRenderer
+                :content="message.content"
+                :class="`message ${message.role}`"
+              />
+
               <div class="message-actions">
                 <a-button
+                  v-if="chatTypeValue === 'ctm-cmd'"
                   size="small"
                   class="action-btn copy-btn"
                   @click="handleCopyContent(message)"
@@ -93,6 +43,7 @@
                   {{ $t('ai.copy') }}
                 </a-button>
                 <a-button
+                  v-if="chatTypeValue === 'ctm-cmd'"
                   size="small"
                   class="action-btn apply-btn"
                   @click="handleApplyCommand(message)"
@@ -102,67 +53,8 @@
                   </template>
                   {{ $t('ai.run') }}
                 </a-button>
-              </div>
-            </div>
-            <div
-              v-else
-              :class="`message ${message.role}`"
-              v-html="message.content"
-            ></div>
-          </template>
-        </div>
-      </div>
-      <div class="input-send-container">
-        <a-textarea
-          v-model:value="composerInputValue"
-          :placeholder="$t('ai.commandMessage')"
-          style="background-color: #161616; color: #fff; border: none; box-shadow: none"
-          :auto-size="{ minRows: 2, maxRows: 20 }"
-          @keydown="handleKeyDown"
-        />
-        <div class="input-controls">
-          <a-select
-            v-model:value="composerModelValue"
-            size="small"
-            :options="AiModelsOptions"
-            show-search
-          ></a-select>
-          <a-button
-            size="small"
-            class="custom-round-button compact-button"
-            style="margin-left: 8px"
-            @click="sendMessage"
-          >
-            {{ $t('ai.send') }} ⏎
-          </a-button>
-        </div>
-      </div>
-    </a-tab-pane>
-    <a-tab-pane
-      key="ctm-agent"
-      tab="Agent"
-      force-render
-    >
-      <div
-        v-if="chatHistoryAgent.length > 0"
-        class="chat-response-container"
-      >
-        <div class="chat-response">
-          <template
-            v-for="message in chatHistoryAgent"
-            :key="message"
-          >
-            <div
-              v-if="message.role === 'assistant'"
-              :class="`message ${message.role}`"
-              class="assistant-message-container"
-            >
-              <div
-                class="message-content"
-                v-html="message.content"
-              ></div>
-              <div class="message-actions">
                 <a-button
+                  v-if="chatTypeValue === 'ctm-agent'"
                   size="small"
                   class="action-btn copy-btn"
                   @click="handleRejectContent(message)"
@@ -173,6 +65,7 @@
                   {{ $t('ai.reject') }}
                 </a-button>
                 <a-button
+                  v-if="chatTypeValue === 'ctm-agent'"
                   size="small"
                   class="action-btn apply-btn"
                   @click="handleApproveCommand(message)"
@@ -187,14 +80,15 @@
             <div
               v-else
               :class="`message ${message.role}`"
-              v-html="message.content"
-            ></div>
+            >
+              {{ message.content }}
+            </div>
           </template>
         </div>
       </div>
       <div class="input-send-container">
         <a-textarea
-          v-model:value="agentInputValue"
+          v-model:value="chatInputValue"
           :placeholder="$t('ai.agentMessage')"
           style="background-color: #161616; color: #fff; border: none; box-shadow: none"
           :auto-size="{ minRows: 2, maxRows: 20 }"
@@ -202,7 +96,14 @@
         />
         <div class="input-controls">
           <a-select
-            v-model:value="composerModelValue"
+            v-model:value="chatTypeValue"
+            size="small"
+            style="width: 80px"
+            :options="AiTypeOptions"
+            show-search
+          ></a-select>
+          <a-select
+            v-model:value="chatModelValue"
             size="small"
             :options="AiModelsOptions"
             show-search
@@ -248,13 +149,7 @@
                 >
                   <div class="history-item-content">
                     <div class="history-title">{{ history.chatTitle }}</div>
-                    <div class="history-type">{{
-                      history.chatType === 'ctm-chat'
-                        ? 'Chat'
-                        : history.chatType === 'ctm-cmd'
-                          ? 'Cmd'
-                          : 'Agent'
-                    }}</div>
+                    <div class="history-type">{{ history.chatType }}</div>
                   </div>
                 </a-menu-item>
               </a-menu>
@@ -304,25 +199,17 @@ const historyList = ref<
 >([])
 
 const chatInputValue = ref('')
-const composerInputValue = ref('')
-const agentInputValue = ref('')
-const composerModelValue = ref('qwen-chat')
-const chatrModelValue = ref('qwen-chat')
-const agentModelValue = ref('qwen-chat')
-const activeKey = ref('ctm-cmd')
+const chatModelValue = ref('qwen-chat')
+const chatTypeValue = ref('ctm-cmd')
+const activeKey = ref('chat')
 
 // 当前活动对话的 ID
 const currentChatId = ref<string | null>(null)
 const authTokenInCookie = ref<string | null>(null)
 
-// 为 CHAT ，CMD 和 Agent 分别创建独立的聊天历史记录
-const chatHistoryChat = reactive<Array<{ role: string; content: string }>>([])
-const chatHistoryCmd = reactive<Array<{ role: string; content: string }>>([])
-const chatHistoryAgent = reactive<Array<{ role: string; content: string }>>([])
-
-const chatWebSocket = ref<WebSocket | null>(null)
-const cmdWebSocket = ref<WebSocket | null>(null)
-const agentWebSocket = ref<WebSocket | null>(null)
+// 创建的聊天历史记录
+const chatHistory = reactive<Array<{ role: string; content: string }>>([])
+const webSocket = ref<WebSocket | null>(null)
 
 const props = defineProps({
   toggleSidebar: {
@@ -335,6 +222,11 @@ interface ModelOption {
   value: string
 }
 const AiModelsOptions = ref<ModelOption[]>([])
+const AiTypeOptions = [
+  { label: 'Chat', value: 'ctm-chat' },
+  { label: 'Cmd', value: 'ctm-cmd' },
+  { label: 'Agent', value: 'ctm-agent' }
+]
 
 // 切换标签时候，当前的对话ID修改为对应的chat tag的id
 const handleTabChange = (key: string | number) => {
@@ -348,8 +240,7 @@ const createWebSocket = (type: string) => {
   const token = JSON.parse(JSON.stringify(authTokenInCookie.value))
   const wsUrl = `${protocol}//demo.chaterm.ai/v1/ai/chat/ws?token=${token}`
   const ws = new WebSocket(wsUrl)
-  const currentHistory =
-    type === 'ctm-chat' ? chatHistoryChat : type === 'ctm-cmd' ? chatHistoryCmd : chatHistoryAgent
+  const currentHistory = chatHistory
 
   ws.onopen = () => {
     // console.log(`${type} WebSocket 连接成功`)
@@ -366,13 +257,7 @@ const createWebSocket = (type: string) => {
     ws.onclose = () => {
       clearInterval(pingInterval)
       // console.log(`${type} WebSocket连接已关闭`)
-      if (type === 'ctm-chat') {
-        chatWebSocket.value = null
-      } else if (type === 'ctm-cmd') {
-        cmdWebSocket.value = null
-      } else if (type === 'ctm-agent') {
-        agentWebSocket.value = null
-      }
+      webSocket.value = null
     }
   }
 
@@ -445,99 +330,58 @@ const createWebSocket = (type: string) => {
 }
 
 const sendMessage = () => {
-  let currentWebSocket = chatWebSocket
-  let userContent = chatInputValue.value
-  if (activeKey.value === 'ctm-cmd') {
-    currentWebSocket = cmdWebSocket
-    userContent = composerInputValue.value
-  } else if (activeKey.value === 'ctm-agent') {
-    currentWebSocket = agentWebSocket
-    userContent = agentInputValue.value
-    if (userContent.trim()) sendMessageToMain(userContent)
-    return
-  }
-
-  if (userContent.trim() === '') {
+  const userContent = chatInputValue.value.trim()
+  if (!userContent) return
+  if (chatTypeValue.value === 'ctm-agent') {
+    sendMessageToMain(userContent)
     return
   }
 
   // 如果没有 WebSocket 连接，创建新的连接
-  if (!currentWebSocket.value) {
-    currentWebSocket.value = createWebSocket(activeKey.value)
+  if (!webSocket.value) {
+    webSocket.value = createWebSocket(chatTypeValue.value)
   }
 
   // 等待连接建立
-  if (currentWebSocket.value.readyState === WebSocket.CONNECTING) {
-    currentWebSocket.value.onopen = () => {
-      sendWebSocketMessage(currentWebSocket.value!, activeKey.value)
+  if (webSocket.value.readyState === WebSocket.CONNECTING) {
+    webSocket.value.onopen = () => {
+      sendWebSocketMessage(webSocket.value!, chatTypeValue.value)
     }
     return
   }
 
   // 如果连接已经打开，直接发送消息
-  if (currentWebSocket.value.readyState === WebSocket.OPEN) {
-    sendWebSocketMessage(currentWebSocket.value, activeKey.value)
+  if (webSocket.value.readyState === WebSocket.OPEN) {
+    sendWebSocketMessage(webSocket.value, chatTypeValue.value)
   }
 }
 
 const sendWebSocketMessage = (ws: WebSocket, type: string) => {
-  const userContent =
-    type === 'ctm-chat'
-      ? chatInputValue.value
-      : type === 'ctm-cmd'
-        ? composerInputValue.value
-        : agentInputValue.value
-  const currentHistory =
-    type === 'ctm-chat' ? chatHistoryChat : type === 'ctm-cmd' ? chatHistoryCmd : chatHistoryAgent
-  const currentModel =
-    type === 'ctm-chat'
-      ? chatrModelValue.value
-      : type === 'ctm-cmd'
-        ? composerModelValue.value
-        : agentModelValue.value
-
-  // 将消息添加到当前对话的历史记录中
+  const userContent = chatInputValue.value
   const currentHistoryEntry = historyList.value.find((entry) => entry.id === currentChatId.value)
+
   if (currentHistoryEntry) {
-    // 如果是第一条消息，更新对话标题
     if (currentHistoryEntry.chatContent.length === 0) {
       currentHistoryEntry.chatTitle =
         userContent.length > 15 ? userContent.substring(0, 15) + '.' : userContent
     }
-
     currentHistoryEntry.chatContent.push({ role: 'user', content: userContent })
   }
 
-  currentHistory.push({
+  chatHistory.push({
     role: 'user',
     content: userContent
   })
 
-  let seesionId = ''
-  if (currentChatId.value != null && currentChatId.value.length === 56) {
-    seesionId = currentChatId.value
-  }
   const messageData = {
-    model: currentModel,
-    messages: [
-      {
-        role: 'user',
-        content: userContent
-      }
-    ],
+    model: chatModelValue.value,
+    messages: [{ role: 'user', content: userContent }],
     modelMethod: type,
-    conversationId: seesionId
+    conversationId: currentChatId.value?.length === 56 ? currentChatId.value : ''
   }
 
   ws.send(JSON.stringify(messageData))
-
-  if (type === 'ctm-chat') {
-    chatInputValue.value = ''
-  } else if (type === 'ctm-cmd') {
-    composerInputValue.value = ''
-  } else if (type === 'ctm-agent') {
-    agentInputValue.value = ''
-  }
+  chatInputValue.value = ''
 }
 
 const handleClose = () => {
@@ -553,88 +397,55 @@ const handleKeyDown = (e: KeyboardEvent) => {
 }
 
 const handlePlusClick = () => {
-  const currentTabType = activeKey.value
-  const currentInput =
-    currentTabType === 'ctm-chat'
-      ? chatInputValue.value
-      : currentTabType === 'ctm-cmd'
-        ? composerInputValue.value
-        : agentInputValue.value
-
-  // 创建新的会话
+  const currentInput = chatInputValue.value
   const newChatId = uuidv4()
   currentChatId.value = newChatId
+  chatTypeValue.value = 'ctm-cmd'
 
-  // 如果有输入内容，使用输入内容的前15个字作为标题
   const chatTitle = currentInput
     ? currentInput.length > 15
       ? currentInput.substring(0, 15) + '...'
       : currentInput
-    : `新对话 ${historyList.value.length + 1}`
+    : `New chat`
 
-  const newHistoryEntry = {
+  historyList.value.unshift({
     id: newChatId,
-    chatTitle: chatTitle,
-    chatType: currentTabType,
+    chatTitle,
+    chatType: chatTypeValue.value,
     chatContent: []
-  }
+  })
 
-  // 使用 unshift 将新的历史记录项插入到数组开头
-  historyList.value.unshift(newHistoryEntry)
+  chatHistory.length = 0
+  chatInputValue.value = ''
 
-  // 清空当前输入和聊天历史
-  if (currentTabType === 'ctm-chat') {
-    chatInputValue.value = ''
-    chatHistoryChat.length = 0
-  } else if (currentTabType === 'ctm-cmd') {
-    composerInputValue.value = ''
-    chatHistoryCmd.length = 0
-  } else if (currentTabType === 'ctm-agent') {
-    agentInputValue.value = ''
-    chatHistoryAgent.length = 0
-  }
-
-  // 如果有输入内容，发送消息
-  if (currentInput.trim() !== '') {
+  if (currentInput.trim()) {
     sendMessage()
   }
 }
 
-const restoreHistoryTab = (history: {
+const restoreHistoryTab = async (history: {
   id: string
   chatTitle: string
   chatType: string
   chatContent: Array<{ role: 'user' | 'assistant'; content: string }>
 }) => {
-  // 关闭之前的 WebSocket
-  if (chatWebSocket.value) {
-    chatWebSocket.value.close()
-    chatWebSocket.value = null
-  }
-  if (cmdWebSocket.value) {
-    cmdWebSocket.value.close()
-    cmdWebSocket.value = null
-  }
-  if (agentWebSocket.value) {
-    agentWebSocket.value.close()
-    agentWebSocket.value = null
+  if (webSocket.value) {
+    webSocket.value.close()
+    webSocket.value = null
   }
 
-  // 重置当前对话 ID
   currentChatId.value = history.id
+  chatTypeValue.value = history.chatType
 
-  // 根据历史记录的类型切换 activeKey
-  activeKey.value = history.chatType
+  try {
+    const res = await getChatDetailList({
+      conversationId: history.id,
+      limit: 10,
+      offset: 0
+    })
 
-  // 获取当前chat的聊天历史记录
-  getChatDetailList({
-    conversationId: history.id,
-    limit: 10,
-    offset: 0
-  })
-    .then((res) => {
-      const chatContentTemp = reactive<Array<{ role: string; content: string }>>([])
-      res.data.list.forEach((item: any) => {
+    const chatContentTemp = res.data.list
+      .map((item: any) => {
         try {
           const parsedContent = JSON.parse(item.content)
           if (
@@ -643,132 +454,99 @@ const restoreHistoryTab = (history: {
             ['user', 'assistant'].includes(parsedContent.role) &&
             typeof parsedContent.content === 'string'
           ) {
-            chatContentTemp.push({
+            return {
               role: parsedContent.role as 'user' | 'assistant',
               content: parsedContent.content
-            })
+            }
           }
         } catch (e) {
           console.error('解析聊天记录失败:', e)
         }
+        return null
       })
-      // 清空当前聊天历史
-      if (history.chatType === 'ctm-chat') {
-        chatHistoryChat.length = 0
-        chatHistoryChat.push(...chatContentTemp)
-        chatInputValue.value = ''
-      } else if (history.chatType === 'ctm-cmd') {
-        chatHistoryCmd.length = 0
-        chatHistoryCmd.push(...chatContentTemp)
-        composerInputValue.value = ''
-      } else if (history.chatType === 'ctm-agent') {
-        chatHistoryAgent.length = 0
-        chatHistoryAgent.push(...chatContentTemp)
-        agentInputValue.value = ''
-      }
-    })
-    .catch((err) => console.error(err))
+      .filter(Boolean)
+
+    chatHistory.length = 0
+    chatHistory.push(...chatContentTemp)
+    chatInputValue.value = ''
+  } catch (err) {
+    console.error(err)
+  }
 }
 
-const handleHistoryClick = () => {
-  getConversationList({})
-    .then((res) => {
-      // 清空历史记录列表
-      historyList.value = []
-      res.data.list.forEach((item: any) => {
-        historyList.value.push({
-          id: item.conversationId,
-          chatTitle: item.title,
-          chatType: item.conversateType,
-          chatContent: []
-        })
-      })
-    })
-    .catch((err) => console.error(err))
+const handleHistoryClick = async () => {
+  try {
+    const res = await getConversationList({})
+    historyList.value = res.data.list.map((item: any) => ({
+      id: item.conversationId,
+      chatTitle: item.title,
+      chatType: item.conversateType,
+      chatContent: []
+    }))
+  } catch (err) {
+    console.error('Failed to get conversation list:', err)
+  }
 }
 
 const handleApplyCommand = (message: { content: string }) => {
-  // 使用事件总线发送命令到终端
   eventBus.emit('executeTerminalCommand', message.content + '\n')
 }
 
-const handleCopyContent = (message: { content: string }) => {
-  navigator.clipboard
-    .writeText(message.content)
-    .then(() => {
-      eventBus.emit('executeTerminalCommand', message.content)
+const handleCopyContent = async (message: { content: string }) => {
+  try {
+    await navigator.clipboard.writeText(message.content)
+    eventBus.emit('executeTerminalCommand', message.content)
+  } catch (err) {
+    console.error('Copy failed:', err)
+    notification.error({
+      message: 'Error',
+      description: 'Copy failed',
+      duration: 3,
+      placement: 'topRight'
     })
-    .catch((err) => {
-      console.error('复制失败:', err)
-      notification.error({
-        message: '错误',
-        description: '复制失败',
-        duration: 3,
-        placement: 'topRight'
-      })
-    })
+  }
 }
 
 const handleRejectContent = (message: { content: string }) => {
-  console.log('拒绝执行命令:', message.content)
+  console.log('handleRejectContent', message.content)
+  // Removed unused function
 }
 
 const handleApproveCommand = (message: { content: string }) => {
-  console.log('同意执行命令:', message.content)
+  console.log('handleApproveCommand', message.content)
+  // Removed unused function
 }
 
 // 修改 onMounted 中的初始化代码
 onMounted(async () => {
   authTokenInCookie.value = localStorage.getItem('ctm-token')
-  // 为 CHAT 标签创建初始会话
   const chatId = uuidv4()
-  historyList.value.unshift({
-    id: chatId,
-    chatTitle: '新对话 (CHAT)',
-    chatType: 'ctm-chat',
-    chatContent: []
-  })
 
-  // 为 CMD 标签创建初始会话
-  const cmdId = uuidv4()
-  historyList.value.unshift({
-    id: cmdId,
-    chatTitle: '新对话 (CMD)',
-    chatType: 'ctm-cmd',
-    chatContent: []
-  })
+  historyList.value = [
+    {
+      id: chatId,
+      chatTitle: 'New chat',
+      chatType: chatTypeValue.value,
+      chatContent: []
+    }
+  ]
 
-  // 为 AGENT 标签创建初始会话
-  const agentId = uuidv4()
-  historyList.value.unshift({
-    id: agentId,
-    chatTitle: '新对话 (AGENT)',
-    chatType: 'ctm-agent',
-    chatContent: []
-  })
-
-  // 设置初始的 currentChatId 为 CHAT 标签的会话 ID
   currentChatId.value = chatId
-  // 获取可用模型
-  getAiModel({})
-    .then((res) => {
-      res.data.models.forEach((model: any) => {
-        const item = {
-          label: model.name,
-          value: model.name
-        }
-        AiModelsOptions.value.push(item)
-      })
-    })
-    .catch((err) => console.error(err))
 
-  // 添加主进程消息监听
+  try {
+    const res = await getAiModel({})
+    AiModelsOptions.value = res.data.models.map((model: any) => ({
+      label: model.name,
+      value: model.name
+    }))
+  } catch (err) {
+    console.error('Failed to get AI models:', err)
+  }
+
   const removeListener = (window.api as any).onMainMessage((message) => {
-    console.log('收到主进程消息:', message)
-    // 在这里处理从主进程接收到的消息
+    console.log('Received main process message:', message)
   })
 
-  // 在组件卸载时移除监听器
   onUnmounted(() => {
     removeListener()
   })
@@ -874,12 +652,6 @@ const sendMessageToMain = async (userContent: string) => {
   }
 }
 
-.input-container {
-  padding: 16px;
-  background-color: #1a1a1a;
-  border-top: 1px solid #333;
-}
-
 .input-send-container {
   display: flex;
   flex-direction: column;
@@ -963,165 +735,6 @@ const sendMessageToMain = async (userContent: string) => {
   gap: 8px;
   width: 100%;
 
-  .message-content {
-    width: 100%;
-    font-size: 12px;
-    line-height: 1.6;
-    color: #e0e0e0;
-    word-break: break-word;
-    overflow-wrap: break-word;
-
-    // 代码块样式
-    pre {
-      background-color: #1e1e1e;
-      border-radius: 6px;
-      padding: 12px;
-      margin: 8px 0;
-      overflow-x: auto;
-      border: 1px solid #333;
-
-      code {
-        font-family: 'Fira Code', 'Consolas', 'Monaco', monospace;
-        font-size: 12px;
-        line-height: 1.5;
-      }
-    }
-
-    // 行内代码样式
-    code:not(pre code) {
-      background-color: #2a2a2a;
-      padding: 2px 6px;
-      border-radius: 4px;
-      font-family: 'Fira Code', 'Consolas', 'Monaco', monospace;
-      font-size: 12px;
-      color: #e0e0e0;
-      border: 1px solid #3a3a3a;
-    }
-
-    // 列表样式
-    ul,
-    ol {
-      padding-left: 20px;
-      margin: 8px 0;
-
-      li {
-        margin: 4px 0;
-      }
-    }
-
-    // 引用块样式
-    blockquote {
-      border-left: 4px solid #4caf50;
-      margin: 8px 0;
-      padding: 8px 16px;
-      background-color: #1e2a38;
-      border-radius: 0 4px 4px 0;
-    }
-
-    // 标题样式
-    h1,
-    h2,
-    h3,
-    h4,
-    h5,
-    h6 {
-      margin: 16px 0 8px;
-      color: #fff;
-      font-weight: 600;
-      line-height: 1.4;
-
-      &:first-child {
-        margin-top: 0;
-      }
-    }
-
-    h1 {
-      font-size: 1.8em;
-    }
-
-    h2 {
-      font-size: 1.5em;
-    }
-
-    h3 {
-      font-size: 1.3em;
-    }
-
-    h4 {
-      font-size: 1.2em;
-    }
-
-    h5 {
-      font-size: 1.1em;
-    }
-
-    h6 {
-      font-size: 1em;
-    }
-
-    // 表格样式
-    table {
-      border-collapse: collapse;
-      width: 100%;
-      margin: 8px 0;
-      background-color: #1e2a38;
-      border-radius: 4px;
-      overflow: hidden;
-
-      th,
-      td {
-        padding: 8px 12px;
-        border: 1px solid #333;
-      }
-
-      th {
-        background-color: #2c3e50;
-        font-weight: 600;
-      }
-
-      tr:nth-child(even) {
-        background-color: #1a2530;
-      }
-    }
-
-    // 水平线样式
-    hr {
-      border: none;
-      border-top: 1px solid #333;
-      margin: 16px 0;
-    }
-
-    // 链接样式
-    a {
-      color: #4caf50;
-      text-decoration: none;
-      transition: color 0.2s;
-
-      &:hover {
-        color: #45a049;
-        text-decoration: underline;
-      }
-    }
-
-    // 图片样式
-    img {
-      max-width: 100%;
-      border-radius: 4px;
-      margin: 8px 0;
-    }
-
-    // 强调文本样式
-    strong {
-      font-weight: 600;
-      color: #fff;
-    }
-
-    em {
-      font-style: italic;
-      color: #ccc;
-    }
-  }
-
   .message-actions {
     display: flex;
     gap: 6px;
@@ -1176,42 +789,6 @@ const sendMessageToMain = async (userContent: string) => {
   }
 }
 
-:deep(.ant-dropdown-menu) {
-  background-color: #2a2a2a;
-  border: 1px solid #3a3a3a;
-  border-radius: 6px;
-  padding: 4px;
-
-  .ant-dropdown-menu-item {
-    color: #e0e0e0;
-    font-size: 12px;
-    padding: 8px 12px;
-    border-radius: 4px;
-
-    &:hover {
-      background-color: #3a3a3a;
-      color: #4caf50;
-    }
-  }
-}
-
-:deep(.ant-select-dropdown) {
-  background-color: #2a2a2a;
-  border: 1px solid #3a3a3a;
-  border-radius: 8px;
-
-  .ant-select-item {
-    color: #e0e0e0;
-    font-size: 13px;
-    padding: 8px 12px;
-
-    &:hover {
-      background-color: #3a3a3a;
-      color: #4caf50;
-    }
-  }
-}
-
 .right-extra-buttons {
   display: flex;
   align-items: center;
@@ -1240,18 +817,6 @@ const sendMessageToMain = async (userContent: string) => {
 
     .anticon {
       font-size: 14px;
-    }
-  }
-}
-
-:deep(.ant-tabs-nav) {
-  .ant-tabs-nav-wrap {
-    .ant-tabs-nav-list {
-      .ant-tabs-tab {
-        &:last-child {
-          margin-right: 0;
-        }
-      }
     }
   }
 }
