@@ -49,10 +49,7 @@
                 </pane>
                 <pane :size="rightSize">
                   <div class="rigth-sidebar">
-                    <AiTab
-                      :toggle-sidebar="toggleSideBar"
-                      @run-cmd="runCmd"
-                    />
+                    <AiTab :toggle-sidebar="toggleSideBar" />
                   </div>
                 </pane>
               </splitpanes>
@@ -163,9 +160,6 @@ const toggleSideBar = (value: string) => {
       }
       break
   }
-}
-const runCmd = (cmd) => {
-  allTabs.value?.termExcuteCmd(cmd)
 }
 
 const toggleMenu = function (params) {
