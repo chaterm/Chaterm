@@ -8,7 +8,7 @@ import os from "os"
 import pWaitFor from "p-wait-for"
 import * as path from "path"
 import { serializeError } from "serialize-error"
-//import * as vscode from "vscode"
+import * as vscode from "vscode"
 // import { Logger } from "@services/logging/Logger"
 import { ApiHandler, buildApiHandler } from "@api/index"
 import { ApiStream } from "@api/transform/stream"
@@ -51,25 +51,25 @@ import { fixModelHtmlEscaping, removeInvalidChars } from "@utils/string"
 import { AssistantMessageContent, parseAssistantMessageV2, ToolParamName, ToolUseName } from "@core/assistant-message"
 // import { constructNewFileContent } from "@core/assistant-message/diff"
 // import { ClineIgnoreController } from "@core/ignore/ClineIgnoreController"
-// import { parseMentions } from "@core/mentions"
+import { parseMentions } from "@core/mentions"
 import { formatResponse } from "@core/prompts/responses"
 import { addUserInstructions, SYSTEM_PROMPT } from "@core/prompts/system"
-// import { getContextWindowInfo } from "@core/context/context-management/context-window-utils"
-// import { FileContextTracker } from "@core/context/context-tracking/FileContextTracker"
-// import { ModelContextTracker } from "@core/context/context-tracking/ModelContextTracker"
+import { getContextWindowInfo } from "@core/context/context-management/context-window-utils"
+import { FileContextTracker } from "@core/context/context-tracking/FileContextTracker"
+import { ModelContextTracker } from "@core/context/context-tracking/ModelContextTracker"
 // import {
 // 	checkIsAnthropicContextWindowError,
 // 	checkIsOpenRouterContextWindowError,
 // } from "@core/context/context-management/context-error-handling"
-// import { ContextManager } from "@core/context/context-management/ContextManager"
-// import {
-// 	ensureRulesDirectoryExists,
-// 	ensureTaskDirectoryExists,
-// 	getSavedApiConversationHistory,
-// 	getSavedChatermMessages,
-// 	saveApiConversationHistory,
-// 	saveChatermMessages,
-// } from "@core/storage/disk"
+import { ContextManager } from "@core/context/context-management/ContextManager"
+import {
+	ensureRulesDirectoryExists,
+	ensureTaskDirectoryExists,
+	getSavedApiConversationHistory,
+	getSavedChatermMessages,
+	saveApiConversationHistory,
+	saveChatermMessages,
+} from "@core/storage/disk"
 // import {
 // 	getGlobalClineRules,
 // 	getLocalClineRules,
@@ -83,7 +83,7 @@ import { addUserInstructions, SYSTEM_PROMPT } from "@core/prompts/system"
 // } from "@core/context/instructions/user-instructions/external-rules"
 import { getGlobalState } from "@core/storage/state"
 // import { parseSlashCommands } from "@core/slash-commands"
-// import WorkspaceTracker from "@integrations/workspace/WorkspaceTracker"
+import WorkspaceTracker from "@integrations/workspace/WorkspaceTracker"
 // import { isInTestMode } from "../../services/test/TestMode"
 //import { featureFlagsService } from "@/services/posthog/feature-flags/FeatureFlagsService"
 
@@ -95,7 +95,7 @@ type UserContent = Array<Anthropic.ContentBlockParam>
 
 export class Task {
 	// dependencies
-	// private context: vscode.ExtensionContext
+	private context: vscode.ExtensionContext
 	// private mcpHub: McpHub
 	private workspaceTracker: WorkspaceTracker
 	private updateTaskHistory: (historyItem: HistoryItem) => Promise<HistoryItem[]>
@@ -153,7 +153,7 @@ export class Task {
 	private didAutomaticallyRetryFailedApiRequest = false
 
 	constructor(
-		// context: vscode.ExtensionContext,
+		context: vscode.ExtensionContext,
 		workspaceTracker: WorkspaceTracker,
 		updateTaskHistory: (historyItem: HistoryItem) => Promise<HistoryItem[]>,
 		postStateToWebview: () => Promise<void>,
@@ -246,12 +246,14 @@ export class Task {
 	// Storing task to disk for history
 	private async addToApiConversationHistory(message: Anthropic.MessageParam) {
 		this.apiConversationHistory.push(message)
-		await saveApiConversationHistory(this.getContext(), this.taskId, this.apiConversationHistory)
+		// await saveApiConversationHistory(this.getContext(), this.taskId, this.apiConversationHistory)
+		await saveApiConversationHistory(this.taskId, this.apiConversationHistory)
 	}
 
 	private async overwriteApiConversationHistory(newHistory: Anthropic.MessageParam[]) {
 		this.apiConversationHistory = newHistory
-		await saveApiConversationHistory(this.getContext(), this.taskId, this.apiConversationHistory)
+		// await saveApiConversationHistory(this.getContext(), this.taskId, this.apiConversationHistory)
+		await saveApiConversationHistory(this.taskId, this.apiConversationHistory)
 	}
 
 	private async addToChatermMessages(message: ChatermMessage) {
@@ -270,7 +272,8 @@ export class Task {
 
 	private async saveChatermMessagesAndUpdateHistory() {
 		try {
-			await saveChatermMessages(this.getContext(), this.taskId, this.chatermMessages)
+			// await saveChatermMessages(this.getContext(), this.taskId, this.chatermMessages)
+			await saveChatermMessages(this.taskId, this.chatermMessages)
 
 			// combined as they are in ChatView
 			const apiMetrics = getApiMetrics(combineApiRequests(combineCommandSequences(this.chatermMessages.slice(1))))
@@ -279,7 +282,8 @@ export class Task {
 				this.chatermMessages[
 					findLastIndex(this.chatermMessages, (m) => !(m.ask === "resume_task" || m.ask === "resume_completed_task"))
 				]
-			const taskDir = await ensureTaskDirectoryExists(this.getContext(), this.taskId)
+			// const taskDir = await ensureTaskDirectoryExists(this.getContext(), this.taskId)
+			const taskDir = await ensureTaskDirectoryExists(this.taskId)
 			let taskDirSize = 0
 			try {
 				// getFolderSize.loose silently ignores errors
@@ -838,27 +842,27 @@ export class Task {
 				return
 			}
 
-			// For non-attempt completion we just say checkpoints
-			await this.say("checkpoint_created")
-			this.checkpointTracker?.commit().then(async (commitHash) => {
-				const lastCheckpointMessage = findLast(this.chatermMessages, (m) => m.say === "checkpoint_created")
-				if (lastCheckpointMessage) {
-					lastCheckpointMessage.lastCheckpointHash = commitHash
-					await this.saveChatermMessagesAndUpdateHistory()
-				}
-			}) // silently fails for now
+			// // For non-attempt completion we just say checkpoints
+			// await this.say("checkpoint_created")
+			// this.checkpointTracker?.commit().then(async (commitHash) => {
+			// 	const lastCheckpointMessage = findLast(this.chatermMessages, (m) => m.say === "checkpoint_created")
+			// 	if (lastCheckpointMessage) {
+			// 		lastCheckpointMessage.lastCheckpointHash = commitHash
+			// 		await this.saveChatermMessagesAndUpdateHistory()
+			// 	}
+			// }) // silently fails for now
 
 			//
 		} else {
 			// attempt completion requires checkpoint to be sync so that we can present button after attempt_completion
-			const commitHash = await this.checkpointTracker?.commit()
+			// const commitHash = await this.checkpointTracker?.commit()
 			// For attempt_completion, find the last completion_result message and set its checkpoint hash. This will be used to present the 'see new changes' button
 			const lastCompletionResultMessage = findLast(
 				this.chatermMessages,
 				(m) => m.say === "completion_result" || m.ask === "completion_result",
 			)
 			if (lastCompletionResultMessage) {
-				lastCompletionResultMessage.lastCheckpointHash = commitHash
+				// lastCompletionResultMessage.lastCheckpointHash = commitHash
 				await this.saveChatermMessagesAndUpdateHistory()
 			}
 		}
@@ -978,6 +982,8 @@ export class Task {
 		}
 	}
 
+
+	//TODO: update executeCommandTool
 	async executeCommandTool(command: string): Promise<[boolean, ToolResponse]> {
 		// Logger.info("IS_TEST: " + isInTestMode())
 
@@ -989,9 +995,9 @@ export class Task {
 		// }
 		// Logger.info("Executing command in VS code terminal: " + command)
 
-		// const terminalInfo = await this.terminalManager.getOrCreateTerminal(cwd)
-		// terminalInfo.terminal.show() // weird visual bug when creating new terminals (even manually) where there's an empty space at the top.
-		// const process = this.terminalManager.runCommand(terminalInfo, command)
+		const terminalInfo = await this.terminalManager.getOrCreateTerminal(cwd)
+		terminalInfo.terminal.show() // weird visual bug when creating new terminals (even manually) where there's an empty space at the top.
+		const process = this.terminalManager.runCommand(terminalInfo, command)
 
 		let userFeedback: { text?: string;  } | undefined
 		let didContinue = false
@@ -1130,7 +1136,7 @@ export class Task {
 						this.autoApprovalSettings.actions.readFiles,
 						this.autoApprovalSettings.actions.readFilesExternally ?? false,
 					]
-				// case "new_rule":
+				case "new_rule":
 				case "write_to_file":
 				case "replace_in_file":
 					return [
@@ -1269,7 +1275,8 @@ export class Task {
 			this.api,
 			this.conversationHistoryDeletedRange,
 			previousApiReqIndex,
-			await ensureTaskDirectoryExists(this.getContext(), this.taskId),
+			//await ensureTaskDirectoryExists(this.getContext(), this.taskId),
+			await ensureTaskDirectoryExists(this.taskId),
 		)
 
 		if (contextManagementMetadata.updatedConversationHistoryDeletedRange) {
@@ -1288,12 +1295,13 @@ export class Task {
 			yield firstChunk.value
 			this.isWaitingForFirstChunk = false
 		} catch (error) {
-			const isOpenRouter = this.api instanceof OpenRouterHandler || this.api instanceof ClineHandler
-			const isAnthropic = this.api instanceof AnthropicHandler
-			const isOpenRouterContextWindowError = checkIsOpenRouterContextWindowError(error) && isOpenRouter
-			const isAnthropicContextWindowError = checkIsAnthropicContextWindowError(error) && isAnthropic
+			// const isOpenRouter = this.api instanceof OpenRouterHandler || this.api instanceof ClineHandler
+			// const isAnthropic = this.api instanceof AnthropicHandler
+			// const isOpenRouterContextWindowError = checkIsOpenRouterContextWindowError(error) && isOpenRouter
+			// const isAnthropicContextWindowError = checkIsAnthropicContextWindowError(error) && isAnthropic
 
-			if (isAnthropic && isAnthropicContextWindowError && !this.didAutomaticallyRetryFailedApiRequest) {
+			// if (isAnthropic && isAnthropicContextWindowError && !this.didAutomaticallyRetryFailedApiRequest) {
+			if (!this.didAutomaticallyRetryFailedApiRequest) {
 				this.conversationHistoryDeletedRange = this.contextManager.getNextTruncationRange(
 					this.apiConversationHistory,
 					this.conversationHistoryDeletedRange,
@@ -1302,44 +1310,45 @@ export class Task {
 				await this.saveChatermMessagesAndUpdateHistory()
 				await this.contextManager.triggerApplyStandardContextTruncationNoticeChange(
 					Date.now(),
-					await ensureTaskDirectoryExists(this.getContext(), this.taskId),
+					// await ensureTaskDirectoryExists(this.getContext(), this.taskId),
+					await ensureTaskDirectoryExists(this.taskId),
 				)
 
 				this.didAutomaticallyRetryFailedApiRequest = true
-			} else if (isOpenRouter && !this.didAutomaticallyRetryFailedApiRequest) {
-				if (isOpenRouterContextWindowError) {
-					this.conversationHistoryDeletedRange = this.contextManager.getNextTruncationRange(
-						this.apiConversationHistory,
-						this.conversationHistoryDeletedRange,
-						"quarter", // Force aggressive truncation
-					)
-					await this.saveChatermMessagesAndUpdateHistory()
-					await this.contextManager.triggerApplyStandardContextTruncationNoticeChange(
-						Date.now(),
-						await ensureTaskDirectoryExists(this.getContext(), this.taskId),
-					)
-				}
+			// } else if (isOpenRouter && !this.didAutomaticallyRetryFailedApiRequest) {
+			// 	// if (isOpenRouterContextWindowError) {
+			// 	// 	this.conversationHistoryDeletedRange = this.contextManager.getNextTruncationRange(
+			// 	// 		this.apiConversationHistory,
+			// 	// 		this.conversationHistoryDeletedRange,
+			// 	// 		"quarter", // Force aggressive truncation
+			// 	// 	)
+			// 	// 	await this.saveChatermMessagesAndUpdateHistory()
+			// 	// 	await this.contextManager.triggerApplyStandardContextTruncationNoticeChange(
+			// 	// 		Date.now(),
+			// 	// 		await ensureTaskDirectoryExists(this.getContext(), this.taskId),
+			// 	// 	)
+			// 	// }
 
-				console.log("first chunk failed, waiting 1 second before retrying")
-				await setTimeoutPromise(1000)
-				this.didAutomaticallyRetryFailedApiRequest = true
+			// 	console.log("first chunk failed, waiting 1 second before retrying")
+			// 	await setTimeoutPromise(1000)
+			// 	this.didAutomaticallyRetryFailedApiRequest = true
 			} else {
 				// request failed after retrying automatically once, ask user if they want to retry again
 				// note that this api_req_failed ask is unique in that we only present this option if the api hasn't streamed any content yet (ie it fails on the first chunk due), as it would allow them to hit a retry button. However if the api failed mid-stream, it could be in any arbitrary state where some tools may have executed, so that error is handled differently and requires cancelling the task entirely.
 
-				if (isOpenRouterContextWindowError || isAnthropicContextWindowError) {
-					const truncatedConversationHistory = this.contextManager.getTruncatedMessages(
-						this.apiConversationHistory,
-						this.conversationHistoryDeletedRange,
-					)
+				// if (isOpenRouterContextWindowError || isAnthropicContextWindowError) {
+				// 	const truncatedConversationHistory = this.contextManager.getTruncatedMessages(
+				// 		this.apiConversationHistory,
+				// 		this.conversationHistoryDeletedRange,
+				// 	)
 
-					// If the conversation has more than 3 messages, we can truncate again. If not, then the conversation is bricked.
-					// ToDo: Allow the user to change their input if this is the case.
-					if (truncatedConversationHistory.length > 3) {
-						error = new Error("Context window exceeded. Click retry to truncate the conversation and try again.")
-						this.didAutomaticallyRetryFailedApiRequest = false
-					}
-				}
+				// 	// If the conversation has more than 3 messages, we can truncate again. If not, then the conversation is bricked.
+				// 	// ToDo: Allow the user to change their input if this is the case.
+				// 	if (truncatedConversationHistory.length > 3) {
+				// 		error = new Error("Context window exceeded. Click retry to truncate the conversation and try again.")
+				// 		this.didAutomaticallyRetryFailedApiRequest = false
+				// 	}
+				// }
 
 				const errorMessage = this.formatErrorWithStatusCode(error)
 
@@ -1626,7 +1635,7 @@ export class Task {
 				// }
 
 				switch (block.name) {
-					case "new_rule":
+					case "new_rule": 
 					// case "write_to_file":
 
 					// case "replace_in_file": {
@@ -2681,7 +2690,8 @@ export class Task {
 									await this.saveChatermMessagesAndUpdateHistory()
 									await this.contextManager.triggerApplyStandardContextTruncationNoticeChange(
 										Date.now(),
-										await ensureTaskDirectoryExists(this.getContext(), this.taskId),
+										// await ensureTaskDirectoryExists(this.getContext(), this.taskId),
+										await ensureTaskDirectoryExists(this.taskId),
 									)
 								}
 								await this.saveCheckpoint()
@@ -2760,7 +2770,8 @@ export class Task {
 								// const clineVersion =
 								// 	vscode.extensions.getExtension("saoudrizwan.claude-dev")?.packageJSON.version || "Unknown"
 								// const systemInfo = `VSCode: ${vscode.version}, Node.js: ${process.version}, Architecture: ${os.arch()}`
-								const providerAndModel = `${(await getGlobalState(this.getContext(), "apiProvider")) as string} / ${this.api.getModel().id}`
+								// const providerAndModel = `${(await getGlobalState(this.getContext(), "apiProvider")) as string} / ${this.api.getModel().id}`
+								const providerAndModel = `${(await getGlobalState("apiProvider")) as string} / ${this.api.getModel().id}`
 
 								// Ask user for confirmation
 								const bugReportData = JSON.stringify({
@@ -3110,7 +3121,8 @@ export class Task {
 		}
 
 		// Used to know what models were used in the task if user wants to export metadata for error reporting purposes
-		const currentProviderId = (await getGlobalState(this.getContext(), "apiProvider")) as string
+		//const currentProviderId = (await getGlobalState(this.getContext(), "apiProvider")) as string
+		const currentProviderId = (await getGlobalState("apiProvider")) as string
 		if (currentProviderId && this.api.getModel().id) {
 			try {
 				await this.modelContextTracker.recordModelUsage(currentProviderId, this.api.getModel().id, this.chatSettings.mode)
@@ -3204,10 +3216,10 @@ export class Task {
 
 		// Now that checkpoint tracker is initialized, update the dummy checkpoint_created message with the commit hash. (This is necessary since we use the API request loading as an opportunity to initialize the checkpoint tracker, which can take some time)
 		if (isFirstRequest) {
-			const commitHash = await this.checkpointTracker?.commit()
+			//const commitHash = await this.checkpointTracker?.commit()
 			const lastCheckpointMessage = findLast(this.chatermMessages, (m) => m.say === "checkpoint_created")
 			if (lastCheckpointMessage) {
-				lastCheckpointMessage.lastCheckpointHash = commitHash
+				//lastCheckpointMessage.lastCheckpointHash = commitHash
 				await this.saveChatermMessagesAndUpdateHistory()
 			}
 		}
@@ -3536,12 +3548,12 @@ export class Task {
 							block.text.includes("<task>") ||
 							block.text.includes("<user_message>")
 						) {
-							const parsedText = await parseMentions(
-								block.text,
-								cwd,
-								//this.urlContentFetcher,
-								this.fileContextTracker,
-							)
+							// const parsedText = await parseMentions(
+							// 	block.text,
+							// 	cwd,
+							// 	//this.urlContentFetcher,
+							// 	this.fileContextTracker,
+							// )
 
 							// when parsing slash commands, we still want to allow the user to provide their desired context
 							// const { processedText, needsClinerulesFileCheck: needsCheck } = parseSlashCommands(parsedText)
@@ -3552,7 +3564,7 @@ export class Task {
 
 							return {
 								...block,
-								text: processedText,
+								//text: processedText,
 							}
 						}
 					}
@@ -3577,208 +3589,218 @@ export class Task {
 		return [processedUserContent, environmentDetails, clinerulesError]
 	}
 
-	// async getEnvironmentDetails(includeFileDetails: boolean = false) {
-	// 	let details = ""
+	async getEnvironmentDetails(includeFileDetails: boolean = false) {
+		let details = ""
 
-	// 	// It could be useful for cline to know if the user went from one or no file to another between messages, so we always include this context
-	// 	details += "\n\n# VSCode Visible Files"
-	// 	const visibleFilePaths = vscode.window.visibleTextEditors
-	// 		?.map((editor) => editor.document?.uri?.fsPath)
-	// 		.filter(Boolean)
-	// 		.map((absolutePath) => path.relative(cwd, absolutePath))
+		// It could be useful for cline to know if the user went from one or no file to another between messages, so we always include this context
+		details += "\n\n# VSCode Visible Files"
+		const visibleFilePaths = vscode.window.visibleTextEditors
+			?.map((editor) => editor.document?.uri?.fsPath)
+			.filter(Boolean)
+			.map((absolutePath) => path.relative(cwd, absolutePath))
 
-	// 	// Filter paths through clineIgnoreController
-	// 	const allowedVisibleFiles = this.clineIgnoreController
-	// 		.filterPaths(visibleFilePaths)
-	// 		.map((p) => p.toPosix())
-	// 		.join("\n")
+		// Filter paths through clineIgnoreController
+		// const allowedVisibleFiles = this.clineIgnoreController
+		// 	.filterPaths(visibleFilePaths)
+		// 	.map((p) => p.toPosix())
+		// 	.join("\n")
 
-	// 	if (allowedVisibleFiles) {
-	// 		details += `\n${allowedVisibleFiles}`
-	// 	} else {
-	// 		details += "\n(No visible files)"
-	// 	}
+		const allowedVisibleFiles = 
+			visibleFilePaths
+			.map((p) => p.toPosix())
+			.join("\n")		
 
-	// 	details += "\n\n# VSCode Open Tabs"
-	// 	const openTabPaths = vscode.window.tabGroups.all
-	// 		.flatMap((group) => group.tabs)
-	// 		.map((tab) => (tab.input as vscode.TabInputText)?.uri?.fsPath)
-	// 		.filter(Boolean)
-	// 		.map((absolutePath) => path.relative(cwd, absolutePath))
+		if (allowedVisibleFiles) {
+			details += `\n${allowedVisibleFiles}`
+		} else {
+			details += "\n(No visible files)"
+		}
 
-	// 	// Filter paths through clineIgnoreController
-	// 	const allowedOpenTabs = this.clineIgnoreController
-	// 		.filterPaths(openTabPaths)
-	// 		.map((p) => p.toPosix())
-	// 		.join("\n")
+		details += "\n\n# VSCode Open Tabs"
+		const openTabPaths = vscode.window.tabGroups.all
+			.flatMap((group) => group.tabs)
+			.map((tab) => (tab.input as vscode.TabInputText)?.uri?.fsPath)
+			.filter(Boolean)
+			.map((absolutePath) => path.relative(cwd, absolutePath))
 
-	// 	if (allowedOpenTabs) {
-	// 		details += `\n${allowedOpenTabs}`
-	// 	} else {
-	// 		details += "\n(No open tabs)"
-	// 	}
+		// Filter paths through clineIgnoreController
+		// const allowedOpenTabs = this.clineIgnoreController
+		// 	.filterPaths(openTabPaths)
+		// 	.map((p) => p.toPosix())
+		// 	.join("\n")
+		const allowedOpenTabs = 
+			openTabPaths
+			.map((p) => p.toPosix())
+			.join("\n")
 
-	// 	// const busyTerminals = this.terminalManager.getTerminals(true)
-	// 	// const inactiveTerminals = this.terminalManager.getTerminals(false)
-	// 	// const allTerminals = [...busyTerminals, ...inactiveTerminals]
+		if (allowedOpenTabs) {
+			details += `\n${allowedOpenTabs}`
+		} else {
+			details += "\n(No open tabs)"
+		}
 
-	// 	// if (busyTerminals.length > 0 && this.didEditFile) {
-	// 	// 	//  || this.didEditFile
-	// 	// 	await setTimeoutPromise(300) // delay after saving file to let terminals catch up
-	// 	// }
+		// const busyTerminals = this.terminalManager.getTerminals(true)
+		// const inactiveTerminals = this.terminalManager.getTerminals(false)
+		// const allTerminals = [...busyTerminals, ...inactiveTerminals]
 
-	// 	// // let terminalWasBusy = false
-	// 	// if (busyTerminals.length > 0) {
-	// 	// 	// wait for terminals to cool down
-	// 	// 	// terminalWasBusy = allTerminals.some((t) => this.terminalManager.isProcessHot(t.id))
-	// 	// 	await pWaitFor(() => busyTerminals.every((t) => !this.terminalManager.isProcessHot(t.id)), {
-	// 	// 		interval: 100,
-	// 	// 		timeout: 15_000,
-	// 	// 	}).catch(() => {})
-	// 	// }
+		// if (busyTerminals.length > 0 && this.didEditFile) {
+		// 	//  || this.didEditFile
+		// 	await setTimeoutPromise(300) // delay after saving file to let terminals catch up
+		// }
 
-	// 	// we want to get diagnostics AFTER terminal cools down for a few reasons: terminal could be scaffolding a project, dev servers (compilers like webpack) will first re-compile and then send diagnostics, etc
-	// 	/*
-	// 	let diagnosticsDetails = ""
-	// 	const diagnostics = await this.diagnosticsMonitor.getCurrentDiagnostics(this.didEditFile || terminalWasBusy) // if cline ran a command (ie npm install) or edited the workspace then wait a bit for updated diagnostics
-	// 	for (const [uri, fileDiagnostics] of diagnostics) {
-	// 		const problems = fileDiagnostics.filter((d) => d.severity === vscode.DiagnosticSeverity.Error)
-	// 		if (problems.length > 0) {
-	// 			diagnosticsDetails += `\n## ${path.relative(cwd, uri.fsPath)}`
-	// 			for (const diagnostic of problems) {
-	// 				// let severity = diagnostic.severity === vscode.DiagnosticSeverity.Error ? "Error" : "Warning"
-	// 				const line = diagnostic.range.start.line + 1 // VSCode lines are 0-indexed
-	// 				const source = diagnostic.source ? `[${diagnostic.source}] ` : ""
-	// 				diagnosticsDetails += `\n- ${source}Line ${line}: ${diagnostic.message}`
-	// 			}
-	// 		}
-	// 	}
-	// 	*/
-	// 	this.didEditFile = false // reset, this lets us know when to wait for saved files to update terminals
+		// // let terminalWasBusy = false
+		// if (busyTerminals.length > 0) {
+		// 	// wait for terminals to cool down
+		// 	// terminalWasBusy = allTerminals.some((t) => this.terminalManager.isProcessHot(t.id))
+		// 	await pWaitFor(() => busyTerminals.every((t) => !this.terminalManager.isProcessHot(t.id)), {
+		// 		interval: 100,
+		// 		timeout: 15_000,
+		// 	}).catch(() => {})
+		// }
 
-	// 	// waiting for updated diagnostics lets terminal output be the most up-to-date possible
-	// 	let terminalDetails = ""
-	// 	if (busyTerminals.length > 0) {
-	// 		// terminals are cool, let's retrieve their output
-	// 		terminalDetails += "\n\n# Actively Running Terminals"
-	// 		for (const busyTerminal of busyTerminals) {
-	// 			terminalDetails += `\n## Original command: \`${busyTerminal.lastCommand}\``
-	// 			const newOutput = this.terminalManager.getUnretrievedOutput(busyTerminal.id)
-	// 			if (newOutput) {
-	// 				terminalDetails += `\n### New Output\n${newOutput}`
-	// 			} else {
-	// 				// details += `\n(Still running, no new output)` // don't want to show this right after running the command
-	// 			}
-	// 		}
-	// 	}
-	// 	// only show inactive terminals if there's output to show
-	// 	if (inactiveTerminals.length > 0) {
-	// 		const inactiveTerminalOutputs = new Map<number, string>()
-	// 		for (const inactiveTerminal of inactiveTerminals) {
-	// 			const newOutput = this.terminalManager.getUnretrievedOutput(inactiveTerminal.id)
-	// 			if (newOutput) {
-	// 				inactiveTerminalOutputs.set(inactiveTerminal.id, newOutput)
-	// 			}
-	// 		}
-	// 		if (inactiveTerminalOutputs.size > 0) {
-	// 			terminalDetails += "\n\n# Inactive Terminals"
-	// 			for (const [terminalId, newOutput] of inactiveTerminalOutputs) {
-	// 				const inactiveTerminal = inactiveTerminals.find((t) => t.id === terminalId)
-	// 				if (inactiveTerminal) {
-	// 					terminalDetails += `\n## ${inactiveTerminal.lastCommand}`
-	// 					terminalDetails += `\n### New Output\n${newOutput}`
-	// 				}
-	// 			}
-	// 		}
-	// 	}
+		// we want to get diagnostics AFTER terminal cools down for a few reasons: terminal could be scaffolding a project, dev servers (compilers like webpack) will first re-compile and then send diagnostics, etc
+		/*
+		let diagnosticsDetails = ""
+		const diagnostics = await this.diagnosticsMonitor.getCurrentDiagnostics(this.didEditFile || terminalWasBusy) // if cline ran a command (ie npm install) or edited the workspace then wait a bit for updated diagnostics
+		for (const [uri, fileDiagnostics] of diagnostics) {
+			const problems = fileDiagnostics.filter((d) => d.severity === vscode.DiagnosticSeverity.Error)
+			if (problems.length > 0) {
+				diagnosticsDetails += `\n## ${path.relative(cwd, uri.fsPath)}`
+				for (const diagnostic of problems) {
+					// let severity = diagnostic.severity === vscode.DiagnosticSeverity.Error ? "Error" : "Warning"
+					const line = diagnostic.range.start.line + 1 // VSCode lines are 0-indexed
+					const source = diagnostic.source ? `[${diagnostic.source}] ` : ""
+					diagnosticsDetails += `\n- ${source}Line ${line}: ${diagnostic.message}`
+				}
+			}
+		}
+		*/
+		//this.didEditFile = false // reset, this lets us know when to wait for saved files to update terminals
 
-	// 	// details += "\n\n# VSCode Workspace Errors"
-	// 	// if (diagnosticsDetails) {
-	// 	// 	details += diagnosticsDetails
-	// 	// } else {
-	// 	// 	details += "\n(No errors detected)"
-	// 	// }
+		// // waiting for updated diagnostics lets terminal output be the most up-to-date possible
+		// let terminalDetails = ""
+		// if (busyTerminals.length > 0) {
+		// 	// terminals are cool, let's retrieve their output
+		// 	terminalDetails += "\n\n# Actively Running Terminals"
+		// 	for (const busyTerminal of busyTerminals) {
+		// 		terminalDetails += `\n## Original command: \`${busyTerminal.lastCommand}\``
+		// 		const newOutput = this.terminalManager.getUnretrievedOutput(busyTerminal.id)
+		// 		if (newOutput) {
+		// 			terminalDetails += `\n### New Output\n${newOutput}`
+		// 		} else {
+		// 			// details += `\n(Still running, no new output)` // don't want to show this right after running the command
+		// 		}
+		// 	}
+		// }
+		// // only show inactive terminals if there's output to show
+		// if (inactiveTerminals.length > 0) {
+		// 	const inactiveTerminalOutputs = new Map<number, string>()
+		// 	for (const inactiveTerminal of inactiveTerminals) {
+		// 		const newOutput = this.terminalManager.getUnretrievedOutput(inactiveTerminal.id)
+		// 		if (newOutput) {
+		// 			inactiveTerminalOutputs.set(inactiveTerminal.id, newOutput)
+		// 		}
+		// 	}
+		// 	if (inactiveTerminalOutputs.size > 0) {
+		// 		terminalDetails += "\n\n# Inactive Terminals"
+		// 		for (const [terminalId, newOutput] of inactiveTerminalOutputs) {
+		// 			const inactiveTerminal = inactiveTerminals.find((t) => t.id === terminalId)
+		// 			if (inactiveTerminal) {
+		// 				terminalDetails += `\n## ${inactiveTerminal.lastCommand}`
+		// 				terminalDetails += `\n### New Output\n${newOutput}`
+		// 			}
+		// 		}
+		// 	}
+		// }
 
-	// 	if (terminalDetails) {
-	// 		details += terminalDetails
-	// 	}
+		// details += "\n\n# VSCode Workspace Errors"
+		// if (diagnosticsDetails) {
+		// 	details += diagnosticsDetails
+		// } else {
+		// 	details += "\n(No errors detected)"
+		// }
 
-	// 	// Add recently modified files section
-	// 	const recentlyModifiedFiles = this.fileContextTracker.getAndClearRecentlyModifiedFiles()
-	// 	if (recentlyModifiedFiles.length > 0) {
-	// 		details +=
-	// 			"\n\n# Recently Modified Files\nThese files have been modified since you last accessed them (file was just edited so you may need to re-read it before editing):"
-	// 		for (const filePath of recentlyModifiedFiles) {
-	// 			details += `\n${filePath}`
-	// 		}
-	// 	}
+		// if (terminalDetails) {
+		// 	details += terminalDetails
+		// }
 
-	// 	// Add current time information with timezone
-	// 	const now = new Date()
-	// 	const formatter = new Intl.DateTimeFormat(undefined, {
-	// 		year: "numeric",
-	// 		month: "numeric",
-	// 		day: "numeric",
-	// 		hour: "numeric",
-	// 		minute: "numeric",
-	// 		second: "numeric",
-	// 		hour12: true,
-	// 	})
-	// 	const timeZone = formatter.resolvedOptions().timeZone
-	// 	const timeZoneOffset = -now.getTimezoneOffset() / 60 // Convert to hours and invert sign to match conventional notation
-	// 	const timeZoneOffsetStr = `${timeZoneOffset >= 0 ? "+" : ""}${timeZoneOffset}:00`
-	// 	details += `\n\n# Current Time\n${formatter.format(now)} (${timeZone}, UTC${timeZoneOffsetStr})`
+		// Add recently modified files section
+		const recentlyModifiedFiles = this.fileContextTracker.getAndClearRecentlyModifiedFiles()
+		if (recentlyModifiedFiles.length > 0) {
+			details +=
+				"\n\n# Recently Modified Files\nThese files have been modified since you last accessed them (file was just edited so you may need to re-read it before editing):"
+			for (const filePath of recentlyModifiedFiles) {
+				details += `\n${filePath}`
+			}
+		}
 
-	// 	if (includeFileDetails) {
-	// 		details += `\n\n# Current Working Directory (${cwd.toPosix()}) Files\n`
-	// 		const isDesktop = arePathsEqual(cwd, path.join(os.homedir(), "Desktop"))
-	// 		if (isDesktop) {
-	// 			// don't want to immediately access desktop since it would show permission popup
-	// 			details += "(Desktop files not shown automatically. Use list_files to explore if needed.)"
-	// 		} else {
-	// 			const [files, didHitLimit] = await listFiles(cwd, true, 200)
-	// 			const result = formatResponse.formatFilesList(cwd, files, didHitLimit, this.clineIgnoreController)
-	// 			details += result
-	// 		}
-	// 	}
+		// Add current time information with timezone
+		const now = new Date()
+		const formatter = new Intl.DateTimeFormat(undefined, {
+			year: "numeric",
+			month: "numeric",
+			day: "numeric",
+			hour: "numeric",
+			minute: "numeric",
+			second: "numeric",
+			hour12: true,
+		})
+		const timeZone = formatter.resolvedOptions().timeZone
+		const timeZoneOffset = -now.getTimezoneOffset() / 60 // Convert to hours and invert sign to match conventional notation
+		const timeZoneOffsetStr = `${timeZoneOffset >= 0 ? "+" : ""}${timeZoneOffset}:00`
+		details += `\n\n# Current Time\n${formatter.format(now)} (${timeZone}, UTC${timeZoneOffsetStr})`
 
-	// 	// Add context window usage information
-	// 	const { contextWindow, maxAllowedSize } = getContextWindowInfo(this.api)
+		if (includeFileDetails) {
+			details += `\n\n# Current Working Directory (${cwd.toPosix()}) Files\n`
+			const isDesktop = arePathsEqual(cwd, path.join(os.homedir(), "Desktop"))
+			if (isDesktop) {
+				// don't want to immediately access desktop since it would show permission popup
+				details += "(Desktop files not shown automatically. Use list_files to explore if needed.)"
+			} else {
+				const [files, didHitLimit] = await listFiles(cwd, true, 200)
+				//const result = formatResponse.formatFilesList(cwd, files, didHitLimit, this.clineIgnoreController)
+				const result = formatResponse.formatFilesList(cwd, files, didHitLimit)
+				details += result
+			}
+		}
 
-	// 	// Get the token count from the most recent API request to accurately reflect context management
-	// 	const getTotalTokensFromApiReqMessage = (msg: ClineMessage) => {
-	// 		if (!msg.text) {
-	// 			return 0
-	// 		}
-	// 		try {
-	// 			const { tokensIn, tokensOut, cacheWrites, cacheReads } = JSON.parse(msg.text)
-	// 			return (tokensIn || 0) + (tokensOut || 0) + (cacheWrites || 0) + (cacheReads || 0)
-	// 		} catch (e) {
-	// 			return 0
-	// 		}
-	// 	}
+		// Add context window usage information
+		const { contextWindow, maxAllowedSize } = getContextWindowInfo(this.api)
 
-	// 	const modifiedMessages = combineApiRequests(combineCommandSequences(this.clineMessages.slice(1)))
-	// 	const lastApiReqMessage = findLast(modifiedMessages, (msg) => {
-	// 		if (msg.say !== "api_req_started") {
-	// 			return false
-	// 		}
-	// 		return getTotalTokensFromApiReqMessage(msg) > 0
-	// 	})
+		// Get the token count from the most recent API request to accurately reflect context management
+		const getTotalTokensFromApiReqMessage = (msg: ChatermMessage) => {
+			if (!msg.text) {
+				return 0
+			}
+			try {
+				const { tokensIn, tokensOut, cacheWrites, cacheReads } = JSON.parse(msg.text)
+				return (tokensIn || 0) + (tokensOut || 0) + (cacheWrites || 0) + (cacheReads || 0)
+			} catch (e) {
+				return 0
+			}
+		}
 
-	// 	const lastApiReqTotalTokens = lastApiReqMessage ? getTotalTokensFromApiReqMessage(lastApiReqMessage) : 0
-	// 	const usagePercentage = Math.round((lastApiReqTotalTokens / contextWindow) * 100)
+		const modifiedMessages = combineApiRequests(combineCommandSequences(this.chatermMessages.slice(1)))
+		const lastApiReqMessage = findLast(modifiedMessages, (msg) => {
+			if (msg.say !== "api_req_started") {
+				return false
+			}
+			return getTotalTokensFromApiReqMessage(msg) > 0
+		})
 
-	// 	details += "\n\n# Context Window Usage"
-	// 	details += `\n${lastApiReqTotalTokens.toLocaleString()} / ${(contextWindow / 1000).toLocaleString()}K tokens used (${usagePercentage}%)`
+		const lastApiReqTotalTokens = lastApiReqMessage ? getTotalTokensFromApiReqMessage(lastApiReqMessage) : 0
+		const usagePercentage = Math.round((lastApiReqTotalTokens / contextWindow) * 100)
 
-	// 	details += "\n\n# Current Mode"
-	// 	if (this.chatSettings.mode === "plan") {
-	// 		details += "\nPLAN MODE\n" + formatResponse.planModeInstructions()
-	// 	} else {
-	// 		details += "\nACT MODE"
-	// 	}
+		details += "\n\n# Context Window Usage"
+		details += `\n${lastApiReqTotalTokens.toLocaleString()} / ${(contextWindow / 1000).toLocaleString()}K tokens used (${usagePercentage}%)`
 
-	// 	return `<environment_details>\n${details.trim()}\n</environment_details>`
-	// }
+		// details += "\n\n# Current Mode"
+		// if (this.chatSettings.mode === "plan") {
+		// 	details += "\nPLAN MODE\n" + formatResponse.planModeInstructions()
+		// } else {
+		// 	details += "\nACT MODE"
+		// }
+
+		return `<environment_details>\n${details.trim()}\n</environment_details>`
+	}
 }
