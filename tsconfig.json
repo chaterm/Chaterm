@@ -7,7 +7,7 @@
     "emitDecoratorMetadata": true,
     "types": ["marked", "shiki","node", "mocha", "should"],
     "paths": {
-      "@/*": ["src/renderer/src/*"] 
+      "@/*": ["src/*"]
     }
-  },
+  }
 }

@@ -21,27 +21,6 @@
             >
               <template #icon><laptop-outlined /></template>{{ $t('personal.host') }}
             </a-button>
-            <a-dropdown>
-              <a-button
-                type="primary"
-                size="small"
-                class="workspace-button"
-              >
-                <down-outlined />
-              </a-button>
-              <template #overlay>
-                <a-menu>
-                  <a-menu-item
-                    key="chain"
-                    @click="keyChainConfig"
-                    ><template #icon>
-                      <KeyOutlined />
-                    </template>
-                    {{ $t('personal.keyChain') }}</a-menu-item
-                  >
-                </a-menu>
-              </template>
-            </a-dropdown>
           </div>
         </div>
         <a-select
