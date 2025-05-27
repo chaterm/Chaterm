@@ -15,7 +15,8 @@
       "@integrations/*": ["src/main/integrations/*"],
       "@utils/*": ["src/main/utils/*"],
       "@shared/*": ["src/main/shared/*"],
-      "@core/*": ["src/main/core/*"]
+      "@core/*": ["src/main/core/*"],
+      "vscode": ["src/main/vscode-mock.ts"]
     }
   }
 }

@@ -1,6 +1,5 @@
 import * as vscode from 'vscode'
-import { Uri } from 'vscode'
-import { ExtensionMode } from 'vscode'
+import { Uri, ExtensionMode } from 'vscode'
 
 export class ExtensionContextImpl implements vscode.ExtensionContext {
   readonly _subscriptions: { dispose(): any }[] = []
@@ -19,6 +18,7 @@ export class ExtensionContextImpl implements vscode.ExtensionContext {
   readonly _extensionMode: ExtensionMode
   readonly _extension: vscode.Extension<any>
   private _languageModelAccessInformation: vscode.LanguageModelAccessInformation
+  private _storage: Map<string, any>
 
   constructor(
     workspaceState: vscode.Memento,
@@ -48,6 +48,7 @@ export class ExtensionContextImpl implements vscode.ExtensionContext {
     this._extensionMode = extensionMode
     this._extension = extension
     this._languageModelAccessInformation = languageModelAccessInformation
+    this._storage = new Map<string, any>()
   }
 
   get subscriptions(): { dispose(): any }[] {
@@ -117,6 +118,13 @@ export class ExtensionContextImpl implements vscode.ExtensionContext {
   asAbsolutePath(relativePath: string): string {
     return Uri.joinPath(this._extensionUri, relativePath).fsPath
   }
+
+  update(key: string, value: any): Promise<void> {
+    return new Promise<void>((resolve) => {
+      this._storage.set(key, value)
+      resolve()
+    })
+  }
 }
 
 // 实现一个真正可用的 Memento 类
@@ -131,7 +139,7 @@ class MementoImpl implements vscode.Memento {
     return this.storage.get(key) as T | undefined
   }
 
-  update(key: string, value: any): Thenable<void> {
+  update(key: string, value: any): Promise<void> {
     return new Promise<void>((resolve) => {
       this.storage.set(key, value)
       resolve()
@@ -188,10 +196,7 @@ export const createExtensionContext = () => {
     delete: (variable: string) => {},
     clear: () => {},
     getScoped: (scope: vscode.EnvironmentVariableScope) => environmentVariableCollection,
-    description: 'Example Environment Variables',
-    [Symbol.iterator]: function* () {
-      yield* []
-    }
+    description: 'Example Environment Variables'
   }
 
   // 创建 Extension 对象
@@ -202,8 +207,7 @@ export const createExtensionContext = () => {
     isActive: true,
     packageJSON: {},
     exports: {},
-    activate: () => Promise.resolve({}),
-    extensionKind: vscode.ExtensionKind.Workspace
+    activate: () => Promise.resolve({})
   }
 
   // 创建 LanguageModelAccessInformation 对象

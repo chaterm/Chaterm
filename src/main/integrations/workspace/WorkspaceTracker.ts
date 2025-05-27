@@ -2,12 +2,13 @@ import * as vscode from 'vscode'
 import * as path from 'path'
 import { listFiles } from '@services/glob/list-files'
 import { ExtensionMessage } from '@shared/ExtensionMessage'
+import { Disposable, FileCreateEvent, FileDeleteEvent, FileRenameEvent } from 'vscode'
 
 const cwd = vscode.workspace.workspaceFolders?.map((folder) => folder.uri.fsPath).at(0)
 
 // Note: this is not a drop-in replacement for listFiles at the start of tasks, since that will be done for Desktops when there is no workspace selected
 class WorkspaceTracker {
-  private disposables: vscode.Disposable[] = []
+  private disposables: { dispose(): any }[] = []
   private filePaths: Set<string> = new Set()
 
   constructor(private readonly postMessageToWebview: (message: ExtensionMessage) => Promise<void>) {
@@ -27,14 +28,27 @@ class WorkspaceTracker {
 
   private registerListeners() {
     // Listen for file creation
-    // .bind(this) ensures the callback refers to class instance when using this, not necessary when using arrow function
-    this.disposables.push(vscode.workspace.onDidCreateFiles(this.onFilesCreated.bind(this)))
+    this.disposables.push(
+      vscode.workspace.onDidCreateFiles((event: { files: vscode.Uri[] }) => {
+        this.onFilesCreated(event)
+      })
+    )
 
     // Listen for file deletion
-    this.disposables.push(vscode.workspace.onDidDeleteFiles(this.onFilesDeleted.bind(this)))
+    this.disposables.push(
+      vscode.workspace.onDidDeleteFiles((event: { files: vscode.Uri[] }) => {
+        this.onFilesDeleted(event)
+      })
+    )
 
     // Listen for file renaming
-    this.disposables.push(vscode.workspace.onDidRenameFiles(this.onFilesRenamed.bind(this)))
+    this.disposables.push(
+      vscode.workspace.onDidRenameFiles(
+        (event: { files: { oldUri: vscode.Uri; newUri: vscode.Uri }[] }) => {
+          this.onFilesRenamed(event)
+        }
+      )
+    )
 
     /*
 		 An event that is emitted when a workspace folder is added or removed.
@@ -47,7 +61,7 @@ class WorkspaceTracker {
     // this.disposables.push(vscode.workspace.onDidChangeWorkspaceFolders(this.onWorkspaceFoldersChanged.bind(this)))
   }
 
-  private async onFilesCreated(event: vscode.FileCreateEvent) {
+  private async onFilesCreated(event: { files: vscode.Uri[] }) {
     await Promise.all(
       event.files.map(async (file) => {
         await this.addFilePath(file.fsPath)
@@ -56,7 +70,7 @@ class WorkspaceTracker {
     this.workspaceDidUpdate()
   }
 
-  private async onFilesDeleted(event: vscode.FileDeleteEvent) {
+  private async onFilesDeleted(event: { files: vscode.Uri[] }) {
     let updated = false
     await Promise.all(
       event.files.map(async (file) => {
@@ -70,7 +84,7 @@ class WorkspaceTracker {
     }
   }
 
-  private async onFilesRenamed(event: vscode.FileRenameEvent) {
+  private async onFilesRenamed(event: { files: { oldUri: vscode.Uri; newUri: vscode.Uri }[] }) {
     await Promise.all(
       event.files.map(async (file) => {
         await this.removeFilePath(file.oldUri.fsPath)
