@@ -2,14 +2,7 @@ import { indexedDBService, DB_CONFIG } from './indexedDBService'
 
 interface UserConfig {
   id: string
-  model: string
-  enableExtendedThinking: boolean
-  budget: number
-  autoApproval: boolean
-  enableCheckpoints: boolean
-  reasoningEffort: 'low' | 'medium' | 'high'
   updatedAt: number
-  shellIntegrationTimeout: number
   autoCompleteStatus: number
   vimStatus: boolean
   quickVimStatus: number
@@ -53,14 +46,7 @@ export class UserConfigStoreService {
   private getDefaultConfig(): UserConfig {
     return {
       id: 'userConfig',
-      model: 'anthropic.claude-3-7-sonnet-20250219-v1:0',
-      enableExtendedThinking: false,
-      budget: 1024,
-      autoApproval: false,
-      enableCheckpoints: false,
-      reasoningEffort: 'low',
       updatedAt: Date.now(),
-      shellIntegrationTimeout: 4,
       autoCompleteStatus: 2,
       vimStatus: false,
       quickVimStatus: 2,

@@ -133,6 +133,7 @@ onMounted(async () => {
     console.error('获取MacAddress失败:', error)
   }
   const userConfig = await userConfigStore.getConfig()
+  console.log('[onMounted]', userConfig)
   appContext.config.globalProperties.$i18n.locale = userConfig.language
 
   // 监听右侧图标更新事件

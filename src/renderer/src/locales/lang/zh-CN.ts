@@ -101,7 +101,11 @@ export default {
     awsSessionToken: 'AWS Session Token',
     awsSessionTokenPh: '请输入AWS  Session Token',
     awsRegion: 'AWS 区域',
-    awsRegionPh: '请选择区域'
+    awsRegionPh: '请选择区域',
+    awsEndpointSelected: '使用自定义VPC端点',
+    awsBedrockEndpointPh: '输入VPC端点URL（可选）',
+    awsUseCrossRegionInference: '使用跨区域推理',
+    chatSettings: '模式'
   },
   extensions: {
     extensions: '插件',

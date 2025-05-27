@@ -103,7 +103,11 @@ export default {
     awsSessionToken: 'AWS Session Token',
     awsSessionTokenPh: 'Enter Session Token',
     awsRegion: 'AWS Region',
-    awsRegionPh: 'Select a region...'
+    awsRegionPh: 'Select a region...',
+    awsEndpointSelected: 'Use custom VPC endpoint',
+    awsBedrockEndpointPh: 'Enter VPC Endpoint URL (optional)',
+    awsUseCrossRegionInference: 'Use cross-region inference',
+    chatSettings: 'Chat Mode'
   },
   extensions: {
     extensions: 'Extensions',
