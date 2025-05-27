@@ -276,7 +276,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted, defineAsyncComponent, defineEmits, onUnmounted } from 'vue'
+import { ref, reactive, onMounted, defineAsyncComponent, onUnmounted } from 'vue'
 import {
   PlusOutlined,
   CloseOutlined,
@@ -289,7 +289,6 @@ import { notification } from 'ant-design-vue'
 import { v4 as uuidv4 } from 'uuid'
 import { getAiModel, getChatDetailList, getConversationList } from '@/api/ai/ai'
 import eventBus from '@/utils/eventBus'
-const emit = defineEmits(['runCmd'])
 // 异步加载 Markdown 渲染组件
 const MarkdownRenderer = defineAsyncComponent(
   () => import('@views/components/AiTab/MarkdownRenderer.vue')
@@ -697,13 +696,7 @@ const handleCopyContent = (message: { content: string }) => {
   navigator.clipboard
     .writeText(message.content)
     .then(() => {
-      // notification.success({
-      //   message: '成功',
-      //   description: '已复制到终端',
-      //   placement: 'topRight',
-      //   duration: 1
-      // })
-      emit('runCmd', message.content)
+      eventBus.emit('executeTerminalCommand', message.content)
     })
     .catch((err) => {
       console.error('复制失败:', err)
