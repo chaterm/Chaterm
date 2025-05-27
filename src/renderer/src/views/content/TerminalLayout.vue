@@ -372,7 +372,7 @@ const changeCompany = () => {
     }
 
     .term_content {
-      width: calc(100% - 50px);
+      width: calc(100% - 40px);
       height: 100%;
       box-sizing: border-box;
 
