@@ -31,32 +31,30 @@
           </template>
         </div>
       </div>
-      <div class="input-container">
-        <div class="input-send-container">
-          <a-textarea
-            v-model:value="chatInputValue"
-            :placeholder="$t('ai.chatMessage')"
-            style="background-color: #2b2b2b; color: #fff; border: none; box-shadow: none"
-            :auto-size="{ minRows: 3, maxRows: 20 }"
-            @keydown="handleKeyDown"
-          />
-          <div class="input-controls">
-            <a-select
-              v-model:value="chatrModelValue"
-              size="small"
-              :options="AiModelsOptions"
-              show-search
-            ></a-select>
-            <a-button
-              type="primary"
-              size="small"
-              class="custom-round-button compact-button"
-              style="margin-left: 8px"
-              @click="sendMessage"
-            >
-              {{ $t('ai.send') }} ⏎
-            </a-button>
-          </div>
+      <div class="input-send-container">
+        <a-textarea
+          v-model:value="chatInputValue"
+          :placeholder="$t('ai.chatMessage')"
+          style="background-color: #161616; color: #fff; border: none; box-shadow: none"
+          :auto-size="{ minRows: 2, maxRows: 20 }"
+          @keydown="handleKeyDown"
+        />
+        <div class="input-controls">
+          <a-select
+            v-model:value="chatrModelValue"
+            size="small"
+            :options="AiModelsOptions"
+            show-search
+          ></a-select>
+          <a-button
+            type="primary"
+            size="small"
+            class="custom-round-button compact-button"
+            style="margin-left: 8px"
+            @click="sendMessage"
+          >
+            {{ $t('ai.send') }} ⏎
+          </a-button>
         </div>
       </div>
     </a-tab-pane>
@@ -114,31 +112,29 @@
           </template>
         </div>
       </div>
-      <div class="input-container">
-        <div class="input-send-container">
-          <a-textarea
-            v-model:value="composerInputValue"
-            :placeholder="$t('ai.commandMessage')"
-            style="background-color: #2b2b2b; color: #fff; border: none; box-shadow: none"
-            :auto-size="{ minRows: 3, maxRows: 20 }"
-            @keydown="handleKeyDown"
-          />
-          <div class="input-controls">
-            <a-select
-              v-model:value="composerModelValue"
-              size="small"
-              :options="AiModelsOptions"
-              show-search
-            ></a-select>
-            <a-button
-              size="small"
-              class="custom-round-button compact-button"
-              style="margin-left: 8px"
-              @click="sendMessage"
-            >
-              {{ $t('ai.send') }} ⏎
-            </a-button>
-          </div>
+      <div class="input-send-container">
+        <a-textarea
+          v-model:value="composerInputValue"
+          :placeholder="$t('ai.commandMessage')"
+          style="background-color: #161616; color: #fff; border: none; box-shadow: none"
+          :auto-size="{ minRows: 2, maxRows: 20 }"
+          @keydown="handleKeyDown"
+        />
+        <div class="input-controls">
+          <a-select
+            v-model:value="composerModelValue"
+            size="small"
+            :options="AiModelsOptions"
+            show-search
+          ></a-select>
+          <a-button
+            size="small"
+            class="custom-round-button compact-button"
+            style="margin-left: 8px"
+            @click="sendMessage"
+          >
+            {{ $t('ai.send') }} ⏎
+          </a-button>
         </div>
       </div>
     </a-tab-pane>
@@ -196,31 +192,29 @@
           </template>
         </div>
       </div>
-      <div class="input-container">
-        <div class="input-send-container">
-          <a-textarea
-            v-model:value="agentInputValue"
-            :placeholder="$t('ai.agentMessage')"
-            style="background-color: #2b2b2b; color: #fff; border: none; box-shadow: none"
-            :auto-size="{ minRows: 3, maxRows: 20 }"
-            @keydown="handleKeyDown"
-          />
-          <div class="input-controls">
-            <a-select
-              v-model:value="composerModelValue"
-              size="small"
-              :options="AiModelsOptions"
-              show-search
-            ></a-select>
-            <a-button
-              size="small"
-              class="custom-round-button compact-button"
-              style="margin-left: 8px"
-              @click="sendMessage"
-            >
-              {{ $t('ai.send') }} ⏎
-            </a-button>
-          </div>
+      <div class="input-send-container">
+        <a-textarea
+          v-model:value="agentInputValue"
+          :placeholder="$t('ai.agentMessage')"
+          style="background-color: #161616; color: #fff; border: none; box-shadow: none"
+          :auto-size="{ minRows: 2, maxRows: 20 }"
+          @keydown="handleKeyDown"
+        />
+        <div class="input-controls">
+          <a-select
+            v-model:value="composerModelValue"
+            size="small"
+            :options="AiModelsOptions"
+            show-search
+          ></a-select>
+          <a-button
+            size="small"
+            class="custom-round-button compact-button"
+            style="margin-left: 8px"
+            @click="sendMessage"
+          >
+            {{ $t('ai.send') }} ⏎
+          </a-button>
         </div>
       </div>
     </a-tab-pane>
@@ -298,7 +292,7 @@ import eventBus from '@/utils/eventBus'
 const emit = defineEmits(['runCmd'])
 // 异步加载 Markdown 渲染组件
 const MarkdownRenderer = defineAsyncComponent(
-  () => import('@views/components/MarkdownRenderer.vue')
+  () => import('@views/components/AiTab/MarkdownRenderer.vue')
 )
 
 const historyList = ref<
@@ -695,14 +689,8 @@ const handleHistoryClick = () => {
 }
 
 const handleApplyCommand = (message: { content: string }) => {
-  // notification.success({
-  //   message: '成功',
-  //   description: '命令执行成功！',
-  //   placement: 'topRight',
-  //   duration: 1
-  // })
-  emit('runCmd', message.content + '\n')
-  console.log('执行命令:', message.content)
+  // 使用事件总线发送命令到终端
+  eventBus.emit('executeTerminalCommand', message.content + '\n')
 }
 
 const handleCopyContent = (message: { content: string }) => {
@@ -846,7 +834,7 @@ const sendMessageToMain = async (userContent: string) => {
   overflow-y: auto;
   padding: 16px;
   scrollbar-width: thin;
-  max-height: calc(100vh - 200px);
+  max-height: calc(100vh - 150px);
 
   &::-webkit-scrollbar {
     width: 6px;
@@ -902,11 +890,14 @@ const sendMessageToMain = async (userContent: string) => {
 .input-send-container {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 4px;
+  background-color: #161616;
+  border-radius: 8px;
+  border: 1px solid #333;
 
   .ant-textarea {
-    background-color: #2a2a2a !important;
-    border: 1px solid #3a3a3a !important;
+    background-color: #1a1a1a !important;
+    border: none !important;
     border-radius: 8px !important;
     color: #e0e0e0 !important;
     padding: 8px 12px !important;
@@ -915,12 +906,6 @@ const sendMessageToMain = async (userContent: string) => {
     :deep(.ant-input::placeholder) {
       color: #666 !important;
     }
-
-    &:hover,
-    &:focus {
-      border-color: #4caf50 !important;
-      box-shadow: 0 0 0 2px rgba(76, 175, 80, 0.1) !important;
-    }
   }
 }
 
@@ -928,41 +913,53 @@ const sendMessageToMain = async (userContent: string) => {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
+  gap: 4px;
+  padding: 4px 8px;
 
   .ant-select {
-    width: 150px;
+    width: 120px;
 
     :deep(.ant-select-selector) {
-      background-color: #2a2a2a !important;
-      border: 1px solid #3a3a3a !important;
-      border-radius: 6px !important;
+      background-color: transparent !important;
+      border: none !important;
+      border-radius: 4px !important;
       color: #e0e0e0 !important;
+      height: 24px !important;
+      line-height: 24px !important;
+      font-size: 12px !important;
 
       &:hover {
-        border-color: #4caf50 !important;
+        border-color: transparent !important;
       }
+    }
+
+    :deep(.ant-select-selection-item) {
+      font-size: 12px !important;
+      line-height: 24px !important;
     }
   }
 
   .custom-round-button {
-    height: 24px;
-    padding: 0 16px;
-    border-radius: 6px;
+    height: 20px;
+    padding: 0 8px;
+    border-radius: 4px;
     font-size: 10px;
-    background-color: #4caf50;
-    border-color: #4caf50;
+    background-color: #1656b1;
+    border-color: #1656b1;
     color: white;
     transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    gap: 3px;
 
     &:hover {
-      background-color: #45a049;
-      border-color: #45a049;
-      transform: translateY(-1px);
+      background-color: #2d6fcd;
+      border-color: #2d6fcd;
     }
 
     &:active {
       transform: translateY(0);
+      box-shadow: none;
     }
   }
 }
@@ -1139,10 +1136,10 @@ const sendMessageToMain = async (userContent: string) => {
     justify-content: flex-end;
 
     .action-btn {
-      height: 24px;
-      padding: 0 8px;
+      height: 18px;
+      padding: 0 6px;
       border-radius: 4px;
-      font-size: 11px;
+      font-size: 10px;
       display: flex;
       align-items: center;
       gap: 3px;
