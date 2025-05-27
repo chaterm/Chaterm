@@ -206,70 +206,72 @@ const logout = () => {
   display: flex;
   flex-direction: column;
   justify-content: space-between;
+  background-color: #1e1e1e;
 
+  .main-menu,
   .bottom-menu {
     display: flex;
     flex-direction: column;
-    gap: 10px;
+    gap: 2px;
+    padding: 0 4px;
   }
 
-  .term_menu {
-    // background-color: #fff;
-    width: 100%;
-    height: 35px;
-    display: flex;
-    cursor: pointer;
-    flex-direction: column;
-
-    // background-color: #fff;
-    img {
-      width: 26px;
-      height: 26px;
-      margin: 0 auto;
-    }
-
-    span {
-      font-size: 10px;
-      text-align: center;
-      display: inline-block;
-    }
-  }
-
+  .term_menu,
   .setting_menu {
     width: 100%;
+    height: 28px;
     display: flex;
+    align-items: center;
+    justify-content: center;
     cursor: pointer;
-    flex-direction: column;
+    border-radius: 8px;
+    transition: all 0.3s ease;
 
-    img {
-      width: 26px;
-      height: 26px;
-      margin: 0 auto;
+    &:hover {
+      background-color: rgba(255, 255, 255, 0.1);
     }
 
-    span {
-      font-size: 10px;
-      text-align: center;
-      display: inline-block;
+    &:active {
+      transform: scale(0.95);
+    }
+
+    img {
+      width: 20px;
+      height: 20px;
+      transition: all 0.3s ease;
+      opacity: 0.7;
+    }
+
+    &:hover img {
+      opacity: 1;
+      transform: scale(1.1);
     }
   }
 
   .user-menu {
     position: absolute;
     bottom: 80px;
-    left: 50px;
+    left: 40px;
     background: #2a2a2a;
-    border-radius: 4px;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
     z-index: 1000;
+    min-width: 120px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
 
     .menu-item {
-      padding: 8px 16px;
+      padding: 4px 12px;
       color: #fff;
       cursor: pointer;
+      transition: all 0.2s ease;
+      font-size: 14px;
 
       &:hover {
-        background: #3a3a3a;
+        background: rgba(255, 255, 255, 0.1);
+      }
+
+      &:active {
+        background: rgba(255, 255, 255, 0.15);
       }
     }
   }
