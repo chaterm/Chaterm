@@ -840,7 +840,7 @@ const sendMessageToMain = async (userContent: string) => {
   overflow-y: auto;
   padding: 16px;
   scrollbar-width: thin;
-  max-height: calc(100vh - 200px);
+  max-height: calc(100vh - 150px);
 
   &::-webkit-scrollbar {
     width: 6px;
