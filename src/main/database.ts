@@ -42,26 +42,120 @@ export async function initDatabase(): Promise<Database.Database> {
 
 export async function initChatermDatabase(): Promise<Database.Database> {
   try {
-    // 检查目标数据库是否存在
-    if (!fs.existsSync(Chaterm_DB_PATH)) {
-      // 确保 init_chaterm.db 存在
-      if (!fs.existsSync(INIT_CDB_PATH)) {
-        throw new Error('Initial database (init_chaterm.db) not found')
-      }
-      const sourceDb = new Database(INIT_CDB_PATH, { readonly: true })
-
-      await sourceDb.backup(Chaterm_DB_PATH)
-      sourceDb.close()
-    } else {
-      console.log('Chaterm database already exists, skipping initialization')
+    const dbDir = path.dirname(Chaterm_DB_PATH)
+    if (!fs.existsSync(dbDir)) {
+      fs.mkdirSync(dbDir, { recursive: true })
     }
 
-    // 返回数据库实例
-    const db = new Database(Chaterm_DB_PATH)
-    console.log('Chaterm database connection established')
-    return db
-  } catch (error) {
-    console.error('Chaterm database initialization failed:', error)
+    if (!fs.existsSync(INIT_CDB_PATH)) {
+      throw new Error(`Initial database (init_chaterm.db) not found at ${INIT_CDB_PATH}`)
+    }
+
+    const targetDbExists = fs.existsSync(Chaterm_DB_PATH)
+
+    if (!targetDbExists) {
+      console.log('Target Chaterm database does not exist. Copying from initial database.')
+      const sourceDb = new Database(INIT_CDB_PATH, { readonly: true, fileMustExist: true })
+      try {
+        await sourceDb.backup(Chaterm_DB_PATH)
+        console.log('Chaterm database successfully copied.')
+      } finally {
+        sourceDb.close()
+      }
+    } else {
+      console.log('Target Chaterm database exists. Attempting schema synchronization.')
+      let mainDb: Database.Database | null = null
+      let initDb: Database.Database | null = null
+      try {
+        mainDb = new Database(Chaterm_DB_PATH)
+        initDb = new Database(INIT_CDB_PATH, { readonly: true, fileMustExist: true })
+
+        const initTables = initDb
+          .prepare(
+            "SELECT name, sql FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'"
+          )
+          .all() as { name: string; sql: string }[]
+
+        for (const initTable of initTables) {
+          const tableName = initTable.name
+          const createTableSql = initTable.sql
+
+          const tableExists = mainDb
+            .prepare("SELECT name FROM sqlite_master WHERE type='table' AND name = ?")
+            .get(tableName)
+
+          if (!tableExists) {
+            console.log(`Table ${tableName} not found in target DB. Creating table.`)
+            mainDb.exec(createTableSql)
+          } else {
+            console.log(`Table ${tableName} found in target DB. Checking for missing columns.`)
+            const initTableInfo = initDb.pragma(`table_info(${tableName})`) as {
+              name: string
+              type: string
+              notnull: number
+              dflt_value: any
+              pk: number
+            }[]
+            const mainTableInfo = mainDb.pragma(`table_info(${tableName})`) as { name: string }[]
+            const mainTableColumnNames = new Set(mainTableInfo.map((col) => col.name))
+
+            for (const initColumn of initTableInfo) {
+              if (!mainTableColumnNames.has(initColumn.name)) {
+                let addColumnSql = `ALTER TABLE ${tableName} ADD COLUMN ${initColumn.name} ${initColumn.type}`
+
+                if (initColumn.dflt_value !== null) {
+                  let defaultValueFormatted
+                  if (typeof initColumn.dflt_value === 'string') {
+                    // PRAGMA dflt_value is already SQL-literal like for strings (e.g. 'text' or "'text'")
+                    defaultValueFormatted = initColumn.dflt_value
+                  } else {
+                    defaultValueFormatted = initColumn.dflt_value
+                  }
+                  addColumnSql += ` DEFAULT ${defaultValueFormatted}`
+                }
+
+                if (initColumn.notnull) {
+                  // 1 if NOT NULL, 0 otherwise
+                  if (initColumn.dflt_value !== null) {
+                    addColumnSql += ' NOT NULL'
+                  } else {
+                    console.warn(
+                      `Column '${initColumn.name}' in table '${tableName}' is defined as NOT NULL without a default value in the initial schema. Adding it as nullable to the existing table to avoid errors. Manual schema adjustment might be needed if strict NOT NULL is required and the table contains data.`
+                    )
+                  }
+                }
+                try {
+                  console.log(
+                    `Attempting to add column ${initColumn.name} to table ${tableName} with SQL: ${addColumnSql}`
+                  )
+                  mainDb.exec(addColumnSql)
+                  console.log(`Successfully added column ${initColumn.name} to table ${tableName}.`)
+                } catch (e: any) {
+                  console.error(
+                    `Failed to add column ${initColumn.name} to table ${tableName}: ${e.message}. SQL: ${addColumnSql}`
+                  )
+                }
+              }
+            }
+          }
+        }
+        console.log('Chaterm database schema synchronization attempt complete.')
+      } catch (syncError: any) {
+        console.error('Error during Chaterm database schema synchronization:', syncError.message)
+        // Rethrow if we want the entire init to fail.
+        // throw syncError;
+      } finally {
+        if (mainDb && mainDb.open) mainDb.close()
+        if (initDb && initDb.open) initDb.close()
+      }
+    }
+
+    // Return the database instance (always from Chaterm_DB_PATH)
+    const finalDb = new Database(Chaterm_DB_PATH)
+    console.log('Chaterm database connection established. Path: ' + Chaterm_DB_PATH)
+    return finalDb
+  } catch (error: any) {
+    console.error('Chaterm database initialization/synchronization failed:', error.message)
     throw error
   }
 }
