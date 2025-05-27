@@ -689,14 +689,8 @@ const handleHistoryClick = () => {
 }
 
 const handleApplyCommand = (message: { content: string }) => {
-  // notification.success({
-  //   message: '成功',
-  //   description: '命令执行成功！',
-  //   placement: 'topRight',
-  //   duration: 1
-  // })
-  emit('runCmd', message.content + '\n')
-  console.log('执行命令:', message.content)
+  // 使用事件总线发送命令到终端
+  eventBus.emit('executeTerminalCommand', message.content + '\n')
 }
 
 const handleCopyContent = (message: { content: string }) => {

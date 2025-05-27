@@ -6,6 +6,7 @@ import mitt, { Emitter } from 'mitt'
 export type AppEvents = {
   currentClickServer: any // 可根据实际 item 类型替换 any
   updateRightIcon: boolean // 更新右侧图标状态
+  executeTerminalCommand: string // 执行终端命令
   // 可扩展更多事件
 }
 
