@@ -298,7 +298,7 @@ import eventBus from '@/utils/eventBus'
 const emit = defineEmits(['runCmd'])
 // 异步加载 Markdown 渲染组件
 const MarkdownRenderer = defineAsyncComponent(
-  () => import('@views/components/MarkdownRenderer.vue')
+  () => import('@views/components/AiTab/MarkdownRenderer.vue')
 )
 
 const historyList = ref<
