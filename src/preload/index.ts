@@ -374,13 +374,16 @@ const api = {
   recordCommand: (params) => ipcRenderer.invoke('ssh:recordCommand', params),
 
   // Agent相关的API
-  agentGetApiConversationHistory: async (data) => {
-    const result = await ipcRenderer.invoke('agent-get-api-conversation-history', data)
+  agentGetApiConversationHistory: async (taskId: string) => {
+    const result = await ipcRenderer.invoke('agent-get-api-conversation-history', { taskId })
     return result
   },
 
-  agentSaveApiConversationHistory: async (data) => {
-    const result = await ipcRenderer.invoke('agent-save-api-conversation-history', data)
+  agentSaveApiConversationHistory: async (taskId: string, historyData: any) => {
+    const result = await ipcRenderer.invoke('agent-save-api-conversation-history', {
+      taskId,
+      apiConversationHistory: historyData
+    })
     return result
   },
 
@@ -404,13 +407,16 @@ const api = {
     return result
   },
 
-  agentGetContextHistory: async (data) => {
-    const result = await ipcRenderer.invoke('agent-get-context-history', data)
+  agentGetContextHistory: async (taskId: string) => {
+    const result = await ipcRenderer.invoke('agent-get-context-history', { taskId })
     return result
   },
 
-  agentSaveContextHistory: async (data) => {
-    const result = await ipcRenderer.invoke('agent-save-context-history', data)
+  agentSaveContextHistory: async (taskId: string, historyData: any) => {
+    const result = await ipcRenderer.invoke('agent-save-context-history', {
+      taskId,
+      contextHistory: historyData
+    })
     return result
   },
 

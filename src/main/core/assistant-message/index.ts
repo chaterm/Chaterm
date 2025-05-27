@@ -1,11 +1,11 @@
 export type AssistantMessageContent = TextContent | ToolUse
 
-export { parseAssistantMessageV1, parseAssistantMessageV2 } from "./parse-assistant-message"
+export { parseAssistantMessageV2 } from './parse-assistant-message'
 
 export interface TextContent {
-	type: "text"
-	content: string
-	partial: boolean
+  type: 'text'
+  content: string
+  partial: boolean
 }
 
 export const toolUseNames = [
@@ -21,7 +21,7 @@ export const toolUseNames = [
 	"new_task",
 	"condense",
 	"report_bug",
-	"new_rule",
+	"new_rule"
 ] as const
 
 // Converts array of tool call names into a union type ("execute_command" | "read_file" | ...)
@@ -53,15 +53,15 @@ export const toolParamNames = [
 	"what_happened",
 	"steps_to_reproduce",
 	"api_request_output",
-	"additional_context",
+	"additional_context"
 ] as const
 
 export type ToolParamName = (typeof toolParamNames)[number]
 
 export interface ToolUse {
-	type: "tool_use"
-	name: ToolUseName
-	// params is a partial record, allowing only some or none of the possible parameters to be used
-	params: Partial<Record<ToolParamName, string>>
-	partial: boolean
+  type: 'tool_use'
+  name: ToolUseName
+  // params is a partial record, allowing only some or none of the possible parameters to be used
+  params: Partial<Record<ToolParamName, string>>
+  partial: boolean
 }

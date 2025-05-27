@@ -10,7 +10,7 @@ import { createExtensionContext } from './core/controller/context'
 import { ElectronOutputChannel } from './core/controller/outputChannel'
 
 let mainWindow: BrowserWindow
-let COOKIE_URL = ''
+let COOKIE_URL = 'http://localhost'
 let browserWindow: BrowserWindow | null = null
 
 let autoCompleteService: autoCompleteDatabaseService
@@ -66,12 +66,15 @@ async function createWindow(): Promise<void> {
   } else {
     mainWindow.loadFile(join(__dirname, '../renderer/index.html'))
   }
+
   // 动态获取 URL
   mainWindow.webContents.on('did-finish-load', () => {
-    COOKIE_URL = mainWindow.webContents.getURL()
+    const url = mainWindow.webContents.getURL()
     // 替换 file:// 协议为 http://localhost（防止 cookie 失效问题）
-    if (COOKIE_URL.startsWith('file://')) {
+    if (url.startsWith('file://')) {
       COOKIE_URL = 'http://localhost'
+    } else {
+      COOKIE_URL = url
     }
   })
 
@@ -84,7 +87,7 @@ async function createWindow(): Promise<void> {
   })
 }
 
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
   electronApp.setAppUserModelId('com.electron')
 
   // 注册窗口拖拽处理程序（只注册一次）
@@ -105,7 +108,7 @@ app.whenReady().then(() => {
   // IPC test
   ipcMain.on('ping', () => console.log('pong'))
   setupIPC()
-  createWindow()
+  await createWindow()
 
   // 注册ssh组件
   registerSSHHandlers()
@@ -115,16 +118,21 @@ app.whenReady().then(() => {
     // dock icon is clicked and there are no other windows open.
     if (BrowserWindow.getAllWindows().length === 0) createWindow()
   })
-  const context = createExtensionContext()
-  const outputChannel = new ElectronOutputChannel()
 
-  controller = new Controller(context, outputChannel, (message) => {
-    if (mainWindow && !mainWindow.isDestroyed()) {
-      mainWindow.webContents.send('main-to-webview', message)
-      return Promise.resolve(true)
-    }
-    return Promise.resolve(false)
-  })
+  try {
+    const context = createExtensionContext()
+    const outputChannel = new ElectronOutputChannel()
+
+    controller = new Controller(context, outputChannel, (message) => {
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send('main-to-webview', message)
+        return Promise.resolve(true)
+      }
+      return Promise.resolve(false)
+    })
+  } catch (error) {
+    console.error('Failed to initialize Controller:', error)
+  }
 })
 
 // Quit when all windows are closed, except on macOS. There, it's common
@@ -138,13 +146,15 @@ app.on('window-all-closed', () => {
 
 const getCookieByName = async (name) => {
   try {
+    if (!COOKIE_URL) {
+      return { success: false, error: 'Cookie URL not initialized' }
+    }
     const cookies = await session.defaultSession.cookies.get({ url: COOKIE_URL })
     const targetCookie = cookies.find((cookie) => cookie.name === name)
     return targetCookie
       ? { success: true, value: targetCookie.value }
       : { success: false, value: null }
   } catch (error) {
-    // console.error('Cookie read failed:', error)
     return { success: false, error }
   }
 }
@@ -495,7 +505,7 @@ ipcMain.handle('chaterm-connect-asset-info', async (_, data) => {
 ipcMain.handle('agent-get-api-conversation-history', async (_, data) => {
   try {
     const { taskId } = data
-    const result = await chatermDbService.getSavedApiConversationHistory(taskId)
+    const result = await chatermDbService.getApiConversationHistory(taskId)
     return { success: true, data: result }
   } catch (error) {
     console.error('获取API对话历史失败:', error)
@@ -561,7 +571,7 @@ ipcMain.handle('agent-save-task-metadata', async (_, data) => {
 ipcMain.handle('agent-get-context-history', async (_, data) => {
   try {
     const { taskId } = data
-    const result = await chatermDbService.getSavedContextHistory(taskId)
+    const result = await chatermDbService.getContextHistory(taskId)
     return { success: true, data: result }
   } catch (error) {
     console.error('获取上下文历史失败:', error)
@@ -575,7 +585,7 @@ ipcMain.handle('agent-save-context-history', async (_, data) => {
     await chatermDbService.saveContextHistory(taskId, contextHistory)
     return { success: true }
   } catch (error) {
-    console.error('保存上下文历史失败:', error)
+    console.error('保存Context历史失败 (IPC Handler):', error)
     return { success: false, error: String(error) }
   }
 })
