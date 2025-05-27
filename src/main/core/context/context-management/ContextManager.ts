@@ -5,7 +5,7 @@ import { fileExistsAtPath } from "../../../utils/fs"
 import * as path from "path"
 import fs from "fs/promises"
 import cloneDeep from "clone-deep"
-import { ClineApiReqInfo, ClineMessage } from "../../../shared/ExtensionMessage"
+import { ChatermApiReqInfo, ChatermMessage } from "../../../shared/ExtensionMessage"
 import { ApiHandler } from "../../../api"
 import { Anthropic } from "@anthropic-ai/sdk"
 
@@ -110,7 +110,7 @@ export class ContextManager {
 	 */
 	async getNewContextMessagesAndMetadata(
 		apiConversationHistory: Anthropic.Messages.MessageParam[],
-		clineMessages: ClineMessage[],
+		chatermMessages: ChatermMessage[],
 		api: ApiHandler,
 		conversationHistoryDeletedRange: [number, number] | undefined,
 		previousApiReqIndex: number,
@@ -120,10 +120,10 @@ export class ContextManager {
 
 		// If the previous API request's total token usage is close to the context window, truncate the conversation history to free up space for the new request
 		if (previousApiReqIndex >= 0) {
-			const previousRequest = clineMessages[previousApiReqIndex]
+			const previousRequest = chatermMessages[previousApiReqIndex]
 			if (previousRequest && previousRequest.text) {
 				const timestamp = previousRequest.ts
-				const { tokensIn, tokensOut, cacheWrites, cacheReads }: ClineApiReqInfo = JSON.parse(previousRequest.text)
+				const { tokensIn, tokensOut, cacheWrites, cacheReads }: ChatermApiReqInfo = JSON.parse(previousRequest.text)
 				const totalTokens = (tokensIn || 0) + (tokensOut || 0) + (cacheWrites || 0) + (cacheReads || 0)
 				const { maxAllowedSize } = getContextWindowInfo(api)
 
@@ -193,14 +193,20 @@ export class ContextManager {
 	public getNextTruncationRange(
 		apiMessages: Anthropic.Messages.MessageParam[],
 		currentDeletedRange: [number, number] | undefined,
-		keep: "half" | "quarter",
+		keep: "none" | "lastTwo" | "half" | "quarter",
 	): [number, number] {
 		// We always keep the first user-assistant pairing, and truncate an even number of messages from there
 		const rangeStartIndex = 2 // index 0 and 1 are kept
 		const startOfRest = currentDeletedRange ? currentDeletedRange[1] + 1 : 2 // inclusive starting index
 
 		let messagesToRemove: number
-		if (keep === "half") {
+		if (keep === "none") {
+			// Removes all messages beyond the first core user/assistant message pair
+			messagesToRemove = Math.max(apiMessages.length - startOfRest, 0)
+		} else if (keep === "lastTwo") {
+			// Keep the last user-assistant pair in addition to the first core user/assistant message pair
+			messagesToRemove = Math.max(apiMessages.length - startOfRest - 2, 0)
+		} else if (keep === "half") {
 			// Remove half of remaining user-assistant pairs
 			// We first calculate half of the messages then divide by 2 to get the number of pairs.
 			// After flooring, we multiply by 2 to get the number of messages.
@@ -382,6 +388,17 @@ export class ContextManager {
 		return [contextHistoryUpdated, uniqueFileReadIndices]
 	}
 
+	/**
+	 * Public function for triggering potentially setting the truncation message
+	 * If the truncation message already exists, does nothing, otherwise adds the message
+	 */
+	async triggerApplyStandardContextTruncationNoticeChange(timestamp: number, taskDirectory: string) {
+		const updated = this.applyStandardContextTruncationNoticeChange(timestamp)
+		if (updated) {
+			await this.saveContextHistory(taskDirectory)
+		}
+	}
+	
 	/**
 	 * if there is any truncation and there is no other alteration already set, alter the assistant message to indicate this occurred
 	 */

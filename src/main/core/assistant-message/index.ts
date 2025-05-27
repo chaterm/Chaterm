@@ -9,43 +9,51 @@ export interface TextContent {
 }
 
 export const toolUseNames = [
-  'execute_command',
-  'read_file',
-  'write_to_file',
-  'replace_in_file',
-  'search_files',
-  'list_files',
-  'ask_followup_question',
-  'plan_mode_respond',
-  'attempt_completion',
-  'new_task'
+	"execute_command",
+	"read_file",
+	"write_to_file",
+	"replace_in_file",
+	"search_files",
+	"list_files",
+	"ask_followup_question",
+	"plan_mode_respond",
+	"attempt_completion",
+	"new_task",
+	"condense",
+	"report_bug",
+	"new_rule"
 ] as const
 
 // Converts array of tool call names into a union type ("execute_command" | "read_file" | ...)
 export type ToolUseName = (typeof toolUseNames)[number]
 
 export const toolParamNames = [
-  'command',
-  'requires_approval',
-  'path',
-  'content',
-  'diff',
-  'regex',
-  'file_pattern',
-  'recursive',
-  'action',
-  'url',
-  'coordinate',
-  'text',
-  'server_name',
-  'tool_name',
-  'arguments',
-  'uri',
-  'question',
-  'options',
-  'response',
-  'result',
-  'context'
+	"command",
+	"requires_approval",
+	"path",
+	"content",
+	"diff",
+	"regex",
+	"file_pattern",
+	"recursive",
+	"action",
+	"url",
+	"coordinate",
+	"text",
+	"server_name",
+	"tool_name",
+	"arguments",
+	"uri",
+	"question",
+	"options",
+	"response",
+	"result",
+	"context",
+	"title",
+	"what_happened",
+	"steps_to_reproduce",
+	"api_request_output",
+	"additional_context"
 ] as const
 
 export type ToolParamName = (typeof toolParamNames)[number]

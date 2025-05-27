@@ -14,6 +14,8 @@ export interface ApiHandlerOptions {
   awsBedrockEndpoint?: string
   thinkingBudgetTokens?: number
   reasoningEffort?: string
+  requestTimeoutMs?: number
+  onRetryAttempt?: (attempt: number, maxRetries: number, delay: number, error: any) => void
 }
 
 export type ApiConfiguration = ApiHandlerOptions & {

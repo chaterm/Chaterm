@@ -56,7 +56,6 @@
     "better-sqlite3": "^11.10.0",
     "cheerio": "^1.0.0",
     "chokidar": "^4.0.1",
-    "chrome-launcher": "^0.15.2",
     "clone-deep": "^4.0.1",
     "crypto-js": "^4.2.0",
     "default-shell": "^2.2.0",
