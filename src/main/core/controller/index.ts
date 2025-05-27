@@ -116,7 +116,7 @@ export class Controller {
     await updateGlobalState('userInfo', info)
   }
 
-  async initTask(task?: string, images?: string[], historyItem?: HistoryItem) {
+  async initTask(task?: string, historyItem?: HistoryItem) {
     await this.clearTask() // ensures that an existing task doesn't exist before starting a new one, although this shouldn't be possible since user must clear task before starting a new one
     const {
       apiConfiguration,
@@ -134,7 +134,7 @@ export class Controller {
       await updateGlobalState('autoApprovalSettings', updatedAutoApprovalSettings)
     }
     this.task = new Task(
-      // this.context,
+      this.context,
       // this.mcpHub,
       this.workspaceTracker,
       (historyItem) => this.updateTaskHistory(historyItem),
@@ -157,7 +157,7 @@ export class Controller {
   async reinitExistingTaskFromId(taskId: string) {
     const history = await this.getTaskWithId(taskId)
     if (history) {
-      await this.initTask(undefined, undefined, history.historyItem)
+      await this.initTask(undefined, history.historyItem)
     }
   }
 
@@ -195,7 +195,7 @@ export class Controller {
         // Could also do this in extension .ts
         //this.postMessageToWebview({ type: "text", text: `Extension: ${Date.now()}` })
         // initializing new instance of Cline will make sure that any agentically running promises in old instance don't affect our new task. this essentially creates a fresh slate for the new task
-        await this.initTask(message.text, message.images)
+        await this.initTask(message.text)
         break
       case 'condense':
         this.task?.handleWebviewAskResponse('yesButtonClicked')
@@ -566,7 +566,7 @@ export class Controller {
         // 'abandoned' will prevent this cline instance from affecting future cline instance gui. this may happen if its hanging on a streaming request
         this.task.abandoned = true
       }
-      await this.initTask(undefined, undefined, historyItem) // clears task again, so we need to abortTask manually above
+      await this.initTask(undefined, historyItem) // clears task again, so we need to abortTask manually above
       // await this.postStateToWebview() // new Cline instance will post state when it's ready. having this here sent an empty messages array to webview leading to virtuoso having to reload the entire list
     }
   }
@@ -1095,7 +1095,7 @@ export class Controller {
     if (id !== this.task?.taskId) {
       // non-current task
       const { historyItem } = await this.getTaskWithId(id)
-      await this.initTask(undefined, undefined, historyItem) // clears existing task
+      await this.initTask(undefined, historyItem) // clears existing task
     }
     await this.postMessageToWebview({
       type: 'action',
@@ -1208,21 +1208,21 @@ export class Controller {
   async getStateToPostToWebview(): Promise<ExtensionState> {
     const {
       apiConfiguration,
-      lastShownAnnouncementId,
+      // lastShownAnnouncementId,
       customInstructions,
-      taskHistory,
+      // taskHistory,
       autoApprovalSettings,
-      browserSettings,
+      // browserSettings,
       chatSettings,
       userInfo,
-      mcpMarketplaceEnabled,
-      telemetrySetting,
-      planActSeparateModelsSetting,
-      globalClineRulesToggles
+      mcpMarketplaceEnabled
+      // telemetrySetting,
+      // planActSeparateModelsSetting,
+      // globalClineRulesToggles
     } = await getAllExtensionState()
 
-    const localClineRulesToggles =
-      ((await getWorkspaceState('localClineRulesToggles')) as ClineRulesToggles) || {}
+    // const localClineRulesToggles =
+    //   ((await getWorkspaceState('localClineRulesToggles')) as ClineRulesToggles) || {}
 
     return {
       version: this.context.extension?.packageJSON?.version ?? '',
@@ -1238,7 +1238,9 @@ export class Controller {
       //   .filter((item) => item.ts && item.task)
       //   .sort((a, b) => b.ts - a.ts)
       //   .slice(0, 100), // for now we're only getting the latest 100 tasks, but a better solution here is to only pass in 3 for recent task history, and then get the full task history on demand when going to the task history view (maybe with pagination?)
-      shouldShowAnnouncement: lastShownAnnouncementId !== this.latestAnnouncementId,
+      // shouldShowAnnouncement: lastShownAnnouncementId !== this.latestAnnouncementId,
+      shouldShowAnnouncement: false,
+
       platform: process.platform as Platform,
       autoApprovalSettings,
       // browserSettings,
@@ -1246,7 +1248,7 @@ export class Controller {
       userInfo,
       mcpMarketplaceEnabled,
       // telemetrySetting,
-      planActSeparateModelsSetting,
+      // planActSeparateModelsSetting,
       vscMachineId: vscode.env.machineId,
       // globalClineRulesToggles: globalClineRulesToggles || {},
       // localClineRulesToggles: localClineRulesToggles || {}
