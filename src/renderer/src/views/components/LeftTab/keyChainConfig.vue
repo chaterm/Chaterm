@@ -12,7 +12,12 @@
               size="small"
               class="workspace-button"
             >
-              <template #icon><KeyOutlined /></template>{{ $t('personal.newKey') }}
+              <template #icon
+                ><img
+                  :src="keyActiveIcon"
+                  alt="Key Icon"
+                  style="width: 14px; height: 14px; margin-right: 5px" /></template
+              >{{ $t('personal.newKey') }}
             </a-button>
           </div>
           <div class="search-box">
@@ -23,7 +28,11 @@
               @input="handleSearch"
             >
               <template #prefix>
-                <KeyOutlined />
+                <img
+                  :src="keyActiveIcon"
+                  alt="Key Search Icon"
+                  style="width: 14px; height: 14px"
+                />
               </template>
             </a-input>
           </div>
@@ -48,7 +57,11 @@
               >
                 <div class="keychain-card-content">
                   <div class="keychain-icon">
-                    <KeyOutlined style="font-size: 24px" />
+                    <img
+                      :src="keyActiveIcon"
+                      alt="Key Card Icon"
+                      style="width: 24px; height: 24px"
+                    />
                   </div>
                   <div class="keychain-info">
                     <div class="keychain-name">{{ item.chain_name }}</div>
@@ -161,7 +174,8 @@
 <script setup lang="ts">
 import { ref, onMounted, onBeforeUnmount, reactive, computed, watch } from 'vue'
 import { Modal, message } from 'ant-design-vue'
-import { KeyOutlined, EditOutlined, DeleteOutlined, ToTopOutlined } from '@ant-design/icons-vue'
+import { EditOutlined, DeleteOutlined, ToTopOutlined } from '@ant-design/icons-vue'
+import keyActiveIcon from '@/assets/menu/key_active.svg'
 
 interface KeyChainItem {
   key_chain_id: number

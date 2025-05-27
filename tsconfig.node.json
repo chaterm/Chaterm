@@ -7,13 +7,15 @@
     "types": ["electron-vite/node"],
     "baseUrl": ".",
     "outDir": "dist/main",
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true,
     "paths": {
       "@services/*": ["src/main/services/*"],
       "@api/*": ["src/main/api/*"],
       "@integrations/*": ["src/main/integrations/*"],
       "@utils/*": ["src/main/utils/*"],
       "@shared/*": ["src/main/shared/*"],
-      "@core/*": ["src/main/core/*"],
+      "@core/*": ["src/main/core/*"]
     }
   }
 }
