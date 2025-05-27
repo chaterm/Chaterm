@@ -1,5 +1,5 @@
 import { Anthropic } from '@anthropic-ai/sdk'
-import { ClineMessage } from '../../shared/ExtensionMessage'
+import { ChatermMessage } from '../../shared/ExtensionMessage'
 import { TaskMetadata } from '../context/context-tracking/ContextTrackerTypes'
 import path from 'path'
 import fs from 'fs/promises'
@@ -72,9 +72,9 @@ export async function saveApiConversationHistory(
 }
 
 // 获取保存的Cline消息
-export async function getSavedClineMessages(taskId: string): Promise<ClineMessage[]> {
+export async function getSavedChatermMessages(taskId: string): Promise<ChatermMessage[]> {
   try {
-    const result = await (window as any).api.agentGetClineMessages({ taskId })
+    const result = await (window as any).api.agentGetChatermMessages({ taskId })
     if (result.success) {
       return result.data || []
     }
@@ -87,9 +87,9 @@ export async function getSavedClineMessages(taskId: string): Promise<ClineMessag
 }
 
 // 保存Cline消息
-export async function saveClineMessages(taskId: string, uiMessages: ClineMessage[]) {
+export async function saveChatermMessages(taskId: string, uiMessages: ChatermMessage[]) {
   try {
-    const result = await (window as any).api.agentSaveClineMessages({
+    const result = await (window as any).api.agentSaveChatermMessages({
       taskId,
       uiMessages
     })

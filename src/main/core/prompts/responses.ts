@@ -61,7 +61,7 @@ Otherwise, if you have not completed the task and do not need additional informa
 		absolutePath: string,
 		files: string[],
 		didHitLimit: boolean,
-		clineIgnoreController?: ClineIgnoreController,
+		//clineIgnoreController?: ClineIgnoreController,
 	): string => {
 		const sorted = files
 			.map((file) => {
@@ -94,21 +94,22 @@ Otherwise, if you have not completed the task and do not need additional informa
 				return aParts.length - bParts.length
 			})
 
-		const clineIgnoreParsed = clineIgnoreController
-			? sorted.map((filePath) => {
-					// path is relative to absolute path, not cwd
-					// validateAccess expects either path relative to cwd or absolute path
-					// otherwise, for validating against ignore patterns like "assets/icons", we would end up with just "icons", which would result in the path not being ignored.
-					const absoluteFilePath = path.resolve(absolutePath, filePath)
-					const isIgnored = !clineIgnoreController.validateAccess(absoluteFilePath)
-					if (isIgnored) {
-						return LOCK_TEXT_SYMBOL + " " + filePath
-					}
+		// const clineIgnoreParsed = clineIgnoreController
+		// 	? sorted.map((filePath) => {
+		// 			// path is relative to absolute path, not cwd
+		// 			// validateAccess expects either path relative to cwd or absolute path
+		// 			// otherwise, for validating against ignore patterns like "assets/icons", we would end up with just "icons", which would result in the path not being ignored.
+		// 			const absoluteFilePath = path.resolve(absolutePath, filePath)
+		// 			const isIgnored = !clineIgnoreController.validateAccess(absoluteFilePath)
+		// 			if (isIgnored) {
+		// 				return LOCK_TEXT_SYMBOL + " " + filePath
+		// 			}
 
-					return filePath
-				})
-			: sorted
-
+		// 			return filePath
+		// 		})
+		// 	: sorted
+		
+		const clineIgnoreParsed = sorted
 		if (didHitLimit) {
 			return `${clineIgnoreParsed.join(
 				"\n",
@@ -129,7 +130,8 @@ Otherwise, if you have not completed the task and do not need additional informa
 	},
 
 	taskResumption: (
-		// mode: "plan" | "act",
+		//TODO: adapt to our mode
+		mode: "plan" | "act",
 		agoText: string,
 		cwd: string,
 		wasRecent: boolean | 0 | undefined,
@@ -205,8 +207,8 @@ Otherwise, if you have not completed the task and do not need additional informa
 	toolAlreadyUsed: (toolName: string) =>
 		`Tool [${toolName}] was not executed because a tool has already been used in this message. Only one tool may be used per message. You must assess the first tool's result before proceeding to use the next tool.`,
 
-	clineIgnoreInstructions: (content: string) =>
-		`# .clineignore\n\n(The following is provided by a root-level .clineignore file where the user has specified files and directories that should not be accessed. When using list_files, you'll notice a ${LOCK_TEXT_SYMBOL} next to files that are blocked. Attempting to access the file's contents e.g. through read_file will result in an error.)\n\n${content}\n.clineignore`,
+	// clineIgnoreInstructions: (content: string) =>
+	// 	`# .clineignore\n\n(The following is provided by a root-level .clineignore file where the user has specified files and directories that should not be accessed. When using list_files, you'll notice a ${LOCK_TEXT_SYMBOL} next to files that are blocked. Attempting to access the file's contents e.g. through read_file will result in an error.)\n\n${content}\n.clineignore`,
 
 	clineRulesGlobalDirectoryInstructions: (globalClineRulesFilePath: string, content: string) =>
 		`# .clinerules/\n\nThe following is provided by a global .clinerules/ directory, located at ${globalClineRulesFilePath.toPosix()}, where the user has specified instructions for all working directories:\n\n${content}`,
