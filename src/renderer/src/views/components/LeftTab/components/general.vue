@@ -94,7 +94,10 @@ const loadSavedConfig = async () => {
   try {
     const savedConfig = await userConfigStore.getConfig()
     if (savedConfig) {
-      userConfig.value = { ...userConfig.value, ...savedConfig }
+      userConfig.value = {
+        ...userConfig.value,
+        ...savedConfig
+      }
     }
   } catch (error) {
     console.error('Failed to load config:', error)
@@ -108,7 +111,22 @@ const loadSavedConfig = async () => {
 // 保存配置到 IndexedDB
 const saveConfig = async () => {
   try {
-    await userConfigStore.saveConfig(userConfig.value)
+    // Create a clean object with only the data we want to store
+    const configToStore = {
+      fontSize: userConfig.value.fontSize,
+      scrollBack: userConfig.value.scrollBack,
+      language: userConfig.value.language,
+      cursorStyle: userConfig.value.cursorStyle
+    }
+
+    // Get existing config and merge with new config
+    const existingConfig = (await userConfigStore.getConfig()) || {}
+    const mergedConfig = {
+      ...existingConfig,
+      ...configToStore
+    }
+
+    await userConfigStore.saveConfig(mergedConfig)
   } catch (error) {
     console.error('Failed to save config:', error)
     notification.error({
