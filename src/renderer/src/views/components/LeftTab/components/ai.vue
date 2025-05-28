@@ -250,13 +250,10 @@ import {
   getSecret,
   storeSecret
 } from '@renderer/agent/storage/state'
-import {
-  AutoApprovalSettings,
-  DEFAULT_AUTO_APPROVAL_SETTINGS
-} from '@/agent/storage/shared'
+import { AutoApprovalSettings, DEFAULT_AUTO_APPROVAL_SETTINGS } from '@/agent/storage/shared'
 import { ChatSettings, DEFAULT_CHAT_SETTINGS } from '@/agent/storage/shared'
 
-const apiProviderOptions = ref([{ value: 'Amazon Bedrock', label: 'Amazon Bedrock' }])
+const apiProviderOptions = ref([{ value: 'bedrock', label: 'bedrock' }])
 
 const awsRegionOptions = ref([
   { value: 'us-east-1', label: 'us-east-1' },
@@ -321,11 +318,11 @@ const enableExtendedThinking = ref(false)
 // const enableCheckpoints = ref(false)
 const reasoningEffort = ref('low')
 const shellIntegrationTimeout = ref(4)
-const apiProvider = ref('Amazon Bedrock')
+const apiProvider = ref('bedrock')
 const awsAccessKey = ref('')
 const awsSecretKey = ref('')
 const awsSessionToken = ref('')
-const awsRegion = ref('')
+const awsRegion = ref('us-east-1')
 const awsUseCrossRegionInference = ref(false)
 const awsEndpointSelected = ref(false)
 const awsBedrockEndpoint = ref('')
