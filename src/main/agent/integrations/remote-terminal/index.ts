@@ -18,7 +18,16 @@ export interface ConnectionInfo {
   host: string
   port: number
   username: string
-  password: string
+  /**
+   * Password for authentication. If both password and privateKey are provided,
+   * privateKey takes precedence over password.
+   */
+  password?: string
+  /**
+   * Private key for authentication. Takes precedence over password if both are provided.
+   */
+  privateKey?: string
+  passphrase?: string
 }
 
 export interface RemoteTerminalInfo {
