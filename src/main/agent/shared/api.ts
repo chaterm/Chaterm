@@ -60,7 +60,7 @@ export interface ModelInfo {
 export type BedrockModelId = keyof typeof bedrockModels
 export const bedrockDefaultModelId: BedrockModelId = 'us.anthropic.claude-3-5-haiku-20241022-v1:0'
 export const bedrockModels = {
-  'anthropic.claude-sonnet-4-20250514-v1:0': {
+  'us.anthropic.claude-sonnet-4-20250514-v1:0': {
     maxTokens: 8192,
     contextWindow: 200_000,
     supportsImages: true,
@@ -70,7 +70,7 @@ export const bedrockModels = {
     cacheWritesPrice: 3.75,
     cacheReadsPrice: 0.3
   },
-  'anthropic.claude-opus-4-20250514-v1:0': {
+  'us.anthropic.claude-opus-4-20250514-v1:0': {
     maxTokens: 8192,
     contextWindow: 200_000,
     supportsImages: true,
@@ -80,7 +80,7 @@ export const bedrockModels = {
     cacheWritesPrice: 18.75,
     cacheReadsPrice: 1.5
   },
-  'amazon.nova-premier-v1:0': {
+  'us.amazon.nova-premier-v1:0': {
     maxTokens: 10_000,
     contextWindow: 1_000_000,
     supportsImages: true,
@@ -89,7 +89,7 @@ export const bedrockModels = {
     inputPrice: 2.5,
     outputPrice: 12.5
   },
-  'amazon.nova-pro-v1:0': {
+  'us.amazon.nova-pro-v1:0': {
     maxTokens: 5000,
     contextWindow: 300_000,
     supportsImages: true,
@@ -100,7 +100,7 @@ export const bedrockModels = {
     // cacheWritesPrice: 3.2, // not written
     cacheReadsPrice: 0.2
   },
-  'amazon.nova-lite-v1:0': {
+  'us.amazon.nova-lite-v1:0': {
     maxTokens: 5000,
     contextWindow: 300_000,
     supportsImages: true,
@@ -111,7 +111,7 @@ export const bedrockModels = {
     // cacheWritesPrice: 0.24, // not written
     cacheReadsPrice: 0.015
   },
-  'amazon.nova-micro-v1:0': {
+  'us.amazon.nova-micro-v1:0': {
     maxTokens: 5000,
     contextWindow: 128_000,
     supportsImages: false,
@@ -122,7 +122,7 @@ export const bedrockModels = {
     // cacheWritesPrice: 0.14, // not written
     cacheReadsPrice: 0.00875
   },
-  'anthropic.claude-3-7-sonnet-20250219-v1:0': {
+  'us.anthropic.claude-3-7-sonnet-20250219-v1:0': {
     maxTokens: 8192,
     contextWindow: 200_000,
     supportsImages: true,
@@ -133,7 +133,7 @@ export const bedrockModels = {
     cacheWritesPrice: 3.75,
     cacheReadsPrice: 0.3
   },
-  'anthropic.claude-3-5-sonnet-20241022-v2:0': {
+  'us.anthropic.claude-3-5-sonnet-20241022-v2:0': {
     maxTokens: 8192,
     contextWindow: 200_000,
     supportsImages: true,
@@ -154,7 +154,7 @@ export const bedrockModels = {
     cacheWritesPrice: 1.0,
     cacheReadsPrice: 0.08
   },
-  'anthropic.claude-3-5-sonnet-20240620-v1:0': {
+  'us.anthropic.claude-3-5-sonnet-20240620-v1:0': {
     maxTokens: 8192,
     contextWindow: 200_000,
     supportsImages: true,
@@ -162,7 +162,7 @@ export const bedrockModels = {
     inputPrice: 3.0,
     outputPrice: 15.0
   },
-  'anthropic.claude-3-opus-20240229-v1:0': {
+  'us.anthropic.claude-3-opus-20240229-v1:0': {
     maxTokens: 4096,
     contextWindow: 200_000,
     supportsImages: true,
@@ -170,7 +170,7 @@ export const bedrockModels = {
     inputPrice: 15.0,
     outputPrice: 75.0
   },
-  'anthropic.claude-3-sonnet-20240229-v1:0': {
+  'us.anthropic.claude-3-sonnet-20240229-v1:0': {
     maxTokens: 4096,
     contextWindow: 200_000,
     supportsImages: true,
@@ -178,7 +178,7 @@ export const bedrockModels = {
     inputPrice: 3.0,
     outputPrice: 15.0
   },
-  'anthropic.claude-3-haiku-20240307-v1:0': {
+  'us.anthropic.claude-3-haiku-20240307-v1:0': {
     maxTokens: 4096,
     contextWindow: 200_000,
     supportsImages: true,
