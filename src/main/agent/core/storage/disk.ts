@@ -91,7 +91,8 @@ export async function saveTaskMetadata(taskId: string, metadata: TaskMetadata) {
 }
 
 // 获取上下文历史
-export async function getSavedContextHistory(taskId: string): Promise<any> { // 返回类型保持 any，或根据需要调整
+export async function getSavedContextHistory(taskId: string): Promise<any> {
+  // 返回类型保持 any，或根据需要调整
   try {
     const dbService = await ChatermDatabaseService.getInstance()
     const history = await dbService.getContextHistory(taskId)
