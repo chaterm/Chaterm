@@ -52,11 +52,12 @@ export class RemoteTerminalProcess extends BrownEventEmitter<RemoteTerminalProce
     super()
   }
 
-  async run(sessionId: string, command: string): Promise<void> {
+  async run(sessionId: string, command: string, cwd?: string): Promise<void> {
     try {
+      const commandToExecute = cwd ? `cd ${cwd} && ${command}` : command;
       // 执行远程命令
-      const execResult = await remoteSshExec(sessionId, command)
-      
+      const execResult = await remoteSshExec(sessionId, commandToExecute)
+
       // 添加详细的调试信息
       if (execResult && execResult.success) {
         const output = execResult.output || ''
@@ -177,7 +178,7 @@ export class RemoteTerminalManager {
   }
 
   // 运行远程命令
-  runCommand(terminalInfo: RemoteTerminalInfo, command: string): RemoteTerminalProcessResultPromise {
+  runCommand(terminalInfo: RemoteTerminalInfo, command: string, cwd?: string): RemoteTerminalProcessResultPromise {
     terminalInfo.busy = true
     terminalInfo.lastCommand = command
 
@@ -203,7 +204,7 @@ export class RemoteTerminalManager {
       })
 
       // 立即执行远程命令
-      process.run(terminalInfo.sessionId, command).catch(reject)
+      process.run(terminalInfo.sessionId, command, cwd).catch(reject)
     })
 
     const result = mergeRemotePromise(process, promise)
