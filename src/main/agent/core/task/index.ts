@@ -1164,7 +1164,6 @@ private getCurrentTerminalManager() {
 			]
 		}
 	}
-
   // Check if the tool should be auto-approved based on the settings
   // Returns bool for most tools, and tuple for tools with nested settings
   shouldAutoApproveTool(toolName: ToolUseName): boolean | [boolean, boolean] {
@@ -2059,10 +2058,9 @@ private getCurrentTerminalManager() {
                 await this.saveCheckpoint()
                 break
               }
+
             } catch (error:any) { // Added type assertion for error
               await handleError('reading file', error)
-              await this.saveCheckpoint()
-              break
             }
           }
           case 'list_files': {
@@ -2135,7 +2133,7 @@ private getCurrentTerminalManager() {
                 break
               }
             } catch (error) {
-              await handleError('listing files', error)
+              await handleError('listing files', error as Error)
               await this.saveCheckpoint()
               break
             }
@@ -2287,7 +2285,7 @@ private getCurrentTerminalManager() {
                 break
               }
             } catch (error) {
-              await handleError('searching files', error)
+              await handleError('searching files', error as Error)
               await this.saveCheckpoint()
               break
             }
@@ -2590,7 +2588,7 @@ private getCurrentTerminalManager() {
                 break
               }
             } catch (error) {
-              await handleError('executing command', error)
+              await handleError('executing command', error as Error)
               await this.saveCheckpoint()
               break
             }
@@ -2662,7 +2660,7 @@ private getCurrentTerminalManager() {
                 break
               }
             } catch (error) {
-              await handleError('asking question', error)
+              await handleError('asking question', error as Error)
               await this.saveCheckpoint()
               break
             }
@@ -2719,7 +2717,7 @@ private getCurrentTerminalManager() {
                 break
               }
             } catch (error) {
-              await handleError('creating new task', error)
+              await handleError('creating new task', error as Error)
               await this.saveCheckpoint()
               break
             }
@@ -2790,7 +2788,7 @@ private getCurrentTerminalManager() {
                 break
               }
             } catch (error) {
-              await handleError('condensing context window', error)
+              await handleError('condensing context window', error as Error)
               await this.saveCheckpoint()
               break
             }
@@ -2931,7 +2929,7 @@ private getCurrentTerminalManager() {
                 break
               }
             } catch (error) {
-              await handleError('reporting bug', error)
+              await handleError('reporting bug', error as Error)
               await this.saveCheckpoint()
               break
             }
@@ -3190,7 +3188,7 @@ private getCurrentTerminalManager() {
                 break
               }
             } catch (error) {
-              await handleError('attempting completion', error)
+              await handleError('attempting completion', error as Error)
               await this.saveCheckpoint()
               break
             }
