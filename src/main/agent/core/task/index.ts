@@ -1017,133 +1017,134 @@ export class Task {
     // 	return this.executeCommandInNode(command)
     // }
     // Logger.info("Executing command in VS code terminal: " + command)
+    return this.executeCommandInNode(command)
 
-    const terminalInfo = await this.terminalManager.getOrCreateTerminal(cwd)
-    terminalInfo.terminal.show() // weird visual bug when creating new terminals (even manually) where there's an empty space at the top.
-    const process = this.terminalManager.runCommand(terminalInfo, command)
+    // const terminalInfo = await this.terminalManager.getOrCreateTerminal(cwd)
+    // terminalInfo.terminal.show() // weird visual bug when creating new terminals (even manually) where there's an empty space at the top.
+    // const process = this.terminalManager.runCommand(terminalInfo, command)
 
-    let userFeedback: { text?: string } | undefined
-    let didContinue = false
+    // let userFeedback: { text?: string } | undefined
+    // let didContinue = false
 
-    // Chunked terminal output buffering
-    const CHUNK_LINE_COUNT = 20
-    const CHUNK_BYTE_SIZE = 2048 // 2KB
-    const CHUNK_DEBOUNCE_MS = 100
+    // // Chunked terminal output buffering
+    // const CHUNK_LINE_COUNT = 20
+    // const CHUNK_BYTE_SIZE = 2048 // 2KB
+    // const CHUNK_DEBOUNCE_MS = 100
 
-    let outputBuffer: string[] = []
-    let outputBufferSize: number = 0
-    let chunkTimer: NodeJS.Timeout | null = null
-    let chunkEnroute = false
+    // let outputBuffer: string[] = []
+    // let outputBufferSize: number = 0
+    // let chunkTimer: NodeJS.Timeout | null = null
+    // let chunkEnroute = false
 
-    const flushBuffer = async (force = false) => {
-      if (chunkEnroute || outputBuffer.length === 0) {
-        if (force && !chunkEnroute && outputBuffer.length > 0) {
-          // If force is true and no chunkEnroute, flush anyway
-        } else {
-          return
-        }
-      }
-      const chunk = outputBuffer.join('\n')
-      outputBuffer = []
-      outputBufferSize = 0
-      chunkEnroute = true
-      try {
-        const { response, text } = await this.ask('command_output', chunk)
-        if (response === 'yesButtonClicked') {
-          // proceed while running
-        } else {
-          userFeedback = { text }
-        }
-        didContinue = true
-        process.continue()
-      } catch {
-        // Logger.error("Error while asking for command output")
-      } finally {
-        chunkEnroute = false
-        // If more output accumulated while chunkEnroute, flush again
-        if (outputBuffer.length > 0) {
-          await flushBuffer()
-        }
-      }
-    }
+    // const flushBuffer = async (force = false) => {
+    //   if (chunkEnroute || outputBuffer.length === 0) {
+    //     if (force && !chunkEnroute && outputBuffer.length > 0) {
+    //       // If force is true and no chunkEnroute, flush anyway
+    //     } else {
+    //       return
+    //     }
+    //   }
+    //   const chunk = outputBuffer.join('\n')
+    //   outputBuffer = []
+    //   outputBufferSize = 0
+    //   chunkEnroute = true
+    //   try {
+    //     const { response, text } = await this.ask('command_output', chunk)
+    //     if (response === 'yesButtonClicked') {
+    //       // proceed while running
+    //     } else {
+    //       userFeedback = { text }
+    //     }
+    //     didContinue = true
+    //     process.continue()
+    //   } catch {
+    //     // Logger.error("Error while asking for command output")
+    //   } finally {
+    //     chunkEnroute = false
+    //     // If more output accumulated while chunkEnroute, flush again
+    //     if (outputBuffer.length > 0) {
+    //       await flushBuffer()
+    //     }
+    //   }
+    // }
 
-    const scheduleFlush = () => {
-      if (chunkTimer) {
-        clearTimeout(chunkTimer)
-      }
-      chunkTimer = setTimeout(async () => await flushBuffer(), CHUNK_DEBOUNCE_MS)
-    }
+    // const scheduleFlush = () => {
+    //   if (chunkTimer) {
+    //     clearTimeout(chunkTimer)
+    //   }
+    //   chunkTimer = setTimeout(async () => await flushBuffer(), CHUNK_DEBOUNCE_MS)
+    // }
 
-    let result = ''
-    process.on('line', async (line) => {
-      result += line + '\n'
+    // let result = ''
+    // process.on('line', async (line) => {
+    //   result += line + '\n'
 
-      if (!didContinue) {
-        outputBuffer.push(line)
-        outputBufferSize += Buffer.byteLength(line, 'utf8')
-        // Flush if buffer is large enough
-        if (outputBuffer.length >= CHUNK_LINE_COUNT || outputBufferSize >= CHUNK_BYTE_SIZE) {
-          await flushBuffer()
-        } else {
-          scheduleFlush()
-        }
-      } else {
-        this.say('command_output', line)
-      }
-    })
+    //   if (!didContinue) {
+    //     outputBuffer.push(line)
+    //     outputBufferSize += Buffer.byteLength(line, 'utf8')
+    //     // Flush if buffer is large enough
+    //     if (outputBuffer.length >= CHUNK_LINE_COUNT || outputBufferSize >= CHUNK_BYTE_SIZE) {
+    //       await flushBuffer()
+    //     } else {
+    //       scheduleFlush()
+    //     }
+    //   } else {
+    //     this.say('command_output', line)
+    //   }
+    // })
 
-    let completed = false
-    process.once('completed', async () => {
-      completed = true
-      // Flush any remaining buffered output
-      if (!didContinue && outputBuffer.length > 0) {
-        if (chunkTimer) {
-          clearTimeout(chunkTimer)
-          chunkTimer = null
-        }
-        await flushBuffer(true)
-      }
-    })
+    // let completed = false
+    // process.once('completed', async () => {
+    //   completed = true
+    //   // Flush any remaining buffered output
+    //   if (!didContinue && outputBuffer.length > 0) {
+    //     if (chunkTimer) {
+    //       clearTimeout(chunkTimer)
+    //       chunkTimer = null
+    //     }
+    //     await flushBuffer(true)
+    //   }
+    // })
 
-    process.once('no_shell_integration', async () => {
-      await this.say('shell_integration_warning')
-    })
+    // process.once('no_shell_integration', async () => {
+    //   await this.say('shell_integration_warning')
+    // })
 
-    await process
+    // await process
 
-    // Wait for a short delay to ensure all messages are sent to the webview
-    // This delay allows time for non-awaited promises to be created and
-    // for their associated messages to be sent to the webview, maintaining
-    // the correct order of messages (although the webview is smart about
-    // grouping command_output messages despite any gaps anyways)
-    await setTimeoutPromise(50)
+    // // Wait for a short delay to ensure all messages are sent to the webview
+    // // This delay allows time for non-awaited promises to be created and
+    // // for their associated messages to be sent to the webview, maintaining
+    // // the correct order of messages (although the webview is smart about
+    // // grouping command_output messages despite any gaps anyways)
+    // await setTimeoutPromise(50)
 
-    result = result.trim()
+    // result = result.trim()
 
-    if (userFeedback) {
-      await this.say('user_feedback', userFeedback.text)
-      await this.saveCheckpoint()
-      return [
-        true,
-        formatResponse.toolResult(
-          `Command is still running in the user's terminal.${
-            result.length > 0 ? `\nHere's the output so far:\n${result}` : ''
-          }\n\nThe user provided the following feedback:\n<feedback>\n${userFeedback.text}\n</feedback>`
-          //userFeedback.images,
-        )
-      ]
-    }
+    // if (userFeedback) {
+    //   await this.say('user_feedback', userFeedback.text)
+    //   await this.saveCheckpoint()
+    //   return [
+    //     true,
+    //     formatResponse.toolResult(
+    //       `Command is still running in the user's terminal.${
+    //         result.length > 0 ? `\nHere's the output so far:\n${result}` : ''
+    //       }\n\nThe user provided the following feedback:\n<feedback>\n${userFeedback.text}\n</feedback>`
+    //       //userFeedback.images,
+    //     )
+    //   ]
+    // }
 
-    if (completed) {
-      return [false, `Command executed.${result.length > 0 ? `\nOutput:\n${result}` : ''}`]
-    } else {
-      return [
-        false,
-        `Command is still running in the user's terminal.${
-          result.length > 0 ? `\nHere's the output so far:\n${result}` : ''
-        }\n\nYou will be updated on the terminal status and new output in the future.`
-      ]
-    }
+    // if (completed) {
+    //   return [false, `Command executed.${result.length > 0 ? `\nOutput:\n${result}` : ''}`]
+    // } else {
+    //   return [
+    //     false,
+    //     `Command is still running in the user's terminal.${
+    //       result.length > 0 ? `\nHere's the output so far:\n${result}` : ''
+    //     }\n\nYou will be updated on the terminal status and new output in the future.`
+    //   ]
+    // }
   }
 
   // Check if the tool should be auto-approved based on the settings
@@ -2041,7 +2042,7 @@ export class Task {
                 break
               }
             } catch (error) {
-              await handleError('reading file', error)
+              await handleError('reading file', error as Error)
               await this.saveCheckpoint()
               break
             }
@@ -2116,7 +2117,7 @@ export class Task {
                 break
               }
             } catch (error) {
-              await handleError('listing files', error)
+              await handleError('listing files', error as Error)
               await this.saveCheckpoint()
               break
             }
@@ -2268,7 +2269,7 @@ export class Task {
                 break
               }
             } catch (error) {
-              await handleError('searching files', error)
+              await handleError('searching files', error as Error)
               await this.saveCheckpoint()
               break
             }
@@ -2571,7 +2572,7 @@ export class Task {
                 break
               }
             } catch (error) {
-              await handleError('executing command', error)
+              await handleError('executing command', error as Error)
               await this.saveCheckpoint()
               break
             }
@@ -2643,7 +2644,7 @@ export class Task {
                 break
               }
             } catch (error) {
-              await handleError('asking question', error)
+              await handleError('asking question', error as Error)
               await this.saveCheckpoint()
               break
             }
@@ -2700,7 +2701,7 @@ export class Task {
                 break
               }
             } catch (error) {
-              await handleError('creating new task', error)
+              await handleError('creating new task', error as Error)
               await this.saveCheckpoint()
               break
             }
@@ -2771,7 +2772,7 @@ export class Task {
                 break
               }
             } catch (error) {
-              await handleError('condensing context window', error)
+              await handleError('condensing context window', error as Error)
               await this.saveCheckpoint()
               break
             }
@@ -2912,7 +2913,7 @@ export class Task {
                 break
               }
             } catch (error) {
-              await handleError('reporting bug', error)
+              await handleError('reporting bug', error as Error)
               await this.saveCheckpoint()
               break
             }
@@ -3171,7 +3172,7 @@ export class Task {
                 break
               }
             } catch (error) {
-              await handleError('attempting completion', error)
+              await handleError('attempting completion', error as Error)
               await this.saveCheckpoint()
               break
             }
