@@ -5,9 +5,9 @@ import icon from '../../resources/icon.png?asset'
 
 import { registerSSHHandlers } from './sshHandle'
 import { autoCompleteDatabaseService, ChatermDatabaseService } from './database'
-import { Controller } from './core/controller'
-import { createExtensionContext } from './core/controller/context'
-import { ElectronOutputChannel } from './core/controller/outputChannel'
+import { Controller } from './agent/core/controller'
+import { createExtensionContext } from './agent/core/controller/context'
+import { ElectronOutputChannel } from './agent/core/controller/outputChannel'
 
 let mainWindow: BrowserWindow
 let COOKIE_URL = 'http://localhost'
