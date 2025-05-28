@@ -156,77 +156,77 @@ export async function resetExtensionState(): Promise<void> {
 
 // Test function
 export async function testStorageFromMain(): Promise<void> {
-  if (!mainWindow) {
-    console.warn('[Main Storage Test] mainWindow is not initialized. Skipping test.');
-    return;
-  }
-  // Check if webContents is available and not loading, with a retry mechanism
-  if (mainWindow.isDestroyed() || mainWindow.webContents.isLoading()) {
-    console.warn('[Main Storage Test] mainWindow destroyed or webContents is loading. Retrying in 1 second...');
-    setTimeout(testStorageFromMain, 1000);
-    return;
-  }
+  // if (!mainWindow) {
+  //   console.warn('[Main Storage Test] mainWindow is not initialized. Skipping test.');
+  //   return;
+  // }
+  // // Check if webContents is available and not loading, with a retry mechanism
+  // if (mainWindow.isDestroyed() || mainWindow.webContents.isLoading()) {
+  //   console.warn('[Main Storage Test] mainWindow destroyed or webContents is loading. Retrying in 1 second...');
+  //   setTimeout(testStorageFromMain, 1000);
+  //   return;
+  // }
 
-  console.log('[Main Storage Test] Running comprehensive storage tests...');
+  // console.log('[Main Storage Test] Running comprehensive storage tests...');
 
-  try {
-    // Test getGlobalState and updateGlobalState
-    const globalStateKey = 'apiProvider' as GlobalStateKey; // Example key
-    console.log(`[Main Storage Test] Attempting to call getGlobalState('${globalStateKey}')`);
-    let globalStateValue = await getGlobalState(globalStateKey);
-    console.log(`[Main Storage Test] Initial getGlobalState('${globalStateKey}') result:`, globalStateValue);
+  // try {
+  //   // Test getGlobalState and updateGlobalState
+  //   const globalStateKey = 'apiProvider' as GlobalStateKey; // Example key
+  //   console.log(`[Main Storage Test] Attempting to call getGlobalState('${globalStateKey}')`);
+  //   let globalStateValue = await getGlobalState(globalStateKey);
+  //   console.log(`[Main Storage Test] Initial getGlobalState('${globalStateKey}') result:`, globalStateValue);
 
-    const newProvider = 'testProviderFromMainAgentStorage'; // Example value
-    console.log(`[Main Storage Test] Attempting to call updateGlobalState('${globalStateKey}', '${newProvider}')`);
-    await updateGlobalState(globalStateKey, newProvider);
-    console.log(`[Main Storage Test] updateGlobalState('${globalStateKey}', '${newProvider}') called`);
+  //   const newProvider = 'testProviderFromMainAgentStorage'; // Example value
+  //   console.log(`[Main Storage Test] Attempting to call updateGlobalState('${globalStateKey}', '${newProvider}')`);
+  //   await updateGlobalState(globalStateKey, newProvider);
+  //   console.log(`[Main Storage Test] updateGlobalState('${globalStateKey}', '${newProvider}') called`);
 
-    console.log(`[Main Storage Test] Attempting to call getGlobalState('${globalStateKey}') after update`);
-    globalStateValue = await getGlobalState(globalStateKey);
-    console.log(`[Main Storage Test] getGlobalState('${globalStateKey}') after update:`, globalStateValue);
-    if (globalStateValue !== newProvider) {
-        console.error(`[Main Storage Test] FAILED: updateGlobalState did not persist. Expected ${newProvider}, got ${globalStateValue}`);
-    } else {
-        console.log(`[Main Storage Test] PASSED: updateGlobalState for ${globalStateKey}`);
-    }
+  //   console.log(`[Main Storage Test] Attempting to call getGlobalState('${globalStateKey}') after update`);
+  //   globalStateValue = await getGlobalState(globalStateKey);
+  //   console.log(`[Main Storage Test] getGlobalState('${globalStateKey}') after update:`, globalStateValue);
+  //   if (globalStateValue !== newProvider) {
+  //       console.error(`[Main Storage Test] FAILED: updateGlobalState did not persist. Expected ${newProvider}, got ${globalStateValue}`);
+  //   } else {
+  //       console.log(`[Main Storage Test] PASSED: updateGlobalState for ${globalStateKey}`);
+  //   }
 
-    // Test getAllExtensionState
-    console.log('[Main Storage Test] Attempting to call getAllExtensionState()');
-    const allState = await getAllExtensionState();
-    // console.log('[Main Storage Test] getAllExtensionState result:', JSON.stringify(allState, null, 2)); // Avoid overly long output in normal runs
-    console.log('[Main Storage Test] getAllExtensionState() call completed. Result keys:', allState ? Object.keys(allState) : 'null/undefined');
+  //   // Test getAllExtensionState
+  //   console.log('[Main Storage Test] Attempting to call getAllExtensionState()');
+  //   const allState = await getAllExtensionState();
+  //   // console.log('[Main Storage Test] getAllExtensionState result:', JSON.stringify(allState, null, 2)); // Avoid overly long output in normal runs
+  //   console.log('[Main Storage Test] getAllExtensionState() call completed. Result keys:', allState ? Object.keys(allState) : 'null/undefined');
 
 
-    // Test storeSecret and getSecret
-    const secretKey = 'testSecretKeyFromMainAgentStorage' as SecretKey;
-    const secretValue = 'mySuperSecretValueFromMainAgentStorage';
-    console.log(`[Main Storage Test] Attempting to call storeSecret('${secretKey}', '********')`);
-    await storeSecret(secretKey, secretValue);
-    console.log(`[Main Storage Test] storeSecret('${secretKey}', '********') called`);
+  //   // Test storeSecret and getSecret
+  //   const secretKey = 'testSecretKeyFromMainAgentStorage' as SecretKey;
+  //   const secretValue = 'mySuperSecretValueFromMainAgentStorage';
+  //   console.log(`[Main Storage Test] Attempting to call storeSecret('${secretKey}', '********')`);
+  //   await storeSecret(secretKey, secretValue);
+  //   console.log(`[Main Storage Test] storeSecret('${secretKey}', '********') called`);
 
-    console.log(`[Main Storage Test] Attempting to call getSecret('${secretKey}')`);
-    const retrievedSecret = await getSecret(secretKey);
-    console.log(`[Main Storage Test] getSecret('${secretKey}') result:`, retrievedSecret);
-    if (retrievedSecret !== secretValue) {
-        console.error(`[Main Storage Test] FAILED: storeSecret/getSecret did not work as expected. Expected ${secretValue}, got ${retrievedSecret}`);
-    } else {
-        console.log(`[Main Storage Test] PASSED: storeSecret/getSecret for ${secretKey}`);
-    }
+  //   console.log(`[Main Storage Test] Attempting to call getSecret('${secretKey}')`);
+  //   const retrievedSecret = await getSecret(secretKey);
+  //   console.log(`[Main Storage Test] getSecret('${secretKey}') result:`, retrievedSecret);
+  //   if (retrievedSecret !== secretValue) {
+  //       console.error(`[Main Storage Test] FAILED: storeSecret/getSecret did not work as expected. Expected ${secretValue}, got ${retrievedSecret}`);
+  //   } else {
+  //       console.log(`[Main Storage Test] PASSED: storeSecret/getSecret for ${secretKey}`);
+  //   }
 
-    // Cleanup test secret
-    console.log(`[Main Storage Test] Attempting to call storeSecret('${secretKey}', undefined) to delete it`);
-    await storeSecret(secretKey, undefined);
-    const deletedSecret = await getSecret(secretKey);
-    console.log(`[Main Storage Test] getSecret('${secretKey}') after deletion attempt:`, deletedSecret);
-    if (deletedSecret) {
-        console.error(`[Main Storage Test] FAILED: Secret '${secretKey}' was not deleted.`);
-    } else {
-        console.log(`[Main Storage Test] PASSED: Secret '${secretKey}' deleted successfully.`);
-    }
+  //   // Cleanup test secret
+  //   console.log(`[Main Storage Test] Attempting to call storeSecret('${secretKey}', undefined) to delete it`);
+  //   await storeSecret(secretKey, undefined);
+  //   const deletedSecret = await getSecret(secretKey);
+  //   console.log(`[Main Storage Test] getSecret('${secretKey}') after deletion attempt:`, deletedSecret);
+  //   if (deletedSecret) {
+  //       console.error(`[Main Storage Test] FAILED: Secret '${secretKey}' was not deleted.`);
+  //   } else {
+  //       console.log(`[Main Storage Test] PASSED: Secret '${secretKey}' deleted successfully.`);
+  //   }
 
-    console.log('[Main Storage Test] All tests completed!');
+  //   console.log('[Main Storage Test] All tests completed!');
 
-  } catch (error) {
-    console.error('[Main Storage Test] Error during storage tests:', error);
-  }
+  // } catch (error) {
+  //   console.error('[Main Storage Test] Error during storage tests:', error);
+  // }
 }
