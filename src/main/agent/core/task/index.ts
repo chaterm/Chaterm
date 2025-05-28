@@ -1023,7 +1023,7 @@ export class Task {
   }
 
   //TODO: update executeCommandTool
-  async executeCommandTool(command: string): Promise<[boolean, ToolResponse]> {
+  async executeCommandTool(command: string, cwd?: string): Promise<[boolean, ToolResponse]> {
     const terminalManager = this.getCurrentTerminalManager()
 
     const connectionInfo: ConnectionInfo = {
@@ -1035,7 +1035,7 @@ export class Task {
     terminalManager.setConnectionInfo(connectionInfo)
     const terminalInfo = await terminalManager.createTerminal()
     terminalInfo.terminal.show()
-    const process = terminalManager.runCommand(terminalInfo, command)
+    const process = terminalManager.runCommand(terminalInfo, command, cwd)
 
     let userFeedback: { text?: string; images?: string[] } | undefined
     let didContinue = false
