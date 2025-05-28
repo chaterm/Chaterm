@@ -1,15 +1,17 @@
-import { DEFAULT_CHAT_SETTINGS } from '../../shared/ChatSettings'
-//import { DEFAULT_BROWSER_SETTINGS } from '../../shared/BrowserSettings'
-import { DEFAULT_AUTO_APPROVAL_SETTINGS } from '../../shared/AutoApprovalSettings'
+import {
+  DEFAULT_CHAT_SETTINGS,
+  DEFAULT_AUTO_APPROVAL_SETTINGS,
+  type ApiConfiguration,
+  type ApiProvider,
+  type BedrockModelId,
+  type ModelInfo,
+  type HistoryItem,
+  type AutoApprovalSettings,
+  type ChatSettings,
+  type TelemetrySetting,
+  type UserInfo
+} from './shared'
 import { GlobalStateKey, SecretKey } from './state-keys'
-import { ApiConfiguration, ApiProvider, BedrockModelId, ModelInfo } from '../../shared/api'
-import { HistoryItem } from '../../shared/HistoryItem'
-import { AutoApprovalSettings } from '../../shared/AutoApprovalSettings'
-//import { BrowserSettings } from '../../shared/BrowserSettings'
-import { ChatSettings } from '../../shared/ChatSettings'
-import { TelemetrySetting } from '../../shared/TelemetrySetting'
-import { UserInfo } from '../../shared/UserInfo'
-//import { ClineRulesToggles } from '../../shared/cline-rules'
 import { storageContext } from './storage-context'
 
 // global

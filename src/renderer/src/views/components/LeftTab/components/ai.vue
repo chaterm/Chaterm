@@ -249,12 +249,12 @@ import {
   getGlobalState,
   getSecret,
   storeSecret
-} from '@/agent/core/storage/state'
+} from '@renderer/agent/storage/state'
 import {
   AutoApprovalSettings,
   DEFAULT_AUTO_APPROVAL_SETTINGS
-} from '@/agent/shared/AutoApprovalSettings'
-import { ChatSettings, DEFAULT_CHAT_SETTINGS } from '@/agent/shared/ChatSettings'
+} from '@/agent/storage/shared'
+import { ChatSettings, DEFAULT_CHAT_SETTINGS } from '@/agent/storage/shared'
 
 const apiProviderOptions = ref([{ value: 'Amazon Bedrock', label: 'Amazon Bedrock' }])
 

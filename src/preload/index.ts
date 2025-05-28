@@ -15,7 +15,7 @@ interface FileRecord {
   size: number
 }
 
-const envPath = path.resolve(__dirname, '../../../build/.env') // 调整路径以指向 /build/.env
+const envPath = path.resolve(__dirname, '../../../build/.env')
 
 // 确保路径存在
 if (!fs.existsSync(envPath)) {
@@ -287,6 +287,7 @@ const connectAssetInfo = async (data: { uuid: string }) => {
 const getPlatform = () => ipcRenderer.invoke('get-platform')
 const invokeCustomAdsorption = (data: { appX: number; appY: number }) =>
   ipcRenderer.invoke('custom-adsorption', data)
+
 const api = {
   getLocalIP,
   getMacAddress,
@@ -430,6 +431,22 @@ const api = {
     ipcRenderer.on('main-to-webview', handler)
     return () => {
       ipcRenderer.removeListener('main-to-webview', handler)
+    }
+  },
+  // 新增的方法，用于调用主进程的 executeRemoteCommand
+  executeRemoteCommandViaPreload: async () => {
+    try {
+      console.log('Calling execute-remote-command via preload') // 添加日志
+      const result = await ipcRenderer.invoke('execute-remote-command')
+      console.log('Result from main process:', result) // 添加日志
+      return result
+    } catch (error) {
+      console.error('Error invoking execute-remote-command from preload:', error) // 添加日志
+      // 确保错误是一个可序列化的对象
+      if (error instanceof Error) {
+        return { success: false, error: { message: error.message, name: error.name, stack: error.stack } }
+      }
+      return { success: false, error: { message: 'An unknown error occurred in preload' } }
     }
   }
 }
