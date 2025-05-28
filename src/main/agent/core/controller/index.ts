@@ -262,10 +262,10 @@ export class Controller {
         await this.updateCustomInstructions(message.customInstructionsSetting)
 
         // plan act setting
-        await updateGlobalState(
-          'planActSeparateModelsSetting',
-          message.planActSeparateModelsSetting
-        )
+        // await updateGlobalState(
+        //   'planActSeparateModelsSetting',
+        //   message.planActSeparateModelsSetting
+        // )
 
         // after settings are updated, post state to webview
         await this.postStateToWebview()
