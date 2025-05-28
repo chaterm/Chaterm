@@ -26,7 +26,7 @@
         <p
           v-else-if="i.key === 'keychain'"
           class="term_menu"
-          @click="keychainConfigClick"
+          @click="menuClick('keychain')"
         >
           <img
             v-if="activeKey !== i.key"
@@ -146,9 +146,6 @@ const userStore = userInfoStore(pinia)
 const activeKey = ref('workspace')
 const showUserMenu = ref<boolean>(false)
 const router = useRouter()
-const keychainConfigClick = () => {
-  emit('open-user-tab', 'keyChainConfig')
-}
 const menuClick = (key) => {
   let type = ''
   let beforeActive = ''
@@ -163,6 +160,11 @@ const menuClick = (key) => {
     userStore.updateStashMenu(activeKey.value)
     activeKey.value = key
   }
+
+  if (key === 'keychain') {
+    emit('open-user-tab', 'keyChainConfig')
+  }
+
   emit('toggle-menu', {
     menu: activeKey.value,
     type,

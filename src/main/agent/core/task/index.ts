@@ -56,8 +56,8 @@ import {
 } from '@core/assistant-message'
 // import { constructNewFileContent } from "@core/assistant-message/diff"
 // import { ClineIgnoreController } from "@core/ignore/ClineIgnoreController"
-import { TerminalManager } from "../../integrations/terminal/TerminalManager"
-import { RemoteTerminalManager, ConnectionInfo } from "../../integrations/remote-terminal"
+import { TerminalManager } from '../../integrations/terminal/TerminalManager'
+import { RemoteTerminalManager, ConnectionInfo } from '../../integrations/remote-terminal'
 import { parseMentions } from '@core/mentions'
 import { formatResponse } from '@core/prompts/responses'
 import { addUserInstructions, SYSTEM_PROMPT } from '@core/prompts/system'
@@ -70,10 +70,10 @@ import { ModelContextTracker } from '@core/context/context-tracking/ModelContext
 // } from "@core/context/context-management/context-error-handling"
 import { ContextManager } from '@core/context/context-management/ContextManager'
 import {
-  ensureRulesDirectoryExists,
-  ensureTaskDirectoryExists,
+  // ensureRulesDirectoryExists,
+  ensureTaskExists,
   getSavedApiConversationHistory,
-  getSavedChatermMessages,
+  // getSavedChatermMessages,
   saveApiConversationHistory,
   saveChatermMessages
 } from '@core/storage/disk'
@@ -120,7 +120,7 @@ export class Task {
   contextManager: ContextManager
   //private didEditFile: boolean = false
   private terminalManager: TerminalManager
-	private remoteTerminalManager: RemoteTerminalManager
+  private remoteTerminalManager: RemoteTerminalManager
   customInstructions?: string
   autoApprovalSettings: AutoApprovalSettings
   chatSettings: ChatSettings
@@ -186,9 +186,9 @@ export class Task {
     this.postMessageToWebview = postMessageToWebview
     this.reinitExistingTaskFromId = reinitExistingTaskFromId
     this.cancelTask = cancelTask
-    		// 初始化终端管理器
-		this.terminalManager = new TerminalManager()
-		this.remoteTerminalManager = new RemoteTerminalManager()
+    // 初始化终端管理器
+    this.terminalManager = new TerminalManager()
+    this.remoteTerminalManager = new RemoteTerminalManager()
     // this.clineIgnoreController = new ClineIgnoreController(cwd)
     // Initialization moved to startTask/resumeTaskFromHistory
     // this.terminalManager = new TerminalManager()
@@ -245,14 +245,14 @@ export class Task {
     // 	telemetryService.captureTaskCreated(this.taskId, apiConfiguration.apiProvider)
     // }
   }
-// 设置远程连接信息
-setRemoteConnectionInfo(connectionInfo: ConnectionInfo): void {
-  this.remoteTerminalManager.setConnectionInfo(connectionInfo)
-}
-// 获取当前终端管理器
-private getCurrentTerminalManager() {
-  return this.remoteTerminalManager 
-}
+  // 设置远程连接信息
+  setRemoteConnectionInfo(connectionInfo: ConnectionInfo): void {
+    this.remoteTerminalManager.setConnectionInfo(connectionInfo)
+  }
+  // 获取当前终端管理器
+  private getCurrentTerminalManager() {
+    return this.remoteTerminalManager
+  }
 
   // While a task is ref'd by a controller, it will always have access to the extension context
   // This error is thrown if the controller derefs the task after e.g., aborting the task
@@ -308,8 +308,8 @@ private getCurrentTerminalManager() {
             (m) => !(m.ask === 'resume_task' || m.ask === 'resume_completed_task')
           )
         ]
-      // const taskDir = await ensureTaskDirectoryExists(this.getContext(), this.taskId)
-      const taskDir = await ensureTaskDirectoryExists(this.taskId)
+      // const taskDir = await ensureTaskExists(this.getContext(), this.taskId)
+      const taskDir = await ensureTaskExists(this.taskId)
       let taskDirSize = 0
       try {
         // getFolderSize.loose silently ignores errors
@@ -713,7 +713,7 @@ private getCurrentTerminalManager() {
   // 	this.apiConversationHistory = await getSavedApiConversationHistory(this.getContext(), this.taskId)
 
   // 	// load the context history state
-  // 	await this.contextManager.initializeContextHistory(await ensureTaskDirectoryExists(this.getContext(), this.taskId))
+  // 	await this.contextManager.initializeContextHistory(await ensureTaskExists(this.getContext(), this.taskId))
 
   // 	const lastClineMessage = this.clineMessages
   // 		.slice()
@@ -1023,147 +1023,145 @@ private getCurrentTerminalManager() {
   }
 
   //TODO: update executeCommandTool
-	async executeCommandTool(command: string): Promise<[boolean, ToolResponse]> {
+  async executeCommandTool(command: string): Promise<[boolean, ToolResponse]> {
+    const terminalManager = this.getCurrentTerminalManager()
 
+    const connectionInfo: ConnectionInfo = {
+      host: '127.0.0.1',
+      port: 2222,
+      username: 'root',
+      password: 'root'
+    }
+    terminalManager.setConnectionInfo(connectionInfo)
+    const terminalInfo = await terminalManager.createTerminal()
+    terminalInfo.terminal.show()
+    const process = terminalManager.runCommand(terminalInfo, command)
 
-		const terminalManager = this.getCurrentTerminalManager()
+    let userFeedback: { text?: string; images?: string[] } | undefined
+    let didContinue = false
 
-		const connectionInfo: ConnectionInfo = {
-			host: '127.0.0.1',
-			port: 2222,
-			username: 'root',
-			password: 'root'
-		  }
-		terminalManager.setConnectionInfo(connectionInfo)
-		const terminalInfo = await terminalManager.createTerminal()
-		terminalInfo.terminal.show()
-		const process = terminalManager.runCommand(terminalInfo, command)
+    // Chunked terminal output buffering
+    const CHUNK_LINE_COUNT = 20
+    const CHUNK_BYTE_SIZE = 2048 // 2KB
+    const CHUNK_DEBOUNCE_MS = 100
 
-		let userFeedback: { text?: string; images?: string[] } | undefined
-		let didContinue = false
+    let outputBuffer: string[] = []
+    let outputBufferSize: number = 0
+    let chunkTimer: NodeJS.Timeout | null = null
+    let chunkEnroute = false
 
-		// Chunked terminal output buffering
-		const CHUNK_LINE_COUNT = 20
-		const CHUNK_BYTE_SIZE = 2048 // 2KB
-		const CHUNK_DEBOUNCE_MS = 100
+    const flushBuffer = async (force = false) => {
+      if (chunkEnroute || outputBuffer.length === 0) {
+        if (force && !chunkEnroute && outputBuffer.length > 0) {
+          // If force is true and no chunkEnroute, flush anyway
+        } else {
+          return
+        }
+      }
+      const chunk = outputBuffer.join('\n')
+      outputBuffer = []
+      outputBufferSize = 0
+      chunkEnroute = true
+      try {
+        const { response, text } = await this.ask('command_output', chunk) // Removed images
+        if (response === 'yesButtonClicked') {
+          // proceed while running
+        } else {
+          userFeedback = { text } // Removed images
+        }
+        didContinue = true
+        process.continue()
+      } catch (error) {
+        console.error('Error while asking for command output:', error) // Log error
+      } finally {
+        chunkEnroute = false
+        // If more output accumulated while chunkEnroute, flush again
+        if (outputBuffer.length > 0) {
+          await flushBuffer()
+        }
+      }
+    }
 
-		let outputBuffer: string[] = []
-		let outputBufferSize: number = 0
-		let chunkTimer: NodeJS.Timeout | null = null
-		let chunkEnroute = false
+    const scheduleFlush = () => {
+      if (chunkTimer) {
+        clearTimeout(chunkTimer)
+      }
+      chunkTimer = setTimeout(async () => await flushBuffer(), CHUNK_DEBOUNCE_MS)
+    }
 
-		const flushBuffer = async (force = false) => {
-			if (chunkEnroute || outputBuffer.length === 0) {
-				if (force && !chunkEnroute && outputBuffer.length > 0) {
-					// If force is true and no chunkEnroute, flush anyway
-				} else {
-					return
-				}
-			}
-			const chunk = outputBuffer.join("\n")
-			outputBuffer = []
-			outputBufferSize = 0
-			chunkEnroute = true
-			try {
-				const { response, text } = await this.ask("command_output", chunk) // Removed images
-				if (response === "yesButtonClicked") {
-					// proceed while running
-				} else {
-					userFeedback = { text } // Removed images
-				}
-				didContinue = true
-				process.continue()
-			} catch (error) {
-				console.error("Error while asking for command output:", error) // Log error
-			} finally {
-				chunkEnroute = false
-				// If more output accumulated while chunkEnroute, flush again
-				if (outputBuffer.length > 0) {
-					await flushBuffer()
-				}
-			}
-		}
+    let result = ''
+    process.on('line', async (line) => {
+      result += line + '\n'
 
-		const scheduleFlush = () => {
-			if (chunkTimer) {
-				clearTimeout(chunkTimer)
-			}
-			chunkTimer = setTimeout(async () => await flushBuffer(), CHUNK_DEBOUNCE_MS)
-		}
+      if (!didContinue) {
+        outputBuffer.push(line)
+        outputBufferSize += Buffer.byteLength(line, 'utf8')
+        // Flush if buffer is large enough
+        if (outputBuffer.length >= CHUNK_LINE_COUNT || outputBufferSize >= CHUNK_BYTE_SIZE) {
+          await flushBuffer()
+        } else {
+          scheduleFlush()
+        }
+      } else {
+        // The 'images' argument was removed from this 'say' call as it's not a boolean
+        this.say('command_output', line)
+      }
+    })
 
-		let result = ""
-		process.on("line", async (line) => {
-			result += line + "\n"
+    let completed = false
+    process.once('completed', async () => {
+      completed = true
+      // Flush any remaining buffered output
+      if (!didContinue && outputBuffer.length > 0) {
+        if (chunkTimer) {
+          clearTimeout(chunkTimer)
+          chunkTimer = null
+        }
+        await flushBuffer(true)
+      }
+    })
 
-			if (!didContinue) {
-				outputBuffer.push(line)
-				outputBufferSize += Buffer.byteLength(line, "utf8")
-				// Flush if buffer is large enough
-				if (outputBuffer.length >= CHUNK_LINE_COUNT || outputBufferSize >= CHUNK_BYTE_SIZE) {
-					await flushBuffer()
-				} else {
-					scheduleFlush()
-				}
-			} else {
-				// The 'images' argument was removed from this 'say' call as it's not a boolean
-				this.say("command_output", line)
-			}
-		})
+    process.once('no_shell_integration', async () => {
+      await this.say('shell_integration_warning')
+    })
 
-		let completed = false
-		process.once("completed", async () => {
-			completed = true
-			// Flush any remaining buffered output
-			if (!didContinue && outputBuffer.length > 0) {
-				if (chunkTimer) {
-					clearTimeout(chunkTimer)
-					chunkTimer = null
-				}
-				await flushBuffer(true)
-			}
-		})
+    await process
 
-		process.once("no_shell_integration", async () => {
-			await this.say("shell_integration_warning")
-		})
+    // Wait for a short delay to ensure all messages are sent to the webview
+    // This delay allows time for non-awaited promises to be created and
+    // for their associated messages to be sent to the webview, maintaining
+    // the correct order of messages (although the webview is smart about
+    // grouping command_output messages despite any gaps anyways)
+    await setTimeoutPromise(50)
 
-		await process
+    result = result.trim()
 
-		// Wait for a short delay to ensure all messages are sent to the webview
-		// This delay allows time for non-awaited promises to be created and
-		// for their associated messages to be sent to the webview, maintaining
-		// the correct order of messages (although the webview is smart about
-		// grouping command_output messages despite any gaps anyways)
-		await setTimeoutPromise(50)
+    if (userFeedback) {
+      // The 'images' argument was removed from this 'say' call as it's not a boolean
+      await this.say('user_feedback', userFeedback.text)
+      await this.saveCheckpoint()
+      return [
+        true,
+        formatResponse.toolResult(
+          `Command is still running in the user\'s terminal.${
+            result.length > 0 ? `\nHere\'s the output so far:\n${result}` : ''
+          }\n\nThe user provided the following feedback:\n<feedback>\n${userFeedback.text}\n</feedback>`,
+          userFeedback.images
+        )
+      ]
+    }
 
-		result = result.trim()
-
-		if (userFeedback) {
-			// The 'images' argument was removed from this 'say' call as it's not a boolean
-			await this.say("user_feedback", userFeedback.text)
-			await this.saveCheckpoint()
-			return [
-				true,
-				formatResponse.toolResult(
-					`Command is still running in the user\'s terminal.${
-						result.length > 0 ? `\nHere\'s the output so far:\n${result}` : ""
-					}\n\nThe user provided the following feedback:\n<feedback>\n${userFeedback.text}\n</feedback>`,
-					userFeedback.images,
-				),
-			]
-		}
-
-		if (completed) {
-			return [false, `Command executed.${result.length > 0 ? `\nOutput:\n${result}` : ""}`]
-		} else {
-			return [
-				false,
-				`Command is still running in the user\'s terminal.${
-					result.length > 0 ? `\nHere\'s the output so far:\n${result}` : ""
-				}\n\nYou will be updated on the terminal status and new output in the future.`,
-			]
-		}
-	}
+    if (completed) {
+      return [false, `Command executed.${result.length > 0 ? `\nOutput:\n${result}` : ''}`]
+    } else {
+      return [
+        false,
+        `Command is still running in the user\'s terminal.${
+          result.length > 0 ? `\nHere\'s the output so far:\n${result}` : ''
+        }\n\nYou will be updated on the terminal status and new output in the future.`
+      ]
+    }
+  }
   // Check if the tool should be auto-approved based on the settings
   // Returns bool for most tools, and tuple for tools with nested settings
   shouldAutoApproveTool(toolName: ToolUseName): boolean | [boolean, boolean] {
@@ -1326,8 +1324,8 @@ private getCurrentTerminalManager() {
       this.api,
       this.conversationHistoryDeletedRange,
       previousApiReqIndex,
-      //await ensureTaskDirectoryExists(this.getContext(), this.taskId),
-      await ensureTaskDirectoryExists(this.taskId)
+      //await ensureTaskExists(this.getContext(), this.taskId),
+      await ensureTaskExists(this.taskId)
     )
 
     if (contextManagementMetadata.updatedConversationHistoryDeletedRange) {
@@ -1365,8 +1363,8 @@ private getCurrentTerminalManager() {
         await this.saveChatermMessagesAndUpdateHistory()
         await this.contextManager.triggerApplyStandardContextTruncationNoticeChange(
           Date.now(),
-          // await ensureTaskDirectoryExists(this.getContext(), this.taskId),
-          await ensureTaskDirectoryExists(this.taskId)
+          // await ensureTaskExists(this.getContext(), this.taskId),
+          await ensureTaskExists(this.taskId)
         )
 
         this.didAutomaticallyRetryFailedApiRequest = true
@@ -1380,7 +1378,7 @@ private getCurrentTerminalManager() {
         // 	// 	await this.saveChatermMessagesAndUpdateHistory()
         // 	// 	await this.contextManager.triggerApplyStandardContextTruncationNoticeChange(
         // 	// 		Date.now(),
-        // 	// 		await ensureTaskDirectoryExists(this.getContext(), this.taskId),
+        // 	// 		await ensureTaskExists(this.getContext(), this.taskId),
         // 	// 	)
         // 	// }
 
@@ -2058,8 +2056,8 @@ private getCurrentTerminalManager() {
                 await this.saveCheckpoint()
                 break
               }
-
-            } catch (error:any) { // Added type assertion for error
+            } catch (error: any) {
+              // Added type assertion for error
               await handleError('reading file', error)
             }
           }
@@ -2780,8 +2778,8 @@ private getCurrentTerminalManager() {
                   await this.saveChatermMessagesAndUpdateHistory()
                   await this.contextManager.triggerApplyStandardContextTruncationNoticeChange(
                     Date.now(),
-                    // await ensureTaskDirectoryExists(this.getContext(), this.taskId),
-                    await ensureTaskDirectoryExists(this.taskId)
+                    // await ensureTaskExists(this.getContext(), this.taskId),
+                    await ensureTaskExists(this.taskId)
                   )
                 }
                 await this.saveCheckpoint()
@@ -3299,7 +3297,7 @@ private getCurrentTerminalManager() {
       this.chatermMessages,
       (m) => m.say === 'api_req_started'
     )
-
+    console.log('this.chatermMessages', this.chatermMessages)
     // Save checkpoint if this is the first API request
     const isFirstRequest =
       this.chatermMessages.filter((m) => m.say === 'api_req_started').length === 0
