@@ -10,13 +10,13 @@
     "experimentalDecorators": true,
     "emitDecoratorMetadata": true,
     "paths": {
-      "@services/*": ["src/main/services/*"],
-      "@api/*": ["src/main/api/*"],
-      "@integrations/*": ["src/main/integrations/*"],
-      "@utils/*": ["src/main/utils/*"],
-      "@shared/*": ["src/main/shared/*"],
-      "@core/*": ["src/main/core/*"],
-      "vscode": ["src/main/vscode-mock.ts"]
+      "@services/*": ["src/main/agent/services/*"],
+      "@api/*": ["src/main/agent/api/*"],
+      "@integrations/*": ["src/main/agent/integrations/*"],
+      "@utils/*": ["src/main/agent/utils/*"],
+      "@shared/*": ["src/main/agent/shared/*"],
+      "@core/*": ["src/main/agent/core/*"],
+      "vscode": ["src/main/agent/vscode-mock.ts"]
     }
   }
 }

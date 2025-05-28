@@ -27,13 +27,13 @@ export default defineConfig({
     ],
     resolve: {
       alias: {
-        '@shared': resolve('src/main/shared'),
-        '@core': resolve('src/main/core'),
-        '@services': resolve('src/main/services'),
-        '@integrations': resolve('src/main/integrations'),
-        '@utils': resolve('src/main/utils'),
-        '@api': resolve('src/main/api'),
-        vscode: resolve('src/main/vscode-mock.ts')
+        '@shared': resolve('src/main/agent/shared'),
+        '@core': resolve('src/main/agent/core'),
+        '@services': resolve('src/main/agent/services'),
+        '@integrations': resolve('src/main/agent/integrations'),
+        '@utils': resolve('src/main/agent/utils'),
+        '@api': resolve('src/main/agent/api'),
+        vscode: resolve('src/main/agent/vscode-mock.ts')
       }
     }
   },
