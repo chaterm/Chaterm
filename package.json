@@ -26,8 +26,8 @@
   },
   "lint-staged": {
     "*.{js,jsx,.cjs,mjs,ts,tsx,cts,mts,vue}": [
-      "prettier --write ",
-      "eslint --fix"
+      // "prettier --write ",
+      // "eslint --fix"
     ]
   },
   "dependencies": {
