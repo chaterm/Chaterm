@@ -35,7 +35,7 @@ ko1n5mBYna+H8jGkDe5UAAAAGXh1aG9uZ195YW9ASEhOQjIwMjQwMjAwNDMBAgME
 -----END OPENSSH PRIVATE KEY-----`, 
     passphrase: ''
   }
-
+  const cwd = '/home/fish'
   const remoteManager = new RemoteTerminalManager()
   
   try {
@@ -54,7 +54,8 @@ ko1n5mBYna+H8jGkDe5UAAAAGXh1aG9uZ195YW9ASEhOQjIwMjQwMjAwNDMBAgME
     console.log(`执行命令: ${command}`)
     
     console.log('调用 runCommand...')
-    const process = remoteManager.runCommand(terminalInfo, command)
+
+    const process = remoteManager.runCommand(terminalInfo, command, cwd)
     console.log('runCommand 返回，开始注册事件监听器...')
     
     let output = ''
