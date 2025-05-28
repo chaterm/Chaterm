@@ -15,6 +15,7 @@
       <div
         v-if="chatHistory.length > 0"
         class="chat-response-container"
+        ref="chatContainer"
       >
         <div class="chat-response">
           <template
@@ -53,28 +54,46 @@
                   </template>
                   {{ $t('ai.run') }}
                 </a-button>
-                <a-button
-                  v-if="chatTypeValue === 'ctm-agent'"
-                  size="small"
-                  class="action-btn copy-btn"
-                  @click="handleRejectContent(message)"
-                >
-                  <template #icon>
-                    <CloseOutlined />
-                  </template>
-                  {{ $t('ai.reject') }}
-                </a-button>
-                <a-button
-                  v-if="chatTypeValue === 'ctm-agent'"
-                  size="small"
-                  class="action-btn apply-btn"
-                  @click="handleApproveCommand(message)"
-                >
-                  <template #icon>
-                    <CheckOutlined />
-                  </template>
-                  {{ $t('ai.approve') }}
-                </a-button>
+                <div v-if="chatTypeValue === 'ctm-agent' && message.type === 'ask'">
+                  <div
+                    v-if="!messageActions[message.id]"
+                    class="action-buttons"
+                  >
+                    <div class="button-row">
+                      <a-button
+                        size="small"
+                        class="action-btn copy-btn"
+                        @click="handleRejectContent(message)"
+                      >
+                        <template #icon>
+                          <CloseOutlined />
+                        </template>
+                        {{ $t('ai.reject') }}
+                      </a-button>
+                      <a-button
+                        size="small"
+                        class="action-btn apply-btn"
+                        @click="handleApproveCommand(message)"
+                      >
+                        <template #icon>
+                          <CheckOutlined />
+                        </template>
+                        {{ $t('ai.approve') }}
+                      </a-button>
+                    </div>
+                  </div>
+                  <div
+                    v-else
+                    class="action-status"
+                    :class="messageActions[message.id]"
+                  >
+                    {{
+                      messageActions[message.id] === 'approved'
+                        ? $t('ai.approved')
+                        : $t('ai.rejected')
+                    }}
+                  </div>
+                </div>
               </div>
             </div>
             <div
@@ -171,7 +190,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted, defineAsyncComponent, onUnmounted } from 'vue'
+import { ref, reactive, onMounted, defineAsyncComponent, onUnmounted, nextTick, watch } from 'vue'
 import {
   PlusOutlined,
   CloseOutlined,
@@ -217,10 +236,12 @@ const props = defineProps({
     required: true
   }
 })
+
 interface ModelOption {
   label: string
   value: string
 }
+
 const AiModelsOptions = ref<ModelOption[]>([])
 const AiTypeOptions = [
   { label: 'Chat', value: 'ctm-chat' },
@@ -329,6 +350,21 @@ const sendMessage = () => {
   if (!userContent) return
   if (chatTypeValue.value === 'ctm-agent') {
     sendMessageToMain(userContent)
+    const currentHistoryEntry = historyList.value.find((entry) => entry.id === currentChatId.value)
+
+    if (currentHistoryEntry) {
+      if (currentHistoryEntry.chatContent.length === 0) {
+        currentHistoryEntry.chatTitle =
+          userContent.length > 15 ? userContent.substring(0, 15) + '.' : userContent
+      }
+      currentHistoryEntry.chatContent.push({ role: 'user', content: userContent })
+    }
+
+    chatHistory.push({
+      role: 'user',
+      content: userContent
+    })
+    chatInputValue.value = ''
     return
   }
 
@@ -501,15 +537,16 @@ const handleCopyContent = async (message: { content: string }) => {
     })
   }
 }
+const messageActions = reactive<Record<string, 'approved' | 'rejected'>>({})
 
-const handleRejectContent = (message: { content: string }) => {
+const handleRejectContent = (message: any) => {
   console.log('handleRejectContent', message.content)
-  // Removed unused function
+  messageActions[message.id] = 'rejected'
 }
 
-const handleApproveCommand = (message: { content: string }) => {
+const handleApproveCommand = (message: any) => {
   console.log('handleApproveCommand', message.content)
-  // Removed unused function
+  messageActions[message.id] = 'approved'
 }
 
 // 修改 onMounted 中的初始化代码
@@ -538,12 +575,58 @@ onMounted(async () => {
     console.error('Failed to get AI models:', err)
   }
 
-  const removeListener = (window.api as any).onMainMessage((message) => {
+  const removeListener = (window.api as any).onMainMessage((message: any) => {
     console.log('Received main process message:', message)
+
+    if (message?.type === 'partialMessage' && message.partialMessage?.text) {
+      if (message.partialMessage.partial) {
+        // 处理流式响应
+        // 追加内容到现有assistant消息
+        const lastAssistantMessage = chatHistory.at(-1)!
+        lastAssistantMessage.content += message.partialMessage.text
+
+        // 同步更新历史记录
+        const currentHistoryEntry = historyList.value.find(
+          (entry) => entry.id === currentChatId.value
+        )
+        if (currentHistoryEntry) {
+          const lastHistoryContent = currentHistoryEntry.chatContent.at(-1)
+          if (lastHistoryContent?.role === 'assistant') {
+            lastHistoryContent.content += message.partialMessage.text
+          }
+        }
+      } else {
+        // 创建新的assistant消息
+        chatHistory.push({
+          id: uuidv4(), // 添加唯一ID
+          role: 'assistant',
+          content: message.partialMessage.text,
+          type: message.partialMessage.type,
+          ask: message.partialMessage.type === 'ask' ? message.partialMessage.ask : '',
+          say: message.partialMessage.type === 'say' ? message.partialMessage.say : ''
+        })
+        // 同步更新历史记录
+        const currentHistoryEntry = historyList.value.find(
+          (entry) => entry.id === currentChatId.value
+        )
+        if (currentHistoryEntry) {
+          currentHistoryEntry.chatContent.push({
+            role: 'assistant',
+            content: message.partialMessage.text,
+            type: message.partialMessage.type,
+            ask: message.partialMessage.type === 'ask' ? message.partialMessage.ask : '',
+            say: message.partialMessage.type === 'say' ? message.partialMessage.say : ''
+          })
+        }
+      }
+    }
+    console.log('chatHistory', chatHistory)
   })
 
   onUnmounted(() => {
-    removeListener()
+    if (typeof removeListener === 'function') {
+      removeListener()
+    }
   })
 })
 
@@ -570,6 +653,22 @@ const sendMessageToMain = async (userContent: string) => {
     console.error('发送消息到主进程失败:', error)
   }
 }
+
+const chatContainer = ref<HTMLElement | null>(null)
+
+// Add auto scroll function
+const scrollToBottom = () => {
+  nextTick(() => {
+    if (chatContainer.value) {
+      chatContainer.value.scrollTop = chatContainer.value.scrollHeight
+    }
+  })
+}
+
+// Watch chatHistory changes
+watch(chatHistory, () => {
+  scrollToBottom()
+}, { deep: true })
 </script>
 
 <style lang="less" scoped>
@@ -894,5 +993,28 @@ const sendMessageToMain = async (userContent: string) => {
 
 :deep(.ant-input::placeholder) {
   color: #666 !important;
+}
+
+.action-status {
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+
+  &.approved {
+    background-color: #52c41a20;
+    color: #52c41a;
+  }
+
+  &.rejected {
+    background-color: #ff4d4f20;
+    color: #ff4d4f;
+  }
+}
+
+.button-row {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  margin-top: 8px;
 }
 </style>
