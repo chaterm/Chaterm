@@ -58,7 +58,7 @@ export interface ModelInfo {
 // AWS Bedrock
 // https://docs.aws.amazon.com/bedrock/latest/userguide/conversation-inference.html
 export type BedrockModelId = keyof typeof bedrockModels
-export const bedrockDefaultModelId: BedrockModelId = 'us.anthropic.claude-3-5-haiku-20241022-v1:0'
+export const bedrockDefaultModelId: BedrockModelId = 'us.amazon.nova-lite-v1:0'
 export const bedrockModels = {
   'us.anthropic.claude-sonnet-4-20250514-v1:0': {
     maxTokens: 8192,
