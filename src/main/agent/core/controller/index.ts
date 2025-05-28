@@ -108,6 +108,7 @@ export class Controller {
   }
 
   async initTask(task?: string, historyItem?: HistoryItem) {
+    console.log('initTask', task, historyItem)
     await this.clearTask() // ensures that an existing task doesn't exist before starting a new one, although this shouldn't be possible since user must clear task before starting a new one
     const {
       apiConfiguration,
