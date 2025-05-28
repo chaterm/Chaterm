@@ -555,12 +555,12 @@ const sendMessageToMain = async (userContent: string) => {
         ? {
             type: 'newTask' as const,
             askResponse: 'messageResponse' as const,
-            message: userContent
+            text: userContent
           }
         : {
             type: 'askResponse' as const,
             askResponse: 'messageResponse' as const,
-            message: userContent
+            text: userContent
           }
 
     console.log('发送消息到主进程:', message)
