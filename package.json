@@ -25,10 +25,7 @@
     "test": "mocha --require ts-node/register 'src/**/*.test.ts'"
   },
   "lint-staged": {
-    "*.{js,jsx,.cjs,mjs,ts,tsx,cts,mts,vue}": [
-      // "prettier --write ",
-      // "eslint --fix"
-    ]
+    "*.{js,jsx,.cjs,mjs,ts,tsx,cts,mts,vue}": []
   },
   "dependencies": {
     "@ant-design/icons-vue": "^7.0.1",
@@ -56,6 +53,7 @@
     "better-sqlite3": "^11.10.0",
     "cheerio": "^1.0.0",
     "chokidar": "^4.0.1",
+    "chrome-launcher": "^1.2.0",
     "clone-deep": "^4.0.1",
     "crypto-js": "^4.2.0",
     "default-shell": "^2.2.0",
@@ -74,8 +72,8 @@
     "mammoth": "^1.8.0",
     "mocha": "^10.2.0",
     "monaco-editor": "^0.52.2",
-    "node-gyp": "^11.2.0",
     "monaco-vscode-textmate-theme-converter": "^0.1.7",
+    "node-gyp": "^11.2.0",
     "ollama": "^0.5.13",
     "open-graph-scraper": "^6.9.0",
     "openai": "^4.100.0",
@@ -89,8 +87,8 @@
     "puppeteer-chromium-resolver": "^23.0.0",
     "puppeteer-core": "^23.4.0",
     "serialize-error": "^11.0.3",
-    "simple-git": "^3.27.0",
     "should": "^13.2.3",
+    "simple-git": "^3.27.0",
     "sinon": "^20.0.0",
     "splitpanes": "^4.0.3",
     "ssh2": "^1.16.0",
@@ -115,11 +113,11 @@
     "@electron-toolkit/tsconfig": "^1.0.1",
     "@electron/rebuild": "^4.0.1",
     "@rushstack/eslint-patch": "^1.7.1",
-    "@types/jest": "^29.5.14",
     "@types/chai": "^5.0.1",
     "@types/clone-deep": "^4.0.4",
     "@types/diff": "^5.2.1",
     "@types/get-folder-size": "^3.0.4",
+    "@types/jest": "^29.5.14",
     "@types/js-cookie": "^3.0.6",
     "@types/marked": "^6.0.0",
     "@types/mocha": "^10.0.10",
