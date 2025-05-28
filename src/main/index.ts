@@ -3,11 +3,14 @@ import { join } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
 
-import { registerSSHHandlers } from './sshHandle'
-import { autoCompleteDatabaseService, ChatermDatabaseService } from './database'
+import { registerSSHHandlers } from './ssh/sshHandle'
+import { registerRemoteTerminalHandlers } from './ssh/agentHandle'
+import { autoCompleteDatabaseService, ChatermDatabaseService } from './storage/database'
 import { Controller } from './agent/core/controller'
 import { createExtensionContext } from './agent/core/controller/context'
 import { ElectronOutputChannel } from './agent/core/controller/outputChannel'
+import { executeRemoteCommand } from './agent/integrations/remote-terminal/example'
+import { initializeStorageMain, testStorageFromMain as testRendererStorageFromMain } from './agent/core/storage/state'
 
 let mainWindow: BrowserWindow
 let COOKIE_URL = 'http://localhost'
@@ -110,8 +113,12 @@ app.whenReady().then(async () => {
   setupIPC()
   await createWindow()
 
+  // 初始化存储系统
+  initializeStorageMain(mainWindow)
+
   // 注册ssh组件
   registerSSHHandlers()
+  registerRemoteTerminalHandlers()
 
   app.on('activate', function () {
     // On macOS it's common to re-create a window in the app when the
@@ -132,6 +139,21 @@ app.whenReady().then(async () => {
     })
   } catch (error) {
     console.error('Failed to initialize Controller:', error)
+  }
+
+  // Call the test function (imported from ./agent/core/storage/state.ts)
+  if (mainWindow && mainWindow.webContents) {
+    if (mainWindow.webContents.isLoading()) {
+      mainWindow.webContents.once('did-finish-load', () => {
+        console.log('[Main Index] Main window finished loading. Calling testRendererStorageFromMain.');
+        testRendererStorageFromMain();
+      });
+    } else {
+      console.log('[Main Index] Main window already loaded. Calling testRendererStorageFromMain directly.');
+      testRendererStorageFromMain();
+    }
+  } else {
+    console.warn('[Main Index] mainWindow or webContents not available when trying to schedule testRendererStorageFromMain.');
   }
 })
 
@@ -587,5 +609,21 @@ ipcMain.handle('agent-save-context-history', async (_, data) => {
   } catch (error) {
     console.error('保存Context历史失败 (IPC Handler):', error)
     return { success: false, error: String(error) }
+  }
+})
+
+// 这段代码是新增的，用于处理来自渲染进程的调用
+ipcMain.handle('execute-remote-command', async () => {
+  console.log('Received execute-remote-command IPC call') // 添加日志
+  try {
+    const output = await executeRemoteCommand()
+    console.log('executeRemoteCommand output:', output) // 添加日志
+    return { success: true, output }
+  } catch (error) {
+    console.error('Failed to execute remote command in main process:', error) // 修改日志
+    if (error instanceof Error) {
+      return { success: false, error: { message: error.message, stack: error.stack, name: error.name } }
+    }
+    return { success: false, error: { message: 'An unknown error occurred in main process' } } // 修改日志
   }
 })
