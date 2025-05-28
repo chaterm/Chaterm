@@ -25,7 +25,15 @@ export async function executeRemoteCommand() {
     host: '127.0.0.1',
     port: 2222,
     username: 'root',
-    password: 'root'
+    password: '', // 如果使用私钥，密码通常为空
+    privateKey: `-----BEGIN OPENSSH PRIVATE KEY-----
+b3BlbnNzaC1rZXktdjEAAAAABG5vbmUAAAAEbm9uZQAAAAAAAAABAAAAMwAAAAtzc2gtZW
+QyNTUxOQAAACDJqVbjzi15L+3tUqdBG02PZ5KNZ+ZgWJ2vh/IxpA3uVAAAAKBCN/ObQjfz
+mwAAAAtzc2gtZWQyNTUxOQAAACDJqVbjzi15L+3tUqdBG02PZ5KNZ+ZgWJ2vh/IxpA3uVA
+AAAECN0lht9B1lfiIpeM5eNB5LNhJQAEWgpGg9CjThPAjUzcmpVuPOLXkv7e1Sp0EbTY9n
+ko1n5mBYna+H8jGkDe5UAAAAGXh1aG9uZ195YW9ASEhOQjIwMjQwMjAwNDMBAgME
+-----END OPENSSH PRIVATE KEY-----`, 
+    passphrase: ''
   }
 
   const remoteManager = new RemoteTerminalManager()
