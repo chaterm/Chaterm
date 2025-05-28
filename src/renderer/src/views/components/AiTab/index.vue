@@ -240,7 +240,6 @@ const createWebSocket = (type: string) => {
   const token = JSON.parse(JSON.stringify(authTokenInCookie.value))
   const wsUrl = `${protocol}//demo.chaterm.ai/v1/ai/chat/ws?token=${token}`
   const ws = new WebSocket(wsUrl)
-  const currentHistory = chatHistory
 
   ws.onopen = () => {
     // console.log(`${type} WebSocket 连接成功`)
@@ -283,23 +282,19 @@ const createWebSocket = (type: string) => {
           (entry) => entry.id === currentChatId.value
         )
 
-        if (
-          currentHistory.length > 0 &&
-          currentHistory[currentHistory.length - 1].role === 'assistant'
-        ) {
-          const lastAssistantMessage = currentHistory[currentHistory.length - 1]
+        if (chatHistory.at(-1)?.role === 'assistant') {
+          const lastAssistantMessage = chatHistory.at(-1)!
           lastAssistantMessage.content += parsedData.choices[0].delta.content
 
           // 同时更新 historyList 中的记录
           if (currentHistoryEntry) {
-            const lastHistoryContent =
-              currentHistoryEntry.chatContent[currentHistoryEntry.chatContent.length - 1]
-            if (lastHistoryContent && lastHistoryContent.role === 'assistant') {
+            const lastHistoryContent = currentHistoryEntry.chatContent.at(-1)
+            if (lastHistoryContent?.role === 'assistant') {
               lastHistoryContent.content += parsedData.choices[0].delta.content
             }
           }
         } else {
-          currentHistory.push({
+          chatHistory.push({
             role: 'assistant',
             content: parsedData.choices[0].delta.content
           })
@@ -320,7 +315,7 @@ const createWebSocket = (type: string) => {
 
   ws.onerror = (error) => {
     console.error(`${type} WebSocket错误:`, error)
-    currentHistory.push({
+    chatHistory.push({
       role: 'assistant',
       content: '连接失败，请检查服务器状态'
     })
@@ -555,11 +550,19 @@ onMounted(async () => {
 // 添加发送消息到主进程的方法
 const sendMessageToMain = async (userContent: string) => {
   try {
-    const message = {
-      type: 'askResponse',
-      askResponse: 'messageResponse',
-      message: userContent
-    }
+    const message =
+      chatHistory.length === 0
+        ? {
+            type: 'newTask' as const,
+            askResponse: 'messageResponse' as const,
+            message: userContent
+          }
+        : {
+            type: 'askResponse' as const,
+            askResponse: 'messageResponse' as const,
+            message: userContent
+          }
+
     console.log('发送消息到主进程:', message)
     const response = await (window.api as any).sendToMain(message)
     console.log('主进程响应:', response)
