@@ -9,6 +9,10 @@ import 'v-contextmenu/dist/themes/default.css'
 
 import 'ant-design-vue/dist/reset.css'
 import piniaPluginPersistedstate from 'pinia-plugin-persistedstate'
+
+// 导入存储函数
+import * as storageState from './agent/storage/state'
+
 const pinia = createPinia()
 pinia.use(piniaPluginPersistedstate)
 const app = createApp(App)
@@ -20,5 +24,15 @@ app.use(i18n)
 app.use(pinia)
 // 右键
 app.use(contextmenu)
+
+// 将存储 API 暴露到全局 window 对象，供主进程调用
+declare global {
+  interface Window {
+    storageAPI: typeof storageState
+  }
+}
+
+window.storageAPI = storageState
+
 app.mount('#app')
 export { pinia }
