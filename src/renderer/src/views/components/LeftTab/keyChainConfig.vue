@@ -1,4 +1,5 @@
 <template>
+  <a-button @click="testMain">main调用测试</a-button>
   <div class="keychain-config-container">
     <div class="split-layout">
       <div class="left-section">
@@ -489,6 +490,26 @@ watch(isRightSectionVisible, (val) => {
     editingKeyChainId.value = null
   }
 })
+
+const testMain = async () => {
+  const api = window.api as any
+  // api.testMain() // 旧的调用
+  try {
+    console.log('Calling api.executeRemoteCommandViaPreload from renderer')
+    const result = await api.executeRemoteCommandViaPreload()
+    console.log('Result from executeRemoteCommandViaPreload:', result)
+    if (result && result.success) {
+      console.log('Remote command output:', result.output)
+      // 在这里处理成功的输出
+    } else {
+      console.error('Remote command failed:', result ? result.error : 'Unknown error')
+      // 在这里处理错误
+    }
+  } catch (error) {
+    console.error('Error calling executeRemoteCommandViaPreload:', error)
+    // 在这里处理调用本身的错误
+  }
+}
 </script>
 
 <style lang="less" scoped>
