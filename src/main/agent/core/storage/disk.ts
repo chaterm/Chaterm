@@ -1,8 +1,6 @@
 import { Anthropic } from '@anthropic-ai/sdk'
 import { ChatermMessage } from '../../shared/ExtensionMessage'
 import { TaskMetadata } from '../context/context-tracking/ContextTrackerTypes'
-import path from 'path'
-import fs from 'fs/promises'
 import { ChatermDatabaseService } from '../../../storage/database'
 
 export const GlobalFileNames = {
@@ -12,11 +10,19 @@ export const GlobalFileNames = {
   taskMetadata: 'task_metadata.json'
 }
 
-// 确保任务目录存在 - 暂时保留，后续评估
-export async function ensureTaskDirectoryExists(taskId: string): Promise<string> {
-  const taskDir = path.join(process.env.GLOBAL_STORAGE_PATH || '', 'tasks', taskId)
-  await fs.mkdir(taskDir, { recursive: true })
-  return taskDir
+export async function ensureTaskExists(taskId: string): Promise<boolean> {
+  try {
+    const dbService = await ChatermDatabaseService.getInstance()
+    const apiHistory = await dbService.getApiConversationHistory(taskId)
+    const uiMessages = await dbService.getSavedClineMessages(taskId)
+    if ((apiHistory && apiHistory.length > 0) || (uiMessages && uiMessages.length > 0)) {
+      return true
+    }
+    return false
+  } catch (error) {
+    console.error('Failed to check task existence in DB:', error)
+    return false 
+  }
 }
 
 // 获取保存的API对话历史
