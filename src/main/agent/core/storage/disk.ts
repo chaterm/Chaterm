@@ -5,7 +5,12 @@ import path from 'path'
 import fs from 'fs/promises'
 import { ChatermDatabaseService } from '../../../storage/database'
 
-
+export const GlobalFileNames = {
+  apiConversationHistory: 'api_conversation_history.json',
+  contextHistory: 'context_history.json',
+  uiMessages: 'ui_messages.json',
+  taskMetadata: 'task_metadata.json'
+}
 
 // 确保任务目录存在 - 暂时保留，后续评估
 export async function ensureTaskDirectoryExists(taskId: string): Promise<string> {
@@ -41,7 +46,7 @@ export async function saveApiConversationHistory(
   }
 }
 
-export async function getSavedClineMessages(taskId: string): Promise<ChatermMessage[]> {
+export async function getChatermMessages(taskId: string): Promise<ChatermMessage[]> {
   try {
     const dbService = await ChatermDatabaseService.getInstance()
     const messages = await dbService.getSavedClineMessages(taskId)
@@ -52,7 +57,7 @@ export async function getSavedClineMessages(taskId: string): Promise<ChatermMess
   }
 }
 
-export async function saveClineMessages(taskId: string, uiMessages: ChatermMessage[]) {
+export async function saveChatermMessages(taskId: string, uiMessages: ChatermMessage[]) {
   try {
     const dbService = await ChatermDatabaseService.getInstance()
     await dbService.saveClineMessages(taskId, uiMessages)
