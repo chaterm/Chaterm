@@ -621,27 +621,22 @@ onMounted(async () => {
     console.error('Failed to get AI models:', err)
   }
 
+  let lastMessage = {
+    type: ''
+  }
+
   const removeListener = (window.api as any).onMainMessage((message: any) => {
     console.log('Received main process message:', message)
-
-    if (message?.type === 'partialMessage' && message.partialMessage?.text) {
-      if (message.partialMessage.partial) {
-        // 处理流式响应
-        // 追加内容到现有assistant消息
-        const lastAssistantMessage = chatHistory.at(-1)!
-        lastAssistantMessage.content += message.partialMessage.text
-
-        // 同步更新历史记录
-        const currentHistoryEntry = historyList.value.find(
-          (entry) => entry.id === currentChatId.value
-        )
-        if (currentHistoryEntry) {
-          const lastHistoryContent = currentHistoryEntry.chatContent.at(-1)
-          if (lastHistoryContent?.role === 'assistant') {
-            lastHistoryContent.content += message.partialMessage.text
-          }
-        }
-      } else {
+    if (message?.type === 'partialMessage') {
+      let openNewMessage = false
+      let lastAssistantMessage = chatHistory.at(-1)!
+      if (lastMessage?.type === 'state' || lastAssistantMessage?.role === 'user') {
+        openNewMessage = true
+      }
+      // 处理流式响应
+      // 追加内容到现有assistant消息
+      // 返回的内容如果和前一个相同，并且 partial 字段为 false，开启一个新的assistant消息
+      if (openNewMessage) {
         // 创建新的assistant消息
         chatHistory.push({
           id: uuidv4(),
@@ -651,6 +646,7 @@ onMounted(async () => {
           ask: message.partialMessage.type === 'ask' ? message.partialMessage.ask : '',
           say: message.partialMessage.type === 'say' ? message.partialMessage.say : ''
         } as ChatMessage)
+        lastAssistantMessage = chatHistory.at(-1)!
         // 同步更新历史记录
         const currentHistoryEntry = historyList.value.find(
           (entry) => entry.id === currentChatId.value
@@ -665,7 +661,19 @@ onMounted(async () => {
           } as ChatMessage)
         }
       }
+      lastAssistantMessage.content = message.partialMessage.text
+      // 同步更新历史记录
+      const currentHistoryEntry = historyList.value.find(
+        (entry) => entry.id === currentChatId.value
+      )
+      if (currentHistoryEntry) {
+        const lastHistoryContent = currentHistoryEntry.chatContent.at(-1)
+        if (lastHistoryContent?.role === 'assistant') {
+          lastHistoryContent.content = message.partialMessage.text
+        }
+      }
     }
+    lastMessage = message
     console.log('chatHistory', chatHistory)
   })
 
