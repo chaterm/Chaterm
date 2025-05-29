@@ -73,7 +73,7 @@ import {
   // ensureRulesDirectoryExists,
   ensureTaskExists,
   getSavedApiConversationHistory,
-  // getSavedChatermMessages,
+  getChatermMessages,
   saveApiConversationHistory,
   saveChatermMessages
 } from '@core/storage/disk'
@@ -228,13 +228,9 @@ export class Task {
     // this.browserSession.setTaskId(this.taskId)
 
     // Continue with task initialization
-    // if (historyItem) {
-    // 	this.resumeTaskFromHistory()
-    // } else if (task) {
-    // 	this.startTask(task)
-    // }
-
-    if (task) {
+    if (historyItem) {
+      this.resumeTaskFromHistory()
+    } else if (task) {
       this.startTask(task)
     }
 
@@ -308,16 +304,15 @@ export class Task {
             (m) => !(m.ask === 'resume_task' || m.ask === 'resume_completed_task')
           )
         ]
-      // const taskDir = await ensureTaskExists(this.getContext(), this.taskId)
-      const taskDir = await ensureTaskExists(this.taskId)
-      let taskDirSize = 0
-      try {
-        // getFolderSize.loose silently ignores errors
-        // returns # of bytes, size/1000/1000 = MB
-        taskDirSize = await getFolderSize.loose(taskDir)
-      } catch (error) {
-        console.error('Failed to get task directory size:', taskDir, error)
-      }
+      // const taskDir = await ensureTaskExists(this.taskId)
+      // let taskDirSize = 0
+      // try {
+      //   // getFolderSize.loose silently ignores errors
+      //   // returns # of bytes, size/1000/1000 = MB
+      //   taskDirSize = await getFolderSize.loose(taskDir)
+      // } catch (error) {
+      //   console.error('Failed to get task directory size:', taskDir, error)
+      // }
       await this.updateTaskHistory({
         id: this.taskId,
         ts: lastRelevantMessage.ts,
@@ -327,7 +322,8 @@ export class Task {
         cacheWrites: apiMetrics.totalCacheWrites,
         cacheReads: apiMetrics.totalCacheReads,
         totalCost: apiMetrics.totalCost,
-        size: taskDirSize,
+        // size: taskDirSize,
+        size: 0, // TODO:暂时设置为0，以后考虑更改或移除
         //shadowGitConfigWorkTree: await this.checkpointTracker?.getShadowGitConfigWorkTree(),
         conversationHistoryDeletedRange: this.conversationHistoryDeletedRange,
         isFavorited: this.taskIsFavorited
@@ -667,159 +663,136 @@ export class Task {
     ])
   }
 
-  // private async resumeTaskFromHistory() {
-  // 	try {
-  // 		await this.clineIgnoreController.initialize()
-  // 	} catch (error) {
-  // 		console.error("Failed to initialize ClineIgnoreController:", error)
-  // 		// Optionally, inform the user or handle the error appropriately
-  // 	}
-  // 	// UPDATE: we don't need this anymore since most tasks are now created with checkpoints enabled
-  // 	// right now we let users init checkpoints for old tasks, assuming they're continuing them from the same workspace (which we never tied to tasks, so no way for us to know if it's opened in the right workspace)
-  // 	// const doesShadowGitExist = await CheckpointTracker.doesShadowGitExist(this.taskId, this.controllerRef.deref())
-  // 	// if (!doesShadowGitExist) {
-  // 	// 	this.checkpointTrackerErrorMessage = "Checkpoints are only available for new tasks"
-  // 	// }
+  private async resumeTaskFromHistory() {
+    const modifiedChatermMessages = await getChatermMessages(this.taskId)
 
-  // 	const modifiedClineMessages = await getSavedChatermMessages(this.getContext(), this.taskId)
+    // Remove any resume messages that may have been added before
+    const lastRelevantMessageIndex = findLastIndex(
+      modifiedChatermMessages,
+      (m) => !(m.ask === 'resume_task' || m.ask === 'resume_completed_task')
+    )
+    if (lastRelevantMessageIndex !== -1) {
+      modifiedChatermMessages.splice(lastRelevantMessageIndex + 1)
+    }
 
-  // 	// Remove any resume messages that may have been added before
-  // 	const lastRelevantMessageIndex = findLastIndex(
-  // 		modifiedClineMessages,
-  // 		(m) => !(m.ask === "resume_task" || m.ask === "resume_completed_task"),
-  // 	)
-  // 	if (lastRelevantMessageIndex !== -1) {
-  // 		modifiedClineMessages.splice(lastRelevantMessageIndex + 1)
-  // 	}
+    // since we don't use api_req_finished anymore, we need to check if the last api_req_started has a cost value, if it doesn't and no cancellation reason to present, then we remove it since it indicates an api request without any partial content streamed
+    const lastApiReqStartedIndex = findLastIndex(
+      modifiedChatermMessages,
+      (m) => m.type === 'say' && m.say === 'api_req_started'
+    )
+    if (lastApiReqStartedIndex !== -1) {
+      const lastApiReqStarted = modifiedChatermMessages[lastApiReqStartedIndex]
+      const { cost, cancelReason }: ChatermApiReqInfo = JSON.parse(lastApiReqStarted.text || '{}')
+      if (cost === undefined && cancelReason === undefined) {
+        modifiedChatermMessages.splice(lastApiReqStartedIndex, 1)
+      }
+    }
 
-  // 	// since we don't use api_req_finished anymore, we need to check if the last api_req_started has a cost value, if it doesn't and no cancellation reason to present, then we remove it since it indicates an api request without any partial content streamed
-  // 	const lastApiReqStartedIndex = findLastIndex(
-  // 		modifiedClineMessages,
-  // 		(m) => m.type === "say" && m.say === "api_req_started",
-  // 	)
-  // 	if (lastApiReqStartedIndex !== -1) {
-  // 		const lastApiReqStarted = modifiedClineMessages[lastApiReqStartedIndex]
-  // 		const { cost, cancelReason }: ClineApiReqInfo = JSON.parse(lastApiReqStarted.text || "{}")
-  // 		if (cost === undefined && cancelReason === undefined) {
-  // 			modifiedClineMessages.splice(lastApiReqStartedIndex, 1)
-  // 		}
-  // 	}
+    await this.overwriteChatermMessages(modifiedChatermMessages)
+    this.chatermMessages = await getChatermMessages(this.taskId)
 
-  // 	await this.overwriteClineMessages(modifiedClineMessages)
-  // 	this.clineMessages = await getSavedChatermMessages(this.getContext(), this.taskId)
+    // Now present the cline messages to the user and ask if they want to resume (NOTE: we ran into a bug before where the apiconversationhistory wouldn't be initialized when opening a old task, and it was because we were waiting for resume)
+    // This is important in case the user deletes messages without resuming the task first
+    this.apiConversationHistory = await getSavedApiConversationHistory(this.taskId)
 
-  // 	// Now present the cline messages to the user and ask if they want to resume (NOTE: we ran into a bug before where the apiconversationhistory wouldn't be initialized when opening a old task, and it was because we were waiting for resume)
-  // 	// This is important in case the user deletes messages without resuming the task first
-  // 	this.apiConversationHistory = await getSavedApiConversationHistory(this.getContext(), this.taskId)
+    // load the context history state
+    await this.contextManager.initializeContextHistory(this.taskId)
 
-  // 	// load the context history state
-  // 	await this.contextManager.initializeContextHistory(await ensureTaskExists(this.getContext(), this.taskId))
+    const lastChatermMessage = this.chatermMessages
+      .slice()
+      .reverse()
+      .find((m) => !(m.ask === 'resume_task' || m.ask === 'resume_completed_task')) // could be multiple resume tasks
 
-  // 	const lastClineMessage = this.clineMessages
-  // 		.slice()
-  // 		.reverse()
-  // 		.find((m) => !(m.ask === "resume_task" || m.ask === "resume_completed_task")) // could be multiple resume tasks
+    // let askType: ChatermAsk
+    // if (lastChatermMessage?.ask === 'completion_result') {
+    //   askType = 'resume_completed_task'
+    // } else {
+    //   askType = 'resume_task'
+    // }
 
-  // 	let askType: ClineAsk
-  // 	if (lastClineMessage?.ask === "completion_result") {
-  // 		askType = "resume_completed_task"
-  // 	} else {
-  // 		askType = "resume_task"
-  // 	}
+    // this.isInitialized = true
 
-  // 	this.isInitialized = true
+    // const { response, text } = await this.ask(askType) // calls poststatetowebview
+    // let responseText: string | undefined
+    // if (response === 'messageResponse') {
+    //   await this.say('user_feedback', text)
+    //   responseText = text
+    // }
 
-  // 	const { response, text, images } = await this.ask(askType) // calls poststatetowebview
-  // 	let responseText: string | undefined
-  // 	let responseImages: string[] | undefined
-  // 	if (response === "messageResponse") {
-  // 		await this.say("user_feedback", text, images)
-  // 		await this.saveCheckpoint()ß
-  // 		responseText = text
-  // 		responseImages = images
-  // 	}
+    // need to make sure that the api conversation history can be resumed by the api, even if it goes out of sync with cline messages
 
-  // 	// need to make sure that the api conversation history can be resumed by the api, even if it goes out of sync with cline messages
+    const existingApiConversationHistory: Anthropic.Messages.MessageParam[] =
+      await getSavedApiConversationHistory(this.taskId)
 
-  // 	const existingApiConversationHistory: Anthropic.Messages.MessageParam[] = await getSavedApiConversationHistory(
-  // 		this.getContext(),
-  // 		this.taskId,
-  // 	)
+    // Remove the last user message so we can update it with the resume message
+    let modifiedOldUserContent: UserContent // either the last message if its user message, or the user message before the last (assistant) message
+    let modifiedApiConversationHistory: Anthropic.Messages.MessageParam[] // need to remove the last user message to replace with new modified user message
+    if (existingApiConversationHistory.length > 0) {
+      const lastMessage = existingApiConversationHistory[existingApiConversationHistory.length - 1]
+      if (lastMessage.role === 'assistant') {
+        modifiedApiConversationHistory = [...existingApiConversationHistory]
+        modifiedOldUserContent = []
+      } else if (lastMessage.role === 'user') {
+        const existingUserContent: UserContent = Array.isArray(lastMessage.content)
+          ? lastMessage.content
+          : [{ type: 'text', text: lastMessage.content }]
+        modifiedApiConversationHistory = existingApiConversationHistory.slice(0, -1)
+        modifiedOldUserContent = [...existingUserContent]
+      } else {
+        throw new Error('Unexpected: Last message is not a user or assistant message')
+      }
+    } else {
+      throw new Error('Unexpected: No existing API conversation history')
+    }
 
-  // 	// Remove the last user message so we can update it with the resume message
-  // 	let modifiedOldUserContent: UserContent // either the last message if its user message, or the user message before the last (assistant) message
-  // 	let modifiedApiConversationHistory: Anthropic.Messages.MessageParam[] // need to remove the last user message to replace with new modified user message
-  // 	if (existingApiConversationHistory.length > 0) {
-  // 		const lastMessage = existingApiConversationHistory[existingApiConversationHistory.length - 1]
-  // 		if (lastMessage.role === "assistant") {
-  // 			modifiedApiConversationHistory = [...existingApiConversationHistory]
-  // 			modifiedOldUserContent = []
-  // 		} else if (lastMessage.role === "user") {
-  // 			const existingUserContent: UserContent = Array.isArray(lastMessage.content)
-  // 				? lastMessage.content
-  // 				: [{ type: "text", text: lastMessage.content }]
-  // 			modifiedApiConversationHistory = existingApiConversationHistory.slice(0, -1)
-  // 			modifiedOldUserContent = [...existingUserContent]
-  // 		} else {
-  // 			throw new Error("Unexpected: Last message is not a user or assistant message")
-  // 		}
-  // 	} else {
-  // 		throw new Error("Unexpected: No existing API conversation history")
-  // 	}
+    let newUserContent: UserContent = [...modifiedOldUserContent]
 
-  // 	let newUserContent: UserContent = [...modifiedOldUserContent]
+    const agoText = (() => {
+      const timestamp = lastChatermMessage?.ts ?? Date.now()
+      const now = Date.now()
+      const diff = now - timestamp
+      const minutes = Math.floor(diff / 60000)
+      const hours = Math.floor(minutes / 60)
+      const days = Math.floor(hours / 24)
 
-  // 	const agoText = (() => {
-  // 		const timestamp = lastClineMessage?.ts ?? Date.now()
-  // 		const now = Date.now()
-  // 		const diff = now - timestamp
-  // 		const minutes = Math.floor(diff / 60000)
-  // 		const hours = Math.floor(minutes / 60)
-  // 		const days = Math.floor(hours / 24)
+      if (days > 0) {
+        return `${days} day${days > 1 ? 's' : ''} ago`
+      }
+      if (hours > 0) {
+        return `${hours} hour${hours > 1 ? 's' : ''} ago`
+      }
+      if (minutes > 0) {
+        return `${minutes} minute${minutes > 1 ? 's' : ''} ago`
+      }
+      return 'just now'
+    })()
 
-  // 		if (days > 0) {
-  // 			return `${days} day${days > 1 ? "s" : ""} ago`
-  // 		}
-  // 		if (hours > 0) {
-  // 			return `${hours} hour${hours > 1 ? "s" : ""} ago`
-  // 		}
-  // 		if (minutes > 0) {
-  // 			return `${minutes} minute${minutes > 1 ? "s" : ""} ago`
-  // 		}
-  // 		return "just now"
-  // 	})()
+    const wasRecent = lastChatermMessage?.ts && Date.now() - lastChatermMessage.ts < 30_000
 
-  // 	const wasRecent = lastClineMessage?.ts && Date.now() - lastClineMessage.ts < 30_000
+    const taskResumptionMessage = formatResponse.taskResumption(
+      this.chatSettings?.mode === 'cmd' ? 'cmd' : 'agent', // TODO:修改
+      agoText,
+      cwd,
+      wasRecent
+    )
 
-  // 	const [taskResumptionMessage, userResponseMessage] = formatResponse.taskResumption(
-  // 		// this.chatSettings?.mode === "plan" ? "plan" : "act",
-  // 		agoText,
-  // 		cwd,
-  // 		wasRecent,
-  // 		responseText,
-  // 	)
+    if (taskResumptionMessage !== '') {
+      newUserContent.push({
+        type: 'text',
+        text: taskResumptionMessage
+      })
+    }
 
-  // 	if (taskResumptionMessage !== "") {
-  // 		newUserContent.push({
-  // 			type: "text",
-  // 			text: taskResumptionMessage,
-  // 		})
-  // 	}
+    // if (userResponseMessage !== '') {
+    //   newUserContent.push({
+    //     type: 'text',
+    //     text: userResponseMessage
+    //   })
+    // }
 
-  // 	if (userResponseMessage !== "") {
-  // 		newUserContent.push({
-  // 			type: "text",
-  // 			text: userResponseMessage,
-  // 		})
-  // 	}
-
-  // 	if (responseImages && responseImages.length > 0) {
-  // 		newUserContent.push(...formatResponse.imageBlocks(responseImages))
-  // 	}
-
-  // 	await this.overwriteApiConversationHistory(modifiedApiConversationHistory)
-  // 	await this.initiateTaskLoop(newUserContent)
-  // }
+    await this.overwriteApiConversationHistory(modifiedApiConversationHistory)
+    await this.initiateTaskLoop(newUserContent)
+  }
 
   private async initiateTaskLoop(userContent: UserContent): Promise<void> {
     let nextUserContent = userContent
@@ -1319,7 +1292,7 @@ export class Task {
       this.api,
       this.conversationHistoryDeletedRange,
       previousApiReqIndex,
-      await ensureTaskExists(this.taskId)
+      this.taskId
     )
 
     if (contextManagementMetadata.updatedConversationHistoryDeletedRange) {
@@ -1357,8 +1330,7 @@ export class Task {
         await this.saveChatermMessagesAndUpdateHistory()
         await this.contextManager.triggerApplyStandardContextTruncationNoticeChange(
           Date.now(),
-          // await ensureTaskExists(this.getContext(), this.taskId),
-          await ensureTaskExists(this.taskId)
+          this.taskId
         )
 
         this.didAutomaticallyRetryFailedApiRequest = true
@@ -2772,8 +2744,7 @@ export class Task {
                   await this.saveChatermMessagesAndUpdateHistory()
                   await this.contextManager.triggerApplyStandardContextTruncationNoticeChange(
                     Date.now(),
-                    // await ensureTaskExists(this.getContext(), this.taskId),
-                    await ensureTaskExists(this.taskId)
+                    this.taskId
                   )
                 }
                 await this.saveCheckpoint()
