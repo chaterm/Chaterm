@@ -90,7 +90,7 @@ async function testDiskMigration() {
     }
 
     await dbService.saveContextHistory(testTaskId, testContextHistory)
-    const retrievedContextHistory = await dbService.getSavedContextHistory(testTaskId)
+    const retrievedContextHistory = await dbService.getContextHistory(testTaskId)
     console.log('上下文历史保存和读取成功:', retrievedContextHistory !== null)
 
     console.log('所有测试通过！数据库迁移成功。')

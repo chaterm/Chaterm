@@ -21,21 +21,34 @@ export async function executeRemoteCommand() {
   
 
   // 使用指定的连接信息
-  const connectionInfo: ConnectionInfo = {
-    host: '127.0.0.1',
-    port: 2222,
-    username: 'root',
-    password: '', // 如果使用私钥，密码通常为空
-    privateKey: `-----BEGIN OPENSSH PRIVATE KEY-----
-b3BlbnNzaC1rZXktdjEAAAAABG5vbmUAAAAEbm9uZQAAAAAAAAABAAAAMwAAAAtzc2gtZW
-QyNTUxOQAAACDJqVbjzi15L+3tUqdBG02PZ5KNZ+ZgWJ2vh/IxpA3uVAAAAKBCN/ObQjfz
-mwAAAAtzc2gtZWQyNTUxOQAAACDJqVbjzi15L+3tUqdBG02PZ5KNZ+ZgWJ2vh/IxpA3uVA
-AAAECN0lht9B1lfiIpeM5eNB5LNhJQAEWgpGg9CjThPAjUzcmpVuPOLXkv7e1Sp0EbTY9n
-ko1n5mBYna+H8jGkDe5UAAAAGXh1aG9uZ195YW9ASEhOQjIwMjQwMjAwNDMBAgME
------END OPENSSH PRIVATE KEY-----`, 
-    passphrase: ''
-  }
-  const cwd = '/home/fish'
+//   const connectionInfo: ConnectionInfo = {
+//     host: '127.0.0.1',
+//     port: 2222,
+//     username: 'root',
+//     password: '', // 如果使用私钥，密码通常为空
+//     privateKey: `-----BEGIN OPENSSH PRIVATE KEY-----
+// b3BlbnNzaC1rZXktdjEAAAAABG5vbmUAAAAEbm9uZQAAAAAAAAABAAAAMwAAAAtzc2gtZW
+// QyNTUxOQAAACDJqVbjzi15L+3tUqdBG02PZ5KNZ+ZgWJ2vh/IxpA3uVAAAAKBCN/ObQjfz
+// mwAAAAtzc2gtZWQyNTUxOQAAACDJqVbjzi15L+3tUqdBG02PZ5KNZ+ZgWJ2vh/IxpA3uVA
+// AAAECN0lht9B1lfiIpeM5eNB5LNhJQAEWgpGg9CjThPAjUzcmpVuPOLXkv7e1Sp0EbTY9n
+// ko1n5mBYna+H8jGkDe5UAAAAGXh1aG9uZ195YW9ASEhOQjIwMjQwMjAwNDMBAgME
+// -----END OPENSSH PRIVATE KEY-----`, 
+//     passphrase: ''
+//   }
+const connectionInfo: ConnectionInfo = {
+      host: '49.235.159.86',
+      port: 22,
+      username: 'test',
+      password: 'HsAyC3AT',
+      privateKey: ``, 
+      passphrase: ''
+    }
+
+  
+
+
+
+  const cwd = '/home'
   const remoteManager = new RemoteTerminalManager()
   
   try {
@@ -50,7 +63,7 @@ ko1n5mBYna+H8jGkDe5UAAAAGXh1aG9uZ195YW9ASEhOQjIwMjQwMjAwNDMBAgME
     const terminalInfo = await remoteManager.createTerminal()
     
     // 执行一个简单的测试命令
-    const command = 'cat  /home/fish/sggfsd.txt'
+    const command = 'ls /home'
     console.log(`执行命令: ${command}`)
     
     console.log('调用 runCommand...')
