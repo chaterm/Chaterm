@@ -1,5 +1,8 @@
 // vscode-mock.ts - VSCode API mock for Electron environment
 
+export class TabInputText {
+  constructor(public uri: Uri) {}
+}
 // 添加 LanguageModelAccessInformation 接口
 export interface LanguageModelAccessInformation {
   onDidChange: (listener: () => void) => { dispose(): void }
@@ -306,7 +309,46 @@ export const workspace = {
     writeFile: async (uri: Uri, content: Uint8Array) => {},
     delete: async (uri: Uri) => {},
     rename: async (source: Uri, target: Uri) => {}
-  } as FileSystem
+  } as FileSystem,
+  openTextDocument: async (uri: Uri): Promise<TextDocument> => {
+    return {
+      uri: uri,
+      fileName: uri.fsPath,
+      isUntitled: false,
+      languageId: 'plaintext',
+      version: 1,
+      isDirty: false,
+      isClosed: false,
+      save: async () => true,
+      eol: EndOfLine.LF,
+      lineCount: 1,
+      getText: () => '',
+      getWordRangeAtPosition: () => undefined,
+      validateRange: (range: Range) => range,
+      validatePosition: (position: Position) => position,
+      offsetAt: () => 0,
+      positionAt: () => new Position(0, 0)
+    }
+  },
+  createFileSystemWatcher: (
+    globPattern: string | RelativePattern,
+    ignoreCreateEvents?: boolean,
+    ignoreChangeEvents?: boolean,
+    ignoreDeleteEvents?: boolean
+  ): FileSystemWatcher => {
+    return {
+      onDidCreate: (listener: (uri: Uri) => void) => {
+        return { dispose: () => {} }
+      },
+      onDidChange: (listener: (uri: Uri) => void) => {
+        return { dispose: () => {} }
+      },
+      onDidDelete: (listener: (uri: Uri) => void) => {
+        return { dispose: () => {} }
+      },
+      dispose: () => {}
+    }
+  }
 }
 
 // Language Model API mock (基于之前提供的文件中的定义)
@@ -647,6 +689,10 @@ export interface ThemeColor {
   id: string
 }
 
+export class ThemeIcon {
+  constructor(public readonly id: string) {}
+}
+
 export enum TextEditorCursorStyle {
   Line = 1,
   Block = 2,
@@ -669,10 +715,6 @@ export enum TextEditorRevealType {
   AtTop = 3
 }
 
-export interface TabInputText {
-  uri: Uri
-}
-
 export interface Tab {
   input: TabInputText | any
   isDirty: boolean
@@ -680,6 +722,27 @@ export interface Tab {
 
 export interface TabGroup {
   tabs: Tab[]
+}
+
+// Terminal 相关接口
+export interface Terminal {
+  name: string
+  processId: Thenable<number | undefined>
+  creationOptions: any
+  exitStatus: { code: number | undefined; reason: TerminalExitReason } | undefined
+  state: { isInteractedWith: boolean }
+  sendText(text: string, addNewLine?: boolean): void
+  show(preserveFocus?: boolean): void
+  hide(): void
+  dispose(): void
+}
+
+export enum TerminalExitReason {
+  Unknown = 0,
+  Shutdown = 1,
+  Process = 2,
+  User = 3,
+  Extension = 4
 }
 
 // Window API mock
@@ -796,7 +859,7 @@ export const window = {
       dispose: () => {}
     }
   },
-  createTerminal: (options?: any) => {
+  createTerminal: (options?: any): Terminal => {
     return {
       name: options?.name || 'Terminal',
       processId: Promise.resolve(1234),
@@ -811,7 +874,7 @@ export const window = {
       dispose: () => {}
     }
   },
-  terminals: [] as any[],
+  terminals: [] as Terminal[],
   onDidOpenTerminal: (listener: (e: any) => void) => {
     return { dispose: () => {} }
   },
@@ -1040,6 +1103,22 @@ export interface FileSystem {
   rename(source: Uri, target: Uri): Promise<void>
 }
 
+// 添加 FileSystemWatcher 接口
+export interface FileSystemWatcher {
+  onDidCreate: (listener: (uri: Uri) => void) => { dispose(): void }
+  onDidChange: (listener: (uri: Uri) => void) => { dispose(): void }
+  onDidDelete: (listener: (uri: Uri) => void) => { dispose(): void }
+  dispose(): void
+}
+
+// 添加 RelativePattern 类
+export class RelativePattern {
+  constructor(
+    public base: string | Uri | WorkspaceFolder,
+    public pattern: string
+  ) {}
+}
+
 // 添加 OutputChannel 接口
 export interface OutputChannel {
   name: string
@@ -1098,5 +1177,9 @@ export default {
   LanguageModelChatMessage,
   ExtensionKind,
   FileType,
-  DiagnosticSeverity
+  DiagnosticSeverity,
+  ThemeIcon,
+  TerminalExitReason,
+  TabInputText,
+  RelativePattern
 }
