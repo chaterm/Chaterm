@@ -739,6 +739,7 @@ onMounted(async () => {
     console.log('chatHistory', chatHistory)
   })
 })
+})
 
 onUnmounted(() => {
   if (typeof removeListener === 'function') {
