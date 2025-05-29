@@ -1321,7 +1321,6 @@ export class Task {
       this.api,
       this.conversationHistoryDeletedRange,
       previousApiReqIndex,
-      //await ensureTaskExists(this.getContext(), this.taskId),
       await ensureTaskExists(this.taskId)
     )
 
