@@ -649,6 +649,18 @@ export class ChatermDatabaseService {
   }
 
   // Agent API对话历史相关方法
+
+ async deleteChatermHistoryByTaskId(taskId: string): Promise<void> {
+    try {
+      this.db.prepare(`DELETE FROM agent_api_conversation_history_v1 WHERE task_id = ?`).run(taskId)
+      this.db.prepare(`DELETE FROM agent_ui_messages_v1 WHERE task_id = ?`).run(taskId)
+      this.db.prepare(`DELETE FROM agent_task_metadata_v1 WHERE task_id = ?`).run(taskId)
+      this.db.prepare(`DELETE FROM agent_context_history_v1 WHERE task_id = ?`).run(taskId)
+    } catch (error) {
+      console.error('Failed to delete API conversation history:', error)
+    }
+  }
+
   async getApiConversationHistory(taskId: string): Promise<any[]> {
     try {
       const stmt = this.db.prepare(`
@@ -772,7 +784,7 @@ export class ChatermDatabaseService {
   }
 
   // Agent UI消息相关方法
-  async getSavedClineMessages(taskId: string): Promise<any[]> {
+  async getSavedChatermMessages(taskId: string): Promise<any[]> {
     try {
       const stmt = this.db.prepare(`
         SELECT ts, type, ask_type, say_type, text, reasoning, images, partial, 
@@ -807,7 +819,7 @@ export class ChatermDatabaseService {
     }
   }
 
-  async saveClineMessages(taskId: string, uiMessages: any[]): Promise<void> {
+  async saveChatermMessages(taskId: string, uiMessages: any[]): Promise<void> {
     try {
       this.db.transaction(() => {
         // 清除现有记录
@@ -1192,4 +1204,10 @@ export class autoCompleteDatabaseService {
     })()
     return result
   }
+}
+
+// 导出连接资产信息的便捷函数
+export async function connectAssetInfo(uuid: string): Promise<any> {
+  const service = await ChatermDatabaseService.getInstance()
+  return service.connectAssetInfo(uuid)
 }

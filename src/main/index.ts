@@ -523,6 +523,16 @@ ipcMain.handle('chaterm-connect-asset-info', async (_, data) => {
   }
 })
 
+ipcMain.handle('agent-chaterm-messages', async (_, data) => {
+  try {
+    const { taskId } = data
+    const result = chatermDbService.getSavedChatermMessages(taskId)
+    return result
+  } catch (error) {
+    console.error('Chaterm获取UI消息失败:', error)
+    return null
+  }
+})
 
 // 这段代码是新增的，用于处理来自渲染进程的调用
 ipcMain.handle('execute-remote-command', async () => {

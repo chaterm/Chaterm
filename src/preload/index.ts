@@ -283,6 +283,14 @@ const connectAssetInfo = async (data: { uuid: string }) => {
     return Promise.reject(error)
   }
 }
+const chatermGetChatermMessages = async (data: { taskId: string }) => {
+  try {
+    const result = await ipcRenderer.invoke('agent-chaterm-messages', data)
+    return result
+  } catch (error) {
+    return Promise.reject(error)
+  }
+}
 
 const getPlatform = () => ipcRenderer.invoke('get-platform')
 const invokeCustomAdsorption = (data: { appX: number; appY: number }) =>
@@ -316,6 +324,7 @@ const api = {
   getKeyChainInfo,
   updateKeyChain,
   connectAssetInfo,
+  chatermGetChatermMessages,
   openBrowserWindow: (url: string): void => {
     ipcRenderer.send('open-browser-window', url)
   },
@@ -378,6 +387,7 @@ const api = {
     const result = await ipcRenderer.invoke('chaterm-connect-asset-info', data)
     return result
   },
+
   sendToMain: (message: any) => ipcRenderer.invoke('webview-to-main', message),
   onMainMessage: (callback) => {
     const handler = (_event, message) => callback(message)

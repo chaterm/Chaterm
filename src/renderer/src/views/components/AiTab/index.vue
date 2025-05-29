@@ -1,4 +1,11 @@
 <template>
+  <a-button 
+    @click="handleGetAssetInfo" 
+    :loading="isGettingAssetInfo"
+    type="primary"
+  >
+   获取到当前的活跃tab的资产信息
+  </a-button>
   <a-tabs
     v-model:active-key="activeKey"
     class="ai-chat-custom-tabs ai-chat-flex-container"
@@ -202,6 +209,7 @@ import { getAiModel, getChatDetailList, getConversationList } from '@/api/ai/ai'
 import eventBus from '@/utils/eventBus'
 import { updateGlobalState, getGlobalState } from '@renderer/agent/storage/state'
 
+import { ChatermMessage } from 'src/main/agent/shared/ExtensionMessage'
 interface HistoryItem {
   id: string
   chatTitle: string
@@ -231,6 +239,14 @@ interface ChatMessage {
   timestamp?: number
 }
 
+interface AssetInfo {
+  uuid: string
+  title: string
+  ip?: string
+  organizationId?: string
+  type?: string
+}
+
 const chatHistory = reactive<ChatMessage[]>([])
 const webSocket = ref<WebSocket | null>(null)
 
@@ -252,6 +268,58 @@ const AiTypeOptions = [
   { label: 'Cmd', value: 'ctm-cmd' },
   { label: 'Agent', value: 'ctm-agent' }
 ]
+
+const isGettingAssetInfo = ref(false)
+
+const getChatermMessages = async () => {
+   
+  const result = await (window.api as any).chatermGetChatermMessages({ taskId: currentChatId.value })
+ 
+  const messages = result as ChatermMessage[]
+  console.log('result', messages)
+ 
+}
+
+const getCurentTabAssetInfo = async () => {  
+  try {
+    // 创建一个Promise来等待assetInfoResult事件
+    const assetInfo = await new Promise((resolve, reject) => {
+      // 设置超时
+      const timeout = setTimeout(() => {
+        eventBus.off('assetInfoResult', handleResult)
+        reject(new Error('获取资产信息超时'))
+      }, 5000) // 5秒超时
+      
+      // 监听结果事件
+      const handleResult = (result: any) => {
+        clearTimeout(timeout)
+        eventBus.off('assetInfoResult', handleResult)
+        resolve(result)
+      }
+      eventBus.on('assetInfoResult', handleResult)
+      
+      // 发出请求事件
+      eventBus.emit('getActiveTabAssetInfo')
+    })
+    
+    // 直接在这里处理结果
+    if (assetInfo) {
+      console.log('获取到资产信息:', assetInfo)
+      return assetInfo
+    } else {
+      console.error('未能获取到当前标签页的资产信息:')
+      notification.warning({
+        message: '资产信息获取失败',
+        description: '未能获取到当前标签页的资产信息',
+        duration: 3
+      })
+      return null
+    }
+  } catch (error) {
+    console.error('获取资产信息时发生错误:', error)
+    return null
+  }
+}
 
 // 切换标签时候，当前的对话ID修改为对应的chat tag的id
 const handleTabChange = (key: string | number) => {
@@ -700,6 +768,9 @@ const saveAgentHistory = async (message: ChatMessage) => {
   }
 }
 
+// 声明removeListener变量
+let removeListener: (() => void) | null = null
+
 // 修改 onMounted 中的初始化代码
 onMounted(async () => {
   authTokenInCookie.value = localStorage.getItem('ctm-token')
@@ -727,6 +798,7 @@ onMounted(async () => {
     console.error('Failed to get AI models:', err)
   }
 
+  removeListener = (window.api as any).onMainMessage((message: any) => {
   let lastMessage = {
     type: '',
     text: '',
@@ -812,12 +884,13 @@ onMounted(async () => {
       }
     }
   })
+})
+})
 
-  onUnmounted(() => {
-    if (typeof removeListener === 'function') {
-      removeListener()
-    }
-  })
+onUnmounted(() => {
+  if (typeof removeListener === 'function') {
+    removeListener()
+  }
 })
 
 // 添加发送消息到主进程的方法
@@ -868,6 +941,34 @@ watch(
   },
   { deep: true }
 )
+
+const handleGetAssetInfo = async () => {
+  isGettingAssetInfo.value = true
+  try {
+    const assetInfo = await getCurentTabAssetInfo()
+    if (assetInfo && typeof assetInfo === 'object' && 'uuid' in assetInfo) {
+      const typedAssetInfo = assetInfo as AssetInfo
+      console.log('获取到当前活跃标签页信息:', typedAssetInfo)
+      
+      notification.success({
+        message: '获取标签页信息成功',
+        description: `当前标签页: ${typedAssetInfo.title} (UUID: ${typedAssetInfo.uuid})`,
+        duration: 3
+      })
+      // 这里可以将assetInfo用于AI对话或其他用途
+      return typedAssetInfo
+    }
+  } catch (error) {
+    console.error('获取标签页信息失败:', error)
+    notification.error({
+      message: '获取标签页信息失败',
+      description: error instanceof Error ? error.message : '未知错误',
+      duration: 3
+    })
+  } finally {
+    isGettingAssetInfo.value = false
+  }
+}
 </script>
 
 <style lang="less" scoped>

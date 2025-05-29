@@ -105,6 +105,7 @@ onMounted(() => {
   window.addEventListener('resize', updatePaneSize)
   aliasConfig.initialize()
   eventBus.on('currentClickServer', currentClickServer)
+  eventBus.on('getActiveTabAssetInfo', handleGetActiveTabAssetInfo)
 })
 const timer = ref<number | null>(null)
 watch(rightSize, () => {
@@ -208,6 +209,8 @@ interface formData {
   privateKeyPath: string
   authType: string
   passphrase: string
+  uuid?: string; // 添加可选的 uuid
+  key?: string; // 添加可选的 key
 }
 
 interface TabItem {
@@ -217,7 +220,7 @@ interface TabItem {
   type: string // 可选属性
   organizationId: string
   ip: string
-  data: formData
+  data: any // 改为 any 以容纳不同结构，或者使用联合类型
 }
 
 // 已打开的标签页
@@ -229,7 +232,14 @@ const currentClickServer = async (item) => {
   console.log(item, 'item')
   if (item.children) return
 
-  // if (existingTabIndex === -1) {
+  // 检查是否已存在基于 item.key (或 item.id, 如果 key 不唯一) 的标签页
+  // 这里假设 item.key 是唯一的标识符，如果不是，需要用 item.uuid 或其他唯一ID
+  const existingTab = openedTabs.value.find(tab => tab.data?.key === item.key && tab.type === (item.type || 'term'));
+  if (existingTab) {
+    activeTabId.value = existingTab.id;
+    return;
+  }
+
   const id_ = uuidv4()
   openedTabs.value.push({
     id: id_,
@@ -251,19 +261,17 @@ const closeTab = (tabId) => {
   const closedTab = openedTabs.value[index]
   if (index !== -1) {
     openedTabs.value.splice(index, 1)
-    // 如果关闭的是当前激活的标签页，则需要激活其他标签页
     if (activeTabId.value === tabId) {
       if (openedTabs.value.length > 0) {
-        // 优先激活右侧标签页，如果没有则激活左侧标签页
-        const newActiveIndex = index < openedTabs.value.length ? index : index - 1
+        const newActiveIndex = Math.max(0, index -1) // 确保索引不为负
         activeTabId.value = openedTabs.value[newActiveIndex].id
       } else {
         activeTabId.value = ''
       }
     }
-    if (closedTab.type === 'extensions') {
-      // 在数据更新后，通知插件页面更改active key
-      extensionsRef.value?.handleExplorerActive(closedTab.content)
+    // 如果关闭的是扩展标签页，并且 extensionsRef 存在，则调用 handleExplorerActive
+    if (closedTab.type === 'extensions' && extensionsRef.value && closedTab.data?.key) {
+      extensionsRef.value.handleExplorerActive(closedTab.data.key)
     }
   }
 }
@@ -282,6 +290,7 @@ onUnmounted(() => {
   // 清理事件监听
   window.removeEventListener('resize', updatePaneSize)
   eventBus.off('currentClickServer', currentClickServer)
+  eventBus.off('getActiveTabAssetInfo', handleGetActiveTabAssetInfo)
 })
 const openUserTab = function (value) {
   activeKey.value = value
@@ -302,6 +311,45 @@ const openUserTab = function (value) {
 const changeCompany = () => {
   openedTabs.value = []
 }
+
+// 新增函数：获取当前活动标签页的资产信息
+const getActiveTabAssetInfo = async () => {
+  if (!activeTabId.value) {
+    console.warn('No active tab selected.')
+    return null
+  }
+  const activeTab = openedTabs.value.find(tab => tab.id === activeTabId.value)
+  if (!activeTab) {
+    console.warn('Active tab not found in openedTabs.')
+    return null
+  }
+
+  const uuid = activeTab.data?.uuid
+
+  if (!uuid) {
+    return null
+  }
+  return {
+    uuid: uuid,
+    title: activeTab.title,
+    ip: activeTab.ip,
+    organizationId: activeTab.organizationId,
+    type: activeTab.type
+  }
+}
+
+// 处理eventBus的getActiveTabAssetInfo事件
+const handleGetActiveTabAssetInfo = async () => {
+  const assetInfo = await getActiveTabAssetInfo()
+  eventBus.emit('assetInfoResult', assetInfo)
+}
+
+defineExpose({
+  resizeTerm: () => {
+    allTabs.value?.resizeTerm()
+  },
+  getActiveTabAssetInfo
+})
 </script>
 <style lang="less">
 .terminal-layout {
