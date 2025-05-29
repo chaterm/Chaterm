@@ -1,6 +1,6 @@
 import { getContextWindowInfo } from './context-window-utils'
 import { formatResponse } from '../../prompts/responses'
-import { GlobalFileNames } from '../../storage/disk'
+import { GlobalFileNames, saveContextHistoryStorage } from '../../storage/disk'
 import { fileExistsAtPath } from '../../../utils/fs'
 import * as path from 'path'
 import fs from 'fs/promises'
@@ -91,7 +91,7 @@ export class ContextManager {
   /**
    * save the context history updates to disk
    */
-  private async saveContextHistory(taskDirectory: string) {
+  private async saveContextHistory(taskId: string) {
     try {
       const serializedUpdates: SerializedContextHistory = Array.from(
         this.contextHistoryUpdates.entries()
@@ -100,11 +100,7 @@ export class ContextManager {
         [numberValue, Array.from(innerMap.entries())]
       ])
 
-      await fs.writeFile(
-        path.join(taskDirectory, GlobalFileNames.contextHistory),
-        JSON.stringify(serializedUpdates),
-        'utf8'
-      )
+      saveContextHistoryStorage(taskId, JSON.stringify(serializedUpdates))
     } catch (error) {
       console.error('Failed to save context history:', error)
     }
@@ -119,7 +115,7 @@ export class ContextManager {
     api: ApiHandler,
     conversationHistoryDeletedRange: [number, number] | undefined,
     previousApiReqIndex: number,
-    taskDirectory: string
+    taskId: string
   ) {
     let updatedConversationHistoryDeletedRange = false
 
@@ -178,7 +174,7 @@ export class ContextManager {
 
           // if we alter the context history, save the updated version to disk
           if (anyContextUpdates) {
-            await this.saveContextHistory(taskDirectory)
+            await this.saveContextHistory(taskId)
           }
         }
       }
