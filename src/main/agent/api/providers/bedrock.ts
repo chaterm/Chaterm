@@ -34,9 +34,11 @@ export class AwsBedrockHandler implements ApiHandler {
     messages: Anthropic.Messages.MessageParam[]
   ): ApiStream {
     // cross region inference requires prefixing the model id with the region
+    console.log('message passed to api handler:', messages)
     const modelId = await this.getModelId()
     const model = this.getModel()
-
+    console.log('modelId:', modelId)
+    console.log('model:', model)
     // Check if this is an Amazon Nova model
     if (modelId.includes('amazon.nova')) {
       yield* this.createNovaMessage(systemPrompt, messages, modelId, model)
@@ -63,7 +65,6 @@ export class AwsBedrockHandler implements ApiHandler {
     // Create anthropic client, using sessions created or renewed after this handler's
     // initialization, and allowing for session renewal if necessary as well
     const client = await this.getAnthropicClient()
-
     const stream = await client.messages.create({
       model: modelId,
       max_tokens: model.info.maxTokens || 8192,
@@ -111,6 +112,7 @@ export class AwsBedrockHandler implements ApiHandler {
     })
 
     for await (const chunk of stream) {
+      console.log("returning chunks", chunk)
       switch (chunk.type) {
         case 'message_start': {
           const usage = chunk.message.usage
@@ -201,7 +203,8 @@ export class AwsBedrockHandler implements ApiHandler {
   }
 
   // Default AWS region
-  private static readonly DEFAULT_REGION = 'us-east-1'
+  //private static readonly DEFAULT_REGION = 'us-east-1'
+  private static readonly DEFAULT_REGION = 'us-west-2'
 
   /**
    * Gets AWS credentials using the provider chain
@@ -216,7 +219,8 @@ export class AwsBedrockHandler implements ApiHandler {
     const providerChain = fromNodeProviderChain()
     return await AwsBedrockHandler.withTempEnv(
       () => {
-        AwsBedrockHandler.setEnv('AWS_REGION', this.options.awsRegion)
+        //AwsBedrockHandler.setEnv('AWS_REGION', this.options.awsRegion)
+        AwsBedrockHandler.setEnv('AWS_REGION', 'us-west-2')
         AwsBedrockHandler.setEnv('AWS_ACCESS_KEY_ID', this.options.awsAccessKey)
         AwsBedrockHandler.setEnv('AWS_SECRET_ACCESS_KEY', this.options.awsSecretKey)
         AwsBedrockHandler.setEnv('AWS_SESSION_TOKEN', this.options.awsSessionToken)

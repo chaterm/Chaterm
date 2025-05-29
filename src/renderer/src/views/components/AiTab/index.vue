@@ -14,6 +14,7 @@
     >
       <div
         v-if="chatHistory.length > 0"
+        ref="chatContainer"
         class="chat-response-container"
       >
         <div class="chat-response">
@@ -53,28 +54,46 @@
                   </template>
                   {{ $t('ai.run') }}
                 </a-button>
-                <a-button
-                  v-if="chatTypeValue === 'ctm-agent'"
-                  size="small"
-                  class="action-btn copy-btn"
-                  @click="handleRejectContent(message)"
-                >
-                  <template #icon>
-                    <CloseOutlined />
-                  </template>
-                  {{ $t('ai.reject') }}
-                </a-button>
-                <a-button
-                  v-if="chatTypeValue === 'ctm-agent'"
-                  size="small"
-                  class="action-btn apply-btn"
-                  @click="handleApproveCommand(message)"
-                >
-                  <template #icon>
-                    <CheckOutlined />
-                  </template>
-                  {{ $t('ai.approve') }}
-                </a-button>
+                <div v-if="chatTypeValue === 'ctm-agent' && message.type === 'ask'">
+                  <div
+                    v-if="!messageActions[message.id]"
+                    class="action-buttons"
+                  >
+                    <div class="button-row">
+                      <a-button
+                        size="small"
+                        class="action-btn copy-btn"
+                        @click="handleRejectContent(message)"
+                      >
+                        <template #icon>
+                          <CloseOutlined />
+                        </template>
+                        {{ $t('ai.reject') }}
+                      </a-button>
+                      <a-button
+                        size="small"
+                        class="action-btn apply-btn"
+                        @click="handleApproveCommand(message)"
+                      >
+                        <template #icon>
+                          <CheckOutlined />
+                        </template>
+                        {{ $t('ai.approve') }}
+                      </a-button>
+                    </div>
+                  </div>
+                  <div
+                    v-else
+                    class="action-status"
+                    :class="messageActions[message.id]"
+                  >
+                    {{
+                      messageActions[message.id] === 'approved'
+                        ? $t('ai.approved')
+                        : $t('ai.rejected')
+                    }}
+                  </div>
+                </div>
               </div>
             </div>
             <div
@@ -171,7 +190,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted, defineAsyncComponent, onUnmounted } from 'vue'
+import { ref, reactive, onMounted, defineAsyncComponent, onUnmounted, nextTick, watch } from 'vue'
 import {
   PlusOutlined,
   CloseOutlined,
@@ -189,14 +208,14 @@ const MarkdownRenderer = defineAsyncComponent(
   () => import('@views/components/AiTab/MarkdownRenderer.vue')
 )
 
-const historyList = ref<
-  Array<{
-    id: string
-    chatTitle: string
-    chatType: string
-    chatContent: Array<{ role: 'user' | 'assistant'; content: string }>
-  }>
->([])
+interface HistoryItem {
+  id: string
+  chatTitle: string
+  chatType: string
+  chatContent: ChatMessage[]
+}
+
+const historyList = ref<HistoryItem[]>([])
 
 const chatInputValue = ref('')
 const chatModelValue = ref('qwen-chat')
@@ -207,8 +226,16 @@ const activeKey = ref('chat')
 const currentChatId = ref<string | null>(null)
 const authTokenInCookie = ref<string | null>(null)
 
-// 创建的聊天历史记录
-const chatHistory = reactive<Array<{ role: string; content: string }>>([])
+interface ChatMessage {
+  id: string
+  role: 'user' | 'assistant'
+  content: string
+  type?: string
+  ask?: string
+  say?: string
+}
+
+const chatHistory = reactive<ChatMessage[]>([])
 const webSocket = ref<WebSocket | null>(null)
 
 const props = defineProps({
@@ -217,10 +244,12 @@ const props = defineProps({
     required: true
   }
 })
+
 interface ModelOption {
   label: string
   value: string
 }
+
 const AiModelsOptions = ref<ModelOption[]>([])
 const AiTypeOptions = [
   { label: 'Chat', value: 'ctm-chat' },
@@ -294,31 +323,45 @@ const createWebSocket = (type: string) => {
             }
           }
         } else {
-          chatHistory.push({
+          const newMessage: ChatMessage = {
+            id: uuidv4(),
             role: 'assistant',
-            content: parsedData.choices[0].delta.content
-          })
+            content: parsedData.choices[0].delta.content,
+            type: 'message',
+            ask: '',
+            say: ''
+          }
+          chatHistory.push(newMessage)
 
           // 同时更新 historyList 中的记录
           if (currentHistoryEntry) {
-            currentHistoryEntry.chatContent.push({
-              role: 'assistant',
-              content: parsedData.choices[0].delta.content
-            })
+            currentHistoryEntry.chatContent.push(newMessage)
           }
         }
       }
     } catch (error) {
       console.error('解析消息错误:', error)
+      chatHistory.push({
+        id: uuidv4(),
+        role: 'assistant',
+        content: '连接失败，请检查服务器状态',
+        type: 'message',
+        ask: '',
+        say: ''
+      } as ChatMessage)
     }
   }
 
   ws.onerror = (error) => {
     console.error(`${type} WebSocket错误:`, error)
     chatHistory.push({
+      id: uuidv4(),
       role: 'assistant',
-      content: '连接失败，请检查服务器状态'
-    })
+      content: '连接失败，请检查服务器状态',
+      type: 'message',
+      ask: '',
+      say: ''
+    } as ChatMessage)
   }
 
   return ws
@@ -329,6 +372,34 @@ const sendMessage = () => {
   if (!userContent) return
   if (chatTypeValue.value === 'ctm-agent') {
     sendMessageToMain(userContent)
+    const currentHistoryEntry = historyList.value.find((entry) => entry.id === currentChatId.value)
+
+    if (currentHistoryEntry) {
+      if (currentHistoryEntry.chatContent.length === 0) {
+        currentHistoryEntry.chatTitle =
+          userContent.length > 15 ? userContent.substring(0, 15) + '.' : userContent
+      }
+      const userMessage: ChatMessage = {
+        id: uuidv4(),
+        role: 'user',
+        content: userContent,
+        type: 'message',
+        ask: '',
+        say: ''
+      }
+      currentHistoryEntry.chatContent.push(userMessage)
+    }
+
+    const userMessage: ChatMessage = {
+      id: uuidv4(),
+      role: 'user',
+      content: userContent,
+      type: 'message',
+      ask: '',
+      say: ''
+    }
+    chatHistory.push(userMessage)
+    chatInputValue.value = ''
     return
   }
 
@@ -360,13 +431,26 @@ const sendWebSocketMessage = (ws: WebSocket, type: string) => {
       currentHistoryEntry.chatTitle =
         userContent.length > 15 ? userContent.substring(0, 15) + '.' : userContent
     }
-    currentHistoryEntry.chatContent.push({ role: 'user', content: userContent })
+    const userMessage: ChatMessage = {
+      id: uuidv4(),
+      role: 'user',
+      content: userContent,
+      type: 'message',
+      ask: '',
+      say: ''
+    }
+    currentHistoryEntry.chatContent.push(userMessage)
   }
 
-  chatHistory.push({
+  const userMessage: ChatMessage = {
+    id: uuidv4(),
     role: 'user',
-    content: userContent
-  })
+    content: userContent,
+    type: 'message',
+    ask: '',
+    say: ''
+  }
+  chatHistory.push(userMessage)
 
   const messageData = {
     model: chatModelValue.value,
@@ -418,12 +502,7 @@ const handlePlusClick = () => {
   }
 }
 
-const restoreHistoryTab = async (history: {
-  id: string
-  chatTitle: string
-  chatType: string
-  chatContent: Array<{ role: 'user' | 'assistant'; content: string }>
-}) => {
+const restoreHistoryTab = async (history: HistoryItem) => {
   if (webSocket.value) {
     webSocket.value.close()
     webSocket.value = null
@@ -450,9 +529,13 @@ const restoreHistoryTab = async (history: {
             typeof parsedContent.content === 'string'
           ) {
             return {
+              id: uuidv4(),
               role: parsedContent.role as 'user' | 'assistant',
-              content: parsedContent.content
-            }
+              content: parsedContent.content,
+              type: 'message',
+              ask: '',
+              say: ''
+            } as ChatMessage
           }
         } catch (e) {
           console.error('解析聊天记录失败:', e)
@@ -483,11 +566,11 @@ const handleHistoryClick = async () => {
   }
 }
 
-const handleApplyCommand = (message: { content: string }) => {
+const handleApplyCommand = (message: ChatMessage) => {
   eventBus.emit('executeTerminalCommand', message.content + '\n')
 }
 
-const handleCopyContent = async (message: { content: string }) => {
+const handleCopyContent = async (message: ChatMessage) => {
   try {
     await navigator.clipboard.writeText(message.content)
     eventBus.emit('executeTerminalCommand', message.content)
@@ -502,14 +585,14 @@ const handleCopyContent = async (message: { content: string }) => {
   }
 }
 
-const handleRejectContent = (message: { content: string }) => {
-  console.log('handleRejectContent', message.content)
-  // Removed unused function
+const messageActions = reactive<Record<string, 'approved' | 'rejected'>>({})
+
+const handleRejectContent = (message: ChatMessage) => {
+  messageActions[message.id] = 'rejected'
 }
 
-const handleApproveCommand = (message: { content: string }) => {
-  console.log('handleApproveCommand', message.content)
-  // Removed unused function
+const handleApproveCommand = (message: ChatMessage) => {
+  messageActions[message.id] = 'approved'
 }
 
 // 修改 onMounted 中的初始化代码
@@ -538,12 +621,58 @@ onMounted(async () => {
     console.error('Failed to get AI models:', err)
   }
 
-  const removeListener = (window.api as any).onMainMessage((message) => {
+  const removeListener = (window.api as any).onMainMessage((message: any) => {
     console.log('Received main process message:', message)
+
+    if (message?.type === 'partialMessage' && message.partialMessage?.text) {
+      if (message.partialMessage.partial) {
+        // 处理流式响应
+        // 追加内容到现有assistant消息
+        const lastAssistantMessage = chatHistory.at(-1)!
+        lastAssistantMessage.content += message.partialMessage.text
+
+        // 同步更新历史记录
+        const currentHistoryEntry = historyList.value.find(
+          (entry) => entry.id === currentChatId.value
+        )
+        if (currentHistoryEntry) {
+          const lastHistoryContent = currentHistoryEntry.chatContent.at(-1)
+          if (lastHistoryContent?.role === 'assistant') {
+            lastHistoryContent.content += message.partialMessage.text
+          }
+        }
+      } else {
+        // 创建新的assistant消息
+        chatHistory.push({
+          id: uuidv4(),
+          role: 'assistant',
+          content: message.partialMessage.text,
+          type: message.partialMessage.type,
+          ask: message.partialMessage.type === 'ask' ? message.partialMessage.ask : '',
+          say: message.partialMessage.type === 'say' ? message.partialMessage.say : ''
+        } as ChatMessage)
+        // 同步更新历史记录
+        const currentHistoryEntry = historyList.value.find(
+          (entry) => entry.id === currentChatId.value
+        )
+        if (currentHistoryEntry) {
+          currentHistoryEntry.chatContent.push({
+            role: 'assistant',
+            content: message.partialMessage.text,
+            type: message.partialMessage.type,
+            ask: message.partialMessage.type === 'ask' ? message.partialMessage.ask : '',
+            say: message.partialMessage.type === 'say' ? message.partialMessage.say : ''
+          } as ChatMessage)
+        }
+      }
+    }
+    console.log('chatHistory', chatHistory)
   })
 
   onUnmounted(() => {
-    removeListener()
+    if (typeof removeListener === 'function') {
+      removeListener()
+    }
   })
 })
 
@@ -570,6 +699,26 @@ const sendMessageToMain = async (userContent: string) => {
     console.error('发送消息到主进程失败:', error)
   }
 }
+
+const chatContainer = ref<HTMLElement | null>(null)
+
+// Add auto scroll function
+const scrollToBottom = () => {
+  nextTick(() => {
+    if (chatContainer.value) {
+      chatContainer.value.scrollTop = chatContainer.value.scrollHeight
+    }
+  })
+}
+
+// Watch chatHistory changes
+watch(
+  chatHistory,
+  () => {
+    scrollToBottom()
+  },
+  { deep: true }
+)
 </script>
 
 <style lang="less" scoped>
@@ -894,5 +1043,28 @@ const sendMessageToMain = async (userContent: string) => {
 
 :deep(.ant-input::placeholder) {
   color: #666 !important;
+}
+
+.action-status {
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+
+  &.approved {
+    background-color: #52c41a20;
+    color: #52c41a;
+  }
+
+  &.rejected {
+    background-color: #ff4d4f20;
+    color: #ff4d4f;
+  }
+}
+
+.button-row {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  margin-top: 8px;
 }
 </style>
