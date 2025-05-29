@@ -34,11 +34,10 @@ export class AwsBedrockHandler implements ApiHandler {
     messages: Anthropic.Messages.MessageParam[]
   ): ApiStream {
     // cross region inference requires prefixing the model id with the region
-    console.log('message passed to api handler:', messages)
+
     const modelId = await this.getModelId()
     const model = this.getModel()
-    console.log('modelId:', modelId)
-    console.log('model:', model)
+
     // Check if this is an Amazon Nova model
     if (modelId.includes('amazon.nova')) {
       yield* this.createNovaMessage(systemPrompt, messages, modelId, model)
@@ -219,8 +218,7 @@ export class AwsBedrockHandler implements ApiHandler {
     const providerChain = fromNodeProviderChain()
     return await AwsBedrockHandler.withTempEnv(
       () => {
-        //AwsBedrockHandler.setEnv('AWS_REGION', this.options.awsRegion)
-        AwsBedrockHandler.setEnv('AWS_REGION', 'us-west-2')
+        AwsBedrockHandler.setEnv('AWS_REGION', this.options.awsRegion)
         AwsBedrockHandler.setEnv('AWS_ACCESS_KEY_ID', this.options.awsAccessKey)
         AwsBedrockHandler.setEnv('AWS_SECRET_ACCESS_KEY', this.options.awsSecretKey)
         AwsBedrockHandler.setEnv('AWS_SESSION_TOKEN', this.options.awsSessionToken)
