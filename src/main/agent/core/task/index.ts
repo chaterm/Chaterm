@@ -94,6 +94,7 @@ import { getGlobalStateMain } from '@core/storage/state' // Assuming this will b
 import WorkspaceTracker from '@integrations/workspace/WorkspaceTracker'
 // import { isInTestMode } from "../../services/test/TestMode"
 //import { featureFlagsService } from "@/services/posthog/feature-flags/FeatureFlagsService"
+import { connectAssetInfo } from '../../../storage/database'
 
 export const cwd = path.join(os.homedir(), 'Desktop')
 // vscode.workspace.workspaceFolders?.map((folder) => folder.uri.fsPath).at(0) ?? path.join(os.homedir(), "Desktop") // may or may not exist but fs checking existence would immediately ask for permission which would be bad UX, need to come up with a better solution
@@ -113,6 +114,7 @@ export class Task {
   private cancelTask: () => Promise<void>
 
   readonly taskId: string
+  terminalUuid: string = ''
   private taskIsFavorited?: boolean
   api: ApiHandler
   //private terminalManager: TerminalManager
@@ -1026,12 +1028,7 @@ export class Task {
   async executeCommandTool(command: string, cwd?: string): Promise<[boolean, ToolResponse]> {
     const terminalManager = this.getCurrentTerminalManager()
 
-    const connectionInfo: ConnectionInfo = {
-      host: '127.0.0.1',
-      port: 2222,
-      username: 'root',
-      password: 'root'
-    }
+    const connectionInfo = await connectAssetInfo(this.terminalUuid)
     terminalManager.setConnectionInfo(connectionInfo)
     const terminalInfo = await terminalManager.createTerminal()
     terminalInfo.terminal.show()
