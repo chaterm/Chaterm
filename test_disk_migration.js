@@ -52,8 +52,8 @@ async function testDiskMigration() {
       }
     ]
 
-    await dbService.saveClineMessages(testTaskId, testUiMessages)
-    const retrievedUiMessages = await dbService.getSavedClineMessages(testTaskId)
+    await dbService.saveChatermMessages(testTaskId, testUiMessages)
+    const retrievedUiMessages = await dbService.getSavedChatermMessages(testTaskId)
     console.log('UI消息保存和读取成功:', retrievedUiMessages.length > 0)
 
     // 测试任务元数据

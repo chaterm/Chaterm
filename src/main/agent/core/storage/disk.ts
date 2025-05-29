@@ -10,22 +10,30 @@ export const GlobalFileNames = {
   taskMetadata: 'task_metadata.json'
 }
 
-export async function ensureTaskExists(taskId: string): Promise<boolean> {
+export async function ensureTaskExists(taskId: string): Promise<string> {
   try {
     const dbService = await ChatermDatabaseService.getInstance()
     const apiHistory = await dbService.getApiConversationHistory(taskId)
-    const uiMessages = await dbService.getSavedClineMessages(taskId)
+    const uiMessages = await dbService.getSavedChatermMessages(taskId)
     if ((apiHistory && apiHistory.length > 0) || (uiMessages && uiMessages.length > 0)) {
-      return true
+      return taskId
     }
-    return false
+    return ''
   } catch (error) {
     console.error('Failed to check task existence in DB:', error)
-    return false 
+    return '' 
   }
 }
 
 // 获取保存的API对话历史
+export async function deleteChatermHistoryByTaskId(taskId: string): Promise<void> {
+  try {
+    const dbService = await ChatermDatabaseService.getInstance()
+    await dbService.deleteChatermHistoryByTaskId(taskId)
+  } catch (error) {
+    console.error('Failed to delete Chaterm history by task ID:', error)
+  }
+}
 export async function getSavedApiConversationHistory(
   taskId: string
 ): Promise<Anthropic.MessageParam[]> {
@@ -55,7 +63,7 @@ export async function saveApiConversationHistory(
 export async function getChatermMessages(taskId: string): Promise<ChatermMessage[]> {
   try {
     const dbService = await ChatermDatabaseService.getInstance()
-    const messages = await dbService.getSavedClineMessages(taskId)
+    const messages = await dbService.getSavedChatermMessages(taskId)
     return messages as ChatermMessage[]
   } catch (error) {
     console.error('Failed to get Chaterm messages from DB:', error)
@@ -66,7 +74,7 @@ export async function getChatermMessages(taskId: string): Promise<ChatermMessage
 export async function saveChatermMessages(taskId: string, uiMessages: ChatermMessage[]) {
   try {
     const dbService = await ChatermDatabaseService.getInstance()
-    await dbService.saveClineMessages(taskId, uiMessages)
+    await dbService.saveChatermMessages(taskId, uiMessages)
   } catch (error) {
     console.error('Failed to save Chaterm messages to DB:', error)
   }
@@ -97,7 +105,7 @@ export async function saveTaskMetadata(taskId: string, metadata: TaskMetadata) {
 }
 
 // 获取上下文历史
-export async function getContextHistory(taskId: string): Promise<any> {
+export async function getContextHistoryStorage(taskId: string): Promise<any> {
   // 返回类型保持 any，或根据需要调整
   try {
     const dbService = await ChatermDatabaseService.getInstance()
@@ -110,7 +118,7 @@ export async function getContextHistory(taskId: string): Promise<any> {
 }
 
 // 保存上下文历史
-export async function saveContextHistory(taskId: string, contextHistory: any) {
+export async function saveContextHistoryStorage(taskId: string, contextHistory: any) {
   try {
     const dbService = await ChatermDatabaseService.getInstance()
     await dbService.saveContextHistory(taskId, contextHistory)

@@ -22,7 +22,7 @@ import { ClineAsk, ExtensionMessage } from '@shared/ExtensionMessage'
 import { ApiProvider } from '@shared/api'
 import { WebviewMessage } from '@shared/WebviewMessage'
 import { HistoryItem } from '@shared/HistoryItem'
-import { getSavedClineMessages, getSavedApiConversationHistory } from '@core/storage/disk'
+import { getSavedChatermMessages, getSavedApiConversationHistory } from '@core/storage/disk'
 
 /**
  * Creates a tracker to monitor tool calls and failures during task execution
@@ -358,7 +358,7 @@ export function createTestServer(webviewProvider?: WebviewProvider): http.Server
             let apiConversationHistory: any[] = []
             try {
               if (typeof taskId === 'string') {
-                messages = await getSavedClineMessages(visibleWebview.controller.context, taskId)
+                messages = await getSavedChatermMessages(visibleWebview.controller.context, taskId)
               }
             } catch (error) {
               Logger.log(`Error getting saved Cline messages: ${error}`)

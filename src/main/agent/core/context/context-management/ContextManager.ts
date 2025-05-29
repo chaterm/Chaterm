@@ -1,7 +1,6 @@
 import { getContextWindowInfo } from './context-window-utils'
 import { formatResponse } from '../../prompts/responses'
-import { GlobalFileNames } from '../../storage/disk'
-import { fileExistsAtPath } from '../../../utils/fs'
+import { saveContextHistoryStorage, ensureTaskExists, getContextHistoryStorage } from '../../storage/disk'
 import * as path from 'path'
 import fs from 'fs/promises'
 import cloneDeep from 'clone-deep'
@@ -58,22 +57,20 @@ export class ContextManager {
   /**
    * public function for loading contextHistoryUpdates from disk, if it exists
    */
-  async initializeContextHistory(taskDirectory: string) {
-    this.contextHistoryUpdates = await this.getContextHistory(taskDirectory)
+  async initializeContextHistory(taskId: string) {
+    this.contextHistoryUpdates = await this.getContextHistory(taskId)
   }
 
   /**
    * get the stored context history updates from disk
    */
   private async getContextHistory(
-    taskDirectory: string
+    taskId: string
   ): Promise<Map<number, [number, Map<number, ContextUpdate[]>]>> {
     try {
-      const filePath = path.join(taskDirectory, GlobalFileNames.contextHistory)
-      if (await fileExistsAtPath(filePath)) {
-        const data = await fs.readFile(filePath, 'utf8')
-        const serializedUpdates = JSON.parse(data) as SerializedContextHistory
-
+      if (await ensureTaskExists(taskId)) {
+        const data = await getContextHistoryStorage(taskId)
+        const serializedUpdates = data as SerializedContextHistory
         // Update to properly reconstruct the tuple structure
         return new Map(
           serializedUpdates.map(([messageIndex, [numberValue, innerMapArray]]) => [
@@ -91,7 +88,7 @@ export class ContextManager {
   /**
    * save the context history updates to disk
    */
-  private async saveContextHistory(taskDirectory: string) {
+  private async saveContextHistory(taskId: string) {
     try {
       const serializedUpdates: SerializedContextHistory = Array.from(
         this.contextHistoryUpdates.entries()
@@ -100,11 +97,7 @@ export class ContextManager {
         [numberValue, Array.from(innerMap.entries())]
       ])
 
-      await fs.writeFile(
-        path.join(taskDirectory, GlobalFileNames.contextHistory),
-        JSON.stringify(serializedUpdates),
-        'utf8'
-      )
+      saveContextHistoryStorage(taskId, JSON.stringify(serializedUpdates))
     } catch (error) {
       console.error('Failed to save context history:', error)
     }
@@ -119,7 +112,7 @@ export class ContextManager {
     api: ApiHandler,
     conversationHistoryDeletedRange: [number, number] | undefined,
     previousApiReqIndex: number,
-    taskDirectory: string
+    taskId: string
   ) {
     let updatedConversationHistoryDeletedRange = false
 
@@ -178,7 +171,7 @@ export class ContextManager {
 
           // if we alter the context history, save the updated version to disk
           if (anyContextUpdates) {
-            await this.saveContextHistory(taskDirectory)
+            await this.saveContextHistory(taskId)
           }
         }
       }
@@ -329,11 +322,10 @@ export class ContextManager {
   /**
    * removes all context history updates that occurred after the specified timestamp and saves to disk
    */
-  async truncateContextHistory(timestamp: number, taskDirectory: string): Promise<void> {
+  async truncateContextHistory(timestamp: number, taskId: string): Promise<void> {
     this.truncateContextHistoryAtTimestamp(this.contextHistoryUpdates, timestamp)
 
-    // save the modified context history to disk
-    await this.saveContextHistory(taskDirectory)
+    await this.saveContextHistory(taskId)
   }
 
   /**
@@ -407,11 +399,11 @@ export class ContextManager {
    */
   async triggerApplyStandardContextTruncationNoticeChange(
     timestamp: number,
-    taskDirectory: string
+    taskId: string
   ) {
     const updated = this.applyStandardContextTruncationNoticeChange(timestamp)
     if (updated) {
-      await this.saveContextHistory(taskDirectory)
+      await this.saveContextHistory(taskId)
     }
   }
 

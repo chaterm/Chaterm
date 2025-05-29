@@ -94,6 +94,7 @@ import { getGlobalStateMain } from '@core/storage/state' // Assuming this will b
 import WorkspaceTracker from '@integrations/workspace/WorkspaceTracker'
 // import { isInTestMode } from "../../services/test/TestMode"
 //import { featureFlagsService } from "@/services/posthog/feature-flags/FeatureFlagsService"
+import { connectAssetInfo } from '../../../storage/database'
 
 export const cwd = path.join(os.homedir(), 'Desktop')
 // vscode.workspace.workspaceFolders?.map((folder) => folder.uri.fsPath).at(0) ?? path.join(os.homedir(), "Desktop") // may or may not exist but fs checking existence would immediately ask for permission which would be bad UX, need to come up with a better solution
@@ -113,6 +114,7 @@ export class Task {
   private cancelTask: () => Promise<void>
 
   readonly taskId: string
+  terminalUuid: string = ''
   private taskIsFavorited?: boolean
   api: ApiHandler
   //private terminalManager: TerminalManager
@@ -267,13 +269,11 @@ export class Task {
   // Storing task to disk for history
   private async addToApiConversationHistory(message: Anthropic.MessageParam) {
     this.apiConversationHistory.push(message)
-    // await saveApiConversationHistory(this.getContext(), this.taskId, this.apiConversationHistory)
     await saveApiConversationHistory(this.taskId, this.apiConversationHistory)
   }
 
   private async overwriteApiConversationHistory(newHistory: Anthropic.MessageParam[]) {
     this.apiConversationHistory = newHistory
-    // await saveApiConversationHistory(this.getContext(), this.taskId, this.apiConversationHistory)
     await saveApiConversationHistory(this.taskId, this.apiConversationHistory)
   }
 
@@ -681,7 +681,7 @@ export class Task {
   // 	// 	this.checkpointTrackerErrorMessage = "Checkpoints are only available for new tasks"
   // 	// }
 
-  // 	const modifiedClineMessages = await getSavedClineMessages(this.getContext(), this.taskId)
+  // 	const modifiedClineMessages = await getSavedChatermMessages(this.getContext(), this.taskId)
 
   // 	// Remove any resume messages that may have been added before
   // 	const lastRelevantMessageIndex = findLastIndex(
@@ -706,7 +706,7 @@ export class Task {
   // 	}
 
   // 	await this.overwriteClineMessages(modifiedClineMessages)
-  // 	this.clineMessages = await getSavedClineMessages(this.getContext(), this.taskId)
+  // 	this.clineMessages = await getSavedChatermMessages(this.getContext(), this.taskId)
 
   // 	// Now present the cline messages to the user and ask if they want to resume (NOTE: we ran into a bug before where the apiconversationhistory wouldn't be initialized when opening a old task, and it was because we were waiting for resume)
   // 	// This is important in case the user deletes messages without resuming the task first
@@ -1026,12 +1026,7 @@ export class Task {
   async executeCommandTool(command: string, cwd?: string): Promise<[boolean, ToolResponse]> {
     const terminalManager = this.getCurrentTerminalManager()
 
-    const connectionInfo: ConnectionInfo = {
-      host: '127.0.0.1',
-      port: 2222,
-      username: 'root',
-      password: 'root'
-    }
+    const connectionInfo = await connectAssetInfo(this.terminalUuid)
     terminalManager.setConnectionInfo(connectionInfo)
     const terminalInfo = await terminalManager.createTerminal()
     terminalInfo.terminal.show()
@@ -1324,7 +1319,6 @@ export class Task {
       this.api,
       this.conversationHistoryDeletedRange,
       previousApiReqIndex,
-      //await ensureTaskExists(this.getContext(), this.taskId),
       await ensureTaskExists(this.taskId)
     )
 
@@ -3334,7 +3328,7 @@ export class Task {
     // 	} catch (error) {
     // 		const errorMessage = error instanceof Error ? error.message : "Unknown error"
     // 		console.error("Failed to initialize checkpoint tracker:", errorMessage)
-    // 		this.checkpointTrackerErrorMessage = errorMessage // will be displayed right away since we saveClineMessages next which posts state to webview
+    // 		this.checkpointTrackerErrorMessage = errorMessage // will be displayed right away since we saveChatermMessages next which posts state to webview
     // 	}
     // }
 
