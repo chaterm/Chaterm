@@ -649,6 +649,18 @@ export class ChatermDatabaseService {
   }
 
   // Agent API对话历史相关方法
+
+ async deleteChatermHistoryByTaskId(taskId: string): Promise<void> {
+    try {
+      this.db.prepare(`DELETE FROM agent_api_conversation_history_v1 WHERE task_id = ?`).run(taskId)
+      this.db.prepare(`DELETE FROM agent_ui_messages_v1 WHERE task_id = ?`).run(taskId)
+      this.db.prepare(`DELETE FROM agent_task_metadata_v1 WHERE task_id = ?`).run(taskId)
+      this.db.prepare(`DELETE FROM agent_context_history_v1 WHERE task_id = ?`).run(taskId)
+    } catch (error) {
+      console.error('Failed to delete API conversation history:', error)
+    }
+  }
+
   async getApiConversationHistory(taskId: string): Promise<any[]> {
     try {
       const stmt = this.db.prepare(`
