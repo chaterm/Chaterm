@@ -24,7 +24,7 @@ import { regexSearchFiles } from '@services/ripgrep'
 // import { parseSourceCodeForDefinitionsTopLevel } from "@services/tree-sitter"
 import { ApiConfiguration } from '@shared/api'
 import { findLast, findLastIndex, parsePartialArrayString } from '@shared/array'
-import { AutoApprovalSettings } from '@shared/AutoApprovalSettings'
+import { AutoApprovalSettings, DEFAULT_AUTO_APPROVAL_SETTINGS } from '@shared/AutoApprovalSettings'
 import { ChatSettings } from '@shared/ChatSettings'
 import { combineApiRequests } from '@shared/combineApiRequests'
 import { combineCommandSequences, COMMAND_REQ_APP_STRING } from '@shared/combineCommandSequences'
@@ -198,7 +198,8 @@ export class Task {
     this.contextManager = new ContextManager()
     // this.diffViewProvider = new DiffViewProvider(cwd)
     this.customInstructions = customInstructions
-    this.autoApprovalSettings = autoApprovalSettings
+    //this.autoApprovalSettings = autoApprovalSettings
+    this.autoApprovalSettings = DEFAULT_AUTO_APPROVAL_SETTINGS
     // this.browserSettings = browserSettings
     this.chatSettings = chatSettings
 
@@ -3281,12 +3282,12 @@ export class Task {
       if (this.autoApprovalSettings.enableNotifications) {
         showSystemNotification({
           subtitle: 'Max Requests Reached',
-          message: `Cline has auto-approved ${this.autoApprovalSettings.maxRequests.toString()} API requests.`
+          message: `Chaterm has auto-approved ${this.autoApprovalSettings.maxRequests.toString()} API requests.`
         })
       }
       await this.ask(
         'auto_approval_max_req_reached',
-        `Cline has auto-approved ${this.autoApprovalSettings.maxRequests.toString()} API requests. Would you like to reset the count and proceed with the task?`
+        `Chaterm has auto-approved ${this.autoApprovalSettings.maxRequests.toString()} API requests. Would you like to reset the count and proceed with the task?`
       )
       // if we get past the promise it means the user approved and did not start a new task
       this.consecutiveAutoApprovedRequestsCount = 0
@@ -3357,12 +3358,12 @@ export class Task {
     )
 
     // error handling if the user uses the /newrule command & their .clinerules is a file, for file read operations didnt work properly
-    if (clinerulesError === true) {
-      await this.say(
-        'error',
-        "Issue with processing the /newrule command. Double check that, if '.clinerules' already exists, it's a directory and not a file. Otherwise there was an issue referencing this file/directory."
-      )
-    }
+    // if (clinerulesError === true) {
+    //   await this.say(
+    //     'error',
+    //     "Issue with processing the /newrule command. Double check that, if '.clinerules' already exists, it's a directory and not a file. Otherwise there was an issue referencing this file/directory."
+    //   )
+    // }
 
     userContent = parsedUserContent
     // add environment details as its own text block, separate from tool results
