@@ -59,13 +59,13 @@ export class ContextManager {
    * public function for loading contextHistoryUpdates from disk, if it exists
    */
   async initializeContextHistory(taskDirectory: string) {
-    this.contextHistoryUpdates = await this.getSavedContextHistory(taskDirectory)
+    this.contextHistoryUpdates = await this.getContextHistory(taskDirectory)
   }
 
   /**
    * get the stored context history updates from disk
    */
-  private async getSavedContextHistory(
+  private async getContextHistory(
     taskDirectory: string
   ): Promise<Map<number, [number, Map<number, ContextUpdate[]>]>> {
     try {
