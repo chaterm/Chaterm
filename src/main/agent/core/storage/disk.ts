@@ -14,7 +14,7 @@ export async function ensureTaskExists(taskId: string): Promise<string> {
   try {
     const dbService = await ChatermDatabaseService.getInstance()
     const apiHistory = await dbService.getApiConversationHistory(taskId)
-    const uiMessages = await dbService.getSavedClineMessages(taskId)
+    const uiMessages = await dbService.getSavedChatermMessages(taskId)
     if ((apiHistory && apiHistory.length > 0) || (uiMessages && uiMessages.length > 0)) {
       return taskId
     }
@@ -63,7 +63,7 @@ export async function saveApiConversationHistory(
 export async function getChatermMessages(taskId: string): Promise<ChatermMessage[]> {
   try {
     const dbService = await ChatermDatabaseService.getInstance()
-    const messages = await dbService.getSavedClineMessages(taskId)
+    const messages = await dbService.getSavedChatermMessages(taskId)
     return messages as ChatermMessage[]
   } catch (error) {
     console.error('Failed to get Chaterm messages from DB:', error)
@@ -74,7 +74,7 @@ export async function getChatermMessages(taskId: string): Promise<ChatermMessage
 export async function saveChatermMessages(taskId: string, uiMessages: ChatermMessage[]) {
   try {
     const dbService = await ChatermDatabaseService.getInstance()
-    await dbService.saveClineMessages(taskId, uiMessages)
+    await dbService.saveChatermMessages(taskId, uiMessages)
   } catch (error) {
     console.error('Failed to save Chaterm messages to DB:', error)
   }

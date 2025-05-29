@@ -269,13 +269,11 @@ export class Task {
   // Storing task to disk for history
   private async addToApiConversationHistory(message: Anthropic.MessageParam) {
     this.apiConversationHistory.push(message)
-    // await saveApiConversationHistory(this.getContext(), this.taskId, this.apiConversationHistory)
     await saveApiConversationHistory(this.taskId, this.apiConversationHistory)
   }
 
   private async overwriteApiConversationHistory(newHistory: Anthropic.MessageParam[]) {
     this.apiConversationHistory = newHistory
-    // await saveApiConversationHistory(this.getContext(), this.taskId, this.apiConversationHistory)
     await saveApiConversationHistory(this.taskId, this.apiConversationHistory)
   }
 
@@ -683,7 +681,7 @@ export class Task {
   // 	// 	this.checkpointTrackerErrorMessage = "Checkpoints are only available for new tasks"
   // 	// }
 
-  // 	const modifiedClineMessages = await getSavedClineMessages(this.getContext(), this.taskId)
+  // 	const modifiedClineMessages = await getSavedChatermMessages(this.getContext(), this.taskId)
 
   // 	// Remove any resume messages that may have been added before
   // 	const lastRelevantMessageIndex = findLastIndex(
@@ -708,7 +706,7 @@ export class Task {
   // 	}
 
   // 	await this.overwriteClineMessages(modifiedClineMessages)
-  // 	this.clineMessages = await getSavedClineMessages(this.getContext(), this.taskId)
+  // 	this.clineMessages = await getSavedChatermMessages(this.getContext(), this.taskId)
 
   // 	// Now present the cline messages to the user and ask if they want to resume (NOTE: we ran into a bug before where the apiconversationhistory wouldn't be initialized when opening a old task, and it was because we were waiting for resume)
   // 	// This is important in case the user deletes messages without resuming the task first
@@ -3330,7 +3328,7 @@ export class Task {
     // 	} catch (error) {
     // 		const errorMessage = error instanceof Error ? error.message : "Unknown error"
     // 		console.error("Failed to initialize checkpoint tracker:", errorMessage)
-    // 		this.checkpointTrackerErrorMessage = errorMessage // will be displayed right away since we saveClineMessages next which posts state to webview
+    // 		this.checkpointTrackerErrorMessage = errorMessage // will be displayed right away since we saveChatermMessages next which posts state to webview
     // 	}
     // }
 

@@ -784,7 +784,7 @@ export class ChatermDatabaseService {
   }
 
   // Agent UI消息相关方法
-  async getSavedClineMessages(taskId: string): Promise<any[]> {
+  async getSavedChatermMessages(taskId: string): Promise<any[]> {
     try {
       const stmt = this.db.prepare(`
         SELECT ts, type, ask_type, say_type, text, reasoning, images, partial, 
@@ -819,7 +819,7 @@ export class ChatermDatabaseService {
     }
   }
 
-  async saveClineMessages(taskId: string, uiMessages: any[]): Promise<void> {
+  async saveChatermMessages(taskId: string, uiMessages: any[]): Promise<void> {
     try {
       this.db.transaction(() => {
         // 清除现有记录
