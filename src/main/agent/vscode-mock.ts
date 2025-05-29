@@ -715,6 +715,15 @@ export enum TextEditorRevealType {
   AtTop = 3
 }
 
+export interface Tab {
+  input: TabInputText | any
+  isDirty: boolean
+}
+
+export interface TabGroup {
+  tabs: Tab[]
+}
+
 // Terminal 相关接口
 export interface Terminal {
   name: string
@@ -871,6 +880,16 @@ export const window = {
   },
   onDidCloseTerminal: (listener: (e: any) => void) => {
     return { dispose: () => {} }
+  },
+  tabGroups: {
+    all: [] as TabGroup[],
+    close: async (tab: Tab) => true,
+    onDidChangeTabs: (listener: (e: any) => void) => {
+      return { dispose: () => {} }
+    },
+    onDidChangeTabGroups: (listener: (e: any) => void) => {
+      return { dispose: () => {} }
+    }
   }
 }
 
