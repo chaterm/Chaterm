@@ -1,6 +1,10 @@
 import { getContextWindowInfo } from './context-window-utils'
 import { formatResponse } from '../../prompts/responses'
-import { saveContextHistoryStorage, ensureTaskExists, getContextHistoryStorage } from '../../storage/disk'
+import {
+  saveContextHistoryStorage,
+  ensureTaskExists,
+  getContextHistoryStorage
+} from '../../storage/disk'
 import * as path from 'path'
 import fs from 'fs/promises'
 import cloneDeep from 'clone-deep'
@@ -397,10 +401,7 @@ export class ContextManager {
    * Public function for triggering potentially setting the truncation message
    * If the truncation message already exists, does nothing, otherwise adds the message
    */
-  async triggerApplyStandardContextTruncationNoticeChange(
-    timestamp: number,
-    taskId: string
-  ) {
+  async triggerApplyStandardContextTruncationNoticeChange(timestamp: number, taskId: string) {
     const updated = this.applyStandardContextTruncationNoticeChange(timestamp)
     if (updated) {
       await this.saveContextHistory(taskId)
