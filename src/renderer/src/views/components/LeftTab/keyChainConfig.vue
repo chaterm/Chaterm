@@ -1,5 +1,5 @@
 <template>
-  <a-button @click="testMain">main调用测试</a-button>
+  <!-- <a-button @click="testMain">main调用测试</a-button> -->
   <div class="keychain-config-container">
     <div class="split-layout">
       <div class="left-section">
