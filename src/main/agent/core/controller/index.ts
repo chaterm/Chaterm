@@ -20,7 +20,7 @@ import { WebviewMessage } from '@shared/WebviewMessage'
 import { fileExistsAtPath } from '@utils/fs'
 import { getWorkspacePath } from '@utils/path'
 import { getTotalTasksSize } from '@utils/storage'
-import { GlobalFileNames } from '../storage/disk'
+import { ensureTaskExists, getSavedApiConversationHistory, deleteChatermHistoryByTaskId } from '../storage/disk'
 import {
   getAllExtensionState,
   getGlobalState,
@@ -543,8 +543,7 @@ export class Controller {
 
   async getTaskWithId(id: string): Promise<{
     historyItem: HistoryItem
-    taskDirPath: string
-    apiConversationHistoryFilePath: string
+    taskId: string
     uiMessagesFilePath: string
     contextHistoryFilePath: string
     taskMetadataFilePath: string
@@ -553,26 +552,16 @@ export class Controller {
     const history = ((await getGlobalState('taskHistory')) as HistoryItem[] | undefined) || []
     const historyItem = history.find((item) => item.id === id)
     if (historyItem) {
-      const taskDirPath = path.join(this.context.globalStorageUri.fsPath, 'tasks', id)
-      const apiConversationHistoryFilePath = path.join(
-        taskDirPath,
-        GlobalFileNames.apiConversationHistory
-      )
-      const uiMessagesFilePath = path.join(taskDirPath, GlobalFileNames.uiMessages)
-      const contextHistoryFilePath = path.join(taskDirPath, GlobalFileNames.contextHistory)
-      const taskMetadataFilePath = path.join(taskDirPath, GlobalFileNames.taskMetadata)
-      const fileExists = await fileExistsAtPath(apiConversationHistoryFilePath)
-      if (fileExists) {
-        const apiConversationHistory = JSON.parse(
-          await fs.readFile(apiConversationHistoryFilePath, 'utf8')
-        )
+     const taskId = await ensureTaskExists(id)
+      if (taskId) {
+        const apiConversationHistory = await getSavedApiConversationHistory(taskId) 
+
         return {
           historyItem,
-          taskDirPath,
-          apiConversationHistoryFilePath,
-          uiMessagesFilePath,
-          contextHistoryFilePath,
-          taskMetadataFilePath,
+          taskId,
+          uiMessagesFilePath: taskId,
+          contextHistoryFilePath: taskId,
+          taskMetadataFilePath: taskId,
           apiConversationHistory
         }
       }
@@ -637,46 +626,7 @@ export class Controller {
 
   async deleteTaskWithId(id: string) {
     console.info('deleteTaskWithId: ', id)
-
-    try {
-      if (id === this.task?.taskId) {
-        await this.clearTask()
-        console.debug('cleared task')
-      }
-
-      const {
-        taskDirPath,
-        apiConversationHistoryFilePath,
-        uiMessagesFilePath,
-        contextHistoryFilePath,
-        taskMetadataFilePath
-      } = await this.getTaskWithId(id)
-      const legacyMessagesFilePath = path.join(taskDirPath, 'claude_messages.json')
-      const updatedTaskHistory = await this.deleteTaskFromState(id)
-
-      // Delete the task files
-      for (const filePath of [
-        apiConversationHistoryFilePath,
-        uiMessagesFilePath,
-        contextHistoryFilePath,
-        taskMetadataFilePath,
-        legacyMessagesFilePath
-      ]) {
-        const fileExists = await fileExistsAtPath(filePath)
-        if (fileExists) {
-          await fs.unlink(filePath)
-        }
-      }
-
-      await fs.rmdir(taskDirPath) // succeeds if the dir is empty
-
-      if (updatedTaskHistory.length === 0) {
-        await this.deleteAllTaskHistory()
-      }
-    } catch (error) {
-      console.debug(`Error deleting task:`, error)
-    }
-
+    await deleteChatermHistoryByTaskId(id)
     this.refreshTotalTasksSize()
   }
 

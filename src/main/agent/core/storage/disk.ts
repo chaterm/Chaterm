@@ -26,6 +26,14 @@ export async function ensureTaskExists(taskId: string): Promise<string> {
 }
 
 // 获取保存的API对话历史
+export async function deleteChatermHistoryByTaskId(taskId: string): Promise<void> {
+  try {
+    const dbService = await ChatermDatabaseService.getInstance()
+    await dbService.deleteChatermHistoryByTaskId(taskId)
+  } catch (error) {
+    console.error('Failed to delete Chaterm history by task ID:', error)
+  }
+}
 export async function getSavedApiConversationHistory(
   taskId: string
 ): Promise<Anthropic.MessageParam[]> {
