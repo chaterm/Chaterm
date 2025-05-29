@@ -215,6 +215,7 @@ const MarkdownRenderer = defineAsyncComponent(
   () => import('@views/components/AiTab/MarkdownRenderer.vue')
 )
 
+import { ChatermMessage } from 'src/main/agent/shared/ExtensionMessage'
 interface HistoryItem {
   id: string
   chatTitle: string
@@ -273,6 +274,15 @@ const AiTypeOptions = [
 ]
 
 const isGettingAssetInfo = ref(false)
+
+const getChatermMessages = async () => {
+   
+  const result = await (window.api as any).chatermGetChatermMessages({ taskId: currentChatId.value })
+ 
+  const messages = result as ChatermMessage[]
+  console.log('result', messages)
+ 
+}
 
 const getCurentTabAssetInfo = async () => {  
   try {
@@ -798,6 +808,7 @@ const handleGetAssetInfo = async () => {
     if (assetInfo && typeof assetInfo === 'object' && 'uuid' in assetInfo) {
       const typedAssetInfo = assetInfo as AssetInfo
       console.log('获取到当前活跃标签页信息:', typedAssetInfo)
+      
       notification.success({
         message: '获取标签页信息成功',
         description: `当前标签页: ${typedAssetInfo.title} (UUID: ${typedAssetInfo.uuid})`,
