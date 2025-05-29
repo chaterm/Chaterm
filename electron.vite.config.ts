@@ -22,8 +22,8 @@ export default defineConfig({
           'serialize-error',
           'os-name'
         ]
-      }),
-      bytecodePlugin()
+      })
+      // bytecodePlugin()
     ],
     resolve: {
       alias: {
@@ -35,10 +35,19 @@ export default defineConfig({
         '@api': resolve('src/main/agent/api'),
         vscode: resolve('src/main/agent/vscode-mock.ts')
       }
+    },
+    build: {
+      sourcemap: true
     }
   },
   preload: {
-    plugins: [externalizeDepsPlugin(), bytecodePlugin()]
+    plugins: [
+      externalizeDepsPlugin()
+      // bytecodePlugin()
+    ],
+    build: {
+      sourcemap: true
+    }
   },
   renderer: {
     publicDir,
@@ -64,6 +73,9 @@ export default defineConfig({
           rewrite: (path) => path.replace(/^\/api/, '')
         }
       }
+    },
+    build: {
+      sourcemap: true
     },
     plugins: [
       vue(),
