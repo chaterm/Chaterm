@@ -10,18 +10,18 @@ export const GlobalFileNames = {
   taskMetadata: 'task_metadata.json'
 }
 
-export async function ensureTaskExists(taskId: string): Promise<boolean> {
+export async function ensureTaskExists(taskId: string): Promise<string> {
   try {
     const dbService = await ChatermDatabaseService.getInstance()
     const apiHistory = await dbService.getApiConversationHistory(taskId)
     const uiMessages = await dbService.getSavedClineMessages(taskId)
     if ((apiHistory && apiHistory.length > 0) || (uiMessages && uiMessages.length > 0)) {
-      return true
+      return taskId
     }
-    return false
+    return ''
   } catch (error) {
     console.error('Failed to check task existence in DB:', error)
-    return false 
+    return '' 
   }
 }
 
@@ -97,7 +97,7 @@ export async function saveTaskMetadata(taskId: string, metadata: TaskMetadata) {
 }
 
 // 获取上下文历史
-export async function getContextHistory(taskId: string): Promise<any> {
+export async function getContextHistoryStorage(taskId: string): Promise<any> {
   // 返回类型保持 any，或根据需要调整
   try {
     const dbService = await ChatermDatabaseService.getInstance()
@@ -110,7 +110,7 @@ export async function getContextHistory(taskId: string): Promise<any> {
 }
 
 // 保存上下文历史
-export async function saveContextHistory(taskId: string, contextHistory: any) {
+export async function saveContextHistoryStorage(taskId: string, contextHistory: any) {
   try {
     const dbService = await ChatermDatabaseService.getInstance()
     await dbService.saveContextHistory(taskId, contextHistory)
