@@ -14,8 +14,8 @@
     >
       <div
         v-if="chatHistory.length > 0"
-        class="chat-response-container"
         ref="chatContainer"
+        class="chat-response-container"
       >
         <div class="chat-response">
           <template
@@ -208,14 +208,14 @@ const MarkdownRenderer = defineAsyncComponent(
   () => import('@views/components/AiTab/MarkdownRenderer.vue')
 )
 
-const historyList = ref<
-  Array<{
-    id: string
-    chatTitle: string
-    chatType: string
-    chatContent: Array<{ role: 'user' | 'assistant'; content: string }>
-  }>
->([])
+interface HistoryItem {
+  id: string
+  chatTitle: string
+  chatType: string
+  chatContent: ChatMessage[]
+}
+
+const historyList = ref<HistoryItem[]>([])
 
 const chatInputValue = ref('')
 const chatModelValue = ref('qwen-chat')
@@ -226,8 +226,16 @@ const activeKey = ref('chat')
 const currentChatId = ref<string | null>(null)
 const authTokenInCookie = ref<string | null>(null)
 
-// 创建的聊天历史记录
-const chatHistory = reactive<Array<{ role: string; content: string }>>([])
+interface ChatMessage {
+  id: string
+  role: 'user' | 'assistant'
+  content: string
+  type?: string
+  ask?: string
+  say?: string
+}
+
+const chatHistory = reactive<ChatMessage[]>([])
 const webSocket = ref<WebSocket | null>(null)
 
 const props = defineProps({
@@ -315,31 +323,45 @@ const createWebSocket = (type: string) => {
             }
           }
         } else {
-          chatHistory.push({
+          const newMessage: ChatMessage = {
+            id: uuidv4(),
             role: 'assistant',
-            content: parsedData.choices[0].delta.content
-          })
+            content: parsedData.choices[0].delta.content,
+            type: 'message',
+            ask: '',
+            say: ''
+          }
+          chatHistory.push(newMessage)
 
           // 同时更新 historyList 中的记录
           if (currentHistoryEntry) {
-            currentHistoryEntry.chatContent.push({
-              role: 'assistant',
-              content: parsedData.choices[0].delta.content
-            })
+            currentHistoryEntry.chatContent.push(newMessage)
           }
         }
       }
     } catch (error) {
       console.error('解析消息错误:', error)
+      chatHistory.push({
+        id: uuidv4(),
+        role: 'assistant',
+        content: '连接失败，请检查服务器状态',
+        type: 'message',
+        ask: '',
+        say: ''
+      } as ChatMessage)
     }
   }
 
   ws.onerror = (error) => {
     console.error(`${type} WebSocket错误:`, error)
     chatHistory.push({
+      id: uuidv4(),
       role: 'assistant',
-      content: '连接失败，请检查服务器状态'
-    })
+      content: '连接失败，请检查服务器状态',
+      type: 'message',
+      ask: '',
+      say: ''
+    } as ChatMessage)
   }
 
   return ws
@@ -357,13 +379,26 @@ const sendMessage = () => {
         currentHistoryEntry.chatTitle =
           userContent.length > 15 ? userContent.substring(0, 15) + '.' : userContent
       }
-      currentHistoryEntry.chatContent.push({ role: 'user', content: userContent })
+      const userMessage: ChatMessage = {
+        id: uuidv4(),
+        role: 'user',
+        content: userContent,
+        type: 'message',
+        ask: '',
+        say: ''
+      }
+      currentHistoryEntry.chatContent.push(userMessage)
     }
 
-    chatHistory.push({
+    const userMessage: ChatMessage = {
+      id: uuidv4(),
       role: 'user',
-      content: userContent
-    })
+      content: userContent,
+      type: 'message',
+      ask: '',
+      say: ''
+    }
+    chatHistory.push(userMessage)
     chatInputValue.value = ''
     return
   }
@@ -396,13 +431,26 @@ const sendWebSocketMessage = (ws: WebSocket, type: string) => {
       currentHistoryEntry.chatTitle =
         userContent.length > 15 ? userContent.substring(0, 15) + '.' : userContent
     }
-    currentHistoryEntry.chatContent.push({ role: 'user', content: userContent })
+    const userMessage: ChatMessage = {
+      id: uuidv4(),
+      role: 'user',
+      content: userContent,
+      type: 'message',
+      ask: '',
+      say: ''
+    }
+    currentHistoryEntry.chatContent.push(userMessage)
   }
 
-  chatHistory.push({
+  const userMessage: ChatMessage = {
+    id: uuidv4(),
     role: 'user',
-    content: userContent
-  })
+    content: userContent,
+    type: 'message',
+    ask: '',
+    say: ''
+  }
+  chatHistory.push(userMessage)
 
   const messageData = {
     model: chatModelValue.value,
@@ -454,12 +502,7 @@ const handlePlusClick = () => {
   }
 }
 
-const restoreHistoryTab = async (history: {
-  id: string
-  chatTitle: string
-  chatType: string
-  chatContent: Array<{ role: 'user' | 'assistant'; content: string }>
-}) => {
+const restoreHistoryTab = async (history: HistoryItem) => {
   if (webSocket.value) {
     webSocket.value.close()
     webSocket.value = null
@@ -486,9 +529,13 @@ const restoreHistoryTab = async (history: {
             typeof parsedContent.content === 'string'
           ) {
             return {
+              id: uuidv4(),
               role: parsedContent.role as 'user' | 'assistant',
-              content: parsedContent.content
-            }
+              content: parsedContent.content,
+              type: 'message',
+              ask: '',
+              say: ''
+            } as ChatMessage
           }
         } catch (e) {
           console.error('解析聊天记录失败:', e)
@@ -519,11 +566,11 @@ const handleHistoryClick = async () => {
   }
 }
 
-const handleApplyCommand = (message: { content: string }) => {
+const handleApplyCommand = (message: ChatMessage) => {
   eventBus.emit('executeTerminalCommand', message.content + '\n')
 }
 
-const handleCopyContent = async (message: { content: string }) => {
+const handleCopyContent = async (message: ChatMessage) => {
   try {
     await navigator.clipboard.writeText(message.content)
     eventBus.emit('executeTerminalCommand', message.content)
@@ -537,15 +584,14 @@ const handleCopyContent = async (message: { content: string }) => {
     })
   }
 }
+
 const messageActions = reactive<Record<string, 'approved' | 'rejected'>>({})
 
-const handleRejectContent = (message: any) => {
-  console.log('handleRejectContent', message.content)
+const handleRejectContent = (message: ChatMessage) => {
   messageActions[message.id] = 'rejected'
 }
 
-const handleApproveCommand = (message: any) => {
-  console.log('handleApproveCommand', message.content)
+const handleApproveCommand = (message: ChatMessage) => {
   messageActions[message.id] = 'approved'
 }
 
@@ -598,13 +644,13 @@ onMounted(async () => {
       } else {
         // 创建新的assistant消息
         chatHistory.push({
-          id: uuidv4(), // 添加唯一ID
+          id: uuidv4(),
           role: 'assistant',
           content: message.partialMessage.text,
           type: message.partialMessage.type,
           ask: message.partialMessage.type === 'ask' ? message.partialMessage.ask : '',
           say: message.partialMessage.type === 'say' ? message.partialMessage.say : ''
-        })
+        } as ChatMessage)
         // 同步更新历史记录
         const currentHistoryEntry = historyList.value.find(
           (entry) => entry.id === currentChatId.value
@@ -616,7 +662,7 @@ onMounted(async () => {
             type: message.partialMessage.type,
             ask: message.partialMessage.type === 'ask' ? message.partialMessage.ask : '',
             say: message.partialMessage.type === 'say' ? message.partialMessage.say : ''
-          })
+          } as ChatMessage)
         }
       }
     }
@@ -666,9 +712,13 @@ const scrollToBottom = () => {
 }
 
 // Watch chatHistory changes
-watch(chatHistory, () => {
-  scrollToBottom()
-}, { deep: true })
+watch(
+  chatHistory,
+  () => {
+    scrollToBottom()
+  },
+  { deep: true }
+)
 </script>
 
 <style lang="less" scoped>
