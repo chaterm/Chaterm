@@ -636,6 +636,7 @@ export class ChatermDatabaseService {
           result.passphrase = keyChainResult.passphrase
         }
       }
+      result.host = result.asset_ip
       return result
     } catch (error) {
       console.error('Chaterm database get asset error:', error)
