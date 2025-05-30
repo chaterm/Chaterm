@@ -770,6 +770,7 @@ const createSerializableMessage = (message: ChatMessage) => {
 
 // 声明removeListener变量
 let removeListener: (() => void) | null = null
+let currentLastMessageState: any = { type: '' } // 用于跟踪上一个消息的状态
 
 // 修改 onMounted 中的初始化代码
 onMounted(async () => {
@@ -804,19 +805,21 @@ onMounted(async () => {
   removeListener = (window.api as any).onMainMessage((message: any) => {
     console.log('Received main process message:', message)
     if (message?.type === 'partialMessage') {
-      if (message.partialMessage.text === '') {
-        return
-      }
+      let openNewMessage = false
+
+      // if (message.partialMessage.text === '') {
+      //   return
+      // }
       // 检查是否与上一条消息完全相同
       if (lastMessage && JSON.stringify(lastMessage) === JSON.stringify(message)) {
         return
       }
-      let openNewMessage = false
-      let lastAssistantMessage = chatHistory.at(-1)!
+      const lastMessageInChat = chatHistory.at(-1)
+
       if (
-        (lastMessage?.type === 'state' && !lastPartialMessagePartial) ||
-        !lastAssistantMessage ||
-        lastAssistantMessage.role === 'user'
+        currentLastMessageState?.type === 'state' ||
+        !lastMessageInChat ||
+        lastMessageInChat.role === 'user'
       ) {
         openNewMessage = true
       }
@@ -825,31 +828,25 @@ onMounted(async () => {
       // 返回的内容如果和前一个相同，并且 partial 字段为 false，开启一个新的assistant消息
       if (openNewMessage) {
         // 创建新的assistant消息
-        chatHistory.push({
+        const newAssistantMessage: ChatMessage = {
           id: uuidv4(),
           role: 'assistant',
           content: message.partialMessage.text,
           type: message.partialMessage.type,
           ask: message.partialMessage.type === 'ask' ? message.partialMessage.ask : '',
           say: message.partialMessage.type === 'say' ? message.partialMessage.say : ''
-        } as ChatMessage)
-        lastAssistantMessage = chatHistory.at(-1)!
+        }
+        chatHistory.push(newAssistantMessage)
         // 同步更新历史记录
         const currentHistoryEntry = historyList.value.find(
           (entry) => entry.id === currentChatId.value
         )
         if (currentHistoryEntry) {
-          currentHistoryEntry.chatContent.push({
-            role: 'assistant',
-            content: message.partialMessage.text,
-            type: message.partialMessage.type,
-            ask: message.partialMessage.type === 'ask' ? message.partialMessage.ask : '',
-            say: message.partialMessage.type === 'say' ? message.partialMessage.say : ''
-          } as ChatMessage)
+          currentHistoryEntry.chatContent.push({ ...newAssistantMessage })
         }
-      }
-      lastAssistantMessage.content = message.partialMessage.text
-      // 同步更新历史记录
+      } else if (lastMessageInChat && lastMessageInChat.role === 'assistant') {
+          lastMessageInChat.content = message.partialMessage.text
+       // 追加内容到现有assistant消息      // 同步更新历史记录
       const currentHistoryEntry = historyList.value.find(
         (entry) => entry.id === currentChatId.value
       )
@@ -868,13 +865,18 @@ onMounted(async () => {
     }
     lastMessage = message
     console.log('chatHistory', chatHistory)
+    }
+    currentLastMessageState = message // 更新已处理的上一条消息状态
+    console.log('chatHistory after processing:', chatHistory)
   })
 })
 
 onUnmounted(() => {
   if (typeof removeListener === 'function') {
     removeListener()
+    removeListener = null
   }
+  currentLastMessageState = { type: '' } // 重置状态
 })
 
 // 添加发送消息到主进程的方法
