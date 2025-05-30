@@ -266,7 +266,6 @@ const AiTypeOptions = [
   { label: 'Agent', value: 'ctm-agent' }
 ]
 
-
 const getChatermMessages = async () => {
   const result = await (window.api as any).chatermGetChatermMessages({
     taskId: currentChatId.value
@@ -694,19 +693,33 @@ const messageActions = reactive<Record<string, 'approved' | 'rejected'>>({})
 
 const handleRejectContent = async (message: ChatMessage) => {
   try {
-    message.action = 'rejected'
-    await saveAgentHistory(message)
-  } catch (err) {
-    console.error('Failed to update message action:', err)
+    let messageRsp = {
+      type: 'askResponse',
+      responseType: 'noButtonClicked'
+      // text: '',                     // 可选的用户输入文本
+      // images: ''                  // 可选的图片数组
+    }
+    console.log('发送消息到主进程:', messageRsp)
+    const response = await (window.api as any).sendToMain(messageRsp)
+    console.log('主进程响应:', response)
+  } catch (error) {
+    console.error('发送消息到主进程失败:', error)
   }
 }
 
 const handleApproveCommand = async (message: ChatMessage) => {
   try {
-    message.action = 'approved'
-    await saveAgentHistory(message)
-  } catch (err) {
-    console.error('Failed to update message action:', err)
+    let messageRsp = {
+      type: 'askResponse',
+      responseType: 'yesButtonClicked'
+      // text: '',                     // 可选的用户输入文本
+      // images: ''                  // 可选的图片数组
+    }
+    console.log('发送消息到主进程:', messageRsp)
+    const response = await (window.api as any).sendToMain(messageRsp)
+    console.log('主进程响应:', response)
+  } catch (error) {
+    console.error('发送消息到主进程失败:', error)
   }
 }
 
@@ -788,7 +801,7 @@ onMounted(async () => {
     type: ''
   }
   let lastPartialMessagePartial = true
-  const removeListener = (window.api as any).onMainMessage((message: any) => {
+  removeListener = (window.api as any).onMainMessage((message: any) => {
     console.log('Received main process message:', message)
     if (message?.type === 'partialMessage') {
       if (message.partialMessage.text === '') {
@@ -920,7 +933,6 @@ watch(
   },
   { deep: true }
 )
-
 </script>
 
 <style lang="less" scoped>
