@@ -60,7 +60,7 @@ export async function remoteSshExec(sessionId: string, command: string): Promise
     console.error(`SSH连接不存在: ${sessionId}`);
     return { success: false, error: '未连接到远程服务器' };
   }
-  
+  console.log(`开始执行SSH命令: ${command} (会话: ${sessionId})`);
 
   const command1 = 'ls /home'
 
