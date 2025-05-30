@@ -1,11 +1,4 @@
 <template>
-  <a-button
-    @click="handleGetAssetInfo"
-    :loading="isGettingAssetInfo"
-    type="primary"
-  >
-    获取到当前的活跃tab的资产信息
-  </a-button>
   <a-tabs
     v-model:active-key="activeKey"
     class="ai-chat-custom-tabs ai-chat-flex-container"
@@ -225,7 +218,7 @@ const historyList = ref<HistoryItem[]>([])
 
 const chatInputValue = ref('')
 const chatModelValue = ref('qwen-chat')
-const chatTypeValue = ref('ctm-cmd')
+const chatTypeValue = ref('ctm-agent')
 const activeKey = ref('chat')
 
 // 当前活动对话的 ID
@@ -273,7 +266,6 @@ const AiTypeOptions = [
   { label: 'Agent', value: 'ctm-agent' }
 ]
 
-const isGettingAssetInfo = ref(false)
 
 const getChatermMessages = async () => {
   const result = await (window.api as any).chatermGetChatermMessages({
@@ -929,33 +921,6 @@ watch(
   { deep: true }
 )
 
-const handleGetAssetInfo = async () => {
-  isGettingAssetInfo.value = true
-  try {
-    const assetInfo = await getCurentTabAssetInfo()
-    if (assetInfo && typeof assetInfo === 'object' && 'uuid' in assetInfo) {
-      const typedAssetInfo = assetInfo as AssetInfo
-      console.log('获取到当前活跃标签页信息:', typedAssetInfo)
-
-      notification.success({
-        message: '获取标签页信息成功',
-        description: `当前标签页: ${typedAssetInfo.title} (UUID: ${typedAssetInfo.uuid})`,
-        duration: 3
-      })
-      // 这里可以将assetInfo用于AI对话或其他用途
-      return typedAssetInfo
-    }
-  } catch (error) {
-    console.error('获取标签页信息失败:', error)
-    notification.error({
-      message: '获取标签页信息失败',
-      description: error instanceof Error ? error.message : '未知错误',
-      duration: 3
-    })
-  } finally {
-    isGettingAssetInfo.value = false
-  }
-}
 </script>
 
 <style lang="less" scoped>
