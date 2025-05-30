@@ -905,6 +905,15 @@ const sendMessageToMain = async (userContent: string) => {
     let message
     if (chatHistory.length === 0) {
       const assetInfo = await getCurentTabAssetInfo()
+      if (!assetInfo) {
+        notification.error({
+          message: '获取标签页信息失败',
+          description: '请先打开一个标签页',
+          duration: 3
+        })
+        return
+      }
+
       message = {
         type: 'newTask' as const,
         askResponse: 'messageResponse' as const,
