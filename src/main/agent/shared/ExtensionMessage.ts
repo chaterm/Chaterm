@@ -46,15 +46,8 @@ export interface ExtensionMessage {
     | 'focusChatInput'
   invoke?: Invoke
   state?: ExtensionState
-  images?: string[]
-  ollamaModels?: string[]
-  lmStudioModels?: string[]
-  vsCodeLmModels?: { vendor?: string; family?: string; version?: string; id?: string }[]
   filePaths?: string[]
   partialMessage?: ChatermMessage
-  openRouterModels?: Record<string, ModelInfo>
-  openAiModels?: string[]
-  requestyModels?: Record<string, ModelInfo>
   customToken?: string
   error?: string
   // commits?: GitCommit[]
@@ -67,7 +60,6 @@ export interface ExtensionMessage {
     type?: string
   }
   url?: string
-  isImage?: boolean
   totalTasksSize?: number | null
   success?: boolean
   endpoint?: string
