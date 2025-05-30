@@ -166,7 +166,7 @@ const editingNode = ref(null)
 const editingTitle = ref('')
 const selectedKeys = ref([])
 const expandedKeys = ref<string[]>([])
-const company = ref('firm-0001')
+const company = ref('personal_user_id')
 
 const emit = defineEmits(['currentClickServer', 'change-company', 'open-user-tab'])
 
@@ -434,8 +434,8 @@ const assetManagement = () => {
 //     message.error('命令插入失败')
 //   }
 // }
-
-getUserAssetMenu(company.value)
+getLocalAssetMenu()
+// getUserAssetMenu(company.value)
 GetUserWorkSpace()
 </script>
 

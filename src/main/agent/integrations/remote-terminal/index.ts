@@ -58,6 +58,7 @@ export class RemoteTerminalProcess extends BrownEventEmitter<RemoteTerminalProce
       // 执行远程命令
       const execResult = await remoteSshExec(sessionId, commandToExecute)
 
+      console.log(`执行结果: ${JSON.stringify(execResult)}`)
       // 添加详细的调试信息
       if (execResult && execResult.success) {
         const output = execResult.output || ''
