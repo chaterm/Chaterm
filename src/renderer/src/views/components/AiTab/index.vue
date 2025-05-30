@@ -1,6 +1,6 @@
 <template>
   <a-button
-    @click="getChatermMessages"
+    @click="handleGetAssetInfo"
     :loading="isGettingAssetInfo"
     type="primary"
   >
@@ -277,8 +277,7 @@ const isGettingAssetInfo = ref(false)
 
 const getChatermMessages = async () => {
   const result = await (window.api as any).chatermGetChatermMessages({
-    // taskId: currentChatId.value
-    taskId: '1748585691113'
+    taskId: currentChatId.value
   })
   const messages = result as ChatermMessage[]
   console.log('result', messages)
@@ -581,6 +580,7 @@ const restoreHistoryTab = async (history: HistoryItem) => {
   try {
     if (history.chatType === 'ctm-agent') {
       const conversationHistory = await getChatermMessages()
+      chatHistory.length = 0
       // 按时间戳排序
       conversationHistory.forEach((item, index) => {
         if (item.ask === 'followup' || item.ask === 'command' || item.say === 'text') {
