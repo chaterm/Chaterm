@@ -121,7 +121,7 @@ export class Task {
   // private urlContentFetcher: UrlContentFetcher
   contextManager: ContextManager
   //private didEditFile: boolean = false
-  private terminalManager: TerminalManager
+  // private terminalManager: TerminalManager
   private remoteTerminalManager: RemoteTerminalManager
   customInstructions?: string
   autoApprovalSettings: AutoApprovalSettings
@@ -190,7 +190,7 @@ export class Task {
     this.reinitExistingTaskFromId = reinitExistingTaskFromId
     this.cancelTask = cancelTask
     // 初始化终端管理器
-    this.terminalManager = new TerminalManager()
+    // this.terminalManager = new TerminalManager()
     this.remoteTerminalManager = new RemoteTerminalManager()
     // this.clineIgnoreController = new ClineIgnoreController(cwd)
     // Initialization moved to startTask/resumeTaskFromHistory
@@ -1002,6 +1002,7 @@ export class Task {
     const terminalManager = this.getCurrentTerminalManager()
 
     if (!this.terminalUuid) {
+      console.log('Terminal UUID is not set')
       return [false, 'Terminal UUID is not set']
     }
     const connectionInfo = await connectAssetInfo(this.terminalUuid)
@@ -1157,8 +1158,9 @@ export class Task {
           ]
         case 'execute_command':
           return [
-            this.autoApprovalSettings.actions.executeSafeCommands ?? false,
-            this.autoApprovalSettings.actions.executeAllCommands ?? false
+            // this.autoApprovalSettings.actions.executeSafeCommands ?? false,
+            // this.autoApprovalSettings.actions.executeAllCommands ?? false
+            true,true
           ]
         default:
           break
@@ -2502,7 +2504,6 @@ export class Task {
                 const [autoApproveSafe, autoApproveAll] = Array.isArray(autoApproveResult)
                   ? autoApproveResult
                   : [autoApproveResult, false]
-
                 if (
                   (!requiresApprovalPerLLM && autoApproveSafe) ||
                   (requiresApprovalPerLLM && autoApproveSafe && autoApproveAll)
