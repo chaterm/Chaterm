@@ -121,7 +121,7 @@ export class Task {
   // private urlContentFetcher: UrlContentFetcher
   contextManager: ContextManager
   //private didEditFile: boolean = false
-  private terminalManager: TerminalManager
+  // private terminalManager: TerminalManager
   private remoteTerminalManager: RemoteTerminalManager
   customInstructions?: string
   autoApprovalSettings: AutoApprovalSettings
@@ -190,7 +190,7 @@ export class Task {
     this.reinitExistingTaskFromId = reinitExistingTaskFromId
     this.cancelTask = cancelTask
     // 初始化终端管理器
-    this.terminalManager = new TerminalManager()
+    // this.terminalManager = new TerminalManager()
     this.remoteTerminalManager = new RemoteTerminalManager()
     // this.clineIgnoreController = new ClineIgnoreController(cwd)
     // Initialization moved to startTask/resumeTaskFromHistory
