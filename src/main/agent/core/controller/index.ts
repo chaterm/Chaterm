@@ -20,7 +20,11 @@ import { WebviewMessage } from '@shared/WebviewMessage'
 import { fileExistsAtPath } from '@utils/fs'
 import { getWorkspacePath } from '@utils/path'
 import { getTotalTasksSize } from '@utils/storage'
-import { ensureTaskExists, getSavedApiConversationHistory, deleteChatermHistoryByTaskId } from '../storage/disk'
+import {
+  ensureTaskExists,
+  getSavedApiConversationHistory,
+  deleteChatermHistoryByTaskId
+} from '../storage/disk'
 import {
   getAllExtensionState,
   getGlobalState,
@@ -107,7 +111,7 @@ export class Controller {
     await updateGlobalState('userInfo', info)
   }
 
-  async initTask(task?: string, historyItem?: HistoryItem) {
+  async initTask(task?: string, historyItem?: HistoryItem, terminalUuid?: string) {
     console.log('initTask', task, historyItem)
     await this.clearTask() // ensures that an existing task doesn't exist before starting a new one, although this shouldn't be possible since user must clear task before starting a new one
     const {
@@ -142,7 +146,8 @@ export class Controller {
       customInstructions,
       task,
       // images,
-      historyItem
+      historyItem,
+      terminalUuid
     )
   }
 
@@ -544,24 +549,18 @@ export class Controller {
   async getTaskWithId(id: string): Promise<{
     historyItem: HistoryItem
     taskId: string
-    uiMessagesFilePath: string
-    contextHistoryFilePath: string
-    taskMetadataFilePath: string
     apiConversationHistory: Anthropic.MessageParam[]
   }> {
     const history = ((await getGlobalState('taskHistory')) as HistoryItem[] | undefined) || []
     const historyItem = history.find((item) => item.id === id)
     if (historyItem) {
-     const taskId = await ensureTaskExists(id)
+      const taskId = await ensureTaskExists(id)
       if (taskId) {
-        const apiConversationHistory = await getSavedApiConversationHistory(taskId) 
+        const apiConversationHistory = await getSavedApiConversationHistory(taskId)
 
         return {
           historyItem,
           taskId,
-          uiMessagesFilePath: taskId,
-          contextHistoryFilePath: taskId,
-          taskMetadataFilePath: taskId,
           apiConversationHistory
         }
       }
