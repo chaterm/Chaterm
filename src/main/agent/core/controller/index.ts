@@ -192,7 +192,7 @@ export class Controller {
         // Could also do this in extension .ts
         //this.postMessageToWebview({ type: "text", text: `Extension: ${Date.now()}` })
         // initializing new instance of Cline will make sure that any agentically running promises in old instance don't affect our new task. this essentially creates a fresh slate for the new task
-        await this.initTask(message.text)
+        await this.initTask(message.text, undefined, message.terminalUuid)
         break
       case 'condense':
         this.task?.handleWebviewAskResponse('yesButtonClicked')
