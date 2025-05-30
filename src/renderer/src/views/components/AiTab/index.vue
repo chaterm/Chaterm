@@ -302,11 +302,6 @@ const getCurentTabAssetInfo = async (): Promise<AssetInfo | null> => {
       return assetInfo
     } else {
       console.error('未能获取到当前标签页的资产信息:')
-      notification.warning({
-        message: '资产信息获取失败',
-        description: '未能获取到当前标签页的资产信息',
-        duration: 3
-      })
       return null
     }
   } catch (error) {
@@ -874,8 +869,8 @@ const sendMessageToMain = async (userContent: string) => {
       const assetInfo = await getCurentTabAssetInfo()
       if (!assetInfo) {
         notification.error({
-          message: '获取标签页信息失败',
-          description: '请先打开一个标签页',
+          message: '获取当前资产连接信息失败',
+          description: '请先建立资产连接',
           duration: 3
         })
         return
