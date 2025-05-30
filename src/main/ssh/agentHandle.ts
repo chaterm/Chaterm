@@ -44,7 +44,7 @@ export async function remoteSshConnect(connectionInfo: any): Promise<{ id?: stri
         return;
       }
 
-      console.log(`尝试连接SSH: ${username}@${host}:${port}`);
+    console.log(`连接配置: ${JSON.stringify(connectConfig)}`);
       conn.connect(connectConfig);
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : String(err);
@@ -60,11 +60,14 @@ export async function remoteSshExec(sessionId: string, command: string): Promise
     console.error(`SSH连接不存在: ${sessionId}`);
     return { success: false, error: '未连接到远程服务器' };
   }
+  
+
+  const command1 = 'ls /home'
 
   console.log(`执行SSH命令: ${command} (会话: ${sessionId})`);
 
   return new Promise((resolve) => {
-    conn.exec(command, (err, stream) => {
+    conn.exec(command1, (err, stream) => {
       if (err) {
         console.error('SSH命令执行错误:', err.message);
         resolve({ success: false, error: err.message });
