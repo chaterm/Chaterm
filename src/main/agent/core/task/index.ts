@@ -89,7 +89,7 @@ import {
 // 	getLocalCursorRules,
 // } from "@core/context/instructions/user-instructions/external-rules"
 import { getGlobalState } from '@core/storage/state'
-import { getGlobalStateMain } from '@core/storage/state' // Assuming this will be the new way to get global state in main
+// import { getGlobalStateMain } from '@core/storage/state' // Assuming this will be the new way to get global state in main
 // import { parseSlashCommands } from "@core/slash-commands"
 import WorkspaceTracker from '@integrations/workspace/WorkspaceTracker'
 // import { isInTestMode } from "../../services/test/TestMode"
@@ -114,7 +114,7 @@ export class Task {
   private cancelTask: () => Promise<void>
 
   readonly taskId: string
-  terminalUuid: string = ''
+  terminalUuid?: string = ''
   private taskIsFavorited?: boolean
   api: ApiHandler
   //private terminalManager: TerminalManager
@@ -179,7 +179,8 @@ export class Task {
     customInstructions?: string,
     task?: string,
     // images?: string[],
-    historyItem?: HistoryItem
+    historyItem?: HistoryItem,
+    terminalUuid?: string
   ) {
     this.context = context
     this.workspaceTracker = workspaceTracker
@@ -204,7 +205,7 @@ export class Task {
     this.autoApprovalSettings = DEFAULT_AUTO_APPROVAL_SETTINGS
     // this.browserSettings = browserSettings
     this.chatSettings = chatSettings
-
+    this.terminalUuid = terminalUuid
     // Initialize taskId first
     if (historyItem) {
       this.taskId = historyItem.id
@@ -1000,6 +1001,9 @@ export class Task {
   async executeCommandTool(command: string, cwd?: string): Promise<[boolean, ToolResponse]> {
     const terminalManager = this.getCurrentTerminalManager()
 
+    if (!this.terminalUuid) {
+      return [false, 'Terminal UUID is not set']
+    }
     const connectionInfo = await connectAssetInfo(this.terminalUuid)
     terminalManager.setConnectionInfo(connectionInfo)
     const terminalInfo = await terminalManager.createTerminal()
