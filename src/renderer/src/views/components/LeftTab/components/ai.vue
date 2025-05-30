@@ -332,6 +332,53 @@ const chatSettings = ref<ChatSettings>(DEFAULT_CHAT_SETTINGS)
 
 const inputError = ref('')
 
+// Add specific watch for autoApprovalSettings.enabled
+watch(
+  () => autoApprovalSettings.value.enabled,
+  async (newValue) => {
+    try {
+      // Create a clean object with only the necessary properties
+      const settingsToStore = {
+        version: (autoApprovalSettings.value.version || 1) + 1,
+        enabled: newValue,
+        actions: { ...autoApprovalSettings.value.actions },
+        maxRequests: autoApprovalSettings.value.maxRequests,
+        enableNotifications: autoApprovalSettings.value.enableNotifications,
+        favorites: [...(autoApprovalSettings.value.favorites || [])]
+      }
+
+      await updateGlobalState('autoApprovalSettings', settingsToStore)
+    } catch (error) {
+      console.error('Failed to update auto approval settings:', error)
+      notification.error({
+        message: 'Error',
+        description: 'Failed to update auto approval settings'
+      })
+    }
+  }
+)
+
+// Add specific watch for chatSettings.mode
+watch(
+  () => chatSettings.value.mode,
+  async (newValue) => {
+    try {
+      // Create a clean object with only the necessary properties
+      const settingsToStore = {
+        mode: newValue
+      }
+
+      await updateGlobalState('chatSettings', settingsToStore)
+    } catch (error) {
+      console.error('Failed to update chat settings:', error)
+      notification.error({
+        message: 'Error',
+        description: 'Failed to update chat settings'
+      })
+    }
+  }
+)
+
 // 加载保存的配置
 const loadSavedConfig = async () => {
   try {
@@ -441,6 +488,16 @@ watch(
     awsBedrockEndpoint
   ],
   async () => {
+    // Skip autoApprovalSettings.enabled and chatSettings.mode updates as they're handled by specific watchers
+    const currentState = await getGlobalState('autoApprovalSettings')
+    const currentChatSettings = await getGlobalState('chatSettings')
+
+    if (
+      autoApprovalSettings.value.enabled !== currentState?.enabled ||
+      chatSettings.value.mode !== currentChatSettings?.mode
+    ) {
+      return
+    }
     await saveConfig()
   }
 )
@@ -697,6 +754,38 @@ const handleEnableExtendedThinking = (checked: boolean) => {
   > label {
     height: 24px; // 减小label高度
     line-height: 24px; // 调整行高以匹配高度
+  }
+}
+
+.chat-response {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  width: 100%;
+
+  .message {
+    width: 100%;
+    padding: 8px 12px;
+    border-radius: 12px;
+    font-size: 12px;
+    line-height: 1.5;
+
+    &.user {
+      align-self: flex-end;
+      background-color: rgba(255, 255, 255, 0.1); // 浅灰色背景
+      color: #ffffff; // 白色文字
+      border: none; // 移除边框
+      width: 90%; // 父组件的90%宽度
+      margin-left: auto; // 靠右对齐
+    }
+
+    &.assistant {
+      align-self: flex-start;
+      background-color: #1e2a38;
+      color: #e0e0e0;
+      border: 1px solid #2c3e50;
+      width: 100%;
+    }
   }
 }
 </style>
