@@ -1158,9 +1158,8 @@ export class Task {
           ]
         case 'execute_command':
           return [
-            // this.autoApprovalSettings.actions.executeSafeCommands ?? false,
-            // this.autoApprovalSettings.actions.executeAllCommands ?? false
-            true,true
+            this.autoApprovalSettings.actions.executeSafeCommands ?? false,
+            this.autoApprovalSettings.actions.executeAllCommands ?? false
           ]
         default:
           break
