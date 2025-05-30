@@ -434,8 +434,8 @@ const assetManagement = () => {
 //     message.error('命令插入失败')
 //   }
 // }
-
-getUserAssetMenu(company.value)
+getLocalAssetMenu()
+// getUserAssetMenu(company.value)
 GetUserWorkSpace()
 </script>
 
