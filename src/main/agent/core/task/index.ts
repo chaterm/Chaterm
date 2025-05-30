@@ -56,7 +56,7 @@ import {
 } from '@core/assistant-message'
 // import { constructNewFileContent } from "@core/assistant-message/diff"
 // import { ClineIgnoreController } from "@core/ignore/ClineIgnoreController"
-import { TerminalManager } from '../../integrations/terminal/TerminalManager'
+// import { TerminalManager } from '../../integrations/terminal/TerminalManager'
 import { RemoteTerminalManager, ConnectionInfo } from '../../integrations/remote-terminal'
 import { parseMentions } from '@core/mentions'
 import { formatResponse } from '@core/prompts/responses'
