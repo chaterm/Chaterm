@@ -964,9 +964,9 @@ watch(
 
     &.assistant {
       align-self: flex-start;
-      //background-color: #1e2a38;
+      background-color: #1e2a38;
       color: #e0e0e0;
-      //border: 1px solid #2c3e50;
+      border: 1px solid #2c3e50;
       width: 100%;
     }
   }
