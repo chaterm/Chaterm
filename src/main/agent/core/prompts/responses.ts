@@ -137,16 +137,14 @@ Otherwise, if you have not completed the task and do not need additional informa
   },
 
   taskResumption: (
-    //TODO: adapt to our mode
-    mode: 'plan' | 'act',
+    mode: 'cmd' | 'agent',
     agoText: string,
     cwd: string,
-    wasRecent: boolean | 0 | undefined,
-    responseText?: string
-  ): [string, string] => {
+    wasRecent: boolean | 0 | undefined
+  ): string => {
     const taskResumptionMessage = `[TASK RESUMPTION] ${
-      mode === 'plan'
-        ? `This task was interrupted ${agoText}. The conversation may have been incomplete. Be aware that the project state may have changed since then. The current working directory is now '${cwd.toPosix()}'.\n\nNote: If you previously attempted a tool use that the user did not provide a result for, you should assume the tool use was not successful. However you are in PLAN MODE, so rather than continuing the task, you must respond to the user's message.`
+      mode === 'cmd'
+        ? `This task was interrupted ${agoText}. The conversation may have been incomplete. Be aware that the project state may have changed since then. The current working directory is now '${cwd.toPosix()}'.\n\nNote: If you previously attempted a tool use that the user did not provide a result for, you should assume the tool use was not successful. However you are in CMD MODE, so rather than continuing the task, you must respond to the user's message.`
         : `This task was interrupted ${agoText}. It may or may not be complete, so please reassess the task context. Be aware that the project state may have changed since then. The current working directory is now '${cwd.toPosix()}'. If the task has not been completed, retry the last step before interruption and proceed with completing the task.\n\nNote: If you previously attempted a tool use that the user did not provide a result for, you should assume the tool use was not successful and assess whether you should retry. If the last tool was a browser_action, the browser has been closed and you must launch a new browser if needed.`
     }${
       wasRecent
@@ -154,15 +152,15 @@ Otherwise, if you have not completed the task and do not need additional informa
         : ''
     }`
 
-    const userResponseMessage = `${
-      responseText
-        ? `${mode === 'plan' ? 'New message to respond to with plan_mode_respond tool (be sure to provide your response in the <response> parameter)' : 'New instructions for task continuation'}:\n<user_message>\n${responseText}\n</user_message>`
-        : mode === 'plan'
-          ? "(The user did not provide a new message. Consider asking them how they'd like you to proceed, or suggest to them to switch to Act mode to continue with the task.)"
-          : ''
-    }`
+    // const userResponseMessage = `${
+    //   responseText
+    //     ? `${mode === 'agent' ? 'New message to respond to with plan_mode_respond tool (be sure to provide your response in the <response> parameter)' : 'New instructions for task continuation'}:\n<user_message>\n${responseText}\n</user_message>`
+    //     : mode === 'agent'
+    //       ? "(The user did not provide a new message. Consider asking them how they'd like you to proceed, or suggest to them to switch to Agent mode to continue with the task.)"
+    //       : ''
+    // }`
 
-    return [taskResumptionMessage, userResponseMessage]
+    return taskResumptionMessage
   },
 
   planModeInstructions: () => {
