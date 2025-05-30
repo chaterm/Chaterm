@@ -160,8 +160,12 @@ export class Controller {
 
   // Send any JSON serializable data to the react app
   async postMessageToWebview(message: ExtensionMessage) {
-    await this.postMessage(message)
+    // 这里发送消息到 webview
+    const safeMessage = removeSensitiveKeys(message)
+  await this.postMessage(safeMessage)
   }
+
+
 
   /**
    * Sets up an event listener to listen for messages passed from the webview context and
@@ -728,4 +732,26 @@ export class Controller {
       action: 'chatButtonClicked'
     })
   }
+}
+
+function removeSensitiveKeys(obj: any): any {
+  if (Array.isArray(obj)) {
+    return obj.map(removeSensitiveKeys)
+  } else if (obj && typeof obj === 'object') {
+    const newObj: any = {}
+    for (const key of Object.keys(obj)) {
+      if (
+        key.toLowerCase().includes('accesskey') ||
+        key.toLowerCase().includes('secretkey') ||
+        key.toLowerCase().includes('endpoint')  ||
+        key.toLowerCase().includes('awsProfile') 
+      ) {
+        newObj[key] = undefined // 或 '***'
+      } else {
+        newObj[key] = removeSensitiveKeys(obj[key])
+      }
+    }
+    return newObj
+  }
+  return obj
 }
