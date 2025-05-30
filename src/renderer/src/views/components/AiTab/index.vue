@@ -1,6 +1,6 @@
 <template>
   <a-button
-    @click="handleGetAssetInfo"
+    @click="getChatermMessages"
     :loading="isGettingAssetInfo"
     type="primary"
   >
@@ -277,11 +277,12 @@ const isGettingAssetInfo = ref(false)
 
 const getChatermMessages = async () => {
   const result = await (window.api as any).chatermGetChatermMessages({
-    taskId: currentChatId.value
+    // taskId: currentChatId.value
+    taskId: '1748585691113'
   })
-
   const messages = result as ChatermMessage[]
   console.log('result', messages)
+  return messages
 }
 
 const getCurentTabAssetInfo = async (): Promise<AssetInfo | null> => {
@@ -578,40 +579,69 @@ const restoreHistoryTab = async (history: HistoryItem) => {
   chatTypeValue.value = history.chatType
 
   try {
-    const res = await getChatDetailList({
-      conversationId: history.id,
-      limit: 10,
-      offset: 0
-    })
-
-    const chatContentTemp = res.data.list
-      .map((item: any) => {
-        try {
-          const parsedContent = JSON.parse(item.content)
-          if (
-            typeof parsedContent === 'object' &&
-            parsedContent !== null &&
-            ['user', 'assistant'].includes(parsedContent.role) &&
-            typeof parsedContent.content === 'string'
-          ) {
-            return {
-              id: uuidv4(),
-              role: parsedContent.role as 'user' | 'assistant',
-              content: parsedContent.content,
-              type: 'message',
-              ask: '',
-              say: ''
-            } as ChatMessage
+    if (history.chatType === 'ctm-agent') {
+      const conversationHistory = await getChatermMessages()
+      // 按时间戳排序
+      conversationHistory.forEach((item, index) => {
+        if (item.ask === 'followup' || item.ask === 'command' || item.say === 'text') {
+          let role = 'assistant'
+          if (index === 0) {
+            role = 'user'
           }
-        } catch (e) {
-          console.error('解析聊天记录失败:', e)
+          const userMessage: ChatMessage = {
+            id: uuidv4(),
+            role: role,
+            content: item.text,
+            type: item.type,
+            ask: item.ask,
+            say: item.say
+          }
+          chatHistory.push(userMessage)
         }
-        return null
       })
-      .filter(Boolean)
+      // 更新当前历史条目
+      const currentHistoryEntry = historyList.value.find(
+        (entry) => entry.id === currentChatId.value
+      )
+      if (currentHistoryEntry) {
+        currentHistoryEntry.chatContent = [...chatHistory]
+      }
+    } else {
+      const res = await getChatDetailList({
+        conversationId: history.id,
+        limit: 10,
+        offset: 0
+      })
 
-    chatHistory.length = 0
-    chatHistory.push(...chatContentTemp)
+      const chatContentTemp = res.data.list
+        .map((item: any) => {
+          try {
+            const parsedContent = JSON.parse(item.content)
+            if (
+              typeof parsedContent === 'object' &&
+              parsedContent !== null &&
+              ['user', 'assistant'].includes(parsedContent.role) &&
+              typeof parsedContent.content === 'string'
+            ) {
+              return {
+                id: uuidv4(),
+                role: parsedContent.role as 'user' | 'assistant',
+                content: parsedContent.content,
+                type: 'message',
+                ask: '',
+                say: ''
+              } as ChatMessage
+            }
+          } catch (e) {
+            console.error('解析聊天记录失败:', e)
+          }
+          return null
+        })
+        .filter(Boolean)
+
+      chatHistory.length = 0
+      chatHistory.push(...chatContentTemp)
+    }
     chatInputValue.value = ''
   } catch (err) {
     console.error(err)
@@ -621,9 +651,10 @@ const restoreHistoryTab = async (history: HistoryItem) => {
 const handleHistoryClick = async () => {
   try {
     if (chatTypeValue.value === 'ctm-agent') {
-      // 从 globalState 获取所有 agent 历史记录
-      const agentHistory = (await getGlobalState('taskHistory')) || []
+      // 从 globalState 获取所有 agent 历史记录并按 ts 倒序排序
+      const agentHistory = ((await getGlobalState('taskHistory')) || []).sort((a, b) => b.ts - a.ts)
       // 转换格式并添加到历史列表
+      historyList.value = []
       agentHistory.forEach((messages) => {
         historyList.value.push({
           id: messages.id,
