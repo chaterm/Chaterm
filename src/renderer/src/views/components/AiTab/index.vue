@@ -1,10 +1,10 @@
 <template>
-  <a-button 
-    @click="handleGetAssetInfo" 
+  <a-button
+    @click="handleGetAssetInfo"
     :loading="isGettingAssetInfo"
     type="primary"
   >
-   获取到当前的活跃tab的资产信息
+    获取到当前的活跃tab的资产信息
   </a-button>
   <a-tabs
     v-model:active-key="activeKey"
@@ -276,36 +276,34 @@ const AiTypeOptions = [
 const isGettingAssetInfo = ref(false)
 
 const getChatermMessages = async () => {
-   
-  const result = await (window.api as any).chatermGetChatermMessages({ taskId: currentChatId.value })
- 
+  const result = await (window.api as any).chatermGetChatermMessages({
+    taskId: currentChatId.value
+  })
+
   const messages = result as ChatermMessage[]
   console.log('result', messages)
- 
 }
 
-const getCurentTabAssetInfo = async () => {  
+const getCurentTabAssetInfo = async (): Promise<AssetInfo | null> => {
   try {
     // 创建一个Promise来等待assetInfoResult事件
-    const assetInfo = await new Promise((resolve, reject) => {
+    const assetInfo = await new Promise<AssetInfo | null>((resolve, reject) => {
       // 设置超时
       const timeout = setTimeout(() => {
         eventBus.off('assetInfoResult', handleResult)
         reject(new Error('获取资产信息超时'))
       }, 5000) // 5秒超时
-      
+
       // 监听结果事件
-      const handleResult = (result: any) => {
+      const handleResult = (result: AssetInfo | null) => {
         clearTimeout(timeout)
         eventBus.off('assetInfoResult', handleResult)
         resolve(result)
       }
       eventBus.on('assetInfoResult', handleResult)
-      
       // 发出请求事件
       eventBus.emit('getActiveTabAssetInfo')
     })
-    
     // 直接在这里处理结果
     if (assetInfo) {
       console.log('获取到资产信息:', assetInfo)
@@ -693,62 +691,62 @@ onMounted(async () => {
   }
 
   removeListener = (window.api as any).onMainMessage((message: any) => {
-  let lastMessage = {
-    type: ''
-  }
+    let lastMessage = {
+      type: ''
+    }
 
-  const removeListener = (window.api as any).onMainMessage((message: any) => {
-    console.log('Received main process message:', message)
-    if (message?.type === 'partialMessage') {
-      let openNewMessage = false
-      let lastAssistantMessage = chatHistory.at(-1)!
-      if (lastMessage?.type === 'state' || lastAssistantMessage?.role === 'user') {
-        openNewMessage = true
-      }
-      // 处理流式响应
-      // 追加内容到现有assistant消息
-      // 返回的内容如果和前一个相同，并且 partial 字段为 false，开启一个新的assistant消息
-      if (openNewMessage) {
-        // 创建新的assistant消息
-        chatHistory.push({
-          id: uuidv4(),
-          role: 'assistant',
-          content: message.partialMessage.text,
-          type: message.partialMessage.type,
-          ask: message.partialMessage.type === 'ask' ? message.partialMessage.ask : '',
-          say: message.partialMessage.type === 'say' ? message.partialMessage.say : ''
-        } as ChatMessage)
-        lastAssistantMessage = chatHistory.at(-1)!
-        // 同步更新历史记录
-        const currentHistoryEntry = historyList.value.find(
-          (entry) => entry.id === currentChatId.value
-        )
-        if (currentHistoryEntry) {
-          currentHistoryEntry.chatContent.push({
+    const removeListener = (window.api as any).onMainMessage((message: any) => {
+      console.log('Received main process message:', message)
+      if (message?.type === 'partialMessage') {
+        let openNewMessage = false
+        let lastAssistantMessage = chatHistory.at(-1)!
+        if (lastMessage?.type === 'state' || lastAssistantMessage?.role === 'user') {
+          openNewMessage = true
+        }
+        // 处理流式响应
+        // 追加内容到现有assistant消息
+        // 返回的内容如果和前一个相同，并且 partial 字段为 false，开启一个新的assistant消息
+        if (openNewMessage) {
+          // 创建新的assistant消息
+          chatHistory.push({
+            id: uuidv4(),
             role: 'assistant',
             content: message.partialMessage.text,
             type: message.partialMessage.type,
             ask: message.partialMessage.type === 'ask' ? message.partialMessage.ask : '',
             say: message.partialMessage.type === 'say' ? message.partialMessage.say : ''
           } as ChatMessage)
+          lastAssistantMessage = chatHistory.at(-1)!
+          // 同步更新历史记录
+          const currentHistoryEntry = historyList.value.find(
+            (entry) => entry.id === currentChatId.value
+          )
+          if (currentHistoryEntry) {
+            currentHistoryEntry.chatContent.push({
+              role: 'assistant',
+              content: message.partialMessage.text,
+              type: message.partialMessage.type,
+              ask: message.partialMessage.type === 'ask' ? message.partialMessage.ask : '',
+              say: message.partialMessage.type === 'say' ? message.partialMessage.say : ''
+            } as ChatMessage)
+          }
+        }
+        lastAssistantMessage.content = message.partialMessage.text
+        // 同步更新历史记录
+        const currentHistoryEntry = historyList.value.find(
+          (entry) => entry.id === currentChatId.value
+        )
+        if (currentHistoryEntry) {
+          const lastHistoryContent = currentHistoryEntry.chatContent.at(-1)
+          if (lastHistoryContent?.role === 'assistant') {
+            lastHistoryContent.content = message.partialMessage.text
+          }
         }
       }
-      lastAssistantMessage.content = message.partialMessage.text
-      // 同步更新历史记录
-      const currentHistoryEntry = historyList.value.find(
-        (entry) => entry.id === currentChatId.value
-      )
-      if (currentHistoryEntry) {
-        const lastHistoryContent = currentHistoryEntry.chatContent.at(-1)
-        if (lastHistoryContent?.role === 'assistant') {
-          lastHistoryContent.content = message.partialMessage.text
-        }
-      }
-    }
-    lastMessage = message
-    console.log('chatHistory', chatHistory)
+      lastMessage = message
+      console.log('chatHistory', chatHistory)
+    })
   })
-})
 })
 
 onUnmounted(() => {
@@ -760,18 +758,22 @@ onUnmounted(() => {
 // 添加发送消息到主进程的方法
 const sendMessageToMain = async (userContent: string) => {
   try {
-    const message =
-      chatHistory.length === 0
-        ? {
-            type: 'newTask' as const,
-            askResponse: 'messageResponse' as const,
-            text: userContent
-          }
-        : {
-            type: 'askResponse' as const,
-            askResponse: 'messageResponse' as const,
-            text: userContent
-          }
+    let message
+    if (chatHistory.length === 0) {
+      const assetInfo = await getCurentTabAssetInfo()
+      message = {
+        type: 'newTask' as const,
+        askResponse: 'messageResponse' as const,
+        text: userContent,
+        terminalUuid: assetInfo?.uuid
+      }
+    } else {
+      message = {
+        type: 'askResponse' as const,
+        askResponse: 'messageResponse' as const,
+        text: userContent
+      }
+    }
 
     console.log('发送消息到主进程:', message)
     const response = await (window.api as any).sendToMain(message)
@@ -808,7 +810,7 @@ const handleGetAssetInfo = async () => {
     if (assetInfo && typeof assetInfo === 'object' && 'uuid' in assetInfo) {
       const typedAssetInfo = assetInfo as AssetInfo
       console.log('获取到当前活跃标签页信息:', typedAssetInfo)
-      
+
       notification.success({
         message: '获取标签页信息成功',
         description: `当前标签页: ${typedAssetInfo.title} (UUID: ${typedAssetInfo.uuid})`,
