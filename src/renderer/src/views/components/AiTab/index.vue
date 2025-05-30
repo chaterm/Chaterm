@@ -56,7 +56,7 @@
                 </a-button>
                 <div v-if="chatTypeValue === 'ctm-agent' && message.type === 'ask'">
                   <div
-                    v-if="!messageActions[message.id]"
+                    v-if="!message.action"
                     class="action-buttons"
                   >
                     <div class="button-row">
@@ -84,14 +84,10 @@
                   </div>
                   <div
                     v-else
+                    :class="message.action"
                     class="action-status"
-                    :class="messageActions[message.id]"
                   >
-                    {{
-                      messageActions[message.id] === 'approved'
-                        ? $t('ai.approved')
-                        : $t('ai.rejected')
-                    }}
+                    {{ message.action === 'approved' ? $t('ai.approved') : $t('ai.rejected') }}
                   </div>
                 </div>
               </div>
@@ -203,12 +199,14 @@ import { notification } from 'ant-design-vue'
 import { v4 as uuidv4 } from 'uuid'
 import { getAiModel, getChatDetailList, getConversationList } from '@/api/ai/ai'
 import eventBus from '@/utils/eventBus'
+import { updateGlobalState, getGlobalState } from '@renderer/agent/storage/state'
 // 异步加载 Markdown 渲染组件
 const MarkdownRenderer = defineAsyncComponent(
   () => import('@views/components/AiTab/MarkdownRenderer.vue')
 )
 
 import { ChatermMessage } from 'src/main/agent/shared/ExtensionMessage'
+
 interface HistoryItem {
   id: string
   chatTitle: string
@@ -234,6 +232,8 @@ interface ChatMessage {
   type?: string
   ask?: string
   say?: string
+  action?: 'approved' | 'rejected'
+  timestamp?: number
 }
 
 interface AssetInfo {
@@ -271,9 +271,9 @@ const getChatermMessages = async () => {
   const result = await (window.api as any).chatermGetChatermMessages({
     taskId: currentChatId.value
   })
-
   const messages = result as ChatermMessage[]
   console.log('result', messages)
+  return messages
 }
 
 const getCurentTabAssetInfo = async (): Promise<AssetInfo | null> => {
@@ -570,40 +570,70 @@ const restoreHistoryTab = async (history: HistoryItem) => {
   chatTypeValue.value = history.chatType
 
   try {
-    const res = await getChatDetailList({
-      conversationId: history.id,
-      limit: 10,
-      offset: 0
-    })
-
-    const chatContentTemp = res.data.list
-      .map((item: any) => {
-        try {
-          const parsedContent = JSON.parse(item.content)
-          if (
-            typeof parsedContent === 'object' &&
-            parsedContent !== null &&
-            ['user', 'assistant'].includes(parsedContent.role) &&
-            typeof parsedContent.content === 'string'
-          ) {
-            return {
-              id: uuidv4(),
-              role: parsedContent.role as 'user' | 'assistant',
-              content: parsedContent.content,
-              type: 'message',
-              ask: '',
-              say: ''
-            } as ChatMessage
+    if (history.chatType === 'ctm-agent') {
+      const conversationHistory = await getChatermMessages()
+      chatHistory.length = 0
+      // 按时间戳排序
+      conversationHistory.forEach((item, index) => {
+        if (item.ask === 'followup' || item.ask === 'command' || item.say === 'text') {
+          let role = 'assistant'
+          if (index === 0) {
+            role = 'user'
           }
-        } catch (e) {
-          console.error('解析聊天记录失败:', e)
+          const userMessage: ChatMessage = {
+            id: uuidv4(),
+            role: role,
+            content: item.text,
+            type: item.type,
+            ask: item.ask,
+            say: item.say
+          }
+          chatHistory.push(userMessage)
         }
-        return null
       })
-      .filter(Boolean)
+      // 更新当前历史条目
+      const currentHistoryEntry = historyList.value.find(
+        (entry) => entry.id === currentChatId.value
+      )
+      if (currentHistoryEntry) {
+        currentHistoryEntry.chatContent = [...chatHistory]
+      }
+    } else {
+      const res = await getChatDetailList({
+        conversationId: history.id,
+        limit: 10,
+        offset: 0
+      })
 
-    chatHistory.length = 0
-    chatHistory.push(...chatContentTemp)
+      const chatContentTemp = res.data.list
+        .map((item: any) => {
+          try {
+            const parsedContent = JSON.parse(item.content)
+            if (
+              typeof parsedContent === 'object' &&
+              parsedContent !== null &&
+              ['user', 'assistant'].includes(parsedContent.role) &&
+              typeof parsedContent.content === 'string'
+            ) {
+              return {
+                id: uuidv4(),
+                role: parsedContent.role as 'user' | 'assistant',
+                content: parsedContent.content,
+                type: 'message',
+                ask: '',
+                say: ''
+              } as ChatMessage
+            }
+          } catch (e) {
+            console.error('解析聊天记录失败:', e)
+          }
+          return null
+        })
+        .filter(Boolean)
+
+      chatHistory.length = 0
+      chatHistory.push(...chatContentTemp)
+    }
     chatInputValue.value = ''
   } catch (err) {
     console.error(err)
@@ -612,13 +642,30 @@ const restoreHistoryTab = async (history: HistoryItem) => {
 
 const handleHistoryClick = async () => {
   try {
-    const res = await getConversationList({})
-    historyList.value = res.data.list.map((item: any) => ({
-      id: item.conversationId,
-      chatTitle: item.title,
-      chatType: item.conversateType,
-      chatContent: []
-    }))
+    if (chatTypeValue.value === 'ctm-agent') {
+      // 从 globalState 获取所有 agent 历史记录并按 ts 倒序排序
+      const agentHistory = ((await getGlobalState('taskHistory')) || []).sort((a, b) => b.ts - a.ts)
+      // 转换格式并添加到历史列表
+      historyList.value = []
+      agentHistory.forEach((messages) => {
+        historyList.value.push({
+          id: messages.id,
+          chatTitle: messages?.task?.substring(0, 15) + '...' || 'Agent Chat',
+          chatType: 'ctm-agent',
+          chatContent: messages
+        })
+      })
+    } else {
+      const res = await getConversationList({})
+      historyList.value = res.data.list
+        .filter((item) => item.conversateType !== 'ctm-agent')
+        .map((item: any) => ({
+          id: item.conversationId,
+          chatTitle: item.title,
+          chatType: item.conversateType,
+          chatContent: []
+        }))
+    }
   } catch (err) {
     console.error('Failed to get conversation list:', err)
   }
@@ -645,12 +692,67 @@ const handleCopyContent = async (message: ChatMessage) => {
 
 const messageActions = reactive<Record<string, 'approved' | 'rejected'>>({})
 
-const handleRejectContent = (message: ChatMessage) => {
-  messageActions[message.id] = 'rejected'
+const handleRejectContent = async (message: ChatMessage) => {
+  try {
+    message.action = 'rejected'
+    await saveAgentHistory(message)
+  } catch (err) {
+    console.error('Failed to update message action:', err)
+  }
 }
 
-const handleApproveCommand = (message: ChatMessage) => {
-  messageActions[message.id] = 'approved'
+const handleApproveCommand = async (message: ChatMessage) => {
+  try {
+    message.action = 'approved'
+    await saveAgentHistory(message)
+  } catch (err) {
+    console.error('Failed to update message action:', err)
+  }
+}
+
+const saveAgentHistory = async (message: ChatMessage) => {
+  try {
+    const agentHistory = (await getGlobalState('agentHistory')) || {}
+
+    // 如果这个会话的历史记录不存在，创建一个新的
+    if (!agentHistory[currentChatId.value!]) {
+      agentHistory[currentChatId.value!] = []
+    }
+
+    // 创建可序列化的消息对象
+    const serializableMessage = createSerializableMessage(message)
+
+    // 添加或更新消息
+    const existingMessageIndex = agentHistory[currentChatId.value!].findIndex(
+      (msg) => msg.id === message.id
+    )
+
+    if (existingMessageIndex !== -1) {
+      // 更新现有消息
+      agentHistory[currentChatId.value!][existingMessageIndex] = serializableMessage
+    } else {
+      // 添加新消息
+      agentHistory[currentChatId.value!].push(serializableMessage)
+    }
+
+    // 更新全局状态
+    await updateGlobalState('agentHistory', agentHistory)
+  } catch (err) {
+    console.error('Failed to save agent history:', err)
+  }
+}
+
+const createSerializableMessage = (message: ChatMessage) => {
+  return {
+    id: message.id,
+    role: message.role,
+    content: message.content,
+    type: message.type || '',
+    ask: message.ask || '',
+    say: message.say || '',
+    action: message.action,
+    timestamp: message.timestamp || new Date().getTime()
+  }
 }
 
 // 声明removeListener变量
@@ -683,10 +785,22 @@ onMounted(async () => {
     console.error('Failed to get AI models:', err)
   }
 
+  let lastMessage = {
+    type: ''
+  }
+  let lastPartialMessagePartial = true
   removeListener = (window.api as any).onMainMessage((message: any) => {
     console.log('Received main process message:', message)
     if (message?.type === 'partialMessage') {
       let openNewMessage = false
+
+      // if (message.partialMessage.text === '') {
+      //   return
+      // }
+      // 检查是否与上一条消息完全相同
+      if (lastMessage && JSON.stringify(lastMessage) === JSON.stringify(message)) {
+        return
+      }
       const lastMessageInChat = chatHistory.at(-1)
 
       if (
@@ -696,7 +810,9 @@ onMounted(async () => {
       ) {
         openNewMessage = true
       }
-
+      // 处理流式响应
+      // 追加内容到现有assistant消息
+      // 返回的内容如果和前一个相同，并且 partial 字段为 false，开启一个新的assistant消息
       if (openNewMessage) {
         // 创建新的assistant消息
         const newAssistantMessage: ChatMessage = {
@@ -708,29 +824,34 @@ onMounted(async () => {
           say: message.partialMessage.type === 'say' ? message.partialMessage.say : ''
         }
         chatHistory.push(newAssistantMessage)
-
         // 同步更新历史记录
         const currentHistoryEntry = historyList.value.find(
           (entry) => entry.id === currentChatId.value
         )
         if (currentHistoryEntry) {
-          currentHistoryEntry.chatContent.push({ ...newAssistantMessage }) // Push a copy
+          currentHistoryEntry.chatContent.push({ ...newAssistantMessage })
         }
       } else if (lastMessageInChat && lastMessageInChat.role === 'assistant') {
-        // 追加内容到现有assistant消息
-        lastMessageInChat.content = message.partialMessage.text // 假设是完整内容，如果是delta则应为 +=
-
-        // 同步更新历史记录
-        const currentHistoryEntry = historyList.value.find(
-          (entry) => entry.id === currentChatId.value
-        )
-        if (currentHistoryEntry) {
-          const lastHistoryContent = currentHistoryEntry.chatContent.at(-1)
-          if (lastHistoryContent?.role === 'assistant') {
-            lastHistoryContent.content = message.partialMessage.text // 假设是完整内容
-          }
+          lastMessageInChat.content = message.partialMessage.text
+       // 追加内容到现有assistant消息      // 同步更新历史记录
+      const currentHistoryEntry = historyList.value.find(
+        (entry) => entry.id === currentChatId.value
+      )
+      if (currentHistoryEntry) {
+        const lastHistoryContent = currentHistoryEntry.chatContent.at(-1)
+        if (lastHistoryContent?.role === 'assistant') {
+          lastHistoryContent.content = message.partialMessage.text
+          lastHistoryContent.type = message.partialMessage.type
+          lastHistoryContent.ask =
+            message.partialMessage.type === 'ask' ? message.partialMessage.ask : ''
+          lastHistoryContent.say =
+            message.partialMessage.type === 'say' ? message.partialMessage.say : ''
         }
       }
+      lastPartialMessagePartial = message.partialMessage?.partial
+    }
+    lastMessage = message
+    console.log('chatHistory', chatHistory)
     }
     currentLastMessageState = message // 更新已处理的上一条消息状态
     console.log('chatHistory after processing:', chatHistory)
@@ -864,7 +985,7 @@ watch(
 
   .message {
     width: 100%;
-    padding: 12px 16px;
+    padding: 8px 12px;
     border-radius: 12px;
     font-size: 12px;
     line-height: 1.5;
@@ -967,13 +1088,13 @@ watch(
 .assistant-message-container {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 2px;
   width: 100%;
 
   .message-actions {
     display: flex;
     gap: 6px;
-    margin-top: 4px;
+    margin-top: 0px;
     justify-content: flex-end;
 
     .action-btn {
@@ -1144,10 +1265,15 @@ watch(
   }
 }
 
-.button-row {
-  display: flex;
-  gap: 8px;
-  justify-content: flex-end;
-  margin-top: 8px;
+.action-buttons {
+  margin: 0;
+  padding: 0;
+
+  .button-row {
+    display: flex;
+    gap: 4px;
+    justify-content: flex-end;
+    margin-top: 2px;
+  }
 }
 </style>
