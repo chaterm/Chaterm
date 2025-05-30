@@ -1,10 +1,10 @@
 <template>
-  <a-button 
-    @click="handleGetAssetInfo" 
+  <a-button
+    @click="handleGetAssetInfo"
     :loading="isGettingAssetInfo"
     type="primary"
   >
-   获取到当前的活跃tab的资产信息
+    获取到当前的活跃tab的资产信息
   </a-button>
   <a-tabs
     v-model:active-key="activeKey"
@@ -193,8 +193,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted, onUnmounted, nextTick, watch } from 'vue'
-import MarkdownRenderer from './MarkdownRenderer.vue'
+import { ref, reactive, onMounted, defineAsyncComponent, onUnmounted, nextTick, watch } from 'vue'
 import {
   PlusOutlined,
   CloseOutlined,
@@ -208,6 +207,10 @@ import { v4 as uuidv4 } from 'uuid'
 import { getAiModel, getChatDetailList, getConversationList } from '@/api/ai/ai'
 import eventBus from '@/utils/eventBus'
 import { updateGlobalState, getGlobalState } from '@renderer/agent/storage/state'
+// 异步加载 Markdown 渲染组件
+const MarkdownRenderer = defineAsyncComponent(
+  () => import('@views/components/AiTab/MarkdownRenderer.vue')
+)
 
 import { ChatermMessage } from 'src/main/agent/shared/ExtensionMessage'
 interface HistoryItem {
@@ -272,36 +275,34 @@ const AiTypeOptions = [
 const isGettingAssetInfo = ref(false)
 
 const getChatermMessages = async () => {
-   
-  const result = await (window.api as any).chatermGetChatermMessages({ taskId: currentChatId.value })
- 
+  const result = await (window.api as any).chatermGetChatermMessages({
+    taskId: currentChatId.value
+  })
+
   const messages = result as ChatermMessage[]
   console.log('result', messages)
- 
 }
 
-const getCurentTabAssetInfo = async () => {  
+const getCurentTabAssetInfo = async (): Promise<AssetInfo | null> => {
   try {
     // 创建一个Promise来等待assetInfoResult事件
-    const assetInfo = await new Promise((resolve, reject) => {
+    const assetInfo = await new Promise<AssetInfo | null>((resolve, reject) => {
       // 设置超时
       const timeout = setTimeout(() => {
         eventBus.off('assetInfoResult', handleResult)
         reject(new Error('获取资产信息超时'))
       }, 5000) // 5秒超时
-      
+
       // 监听结果事件
-      const handleResult = (result: any) => {
+      const handleResult = (result: AssetInfo | null) => {
         clearTimeout(timeout)
         eventBus.off('assetInfoResult', handleResult)
         resolve(result)
       }
       eventBus.on('assetInfoResult', handleResult)
-      
       // 发出请求事件
       eventBus.emit('getActiveTabAssetInfo')
     })
-    
     // 直接在这里处理结果
     if (assetInfo) {
       console.log('获取到资产信息:', assetInfo)
@@ -901,18 +902,22 @@ const sendMessageToMain = async (userContent: string) => {
   }
 
   try {
-    const message =
-      chatHistory.length === 0
-        ? {
-            type: 'newTask' as const,
-            askResponse: 'messageResponse' as const,
-            text: userContent
-          }
-        : {
-            type: 'askResponse' as const,
-            askResponse: 'messageResponse' as const,
-            text: userContent
-          }
+    let message
+    if (chatHistory.length === 0) {
+      const assetInfo = await getCurentTabAssetInfo()
+      message = {
+        type: 'newTask' as const,
+        askResponse: 'messageResponse' as const,
+        text: userContent,
+        terminalUuid: assetInfo?.uuid
+      }
+    } else {
+      message = {
+        type: 'askResponse' as const,
+        askResponse: 'messageResponse' as const,
+        text: userContent
+      }
+    }
 
     console.log('发送消息到主进程:', message)
     const response = await (window.api as any).sendToMain(message)
@@ -949,7 +954,7 @@ const handleGetAssetInfo = async () => {
     if (assetInfo && typeof assetInfo === 'object' && 'uuid' in assetInfo) {
       const typedAssetInfo = assetInfo as AssetInfo
       console.log('获取到当前活跃标签页信息:', typedAssetInfo)
-      
+
       notification.success({
         message: '获取标签页信息成功',
         description: `当前标签页: ${typedAssetInfo.title} (UUID: ${typedAssetInfo.uuid})`,
