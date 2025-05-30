@@ -266,7 +266,6 @@ const AiTypeOptions = [
   { label: 'Agent', value: 'ctm-agent' }
 ]
 
-
 const getChatermMessages = async () => {
   const result = await (window.api as any).chatermGetChatermMessages({
     taskId: currentChatId.value
@@ -685,68 +684,33 @@ const handleCopyContent = async (message: ChatMessage) => {
   }
 }
 
-const messageActions = reactive<Record<string, 'approved' | 'rejected'>>({})
-
 const handleRejectContent = async (message: ChatMessage) => {
   try {
+    let messageRsp = {
+      type: 'askResponse',
+      askResponse: 'noButtonClicked'
+    }
     message.action = 'rejected'
-    await saveAgentHistory(message)
-  } catch (err) {
-    console.error('Failed to update message action:', err)
+    console.log('发送消息到主进程:', messageRsp)
+    const response = await (window.api as any).sendToMain(messageRsp)
+    console.log('主进程响应:', response)
+  } catch (error) {
+    console.error('发送消息到主进程失败:', error)
   }
 }
 
 const handleApproveCommand = async (message: ChatMessage) => {
   try {
+    let messageRsp = {
+      type: 'askResponse',
+      askResponse: 'yesButtonClicked'
+    }
     message.action = 'approved'
-    await saveAgentHistory(message)
-  } catch (err) {
-    console.error('Failed to update message action:', err)
-  }
-}
-
-const saveAgentHistory = async (message: ChatMessage) => {
-  try {
-    const agentHistory = (await getGlobalState('agentHistory')) || {}
-
-    // 如果这个会话的历史记录不存在，创建一个新的
-    if (!agentHistory[currentChatId.value!]) {
-      agentHistory[currentChatId.value!] = []
-    }
-
-    // 创建可序列化的消息对象
-    const serializableMessage = createSerializableMessage(message)
-
-    // 添加或更新消息
-    const existingMessageIndex = agentHistory[currentChatId.value!].findIndex(
-      (msg) => msg.id === message.id
-    )
-
-    if (existingMessageIndex !== -1) {
-      // 更新现有消息
-      agentHistory[currentChatId.value!][existingMessageIndex] = serializableMessage
-    } else {
-      // 添加新消息
-      agentHistory[currentChatId.value!].push(serializableMessage)
-    }
-
-    // 更新全局状态
-    await updateGlobalState('agentHistory', agentHistory)
-  } catch (err) {
-    console.error('Failed to save agent history:', err)
-  }
-}
-
-const createSerializableMessage = (message: ChatMessage) => {
-  return {
-    id: message.id,
-    role: message.role,
-    content: message.content,
-    type: message.type || '',
-    ask: message.ask || '',
-    say: message.say || '',
-    action: message.action,
-    timestamp: message.timestamp || new Date().getTime()
+    console.log('发送消息到主进程:', messageRsp)
+    const response = await (window.api as any).sendToMain(messageRsp)
+    console.log('主进程响应:', response)
+  } catch (error) {
+    console.error('发送消息到主进程失败:', error)
   }
 }
 
@@ -799,7 +763,7 @@ onMounted(async () => {
       const lastMessageInChat = chatHistory.at(-1)
 
       if (
-        currentLastMessageState?.type === 'state' ||
+        (lastMessage?.type === 'state' && lastPartialMessagePartial) ||
         !lastMessageInChat ||
         lastMessageInChat.role === 'user'
       ) {
@@ -827,26 +791,26 @@ onMounted(async () => {
           currentHistoryEntry.chatContent.push({ ...newAssistantMessage })
         }
       } else if (lastMessageInChat && lastMessageInChat.role === 'assistant') {
-          lastMessageInChat.content = message.partialMessage.text
-       // 追加内容到现有assistant消息      // 同步更新历史记录
-      const currentHistoryEntry = historyList.value.find(
-        (entry) => entry.id === currentChatId.value
-      )
-      if (currentHistoryEntry) {
-        const lastHistoryContent = currentHistoryEntry.chatContent.at(-1)
-        if (lastHistoryContent?.role === 'assistant') {
-          lastHistoryContent.content = message.partialMessage.text
-          lastHistoryContent.type = message.partialMessage.type
-          lastHistoryContent.ask =
-            message.partialMessage.type === 'ask' ? message.partialMessage.ask : ''
-          lastHistoryContent.say =
-            message.partialMessage.type === 'say' ? message.partialMessage.say : ''
+        lastMessageInChat.content = message.partialMessage.text
+        // 追加内容到现有assistant消息      // 同步更新历史记录
+        const currentHistoryEntry = historyList.value.find(
+          (entry) => entry.id === currentChatId.value
+        )
+        if (currentHistoryEntry) {
+          const lastHistoryContent = currentHistoryEntry.chatContent.at(-1)
+          if (lastHistoryContent?.role === 'assistant') {
+            lastHistoryContent.content = message.partialMessage.text
+            lastHistoryContent.type = message.partialMessage.type
+            lastHistoryContent.ask =
+              message.partialMessage.type === 'ask' ? message.partialMessage.ask : ''
+            lastHistoryContent.say =
+              message.partialMessage.type === 'say' ? message.partialMessage.say : ''
+          }
         }
+        lastPartialMessagePartial = message.partialMessage?.partial
       }
-      lastPartialMessagePartial = message.partialMessage?.partial
-    }
-    lastMessage = message
-    console.log('chatHistory', chatHistory)
+      lastMessage = message
+      console.log('chatHistory', chatHistory)
     }
     currentLastMessageState = message // 更新已处理的上一条消息状态
     console.log('chatHistory after processing:', chatHistory)
@@ -917,7 +881,6 @@ watch(
   },
   { deep: true }
 )
-
 </script>
 
 <style lang="less" scoped>
@@ -957,6 +920,7 @@ watch(
   padding: 16px;
   scrollbar-width: thin;
   max-height: calc(100vh - 150px);
+  width: 100%;
 
   &::-webkit-scrollbar {
     width: 6px;
@@ -977,27 +941,32 @@ watch(
   flex-direction: column;
   gap: 16px;
   width: 100%;
+  min-width: 0;
 
   .message {
-    width: 100%;
+    display: inline-block;
     padding: 8px 12px;
-    border-radius: 12px;
+    border-radius: 2px;
     font-size: 12px;
     line-height: 1.5;
+    box-sizing: border-box;
 
     &.user {
       align-self: flex-end;
-      background-color: #2c3e50;
-      color: #e0e0e0;
-      border: 1px solid #34495e;
-      max-width: 85%;
+      background-color: #3a3a3a;
+      color: #ffffff;
+      border: none;
+      width: 100%;
+      margin-left: auto;
+      float: right;
+      clear: both;
     }
 
     &.assistant {
       align-self: flex-start;
-      background-color: #1e2a38;
+      //background-color: #1e2a38;
       color: #e0e0e0;
-      border: 1px solid #2c3e50;
+      //border: 1px solid #2c3e50;
       width: 100%;
     }
   }
