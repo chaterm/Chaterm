@@ -220,7 +220,7 @@ const historyList = ref<HistoryItem[]>([])
 
 const chatInputValue = ref('')
 const chatModelValue = ref('qwen-chat')
-const chatTypeValue = ref('ctm-cmd')
+const chatTypeValue = ref('ctm-agent')
 const activeKey = ref('chat')
 
 // 当前活动对话的 ID
