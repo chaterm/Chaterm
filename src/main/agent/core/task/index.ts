@@ -668,15 +668,6 @@ export class Task {
   private async resumeTaskFromHistory() {
     const modifiedChatermMessages = await getChatermMessages(this.taskId)
 
-    // Remove any resume messages that may have been added before
-    const lastRelevantMessageIndex = findLastIndex(
-      modifiedChatermMessages,
-      (m) => !(m.ask === 'resume_task' || m.ask === 'resume_completed_task')
-    )
-    if (lastRelevantMessageIndex !== -1) {
-      modifiedChatermMessages.splice(lastRelevantMessageIndex + 1)
-    }
-
     // since we don't use api_req_finished anymore, we need to check if the last api_req_started has a cost value, if it doesn't and no cancellation reason to present, then we remove it since it indicates an api request without any partial content streamed
     const lastApiReqStartedIndex = findLastIndex(
       modifiedChatermMessages,
@@ -698,29 +689,25 @@ export class Task {
     this.apiConversationHistory = await getSavedApiConversationHistory(this.taskId)
 
     // load the context history state
-    await this.contextManager.initializeContextHistory(this.taskId)
+    await this.contextManager.initializeContextHistory(this.taskId) // TODO:fixme
 
-    const lastChatermMessage = this.chatermMessages
-      .slice()
-      .reverse()
-      .find((m) => !(m.ask === 'resume_task' || m.ask === 'resume_completed_task')) // could be multiple resume tasks
+    const lastChatermMessage = this.chatermMessages.at(-1)
 
-    // let askType: ChatermAsk
-    // if (lastChatermMessage?.ask === 'completion_result') {
-    //   askType = 'resume_completed_task'
-    // } else {
-    //   askType = 'resume_task'
-    // }
+    let askType: ChatermAsk
+    if (lastChatermMessage?.ask === 'completion_result') {
+      askType = 'resume_completed_task'
+    } else {
+      askType = 'resume_task'
+    }
 
-    // this.isInitialized = true
+    this.isInitialized = true
 
-    // const { response, text } = await this.ask(askType) // calls poststatetowebview
-    // let responseText: string | undefined
-    // if (response === 'messageResponse') {
-    //   await this.say('user_feedback', text)
-    //   responseText = text
-    // }
-
+    const { response, text } = await this.ask(askType) // calls poststatetowebview
+    let responseText: string | undefined
+    if (response === 'messageResponse') {
+      await this.say('user_feedback', text)
+      responseText = text
+    }
     // need to make sure that the api conversation history can be resumed by the api, even if it goes out of sync with cline messages
 
     const existingApiConversationHistory: Anthropic.Messages.MessageParam[] =
@@ -2634,63 +2621,63 @@ export class Task {
               break
             }
           }
-          case 'new_task': {
-            const context: string | undefined = block.params.context
-            try {
-              if (block.partial) {
-                await this.ask(
-                  'new_task',
-                  removeClosingTag('context', context),
-                  block.partial
-                ).catch(() => {})
-                break
-              } else {
-                if (!context) {
-                  this.consecutiveMistakeCount++
-                  pushToolResult(await this.sayAndCreateMissingParamError('new_task', 'context'))
-                  await this.saveCheckpoint()
-                  break
-                }
-                this.consecutiveMistakeCount = 0
+          // case 'new_task': {
+          //   const context: string | undefined = block.params.context
+          //   try {
+          //     if (block.partial) {
+          //       await this.ask(
+          //         'new_task',
+          //         removeClosingTag('context', context),
+          //         block.partial
+          //       ).catch(() => {})
+          //       break
+          //     } else {
+          //       if (!context) {
+          //         this.consecutiveMistakeCount++
+          //         pushToolResult(await this.sayAndCreateMissingParamError('new_task', 'context'))
+          //         await this.saveCheckpoint()
+          //         break
+          //       }
+          //       this.consecutiveMistakeCount = 0
 
-                if (
-                  this.autoApprovalSettings.enabled &&
-                  this.autoApprovalSettings.enableNotifications
-                ) {
-                  showSystemNotification({
-                    subtitle: 'Cline wants to start a new task...',
-                    message: `Cline is suggesting to start a new task with: ${context}`
-                  })
-                }
+          //       if (
+          //         this.autoApprovalSettings.enabled &&
+          //         this.autoApprovalSettings.enableNotifications
+          //       ) {
+          //         showSystemNotification({
+          //           subtitle: 'Cline wants to start a new task...',
+          //           message: `Cline is suggesting to start a new task with: ${context}`
+          //         })
+          //       }
 
-                const { text } = await this.ask('new_task', context, false)
+          //       const { text } = await this.ask('new_task', context, false)
 
-                // If the user provided a response, treat it as feedback
-                if (text) {
-                  await this.say('user_feedback', text ?? '')
-                  pushToolResult(
-                    formatResponse.toolResult(
-                      `The user provided feedback instead of creating a new task:\n<feedback>\n${text}\n</feedback>`
-                      //images,
-                    )
-                  )
-                } else {
-                  // If no response, the user clicked the "Create New Task" button
-                  pushToolResult(
-                    formatResponse.toolResult(
-                      `The user has created a new task with the provided context.`
-                    )
-                  )
-                }
-                await this.saveCheckpoint()
-                break
-              }
-            } catch (error) {
-              await handleError('creating new task', error as Error)
-              await this.saveCheckpoint()
-              break
-            }
-          }
+          //       // If the user provided a response, treat it as feedback
+          //       if (text) {
+          //         await this.say('user_feedback', text ?? '')
+          //         pushToolResult(
+          //           formatResponse.toolResult(
+          //             `The user provided feedback instead of creating a new task:\n<feedback>\n${text}\n</feedback>`
+          //             //images,
+          //           )
+          //         )
+          //       } else {
+          //         // If no response, the user clicked the "Create New Task" button
+          //         pushToolResult(
+          //           formatResponse.toolResult(
+          //             `The user has created a new task with the provided context.`
+          //           )
+          //         )
+          //       }
+          //       await this.saveCheckpoint()
+          //       break
+          //     }
+          //   } catch (error) {
+          //     await handleError('creating new task', error as Error)
+          //     await this.saveCheckpoint()
+          //     break
+          //   }
+          // }
           case 'condense': {
             const context: string | undefined = block.params.context
             try {
@@ -3267,7 +3254,7 @@ export class Task {
       this.chatermMessages,
       (m) => m.say === 'api_req_started'
     )
-    console.log('this.chatermMessages', this.chatermMessages)
+    // console.log('this.chatermMessages', this.chatermMessages)
     // Save checkpoint if this is the first API request
     const isFirstRequest =
       this.chatermMessages.filter((m) => m.say === 'api_req_started').length === 0
