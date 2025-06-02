@@ -1,7 +1,8 @@
 import AnthropicBedrock from '@anthropic-ai/bedrock-sdk'
 import { Anthropic } from '@anthropic-ai/sdk'
 import { withRetry } from '../retry'
-import { ApiHandler } from '../'
+import type { ApiHandler } from '../'
+import type { ApiStream } from '../transform/stream'
 import { convertToR1Format } from '../transform/r1-format'
 import {
   ApiHandlerOptions,
@@ -11,7 +12,6 @@ import {
   ModelInfo
 } from '../../shared/api'
 import { calculateApiCostOpenAI } from '../../utils/cost'
-import { ApiStream } from '../transform/stream'
 import { fromNodeProviderChain } from '@aws-sdk/credential-providers'
 import {
   BedrockRuntimeClient,
@@ -111,7 +111,7 @@ export class AwsBedrockHandler implements ApiHandler {
     })
 
     for await (const chunk of stream) {
-      console.log("returning chunks", chunk)
+      console.log('returning chunks', chunk)
       switch (chunk.type) {
         case 'message_start': {
           const usage = chunk.message.usage
@@ -546,6 +546,7 @@ export class AwsBedrockHandler implements ApiHandler {
         // let hasReportedInputTokens = false
 
         for await (const chunk of response.stream) {
+          console.log('nova chunk', chunk)
           // Handle metadata events with token usage information
           if (chunk.metadata?.usage) {
             // Report complete token usage from the model itself
