@@ -30,11 +30,13 @@
                 v-if="typeof message.content === 'object' && 'question' in message.content"
                 :content="(message.content as MessageContent).question"
                 :class="`message ${message.role}`"
+                :ask="message.ask"
               />
               <MarkdownRenderer
                 v-else
                 :content="typeof message.content === 'string' ? message.content : ''"
                 :class="`message ${message.role}`"
+                :ask="message.ask"
               />
 
               <div class="message-actions">
