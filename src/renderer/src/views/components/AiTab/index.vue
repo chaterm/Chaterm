@@ -1005,6 +1005,7 @@ watch(
     font-size: 12px;
     line-height: 1.5;
     box-sizing: border-box;
+    user-select: text;
 
     &.user {
       align-self: flex-end;
