@@ -62,12 +62,13 @@
                 </a-button>
                 <div
                   v-if="
-                    chatTypeValue === 'ctm-agent' &&
-                    message.type === 'ask' &&
-                    typeof message.content === 'object' &&
-                    'options' in message.content &&
-                    Array.isArray((message.content as MessageContent).options) &&
-                    (message.content as MessageContent).options!.length > 1
+                    (chatTypeValue === 'ctm-agent' &&
+                      message.type === 'ask' &&
+                      typeof message.content === 'object' &&
+                      'options' in message.content &&
+                      Array.isArray((message.content as MessageContent).options) &&
+                      (message.content as MessageContent).options!.length > 1) ||
+                    message.ask === 'command'
                   "
                 >
                   <div
@@ -596,8 +597,12 @@ const restoreHistoryTab = async (history: HistoryItem) => {
             ts: item.ts
           }
           if (!item.partial && item.type === 'ask' && item.text) {
-            let contentJson = JSON.parse(item.text)
-            userMessage.content = contentJson?.question
+            try {
+              let contentJson = JSON.parse(item.text)
+              userMessage.content = contentJson?.question
+            } catch (e) {
+              userMessage.content = item.text
+            }
           }
           chatHistory.push(userMessage)
         }
@@ -852,7 +857,11 @@ onMounted(async () => {
           ts: message.partialMessage.ts
         }
         if (!message.partialMessage.partial && message.partialMessage.type === 'ask') {
-          newAssistantMessage.content = JSON.parse(message.partialMessage.text)
+          try {
+            newAssistantMessage.content = JSON.parse(message.partialMessage.text)
+          } catch (e) {
+            newAssistantMessage.content = message.partialMessage.text
+          }
         }
         chatHistory.push(newAssistantMessage)
       } else if (lastMessageInChat && lastMessageInChat.role === 'assistant') {
@@ -865,7 +874,11 @@ onMounted(async () => {
         lastMessageInChat.say =
           message.partialMessage.type === 'say' ? message.partialMessage.say : ''
         if (!message.partialMessage.partial && message.partialMessage.type === 'ask') {
-          lastMessageInChat.content = JSON.parse(message.partialMessage.text)
+          try {
+            lastMessageInChat.content = JSON.parse(message.partialMessage.text)
+          } catch (e) {
+            lastMessageInChat.content = message.partialMessage.text
+          }
         }
       }
       lastPartialMessage = message
