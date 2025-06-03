@@ -2427,7 +2427,7 @@ export class Task {
           case 'execute_command': {
             let command: string | undefined = block.params.command
             const requiresApprovalRaw: string | undefined = block.params.requires_approval
-            const requiresApprovalPerLLM = requiresApprovalRaw?.toLowerCase() === 'true'
+            const requiresApprovalPerLLM = requiresApprovalRaw?.toLowerCase() === 'true' // 模型是否认为该命令需要用户审批
 
             try {
               if (block.partial) {
