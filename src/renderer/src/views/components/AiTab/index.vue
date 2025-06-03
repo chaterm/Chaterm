@@ -27,13 +27,13 @@
               class="assistant-message-container"
             >
               <MarkdownRenderer
-                v-if="message.content?.question"
-                :content="message.content.question"
+                v-if="typeof message.content === 'object' && 'question' in message.content"
+                :content="(message.content as MessageContent).question"
                 :class="`message ${message.role}`"
               />
               <MarkdownRenderer
                 v-else
-                :content="message.content"
+                :content="typeof message.content === 'string' ? message.content : ''"
                 :class="`message ${message.role}`"
               />
 
@@ -64,7 +64,10 @@
                   v-if="
                     chatTypeValue === 'ctm-agent' &&
                     message.type === 'ask' &&
-                    message.content?.options?.length > 1
+                    typeof message.content === 'object' &&
+                    'options' in message.content &&
+                    Array.isArray((message.content as MessageContent).options) &&
+                    (message.content as MessageContent).options!.length > 1
                   "
                 >
                   <div
@@ -130,6 +133,7 @@
             show-search
           ></a-select>
           <a-select
+            v-if="chatTypeValue !== 'ctm-agent'"
             v-model:value="chatModelValue"
             size="small"
             :options="AiModelsOptions"
@@ -243,7 +247,7 @@ const authTokenInCookie = ref<string | null>(null)
 interface ChatMessage {
   id: string
   role: 'user' | 'assistant'
-  content: string
+  content: string | MessageContent
   type?: string
   ask?: string
   say?: string
@@ -280,6 +284,11 @@ const AiTypeOptions = [
   { label: 'Cmd', value: 'ctm-cmd' },
   { label: 'Agent', value: 'ctm-agent' }
 ]
+
+interface MessageContent {
+  question: string
+  options?: string[]
+}
 
 const getChatermMessages = async () => {
   const result = await (window.api as any).chatermGetChatermMessages({
@@ -586,7 +595,7 @@ const restoreHistoryTab = async (history: HistoryItem) => {
             say: item.say,
             ts: item.ts
           }
-          if (!item.partial && item.type === 'ask') {
+          if (!item.partial && item.type === 'ask' && item.text) {
             let contentJson = JSON.parse(item.text)
             userMessage.content = contentJson?.question
           }
@@ -679,8 +688,9 @@ const handleApplyCommand = (message: ChatMessage) => {
 
 const handleCopyContent = async (message: ChatMessage) => {
   try {
-    await navigator.clipboard.writeText(message.content)
-    eventBus.emit('executeTerminalCommand', message.content)
+    const content = typeof message.content === 'string' ? message.content : message.content.question
+    await navigator.clipboard.writeText(content)
+    eventBus.emit('executeTerminalCommand', content)
   } catch (err) {
     console.error('Copy failed:', err)
     notification.error({
@@ -703,7 +713,12 @@ const handleRejectContent = async (message: ChatMessage) => {
       case 'followup':
         // For follow-up questions, provide a generic response
         messageRsp.askResponse = 'messageResponse'
-        messageRsp.text = message.content.options[1]
+        messageRsp.text =
+          typeof message.content === 'object' &&
+          'options' in message.content &&
+          Array.isArray((message.content as MessageContent).options)
+            ? (message.content as MessageContent).options![1]
+            : ''
         break
       case 'api_req_failed':
         // Always retry API requests
@@ -732,14 +747,25 @@ const handleApproveCommand = async (message: ChatMessage) => {
   try {
     let messageRsp = {
       type: 'askResponse',
-      askResponse: message.content.options[0] ? message.content.options[0] : 'yesButtonClicked',
+      askResponse:
+        typeof message.content === 'object' &&
+        'options' in message.content &&
+        Array.isArray((message.content as MessageContent).options) &&
+        (message.content as MessageContent).options![0]
+          ? (message.content as MessageContent).options![0]
+          : 'yesButtonClicked',
       text: ''
     }
     switch (message.ask) {
       case 'followup':
         // For follow-up questions, provide a generic response
         messageRsp.askResponse = 'messageResponse'
-        messageRsp.text = message.content.options[0]
+        messageRsp.text =
+          typeof message.content === 'object' &&
+          'options' in message.content &&
+          Array.isArray((message.content as MessageContent).options)
+            ? (message.content as MessageContent).options![0]
+            : ''
         break
 
       case 'api_req_failed':
@@ -990,19 +1016,20 @@ watch(
       align-self: flex-end;
       background-color: #3a3a3a;
       color: #ffffff;
+      border-radius: 4px;
       border: none;
-      width: 100%;
       margin-left: auto;
       float: right;
       clear: both;
     }
 
     &.assistant {
-      align-self: flex-start;
-      background-color: #1e2a38;
-      color: #e0e0e0;
-      border: 1px solid #2c3e50;
+      // align-self: flex-start;
+      // background-color: #1e2a38;
+      color: #ffffff;
+      // border: 1px solid #2c3e50;
       width: 100%;
+      padding: 0px;
     }
   }
 }
