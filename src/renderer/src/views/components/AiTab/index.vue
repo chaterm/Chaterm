@@ -27,6 +27,12 @@
               class="assistant-message-container"
             >
               <MarkdownRenderer
+                v-if="message.content?.question"
+                :content="message.content.question"
+                :class="`message ${message.role}`"
+              />
+              <MarkdownRenderer
+                v-else
                 :content="message.content"
                 :class="`message ${message.role}`"
               />
@@ -54,7 +60,13 @@
                   </template>
                   {{ $t('ai.run') }}
                 </a-button>
-                <div v-if="chatTypeValue === 'ctm-agent' && message.type === 'ask'">
+                <div
+                  v-if="
+                    chatTypeValue === 'ctm-agent' &&
+                    message.type === 'ask' &&
+                    message.content?.options?.length > 1
+                  "
+                >
                   <div
                     v-if="!message.action"
                     class="action-buttons"
@@ -672,7 +684,28 @@ const handleRejectContent = async (message: ChatMessage) => {
   try {
     let messageRsp = {
       type: 'askResponse',
-      askResponse: 'noButtonClicked'
+      askResponse: 'noButtonClicked',
+      text: ''
+    }
+    switch (message.ask) {
+      case 'followup':
+        // For follow-up questions, provide a generic response
+        messageRsp.askResponse = 'messageResponse'
+        messageRsp.text = message.content.options[1]
+        break
+      case 'api_req_failed':
+        // Always retry API requests
+        messageRsp.askResponse = 'noButtonClicked' // "Retry" button
+        break
+      case 'completion_result':
+        // Accept the completion
+        messageRsp.askResponse = 'messageResponse'
+        messageRsp.text = 'Task completed failed.'
+        break
+      case 'auto_approval_max_req_reached':
+        // Reset the count to continue
+        messageRsp.askResponse = 'noButtonClicked' // "Reset and continue" button
+        break
     }
     message.action = 'rejected'
     console.log('发送消息到主进程:', messageRsp)
@@ -687,7 +720,30 @@ const handleApproveCommand = async (message: ChatMessage) => {
   try {
     let messageRsp = {
       type: 'askResponse',
-      askResponse: 'yesButtonClicked'
+      askResponse: message.content.options[0] ? message.content.options[0] : 'yesButtonClicked',
+      text: ''
+    }
+    switch (message.ask) {
+      case 'followup':
+        // For follow-up questions, provide a generic response
+        messageRsp.askResponse = 'messageResponse'
+        messageRsp.text = message.content.options[0]
+        break
+
+      case 'api_req_failed':
+        // Always retry API requests
+        messageRsp.askResponse = 'yesButtonClicked' // "Retry" button
+        break
+
+      case 'completion_result':
+        // Accept the completion
+        messageRsp.askResponse = 'messageResponse'
+        messageRsp.text = 'Task completed successfully.'
+        break
+      case 'auto_approval_max_req_reached':
+        // Reset the count to continue
+        messageRsp.askResponse = 'yesButtonClicked' // "Reset and continue" button
+        break
     }
     message.action = 'approved'
     console.log('发送消息到主进程:', messageRsp)
