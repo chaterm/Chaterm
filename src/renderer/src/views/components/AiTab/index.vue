@@ -211,7 +211,7 @@ import { notification } from 'ant-design-vue'
 import { v4 as uuidv4 } from 'uuid'
 import { getAiModel, getChatDetailList, getConversationList } from '@/api/ai/ai'
 import eventBus from '@/utils/eventBus'
-import { updateGlobalState, getGlobalState } from '@renderer/agent/storage/state'
+import { getGlobalState } from '@renderer/agent/storage/state'
 import type { HistoryItem as TaskHistoryItem } from '@renderer/agent/storage/shared'
 // 异步加载 Markdown 渲染组件
 const MarkdownRenderer = defineAsyncComponent(
@@ -444,7 +444,8 @@ const sendMessage = () => {
       content: userContent,
       type: 'message',
       ask: '',
-      say: ''
+      say: '',
+      ts: 0
     }
     chatHistory.push(userMessage)
     chatInputValue.value = ''
@@ -562,9 +563,13 @@ const restoreHistoryTab = async (history: HistoryItem) => {
   try {
     if (history.chatType === 'ctm-agent') {
       const conversationHistory = await getChatermMessages()
+      console.log('[conversationHistory]', conversationHistory)
       chatHistory.length = 0
       // 按时间戳排序
       conversationHistory.forEach((item, index) => {
+        if (item.text === null || item.text === '') {
+          return
+        }
         if (item.ask === 'followup' || item.ask === 'command' || item.say === 'text') {
           let role: 'assistant' | 'user' = 'assistant'
           if (index === 0) {
@@ -576,7 +581,12 @@ const restoreHistoryTab = async (history: HistoryItem) => {
             content: item.text || '',
             type: item.type,
             ask: item.ask,
-            say: item.say
+            say: item.say,
+            ts: item.ts
+          }
+          if (!item.partial && item.type === 'ask') {
+            let contentJson = JSON.parse(item.text)
+            userMessage.content = contentJson?.question
           }
           chatHistory.push(userMessage)
         }
@@ -784,19 +794,23 @@ onMounted(async () => {
   }
 
   let lastMessage: any = null
-
+  let lastPartialMessagePartial = true
   removeListener = (window.api as any).onMainMessage((message: any) => {
     console.log('Received main process message:', message)
     if (message?.type === 'partialMessage') {
+      let lastMessageInChat = chatHistory.at(-1)
+      // 返回的内容如果和前一个相同，并且 partial 字段为 false，开启一个新的assistant消息
       let openNewMessage =
-        !lastMessage || lastMessage.partialMessage.ts !== message.partialMessage.ts
-
+        (lastMessage?.type === 'state' && !lastPartialMessagePartial) ||
+        lastMessageInChat?.role === 'user' ||
+        !lastMessage ||
+        lastMessage.partialMessage.ts !== message.partialMessage.ts
       // 检查是否与上一条消息完全相同
-      if (lastMessage && lastMessage.partialMessage.text === message.partialMessage.text) {
+      if (lastMessage && JSON.stringify(lastMessage) === JSON.stringify(message)) {
         return
       }
-      const lastMessageInChat = chatHistory.at(-1)
-
+      // 处理流式响应
+      // 追加内容到现有assistant消息
       if (openNewMessage) {
         // 创建新的assistant消息
         const newAssistantMessage: ChatMessage = {
@@ -806,14 +820,29 @@ onMounted(async () => {
           type: message.partialMessage.type,
           ask: message.partialMessage.type === 'ask' ? message.partialMessage.ask : '',
           say: message.partialMessage.type === 'say' ? message.partialMessage.say : '',
-          ts: message.ts
+          ts: message.partialMessage.ts
+        }
+        if (!message.partialMessage.partial && message.partialMessage.type === 'ask') {
+          newAssistantMessage.content = JSON.parse(message.partialMessage.text)
         }
         chatHistory.push(newAssistantMessage)
       } else if (lastMessageInChat && lastMessageInChat.role === 'assistant') {
         lastMessageInChat.content = message.partialMessage.text
+        lastMessageInChat.content = message.partialMessage.text
+        lastMessageInChat.content = message.partialMessage.text
+        lastMessageInChat.type = message.partialMessage.type
+        lastMessageInChat.ask =
+          message.partialMessage.type === 'ask' ? message.partialMessage.ask : ''
+        lastMessageInChat.say =
+          message.partialMessage.type === 'say' ? message.partialMessage.say : ''
+        if (!message.partialMessage.partial && message.partialMessage.type === 'ask') {
+          lastMessageInChat.content = JSON.parse(message.partialMessage.text)
+        }
       }
-      lastMessage = message
+      lastPartialMessagePartial = message.partialMessage?.partial
+      console.log('chatHistory', chatHistory)
     }
+    lastMessage = message
     console.log('chatHistory after processing:', chatHistory)
   })
 })
