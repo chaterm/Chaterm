@@ -136,6 +136,7 @@
             show-search
           ></a-select>
           <a-button
+            :disabled="!showSendButton"
             size="small"
             class="custom-round-button compact-button"
             style="margin-left: 8px"
@@ -233,6 +234,7 @@ const chatInputValue = ref('')
 const chatModelValue = ref('qwen-chat')
 const chatTypeValue = ref('ctm-agent')
 const activeKey = ref('chat')
+const showSendButton = ref(true)
 
 // 当前活动对话的 ID
 const currentChatId = ref<string | null>(null)
@@ -794,17 +796,18 @@ onMounted(async () => {
   }
 
   let lastMessage: any = null
-  let lastPartialMessagePartial = true
+  let lastPartialMessage: any = null
   removeListener = (window.api as any).onMainMessage((message: any) => {
     console.log('Received main process message:', message)
     if (message?.type === 'partialMessage') {
+      showSendButton.value = false
       let lastMessageInChat = chatHistory.at(-1)
       // 返回的内容如果和前一个相同，并且 partial 字段为 false，开启一个新的assistant消息
       let openNewMessage =
-        (lastMessage?.type === 'state' && !lastPartialMessagePartial) ||
+        (lastMessage?.type === 'state' && !lastPartialMessage?.partialMessage?.partial) ||
         lastMessageInChat?.role === 'user' ||
         !lastMessage ||
-        lastMessage.partialMessage.ts !== message.partialMessage.ts
+        lastPartialMessage.partialMessage.ts !== message.partialMessage.ts
       // 检查是否与上一条消息完全相同
       if (lastMessage && JSON.stringify(lastMessage) === JSON.stringify(message)) {
         return
@@ -839,7 +842,10 @@ onMounted(async () => {
           lastMessageInChat.content = JSON.parse(message.partialMessage.text)
         }
       }
-      lastPartialMessagePartial = message.partialMessage?.partial
+      lastPartialMessage = message
+      if (!message.partialMessage?.partial) {
+        showSendButton.value = true
+      }
       console.log('chatHistory', chatHistory)
     }
     lastMessage = message
@@ -1074,6 +1080,19 @@ watch(
     &:active {
       transform: translateY(0);
       box-shadow: none;
+    }
+
+    &[disabled] {
+      background-color: #333333 !important;
+      border-color: #444444 !important;
+      color: #666666 !important;
+      cursor: not-allowed;
+
+      &:hover {
+        background-color: #333333 !important;
+        border-color: #444444 !important;
+        transform: none;
+      }
     }
   }
 }
