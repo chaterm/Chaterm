@@ -789,13 +789,13 @@ export class Task {
 
   private async initiateTaskLoop(userContent: UserContent): Promise<void> {
     let nextUserContent = userContent
-    let includeFileDetails = true
+    let includeHostDetails = true
     while (!this.abort) {
       const didEndLoop = await this.recursivelyMakeClineRequests(
         nextUserContent,
-        includeFileDetails
+        includeHostDetails
       )
-      includeFileDetails = false // we only need file details the first time
+      includeHostDetails = false // we only need file details the first time
 
       //  The way this agentic loop works is that cline will be given a task that he then calls tools to complete. unless there's an attempt_completion call, we keep responding back to him with his tool's responses until he either attempt_completion or does not use anymore tools. If he does not use anymore tools, we ask him to consider if he's completed the task and then call attempt_completion, otherwise proceed with completing the task.
       // There is a MAX_REQUESTS_PER_TASK limit to prevent infinite requests, but Cline is prompted to finish the task as efficiently as he can.
@@ -1297,6 +1297,8 @@ export class Task {
         contextManagementMetadata.conversationHistoryDeletedRange
       await this.saveChatermMessagesAndUpdateHistory() // saves task history item which we use to keep track of conversation history deleted range
     }
+
+    // 加入当前的服务器的上下文信息
 
     let stream = this.api.createMessage(
       systemPrompt,
@@ -3189,7 +3191,7 @@ export class Task {
 
   async recursivelyMakeClineRequests(
     userContent: UserContent,
-    includeFileDetails: boolean = false
+    includeHostDetails: boolean = false
   ): Promise<boolean> {
     if (this.abort) {
       throw new Error('Cline instance aborted')
@@ -3314,7 +3316,7 @@ export class Task {
 
     const [parsedUserContent, environmentDetails, clinerulesError] = await this.loadContext(
       userContent,
-      includeFileDetails
+      includeHostDetails
     )
 
     // error handling if the user uses the /newrule command & their .clinerules is a file, for file read operations didnt work properly
@@ -3629,7 +3631,7 @@ export class Task {
 
   async loadContext(
     userContent: UserContent,
-    includeFileDetails: boolean = false
+    includeHostDetails: boolean = false
   ): Promise<[UserContent, string, boolean]> {
     // Track if we need to check clinerulesFile
     let needsClinerulesFileCheck = false
@@ -3676,7 +3678,7 @@ export class Task {
     // Run initial promises in parallel
     const [processedUserContent, environmentDetails] = await Promise.all([
       processUserContent(),
-      this.getEnvironmentDetails(includeFileDetails)
+      this.getEnvironmentDetails(includeHostDetails)
     ])
 
     // After processing content, check clinerulesData if needed
@@ -3689,7 +3691,7 @@ export class Task {
     return [processedUserContent, environmentDetails, clinerulesError]
   }
 
-  async getEnvironmentDetails(includeFileDetails: boolean = false) {
+  async getEnvironmentDetails(includeHostDetails: boolean = false) {
     let details = ''
 
     // It could be useful for cline to know if the user went from one or no file to another between messages, so we always include this context
@@ -3844,7 +3846,7 @@ export class Task {
     const timeZoneOffsetStr = `${timeZoneOffset >= 0 ? '+' : ''}${timeZoneOffset}:00`
     details += `\n\n# Current Time\n${formatter.format(now)} (${timeZone}, UTC${timeZoneOffsetStr})`
 
-    if (includeFileDetails) {
+    if (includeHostDetails) {
       details += `\n\n# Current Working Directory (${cwd.toPosix()}) Files\n`
       const isDesktop = arePathsEqual(cwd, path.join(os.homedir(), 'Desktop'))
       if (isDesktop) {
