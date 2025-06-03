@@ -436,24 +436,6 @@ const sendMessage = () => {
   if (!userContent) return
   if (chatTypeValue.value === 'ctm-agent') {
     sendMessageToMain(userContent)
-    const currentHistoryEntry = historyList.value.find((entry) => entry.id === currentChatId.value)
-
-    if (currentHistoryEntry) {
-      if (currentHistoryEntry.chatContent.length === 0) {
-        currentHistoryEntry.chatTitle =
-          userContent.length > 15 ? userContent.substring(0, 15) + '.' : userContent
-      }
-      const userMessage: ChatMessage = {
-        id: uuidv4(),
-        role: 'user',
-        content: userContent,
-        type: 'message',
-        ask: '',
-        say: ''
-      }
-      currentHistoryEntry.chatContent.push(userMessage)
-    }
-
     const userMessage: ChatMessage = {
       id: uuidv4(),
       role: 'user',
@@ -578,32 +560,32 @@ const restoreHistoryTab = async (history: HistoryItem) => {
   try {
     if (history.chatType === 'ctm-agent') {
       const conversationHistory = await getChatermMessages()
+      console.log('[conversationHistory]', conversationHistory)
       chatHistory.length = 0
       // 按时间戳排序
       conversationHistory.forEach((item, index) => {
+        if (item.text === null || item.text === '') {
+          return
+        }
         if (item.ask === 'followup' || item.ask === 'command' || item.say === 'text') {
           let role = 'assistant'
           if (index === 0) {
             role = 'user'
           }
           const userMessage: ChatMessage = {
-            id: uuidv4(),
             role: role,
             content: item.text,
             type: item.type,
             ask: item.ask,
             say: item.say
           }
+          if (!item.partial && item.type === 'ask') {
+            let contentJson = JSON.parse(item.text)
+            userMessage.content = contentJson?.question
+          }
           chatHistory.push(userMessage)
         }
       })
-      // 更新当前历史条目
-      const currentHistoryEntry = historyList.value.find(
-        (entry) => entry.id === currentChatId.value
-      )
-      if (currentHistoryEntry) {
-        currentHistoryEntry.chatContent = [...chatHistory]
-      }
     } else {
       const res = await getChatDetailList({
         conversationId: history.id,
@@ -800,12 +782,9 @@ onMounted(async () => {
     console.error('Failed to get AI models:', err)
   }
 
-  let lastMessage = {
-    type: ''
-  }
   let lastPartialMessagePartial = true
   removeListener = (window.api as any).onMainMessage((message: any) => {
-    console.log('Received main process message:', message)
+    console.log('Received main process message:', message, message.type)
     if (message?.type === 'partialMessage') {
       let openNewMessage = false
 
@@ -843,13 +822,6 @@ onMounted(async () => {
         }
         chatHistory.push(newAssistantMessage)
         lastMessageInChat = chatHistory.at(-1)
-        // 同步更新历史记录
-        const currentHistoryEntry = historyList.value.find(
-          (entry) => entry.id === currentChatId.value
-        )
-        if (currentHistoryEntry) {
-          currentHistoryEntry.chatContent.push({ ...newAssistantMessage })
-        }
       }
       lastMessageInChat.content = message.partialMessage.text
       lastMessageInChat.type = message.partialMessage.type
@@ -859,24 +831,6 @@ onMounted(async () => {
         message.partialMessage.type === 'say' ? message.partialMessage.say : ''
       if (!message.partialMessage.partial && message.partialMessage.type === 'ask') {
         lastMessageInChat.content = JSON.parse(message.partialMessage.text)
-      }
-      // 追加内容到现有assistant消息      // 同步更新历史记录
-      const currentHistoryEntry = historyList.value.find(
-        (entry) => entry.id === currentChatId.value
-      )
-      if (currentHistoryEntry) {
-        const lastHistoryContent = currentHistoryEntry.chatContent.at(-1)
-        if (lastHistoryContent?.role === 'assistant') {
-          lastHistoryContent.content = message.partialMessage.text
-          lastHistoryContent.type = message.partialMessage.type
-          lastHistoryContent.ask =
-            message.partialMessage.type === 'ask' ? message.partialMessage.ask : ''
-          lastHistoryContent.say =
-            message.partialMessage.type === 'say' ? message.partialMessage.say : ''
-          if (!message.partialMessage.partial && message.partialMessage.type === 'ask') {
-            lastMessageInChat.content = JSON.parse(message.partialMessage.text)
-          }
-        }
       }
       lastPartialMessagePartial = message.partialMessage?.partial
       console.log('chatHistory', chatHistory)
