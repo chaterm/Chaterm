@@ -114,13 +114,8 @@ export class Controller {
   async initTask(task?: string, historyItem?: HistoryItem, terminalUuid?: string) {
     console.log('initTask', task, historyItem)
     await this.clearTask() // ensures that an existing task doesn't exist before starting a new one, although this shouldn't be possible since user must clear task before starting a new one
-    const {
-      apiConfiguration,
-      customInstructions,
-      autoApprovalSettings,
-      // browserSettings,
-      chatSettings
-    } = await getAllExtensionState()
+    const { apiConfiguration, customInstructions, autoApprovalSettings, chatSettings } =
+      await getAllExtensionState()
 
     if (autoApprovalSettings) {
       const updatedAutoApprovalSettings = {
@@ -131,7 +126,6 @@ export class Controller {
     }
     this.task = new Task(
       this.context,
-      // this.mcpHub,
       this.workspaceTracker,
       (historyItem) => this.updateTaskHistory(historyItem),
       () => this.postStateToWebview(),
@@ -140,12 +134,10 @@ export class Controller {
       () => this.cancelTask(),
       apiConfiguration,
       autoApprovalSettings,
-      // browserSettings,
       chatSettings,
       30,
       customInstructions,
       task,
-      // images,
       historyItem,
       terminalUuid
     )
@@ -162,10 +154,8 @@ export class Controller {
   async postMessageToWebview(message: ExtensionMessage) {
     // 这里发送消息到 webview
     const safeMessage = removeSensitiveKeys(message)
-  await this.postMessage(safeMessage)
+    await this.postMessage(safeMessage)
   }
-
-
 
   /**
    * Sets up an event listener to listen for messages passed from the webview context and
@@ -743,8 +733,8 @@ function removeSensitiveKeys(obj: any): any {
       if (
         key.toLowerCase().includes('accesskey') ||
         key.toLowerCase().includes('secretkey') ||
-        key.toLowerCase().includes('endpoint')  ||
-        key.toLowerCase().includes('awsProfile') 
+        key.toLowerCase().includes('endpoint') ||
+        key.toLowerCase().includes('awsProfile')
       ) {
         newObj[key] = undefined // 或 '***'
       } else {

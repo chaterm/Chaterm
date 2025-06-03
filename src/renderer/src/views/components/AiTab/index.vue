@@ -212,6 +212,7 @@ import { v4 as uuidv4 } from 'uuid'
 import { getAiModel, getChatDetailList, getConversationList } from '@/api/ai/ai'
 import eventBus from '@/utils/eventBus'
 import { updateGlobalState, getGlobalState } from '@renderer/agent/storage/state'
+import type { HistoryItem as TaskHistoryItem } from '@renderer/agent/storage/shared'
 // 异步加载 Markdown 渲染组件
 const MarkdownRenderer = defineAsyncComponent(
   () => import('@views/components/AiTab/MarkdownRenderer.vue')
@@ -245,7 +246,7 @@ interface ChatMessage {
   ask?: string
   say?: string
   action?: 'approved' | 'rejected'
-  timestamp?: number
+  ts?: number
 }
 
 interface AssetInfo {
@@ -436,6 +437,7 @@ const sendMessage = () => {
   if (!userContent) return
   if (chatTypeValue.value === 'ctm-agent') {
     sendMessageToMain(userContent)
+
     const userMessage: ChatMessage = {
       id: uuidv4(),
       role: 'user',
@@ -568,13 +570,14 @@ const restoreHistoryTab = async (history: HistoryItem) => {
           return
         }
         if (item.ask === 'followup' || item.ask === 'command' || item.say === 'text') {
-          let role = 'assistant'
+          let role: 'assistant' | 'user' = 'assistant'
           if (index === 0) {
             role = 'user'
           }
           const userMessage: ChatMessage = {
+            id: uuidv4(),
             role: role,
-            content: item.text,
+            content: item.text || '',
             type: item.type,
             ask: item.ask,
             say: item.say
@@ -585,6 +588,11 @@ const restoreHistoryTab = async (history: HistoryItem) => {
           }
           chatHistory.push(userMessage)
         }
+      })
+
+      await (window.api as any).sendToMain({
+        type: 'showTaskWithId',
+        text: history.id
       })
     } else {
       const res = await getChatDetailList({
@@ -632,7 +640,9 @@ const handleHistoryClick = async () => {
   try {
     if (chatTypeValue.value === 'ctm-agent') {
       // 从 globalState 获取所有 agent 历史记录并按 ts 倒序排序
-      const agentHistory = ((await getGlobalState('taskHistory')) || []).sort((a, b) => b.ts - a.ts)
+      const agentHistory = (
+        ((await getGlobalState('taskHistory')) as TaskHistoryItem[]) || []
+      ).sort((a, b) => b.ts - a.ts)
       // 转换格式并添加到历史列表
       historyList.value = []
       agentHistory.forEach((messages) => {
@@ -640,7 +650,7 @@ const handleHistoryClick = async () => {
           id: messages.id,
           chatTitle: messages?.task?.substring(0, 15) + '...' || 'Agent Chat',
           chatType: 'ctm-agent',
-          chatContent: messages
+          chatContent: []
         })
       })
     } else {
@@ -754,7 +764,6 @@ const handleApproveCommand = async (message: ChatMessage) => {
 
 // 声明removeListener变量
 let removeListener: (() => void) | null = null
-let currentLastMessageState: any = { type: '' } // 用于跟踪上一个消息的状态
 
 // 修改 onMounted 中的初始化代码
 onMounted(async () => {
@@ -782,31 +791,20 @@ onMounted(async () => {
     console.error('Failed to get AI models:', err)
   }
 
+  let lastMessage: any = null
+
   let lastPartialMessagePartial = true
   removeListener = (window.api as any).onMainMessage((message: any) => {
-    console.log('Received main process message:', message, message.type)
+    console.log('Received main process message:', message)
     if (message?.type === 'partialMessage') {
-      let openNewMessage = false
+      let openNewMessage =(lastMessage?.type === 'state' && !lastPartialMessagePartial)||
+        !lastMessage || lastMessage.partialMessage.ts !== message.partialMessage.ts
 
-      // if (message.partialMessage.text === '') {
-      //   return
-      // }
       // 检查是否与上一条消息完全相同
-      if (
-        currentLastMessageState &&
-        JSON.stringify(currentLastMessageState) === JSON.stringify(message)
-      ) {
+      if (lastMessage && lastMessage.partialMessage.text === message.partialMessage.text) {
         return
       }
       let lastMessageInChat = chatHistory.at(-1)
-      if (
-        (currentLastMessageState?.type === 'state' && !lastPartialMessagePartial) ||
-        !lastMessageInChat ||
-        lastMessageInChat.role === 'user'
-      ) {
-        openNewMessage = true
-      }
-      console.log(currentLastMessageState.type, !lastPartialMessagePartial, openNewMessage)
       // 处理流式响应
       // 追加内容到现有assistant消息
       // 返回的内容如果和前一个相同，并且 partial 字段为 false，开启一个新的assistant消息
@@ -818,11 +816,14 @@ onMounted(async () => {
           content: message.partialMessage.text,
           type: message.partialMessage.type,
           ask: message.partialMessage.type === 'ask' ? message.partialMessage.ask : '',
-          say: message.partialMessage.type === 'say' ? message.partialMessage.say : ''
+          say: message.partialMessage.type === 'say' ? message.partialMessage.say : '',
+          ts: message.ts
         }
         chatHistory.push(newAssistantMessage)
         lastMessageInChat = chatHistory.at(-1)
       }
+
+        lastMessageInChat.content = message.partialMessage.text
       lastMessageInChat.content = message.partialMessage.text
       lastMessageInChat.type = message.partialMessage.type
       lastMessageInChat.ask =
@@ -834,8 +835,9 @@ onMounted(async () => {
       }
       lastPartialMessagePartial = message.partialMessage?.partial
       console.log('chatHistory', chatHistory)
+
+      lastMessage = message
     }
-    currentLastMessageState = message // 更新已处理的上一条消息状态
     console.log('chatHistory after processing:', chatHistory)
   })
 })
@@ -845,7 +847,6 @@ onUnmounted(() => {
     removeListener()
     removeListener = null
   }
-  currentLastMessageState = { type: '' } // 重置状态
 })
 
 // 添加发送消息到主进程的方法
@@ -864,15 +865,15 @@ const sendMessageToMain = async (userContent: string) => {
       }
 
       message = {
-        type: 'newTask' as const,
-        askResponse: 'messageResponse' as const,
+        type: 'newTask',
+        askResponse: 'messageResponse',
         text: userContent,
         terminalUuid: assetInfo?.uuid
       }
     } else {
       message = {
-        type: 'askResponse' as const,
-        askResponse: 'messageResponse' as const,
+        type: 'askResponse',
+        askResponse: 'messageResponse',
         text: userContent
       }
     }
