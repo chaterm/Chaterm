@@ -873,6 +873,9 @@ onMounted(async () => {
             message.partialMessage.type === 'ask' ? message.partialMessage.ask : ''
           lastHistoryContent.say =
             message.partialMessage.type === 'say' ? message.partialMessage.say : ''
+          if (!message.partialMessage.partial && message.partialMessage.type === 'ask') {
+            lastMessageInChat.content = JSON.parse(message.partialMessage.text)
+          }
         }
       }
       lastPartialMessagePartial = message.partialMessage?.partial
