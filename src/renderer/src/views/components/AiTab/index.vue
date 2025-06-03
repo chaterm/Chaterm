@@ -27,6 +27,12 @@
               class="assistant-message-container"
             >
               <MarkdownRenderer
+                v-if="message.content?.question"
+                :content="message.content.question"
+                :class="`message ${message.role}`"
+              />
+              <MarkdownRenderer
+                v-else
                 :content="message.content"
                 :class="`message ${message.role}`"
               />
@@ -54,7 +60,13 @@
                   </template>
                   {{ $t('ai.run') }}
                 </a-button>
-                <div v-if="chatTypeValue === 'ctm-agent' && message.type === 'ask'">
+                <div
+                  v-if="
+                    chatTypeValue === 'ctm-agent' &&
+                    message.type === 'ask' &&
+                    message.content?.options?.length > 1
+                  "
+                >
                   <div
                     v-if="!message.action"
                     class="action-buttons"
@@ -688,7 +700,28 @@ const handleRejectContent = async (message: ChatMessage) => {
   try {
     let messageRsp = {
       type: 'askResponse',
-      askResponse: 'noButtonClicked'
+      askResponse: 'noButtonClicked',
+      text: ''
+    }
+    switch (message.ask) {
+      case 'followup':
+        // For follow-up questions, provide a generic response
+        messageRsp.askResponse = 'messageResponse'
+        messageRsp.text = message.content.options[1]
+        break
+      case 'api_req_failed':
+        // Always retry API requests
+        messageRsp.askResponse = 'noButtonClicked' // "Retry" button
+        break
+      case 'completion_result':
+        // Accept the completion
+        messageRsp.askResponse = 'messageResponse'
+        messageRsp.text = 'Task completed failed.'
+        break
+      case 'auto_approval_max_req_reached':
+        // Reset the count to continue
+        messageRsp.askResponse = 'noButtonClicked' // "Reset and continue" button
+        break
     }
     message.action = 'rejected'
     console.log('发送消息到主进程:', messageRsp)
@@ -703,7 +736,30 @@ const handleApproveCommand = async (message: ChatMessage) => {
   try {
     let messageRsp = {
       type: 'askResponse',
-      askResponse: 'yesButtonClicked'
+      askResponse: message.content.options[0] ? message.content.options[0] : 'yesButtonClicked',
+      text: ''
+    }
+    switch (message.ask) {
+      case 'followup':
+        // For follow-up questions, provide a generic response
+        messageRsp.askResponse = 'messageResponse'
+        messageRsp.text = message.content.options[0]
+        break
+
+      case 'api_req_failed':
+        // Always retry API requests
+        messageRsp.askResponse = 'yesButtonClicked' // "Retry" button
+        break
+
+      case 'completion_result':
+        // Accept the completion
+        messageRsp.askResponse = 'messageResponse'
+        messageRsp.text = 'Task completed successfully.'
+        break
+      case 'auto_approval_max_req_reached':
+        // Reset the count to continue
+        messageRsp.askResponse = 'yesButtonClicked' // "Reset and continue" button
+        break
     }
     message.action = 'approved'
     console.log('发送消息到主进程:', messageRsp)
@@ -757,18 +813,21 @@ onMounted(async () => {
       //   return
       // }
       // 检查是否与上一条消息完全相同
-      if (lastMessage && JSON.stringify(lastMessage) === JSON.stringify(message)) {
+      if (
+        currentLastMessageState &&
+        JSON.stringify(currentLastMessageState) === JSON.stringify(message)
+      ) {
         return
       }
-      const lastMessageInChat = chatHistory.at(-1)
-
+      let lastMessageInChat = chatHistory.at(-1)
       if (
-        (lastMessage?.type === 'state' && lastPartialMessagePartial) ||
+        (currentLastMessageState?.type === 'state' && !lastPartialMessagePartial) ||
         !lastMessageInChat ||
         lastMessageInChat.role === 'user'
       ) {
         openNewMessage = true
       }
+      console.log(currentLastMessageState.type, !lastPartialMessagePartial, openNewMessage)
       // 处理流式响应
       // 追加内容到现有assistant消息
       // 返回的内容如果和前一个相同，并且 partial 字段为 false，开启一个新的assistant消息
@@ -783,6 +842,7 @@ onMounted(async () => {
           say: message.partialMessage.type === 'say' ? message.partialMessage.say : ''
         }
         chatHistory.push(newAssistantMessage)
+        lastMessageInChat = chatHistory.at(-1)
         // 同步更新历史记录
         const currentHistoryEntry = historyList.value.find(
           (entry) => entry.id === currentChatId.value
@@ -790,26 +850,35 @@ onMounted(async () => {
         if (currentHistoryEntry) {
           currentHistoryEntry.chatContent.push({ ...newAssistantMessage })
         }
-      } else if (lastMessageInChat && lastMessageInChat.role === 'assistant') {
-        lastMessageInChat.content = message.partialMessage.text
-        // 追加内容到现有assistant消息      // 同步更新历史记录
-        const currentHistoryEntry = historyList.value.find(
-          (entry) => entry.id === currentChatId.value
-        )
-        if (currentHistoryEntry) {
-          const lastHistoryContent = currentHistoryEntry.chatContent.at(-1)
-          if (lastHistoryContent?.role === 'assistant') {
-            lastHistoryContent.content = message.partialMessage.text
-            lastHistoryContent.type = message.partialMessage.type
-            lastHistoryContent.ask =
-              message.partialMessage.type === 'ask' ? message.partialMessage.ask : ''
-            lastHistoryContent.say =
-              message.partialMessage.type === 'say' ? message.partialMessage.say : ''
+      }
+      lastMessageInChat.content = message.partialMessage.text
+      lastMessageInChat.type = message.partialMessage.type
+      lastMessageInChat.ask =
+        message.partialMessage.type === 'ask' ? message.partialMessage.ask : ''
+      lastMessageInChat.say =
+        message.partialMessage.type === 'say' ? message.partialMessage.say : ''
+      if (!message.partialMessage.partial && message.partialMessage.type === 'ask') {
+        lastMessageInChat.content = JSON.parse(message.partialMessage.text)
+      }
+      // 追加内容到现有assistant消息      // 同步更新历史记录
+      const currentHistoryEntry = historyList.value.find(
+        (entry) => entry.id === currentChatId.value
+      )
+      if (currentHistoryEntry) {
+        const lastHistoryContent = currentHistoryEntry.chatContent.at(-1)
+        if (lastHistoryContent?.role === 'assistant') {
+          lastHistoryContent.content = message.partialMessage.text
+          lastHistoryContent.type = message.partialMessage.type
+          lastHistoryContent.ask =
+            message.partialMessage.type === 'ask' ? message.partialMessage.ask : ''
+          lastHistoryContent.say =
+            message.partialMessage.type === 'say' ? message.partialMessage.say : ''
+          if (!message.partialMessage.partial && message.partialMessage.type === 'ask') {
+            lastMessageInChat.content = JSON.parse(message.partialMessage.text)
           }
         }
-        lastPartialMessagePartial = message.partialMessage?.partial
       }
-      lastMessage = message
+      lastPartialMessagePartial = message.partialMessage?.partial
       console.log('chatHistory', chatHistory)
     }
     currentLastMessageState = message // 更新已处理的上一条消息状态
