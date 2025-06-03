@@ -1010,19 +1010,20 @@ watch(
       align-self: flex-end;
       background-color: #3a3a3a;
       color: #ffffff;
+      border-radius: 4px;
       border: none;
-      width: 100%;
       margin-left: auto;
       float: right;
       clear: both;
     }
 
     &.assistant {
-      align-self: flex-start;
-      background-color: #1e2a38;
-      color: #e0e0e0;
-      border: 1px solid #2c3e50;
+      // align-self: flex-start;
+      // background-color: #1e2a38;
+      color: #ffffff;
+      // border: 1px solid #2c3e50;
       width: 100%;
+      padding: 0px;
     }
   }
 }
