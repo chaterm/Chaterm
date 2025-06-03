@@ -1,4 +1,4 @@
-export type ApiProvider = 'bedrock'
+export type ApiProvider = 'bedrock' | "litellm"
 
 export interface ApiHandlerOptions {
   apiModelId?: string
@@ -16,6 +16,12 @@ export interface ApiHandlerOptions {
   reasoningEffort?: string
   requestTimeoutMs?: number
   onRetryAttempt?: (attempt: number, maxRetries: number, delay: number, error: any) => void
+  liteLlmBaseUrl?: string
+	liteLlmModelId?: string
+	liteLlmApiKey?: string
+	liteLlmUsePromptCache?: boolean
+	openAiHeaders?: Record<string, string> // Custom headers for OpenAI requests
+	liteLlmModelInfo?: LiteLLMModelInfo
 }
 
 export type ApiConfiguration = ApiHandlerOptions & {
@@ -195,3 +201,23 @@ export const bedrockModels = {
     outputPrice: 5.4
   }
 } as const satisfies Record<string, ModelInfo>
+
+// LiteLLM
+// https://docs.litellm.ai/docs/
+export type LiteLLMModelId = string
+export const liteLlmDefaultModelId = "anthropic/claude-3-7-sonnet-20250219"
+export interface LiteLLMModelInfo extends ModelInfo {
+	temperature?: number
+}
+
+export const liteLlmModelInfoSaneDefaults: LiteLLMModelInfo = {
+	maxTokens: -1,
+	contextWindow: 128_000,
+	supportsImages: true,
+	supportsPromptCache: true,
+	inputPrice: 0,
+	outputPrice: 0,
+	cacheWritesPrice: 0,
+	cacheReadsPrice: 0,
+	temperature: 0,
+}
