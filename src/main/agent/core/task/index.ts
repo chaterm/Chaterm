@@ -534,6 +534,10 @@ export class Task {
     if (this.abort) {
       throw new Error('Cline instance aborted')
     }
+    if (text === undefined || text === '') {
+      console.warn('Cline say called with empty text, ignoring')
+      return
+    }
 
     if (partial !== undefined) {
       const lastMessage = this.chatermMessages.at(-1)
