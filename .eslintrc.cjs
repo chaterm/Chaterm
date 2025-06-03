@@ -24,6 +24,7 @@ module.exports = {
     'no-ex-assign': 'off', // 允许修改异常参数
     'no-useless-escape': 'off', // 允许不必要的转义字符
     'prefer-const': 'off', // 允许使用 let 声明不会被重新赋值的变量
-    '@typescript-eslint/no-namespace': 'off' // 允许使用 namespace 关键字
+    '@typescript-eslint/no-namespace': 'off', // 允许使用 namespace 关键字
+    'no-fallthrough': 'off' // 允许 switch case 语句穿透
   }
 }
