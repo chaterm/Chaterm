@@ -43,8 +43,6 @@ export async function remoteSshConnect(connectionInfo: any): Promise<{ id?: stri
         resolve({ error: '缺少密码或私钥' });
         return;
       }
-
-    console.log(`连接配置: ${JSON.stringify(connectConfig)}`);
       conn.connect(connectConfig);
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : String(err);
