@@ -12,6 +12,9 @@
           : 'New chat'
       "
     >
+      <div v-if="currentChatHosts && currentChatHosts.length > 0" class="hosts-display-container">
+        <a-tag v-for="host in currentChatHosts" :key="host" color="blue">{{ host }}</a-tag>
+      </div>
       <div
         v-if="chatHistory.length > 0"
         ref="chatContainer"
@@ -206,7 +209,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted, defineAsyncComponent, onUnmounted, nextTick, watch } from 'vue'
+import { ref, reactive, onMounted, defineAsyncComponent, onUnmounted, nextTick, watch, computed } from 'vue'
 import {
   PlusOutlined,
   CloseOutlined,
@@ -227,15 +230,18 @@ const MarkdownRenderer = defineAsyncComponent(
 )
 
 import { ChatermMessage } from 'src/main/agent/shared/ExtensionMessage'
+import { error } from 'console'
 
 interface HistoryItem {
   id: string
   chatTitle: string
   chatType: string
+  hosts: string[]
   chatContent: ChatMessage[]
 }
 
 const historyList = ref<HistoryItem[]>([])
+const hosts = ref<string[]>([])
 
 const chatInputValue = ref('')
 const chatModelValue = ref('qwen-chat')
@@ -447,12 +453,14 @@ const createWebSocket = (type: string) => {
   return ws
 }
 
-const sendMessage = () => {
+const sendMessage = async () => {
   const userContent = chatInputValue.value.trim()
   if (!userContent) return
   if (chatTypeValue.value === 'ctm-agent') {
-    sendMessageToMain(userContent)
-
+    const result = await sendMessageToMain(userContent)
+    if (result === 'ASSET_ERROR') {
+      return
+    }
     const userMessage: ChatMessage = {
       id: uuidv4(),
       role: 'user',
@@ -544,6 +552,7 @@ const handlePlusClick = () => {
   const newChatId = uuidv4()
   currentChatId.value = newChatId
   chatTypeValue.value = 'ctm-agent'
+  hosts.value = []
 
   const chatTitle = currentInput
     ? currentInput.length > 15
@@ -555,6 +564,7 @@ const handlePlusClick = () => {
     id: newChatId,
     chatTitle,
     chatType: chatTypeValue.value,
+    hosts: [],
     chatContent: []
   })
 
@@ -571,6 +581,8 @@ const restoreHistoryTab = async (history: HistoryItem) => {
     webSocket.value.close()
     webSocket.value = null
   }
+
+  hosts.value = history.hosts || []
 
   currentChatId.value = history.id
   chatTypeValue.value = history.chatType
@@ -671,6 +683,7 @@ const handleHistoryClick = async () => {
           id: messages.id,
           chatTitle: messages?.task?.substring(0, 15) + '...' || 'Agent Chat',
           chatType: 'ctm-agent',
+          hosts: [],
           chatContent: []
         })
       })
@@ -682,6 +695,7 @@ const handleHistoryClick = async () => {
           id: item.conversationId,
           chatTitle: item.title,
           chatType: item.conversateType,
+          hosts: [],
           chatContent: []
         }))
     }
@@ -813,6 +827,7 @@ onMounted(async () => {
       id: chatId,
       chatTitle: 'New chat',
       chatType: chatTypeValue.value,
+      hosts: [],
       chatContent: []
     }
   ]
@@ -906,6 +921,9 @@ onUnmounted(() => {
 const sendMessageToMain = async (userContent: string) => {
   try {
     let message
+    const currentHistoryEntry = historyList.value.find(
+      (entry) => entry.id === currentChatId.value
+    )
     if (chatHistory.length === 0) {
       const assetInfo = await getCurentTabAssetInfo()
       if (!assetInfo) {
@@ -914,7 +932,20 @@ const sendMessageToMain = async (userContent: string) => {
           description: '请先建立资产连接',
           duration: 3
         })
-        return
+        return 'ASSET_ERROR'
+      }
+      if (assetInfo.ip) {
+        if (currentHistoryEntry) {
+          if (!currentHistoryEntry.hosts) {
+            currentHistoryEntry.hosts = []
+          }
+          if (!currentHistoryEntry.hosts.includes(assetInfo.ip)) {
+            currentHistoryEntry.hosts.push(assetInfo.ip)
+          }
+        }
+        if (!hosts.value.includes(assetInfo.ip)) {
+           hosts.value.push(assetInfo.ip)
+        }
       }
       message = {
         type: 'newTask',
@@ -958,6 +989,15 @@ watch(
   },
   { deep: true }
 )
+
+// 计算属性，用于获取当前聊天会话的 hosts
+const currentChatHosts = computed(() => {
+  if (currentChatId.value) {
+    const currentChat = historyList.value.find((item) => item.id === currentChatId.value)
+    return currentChat?.hosts || []
+  }
+  return hosts.value
+})
 </script>
 
 <style lang="less" scoped>
@@ -989,6 +1029,18 @@ watch(
   background-color: #1a1a1a;
   border-radius: 8px;
   overflow: hidden;
+}
+
+.hosts-display-container {
+  padding: 4px 16px 8px;
+  background-color: #1a1a1a;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  border-bottom: 1px solid #333;
 }
 
 .chat-response-container {
