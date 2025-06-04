@@ -312,6 +312,8 @@ const changeCompany = () => {
   openedTabs.value = []
 }
 
+const LAST_N_LINES = 100; 
+
 // 新增函数：获取当前活动标签页的资产信息
 const getActiveTabAssetInfo = async () => {
   if (!activeTabId.value) {
@@ -329,13 +331,59 @@ const getActiveTabAssetInfo = async () => {
   if (!uuid) {
     return null
   }
+
+  const isTerminalSession = activeTab.content === 'demo' || activeTab.organizationId === 'personal';
+
+  let outputContext = 'Output context not applicable for this tab type.';
+
+  if (isTerminalSession) {
+    // Only attempt to get terminal output if it's a terminal session
+    outputContext = 'Terminal output not available or an error occurred.'; // Default for terminal sessions
+
+    // Check if allTabs (TabsPanel instance) is mounted and the method exists
+    if (allTabs.value && typeof allTabs.value.getTerminalOutputContent === 'function') {
+      try {
+        // This method needs to be implemented/exposed in TabsPanel.vue
+        const fullOutput = await allTabs.value.getTerminalOutputContent(activeTabId.value);
+
+        if (typeof fullOutput === 'string') {
+          const regex = /(\r?\n)+$/;
+          const result = fullOutput.replace(regex, ``);
+          const lines = result.split('\n');
+          const lastNLines = lines.slice(-LAST_N_LINES);
+          outputContext = lastNLines.join('\n');
+        } else if (fullOutput === null || fullOutput === undefined) {
+          outputContext = 'Terminal output is empty or not yet available.';
+        } else {
+          console.warn('Terminal output content is not a string:', fullOutput);
+          outputContext = 'Received non-string terminal output.';
+        }
+      } catch (error: any) { // Changed to error: any
+        console.error('Error retrieving terminal output via getTerminalOutputContent:', error);
+        outputContext = `Error fetching terminal content: ${error.message || error}`;
+      }
+    } else {
+      console.warn(
+        'allTabs.value (TabsPanel instance) is not available or getTerminalOutputContent method is missing.'
+      );
+      outputContext =
+        'Terminal interaction component (TabsPanel) not ready or getTerminalOutputContent method not implemented in it.';
+    }
+  } else if (!uuid) {
+    outputContext = 'Terminal output not available or an error occurred.'; 
+    console.warn('Active tab is not a terminal session and does not have a UUID for asset info.');
+    return null; // Or handle as a non-asset, non-terminal tab differently if needed.
+  }
+
   return {
-    uuid: uuid,
+    uuid: uuid, // May be undefined if not an asset-related tab, which is fine.
     title: activeTab.title,
     ip: activeTab.ip,
     organizationId: activeTab.organizationId,
-    type: activeTab.type
-  }
+    type: activeTab.type,
+    outputContext: outputContext,
+    sshSessionId: activeTabId.value
+  };
 }
 
 // 处理eventBus的getActiveTabAssetInfo事件

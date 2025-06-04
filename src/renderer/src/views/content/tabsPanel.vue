@@ -37,6 +37,7 @@
           />
           <SshConnect
             v-if="tab.content === 'demo' || tab.organizationId === 'personal'"
+            :ref="(el) => setSshConnectRef(el, tab.id)"
             :connect-data="tab.data"
           />
           <UserInfo v-if="tab.content === 'userInfo'" />
@@ -53,8 +54,8 @@
     </template>
   </div>
 </template>
-<script setup>
-import { computed, ref } from 'vue'
+<script setup lang="ts">
+import { computed, ref, defineExpose, ComponentPublicInstance, PropType } from 'vue'
 import draggable from 'vuedraggable'
 import Term from '@views/components/Term/index.vue'
 import Dashboard from '@views/components/Term/dashboard.vue'
@@ -66,13 +67,25 @@ import keyChainConfig from '@views/components/LeftTab/keyChainConfig.vue'
 import SshConnect from '@views/components/sshConnect/sshConnect.vue'
 import Files from '@views/components/Files/index.vue'
 
+// Define an interface for the tab items
+interface TabItem {
+  id: string
+  title: string
+  content: string // Corresponds to v-if conditions like 'demo', 'userInfo', etc.
+  type?: string // e.g., 'term'
+  organizationId?: string // e.g., 'personal'
+  ip?: string
+  data?: any // Data passed to SshConnect or Term
+  // Add other properties if they exist on tab objects
+}
+
 const props = defineProps({
   tabs: {
-    type: Array,
+    type: Array as PropType<TabItem[]>,
     required: true
   },
   activeTab: {
-    type: String,
+    type: String as PropType<string>,
     default: ''
   }
 })
@@ -84,22 +97,31 @@ const localTabs = computed({
   }
 })
 const onDragEnd = () => {}
-const termRefMap = ref([])
-const setTermRef = (el, tabId) => {
-  if (el) {
-    termRefMap.value[tabId] = el
+const termRefMap = ref<Record<string, any>>({})
+const sshConnectRefMap = ref<Record<string, any>>({})
+
+const setTermRef = (el: Element | ComponentPublicInstance | null, tabId: string) => {
+  if (el && '$props' in el) { // Check if el is a ComponentPublicInstance
+    termRefMap.value[tabId] = el as ComponentPublicInstance & { handleResize: () => void; autoExecuteCode: (cmd: string) => void; getTerminalBufferContent?: () => string | null }
   } else {
     delete termRefMap.value[tabId]
   }
 }
-const termExcuteCmd = (cmd) => {
-  console.log(termRefMap.value[props.activeTab], 'vvvvv')
-  termRefMap.value[props.activeTab]?.autoExecuteCode(cmd)
+
+const setSshConnectRef = (el: Element | ComponentPublicInstance | null, tabId: string) => {
+  if (el && '$props' in el) { // Check if el is a ComponentPublicInstance
+    sshConnectRefMap.value[tabId] = el as ComponentPublicInstance & { getTerminalBufferContent: () => string | null }
+  } else {
+    delete sshConnectRefMap.value[tabId]
+  }
 }
-const resizeTerm = (termid = '') => {
+
+const resizeTerm = (termid: string = '') => { // Added type for termid
   if (termid) {
     setTimeout(() => {
-      termRefMap.value[termid].handleResize()
+      if (termRefMap.value[termid]) {
+        termRefMap.value[termid].handleResize()
+      }
     })
   } else {
     const keys = Object.keys(termRefMap.value)
@@ -110,9 +132,35 @@ const resizeTerm = (termid = '') => {
   }
 }
 
+async function getTerminalOutputContent(tabId: string): Promise<string | null> {
+  const sshConnectInstance = sshConnectRefMap.value[tabId]
+  if (sshConnectInstance && typeof sshConnectInstance.getTerminalBufferContent === 'function') {
+    try {
+      const output = await sshConnectInstance.getTerminalBufferContent()
+      return output
+    } catch (error: any) {
+      console.error(`Error getting terminal output from SshConnect for tab ${tabId}:`, error)
+      return 'Error retrieving output from SshConnect component.'
+    }
+  } else {
+    const termInstance = termRefMap.value[tabId];
+    if (termInstance && typeof termInstance.getTerminalBufferContent === 'function') {
+        try {
+            const output = await termInstance.getTerminalBufferContent();
+            return output;
+        } catch (error: any) {
+            console.error(`Error getting terminal output from Term for tab ${tabId}:`, error);
+            return 'Error retrieving output from Term component.';
+        }
+    }
+    console.warn(`Component instance not found or method getTerminalBufferContent missing for tabId: ${tabId}`)
+    return `Instance for tab ${tabId} not found or method missing.`
+  }
+}
+
 defineExpose({
   resizeTerm,
-  termExcuteCmd
+  getTerminalOutputContent
 })
 </script>
 
