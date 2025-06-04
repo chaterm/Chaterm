@@ -1,7 +1,6 @@
+export type ApiProvider = 'bedrock' | 'litellm'
 
-export type ApiProvider = 'bedrock'
-
-export type GlobalStateKey = 
+export type GlobalStateKey =
   | 'apiProvider'
   | 'apiModelId'
   | 'awsRegion'
@@ -77,4 +76,4 @@ export interface ApiHandlerOptions {
 export type ApiConfiguration = ApiHandlerOptions & {
   apiProvider?: ApiProvider
   favoritedModelIds?: string[]
-} 
+}
