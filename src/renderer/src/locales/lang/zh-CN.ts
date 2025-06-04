@@ -105,7 +105,11 @@ export default {
     awsEndpointSelected: '使用自定义VPC端点',
     awsBedrockEndpointPh: '输入VPC端点URL（可选）',
     awsUseCrossRegionInference: '使用跨区域推理',
-    chatSettings: '模式'
+    chatSettings: '模式',
+    liteLlmBaseUrl: 'URL地址',
+    liteLlmBaseUrlPh: '输入URL地址',
+    liteLlmApiKey: 'API Key',
+    liteLlmApiKeyPh: '输入API Key'
   },
   extensions: {
     extensions: '插件',
