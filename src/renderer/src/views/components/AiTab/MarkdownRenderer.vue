@@ -156,48 +156,7 @@ const detectLanguage = (content: string): string => {
 const initEditor = (content: string) => {
   if (!editorContainer.value) return
 
-  const options: {
-    scrollbar: {
-      horizontal: string
-      horizontalScrollbarSize: number
-      vertical: string
-      verticalScrollbarSize: number
-      alwaysConsumeMouseWheel: boolean
-    }
-    occurrencesHighlight: boolean
-    wordWrap: string
-    folding: boolean
-    language: string
-    cursorBlinking: string
-    guides: { highlightActiveIndentGuide: boolean; indentation: boolean; bracketPairs: boolean }
-    unicodeHighlight: {
-      ambiguousCharacters: boolean
-      nonBasicASCII: boolean
-      invisibleCharacters: boolean
-    }
-    minimap: { enabled: boolean }
-    theme: string
-    links: boolean
-    value: string
-    padding: { top: number; bottom: number }
-    lineNumbers: string
-    roundedSelection: boolean
-    contextmenu: boolean
-    readOnly: boolean
-    lineNumbersMinChars: number
-    glyphMargin: boolean
-    selectionHighlight: boolean
-    lineDecorationsWidth: number
-    renderWhitespace: string
-    scrollBeyondLastLine: boolean
-    automaticLayout: boolean
-    fixedOverflowWidgets: boolean
-    domReadOnly: boolean
-    renderLineHighlight: string
-    fontSize: number
-    lineHeight: number
-    cursorStyle: string
-  } = {
+  const options: monaco.editor.IStandaloneEditorConstructionOptions = {
     value: content,
     language: detectLanguage(content),
     theme: 'custom-dark',
@@ -231,16 +190,9 @@ const initEditor = (content: string) => {
     contextmenu: false,
     links: false,
     selectionHighlight: false,
-    occurrencesHighlight: false,
     domReadOnly: true,
-    unicodeHighlight: {
-      ambiguousCharacters: false,
-      invisibleCharacters: false,
-      nonBasicASCII: false
-    },
     guides: {
       indentation: false,
-      highlightActiveIndentGuide: false,
       bracketPairs: false
     },
     cursorStyle: 'line-thin',
@@ -285,7 +237,7 @@ onMounted(() => {
     if (props.ask === 'command') {
       initEditor(props.content)
     } else {
-      renderedContent.value = marked(props.content)
+      renderedContent.value = props.content
     }
   }
 })
@@ -305,7 +257,7 @@ watch(
     if (props.ask === 'command') {
       updateEditor(newContent)
     } else {
-      renderedContent.value = marked(newContent)
+      renderedContent.value = newContent
     }
   }
 )
@@ -328,7 +280,7 @@ watch(
         editor = null
       }
       if (props.content) {
-        renderedContent.value = marked(props.content)
+        renderedContent.value = props.content
       }
     }
   }
