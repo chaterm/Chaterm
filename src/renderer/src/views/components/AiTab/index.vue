@@ -952,7 +952,8 @@ const sendMessageToMain = async (userContent: string) => {
         askResponse: 'messageResponse',
         text: userContent,
         terminalUuid: assetInfo?.uuid,
-        terminalOutput: assetInfo?.outputContext
+        terminalOutput: assetInfo?.outputContext,
+        hosts: Array.isArray(hosts.value) ? [...hosts.value] : []
       }
     } else {
       message = {

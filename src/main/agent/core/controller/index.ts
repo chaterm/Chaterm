@@ -23,7 +23,9 @@ import { getTotalTasksSize } from '@utils/storage'
 import {
   ensureTaskExists,
   getSavedApiConversationHistory,
-  deleteChatermHistoryByTaskId
+  deleteChatermHistoryByTaskId,
+  getTaskMetadata,
+  saveTaskMetadata
 } from '../storage/disk'
 import {
   getAllExtensionState,
@@ -196,6 +198,9 @@ export class Controller {
         //this.postMessageToWebview({ type: "text", text: `Extension: ${Date.now()}` })
         // initializing new instance of Cline will make sure that any agentically running promises in old instance don't affect our new task. this essentially creates a fresh slate for the new task
         await this.initTask(message.text, undefined, message.terminalUuid, message.terminalOutput)
+        if (this.task?.taskId && message.hosts) {
+          await updateTaskHosts(this.task.taskId, message.hosts)
+        }
         break
       case 'condense':
         this.task?.handleWebviewAskResponse('yesButtonClicked')
@@ -753,4 +758,10 @@ function removeSensitiveKeys(obj: any): any {
     return newObj
   }
   return obj
+}
+
+async function updateTaskHosts(taskId: string, hosts: string[]) {
+  const metadata = await getTaskMetadata(taskId)
+  metadata.hosts = (hosts || []).map((host: any) => ({ host }))
+  await saveTaskMetadata(taskId, metadata)
 }
