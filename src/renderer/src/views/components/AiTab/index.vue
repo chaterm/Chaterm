@@ -13,7 +13,8 @@
       "
     >
       <div v-if="currentChatHosts && currentChatHosts.length > 0" class="hosts-display-container">
-        <a-tag v-for="host in currentChatHosts" :key="host" color="blue">{{ host }}</a-tag>
+        <a-tag v-for="host in currentChatHosts" :key="host" color="blue">
+          <template #icon><laptop-outlined /></template>{{ host }}</a-tag>
       </div>
       <div
         v-if="chatHistory.length > 0"
@@ -214,6 +215,7 @@ import {
   PlusOutlined,
   CloseOutlined,
   HistoryOutlined,
+  LaptopOutlined,
   CopyOutlined,
   CheckOutlined,
   PlayCircleOutlined
@@ -1033,7 +1035,7 @@ const currentChatHosts = computed(() => {
 }
 
 .hosts-display-container {
-  padding: 4px 16px 8px;
+  padding: 10px 0px 0px 6px;
   background-color: #1a1a1a;
   display: flex;
   flex-wrap: wrap;
@@ -1041,13 +1043,29 @@ const currentChatHosts = computed(() => {
   position: sticky;
   top: 0;
   z-index: 1;
-  border-bottom: 1px solid #333;
+  border-bottom: 0px solid #333;
+  justify-content: flex-start;
+  :deep(.ant-tag) {
+    font-size: 9px;
+    padding: 0 6px;
+    height: 16px;
+    line-height: 16px;
+    display: flex;
+    align-items: center;
+    background: #3a3a3a !important;
+    color: #ffffff !important;
+    border: 1px solid #444 !important;
+    .anticon-laptop {
+      color: #1890ff !important;
+      margin-right: 0cap;
+    }
+  }
 }
 
 .chat-response-container {
   flex-grow: 1;
   overflow-y: auto;
-  padding: 16px;
+  padding: 0px 16px 16px 16px;
   scrollbar-width: thin;
   max-height: calc(100vh - 150px);
   width: 100%;
