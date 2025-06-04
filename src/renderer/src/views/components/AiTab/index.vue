@@ -12,9 +12,17 @@
           : 'New chat'
       "
     >
-      <div v-if="currentChatHosts && currentChatHosts.length > 0" class="hosts-display-container">
-        <a-tag v-for="host in currentChatHosts" :key="host" color="blue">
-          <template #icon><laptop-outlined /></template>{{ host }}</a-tag>
+      <div
+        v-if="currentChatHosts && currentChatHosts.length > 0"
+        class="hosts-display-container"
+      >
+        <a-tag
+          v-for="host in currentChatHosts"
+          :key="host"
+          color="blue"
+        >
+          <template #icon><laptop-outlined /></template>{{ host }}</a-tag
+        >
       </div>
       <div
         v-if="chatHistory.length > 0"
@@ -231,7 +239,16 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted, defineAsyncComponent, onUnmounted, nextTick, watch, computed } from 'vue'
+import {
+  ref,
+  reactive,
+  onMounted,
+  defineAsyncComponent,
+  onUnmounted,
+  nextTick,
+  watch,
+  computed
+} from 'vue'
 
 import {
   PlusOutlined,
@@ -617,12 +634,16 @@ const restoreHistoryTab = async (history: HistoryItem) => {
     if (history.chatType === 'agent') {
       try {
         const metadataResult = await (window.api as any).getTaskMetadata(history.id)
-        if (metadataResult.success && metadataResult.data && Array.isArray(metadataResult.data.hosts)) {
+        if (
+          metadataResult.success &&
+          metadataResult.data &&
+          Array.isArray(metadataResult.data.hosts)
+        ) {
           for (const item of metadataResult.data.hosts) {
             let ip = ''
             if (item && typeof item === 'object' && 'host' in item) {
-                    ip = item.host
-                  }
+              ip = item.host
+            }
             if (ip && !hosts.value.includes(ip)) {
               hosts.value.push(ip)
             }
@@ -1004,9 +1025,7 @@ onUnmounted(() => {
 const sendMessageToMain = async (userContent: string) => {
   try {
     let message
-    const currentHistoryEntry = historyList.value.find(
-      (entry) => entry.id === currentChatId.value
-    )
+    const currentHistoryEntry = historyList.value.find((entry) => entry.id === currentChatId.value)
     if (chatHistory.length === 0) {
       const assetInfo = await getCurentTabAssetInfo()
       if (!assetInfo) {
@@ -1019,7 +1038,7 @@ const sendMessageToMain = async (userContent: string) => {
       }
       if (assetInfo.ip) {
         if (!hosts.value.includes(assetInfo.ip)) {
-           hosts.value.push(assetInfo.ip)
+          hosts.value.push(assetInfo.ip)
         }
       }
       message = {
@@ -1125,7 +1144,6 @@ const showBottomButton = computed(() => {
 }
 
 .hosts-display-container {
-  padding: 10px 0px 0px 6px;
   background-color: #1a1a1a;
   display: flex;
   flex-wrap: wrap;
@@ -1135,8 +1153,9 @@ const showBottomButton = computed(() => {
   z-index: 1;
   border-bottom: 0px solid #333;
   justify-content: flex-start;
+  user-select: text;
   :deep(.ant-tag) {
-    font-size: 9px;
+    font-size: 10px;
     padding: 0 6px;
     height: 16px;
     line-height: 16px;
@@ -1156,6 +1175,7 @@ const showBottomButton = computed(() => {
   flex-grow: 1;
   overflow-y: auto;
   padding: 0px 16px 16px 16px;
+  margin-top: 2px;
   scrollbar-width: thin;
   max-height: v-bind('showBottomButton ? "calc(100vh - 180px)" : "calc(100vh - 150px)"');
   width: 100%;
