@@ -262,6 +262,7 @@ interface AssetInfo {
   ip?: string
   organizationId?: string
   type?: string
+  outputContext?: string
 }
 
 const chatHistory = reactive<ChatMessage[]>([])
