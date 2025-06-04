@@ -43,8 +43,6 @@ export async function remoteSshConnect(connectionInfo: any): Promise<{ id?: stri
         resolve({ error: '缺少密码或私钥' });
         return;
       }
-
-    console.log(`连接配置: ${JSON.stringify(connectConfig)}`);
       conn.connect(connectConfig);
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : String(err);
@@ -63,7 +61,7 @@ export async function remoteSshExec(sessionId: string, command: string): Promise
   console.log(`开始执行SSH命令: ${command} (会话: ${sessionId})`);
 
   return new Promise((resolve) => {
-    conn.exec(command, (err, stream) => {
+    conn.exec(command, { pty: true }, (err, stream) => {
       if (err) {
         console.error('SSH命令执行错误:', err.message);
         resolve({ success: false, error: err.message });

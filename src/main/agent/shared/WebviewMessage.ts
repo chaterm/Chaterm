@@ -84,6 +84,7 @@ export interface WebviewMessage {
   shellIntegrationTimeout?: number
   askResponse?: ChatermAskResponse
   terminalUuid?: string
+  terminalOutput?: string
 }
 
 export type ChatermAskResponse = 'yesButtonClicked' | 'noButtonClicked' | 'messageResponse'
