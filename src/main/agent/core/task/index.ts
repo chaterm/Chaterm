@@ -257,6 +257,11 @@ export class Task {
     return this.remoteTerminalManager
   }
 
+  // 获取终端管理器（公共方法）
+  getTerminalManager() {
+    return this.remoteTerminalManager
+  }
+
   // While a task is ref'd by a controller, it will always have access to the extension context
   // This error is thrown if the controller derefs the task after e.g., aborting the task
   private getContext(): vscode.ExtensionContext {
@@ -919,76 +924,76 @@ export class Task {
    * This is used in test mode to capture the full output without using the VS Code terminal
    * Commands are automatically terminated after 30 seconds using Promise.race
    */
-  private async executeCommandInNode(command: string): Promise<[boolean, ToolResponse]> {
-    try {
-      // Create a child process
-      const childProcess = execa(command, {
-        shell: true,
-        cwd,
-        reject: false,
-        all: true // Merge stdout and stderr
-      })
+  // private async executeCommandInNode(command: string): Promise<[boolean, ToolResponse]> {
+  //   try {
+  //     // Create a child process
+  //     const childProcess = execa(command, {
+  //       shell: true,
+  //       cwd,
+  //       reject: false,
+  //       all: true // Merge stdout and stderr
+  //     })
 
-      // Set up variables to collect output
-      let output = ''
+  //     // Set up variables to collect output
+  //     let output = ''
 
-      // Collect output in real-time
-      if (childProcess.all) {
-        childProcess.all.on('data', (data) => {
-          output += data.toString()
-        })
-      }
+  //     // Collect output in real-time
+  //     if (childProcess.all) {
+  //       childProcess.all.on('data', (data) => {
+  //         output += data.toString()
+  //       })
+  //     }
 
-      // Create a timeout promise that rejects after 30 seconds
-      const timeoutPromise = new Promise<never>((_, reject) => {
-        setTimeout(() => {
-          if (childProcess.pid) {
-            childProcess.kill('SIGKILL') // Use SIGKILL for more forceful termination
-          }
-          reject(new Error('Command timeout after 30s'))
-        }, 30000)
-      })
+  //     // Create a timeout promise that rejects after 30 seconds
+  //     const timeoutPromise = new Promise<never>((_, reject) => {
+  //       setTimeout(() => {
+  //         if (childProcess.pid) {
+  //           childProcess.kill('SIGKILL') // Use SIGKILL for more forceful termination
+  //         }
+  //         reject(new Error('Command timeout after 30s'))
+  //       }, 30000)
+  //     })
 
-      // Race between command completion and timeout
-      const result = await Promise.race([childProcess, timeoutPromise]).catch((error) => {
-        // If we get here due to timeout, return a partial result with timeout flag
-        // Logger.info(`Command timed out after 30s: ${command}`)
-        return {
-          stdout: '',
-          stderr: '',
-          exitCode: 124, // Standard timeout exit code
-          timedOut: true
-        }
-      })
+  //     // Race between command completion and timeout
+  //     const result = await Promise.race([childProcess, timeoutPromise]).catch((error) => {
+  //       // If we get here due to timeout, return a partial result with timeout flag
+  //       // Logger.info(`Command timed out after 30s: ${command}`)
+  //       return {
+  //         stdout: '',
+  //         stderr: '',
+  //         exitCode: 124, // Standard timeout exit code
+  //         timedOut: true
+  //       }
+  //     })
 
-      // Check if timeout occurred
-      const wasTerminated = result.timedOut === true
+  //     // Check if timeout occurred
+  //     const wasTerminated = result.timedOut === true
 
-      // Use collected output or result output
-      if (!output) {
-        output = result.stdout || result.stderr || ''
-      }
+  //     // Use collected output or result output
+  //     if (!output) {
+  //       output = result.stdout || result.stderr || ''
+  //     }
 
-      // Logger.info(`Command executed in Node: ${command}\nOutput:\n${output}`)
+  //     // Logger.info(`Command executed in Node: ${command}\nOutput:\n${output}`)
 
-      // Add termination message if the command was terminated
-      if (wasTerminated) {
-        output += '\nCommand was taking a while to run so it was auto terminated after 30s'
-      }
+  //     // Add termination message if the command was terminated
+  //     if (wasTerminated) {
+  //       output += '\nCommand was taking a while to run so it was auto terminated after 30s'
+  //     }
 
-      // Format the result similar to terminal output
-      return [
-        false,
-        `Command executed${wasTerminated ? ' (terminated after 30s)' : ''} with exit code ${
-          result.exitCode
-        }.${output.length > 0 ? `\nOutput:\n${output}` : ''}`
-      ]
-    } catch (error) {
-      // Handle any errors that might occur
-      const errorMessage = error instanceof Error ? error.message : String(error)
-      return [false, `Error executing command: ${errorMessage}`]
-    }
-  }
+  //     // Format the result similar to terminal output
+  //     return [
+  //       false,
+  //       `Command executed${wasTerminated ? ' (terminated after 30s)' : ''} with exit code ${
+  //         result.exitCode
+  //       }.${output.length > 0 ? `\nOutput:\n${output}` : ''}`
+  //     ]
+  //   } catch (error) {
+  //     // Handle any errors that might occur
+  //     const errorMessage = error instanceof Error ? error.message : String(error)
+  //     return [false, `Error executing command: ${errorMessage}`]
+  //   }
+  // }
 
   //TODO: update executeCommandTool
   async executeCommandTool(command: string, cwd?: string): Promise<[boolean, ToolResponse]> {
