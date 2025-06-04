@@ -224,32 +224,39 @@ export class Task {
       taskId: this.taskId
     })
 
-    // Set taskId on browserSession for telemetry tracking
-    // this.browserSession.setTaskId(this.taskId)
-
     // Continue with task initialization
     if (historyItem) {
       this.resumeTaskFromHistory()
     } else if (task) {
       this.startTask(task)
     }
-
-    // // initialize telemetry
-    // if (historyItem) {
-    // 	// Open task from history
-    // 	telemetryService.captureTaskRestarted(this.taskId, apiConfiguration.apiProvider)
-    // } else {
-    // 	// New task started
-    // 	telemetryService.captureTaskCreated(this.taskId, apiConfiguration.apiProvider)
-    // }
   }
+
+  private async executeCommandInRemoteServer(command: string): Promise<string> {
+    const terminalInfo = await this.connectTerminal()
+    if (!terminalInfo) {
+      throw new Error('Failed to connect to terminal')
+    }
+    return new Promise<string>((resolve) => {
+      const process = this.remoteTerminalManager.runCommand(terminalInfo, command)
+      process.on('line', (line) => resolve(line))
+    })
+  }
+
+  private async connectTerminal() {
+    if (!this.terminalUuid) {
+      console.log('Terminal UUID is not set')
+      return
+    }
+    const connectionInfo = await connectAssetInfo(this.terminalUuid)
+    this.remoteTerminalManager.setConnectionInfo(connectionInfo)
+    const terminalInfo = await this.remoteTerminalManager.createTerminal()
+    return terminalInfo
+  }
+
   // 设置远程连接信息
   setRemoteConnectionInfo(connectionInfo: ConnectionInfo): void {
     this.remoteTerminalManager.setConnectionInfo(connectionInfo)
-  }
-  // 获取当前终端管理器
-  private getCurrentTerminalManager() {
-    return this.remoteTerminalManager
   }
 
   // 获取终端管理器（公共方法）
@@ -979,17 +986,12 @@ export class Task {
 
   //TODO: update executeCommandTool
   async executeCommandTool(command: string, cwd?: string): Promise<[boolean, ToolResponse]> {
-    const terminalManager = this.getCurrentTerminalManager()
-
-    if (!this.terminalUuid) {
-      console.log('Terminal UUID is not set')
-      return [false, 'Terminal UUID is not set']
+    const terminalInfo = await this.connectTerminal()
+    if (!terminalInfo) {
+      return [false, 'Failed to connect to terminal']
     }
-    const connectionInfo = await connectAssetInfo(this.terminalUuid)
-    terminalManager.setConnectionInfo(connectionInfo)
-    const terminalInfo = await terminalManager.createTerminal()
     terminalInfo.terminal.show()
-    const process = terminalManager.runCommand(terminalInfo, command, cwd)
+    const process = this.remoteTerminalManager.runCommand(terminalInfo, command, cwd)
 
     let userFeedback: { text?: string; images?: string[] } | undefined
     let didContinue = false
@@ -1191,8 +1193,22 @@ export class Task {
   }
 
   async *attemptApiRequest(previousApiReqIndex: number): ApiStream {
-    let systemPrompt = await SYSTEM_PROMPT(cwd)
+    const osVersion = await this.executeCommandInRemoteServer('uname -a')
+    const defaultShell = await this.executeCommandInRemoteServer('echo $SHELL')
+    const currentDir = await this.executeCommandInRemoteServer('pwd')
+    const homeDir = await this.executeCommandInRemoteServer('echo $HOME')
 
+    let systemPrompt = await SYSTEM_PROMPT(currentDir)
+
+    systemPrompt += `
+      SYSTEM INFORMATION
+
+      Operating System: ${osVersion}
+      Default Shell: ${defaultShell}
+      Home Directory: ${homeDir.toPosix()}
+      Current Working Directory: ${currentDir.toPosix()}
+      ====
+    `
     let settingsCustomInstructions = this.customInstructions?.trim()
     const preferredLanguageInstructions = `# Preferred Language\n\nSpeak in ${DEFAULT_LANGUAGE_SETTINGS}.`
     if (settingsCustomInstructions || preferredLanguageInstructions) {
@@ -1220,13 +1236,13 @@ export class Task {
 
     // 加入当前的服务器的上下文信息
     if (this.terminalOutput && this.terminalOutput.trim().length > 0) {
-        systemPrompt += `
+      systemPrompt += `
 
         # Current Session Terminal History:
         <terminal_history>
         ${this.terminalOutput}
         </terminal_history>`
-     }
+    }
 
     let stream = this.api.createMessage(
       systemPrompt,
