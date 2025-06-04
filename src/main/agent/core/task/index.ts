@@ -77,12 +77,7 @@ import {
   saveApiConversationHistory,
   saveChatermMessages
 } from '@core/storage/disk'
-// import {
-// 	getGlobalClineRules,
-// 	getLocalClineRules,
-// 	refreshClineRulesToggles,
-// 	ensureLocalClinerulesDirExists,
-// } from "@core/context/instructions/user-instructions/cline-rules"
+
 // import {
 // 	refreshExternalRulesToggles,
 // 	getLocalWindsurfRules,
@@ -115,6 +110,7 @@ export class Task {
 
   readonly taskId: string
   terminalUuid?: string = ''
+  terminalOutput?: string = ''
   private taskIsFavorited?: boolean
   api: ApiHandler
   //private terminalManager: TerminalManager
@@ -180,7 +176,8 @@ export class Task {
     task?: string,
     // images?: string[],
     historyItem?: HistoryItem,
-    terminalUuid?: string
+    terminalUuid?: string,
+    terminalOutput?: string
   ) {
     this.context = context
     this.workspaceTracker = workspaceTracker
@@ -206,6 +203,7 @@ export class Task {
     // this.browserSettings = browserSettings
     this.chatSettings = chatSettings
     this.terminalUuid = terminalUuid
+    this.terminalOutput = terminalOutput
     // Initialize taskId first
     if (historyItem) {
       this.taskId = historyItem.id
@@ -254,6 +252,11 @@ export class Task {
     return this.remoteTerminalManager
   }
 
+  // 获取终端管理器（公共方法）
+  getTerminalManager() {
+    return this.remoteTerminalManager
+  }
+
   // While a task is ref'd by a controller, it will always have access to the extension context
   // This error is thrown if the controller derefs the task after e.g., aborting the task
   private getContext(): vscode.ExtensionContext {
@@ -276,8 +279,6 @@ export class Task {
   }
 
   private async addToChatermMessages(message: ChatermMessage) {
-    // these values allow us to reconstruct the conversation history at the time this cline message was created
-    // it's important that apiConversationHistory is initialized before we add cline messages
     message.conversationHistoryIndex = this.apiConversationHistory.length - 1 // NOTE: this is the index of the last added message which is the user message, and once the clinemessages have been presented we update the apiconversationhistory with the completed assistant message. This means when resetting to a message, we need to +1 this index to get the correct assistant message that this tool use corresponds to
     message.conversationHistoryDeletedRange = this.conversationHistoryDeletedRange
     this.chatermMessages.push(message)
@@ -331,7 +332,7 @@ export class Task {
         isFavorited: this.taskIsFavorited
       })
     } catch (error) {
-      console.error('Failed to save cline messages:', error)
+      console.error('Failed to save chaterm messages:', error)
     }
   }
 
@@ -410,9 +411,8 @@ export class Task {
     text?: string
     // images?: string[]
   }> {
-    // If this Cline instance was aborted by the provider, then the only thing keeping us alive is a promise still running in the background, in which case we don't want to send its result to the webview as it is attached to a new instance of Cline now. So we can safely ignore the result of any active promises, and this class will be deallocated. (Although we set Cline = undefined in provider, that simply removes the reference to this instance, but the instance is still alive until this promise resolves or rejects.)
     if (this.abort) {
-      throw new Error('Cline instance aborted')
+      throw new Error('Chaterm instance aborted')
     }
     let askTs: number
     if (partial !== undefined) {
@@ -532,10 +532,10 @@ export class Task {
 
   async say(type: ChatermSay, text?: string, partial?: boolean): Promise<undefined> {
     if (this.abort) {
-      throw new Error('Cline instance aborted')
+      throw new Error('Chaterm instance aborted')
     }
     if (text === undefined || text === '') {
-      console.warn('Cline say called with empty text, ignoring')
+      console.warn('Chaterm say called with empty text, ignoring')
       return
     }
 
@@ -649,7 +649,6 @@ export class Task {
     // 	// Optionally, inform the user or handle the error appropriately
     // }
     // conversationHistory (for API) and chatermMessages (for webview) need to be in sync
-    // if the extension process were killed, then on restart the chatermMessages might not be empty, so we need to set it to [] when we create a new Cline client (otherwise webview would show stale messages from previous session)
     this.chatermMessages = []
     this.apiConversationHistory = []
 
@@ -688,8 +687,6 @@ export class Task {
     await this.overwriteChatermMessages(modifiedChatermMessages)
     this.chatermMessages = await getChatermMessages(this.taskId)
 
-    // Now present the cline messages to the user and ask if they want to resume (NOTE: we ran into a bug before where the apiconversationhistory wouldn't be initialized when opening a old task, and it was because we were waiting for resume)
-    // This is important in case the user deletes messages without resuming the task first
     this.apiConversationHistory = await getSavedApiConversationHistory(this.taskId)
 
     // load the context history state
@@ -712,7 +709,6 @@ export class Task {
       await this.say('user_feedback', text)
       responseText = text
     }
-    // need to make sure that the api conversation history can be resumed by the api, even if it goes out of sync with cline messages
 
     const existingApiConversationHistory: Anthropic.Messages.MessageParam[] =
       await getSavedApiConversationHistory(this.taskId)
@@ -797,19 +793,12 @@ export class Task {
       )
       includeHostDetails = false // we only need file details the first time
 
-      //  The way this agentic loop works is that cline will be given a task that he then calls tools to complete. unless there's an attempt_completion call, we keep responding back to him with his tool's responses until he either attempt_completion or does not use anymore tools. If he does not use anymore tools, we ask him to consider if he's completed the task and then call attempt_completion, otherwise proceed with completing the task.
-      // There is a MAX_REQUESTS_PER_TASK limit to prevent infinite requests, but Cline is prompted to finish the task as efficiently as he can.
-
       //const totalCost = this.calculateApiCost(totalInputTokens, totalOutputTokens)
       if (didEndLoop) {
         // For now a task never 'completes'. This will only happen if the user hits max requests and denies resetting the count.
         //this.say("task_completed", `Task completed. Total API usage cost: ${totalCost}`)
         break
       } else {
-        // this.say(
-        // 	"tool",
-        // 	"Cline responded with only text blocks but has not called attempt_completion yet. Forcing him to continue with task..."
-        // )
         nextUserContent = [
           {
             type: 'text',
@@ -917,76 +906,76 @@ export class Task {
    * This is used in test mode to capture the full output without using the VS Code terminal
    * Commands are automatically terminated after 30 seconds using Promise.race
    */
-  private async executeCommandInNode(command: string): Promise<[boolean, ToolResponse]> {
-    try {
-      // Create a child process
-      const childProcess = execa(command, {
-        shell: true,
-        cwd,
-        reject: false,
-        all: true // Merge stdout and stderr
-      })
+  // private async executeCommandInNode(command: string): Promise<[boolean, ToolResponse]> {
+  //   try {
+  //     // Create a child process
+  //     const childProcess = execa(command, {
+  //       shell: true,
+  //       cwd,
+  //       reject: false,
+  //       all: true // Merge stdout and stderr
+  //     })
 
-      // Set up variables to collect output
-      let output = ''
+  //     // Set up variables to collect output
+  //     let output = ''
 
-      // Collect output in real-time
-      if (childProcess.all) {
-        childProcess.all.on('data', (data) => {
-          output += data.toString()
-        })
-      }
+  //     // Collect output in real-time
+  //     if (childProcess.all) {
+  //       childProcess.all.on('data', (data) => {
+  //         output += data.toString()
+  //       })
+  //     }
 
-      // Create a timeout promise that rejects after 30 seconds
-      const timeoutPromise = new Promise<never>((_, reject) => {
-        setTimeout(() => {
-          if (childProcess.pid) {
-            childProcess.kill('SIGKILL') // Use SIGKILL for more forceful termination
-          }
-          reject(new Error('Command timeout after 30s'))
-        }, 30000)
-      })
+  //     // Create a timeout promise that rejects after 30 seconds
+  //     const timeoutPromise = new Promise<never>((_, reject) => {
+  //       setTimeout(() => {
+  //         if (childProcess.pid) {
+  //           childProcess.kill('SIGKILL') // Use SIGKILL for more forceful termination
+  //         }
+  //         reject(new Error('Command timeout after 30s'))
+  //       }, 30000)
+  //     })
 
-      // Race between command completion and timeout
-      const result = await Promise.race([childProcess, timeoutPromise]).catch((error) => {
-        // If we get here due to timeout, return a partial result with timeout flag
-        // Logger.info(`Command timed out after 30s: ${command}`)
-        return {
-          stdout: '',
-          stderr: '',
-          exitCode: 124, // Standard timeout exit code
-          timedOut: true
-        }
-      })
+  //     // Race between command completion and timeout
+  //     const result = await Promise.race([childProcess, timeoutPromise]).catch((error) => {
+  //       // If we get here due to timeout, return a partial result with timeout flag
+  //       // Logger.info(`Command timed out after 30s: ${command}`)
+  //       return {
+  //         stdout: '',
+  //         stderr: '',
+  //         exitCode: 124, // Standard timeout exit code
+  //         timedOut: true
+  //       }
+  //     })
 
-      // Check if timeout occurred
-      const wasTerminated = result.timedOut === true
+  //     // Check if timeout occurred
+  //     const wasTerminated = result.timedOut === true
 
-      // Use collected output or result output
-      if (!output) {
-        output = result.stdout || result.stderr || ''
-      }
+  //     // Use collected output or result output
+  //     if (!output) {
+  //       output = result.stdout || result.stderr || ''
+  //     }
 
-      // Logger.info(`Command executed in Node: ${command}\nOutput:\n${output}`)
+  //     // Logger.info(`Command executed in Node: ${command}\nOutput:\n${output}`)
 
-      // Add termination message if the command was terminated
-      if (wasTerminated) {
-        output += '\nCommand was taking a while to run so it was auto terminated after 30s'
-      }
+  //     // Add termination message if the command was terminated
+  //     if (wasTerminated) {
+  //       output += '\nCommand was taking a while to run so it was auto terminated after 30s'
+  //     }
 
-      // Format the result similar to terminal output
-      return [
-        false,
-        `Command executed${wasTerminated ? ' (terminated after 30s)' : ''} with exit code ${
-          result.exitCode
-        }.${output.length > 0 ? `\nOutput:\n${output}` : ''}`
-      ]
-    } catch (error) {
-      // Handle any errors that might occur
-      const errorMessage = error instanceof Error ? error.message : String(error)
-      return [false, `Error executing command: ${errorMessage}`]
-    }
-  }
+  //     // Format the result similar to terminal output
+  //     return [
+  //       false,
+  //       `Command executed${wasTerminated ? ' (terminated after 30s)' : ''} with exit code ${
+  //         result.exitCode
+  //       }.${output.length > 0 ? `\nOutput:\n${output}` : ''}`
+  //     ]
+  //   } catch (error) {
+  //     // Handle any errors that might occur
+  //     const errorMessage = error instanceof Error ? error.message : String(error)
+  //     return [false, `Error executing command: ${errorMessage}`]
+  //   }
+  // }
 
   //TODO: update executeCommandTool
   async executeCommandTool(command: string, cwd?: string): Promise<[boolean, ToolResponse]> {
@@ -1201,85 +1190,16 @@ export class Task {
       : message
   }
 
-  /**
-   * Migrates the disableBrowserTool setting from VSCode configuration to browserSettings
-   */
-  // private async migrateDisableBrowserToolSetting(): Promise<void> {
-  // 	const config = vscode.workspace.getConfiguration("cline")
-  // 	const disableBrowserTool = vscode.workspace.getConfiguration("cline").get<boolean>("disableBrowserTool")
-
-  // 	if (disableBrowserTool !== undefined) {
-  // 		this.browserSettings.disableToolUse = disableBrowserTool
-  // 		// Remove from VSCode configuration
-  // 		await config.update("disableBrowserTool", undefined, true)
-  // 	}
-  // }
-
   async *attemptApiRequest(previousApiReqIndex: number): ApiStream {
-    // // Wait for MCP servers to be connected before generating system prompt
-    // await pWaitFor(() => this.mcpHub.isConnecting !== true, { timeout: 10_000 }).catch(() => {
-    // 	console.error("MCP servers failed to connect in time")
-    // })
-
-    // await this.migrateDisableBrowserToolSetting()
-    // const disableBrowserTool = this.browserSettings.disableToolUse ?? false
-    // // cline browser tool uses image recognition for navigation (requires model image support).
-    // const modelSupportsBrowserUse = this.api.getModel().info.supportsImages ?? false
-
-    // const supportsBrowserUse = modelSupportsBrowserUse && !disableBrowserTool // only enable browser use if the model supports it and the user hasn't disabled it
-
     let systemPrompt = await SYSTEM_PROMPT(cwd)
 
     let settingsCustomInstructions = this.customInstructions?.trim()
-
-    // TODO: set preferred language
-    // const preferredLanguage = getLanguageKey(
-    // 	vscode.workspace.getConfiguration("chaterm").get<LanguageDisplay>("preferredLanguage"),
-    // )
-    // const preferredLanguageInstructions =
-    // 	preferredLanguage && preferredLanguage !== DEFAULT_LANGUAGE_SETTINGS
-    // 		? `# Preferred Language\n\nSpeak in ${preferredLanguage}.`
-    // 		: ""
-
-    // const { globalToggles, localToggles } = await refreshClineRulesToggles(this.getContext(), cwd)
-    // const { windsurfLocalToggles, cursorLocalToggles } = await refreshExternalRulesToggles(this.getContext(), cwd)
-
-    // const globalClineRulesFilePath = await ensureRulesDirectoryExists()
-    // const globalClineRulesFileInstructions = await getGlobalClineRules(globalClineRulesFilePath, globalToggles)
-
-    // const localClineRulesFileInstructions = await getLocalClineRules(cwd, localToggles)
-    // const [localCursorRulesFileInstructions, localCursorRulesDirInstructions] = await getLocalCursorRules(
-    // 	cwd,
-    // 	cursorLocalToggles,
-    // )
-    // const localWindsurfRulesFileInstructions = await getLocalWindsurfRules(cwd, windsurfLocalToggles)
-
-    // const clineIgnoreContent = this.clineIgnoreController.clineIgnoreContent
-    // let clineIgnoreInstructions: string | undefined
-    // if (clineIgnoreContent) {
-    // 	clineIgnoreInstructions = formatResponse.clineIgnoreInstructions(clineIgnoreContent)
-    // }
-
-    if (
-      settingsCustomInstructions
-      // globalClineRulesFileInstructions ||
-      // localClineRulesFileInstructions ||
-      // localCursorRulesFileInstructions ||
-      // localCursorRulesDirInstructions ||
-      // localWindsurfRulesFileInstructions ||
-      // clineIgnoreInstructions ||
-      // preferredLanguageInstructions
-    ) {
+    const preferredLanguageInstructions = `# Preferred Language\n\nSpeak in ${DEFAULT_LANGUAGE_SETTINGS}.`
+    if (settingsCustomInstructions || preferredLanguageInstructions) {
       // altering the system prompt mid-task will break the prompt cache, but in the grand scheme this will not change often so it's better to not pollute user messages with it the way we have to with <potentially relevant details>
       const userInstructions = addUserInstructions(
-        settingsCustomInstructions
-        // globalClineRulesFileInstructions,
-        // localClineRulesFileInstructions,
-        // localCursorRulesFileInstructions,
-        // localCursorRulesDirInstructions,
-        // localWindsurfRulesFileInstructions,
-        // clineIgnoreInstructions,
-        // preferredLanguageInstructions,
+        settingsCustomInstructions,
+        preferredLanguageInstructions
       )
       systemPrompt += userInstructions
     }
@@ -1299,6 +1219,14 @@ export class Task {
     }
 
     // 加入当前的服务器的上下文信息
+    if (this.terminalOutput && this.terminalOutput.trim().length > 0) {
+        systemPrompt += `
+
+        # Current Session Terminal History:
+        <terminal_history>
+        ${this.terminalOutput}
+        </terminal_history>`
+     }
 
     let stream = this.api.createMessage(
       systemPrompt,
@@ -1392,7 +1320,7 @@ export class Task {
 
   async presentAssistantMessage() {
     if (this.abort) {
-      throw new Error('Cline instance aborted')
+      throw new Error('Chaterm instance aborted')
     }
 
     if (this.presentAssistantMessageLocked) {
@@ -1696,7 +1624,7 @@ export class Task {
             // 				diff = removeInvalidChars(diff)
             // 			}
 
-            // 			// open the editor if not done already.  This is to fix diff error when model provides correct search-replace text but Cline throws error
+            // 			// open the editor if not done already.  This is to fix diff error when model provides correct search-replace text but Chaterm throws error
             // 			// because file is not open.
             // 			if (!this.diffViewProvider.isEditing) {
             // 				await this.diffViewProvider.open(relPath)
@@ -1849,7 +1777,7 @@ export class Task {
             // 			} else {
             // 				// If auto-approval is enabled but this tool wasn't auto-approved, send notification
             // 				showNotificationForApprovalIfAutoApprovalEnabled(
-            // 					`Cline wants to ${fileExists ? "edit" : "create"} ${path.basename(relPath)}`,
+            // 					`Chaterm wants to ${fileExists ? "edit" : "create"} ${path.basename(relPath)}`,
             // 				)
             // 				this.removeLastPartialMessageIfExistsWithType("say", "tool")
 
@@ -1888,7 +1816,7 @@ export class Task {
             // 				}
             // 			}
 
-            // 			// Mark the file as edited by Cline to prevent false "recently modified" warnings
+            // 			// Mark the file as edited by Chaterm to prevent false "recently modified" warnings
             // 			this.fileContextTracker.markFileAsEditedByCline(relPath)
 
             // 			// const { newProblemsMessage, userEdits, autoFormattingEdits, finalContent } =
@@ -2000,7 +1928,7 @@ export class Task {
                   // telemetryService.captureToolUsage(this.taskId, block.name, true, true)
                 } else {
                   showNotificationForApprovalIfAutoApprovalEnabled(
-                    `Cline wants to read ${path.basename(absolutePath)}`
+                    `Chaterm wants to read ${path.basename(absolutePath)}`
                   )
                   this.removeLastPartialMessageIfExistsWithType('say', 'tool')
                   const didApprove = await askApproval('tool', completeMessage)
@@ -2080,7 +2008,7 @@ export class Task {
                   // telemetryService.captureToolUsage(this.taskId, block.name, true, true)
                 } else {
                   showNotificationForApprovalIfAutoApprovalEnabled(
-                    `Cline wants to view directory ${path.basename(absolutePath)}/`
+                    `Chaterm wants to view directory ${path.basename(absolutePath)}/`
                   )
                   this.removeLastPartialMessageIfExistsWithType('say', 'tool')
                   const didApprove = await askApproval('tool', completeMessage)
@@ -2150,7 +2078,7 @@ export class Task {
           // 				telemetryService.captureToolUsage(this.taskId, block.name, true, true)
           // 			} else {
           // 				showNotificationForApprovalIfAutoApprovalEnabled(
-          // 					`Cline wants to view source code definitions in ${path.basename(absolutePath)}/`,
+          // 					`Chaterm wants to view source code definitions in ${path.basename(absolutePath)}/`,
           // 				)
           // 				this.removeLastPartialMessageIfExistsWithType("say", "tool")
           // 				const didApprove = await askApproval("tool", completeMessage)
@@ -2232,7 +2160,7 @@ export class Task {
                   // telemetryService.captureToolUsage(this.taskId, block.name, true, true)
                 } else {
                   showNotificationForApprovalIfAutoApprovalEnabled(
-                    `Cline wants to search files in ${path.basename(absolutePath)}/`
+                    `Chaterm wants to search files in ${path.basename(absolutePath)}/`
                   )
                   this.removeLastPartialMessageIfExistsWithType('say', 'tool')
                   const didApprove = await askApproval('tool', completeMessage)
@@ -2320,7 +2248,7 @@ export class Task {
           // 					this.consecutiveAutoApprovedRequestsCount++
           // 				} else {
           // 					showNotificationForApprovalIfAutoApprovalEnabled(
-          // 						`Cline wants to use a browser and launch ${url}`,
+          // 						`Chaterm wants to use a browser and launch ${url}`,
           // 					)
           // 					this.removeLastPartialMessageIfExistsWithType("say", "browser_action_launch")
           // 					const didApprove = await askApproval("browser_action_launch", url)
@@ -2506,7 +2434,7 @@ export class Task {
                   didAutoApprove = true
                 } else {
                   showNotificationForApprovalIfAutoApprovalEnabled(
-                    `Cline wants to execute a command: ${command}`
+                    `Chaterm wants to execute a command: ${command}`
                   )
                   // this.removeLastPartialMessageIfExistsWithType("say", "command")
                   const didApprove = await askApproval(
@@ -2585,7 +2513,7 @@ export class Task {
                   this.autoApprovalSettings.enableNotifications
                 ) {
                   showSystemNotification({
-                    subtitle: 'Cline has a question...',
+                    subtitle: 'Chaterm has a question...',
                     message: question.replace(/\n/g, ' ')
                   })
                 }
@@ -2651,8 +2579,8 @@ export class Task {
           //         this.autoApprovalSettings.enableNotifications
           //       ) {
           //         showSystemNotification({
-          //           subtitle: 'Cline wants to start a new task...',
-          //           message: `Cline is suggesting to start a new task with: ${context}`
+          //           subtitle: 'Chaterm wants to start a new task...',
+          //           message: `Chaterm is suggesting to start a new task with: ${context}`
           //         })
           //       }
 
@@ -2708,8 +2636,8 @@ export class Task {
                   this.autoApprovalSettings.enableNotifications
                 ) {
                   showSystemNotification({
-                    subtitle: 'Cline wants to condense the conversation...',
-                    message: `Cline is suggesting to condense your conversation with: ${context}`
+                    subtitle: 'Chaterm wants to condense the conversation...',
+                    message: `Chaterm is suggesting to condense your conversation with: ${context}`
                   })
                 }
 
@@ -2822,8 +2750,8 @@ export class Task {
                   this.autoApprovalSettings.enableNotifications
                 ) {
                   showSystemNotification({
-                    subtitle: 'Cline wants to create a github issue...',
-                    message: `Cline is suggesting to create a github issue with the title: ${title}`
+                    subtitle: 'Chaterm wants to create a github issue...',
+                    message: `Chaterm is suggesting to create a github issue with the title: ${title}`
                   })
                 }
 
@@ -2871,7 +2799,6 @@ export class Task {
                     const params = new Map<string, string>()
                     params.set('title', title)
                     params.set('operating-system', operatingSystem)
-                    //params.set("cline-version", clineVersion)
                     //params.set("system-info", systemInfo)
                     params.set('additional-context', additional_context)
                     params.set('what-happened', what_happened)
@@ -2881,7 +2808,6 @@ export class Task {
 
                     // Use our utility function to create and open the GitHub issue URL
                     // This bypasses VS Code's URI handling issues with special characters
-                    // await createAndOpenGitHubIssue("cline", "cline", "bug_report.yml", params)
                   } catch (error) {
                     console.error(`An error occurred while attempting to report the bug: ${error}`)
                   }
@@ -2917,7 +2843,7 @@ export class Task {
 
           // 			// if (this.autoApprovalSettings.enabled && this.autoApprovalSettings.enableNotifications) {
           // 			// 	showSystemNotification({
-          // 			// 		subtitle: "Cline has a response...",
+          // 			// 		subtitle: "Chaterm has a response...",
           // 			// 		message: response.replace(/\n/g, " "),
           // 			// 	})
           // 			// }
@@ -2986,7 +2912,7 @@ export class Task {
 						let resultToSend = result
 						if (command) {
 							await this.say("completion_result", resultToSend)
-							// TODO: currently we don't handle if this command fails, it could be useful to let cline know and retry
+							// TODO: currently we don't handle if this command fails, it could be useful to let Chaterm know and retry
 							const [didUserReject, commandResult] = await this.executeCommand(command, true)
 							// if we received non-empty string, the command was rejected or failed
 							if (commandResult) {
@@ -3194,7 +3120,7 @@ export class Task {
     includeHostDetails: boolean = false
   ): Promise<boolean> {
     if (this.abort) {
-      throw new Error('Cline instance aborted')
+      throw new Error('Chaterm instance aborted')
     }
 
     // Used to know what models were used in the task if user wants to export metadata for error reporting purposes
@@ -3214,14 +3140,14 @@ export class Task {
       if (this.autoApprovalSettings.enabled && this.autoApprovalSettings.enableNotifications) {
         showSystemNotification({
           subtitle: 'Error',
-          message: 'Cline is having trouble. Would you like to continue the task?'
+          message: 'Chaterm is having trouble. Would you like to continue the task?'
         })
       }
       const { response, text } = await this.ask(
         'mistake_limit_reached',
         this.api.getModel().id.includes('claude')
           ? `This may indicate a failure in his thought process or inability to use a tool properly, which can be mitigated with some user guidance (e.g. "Try breaking down the task into smaller steps").`
-          : "Cline uses complex prompts and iterative task execution that may be challenging for less capable models. For best results, it's recommended to use Claude 3.7 Sonnet for its advanced agentic coding capabilities."
+          : "Chaterm uses complex prompts and iterative task execution that may be challenging for less capable models. For best results, it's recommended to use Claude 3.7 Sonnet for its advanced agentic coding capabilities."
       )
       if (response === 'messageResponse') {
         userContent.push(
@@ -3291,7 +3217,7 @@ export class Task {
     // 			{
     // 				milliseconds: 15_000,
     // 				message:
-    // 					"Checkpoints taking too long to initialize. Consider re-opening Cline in a project that uses git, or disabling checkpoints.",
+    // 					"Checkpoints taking too long to initialize. Consider re-opening Chaterm in a project that uses git, or disabling checkpoints.",
     // 			},
     // 		)
     // 	} catch (error) {
@@ -3491,7 +3417,7 @@ export class Task {
           if (this.abort) {
             console.log('aborting stream...')
             if (!this.abandoned) {
-              // only need to gracefully abort if this instance isn't abandoned (sometimes openrouter stream hangs, in which case this would affect future instances of cline)
+              // only need to gracefully abort if this instance isn't abandoned (sometimes openrouter stream hangs, in which case this would affect future instances of Chaterm)
               await abortStream('user_cancelled')
             }
             break // aborts the stream
@@ -3513,7 +3439,7 @@ export class Task {
           }
         }
       } catch (error) {
-        // abandoned happens when extension is no longer waiting for the cline instance to finish aborting (error is thrown here when any function in the for loop throws due to this.abort)
+        // abandoned happens when extension is no longer waiting for the chaterm instance to finish aborting (error is thrown here when any function in the for loop throws due to this.abort)
         if (!this.abandoned) {
           this.abortTask() // if the stream failed, there's various states the task could be in (i.e. could have streamed some tools the user may have executed), so we just resort to replicating a cancel task
           const errorMessage = this.formatErrorWithStatusCode(error)
@@ -3525,7 +3451,7 @@ export class Task {
         this.isStreaming = false
       }
 
-      // OpenRouter/Cline may not return token usage as part of the stream (since it may abort early), so we fetch after the stream is finished
+      // OpenRouter/Chaterm may not return token usage as part of the stream (since it may abort early), so we fetch after the stream is finished
       // (updateApiReq below will update the api_req_started message with the usage details. we do this async so it updates the api_req_started message in the background)
       if (!didReceiveUsageChunk) {
         this.api.getApiStreamUsage?.().then(async (apiStreamUsage) => {
@@ -3544,7 +3470,7 @@ export class Task {
 
       // need to call here in case the stream was aborted
       if (this.abort) {
-        throw new Error('Cline instance aborted')
+        throw new Error('Chaterm instance aborted')
       }
 
       this.didCompleteReadingStream = true
@@ -3694,7 +3620,7 @@ export class Task {
   async getEnvironmentDetails(includeHostDetails: boolean = false) {
     let details = ''
 
-    // It could be useful for cline to know if the user went from one or no file to another between messages, so we always include this context
+    // It could be useful for chaterm to know if the user went from one or no file to another between messages, so we always include this context
     details += '\n\n# VSCode Visible Files'
     const visibleFilePaths = vscode.window.visibleTextEditors
       ?.map((editor) => editor.document?.uri?.fsPath)
@@ -3757,7 +3683,7 @@ export class Task {
     // we want to get diagnostics AFTER terminal cools down for a few reasons: terminal could be scaffolding a project, dev servers (compilers like webpack) will first re-compile and then send diagnostics, etc
     /*
 		let diagnosticsDetails = ""
-		const diagnostics = await this.diagnosticsMonitor.getCurrentDiagnostics(this.didEditFile || terminalWasBusy) // if cline ran a command (ie npm install) or edited the workspace then wait a bit for updated diagnostics
+		const diagnostics = await this.diagnosticsMonitor.getCurrentDiagnostics(this.didEditFile || terminalWasBusy) // if chaterm ran a command (ie npm install) or edited the workspace then wait a bit for updated diagnostics
 		for (const [uri, fileDiagnostics] of diagnostics) {
 			const problems = fileDiagnostics.filter((d) => d.severity === vscode.DiagnosticSeverity.Error)
 			if (problems.length > 0) {

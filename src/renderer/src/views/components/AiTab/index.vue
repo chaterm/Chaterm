@@ -964,12 +964,12 @@ const sendMessageToMain = async (userContent: string) => {
         })
         return
       }
-
       message = {
         type: 'newTask',
         askResponse: 'messageResponse',
         text: userContent,
-        terminalUuid: assetInfo?.uuid
+        terminalUuid: assetInfo?.uuid,
+        terminalOutput: assetInfo?.outputContext
       }
     } else {
       message = {
