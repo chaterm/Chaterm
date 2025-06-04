@@ -80,9 +80,9 @@ export class Controller {
     // 释放终端资源
     if (this.task) {
       const terminalManager = this.task.getTerminalManager()
+      
       if (terminalManager) {
         terminalManager.disposeAll()
-        this.outputChannel.appendLine('Disposed terminal resources')
       }
     }
     
@@ -96,8 +96,6 @@ export class Controller {
     }
     this.workspaceTracker.dispose()
     this.outputChannel.appendLine('Disposed all disposables')
-
-    console.error('Controller disposed')
   }
 
   // Auth methods

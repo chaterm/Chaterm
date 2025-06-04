@@ -166,6 +166,19 @@ app.on('window-all-closed', () => {
   }
 })
 
+// Add the before-quit event listener here or towards the end of the file
+app.on('before-quit', async (_event) => {
+  console.log('Application is about to quit. Disposing resources...');
+  if (controller) {
+    try {
+      await controller.dispose();
+      console.log('Controller disposed successfully.');
+    } catch (error) {
+      console.error('Error during controller disposal:', error);
+    }
+  }
+});
+
 const getCookieByName = async (name) => {
   try {
     if (!COOKIE_URL) {
