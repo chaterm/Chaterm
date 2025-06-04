@@ -107,7 +107,11 @@ export default {
     awsEndpointSelected: 'Use custom VPC endpoint',
     awsBedrockEndpointPh: 'Enter VPC Endpoint URL (optional)',
     awsUseCrossRegionInference: 'Use cross-region inference',
-    chatSettings: 'Chat Mode'
+    chatSettings: 'Chat Mode',
+    liteLlmBaseUrl: 'Base URL',
+    liteLlmBaseUrlPh: 'Enter Base URL',
+    liteLlmApiKey: 'API Key',
+    liteLlmApiKeyPh: 'Enter API Key'
   },
   extensions: {
     extensions: 'Extensions',
