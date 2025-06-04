@@ -397,7 +397,14 @@ const api = {
     const result = await ipcRenderer.invoke('chaterm-connect-asset-info', data)
     return result
   },
-
+  cancelTask: async () => {
+    try {
+      const result = await ipcRenderer.invoke('cancel-task')
+      return result
+    } catch (error) {
+      return Promise.reject(error)
+    }
+  },
   sendToMain: (message: any) => ipcRenderer.invoke('webview-to-main', message),
   onMainMessage: (callback) => {
     const handler = (_event, message) => callback(message)
@@ -417,7 +424,10 @@ const api = {
       console.error('Error invoking execute-remote-command from preload:', error) // 添加日志
       // 确保错误是一个可序列化的对象
       if (error instanceof Error) {
-        return { success: false, error: { message: error.message, name: error.name, stack: error.stack } }
+        return {
+          success: false,
+          error: { message: error.message, name: error.name, stack: error.stack }
+        }
       }
       return { success: false, error: { message: 'An unknown error occurred in preload' } }
     }
