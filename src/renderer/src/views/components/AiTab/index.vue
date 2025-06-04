@@ -232,13 +232,11 @@ const MarkdownRenderer = defineAsyncComponent(
 )
 
 import { ChatermMessage } from 'src/main/agent/shared/ExtensionMessage'
-import { error } from 'console'
 
 interface HistoryItem {
   id: string
   chatTitle: string
   chatType: string
-  hosts: string[]
   chatContent: ChatMessage[]
 }
 
@@ -566,7 +564,6 @@ const handlePlusClick = () => {
     id: newChatId,
     chatTitle,
     chatType: chatTypeValue.value,
-    hosts: [],
     chatContent: []
   })
 
@@ -584,13 +581,29 @@ const restoreHistoryTab = async (history: HistoryItem) => {
     webSocket.value = null
   }
 
-  hosts.value = history.hosts || []
+  hosts.value = []
 
   currentChatId.value = history.id
   chatTypeValue.value = history.chatType
 
   try {
     if (history.chatType === 'ctm-agent') {
+      try {
+        const metadataResult = await (window.api as any).getTaskMetadata(history.id)
+        if (metadataResult.success && metadataResult.data && Array.isArray(metadataResult.data.hosts)) {
+          for (const item of metadataResult.data.hosts) {
+            let ip = ''
+            if (item && typeof item === 'object' && 'host' in item) {
+                    ip = item.host
+                  }
+            if (ip && !hosts.value.includes(ip)) {
+              hosts.value.push(ip)
+            }
+          }
+        }
+      } catch (e) {
+        console.error('获取metadata失败:', e)
+      }
       const conversationHistory = await getChatermMessages()
       console.log('[conversationHistory]', conversationHistory)
       chatHistory.length = 0
@@ -685,7 +698,6 @@ const handleHistoryClick = async () => {
           id: messages.id,
           chatTitle: messages?.task?.substring(0, 15) + '...' || 'Agent Chat',
           chatType: 'ctm-agent',
-          hosts: [],
           chatContent: []
         })
       })
@@ -697,7 +709,6 @@ const handleHistoryClick = async () => {
           id: item.conversationId,
           chatTitle: item.title,
           chatType: item.conversateType,
-          hosts: [],
           chatContent: []
         }))
     }
@@ -829,7 +840,6 @@ onMounted(async () => {
       id: chatId,
       chatTitle: 'New chat',
       chatType: chatTypeValue.value,
-      hosts: [],
       chatContent: []
     }
   ]
@@ -937,14 +947,6 @@ const sendMessageToMain = async (userContent: string) => {
         return 'ASSET_ERROR'
       }
       if (assetInfo.ip) {
-        if (currentHistoryEntry) {
-          if (!currentHistoryEntry.hosts) {
-            currentHistoryEntry.hosts = []
-          }
-          if (!currentHistoryEntry.hosts.includes(assetInfo.ip)) {
-            currentHistoryEntry.hosts.push(assetInfo.ip)
-          }
-        }
         if (!hosts.value.includes(assetInfo.ip)) {
            hosts.value.push(assetInfo.ip)
         }
@@ -994,13 +996,7 @@ watch(
 )
 
 // 计算属性，用于获取当前聊天会话的 hosts
-const currentChatHosts = computed(() => {
-  if (currentChatId.value) {
-    const currentChat = historyList.value.find((item) => item.id === currentChatId.value)
-    return currentChat?.hosts || []
-  }
-  return hosts.value
-})
+const currentChatHosts = computed(() => hosts.value)
 </script>
 
 <style lang="less" scoped>
