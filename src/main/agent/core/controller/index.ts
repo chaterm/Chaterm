@@ -76,6 +76,16 @@ export class Controller {
 	*/
   async dispose() {
     this.outputChannel.appendLine('Disposing ClineProvider...')
+    
+    // 释放终端资源
+    if (this.task) {
+      const terminalManager = this.task.getTerminalManager()
+      if (terminalManager) {
+        terminalManager.disposeAll()
+        this.outputChannel.appendLine('Disposed terminal resources')
+      }
+    }
+    
     await this.clearTask()
     this.outputChannel.appendLine('Cleared task')
     while (this.disposables.length) {

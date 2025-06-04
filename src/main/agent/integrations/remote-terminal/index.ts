@@ -132,13 +132,6 @@ export class RemoteTerminalManager {
 
   constructor() {
     // 设置默认连接信息
-    this.connectionInfo = {
-      id: Date.now() + '_127.0.0.1',
-      host: '127.0.0.1',
-      port: 2222,
-      username: 'root',
-      password: 'root'
-    }
   }
 
   // 设置 SSH 连接信息
@@ -151,6 +144,18 @@ export class RemoteTerminalManager {
     // 如果没有设置连接信息，使用默认值
     if (!this.connectionInfo) {
       throw new Error('未设置 SSH 连接信息，请先调用 setConnectionInfo()')
+    }
+
+    // 检查是否已有相同连接信息的终端
+    const existingTerminal = Array.from(this.terminals.values()).find(terminal => {
+      return terminal.connectionInfo.host === this.connectionInfo?.host &&
+             terminal.connectionInfo.port === this.connectionInfo?.port &&
+             terminal.connectionInfo.username === this.connectionInfo?.username
+    })
+
+    if (existingTerminal) {
+      console.log('发现现有终端连接，返回现有连接')
+      return existingTerminal
     }
 
     try {
