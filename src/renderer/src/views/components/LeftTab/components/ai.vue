@@ -22,7 +22,7 @@
           />
         </a-form-item>
       </div>
-      <div v-if="apiProvider">
+      <div v-if="apiProvider === 'bedrock'">
         <div class="setting-item">
           <a-form-item
             :label="$t('user.awsAccessKey')"
@@ -99,6 +99,32 @@
           </a-checkbox>
         </div>
       </div>
+      <div v-else-if="apiProvider === 'litellm'">
+        <div class="setting-item">
+          <a-form-item
+            :label="$t('user.liteLlmBaseUrl')"
+            :label-col="{ span: 24 }"
+            :wrapper-col="{ span: 24 }"
+          >
+            <a-input
+              v-model:value="liteLlmBaseUrl"
+              :placeholder="$t('user.liteLlmBaseUrlPh')"
+            />
+          </a-form-item>
+        </div>
+        <div class="setting-item">
+          <a-form-item
+            :label="$t('user.liteLlmApiKey')"
+            :label-col="{ span: 24 }"
+            :wrapper-col="{ span: 24 }"
+          >
+            <a-input
+              v-model:value="liteLlmApiKey"
+              :placeholder="$t('user.liteLlmApiKeyPh')"
+            />
+          </a-form-item>
+        </div>
+      </div>
     </a-card>
     <div class="section-header">
       <h3>{{ $t('user.general') }}</h3>
@@ -115,9 +141,17 @@
           :wrapper-col="{ span: 24 }"
         >
           <a-select
+            v-if="apiProvider === 'bedrock'"
             v-model:value="apiModelId"
             size="small"
             :options="aiModelOptions"
+            show-search
+          />
+          <a-select
+            v-else-if="apiProvider === 'litellm'"
+            v-model:value="apiModelId"
+            size="small"
+            :options="litellmAiModelOptions"
             show-search
           />
         </a-form-item>
@@ -253,7 +287,10 @@ import {
 import { AutoApprovalSettings, DEFAULT_AUTO_APPROVAL_SETTINGS } from '@/agent/storage/shared'
 import { ChatSettings, DEFAULT_CHAT_SETTINGS } from '@/agent/storage/shared'
 
-const apiProviderOptions = ref([{ value: 'bedrock', label: 'bedrock' }])
+const apiProviderOptions = ref([
+  { value: 'litellm', label: 'OpenAI Compatible' },
+  { value: 'bedrock', label: 'Amazon Bedrock' }
+])
 
 const awsRegionOptions = ref([
   { value: 'us-east-1', label: 'us-east-1' },
@@ -312,13 +349,34 @@ const aiModelOptions = ref([
   { value: 'deepseek.r1-v1:0', label: 'deepseek.r1-v1:0' }
 ])
 
-const apiModelId = ref('anthropic.claude-3-7-sonnet-20250219-v1:0')
+const litellmAiModelOptions = ref([
+  { value: 'claude-sonnet-4', label: 'claude-sonnet-4' },
+  { value: 'claude-opus-4', label: 'claude-opus-4' },
+  { value: 'claude-3-7-sonnet', label: 'claude-3-7-sonnet' },
+  { value: 'claude-3-5-haiku', label: 'claude-3-5-haiku' },
+  { value: 'claude-3-5-sonnet', label: 'claude-3-5-sonnet' },
+  { value: 'claude-3-opus', label: 'claude-3-opus' },
+  { value: 'gpt-4.1', label: 'gpt-4.1' },
+  { value: 'gpt-4.1-mini', label: 'gpt-4.1-mini' },
+  { value: 'gpt-4.1-nano', label: 'gpt-4.1-nano' },
+  { value: 'gpt-4o', label: 'gpt-4o' },
+  { value: 'qwen-plus-latest', label: 'qwen-plus-latest' },
+  { value: 'qwen3-235b-a22b', label: 'qwen3-235b-a22b' },
+  { value: 'qwen3-32b', label: 'qwen3-32b' },
+  { value: 'qwen3-30b-a3b', label: 'qwen3-30b-a3b' },
+  { value: 'qwen3-14b', label: 'qwen3-14b' },
+  { value: 'qwen3-8b', label: 'qwen3-8b' },
+  { value: 'deepseek-r1', label: 'deepseek-r1' },
+  { value: 'deepseek-v3-0324', label: 'deepseek-v3-0324' }
+])
+
+const apiModelId = ref('')
 const thinkingBudgetTokens = ref(0)
 const enableExtendedThinking = ref(false)
 // const enableCheckpoints = ref(false)
 const reasoningEffort = ref('low')
 const shellIntegrationTimeout = ref(4)
-const apiProvider = ref('bedrock')
+const apiProvider = ref('litellm')
 const awsAccessKey = ref('')
 const awsSecretKey = ref('')
 const awsSessionToken = ref('')
@@ -326,7 +384,8 @@ const awsRegion = ref('us-east-1')
 const awsUseCrossRegionInference = ref(false)
 const awsEndpointSelected = ref(false)
 const awsBedrockEndpoint = ref('')
-
+const liteLlmBaseUrl = ref('')
+const liteLlmApiKey = ref('')
 const autoApprovalSettings = ref<AutoApprovalSettings>(DEFAULT_AUTO_APPROVAL_SETTINGS)
 const chatSettings = ref<ChatSettings>(DEFAULT_CHAT_SETTINGS)
 
