@@ -293,7 +293,7 @@ const checkContentHeight = async () => {
   await nextTick()
   if (contentRef.value) {
     const lineHeight = 19.2
-    const maxHeight = lineHeight * 3
+    const maxHeight = lineHeight
     activeKey.value = contentRef.value.scrollHeight > maxHeight ? [] : ['1']
   }
 }
