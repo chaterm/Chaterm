@@ -213,6 +213,19 @@
           {{ $t('user.autoApprovalDescribe') }}
         </p>
       </div>
+      <div class="setting-item">
+        <a-form-item
+          :label="$t('user.customInstructions')"
+          :label-col="{ span: 24 }"
+          :wrapper-col="{ span: 24 }"
+        >
+          <a-textarea
+            v-model:value="customInstructions"
+            :rows="2"
+            :placeholder="$t('user.customInstructionsPh')"
+          />
+        </a-form-item>
+      </div>
     </a-card>
 
     <div class="section-header">
@@ -276,7 +289,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, watch, computed } from 'vue'
+import { ref, onMounted, watch } from 'vue'
 import { notification } from 'ant-design-vue'
 import {
   updateGlobalState,
@@ -389,7 +402,7 @@ const liteLlmApiKey = ref('')
 const liteLlmModelId = ref('claude-3-7-sonnet')
 const autoApprovalSettings = ref<AutoApprovalSettings>(DEFAULT_AUTO_APPROVAL_SETTINGS)
 const chatSettings = ref<ChatSettings>(DEFAULT_CHAT_SETTINGS)
-
+const customInstructions = ref('')
 const inputError = ref('')
 
 // Add specific watch for autoApprovalSettings.enabled
@@ -459,6 +472,7 @@ const loadSavedConfig = async () => {
 
     // 加载其他配置
     thinkingBudgetTokens.value = (await getGlobalState('thinkingBudgetTokens')) || 0
+    customInstructions.value = (await getGlobalState('customInstructions')) || ''
     // enableCheckpoints.value = (await getGlobalState('enableCheckpoints')) || false
 
     const savedAutoApprovalSettings = await getGlobalState('autoApprovalSettings')
@@ -513,6 +527,7 @@ const saveConfig = async () => {
     await storeSecret('liteLlmApiKey', liteLlmApiKey.value)
     // 保存其他配置
     await updateGlobalState('thinkingBudgetTokens', thinkingBudgetTokens.value)
+    await updateGlobalState('customInstructions', customInstructions.value)
     // await updateGlobalState('enableCheckpoints', enableCheckpoints.value)
     await updateGlobalState('autoApprovalSettings', {
       enabled: autoApprovalSettings.value.enabled
@@ -552,7 +567,8 @@ watch(
     awsBedrockEndpoint,
     liteLlmBaseUrl,
     liteLlmModelId,
-    liteLlmApiKey
+    liteLlmApiKey,
+    customInstructions
   ],
   async () => {
     // Skip autoApprovalSettings.enabled and chatSettings.mode updates as they're handled by specific watchers

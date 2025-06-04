@@ -44,74 +44,51 @@
               />
 
               <div class="message-actions">
-                <a-button
-                  v-if="chatTypeValue === 'ctm-cmd'"
-                  size="small"
-                  class="action-btn copy-btn"
-                  @click="handleCopyContent(message)"
-                >
-                  <template #icon>
-                    <CopyOutlined />
-                  </template>
-                  {{ $t('ai.copy') }}
-                </a-button>
-                <a-button
-                  v-if="chatTypeValue === 'ctm-cmd'"
-                  size="small"
-                  class="action-btn apply-btn"
-                  @click="handleApplyCommand(message)"
-                >
-                  <template #icon>
-                    <PlayCircleOutlined />
-                  </template>
-                  {{ $t('ai.run') }}
-                </a-button>
-                <div
-                  v-if="
-                    (chatTypeValue === 'ctm-agent' &&
-                      message.type === 'ask' &&
-                      typeof message.content === 'object' &&
-                      'options' in message.content &&
-                      Array.isArray((message.content as MessageContent).options) &&
-                      (message.content as MessageContent).options!.length > 1) ||
-                    message.ask === 'command'
-                  "
-                >
-                  <div
-                    v-if="!message.action"
-                    class="action-buttons"
-                  >
+                <template v-if="chatTypeValue === 'ctm-cmd'">
+                  <div class="action-buttons">
                     <div class="button-row">
                       <a-button
                         size="small"
                         class="action-btn copy-btn"
-                        @click="handleRejectContent(message)"
+                        @click="handleCopyContent(message)"
                       >
                         <template #icon>
-                          <CloseOutlined />
+                          <CopyOutlined />
                         </template>
-                        {{ $t('ai.reject') }}
+                        {{ $t('ai.copy') }}
                       </a-button>
                       <a-button
                         size="small"
                         class="action-btn apply-btn"
-                        @click="handleApproveCommand(message)"
+                        @click="handleApplyCommand(message)"
                       >
                         <template #icon>
-                          <CheckOutlined />
+                          <PlayCircleOutlined />
                         </template>
-                        {{ $t('ai.approve') }}
+                        {{ $t('ai.run') }}
                       </a-button>
                     </div>
                   </div>
-                  <div
-                    v-else
-                    :class="message.action"
-                    class="action-status"
-                  >
-                    {{ message.action === 'approved' ? $t('ai.approved') : $t('ai.rejected') }}
+                </template>
+                <template
+                  v-if="typeof message.content === 'object' && 'options' in message.content"
+                >
+                  <div class="options-container">
+                    <a-button
+                      v-for="(option, index) in (message.content as MessageContent).options"
+                      :key="index"
+                      size="small"
+                      :class="[
+                        'action-btn',
+                        'option-btn',
+                        { selected: message.selectedOption === option }
+                      ]"
+                      @click="handleOptionChoose(message, option)"
+                    >
+                      {{ option }}
+                    </a-button>
                   </div>
-                </div>
+                </template>
               </div>
             </div>
             <div
@@ -123,38 +100,67 @@
           </template>
         </div>
       </div>
-      <div class="input-send-container">
-        <a-textarea
-          v-model:value="chatInputValue"
-          :placeholder="$t('ai.agentMessage')"
-          style="background-color: #161616; color: #fff; border: none; box-shadow: none"
-          :auto-size="{ minRows: 2, maxRows: 20 }"
-          @keydown="handleKeyDown"
-        />
-        <div class="input-controls">
-          <a-select
-            v-model:value="chatTypeValue"
-            size="small"
-            style="width: 80px"
-            :options="AiTypeOptions"
-            show-search
-          ></a-select>
-          <a-select
-            v-if="chatTypeValue !== 'ctm-agent'"
-            v-model:value="chatModelValue"
-            size="small"
-            :options="AiModelsOptions"
-            show-search
-          ></a-select>
+      <div class="bottom-container">
+        <div
+          class="bottom-buttons"
+          v-if="showBottomButton"
+        >
           <a-button
-            :disabled="!showSendButton"
             size="small"
-            class="custom-round-button compact-button"
-            style="margin-left: 8px"
-            @click="sendMessage"
+            class="reject-btn"
+            :disabled="buttonsDisabled"
+            @click="handleRejectContent"
           >
-            {{ $t('ai.send') }} ⏎
+            <template #icon>
+              <CloseOutlined />
+            </template>
+            {{ $t('ai.reject') }}
           </a-button>
+          <a-button
+            size="small"
+            class="approve-btn"
+            :disabled="buttonsDisabled"
+            @click="handleApproveCommand"
+          >
+            <template #icon>
+              <CheckOutlined />
+            </template>
+            {{ $t('ai.run') }}
+          </a-button>
+        </div>
+        <div class="input-send-container">
+          <a-textarea
+            v-model:value="chatInputValue"
+            :placeholder="$t('ai.agentMessage')"
+            style="background-color: #161616; color: #fff; border: none; box-shadow: none"
+            :auto-size="{ minRows: 2, maxRows: 20 }"
+            @keydown="handleKeyDown"
+          />
+          <div class="input-controls">
+            <a-select
+              v-model:value="chatTypeValue"
+              size="small"
+              style="width: 80px"
+              :options="AiTypeOptions"
+              show-search
+            ></a-select>
+            <a-select
+              v-if="chatTypeValue !== 'agent'"
+              v-model:value="chatModelValue"
+              size="small"
+              :options="AiModelsOptions"
+              show-search
+            ></a-select>
+            <a-button
+              :disabled="!showSendButton"
+              size="small"
+              class="custom-round-button compact-button"
+              style="margin-left: 8px"
+              @click="sendMessage"
+            >
+              {{ $t('ai.send') }} ⏎
+            </a-button>
+          </div>
         </div>
       </div>
     </a-tab-pane>
@@ -211,6 +217,7 @@
 
 <script setup lang="ts">
 import { ref, reactive, onMounted, defineAsyncComponent, onUnmounted, nextTick, watch, computed } from 'vue'
+
 import {
   PlusOutlined,
   CloseOutlined,
@@ -245,9 +252,11 @@ const hosts = ref<string[]>([])
 
 const chatInputValue = ref('')
 const chatModelValue = ref('qwen-chat')
-const chatTypeValue = ref('ctm-agent')
+const chatTypeValue = ref('agent')
 const activeKey = ref('chat')
 const showSendButton = ref(true)
+const lastChatMessageId = ref('')
+const buttonsDisabled = ref(false)
 
 // 当前活动对话的 ID
 const currentChatId = ref<string | null>(null)
@@ -262,6 +271,7 @@ interface ChatMessage {
   say?: string
   action?: 'approved' | 'rejected'
   ts?: number
+  selectedOption?: string
 }
 
 interface AssetInfo {
@@ -292,7 +302,7 @@ const AiModelsOptions = ref<ModelOption[]>([])
 const AiTypeOptions = [
   { label: 'Chat', value: 'ctm-chat' },
   { label: 'Cmd', value: 'ctm-cmd' },
-  { label: 'Agent', value: 'ctm-agent' }
+  { label: 'Agent', value: 'agent' }
 ]
 
 interface MessageContent {
@@ -456,7 +466,7 @@ const createWebSocket = (type: string) => {
 const sendMessage = async () => {
   const userContent = chatInputValue.value.trim()
   if (!userContent) return
-  if (chatTypeValue.value === 'ctm-agent') {
+  if (chatTypeValue.value === 'agent') {
     const result = await sendMessageToMain(userContent)
     if (result === 'ASSET_ERROR') {
       return
@@ -551,7 +561,7 @@ const handlePlusClick = () => {
   const currentInput = chatInputValue.value
   const newChatId = uuidv4()
   currentChatId.value = newChatId
-  chatTypeValue.value = 'ctm-agent'
+  chatTypeValue.value = 'agent'
   hosts.value = []
 
   const chatTitle = currentInput
@@ -585,9 +595,10 @@ const restoreHistoryTab = async (history: HistoryItem) => {
 
   currentChatId.value = history.id
   chatTypeValue.value = history.chatType
+  lastChatMessageId.value = ''
 
   try {
-    if (history.chatType === 'ctm-agent') {
+    if (history.chatType === 'agent') {
       try {
         const metadataResult = await (window.api as any).getTaskMetadata(history.id)
         if (metadataResult.success && metadataResult.data && Array.isArray(metadataResult.data.hosts)) {
@@ -686,7 +697,7 @@ const restoreHistoryTab = async (history: HistoryItem) => {
 
 const handleHistoryClick = async () => {
   try {
-    if (chatTypeValue.value === 'ctm-agent') {
+    if (chatTypeValue.value === 'agent') {
       // 从 globalState 获取所有 agent 历史记录并按 ts 倒序排序
       const agentHistory = (
         ((await getGlobalState('taskHistory')) as TaskHistoryItem[]) || []
@@ -697,14 +708,14 @@ const handleHistoryClick = async () => {
         historyList.value.push({
           id: messages.id,
           chatTitle: messages?.task?.substring(0, 15) + '...' || 'Agent Chat',
-          chatType: 'ctm-agent',
+          chatType: 'agent',
           chatContent: []
         })
       })
     } else {
       const res = await getConversationList({})
       historyList.value = res.data.list
-        .filter((item) => item.conversateType !== 'ctm-agent')
+        .filter((item) => item.conversateType !== 'agent')
         .map((item: any) => ({
           id: item.conversationId,
           chatTitle: item.title,
@@ -737,7 +748,11 @@ const handleCopyContent = async (message: ChatMessage) => {
   }
 }
 
-const handleRejectContent = async (message: ChatMessage) => {
+const handleRejectContent = async () => {
+  let message = chatHistory.at(-1)
+  if (!message) {
+    return false
+  }
   try {
     let messageRsp = {
       type: 'askResponse',
@@ -772,23 +787,47 @@ const handleRejectContent = async (message: ChatMessage) => {
     message.action = 'rejected'
     console.log('发送消息到主进程:', messageRsp)
     const response = await (window.api as any).sendToMain(messageRsp)
+    buttonsDisabled.value = true
     console.log('主进程响应:', response)
   } catch (error) {
     console.error('发送消息到主进程失败:', error)
   }
 }
 
-const handleApproveCommand = async (message: ChatMessage) => {
+const handleOptionChoose = async (message: ChatMessage, option?: string) => {
+  try {
+    if (option) {
+      message.selectedOption = option
+    }
+    let messageRsp = {
+      type: 'askResponse',
+      askResponse: option || 'yesButtonClicked',
+      text: ''
+    }
+    switch (message.ask) {
+      case 'followup':
+        // For follow-up questions, provide a generic response
+        messageRsp.askResponse = 'messageResponse'
+        messageRsp.text = option || ''
+        break
+    }
+    console.log('发送消息到主进程:', messageRsp)
+    const response = await (window.api as any).sendToMain(messageRsp)
+    console.log('主进程响应:', response)
+  } catch (error) {
+    console.error('发送消息到主进程失败:', error)
+  }
+}
+
+const handleApproveCommand = async () => {
+  let message = chatHistory.at(-1)
+  if (!message) {
+    return false
+  }
   try {
     let messageRsp = {
       type: 'askResponse',
-      askResponse:
-        typeof message.content === 'object' &&
-        'options' in message.content &&
-        Array.isArray((message.content as MessageContent).options) &&
-        (message.content as MessageContent).options![0]
-          ? (message.content as MessageContent).options![0]
-          : 'yesButtonClicked',
+      askResponse: 'yesButtonClicked',
       text: ''
     }
     switch (message.ask) {
@@ -821,12 +860,12 @@ const handleApproveCommand = async (message: ChatMessage) => {
     message.action = 'approved'
     console.log('发送消息到主进程:', messageRsp)
     const response = await (window.api as any).sendToMain(messageRsp)
+    buttonsDisabled.value = true
     console.log('主进程响应:', response)
   } catch (error) {
     console.error('发送消息到主进程失败:', error)
   }
 }
-
 // 声明removeListener变量
 let removeListener: (() => void) | null = null
 
@@ -886,6 +925,7 @@ onMounted(async () => {
           say: message.partialMessage.type === 'say' ? message.partialMessage.say : '',
           ts: message.partialMessage.ts
         }
+        lastChatMessageId.value = newAssistantMessage.id
         if (!message.partialMessage.partial && message.partialMessage.type === 'ask') {
           try {
             newAssistantMessage.content = JSON.parse(message.partialMessage.text)
@@ -997,6 +1037,29 @@ watch(
 
 // 计算属性，用于获取当前聊天会话的 hosts
 const currentChatHosts = computed(() => hosts.value)
+// Watch chatHistory length changes to enable buttons
+watch(
+  () => chatHistory.length,
+  () => {
+    buttonsDisabled.value = false
+  }
+)
+
+const showBottomButton = computed(() => {
+  if (chatHistory.length === 0) {
+    return false
+  }
+  let message = chatHistory.at(-1)
+  if (!message) {
+    return false
+  }
+  return (
+    chatTypeValue.value === 'agent' &&
+    lastChatMessageId.value !== '' &&
+    lastChatMessageId.value == message.id &&
+    message.ask === 'command'
+  )
+})
 </script>
 
 <style lang="less" scoped>
@@ -1063,7 +1126,7 @@ const currentChatHosts = computed(() => hosts.value)
   overflow-y: auto;
   padding: 0px 16px 16px 16px;
   scrollbar-width: thin;
-  max-height: calc(100vh - 150px);
+  max-height: calc(100vh - 180px);
   width: 100%;
 
   &::-webkit-scrollbar {
@@ -1125,6 +1188,7 @@ const currentChatHosts = computed(() => hosts.value)
   background-color: #161616;
   border-radius: 8px;
   border: 1px solid #333;
+  width: 100%;
 
   .ant-textarea {
     background-color: #1a1a1a !important;
@@ -1216,9 +1280,71 @@ const currentChatHosts = computed(() => hosts.value)
 
   .message-actions {
     display: flex;
+    flex-direction: column;
     gap: 6px;
     margin-top: 0px;
-    justify-content: flex-end;
+    width: 100%;
+
+    .options-container {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      width: 100%;
+
+      .option-btn {
+        width: 100%;
+        height: auto;
+        white-space: normal;
+        text-align: left;
+        padding: 8px 12px;
+        line-height: 1.4;
+        font-size: 12px;
+        background-color: #2a2a2a;
+        border: 1px solid #3a3a3a;
+        color: #e0e0e0;
+        transition: all 0.2s ease;
+
+        &:hover {
+          background-color: #3a3a3a;
+          border-color: #4a4a4a;
+          transform: translateX(4px);
+        }
+
+        &:active {
+          background-color: #4a4a4a;
+          transform: translateX(2px);
+        }
+
+        &.selected {
+          background-color: #1656b1;
+          border-color: #2d6fcd;
+          color: white;
+          transform: none;
+
+          &:hover {
+            background-color: #1656b1;
+            border-color: #2d6fcd;
+            transform: none;
+          }
+        }
+      }
+    }
+
+    .action-buttons {
+      width: 100%;
+      margin: 0;
+      padding: 0;
+
+      .button-row {
+        display: flex;
+        gap: 4px;
+        width: 100%;
+
+        &:has(.options-container) {
+          flex-direction: column;
+        }
+      }
+    }
 
     .action-btn {
       height: 18px;
@@ -1391,12 +1517,106 @@ const currentChatHosts = computed(() => hosts.value)
 .action-buttons {
   margin: 0;
   padding: 0;
+  width: 100%;
 
   .button-row {
     display: flex;
     gap: 4px;
     justify-content: flex-end;
     margin-top: 2px;
+
+    .options-container {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+      width: 100%;
+      justify-content: flex-end;
+
+      &.vertical-layout {
+        flex-direction: column;
+        align-items: stretch;
+
+        .action-btn {
+          width: 100%;
+          justify-content: flex-start;
+          text-align: left;
+        }
+      }
+    }
+  }
+}
+
+.bottom-container {
+  display: flex;
+  flex-direction: column;
+}
+
+.bottom-buttons {
+  display: flex;
+  gap: 8px;
+  width: 100%;
+  padding: 4px 8px;
+
+  .reject-btn,
+  .approve-btn {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    font-size: 10px;
+    border-radius: 4px;
+    transition: all 0.3s ease;
+  }
+
+  .reject-btn {
+    background-color: #2a2a2a;
+    border-color: #3a3a3a;
+    color: #e0e0e0;
+
+    &:hover {
+      background-color: #ff4d4f20;
+      border-color: #ff4d4f;
+      color: #ff4d4f;
+    }
+
+    &[disabled] {
+      background-color: #1a1a1a !important;
+      border-color: #2a2a2a !important;
+      color: #666666 !important;
+      cursor: not-allowed;
+
+      &:hover {
+        background-color: #1a1a1a !important;
+        border-color: #2a2a2a !important;
+        color: #666666 !important;
+      }
+    }
+  }
+
+  .approve-btn {
+    color: #e0e0e0;
+    background-color: #1656b1;
+    border-color: #2d6fcd;
+
+    &:hover {
+      background-color: #52c41a20;
+      border-color: #52c41a;
+      color: #52c41a;
+    }
+
+    &[disabled] {
+      background-color: #1a1a1a !important;
+      border-color: #2a2a2a !important;
+      color: #666666 !important;
+      cursor: not-allowed;
+
+      &:hover {
+        background-color: #1a1a1a !important;
+        border-color: #2a2a2a !important;
+        color: #666666 !important;
+      }
+    }
   }
 }
 </style>
