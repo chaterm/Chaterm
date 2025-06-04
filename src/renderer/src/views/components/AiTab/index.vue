@@ -1068,7 +1068,7 @@ const showBottomButton = computed(() => {
   overflow-y: auto;
   padding: 16px;
   scrollbar-width: thin;
-  max-height: calc(100vh - 180px);
+  max-height: v-bind('showBottomButton ? "calc(100vh - 180px)" : "calc(100vh - 150px)"');
   width: 100%;
 
   &::-webkit-scrollbar {
