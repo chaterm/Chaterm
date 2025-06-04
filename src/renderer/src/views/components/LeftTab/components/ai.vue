@@ -149,7 +149,7 @@
           />
           <a-select
             v-else-if="apiProvider === 'litellm'"
-            v-model:value="apiModelId"
+            v-model:value="liteLlmModelId"
             size="small"
             :options="litellmAiModelOptions"
             show-search
@@ -370,7 +370,7 @@ const litellmAiModelOptions = ref([
   { value: 'deepseek-v3-0324', label: 'deepseek-v3-0324' }
 ])
 
-const apiModelId = ref('')
+const apiModelId = ref('anthropic.claude-3-7-sonnet-20250219-v1:0')
 const thinkingBudgetTokens = ref(0)
 const enableExtendedThinking = ref(false)
 // const enableCheckpoints = ref(false)
@@ -386,6 +386,7 @@ const awsEndpointSelected = ref(false)
 const awsBedrockEndpoint = ref('')
 const liteLlmBaseUrl = ref('')
 const liteLlmApiKey = ref('')
+const liteLlmModelId = ref('claude-3-7-sonnet')
 const autoApprovalSettings = ref<AutoApprovalSettings>(DEFAULT_AUTO_APPROVAL_SETTINGS)
 const chatSettings = ref<ChatSettings>(DEFAULT_CHAT_SETTINGS)
 
@@ -442,17 +443,19 @@ watch(
 const loadSavedConfig = async () => {
   try {
     // 加载API相关配置
-    apiProvider.value = (await getGlobalState('apiProvider')) || 'Amazon Bedrock'
-    apiModelId.value =
-      (await getGlobalState('apiModelId')) || 'anthropic.claude-3-7-sonnet-20250219-v1:0'
+    apiProvider.value = (await getGlobalState('apiProvider')) || ''
+    //aws信息
+    apiModelId.value = (await getGlobalState('apiModelId')) || ''
     awsRegion.value = (await getGlobalState('awsRegion')) || ''
     awsUseCrossRegionInference.value = (await getGlobalState('awsUseCrossRegionInference')) || false
     awsBedrockEndpoint.value = (await getGlobalState('awsBedrockEndpoint')) || ''
-
-    // 加载敏感信息
     awsAccessKey.value = (await getSecret('awsAccessKey')) || ''
     awsSecretKey.value = (await getSecret('awsSecretKey')) || ''
     awsSessionToken.value = (await getSecret('awsSessionToken')) || ''
+    //openai信息
+    liteLlmModelId.value = (await getGlobalState('liteLlmModelId')) || ''
+    liteLlmBaseUrl.value = (await getGlobalState('liteLlmBaseUrl')) || ''
+    liteLlmApiKey.value = (await getSecret('liteLlmApiKey')) || ''
 
     // 加载其他配置
     thinkingBudgetTokens.value = (await getGlobalState('thinkingBudgetTokens')) || 0
@@ -500,12 +503,14 @@ const saveConfig = async () => {
     await updateGlobalState('awsUseCrossRegionInference', awsUseCrossRegionInference.value)
     await updateGlobalState('awsBedrockEndpoint', awsBedrockEndpoint.value)
     await updateGlobalState('awsEndpointSelected', awsEndpointSelected.value)
+    await updateGlobalState('liteLlmBaseUrl', liteLlmBaseUrl.value)
+    await updateGlobalState('liteLlmModelId', liteLlmModelId.value)
 
     // 保存敏感信息
     await storeSecret('awsAccessKey', awsAccessKey.value)
     await storeSecret('awsSecretKey', awsSecretKey.value)
     await storeSecret('awsSessionToken', awsSessionToken.value)
-
+    await storeSecret('liteLlmApiKey', liteLlmApiKey.value)
     // 保存其他配置
     await updateGlobalState('thinkingBudgetTokens', thinkingBudgetTokens.value)
     // await updateGlobalState('enableCheckpoints', enableCheckpoints.value)
@@ -544,7 +549,10 @@ watch(
     awsRegion,
     awsUseCrossRegionInference,
     awsEndpointSelected,
-    awsBedrockEndpoint
+    awsBedrockEndpoint,
+    liteLlmBaseUrl,
+    liteLlmModelId,
+    liteLlmApiKey
   ],
   async () => {
     // Skip autoApprovalSettings.enabled and chatSettings.mode updates as they're handled by specific watchers
