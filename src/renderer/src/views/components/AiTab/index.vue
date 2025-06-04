@@ -156,7 +156,7 @@
               show-search
             ></a-select>
             <a-select
-              v-if="chatTypeValue !== 'ctm-agent'"
+              v-if="chatTypeValue !== 'agent'"
               v-model:value="chatModelValue"
               size="small"
               :options="AiModelsOptions"
@@ -269,7 +269,7 @@ const historyList = ref<HistoryItem[]>([])
 
 const chatInputValue = ref('')
 const chatModelValue = ref('qwen-chat')
-const chatTypeValue = ref('ctm-agent')
+const chatTypeValue = ref('agent')
 const activeKey = ref('chat')
 const showSendButton = ref(true)
 const lastChatMessageId = ref('')
@@ -320,7 +320,7 @@ const AiModelsOptions = ref<ModelOption[]>([])
 const AiTypeOptions = [
   { label: 'Chat', value: 'ctm-chat' },
   { label: 'Cmd', value: 'ctm-cmd' },
-  { label: 'Agent', value: 'ctm-agent' }
+  { label: 'Agent', value: 'agent' }
 ]
 
 interface MessageContent {
@@ -484,7 +484,7 @@ const createWebSocket = (type: string) => {
 const sendMessage = () => {
   const userContent = chatInputValue.value.trim()
   if (!userContent) return
-  if (chatTypeValue.value === 'ctm-agent') {
+  if (chatTypeValue.value === 'agent') {
     sendMessageToMain(userContent)
 
     const userMessage: ChatMessage = {
@@ -577,7 +577,7 @@ const handlePlusClick = () => {
   const currentInput = chatInputValue.value
   const newChatId = uuidv4()
   currentChatId.value = newChatId
-  chatTypeValue.value = 'ctm-agent'
+  chatTypeValue.value = 'agent'
 
   const chatTitle = currentInput
     ? currentInput.length > 15
@@ -611,7 +611,7 @@ const restoreHistoryTab = async (history: HistoryItem) => {
   lastChatMessageId.value = ''
 
   try {
-    if (history.chatType === 'ctm-agent') {
+    if (history.chatType === 'agent') {
       const conversationHistory = await getChatermMessages()
       console.log('[conversationHistory]', conversationHistory)
       chatHistory.length = 0
@@ -699,7 +699,7 @@ const restoreHistoryTab = async (history: HistoryItem) => {
 
 const handleHistoryClick = async () => {
   try {
-    if (chatTypeValue.value === 'ctm-agent') {
+    if (chatTypeValue.value === 'agent') {
       // 从 globalState 获取所有 agent 历史记录并按 ts 倒序排序
       const agentHistory = (
         ((await getGlobalState('taskHistory')) as TaskHistoryItem[]) || []
@@ -710,14 +710,14 @@ const handleHistoryClick = async () => {
         historyList.value.push({
           id: messages.id,
           chatTitle: messages?.task?.substring(0, 15) + '...' || 'Agent Chat',
-          chatType: 'ctm-agent',
+          chatType: 'agent',
           chatContent: []
         })
       })
     } else {
       const res = await getConversationList({})
       historyList.value = res.data.list
-        .filter((item) => item.conversateType !== 'ctm-agent')
+        .filter((item) => item.conversateType !== 'agent')
         .map((item: any) => ({
           id: item.conversationId,
           chatTitle: item.title,
@@ -1055,7 +1055,7 @@ const showBottomButton = computed(() => {
     return false
   }
   return (
-    chatTypeValue.value === 'ctm-agent' &&
+    chatTypeValue.value === 'agent' &&
     lastChatMessageId.value !== '' &&
     lastChatMessageId.value == message.id &&
     message.ask === 'command'
@@ -1099,7 +1099,7 @@ const showBottomButton = computed(() => {
   overflow-y: auto;
   padding: 16px;
   scrollbar-width: thin;
-  max-height: calc(100vh - 150px);
+  max-height: v-bind('showBottomButton ? "calc(100vh - 180px)" : "calc(100vh - 150px)"');
   width: 100%;
 
   &::-webkit-scrollbar {
@@ -1529,7 +1529,7 @@ const showBottomButton = computed(() => {
   display: flex;
   gap: 8px;
   width: 100%;
-  padding: 5px 16px;
+  padding: 4px 8px;
 
   &.cancel-row {
     padding-top: 0;
@@ -1539,12 +1539,11 @@ const showBottomButton = computed(() => {
   .approve-btn,
   .cancel-btn {
     flex: 1;
-    height: 32px;
     display: flex;
     align-items: center;
     justify-content: center;
     gap: 4px;
-    font-size: 12px;
+    font-size: 10px;
     border-radius: 4px;
     transition: all 0.3s ease;
   }
