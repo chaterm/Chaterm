@@ -128,6 +128,21 @@
             {{ $t('ai.run') }}
           </a-button>
         </div>
+        <div
+          v-if="showCancelButton"
+          class="bottom-buttons cancel-row"
+        >
+          <a-button
+            size="small"
+            class="cancel-btn"
+            @click="handleCancel"
+          >
+            <template #icon>
+              <CloseOutlined />
+            </template>
+            {{ $t('ai.cancel') }}
+          </a-button>
+        </div>
         <div class="input-send-container">
           <a-textarea
             v-model:value="chatInputValue"
@@ -257,6 +272,7 @@ const activeKey = ref('chat')
 const showSendButton = ref(true)
 const lastChatMessageId = ref('')
 const buttonsDisabled = ref(false)
+const showCancelButton = ref(false)
 
 // 当前活动对话的 ID
 const currentChatId = ref<string | null>(null)
@@ -640,7 +656,12 @@ const restoreHistoryTab = async (history: HistoryItem) => {
           if (!item.partial && item.type === 'ask' && item.text) {
             try {
               let contentJson = JSON.parse(item.text)
-              userMessage.content = contentJson?.question
+              if (item.ask === 'followup') {
+                userMessage.content = contentJson
+                userMessage.selectedOption = contentJson?.selected
+              } else {
+                userMessage.content = contentJson?.question
+              }
             } catch (e) {
               userMessage.content = item.text
             }
@@ -866,6 +887,14 @@ const handleApproveCommand = async () => {
     console.error('发送消息到主进程失败:', error)
   }
 }
+
+const handleCancel = async () => {
+  console.log('handleCancel:取消')
+  const response = await (window.api as any).cancelTask()
+  console.log('主进程响应:', response)
+  showCancelButton.value = false
+}
+
 // 声明removeListener变量
 let removeListener: (() => void) | null = null
 
@@ -901,6 +930,7 @@ onMounted(async () => {
     console.log('Received main process message:', message)
     if (message?.type === 'partialMessage') {
       showSendButton.value = false
+      showCancelButton.value = true
       let lastMessageInChat = chatHistory.at(-1)
       // 返回的内容如果和前一个相同，并且 partial 字段为 false，开启一个新的assistant消息
       let openNewMessage =
@@ -954,6 +984,7 @@ onMounted(async () => {
       lastPartialMessage = message
       if (!message.partialMessage?.partial) {
         showSendButton.value = true
+        showCancelButton.value = false
       }
       console.log('chatHistory', chatHistory)
     }
@@ -1549,6 +1580,7 @@ const showBottomButton = computed(() => {
 .bottom-container {
   display: flex;
   flex-direction: column;
+  gap: 4px;
 }
 
 .bottom-buttons {
@@ -1557,8 +1589,13 @@ const showBottomButton = computed(() => {
   width: 100%;
   padding: 4px 8px;
 
+  &.cancel-row {
+    padding-top: 0;
+  }
+
   .reject-btn,
-  .approve-btn {
+  .approve-btn,
+  .cancel-btn {
     flex: 1;
     display: flex;
     align-items: center;
@@ -1616,6 +1653,18 @@ const showBottomButton = computed(() => {
         border-color: #2a2a2a !important;
         color: #666666 !important;
       }
+    }
+  }
+
+  .cancel-btn {
+    background-color: #2a2a2a;
+    border-color: #3a3a3a;
+    color: #666666;
+
+    &:hover {
+      background-color: #3a3a3a;
+      border-color: #4a4a4a;
+      color: #888888;
     }
   }
 }
