@@ -538,7 +538,6 @@ export class Task {
       throw new Error('Cline instance aborted')
     }
     if (text === undefined || text === '') {
-      console.warn('Cline say called with empty text, ignoring')
       return
     }
 

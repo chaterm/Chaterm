@@ -775,9 +775,7 @@ export class ChatermDatabaseService {
             )
           }
         }
-        console.log('保存API对话历史成功 (事务内)')
       })()
-      console.log('API对话历史保存操作完成')
     } catch (error) {
       console.error('Failed to save API conversation history:', error)
       throw error // Re-throw the error to be caught by the IPC handler
