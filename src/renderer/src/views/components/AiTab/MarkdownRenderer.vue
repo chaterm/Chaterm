@@ -5,14 +5,55 @@
     ref="editorContainer"
     class="command-editor-container"
   ></div>
-  <div
-    v-else
-    v-html="renderedContent"
-  ></div>
+  <div v-else>
+    <template v-if="thinkingContent">
+      <div
+        ref="contentRef"
+        style="position: absolute; visibility: hidden; height: auto"
+      >
+        <div
+          class="thinking-content markdown-content"
+          v-html="marked(getThinkingContent(thinkingContent), null)"
+        ></div>
+      </div>
+      <a-collapse
+        v-model:active-key="activeKey"
+        :default-active-key="['1']"
+        class="thinking-collapse"
+        expand-icon-position="end"
+        @change="onToggleExpand"
+      >
+        <a-collapse-panel
+          key="1"
+          class="thinking-panel"
+        >
+          <template #header>
+            <a-space>
+              <a-typography-text
+                type="secondary"
+                italic
+              >
+                <ThinkingOutlinedIcon style="margin-right: 4px" />
+                {{ getThinkingTitle(thinkingContent) }}
+              </a-typography-text>
+            </a-space>
+          </template>
+          <div
+            class="thinking-content markdown-content"
+            v-html="marked(getThinkingContent(thinkingContent), null)"
+          ></div>
+        </a-collapse-panel>
+      </a-collapse>
+    </template>
+    <div
+      v-if="normalContent"
+      v-html="marked(normalContent, null)"
+    ></div>
+  </div>
 </template>
 
 <script setup lang="ts">
-import { onMounted, ref, watch, onBeforeUnmount } from 'vue'
+import { onMounted, ref, watch, onBeforeUnmount, computed, nextTick } from 'vue'
 import { marked } from 'marked'
 import 'highlight.js/styles/atom-one-dark.css'
 import * as monaco from 'monaco-editor'
@@ -29,6 +70,7 @@ import 'monaco-editor/esm/vs/basic-languages/ruby/ruby.contribution'
 import 'monaco-editor/esm/vs/basic-languages/php/php.contribution'
 import 'monaco-editor/esm/vs/basic-languages/rust/rust.contribution'
 import 'monaco-editor/esm/vs/basic-languages/sql/sql.contribution'
+import { ThinkingOutlined as ThinkingOutlinedIcon } from '@ant-design/icons-vue/lib/icons'
 
 // 配置 Monaco Editor 的全局设置
 monaco.editor.defineTheme('custom-dark', {
@@ -55,6 +97,10 @@ monaco.editor.defineTheme('custom-dark', {
 })
 
 const renderedContent = ref('')
+const thinkingContent = ref('')
+const normalContent = ref('')
+const activeKey = ref<string[]>(['1'])
+const contentRef = ref<HTMLElement | null>(null)
 const editorContainer = ref<HTMLElement | null>(null)
 let editor: monaco.editor.IStandaloneCodeEditor | null = null
 
@@ -227,6 +273,43 @@ const updateEditor = (content: string) => {
   }
 }
 
+// Function to process content and extract think tags
+const processContent = (content: string) => {
+  const thinkMatch = content.match(/<think>([\s\S]*)/)
+  if (thinkMatch) {
+    thinkingContent.value = thinkMatch[1].trim()
+    normalContent.value = content.replace(/<think>[\s\S]*/, '').trim()
+  } else {
+    thinkingContent.value = ''
+    normalContent.value = content
+  }
+}
+
+const onToggleExpand = (keys: string[]) => {
+  activeKey.value = keys
+}
+
+const checkContentHeight = async () => {
+  await nextTick()
+  if (contentRef.value) {
+    const lineHeight = 19.2
+    const maxHeight = lineHeight * 3
+    activeKey.value = contentRef.value.scrollHeight > maxHeight ? [] : ['1']
+  }
+}
+
+watch(
+  () => thinkingContent.value,
+  async (newVal) => {
+    if (newVal) {
+      await checkContentHeight()
+    } else {
+      activeKey.value = ['1']
+    }
+  },
+  { immediate: true }
+)
+
 onMounted(() => {
   marked.setOptions({
     breaks: true,
@@ -237,17 +320,19 @@ onMounted(() => {
     if (props.ask === 'command') {
       initEditor(props.content)
     } else {
-      renderedContent.value = props.content
+      processContent(props.content)
     }
   }
 })
 
-// Watch for content changes
+// Update the watch handler for content
 watch(
   () => props.content,
   (newContent) => {
     if (!newContent) {
       renderedContent.value = ''
+      thinkingContent.value = ''
+      normalContent.value = ''
       if (editor) {
         editor.setValue('')
       }
@@ -257,7 +342,7 @@ watch(
     if (props.ask === 'command') {
       updateEditor(newContent)
     } else {
-      renderedContent.value = newContent
+      processContent(newContent)
     }
   }
 )
@@ -280,7 +365,7 @@ watch(
         editor = null
       }
       if (props.content) {
-        renderedContent.value = props.content
+        processContent(props.content)
       }
     }
   }
@@ -293,6 +378,16 @@ onBeforeUnmount(() => {
     editor = null
   }
 })
+
+const getThinkingTitle = (content: string) => {
+  const firstLineEnd = content.indexOf('\n')
+  return firstLineEnd > -1 ? content.substring(0, firstLineEnd).trim() : content
+}
+
+const getThinkingContent = (content: string) => {
+  const firstLineEnd = content.indexOf('\n')
+  return firstLineEnd > -1 ? content.substring(firstLineEnd + 1).trim() : ''
+}
 </script>
 
 <style>
@@ -318,35 +413,119 @@ code {
   height: auto;
 }
 
-:deep(.monaco-editor) {
-  padding-top: 4px;
-  padding-bottom: 4px;
+.thinking-collapse {
+  background-color: #3a3a3a !important;
+  border: none !important;
 }
 
-:deep(.monaco-editor .margin) {
-  background-color: #282c34 !important;
-  border-right: 1px solid #3a3f4b !important;
-  width: 50px !important;
+.thinking-collapse .ant-collapse-item {
+  background-color: #3a3a3a !important;
+  border: none !important;
 }
 
-:deep(.monaco-editor .line-numbers) {
-  color: #636d83 !important;
+.thinking-collapse .ant-collapse-header {
+  background-color: #3a3a3a !important;
+  color: #ffffff !important;
+}
+
+.thinking-collapse .ant-collapse-content {
+  background-color: #3a3a3a !important;
+  color: #ffffff !important;
+  border: none !important;
+}
+
+.thinking-collapse .ant-typography {
+  color: #ffffff !important;
+}
+
+.thinking-collapse .thinking-content {
+  color: #ffffff !important;
+}
+
+.thinking-collapse .ant-collapse-arrow {
+  color: #ffffff !important;
+}
+
+.thinking-collapse .anticon {
+  color: #ffffff !important;
+}
+
+.thinking-collapse.ant-collapse {
+  background: #3a3a3a;
+  border: none;
+  margin-bottom: 10px;
+  border-radius: 4px !important;
+  font-size: 12px;
+}
+
+.thinking-collapse.ant-collapse .ant-collapse-item {
+  border: none;
+  background: #3a3a3a;
+  border-radius: 4px !important;
+  overflow: hidden;
+  font-size: 12px;
+}
+
+.thinking-collapse.ant-collapse .ant-collapse-header {
+  padding: 8px 12px !important;
+  border-radius: 4px !important;
+  transition: all 0.3s;
+  color: #ffffff !important;
+  background-color: #3a3a3a;
   font-size: 12px !important;
-  cursor: default !important;
-  padding-right: 8px !important;
 }
 
-:deep(.monaco-editor .current-line) {
-  border: none !important;
-  background-color: #2c313c !important;
+.thinking-collapse.ant-collapse .ant-collapse-content {
+  background-color: #3a3a3a;
+  border-top: none;
+  border-radius: 0 0 4px 4px !important;
 }
 
-:deep(.monaco-editor .view-overlays .current-line) {
-  border: none !important;
+.thinking-collapse.ant-collapse .ant-collapse-content-box {
+  padding: 2px;
 }
 
-:deep(.monaco-editor .lines-content) {
-  padding-left: 8px !important;
+.thinking-collapse.ant-collapse .ant-collapse-item-active .ant-collapse-header {
+  border-radius: 4px 4px 0 0 !important;
+}
+
+.thinking-collapse.ant-collapse .ant-typography {
+  color: #ffffff !important;
+  margin-bottom: 0;
+  font-size: 12px !important;
+}
+
+.thinking-collapse.ant-collapse .ant-collapse-header:hover {
+  background-color: #3a3a3a;
+}
+
+.thinking-collapse.ant-collapse .thinking-content {
+  padding: 0px 5px 5px 5px;
+  margin: 0;
+  background-color: #3a3a3a;
+  border-radius: 0 0 4px 4px;
+  font-size: 12px;
+  line-height: 1.5715;
+  color: #ffffff;
+}
+
+.thinking-collapse.ant-collapse .ant-collapse-arrow {
+  font-size: 12px;
+  right: 12px;
+  color: #ffffff;
+}
+
+.thinking-collapse.ant-collapse .ant-space {
+  display: flex;
+  align-items: center;
+  font-size: 12px;
+}
+
+.thinking-collapse.ant-collapse .anticon {
+  display: inline-flex;
+  align-items: center;
+  color: #ffffff;
+  font-size: 12px;
 }
 
 .hljs-keyword,
@@ -387,5 +566,54 @@ code {
 .hljs-function,
 .hljs-subst {
   color: #61afef;
+}
+
+.markdown-content {
+  font-size: 12px;
+  line-height: 1.6;
+  color: #ffffff;
+}
+
+.markdown-content ul,
+.markdown-content ol {
+  padding-left: 20px;
+  margin: 8px 0;
+}
+
+.markdown-content li {
+  margin: 4px 0;
+}
+
+.markdown-content code {
+  background-color: #2a2a2a;
+  padding: 2px 4px;
+  border-radius: 3px;
+  font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+  font-size: 12px;
+}
+
+.markdown-content p {
+  margin: 8px 0;
+}
+
+.thinking-collapse.no-collapse {
+  background: #3a3a3a;
+  border: none;
+  margin-bottom: 10px;
+  border-radius: 4px !important;
+}
+
+.thinking-collapse.no-collapse .thinking-header {
+  padding: 8px 12px !important;
+  border-radius: 4px 4px 0 0 !important;
+  color: #ffffff !important;
+  background-color: #3a3a3a;
+  font-size: 12px !important;
+}
+
+.thinking-collapse.no-collapse .thinking-content {
+  padding: 0px 5px 5px 5px;
+  background-color: #3a3a3a;
+  border-radius: 0 0 4px 4px;
 }
 </style>
