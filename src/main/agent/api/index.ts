@@ -1,6 +1,7 @@
 import { Anthropic } from '@anthropic-ai/sdk'
 import { ApiConfiguration, ModelInfo } from '../shared/api'
 import { AwsBedrockHandler } from './providers/bedrock'
+import { LiteLlmHandler } from './providers/litellm'
 import { ApiStream, ApiStreamUsageChunk } from './transform/stream'
 
 export interface ApiHandler {
@@ -18,6 +19,8 @@ export function buildApiHandler(configuration: ApiConfiguration): ApiHandler {
   switch (apiProvider) {
     case 'bedrock':
       return new AwsBedrockHandler(options)
+    case 'litellm':
+      return new LiteLlmHandler(options)
     default:
       return new AwsBedrockHandler(options)
   }
