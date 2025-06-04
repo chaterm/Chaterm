@@ -10,7 +10,10 @@ import { Controller } from './agent/core/controller'
 import { createExtensionContext } from './agent/core/controller/context'
 import { ElectronOutputChannel } from './agent/core/controller/outputChannel'
 import { executeRemoteCommand } from './agent/integrations/remote-terminal/example'
-import { initializeStorageMain, testStorageFromMain as testRendererStorageFromMain } from './agent/core/storage/state'
+import {
+  initializeStorageMain,
+  testStorageFromMain as testRendererStorageFromMain
+} from './agent/core/storage/state'
 
 let mainWindow: BrowserWindow
 let COOKIE_URL = 'http://localhost'
@@ -145,15 +148,21 @@ app.whenReady().then(async () => {
   if (mainWindow && mainWindow.webContents) {
     if (mainWindow.webContents.isLoading()) {
       mainWindow.webContents.once('did-finish-load', () => {
-        console.log('[Main Index] Main window finished loading. Calling testRendererStorageFromMain.');
-        testRendererStorageFromMain();
-      });
+        console.log(
+          '[Main Index] Main window finished loading. Calling testRendererStorageFromMain.'
+        )
+        testRendererStorageFromMain()
+      })
     } else {
-      console.log('[Main Index] Main window already loaded. Calling testRendererStorageFromMain directly.');
-      testRendererStorageFromMain();
+      console.log(
+        '[Main Index] Main window already loaded. Calling testRendererStorageFromMain directly.'
+      )
+      testRendererStorageFromMain()
     }
   } else {
-    console.warn('[Main Index] mainWindow or webContents not available when trying to schedule testRendererStorageFromMain.');
+    console.warn(
+      '[Main Index] mainWindow or webContents not available when trying to schedule testRendererStorageFromMain.'
+    )
   }
 })
 
@@ -313,6 +322,13 @@ function updateNavigationState(): void {
 }
 // 设置 IPC 处理
 function setupIPC(): void {
+  ipcMain.handle('cancel-task', async () => {
+    console.log('cancel-task')
+    if (controller) {
+      return await controller.cancelTask()
+    }
+    return null
+  })
   // 添加从渲染进程到主进程的消息处理器
   ipcMain.handle('webview-to-main', async (_, message) => {
     console.log('webview-to-main', message)
@@ -557,7 +573,10 @@ ipcMain.handle('execute-remote-command', async () => {
   } catch (error) {
     console.error('Failed to execute remote command in main process:', error) // 修改日志
     if (error instanceof Error) {
-      return { success: false, error: { message: error.message, stack: error.stack, name: error.name } }
+      return {
+        success: false,
+        error: { message: error.message, stack: error.stack, name: error.name }
+      }
     }
     return { success: false, error: { message: 'An unknown error occurred in main process' } } // 修改日志
   }
