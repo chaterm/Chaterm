@@ -27,7 +27,7 @@ import { onMounted, onBeforeUnmount, ref, PropType, reactive } from 'vue'
 import { Terminal } from 'xterm'
 import { FitAddon } from 'xterm-addon-fit'
 import 'xterm/css/xterm.css'
-import { defineEmits } from 'vue/dist/vue'
+import { defineEmits, defineExpose } from 'vue/dist/vue'
 import type { editorData } from '@/views/components/Term/Editor/dragEditor.vue'
 import { LanguageMap } from '@/views/components/Term/Editor/languageMap'
 import EditorCode from '@/views/components//Term/Editor/dragEditor.vue'
@@ -571,17 +571,6 @@ const startShell = async () => {
           //     terminal.value?.write(data)
           //   }
           //   console.log('AB', response.marker, JSON.stringify(data))
-          // } else if (response.marker === 'Chaterm:[B') {
-          //   if (data.indexOf('Chaterm:vim') !== -1) {
-          //     data = data.replace('#Chaterm:vim', '')
-          //     data = data.replace('cat', 'vim')
-          //     terminal.value?.write(data)
-          //   } else if (data.indexOf('Chaterm:save') !== -1) {
-          //     sendMarkedData(String.fromCharCode(27, 91, 66), 'Chaterm:[B')
-          //   } else {
-          //     terminal.value?.write(data)
-          //   }
-          //   console.log('AB', response.marker, JSON.stringify(data))
         } else {
           terminal.value?.write(data)
         }
@@ -622,6 +611,31 @@ const disconnectSSH = async () => {
   }
   emit('disconnectSSH', { isConnected: isConnected })
 }
+
+const getTerminalBufferContent = (): string | null => {
+  if (terminal.value) {
+    const buffer = terminal.value.buffer.active
+    let content = ''
+    for (let i = 0; i < buffer.length; i++) {
+      if (i < 2) {
+        continue
+      }
+      const line = buffer.getLine(i)
+      if (line) {
+        content += line.translateToString(true) // true to include wide characters
+        if (i < buffer.length - 1) {
+          content += '\n' // Add newline character between lines, except for the last one
+        }
+      }
+    }
+    return content
+  }
+  return null
+}
+
+defineExpose({
+  getTerminalBufferContent // Expose the new method
+})
 </script>
 
 <style>
