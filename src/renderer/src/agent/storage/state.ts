@@ -102,8 +102,8 @@ export async function getAllExtensionState() {
     //browserSettings,
     chatSettings,
     //vsCodeLmModelSelector,
-    //liteLlmBaseUrl,
-    //liteLlmModelId,
+    liteLlmBaseUrl,
+    liteLlmModelId,
     //liteLlmModelInfo,
     //liteLlmUsePromptCache,
     //fireworksApiKey,
@@ -120,7 +120,7 @@ export async function getAllExtensionState() {
     previousModeAwsBedrockCustomSelected,
     previousModeAwsBedrockCustomModelBaseId,
     //qwenApiLine,
-    //liteLlmApiKey,
+    liteLlmApiKey,
     telemetrySetting,
     //asksageApiKey,
     //asksageApiUrl,
@@ -186,8 +186,8 @@ export async function getAllExtensionState() {
     //getGlobalState('browserSettings') as Promise<BrowserSettings | undefined>,
     getGlobalState('chatSettings') as Promise<ChatSettings | undefined>,
     //getGlobalState('vsCodeLmModelSelector') as Promise<any | undefined>,
-    //getGlobalState('liteLlmBaseUrl') as Promise<string | undefined>,
-    //getGlobalState('liteLlmModelId') as Promise<string | undefined>,
+    getGlobalState('liteLlmBaseUrl') as Promise<string | undefined>,
+    getGlobalState('liteLlmModelId') as Promise<string | undefined>,
     //getGlobalState('liteLlmModelInfo') as Promise<ModelInfo | undefined>,
     //getGlobalState('liteLlmUsePromptCache') as Promise<boolean | undefined>,
     //getSecret('fireworksApiKey') as Promise<string | undefined>,
@@ -206,7 +206,7 @@ export async function getAllExtensionState() {
       BedrockModelId | undefined
     >,
     //getGlobalState('qwenApiLine') as Promise<string | undefined>,
-    //getSecret('liteLlmApiKey') as Promise<string | undefined>,
+    getSecret('liteLlmApiKey') as Promise<string | undefined>,
     getGlobalState('telemetrySetting') as Promise<TelemetrySetting | undefined>,
     //getSecret('asksageApiKey') as Promise<string | undefined>,
     //getGlobalState('asksageApiUrl') as Promise<string | undefined>,
@@ -315,10 +315,10 @@ export async function getAllExtensionState() {
       o3MiniReasoningEffort,
       thinkingBudgetTokens,
       reasoningEffort,
-      //liteLlmBaseUrl,
-      //liteLlmModelId,
+      liteLlmBaseUrl,
+      liteLlmModelId,
       //liteLlmModelInfo,
-      //liteLlmApiKey,
+      liteLlmApiKey,
       //liteLlmUsePromptCache,
       //fireworksApiKey,
       //fireworksModelId,
@@ -373,6 +373,9 @@ export async function updateApiConfiguration(apiConfiguration: ApiConfiguration)
     //awsBedrockCustomModelBaseId,
     thinkingBudgetTokens,
     reasoningEffort,
+    liteLlmBaseUrl,
+    liteLlmModelId,
+    liteLlmApiKey,
     favoritedModelIds
   } = apiConfiguration
   await updateGlobalState('apiProvider', apiProvider)
@@ -412,15 +415,15 @@ export async function updateApiConfiguration(apiConfiguration: ApiConfiguration)
   //await storeSecret('qwenApiKey', qwenApiKey)
   //await storeSecret('doubaoApiKey', doubaoApiKey)
   //await storeSecret('mistralApiKey', mistralApiKey)
-  //await storeSecret('liteLlmApiKey', liteLlmApiKey)
+  await storeSecret('liteLlmApiKey', liteLlmApiKey)
   //await storeSecret('xaiApiKey', xaiApiKey)
   //await updateGlobalState('azureApiVersion', azureApiVersion)
   //await updateGlobalState('openRouterModelId', openRouterModelId)
   //await updateGlobalState('openRouterModelInfo', openRouterModelInfo)
   //await updateGlobalState('openRouterProviderSorting', openRouterProviderSorting)
   //await updateGlobalState('vsCodeLmModelSelector', vsCodeLmModelSelector)
-  //await updateGlobalState('liteLlmBaseUrl', liteLlmBaseUrl)
-  //await updateGlobalState('liteLlmModelId', liteLlmModelId)
+  await updateGlobalState('liteLlmBaseUrl', liteLlmBaseUrl)
+  await updateGlobalState('liteLlmModelId', liteLlmModelId)
   //await updateGlobalState('liteLlmModelInfo', liteLlmModelInfo)
   //await updateGlobalState('liteLlmUsePromptCache', liteLlmUsePromptCache)
   //await updateGlobalState('qwenApiLine', qwenApiLine)
