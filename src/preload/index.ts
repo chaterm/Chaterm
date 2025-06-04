@@ -296,6 +296,15 @@ const getPlatform = () => ipcRenderer.invoke('get-platform')
 const invokeCustomAdsorption = (data: { appX: number; appY: number }) =>
   ipcRenderer.invoke('custom-adsorption', data)
 
+const getTaskMetadata = async (taskId) => {
+  try {
+    const result = await ipcRenderer.invoke('get-task-metadata', { taskId })
+    return result
+  } catch (error) {
+    return Promise.reject(error)
+  }
+}
+
 const api = {
   getLocalIP,
   getMacAddress,
@@ -324,7 +333,8 @@ const api = {
   getKeyChainInfo,
   updateKeyChain,
   connectAssetInfo,
-  chatermGetChatermMessages,
+  chatermGetChatermMessages,  
+  getTaskMetadata,
   openBrowserWindow: (url: string): void => {
     ipcRenderer.send('open-browser-window', url)
   },
@@ -421,7 +431,8 @@ const api = {
       }
       return { success: false, error: { message: 'An unknown error occurred in preload' } }
     }
-  }
+  },
+
 }
 // 自定义 API 用于浏览器控制
 

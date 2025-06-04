@@ -864,7 +864,7 @@ export class ChatermDatabaseService {
   async getTaskMetadata(taskId: string): Promise<any> {
     try {
       const stmt = this.db.prepare(`
-        SELECT files_in_context, model_usage
+        SELECT files_in_context, model_usage, hosts
         FROM agent_task_metadata_v1 
         WHERE task_id = ?
       `)
@@ -873,32 +873,35 @@ export class ChatermDatabaseService {
       if (row) {
         return {
           files_in_context: JSON.parse(row.files_in_context),
-          model_usage: JSON.parse(row.model_usage)
+          model_usage: JSON.parse(row.model_usage),
+          hosts: JSON.parse(row.hosts)
         }
       }
 
-      return { files_in_context: [], model_usage: [] }
+      return { files_in_context: [], model_usage: [], hosts: [] }
     } catch (error) {
       console.error('Failed to get task metadata:', error)
-      return { files_in_context: [], model_usage: [] }
+      return { files_in_context: [], model_usage: [], hosts: [] }
     }
   }
 
   async saveTaskMetadata(taskId: string, metadata: any): Promise<void> {
     try {
       const upsertStmt = this.db.prepare(`
-        INSERT INTO agent_task_metadata_v1 (task_id, files_in_context, model_usage, updated_at)
-        VALUES (?, ?, ?, strftime('%s', 'now'))
+        INSERT INTO agent_task_metadata_v1 (task_id, files_in_context, model_usage, hosts, updated_at)
+        VALUES (?, ?, ?, ?, strftime('%s', 'now'))
         ON CONFLICT(task_id) DO UPDATE SET
           files_in_context = excluded.files_in_context,
           model_usage = excluded.model_usage,
+          hosts = excluded.hosts,
           updated_at = strftime('%s', 'now')
       `)
 
       upsertStmt.run(
         taskId,
         JSON.stringify(metadata.files_in_context),
-        JSON.stringify(metadata.model_usage)
+        JSON.stringify(metadata.model_usage),
+        JSON.stringify(metadata.hosts)
       )
     } catch (error) {
       console.error('Failed to save task metadata:', error)

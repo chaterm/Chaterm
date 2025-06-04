@@ -12,6 +12,10 @@
           : 'New chat'
       "
     >
+      <div v-if="currentChatHosts && currentChatHosts.length > 0" class="hosts-display-container">
+        <a-tag v-for="host in currentChatHosts" :key="host" color="blue">
+          <template #icon><laptop-outlined /></template>{{ host }}</a-tag>
+      </div>
       <div
         v-if="chatHistory.length > 0"
         ref="chatContainer"
@@ -212,20 +216,13 @@
 </template>
 
 <script setup lang="ts">
-import {
-  ref,
-  reactive,
-  onMounted,
-  defineAsyncComponent,
-  onUnmounted,
-  nextTick,
-  watch,
-  computed
-} from 'vue'
+import { ref, reactive, onMounted, defineAsyncComponent, onUnmounted, nextTick, watch, computed } from 'vue'
+
 import {
   PlusOutlined,
   CloseOutlined,
   HistoryOutlined,
+  LaptopOutlined,
   CopyOutlined,
   CheckOutlined,
   PlayCircleOutlined
@@ -251,6 +248,7 @@ interface HistoryItem {
 }
 
 const historyList = ref<HistoryItem[]>([])
+const hosts = ref<string[]>([])
 
 const chatInputValue = ref('')
 const chatModelValue = ref('qwen-chat')
@@ -465,12 +463,14 @@ const createWebSocket = (type: string) => {
   return ws
 }
 
-const sendMessage = () => {
+const sendMessage = async () => {
   const userContent = chatInputValue.value.trim()
   if (!userContent) return
   if (chatTypeValue.value === 'agent') {
-    sendMessageToMain(userContent)
-
+    const result = await sendMessageToMain(userContent)
+    if (result === 'ASSET_ERROR') {
+      return
+    }
     const userMessage: ChatMessage = {
       id: uuidv4(),
       role: 'user',
@@ -562,6 +562,7 @@ const handlePlusClick = () => {
   const newChatId = uuidv4()
   currentChatId.value = newChatId
   chatTypeValue.value = 'agent'
+  hosts.value = []
 
   const chatTitle = currentInput
     ? currentInput.length > 15
@@ -590,12 +591,30 @@ const restoreHistoryTab = async (history: HistoryItem) => {
     webSocket.value = null
   }
 
+  hosts.value = []
+
   currentChatId.value = history.id
   chatTypeValue.value = history.chatType
   lastChatMessageId.value = ''
 
   try {
     if (history.chatType === 'agent') {
+      try {
+        const metadataResult = await (window.api as any).getTaskMetadata(history.id)
+        if (metadataResult.success && metadataResult.data && Array.isArray(metadataResult.data.hosts)) {
+          for (const item of metadataResult.data.hosts) {
+            let ip = ''
+            if (item && typeof item === 'object' && 'host' in item) {
+                    ip = item.host
+                  }
+            if (ip && !hosts.value.includes(ip)) {
+              hosts.value.push(ip)
+            }
+          }
+        }
+      } catch (e) {
+        console.error('获取metadata失败:', e)
+      }
       const conversationHistory = await getChatermMessages()
       console.log('[conversationHistory]', conversationHistory)
       chatHistory.length = 0
@@ -954,6 +973,9 @@ onUnmounted(() => {
 const sendMessageToMain = async (userContent: string) => {
   try {
     let message
+    const currentHistoryEntry = historyList.value.find(
+      (entry) => entry.id === currentChatId.value
+    )
     if (chatHistory.length === 0) {
       const assetInfo = await getCurentTabAssetInfo()
       if (!assetInfo) {
@@ -962,14 +984,20 @@ const sendMessageToMain = async (userContent: string) => {
           description: '请先建立资产连接',
           duration: 3
         })
-        return
+        return 'ASSET_ERROR'
+      }
+      if (assetInfo.ip) {
+        if (!hosts.value.includes(assetInfo.ip)) {
+           hosts.value.push(assetInfo.ip)
+        }
       }
       message = {
         type: 'newTask',
         askResponse: 'messageResponse',
         text: userContent,
         terminalUuid: assetInfo?.uuid,
-        terminalOutput: assetInfo?.outputContext
+        terminalOutput: assetInfo?.outputContext,
+        hosts: Array.isArray(hosts.value) ? [...hosts.value] : []
       }
     } else {
       message = {
@@ -1007,6 +1035,8 @@ watch(
   { deep: true }
 )
 
+// 计算属性，用于获取当前聊天会话的 hosts
+const currentChatHosts = computed(() => hosts.value)
 // Watch chatHistory length changes to enable buttons
 watch(
   () => chatHistory.length,
@@ -1063,10 +1093,38 @@ const showBottomButton = computed(() => {
   overflow: hidden;
 }
 
+.hosts-display-container {
+  padding: 10px 0px 0px 6px;
+  background-color: #1a1a1a;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  border-bottom: 0px solid #333;
+  justify-content: flex-start;
+  :deep(.ant-tag) {
+    font-size: 9px;
+    padding: 0 6px;
+    height: 16px;
+    line-height: 16px;
+    display: flex;
+    align-items: center;
+    background: #3a3a3a !important;
+    color: #ffffff !important;
+    border: 1px solid #444 !important;
+    .anticon-laptop {
+      color: #1890ff !important;
+      margin-right: 0cap;
+    }
+  }
+}
+
 .chat-response-container {
   flex-grow: 1;
   overflow-y: auto;
-  padding: 16px;
+  padding: 0px 16px 16px 16px;
   scrollbar-width: thin;
   max-height: v-bind('showBottomButton ? "calc(100vh - 180px)" : "calc(100vh - 150px)"');
   width: 100%;
