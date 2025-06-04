@@ -111,7 +111,9 @@ export default {
     liteLlmBaseUrl: 'Base URL',
     liteLlmBaseUrlPh: 'Enter Base URL',
     liteLlmApiKey: 'API Key',
-    liteLlmApiKeyPh: 'Enter API Key'
+    liteLlmApiKeyPh: 'Enter API Key',
+    customInstructions: 'Custom Instructions',
+    customInstructionsPh: `These instructions are added to the end of the system prompt sent with every request. e.g. Always respond in Chinese-simplified`
   },
   extensions: {
     extensions: 'Extensions',
