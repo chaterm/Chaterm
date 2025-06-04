@@ -62,6 +62,7 @@ interface ApiType {
   sshConnExec: (args: { id: string; cmd: string }) => Promise<any>
   sendToMain: (message: any) => Promise<any>
   onMainMessage: (callback: (message: any) => void) => () => void
+  cancelTask: () => Promise<any>
 }
 
 declare global {
