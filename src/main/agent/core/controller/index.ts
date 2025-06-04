@@ -111,7 +111,7 @@ export class Controller {
     await updateGlobalState('userInfo', info)
   }
 
-  async initTask(task?: string, historyItem?: HistoryItem, terminalUuid?: string) {
+  async initTask(task?: string, historyItem?: HistoryItem, terminalUuid?: string, terminalOutput?: string) {
     console.log('initTask', task, historyItem)
     await this.clearTask() // ensures that an existing task doesn't exist before starting a new one, although this shouldn't be possible since user must clear task before starting a new one
     const { apiConfiguration, customInstructions, autoApprovalSettings, chatSettings } =
@@ -139,7 +139,8 @@ export class Controller {
       customInstructions,
       task,
       historyItem,
-      terminalUuid
+      terminalUuid,
+      terminalOutput
     )
   }
 
@@ -186,7 +187,7 @@ export class Controller {
         // Could also do this in extension .ts
         //this.postMessageToWebview({ type: "text", text: `Extension: ${Date.now()}` })
         // initializing new instance of Cline will make sure that any agentically running promises in old instance don't affect our new task. this essentially creates a fresh slate for the new task
-        await this.initTask(message.text, undefined, message.terminalUuid)
+        await this.initTask(message.text, undefined, message.terminalUuid, message.terminalOutput)
         break
       case 'condense':
         this.task?.handleWebviewAskResponse('yesButtonClicked')
