@@ -542,7 +542,7 @@ const handlePlusClick = () => {
   const currentInput = chatInputValue.value
   const newChatId = uuidv4()
   currentChatId.value = newChatId
-  chatTypeValue.value = 'ctm-cmd'
+  chatTypeValue.value = 'ctm-agent'
 
   const chatTitle = currentInput
     ? currentInput.length > 15
