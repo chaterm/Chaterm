@@ -1068,7 +1068,7 @@ const showBottomButton = computed(() => {
   overflow-y: auto;
   padding: 16px;
   scrollbar-width: thin;
-  max-height: calc(100vh - 150px);
+  max-height: calc(100vh - 180px);
   width: 100%;
 
   &::-webkit-scrollbar {
@@ -1497,17 +1497,16 @@ const showBottomButton = computed(() => {
   display: flex;
   gap: 8px;
   width: 100%;
-  padding: 5px 16px;
+  padding: 4px 8px;
 
   .reject-btn,
   .approve-btn {
     flex: 1;
-    height: 32px;
     display: flex;
     align-items: center;
     justify-content: center;
     gap: 4px;
-    font-size: 12px;
+    font-size: 10px;
     border-radius: 4px;
     transition: all 0.3s ease;
   }
