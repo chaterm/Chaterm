@@ -15,7 +15,12 @@ export interface ModelMetadataEntry {
   mode: string
 }
 
+export interface HostMetadataEntry {
+  host: string
+}
+
 export interface TaskMetadata {
+  hosts: HostMetadataEntry[]
   files_in_context: FileMetadataEntry[]
   model_usage: ModelMetadataEntry[]
 }
