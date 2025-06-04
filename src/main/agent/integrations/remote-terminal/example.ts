@@ -44,10 +44,6 @@ const connectionInfo: ConnectionInfo = {
       passphrase: ''
     }
 
-  
-
-
-
   const cwd = '/home'
   const remoteManager = new RemoteTerminalManager()
   
