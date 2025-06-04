@@ -115,6 +115,7 @@ export class Task {
 
   readonly taskId: string
   terminalUuid?: string = ''
+  terminalOutput?: string = ''
   private taskIsFavorited?: boolean
   api: ApiHandler
   //private terminalManager: TerminalManager
@@ -180,7 +181,8 @@ export class Task {
     task?: string,
     // images?: string[],
     historyItem?: HistoryItem,
-    terminalUuid?: string
+    terminalUuid?: string,
+    terminalOutput?: string
   ) {
     this.context = context
     this.workspaceTracker = workspaceTracker
@@ -206,6 +208,7 @@ export class Task {
     // this.browserSettings = browserSettings
     this.chatSettings = chatSettings
     this.terminalUuid = terminalUuid
+    this.terminalOutput = terminalOutput
     // Initialize taskId first
     if (historyItem) {
       this.taskId = historyItem.id
@@ -1299,6 +1302,14 @@ export class Task {
     }
 
     // 加入当前的服务器的上下文信息
+    if (this.terminalOutput && this.terminalOutput.trim().length > 0) {
+        systemPrompt += `
+
+        # Current Session Terminal History:
+        <terminal_history>
+        ${this.terminalOutput}
+        </terminal_history>`
+     }
 
     let stream = this.api.createMessage(
       systemPrompt,
