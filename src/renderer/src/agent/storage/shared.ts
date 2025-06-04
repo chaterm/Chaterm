@@ -60,6 +60,9 @@ export interface ApiHandlerOptions {
   awsUseProfile?: boolean
   awsProfile?: string
   awsBedrockEndpoint?: string
+  liteLlmBaseUrl?: string
+  liteLlmModelId?: string
+  liteLlmApiKey?: string
   thinkingBudgetTokens?: number
   reasoningEffort?: string
   requestTimeoutMs?: number
@@ -266,4 +269,4 @@ export interface UserInfo {
   displayName: string | null
   email: string | null
   photoURL: string | null
-} 
+}

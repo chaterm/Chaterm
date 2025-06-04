@@ -205,7 +205,7 @@ export const bedrockModels = {
 // LiteLLM
 // https://docs.litellm.ai/docs/
 export type LiteLLMModelId = string
-export const liteLlmDefaultModelId = 'anthropic/claude-3-7-sonnet-20250219'
+export const liteLlmDefaultModelId = 'claude-3-7-sonnet'
 export interface LiteLLMModelInfo extends ModelInfo {
   temperature?: number
 }
