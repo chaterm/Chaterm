@@ -1161,9 +1161,9 @@ const showBottomButton = computed(() => {
     line-height: 16px;
     display: flex;
     align-items: center;
-    background: #3a3a3a !important;
+    background-color: #2a2a2a !important;
+    border: 1px solid #3a3a3a !important;
     color: #ffffff !important;
-    border: 1px solid #444 !important;
     .anticon-laptop {
       color: #1890ff !important;
       margin-right: 0cap;
@@ -1177,7 +1177,7 @@ const showBottomButton = computed(() => {
   padding: 0px 16px 16px 16px;
   margin-top: 2px;
   scrollbar-width: thin;
-  max-height: v-bind('showBottomButton ? "calc(100vh - 180px)" : "calc(100vh - 150px)"');
+  max-height: v-bind('showBottomButton ? "calc(100vh - 195px)" : "calc(100vh - 165px)"');
   width: 100%;
 
   &::-webkit-scrollbar {
