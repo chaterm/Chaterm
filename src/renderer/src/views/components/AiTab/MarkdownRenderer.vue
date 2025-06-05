@@ -125,7 +125,7 @@
               <div
                 :ref="
                   (el) => {
-                    if (el) codeEditors[index] = el
+                    if (el) codeEditors[index] = el as HTMLElement
                   }
                 "
                 class="monaco-container"
@@ -146,7 +146,7 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, ref, watch, onBeforeUnmount, computed, nextTick } from 'vue'
+import { onMounted, ref, watch, onBeforeUnmount, nextTick } from 'vue'
 import { marked } from 'marked'
 import 'highlight.js/styles/atom-one-dark.css'
 import * as monaco from 'monaco-editor'
@@ -332,15 +332,6 @@ const initEditor = (content: string) => {
         alwaysConsumeMouseWheel: false
       },
       renderLineHighlight: 'none',
-      lineHighlightBackground: 'transparent',
-      lineHighlightBorder: 'transparent',
-      selectionBackground: 'transparent',
-      inactiveSelectionBackground: 'transparent',
-      fixedOverflowWidgets: true,
-      roundedSelection: false,
-      renderWhitespace: 'none',
-      contextmenu: false,
-      links: false,
       selectionHighlight: false,
       domReadOnly: true,
       guides: {
@@ -349,14 +340,18 @@ const initEditor = (content: string) => {
       },
       cursorStyle: 'line-thin',
       cursorBlinking: 'solid',
-      initialPosition: { lineNumber: 0, column: 0 },
       renderValidationDecorations: 'off',
       hideCursorInOverviewRuler: true,
       overviewRulerBorder: false,
       overviewRulerLanes: 0,
-      occurrencesHighlight: false,
-      renderFinalNewline: false,
-      cursorWidth: 0
+      occurrencesHighlight: 'off' as const,
+      renderFinalNewline: 'off' as const,
+      cursorWidth: 0,
+      fixedOverflowWidgets: true,
+      roundedSelection: false,
+      renderWhitespace: 'none',
+      contextmenu: false,
+      links: false
     }
 
     // 创建编辑器实例
@@ -404,7 +399,7 @@ const initEditor = (content: string) => {
     updateLinesAndCollapse()
 
     // 监听折叠状态变化
-    watch(codeActiveKey, (newVal) => {
+    watch(codeActiveKey, () => {
       if (!editor) return
       nextTick(() => {
         editor!.layout()
@@ -530,19 +525,19 @@ const initCodeBlockEditors = () => {
           top: 8,
           bottom: 8
         },
-        initialPosition: { lineNumber: 0, column: 0 },
         renderValidationDecorations: 'off',
         hideCursorInOverviewRuler: true,
         overviewRulerBorder: false,
         overviewRulerLanes: 0,
-        occurrencesHighlight: false,
-        renderFinalNewline: false,
+        occurrencesHighlight: 'off' as const,
+        renderFinalNewline: 'off' as const,
         cursorWidth: 0,
         renderLineHighlight: 'none',
-        lineHighlightBackground: 'transparent',
-        lineHighlightBorder: 'transparent',
-        selectionBackground: 'transparent',
-        inactiveSelectionBackground: 'transparent'
+        fixedOverflowWidgets: true,
+        roundedSelection: false,
+        renderWhitespace: 'none',
+        contextmenu: false,
+        links: false
       })
 
       // 清除初始选中状态
