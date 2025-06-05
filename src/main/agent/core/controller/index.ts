@@ -759,8 +759,8 @@ function removeSensitiveKeys(obj: any): any {
   return obj
 }
 
-async function updateTaskHosts(taskId: string, hosts: string[]) {
+async function updateTaskHosts(taskId: string, hosts: { host: string, uuid: string }[]) {
   const metadata = await getTaskMetadata(taskId)
-  metadata.hosts = (hosts || []).map((host: any) => ({ host }))
+  metadata.hosts = hosts || []
   await saveTaskMetadata(taskId, metadata)
 }

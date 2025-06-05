@@ -305,6 +305,15 @@ const getTaskMetadata = async (taskId) => {
   }
 }
 
+const getUserHosts = async (search: string) => {
+  try {
+    const result = await ipcRenderer.invoke('get-user-hosts', { search })
+    return result
+  } catch (error) {
+    return Promise.reject(error)
+  }
+}
+
 const api = {
   getLocalIP,
   getMacAddress,
@@ -335,6 +344,7 @@ const api = {
   connectAssetInfo,
   chatermGetChatermMessages,  
   getTaskMetadata,
+  getUserHosts,
   openBrowserWindow: (url: string): void => {
     ipcRenderer.send('open-browser-window', url)
   },
