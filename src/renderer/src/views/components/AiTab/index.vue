@@ -178,7 +178,7 @@
               show-search
             ></a-select>
             <a-button
-              :disabled="!showSendButton"
+              :disabled="!showSendButton || !chatInputValue"
               size="small"
               class="custom-round-button compact-button"
               style="margin-left: 8px"
@@ -503,7 +503,21 @@ const sendMessage = async () => {
   const userContent = chatInputValue.value.trim()
   if (!userContent) return
   if (chatTypeValue.value === 'agent') {
-    const result = await sendMessageToMain(userContent)
+    const assetInfo = await getCurentTabAssetInfo()
+    if (!assetInfo) {
+      notification.error({
+        message: '获取当前资产连接信息失败',
+        description: '请先建立资产连接',
+        duration: 3
+      })
+      return 'ASSET_ERROR'
+    }
+    if (assetInfo.ip) {
+      if (!hosts.value.includes(assetInfo.ip)) {
+        hosts.value.push(assetInfo.ip)
+      }
+    }
+    const result = await sendMessageToMain(userContent, assetInfo)
     if (result === 'ASSET_ERROR') {
       return
     }
@@ -1033,25 +1047,10 @@ onUnmounted(() => {
 })
 
 // 添加发送消息到主进程的方法
-const sendMessageToMain = async (userContent: string) => {
+const sendMessageToMain = async (userContent: string, assetInfo: any) => {
   try {
     let message
-    const currentHistoryEntry = historyList.value.find((entry) => entry.id === currentChatId.value)
     if (chatHistory.length === 0) {
-      const assetInfo = await getCurentTabAssetInfo()
-      if (!assetInfo) {
-        notification.error({
-          message: '获取当前资产连接信息失败',
-          description: '请先建立资产连接',
-          duration: 3
-        })
-        return 'ASSET_ERROR'
-      }
-      if (assetInfo.ip) {
-        if (!hosts.value.includes(assetInfo.ip)) {
-          hosts.value.push(assetInfo.ip)
-        }
-      }
       message = {
         type: 'newTask',
         askResponse: 'messageResponse',
