@@ -24,7 +24,7 @@
           <template #icon>
             <laptop-outlined />
           </template>
-          {{ host }}
+          IP: {{ host }}
         </a-tag>
       </div>
       <div
@@ -1180,6 +1180,7 @@ const showBottomButton = computed(() => {
     line-height: 16px;
     display: flex;
     align-items: center;
+    margin-left: 2px;
     background-color: #2a2a2a !important;
     border: 1px solid #3a3a3a !important;
     color: #ffffff !important;
