@@ -27,10 +27,11 @@
           {{ item.host }}
         </a-tag>
       </div>
-      <div v-else class="other-hosts-display-container">
-        <span  class="hosts-display-container-host-tag">
-          @ Add host
-        </span>
+      <div
+        v-else
+        class="other-hosts-display-container"
+      >
+        <span class="hosts-display-container-host-tag"> @ Add host </span>
       </div>
       <div
         v-if="chatHistory.length > 0"
@@ -185,7 +186,10 @@
             @keydown="handleKeyDown"
             @input="handleInputChange"
           />
-          <div v-if="showHostSelect" class="host-select-popup">
+          <div
+            v-if="showHostSelect"
+            class="host-select-popup"
+          >
             <a-input
               ref="hostSearchInputRef"
               v-model:value="hostSearchValue"
@@ -206,7 +210,11 @@
               >
                 {{ item.label }}
               </div>
-              <div v-if="filteredHostOptions.length === 0" class="host-select-empty">无匹配主机</div>
+              <div
+                v-if="filteredHostOptions.length === 0"
+                class="host-select-empty"
+                >无匹配主机</div
+              >
             </div>
           </div>
           <div class="input-controls">
@@ -337,7 +345,7 @@ import { ChatermMessage } from 'src/main/agent/shared/ExtensionMessage'
 const hostSearchInputRef = ref()
 import debounce from 'lodash/debounce'
 const showHostSelect = ref(false)
-const hostOptions = ref<{ label: string, value: string, uuid: string }[]>([])
+const hostOptions = ref<{ label: string; value: string; uuid: string }[]>([])
 const hostSearchValue = ref('')
 const hovered = ref<string | null>(null)
 
@@ -349,7 +357,7 @@ interface HistoryItem {
 }
 
 const historyList = ref<HistoryItem[]>([])
-const hosts = ref<{ host: string, uuid: string }[]>([])
+const hosts = ref<{ host: string; uuid: string }[]>([])
 
 const chatInputValue = ref('')
 const chatModelValue = ref('qwen-chat')
@@ -587,7 +595,7 @@ const sendMessage = async () => {
       })
       return 'ASSET_ERROR'
     }
-     await sendMessageToMain(userContent)
+    await sendMessageToMain(userContent)
 
     const userMessage: ChatMessage = {
       id: uuidv4(),
@@ -734,8 +742,8 @@ const restoreHistoryTab = async (history: HistoryItem) => {
             if (item && typeof item === 'object' && 'host' in item) {
               let ip = item.host
               let uuid = item.uuid || ''
-              if (ip && !hosts.value.some(h => h.host === ip)) {
-                hosts.value.push({ host: ip, uuid: uuid  })
+              if (ip && !hosts.value.some((h) => h.host === ip)) {
+                hosts.value.push({ host: ip, uuid: uuid })
               }
             }
           }
@@ -1149,7 +1157,7 @@ const sendMessageToMain = async (userContent: string) => {
         text: userContent,
         terminalUuid: hosts.value[0]?.uuid || '',
         terminalOutput: '',
-        hosts: hosts.value.map(h => ({ host: h.host, uuid: h.uuid }))
+        hosts: hosts.value.map((h) => ({ host: h.host, uuid: h.uuid }))
       }
     } else {
       message = {
@@ -1217,12 +1225,10 @@ const showBottomButton = computed(() => {
 // 1. 新增状态变量
 
 const filteredHostOptions = computed(() =>
-  hostOptions.value.filter(item =>
-    item.label.includes(hostSearchValue.value)
-  )
+  hostOptions.value.filter((item) => item.label.includes(hostSearchValue.value))
 )
 const onHostClick = (item: any) => {
-  if (!hosts.value.some(h => h.host === item.label)) {
+  if (!hosts.value.some((h) => h.host === item.label)) {
     hosts.value.push({ host: item.label, uuid: item.uuid })
   }
   showHostSelect.value = false
@@ -1237,8 +1243,8 @@ const handleInputChange = async (e: Event) => {
     hostSearchValue.value = '' // 清空搜索框
     await fetchHostOptions('') // 这里调用，获取所有主机
     nextTick(() => {
-         hostSearchInputRef.value?.focus?.()
-       })
+      hostSearchInputRef.value?.focus?.()
+    })
   } else {
     showHostSelect.value = false
   }
@@ -1289,7 +1295,7 @@ const showResumeButton = computed(() => {
   }
 
   :deep(.ant-tabs-nav) {
-    height: 22px;
+    height: 26px;
     margin-bottom: 2px;
   }
 
@@ -1342,15 +1348,15 @@ const showResumeButton = computed(() => {
 }
 
 .other-hosts-display-container {
-  background: #222; 
-      color: #fff; 
-      padding: 1px 6px; 
-      border-radius: 6px; 
-      border: 1px solid #888; 
-      font-weight: 400;
-      display: inline-flex;
-      align-items: center;
-      font-size: 15px;
+  background: #222;
+  color: #fff;
+  padding: 1px 6px;
+  border-radius: 6px;
+  border: 1px solid #888;
+  font-weight: 400;
+  display: inline-flex;
+  align-items: center;
+  font-size: 15px;
 }
 .hosts-display-container-host-tag {
   font-size: 8px !important;
@@ -1953,5 +1959,4 @@ const showResumeButton = computed(() => {
   text-align: center;
   padding: 8px 0;
 }
-
 </style>
