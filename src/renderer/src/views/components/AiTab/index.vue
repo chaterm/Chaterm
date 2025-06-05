@@ -178,7 +178,7 @@
               show-search
             ></a-select>
             <a-button
-              :disabled="!showSendButton"
+              :disabled="!showSendButton || !chatInputValue"
               size="small"
               class="custom-round-button compact-button"
               style="margin-left: 8px"
