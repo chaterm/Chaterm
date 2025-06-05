@@ -1187,7 +1187,7 @@ const showBottomButton = computed(() => {
 .chat-response-container {
   flex-grow: 1;
   overflow-y: auto;
-  padding: 0px 16px 16px 16px;
+  padding: 0px 4px 4px 4px;
   margin-top: 2px;
   scrollbar-width: thin;
   max-height: v-bind('showBottomButton ? "calc(100vh - 195px)" : "calc(100vh - 165px)"');
@@ -1210,7 +1210,7 @@ const showBottomButton = computed(() => {
 .chat-response {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 8px;
   width: 100%;
   min-width: 0;
 

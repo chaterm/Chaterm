@@ -177,7 +177,7 @@
       <div class="setting-item">
         <a-checkbox
           v-model:checked="enableExtendedThinking"
-          @change="handleEnableExtendedThinking"
+          @change="handleEnableExtendedThinking(enableExtendedThinking)"
         >
           {{ $t('user.enableExtendedThinking') }}
         </a-checkbox>
