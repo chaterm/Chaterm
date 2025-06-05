@@ -1,31 +1,26 @@
 # Update the template and script
 <template>
-  <div
-    v-if="props.ask === 'command'"
-    ref="editorContainer"
-    class="command-editor-container"
-  ></div>
-  <div v-else>
-    <template v-if="thinkingContent">
-      <div
-        ref="contentRef"
-        style="position: absolute; visibility: hidden; height: auto"
-      >
-        <div
-          class="thinking-content markdown-content"
-          v-html="marked(getThinkingContent(thinkingContent), null)"
-        ></div>
-      </div>
+<!--  当 props.ask === 'command' 时，整个内容会使用 Monaco 编辑器以代码形式显示。-->
+<!--  当 props.ask !== 'command' 时，内容会被分成三个部分：-->
+<!--      1.<think></think> 标签中的内容会显示为思考内容，带有折叠面板-->
+<!--      2.代码块（被 ``` ``` 包围的内容）会使用 Monaco 编辑器显示-->
+<!--      3.其他内容会作为普通文本显示，支持 Markdown 渲染-->
+  <div>
+    <!-- Command mode -->
+    <div
+      v-if="props.ask === 'command'"
+      ref="editorContainer"
+      class="command-editor-container"
+    >
       <a-collapse
-        v-model:active-key="activeKey"
+        v-model:active-key="codeActiveKey"
         :default-active-key="['1']"
-        class="thinking-collapse"
+        class="code-collapse"
         expand-icon-position="end"
-        @change="onToggleExpand"
       >
         <a-collapse-panel
           key="1"
-          class="thinking-panel"
+          class="code-panel"
         >
           <template #header>
             <a-space>
@@ -33,29 +28,107 @@
                 type="secondary"
                 italic
               >
-                <LoadingOutlined
-                  v-if="thinkingLoading"
-                  style="margin-right: 4px"
-                />
-                <CommentOutlined
-                  v-else
-                  style="margin-right: 4px"
-                />
-                {{ getThinkingTitle(thinkingContent) }}
+                代码预览 ({{ totalLines }}行)
               </a-typography-text>
             </a-space>
           </template>
           <div
-            class="thinking-content markdown-content"
-            v-html="marked(getThinkingContent(thinkingContent), null)"
+            ref="monacoContainer"
+            class="monaco-container"
           ></div>
         </a-collapse-panel>
       </a-collapse>
-    </template>
-    <div
-      v-if="normalContent"
-      v-html="marked(normalContent, null)"
-    ></div>
+    </div>
+
+    <!-- Non-command mode -->
+    <div v-else>
+      <!-- Thinking content -->
+      <template v-if="thinkingContent">
+        <div
+          ref="contentRef"
+          style="position: absolute; visibility: hidden; height: auto"
+        >
+          <div
+            class="thinking-content markdown-content"
+            v-html="marked(getThinkingContent(thinkingContent), null)"
+          ></div>
+        </div>
+        <a-collapse
+          v-model:active-key="activeKey"
+          :default-active-key="['1']"
+          class="thinking-collapse"
+          expand-icon-position="end"
+          @change="onToggleExpand"
+        >
+          <a-collapse-panel
+            key="1"
+            class="thinking-panel"
+          >
+            <template #header>
+              <a-space>
+                <a-typography-text
+                  type="secondary"
+                  italic
+                >
+                  <LoadingOutlined
+                    v-if="thinkingLoading"
+                    style="margin-right: 4px"
+                  />
+                  <CommentOutlined
+                    v-else
+                    style="margin-right: 4px"
+                  />
+                  {{ getThinkingTitle(thinkingContent) }}
+                </a-typography-text>
+              </a-space>
+            </template>
+            <div
+              class="thinking-content markdown-content"
+              v-html="marked(getThinkingContent(thinkingContent), null)"
+            ></div>
+          </a-collapse-panel>
+        </a-collapse>
+      </template>
+
+      <!-- Code blocks -->
+      <template v-for="(block, index) in codeBlocks" :key="index">
+        <div class="command-editor-container">
+          <a-collapse
+            v-model:active-key="block.activeKey"
+            :default-active-key="['1']"
+            class="code-collapse"
+            expand-icon-position="end"
+          >
+            <a-collapse-panel
+              key="1"
+              class="code-panel"
+            >
+              <template #header>
+                <a-space>
+                  <a-typography-text
+                    type="secondary"
+                    italic
+                  >
+                    代码预览 ({{ block.lines }}行)
+                  </a-typography-text>
+                </a-space>
+              </template>
+              <div
+                :ref="el => { if (el) codeEditors[index] = el }"
+                class="monaco-container"
+              ></div>
+            </a-collapse-panel>
+          </a-collapse>
+        </div>
+      </template>
+
+      <!-- Normal content -->
+      <div
+        v-if="normalContent"
+        style="margin: 0 8px"
+        v-html="marked(normalContent, null)"
+      ></div>
+    </div>
   </div>
 </template>
 
@@ -79,29 +152,31 @@ import 'monaco-editor/esm/vs/basic-languages/rust/rust.contribution'
 import 'monaco-editor/esm/vs/basic-languages/sql/sql.contribution'
 import { LoadingOutlined, CommentOutlined } from '@ant-design/icons-vue'
 
-// 配置 Monaco Editor 的全局设置
-monaco.editor.defineTheme('custom-dark', {
-  base: 'vs-dark',
-  inherit: true,
-  rules: [
-    { token: 'keyword', foreground: '569cd6', fontStyle: 'bold' },
-    { token: 'string', foreground: 'ce9178' },
-    { token: 'number', foreground: 'b5cea8' },
-    { token: 'comment', foreground: '6a9955' },
-    { token: 'variable', foreground: '9cdcfe' },
-    { token: 'type', foreground: '4ec9b0' },
-    { token: 'function', foreground: 'dcdcaa' },
-    { token: 'operator', foreground: 'd4d4d4' }
-  ],
-  colors: {
-    'editor.background': '#282c34',
-    'editor.foreground': '#d4d4d4',
-    'editorLineNumber.foreground': '#636d83',
-    'editorLineNumber.activeForeground': '#9da5b4',
-    'editor.selectionBackground': '#264f78',
-    'editor.lineHighlightBackground': '#2c313c'
-  }
-})
+// 确保Monaco Editor已经完全初始化
+if (monaco.editor) {
+  monaco.editor.defineTheme('custom-dark', {
+    base: 'vs-dark',
+    inherit: true,
+    rules: [
+      { token: 'keyword', foreground: '569cd6', fontStyle: 'bold' },
+      { token: 'string', foreground: 'ce9178' },
+      { token: 'number', foreground: 'b5cea8' },
+      { token: 'comment', foreground: '6a9955' },
+      { token: 'variable', foreground: '9cdcfe' },
+      { token: 'type', foreground: '4ec9b0' },
+      { token: 'function', foreground: 'dcdcaa' },
+      { token: 'operator', foreground: 'd4d4d4' }
+    ],
+    colors: {
+      'editor.background': '#282c34',
+      'editor.foreground': '#d4d4d4',
+      'editorLineNumber.foreground': '#636d83',
+      'editorLineNumber.activeForeground': '#9da5b4',
+      'editor.selectionBackground': '#264f78',
+      'editor.lineHighlightBackground': '#2c313c'
+    }
+  })
+}
 
 const renderedContent = ref('')
 const thinkingContent = ref('')
@@ -110,12 +185,18 @@ const thinkingLoading = ref(true)
 const activeKey = ref<string[]>(['1'])
 const contentRef = ref<HTMLElement | null>(null)
 const editorContainer = ref<HTMLElement | null>(null)
+const codeActiveKey = ref<string[]>(['1'])
+const monacoContainer = ref<HTMLElement | null>(null)
+const totalLines = ref(0)
 let editor: monaco.editor.IStandaloneCodeEditor | null = null
 
 const props = defineProps<{
   content: string
   ask?: string
 }>()
+
+const codeBlocks = ref<Array<{ content: string; activeKey: string[]; lines: number }>>([])
+const codeEditors = ref<Array<HTMLElement | null>>([])
 
 // Function to detect language from content
 const detectLanguage = (content: string): string => {
@@ -208,80 +289,106 @@ const detectLanguage = (content: string): string => {
 
 // Initialize editor with content
 const initEditor = (content: string) => {
-  if (!editorContainer.value) return
+  if (!monacoContainer.value || !monaco.editor) return
 
-  const options: monaco.editor.IStandaloneEditorConstructionOptions = {
-    value: content,
-    language: detectLanguage(content),
-    theme: 'custom-dark',
-    readOnly: true,
-    minimap: { enabled: false },
-    lineNumbers: 'on',
-    lineNumbersMinChars: 3,
-    lineDecorationsWidth: 12,
-    scrollBeyondLastLine: false,
-    automaticLayout: true,
-    fontSize: 13,
-    lineHeight: 20,
-    wordWrap: 'on',
-    scrollbar: {
-      vertical: 'hidden',
-      horizontal: 'hidden',
-      verticalScrollbarSize: 0,
-      horizontalScrollbarSize: 0,
-      alwaysConsumeMouseWheel: false
-    },
-    renderLineHighlight: 'line',
-    glyphMargin: true,
-    folding: true,
-    foldingStrategy: 'indentation',
-    padding: {
-      top: 8,
-      bottom: 8
-    },
-    fixedOverflowWidgets: true,
-    roundedSelection: false,
-    renderWhitespace: 'none',
-    contextmenu: false,
-    links: false,
-    selectionHighlight: false,
-    domReadOnly: true,
-    guides: {
-      indentation: false,
-      bracketPairs: false
-    },
-    cursorStyle: 'line-thin',
-    cursorBlinking: 'solid'
-  }
+  // 确保有内容
+  const editorContent = content || ''
 
-  editor = monaco.editor.create(editorContainer.value, options)
+  try {
+    const options: monaco.editor.IStandaloneEditorConstructionOptions = {
+      value: editorContent,
+      language: detectLanguage(editorContent),
+      theme: 'custom-dark',
+      readOnly: true,
+      minimap: { enabled: false },
+      lineNumbers: 'on',
+      lineNumbersMinChars: 3,
+      lineDecorationsWidth: 12,
+      scrollBeyondLastLine: false,
+      automaticLayout: true,
+      fontSize: 13,
+      lineHeight: 20,
+      wordWrap: 'on',
+      scrollbar: {
+        vertical: 'auto',
+        horizontal: 'hidden',
+        verticalScrollbarSize: 10,
+        horizontalScrollbarSize: 0,
+        alwaysConsumeMouseWheel: false
+      },
+      renderLineHighlight: 'line',
+      glyphMargin: false,
+      folding: false,
+      padding: {
+        top: 8,
+        bottom: 8
+      },
+      fixedOverflowWidgets: true,
+      roundedSelection: false,
+      renderWhitespace: 'none',
+      contextmenu: false,
+      links: false,
+      selectionHighlight: false,
+      domReadOnly: true,
+      guides: {
+        indentation: true,
+        bracketPairs: false
+      },
+      cursorStyle: 'line-thin',
+      cursorBlinking: 'solid'
+    }
 
-  // 设置编辑器最小高度和最大显示行数
-  const updateHeight = () => {
-    const lineHeight = 20 // 行高
-    const maxVisibleLines = 10 // 最大显示行数
-    const contentLines = editor!.getModel()?.getLineCount() || 0
-    const displayLines = Math.min(contentLines, maxVisibleLines)
-    const contentHeight = Math.max(displayLines * lineHeight + 16, 30) // 16是padding的总高度(top 8 + bottom 8)
-    editorContainer.value!.style.height = `${contentHeight}px`
-    editor!.layout()
+    // 创建编辑器实例
+    editor = monaco.editor.create(monacoContainer.value, options)
 
-    // 如果内容超过10行，自动折叠从第11行开始的内容
-    if (contentLines > maxVisibleLines) {
-      const foldingRange = {
-        start: maxVisibleLines,
-        end: contentLines,
-        kind: monaco.languages.FoldingRangeKind.Region
-      }
-      const model = editor!.getModel()
+    // 更新行数和折叠状态
+    const updateLinesAndCollapse = () => {
+      if (!editor) return
+      const model = editor.getModel()
       if (model) {
-        monaco.languages.setFoldingRanges(model, [foldingRange])
+        const lines = model.getLineCount()
+        totalLines.value = lines
+        // 如果超过10行，默认折叠
+        if (lines > 10) {
+          codeActiveKey.value = []
+        } else {
+          codeActiveKey.value = ['1']
+        }
       }
     }
-  }
 
-  editor.onDidContentSizeChange(updateHeight)
-  updateHeight()
+    // 设置编辑器高度
+    const updateHeight = () => {
+      if (!editor) return
+
+      const contentHeight = editor.getContentHeight()
+      if (monacoContainer.value) {
+        monacoContainer.value.style.height = `${contentHeight}px`
+        editor.layout()
+      }
+    }
+
+    // 监听内容变化
+    editor.onDidChangeModelContent(() => {
+      updateLinesAndCollapse()
+    })
+
+    editor.onDidContentSizeChange(updateHeight)
+    updateHeight()
+
+    // 初始化行数和折叠状态
+    updateLinesAndCollapse()
+
+    // 监听折叠状态变化
+    watch(codeActiveKey, (newVal) => {
+      if (!editor) return
+      nextTick(() => {
+        editor.layout()
+      })
+    })
+  } catch (error) {
+    console.error('Error in initEditor:', error)
+  }
 }
 
 // Update editor content and language
@@ -299,18 +406,117 @@ const updateEditor = (content: string) => {
   }
 }
 
-// Function to process content and extract think tags
+// Function to extract code blocks from content
+const extractCodeBlocks = (content: string) => {
+  const codeBlockRegex = /```(?:\w+)?\n([\s\S]*?)```/g
+  const blocks: Array<{ content: string; activeKey: string[]; lines: number }> = []
+  let match
+
+  while ((match = codeBlockRegex.exec(content)) !== null) {
+    const code = match[1].trim()
+    blocks.push({
+      content: code,
+      activeKey: ['1'],
+      lines: code.split('\n').length
+    })
+  }
+
+  return blocks
+}
+
+// Function to process content and extract think tags and code blocks
 const processContent = (content: string) => {
-  const thinkMatch = content.match(/<think>([\s\S]*)/)
+  const thinkMatch = content.match(/<think>([\s\S]*?)<\/think>/)
   if (thinkMatch) {
     thinkingContent.value = thinkMatch[1].trim()
-    normalContent.value = content.replace(/<think>[\s\S]*/, '').trim()
-    thinkingLoading.value = !content.includes('</think>')
-  } else {
-    thinkingContent.value = ''
-    normalContent.value = content
+    // Get content after <think></think> as normal content
+    let remainingContent = content.substring(thinkMatch[0].length).trim()
+
+    // Extract code blocks from remaining content
+    codeBlocks.value = extractCodeBlocks(remainingContent)
+
+    // Replace code blocks with placeholders to preserve normal content
+    codeBlocks.value.forEach((_, index) => {
+      remainingContent = remainingContent.replace(/```(?:\w+)?\n[\s\S]*?```/, `[CODE_BLOCK_${index}]`)
+    })
+
+    normalContent.value = remainingContent
     thinkingLoading.value = false
+  } else {
+    const onlyThinkMatch = content.match(/<think>([\s\S]*)/)
+    if (onlyThinkMatch) {
+      thinkingContent.value = onlyThinkMatch[1].trim()
+      normalContent.value = ''
+      codeBlocks.value = []
+      thinkingLoading.value = true
+    } else {
+      thinkingContent.value = ''
+      // Extract code blocks from content
+      codeBlocks.value = extractCodeBlocks(content)
+
+      // Replace code blocks with placeholders
+      let processedContent = content
+      codeBlocks.value.forEach((_, index) => {
+        processedContent = processedContent.replace(/```(?:\w+)?\n[\s\S]*?```/, `[CODE_BLOCK_${index}]`)
+      })
+
+      normalContent.value = processedContent
+      thinkingLoading.value = false
+    }
   }
+}
+
+// Initialize code block editors
+const initCodeBlockEditors = () => {
+  nextTick(() => {
+    codeBlocks.value.forEach((block, index) => {
+      const container = codeEditors.value[index]
+      if (!container || !monaco.editor) return
+
+      const editor = monaco.editor.create(container, {
+        value: block.content,
+        language: detectLanguage(block.content),
+        theme: 'custom-dark',
+        readOnly: true,
+        minimap: { enabled: false },
+        lineNumbers: 'on',
+        lineNumbersMinChars: 3,
+        lineDecorationsWidth: 12,
+        scrollBeyondLastLine: false,
+        automaticLayout: true,
+        fontSize: 13,
+        lineHeight: 20,
+        wordWrap: 'on',
+        scrollbar: {
+          vertical: 'auto',
+          horizontal: 'hidden',
+          verticalScrollbarSize: 10,
+          horizontalScrollbarSize: 0,
+          alwaysConsumeMouseWheel: false
+        },
+        renderLineHighlight: 'line',
+        glyphMargin: false,
+        folding: false,
+        padding: {
+          top: 8,
+          bottom: 8
+        }
+      })
+
+      // Update height
+      const updateHeight = () => {
+        if (!editor) return
+        const contentHeight = editor.getContentHeight()
+        if (container) {
+          container.style.height = `${contentHeight}px`
+          editor.layout()
+        }
+      }
+
+      editor.onDidContentSizeChange(updateHeight)
+      updateHeight()
+    })
+  })
 }
 
 const onToggleExpand = (keys: string[]) => {
@@ -349,6 +555,7 @@ onMounted(() => {
       initEditor(props.content)
     } else {
       processContent(props.content)
+      initCodeBlockEditors()
     }
   }
 })
@@ -361,6 +568,7 @@ watch(
       renderedContent.value = ''
       thinkingContent.value = ''
       normalContent.value = ''
+      codeBlocks.value = []
       if (editor) {
         editor.setValue('')
       }
@@ -371,6 +579,7 @@ watch(
       updateEditor(newContent)
     } else {
       processContent(newContent)
+      initCodeBlockEditors()
     }
   }
 )
@@ -643,5 +852,55 @@ code {
   padding: 0px 5px 5px 5px;
   background-color: #3a3a3a;
   border-radius: 0 0 4px 4px;
+}
+
+.code-collapse {
+  border: none !important;
+  margin-bottom: 2px;
+  border-radius: 4px !important;
+  background: transparent !important;
+}
+
+.code-collapse .ant-collapse-item {
+  border: none !important;
+  background: transparent !important;
+}
+
+.code-collapse .ant-collapse-header {
+  color: #ffffff !important;
+  padding: 8px 12px!important;
+  background: transparent !important;
+}
+
+.code-collapse .ant-collapse-content {
+  color: #ffffff !important;
+  border: none !important;
+  background: transparent !important;
+}
+
+.code-collapse .ant-collapse-content-box {
+  padding: 5px !important;
+}
+
+.code-collapse .ant-typography {
+  color: #ffffff !important;
+  margin-bottom: 0;
+  font-size: 12px !important;
+}
+
+.code-collapse .ant-collapse-arrow {
+  color: #ffffff !important;
+}
+
+.code-collapse .anticon {
+  color: #ffffff !important;
+}
+
+.monaco-container {
+  margin: 4px 0;
+  border-radius: 6px;
+  overflow: hidden;
+  background-color: #282c34;
+  min-height: 30px;
 }
 </style>
