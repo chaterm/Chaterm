@@ -154,6 +154,23 @@
             {{ $t('ai.cancel') }}
           </a-button>
         </div>
+        <div
+          v-if="showResumeButton"
+          class="bottom-buttons"
+        >
+          <a-button
+            size="small"
+            type="primary"
+            class="resume-btn"
+            :disabled="resumeDisabled"
+            @click="handleResume"
+          >
+            <template #icon>
+              <RedoOutlined />
+            </template>
+            {{ $t('ai.resume') }}
+          </a-button>
+        </div>
         <div class="input-send-container">
           <a-textarea
             v-model:value="chatInputValue"
@@ -269,7 +286,8 @@ import {
   LaptopOutlined,
   CopyOutlined,
   CheckOutlined,
-  PlayCircleOutlined
+  PlayCircleOutlined,
+  RedoOutlined
 } from '@ant-design/icons-vue'
 import { notification } from 'ant-design-vue'
 import { v4 as uuidv4 } from 'uuid'
@@ -304,6 +322,7 @@ const activeKey = ref('chat')
 const showSendButton = ref(true)
 const lastChatMessageId = ref('')
 const buttonsDisabled = ref(false)
+const resumeDisabled = ref(false)
 const showCancelButton = ref(false)
 
 // 当前活动对话的 ID
@@ -654,7 +673,7 @@ const handlePlusClick = async () => {
   const response = await (window.api as any).cancelTask()
   console.log('主进程响应:', response)
   buttonsDisabled.value = false
-  showSendButton.value = false
+  resumeDisabled.value = false
   showCancelButton.value = false
   if (currentInput.trim()) {
     sendMessage()
@@ -700,13 +719,11 @@ const restoreHistoryTab = async (history: HistoryItem) => {
       chatHistory.length = 0
       // 按时间戳排序
       conversationHistory.forEach((item, index) => {
-        if (item.text === null || item.text === '') {
-          return
-        }
         if (
           item.ask === 'followup' ||
           item.ask === 'command' ||
           item.say === 'text' ||
+          item.ask === 'resume_task' ||
           item.say === 'user_feedback'
         ) {
           let role: 'assistant' | 'user' = 'assistant'
@@ -738,10 +755,20 @@ const restoreHistoryTab = async (history: HistoryItem) => {
           chatHistory.push(userMessage)
         }
       })
-
+      // TODO:将terminalUuid的发送时机推迟到点击resume按钮时
+      const assetInfo = await getCurentTabAssetInfo()
+      if (!assetInfo) {
+        notification.error({
+          message: '获取当前资产连接信息失败',
+          description: '请先建立资产连接',
+          duration: 3
+        })
+        return 'ASSET_ERROR'
+      }
       await (window.api as any).sendToMain({
         type: 'showTaskWithId',
-        text: history.id
+        text: history.id,
+        terminalUuid: assetInfo?.uuid
       })
     } else {
       const res = await getChatDetailList({
@@ -964,6 +991,23 @@ const handleCancel = async () => {
   showCancelButton.value = false
 }
 
+const handleResume = async () => {
+  let message = chatHistory.at(-1)
+  if (!message) {
+    return false
+  }
+  console.log('handleResume:恢复')
+  const messageRsp = {
+    type: 'askResponse',
+    askResponse: 'messageResponse',
+    text: 'resume task'
+  }
+  console.log('发送消息到主进程:', messageRsp)
+  const response = await (window.api as any).sendToMain(messageRsp)
+  console.log('主进程响应:', response)
+  resumeDisabled.value = true
+}
+
 // 声明removeListener变量
 let removeListener: (() => void) | null = null
 
@@ -1122,6 +1166,7 @@ watch(
   () => chatHistory.length,
   () => {
     buttonsDisabled.value = false
+    resumeDisabled.value = false
   }
 )
 
@@ -1139,6 +1184,23 @@ const showBottomButton = computed(() => {
     lastChatMessageId.value == message.id &&
     message.ask === 'command'
   )
+})
+
+const showResumeButton = computed(() => {
+  if (chatHistory.length === 0) {
+    return false
+  }
+  let message = chatHistory.at(-1)
+  if (!message) {
+    return false
+  }
+  // return (
+  //   chatTypeValue.value === 'agent' &&
+  //   lastChatMessageId.value !== '' &&
+  //   lastChatMessageId.value == message.id &&
+  //   message.ask === 'resume_task'
+  // )
+  return chatTypeValue.value === 'agent' && message.ask === 'resume_task'
 })
 </script>
 
@@ -1650,7 +1712,8 @@ const showBottomButton = computed(() => {
 
   .reject-btn,
   .approve-btn,
-  .cancel-btn {
+  .cancel-btn,
+  .resume-btn {
     flex: 1;
     display: flex;
     align-items: center;
@@ -1720,6 +1783,42 @@ const showBottomButton = computed(() => {
       background-color: #3a3a3a;
       border-color: #4a4a4a;
       color: #888888;
+    }
+    &[disabled] {
+      background-color: #1a1a1a !important;
+      border-color: #2a2a2a !important;
+      color: #666666 !important;
+      cursor: not-allowed;
+
+      &:hover {
+        background-color: #1a1a1a !important;
+        border-color: #2a2a2a !important;
+        color: #666666 !important;
+      }
+    }
+  }
+
+  .resume-btn {
+    background-color: #1656b1;
+    border-color: #2d6fcd;
+    color: #cccccc;
+
+    &:hover {
+      background-color: #1656b1;
+      border-color: #2d6fcd;
+      color: #ffffff;
+    }
+    &[disabled] {
+      background-color: #1a1a1a !important;
+      border-color: #2a2a2a !important;
+      color: #666666 !important;
+      cursor: not-allowed;
+
+      &:hover {
+        background-color: #1a1a1a !important;
+        border-color: #2a2a2a !important;
+        color: #666666 !important;
+      }
     }
   }
 }
