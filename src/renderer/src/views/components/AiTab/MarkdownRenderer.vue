@@ -4,7 +4,34 @@
     v-if="props.ask === 'command'"
     ref="editorContainer"
     class="command-editor-container"
-  ></div>
+  >
+    <a-collapse
+      v-model:active-key="codeActiveKey"
+      :default-active-key="['1']"
+      class="code-collapse"
+      expand-icon-position="end"
+    >
+      <a-collapse-panel
+        key="1"
+        class="code-panel"
+      >
+        <template #header>
+          <a-space>
+            <a-typography-text
+              type="secondary"
+              italic
+            >
+              代码预览 ({{ totalLines }}行)
+            </a-typography-text>
+          </a-space>
+        </template>
+        <div
+          ref="monacoContainer"
+          class="monaco-container"
+        ></div>
+      </a-collapse-panel>
+    </a-collapse>
+  </div>
   <div v-else>
     <template v-if="thinkingContent">
       <div
@@ -77,31 +104,33 @@ import 'monaco-editor/esm/vs/basic-languages/ruby/ruby.contribution'
 import 'monaco-editor/esm/vs/basic-languages/php/php.contribution'
 import 'monaco-editor/esm/vs/basic-languages/rust/rust.contribution'
 import 'monaco-editor/esm/vs/basic-languages/sql/sql.contribution'
-import { LoadingOutlined, MessageOutlined, CommentOutlined } from '@ant-design/icons-vue'
+import { LoadingOutlined, CommentOutlined } from '@ant-design/icons-vue'
 
-// 配置 Monaco Editor 的全局设置
-monaco.editor.defineTheme('custom-dark', {
-  base: 'vs-dark',
-  inherit: true,
-  rules: [
-    { token: 'keyword', foreground: '569cd6', fontStyle: 'bold' },
-    { token: 'string', foreground: 'ce9178' },
-    { token: 'number', foreground: 'b5cea8' },
-    { token: 'comment', foreground: '6a9955' },
-    { token: 'variable', foreground: '9cdcfe' },
-    { token: 'type', foreground: '4ec9b0' },
-    { token: 'function', foreground: 'dcdcaa' },
-    { token: 'operator', foreground: 'd4d4d4' }
-  ],
-  colors: {
-    'editor.background': '#282c34',
-    'editor.foreground': '#d4d4d4',
-    'editorLineNumber.foreground': '#636d83',
-    'editorLineNumber.activeForeground': '#9da5b4',
-    'editor.selectionBackground': '#264f78',
-    'editor.lineHighlightBackground': '#2c313c'
-  }
-})
+// 确保Monaco Editor已经完全初始化
+if (monaco.editor) {
+  monaco.editor.defineTheme('custom-dark', {
+    base: 'vs-dark',
+    inherit: true,
+    rules: [
+      { token: 'keyword', foreground: '569cd6', fontStyle: 'bold' },
+      { token: 'string', foreground: 'ce9178' },
+      { token: 'number', foreground: 'b5cea8' },
+      { token: 'comment', foreground: '6a9955' },
+      { token: 'variable', foreground: '9cdcfe' },
+      { token: 'type', foreground: '4ec9b0' },
+      { token: 'function', foreground: 'dcdcaa' },
+      { token: 'operator', foreground: 'd4d4d4' }
+    ],
+    colors: {
+      'editor.background': '#282c34',
+      'editor.foreground': '#d4d4d4',
+      'editorLineNumber.foreground': '#636d83',
+      'editorLineNumber.activeForeground': '#9da5b4',
+      'editor.selectionBackground': '#264f78',
+      'editor.lineHighlightBackground': '#2c313c'
+    }
+  })
+}
 
 const renderedContent = ref('')
 const thinkingContent = ref('')
@@ -110,6 +139,9 @@ const thinkingLoading = ref(true)
 const activeKey = ref<string[]>(['1'])
 const contentRef = ref<HTMLElement | null>(null)
 const editorContainer = ref<HTMLElement | null>(null)
+const codeActiveKey = ref<string[]>(['1'])
+const monacoContainer = ref<HTMLElement | null>(null)
+const totalLines = ref(0)
 let editor: monaco.editor.IStandaloneCodeEditor | null = null
 
 const props = defineProps<{
@@ -208,80 +240,106 @@ const detectLanguage = (content: string): string => {
 
 // Initialize editor with content
 const initEditor = (content: string) => {
-  if (!editorContainer.value) return
+  if (!monacoContainer.value || !monaco.editor) return
 
-  const options: monaco.editor.IStandaloneEditorConstructionOptions = {
-    value: content,
-    language: detectLanguage(content),
-    theme: 'custom-dark',
-    readOnly: true,
-    minimap: { enabled: false },
-    lineNumbers: 'on',
-    lineNumbersMinChars: 3,
-    lineDecorationsWidth: 12,
-    scrollBeyondLastLine: false,
-    automaticLayout: true,
-    fontSize: 13,
-    lineHeight: 20,
-    wordWrap: 'on',
-    scrollbar: {
-      vertical: 'hidden',
-      horizontal: 'hidden',
-      verticalScrollbarSize: 0,
-      horizontalScrollbarSize: 0,
-      alwaysConsumeMouseWheel: false
-    },
-    renderLineHighlight: 'line',
-    glyphMargin: true,
-    folding: true,
-    foldingStrategy: 'indentation',
-    padding: {
-      top: 8,
-      bottom: 8
-    },
-    fixedOverflowWidgets: true,
-    roundedSelection: false,
-    renderWhitespace: 'none',
-    contextmenu: false,
-    links: false,
-    selectionHighlight: false,
-    domReadOnly: true,
-    guides: {
-      indentation: false,
-      bracketPairs: false
-    },
-    cursorStyle: 'line-thin',
-    cursorBlinking: 'solid'
-  }
+  // 确保有内容
+  const editorContent = content || ''
 
-  editor = monaco.editor.create(editorContainer.value, options)
+  try {
+    const options: monaco.editor.IStandaloneEditorConstructionOptions = {
+      value: editorContent,
+      language: detectLanguage(editorContent),
+      theme: 'custom-dark',
+      readOnly: true,
+      minimap: { enabled: false },
+      lineNumbers: 'on',
+      lineNumbersMinChars: 3,
+      lineDecorationsWidth: 12,
+      scrollBeyondLastLine: false,
+      automaticLayout: true,
+      fontSize: 13,
+      lineHeight: 20,
+      wordWrap: 'on',
+      scrollbar: {
+        vertical: 'auto',
+        horizontal: 'hidden',
+        verticalScrollbarSize: 10,
+        horizontalScrollbarSize: 0,
+        alwaysConsumeMouseWheel: false
+      },
+      renderLineHighlight: 'line',
+      glyphMargin: false,
+      folding: false,
+      padding: {
+        top: 8,
+        bottom: 8
+      },
+      fixedOverflowWidgets: true,
+      roundedSelection: false,
+      renderWhitespace: 'none',
+      contextmenu: false,
+      links: false,
+      selectionHighlight: false,
+      domReadOnly: true,
+      guides: {
+        indentation: true,
+        bracketPairs: false
+      },
+      cursorStyle: 'line-thin',
+      cursorBlinking: 'solid'
+    }
 
-  // 设置编辑器最小高度和最大显示行数
-  const updateHeight = () => {
-    const lineHeight = 20 // 行高
-    const maxVisibleLines = 10 // 最大显示行数
-    const contentLines = editor!.getModel()?.getLineCount() || 0
-    const displayLines = Math.min(contentLines, maxVisibleLines)
-    const contentHeight = Math.max(displayLines * lineHeight + 16, 30) // 16是padding的总高度(top 8 + bottom 8)
-    editorContainer.value!.style.height = `${contentHeight}px`
-    editor!.layout()
+    // 创建编辑器实例
+    editor = monaco.editor.create(monacoContainer.value, options)
 
-    // 如果内容超过10行，自动折叠从第11行开始的内容
-    if (contentLines > maxVisibleLines) {
-      const foldingRange = {
-        start: maxVisibleLines,
-        end: contentLines,
-        kind: monaco.languages.FoldingRangeKind.Region
-      }
-      const model = editor!.getModel()
+    // 更新行数和折叠状态
+    const updateLinesAndCollapse = () => {
+      if (!editor) return
+      const model = editor.getModel()
       if (model) {
-        monaco.languages.setFoldingRanges(model, [foldingRange])
+        const lines = model.getLineCount()
+        totalLines.value = lines
+        // 如果超过10行，默认折叠
+        if (lines > 10) {
+          codeActiveKey.value = []
+        } else {
+          codeActiveKey.value = ['1']
+        }
       }
     }
-  }
 
-  editor.onDidContentSizeChange(updateHeight)
-  updateHeight()
+    // 设置编辑器高度
+    const updateHeight = () => {
+      if (!editor) return
+
+      const contentHeight = editor.getContentHeight()
+      if (monacoContainer.value) {
+        monacoContainer.value.style.height = `${contentHeight}px`
+        editor.layout()
+      }
+    }
+
+    // 监听内容变化
+    editor.onDidChangeModelContent(() => {
+      updateLinesAndCollapse()
+    })
+
+    editor.onDidContentSizeChange(updateHeight)
+    updateHeight()
+
+    // 初始化行数和折叠状态
+    updateLinesAndCollapse()
+
+    // 监听折叠状态变化
+    watch(codeActiveKey, (newVal) => {
+      if (!editor) return
+      nextTick(() => {
+        editor.layout()
+      })
+    })
+  } catch (error) {
+    console.error('Error in initEditor:', error)
+  }
 }
 
 // Update editor content and language
@@ -301,15 +359,23 @@ const updateEditor = (content: string) => {
 
 // Function to process content and extract think tags
 const processContent = (content: string) => {
-  const thinkMatch = content.match(/<think>([\s\S]*)/)
+  const thinkMatch = content.match(/<think>([\s\S]*?)<\/think>/)
   if (thinkMatch) {
     thinkingContent.value = thinkMatch[1].trim()
-    normalContent.value = content.replace(/<think>[\s\S]*/, '').trim()
-    thinkingLoading.value = !content.includes('</think>')
-  } else {
-    thinkingContent.value = ''
-    normalContent.value = content
+    // 获取<think></think>之后的内容作为普通内容
+    normalContent.value = content.substring(thinkMatch[0].length).trim()
     thinkingLoading.value = false
+  } else {
+    const onlyThinkMatch = content.match(/<think>([\s\S]*)/)
+    if (onlyThinkMatch) {
+      thinkingContent.value = onlyThinkMatch[1].trim()
+      normalContent.value = ''
+      thinkingLoading.value = true
+    } else {
+      thinkingContent.value = ''
+      normalContent.value = content
+      thinkingLoading.value = false
+    }
   }
 }
 
@@ -643,5 +709,51 @@ code {
   padding: 0px 5px 5px 5px;
   background-color: #3a3a3a;
   border-radius: 0 0 4px 4px;
+}
+
+.code-collapse {
+  border: none !important;
+  margin-bottom: 10px;
+  border-radius: 4px !important;
+  background: transparent !important;
+}
+
+.code-collapse .ant-collapse-item {
+  border: none !important;
+  background: transparent !important;
+}
+
+.code-collapse .ant-collapse-header {
+  color: #ffffff !important;
+  padding: 8px 12px !important;
+  background: transparent !important;
+}
+
+.code-collapse .ant-collapse-content {
+  color: #ffffff !important;
+  border: none !important;
+  background: transparent !important;
+}
+
+.code-collapse .ant-typography {
+  color: #ffffff !important;
+  margin-bottom: 0;
+  font-size: 12px !important;
+}
+
+.code-collapse .ant-collapse-arrow {
+  color: #ffffff !important;
+}
+
+.code-collapse .anticon {
+  color: #ffffff !important;
+}
+
+.monaco-container {
+  margin: 4px 0;
+  border-radius: 6px;
+  overflow: hidden;
+  background-color: #282c34;
+  min-height: 30px;
 }
 </style>
