@@ -1,10 +1,10 @@
 # Update the template and script
 <template>
-<!--  当 props.ask === 'command' 时，整个内容会使用 Monaco 编辑器以代码形式显示。-->
-<!--  当 props.ask !== 'command' 时，内容会被分成三个部分：-->
-<!--      1.<think></think> 标签中的内容会显示为思考内容，带有折叠面板-->
-<!--      2.代码块（被 ``` ``` 包围的内容）会使用 Monaco 编辑器显示-->
-<!--      3.其他内容会作为普通文本显示，支持 Markdown 渲染-->
+  <!--  当 props.ask === 'command' 时，整个内容会使用 Monaco 编辑器以代码形式显示。-->
+  <!--  当 props.ask !== 'command' 时，内容会被分成三个部分：-->
+  <!--      1.<think></think> 标签中的内容会显示为思考内容，带有折叠面板-->
+  <!--      2.代码块（被 ``` ``` 包围的内容）会使用 Monaco 编辑器显示-->
+  <!--      3.其他内容会作为普通文本显示，支持 Markdown 渲染-->
   <div>
     <!-- Command mode -->
     <div
@@ -58,7 +58,7 @@
           :default-active-key="['1']"
           class="thinking-collapse"
           expand-icon-position="end"
-          @change="onToggleExpand"
+          @change="onToggleExpand(activeKey)"
         >
           <a-collapse-panel
             key="1"
@@ -74,9 +74,11 @@
                     v-if="thinkingLoading"
                     style="margin-right: 4px"
                   />
-                  <CommentOutlined
+                  <img
                     v-else
-                    style="margin-right: 4px"
+                    :src="thinkingSvg"
+                    alt="thinking"
+                    class="thinking-icon"
                   />
                   {{ getThinkingTitle(thinkingContent) }}
                 </a-typography-text>
@@ -91,7 +93,10 @@
       </template>
 
       <!-- Code blocks -->
-      <template v-for="(block, index) in codeBlocks" :key="index">
+      <template
+        v-for="(block, index) in codeBlocks"
+        :key="index"
+      >
         <div class="command-editor-container">
           <a-collapse
             v-model:active-key="block.activeKey"
@@ -114,7 +119,11 @@
                 </a-space>
               </template>
               <div
-                :ref="el => { if (el) codeEditors[index] = el }"
+                :ref="
+                  (el) => {
+                    if (el) codeEditors[index] = el
+                  }
+                "
                 class="monaco-container"
               ></div>
             </a-collapse-panel>
@@ -150,7 +159,8 @@ import 'monaco-editor/esm/vs/basic-languages/ruby/ruby.contribution'
 import 'monaco-editor/esm/vs/basic-languages/php/php.contribution'
 import 'monaco-editor/esm/vs/basic-languages/rust/rust.contribution'
 import 'monaco-editor/esm/vs/basic-languages/sql/sql.contribution'
-import { LoadingOutlined, CommentOutlined } from '@ant-design/icons-vue'
+import { LoadingOutlined } from '@ant-design/icons-vue'
+import thinkingSvg from '@/assets/img/thinking.svg'
 
 // 确保Monaco Editor已经完全初始化
 if (monaco.editor) {
@@ -383,7 +393,7 @@ const initEditor = (content: string) => {
     watch(codeActiveKey, (newVal) => {
       if (!editor) return
       nextTick(() => {
-        editor.layout()
+        editor!.layout()
       })
     })
   } catch (error) {
@@ -437,7 +447,10 @@ const processContent = (content: string) => {
 
     // Replace code blocks with placeholders to preserve normal content
     codeBlocks.value.forEach((_, index) => {
-      remainingContent = remainingContent.replace(/```(?:\w+)?\n[\s\S]*?```/, `[CODE_BLOCK_${index}]`)
+      remainingContent = remainingContent.replace(
+        /```(?:\w+)?\n[\s\S]*?```/,
+        `[CODE_BLOCK_${index}]`
+      )
     })
 
     normalContent.value = remainingContent
@@ -457,7 +470,10 @@ const processContent = (content: string) => {
       // Replace code blocks with placeholders
       let processedContent = content
       codeBlocks.value.forEach((_, index) => {
-        processedContent = processedContent.replace(/```(?:\w+)?\n[\s\S]*?```/, `[CODE_BLOCK_${index}]`)
+        processedContent = processedContent.replace(
+          /```(?:\w+)?\n[\s\S]*?```/,
+          `[CODE_BLOCK_${index}]`
+        )
       })
 
       normalContent.value = processedContent
@@ -868,7 +884,7 @@ code {
 
 .code-collapse .ant-collapse-header {
   color: #ffffff !important;
-  padding: 8px 12px!important;
+  padding: 8px 12px !important;
   background: transparent !important;
 }
 
@@ -902,5 +918,13 @@ code {
   overflow: hidden;
   background-color: #282c34;
   min-height: 30px;
+}
+
+.thinking-icon {
+  width: 16px;
+  height: 16px;
+  margin-bottom: 4px;
+  vertical-align: middle;
+  filter: invert(0.25);
 }
 </style>
