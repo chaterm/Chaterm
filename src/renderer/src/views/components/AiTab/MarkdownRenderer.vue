@@ -15,6 +15,7 @@
       <a-collapse
         v-model:active-key="codeActiveKey"
         :default-active-key="['1']"
+        :class="{ 'hide-expand-icon': totalLines < 10 }"
         class="code-collapse"
         expand-icon-position="end"
       >
@@ -27,6 +28,7 @@
               <a-typography-text
                 type="secondary"
                 italic
+                :class="{ 'hidden-header': totalLines < 10 }"
               >
                 代码预览 ({{ totalLines }}行)
               </a-typography-text>
@@ -96,6 +98,7 @@
           <a-collapse
             v-model:active-key="block.activeKey"
             :default-active-key="['1']"
+            :class="{ 'hide-expand-icon': block.lines < 10 }"
             class="code-collapse"
             expand-icon-position="end"
           >
@@ -108,6 +111,7 @@
                   <a-typography-text
                     type="secondary"
                     italic
+                    :class="{ 'hidden-header': block.lines < 10 }"
                   >
                     代码预览 ({{ block.lines }}行)
                   </a-typography-text>
@@ -293,6 +297,7 @@ const initEditor = (content: string) => {
 
   // 确保有内容
   const editorContent = content || ''
+  const lines = editorContent.split('\n').length
 
   try {
     const options: monaco.editor.IStandaloneEditorConstructionOptions = {
@@ -310,19 +315,17 @@ const initEditor = (content: string) => {
       lineHeight: 20,
       wordWrap: 'on',
       scrollbar: {
-        vertical: 'auto',
+        vertical: lines >= 10 ? 'auto' : 'hidden',
         horizontal: 'hidden',
-        verticalScrollbarSize: 10,
+        verticalScrollbarSize: lines >= 10 ? 10 : 0,
         horizontalScrollbarSize: 0,
         alwaysConsumeMouseWheel: false
       },
-      renderLineHighlight: 'line',
-      glyphMargin: false,
-      folding: false,
-      padding: {
-        top: 8,
-        bottom: 8
-      },
+      renderLineHighlight: 'none',
+      lineHighlightBackground: 'transparent',
+      lineHighlightBorder: 'transparent',
+      selectionBackground: 'transparent',
+      inactiveSelectionBackground: 'transparent',
       fixedOverflowWidgets: true,
       roundedSelection: false,
       renderWhitespace: 'none',
@@ -335,11 +338,22 @@ const initEditor = (content: string) => {
         bracketPairs: false
       },
       cursorStyle: 'line-thin',
-      cursorBlinking: 'solid'
+      cursorBlinking: 'solid',
+      initialPosition: { lineNumber: 0, column: 0 },
+      renderValidationDecorations: 'off',
+      hideCursorInOverviewRuler: true,
+      overviewRulerBorder: false,
+      overviewRulerLanes: 0,
+      occurrencesHighlight: false,
+      renderFinalNewline: false,
+      cursorWidth: 0
     }
 
     // 创建编辑器实例
     editor = monaco.editor.create(monacoContainer.value, options)
+
+    // 清除初始选中状态
+    editor.setSelection(new monaco.Selection(0, 0, 0, 0))
 
     // 更新行数和折叠状态
     const updateLinesAndCollapse = () => {
@@ -488,20 +502,35 @@ const initCodeBlockEditors = () => {
         lineHeight: 20,
         wordWrap: 'on',
         scrollbar: {
-          vertical: 'auto',
+          vertical: block.lines >= 10 ? 'auto' : 'hidden',
           horizontal: 'hidden',
-          verticalScrollbarSize: 10,
+          verticalScrollbarSize: block.lines >= 10 ? 10 : 0,
           horizontalScrollbarSize: 0,
           alwaysConsumeMouseWheel: false
         },
-        renderLineHighlight: 'line',
         glyphMargin: false,
         folding: false,
         padding: {
           top: 8,
           bottom: 8
-        }
+        },
+        initialPosition: { lineNumber: 0, column: 0 },
+        renderValidationDecorations: 'off',
+        hideCursorInOverviewRuler: true,
+        overviewRulerBorder: false,
+        overviewRulerLanes: 0,
+        occurrencesHighlight: false,
+        renderFinalNewline: false,
+        cursorWidth: 0,
+        renderLineHighlight: 'none',
+        lineHighlightBackground: 'transparent',
+        lineHighlightBorder: 'transparent',
+        selectionBackground: 'transparent',
+        inactiveSelectionBackground: 'transparent'
       })
+
+      // 清除初始选中状态
+      editor.setSelection(new monaco.Selection(0, 0, 0, 0))
 
       // Update height
       const updateHeight = () => {
@@ -868,8 +897,20 @@ code {
 
 .code-collapse .ant-collapse-header {
   color: #ffffff !important;
-  padding: 8px 12px!important;
+  padding: 4px 12px!important;
   background: transparent !important;
+  transition: all 0.3s;
+  min-height: 0 !important;
+  line-height: 1 !important;
+}
+
+.code-collapse .ant-collapse-item.ant-collapse-item-active .ant-collapse-header {
+  padding-top: 12px !important;
+  padding-bottom: 12px !important;
+}
+
+.code-collapse .ant-collapse-item:not(.ant-collapse-item-active) .ant-collapse-header {
+  padding-top: 12px !important;
 }
 
 .code-collapse .ant-collapse-content {
@@ -879,21 +920,18 @@ code {
 }
 
 .code-collapse .ant-collapse-content-box {
-  padding: 5px !important;
+  padding: 2px 5px 2px 5px !important;
 }
 
 .code-collapse .ant-typography {
   color: #ffffff !important;
   margin-bottom: 0;
   font-size: 12px !important;
+  line-height: 1 !important;
 }
 
-.code-collapse .ant-collapse-arrow {
-  color: #ffffff !important;
-}
-
-.code-collapse .anticon {
-  color: #ffffff !important;
+.code-collapse .ant-space {
+  gap: 4px !important;
 }
 
 .monaco-container {
@@ -902,5 +940,38 @@ code {
   overflow: hidden;
   background-color: #282c34;
   min-height: 30px;
+}
+
+.hidden-header {
+  display: none !important;
+}
+
+.code-collapse .ant-collapse-panel .hidden-header + .ant-collapse-arrow {
+  display: none !important;
+}
+
+.code-collapse .ant-collapse-panel:has(.hidden-header) .ant-collapse-header {
+  padding: 0 !important;
+  height: 0px !important;
+  min-height: 0px !important;
+  line-height: 0px !important;
+  overflow: hidden !important;
+  margin: 0 !important;
+  border: none !important;
+}
+
+.code-collapse.hide-expand-icon .ant-collapse-header {
+  background-color: transparent !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+
+.code-collapse.hide-expand-icon .ant-collapse-expand-icon {
+  display: none !important;
+}
+
+.code-collapse.hide-expand-icon .ant-collapse-content {
+  margin-top: -35px !important;
+  margin-bottom: -7px !important;
 }
 </style>
