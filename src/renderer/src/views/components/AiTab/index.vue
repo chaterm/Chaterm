@@ -573,7 +573,7 @@ const handleKeyDown = (e: KeyboardEvent) => {
   }
 }
 
-const handlePlusClick = () => {
+const handlePlusClick = async () => {
   const currentInput = chatInputValue.value
   const newChatId = uuidv4()
   currentChatId.value = newChatId
@@ -594,7 +594,10 @@ const handlePlusClick = () => {
 
   chatHistory.length = 0
   chatInputValue.value = ''
-
+  // 开启新窗口后，cancel掉原始的agent窗口
+  console.log('handleCancel:取消')
+  const response = await (window.api as any).cancelTask()
+  console.log('主进程响应:', response)
   if (currentInput.trim()) {
     sendMessage()
   }
@@ -947,8 +950,6 @@ onMounted(async () => {
         chatHistory.push(newAssistantMessage)
       } else if (lastMessageInChat && lastMessageInChat.role === 'assistant') {
         lastMessageInChat.content = message.partialMessage.text
-        lastMessageInChat.content = message.partialMessage.text
-        lastMessageInChat.content = message.partialMessage.text
         lastMessageInChat.type = message.partialMessage.type
         lastMessageInChat.ask =
           message.partialMessage.type === 'ask' ? message.partialMessage.ask : ''
@@ -967,7 +968,6 @@ onMounted(async () => {
         showSendButton.value = true
         showCancelButton.value = false
       }
-      console.log('chatHistory', chatHistory)
     }
     lastMessage = message
     console.log('chatHistory after processing:', chatHistory)

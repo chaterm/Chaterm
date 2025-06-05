@@ -33,7 +33,14 @@
                 type="secondary"
                 italic
               >
-                <ThinkingOutlinedIcon style="margin-right: 4px" />
+                <LoadingOutlined
+                  v-if="thinkingLoading"
+                  style="margin-right: 4px"
+                />
+                <CommentOutlined
+                  v-else
+                  style="margin-right: 4px"
+                />
                 {{ getThinkingTitle(thinkingContent) }}
               </a-typography-text>
             </a-space>
@@ -70,7 +77,7 @@ import 'monaco-editor/esm/vs/basic-languages/ruby/ruby.contribution'
 import 'monaco-editor/esm/vs/basic-languages/php/php.contribution'
 import 'monaco-editor/esm/vs/basic-languages/rust/rust.contribution'
 import 'monaco-editor/esm/vs/basic-languages/sql/sql.contribution'
-import { ThinkingOutlined as ThinkingOutlinedIcon } from '@ant-design/icons-vue/lib/icons'
+import { LoadingOutlined, MessageOutlined, CommentOutlined } from '@ant-design/icons-vue'
 
 // 配置 Monaco Editor 的全局设置
 monaco.editor.defineTheme('custom-dark', {
@@ -99,6 +106,7 @@ monaco.editor.defineTheme('custom-dark', {
 const renderedContent = ref('')
 const thinkingContent = ref('')
 const normalContent = ref('')
+const thinkingLoading = ref(true)
 const activeKey = ref<string[]>(['1'])
 const contentRef = ref<HTMLElement | null>(null)
 const editorContainer = ref<HTMLElement | null>(null)
@@ -224,8 +232,9 @@ const initEditor = (content: string) => {
       alwaysConsumeMouseWheel: false
     },
     renderLineHighlight: 'line',
-    glyphMargin: false,
-    folding: false,
+    glyphMargin: true,
+    folding: true,
+    foldingStrategy: 'indentation',
     padding: {
       top: 8,
       bottom: 8
@@ -247,11 +256,28 @@ const initEditor = (content: string) => {
 
   editor = monaco.editor.create(editorContainer.value, options)
 
-  // 设置编辑器最小高度
+  // 设置编辑器最小高度和最大显示行数
   const updateHeight = () => {
-    const contentHeight = Math.max(editor!.getContentHeight(), 30) // 最小高度30px
+    const lineHeight = 20 // 行高
+    const maxVisibleLines = 10 // 最大显示行数
+    const contentLines = editor!.getModel()?.getLineCount() || 0
+    const displayLines = Math.min(contentLines, maxVisibleLines)
+    const contentHeight = Math.max(displayLines * lineHeight + 16, 30) // 16是padding的总高度(top 8 + bottom 8)
     editorContainer.value!.style.height = `${contentHeight}px`
     editor!.layout()
+
+    // 如果内容超过10行，自动折叠从第11行开始的内容
+    if (contentLines > maxVisibleLines) {
+      const foldingRange = {
+        start: maxVisibleLines,
+        end: contentLines,
+        kind: monaco.languages.FoldingRangeKind.Region
+      }
+      const model = editor!.getModel()
+      if (model) {
+        monaco.languages.setFoldingRanges(model, [foldingRange])
+      }
+    }
   }
 
   editor.onDidContentSizeChange(updateHeight)
@@ -279,9 +305,11 @@ const processContent = (content: string) => {
   if (thinkMatch) {
     thinkingContent.value = thinkMatch[1].trim()
     normalContent.value = content.replace(/<think>[\s\S]*/, '').trim()
+    thinkingLoading.value = !content.includes('</think>')
   } else {
     thinkingContent.value = ''
     normalContent.value = content
+    thinkingLoading.value = false
   }
 }
 
