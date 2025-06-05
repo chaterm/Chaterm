@@ -1,58 +1,26 @@
 # Update the template and script
 <template>
-  <div
-    v-if="props.ask === 'command'"
-    ref="editorContainer"
-    class="command-editor-container"
-  >
-    <a-collapse
-      v-model:active-key="codeActiveKey"
-      :default-active-key="['1']"
-      class="code-collapse"
-      expand-icon-position="end"
+<!--  当 props.ask === 'command' 时，整个内容会使用 Monaco 编辑器以代码形式显示。-->
+<!--  当 props.ask !== 'command' 时，内容会被分成三个部分：-->
+<!--      1.<think></think> 标签中的内容会显示为思考内容，带有折叠面板-->
+<!--      2.代码块（被 ``` ``` 包围的内容）会使用 Monaco 编辑器显示-->
+<!--      3.其他内容会作为普通文本显示，支持 Markdown 渲染-->
+  <div>
+    <!-- Command mode -->
+    <div
+      v-if="props.ask === 'command'"
+      ref="editorContainer"
+      class="command-editor-container"
     >
-      <a-collapse-panel
-        key="1"
-        class="code-panel"
-      >
-        <template #header>
-          <a-space>
-            <a-typography-text
-              type="secondary"
-              italic
-            >
-              代码预览 ({{ totalLines }}行)
-            </a-typography-text>
-          </a-space>
-        </template>
-        <div
-          ref="monacoContainer"
-          class="monaco-container"
-        ></div>
-      </a-collapse-panel>
-    </a-collapse>
-  </div>
-  <div v-else>
-    <template v-if="thinkingContent">
-      <div
-        ref="contentRef"
-        style="position: absolute; visibility: hidden; height: auto"
-      >
-        <div
-          class="thinking-content markdown-content"
-          v-html="marked(getThinkingContent(thinkingContent), null)"
-        ></div>
-      </div>
       <a-collapse
-        v-model:active-key="activeKey"
+        v-model:active-key="codeActiveKey"
         :default-active-key="['1']"
-        class="thinking-collapse"
+        class="code-collapse"
         expand-icon-position="end"
-        @change="onToggleExpand"
       >
         <a-collapse-panel
           key="1"
-          class="thinking-panel"
+          class="code-panel"
         >
           <template #header>
             <a-space>
@@ -60,29 +28,106 @@
                 type="secondary"
                 italic
               >
-                <LoadingOutlined
-                  v-if="thinkingLoading"
-                  style="margin-right: 4px"
-                />
-                <CommentOutlined
-                  v-else
-                  style="margin-right: 4px"
-                />
-                {{ getThinkingTitle(thinkingContent) }}
+                代码预览 ({{ totalLines }}行)
               </a-typography-text>
             </a-space>
           </template>
           <div
-            class="thinking-content markdown-content"
-            v-html="marked(getThinkingContent(thinkingContent), null)"
+            ref="monacoContainer"
+            class="monaco-container"
           ></div>
         </a-collapse-panel>
       </a-collapse>
-    </template>
-    <div
-      v-if="normalContent"
-      v-html="marked(normalContent, null)"
-    ></div>
+    </div>
+
+    <!-- Non-command mode -->
+    <div v-else>
+      <!-- Thinking content -->
+      <template v-if="thinkingContent">
+        <div
+          ref="contentRef"
+          style="position: absolute; visibility: hidden; height: auto"
+        >
+          <div
+            class="thinking-content markdown-content"
+            v-html="marked(getThinkingContent(thinkingContent), null)"
+          ></div>
+        </div>
+        <a-collapse
+          v-model:active-key="activeKey"
+          :default-active-key="['1']"
+          class="thinking-collapse"
+          expand-icon-position="end"
+          @change="onToggleExpand"
+        >
+          <a-collapse-panel
+            key="1"
+            class="thinking-panel"
+          >
+            <template #header>
+              <a-space>
+                <a-typography-text
+                  type="secondary"
+                  italic
+                >
+                  <LoadingOutlined
+                    v-if="thinkingLoading"
+                    style="margin-right: 4px"
+                  />
+                  <CommentOutlined
+                    v-else
+                    style="margin-right: 4px"
+                  />
+                  {{ getThinkingTitle(thinkingContent) }}
+                </a-typography-text>
+              </a-space>
+            </template>
+            <div
+              class="thinking-content markdown-content"
+              v-html="marked(getThinkingContent(thinkingContent), null)"
+            ></div>
+          </a-collapse-panel>
+        </a-collapse>
+      </template>
+
+      <!-- Code blocks -->
+      <template v-for="(block, index) in codeBlocks" :key="index">
+        <div class="command-editor-container">
+          <a-collapse
+            v-model:active-key="block.activeKey"
+            :default-active-key="['1']"
+            class="code-collapse"
+            expand-icon-position="end"
+          >
+            <a-collapse-panel
+              key="1"
+              class="code-panel"
+            >
+              <template #header>
+                <a-space>
+                  <a-typography-text
+                    type="secondary"
+                    italic
+                  >
+                    代码预览 ({{ block.lines }}行)
+                  </a-typography-text>
+                </a-space>
+              </template>
+              <div
+                :ref="el => { if (el) codeEditors[index] = el }"
+                class="monaco-container"
+              ></div>
+            </a-collapse-panel>
+          </a-collapse>
+        </div>
+      </template>
+
+      <!-- Normal content -->
+      <div
+        v-if="normalContent"
+        v-html="marked(normalContent, null)"
+      ></div>
+    </div>
   </div>
 </template>
 
@@ -148,6 +193,9 @@ const props = defineProps<{
   content: string
   ask?: string
 }>()
+
+const codeBlocks = ref<Array<{ content: string; activeKey: string[]; lines: number }>>([])
+const codeEditors = ref<Array<HTMLElement | null>>([])
 
 // Function to detect language from content
 const detectLanguage = (content: string): string => {
@@ -357,26 +405,117 @@ const updateEditor = (content: string) => {
   }
 }
 
-// Function to process content and extract think tags
+// Function to extract code blocks from content
+const extractCodeBlocks = (content: string) => {
+  const codeBlockRegex = /```(?:\w+)?\n([\s\S]*?)```/g
+  const blocks: Array<{ content: string; activeKey: string[]; lines: number }> = []
+  let match
+
+  while ((match = codeBlockRegex.exec(content)) !== null) {
+    const code = match[1].trim()
+    blocks.push({
+      content: code,
+      activeKey: ['1'],
+      lines: code.split('\n').length
+    })
+  }
+
+  return blocks
+}
+
+// Function to process content and extract think tags and code blocks
 const processContent = (content: string) => {
   const thinkMatch = content.match(/<think>([\s\S]*?)<\/think>/)
   if (thinkMatch) {
     thinkingContent.value = thinkMatch[1].trim()
-    // 获取<think></think>之后的内容作为普通内容
-    normalContent.value = content.substring(thinkMatch[0].length).trim()
+    // Get content after <think></think> as normal content
+    let remainingContent = content.substring(thinkMatch[0].length).trim()
+
+    // Extract code blocks from remaining content
+    codeBlocks.value = extractCodeBlocks(remainingContent)
+
+    // Replace code blocks with placeholders to preserve normal content
+    codeBlocks.value.forEach((_, index) => {
+      remainingContent = remainingContent.replace(/```(?:\w+)?\n[\s\S]*?```/, `[CODE_BLOCK_${index}]`)
+    })
+
+    normalContent.value = remainingContent
     thinkingLoading.value = false
   } else {
     const onlyThinkMatch = content.match(/<think>([\s\S]*)/)
     if (onlyThinkMatch) {
       thinkingContent.value = onlyThinkMatch[1].trim()
       normalContent.value = ''
+      codeBlocks.value = []
       thinkingLoading.value = true
     } else {
       thinkingContent.value = ''
-      normalContent.value = content
+      // Extract code blocks from content
+      codeBlocks.value = extractCodeBlocks(content)
+
+      // Replace code blocks with placeholders
+      let processedContent = content
+      codeBlocks.value.forEach((_, index) => {
+        processedContent = processedContent.replace(/```(?:\w+)?\n[\s\S]*?```/, `[CODE_BLOCK_${index}]`)
+      })
+
+      normalContent.value = processedContent
       thinkingLoading.value = false
     }
   }
+}
+
+// Initialize code block editors
+const initCodeBlockEditors = () => {
+  nextTick(() => {
+    codeBlocks.value.forEach((block, index) => {
+      const container = codeEditors.value[index]
+      if (!container || !monaco.editor) return
+
+      const editor = monaco.editor.create(container, {
+        value: block.content,
+        language: detectLanguage(block.content),
+        theme: 'custom-dark',
+        readOnly: true,
+        minimap: { enabled: false },
+        lineNumbers: 'on',
+        lineNumbersMinChars: 3,
+        lineDecorationsWidth: 12,
+        scrollBeyondLastLine: false,
+        automaticLayout: true,
+        fontSize: 13,
+        lineHeight: 20,
+        wordWrap: 'on',
+        scrollbar: {
+          vertical: 'auto',
+          horizontal: 'hidden',
+          verticalScrollbarSize: 10,
+          horizontalScrollbarSize: 0,
+          alwaysConsumeMouseWheel: false
+        },
+        renderLineHighlight: 'line',
+        glyphMargin: false,
+        folding: false,
+        padding: {
+          top: 8,
+          bottom: 8
+        }
+      })
+
+      // Update height
+      const updateHeight = () => {
+        if (!editor) return
+        const contentHeight = editor.getContentHeight()
+        if (container) {
+          container.style.height = `${contentHeight}px`
+          editor.layout()
+        }
+      }
+
+      editor.onDidContentSizeChange(updateHeight)
+      updateHeight()
+    })
+  })
 }
 
 const onToggleExpand = (keys: string[]) => {
@@ -415,6 +554,7 @@ onMounted(() => {
       initEditor(props.content)
     } else {
       processContent(props.content)
+      initCodeBlockEditors()
     }
   }
 })
@@ -427,6 +567,7 @@ watch(
       renderedContent.value = ''
       thinkingContent.value = ''
       normalContent.value = ''
+      codeBlocks.value = []
       if (editor) {
         editor.setValue('')
       }
@@ -437,6 +578,7 @@ watch(
       updateEditor(newContent)
     } else {
       processContent(newContent)
+      initCodeBlockEditors()
     }
   }
 )
@@ -713,7 +855,7 @@ code {
 
 .code-collapse {
   border: none !important;
-  margin-bottom: 10px;
+  margin-bottom: 2px;
   border-radius: 4px !important;
   background: transparent !important;
 }
@@ -725,7 +867,7 @@ code {
 
 .code-collapse .ant-collapse-header {
   color: #ffffff !important;
-  padding: 8px 12px !important;
+  padding: 8px 12px!important;
   background: transparent !important;
 }
 
@@ -733,6 +875,10 @@ code {
   color: #ffffff !important;
   border: none !important;
   background: transparent !important;
+}
+
+.code-collapse .ant-collapse-content-box {
+  padding: 5px !important;
 }
 
 .code-collapse .ant-typography {

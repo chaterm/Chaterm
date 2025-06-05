@@ -21,8 +21,11 @@
           :key="host"
           color="blue"
         >
-          <template #icon><laptop-outlined /></template>{{ host }}</a-tag
-        >
+          <template #icon>
+            <laptop-outlined />
+          </template>
+          {{ host }}
+        </a-tag>
       </div>
       <div
         v-if="chatHistory.length > 0"
@@ -616,6 +619,9 @@ const handlePlusClick = async () => {
   console.log('handleCancel:取消')
   const response = await (window.api as any).cancelTask()
   console.log('主进程响应:', response)
+  buttonsDisabled.value = false
+  showSendButton.value = false
+  showCancelButton.value = false
   if (currentInput.trim()) {
     sendMessage()
   }
@@ -663,9 +669,14 @@ const restoreHistoryTab = async (history: HistoryItem) => {
         if (item.text === null || item.text === '') {
           return
         }
-        if (item.ask === 'followup' || item.ask === 'command' || item.say === 'text') {
+        if (
+          item.ask === 'followup' ||
+          item.ask === 'command' ||
+          item.say === 'text' ||
+          item.say === 'user_feedback'
+        ) {
           let role: 'assistant' | 'user' = 'assistant'
-          if (index === 0) {
+          if (index === 0 || item.say === 'user_feedback') {
             role = 'user'
           }
           const userMessage: ChatMessage = {
@@ -1154,6 +1165,7 @@ const showBottomButton = computed(() => {
   border-bottom: 0px solid #333;
   justify-content: flex-start;
   user-select: text;
+
   :deep(.ant-tag) {
     font-size: 10px;
     padding: 0 6px;
@@ -1164,6 +1176,7 @@ const showBottomButton = computed(() => {
     background-color: #2a2a2a !important;
     border: 1px solid #3a3a3a !important;
     color: #ffffff !important;
+
     .anticon-laptop {
       color: #1890ff !important;
       margin-right: 0cap;
