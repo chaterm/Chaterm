@@ -726,10 +726,20 @@ const restoreHistoryTab = async (history: HistoryItem) => {
           chatHistory.push(userMessage)
         }
       })
-
+      // TODO:将terminalUuid的发送时机推迟到点击resume按钮时
+      const assetInfo = await getCurentTabAssetInfo()
+      if (!assetInfo) {
+        notification.error({
+          message: '获取当前资产连接信息失败',
+          description: '请先建立资产连接',
+          duration: 3
+        })
+        return 'ASSET_ERROR'
+      }
       await (window.api as any).sendToMain({
         type: 'showTaskWithId',
-        text: history.id
+        text: history.id,
+        terminalUuid: assetInfo?.uuid
       })
     } else {
       const res = await getChatDetailList({
