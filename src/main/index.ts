@@ -10,10 +10,8 @@ import { Controller } from './agent/core/controller'
 import { createExtensionContext } from './agent/core/controller/context'
 import { ElectronOutputChannel } from './agent/core/controller/outputChannel'
 import { executeRemoteCommand } from './agent/integrations/remote-terminal/example'
-import {
-  initializeStorageMain,
-  testStorageFromMain as testRendererStorageFromMain
-} from './agent/core/storage/state'
+import { initializeStorageMain, testStorageFromMain as testRendererStorageFromMain } from './agent/core/storage/state'
+import { getTaskMetadata } from './agent/core/storage/disk'
 
 let mainWindow: BrowserWindow
 let COOKIE_URL = 'http://localhost'
@@ -580,4 +578,14 @@ ipcMain.handle('execute-remote-command', async () => {
     }
     return { success: false, error: { message: 'An unknown error occurred in main process' } } // 修改日志
   }
+})
+
+ipcMain.handle('get-task-metadata', async (_event, { taskId }) => {
+  try {
+    const metadata = await getTaskMetadata(taskId)
+    return { success: true, data: metadata }
+  } catch (error) {
+    if (error instanceof Error) {
+    return { success: false,  error: { message: error.message } }
+  }}
 })
