@@ -21,16 +21,17 @@ Want syntax highlighting and smart completion, but don't have root privileges, a
 
 ## Demo Display
 
-![Preview image](demo.jpg)
+![Preview image](resources/demo.jpg)
 
 ## Usecase
 
-![Preview image](deploy.jpg)
+![Preview image](resources/deploy.jpg)
 
 ## Main Features
 
 - 🤖️ AI Agent：Use natural language to instead of remember the complex command line.
 - ✅ Smart Completion：Command suggestion base your personal knowledge across multiple os platform.
+- 💬 Voice Command: High accuracy speech recognition and knowledge base enables input without a keyboard.
 - 🌟 Global Syntax Highlight：Personalization syntax highlighting on no matter whatever shell you use.
 - 📄 Visual Vim Editor：Get visual text editor experience in terminal Vim like Sublime Text.
 - 🎹 Short aliases：instead of complex code snippets across multiple terminal.

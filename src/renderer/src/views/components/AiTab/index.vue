@@ -159,7 +159,24 @@
             {{ $t('ai.cancel') }}
           </a-button>
         </div>
-        <div class="input-send-container" style="position: relative;">
+        <div
+          v-if="showResumeButton"
+          class="bottom-buttons"
+        >
+          <a-button
+            size="small"
+            type="primary"
+            class="resume-btn"
+            :disabled="resumeDisabled"
+            @click="handleResume"
+          >
+            <template #icon>
+              <RedoOutlined />
+            </template>
+            {{ $t('ai.resume') }}
+          </a-button>
+        </div>
+        <div class="input-send-container">
           <a-textarea
             v-model:value="chatInputValue"
             :placeholder="$t('ai.agentMessage')"
@@ -228,7 +245,10 @@
             class="action-icon-btn"
             @click="handlePlusClick"
           >
-            <PlusOutlined />
+            <img
+              :src="plusIcon"
+              alt="plus"
+            />
           </a-button>
         </a-tooltip>
         <a-tooltip :title="$t('ai.showChatHistory')">
@@ -238,7 +258,10 @@
               class="action-icon-btn"
               @click="handleHistoryClick"
             >
-              <HistoryOutlined />
+              <img
+                :src="historyIcon"
+                alt="history"
+              />
             </a-button>
             <template #overlay>
               <a-menu class="history-dropdown-menu">
@@ -263,7 +286,10 @@
             class="action-icon-btn"
             @click="handleClose"
           >
-            <CloseOutlined />
+            <img
+              :src="foldIcon"
+              alt="fold"
+            />
           </a-button>
         </a-tooltip>
       </div>
@@ -290,7 +316,8 @@ import {
   LaptopOutlined,
   CopyOutlined,
   CheckOutlined,
-  PlayCircleOutlined
+  PlayCircleOutlined,
+  RedoOutlined
 } from '@ant-design/icons-vue'
 import { notification } from 'ant-design-vue'
 import { v4 as uuidv4 } from 'uuid'
@@ -298,6 +325,9 @@ import { getAiModel, getChatDetailList, getConversationList } from '@/api/ai/ai'
 import eventBus from '@/utils/eventBus'
 import { getGlobalState } from '@renderer/agent/storage/state'
 import type { HistoryItem as TaskHistoryItem } from '@renderer/agent/storage/shared'
+import foldIcon from '@/assets/icons/fold.svg'
+import historyIcon from '@/assets/icons/history.svg'
+import plusIcon from '@/assets/icons/plus.svg'
 // 异步加载 Markdown 渲染组件
 const MarkdownRenderer = defineAsyncComponent(
   () => import('@views/components/AiTab/MarkdownRenderer.vue')
@@ -328,6 +358,7 @@ const activeKey = ref('chat')
 const showSendButton = ref(true)
 const lastChatMessageId = ref('')
 const buttonsDisabled = ref(false)
+const resumeDisabled = ref(false)
 const showCancelButton = ref(false)
 
 // 当前活动对话的 ID
@@ -537,13 +568,27 @@ const createWebSocket = (type: string) => {
 }
 
 const sendMessage = async () => {
+  if (chatInputValue.value.trim() === '') {
+    notification.error({
+      message: '发送内容错误',
+      description: '发送内容为空，请输入内容',
+      duration: 3
+    })
+    return 'SEND_ERROR'
+  }
   const userContent = chatInputValue.value.trim()
   if (!userContent) return
   if (chatTypeValue.value === 'agent') {
-    const result = await sendMessageToMain(userContent)
-    if (result === 'ASSET_ERROR') {
-      return
+    if (hosts.value.length === 0) {
+      notification.error({
+        message: '获取当前资产连接信息失败',
+        description: '请先建立资产连接',
+        duration: 3
+      })
+      return 'ASSET_ERROR'
     }
+     await sendMessageToMain(userContent)
+
     const userMessage: ChatMessage = {
       id: uuidv4(),
       role: 'user',
@@ -657,7 +702,7 @@ const handlePlusClick = async () => {
   const response = await (window.api as any).cancelTask()
   console.log('主进程响应:', response)
   buttonsDisabled.value = false
-  showSendButton.value = false
+  resumeDisabled.value = false
   showCancelButton.value = false
   if (currentInput.trim()) {
     sendMessage()
@@ -703,13 +748,11 @@ const restoreHistoryTab = async (history: HistoryItem) => {
       chatHistory.length = 0
       // 按时间戳排序
       conversationHistory.forEach((item, index) => {
-        if (item.text === null || item.text === '') {
-          return
-        }
         if (
           item.ask === 'followup' ||
           item.ask === 'command' ||
           item.say === 'text' ||
+          item.ask === 'resume_task' ||
           item.say === 'user_feedback'
         ) {
           let role: 'assistant' | 'user' = 'assistant'
@@ -741,10 +784,20 @@ const restoreHistoryTab = async (history: HistoryItem) => {
           chatHistory.push(userMessage)
         }
       })
-
+      // TODO:将terminalUuid的发送时机推迟到点击resume按钮时
+      const assetInfo = await getCurentTabAssetInfo()
+      if (!assetInfo) {
+        notification.error({
+          message: '获取当前资产连接信息失败',
+          description: '请先建立资产连接',
+          duration: 3
+        })
+        return 'ASSET_ERROR'
+      }
       await (window.api as any).sendToMain({
         type: 'showTaskWithId',
-        text: history.id
+        text: history.id,
+        terminalUuid: assetInfo?.uuid
       })
     } else {
       const res = await getChatDetailList({
@@ -967,6 +1020,23 @@ const handleCancel = async () => {
   showCancelButton.value = false
 }
 
+const handleResume = async () => {
+  let message = chatHistory.at(-1)
+  if (!message) {
+    return false
+  }
+  console.log('handleResume:恢复')
+  const messageRsp = {
+    type: 'askResponse',
+    askResponse: 'messageResponse',
+    text: 'resume task'
+  }
+  console.log('发送消息到主进程:', messageRsp)
+  const response = await (window.api as any).sendToMain(messageRsp)
+  console.log('主进程响应:', response)
+  resumeDisabled.value = true
+}
+
 // 声明removeListener变量
 let removeListener: (() => void) | null = null
 
@@ -1073,17 +1143,7 @@ onUnmounted(() => {
 const sendMessageToMain = async (userContent: string) => {
   try {
     let message
-    const currentHistoryEntry = historyList.value.find((entry) => entry.id === currentChatId.value)
     if (chatHistory.length === 0) {
-      // 校验 hosts 是否有主机
-      if (hosts.value.length === 0) {
-        notification.error({
-          message: '获取当前资产连接信息失败',
-          description: '请先建立资产连接',
-          duration: 3
-        })
-        return 'ASSET_ERROR'
-      }
       message = {
         type: 'newTask',
         askResponse: 'messageResponse',
@@ -1135,6 +1195,7 @@ watch(
   () => chatHistory.length,
   () => {
     buttonsDisabled.value = false
+    resumeDisabled.value = false
   }
 )
 
@@ -1201,6 +1262,22 @@ const fetchHostOptions = async (search: string) => {
   }))
 }
 
+const showResumeButton = computed(() => {
+  if (chatHistory.length === 0) {
+    return false
+  }
+  let message = chatHistory.at(-1)
+  if (!message) {
+    return false
+  }
+  // return (
+  //   chatTypeValue.value === 'agent' &&
+  //   lastChatMessageId.value !== '' &&
+  //   lastChatMessageId.value == message.id &&
+  //   message.ask === 'resume_task'
+  // )
+  return chatTypeValue.value === 'agent' && message.ask === 'resume_task'
+})
 </script>
 
 <style lang="less" scoped>
@@ -1253,6 +1330,7 @@ const fetchHostOptions = async (search: string) => {
     line-height: 16px;
     display: flex;
     align-items: center;
+    margin-left: 2px;
     background-color: #2a2a2a !important;
     border: 1px solid #3a3a3a !important;
     color: #ffffff !important;
@@ -1568,10 +1646,12 @@ const fetchHostOptions = async (search: string) => {
     color: #e0e0e0;
     border-radius: 4px;
     transition: all 0.3s ease;
+    filter: invert(0.25);
 
     &:hover {
       background-color: rgba(255, 255, 255, 0.1);
       color: #fff;
+      filter: invert(0.1);
     }
 
     &:active {
@@ -1722,7 +1802,8 @@ const fetchHostOptions = async (search: string) => {
 
   .reject-btn,
   .approve-btn,
-  .cancel-btn {
+  .cancel-btn,
+  .resume-btn {
     flex: 1;
     display: flex;
     align-items: center;
@@ -1792,6 +1873,42 @@ const fetchHostOptions = async (search: string) => {
       background-color: #3a3a3a;
       border-color: #4a4a4a;
       color: #888888;
+    }
+    &[disabled] {
+      background-color: #1a1a1a !important;
+      border-color: #2a2a2a !important;
+      color: #666666 !important;
+      cursor: not-allowed;
+
+      &:hover {
+        background-color: #1a1a1a !important;
+        border-color: #2a2a2a !important;
+        color: #666666 !important;
+      }
+    }
+  }
+
+  .resume-btn {
+    background-color: #1656b1;
+    border-color: #2d6fcd;
+    color: #cccccc;
+
+    &:hover {
+      background-color: #1656b1;
+      border-color: #2d6fcd;
+      color: #ffffff;
+    }
+    &[disabled] {
+      background-color: #1a1a1a !important;
+      border-color: #2a2a2a !important;
+      color: #666666 !important;
+      cursor: not-allowed;
+
+      &:hover {
+        background-color: #1a1a1a !important;
+        border-color: #2a2a2a !important;
+        color: #666666 !important;
+      }
     }
   }
 }

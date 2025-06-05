@@ -21,16 +21,17 @@ Chaterm是一款类似Cursor的终端上工具，无需再学习复杂的正则�
 
 ## Demo 展示
 
-![Preview image](demo.jpg)
+![Preview image](resources/demo.jpg)
 
 ## 使用案例
 
-![Preview image](deploy.jpg)
+![Preview image](resources/deploy.jpg)
 
 ## 核心功能
 
 - 🤖️ 智能Agent：那些复杂又低频的操作命令想不起来？Agent帮你使用自然语言管理机器！
 - ✅ 智能补全：基于个人知识库和操作习惯的智能命令补全，跨服务器，跨平台补全！
+- 💬 语音命令：高精度语音识别和知识库使得移动场景下即使没有键盘也能高效输入命令。
 - 🌟 全局语法高亮：全局语法高亮规则，无论在何种操作系统上均能获得一致的语法高亮体验！
 - 📄 可视化VIM：终端上的Sublime Text，支持语法高亮，所见即所得的增强VIM！
 - 🎹 全局别名：可配置的全局Alias，给复杂的命令和批处理脚本设置一个简单的别名吧！
