@@ -174,35 +174,35 @@
         </a-form-item>
       </div>
       <!-- Extended Thinking -->
-      <!--      <div class="setting-item">-->
-      <!--        <a-checkbox-->
-      <!--          v-model:checked="enableExtendedThinking"-->
-      <!--          @change="handleEnableExtendedThinking"-->
-      <!--        >-->
-      <!--          {{ $t('user.enableExtendedThinking') }}-->
-      <!--        </a-checkbox>-->
-      <!--        <template v-if="enableExtendedThinking">-->
-      <!--          <div class="label-container">-->
-      <!--            <label class="budget-label">-->
-      <!--              <strong>Budget:</strong> {{ thinkingBudgetTokens.toLocaleString() }} tokens-->
-      <!--            </label>-->
-      <!--          </div>-->
+      <div class="setting-item">
+        <a-checkbox
+          v-model:checked="enableExtendedThinking"
+          @change="handleEnableExtendedThinking"
+        >
+          {{ $t('user.enableExtendedThinking') }}
+        </a-checkbox>
+        <template v-if="enableExtendedThinking">
+          <div class="label-container">
+            <label class="budget-label">
+              <strong>Budget:</strong> {{ thinkingBudgetTokens.toLocaleString() }} tokens
+            </label>
+          </div>
 
-      <!--          <div class="slider-container">-->
-      <!--            <a-slider-->
-      <!--              v-model:value="thinkingBudgetTokens"-->
-      <!--              :min="1024"-->
-      <!--              :max="6553"-->
-      <!--              :step="1"-->
-      <!--              :tooltip-visible="false"-->
-      <!--            />-->
-      <!--          </div>-->
+          <div class="slider-container">
+            <a-slider
+              v-model:value="thinkingBudgetTokens"
+              :min="1024"
+              :max="6553"
+              :step="1"
+              :tooltip-visible="false"
+            />
+          </div>
 
-      <!--          <p class="setting-description-no-padding">-->
-      <!--            {{ $t('user.enableExtendedThinkingDescribe') }}-->
-      <!--          </p>-->
-      <!--        </template>-->
-      <!--      </div>-->
+          <p class="setting-description-no-padding">
+            {{ $t('user.enableExtendedThinkingDescribe') }}
+          </p>
+        </template>
+      </div>
 
       <!-- Auto Approval -->
       <div class="setting-item">
