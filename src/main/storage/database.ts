@@ -643,6 +643,28 @@ export class ChatermDatabaseService {
       throw error
     }
   }
+  // @获取用户主机列表
+  getUserHosts(search: string): any {
+    try {
+      const safeSearch = search ?? '';
+      const stmt = this.db.prepare(`
+        SELECT asset_ip, uuid
+        FROM t_assets
+        WHERE asset_ip LIKE '${safeSearch}%'
+        GROUP BY asset_ip
+        LIMIT 10
+      `)
+      const results = stmt.all() || []
+      console.log('results', results)
+      return results.map((item: any) => ({
+        host: item.asset_ip,
+        uuid: item.uuid
+      }))
+    } catch (error) {
+      console.error('Chaterm database get user hosts error:', error)
+      throw error
+    }
+  }
 
   // 事务处理
   transaction(fn: () => void): any {
