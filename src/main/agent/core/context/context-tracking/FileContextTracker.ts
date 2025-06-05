@@ -74,7 +74,7 @@ export class FileContextTracker {
   // This is the main entry point for FileContextTracker and is called when a file is passed to Cline via a tool, mention, or edit.
   async trackFileContext(
     filePath: string,
-    operation: 'read_tool' | 'user_edited' | 'cline_edited' | 'file_mentioned'
+    operation: 'read_tool' | 'user_edited' | 'chaterm_edited' | 'file_mentioned'
   ) {
     try {
       const cwd = this.getCwd()
@@ -141,8 +141,8 @@ export class FileContextTracker {
           this.recentlyModifiedFiles.add(filePath)
           break
 
-        // cline_edited: Cline has edited the file
-        case 'cline_edited':
+        // chaterm_edited: Cline has edited the file
+        case 'chaterm_edited':
           newEntry.cline_read_date = now
           newEntry.cline_edit_date = now
           break
@@ -170,7 +170,7 @@ export class FileContextTracker {
   }
 
   // Marks a file as edited by Cline to prevent false positives in file watchers
-  markFileAsEditedByCline(filePath: string): void {
+  markFileAsEditedByChaterm(filePath: string): void {
     this.recentlyEditedByCline.add(filePath)
   }
 
