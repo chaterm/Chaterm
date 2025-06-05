@@ -55,8 +55,7 @@ import {
   ToolUseName
 } from '@core/assistant-message'
 // import { constructNewFileContent } from "@core/assistant-message/diff"
-// import { ClineIgnoreController } from "@core/ignore/ClineIgnoreController"
-// import { TerminalManager } from '../../integrations/terminal/TerminalManager'
+// import { ChatermIgnoreController } from "@core/ignore/ChatermIgnoreController"
 import { RemoteTerminalManager, ConnectionInfo } from '../../integrations/remote-terminal'
 import { parseMentions } from '@core/mentions'
 import { formatResponse } from '@core/prompts/responses'
@@ -124,7 +123,7 @@ export class Task {
   chatSettings: ChatSettings
   apiConversationHistory: Anthropic.MessageParam[] = []
   chatermMessages: ChatermMessage[] = []
-  // private clineIgnoreController: ChatermIgnoreController
+  // private chatermIgnoreController: ChatermIgnoreController
   private askResponse?: ChatermAskResponse
   private askResponseText?: string
   //private askResponseImages?: string[]
@@ -189,7 +188,7 @@ export class Task {
     // 初始化终端管理器
     // this.terminalManager = new TerminalManager()
     this.remoteTerminalManager = new RemoteTerminalManager()
-    // this.clineIgnoreController = new ClineIgnoreController(cwd)
+    // this.chatermIgnoreController = new ChatermIgnoreController(cwd)
     // Initialization moved to startTask/resumeTaskFromHistory
     // this.terminalManager = new TerminalManager()
     // this.terminalManager.setShellIntegrationTimeout(shellIntegrationTimeout)
@@ -286,7 +285,7 @@ export class Task {
   }
 
   private async addToChatermMessages(message: ChatermMessage) {
-    message.conversationHistoryIndex = this.apiConversationHistory.length - 1 // NOTE: this is the index of the last added message which is the user message, and once the clinemessages have been presented we update the apiconversationhistory with the completed assistant message. This means when resetting to a message, we need to +1 this index to get the correct assistant message that this tool use corresponds to
+    message.conversationHistoryIndex = this.apiConversationHistory.length - 1 // NOTE: this is the index of the last added message which is the user message, and once the chatermmessages have been presented we update the apiconversationhistory with the completed assistant message. This means when resetting to a message, we need to +1 this index to get the correct assistant message that this tool use corresponds to
     message.conversationHistoryDeletedRange = this.conversationHistoryDeletedRange
     this.chatermMessages.push(message)
     await this.saveChatermMessagesAndUpdateHistory()
@@ -432,7 +431,7 @@ export class Task {
           lastMessage.text = text
           lastMessage.partial = partial
           // todo be more efficient about saving and posting only new data or one whole message at a time so ignore partial for saves, and only post parts of partial message instead of whole array in new listener
-          // await this.saveClineMessagesAndUpdateHistory()
+          // await this.saveChatermMessagesAndUpdateHistory()
           // await this.postStateToWebview()
           await this.postMessageToWebview({
             type: 'partialMessage',
@@ -499,7 +498,7 @@ export class Task {
       }
     } else {
       // this is a new non-partial message, so add it like normal
-      // const lastMessage = this.clineMessages.at(-1)
+      // const lastMessage = this.chatermMessages.at(-1)
       this.askResponse = undefined
       this.askResponseText = undefined
       // this.askResponseImages = undefined
@@ -650,9 +649,9 @@ export class Task {
 
   private async startTask(task?: string): Promise<void> {
     // try {
-    // 	await this.clineIgnoreController.initialize()
+    // 	await this.chatermIgnoreController.initialize()
     // } catch (error) {
-    // 	console.error("Failed to initialize ClineIgnoreController:", error)
+    // 	console.error("Failed to initialize ChatermIgnoreController:", error)
     // 	// Optionally, inform the user or handle the error appropriately
     // }
     // conversationHistory (for API) and chatermMessages (for webview) need to be in sync
@@ -794,7 +793,7 @@ export class Task {
     let nextUserContent = userContent
     let includeHostDetails = true
     while (!this.abort) {
-      const didEndLoop = await this.recursivelyMakeClineRequests(
+      const didEndLoop = await this.recursivelyMakeChatermRequests(
         nextUserContent,
         includeHostDetails
       )
@@ -819,12 +818,8 @@ export class Task {
 
   async abortTask() {
     this.abort = true // will stop any autonomously running promises
-    // this.terminalManager.disposeAll()
-    // this.urlContentFetcher.closeBrowser()
-    // await this.browserSession.dispose()
-    // this.clineIgnoreController.dispose()
+    this.remoteTerminalManager.disposeAll()
     this.fileContextTracker.dispose()
-    // await this.diffViewProvider.revertChanges() // need to await for when we want to make sure directories/files are reverted before re-starting the task from a checkpoint
   }
 
   // Checkpoints
@@ -873,8 +868,8 @@ export class Task {
 
     // Previously we checkpointed every message, but this is excessive and unnecessary.
     // // Start from the end and work backwards until we find a tool use or another message with a hash
-    // for (let i = this.clineMessages.length - 1; i >= 0; i--) {
-    // 	const message = this.clineMessages[i]
+    // for (let i = this.chatermMessages.length - 1; i >= 0; i--) {
+    // 	const message = this.chatermMessages[i]
     // 	if (message.lastCheckpointHash) {
     // 		// Found a message with a hash, so we can stop
     // 		break
@@ -902,89 +897,10 @@ export class Task {
     // 	}
     // }
     // // Save the updated messages
-    // await this.saveClineMessagesAndUpdateHistory()
+    // await this.saveChatermMessagesAndUpdateHistory()
     // }
   }
 
-  // Tools
-
-  /**
-   * Executes a command directly in Node.js using execa
-   * This is used in test mode to capture the full output without using the VS Code terminal
-   * Commands are automatically terminated after 30 seconds using Promise.race
-   */
-  // private async executeCommandInNode(command: string): Promise<[boolean, ToolResponse]> {
-  //   try {
-  //     // Create a child process
-  //     const childProcess = execa(command, {
-  //       shell: true,
-  //       cwd,
-  //       reject: false,
-  //       all: true // Merge stdout and stderr
-  //     })
-
-  //     // Set up variables to collect output
-  //     let output = ''
-
-  //     // Collect output in real-time
-  //     if (childProcess.all) {
-  //       childProcess.all.on('data', (data) => {
-  //         output += data.toString()
-  //       })
-  //     }
-
-  //     // Create a timeout promise that rejects after 30 seconds
-  //     const timeoutPromise = new Promise<never>((_, reject) => {
-  //       setTimeout(() => {
-  //         if (childProcess.pid) {
-  //           childProcess.kill('SIGKILL') // Use SIGKILL for more forceful termination
-  //         }
-  //         reject(new Error('Command timeout after 30s'))
-  //       }, 30000)
-  //     })
-
-  //     // Race between command completion and timeout
-  //     const result = await Promise.race([childProcess, timeoutPromise]).catch((error) => {
-  //       // If we get here due to timeout, return a partial result with timeout flag
-  //       // Logger.info(`Command timed out after 30s: ${command}`)
-  //       return {
-  //         stdout: '',
-  //         stderr: '',
-  //         exitCode: 124, // Standard timeout exit code
-  //         timedOut: true
-  //       }
-  //     })
-
-  //     // Check if timeout occurred
-  //     const wasTerminated = result.timedOut === true
-
-  //     // Use collected output or result output
-  //     if (!output) {
-  //       output = result.stdout || result.stderr || ''
-  //     }
-
-  //     // Logger.info(`Command executed in Node: ${command}\nOutput:\n${output}`)
-
-  //     // Add termination message if the command was terminated
-  //     if (wasTerminated) {
-  //       output += '\nCommand was taking a while to run so it was auto terminated after 30s'
-  //     }
-
-  //     // Format the result similar to terminal output
-  //     return [
-  //       false,
-  //       `Command executed${wasTerminated ? ' (terminated after 30s)' : ''} with exit code ${
-  //         result.exitCode
-  //       }.${output.length > 0 ? `\nOutput:\n${output}` : ''}`
-  //     ]
-  //   } catch (error) {
-  //     // Handle any errors that might occur
-  //     const errorMessage = error instanceof Error ? error.message : String(error)
-  //     return [false, `Error executing command: ${errorMessage}`]
-  //   }
-  // }
-
-  //TODO: update executeCommandTool
   async executeCommandTool(command: string, cwd?: string): Promise<[boolean, ToolResponse]> {
     const terminalInfo = await this.connectTerminal()
     if (!terminalInfo) {
@@ -1258,7 +1174,7 @@ export class Task {
       yield firstChunk.value
       this.isWaitingForFirstChunk = false
     } catch (error) {
-      // const isOpenRouter = this.api instanceof OpenRouterHandler || this.api instanceof ClineHandler
+      // const isOpenRouter = this.api instanceof OpenRouterHandler
       // const isAnthropic = this.api instanceof AnthropicHandler
       // const isOpenRouterContextWindowError = checkIsOpenRouterContextWindowError(error) && isOpenRouter
       // const isAnthropicContextWindowError = checkIsAnthropicContextWindowError(error) && isAnthropic
@@ -1612,10 +1528,10 @@ export class Task {
             // 		break
             // 	}
 
-            // 	const accessAllowed = this.clineIgnoreController.validateAccess(relPath)
+            // 	const accessAllowed = this.chatermIgnoreController.validateAccess(relPath)
             // 	if (!accessAllowed) {
-            // 		await this.say("clineignore_error", relPath)
-            // 		pushToolResult(formatResponse.toolError(formatResponse.clineIgnoreError(relPath)))
+            // 		await this.say("chatermignore_error", relPath)
+            // 		pushToolResult(formatResponse.toolError(formatResponse.chatermIgnoreError(relPath)))
             // 		await this.saveCheckpoint()
             // 		break
             // 	}
@@ -1699,7 +1615,7 @@ export class Task {
 
             // 		newContent = newContent.trimEnd() // remove any trailing newlines, since it's automatically inserted by the editor
 
-            // 		const sharedMessageProps: ClineSayTool = {
+            // 		const sharedMessageProps: ChatermSayTool = {
             // 			tool: fileExists ? "editedExistingFile" : "newFileCreated",
             // 			path: getReadablePath(cwd, removeClosingTag("path", relPath)),
             // 			content: diff || content,
@@ -1781,7 +1697,7 @@ export class Task {
             // 				// 		newContent,
             // 				// 	)
             // 				// : undefined,
-            // 			} satisfies ClineSayTool)
+            // 			} satisfies ChatermSayTool)
             // 			if (this.shouldAutoApproveToolWithPath(block.name, relPath)) {
             // 				this.removeLastPartialMessageIfExistsWithType("ask", "tool")
             // 				await this.say("tool", completeMessage, undefined, false)
@@ -1833,14 +1749,14 @@ export class Task {
             // 			}
 
             // 			// Mark the file as edited by Chaterm to prevent false "recently modified" warnings
-            // 			this.fileContextTracker.markFileAsEditedByCline(relPath)
+            // 			this.fileContextTracker.markFileAsEditedByChaterm(relPath)
 
             // 			// const { newProblemsMessage, userEdits, autoFormattingEdits, finalContent } =
             // 			// 	await this.diffViewProvider.saveChanges()
             // 			// this.didEditFile = true // used to determine if we should wait for busy terminal to update before sending api request
 
             // 			// Track file edit operation
-            // 			await this.fileContextTracker.trackFileContext(relPath, "cline_edited")
+            // 			await this.fileContextTracker.trackFileContext(relPath, "chaterm_edited")
 
             // 			// if (userEdits) {
             // 			// 	// Track file edit operation
@@ -1922,10 +1838,10 @@ export class Task {
                   break
                 }
 
-                // const accessAllowed = this.clineIgnoreController.validateAccess(relPath)
+                // const accessAllowed = this.chatermIgnoreController.validateAccess(relPath)
                 // if (!accessAllowed) {
-                // 	await this.say("clineignore_error", relPath)
-                // 	pushToolResult(formatResponse.toolError(formatResponse.clineIgnoreError(relPath)))
+                // 	await this.say("chatermignore_error", relPath)
+                // 	pushToolResult(formatResponse.toolError(formatResponse.chatermIgnoreError(relPath)))
                 // 	await this.saveCheckpoint()
                 // 	break
                 // }
@@ -2010,7 +1926,7 @@ export class Task {
                   absolutePath,
                   files,
                   didHitLimit
-                  //this.clineIgnoreController,
+                  //this.chatermIgnoreController,
                 )
                 const completeMessage = JSON.stringify({
                   ...sharedMessageProps,
@@ -2045,76 +1961,6 @@ export class Task {
               break
             }
           }
-          // case "list_code_definition_names": {
-          // 	const relDirPath: string | undefined = block.params.path
-          // 	const sharedMessageProps: ClineSayTool = {
-          // 		tool: "listCodeDefinitionNames",
-          // 		path: getReadablePath(cwd, removeClosingTag("path", relDirPath)),
-          // 	}
-          // 	try {
-          // 		if (block.partial) {
-          // 			const partialMessage = JSON.stringify({
-          // 				...sharedMessageProps,
-          // 				content: "",
-          // 				operationIsLocatedInWorkspace: isLocatedInWorkspace(block.params.path),
-          // 			} satisfies ClineSayTool)
-          // 			if (this.shouldAutoApproveToolWithPath(block.name, block.params.path)) {
-          // 				this.removeLastPartialMessageIfExistsWithType("ask", "tool")
-          // 				await this.say("tool", partialMessage, undefined, block.partial)
-          // 			} else {
-          // 				this.removeLastPartialMessageIfExistsWithType("say", "tool")
-          // 				await this.ask("tool", partialMessage, block.partial).catch(() => {})
-          // 			}
-          // 			break
-          // 		} else {
-          // 			if (!relDirPath) {
-          // 				this.consecutiveMistakeCount++
-          // 				pushToolResult(await this.sayAndCreateMissingParamError("list_code_definition_names", "path"))
-          // 				await this.saveCheckpoint()
-          // 				break
-          // 			}
-
-          // 			this.consecutiveMistakeCount = 0
-
-          // 			const absolutePath = path.resolve(cwd, relDirPath)
-          // 			const result = await parseSourceCodeForDefinitionsTopLevel(
-          // 				absolutePath,
-          // 				this.clineIgnoreController,
-          // 			)
-
-          // 			const completeMessage = JSON.stringify({
-          // 				...sharedMessageProps,
-          // 				content: result,
-          // 				operationIsLocatedInWorkspace: isLocatedInWorkspace(block.params.path),
-          // 			} satisfies ClineSayTool)
-          // 			if (this.shouldAutoApproveToolWithPath(block.name, block.params.path)) {
-          // 				this.removeLastPartialMessageIfExistsWithType("ask", "tool")
-          // 				await this.say("tool", completeMessage, undefined, false)
-          // 				this.consecutiveAutoApprovedRequestsCount++
-          // 				telemetryService.captureToolUsage(this.taskId, block.name, true, true)
-          // 			} else {
-          // 				showNotificationForApprovalIfAutoApprovalEnabled(
-          // 					`Chaterm wants to view source code definitions in ${path.basename(absolutePath)}/`,
-          // 				)
-          // 				this.removeLastPartialMessageIfExistsWithType("say", "tool")
-          // 				const didApprove = await askApproval("tool", completeMessage)
-          // 				if (!didApprove) {
-          // 					telemetryService.captureToolUsage(this.taskId, block.name, false, false)
-          // 					await this.saveCheckpoint()
-          // 					break
-          // 				}
-          // 				telemetryService.captureToolUsage(this.taskId, block.name, false, true)
-          // 			}
-          // 			pushToolResult(result)
-          // 			await this.saveCheckpoint()
-          // 			break
-          // 		}
-          // 	} catch (error) {
-          // 		await handleError("parsing source code definitions", error)
-          // 		await this.saveCheckpoint()
-          // 		break
-          // 	}
-          // }
           case 'search_files': {
             const relDirPath: string | undefined = block.params.path
             const regex: string | undefined = block.params.regex
@@ -2161,7 +2007,7 @@ export class Task {
                   absolutePath,
                   regex,
                   filePattern
-                  // this.clineIgnoreController,
+                  // this.chatermIgnoreController,
                 )
 
                 const completeMessage = JSON.stringify({
@@ -2422,11 +2268,11 @@ export class Task {
                 // 	command = fixModelHtmlEscaping(command)
                 // }
 
-                // const ignoredFileAttemptedToAccess = this.clineIgnoreController.validateCommand(command)
+                // const ignoredFileAttemptedToAccess = this.chatermIgnoreController.validateCommand(command)
                 // if (ignoredFileAttemptedToAccess) {
-                // 	await this.say("clineignore_error", ignoredFileAttemptedToAccess)
+                // 	await this.say("chatermignore_error", ignoredFileAttemptedToAccess)
                 // 	pushToolResult(
-                // 		formatResponse.toolError(formatResponse.clineIgnoreError(ignoredFileAttemptedToAccess)),
+                // 		formatResponse.toolError(formatResponse.chatermIgnoreError(ignoredFileAttemptedToAccess)),
                 // 	)
                 // 	await this.saveCheckpoint()
                 // 	break
@@ -2773,8 +2619,6 @@ export class Task {
 
                 // Derive system information values algorithmically
                 const operatingSystem = os.platform() + ' ' + os.release()
-                // const clineVersion =
-                // 	vscode.extensions.getExtension("saoudrizwan.claude-dev")?.packageJSON.version || "Unknown"
                 // const systemInfo = `VSCode: ${vscode.version}, Node.js: ${process.version}, Architecture: ${os.arch()}`
                 // const providerAndModel = `${(await getGlobalState(this.getContext(), "apiProvider")) as string} / ${this.api.getModel().id}`
                 const providerAndModel = `${(await getGlobalState('apiProvider')) as string} / ${this.api.getModel().id}`
@@ -2790,7 +2634,6 @@ export class Task {
                   provider_and_model: providerAndModel,
                   operating_system: operatingSystem
                   // system_info: systemInfo,
-                  // cline_version: clineVersion,
                 })
 
                 const { text } = await this.ask('report_bug', bugReportData, false)
@@ -2971,7 +2814,7 @@ export class Task {
                   // the attempt_completion text is done, now we're getting command
                   // remove the previous partial attempt_completion ask, replace with say, post state to webview, then stream command
 
-                  // const secondLastMessage = this.clineMessages.at(-2)
+                  // const secondLastMessage = this.chatermMessages.at(-2)
                   // NOTE: we do not want to auto approve a command run as part of the attempt_completion tool
                   if (lastMessage && lastMessage.ask === 'command') {
                     // update command
@@ -3131,7 +2974,7 @@ export class Task {
     }
   }
 
-  async recursivelyMakeClineRequests(
+  async recursivelyMakeChatermRequests(
     userContent: UserContent,
     includeHostDetails: boolean = false
   ): Promise<boolean> {
@@ -3189,6 +3032,7 @@ export class Task {
           message: `Chaterm has auto-approved ${this.autoApprovalSettings.maxRequests.toString()} API requests.`
         })
       }
+      // 如果用户返回NO，会卡住吗？
       await this.ask(
         'auto_approval_max_req_reached',
         `Chaterm has auto-approved ${this.autoApprovalSettings.maxRequests.toString()} API requests. Would you like to reset the count and proceed with the task?`
@@ -3256,18 +3100,10 @@ export class Task {
       }
     }
 
-    const [parsedUserContent, environmentDetails, clinerulesError] = await this.loadContext(
+    const [parsedUserContent, environmentDetails] = await this.loadContext(
       userContent,
       includeHostDetails
     )
-
-    // error handling if the user uses the /newrule command & their .clinerules is a file, for file read operations didnt work properly
-    // if (clinerulesError === true) {
-    //   await this.say(
-    //     'error',
-    //     "Issue with processing the /newrule command. Double check that, if '.clinerules' already exists, it's a directory and not a file. Otherwise there was an issue referencing this file/directory."
-    //   )
-    // }
 
     userContent = parsedUserContent
     // add environment details as its own text block, separate from tool results
@@ -3337,7 +3173,7 @@ export class Task {
           lastMessage.partial = false
           // instead of streaming partialMessage events, we do a save and post like normal to persist to disk
           console.log('updating partial message', lastMessage)
-          // await this.saveClineMessagesAndUpdateHistory()
+          // await this.saveChatermMessagesAndUpdateHistory()
         }
 
         // Let assistant know their response was interrupted for when task is resumed
@@ -3545,7 +3381,7 @@ export class Task {
           this.consecutiveMistakeCount++
         }
 
-        const recDidEndLoop = await this.recursivelyMakeClineRequests(this.userMessageContent)
+        const recDidEndLoop = await this.recursivelyMakeChatermRequests(this.userMessageContent)
         didEndLoop = recDidEndLoop
       } else {
         // if there's no assistant_responses, that means we got no text or tool_use content blocks from API which we should assume is an error
@@ -3574,10 +3410,7 @@ export class Task {
   async loadContext(
     userContent: UserContent,
     includeHostDetails: boolean = false
-  ): Promise<[UserContent, string, boolean]> {
-    // Track if we need to check clinerulesFile
-    let needsClinerulesFileCheck = false
-
+  ): Promise<[UserContent, string]> {
     const processUserContent = async () => {
       // This is a temporary solution to dynamically load context mentions from tool results. It checks for the presence of tags that indicate that the tool was rejected and feedback was provided (see formatToolDeniedFeedback, attemptCompletion, executeCommand, and consecutiveMistakeCount >= 3) or "<answer>" (see askFollowupQuestion), we place all user generated content in these tags so they can effectively be used as markers for when we should parse mentions). However if we allow multiple tools responses in the future, we will need to parse mentions specifically within the user content tags.
       // (Note: this caused the @/ import alias bug where file contents were being parsed as well, since v2 converted tool results to text blocks)
@@ -3592,20 +3425,6 @@ export class Task {
               block.text.includes('<task>') ||
               block.text.includes('<user_message>')
             ) {
-              // const parsedText = await parseMentions(
-              // 	block.text,
-              // 	cwd,
-              // 	//this.urlContentFetcher,
-              // 	this.fileContextTracker,
-              // )
-
-              // when parsing slash commands, we still want to allow the user to provide their desired context
-              // const { processedText, needsClinerulesFileCheck: needsCheck } = parseSlashCommands(parsedText)
-
-              // if (needsCheck) {
-              // 	needsClinerulesFileCheck = true
-              // }
-
               return {
                 ...block
                 //text: processedText,
@@ -3623,14 +3442,8 @@ export class Task {
       this.getEnvironmentDetails(includeHostDetails)
     ])
 
-    // After processing content, check clinerulesData if needed
-    let clinerulesError = false
-    // if (needsClinerulesFileCheck) {
-    // 	clinerulesError = await ensureLocalClinerulesDirExists(cwd)
-    // }
-
     // Return all results
-    return [processedUserContent, environmentDetails, clinerulesError]
+    return [processedUserContent, environmentDetails]
   }
 
   async getEnvironmentDetails(includeHostDetails: boolean = false) {
@@ -3643,8 +3456,8 @@ export class Task {
       .filter(Boolean)
       .map((absolutePath) => path.relative(cwd, absolutePath))
 
-    // Filter paths through clineIgnoreController
-    // const allowedVisibleFiles = this.clineIgnoreController
+    // Filter paths through chatermIgnoreController
+    // const allowedVisibleFiles = this.chatermIgnoreController
     // 	.filterPaths(visibleFilePaths)
     // 	.map((p) => p.toPosix())
     // 	.join("\n")
@@ -3664,8 +3477,8 @@ export class Task {
       .filter(Boolean)
       .map((absolutePath) => path.relative(cwd, absolutePath))
 
-    // Filter paths through clineIgnoreController
-    // const allowedOpenTabs = this.clineIgnoreController
+    // Filter paths through chatermIgnoreController
+    // const allowedOpenTabs = this.chatermIgnoreController
     // 	.filterPaths(openTabPaths)
     // 	.map((p) => p.toPosix())
     // 	.join("\n")
@@ -3796,7 +3609,7 @@ export class Task {
         details += '(Desktop files not shown automatically. Use list_files to explore if needed.)'
       } else {
         const [files, didHitLimit] = await listFiles(cwd, true, 200)
-        //const result = formatResponse.formatFilesList(cwd, files, didHitLimit, this.clineIgnoreController)
+        //const result = formatResponse.formatFilesList(cwd, files, didHitLimit, this.chatermIgnoreController)
         const result = formatResponse.formatFilesList(cwd, files, didHitLimit)
         details += result
       }
