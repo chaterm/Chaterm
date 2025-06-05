@@ -36,7 +36,6 @@ export class ModelContextTracker {
       mode: mode
     })
 
-    // await saveTaskMetadata(this.context, this.taskId, metadata)
     await saveTaskMetadata(this.taskId, metadata)
   }
 }
