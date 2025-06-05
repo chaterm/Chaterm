@@ -77,7 +77,7 @@ import 'monaco-editor/esm/vs/basic-languages/ruby/ruby.contribution'
 import 'monaco-editor/esm/vs/basic-languages/php/php.contribution'
 import 'monaco-editor/esm/vs/basic-languages/rust/rust.contribution'
 import 'monaco-editor/esm/vs/basic-languages/sql/sql.contribution'
-import { LoadingOutlined, MessageOutlined, CommentOutlined } from '@ant-design/icons-vue'
+import { LoadingOutlined, CommentOutlined } from '@ant-design/icons-vue'
 
 // 配置 Monaco Editor 的全局设置
 monaco.editor.defineTheme('custom-dark', {
@@ -420,9 +420,9 @@ const getThinkingContent = (content: string) => {
 
 <style>
 pre {
-  background-color: #282c34;
-  border-radius: 6px;
-  padding: 12px;
+  background-color: #2a2a2a;
+  border-radius: 8px;
+  padding: 8px;
   overflow-x: auto;
   margin: 1em 0;
 }
@@ -499,12 +499,12 @@ code {
   border-radius: 4px !important;
   transition: all 0.3s;
   color: #ffffff !important;
-  background-color: #3a3a3a;
+  background-color: #1e1e1e !important;
   font-size: 12px !important;
 }
 
 .thinking-collapse.ant-collapse .ant-collapse-content {
-  background-color: #3a3a3a;
+  background-color: #1e1e1e !important;
   border-top: none;
   border-radius: 0 0 4px 4px !important;
 }
@@ -524,13 +524,13 @@ code {
 }
 
 .thinking-collapse.ant-collapse .ant-collapse-header:hover {
-  background-color: #3a3a3a;
+  background-color: #1e1e1e !important;
 }
 
 .thinking-collapse.ant-collapse .thinking-content {
   padding: 0px 5px 5px 5px;
   margin: 0;
-  background-color: #3a3a3a;
+  background-color: #1e1e1e !important;
   border-radius: 0 0 4px 4px;
   font-size: 12px;
   line-height: 1.5715;
