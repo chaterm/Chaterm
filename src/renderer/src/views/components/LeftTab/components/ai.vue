@@ -456,23 +456,24 @@ watch(
 const loadSavedConfig = async () => {
   try {
     // 加载API相关配置
-    apiProvider.value = (await getGlobalState('apiProvider')) || ''
+    apiProvider.value = ((await getGlobalState('apiProvider')) as string) || ''
     //aws信息
-    apiModelId.value = (await getGlobalState('apiModelId')) || ''
-    awsRegion.value = (await getGlobalState('awsRegion')) || ''
-    awsUseCrossRegionInference.value = (await getGlobalState('awsUseCrossRegionInference')) || false
-    awsBedrockEndpoint.value = (await getGlobalState('awsBedrockEndpoint')) || ''
+    apiModelId.value = ((await getGlobalState('apiModelId')) as string) || ''
+    awsRegion.value = ((await getGlobalState('awsRegion')) as string) || ''
+    awsUseCrossRegionInference.value =
+      ((await getGlobalState('awsUseCrossRegionInference')) as boolean) || false
+    awsBedrockEndpoint.value = ((await getGlobalState('awsBedrockEndpoint')) as string) || ''
     awsAccessKey.value = (await getSecret('awsAccessKey')) || ''
     awsSecretKey.value = (await getSecret('awsSecretKey')) || ''
     awsSessionToken.value = (await getSecret('awsSessionToken')) || ''
     //openai信息
-    liteLlmModelId.value = (await getGlobalState('liteLlmModelId')) || ''
-    liteLlmBaseUrl.value = (await getGlobalState('liteLlmBaseUrl')) || ''
+    liteLlmModelId.value = ((await getGlobalState('liteLlmModelId')) as string) || ''
+    liteLlmBaseUrl.value = ((await getGlobalState('liteLlmBaseUrl')) as string) || ''
     liteLlmApiKey.value = (await getSecret('liteLlmApiKey')) || ''
 
     // 加载其他配置
-    thinkingBudgetTokens.value = (await getGlobalState('thinkingBudgetTokens')) || 0
-    customInstructions.value = (await getGlobalState('customInstructions')) || ''
+    thinkingBudgetTokens.value = ((await getGlobalState('thinkingBudgetTokens')) as number) || 0
+    customInstructions.value = ((await getGlobalState('customInstructions')) as string) || ''
     // enableCheckpoints.value = (await getGlobalState('enableCheckpoints')) || false
 
     const savedAutoApprovalSettings = await getGlobalState('autoApprovalSettings')
@@ -495,9 +496,10 @@ const loadSavedConfig = async () => {
       chatSettings.value = DEFAULT_CHAT_SETTINGS
     }
 
-    reasoningEffort.value = (await getGlobalState('reasoningEffort')) || 'low'
-    shellIntegrationTimeout.value = (await getGlobalState('shellIntegrationTimeout')) || 4
-    awsEndpointSelected.value = (await getGlobalState('awsEndpointSelected')) || false
+    reasoningEffort.value = ((await getGlobalState('reasoningEffort')) as string) || 'low'
+    shellIntegrationTimeout.value =
+      ((await getGlobalState('shellIntegrationTimeout')) as number) || 4
+    awsEndpointSelected.value = ((await getGlobalState('awsEndpointSelected')) as boolean) || false
   } catch (error) {
     console.error('Failed to load config:', error)
     notification.error({
@@ -576,8 +578,8 @@ watch(
     const currentChatSettings = await getGlobalState('chatSettings')
 
     if (
-      autoApprovalSettings.value.enabled !== currentState?.enabled ||
-      chatSettings.value.mode !== currentChatSettings?.mode
+      autoApprovalSettings.value.enabled !== (currentState as AutoApprovalSettings)?.enabled ||
+      chatSettings.value.mode !== (currentChatSettings as ChatSettings)?.mode
     ) {
       return
     }
@@ -640,13 +642,13 @@ watch(
 )
 
 // 处理扩展思考开关
-const handleEnableExtendedThinking = (checked: boolean) => {
-  if (!checked) {
-    thinkingBudgetTokens.value = 0
-  } else if (thinkingBudgetTokens.value === 0) {
-    thinkingBudgetTokens.value = 1024 // 默认值
-  }
-}
+// const handleEnableExtendedThinking = (checked: boolean) => {
+//   if (!checked) {
+//     thinkingBudgetTokens.value = 0
+//   } else if (thinkingBudgetTokens.value === 0) {
+//     thinkingBudgetTokens.value = 1024 // 默认值
+//   }
+// }
 </script>
 
 <style lang="less" scoped>
