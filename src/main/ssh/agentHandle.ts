@@ -59,9 +59,12 @@ export async function remoteSshExec(sessionId: string, command: string): Promise
     return { success: false, error: '未连接到远程服务器' };
   }
   console.log(`开始执行SSH命令: ${command} (会话: ${sessionId})`);
+  
+  const base64Command = Buffer.from(command, 'utf-8').toString('base64');
+  const shellCommand = `echo '${base64Command}' | base64 -d | bash -l`;
 
   return new Promise((resolve) => {
-    conn.exec(command, { pty: true }, (err, stream) => {
+    conn.exec(shellCommand, { pty: true }, (err, stream) => {
       if (err) {
         console.error('SSH命令执行错误:', err.message);
         resolve({ success: false, error: err.message });
