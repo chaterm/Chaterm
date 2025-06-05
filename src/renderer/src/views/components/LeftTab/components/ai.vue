@@ -177,7 +177,7 @@
       <div class="setting-item">
         <a-checkbox
           v-model:checked="enableExtendedThinking"
-          @change="handleEnableExtendedThinking"
+          @change="handleEnableExtendedThinking(enableExtendedThinking)"
         >
           {{ $t('user.enableExtendedThinking') }}
         </a-checkbox>
@@ -642,13 +642,13 @@ watch(
 )
 
 // 处理扩展思考开关
-// const handleEnableExtendedThinking = (checked: boolean) => {
-//   if (!checked) {
-//     thinkingBudgetTokens.value = 0
-//   } else if (thinkingBudgetTokens.value === 0) {
-//     thinkingBudgetTokens.value = 1024 // 默认值
-//   }
-// }
+const handleEnableExtendedThinking = (checked: boolean) => {
+  if (!checked) {
+    thinkingBudgetTokens.value = 0
+  } else if (thinkingBudgetTokens.value === 0) {
+    thinkingBudgetTokens.value = 1024 // 默认值
+  }
+}
 </script>
 
 <style lang="less" scoped>
