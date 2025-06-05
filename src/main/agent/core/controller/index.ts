@@ -249,7 +249,7 @@ export class Controller {
         this.task?.handleWebviewAskResponse(message.askResponse!, message.text)
         break
       case 'showTaskWithId':
-        this.showTaskWithId(message.text!)
+        this.showTaskWithId(message.text!, message.terminalUuid)
         break
       case 'deleteTaskWithId':
         this.deleteTaskWithId(message.text!)
@@ -584,11 +584,11 @@ export class Controller {
     throw new Error('Task not found')
   }
 
-  async showTaskWithId(id: string) {
+  async showTaskWithId(id: string, terminalUuid?: string) {
     if (id !== this.task?.taskId) {
       // non-current task
       const { historyItem } = await this.getTaskWithId(id)
-      await this.initTask(undefined, historyItem) // clears existing task
+      await this.initTask(undefined, historyItem, terminalUuid) // clears existing task
     }
     await this.postMessageToWebview({
       type: 'action',
