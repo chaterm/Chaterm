@@ -24,7 +24,7 @@
           <template #icon>
             <laptop-outlined />
           </template>
-          {{ host }}
+          IP: {{ host }}
         </a-tag>
       </div>
       <div
@@ -215,7 +215,10 @@
             class="action-icon-btn"
             @click="handlePlusClick"
           >
-            <PlusOutlined />
+            <img
+              :src="plusIcon"
+              alt="plus"
+            />
           </a-button>
         </a-tooltip>
         <a-tooltip :title="$t('ai.showChatHistory')">
@@ -225,7 +228,10 @@
               class="action-icon-btn"
               @click="handleHistoryClick"
             >
-              <HistoryOutlined />
+              <img
+                :src="historyIcon"
+                alt="history"
+              />
             </a-button>
             <template #overlay>
               <a-menu class="history-dropdown-menu">
@@ -250,7 +256,10 @@
             class="action-icon-btn"
             @click="handleClose"
           >
-            <CloseOutlined />
+            <img
+              :src="foldIcon"
+              alt="fold"
+            />
           </a-button>
         </a-tooltip>
       </div>
@@ -286,6 +295,9 @@ import { getAiModel, getChatDetailList, getConversationList } from '@/api/ai/ai'
 import eventBus from '@/utils/eventBus'
 import { getGlobalState } from '@renderer/agent/storage/state'
 import type { HistoryItem as TaskHistoryItem } from '@renderer/agent/storage/shared'
+import foldIcon from '@/assets/icons/fold.svg'
+import historyIcon from '@/assets/icons/history.svg'
+import plusIcon from '@/assets/icons/plus.svg'
 // 异步加载 Markdown 渲染组件
 const MarkdownRenderer = defineAsyncComponent(
   () => import('@views/components/AiTab/MarkdownRenderer.vue')
@@ -1242,6 +1254,7 @@ const showResumeButton = computed(() => {
     line-height: 16px;
     display: flex;
     align-items: center;
+    margin-left: 2px;
     background-color: #2a2a2a !important;
     border: 1px solid #3a3a3a !important;
     color: #ffffff !important;
@@ -1543,10 +1556,12 @@ const showResumeButton = computed(() => {
     color: #e0e0e0;
     border-radius: 4px;
     transition: all 0.3s ease;
+    filter: invert(0.25);
 
     &:hover {
       background-color: rgba(255, 255, 255, 0.1);
       color: #fff;
+      filter: invert(0.1);
     }
 
     &:active {

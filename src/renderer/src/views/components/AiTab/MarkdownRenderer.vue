@@ -164,7 +164,7 @@ import 'monaco-editor/esm/vs/basic-languages/php/php.contribution'
 import 'monaco-editor/esm/vs/basic-languages/rust/rust.contribution'
 import 'monaco-editor/esm/vs/basic-languages/sql/sql.contribution'
 import { LoadingOutlined } from '@ant-design/icons-vue'
-import thinkingSvg from '@/assets/img/thinking.svg'
+import thinkingSvg from '@/assets/icons/thinking.svg'
 
 // 确保Monaco Editor已经完全初始化
 if (monaco.editor) {
