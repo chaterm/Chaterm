@@ -12,9 +12,17 @@
           : 'New chat'
       "
     >
-      <div v-if="currentChatHosts && currentChatHosts.length > 0" class="hosts-display-container">
-        <a-tag v-for="host in currentChatHosts" :key="host" color="blue">
-          <template #icon><laptop-outlined /></template>{{ host }}</a-tag>
+      <div
+        v-if="currentChatHosts && currentChatHosts.length > 0"
+        class="hosts-display-container"
+      >
+        <a-tag
+          v-for="host in currentChatHosts"
+          :key="host"
+          color="blue"
+        >
+          <template #icon><laptop-outlined /></template>{{ host }}</a-tag
+        >
       </div>
       <div
         v-if="chatHistory.length > 0"
@@ -128,6 +136,21 @@
             {{ $t('ai.run') }}
           </a-button>
         </div>
+        <div
+          v-if="showCancelButton"
+          class="bottom-buttons cancel-row"
+        >
+          <a-button
+            size="small"
+            class="cancel-btn"
+            @click="handleCancel"
+          >
+            <template #icon>
+              <CloseOutlined />
+            </template>
+            {{ $t('ai.cancel') }}
+          </a-button>
+        </div>
         <div class="input-send-container">
           <a-textarea
             v-model:value="chatInputValue"
@@ -216,7 +239,16 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted, defineAsyncComponent, onUnmounted, nextTick, watch, computed } from 'vue'
+import {
+  ref,
+  reactive,
+  onMounted,
+  defineAsyncComponent,
+  onUnmounted,
+  nextTick,
+  watch,
+  computed
+} from 'vue'
 
 import {
   PlusOutlined,
@@ -257,6 +289,7 @@ const activeKey = ref('chat')
 const showSendButton = ref(true)
 const lastChatMessageId = ref('')
 const buttonsDisabled = ref(false)
+const showCancelButton = ref(false)
 
 // 当前活动对话的 ID
 const currentChatId = ref<string | null>(null)
@@ -601,12 +634,16 @@ const restoreHistoryTab = async (history: HistoryItem) => {
     if (history.chatType === 'agent') {
       try {
         const metadataResult = await (window.api as any).getTaskMetadata(history.id)
-        if (metadataResult.success && metadataResult.data && Array.isArray(metadataResult.data.hosts)) {
+        if (
+          metadataResult.success &&
+          metadataResult.data &&
+          Array.isArray(metadataResult.data.hosts)
+        ) {
           for (const item of metadataResult.data.hosts) {
             let ip = ''
             if (item && typeof item === 'object' && 'host' in item) {
-                    ip = item.host
-                  }
+              ip = item.host
+            }
             if (ip && !hosts.value.includes(ip)) {
               hosts.value.push(ip)
             }
@@ -640,7 +677,12 @@ const restoreHistoryTab = async (history: HistoryItem) => {
           if (!item.partial && item.type === 'ask' && item.text) {
             try {
               let contentJson = JSON.parse(item.text)
-              userMessage.content = contentJson?.question
+              if (item.ask === 'followup') {
+                userMessage.content = contentJson
+                userMessage.selectedOption = contentJson?.selected
+              } else {
+                userMessage.content = contentJson?.question
+              }
             } catch (e) {
               userMessage.content = item.text
             }
@@ -866,6 +908,14 @@ const handleApproveCommand = async () => {
     console.error('发送消息到主进程失败:', error)
   }
 }
+
+const handleCancel = async () => {
+  console.log('handleCancel:取消')
+  const response = await (window.api as any).cancelTask()
+  console.log('主进程响应:', response)
+  showCancelButton.value = false
+}
+
 // 声明removeListener变量
 let removeListener: (() => void) | null = null
 
@@ -901,6 +951,7 @@ onMounted(async () => {
     console.log('Received main process message:', message)
     if (message?.type === 'partialMessage') {
       showSendButton.value = false
+      showCancelButton.value = true
       let lastMessageInChat = chatHistory.at(-1)
       // 返回的内容如果和前一个相同，并且 partial 字段为 false，开启一个新的assistant消息
       let openNewMessage =
@@ -954,6 +1005,7 @@ onMounted(async () => {
       lastPartialMessage = message
       if (!message.partialMessage?.partial) {
         showSendButton.value = true
+        showCancelButton.value = false
       }
       console.log('chatHistory', chatHistory)
     }
@@ -973,9 +1025,7 @@ onUnmounted(() => {
 const sendMessageToMain = async (userContent: string) => {
   try {
     let message
-    const currentHistoryEntry = historyList.value.find(
-      (entry) => entry.id === currentChatId.value
-    )
+    const currentHistoryEntry = historyList.value.find((entry) => entry.id === currentChatId.value)
     if (chatHistory.length === 0) {
       const assetInfo = await getCurentTabAssetInfo()
       if (!assetInfo) {
@@ -988,7 +1038,7 @@ const sendMessageToMain = async (userContent: string) => {
       }
       if (assetInfo.ip) {
         if (!hosts.value.includes(assetInfo.ip)) {
-           hosts.value.push(assetInfo.ip)
+          hosts.value.push(assetInfo.ip)
         }
       }
       message = {
@@ -1094,7 +1144,6 @@ const showBottomButton = computed(() => {
 }
 
 .hosts-display-container {
-  padding: 10px 0px 0px 6px;
   background-color: #1a1a1a;
   display: flex;
   flex-wrap: wrap;
@@ -1104,16 +1153,17 @@ const showBottomButton = computed(() => {
   z-index: 1;
   border-bottom: 0px solid #333;
   justify-content: flex-start;
+  user-select: text;
   :deep(.ant-tag) {
-    font-size: 9px;
+    font-size: 10px;
     padding: 0 6px;
     height: 16px;
     line-height: 16px;
     display: flex;
     align-items: center;
-    background: #3a3a3a !important;
+    background-color: #2a2a2a !important;
+    border: 1px solid #3a3a3a !important;
     color: #ffffff !important;
-    border: 1px solid #444 !important;
     .anticon-laptop {
       color: #1890ff !important;
       margin-right: 0cap;
@@ -1125,8 +1175,9 @@ const showBottomButton = computed(() => {
   flex-grow: 1;
   overflow-y: auto;
   padding: 0px 16px 16px 16px;
+  margin-top: 2px;
   scrollbar-width: thin;
-  max-height: calc(100vh - 180px);
+  max-height: v-bind('showBottomButton ? "calc(100vh - 195px)" : "calc(100vh - 165px)"');
   width: 100%;
 
   &::-webkit-scrollbar {
@@ -1549,6 +1600,7 @@ const showBottomButton = computed(() => {
 .bottom-container {
   display: flex;
   flex-direction: column;
+  gap: 4px;
 }
 
 .bottom-buttons {
@@ -1557,8 +1609,13 @@ const showBottomButton = computed(() => {
   width: 100%;
   padding: 4px 8px;
 
+  &.cancel-row {
+    padding-top: 0;
+  }
+
   .reject-btn,
-  .approve-btn {
+  .approve-btn,
+  .cancel-btn {
     flex: 1;
     display: flex;
     align-items: center;
@@ -1616,6 +1673,18 @@ const showBottomButton = computed(() => {
         border-color: #2a2a2a !important;
         color: #666666 !important;
       }
+    }
+  }
+
+  .cancel-btn {
+    background-color: #2a2a2a;
+    border-color: #3a3a3a;
+    color: #666666;
+
+    &:hover {
+      background-color: #3a3a3a;
+      border-color: #4a4a4a;
+      color: #888888;
     }
   }
 }
