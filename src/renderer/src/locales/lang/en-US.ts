@@ -146,6 +146,7 @@ export default {
     approved: 'Approved',
     rejected: 'Rejected',
     cancel: 'cancel',
+    resume: 'resume',
     newChat: 'New Chat',
     showChatHistory: 'Show Chat History',
     closeAiSidebar: 'Close AI Sidebar'
