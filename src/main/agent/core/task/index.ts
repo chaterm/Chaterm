@@ -764,11 +764,12 @@ export class Task {
 
     const wasRecent = lastChatermMessage?.ts && Date.now() - lastChatermMessage.ts < 30_000
 
-    const taskResumptionMessage = formatResponse.taskResumption(
-      this.chatSettings?.mode === 'cmd' ? 'cmd' : 'agent', // TODO:修改
+    const [taskResumptionMessage, userResponseMessage] = formatResponse.taskResumption(
+      this.chatSettings?.mode,
       agoText,
       cwd,
-      wasRecent
+      wasRecent,
+      responseText
     )
 
     if (taskResumptionMessage !== '') {
@@ -778,12 +779,12 @@ export class Task {
       })
     }
 
-    // if (userResponseMessage !== '') {
-    //   newUserContent.push({
-    //     type: 'text',
-    //     text: userResponseMessage
-    //   })
-    // }
+    if (userResponseMessage !== '') {
+      newUserContent.push({
+        type: 'text',
+        text: userResponseMessage
+      })
+    }
 
     await this.overwriteApiConversationHistory(modifiedApiConversationHistory)
     await this.initiateTaskLoop(newUserContent)
@@ -2983,7 +2984,6 @@ export class Task {
     }
 
     // Used to know what models were used in the task if user wants to export metadata for error reporting purposes
-    //const currentProviderId = (await getGlobalState(this.getContext(), "apiProvider")) as string
     const currentProviderId = (await getGlobalState('apiProvider')) as string
     if (currentProviderId && this.api.getModel().id) {
       try {
@@ -3105,7 +3105,7 @@ export class Task {
       includeHostDetails
     )
 
-    userContent = parsedUserContent
+    userContent =  parsedUserContent
     // add environment details as its own text block, separate from tool results
     userContent.push({ type: 'text', text: environmentDetails })
 
@@ -3412,8 +3412,6 @@ export class Task {
     includeHostDetails: boolean = false
   ): Promise<[UserContent, string]> {
     const processUserContent = async () => {
-      // This is a temporary solution to dynamically load context mentions from tool results. It checks for the presence of tags that indicate that the tool was rejected and feedback was provided (see formatToolDeniedFeedback, attemptCompletion, executeCommand, and consecutiveMistakeCount >= 3) or "<answer>" (see askFollowupQuestion), we place all user generated content in these tags so they can effectively be used as markers for when we should parse mentions). However if we allow multiple tools responses in the future, we will need to parse mentions specifically within the user content tags.
-      // (Note: this caused the @/ import alias bug where file contents were being parsed as well, since v2 converted tool results to text blocks)
       return await Promise.all(
         userContent.map(async (block) => {
           if (block.type === 'text') {
