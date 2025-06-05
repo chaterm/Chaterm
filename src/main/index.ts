@@ -589,3 +589,14 @@ ipcMain.handle('get-task-metadata', async (_event, { taskId }) => {
     return { success: false,  error: { message: error.message } }
   }}
 })
+
+ipcMain.handle('get-user-hosts', async (_, data) => {
+  try {
+    const { search } = data
+    const result = chatermDbService.getUserHosts(search)
+    return result
+  } catch (error) {
+    console.error('Chaterm获取用户主机列表失败:', error)
+    return null
+  }
+})

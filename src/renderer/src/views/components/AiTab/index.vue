@@ -17,15 +17,20 @@
         class="hosts-display-container"
       >
         <a-tag
-          v-for="host in currentChatHosts"
-          :key="host"
+          v-for="item in currentChatHosts"
+          :key="item.uuid"
           color="blue"
         >
           <template #icon>
             <laptop-outlined />
           </template>
-          {{ host }}
+          {{ item.host }}
         </a-tag>
+      </div>
+      <div v-else class="other-hosts-display-container">
+        <span  class="hosts-display-container-host-tag">
+          @ Add host
+        </span>
       </div>
       <div
         v-if="chatHistory.length > 0"
@@ -154,14 +159,39 @@
             {{ $t('ai.cancel') }}
           </a-button>
         </div>
-        <div class="input-send-container">
+        <div class="input-send-container" style="position: relative;">
           <a-textarea
             v-model:value="chatInputValue"
             :placeholder="$t('ai.agentMessage')"
             style="background-color: #161616; color: #fff; border: none; box-shadow: none"
             :auto-size="{ minRows: 2, maxRows: 20 }"
             @keydown="handleKeyDown"
+            @input="handleInputChange"
           />
+          <div v-if="showHostSelect" class="host-select-popup">
+            <a-input
+              ref="hostSearchInputRef"
+              v-model:value="hostSearchValue"
+              placeholder="输入IP搜索"
+              size="small"
+              class="mini-host-search-input"
+              allow-clear
+            />
+            <div class="host-select-list">
+              <div
+                v-for="item in filteredHostOptions"
+                :key="item.value"
+                @click="onHostClick(item)"
+                class="host-select-item"
+                @mouseover="hovered = item.value"
+                @mouseleave="hovered = null"
+                :class="{ hovered: hovered === item.value }"
+              >
+                {{ item.label }}
+              </div>
+              <div v-if="filteredHostOptions.length === 0" class="host-select-empty">无匹配主机</div>
+            </div>
+          </div>
           <div class="input-controls">
             <a-select
               v-model:value="chatTypeValue"
@@ -248,9 +278,9 @@ import {
   onMounted,
   defineAsyncComponent,
   onUnmounted,
-  nextTick,
   watch,
-  computed
+  computed,
+  nextTick
 } from 'vue'
 
 import {
@@ -274,6 +304,12 @@ const MarkdownRenderer = defineAsyncComponent(
 )
 
 import { ChatermMessage } from 'src/main/agent/shared/ExtensionMessage'
+const hostSearchInputRef = ref()
+import debounce from 'lodash/debounce'
+const showHostSelect = ref(false)
+const hostOptions = ref<{ label: string, value: string, uuid: string }[]>([])
+const hostSearchValue = ref('')
+const hovered = ref<string | null>(null)
 
 interface HistoryItem {
   id: string
@@ -283,7 +319,7 @@ interface HistoryItem {
 }
 
 const historyList = ref<HistoryItem[]>([])
-const hosts = ref<string[]>([])
+const hosts = ref<{ host: string, uuid: string }[]>([])
 
 const chatInputValue = ref('')
 const chatModelValue = ref('qwen-chat')
@@ -355,6 +391,7 @@ const getChatermMessages = async () => {
   return messages
 }
 
+// 获取当前活跃Tab的主机信息
 const getCurentTabAssetInfo = async (): Promise<AssetInfo | null> => {
   try {
     // 创建一个Promise来等待assetInfoResult事件
@@ -649,12 +686,12 @@ const restoreHistoryTab = async (history: HistoryItem) => {
           Array.isArray(metadataResult.data.hosts)
         ) {
           for (const item of metadataResult.data.hosts) {
-            let ip = ''
             if (item && typeof item === 'object' && 'host' in item) {
-              ip = item.host
-            }
-            if (ip && !hosts.value.includes(ip)) {
-              hosts.value.push(ip)
+              let ip = item.host
+              let uuid = item.uuid || ''
+              if (ip && !hosts.value.some(h => h.host === ip)) {
+                hosts.value.push({ host: ip, uuid: uuid  })
+              }
             }
           }
         }
@@ -1038,8 +1075,8 @@ const sendMessageToMain = async (userContent: string) => {
     let message
     const currentHistoryEntry = historyList.value.find((entry) => entry.id === currentChatId.value)
     if (chatHistory.length === 0) {
-      const assetInfo = await getCurentTabAssetInfo()
-      if (!assetInfo) {
+      // 校验 hosts 是否有主机
+      if (hosts.value.length === 0) {
         notification.error({
           message: '获取当前资产连接信息失败',
           description: '请先建立资产连接',
@@ -1047,18 +1084,13 @@ const sendMessageToMain = async (userContent: string) => {
         })
         return 'ASSET_ERROR'
       }
-      if (assetInfo.ip) {
-        if (!hosts.value.includes(assetInfo.ip)) {
-          hosts.value.push(assetInfo.ip)
-        }
-      }
       message = {
         type: 'newTask',
         askResponse: 'messageResponse',
         text: userContent,
-        terminalUuid: assetInfo?.uuid,
-        terminalOutput: assetInfo?.outputContext,
-        hosts: Array.isArray(hosts.value) ? [...hosts.value] : []
+        terminalUuid: hosts.value[0]?.uuid || '',
+        terminalOutput: '',
+        hosts: hosts.value.map(h => ({ host: h.host, uuid: h.uuid }))
       }
     } else {
       message = {
@@ -1121,6 +1153,54 @@ const showBottomButton = computed(() => {
     message.ask === 'command'
   )
 })
+
+// 1. 新增状态变量
+
+const filteredHostOptions = computed(() =>
+  hostOptions.value.filter(item =>
+    item.label.includes(hostSearchValue.value)
+  )
+)
+const onHostClick = (item: any) => {
+  if (!hosts.value.some(h => h.host === item.label)) {
+    hosts.value.push({ host: item.label, uuid: item.uuid })
+  }
+  showHostSelect.value = false
+  chatInputValue.value = ''
+}
+
+// 2. 监听输入框内容变化
+const handleInputChange = async (e: Event) => {
+  const value = (e.target as HTMLTextAreaElement).value
+  if (hosts.value.length === 0 && value === '@') {
+    showHostSelect.value = true
+    hostSearchValue.value = '' // 清空搜索框
+    await fetchHostOptions('') // 这里调用，获取所有主机
+    nextTick(() => {
+         hostSearchInputRef.value?.focus?.()
+       })
+  } else {
+    showHostSelect.value = false
+  }
+}
+
+// 3. 获取主机列表
+const debouncedFetchHostOptions = debounce((search: string) => {
+  fetchHostOptions(search)
+}, 300)
+
+watch(hostSearchValue, (newVal) => {
+  debouncedFetchHostOptions(newVal)
+})
+const fetchHostOptions = async (search: string) => {
+  const hostsList = await (window.api as any).getUserHosts(search)
+  hostOptions.value = (hostsList || []).map((item: any) => ({
+    label: item.asset_ip || item.host || '',
+    value: item.uuid,
+    uuid: item.uuid
+  }))
+}
+
 </script>
 
 <style lang="less" scoped>
@@ -1184,6 +1264,20 @@ const showBottomButton = computed(() => {
   }
 }
 
+.other-hosts-display-container {
+  background: #222; 
+      color: #fff; 
+      padding: 1px 6px; 
+      border-radius: 6px; 
+      border: 1px solid #888; 
+      font-weight: 400;
+      display: inline-flex;
+      align-items: center;
+      font-size: 15px;
+}
+.hosts-display-container-host-tag {
+  font-size: 8px !important;
+}
 .chat-response-container {
   flex-grow: 1;
   overflow-y: auto;
@@ -1701,4 +1795,47 @@ const showBottomButton = computed(() => {
     }
   }
 }
+.mini-host-search-input :deep(.ant-input) {
+  height: 22px !important;
+  font-size: 12px !important;
+  padding: 0px 0px 2px 2px !important;
+  line-height: 22px !important;
+}
+.host-select-popup {
+  position: absolute;
+  left: 24px;
+  top: 12px;
+  width: 130px;
+  z-index: 10;
+  background: #222;
+  border-radius: 4px;
+  box-shadow: 0 2px 8px #0002;
+  padding: 8px 8px 0 8px;
+  border: 1px solid #484747;
+}
+.host-select-list {
+  max-height: 120px;
+  overflow-y: auto;
+  padding: 8px 0px 2px 0px;
+}
+.host-select-item {
+  padding: 2px 6px;
+  cursor: pointer;
+  border-radius: 3px;
+  margin-bottom: 2px;
+  background: #222;
+  color: #fff;
+  font-size: 13px;
+  line-height: 16px;
+  transition: background 0.2s;
+  &.hovered {
+    background: #1656b1;
+  }
+}
+.host-select-empty {
+  color: #888;
+  text-align: center;
+  padding: 8px 0;
+}
+
 </style>
