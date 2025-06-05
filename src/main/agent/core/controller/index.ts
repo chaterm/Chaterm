@@ -78,16 +78,16 @@ export class Controller {
 	*/
   async dispose() {
     this.outputChannel.appendLine('Disposing ClineProvider...')
-    
+
     // 释放终端资源
     if (this.task) {
       const terminalManager = this.task.getTerminalManager()
-      
+
       if (terminalManager) {
         terminalManager.disposeAll()
       }
     }
-    
+
     await this.clearTask()
     this.outputChannel.appendLine('Cleared task')
     while (this.disposables.length) {
@@ -121,7 +121,12 @@ export class Controller {
     await updateGlobalState('userInfo', info)
   }
 
-  async initTask(task?: string, historyItem?: HistoryItem, terminalUuid?: string, terminalOutput?: string) {
+  async initTask(
+    task?: string,
+    historyItem?: HistoryItem,
+    terminalUuid?: string,
+    terminalOutput?: string
+  ) {
     console.log('initTask', task, historyItem)
     await this.clearTask() // ensures that an existing task doesn't exist before starting a new one, although this shouldn't be possible since user must clear task before starting a new one
     const { apiConfiguration, customInstructions, autoApprovalSettings, chatSettings } =
@@ -667,11 +672,7 @@ export class Controller {
       mcpMarketplaceEnabled
       // telemetrySetting,
       // planActSeparateModelsSetting,
-      // globalClineRulesToggles
     } = await getAllExtensionState()
-
-    // const localClineRulesToggles =
-    //   ((await getWorkspaceState('localClineRulesToggles')) as ClineRulesToggles) || {}
 
     return {
       version: this.context.extension?.packageJSON?.version ?? '',
@@ -699,8 +700,6 @@ export class Controller {
       // telemetrySetting,
       // planActSeparateModelsSetting,
       vscMachineId: vscode.env.machineId,
-      // globalClineRulesToggles: globalClineRulesToggles || {},
-      // localClineRulesToggles: localClineRulesToggles || {}
       shellIntegrationTimeout: 30,
       isNewUser: true
     }
