@@ -178,7 +178,7 @@
               show-search
             ></a-select>
             <a-button
-              :disabled="!showSendButton || !chatInputValue"
+              :disabled="!showSendButton"
               size="small"
               class="custom-round-button compact-button"
               style="margin-left: 8px"
@@ -500,6 +500,14 @@ const createWebSocket = (type: string) => {
 }
 
 const sendMessage = async () => {
+  if (chatInputValue.value.trim() === '') {
+    notification.error({
+      message: '发送内容错误',
+      description: '发送内容为空，请输入内容',
+      duration: 3
+    })
+    return 'SEND_ERROR'
+  }
   const userContent = chatInputValue.value.trim()
   if (!userContent) return
   if (chatTypeValue.value === 'agent') {
