@@ -913,7 +913,7 @@ code {
 
 .code-collapse .ant-collapse-header {
   color: #ffffff !important;
-  padding: 4px 12px!important;
+  padding: 4px 12px !important;
   background: transparent !important;
   transition: all 0.3s;
   min-height: 0 !important;
@@ -956,6 +956,34 @@ code {
   overflow: hidden;
   background-color: #282c34;
   min-height: 30px;
+}
+
+.hidden-header {
+  display: none !important;
+}
+.code-collapse .ant-collapse-panel .hidden-header + .ant-collapse-arrow {
+  display: none !important;
+}
+.code-collapse .ant-collapse-panel:has(.hidden-header) .ant-collapse-header {
+  padding: 0 !important;
+  height: 0px !important;
+  min-height: 0px !important;
+  line-height: 0px !important;
+  overflow: hidden !important;
+  margin: 0 !important;
+  border: none !important;
+}
+.code-collapse.hide-expand-icon .ant-collapse-header {
+  background-color: transparent !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+.code-collapse.hide-expand-icon .ant-collapse-expand-icon {
+  display: none !important;
+}
+.code-collapse.hide-expand-icon .ant-collapse-content {
+  margin-top: -35px !important;
+  margin-bottom: -7px !important;
 }
 
 .thinking-icon {
