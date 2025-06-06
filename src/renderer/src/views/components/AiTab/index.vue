@@ -12,10 +12,7 @@
           : 'New chat'
       "
     >
-      <div
-        v-if="currentChatHosts && currentChatHosts.length > 0"
-        class="hosts-display-container"
-      >
+      <div class="hosts-display-container">
         <a-tag
           v-for="item in currentChatHosts"
           :key="item.uuid"
@@ -26,15 +23,10 @@
           </template>
           {{ item.host }}
         </a-tag>
-      </div>
-      <div
-        v-else
-        class="other-hosts-display-container"
-      >
         <span
+          v-if="currentChatHosts && currentChatHosts.length === 0"
           class="hosts-display-container-host-tag"
           @click="handleAddHostClick"
-          style="cursor: pointer"
         >
           @ Add host
         </span>
@@ -324,9 +316,7 @@ import {
 } from 'vue'
 
 import {
-  PlusOutlined,
   CloseOutlined,
-  HistoryOutlined,
   LaptopOutlined,
   CopyOutlined,
   CheckOutlined,
@@ -342,6 +332,7 @@ import type { HistoryItem as TaskHistoryItem,Host } from '@renderer/agent/storag
 import foldIcon from '@/assets/icons/fold.svg'
 import historyIcon from '@/assets/icons/history.svg'
 import plusIcon from '@/assets/icons/plus.svg'
+import { useCurrentCwdStore } from '@/store/currentCwdStore'
 // 异步加载 Markdown 渲染组件
 const MarkdownRenderer = defineAsyncComponent(
   () => import('@views/components/AiTab/MarkdownRenderer.vue')
@@ -606,7 +597,6 @@ const sendMessage = async () => {
       })
       return 'ASSET_ERROR'
     }
-   }
     await sendMessageToMain(userContent)
 
     const userMessage: ChatMessage = {
@@ -640,6 +630,7 @@ const sendMessage = async () => {
   if (webSocket.value.readyState === WebSocket.OPEN) {
     sendWebSocketMessage(webSocket.value, chatTypeValue.value)
   }
+}
 }
 
 const sendWebSocketMessage = (ws: WebSocket, type: string) => {
@@ -725,6 +716,7 @@ const handlePlusClick = async () => {
   buttonsDisabled.value = false
   resumeDisabled.value = false
   showCancelButton.value = false
+  showSendButton.value = true
   if (currentInput.trim()) {
     sendMessage()
   }
@@ -817,7 +809,8 @@ const restoreHistoryTab = async (history: HistoryItem) => {
       await (window.api as any).sendToMain({
         type: 'showTaskWithId',
         text: history.id,
-        hosts: hosts.value.map((h) => ({ host: h.host, uuid: h.uuid, connection: h.connection, organizationId: h.organizationId }))
+        hosts: hosts.value.map((h) => ({ host: h.host, uuid: h.uuid, connection: h.connection, organizationId: h.organizationId })),
+        cwd: currentCwd.value
       })
     } else {
       const res = await getChatDetailList({
@@ -1060,6 +1053,16 @@ const handleResume = async () => {
 // 声明removeListener变量
 let removeListener: (() => void) | null = null
 
+const currentCwdStore = useCurrentCwdStore()
+
+// 使用计算属性来获取当前工作目录
+const currentCwd = computed(() => currentCwdStore.currentCwd)
+
+// 监听 currentCwd 的变化
+watch(currentCwd, (newValue) => {
+  console.log('当前工作目录:', newValue)
+})
+
 // 修改 onMounted 中的初始化代码
 onMounted(async () => {
   authTokenInCookie.value = localStorage.getItem('ctm-token')
@@ -1169,13 +1172,15 @@ const sendMessageToMain = async (userContent: string) => {
         askResponse: 'messageResponse',
         text: userContent,
         terminalOutput: '',
-        hosts: hosts.value.map((h) => ({ host: h.host, uuid: h.uuid, connection: h.connection, organizationId: h.organizationId }))
+        hosts: hosts.value.map((h) => ({ host: h.host, uuid: h.uuid, connection: h.connection, organizationId: h.organizationId })),
+        cwd: currentCwd.value
       }
     } else {
       message = {
         type: 'askResponse',
         askResponse: 'messageResponse',
-        text: userContent
+        text: userContent,
+        cwd: currentCwd.value
       }
     }
 
@@ -1359,6 +1364,7 @@ const handleAddHostClick = async () => {
     display: flex;
     align-items: center;
     margin-left: 2px;
+    margin-bottom: 2px;
     background-color: #2a2a2a !important;
     border: 1px solid #3a3a3a !important;
     color: #ffffff !important;
@@ -1371,18 +1377,38 @@ const handleAddHostClick = async () => {
 }
 
 .other-hosts-display-container {
-  background: #222;
+  background: #2a2a2a;
   color: #fff;
-  padding: 1px 6px;
-  border-radius: 6px;
-  border: 1px solid #888;
+  padding: 0 6px;
+  border-radius: 4px;
+  border: 1px solid #3a3a3a;
   font-weight: 400;
   display: inline-flex;
   align-items: center;
-  font-size: 15px;
+  height: 16px;
+  line-height: 16px;
+  margin-left: 2px;
+  margin-top: 4px;
 }
 .hosts-display-container-host-tag {
-  font-size: 8px !important;
+  font-size: 10px !important;
+  display: flex;
+  align-items: center;
+  padding: 0 6px;
+  height: 16px;
+  line-height: 16px;
+  background-color: #2a2a2a;
+  border: 1px solid #3a3a3a;
+  color: #ffffff;
+  border-radius: 2px;
+  margin-bottom: 2px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+
+  &:hover {
+    background-color: #3a3a3a;
+    border-color: #4a4a4a;
+  }
 }
 .chat-response-container {
   flex-grow: 1;
@@ -1487,11 +1513,6 @@ const handleAddHostClick = async () => {
       color: #e0e0e0 !important;
       height: 24px !important;
       line-height: 24px !important;
-      font-size: 12px !important;
-
-      &:hover {
-        border-color: transparent !important;
-      }
     }
 
     :deep(.ant-select-selection-item) {
@@ -1942,11 +1963,20 @@ const handleAddHostClick = async () => {
     }
   }
 }
-.mini-host-search-input :deep(.ant-input) {
-  height: 22px !important;
-  font-size: 12px !important;
-  padding: 0px 0px 2px 2px !important;
-  line-height: 22px !important;
+.mini-host-search-input {
+  background-color: #2b2b2b !important;
+  border: 1px solid #3a3a3a !important;
+  :deep(.ant-input) {
+    height: 22px !important;
+    font-size: 12px !important;
+    background-color: #2b2b2b !important;
+    color: #999 !important;
+    &::placeholder {
+      color: #999 !important;
+    }
+    padding: 0px 0px 2px 2px !important;
+    line-height: 22px !important;
+  }
 }
 .host-select-popup {
   position: absolute;

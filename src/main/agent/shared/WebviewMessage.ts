@@ -87,6 +87,7 @@ export interface WebviewMessage {
   askResponse?: ChatermAskResponse
   terminalOutput?: string
   hosts?: Host[]
+  cwd?: string
 }
 
 export type ChatermAskResponse = 'yesButtonClicked' | 'noButtonClicked' | 'messageResponse'
