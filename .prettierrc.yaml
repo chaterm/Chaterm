@@ -12,7 +12,7 @@ bracketSameLine: false # 换行时保持花括号在同一行（如 { foo: bar }
 vueIndentScriptAndStyle: false # Vue的<script>/<style>不缩进
 htmlWhitespaceSensitivity: 'strict' # 精确处理HTML元素间的空白字符
 singleAttributePerLine: true # 单个属性独占一行（增强长属性可读性）
-# 启用TypeScript自动识别
+# 启用自动识别TypeScript
 overrides:
   - files: '**/*.ts'
     options:
