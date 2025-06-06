@@ -27,8 +27,15 @@
           {{ item.host }}
         </a-tag>
       </div>
-      <div v-else class="other-hosts-display-container">
-        <span  class="hosts-display-container-host-tag" @click="handleAddHostClick" style="cursor: pointer;">
+      <div
+        v-else
+        class="other-hosts-display-container"
+      >
+        <span
+          class="hosts-display-container-host-tag"
+          @click="handleAddHostClick"
+          style="cursor: pointer"
+        >
           @ Add host
         </span>
       </div>
@@ -1284,15 +1291,15 @@ const showResumeButton = computed(() => {
 })
 
 const handleAddHostClick = async () => {
-  showHostSelect.value = !showHostSelect.value;
+  showHostSelect.value = !showHostSelect.value
   if (showHostSelect.value) {
-    hostSearchValue.value = '';
-    await fetchHostOptions('');
+    hostSearchValue.value = ''
+    await fetchHostOptions('')
     nextTick(() => {
-      hostSearchInputRef.value?.focus?.();
-    });
+      hostSearchInputRef.value?.focus?.()
+    })
   }
-};
+}
 </script>
 
 <style lang="less" scoped>
@@ -1377,7 +1384,9 @@ const handleAddHostClick = async () => {
   padding: 0px 4px 4px 4px;
   margin-top: 2px;
   scrollbar-width: thin;
-  max-height: v-bind('showBottomButton ? "calc(100vh - 195px)" : "calc(100vh - 165px)"');
+  max-height: v-bind(
+    'showResumeButton ? "calc(100vh - 202px)" : (showBottomButton ? "calc(100vh - 195px)" : "calc(100vh - 165px)")'
+  );
   width: 100%;
 
   &::-webkit-scrollbar {
