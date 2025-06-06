@@ -384,8 +384,8 @@ const litellmAiModelOptions = ref([
 ])
 
 const apiModelId = ref('anthropic.claude-3-7-sonnet-20250219-v1:0')
-const thinkingBudgetTokens = ref(0)
-const enableExtendedThinking = ref(false)
+const thinkingBudgetTokens = ref(2048)
+const enableExtendedThinking = ref(true)
 // const enableCheckpoints = ref(false)
 const reasoningEffort = ref('low')
 const shellIntegrationTimeout = ref(4)
