@@ -101,13 +101,50 @@ app.whenReady().then(async () => {
 
   // 注册窗口拖拽处理程序（只注册一次）
   ipcMain.handle('custom-adsorption', (_, res) => {
-    const newBounds = {
-      x: res.appX,
-      y: res.appY,
-      width: res.width,
-      height: res.height
+    const { appX, appY, width, height } = res
+
+    // 获取屏幕尺寸
+    const { screen } = require('electron')
+    const primaryDisplay = screen.getPrimaryDisplay()
+    const { width: screenWidth, height: screenHeight } = primaryDisplay.workAreaSize
+
+    // 计算边界吸附
+    let finalX = Math.round(appX)
+    let finalY = Math.round(appY)
+
+    // 左右边界吸附
+    if (Math.abs(appX) < 20) {
+      finalX = 0
+    } else if (Math.abs(screenWidth - (appX + width)) < 20) {
+      finalX = Math.round(screenWidth - width)
     }
-    mainWindow.setBounds(newBounds, true)
+
+    // 上下边界吸附
+    if (Math.abs(appY) < 20) {
+      finalY = 0
+    } else if (Math.abs(screenHeight - (appY + height)) < 20) {
+      finalY = Math.round(screenHeight - height)
+    }
+
+    // 使用 requestAnimationFrame 实现平滑拖拽
+    const animate = () => {
+      const currentBounds = mainWindow.getBounds()
+      const newX = Math.round(currentBounds.x + (finalX - currentBounds.x) * 0.3)
+      const newY = Math.round(currentBounds.y + (finalY - currentBounds.y) * 0.3)
+
+      mainWindow.setBounds({
+        x: newX,
+        y: newY,
+        width: Math.round(width),
+        height: Math.round(height)
+      })
+
+      if (Math.abs(newX - finalX) > 1 || Math.abs(newY - finalY) > 1) {
+        requestAnimationFrame(animate)
+      }
+    }
+
+    animate()
   })
 
   app.on('browser-window-created', (_, window) => {
