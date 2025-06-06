@@ -118,7 +118,7 @@
             :label-col="{ span: 24 }"
             :wrapper-col="{ span: 24 }"
           >
-            <a-input
+            <a-input-password
               v-model:value="liteLlmApiKey"
               :placeholder="$t('user.liteLlmApiKeyPh')"
             />
@@ -289,7 +289,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, watch } from 'vue'
+import { ref, onMounted, watch, onBeforeUnmount } from 'vue'
 import { notification } from 'ant-design-vue'
 import {
   updateGlobalState,
@@ -431,6 +431,38 @@ watch(
   }
 )
 
+// Add specific watch for liteLlmBaseUrl
+watch(
+  () => liteLlmBaseUrl.value,
+  async (newValue) => {
+    try {
+      await updateGlobalState('liteLlmBaseUrl', newValue)
+    } catch (error) {
+      console.error('Failed to update liteLlmBaseUrl:', error)
+      notification.error({
+        message: 'Error',
+        description: 'Failed to save LiteLLM Base URL'
+      })
+    }
+  }
+)
+
+// Add specific watch for liteLlmApiKey
+watch(
+  () => liteLlmApiKey.value,
+  async (newValue) => {
+    try {
+      await storeSecret('liteLlmApiKey', newValue)
+    } catch (error) {
+      console.error('Failed to update liteLlmApiKey:', error)
+      notification.error({
+        message: 'Error',
+        description: 'Failed to save LiteLLM API Key'
+      })
+    }
+  }
+)
+
 // Add specific watch for chatSettings.mode
 watch(
   () => chatSettings.value.mode,
@@ -456,7 +488,7 @@ watch(
 const loadSavedConfig = async () => {
   try {
     // 加载API相关配置
-    apiProvider.value = ((await getGlobalState('apiProvider')) as string) || ''
+    apiProvider.value = ((await getGlobalState('apiProvider')) as string) || 'litellm'
     //aws信息
     apiModelId.value = ((await getGlobalState('apiModelId')) as string) || ''
     awsRegion.value = ((await getGlobalState('awsRegion')) as string) || ''
@@ -467,12 +499,13 @@ const loadSavedConfig = async () => {
     awsSecretKey.value = (await getSecret('awsSecretKey')) || ''
     awsSessionToken.value = (await getSecret('awsSessionToken')) || ''
     //openai信息
-    liteLlmModelId.value = ((await getGlobalState('liteLlmModelId')) as string) || ''
+    liteLlmModelId.value =
+      ((await getGlobalState('liteLlmModelId')) as string) || 'claude-3-7-sonnet'
     liteLlmBaseUrl.value = ((await getGlobalState('liteLlmBaseUrl')) as string) || ''
     liteLlmApiKey.value = (await getSecret('liteLlmApiKey')) || ''
 
     // 加载其他配置
-    thinkingBudgetTokens.value = ((await getGlobalState('thinkingBudgetTokens')) as number) || 0
+    thinkingBudgetTokens.value = ((await getGlobalState('thinkingBudgetTokens')) as number) || 2048
     customInstructions.value = ((await getGlobalState('customInstructions')) as string) || ''
     // enableCheckpoints.value = (await getGlobalState('enableCheckpoints')) || false
 
@@ -612,6 +645,11 @@ onMounted(async () => {
   await loadSavedConfig()
 })
 
+// 组件卸载前保存配置
+onBeforeUnmount(async () => {
+  await saveConfig()
+})
+
 // 验证 shell integration timeout 输入
 const validateTimeout = (value: string) => {
   const timeout = parseInt(value)
@@ -696,13 +734,15 @@ const handleEnableExtendedThinking = (checked: boolean) => {
 :deep(.ant-checkbox-wrapper),
 :deep(.ant-form-item-label label),
 :deep(.ant-select),
-:deep(.ant-input) {
+:deep(.ant-input),
+:deep(.ant-input-password) {
   color: rgba(255, 255, 255, 0.85);
 }
 
 :deep(.ant-checkbox),
 :deep(.ant-select-selector),
-:deep(.ant-input) {
+:deep(.ant-input),
+:deep(.ant-input-password) {
   background-color: #4a4a4a !important; // 添加 !important 确保覆盖默认样式
   border: none;
 
@@ -713,6 +753,22 @@ const handleEnableExtendedThinking = (checked: boolean) => {
 
   &::placeholder {
     color: rgba(255, 255, 255, 0.25) !important;
+  }
+}
+
+// 密码输入框特定样式
+:deep(.ant-input-password) {
+  .ant-input {
+    background-color: #4a4a4a !important;
+    color: rgba(255, 255, 255, 0.85);
+  }
+
+  .anticon {
+    color: rgba(255, 255, 255, 0.45);
+  }
+
+  &:hover .anticon {
+    color: rgba(255, 255, 255, 0.65);
   }
 }
 
