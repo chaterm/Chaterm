@@ -715,6 +715,7 @@ const handlePlusClick = async () => {
   buttonsDisabled.value = false
   resumeDisabled.value = false
   showCancelButton.value = false
+  showSendButton.value = true
   if (currentInput.trim()) {
     sendMessage()
   }
