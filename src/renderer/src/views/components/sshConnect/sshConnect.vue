@@ -36,6 +36,8 @@ import { aliasConfigStore } from '@/store/aliasConfigStore'
 import { userConfigStore } from '@/services/userConfigStoreService'
 import { v4 as uuidv4 } from 'uuid'
 import { userInfoStore } from '@/store/index'
+import eventBus from '@/utils/eventBus'
+import { useCurrentCwdStore } from '@/store/currentCwdStore'
 
 const props = defineProps({
   connectData: {
@@ -64,12 +66,15 @@ const cleanupListeners = ref<Array<() => void>>([])
 const terminalElement = ref(null)
 const terminalContainer = ref(null)
 const cursorStartX = ref(0)
+const currentCwd = ref('')
 const api = window.api as any
 
 const userConfig = ref({
   aliasStatus: 2,
   quickVimStatus: 2
 })
+
+const currentCwdStore = useCurrentCwdStore()
 
 const loadUserConfig = async () => {
   try {
@@ -504,7 +509,17 @@ const setupTerminalInput = () => {
           sendData(data)
         }
       } else {
-        sendData(data)
+        // detect cd command
+        // support following cd command: cd, cd /path, command1 & cd /path
+        if (/\bcd\b/.test(command)) {
+          sendData(data)
+          // 在cd命令执行后获取新的cwd
+          setTimeout(() => {
+            sendMarkedData('pwd\r', 'Chaterm:pwd')
+          }, 100)
+        } else {
+          sendData(data)
+        }
       }
     } else if (JSON.stringify(data) === '"\\u001b[A"') {
       sendMarkedData(data, 'Chaterm:[A')
@@ -559,18 +574,11 @@ const startShell = async () => {
           terminal.value?.write(data)
         } else if (response.marker === 'Chaterm:save' || data.indexOf('Chaterm:save') !== -1) {
           console.log(response.marker)
-          // } else if (response.marker === 'Chaterm:[A') {
-          //   if (data.indexOf('Chaterm:vim') !== -1) {
-          //     data = data.replace('#Chaterm:vim', '')
-          //     data = data.replace('cat', 'vim')
-          //     terminal.value?.write(data)
-          //   } else if (data.indexOf('Chaterm:save') !== -1) {
-          //     console.log('DSdadsad',data)
-          //     // sendMarkedData(String.fromCharCode(27, 91, 65), 'Chaterm:[A')
-          //   } else {
-          //     terminal.value?.write(data)
-          //   }
-          //   console.log('AB', response.marker, JSON.stringify(data))
+        } else if (response.marker === 'Chaterm:pwd') {
+          // 处理pwd命令的响应
+          currentCwd.value = data.trim()
+          currentCwdStore.setCurrentCwd(currentCwd.value)
+          console.log('current working directory:', currentCwd.value)
         } else {
           terminal.value?.write(data)
         }
@@ -583,6 +591,11 @@ const startShell = async () => {
         isConnected.value = false
       })
       cleanupListeners.value = [removeDataListener, removeErrorListener, removeCloseListener]
+
+      // 获取初始cwd
+      setTimeout(() => {
+        sendMarkedData('pwd\r', 'Chaterm:pwd')
+      }, 500)
     } else {
       terminal.value?.writeln(`启动Shell失败: ${result.message}`)
     }
