@@ -19,6 +19,8 @@ import { getTaskMetadata } from './agent/core/storage/disk'
 let mainWindow: BrowserWindow
 let COOKIE_URL = 'http://localhost'
 let browserWindow: BrowserWindow | null = null
+let lastWidth: number = 1344 // 默认窗口宽度
+let lastHeight: number = 756 // 默认窗口高度
 
 let autoCompleteService: autoCompleteDatabaseService
 let chatermDbService: ChatermDatabaseService
@@ -323,7 +325,6 @@ function updateNavigationState(): void {
 }
 // 设置 IPC 处理
 function setupIPC(): void {
-  // 添加窗口控制处理程序
   ipcMain.handle('window:maximize', () => {
     if (mainWindow && !mainWindow.isDestroyed()) {
       mainWindow.maximize()
@@ -332,7 +333,26 @@ function setupIPC(): void {
 
   ipcMain.handle('window:unmaximize', () => {
     if (mainWindow && !mainWindow.isDestroyed()) {
-      mainWindow.unmaximize()
+      if (mainWindow.isMaximized()) {
+        mainWindow.unmaximize()
+        if (lastWidth && lastHeight) {
+          // 获取屏幕尺寸
+          const { screen } = require('electron')
+          const primaryDisplay = screen.getPrimaryDisplay()
+          const { width: screenWidth, height: screenHeight } = primaryDisplay.workAreaSize
+
+          // 计算窗口居中位置
+          const x = Math.floor((screenWidth - lastWidth) / 2)
+          const y = Math.floor((screenHeight - lastHeight) / 2)
+
+          mainWindow.setBounds({
+            x,
+            y,
+            width: lastWidth,
+            height: lastHeight
+          })
+        }
+      }
     }
   })
 
