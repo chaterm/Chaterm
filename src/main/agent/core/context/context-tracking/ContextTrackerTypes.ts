@@ -1,4 +1,5 @@
 // Type definitions for FileContextTracker
+import type { Host } from '@shared/WebviewMessage'
 export interface FileMetadataEntry {
   path: string
   record_state: 'active' | 'stale'
@@ -15,12 +16,10 @@ export interface ModelMetadataEntry {
   mode: string
 }
 
-export interface HostMetadataEntry {
-  host: string
-}
+
 
 export interface TaskMetadata {
-  hosts: HostMetadataEntry[]
+  hosts: Host[]
   files_in_context: FileMetadataEntry[]
   model_usage: ModelMetadataEntry[]
 }

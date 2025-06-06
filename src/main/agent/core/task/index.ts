@@ -56,7 +56,7 @@ import {
 } from '@core/assistant-message'
 // import { constructNewFileContent } from "@core/assistant-message/diff"
 // import { ChatermIgnoreController } from "@core/ignore/ChatermIgnoreController"
-import { RemoteTerminalManager, ConnectionInfo } from '../../integrations/remote-terminal'
+import { RemoteTerminalManager, ConnectionInfo, RemoteTerminalInfo } from '../../integrations/remote-terminal'
 import { parseMentions } from '@core/mentions'
 import { formatResponse } from '@core/prompts/responses'
 import { addUserInstructions, SYSTEM_PROMPT } from '@core/prompts/system'
@@ -90,11 +90,14 @@ import WorkspaceTracker from '@integrations/workspace/WorkspaceTracker'
 //import { featureFlagsService } from "@/services/posthog/feature-flags/FeatureFlagsService"
 import { connectAssetInfo } from '../../../storage/database'
 
+import type { Host } from '@shared/WebviewMessage'
+
 export const cwd = path.join(os.homedir(), 'Desktop')
 // vscode.workspace.workspaceFolders?.map((folder) => folder.uri.fsPath).at(0) ?? path.join(os.homedir(), "Desktop") // may or may not exist but fs checking existence would immediately ask for permission which would be bad UX, need to come up with a better solution
 
 type ToolResponse = string | Array<Anthropic.TextBlockParam | Anthropic.ImageBlockParam>
 type UserContent = Array<Anthropic.ContentBlockParam>
+
 
 export class Task {
   // dependencies
@@ -108,7 +111,7 @@ export class Task {
   private cancelTask: () => Promise<void>
 
   readonly taskId: string
-  terminalUuid?: string = ''
+  hosts?: Host[]
   terminalOutput?: string = ''
   private taskIsFavorited?: boolean
   api: ApiHandler
@@ -175,7 +178,7 @@ export class Task {
     task?: string,
     // images?: string[],
     historyItem?: HistoryItem,
-    terminalUuid?: string,
+    hosts?: Host[],
     terminalOutput?: string
   ) {
     this.context = context
@@ -201,7 +204,7 @@ export class Task {
     this.autoApprovalSettings = DEFAULT_AUTO_APPROVAL_SETTINGS
     // this.browserSettings = browserSettings
     this.chatSettings = chatSettings
-    this.terminalUuid = terminalUuid
+    this.hosts = hosts
     this.terminalOutput = terminalOutput
     // Initialize taskId first
     if (historyItem) {
@@ -243,13 +246,20 @@ export class Task {
   }
 
   private async connectTerminal() {
-    if (!this.terminalUuid) {
+    if (!this.hosts) {
       console.log('Terminal UUID is not set')
       return
     }
-    const connectionInfo = await connectAssetInfo(this.terminalUuid)
-    this.remoteTerminalManager.setConnectionInfo(connectionInfo)
-    const terminalInfo = await this.remoteTerminalManager.createTerminal()
+    let terminalInfo: RemoteTerminalInfo | null = null
+    if (this.hosts[0].connection === 'personal') {
+      let terminalUuid = this.hosts[0].uuid 
+      const connectionInfo = await connectAssetInfo(terminalUuid)
+      this.remoteTerminalManager.setConnectionInfo(connectionInfo)
+       terminalInfo = await this.remoteTerminalManager.createTerminal()
+    } else {
+      // websocket
+    }
+   
     return terminalInfo
   }
 

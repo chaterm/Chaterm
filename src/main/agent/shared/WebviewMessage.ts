@@ -4,6 +4,8 @@ import { ChatSettings } from './ChatSettings'
 import { ChatContent } from './ChatContent'
 // import { TelemetrySetting } from "./TelemetrySetting"
 
+export type Host = { host: string, uuid: string, connection: string, organizationId: string }
+
 export interface WebviewMessage {
   type:
     | 'apiConfiguration'
@@ -83,9 +85,8 @@ export interface WebviewMessage {
   offset?: number
   shellIntegrationTimeout?: number
   askResponse?: ChatermAskResponse
-  terminalUuid?: string
   terminalOutput?: string
-  hosts?: { host: string, uuid: string }[]
+  hosts?: Host[]
 }
 
 export type ChatermAskResponse = 'yesButtonClicked' | 'noButtonClicked' | 'messageResponse'
