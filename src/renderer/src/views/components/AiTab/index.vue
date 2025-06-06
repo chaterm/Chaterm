@@ -34,6 +34,7 @@
       <div
         v-if="chatHistory.length > 0"
         ref="chatContainer"
+        :key="containerKey"
         class="chat-response-container"
       >
         <div class="chat-response">
@@ -50,12 +51,14 @@
                 :content="(message.content as MessageContent).question"
                 :class="`message ${message.role}`"
                 :ask="message.ask"
+                :say="message.say"
               />
               <MarkdownRenderer
                 v-else
                 :content="typeof message.content === 'string' ? message.content : ''"
                 :class="`message ${message.role}`"
                 :ask="message.ask"
+                :say="message.say"
               />
 
               <div class="message-actions">
@@ -722,6 +725,8 @@ const handlePlusClick = async () => {
   }
 }
 
+const containerKey = ref(0)
+
 const restoreHistoryTab = async (history: HistoryItem) => {
   if (webSocket.value) {
     webSocket.value.close()
@@ -729,6 +734,7 @@ const restoreHistoryTab = async (history: HistoryItem) => {
   }
 
   hosts.value = []
+  containerKey.value++
 
   currentChatId.value = history.id
   chatTypeValue.value = history.chatType
@@ -759,14 +765,25 @@ const restoreHistoryTab = async (history: HistoryItem) => {
       const conversationHistory = await getChatermMessages()
       console.log('[conversationHistory]', conversationHistory)
       chatHistory.length = 0
-      // 按时间戳排序
+      // 按时间戳排序并过滤相邻重复项
+      let lastItem: any = null
       conversationHistory.forEach((item, index) => {
+        // 检查是否与前一项重复
+        const isDuplicate =
+          lastItem &&
+          item.text === lastItem.text &&
+          item.ask === lastItem.ask &&
+          item.say === lastItem.say &&
+          item.type === lastItem.type
+
         if (
-          item.ask === 'followup' ||
-          item.ask === 'command' ||
-          item.say === 'text' ||
-          item.ask === 'resume_task' ||
-          item.say === 'user_feedback'
+          !isDuplicate &&
+          (item.ask === 'followup' ||
+            item.ask === 'command' ||
+            item.say === 'completion_result' ||
+            item.say === 'text' ||
+            item.ask === 'resume_task' ||
+            item.say === 'user_feedback')
         ) {
           let role: 'assistant' | 'user' = 'assistant'
           if (index === 0 || item.say === 'user_feedback') {
@@ -795,6 +812,7 @@ const restoreHistoryTab = async (history: HistoryItem) => {
             }
           }
           chatHistory.push(userMessage)
+          lastItem = item
         }
       })
       // TODO:将hosts的发送时机推迟到点击resume按钮时
@@ -1041,8 +1059,7 @@ const handleResume = async () => {
   console.log('handleResume:恢复')
   const messageRsp = {
     type: 'askResponse',
-    askResponse: 'messageResponse',
-    text: 'resume task'
+    askResponse: 'yesButtonClicked'
   }
   console.log('发送消息到主进程:', messageRsp)
   const response = await (window.api as any).sendToMain(messageRsp)
@@ -1292,12 +1309,6 @@ const showResumeButton = computed(() => {
   if (!message) {
     return false
   }
-  // return (
-  //   chatTypeValue.value === 'agent' &&
-  //   lastChatMessageId.value !== '' &&
-  //   lastChatMessageId.value == message.id &&
-  //   message.ask === 'resume_task'
-  // )
   return chatTypeValue.value === 'agent' && message.ask === 'resume_task'
 })
 
