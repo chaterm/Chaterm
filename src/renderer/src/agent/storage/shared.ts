@@ -74,6 +74,8 @@ export type ApiConfiguration = ApiHandlerOptions & {
   favoritedModelIds?: string[]
 }
 
+export type Host = { host: string, uuid: string, connection: string, organizationId: string }
+
 // Models
 
 interface PriceTier {

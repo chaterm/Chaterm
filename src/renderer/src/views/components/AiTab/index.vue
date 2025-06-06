@@ -34,6 +34,7 @@
       <div
         v-if="chatHistory.length > 0"
         ref="chatContainer"
+        :key="containerKey"
         class="chat-response-container"
       >
         <div class="chat-response">
@@ -50,12 +51,14 @@
                 :content="(message.content as MessageContent).question"
                 :class="`message ${message.role}`"
                 :ask="message.ask"
+                :say="message.say"
               />
               <MarkdownRenderer
                 v-else
                 :content="typeof message.content === 'string' ? message.content : ''"
                 :class="`message ${message.role}`"
                 :ask="message.ask"
+                :say="message.say"
               />
 
               <div class="message-actions">
@@ -328,7 +331,7 @@ import { v4 as uuidv4 } from 'uuid'
 import { getAiModel, getChatDetailList, getConversationList } from '@/api/ai/ai'
 import eventBus from '@/utils/eventBus'
 import { getGlobalState } from '@renderer/agent/storage/state'
-import type { HistoryItem as TaskHistoryItem } from '@renderer/agent/storage/shared'
+import type { HistoryItem as TaskHistoryItem,Host } from '@renderer/agent/storage/shared'
 import foldIcon from '@/assets/icons/fold.svg'
 import historyIcon from '@/assets/icons/history.svg'
 import plusIcon from '@/assets/icons/plus.svg'
@@ -354,7 +357,7 @@ interface HistoryItem {
 }
 
 const historyList = ref<HistoryItem[]>([])
-const hosts = ref<{ host: string; uuid: string }[]>([])
+const hosts = ref<Host[]>([])
 
 const chatInputValue = ref('')
 const chatModelValue = ref('qwen-chat')
@@ -587,16 +590,15 @@ const sendMessage = async () => {
     // 获取当前活跃主机是否存在
     if (hosts.value.length === 0) {
       const assetInfo = await getCurentTabAssetInfo()
-      if (assetInfo) {
-        hosts.value.push({ host: assetInfo.ip, uuid: assetInfo.uuid })
-      } else {
-        notification.error({
-          message: '获取当前资产连接信息失败',
-          description: '请先建立资产连接',
-          duration: 3
-        })
-        return 'ASSET_ERROR'
-      }
+    if (assetInfo) {
+      hosts.value.push({ host: assetInfo.ip, uuid: assetInfo.uuid, connection: 'personal', organizationId: 'personal_01' })
+    } else {
+      notification.error({
+        message: '获取当前资产连接信息失败',
+        description: '请先建立资产连接',
+        duration: 3
+      })
+      return 'ASSET_ERROR'
     }
     await sendMessageToMain(userContent)
 
@@ -631,6 +633,7 @@ const sendMessage = async () => {
   if (webSocket.value.readyState === WebSocket.OPEN) {
     sendWebSocketMessage(webSocket.value, chatTypeValue.value)
   }
+}
 }
 
 const sendWebSocketMessage = (ws: WebSocket, type: string) => {
@@ -722,6 +725,8 @@ const handlePlusClick = async () => {
   }
 }
 
+const containerKey = ref(0)
+
 const restoreHistoryTab = async (history: HistoryItem) => {
   if (webSocket.value) {
     webSocket.value.close()
@@ -729,6 +734,7 @@ const restoreHistoryTab = async (history: HistoryItem) => {
   }
 
   hosts.value = []
+  containerKey.value++
 
   currentChatId.value = history.id
   chatTypeValue.value = history.chatType
@@ -748,7 +754,7 @@ const restoreHistoryTab = async (history: HistoryItem) => {
               let ip = item.host
               let uuid = item.uuid || ''
               if (ip && !hosts.value.some((h) => h.host === ip)) {
-                hosts.value.push({ host: ip, uuid: uuid })
+                hosts.value.push({ host: ip, uuid: uuid, connection: 'personal', organizationId: 'personal_01' })
               }
             }
           }
@@ -759,14 +765,25 @@ const restoreHistoryTab = async (history: HistoryItem) => {
       const conversationHistory = await getChatermMessages()
       console.log('[conversationHistory]', conversationHistory)
       chatHistory.length = 0
-      // 按时间戳排序
+      // 按时间戳排序并过滤相邻重复项
+      let lastItem: any = null
       conversationHistory.forEach((item, index) => {
+        // 检查是否与前一项重复
+        const isDuplicate =
+          lastItem &&
+          item.text === lastItem.text &&
+          item.ask === lastItem.ask &&
+          item.say === lastItem.say &&
+          item.type === lastItem.type
+
         if (
-          item.ask === 'followup' ||
-          item.ask === 'command' ||
-          item.say === 'text' ||
-          item.ask === 'resume_task' ||
-          item.say === 'user_feedback'
+          !isDuplicate &&
+          (item.ask === 'followup' ||
+            item.ask === 'command' ||
+            item.say === 'completion_result' ||
+            item.say === 'text' ||
+            item.ask === 'resume_task' ||
+            item.say === 'user_feedback')
         ) {
           let role: 'assistant' | 'user' = 'assistant'
           if (index === 0 || item.say === 'user_feedback') {
@@ -795,9 +812,10 @@ const restoreHistoryTab = async (history: HistoryItem) => {
             }
           }
           chatHistory.push(userMessage)
+          lastItem = item
         }
       })
-      // TODO:将terminalUuid的发送时机推迟到点击resume按钮时
+      // TODO:将hosts的发送时机推迟到点击resume按钮时
       if (hosts.value.length === 0) {
         notification.error({
           message: '获取当前资产连接信息失败',
@@ -809,7 +827,7 @@ const restoreHistoryTab = async (history: HistoryItem) => {
       await (window.api as any).sendToMain({
         type: 'showTaskWithId',
         text: history.id,
-        terminalUuid: hosts.value[0]?.uuid,
+        hosts: hosts.value.map((h) => ({ host: h.host, uuid: h.uuid, connection: h.connection, organizationId: h.organizationId })),
         cwd: currentCwd.value
       })
     } else {
@@ -1041,8 +1059,7 @@ const handleResume = async () => {
   console.log('handleResume:恢复')
   const messageRsp = {
     type: 'askResponse',
-    askResponse: 'messageResponse',
-    text: 'resume task'
+    askResponse: 'yesButtonClicked'
   }
   console.log('发送消息到主进程:', messageRsp)
   const response = await (window.api as any).sendToMain(messageRsp)
@@ -1171,9 +1188,8 @@ const sendMessageToMain = async (userContent: string) => {
         type: 'newTask',
         askResponse: 'messageResponse',
         text: userContent,
-        terminalUuid: hosts.value[0]?.uuid || '',
         terminalOutput: '',
-        hosts: hosts.value.map((h) => ({ host: h.host, uuid: h.uuid })),
+        hosts: hosts.value.map((h) => ({ host: h.host, uuid: h.uuid, connection: h.connection, organizationId: h.organizationId })),
         cwd: currentCwd.value
       }
     } else {
@@ -1247,7 +1263,7 @@ const filteredHostOptions = computed(() =>
 )
 const onHostClick = (item: any) => {
   if (!hosts.value.some((h) => h.host === item.label)) {
-    hosts.value.push({ host: item.label, uuid: item.uuid })
+    hosts.value.push({ host: item.label, uuid: item.uuid, connection: 'personal', organizationId: '' })
   }
   showHostSelect.value = false
   chatInputValue.value = ''
@@ -1293,12 +1309,6 @@ const showResumeButton = computed(() => {
   if (!message) {
     return false
   }
-  // return (
-  //   chatTypeValue.value === 'agent' &&
-  //   lastChatMessageId.value !== '' &&
-  //   lastChatMessageId.value == message.id &&
-  //   message.ask === 'resume_task'
-  // )
   return chatTypeValue.value === 'agent' && message.ask === 'resume_task'
 })
 
