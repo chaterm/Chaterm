@@ -120,8 +120,8 @@
       </div>
       <div class="bottom-container">
         <div
-          class="bottom-buttons"
           v-if="showBottomButton"
+          class="bottom-buttons"
         >
           <a-button
             size="small"
@@ -203,11 +203,11 @@
               <div
                 v-for="item in filteredHostOptions"
                 :key="item.value"
-                @click="onHostClick(item)"
                 class="host-select-item"
+                :class="{ hovered: hovered === item.value }"
                 @mouseover="hovered = item.value"
                 @mouseleave="hovered = null"
-                :class="{ hovered: hovered === item.value }"
+                @click="onHostClick(item)"
               >
                 {{ item.label }}
               </div>
@@ -331,7 +331,7 @@ import { v4 as uuidv4 } from 'uuid'
 import { getAiModel, getChatDetailList, getConversationList } from '@/api/ai/ai'
 import eventBus from '@/utils/eventBus'
 import { getGlobalState } from '@renderer/agent/storage/state'
-import type { HistoryItem as TaskHistoryItem,Host } from '@renderer/agent/storage/shared'
+import type { HistoryItem as TaskHistoryItem, Host } from '@renderer/agent/storage/shared'
 import foldIcon from '@/assets/icons/fold.svg'
 import historyIcon from '@/assets/icons/history.svg'
 import plusIcon from '@/assets/icons/plus.svg'
@@ -348,6 +348,36 @@ const showHostSelect = ref(false)
 const hostOptions = ref<{ label: string; value: string; uuid: string }[]>([])
 const hostSearchValue = ref('')
 const hovered = ref<string | null>(null)
+
+interface MessageContent {
+  question: string
+  options?: string[]
+  selected?: string
+  type?: string
+  content?: string
+  partial?: boolean
+}
+
+interface ChatMessage {
+  id: string
+  role: 'user' | 'assistant'
+  content: string | MessageContent
+  type?: string
+  ask?: string
+  say?: string
+  action?: 'approved' | 'rejected'
+  ts?: number
+  selectedOption?: string
+}
+
+interface AssetInfo {
+  uuid: string
+  title: string
+  ip: string
+  organizationId?: string
+  type?: string
+  outputContext?: string
+}
 
 interface HistoryItem {
   id: string
@@ -373,27 +403,6 @@ const showCancelButton = ref(false)
 const currentChatId = ref<string | null>(null)
 const authTokenInCookie = ref<string | null>(null)
 
-interface ChatMessage {
-  id: string
-  role: 'user' | 'assistant'
-  content: string | MessageContent
-  type?: string
-  ask?: string
-  say?: string
-  action?: 'approved' | 'rejected'
-  ts?: number
-  selectedOption?: string
-}
-
-interface AssetInfo {
-  uuid: string
-  title: string
-  ip: string
-  organizationId?: string
-  type?: string
-  outputContext?: string
-}
-
 const chatHistory = reactive<ChatMessage[]>([])
 const webSocket = ref<WebSocket | null>(null)
 
@@ -415,11 +424,6 @@ const AiTypeOptions = [
   { label: 'Cmd', value: 'ctm-cmd' },
   { label: 'Agent', value: 'agent' }
 ]
-
-interface MessageContent {
-  question: string
-  options?: string[]
-}
 
 const getChatermMessages = async () => {
   const result = await (window.api as any).chatermGetChatermMessages({
@@ -473,26 +477,21 @@ const handleTabChange = (key: string | number) => {
 // 创建 WebSocket 连接的函数
 const createWebSocket = (type: string) => {
   const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
-  // console.log('当前协议:', protocol)
   const token = JSON.parse(JSON.stringify(authTokenInCookie.value))
   const wsUrl = `${protocol}//demo.chaterm.ai/v1/ai/chat/ws?token=${token}`
   const ws = new WebSocket(wsUrl)
 
   ws.onopen = () => {
-    // console.log(`${type} WebSocket 连接成功`)
-    // 设置定时发送ping
     const pingInterval = setInterval(() => {
       if (ws.readyState === WebSocket.OPEN) {
         ws.send(JSON.stringify({ type: 'ping' }))
       } else {
         clearInterval(pingInterval)
       }
-    }, 30000) // 每30秒发送一次ping
+    }, 30000)
 
-    // 在WebSocket关闭时清除定时器
     ws.onclose = () => {
       clearInterval(pingInterval)
-      // console.log(`${type} WebSocket连接已关闭`)
       webSocket.value = null
     }
   }
@@ -500,13 +499,10 @@ const createWebSocket = (type: string) => {
   ws.onmessage = (e) => {
     try {
       const parsedData = JSON.parse(e.data)
-      // 处理pong消息
       if (parsedData.type === 'pong') {
-        // console.log('收到服务器pong响应')
         return
       }
       if (parsedData.conversation_id) {
-        // console.log('更新会话ID:', parsedData.conversation_id)
         currentChatId.value = parsedData.conversation_id
       }
       if (
@@ -521,12 +517,16 @@ const createWebSocket = (type: string) => {
 
         if (chatHistory.at(-1)?.role === 'assistant') {
           const lastAssistantMessage = chatHistory.at(-1)!
-          lastAssistantMessage.content += parsedData.choices[0].delta.content
+          if (typeof lastAssistantMessage.content === 'string') {
+            lastAssistantMessage.content += parsedData.choices[0].delta.content
+          }
 
-          // 同时更新 historyList 中的记录
           if (currentHistoryEntry) {
             const lastHistoryContent = currentHistoryEntry.chatContent.at(-1)
-            if (lastHistoryContent?.role === 'assistant') {
+            if (
+              lastHistoryContent?.role === 'assistant' &&
+              typeof lastHistoryContent.content === 'string'
+            ) {
               lastHistoryContent.content += parsedData.choices[0].delta.content
             }
           }
@@ -541,7 +541,6 @@ const createWebSocket = (type: string) => {
           }
           chatHistory.push(newMessage)
 
-          // 同时更新 historyList 中的记录
           if (currentHistoryEntry) {
             currentHistoryEntry.chatContent.push(newMessage)
           }
@@ -556,7 +555,7 @@ const createWebSocket = (type: string) => {
         type: 'message',
         ask: '',
         say: ''
-      } as ChatMessage)
+      })
     }
   }
 
@@ -569,7 +568,7 @@ const createWebSocket = (type: string) => {
       type: 'message',
       ask: '',
       say: ''
-    } as ChatMessage)
+    })
   }
 
   return ws
@@ -590,50 +589,55 @@ const sendMessage = async () => {
     // 获取当前活跃主机是否存在
     if (hosts.value.length === 0) {
       const assetInfo = await getCurentTabAssetInfo()
-    if (assetInfo) {
-      hosts.value.push({ host: assetInfo.ip, uuid: assetInfo.uuid, connection: 'personal', organizationId: 'personal_01' })
-    } else {
-      notification.error({
-        message: '获取当前资产连接信息失败',
-        description: '请先建立资产连接',
-        duration: 3
-      })
-      return 'ASSET_ERROR'
+      if (assetInfo) {
+        hosts.value.push({
+          host: assetInfo.ip,
+          uuid: assetInfo.uuid,
+          connection: 'personal',
+          organizationId: 'personal_01'
+        })
+      } else {
+        notification.error({
+          message: '获取当前资产连接信息失败',
+          description: '请先建立资产连接',
+          duration: 3
+        })
+        return 'ASSET_ERROR'
+      }
+      await sendMessageToMain(userContent)
+
+      const userMessage: ChatMessage = {
+        id: uuidv4(),
+        role: 'user',
+        content: userContent,
+        type: 'message',
+        ask: '',
+        say: '',
+        ts: 0
+      }
+      chatHistory.push(userMessage)
+      chatInputValue.value = ''
+      return
     }
-    await sendMessageToMain(userContent)
 
-    const userMessage: ChatMessage = {
-      id: uuidv4(),
-      role: 'user',
-      content: userContent,
-      type: 'message',
-      ask: '',
-      say: '',
-      ts: 0
+    // 如果没有 WebSocket 连接，创建新的连接
+    if (!webSocket.value) {
+      webSocket.value = createWebSocket(chatTypeValue.value)
     }
-    chatHistory.push(userMessage)
-    chatInputValue.value = ''
-    return
-  }
 
-  // 如果没有 WebSocket 连接，创建新的连接
-  if (!webSocket.value) {
-    webSocket.value = createWebSocket(chatTypeValue.value)
-  }
-
-  // 等待连接建立
-  if (webSocket.value.readyState === WebSocket.CONNECTING) {
-    webSocket.value.onopen = () => {
-      sendWebSocketMessage(webSocket.value!, chatTypeValue.value)
+    // 等待连接建立
+    if (webSocket.value.readyState === WebSocket.CONNECTING) {
+      webSocket.value.onopen = () => {
+        sendWebSocketMessage(webSocket.value!, chatTypeValue.value)
+      }
+      return
     }
-    return
-  }
 
-  // 如果连接已经打开，直接发送消息
-  if (webSocket.value.readyState === WebSocket.OPEN) {
-    sendWebSocketMessage(webSocket.value, chatTypeValue.value)
+    // 如果连接已经打开，直接发送消息
+    if (webSocket.value.readyState === WebSocket.OPEN) {
+      sendWebSocketMessage(webSocket.value, chatTypeValue.value)
+    }
   }
-}
 }
 
 const sendWebSocketMessage = (ws: WebSocket, type: string) => {
@@ -754,7 +758,12 @@ const restoreHistoryTab = async (history: HistoryItem) => {
               let ip = item.host
               let uuid = item.uuid || ''
               if (ip && !hosts.value.some((h) => h.host === ip)) {
-                hosts.value.push({ host: ip, uuid: uuid, connection: 'personal', organizationId: 'personal_01' })
+                hosts.value.push({
+                  host: ip,
+                  uuid: uuid,
+                  connection: 'personal',
+                  organizationId: 'personal_01'
+                })
               }
             }
           }
@@ -827,7 +836,12 @@ const restoreHistoryTab = async (history: HistoryItem) => {
       await (window.api as any).sendToMain({
         type: 'showTaskWithId',
         text: history.id,
-        hosts: hosts.value.map((h) => ({ host: h.host, uuid: h.uuid, connection: h.connection, organizationId: h.organizationId })),
+        hosts: hosts.value.map((h) => ({
+          host: h.host,
+          uuid: h.uuid,
+          connection: h.connection,
+          organizationId: h.organizationId
+        })),
         cwd: currentCwd.value
       })
     } else {
@@ -911,7 +925,10 @@ const handleApplyCommand = (message: ChatMessage) => {
 
 const handleCopyContent = async (message: ChatMessage) => {
   try {
-    const content = typeof message.content === 'string' ? message.content : message.content.question
+    const content =
+      typeof message.content === 'string'
+        ? message.content
+        : (message.content as MessageContent).question || ''
     await navigator.clipboard.writeText(content)
     eventBus.emit('executeTerminalCommand', content)
   } catch (err) {
@@ -938,27 +955,21 @@ const handleRejectContent = async () => {
     }
     switch (message.ask) {
       case 'followup':
-        // For follow-up questions, provide a generic response
         messageRsp.askResponse = 'messageResponse'
         messageRsp.text =
-          typeof message.content === 'object' &&
-          'options' in message.content &&
-          Array.isArray((message.content as MessageContent).options)
-            ? (message.content as MessageContent).options![1]
+          typeof message.content === 'object' && 'options' in message.content
+            ? (message.content as MessageContent).options?.[1] || ''
             : ''
         break
       case 'api_req_failed':
-        // Always retry API requests
-        messageRsp.askResponse = 'noButtonClicked' // "Retry" button
+        messageRsp.askResponse = 'noButtonClicked'
         break
       case 'completion_result':
-        // Accept the completion
         messageRsp.askResponse = 'messageResponse'
         messageRsp.text = 'Task completed failed.'
         break
       case 'auto_approval_max_req_reached':
-        // Reset the count to continue
-        messageRsp.askResponse = 'noButtonClicked' // "Reset and continue" button
+        messageRsp.askResponse = 'noButtonClicked'
         break
     }
     message.action = 'rejected'
@@ -983,7 +994,6 @@ const handleOptionChoose = async (message: ChatMessage, option?: string) => {
     }
     switch (message.ask) {
       case 'followup':
-        // For follow-up questions, provide a generic response
         messageRsp.askResponse = 'messageResponse'
         messageRsp.text = option || ''
         break
@@ -1009,29 +1019,21 @@ const handleApproveCommand = async () => {
     }
     switch (message.ask) {
       case 'followup':
-        // For follow-up questions, provide a generic response
         messageRsp.askResponse = 'messageResponse'
         messageRsp.text =
-          typeof message.content === 'object' &&
-          'options' in message.content &&
-          Array.isArray((message.content as MessageContent).options)
-            ? (message.content as MessageContent).options![0]
+          typeof message.content === 'object' && 'options' in message.content
+            ? (message.content as MessageContent).options?.[0] || ''
             : ''
         break
-
       case 'api_req_failed':
-        // Always retry API requests
-        messageRsp.askResponse = 'yesButtonClicked' // "Retry" button
+        messageRsp.askResponse = 'yesButtonClicked'
         break
-
       case 'completion_result':
-        // Accept the completion
         messageRsp.askResponse = 'messageResponse'
         messageRsp.text = 'Task completed successfully.'
         break
       case 'auto_approval_max_req_reached':
-        // Reset the count to continue
-        messageRsp.askResponse = 'yesButtonClicked' // "Reset and continue" button
+        messageRsp.askResponse = 'yesButtonClicked'
         break
     }
     message.action = 'approved'
@@ -1189,7 +1191,12 @@ const sendMessageToMain = async (userContent: string) => {
         askResponse: 'messageResponse',
         text: userContent,
         terminalOutput: '',
-        hosts: hosts.value.map((h) => ({ host: h.host, uuid: h.uuid, connection: h.connection, organizationId: h.organizationId })),
+        hosts: hosts.value.map((h) => ({
+          host: h.host,
+          uuid: h.uuid,
+          connection: h.connection,
+          organizationId: h.organizationId
+        })),
         cwd: currentCwd.value
       }
     } else {
@@ -1263,7 +1270,12 @@ const filteredHostOptions = computed(() =>
 )
 const onHostClick = (item: any) => {
   if (!hosts.value.some((h) => h.host === item.label)) {
-    hosts.value.push({ host: item.label, uuid: item.uuid, connection: 'personal', organizationId: '' })
+    hosts.value.push({
+      host: item.label,
+      uuid: item.uuid,
+      connection: 'personal',
+      organizationId: ''
+    })
   }
   showHostSelect.value = false
   chatInputValue.value = ''
@@ -1428,7 +1440,7 @@ const handleAddHostClick = async () => {
   margin-top: 2px;
   scrollbar-width: thin;
   max-height: v-bind(
-    'showResumeButton ? "calc(100vh - 202px)" : (showBottomButton ? "calc(100vh - 195px)" : "calc(100vh - 165px)")'
+    'showResumeButton ? "calc(100vh - 202px)" : (showBottomButton ? "calc(100vh - 202px)" : "calc(100vh - 165px)")'
   );
   width: 100%;
 
