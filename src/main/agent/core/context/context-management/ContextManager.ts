@@ -74,6 +74,9 @@ export class ContextManager {
     try {
       if (await ensureTaskExists(taskId)) {
         const data = await getContextHistoryStorage(taskId)
+        if (!data) {
+          return new Map()
+        }
         const serializedUpdates = data as SerializedContextHistory
         // Update to properly reconstruct the tuple structure
         return new Map(
