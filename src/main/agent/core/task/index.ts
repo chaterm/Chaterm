@@ -687,6 +687,15 @@ export class Task {
   private async resumeTaskFromHistory() {
     const modifiedChatermMessages = await getChatermMessages(this.taskId)
 
+    // Remove any resume messages that may have been added before
+    const lastRelevantMessageIndex = findLastIndex(
+      modifiedChatermMessages,
+      (m) => !(m.ask === 'resume_task' || m.ask === 'resume_completed_task')
+    )
+    if (lastRelevantMessageIndex !== -1) {
+      modifiedChatermMessages.splice(lastRelevantMessageIndex + 1)
+    }
+
     // since we don't use api_req_finished anymore, we need to check if the last api_req_started has a cost value, if it doesn't and no cancellation reason to present, then we remove it since it indicates an api request without any partial content streamed
     const lastApiReqStartedIndex = findLastIndex(
       modifiedChatermMessages,
