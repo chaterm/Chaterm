@@ -30,7 +30,7 @@ export interface AutoApprovalSettings {
 
 export const DEFAULT_AUTO_APPROVAL_SETTINGS: AutoApprovalSettings = {
   version: 1,
-  enabled: true,
+  enabled: false,
   actions: {
     readFiles: true,
     readFilesExternally: false,
@@ -74,7 +74,7 @@ export type ApiConfiguration = ApiHandlerOptions & {
   favoritedModelIds?: string[]
 }
 
-export type Host = { host: string, uuid: string, connection: string, organizationId: string }
+export type Host = { host: string; uuid: string; connection: string; organizationId: string }
 
 // Models
 
