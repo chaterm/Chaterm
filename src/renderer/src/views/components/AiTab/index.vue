@@ -332,6 +332,7 @@ import type { HistoryItem as TaskHistoryItem } from '@renderer/agent/storage/sha
 import foldIcon from '@/assets/icons/fold.svg'
 import historyIcon from '@/assets/icons/history.svg'
 import plusIcon from '@/assets/icons/plus.svg'
+import { useCurrentCwdStore } from '@/store/currentCwdStore'
 // 异步加载 Markdown 渲染组件
 const MarkdownRenderer = defineAsyncComponent(
   () => import('@views/components/AiTab/MarkdownRenderer.vue')
@@ -807,7 +808,8 @@ const restoreHistoryTab = async (history: HistoryItem) => {
       await (window.api as any).sendToMain({
         type: 'showTaskWithId',
         text: history.id,
-        terminalUuid: hosts.value[0]?.uuid
+        terminalUuid: hosts.value[0]?.uuid,
+        cwd: currentCwd.value
       })
     } else {
       const res = await getChatDetailList({
@@ -1050,6 +1052,16 @@ const handleResume = async () => {
 // 声明removeListener变量
 let removeListener: (() => void) | null = null
 
+const currentCwdStore = useCurrentCwdStore()
+
+// 使用计算属性来获取当前工作目录
+const currentCwd = computed(() => currentCwdStore.currentCwd)
+
+// 监听 currentCwd 的变化
+watch(currentCwd, (newValue) => {
+  console.log('当前工作目录:', newValue)
+})
+
 // 修改 onMounted 中的初始化代码
 onMounted(async () => {
   authTokenInCookie.value = localStorage.getItem('ctm-token')
@@ -1160,13 +1172,15 @@ const sendMessageToMain = async (userContent: string) => {
         text: userContent,
         terminalUuid: hosts.value[0]?.uuid || '',
         terminalOutput: '',
-        hosts: hosts.value.map((h) => ({ host: h.host, uuid: h.uuid }))
+        hosts: hosts.value.map((h) => ({ host: h.host, uuid: h.uuid })),
+        cwd: currentCwd.value
       }
     } else {
       message = {
         type: 'askResponse',
         askResponse: 'messageResponse',
-        text: userContent
+        text: userContent,
+        cwd: currentCwd.value
       }
     }
 

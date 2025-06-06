@@ -1,27 +1,18 @@
 import { Anthropic } from '@anthropic-ai/sdk'
 import cloneDeep from 'clone-deep'
-import { execa } from 'execa'
-import getFolderSize from 'get-folder-size'
 import { setTimeout as setTimeoutPromise } from 'node:timers/promises'
 import os from 'os'
-// import pTimeout from "p-timeout"
 import pWaitFor from 'p-wait-for'
 import * as path from 'path'
 import { serializeError } from 'serialize-error'
 import * as vscode from 'vscode'
-// import { Logger } from "@services/logging/Logger"
 import { ApiHandler, buildApiHandler } from '@api/index'
 import { ApiStream } from '@api/transform/stream'
-// import CheckpointTracker from "@integrations/checkpoints/CheckpointTracker"
-// import { DIFF_VIEW_URI_SCHEME, DiffViewProvider } from "@integrations/editor/DiffViewProvider"
 import { formatContentBlockToMarkdown } from '@integrations/misc/export-markdown'
 import { extractTextFromFile } from '@integrations/misc/extract-text'
 import { showSystemNotification } from '@integrations/notifications'
-// import { TerminalManager } from "@integrations/terminal/TerminalManager"
 import { listFiles } from '@services/glob/list-files'
 import { regexSearchFiles } from '@services/ripgrep'
-// import { telemetryService } from "@services/posthog/telemetry/TelemetryService"
-// import { parseSourceCodeForDefinitionsTopLevel } from "@services/tree-sitter"
 import { ApiConfiguration } from '@shared/api'
 import { findLast, findLastIndex, parsePartialArrayString } from '@shared/array'
 import { AutoApprovalSettings, DEFAULT_AUTO_APPROVAL_SETTINGS } from '@shared/AutoApprovalSettings'
@@ -44,32 +35,21 @@ import { HistoryItem } from '@shared/HistoryItem'
 import { DEFAULT_LANGUAGE_SETTINGS, getLanguageKey, LanguageDisplay } from '@shared/Languages'
 import { ChatermAskResponse, ChatermCheckpointRestore } from '@shared/WebviewMessage'
 import { calculateApiCostAnthropic } from '@utils/cost'
-import { fileExistsAtPath } from '@utils/fs'
-// import { createAndOpenGitHubIssue } from "@utils/github-url-utils"
 import { arePathsEqual, getReadablePath, isLocatedInWorkspace } from '@utils/path'
-import { fixModelHtmlEscaping, removeInvalidChars } from '@utils/string'
 import {
   AssistantMessageContent,
   parseAssistantMessageV2,
   ToolParamName,
   ToolUseName
 } from '@core/assistant-message'
-// import { constructNewFileContent } from "@core/assistant-message/diff"
-// import { ChatermIgnoreController } from "@core/ignore/ChatermIgnoreController"
 import { RemoteTerminalManager, ConnectionInfo } from '../../integrations/remote-terminal'
-import { parseMentions } from '@core/mentions'
 import { formatResponse } from '@core/prompts/responses'
 import { addUserInstructions, SYSTEM_PROMPT } from '@core/prompts/system'
 import { getContextWindowInfo } from '@core/context/context-management/context-window-utils'
 import { FileContextTracker } from '@core/context/context-tracking/FileContextTracker'
 import { ModelContextTracker } from '@core/context/context-tracking/ModelContextTracker'
-// import {
-// 	checkIsAnthropicContextWindowError,
-// 	checkIsOpenRouterContextWindowError,
-// } from "@core/context/context-management/context-error-handling"
 import { ContextManager } from '@core/context/context-management/ContextManager'
 import {
-  // ensureRulesDirectoryExists,
   ensureTaskExists,
   getSavedApiConversationHistory,
   getChatermMessages,
@@ -90,9 +70,6 @@ import WorkspaceTracker from '@integrations/workspace/WorkspaceTracker'
 //import { featureFlagsService } from "@/services/posthog/feature-flags/FeatureFlagsService"
 import { connectAssetInfo } from '../../../storage/database'
 
-export const cwd = path.join(os.homedir(), 'Desktop')
-// vscode.workspace.workspaceFolders?.map((folder) => folder.uri.fsPath).at(0) ?? path.join(os.homedir(), "Desktop") // may or may not exist but fs checking existence would immediately ask for permission which would be bad UX, need to come up with a better solution
-
 type ToolResponse = string | Array<Anthropic.TextBlockParam | Anthropic.ImageBlockParam>
 type UserContent = Array<Anthropic.ContentBlockParam>
 
@@ -110,6 +87,7 @@ export class Task {
   readonly taskId: string
   terminalUuid?: string = ''
   terminalOutput?: string = ''
+  cwd: string = ''
   private taskIsFavorited?: boolean
   api: ApiHandler
   //private terminalManager: TerminalManager
@@ -176,7 +154,8 @@ export class Task {
     // images?: string[],
     historyItem?: HistoryItem,
     terminalUuid?: string,
-    terminalOutput?: string
+    terminalOutput?: string,
+    cwd?: string
   ) {
     this.context = context
     this.workspaceTracker = workspaceTracker
@@ -188,14 +167,14 @@ export class Task {
     // 初始化终端管理器
     // this.terminalManager = new TerminalManager()
     this.remoteTerminalManager = new RemoteTerminalManager()
-    // this.chatermIgnoreController = new ChatermIgnoreController(cwd)
+    // this.chatermIgnoreController = new ChatermIgnoreController(this.cwd)
     // Initialization moved to startTask/resumeTaskFromHistory
     // this.terminalManager = new TerminalManager()
     // this.terminalManager.setShellIntegrationTimeout(shellIntegrationTimeout)
     // this.urlContentFetcher = new UrlContentFetcher(context)
     // this.browserSession = new BrowserSession(context, browserSettings)
     this.contextManager = new ContextManager()
-    // this.diffViewProvider = new DiffViewProvider(cwd)
+    // this.diffViewProvider = new DiffViewProvider(this.cwd)
     this.customInstructions = customInstructions
     //this.autoApprovalSettings = autoApprovalSettings
     this.autoApprovalSettings = DEFAULT_AUTO_APPROVAL_SETTINGS
@@ -203,6 +182,7 @@ export class Task {
     this.chatSettings = chatSettings
     this.terminalUuid = terminalUuid
     this.terminalOutput = terminalOutput
+    this.cwd = cwd || ''
     // Initialize taskId first
     if (historyItem) {
       this.taskId = historyItem.id
@@ -231,14 +211,26 @@ export class Task {
     }
   }
 
-  private async executeCommandInRemoteServer(command: string): Promise<string> {
+  private async executeCommandInRemoteServer(command: string, cwd?: string): Promise<string> {
     const terminalInfo = await this.connectTerminal()
     if (!terminalInfo) {
       throw new Error('Failed to connect to terminal')
     }
-    return new Promise<string>((resolve) => {
-      const process = this.remoteTerminalManager.runCommand(terminalInfo, command)
-      process.on('line', (line) => resolve(line))
+    return new Promise<string>((resolve, reject) => {
+      const outputLines: string[] = []
+      const process = this.remoteTerminalManager.runCommand(terminalInfo, command, cwd)
+
+      process.on('line', (line) => {
+        outputLines.push(line)
+      })
+
+      process.on('error', (error) => {
+        reject(new Error(`Command execution failed: ${error.message}`))
+      })
+
+      process.once('completed', () => {
+        resolve(outputLines.join('\n'))
+      })
     })
   }
 
@@ -415,7 +407,6 @@ export class Task {
   ): Promise<{
     response: ChatermAskResponse
     text?: string
-    // images?: string[]
   }> {
     if (this.abort) {
       throw new Error('Chaterm instance aborted')
@@ -530,9 +521,12 @@ export class Task {
     return result
   }
 
-  async handleWebviewAskResponse(askResponse: ChatermAskResponse, text?: string) {
+  async handleWebviewAskResponse(askResponse: ChatermAskResponse, text?: string, cwd?: string) {
     this.askResponse = askResponse
     this.askResponseText = text
+    if (cwd) {
+      this.cwd = cwd
+    }
     //this.askResponseImages = images
   }
 
@@ -767,7 +761,7 @@ export class Task {
     const [taskResumptionMessage, userResponseMessage] = formatResponse.taskResumption(
       this.chatSettings?.mode,
       agoText,
-      cwd,
+      this.cwd,
       wasRecent,
       responseText
     )
@@ -908,7 +902,7 @@ export class Task {
       return [false, 'Failed to connect to terminal']
     }
     terminalInfo.terminal.show()
-    const process = this.remoteTerminalManager.runCommand(terminalInfo, command, cwd)
+    const process = this.remoteTerminalManager.runCommand(terminalInfo, command, this.cwd)
 
     let userFeedback: { text?: string; images?: string[] } | undefined
     let didContinue = false
@@ -1076,8 +1070,8 @@ export class Task {
   ): boolean {
     let isLocalRead: boolean = false
     if (autoApproveActionpath) {
-      const absolutePath = path.resolve(cwd, autoApproveActionpath)
-      isLocalRead = absolutePath.startsWith(cwd)
+      const absolutePath = path.resolve(this.cwd, autoApproveActionpath)
+      isLocalRead = absolutePath.startsWith(this.cwd)
     } else {
       // If we do not get a path for some reason, default to a (safer) false return
       isLocalRead = false
@@ -1542,7 +1536,7 @@ export class Task {
             // 	if (this.diffViewProvider.editType !== undefined) {
             // 		fileExists = this.diffViewProvider.editType === "modify"
             // 	} else {
-            // 		const absolutePath = path.resolve(cwd, relPath)
+            // 		const absolutePath = path.resolve(this.cwd, relPath)
             // 		fileExists = await fileExistsAtPath(absolutePath)
             // 		this.diffViewProvider.editType = fileExists ? "modify" : "create"
             // 	}
@@ -1618,7 +1612,7 @@ export class Task {
 
             // 		const sharedMessageProps: ChatermSayTool = {
             // 			tool: fileExists ? "editedExistingFile" : "newFileCreated",
-            // 			path: getReadablePath(cwd, removeClosingTag("path", relPath)),
+            // 			path: getReadablePath(this.cwd, removeClosingTag("path", relPath)),
             // 			content: diff || content,
             // 			operationIsLocatedInWorkspace: isLocatedInWorkspace(relPath),
             // 		}
@@ -1767,7 +1761,7 @@ export class Task {
             // 			// 		"user_feedback_diff",
             // 			// 		JSON.stringify({
             // 			// 			tool: fileExists ? "editedExistingFile" : "newFileCreated",
-            // 			// 			path: getReadablePath(cwd, relPath),
+            // 			// 			path: getReadablePath(this.cwd, relPath),
             // 			// 			diff: userEdits,
             // 			// 		} satisfies ChatermSayTool),
             // 			// 	)
@@ -1814,7 +1808,7 @@ export class Task {
             const relPath: string | undefined = block.params.path
             const sharedMessageProps: ChatermSayTool = {
               tool: 'readFile',
-              path: getReadablePath(cwd, removeClosingTag('path', relPath))
+              path: getReadablePath(this.cwd, removeClosingTag('path', relPath))
             }
             try {
               if (block.partial) {
@@ -1848,7 +1842,7 @@ export class Task {
                 // }
 
                 this.consecutiveMistakeCount = 0
-                const absolutePath = path.resolve(cwd, relPath)
+                const absolutePath = path.resolve(this.cwd, relPath)
                 const completeMessage = JSON.stringify({
                   ...sharedMessageProps,
                   content: absolutePath,
@@ -1893,7 +1887,7 @@ export class Task {
             const recursive = recursiveRaw?.toLowerCase() === 'true'
             const sharedMessageProps: ChatermSayTool = {
               tool: !recursive ? 'listFilesTopLevel' : 'listFilesRecursive',
-              path: getReadablePath(cwd, removeClosingTag('path', relDirPath))
+              path: getReadablePath(this.cwd, removeClosingTag('path', relDirPath))
             }
             try {
               if (block.partial) {
@@ -1919,7 +1913,7 @@ export class Task {
                 }
                 this.consecutiveMistakeCount = 0
 
-                const absolutePath = path.resolve(cwd, relDirPath)
+                const absolutePath = path.resolve(this.cwd, relDirPath)
 
                 const [files, didHitLimit] = await listFiles(absolutePath, recursive, 200)
 
@@ -1968,7 +1962,7 @@ export class Task {
             const filePattern: string | undefined = block.params.file_pattern
             const sharedMessageProps: ChatermSayTool = {
               tool: 'searchFiles',
-              path: getReadablePath(cwd, removeClosingTag('path', relDirPath)),
+              path: getReadablePath(this.cwd, removeClosingTag('path', relDirPath)),
               regex: removeClosingTag('regex', regex),
               filePattern: removeClosingTag('file_pattern', filePattern)
             }
@@ -2002,9 +1996,9 @@ export class Task {
                 }
                 this.consecutiveMistakeCount = 0
 
-                const absolutePath = path.resolve(cwd, relDirPath)
+                const absolutePath = path.resolve(this.cwd, relDirPath)
                 const results = await regexSearchFiles(
-                  cwd,
+                  this.cwd,
                   absolutePath,
                   regex,
                   filePattern
@@ -3105,7 +3099,7 @@ export class Task {
       includeHostDetails
     )
 
-    userContent =  parsedUserContent
+    userContent = parsedUserContent
     // add environment details as its own text block, separate from tool results
     userContent.push({ type: 'text', text: environmentDetails })
 
@@ -3446,143 +3440,6 @@ export class Task {
 
   async getEnvironmentDetails(includeHostDetails: boolean = false) {
     let details = ''
-
-    // It could be useful for chaterm to know if the user went from one or no file to another between messages, so we always include this context
-    details += '\n\n# VSCode Visible Files'
-    const visibleFilePaths = vscode.window.visibleTextEditors
-      ?.map((editor) => editor.document?.uri?.fsPath)
-      .filter(Boolean)
-      .map((absolutePath) => path.relative(cwd, absolutePath))
-
-    // Filter paths through chatermIgnoreController
-    // const allowedVisibleFiles = this.chatermIgnoreController
-    // 	.filterPaths(visibleFilePaths)
-    // 	.map((p) => p.toPosix())
-    // 	.join("\n")
-
-    const allowedVisibleFiles = visibleFilePaths.map((p) => p.toPosix()).join('\n')
-
-    if (allowedVisibleFiles) {
-      details += `\n${allowedVisibleFiles}`
-    } else {
-      details += '\n(No visible files)'
-    }
-
-    details += '\n\n# VSCode Open Tabs'
-    const openTabPaths = vscode.window.tabGroups.all
-      .flatMap((group) => group.tabs)
-      .map((tab) => (tab.input as vscode.TabInputText)?.uri?.fsPath)
-      .filter(Boolean)
-      .map((absolutePath) => path.relative(cwd, absolutePath))
-
-    // Filter paths through chatermIgnoreController
-    // const allowedOpenTabs = this.chatermIgnoreController
-    // 	.filterPaths(openTabPaths)
-    // 	.map((p) => p.toPosix())
-    // 	.join("\n")
-    const allowedOpenTabs = openTabPaths.map((p) => p.toPosix()).join('\n')
-
-    if (allowedOpenTabs) {
-      details += `\n${allowedOpenTabs}`
-    } else {
-      details += '\n(No open tabs)'
-    }
-
-    // const busyTerminals = this.terminalManager.getTerminals(true)
-    // const inactiveTerminals = this.terminalManager.getTerminals(false)
-    // const allTerminals = [...busyTerminals, ...inactiveTerminals]
-
-    // if (busyTerminals.length > 0 && this.didEditFile) {
-    // 	//  || this.didEditFile
-    // 	await setTimeoutPromise(300) // delay after saving file to let terminals catch up
-    // }
-
-    // // let terminalWasBusy = false
-    // if (busyTerminals.length > 0) {
-    // 	// wait for terminals to cool down
-    // 	// terminalWasBusy = allTerminals.some((t) => this.terminalManager.isProcessHot(t.id))
-    // 	await pWaitFor(() => busyTerminals.every((t) => !this.terminalManager.isProcessHot(t.id)), {
-    // 		interval: 100,
-    // 		timeout: 15_000,
-    // 	}).catch(() => {})
-    // }
-
-    // we want to get diagnostics AFTER terminal cools down for a few reasons: terminal could be scaffolding a project, dev servers (compilers like webpack) will first re-compile and then send diagnostics, etc
-    /*
-		let diagnosticsDetails = ""
-		const diagnostics = await this.diagnosticsMonitor.getCurrentDiagnostics(this.didEditFile || terminalWasBusy) // if chaterm ran a command (ie npm install) or edited the workspace then wait a bit for updated diagnostics
-		for (const [uri, fileDiagnostics] of diagnostics) {
-			const problems = fileDiagnostics.filter((d) => d.severity === vscode.DiagnosticSeverity.Error)
-			if (problems.length > 0) {
-				diagnosticsDetails += `\n## ${path.relative(cwd, uri.fsPath)}`
-				for (const diagnostic of problems) {
-					// let severity = diagnostic.severity === vscode.DiagnosticSeverity.Error ? "Error" : "Warning"
-					const line = diagnostic.range.start.line + 1 // VSCode lines are 0-indexed
-					const source = diagnostic.source ? `[${diagnostic.source}] ` : ""
-					diagnosticsDetails += `\n- ${source}Line ${line}: ${diagnostic.message}`
-				}
-			}
-		}
-		*/
-    //this.didEditFile = false // reset, this lets us know when to wait for saved files to update terminals
-
-    // // waiting for updated diagnostics lets terminal output be the most up-to-date possible
-    // let terminalDetails = ""
-    // if (busyTerminals.length > 0) {
-    // 	// terminals are cool, let's retrieve their output
-    // 	terminalDetails += "\n\n# Actively Running Terminals"
-    // 	for (const busyTerminal of busyTerminals) {
-    // 		terminalDetails += `\n## Original command: \`${busyTerminal.lastCommand}\``
-    // 		const newOutput = this.terminalManager.getUnretrievedOutput(busyTerminal.id)
-    // 		if (newOutput) {
-    // 			terminalDetails += `\n### New Output\n${newOutput}`
-    // 		} else {
-    // 			// details += `\n(Still running, no new output)` // don't want to show this right after running the command
-    // 		}
-    // 	}
-    // }
-    // // only show inactive terminals if there's output to show
-    // if (inactiveTerminals.length > 0) {
-    // 	const inactiveTerminalOutputs = new Map<number, string>()
-    // 	for (const inactiveTerminal of inactiveTerminals) {
-    // 		const newOutput = this.terminalManager.getUnretrievedOutput(inactiveTerminal.id)
-    // 		if (newOutput) {
-    // 			inactiveTerminalOutputs.set(inactiveTerminal.id, newOutput)
-    // 		}
-    // 	}
-    // 	if (inactiveTerminalOutputs.size > 0) {
-    // 		terminalDetails += "\n\n# Inactive Terminals"
-    // 		for (const [terminalId, newOutput] of inactiveTerminalOutputs) {
-    // 			const inactiveTerminal = inactiveTerminals.find((t) => t.id === terminalId)
-    // 			if (inactiveTerminal) {
-    // 				terminalDetails += `\n## ${inactiveTerminal.lastCommand}`
-    // 				terminalDetails += `\n### New Output\n${newOutput}`
-    // 			}
-    // 		}
-    // 	}
-    // }
-
-    // details += "\n\n# VSCode Workspace Errors"
-    // if (diagnosticsDetails) {
-    // 	details += diagnosticsDetails
-    // } else {
-    // 	details += "\n(No errors detected)"
-    // }
-
-    // if (terminalDetails) {
-    // 	details += terminalDetails
-    // }
-
-    // Add recently modified files section
-    const recentlyModifiedFiles = this.fileContextTracker.getAndClearRecentlyModifiedFiles()
-    if (recentlyModifiedFiles.length > 0) {
-      details +=
-        '\n\n# Recently Modified Files\nThese files have been modified since you last accessed them (file was just edited so you may need to re-read it before editing):'
-      for (const filePath of recentlyModifiedFiles) {
-        details += `\n${filePath}`
-      }
-    }
-
     // Add current time information with timezone
     const now = new Date()
     const formatter = new Intl.DateTimeFormat(undefined, {
@@ -3600,17 +3457,26 @@ export class Task {
     details += `\n\n# Current Time\n${formatter.format(now)} (${timeZone}, UTC${timeZoneOffsetStr})`
 
     if (includeHostDetails) {
-      details += `\n\n# Current Working Directory (${cwd.toPosix()}) Files\n`
-      const isDesktop = arePathsEqual(cwd, path.join(os.homedir(), 'Desktop'))
-      if (isDesktop) {
-        // don't want to immediately access desktop since it would show permission popup
-        details += '(Desktop files not shown automatically. Use list_files to explore if needed.)'
-      } else {
-        const [files, didHitLimit] = await listFiles(cwd, true, 200)
-        //const result = formatResponse.formatFilesList(cwd, files, didHitLimit, this.chatermIgnoreController)
-        const result = formatResponse.formatFilesList(cwd, files, didHitLimit)
-        details += result
+      details += `\n\n# Current Working Directory (${this.cwd.toPosix()}) Files\n`
+      const res = await this.executeCommandInRemoteServer('ls -al', this.cwd)
+      // TODO: add ignore files
+      const processLsOutput = (output: string): string => {
+        const lines = output.split('\n')
+        const totalLine = lines[0]
+        const fileLines = lines.slice(1).filter((line) => line.trim() !== '')
+        const limitedLines = fileLines.slice(0, 200)
+        let result = totalLine + '\n'
+        result += limitedLines.join('\n')
+        if (fileLines.length > 200) {
+          result += `\n... (${fileLines.length - 200} more files not shown)`
+        }
+        return result
       }
+
+      const processedOutput = processLsOutput(res)
+      details += processedOutput
+
+      details += res
     }
 
     // Add context window usage information
@@ -3647,12 +3513,14 @@ export class Task {
     details += '\n\n# Context Window Usage'
     details += `\n${lastApiReqTotalTokens.toLocaleString()} / ${(contextWindow / 1000).toLocaleString()}K tokens used (${usagePercentage}%)`
 
-    // details += "\n\n# Current Mode"
-    // if (this.chatSettings.mode === "plan") {
-    // 	details += "\nPLAN MODE\n" + formatResponse.planModeInstructions()
-    // } else {
-    // 	details += "\nACT MODE"
-    // }
+    details += '\n\n# Current Mode'
+    if (this.chatSettings.mode === 'chat') {
+      details += '\nCHAT MODE\n' + formatResponse.planModeInstructions()
+    } else if (this.chatSettings.mode === 'cmd') {
+      details += '\nCMD MODE'
+    } else if (this.chatSettings.mode === 'agent') {
+      details += '\nAGENT MODE'
+    }
 
     return `<environment_details>\n${details.trim()}\n</environment_details>`
   }

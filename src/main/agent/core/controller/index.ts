@@ -125,7 +125,8 @@ export class Controller {
     task?: string,
     historyItem?: HistoryItem,
     terminalUuid?: string,
-    terminalOutput?: string
+    terminalOutput?: string,
+    cwd?: string
   ) {
     console.log('initTask', task, historyItem)
     await this.clearTask() // ensures that an existing task doesn't exist before starting a new one, although this shouldn't be possible since user must clear task before starting a new one
@@ -155,7 +156,8 @@ export class Controller {
       task,
       historyItem,
       terminalUuid,
-      terminalOutput
+      terminalOutput,
+      cwd
     )
   }
 
@@ -202,7 +204,13 @@ export class Controller {
         // Could also do this in extension .ts
         //this.postMessageToWebview({ type: "text", text: `Extension: ${Date.now()}` })
         // initializing new instance of Cline will make sure that any agentically running promises in old instance don't affect our new task. this essentially creates a fresh slate for the new task
-        await this.initTask(message.text, undefined, message.terminalUuid, message.terminalOutput)
+        await this.initTask(
+          message.text,
+          undefined,
+          message.terminalUuid,
+          message.terminalOutput,
+          message.cwd
+        )
         if (this.task?.taskId && message.hosts) {
           await updateTaskHosts(this.task.taskId, message.hosts)
         }
@@ -246,10 +254,10 @@ export class Controller {
         break
       case 'askResponse':
         console.log('askResponse', message)
-        this.task?.handleWebviewAskResponse(message.askResponse!, message.text)
+        this.task?.handleWebviewAskResponse(message.askResponse!, message.text, message.cwd)
         break
       case 'showTaskWithId':
-        this.showTaskWithId(message.text!, message.terminalUuid)
+        this.showTaskWithId(message.text!, message.terminalUuid, message.cwd)
         break
       case 'deleteTaskWithId':
         this.deleteTaskWithId(message.text!)
@@ -341,14 +349,12 @@ export class Controller {
         }
         break
       }
-      case 'grpc_request': {
-        // 什么时候调用到这里？——发起第一个任务时
-        // 谁发起的grpc请求？
-        if (message.grpc_request) {
-          await handleGrpcRequest(this, message.grpc_request)
-        }
-        break
-      }
+      // case 'grpc_request': {
+      //   if (message.grpc_request) {
+      //     await handleGrpcRequest(this, message.grpc_request)
+      //   }
+      //   break
+      // }
       // Add more switch case statements here as more webview message commands
       // are created within the webview context (i.e. inside media/main.js)
     }
@@ -584,11 +590,11 @@ export class Controller {
     throw new Error('Task not found')
   }
 
-  async showTaskWithId(id: string, terminalUuid?: string) {
+  async showTaskWithId(id: string, terminalUuid?: string, cwd?: string) {
     if (id !== this.task?.taskId) {
       // non-current task
       const { historyItem } = await this.getTaskWithId(id)
-      await this.initTask(undefined, historyItem, terminalUuid) // clears existing task
+      await this.initTask(undefined, historyItem, terminalUuid, undefined, cwd) // clears existing task
     }
     await this.postMessageToWebview({
       type: 'action',
@@ -759,7 +765,7 @@ function removeSensitiveKeys(obj: any): any {
   return obj
 }
 
-async function updateTaskHosts(taskId: string, hosts: { host: string, uuid: string }[]) {
+async function updateTaskHosts(taskId: string, hosts: { host: string; uuid: string }[]) {
   const metadata = await getTaskMetadata(taskId)
   metadata.hosts = hosts || []
   await saveTaskMetadata(taskId, metadata)
