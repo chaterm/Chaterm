@@ -20,6 +20,7 @@ import { WebviewMessage } from '@shared/WebviewMessage'
 import { fileExistsAtPath } from '@utils/fs'
 import { getWorkspacePath } from '@utils/path'
 import { getTotalTasksSize } from '@utils/storage'
+import type { Host } from '@shared/WebviewMessage'
 import {
   ensureTaskExists,
   getSavedApiConversationHistory,
@@ -124,7 +125,7 @@ export class Controller {
   async initTask(
     task?: string,
     historyItem?: HistoryItem,
-    terminalUuid?: string,
+    hosts?: Host[],
     terminalOutput?: string,
     cwd?: string
   ) {
@@ -155,7 +156,7 @@ export class Controller {
       customInstructions,
       task,
       historyItem,
-      terminalUuid,
+      hosts,
       terminalOutput,
       cwd
     )
@@ -204,10 +205,12 @@ export class Controller {
         // Could also do this in extension .ts
         //this.postMessageToWebview({ type: "text", text: `Extension: ${Date.now()}` })
         // initializing new instance of Cline will make sure that any agentically running promises in old instance don't affect our new task. this essentially creates a fresh slate for the new task
+
+        
         await this.initTask(
           message.text,
           undefined,
-          message.terminalUuid,
+          message.hosts,
           message.terminalOutput,
           message.cwd
         )
@@ -257,7 +260,7 @@ export class Controller {
         this.task?.handleWebviewAskResponse(message.askResponse!, message.text, message.cwd)
         break
       case 'showTaskWithId':
-        this.showTaskWithId(message.text!, message.terminalUuid, message.cwd)
+        this.showTaskWithId(message.text!, message.hosts || [], message.cwd)
         break
       case 'deleteTaskWithId':
         this.deleteTaskWithId(message.text!)
@@ -590,11 +593,12 @@ export class Controller {
     throw new Error('Task not found')
   }
 
-  async showTaskWithId(id: string, terminalUuid?: string, cwd?: string) {
+
+  async showTaskWithId(id: string, hosts: Host[], cwd?: string) {
     if (id !== this.task?.taskId) {
       // non-current task
       const { historyItem } = await this.getTaskWithId(id)
-      await this.initTask(undefined, historyItem, terminalUuid, undefined, cwd) // clears existing task
+      await this.initTask(undefined, historyItem, hosts, undefined, cwd) // clears existing task
     }
     await this.postMessageToWebview({
       type: 'action',
@@ -765,8 +769,10 @@ function removeSensitiveKeys(obj: any): any {
   return obj
 }
 
-async function updateTaskHosts(taskId: string, hosts: { host: string; uuid: string }[]) {
+async function updateTaskHosts(taskId: string, hosts: Host[]) {
+
   const metadata = await getTaskMetadata(taskId)
   metadata.hosts = hosts || []
+
   await saveTaskMetadata(taskId, metadata)
 }
