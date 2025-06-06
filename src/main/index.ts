@@ -373,14 +373,14 @@ function setupIPC(): void {
       if (mainWindow.isMaximized()) {
         mainWindow.unmaximize()
         if (lastWidth && lastHeight) {
-          // 获取屏幕尺寸
+          // 获取当前窗口所在的显示器
           const { screen } = require('electron')
-          const primaryDisplay = screen.getPrimaryDisplay()
-          const { width: screenWidth, height: screenHeight } = primaryDisplay.workAreaSize
+          const currentDisplay = screen.getDisplayNearestPoint(mainWindow.getBounds())
+          const { width: screenWidth, height: screenHeight } = currentDisplay.workAreaSize
 
-          // 计算窗口居中位置
-          const x = Math.floor((screenWidth - lastWidth) / 2)
-          const y = Math.floor((screenHeight - lastHeight) / 2)
+          // 计算窗口在当前显示器中的居中位置
+          const x = Math.floor((screenWidth - lastWidth) / 2) + currentDisplay.bounds.x
+          const y = Math.floor((screenHeight - lastHeight) / 2) + currentDisplay.bounds.y
 
           mainWindow.setBounds({
             x,
