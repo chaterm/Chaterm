@@ -126,6 +126,8 @@ const handleDoubleClick = async () => {
   if (isMaximized) {
     api.unmaximizeWindow()
   } else {
+    lastWidth = window.outerWidth
+    lastHeight = window.outerHeight
     api.maximizeWindow()
   }
 }
