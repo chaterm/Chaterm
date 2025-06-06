@@ -126,25 +126,17 @@ app.whenReady().then(async () => {
       finalY = Math.round(screenHeight - height)
     }
 
-    // 使用 requestAnimationFrame 实现平滑拖拽
-    const animate = () => {
-      const currentBounds = mainWindow.getBounds()
-      const newX = Math.round(currentBounds.x + (finalX - currentBounds.x) * 0.3)
-      const newY = Math.round(currentBounds.y + (finalY - currentBounds.y) * 0.3)
+    // 直接设置窗口位置，使用更小的缓动系数实现平滑效果
+    const currentBounds = mainWindow.getBounds()
+    const newX = Math.round(currentBounds.x + (finalX - currentBounds.x) * 0.5)
+    const newY = Math.round(currentBounds.y + (finalY - currentBounds.y) * 0.5)
 
-      mainWindow.setBounds({
-        x: newX,
-        y: newY,
-        width: Math.round(width),
-        height: Math.round(height)
-      })
-
-      if (Math.abs(newX - finalX) > 1 || Math.abs(newY - finalY) > 1) {
-        requestAnimationFrame(animate)
-      }
-    }
-
-    animate()
+    mainWindow.setBounds({
+      x: newX,
+      y: newY,
+      width: Math.round(width),
+      height: Math.round(height)
+    })
   })
 
   app.on('browser-window-created', (_, window) => {
@@ -216,7 +208,7 @@ app.on('window-all-closed', () => {
 })
 
 // Add the before-quit event listener here or towards the end of the file
-app.on('before-quit', async (_event) => {
+app.on('before-quit', async () => {
   console.log('Application is about to quit. Disposing resources...')
   if (controller) {
     try {
