@@ -28,7 +28,7 @@
         </a-tag>
       </div>
       <div v-else class="other-hosts-display-container">
-        <span  class="hosts-display-container-host-tag">
+        <span  class="hosts-display-container-host-tag" @click="handleAddHostClick" style="cursor: pointer;">
           @ Add host
         </span>
       </div>
@@ -1277,6 +1277,17 @@ const showResumeButton = computed(() => {
   // )
   return chatTypeValue.value === 'agent' && message.ask === 'resume_task'
 })
+
+const handleAddHostClick = async () => {
+  showHostSelect.value = !showHostSelect.value;
+  if (showHostSelect.value) {
+    hostSearchValue.value = '';
+    await fetchHostOptions('');
+    nextTick(() => {
+      hostSearchInputRef.value?.focus?.();
+    });
+  }
+};
 </script>
 
 <style lang="less" scoped>
@@ -1920,7 +1931,7 @@ const showResumeButton = computed(() => {
 .host-select-popup {
   position: absolute;
   left: 24px;
-  top: 12px;
+  top: 32px;
   width: 130px;
   z-index: 10;
   background: #222;

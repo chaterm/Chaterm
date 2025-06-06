@@ -655,7 +655,6 @@ export class ChatermDatabaseService {
         LIMIT 10
       `)
       const results = stmt.all() || []
-      console.log('results', results)
       return results.map((item: any) => ({
         host: item.asset_ip,
         uuid: item.uuid
