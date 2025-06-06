@@ -52,43 +52,67 @@ export async function remoteSshConnect(connectionInfo: any): Promise<{ id?: stri
   });
 }
 
-export async function remoteSshExec(sessionId: string, command: string): Promise<{ success?: boolean; output?: string; error?: string }> {
+export async function remoteSshExec(
+  sessionId: string, 
+  command: string, 
+  timeoutMs: number = 30 * 60 * 1000
+): Promise<{ success?: boolean; output?: string; error?: string }> {
   const conn = remoteConnections.get(sessionId);
   if (!conn) {
     console.error(`SSH连接不存在: ${sessionId}`);
     return { success: false, error: '未连接到远程服务器' };
   }
   console.log(`开始执行SSH命令: ${command} (会话: ${sessionId})`);
-  
+
   const base64Command = Buffer.from(command, 'utf-8').toString('base64');
   const shellCommand = `echo '${base64Command}' | base64 -d | bash -l`;
 
   return new Promise((resolve) => {
+    let timeoutHandler: NodeJS.Timeout;
+    let finished = false;
+
+    function safeResolve(result: any) {
+      if (!finished) {
+        finished = true;
+        clearTimeout(timeoutHandler);
+        resolve(result);
+      }
+    }
+
     conn.exec(shellCommand, { pty: true }, (err, stream) => {
       if (err) {
-        console.error('SSH命令执行错误:', err.message);
-        resolve({ success: false, error: err.message });
+        safeResolve({ success: false, error: err.message });
         return;
       }
 
       let output = '';
 
-      stream.on('data', (data: Buffer) => { // 添加Buffer类型注解
+      stream.on('data', (data: Buffer) => {
         output += data.toString();
       });
 
-      stream.stderr.on('data', (data: Buffer) => { // 添加Buffer类型注解
-        output += data.toString(); // 也将错误输出添加到结果中
+      stream.stderr.on('data', (data: Buffer) => {
+        output += data.toString();
       });
 
-      stream.on('close', (code: number | null) => { // code可以是null
-        console.log(`SSH命令完成，退出码: ${code}, 输出长度: ${output.length}`);
-        resolve({
+      stream.on('close', (code: number | null) => {
+        safeResolve({
           success: code === 0,
           output: output,
           error: code !== 0 ? `命令执行失败，退出码: ${code}` : undefined
         });
       });
+
+      // 设置超时
+      timeoutHandler = setTimeout(() => {
+        // stream 终止
+        try { stream.close(); } catch {}
+        safeResolve({
+          success: false,
+          output: output,
+          error: `命令执行超时（${timeoutMs}ms）`
+        });
+      }, timeoutMs);
     });
   });
 }
