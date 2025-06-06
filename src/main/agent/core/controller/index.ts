@@ -189,13 +189,7 @@ export class Controller {
         await this.setUserInfo(undefined)
         await this.postStateToWebview()
         break
-      case 'showChatView': {
-        this.postMessageToWebview({
-          type: 'action',
-          action: 'chatButtonClicked'
-        })
-        break
-      }
+
       case 'newTask':
         // Code that should run in response to the hello message command
         //vscode.window.showInformationMessage(message.text!)
@@ -206,7 +200,6 @@ export class Controller {
         //this.postMessageToWebview({ type: "text", text: `Extension: ${Date.now()}` })
         // initializing new instance of Cline will make sure that any agentically running promises in old instance don't affect our new task. this essentially creates a fresh slate for the new task
 
-        
         await this.initTask(
           message.text,
           undefined,
@@ -593,17 +586,12 @@ export class Controller {
     throw new Error('Task not found')
   }
 
-
   async showTaskWithId(id: string, hosts: Host[], cwd?: string) {
     if (id !== this.task?.taskId) {
       // non-current task
       const { historyItem } = await this.getTaskWithId(id)
       await this.initTask(undefined, historyItem, hosts, undefined, cwd) // clears existing task
     }
-    await this.postMessageToWebview({
-      type: 'action',
-      action: 'chatButtonClicked'
-    })
   }
 
   async exportTaskWithId(id: string) {
@@ -740,10 +728,6 @@ export class Controller {
     }
     vscode.window.showInformationMessage('State reset')
     await this.postStateToWebview()
-    await this.postMessageToWebview({
-      type: 'action',
-      action: 'chatButtonClicked'
-    })
   }
 }
 
@@ -770,7 +754,6 @@ function removeSensitiveKeys(obj: any): any {
 }
 
 async function updateTaskHosts(taskId: string, hosts: Host[]) {
-
   const metadata = await getTaskMetadata(taskId)
   metadata.hosts = hosts || []
 
