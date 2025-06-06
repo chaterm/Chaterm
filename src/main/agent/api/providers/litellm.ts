@@ -44,13 +44,22 @@ export class LiteLlmHandler implements ApiHandler {
       if (response.ok) {
         const data: { cost: number } = await response.json()
         return data.cost
+      } else if (response.status === 404) {
+        // 如果接口不存在，使用默认计算方式
+        console.warn('Spend calculation endpoint not found, using default calculation')
+        const defaultInputPrice = 0.000003 // $3 per million tokens
+        const defaultOutputPrice = 0.000015 // $15 per million tokens
+        return prompt_tokens * defaultInputPrice + completion_tokens * defaultOutputPrice
       } else {
         console.error('Error calculating spend:', response.statusText)
         return undefined
       }
     } catch (error) {
       console.error('Error calculating spend:', error)
-      return undefined
+      // 发生错误时使用默认计算方式
+      const defaultInputPrice = 0.000003 // $3 per million tokens
+      const defaultOutputPrice = 0.000015 // $15 per million tokens
+      return prompt_tokens * defaultInputPrice + completion_tokens * defaultOutputPrice
     }
   }
 
