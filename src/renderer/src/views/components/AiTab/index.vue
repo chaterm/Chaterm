@@ -394,7 +394,7 @@ interface ChatMessage {
 interface AssetInfo {
   uuid: string
   title: string
-  ip?: string
+  ip: string
   organizationId?: string
   type?: string
   outputContext?: string
@@ -593,6 +593,11 @@ const sendMessage = async () => {
   const userContent = chatInputValue.value.trim()
   if (!userContent) return
   if (chatTypeValue.value === 'agent') {
+    // 获取当前活跃主机是否存在
+    const assetInfo = await getCurentTabAssetInfo()
+    if (assetInfo) {
+      hosts.value.push({ host: assetInfo.ip, uuid: assetInfo.uuid })
+    }
     if (hosts.value.length === 0) {
       notification.error({
         message: '获取当前资产连接信息失败',
