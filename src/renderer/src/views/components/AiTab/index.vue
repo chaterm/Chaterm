@@ -594,11 +594,11 @@ const sendMessage = async () => {
   if (!userContent) return
   if (chatTypeValue.value === 'agent') {
     // 获取当前活跃主机是否存在
-    const assetInfo = await getCurentTabAssetInfo()
+    if (hosts.value.length === 0) {
+      const assetInfo = await getCurentTabAssetInfo()
     if (assetInfo) {
       hosts.value.push({ host: assetInfo.ip, uuid: assetInfo.uuid })
-    }
-    if (hosts.value.length === 0) {
+    } else {
       notification.error({
         message: '获取当前资产连接信息失败',
         description: '请先建立资产连接',
@@ -606,6 +606,7 @@ const sendMessage = async () => {
       })
       return 'ASSET_ERROR'
     }
+   }
     await sendMessageToMain(userContent)
 
     const userMessage: ChatMessage = {
