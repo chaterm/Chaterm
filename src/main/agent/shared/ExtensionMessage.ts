@@ -35,7 +35,6 @@ export interface ExtensionMessage {
 
   text?: string
   action?:
-    | 'chatButtonClicked'
     | 'mcpButtonClicked'
     | 'settingsButtonClicked'
     | 'historyButtonClicked'
