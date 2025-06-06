@@ -2,6 +2,7 @@
   <div
     class="term_tab"
     @mousedown="mousedown"
+    @dblclick="handleDoubleClick"
   >
     <div
       class="term_tab_Info"
@@ -117,6 +118,18 @@ const switchIcon = (dir, value) => {
 defineExpose({
   switchIcon
 })
+
+// 添加双击处理函数
+const handleDoubleClick = async () => {
+  const api = window.api as any
+  const isMaximized = await api.isMaximized()
+  if (isMaximized) {
+    api.unmaximizeWindow()
+  } else {
+    api.maximizeWindow()
+  }
+}
+
 onMounted(async () => {
   const api = window.api as any
   platform.value = await api.getPlatform()

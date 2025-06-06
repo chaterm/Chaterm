@@ -10,7 +10,10 @@ import { Controller } from './agent/core/controller'
 import { createExtensionContext } from './agent/core/controller/context'
 import { ElectronOutputChannel } from './agent/core/controller/outputChannel'
 import { executeRemoteCommand } from './agent/integrations/remote-terminal/example'
-import { initializeStorageMain, testStorageFromMain as testRendererStorageFromMain } from './agent/core/storage/state'
+import {
+  initializeStorageMain,
+  testStorageFromMain as testRendererStorageFromMain
+} from './agent/core/storage/state'
 import { getTaskMetadata } from './agent/core/storage/disk'
 
 let mainWindow: BrowserWindow
@@ -175,16 +178,16 @@ app.on('window-all-closed', () => {
 
 // Add the before-quit event listener here or towards the end of the file
 app.on('before-quit', async (_event) => {
-  console.log('Application is about to quit. Disposing resources...');
+  console.log('Application is about to quit. Disposing resources...')
   if (controller) {
     try {
-      await controller.dispose();
-      console.log('Controller disposed successfully.');
+      await controller.dispose()
+      console.log('Controller disposed successfully.')
     } catch (error) {
-      console.error('Error during controller disposal:', error);
+      console.error('Error during controller disposal:', error)
     }
   }
-});
+})
 
 const getCookieByName = async (name) => {
   try {
@@ -320,6 +323,26 @@ function updateNavigationState(): void {
 }
 // 设置 IPC 处理
 function setupIPC(): void {
+  // 添加窗口控制处理程序
+  ipcMain.handle('window:maximize', () => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.maximize()
+    }
+  })
+
+  ipcMain.handle('window:unmaximize', () => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.unmaximize()
+    }
+  })
+
+  ipcMain.handle('window:is-maximized', () => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      return mainWindow.isMaximized()
+    }
+    return false
+  })
+
   ipcMain.handle('cancel-task', async () => {
     console.log('cancel-task')
     if (controller) {
@@ -586,8 +609,9 @@ ipcMain.handle('get-task-metadata', async (_event, { taskId }) => {
     return { success: true, data: metadata }
   } catch (error) {
     if (error instanceof Error) {
-    return { success: false,  error: { message: error.message } }
-  }}
+      return { success: false, error: { message: error.message } }
+    }
+  }
 })
 
 ipcMain.handle('get-user-hosts', async (_, data) => {
