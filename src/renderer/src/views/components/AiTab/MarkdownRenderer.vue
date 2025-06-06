@@ -138,7 +138,7 @@
       <!-- Normal content -->
       <div
         v-if="normalContent"
-        style="margin: 0 8px"
+        style="margin: 0 16px"
         v-html="marked(normalContent, null)"
       ></div>
     </div>
