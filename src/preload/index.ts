@@ -342,9 +342,12 @@ const api = {
   getKeyChainInfo,
   updateKeyChain,
   connectAssetInfo,
-  chatermGetChatermMessages,  
+  chatermGetChatermMessages,
   getTaskMetadata,
   getUserHosts,
+  maximizeWindow: () => ipcRenderer.invoke('window:maximize'),
+  unmaximizeWindow: () => ipcRenderer.invoke('window:unmaximize'),
+  isMaximized: () => ipcRenderer.invoke('window:is-maximized'),
   openBrowserWindow: (url: string): void => {
     ipcRenderer.send('open-browser-window', url)
   },
@@ -441,8 +444,7 @@ const api = {
       }
       return { success: false, error: { message: 'An unknown error occurred in preload' } }
     }
-  },
-
+  }
 }
 // 自定义 API 用于浏览器控制
 

@@ -19,7 +19,7 @@
   justify-content: center;
   align-items: flex-start;
   min-height: 100vh;
-  padding-top: 40vh;
+  padding-top: 25vh;
 }
 
 .welcome-content {
