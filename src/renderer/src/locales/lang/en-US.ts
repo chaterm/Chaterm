@@ -138,18 +138,17 @@ export default {
   },
   ai: {
     welcome: 'What can I do for you in the terminal?',
-    agentMessage: 'Plan,search,execute anything',
+    searchHost: 'Search by IP',
+    noMatchingHosts: 'No matching hosts',
     copy: 'Copy',
     run: 'Run',
-    send: 'Send',
-    approve: 'Approve',
     reject: 'Reject',
-    approved: 'Approved',
-    rejected: 'Rejected',
-    cancel: 'cancel',
-    resume: 'resume',
+    cancel: 'Cancel',
+    resume: 'Resume',
+    agentMessage: 'Plan,search,execute anything',
     newChat: 'New Chat',
-    showChatHistory: 'Show Chat History',
-    closeAiSidebar: 'Close AI Sidebar'
+    showChatHistory: 'Show History',
+    closeAiSidebar: 'Close AI Sidebar',
+    addHost: 'Add Host'
   }
 }
