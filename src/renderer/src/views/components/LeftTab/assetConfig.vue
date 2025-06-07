@@ -438,7 +438,7 @@ const handleRemove = (host: AssetNode | null) => {
   // 确认删除
   Modal.confirm({
     title: '删除确认',
-    content: `确定要删除资产 “${host.title}” 吗？`,
+    content: `确定要删除资产 " ${host.title} " 吗？`,
     okText: '删除',
     okType: 'danger', // AntD 提供的危险按钮样式
     cancelText: '取消',
@@ -701,7 +701,7 @@ watch(isRightSectionVisible, (val) => {
   padding: 10px;
   padding-top: 50px;
   overflow-y: auto;
-  background-color: #1a1a1a;
+  background-color: #141414;
   width: 100%; /* 确保左侧部分占满可用空间 */
 }
 

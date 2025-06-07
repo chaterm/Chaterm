@@ -353,7 +353,7 @@ defineExpose({
   overflow-x: hidden;
   border-radius: 2px;
   padding: 5px;
-  background-color: #1a1a1a;
+  background-color: #141414;
 }
 
 :deep(.dark-tree) {
@@ -371,11 +371,11 @@ defineExpose({
   }
 
   .ant-tree-node-selected {
-    background-color: #1a1a1a !important;
+    background-color: #141414 !important;
   }
 
   .ant-tree-node-content-wrapper:hover {
-    background-color: #1a1a1a !important;
+    background-color: #141414 !important;
   }
 }
 

@@ -557,7 +557,7 @@ const testMain = async () => {
   padding: 15px;
   padding-top: 50px;
   overflow-y: auto;
-  background-color: #1a1a1a;
+  background-color: #141414;
   width: 100%; /* 确保左侧部分占满可用空间 */
 }
 
