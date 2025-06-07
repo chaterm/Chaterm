@@ -137,7 +137,7 @@ export default {
     newKey: 'New Key'
   },
   ai: {
-    welcome: 'What do you want to do in the terminal?',
+    welcome: 'What can I do for you in the terminal?',
     agentMessage: 'Plan,search,execute anything',
     copy: 'Copy',
     run: 'Run',
