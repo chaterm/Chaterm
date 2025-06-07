@@ -182,7 +182,7 @@
           <a-textarea
             v-model:value="chatInputValue"
             :placeholder="$t('ai.agentMessage')"
-            style="background-color: #141414; color: #fff; border: none; box-shadow: none"
+            class="chat-textarea"
             :auto-size="{ minRows: 2, maxRows: 20 }"
             @keydown="handleKeyDown"
             @input="handleInputChange"
@@ -1505,13 +1505,21 @@ const handleAddHostClick = async () => {
   border: 1px solid #333;
   width: 100%;
 
+  .chat-textarea {
+    background-color: #141414 !important;
+    color: #fff !important;
+    border: none !important;
+    box-shadow: none !important;
+    font-size: 12px !important;
+  }
+
   .ant-textarea {
     background-color: #141414 !important;
     border: none !important;
     border-radius: 8px !important;
     color: #e0e0e0 !important;
     padding: 8px 12px !important;
-    font-size: 13px !important;
+    font-size: 12px !important;
 
     :deep(.ant-input::placeholder) {
       color: #666 !important;
