@@ -99,6 +99,10 @@ async function createWindow(): Promise<void> {
 app.whenReady().then(async () => {
   electronApp.setAppUserModelId('com.electron')
 
+  if (process.platform === 'darwin') {
+    app.dock.setIcon(join(__dirname, '../../resources/icon.png'))
+  }
+
   // 注册窗口拖拽处理程序（只注册一次）
   ipcMain.handle('custom-adsorption', (_, res) => {
     const { appX, appY, width, height } = res
