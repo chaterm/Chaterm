@@ -40,7 +40,7 @@
           class="hosts-display-container-host-tag"
           @click="handleAddHostClick"
         >
-          @ Add host
+          @ {{ $t('ai.addHost') }}
         </span>
       </div>
       <div
@@ -206,7 +206,7 @@
             <a-input
               ref="hostSearchInputRef"
               v-model:value="hostSearchValue"
-              placeholder="输入IP搜索"
+              :placeholder="$t('ai.searchHost')"
               size="small"
               class="mini-host-search-input"
               allow-clear
@@ -226,7 +226,7 @@
               <div
                 v-if="filteredHostOptions.length === 0"
                 class="host-select-empty"
-                >无匹配主机</div
+                >{{ $t('ai.noMatchingHosts') }}</div
               >
             </div>
           </div>
@@ -252,7 +252,11 @@
               style="margin-left: 8px"
               @click="sendMessage"
             >
-              {{ $t('ai.send') }} ⏎
+              <img
+                :src="sendIcon"
+                alt="send"
+                style="width: 18px; height: 18px"
+              />
             </a-button>
           </div>
         </div>
@@ -347,6 +351,7 @@ import type { HistoryItem as TaskHistoryItem, Host } from '@renderer/agent/stora
 import foldIcon from '@/assets/icons/fold.svg'
 import historyIcon from '@/assets/icons/history.svg'
 import plusIcon from '@/assets/icons/plus.svg'
+import sendIcon from '@/assets/icons/send.svg'
 import { useCurrentCwdStore } from '@/store/currentCwdStore'
 // 异步加载 Markdown 渲染组件
 const MarkdownRenderer = defineAsyncComponent(
@@ -405,7 +410,9 @@ const chatInputValue = ref('')
 const chatModelValue = ref('qwen-chat')
 const chatTypeValue = ref('agent')
 const activeKey = ref('chat')
-const showSendButton = ref(true)
+const showSendButton = computed(() => {
+  return chatInputValue.value.trim()
+})
 const lastChatMessageId = ref('')
 const buttonsDisabled = ref(false)
 const resumeDisabled = ref(false)
@@ -1566,37 +1573,37 @@ const handleAddHostClick = async () => {
   }
 
   .custom-round-button {
-    height: 20px;
-    padding: 0 8px;
-    border-radius: 4px;
+    height: 18px;
+    width: 18px;
+    padding: 0;
+    border-radius: 50%;
     font-size: 10px;
     background-color: #1656b1;
-    border-color: #1656b1;
+    border: 1px solid #2d6fcd;
     color: white;
     transition: all 0.2s ease;
     display: flex;
     align-items: center;
+    justify-content: center;
     gap: 3px;
 
     &:hover {
-      background-color: #2d6fcd;
-      border-color: #2d6fcd;
+      transform: scale(1.15);
+      border-color: #40a9ff;
     }
 
     &:active {
-      transform: translateY(0);
+      transform: scale(0.95);
       box-shadow: none;
+      border-color: #1890ff;
     }
 
     &[disabled] {
-      background-color: #333333 !important;
-      border-color: #444444 !important;
-      color: #666666 !important;
       cursor: not-allowed;
+      opacity: 0.2;
+      pointer-events: none;
 
       &:hover {
-        background-color: #333333 !important;
-        border-color: #444444 !important;
         transform: none;
       }
     }
@@ -1990,8 +1997,10 @@ const handleAddHostClick = async () => {
     background-color: #1656b1;
     border-color: #2d6fcd;
     color: #cccccc;
+    opacity: 0.65;
 
     &:hover {
+      opacity: 1;
       background-color: #1656b1;
       border-color: #2d6fcd;
       color: #ffffff;
