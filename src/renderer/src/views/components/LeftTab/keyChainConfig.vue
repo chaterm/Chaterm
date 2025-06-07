@@ -15,7 +15,7 @@
             >
               <template #icon
                 ><img
-                  :src="keyActiveIcon"
+                  :src="keyIcon"
                   alt="Key Icon"
                   style="width: 14px; height: 14px; margin-right: 5px" /></template
               >{{ $t('personal.newKey') }}
@@ -30,7 +30,7 @@
             >
               <template #prefix>
                 <img
-                  :src="keyActiveIcon"
+                  :src="keyIcon"
                   alt="Key Search Icon"
                   style="width: 14px; height: 14px"
                 />
@@ -59,7 +59,7 @@
                 <div class="keychain-card-content">
                   <div class="keychain-icon">
                     <img
-                      :src="keyActiveIcon"
+                      :src="keyIcon"
                       alt="Key Card Icon"
                       style="width: 24px; height: 24px"
                     />
@@ -176,7 +176,7 @@
 import { ref, onMounted, onBeforeUnmount, reactive, computed, watch } from 'vue'
 import { Modal, message } from 'ant-design-vue'
 import { EditOutlined, DeleteOutlined, ToTopOutlined } from '@ant-design/icons-vue'
-import keyActiveIcon from '@/assets/menu/key_active.svg'
+import keyIcon from '@/assets/menu/key.svg'
 
 interface KeyChainItem {
   key_chain_id: number

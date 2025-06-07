@@ -10,48 +10,33 @@
         <p
           v-if="i.key === 'files'"
           class="term_menu"
+          :class="{ active: activeKey === i.key }"
           @click="files"
         >
           <img
-            v-if="activeKey !== i.key"
             :src="i.icon"
-            alt=""
-          />
-          <img
-            v-else
-            :src="i.activeIcon"
             alt=""
           />
         </p>
         <p
           v-else-if="i.key === 'keychain'"
           class="term_menu"
+          :class="{ active: activeKey === i.key }"
           @click="menuClick('keychain')"
         >
           <img
-            v-if="activeKey !== i.key"
             :src="i.icon"
-            alt=""
-          />
-          <img
-            v-else
-            :src="i.activeIcon"
             alt=""
           />
         </p>
         <p
           v-else
           class="term_menu"
+          :class="{ active: activeKey === i.key }"
           @click="menuClick(i.key)"
         >
           <img
-            v-if="activeKey !== i.key"
             :src="i.icon"
-            alt=""
-          />
-          <img
-            v-else
-            :src="i.activeIcon"
             alt=""
           />
         </p>
@@ -66,16 +51,11 @@
         <div v-if="i.key === 'user'">
           <p
             class="setting_menu"
+            :class="{ active: activeKey === i.key }"
             @click="showUserMenu = !showUserMenu"
           >
             <img
-              v-if="activeKey !== i.key"
               :src="i.icon"
-              alt=""
-            />
-            <img
-              v-else
-              :src="i.activeIcon"
               alt=""
             />
           </p>
@@ -83,16 +63,11 @@
         <div v-else-if="i.key === 'setting'">
           <p
             class="setting_menu"
+            :class="{ active: activeKey === i.key }"
             @click="userConfig"
           >
             <img
-              v-if="activeKey !== i.key"
               :src="i.icon"
-              alt=""
-            />
-            <img
-              v-else
-              :src="i.activeIcon"
               alt=""
             />
           </p>
@@ -100,16 +75,11 @@
         <div v-else>
           <p
             class="setting_menu"
+            :class="{ active: activeKey === i.key }"
             @click="menuClick(i.key)"
           >
             <img
-              v-if="activeKey !== i.key"
               :src="i.icon"
-              alt=""
-            />
-            <img
-              v-else
-              :src="i.activeIcon"
               alt=""
             />
           </p>
@@ -241,10 +211,11 @@ const logout = () => {
       width: 20px;
       height: 20px;
       transition: all 0.3s ease;
-      opacity: 0.7;
+      opacity: 0.45;
     }
 
-    &:hover img {
+    &:hover img,
+    &.active img {
       opacity: 1;
       transform: scale(1.1);
     }
