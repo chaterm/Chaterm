@@ -138,18 +138,17 @@ export default {
   },
   ai: {
     welcome: '您好，请问需要在终端做什么操作？',
-    agentMessage: '制定计划,搜索和执行命令等任何事情',
+    searchHost: '输入IP搜索',
+    noMatchingHosts: '无匹配主机',
     copy: '复制',
     run: '执行',
-    send: '发送',
-    approve: '同意',
     reject: '拒绝',
-    approved: '已同意',
-    rejected: '已拒绝',
     cancel: '取消',
     resume: '恢复',
-    newChat: '开启新对话',
-    showChatHistory: '查看历史记录',
-    closeAiSidebar: '收起AI助手'
+    agentMessage: '可以制定计划,搜索和执行命令等任何事情',
+    newChat: '新建对话',
+    showChatHistory: '显示历史记录',
+    closeAiSidebar: '关闭AI侧边栏',
+    addHost: '添加主机'
   }
 }
