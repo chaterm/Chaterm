@@ -59,7 +59,6 @@ electron_mirror=https://cdn.npmmirror.com/binaries/electron/
 electron_builder_binaries_mirror=https://npmmirror.com/mirrors/electron-builder-binaries/
 
 4、保存并关闭配置文件后，在命令行中安装 Electron：
-npm i node-gyp
 npm i electron -D
 
 ```
