@@ -12,6 +12,18 @@
           : 'New chat'
       "
     >
+      <div
+        v-if="chatHistory.length === 0"
+        class="ai-welcome-container"
+      >
+        <div class="ai-welcome-icon">
+          <img
+            src="@/assets/menu/ai.svg"
+            alt="AI"
+          />
+        </div>
+        <div class="ai-welcome-text">{{ $t('ai.welcome') }}</div>
+      </div>
       <div class="hosts-display-container">
         <a-tag
           v-for="item in currentChatHosts"
@@ -182,7 +194,7 @@
           <a-textarea
             v-model:value="chatInputValue"
             :placeholder="$t('ai.agentMessage')"
-            style="background-color: #141414; color: #fff; border: none; box-shadow: none"
+            class="chat-textarea"
             :auto-size="{ minRows: 2, maxRows: 20 }"
             @keydown="handleKeyDown"
             @input="handleInputChange"
@@ -1368,6 +1380,7 @@ const handleAddHostClick = async () => {
 }
 
 .hosts-display-container {
+  position: relative;
   background-color: #141414;
   display: flex;
   flex-wrap: wrap;
@@ -1439,7 +1452,7 @@ const handleAddHostClick = async () => {
   padding: 0px 4px 4px 4px;
   margin-top: 2px;
   scrollbar-width: thin;
-  max-height: v-bind(
+  height: v-bind(
     'showResumeButton ? "calc(100vh - 202px)" : (showBottomButton ? "calc(100vh - 202px)" : "calc(100vh - 165px)")'
   );
   width: 100%;
@@ -1505,13 +1518,21 @@ const handleAddHostClick = async () => {
   border: 1px solid #333;
   width: 100%;
 
+  .chat-textarea {
+    background-color: #141414 !important;
+    color: #fff !important;
+    border: none !important;
+    box-shadow: none !important;
+    font-size: 12px !important;
+  }
+
   .ant-textarea {
     background-color: #141414 !important;
     border: none !important;
     border-radius: 8px !important;
     color: #e0e0e0 !important;
     padding: 8px 12px !important;
-    font-size: 13px !important;
+    font-size: 12px !important;
 
     :deep(.ant-input::placeholder) {
       color: #666 !important;
@@ -1711,8 +1732,8 @@ const handleAddHostClick = async () => {
   padding: 0 4px;
 
   .action-icon-btn {
-    width: 24px;
-    height: 24px;
+    width: 20px;
+    height: 20px;
     padding: 0;
     display: flex;
     align-items: center;
@@ -1732,8 +1753,11 @@ const handleAddHostClick = async () => {
       background-color: rgba(255, 255, 255, 0.15);
     }
 
-    .anticon {
-      font-size: 14px;
+    .anticon,
+    img {
+      width: 14px;
+      height: 14px;
+      opacity: 0.65;
     }
   }
 }
@@ -2003,20 +2027,17 @@ const handleAddHostClick = async () => {
 }
 .host-select-popup {
   position: absolute;
-  left: 24px;
-  top: 32px;
+  left: 20px;
   width: 130px;
-  z-index: 10;
   background: #222;
   border-radius: 4px;
   box-shadow: 0 2px 8px #0002;
-  padding: 8px 8px 0 8px;
   border: 1px solid #484747;
 }
 .host-select-list {
   max-height: 120px;
   overflow-y: auto;
-  padding: 8px 0px 2px 0px;
+  padding: 2px 0px 2px 0px;
 }
 .host-select-item {
   padding: 2px 6px;
@@ -2025,7 +2046,7 @@ const handleAddHostClick = async () => {
   margin-bottom: 2px;
   background: #222;
   color: #fff;
-  font-size: 13px;
+  font-size: 12px;
   line-height: 16px;
   transition: background 0.2s;
   &.hovered {
@@ -2036,5 +2057,29 @@ const handleAddHostClick = async () => {
   color: #888;
   text-align: center;
   padding: 8px 0;
+}
+
+.ai-welcome-container {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: calc(100vh - 165px);
+  .ai-welcome-icon {
+    margin-bottom: 12px;
+    img {
+      width: 28px;
+      height: 28px;
+      opacity: 0.65;
+    }
+  }
+  .ai-welcome-text {
+    color: #e0e0e0;
+    font-size: 14px;
+    text-align: center;
+    font-weight: 400;
+    opacity: 0.65;
+  }
 }
 </style>

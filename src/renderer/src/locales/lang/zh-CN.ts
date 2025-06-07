@@ -137,6 +137,7 @@ export default {
     newKey: '添加密钥'
   },
   ai: {
+    welcome: '您好，请问需要在终端做什么操作？',
     agentMessage: '制定计划,搜索和执行命令等任何事情',
     copy: '复制',
     run: '执行',
