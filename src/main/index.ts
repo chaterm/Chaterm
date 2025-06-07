@@ -37,7 +37,7 @@ async function createWindow(): Promise<void> {
     ...(process.platform !== 'darwin'
       ? {
           titleBarOverlay: {
-            color: '#1a1a1a',
+            color: '#141414',
             symbolColor: '#fff',
             height: 27
           }

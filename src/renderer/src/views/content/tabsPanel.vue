@@ -101,22 +101,31 @@ const termRefMap = ref<Record<string, any>>({})
 const sshConnectRefMap = ref<Record<string, any>>({})
 
 const setTermRef = (el: Element | ComponentPublicInstance | null, tabId: string) => {
-  if (el && '$props' in el) { // Check if el is a ComponentPublicInstance
-    termRefMap.value[tabId] = el as ComponentPublicInstance & { handleResize: () => void; autoExecuteCode: (cmd: string) => void; getTerminalBufferContent?: () => string | null }
+  if (el && '$props' in el) {
+    // Check if el is a ComponentPublicInstance
+    termRefMap.value[tabId] = el as ComponentPublicInstance & {
+      handleResize: () => void
+      autoExecuteCode: (cmd: string) => void
+      getTerminalBufferContent?: () => string | null
+    }
   } else {
     delete termRefMap.value[tabId]
   }
 }
 
 const setSshConnectRef = (el: Element | ComponentPublicInstance | null, tabId: string) => {
-  if (el && '$props' in el) { // Check if el is a ComponentPublicInstance
-    sshConnectRefMap.value[tabId] = el as ComponentPublicInstance & { getTerminalBufferContent: () => string | null }
+  if (el && '$props' in el) {
+    // Check if el is a ComponentPublicInstance
+    sshConnectRefMap.value[tabId] = el as ComponentPublicInstance & {
+      getTerminalBufferContent: () => string | null
+    }
   } else {
     delete sshConnectRefMap.value[tabId]
   }
 }
 
-const resizeTerm = (termid: string = '') => { // Added type for termid
+const resizeTerm = (termid: string = '') => {
+  // Added type for termid
   if (termid) {
     setTimeout(() => {
       if (termRefMap.value[termid]) {
@@ -143,17 +152,19 @@ async function getTerminalOutputContent(tabId: string): Promise<string | null> {
       return 'Error retrieving output from SshConnect component.'
     }
   } else {
-    const termInstance = termRefMap.value[tabId];
+    const termInstance = termRefMap.value[tabId]
     if (termInstance && typeof termInstance.getTerminalBufferContent === 'function') {
-        try {
-            const output = await termInstance.getTerminalBufferContent();
-            return output;
-        } catch (error: any) {
-            console.error(`Error getting terminal output from Term for tab ${tabId}:`, error);
-            return 'Error retrieving output from Term component.';
-        }
+      try {
+        const output = await termInstance.getTerminalBufferContent()
+        return output
+      } catch (error: any) {
+        console.error(`Error getting terminal output from Term for tab ${tabId}:`, error)
+        return 'Error retrieving output from Term component.'
+      }
     }
-    console.warn(`Component instance not found or method getTerminalBufferContent missing for tabId: ${tabId}`)
+    console.warn(
+      `Component instance not found or method getTerminalBufferContent missing for tabId: ${tabId}`
+    )
     return `Instance for tab ${tabId} not found or method missing.`
   }
 }
@@ -174,7 +185,7 @@ defineExpose({
 
 .tabs-bar {
   display: flex;
-  background-color: #1a1a1a;
+  background-color: #141414;
   border-bottom: 1px solid #414141;
   overflow-x: auto;
   user-select: none;
@@ -186,7 +197,7 @@ defineExpose({
   align-items: center;
   padding: 0 4px;
   border-right: 1px solid #414141;
-  background-color: #1a1a1a;
+  background-color: #141414;
   width: 120px;
 }
 
@@ -222,7 +233,7 @@ defineExpose({
 .tabs-content {
   flex: 1;
   overflow: auto;
-  background-color: #1a1a1a;
+  background-color: #141414;
   padding: 4px;
 }
 
