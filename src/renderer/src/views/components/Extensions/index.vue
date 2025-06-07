@@ -140,7 +140,7 @@ const filteredList = computed(() => {
 
 /* 鼠标悬停时变色 */
 .menu_list {
-  background: #1a1a1a;
+  background: #141414;
 
   .menu_list_item_name {
     line-height: 24px;

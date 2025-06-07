@@ -378,7 +378,7 @@ const aliasConfigRefresh = async () => {
 .alias-config-container {
   width: 100%;
   height: 100%;
-  background-color: #1a1a1a;
+  background-color: #141414;
   border-radius: 6px;
   padding: 4px;
   box-shadow: 0 4px 10px rgba(0, 0, 0, 0);
@@ -403,11 +403,11 @@ const aliasConfigRefresh = async () => {
 }
 
 .alias-config-table :deep(.ant-table-tbody) {
-  background-color: #1a1a1a; /* 黑色背景 */
+  background-color: #141414; /* 黑色背景 */
 }
 
 .alias-config-table :deep(.ant-table-thead > tr > th) {
-  background: #1a1a1a; /* 深灰色表头 */
+  background: #141414; /* 深灰色表头 */
   color: #fff;
   padding: 8px;
   border-radius: 0;
@@ -427,7 +427,7 @@ const aliasConfigRefresh = async () => {
 .alias-config-table :deep(.ant-table-tbody > tr:nth-child(odd) > td) {
   /* 可以选择保留默认样式或自定义 */
   /* 例如: */
-  background: #1a1a1a;
+  background: #141414;
   color: #fff;
   padding: 8px;
   border: none !important;
