@@ -95,7 +95,7 @@ onMounted(async () => {
     fontSize: 14,
     fontFamily: 'Menlo, Monaco, "Courier New", Courier, monospace',
     theme: {
-      background: '#1e1e1e',
+      background: '#141414',
       foreground: '#f0f0f0'
     }
   })
@@ -663,7 +663,7 @@ defineExpose({
 .terminal-container {
   width: 100%;
   height: 100%;
-  background-color: #1a1a1a;
+  background-color: #141414;
   border-radius: 6px;
   overflow: hidden;
   padding: 4px;

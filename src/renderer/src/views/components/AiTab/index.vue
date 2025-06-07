@@ -182,7 +182,7 @@
           <a-textarea
             v-model:value="chatInputValue"
             :placeholder="$t('ai.agentMessage')"
-            style="background-color: #161616; color: #fff; border: none; box-shadow: none"
+            style="background-color: #141414; color: #fff; border: none; box-shadow: none"
             :auto-size="{ minRows: 2, maxRows: 20 }"
             @keydown="handleKeyDown"
             @input="handleInputChange"
@@ -1362,13 +1362,13 @@ const handleAddHostClick = async () => {
   display: flex;
   flex-direction: column;
   height: 100%;
-  background-color: #1a1a1a;
+  background-color: #141414;
   border-radius: 8px;
   overflow: hidden;
 }
 
 .hosts-display-container {
-  background-color: #1a1a1a;
+  background-color: #141414;
   display: flex;
   flex-wrap: wrap;
   gap: 4px;
@@ -1500,13 +1500,13 @@ const handleAddHostClick = async () => {
   display: flex;
   flex-direction: column;
   gap: 4px;
-  background-color: #161616;
+  background-color: #141414;
   border-radius: 8px;
   border: 1px solid #333;
   width: 100%;
 
   .ant-textarea {
-    background-color: #1a1a1a !important;
+    background-color: #141414 !important;
     border: none !important;
     border-radius: 8px !important;
     color: #e0e0e0 !important;
@@ -1900,13 +1900,13 @@ const handleAddHostClick = async () => {
     }
 
     &[disabled] {
-      background-color: #1a1a1a !important;
+      background-color: #141414 !important;
       border-color: #2a2a2a !important;
       color: #666666 !important;
       cursor: not-allowed;
 
       &:hover {
-        background-color: #1a1a1a !important;
+        background-color: #141414 !important;
         border-color: #2a2a2a !important;
         color: #666666 !important;
       }
@@ -1925,13 +1925,13 @@ const handleAddHostClick = async () => {
     }
 
     &[disabled] {
-      background-color: #1a1a1a !important;
+      background-color: #141414 !important;
       border-color: #2a2a2a !important;
       color: #666666 !important;
       cursor: not-allowed;
 
       &:hover {
-        background-color: #1a1a1a !important;
+        background-color: #141414 !important;
         border-color: #2a2a2a !important;
         color: #666666 !important;
       }
@@ -1949,13 +1949,13 @@ const handleAddHostClick = async () => {
       color: #888888;
     }
     &[disabled] {
-      background-color: #1a1a1a !important;
+      background-color: #141414 !important;
       border-color: #2a2a2a !important;
       color: #666666 !important;
       cursor: not-allowed;
 
       &:hover {
-        background-color: #1a1a1a !important;
+        background-color: #141414 !important;
         border-color: #2a2a2a !important;
         color: #666666 !important;
       }
@@ -1973,13 +1973,13 @@ const handleAddHostClick = async () => {
       color: #ffffff;
     }
     &[disabled] {
-      background-color: #1a1a1a !important;
+      background-color: #141414 !important;
       border-color: #2a2a2a !important;
       color: #666666 !important;
       cursor: not-allowed;
 
       &:hover {
-        background-color: #1a1a1a !important;
+        background-color: #141414 !important;
         border-color: #2a2a2a !important;
         color: #666666 !important;
       }

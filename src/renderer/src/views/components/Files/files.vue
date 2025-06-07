@@ -426,8 +426,8 @@ defineExpose({
 
 <style scoped>
 .base-file {
-  border-color: #1a1a1a;
-  background-color: #1a1a1a;
+  border-color: #141414;
+  background-color: #141414;
 }
 .base-file :deep(.ant-card-body) {
   padding: 0px 7px;
@@ -452,11 +452,11 @@ defineExpose({
 }
 
 .files-table :deep(.ant-table-tbody) {
-  background-color: #1a1a1a;
+  background-color: #141414;
 }
 
 .files-table :deep(.ant-table-thead > tr > th) {
-  background: #1a1a1a;
+  background: #141414;
   color: #fff;
   padding: 8px;
   border-radius: 0;
@@ -465,7 +465,7 @@ defineExpose({
 }
 
 .files-table :deep(.ant-table-tbody > tr > td) {
-  background: #1a1a1a;
+  background: #141414;
   color: #fff;
   padding: 8px;
   border: none !important;

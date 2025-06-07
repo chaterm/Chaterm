@@ -209,8 +209,8 @@ interface formData {
   privateKeyPath: string
   authType: string
   passphrase: string
-  uuid?: string; // 添加可选的 uuid
-  key?: string; // 添加可选的 key
+  uuid?: string // 添加可选的 uuid
+  key?: string // 添加可选的 key
 }
 
 interface TabItem {
@@ -234,10 +234,12 @@ const currentClickServer = async (item) => {
 
   // 检查是否已存在基于 item.key (或 item.id, 如果 key 不唯一) 的标签页
   // 这里假设 item.key 是唯一的标识符，如果不是，需要用 item.uuid 或其他唯一ID
-  const existingTab = openedTabs.value.find(tab => tab.data?.key === item.key && tab.type === (item.type || 'term'));
+  const existingTab = openedTabs.value.find(
+    (tab) => tab.data?.key === item.key && tab.type === (item.type || 'term')
+  )
   if (existingTab) {
-    activeTabId.value = existingTab.id;
-    return;
+    activeTabId.value = existingTab.id
+    return
   }
 
   const id_ = uuidv4()
@@ -263,7 +265,7 @@ const closeTab = (tabId) => {
     openedTabs.value.splice(index, 1)
     if (activeTabId.value === tabId) {
       if (openedTabs.value.length > 0) {
-        const newActiveIndex = Math.max(0, index -1) // 确保索引不为负
+        const newActiveIndex = Math.max(0, index - 1) // 确保索引不为负
         activeTabId.value = openedTabs.value[newActiveIndex].id
       } else {
         activeTabId.value = ''
@@ -312,7 +314,7 @@ const changeCompany = () => {
   openedTabs.value = []
 }
 
-const LAST_N_LINES = 100; 
+const LAST_N_LINES = 100
 
 // 新增函数：获取当前活动标签页的资产信息
 const getActiveTabAssetInfo = async () => {
@@ -320,7 +322,7 @@ const getActiveTabAssetInfo = async () => {
     console.warn('No active tab selected.')
     return null
   }
-  const activeTab = openedTabs.value.find(tab => tab.id === activeTabId.value)
+  const activeTab = openedTabs.value.find((tab) => tab.id === activeTabId.value)
   if (!activeTab) {
     console.warn('Active tab not found in openedTabs.')
     return null
@@ -332,47 +334,48 @@ const getActiveTabAssetInfo = async () => {
     return null
   }
 
-  const isTerminalSession = activeTab.content === 'demo' || activeTab.organizationId === 'personal';
+  const isTerminalSession = activeTab.content === 'demo' || activeTab.organizationId === 'personal'
 
-  let outputContext = 'Output context not applicable for this tab type.';
+  let outputContext = 'Output context not applicable for this tab type.'
 
   if (isTerminalSession) {
     // Only attempt to get terminal output if it's a terminal session
-    outputContext = 'Terminal output not available or an error occurred.'; // Default for terminal sessions
+    outputContext = 'Terminal output not available or an error occurred.' // Default for terminal sessions
 
     // Check if allTabs (TabsPanel instance) is mounted and the method exists
     if (allTabs.value && typeof allTabs.value.getTerminalOutputContent === 'function') {
       try {
         // This method needs to be implemented/exposed in TabsPanel.vue
-        const fullOutput = await allTabs.value.getTerminalOutputContent(activeTabId.value);
+        const fullOutput = await allTabs.value.getTerminalOutputContent(activeTabId.value)
 
         if (typeof fullOutput === 'string') {
-          const regex = /(\r?\n)+$/;
-          const result = fullOutput.replace(regex, ``);
-          const lines = result.split('\n');
-          const lastNLines = lines.slice(-LAST_N_LINES);
-          outputContext = lastNLines.join('\n');
+          const regex = /(\r?\n)+$/
+          const result = fullOutput.replace(regex, ``)
+          const lines = result.split('\n')
+          const lastNLines = lines.slice(-LAST_N_LINES)
+          outputContext = lastNLines.join('\n')
         } else if (fullOutput === null || fullOutput === undefined) {
-          outputContext = 'Terminal output is empty or not yet available.';
+          outputContext = 'Terminal output is empty or not yet available.'
         } else {
-          console.warn('Terminal output content is not a string:', fullOutput);
-          outputContext = 'Received non-string terminal output.';
+          console.warn('Terminal output content is not a string:', fullOutput)
+          outputContext = 'Received non-string terminal output.'
         }
-      } catch (error: any) { // Changed to error: any
-        console.error('Error retrieving terminal output via getTerminalOutputContent:', error);
-        outputContext = `Error fetching terminal content: ${error.message || error}`;
+      } catch (error: any) {
+        // Changed to error: any
+        console.error('Error retrieving terminal output via getTerminalOutputContent:', error)
+        outputContext = `Error fetching terminal content: ${error.message || error}`
       }
     } else {
       console.warn(
         'allTabs.value (TabsPanel instance) is not available or getTerminalOutputContent method is missing.'
-      );
+      )
       outputContext =
-        'Terminal interaction component (TabsPanel) not ready or getTerminalOutputContent method not implemented in it.';
+        'Terminal interaction component (TabsPanel) not ready or getTerminalOutputContent method not implemented in it.'
     }
   } else if (!uuid) {
-    outputContext = 'Terminal output not available or an error occurred.'; 
-    console.warn('Active tab is not a terminal session and does not have a UUID for asset info.');
-    return null; // Or handle as a non-asset, non-terminal tab differently if needed.
+    outputContext = 'Terminal output not available or an error occurred.'
+    console.warn('Active tab is not a terminal session and does not have a UUID for asset info.')
+    return null // Or handle as a non-asset, non-terminal tab differently if needed.
   }
 
   return {
@@ -383,7 +386,7 @@ const getActiveTabAssetInfo = async () => {
     type: activeTab.type,
     outputContext: outputContext,
     sshSessionId: activeTabId.value
-  };
+  }
 }
 
 // 处理eventBus的getActiveTabAssetInfo事件
@@ -405,7 +408,7 @@ defineExpose({
   width: 100vw;
   display: flex;
   flex-direction: column;
-  background: #1a1a1a;
+  background: #141414;
   color: #e0e0e0;
   margin: 0;
 
