@@ -182,12 +182,55 @@ onMounted(async () => {
 
 .term_tab_Info {
   height: 100%;
-  // margin-right: 140px;
   width: 100%;
   display: flex;
   align-items: center;
   position: relative;
   justify-content: flex-end;
+
+  .toggle-right-btn {
+    width: 24px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    background: transparent;
+    border-radius: 4px;
+    margin-right: 4px;
+
+    &:hover {
+      background: rgba(255, 255, 255, 0.1);
+    }
+
+    &:active {
+      background: rgba(255, 255, 255, 0.15);
+    }
+  }
+
+  .sidebar-toggle-icon {
+    width: 16px;
+    height: 16px;
+    display: block;
+    opacity: 0.45;
+    transition: opacity 0.2s ease;
+  }
+
+  .sidebar-toggle-icon_mac {
+    width: 16px;
+    height: 16px;
+    display: block;
+    opacity: 0.45;
+    transition: opacity 0.2s ease;
+  }
+
+  .toggle-right-btn:hover {
+    .sidebar-toggle-icon,
+    .sidebar-toggle-icon_mac {
+      opacity: 0.6;
+    }
+  }
 
   .ip-display {
     color: #4caf50;
@@ -205,37 +248,5 @@ onMounted(async () => {
     margin: 0;
     margin-right: 18px;
   }
-
-  .sidebar-toggle-icon {
-    width: 20px;
-    height: 20px;
-    display: block;
-    margin-right: 18px;
-  }
-
-  .sidebar-toggle-icon_mac {
-    width: 20px;
-    height: 20px;
-    display: block;
-    margin-right: 8px;
-  }
-
-  // .toggle-right-btn {
-  //   position: absolute;
-  //   right: 70px;
-  //   top: 10px;
-  //   width: 20px;
-  //   height: 20px;
-  //   background: #252525;
-  //   border: 1px solid #404040;
-  //   border-left: none;
-  //   color: #4caf50;
-  //   display: flex;
-  //   align-items: center;
-  //   justify-content: center;
-  //   cursor: pointer;
-  //   border-radius: 0 4px 4px 0;
-  //   transition: background 0.2s;
-  // }
 }
 </style>

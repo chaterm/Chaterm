@@ -1,14 +1,12 @@
-<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="64" height="64" viewBox="0 0 64 64" fill="none">
-<rect x="0" y="0" width="64" height="64"   fill="url(#pattern_fill_1_2)" >
-</rect>
-<rect x="39.5" y="11" width="15" height="44" stroke="rgba(255, 255, 255, 1)" stroke-width="1"      fill="#FFFFFF" >
-</rect>
-<defs>
-<pattern id="pattern_fill_1_2" patternContentUnits="objectBoundingBox" width="1" height="1">
-<use transform="translate(0, 0) scale(0.0078125, 0.0078125) rotate(0)" xlink:href="#image0" />
-</pattern>
-
-<image id="image0" width="128" height="128" xlink:href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAIAAAACACAYAAADDPmHLAAAAAXNSR0IArs4c6QAAA+NJREFUeF7tmzFuFEEQRX8liBgRQOaEAGIOYG5A4oAMcQREQAZERIgTEJBZvgQ44wYkJEhIgEjJG2YZ8Ox6zWx319S23G8ky5Y81V39+7u6/u+1iadrBKzr1bN4QYDOSQABIEDnCHS+fCoABOgcgc6XTwWAAJ0j0PnyqQAQoHMEOl8+FQACdI5A58unAkCAzhHofPlUAAjQOQKdL58KAAF8EUgpPZJ0V9Jt35GbGu1A0tXxax+J/ZT0RdJ9M/tek4BrBUgpPZf0rCYhYrMRuGVmn7KjxgA3AqSUjiSdlCZCXDEC38zsZmm0JwHeSBrKP088Ag/M7LhkWk8CvJN0OEniRUlCjcdsHm+nDvkmafXZzOH78Ozy8xTnIeatmT0syWVRApjZ0BNcmif9bnI2FnPPzN5HL3BLHhAgYhMgwH9QTimdOwKoAMvQkgqwDK6zo1IBqAD0ABdxgCNgtoC4vcAR4AZl3kAcARwBHAEcAWsI4AP8hYMeIO84qXmbHqAGvYpYegB6AHoAegB6gK0coAeoOFsyQ+kBMgHzep0egB6AHoAegB6AHuAMAYwgjCA+EbTiACrAq9WcHwcVMI/RIm+gAlABqABUACoAFYAKOM8BmsBF2o6L/tg2jyL+LyACfppAmkCaQJpAmkCaQJpAmsARAe4CuAvgLoC7gAgJMpmDu4BgwCdVDhWACkAFoAJQAagAVMAGB7gLiGtMaALjsF6bibsA7gJQAagAVAAqABWACkAFoAIGBLgM4jKIyyAug4JlKT5AMOBcBu0AOE7gDiA5vUIFcAIydxicQJxAnECcQJxAnECcQJxAnECcQJzAKQeQgbmaovx9ZGA5dlWRyEBkIDIQGYgMRAYiA5GByEBkIDIQGcgngv5xAB+gSmFmBeMDZMHl9zI+AD4APgA+AD4APgA+AD4APgA+AD4APgA+AD6A8Z9BKxJgBPn5DXMjYQTNIbTQ7zGCMIIwgjCCMIIwgjCCMIIwgjCCMIIwgjCCMIIwgv5wACNoIfNhy7AYQXFYr82EEYQRhBGEEYQRhBGEEYQRhBGEEYQRtGEEnUg62lOD3vu0T8zsVQkIVhK0LSal9FLSU6/xGCcLgTtm9jErYnzZjQCjGfRD0vWSRIgpRuDUzA5Lo10JMJKAo6B0N/LjXpvZ4/ywswh3AowkOJA0fF3W54qkG5Ku7WmBXyV9MLPPtfMvQoDapIiPQwACxGHd5EwQoMltiUsKAsRh3eRMEKDJbYlLCgLEYd3kTBCgyW2JSwoCxGHd5EwQoMltiUsKAsRh3eRMEKDJbYlLCgLEYd3kTBCgyW2JSwoCxGHd5Ey/ACv0RsxfIoYwAAAAAElFTkSuQmCC" />
-
-</defs>
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="16px" height="16px" viewBox="0 0 16 16" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+    <title>layout-right-choose</title>
+    <g id="页面-1" stroke="none" stroke-width="1" fill="none" fill-rule="evenodd">
+        <g id="icon" transform="translate(-392, -420)" fill="#FFFFFF">
+            <g id="layout-right-choose" transform="translate(392, 420)">
+                <rect id="矩形" opacity="0" x="0" y="0" width="16" height="16"></rect>
+                <path d="M14.44,1 L1.56,1 C1.25025,1 1,1.25025 1,1.56 L1,14.44 C1,14.74975 1.25025,15 1.56,15 L14.44,15 C14.74975,15 15,14.74975 15,14.44 L15,1.56 C15,1.25025 14.74975,1 14.44,1 Z M13.74,13.74 L6.76,13.74 L6.76,2.26 L13.74,2.26 L13.74,13.74 Z" id="形状" fill-rule="nonzero" transform="translate(8, 8) scale(-1, 1) translate(-8, -8)"></path>
+            </g>
+        </g>
+    </g>
 </svg>
