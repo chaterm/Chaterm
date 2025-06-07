@@ -207,9 +207,10 @@ const connectWebsocket = () => {
   const wsUrl = 'ws://demo.chaterm.ai/v1/term-api/ws?&uuid=' + auth // 后端WebSocket地址
   socket.value = new WebSocket(wsUrl)
   socket.value.onopen = () => {
-    let welcome = '\x1b[1;32m' + name + ', 欢迎您使用智能堡垒机Chaterm \x1b[m\r\n'
+    let welcome = '\x1b[38;2;22;119;255m' + name + ', 欢迎您使用智能堡垒机Chaterm \x1b[m\r\n'
     if (configStore.getUserConfig.language == 'en-US') {
-      welcome = '\x1b[1;32m' + email.split('@')[0] + ', Welcome to use Chaterm \x1b[m\r\n'
+      welcome =
+        '\x1b[38;2;22;119;255m' + email.split('@')[0] + ', Welcome to use Chaterm \x1b[m\r\n'
     }
     term.writeln(welcome)
     pingInterval.value = setInterval(() => {
