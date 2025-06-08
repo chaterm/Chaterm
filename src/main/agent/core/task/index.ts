@@ -475,13 +475,17 @@ export class Task {
           // this.askResponseImages = undefined
           askTs = Date.now()
           this.lastMessageTs = askTs
-          await this.addToChatermMessages({
+          const newMessage: ChatermMessage = {
             ts: askTs,
             type: 'ask',
             ask: type,
             text
+          }
+          await this.postMessageToWebview({
+            type: 'partialMessage',
+            partialMessage: newMessage
           })
-          await this.postStateToWebview()
+          // await this.postStateToWebview()
         }
       }
     } else {
