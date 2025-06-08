@@ -333,7 +333,6 @@ import {
   computed,
   nextTick
 } from 'vue'
-
 import {
   CloseOutlined,
   LaptopOutlined,
@@ -347,7 +346,8 @@ import { v4 as uuidv4 } from 'uuid'
 import { getAiModel, getChatDetailList, getConversationList } from '@/api/ai/ai'
 import eventBus from '@/utils/eventBus'
 import { getGlobalState } from '@renderer/agent/storage/state'
-import type { HistoryItem as TaskHistoryItem, Host } from '@renderer/agent/storage/shared'
+import type { HistoryItem, Host, ModelOption, ChatMessage, AssetInfo } from './types'
+import { createNewMessage, parseMessageContent, truncateText, formatHosts } from './utils'
 import foldIcon from '@/assets/icons/fold.svg'
 import historyIcon from '@/assets/icons/history.svg'
 import plusIcon from '@/assets/icons/plus.svg'
@@ -373,34 +373,6 @@ interface MessageContent {
   type?: string
   content?: string
   partial?: boolean
-}
-
-interface ChatMessage {
-  id: string
-  role: 'user' | 'assistant'
-  content: string | MessageContent
-  type?: string
-  ask?: string
-  say?: string
-  action?: 'approved' | 'rejected'
-  ts?: number
-  selectedOption?: string
-}
-
-interface AssetInfo {
-  uuid: string
-  title: string
-  ip: string
-  organizationId?: string
-  type?: string
-  outputContext?: string
-}
-
-interface HistoryItem {
-  id: string
-  chatTitle: string
-  chatType: string
-  chatContent: ChatMessage[]
 }
 
 const historyList = ref<HistoryItem[]>([])
@@ -431,11 +403,6 @@ const props = defineProps({
     required: true
   }
 })
-
-interface ModelOption {
-  label: string
-  value: string
-}
 
 const AiModelsOptions = ref<ModelOption[]>([])
 const AiTypeOptions = [
@@ -720,11 +687,7 @@ const handlePlusClick = async () => {
   chatTypeValue.value = 'agent'
   hosts.value = []
 
-  const chatTitle = currentInput
-    ? currentInput.length > 15
-      ? currentInput.substring(0, 15) + '...'
-      : currentInput
-    : `New chat`
+  const chatTitle = currentInput ? truncateText(currentInput) : 'New chat'
 
   historyList.value.unshift({
     id: newChatId,
@@ -917,7 +880,7 @@ const handleHistoryClick = async () => {
       agentHistory.forEach((messages) => {
         historyList.value.push({
           id: messages.id,
-          chatTitle: messages?.task?.substring(0, 15) + '...' || 'Agent Chat',
+          chatTitle: truncateText(messages?.task || 'Agent Chat'),
           chatType: 'agent',
           chatContent: []
         })
@@ -928,7 +891,7 @@ const handleHistoryClick = async () => {
         .filter((item) => item.conversateType !== 'agent')
         .map((item: any) => ({
           id: item.conversationId,
-          chatTitle: item.title,
+          chatTitle: truncateText(item.title),
           chatType: item.conversateType,
           chatContent: []
         }))
@@ -1135,37 +1098,32 @@ onMounted(async () => {
       showSendButton.value = false
       showCancelButton.value = true
       let lastMessageInChat = chatHistory.at(-1)
-      // 返回的内容如果和前一个相同，并且 partial 字段为 false，开启一个新的assistant消息
+
       let openNewMessage =
         (lastMessage?.type === 'state' && !lastPartialMessage?.partialMessage?.partial) ||
         lastMessageInChat?.role === 'user' ||
         !lastMessage ||
         lastPartialMessage.partialMessage.ts !== message.partialMessage.ts
-      // 检查是否与上一条消息完全相同
+
       if (lastMessage && JSON.stringify(lastMessage) === JSON.stringify(message)) {
         return
       }
-      // 处理流式响应
-      // 追加内容到现有assistant消息
+
       if (openNewMessage) {
-        // 创建新的assistant消息
-        const newAssistantMessage: ChatMessage = {
-          id: uuidv4(),
-          role: 'assistant',
-          content: message.partialMessage.text,
-          type: message.partialMessage.type,
-          ask: message.partialMessage.type === 'ask' ? message.partialMessage.ask : '',
-          say: message.partialMessage.type === 'say' ? message.partialMessage.say : '',
-          ts: message.partialMessage.ts
-        }
-        lastChatMessageId.value = newAssistantMessage.id
+        const newAssistantMessage = createNewMessage(
+          'assistant',
+          message.partialMessage.text,
+          message.partialMessage.type,
+          message.partialMessage.type === 'ask' ? message.partialMessage.ask : '',
+          message.partialMessage.type === 'say' ? message.partialMessage.say : '',
+          message.partialMessage.ts
+        )
+
         if (!message.partialMessage.partial && message.partialMessage.type === 'ask') {
-          try {
-            newAssistantMessage.content = JSON.parse(message.partialMessage.text)
-          } catch (e) {
-            newAssistantMessage.content = message.partialMessage.text
-          }
+          newAssistantMessage.content = parseMessageContent(message.partialMessage.text)
         }
+
+        lastChatMessageId.value = newAssistantMessage.id
         chatHistory.push(newAssistantMessage)
       } else if (lastMessageInChat && lastMessageInChat.role === 'assistant') {
         lastMessageInChat.content = message.partialMessage.text
@@ -1174,14 +1132,12 @@ onMounted(async () => {
           message.partialMessage.type === 'ask' ? message.partialMessage.ask : ''
         lastMessageInChat.say =
           message.partialMessage.type === 'say' ? message.partialMessage.say : ''
+
         if (!message.partialMessage.partial && message.partialMessage.type === 'ask') {
-          try {
-            lastMessageInChat.content = JSON.parse(message.partialMessage.text)
-          } catch (e) {
-            lastMessageInChat.content = message.partialMessage.text
-          }
+          lastMessageInChat.content = parseMessageContent(message.partialMessage.text)
         }
       }
+
       lastPartialMessage = message
       if (!message.partialMessage?.partial) {
         showSendButton.value = true
@@ -1283,7 +1239,6 @@ const showBottomButton = computed(() => {
 })
 
 // 1. 新增状态变量
-
 const filteredHostOptions = computed(() =>
   hostOptions.value.filter((item) => item.label.includes(hostSearchValue.value))
 )
@@ -1325,11 +1280,7 @@ watch(hostSearchValue, (newVal) => {
 })
 const fetchHostOptions = async (search: string) => {
   const hostsList = await (window.api as any).getUserHosts(search)
-  hostOptions.value = (hostsList || []).map((item: any) => ({
-    label: item.asset_ip || item.host || '',
-    value: item.uuid,
-    uuid: item.uuid
-  }))
+  hostOptions.value = formatHosts(hostsList || [])
 }
 
 const showResumeButton = computed(() => {
