@@ -125,6 +125,7 @@ export class LiteLlmHandler implements ApiHandler {
       temperature,
       stream: true,
       stream_options: { include_usage: true },
+      max_tokens: this.options.liteLlmModelInfo?.maxTokens || 8192,
       ...(thinkingConfig && { thinking: thinkingConfig }) // Add thinking configuration when applicable
     })
 

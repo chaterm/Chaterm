@@ -26,8 +26,8 @@ export const DEFAULT_AUTO_APPROVAL_SETTINGS: AutoApprovalSettings = {
     readFilesExternally: false,
     editFiles: false,
     editFilesExternally: false,
-    executeSafeCommands: false,
-    executeAllCommands: false
+    executeSafeCommands: true,
+    executeAllCommands: true
   },
   maxRequests: 3,
   enableNotifications: true,

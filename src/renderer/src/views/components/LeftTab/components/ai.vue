@@ -414,7 +414,10 @@ watch(
       const settingsToStore = {
         version: (autoApprovalSettings.value.version || 1) + 1,
         enabled: newValue,
-        actions: { ...autoApprovalSettings.value.actions },
+        actions: {
+          ...autoApprovalSettings.value.actions,
+          executeAllCommands: newValue // 根据开关状态设置 executeAllCommands
+        },
         maxRequests: autoApprovalSettings.value.maxRequests,
         enableNotifications: autoApprovalSettings.value.enableNotifications,
         favorites: [...(autoApprovalSettings.value.favorites || [])]
@@ -564,12 +567,19 @@ const saveConfig = async () => {
     await updateGlobalState('thinkingBudgetTokens', thinkingBudgetTokens.value)
     await updateGlobalState('customInstructions', customInstructions.value)
     // await updateGlobalState('enableCheckpoints', enableCheckpoints.value)
-    await updateGlobalState('autoApprovalSettings', {
-      enabled: autoApprovalSettings.value.enabled
-    })
-    await updateGlobalState('chatSettings', {
+    const settingsToSave: AutoApprovalSettings = {
+      version: autoApprovalSettings.value.version,
+      enabled: autoApprovalSettings.value.enabled,
+      actions: { ...autoApprovalSettings.value.actions },
+      maxRequests: autoApprovalSettings.value.maxRequests,
+      enableNotifications: autoApprovalSettings.value.enableNotifications,
+      favorites: [...(autoApprovalSettings.value.favorites || [])]
+    }
+    await updateGlobalState('autoApprovalSettings', settingsToSave)
+    const chatSettingsToSave: ChatSettings = {
       mode: chatSettings.value.mode
-    })
+    }
+    await updateGlobalState('chatSettings', chatSettingsToSave)
     await updateGlobalState('reasoningEffort', reasoningEffort.value)
     await updateGlobalState('shellIntegrationTimeout', shellIntegrationTimeout.value)
   } catch (error) {
