@@ -1,43 +1,20 @@
 <template>
   <div class="term_host_list">
     <div class="term_host_header">
-      <div style="display: flex; align-items: center; justify-content: space-between; width: 100%">
-        <div style="display: flex; align-items: center; gap: 10px">
-          <p
-            v-if="!isPersonalWorkspace"
-            style="display: inline-block; font-size: 14px; margin: 0"
-          >
-            {{ $t('workspace.workspace') }}
-          </p>
-          <div
-            v-else
-            style="display: flex; gap: 2px"
-          >
-            <a-button
-              type="primary"
-              size="small"
-              class="workspace-button"
-              @click="assetManagement"
-            >
-              <template #icon><laptop-outlined /></template>{{ $t('personal.host') }}
-            </a-button>
-          </div>
-        </div>
-        <a-select
-          v-model:value="company"
-          class="term_com_list"
-          style="width: 100px"
-          size="small"
-          @change="companyChange"
+      <div style="display: flex; align-items: center; justify-content: space-around; width: 100%">
+        <div
+          v-for="(item, index) in workspaceData"
+          :key="index"
+          style="display: flex; align-items: center; gap: 10px"
         >
-          <a-select-option
-            v-for="item1 in workspaceData"
-            :key="item1.key"
-            :value="item1.key"
+          <p
+            style="display: inline-block; font-size: 14px; margin: 0"
+            :class="item.key == company ? 'active-text' : 'no-active-text'"
+            @click="companyChange(item)"
           >
-            {{ item1.label }}
-          </a-select-option>
-        </a-select>
+            {{ t(item.label) }}
+          </p>
+        </div>
       </div>
 
       <!-- 资产管理 -->
@@ -45,13 +22,29 @@
         <!-- <a-button @click="queryCommand">查询命令</a-button> -->
         <!-- 功能自动补全接入示例，不要删除 -->
         <!-- <a-button @click="insertCommand">插入命令</a-button> -->
-        <a-input-search
-          v-model:value="searchValue"
-          :placeholder="$t('workspace.searchHost')"
-          size="small"
-          class="custom-search"
-          @search="onSearchInput"
-        />
+        <div class="manage">
+          <a-input
+            v-model:value="searchValue"
+            class="transparent-Input"
+            :placeholder="t('common.search')"
+            :style="isPersonalWorkspace ? 'width: 70%' : 'width: 100%'"
+            allow-clear
+            @input="onSearchInput"
+          >
+            <template #suffix>
+              <search-outlined />
+            </template>
+          </a-input>
+          <a-button
+            v-if="isPersonalWorkspace"
+            type="primary"
+            size="small"
+            class="workspace-button"
+            @click="assetManagement"
+          >
+            <template #icon><laptop-outlined /></template>{{ t('personal.host') }}
+          </a-button>
+        </div>
 
         <div class="tree-container">
           <a-tree
@@ -81,7 +74,7 @@
                   <laptop-outlined class="computer-icon" />
                   <a-tooltip
                     v-if="editingNode !== dataRef.key"
-                    :title="`连接到 ${dataRef.ip} 服务器`"
+                    :title="t('workspace.connectToServer', { ip: dataRef.ip })"
                   >
                     <span v-if="editingNode !== dataRef.key">{{ title }}</span>
                   </a-tooltip>
@@ -135,6 +128,9 @@
 </template>
 
 <script setup lang="ts">
+import { useI18n } from 'vue-i18n'
+const { t } = useI18n()
+
 interface ApiType {
   queryCommand: (data: { command: string; ip: string }) => Promise<any>
   insertCommand: (data: { command: string; ip: string }) => Promise<any>
@@ -154,13 +150,11 @@ import {
   StarFilled,
   StarOutlined,
   LaptopOutlined,
+  SearchOutlined,
   EditOutlined,
-  CheckOutlined,
-  DownOutlined,
-  KeyOutlined
+  CheckOutlined
 } from '@ant-design/icons-vue'
-// import { message } from 'ant-design-vue'
-
+import { onMounted } from 'vue'
 const searchValue = ref('')
 const editingNode = ref(null)
 const editingTitle = ref('')
@@ -178,10 +172,17 @@ interface WorkspaceItem {
 const workspaceData = ref<WorkspaceItem[]>([
   {
     key: 'personal_user_id',
-    label: 'Personal',
+    label: 'personal.personal',
     type: 'personal'
+  },
+  {
+    key: 'remote',
+    label: 'personal.enterprise',
+    type: 'organization'
   }
 ])
+
+const remoteWorkSpace = ref<WorkspaceItem[]>([])
 
 interface AssetNode {
   key: string
@@ -200,7 +201,8 @@ interface MachineOption {
 
 const machines = ref<MachineOption | null>(null)
 
-const companyChange = (company) => {
+const companyChange = (item) => {
+  company.value = item.key
   // 重置树相关状态
   selectedKeys.value = []
   expandedKeys.value = []
@@ -210,7 +212,7 @@ const companyChange = (company) => {
   if (isPersonalWorkspace.value) {
     getLocalAssetMenu()
   } else {
-    getUserAssetMenu(company)
+    getUserAssetMenu()
   }
   emit('change-company')
 }
@@ -219,7 +221,6 @@ const isPersonalWorkspace = computed(() => {
   const currentWorkspace = workspaceData.value.find((item) => item.key === company.value)
   return currentWorkspace?.type === 'personal'
 })
-
 const keyChainConfig = () => {
   emit('open-user-tab', 'keyChainConfig')
 }
@@ -241,23 +242,75 @@ const getLocalAssetMenu = () => {
     })
     .catch((err) => console.error(err))
 }
-const getUserAssetMenu = (orgId: string) => {
-  getassetMenu({ organizationId: orgId })
-    .then((res) => {
-      const data = res.data.routers
-      originalTreeData.value = deepClone(data) as AssetNode[]
-      assetTreeData.value = deepClone(data) as AssetNode[]
-      expandDefaultNodes()
+
+const processResponses = (TreeData: AssetNode[], response: AssetNode[]) => {
+  if (TreeData.length === 0) {
+    response.forEach((item) => {
+      TreeData.push(JSON.parse(JSON.stringify(item)))
     })
-    .catch((err) => console.error(err))
+    return
+  }
+
+  response.forEach((item) => {
+    const existingIndex = TreeData.findIndex((node) => node.key === item.key)
+
+    if (item.key === 'favorite') {
+      if (existingIndex > -1) {
+        const existingFav = TreeData[existingIndex]
+        if (Array.isArray(item.children) && item.children.length) {
+          if (!Array.isArray(existingFav.children)) {
+            existingFav.children = []
+          }
+          existingFav.children.push(
+            ...item.children.map((child) => JSON.parse(JSON.stringify(child)))
+          )
+        }
+      } else {
+        TreeData.unshift(JSON.parse(JSON.stringify(item)))
+      }
+    } else {
+      if (existingIndex === -1) {
+        TreeData.push(JSON.parse(JSON.stringify(item)))
+      } else {
+        const existingNode = TreeData[existingIndex]
+        if (Array.isArray(item.children) && item.children.length) {
+          if (!Array.isArray(existingNode.children)) {
+            existingNode.children = []
+          }
+          existingNode.children.push(
+            ...item.children.map((child) => JSON.parse(JSON.stringify(child)))
+          )
+        }
+      }
+    }
+  })
 }
 
-const GetUserWorkSpace = () => {
+const getUserAssetMenu = async () => {
+  originalTreeData.value = []
+  assetTreeData.value = []
+  const treeData = []
+  for (const item of remoteWorkSpace.value) {
+    await getassetMenu({ organizationId: item.key })
+      .then(async (res) => {
+        const data = res.data.routers
+        processResponses(treeData, deepClone(data) as AssetNode[])
+      })
+      .catch((err) => console.error(err))
+  }
+  originalTreeData.value = deepClone(treeData) as AssetNode[]
+  assetTreeData.value = deepClone(treeData) as AssetNode[]
+  console.log(assetTreeData.value, 'assetTreeData')
+
+  expandDefaultNodes()
+}
+
+const GetUserWorkSpace = async () => {
   getUserWorkSpace()
     .then((res) => {
       const data = res.data.data
       const newData = deepClone(data) as WorkspaceItem[]
-      workspaceData.value = [...workspaceData.value, ...newData]
+      remoteWorkSpace.value = [...newData]
     })
     .catch((err) => console.error(err))
 }
@@ -362,7 +415,7 @@ const toggleFavorite = (dataRef: any): void => {
       .then((res) => {
         if (res.data.message === 'success') {
           dataRef.favorite = !dataRef.favorite
-          getUserAssetMenu(company.value)
+          getUserAssetMenu()
         }
       })
       .catch((err) => console.error(err))
@@ -395,7 +448,7 @@ const confirmEdit = (dataRef) => {
     setAlias({ key: dataRef.key, alias: dataRef.title })
       .then((res) => {
         if (res.data.message === 'success') {
-          getUserAssetMenu(company.value)
+          getUserAssetMenu()
         }
       })
       .catch((err) => console.error(err))
@@ -434,16 +487,18 @@ const assetManagement = () => {
 //     message.error('命令插入失败')
 //   }
 // }
+getUserAssetMenu()
 getLocalAssetMenu()
-// getUserAssetMenu(company.value)
-GetUserWorkSpace()
+onMounted(async () => {
+  await GetUserWorkSpace()
+})
 </script>
 
 <style lang="less" scoped>
 .term_host_list {
   width: 100%;
   height: 100%;
-  padding: 4px;
+  padding: 10px;
   display: flex;
   justify-content: space-between;
   flex-wrap: wrap;
@@ -479,11 +534,11 @@ GetUserWorkSpace()
   overflow-y: auto;
   border-radius: 2px;
   padding: 5px;
-  background-color: rgb(26, 26, 26);
+  background-color: transparent;
 }
 
 :deep(.dark-tree) {
-  background-color: rgb(26, 26, 26);
+  background-color: transparent;
   height: 30% !important;
   .ant-tree-node-content-wrapper,
   .ant-tree-title,
@@ -497,11 +552,18 @@ GetUserWorkSpace()
   }
 
   .ant-tree-node-selected {
-    background-color: #434343 !important;
+    background-color: transparent;
   }
 
-  .ant-tree-node-content-wrapper:hover {
-    background-color: #434343 !important;
+  // .ant-tree-node-content-wrapper:hover {
+  //   background-color: #434343 !important;
+  // }
+
+  .ant-tree-treenode {
+    width: 100%;
+    &:hover {
+      background-color: #333;
+    }
   }
 }
 
@@ -535,9 +597,9 @@ GetUserWorkSpace()
     color: white;
     margin-left: 8px;
 
-    &:hover {
-      opacity: 0.8;
-    }
+    // &:hover {
+    //   opacity: 0.8;
+    // }
   }
 
   .favorite-filled {
@@ -597,11 +659,11 @@ GetUserWorkSpace()
 }
 .workspace-button {
   font-size: 14px;
-  height: 22px;
+  height: 30px;
   display: flex;
   align-items: center;
-  background-color: rgb(90, 94, 115);
-  border-color: rgb(90, 94, 115);
+  background-color: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.08);
 
   &:hover {
     background-color: rgb(110, 114, 135);
@@ -647,19 +709,32 @@ GetUserWorkSpace()
 :global(.ant-select-item-option-active:not(.ant-select-item-option-disabled)) {
   background-color: #444 !important;
 }
-
-.custom-search {
-  width: 100%;
-  background-color: #2b2b2b;
-  border-radius: 4px;
-  :deep(.ant-input) {
-    color: #999;
-    &::placeholder {
-      color: #999;
-    }
+.manage {
+  display: flex;
+  gap: 10px;
+  :deep(.ant-input-affix-wrapper) {
+    background-color: transparent;
+    border-color: rgba(255, 255, 255, 0.25);
+    box-shadow: none;
   }
-  :deep(.ant-input-search-button) {
-    color: #999;
+}
+.active-text {
+  color: rgba(255, 255, 255, 1);
+  border-bottom: 1px solid #ffffff;
+}
+.no-active-text {
+  border-bottom: 1px solid transparent;
+}
+.transparent-Input {
+  background-color: transparent;
+  color: rgba(255, 255, 255, 1);
+
+  :deep(.ant-input) {
+    background-color: transparent;
+    color: rgba(255, 255, 255, 1);
+    &::placeholder {
+      color: rgba(255, 255, 255, 0.25);
+    }
   }
 }
 </style>

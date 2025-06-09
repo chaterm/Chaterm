@@ -4,6 +4,8 @@ import vue from '@vitejs/plugin-vue'
 import Components from 'unplugin-vue-components/vite'
 import { AntDesignVueResolver } from 'unplugin-vue-components/resolvers'
 import AutoImport from 'unplugin-auto-import/vite'
+import { createSvgIconsPlugin } from 'vite-plugin-svg-icons'
+import path from 'path'
 
 const publicDir = resolve('resources')
 const envDir = resolve('build')
@@ -88,6 +90,10 @@ export default defineConfig({
       }),
       AutoImport({
         resolvers: [AntDesignVueResolver()]
+      }),
+      createSvgIconsPlugin({
+        iconDirs: [path.resolve(process.cwd(), 'src/renderer/src/assets/icons')],
+        symbolId: 'icon-[name]'
       })
     ],
     css: {

@@ -9,6 +9,7 @@ import 'v-contextmenu/dist/themes/default.css'
 
 import 'ant-design-vue/dist/reset.css'
 import piniaPluginPersistedstate from 'pinia-plugin-persistedstate'
+import 'virtual:svg-icons-register'
 
 // 导入存储函数
 import * as storageState from './agent/storage/state'

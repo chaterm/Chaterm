@@ -6,32 +6,43 @@
     >
       <a-row>
         <a-col :span="10">
-          <a-input-search
-            v-model:value="searchText"
-            :placeholder="$t('extensions.fuzzySearch')"
-            class="input-search"
+          <a-input
+            v-model:value="searchValue"
+            :placeholder="t('extensions.fuzzySearch')"
+            class="search-input"
             @search="handleTableChange"
             @press-enter="handleTableChange"
-          />
+          >
+            <template #suffix>
+              <search-outlined />
+            </template>
+          </a-input>
         </a-col>
         <a-col :span="2">
-          <a-button
-            type="primary"
-            :icon="h(PlusOutlined)"
-            style="margin-left: 5px"
+          <div
+            style="margin-left: 10px"
             @click="handleAdd"
-          />
+          >
+            <a-button
+              type="primary"
+              size="small"
+              class="workspace-button"
+              :icon="h(PlusOutlined)"
+            >
+              {{ t('extensions.AddCommand') }}
+            </a-button>
+          </div>
         </a-col>
       </a-row>
       <a-table
-        style="margin-top: 14px"
+        style="margin-top: 10px"
         :columns="columns"
         :data-source="list"
         :pagination="false"
         class="alias-config-table"
         @change="handleTableChange"
       >
-        <template #emptyText>No data</template>
+        <template #emptyText>{{ t('common.noData') }}</template>
         <template #bodyCell="{ column, record }">
           <template v-if="column.key === 'alias'">
             <a-input
@@ -62,7 +73,7 @@
             <a-button
               v-if="!record.edit"
               type="link"
-              style="width: 40px"
+              style="width: 40px; color: #ff4d4f"
               :icon="h(CloseOutlined)"
               @click="columnOpt('del', record)"
             >
@@ -99,10 +110,10 @@ import {
 } from '@ant-design/icons-vue'
 import 'xterm/css/xterm.css'
 import { cloneDeep } from 'lodash'
-import i18n from '@/locales'
 import { notification } from 'ant-design-vue'
 import { commandStore } from '@/services/commandStoreService' // 引入 commandStoreService
 import { aliasConfigStore } from '@/store/aliasConfigStore'
+import { useI18n } from 'vue-i18n'
 
 const searchText = ref('')
 const list = ref([])
@@ -112,7 +123,7 @@ const cloneRecord = ref({
   edit: false,
   id: ''
 })
-const { t } = i18n.global
+const { t } = useI18n()
 const columns = computed(() => [
   {
     title: t('extensions.alias'),
@@ -369,7 +380,7 @@ const aliasConfigRefresh = async () => {
 }
 </script>
 
-<style scoped>
+<style lang="less" scoped>
 .alias-config {
   width: 100%;
   height: 100%;
@@ -385,10 +396,37 @@ const aliasConfigRefresh = async () => {
   color: #ffffff;
 }
 
-.input-search :deep(.ant-input) {
-  &::placeholder {
-    color: #ffffff; /* 设置placeholder颜色 */
-    opacity: 0.3; /* 可选：调整透明度 */
+.search-input {
+  background-color: #2c2c2c;
+  border-color: #2c2c2c;
+  color: white;
+  :deep(.ant-input) {
+    color: rgba(255, 255, 255, 0.85);
+    background-color: transparent !important; /* 设置背景透明 */
+    border-color: rgba(255, 255, 255, 0.2) !important;
+
+    &::placeholder {
+      color: rgba(255, 255, 255, 0.5);
+    }
+  }
+}
+
+.workspace-button {
+  font-size: 14px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  background-color: #1677ff;
+  border-color: #1677ff;
+
+  &:hover {
+    background-color: #398bff;
+    border-color: #398bff;
+  }
+
+  &:active {
+    background-color: rgb(130, 134, 155);
+    border-color: rgb(130, 134, 155);
   }
 }
 
@@ -407,7 +445,7 @@ const aliasConfigRefresh = async () => {
 }
 
 .alias-config-table :deep(.ant-table-thead > tr > th) {
-  background: #141414; /* 深灰色表头 */
+  background: #3a3a3a; /* 深灰色表头 */
   color: #fff;
   padding: 8px;
   border-radius: 0;
@@ -427,7 +465,7 @@ const aliasConfigRefresh = async () => {
 .alias-config-table :deep(.ant-table-tbody > tr:nth-child(odd) > td) {
   /* 可以选择保留默认样式或自定义 */
   /* 例如: */
-  background: #141414;
+  background: #1f1f1f;
   color: #fff;
   padding: 8px;
   border: none !important;
@@ -452,7 +490,6 @@ const aliasConfigRefresh = async () => {
 
 .alias-config-table {
   /* 可编辑状态的输入框样式 - 灰色背景 */
-
   .editable-input {
     background-color: #3a3a3a !important; /* 灰色背景 */
     padding: 4px 8px;
@@ -476,17 +513,9 @@ const aliasConfigRefresh = async () => {
 }
 
 .responsive-table {
-  width: 75%;
+  width: 100%;
   margin-left: auto;
   margin-right: auto;
-
-  @media (min-width: 768px) {
-    width: 85%;
-  }
-
-  @media (min-width: 992px) {
-    width: 70%;
-  }
 }
 
 .alias-config-table:deep(.ant-table-tbody > tr:hover > td) {
