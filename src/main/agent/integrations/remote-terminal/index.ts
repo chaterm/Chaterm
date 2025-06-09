@@ -63,7 +63,11 @@ export class RemoteTerminalProcess extends BrownEventEmitter<RemoteTerminalProce
 
   async run(sessionId: string, command: string, cwd?: string): Promise<void> {
     try {
-      const commandToExecute = cwd ? `cd ${cwd} && ${command}` : command;
+      // 清理cwd中的ANSI转义序列
+      const cleanCwd = cwd
+        ? cwd.replace(/\x1B\[[^m]*m/g, '').replace(/\x1B\[[?][0-9]*[hl]/g, '')
+        : undefined
+      const commandToExecute = cleanCwd ? `cd ${cleanCwd} && ${command}` : command
       // 执行远程命令
       const execResult = await remoteSshExec(sessionId, commandToExecute)
 
@@ -72,12 +76,13 @@ export class RemoteTerminalProcess extends BrownEventEmitter<RemoteTerminalProce
       if (execResult && execResult.success) {
         const output = execResult.output || ''
         this.fullOutput = output
-        
+
         if (this.isListening) {
           if (output) {
             const lines = output.split('\n')
             for (const line of lines) {
-              if (line.trim()) { // 只发送非空行
+              if (line.trim()) {
+                // 只发送非空行
                 this.emit('line', line)
               }
             }
@@ -123,12 +128,12 @@ export function mergeRemotePromise(
   promise: Promise<void>
 ): RemoteTerminalProcessResultPromise {
   const merged = process as RemoteTerminalProcessResultPromise
-  
+
   // 复制 Promise 方法
   merged.then = promise.then.bind(promise)
   merged.catch = promise.catch.bind(promise)
   merged.finally = promise.finally.bind(promise)
-  
+
   return merged
 }
 
@@ -238,12 +243,18 @@ export class RemoteTerminalManager {
       this.terminals.set(terminalInfo.id, terminalInfo)
       return terminalInfo
     } catch (error) {
-      throw new Error('创建远程终端失败: ' + (error instanceof Error ? error.message : String(error)))
+      throw new Error(
+        '创建远程终端失败: ' + (error instanceof Error ? error.message : String(error))
+      )
     }
   }
 
   // 运行远程命令
-  runCommand(terminalInfo: RemoteTerminalInfo, command: string, cwd?: string): RemoteTerminalProcessResultPromise {
+  runCommand(
+    terminalInfo: RemoteTerminalInfo,
+    command: string,
+    cwd?: string
+  ): RemoteTerminalProcessResultPromise {
     terminalInfo.busy = true
     terminalInfo.lastCommand = command
     const process = new RemoteTerminalProcess()
@@ -304,8 +315,8 @@ export class RemoteTerminalManager {
   // 获取终端信息
   getTerminals(busy: boolean): { id: number; lastCommand: string }[] {
     return Array.from(this.terminals.values())
-      .filter(t => t.busy === busy)
-      .map(t => ({ id: t.id, lastCommand: t.lastCommand }))
+      .filter((t) => t.busy === busy)
+      .map((t) => ({ id: t.id, lastCommand: t.lastCommand }))
   }
 
   // 检查是否已连接
@@ -319,7 +330,7 @@ export class RemoteTerminalManager {
     return {
       connected: terminals.length > 0,
       terminalCount: terminals.length,
-      busyCount: terminals.filter(t => t.busy).length
+      busyCount: terminals.filter((t) => t.busy).length
     }
   }
 
@@ -361,4 +372,4 @@ export class RemoteTerminalManager {
       }
     }
   }
-} 
+}

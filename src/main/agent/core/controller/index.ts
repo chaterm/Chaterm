@@ -132,15 +132,7 @@ export class Controller {
     console.log('initTask', task, historyItem)
     await this.clearTask() // ensures that an existing task doesn't exist before starting a new one, although this shouldn't be possible since user must clear task before starting a new one
     const { apiConfiguration, customInstructions, autoApprovalSettings, chatSettings } =
-      await getAllExtensionState()
-
-    if (autoApprovalSettings) {
-      const updatedAutoApprovalSettings = {
-        ...autoApprovalSettings,
-        version: (autoApprovalSettings.version ?? 1) + 1
-      }
-      await updateGlobalState('autoApprovalSettings', updatedAutoApprovalSettings)
-    }
+    await getAllExtensionState()
     this.task = new Task(
       this.context,
       this.workspaceTracker,

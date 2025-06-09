@@ -184,8 +184,8 @@ export class Task {
     this.contextManager = new ContextManager()
     // this.diffViewProvider = new DiffViewProvider(this.cwd)
     this.customInstructions = customInstructions
-    //this.autoApprovalSettings = autoApprovalSettings
-    this.autoApprovalSettings = DEFAULT_AUTO_APPROVAL_SETTINGS
+    this.autoApprovalSettings = DEFAULT_AUTO_APPROVAL_SETTINGS // TODO:remove this
+    this.autoApprovalSettings.enabled = autoApprovalSettings.enabled
     // this.browserSettings = browserSettings
     this.chatSettings = chatSettings
     this.hosts = hosts
@@ -1098,34 +1098,34 @@ export class Task {
   // Check if the tool should be auto-approved based on the settings
   // and the path of the action. Returns true if the tool should be auto-approved
   // based on the user's settings and the path of the action.
-  shouldAutoApproveToolWithPath(
-    blockname: ToolUseName,
-    autoApproveActionpath: string | undefined
-  ): boolean {
-    let isLocalRead: boolean = false
-    if (autoApproveActionpath) {
-      const absolutePath = path.resolve(this.cwd, autoApproveActionpath)
-      isLocalRead = absolutePath.startsWith(this.cwd)
-    } else {
-      // If we do not get a path for some reason, default to a (safer) false return
-      isLocalRead = false
-    }
+  // shouldAutoApproveToolWithPath(
+  //   blockname: ToolUseName,
+  //   autoApproveActionpath: string | undefined
+  // ): boolean {
+  //   let isLocalRead: boolean = false
+  //   if (autoApproveActionpath) {
+  //     const absolutePath = path.resolve(this.cwd, autoApproveActionpath)
+  //     isLocalRead = absolutePath.startsWith(this.cwd)
+  //   } else {
+  //     // If we do not get a path for some reason, default to a (safer) false return
+  //     isLocalRead = false
+  //   }
 
-    // Get auto-approve settings for local and external edits
-    const autoApproveResult = this.shouldAutoApproveTool(blockname)
-    const [autoApproveLocal, autoApproveExternal] = Array.isArray(autoApproveResult)
-      ? autoApproveResult
-      : [autoApproveResult, false]
+  //   // Get auto-approve settings for local and external edits
+  //   const autoApproveResult = this.shouldAutoApproveTool(blockname)
+  //   const [autoApproveLocal, autoApproveExternal] = Array.isArray(autoApproveResult)
+  //     ? autoApproveResult
+  //     : [autoApproveResult, false]
 
-    if (
-      (isLocalRead && autoApproveLocal) ||
-      (!isLocalRead && autoApproveLocal && autoApproveExternal)
-    ) {
-      return true
-    } else {
-      return false
-    }
-  }
+  //   if (
+  //     (isLocalRead && autoApproveLocal) ||
+  //     (!isLocalRead && autoApproveLocal && autoApproveExternal)
+  //   ) {
+  //     return true
+  //   } else {
+  //     return false
+  //   }
+  // }
 
   private formatErrorWithStatusCode(error: any): string {
     const statusCode = error.status || error.statusCode || (error.response && error.response.status)
@@ -1551,8 +1551,7 @@ export class Task {
 
             try {
               if (block.partial) {
-                if (this.shouldAutoApproveTool(block.name)) {
-                } else {
+                if (!this.shouldAutoApproveTool(block.name)) {
                   await this.ask(
                     'command',
                     removeClosingTag('command', command),
