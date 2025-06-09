@@ -23,7 +23,7 @@ export interface AssetInfo {
   uuid: string
   title: string
   ip: string
-  organizationId?: string
+  organizationId: string
   type?: string
   outputContext?: string
 }
