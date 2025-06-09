@@ -1059,7 +1059,6 @@ code {
 .thinking-icon {
   width: 16px;
   height: 16px;
-  margin-bottom: 4px;
   vertical-align: middle;
   filter: invert(0.25);
 }
