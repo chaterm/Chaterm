@@ -328,13 +328,12 @@ const getActiveTabAssetInfo = async () => {
     return null
   }
 
-  const uuid = activeTab.data?.uuid
-
-  if (!uuid) {
+  const ip = activeTab.data?.ip
+  if (!ip) {
     return null
   }
 
-  const isTerminalSession = activeTab.content === 'demo' || activeTab.organizationId === 'personal'
+  const isTerminalSession = activeTab.type === 'term' || activeTab.organizationId === 'personal'
 
   let outputContext = 'Output context not applicable for this tab type.'
 
@@ -372,12 +371,12 @@ const getActiveTabAssetInfo = async () => {
       outputContext =
         'Terminal interaction component (TabsPanel) not ready or getTerminalOutputContent method not implemented in it.'
     }
-  } else if (!uuid) {
+  } else if (!ip) {
     outputContext = 'Terminal output not available or an error occurred.'
-    console.warn('Active tab is not a terminal session and does not have a UUID for asset info.')
+    console.warn('Active tab is not a terminal session and does not have a ip for asset info.')
     return null // Or handle as a non-asset, non-terminal tab differently if needed.
   }
-
+  const uuid = activeTab.data?.uuid
   return {
     uuid: uuid, // May be undefined if not an asset-related tab, which is fine.
     title: activeTab.title,
