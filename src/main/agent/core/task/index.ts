@@ -2,6 +2,8 @@ import { Anthropic } from '@anthropic-ai/sdk'
 import cloneDeep from 'clone-deep'
 import { setTimeout as setTimeoutPromise } from 'node:timers/promises'
 import os from 'os'
+import { v4 as uuidv4 } from 'uuid'
+
 import pWaitFor from 'p-wait-for'
 import * as path from 'path'
 import { serializeError } from 'serialize-error'
@@ -71,6 +73,7 @@ import WorkspaceTracker from '@integrations/workspace/WorkspaceTracker'
 import { connectAssetInfo } from '../../../storage/database'
 
 import type { Host } from '@shared/WebviewMessage'
+import { encrypt } from '../../integrations/remote-terminal/ws'
 
 export const cwd = path.join(os.homedir(), 'Desktop')
 // vscode.workspace.workspaceFolders?.map((folder) => folder.uri.fsPath).at(0) ?? path.join(os.homedir(), "Desktop") // may or may not exist but fs checking existence would immediately ask for permission which would be bad UX, need to come up with a better solution
@@ -248,10 +251,32 @@ export class Task {
     if (this.hosts[0].connection === 'personal') {
       let terminalUuid = this.hosts[0].uuid
       const connectionInfo = await connectAssetInfo(terminalUuid)
+      connectionInfo.type = 'ssh'
       this.remoteTerminalManager.setConnectionInfo(connectionInfo)
       terminalInfo = await this.remoteTerminalManager.createTerminal()
     } else {
       // websocket
+      const dynamicTerminalId = `test@172.31.64.249:remote:${uuidv4()}`
+      const authData = {
+          email: 'test@gmail.com',
+          ip: '172.31.64.249',
+          organizationId: 'firm-0001',
+          terminalId: dynamicTerminalId,
+          uid: 2000001
+      }
+      const auth = encrypt(authData)
+      const wsUrl = 'ws://demo.chaterm.ai/v1/term-api/ws?&uuid=' + auth // 后端WebSocket地址
+
+      let connectionInfo: ConnectionInfo = {}
+
+      connectionInfo.type = 'websocket'
+      connectionInfo.wsUrl = wsUrl
+      connectionInfo.terminalId = dynamicTerminalId
+      connectionInfo.host = '172.31.64.249'
+      connectionInfo.organizationId = 'firm-0001'
+      connectionInfo.uid = 2000001
+      this.remoteTerminalManager.setConnectionInfo(connectionInfo)
+      terminalInfo = await this.remoteTerminalManager.createTerminal()
     }
 
     return terminalInfo
@@ -916,7 +941,6 @@ export class Task {
 
     let userFeedback: { text?: string; images?: string[] } | undefined
     let didContinue = false
-
     // Chunked terminal output buffering
     const CHUNK_LINE_COUNT = 20
     const CHUNK_BYTE_SIZE = 2048 // 2KB
