@@ -256,25 +256,27 @@ export class Task {
       terminalInfo = await this.remoteTerminalManager.createTerminal()
     } else {
       // websocket
-      const dynamicTerminalId = `test@172.31.64.249:remote:${uuidv4()}`
-      const authData = {
-          email: 'test@gmail.com',
-          ip: '172.31.64.249',
-          organizationId: 'firm-0001',
-          terminalId: dynamicTerminalId,
-          uid: 2000001
+
+      let authData = {
+        user: 'test',
+        email: 'test@gmail.com',
+        ip: this.hosts[0].host,
+        organizationId: this.hosts[0].organizationId,
+        uid: 2000001,
+        terminalId: ''
       }
+      const dynamicTerminalId = `${authData.user}@${authData.ip}:remote:${uuidv4()}`
+      authData.terminalId = dynamicTerminalId
+
       const auth = encrypt(authData)
       const wsUrl = 'ws://demo.chaterm.ai/v1/term-api/ws?&uuid=' + auth // 后端WebSocket地址
-
       let connectionInfo: ConnectionInfo = {}
-
       connectionInfo.type = 'websocket'
       connectionInfo.wsUrl = wsUrl
       connectionInfo.terminalId = dynamicTerminalId
-      connectionInfo.host = '172.31.64.249'
-      connectionInfo.organizationId = 'firm-0001'
-      connectionInfo.uid = 2000001
+      connectionInfo.host = authData.ip
+      connectionInfo.organizationId = authData.organizationId
+      connectionInfo.uid = authData.uid
       this.remoteTerminalManager.setConnectionInfo(connectionInfo)
       terminalInfo = await this.remoteTerminalManager.createTerminal()
     }
@@ -938,7 +940,6 @@ export class Task {
     }
     terminalInfo.terminal.show()
     const process = this.remoteTerminalManager.runCommand(terminalInfo, command, this.cwd)
-
     let userFeedback: { text?: string; images?: string[] } | undefined
     let didContinue = false
     // Chunked terminal output buffering

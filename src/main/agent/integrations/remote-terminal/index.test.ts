@@ -90,7 +90,7 @@ describe('RemoteTerminalManager', () => {
     manager.setConnectionInfo(connectionInfo)
     const terminalInfo = await manager.createTerminal()
     
-    const command = 'echo "Hello from RemoteTerminalManager"'
+    const command = 'ip addr show'
     const process = manager.runCommand(terminalInfo, command)
 
     const lines: string[] = []
@@ -102,6 +102,7 @@ describe('RemoteTerminalManager', () => {
     await process
 
     const output = lines.join('\n')
+    console.log('out222put', output)
     expect(output).toContain('Hello from RemoteTerminalManager')
   }, 30000)
 
