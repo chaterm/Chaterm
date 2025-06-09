@@ -73,7 +73,7 @@
                   italic
                 >
                   <LoadingOutlined
-                    v-if="thinkingLoading"
+                    v-if="thinkingLoading && thinkingContent"
                     style="margin-right: 4px"
                   />
                   <img
@@ -94,59 +94,63 @@
         </a-collapse>
       </template>
 
-      <!-- Code blocks -->
-      <template
-        v-for="(block, index) in codeBlocks"
-        :key="index"
-      >
-        <div class="command-editor-container">
-          <a-collapse
-            v-model:active-key="block.activeKey"
-            :default-active-key="['1']"
-            :class="{ 'hide-expand-icon': block.lines < 10 }"
-            class="code-collapse"
-            expand-icon-position="end"
+      <!-- Normal content with interspersed code blocks -->
+      <div v-if="normalContent || codeBlocks.length > 0">
+        <template
+          v-for="(part, index) in contentParts"
+          :key="index"
+        >
+          <div
+            v-if="part.type === 'text'"
+            class="markdown-content"
+            style="margin: 0 8px"
+            v-html="marked(part.content, null)"
+          ></div>
+          <div
+            v-else-if="part.type === 'code'"
+            class="command-editor-container"
           >
-            <a-collapse-panel
-              key="1"
-              class="code-panel"
+            <a-collapse
+              v-model:active-key="part.block.activeKey"
+              :default-active-key="['1']"
+              :class="{ 'hide-expand-icon': part.block.lines < 10 }"
+              class="code-collapse"
+              expand-icon-position="end"
             >
-              <template #header>
-                <a-space>
-                  <a-typography-text
-                    type="secondary"
-                    italic
-                    :class="{ 'hidden-header': block.lines < 10 }"
-                  >
-                    代码预览 ({{ block.lines }}行)
-                  </a-typography-text>
-                </a-space>
-              </template>
-              <div
-                :ref="
-                  (el) => {
-                    if (el) codeEditors[index] = el as HTMLElement
-                  }
-                "
-                class="monaco-container"
-              ></div>
-            </a-collapse-panel>
-          </a-collapse>
-        </div>
-      </template>
-
-      <!-- Normal content -->
-      <div
-        v-if="normalContent"
-        style="margin: 0 16px"
-        v-html="marked(normalContent, null)"
-      ></div>
+              <a-collapse-panel
+                key="1"
+                class="code-panel"
+              >
+                <template #header>
+                  <a-space>
+                    <a-typography-text
+                      type="secondary"
+                      italic
+                      :class="{ 'hidden-header': part.block.lines < 10 }"
+                    >
+                      代码预览 ({{ part.block.lines }}行)
+                    </a-typography-text>
+                  </a-space>
+                </template>
+                <div
+                  :ref="
+                    (el) => {
+                      if (el) codeEditors[part.blockIndex] = el as HTMLElement
+                    }
+                  "
+                  class="monaco-container"
+                ></div>
+              </a-collapse-panel>
+            </a-collapse>
+          </div>
+        </template>
+      </div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { onMounted, ref, watch, onBeforeUnmount, nextTick } from 'vue'
+import { onMounted, ref, watch, onBeforeUnmount, nextTick, computed } from 'vue'
 import { marked } from 'marked'
 import 'highlight.js/styles/atom-one-dark.css'
 import * as monaco from 'monaco-editor'
@@ -427,8 +431,17 @@ const updateEditor = (content: string) => {
 
 // Function to extract code blocks from content
 const extractCodeBlocks = (content: string) => {
+  const blocks: Array<{
+    content: string
+    activeKey: string[]
+    lines: number
+    index: number
+  }> = []
+  let lastIndex = 0
+  let blockIndex = 0
+
+  // Find all code blocks while preserving their position
   const codeBlockRegex = /```(?:\w+)?\n([\s\S]*?)```/g
-  const blocks: Array<{ content: string; activeKey: string[]; lines: number }> = []
   let match
 
   while ((match = codeBlockRegex.exec(content)) !== null) {
@@ -436,59 +449,75 @@ const extractCodeBlocks = (content: string) => {
     blocks.push({
       content: code,
       activeKey: ['1'],
-      lines: code.split('\n').length
+      lines: code.split('\n').length,
+      index: match.index
     })
+    blockIndex++
+    lastIndex = match.index + match[0].length
   }
 
-  return blocks
+  return blocks.sort((a, b) => a.index - b.index)
 }
 
 // Function to process content and extract think tags and code blocks
 const processContent = (content: string) => {
-  const thinkMatch = content.match(/<think>([\s\S]*?)<\/think>/)
-  if (thinkMatch) {
-    thinkingContent.value = thinkMatch[1].trim()
-    // Get content after <think></think> as normal content
-    let remainingContent = content.substring(thinkMatch[0].length).trim()
+  if (!content) {
+    thinkingContent.value = ''
+    normalContent.value = ''
+    codeBlocks.value = []
+    thinkingLoading.value = false
+    return
+  }
+  // 检查是否开始于 <think> 标签
+  if (content.startsWith('<think>')) {
+    // 移除开始标签
+    content = content.substring('<think>'.length)
 
-    // Extract code blocks from remaining content
-    codeBlocks.value = extractCodeBlocks(remainingContent)
+    // 查找结束标签位置
+    const endIndex = content.indexOf('</think>')
+    if (endIndex !== -1) {
+      // 提取思考内容
+      thinkingContent.value = content.substring(0, endIndex).trim()
+      // 获取剩余内容
+      content = content.substring(endIndex + '</think>'.length).trim()
+      thinkingLoading.value = false
+    } else {
+      // 没有找到结束标签，全部内容都是思考内容
+      thinkingContent.value = content.trim()
+      content = ''
+      // 保持 loading 状态，因为还没有结束标签
+    }
+    console.log('thinkingLoading.value', thinkingLoading.value)
+  } else {
+    thinkingContent.value = ''
+  }
 
-    // Replace code blocks with placeholders to preserve normal content
-    codeBlocks.value.forEach((_, index) => {
-      remainingContent = remainingContent.replace(
+  // 处理剩余的普通内容
+  if (content) {
+    // Extract code blocks while preserving their position
+    const blocks = extractCodeBlocks(content)
+    codeBlocks.value = blocks
+
+    // Replace code blocks with placeholders in order
+    let processedContent = content
+    blocks.forEach((block, index) => {
+      processedContent = processedContent.replace(
         /```(?:\w+)?\n[\s\S]*?```/,
         `[CODE_BLOCK_${index}]`
       )
     })
 
-    normalContent.value = remainingContent
-    thinkingLoading.value = false
+    // Set the normal content
+    normalContent.value = processedContent.trim()
   } else {
-    const onlyThinkMatch = content.match(/<think>([\s\S]*)/)
-    if (onlyThinkMatch) {
-      thinkingContent.value = onlyThinkMatch[1].trim()
-      normalContent.value = ''
-      codeBlocks.value = []
-      thinkingLoading.value = true
-    } else {
-      thinkingContent.value = ''
-      // Extract code blocks from content
-      codeBlocks.value = extractCodeBlocks(content)
-
-      // Replace code blocks with placeholders
-      let processedContent = content
-      codeBlocks.value.forEach((_, index) => {
-        processedContent = processedContent.replace(
-          /```(?:\w+)?\n[\s\S]*?```/,
-          `[CODE_BLOCK_${index}]`
-        )
-      })
-
-      normalContent.value = processedContent
-      thinkingLoading.value = false
-    }
+    normalContent.value = ''
+    codeBlocks.value = []
   }
+
+  // Initialize editors after content is processed
+  nextTick(() => {
+    initCodeBlockEditors()
+  })
 }
 
 // Initialize code block editors
@@ -568,14 +597,21 @@ const checkContentHeight = async () => {
   if (contentRef.value) {
     const lineHeight = 19.2
     const maxHeight = lineHeight
-    activeKey.value = contentRef.value.scrollHeight > maxHeight ? [] : ['1']
+    // 先计算高度
+    const shouldCollapse = contentRef.value.scrollHeight > maxHeight
+    setTimeout(() => {
+      activeKey.value = shouldCollapse ? [] : ['1']
+      thinkingLoading.value = false
+    }, 1000) // 与折叠动画时间相同
   }
 }
 
 watch(
   () => thinkingContent.value,
   async (newVal) => {
+    console.log('thinkingContent watch',thinkingLoading.value)
     if (newVal) {
+      thinkingLoading.value = true
       await checkContentHeight()
     } else {
       activeKey.value = ['1']
@@ -609,6 +645,7 @@ watch(
       thinkingContent.value = ''
       normalContent.value = ''
       codeBlocks.value = []
+      // thinkingLoading.value = false
       if (editor) {
         editor.setValue('')
       }
@@ -619,7 +656,6 @@ watch(
       updateEditor(newContent)
     } else {
       processContent(newContent)
-      initCodeBlockEditors()
     }
   }
 )
@@ -665,6 +701,40 @@ const getThinkingContent = (content: string) => {
   const firstLineEnd = content.indexOf('\n')
   return firstLineEnd > -1 ? content.substring(firstLineEnd + 1).trim() : ''
 }
+
+// Add computed property for content parts
+const contentParts = computed(() => {
+  if (!normalContent.value && codeBlocks.value.length === 0) return []
+
+  const parts: Array<{
+    type: 'text' | 'code'
+    content?: string
+    block?: any
+    blockIndex?: number
+  }> = []
+  const segments = normalContent.value.split(/\[CODE_BLOCK_(\d+)\]/)
+
+  segments.forEach((segment, index) => {
+    if (index % 2 === 0) {
+      // Text content
+      if (segment.trim()) {
+        parts.push({ type: 'text', content: segment.trim() })
+      }
+    } else {
+      // Code block reference
+      const blockIndex = parseInt(segment)
+      if (!isNaN(blockIndex) && blockIndex < codeBlocks.value.length) {
+        parts.push({
+          type: 'code',
+          block: codeBlocks.value[blockIndex],
+          blockIndex
+        })
+      }
+    }
+  })
+
+  return parts
+})
 </script>
 
 <style>
@@ -956,9 +1026,11 @@ code {
 .hidden-header {
   display: none !important;
 }
+
 .code-collapse .ant-collapse-panel .hidden-header + .ant-collapse-arrow {
   display: none !important;
 }
+
 .code-collapse .ant-collapse-panel:has(.hidden-header) .ant-collapse-header {
   padding: 0 !important;
   height: 0px !important;
@@ -968,14 +1040,17 @@ code {
   margin: 0 !important;
   border: none !important;
 }
+
 .code-collapse.hide-expand-icon .ant-collapse-header {
   background-color: transparent !important;
   opacity: 0 !important;
   pointer-events: none !important;
 }
+
 .code-collapse.hide-expand-icon .ant-collapse-expand-icon {
   display: none !important;
 }
+
 .code-collapse.hide-expand-icon .ant-collapse-content {
   margin-top: -35px !important;
   margin-bottom: -7px !important;
