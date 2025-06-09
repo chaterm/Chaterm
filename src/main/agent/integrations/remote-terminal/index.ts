@@ -1,9 +1,5 @@
 import { BrownEventEmitter } from './event'
-import { 
-  remoteSshConnect, 
-  remoteSshExec, 
-  remoteSshDisconnect 
-} from '../../../ssh/agentHandle';
+import { remoteSshConnect, remoteSshExec, remoteSshDisconnect } from '../../../ssh/agentHandle'
 
 export interface RemoteTerminalProcessEvents extends Record<string, any[]> {
   line: [line: string]
@@ -54,7 +50,11 @@ export class RemoteTerminalProcess extends BrownEventEmitter<RemoteTerminalProce
 
   async run(sessionId: string, command: string, cwd?: string): Promise<void> {
     try {
-      const commandToExecute = cwd ? `cd ${cwd} && ${command}` : command;
+      // 清理cwd中的ANSI转义序列
+      const cleanCwd = cwd
+        ? cwd.replace(/\x1B\[[^m]*m/g, '').replace(/\x1B\[[?][0-9]*[hl]/g, '')
+        : undefined
+      const commandToExecute = cleanCwd ? `cd ${cleanCwd} && ${command}` : command
       // 执行远程命令
       const execResult = await remoteSshExec(sessionId, commandToExecute)
 
@@ -63,12 +63,13 @@ export class RemoteTerminalProcess extends BrownEventEmitter<RemoteTerminalProce
       if (execResult && execResult.success) {
         const output = execResult.output || ''
         this.fullOutput = output
-        
+
         if (this.isListening) {
           if (output) {
             const lines = output.split('\n')
             for (const line of lines) {
-              if (line.trim()) { // 只发送非空行
+              if (line.trim()) {
+                // 只发送非空行
                 this.emit('line', line)
               }
             }
@@ -114,12 +115,12 @@ export function mergeRemotePromise(
   promise: Promise<void>
 ): RemoteTerminalProcessResultPromise {
   const merged = process as RemoteTerminalProcessResultPromise
-  
+
   // 复制 Promise 方法
   merged.then = promise.then.bind(promise)
   merged.catch = promise.catch.bind(promise)
   merged.finally = promise.finally.bind(promise)
-  
+
   return merged
 }
 
@@ -147,10 +148,12 @@ export class RemoteTerminalManager {
     }
 
     // 检查是否已有相同连接信息的终端
-    const existingTerminal = Array.from(this.terminals.values()).find(terminal => {
-      return terminal.connectionInfo.host === this.connectionInfo?.host &&
-             terminal.connectionInfo.port === this.connectionInfo?.port &&
-             terminal.connectionInfo.username === this.connectionInfo?.username
+    const existingTerminal = Array.from(this.terminals.values()).find((terminal) => {
+      return (
+        terminal.connectionInfo.host === this.connectionInfo?.host &&
+        terminal.connectionInfo.port === this.connectionInfo?.port &&
+        terminal.connectionInfo.username === this.connectionInfo?.username
+      )
     })
 
     if (existingTerminal) {
@@ -160,7 +163,7 @@ export class RemoteTerminalManager {
 
     try {
       const connectResult = await remoteSshConnect(this.connectionInfo)
-      
+
       if (!connectResult || !connectResult.id) {
         throw new Error('SSH 连接失败: ' + (connectResult?.error || '未知错误'))
       }
@@ -179,18 +182,23 @@ export class RemoteTerminalManager {
       this.terminals.set(terminalInfo.id, terminalInfo)
       return terminalInfo
     } catch (error) {
-      throw new Error('创建远程终端失败: ' + (error instanceof Error ? error.message : String(error)))
+      throw new Error(
+        '创建远程终端失败: ' + (error instanceof Error ? error.message : String(error))
+      )
     }
   }
 
   // 运行远程命令
-  runCommand(terminalInfo: RemoteTerminalInfo, command: string, cwd?: string): RemoteTerminalProcessResultPromise {
+  runCommand(
+    terminalInfo: RemoteTerminalInfo,
+    command: string,
+    cwd?: string
+  ): RemoteTerminalProcessResultPromise {
     terminalInfo.busy = true
     terminalInfo.lastCommand = command
 
     const process = new RemoteTerminalProcess()
     this.processes.set(terminalInfo.id, process)
-
 
     process.once('error', (error) => {
       terminalInfo.busy = false
@@ -199,10 +207,10 @@ export class RemoteTerminalManager {
 
     const promise = new Promise<void>((resolve, reject) => {
       console.log(`Promise构造函数执行中...`)
-      
+
       process.once('continue', () => {
         console.log(`Promise: 收到continue事件，即将resolve`)
-        resolve() 
+        resolve()
       })
       process.once('error', (error) => {
         console.log(`Promise: 收到error事件，即将reject`)
@@ -232,8 +240,8 @@ export class RemoteTerminalManager {
   // 获取终端信息
   getTerminals(busy: boolean): { id: number; lastCommand: string }[] {
     return Array.from(this.terminals.values())
-      .filter(t => t.busy === busy)
-      .map(t => ({ id: t.id, lastCommand: t.lastCommand }))
+      .filter((t) => t.busy === busy)
+      .map((t) => ({ id: t.id, lastCommand: t.lastCommand }))
   }
 
   // 检查是否已连接
@@ -247,7 +255,7 @@ export class RemoteTerminalManager {
     return {
       connected: terminals.length > 0,
       terminalCount: terminals.length,
-      busyCount: terminals.filter(t => t.busy).length
+      busyCount: terminals.filter((t) => t.busy).length
     }
   }
 
@@ -259,32 +267,32 @@ export class RemoteTerminalManager {
 
     try {
       const connectResult = await remoteSshConnect(this.connectionInfo)
-      
+
       if (!connectResult || !connectResult.id) {
-        return { 
-          success: false, 
-          message: 'SSH 连接失败: ' + (connectResult?.error || '未知错误') 
+        return {
+          success: false,
+          message: 'SSH 连接失败: ' + (connectResult?.error || '未知错误')
         }
       }
 
       // 测试执行一个简单命令
       const execResult = await remoteSshExec(connectResult.id, 'echo "test"')
-      
+
       // 断开测试连接
       await remoteSshDisconnect(connectResult.id)
-      
+
       if (execResult && execResult.success) {
         return { success: true, message: '连接测试成功' }
       } else {
-        return { 
-          success: false, 
-          message: '命令执行测试失败: ' + (execResult?.error || '未知错误') 
+        return {
+          success: false,
+          message: '命令执行测试失败: ' + (execResult?.error || '未知错误')
         }
       }
     } catch (error) {
-      return { 
-        success: false, 
-        message: '连接测试失败: ' + (error instanceof Error ? error.message : String(error)) 
+      return {
+        success: false,
+        message: '连接测试失败: ' + (error instanceof Error ? error.message : String(error))
       }
     }
   }
@@ -316,4 +324,4 @@ export class RemoteTerminalManager {
       }
     }
   }
-} 
+}
