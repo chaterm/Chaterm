@@ -9,10 +9,7 @@ import * as vscode from 'vscode'
 import { ApiHandler, buildApiHandler } from '@api/index'
 import { ApiStream } from '@api/transform/stream'
 import { formatContentBlockToMarkdown } from '@integrations/misc/export-markdown'
-import { extractTextFromFile } from '@integrations/misc/extract-text'
 import { showSystemNotification } from '@integrations/notifications'
-import { listFiles } from '@services/glob/list-files'
-import { regexSearchFiles } from '@services/ripgrep'
 import { ApiConfiguration } from '@shared/api'
 import { findLast, findLastIndex, parsePartialArrayString } from '@shared/array'
 import { AutoApprovalSettings, DEFAULT_AUTO_APPROVAL_SETTINGS } from '@shared/AutoApprovalSettings'
@@ -26,7 +23,6 @@ import {
   ChatermAskQuestion,
   ChatermMessage,
   ChatermSay,
-  ChatermSayTool,
   COMPLETION_RESULT_CHANGES_FLAG,
   ExtensionMessage
 } from '@shared/ExtensionMessage'
@@ -35,7 +31,6 @@ import { HistoryItem } from '@shared/HistoryItem'
 import { DEFAULT_LANGUAGE_SETTINGS, getLanguageKey, LanguageDisplay } from '@shared/Languages'
 import { ChatermAskResponse, ChatermCheckpointRestore } from '@shared/WebviewMessage'
 import { calculateApiCostAnthropic } from '@utils/cost'
-import { arePathsEqual, getReadablePath, isLocatedInWorkspace } from '@utils/path'
 import {
   AssistantMessageContent,
   parseAssistantMessageV2,
@@ -44,8 +39,11 @@ import {
 } from '@core/assistant-message'
 // import { constructNewFileContent } from "@core/assistant-message/diff"
 // import { ChatermIgnoreController } from "@core/ignore/ChatermIgnoreController"
-import { RemoteTerminalManager, ConnectionInfo, RemoteTerminalInfo } from '../../integrations/remote-terminal'
-import { parseMentions } from '@core/mentions'
+import {
+  RemoteTerminalManager,
+  ConnectionInfo,
+  RemoteTerminalInfo
+} from '../../integrations/remote-terminal'
 import { formatResponse } from '@core/prompts/responses'
 import { addUserInstructions, SYSTEM_PROMPT } from '@core/prompts/system'
 import { getContextWindowInfo } from '@core/context/context-management/context-window-utils'
@@ -53,7 +51,6 @@ import { FileContextTracker } from '@core/context/context-tracking/FileContextTr
 import { ModelContextTracker } from '@core/context/context-tracking/ModelContextTracker'
 import { ContextManager } from '@core/context/context-management/ContextManager'
 import {
-  ensureTaskExists,
   getSavedApiConversationHistory,
   getChatermMessages,
   saveApiConversationHistory,
@@ -80,7 +77,6 @@ export const cwd = path.join(os.homedir(), 'Desktop')
 
 type ToolResponse = string | Array<Anthropic.TextBlockParam | Anthropic.ImageBlockParam>
 type UserContent = Array<Anthropic.ContentBlockParam>
-
 
 export class Task {
   // dependencies
@@ -250,14 +246,14 @@ export class Task {
     }
     let terminalInfo: RemoteTerminalInfo | null = null
     if (this.hosts[0].connection === 'personal') {
-      let terminalUuid = this.hosts[0].uuid 
+      let terminalUuid = this.hosts[0].uuid
       const connectionInfo = await connectAssetInfo(terminalUuid)
       this.remoteTerminalManager.setConnectionInfo(connectionInfo)
-       terminalInfo = await this.remoteTerminalManager.createTerminal()
+      terminalInfo = await this.remoteTerminalManager.createTerminal()
     } else {
       // websocket
     }
-   
+
     return terminalInfo
   }
 
@@ -437,9 +433,6 @@ export class Task {
           // existing partial message, so update it
           lastMessage.text = text
           lastMessage.partial = partial
-          // todo be more efficient about saving and posting only new data or one whole message at a time so ignore partial for saves, and only post parts of partial message instead of whole array in new listener
-          // await this.saveChatermMessagesAndUpdateHistory()
-          // await this.postStateToWebview()
           await this.postMessageToWebview({
             type: 'partialMessage',
             partialMessage: lastMessage
@@ -447,9 +440,6 @@ export class Task {
           throw new Error('Current ask promise was ignored 1')
         } else {
           // this is a new partial message, so add it with partial state
-          // this.askResponse = undefined
-          // this.askResponseText = undefined
-          // this.askResponseImages = undefined
           askTs = Date.now()
           this.lastMessageTs = askTs
           await this.addToChatermMessages({
@@ -468,21 +458,12 @@ export class Task {
           // this is the complete version of a previously partial message, so replace the partial with the complete version
           this.askResponse = undefined
           this.askResponseText = undefined
-          // this.askResponseImages = undefined
 
-          /*
-					Bug for the history books:
-					In the webview we use the ts as the chatrow key for the virtuoso list. Since we would update this ts right at the end of streaming, it would cause the view to flicker. The key prop has to be stable otherwise react has trouble reconciling items between renders, causing unmounting and remounting of components (flickering).
-					The lesson here is if you see flickering when rendering lists, it's likely because the key prop is not stable.
-					So in this case we must make sure that the message ts is never altered after first setting it.
-					*/
           askTs = lastMessage.ts
           this.lastMessageTs = askTs
-          // lastMessage.ts = askTs
           lastMessage.text = text
           lastMessage.partial = false
           await this.saveChatermMessagesAndUpdateHistory()
-          // await this.postStateToWebview()
           await this.postMessageToWebview({
             type: 'partialMessage',
             partialMessage: lastMessage
@@ -494,13 +475,17 @@ export class Task {
           // this.askResponseImages = undefined
           askTs = Date.now()
           this.lastMessageTs = askTs
-          await this.addToChatermMessages({
+          const newMessage: ChatermMessage = {
             ts: askTs,
             type: 'ask',
             ask: type,
             text
+          }
+          await this.postMessageToWebview({
+            type: 'partialMessage',
+            partialMessage: newMessage
           })
-          await this.postStateToWebview()
+          // await this.postStateToWebview()
         }
       }
     } else {
@@ -955,7 +940,7 @@ export class Task {
       outputBufferSize = 0
       chunkEnroute = true
       try {
-        const { response, text } = await this.ask('command_output', chunk) // Removed images
+        const { response, text } = await this.ask('command_output', chunk) // TODO:this message is not sent to the webview
         if (response === 'yesButtonClicked') {
           // proceed while running
         } else {
@@ -1250,7 +1235,7 @@ export class Task {
 
         const errorMessage = this.formatErrorWithStatusCode(error)
 
-        const { response } = await this.ask('api_req_failed', errorMessage)
+        const { response } = await this.ask('api_req_failed', errorMessage) // TODO:this message is not sent to the webview
 
         if (response !== 'yesButtonClicked') {
           // this will never happen since if noButtonClicked, we will clear current task, aborting this instance
@@ -1535,711 +1520,6 @@ export class Task {
         // }
 
         switch (block.name) {
-          case 'new_rule':
-            // case "write_to_file":
-
-            // case "replace_in_file": {
-            // 	const relPath: string | undefined = block.params.path
-            // 	let content: string | undefined = block.params.content // for write_to_file
-            // 	let diff: string | undefined = block.params.diff // for replace_in_file
-            // 	if (!relPath || (!content && !diff)) {
-            // 		// checking for content/diff ensures relPath is complete
-            // 		// wait so we can determine if it's a new file or editing an existing file
-            // 		break
-            // 	}
-
-            // 	const accessAllowed = this.chatermIgnoreController.validateAccess(relPath)
-            // 	if (!accessAllowed) {
-            // 		await this.say("chatermignore_error", relPath)
-            // 		pushToolResult(formatResponse.toolError(formatResponse.chatermIgnoreError(relPath)))
-            // 		await this.saveCheckpoint()
-            // 		break
-            // 	}
-
-            // 	// Check if file exists using cached map or fs.access
-            // 	let fileExists: boolean
-            // 	if (this.diffViewProvider.editType !== undefined) {
-            // 		fileExists = this.diffViewProvider.editType === "modify"
-            // 	} else {
-            // 		const absolutePath = path.resolve(this.cwd, relPath)
-            // 		fileExists = await fileExistsAtPath(absolutePath)
-            // 		this.diffViewProvider.editType = fileExists ? "modify" : "create"
-            // 	}
-
-            // 	try {
-            // 		// Construct newContent from diff
-            // 		let newContent: string
-            // 		if (diff) {
-            // 			if (!this.api.getModel().id.includes("claude")) {
-            // 				// deepseek models tend to use unescaped html entities in diffs
-            // 				diff = fixModelHtmlEscaping(diff)
-            // 				diff = removeInvalidChars(diff)
-            // 			}
-
-            // 			// open the editor if not done already.  This is to fix diff error when model provides correct search-replace text but Chaterm throws error
-            // 			// because file is not open.
-            // 			if (!this.diffViewProvider.isEditing) {
-            // 				await this.diffViewProvider.open(relPath)
-            // 			}
-
-            // 			try {
-            // 				newContent = await constructNewFileContent(
-            // 					diff,
-            // 					this.diffViewProvider.originalContent || "",
-            // 					!block.partial,
-            // 				)
-            // 			} catch (error) {
-            // 				await this.say("diff_error", relPath)
-
-            // 				// Extract error type from error message if possible, or use a generic type
-            // 				const errorType =
-            // 					error instanceof Error && error.message.includes("does not match anything")
-            // 						? "search_not_found"
-            // 						: "other_diff_error"
-
-            // 				// Add telemetry for diff edit failure
-            // 				telemetryService.captureDiffEditFailure(this.taskId, this.api.getModel().id, errorType)
-
-            // 				pushToolResult(
-            // 					formatResponse.toolError(
-            // 						`${(error as Error)?.message}\n\n` +
-            // 							formatResponse.diffError(relPath, this.diffViewProvider.originalContent),
-            // 					),
-            // 				)
-            // 				await this.diffViewProvider.revertChanges()
-            // 				await this.diffViewProvider.reset()
-            // 				await this.saveCheckpoint()
-            // 				break
-            // 			}
-            // 		} else if (content) {
-            // 			newContent = content
-
-            // 			// pre-processing newContent for cases where weaker models might add artifacts like markdown codeblock markers (deepseek/llama) or extra escape characters (gemini)
-            // 			if (newContent.startsWith("```")) {
-            // 				// this handles cases where it includes language specifiers like ```python ```js
-            // 				newContent = newContent.split("\n").slice(1).join("\n").trim()
-            // 			}
-            // 			if (newContent.endsWith("```")) {
-            // 				newContent = newContent.split("\n").slice(0, -1).join("\n").trim()
-            // 			}
-
-            // 			if (!this.api.getModel().id.includes("claude")) {
-            // 				// it seems not just llama models are doing this, but also gemini and potentially others
-            // 				newContent = fixModelHtmlEscaping(newContent)
-            // 				newContent = removeInvalidChars(newContent)
-            // 			}
-            // 		} else {
-            // 			// can't happen, since we already checked for content/diff above. but need to do this for type error
-            // 			break
-            // 		}
-
-            // 		newContent = newContent.trimEnd() // remove any trailing newlines, since it's automatically inserted by the editor
-
-            // 		const sharedMessageProps: ChatermSayTool = {
-            // 			tool: fileExists ? "editedExistingFile" : "newFileCreated",
-            // 			path: getReadablePath(this.cwd, removeClosingTag("path", relPath)),
-            // 			content: diff || content,
-            // 			operationIsLocatedInWorkspace: isLocatedInWorkspace(relPath),
-            // 		}
-
-            // 		if (block.partial) {
-            // 			// update gui message
-            // 			const partialMessage = JSON.stringify(sharedMessageProps)
-
-            // 			if (this.shouldAutoApproveToolWithPath(block.name, relPath)) {
-            // 				this.removeLastPartialMessageIfExistsWithType("ask", "tool") // in case the user changes auto-approval settings mid stream
-            // 				await this.say("tool", partialMessage, undefined, block.partial)
-            // 			} else {
-            // 				this.removeLastPartialMessageIfExistsWithType("say", "tool")
-            // 				await this.ask("tool", partialMessage, block.partial).catch(() => {})
-            // 			}
-            // 			// update editor
-            // 			if (!this.diffViewProvider.isEditing) {
-            // 				// open the editor and prepare to stream content in
-            // 				await this.diffViewProvider.open(relPath)
-            // 			}
-            // 			// editor is open, stream content in
-            // 			await this.diffViewProvider.update(newContent, false)
-            // 			break
-            // 		} else {
-            // 			if (!relPath) {
-            // 				this.consecutiveMistakeCount++
-            // 				pushToolResult(await this.sayAndCreateMissingParamError(block.name, "path"))
-            // 				await this.diffViewProvider.reset()
-            // 				await this.saveCheckpoint()
-            // 				break
-            // 			}
-            // 			if (block.name === "replace_in_file" && !diff) {
-            // 				this.consecutiveMistakeCount++
-            // 				pushToolResult(await this.sayAndCreateMissingParamError("replace_in_file", "diff"))
-            // 				await this.diffViewProvider.reset()
-            // 				await this.saveCheckpoint()
-            // 				break
-            // 			}
-            // 			if (block.name === "write_to_file" && !content) {
-            // 				this.consecutiveMistakeCount++
-            // 				pushToolResult(await this.sayAndCreateMissingParamError("write_to_file", "content"))
-            // 				await this.diffViewProvider.reset()
-            // 				await this.saveCheckpoint()
-            // 				break
-            // 			}
-            // 			if (block.name === "new_rule" && !content) {
-            // 				this.consecutiveMistakeCount++
-            // 				pushToolResult(await this.sayAndCreateMissingParamError("new_rule", "content"))
-            // 				await this.diffViewProvider.reset()
-            // 				await this.saveCheckpoint()
-            // 				break
-            // 			}
-
-            // 			this.consecutiveMistakeCount = 0
-
-            // 			// if isEditingFile false, that means we have the full contents of the file already.
-            // 			// it's important to note how this function works, you can't make the assumption that the block.partial conditional will always be called since it may immediately get complete, non-partial data. So this part of the logic will always be called.
-            // 			// in other words, you must always repeat the block.partial logic here
-            // 			if (!this.diffViewProvider.isEditing) {
-            // 				// show gui message before showing edit animation
-            // 				const partialMessage = JSON.stringify(sharedMessageProps)
-            // 				await this.ask("tool", partialMessage, true).catch(() => {}) // sending true for partial even though it's not a partial, this shows the edit row before the content is streamed into the editor
-            // 				await this.diffViewProvider.open(relPath)
-            // 			}
-            // 			await this.diffViewProvider.update(newContent, true)
-            // 			await setTimeoutPromise(300) // wait for diff view to update
-            // 			this.diffViewProvider.scrollToFirstDiff()
-            // 			// showOmissionWarning(this.diffViewProvider.originalContent || "", newContent)
-
-            // 			const completeMessage = JSON.stringify({
-            // 				...sharedMessageProps,
-            // 				content: diff || content,
-            // 				operationIsLocatedInWorkspace: isLocatedInWorkspace(relPath),
-            // 				// ? formatResponse.createPrettyPatch(
-            // 				// 		relPath,
-            // 				// 		this.diffViewProvider.originalContent,
-            // 				// 		newContent,
-            // 				// 	)
-            // 				// : undefined,
-            // 			} satisfies ChatermSayTool)
-            // 			if (this.shouldAutoApproveToolWithPath(block.name, relPath)) {
-            // 				this.removeLastPartialMessageIfExistsWithType("ask", "tool")
-            // 				await this.say("tool", completeMessage, undefined, false)
-            // 				this.consecutiveAutoApprovedRequestsCount++
-            // 				telemetryService.captureToolUsage(this.taskId, block.name, true, true)
-
-            // 				// we need an artificial delay to let the diagnostics catch up to the changes
-            // 				await setTimeoutPromise(3_500)
-            // 			} else {
-            // 				// If auto-approval is enabled but this tool wasn't auto-approved, send notification
-            // 				showNotificationForApprovalIfAutoApprovalEnabled(
-            // 					`Chaterm wants to ${fileExists ? "edit" : "create"} ${path.basename(relPath)}`,
-            // 				)
-            // 				this.removeLastPartialMessageIfExistsWithType("say", "tool")
-
-            // 				// Need a more customized tool response for file edits to highlight the fact that the file was not updated (particularly important for deepseek)
-            // 				let didApprove = true
-            // 				const { response, text} = await this.ask("tool", completeMessage, false)
-            // 				if (response !== "yesButtonClicked") {
-            // 					// User either sent a message or pressed reject button
-            // 					// TODO: add similar context for other tool denial responses, to emphasize ie that a command was not run
-            // 					const fileDeniedNote = fileExists
-            // 						? "The file was not updated, and maintains its original contents."
-            // 						: "The file was not created."
-            // 					pushToolResult(`The user denied this operation. ${fileDeniedNote}`)
-            // 					if (text) {
-            // 						pushAdditionalToolFeedback(text)
-            // 						await this.say("user_feedback", text)
-            // 						await this.saveCheckpoint()
-            // 					}
-            // 					this.didRejectTool = true
-            // 					didApprove = false
-            // 					///telemetryService.captureToolUsage(this.taskId, block.name, false, false)
-            // 				} else {
-            // 					// User hit the approve button, and may have provided feedback
-            // 					if (text) {
-            // 						pushAdditionalToolFeedback(text)
-            // 						await this.say("user_feedback", text)
-            // 						await this.saveCheckpoint()
-            // 					}
-            // 					//telemetryService.captureToolUsage(this.taskId, block.name, false, true)
-            // 				}
-
-            // 				if (!didApprove) {
-            // 					//await this.diffViewProvider.revertChanges()
-            // 					await this.saveCheckpoint()
-            // 					break
-            // 				}
-            // 			}
-
-            // 			// Mark the file as edited by Chaterm to prevent false "recently modified" warnings
-            // 			this.fileContextTracker.markFileAsEditedByChaterm(relPath)
-
-            // 			// const { newProblemsMessage, userEdits, autoFormattingEdits, finalContent } =
-            // 			// 	await this.diffViewProvider.saveChanges()
-            // 			// this.didEditFile = true // used to determine if we should wait for busy terminal to update before sending api request
-
-            // 			// Track file edit operation
-            // 			await this.fileContextTracker.trackFileContext(relPath, "chaterm_edited")
-
-            // 			// if (userEdits) {
-            // 			// 	// Track file edit operation
-            // 			// 	await this.fileContextTracker.trackFileContext(relPath, "user_edited")
-
-            // 			// 	await this.say(
-            // 			// 		"user_feedback_diff",
-            // 			// 		JSON.stringify({
-            // 			// 			tool: fileExists ? "editedExistingFile" : "newFileCreated",
-            // 			// 			path: getReadablePath(this.cwd, relPath),
-            // 			// 			diff: userEdits,
-            // 			// 		} satisfies ChatermSayTool),
-            // 			// 	)
-            // 			// 	pushToolResult(
-            // 			// 		formatResponse.fileEditWithUserChanges(
-            // 			// 			relPath,
-            // 			// 			userEdits,
-            // 			// 			autoFormattingEdits,
-            // 			// 			finalContent,
-            // 			// 			newProblemsMessage,
-            // 			// 		),
-            // 			// 	)
-            // 			// } else {
-            // 			// 	pushToolResult(
-            // 			// 		formatResponse.fileEditWithoutUserChanges(
-            // 			// 			relPath,
-            // 			// 			autoFormattingEdits,
-            // 			// 			finalContent,
-            // 			// 			newProblemsMessage,
-            // 			// 		),
-            // 			// 	)
-            // 			// }
-
-            // 			if (!fileExists) {
-            // 				this.workspaceTracker.populateFilePaths()
-            // 			}
-
-            // 			await this.diffViewProvider.reset()
-
-            // 			await this.saveCheckpoint()
-
-            // 			break
-            // 		}
-            // 	} catch (error) {
-            // 		await handleError("writing file", error)
-            // 		await this.diffViewProvider.revertChanges()
-            // 		await this.diffViewProvider.reset()
-            // 		await this.saveCheckpoint()
-            // 		break
-            // 	}
-            // }
-            break
-          case 'read_file': {
-            const relPath: string | undefined = block.params.path
-            const sharedMessageProps: ChatermSayTool = {
-              tool: 'readFile',
-              path: getReadablePath(this.cwd, removeClosingTag('path', relPath))
-            }
-            try {
-              if (block.partial) {
-                const partialMessage = JSON.stringify({
-                  ...sharedMessageProps,
-                  content: undefined,
-                  operationIsLocatedInWorkspace: isLocatedInWorkspace(relPath)
-                } satisfies ChatermSayTool)
-                if (this.shouldAutoApproveToolWithPath(block.name, block.params.path)) {
-                  this.removeLastPartialMessageIfExistsWithType('ask', 'tool')
-                  await this.say('tool', partialMessage, block.partial)
-                } else {
-                  this.removeLastPartialMessageIfExistsWithType('say', 'tool')
-                  await this.ask('tool', partialMessage, block.partial).catch(() => {})
-                }
-                break
-              } else {
-                if (!relPath) {
-                  this.consecutiveMistakeCount++
-                  pushToolResult(await this.sayAndCreateMissingParamError('read_file', 'path'))
-                  await this.saveCheckpoint()
-                  break
-                }
-
-                // const accessAllowed = this.chatermIgnoreController.validateAccess(relPath)
-                // if (!accessAllowed) {
-                // 	await this.say("chatermignore_error", relPath)
-                // 	pushToolResult(formatResponse.toolError(formatResponse.chatermIgnoreError(relPath)))
-                // 	await this.saveCheckpoint()
-                // 	break
-                // }
-
-                this.consecutiveMistakeCount = 0
-                const absolutePath = path.resolve(this.cwd, relPath)
-                const completeMessage = JSON.stringify({
-                  ...sharedMessageProps,
-                  content: absolutePath,
-                  operationIsLocatedInWorkspace: isLocatedInWorkspace(relPath)
-                } satisfies ChatermSayTool)
-                if (this.shouldAutoApproveToolWithPath(block.name, block.params.path)) {
-                  this.removeLastPartialMessageIfExistsWithType('ask', 'tool')
-                  await this.say('tool', completeMessage, false) // need to be sending partialValue bool, since undefined has its own purpose in that the message is treated neither as a partial or completion of a partial, but as a single complete message
-                  this.consecutiveAutoApprovedRequestsCount++
-                  // telemetryService.captureToolUsage(this.taskId, block.name, true, true)
-                } else {
-                  showNotificationForApprovalIfAutoApprovalEnabled(
-                    `Chaterm wants to read ${path.basename(absolutePath)}`
-                  )
-                  this.removeLastPartialMessageIfExistsWithType('say', 'tool')
-                  const didApprove = await askApproval('tool', completeMessage)
-                  if (!didApprove) {
-                    await this.saveCheckpoint()
-                    // telemetryService.captureToolUsage(this.taskId, block.name, false, false)
-                    break
-                  }
-                  // telemetryService.captureToolUsage(this.taskId, block.name, false, true)
-                }
-                // now execute the tool like normal
-                const content = await extractTextFromFile(absolutePath)
-
-                // Track file read operation
-                await this.fileContextTracker.trackFileContext(relPath, 'read_tool')
-
-                pushToolResult(content)
-                await this.saveCheckpoint()
-                break
-              }
-            } catch (error: any) {
-              // Added type assertion for error
-              await handleError('reading file', error)
-            }
-          }
-          case 'list_files': {
-            const relDirPath: string | undefined = block.params.path
-            const recursiveRaw: string | undefined = block.params.recursive
-            const recursive = recursiveRaw?.toLowerCase() === 'true'
-            const sharedMessageProps: ChatermSayTool = {
-              tool: !recursive ? 'listFilesTopLevel' : 'listFilesRecursive',
-              path: getReadablePath(this.cwd, removeClosingTag('path', relDirPath))
-            }
-            try {
-              if (block.partial) {
-                const partialMessage = JSON.stringify({
-                  ...sharedMessageProps,
-                  content: '',
-                  operationIsLocatedInWorkspace: isLocatedInWorkspace(block.params.path)
-                } satisfies ChatermSayTool)
-                if (this.shouldAutoApproveToolWithPath(block.name, block.params.path)) {
-                  this.removeLastPartialMessageIfExistsWithType('ask', 'tool')
-                  await this.say('tool', partialMessage, block.partial)
-                } else {
-                  this.removeLastPartialMessageIfExistsWithType('say', 'tool')
-                  await this.ask('tool', partialMessage, block.partial).catch(() => {})
-                }
-                break
-              } else {
-                if (!relDirPath) {
-                  this.consecutiveMistakeCount++
-                  pushToolResult(await this.sayAndCreateMissingParamError('list_files', 'path'))
-                  await this.saveCheckpoint()
-                  break
-                }
-                this.consecutiveMistakeCount = 0
-
-                const absolutePath = path.resolve(this.cwd, relDirPath)
-
-                const [files, didHitLimit] = await listFiles(absolutePath, recursive, 200)
-
-                const result = formatResponse.formatFilesList(
-                  absolutePath,
-                  files,
-                  didHitLimit
-                  //this.chatermIgnoreController,
-                )
-                const completeMessage = JSON.stringify({
-                  ...sharedMessageProps,
-                  content: result,
-                  operationIsLocatedInWorkspace: isLocatedInWorkspace(block.params.path)
-                } satisfies ChatermSayTool)
-                if (this.shouldAutoApproveToolWithPath(block.name, block.params.path)) {
-                  this.removeLastPartialMessageIfExistsWithType('ask', 'tool')
-                  await this.say('tool', completeMessage, false)
-                  this.consecutiveAutoApprovedRequestsCount++
-                  // telemetryService.captureToolUsage(this.taskId, block.name, true, true)
-                } else {
-                  showNotificationForApprovalIfAutoApprovalEnabled(
-                    `Chaterm wants to view directory ${path.basename(absolutePath)}/`
-                  )
-                  this.removeLastPartialMessageIfExistsWithType('say', 'tool')
-                  const didApprove = await askApproval('tool', completeMessage)
-                  if (!didApprove) {
-                    // telemetryService.captureToolUsage(this.taskId, block.name, false, false)
-                    await this.saveCheckpoint()
-                    break
-                  }
-                  // telemetryService.captureToolUsage(this.taskId, block.name, false, true)
-                }
-                pushToolResult(result)
-                await this.saveCheckpoint()
-                break
-              }
-            } catch (error) {
-              await handleError('listing files', error as Error)
-              await this.saveCheckpoint()
-              break
-            }
-          }
-          case 'search_files': {
-            const relDirPath: string | undefined = block.params.path
-            const regex: string | undefined = block.params.regex
-            const filePattern: string | undefined = block.params.file_pattern
-            const sharedMessageProps: ChatermSayTool = {
-              tool: 'searchFiles',
-              path: getReadablePath(this.cwd, removeClosingTag('path', relDirPath)),
-              regex: removeClosingTag('regex', regex),
-              filePattern: removeClosingTag('file_pattern', filePattern)
-            }
-            try {
-              if (block.partial) {
-                const partialMessage = JSON.stringify({
-                  ...sharedMessageProps,
-                  content: '',
-                  operationIsLocatedInWorkspace: isLocatedInWorkspace(block.params.path)
-                } satisfies ChatermSayTool)
-                if (this.shouldAutoApproveToolWithPath(block.name, block.params.path)) {
-                  this.removeLastPartialMessageIfExistsWithType('ask', 'tool')
-                  await this.say('tool', partialMessage, block.partial)
-                } else {
-                  this.removeLastPartialMessageIfExistsWithType('say', 'tool')
-                  await this.ask('tool', partialMessage, block.partial).catch(() => {})
-                }
-                break
-              } else {
-                if (!relDirPath) {
-                  this.consecutiveMistakeCount++
-                  pushToolResult(await this.sayAndCreateMissingParamError('search_files', 'path'))
-                  await this.saveCheckpoint()
-                  break
-                }
-                if (!regex) {
-                  this.consecutiveMistakeCount++
-                  pushToolResult(await this.sayAndCreateMissingParamError('search_files', 'regex'))
-                  await this.saveCheckpoint()
-                  break
-                }
-                this.consecutiveMistakeCount = 0
-
-                const absolutePath = path.resolve(this.cwd, relDirPath)
-                const results = await regexSearchFiles(
-                  this.cwd,
-                  absolutePath,
-                  regex,
-                  filePattern
-                  // this.chatermIgnoreController,
-                )
-
-                const completeMessage = JSON.stringify({
-                  ...sharedMessageProps,
-                  content: results,
-                  operationIsLocatedInWorkspace: isLocatedInWorkspace(block.params.path)
-                } satisfies ChatermSayTool)
-                if (this.shouldAutoApproveToolWithPath(block.name, block.params.path)) {
-                  this.removeLastPartialMessageIfExistsWithType('ask', 'tool')
-                  await this.say('tool', completeMessage, false)
-                  this.consecutiveAutoApprovedRequestsCount++
-                  // telemetryService.captureToolUsage(this.taskId, block.name, true, true)
-                } else {
-                  showNotificationForApprovalIfAutoApprovalEnabled(
-                    `Chaterm wants to search files in ${path.basename(absolutePath)}/`
-                  )
-                  this.removeLastPartialMessageIfExistsWithType('say', 'tool')
-                  const didApprove = await askApproval('tool', completeMessage)
-                  if (!didApprove) {
-                    // telemetryService.captureToolUsage(this.taskId, block.name, false, false)
-                    await this.saveCheckpoint()
-                    break
-                  }
-                  // telemetryService.captureToolUsage(this.taskId, block.name, false, true)
-                }
-                pushToolResult(results)
-                await this.saveCheckpoint()
-                break
-              }
-            } catch (error) {
-              await handleError('searching files', error as Error)
-              await this.saveCheckpoint()
-              break
-            }
-          }
-          // case "browser_action": {
-          // 	const action: BrowserAction | undefined = block.params.action as BrowserAction
-          // 	const url: string | undefined = block.params.url
-          // 	const coordinate: string | undefined = block.params.coordinate
-          // 	const text: string | undefined = block.params.text
-          // 	if (!action || !browserActions.includes(action)) {
-          // 		// checking for action to ensure it is complete and valid
-          // 		if (!block.partial) {
-          // 			// if the block is complete and we don't have a valid action this is a mistake
-          // 			this.consecutiveMistakeCount++
-          // 			pushToolResult(await this.sayAndCreateMissingParamError("browser_action", "action"))
-          // 			await this.browserSession.closeBrowser()
-          // 			await this.saveCheckpoint()
-          // 		}
-          // 		break
-          // 	}
-
-          // 	try {
-          // 		if (block.partial) {
-          // 			if (action === "launch") {
-          // 				if (this.shouldAutoApproveTool(block.name)) {
-          // 					this.removeLastPartialMessageIfExistsWithType("ask", "browser_action_launch")
-          // 					await this.say(
-          // 						"browser_action_launch",
-          // 						removeClosingTag("url", url),
-          // 						undefined,
-          // 						block.partial,
-          // 					)
-          // 				} else {
-          // 					this.removeLastPartialMessageIfExistsWithType("say", "browser_action_launch")
-          // 					await this.ask(
-          // 						"browser_action_launch",
-          // 						removeClosingTag("url", url),
-          // 						block.partial,
-          // 					).catch(() => {})
-          // 				}
-          // 			} else {
-          // 				await this.say(
-          // 					"browser_action",
-          // 					JSON.stringify({
-          // 						action: action as BrowserAction,
-          // 						coordinate: removeClosingTag("coordinate", coordinate),
-          // 						text: removeClosingTag("text", text),
-          // 					} satisfies ClineSayBrowserAction),
-          // 					undefined,
-          // 					block.partial,
-          // 				)
-          // 			}
-          // 			break
-          // 		} else {
-          // 			let browserActionResult: BrowserActionResult
-          // 			if (action === "launch") {
-          // 				if (!url) {
-          // 					this.consecutiveMistakeCount++
-          // 					pushToolResult(await this.sayAndCreateMissingParamError("browser_action", "url"))
-          // 					await this.browserSession.closeBrowser()
-          // 					await this.saveCheckpoint()
-          // 					break
-          // 				}
-          // 				this.consecutiveMistakeCount = 0
-
-          // 				if (this.shouldAutoApproveTool(block.name)) {
-          // 					this.removeLastPartialMessageIfExistsWithType("ask", "browser_action_launch")
-          // 					await this.say("browser_action_launch", url, undefined, false)
-          // 					this.consecutiveAutoApprovedRequestsCount++
-          // 				} else {
-          // 					showNotificationForApprovalIfAutoApprovalEnabled(
-          // 						`Chaterm wants to use a browser and launch ${url}`,
-          // 					)
-          // 					this.removeLastPartialMessageIfExistsWithType("say", "browser_action_launch")
-          // 					const didApprove = await askApproval("browser_action_launch", url)
-          // 					if (!didApprove) {
-          // 						await this.saveCheckpoint()
-          // 						break
-          // 					}
-          // 				}
-
-          // 				// NOTE: it's okay that we call this message since the partial inspect_site is finished streaming. The only scenario we have to avoid is sending messages WHILE a partial message exists at the end of the messages array. For example the api_req_finished message would interfere with the partial message, so we needed to remove that.
-          // 				// await this.say("inspect_site_result", "") // no result, starts the loading spinner waiting for result
-          // 				await this.say("browser_action_result", "") // starts loading spinner
-
-          // 				// Re-make browserSession to make sure latest settings apply
-          // 				if (this.context) {
-          // 					await this.browserSession.dispose()
-          // 					this.browserSession = new BrowserSession(this.context, this.browserSettings)
-          // 				} else {
-          // 					console.warn("no controller context available for browserSession")
-          // 				}
-          // 				await this.browserSession.launchBrowser()
-          // 				browserActionResult = await this.browserSession.navigateToUrl(url)
-          // 			} else {
-          // 				if (action === "click") {
-          // 					if (!coordinate) {
-          // 						this.consecutiveMistakeCount++
-          // 						pushToolResult(
-          // 							await this.sayAndCreateMissingParamError("browser_action", "coordinate"),
-          // 						)
-          // 						await this.browserSession.closeBrowser()
-          // 						await this.saveCheckpoint()
-          // 						break // can't be within an inner switch
-          // 					}
-          // 				}
-          // 				if (action === "type") {
-          // 					if (!text) {
-          // 						this.consecutiveMistakeCount++
-          // 						pushToolResult(await this.sayAndCreateMissingParamError("browser_action", "text"))
-          // 						await this.browserSession.closeBrowser()
-          // 						await this.saveCheckpoint()
-          // 						break
-          // 					}
-          // 				}
-          // 				this.consecutiveMistakeCount = 0
-          // 				await this.say(
-          // 					"browser_action",
-          // 					JSON.stringify({
-          // 						action: action as BrowserAction,
-          // 						coordinate,
-          // 						text,
-          // 					} satisfies ClineSayBrowserAction),
-          // 					undefined,
-          // 					false,
-          // 				)
-          // 				switch (action) {
-          // 					case "click":
-          // 						browserActionResult = await this.browserSession.click(coordinate!)
-          // 						break
-          // 					case "type":
-          // 						browserActionResult = await this.browserSession.type(text!)
-          // 						break
-          // 					case "scroll_down":
-          // 						browserActionResult = await this.browserSession.scrollDown()
-          // 						break
-          // 					case "scroll_up":
-          // 						browserActionResult = await this.browserSession.scrollUp()
-          // 						break
-          // 					case "close":
-          // 						browserActionResult = await this.browserSession.closeBrowser()
-          // 						break
-          // 				}
-          // 			}
-
-          // 			switch (action) {
-          // 				case "launch":
-          // 				case "click":
-          // 				case "type":
-          // 				case "scroll_down":
-          // 				case "scroll_up":
-          // 					await this.say("browser_action_result", JSON.stringify(browserActionResult))
-          // 					pushToolResult(
-          // 						formatResponse.toolResult(
-          // 							`The browser action has been executed. The console logs and screenshot have been captured for your analysis.\n\nConsole logs:\n${
-          // 								browserActionResult.logs || "(No new logs)"
-          // 							}\n\n(REMEMBER: if you need to proceed to using non-\`browser_action\` tools or launch a new browser, you MUST first close this browser. For example, if after analyzing the logs and screenshot you need to edit a file, you must first close the browser before you can use the write_to_file tool.)`,
-          // 							browserActionResult.screenshot ? [browserActionResult.screenshot] : [],
-          // 						),
-          // 					)
-          // 					await this.saveCheckpoint()
-          // 					break
-          // 				case "close":
-          // 					pushToolResult(
-          // 						formatResponse.toolResult(
-          // 							`The browser has been closed. You may now proceed to using other tools.`,
-          // 						),
-          // 					)
-          // 					await this.saveCheckpoint()
-          // 					break
-          // 			}
-
-          // 			break
-          // 		}
-          // 	} catch (error) {
-          // 		// await this.browserSession.closeBrowser() // if any error occurs, the browser session is terminated
-          // 		// await handleError("executing browser action", error)
-          // 		await this.saveCheckpoint()
-          // 		break
-          // 	}
-          // }
           case 'execute_command': {
             let command: string | undefined = block.params.command
             const requiresApprovalRaw: string | undefined = block.params.requires_approval
@@ -2248,15 +1528,7 @@ export class Task {
             try {
               if (block.partial) {
                 if (this.shouldAutoApproveTool(block.name)) {
-                  // since depending on an upcoming parameter, requiresApproval this may become an ask - we can't partially stream a say prematurely. So in this particular case we have to wait for the requiresApproval parameter to be completed before presenting it.
-                  // await this.say(
-                  // 	"command",
-                  // 	removeClosingTag("command", command),
-                  // 	undefined,
-                  // 	block.partial,
-                  // ).catch(() => {})
                 } else {
-                  // don't need to remove last partial since we couldn't have streamed a say
                   await this.ask(
                     'command',
                     removeClosingTag('command', command),
@@ -2700,112 +1972,7 @@ export class Task {
               break
             }
           }
-          // case "plan_mode_respond": {
-          // 	const response: string | undefined = block.params.response
-          // 	const optionsRaw: string | undefined = block.params.options
-          // 	const sharedMessage = {
-          // 		response: removeClosingTag("response", response),
-          // 		options: parsePartialArrayString(removeClosingTag("options", optionsRaw)),
-          // 	} satisfies ClinePlanModeResponse
-          // 	try {
-          // 		if (block.partial) {
-          // 			await this.ask("plan_mode_respond", JSON.stringify(sharedMessage), block.partial).catch(() => {})
-          // 			break
-          // 		} else {
-          // 			if (!response) {
-          // 				this.consecutiveMistakeCount++
-          // 				pushToolResult(await this.sayAndCreateMissingParamError("plan_mode_respond", "response"))
-          // 				//
-          // 				break
-          // 			}
-          // 			this.consecutiveMistakeCount = 0
-
-          // 			// if (this.autoApprovalSettings.enabled && this.autoApprovalSettings.enableNotifications) {
-          // 			// 	showSystemNotification({
-          // 			// 		subtitle: "Chaterm has a response...",
-          // 			// 		message: response.replace(/\n/g, " "),
-          // 			// 	})
-          // 			// }
-
-          // 			// Store the number of options for telemetry
-          // 			const options = parsePartialArrayString(optionsRaw || "[]")
-
-          // 			this.isAwaitingPlanResponse = true
-          // 			let { text, images } = await this.ask("plan_mode_respond", JSON.stringify(sharedMessage), false)
-          // 			this.isAwaitingPlanResponse = false
-
-          // 			// webview invoke sendMessage will send this marker in order to put webview into the proper state (responding to an ask) and as a flag to extension that the user switched to ACT mode.
-          // 			if (text === "PLAN_MODE_TOGGLE_RESPONSE") {
-          // 				text = ""
-          // 			}
-
-          // 			// Check if options contains the text response
-          // 			if (optionsRaw && text && parsePartialArrayString(optionsRaw).includes(text)) {
-          // 				// Valid option selected, don't show user message in UI
-          // 				// Update last followup message with selected option
-          // 				const lastPlanMessage = findLast(this.chatermMessages, (m) => m.ask === "plan_mode_respond")
-          // 				if (lastPlanMessage) {
-          // 					lastPlanMessage.text = JSON.stringify({
-          // 						...sharedMessage,
-          // 						selected: text,
-          // 					} satisfies ChatermPlanModeResponse)
-          // 					await this.saveChatermMessagesAndUpdateHistory()
-          // 					//telemetryService.captureOptionSelected(this.taskId, options.length, "plan")
-          // 				}
-          // 			} else {
-          // 				// Option not selected, send user feedback
-          // 				if (text) {
-          // 					//telemetryService.captureOptionsIgnored(this.taskId, options.length, "plan")
-          // 					await this.say("user_feedback", text ?? "")
-          // 					await this.saveCheckpoint()
-          // 				}
-          // 			}
-
-          // 			if (this.didRespondToPlanAskBySwitchingMode) {
-          // 				pushToolResult(
-          // 					formatResponse.toolResult(
-          // 						`[The user has switched to ACT MODE, so you may now proceed with the task.]` +
-          // 							(text
-          // 								? `\n\nThe user also provided the following message when switching to ACT MODE:\n<user_message>\n${text}\n</user_message>`
-          // 								: ""),
-          // 						images,
-          // 					),
-          // 				)
-          // 			} else {
-          // 				// if we didn't switch to ACT MODE, then we can just send the user_feedback message
-          // 				pushToolResult(formatResponse.toolResult(`<user_message>\n${text}\n</user_message>`, images))
-          // 			}
-
-          // 			//
-          // 			break
-          // 		}
-          // 	} catch (error) {
-          // 		await handleError("responding to inquiry", error)
-          // 		//
-          // 		break
-          // 	}
-          // }
           case 'attempt_completion': {
-            /*
-						this.consecutiveMistakeCount = 0
-						let resultToSend = result
-						if (command) {
-							await this.say("completion_result", resultToSend)
-							// TODO: currently we don't handle if this command fails, it could be useful to let Chaterm know and retry
-							const [didUserReject, commandResult] = await this.executeCommand(command, true)
-							// if we received non-empty string, the command was rejected or failed
-							if (commandResult) {
-								return [didUserReject, commandResult]
-							}
-							resultToSend = ""
-						}
-						const { response, text, images } = await this.ask("completion_result", resultToSend) // this prompts webview to show 'new task' button, and enable text input (which would be the 'text' here)
-						if (response === "yesButtonClicked") {
-							return [false, ""] // signals to recursive loop to stop (for now this never happens since yesButtonClicked will trigger a new task)
-						}
-						await this.say("user_feedback", text ?? "", images)
-						return [
-						*/
             const result: string | undefined = block.params.result
             const command: string | undefined = block.params.command
 
@@ -3051,7 +2218,6 @@ export class Task {
           message: `Chaterm has auto-approved ${this.autoApprovalSettings.maxRequests.toString()} API requests.`
         })
       }
-      // 如果用户返回NO，会卡住吗？
       await this.ask(
         'auto_approval_max_req_reached',
         `Chaterm has auto-approved ${this.autoApprovalSettings.maxRequests.toString()} API requests. Would you like to reset the count and proceed with the task?`
