@@ -345,7 +345,11 @@ import { notification } from 'ant-design-vue'
 import { v4 as uuidv4 } from 'uuid'
 import { getAiModel, getChatDetailList, getConversationList } from '@/api/ai/ai'
 import eventBus from '@/utils/eventBus'
-import { getGlobalState } from '@renderer/agent/storage/state'
+import {
+  getGlobalState,
+  updateGlobalState,
+  getAllExtensionState
+} from '@renderer/agent/storage/state'
 import type { HistoryItem, Host, ModelOption, ChatMessage, AssetInfo } from './types'
 import { createNewMessage, parseMessageContent, truncateText, formatHosts } from './utils'
 import foldIcon from '@/assets/icons/fold.svg'
@@ -571,58 +575,38 @@ const sendMessage = async () => {
   }
   const userContent = chatInputValue.value.trim()
   if (!userContent) return
-  if (chatTypeValue.value === 'agent') {
-    // 获取当前活跃主机是否存在
-    if (hosts.value.length === 0) {
-      const assetInfo = await getCurentTabAssetInfo()
-      if (assetInfo) {
-        hosts.value.push({
-          host: assetInfo.ip,
-          uuid: assetInfo.uuid,
-          connection: 'personal',
-          organizationId: 'personal_01'
-        })
-      } else {
-        notification.error({
-          message: '获取当前资产连接信息失败',
-          description: '请先建立资产连接',
-          duration: 3
-        })
-        return 'ASSET_ERROR'
-      }
-      await sendMessageToMain(userContent)
-
-      const userMessage: ChatMessage = {
-        id: uuidv4(),
-        role: 'user',
-        content: userContent,
-        type: 'message',
-        ask: '',
-        say: '',
-        ts: 0
-      }
-      chatHistory.push(userMessage)
-      chatInputValue.value = ''
-      return
+  // 获取当前活跃主机是否存在
+  if (hosts.value.length === 0) {
+    const assetInfo = await getCurentTabAssetInfo()
+    if (assetInfo) {
+      hosts.value.push({
+        host: assetInfo.ip,
+        uuid: assetInfo.uuid,
+        connection: 'personal',
+        organizationId: 'personal_01'
+      })
+    } else {
+      notification.error({
+        message: '获取当前资产连接信息失败',
+        description: '请先建立资产连接',
+        duration: 3
+      })
+      return 'ASSET_ERROR'
     }
+    await sendMessageToMain(userContent)
 
-    // 如果没有 WebSocket 连接，创建新的连接
-    if (!webSocket.value) {
-      webSocket.value = createWebSocket(chatTypeValue.value)
+    const userMessage: ChatMessage = {
+      id: uuidv4(),
+      role: 'user',
+      content: userContent,
+      type: 'message',
+      ask: '',
+      say: '',
+      ts: 0
     }
-
-    // 等待连接建立
-    if (webSocket.value.readyState === WebSocket.CONNECTING) {
-      webSocket.value.onopen = () => {
-        sendWebSocketMessage(webSocket.value!, chatTypeValue.value)
-      }
-      return
-    }
-
-    // 如果连接已经打开，直接发送消息
-    if (webSocket.value.readyState === WebSocket.OPEN) {
-      sendWebSocketMessage(webSocket.value, chatTypeValue.value)
-    }
+    chatHistory.push(userMessage)
+    chatInputValue.value = ''
+    return
   }
 }
 
@@ -1064,8 +1048,20 @@ watch(currentCwd, (newValue) => {
   console.log('当前工作目录:', newValue)
 })
 
+watch(chatTypeValue, async (newValue) => {
+  try {
+    await updateGlobalState('chatSettings', {
+      mode: newValue
+    })
+  } catch (error) {
+    console.error('更新 chatSettings 失败:', error)
+  }
+})
+
 // 修改 onMounted 中的初始化代码
 onMounted(async () => {
+  const { chatSettings } = await getAllExtensionState()
+  chatTypeValue.value = chatSettings.mode
   authTokenInCookie.value = localStorage.getItem('ctm-token')
   const chatId = uuidv4()
 
