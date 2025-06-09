@@ -303,8 +303,15 @@ const connectSSH = async () => {
       passphrase.value = props.connectData.passphrase || ''
     }
 
-    terminal.value?.writeln(`尝试连接 ${props.connectData.ip}:${props.connectData.port}...`)
     const email = userInfoStore().userInfo.email
+    const name = userInfoStore().userInfo.name
+    let welcome = '\x1b[38;2;22;119;255m' + name + ', 欢迎您使用智能堡垒机Chaterm \x1b[m\r\n'
+    if (userConfig.value.language === 'en-US') {
+      welcome =
+        '\x1b[38;2;22;119;255m' + email.split('@')[0] + ', Welcome to use Chaterm \x1b[m\r\n'
+    }
+    terminal.value?.writeln(welcome)
+    // terminal.value?.writeln(`尝试连接 ${props.connectData.ip}:${props.connectData.port}...`)
     connectionId.value = `${email.split('@')[0]}@${props.connectData.ip}:local:${uuidv4()}`
 
     const result = await api.connect({
@@ -319,7 +326,7 @@ const connectSSH = async () => {
     const connectReadyData = await api.connectReadyData(connectionId.value)
     connectionHasSudo.value = connectReadyData?.hasSudo
     if (result.status === 'connected') {
-      terminal.value?.writeln(`已成功连接到 ${props.connectData.ip}`)
+      terminal.value?.writeln(`Connecting to ${props.connectData.ip}`)
 
       // 启动shell会话
       await startShell()
