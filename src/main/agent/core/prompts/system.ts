@@ -166,6 +166,10 @@ RULES
 OBJECTIVE
 
 You need to deterime the whether the task can be done with one command or one tool use. If the task can be done with one command, return that command directly. 
+<execute_command>
+<command>Your command here</command>
+<requires_approval>true or false</requires_approval>
+</execute_command>
 
 If you think the task is complex enought that you need to accomplish the given task iteratively, then breaking it down into clear steps and working through them methodically.
 More specifically, the steps are: 
