@@ -320,7 +320,7 @@ const initEditor = (content: string) => {
       theme: 'custom-dark',
       readOnly: true,
       minimap: { enabled: false },
-      lineNumbers: 'on',
+      lineNumbers: lines > 1 ? 'on' : 'off',
       lineNumbersMinChars: 3,
       lineDecorationsWidth: 12,
       scrollBeyondLastLine: false,
@@ -533,7 +533,7 @@ const initCodeBlockEditors = () => {
         theme: 'custom-dark',
         readOnly: true,
         minimap: { enabled: false },
-        lineNumbers: 'on',
+        lineNumbers: block.lines > 1 ? 'on' : 'off',
         lineNumbersMinChars: 3,
         lineDecorationsWidth: 12,
         scrollBeyondLastLine: false,
@@ -609,7 +609,7 @@ const checkContentHeight = async () => {
 watch(
   () => thinkingContent.value,
   async (newVal) => {
-    console.log('thinkingContent watch',thinkingLoading.value)
+    console.log('thinkingContent watch', thinkingLoading.value)
     if (newVal) {
       thinkingLoading.value = true
       await checkContentHeight()
