@@ -357,6 +357,7 @@ import historyIcon from '@/assets/icons/history.svg'
 import plusIcon from '@/assets/icons/plus.svg'
 import sendIcon from '@/assets/icons/send.svg'
 import { useCurrentCwdStore } from '@/store/currentCwdStore'
+import { getassetMenu } from '@/api/asset/asset'
 // 异步加载 Markdown 渲染组件
 const MarkdownRenderer = defineAsyncComponent(
   () => import('@views/components/AiTab/MarkdownRenderer.vue')
@@ -578,13 +579,23 @@ const sendMessage = async () => {
   // 获取当前活跃主机是否存在
   if (hosts.value.length === 0) {
     const assetInfo = await getCurentTabAssetInfo()
+    console.log('assetInsssssfo', assetInfo) 
     if (assetInfo) {
-      hosts.value.push({
+      if (assetInfo.type === 'term'){
+        hosts.value.push({
+        host: assetInfo.ip,
+        uuid: assetInfo.uuid,
+        connection: 'organization',
+        organizationId: assetInfo.organizationId
+      })
+      }else{
+        hosts.value.push({
         host: assetInfo.ip,
         uuid: assetInfo.uuid,
         connection: 'personal',
         organizationId: 'personal_01'
       })
+      }
     } else {
       notification.error({
         message: '获取当前资产连接信息失败',
@@ -593,7 +604,8 @@ const sendMessage = async () => {
       })
       return 'ASSET_ERROR'
     }
-    await sendMessageToMain(userContent)
+  }
+  await sendMessageToMain(userContent)
 
     const userMessage: ChatMessage = {
       id: uuidv4(),
@@ -607,7 +619,6 @@ const sendMessage = async () => {
     chatHistory.push(userMessage)
     chatInputValue.value = ''
     return
-  }
 }
 
 const sendWebSocketMessage = (ws: WebSocket, type: string) => {
@@ -723,12 +734,14 @@ const restoreHistoryTab = async (history: HistoryItem) => {
             if (item && typeof item === 'object' && 'host' in item) {
               let ip = item.host
               let uuid = item.uuid || ''
+              let connection = item.connection 
+              let organizationId = item.organizationId
               if (ip && !hosts.value.some((h) => h.host === ip)) {
                 hosts.value.push({
                   host: ip,
                   uuid: uuid,
-                  connection: 'personal',
-                  organizationId: 'personal_01'
+                  connection: connection,
+                  organizationId: organizationId
                 })
               }
             }
@@ -1178,7 +1191,6 @@ const sendMessageToMain = async (userContent: string) => {
         cwd: currentCwd.value
       }
     }
-
     console.log('发送消息到主进程:', message)
     const response = await (window.api as any).sendToMain(message)
     console.log('主进程响应:', response)
@@ -1243,8 +1255,8 @@ const onHostClick = (item: any) => {
     hosts.value.push({
       host: item.label,
       uuid: item.uuid,
-      connection: 'personal',
-      organizationId: ''
+      connection: item.connection,
+      organizationId: item.organizationId
     })
   }
   showHostSelect.value = false
@@ -1276,7 +1288,56 @@ watch(hostSearchValue, (newVal) => {
 })
 const fetchHostOptions = async (search: string) => {
   const hostsList = await (window.api as any).getUserHosts(search)
-  hostOptions.value = formatHosts(hostsList || [])
+
+  let formatted = formatHosts(hostsList || [])
+
+  // 获取资产菜单数据
+  let assetHosts: { ip: string; organizationId: string }[] = []
+  try {
+    const res = await getassetMenu({ organizationId: 'firm-0001' })
+    if (res && res.data && Array.isArray(res.data.routers)) {
+      // 遍历 routers 下所有 children
+      const routers = res.data.routers
+      routers.forEach((group: any) => {
+        if (Array.isArray(group.children)) {
+          group.children.forEach((item: any) => {
+            if (item.ip && item.organizationId) {
+              assetHosts.push({ ip: item.ip, organizationId: item.organizationId })
+            }
+          })
+        }
+      })
+    }
+  } catch (e) {
+    // 忽略资产接口异常
+  }
+  // 去重，只保留唯一 ip+organizationId
+  const uniqueAssetHosts = Array.from(
+    new Map(assetHosts.map(h => [h.ip + '_' + h.organizationId, h])).values()
+  )
+  // 转换为 hostOptions 兼容格式
+  const assetHostOptions = uniqueAssetHosts.map(h => ({
+    label: h.ip,
+    value: h.ip + '_' + h.organizationId,
+    uuid: h.ip + '_' + h.organizationId,
+    organizationId: h.organizationId,
+    connection: 'organization'
+  }))
+
+  for (const host of formatted) {
+    if (assetHostOptions.some(h => h.label === host.label)) {
+      continue
+    }
+    host.connection = 'personal'
+    assetHostOptions.push(host)
+  }
+
+  const allOptions = [...assetHostOptions]
+  const deduped = Array.from(
+    new Map(allOptions.map(h => [h.label + '_' + (h.organizationId || ''), h])).values()
+  )
+  
+  hostOptions.value.splice(0, hostOptions.value.length, ...deduped)
 }
 
 const showResumeButton = computed(() => {
