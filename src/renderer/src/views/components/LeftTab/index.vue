@@ -22,7 +22,7 @@
           v-else-if="i.key === 'keychain'"
           class="term_menu"
           :class="{ active: activeKey === i.key }"
-          @click="menuClick('keychain')"
+          @click="keychainConfigClick"
         >
           <img
             :src="i.icon"
@@ -112,6 +112,9 @@ import { userLogOut } from '@/api/user/user'
 import { userInfoStore } from '@/store/index'
 import { pinia } from '@/main'
 
+const keychainConfigClick = () => {
+  emit('open-user-tab', 'keyChainConfig')
+}
 const userStore = userInfoStore(pinia)
 const activeKey = ref('workspace')
 const showUserMenu = ref<boolean>(false)

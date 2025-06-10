@@ -2,31 +2,30 @@
   <div class="asset-config-container">
     <div class="split-layout">
       <div class="left-section">
-        <div
-          class="toggle-btn"
-          @click="openNewPanel"
-        >
-          <a-button
-            type="primary"
-            size="small"
-            class="workspace-button"
-          >
-            <template #icon><DatabaseOutlined /></template>{{ $t('personal.newHost') }}
-          </a-button>
-        </div>
-
         <!-- 搜索框 -->
         <div class="search-container">
           <a-input
             v-model:value="searchValue"
-            placeholder="搜索..."
+            :placeholder="t('common.search')"
             class="search-input"
             @input="handleSearch"
           >
-            <template #prefix>
-              <DatabaseOutlined />
+            <template #suffix>
+              <search-outlined />
             </template>
           </a-input>
+          <div
+            class="toggle-btn"
+            @click="openNewPanel"
+          >
+            <a-button
+              type="primary"
+              size="small"
+              class="workspace-button"
+            >
+              <template #icon><DatabaseOutlined /></template>{{ t('personal.newHost') }}
+            </a-button>
+          </div>
         </div>
 
         <!-- 资产列表 -->
@@ -63,7 +62,7 @@
                     <div class="host-info">
                       <div class="host-name">{{ host.title }}</div>
                       <div class="host-type">
-                        ssh{{ host.username ? ', ' + host.username : '' }}
+                        {{ t('personal.hostType') }}{{ host.username ? ', ' + host.username : '' }}
                       </div>
                     </div>
                     <div
@@ -88,21 +87,21 @@
                   @click="handleConnect(selectedHost)"
                 >
                   <div class="context-menu-icon"><ApiOutlined /></div>
-                  <div>Connect</div>
+                  <div>{{ t('common.connect') }}</div>
                 </div>
                 <div
                   class="context-menu-item"
                   @click="handleEdit(selectedHost)"
                 >
                   <div class="context-menu-icon"><EditOutlined /></div>
-                  <div>Edit</div>
+                  <div>{{ t('common.edit') }}</div>
                 </div>
                 <div
                   class="context-menu-item delete"
                   @click="handleRemove(selectedHost)"
                 >
                   <div class="context-menu-icon"><DeleteOutlined /></div>
-                  <div>Remove</div>
+                  <div>{{ t('common.remove') }}</div>
                 </div>
               </div>
             </div>
@@ -115,7 +114,7 @@
       >
         <div class="right-section-header">
           <div style="font-size: 14px; font-weight: bold">
-            <h3>{{ isEditMode ? 'Edit Host' : 'New Host' }}</h3>
+            <h3>{{ isEditMode ? t('personal.editHost') : t('personal.newHost') }}</h3>
           </div>
           <ToTopOutlined
             style="font-size: 20px; transform: rotate(90deg); cursor: pointer"
@@ -125,52 +124,43 @@
         </div>
 
         <div class="right-section-content">
-          <a-card
-            title="Address"
-            style="width: 100%; margin-bottom: 16px; flex-shrink: 0"
-            :head-style="{
-              padding: '0 24px',
-              minHeight: '32px',
-              fontSize: '20px',
-              fontWeight: 'bold'
-            }"
+          <a-form
+            :label-col="{ span: 27 }"
+            :wrapper-col="{ span: 27 }"
+            layout="vertical"
+            class="custom-form"
           >
-            <div style="display: flex; align-items: center; gap: 8px">
-              <DatabaseOutlined style="font-size: 30px" />
+            <div class="formTitle">
+              <div class="titleHeader"></div>
+              {{ t('personal.address') }}</div
+            >
+            <a-form-item :label="t('personal.processor')">
               <a-input
                 v-model:value="createFrom.ip"
-                placeholder="IP or Hostname"
-                style="flex: 1"
+                :placeholder="t('personal.pleaseInput')"
               />
-            </div>
-          </a-card>
-          <a-card
-            title="General"
-            style="width: 100%; margin-bottom: 16px; flex-shrink: 0"
-            :head-style="{
-              padding: '0 24px',
-              minHeight: '32px',
-              fontSize: '20px',
-              fontWeight: 'bold'
-            }"
-          >
-            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px">
-              <TagOutlined />
+            </a-form-item>
+
+            <div class="formTitle">
+              <div class="titleHeader"></div>
+              {{ t('personal.general') }}</div
+            >
+            <a-form-item :label="t('personal.alias')">
               <a-input
                 v-model:value="createFrom.label"
-                placeholder="Label"
-                style="flex: 1; margin-bottom: 8px"
+                :placeholder="t('personal.pleaseInput')"
               />
-            </div>
-
-            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px">
-              <GroupOutlined />
+            </a-form-item>
+            <a-form-item
+              :label="t('personal.general')"
+              class="general-group"
+            >
               <a-select
                 v-model:value="createFrom.group_name"
                 mode="tags"
-                placeholder="Group"
+                :placeholder="t('personal.pleaseSelect')"
+                :max-tag-count="2"
                 style="width: 100%"
-                :max-tag-count="1"
                 @change="(val) => (createFrom.group_name = val.slice(-1))"
               >
                 <a-select-option
@@ -181,77 +171,64 @@
                   {{ item1 }}
                 </a-select-option>
               </a-select>
-            </div>
-          </a-card>
-          <a-card
-            title="SSH"
-            style="width: 100%; margin-bottom: 16px; flex-shrink: 0"
-            :head-style="{
-              padding: '0 24px',
-              minHeight: '32px',
-              fontSize: '20px',
-              fontWeight: 'bold'
-            }"
-          >
-            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px">
-              <BranchesOutlined />
-              <a-input-number
+            </a-form-item>
+
+            <div class="formTitle">
+              <div class="titleHeader"></div>
+              SSH</div
+            >
+            <a-form-item :label="t('personal.command')">
+              <a-input
                 v-model:value="createFrom.port"
                 :min="20"
                 :max="65536"
-                placeholder="Port"
-                style="flex: 1"
+                :placeholder="t('personal.pleaseInput')"
+                style="width: 100%"
               />
-            </div>
-            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px">
-              <SafetyOutlined />
+            </a-form-item>
+            <a-form-item :label="t('personal.verificationMethod')">
               <a-radio-group
                 v-model:value="createFrom.auth_type"
                 button-style="solid"
                 style="width: 100%"
                 @change="authChange"
               >
-                <a-radio-button value="password">Password</a-radio-button>
-                <a-radio-button value="keyBased">Key</a-radio-button>
+                <a-radio-button value="password">{{ t('personal.passWord') }}</a-radio-button>
+                <a-radio-button value="keyBased">{{ t('personal.key') }}</a-radio-button>
               </a-radio-group>
-            </div>
-            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px">
-              <UserOutlined />
+            </a-form-item>
+            <a-form-item :label="t('personal.userName')">
               <a-input
                 v-model:value="createFrom.username"
-                placeholder="User"
-                style="flex: 1"
+                :placeholder="t('personal.pleaseInput')"
               />
-            </div>
-            <div
+            </a-form-item>
+            <a-form-item
               v-if="createFrom.auth_type == 'password'"
-              style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px"
+              :label="t('personal.passWord')"
             >
-              <EyeInvisibleOutlined />
               <a-input-password
                 v-model:value="createFrom.password"
-                placeholder="Password"
-                style="flex: 1"
+                :placeholder="t('personal.pleaseInput')"
               />
-            </div>
-            <div
+            </a-form-item>
+            <a-form-item
               v-else
-              style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px"
+              :label="t('personal.key')"
             >
-              <KeyOutlined />
               <a-select
                 v-model:value="createFrom.keyChain"
                 placeholder="KeyChain"
                 style="width: 100%"
                 show-search
+                :max-tag-count="4"
                 :options="keyChainOptions"
                 :option-filter-prop="'label'"
                 :field-names="{ value: 'key', label: 'label' }"
                 :allow-clear="true"
-              >
-              </a-select>
-            </div>
-          </a-card>
+              />
+            </a-form-item>
+          </a-form>
         </div>
 
         <div class="connect-button-container">
@@ -260,10 +237,7 @@
             class="connect-button"
             @click="isEditMode ? handleSaveAsset() : handleCreateAsset()"
           >
-            <template #icon>
-              <component :is="isEditMode ? SaveOutlined : PlusCircleOutlined" />
-            </template>
-            {{ isEditMode ? 'Save Asset' : 'Create Asset' }}
+            {{ isEditMode ? t('personal.saveAsset') : t('personal.createAsset') }}
           </a-button>
         </div>
       </div>
@@ -279,22 +253,16 @@ import 'xterm/css/xterm.css'
 import { deepClone } from '@/utils/util'
 import {
   ToTopOutlined,
-  SaveOutlined,
   DatabaseOutlined,
-  GroupOutlined,
-  TagOutlined,
-  BranchesOutlined,
-  SafetyOutlined,
-  UserOutlined,
-  EyeInvisibleOutlined,
-  KeyOutlined,
-  PlusCircleOutlined,
   EditOutlined,
   ApiOutlined,
-  DeleteOutlined
+  DeleteOutlined,
+  SearchOutlined
 } from '@ant-design/icons-vue'
 
 import eventBus from '@/utils/eventBus'
+import i18n from '@/locales'
+const { t } = i18n.global
 
 const isEditMode = ref(false)
 const editingAssetUUID = ref<string | null>(null)
@@ -330,7 +298,7 @@ const createFrom = reactive<CreateForm>({
   password: '',
   ip: '',
   label: '',
-  group_name: 'Hosts',
+  group_name: t('personal.defaultGroup'),
   auth_type: 'password',
   keyChain: undefined,
   port: 22
@@ -342,7 +310,7 @@ const resetForm = () => {
     password: '',
     ip: '',
     label: '',
-    group_name: 'Hosts',
+    group_name: t('personal.defaultGroup'),
     auth_type: 'password',
     keyChain: undefined,
     port: 22
@@ -437,24 +405,24 @@ const handleRemove = (host: AssetNode | null) => {
 
   // 确认删除
   Modal.confirm({
-    title: '删除确认',
-    content: `确定要删除资产 " ${host.title} " 吗？`,
-    okText: '删除',
-    okType: 'danger', // AntD 提供的危险按钮样式
-    cancelText: '取消',
+    title: t('personal.deleteConfirm'),
+    content: t('personal.deleteConfirmContent', { name: host.title }),
+    okText: t('common.delete'),
+    okType: 'danger',
+    cancelText: t('common.cancel'),
     maskClosable: true,
     onOk: async () => {
       try {
         const api = window.api as any
         const res = await api.deleteAsset({ uuid: host.uuid })
         if (res?.data?.message === 'success') {
-          message.success(`删除资产 ${host.title} 成功`)
+          message.success(t('personal.deleteSuccess', { name: host.title }))
           getAssetList()
         } else {
-          message.error('删除失败')
+          message.error(t('personal.deleteFailure'))
         }
       } catch (err: any) {
-        message.error(`删除出错: ${err.message || '未知错误'}`)
+        message.error(t('personal.deleteError', { error: err.message || '未知错误' }))
       }
     }
   })
@@ -520,7 +488,7 @@ const handleCreateAsset = async () => {
       })
 
       isRightSectionVisible.value = false
-      message.success(`创建资产成功`)
+      message.success(t('personal.createSuccess'))
       resetForm()
       isRightSectionVisible.value = false
       getAssetList()
@@ -562,14 +530,14 @@ const handleSaveAsset = async () => {
 
     const res = await api.updateAsset({ form: cleanForm })
     if (res?.data?.message === 'success') {
-      message.success('保存成功')
+      message.success(t('personal.saveSuccess'))
       isRightSectionVisible.value = false
       getAssetList()
     } else {
       throw new Error('保存失败')
     }
   } catch (e: any) {
-    message.error(e.message || '保存出错')
+    message.error(e.message || t('personal.saveError'))
   }
 }
 
@@ -659,15 +627,15 @@ watch(isRightSectionVisible, (val) => {
 <style lang="less" scoped>
 .workspace-button {
   font-size: 14px;
-  height: 28px;
+  height: 30px;
   display: flex;
   align-items: center;
-  background-color: rgb(90, 94, 115);
-  border-color: rgb(90, 94, 115);
+  background-color: #1677ff;
+  border-color: #1677ff;
 
   &:hover {
-    background-color: rgb(110, 114, 135);
-    border-color: rgb(110, 114, 135);
+    background-color: #398bff;
+    border-color: #398bff;
   }
 
   &:active {
@@ -699,7 +667,6 @@ watch(isRightSectionVisible, (val) => {
   position: relative;
   transition: all 0.3s ease;
   padding: 10px;
-  padding-top: 50px;
   overflow-y: auto;
   background-color: #141414;
   width: 100%; /* 确保左侧部分占满可用空间 */
@@ -707,14 +674,14 @@ watch(isRightSectionVisible, (val) => {
 
 .search-container {
   margin-bottom: 20px;
-  width: 100%;
+  display: flex;
+  width: 60%;
 }
 
 .search-input {
   background-color: #2c2c2c;
   border-color: #2c2c2c;
   color: white;
-
   :deep(.ant-input) {
     background-color: #2c2c2c;
     color: white;
@@ -728,6 +695,10 @@ watch(isRightSectionVisible, (val) => {
     color: rgba(255, 255, 255, 0.7);
     margin-right: 8px;
   }
+}
+
+.toggle-btn {
+  margin-left: 0.5em;
 }
 
 .asset-list-container {
@@ -875,9 +846,8 @@ watch(isRightSectionVisible, (val) => {
 }
 
 .right-section {
-  flex: 0 0 28%;
-  background: #2c2c2c;
-  border-left: 1px solid var(--ev-c-white);
+  flex: 0 0 30%;
+  background: #141414;
   transition: all 0.3s ease;
   height: 100%;
   display: flex;
@@ -885,7 +855,8 @@ watch(isRightSectionVisible, (val) => {
   box-sizing: border-box; /* 确保内边距不会增加元素的总尺寸 */
   padding: 0;
   overflow: hidden;
-  max-width: 28%; /* 限制最大宽度 */
+  max-width: 30%; /* 限制最大宽度 */
+  min-width: 300px;
 }
 
 .right-section-header {
@@ -898,6 +869,7 @@ watch(isRightSectionVisible, (val) => {
 }
 
 .right-section-content {
+  color: #ffffff;
   flex: 1;
   display: flex;
   flex-direction: column;
@@ -921,17 +893,6 @@ watch(isRightSectionVisible, (val) => {
   pointer-events: none;
 }
 
-.toggle-btn {
-  position: absolute;
-  top: 10px;
-  left: 10px;
-  height: 24px;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
 .top-icon {
   &:hover {
     color: #52c41a;
@@ -946,8 +907,8 @@ watch(isRightSectionVisible, (val) => {
   flex-shrink: 0;
   position: sticky;
   bottom: 0;
-  background-color: #2c2c2c;
-  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  // background-color: #2c2c2c;
+  // border-top: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .connect-button {
@@ -1002,5 +963,56 @@ watch(isRightSectionVisible, (val) => {
   align-items: center;
   justify-content: center;
   width: 16px;
+}
+.custom-form {
+  color: rgba(255, 255, 255, 0.85);
+  :deep(.ant-form-item-label) {
+    min-width: 250px;
+  }
+}
+:deep(.ant-form-item) {
+  color: rgba(255, 255, 255, 0.65);
+}
+.custom-form :deep(.ant-input),
+.custom-form :deep(.ant-input-password),
+.custom-form :deep(.ant-select-selector),
+.custom-form :deep(.ant-input-number-input) {
+  color: rgba(255, 255, 255, 0.85);
+  background-color: transparent !important; /* 设置背景透明 */
+  border-color: rgba(255, 255, 255, 0.2) !important;
+  &::placeholder {
+    color: rgba(255, 255, 255, 0.6);
+  }
+}
+.custom-form :deep(.ant-radio-button-wrapper) {
+  background: transparent !important;
+  color: rgba(255, 255, 255, 0.85);
+  .ant-radio-button-checked {
+    border: #1677ff;
+  }
+}
+.custom-form :deep(.ant-radio-button-wrapper-checked) {
+  color: #1677ff;
+}
+
+.custom-form :deep(.ant-select-selector),
+.custom-form :deep(.anticon.ant-input-password-icon),
+.custom-form :deep(.ant-select-arrow) {
+  color: rgba(255, 255, 255, 0.85);
+}
+.general-group :deep(.ant-select-selection-item) {
+  background-color: rgba(255, 255, 255, 0.25);
+}
+.formTitle {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  margin-bottom: 0.5em;
+  .titleHeader {
+    width: 2px;
+    height: 14px;
+    background: #1677ff;
+    margin-right: 4px;
+  }
 }
 </style>

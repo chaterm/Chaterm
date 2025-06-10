@@ -1,9 +1,10 @@
 <template>
   <div class="extension_list">
-    <p style="display: inline-block; font-size: 14px">{{ $t('extensions.extensions') }}</p>
-    <div style="width: 100%; margin-top: 10px">
+    <div style="display: inline-block; font-size: 14px">{{ t('extensions.extensions') }}</div>
+    <div style="width: 100%; margin-top: 7px">
       <a-input
         v-model:value="searchValue"
+        class="transparent-Input"
         :placeholder="$t('extensions.fuzzySearch')"
         style="width: 100%"
         allow-clear
@@ -141,6 +142,7 @@ const filteredList = computed(() => {
 /* 鼠标悬停时变色 */
 .menu_list {
   background: #141414;
+  margin-top: 10px;
 
   .menu_list_item_name {
     line-height: 24px;
@@ -155,6 +157,8 @@ const filteredList = computed(() => {
 
   :deep(.ant-menu-item-selected) {
     border-radius: 0;
+    border: 1px solid #398bff;
+    background-color: transparent;
   }
 
   :deep(.ant-menu-item) {
@@ -166,6 +170,25 @@ const filteredList = computed(() => {
     flex: 0 0 auto; /* 禁止伸缩，保持原始宽度 */
     min-width: 28px; /* 设置最小宽度 */
     max-width: 32px; /* 设置最小宽度 */
+  }
+}
+:deep(.ant-input-affix-wrapper) {
+  background-color: transparent;
+  border-color: rgba(255, 255, 255, 0.25);
+  box-shadow: none;
+  &:hover {
+    border-color: rgba(255, 255, 255, 0.25);
+  }
+}
+.transparent-Input {
+  background-color: transparent;
+  color: rgba(255, 255, 255, 1);
+  :deep(.ant-input) {
+    background-color: transparent;
+    color: rgba(255, 255, 255, 1);
+    &::placeholder {
+      color: rgba(255, 255, 255, 0.25);
+    }
   }
 }
 </style>
