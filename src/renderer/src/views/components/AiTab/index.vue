@@ -234,7 +234,7 @@
             <a-select
               v-model:value="chatTypeValue"
               size="small"
-              style="width: 80px"
+              style="width: 95px"
               :options="AiTypeOptions"
               show-search
             ></a-select>
@@ -412,7 +412,7 @@ const props = defineProps({
 const AiModelsOptions = ref<ModelOption[]>([])
 const AiTypeOptions = [
   { label: 'Chat', value: 'chat' },
-  { label: 'Cmd', value: 'cmd' },
+  { label: 'Command', value: 'cmd' },
   { label: 'Agent', value: 'agent' }
 ]
 
