@@ -1138,14 +1138,14 @@ export class Task {
     }
 
     // 加入当前的服务器的上下文信息
-    if (this.terminalOutput && this.terminalOutput.trim().length > 0) {
-      systemPrompt += `
+    // if (this.terminalOutput && this.terminalOutput.trim().length > 0) {
+    //   systemPrompt += `
 
-        # Current Session Terminal History:
-        <terminal_history>
-        ${this.terminalOutput}
-        </terminal_history>`
-    }
+    //     # Current Session Terminal History:
+    //     <terminal_history>
+    //     ${this.terminalOutput}
+    //     </terminal_history>`
+    // }
 
     let stream = this.api.createMessage(
       systemPrompt,
