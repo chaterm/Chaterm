@@ -34,6 +34,8 @@
             v-if="tab.type === 'term' && tab.organizationId !== 'personal'"
             :ref="(el) => setTermRef(el, tab.id)"
             :server-info="tab"
+            @close-tab-in-term="closeTab"
+            @create-new-term="createNewTerm"
           />
           <SshConnect
             v-if="tab.content === 'demo' || tab.organizationId === 'personal'"
@@ -89,13 +91,20 @@ const props = defineProps({
     default: ''
   }
 })
-const emit = defineEmits(['close-tab', 'change-tab', 'update-tabs'])
+const emit = defineEmits(['close-tab', 'change-tab', 'update-tabs', 'create-tab'])
 const localTabs = computed({
   get: () => props.tabs,
   set: (value) => {
     emit('update-tabs', value)
   }
 })
+const createNewTerm = (infos) => {
+  emit('create-tab', infos)
+}
+const closeTab = (id) => {
+  console.log(id, 'iddd')
+  emit('close-tab', id)
+}
 const onDragEnd = () => {}
 const termRefMap = ref<Record<string, any>>({})
 const sshConnectRefMap = ref<Record<string, any>>({})
