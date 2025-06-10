@@ -245,6 +245,14 @@
               :options="AiModelsOptions"
               show-search
             ></a-select>
+            <a-select
+              v-if="chatTypeValue !== 'chat'"
+              v-model:value="chatAiModelValue"
+              size="small"
+              style="width: 150px"
+              :options="AgentAiModelsOptions"
+              show-search
+            ></a-select>
             <a-button
               :disabled="!showSendButton"
               size="small"
@@ -382,6 +390,7 @@ const historyList = ref<HistoryItem[]>([])
 const hosts = ref<Host[]>([])
 const chatInputValue = ref('')
 const chatModelValue = ref('qwen-chat')
+const chatAiModelValue = ref('claude-4-sonnet')
 const chatTypeValue = ref('agent')
 const activeKey = ref('chat')
 const showSendButton = ref(true)
@@ -409,6 +418,18 @@ const props = defineProps({
 })
 
 const AiModelsOptions = ref<ModelOption[]>([])
+const AgentAiModelsOptions = [
+  { label: 'claude-4-sonnet', value: 'claude-4-sonnet' },
+  { label: 'claude-4-haiku', value: 'claude-4-haiku' },
+  { label: 'claude-3-7-sonnet', value: 'claude-3-7-sonnet' },
+  { label: 'claude-3-7-haiku', value: 'claude-3-7-haiku' },
+  { label: 'claude-3-5-sonnet', value: 'claude-3-5-sonnet' },
+  { label: 'claude-3-haiku', value: 'claude-3-haiku' },
+  { label: 'claude-3-opus', value: 'claude-3-opus' },
+  { label: 'claude-3-5-haiku', value: 'claude-3-5-haiku' },
+  { label: 'claude-3-opus-20240229', value: 'claude-3-opus-20240229' },
+  { label: 'claude-3-5-opus', value: 'claude-3-5-opus' }
+]
 const AiTypeOptions = [
   { label: 'Chat', value: 'chat' },
   { label: 'Command', value: 'cmd' },
