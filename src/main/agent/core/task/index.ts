@@ -225,7 +225,6 @@ export class Task {
       terminalInfo = await this.remoteTerminalManager.createTerminal()
     } else {
       // websocket
-
       let authData = {
         user: 'test',
         email: 'test@gmail.com',
@@ -1579,7 +1578,7 @@ export class Task {
                   showNotificationForApprovalIfAutoApprovalEnabled(
                     `Chaterm wants to execute a command: ${command}`
                   )
-                  if (this.chatSettings.mode === 'cmd' || this.chatSettings.mode === 'chat') {
+                  if ( this.chatSettings.mode === 'chat') {
                     await askApprovalForCmdMode(command) // Wait for frontend to execute command and return result
                     break
                   }
@@ -2702,7 +2701,7 @@ export class Task {
         details += '\nCHAT MODE\n' + formatResponse.planModeInstructions()
         break
       case 'cmd':
-        details += '\nCMD MODE'
+        details += '\nAGENT MODE'
         break
       case 'agent':
         details += '\nAGENT MODE'

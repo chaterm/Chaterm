@@ -74,7 +74,7 @@
               />
 
               <div class="message-actions">
-                <template v-if="chatTypeValue === 'cmd'">
+                <!-- <template v-if="chatTypeValue === 'cmd'">
                   <div class="action-buttons">
                     <div class="button-row">
                       <a-button
@@ -99,7 +99,7 @@
                       </a-button>
                     </div>
                   </div>
-                </template>
+                </template> -->
                 <template
                   v-if="typeof message.content === 'object' && 'options' in message.content"
                 >
@@ -239,7 +239,7 @@
               show-search
             ></a-select>
             <a-select
-              v-if="chatTypeValue !== 'agent'"
+              v-if="chatTypeValue == 'chat'"
               v-model:value="chatModelValue"
               size="small"
               :options="AiModelsOptions"
@@ -579,9 +579,9 @@ const sendMessage = async () => {
   // 获取当前活跃主机是否存在
   if (hosts.value.length === 0) {
     const assetInfo = await getCurentTabAssetInfo()
-    console.log('assetInsssssfo', assetInfo)
+    // console.log('assetInsssssfo', assetInfo)
     if (assetInfo) {
-      if (assetInfo.type === 'term') {
+      if (assetInfo.organizationId !== 'personal') {
         hosts.value.push({
           host: assetInfo.ip,
           uuid: assetInfo.uuid,
@@ -1325,9 +1325,6 @@ const fetchHostOptions = async (search: string) => {
   }))
 
   for (const host of formatted) {
-    if (assetHostOptions.some((h) => h.label === host.label)) {
-      continue
-    }
     host.connection = 'personal'
     assetHostOptions.push(host)
   }
@@ -1338,6 +1335,8 @@ const fetchHostOptions = async (search: string) => {
   )
 
   hostOptions.value.splice(0, hostOptions.value.length, ...deduped)
+
+  console.log('hostOptions', hostOptions.value)
 }
 
 const showResumeButton = computed(() => {
