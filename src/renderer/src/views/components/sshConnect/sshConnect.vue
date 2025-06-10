@@ -138,6 +138,9 @@ onMounted(async () => {
 
   window.addEventListener('resize', handleResize)
   connectSSH()
+  eventBus.on('writeTerminalCommand', (command) => {
+    autoWriteCode(command)
+  })
 })
 
 onBeforeUnmount(() => {
@@ -149,6 +152,8 @@ onBeforeUnmount(() => {
   if (isConnected.value) {
     disconnectSSH()
   }
+
+  eventBus.off('writeTerminalCommand')
 })
 const getFileExt = (filePath: string) => {
   const idx = filePath.lastIndexOf('.')
@@ -280,6 +285,10 @@ const handleResize = () => {
   if (fitAddon.value) {
     fitAddon.value.fit()
   }
+}
+
+const autoWriteCode = (command) => {
+  terminal.value?.write(command)
 }
 
 const emit = defineEmits(['connectSSH', 'disconnectSSH'])
