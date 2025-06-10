@@ -154,8 +154,8 @@ export class Task {
     this.remoteTerminalManager = new RemoteTerminalManager()
     this.contextManager = new ContextManager()
     this.customInstructions = customInstructions
-    this.autoApprovalSettings = DEFAULT_AUTO_APPROVAL_SETTINGS // TODO:remove this
-    this.autoApprovalSettings.enabled = autoApprovalSettings.enabled
+    this.autoApprovalSettings = autoApprovalSettings
+    // this.browserSettings = browserSettings
     this.chatSettings = chatSettings
     this.hosts = hosts
     this.terminalOutput = terminalOutput
