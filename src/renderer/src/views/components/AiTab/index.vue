@@ -244,7 +244,7 @@
               size="small"
               :options="AiModelsOptions"
               show-search
-            ></a-select> -->
+            ></a-select>
             <a-button
               :disabled="!showSendButton"
               size="small"
@@ -622,6 +622,17 @@ const restoreHistoryTab = async (history: HistoryItem) => {
           item.say === lastItem.say &&
           item.type === lastItem.type
 
+        // // 处理 command 类型的消息
+        // if (item.type === 'ask' && item.ask === 'command' && item.text) {
+        //   eventBus.emit('writeTerminalCommand', item.text + '\r\n')
+        // }
+
+        // 处理 command_output 类型的消息
+        if (item.type === 'say' && item.say === 'command_output' && item.text) {
+          eventBus.emit('writeTerminalCommand', item.text + '\r\n')
+          return // 跳过添加到聊天历史
+        }
+
         if (
           !isDuplicate &&
           (item.ask === 'followup' ||
@@ -847,6 +858,8 @@ const handleApproveCommand = async () => {
   let message = chatHistory.at(-1)
   if (!message) {
     return false
+  } else {
+    eventBus.emit('writeTerminalCommand', message.content + '\r\n')
   }
   try {
     let messageRsp = {
@@ -965,6 +978,26 @@ onMounted(async () => {
       showSendButton.value = false
       showCancelButton.value = true
       let lastMessageInChat = chatHistory.at(-1)
+
+      // 处理 command 类型的消息
+      // if (
+      //   message.partialMessage.type === 'ask' &&
+      //   message.partialMessage.ask === 'command' &&
+      //   message.partialMessage.text
+      // ) {
+      //   eventBus.emit('writeTerminalCommand', message.partialMessage.text + '\r\n')
+      // }
+
+      // 处理 command_output 类型的消息
+      if (
+        message.partialMessage.type === 'say' &&
+        message.partialMessage.say === 'command_output' &&
+        message.partialMessage.text
+      ) {
+        eventBus.emit('writeTerminalCommand', message.partialMessage.text)
+        eventBus.emit('executeTerminalCommand', '\r')
+        return // 跳过添加到聊天历史
+      }
 
       let openNewMessage =
         (lastMessage?.type === 'state' && !lastPartialMessage?.partialMessage?.partial) ||
@@ -1097,7 +1130,7 @@ const showBottomButton = computed(() => {
     return false
   }
   return (
-    chatTypeValue.value === 'agent' &&
+    (chatTypeValue.value === 'agent' || chatTypeValue.value === 'cmd') &&
     lastChatMessageId.value !== '' &&
     lastChatMessageId.value == message.id &&
     message.ask === 'command'
