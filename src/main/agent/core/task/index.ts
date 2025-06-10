@@ -217,7 +217,7 @@ export class Task {
       return
     }
     let terminalInfo: RemoteTerminalInfo | null = null
-    if (this.hosts[0].connection === 'personal') {
+    if (this.hosts[0].organizationId === 'personal') {
       let terminalUuid = this.hosts[0].uuid
       const connectionInfo = await connectAssetInfo(terminalUuid)
       connectionInfo.type = 'ssh'
