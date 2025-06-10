@@ -1532,6 +1532,10 @@ export class Task {
                 this.consecutiveMistakeCount = 0
                 let didAutoApprove = false
 
+                if (this.chatSettings.mode === 'cmd') {
+                  await askApprovalForCmdMode(command) // Wait for frontend to execute command and return result
+                  break
+                }
                 // If the model says this command is safe and auto approval for safe commands is true, execute the command
                 // If the model says the command is risky, but *BOTH* auto approve settings are true, execute the command
                 const autoApproveResult = this.shouldAutoApproveTool(block.name)
@@ -2673,7 +2677,7 @@ export class Task {
         details += '\nCHAT MODE\n' + formatResponse.planModeInstructions()
         break
       case 'cmd':
-        details += '\nAGENT MODE'
+        details += '\CMD MODE'
         break
       case 'agent':
         details += '\nAGENT MODE'
