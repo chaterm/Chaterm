@@ -994,7 +994,9 @@ onMounted(async () => {
         message.partialMessage.say === 'command_output' &&
         message.partialMessage.text
       ) {
-        eventBus.emit('writeTerminalCommand', message.partialMessage.text)
+        if (message.partialMessage.text !== 'chaterm command no output was returned.') {
+          eventBus.emit('writeTerminalCommand', message.partialMessage.text)
+        }
         eventBus.emit('executeTerminalCommand', '\r')
         return // 跳过添加到聊天历史
       }
