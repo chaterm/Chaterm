@@ -896,8 +896,6 @@ export class Task {
     }
     terminalInfo.terminal.show()
     const process = this.remoteTerminalManager.runCommand(terminalInfo, command, this.cwd)
-    let userFeedback: { text?: string; images?: string[] } | undefined
-    let didContinue = false
     // Chunked terminal output buffering
     const CHUNK_LINE_COUNT = 20
     const CHUNK_BYTE_SIZE = 2048 // 2KB
@@ -909,28 +907,18 @@ export class Task {
     let chunkEnroute = false
 
     const flushBuffer = async (force = false) => {
-      if (chunkEnroute || outputBuffer.length === 0) {
-        if (force && !chunkEnroute && outputBuffer.length > 0) {
-          // If force is true and no chunkEnroute, flush anyway
-        } else {
-          return
-        }
+      if (!force && (chunkEnroute || outputBuffer.length === 0)) {
+        return
       }
       const chunk = outputBuffer.join('\n')
       outputBuffer = []
       outputBufferSize = 0
       chunkEnroute = true
       try {
-        const { response, text } = await this.ask('command_output', chunk) // TODO:this message is not sent to the webview
-        if (response === 'yesButtonClicked') {
-          // proceed while running
-        } else {
-          userFeedback = { text } // Removed images
-        }
-        didContinue = true
+        await this.say('command_output', chunk, true)
         process.continue()
       } catch (error) {
-        console.error('Error while asking for command output:', error) // Log error
+        console.error('Error while saying for command output:', error) // Log error
       } finally {
         chunkEnroute = false
         // If more output accumulated while chunkEnroute, flush again
@@ -951,18 +939,13 @@ export class Task {
     process.on('line', async (line) => {
       result += line + '\n'
 
-      if (!didContinue) {
-        outputBuffer.push(line)
-        outputBufferSize += Buffer.byteLength(line, 'utf8')
-        // Flush if buffer is large enough
-        if (outputBuffer.length >= CHUNK_LINE_COUNT || outputBufferSize >= CHUNK_BYTE_SIZE) {
-          await flushBuffer()
-        } else {
-          scheduleFlush()
-        }
+      outputBuffer.push(line)
+      outputBufferSize += Buffer.byteLength(line, 'utf8')
+      // Flush if buffer is large enough
+      if (outputBuffer.length >= CHUNK_LINE_COUNT || outputBufferSize >= CHUNK_BYTE_SIZE) {
+        await flushBuffer()
       } else {
-        // The 'images' argument was removed from this 'say' call as it's not a boolean
-        this.say('command_output', line)
+        scheduleFlush()
       }
     })
 
@@ -970,7 +953,7 @@ export class Task {
     process.once('completed', async () => {
       completed = true
       // Flush any remaining buffered output
-      if (!didContinue && outputBuffer.length > 0) {
+      if (outputBuffer.length > 0) {
         if (chunkTimer) {
           clearTimeout(chunkTimer)
           chunkTimer = null
@@ -992,22 +975,11 @@ export class Task {
     // grouping command_output messages despite any gaps anyways)
     await setTimeoutPromise(50)
 
-    result = result.trim()
-
-    if (userFeedback) {
-      // The 'images' argument was removed from this 'say' call as it's not a boolean
-      await this.say('user_feedback', userFeedback.text)
-      await this.saveCheckpoint()
-      return [
-        true,
-        formatResponse.toolResult(
-          `Command is still running in the user\'s terminal.${
-            result.length > 0 ? `\nHere\'s the output so far:\n${result}` : ''
-          }\n\nThe user provided the following feedback:\n<feedback>\n${userFeedback.text}\n</feedback>`,
-          userFeedback.images
-        )
-      ]
+    const lastMessage = this.chatermMessages.at(-1)
+    if (lastMessage?.say === 'command_output') {
+      await this.say('command_output', lastMessage.text, false)
     }
+    result = result.trim()
 
     if (completed) {
       return [false, `Command executed.${result.length > 0 ? `\nOutput:\n${result}` : ''}`]
@@ -1578,7 +1550,7 @@ export class Task {
                   showNotificationForApprovalIfAutoApprovalEnabled(
                     `Chaterm wants to execute a command: ${command}`
                   )
-                  if ( this.chatSettings.mode === 'chat') {
+                  if (this.chatSettings.mode === 'chat') {
                     await askApprovalForCmdMode(command) // Wait for frontend to execute command and return result
                     break
                   }
