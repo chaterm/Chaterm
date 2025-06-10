@@ -234,17 +234,17 @@
             <a-select
               v-model:value="chatTypeValue"
               size="small"
-              style="width: 95px"
+              style="width: 100px"
               :options="AiTypeOptions"
               show-search
             ></a-select>
-            <a-select
+            <!-- <a-select
               v-if="chatTypeValue !== 'agent'"
               v-model:value="chatModelValue"
               size="small"
               :options="AiModelsOptions"
               show-search
-            ></a-select>
+            ></a-select> -->
             <a-button
               :disabled="!showSendButton"
               size="small"
