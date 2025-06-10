@@ -74,7 +74,7 @@
               />
 
               <div class="message-actions">
-                <template v-if="chatTypeValue === 'ctm-cmd'">
+                <template v-if="chatTypeValue === 'cmd'">
                   <div class="action-buttons">
                     <div class="button-row">
                       <a-button
@@ -411,8 +411,8 @@ const props = defineProps({
 
 const AiModelsOptions = ref<ModelOption[]>([])
 const AiTypeOptions = [
-  { label: 'Chat', value: 'ctm-chat' },
-  { label: 'Cmd', value: 'ctm-cmd' },
+  { label: 'Chat', value: 'chat' },
+  { label: 'Cmd', value: 'cmd' },
   { label: 'Agent', value: 'agent' }
 ]
 
@@ -579,22 +579,22 @@ const sendMessage = async () => {
   // 获取当前活跃主机是否存在
   if (hosts.value.length === 0) {
     const assetInfo = await getCurentTabAssetInfo()
-    console.log('assetInsssssfo', assetInfo) 
+    console.log('assetInsssssfo', assetInfo)
     if (assetInfo) {
-      if (assetInfo.type === 'term'){
+      if (assetInfo.type === 'term') {
         hosts.value.push({
-        host: assetInfo.ip,
-        uuid: assetInfo.uuid,
-        connection: 'organization',
-        organizationId: assetInfo.organizationId
-      })
-      }else{
+          host: assetInfo.ip,
+          uuid: assetInfo.uuid,
+          connection: 'organization',
+          organizationId: assetInfo.organizationId
+        })
+      } else {
         hosts.value.push({
-        host: assetInfo.ip,
-        uuid: assetInfo.uuid,
-        connection: 'personal',
-        organizationId: 'personal_01'
-      })
+          host: assetInfo.ip,
+          uuid: assetInfo.uuid,
+          connection: 'personal',
+          organizationId: 'personal_01'
+        })
       }
     } else {
       notification.error({
@@ -607,18 +607,18 @@ const sendMessage = async () => {
   }
   await sendMessageToMain(userContent)
 
-    const userMessage: ChatMessage = {
-      id: uuidv4(),
-      role: 'user',
-      content: userContent,
-      type: 'message',
-      ask: '',
-      say: '',
-      ts: 0
-    }
-    chatHistory.push(userMessage)
-    chatInputValue.value = ''
-    return
+  const userMessage: ChatMessage = {
+    id: uuidv4(),
+    role: 'user',
+    content: userContent,
+    type: 'message',
+    ask: '',
+    say: '',
+    ts: 0
+  }
+  chatHistory.push(userMessage)
+  chatInputValue.value = ''
+  return
 }
 
 const sendWebSocketMessage = (ws: WebSocket, type: string) => {
@@ -734,7 +734,7 @@ const restoreHistoryTab = async (history: HistoryItem) => {
             if (item && typeof item === 'object' && 'host' in item) {
               let ip = item.host
               let uuid = item.uuid || ''
-              let connection = item.connection 
+              let connection = item.connection
               let organizationId = item.organizationId
               if (ip && !hosts.value.some((h) => h.host === ip)) {
                 hosts.value.push({
@@ -1313,10 +1313,10 @@ const fetchHostOptions = async (search: string) => {
   }
   // 去重，只保留唯一 ip+organizationId
   const uniqueAssetHosts = Array.from(
-    new Map(assetHosts.map(h => [h.ip + '_' + h.organizationId, h])).values()
+    new Map(assetHosts.map((h) => [h.ip + '_' + h.organizationId, h])).values()
   )
   // 转换为 hostOptions 兼容格式
-  const assetHostOptions = uniqueAssetHosts.map(h => ({
+  const assetHostOptions = uniqueAssetHosts.map((h) => ({
     label: h.ip,
     value: h.ip + '_' + h.organizationId,
     uuid: h.ip + '_' + h.organizationId,
@@ -1325,7 +1325,7 @@ const fetchHostOptions = async (search: string) => {
   }))
 
   for (const host of formatted) {
-    if (assetHostOptions.some(h => h.label === host.label)) {
+    if (assetHostOptions.some((h) => h.label === host.label)) {
       continue
     }
     host.connection = 'personal'
@@ -1334,9 +1334,9 @@ const fetchHostOptions = async (search: string) => {
 
   const allOptions = [...assetHostOptions]
   const deduped = Array.from(
-    new Map(allOptions.map(h => [h.label + '_' + (h.organizationId || ''), h])).values()
+    new Map(allOptions.map((h) => [h.label + '_' + (h.organizationId || ''), h])).values()
   )
-  
+
   hostOptions.value.splice(0, hostOptions.value.length, ...deduped)
 }
 
