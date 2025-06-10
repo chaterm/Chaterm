@@ -184,8 +184,7 @@ export class Task {
     this.contextManager = new ContextManager()
     // this.diffViewProvider = new DiffViewProvider(this.cwd)
     this.customInstructions = customInstructions
-    this.autoApprovalSettings = DEFAULT_AUTO_APPROVAL_SETTINGS // TODO:remove this
-    this.autoApprovalSettings.enabled = autoApprovalSettings.enabled
+    this.autoApprovalSettings = autoApprovalSettings
     // this.browserSettings = browserSettings
     this.chatSettings = chatSettings
     this.hosts = hosts
