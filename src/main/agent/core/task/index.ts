@@ -217,7 +217,7 @@ export class Task {
       return
     }
     let terminalInfo: RemoteTerminalInfo | null = null
-    if (this.hosts[0].organizationId === 'personal') {
+    if (this.hosts[0].connection === 'personal') {
       let terminalUuid = this.hosts[0].uuid
       const connectionInfo = await connectAssetInfo(terminalUuid)
       connectionInfo.type = 'ssh'
@@ -1550,7 +1550,7 @@ export class Task {
                   showNotificationForApprovalIfAutoApprovalEnabled(
                     `Chaterm wants to execute a command: ${command}`
                   )
-                  if ( this.chatSettings.mode === 'chat') {
+                  if (this.chatSettings.mode === 'chat') {
                     await askApprovalForCmdMode(command) // Wait for frontend to execute command and return result
                     break
                   }
