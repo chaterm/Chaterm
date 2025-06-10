@@ -5,7 +5,6 @@ import os from 'os'
 import { v4 as uuidv4 } from 'uuid'
 
 import pWaitFor from 'p-wait-for'
-import * as path from 'path'
 import { serializeError } from 'serialize-error'
 import * as vscode from 'vscode'
 import { ApiHandler, buildApiHandler } from '@api/index'
@@ -59,24 +58,12 @@ import {
   saveChatermMessages
 } from '@core/storage/disk'
 
-// import {
-// 	refreshExternalRulesToggles,
-// 	getLocalWindsurfRules,
-// 	getLocalCursorRules,
-// } from "@core/context/instructions/user-instructions/external-rules"
 import { getGlobalState } from '@core/storage/state'
-// import { getGlobalStateMain } from '@core/storage/state' // Assuming this will be the new way to get global state in main
-// import { parseSlashCommands } from "@core/slash-commands"
 import WorkspaceTracker from '@integrations/workspace/WorkspaceTracker'
-// import { isInTestMode } from "../../services/test/TestMode"
-//import { featureFlagsService } from "@/services/posthog/feature-flags/FeatureFlagsService"
 import { connectAssetInfo } from '../../../storage/database'
 
 import type { Host } from '@shared/WebviewMessage'
 import { encrypt } from '../../integrations/remote-terminal/ws'
-
-export const cwd = path.join(os.homedir(), 'Desktop')
-// vscode.workspace.workspaceFolders?.map((folder) => folder.uri.fsPath).at(0) ?? path.join(os.homedir(), "Desktop") // may or may not exist but fs checking existence would immediately ask for permission which would be bad UX, need to come up with a better solution
 
 type ToolResponse = string | Array<Anthropic.TextBlockParam | Anthropic.ImageBlockParam>
 type UserContent = Array<Anthropic.ContentBlockParam>
@@ -98,11 +85,7 @@ export class Task {
   cwd: string = ''
   private taskIsFavorited?: boolean
   api: ApiHandler
-  //private terminalManager: TerminalManager
-  // private urlContentFetcher: UrlContentFetcher
   contextManager: ContextManager
-  //private didEditFile: boolean = false
-  // private terminalManager: TerminalManager
   private remoteTerminalManager: RemoteTerminalManager
   customInstructions?: string
   autoApprovalSettings: AutoApprovalSettings
@@ -112,15 +95,12 @@ export class Task {
   // private chatermIgnoreController: ChatermIgnoreController
   private askResponse?: ChatermAskResponse
   private askResponseText?: string
-  //private askResponseImages?: string[]
   private lastMessageTs?: number
   private consecutiveAutoApprovedRequestsCount: number = 0
   private consecutiveMistakeCount: number = 0
   private abort: boolean = false
   didFinishAbortingStream = false
   abandoned = false
-  // private diffViewProvider: DiffViewProvider
-  // private checkpointTracker?: CheckpointTracker
   checkpointTrackerErrorMessage?: string
   conversationHistoryDeletedRange?: [number, number]
   isInitialized = false
@@ -159,7 +139,6 @@ export class Task {
     shellIntegrationTimeout: number,
     customInstructions?: string,
     task?: string,
-    // images?: string[],
     historyItem?: HistoryItem,
     hosts?: Host[],
     terminalOutput?: string,
@@ -172,21 +151,11 @@ export class Task {
     this.postMessageToWebview = postMessageToWebview
     this.reinitExistingTaskFromId = reinitExistingTaskFromId
     this.cancelTask = cancelTask
-    // 初始化终端管理器
-    // this.terminalManager = new TerminalManager()
     this.remoteTerminalManager = new RemoteTerminalManager()
-    // this.chatermIgnoreController = new ChatermIgnoreController(this.cwd)
-    // Initialization moved to startTask/resumeTaskFromHistory
-    // this.terminalManager = new TerminalManager()
-    // this.terminalManager.setShellIntegrationTimeout(shellIntegrationTimeout)
-    // this.urlContentFetcher = new UrlContentFetcher(context)
-    // this.browserSession = new BrowserSession(context, browserSettings)
     this.contextManager = new ContextManager()
-    // this.diffViewProvider = new DiffViewProvider(this.cwd)
     this.customInstructions = customInstructions
     this.autoApprovalSettings = DEFAULT_AUTO_APPROVAL_SETTINGS // TODO:remove this
     this.autoApprovalSettings.enabled = autoApprovalSettings.enabled
-    // this.browserSettings = browserSettings
     this.chatSettings = chatSettings
     this.hosts = hosts
     this.terminalOutput = terminalOutput
@@ -269,7 +238,7 @@ export class Task {
       authData.terminalId = dynamicTerminalId
 
       const auth = encrypt(authData)
-      const wsUrl = 'ws://demo.chaterm.ai/v1/term-api/ws?&uuid=' + auth // 后端WebSocket地址
+      const wsUrl = 'ws://demo.chaterm.ai/v1/term-api/ws?&uuid=' + auth // Backend WebSocket address
       let connectionInfo: ConnectionInfo = {}
       connectionInfo.type = 'websocket'
       connectionInfo.wsUrl = wsUrl
@@ -284,24 +253,14 @@ export class Task {
     return terminalInfo
   }
 
-  // 设置远程连接信息
+  // Set remote connection information
   setRemoteConnectionInfo(connectionInfo: ConnectionInfo): void {
     this.remoteTerminalManager.setConnectionInfo(connectionInfo)
   }
 
-  // 获取终端管理器（公共方法）
+  // Get terminal manager (public method)
   getTerminalManager() {
     return this.remoteTerminalManager
-  }
-
-  // While a task is ref'd by a controller, it will always have access to the extension context
-  // This error is thrown if the controller derefs the task after e.g., aborting the task
-  private getContext(): vscode.ExtensionContext {
-    const context = this.context
-    if (!context) {
-      throw new Error('Unable to access extension context')
-    }
-    return context
   }
 
   // Storing task to disk for history
@@ -329,7 +288,6 @@ export class Task {
 
   private async saveChatermMessagesAndUpdateHistory() {
     try {
-      // await saveChatermMessages(this.getContext(), this.taskId, this.chatermMessages)
       await saveChatermMessages(this.taskId, this.chatermMessages)
 
       // combined as they are in ChatView
@@ -363,7 +321,7 @@ export class Task {
         cacheReads: apiMetrics.totalCacheReads,
         totalCost: apiMetrics.totalCost,
         // size: taskDirSize,
-        size: 0, // TODO:暂时设置为0，以后考虑更改或移除
+        size: 0, // TODO: temporarily set to 0, consider changing or removing later
         //shadowGitConfigWorkTree: await this.checkpointTracker?.getShadowGitConfigWorkTree(),
         conversationHistoryDeletedRange: this.conversationHistoryDeletedRange,
         isFavorited: this.taskIsFavorited
@@ -555,7 +513,6 @@ export class Task {
     if (cwd) {
       this.cwd = cwd
     }
-    //this.askResponseImages = images
   }
 
   async say(type: ChatermSay, text?: string, partial?: boolean): Promise<undefined> {
@@ -933,7 +890,7 @@ export class Task {
     // }
   }
 
-  async executeCommandTool(command: string, cwd?: string): Promise<[boolean, ToolResponse]> {
+  async executeCommandTool(command: string): Promise<[boolean, ToolResponse]> {
     const terminalInfo = await this.connectTerminal()
     if (!terminalInfo) {
       return [false, 'Failed to connect to terminal']
@@ -1490,6 +1447,30 @@ export class Task {
           }
         }
 
+        const askApprovalForCmdMode = async (command: string) => {
+          const { response, text } = await this.ask('command', command, false)
+          if (response !== 'yesButtonClicked') {
+            // User pressed reject button or responded with a message, which we treat as a rejection
+            pushToolResult(formatResponse.toolDenied())
+            if (text) {
+              pushAdditionalToolFeedback(text)
+              await this.say('user_feedback', text)
+              await this.saveCheckpoint()
+            }
+            this.didRejectTool = true // Prevent further tool uses in this message
+            return false
+          } else {
+            // text is the command result
+            if (text) {
+              pushToolResult(text)
+              await this.say('user_feedback', text)
+              await this.saveCheckpoint()
+            }
+            return true
+          }
+          return false
+        }
+
         const showNotificationForApprovalIfAutoApprovalEnabled = (message: string) => {
           if (this.autoApprovalSettings.enabled && this.autoApprovalSettings.enableNotifications) {
             showSystemNotification({
@@ -1548,7 +1529,7 @@ export class Task {
           case 'execute_command': {
             let command: string | undefined = block.params.command
             const requiresApprovalRaw: string | undefined = block.params.requires_approval
-            const requiresApprovalPerLLM = requiresApprovalRaw?.toLowerCase() === 'true' // 模型是否认为该命令需要用户审批
+            const requiresApprovalPerLLM = requiresApprovalRaw?.toLowerCase() === 'true'
 
             try {
               if (block.partial) {
@@ -1578,22 +1559,6 @@ export class Task {
                   break
                 }
                 this.consecutiveMistakeCount = 0
-
-                // // gemini models tend to use unescaped html entities in commands
-                // if (this.api.getModel().id.includes("gemini")) {
-                // 	command = fixModelHtmlEscaping(command)
-                // }
-
-                // const ignoredFileAttemptedToAccess = this.chatermIgnoreController.validateCommand(command)
-                // if (ignoredFileAttemptedToAccess) {
-                // 	await this.say("chatermignore_error", ignoredFileAttemptedToAccess)
-                // 	pushToolResult(
-                // 		formatResponse.toolError(formatResponse.chatermIgnoreError(ignoredFileAttemptedToAccess)),
-                // 	)
-                // 	await this.saveCheckpoint()
-                // 	break
-                // }
-
                 let didAutoApprove = false
 
                 // If the model says this command is safe and auto approval for safe commands is true, execute the command
@@ -1614,7 +1579,10 @@ export class Task {
                   showNotificationForApprovalIfAutoApprovalEnabled(
                     `Chaterm wants to execute a command: ${command}`
                   )
-                  // this.removeLastPartialMessageIfExistsWithType("say", "command")
+                  if (this.chatSettings.mode === 'cmd' || this.chatSettings.mode === 'chat') {
+                    await askApprovalForCmdMode(command) // Wait for frontend to execute command and return result
+                    break
+                  }
                   const didApprove = await askApproval(
                     'command',
                     command +
@@ -1637,7 +1605,7 @@ export class Task {
                     })
                   }, 30_000)
                 }
-
+                // Only agent mode goes here, cmd mode gets results in ask
                 const [userRejected, result] = await this.executeCommandTool(command)
                 if (timeoutId) {
                   clearTimeout(timeoutId)
@@ -2729,12 +2697,16 @@ export class Task {
     details += `\n${lastApiReqTotalTokens.toLocaleString()} / ${(contextWindow / 1000).toLocaleString()}K tokens used (${usagePercentage}%)`
 
     details += '\n\n# Current Mode'
-    if (this.chatSettings.mode === 'chat') {
-      details += '\nCHAT MODE\n' + formatResponse.planModeInstructions()
-    } else if (this.chatSettings.mode === 'cmd') {
-      details += '\nCMD MODE'
-    } else if (this.chatSettings.mode === 'agent') {
-      details += '\nAGENT MODE'
+    switch (this.chatSettings.mode) {
+      case 'chat':
+        details += '\nCHAT MODE\n' + formatResponse.planModeInstructions()
+        break
+      case 'cmd':
+        details += '\nCMD MODE'
+        break
+      case 'agent':
+        details += '\nAGENT MODE'
+        break
     }
 
     return `<environment_details>\n${details.trim()}\n</environment_details>`
