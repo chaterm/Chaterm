@@ -35,6 +35,12 @@ export interface HistoryItem {
   chatContent: ChatMessage[]
 }
 
+export interface TaskHistoryItem {
+  id: string
+  task: string
+  ts: number
+}
+
 export interface ModelOption {
   label: string
   value: string
