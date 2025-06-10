@@ -896,6 +896,14 @@ export class Task {
     }
     terminalInfo.terminal.show()
     const process = this.remoteTerminalManager.runCommand(terminalInfo, command, this.cwd)
+    let execResult = ''
+        process.on('line', async (line) => {
+        execResult += line + '\n'
+    })
+    if (execResult.length == 0) {
+      await this.say('command_output', 'chaterm command no output was returned.', true)
+    }
+
     // Chunked terminal output buffering
     const CHUNK_LINE_COUNT = 20
     const CHUNK_BYTE_SIZE = 2048 // 2KB
@@ -926,7 +934,7 @@ export class Task {
           await flushBuffer()
         }
       }
-    }
+    } 
 
     const scheduleFlush = () => {
       if (chunkTimer) {
