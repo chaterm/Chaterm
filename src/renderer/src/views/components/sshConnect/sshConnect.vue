@@ -141,6 +141,9 @@ onMounted(async () => {
   eventBus.on('writeTerminalCommand', (command) => {
     autoWriteCode(command)
   })
+  eventBus.on('executeTerminalCommand', (command) => {
+    autoExecuteCode(command)
+  })
 })
 
 onBeforeUnmount(() => {
@@ -154,6 +157,7 @@ onBeforeUnmount(() => {
   }
 
   eventBus.off('writeTerminalCommand')
+  eventBus.off('executeTerminalCommand')
 })
 const getFileExt = (filePath: string) => {
   const idx = filePath.lastIndexOf('.')
@@ -289,6 +293,11 @@ const handleResize = () => {
 
 const autoWriteCode = (command) => {
   terminal.value?.write(command)
+}
+
+const autoExecuteCode = (command) => {
+  
+  sendData(command)
 }
 
 const emit = defineEmits(['connectSSH', 'disconnectSSH'])
