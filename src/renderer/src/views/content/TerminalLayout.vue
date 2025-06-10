@@ -43,6 +43,7 @@
                     :tabs="openedTabs"
                     :active-tab="activeTabId"
                     @close-tab="closeTab"
+                    @create-tab="createTab"
                     @change-tab="switchTab"
                     @update-tabs="updateTabs"
                   />
@@ -277,7 +278,23 @@ const closeTab = (tabId) => {
     }
   }
 }
+const createTab = (infos) => {
+  const id_ = uuidv4()
+  openedTabs.value.push({
+    id: id_,
+    // title: item.ip ? item.title : `${t('common.' + title)}`,
+    title: infos.title,
+    // title: title,
+    content: infos.content,
+    type: infos.type,
+    organizationId: infos.organizationId,
+    ip: infos.ip,
+    data: infos.data
+  })
+  activeTabId.value = id_
 
+  console.log(openedTabs.value, 'openedTabs.value')
+}
 // 切换标签页
 const switchTab = (tabId) => {
   activeTabId.value = tabId
