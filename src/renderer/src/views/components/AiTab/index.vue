@@ -627,11 +627,11 @@ const restoreHistoryTab = async (history: HistoryItem) => {
         //   eventBus.emit('writeTerminalCommand', item.text + '\r\n')
         // }
 
-        // // 处理 command_output 类型的消息
-        // if (item.type === 'say' && item.say === 'command_output' && item.text) {
-        //   eventBus.emit('writeTerminalCommand', item.text + '\r\n')
-        //   return // 跳过添加到聊天历史
-        // }
+        // 处理 command_output 类型的消息
+        if (item.type === 'say' && item.say === 'command_output' && item.text) {
+          eventBus.emit('writeTerminalCommand', item.text + '\r\n')
+          return // 跳过添加到聊天历史
+        }
 
         if (
           !isDuplicate &&
@@ -858,6 +858,8 @@ const handleApproveCommand = async () => {
   let message = chatHistory.at(-1)
   if (!message) {
     return false
+  } else {
+    eventBus.emit('writeTerminalCommand', message.content + '\r\n')
   }
   try {
     let messageRsp = {
@@ -978,13 +980,13 @@ onMounted(async () => {
       let lastMessageInChat = chatHistory.at(-1)
 
       // 处理 command 类型的消息
-      if (
-        message.partialMessage.type === 'ask' &&
-        message.partialMessage.ask === 'command' &&
-        message.partialMessage.text
-      ) {
-        eventBus.emit('writeTerminalCommand', message.partialMessage.text + '\r\n')
-      }
+      // if (
+      //   message.partialMessage.type === 'ask' &&
+      //   message.partialMessage.ask === 'command' &&
+      //   message.partialMessage.text
+      // ) {
+      //   eventBus.emit('writeTerminalCommand', message.partialMessage.text + '\r\n')
+      // }
 
       // 处理 command_output 类型的消息
       if (
@@ -992,7 +994,8 @@ onMounted(async () => {
         message.partialMessage.say === 'command_output' &&
         message.partialMessage.text
       ) {
-        eventBus.emit('writeTerminalCommand', message.partialMessage.text + '\r\n')
+        eventBus.emit('writeTerminalCommand', message.partialMessage.text)
+        eventBus.emit('executeTerminalCommand', '\r')
         return // 跳过添加到聊天历史
       }
 
@@ -1127,7 +1130,7 @@ const showBottomButton = computed(() => {
     return false
   }
   return (
-    (chatTypeValue.value === 'agent' || chatTypeValue.value === 'cmd' ) &&
+    (chatTypeValue.value === 'agent' || chatTypeValue.value === 'cmd') &&
     lastChatMessageId.value !== '' &&
     lastChatMessageId.value == message.id &&
     message.ask === 'command'
