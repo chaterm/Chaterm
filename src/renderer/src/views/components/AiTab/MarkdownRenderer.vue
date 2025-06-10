@@ -104,7 +104,7 @@
             v-if="part.type === 'text'"
             class="markdown-content"
             style="margin: 0 8px"
-            v-html="marked(part.content, null)"
+            v-html="marked(part.content || '', null)"
           ></div>
           <div
             v-else-if="part.type === 'code'"
@@ -135,7 +135,9 @@
                 <div
                   :ref="
                     (el) => {
-                      if (el) codeEditors[part.blockIndex] = el as HTMLElement
+                      if (el && typeof part.blockIndex === 'number') {
+                        codeEditors[part.blockIndex] = el as HTMLElement
+                      }
                     }
                   "
                   class="monaco-container"
@@ -500,7 +502,7 @@ const processContent = (content: string) => {
 
     // Replace code blocks with placeholders in order
     let processedContent = content
-    blocks.forEach((block, index) => {
+    blocks.forEach((_, index) => {
       processedContent = processedContent.replace(
         /```(?:\w+)?\n[\s\S]*?```/,
         `[CODE_BLOCK_${index}]`
