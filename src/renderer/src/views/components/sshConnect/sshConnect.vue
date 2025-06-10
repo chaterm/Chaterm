@@ -92,7 +92,7 @@ onMounted(async () => {
   terminal.value = new Terminal({
     cursorBlink: true,
     cursorStyle: 'bar',
-    fontSize: 14,
+    fontSize: 12,
     fontFamily: 'Menlo, Monaco, "Courier New", Courier, monospace',
     theme: {
       background: '#141414',
