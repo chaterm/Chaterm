@@ -1532,12 +1532,21 @@ export class Task {
                 this.consecutiveMistakeCount = 0
                 let didAutoApprove = false
 
+                // if (this.chatSettings.mode === 'cmd') {
+                //   await askApprovalForCmdMode(command) // Wait for frontend to execute command and return result
+                //   break
+                // }
+
                 // If the model says this command is safe and auto approval for safe commands is true, execute the command
                 // If the model says the command is risky, but *BOTH* auto approve settings are true, execute the command
                 const autoApproveResult = this.shouldAutoApproveTool(block.name)
-                const [autoApproveSafe, autoApproveAll] = Array.isArray(autoApproveResult)
+                let [autoApproveSafe, autoApproveAll] = Array.isArray(autoApproveResult)
                   ? autoApproveResult
                   : [autoApproveResult, false]
+                if (this.chatSettings.mode === 'cmd') {
+                  autoApproveSafe = false
+                  autoApproveAll = false
+                }
                 if (
                   (!requiresApprovalPerLLM && autoApproveSafe) ||
                   (requiresApprovalPerLLM && autoApproveSafe && autoApproveAll)
@@ -1550,10 +1559,7 @@ export class Task {
                   showNotificationForApprovalIfAutoApprovalEnabled(
                     `Chaterm wants to execute a command: ${command}`
                   )
-                  if (this.chatSettings.mode === 'chat') {
-                    await askApprovalForCmdMode(command) // Wait for frontend to execute command and return result
-                    break
-                  }
+
                   const didApprove = await askApproval(
                     'command',
                     command +
@@ -2673,7 +2679,7 @@ export class Task {
         details += '\nCHAT MODE\n' + formatResponse.planModeInstructions()
         break
       case 'cmd':
-        details += '\nAGENT MODE'
+        details += '\CMD MODE'
         break
       case 'agent':
         details += '\nAGENT MODE'
