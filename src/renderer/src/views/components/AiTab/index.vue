@@ -1127,7 +1127,7 @@ const showBottomButton = computed(() => {
     return false
   }
   return (
-    chatTypeValue.value === 'agent' &&
+    (chatTypeValue.value === 'agent' || chatTypeValue.value === 'cmd' ) &&
     lastChatMessageId.value !== '' &&
     lastChatMessageId.value == message.id &&
     message.ask === 'command'
