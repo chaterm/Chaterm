@@ -74,7 +74,7 @@
               />
 
               <div class="message-actions">
-                <template v-if="chatTypeValue === 'cmd'">
+                <!-- <template v-if="chatTypeValue === 'cmd'">
                   <div class="action-buttons">
                     <div class="button-row">
                       <a-button
@@ -99,7 +99,7 @@
                       </a-button>
                     </div>
                   </div>
-                </template>
+                </template> -->
                 <template
                   v-if="typeof message.content === 'object' && 'options' in message.content"
                 >
@@ -234,15 +234,23 @@
             <a-select
               v-model:value="chatTypeValue"
               size="small"
-              style="width: 80px"
+              style="width: 100px"
               :options="AiTypeOptions"
               show-search
             ></a-select>
             <a-select
-              v-if="chatTypeValue !== 'agent'"
+              v-if="chatTypeValue == 'chat'"
               v-model:value="chatModelValue"
               size="small"
               :options="AiModelsOptions"
+              show-search
+            ></a-select>
+            <a-select
+              v-if="chatTypeValue !== 'chat'"
+              v-model:value="chatAiModelValue"
+              size="small"
+              style="width: 150px"
+              :options="AgentAiModelsOptions"
               show-search
             ></a-select>
             <a-button
@@ -350,7 +358,15 @@ import {
   updateGlobalState,
   getAllExtensionState
 } from '@renderer/agent/storage/state'
-import type { HistoryItem, Host, ModelOption, ChatMessage, AssetInfo } from './types'
+import type {
+  HistoryItem,
+  TaskHistoryItem,
+  Host,
+  ModelOption,
+  ChatMessage,
+  MessageContent,
+  AssetInfo
+} from './types'
 import { createNewMessage, parseMessageContent, truncateText, formatHosts } from './utils'
 import foldIcon from '@/assets/icons/fold.svg'
 import historyIcon from '@/assets/icons/history.svg'
@@ -358,7 +374,7 @@ import plusIcon from '@/assets/icons/plus.svg'
 import sendIcon from '@/assets/icons/send.svg'
 import { useCurrentCwdStore } from '@/store/currentCwdStore'
 import { getassetMenu } from '@/api/asset/asset'
-// 异步加载 Markdown 渲染组件
+
 const MarkdownRenderer = defineAsyncComponent(
   () => import('@views/components/AiTab/MarkdownRenderer.vue')
 )
@@ -370,25 +386,17 @@ const showHostSelect = ref(false)
 const hostOptions = ref<{ label: string; value: string; uuid: string }[]>([])
 const hostSearchValue = ref('')
 const hovered = ref<string | null>(null)
-
-interface MessageContent {
-  question: string
-  options?: string[]
-  selected?: string
-  type?: string
-  content?: string
-  partial?: boolean
-}
-
 const historyList = ref<HistoryItem[]>([])
 const hosts = ref<Host[]>([])
-
 const chatInputValue = ref('')
 const chatModelValue = ref('qwen-chat')
+const chatAiModelValue = ref('claude-4-sonnet')
 const chatTypeValue = ref('agent')
 const activeKey = ref('chat')
-const showSendButton = computed(() => {
-  return chatInputValue.value.trim()
+const showSendButton = ref(true)
+const shouldShowSendButton = computed(() => {
+  const trimmedValue = chatInputValue.value.trim()
+  return trimmedValue.length >= 1 && !/^\s*$/.test(trimmedValue)
 })
 const lastChatMessageId = ref('')
 const buttonsDisabled = ref(false)
@@ -410,9 +418,21 @@ const props = defineProps({
 })
 
 const AiModelsOptions = ref<ModelOption[]>([])
+const AgentAiModelsOptions = [
+  { label: 'claude-4-sonnet', value: 'claude-4-sonnet' },
+  { label: 'claude-4-haiku', value: 'claude-4-haiku' },
+  { label: 'claude-3-7-sonnet', value: 'claude-3-7-sonnet' },
+  { label: 'claude-3-7-haiku', value: 'claude-3-7-haiku' },
+  { label: 'claude-3-5-sonnet', value: 'claude-3-5-sonnet' },
+  { label: 'claude-3-haiku', value: 'claude-3-haiku' },
+  { label: 'claude-3-opus', value: 'claude-3-opus' },
+  { label: 'claude-3-5-haiku', value: 'claude-3-5-haiku' },
+  { label: 'claude-3-opus-20240229', value: 'claude-3-opus-20240229' },
+  { label: 'claude-3-5-opus', value: 'claude-3-5-opus' }
+]
 const AiTypeOptions = [
   { label: 'Chat', value: 'chat' },
-  { label: 'Cmd', value: 'cmd' },
+  { label: 'Command', value: 'cmd' },
   { label: 'Agent', value: 'agent' }
 ]
 
@@ -465,106 +485,6 @@ const handleTabChange = (key: string | number) => {
   currentChatId.value = historyList.value.find((item) => item.chatType === key)?.id || null
 }
 
-// 创建 WebSocket 连接的函数
-const createWebSocket = (type: string) => {
-  const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
-  const token = JSON.parse(JSON.stringify(authTokenInCookie.value))
-  const wsUrl = `${protocol}//demo.chaterm.ai/v1/ai/chat/ws?token=${token}`
-  const ws = new WebSocket(wsUrl)
-
-  ws.onopen = () => {
-    const pingInterval = setInterval(() => {
-      if (ws.readyState === WebSocket.OPEN) {
-        ws.send(JSON.stringify({ type: 'ping' }))
-      } else {
-        clearInterval(pingInterval)
-      }
-    }, 30000)
-
-    ws.onclose = () => {
-      clearInterval(pingInterval)
-      webSocket.value = null
-    }
-  }
-
-  ws.onmessage = (e) => {
-    try {
-      const parsedData = JSON.parse(e.data)
-      if (parsedData.type === 'pong') {
-        return
-      }
-      if (parsedData.conversation_id) {
-        currentChatId.value = parsedData.conversation_id
-      }
-      if (
-        parsedData.choices &&
-        parsedData.choices[0] &&
-        parsedData.choices[0].delta &&
-        parsedData.choices[0].delta.content
-      ) {
-        const currentHistoryEntry = historyList.value.find(
-          (entry) => entry.id === currentChatId.value
-        )
-
-        if (chatHistory.at(-1)?.role === 'assistant') {
-          const lastAssistantMessage = chatHistory.at(-1)!
-          if (typeof lastAssistantMessage.content === 'string') {
-            lastAssistantMessage.content += parsedData.choices[0].delta.content
-          }
-
-          if (currentHistoryEntry) {
-            const lastHistoryContent = currentHistoryEntry.chatContent.at(-1)
-            if (
-              lastHistoryContent?.role === 'assistant' &&
-              typeof lastHistoryContent.content === 'string'
-            ) {
-              lastHistoryContent.content += parsedData.choices[0].delta.content
-            }
-          }
-        } else {
-          const newMessage: ChatMessage = {
-            id: uuidv4(),
-            role: 'assistant',
-            content: parsedData.choices[0].delta.content,
-            type: 'message',
-            ask: '',
-            say: ''
-          }
-          chatHistory.push(newMessage)
-
-          if (currentHistoryEntry) {
-            currentHistoryEntry.chatContent.push(newMessage)
-          }
-        }
-      }
-    } catch (error) {
-      console.error('解析消息错误:', error)
-      chatHistory.push({
-        id: uuidv4(),
-        role: 'assistant',
-        content: '连接失败，请检查服务器状态',
-        type: 'message',
-        ask: '',
-        say: ''
-      })
-    }
-  }
-
-  ws.onerror = (error) => {
-    console.error(`${type} WebSocket错误:`, error)
-    chatHistory.push({
-      id: uuidv4(),
-      role: 'assistant',
-      content: '连接失败，请检查服务器状态',
-      type: 'message',
-      ask: '',
-      say: ''
-    })
-  }
-
-  return ws
-}
-
 const sendMessage = async () => {
   if (chatInputValue.value.trim() === '') {
     notification.error({
@@ -579,9 +499,9 @@ const sendMessage = async () => {
   // 获取当前活跃主机是否存在
   if (hosts.value.length === 0) {
     const assetInfo = await getCurentTabAssetInfo()
-    console.log('assetInsssssfo', assetInfo)
+    // console.log('assetInsssssfo', assetInfo)
     if (assetInfo) {
-      if (assetInfo.type === 'term') {
+      if (assetInfo.organizationId !== 'personal') {
         hosts.value.push({
           host: assetInfo.ip,
           uuid: assetInfo.uuid,
@@ -619,47 +539,6 @@ const sendMessage = async () => {
   chatHistory.push(userMessage)
   chatInputValue.value = ''
   return
-}
-
-const sendWebSocketMessage = (ws: WebSocket, type: string) => {
-  const userContent = chatInputValue.value
-  const currentHistoryEntry = historyList.value.find((entry) => entry.id === currentChatId.value)
-
-  if (currentHistoryEntry) {
-    if (currentHistoryEntry.chatContent.length === 0) {
-      currentHistoryEntry.chatTitle =
-        userContent.length > 15 ? userContent.substring(0, 15) + '.' : userContent
-    }
-    const userMessage: ChatMessage = {
-      id: uuidv4(),
-      role: 'user',
-      content: userContent,
-      type: 'message',
-      ask: '',
-      say: ''
-    }
-    currentHistoryEntry.chatContent.push(userMessage)
-  }
-
-  const userMessage: ChatMessage = {
-    id: uuidv4(),
-    role: 'user',
-    content: userContent,
-    type: 'message',
-    ask: '',
-    say: ''
-  }
-  chatHistory.push(userMessage)
-
-  const messageData = {
-    model: chatModelValue.value,
-    messages: [{ role: 'user', content: userContent }],
-    modelMethod: type,
-    conversationId: currentChatId.value?.length === 56 ? currentChatId.value : ''
-  }
-
-  ws.send(JSON.stringify(messageData))
-  chatInputValue.value = ''
 }
 
 const handleClose = () => {
@@ -763,6 +642,17 @@ const restoreHistoryTab = async (history: HistoryItem) => {
           item.ask === lastItem.ask &&
           item.say === lastItem.say &&
           item.type === lastItem.type
+
+        // // 处理 command 类型的消息
+        // if (item.type === 'ask' && item.ask === 'command' && item.text) {
+        //   eventBus.emit('writeTerminalCommand', item.text + '\r\n')
+        // }
+
+        // 处理 command_output 类型的消息
+        if (item.type === 'say' && item.say === 'command_output' && item.text) {
+          eventBus.emit('writeTerminalCommand', item.text + '\r\n')
+          return // 跳过添加到聊天历史
+        }
 
         if (
           !isDuplicate &&
@@ -989,6 +879,8 @@ const handleApproveCommand = async () => {
   let message = chatHistory.at(-1)
   if (!message) {
     return false
+  } else {
+    eventBus.emit('writeTerminalCommand', message.content + '\r\n')
   }
   try {
     let messageRsp = {
@@ -1107,6 +999,28 @@ onMounted(async () => {
       showSendButton.value = false
       showCancelButton.value = true
       let lastMessageInChat = chatHistory.at(-1)
+
+      // 处理 command 类型的消息
+      // if (
+      //   message.partialMessage.type === 'ask' &&
+      //   message.partialMessage.ask === 'command' &&
+      //   message.partialMessage.text
+      // ) {
+      //   eventBus.emit('writeTerminalCommand', message.partialMessage.text + '\r\n')
+      // }
+
+      // 处理 command_output 类型的消息
+      if (
+        message.partialMessage.type === 'say' &&
+        message.partialMessage.say === 'command_output' &&
+        message.partialMessage.text
+      ) {
+        if (message.partialMessage.text !== 'chaterm command no output was returned.') {
+          eventBus.emit('writeTerminalCommand', message.partialMessage.text)
+        }
+        eventBus.emit('executeTerminalCommand', '\r')
+        return // 跳过添加到聊天历史
+      }
 
       let openNewMessage =
         (lastMessage?.type === 'state' && !lastPartialMessage?.partialMessage?.partial) ||
@@ -1239,7 +1153,7 @@ const showBottomButton = computed(() => {
     return false
   }
   return (
-    chatTypeValue.value === 'agent' &&
+    (chatTypeValue.value === 'agent' || chatTypeValue.value === 'cmd') &&
     lastChatMessageId.value !== '' &&
     lastChatMessageId.value == message.id &&
     message.ask === 'command'
@@ -1325,9 +1239,6 @@ const fetchHostOptions = async (search: string) => {
   }))
 
   for (const host of formatted) {
-    if (assetHostOptions.some((h) => h.label === host.label)) {
-      continue
-    }
     host.connection = 'personal'
     assetHostOptions.push(host)
   }
@@ -1338,6 +1249,8 @@ const fetchHostOptions = async (search: string) => {
   )
 
   hostOptions.value.splice(0, hostOptions.value.length, ...deduped)
+
+  console.log('hostOptions', hostOptions.value)
 }
 
 const showResumeButton = computed(() => {
@@ -1361,6 +1274,15 @@ const handleAddHostClick = async () => {
     })
   }
 }
+
+// 使用immediate选项确保初始化时也执行一次
+watch(
+  shouldShowSendButton,
+  (newValue) => {
+    showSendButton.value = newValue
+  },
+  { immediate: true }
+)
 </script>
 
 <style lang="less" scoped>
