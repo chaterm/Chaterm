@@ -6,14 +6,13 @@ import { v4 as uuidv4 } from 'uuid'
 
 import pWaitFor from 'p-wait-for'
 import { serializeError } from 'serialize-error'
-import * as vscode from 'vscode'
 import { ApiHandler, buildApiHandler } from '@api/index'
 import { ApiStream } from '@api/transform/stream'
 import { formatContentBlockToMarkdown } from '@integrations/misc/export-markdown'
 import { showSystemNotification } from '@integrations/notifications'
 import { ApiConfiguration } from '@shared/api'
 import { findLast, findLastIndex, parsePartialArrayString } from '@shared/array'
-import { AutoApprovalSettings, DEFAULT_AUTO_APPROVAL_SETTINGS } from '@shared/AutoApprovalSettings'
+import { AutoApprovalSettings } from '@shared/AutoApprovalSettings'
 import { ChatSettings } from '@shared/ChatSettings'
 import { combineApiRequests } from '@shared/combineApiRequests'
 import { combineCommandSequences, COMMAND_REQ_APP_STRING } from '@shared/combineCommandSequences'
@@ -29,8 +28,8 @@ import {
 } from '@shared/ExtensionMessage'
 import { getApiMetrics } from '@shared/getApiMetrics'
 import { HistoryItem } from '@shared/HistoryItem'
-import { DEFAULT_LANGUAGE_SETTINGS, getLanguageKey, LanguageDisplay } from '@shared/Languages'
-import { ChatermAskResponse, ChatermCheckpointRestore } from '@shared/WebviewMessage'
+import { DEFAULT_LANGUAGE_SETTINGS } from '@shared/Languages'
+import { ChatermAskResponse } from '@shared/WebviewMessage'
 import { calculateApiCostAnthropic } from '@utils/cost'
 import {
   AssistantMessageContent,
@@ -48,7 +47,6 @@ import {
 import { formatResponse } from '@core/prompts/responses'
 import { addUserInstructions, SYSTEM_PROMPT } from '@core/prompts/system'
 import { getContextWindowInfo } from '@core/context/context-management/context-window-utils'
-import { FileContextTracker } from '@core/context/context-tracking/FileContextTracker'
 import { ModelContextTracker } from '@core/context/context-tracking/ModelContextTracker'
 import { ContextManager } from '@core/context/context-management/ContextManager'
 import {
@@ -69,15 +67,11 @@ type ToolResponse = string | Array<Anthropic.TextBlockParam | Anthropic.ImageBlo
 type UserContent = Array<Anthropic.ContentBlockParam>
 
 export class Task {
-  // dependencies
-  private context: vscode.ExtensionContext
-  // private mcpHub: McpHub
   private workspaceTracker: WorkspaceTracker
   private updateTaskHistory: (historyItem: HistoryItem) => Promise<HistoryItem[]>
   private postStateToWebview: () => Promise<void>
   private postMessageToWebview: (message: ExtensionMessage) => Promise<void>
   private reinitExistingTaskFromId: (taskId: string) => Promise<void>
-  private cancelTask: () => Promise<void>
 
   readonly taskId: string
   hosts?: Host[]
@@ -104,11 +98,8 @@ export class Task {
   checkpointTrackerErrorMessage?: string
   conversationHistoryDeletedRange?: [number, number]
   isInitialized = false
-  isAwaitingPlanResponse = false
-  didRespondToPlanAskBySwitchingMode = false
 
   // Metadata tracking
-  private fileContextTracker: FileContextTracker
   private modelContextTracker: ModelContextTracker
 
   // streaming
@@ -126,17 +117,14 @@ export class Task {
   private didAutomaticallyRetryFailedApiRequest = false
 
   constructor(
-    context: vscode.ExtensionContext,
     workspaceTracker: WorkspaceTracker,
     updateTaskHistory: (historyItem: HistoryItem) => Promise<HistoryItem[]>,
     postStateToWebview: () => Promise<void>,
     postMessageToWebview: (message: ExtensionMessage) => Promise<void>,
     reinitExistingTaskFromId: (taskId: string) => Promise<void>,
-    cancelTask: () => Promise<void>,
     apiConfiguration: ApiConfiguration,
     autoApprovalSettings: AutoApprovalSettings,
     chatSettings: ChatSettings,
-    shellIntegrationTimeout: number,
     customInstructions?: string,
     task?: string,
     historyItem?: HistoryItem,
@@ -144,18 +132,15 @@ export class Task {
     terminalOutput?: string,
     cwd?: string
   ) {
-    this.context = context
     this.workspaceTracker = workspaceTracker
     this.updateTaskHistory = updateTaskHistory
     this.postStateToWebview = postStateToWebview
     this.postMessageToWebview = postMessageToWebview
     this.reinitExistingTaskFromId = reinitExistingTaskFromId
-    this.cancelTask = cancelTask
     this.remoteTerminalManager = new RemoteTerminalManager()
     this.contextManager = new ContextManager()
     this.customInstructions = customInstructions
     this.autoApprovalSettings = autoApprovalSettings
-    // this.browserSettings = browserSettings
     this.chatSettings = chatSettings
     this.hosts = hosts
     this.terminalOutput = terminalOutput
@@ -172,8 +157,7 @@ export class Task {
     }
 
     // Initialize file context tracker
-    this.fileContextTracker = new FileContextTracker(context, this.taskId)
-    this.modelContextTracker = new ModelContextTracker(context, this.taskId)
+    this.modelContextTracker = new ModelContextTracker(this.taskId)
     // Now that taskId is initialized, we can build the API handler
     this.api = buildApiHandler({
       ...apiConfiguration,
@@ -225,7 +209,6 @@ export class Task {
       terminalInfo = await this.remoteTerminalManager.createTerminal()
     } else {
       // websocket
-
       let authData = {
         user: 'test',
         email: 'test@gmail.com',
@@ -302,15 +285,7 @@ export class Task {
             (m) => !(m.ask === 'resume_task' || m.ask === 'resume_completed_task')
           )
         ]
-      // const taskDir = await ensureTaskExists(this.taskId)
-      // let taskDirSize = 0
-      // try {
-      //   // getFolderSize.loose silently ignores errors
-      //   // returns # of bytes, size/1000/1000 = MB
-      //   taskDirSize = await getFolderSize.loose(taskDir)
-      // } catch (error) {
-      //   console.error('Failed to get task directory size:', taskDir, error)
-      // }
+
       await this.updateTaskHistory({
         id: this.taskId,
         ts: lastRelevantMessage.ts,
@@ -320,7 +295,6 @@ export class Task {
         cacheWrites: apiMetrics.totalCacheWrites,
         cacheReads: apiMetrics.totalCacheReads,
         totalCost: apiMetrics.totalCost,
-        // size: taskDirSize,
         size: 0, // TODO: temporarily set to 0, consider changing or removing later
         //shadowGitConfigWorkTree: await this.checkpointTracker?.getShadowGitConfigWorkTree(),
         conversationHistoryDeletedRange: this.conversationHistoryDeletedRange,
@@ -395,7 +369,6 @@ export class Task {
   }
 
   // Communicate with webview
-
   // partial has three valid states true (partial message), false (completion of partial message), undefined (individual complete message)
   async ask(
     type: ChatermAsk,
@@ -408,81 +381,19 @@ export class Task {
     if (this.abort) {
       throw new Error('Chaterm instance aborted')
     }
-    let askTs: number
-    if (partial !== undefined) {
-      const lastMessage = this.chatermMessages.at(-1)
-      const isUpdatingPreviousPartial =
-        lastMessage && lastMessage.partial && lastMessage.type === 'ask' && lastMessage.ask === type
-      if (partial) {
-        if (isUpdatingPreviousPartial) {
-          // existing partial message, so update it
-          lastMessage.text = text
-          lastMessage.partial = partial
-          await this.postMessageToWebview({
-            type: 'partialMessage',
-            partialMessage: lastMessage
-          })
-          throw new Error('Current ask promise was ignored 1')
-        } else {
-          // this is a new partial message, so add it with partial state
-          askTs = Date.now()
-          this.lastMessageTs = askTs
-          await this.addToChatermMessages({
-            ts: askTs,
-            type: 'ask',
-            ask: type,
-            text,
-            partial
-          })
-          await this.postStateToWebview()
-          throw new Error('Current ask promise was ignored 2')
-        }
-      } else {
-        // partial=false means its a complete version of a previously partial message
-        if (isUpdatingPreviousPartial) {
-          // this is the complete version of a previously partial message, so replace the partial with the complete version
-          this.askResponse = undefined
-          this.askResponseText = undefined
 
-          askTs = lastMessage.ts
-          this.lastMessageTs = askTs
-          lastMessage.text = text
-          lastMessage.partial = false
-          await this.saveChatermMessagesAndUpdateHistory()
-          await this.postMessageToWebview({
-            type: 'partialMessage',
-            partialMessage: lastMessage
-          })
-        } else {
-          // this is a new partial=false message, so add it like normal
-          this.askResponse = undefined
-          this.askResponseText = undefined
-          // this.askResponseImages = undefined
-          askTs = Date.now()
-          this.lastMessageTs = askTs
-          const newMessage: ChatermMessage = {
-            ts: askTs,
-            type: 'ask',
-            ask: type,
-            text
-          }
-          await this.postMessageToWebview({
-            type: 'partialMessage',
-            partialMessage: newMessage
-          })
-          // await this.postStateToWebview()
-        }
+    let askTsRef = { value: Date.now() }
+    this.lastMessageTs = askTsRef.value
+
+    if (partial !== undefined) {
+      await this.handlePartialMessage(type, askTsRef, text, partial)
+      if (partial) {
+        throw new Error('Current ask promise was ignored')
       }
     } else {
-      // this is a new non-partial message, so add it like normal
-      // const lastMessage = this.chatermMessages.at(-1)
-      this.askResponse = undefined
-      this.askResponseText = undefined
-      // this.askResponseImages = undefined
-      askTs = Date.now()
-      this.lastMessageTs = askTs
+      this.resetAskState()
       await this.addToChatermMessages({
-        ts: askTs,
+        ts: askTsRef.value,
         type: 'ask',
         ask: type,
         text
@@ -490,21 +401,91 @@ export class Task {
       await this.postStateToWebview()
     }
 
-    await pWaitFor(() => this.askResponse !== undefined || this.lastMessageTs !== askTs, {
+    await pWaitFor(() => this.askResponse !== undefined || this.lastMessageTs !== askTsRef.value, {
       interval: 100
     })
-    if (this.lastMessageTs !== askTs) {
-      throw new Error('Current ask promise was ignored') // could happen if we send multiple asks in a row i.e. with command_output. It's important that when we know an ask could fail, it is handled gracefully
+
+    if (this.lastMessageTs !== askTsRef.value) {
+      throw new Error('Current ask promise was ignored')
     }
+
     const result = {
       response: this.askResponse!,
       text: this.askResponseText
-      //images: this.askResponseImages,
     }
+    this.resetAskState()
+    return result
+  }
+
+  private resetAskState(): void {
     this.askResponse = undefined
     this.askResponseText = undefined
-    // this.askResponseImages = undefined
-    return result
+  }
+
+  private async handlePartialMessage(
+    type: ChatermAsk,
+    askTsRef: { value: number },
+    text?: string,
+    isPartial?: boolean
+  ): Promise<void> {
+    const lastMessage = this.chatermMessages.at(-1)
+    const isUpdatingPreviousPartial =
+      lastMessage && lastMessage.partial && lastMessage.type === 'ask' && lastMessage.ask === type
+
+    if (isPartial) {
+      if (isUpdatingPreviousPartial) {
+        askTsRef.value = lastMessage.ts
+        this.lastMessageTs = lastMessage.ts
+        lastMessage.text = text
+        lastMessage.partial = isPartial
+        await this.postMessageToWebview({
+          type: 'partialMessage',
+          partialMessage: lastMessage
+        })
+      } else {
+        // 添加新的部分消息
+        askTsRef.value = Date.now()
+        this.lastMessageTs = askTsRef.value
+        await this.addToChatermMessages({
+          ts: askTsRef.value,
+          type: 'ask',
+          ask: type,
+          text,
+          partial: isPartial
+        })
+        await this.postStateToWebview()
+      }
+    } else {
+      // 完成部分消息
+      this.resetAskState()
+
+      if (isUpdatingPreviousPartial) {
+        // 更新为完整版本
+        askTsRef.value = lastMessage.ts
+        this.lastMessageTs = lastMessage.ts
+        lastMessage.text = text
+        lastMessage.partial = false
+        await this.saveChatermMessagesAndUpdateHistory()
+        await this.postMessageToWebview({
+          type: 'partialMessage',
+          partialMessage: lastMessage
+        })
+      } else {
+        // 添加新的完整消息
+        askTsRef.value = Date.now()
+        this.lastMessageTs = askTsRef.value
+        const newMessage: ChatermMessage = {
+          ts: askTsRef.value,
+          type: 'ask',
+          ask: type,
+          text
+        }
+        await this.postMessageToWebview({
+          type: 'partialMessage',
+          partialMessage: newMessage
+        })
+      }
+    }
   }
 
   async handleWebviewAskResponse(askResponse: ChatermAskResponse, text?: string, cwd?: string) {
@@ -532,7 +513,6 @@ export class Task {
         if (isUpdatingPreviousPartial) {
           // existing partial message, so update it
           lastMessage.text = text
-          // lastMessage.images = images
           lastMessage.partial = partial
           await this.postMessageToWebview({
             type: 'partialMessage',
@@ -547,7 +527,6 @@ export class Task {
             type: 'say',
             say: type,
             text,
-            // images,
             partial
           })
           await this.postStateToWebview()
@@ -557,14 +536,11 @@ export class Task {
         if (isUpdatingPreviousPartial) {
           // this is the complete version of a previously partial message, so replace the partial with the complete version
           this.lastMessageTs = lastMessage.ts
-          // lastMessage.ts = sayTs
           lastMessage.text = text
-          // lastMessage.images = images
           lastMessage.partial = false
 
           // instead of streaming partialMessage events, we do a save and post like normal to persist to disk
           await this.saveChatermMessagesAndUpdateHistory()
-          // await this.postStateToWebview()
           await this.postMessageToWebview({
             type: 'partialMessage',
             partialMessage: lastMessage
@@ -578,7 +554,6 @@ export class Task {
             type: 'say',
             say: type,
             text
-            // images,
           })
           await this.postStateToWebview()
         }
@@ -592,7 +567,6 @@ export class Task {
         type: 'say',
         say: type,
         text
-        // images,
       })
       await this.postStateToWebview()
     }
@@ -808,7 +782,6 @@ export class Task {
   async abortTask() {
     this.abort = true // will stop any autonomously running promises
     this.remoteTerminalManager.disposeAll()
-    this.fileContextTracker.dispose()
   }
 
   // Checkpoints
@@ -897,8 +870,14 @@ export class Task {
     }
     terminalInfo.terminal.show()
     const process = this.remoteTerminalManager.runCommand(terminalInfo, command, this.cwd)
-    let userFeedback: { text?: string; images?: string[] } | undefined
-    let didContinue = false
+    let execResult = ''
+        process.on('line', async (line) => {
+        execResult += line + '\n'
+    })
+    if (execResult.length == 0) {
+      await this.say('command_output', 'chaterm command no output was returned.', true)
+    }
+
     // Chunked terminal output buffering
     const CHUNK_LINE_COUNT = 20
     const CHUNK_BYTE_SIZE = 2048 // 2KB
@@ -910,28 +889,18 @@ export class Task {
     let chunkEnroute = false
 
     const flushBuffer = async (force = false) => {
-      if (chunkEnroute || outputBuffer.length === 0) {
-        if (force && !chunkEnroute && outputBuffer.length > 0) {
-          // If force is true and no chunkEnroute, flush anyway
-        } else {
-          return
-        }
+      if (!force && (chunkEnroute || outputBuffer.length === 0)) {
+        return
       }
       const chunk = outputBuffer.join('\n')
       outputBuffer = []
       outputBufferSize = 0
       chunkEnroute = true
       try {
-        const { response, text } = await this.ask('command_output', chunk) // TODO:this message is not sent to the webview
-        if (response === 'yesButtonClicked') {
-          // proceed while running
-        } else {
-          userFeedback = { text } // Removed images
-        }
-        didContinue = true
+        await this.say('command_output', chunk, true)
         process.continue()
       } catch (error) {
-        console.error('Error while asking for command output:', error) // Log error
+        console.error('Error while saying for command output:', error) // Log error
       } finally {
         chunkEnroute = false
         // If more output accumulated while chunkEnroute, flush again
@@ -939,7 +908,7 @@ export class Task {
           await flushBuffer()
         }
       }
-    }
+    } 
 
     const scheduleFlush = () => {
       if (chunkTimer) {
@@ -952,18 +921,13 @@ export class Task {
     process.on('line', async (line) => {
       result += line + '\n'
 
-      if (!didContinue) {
-        outputBuffer.push(line)
-        outputBufferSize += Buffer.byteLength(line, 'utf8')
-        // Flush if buffer is large enough
-        if (outputBuffer.length >= CHUNK_LINE_COUNT || outputBufferSize >= CHUNK_BYTE_SIZE) {
-          await flushBuffer()
-        } else {
-          scheduleFlush()
-        }
+      outputBuffer.push(line)
+      outputBufferSize += Buffer.byteLength(line, 'utf8')
+      // Flush if buffer is large enough
+      if (outputBuffer.length >= CHUNK_LINE_COUNT || outputBufferSize >= CHUNK_BYTE_SIZE) {
+        await flushBuffer()
       } else {
-        // The 'images' argument was removed from this 'say' call as it's not a boolean
-        this.say('command_output', line)
+        scheduleFlush()
       }
     })
 
@@ -971,7 +935,7 @@ export class Task {
     process.once('completed', async () => {
       completed = true
       // Flush any remaining buffered output
-      if (!didContinue && outputBuffer.length > 0) {
+      if (outputBuffer.length > 0) {
         if (chunkTimer) {
           clearTimeout(chunkTimer)
           chunkTimer = null
@@ -993,22 +957,11 @@ export class Task {
     // grouping command_output messages despite any gaps anyways)
     await setTimeoutPromise(50)
 
-    result = result.trim()
-
-    if (userFeedback) {
-      // The 'images' argument was removed from this 'say' call as it's not a boolean
-      await this.say('user_feedback', userFeedback.text)
-      await this.saveCheckpoint()
-      return [
-        true,
-        formatResponse.toolResult(
-          `Command is still running in the user\'s terminal.${
-            result.length > 0 ? `\nHere\'s the output so far:\n${result}` : ''
-          }\n\nThe user provided the following feedback:\n<feedback>\n${userFeedback.text}\n</feedback>`,
-          userFeedback.images
-        )
-      ]
+    const lastMessage = this.chatermMessages.at(-1)
+    if (lastMessage?.say === 'command_output') {
+      await this.say('command_output', lastMessage.text, false)
     }
+    result = result.trim()
 
     if (completed) {
       return [false, `Command executed.${result.length > 0 ? `\nOutput:\n${result}` : ''}`]
@@ -1138,14 +1091,14 @@ export class Task {
     }
 
     // 加入当前的服务器的上下文信息
-    if (this.terminalOutput && this.terminalOutput.trim().length > 0) {
-      systemPrompt += `
+    // if (this.terminalOutput && this.terminalOutput.trim().length > 0) {
+    //   systemPrompt += `
 
-        # Current Session Terminal History:
-        <terminal_history>
-        ${this.terminalOutput}
-        </terminal_history>`
-    }
+    //     # Current Session Terminal History:
+    //     <terminal_history>
+    //     ${this.terminalOutput}
+    //     </terminal_history>`
+    // }
 
     let stream = this.api.createMessage(
       systemPrompt,
@@ -1561,12 +1514,21 @@ export class Task {
                 this.consecutiveMistakeCount = 0
                 let didAutoApprove = false
 
+                // if (this.chatSettings.mode === 'cmd') {
+                //   await askApprovalForCmdMode(command) // Wait for frontend to execute command and return result
+                //   break
+                // }
+
                 // If the model says this command is safe and auto approval for safe commands is true, execute the command
                 // If the model says the command is risky, but *BOTH* auto approve settings are true, execute the command
                 const autoApproveResult = this.shouldAutoApproveTool(block.name)
-                const [autoApproveSafe, autoApproveAll] = Array.isArray(autoApproveResult)
+                let [autoApproveSafe, autoApproveAll] = Array.isArray(autoApproveResult)
                   ? autoApproveResult
                   : [autoApproveResult, false]
+                if (this.chatSettings.mode === 'cmd') {
+                  autoApproveSafe = false
+                  autoApproveAll = false
+                }
                 if (
                   (!requiresApprovalPerLLM && autoApproveSafe) ||
                   (requiresApprovalPerLLM && autoApproveSafe && autoApproveAll)
@@ -1579,10 +1541,7 @@ export class Task {
                   showNotificationForApprovalIfAutoApprovalEnabled(
                     `Chaterm wants to execute a command: ${command}`
                   )
-                  if (this.chatSettings.mode === 'cmd' || this.chatSettings.mode === 'chat') {
-                    await askApprovalForCmdMode(command) // Wait for frontend to execute command and return result
-                    break
-                  }
+
                   const didApprove = await askApproval(
                     'command',
                     command +
@@ -1614,7 +1573,6 @@ export class Task {
                   this.didRejectTool = true
                 }
 
-                // Re-populate file paths in case the command modified the workspace (vscode listeners do not trigger unless the user manually creates/deletes files)
                 this.workspaceTracker.populateFilePaths()
 
                 pushToolResult(result)
@@ -1903,8 +1861,6 @@ export class Task {
 
                 // Derive system information values algorithmically
                 const operatingSystem = os.platform() + ' ' + os.release()
-                // const systemInfo = `VSCode: ${vscode.version}, Node.js: ${process.version}, Architecture: ${os.arch()}`
-                // const providerAndModel = `${(await getGlobalState(this.getContext(), "apiProvider")) as string} / ${this.api.getModel().id}`
                 const providerAndModel = `${(await getGlobalState('apiProvider')) as string} / ${this.api.getModel().id}`
 
                 // Ask user for confirmation
@@ -1921,7 +1877,6 @@ export class Task {
                 })
 
                 const { text } = await this.ask('report_bug', bugReportData, false)
-
                 // If the user provided a response, treat it as feedback
                 if (text) {
                   await this.say('user_feedback', text ?? '')
@@ -2702,7 +2657,7 @@ export class Task {
         details += '\nCHAT MODE\n' + formatResponse.planModeInstructions()
         break
       case 'cmd':
-        details += '\nCMD MODE'
+        details += '\CMD MODE'
         break
       case 'agent':
         details += '\nAGENT MODE'

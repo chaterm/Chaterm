@@ -212,7 +212,7 @@ defineExpose({
 
 .tab-item.active {
   background-color: #414141;
-  border-bottom: 2px solid #007acc;
+  border-top: 2px solid #007acc;
 }
 
 .tab-title {

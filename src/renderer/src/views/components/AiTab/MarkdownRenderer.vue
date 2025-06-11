@@ -104,7 +104,7 @@
             v-if="part.type === 'text'"
             class="markdown-content"
             style="margin: 0 8px"
-            v-html="marked(part.content, null)"
+            v-html="marked(part.content || '', null)"
           ></div>
           <div
             v-else-if="part.type === 'code'"
@@ -135,7 +135,9 @@
                 <div
                   :ref="
                     (el) => {
-                      if (el) codeEditors[part.blockIndex] = el as HTMLElement
+                      if (el && typeof part.blockIndex === 'number') {
+                        codeEditors[part.blockIndex] = el as HTMLElement
+                      }
                     }
                   "
                   class="monaco-container"
@@ -199,7 +201,7 @@ if (monaco.editor) {
 const renderedContent = ref('')
 const thinkingContent = ref('')
 const normalContent = ref('')
-const thinkingLoading = ref(true)
+const thinkingLoading = ref(false)
 const activeKey = ref<string[]>(['1'])
 const contentRef = ref<HTMLElement | null>(null)
 const editorContainer = ref<HTMLElement | null>(null)
@@ -481,13 +483,16 @@ const processContent = (content: string) => {
       // 获取剩余内容
       content = content.substring(endIndex + '</think>'.length).trim()
       thinkingLoading.value = false
+      if (activeKey.value.length !== 0) {
+        checkContentHeight()
+      }
     } else {
       // 没有找到结束标签，全部内容都是思考内容
       thinkingContent.value = content.trim()
       content = ''
       // 保持 loading 状态，因为还没有结束标签
+      thinkingLoading.value = true
     }
-    console.log('thinkingLoading.value', thinkingLoading.value)
   } else {
     thinkingContent.value = ''
   }
@@ -500,7 +505,7 @@ const processContent = (content: string) => {
 
     // Replace code blocks with placeholders in order
     let processedContent = content
-    blocks.forEach((block, index) => {
+    blocks.forEach((_, index) => {
       processedContent = processedContent.replace(
         /```(?:\w+)?\n[\s\S]*?```/,
         `[CODE_BLOCK_${index}]`
@@ -599,20 +604,16 @@ const checkContentHeight = async () => {
     const maxHeight = lineHeight
     // 先计算高度
     const shouldCollapse = contentRef.value.scrollHeight > maxHeight
-    setTimeout(() => {
-      activeKey.value = shouldCollapse ? [] : ['1']
-      thinkingLoading.value = false
-    }, 1000) // 与折叠动画时间相同
+    activeKey.value = shouldCollapse ? [] : ['1']
+    thinkingLoading.value = false
   }
 }
 
 watch(
   () => thinkingContent.value,
   async (newVal) => {
-    console.log('thinkingContent watch', thinkingLoading.value)
     if (newVal) {
       thinkingLoading.value = true
-      await checkContentHeight()
     } else {
       activeKey.value = ['1']
     }
