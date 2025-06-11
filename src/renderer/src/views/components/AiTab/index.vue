@@ -1011,20 +1011,12 @@ onMounted(async () => {
       showCancelButton.value = true
       let lastMessageInChat = chatHistory.at(-1)
 
-      // 处理自动执行中command类型的消息
-      // if (
-      //   message.partialMessage.type === 'say' &&
-      //   message.partialMessage.say === 'command' &&
-      //   message.partialMessage.text
-      // ) {
-      //   eventBus.emit('writeTerminalCommand', message.partialMessage.text + '\r\n')
-      // }
-
       // 处理 command_output 类型的消息
       if (
         message.partialMessage.type === 'say' &&
         message.partialMessage.say === 'command_output' &&
-        message.partialMessage.text
+        message.partialMessage.text &&
+        message.partialMessage.partial === false
       ) {
         if (chatTypeValue.value === 'cmd') {
           if (message.partialMessage.text !== 'chaterm command no output was returned.') {
