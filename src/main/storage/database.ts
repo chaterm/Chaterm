@@ -8,13 +8,30 @@ import { v4 as uuidv4 } from 'uuid'
 const USER_DATA_PATH = app.getPath('userData')
 const COMPLETE_DB_PATH = join(USER_DATA_PATH, 'databases/complete_data.db')
 const Chaterm_DB_PATH = join(USER_DATA_PATH, 'databases/chaterm_data.db')
-const INIT_DB_PATH = join(__dirname, '../../src/renderer/src/assets/db/init_data.db')
-const INIT_CDB_PATH = join(__dirname, '../../src/renderer/src/assets/db/init_chaterm.db')
+const INIT_DB_PATH = getInitDbPath()
+const INIT_CDB_PATH = getInitChatermDbPath()
+
+function getInitChatermDbPath(): string {
+  if (app.isPackaged) {
+    return join(process.resourcesPath, 'db', 'init_chaterm.db')
+  } else {
+    return join(__dirname, '../../src/renderer/src/assets/db/init_chaterm.db')
+  }
+}
+
+function getInitDbPath(): string {
+  if (app.isPackaged) {
+    return join(process.resourcesPath, 'db', 'init_data.db')
+  } else {
+    return join(__dirname, '../../src/renderer/src/assets/db/init_data.db')
+  }
+}
 
 export async function initDatabase(): Promise<Database.Database> {
   try {
     // 检查目标数据库是否存在
     if (!fs.existsSync(COMPLETE_DB_PATH)) {
+      console.log('Target database does not exist, initializing from:', INIT_DB_PATH)
       // 确保 init_data.db 存在
       if (!fs.existsSync(INIT_DB_PATH)) {
         throw new Error('Initial database (init_data.db) not found')
@@ -32,10 +49,10 @@ export async function initDatabase(): Promise<Database.Database> {
 
     // 返回数据库实例
     const db = new Database(COMPLETE_DB_PATH)
-    console.log('Database connection established')
+    console.log('✅ Complete database connection established at:', COMPLETE_DB_PATH)
     return db
   } catch (error) {
-    console.error('Database initialization failed:', error)
+    console.error('❌ Complete database initialization failed:', error)
     throw error
   }
 }
@@ -58,7 +75,7 @@ export async function initChatermDatabase(): Promise<Database.Database> {
       const sourceDb = new Database(INIT_CDB_PATH, { readonly: true, fileMustExist: true })
       try {
         await sourceDb.backup(Chaterm_DB_PATH)
-        console.log('Chaterm database successfully copied.')
+        console.log('✅ Chaterm database successfully copied.')
       } finally {
         sourceDb.close()
       }
@@ -152,10 +169,9 @@ export async function initChatermDatabase(): Promise<Database.Database> {
 
     // Return the database instance (always from Chaterm_DB_PATH)
     const finalDb = new Database(Chaterm_DB_PATH)
-    console.log('Chaterm database connection established. Path: ' + Chaterm_DB_PATH)
     return finalDb
   } catch (error: any) {
-    console.error('Chaterm database initialization/synchronization failed:', error.message)
+    console.error('Failed database path:', Chaterm_DB_PATH)
     throw error
   }
 }
@@ -646,7 +662,7 @@ export class ChatermDatabaseService {
   // @获取用户主机列表
   getUserHosts(search: string): any {
     try {
-      const safeSearch = search ?? '';
+      const safeSearch = search ?? ''
       const stmt = this.db.prepare(`
         SELECT asset_ip, uuid
         FROM t_assets
