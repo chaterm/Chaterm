@@ -16,9 +16,46 @@
       :active-suggestion="activeSuggestion"
     />
     <v-contextmenu ref="contextmenu">
-      <v-contextmenu-item>菜单1</v-contextmenu-item>
-      <v-contextmenu-item>菜单2</v-contextmenu-item>
-      <v-contextmenu-item>菜单3</v-contextmenu-item>
+      <v-contextmenu-item @click="onContextMenuAction('copy')">复制</v-contextmenu-item>
+      <v-contextmenu-item @click="onContextMenuAction('paste')">粘贴</v-contextmenu-item>
+      <!-- <v-contextmenu-item
+        :disabled="true"
+        @click="onContextMenuAction('saveAsConfig')"
+        >另存为配置</v-contextmenu-item
+      >
+      <v-contextmenu-item
+        :disabled="true"
+        @click="onContextMenuAction('activityNotification')"
+        >活动时通知</v-contextmenu-item
+      >
+      <v-contextmenu-item
+        :disabled="true"
+        @click="onContextMenuAction('focusAllTabs')"
+        >聚焦所有标签页</v-contextmenu-item
+      > -->
+      <v-contextmenu-item @click="onContextMenuAction('disconnect')">断开连接</v-contextmenu-item>
+      <v-contextmenu-item @click="onContextMenuAction('reconnect')">重新连接</v-contextmenu-item>
+      <!-- <v-contextmenu-item
+        :disabled="true"
+        @click="onContextMenuAction('openSftpPanel')"
+        >打开 SFTP 面板</v-contextmenu-item
+      > -->
+      <v-contextmenu-item @click="onContextMenuAction('newTerminal')">新终端</v-contextmenu-item>
+      <!-- <v-contextmenu-item
+        :disabled="true"
+        @click="onContextMenuAction('newByConfig')"
+        >依据配置新建</v-contextmenu-item
+      > -->
+      <v-contextmenu-item @click="onContextMenuAction('close')">关闭</v-contextmenu-item>
+      <!-- <v-contextmenu-submenu
+        title="拆分"
+        :disabled="true"
+      >
+        <v-contextmenu-item @click="onContextMenuAction('splitRight')">右侧</v-contextmenu-item>
+        <v-contextmenu-item @click="onContextMenuAction('splitDown')">向下</v-contextmenu-item>
+        <v-contextmenu-item @click="onContextMenuAction('splitLeft')">左侧</v-contextmenu-item>
+        <v-contextmenu-item @click="onContextMenuAction('splitUp')">向上</v-contextmenu-item>
+      </v-contextmenu-submenu> -->
     </v-contextmenu>
   </div>
   <div
@@ -45,11 +82,14 @@ import { encrypt } from '@/utils/util'
 import 'xterm/css/xterm.css'
 import { userInfoStore } from '@/store'
 import { userConfigStore } from '@/store/userConfigStore'
+
 import { termFileContent, termFileContentSave } from '@/api/term/term'
 import { notification } from 'ant-design-vue'
 import EditorCode from './Editor/dragEditor.vue'
 import { Modal } from 'ant-design-vue'
+
 import { getListCmd } from '@/api/asset/asset'
+const emit = defineEmits(['closeTabInTerm'])
 import eventBus from '@/utils/eventBus'
 
 const contextmenu = ref()
@@ -71,7 +111,6 @@ const setRef = (el, key) => {
     componentRefs.value[key] = el
   }
 }
-const pingInterval = ref(null) //ping定时器
 const email = userInfoStore().userInfo.email
 const name = userInfoStore().userInfo.name
 const terminalElement = ref(null)
@@ -82,8 +121,12 @@ const activeSuggestion = ref(0) //高亮的补全项
 const socket = ref(null) //ws实例
 let term = null //term实例
 let fitAddon = null //
+const api = window.api
+let heartbeatId = null // 心跳ID
+const copyText = ref('')
 // 语法高亮相关
 const enc = new TextDecoder('utf-8')
+const encoder = new TextEncoder()
 const cursorStartX = ref(0)
 const specialCode = ref(false)
 const keyCodeArr = [8, 38, 40]
@@ -123,8 +166,7 @@ onBeforeUnmount(() => {
   if (term) {
     term.dispose()
   }
-  clearInterval(pingInterval.value)
-  pingInterval.value = null
+  api.closeHeartbeatWindow(heartbeatId)
   window.removeEventListener('resize', handleResize)
   // 移除事件监听
   eventBus.off('executeTerminalCommand')
@@ -198,6 +240,27 @@ const initTerminal = () => {
     }
   })
   term.onKey(handleKeyInput)
+  term.onSelectionChange(function () {
+    if (term.hasSelection()) {
+      copyText.value = term.getSelection()
+    }
+  })
+
+  //onKey监听不到输入法，补充监听
+  const textarea = term.element.querySelector('.xterm-helper-textarea')
+  textarea.addEventListener('compositionend', (e) => {
+    handleKeyInput({
+      domEvent: {
+        keyCode: encoder.encode(e.data),
+        code: e.data,
+        altKey: false,
+        metaKey: false,
+        ctrlKey: false,
+        ...e
+      },
+      key: e.data
+    })
+  })
 }
 
 // 连接WebSocket服务
@@ -206,6 +269,7 @@ const connectWebsocket = () => {
   const auth = encrypt(authData)
   const wsUrl = 'ws://demo.chaterm.ai/v1/term-api/ws?&uuid=' + auth // 后端WebSocket地址
   socket.value = new WebSocket(wsUrl)
+  heartbeatId = `ws-${Date.now()}`
   socket.value.onopen = () => {
     let welcome = '\x1b[38;2;22;119;255m' + name + ', 欢迎您使用智能堡垒机Chaterm \x1b[m\r\n'
     if (configStore.getUserConfig.language == 'en-US') {
@@ -213,11 +277,10 @@ const connectWebsocket = () => {
         '\x1b[38;2;22;119;255m' + email.split('@')[0] + ', Welcome to use Chaterm \x1b[m\r\n'
     }
     term.writeln(welcome)
-    pingInterval.value = setInterval(() => {
-      const msgType = 'PING'
-      const data = ''
-      socket.value.send(JSON.stringify({ terminalId, msgType, data }))
-    }, 5000)
+    console.log(api, 'api')
+    api.openHeartbeatWindow(heartbeatId, 5000)
+    api.heartBeatTick(listenerHeartbeat)
+
     setTimeout(() => {
       getALlCmdList()
     }, 1000)
@@ -265,9 +328,8 @@ const connectWebsocket = () => {
     }
   }
   socket.value.onclose = () => {
-    clearInterval(pingInterval.value)
-    pingInterval.value = null
     term.writeln('\r\n连接已关闭。')
+    api.closeHeartbeatWindow(heartbeatId)
     // setTimeout(connectWebsocket, 3000)
     socket.value = null
   }
@@ -276,7 +338,13 @@ const connectWebsocket = () => {
     term.writeln('\r\n连接错误。请检查终端服务器是否运行。')
   }
 }
-
+const listenerHeartbeat = (tackId) => {
+  if (tackId === heartbeatId) {
+    const msgType = 'PING'
+    const data = ''
+    socket.value.send(JSON.stringify({ terminalId, msgType, data }))
+  }
+}
 // 处理窗口大小变化
 const handleResize = () => {
   fitAddon.fit()
@@ -312,8 +380,7 @@ const dispatch = (term, msgData, ws) => {
       break
     case 'CLOSE':
       ws.close()
-      clearInterval(pingInterval.value)
-      pingInterval.value = null
+      api.closeHeartbeatWindow(heartbeatId)
       break
     case 'PING':
       break
@@ -432,7 +499,7 @@ const processString = (str) => {
   const stack = []
   const result = []
   let lastIndex = -1 // 上一个处理的字符位置
-  let lastType = null
+  // let lastType = null
   for (let i = 0; i < str.length; i++) {
     const c = str[i]
     if (asymmetricClosing.includes(c)) {
@@ -453,7 +520,7 @@ const processString = (str) => {
           content: pairs[c] + str.slice(startIndex + 1, i) + c
         })
         lastIndex = i
-        lastType = 'matched'
+        // lastType = 'matched'
       } else {
         if (lastIndex < i - 1) {
           result.push({
@@ -464,7 +531,7 @@ const processString = (str) => {
         }
         result.push({ type: 'unmatched', index: i, content: c })
         lastIndex = i
-        lastType = 'unmatched'
+        // lastType = 'unmatched'
       }
     } else if (symmetric.includes(c)) {
       if (stack.length > 0 && stack[stack.length - 1].symbol === c) {
@@ -484,7 +551,7 @@ const processString = (str) => {
           content: pairs[c] + str.slice(startIndex + 1, i) + c
         })
         lastIndex = i
-        lastType = 'matched'
+        // lastType = 'matched'
       } else {
         if (lastIndex < i - 1) {
           result.push({
@@ -508,7 +575,6 @@ const processString = (str) => {
       lastIndex = i // 更新 lastIndex
     }
   }
-  console.log('lastType:', lastType)
   // 处理末尾文本
   if (lastIndex < str.length - 1) {
     result.push({
@@ -693,7 +759,7 @@ const handleSave = async (data) => {
 
 // // 处理消息的函数
 const handleMessage = (msg, terminalId) => {
-  const regexPath = /\/[\w\-./&\u4E00-\u9FFF]+/g
+  const regexPath = /^\s*\/[\w\-./&\u4E00-\u9FFF]+/g
   const matchPath = msg.data.match(regexPath)
   let filePath = ''
   const msgType = 'TERMINAL_DATA'
@@ -715,6 +781,76 @@ const handleMessage = (msg, terminalId) => {
     }
   } else {
     console.log('Pwd No match found.')
+  }
+}
+
+// 统一右键菜单方法
+const onContextMenuAction = (action) => {
+  switch (action) {
+    case 'copy':
+      // 复制
+      navigator.clipboard.writeText(copyText.value)
+      console.log(copyText.value, 'copyTextcopyText')
+      break
+    case 'paste':
+      // 粘贴
+      navigator.clipboard
+        .readText()
+        .then((text) => {
+          // 将剪贴板的内容写入到终端
+          socket.value.send(JSON.stringify({ terminalId, msgType: 'TERMINAL_DATA', data: text }))
+          term.focus()
+        })
+        .catch(() => {})
+      break
+    case 'saveAsConfig':
+      // 另存为配置
+      break
+    case 'activityNotification':
+      // 活动时通知
+      break
+    case 'focusAllTabs':
+      // 聚焦所有标签页
+      break
+    case 'disconnect':
+      socket.value.close()
+      // 断开连接
+      break
+    case 'reconnect':
+      // 重新连接
+      connectWebsocket()
+      break
+    case 'openSftpPanel':
+      // 打开 SFTP 面板
+      break
+    case 'newTerminal':
+      console.log(props.serverInfo, 'props.serverInfo.id')
+      emit('createNewTerm', props.serverInfo)
+      // 新终端
+      break
+    case 'newByConfig':
+      // 依据配置新建
+      break
+    case 'close':
+      socket.value.close()
+      emit('closeTabInTerm', props.serverInfo.id)
+      // 关闭
+      break
+    case 'splitRight':
+      // 拆分-右侧
+      break
+    case 'splitDown':
+      // 拆分-向下
+      break
+    case 'splitLeft':
+      // 拆分-左侧
+      break
+    case 'splitUp':
+      // 拆分-向上
+      break
+    default:
+      // 未知操作
+      break
   }
 }
 

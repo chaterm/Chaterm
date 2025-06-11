@@ -15,7 +15,15 @@ export default {
     userConfig: 'Setting',
     alias: 'Alias Config',
     assetConfig: 'Asset Config',
-    keyChainConfig: 'Key Chain'
+    keyChainConfig: 'Key Chain',
+    search: 'Search',
+    connect: 'Connect',
+    edit: 'Edit',
+    delete: 'Delete',
+    save: 'Save',
+    create: 'Create',
+    cancel: 'Cancel',
+    remove: 'Remove'
   },
   term: {
     welcome: 'Welcome to use Chaterm'
@@ -34,7 +42,8 @@ export default {
   workspace: {
     workspace: 'Workspace',
     personal: 'Personal',
-    searchHost: 'Search host'
+    searchHost: 'Search host',
+    connectToServer: 'Connect to {ip} server'
   },
   header: {
     title: 'Smart Bastion Host Management System'
@@ -128,13 +137,44 @@ export default {
     errorNetWork: 'Network request exception',
     warning: 'Warning',
     missingAliasCommand: 'Missing alias or command!',
-    aliasAlreadyExists: 'Alias already exists！'
+    aliasAlreadyExists: 'Alias already exists！',
+    AddCommand: 'Add Command'
   },
   personal: {
     host: 'Host',
     newHost: 'New Host',
     keyChain: 'KeyChain',
-    newKey: 'New Key'
+    address: 'Address',
+    general: 'General',
+    group: 'Group',
+    accountPassword: 'Account Password',
+    key: 'Key',
+    userName: 'UserName',
+    passWord: 'PassWord',
+    processor: 'Processor',
+    command: 'Command',
+    verificationMethod: 'VerificationMethod',
+    alias: 'Alias',
+    pleaseInput: 'Please Input',
+    pleaseSelect: 'Please Select',
+    personal: 'Personal',
+    enterprise: 'Enterprise',
+    editHost: 'Edit Host',
+    saveAsset: 'Save Asset',
+    createAsset: 'Create Asset',
+    deleteConfirm: 'Delete Confirmation',
+    deleteConfirmContent: 'Are you sure you want to delete asset "{name}"?',
+    deleteSuccess: 'Asset {name} deleted successfully',
+    deleteFailure: 'Delete failed',
+    deleteError: 'Delete error: {error}',
+    createSuccess: 'Asset created successfully',
+    saveSuccess: 'Save successful',
+    saveError: 'Save error',
+    favoriteUpdateSuccess: 'Asset {name} favorite status updated',
+    favoriteUpdateFailure: 'Failed to update favorite status',
+    favoriteUpdateError: 'Error updating favorite status',
+    defaultGroup: 'Hosts',
+    hostType: 'ssh'
   },
   ai: {
     welcome: 'What can I do for you in the terminal?',
@@ -151,5 +191,27 @@ export default {
     closeAiSidebar: 'Close AI Sidebar',
     addHost: 'Add Host',
     processing: 'processing...'
+  },
+  keyChain: {
+    newKey: 'New Key',
+    editKey: 'Edit Key',
+    saveKey: 'Save Key',
+    createKey: 'Create Key',
+    deleteConfirm: 'Delete Confirmation',
+    deleteConfirmContent: 'Are you sure you want to delete key "{name}"?',
+    privateKey: 'Private Key',
+    publicKey: 'Public Key',
+    passphrase: 'Passphrase',
+    alias: 'Alias',
+    key: 'Key',
+    pleaseInput: 'Please Input',
+    label: 'Label',
+    type: 'Type: ',
+    deleteSuccess: 'Key {name} deleted successfully',
+    deleteFailure: 'Delete failed',
+    deleteError: 'Delete error: {error}',
+    createSuccess: 'Key created successfully',
+    saveSuccess: 'Save successful',
+    saveError: 'Save error'
   }
 }
