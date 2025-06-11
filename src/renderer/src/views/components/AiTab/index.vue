@@ -590,6 +590,7 @@ const handlePlusClick = async () => {
   resumeDisabled.value = false
   showCancelButton.value = false
   showSendButton.value = true
+  responseLoading.value = false
   if (currentInput.trim()) {
     sendMessage()
   }
@@ -760,6 +761,7 @@ const restoreHistoryTab = async (history: HistoryItem) => {
       chatHistory.push(...chatContentTemp)
     }
     chatInputValue.value = ''
+    responseLoading.value = false
   } catch (err) {
     console.error(err)
   }
