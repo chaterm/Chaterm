@@ -6,7 +6,6 @@ import { v4 as uuidv4 } from 'uuid'
 
 import pWaitFor from 'p-wait-for'
 import { serializeError } from 'serialize-error'
-import * as vscode from 'vscode'
 import { ApiHandler, buildApiHandler } from '@api/index'
 import { ApiStream } from '@api/transform/stream'
 import { formatContentBlockToMarkdown } from '@integrations/misc/export-markdown'
@@ -48,7 +47,6 @@ import {
 import { formatResponse } from '@core/prompts/responses'
 import { addUserInstructions, SYSTEM_PROMPT } from '@core/prompts/system'
 import { getContextWindowInfo } from '@core/context/context-management/context-window-utils'
-import { FileContextTracker } from '@core/context/context-tracking/FileContextTracker'
 import { ModelContextTracker } from '@core/context/context-tracking/ModelContextTracker'
 import { ContextManager } from '@core/context/context-management/ContextManager'
 import {
@@ -74,7 +72,6 @@ export class Task {
   private postStateToWebview: () => Promise<void>
   private postMessageToWebview: (message: ExtensionMessage) => Promise<void>
   private reinitExistingTaskFromId: (taskId: string) => Promise<void>
-  private cancelTask: () => Promise<void>
 
   readonly taskId: string
   hosts?: Host[]
@@ -103,7 +100,6 @@ export class Task {
   isInitialized = false
 
   // Metadata tracking
-  private fileContextTracker: FileContextTracker
   private modelContextTracker: ModelContextTracker
 
   // streaming
@@ -121,17 +117,14 @@ export class Task {
   private didAutomaticallyRetryFailedApiRequest = false
 
   constructor(
-    context: vscode.ExtensionContext,
     workspaceTracker: WorkspaceTracker,
     updateTaskHistory: (historyItem: HistoryItem) => Promise<HistoryItem[]>,
     postStateToWebview: () => Promise<void>,
     postMessageToWebview: (message: ExtensionMessage) => Promise<void>,
     reinitExistingTaskFromId: (taskId: string) => Promise<void>,
-    cancelTask: () => Promise<void>,
     apiConfiguration: ApiConfiguration,
     autoApprovalSettings: AutoApprovalSettings,
     chatSettings: ChatSettings,
-    shellIntegrationTimeout: number,
     customInstructions?: string,
     task?: string,
     historyItem?: HistoryItem,
@@ -144,7 +137,6 @@ export class Task {
     this.postStateToWebview = postStateToWebview
     this.postMessageToWebview = postMessageToWebview
     this.reinitExistingTaskFromId = reinitExistingTaskFromId
-    this.cancelTask = cancelTask
     this.remoteTerminalManager = new RemoteTerminalManager()
     this.contextManager = new ContextManager()
     this.customInstructions = customInstructions
@@ -165,8 +157,7 @@ export class Task {
     }
 
     // Initialize file context tracker
-    this.fileContextTracker = new FileContextTracker(context, this.taskId)
-    this.modelContextTracker = new ModelContextTracker(context, this.taskId)
+    this.modelContextTracker = new ModelContextTracker(this.taskId)
     // Now that taskId is initialized, we can build the API handler
     this.api = buildApiHandler({
       ...apiConfiguration,
@@ -395,7 +386,7 @@ export class Task {
     this.lastMessageTs = askTsRef.value
 
     if (partial !== undefined) {
-      await this.handlePartialMessage(type, askTsRef, text, partial)
+      await this.handleAskPartialMessage(type, askTsRef, text, partial)
       if (partial) {
         throw new Error('Current ask promise was ignored')
       }
@@ -431,7 +422,7 @@ export class Task {
     this.askResponseText = undefined
   }
 
-  private async handlePartialMessage(
+  private async handleAskPartialMessage(
     type: ChatermAsk,
     askTsRef: { value: number },
     text?: string,
@@ -515,58 +506,7 @@ export class Task {
     }
 
     if (partial !== undefined) {
-      const lastMessage = this.chatermMessages.at(-1)
-      const isUpdatingPreviousPartial =
-        lastMessage && lastMessage.partial && lastMessage.type === 'say' && lastMessage.say === type
-      if (partial) {
-        if (isUpdatingPreviousPartial) {
-          // existing partial message, so update it
-          lastMessage.text = text
-          lastMessage.partial = partial
-          await this.postMessageToWebview({
-            type: 'partialMessage',
-            partialMessage: lastMessage
-          })
-        } else {
-          // this is a new partial message, so add it with partial state
-          const sayTs = Date.now()
-          this.lastMessageTs = sayTs
-          await this.addToChatermMessages({
-            ts: sayTs,
-            type: 'say',
-            say: type,
-            text,
-            partial
-          })
-          await this.postStateToWebview()
-        }
-      } else {
-        // partial=false means its a complete version of a previously partial message
-        if (isUpdatingPreviousPartial) {
-          // this is the complete version of a previously partial message, so replace the partial with the complete version
-          this.lastMessageTs = lastMessage.ts
-          lastMessage.text = text
-          lastMessage.partial = false
-
-          // instead of streaming partialMessage events, we do a save and post like normal to persist to disk
-          await this.saveChatermMessagesAndUpdateHistory()
-          await this.postMessageToWebview({
-            type: 'partialMessage',
-            partialMessage: lastMessage
-          }) // more performant than an entire postStateToWebview
-        } else {
-          // this is a new partial=false message, so add it like normal
-          const sayTs = Date.now()
-          this.lastMessageTs = sayTs
-          await this.addToChatermMessages({
-            ts: sayTs,
-            type: 'say',
-            say: type,
-            text
-          })
-          await this.postStateToWebview()
-        }
-      }
+      await this.handleSayPartialMessage(type, text, partial)
     } else {
       // this is a new non-partial message, so add it like normal
       const sayTs = Date.now()
@@ -578,6 +518,69 @@ export class Task {
         text
       })
       await this.postStateToWebview()
+    }
+  }
+
+  private async handleSayPartialMessage(
+    type: ChatermSay,
+    text?: string,
+    partial?: boolean
+  ): Promise<void> {
+    const lastMessage = this.chatermMessages.at(-1)
+    const isUpdatingPreviousPartial =
+      lastMessage && lastMessage.partial && lastMessage.type === 'say' && lastMessage.say === type
+    if (partial) {
+      if (isUpdatingPreviousPartial) {
+        // existing partial message, so update it
+        lastMessage.text = text
+        lastMessage.partial = partial
+        await this.postMessageToWebview({
+          type: 'partialMessage',
+          partialMessage: lastMessage
+        })
+      } else {
+        // this is a new partial message, so add it with partial state
+        const sayTs = Date.now()
+        this.lastMessageTs = sayTs
+        await this.addToChatermMessages({
+          ts: sayTs,
+          type: 'say',
+          say: type,
+          text,
+          partial
+        })
+        await this.postStateToWebview()
+      }
+    } else {
+      // partial=false means its a complete version of a previously partial message
+      if (isUpdatingPreviousPartial) {
+        // this is the complete version of a previously partial message, so replace the partial with the complete version
+        this.lastMessageTs = lastMessage.ts
+        lastMessage.text = text
+        lastMessage.partial = false
+
+        // instead of streaming partialMessage events, we do a save and post like normal to persist to disk
+        await this.saveChatermMessagesAndUpdateHistory()
+        await this.postMessageToWebview({
+          type: 'partialMessage',
+          partialMessage: lastMessage
+        }) // more performant than an entire postStateToWebview
+      } else {
+        // this is a new partial=false message, so add it like normal
+        const sayTs = Date.now()
+        this.lastMessageTs = sayTs
+        const newMessage: ChatermMessage = {
+          ts: sayTs,
+          type: 'say',
+          say: type,
+          text
+        }
+        await this.addToChatermMessages(newMessage)
+        await this.postMessageToWebview({
+          type: 'partialMessage',
+          partialMessage: newMessage
+        })
+      }
     }
   }
 
@@ -791,7 +794,6 @@ export class Task {
   async abortTask() {
     this.abort = true // will stop any autonomously running promises
     this.remoteTerminalManager.disposeAll()
-    this.fileContextTracker.dispose()
   }
 
   // Checkpoints
@@ -881,8 +883,8 @@ export class Task {
     terminalInfo.terminal.show()
     const process = this.remoteTerminalManager.runCommand(terminalInfo, command, this.cwd)
     let execResult = ''
-        process.on('line', async (line) => {
-        execResult += line + '\n'
+    process.on('line', async (line) => {
+      execResult += line + '\n'
     })
     if (execResult.length == 0) {
       await this.say('command_output', 'chaterm command no output was returned.', true)
@@ -918,7 +920,7 @@ export class Task {
           await flushBuffer()
         }
       }
-    } 
+    }
 
     const scheduleFlush = () => {
       if (chunkTimer) {
@@ -1583,7 +1585,6 @@ export class Task {
                   this.didRejectTool = true
                 }
 
-                // Re-populate file paths in case the command modified the workspace (vscode listeners do not trigger unless the user manually creates/deletes files)
                 this.workspaceTracker.populateFilePaths()
 
                 pushToolResult(result)
@@ -1872,8 +1873,6 @@ export class Task {
 
                 // Derive system information values algorithmically
                 const operatingSystem = os.platform() + ' ' + os.release()
-                // const systemInfo = `VSCode: ${vscode.version}, Node.js: ${process.version}, Architecture: ${os.arch()}`
-                // const providerAndModel = `${(await getGlobalState(this.getContext(), "apiProvider")) as string} / ${this.api.getModel().id}`
                 const providerAndModel = `${(await getGlobalState('apiProvider')) as string} / ${this.api.getModel().id}`
 
                 // Ask user for confirmation
