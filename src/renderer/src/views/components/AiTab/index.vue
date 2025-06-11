@@ -1013,7 +1013,8 @@ onMounted(async () => {
       if (
         message.partialMessage.type === 'say' &&
         message.partialMessage.say === 'command' &&
-        message.partialMessage.text
+        message.partialMessage.text &&
+        chatTypeValue.value === 'cmd'
       ) {
         eventBus.emit('writeTerminalCommand', message.partialMessage.text + '\r\n')
       }
@@ -1022,7 +1023,8 @@ onMounted(async () => {
       if (
         message.partialMessage.type === 'say' &&
         message.partialMessage.say === 'command_output' &&
-        message.partialMessage.text
+        message.partialMessage.text &&
+        chatTypeValue.value === 'cmd'
       ) {
         if (message.partialMessage.text !== 'chaterm command no output was returned.') {
           eventBus.emit('writeTerminalCommand', message.partialMessage.text)
