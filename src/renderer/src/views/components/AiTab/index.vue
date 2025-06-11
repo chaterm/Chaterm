@@ -1000,14 +1000,14 @@ onMounted(async () => {
       showCancelButton.value = true
       let lastMessageInChat = chatHistory.at(-1)
 
-      // 处理 command 类型的消息
-      // if (
-      //   message.partialMessage.type === 'ask' &&
-      //   message.partialMessage.ask === 'command' &&
-      //   message.partialMessage.text
-      // ) {
-      //   eventBus.emit('writeTerminalCommand', message.partialMessage.text + '\r\n')
-      // }
+      // 处理自动执行中command类型的消息
+      if (
+        message.partialMessage.type === 'say' &&
+        message.partialMessage.ask === 'command' &&
+        message.partialMessage.text
+      ) {
+        eventBus.emit('writeTerminalCommand', message.partialMessage.text + '\r\n')
+      }
 
       // 处理 command_output 类型的消息
       if (
