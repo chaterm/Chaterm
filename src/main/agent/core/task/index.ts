@@ -1554,11 +1554,7 @@ export class Task {
                     `Chaterm wants to execute a command: ${command}`
                   )
 
-                  const didApprove = await askApproval(
-                    'command',
-                    command +
-                      `${this.shouldAutoApproveTool(block.name) && requiresApprovalPerLLM ? COMMAND_REQ_APP_STRING : ''}` // ugly hack until we refactor combineCommandSequences
-                  )
+                  const didApprove = await askApproval('command', command)
                   if (!didApprove) {
                     await this.saveCheckpoint()
                     break
