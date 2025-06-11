@@ -604,8 +604,10 @@ const checkContentHeight = async () => {
     const maxHeight = lineHeight
     // 先计算高度
     const shouldCollapse = contentRef.value.scrollHeight > maxHeight
-    activeKey.value = shouldCollapse ? [] : ['1']
-    thinkingLoading.value = false
+    setTimeout(() => {
+      activeKey.value = shouldCollapse ? [] : ['1']
+      thinkingLoading.value = false
+    }, 1000) // 与折叠动画时间相同
   }
 }
 

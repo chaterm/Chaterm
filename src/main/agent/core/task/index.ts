@@ -386,7 +386,7 @@ export class Task {
     this.lastMessageTs = askTsRef.value
 
     if (partial !== undefined) {
-      await this.handlePartialMessage(type, askTsRef, text, partial)
+      await this.handleAskPartialMessage(type, askTsRef, text, partial)
       if (partial) {
         throw new Error('Current ask promise was ignored')
       }
@@ -422,7 +422,7 @@ export class Task {
     this.askResponseText = undefined
   }
 
-  private async handlePartialMessage(
+  private async handleAskPartialMessage(
     type: ChatermAsk,
     askTsRef: { value: number },
     text?: string,
@@ -506,58 +506,7 @@ export class Task {
     }
 
     if (partial !== undefined) {
-      const lastMessage = this.chatermMessages.at(-1)
-      const isUpdatingPreviousPartial =
-        lastMessage && lastMessage.partial && lastMessage.type === 'say' && lastMessage.say === type
-      if (partial) {
-        if (isUpdatingPreviousPartial) {
-          // existing partial message, so update it
-          lastMessage.text = text
-          lastMessage.partial = partial
-          await this.postMessageToWebview({
-            type: 'partialMessage',
-            partialMessage: lastMessage
-          })
-        } else {
-          // this is a new partial message, so add it with partial state
-          const sayTs = Date.now()
-          this.lastMessageTs = sayTs
-          await this.addToChatermMessages({
-            ts: sayTs,
-            type: 'say',
-            say: type,
-            text,
-            partial
-          })
-          await this.postStateToWebview()
-        }
-      } else {
-        // partial=false means its a complete version of a previously partial message
-        if (isUpdatingPreviousPartial) {
-          // this is the complete version of a previously partial message, so replace the partial with the complete version
-          this.lastMessageTs = lastMessage.ts
-          lastMessage.text = text
-          lastMessage.partial = false
-
-          // instead of streaming partialMessage events, we do a save and post like normal to persist to disk
-          await this.saveChatermMessagesAndUpdateHistory()
-          await this.postMessageToWebview({
-            type: 'partialMessage',
-            partialMessage: lastMessage
-          }) // more performant than an entire postStateToWebview
-        } else {
-          // this is a new partial=false message, so add it like normal
-          const sayTs = Date.now()
-          this.lastMessageTs = sayTs
-          await this.addToChatermMessages({
-            ts: sayTs,
-            type: 'say',
-            say: type,
-            text
-          })
-          await this.postStateToWebview()
-        }
-      }
+      await this.handleSayPartialMessage(type, text, partial)
     } else {
       // this is a new non-partial message, so add it like normal
       const sayTs = Date.now()
@@ -569,6 +518,69 @@ export class Task {
         text
       })
       await this.postStateToWebview()
+    }
+  }
+
+  private async handleSayPartialMessage(
+    type: ChatermSay,
+    text?: string,
+    partial?: boolean
+  ): Promise<void> {
+    const lastMessage = this.chatermMessages.at(-1)
+    const isUpdatingPreviousPartial =
+      lastMessage && lastMessage.partial && lastMessage.type === 'say' && lastMessage.say === type
+    if (partial) {
+      if (isUpdatingPreviousPartial) {
+        // existing partial message, so update it
+        lastMessage.text = text
+        lastMessage.partial = partial
+        await this.postMessageToWebview({
+          type: 'partialMessage',
+          partialMessage: lastMessage
+        })
+      } else {
+        // this is a new partial message, so add it with partial state
+        const sayTs = Date.now()
+        this.lastMessageTs = sayTs
+        await this.addToChatermMessages({
+          ts: sayTs,
+          type: 'say',
+          say: type,
+          text,
+          partial
+        })
+        await this.postStateToWebview()
+      }
+    } else {
+      // partial=false means its a complete version of a previously partial message
+      if (isUpdatingPreviousPartial) {
+        // this is the complete version of a previously partial message, so replace the partial with the complete version
+        this.lastMessageTs = lastMessage.ts
+        lastMessage.text = text
+        lastMessage.partial = false
+
+        // instead of streaming partialMessage events, we do a save and post like normal to persist to disk
+        await this.saveChatermMessagesAndUpdateHistory()
+        await this.postMessageToWebview({
+          type: 'partialMessage',
+          partialMessage: lastMessage
+        }) // more performant than an entire postStateToWebview
+      } else {
+        // this is a new partial=false message, so add it like normal
+        const sayTs = Date.now()
+        this.lastMessageTs = sayTs
+        const newMessage: ChatermMessage = {
+          ts: sayTs,
+          type: 'say',
+          say: type,
+          text
+        }
+        await this.addToChatermMessages(newMessage)
+        await this.postMessageToWebview({
+          type: 'partialMessage',
+          partialMessage: newMessage
+        })
+      }
     }
   }
 
@@ -871,8 +883,8 @@ export class Task {
     terminalInfo.terminal.show()
     const process = this.remoteTerminalManager.runCommand(terminalInfo, command, this.cwd)
     let execResult = ''
-        process.on('line', async (line) => {
-        execResult += line + '\n'
+    process.on('line', async (line) => {
+      execResult += line + '\n'
     })
     if (execResult.length == 0) {
       await this.say('command_output', 'chaterm command no output was returned.', true)
@@ -908,7 +920,7 @@ export class Task {
           await flushBuffer()
         }
       }
-    } 
+    }
 
     const scheduleFlush = () => {
       if (chunkTimer) {
