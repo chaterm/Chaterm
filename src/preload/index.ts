@@ -57,6 +57,7 @@ fileContent.split('\n').forEach((line) => {
 })
 // Custom APIs for renderer
 import os from 'os'
+import { ExecResult } from '../main/ssh/sshHandle'
 const getLocalIP = (): string => {
   const interfaces = os.networkInterfaces()
   for (const name of Object.keys(interfaces)) {
@@ -369,6 +370,28 @@ const api = {
     ipcRenderer.on('navigation-state-changed', (_event, state) => callback(state))
   },
 
+  // keyboard-interactive 认证
+  onKeyboardInteractiveTimeout: (callback) => {
+    const listener = (_event, data) => {
+      callback(data)
+    }
+    ipcRenderer.on('ssh:keyboard-interactive-timeout', listener)
+    return () => ipcRenderer.removeListener('ssh:keyboard-interactive-timeout', listener)
+  },
+  onKeyboardInteractiveRequest: (callback) => {
+    const listener = (_event, data) => {
+      callback(data)
+    }
+    ipcRenderer.on('ssh:keyboard-interactive-request', listener)
+    return () => ipcRenderer.removeListener('ssh:keyboard-interactive-request', listener)
+  },
+  onKeyboardInteractiveResult: (callback) => {
+    const listener = (_event, data) => {
+      callback(data)
+    }
+    ipcRenderer.on('ssh:keyboard-interactive-result', listener)
+    return () => ipcRenderer.removeListener('ssh:keyboard-interactive-result', listener)
+  },
   // sshAPI
   connect: (connectionInfo) => ipcRenderer.invoke('ssh:connect', connectionInfo),
   connectReadyData: (id) => {
@@ -379,15 +402,21 @@ const api = {
       })
     })
   },
+  checkSftpConnAvailable: (id: string) => {
+    console.log(123456)
+    ipcRenderer.invoke('ssh:sftp:conn:check', { id })
+  },
   shell: (params) => ipcRenderer.invoke('ssh:shell', params),
+  resizeShell: (id, cols, rows) => ipcRenderer.invoke('ssh:shell:resize', { id, cols, rows }),
   sshSftpList: (opts: { id: string; remotePath: string }) =>
     ipcRenderer.invoke('ssh:sftp:list', opts) as Promise<FileRecord[] | string[]>,
   sftpConnList: () => ipcRenderer.invoke('ssh:sftp:conn:list') as Promise<string[]>,
   sshConnExec: (args: { id: string; cmd: string }) =>
-    ipcRenderer.invoke('ssh:conn:exec', args) as Promise<string>,
+    ipcRenderer.invoke('ssh:conn:exec', args) as Promise<ExecResult>,
   writeToShell: (params) => ipcRenderer.send('ssh:shell:write', params),
   disconnect: (params) => ipcRenderer.invoke('ssh:disconnect', params),
   selectPrivateKey: () => ipcRenderer.invoke('ssh:select-private-key'),
+
   onShellData: (id, callback) => {
     const listener = (_event, data) => callback(data)
     ipcRenderer.on(`ssh:shell:data:${id}`, listener)

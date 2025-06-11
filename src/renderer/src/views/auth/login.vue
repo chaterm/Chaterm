@@ -144,7 +144,7 @@ interface FormState {
   remember: boolean
 }
 const formState = reactive<FormState>({
-  username: 'test',
+  username: 'test_user',
   password: 'ctm123456',
   remember: true
 })
