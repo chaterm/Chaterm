@@ -15,7 +15,7 @@ import { findLast, findLastIndex, parsePartialArrayString } from '@shared/array'
 import { AutoApprovalSettings } from '@shared/AutoApprovalSettings'
 import { ChatSettings } from '@shared/ChatSettings'
 import { combineApiRequests } from '@shared/combineApiRequests'
-import { combineCommandSequences, COMMAND_REQ_APP_STRING } from '@shared/combineCommandSequences'
+import { combineCommandSequences } from '@shared/combineCommandSequences'
 import {
   ChatermApiReqCancelReason,
   ChatermApiReqInfo,
@@ -37,8 +37,6 @@ import {
   ToolParamName,
   ToolUseName
 } from '@core/assistant-message'
-// import { constructNewFileContent } from "@core/assistant-message/diff"
-// import { ChatermIgnoreController } from "@core/ignore/ChatermIgnoreController"
 import {
   RemoteTerminalManager,
   ConnectionInfo,
@@ -318,17 +316,6 @@ export class Task {
       return false
     }
 
-    // TODO: add checkpointTracker
-    // if (!this.checkpointTracker && !this.checkpointTrackerErrorMessage) {
-    // 	try {
-    // 		this.checkpointTracker = await CheckpointTracker.create(this.taskId, this.context.globalStorageUri.fsPath)
-    // 	} catch (error) {
-    // 		const errorMessage = error instanceof Error ? error.message : "Unknown error"
-    // 		console.error("Failed to initialize checkpoint tracker:", errorMessage)
-    // 		return false
-    // 	}
-    // }
-
     // Get last task completed
     const lastTaskCompletedMessage = findLast(
       this.chatermMessages.slice(0, messageIndex),
@@ -354,12 +341,6 @@ export class Task {
       if (!previousCheckpointHash) {
         return false
       }
-
-      // Get count of changed files between current state and commit
-      // const changedFilesCount = (await this.checkpointTracker?.getDiffCount(previousCheckpointHash, hash)) || 0
-      // if (changedFilesCount > 0) {
-      // 	return true
-      // }
     } catch (error) {
       console.error('Failed to get diff set:', error)
       return false
@@ -613,13 +594,6 @@ export class Task {
   // Task lifecycle
 
   private async startTask(task?: string): Promise<void> {
-    // try {
-    // 	await this.chatermIgnoreController.initialize()
-    // } catch (error) {
-    // 	console.error("Failed to initialize ChatermIgnoreController:", error)
-    // 	// Optionally, inform the user or handle the error appropriately
-    // }
-    // conversationHistory (for API) and chatermMessages (for webview) need to be in sync
     this.chatermMessages = []
     this.apiConversationHistory = []
 
@@ -812,18 +786,6 @@ export class Task {
       if (lastMessage?.say === 'checkpoint_created') {
         return
       }
-
-      // // For non-attempt completion we just say checkpoints
-      // await this.say("checkpoint_created")
-      // this.checkpointTracker?.commit().then(async (commitHash) => {
-      // 	const lastCheckpointMessage = findLast(this.chatermMessages, (m) => m.say === "checkpoint_created")
-      // 	if (lastCheckpointMessage) {
-      // 		lastCheckpointMessage.lastCheckpointHash = commitHash
-      // 		await this.saveChatermMessagesAndUpdateHistory()
-      // 	}
-      // }) // silently fails for now
-
-      //
     } else {
       // attempt completion requires checkpoint to be sync so that we can present button after attempt_completion
       // const commitHash = await this.checkpointTracker?.commit()
@@ -837,42 +799,6 @@ export class Task {
         await this.saveChatermMessagesAndUpdateHistory()
       }
     }
-
-    // if (commitHash) {
-
-    // Previously we checkpointed every message, but this is excessive and unnecessary.
-    // // Start from the end and work backwards until we find a tool use or another message with a hash
-    // for (let i = this.chatermMessages.length - 1; i >= 0; i--) {
-    // 	const message = this.chatermMessages[i]
-    // 	if (message.lastCheckpointHash) {
-    // 		// Found a message with a hash, so we can stop
-    // 		break
-    // 	}
-    // 	// Update this message with a hash
-    // 	message.lastCheckpointHash = commitHash
-
-    // 	// We only care about adding the hash to the last tool use (we don't want to add this hash to every prior message ie for tasks pre-checkpoint)
-    // 	const isToolUse =
-    // 		message.say === "tool" ||
-    // 		message.ask === "tool" ||
-    // 		message.say === "command" ||
-    // 		message.ask === "command" ||
-    // 		message.say === "completion_result" ||
-    // 		message.ask === "completion_result" ||
-    // 		message.ask === "followup" ||
-    // 		message.say === "use_mcp_server" ||
-    // 		message.ask === "use_mcp_server" ||
-    // 		message.say === "browser_action" ||
-    // 		message.say === "browser_action_launch" ||
-    // 		message.ask === "browser_action_launch"
-
-    // 	if (isToolUse) {
-    // 		break
-    // 	}
-    // }
-    // // Save the updated messages
-    // await this.saveChatermMessagesAndUpdateHistory()
-    // }
   }
 
   async executeCommandTool(command: string): Promise<[boolean, ToolResponse]> {
@@ -991,21 +917,6 @@ export class Task {
   shouldAutoApproveTool(toolName: ToolUseName): boolean | [boolean, boolean] {
     if (this.autoApprovalSettings.enabled) {
       switch (toolName) {
-        case 'read_file':
-        case 'list_files':
-        // case "list_code_definition_names":
-        case 'search_files':
-          return [
-            this.autoApprovalSettings.actions.readFiles,
-            this.autoApprovalSettings.actions.readFilesExternally ?? false
-          ]
-        case 'new_rule':
-        case 'write_to_file':
-        case 'replace_in_file':
-          return [
-            this.autoApprovalSettings.actions.editFiles,
-            this.autoApprovalSettings.actions.editFilesExternally ?? false
-          ]
         case 'execute_command':
           return [
             this.autoApprovalSettings.actions.executeSafeCommands ?? false,
@@ -1017,38 +928,6 @@ export class Task {
     }
     return false
   }
-
-  // Check if the tool should be auto-approved based on the settings
-  // and the path of the action. Returns true if the tool should be auto-approved
-  // based on the user's settings and the path of the action.
-  // shouldAutoApproveToolWithPath(
-  //   blockname: ToolUseName,
-  //   autoApproveActionpath: string | undefined
-  // ): boolean {
-  //   let isLocalRead: boolean = false
-  //   if (autoApproveActionpath) {
-  //     const absolutePath = path.resolve(this.cwd, autoApproveActionpath)
-  //     isLocalRead = absolutePath.startsWith(this.cwd)
-  //   } else {
-  //     // If we do not get a path for some reason, default to a (safer) false return
-  //     isLocalRead = false
-  //   }
-
-  //   // Get auto-approve settings for local and external edits
-  //   const autoApproveResult = this.shouldAutoApproveTool(blockname)
-  //   const [autoApproveLocal, autoApproveExternal] = Array.isArray(autoApproveResult)
-  //     ? autoApproveResult
-  //     : [autoApproveResult, false]
-
-  //   if (
-  //     (isLocalRead && autoApproveLocal) ||
-  //     (!isLocalRead && autoApproveLocal && autoApproveExternal)
-  //   ) {
-  //     return true
-  //   } else {
-  //     return false
-  //   }
-  // }
 
   private formatErrorWithStatusCode(error: any): string {
     const statusCode = error.status || error.statusCode || (error.response && error.response.status)
@@ -1063,10 +942,9 @@ export class Task {
   async *attemptApiRequest(previousApiReqIndex: number): ApiStream {
     const osVersion = await this.executeCommandInRemoteServer('uname -a')
     const defaultShell = await this.executeCommandInRemoteServer('echo $SHELL')
-    const currentDir = await this.executeCommandInRemoteServer('pwd')
     const homeDir = await this.executeCommandInRemoteServer('echo $HOME')
 
-    let systemPrompt = await SYSTEM_PROMPT(currentDir)
+    let systemPrompt = await SYSTEM_PROMPT(this.cwd)
 
     systemPrompt += `
       SYSTEM INFORMATION
@@ -1074,7 +952,7 @@ export class Task {
       Operating System: ${osVersion}
       Default Shell: ${defaultShell}
       Home Directory: ${homeDir.toPosix()}
-      Current Working Directory: ${currentDir.toPosix()}
+      Current Working Directory: ${this.cwd.toPosix()}
       ====
     `
     let settingsCustomInstructions = this.customInstructions?.trim()
@@ -1126,12 +1004,6 @@ export class Task {
       yield firstChunk.value
       this.isWaitingForFirstChunk = false
     } catch (error) {
-      // const isOpenRouter = this.api instanceof OpenRouterHandler
-      // const isAnthropic = this.api instanceof AnthropicHandler
-      // const isOpenRouterContextWindowError = checkIsOpenRouterContextWindowError(error) && isOpenRouter
-      // const isAnthropicContextWindowError = checkIsAnthropicContextWindowError(error) && isAnthropic
-
-      // if (isAnthropic && isAnthropicContextWindowError && !this.didAutomaticallyRetryFailedApiRequest) {
       if (!this.didAutomaticallyRetryFailedApiRequest) {
         this.conversationHistoryDeletedRange = this.contextManager.getNextTruncationRange(
           this.apiConversationHistory,
@@ -1145,41 +1017,7 @@ export class Task {
         )
 
         this.didAutomaticallyRetryFailedApiRequest = true
-        // } else if (isOpenRouter && !this.didAutomaticallyRetryFailedApiRequest) {
-        // 	// if (isOpenRouterContextWindowError) {
-        // 	// 	this.conversationHistoryDeletedRange = this.contextManager.getNextTruncationRange(
-        // 	// 		this.apiConversationHistory,
-        // 	// 		this.conversationHistoryDeletedRange,
-        // 	// 		"quarter", // Force aggressive truncation
-        // 	// 	)
-        // 	// 	await this.saveChatermMessagesAndUpdateHistory()
-        // 	// 	await this.contextManager.triggerApplyStandardContextTruncationNoticeChange(
-        // 	// 		Date.now(),
-        // 	// 		await ensureTaskExists(this.getContext(), this.taskId),
-        // 	// 	)
-        // 	// }
-
-        // 	console.log("first chunk failed, waiting 1 second before retrying")
-        // 	await setTimeoutPromise(1000)
-        // 	this.didAutomaticallyRetryFailedApiRequest = true
       } else {
-        // request failed after retrying automatically once, ask user if they want to retry again
-        // note that this api_req_failed ask is unique in that we only present this option if the api hasn't streamed any content yet (ie it fails on the first chunk due), as it would allow them to hit a retry button. However if the api failed mid-stream, it could be in any arbitrary state where some tools may have executed, so that error is handled differently and requires cancelling the task entirely.
-
-        // if (isOpenRouterContextWindowError || isAnthropicContextWindowError) {
-        // 	const truncatedConversationHistory = this.contextManager.getTruncatedMessages(
-        // 		this.apiConversationHistory,
-        // 		this.conversationHistoryDeletedRange,
-        // 	)
-
-        // 	// If the conversation has more than 3 messages, we can truncate again. If not, then the conversation is bricked.
-        // 	// ToDo: Allow the user to change their input if this is the case.
-        // 	if (truncatedConversationHistory.length > 3) {
-        // 		error = new Error("Context window exceeded. Click retry to truncate the conversation and try again.")
-        // 		this.didAutomaticallyRetryFailedApiRequest = false
-        // 	}
-        // }
-
         const errorMessage = this.formatErrorWithStatusCode(error)
 
         const { response } = await this.ask('api_req_failed', errorMessage) // TODO:this message is not sent to the webview
@@ -1288,32 +1126,8 @@ export class Task {
           switch (block.name) {
             case 'execute_command':
               return `[${block.name} for '${block.params.command}']`
-            case 'read_file':
-              return `[${block.name} for '${block.params.path}']`
-            case 'write_to_file':
-              return `[${block.name} for '${block.params.path}']`
-            case 'replace_in_file':
-              return `[${block.name} for '${block.params.path}']`
-            case 'search_files':
-              return `[${block.name} for '${block.params.regex}'${
-                block.params.file_pattern ? ` in '${block.params.file_pattern}'` : ''
-              }]`
-            case 'list_files':
-              return `[${block.name} for '${block.params.path}']`
-            // case "list_code_definition_names":
-            // 	return `[${block.name} for '${block.params.path}']`
-            // case "browser_action":
-            // 	return `[${block.name} for '${block.params.action}']`
-            // case "use_mcp_tool":
-            // 	return `[${block.name} for '${block.params.server_name}']`
-            // case "access_mcp_resource":
-            // 	return `[${block.name} for '${block.params.server_name}']`
             case 'ask_followup_question':
               return `[${block.name} for '${block.params.question}']`
-            case 'plan_mode_respond':
-              return `[${block.name}]`
-            // case "load_mcp_documentation":
-            // 	return `[${block.name}]`
             case 'attempt_completion':
               return `[${block.name}]`
             case 'new_task':
@@ -1322,8 +1136,6 @@ export class Task {
               return `[${block.name}]`
             case 'report_bug':
               return `[${block.name}]`
-            case 'new_rule':
-              return `[${block.name} for '${block.params.path}']`
           }
         }
 
@@ -1457,11 +1269,6 @@ export class Task {
             'error',
             `Error ${action}:\n${error.message ?? JSON.stringify(serializeError(error), null, 2)}`
           )
-          // this.toolResults.push({
-          // 	type: "tool_result",
-          // 	tool_use_id: toolUseId,
-          // 	content: await this.formatToolError(errorString),
-          // })
           pushToolResult(formatResponse.toolError(errorString))
         }
 
@@ -1485,10 +1292,6 @@ export class Task {
           )
           return text.replace(tagRegex, '')
         }
-
-        // if (block.name !== "browser_action") {
-        // 	await this.browserSession.closeBrowser()
-        // }
 
         switch (block.name) {
           case 'execute_command': {
@@ -1667,63 +1470,6 @@ export class Task {
               break
             }
           }
-          // case 'new_task': {
-          //   const context: string | undefined = block.params.context
-          //   try {
-          //     if (block.partial) {
-          //       await this.ask(
-          //         'new_task',
-          //         removeClosingTag('context', context),
-          //         block.partial
-          //       ).catch(() => {})
-          //       break
-          //     } else {
-          //       if (!context) {
-          //         this.consecutiveMistakeCount++
-          //         pushToolResult(await this.sayAndCreateMissingParamError('new_task', 'context'))
-          //         await this.saveCheckpoint()
-          //         break
-          //       }
-          //       this.consecutiveMistakeCount = 0
-
-          //       if (
-          //         this.autoApprovalSettings.enabled &&
-          //         this.autoApprovalSettings.enableNotifications
-          //       ) {
-          //         showSystemNotification({
-          //           subtitle: 'Chaterm wants to start a new task...',
-          //           message: `Chaterm is suggesting to start a new task with: ${context}`
-          //         })
-          //       }
-
-          //       const { text } = await this.ask('new_task', context, false)
-
-          //       // If the user provided a response, treat it as feedback
-          //       if (text) {
-          //         await this.say('user_feedback', text ?? '')
-          //         pushToolResult(
-          //           formatResponse.toolResult(
-          //             `The user provided feedback instead of creating a new task:\n<feedback>\n${text}\n</feedback>`
-          //             //images,
-          //           )
-          //         )
-          //       } else {
-          //         // If no response, the user clicked the "Create New Task" button
-          //         pushToolResult(
-          //           formatResponse.toolResult(
-          //             `The user has created a new task with the provided context.`
-          //           )
-          //         )
-          //       }
-          //       await this.saveCheckpoint()
-          //       break
-          //     }
-          //   } catch (error) {
-          //     await handleError('creating new task', error as Error)
-          //     await this.saveCheckpoint()
-          //     break
-          //   }
-          // }
           case 'condense': {
             const context: string | undefined = block.params.context
             try {
@@ -2103,9 +1849,6 @@ export class Task {
       this.currentStreamingContentIndex++ // need to increment regardless, so when read stream calls this function again it will be streaming the next block
 
       if (this.currentStreamingContentIndex < this.assistantMessageContent.length) {
-        // there are already more content blocks to stream, so we'll call this function ourselves
-        // await this.presentAssistantContent()
-
         this.presentAssistantMessage()
         return
       }
@@ -2205,27 +1948,6 @@ export class Task {
     if (isFirstRequest) {
       await this.say('checkpoint_created') // no hash since we need to wait for CheckpointTracker to be initialized
     }
-
-    // use this opportunity to initialize the checkpoint tracker (can be expensive to initialize in the constructor)
-    // FIXME: right now we're letting users init checkpoints for old tasks, but this could be a problem if opening a task in the wrong workspace
-    // isNewTask &&
-    // TODO: add back checkpointTracker
-    // if (!this.checkpointTracker && !this.checkpointTrackerErrorMessage) {
-    // 	try {
-    // 		this.checkpointTracker = await pTimeout(
-    // 			CheckpointTracker.create(this.taskId, this.context.globalStorageUri.fsPath),
-    // 			{
-    // 				milliseconds: 15_000,
-    // 				message:
-    // 					"Checkpoints taking too long to initialize. Consider re-opening Chaterm in a project that uses git, or disabling checkpoints.",
-    // 			},
-    // 		)
-    // 	} catch (error) {
-    // 		const errorMessage = error instanceof Error ? error.message : "Unknown error"
-    // 		console.error("Failed to initialize checkpoint tracker:", errorMessage)
-    // 		this.checkpointTrackerErrorMessage = errorMessage // will be displayed right away since we saveChatermMessages next which posts state to webview
-    // 	}
-    // }
 
     // Now that checkpoint tracker is initialized, update the dummy checkpoint_created message with the commit hash. (This is necessary since we use the API request loading as an opportunity to initialize the checkpoint tracker, which can take some time)
     if (isFirstRequest) {
@@ -2486,14 +2208,6 @@ export class Task {
       // need to save assistant responses to file before proceeding to tool use since user can exit at any moment and we wouldn't be able to save the assistant's response
       let didEndLoop = false
       if (assistantMessage.length > 0) {
-        // telemetryService.captureConversationTurnEvent(
-        // 	this.taskId,
-        // 	currentProviderId,
-        // 	this.api.getModel().id,
-        // 	"assistant",
-        // 	true,
-        // )
-
         await this.addToApiConversationHistory({
           role: 'assistant',
           content: [{ type: 'text', text: assistantMessage }]
@@ -2626,7 +2340,7 @@ export class Task {
     }
 
     // Add context window usage information
-    const { contextWindow, maxAllowedSize } = getContextWindowInfo(this.api)
+    const { contextWindow } = getContextWindowInfo(this.api)
 
     // Get the token count from the most recent API request to accurately reflect context management
     const getTotalTokensFromApiReqMessage = (msg: ChatermMessage) => {
