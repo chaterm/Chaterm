@@ -42,6 +42,13 @@
         >
           @ {{ $t('ai.addHost') }}
         </span>
+        <span
+          v-if="responseLoading"
+          style="color: #ffffff; font-size: 10px"
+        >
+          <HourglassOutlined spin style="color: #1890FF; margin-right: 2px"/>
+          {{ $t('ai.processing') }}
+        </span>
       </div>
       <div
         v-if="chatHistory.length > 0"
@@ -226,8 +233,8 @@
               <div
                 v-if="filteredHostOptions.length === 0"
                 class="host-select-empty"
-                >{{ $t('ai.noMatchingHosts') }}</div
-              >
+                >{{ $t('ai.noMatchingHosts') }}
+              </div>
             </div>
           </div>
           <div class="input-controls">
@@ -339,7 +346,8 @@ import {
   CopyOutlined,
   CheckOutlined,
   PlayCircleOutlined,
-  RedoOutlined
+  RedoOutlined,
+  HourglassOutlined
 } from '@ant-design/icons-vue'
 import { notification } from 'ant-design-vue'
 import { v4 as uuidv4 } from 'uuid'
@@ -385,6 +393,7 @@ const chatModelValue = ref('qwen-chat')
 const chatTypeValue = ref('agent')
 const activeKey = ref('chat')
 const showSendButton = ref(true)
+const responseLoading = ref(false)
 const shouldShowSendButton = computed(() => {
   const trimmedValue = chatInputValue.value.trim()
   return trimmedValue.length >= 1 && !/^\s*$/.test(trimmedValue)
@@ -517,6 +526,7 @@ const sendMessage = async () => {
   }
   chatHistory.push(userMessage)
   chatInputValue.value = ''
+  responseLoading.value = true
   return
 }
 
@@ -825,6 +835,7 @@ const handleRejectContent = async () => {
     const response = await (window.api as any).sendToMain(messageRsp)
     buttonsDisabled.value = true
     console.log('主进程响应:', response)
+    responseLoading.value = true
   } catch (error) {
     console.error('发送消息到主进程失败:', error)
   }
@@ -849,6 +860,7 @@ const handleOptionChoose = async (message: ChatMessage, option?: string) => {
     console.log('发送消息到主进程:', messageRsp)
     const response = await (window.api as any).sendToMain(messageRsp)
     console.log('主进程响应:', response)
+    responseLoading.value = true
   } catch (error) {
     console.error('发送消息到主进程失败:', error)
   }
@@ -891,6 +903,7 @@ const handleApproveCommand = async () => {
     const response = await (window.api as any).sendToMain(messageRsp)
     buttonsDisabled.value = true
     console.log('主进程响应:', response)
+    responseLoading.value = true
   } catch (error) {
     console.error('发送消息到主进程失败:', error)
   }
@@ -901,6 +914,9 @@ const handleCancel = async () => {
   const response = await (window.api as any).cancelTask()
   console.log('主进程响应:', response)
   showCancelButton.value = false
+  showSendButton.value = true
+  responseLoading.value = false
+  lastChatMessageId.value = ''
 }
 
 const handleResume = async () => {
@@ -917,6 +933,7 @@ const handleResume = async () => {
   const response = await (window.api as any).sendToMain(messageRsp)
   console.log('主进程响应:', response)
   resumeDisabled.value = true
+  responseLoading.value = false
 }
 
 // 声明removeListener变量
@@ -1043,6 +1060,16 @@ onMounted(async () => {
         showSendButton.value = true
         showCancelButton.value = false
       }
+    } else if (message?.type === 'state') {
+      let lastStateChatermMessages = message.state?.chatermMessages.at(-1)
+      if (
+        message.state?.chatermMessages.length > 0 &&
+        lastStateChatermMessages.partial != undefined &&
+        !lastStateChatermMessages.partial &&
+        responseLoading.value
+      ) {
+        responseLoading.value = false
+      }
     }
     lastMessage = message
     console.log('chatHistory after processing:', chatHistory)
@@ -1133,7 +1160,8 @@ const showBottomButton = computed(() => {
     (chatTypeValue.value === 'agent' || chatTypeValue.value === 'cmd') &&
     lastChatMessageId.value !== '' &&
     lastChatMessageId.value == message.id &&
-    message.ask === 'command'
+    message.ask === 'command' &&
+    !showCancelButton.value
   )
 })
 
@@ -1340,6 +1368,7 @@ watch(
   margin-left: 2px;
   margin-top: 4px;
 }
+
 .hosts-display-container-host-tag {
   font-size: 10px !important;
   display: flex;
@@ -1360,6 +1389,7 @@ watch(
     border-color: #4a4a4a;
   }
 }
+
 .chat-response-container {
   flex-grow: 1;
   overflow-y: auto;
@@ -1367,7 +1397,7 @@ watch(
   margin-top: 2px;
   scrollbar-width: thin;
   height: v-bind(
-    'showResumeButton ? "calc(100vh - 202px)" : (showBottomButton ? "calc(100vh - 202px)" : "calc(100vh - 165px)")'
+    '(showResumeButton || showCancelButton) ? "calc(100vh - 202px)" : (showBottomButton ? "calc(100vh - 202px)" : "calc(100vh - 165px)")'
   );
   width: 100%;
 
@@ -1886,6 +1916,7 @@ watch(
       border-color: #4a4a4a;
       color: #888888;
     }
+
     &[disabled] {
       background-color: #141414 !important;
       border-color: #2a2a2a !important;
@@ -1912,6 +1943,7 @@ watch(
       border-color: #2d6fcd;
       color: #ffffff;
     }
+
     &[disabled] {
       background-color: #141414 !important;
       border-color: #2a2a2a !important;
@@ -1926,21 +1958,26 @@ watch(
     }
   }
 }
+
 .mini-host-search-input {
   background-color: #2b2b2b !important;
   border: 1px solid #3a3a3a !important;
+
   :deep(.ant-input) {
     height: 22px !important;
     font-size: 12px !important;
     background-color: #2b2b2b !important;
     color: #999 !important;
+
     &::placeholder {
       color: #999 !important;
     }
+
     padding: 0px 0px 2px 2px !important;
     line-height: 22px !important;
   }
 }
+
 .host-select-popup {
   position: absolute;
   left: 20px;
@@ -1950,11 +1987,13 @@ watch(
   box-shadow: 0 2px 8px #0002;
   border: 1px solid #484747;
 }
+
 .host-select-list {
   max-height: 120px;
   overflow-y: auto;
   padding: 2px 0px 2px 0px;
 }
+
 .host-select-item {
   padding: 2px 6px;
   cursor: pointer;
@@ -1965,10 +2004,12 @@ watch(
   font-size: 12px;
   line-height: 16px;
   transition: background 0.2s;
+
   &.hovered {
     background: #1656b1;
   }
 }
+
 .host-select-empty {
   color: #888;
   text-align: center;
@@ -1982,14 +2023,17 @@ watch(
   align-items: center;
   justify-content: center;
   height: calc(100vh - 165px);
+
   .ai-welcome-icon {
     margin-bottom: 12px;
+
     img {
       width: 28px;
       height: 28px;
       opacity: 0.65;
     }
   }
+
   .ai-welcome-text {
     color: #e0e0e0;
     font-size: 14px;
