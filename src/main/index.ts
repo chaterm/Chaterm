@@ -57,6 +57,10 @@ async function createWindow(): Promise<void> {
   // 窗口拖拽功能
   mainWindow.on('ready-to-show', () => {
     mainWindow.show()
+    // if (!is.dev) {
+    //   console.log('🔧 [Debug] Opening DevTools in packaged app for debugging')
+    //   mainWindow.webContents.openDevTools()
+    // }
   })
 
   mainWindow.webContents.setWindowOpenHandler((details) => {
