@@ -1025,13 +1025,14 @@ onMounted(async () => {
       if (
         message.partialMessage.type === 'say' &&
         message.partialMessage.say === 'command_output' &&
-        message.partialMessage.text &&
-        chatTypeValue.value === 'cmd'
+        message.partialMessage.text
       ) {
-        if (message.partialMessage.text !== 'chaterm command no output was returned.') {
-          eventBus.emit('writeTerminalCommand', message.partialMessage.text)
+        if (chatTypeValue.value === 'cmd') {
+          if (message.partialMessage.text !== 'chaterm command no output was returned.') {
+            eventBus.emit('writeTerminalCommand', message.partialMessage.text)
+          }
+          eventBus.emit('executeTerminalCommand', '\r')
         }
-        eventBus.emit('executeTerminalCommand', '\r')
         return // 跳过添加到聊天历史
       }
 
