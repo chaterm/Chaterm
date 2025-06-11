@@ -46,7 +46,10 @@
           v-if="responseLoading"
           style="color: #ffffff; font-size: 10px"
         >
-          <HourglassOutlined spin style="color: #1890FF; margin-right: 2px"/>
+          <HourglassOutlined
+            spin
+            style="color: #1890ff; margin-right: 2px"
+          />
           {{ $t('ai.processing') }}
         </span>
       </div>
@@ -654,17 +657,6 @@ const restoreHistoryTab = async (history: HistoryItem) => {
           item.say === lastItem.say &&
           item.type === lastItem.type
 
-        // // 处理 command 类型的消息
-        // if (item.type === 'ask' && item.ask === 'command' && item.text) {
-        //   eventBus.emit('writeTerminalCommand', item.text + '\r\n')
-        // }
-
-        // 处理 command_output 类型的消息
-        if (item.type === 'say' && item.say === 'command_output' && item.text) {
-          eventBus.emit('writeTerminalCommand', item.text + '\r\n')
-          return // 跳过添加到聊天历史
-        }
-
         if (
           !isDuplicate &&
           (item.ask === 'followup' ||
@@ -1022,7 +1014,7 @@ onMounted(async () => {
       // 处理自动执行中command类型的消息
       if (
         message.partialMessage.type === 'say' &&
-        message.partialMessage.ask === 'command' &&
+        message.partialMessage.say === 'command' &&
         message.partialMessage.text
       ) {
         eventBus.emit('writeTerminalCommand', message.partialMessage.text + '\r\n')
