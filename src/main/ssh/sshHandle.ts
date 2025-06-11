@@ -1,77 +1,240 @@
-import { ipcMain, dialog } from 'electron'
+import { ipcMain } from 'electron'
 import { Client } from 'ssh2'
 
 // 存储 SSH 连接
-const sshConnections = new Map()
-const sftpConnections = new Map()
+export const sshConnections = new Map()
+export const sftpConnections = new Map()
+
+// 执行命令结果
+export interface ExecResult {
+  stdout: string
+  stderr: string
+  exitCode?: number
+  exitSignal?: string
+}
+
 // 存储 shell 会话流
 const shellStreams = new Map()
 const markedCommands = new Map()
 
+const KeyboardInteractiveAttempts = new Map()
+const connectionStatus = new Map()
+
+// 设置KeyboardInteractive验证超时时间（毫秒）
+const KeyboardInteractiveTimeout = 300000 // 5分钟超时
+const MaxKeyboardInteractiveAttempts = 5 // 最大KeyboardInteractive尝试次数
+
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const EventEmitter = require('events')
+const connectionEvents = new EventEmitter()
+const handleRequestKeyboardInteractive = (event, id, prompts, finish) => {
+  return new Promise((_resolve, reject) => {
+    const RequestKeyboardInteractive = () => {
+      event.sender.send('ssh:keyboard-interactive-request', {
+        id,
+        prompts: prompts.map((p) => p.prompt)
+      })
+      KeyboardInteractiveAttempts.set(id, 0)
+      const timeoutId = setTimeout(() => {
+        // 移除监听器
+        ipcMain.removeAllListeners(`ssh:keyboard-interactive-response:${id}`)
+        ipcMain.removeAllListeners(`ssh:keyboard-interactive-cancel:${id}`)
+
+        // 取消验证
+        finish([])
+
+        event.sender.send('ssh:keyboard-interactive-timeout', { id })
+        reject(new Error('验证超时，请重试连接'))
+      }, KeyboardInteractiveTimeout)
+      ipcMain.once(`ssh:keyboard-interactive-response:${id}`, (_evt, responses) => {
+        clearTimeout(timeoutId) // 清除超时定时器
+        finish(responses)
+
+        const attemptCount = KeyboardInteractiveAttempts.get(id)
+        let isVerified = null
+
+        const statusHandler = (status) => {
+          isVerified = status.isVerified
+
+          if (!isVerified) {
+            // 尝试次数加1
+            const newAttemptCount = attemptCount + 1
+            KeyboardInteractiveAttempts.set(id, newAttemptCount)
+
+            event.sender.send('ssh:keyboard-interactive-result', {
+              id,
+              attempts: newAttemptCount,
+              status: 'failed'
+            })
+            // 如果尝试次数小于最大尝试次数，重新请求
+            if (newAttemptCount < MaxKeyboardInteractiveAttempts) {
+              RequestKeyboardInteractive()
+            } else {
+              KeyboardInteractiveAttempts.set(id, 0)
+              // finish([])
+            }
+          } else {
+            KeyboardInteractiveAttempts.delete(id)
+            console.log('发送成功事件:', { id })
+            event.sender.send('ssh:keyboard-interactive-result', { id, status: 'success' })
+            // finish(responses)
+          }
+          connectionEvents.removeListener(`connection-status-changed:${id}`, statusHandler)
+        }
+
+        connectionEvents.once(`connection-status-changed:${id}`, statusHandler)
+      })
+      ipcMain.once(`ssh:keyboard-interactive-cancel:${id}`, () => {
+        KeyboardInteractiveAttempts.delete(id)
+        clearTimeout(timeoutId)
+        finish([])
+        reject(new Error('验证已取消'))
+      })
+    }
+    RequestKeyboardInteractive()
+  })
+}
+
+const handleAttemptConnection = (event, connectionInfo, resolve, reject, retryCount) => {
+  const { id, host, port, username, password, privateKey, passphrase } = connectionInfo
+  retryCount++
+
+  connectionStatus.set(id, { isVerified: false }) // 更新连接状态
+
+  const conn = new Client()
+
+  conn.on('ready', () => {
+    sshConnections.set(id, conn) // 保存连接对象
+    connectionStatus.set(id, { isVerified: true })
+    // 建立保存sftp
+    conn.sftp((err, sftp) => {
+      if (err || !sftp) {
+        connectionStatus.set(id, {
+          isVerified: true,
+          sftpAvailable: false,
+          sftpError: err?.message || 'SFTP对象为空'
+        })
+        return
+      }
+      // 测试sftp连接是否真正可用
+      sftp.readdir('.', (testErr) => {
+        if (testErr) {
+          console.error(`SFTPCheckFilaed [${id}]:`, testErr.message)
+          connectionStatus.set(id, {
+            sftpAvailable: false,
+            sftpError: testErr.message
+          })
+          sftp.end()
+        } else {
+          sftpConnections.set(id, sftp)
+          connectionStatus.set(id, {
+            sftpAvailable: true
+          })
+          console.log(`SFTPCheckSuccess [${id}]`)
+        }
+      })
+    })
+    connectionEvents.emit(`connection-status-changed:${id}`, { isVerified: true })
+    // 检查是否有 sudo 权限
+    conn.exec('sudo -n true 2>/dev/null && echo true || echo  false', (err, stream) => {
+      if (err) {
+        event.sender.send(`ssh:connect:data:${id}`, { hasSudo: false })
+      }
+      stream
+        .on('close', () => {
+          event.sender.send(`ssh:connect:data:${id}`, { hasSudo: false })
+        })
+        .on('data', (data) => {
+          event.sender.send(`ssh:connect:data:${id}`, {
+            hasSudo: data.toString().trim() === 'true'
+          })
+        })
+        .stderr.on('data', () => {
+          event.sender.send(`ssh:connect:data:${id}`, { hasSudo: false })
+        })
+    })
+
+    resolve({ status: 'connected', message: '连接成功' })
+  })
+
+  conn.on('error', (err) => {
+    connectionStatus.set(id, { isVerified: false })
+    console.log('err set ')
+
+    connectionEvents.emit(`connection-status-changed:${id}`, { isVerified: false })
+    if (err.level === 'client-authentication' && KeyboardInteractiveAttempts.has(id)) {
+      console.log('Authentication failed. Retrying...')
+
+      if (retryCount < MaxKeyboardInteractiveAttempts) {
+        handleAttemptConnection(event, connectionInfo, resolve, reject, retryCount)
+      } else {
+        reject(new Error('最大重试次数已达到，认证失败'))
+      }
+    } else {
+      reject(new Error(err.message))
+    }
+  })
+
+  // 配置连接设置
+  const connectConfig: any = {
+    host,
+    port: port || 22,
+    username,
+    keepaliveInterval: 10000, // 保持连接活跃
+    tryKeyboard: true, // 启用键盘交互认证方式
+    readyTimeout: KeyboardInteractiveTimeout // 连接超时时间，30秒
+  }
+
+  conn.on(
+    'keyboard-interactive',
+    async (_name, _instructions, _instructionsLang, prompts, finish) => {
+      try {
+        // 等待用户响应
+        await handleRequestKeyboardInteractive(event, id, prompts, finish)
+      } catch (err) {
+        conn.end() // 关闭连接
+        reject(err)
+      }
+    }
+  )
+
+  try {
+    if (privateKey) {
+      // 使用私钥认证
+      connectConfig.privateKey = privateKey
+      if (passphrase) {
+        connectConfig.passphrase = passphrase
+      }
+    } else if (password) {
+      // 使用密码认证
+      connectConfig.password = password
+    } else {
+      reject(new Error('没有提供有效的认证方式'))
+      return
+    }
+    conn.connect(connectConfig) // 尝试连接
+  } catch (err) {
+    console.error('Connection configuration error:', err)
+    reject(new Error(`连接配置错误: ${err}`))
+  }
+}
+
 export const registerSSHHandlers = () => {
   // 处理连接
   ipcMain.handle('ssh:connect', async (_event, connectionInfo) => {
-    const { id, host, port, username, password, privateKey, passphrase } = connectionInfo
+    const retryCount = 0
     return new Promise((resolve, reject) => {
-      const conn = new Client()
-      conn.on('ready', () => {
-        sshConnections.set(id, conn)
-        // 建立保存sftp
-        conn!.sftp((_err, s) => {
-          sftpConnections.set(id, s)
-        })
-        conn.exec('sudo -n true 2>/dev/null && echo true || echo  false', (err, stream) => {
-          if (err) {
-            _event.sender.send(`ssh:connect:data:${id}`, {
-              hasSudo: false
-            })
-          }
-          stream
-            .on('close', () => {
-              _event.sender.send(`ssh:connect:data:${id}`, {
-                hasSudo: false
-              })
-            })
-            .on('data', (data) => {
-              _event.sender.send(`ssh:connect:data:${id}`, {
-                hasSudo: data.toString().trim() === 'true'
-              })
-            })
-            .stderr.on('data', () => {
-              _event.sender.send(`ssh:connect:data:${id}`, {
-                hasSudo: false
-              })
-            })
-        })
-        resolve({ status: 'connected', message: '连接成功' })
-      })
-      conn.on('error', (err) => {
-        reject({ status: 'error', message: err.message })
-      })
-      const connectConfig: any = {
-        host,
-        port: port || 22,
-        username,
-        keepaliveInterval: 10000 // 保持连接活跃
-      }
-      try {
-        if (privateKey) {
-          // 读取私钥文件
-          connectConfig.privateKey = privateKey
-          if (passphrase) {
-            connectConfig.passphrase = passphrase
-          }
-        } else if (password) {
-          connectConfig.password = password
-        } else {
-          reject({ status: 'error', message: '私钥错误' })
-          return
-        }
-        conn.connect(connectConfig)
-      } catch (err) {
-        reject({ status: 'error', message: `连接配置错误: ${err}` })
-      }
+      handleAttemptConnection(_event, connectionInfo, resolve, reject, retryCount)
     })
+  })
+
+  ipcMain.handle('ssh:sftp:conn:check', async (_event, { id }) => {
+    console.log(1111)
+    if (connectionStatus.has(id)) {
+      const status = connectionStatus.get(id)
+      return status?.sftpAvailable === true
+    }
+    return false
   })
 
   ipcMain.handle('ssh:sftp:conn:list', async () => {
@@ -86,7 +249,7 @@ export const registerSSHHandlers = () => {
     return new Promise((resolve, reject) => {
       conn.shell((err, stream) => {
         if (err) {
-          reject({ status: 'error', message: err.message })
+          reject(new Error(err.message))
           return
         }
 
@@ -102,17 +265,8 @@ export const registerSSHHandlers = () => {
             markedCmd.idleTimer = setTimeout(() => {
               if (markedCmd && !markedCmd.completed) {
                 markedCmd.completed = true
-                let filteredOutput = markedCmd.output
-
-                if (markedCmd.marker === 'Chaterm:pwd') {
-                  const match = filteredOutput.match(/pwd\r\n([^\r\n]+)/)
-                  if (match) {
-                    filteredOutput = match[1]
-                  }
-                }
-
                 _event.sender.send(`ssh:shell:data:${id}`, {
-                  data: filteredOutput,
+                  data: markedCmd.output,
                   marker: markedCmd.marker
                 })
                 markedCommands.delete(id)
@@ -140,6 +294,22 @@ export const registerSSHHandlers = () => {
     })
   })
 
+  // resize处理
+  ipcMain.handle('ssh:shell:resize', async (_event, { id, cols, rows }) => {
+    const stream = shellStreams.get(id)
+    if (!stream) {
+      return { status: 'error', message: 'Shell未找到' }
+    }
+
+    try {
+      // 设置SSH shell窗口大小
+      stream.setWindow(rows, cols, 0, 0)
+      return { status: 'success', message: `窗口大小已设置为 ${cols}x${rows}` }
+    } catch (error) {
+      return { status: 'error', message: error }
+    }
+  })
+
   ipcMain.on('ssh:shell:write', (_event, { id, data, marker }) => {
     const stream = shellStreams.get(id)
     if (stream) {
@@ -152,8 +322,7 @@ export const registerSSHHandlers = () => {
           output: '',
           completed: false,
           lastActivity: Date.now(),
-          idleTimer: null,
-          command: data // 保存命令以便后续过滤
+          idleTimer: null
         })
       }
       stream.write(data)
@@ -167,7 +336,8 @@ export const registerSSHHandlers = () => {
     if (!conn) {
       throw new Error(`No SSH connection for id=${id}`)
     }
-    return new Promise<string>((resolve, reject) => {
+
+    return new Promise<ExecResult>((resolve, reject) => {
       conn.exec(cmd, (err, stream) => {
         if (err) return reject(err)
 
@@ -176,11 +346,11 @@ export const registerSSHHandlers = () => {
         let exitCode: number | undefined
         let exitSignal: string | undefined
 
-        // 收集输出
         stream.on('data', (chunk: Buffer) => {
           stdout += chunk.toString()
         })
         stream.stderr.on('data', (chunk: Buffer) => {
+          // 收集输出
           stderr += chunk.toString()
         })
 
@@ -192,21 +362,18 @@ export const registerSSHHandlers = () => {
         stream.on('close', (code, signal) => {
           const finalCode = exitCode !== undefined ? exitCode : code
           const finalSignal = exitSignal !== undefined ? exitSignal : signal
-          if (finalCode === 0) {
-            resolve(stdout)
-          } else {
-            reject(
-              new Error(
-                `Command exited with code=${finalCode}, signal=${finalSignal}\n` +
-                  `stderr: ${stderr}`
-              )
-            )
-          }
+
+          // 无论成功还是失败都返回结果
+          resolve({
+            stdout,
+            stderr,
+            exitCode: finalCode ?? undefined,
+            exitSignal: finalSignal ?? undefined
+          })
         })
       })
     })
   })
-
   ipcMain.handle('ssh:sftp:list', async (_e, { path, id }) => {
     if (!sftpConnections.has(id)) {
       return Promise.reject(new Error(`no sftp conn for ${id}`))
@@ -254,26 +421,6 @@ export const registerSSHHandlers = () => {
       return { status: 'success', message: '已断开连接' }
     }
     return { status: 'warning', message: '没有活动的连接' }
-  })
-
-  ipcMain.handle('ssh:select-private-key', async () => {
-    const result = await dialog.showOpenDialog({
-      properties: ['openFile'],
-      filters: [
-        { name: 'Private Key Files', extensions: ['pem', 'key', 'ppk', ''] },
-        { name: 'All Files', extensions: ['*'] }
-      ],
-      title: '选择SSH私钥文件'
-    })
-
-    if (result.canceled) {
-      return { status: 'canceled' }
-    }
-
-    return {
-      status: 'success',
-      filePath: result.filePaths[0]
-    }
   })
 
   ipcMain.handle('ssh:recordTerminalState', async (_event, params) => {
