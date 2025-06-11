@@ -485,7 +485,7 @@ const debounce = (func, wait) => {
   }
 }
 const autoWriteCode = (command) => {
-  terminal.value?.write(command)
+  terminal.value?.write(command.replace(/([^\r])\n/g, '$1\r\n'))
 }
 const autoExecuteCode = (command) => {
   sendData(command)
