@@ -656,17 +656,6 @@ const restoreHistoryTab = async (history: HistoryItem) => {
           item.say === lastItem.say &&
           item.type === lastItem.type
 
-        // // 处理 command 类型的消息
-        // if (item.type === 'ask' && item.ask === 'command' && item.text) {
-        //   eventBus.emit('writeTerminalCommand', item.text + '\r\n')
-        // }
-
-        // 处理 command_output 类型的消息
-        if (item.type === 'say' && item.say === 'command_output' && item.text) {
-          eventBus.emit('writeTerminalCommand', item.text + '\r\n')
-          return // 跳过添加到聊天历史
-        }
-
         if (
           !isDuplicate &&
           (item.ask === 'followup' ||
