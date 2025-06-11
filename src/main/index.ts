@@ -15,7 +15,7 @@ import {
   testStorageFromMain as testRendererStorageFromMain
 } from './agent/core/storage/state'
 import { getTaskMetadata } from './agent/core/storage/disk'
-
+import { HeartbeatManager } from './heartBeatManager'
 let mainWindow: BrowserWindow
 let COOKIE_URL = 'http://localhost'
 let browserWindow: BrowserWindow | null = null
@@ -209,6 +209,16 @@ app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {
     app.quit()
   }
+})
+
+const hbManager = new HeartbeatManager()
+ipcMain.handle('heartbeat-start', (event, { heartbeatId, interval }) => {
+  hbManager.start(heartbeatId, interval, event.sender)
+})
+
+// 2. 渲染进程请求关闭心跳
+ipcMain.handle('heartbeat-stop', (event, { heartbeatId }) => {
+  hbManager.stop(heartbeatId)
 })
 
 // Add the before-quit event listener here or towards the end of the file

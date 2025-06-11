@@ -4,38 +4,37 @@
     <div class="split-layout">
       <div class="left-section">
         <div class="header-container">
-          <div
-            class="toggle-btn"
-            @click="openNewPanel"
-          >
-            <a-button
-              type="primary"
-              size="small"
-              class="workspace-button"
-            >
-              <template #icon
-                ><img
-                  :src="keyIcon"
-                  alt="Key Icon"
-                  style="width: 14px; height: 14px; margin-right: 5px" /></template
-              >{{ $t('personal.newKey') }}
-            </a-button>
-          </div>
-          <div class="search-box">
+          <div class="search-container">
             <a-input
               v-model:value="searchValue"
-              placeholder="搜索..."
+              :placeholder="t('common.search')"
               class="search-input"
               @input="handleSearch"
             >
-              <template #prefix>
-                <img
-                  :src="keyIcon"
-                  alt="Key Search Icon"
-                  style="width: 14px; height: 14px"
-                />
+              <template #suffix>
+                <search-outlined />
               </template>
             </a-input>
+            <div
+              class="toggle-btn"
+              @click="openNewPanel"
+            >
+              <a-button
+                type="primary"
+                size="small"
+                class="workspace-button"
+              >
+                <template #icon
+                  ><img
+                    :src="keyIcon"
+                    alt="Key Icon"
+                    style="width: 14px; height: 14px; margin-right: 5px"
+                /></template>
+                <span style="margin-left: 5px">
+                  {{ t('keyChain.newKey') }}
+                </span>
+              </a-button>
+            </div>
           </div>
         </div>
         <!-- 密钥列表 -->
@@ -66,7 +65,7 @@
                   </div>
                   <div class="keychain-info">
                     <div class="keychain-name">{{ item.chain_name }}</div>
-                    <div class="keychain-type">Type: {{ item.chain_type }}</div>
+                    <div class="keychain-type">{{ t('keyChain.type') }}{{ item.chain_type }}</div>
                   </div>
                   <div
                     class="edit-icon"
@@ -91,14 +90,14 @@
             @click="handleEdit(selectedKeyChain)"
           >
             <div class="context-menu-icon"><EditOutlined /></div>
-            <div class="context-menu-text">Edit</div>
+            <div class="context-menu-text">{{ t('common.edit') }}</div>
           </div>
           <div
-            class="context-menu-item"
+            class="context-menu-item delete"
             @click="handleRemove(selectedKeyChain)"
           >
             <div class="context-menu-icon"><DeleteOutlined /></div>
-            <div class="context-menu-text">Remove</div>
+            <div class="context-menu-text">{{ t('common.remove') }}</div>
           </div>
         </div>
       </div>
@@ -111,7 +110,7 @@
       >
         <div class="right-section-header">
           <div style="font-size: 14px; font-weight: bold">
-            <h3>{{ isEditMode ? 'Edit Key' : 'New Key' }}</h3>
+            <h3>{{ isEditMode ? t('keyChain.editKey') : t('keyChain.newKey') }}</h3>
           </div>
           <ToTopOutlined
             style="font-size: 20px; transform: rotate(90deg); cursor: pointer"
@@ -120,51 +119,59 @@
           />
         </div>
 
-        <br />
-        <a-card class="form-card">
-          <div class="input-container">
-            <div class="input-label">Label*</div>
-            <a-input
-              v-model:value="createForm.label"
-              placeholder="Label"
-            />
-          </div>
-          <div class="input-container-textarea">
-            <div class="input-label">Private key*</div>
-            <a-textarea
-              v-model:value="createForm.privateKey"
-              :rows="4"
-              :auto-size="{ minRows: 6, maxRows: 8 }"
-              spellcheck="false"
-              autocorrect="off"
-              autocapitalize="off"
-              autocomplete="off"
-            />
-          </div>
-          <div class="input-container-textarea">
-            <div class="input-label">Public key</div>
-            <a-textarea
-              v-model:value="createForm.publicKey"
-              :rows="4"
-              :auto-size="{ minRows: 5, maxRows: 8 }"
-              spellcheck="false"
-              autocorrect="off"
-              autocapitalize="off"
-              autocomplete="off"
-            />
-          </div>
-          <div class="input-container">
-            <div class="input-label">Passphrase</div>
-            <a-input-password v-model:value="createForm.passphrase" />
-          </div>
-        </a-card>
-        <div class="form-actions">
+        <div class="right-section-content">
+          <a-form
+            :label-col="{ span: 27 }"
+            :wrapper-col="{ span: 27 }"
+            layout="vertical"
+            class="custom-form"
+          >
+            <a-form-item :label="`${t('keyChain.label')}*`">
+              <a-input
+                v-model:value="createForm.label"
+                :placeholder="t('keyChain.pleaseInput')"
+              />
+            </a-form-item>
+            <a-form-item :label="`${t('keyChain.privateKey')}*`">
+              <a-textarea
+                v-model:value="createForm.privateKey"
+                :rows="4"
+                :auto-size="{ minRows: 5, maxRows: 8 }"
+                spellcheck="false"
+                autocorrect="off"
+                autocapitalize="off"
+                autocomplete="off"
+                :placeholder="t('keyChain.pleaseInput')"
+              />
+            </a-form-item>
+            <a-form-item :label="t('keyChain.publicKey')">
+              <a-textarea
+                v-model:value="createForm.publicKey"
+                :rows="4"
+                :auto-size="{ minRows: 5, maxRows: 8 }"
+                spellcheck="false"
+                autocorrect="off"
+                autocapitalize="off"
+                autocomplete="off"
+                :placeholder="t('keyChain.pleaseInput')"
+              />
+            </a-form-item>
+            <a-form-item :label="t('keyChain.passphrase')">
+              <a-input-password
+                v-model:value="createForm.passphrase"
+                :placeholder="t('keyChain.pleaseInput')"
+              />
+            </a-form-item>
+          </a-form>
+        </div>
+
+        <div class="connect-button-container">
           <a-button
             type="primary"
-            class="form-actions-button"
+            class="connect-button"
             @click="isEditMode ? handleUpdateKeyChain() : handleCreateKeyChain()"
           >
-            {{ isEditMode ? 'Save' : 'Create' }}
+            {{ isEditMode ? t('keyChain.saveKey') : t('keyChain.createKey') }}
           </a-button>
         </div>
       </div>
@@ -175,8 +182,10 @@
 <script setup lang="ts">
 import { ref, onMounted, onBeforeUnmount, reactive, computed, watch } from 'vue'
 import { Modal, message } from 'ant-design-vue'
-import { EditOutlined, DeleteOutlined, ToTopOutlined } from '@ant-design/icons-vue'
+import { EditOutlined, DeleteOutlined, ToTopOutlined, SearchOutlined } from '@ant-design/icons-vue'
 import keyIcon from '@/assets/menu/key.svg'
+import i18n from '@/locales'
+const { t } = i18n.global
 
 interface KeyChainItem {
   key_chain_id: number
@@ -317,31 +326,29 @@ const handleRemove = (keyChain: KeyChainItem | null) => {
 
   // 确认删除
   Modal.confirm({
-    title: '删除确认',
-    content: `确定要删除密钥 "${keyChain.chain_name}" 吗？`,
-    okText: '删除',
+    title: t('keyChain.deleteConfirm'),
+    content: t('keyChain.deleteConfirmContent', { name: keyChain.chain_name }),
+    okText: t('common.delete'),
     okType: 'danger',
-    cancelText: '取消',
+    cancelText: t('common.cancel'),
     maskClosable: true,
     onOk: async () => {
       try {
-        // 使用类型断言
         const api = window.api as any
-        // 这里需要实现删除API
         if (api.deleteKeyChain) {
           const res = await api.deleteKeyChain({ id: keyChain.key_chain_id })
           if (res?.data?.message === 'success') {
-            message.success(`删除密钥 ${keyChain.chain_name} 成功`)
+            message.success(t('keyChain.deleteSuccess', { name: keyChain.chain_name }))
             fetchKeyChainList()
           } else {
-            message.error('删除失败')
+            message.error(t('keyChain.deleteFailure'))
           }
         } else {
           console.error('deleteKeyChain API not implemented')
-          message.error('删除功能尚未实现')
+          message.error(t('keyChain.deleteError'))
         }
       } catch (err: any) {
-        message.error(`删除出错: ${err.message || '未知错误'}`)
+        message.error(t('keyChain.deleteError', { error: err.message || '未知错误' }))
       }
     }
   })
@@ -515,15 +522,15 @@ const testMain = async () => {
 <style lang="less" scoped>
 .workspace-button {
   font-size: 14px;
-  height: 28px;
+  height: 30px;
   display: flex;
   align-items: center;
-  background-color: rgb(90, 94, 115);
-  border-color: rgb(90, 94, 115);
+  background-color: #1677ff;
+  border-color: #1677ff;
 
   &:hover {
-    background-color: rgb(110, 114, 135);
-    border-color: rgb(110, 114, 135);
+    background-color: #398bff;
+    border-color: #398bff;
   }
 
   &:active {
@@ -554,8 +561,7 @@ const testMain = async () => {
   flex: 1 1 auto;
   position: relative;
   transition: all 0.3s ease;
-  padding: 15px;
-  padding-top: 50px;
+  padding: 10px;
   overflow-y: auto;
   background-color: #141414;
   width: 100%; /* 确保左侧部分占满可用空间 */
@@ -567,7 +573,6 @@ const testMain = async () => {
   background-color: #3a3a3a;
   border-color: #3a3a3a;
   color: white;
-
   :deep(.ant-input) {
     background-color: #3a3a3a;
     color: white;
@@ -634,10 +639,6 @@ const testMain = async () => {
 
   &:hover {
     background-color: #383838;
-  }
-
-  :deep(.ant-card-body) {
-    padding: 12px;
   }
 }
 
@@ -706,8 +707,7 @@ const testMain = async () => {
 
 .right-section {
   flex: 0 0 30%;
-  background: #2c2c2c;
-  border-left: 1px solid var(--ev-c-white);
+  background: #141414;
   transition: all 0.3s ease;
   height: 100%;
   display: flex;
@@ -716,6 +716,7 @@ const testMain = async () => {
   padding: 0;
   overflow: hidden;
   max-width: 30%; /* 限制最大宽度 */
+  min-width: 300px;
 }
 
 .right-section-header {
@@ -736,50 +737,6 @@ const testMain = async () => {
   height: calc(100% - 40px);
 }
 
-.form-card {
-  margin: 0 10px 10px;
-  margin-bottom: 16px;
-  background-color: #f5f5f5;
-  border: 1px solid #d9d9d9;
-  border-radius: 10px;
-
-  :deep(.ant-card-body) {
-    padding: 5px;
-  }
-}
-.input-container {
-  margin: 5px;
-  margin-bottom: 10px;
-  .input-label {
-    color: rgba(38, 106, 55, 0.9);
-    font-size: 12px;
-    margin-bottom: 4px;
-  }
-}
-
-.input-container-textarea {
-  margin: 5px;
-  margin-bottom: 10px;
-  :deep(.ant-input),
-  :deep(.ant-input-textarea) {
-    font-size: 12px;
-    line-height: 1.4;
-  }
-  .input-label {
-    color: rgba(38, 106, 55, 0.9);
-    font-size: 12px;
-    margin-bottom: 4px;
-  }
-}
-
-.form-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 8px;
-  margin-top: 16px;
-  margin-bottom: 16px;
-}
-
 /* 右键菜单样式 */
 .context-menu {
   position: fixed;
@@ -798,7 +755,13 @@ const testMain = async () => {
   cursor: pointer;
   transition: background-color 0.2s;
   color: white;
+  &.delete {
+    color: #ff4d4f;
 
+    &:hover {
+      background-color: rgba(255, 77, 79, 0.15);
+    }
+  }
   &:hover {
     background-color: #383838;
   }
@@ -817,6 +780,38 @@ const testMain = async () => {
   flex: 1;
 }
 
+.custom-form {
+  color: rgba(255, 255, 255, 0.85);
+  :deep(.ant-form-item) {
+    color: rgba(255, 255, 255, 0.65);
+  }
+}
+
+.connect-button-container {
+  width: 100%;
+  padding: 16px;
+  margin-top: auto;
+  flex-shrink: 0;
+  position: sticky;
+  bottom: 0;
+  // background-color: #2c2c2c;
+  // border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.connect-button {
+  width: 100%;
+  height: 40px;
+  font-size: 16px;
+  border-radius: 4px;
+  background-color: #1890ff;
+  border-color: #1890ff;
+
+  &:hover {
+    background-color: #40a9ff;
+    border-color: #40a9ff;
+  }
+}
+
 /* 右侧表单样式 */
 :deep(.ant-form-item-label > label) {
   color: white;
@@ -825,75 +820,62 @@ const testMain = async () => {
 /* 右侧表单输入框样式 */
 .right-section {
   :deep(.ant-input),
-  :deep(.ant-input-password),
   :deep(.ant-select:not(.ant-select-customize-input) .ant-select-selector),
   :deep(.ant-input-number),
   :deep(.ant-picker),
   :deep(.ant-input-affix-wrapper),
   :deep(.ant-textarea) {
-    background-color: white;
-    border-color: #d9d9d9;
-    color: rgba(0, 0, 0, 0.85);
+    color: rgba(255, 255, 255, 0.85);
+    background-color: transparent !important;
+    border-color: rgba(255, 255, 255, 0.2) !important;
 
     &::placeholder {
-      color: rgba(0, 0, 0, 0.45);
+      color: rgba(255, 255, 255, 0.25) !important;
     }
-
     &:hover,
     &:focus {
       border-color: #1890ff;
-      box-shadow: 0 0 0 2px rgba(24, 144, 255, 0.2);
     }
+  }
+  :deep(.anticon.ant-input-password-icon) {
+    color: rgba(255, 255, 255, 0.85);
   }
 }
 
-:deep(.ant-select-dropdown) {
-  background-color: #3a3a3a;
-}
-
-:deep(.ant-select-item) {
-  color: white;
-}
-
-:deep(.ant-select-item-option-selected:not(.ant-select-item-option-disabled)) {
-  background-color: #1890ff;
-  color: white;
-}
-
-:deep(.ant-select-item-option-active:not(.ant-select-item-option-disabled)) {
-  background-color: #4a4a4a;
-}
-
-.header-container {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  position: absolute;
-  top: 10px;
-  left: 10px;
-  right: 10px;
-  z-index: 10;
-}
+// .header-container {
+//   display: flex;
+//   // justify-content: space-between;
+//   flex: 1 auto;
+//   width: 60%;
+//   align-items: center;
+//   position: absolute;
+//   top: 10px;
+//   left: 15px;
+//   right: 15px;
+//   z-index: 10;
+// }
 
 .toggle-btn {
   flex: 0 0 auto;
+  margin-left: 10px;
 }
 
-.search-box {
-  flex: 0 0 auto;
-  width: 200px;
+.search-container {
+  margin-bottom: 20px;
+  display: flex;
+  width: 60%;
 }
-.form-actions-button {
-  width: 96%;
-  margin: 0 auto;
-  height: 40px;
-  font-size: 16px;
-  border-radius: 12px;
-  background-color: #1890ff;
-  border-color: #1890ff;
-  &:hover {
-    background-color: #40a9ff;
-    border-color: #40a9ff;
-  }
-}
+// .form-actions-button {
+//   width: 96%;
+//   margin: 0 auto;
+//   height: 40px;
+//   font-size: 16px;
+//   border-radius: 12px;
+//   background-color: #1890ff;
+//   border-color: #1890ff;
+//   &:hover {
+//     background-color: #40a9ff;
+//     border-color: #40a9ff;
+//   }
+// }
 </style>
