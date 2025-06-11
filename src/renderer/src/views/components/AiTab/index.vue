@@ -46,7 +46,10 @@
           v-if="responseLoading"
           style="color: #ffffff; font-size: 10px"
         >
-          <HourglassOutlined spin style="color: #1890FF; margin-right: 2px"/>
+          <HourglassOutlined
+            spin
+            style="color: #1890ff; margin-right: 2px"
+          />
           {{ $t('ai.processing') }}
         </span>
       </div>
@@ -1020,7 +1023,7 @@ onMounted(async () => {
       // 处理自动执行中command类型的消息
       if (
         message.partialMessage.type === 'say' &&
-        message.partialMessage.ask === 'command' &&
+        message.partialMessage.say === 'command' &&
         message.partialMessage.text
       ) {
         eventBus.emit('writeTerminalCommand', message.partialMessage.text + '\r\n')
