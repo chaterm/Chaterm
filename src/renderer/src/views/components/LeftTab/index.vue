@@ -104,6 +104,8 @@
   </div>
 </template>
 <script setup lang="ts">
+import { removeToken } from '@/utils/permission'
+
 const emit = defineEmits(['toggle-menu', 'open-user-tab'])
 import { menuTabsData } from './data'
 import { ref } from 'vue'
@@ -162,8 +164,9 @@ const logout = () => {
   userLogOut()
     .then((res) => {
       console.log(res, 'logout')
-      localStorage.removeItem('ctm-token')
-      router.push('/login')
+      // localStorage.removeItem('ctm-token')
+      removeToken(true)
+      // router.push('/login')
     })
     .catch((err) => {
       console.log(err, 'err')
