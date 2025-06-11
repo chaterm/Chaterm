@@ -6,7 +6,6 @@ import { v4 as uuidv4 } from 'uuid'
 
 import pWaitFor from 'p-wait-for'
 import { serializeError } from 'serialize-error'
-import * as vscode from 'vscode'
 import { ApiHandler, buildApiHandler } from '@api/index'
 import { ApiStream } from '@api/transform/stream'
 import { formatContentBlockToMarkdown } from '@integrations/misc/export-markdown'
@@ -48,7 +47,6 @@ import {
 import { formatResponse } from '@core/prompts/responses'
 import { addUserInstructions, SYSTEM_PROMPT } from '@core/prompts/system'
 import { getContextWindowInfo } from '@core/context/context-management/context-window-utils'
-import { FileContextTracker } from '@core/context/context-tracking/FileContextTracker'
 import { ModelContextTracker } from '@core/context/context-tracking/ModelContextTracker'
 import { ContextManager } from '@core/context/context-management/ContextManager'
 import {
@@ -74,7 +72,6 @@ export class Task {
   private postStateToWebview: () => Promise<void>
   private postMessageToWebview: (message: ExtensionMessage) => Promise<void>
   private reinitExistingTaskFromId: (taskId: string) => Promise<void>
-  private cancelTask: () => Promise<void>
 
   readonly taskId: string
   hosts?: Host[]
@@ -103,7 +100,6 @@ export class Task {
   isInitialized = false
 
   // Metadata tracking
-  private fileContextTracker: FileContextTracker
   private modelContextTracker: ModelContextTracker
 
   // streaming
@@ -121,17 +117,14 @@ export class Task {
   private didAutomaticallyRetryFailedApiRequest = false
 
   constructor(
-    context: vscode.ExtensionContext,
     workspaceTracker: WorkspaceTracker,
     updateTaskHistory: (historyItem: HistoryItem) => Promise<HistoryItem[]>,
     postStateToWebview: () => Promise<void>,
     postMessageToWebview: (message: ExtensionMessage) => Promise<void>,
     reinitExistingTaskFromId: (taskId: string) => Promise<void>,
-    cancelTask: () => Promise<void>,
     apiConfiguration: ApiConfiguration,
     autoApprovalSettings: AutoApprovalSettings,
     chatSettings: ChatSettings,
-    shellIntegrationTimeout: number,
     customInstructions?: string,
     task?: string,
     historyItem?: HistoryItem,
@@ -144,7 +137,6 @@ export class Task {
     this.postStateToWebview = postStateToWebview
     this.postMessageToWebview = postMessageToWebview
     this.reinitExistingTaskFromId = reinitExistingTaskFromId
-    this.cancelTask = cancelTask
     this.remoteTerminalManager = new RemoteTerminalManager()
     this.contextManager = new ContextManager()
     this.customInstructions = customInstructions
@@ -165,8 +157,7 @@ export class Task {
     }
 
     // Initialize file context tracker
-    this.fileContextTracker = new FileContextTracker(context, this.taskId)
-    this.modelContextTracker = new ModelContextTracker(context, this.taskId)
+    this.modelContextTracker = new ModelContextTracker(this.taskId)
     // Now that taskId is initialized, we can build the API handler
     this.api = buildApiHandler({
       ...apiConfiguration,
@@ -791,7 +782,6 @@ export class Task {
   async abortTask() {
     this.abort = true // will stop any autonomously running promises
     this.remoteTerminalManager.disposeAll()
-    this.fileContextTracker.dispose()
   }
 
   // Checkpoints
@@ -1583,7 +1573,6 @@ export class Task {
                   this.didRejectTool = true
                 }
 
-                // Re-populate file paths in case the command modified the workspace (vscode listeners do not trigger unless the user manually creates/deletes files)
                 this.workspaceTracker.populateFilePaths()
 
                 pushToolResult(result)
@@ -1872,8 +1861,6 @@ export class Task {
 
                 // Derive system information values algorithmically
                 const operatingSystem = os.platform() + ' ' + os.release()
-                // const systemInfo = `VSCode: ${vscode.version}, Node.js: ${process.version}, Architecture: ${os.arch()}`
-                // const providerAndModel = `${(await getGlobalState(this.getContext(), "apiProvider")) as string} / ${this.api.getModel().id}`
                 const providerAndModel = `${(await getGlobalState('apiProvider')) as string} / ${this.api.getModel().id}`
 
                 // Ask user for confirmation
