@@ -8,7 +8,7 @@
   <div>
     <!-- Command mode -->
     <div
-      v-if="props.ask === 'command'"
+      v-if="props.ask === 'command' || props.say === 'command'"
       ref="editorContainer"
       class="command-editor-container"
     >
@@ -213,6 +213,7 @@ let editor: monaco.editor.IStandaloneCodeEditor | null = null
 const props = defineProps<{
   content: string
   ask?: string
+  say?: string
 }>()
 
 const codeBlocks = ref<Array<{ content: string; activeKey: string[]; lines: number }>>([])
@@ -630,7 +631,7 @@ onMounted(() => {
   })
 
   if (props.content) {
-    if (props.ask === 'command') {
+    if (props.ask === 'command' || props.say === 'command') {
       initEditor(props.content)
     } else {
       processContent(props.content)
@@ -655,7 +656,7 @@ watch(
       return
     }
 
-    if (props.ask === 'command') {
+    if (props.ask === 'command' || props.say === 'command') {
       updateEditor(newContent)
     } else {
       processContent(newContent)
