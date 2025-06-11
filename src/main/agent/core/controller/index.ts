@@ -7,11 +7,9 @@ import { setTimeout as setTimeoutPromise } from 'node:timers/promises'
 import pWaitFor from 'p-wait-for'
 import * as path from 'path'
 import * as vscode from 'vscode'
-import { handleGrpcRequest } from './grpc-handler'
 import { buildApiHandler } from '@api/index'
 import { cleanupLegacyCheckpoints } from '@integrations/checkpoints/CheckpointMigration'
 import { downloadTask } from '@integrations/misc/export-markdown'
-// import { fetchOpenGraphData } from '@integrations/misc/link-preview'
 import WorkspaceTracker from '@integrations/workspace/WorkspaceTracker'
 import { searchWorkspaceFiles } from '@services/search/file-search'
 import { ExtensionMessage, ExtensionState, Invoke, Platform } from '@shared/ExtensionMessage'
@@ -31,20 +29,12 @@ import {
 import {
   getAllExtensionState,
   getGlobalState,
-  getSecret,
   resetExtensionState,
   storeSecret,
   updateApiConfiguration,
   updateGlobalState
-  // updateWorkspaceState
 } from '../storage/state'
 import { Task } from '../task'
-
-/*
-https://github.com/microsoft/vscode-webview-ui-toolkit-samples/blob/main/default/weather-webview/src/providers/WeatherViewProvider.ts
-
-https://github.com/KumarVariable/vscode-extension-sidebar-html/blob/master/src/customSidebarViewProvider.ts
-*/
 
 export class Controller {
   private postMessage: (message: ExtensionMessage) => Promise<boolean> | undefined
@@ -72,11 +62,6 @@ export class Controller {
     )
   }
 
-  /*
-	VSCode extensions use the disposable pattern to clean up resources when the sidebar/editor tab is closed by the user or system. This applies to event listening, commands, interacting with the UI, etc.
-	- https://vscode-docs.readthedocs.io/en/stable/extensions/patterns-and-principles/
-	- https://github.com/microsoft/vscode-extension-samples/blob/main/webview-sample/src/extension.ts
-	*/
   async dispose() {
     this.outputChannel.appendLine('Disposing ClineProvider...')
 
@@ -132,19 +117,16 @@ export class Controller {
     console.log('initTask', task, historyItem)
     await this.clearTask() // ensures that an existing task doesn't exist before starting a new one, although this shouldn't be possible since user must clear task before starting a new one
     const { apiConfiguration, customInstructions, autoApprovalSettings, chatSettings } =
-    await getAllExtensionState()
+      await getAllExtensionState()
     this.task = new Task(
-      this.context,
       this.workspaceTracker,
       (historyItem) => this.updateTaskHistory(historyItem),
       () => this.postStateToWebview(),
       (message) => this.postMessageToWebview(message),
       (taskId) => this.reinitExistingTaskFromId(taskId),
-      () => this.cancelTask(),
       apiConfiguration,
       autoApprovalSettings,
       chatSettings,
-      30,
       customInstructions,
       task,
       historyItem,
@@ -215,24 +197,6 @@ export class Controller {
         }
         await this.postStateToWebview()
         break
-      // case 'autoApprovalSettings':
-      //   if (message.autoApprovalSettings) {
-      //     const currentSettings = (await getAllExtensionState(this.context)).autoApprovalSettings
-      //     const incomingVersion = message.autoApprovalSettings.version ?? 1
-      //     const currentVersion = currentSettings?.version ?? 1
-      //     if (incomingVersion > currentVersion) {
-      //       await updateGlobalState(
-      //         this.context,
-      //         'autoApprovalSettings',
-      //         message.autoApprovalSettings
-      //       )
-      //       if (this.task) {
-      //         this.task.autoApprovalSettings = message.autoApprovalSettings
-      //       }
-      //       await this.postStateToWebview()
-      //     }
-      //   }
-      //   break
       case 'optionsResponse':
         await this.postMessageToWebview({
           type: 'invoke',
@@ -337,14 +301,6 @@ export class Controller {
         }
         break
       }
-      // case 'grpc_request': {
-      //   if (message.grpc_request) {
-      //     await handleGrpcRequest(this, message.grpc_request)
-      //   }
-      //   break
-      // }
-      // Add more switch case statements here as more webview message commands
-      // are created within the webview context (i.e. inside media/main.js)
     }
   }
 
@@ -610,7 +566,7 @@ export class Controller {
         `Encountered error while deleting task history, there may be some files left behind. Error: ${error instanceof Error ? error.message : String(error)}`
       )
     }
-    // await this.postStateToWebview()
+    await this.postStateToWebview()
   }
 
   async refreshTotalTasksSize() {
