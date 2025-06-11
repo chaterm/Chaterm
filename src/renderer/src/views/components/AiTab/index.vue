@@ -885,7 +885,7 @@ const handleApproveCommand = async () => {
   let message = chatHistory.at(-1)
   if (!message) {
     return false
-  } else {
+  } else if (chatTypeValue.value === 'cmd') {
     eventBus.emit('writeTerminalCommand', message.content + '\r\n')
   }
   try {
@@ -1012,14 +1012,13 @@ onMounted(async () => {
       let lastMessageInChat = chatHistory.at(-1)
 
       // 处理自动执行中command类型的消息
-      if (
-        message.partialMessage.type === 'say' &&
-        message.partialMessage.say === 'command' &&
-        message.partialMessage.text &&
-        chatTypeValue.value === 'cmd'
-      ) {
-        eventBus.emit('writeTerminalCommand', message.partialMessage.text + '\r\n')
-      }
+      // if (
+      //   message.partialMessage.type === 'say' &&
+      //   message.partialMessage.say === 'command' &&
+      //   message.partialMessage.text
+      // ) {
+      //   eventBus.emit('writeTerminalCommand', message.partialMessage.text + '\r\n')
+      // }
 
       // 处理 command_output 类型的消息
       if (
