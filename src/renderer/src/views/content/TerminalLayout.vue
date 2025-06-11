@@ -230,18 +230,7 @@ const openedTabs = ref<TabItem[]>([])
 const activeTabId = ref('')
 // 点击服务器列表中的服务器
 const currentClickServer = async (item) => {
-  console.log(item, 'item')
   if (item.children) return
-
-  // 检查是否已存在基于 item.key (或 item.id, 如果 key 不唯一) 的标签页
-  // 这里假设 item.key 是唯一的标识符，如果不是，需要用 item.uuid 或其他唯一ID
-  const existingTab = openedTabs.value.find(
-    (tab) => tab.data?.key === item.key && tab.type === (item.type || 'term')
-  )
-  if (existingTab) {
-    activeTabId.value = existingTab.id
-    return
-  }
 
   const id_ = uuidv4()
   openedTabs.value.push({
@@ -259,6 +248,7 @@ const currentClickServer = async (item) => {
   // 激活点击的标签页
   activeTabId.value = id_
 }
+
 const closeTab = (tabId) => {
   const index = openedTabs.value.findIndex((tab) => tab.id === tabId)
   const closedTab = openedTabs.value[index]
