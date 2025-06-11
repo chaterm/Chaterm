@@ -243,66 +243,17 @@ const getLocalAssetMenu = () => {
     .catch((err) => console.error(err))
 }
 
-const processResponses = (TreeData: AssetNode[], response: AssetNode[]) => {
-  if (TreeData.length === 0) {
-    response.forEach((item) => {
-      TreeData.push(JSON.parse(JSON.stringify(item)))
-    })
-    return
-  }
-
-  response.forEach((item) => {
-    const existingIndex = TreeData.findIndex((node) => node.key === item.key)
-
-    if (item.key === 'favorite') {
-      if (existingIndex > -1) {
-        const existingFav = TreeData[existingIndex]
-        if (Array.isArray(item.children) && item.children.length) {
-          if (!Array.isArray(existingFav.children)) {
-            existingFav.children = []
-          }
-          existingFav.children.push(
-            ...item.children.map((child) => JSON.parse(JSON.stringify(child)))
-          )
-        }
-      } else {
-        TreeData.unshift(JSON.parse(JSON.stringify(item)))
-      }
-    } else {
-      if (existingIndex === -1) {
-        TreeData.push(JSON.parse(JSON.stringify(item)))
-      } else {
-        const existingNode = TreeData[existingIndex]
-        if (Array.isArray(item.children) && item.children.length) {
-          if (!Array.isArray(existingNode.children)) {
-            existingNode.children = []
-          }
-          existingNode.children.push(
-            ...item.children.map((child) => JSON.parse(JSON.stringify(child)))
-          )
-        }
-      }
-    }
-  })
-}
-
-const getUserAssetMenu = async () => {
+const getUserAssetMenu = () => {
   originalTreeData.value = []
   assetTreeData.value = []
-  const treeData = []
-  for (const item of remoteWorkSpace.value) {
-    await getassetMenu({ organizationId: item.key })
-      .then(async (res) => {
-        const data = res.data.routers
-        processResponses(treeData, deepClone(data) as AssetNode[])
-      })
-      .catch((err) => console.error(err))
-  }
-  originalTreeData.value = deepClone(treeData) as AssetNode[]
-  assetTreeData.value = deepClone(treeData) as AssetNode[]
-  console.log(assetTreeData.value, 'assetTreeData')
-
-  expandDefaultNodes()
+  getassetMenu({ organizationId: remoteWorkSpace.value[0]?.key || '' })
+    .then((res) => {
+      const data = res.data.routers
+      originalTreeData.value = deepClone(data) as AssetNode[]
+      assetTreeData.value = deepClone(data) as AssetNode[]
+      expandDefaultNodes()
+    })
+    .catch((err) => console.error(err))
 }
 
 const GetUserWorkSpace = async () => {
@@ -487,7 +438,6 @@ const assetManagement = () => {
 //     message.error('命令插入失败')
 //   }
 // }
-getUserAssetMenu()
 getLocalAssetMenu()
 onMounted(async () => {
   await GetUserWorkSpace()
