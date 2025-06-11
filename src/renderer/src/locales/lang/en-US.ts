@@ -149,6 +149,7 @@ export default {
     newChat: 'New Chat',
     showChatHistory: 'Show History',
     closeAiSidebar: 'Close AI Sidebar',
-    addHost: 'Add Host'
+    addHost: 'Add Host',
+    processing: 'processing...'
   }
 }

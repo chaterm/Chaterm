@@ -149,6 +149,7 @@ export default {
     newChat: '新建对话',
     showChatHistory: '显示历史记录',
     closeAiSidebar: '关闭AI侧边栏',
-    addHost: '添加主机'
+    addHost: '添加主机',
+    processing: '处理中...'
   }
 }
