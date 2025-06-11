@@ -54,6 +54,7 @@
                   :bordered="false"
                   @contextmenu.prevent="showContextMenu($event, host, group)"
                   @click="handleCardClick(host)"
+                  @dblclick="handleConnect(host)"
                 >
                   <div class="host-card-content">
                     <div class="host-icon">
