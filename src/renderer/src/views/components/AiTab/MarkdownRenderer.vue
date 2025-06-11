@@ -1066,4 +1066,19 @@ code {
   vertical-align: middle;
   filter: invert(0.25);
 }
+
+.markdown-content pre {
+  background-color: #2a2a2a;
+  border-radius: 8px;
+  padding: 8px;
+  overflow-x: hidden;
+  margin: 1em 0;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+}
+
+.markdown-content pre code {
+  white-space: pre-wrap;
+  word-wrap: break-word;
+}
 </style>
