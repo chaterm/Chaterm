@@ -82,7 +82,8 @@ declare global {
   }
 }
 import SuggComp from '../Term/suggestion.vue'
-
+import eventBus from '@/utils/eventBus'
+// import { useCurrentCwdStore } from '@/store/currentCwdStore'
 import { markRaw, onBeforeUnmount, onMounted, PropType, reactive, ref } from 'vue'
 import { Terminal } from 'xterm'
 import { FitAddon } from 'xterm-addon-fit'
@@ -94,6 +95,7 @@ import EditorCode from '@/views/components//Term/Editor/dragEditor.vue'
 import { message, Modal } from 'ant-design-vue'
 import { aliasConfigStore } from '@/store/aliasConfigStore'
 import { userConfigStore } from '../../../store/userConfigStore'
+// import { userConfigStore } from '@/services/userConfigStoreService'
 import { v4 as uuidv4 } from 'uuid'
 import { userInfoStore } from '@/store/index'
 
@@ -141,7 +143,21 @@ const cursorStartX = ref(0)
 const api = window.api as any
 const encoder = new TextEncoder()
 let xxxWrite: ((data: string, options?: { isUserCall?: boolean }) => void) | null = null
-
+// const userConfig = ref({
+//   aliasStatus: 2,
+//   quickVimStatus: 2
+// })
+// const currentCwdStore = useCurrentCwdStore()
+// const loadUserConfig = async () => {
+//   try {
+//     const config = await userConfigStore.getConfig()
+//     if (config) {
+//       userConfig.value = config
+//     }
+//   } catch (error) {
+//     console.error('Failed to load user config:', error)
+//   }
+// }
 // 编辑序列
 const isEditorMode = ref(false)
 const dataBuffer = ref<number[]>([])
@@ -161,18 +177,16 @@ const EDITOR_SEQUENCES = {
 }
 const testFlag = ref(false)
 
-onMounted(() => {
+onMounted(async () => {
+  // await loadUserConfig()
   const termInstance = markRaw(
     new Terminal({
       cursorBlink: true,
       cursorStyle: 'bar',
-      fontSize: 14,
-      tabStopWidth: 4,
-      lineHeight: 1.2,
+      fontSize: 12,
       fontFamily: 'Menlo, Monaco, "Courier New", Courier, monospace',
-      macOptionIsMeta: true,
       theme: {
-        background: '#1e1e1e',
+        background: '#141414',
         foreground: '#f0f0f0'
       }
     })
@@ -284,6 +298,12 @@ onMounted(() => {
   console.log(termInstance, 'terminal')
   window.addEventListener('resize', handleResize)
   connectSSH()
+  eventBus.on('writeTerminalCommand', (command) => {
+    autoWriteCode(command)
+  })
+  eventBus.on('executeTerminalCommand', (command) => {
+    autoExecuteCode(command)
+  })
 })
 const getCmdList = async (terminalId) => {
   const data = await api.sshConnExec({
@@ -307,6 +327,8 @@ onBeforeUnmount(() => {
   if (isConnected.value) {
     disconnectSSH()
   }
+  eventBus.off('writeTerminalCommand')
+  eventBus.off('executeTerminalCommand')
 })
 const getFileExt = (filePath: string) => {
   const idx = filePath.lastIndexOf('.')
@@ -462,7 +484,12 @@ const debounce = (func, wait) => {
     timeout = setTimeout(later, wait)
   }
 }
-
+const autoWriteCode = (command) => {
+  terminal.value?.write(command)
+}
+const autoExecuteCode = (command) => {
+  sendData(command)
+}
 const handleResize = debounce(() => {
   if (fitAddon.value && terminal.value) {
     fitAddon.value.fit()
