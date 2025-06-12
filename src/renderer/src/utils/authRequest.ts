@@ -25,7 +25,7 @@ authRequest.interceptors.response.use(
   function (error) {
     const data = error.response.data
     if (error.response.status === 401 && !(data.result && data.result.isLogin)) {
-      removeToken()
+      removeToken(true)
     }
     return Promise.reject(error)
   }
