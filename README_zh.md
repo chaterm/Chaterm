@@ -66,6 +66,7 @@ npm i electron -D
 ### Install
 
 ```bash
+$ node scripts/patch-package-lock.js
 $ npm install
 ```
 
