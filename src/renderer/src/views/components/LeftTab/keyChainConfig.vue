@@ -800,8 +800,6 @@ const testMain = async () => {
 
 .connect-button {
   width: 100%;
-  height: 40px;
-  font-size: 16px;
   border-radius: 4px;
   background-color: #1890ff;
   border-color: #1890ff;
