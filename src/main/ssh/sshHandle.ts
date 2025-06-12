@@ -264,8 +264,15 @@ export const registerSSHHandlers = () => {
             markedCmd.idleTimer = setTimeout(() => {
               if (markedCmd && !markedCmd.completed) {
                 markedCmd.completed = true
+                let filteredOutput = markedCmd.output
+                if (markedCmd.marker === 'Chaterm:pwd') {
+                  const match = filteredOutput.match(/pwd\r\n([^\r\n]+)/)
+                  if (match) {
+                    filteredOutput = match[1]
+                  }
+                }
                 _event.sender.send(`ssh:shell:data:${id}`, {
-                  data: markedCmd.output,
+                  data: filteredOutput,
                   marker: markedCmd.marker
                 })
                 markedCommands.delete(id)
