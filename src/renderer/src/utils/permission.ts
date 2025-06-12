@@ -8,9 +8,14 @@ const currentUrl = location.href
 export function getLoginUrl() {
   return baseSso + currentUrl
 }
-export function removeToken() {
+export function removeToken(isLogout = false) {
   localStorage.removeItem('ctm-token')
-  location.href = '/login'
+  localStorage.removeItem('bearer-token')
+  // localStorage.removeItem('Ctm-Token')
+  localStorage.removeItem('userInfo')
+  if (isLogout) {
+    location.href = '/login'
+  }
 }
 export const setUserInfo = (info) => {
   const userStore = userInfoStore(pinia)

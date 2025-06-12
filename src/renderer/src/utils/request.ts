@@ -27,7 +27,7 @@ request.interceptors.response.use(
     console.log(error, 'error.response')
     const data = error.response.data
     if (error.response.status === 401 && !(data.result && data.result.isLogin)) {
-      removeToken()
+      removeToken(true)
     }
     // 超出 2xx 范围的状态码都会触发该函数。
     // 对响应错误做点什么

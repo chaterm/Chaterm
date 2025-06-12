@@ -299,6 +299,7 @@ onMounted(async () => {
   window.addEventListener('resize', handleResize)
   connectSSH()
   eventBus.on('writeTerminalCommand', (command) => {
+    console.log(11111)
     autoWriteCode(command)
   })
   eventBus.on('executeTerminalCommand', (command) => {
@@ -1495,6 +1496,19 @@ const queryCommand = async () => {
     console.log('查询失败' + error)
   }
 }
+const insertCommand = async (cmd) => {
+  try {
+    await window.api.insertCommand({
+      command: cmd,
+      ip: props.connectData.ip
+    })
+    console.log('command insert success')
+    // message.success('命令插入成功')
+  } catch (error) {
+    // message.error('命令插入失败')
+    console.log('command insert failed')
+  }
+}
 
 // 输入内容
 const handleKeyInput = (e) => {
@@ -1524,6 +1538,7 @@ const handleKeyInput = (e) => {
 
     suggestions.value = []
     activeSuggestion.value = 0
+    insertCommand(terminalState.value.content)
   } else if (ev.keyCode === 8) {
     // 删除
     specialCode.value = true
