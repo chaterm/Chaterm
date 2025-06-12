@@ -12,7 +12,7 @@ interface UserConfig {
   fontSize: number
   scrollBack: number
   language: string
-  cursorStyle: string
+  cursorStyle: 'bar' | 'block' | 'underline' | undefined
 }
 
 export class UserConfigStoreService {
@@ -56,7 +56,7 @@ export class UserConfigStoreService {
       fontSize: 14,
       scrollBack: 1000,
       language: 'zh-CN',
-      cursorStyle: 'block'
+      cursorStyle: 'block' as 'block' | 'underline' | 'bar'
     }
   }
 
