@@ -11,7 +11,8 @@ export interface AppEvents {
   getActiveTabAssetInfo: void // 请求获取当前活跃tab的资产信息
   assetInfoResult: any // 返回资产信息结果
   LocalAssetMenu: any // 更新资产目录
-  SettingModelChanged: any
+  SettingModelChanged: any // 设置页面模型变更事件
+  AiTabModelChanged: any // AI Tab模型变更事件
   apiProviderChanged: any
   activeTabChanged: any
   // 可扩展更多事件

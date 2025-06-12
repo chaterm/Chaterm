@@ -67,6 +67,7 @@ export interface ApiHandlerOptions {
   reasoningEffort?: string
   requestTimeoutMs?: number
   onRetryAttempt?: (attempt: number, maxRetries: number, delay: number, error: any) => void
+  deepSeekApiKey?: string
 }
 
 export type ApiConfiguration = ApiHandlerOptions & {
