@@ -82,7 +82,7 @@ import { encrypt } from '@/utils/util'
 import 'xterm/css/xterm.css'
 import { userInfoStore } from '@/store'
 import { userConfigStore } from '@/store/userConfigStore'
-
+import { userConfigStore as serviceUserConfig } from '@/services/userConfigStoreService'
 import { termFileContent, termFileContentSave } from '@/api/term/term'
 import { notification } from 'ant-design-vue'
 import EditorCode from './Editor/dragEditor.vue'
@@ -182,11 +182,12 @@ const getALlCmdList = () => {
   })
 }
 // 初始化xterm终端
-const initTerminal = () => {
+const initTerminal = async () => {
+  const config = await serviceUserConfig.getConfig()
   term = new Terminal({
     cursorBlink: true,
     cursorStyle: configStore.getUserConfig.cursorStyle,
-    fontSize: configStore.getUserConfig.fontSize,
+    fontSize: config.fontSize,
     fontFamily: 'Menlo, Monaco, "Courier New", Courier, monospace',
     theme: {
       background: '#141414',
