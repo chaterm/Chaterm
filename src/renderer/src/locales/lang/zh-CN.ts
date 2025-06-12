@@ -116,11 +116,14 @@ export default {
     awsUseCrossRegionInference: '使用跨区域推理',
     chatSettings: '模式',
     liteLlmBaseUrl: 'URL地址',
-    liteLlmBaseUrlPh: '输入URL地址',
+    liteLlmBaseUrlPh: '请输入URL地址',
     liteLlmApiKey: 'API Key',
-    liteLlmApiKeyPh: '输入API Key',
+    liteLlmApiKeyPh: '请输入API Key',
     customInstructions: '自定义指令',
-    customInstructionsPh: '这些指令添加到每个请求发送的系统提示的末尾。例如：总是用中文回答'
+    customInstructionsPh: '这些指令添加到每个请求发送的系统提示的末尾。例如：总是用中文回答',
+    deepSeekApiKey: 'DeepSeek API Key',
+    deepSeekApiKeyPh: '请输入API Key',
+    deepSeekApiKeyDescribe: '此密钥存储在本地，仅用于从此客服端发出API请求'
   },
   extensions: {
     extensions: '插件',
