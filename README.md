@@ -21,7 +21,7 @@ Want syntax highlighting and smart completion, but don't have root privileges, a
 
 ## Demo Display
 
-<video src="resources/demo.mp4" width="100%" controls></video>
+![Preview image](resources/demo.jpg)
 
 ## Usecase
 
