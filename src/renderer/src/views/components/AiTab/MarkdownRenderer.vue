@@ -219,6 +219,8 @@ const props = defineProps<{
 const codeBlocks = ref<Array<{ content: string; activeKey: string[]; lines: number }>>([])
 const codeEditors = ref<Array<HTMLElement | null>>([])
 
+const contentStableTimeout = ref<NodeJS.Timeout | null>(null)
+
 // Function to detect language from content
 const detectLanguage = (content: string): string => {
   if (!content) return 'shell'
@@ -374,12 +376,8 @@ const initEditor = (content: string) => {
       if (model) {
         const lines = model.getLineCount()
         totalLines.value = lines
-        // 如果超过10行，默认折叠
-        if (lines > 10) {
-          codeActiveKey.value = []
-        } else {
-          codeActiveKey.value = ['1']
-        }
+        // 默认展开
+        codeActiveKey.value = ['1']
       }
     }
 
@@ -649,7 +647,6 @@ watch(
       thinkingContent.value = ''
       normalContent.value = ''
       codeBlocks.value = []
-      // thinkingLoading.value = false
       if (editor) {
         editor.setValue('')
       }
@@ -657,7 +654,24 @@ watch(
     }
 
     if (props.ask === 'command' || props.say === 'command') {
+      // 每次内容变化时先清除之前的定时器
+      if (contentStableTimeout.value) {
+        clearTimeout(contentStableTimeout.value)
+      }
+
+      // 内容变化时先更新编辑器并展开
       updateEditor(newContent)
+      codeActiveKey.value = ['1']
+
+      // 设置新的定时器等待内容稳定
+      contentStableTimeout.value = setTimeout(() => {
+        if (editor) {
+          const model = editor.getModel()
+          if (model && model.getLineCount() > 10) {
+            codeActiveKey.value = []
+          }
+        }
+      }, 2000) // 等待1秒无变化
     } else {
       processContent(newContent)
     }
@@ -690,6 +704,9 @@ watch(
 
 // Cleanup
 onBeforeUnmount(() => {
+  if (contentStableTimeout.value) {
+    clearTimeout(contentStableTimeout.value)
+  }
   if (editor) {
     editor.dispose()
     editor = null
@@ -1065,5 +1082,20 @@ code {
   height: 16px;
   vertical-align: middle;
   filter: invert(0.25);
+}
+
+.markdown-content pre {
+  background-color: #2a2a2a;
+  border-radius: 8px;
+  padding: 8px;
+  overflow-x: hidden;
+  margin: 1em 0;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+}
+
+.markdown-content pre code {
+  white-space: pre-wrap;
+  word-wrap: break-word;
 }
 </style>
