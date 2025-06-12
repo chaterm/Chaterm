@@ -251,14 +251,6 @@
               show-search
             ></a-select>
             <a-select
-              v-if="chatTypeValue == 'chat'"
-              v-model:value="chatModelValue"
-              size="small"
-              :options="AiModelsOptions"
-              show-search
-            ></a-select>
-            <a-select
-              v-if="chatTypeValue !== 'chat'"
               v-model:value="chatAiModelValue"
               size="small"
               style="width: 150px"
@@ -366,7 +358,6 @@ import {
 } from '@ant-design/icons-vue'
 import { notification } from 'ant-design-vue'
 import { v4 as uuidv4 } from 'uuid'
-import { getAiModel, getChatDetailList, getConversationList } from '@/api/ai/ai'
 import eventBus from '@/utils/eventBus'
 import {
   getGlobalState,
@@ -426,7 +417,6 @@ const hovered = ref<string | null>(null)
 const historyList = ref<HistoryItem[]>([])
 const hosts = ref<Host[]>([])
 const chatInputValue = ref('')
-const chatModelValue = ref('qwen-chat')
 const chatAiModelValue = ref('claude-4-sonnet')
 const chatTypeValue = ref('agent')
 const activeKey = ref('chat')
@@ -781,41 +771,6 @@ const restoreHistoryTab = async (history: HistoryItem) => {
         })),
         cwd: currentCwd.value
       })
-    } else {
-      const res = await getChatDetailList({
-        conversationId: history.id,
-        limit: 10,
-        offset: 0
-      })
-
-      const chatContentTemp = res.data.list
-        .map((item: any) => {
-          try {
-            const parsedContent = JSON.parse(item.content)
-            if (
-              typeof parsedContent === 'object' &&
-              parsedContent !== null &&
-              ['user', 'assistant'].includes(parsedContent.role) &&
-              typeof parsedContent.content === 'string'
-            ) {
-              return {
-                id: uuidv4(),
-                role: parsedContent.role as 'user' | 'assistant',
-                content: parsedContent.content,
-                type: 'message',
-                ask: '',
-                say: ''
-              } as ChatMessage
-            }
-          } catch (e) {
-            console.error('解析聊天记录失败:', e)
-          }
-          return null
-        })
-        .filter(Boolean)
-
-      chatHistory.length = 0
-      chatHistory.push(...chatContentTemp)
     }
     chatInputValue.value = ''
     responseLoading.value = false
@@ -841,16 +796,6 @@ const handleHistoryClick = async () => {
           chatContent: []
         })
       })
-    } else {
-      const res = await getConversationList({})
-      historyList.value = res.data.list
-        .filter((item) => item.conversateType !== 'agent')
-        .map((item: any) => ({
-          id: item.conversationId,
-          chatTitle: truncateText(item.title),
-          chatType: item.conversateType,
-          chatContent: []
-        }))
     }
   } catch (err) {
     console.error('Failed to get conversation list:', err)
