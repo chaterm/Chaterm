@@ -182,7 +182,7 @@ onMounted(async () => {
   const termInstance = markRaw(
     new Terminal({
       cursorBlink: true,
-      cursorStyle: 'bar',
+      cursorStyle: config.cursorStyle,
       fontSize: config.fontSize || 12,
       fontFamily: 'Menlo, Monaco, "Courier New", Courier, monospace',
       theme: {
