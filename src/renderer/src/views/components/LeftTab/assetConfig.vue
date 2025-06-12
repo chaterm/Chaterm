@@ -419,6 +419,7 @@ const handleRemove = (host: AssetNode | null) => {
         if (res?.data?.message === 'success') {
           message.success(t('personal.deleteSuccess', { name: host.title }))
           getAssetList()
+          eventBus.emit('LocalAssetMenu')
         } else {
           message.error(t('personal.deleteFailure'))
         }
@@ -499,6 +500,7 @@ const handleCreateAsset = async () => {
   } catch (error) {
     console.error('创建资产出错:', error)
   }
+  eventBus.emit('LocalAssetMenu')
 }
 
 const handleSaveAsset = async () => {
@@ -540,6 +542,7 @@ const handleSaveAsset = async () => {
   } catch (e: any) {
     message.error(e.message || t('personal.saveError'))
   }
+  eventBus.emit('LocalAssetMenu')
 }
 
 // 获取资产列表

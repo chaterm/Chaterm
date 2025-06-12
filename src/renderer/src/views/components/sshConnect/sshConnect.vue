@@ -95,7 +95,7 @@ import EditorCode from '@/views/components//Term/Editor/dragEditor.vue'
 import { message, Modal } from 'ant-design-vue'
 import { aliasConfigStore } from '@/store/aliasConfigStore'
 import { userConfigStore } from '../../../store/userConfigStore'
-// import { userConfigStore } from '@/services/userConfigStoreService'
+import { userConfigStore as serviceUserConfig } from '@/services/userConfigStoreService'
 import { v4 as uuidv4 } from 'uuid'
 import { userInfoStore } from '@/store/index'
 
@@ -178,12 +178,12 @@ const EDITOR_SEQUENCES = {
 const testFlag = ref(false)
 
 onMounted(async () => {
-  // await loadUserConfig()
+  const config = await serviceUserConfig.getConfig()
   const termInstance = markRaw(
     new Terminal({
       cursorBlink: true,
       cursorStyle: 'bar',
-      fontSize: 12,
+      fontSize: config.fontSize || 12,
       fontFamily: 'Menlo, Monaco, "Courier New", Courier, monospace',
       theme: {
         background: '#141414',

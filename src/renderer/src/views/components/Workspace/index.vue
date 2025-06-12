@@ -47,78 +47,154 @@
         </div>
 
         <div class="tree-container">
-          <a-tree
-            v-model:selected-keys="selectedKeys"
-            v-model:expanded-keys="expandedKeys"
-            :tree-data="assetTreeData"
-            :field-names="{ children: 'children', title: 'title', key: 'key' }"
-            :default-expand-all="true"
-            class="dark-tree"
-            @select="handleSelect"
-          >
-            <template #title="{ title, dataRef }">
-              <div
-                class="custom-tree-node"
-                @click="clickServer(dataRef)"
-              >
-                <span
-                  v-if="!isSecondLevel(dataRef)"
-                  class="title-with-icon"
+          <div v-show="company === 'personal_user_id'">
+            <a-tree
+              v-model:selected-keys="selectedKeys"
+              v-model:expanded-keys="expandedKeys"
+              :tree-data="assetTreeData"
+              :field-names="{ children: 'children', title: 'title', key: 'key' }"
+              :default-expand-all="true"
+              class="dark-tree"
+              @select="handleSelect"
+            >
+              <template #title="{ title, dataRef }">
+                <div
+                  class="custom-tree-node"
+                  @click="clickServer(dataRef)"
                 >
-                  <span v-if="editingNode !== dataRef.key">{{ title }}</span>
-                </span>
-                <span
-                  v-else
-                  class="title-with-icon"
-                >
-                  <laptop-outlined class="computer-icon" />
-                  <a-tooltip
-                    v-if="editingNode !== dataRef.key"
-                    :title="t('workspace.connectToServer', { ip: dataRef.ip })"
+                  <span
+                    v-if="!isSecondLevel(dataRef)"
+                    class="title-with-icon"
                   >
                     <span v-if="editingNode !== dataRef.key">{{ title }}</span>
-                  </a-tooltip>
+                  </span>
                   <span
                     v-else
-                    class="edit-container"
+                    class="title-with-icon"
                   >
-                    <a-input
-                      v-model:value="editingTitle"
-                      size="small"
+                    <laptop-outlined class="computer-icon" />
+                    <a-tooltip
+                      v-if="editingNode !== dataRef.key"
+                      :title="t('workspace.connectToServer', { ip: dataRef.ip })"
+                    >
+                      <span v-if="editingNode !== dataRef.key">{{ title }}</span>
+                    </a-tooltip>
+                    <span
+                      v-else
+                      class="edit-container"
+                    >
+                      <a-input
+                        v-model:value="editingTitle"
+                        size="small"
+                      />
+                      <check-outlined
+                        class="confirm-icon"
+                        @click.stop="confirmEdit(dataRef)"
+                      />
+                    </span>
+                  </span>
+                  <edit-outlined
+                    v-if="isSecondLevel(dataRef) && editingNode !== dataRef.key"
+                    class="edit-icon"
+                    @click.stop="handleEdit(dataRef)"
+                  />
+                  <span
+                    v-if="
+                      dataRef &&
+                      dataRef.favorite !== undefined &&
+                      !dataRef.key.startsWith('common_') &&
+                      editingNode !== dataRef.key
+                    "
+                    class="favorite-icon"
+                    @click.stop="toggleFavorite(dataRef)"
+                  >
+                    <star-filled
+                      v-if="dataRef.favorite"
+                      class="favorite-filled"
                     />
-                    <check-outlined
-                      class="confirm-icon"
-                      @click.stop="confirmEdit(dataRef)"
+                    <star-outlined
+                      v-else
+                      class="favorite-outlined"
                     />
                   </span>
-                </span>
-                <edit-outlined
-                  v-if="isSecondLevel(dataRef) && editingNode !== dataRef.key"
-                  class="edit-icon"
-                  @click.stop="handleEdit(dataRef)"
-                />
-                <span
-                  v-if="
-                    dataRef &&
-                    dataRef.favorite !== undefined &&
-                    !dataRef.key.startsWith('common_') &&
-                    editingNode !== dataRef.key
-                  "
-                  class="favorite-icon"
-                  @click.stop="toggleFavorite(dataRef)"
+                </div>
+              </template>
+            </a-tree>
+          </div>
+          <div v-show="company !== 'personal_user_id'">
+            <a-tree
+              v-model:selected-keys="selectedKeys"
+              v-model:expanded-keys="expandedKeys"
+              :tree-data="enterpriseData"
+              :field-names="{ children: 'children', title: 'title', key: 'key' }"
+              :default-expand-all="true"
+              class="dark-tree"
+              @select="handleSelect"
+            >
+              <template #title="{ title, dataRef }">
+                <div
+                  class="custom-tree-node"
+                  @click="clickServer(dataRef)"
                 >
-                  <star-filled
-                    v-if="dataRef.favorite"
-                    class="favorite-filled"
-                  />
-                  <star-outlined
+                  <span
+                    v-if="!isSecondLevel(dataRef)"
+                    class="title-with-icon"
+                  >
+                    <span v-if="editingNode !== dataRef.key">{{ title }}</span>
+                  </span>
+                  <span
                     v-else
-                    class="favorite-outlined"
+                    class="title-with-icon"
+                  >
+                    <laptop-outlined class="computer-icon" />
+                    <a-tooltip
+                      v-if="editingNode !== dataRef.key"
+                      :title="t('workspace.connectToServer', { ip: dataRef.ip })"
+                    >
+                      <span v-if="editingNode !== dataRef.key">{{ title }}</span>
+                    </a-tooltip>
+                    <span
+                      v-else
+                      class="edit-container"
+                    >
+                      <a-input
+                        v-model:value="editingTitle"
+                        size="small"
+                      />
+                      <check-outlined
+                        class="confirm-icon"
+                        @click.stop="confirmEdit(dataRef)"
+                      />
+                    </span>
+                  </span>
+                  <edit-outlined
+                    v-if="isSecondLevel(dataRef) && editingNode !== dataRef.key"
+                    class="edit-icon"
+                    @click.stop="handleEdit(dataRef)"
                   />
-                </span>
-              </div>
-            </template>
-          </a-tree>
+                  <span
+                    v-if="
+                      dataRef &&
+                      dataRef.favorite !== undefined &&
+                      !dataRef.key.startsWith('common_') &&
+                      editingNode !== dataRef.key
+                    "
+                    class="favorite-icon"
+                    @click.stop="toggleFavorite(dataRef)"
+                  >
+                    <star-filled
+                      v-if="dataRef.favorite"
+                      class="favorite-filled"
+                    />
+                    <star-outlined
+                      v-else
+                      class="favorite-outlined"
+                    />
+                  </span>
+                </div>
+              </template>
+            </a-tree>
+          </div>
         </div>
       </div>
       <!-- 资产创建 -->
@@ -142,7 +218,7 @@ declare global {
 }
 import { getassetMenu, setUserfavorite, getUserWorkSpace, setAlias } from '@/api/asset/asset'
 import { deepClone } from '@/utils/util'
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import {
   StarFilled,
   StarOutlined,
@@ -151,7 +227,7 @@ import {
   EditOutlined,
   CheckOutlined
 } from '@ant-design/icons-vue'
-import { onMounted } from 'vue'
+import eventBus from '@/utils/eventBus'
 import i18n from '@/locales'
 const { t } = i18n.global
 
@@ -193,7 +269,7 @@ interface AssetNode {
 }
 const originalTreeData = ref<AssetNode[]>([])
 const assetTreeData = ref<AssetNode[]>([])
-
+const enterpriseData = ref<AssetNode[]>([])
 interface MachineOption {
   value: any
   label: string
@@ -231,27 +307,23 @@ const getLocalAssetMenu = () => {
     .then((res) => {
       if (res && res.data) {
         const data = res.data.routers || []
-
         originalTreeData.value = deepClone(data) as AssetNode[]
         assetTreeData.value = deepClone(data) as AssetNode[]
-        expandDefaultNodes()
-      } else {
-        originalTreeData.value = []
-        assetTreeData.value = []
+        setTimeout(() => {
+          expandDefaultNodes(assetTreeData.value)
+        }, 200)
       }
     })
     .catch((err) => console.error(err))
 }
 
 const getUserAssetMenu = () => {
-  originalTreeData.value = []
-  assetTreeData.value = []
   getassetMenu({ organizationId: remoteWorkSpace.value[0]?.key || '' })
     .then((res) => {
-      const data = res.data.routers
+      const data = res.data.routers || []
       originalTreeData.value = deepClone(data) as AssetNode[]
-      assetTreeData.value = deepClone(data) as AssetNode[]
-      expandDefaultNodes()
+      enterpriseData.value = deepClone(data) as AssetNode[]
+      expandDefaultNodes(enterpriseData.value)
     })
     .catch((err) => console.error(err))
 }
@@ -266,7 +338,7 @@ const GetUserWorkSpace = async () => {
     .catch((err) => console.error(err))
 }
 
-const expandDefaultNodes = () => {
+const expandDefaultNodes = (data) => {
   // Expand all parent nodes by default
   const keys: string[] = []
   const traverseTree = (nodes: AssetNode[]) => {
@@ -278,7 +350,7 @@ const expandDefaultNodes = () => {
       }
     })
   }
-  traverseTree(assetTreeData.value)
+  traverseTree(data)
   expandedKeys.value = keys
 }
 
@@ -441,6 +513,11 @@ const assetManagement = () => {
 getLocalAssetMenu()
 onMounted(async () => {
   await GetUserWorkSpace()
+
+  eventBus.on('LocalAssetMenu', getLocalAssetMenu)
+})
+onUnmounted(() => {
+  eventBus.off('LocalAssetMenu', getLocalAssetMenu)
 })
 </script>
 
