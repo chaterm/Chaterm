@@ -50,7 +50,14 @@ async function createWindow(): Promise<void> {
       preload: join(__dirname, '../preload/index.js'),
       sandbox: false,
       contextIsolation: true,
-      nodeIntegration: false
+      nodeIntegration: false,
+      defaultFontFamily: {
+        standard:
+          '-apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", "Helvetica Neue", Helvetica, Arial, sans-serif',
+        serif: 'serif',
+        sansSerif: 'sans-serif',
+        monospace: 'monospace'
+      }
     }
   })
 
