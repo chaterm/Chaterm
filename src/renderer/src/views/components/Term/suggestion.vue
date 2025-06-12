@@ -44,13 +44,26 @@ const updateSuggestionsPosition = (term) => {
   // 获取终端字符的像素尺寸
   const charWidth = term._core._renderService.dimensions.css.cell.width
   const charHeight = term._core._renderService.dimensions.css.cell.height
+
+  // 获取终端容器的尺寸
+  const termContainer = term.element
+  const containerHeight = termContainer.clientHeight
+
   // 计算光标在终端容器中的像素坐标
   const x = cursorX * charWidth
-  const y = (cursorY + 1) * charHeight // +1 表示显示在光标的下一行
+  const y = cursorY * charHeight
+
+  // 计算提示框的高度
+  const hintBoxHeight = hintBox.offsetHeight
+
+  // 判断是否应该显示在光标上方
+  const shouldShowAbove = y + hintBoxHeight > containerHeight
+
   // 设置提示框位置
   hintBox.style.left = `${x}px`
-  hintBox.style.top = `${y}px`
-  // 示例：模拟提示内容
+  hintBox.style.top = shouldShowAbove
+    ? `${y - hintBoxHeight}px` // 显示在光标上方
+    : `${y + charHeight}px` // 显示在光标下方
 }
 defineExpose({ updateSuggestionsPosition })
 </script>

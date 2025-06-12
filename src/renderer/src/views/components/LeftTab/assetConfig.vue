@@ -54,6 +54,7 @@
                   :bordered="false"
                   @contextmenu.prevent="showContextMenu($event, host, group)"
                   @click="handleCardClick(host)"
+                  @dblclick="handleConnect(host)"
                 >
                   <div class="host-card-content">
                     <div class="host-icon">
@@ -913,8 +914,6 @@ watch(isRightSectionVisible, (val) => {
 
 .connect-button {
   width: 100%;
-  height: 40px;
-  font-size: 16px;
   border-radius: 4px;
   background-color: #1890ff;
   border-color: #1890ff;
