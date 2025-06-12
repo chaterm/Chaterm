@@ -95,7 +95,7 @@ import EditorCode from '@/views/components//Term/Editor/dragEditor.vue'
 import { message, Modal } from 'ant-design-vue'
 import { aliasConfigStore } from '@/store/aliasConfigStore'
 import { userConfigStore } from '../../../store/userConfigStore'
-// import { userConfigStore } from '@/services/userConfigStoreService'
+import { userConfigStore as serviceUserConfig } from '@/services/userConfigStoreService'
 import { v4 as uuidv4 } from 'uuid'
 import { userInfoStore } from '@/store/index'
 
@@ -178,12 +178,12 @@ const EDITOR_SEQUENCES = {
 const testFlag = ref(false)
 
 onMounted(async () => {
-  // await loadUserConfig()
+  const config = await serviceUserConfig.getConfig()
   const termInstance = markRaw(
     new Terminal({
       cursorBlink: true,
       cursorStyle: 'bar',
-      fontSize: 12,
+      fontSize: config.fontSize || 12,
       fontFamily: 'Menlo, Monaco, "Courier New", Courier, monospace',
       theme: {
         background: '#141414',
@@ -520,7 +520,7 @@ const connectSSH = async () => {
       passphrase.value = props.connectData.passphrase || ''
     }
 
-    terminal.value?.writeln(`尝试连接 ${props.connectData.ip}:${props.connectData.port}...`)
+    // terminal.value?.writeln(`尝试连接 ${props.connectData.ip}:${props.connectData.port}...`)
     const email = userInfoStore().userInfo.email
     connectionId.value = `${email.split('@')[0]}@${props.connectData.ip}:local:${uuidv4()}`
     const result = await api.connect({
@@ -535,7 +535,14 @@ const connectSSH = async () => {
     const connectReadyData = await api.connectReadyData(connectionId.value)
     connectionHasSudo.value = connectReadyData?.hasSudo
     if (result.status === 'connected') {
-      terminal.value?.writeln(`已成功连接到 ${props.connectData.ip}`)
+      // terminal.value?.writeln(`已成功连接到 ${props.connectData.ip}`)
+      let welcome = '\x1b[38;2;22;119;255m' + name + ', 欢迎您使用智能堡垒机Chaterm \x1b[m\r\n'
+      if (configStore.getUserConfig.language == 'en-US') {
+        welcome =
+          '\x1b[38;2;22;119;255m' + email.split('@')[0] + ', Welcome to use Chaterm \x1b[m\r\n'
+      }
+      terminal.value?.writeln(welcome)
+      terminal.value?.writeln(`Connecting to ${props.connectData.ip}`)
 
       // 启动shell会话
       await startShell()
