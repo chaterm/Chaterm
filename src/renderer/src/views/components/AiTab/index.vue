@@ -1293,7 +1293,7 @@ const onHostClick = (item: any) => {
 // 2. 监听输入框内容变化
 const handleInputChange = async (e: Event) => {
   const value = (e.target as HTMLTextAreaElement).value
-  if (hosts.value.length === 0 && value === '@') {
+  if (value === '@') {
     showHostSelect.value = true
     hostSearchValue.value = '' // 清空搜索框
     await fetchHostOptions('') // 这里调用，获取所有主机
