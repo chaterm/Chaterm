@@ -214,6 +214,7 @@ const props = defineProps<{
   content: string
   ask?: string
   say?: string
+  partial?: boolean
 }>()
 
 const codeBlocks = ref<Array<{ content: string; activeKey: string[]; lines: number }>>([])
@@ -469,6 +470,10 @@ const processContent = (content: string) => {
     thinkingLoading.value = false
     return
   }
+  if (props.say === 'reasoning') {
+    processReasoningContent(props.content)
+    return
+  }
   // 检查是否开始于 <think> 标签
   if (content.startsWith('<think>')) {
     // 移除开始标签
@@ -592,6 +597,25 @@ const initCodeBlockEditors = () => {
   })
 }
 
+const processReasoningContent = (content: string) => {
+  if (!content) {
+    thinkingContent.value = ''
+    normalContent.value = ''
+    codeBlocks.value = []
+    thinkingLoading.value = false
+    return
+  }
+  thinkingContent.value = content.trim()
+  if (props.partial) {
+    thinkingLoading.value = true
+  } else {
+    thinkingLoading.value = false
+    if (activeKey.value.length !== 0) {
+      checkContentHeight()
+    }
+  }
+}
+
 const onToggleExpand = (keys: string[]) => {
   activeKey.value = keys
 }
@@ -698,6 +722,15 @@ watch(
       if (props.content) {
         processContent(props.content)
       }
+    }
+  }
+)
+
+watch(
+  () => props.partial,
+  (newPartial) => {
+    if(props.say === 'reasoning' && !newPartial) {
+      processContent(props.content)
     }
   }
 )

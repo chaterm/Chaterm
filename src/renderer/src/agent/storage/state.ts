@@ -82,7 +82,7 @@ export async function getAllExtensionState() {
     //geminiApiKey,
     //geminiBaseUrl,
     //openAiNativeApiKey,
-    //deepSeekApiKey,
+    deepSeekApiKey,
     //requestyApiKey,
     //requestyModelId,
     //requestyModelInfo,
@@ -166,7 +166,7 @@ export async function getAllExtensionState() {
     //getSecret('geminiApiKey') as Promise<string | undefined>,
     //getGlobalState('geminiBaseUrl') as Promise<string | undefined>,
     //getSecret('openAiNativeApiKey') as Promise<string | undefined>,
-    //getSecret('deepSeekApiKey') as Promise<string | undefined>,
+    getSecret('deepSeekApiKey') as Promise<string | undefined>,
     //getSecret('requestyApiKey') as Promise<string | undefined>,
     //getGlobalState('requestyModelId') as Promise<string | undefined>,
     //getGlobalState('requestyModelInfo') as Promise<ModelInfo | undefined>,
@@ -297,7 +297,7 @@ export async function getAllExtensionState() {
       //geminiApiKey,
       //geminiBaseUrl,
       //openAiNativeApiKey,
-      //deepSeekApiKey,
+      deepSeekApiKey,
       //requestyApiKey,
       //requestyModelId,
       //requestyModelInfo,
@@ -376,7 +376,8 @@ export async function updateApiConfiguration(apiConfiguration: ApiConfiguration)
     liteLlmBaseUrl,
     liteLlmModelId,
     liteLlmApiKey,
-    favoritedModelIds
+    favoritedModelIds,
+    deepSeekApiKey
   } = apiConfiguration
   await updateGlobalState('apiProvider', apiProvider)
   await updateGlobalState('apiModelId', apiModelId)
@@ -409,7 +410,7 @@ export async function updateApiConfiguration(apiConfiguration: ApiConfiguration)
   //await storeSecret('geminiApiKey', geminiApiKey)
   //await updateGlobalState('geminiBaseUrl', geminiBaseUrl)
   //await storeSecret('openAiNativeApiKey', openAiNativeApiKey)
-  //await storeSecret('deepSeekApiKey', deepSeekApiKey)
+  await storeSecret('deepSeekApiKey', deepSeekApiKey)
   //await storeSecret('requestyApiKey', requestyApiKey)
   //await storeSecret('togetherApiKey', togetherApiKey)
   //await storeSecret('qwenApiKey', qwenApiKey)

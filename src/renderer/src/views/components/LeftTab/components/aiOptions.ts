@@ -53,3 +53,8 @@ export const litellmAiModelOptions = [
   // { value: 'deepseek-r1', label: 'deepseek-r1' },
   // { value: 'deepseek-v3-0324', label: 'deepseek-v3-0324' }
 ]
+
+export const deepseekAiModelOptions = [
+  { value: 'deepseek-chat', label: 'deepseek-chat' },
+  { value: 'deepseek-reasoner', label: 'deepseek-reasoner' }
+]
