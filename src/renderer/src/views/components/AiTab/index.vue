@@ -36,7 +36,7 @@
           {{ item.host }}
         </a-tag>
         <span
-          v-if="currentChatHosts && currentChatHosts.length === 0"
+          v-if="!currentChatHosts || currentChatHosts.length === 0"
           class="hosts-display-container-host-tag"
           @click="handleAddHostClick"
         >
@@ -74,6 +74,7 @@
                 :class="`message ${message.role}`"
                 :ask="message.ask"
                 :say="message.say"
+                :partial="message.partial"
               />
               <MarkdownRenderer
                 v-else
@@ -81,6 +82,7 @@
                 :class="`message ${message.role}`"
                 :ask="message.ask"
                 :say="message.say"
+                :partial="message.partial"
               />
 
               <div class="message-actions">
@@ -380,7 +382,8 @@ import { useCurrentCwdStore } from '@/store/currentCwdStore'
 import { getassetMenu } from '@/api/asset/asset'
 import {
   aiModelOptions,
-  litellmAiModelOptions
+  litellmAiModelOptions,
+  deepseekAiModelOptions
 } from '@views/components/LeftTab/components/aiOptions'
 
 const MarkdownRenderer = defineAsyncComponent(
@@ -388,6 +391,21 @@ const MarkdownRenderer = defineAsyncComponent(
 )
 
 import { ChatermMessage } from 'src/main/agent/shared/ExtensionMessage'
+
+// 定义事件类型
+interface TabInfo {
+  id: string
+  ip: string
+  organizationId?: string
+  title?: string
+}
+
+// 扩展 AppEvents 类型
+declare module '@/utils/eventBus' {
+  interface AppEvents {
+    tabChanged: TabInfo
+  }
+}
 
 const hostSearchInputRef = ref()
 import debounce from 'lodash/debounce'
@@ -490,6 +508,44 @@ const getCurentTabAssetInfo = async (): Promise<AssetInfo | null> => {
   }
 }
 
+// 创建主机信息对象
+const createHostInfo = (ip: string, id: string, organizationId: string) => {
+  return {
+    host: ip,
+    uuid: id,
+    connection: organizationId !== 'personal' ? 'organization' : 'personal',
+    organizationId: organizationId !== 'personal' ? organizationId : 'personal_01'
+  }
+}
+
+// 更新主机列表
+const updateHosts = (hostInfo: { ip: string; id: string; organizationId: string } | null) => {
+  if (hostInfo) {
+    const newHost = createHostInfo(hostInfo.ip, hostInfo.id, hostInfo.organizationId)
+    hosts.value = [newHost]
+    console.log('更新后的hosts数组:', hosts.value)
+  } else {
+    hosts.value = []
+    console.log('清空hosts数组')
+  }
+}
+
+// 初始化资产信息
+const initAssetInfo = async () => {
+  console.log('开始初始化资产信息')
+  const assetInfo = await getCurentTabAssetInfo()
+  console.log('获取到的资产信息:', assetInfo)
+  if (assetInfo) {
+    updateHosts({
+      ip: assetInfo.ip,
+      id: assetInfo.uuid,
+      organizationId: assetInfo.organizationId
+    })
+  } else {
+    updateHosts(null)
+  }
+}
+
 // 切换标签时候，当前的对话ID修改为对应的chat tag的id
 const handleTabChange = (key: string | number) => {
   currentChatId.value = historyList.value.find((item) => item.chatType === key)?.id || null
@@ -572,6 +628,17 @@ const handlePlusClick = async () => {
   chatTypeValue.value = 'agent'
   hosts.value = []
 
+  // 获取当前活动标签页的资产信息
+  const assetInfo = await getCurentTabAssetInfo()
+  if (assetInfo && assetInfo.ip) {
+    hosts.value.push({
+      host: assetInfo.ip,
+      uuid: assetInfo.uuid,
+      connection: assetInfo.organizationId === 'personal' ? 'personal' : 'organization',
+      organizationId: assetInfo.organizationId || 'personal'
+    })
+  }
+
   const chatTitle = currentInput ? truncateText(currentInput) : 'New chat'
 
   historyList.value.unshift({
@@ -605,7 +672,6 @@ const restoreHistoryTab = async (history: HistoryItem) => {
     webSocket.value = null
   }
 
-  hosts.value = []
   containerKey.value++
 
   currentChatId.value = history.id
@@ -621,22 +687,12 @@ const restoreHistoryTab = async (history: HistoryItem) => {
           metadataResult.data &&
           Array.isArray(metadataResult.data.hosts)
         ) {
-          for (const item of metadataResult.data.hosts) {
-            if (item && typeof item === 'object' && 'host' in item) {
-              let ip = item.host
-              let uuid = item.uuid || ''
-              let connection = item.connection
-              let organizationId = item.organizationId
-              if (ip && !hosts.value.some((h) => h.host === ip)) {
-                hosts.value.push({
-                  host: ip,
-                  uuid: uuid,
-                  connection: connection,
-                  organizationId: organizationId
-                })
-              }
-            }
-          }
+          hosts.value = metadataResult.data.hosts.map((item: any) => ({
+            host: item.host,
+            uuid: item.uuid || '',
+            connection: item.connection,
+            organizationId: item.organizationId
+          }))
         }
       } catch (e) {
         console.error('获取metadata失败:', e)
@@ -661,6 +717,7 @@ const restoreHistoryTab = async (history: HistoryItem) => {
             item.ask === 'command' ||
             item.say === 'completion_result' ||
             item.say === 'text' ||
+            item.say === 'reasoning' ||
             item.ask === 'resume_task' ||
             item.say === 'user_feedback')
         ) {
@@ -930,6 +987,9 @@ const debouncedUpdateGlobalState = debounce(async (provider, model) => {
     case 'litellm':
       await updateGlobalState('liteLlmModelId', model)
       break
+    case 'deepseek':
+      await updateGlobalState('apiModelId', model)
+      break
   }
 }, 200)
 
@@ -956,7 +1016,7 @@ const handleChatAiModelChange = async () => {
 
 // 修改模型更新函数
 const changeModel = debounce(async (newValue) => {
-  const chatSetting = await getGlobalState('chatSettings')
+  const chatSetting = (await getGlobalState('chatSettings')) as { mode?: string }
   chatTypeValue.value = chatSetting?.mode || 'agent'
   let apiProvider = ''
   if (newValue?.[0]) {
@@ -970,17 +1030,25 @@ const changeModel = debounce(async (newValue) => {
         chatAiModelValue.value = newValue?.[2]
         AgentAiModelsOptions = litellmAiModelOptions
         break
+      case 'deepseek':
+        chatAiModelValue.value = newValue?.[1]
+        AgentAiModelsOptions = deepseekAiModelOptions
+        break
     }
   } else {
-    apiProvider = await getGlobalState('apiProvider')
+    apiProvider = (await getGlobalState('apiProvider')) as string
     switch (apiProvider) {
       case 'bedrock':
-        chatAiModelValue.value = await getGlobalState('apiModelId')
+        chatAiModelValue.value = (await getGlobalState('apiModelId')) as string
         AgentAiModelsOptions = aiModelOptions
         break
       case 'litellm':
-        chatAiModelValue.value = await getGlobalState('liteLlmModelId')
+        chatAiModelValue.value = (await getGlobalState('liteLlmModelId')) as string
         AgentAiModelsOptions = litellmAiModelOptions
+        break
+      case 'deepseek':
+        chatAiModelValue.value = await getGlobalState('apiModelId')
+        AgentAiModelsOptions = deepseekAiModelOptions
         break
     }
   }
@@ -999,9 +1067,26 @@ onMounted(async () => {
   authTokenInCookie.value = localStorage.getItem('ctm-token')
   const chatId = uuidv4()
 
+  // 初始化资产信息
+  await initAssetInfo()
+
   // 添加事件监听
   eventBus.on('SettingModelChanged', async (newValue) => {
     await changeModel(newValue)
+  })
+
+  // 监听标签页变化
+  eventBus.on('activeTabChanged', async (tabInfo) => {
+    console.log('标签页变化:', tabInfo)
+    if (tabInfo && tabInfo.ip) {
+      updateHosts({
+        ip: tabInfo.ip,
+        id: tabInfo.id,
+        organizationId: tabInfo.organizationId || 'personal'
+      })
+    } else {
+      updateHosts(null)
+    }
   })
 
   historyList.value = [
@@ -1067,7 +1152,8 @@ onMounted(async () => {
           message.partialMessage.type,
           message.partialMessage.type === 'ask' ? message.partialMessage.ask : '',
           message.partialMessage.type === 'say' ? message.partialMessage.say : '',
-          message.partialMessage.ts
+          message.partialMessage.ts,
+          message.partialMessage.partial
         )
 
         if (!message.partialMessage.partial && message.partialMessage.type === 'ask') {
@@ -1083,6 +1169,7 @@ onMounted(async () => {
           message.partialMessage.type === 'ask' ? message.partialMessage.ask : ''
         lastMessageInChat.say =
           message.partialMessage.type === 'say' ? message.partialMessage.say : ''
+        lastMessageInChat.partial = message.partialMessage.partial
 
         if (!message.partialMessage.partial && message.partialMessage.type === 'ask') {
           lastMessageInChat.content = parseMessageContent(message.partialMessage.text)
@@ -1115,8 +1202,9 @@ onUnmounted(() => {
     removeListener()
     removeListener = null
   }
-  // 移除 apiProvider 变更事件监听
+  // 移除事件监听
   eventBus.off('apiProviderChanged')
+  eventBus.off('activeTabChanged')
 })
 
 // 添加发送消息到主进程的方法
@@ -1221,7 +1309,7 @@ const onHostClick = (item: any) => {
 // 2. 监听输入框内容变化
 const handleInputChange = async (e: Event) => {
   const value = (e.target as HTMLTextAreaElement).value
-  if (hosts.value.length === 0 && value === '@') {
+  if (value === '@') {
     showHostSelect.value = true
     hostSearchValue.value = '' // 清空搜索框
     await fetchHostOptions('') // 这里调用，获取所有主机

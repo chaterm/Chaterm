@@ -122,7 +122,10 @@ export default {
     liteLlmApiKey: 'API Key',
     liteLlmApiKeyPh: 'Enter API Key',
     customInstructions: 'Custom Instructions',
-    customInstructionsPh: `These instructions are added to the end of the system prompt sent with every request. e.g. Always respond in Chinese-simplified`
+    customInstructionsPh: `These instructions are added to the end of the system prompt sent with every request. e.g. Always respond in Chinese-simplified`,
+    deepSeekApiKey: `DeepSeek API Key`,
+    deepSeekApiKeyPh: `Enter API Key...`,
+    deepSeekApiKeyDescribe: `This key is stored locally and only used to make API requests from this client.`
   },
   extensions: {
     extensions: 'Extensions',
