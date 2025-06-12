@@ -74,6 +74,7 @@
                 :class="`message ${message.role}`"
                 :ask="message.ask"
                 :say="message.say"
+                :partial="message.partial"
               />
               <MarkdownRenderer
                 v-else
@@ -81,6 +82,7 @@
                 :class="`message ${message.role}`"
                 :ask="message.ask"
                 :say="message.say"
+                :partial="message.partial"
               />
 
               <div class="message-actions">
@@ -389,7 +391,8 @@ import { useCurrentCwdStore } from '@/store/currentCwdStore'
 import { getassetMenu } from '@/api/asset/asset'
 import {
   aiModelOptions,
-  litellmAiModelOptions
+  litellmAiModelOptions,
+  deepseekAiModelOptions
 } from '@views/components/LeftTab/components/aiOptions'
 
 const MarkdownRenderer = defineAsyncComponent(
@@ -724,6 +727,7 @@ const restoreHistoryTab = async (history: HistoryItem) => {
             item.ask === 'command' ||
             item.say === 'completion_result' ||
             item.say === 'text' ||
+            item.say === 'reasoning' ||
             item.ask === 'resume_task' ||
             item.say === 'user_feedback')
         ) {
@@ -1038,6 +1042,9 @@ const debouncedUpdateGlobalState = debounce(async (provider, model) => {
     case 'litellm':
       await updateGlobalState('liteLlmModelId', model)
       break
+    case 'deepseek':
+      await updateGlobalState('apiModelId', model)
+      break
   }
 }, 200)
 
@@ -1078,6 +1085,10 @@ const changeModel = debounce(async (newValue) => {
         chatAiModelValue.value = newValue?.[2]
         AgentAiModelsOptions = litellmAiModelOptions
         break
+      case 'deepseek':
+        chatAiModelValue.value = newValue?.[1]
+        AgentAiModelsOptions = deepseekAiModelOptions
+        break
     }
   } else {
     apiProvider = (await getGlobalState('apiProvider')) as string
@@ -1089,6 +1100,10 @@ const changeModel = debounce(async (newValue) => {
       case 'litellm':
         chatAiModelValue.value = (await getGlobalState('liteLlmModelId')) as string
         AgentAiModelsOptions = litellmAiModelOptions
+        break
+      case 'deepseek':
+        chatAiModelValue.value = await getGlobalState('apiModelId')
+        AgentAiModelsOptions = deepseekAiModelOptions
         break
     }
   }
@@ -1192,7 +1207,8 @@ onMounted(async () => {
           message.partialMessage.type,
           message.partialMessage.type === 'ask' ? message.partialMessage.ask : '',
           message.partialMessage.type === 'say' ? message.partialMessage.say : '',
-          message.partialMessage.ts
+          message.partialMessage.ts,
+          message.partialMessage.partial
         )
 
         if (!message.partialMessage.partial && message.partialMessage.type === 'ask') {
@@ -1208,6 +1224,7 @@ onMounted(async () => {
           message.partialMessage.type === 'ask' ? message.partialMessage.ask : ''
         lastMessageInChat.say =
           message.partialMessage.type === 'say' ? message.partialMessage.say : ''
+        lastMessageInChat.partial = message.partialMessage.partial
 
         if (!message.partialMessage.partial && message.partialMessage.type === 'ask') {
           lastMessageInChat.content = parseMessageContent(message.partialMessage.text)
