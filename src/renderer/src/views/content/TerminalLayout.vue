@@ -260,6 +260,8 @@ const closeTab = (tabId) => {
         activeTabId.value = openedTabs.value[newActiveIndex].id
       } else {
         activeTabId.value = ''
+        // 触发activeTabChanged事件，传递null表示没有活动标签页
+        eventBus.emit('activeTabChanged', null)
       }
     }
     // 如果关闭的是扩展标签页，并且 extensionsRef 存在，则调用 handleExplorerActive
