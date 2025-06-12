@@ -35,7 +35,9 @@ import {
   AssistantMessageContent,
   parseAssistantMessageV2,
   ToolParamName,
-  ToolUseName
+  ToolUseName,
+  TextContent,
+  ToolUse
 } from '@core/assistant-message'
 import {
   RemoteTerminalManager,
@@ -1066,768 +1068,11 @@ export class Task {
     const block = cloneDeep(this.assistantMessageContent[this.currentStreamingContentIndex]) // need to create copy bc while stream is updating the array, it could be updating the reference block properties too
     switch (block.type) {
       case 'text': {
-        if (this.didRejectTool || this.didAlreadyUseTool) {
-          break
-        }
-        let content = block.content
-        if (content) {
-          // (have to do this for partial and complete since sending content in thinking tags to markdown renderer will automatically be removed)
-          // Remove end substrings of <thinking or </thinking (below xml parsing is only for opening tags)
-          // (this is done with the xml parsing below now, but keeping here for reference)
-          // content = content.replace(/<\/?t(?:h(?:i(?:n(?:k(?:i(?:n(?:g)?)?)?)?)?)?)?$/, "")
-          // Remove all instances of <thinking> (with optional line break after) and </thinking> (with optional line break before)
-          // - Needs to be separate since we dont want to remove the line break before the first tag
-          // - Needs to happen before the xml parsing below
-          content = content.replace(/<thinking>\s?/g, '')
-          content = content.replace(/\s?<\/thinking>/g, '')
-
-          // Remove partial XML tag at the very end of the content (for tool use and thinking tags)
-          // (prevents scrollview from jumping when tags are automatically removed)
-          const lastOpenBracketIndex = content.lastIndexOf('<')
-          if (lastOpenBracketIndex !== -1) {
-            const possibleTag = content.slice(lastOpenBracketIndex)
-            // Check if there's a '>' after the last '<' (i.e., if the tag is complete) (complete thinking and tool tags will have been removed by now)
-            const hasCloseBracket = possibleTag.includes('>')
-            if (!hasCloseBracket) {
-              // Extract the potential tag name
-              let tagContent: string
-              if (possibleTag.startsWith('</')) {
-                tagContent = possibleTag.slice(2).trim()
-              } else {
-                tagContent = possibleTag.slice(1).trim()
-              }
-              // Check if tagContent is likely an incomplete tag name (letters and underscores only)
-              const isLikelyTagName = /^[a-zA-Z_]+$/.test(tagContent)
-              // Preemptively remove < or </ to keep from these artifacts showing up in chat (also handles closing thinking tags)
-              const isOpeningOrClosing = possibleTag === '<' || possibleTag === '</'
-              // If the tag is incomplete and at the end, remove it from the content
-              if (isOpeningOrClosing || isLikelyTagName) {
-                content = content.slice(0, lastOpenBracketIndex).trim()
-              }
-            }
-          }
-        }
-
-        if (!block.partial) {
-          // Some models add code block artifacts (around the tool calls) which show up at the end of text content
-          // matches ``` with at least one char after the last backtick, at the end of the string
-          const match = content?.trimEnd().match(/```[a-zA-Z0-9_-]+$/)
-          if (match) {
-            const matchLength = match[0].length
-            content = content.trimEnd().slice(0, -matchLength)
-          }
-        }
-
-        await this.say('text', content, block.partial)
+        await this.handleTextBlock(block)
         break
       }
       case 'tool_use':
-        const toolDescription = () => {
-          switch (block.name) {
-            case 'execute_command':
-              return `[${block.name} for '${block.params.command}']`
-            case 'ask_followup_question':
-              return `[${block.name} for '${block.params.question}']`
-            case 'attempt_completion':
-              return `[${block.name}]`
-            case 'new_task':
-              return `[${block.name} for creating a new task]`
-            case 'condense':
-              return `[${block.name}]`
-            case 'report_bug':
-              return `[${block.name}]`
-          }
-        }
-
-        if (this.didRejectTool) {
-          // ignore any tool content after user has rejected tool once
-          if (!block.partial) {
-            this.userMessageContent.push({
-              type: 'text',
-              text: `Skipping tool ${toolDescription()} due to user rejecting a previous tool.`
-            })
-          } else {
-            // partial tool after user rejected a previous tool
-            this.userMessageContent.push({
-              type: 'text',
-              text: `Tool ${toolDescription()} was interrupted and not executed due to user rejecting a previous tool.`
-            })
-          }
-          break
-        }
-
-        if (this.didAlreadyUseTool) {
-          // ignore any content after a tool has already been used
-          this.userMessageContent.push({
-            type: 'text',
-            text: formatResponse.toolAlreadyUsed(block.name)
-          })
-          break
-        }
-
-        const pushToolResult = (content: ToolResponse) => {
-          this.userMessageContent.push({
-            type: 'text',
-            text: `${toolDescription()} Result:`
-          })
-          if (typeof content === 'string') {
-            this.userMessageContent.push({
-              type: 'text',
-              text: content || '(tool did not return anything)'
-            })
-          } else {
-            this.userMessageContent.push(...content)
-          }
-          // once a tool result has been collected, ignore all other tool uses since we should only ever present one tool result per message
-          this.didAlreadyUseTool = true
-        }
-
-        // The user can approve, reject, or provide feedback (rejection). However the user may also send a message along with an approval, in which case we add a separate user message with this feedback.
-        const pushAdditionalToolFeedback = (feedback?: string) => {
-          if (!feedback) {
-            return
-          }
-          const content = formatResponse.toolResult(
-            `The user provided the following feedback:\n<feedback>\n${feedback}\n</feedback>`
-            // images,
-          )
-          if (typeof content === 'string') {
-            this.userMessageContent.push({
-              type: 'text',
-              text: content
-            })
-          } else {
-            this.userMessageContent.push(...content)
-          }
-        }
-
-        const askApproval = async (type: ChatermAsk, partialMessage?: string) => {
-          const { response, text } = await this.ask(type, partialMessage, false)
-          if (response !== 'yesButtonClicked') {
-            // User pressed reject button or responded with a message, which we treat as a rejection
-            pushToolResult(formatResponse.toolDenied())
-            if (text) {
-              pushAdditionalToolFeedback(text)
-              await this.say('user_feedback', text)
-              await this.saveCheckpoint()
-            }
-            this.didRejectTool = true // Prevent further tool uses in this message
-            return false
-          } else {
-            // User hit the approve button, and may have provided feedback
-            if (text) {
-              pushAdditionalToolFeedback(text)
-              await this.say('user_feedback', text)
-              await this.saveCheckpoint()
-            }
-            return true
-          }
-        }
-
-        const askApprovalForCmdMode = async (command: string) => {
-          const { response, text } = await this.ask('command', command, false)
-          if (response !== 'yesButtonClicked') {
-            // User pressed reject button or responded with a message, which we treat as a rejection
-            pushToolResult(formatResponse.toolDenied())
-            if (text) {
-              pushAdditionalToolFeedback(text)
-              await this.say('user_feedback', text)
-              await this.saveCheckpoint()
-            }
-            this.didRejectTool = true // Prevent further tool uses in this message
-            return false
-          } else {
-            // text is the command result
-            if (text) {
-              pushToolResult(text)
-              await this.say('user_feedback', text)
-              await this.saveCheckpoint()
-            }
-            return true
-          }
-          return false
-        }
-
-        const showNotificationForApprovalIfAutoApprovalEnabled = (message: string) => {
-          if (this.autoApprovalSettings.enabled && this.autoApprovalSettings.enableNotifications) {
-            showSystemNotification({
-              subtitle: 'Approval Required',
-              message
-            })
-          }
-        }
-
-        const handleError = async (action: string, error: Error) => {
-          if (this.abandoned) {
-            console.log(
-              'Ignoring error since task was abandoned (i.e. from task cancellation after resetting)'
-            )
-            return
-          }
-          const errorString = `Error ${action}: ${JSON.stringify(serializeError(error))}`
-          await this.say(
-            'error',
-            `Error ${action}:\n${error.message ?? JSON.stringify(serializeError(error), null, 2)}`
-          )
-          pushToolResult(formatResponse.toolError(errorString))
-        }
-
-        // If block is partial, remove partial closing tag so its not presented to user
-        const removeClosingTag = (tag: ToolParamName, text?: string) => {
-          if (!block.partial) {
-            return text || ''
-          }
-          if (!text) {
-            return ''
-          }
-          // This regex dynamically constructs a pattern to match the closing tag:
-          // - Optionally matches whitespace before the tag
-          // - Matches '<' or '</' optionally followed by any subset of characters from the tag name
-          const tagRegex = new RegExp(
-            `\\s?<\/?${tag
-              .split('')
-              .map((char) => `(?:${char})?`)
-              .join('')}$`,
-            'g'
-          )
-          return text.replace(tagRegex, '')
-        }
-
-        switch (block.name) {
-          case 'execute_command': {
-            let command: string | undefined = block.params.command
-            const requiresApprovalRaw: string | undefined = block.params.requires_approval
-            const requiresApprovalPerLLM = requiresApprovalRaw?.toLowerCase() === 'true'
-
-            try {
-              if (block.partial) {
-                if (!this.shouldAutoApproveTool(block.name)) {
-                  await this.ask(
-                    'command',
-                    removeClosingTag('command', command),
-                    block.partial
-                  ).catch(() => {})
-                }
-                break
-              } else {
-                if (!command) {
-                  this.consecutiveMistakeCount++
-                  pushToolResult(
-                    await this.sayAndCreateMissingParamError('execute_command', 'command')
-                  )
-                  await this.saveCheckpoint()
-                  break
-                }
-                if (!requiresApprovalRaw) {
-                  this.consecutiveMistakeCount++
-                  pushToolResult(
-                    await this.sayAndCreateMissingParamError('execute_command', 'requires_approval')
-                  )
-                  await this.saveCheckpoint()
-                  break
-                }
-                this.consecutiveMistakeCount = 0
-                let didAutoApprove = false
-
-                // if (this.chatSettings.mode === 'cmd') {
-                //   await askApprovalForCmdMode(command) // Wait for frontend to execute command and return result
-                //   break
-                // }
-
-                // If the model says this command is safe and auto approval for safe commands is true, execute the command
-                // If the model says the command is risky, but *BOTH* auto approve settings are true, execute the command
-                const autoApproveResult = this.shouldAutoApproveTool(block.name)
-                let [autoApproveSafe, autoApproveAll] = Array.isArray(autoApproveResult)
-                  ? autoApproveResult
-                  : [autoApproveResult, false]
-                if (this.chatSettings.mode === 'cmd') {
-                  autoApproveSafe = false
-                  autoApproveAll = false
-                }
-                if (
-                  (!requiresApprovalPerLLM && autoApproveSafe) ||
-                  (requiresApprovalPerLLM && autoApproveSafe && autoApproveAll)
-                ) {
-                  this.removeLastPartialMessageIfExistsWithType('ask', 'command')
-                  await this.say('command', command, false)
-                  this.consecutiveAutoApprovedRequestsCount++
-                  didAutoApprove = true
-                } else {
-                  showNotificationForApprovalIfAutoApprovalEnabled(
-                    `Chaterm wants to execute a command: ${command}`
-                  )
-
-                  const didApprove = await askApproval('command', command)
-                  if (!didApprove) {
-                    await this.saveCheckpoint()
-                    break
-                  }
-                }
-
-                let timeoutId: NodeJS.Timeout | undefined
-                if (didAutoApprove && this.autoApprovalSettings.enableNotifications) {
-                  // if the command was auto-approved, and it's long running we need to notify the user after some time has passed without proceeding
-                  timeoutId = setTimeout(() => {
-                    showSystemNotification({
-                      subtitle: 'Command is still running',
-                      message:
-                        'An auto-approved command has been running for 30s, and may need your attention.'
-                    })
-                  }, 30_000)
-                }
-                // Only agent mode goes here, cmd mode gets results in ask
-                const [userRejected, result] = await this.executeCommandTool(command)
-                if (timeoutId) {
-                  clearTimeout(timeoutId)
-                }
-                if (userRejected) {
-                  this.didRejectTool = true
-                }
-
-                this.workspaceTracker.populateFilePaths()
-
-                pushToolResult(result)
-
-                await this.saveCheckpoint()
-
-                break
-              }
-            } catch (error) {
-              await handleError('executing command', error as Error)
-              await this.saveCheckpoint()
-              break
-            }
-          }
-
-          case 'ask_followup_question': {
-            const question: string | undefined = block.params.question
-            const optionsRaw: string | undefined = block.params.options
-            const sharedMessage = {
-              question: removeClosingTag('question', question),
-              options: parsePartialArrayString(removeClosingTag('options', optionsRaw))
-            } satisfies ChatermAskQuestion
-            try {
-              if (block.partial) {
-                await this.ask('followup', JSON.stringify(sharedMessage), block.partial).catch(
-                  () => {}
-                )
-                break
-              } else {
-                if (!question) {
-                  this.consecutiveMistakeCount++
-                  pushToolResult(
-                    await this.sayAndCreateMissingParamError('ask_followup_question', 'question')
-                  )
-                  await this.saveCheckpoint()
-                  break
-                }
-                this.consecutiveMistakeCount = 0
-
-                if (
-                  this.autoApprovalSettings.enabled &&
-                  this.autoApprovalSettings.enableNotifications
-                ) {
-                  showSystemNotification({
-                    subtitle: 'Chaterm has a question...',
-                    message: question.replace(/\n/g, ' ')
-                  })
-                }
-
-                // Store the number of options for telemetry
-                const options = parsePartialArrayString(optionsRaw || '[]')
-
-                const { text } = await this.ask('followup', JSON.stringify(sharedMessage), false)
-
-                // Check if options contains the text response
-                if (optionsRaw && text && parsePartialArrayString(optionsRaw).includes(text)) {
-                  // Valid option selected, don't show user message in UI
-                  // Update last followup message with selected option
-                  const lastFollowupMessage = findLast(
-                    this.chatermMessages,
-                    (m) => m.ask === 'followup'
-                  )
-                  if (lastFollowupMessage) {
-                    lastFollowupMessage.text = JSON.stringify({
-                      ...sharedMessage,
-                      selected: text
-                    } satisfies ChatermAskQuestion)
-                    await this.saveChatermMessagesAndUpdateHistory()
-                    // telemetryService.captureOptionSelected(this.taskId, options.length, "act")
-                  }
-                } else {
-                  // Option not selected, send user feedback
-                  // telemetryService.captureOptionsIgnored(this.taskId, options.length, "act")
-                  await this.say('user_feedback', text ?? '')
-                }
-
-                pushToolResult(formatResponse.toolResult(`<answer>\n${text}\n</answer>`))
-                await this.saveCheckpoint()
-                break
-              }
-            } catch (error) {
-              await handleError('asking question', error as Error)
-              await this.saveCheckpoint()
-              break
-            }
-          }
-          case 'condense': {
-            const context: string | undefined = block.params.context
-            try {
-              if (block.partial) {
-                await this.ask(
-                  'condense',
-                  removeClosingTag('context', context),
-                  block.partial
-                ).catch(() => {})
-                break
-              } else {
-                if (!context) {
-                  this.consecutiveMistakeCount++
-                  pushToolResult(await this.sayAndCreateMissingParamError('condense', 'context'))
-                  await this.saveCheckpoint()
-                  break
-                }
-                this.consecutiveMistakeCount = 0
-
-                if (
-                  this.autoApprovalSettings.enabled &&
-                  this.autoApprovalSettings.enableNotifications
-                ) {
-                  showSystemNotification({
-                    subtitle: 'Chaterm wants to condense the conversation...',
-                    message: `Chaterm is suggesting to condense your conversation with: ${context}`
-                  })
-                }
-
-                const { text } = await this.ask('condense', context, false)
-
-                // If the user provided a response, treat it as feedback
-                if (text) {
-                  await this.say('user_feedback', text ?? '')
-                  pushToolResult(
-                    formatResponse.toolResult(
-                      `The user provided feedback on the condensed conversation summary:\n<feedback>\n${text}\n</feedback>`
-                      // images,
-                    )
-                  )
-                } else {
-                  // If no response, the user accepted the condensed version
-                  pushToolResult(formatResponse.toolResult(formatResponse.condense()))
-
-                  const lastMessage =
-                    this.apiConversationHistory[this.apiConversationHistory.length - 1]
-                  const summaryAlreadyAppended = lastMessage && lastMessage.role === 'assistant'
-                  const keepStrategy = summaryAlreadyAppended ? 'lastTwo' : 'none'
-
-                  // clear the context history at this point in time
-                  this.conversationHistoryDeletedRange = this.contextManager.getNextTruncationRange(
-                    this.apiConversationHistory,
-                    this.conversationHistoryDeletedRange,
-                    keepStrategy
-                  )
-                  await this.saveChatermMessagesAndUpdateHistory()
-                  await this.contextManager.triggerApplyStandardContextTruncationNoticeChange(
-                    Date.now(),
-                    this.taskId
-                  )
-                }
-                await this.saveCheckpoint()
-                break
-              }
-            } catch (error) {
-              await handleError('condensing context window', error as Error)
-              await this.saveCheckpoint()
-              break
-            }
-          }
-          case 'report_bug': {
-            const title = block.params.title
-            const what_happened = block.params.what_happened
-            const steps_to_reproduce = block.params.steps_to_reproduce
-            const api_request_output = block.params.api_request_output
-            const additional_context = block.params.additional_context
-
-            try {
-              if (block.partial) {
-                await this.ask(
-                  'report_bug',
-                  JSON.stringify({
-                    title: removeClosingTag('title', title),
-                    what_happened: removeClosingTag('what_happened', what_happened),
-                    steps_to_reproduce: removeClosingTag('steps_to_reproduce', steps_to_reproduce),
-                    api_request_output: removeClosingTag('api_request_output', api_request_output),
-                    additional_context: removeClosingTag('additional_context', additional_context)
-                  }),
-                  block.partial
-                ).catch(() => {})
-                break
-              } else {
-                if (!title) {
-                  this.consecutiveMistakeCount++
-                  pushToolResult(await this.sayAndCreateMissingParamError('report_bug', 'title'))
-                  await this.saveCheckpoint()
-                  break
-                }
-                if (!what_happened) {
-                  this.consecutiveMistakeCount++
-                  pushToolResult(
-                    await this.sayAndCreateMissingParamError('report_bug', 'what_happened')
-                  )
-                  await this.saveCheckpoint()
-                  break
-                }
-                if (!steps_to_reproduce) {
-                  this.consecutiveMistakeCount++
-                  pushToolResult(
-                    await this.sayAndCreateMissingParamError('report_bug', 'steps_to_reproduce')
-                  )
-                  await this.saveCheckpoint()
-                  break
-                }
-                if (!api_request_output) {
-                  this.consecutiveMistakeCount++
-                  pushToolResult(
-                    await this.sayAndCreateMissingParamError('report_bug', 'api_request_output')
-                  )
-                  await this.saveCheckpoint()
-                  break
-                }
-                if (!additional_context) {
-                  this.consecutiveMistakeCount++
-                  pushToolResult(
-                    await this.sayAndCreateMissingParamError('report_bug', 'additional_context')
-                  )
-                  await this.saveCheckpoint()
-                  break
-                }
-
-                this.consecutiveMistakeCount = 0
-
-                if (
-                  this.autoApprovalSettings.enabled &&
-                  this.autoApprovalSettings.enableNotifications
-                ) {
-                  showSystemNotification({
-                    subtitle: 'Chaterm wants to create a github issue...',
-                    message: `Chaterm is suggesting to create a github issue with the title: ${title}`
-                  })
-                }
-
-                // Derive system information values algorithmically
-                const operatingSystem = os.platform() + ' ' + os.release()
-                const providerAndModel = `${(await getGlobalState('apiProvider')) as string} / ${this.api.getModel().id}`
-
-                // Ask user for confirmation
-                const bugReportData = JSON.stringify({
-                  title,
-                  what_happened,
-                  steps_to_reproduce,
-                  api_request_output,
-                  additional_context,
-                  // Include derived values in the JSON for display purposes
-                  provider_and_model: providerAndModel,
-                  operating_system: operatingSystem
-                  // system_info: systemInfo,
-                })
-
-                const { text } = await this.ask('report_bug', bugReportData, false)
-                // If the user provided a response, treat it as feedback
-                if (text) {
-                  await this.say('user_feedback', text ?? '')
-                  pushToolResult(
-                    formatResponse.toolResult(
-                      `The user did not submit the bug, and provided feedback on the Github issue generated instead:\n<feedback>\n${text}\n</feedback>`
-                      // images,
-                    )
-                  )
-                } else {
-                  // If no response, the user accepted the condensed version
-                  pushToolResult(
-                    formatResponse.toolResult(`The user accepted the creation of the Github issue.`)
-                  )
-
-                  try {
-                    // Create a Map of parameters for the GitHub issue
-                    const params = new Map<string, string>()
-                    params.set('title', title)
-                    params.set('operating-system', operatingSystem)
-                    //params.set("system-info", systemInfo)
-                    params.set('additional-context', additional_context)
-                    params.set('what-happened', what_happened)
-                    params.set('steps', steps_to_reproduce)
-                    params.set('provider-model', providerAndModel)
-                    params.set('logs', api_request_output)
-
-                    // Use our utility function to create and open the GitHub issue URL
-                    // This bypasses VS Code's URI handling issues with special characters
-                  } catch (error) {
-                    console.error(`An error occurred while attempting to report the bug: ${error}`)
-                  }
-                }
-                await this.saveCheckpoint()
-                break
-              }
-            } catch (error) {
-              await handleError('reporting bug', error as Error)
-              await this.saveCheckpoint()
-              break
-            }
-          }
-          case 'attempt_completion': {
-            const result: string | undefined = block.params.result
-            const command: string | undefined = block.params.command
-
-            const addNewChangesFlagToLastCompletionResultMessage = async () => {
-              // Add newchanges flag if there are new changes to the workspace
-
-              const hasNewChanges = await this.doesLatestTaskCompletionHaveNewChanges()
-              const lastCompletionResultMessage = findLast(
-                this.chatermMessages,
-                (m) => m.say === 'completion_result'
-              )
-              if (
-                lastCompletionResultMessage &&
-                hasNewChanges &&
-                !lastCompletionResultMessage.text?.endsWith(COMPLETION_RESULT_CHANGES_FLAG)
-              ) {
-                lastCompletionResultMessage.text += COMPLETION_RESULT_CHANGES_FLAG
-              }
-              await this.saveChatermMessagesAndUpdateHistory()
-            }
-
-            try {
-              const lastMessage = this.chatermMessages.at(-1)
-              if (block.partial) {
-                if (command) {
-                  // the attempt_completion text is done, now we're getting command
-                  // remove the previous partial attempt_completion ask, replace with say, post state to webview, then stream command
-
-                  // const secondLastMessage = this.chatermMessages.at(-2)
-                  // NOTE: we do not want to auto approve a command run as part of the attempt_completion tool
-                  if (lastMessage && lastMessage.ask === 'command') {
-                    // update command
-                    await this.ask(
-                      'command',
-                      removeClosingTag('command', command),
-                      block.partial
-                    ).catch(() => {})
-                  } else {
-                    // last message is completion_result
-                    // we have command string, which means we have the result as well, so finish it (doesn't have to exist yet)
-                    await this.say('completion_result', removeClosingTag('result', result), false)
-                    await this.saveCheckpoint(true)
-                    await addNewChangesFlagToLastCompletionResultMessage()
-                    await this.ask(
-                      'command',
-                      removeClosingTag('command', command),
-                      block.partial
-                    ).catch(() => {})
-                  }
-                } else {
-                  // no command, still outputting partial result
-                  await this.say(
-                    'completion_result',
-                    removeClosingTag('result', result),
-                    block.partial
-                  )
-                }
-                break
-              } else {
-                if (!result) {
-                  this.consecutiveMistakeCount++
-                  pushToolResult(
-                    await this.sayAndCreateMissingParamError('attempt_completion', 'result')
-                  )
-                  break
-                }
-                this.consecutiveMistakeCount = 0
-
-                if (
-                  this.autoApprovalSettings.enabled &&
-                  this.autoApprovalSettings.enableNotifications
-                ) {
-                  showSystemNotification({
-                    subtitle: 'Task Completed',
-                    message: result.replace(/\n/g, ' ')
-                  })
-                }
-
-                let commandResult: ToolResponse | undefined
-                if (command) {
-                  if (lastMessage && lastMessage.ask !== 'command') {
-                    // haven't sent a command message yet so first send completion_result then command
-                    await this.say('completion_result', result, false)
-                    await this.saveCheckpoint(true)
-                    await addNewChangesFlagToLastCompletionResultMessage()
-                    // telemetryService.captureTaskCompleted(this.taskId)
-                  } else {
-                    // we already sent a command message, meaning the complete completion message has also been sent
-                    await this.saveCheckpoint(true)
-                  }
-
-                  // complete command message
-                  const didApprove = await askApproval('command', command)
-                  if (!didApprove) {
-                    await this.saveCheckpoint()
-                    break
-                  }
-                  const [userRejected, execCommandResult] = await this.executeCommandTool(command!)
-                  if (userRejected) {
-                    this.didRejectTool = true
-                    pushToolResult(execCommandResult)
-                    await this.saveCheckpoint()
-                    break
-                  }
-                  // user didn't reject, but the command may have output
-                  commandResult = execCommandResult
-                } else {
-                  await this.say('completion_result', result, false)
-                  await this.saveCheckpoint(true)
-                  await addNewChangesFlagToLastCompletionResultMessage()
-                  // telemetryService.captureTaskCompleted(this.taskId)
-                }
-
-                // we already sent completion_result says, an empty string asks relinquishes control over button and field
-                const { response, text } = await this.ask('completion_result', '', false)
-                if (response === 'yesButtonClicked') {
-                  pushToolResult('') // signals to recursive loop to stop (for now this never happens since yesButtonClicked will trigger a new task)
-                  break
-                }
-                await this.say('user_feedback', text ?? '')
-                await this.saveCheckpoint()
-
-                const toolResults: (Anthropic.TextBlockParam | Anthropic.ImageBlockParam)[] = []
-                if (commandResult) {
-                  if (typeof commandResult === 'string') {
-                    toolResults.push({
-                      type: 'text',
-                      text: commandResult
-                    })
-                  } else if (Array.isArray(commandResult)) {
-                    toolResults.push(...commandResult)
-                  }
-                }
-                toolResults.push({
-                  type: 'text',
-                  text: `The user has provided feedback on the results. Consider their input to continue the task, and then attempt completion again.\n<feedback>\n${text}\n</feedback>`
-                })
-                // toolResults.push(...formatResponse.imageBlocks(images))
-                this.userMessageContent.push({
-                  type: 'text',
-                  text: `${toolDescription()} Result:`
-                })
-                this.userMessageContent.push(...toolResults)
-
-                //
-                break
-              }
-            } catch (error) {
-              await handleError('attempting completion', error as Error)
-              await this.saveCheckpoint()
-              break
-            }
-          }
-        }
+        await this.handleToolUse(block)
         break
     }
 
@@ -2317,6 +1562,8 @@ export class Task {
     details += `\n\n# Current Time\n${formatter.format(now)} (${timeZone}, UTC${timeZoneOffsetStr})`
 
     if (includeHostDetails) {
+      details += `\n\n# Current Hosts\n${this.hosts?.map((h) => h.host).join(', ')}`
+
       details += `\n\n# Current Working Directory (${this.cwd.toPosix()}) Files\n`
       const res = await this.executeCommandInRemoteServer('ls -al', this.cwd)
       // TODO: add ignore files
@@ -2387,5 +1634,672 @@ export class Task {
     }
 
     return `<environment_details>\n${details.trim()}\n</environment_details>`
+  }
+
+  private async handleExecuteCommandToolUse(block: ToolUse) {
+    let command: string | undefined = block.params.command
+    const toolDescription = this.getToolDescription(block)
+    const requiresApprovalRaw: string | undefined = block.params.requires_approval
+    const requiresApprovalPerLLM = requiresApprovalRaw?.toLowerCase() === 'true'
+
+    try {
+      if (block.partial) {
+        if (!this.shouldAutoApproveTool(block.name)) {
+          await this.ask(
+            'command',
+            this.removeClosingTag(block.partial, 'command', command),
+            block.partial
+          ).catch(() => {})
+        }
+        return
+      } else {
+        if (!command) {
+          this.consecutiveMistakeCount++
+          this.pushToolResult(
+            toolDescription,
+            await this.sayAndCreateMissingParamError('execute_command', 'command')
+          )
+          await this.saveCheckpoint()
+          return
+        }
+        if (!requiresApprovalRaw) {
+          this.consecutiveMistakeCount++
+          this.pushToolResult(
+            toolDescription,
+            await this.sayAndCreateMissingParamError('execute_command', 'requires_approval')
+          )
+          await this.saveCheckpoint()
+          return
+        }
+        this.consecutiveMistakeCount = 0
+        let didAutoApprove = false
+
+        // if (this.chatSettings.mode === 'cmd') {
+        //   await this.askApprovalForCmdMode(toolDescription, command) // Wait for frontend to execute command and return result
+        //   return
+        // }
+
+        const autoApproveResult = this.shouldAutoApproveTool(block.name)
+        let [autoApproveSafe, autoApproveAll] = Array.isArray(autoApproveResult)
+          ? autoApproveResult
+          : [autoApproveResult, false]
+        if (this.chatSettings.mode === 'cmd') {
+          autoApproveSafe = false
+          autoApproveAll = false
+        }
+        if (
+          (!requiresApprovalPerLLM && autoApproveSafe) ||
+          (requiresApprovalPerLLM && autoApproveSafe && autoApproveAll)
+        ) {
+          this.removeLastPartialMessageIfExistsWithType('ask', 'command')
+          await this.say('command', command, false)
+          this.consecutiveAutoApprovedRequestsCount++
+          didAutoApprove = true
+        } else {
+          this.showNotificationIfNeeded(`Chaterm wants to execute a command: ${command}`)
+          const didApprove = await this.askApproval(toolDescription, 'command', command)
+          if (!didApprove) {
+            await this.saveCheckpoint()
+            return
+          }
+        }
+
+        let timeoutId: NodeJS.Timeout | undefined
+        if (didAutoApprove && this.autoApprovalSettings.enableNotifications) {
+          timeoutId = setTimeout(() => {
+            showSystemNotification({
+              subtitle: 'Command is still running',
+              message:
+                'An auto-approved command has been running for 30s, and may need your attention.'
+            })
+          }, 30_000)
+        }
+
+        const [userRejected, result] = await this.executeCommandTool(command!)
+        if (timeoutId) {
+          clearTimeout(timeoutId)
+        }
+        if (userRejected) {
+          this.didRejectTool = true
+        }
+
+        this.workspaceTracker.populateFilePaths()
+
+        this.pushToolResult(toolDescription, result)
+
+        await this.saveCheckpoint()
+      }
+    } catch (error) {
+      await this.handleToolError(toolDescription, 'executing command', error as Error)
+      await this.saveCheckpoint()
+    }
+  }
+
+  private getToolDescription(block: any): string {
+    switch (block.name) {
+      case 'execute_command':
+        return `[${block.name} for '${block.params.command}']`
+      case 'ask_followup_question':
+        return `[${block.name} for '${block.params.question}']`
+      case 'attempt_completion':
+        return `[${block.name}]`
+      case 'new_task':
+        return `[${block.name} for creating a new task]`
+      case 'condense':
+        return `[${block.name}]`
+      case 'report_bug':
+        return `[${block.name}]`
+      default:
+        return `[${block.name}]`
+    }
+  }
+
+  private pushToolResult(toolDescription: string, content: ToolResponse): void {
+    this.userMessageContent.push({
+      type: 'text',
+      text: `${toolDescription} Result:`
+    })
+    if (typeof content === 'string') {
+      this.userMessageContent.push({
+        type: 'text',
+        text: content || '(tool did not return anything)'
+      })
+    } else {
+      this.userMessageContent.push(...content)
+    }
+    this.didAlreadyUseTool = true
+  }
+
+  private pushAdditionalToolFeedback(feedback?: string): void {
+    if (!feedback) return
+    const content = formatResponse.toolResult(
+      `The user provided the following feedback:\n<feedback>\n${feedback}\n</feedback>`
+    )
+    if (typeof content === 'string') {
+      this.userMessageContent.push({ type: 'text', text: content })
+    } else {
+      this.userMessageContent.push(...content)
+    }
+  }
+
+  private async askApproval(
+    toolDescription: string,
+    type: ChatermAsk,
+    partialMessage?: string
+  ): Promise<boolean> {
+    const { response, text } = await this.ask(type, partialMessage, false)
+    const approved = response === 'yesButtonClicked'
+    if (!approved) {
+      this.pushToolResult(toolDescription, formatResponse.toolDenied())
+      if (text) {
+        this.pushAdditionalToolFeedback(text)
+        await this.say('user_feedback', text)
+        await this.saveCheckpoint()
+      }
+      this.didRejectTool = true
+    } else if (text) {
+      this.pushAdditionalToolFeedback(text)
+      await this.say('user_feedback', text)
+      await this.saveCheckpoint()
+    }
+    return approved
+  }
+
+  private async askApprovalForCmdMode(toolDescription: string, command: string): Promise<boolean> {
+    const { response, text } = await this.ask('command', command, false)
+    const approved = response === 'yesButtonClicked'
+    if (!approved) {
+      this.pushToolResult(toolDescription, formatResponse.toolDenied())
+      if (text) {
+        this.pushAdditionalToolFeedback(text)
+        await this.say('user_feedback', text)
+        await this.saveCheckpoint()
+      }
+      this.didRejectTool = true
+    } else if (text) {
+      // cmd 模式下 text 是命令执行结果
+      this.pushToolResult(toolDescription, text)
+      await this.saveCheckpoint()
+    }
+    return approved
+  }
+
+  private showNotificationIfNeeded(message: string): void {
+    if (this.autoApprovalSettings.enabled && this.autoApprovalSettings.enableNotifications) {
+      showSystemNotification({ subtitle: 'Approval Required', message })
+    }
+  }
+
+  private removeClosingTag(isPartial: boolean, tag: ToolParamName, text?: string): string {
+    if (!isPartial) return text || ''
+    if (!text) return ''
+    const tagRegex = new RegExp(
+      `\\s?<\\/?${tag
+        .split('')
+        .map((c) => `(?:${c})?`)
+        .join('')}$`,
+      'g'
+    )
+    return text.replace(tagRegex, '')
+  }
+
+  private async handleToolError(
+    toolDescription: string,
+    action: string,
+    error: Error
+  ): Promise<void> {
+    if (this.abandoned) {
+      console.log('Ignoring error since task was abandoned')
+      return
+    }
+    const errorString = `Error ${action}: ${JSON.stringify(serializeError(error))}`
+    await this.say(
+      'error',
+      `Error ${action}:\n${error.message ?? JSON.stringify(serializeError(error), null, 2)}`
+    )
+    this.pushToolResult(toolDescription, formatResponse.toolError(errorString))
+  }
+
+  private async handleAskFollowupQuestionToolUse(block: ToolUse): Promise<void> {
+    const toolDescription = this.getToolDescription(block)
+    const question: string | undefined = block.params.question
+    const optionsRaw: string | undefined = block.params.options
+
+    const sharedMessage: ChatermAskQuestion = {
+      question: this.removeClosingTag(block.partial, 'question', question),
+      options: parsePartialArrayString(this.removeClosingTag(block.partial, 'options', optionsRaw))
+    }
+
+    try {
+      if (block.partial) {
+        await this.ask('followup', JSON.stringify(sharedMessage), block.partial).catch(() => {})
+        return
+      }
+
+      if (!question) {
+        this.consecutiveMistakeCount++
+        this.pushToolResult(
+          toolDescription,
+          await this.sayAndCreateMissingParamError('ask_followup_question', 'question')
+        )
+        await this.saveCheckpoint()
+        return
+      }
+      this.consecutiveMistakeCount = 0
+
+      if (this.autoApprovalSettings.enabled && this.autoApprovalSettings.enableNotifications) {
+        showSystemNotification({
+          subtitle: 'Chaterm has a question...',
+          message: question.replace(/\n/g, ' ')
+        })
+      }
+
+      const { text } = await this.ask('followup', JSON.stringify(sharedMessage), false)
+
+      if (optionsRaw && text && parsePartialArrayString(optionsRaw).includes(text)) {
+        const lastFollowupMessage = findLast(this.chatermMessages, (m) => m.ask === 'followup')
+        if (lastFollowupMessage) {
+          lastFollowupMessage.text = JSON.stringify({
+            ...sharedMessage,
+            selected: text
+          } as ChatermAskQuestion)
+          await this.saveChatermMessagesAndUpdateHistory()
+        }
+      } else {
+        await this.say('user_feedback', text ?? '')
+      }
+
+      this.pushToolResult(
+        toolDescription,
+        formatResponse.toolResult(`<answer>\n${text}\n</answer>`)
+      )
+      await this.saveCheckpoint()
+    } catch (error) {
+      await this.handleToolError(toolDescription, 'asking question', error as Error)
+      await this.saveCheckpoint()
+    }
+  }
+
+  private async handleAttemptCompletionToolUse(block: ToolUse): Promise<void> {
+    const toolDescription = this.getToolDescription(block)
+    const result: string | undefined = block.params.result
+    const command: string | undefined = block.params.command
+
+    const addNewChangesFlagToLastCompletionResultMessage = async () => {
+      const hasNewChanges = await this.doesLatestTaskCompletionHaveNewChanges()
+      const lastCompletionResultMessage = findLast(
+        this.chatermMessages,
+        (m) => m.say === 'completion_result'
+      )
+      if (
+        lastCompletionResultMessage &&
+        hasNewChanges &&
+        !lastCompletionResultMessage.text?.endsWith(COMPLETION_RESULT_CHANGES_FLAG)
+      ) {
+        lastCompletionResultMessage.text += COMPLETION_RESULT_CHANGES_FLAG
+      }
+      await this.saveChatermMessagesAndUpdateHistory()
+    }
+
+    try {
+      const lastMessage = this.chatermMessages.at(-1)
+
+      if (block.partial) {
+        if (command) {
+          if (lastMessage && lastMessage.ask === 'command') {
+            await this.ask(
+              'command',
+              this.removeClosingTag(block.partial, 'command', command),
+              block.partial
+            ).catch(() => {})
+          } else {
+            await this.say(
+              'completion_result',
+              this.removeClosingTag(block.partial, 'result', result),
+              false
+            )
+            await this.saveCheckpoint(true)
+            await addNewChangesFlagToLastCompletionResultMessage()
+            await this.ask(
+              'command',
+              this.removeClosingTag(block.partial, 'command', command),
+              block.partial
+            ).catch(() => {})
+          }
+        } else {
+          await this.say(
+            'completion_result',
+            this.removeClosingTag(block.partial, 'result', result),
+            block.partial
+          )
+        }
+        return
+      }
+
+      if (!result) {
+        this.consecutiveMistakeCount++
+        this.pushToolResult(
+          toolDescription,
+          await this.sayAndCreateMissingParamError('attempt_completion', 'result')
+        )
+        return
+      }
+      this.consecutiveMistakeCount = 0
+
+      if (this.autoApprovalSettings.enabled && this.autoApprovalSettings.enableNotifications) {
+        showSystemNotification({ subtitle: 'Task Completed', message: result.replace(/\n/g, ' ') })
+      }
+
+      let commandResult: ToolResponse | undefined
+      if (command) {
+        if (lastMessage && lastMessage.ask !== 'command') {
+          await this.say('completion_result', result, false)
+          await this.saveCheckpoint(true)
+          await addNewChangesFlagToLastCompletionResultMessage()
+        } else {
+          await this.saveCheckpoint(true)
+        }
+
+        const didApprove = await this.askApproval(toolDescription, 'command', command)
+        if (!didApprove) {
+          await this.saveCheckpoint()
+          return
+        }
+        const [userRejected, execCommandResult] = await this.executeCommandTool(command!)
+        if (userRejected) {
+          this.didRejectTool = true
+          this.pushToolResult(toolDescription, execCommandResult)
+          await this.saveCheckpoint()
+          return
+        }
+        commandResult = execCommandResult
+      } else {
+        await this.say('completion_result', result, false)
+        await this.saveCheckpoint(true)
+        await addNewChangesFlagToLastCompletionResultMessage()
+      }
+
+      const { response, text } = await this.ask('completion_result', '', false)
+      if (response === 'yesButtonClicked') {
+        this.pushToolResult(toolDescription, '')
+        return
+      }
+      await this.say('user_feedback', text ?? '')
+      await this.saveCheckpoint()
+
+      const toolResults: (Anthropic.TextBlockParam | Anthropic.ImageBlockParam)[] = []
+      if (commandResult) {
+        if (typeof commandResult === 'string') {
+          toolResults.push({ type: 'text', text: commandResult })
+        } else if (Array.isArray(commandResult)) {
+          toolResults.push(...commandResult)
+        }
+      }
+      toolResults.push({
+        type: 'text',
+        text: `The user has provided feedback on the results. Consider their input to continue the task, and then attempt completion again.\n<feedback>\n${text}\n</feedback>`
+      })
+      this.userMessageContent.push({ type: 'text', text: `${toolDescription} Result:` })
+      this.userMessageContent.push(...toolResults)
+    } catch (error) {
+      await this.handleToolError(toolDescription, 'attempting completion', error as Error)
+      await this.saveCheckpoint()
+    }
+  }
+
+  private async handleCondenseToolUse(block: ToolUse): Promise<void> {
+    const toolDescription = this.getToolDescription(block)
+    const context: string | undefined = block.params.context
+    try {
+      if (block.partial) {
+        await this.ask(
+          'condense',
+          this.removeClosingTag(block.partial, 'context', context),
+          block.partial
+        ).catch(() => {})
+        return
+      }
+      if (!context) {
+        this.consecutiveMistakeCount++
+        this.pushToolResult(
+          toolDescription,
+          await this.sayAndCreateMissingParamError('condense', 'context')
+        )
+        await this.saveCheckpoint()
+        return
+      }
+      this.consecutiveMistakeCount = 0
+
+      if (this.autoApprovalSettings.enabled && this.autoApprovalSettings.enableNotifications) {
+        showSystemNotification({
+          subtitle: 'Chaterm wants to condense the conversation...',
+          message: `Chaterm is suggesting to condense your conversation with: ${context}`
+        })
+      }
+
+      const { text } = await this.ask('condense', context, false)
+
+      if (text) {
+        await this.say('user_feedback', text ?? '')
+        this.pushToolResult(
+          toolDescription,
+          formatResponse.toolResult(
+            `The user provided feedback on the condensed conversation summary:\n<feedback>\n${text}\n</feedback>`
+          )
+        )
+      } else {
+        this.pushToolResult(toolDescription, formatResponse.toolResult(formatResponse.condense()))
+
+        const lastMessage = this.apiConversationHistory[this.apiConversationHistory.length - 1]
+        const summaryAlreadyAppended = lastMessage && lastMessage.role === 'assistant'
+        const keepStrategy = summaryAlreadyAppended ? 'lastTwo' : 'none'
+
+        this.conversationHistoryDeletedRange = this.contextManager.getNextTruncationRange(
+          this.apiConversationHistory,
+          this.conversationHistoryDeletedRange,
+          keepStrategy
+        )
+        await this.saveChatermMessagesAndUpdateHistory()
+        await this.contextManager.triggerApplyStandardContextTruncationNoticeChange(
+          Date.now(),
+          this.taskId
+        )
+      }
+      await this.saveCheckpoint()
+    } catch (error) {
+      await this.handleToolError(toolDescription, 'condensing context window', error as Error)
+      await this.saveCheckpoint()
+    }
+  }
+
+  private async handleReportBugToolUse(block: ToolUse): Promise<void> {
+    const toolDescription = this.getToolDescription(block)
+    const { title, what_happened, steps_to_reproduce, api_request_output, additional_context } =
+      block.params
+
+    try {
+      if (block.partial) {
+        await this.ask(
+          'report_bug',
+          JSON.stringify({
+            title: this.removeClosingTag(block.partial, 'title', title),
+            what_happened: this.removeClosingTag(block.partial, 'what_happened', what_happened),
+            steps_to_reproduce: this.removeClosingTag(
+              block.partial,
+              'steps_to_reproduce',
+              steps_to_reproduce
+            ),
+            api_request_output: this.removeClosingTag(
+              block.partial,
+              'api_request_output',
+              api_request_output
+            ),
+            additional_context: this.removeClosingTag(
+              block.partial,
+              'additional_context',
+              additional_context
+            )
+          }),
+          block.partial
+        ).catch(() => {})
+        return
+      }
+
+      const requiredCheck = async (val: any, name: string): Promise<boolean> => {
+        if (!val) {
+          this.consecutiveMistakeCount++
+          this.pushToolResult(
+            toolDescription,
+            await this.sayAndCreateMissingParamError('report_bug', name)
+          )
+          await this.saveCheckpoint()
+          return false
+        }
+        return true
+      }
+      if (
+        !(await requiredCheck(title, 'title')) ||
+        !(await requiredCheck(what_happened, 'what_happened')) ||
+        !(await requiredCheck(steps_to_reproduce, 'steps_to_reproduce')) ||
+        !(await requiredCheck(api_request_output, 'api_request_output')) ||
+        !(await requiredCheck(additional_context, 'additional_context'))
+      ) {
+        return
+      }
+
+      this.consecutiveMistakeCount = 0
+
+      if (this.autoApprovalSettings.enabled && this.autoApprovalSettings.enableNotifications) {
+        showSystemNotification({
+          subtitle: 'Chaterm wants to create a github issue...',
+          message: `Chaterm is suggesting to create a github issue with the title: ${title}`
+        })
+      }
+
+      const operatingSystem = os.platform() + ' ' + os.release()
+      const providerAndModel = `${(await getGlobalState('apiProvider')) as string} / ${this.api.getModel().id}`
+
+      const bugReportData = JSON.stringify({
+        title,
+        what_happened,
+        steps_to_reproduce,
+        api_request_output,
+        additional_context,
+        provider_and_model: providerAndModel,
+        operating_system: operatingSystem
+      })
+
+      const { text } = await this.ask('report_bug', bugReportData, false)
+      if (text) {
+        await this.say('user_feedback', text ?? '')
+        this.pushToolResult(
+          toolDescription,
+          formatResponse.toolResult(
+            `The user did not submit the bug, and provided feedback on the Github issue generated instead:\n<feedback>\n${text}\n</feedback>`
+          )
+        )
+      } else {
+        this.pushToolResult(
+          toolDescription,
+          formatResponse.toolResult('The user accepted the creation of the Github issue.')
+        )
+        // 可在此创建 issue 的逻辑
+      }
+      await this.saveCheckpoint()
+    } catch (error) {
+      await this.handleToolError(toolDescription, 'reporting bug', error as Error)
+      await this.saveCheckpoint()
+    }
+  }
+
+  private async handleToolUse(block: ToolUse): Promise<void> {
+    const toolDescription = this.getToolDescription(block)
+
+    if (this.didRejectTool) {
+      if (!block.partial) {
+        this.userMessageContent.push({
+          type: 'text',
+          text: `Skipping tool ${toolDescription} due to user rejecting a previous tool.`
+        })
+      } else {
+        this.userMessageContent.push({
+          type: 'text',
+          text: `Tool ${toolDescription} was interrupted and not executed due to user rejecting a previous tool.`
+        })
+      }
+      return
+    }
+
+    if (this.didAlreadyUseTool) {
+      this.userMessageContent.push({
+        type: 'text',
+        text: formatResponse.toolAlreadyUsed(block.name)
+      })
+      return
+    }
+
+    switch (block.name) {
+      case 'execute_command':
+        await this.handleExecuteCommandToolUse(block)
+        break
+      case 'ask_followup_question':
+        await this.handleAskFollowupQuestionToolUse(block)
+        break
+      case 'condense':
+        await this.handleCondenseToolUse(block)
+        break
+      case 'report_bug':
+        await this.handleReportBugToolUse(block)
+        break
+      case 'attempt_completion':
+        await this.handleAttemptCompletionToolUse(block)
+        break
+    }
+  }
+
+  private async handleTextBlock(block: TextContent): Promise<void> {
+    // 若之前已拒绝或已执行工具，则忽略纯文本更新
+    if (this.didRejectTool || this.didAlreadyUseTool) return
+
+    let content = block.content
+    if (content) {
+      // 移除 <thinking> 标签
+      content = content.replace(/<thinking>\s?/g, '')
+      content = content.replace(/\s?<\/thinking>/g, '')
+
+      const lastOpenBracketIndex = content.lastIndexOf('<')
+      if (lastOpenBracketIndex !== -1) {
+        const possibleTag = content.slice(lastOpenBracketIndex)
+        // Check if there's a '>' after the last '<' (i.e., if the tag is complete) (complete thinking and tool tags will have been removed by now)
+        const hasCloseBracket = possibleTag.includes('>')
+        if (!hasCloseBracket) {
+          // Extract the potential tag name
+          let tagContent: string
+          if (possibleTag.startsWith('</')) {
+            tagContent = possibleTag.slice(2).trim()
+          } else {
+            tagContent = possibleTag.slice(1).trim()
+          }
+          // Check if tagContent is likely an incomplete tag name (letters and underscores only)
+          const isLikelyTagName = /^[a-zA-Z_]+$/.test(tagContent)
+          // Preemptively remove < or </ to keep from these artifacts showing up in chat (also handles closing thinking tags)
+          const isOpeningOrClosing = possibleTag === '<' || possibleTag === '</'
+          // If the tag is incomplete and at the end, remove it from the content
+          if (isOpeningOrClosing || isLikelyTagName) {
+            content = content.slice(0, lastOpenBracketIndex).trim()
+          }
+        }
+      }
+    }
+
+    // 对完整块清理可能附带的代码块结尾噪声
+    if (!block.partial) {
+      const match = content?.trimEnd().match(/```[a-zA-Z0-9_-]+$/)
+      if (match) {
+        content = content.trimEnd().slice(0, -match[0].length)
+      }
+    }
+
+    await this.say('text', content, block.partial)
   }
 }
