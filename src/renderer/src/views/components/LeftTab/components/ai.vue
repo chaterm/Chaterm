@@ -133,7 +133,7 @@
             :label-col="{ span: 24 }"
             :wrapper-col="{ span: 24 }"
           >
-            <a-input
+            <a-input-password
               v-model:value="deepSeekApiKey"
               :placeholder="$t('user.deepSeekApiKeyPh')"
             />
