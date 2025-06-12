@@ -19,6 +19,7 @@
             size="small"
             :options="apiProviderOptions"
             show-search
+            @change="getApiProviderDefaultModelId"
           />
         </a-form-item>
       </div>
@@ -125,6 +126,23 @@
           </a-form-item>
         </div>
       </div>
+      <div v-else-if="apiProvider === 'deepseek'">
+        <div class="setting-item">
+          <a-form-item
+            :label="$t('user.deepSeekApiKey')"
+            :label-col="{ span: 24 }"
+            :wrapper-col="{ span: 24 }"
+          >
+            <a-input
+              v-model:value="deepSeekApiKey"
+              :placeholder="$t('user.deepSeekApiKeyPh')"
+            />
+            <p class="setting-description-no-padding">
+              {{ $t('user.deepSeekApiKeyDescribe') }}
+            </p>
+          </a-form-item>
+        </div>
+      </div>
     </a-card>
     <div class="section-header">
       <h3>{{ $t('user.general') }}</h3>
@@ -152,6 +170,13 @@
             v-model:value="liteLlmModelId"
             size="small"
             :options="litellmAiModelOptions"
+            show-search
+          />
+          <a-select
+            v-else-if="apiProvider === 'deepseek'"
+            v-model:value="apiModelId"
+            size="small"
+            :options="deepseekAiModelOptions"
             show-search
           />
         </a-form-item>
@@ -299,12 +324,13 @@ import {
 } from '@renderer/agent/storage/state'
 import { AutoApprovalSettings, DEFAULT_AUTO_APPROVAL_SETTINGS } from '@/agent/storage/shared'
 import { ChatSettings, DEFAULT_CHAT_SETTINGS } from '@/agent/storage/shared'
-import { aiModelOptions, litellmAiModelOptions } from './aiOptions'
+import { aiModelOptions, deepseekAiModelOptions, litellmAiModelOptions } from './aiOptions'
 import eventBus from '@/utils/eventBus'
 
 const apiProviderOptions = ref([
   { value: 'litellm', label: 'OpenAI Compatible' },
-  { value: 'bedrock', label: 'Amazon Bedrock' }
+  { value: 'bedrock', label: 'Amazon Bedrock' },
+  { value: 'deepseek', label: 'DeepSeek' }
 ])
 
 const awsRegionOptions = ref([
@@ -329,7 +355,7 @@ const awsRegionOptions = ref([
   { value: 'us-gov-west-1', label: 'us-gov-west-1' }
 ])
 
-const apiModelId = ref('anthropic.claude-3-7-sonnet-20250219-v1:0')
+let apiModelId = ref('')
 const thinkingBudgetTokens = ref(2048)
 const enableExtendedThinking = ref(true)
 // const enableCheckpoints = ref(false)
@@ -345,7 +371,8 @@ const awsEndpointSelected = ref(false)
 const awsBedrockEndpoint = ref('')
 const liteLlmBaseUrl = ref('')
 const liteLlmApiKey = ref('')
-const liteLlmModelId = ref('claude-3-7-sonnet')
+let liteLlmModelId = ref('')
+const deepSeekApiKey = ref('')
 const autoApprovalSettings = ref<AutoApprovalSettings>(DEFAULT_AUTO_APPROVAL_SETTINGS)
 const chatSettings = ref<ChatSettings>(DEFAULT_CHAT_SETTINGS)
 const customInstructions = ref('')
@@ -453,7 +480,7 @@ const loadSavedConfig = async () => {
       ((await getGlobalState('liteLlmModelId')) as string) || 'claude-3-7-sonnet'
     liteLlmBaseUrl.value = ((await getGlobalState('liteLlmBaseUrl')) as string) || ''
     liteLlmApiKey.value = (await getSecret('liteLlmApiKey')) || ''
-
+    deepSeekApiKey.value = (await getSecret('deepSeekApiKey')) || ''
     // 加载其他配置
     thinkingBudgetTokens.value = ((await getGlobalState('thinkingBudgetTokens')) as number) || 2048
     customInstructions.value = ((await getGlobalState('customInstructions')) as string) || ''
@@ -483,6 +510,9 @@ const loadSavedConfig = async () => {
     shellIntegrationTimeout.value =
       ((await getGlobalState('shellIntegrationTimeout')) as number) || 4
     awsEndpointSelected.value = ((await getGlobalState('awsEndpointSelected')) as boolean) || false
+    if (!checkApiProviderAndModelId()) {
+      getApiProviderDefaultModelId()
+    }
   } catch (error) {
     console.error('Failed to load config:', error)
     notification.error({
@@ -510,6 +540,8 @@ const saveConfig = async () => {
     await storeSecret('awsSecretKey', awsSecretKey.value)
     await storeSecret('awsSessionToken', awsSessionToken.value)
     await storeSecret('liteLlmApiKey', liteLlmApiKey.value)
+    await storeSecret('deepSeekApiKey', deepSeekApiKey.value)
+
     // 保存其他配置
     await updateGlobalState('thinkingBudgetTokens', thinkingBudgetTokens.value)
     await updateGlobalState('customInstructions', customInstructions.value)
@@ -602,6 +634,7 @@ onMounted(async () => {
   await loadSavedConfig()
   // 添加事件监听
   eventBus.on('AiTabModelChanged', async (newValue) => {
+    console.log(newValue)
     await changeModel(newValue)
   })
 })
@@ -614,6 +647,9 @@ const changeModel = (newValue) => {
       break
     case 'litellm':
       liteLlmModelId.value = newValue?.[1]
+      break
+    case 'deepseek':
+      apiModelId.value = newValue?.[1]
       break
   }
 }
@@ -671,6 +707,39 @@ watch([apiProvider, apiModelId, liteLlmModelId], async (newValue) => {
     console.error('Failed to update AiTab', error)
   }
 })
+
+const getApiProviderDefaultModelId = () => {
+  switch (apiProvider.value) {
+    case 'bedrock':
+      apiModelId.value = 'anthropic.claude-3-7-sonnet-20250219-v1:0'
+      break
+    case 'litellm':
+      liteLlmModelId.value = 'claude-3-7-sonnet'
+      break
+    case 'deepseek':
+      apiModelId.value = 'deepseek-chat'
+      break
+  }
+}
+
+const checkApiProviderAndModelId = () => {
+  let checkModelList = []
+  switch (apiProvider.value) {
+    case 'bedrock':
+      checkModelList = aiModelOptions
+      break
+    case 'litellm':
+      checkModelList = litellmAiModelOptions
+      break
+    case 'deepseek':
+      checkModelList = deepseekAiModelOptions
+      break
+  }
+  const modelIndex = checkModelList.findIndex((model) => model.value === apiModelId.value)
+  const indexExists: boolean = modelIndex !== -1
+  return indexExists;
+
+}
 </script>
 
 <style lang="less" scoped>

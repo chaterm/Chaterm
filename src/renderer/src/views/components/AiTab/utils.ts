@@ -7,7 +7,8 @@ export const createNewMessage = (
   type = 'message',
   ask = '',
   say = '',
-  ts = 0
+  ts = 0,
+  partial = false
 ): ChatMessage => ({
   id: uuidv4(),
   role,
@@ -15,7 +16,8 @@ export const createNewMessage = (
   type,
   ask,
   say,
-  ts
+  ts,
+  partial
 })
 
 export const parseMessageContent = (text: string): string | MessageContent => {
