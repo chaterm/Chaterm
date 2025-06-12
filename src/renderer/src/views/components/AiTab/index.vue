@@ -261,6 +261,7 @@
               size="small"
               style="width: 150px"
               :options="AgentAiModelsOptions"
+              @change="handleChatAiModelChange"
               show-search
             ></a-select>
             <a-button
@@ -349,7 +350,8 @@ import {
   onUnmounted,
   watch,
   computed,
-  nextTick
+  nextTick,
+  onBeforeUnmount
 } from 'vue'
 import {
   CloseOutlined,
@@ -385,14 +387,20 @@ import plusIcon from '@/assets/icons/plus.svg'
 import sendIcon from '@/assets/icons/send.svg'
 import { useCurrentCwdStore } from '@/store/currentCwdStore'
 import { getassetMenu } from '@/api/asset/asset'
+import {
+  aiModelOptions,
+  litellmAiModelOptions
+} from '@views/components/LeftTab/components/aiOptions'
 
 const MarkdownRenderer = defineAsyncComponent(
   () => import('@views/components/AiTab/MarkdownRenderer.vue')
 )
 
 import { ChatermMessage } from 'src/main/agent/shared/ExtensionMessage'
+
 const hostSearchInputRef = ref()
 import debounce from 'lodash/debounce'
+
 const showHostSelect = ref(false)
 const hostOptions = ref<{ label: string; value: string; uuid: string }[]>([])
 const hostSearchValue = ref('')
@@ -429,8 +437,8 @@ const props = defineProps({
   }
 })
 
-const AiModelsOptions = ref<ModelOption[]>([])
-const AgentAiModelsOptions = [
+let AiModelsOptions = ref<ModelOption[]>([])
+let AgentAiModelsOptions = [
   { label: 'claude-4-sonnet', value: 'claude-4-sonnet' },
   { label: 'claude-4-haiku', value: 'claude-4-haiku' },
   { label: 'claude-3-7-sonnet', value: 'claude-3-7-sonnet' },
@@ -964,22 +972,92 @@ watch(currentCwd, (newValue) => {
   console.log('当前工作目录:', newValue)
 })
 
-watch(chatTypeValue, async (newValue) => {
-  try {
-    await updateGlobalState('chatSettings', {
-      mode: newValue
-    })
-  } catch (error) {
-    console.error('更新 chatSettings 失败:', error)
+// 创建防抖的事件发送函数
+const debouncedEmitModelChange = debounce(async (type, model) => {
+  eventBus.emit('AiTabModelChanged', [type, model])
+}, 200)
+
+const debouncedUpdateGlobalState = debounce(async (provider, model) => {
+  switch (provider) {
+    case 'bedrock':
+      await updateGlobalState('apiModelId', model)
+      break
+    case 'litellm':
+      await updateGlobalState('liteLlmModelId', model)
+      break
   }
+}, 200)
+
+// 修改 watch 处理函数
+watch(
+  () => chatTypeValue.value,
+  async (newValue) => {
+    try {
+      await updateGlobalState('chatSettings', {
+        mode: newValue
+      })
+      debouncedEmitModelChange(chatTypeValue.value, chatAiModelValue.value)
+    } catch (error) {
+      console.error('更新 chatSettings 失败:', error)
+    }
+  }
+)
+
+const handleChatAiModelChange = async () => {
+  const apiProvider = await getGlobalState('apiProvider')
+  debouncedUpdateGlobalState(apiProvider, chatAiModelValue.value)
+  debouncedEmitModelChange(chatTypeValue.value, chatAiModelValue.value)
+}
+
+// 修改模型更新函数
+const changeModel = debounce(async (newValue) => {
+  const chatSetting = await getGlobalState('chatSettings')
+  chatTypeValue.value = chatSetting?.mode || 'agent'
+  let apiProvider = ''
+  if (newValue?.[0]) {
+    apiProvider = newValue?.[0]
+    switch (apiProvider) {
+      case 'bedrock':
+        chatAiModelValue.value = newValue?.[1]
+        AgentAiModelsOptions = aiModelOptions
+        break
+      case 'litellm':
+        chatAiModelValue.value = newValue?.[2]
+        AgentAiModelsOptions = litellmAiModelOptions
+        break
+    }
+  } else {
+    apiProvider = await getGlobalState('apiProvider')
+    switch (apiProvider) {
+      case 'bedrock':
+        chatAiModelValue.value = await getGlobalState('apiModelId')
+        AgentAiModelsOptions = aiModelOptions
+        break
+      case 'litellm':
+        chatAiModelValue.value = await getGlobalState('liteLlmModelId')
+        AgentAiModelsOptions = litellmAiModelOptions
+        break
+    }
+  }
+}, 200)
+
+// 在组件卸载时取消所有未执行的防抖函数
+onBeforeUnmount(() => {
+  debouncedEmitModelChange.cancel()
+  debouncedUpdateGlobalState.cancel()
+  changeModel.cancel()
 })
 
-// 修改 onMounted 中的初始化代码
+// 在 onMounted 中添加事件监听
 onMounted(async () => {
-  const { chatSettings } = await getAllExtensionState()
-  chatTypeValue.value = chatSettings.mode
+  await changeModel(null)
   authTokenInCookie.value = localStorage.getItem('ctm-token')
   const chatId = uuidv4()
+
+  // 添加事件监听
+  eventBus.on('SettingModelChanged', async (newValue) => {
+    await changeModel(newValue)
+  })
 
   historyList.value = [
     {
@@ -1100,6 +1178,8 @@ onUnmounted(() => {
     removeListener()
     removeListener = null
   }
+  // 移除 apiProvider 变更事件监听
+  eventBus.off('apiProviderChanged')
 })
 
 // 添加发送消息到主进程的方法
