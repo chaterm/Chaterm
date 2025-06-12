@@ -36,7 +36,7 @@
           {{ item.host }}
         </a-tag>
         <span
-          v-if="currentChatHosts && currentChatHosts.length === 0"
+          v-if="!currentChatHosts || currentChatHosts.length === 0"
           class="hosts-display-container-host-tag"
           @click="handleAddHostClick"
         >
@@ -398,6 +398,21 @@ const MarkdownRenderer = defineAsyncComponent(
 
 import { ChatermMessage } from 'src/main/agent/shared/ExtensionMessage'
 
+// 定义事件类型
+interface TabInfo {
+  id: string
+  ip: string
+  organizationId?: string
+  title?: string
+}
+
+// 扩展 AppEvents 类型
+declare module '@/utils/eventBus' {
+  interface AppEvents {
+    tabChanged: TabInfo
+  }
+}
+
 const hostSearchInputRef = ref()
 import debounce from 'lodash/debounce'
 
@@ -497,6 +512,44 @@ const getCurentTabAssetInfo = async (): Promise<AssetInfo | null> => {
   } catch (error) {
     console.error('获取资产信息时发生错误:', error)
     return null
+  }
+}
+
+// 创建主机信息对象
+const createHostInfo = (ip: string, id: string, organizationId: string) => {
+  return {
+    host: ip,
+    uuid: id,
+    connection: organizationId !== 'personal' ? 'organization' : 'personal',
+    organizationId: organizationId !== 'personal' ? organizationId : 'personal_01'
+  }
+}
+
+// 更新主机列表
+const updateHosts = (hostInfo: { ip: string; id: string; organizationId: string } | null) => {
+  if (hostInfo) {
+    const newHost = createHostInfo(hostInfo.ip, hostInfo.id, hostInfo.organizationId)
+    hosts.value = [newHost]
+    console.log('更新后的hosts数组:', hosts.value)
+  } else {
+    hosts.value = []
+    console.log('清空hosts数组')
+  }
+}
+
+// 初始化资产信息
+const initAssetInfo = async () => {
+  console.log('开始初始化资产信息')
+  const assetInfo = await getCurentTabAssetInfo()
+  console.log('获取到的资产信息:', assetInfo)
+  if (assetInfo) {
+    updateHosts({
+      ip: assetInfo.ip,
+      id: assetInfo.uuid,
+      organizationId: assetInfo.organizationId
+    })
+  } else {
+    updateHosts(null)
   }
 }
 
@@ -1011,7 +1064,7 @@ const handleChatAiModelChange = async () => {
 
 // 修改模型更新函数
 const changeModel = debounce(async (newValue) => {
-  const chatSetting = await getGlobalState('chatSettings')
+  const chatSetting = (await getGlobalState('chatSettings')) as { mode?: string }
   chatTypeValue.value = chatSetting?.mode || 'agent'
   let apiProvider = ''
   if (newValue?.[0]) {
@@ -1027,14 +1080,14 @@ const changeModel = debounce(async (newValue) => {
         break
     }
   } else {
-    apiProvider = await getGlobalState('apiProvider')
+    apiProvider = (await getGlobalState('apiProvider')) as string
     switch (apiProvider) {
       case 'bedrock':
-        chatAiModelValue.value = await getGlobalState('apiModelId')
+        chatAiModelValue.value = (await getGlobalState('apiModelId')) as string
         AgentAiModelsOptions = aiModelOptions
         break
       case 'litellm':
-        chatAiModelValue.value = await getGlobalState('liteLlmModelId')
+        chatAiModelValue.value = (await getGlobalState('liteLlmModelId')) as string
         AgentAiModelsOptions = litellmAiModelOptions
         break
     }
@@ -1054,9 +1107,26 @@ onMounted(async () => {
   authTokenInCookie.value = localStorage.getItem('ctm-token')
   const chatId = uuidv4()
 
+  // 初始化资产信息
+  await initAssetInfo()
+
   // 添加事件监听
   eventBus.on('SettingModelChanged', async (newValue) => {
     await changeModel(newValue)
+  })
+
+  // 监听标签页变化
+  eventBus.on('activeTabChanged', async (tabInfo) => {
+    console.log('标签页变化:', tabInfo)
+    if (tabInfo && tabInfo.ip) {
+      updateHosts({
+        ip: tabInfo.ip,
+        id: tabInfo.id,
+        organizationId: tabInfo.organizationId || 'personal'
+      })
+    } else {
+      updateHosts(null)
+    }
   })
 
   historyList.value = [
@@ -1170,8 +1240,9 @@ onUnmounted(() => {
     removeListener()
     removeListener = null
   }
-  // 移除 apiProvider 变更事件监听
+  // 移除事件监听
   eventBus.off('apiProviderChanged')
+  eventBus.off('activeTabChanged')
 })
 
 // 添加发送消息到主进程的方法
