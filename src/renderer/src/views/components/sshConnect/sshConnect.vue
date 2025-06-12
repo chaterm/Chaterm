@@ -83,7 +83,7 @@ declare global {
 }
 import SuggComp from '../Term/suggestion.vue'
 import eventBus from '@/utils/eventBus'
-// import { useCurrentCwdStore } from '@/store/currentCwdStore'
+import { useCurrentCwdStore } from '@/store/currentCwdStore'
 import { markRaw, onBeforeUnmount, onMounted, PropType, reactive, ref } from 'vue'
 import { Terminal } from 'xterm'
 import { FitAddon } from 'xterm-addon-fit'
@@ -147,7 +147,7 @@ let xxxWrite: ((data: string, options?: { isUserCall?: boolean }) => void) | nul
 //   aliasStatus: 2,
 //   quickVimStatus: 2
 // })
-// const currentCwdStore = useCurrentCwdStore()
+
 // const loadUserConfig = async () => {
 //   try {
 //     const config = await userConfigStore.getConfig()
@@ -176,6 +176,8 @@ const EDITOR_SEQUENCES = {
   ]
 }
 const testFlag = ref(false)
+const currentCwd = ref('')
+const currentCwdStore = useCurrentCwdStore()
 
 onMounted(async () => {
   const config = await serviceUserConfig.getConfig()
@@ -594,6 +596,10 @@ const startShell = async () => {
         isConnected.value = false
       })
       cleanupListeners.value = [removeDataListener, removeErrorListener, removeCloseListener]
+      // 获取初始cwd
+      setTimeout(() => {
+        sendMarkedData('pwd\r', 'Chaterm:pwd')
+      }, 500)
     } else {
       terminal.value?.writeln(
         JSON.stringify({
@@ -932,6 +938,11 @@ const setupTerminalInput = () => {
       } else {
         sendData(data)
       }
+      if (/\bcd\b/.test(command)) {
+        setTimeout(() => {
+          sendMarkedData('pwd\r', 'Chaterm:pwd')
+        }, 100)
+      }
     } else if (JSON.stringify(data) === '"\\u001b[A"') {
       sendMarkedData(data, 'Chaterm:[A')
     } else if (JSON.stringify(data) === '"\\u001b[B"') {
@@ -1073,6 +1084,10 @@ const handleServerOutput = (response: MarkedResponse) => {
     } else {
       xxxWrite?.(data)
     }
+  } else if (response.marker === 'Chaterm:pwd') {
+    currentCwd.value = data.trim()
+    currentCwdStore.setCurrentCwd(currentCwd.value)
+    console.log('current working directory:', currentCwd.value)
   } else {
     xxxWrite?.(data)
   }
