@@ -195,14 +195,18 @@ export class Task {
     })
   }
 
-  private async connectTerminal() {
+  private async connectTerminal(ip?: string) {
     if (!this.hosts) {
       console.log('Terminal UUID is not set')
       return
     }
     let terminalInfo: RemoteTerminalInfo | null = null
     if (this.hosts[0].connection === 'personal') {
-      let terminalUuid = this.hosts[0].uuid
+      let terminalUuid = ip ? this.hosts.find((host) => host.host === ip)?.uuid : this.hosts[0].uuid
+      if (!terminalUuid) {
+        console.log('Terminal UUID is not set')
+        return
+      }
       const connectionInfo = await connectAssetInfo(terminalUuid)
       connectionInfo.type = 'ssh'
       this.remoteTerminalManager.setConnectionInfo(connectionInfo)
@@ -803,8 +807,8 @@ export class Task {
     }
   }
 
-  async executeCommandTool(command: string): Promise<[boolean, ToolResponse]> {
-    const terminalInfo = await this.connectTerminal()
+  async executeCommandTool(command: string, ip: string): Promise<[boolean, ToolResponse]> {
+    const terminalInfo = await this.connectTerminal(ip)
     if (!terminalInfo) {
       return [false, 'Failed to connect to terminal']
     }
@@ -1638,6 +1642,7 @@ export class Task {
 
   private async handleExecuteCommandToolUse(block: ToolUse) {
     let command: string | undefined = block.params.command
+    let ip: string | undefined = block.params.ip
     const toolDescription = this.getToolDescription(block)
     const requiresApprovalRaw: string | undefined = block.params.requires_approval
     const requiresApprovalPerLLM = requiresApprovalRaw?.toLowerCase() === 'true'
@@ -1653,7 +1658,7 @@ export class Task {
         }
         return
       } else {
-        if (!command) {
+        if (!command || !ip) {
           this.consecutiveMistakeCount++
           this.pushToolResult(
             toolDescription,
@@ -1715,7 +1720,7 @@ export class Task {
           }, 30_000)
         }
 
-        const [userRejected, result] = await this.executeCommandTool(command!)
+        const [userRejected, result] = await this.executeCommandTool(command!, ip!)
         if (timeoutId) {
           clearTimeout(timeoutId)
         }
@@ -1924,6 +1929,7 @@ export class Task {
     const toolDescription = this.getToolDescription(block)
     const result: string | undefined = block.params.result
     const command: string | undefined = block.params.command
+    const ip: string | undefined = block.params.ip
 
     const addNewChangesFlagToLastCompletionResultMessage = async () => {
       const hasNewChanges = await this.doesLatestTaskCompletionHaveNewChanges()
@@ -2005,7 +2011,7 @@ export class Task {
           await this.saveCheckpoint()
           return
         }
-        const [userRejected, execCommandResult] = await this.executeCommandTool(command!)
+        const [userRejected, execCommandResult] = await this.executeCommandTool(command!, ip!)
         if (userRejected) {
           this.didRejectTool = true
           this.pushToolResult(toolDescription, execCommandResult)

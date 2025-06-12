@@ -60,7 +60,7 @@
   </div>
 </template>
 <script setup lang="ts">
-import { computed, ref, defineExpose, ComponentPublicInstance, PropType } from 'vue'
+import { computed, ref, defineExpose, ComponentPublicInstance, PropType, watch } from 'vue'
 import draggable from 'vuedraggable'
 import Term from '@views/components/Term/index.vue'
 import Dashboard from '@views/components/Term/dashboard.vue'
@@ -71,6 +71,7 @@ import aliasConfig from '@views/components/Extensions/aliasConfig.vue'
 import keyChainConfig from '@views/components/LeftTab/keyChainConfig.vue'
 import SshConnect from '@views/components/sshConnect/sshConnect.vue'
 import Files from '@views/components/Files/index.vue'
+import eventBus from '@/utils/eventBus'
 
 // Define an interface for the tab items
 interface TabItem {
@@ -101,6 +102,21 @@ const localTabs = computed({
     emit('update-tabs', value)
   }
 })
+
+// 监听标签页变化
+watch(
+  () => props.activeTab,
+  (newTabId) => {
+    if (newTabId) {
+      const activeTab = props.tabs.find((tab) => tab.id === newTabId)
+      if (activeTab) {
+        // 使用 eventBus 发送事件
+        eventBus.emit('activeTabChanged', activeTab)
+      }
+    }
+  }
+)
+
 const createNewTerm = (infos) => {
   emit('create-tab', infos)
 }
@@ -198,7 +214,7 @@ defineExpose({
 .tabs-bar {
   display: flex;
   background-color: #141414;
-  border-bottom: 1px solid #414141;
+  border-bottom: 1px solid #202020;
   overflow-x: auto;
   user-select: none;
   height: 26px;
@@ -208,13 +224,13 @@ defineExpose({
   display: flex;
   align-items: center;
   padding: 0 4px;
-  border-right: 1px solid #414141;
+  border-right: 1px solid #202020;
   background-color: #141414;
   width: 120px;
 }
 
 .tab-item.active {
-  background-color: #414141;
+  background-color: #202020;
   border-top: 2px solid #007acc;
 }
 
