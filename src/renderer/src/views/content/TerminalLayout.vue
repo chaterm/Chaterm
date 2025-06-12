@@ -426,7 +426,7 @@ defineExpose({
   /* 滚动条轨道样式 */
 
   ::-webkit-scrollbar-track {
-    background-color: #414141;
+    background-color: #202020;
     /* 轨道颜色 */
     border-radius: 5px;
     /* 轨道圆角 */
@@ -435,7 +435,7 @@ defineExpose({
   /* 滚动条滑块样式 */
 
   ::-webkit-scrollbar-thumb {
-    background-color: #414141;
+    background-color: #202020;
     /* 滑块颜色 */
     border-radius: 5px;
     /* 滑块圆角 */
@@ -444,7 +444,7 @@ defineExpose({
   /* 滑块hover样式 */
 
   ::-webkit-scrollbar-thumb:hover {
-    background-color: #414141;
+    background-color: #202020;
     /* hover时滑块颜色 */
   }
 
@@ -494,21 +494,21 @@ defineExpose({
 }
 
 .ant-input-group-wrapper {
-  background-color: #414141 !important;
+  background-color: #202020 !important;
 
   .ant-input {
-    background-color: #414141 !important;
+    background-color: #202020 !important;
     border: none;
     color: #fff !important;
   }
 
   .ant-input-group-addon {
-    background-color: #414141 !important;
+    background-color: #202020 !important;
     border: none;
     color: #fff !important;
 
     button {
-      background-color: #414141 !important;
+      background-color: #202020 !important;
       border: none;
       color: #fff !important;
     }
@@ -517,7 +517,7 @@ defineExpose({
 </style>
 <style lang="less">
 .splitpanes__splitter {
-  background-color: #414141;
+  background-color: #202020;
   position: relative;
 }
 
