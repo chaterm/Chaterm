@@ -638,6 +638,17 @@ const handlePlusClick = async () => {
   chatTypeValue.value = 'agent'
   hosts.value = []
 
+  // 获取当前活动标签页的资产信息
+  const assetInfo = await getCurentTabAssetInfo()
+  if (assetInfo && assetInfo.ip) {
+    hosts.value.push({
+      host: assetInfo.ip,
+      uuid: assetInfo.uuid,
+      connection: assetInfo.organizationId === 'personal' ? 'personal' : 'organization',
+      organizationId: assetInfo.organizationId || 'personal'
+    })
+  }
+
   const chatTitle = currentInput ? truncateText(currentInput) : 'New chat'
 
   historyList.value.unshift({
@@ -671,7 +682,6 @@ const restoreHistoryTab = async (history: HistoryItem) => {
     webSocket.value = null
   }
 
-  hosts.value = []
   containerKey.value++
 
   currentChatId.value = history.id
@@ -687,22 +697,12 @@ const restoreHistoryTab = async (history: HistoryItem) => {
           metadataResult.data &&
           Array.isArray(metadataResult.data.hosts)
         ) {
-          for (const item of metadataResult.data.hosts) {
-            if (item && typeof item === 'object' && 'host' in item) {
-              let ip = item.host
-              let uuid = item.uuid || ''
-              let connection = item.connection
-              let organizationId = item.organizationId
-              if (ip && !hosts.value.some((h) => h.host === ip)) {
-                hosts.value.push({
-                  host: ip,
-                  uuid: uuid,
-                  connection: connection,
-                  organizationId: organizationId
-                })
-              }
-            }
-          }
+          hosts.value = metadataResult.data.hosts.map((item: any) => ({
+            host: item.host,
+            uuid: item.uuid || '',
+            connection: item.connection,
+            organizationId: item.organizationId
+          }))
         }
       } catch (e) {
         console.error('获取metadata失败:', e)
