@@ -29,32 +29,40 @@ dotenv.config({ path: envPath })
 // 如果有特定环境的 .env 文件，也可以加载
 const nodeEnv = process.env.NODE_ENV || 'development'
 const envSpecificPath = path.resolve(__dirname, `../../build/.env.${nodeEnv}`)
+const envContent: Record<string, string> = {}
+
 if (fs.existsSync(envSpecificPath)) {
   dotenv.config({ path: envSpecificPath })
+
+  try {
+    const fileContent = fs.readFileSync(envSpecificPath, 'utf8')
+    // 手动解析环境变量
+    fileContent.split('\n').forEach((line) => {
+      // 忽略注释和空行
+      if (!line || line.startsWith('#')) return
+
+      const match = line.match(/^\s*([\w.-]+)\s*=\s*(.*)?\s*$/)
+      if (match) {
+        const key = match[1]
+        let value = match[2] || ''
+
+        // 去除引号
+        value = value.replace(/^['"]|['"]$/g, '')
+
+        // 将解析的环境变量存储到对象中
+        envContent[key] = value
+
+        // 设置到 process.env 中
+        process.env[key] = value
+      }
+    })
+  } catch (error) {
+    console.warn('Failed to read environment file:', error)
+  }
+} else {
+  console.log(`Environment file not found: ${envSpecificPath}, using default values`)
 }
 
-const fileContent = fs.readFileSync(envSpecificPath, 'utf8')
-const envContent: Record<string, string> = {}
-// 手动解析环境变量
-fileContent.split('\n').forEach((line) => {
-  // 忽略注释和空行
-  if (!line || line.startsWith('#')) return
-
-  const match = line.match(/^\s*([\w.-]+)\s*=\s*(.*)?\s*$/)
-  if (match) {
-    const key = match[1]
-    let value = match[2] || ''
-
-    // 去除引号
-    value = value.replace(/^['"]|['"]$/g, '')
-
-    // 将解析的环境变量存储到对象中
-    envContent[key] = value
-
-    // 设置到 process.env 中
-    process.env[key] = value
-  }
-})
 // Custom APIs for renderer
 import os from 'os'
 import { ExecResult } from '../main/ssh/sshHandle'

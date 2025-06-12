@@ -10,24 +10,19 @@ export interface TextContent {
 
 export const toolUseNames = [
   'execute_command',
-  'read_file',
   'write_to_file',
-  'replace_in_file',
-  'search_files',
-  'list_files',
   'ask_followup_question',
-  'plan_mode_respond',
   'attempt_completion',
   'new_task',
   'condense',
-  'report_bug',
-  'new_rule'
+  'report_bug'
 ] as const
 
 // Converts array of tool call names into a union type ("execute_command" | "read_file" | ...)
 export type ToolUseName = (typeof toolUseNames)[number]
 
 export const toolParamNames = [
+  'ip',
   'command',
   'requires_approval',
   'path',

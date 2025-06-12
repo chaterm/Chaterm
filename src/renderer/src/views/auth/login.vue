@@ -119,6 +119,7 @@
 </template>
 
 <script setup lang="ts">
+import { removeToken } from '@/utils/permission'
 import { UserOutlined, InfoCircleOutlined, LockOutlined } from '@ant-design/icons-vue'
 import { useRouter } from 'vue-router'
 import { ref, reactive, getCurrentInstance, onMounted } from 'vue'
@@ -149,6 +150,7 @@ const formState = reactive<FormState>({
   remember: true
 })
 const onFinish = () => {
+  removeToken()
   userLogin({
     username: formState.username,
     password: formState.password
@@ -156,7 +158,7 @@ const onFinish = () => {
     .then((res) => {
       if (res.code == 200) {
         setUserInfo(res.data)
-        localStorage.removeItem('ctm-token')
+        // localStorage.removeItem('ctm-token')
         localStorage.setItem('ctm-token', res.data.token)
         router.push('/')
       }

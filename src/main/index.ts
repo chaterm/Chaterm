@@ -50,13 +50,24 @@ async function createWindow(): Promise<void> {
       preload: join(__dirname, '../preload/index.js'),
       sandbox: false,
       contextIsolation: true,
-      nodeIntegration: false
+      nodeIntegration: false,
+      defaultFontFamily: {
+        standard:
+          '-apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", "Helvetica Neue", Helvetica, Arial, sans-serif',
+        serif: 'serif',
+        sansSerif: 'sans-serif',
+        monospace: 'monospace'
+      }
     }
   })
 
   // 窗口拖拽功能
   mainWindow.on('ready-to-show', () => {
     mainWindow.show()
+    // if (!is.dev) {
+    //   console.log('🔧 [Debug] Opening DevTools in packaged app for debugging')
+    //   mainWindow.webContents.openDevTools()
+    // }
   })
 
   mainWindow.webContents.setWindowOpenHandler((details) => {
