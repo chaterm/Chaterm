@@ -11,6 +11,7 @@ export type AppEvents = {
   getActiveTabAssetInfo: void // 请求获取当前活跃tab的资产信息
   assetInfoResult: any // 返回资产信息结果
   currentCwdChanged: string // 当前工作目录变化事件
+  LocalAssetMenu: any // 更新资产目录
   // 可扩展更多事件
 }
 
