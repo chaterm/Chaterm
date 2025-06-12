@@ -21,7 +21,7 @@ Chaterm是一款类似Cursor的终端上工具，无需再学习复杂的正则�
 
 ## Demo 展示
 
-<video src="https://chaterm.ai/images/demo.mp4" width="100%" controls></video>
+![Preview image](resources/demo.jpg)
 
 ## 使用案例
 
