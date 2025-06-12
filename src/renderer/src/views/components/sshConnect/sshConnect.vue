@@ -299,7 +299,6 @@ onMounted(async () => {
   window.addEventListener('resize', handleResize)
   connectSSH()
   eventBus.on('writeTerminalCommand', (command) => {
-    console.log(11111)
     autoWriteCode(command)
   })
   eventBus.on('executeTerminalCommand', (command) => {
