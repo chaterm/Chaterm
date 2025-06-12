@@ -229,7 +229,6 @@ export const registerSSHHandlers = () => {
   })
 
   ipcMain.handle('ssh:sftp:conn:check', async (_event, { id }) => {
-    console.log(1111)
     if (connectionStatus.has(id)) {
       const status = connectionStatus.get(id)
       return status?.sftpAvailable === true
