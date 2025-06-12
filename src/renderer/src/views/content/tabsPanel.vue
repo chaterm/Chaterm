@@ -195,7 +195,7 @@ defineExpose({
 .tabs-bar {
   display: flex;
   background-color: #141414;
-  border-bottom: 1px solid #414141;
+  border-bottom: 1px solid #202020;
   overflow-x: auto;
   user-select: none;
   height: 26px;
@@ -205,13 +205,13 @@ defineExpose({
   display: flex;
   align-items: center;
   padding: 0 4px;
-  border-right: 1px solid #414141;
+  border-right: 1px solid #202020;
   background-color: #141414;
   width: 120px;
 }
 
 .tab-item.active {
-  background-color: #414141;
+  background-color: #202020;
   border-top: 2px solid #007acc;
 }
 
