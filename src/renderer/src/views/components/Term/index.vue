@@ -56,8 +56,8 @@ import { termFileContent, termFileContentSave } from '@/api/term/term'
 import { notification } from 'ant-design-vue'
 import EditorCode from './Editor/dragEditor.vue'
 import { Modal } from 'ant-design-vue'
-
 import { getListCmd } from '@/api/asset/asset'
+import { aliasConfigStore } from '@/store/aliasConfigStore'
 const emit = defineEmits(['closeTabInTerm', 'createNewTerm'])
 import eventBus from '@/utils/eventBus'
 
@@ -107,6 +107,8 @@ const commands = ref([])
 const cursorY = ref(0)
 const cursorX = ref(0)
 const stashCursorX = ref(0)
+let stashConfig = null
+let allDatas = ref({})
 
 const authData = {
   email: email,
@@ -151,6 +153,7 @@ const getALlCmdList = () => {
 // 初始化xterm终端
 const initTerminal = async () => {
   const config = await serviceUserConfig.getConfig()
+  stashConfig = config
   term = new Terminal({
     cursorBlink: true,
     scrollback: config.scrollBack,
@@ -177,7 +180,6 @@ const initTerminal = async () => {
   }
   // 处理用户输入
   term.onData((data) => {
-    console.log(data, 'data')
     if (socket.value && socket.value.readyState === WebSocket.OPEN) {
       //   socket.value.send(data)
       if (data === '\t') {
@@ -189,6 +191,19 @@ const initTerminal = async () => {
         const msgType = 'TERMINAL_DATA'
         const data = 'clear\r'
         socket.value.send(JSON.stringify({ terminalId, msgType, data }))
+      } else if (data == '\r') {
+        const msgType = 'TERMINAL_DATA'
+        const delData = String.fromCharCode(127)
+        const aliasStore = aliasConfigStore()
+        configStore.getUserConfig.quickVimStatus = 1
+        let command = allDatas.value.highLightData.allContent
+        const newCommand = aliasStore.getCommand(command) //
+        if (stashConfig.aliasStatus === 1 && newCommand !== null) {
+          data = delData.repeat(command.length) + newCommand + '\r'
+          socket.value.send(JSON.stringify({ terminalId, msgType, data }))
+        } else {
+          socket.value.send(JSON.stringify({ terminalId, msgType, data }))
+        }
       } else if (data == '\x0c' || data == '\x04') {
         specialCode.value = true
         const msgType = 'TERMINAL_DATA'
@@ -230,7 +245,6 @@ const initTerminal = async () => {
       copyText.value = term.getSelection()
     }
   })
-
   //onKey监听不到输入法，补充监听
   const textarea = term.element.querySelector('.xterm-helper-textarea')
   textarea.addEventListener('compositionend', (e) => {
@@ -262,7 +276,6 @@ const connectWebsocket = () => {
         '\x1b[38;2;22;119;255m' + email.split('@')[0] + ', Welcome to use Chaterm \x1b[m\r\n'
     }
     term.writeln(welcome)
-    console.log(api, 'api')
     api.openHeartbeatWindow(heartbeatId, 5000)
     api.heartBeatTick(listenerHeartbeat)
 
@@ -276,7 +289,7 @@ const connectWebsocket = () => {
       // dispatch(term, event.data, socket.value)
       const o = JSON.parse(event.data)
       const componentInstance = componentRefs.value[infos.value.id]
-      if (o.msgType == 'TERMINAL_AUTO_COMPLEMENT') {
+      if (o.msgType == 'TERMINAL_AUTO_COMPLEMENT' && stashConfig.autoCompleteStatus == 1) {
         o.autoComplement
           ? ((suggestions.value = o.autoComplement),
             nextTick(() => {
@@ -294,19 +307,26 @@ const connectWebsocket = () => {
           term.write(enc.decode(event.data))
         } else {
           const data = JSON.parse(event.data)
+          allDatas.value = data
           if (data.highLightData && keyCodeArr.indexOf(keyCode.value) != -1) {
-            highlightSyntax(data.highLightData)
+            if (stashConfig.highlightStatus == 1) {
+              highlightSyntax(data.highLightData)
+            } else {
+              term.write(data)
+            }
           }
-          // if (data.highLightData ) {
-          //   that.highlightSyntax(data.highLightData)
-          // }
         }
       } else {
         //非初始输入且非特殊按键
         if (typeof event.data !== 'object') {
           const data = JSON.parse(event.data)
+          allDatas.value = data
           if (data.highLightData) {
-            highlightSyntax(data.highLightData)
+            if (stashConfig.highlightStatus == 1) {
+              highlightSyntax(data.highLightData)
+            } else {
+              term.write(data.data)
+            }
           }
         }
       }
@@ -347,7 +367,6 @@ const handleResize = () => {
 // 别的组件通过按钮执行命令
 const autoExecuteCode = (cmd) => {
   const msgType = 'TERMINAL_DATA'
-  console.log(msgType, 'msgTypemsgTypemsgType')
   socket.value.send(JSON.stringify({ terminalId, msgType, data: cmd }))
 }
 const dispatch = (term, msgData, ws) => {
@@ -797,7 +816,6 @@ const contextAct = (action) => {
     case 'close':
       // 关闭
       socket.value.close()
-      console.log(props.serverInfo, 'props.serverInfo.id')
       emit('closeTabInTerm', props.serverInfo.id)
       break
     default:

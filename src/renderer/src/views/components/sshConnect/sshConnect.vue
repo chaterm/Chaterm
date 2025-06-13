@@ -130,7 +130,7 @@ const props = defineProps({
   activeTabId: { type: String, required: true },
   currentConnectionId: { type: String, required: true }
 })
-
+const queryCommandFlag = ref(false)
 export interface sshConnectData {
   uuid: string
   ip: string
@@ -200,8 +200,17 @@ const testFlag = ref(false)
 const currentCwd = ref('')
 const currentCwdStore = useCurrentCwdStore()
 let termOndata: IDisposable | null = null
+let dbConfigStash: {
+  aliasStatus?: number
+  autoCompleteStatus?: number
+  scrollBack?: number
+  highlightStatus?: number
+  [key: string]: any
+} = {}
 onMounted(async () => {
   const config = await serviceUserConfig.getConfig()
+  dbConfigStash = config
+  queryCommandFlag.value = config.autoCompleteStatus == 1
   const termInstance = markRaw(
     new Terminal({
       scrollback: config.scrollBack,
@@ -306,7 +315,9 @@ onMounted(async () => {
           flag1 = false
         }
         if (flag1) {
-          highlightSyntax(terminalState.value)
+          if (config.highlightStatus == 1) {
+            highlightSyntax(terminalState.value)
+          }
           if (!selectFlag.value) {
             queryCommand()
           }
@@ -322,6 +333,7 @@ onMounted(async () => {
     renderService._renderDebouncer.refresh = originalTriggerRedraw
     renderService.refreshRows(0, core._bufferService.rows - 1)
   }
+
   termInstance.write = cusWrite as any
   window.addEventListener('resize', handleResize)
   connectSSH()
@@ -946,7 +958,7 @@ const setupTerminalInput = () => {
       const aliasStore = aliasConfigStore()
       configStore.getUserConfig.quickVimStatus = 1
       const newCommand = aliasStore.getCommand(command) // 全局alias
-      if (configStore.getUserConfig.aliasStatus === 1 && newCommand !== null) {
+      if (dbConfigStash.aliasStatus === 1 && newCommand !== null) {
         sendData(delData.repeat(command.length) + newCommand + '\r')
       } else if (configStore.getUserConfig.quickVimStatus === 1) {
         connectionSftpAvailable.value = await api.checkSftpConnAvailable(connectionId.value)
@@ -1413,6 +1425,7 @@ const selectSuggestion = (suggestion) => {
   }, 10)
 }
 const queryCommand = async () => {
+  if (!queryCommandFlag.value) return
   try {
     const result = await window.api.queryCommand({
       command: terminalState.value.beforeCursor,
