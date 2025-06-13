@@ -507,19 +507,19 @@ const getCurentTabAssetInfo = async (): Promise<AssetInfo | null> => {
 }
 
 // 创建主机信息对象
-const createHostInfo = (ip: string, id: string, organizationId: string) => {
+const createHostInfo = (ip: string, uuid: string, organizationId: string) => {
   return {
     host: ip,
-    uuid: id,
+    uuid: uuid,
     connection: organizationId !== 'personal' ? 'organization' : 'personal',
     organizationId: organizationId !== 'personal' ? organizationId : 'personal_01'
   }
 }
 
 // 更新主机列表
-const updateHosts = (hostInfo: { ip: string; id: string; organizationId: string } | null) => {
+const updateHosts = (hostInfo: { ip: string; uuid: string; organizationId: string } | null) => {
   if (hostInfo) {
-    const newHost = createHostInfo(hostInfo.ip, hostInfo.id, hostInfo.organizationId)
+    const newHost = createHostInfo(hostInfo.ip, hostInfo.uuid, hostInfo.organizationId)
     hosts.value = [newHost]
     console.log('更新后的hosts数组:', hosts.value)
   } else {
@@ -536,7 +536,7 @@ const initAssetInfo = async () => {
   if (assetInfo) {
     updateHosts({
       ip: assetInfo.ip,
-      id: assetInfo.uuid,
+      uuid: assetInfo.uuid,
       organizationId: assetInfo.organizationId
     })
   } else {
@@ -633,7 +633,8 @@ const handlePlusClick = async () => {
       host: assetInfo.ip,
       uuid: assetInfo.uuid,
       connection: assetInfo.organizationId === 'personal' ? 'personal' : 'organization',
-      organizationId: assetInfo.organizationId || 'personal'
+      organizationId:
+        assetInfo.organizationId !== 'personal' ? assetInfo.organizationId : 'personal_01'
     })
   }
 
@@ -1088,7 +1089,7 @@ onMounted(async () => {
     if (tabInfo && tabInfo.ip) {
       updateHosts({
         ip: tabInfo.ip,
-        id: tabInfo.id,
+        uuid: tabInfo.data.uuid,
         organizationId: tabInfo.organizationId || 'personal'
       })
     } else {
