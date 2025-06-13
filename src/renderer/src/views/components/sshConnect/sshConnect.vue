@@ -185,6 +185,7 @@ onMounted(async () => {
   const config = await serviceUserConfig.getConfig()
   const termInstance = markRaw(
     new Terminal({
+      scrollback: config.scrollBack,
       cursorBlink: true,
       cursorStyle: config.cursorStyle,
       fontSize: config.fontSize || 12,
