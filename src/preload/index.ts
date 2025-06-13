@@ -411,7 +411,6 @@ const api = {
     })
   },
   checkSftpConnAvailable: (id: string) => {
-    console.log(123456)
     ipcRenderer.invoke('ssh:sftp:conn:check', { id })
   },
   shell: (params) => ipcRenderer.invoke('ssh:shell', params),
