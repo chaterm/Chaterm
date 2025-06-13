@@ -64,10 +64,6 @@ async function createWindow(): Promise<void> {
   // 窗口拖拽功能
   mainWindow.on('ready-to-show', () => {
     mainWindow.show()
-    // if (!is.dev) {
-    //   console.log('🔧 [Debug] Opening DevTools in packaged app for debugging')
-    //   mainWindow.webContents.openDevTools()
-    // }
   })
 
   mainWindow.webContents.setWindowOpenHandler((details) => {
@@ -222,14 +218,112 @@ app.on('window-all-closed', () => {
   }
 })
 
+// Handle macOS logout/shutdown gracefully
+app.on('will-quit', async (event) => {
+  console.log('Application will quit. Cleaning up resources...')
+  
+  // Only prevent quit if we have resources to clean up
+  const hasResourcesToCleanup =
+    hbManager || controller || (browserWindow && !browserWindow.isDestroyed())
+  
+  if (hasResourcesToCleanup) {
+    // Prevent immediate quit to allow cleanup
+    event.preventDefault()
+    
+    try {
+      // Stop heartbeat manager
+      if (hbManager) {
+        console.log('Stopping heartbeat manager...')
+        hbManager.stopAll()
+      }
+      
+      // Dispose controller
+      if (controller) {
+        console.log('Disposing controller...')
+        await controller.dispose()
+      }
+      
+      // Close browser window if exists
+      if (browserWindow && !browserWindow.isDestroyed()) {
+        console.log('Closing browser window...')
+        browserWindow.destroy()
+        browserWindow = null
+      }
+      
+      // Close main window
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        console.log('Closing main window...')
+        mainWindow.destroy()
+      }
+      
+      console.log('Cleanup completed. Quitting application...')
+    } catch (error) {
+      console.error('Error during cleanup:', error)
+    } finally {
+      // Use app.quit() instead of app.exit(0) for better macOS integration
+      app.quit()
+    }
+  }
+  // If no resources to cleanup, let the natural quit process continue
+})
+
 const hbManager = new HeartbeatManager()
 ipcMain.handle('heartbeat-start', (event, { heartbeatId, interval }) => {
   hbManager.start(heartbeatId, interval, event.sender)
 })
 
 // 2. 渲染进程请求关闭心跳
-ipcMain.handle('heartbeat-stop', (event, { heartbeatId }) => {
+ipcMain.handle('heartbeat-stop', (_, { heartbeatId }) => {
   hbManager.stop(heartbeatId)
+})
+
+// Handle macOS logout/shutdown gracefully
+app.on('will-quit', async (event) => {
+  console.log('Application will quit. Cleaning up resources...')
+  
+  // Only prevent quit if we have resources to clean up
+  const hasResourcesToCleanup =
+    hbManager || controller || (browserWindow && !browserWindow.isDestroyed())
+  
+  if (hasResourcesToCleanup) {
+    // Prevent immediate quit to allow cleanup
+    event.preventDefault()
+    
+    try {
+      // Stop heartbeat manager
+      if (hbManager) {
+        console.log('Stopping heartbeat manager...')
+        hbManager.stopAll()
+      }
+      
+      // Dispose controller
+      if (controller) {
+        console.log('Disposing controller...')
+        await controller.dispose()
+      }
+      
+      // Close browser window if exists
+      if (browserWindow && !browserWindow.isDestroyed()) {
+        console.log('Closing browser window...')
+        browserWindow.destroy()
+        browserWindow = null
+      }
+      
+      // Close main window
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        console.log('Closing main window...')
+        mainWindow.destroy()
+      }
+      
+      console.log('Cleanup completed. Quitting application...')
+    } catch (error) {
+      console.error('Error during cleanup:', error)
+    } finally {
+      // Use app.quit() instead of app.exit(0) for better macOS integration
+      app.quit()
+    }
+  }
+  // If no resources to cleanup, let the natural quit process continue
 })
 
 // Add the before-quit event listener here or towards the end of the file
@@ -685,6 +779,7 @@ ipcMain.handle('get-task-metadata', async (_event, { taskId }) => {
     if (error instanceof Error) {
       return { success: false, error: { message: error.message } }
     }
+    return { success: false, error: { message: 'Unknown error occurred' } }
   }
 })
 
