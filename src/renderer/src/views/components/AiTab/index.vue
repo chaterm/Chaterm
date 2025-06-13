@@ -84,32 +84,6 @@
               />
 
               <div class="message-actions">
-                <!-- <template v-if="chatTypeValue === 'cmd'">
-                  <div class="action-buttons">
-                    <div class="button-row">
-                      <a-button
-                        size="small"
-                        class="action-btn copy-btn"
-                        @click="handleCopyContent(message)"
-                      >
-                        <template #icon>
-                          <CopyOutlined />
-                        </template>
-                        {{ $t('ai.copy') }}
-                      </a-button>
-                      <a-button
-                        size="small"
-                        class="action-btn apply-btn"
-                        @click="handleApplyCommand(message)"
-                      >
-                        <template #icon>
-                          <PlayCircleOutlined />
-                        </template>
-                        {{ $t('ai.run') }}
-                      </a-button>
-                    </div>
-                  </div>
-                </template> -->
                 <template
                   v-if="typeof message.content === 'object' && 'options' in message.content"
                 >
@@ -142,7 +116,7 @@
       </div>
       <div class="bottom-container">
         <div
-          v-if="showBottomButton"
+          v-if="showBottomButton && chatTypeValue == 'agent'"
           class="bottom-buttons"
         >
           <a-button
@@ -163,7 +137,32 @@
             @click="handleApproveCommand"
           >
             <template #icon>
-              <CheckOutlined />
+              <PlayCircleOutlined />
+            </template>
+            {{ $t('ai.run') }}
+          </a-button>
+        </div>
+        <div
+          v-if="showBottomButton && chatTypeValue == 'cmd'"
+          class="bottom-buttons"
+        >
+          <a-button
+            size="small"
+            class="reject-btn"
+            @click="handleCopyContent"
+          >
+            <template #icon>
+              <CopyOutlined />
+            </template>
+            {{ $t('ai.copy') }}
+          </a-button>
+          <a-button
+            size="small"
+            class="approve-btn"
+            @click="handleApplyCommand"
+          >
+            <template #icon>
+              <PlayCircleOutlined />
             </template>
             {{ $t('ai.run') }}
           </a-button>
@@ -357,7 +356,6 @@ import {
   CloseOutlined,
   LaptopOutlined,
   CopyOutlined,
-  CheckOutlined,
   PlayCircleOutlined,
   RedoOutlined,
   HourglassOutlined
@@ -799,29 +797,40 @@ const handleHistoryClick = async () => {
     console.error('Failed to get conversation list:', err)
   }
 }
-
-const handleApplyCommand = (message: ChatMessage) => {
-  eventBus.emit('executeTerminalCommand', message.content + '\n')
-}
-
-const handleCopyContent = async (message: ChatMessage) => {
-  try {
-    const content =
-      typeof message.content === 'string'
-        ? message.content
-        : (message.content as MessageContent).question || ''
-    await navigator.clipboard.writeText(content)
-    eventBus.emit('executeTerminalCommand', content)
-  } catch (err) {
-    console.error('Copy failed:', err)
+const handleMessageOperation = async (operation: 'copy' | 'apply') => {
+  const lastMessage = chatHistory.at(-1)
+  if (!lastMessage) {
     notification.error({
-      message: 'Error',
-      description: 'Copy failed',
-      duration: 3,
+      message: '操作失败',
+      description: '没有可操作的消息',
+      duration: 2,
       placement: 'topRight'
     })
+    return
+  }
+
+  let content = ''
+  if (typeof lastMessage.content === 'string') {
+    content = lastMessage.content
+  } else if (lastMessage.content && 'question' in lastMessage.content) {
+    content = (lastMessage.content as MessageContent).question || ''
+  }
+
+  if (operation === 'copy') {
+    await navigator.clipboard.writeText(content)
+    notification.success({
+      message: '复制成功',
+      description: '内容已复制到剪贴板',
+      duration: 2,
+      placement: 'topRight'
+    })
+  } else if (operation === 'apply') {
+    eventBus.emit('executeTerminalCommand', content + '\n')
   }
 }
+
+const handleApplyCommand = () => handleMessageOperation('apply')
+const handleCopyContent = () => handleMessageOperation('copy')
 
 const handleRejectContent = async () => {
   let message = chatHistory.at(-1)
@@ -893,8 +902,6 @@ const handleApproveCommand = async () => {
   let message = chatHistory.at(-1)
   if (!message) {
     return false
-  } else if (chatTypeValue.value === 'cmd') {
-    eventBus.emit('writeTerminalCommand', message.content + '\r\n')
   }
   try {
     let messageRsp = {
@@ -1088,22 +1095,6 @@ onMounted(async () => {
       showSendButton.value = false
       showCancelButton.value = true
       let lastMessageInChat = chatHistory.at(-1)
-
-      // 处理 command_output 类型的消息
-      if (
-        message.partialMessage.type === 'say' &&
-        message.partialMessage.say === 'command_output' &&
-        message.partialMessage.text &&
-        message.partialMessage.partial === false
-      ) {
-        if (chatTypeValue.value === 'cmd') {
-          if (message.partialMessage.text !== 'chaterm command no output was returned.') {
-            eventBus.emit('writeTerminalCommand', message.partialMessage.text)
-          }
-          eventBus.emit('executeTerminalCommand', '\r')
-        }
-        return // 跳过添加到聊天历史
-      }
 
       let openNewMessage =
         (lastMessage?.type === 'state' && !lastPartialMessage?.partialMessage?.partial) ||
