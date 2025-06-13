@@ -729,7 +729,7 @@ watch(
 watch(
   () => props.partial,
   (newPartial) => {
-    if(props.say === 'reasoning' && !newPartial) {
+    if (props.say === 'reasoning' && !newPartial) {
       processContent(props.content)
     }
   }
