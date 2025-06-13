@@ -126,7 +126,9 @@ const props = defineProps({
     default: () => {
       return {}
     }
-  }
+  },
+  activeTabId: { type: String, required: true },
+  currentConnectionId: { type: String, required: true }
 })
 
 export interface sshConnectData {
@@ -202,6 +204,7 @@ onMounted(async () => {
   const config = await serviceUserConfig.getConfig()
   const termInstance = markRaw(
     new Terminal({
+      scrollback: config.scrollBack,
       cursorBlink: true,
       cursorStyle: config.cursorStyle,
       fontSize: config.fontSize || 12,
@@ -322,10 +325,8 @@ onMounted(async () => {
   termInstance.write = cusWrite as any
   window.addEventListener('resize', handleResize)
   connectSSH()
-  eventBus.on('writeTerminalCommand', (command) => {
-    autoWriteCode(command)
-  })
   eventBus.on('executeTerminalCommand', (command) => {
+    if (props.activeTabId !== props.currentConnectionId) return
     autoExecuteCode(command)
   })
 })
@@ -351,7 +352,6 @@ onBeforeUnmount(() => {
   if (isConnected.value) {
     disconnectSSH()
   }
-  eventBus.off('writeTerminalCommand')
   eventBus.off('executeTerminalCommand')
 })
 const getFileExt = (filePath: string) => {
