@@ -946,31 +946,9 @@ export class Task {
   }
 
   async *attemptApiRequest(previousApiReqIndex: number): ApiStream {
-    const osVersion = await this.executeCommandInRemoteServer('uname -a')
-    const defaultShell = await this.executeCommandInRemoteServer('echo $SHELL')
-    const homeDir = await this.executeCommandInRemoteServer('echo $HOME')
+    // 构建系统提示
+    let systemPrompt = await this.buildSystemPrompt()
 
-    let systemPrompt = await SYSTEM_PROMPT(this.cwd)
-
-    systemPrompt += `
-      SYSTEM INFORMATION
-
-      Operating System: ${osVersion}
-      Default Shell: ${defaultShell}
-      Home Directory: ${homeDir.toPosix()}
-      Current Working Directory: ${this.cwd.toPosix()}
-      ====
-    `
-    let settingsCustomInstructions = this.customInstructions?.trim()
-    const preferredLanguageInstructions = `# Preferred Language\n\nSpeak in ${DEFAULT_LANGUAGE_SETTINGS}.`
-    if (settingsCustomInstructions || preferredLanguageInstructions) {
-      // altering the system prompt mid-task will break the prompt cache, but in the grand scheme this will not change often so it's better to not pollute user messages with it the way we have to with <potentially relevant details>
-      const userInstructions = addUserInstructions(
-        settingsCustomInstructions,
-        preferredLanguageInstructions
-      )
-      systemPrompt += userInstructions
-    }
     const contextManagementMetadata = await this.contextManager.getNewContextMessagesAndMetadata(
       this.apiConversationHistory,
       this.chatermMessages,
@@ -985,16 +963,6 @@ export class Task {
         contextManagementMetadata.conversationHistoryDeletedRange
       await this.saveChatermMessagesAndUpdateHistory() // saves task history item which we use to keep track of conversation history deleted range
     }
-
-    // 加入当前的服务器的上下文信息
-    // if (this.terminalOutput && this.terminalOutput.trim().length > 0) {
-    //   systemPrompt += `
-
-    //     # Current Session Terminal History:
-    //     <terminal_history>
-    //     ${this.terminalOutput}
-    //     </terminal_history>`
-    // }
 
     let stream = this.api.createMessage(
       systemPrompt,
@@ -2307,5 +2275,51 @@ export class Task {
     }
 
     await this.say('text', content, block.partial)
+  }
+
+  private async buildSystemPrompt(): Promise<string> {
+    let systemPrompt = await SYSTEM_PROMPT(this.cwd)
+
+    const osVersion = await this.executeCommandInRemoteServer('uname -a')
+    const defaultShell = await this.executeCommandInRemoteServer('echo $SHELL')
+    const homeDir = await this.executeCommandInRemoteServer('echo $HOME')
+    const hostName = await this.executeCommandInRemoteServer('echo $HOSTNAME')
+    const userName = await this.executeCommandInRemoteServer('whoami')
+    const ip = await this.executeCommandInRemoteServer('hostname -I')
+
+    systemPrompt += `
+      SYSTEM INFORMATION
+
+      Operating System: ${osVersion}
+      Default Shell: ${defaultShell}
+      Home Directory: ${homeDir.toPosix()}
+      Current Working Directory: ${this.cwd.toPosix()}
+      Hostname: ${hostName}
+      User: ${userName}
+      IP: ${ip}
+      ====
+    `
+
+    const settingsCustomInstructions = this.customInstructions?.trim()
+    const preferredLanguageInstructions = `# Preferred Language\n\nSpeak in ${DEFAULT_LANGUAGE_SETTINGS}.`
+    if (settingsCustomInstructions || preferredLanguageInstructions) {
+      const userInstructions = addUserInstructions(
+        settingsCustomInstructions,
+        preferredLanguageInstructions
+      )
+      systemPrompt += userInstructions
+    }
+
+    // 加入当前的服务器的上下文信息
+    // if (this.terminalOutput && this.terminalOutput.trim().length > 0) {
+    //   systemPrompt += `
+
+    //     # Current Session Terminal History:
+    //     <terminal_history>
+    //     ${this.terminalOutput}
+    //     </terminal_history>`
+    // }
+
+    return systemPrompt
   }
 }
