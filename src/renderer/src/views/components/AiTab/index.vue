@@ -357,16 +357,11 @@ import {
 import { notification } from 'ant-design-vue'
 import { v4 as uuidv4 } from 'uuid'
 import eventBus from '@/utils/eventBus'
-import {
-  getGlobalState,
-  updateGlobalState,
-  getAllExtensionState
-} from '@renderer/agent/storage/state'
+import { getGlobalState, updateGlobalState } from '@renderer/agent/storage/state'
 import type {
   HistoryItem,
   TaskHistoryItem,
   Host,
-  ModelOption,
   ChatMessage,
   MessageContent,
   AssetInfo
@@ -443,7 +438,6 @@ const props = defineProps({
   }
 })
 
-let AiModelsOptions = ref<ModelOption[]>([])
 let AgentAiModelsOptions = [
   { label: 'claude-4-sonnet', value: 'claude-4-sonnet' },
   { label: 'claude-4-haiku', value: 'claude-4-haiku' },
@@ -1055,7 +1049,7 @@ const changeModel = debounce(async (newValue) => {
         AgentAiModelsOptions = litellmAiModelOptions
         break
       case 'deepseek':
-        chatAiModelValue.value = await getGlobalState('apiModelId')
+        chatAiModelValue.value = (await getGlobalState('apiModelId')) as string
         AgentAiModelsOptions = deepseekAiModelOptions
         break
     }
@@ -1107,16 +1101,6 @@ onMounted(async () => {
   ]
 
   currentChatId.value = chatId
-
-  try {
-    const res = await getAiModel({})
-    AiModelsOptions.value = res.data.models.map((model: any) => ({
-      label: model.name,
-      value: model.name
-    }))
-  } catch (err) {
-    console.error('Failed to get AI models:', err)
-  }
 
   let lastMessage: any = null
   let lastPartialMessage: any = null
