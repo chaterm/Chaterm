@@ -26,6 +26,7 @@ export interface AssetInfo {
   organizationId: string
   type?: string
   outputContext?: string
+  tabSessionId?: string
 }
 
 export interface HistoryItem {
