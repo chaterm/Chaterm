@@ -1531,12 +1531,12 @@ export class Task {
     const timeZone = formatter.resolvedOptions().timeZone
     const timeZoneOffset = -now.getTimezoneOffset() / 60 // Convert to hours and invert sign to match conventional notation
     const timeZoneOffsetStr = `${timeZoneOffset >= 0 ? '+' : ''}${timeZoneOffset}:00`
-    details += `\n\n# Current Time\n${formatter.format(now)} (${timeZone}, UTC${timeZoneOffsetStr})`
+    details += `\n\n# Current Time:\n${formatter.format(now)} (${timeZone}, UTC${timeZoneOffsetStr})`
 
     if (includeHostDetails) {
-      details += `\n\n# Current Hosts\n${this.hosts?.map((h) => h.host).join(', ')}`
+      details += `\n\n# Current Hosts:\n${this.hosts?.map((h) => h.host).join(', ')}`
 
-      details += `\n\n# Current Working Directory (${this.cwd.toPosix()}) Files\n`
+      details += `\n\n# Current Working Directory (${this.cwd.toPosix()}) Files:\n`
       const res = await this.executeCommandInRemoteServer('ls -al', this.cwd)
       // TODO: add ignore files
       const processLsOutput = (output: string): string => {
@@ -1589,10 +1589,10 @@ export class Task {
       : 0
     const usagePercentage = Math.round((lastApiReqTotalTokens / contextWindow) * 100)
 
-    details += '\n\n# Context Window Usage'
+    details += '\n\n# Context Window Usage:'
     details += `\n${lastApiReqTotalTokens.toLocaleString()} / ${(contextWindow / 1000).toLocaleString()}K tokens used (${usagePercentage}%)`
 
-    details += '\n\n# Current Mode'
+    details += '\n\n# Current Mode:'
     switch (this.chatSettings.mode) {
       case 'chat':
         details += '\nCHAT MODE\n' + formatResponse.planModeInstructions()
@@ -1626,24 +1626,11 @@ export class Task {
         }
         return
       } else {
-        if (!command || !ip) {
-          this.consecutiveMistakeCount++
-          this.pushToolResult(
-            toolDescription,
-            await this.sayAndCreateMissingParamError('execute_command', 'command')
-          )
-          await this.saveCheckpoint()
-          return
-        }
-        if (!requiresApprovalRaw) {
-          this.consecutiveMistakeCount++
-          this.pushToolResult(
-            toolDescription,
-            await this.sayAndCreateMissingParamError('execute_command', 'requires_approval')
-          )
-          await this.saveCheckpoint()
-          return
-        }
+        if (!command) return this.handleMissingParam('command', toolDescription)
+        if (!ip) return this.handleMissingParam('ip', toolDescription)
+        if (!requiresApprovalRaw)
+          return this.handleMissingParam('requires_approval', toolDescription)
+
         this.consecutiveMistakeCount = 0
         let didAutoApprove = false
 
@@ -1706,6 +1693,14 @@ export class Task {
       await this.handleToolError(toolDescription, 'executing command', error as Error)
       await this.saveCheckpoint()
     }
+  }
+  private async handleMissingParam(paramName: string, toolDescription: string): Promise<void> {
+    this.consecutiveMistakeCount++
+    this.pushToolResult(
+      toolDescription,
+      await this.sayAndCreateMissingParamError('execute_command', paramName)
+    )
+    return this.saveCheckpoint()
   }
 
   private getToolDescription(block: any): string {
