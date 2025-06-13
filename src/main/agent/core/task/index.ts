@@ -946,31 +946,9 @@ export class Task {
   }
 
   async *attemptApiRequest(previousApiReqIndex: number): ApiStream {
-    const osVersion = await this.executeCommandInRemoteServer('uname -a')
-    const defaultShell = await this.executeCommandInRemoteServer('echo $SHELL')
-    const homeDir = await this.executeCommandInRemoteServer('echo $HOME')
+    // 构建系统提示
+    let systemPrompt = await this.buildSystemPrompt()
 
-    let systemPrompt = await SYSTEM_PROMPT(this.cwd)
-
-    systemPrompt += `
-      SYSTEM INFORMATION
-
-      Operating System: ${osVersion}
-      Default Shell: ${defaultShell}
-      Home Directory: ${homeDir.toPosix()}
-      Current Working Directory: ${this.cwd.toPosix()}
-      ====
-    `
-    let settingsCustomInstructions = this.customInstructions?.trim()
-    const preferredLanguageInstructions = `# Preferred Language\n\nSpeak in ${DEFAULT_LANGUAGE_SETTINGS}.`
-    if (settingsCustomInstructions || preferredLanguageInstructions) {
-      // altering the system prompt mid-task will break the prompt cache, but in the grand scheme this will not change often so it's better to not pollute user messages with it the way we have to with <potentially relevant details>
-      const userInstructions = addUserInstructions(
-        settingsCustomInstructions,
-        preferredLanguageInstructions
-      )
-      systemPrompt += userInstructions
-    }
     const contextManagementMetadata = await this.contextManager.getNewContextMessagesAndMetadata(
       this.apiConversationHistory,
       this.chatermMessages,
@@ -985,16 +963,6 @@ export class Task {
         contextManagementMetadata.conversationHistoryDeletedRange
       await this.saveChatermMessagesAndUpdateHistory() // saves task history item which we use to keep track of conversation history deleted range
     }
-
-    // 加入当前的服务器的上下文信息
-    // if (this.terminalOutput && this.terminalOutput.trim().length > 0) {
-    //   systemPrompt += `
-
-    //     # Current Session Terminal History:
-    //     <terminal_history>
-    //     ${this.terminalOutput}
-    //     </terminal_history>`
-    // }
 
     let stream = this.api.createMessage(
       systemPrompt,
@@ -1563,12 +1531,12 @@ export class Task {
     const timeZone = formatter.resolvedOptions().timeZone
     const timeZoneOffset = -now.getTimezoneOffset() / 60 // Convert to hours and invert sign to match conventional notation
     const timeZoneOffsetStr = `${timeZoneOffset >= 0 ? '+' : ''}${timeZoneOffset}:00`
-    details += `\n\n# Current Time\n${formatter.format(now)} (${timeZone}, UTC${timeZoneOffsetStr})`
+    details += `\n\n# Current Time:\n${formatter.format(now)} (${timeZone}, UTC${timeZoneOffsetStr})`
 
     if (includeHostDetails) {
-      details += `\n\n# Current Hosts\n${this.hosts?.map((h) => h.host).join(', ')}`
+      details += `\n\n# Current Hosts:\n${this.hosts?.map((h) => h.host).join(', ')}`
 
-      details += `\n\n# Current Working Directory (${this.cwd.toPosix()}) Files\n`
+      details += `\n\n# Current Working Directory (${this.cwd.toPosix()}) Files:\n`
       const res = await this.executeCommandInRemoteServer('ls -al', this.cwd)
       // TODO: add ignore files
       const processLsOutput = (output: string): string => {
@@ -1621,10 +1589,10 @@ export class Task {
       : 0
     const usagePercentage = Math.round((lastApiReqTotalTokens / contextWindow) * 100)
 
-    details += '\n\n# Context Window Usage'
+    details += '\n\n# Context Window Usage:'
     details += `\n${lastApiReqTotalTokens.toLocaleString()} / ${(contextWindow / 1000).toLocaleString()}K tokens used (${usagePercentage}%)`
 
-    details += '\n\n# Current Mode'
+    details += '\n\n# Current Mode:'
     switch (this.chatSettings.mode) {
       case 'chat':
         details += '\nCHAT MODE\n' + formatResponse.planModeInstructions()
@@ -1658,24 +1626,11 @@ export class Task {
         }
         return
       } else {
-        if (!command || !ip) {
-          this.consecutiveMistakeCount++
-          this.pushToolResult(
-            toolDescription,
-            await this.sayAndCreateMissingParamError('execute_command', 'command')
-          )
-          await this.saveCheckpoint()
-          return
-        }
-        if (!requiresApprovalRaw) {
-          this.consecutiveMistakeCount++
-          this.pushToolResult(
-            toolDescription,
-            await this.sayAndCreateMissingParamError('execute_command', 'requires_approval')
-          )
-          await this.saveCheckpoint()
-          return
-        }
+        if (!command) return this.handleMissingParam('command', toolDescription)
+        if (!ip) return this.handleMissingParam('ip', toolDescription)
+        if (!requiresApprovalRaw)
+          return this.handleMissingParam('requires_approval', toolDescription)
+
         this.consecutiveMistakeCount = 0
         let didAutoApprove = false
 
@@ -1691,6 +1646,9 @@ export class Task {
         if (this.chatSettings.mode === 'cmd') {
           autoApproveSafe = false
           autoApproveAll = false
+        } else if (this.chatSettings.mode === 'agent') {
+          autoApproveSafe = true
+          autoApproveAll = true
         }
         if (
           (!requiresApprovalPerLLM && autoApproveSafe) ||
@@ -1738,6 +1696,14 @@ export class Task {
       await this.handleToolError(toolDescription, 'executing command', error as Error)
       await this.saveCheckpoint()
     }
+  }
+  private async handleMissingParam(paramName: string, toolDescription: string): Promise<void> {
+    this.consecutiveMistakeCount++
+    this.pushToolResult(
+      toolDescription,
+      await this.sayAndCreateMissingParamError('execute_command', paramName)
+    )
+    return this.saveCheckpoint()
   }
 
   private getToolDescription(block: any): string {
@@ -2307,5 +2273,51 @@ export class Task {
     }
 
     await this.say('text', content, block.partial)
+  }
+
+  private async buildSystemPrompt(): Promise<string> {
+    let systemPrompt = await SYSTEM_PROMPT(this.cwd)
+
+    const osVersion = await this.executeCommandInRemoteServer('uname -a')
+    const defaultShell = await this.executeCommandInRemoteServer('echo $SHELL')
+    const homeDir = await this.executeCommandInRemoteServer('echo $HOME')
+    const hostName = await this.executeCommandInRemoteServer('echo $HOSTNAME')
+    const userName = await this.executeCommandInRemoteServer('whoami')
+    const ip = await this.executeCommandInRemoteServer('hostname -I')
+
+    systemPrompt += `
+      SYSTEM INFORMATION
+
+      Operating System: ${osVersion}
+      Default Shell: ${defaultShell}
+      Home Directory: ${homeDir.toPosix()}
+      Current Working Directory: ${this.cwd.toPosix()}
+      Hostname: ${hostName}
+      User: ${userName}
+      IP: ${ip}
+      ====
+    `
+
+    const settingsCustomInstructions = this.customInstructions?.trim()
+    const preferredLanguageInstructions = `# Preferred Language\n\nSpeak in ${DEFAULT_LANGUAGE_SETTINGS}.`
+    if (settingsCustomInstructions || preferredLanguageInstructions) {
+      const userInstructions = addUserInstructions(
+        settingsCustomInstructions,
+        preferredLanguageInstructions
+      )
+      systemPrompt += userInstructions
+    }
+
+    // 加入当前的服务器的上下文信息
+    // if (this.terminalOutput && this.terminalOutput.trim().length > 0) {
+    //   systemPrompt += `
+
+    //     # Current Session Terminal History:
+    //     <terminal_history>
+    //     ${this.terminalOutput}
+    //     </terminal_history>`
+    // }
+
+    return systemPrompt
   }
 }

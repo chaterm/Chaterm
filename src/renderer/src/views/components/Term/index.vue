@@ -153,6 +153,7 @@ const initTerminal = async () => {
   const config = await serviceUserConfig.getConfig()
   term = new Terminal({
     cursorBlink: true,
+    scrollback: config.scrollBack,
     cursorStyle: config.cursorStyle || 'bar',
     fontSize: config.fontSize,
     fontFamily: 'Menlo, Monaco, "Courier New", Courier, monospace',

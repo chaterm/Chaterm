@@ -1,4 +1,4 @@
-export type ApiProvider = 'bedrock' | 'litellm'
+export type ApiProvider = 'bedrock' | 'litellm' | 'deepseek'
 
 export type GlobalStateKey =
   | 'apiProvider'

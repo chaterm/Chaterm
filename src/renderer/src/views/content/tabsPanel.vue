@@ -42,6 +42,8 @@
             :ref="(el) => setSshConnectRef(el, tab.id)"
             :server-info="tab"
             :connect-data="tab.data"
+            :active-tab-id="activeTabId"
+            :current-connection-id="tab.id"
             @close-tab-in-term="closeTab"
             @create-new-term="createNewTerm"
           />
@@ -91,6 +93,10 @@ const props = defineProps({
     required: true
   },
   activeTab: {
+    type: String as PropType<string>,
+    default: ''
+  },
+  activeTabId: {
     type: String as PropType<string>,
     default: ''
   }
