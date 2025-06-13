@@ -44,8 +44,36 @@
 
     <!-- Non-command mode -->
     <div v-else>
+      <!-- Command output mode -->
+      <div
+        v-if="props.say === 'command_output'"
+        class="command-output"
+      >
+        <div
+          v-for="(line, index) in contentLines"
+          :key="index"
+          class="output-line"
+        >
+          <template v-if="line.type === 'prompt'">
+            <span class="prompt">{{ line.prompt }}</span>
+            <span class="command">{{ line.command }}</span>
+          </template>
+          <template v-else-if="line.type === 'ls'">
+            <span class="permissions">{{ line.permissions }}</span>
+            <span class="user">{{ line.user }}</span>
+            <span class="group">{{ line.group }}</span>
+            <span class="size">{{ line.size }}</span>
+            <span class="date">{{ line.date }}</span>
+            <span :class="line.fileType">{{ line.name }}</span>
+          </template>
+          <template v-else>
+            <span class="content">{{ line.content }}</span>
+          </template>
+        </div>
+      </div>
+
       <!-- Thinking content -->
-      <template v-if="thinkingContent">
+      <template v-else-if="thinkingContent">
         <div
           ref="contentRef"
           style="position: absolute; visibility: hidden; height: auto"
@@ -95,7 +123,7 @@
       </template>
 
       <!-- Normal content with interspersed code blocks -->
-      <div v-if="normalContent || codeBlocks.length > 0">
+      <div v-else-if="normalContent || codeBlocks.length > 0">
         <template
           v-for="(part, index) in contentParts"
           :key="index"
@@ -474,6 +502,10 @@ const processContent = (content: string) => {
     processReasoningContent(props.content)
     return
   }
+  if (props.say === 'command_output') {
+    normalContent.value = content
+    return
+  }
   // 检查是否开始于 <think> 标签
   if (content.startsWith('<think>')) {
     // 移除开始标签
@@ -788,6 +820,51 @@ const contentParts = computed(() => {
   })
 
   return parts
+})
+
+// Add computed property for content lines
+const contentLines = computed(() => {
+  if (!props.content) return []
+
+  const lines = props.content.split('\n')
+  return lines.map((line) => {
+    // Check if it's a prompt line
+    if (line.startsWith('$ ') || line.startsWith('# ')) {
+      return {
+        type: 'prompt',
+        prompt: line.charAt(0),
+        command: line.substring(2)
+      }
+    }
+
+    // Check if it's an ls output line
+    const lsMatch = line.match(
+      /^([drwx-]+)\s+(\d+)\s+(\w+)\s+(\w+)\s+(\d+)\s+(\w+\s+\d+\s+\d+:\d+)\s+(.+)$/
+    )
+    if (lsMatch) {
+      const [, permissions, , user, group, size, date, name] = lsMatch
+      return {
+        type: 'ls',
+        permissions,
+        user,
+        group,
+        size,
+        date,
+        name,
+        fileType: permissions.startsWith('d')
+          ? 'directory'
+          : permissions.includes('x')
+            ? 'executable'
+            : 'file'
+      }
+    }
+
+    // Regular content line
+    return {
+      type: 'content',
+      content: line
+    }
+  })
 })
 </script>
 
@@ -1130,5 +1207,272 @@ code {
 .markdown-content pre code {
   white-space: pre-wrap;
   word-wrap: break-word;
+}
+
+.command-output {
+  font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+  background-color: #1a1a1a;
+  color: #ffffff;
+  padding: 12px;
+  border-radius: 8px;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  font-size: 12px;
+  line-height: 1.6;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  border: 1px solid #2a2a2a;
+  overflow: hidden;
+  width: 100%;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.command-output::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 24px;
+  background: #2a2a2a;
+  border-bottom: 1px solid #3a3a3a;
+  border-radius: 8px 8px 0 0;
+}
+
+.command-output::after {
+  content: '';
+  position: absolute;
+  top: 8px;
+  left: 12px;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #ff5f56;
+  box-shadow:
+    20px 0 0 #ffbd2e,
+    40px 0 0 #27c93f;
+}
+
+.command-output .error {
+  color: #e06c75;
+  font-weight: 500;
+}
+
+.command-output .success {
+  color: #98c379;
+}
+
+.command-output .warning {
+  color: #e5c07b;
+}
+
+.command-output .info {
+  color: #61afef;
+}
+
+.command-output .directory {
+  color: #61afef;
+  font-weight: 500;
+}
+
+.command-output .file {
+  color: #d4d4d4;
+}
+
+.command-output .executable {
+  color: #98c379;
+  font-weight: 500;
+}
+
+.command-output .link {
+  color: #c678dd;
+  text-decoration: underline;
+}
+
+.command-output .line-number {
+  color: #636d83;
+  margin-right: 8px;
+  user-select: none;
+}
+
+.command-output .highlight {
+  background-color: rgba(255, 255, 255, 0.1);
+  border-radius: 2px;
+  padding: 0 2px;
+}
+
+.command-output .cursor {
+  display: inline-block;
+  width: 8px;
+  height: 16px;
+  background-color: #ffffff;
+  animation: blink 1s step-end infinite;
+  margin-left: 2px;
+  vertical-align: middle;
+}
+
+@keyframes blink {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0;
+  }
+}
+
+.command-output pre {
+  margin: 8px 0;
+  padding: 8px;
+  background-color: rgba(0, 0, 0, 0.2);
+  border-radius: 4px;
+  overflow-x: auto;
+  white-space: pre;
+  width: 100%;
+}
+
+.command-output code {
+  font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+  font-size: 13px;
+  padding: 2px 4px;
+  background-color: rgba(0, 0, 0, 0.2);
+  border-radius: 3px;
+  white-space: pre;
+}
+
+.command-output .table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 8px 0;
+  table-layout: fixed;
+}
+
+.command-output .table th,
+.command-output .table td {
+  padding: 4px 8px;
+  text-align: left;
+  border-bottom: 1px solid #2a2a2a;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.command-output .table th:last-child,
+.command-output .table td:last-child {
+  width: 100%;
+}
+
+.command-output .table th:not(:last-child),
+.command-output .table td:not(:last-child) {
+  width: auto;
+  white-space: nowrap;
+}
+
+.command-output .progress-bar {
+  height: 4px;
+  background-color: #2a2a2a;
+  border-radius: 2px;
+  margin: 8px 0;
+  overflow: hidden;
+}
+
+.command-output .progress-bar-fill {
+  height: 100%;
+  background-color: #61afef;
+  border-radius: 2px;
+  transition: width 0.3s ease;
+}
+
+.command-output .output-line {
+  display: flex;
+  align-items: center;
+  flex-wrap: nowrap;
+  min-width: 0;
+  width: 100%;
+}
+
+.command-output .output-line > * {
+  flex-shrink: 0;
+}
+
+.command-output .output-line .content {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.command-output .permissions {
+  color: #e5c07b;
+  font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+  width: 100px;
+  flex-shrink: 0;
+}
+
+.command-output .user {
+  color: #e06c75;
+  font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+  width: 80px;
+  flex-shrink: 0;
+  margin: 0 8px;
+}
+
+.command-output .group {
+  color: #c678dd;
+  font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+  width: 80px;
+  flex-shrink: 0;
+  margin: 0 8px;
+}
+
+.command-output .size {
+  color: #56b6c2;
+  font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+  width: 60px;
+  flex-shrink: 0;
+  margin: 0 8px;
+  text-align: right;
+}
+
+.command-output .date {
+  color: #d19a66;
+  font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+  width: 120px;
+  flex-shrink: 0;
+  margin: 0 8px;
+}
+
+.command-output .filename {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  margin: 0 8px;
+}
+
+.command-output .prompt {
+  color: #98c379;
+  font-weight: 500;
+  margin-right: 4px;
+  flex-shrink: 0;
+}
+
+.command-output .command {
+  color: #61afef;
+  font-weight: 500;
+  flex-shrink: 0;
+}
+
+.command-output .output {
+  color: #d4d4d4;
+  margin: 4px 0;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 </style>
