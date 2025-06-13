@@ -115,7 +115,6 @@ const authData = {
   organizationId: props.serverInfo.organizationId,
   terminalId: terminalId
 }
-
 onMounted(() => {
   initTerminal()
   connectWebsocket()
@@ -177,6 +176,7 @@ const initTerminal = async () => {
   }
   // 处理用户输入
   term.onData((data) => {
+    console.log(data, 'data')
     if (socket.value && socket.value.readyState === WebSocket.OPEN) {
       //   socket.value.send(data)
       if (data === '\t') {
@@ -192,6 +192,21 @@ const initTerminal = async () => {
         specialCode.value = true
         const msgType = 'TERMINAL_DATA'
         socket.value.send(JSON.stringify({ terminalId, msgType, data }))
+      } else if (data == '\x03') {
+        // Ctrl+C 发送中断信号
+        specialCode.value = true
+        const msgType = 'TERMINAL_DATA'
+        socket.value.send(JSON.stringify({ terminalId, msgType, data }))
+      } else if (data == '\x16') {
+        // Ctrl+V 执行粘贴
+        navigator.clipboard
+          .readText()
+          .then((text) => {
+            // 将剪贴板的内容写入到终端
+            socket.value.send(JSON.stringify({ terminalId, msgType: 'TERMINAL_DATA', data: text }))
+            term.value.focus()
+          })
+          .catch(() => {})
       } else {
         const msgType = 'TERMINAL_DATA'
         if (suggestions.value.length && (data == '\u001b[A' || data == '\u001b[B')) {
@@ -762,8 +777,6 @@ const contextAct = (action) => {
         .readText()
         .then((text) => {
           // 将剪贴板的内容写入到终端
-          console.log(terminalId, '.terminalId')
-          console.log(text, 'text')
           socket.value.send(JSON.stringify({ terminalId, msgType: 'TERMINAL_DATA', data: text }))
           term.value.focus()
         })
