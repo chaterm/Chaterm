@@ -926,8 +926,20 @@ const setupTerminalInput = () => {
         selectFlag.value = true
       }
     }
-
-    if (data == '\r') {
+    if (data === '\x03') {
+      // Ctrl+C
+      sendData(data)
+    } else if (data === '\x16') {
+      // Ctrl+V
+      navigator.clipboard
+        .readText()
+        .then((text) => {
+          sendData(text)
+        })
+        .catch(() => {
+          // 如果剪贴板访问失败，静默处理
+        })
+    } else if (data == '\r') {
       selectFlag.value = true
       const delData = String.fromCharCode(127)
       const command = terminalState.value.content
