@@ -170,6 +170,32 @@
           </a-button>
         </div>
         <div
+          v-if="showBottomButton && chatTypeValue == 'agent'"
+          class="bottom-buttons"
+        >
+          <a-button
+            size="small"
+            class="reject-btn"
+            :disabled="buttonsDisabled"
+            @click="handleRejectContent"
+          >
+            <template #icon>
+              <CloseOutlined />
+            </template>
+            {{ $t('ai.reject') }}
+          </a-button>
+          <a-button
+            size="small"
+            class="approve-btn"
+            @click="handleApplyCommand"
+          >
+            <template #icon>
+              <PlayCircleOutlined />
+            </template>
+            {{ $t('ai.run') }}
+          </a-button>
+        </div>
+        <div
           v-if="showCancelButton"
           class="bottom-buttons cancel-row"
         >

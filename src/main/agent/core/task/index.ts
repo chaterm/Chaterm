@@ -1691,9 +1691,6 @@ export class Task {
         if (this.chatSettings.mode === 'cmd') {
           autoApproveSafe = false
           autoApproveAll = false
-        } else if (this.chatSettings.mode === 'agent') {
-          autoApproveSafe = true
-          autoApproveAll = true
         }
         if (
           (!requiresApprovalPerLLM && autoApproveSafe) ||
