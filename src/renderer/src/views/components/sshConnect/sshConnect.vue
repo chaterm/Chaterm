@@ -107,7 +107,9 @@ const props = defineProps({
   connectData: {
     type: Object as PropType<sshConnectData>,
     default: () => ({})
-  }
+  },
+  activeTabId: { type: String, required: true },
+  currentConnectionId: { type: String, required: true }
 })
 
 export interface sshConnectData {
@@ -300,10 +302,8 @@ onMounted(async () => {
   console.log(termInstance, 'terminal')
   window.addEventListener('resize', handleResize)
   connectSSH()
-  eventBus.on('writeTerminalCommand', (command) => {
-    autoWriteCode(command)
-  })
   eventBus.on('executeTerminalCommand', (command) => {
+  if (props.activeTabId !== props.currentConnectionId) return
     autoExecuteCode(command)
   })
 })
@@ -329,7 +329,6 @@ onBeforeUnmount(() => {
   if (isConnected.value) {
     disconnectSSH()
   }
-  eventBus.off('writeTerminalCommand')
   eventBus.off('executeTerminalCommand')
 })
 const getFileExt = (filePath: string) => {
