@@ -41,6 +41,8 @@
             v-if="tab.content === 'demo' || tab.organizationId === 'personal'"
             :ref="(el) => setSshConnectRef(el, tab.id)"
             :connect-data="tab.data"
+            :active-tab-id="activeTabId"
+            :current-connection-id="tab.id"
           />
           <UserInfo v-if="tab.content === 'userInfo'" />
           <userConfig v-if="tab.content === 'userConfig'" />
@@ -88,6 +90,10 @@ const props = defineProps({
     required: true
   },
   activeTab: {
+    type: String as PropType<string>,
+    default: ''
+  },
+  activeTabId: {
     type: String as PropType<string>,
     default: ''
   }
