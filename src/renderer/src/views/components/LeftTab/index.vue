@@ -165,11 +165,14 @@ const logout = () => {
     .then((res) => {
       console.log(res, 'logout')
       // localStorage.removeItem('ctm-token')
-      removeToken(true)
-      // router.push('/login')
+      removeToken()
+      router.push('/login')
     })
     .catch((err) => {
       console.log(err, 'err')
+      // 即使登出 API 失败，也应该清理本地状态并跳转到登录页
+      removeToken()
+      router.push('/login')
     })
 
   showUserMenu.value = false
