@@ -40,9 +40,12 @@
           <SshConnect
             v-if="tab.content === 'demo' || tab.organizationId === 'personal'"
             :ref="(el) => setSshConnectRef(el, tab.id)"
+            :server-info="tab"
             :connect-data="tab.data"
             :active-tab-id="activeTabId"
             :current-connection-id="tab.id"
+            @close-tab-in-term="closeTab"
+            @create-new-term="createNewTerm"
           />
           <UserInfo v-if="tab.content === 'userInfo'" />
           <userConfig v-if="tab.content === 'userConfig'" />
