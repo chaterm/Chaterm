@@ -90,6 +90,7 @@ Usage:
 ## Example 1: Requesting to execute a command
 
 <execute_command>
+<ip>192.168.0.1</ip>
 <command>npm run dev</command>
 <requires_approval>false</requires_approval>
 </execute_command>
@@ -187,6 +188,7 @@ OBJECTIVE
 
 You need to deterime the whether the task can be done with one command or one tool use. If the task can be done with one command, return that command directly. 
 <execute_command>
+<ip>target server IP(s)</ip>
 <command>Your command here</command>
 <requires_approval>true or false</requires_approval>
 </execute_command>
