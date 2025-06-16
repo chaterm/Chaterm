@@ -410,9 +410,7 @@ const api = {
       })
     })
   },
-  checkSftpConnAvailable: (id: string) => {
-    ipcRenderer.invoke('ssh:sftp:conn:check', { id })
-  },
+  checkSftpConnAvailable: (id: string) => ipcRenderer.invoke('ssh:sftp:conn:check', { id }),
   shell: (params) => ipcRenderer.invoke('ssh:shell', params),
   resizeShell: (id, cols, rows) => ipcRenderer.invoke('ssh:shell:resize', { id, cols, rows }),
   sshSftpList: (opts: { id: string; remotePath: string }) =>
