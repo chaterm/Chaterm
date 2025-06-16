@@ -1,5 +1,8 @@
 <template>
-  <a-watermark v-bind="watermarkContent">
+  <a-watermark
+    v-if="showWatermark"
+    v-bind="watermarkContent"
+  >
     <div class="terminal-layout">
       <div class="term_header">
         <Header
@@ -61,13 +64,76 @@
       </div>
     </div>
   </a-watermark>
+  <div
+    v-else
+    class="terminal-layout"
+  >
+    <div class="term_header">
+      <Header
+        ref="headerRef"
+        @toggle-sidebar="toggleSideBar"
+      ></Header>
+    </div>
+    <div class="term_body">
+      <div class="term_left_menu">
+        <LeftTab
+          @toggle-menu="toggleMenu"
+          @open-user-tab="openUserTab"
+        ></LeftTab>
+      </div>
+      <div class="term_content">
+        <splitpanes @resize="(params: ResizeParams) => (leftPaneSize = params.prevPane.size)">
+          <pane
+            class="term_content_left"
+            :size="leftPaneSize"
+          >
+            <Workspace
+              v-if="currentMenu == 'workspace'"
+              :toggle-sidebar="toggleSideBar"
+              @change-company="changeCompany"
+              @current-click-server="currentClickServer"
+              @open-user-tab="openUserTab"
+            />
+            <Extensions
+              v-if="currentMenu == 'extensions'"
+              ref="extensionsRef"
+              :toggle-sidebar="toggleSideBar"
+              @open-user-tab="openUserTab"
+            />
+            <div v-if="currentMenu == 'monitor'">{{ $t('common.monitor') }}</div>
+          </pane>
+          <pane :size="100 - leftPaneSize">
+            <splitpanes @resize="(params: ResizeParams) => (rightSize = params.nextPane.size)">
+              <pane :size="100 - rightSize">
+                <TabsPanel
+                  ref="allTabs"
+                  :tabs="openedTabs"
+                  :active-tab="activeTabId"
+                  :active-tab-id="activeTabId"
+                  @close-tab="closeTab"
+                  @create-tab="createTab"
+                  @change-tab="switchTab"
+                  @update-tabs="updateTabs"
+                />
+              </pane>
+              <pane :size="rightSize">
+                <div class="rigth-sidebar">
+                  <AiTab :toggle-sidebar="toggleSideBar" />
+                </div>
+              </pane>
+            </splitpanes>
+          </pane>
+        </splitpanes>
+      </div>
+    </div>
+  </div>
 </template>
 <script setup lang="ts">
 interface ResizeParams {
   prevPane: { size: number }
   nextPane: { size: number }
 }
-
+import { userConfigStore } from '@/services/userConfigStoreService'
 import { ref, onMounted, nextTick, onUnmounted, watch } from 'vue'
 import { Splitpanes, Pane } from 'splitpanes'
 import 'splitpanes/dist/splitpanes.css'
@@ -99,8 +165,18 @@ const watermarkContent = reactive({
 
 const rightSize = ref(0)
 const leftPaneSize = ref(30)
+const showWatermark = ref(true)
 
-onMounted(() => {
+onMounted(async () => {
+  eventBus.on('updateWatermark', (watermark) => {
+    showWatermark.value = watermark !== 'close'
+  })
+  try {
+    const config = await userConfigStore.getConfig()
+    showWatermark.value = config.watermark !== 'close'
+  } catch (e) {
+    showWatermark.value = true
+  }
   nextTick(() => {
     updatePaneSize()
   })
@@ -151,15 +227,11 @@ const toggleSideBar = (value: string) => {
   const containerWidth = container.offsetWidth
   switch (value) {
     case 'right':
-      rightSize.value
-        ? (rightSize.value = 0)
-        : (rightSize.value = (DEFAULT_WIDTH_RIGHT_PX / containerWidth) * 100)
+      rightSize.value ? (rightSize.value = 0) : (rightSize.value = (DEFAULT_WIDTH_RIGHT_PX / containerWidth) * 100)
       break
     case 'left':
       {
-        leftPaneSize.value
-          ? (leftPaneSize.value = 0)
-          : (leftPaneSize.value = (DEFAULT_WIDTH_PX / containerWidth) * 100)
+        leftPaneSize.value ? (leftPaneSize.value = 0) : (leftPaneSize.value = (DEFAULT_WIDTH_PX / containerWidth) * 100)
       }
       break
   }

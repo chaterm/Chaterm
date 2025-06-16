@@ -68,6 +68,18 @@
             <a-radio value="underline">{{ $t('user.cursorStyleUnderline') }}</a-radio>
           </a-radio-group>
         </a-form-item>
+        <a-form-item
+          :label="$t('user.watermark')"
+          class="user_my-ant-form-item"
+        >
+          <a-radio-group
+            v-model:value="userConfig.watermark"
+            class="custom-radio-group"
+          >
+            <a-radio value="open">{{ $t('user.watermarkOpen') }}</a-radio>
+            <a-radio value="close">{{ $t('user.watermarkClose') }}</a-radio>
+          </a-radio-group>
+        </a-form-item>
       </a-form>
     </a-card>
   </div>
@@ -78,6 +90,7 @@ import { ref, onMounted, watch, getCurrentInstance } from 'vue'
 import 'xterm/css/xterm.css'
 import { notification } from 'ant-design-vue'
 import { userConfigStore } from '@/services/userConfigStoreService'
+import eventBus from '@/utils/eventBus'
 
 const instance = getCurrentInstance()
 const { appContext } = instance
@@ -86,7 +99,8 @@ const userConfig = ref({
   fontSize: 14,
   scrollBack: 1000,
   language: 'zh-CN',
-  cursorStyle: 'block'
+  cursorStyle: 'block',
+  watermark: 'open'
 })
 
 // 加载保存的配置
@@ -116,7 +130,8 @@ const saveConfig = async () => {
       fontSize: userConfig.value.fontSize,
       scrollBack: userConfig.value.scrollBack,
       language: userConfig.value.language,
-      cursorStyle: userConfig.value.cursorStyle
+      cursorStyle: userConfig.value.cursorStyle,
+      watermark: userConfig.value.watermark
     }
 
     // Get existing config and merge with new config
@@ -127,6 +142,7 @@ const saveConfig = async () => {
     }
 
     await userConfigStore.saveConfig(mergedConfig)
+    eventBus.emit('updateWatermark', mergedConfig.watermark)
   } catch (error) {
     console.error('Failed to save config:', error)
     notification.error({
