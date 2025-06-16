@@ -99,12 +99,7 @@
                     @click.stop="handleEdit(dataRef)"
                   />
                   <span
-                    v-if="
-                      dataRef &&
-                      dataRef.favorite !== undefined &&
-                      !dataRef.key.startsWith('common_') &&
-                      editingNode !== dataRef.key
-                    "
+                    v-if="dataRef && dataRef.favorite !== undefined && !dataRef.key.startsWith('common_') && editingNode !== dataRef.key"
                     class="favorite-icon"
                     @click.stop="toggleFavorite(dataRef)"
                   >
@@ -173,12 +168,7 @@
                     @click.stop="handleEdit(dataRef)"
                   />
                   <span
-                    v-if="
-                      dataRef &&
-                      dataRef.favorite !== undefined &&
-                      !dataRef.key.startsWith('common_') &&
-                      editingNode !== dataRef.key
-                    "
+                    v-if="dataRef && dataRef.favorite !== undefined && !dataRef.key.startsWith('common_') && editingNode !== dataRef.key"
                     class="favorite-icon"
                     @click.stop="toggleFavorite(dataRef)"
                   >
@@ -219,14 +209,7 @@ declare global {
 import { getassetMenu, setUserfavorite, getUserWorkSpace, setAlias } from '@/api/asset/asset'
 import { deepClone } from '@/utils/util'
 import { ref, computed, onMounted, onUnmounted } from 'vue'
-import {
-  StarFilled,
-  StarOutlined,
-  LaptopOutlined,
-  SearchOutlined,
-  EditOutlined,
-  CheckOutlined
-} from '@ant-design/icons-vue'
+import { StarFilled, StarOutlined, LaptopOutlined, SearchOutlined, EditOutlined, CheckOutlined } from '@ant-design/icons-vue'
 import eventBus from '@/utils/eventBus'
 import i18n from '@/locales'
 const { t } = i18n.global
@@ -290,7 +273,7 @@ const companyChange = (item) => {
   } else {
     getUserAssetMenu()
   }
-  emit('change-company')
+  // emit('change-company')
 }
 
 const isPersonalWorkspace = computed(() => {
