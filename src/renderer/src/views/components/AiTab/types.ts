@@ -18,6 +18,7 @@ export interface ChatMessage {
   ts?: number
   selectedOption?: string
   partial?: boolean
+  actioned?: boolean
 }
 
 export interface AssetInfo {
@@ -27,6 +28,7 @@ export interface AssetInfo {
   organizationId: string
   type?: string
   outputContext?: string
+  tabSessionId?: string
 }
 
 export interface HistoryItem {
