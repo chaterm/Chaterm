@@ -243,9 +243,7 @@ onMounted(async () => {
     resizeSSH(size.cols, size.rows)
   })
   //onKey监听不到输入法，补充监听
-  const textarea = termInstance?.element?.querySelector(
-    '.xterm-helper-textarea'
-  ) as HTMLTextAreaElement | null
+  const textarea = termInstance?.element?.querySelector('.xterm-helper-textarea') as HTMLTextAreaElement | null
   if (textarea) {
     textarea.addEventListener('compositionend', (e) => {
       handleKeyInput({
@@ -270,13 +268,12 @@ onMounted(async () => {
   const originalWrite = termInstance.write.bind(termInstance)
   // termInstance.write
   cusWrite = function (data: string, options?: { isUserCall?: boolean }): void {
+    console.log(JSON.stringify(data), 'data')
     testFlag.value = options?.isUserCall ?? false
-
     const originalRequestRefresh = renderService.refreshRows.bind(renderService)
-    const originalTriggerRedraw = renderService._renderDebouncer.refresh.bind(
-      renderService._renderDebouncer
-    )
+    const originalTriggerRedraw = renderService._renderDebouncer.refresh.bind(renderService._renderDebouncer)
     // 临时禁用渲染
+
     renderService.refreshRows = () => {}
     renderService._renderDebouncer.refresh = () => {}
 
@@ -491,8 +488,7 @@ const createEditor = async (filePath, contentType) => {
         originVimText: stdout,
         action: action,
         vimEditorX: Math.round(window.innerWidth * 0.5) - Math.round(window.innerWidth * 0.7 * 0.5),
-        vimEditorY:
-          Math.round(window.innerHeight * 0.5) - Math.round(window.innerHeight * 0.7 * 0.5),
+        vimEditorY: Math.round(window.innerHeight * 0.5) - Math.round(window.innerHeight * 0.7 * 0.5),
         contentType: contentType,
         vimEditorHeight: Math.round(window.innerHeight * 0.7),
         vimEditorWidth: Math.round(window.innerWidth * 0.7),
@@ -551,8 +547,7 @@ const connectSSH = async () => {
       passphrase.value = assetInfo.auth_type === 'keyBased' ? assetInfo.passphrase : ''
     } else {
       password.value = props.connectData.authType === 'password' ? props.connectData.password : ''
-      privateKey.value =
-        props.connectData.authType === 'privateKey' ? props.connectData.privateKey : ''
+      privateKey.value = props.connectData.authType === 'privateKey' ? props.connectData.privateKey : ''
       passphrase.value = props.connectData.passphrase || ''
     }
 
@@ -574,8 +569,7 @@ const connectSSH = async () => {
       // terminal.value?.writeln(`已成功连接到 ${props.connectData.ip}`)
       let welcome = '\x1b[38;2;22;119;255m' + name + ', 欢迎您使用智能堡垒机Chaterm \x1b[m\r\n'
       if (configStore.getUserConfig.language == 'en-US') {
-        welcome =
-          '\x1b[38;2;22;119;255m' + email.split('@')[0] + ', Welcome to use Chaterm \x1b[m\r\n'
+        welcome = '\x1b[38;2;22;119;255m' + email.split('@')[0] + ', Welcome to use Chaterm \x1b[m\r\n'
       }
       terminal.value?.writeln(welcome)
       terminal.value?.writeln(`Connecting to ${props.connectData.ip}`)
@@ -896,9 +890,7 @@ const updateTerminalState = (quickInit: boolean) => {
     } else {
       cursorStartX.value = Math.min(cursorStartX.value, cursorX)
     }
-    const lineContent = buffer.lines
-      .get(terminal.value?.buffer.active.baseY + buffer.y)
-      .translateToString(true)
+    const lineContent = buffer.lines.get(terminal.value?.buffer.active.baseY + buffer.y).translateToString(true)
     terminalState.value.content = substrWidth(lineContent, cursorStartX.value)
     terminalState.value.beforeCursor = substrWidth(lineContent, cursorStartX.value, cursorX)
     terminalState.value.cursorPosition = { col: cursorX, row: cursorY }
@@ -967,8 +959,7 @@ const setupTerminalInput = () => {
           if (vimMatch[1].startsWith('/')) {
             data = delData.repeat(command.length) + 'echo "' + vimMatch[1] + '"  #Chaterm:vim  \r'
           } else {
-            data =
-              delData.repeat(command.length) + 'echo "$(pwd)/' + vimMatch[1] + '"  #Chaterm:vim  \r'
+            data = delData.repeat(command.length) + 'echo "$(pwd)/' + vimMatch[1] + '"  #Chaterm:vim  \r'
           }
           sendMarkedData(data, 'Chaterm:vim')
         } else {
@@ -983,19 +974,21 @@ const setupTerminalInput = () => {
         }, 100)
       }
     } else if (JSON.stringify(data) === '"\\u001b[A"') {
-      sendMarkedData(data, 'Chaterm:[A')
+      if (suggestions.value.length) {
+        data == '\u001b[A' && activeSuggestion.value > 0 ? (activeSuggestion.value -= 1) : ''
+      } else {
+        sendMarkedData(data, 'Chaterm:[A')
+      }
     } else if (JSON.stringify(data) === '"\\u001b[B"') {
-      sendMarkedData(data, 'Chaterm:[B')
+      if (suggestions.value.length) {
+        data == '\u001b[B' && activeSuggestion.value < suggestions.value.length - 1 ? (activeSuggestion.value += 1) : ''
+      } else {
+        sendMarkedData(data, 'Chaterm:[B')
+      }
     } else {
       sendData(data)
     }
-    if (suggestions.value.length && (data == '\u001b[A' || data == '\u001b[B')) {
-      // 键盘上下选中提示项目
-      data == '\u001b[A' && activeSuggestion.value > 0 ? (activeSuggestion.value -= 1) : ''
-      data == '\u001b[B' && activeSuggestion.value < suggestions.value.length - 1
-        ? (activeSuggestion.value += 1)
-        : ''
-    } else if (suggestions.value.length && data == '\u001b[C') {
+    if (suggestions.value.length && data == '\u001b[C') {
       selectSuggestion(suggestions.value[activeSuggestion.value])
       // selectSuggestion(suggestions.value[activeSuggestion.value])
     }
@@ -1099,11 +1092,7 @@ const handleServerOutput = (response: MarkedResponse) => {
     sendMarkedData('history -s "vim ' + filePath + '"' + '\r', 'Chaterm:history')
     data = lastLine
     cusWrite?.(data)
-  } else if (
-    response.marker === 'Chaterm:save' ||
-    response.marker === 'Chaterm:history' ||
-    response.marker === 'Chaterm:pass'
-  ) {
+  } else if (response.marker === 'Chaterm:save' || response.marker === 'Chaterm:history' || response.marker === 'Chaterm:pass') {
     console.log('跳过：', response.marker)
   } else if (response.marker === 'Chaterm:[A') {
     // 跳过命令
@@ -1227,24 +1216,17 @@ const highlightSyntax = (allData) => {
     if (!unMatchFlag) {
       for (let i = 0; i < afterCommandArr.length; i++) {
         if (afterCommandArr[i].content == ' ') {
-          cusWrite?.(
-            `\x1b[${startY + 1};${cursorStartX.value + command.length + 1 + afterCommandArr[i].startIndex}H`,
-            {
-              isUserCall: true
-            }
-          )
+          cusWrite?.(`\x1b[${startY + 1};${cursorStartX.value + command.length + 1 + afterCommandArr[i].startIndex}H`, {
+            isUserCall: true
+          })
           cusWrite?.(`${afterCommandArr[i].content}\x1b[0m`, {
             isUserCall: true
           })
         } else {
-          cusWrite?.(
-            `\x1b[${startY + 1};${cursorStartX.value + command.length + 1 + afterCommandArr[i].startIndex}H`,
-            {
-              isUserCall: true
-            }
-          )
-          const colorCode =
-            afterCommandArr[i].type == 'matched' ? '38;2;250;173;20' : '38;2;126;193;255'
+          cusWrite?.(`\x1b[${startY + 1};${cursorStartX.value + command.length + 1 + afterCommandArr[i].startIndex}H`, {
+            isUserCall: true
+          })
+          const colorCode = afterCommandArr[i].type == 'matched' ? '38;2;250;173;20' : '38;2;126;193;255'
           cusWrite?.(`\x1b[${colorCode}m${afterCommandArr[i].content}\x1b[0m`, {
             isUserCall: true
           })
@@ -1414,9 +1396,7 @@ const selectSuggestion = (suggestion) => {
 
   const originalData = String.fromCharCode(127)
   const delData = String.fromCharCode(27, 91, 67)
-  sendData(
-    delData.repeat(terminalState.value.content.length - terminalState.value.beforeCursor.length)
-  )
+  sendData(delData.repeat(terminalState.value.content.length - terminalState.value.beforeCursor.length))
   sendData(originalData.repeat(terminalState.value.content.length))
   sendData(suggestion)
   setTimeout(() => {
@@ -1448,11 +1428,9 @@ const insertCommand = async (cmd) => {
       command: cmd,
       ip: props.connectData.ip
     })
-    console.log('command insert success')
     // message.success('命令插入成功')
   } catch (error) {
     // message.error('命令插入失败')
-    console.log('command insert failed')
   }
 }
 
