@@ -357,16 +357,11 @@ import {
 import { notification } from 'ant-design-vue'
 import { v4 as uuidv4 } from 'uuid'
 import eventBus from '@/utils/eventBus'
-import {
-  getGlobalState,
-  updateGlobalState,
-  getAllExtensionState
-} from '@renderer/agent/storage/state'
+import { getGlobalState, updateGlobalState } from '@renderer/agent/storage/state'
 import type {
   HistoryItem,
   TaskHistoryItem,
   Host,
-  ModelOption,
   ChatMessage,
   MessageContent,
   AssetInfo
@@ -443,7 +438,6 @@ const props = defineProps({
   }
 })
 
-let AiModelsOptions = ref<ModelOption[]>([])
 let AgentAiModelsOptions = [
   { label: 'claude-4-sonnet', value: 'claude-4-sonnet' },
   { label: 'claude-4-haiku', value: 'claude-4-haiku' },
@@ -494,10 +488,8 @@ const getCurentTabAssetInfo = async (): Promise<AssetInfo | null> => {
     })
     // 直接在这里处理结果
     if (assetInfo) {
-      console.log('获取到资产信息:', assetInfo)
       return assetInfo
     } else {
-      console.error('未能获取到当前标签页的资产信息:')
       return null
     }
   } catch (error) {
@@ -521,18 +513,14 @@ const updateHosts = (hostInfo: { ip: string; uuid: string; organizationId: strin
   if (hostInfo) {
     const newHost = createHostInfo(hostInfo.ip, hostInfo.uuid, hostInfo.organizationId)
     hosts.value = [newHost]
-    console.log('更新后的hosts数组:', hosts.value)
   } else {
     hosts.value = []
-    console.log('清空hosts数组')
   }
 }
 
 // 初始化资产信息
 const initAssetInfo = async () => {
-  console.log('开始初始化资产信息')
   const assetInfo = await getCurentTabAssetInfo()
-  console.log('获取到的资产信息:', assetInfo)
   if (assetInfo) {
     updateHosts({
       ip: assetInfo.ip,
@@ -1055,7 +1043,7 @@ const changeModel = debounce(async (newValue) => {
         AgentAiModelsOptions = litellmAiModelOptions
         break
       case 'deepseek':
-        chatAiModelValue.value = await getGlobalState('apiModelId')
+        chatAiModelValue.value = (await getGlobalState('apiModelId')) as string
         AgentAiModelsOptions = deepseekAiModelOptions
         break
     }
@@ -1085,7 +1073,6 @@ onMounted(async () => {
 
   // 监听标签页变化
   eventBus.on('activeTabChanged', async (tabInfo) => {
-    console.log('标签页变化:', tabInfo)
     if (tabInfo && tabInfo.ip) {
       updateHosts({
         ip: tabInfo.ip,
@@ -1108,20 +1095,9 @@ onMounted(async () => {
 
   currentChatId.value = chatId
 
-  try {
-    const res = await getAiModel({})
-    AiModelsOptions.value = res.data.models.map((model: any) => ({
-      label: model.name,
-      value: model.name
-    }))
-  } catch (err) {
-    console.error('Failed to get AI models:', err)
-  }
-
   let lastMessage: any = null
   let lastPartialMessage: any = null
   removeListener = (window.api as any).onMainMessage((message: any) => {
-    // console.log('Received main process message:', message)
     if (message?.type === 'partialMessage') {
       showSendButton.value = false
       showCancelButton.value = true
@@ -1185,7 +1161,6 @@ onMounted(async () => {
       }
     }
     lastMessage = message
-    // console.log('chatHistory after processing:', chatHistory)
   })
 })
 

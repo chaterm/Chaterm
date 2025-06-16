@@ -723,7 +723,12 @@ const getApiProviderDefaultModelId = () => {
 }
 
 const checkApiProviderAndModelId = () => {
-  let checkModelList = []
+  interface ModelOption {
+    value: string
+    label: string
+  }
+
+  let checkModelList: ModelOption[] = []
   switch (apiProvider.value) {
     case 'bedrock':
       checkModelList = aiModelOptions
@@ -737,8 +742,7 @@ const checkApiProviderAndModelId = () => {
   }
   const modelIndex = checkModelList.findIndex((model) => model.value === apiModelId.value)
   const indexExists: boolean = modelIndex !== -1
-  return indexExists;
-
+  return indexExists
 }
 </script>
 

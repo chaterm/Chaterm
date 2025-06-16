@@ -64,10 +64,6 @@ async function createWindow(): Promise<void> {
   // 窗口拖拽功能
   mainWindow.on('ready-to-show', () => {
     mainWindow.show()
-    // if (!is.dev) {
-    //   console.log('🔧 [Debug] Opening DevTools in packaged app for debugging')
-    //   mainWindow.webContents.openDevTools()
-    // }
   })
 
   mainWindow.webContents.setWindowOpenHandler((details) => {
@@ -228,7 +224,7 @@ ipcMain.handle('heartbeat-start', (event, { heartbeatId, interval }) => {
 })
 
 // 2. 渲染进程请求关闭心跳
-ipcMain.handle('heartbeat-stop', (event, { heartbeatId }) => {
+ipcMain.handle('heartbeat-stop', (_, { heartbeatId }) => {
   hbManager.stop(heartbeatId)
 })
 
@@ -685,6 +681,7 @@ ipcMain.handle('get-task-metadata', async (_event, { taskId }) => {
     if (error instanceof Error) {
       return { success: false, error: { message: error.message } }
     }
+    return { success: false, error: { message: 'Unknown error occurred' } }
   }
 })
 
