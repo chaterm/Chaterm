@@ -65,7 +65,7 @@ export async function remoteSshExec(
   console.log(`开始执行SSH命令: ${command} (会话: ${sessionId})`);
 
   const base64Command = Buffer.from(command, 'utf-8').toString('base64');
-  const shellCommand = `echo '${base64Command}' | base64 -d | bash -l`;
+  const shellCommand = `CHATERM_COMMAND_B64='${base64Command}' exec bash -l -c 'eval "$(echo $CHATERM_COMMAND_B64 | base64 -d)"'`;
 
   return new Promise((resolve) => {
     let timeoutHandler: NodeJS.Timeout;
