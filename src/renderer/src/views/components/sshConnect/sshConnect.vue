@@ -1448,7 +1448,6 @@ const insertCommand = async (cmd) => {
       command: cmd,
       ip: props.connectData.ip
     })
-    console.log('command insert success')
     // message.success('命令插入成功')
   } catch (error) {
     // message.error('命令插入失败')
