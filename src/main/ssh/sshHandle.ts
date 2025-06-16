@@ -185,18 +185,15 @@ const handleAttemptConnection = (event, connectionInfo, resolve, reject, retryCo
     readyTimeout: KeyboardInteractiveTimeout // 连接超时时间，30秒
   }
 
-  conn.on(
-    'keyboard-interactive',
-    async (_name, _instructions, _instructionsLang, prompts, finish) => {
-      try {
-        // 等待用户响应
-        await handleRequestKeyboardInteractive(event, id, prompts, finish)
-      } catch (err) {
-        conn.end() // 关闭连接
-        reject(err)
-      }
+  conn.on('keyboard-interactive', async (_name, _instructions, _instructionsLang, prompts, finish) => {
+    try {
+      // 等待用户响应
+      await handleRequestKeyboardInteractive(event, id, prompts, finish)
+    } catch (err) {
+      conn.end() // 关闭连接
+      reject(err)
     }
-  )
+  })
 
   try {
     if (privateKey) {
@@ -385,14 +382,30 @@ export const registerSSHHandlers = () => {
       return Promise.reject(new Error(`no sftp conn for ${id}`))
     }
     const sftp = sftpConnections.get(id)
-    return new Promise<any[]>((resolve, reject) => {
+    return new Promise<any[]>((resolve) => {
       sftp!.readdir(path, (err, list) => {
         if (err) {
-          // 0x03 (3) 是 SSH_FX_PERMISSION_DENIED
-          if ((err as any).code === 3) {
-            return resolve([`cannot open directory '${path}'： Permission denied`])
+          const errorCode = (err as any).code
+          switch (errorCode) {
+            case 2: // SSH_FX_NO_SUCH_FILE
+              return resolve([`cannot open directory '${path}': No such file or directory`])
+            case 3: // SSH_FX_PERMISSION_DENIED
+              return resolve([`cannot open directory '${path}': Permission denied`])
+            case 4: // SSH_FX_FAILURE
+              return resolve([`cannot open directory '${path}': Operation failed`])
+            case 5: // SSH_FX_BAD_MESSAGE
+              return resolve([`cannot open directory '${path}': Bad message format`])
+            case 6: // SSH_FX_NO_CONNECTION
+              return resolve([`cannot open directory '${path}': No connection`])
+            case 7: // SSH_FX_CONNECTION_LOST
+              return resolve([`cannot open directory '${path}': Connection lost`])
+            case 8: // SSH_FX_OP_UNSUPPORTED
+              return resolve([`cannot open directory '${path}': Operation not supported`])
+            default:
+              // 未知错误码
+              const message = err.message || `Unknown error (code: ${errorCode})`
+              return resolve([`cannot open directory '${path}': ${message}`])
           }
-          return reject(err)
         }
         const files = list.map((item) => {
           const name = item.filename
