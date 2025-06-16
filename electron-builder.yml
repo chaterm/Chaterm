@@ -1,5 +1,6 @@
 appId: com.electron.app
 productName: Chaterm
+compression: maximum
 directories:
   buildResources: build
 files:
@@ -9,10 +10,15 @@ files:
   - '!{.eslintignore,.eslintrc.cjs,.prettierignore,.prettierrc.yaml,dev-app-update.yml,CHANGELOG.md,README.md}'
   - '!{.env,.env.*,.npmrc,pnpm-lock.yaml}'
   - '!{tsconfig.json,tsconfig.node.json,tsconfig.web.json}'
+  - '!node_modules/**/*.ts'
+  - '!node_modules/**/*.map'
+  - '!node_modules/**/test/**'
+  - '!node_modules/**/docs/**'
+  - '!node_modules/**/examples/**'
 extraResources:
-  - from: "src/renderer/src/assets/db/"
-    to: "db/"
-    filter: "**/*.db"
+  - from: 'src/renderer/src/assets/db/'
+    to: 'db/'
+    filter: '**/*.db'
 asarUnpack:
   - resources/**
 icon: resources/icon.ico
