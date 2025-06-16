@@ -553,7 +553,7 @@ const connectSSH = async () => {
 
     // terminal.value?.writeln(`尝试连接 ${props.connectData.ip}:${props.connectData.port}...`)
     const email = userInfoStore().userInfo.email
-    connectionId.value = `${email.split('@')[0]}@${props.connectData.ip}:local:${uuidv4()}`
+    connectionId.value = `${props.connectData.username}@${props.connectData.ip}:local:${uuidv4()}`
     const result = await api.connect({
       id: connectionId.value,
       host: props.connectData.ip,
