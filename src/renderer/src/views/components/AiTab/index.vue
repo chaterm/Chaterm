@@ -86,6 +86,20 @@
               />
 
               <div class="message-actions">
+                <a-tooltip :title="$t('ai.copy')">
+                  <a-button
+                    v-if="
+                      chatTypeValue === 'cmd' && message.ask === 'command' && message.actioned
+                    "
+                    size="small"
+                    class="history-copy-btn"
+                    @click="handleHistoryCopy(message)"
+                  >
+                    <template #icon>
+                      <CopyOutlined />
+                    </template>
+                  </a-button>
+                </a-tooltip>
                 <template
                   v-if="typeof message.content === 'object' && 'options' in message.content"
                 >
@@ -702,6 +716,7 @@ const restoreHistoryTab = async (history: HistoryItem) => {
           !isDuplicate &&
           (item.ask === 'followup' ||
             item.ask === 'command' ||
+            item.say === 'command_output' ||
             item.say === 'completion_result' ||
             item.say === 'text' ||
             item.say === 'reasoning' ||
@@ -806,22 +821,28 @@ const handleMessageOperation = async (operation: 'copy' | 'apply') => {
   } else if (lastMessage.content && 'question' in lastMessage.content) {
     content = (lastMessage.content as MessageContent).question || ''
   }
+  lastMessage.actioned = true
 
   if (operation === 'copy') {
-    await navigator.clipboard.writeText(content)
-    notification.success({
-      message: '复制成功',
-      description: '内容已复制到剪贴板',
-      duration: 2,
-      placement: 'topRight'
-    })
+    eventBus.emit('executeTerminalCommand', content)
   } else if (operation === 'apply') {
     eventBus.emit('executeTerminalCommand', content + '\n')
   }
+  lastChatMessageId.value = ''
 }
 
 const handleApplyCommand = () => handleMessageOperation('apply')
 const handleCopyContent = () => handleMessageOperation('copy')
+
+const handleHistoryCopy = (message: ChatMessage) => {
+  let content = ''
+  if (typeof message.content === 'string') {
+    content = message.content
+  } else if (message.content && 'question' in message.content) {
+    content = (message.content as MessageContent).question || ''
+  }
+  eventBus.emit('executeTerminalCommand', content)
+}
 
 const handleRejectContent = async () => {
   let message = chatHistory.at(-1)
@@ -1261,13 +1282,18 @@ const filteredHostOptions = computed(() =>
   hostOptions.value.filter((item) => item.label.includes(hostSearchValue.value))
 )
 const onHostClick = (item: any) => {
-  if (!hosts.value.some((h) => h.host === item.label)) {
-    hosts.value.push({
-      host: item.label,
-      uuid: item.uuid,
-      connection: item.connection,
-      organizationId: item.organizationId
-    })
+  const newHost = {
+    host: item.label,
+    uuid: item.uuid,
+    connection: item.connection,
+    organizationId: item.organizationId
+  }
+  if (chatTypeValue.value === 'cmd') {
+    hosts.value = [newHost]
+  } else {
+    if (!hosts.value.some((h) => h.host === item.label)) {
+      hosts.value.push(newHost)
+    }
   }
   showHostSelect.value = false
   chatInputValue.value = ''
@@ -1643,6 +1669,7 @@ watch(
   flex-direction: column;
   gap: 2px;
   width: 100%;
+  position: relative;
 
   .message-actions {
     display: flex;
@@ -1757,6 +1784,29 @@ watch(
         font-size: 12px;
       }
     }
+  }
+}
+
+.history-copy-btn {
+  position: absolute;
+  top: 5px;
+  right: 5px;
+  background-color: #2a2a2a;
+  color: #e0e0e0;
+  border: none;
+  border-radius: 4px;
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  opacity: 0.5;
+  transition: opacity 0.2s;
+
+  &:hover {
+    opacity: 1;
+    background-color: #3a3a3a;
   }
 }
 
