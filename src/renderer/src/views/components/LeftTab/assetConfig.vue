@@ -674,7 +674,7 @@ watch(isRightSectionVisible, (val) => {
   :deep(.ant-input) {
     background-color: #2c2c2c;
     color: white;
-    height: 32px;
+    height: 20px;
 
     &::placeholder {
       color: rgba(255, 255, 255, 0.5);
