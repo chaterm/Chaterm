@@ -16,8 +16,20 @@
                 <div v-if="dataRef.expanded || expandedKeys.includes(dataRef.key)">
                   <TermFileSystem
                     :uuid="dataRef.value"
-                    :current-directory="`/home/${dataRef.value.includes('@') ? dataRef.value.split('@')[0] : dataRef.value}`"
-                    :current-directory-input="`/home/${dataRef.value.includes('@') ? dataRef.value.split('@')[0] : dataRef.value}`"
+                    :current-directory="
+                      dataRef.value.includes('@')
+                        ? dataRef.value.split('@')[0] === 'root'
+                          ? '/root'
+                          : `/home/${dataRef.value.split('@')[0]}`
+                        : dataRef.value
+                    "
+                    :current-directory-input="
+                      dataRef.value.includes('@')
+                        ? dataRef.value.split('@')[0] === 'root'
+                          ? '/root'
+                          : `/home/${dataRef.value.split('@')[0]}`
+                        : dataRef.value
+                    "
                     :connect-type="dataRef.value.indexOf('local') !== -1 ? 'local' : 'remote'"
                     @open-file="openFile"
                   />
@@ -54,7 +66,7 @@ import { userInfoStore } from '@/store'
 import { encrypt } from '@/utils/util.js'
 import { termFileContent, termFileContentSave } from '@/api/term/term'
 import EditorCode from '../Term/Editor/dragEditor.vue'
-import { Modal, notification } from 'ant-design-vue'
+import { message, Modal, notification } from 'ant-design-vue'
 
 import { LanguageMap } from '../Term/Editor/languageMap'
 
@@ -156,10 +168,8 @@ const openFile = async (data) => {
             vimText: response.content,
             originVimText: response.content,
             action: response.action,
-            vimEditorX:
-              Math.round(window.innerWidth * 0.5) - Math.round(window.innerWidth * 0.7 * 0.5),
-            vimEditorY:
-              Math.round(window.innerHeight * 0.5) - Math.round(window.innerHeight * 0.7 * 0.5),
+            vimEditorX: Math.round(window.innerWidth * 0.5) - Math.round(window.innerWidth * 0.7 * 0.5),
+            vimEditorY: Math.round(window.innerHeight * 0.5) - Math.round(window.innerHeight * 0.7 * 0.5),
             contentType: response.contentType,
             vimEditorHeight: Math.round(window.innerHeight * 0.7),
             vimEditorWidth: Math.round(window.innerWidth * 0.7),
@@ -178,34 +188,41 @@ const openFile = async (data) => {
       console.error('打开文件失败', error)
     }
   } else {
-    const data = await api.sshConnExec({
+    const { stdout, stderr } = await api.sshConnExec({
       cmd: `cat ${filePath}`,
       id: terminalId
     })
-    const contentType = getFileExt(filePath) ? getFileExt(filePath) : '.python'
-    const existingEditor = openEditors.find((editor) => editor?.filePath === filePath)
-    if (!existingEditor) {
-      openEditors.push({
-        filePath: filePath,
-        visible: true,
-        vimText: data,
-        originVimText: data,
-        action: 'editor',
-        vimEditorX: Math.round(window.innerWidth * 0.5) - Math.round(window.innerWidth * 0.7 * 0.5),
-        vimEditorY:
-          Math.round(window.innerHeight * 0.5) - Math.round(window.innerHeight * 0.7 * 0.5),
-        contentType: LanguageMap[contentType],
-        vimEditorHeight: Math.round(window.innerHeight * 0.7),
-        vimEditorWidth: Math.round(window.innerWidth * 0.7),
-        loading: false,
-        fileChange: false,
-        saved: false,
-        key: terminalId,
-        editorType: contentType
-      } as UnwrapRef<Editor>)
+    let action = '编辑'
+    if (stderr.indexOf('No such file or directory') !== '-1') {
+      action = '创建'
+    }
+    if (stderr.indexOf('Permission denied') !== -1) {
+      message.error('Permission denied')
     } else {
-      existingEditor.visible = true
-      existingEditor.vimText = data
+      const contentType = getFileExt(filePath) ? getFileExt(filePath) : '.python'
+      const existingEditor = openEditors.find((editor) => editor?.filePath === filePath)
+      if (!existingEditor) {
+        openEditors.push({
+          filePath: filePath,
+          visible: true,
+          vimText: stdout,
+          originVimText: stdout,
+          action: action,
+          vimEditorX: Math.round(window.innerWidth * 0.5) - Math.round(window.innerWidth * 0.7 * 0.5),
+          vimEditorY: Math.round(window.innerHeight * 0.5) - Math.round(window.innerHeight * 0.7 * 0.5),
+          contentType: LanguageMap[contentType] ? LanguageMap[contentType] : 'python',
+          vimEditorHeight: Math.round(window.innerHeight * 0.7),
+          vimEditorWidth: Math.round(window.innerWidth * 0.7),
+          loading: false,
+          fileChange: false,
+          saved: false,
+          key: terminalId,
+          editorType: contentType
+        } as UnwrapRef<Editor>)
+      } else {
+        existingEditor.visible = true
+        existingEditor.vimText = data
+      }
     }
   }
 }
