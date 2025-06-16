@@ -268,8 +268,8 @@
               size="small"
               style="width: 150px"
               :options="AgentAiModelsOptions"
-              @change="handleChatAiModelChange"
               show-search
+              @change="handleChatAiModelChange"
             ></a-select>
             <a-button
               :disabled="!showSendButton"
@@ -1045,6 +1045,14 @@ const changeModel = debounce(async (newValue) => {
         break
       case 'litellm':
         chatAiModelValue.value = newValue?.[2]
+        const exists =
+          litellmAiModelOptions.findIndex((option) => option.value === newValue?.[2]) !== -1
+        if (!exists && newValue?.[2]) {
+          litellmAiModelOptions.push({
+            value: newValue?.[2],
+            label: newValue?.[2]
+          })
+        }
         AgentAiModelsOptions = litellmAiModelOptions
         break
       case 'deepseek':
@@ -1061,6 +1069,14 @@ const changeModel = debounce(async (newValue) => {
         break
       case 'litellm':
         chatAiModelValue.value = (await getGlobalState('liteLlmModelId')) as string
+        const exists =
+          litellmAiModelOptions.findIndex((option) => option.value === chatAiModelValue.value) !== -1
+        if (!exists && chatAiModelValue.value) {
+          litellmAiModelOptions.push({
+            value: chatAiModelValue.value,
+            label: chatAiModelValue.value
+          })
+        }
         AgentAiModelsOptions = litellmAiModelOptions
         break
       case 'deepseek':
