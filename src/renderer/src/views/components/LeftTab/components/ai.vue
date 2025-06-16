@@ -761,7 +761,12 @@ const getApiProviderDefaultModelId = () => {
 }
 
 const checkApiProviderAndModelId = () => {
-  let checkModelList = []
+  interface ModelOption {
+    value: string
+    label: string
+  }
+
+  let checkModelList: ModelOption[] = []
   switch (apiProvider.value) {
     case 'bedrock':
       checkModelList = aiModelOptions

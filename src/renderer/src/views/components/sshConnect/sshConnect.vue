@@ -6,6 +6,7 @@
     <div
       ref="terminalElement"
       class="terminal"
+      v-contextmenu:contextmenu
     ></div>
     <SuggComp
       v-bind="{ ref: (el) => setRef(el, connectionId) }"
@@ -13,6 +14,14 @@
       :suggestions="suggestions"
       :active-suggestion="activeSuggestion"
     />
+    <v-contextmenu ref="contextmenu">
+      <Context
+        @contextAct="contextAct"
+        :termInstance="terminal"
+        :copyText="copyText"
+        :terminalId="connectionId"
+      />
+    </v-contextmenu>
   </div>
 
   <div
@@ -81,12 +90,16 @@ declare global {
     api: ApiType
   }
 }
+const copyText = ref('')
+import Context from '../Term/contextComp.vue'
 import SuggComp from '../Term/suggestion.vue'
 import eventBus from '@/utils/eventBus'
 import { useCurrentCwdStore } from '@/store/currentCwdStore'
 import { markRaw, onBeforeUnmount, onMounted, PropType, reactive, ref } from 'vue'
 import { Terminal } from 'xterm'
 import { FitAddon } from 'xterm-addon-fit'
+import { WebLinksAddon } from 'xterm-addon-web-links'
+import { IDisposable } from 'xterm'
 import 'xterm/css/xterm.css'
 import { defineEmits } from 'vue/dist/vue'
 import type { editorData } from '@/views/components/Term/Editor/dragEditor.vue'
@@ -107,9 +120,17 @@ const props = defineProps({
   connectData: {
     type: Object as PropType<sshConnectData>,
     default: () => ({})
-  }
+  },
+  serverInfo: {
+    type: Object,
+    default: () => {
+      return {}
+    }
+  },
+  activeTabId: { type: String, required: true },
+  currentConnectionId: { type: String, required: true }
 })
-
+const queryCommandFlag = ref(false)
 export interface sshConnectData {
   uuid: string
   ip: string
@@ -142,7 +163,7 @@ const terminalContainer = ref(null)
 const cursorStartX = ref(0)
 const api = window.api as any
 const encoder = new TextEncoder()
-let xxxWrite: ((data: string, options?: { isUserCall?: boolean }) => void) | null = null
+let cusWrite: ((data: string, options?: { isUserCall?: boolean }) => void) | null = null
 // const userConfig = ref({
 //   aliasStatus: 2,
 //   quickVimStatus: 2
@@ -178,11 +199,21 @@ const EDITOR_SEQUENCES = {
 const testFlag = ref(false)
 const currentCwd = ref('')
 const currentCwdStore = useCurrentCwdStore()
-
+let termOndata: IDisposable | null = null
+let dbConfigStash: {
+  aliasStatus?: number
+  autoCompleteStatus?: number
+  scrollBack?: number
+  highlightStatus?: number
+  [key: string]: any
+} = {}
 onMounted(async () => {
   const config = await serviceUserConfig.getConfig()
+  dbConfigStash = config
+  queryCommandFlag.value = config.autoCompleteStatus == 1
   const termInstance = markRaw(
     new Terminal({
+      scrollback: config.scrollBack,
       cursorBlink: true,
       cursorStyle: config.cursorStyle,
       fontSize: config.fontSize || 12,
@@ -195,7 +226,11 @@ onMounted(async () => {
   )
   terminal.value = termInstance
   termInstance?.onKey(handleKeyInput)
-  termInstance?.onData(() => {})
+  termInstance?.onSelectionChange(function () {
+    if (termInstance.hasSelection()) {
+      copyText.value = termInstance.getSelection()
+    }
+  })
 
   fitAddon.value = new FitAddon()
   termInstance.loadAddon(fitAddon.value)
@@ -234,7 +269,7 @@ onMounted(async () => {
   const renderService = core._renderService
   const originalWrite = termInstance.write.bind(termInstance)
   // termInstance.write
-  xxxWrite = function (data: string, options?: { isUserCall?: boolean }): void {
+  cusWrite = function (data: string, options?: { isUserCall?: boolean }): void {
     testFlag.value = options?.isUserCall ?? false
 
     const originalRequestRefresh = renderService.refreshRows.bind(renderService)
@@ -280,7 +315,9 @@ onMounted(async () => {
           flag1 = false
         }
         if (flag1) {
-          highlightSyntax(terminalState.value)
+          if (config.highlightStatus == 1) {
+            highlightSyntax(terminalState.value)
+          }
           if (!selectFlag.value) {
             queryCommand()
           }
@@ -296,14 +333,12 @@ onMounted(async () => {
     renderService._renderDebouncer.refresh = originalTriggerRedraw
     renderService.refreshRows(0, core._bufferService.rows - 1)
   }
-  termInstance.write = xxxWrite as any
-  console.log(termInstance, 'terminal')
+
+  termInstance.write = cusWrite as any
   window.addEventListener('resize', handleResize)
   connectSSH()
-  eventBus.on('writeTerminalCommand', (command) => {
-    autoWriteCode(command)
-  })
   eventBus.on('executeTerminalCommand', (command) => {
+    if (props.activeTabId !== props.currentConnectionId) return
     autoExecuteCode(command)
   })
 })
@@ -329,7 +364,6 @@ onBeforeUnmount(() => {
   if (isConnected.value) {
     disconnectSSH()
   }
-  eventBus.off('writeTerminalCommand')
   eventBus.off('executeTerminalCommand')
 })
 const getFileExt = (filePath: string) => {
@@ -501,7 +535,7 @@ const handleResize = debounce(() => {
   }
 }, 100)
 
-const emit = defineEmits(['connectSSH', 'disconnectSSH'])
+const emit = defineEmits(['connectSSH', 'disconnectSSH', 'closeTabInTerm', 'createNewTerm'])
 
 const connectSSH = async () => {
   // 连接
@@ -584,7 +618,7 @@ const startShell = async () => {
         handleServerOutput(response)
       })
       const removeErrorListener = api.onShellError(connectionId.value, (data) => {
-        xxxWrite?.(data)
+        cusWrite?.(data)
       })
       const removeCloseListener = api.onShellClose(connectionId.value, () => {
         terminal.value?.writeln(
@@ -888,17 +922,10 @@ const updateTerminalState = (quickInit: boolean) => {
     console.error('更新终端状态时出错:', error)
   }
 }
-// const stringToBytes2 = (str) => {
-//   const bytes = new Uint8Array(str.length)
-//   for (let i = 0; i < str.length; i++) {
-//     bytes[i] = str.charCodeAt(i) & 0xff
-//   }
-//   return bytes
-// }
 const setupTerminalInput = () => {
   if (!terminal.value) return
 
-  terminal.value.onData(async (data) => {
+  termOndata = terminal.value.onData(async (data) => {
     // 发送数据到SSH会话
     // alias替换
     if (startStr.value == '') {
@@ -911,15 +938,27 @@ const setupTerminalInput = () => {
         selectFlag.value = true
       }
     }
-
-    if (data == '\r') {
+    if (data === '\x03') {
+      // Ctrl+C
+      sendData(data)
+    } else if (data === '\x16') {
+      // Ctrl+V
+      navigator.clipboard
+        .readText()
+        .then((text) => {
+          sendData(text)
+        })
+        .catch(() => {
+          // 如果剪贴板访问失败，静默处理
+        })
+    } else if (data == '\r') {
       selectFlag.value = true
       const delData = String.fromCharCode(127)
       const command = terminalState.value.content
       const aliasStore = aliasConfigStore()
       configStore.getUserConfig.quickVimStatus = 1
       const newCommand = aliasStore.getCommand(command) // 全局alias
-      if (configStore.getUserConfig.aliasStatus === 1 && newCommand !== null) {
+      if (dbConfigStash.aliasStatus === 1 && newCommand !== null) {
         sendData(delData.repeat(command.length) + newCommand + '\r')
       } else if (configStore.getUserConfig.quickVimStatus === 1) {
         connectionSftpAvailable.value = await api.checkSftpConnAvailable(connectionId.value)
@@ -1059,7 +1098,7 @@ const handleServerOutput = (response: MarkedResponse) => {
     createEditor(filePath, contentType)
     sendMarkedData('history -s "vim ' + filePath + '"' + '\r', 'Chaterm:history')
     data = lastLine
-    xxxWrite?.(data)
+    cusWrite?.(data)
   } else if (
     response.marker === 'Chaterm:save' ||
     response.marker === 'Chaterm:history' ||
@@ -1069,27 +1108,27 @@ const handleServerOutput = (response: MarkedResponse) => {
   } else if (response.marker === 'Chaterm:[A') {
     // 跳过命令
     if (data.indexOf('Chaterm:vim') !== -1) {
-      xxxWrite?.(data)
+      cusWrite?.(data)
       sendData(String.fromCharCode(21))
       sendMarkedData(String.fromCharCode(27, 91, 65), 'Chaterm:[A')
     } else {
-      xxxWrite?.(data)
+      cusWrite?.(data)
     }
   } else if (response.marker === 'Chaterm:[B') {
     // 跳过命令
     if (data.indexOf('Chaterm:vim') !== -1) {
-      xxxWrite?.(data)
+      cusWrite?.(data)
       sendData(String.fromCharCode(21))
       sendMarkedData(String.fromCharCode(27, 91, 64), 'Chaterm:[B')
     } else {
-      xxxWrite?.(data)
+      cusWrite?.(data)
     }
   } else if (response.marker === 'Chaterm:pwd') {
     currentCwd.value = data.trim()
     currentCwdStore.setCurrentCwd(currentCwd.value)
     console.log('current working directory:', currentCwd.value)
   } else {
-    xxxWrite?.(data)
+    cusWrite?.(data)
   }
 }
 
@@ -1148,33 +1187,17 @@ const highlightSyntax = (allData) => {
   if (command) {
     const commandMarker = terminal.value?.registerMarker(startY)
     activeMarkers.value.push(commandMarker)
-    xxxWrite?.(`\x1b[${startY + 1};${cursorStartX.value + 1}H`, {
+    cusWrite?.(`\x1b[${startY + 1};${cursorStartX.value + 1}H`, {
       isUserCall: true
     })
-    //xxxWrite?.(
-    //   JSON.stringify({
-    //     cmd: `\x1b[${startY + 1};${cursorStartX.value + 1}H`,
-    //     isUserCall: true
-    //   })
-    // )
+
     const colorCode = isValidCommand ? '38;2;24;144;255' : '31'
-    //xxxWrite?.(
-    //   JSON.stringify({
-    //     cmd: `\x1b[${colorCode}m${command}\x1b[0m`,
-    //     isUserCall: true
-    //   })
-    // )
-    xxxWrite?.(`\x1b[${colorCode}m${command}\x1b[0m`, {
+
+    cusWrite?.(`\x1b[${colorCode}m${command}\x1b[0m`, {
       isUserCall: true
     })
     setTimeout(() => {
-      //xxxWrite?.(
-      //   JSON.stringify({
-      //     cmd: `\x1b[${cursorY.value + 1};${currentCursorX + 1}H`,
-      //     isUserCall: true
-      //   })
-      // )
-      xxxWrite?.(`\x1b[${cursorY.value + 1};${currentCursorX + 1}H`, {
+      cusWrite?.(`\x1b[${cursorY.value + 1};${currentCursorX + 1}H`, {
         isUserCall: true
       })
     })
@@ -1187,34 +1210,15 @@ const highlightSyntax = (allData) => {
     let unMatchFlag = false
     for (let i = 0; i < afterCommandArr.length; i++) {
       if (afterCommandArr[i].type == 'unmatched') {
-        //xxxWrite?.(
-        //   JSON.stringify({
-        //     cmd: `\x1b[${startY + 1};${cursorStartX.value + 1}H`,
-        //     isUserCall: true
-        //   })
-        // )
-        xxxWrite?.(`\x1b[${startY + 1};${cursorStartX.value + 1}H`, {
+        cusWrite?.(`\x1b[${startY + 1};${cursorStartX.value + 1}H`, {
           isUserCall: true
         })
 
-        //xxxWrite?.(
-        //   JSON.stringify({
-        //     cmd: `\x1b[31m${content}\x1b[0m`,
-        //     isUserCall: true
-        //   })
-        // )
-
-        xxxWrite?.(`\x1b[31m${content}\x1b[0m`, {
+        cusWrite?.(`\x1b[31m${content}\x1b[0m`, {
           isUserCall: true
         })
-        //xxxWrite?.(
-        //   JSON.stringify({
-        //     cmd: `\x1b[${cursorY.value + 1};${currentCursorX + 1}H`,
-        //     isUserCall: true
-        //   })
-        // )
 
-        xxxWrite?.(`\x1b[${cursorY.value + 1};${currentCursorX + 1}H`, {
+        cusWrite?.(`\x1b[${cursorY.value + 1};${currentCursorX + 1}H`, {
           isUserCall: true
         })
         unMatchFlag = true
@@ -1223,37 +1227,17 @@ const highlightSyntax = (allData) => {
     if (!unMatchFlag) {
       for (let i = 0; i < afterCommandArr.length; i++) {
         if (afterCommandArr[i].content == ' ') {
-          //xxxWrite?.(
-          //   JSON.stringify({
-          //     cmd: `\x1b[${startY + 1};${cursorStartX.value + command.length + 1 + afterCommandArr[i].startIndex}H`,
-          //     isUserCall: true
-          //   })
-          // )
-          xxxWrite?.(
+          cusWrite?.(
             `\x1b[${startY + 1};${cursorStartX.value + command.length + 1 + afterCommandArr[i].startIndex}H`,
             {
               isUserCall: true
             }
           )
-
-          //xxxWrite?.(
-          //   JSON.stringify({
-          //     cmd: `${afterCommandArr[i].content}\x1b[0m`,
-          //     isUserCall: true
-          //   })
-          // )
-          xxxWrite?.(`${afterCommandArr[i].content}\x1b[0m`, {
+          cusWrite?.(`${afterCommandArr[i].content}\x1b[0m`, {
             isUserCall: true
           })
         } else {
-          //xxxWrite?.(
-          //   JSON.stringify({
-          //     cmd: `\x1b[${startY + 1};${cursorStartX.value + command.length + 1 + afterCommandArr[i].startIndex}H`,
-          //     isUserCall: true
-          //   })
-          // )
-
-          xxxWrite?.(
+          cusWrite?.(
             `\x1b[${startY + 1};${cursorStartX.value + command.length + 1 + afterCommandArr[i].startIndex}H`,
             {
               isUserCall: true
@@ -1261,14 +1245,7 @@ const highlightSyntax = (allData) => {
           )
           const colorCode =
             afterCommandArr[i].type == 'matched' ? '38;2;250;173;20' : '38;2;126;193;255'
-          //xxxWrite?.(
-          //   JSON.stringify({
-          //     cmd: `\x1b[${colorCode}m${afterCommandArr[i].content}\x1b[0m`,
-          //     isUserCall: true
-          //   })
-          // )
-
-          xxxWrite?.(`\x1b[${colorCode}m${afterCommandArr[i].content}\x1b[0m`, {
+          cusWrite?.(`\x1b[${colorCode}m${afterCommandArr[i].content}\x1b[0m`, {
             isUserCall: true
           })
         }
@@ -1277,90 +1254,37 @@ const highlightSyntax = (allData) => {
   } else {
     if (index == -1 && currentCursorX >= cursorStartX.value + command.length) {
       // 没有空格 且 光标在命令末尾
-      //xxxWrite?.(
-      //   JSON.stringify({
-      //     cmd: `\x1b[${startY + 1};${cursorStartX.value + command.length + 1}H`,
-      //     isUserCall: true
-      //   })
-      // )
-
-      xxxWrite?.(`\x1b[${startY + 1};${cursorStartX.value + command.length + 1}H`, {
+      cusWrite?.(`\x1b[${startY + 1};${cursorStartX.value + command.length + 1}H`, {
         isUserCall: true
       })
-      //xxxWrite?.(
-      //   JSON.stringify({
-      //     cmd: `\x1b[38;2;126;193;255m${arg}\x1b[0m`,
-      //     isUserCall: true
-      //   })
-      // )
-      xxxWrite?.(`\x1b[38;2;126;193;255m${arg}\x1b[0m`, { isUserCall: true })
-      //xxxWrite?.(
-      //   JSON.stringify({
-      //     cmd: `\x1b[${cursorY.value + 1};${currentCursorX + 1}H`,
-      //     isUserCall: true
-      //   })
-      // )
 
-      xxxWrite?.(`\x1b[${cursorY.value + 1};${currentCursorX + 1}H`, {
+      cusWrite?.(`\x1b[38;2;126;193;255m${arg}\x1b[0m`, { isUserCall: true })
+
+      cusWrite?.(`\x1b[${cursorY.value + 1};${currentCursorX + 1}H`, {
         isUserCall: true
       })
     } else if (currentCursorX < cursorStartX.value + command.length) {
       // 光标在命令中间
-      //xxxWrite?.(
-      //   JSON.stringify({
-      //     cmd: `\x1b[${startY + 1};${cursorStartX.value + command.length + 1}H`,
-      //     isUserCall: true
-      //   })
-      // )
-      xxxWrite?.(`\x1b[${startY + 1};${cursorStartX.value + command.length + 1}H`, {
+
+      cusWrite?.(`\x1b[${startY + 1};${cursorStartX.value + command.length + 1}H`, {
         isUserCall: true
       })
 
-      //xxxWrite?.(
-      //   JSON.stringify({
-      //     cmd: `\x1b[38;2;126;193;255m${arg}\x1b[0m`,
-      //     isUserCall: true
-      //   })
-      // )
+      cusWrite?.(`\x1b[38;2;126;193;255m${arg}\x1b[0m`, { isUserCall: true })
 
-      xxxWrite?.(`\x1b[38;2;126;193;255m${arg}\x1b[0m`, { isUserCall: true })
-      //xxxWrite?.(
-      //   JSON.stringify({
-      //     cmd: `\x1b[${cursorY.value + 1};${currentCursorX + 1}H`,
-      //     isUserCall: true
-      //   })
-      // )
-
-      xxxWrite?.(`\x1b[${cursorY.value + 1};${currentCursorX + 1}H`, {
+      cusWrite?.(`\x1b[${cursorY.value + 1};${currentCursorX + 1}H`, {
         isUserCall: true
       })
     } else {
       // 光标不在命令范围内
-      //xxxWrite?.(
-      //   JSON.stringify({
-      //     cmd: `\x1b[${startY + 1};${cursorStartX.value + command.length + 1}H`,
-      //     isUserCall: true
-      //   })
-      // )
 
-      xxxWrite?.(`\x1b[${startY + 1};${cursorStartX.value + command.length + 1}H`, {
+      cusWrite?.(`\x1b[${startY + 1};${cursorStartX.value + command.length + 1}H`, {
         isUserCall: true
       })
-      //xxxWrite?.(
-      //   JSON.stringify({
-      //     cmd: `\x1b[38;2;126;193;255m${arg}\x1b[0m`,
-      //     isUserCall: true
-      //   })
-      // )
 
-      xxxWrite?.(`\x1b[38;2;126;193;255m${arg}\x1b[0m`, { isUserCall: true })
-      //xxxWrite?.(
-      //   JSON.stringify({
-      //     cmd: `\x1b[${cursorY.value + 1};${currentCursorX}H`,
-      //     isUserCall: true
-      //   })
-      // )
-      xxxWrite?.(`\x1b[${cursorY.value + 1};${currentCursorX}H`, { isUserCall: true })
+      cusWrite?.(`\x1b[38;2;126;193;255m${arg}\x1b[0m`, { isUserCall: true })
+
+      cusWrite?.(`\x1b[${cursorY.value + 1};${currentCursorX}H`, { isUserCall: true })
     }
   }
 }
@@ -1501,6 +1425,7 @@ const selectSuggestion = (suggestion) => {
   }, 10)
 }
 const queryCommand = async () => {
+  if (!queryCommandFlag.value) return
   try {
     const result = await window.api.queryCommand({
       command: terminalState.value.beforeCursor,
@@ -1523,7 +1448,6 @@ const insertCommand = async (cmd) => {
       command: cmd,
       ip: props.connectData.ip
     })
-    console.log('command insert success')
     // message.success('命令插入成功')
   } catch (error) {
     // message.error('命令插入失败')
@@ -1596,37 +1520,53 @@ const disconnectSSH = async () => {
 
       // 更新状态
       isConnected.value = false
-      // terminal.value?.writeln(
-      //   JSON.stringify({
-      //     cmd: '\r\n已断开连接。',
-      //     isUserCall: true
-      //   })
-      // )
 
-      xxxWrite?.('\r\n已断开连接。', { isUserCall: true })
+      cusWrite?.('\r\n已断开连接。', { isUserCall: true })
     } else {
-      // terminal.value?.writeln(
-      //   JSON.stringify({
-      //     cmd: `\r\n断开连接错误: ${result.message}`,
-      //     isUserCall: true
-      //   })
-      // )
-
-      xxxWrite?.(`\r\n断开连接错误: ${result.message}`, { isUserCall: true })
+      cusWrite?.(`\r\n断开连接错误: ${result.message}`, { isUserCall: true })
     }
   } catch (error: any) {
-    // terminal.value?.writeln(
-    //   JSON.stringify({
-    //     cmd: `\r\n断开连接错误: ${error.message || '未知错误'}`,
-    //     isUserCall: true
-    //   })
-    // )
-
-    xxxWrite?.(`\r\n断开连接错误: ${error.message || '未知错误'}`, {
+    cusWrite?.(`\r\n断开连接错误: ${error.message || '未知错误'}`, {
       isUserCall: true
     })
   }
   emit('disconnectSSH', { isConnected: isConnected })
+}
+// 右键菜单方法
+const contextAct = (action) => {
+  switch (action) {
+    case 'paste':
+      // 粘贴
+      navigator.clipboard.readText().then((text) => {
+        cusWrite?.(text, {
+          isUserCall: true
+        })
+        terminal.value?.focus()
+      })
+      break
+    case 'disconnect':
+      disconnectSSH()
+      termOndata?.dispose()
+      termOndata = null
+      // terminal.value?.onData().dispose()
+      break
+    case 'reconnect':
+      // 重新连接
+      connectSSH()
+      break
+    case 'newTerminal':
+      emit('createNewTerm', props.serverInfo)
+      // 新终端
+      break
+    case 'close':
+      // 关闭
+      // socket.value.close()
+      emit('closeTabInTerm', props.serverInfo.id)
+      break
+    default:
+      // 未知操作
+      break
+  }
 }
 </script>
 

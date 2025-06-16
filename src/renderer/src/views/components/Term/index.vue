@@ -16,46 +16,13 @@
       :active-suggestion="activeSuggestion"
     />
     <v-contextmenu ref="contextmenu">
-      <v-contextmenu-item @click="onContextMenuAction('copy')">复制</v-contextmenu-item>
-      <v-contextmenu-item @click="onContextMenuAction('paste')">粘贴</v-contextmenu-item>
-      <!-- <v-contextmenu-item
-        :disabled="true"
-        @click="onContextMenuAction('saveAsConfig')"
-        >另存为配置</v-contextmenu-item
-      >
-      <v-contextmenu-item
-        :disabled="true"
-        @click="onContextMenuAction('activityNotification')"
-        >活动时通知</v-contextmenu-item
-      >
-      <v-contextmenu-item
-        :disabled="true"
-        @click="onContextMenuAction('focusAllTabs')"
-        >聚焦所有标签页</v-contextmenu-item
-      > -->
-      <v-contextmenu-item @click="onContextMenuAction('disconnect')">断开连接</v-contextmenu-item>
-      <v-contextmenu-item @click="onContextMenuAction('reconnect')">重新连接</v-contextmenu-item>
-      <!-- <v-contextmenu-item
-        :disabled="true"
-        @click="onContextMenuAction('openSftpPanel')"
-        >打开 SFTP 面板</v-contextmenu-item
-      > -->
-      <v-contextmenu-item @click="onContextMenuAction('newTerminal')">新终端</v-contextmenu-item>
-      <!-- <v-contextmenu-item
-        :disabled="true"
-        @click="onContextMenuAction('newByConfig')"
-        >依据配置新建</v-contextmenu-item
-      > -->
-      <v-contextmenu-item @click="onContextMenuAction('close')">关闭</v-contextmenu-item>
-      <!-- <v-contextmenu-submenu
-        title="拆分"
-        :disabled="true"
-      >
-        <v-contextmenu-item @click="onContextMenuAction('splitRight')">右侧</v-contextmenu-item>
-        <v-contextmenu-item @click="onContextMenuAction('splitDown')">向下</v-contextmenu-item>
-        <v-contextmenu-item @click="onContextMenuAction('splitLeft')">左侧</v-contextmenu-item>
-        <v-contextmenu-item @click="onContextMenuAction('splitUp')">向上</v-contextmenu-item>
-      </v-contextmenu-submenu> -->
+      <Context
+        @contextAct="contextAct"
+        :wsInstance="socket"
+        :termInstance="term"
+        :copyText="copyText"
+        :terminalId="terminalId"
+      />
     </v-contextmenu>
   </div>
   <div
@@ -72,6 +39,8 @@
 </template>
 
 <script setup>
+const contextmenu = ref()
+import Context from './contextComp.vue'
 import SuggComp from './suggestion.vue'
 import { ref, onMounted, nextTick, onBeforeUnmount, defineProps, reactive } from 'vue'
 import { Terminal } from 'xterm'
@@ -87,12 +56,11 @@ import { termFileContent, termFileContentSave } from '@/api/term/term'
 import { notification } from 'ant-design-vue'
 import EditorCode from './Editor/dragEditor.vue'
 import { Modal } from 'ant-design-vue'
-
 import { getListCmd } from '@/api/asset/asset'
-const emit = defineEmits(['closeTabInTerm'])
+import { aliasConfigStore } from '@/store/aliasConfigStore'
+const emit = defineEmits(['closeTabInTerm', 'createNewTerm'])
 import eventBus from '@/utils/eventBus'
 
-const contextmenu = ref()
 const props = defineProps({
   serverInfo: {
     type: Object,
@@ -139,6 +107,8 @@ const commands = ref([])
 const cursorY = ref(0)
 const cursorX = ref(0)
 const stashCursorX = ref(0)
+let stashConfig = null
+let allDatas = ref({})
 
 const authData = {
   email: email,
@@ -147,7 +117,6 @@ const authData = {
   organizationId: props.serverInfo.organizationId,
   terminalId: terminalId
 }
-
 onMounted(() => {
   initTerminal()
   connectWebsocket()
@@ -184,8 +153,10 @@ const getALlCmdList = () => {
 // 初始化xterm终端
 const initTerminal = async () => {
   const config = await serviceUserConfig.getConfig()
+  stashConfig = config
   term = new Terminal({
     cursorBlink: true,
+    scrollback: config.scrollBack,
     cursorStyle: config.cursorStyle || 'bar',
     fontSize: config.fontSize,
     fontFamily: 'Menlo, Monaco, "Courier New", Courier, monospace',
@@ -220,10 +191,38 @@ const initTerminal = async () => {
         const msgType = 'TERMINAL_DATA'
         const data = 'clear\r'
         socket.value.send(JSON.stringify({ terminalId, msgType, data }))
+      } else if (data == '\r') {
+        const msgType = 'TERMINAL_DATA'
+        const delData = String.fromCharCode(127)
+        const aliasStore = aliasConfigStore()
+        configStore.getUserConfig.quickVimStatus = 1
+        let command = allDatas.value.highLightData.allContent
+        const newCommand = aliasStore.getCommand(command) //
+        if (stashConfig.aliasStatus === 1 && newCommand !== null) {
+          data = delData.repeat(command.length) + newCommand + '\r'
+          socket.value.send(JSON.stringify({ terminalId, msgType, data }))
+        } else {
+          socket.value.send(JSON.stringify({ terminalId, msgType, data }))
+        }
       } else if (data == '\x0c' || data == '\x04') {
         specialCode.value = true
         const msgType = 'TERMINAL_DATA'
         socket.value.send(JSON.stringify({ terminalId, msgType, data }))
+      } else if (data == '\x03') {
+        // Ctrl+C 发送中断信号
+        specialCode.value = true
+        const msgType = 'TERMINAL_DATA'
+        socket.value.send(JSON.stringify({ terminalId, msgType, data }))
+      } else if (data == '\x16') {
+        // Ctrl+V 执行粘贴
+        navigator.clipboard
+          .readText()
+          .then((text) => {
+            // 将剪贴板的内容写入到终端
+            socket.value.send(JSON.stringify({ terminalId, msgType: 'TERMINAL_DATA', data: text }))
+            term.value.focus()
+          })
+          .catch(() => {})
       } else {
         const msgType = 'TERMINAL_DATA'
         if (suggestions.value.length && (data == '\u001b[A' || data == '\u001b[B')) {
@@ -246,7 +245,6 @@ const initTerminal = async () => {
       copyText.value = term.getSelection()
     }
   })
-
   //onKey监听不到输入法，补充监听
   const textarea = term.element.querySelector('.xterm-helper-textarea')
   textarea.addEventListener('compositionend', (e) => {
@@ -278,7 +276,6 @@ const connectWebsocket = () => {
         '\x1b[38;2;22;119;255m' + email.split('@')[0] + ', Welcome to use Chaterm \x1b[m\r\n'
     }
     term.writeln(welcome)
-    console.log(api, 'api')
     api.openHeartbeatWindow(heartbeatId, 5000)
     api.heartBeatTick(listenerHeartbeat)
 
@@ -292,7 +289,7 @@ const connectWebsocket = () => {
       // dispatch(term, event.data, socket.value)
       const o = JSON.parse(event.data)
       const componentInstance = componentRefs.value[infos.value.id]
-      if (o.msgType == 'TERMINAL_AUTO_COMPLEMENT') {
+      if (o.msgType == 'TERMINAL_AUTO_COMPLEMENT' && stashConfig.autoCompleteStatus == 1) {
         o.autoComplement
           ? ((suggestions.value = o.autoComplement),
             nextTick(() => {
@@ -310,19 +307,26 @@ const connectWebsocket = () => {
           term.write(enc.decode(event.data))
         } else {
           const data = JSON.parse(event.data)
+          allDatas.value = data
           if (data.highLightData && keyCodeArr.indexOf(keyCode.value) != -1) {
-            highlightSyntax(data.highLightData)
+            if (stashConfig.highlightStatus == 1) {
+              highlightSyntax(data.highLightData)
+            } else {
+              term.write(data)
+            }
           }
-          // if (data.highLightData ) {
-          //   that.highlightSyntax(data.highLightData)
-          // }
         }
       } else {
         //非初始输入且非特殊按键
         if (typeof event.data !== 'object') {
           const data = JSON.parse(event.data)
+          allDatas.value = data
           if (data.highLightData) {
-            highlightSyntax(data.highLightData)
+            if (stashConfig.highlightStatus == 1) {
+              highlightSyntax(data.highLightData)
+            } else {
+              term.write(data.data)
+            }
           }
         }
       }
@@ -363,7 +367,6 @@ const handleResize = () => {
 // 别的组件通过按钮执行命令
 const autoExecuteCode = (cmd) => {
   const msgType = 'TERMINAL_DATA'
-  console.log(msgType, 'msgTypemsgTypemsgType')
   socket.value.send(JSON.stringify({ terminalId, msgType, data: cmd }))
 }
 const dispatch = (term, msgData, ws) => {
@@ -785,14 +788,9 @@ const handleMessage = (msg, terminalId) => {
   }
 }
 
-// 统一右键菜单方法
-const onContextMenuAction = (action) => {
+// 右键菜单方法
+const contextAct = (action) => {
   switch (action) {
-    case 'copy':
-      // 复制
-      navigator.clipboard.writeText(copyText.value)
-      console.log(copyText.value, 'copyTextcopyText')
-      break
     case 'paste':
       // 粘贴
       navigator.clipboard
@@ -800,54 +798,25 @@ const onContextMenuAction = (action) => {
         .then((text) => {
           // 将剪贴板的内容写入到终端
           socket.value.send(JSON.stringify({ terminalId, msgType: 'TERMINAL_DATA', data: text }))
-          term.focus()
+          term.value.focus()
         })
         .catch(() => {})
       break
-    case 'saveAsConfig':
-      // 另存为配置
-      break
-    case 'activityNotification':
-      // 活动时通知
-      break
-    case 'focusAllTabs':
-      // 聚焦所有标签页
-      break
     case 'disconnect':
       socket.value.close()
-      // 断开连接
       break
     case 'reconnect':
       // 重新连接
       connectWebsocket()
       break
-    case 'openSftpPanel':
-      // 打开 SFTP 面板
-      break
     case 'newTerminal':
-      console.log(props.serverInfo, 'props.serverInfo.id')
       emit('createNewTerm', props.serverInfo)
       // 新终端
       break
-    case 'newByConfig':
-      // 依据配置新建
-      break
     case 'close':
+      // 关闭
       socket.value.close()
       emit('closeTabInTerm', props.serverInfo.id)
-      // 关闭
-      break
-    case 'splitRight':
-      // 拆分-右侧
-      break
-    case 'splitDown':
-      // 拆分-向下
-      break
-    case 'splitLeft':
-      // 拆分-左侧
-      break
-    case 'splitUp':
-      // 拆分-向上
       break
     default:
       // 未知操作

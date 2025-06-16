@@ -86,32 +86,20 @@
               />
 
               <div class="message-actions">
-                <!-- <template v-if="chatTypeValue === 'cmd'">
-                  <div class="action-buttons">
-                    <div class="button-row">
-                      <a-button
-                        size="small"
-                        class="action-btn copy-btn"
-                        @click="handleCopyContent(message)"
-                      >
-                        <template #icon>
-                          <CopyOutlined />
-                        </template>
-                        {{ $t('ai.copy') }}
-                      </a-button>
-                      <a-button
-                        size="small"
-                        class="action-btn apply-btn"
-                        @click="handleApplyCommand(message)"
-                      >
-                        <template #icon>
-                          <PlayCircleOutlined />
-                        </template>
-                        {{ $t('ai.run') }}
-                      </a-button>
-                    </div>
-                  </div>
-                </template> -->
+                <a-tooltip :title="$t('ai.copy')">
+                  <a-button
+                    v-if="
+                      chatTypeValue === 'cmd' && message.ask === 'command' && message.actioned
+                    "
+                    size="small"
+                    class="history-copy-btn"
+                    @click="handleHistoryCopy(message)"
+                  >
+                    <template #icon>
+                      <CopyOutlined />
+                    </template>
+                  </a-button>
+                </a-tooltip>
                 <template
                   v-if="typeof message.content === 'object' && 'options' in message.content"
                 >
@@ -144,7 +132,7 @@
       </div>
       <div class="bottom-container">
         <div
-          v-if="showBottomButton"
+          v-if="showBottomButton && chatTypeValue == 'agent'"
           class="bottom-buttons"
         >
           <a-button
@@ -165,7 +153,32 @@
             @click="handleApproveCommand"
           >
             <template #icon>
-              <CheckOutlined />
+              <PlayCircleOutlined />
+            </template>
+            {{ $t('ai.run') }}
+          </a-button>
+        </div>
+        <div
+          v-if="showBottomButton && chatTypeValue == 'cmd'"
+          class="bottom-buttons"
+        >
+          <a-button
+            size="small"
+            class="reject-btn"
+            @click="handleCopyContent"
+          >
+            <template #icon>
+              <CopyOutlined />
+            </template>
+            {{ $t('ai.copy') }}
+          </a-button>
+          <a-button
+            size="small"
+            class="approve-btn"
+            @click="handleApplyCommand"
+          >
+            <template #icon>
+              <PlayCircleOutlined />
             </template>
             {{ $t('ai.run') }}
           </a-button>
@@ -351,7 +364,6 @@ import {
   CloseOutlined,
   LaptopOutlined,
   CopyOutlined,
-  CheckOutlined,
   PlayCircleOutlined,
   RedoOutlined,
   HourglassOutlined
@@ -359,16 +371,11 @@ import {
 import { notification } from 'ant-design-vue'
 import { v4 as uuidv4 } from 'uuid'
 import eventBus from '@/utils/eventBus'
-import {
-  getGlobalState,
-  updateGlobalState,
-  getAllExtensionState
-} from '@renderer/agent/storage/state'
+import { getGlobalState, updateGlobalState } from '@renderer/agent/storage/state'
 import type {
   HistoryItem,
   TaskHistoryItem,
   Host,
-  ModelOption,
   ChatMessage,
   MessageContent,
   AssetInfo
@@ -445,7 +452,6 @@ const props = defineProps({
   }
 })
 
-let AiModelsOptions = ref<ModelOption[]>([])
 let AgentAiModelsOptions = [
   { label: 'claude-4-sonnet', value: 'claude-4-sonnet' },
   { label: 'claude-4-haiku', value: 'claude-4-haiku' },
@@ -496,10 +502,8 @@ const getCurentTabAssetInfo = async (): Promise<AssetInfo | null> => {
     })
     // 直接在这里处理结果
     if (assetInfo) {
-      console.log('获取到资产信息:', assetInfo)
       return assetInfo
     } else {
-      console.error('未能获取到当前标签页的资产信息:')
       return null
     }
   } catch (error) {
@@ -509,36 +513,32 @@ const getCurentTabAssetInfo = async (): Promise<AssetInfo | null> => {
 }
 
 // 创建主机信息对象
-const createHostInfo = (ip: string, id: string, organizationId: string) => {
+const createHostInfo = (ip: string, uuid: string, organizationId: string) => {
   return {
     host: ip,
-    uuid: id,
+    uuid: uuid,
     connection: organizationId !== 'personal' ? 'organization' : 'personal',
     organizationId: organizationId !== 'personal' ? organizationId : 'personal_01'
   }
 }
 
 // 更新主机列表
-const updateHosts = (hostInfo: { ip: string; id: string; organizationId: string } | null) => {
+const updateHosts = (hostInfo: { ip: string; uuid: string; organizationId: string } | null) => {
   if (hostInfo) {
-    const newHost = createHostInfo(hostInfo.ip, hostInfo.id, hostInfo.organizationId)
+    const newHost = createHostInfo(hostInfo.ip, hostInfo.uuid, hostInfo.organizationId)
     hosts.value = [newHost]
-    console.log('更新后的hosts数组:', hosts.value)
   } else {
     hosts.value = []
-    console.log('清空hosts数组')
   }
 }
 
 // 初始化资产信息
 const initAssetInfo = async () => {
-  console.log('开始初始化资产信息')
   const assetInfo = await getCurentTabAssetInfo()
-  console.log('获取到的资产信息:', assetInfo)
   if (assetInfo) {
     updateHosts({
       ip: assetInfo.ip,
-      id: assetInfo.uuid,
+      uuid: assetInfo.uuid,
       organizationId: assetInfo.organizationId
     })
   } else {
@@ -635,7 +635,8 @@ const handlePlusClick = async () => {
       host: assetInfo.ip,
       uuid: assetInfo.uuid,
       connection: assetInfo.organizationId === 'personal' ? 'personal' : 'organization',
-      organizationId: assetInfo.organizationId || 'personal'
+      organizationId:
+        assetInfo.organizationId !== 'personal' ? assetInfo.organizationId : 'personal_01'
     })
   }
 
@@ -801,28 +802,45 @@ const handleHistoryClick = async () => {
     console.error('Failed to get conversation list:', err)
   }
 }
-
-const handleApplyCommand = (message: ChatMessage) => {
-  eventBus.emit('executeTerminalCommand', message.content + '\n')
-}
-
-const handleCopyContent = async (message: ChatMessage) => {
-  try {
-    const content =
-      typeof message.content === 'string'
-        ? message.content
-        : (message.content as MessageContent).question || ''
-    await navigator.clipboard.writeText(content)
-    eventBus.emit('executeTerminalCommand', content)
-  } catch (err) {
-    console.error('Copy failed:', err)
+const handleMessageOperation = async (operation: 'copy' | 'apply') => {
+  const lastMessage = chatHistory.at(-1)
+  if (!lastMessage) {
     notification.error({
-      message: 'Error',
-      description: 'Copy failed',
-      duration: 3,
+      message: '操作失败',
+      description: '没有可操作的消息',
+      duration: 2,
       placement: 'topRight'
     })
+    return
   }
+
+  let content = ''
+  if (typeof lastMessage.content === 'string') {
+    content = lastMessage.content
+  } else if (lastMessage.content && 'question' in lastMessage.content) {
+    content = (lastMessage.content as MessageContent).question || ''
+  }
+  lastMessage.actioned = true
+
+  if (operation === 'copy') {
+    eventBus.emit('executeTerminalCommand', content)
+  } else if (operation === 'apply') {
+    eventBus.emit('executeTerminalCommand', content + '\n')
+  }
+  lastChatMessageId.value = ''
+}
+
+const handleApplyCommand = () => handleMessageOperation('apply')
+const handleCopyContent = () => handleMessageOperation('copy')
+
+const handleHistoryCopy = (message: ChatMessage) => {
+  let content = ''
+  if (typeof message.content === 'string') {
+    content = message.content
+  } else if (message.content && 'question' in message.content) {
+    content = (message.content as MessageContent).question || ''
+  }
+  eventBus.emit('executeTerminalCommand', content)
 }
 
 const handleRejectContent = async () => {
@@ -895,8 +913,6 @@ const handleApproveCommand = async () => {
   let message = chatHistory.at(-1)
   if (!message) {
     return false
-  } else if (chatTypeValue.value === 'cmd') {
-    eventBus.emit('writeTerminalCommand', message.content + '\r\n')
   }
   try {
     let messageRsp = {
@@ -1063,7 +1079,7 @@ const changeModel = debounce(async (newValue) => {
         AgentAiModelsOptions = litellmAiModelOptions
         break
       case 'deepseek':
-        chatAiModelValue.value = await getGlobalState('apiModelId')
+        chatAiModelValue.value = (await getGlobalState('apiModelId')) as string
         AgentAiModelsOptions = deepseekAiModelOptions
         break
     }
@@ -1093,11 +1109,10 @@ onMounted(async () => {
 
   // 监听标签页变化
   eventBus.on('activeTabChanged', async (tabInfo) => {
-    console.log('标签页变化:', tabInfo)
     if (tabInfo && tabInfo.ip) {
       updateHosts({
         ip: tabInfo.ip,
-        id: tabInfo.id,
+        uuid: tabInfo.data.uuid,
         organizationId: tabInfo.organizationId || 'personal'
       })
     } else {
@@ -1116,40 +1131,13 @@ onMounted(async () => {
 
   currentChatId.value = chatId
 
-  try {
-    const res = await getAiModel({})
-    AiModelsOptions.value = res.data.models.map((model: any) => ({
-      label: model.name,
-      value: model.name
-    }))
-  } catch (err) {
-    console.error('Failed to get AI models:', err)
-  }
-
   let lastMessage: any = null
   let lastPartialMessage: any = null
   removeListener = (window.api as any).onMainMessage((message: any) => {
-    console.log('Received main process message:', message)
     if (message?.type === 'partialMessage') {
       showSendButton.value = false
       showCancelButton.value = true
       let lastMessageInChat = chatHistory.at(-1)
-
-      // 处理 command_output 类型的消息
-      if (
-        message.partialMessage.type === 'say' &&
-        message.partialMessage.say === 'command_output' &&
-        message.partialMessage.text &&
-        message.partialMessage.partial === false
-      ) {
-        if (chatTypeValue.value === 'cmd') {
-          if (message.partialMessage.text !== 'chaterm command no output was returned.') {
-            eventBus.emit('writeTerminalCommand', message.partialMessage.text)
-          }
-          eventBus.emit('executeTerminalCommand', '\r')
-        }
-        return // 跳过添加到聊天历史
-      }
 
       let openNewMessage =
         (lastMessage?.type === 'state' && !lastPartialMessage?.partialMessage?.partial) ||
@@ -1209,7 +1197,6 @@ onMounted(async () => {
       }
     }
     lastMessage = message
-    console.log('chatHistory after processing:', chatHistory)
   })
 })
 
@@ -1692,6 +1679,7 @@ watch(
   flex-direction: column;
   gap: 2px;
   width: 100%;
+  position: relative;
 
   .message-actions {
     display: flex;
@@ -1806,6 +1794,29 @@ watch(
         font-size: 12px;
       }
     }
+  }
+}
+
+.history-copy-btn {
+  position: absolute;
+  top: 5px;
+  right: 5px;
+  background-color: #2a2a2a;
+  color: #e0e0e0;
+  border: none;
+  border-radius: 4px;
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  opacity: 0.5;
+  transition: opacity 0.2s;
+
+  &:hover {
+    opacity: 1;
+    background-color: #3a3a3a;
   }
 }
 
