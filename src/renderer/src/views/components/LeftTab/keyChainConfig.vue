@@ -1,5 +1,4 @@
 <template>
-  <!-- <a-button @click="testMain">main调用测试</a-button> -->
   <div class="keychain-config-container">
     <div class="split-layout">
       <div class="left-section">
@@ -126,7 +125,7 @@
             layout="vertical"
             class="custom-form"
           >
-            <a-form-item :label="`${t('keyChain.label')}*`">
+            <a-form-item :label="`${t('keyChain.name')}*`">
               <a-input
                 v-model:value="createForm.label"
                 :placeholder="t('keyChain.pleaseInput')"
@@ -242,9 +241,7 @@ const filteredKeyChainList = computed(() => {
 
   const lowerCaseInput = searchValue.value.toLowerCase()
   return keyChainList.value.filter(
-    (item) =>
-      item.chain_name.toLowerCase().includes(lowerCaseInput) ||
-      item.chain_type.toLowerCase().includes(lowerCaseInput)
+    (item) => item.chain_name.toLowerCase().includes(lowerCaseInput) || item.chain_type.toLowerCase().includes(lowerCaseInput)
   )
 })
 
@@ -712,10 +709,10 @@ const testMain = async () => {
   height: 100%;
   display: flex;
   flex-direction: column;
-  box-sizing: border-box; /* 确保内边距不会增加元素的总尺寸 */
+  box-sizing: border-box;
   padding: 0;
   overflow: hidden;
-  max-width: 30%; /* 限制最大宽度 */
+  max-width: 30%;
   min-width: 300px;
 }
 
@@ -724,7 +721,7 @@ const testMain = async () => {
   align-items: center;
   justify-content: space-between;
   width: 100%;
-  padding: 16px 16px 0 16px;
+  padding: 12px 16px 0 16px;
   flex-shrink: 0;
 }
 
@@ -732,70 +729,26 @@ const testMain = async () => {
   flex: 1;
   display: flex;
   flex-direction: column;
-  padding: 16px 16px 0 16px;
+  padding: 12px 16px 0 16px;
   overflow: auto;
   height: calc(100% - 40px);
-}
-
-/* 右键菜单样式 */
-.context-menu {
-  position: fixed;
-  z-index: 1000;
-  background-color: #2c2c2c;
-  border-radius: 4px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
-  padding: 4px 0;
-  min-width: 160px;
-}
-
-.context-menu-item {
-  display: flex;
-  align-items: center;
-  padding: 8px 12px;
-  cursor: pointer;
-  transition: background-color 0.2s;
-  color: white;
-  &.delete {
-    color: #ff4d4f;
-
-    &:hover {
-      background-color: rgba(255, 77, 79, 0.15);
-    }
-  }
-  &:hover {
-    background-color: #383838;
-  }
-}
-
-.context-menu-icon {
-  margin-right: 8px;
-  width: 16px;
-  height: 16px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.context-menu-text {
-  flex: 1;
 }
 
 .custom-form {
   color: rgba(255, 255, 255, 0.85);
   :deep(.ant-form-item) {
+    margin-bottom: 12px;
     color: rgba(255, 255, 255, 0.65);
   }
 }
 
 .connect-button-container {
   width: 100%;
-  padding: 16px;
+  padding: 12px 16px;
   margin-top: auto;
   flex-shrink: 0;
   position: sticky;
   bottom: 0;
-  // background-color: #2c2c2c;
-  // border-top: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .connect-button {
@@ -810,11 +763,6 @@ const testMain = async () => {
   }
 }
 
-/* 右侧表单样式 */
-:deep(.ant-form-item-label > label) {
-  color: white;
-}
-
 /* 右侧表单输入框样式 */
 .right-section {
   :deep(.ant-input),
@@ -826,6 +774,7 @@ const testMain = async () => {
     color: rgba(255, 255, 255, 0.85);
     background-color: transparent !important;
     border-color: rgba(255, 255, 255, 0.2) !important;
+    padding: 4px 11px;
 
     &::placeholder {
       color: rgba(255, 255, 255, 0.25) !important;
@@ -834,6 +783,9 @@ const testMain = async () => {
     &:focus {
       border-color: #1890ff;
     }
+  }
+  :deep(.ant-form-item-label) {
+    padding-bottom: 4px;
   }
   :deep(.anticon.ant-input-password-icon) {
     color: rgba(255, 255, 255, 0.85);
