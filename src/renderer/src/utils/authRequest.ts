@@ -25,7 +25,8 @@ authRequest.interceptors.response.use(
   function (error) {
     const data = error.response.data
     if (error.response.status === 401 && !(data.result && data.result.isLogin)) {
-      removeToken(true)
+      removeToken()
+      window.location.hash = '#/login'
     }
     return Promise.reject(error)
   }
