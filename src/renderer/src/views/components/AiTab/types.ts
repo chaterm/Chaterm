@@ -18,6 +18,7 @@ export interface ChatMessage {
   ts?: number
   selectedOption?: string
   partial?: boolean
+  actioned?: boolean
 }
 
 export interface AssetInfo {

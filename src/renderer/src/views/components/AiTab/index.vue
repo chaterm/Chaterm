@@ -86,6 +86,20 @@
               />
 
               <div class="message-actions">
+                <a-tooltip :title="$t('ai.copy')">
+                  <a-button
+                    v-if="
+                      chatTypeValue === 'cmd' && message.ask === 'command' && message.actioned
+                    "
+                    size="small"
+                    class="history-copy-btn"
+                    @click="handleHistoryCopy(message)"
+                  >
+                    <template #icon>
+                      <CopyOutlined />
+                    </template>
+                  </a-button>
+                </a-tooltip>
                 <template
                   v-if="typeof message.content === 'object' && 'options' in message.content"
                 >
@@ -806,16 +820,28 @@ const handleMessageOperation = async (operation: 'copy' | 'apply') => {
   } else if (lastMessage.content && 'question' in lastMessage.content) {
     content = (lastMessage.content as MessageContent).question || ''
   }
+  lastMessage.actioned = true
 
   if (operation === 'copy') {
     eventBus.emit('executeTerminalCommand', content)
   } else if (operation === 'apply') {
     eventBus.emit('executeTerminalCommand', content + '\n')
   }
+  lastChatMessageId.value = ''
 }
 
 const handleApplyCommand = () => handleMessageOperation('apply')
 const handleCopyContent = () => handleMessageOperation('copy')
+
+const handleHistoryCopy = (message: ChatMessage) => {
+  let content = ''
+  if (typeof message.content === 'string') {
+    content = message.content
+  } else if (message.content && 'question' in message.content) {
+    content = (message.content as MessageContent).question || ''
+  }
+  eventBus.emit('executeTerminalCommand', content)
+}
 
 const handleRejectContent = async () => {
   let message = chatHistory.at(-1)
@@ -1637,6 +1663,7 @@ watch(
   flex-direction: column;
   gap: 2px;
   width: 100%;
+  position: relative;
 
   .message-actions {
     display: flex;
@@ -1751,6 +1778,29 @@ watch(
         font-size: 12px;
       }
     }
+  }
+}
+
+.history-copy-btn {
+  position: absolute;
+  top: 5px;
+  right: 5px;
+  background-color: #2a2a2a;
+  color: #e0e0e0;
+  border: none;
+  border-radius: 4px;
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  opacity: 0.5;
+  transition: opacity 0.2s;
+
+  &:hover {
+    opacity: 1;
+    background-color: #3a3a3a;
   }
 }
 
