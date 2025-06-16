@@ -196,7 +196,7 @@ const EDITOR_SEQUENCES = {
     { pattern: [0x1b, 0x5b, 0x3f, 0x31, 0x6c, 0x1b, 0x3e], editor: 'nano' } // \033[?1l\033>
   ]
 }
-const testFlag = ref(false)
+const userInputFlag = ref(false)
 const currentCwd = ref('')
 const currentCwdStore = useCurrentCwdStore()
 let termOndata: IDisposable | null = null
@@ -269,7 +269,7 @@ onMounted(async () => {
   // termInstance.write
   cusWrite = function (data: string, options?: { isUserCall?: boolean }): void {
     console.log(JSON.stringify(data), 'data')
-    testFlag.value = options?.isUserCall ?? false
+    userInputFlag.value = options?.isUserCall ?? false
     const originalRequestRefresh = renderService.refreshRows.bind(renderService)
     const originalTriggerRedraw = renderService._renderDebouncer.refresh.bind(renderService._renderDebouncer)
     // 临时禁用渲染
@@ -284,7 +284,7 @@ onMounted(async () => {
       inputHandler._originalParse = inputHandler.parse
       inputHandler.parse = function (data: string) {
         inputHandler._originalParse.call(this, data)
-        if (!testFlag.value || !isEditorMode.value) {
+        if (!userInputFlag.value || !isEditorMode.value) {
           if (JSON.stringify(data).endsWith(startStr.value)) {
             updateTerminalState(true)
           } else {
@@ -292,28 +292,30 @@ onMounted(async () => {
           }
         }
         // 走高亮的条件
-        let flag1: boolean = true
+        let highLightFlag: boolean = true
         // 条件1, 如果beforeCursor为空 content有内容 则代表enter键，不能走highlight
         if (!terminalState.value.beforeCursor.length && terminalState.value.content.length) {
-          flag1 = false
+          highLightFlag = false
         }
         // 条件2, 进入编辑模式下，不走highlight
         if (isEditorMode.value) {
-          flag1 = false
+          highLightFlag = false
         }
         // 条件3, 高亮触发的写入，不走highlight
-        if (testFlag.value) {
-          flag1 = false
+        if (userInputFlag.value) {
+          highLightFlag = false
         }
         // 条件4, 服务器返回包含命令提示符，不走highlight，避免渲染异常
         // TODO: 条件5, 进入子交互模式 不开启高亮
         //TODO: 服务器返回  xxx\r\n,   \r\n{startStr.value}xxx 时特殊处理
         if (data.indexOf(startStr.value) !== -1) {
-          flag1 = false
+          highLightFlag = false
         }
-        if (flag1) {
+        if (highLightFlag) {
           if (config.highlightStatus == 1) {
-            highlightSyntax(terminalState.value)
+            setTimeout(() => {
+              highlightSyntax(terminalState.value)
+            }, 20)
           }
           if (!selectFlag.value) {
             queryCommand()
@@ -924,11 +926,12 @@ const setupTerminalInput = () => {
       startStr.value = beginStr.value
     }
     if (data === '\t') {
+      sendData(data)
       // Tab键
-      if (suggestions.value.length) {
-        selectSuggestion(suggestions.value[activeSuggestion.value])
-        selectFlag.value = true
-      }
+      // if (suggestions.value.length) {
+      //   selectSuggestion(suggestions.value[activeSuggestion.value])
+      //   selectFlag.value = true
+      // }
     }
     if (data === '\x03') {
       // Ctrl+C
@@ -985,13 +988,17 @@ const setupTerminalInput = () => {
       } else {
         sendMarkedData(data, 'Chaterm:[B')
       }
+    } else if (data == '\u001b[C') {
+      if (suggestions.value.length) {
+        selectSuggestion(suggestions.value[activeSuggestion.value])
+        selectFlag.value = true
+      } else {
+        sendData(data)
+      }
     } else {
       sendData(data)
     }
-    if (suggestions.value.length && data == '\u001b[C') {
-      selectSuggestion(suggestions.value[activeSuggestion.value])
-      // selectSuggestion(suggestions.value[activeSuggestion.value])
-    }
+
     if (!selectFlag.value) {
       queryCommand()
     }
@@ -1393,11 +1400,13 @@ const processString = (str) => {
 }
 const selectSuggestion = (suggestion) => {
   selectFlag.value = true
+  const DELCODE = String.fromCharCode(127)
+  const RIGHTCODE = String.fromCharCode(27, 91, 67)
 
-  const originalData = String.fromCharCode(127)
-  const delData = String.fromCharCode(27, 91, 67)
-  sendData(delData.repeat(terminalState.value.content.length - terminalState.value.beforeCursor.length))
-  sendData(originalData.repeat(terminalState.value.content.length))
+  sendData(RIGHTCODE.repeat(terminalState.value.content.length - terminalState.value.beforeCursor.length))
+
+  sendData(DELCODE.repeat(terminalState.value.content.length))
+
   sendData(suggestion)
   setTimeout(() => {
     suggestions.value = []
@@ -1436,6 +1445,7 @@ const insertCommand = async (cmd) => {
 
 // 输入内容
 const handleKeyInput = (e) => {
+  console.log('keyInput-----')
   enterPress.value = false
   specialCode.value = false
   currentLineStartY.value = (terminal.value as any)?._core.buffer.y
