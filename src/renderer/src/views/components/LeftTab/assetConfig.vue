@@ -62,9 +62,7 @@
                     </div>
                     <div class="host-info">
                       <div class="host-name">{{ host.title }}</div>
-                      <div class="host-type">
-                        {{ t('personal.hostType') }}{{ host.username ? ', ' + host.username : '' }}
-                      </div>
+                      <div class="host-type"> {{ t('personal.hostType') }}{{ host.username ? ', ' + host.username : '' }} </div>
                     </div>
                     <div
                       class="edit-icon"
@@ -135,55 +133,18 @@
               <div class="titleHeader"></div>
               {{ t('personal.address') }}</div
             >
-            <a-form-item :label="t('personal.processor')">
+            <a-form-item :label="t('personal.remoteHost')">
               <a-input
                 v-model:value="createFrom.ip"
-                :placeholder="t('personal.pleaseInput')"
+                :placeholder="t('personal.pleaseInputRemoteHost')"
               />
             </a-form-item>
-
-            <div class="formTitle">
-              <div class="titleHeader"></div>
-              {{ t('personal.general') }}</div
-            >
-            <a-form-item :label="t('personal.alias')">
-              <a-input
-                v-model:value="createFrom.label"
-                :placeholder="t('personal.pleaseInput')"
-              />
-            </a-form-item>
-            <a-form-item
-              :label="t('personal.general')"
-              class="general-group"
-            >
-              <a-select
-                v-model:value="createFrom.group_name"
-                mode="tags"
-                :placeholder="t('personal.pleaseSelect')"
-                :max-tag-count="2"
-                style="width: 100%"
-                @change="(val) => (createFrom.group_name = val.slice(-1))"
-              >
-                <a-select-option
-                  v-for="item1 in defaultGroups"
-                  :key="item1"
-                  :value="item1"
-                >
-                  {{ item1 }}
-                </a-select-option>
-              </a-select>
-            </a-form-item>
-
-            <div class="formTitle">
-              <div class="titleHeader"></div>
-              SSH</div
-            >
-            <a-form-item :label="t('personal.command')">
+            <a-form-item :label="t('personal.port')">
               <a-input
                 v-model:value="createFrom.port"
                 :min="20"
                 :max="65536"
-                :placeholder="t('personal.pleaseInput')"
+                :placeholder="t('personal.pleaseInputPort')"
                 style="width: 100%"
               />
             </a-form-item>
@@ -194,23 +155,23 @@
                 style="width: 100%"
                 @change="authChange"
               >
-                <a-radio-button value="password">{{ t('personal.passWord') }}</a-radio-button>
+                <a-radio-button value="password">{{ t('personal.password') }}</a-radio-button>
                 <a-radio-button value="keyBased">{{ t('personal.key') }}</a-radio-button>
               </a-radio-group>
             </a-form-item>
-            <a-form-item :label="t('personal.userName')">
+            <a-form-item :label="t('personal.username')">
               <a-input
                 v-model:value="createFrom.username"
-                :placeholder="t('personal.pleaseInput')"
+                :placeholder="t('personal.pleaseInputUsername')"
               />
             </a-form-item>
             <a-form-item
               v-if="createFrom.auth_type == 'password'"
-              :label="t('personal.passWord')"
+              :label="t('personal.password')"
             >
               <a-input-password
                 v-model:value="createFrom.password"
-                :placeholder="t('personal.pleaseInput')"
+                :placeholder="t('personal.pleaseInputPassword')"
               />
             </a-form-item>
             <a-form-item
@@ -219,7 +180,7 @@
             >
               <a-select
                 v-model:value="createFrom.keyChain"
-                placeholder="KeyChain"
+                :placeholder="t('personal.pleaseSelectKeychain')"
                 style="width: 100%"
                 show-search
                 :max-tag-count="4"
@@ -228,6 +189,38 @@
                 :field-names="{ value: 'key', label: 'label' }"
                 :allow-clear="true"
               />
+            </a-form-item>
+
+            <div class="formTitle">
+              <div class="titleHeader"></div>
+              {{ t('personal.general') }}</div
+            >
+            <a-form-item :label="t('personal.alias')">
+              <a-input
+                v-model:value="createFrom.label"
+                :placeholder="t('personal.pleaseInputAlias')"
+              />
+            </a-form-item>
+            <a-form-item
+              :label="t('personal.group')"
+              class="general-group"
+            >
+              <a-select
+                v-model:value="createFrom.group_name"
+                mode="tags"
+                :placeholder="t('personal.pleaseSelectGroup')"
+                :max-tag-count="2"
+                style="width: 100%"
+                @change="(val: SelectValue) => (createFrom.group_name = Array.isArray(val) && val.length > 0 ? String(val[val.length - 1]) : '')"
+              >
+                <a-select-option
+                  v-for="item1 in defaultGroups"
+                  :key="item1"
+                  :value="item1"
+                >
+                  {{ item1 }}
+                </a-select-option>
+              </a-select>
             </a-form-item>
           </a-form>
         </div>
@@ -248,19 +241,11 @@
 
 <script setup lang="ts">
 import { Modal, message } from 'ant-design-vue' // ← 引入 Modal
-
+import type { SelectValue } from 'ant-design-vue/es/select'
 import { ref, onMounted, onBeforeUnmount, reactive, computed, watch } from 'vue'
 import 'xterm/css/xterm.css'
 import { deepClone } from '@/utils/util'
-import {
-  ToTopOutlined,
-  DatabaseOutlined,
-  EditOutlined,
-  ApiOutlined,
-  DeleteOutlined,
-  SearchOutlined
-} from '@ant-design/icons-vue'
-
+import { ToTopOutlined, DatabaseOutlined, EditOutlined, ApiOutlined, DeleteOutlined, SearchOutlined } from '@ant-design/icons-vue'
 import eventBus from '@/utils/eventBus'
 import i18n from '@/locales'
 const { t } = i18n.global
@@ -677,7 +662,7 @@ watch(isRightSectionVisible, (val) => {
 }
 
 .search-container {
-  margin-bottom: 20px;
+  margin-bottom: 12px;
   display: flex;
   width: 60%;
 }
@@ -689,6 +674,7 @@ watch(isRightSectionVisible, (val) => {
   :deep(.ant-input) {
     background-color: #2c2c2c;
     color: white;
+    height: 32px;
 
     &::placeholder {
       color: rgba(255, 255, 255, 0.5);
@@ -710,19 +696,19 @@ watch(isRightSectionVisible, (val) => {
 }
 
 .group-title {
-  font-size: 16px;
+  font-size: 14px;
   font-weight: bold;
   color: white;
-  margin-bottom: 12px;
-  margin-top: 20px;
+  margin-bottom: 8px;
+  margin-top: 16px;
 }
 
 .group-cards,
 .host-cards {
   display: flex;
   flex-wrap: wrap;
-  gap: 12px;
-  margin-bottom: 20px;
+  gap: 8px;
+  margin-bottom: 16px;
 }
 
 /* 当右侧面板关闭时，显示更多卡片 */
@@ -754,12 +740,11 @@ watch(isRightSectionVisible, (val) => {
   }
 }
 
-.group-card,
 .host-card {
   position: relative;
   padding-right: 36px;
   background-color: #2c2c2c;
-  border-radius: 8px;
+  border-radius: 6px;
   overflow: hidden;
   cursor: pointer;
   transition: all 0.3s ease;
@@ -769,7 +754,7 @@ watch(isRightSectionVisible, (val) => {
   }
 
   :deep(.ant-card-body) {
-    padding: 12px;
+    padding: 8px 12px;
   }
 }
 .edit-icon {
@@ -799,19 +784,19 @@ watch(isRightSectionVisible, (val) => {
 .host-card-content {
   display: flex;
   align-items: center;
-  min-height: 60px; /* 确保卡片有最小高度 */
+  min-height: 48px;
 }
 
 .group-icon,
 .host-icon {
-  width: 40px;
-  height: 40px;
-  min-width: 40px; /* 确保图标不会被压缩 */
+  width: 32px;
+  height: 32px;
+  min-width: 32px;
   display: flex;
   align-items: center;
   justify-content: center;
   color: #1890ff;
-  margin-right: 12px;
+  margin-right: 8px;
 }
 
 .group-info,
@@ -822,13 +807,13 @@ watch(isRightSectionVisible, (val) => {
 
 .group-name,
 .host-name {
-  font-size: 14px;
+  font-size: 13px;
   font-weight: bold;
   color: white;
-  margin-bottom: 4px;
+  margin-bottom: 2px;
   white-space: nowrap;
   overflow: hidden;
-  text-overflow: ellipsis; /* 文本过长时显示省略号 */
+  text-overflow: ellipsis;
 }
 
 .group-count,
@@ -837,7 +822,7 @@ watch(isRightSectionVisible, (val) => {
   color: rgba(255, 255, 255, 0.6);
   white-space: nowrap;
   overflow: hidden;
-  text-overflow: ellipsis; /* 文本过长时显示省略号 */
+  text-overflow: ellipsis;
 }
 
 .search-card {
@@ -856,10 +841,10 @@ watch(isRightSectionVisible, (val) => {
   height: 100%;
   display: flex;
   flex-direction: column;
-  box-sizing: border-box; /* 确保内边距不会增加元素的总尺寸 */
+  box-sizing: border-box;
   padding: 0;
   overflow: hidden;
-  max-width: 30%; /* 限制最大宽度 */
+  max-width: 30%;
   min-width: 300px;
 }
 
@@ -868,7 +853,7 @@ watch(isRightSectionVisible, (val) => {
   align-items: center;
   justify-content: space-between;
   width: 100%;
-  padding: 16px 16px 0 16px;
+  padding: 12px 16px 0 16px;
   flex-shrink: 0;
 }
 
@@ -877,7 +862,7 @@ watch(isRightSectionVisible, (val) => {
   flex: 1;
   display: flex;
   flex-direction: column;
-  padding: 16px 16px 0 16px;
+  padding: 12px 16px 0 16px;
   overflow: auto;
   height: calc(100% - 40px);
 }
@@ -906,17 +891,16 @@ watch(isRightSectionVisible, (val) => {
 
 .connect-button-container {
   width: 100%;
-  padding: 16px;
+  padding: 12px 16px;
   margin-top: auto;
   flex-shrink: 0;
   position: sticky;
   bottom: 0;
-  // background-color: #2c2c2c;
-  // border-top: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .connect-button {
   width: 100%;
+  height: 36px;
   border-radius: 4px;
   background-color: #1890ff;
   border-color: #1890ff;
@@ -968,8 +952,12 @@ watch(isRightSectionVisible, (val) => {
 }
 .custom-form {
   color: rgba(255, 255, 255, 0.85);
+  :deep(.ant-form-item) {
+    margin-bottom: 12px;
+  }
   :deep(.ant-form-item-label) {
     min-width: 250px;
+    padding-bottom: 4px;
   }
 }
 :deep(.ant-form-item) {
@@ -1010,9 +998,10 @@ watch(isRightSectionVisible, (val) => {
   flex-direction: row;
   align-items: center;
   margin-bottom: 0.5em;
+  margin-top: 8px;
   .titleHeader {
     width: 2px;
-    height: 14px;
+    height: 12px;
     background: #1677ff;
     margin-right: 4px;
   }
