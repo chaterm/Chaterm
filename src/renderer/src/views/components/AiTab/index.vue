@@ -1281,13 +1281,18 @@ const filteredHostOptions = computed(() =>
   hostOptions.value.filter((item) => item.label.includes(hostSearchValue.value))
 )
 const onHostClick = (item: any) => {
-  if (!hosts.value.some((h) => h.host === item.label)) {
-    hosts.value.push({
-      host: item.label,
-      uuid: item.uuid,
-      connection: item.connection,
-      organizationId: item.organizationId
-    })
+  const newHost = {
+    host: item.label,
+    uuid: item.uuid,
+    connection: item.connection,
+    organizationId: item.organizationId
+  }
+  if (chatTypeValue.value === 'cmd') {
+    hosts.value = [newHost]
+  } else {
+    if (!hosts.value.some((h) => h.host === item.label)) {
+      hosts.value.push(newHost)
+    }
   }
   showHostSelect.value = false
   chatInputValue.value = ''
