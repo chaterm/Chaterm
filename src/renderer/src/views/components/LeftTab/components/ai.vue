@@ -167,10 +167,13 @@
           />
           <a-select
             v-else-if="apiProvider === 'litellm'"
-            v-model:value="liteLlmModelId"
+            v-model:value="computedLiteLlmModelId"
             size="small"
             :options="litellmAiModelOptions"
             show-search
+            mode="tags"
+            :max-tag-count="1"
+            :filter-option="filterLiteLlmOption"
           />
           <a-select
             v-else-if="apiProvider === 'deepseek'"
@@ -314,7 +317,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, watch, onBeforeUnmount } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { notification } from 'ant-design-vue'
 import {
   updateGlobalState,
@@ -377,6 +380,39 @@ const autoApprovalSettings = ref<AutoApprovalSettings>(DEFAULT_AUTO_APPROVAL_SET
 const chatSettings = ref<ChatSettings>(DEFAULT_CHAT_SETTINGS)
 const customInstructions = ref('')
 const inputError = ref('')
+
+const computedLiteLlmModelId = computed({
+  get: () => {
+    return liteLlmModelId.value ? [liteLlmModelId.value] : []
+  },
+  set: async (val: string[]) => {
+    try {
+      const newValue = val[val.length - 1] || ''
+      liteLlmModelId.value = newValue
+
+      // If this is a new value, add it to the options
+      const exists = litellmAiModelOptions.findIndex((option) => option.value === newValue) !== -1
+      if (!exists && newValue) {
+        litellmAiModelOptions.push({
+          value: newValue,
+          label: newValue
+        })
+      }
+
+      // Save to storage immediately
+      await updateGlobalState('liteLlmModelId', newValue)
+
+      // Emit event to notify other components
+      eventBus.emit('SettingModelChanged', [apiProvider.value, apiModelId.value, newValue])
+    } catch (error) {
+      console.error('Failed to update liteLlmModelId:', error)
+      notification.error({
+        message: 'Error',
+        description: 'Failed to save model configuration'
+      })
+    }
+  }
+})
 
 // Add specific watch for autoApprovalSettings.enabled
 watch(
@@ -450,7 +486,7 @@ watch(
       }
 
       await updateGlobalState('chatSettings', settingsToStore)
-      eventBus.emit('SettingModelChanged')
+      eventBus.emit('SettingModelChanged',[newValue, apiModelId.value, liteLlmModelId.value])
     } catch (error) {
       console.error('Failed to update chat settings:', error)
       notification.error({
@@ -714,7 +750,9 @@ const getApiProviderDefaultModelId = () => {
       apiModelId.value = 'anthropic.claude-3-7-sonnet-20250219-v1:0'
       break
     case 'litellm':
-      liteLlmModelId.value = 'claude-3-7-sonnet'
+      if (liteLlmModelId.value === '') {
+        liteLlmModelId.value = 'claude-3-7-sonnet'
+      }
       break
     case 'deepseek':
       apiModelId.value = 'deepseek-chat'
@@ -741,8 +779,11 @@ const checkApiProviderAndModelId = () => {
       break
   }
   const modelIndex = checkModelList.findIndex((model) => model.value === apiModelId.value)
-  const indexExists: boolean = modelIndex !== -1
-  return indexExists
+  return modelIndex !== -1
+}
+
+const filterLiteLlmOption = (input: string, option: any) => {
+  return option.label.toLowerCase().indexOf(input.toLowerCase()) >= 0
 }
 </script>
 
