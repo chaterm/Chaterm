@@ -26,9 +26,25 @@ const urls = {
   userQuickCommandInfo: '/user/quick-command/info',
   aliasUpdateTerm: '/term-api/alias/update',
   aliasRefreshTerm: '/term-api/alias/refresh',
-  ssoToBearerToken: '/user/login-sso'
+  ssoToBearerToken: '/user/login-sso',
+  sendEmailCode: '/user/login-email/send-code',
+  emailLogin: '/user/login-email'
+}
+export function sendEmailCode(params) {
+  return request({
+    method: 'post',
+    url: urls.sendEmailCode,
+    data: params
+  })
 }
 
+export function emailLogin(params) {
+  return request({
+    method: 'post',
+    url: urls.emailLogin,
+    data: params
+  })
+}
 export function sayHello(params) {
   return request({
     method: 'get',
