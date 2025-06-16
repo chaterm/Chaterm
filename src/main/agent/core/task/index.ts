@@ -172,8 +172,12 @@ export class Task {
     }
   }
 
-  private async executeCommandInRemoteServer(command: string, cwd?: string): Promise<string> {
-    const terminalInfo = await this.connectTerminal()
+  private async executeCommandInRemoteServer(
+    command: string,
+    ip?: string,
+    cwd?: string
+  ): Promise<string> {
+    const terminalInfo = await this.connectTerminal(ip)
     if (!terminalInfo) {
       throw new Error('Failed to connect to terminal')
     }
@@ -807,20 +811,18 @@ export class Task {
     }
   }
 
-  async executeCommandTool(command: string, ip: string): Promise<[boolean, ToolResponse]> {
+  async executeCommandTool(command: string, ip: string): Promise<ToolResponse> {
     const terminalInfo = await this.connectTerminal(ip)
     if (!terminalInfo) {
-      return [false, 'Failed to connect to terminal']
+      return 'Failed to connect to terminal'
     }
     terminalInfo.terminal.show()
-    const process = this.remoteTerminalManager.runCommand(terminalInfo, command, this.cwd)
-    let execResult = ''
-    process.on('line', async (line) => {
-      execResult += line + '\n'
-    })
-    if (execResult.length == 0) {
-      await this.say('command_output', 'chaterm command no output was returned.', true)
-    }
+    // TODO:add support for multiple hosts
+    const process = this.remoteTerminalManager.runCommand(
+      terminalInfo,
+      command,
+      this.hosts?.length === 1 ? this.cwd : undefined
+    )
 
     // Chunked terminal output buffering
     const CHUNK_LINE_COUNT = 20
@@ -908,14 +910,11 @@ export class Task {
     result = result.trim()
 
     if (completed) {
-      return [false, `Command executed.${result.length > 0 ? `\nOutput:\n${result}` : ''}`]
+      return `Command executed.${result.length > 0 ? `\nOutput:\n${result}` : ''}`
     } else {
-      return [
-        false,
-        `Command is still running in the user\'s terminal.${
-          result.length > 0 ? `\nHere\'s the output so far:\n${result}` : ''
-        }\n\nYou will be updated on the terminal status and new output in the future.`
-      ]
+      return `Command is still running in the user\'s terminal.${
+        result.length > 0 ? `\nHere\'s the output so far:\n${result}` : ''
+      }\n\nYou will be updated on the terminal status and new output in the future.`
     }
   }
   // Check if the tool should be auto-approved based on the settings
@@ -1263,11 +1262,7 @@ export class Task {
               type: 'text',
               text:
                 assistantMessage +
-                `\n\n[${
-                  cancelReason === 'streaming_failed'
-                    ? 'Response interrupted by API Error'
-                    : 'Response interrupted by user'
-                }]`
+                `\n\n[${cancelReason === 'streaming_failed' ? 'Response interrupted by API Error' : 'Response interrupted by user'}]`
             }
           ]
         })
@@ -1535,27 +1530,28 @@ export class Task {
 
     if (includeHostDetails) {
       details += `\n\n# Current Hosts:\n${this.hosts?.map((h) => h.host).join(', ')}`
-
-      details += `\n\n# Current Working Directory (${this.cwd.toPosix()}) Files:\n`
-      const res = await this.executeCommandInRemoteServer('ls -al', this.cwd)
-      // TODO: add ignore files
-      const processLsOutput = (output: string): string => {
-        const lines = output.split('\n')
-        const totalLine = lines[0]
-        const fileLines = lines.slice(1).filter((line) => line.trim() !== '')
-        const limitedLines = fileLines.slice(0, 200)
-        let result = totalLine + '\n'
-        result += limitedLines.join('\n')
-        if (fileLines.length > 200) {
-          result += `\n... (${fileLines.length - 200} more files not shown)`
+      // TODO:how to include system information when there are multiple servers?
+      if (this.hosts?.length === 1) {
+        details += `\n\n# Current Working Directory (${this.cwd.toPosix()}) Files:\n`
+        const res = await this.executeCommandInRemoteServer('ls -al', this.hosts[0].host, this.cwd)
+        // TODO: add ignore files
+        const processLsOutput = (output: string): string => {
+          const lines = output.split('\n')
+          const totalLine = lines[0]
+          const fileLines = lines.slice(1).filter((line) => line.trim() !== '')
+          const limitedLines = fileLines.slice(0, 200)
+          let result = totalLine + '\n'
+          result += limitedLines.join('\n')
+          if (fileLines.length > 200) {
+            result += `\n... (${fileLines.length - 200} more files not shown)`
+          }
+          return result
         }
-        return result
+
+        const processedOutput = processLsOutput(res)
+        details += processedOutput
+        details += res
       }
-
-      const processedOutput = processLsOutput(res)
-      details += processedOutput
-
-      details += res
     }
 
     // Add context window usage information
@@ -1674,13 +1670,15 @@ export class Task {
             })
           }, 30_000)
         }
-
-        const [userRejected, result] = await this.executeCommandTool(command!, ip!)
+        // TODO:support concurrent execution
+        const ipList = ip!.split(',')
+        let result = ''
+        for (const ip of ipList) {
+          result += `\n\n# Executing result on ${ip}:`
+          result += await this.executeCommandTool(command!, ip!)
+        }
         if (timeoutId) {
           clearTimeout(timeoutId)
-        }
-        if (userRejected) {
-          this.didRejectTool = true
         }
 
         this.workspaceTracker.populateFilePaths()
@@ -1974,13 +1972,7 @@ export class Task {
           await this.saveCheckpoint()
           return
         }
-        const [userRejected, execCommandResult] = await this.executeCommandTool(command!, ip!)
-        if (userRejected) {
-          this.didRejectTool = true
-          this.pushToolResult(toolDescription, execCommandResult)
-          await this.saveCheckpoint()
-          return
-        }
+        const execCommandResult = await this.executeCommandTool(command!, ip!)
         commandResult = execCommandResult
       } else {
         await this.say('completion_result', result, false)
@@ -2274,26 +2266,26 @@ export class Task {
 
   private async buildSystemPrompt(): Promise<string> {
     let systemPrompt = await SYSTEM_PROMPT(this.cwd)
+    let systemInformation = '# SYSTEM INFORMATION\n\n'
+    for (const host of this.hosts!) {
+      const osVersion = await this.executeCommandInRemoteServer('uname -a', host.host)
+      const defaultShell = await this.executeCommandInRemoteServer('echo $SHELL', host.host)
+      const homeDir = await this.executeCommandInRemoteServer('echo $HOME', host.host)
+      const hostName = await this.executeCommandInRemoteServer('echo $HOSTNAME', host.host)
+      const userName = await this.executeCommandInRemoteServer('whoami', host.host)
+      // const ip = await this.executeCommandInRemoteServer('hostname -I')
+      systemInformation += `
+        ## Host: ${host.host}
+        Operating System: ${osVersion}
+        Default Shell: ${defaultShell}
+        Home Directory: ${homeDir.toPosix()}
+        Hostname: ${hostName}
+        User: ${userName}
+        ====
+      `
+    }
 
-    const osVersion = await this.executeCommandInRemoteServer('uname -a')
-    const defaultShell = await this.executeCommandInRemoteServer('echo $SHELL')
-    const homeDir = await this.executeCommandInRemoteServer('echo $HOME')
-    const hostName = await this.executeCommandInRemoteServer('echo $HOSTNAME')
-    const userName = await this.executeCommandInRemoteServer('whoami')
-    const ip = await this.executeCommandInRemoteServer('hostname -I')
-
-    systemPrompt += `
-      SYSTEM INFORMATION
-
-      Operating System: ${osVersion}
-      Default Shell: ${defaultShell}
-      Home Directory: ${homeDir.toPosix()}
-      Current Working Directory: ${this.cwd.toPosix()}
-      Hostname: ${hostName}
-      User: ${userName}
-      IP: ${ip}
-      ====
-    `
+    systemPrompt += systemInformation
 
     const settingsCustomInstructions = this.customInstructions?.trim()
     const preferredLanguageInstructions = `# Preferred Language\n\nSpeak in ${DEFAULT_LANGUAGE_SETTINGS}.`
@@ -2304,16 +2296,6 @@ export class Task {
       )
       systemPrompt += userInstructions
     }
-
-    // 加入当前的服务器的上下文信息
-    // if (this.terminalOutput && this.terminalOutput.trim().length > 0) {
-    //   systemPrompt += `
-
-    //     # Current Session Terminal History:
-    //     <terminal_history>
-    //     ${this.terminalOutput}
-    //     </terminal_history>`
-    // }
 
     return systemPrompt
   }
