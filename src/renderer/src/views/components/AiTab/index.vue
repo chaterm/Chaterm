@@ -808,13 +808,7 @@ const handleMessageOperation = async (operation: 'copy' | 'apply') => {
   }
 
   if (operation === 'copy') {
-    await navigator.clipboard.writeText(content)
-    notification.success({
-      message: '复制成功',
-      description: '内容已复制到剪贴板',
-      duration: 2,
-      placement: 'topRight'
-    })
+    eventBus.emit('executeTerminalCommand', content)
   } else if (operation === 'apply') {
     eventBus.emit('executeTerminalCommand', content + '\n')
   }
