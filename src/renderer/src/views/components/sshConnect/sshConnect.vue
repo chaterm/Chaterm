@@ -111,6 +111,7 @@ import { userConfigStore } from '../../../store/userConfigStore'
 import { userConfigStore as serviceUserConfig } from '@/services/userConfigStoreService'
 import { v4 as uuidv4 } from 'uuid'
 import { userInfoStore } from '@/store/index'
+import stripAnsi from 'strip-ansi'
 
 const selectFlag = ref(false)
 const configStore = userConfigStore()
@@ -286,7 +287,7 @@ onMounted(async () => {
       inputHandler._originalParse = inputHandler.parse
       inputHandler.parse = function (data: string) {
         inputHandler._originalParse.call(this, data)
-        if (!userInputFlag.value || !isEditorMode.value) {
+        if (!userInputFlag.value && !isEditorMode.value) {
           if (JSON.stringify(data).endsWith(startStr.value)) {
             updateTerminalState(true)
           } else {
@@ -374,11 +375,16 @@ const getFileExt = (filePath: string) => {
   return filePath.slice(idx).toLowerCase()
 }
 const parseVimLine = (str) => {
-  const lines = str.split(/\r?\n/) // 同时处理 \n 和 \r\n 换行符
+  // 过滤ANSI 转义序列
+  let cleanedStr = stripAnsi(str)
+  cleanedStr = cleanedStr.replace(/[\x00-\x09\x0B\x0C\x0E-\x1F\x7F]/g, '')
+  cleanedStr = cleanedStr.trim()
+  const lines = cleanedStr.split(/\r?\n/) // 同时处理 \n 和 \r\n 换行符
   if (lines.length > 0) {
-    const fileName = lines[1].trimEnd()
+    // 处理文件名里无意义符号
+    const fileName = lines[1].replace(/[\x00-\x1F\x7F]/g, '').trimEnd()
     const contentType = getFileExt(fileName) ? getFileExt(fileName) : '.python'
-    if (str.indexOf('No such file or directory') !== -1) {
+    if (cleanedStr.indexOf('No such file or directory') !== -1) {
       return {
         checkStatus: lines[0].trim().endsWith('#Chaterm:vim'),
         lastLine: '\r\n' + lines[lines.length - 1],
@@ -475,10 +481,9 @@ const createEditor = async (filePath, contentType) => {
     cmd: `cat ${filePath}`,
     id: connectionId.value
   })
-  let action = '编辑'
-
-  if (stderr.indexOf('No such file or directory') !== '-1') {
-    action = '创建'
+  let action = 'editor'
+  if (stderr.indexOf('No such file or directory') !== -1) {
+    action = 'create'
   }
   if (stderr.indexOf('Permission denied') !== -1) {
     message.error('Permission denied')
