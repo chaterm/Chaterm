@@ -16,6 +16,7 @@
     />
     <v-contextmenu ref="contextmenu">
       <Context
+        :isConnect="isConnected"
         @contextAct="contextAct"
         :termInstance="terminal"
         :copyText="copyText"
@@ -599,7 +600,6 @@ const connectSSH = async () => {
       }
       terminal.value?.writeln(welcome)
       terminal.value?.writeln(`Connecting to ${props.connectData.ip}`)
-
       // 启动shell会话
       await startShell()
 
