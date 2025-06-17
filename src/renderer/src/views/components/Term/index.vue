@@ -132,9 +132,7 @@ onBeforeUnmount(() => {
   if (socket.value && socket.value.readyState === WebSocket.OPEN) {
     socket.value.close()
   }
-  if (term.value) {
-    term.value.dispose()
-  }
+  term.value = null
   api.closeHeartbeatWindow(heartbeatId)
   window.removeEventListener('resize', handleResize)
   // 移除事件监听
@@ -152,27 +150,30 @@ const getALlCmdList = () => {
 }
 // 初始化xterm终端
 const initTerminal = async () => {
-  const config = await serviceUserConfig.getConfig()
-  stashConfig = config
-  term.value = new Terminal({
-    cursorBlink: true,
-    scrollback: config.scrollBack,
-    cursorStyle: config.cursorStyle || 'bar',
-    fontSize: config.fontSize,
-    fontFamily: 'Menlo, Monaco, "Courier New", Courier, monospace',
-    theme: {
-      background: '#141414',
-      foreground: '#f0f0f0'
-    }
-  })
+  try {
+    const config = await serviceUserConfig.getConfig()
+    stashConfig = config
+    term.value = new Terminal({
+      cursorBlink: true,
+      scrollback: config.scrollBack,
+      cursorStyle: config.cursorStyle || 'bar',
+      fontSize: config.fontSize,
+      fontFamily: 'Menlo, Monaco, "Courier New", Courier, monospace',
+      theme: {
+        background: '#141414',
+        foreground: '#f0f0f0'
+      }
+    })
 
-  fitAddon = new FitAddon()
-  term.value.loadAddon(fitAddon)
-  term.value.loadAddon(new WebLinksAddon())
-
-  term.value.open(terminalElement.value)
-  fitAddon.fit()
-  term.value.focus()
+    fitAddon = new FitAddon()
+    term.value.loadAddon(fitAddon)
+    term.value.loadAddon(new WebLinksAddon())
+    term.value.open(terminalElement.value)
+    fitAddon.fit()
+    term.value.focus()
+  } catch (error) {
+    console.error('终端初始化失败:', error)
+  }
   const selectSuggestion = (suggestion) => {
     const msgType = 'TERMINAL_SUGGEST_DATA'
     socket.value.send(JSON.stringify({ id: terminalId, msgType, data: suggestion }))
@@ -337,7 +338,7 @@ const connectWebsocket = () => {
     }
   }
   socket.value.onclose = () => {
-    term.value.writeln('\r\n连接已关闭。')
+    term.value?.writeln('\r\n连接已关闭。')
     api.closeHeartbeatWindow(heartbeatId)
     // setTimeout(connectWebsocket, 3000)
     socket.value = null
