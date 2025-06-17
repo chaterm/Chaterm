@@ -87,7 +87,7 @@ const terminalId = `${email.split('@')[0]}@${props.serverInfo.ip}:remote:${uuidv
 const suggestions = ref([]) //返回的补全列表
 const activeSuggestion = ref(0) //高亮的补全项
 const socket = ref(null) //ws实例
-let term = null //term实例
+const term = ref(null) //term实例
 let fitAddon = null //
 const api = window.api
 let heartbeatId = null // 心跳ID
@@ -132,8 +132,8 @@ onBeforeUnmount(() => {
   if (socket.value && socket.value.readyState === WebSocket.OPEN) {
     socket.value.close()
   }
-  if (term) {
-    term.dispose()
+  if (term.value) {
+    term.value.dispose()
   }
   api.closeHeartbeatWindow(heartbeatId)
   window.removeEventListener('resize', handleResize)
@@ -154,7 +154,7 @@ const getALlCmdList = () => {
 const initTerminal = async () => {
   const config = await serviceUserConfig.getConfig()
   stashConfig = config
-  term = new Terminal({
+  term.value = new Terminal({
     cursorBlink: true,
     scrollback: config.scrollBack,
     cursorStyle: config.cursorStyle || 'bar',
@@ -167,11 +167,12 @@ const initTerminal = async () => {
   })
 
   fitAddon = new FitAddon()
-  term.loadAddon(fitAddon)
-  term.loadAddon(new WebLinksAddon())
+  term.value.loadAddon(fitAddon)
+  term.value.loadAddon(new WebLinksAddon())
 
-  term.open(terminalElement.value)
+  term.value.open(terminalElement.value)
   fitAddon.fit()
+  term.value.focus()
   const selectSuggestion = (suggestion) => {
     const msgType = 'TERMINAL_SUGGEST_DATA'
     socket.value.send(JSON.stringify({ id: terminalId, msgType, data: suggestion }))
@@ -179,7 +180,7 @@ const initTerminal = async () => {
     activeSuggestion.value = 0
   }
   // 处理用户输入
-  term.onData((data) => {
+  term.value.onData((data) => {
     if (socket.value && socket.value.readyState === WebSocket.OPEN) {
       //   socket.value.send(data)
       if (data === '\t') {
@@ -228,9 +229,7 @@ const initTerminal = async () => {
         if (suggestions.value.length && (data == '\u001b[A' || data == '\u001b[B')) {
           // 键盘上下选中提示项目
           data == '\u001b[A' && activeSuggestion.value > 0 ? (activeSuggestion.value -= 1) : ''
-          data == '\u001b[B' && activeSuggestion.value < suggestions.value.length - 1
-            ? (activeSuggestion.value += 1)
-            : ''
+          data == '\u001b[B' && activeSuggestion.value < suggestions.value.length - 1 ? (activeSuggestion.value += 1) : ''
         } else if (suggestions.value.length && data == '\u001b[C') {
           selectSuggestion(suggestions.value[activeSuggestion.value])
         } else {
@@ -239,14 +238,14 @@ const initTerminal = async () => {
       }
     }
   })
-  term.onKey(handleKeyInput)
-  term.onSelectionChange(function () {
-    if (term.hasSelection()) {
-      copyText.value = term.getSelection()
+  term.value.onKey(handleKeyInput)
+  term.value.onSelectionChange(function () {
+    if (term.value.hasSelection()) {
+      copyText.value = term.value.getSelection()
     }
   })
   //onKey监听不到输入法，补充监听
-  const textarea = term.element.querySelector('.xterm-helper-textarea')
+  const textarea = term.value.element.querySelector('.xterm-helper-textarea')
   textarea.addEventListener('compositionend', (e) => {
     handleKeyInput({
       domEvent: {
@@ -272,10 +271,9 @@ const connectWebsocket = () => {
   socket.value.onopen = () => {
     let welcome = '\x1b[38;2;22;119;255m' + name + ', 欢迎您使用智能堡垒机Chaterm \x1b[m\r\n'
     if (configStore.getUserConfig.language == 'en-US') {
-      welcome =
-        '\x1b[38;2;22;119;255m' + email.split('@')[0] + ', Welcome to use Chaterm \x1b[m\r\n'
+      welcome = '\x1b[38;2;22;119;255m' + email.split('@')[0] + ', Welcome to use Chaterm \x1b[m\r\n'
     }
-    term.writeln(welcome)
+    term.value.writeln(welcome)
     api.openHeartbeatWindow(heartbeatId, 5000)
     api.heartBeatTick(listenerHeartbeat)
 
@@ -293,18 +291,18 @@ const connectWebsocket = () => {
         o.autoComplement
           ? ((suggestions.value = o.autoComplement),
             nextTick(() => {
-              componentInstance?.updateSuggestionsPosition(term)
+              componentInstance?.updateSuggestionsPosition(term.value)
             }))
           : (suggestions.value = [])
       }
-      dispatch(term, event.data, socket.value)
+      dispatch(term.value, event.data, socket.value)
     }
-    if (term) {
+    if (term.value) {
       // term.write(enc.decode(event.data))
       //初始输入光标为0时||特殊按键
       if (!cursorStartX.value || specialCode.value) {
         if (typeof event.data == 'object') {
-          term.write(enc.decode(event.data))
+          term.value.write(enc.decode(event.data))
         } else {
           const data = JSON.parse(event.data)
           allDatas.value = data
@@ -312,7 +310,7 @@ const connectWebsocket = () => {
             if (stashConfig.highlightStatus == 1) {
               highlightSyntax(data.highLightData)
             } else {
-              term.write(data)
+              term.value.write(data)
             }
           }
         }
@@ -325,7 +323,7 @@ const connectWebsocket = () => {
             if (stashConfig.highlightStatus == 1) {
               highlightSyntax(data.highLightData)
             } else {
-              term.write(data.data)
+              term.value.write(data.data)
             }
           }
         }
@@ -333,14 +331,14 @@ const connectWebsocket = () => {
     }
   }
   socket.value.onclose = () => {
-    term.writeln('\r\n连接已关闭。')
+    term.value.writeln('\r\n连接已关闭。')
     api.closeHeartbeatWindow(heartbeatId)
     // setTimeout(connectWebsocket, 3000)
     socket.value = null
   }
 
   socket.value.onerror = () => {
-    term.writeln('\r\n连接错误。请检查终端服务器是否运行。')
+    term.value.writeln('\r\n连接错误。请检查终端服务器是否运行。')
   }
 }
 const listenerHeartbeat = (tackId) => {
@@ -428,13 +426,13 @@ const highlightSyntax = (allData) => {
   const isValidCommand = commands.value.includes(command)
   // 高亮命令
   if (command) {
-    const commandMarker = term.registerMarker(startY)
+    const commandMarker = term.value.registerMarker(startY)
     activeMarkers.value.push(commandMarker)
-    term.write(`\x1b[${startY + 1};${cursorStartX.value + 1}H`)
+    term.value.write(`\x1b[${startY + 1};${cursorStartX.value + 1}H`)
     const colorCode = isValidCommand ? '38;2;24;144;255' : '31'
-    term.write(`\x1b[${colorCode}m${command}\x1b[0m`)
+    term.value.write(`\x1b[${colorCode}m${command}\x1b[0m`)
     setTimeout(() => {
-      term.write(`\x1b[${cursorY.value + 1};${currentCursorX + 1}H`)
+      term.value.write(`\x1b[${cursorY.value + 1};${currentCursorX + 1}H`)
     })
   }
   if (!arg) return
@@ -445,45 +443,40 @@ const highlightSyntax = (allData) => {
     let unMatchFlag = false
     for (let i = 0; i < afterCommandArr.length; i++) {
       if (afterCommandArr[i].type == 'unmatched') {
-        term.write(`\x1b[${startY + 1};${cursorStartX.value + 1}H`)
-        term.write(`\x1b[31m${allContent}\x1b[0m`)
-        term.write(`\x1b[${cursorY.value + 1};${currentCursorX + 1}H`)
+        term.value.write(`\x1b[${startY + 1};${cursorStartX.value + 1}H`)
+        term.value.write(`\x1b[31m${allContent}\x1b[0m`)
+        term.value.write(`\x1b[${cursorY.value + 1};${currentCursorX + 1}H`)
         unMatchFlag = true
       }
     }
     if (!unMatchFlag) {
       for (let i = 0; i < afterCommandArr.length; i++) {
         if (afterCommandArr[i].content == ' ') {
-          term.write(
-            `\x1b[${startY + 1};${cursorStartX.value + command.length + 1 + afterCommandArr[i].startIndex}H`
-          )
-          term.write(`${afterCommandArr[i].content}\x1b[0m`)
+          term.value.write(`\x1b[${startY + 1};${cursorStartX.value + command.length + 1 + afterCommandArr[i].startIndex}H`)
+          term.value.write(`${afterCommandArr[i].content}\x1b[0m`)
         } else {
-          term.write(
-            `\x1b[${startY + 1};${cursorStartX.value + command.length + 1 + afterCommandArr[i].startIndex}H`
-          )
-          const colorCode =
-            afterCommandArr[i].type == 'matched' ? '38;2;250;173;20' : '38;2;126;193;255'
-          term.write(`\x1b[${colorCode}m${afterCommandArr[i].content}\x1b[0m`)
+          term.value.write(`\x1b[${startY + 1};${cursorStartX.value + command.length + 1 + afterCommandArr[i].startIndex}H`)
+          const colorCode = afterCommandArr[i].type == 'matched' ? '38;2;250;173;20' : '38;2;126;193;255'
+          term.value.write(`\x1b[${colorCode}m${afterCommandArr[i].content}\x1b[0m`)
         }
       }
     }
   } else {
     if (index == -1 && currentCursorX >= cursorStartX.value + command.length) {
       // 没有空格 且 光标在命令末尾
-      term.write(`\x1b[${startY + 1};${cursorStartX.value + command.length + 1}H`)
-      term.write(`\x1b[38;2;126;193;255m${arg}\x1b[0m`)
-      term.write(`\x1b[${cursorY.value + 1};${currentCursorX + 1}H`)
+      term.value.write(`\x1b[${startY + 1};${cursorStartX.value + command.length + 1}H`)
+      term.value.write(`\x1b[38;2;126;193;255m${arg}\x1b[0m`)
+      term.value.write(`\x1b[${cursorY.value + 1};${currentCursorX + 1}H`)
     } else if (currentCursorX < cursorStartX.value + command.length) {
       // 光标在命令中间
-      term.write(`\x1b[${startY + 1};${cursorStartX.value + command.length + 1}H`)
-      term.write(`\x1b[38;2;126;193;255m${arg}\x1b[0m`)
-      term.write(`\x1b[${cursorY.value + 1};${currentCursorX + 1}H`)
+      term.value.write(`\x1b[${startY + 1};${cursorStartX.value + command.length + 1}H`)
+      term.value.write(`\x1b[38;2;126;193;255m${arg}\x1b[0m`)
+      term.value.write(`\x1b[${cursorY.value + 1};${currentCursorX + 1}H`)
     } else {
       // 光标不在命令范围内
-      term.write(`\x1b[${startY + 1};${cursorStartX.value + command.length + 1}H`)
-      term.write(`\x1b[38;2;126;193;255m${arg}\x1b[0m`)
-      term.write(`\x1b[${cursorY.value + 1};${currentCursorX}H`)
+      term.value.write(`\x1b[${startY + 1};${cursorStartX.value + command.length + 1}H`)
+      term.value.write(`\x1b[38;2;126;193;255m${arg}\x1b[0m`)
+      term.value.write(`\x1b[${cursorY.value + 1};${currentCursorX}H`)
     }
   }
 }
@@ -602,10 +595,10 @@ const processString = (str) => {
 
 const handleKeyInput = (e) => {
   specialCode.value = false
-  currentLineStartY.value = term._core.buffer.y
+  currentLineStartY.value = term.value._core.buffer.y
   const ev = e.domEvent
   const printable = !ev.altKey && !ev.ctrlKey && !ev.metaKey
-  const buffer = term.buffer.active
+  const buffer = term.value.buffer.active
   cursorX.value = buffer.cursorX
   cursorY.value = buffer.cursorY
   keyCode.value = ev.keyCode
@@ -620,7 +613,7 @@ const handleKeyInput = (e) => {
     stashCursorX.value = 0
     // Enter
     currentLine.value = ''
-    currentLineStartY.value = term._core.buffer.y + 1
+    currentLineStartY.value = term.value._core.buffer.y + 1
     cursorStartX.value = 0
   } else if (ev.keyCode === 8) {
     // 删除
@@ -663,10 +656,8 @@ const submitData = async (filePath) => {
           vimText: response.content,
           originVimText: response.content,
           action: response.action,
-          vimEditorX:
-            Math.round(window.innerWidth * 0.5) - Math.round(window.innerWidth * 0.7 * 0.5),
-          vimEditorY:
-            Math.round(window.innerHeight * 0.5) - Math.round(window.innerHeight * 0.7 * 0.5),
+          vimEditorX: Math.round(window.innerWidth * 0.5) - Math.round(window.innerWidth * 0.7 * 0.5),
+          vimEditorY: Math.round(window.innerHeight * 0.5) - Math.round(window.innerHeight * 0.7 * 0.5),
           contentType: response.contentType,
           vimEditorHeight: Math.round(window.innerHeight * 0.7),
           vimEditorWidth: Math.round(window.innerWidth * 0.7),
@@ -824,9 +815,18 @@ const contextAct = (action) => {
   }
 }
 
+// 添加focus方法
+const focus = () => {
+  if (term.value) {
+    term.value.focus()
+  }
+}
+
 defineExpose({
   handleResize,
-  autoExecuteCode
+  autoExecuteCode,
+  term,
+  focus
 })
 </script>
 
