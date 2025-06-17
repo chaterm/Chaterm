@@ -240,6 +240,8 @@ onMounted(async () => {
   }
   fitAddon?.value.fit()
 
+  termInstance.focus()
+
   termInstance.onResize((size) => {
     resizeSSH(size.cols, size.rows)
   })
@@ -340,6 +342,7 @@ onMounted(async () => {
   eventBus.on('executeTerminalCommand', (command) => {
     if (props.activeTabId !== props.currentConnectionId) return
     autoExecuteCode(command)
+    termInstance.focus()
   })
 })
 const getCmdList = async (terminalId) => {
@@ -1562,6 +1565,20 @@ const contextAct = (action) => {
       break
   }
 }
+
+// 添加focus方法
+const focus = () => {
+  if (terminal.value) {
+    terminal.value.focus()
+  }
+}
+
+defineExpose({
+  handleResize,
+  autoExecuteCode,
+  terminal,
+  focus
+})
 </script>
 
 <style>

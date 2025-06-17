@@ -312,8 +312,6 @@ export class ChatermDatabaseService {
       const db = await initChatermDatabase(targetUserId)
       const instance = new ChatermDatabaseService(db, targetUserId)
       ChatermDatabaseService.instances.set(targetUserId, instance)
-    } else {
-      console.log(`Reusing existing ChatermDatabaseService instance for user ${targetUserId}`)
     }
     return ChatermDatabaseService.instances.get(targetUserId)!
   }
