@@ -5,7 +5,10 @@ import icon from '../../resources/icon.png?asset'
 
 import { registerSSHHandlers } from './ssh/sshHandle'
 import { registerRemoteTerminalHandlers } from './ssh/agentHandle'
-import { autoCompleteDatabaseService, ChatermDatabaseService } from './storage/database'
+import {
+  autoCompleteDatabaseService,
+  ChatermDatabaseService,
+  setCurrentUserId } from './storage/database'
 import { Controller } from './agent/core/controller'
 import { createExtensionContext } from './agent/core/controller/context'
 import { ElectronOutputChannel } from './agent/core/controller/outputChannel'
@@ -27,8 +30,6 @@ let chatermDbService: ChatermDatabaseService
 let controller: Controller
 
 async function createWindow(): Promise<void> {
-  autoCompleteService = await autoCompleteDatabaseService.getInstance()
-  chatermDbService = await ChatermDatabaseService.getInstance()
   mainWindow = new BrowserWindow({
     width: 1344,
     height: 756,
@@ -468,6 +469,25 @@ function setupIPC(): void {
     }
   })
 }
+
+// 初始化用户数据库
+ipcMain.handle('init-user-database', async (_, data) => {
+  try {
+    const { uid } = data
+    if (!uid) {
+      throw new Error('User ID is required')
+    }
+    console.log('Initializing database for user:', uid)
+    setCurrentUserId(uid)
+    autoCompleteService = await autoCompleteDatabaseService.getInstance(uid)
+    chatermDbService = await ChatermDatabaseService.getInstance(uid)
+
+    return { success: true }
+  } catch (error) {
+    console.error('初始化用户数据库失败:', error)
+    return { success: false, error: error }
+  }
+})
 
 ipcMain.handle('query-command', async (_, data) => {
   try {
