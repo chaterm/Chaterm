@@ -27,22 +27,21 @@
             @change="(checked) => (userConfig.autoCompleteStatus = checked ? 1 : 2)"
           />
         </a-form-item>
-        <a-form-item :label="$t('user.textEditor')">
+        <!-- <a-form-item :label="$t('user.textEditor')">
           <a-switch v-model:checked="userConfig.vimStatus"></a-switch>
-        </a-form-item>
-        <div v-if="userConfig.vimStatus">
-          <a-form-item>
+        </a-form-item> -->
+        <!-- <div v-if="userConfig.vimStatus"> -->
+        <!-- <a-form-item>
             <template #label>
-              <span style="font-weight: 1000; margin-right: 10px; margin-left: 10px">|</span
-              >{{ $t('user.commandLineOpen') }}
+              <span style="font-weight: 1000; margin-right: 10px; margin-left: 10px">|</span>{{ $t('user.commandLineOpen') }}
             </template>
             <a-switch
               :checked="userConfig.quickVimStatus === 1"
               :disabled="!userConfig.vimStatus"
               @change="handleSwitchChange"
             />
-          </a-form-item>
-          <a-form-item>
+          </a-form-item> -->
+        <!-- <a-form-item>
             <template #label>
               <span style="font-weight: 1000; margin-right: 10px; margin-left: 10px">|</span
               >{{ $t('user.fileManagerPlugin') }}
@@ -79,8 +78,19 @@
                 }}
               </a-button>
             </div>
-          </a-form-item>
-        </div>
+          </a-form-item> -->
+        <!-- </div> -->
+
+        <a-form-item>
+          <template #label>
+            {{ $t('user.commandLineOpen') }}
+          </template>
+          <a-switch
+            :checked="userConfig.quickVimStatus === 1"
+            @change="handleSwitchChange"
+          />
+        </a-form-item>
+
         <a-form-item
           :label="$t('user.aliasStatus')"
           class="user_my-ant-form-item"
