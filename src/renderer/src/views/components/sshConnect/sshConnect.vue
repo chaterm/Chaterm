@@ -111,6 +111,7 @@ import { userConfigStore } from '../../../store/userConfigStore'
 import { userConfigStore as serviceUserConfig } from '@/services/userConfigStoreService'
 import { v4 as uuidv4 } from 'uuid'
 import { userInfoStore } from '@/store/index'
+import stripAnsi from 'strip-ansi'
 
 const selectFlag = ref(false)
 const configStore = userConfigStore()
@@ -180,6 +181,7 @@ let cusWrite: ((data: string, options?: { isUserCall?: boolean }) => void) | nul
 //   }
 // }
 // 编辑序列
+
 const isEditorMode = ref(false)
 const dataBuffer = ref<number[]>([])
 const EDITOR_SEQUENCES = {
@@ -200,6 +202,7 @@ const userInputFlag = ref(false)
 const currentCwd = ref('')
 const currentCwdStore = useCurrentCwdStore()
 let termOndata: IDisposable | null = null
+const pasteFlag = ref(false)
 let dbConfigStash: {
   aliasStatus?: number
   autoCompleteStatus?: number
@@ -282,21 +285,23 @@ onMounted(async () => {
     const core = (terminal as any).value._core
     const inputHandler = core._inputHandler
     // 确保 parse 方法仅绑定一次
+
     if (!inputHandler._isWrapped) {
       inputHandler._originalParse = inputHandler.parse
       inputHandler.parse = function (data: string) {
         inputHandler._originalParse.call(this, data)
-        if (!userInputFlag.value || !isEditorMode.value) {
+        if (!userInputFlag.value && !isEditorMode.value) {
           if (JSON.stringify(data).endsWith(startStr.value)) {
             updateTerminalState(true)
           } else {
             updateTerminalState(false)
           }
         }
+
         // 走高亮的条件
         let highLightFlag: boolean = true
         // 条件1, 如果beforeCursor为空 content有内容 则代表enter键，不能走highlight
-        if (!terminalState.value.beforeCursor.length && terminalState.value.content.length) {
+        if (!terminalState.value.beforeCursor.length && terminalState.value.content.length && enterPress.value) {
           highLightFlag = false
         }
         // 条件2, 进入编辑模式下，不走highlight
@@ -310,7 +315,7 @@ onMounted(async () => {
         // 条件4, 服务器返回包含命令提示符，不走highlight，避免渲染异常
         // TODO: 条件5, 进入子交互模式 不开启高亮
         //TODO: 服务器返回  xxx\r\n,   \r\n{startStr.value}xxx 时特殊处理
-        if (data.indexOf(startStr.value) !== -1) {
+        if (data.indexOf(startStr.value) !== -1 && startStr.value != '') {
           highLightFlag = false
         }
         if (highLightFlag) {
@@ -384,11 +389,16 @@ const getFileExt = (filePath: string) => {
   return filePath.slice(idx).toLowerCase()
 }
 const parseVimLine = (str) => {
-  const lines = str.split(/\r?\n/) // 同时处理 \n 和 \r\n 换行符
+  // 过滤ANSI 转义序列
+  let cleanedStr = stripAnsi(str)
+  cleanedStr = cleanedStr.replace(/[\x00-\x09\x0B\x0C\x0E-\x1F\x7F]/g, '')
+  cleanedStr = cleanedStr.trim()
+  const lines = cleanedStr.split(/\r?\n/) // 同时处理 \n 和 \r\n 换行符
   if (lines.length > 0) {
-    const fileName = lines[1].trimEnd()
+    // 处理文件名里无意义符号
+    const fileName = lines[1].replace(/[\x00-\x1F\x7F]/g, '').trimEnd()
     const contentType = getFileExt(fileName) ? getFileExt(fileName) : '.python'
-    if (str.indexOf('No such file or directory') !== -1) {
+    if (cleanedStr.indexOf('No such file or directory') !== -1) {
       return {
         checkStatus: lines[0].trim().endsWith('#Chaterm:vim'),
         lastLine: '\r\n' + lines[lines.length - 1],
@@ -485,10 +495,9 @@ const createEditor = async (filePath, contentType) => {
     cmd: `cat ${filePath}`,
     id: connectionId.value
   })
-  let action = '编辑'
-
-  if (stderr.indexOf('No such file or directory') !== '-1') {
-    action = '创建'
+  let action = 'editor'
+  if (stderr.indexOf('No such file or directory') !== -1) {
+    action = 'create'
   }
   if (stderr.indexOf('Permission denied') !== -1) {
     message.error('Permission denied')
@@ -933,18 +942,27 @@ const setupTerminalInput = () => {
   if (!terminal.value) return
 
   termOndata = terminal.value.onData(async (data) => {
+    // 快捷键
     // 发送数据到SSH会话
     // alias替换
     if (startStr.value == '') {
       startStr.value = beginStr.value
     }
     if (data === '\t') {
+      console.log(data, 'datttt')
       sendData(data)
+      const cmd = JSON.parse(JSON.stringify(terminalState.value.content))
+      selectFlag.value = true
       // Tab键
       // if (suggestions.value.length) {
       //   selectSuggestion(suggestions.value[activeSuggestion.value])
       //   selectFlag.value = true
       // }
+      suggestions.value = []
+      activeSuggestion.value = 0
+      setTimeout(() => {
+        queryCommand(cmd)
+      }, 100)
     }
     if (data === '\x03') {
       // Ctrl+C
@@ -1426,11 +1444,11 @@ const selectSuggestion = (suggestion) => {
     activeSuggestion.value = 0
   }, 10)
 }
-const queryCommand = async () => {
+const queryCommand = async (cmd = '') => {
   if (!queryCommandFlag.value) return
   try {
     const result = await window.api.queryCommand({
-      command: terminalState.value.beforeCursor,
+      command: cmd ? cmd : terminalState.value.beforeCursor,
       ip: props.connectData.ip
     })
     if (result) {
@@ -1539,10 +1557,9 @@ const contextAct = (action) => {
   switch (action) {
     case 'paste':
       // 粘贴
+      pasteFlag.value = true
       navigator.clipboard.readText().then((text) => {
-        cusWrite?.(text, {
-          isUserCall: true
-        })
+        sendData(text)
         terminal.value?.focus()
       })
       break
