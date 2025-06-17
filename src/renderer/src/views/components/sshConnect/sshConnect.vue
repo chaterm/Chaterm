@@ -210,8 +210,10 @@ let dbConfigStash: {
   highlightStatus?: number
   [key: string]: any
 } = {}
+let config
 onMounted(async () => {
-  const config = await serviceUserConfig.getConfig()
+  config = await serviceUserConfig.getConfig()
+  console.log(config, 'config')
   dbConfigStash = config
   queryCommandFlag.value = config.autoCompleteStatus == 1
   const termInstance = markRaw(
@@ -982,11 +984,11 @@ const setupTerminalInput = () => {
       const delData = String.fromCharCode(127)
       const command = terminalState.value.content
       const aliasStore = aliasConfigStore()
-      configStore.getUserConfig.quickVimStatus = 1
+      // configStore.getUserConfig.quickVimStatus = 1
       const newCommand = aliasStore.getCommand(command) // 全局alias
       if (dbConfigStash.aliasStatus === 1 && newCommand !== null) {
         sendData(delData.repeat(command.length) + newCommand + '\r')
-      } else if (configStore.getUserConfig.quickVimStatus === 1) {
+      } else if (config.quickVimStatus === 1) {
         connectionSftpAvailable.value = await api.checkSftpConnAvailable(connectionId.value)
         const vimMatch = command.match(/^\s*vim\s+(.+)$/i)
         if (vimMatch && connectionSftpAvailable.value) {
