@@ -323,6 +323,15 @@ const getUserHosts = async (search: string) => {
   }
 }
 
+const initUserDatabase = async (data: { uid: number }) => {
+  try {
+    const result = await ipcRenderer.invoke('init-user-database', data)
+    return result
+  } catch (error) {
+    return Promise.reject(error)
+  }
+}
+
 const api = {
   getLocalIP,
   getMacAddress,
@@ -354,6 +363,7 @@ const api = {
   chatermGetChatermMessages,
   getTaskMetadata,
   getUserHosts,
+  initUserDatabase,
   maximizeWindow: () => ipcRenderer.invoke('window:maximize'),
   unmaximizeWindow: () => ipcRenderer.invoke('window:unmaximize'),
   isMaximized: () => ipcRenderer.invoke('window:is-maximized'),

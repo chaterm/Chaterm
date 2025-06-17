@@ -1,4 +1,6 @@
-const DB_NAME = 'ChatermStorage'
+import { getUserInfo } from '@/utils/permission'
+
+const DB_BASE_NAME = 'ChatermStorage'
 const DB_VERSION = 1
 const STORE_NAME = 'KeyValueStore'
 
@@ -12,16 +14,50 @@ interface DBRequest extends EventTarget {
   onerror: ((this: DBRequest, ev: Event) => any) | null
 }
 
-let db: IDBDatabase | null = null
+// 用户数据库实例缓存
+const userDatabases = new Map<number, IDBDatabase>()
+let currentUserId: number | null = null
+
+// 获取当前用户ID
+function getCurrentUserId(): number {
+  const userInfo = getUserInfo()
+  if (!userInfo || !userInfo.uid) {
+    throw new Error('User not logged in. Please login first to use storage.')
+  }
+  return userInfo.uid
+}
+
+// 生成用户专属数据库名称
+function getUserDatabaseName(userId: number): string {
+  return `${DB_BASE_NAME}_user_${userId}`
+}
+
+// 设置当前用户ID（用于用户切换时清理连接）
+export function setCurrentUser(userId: number): void {
+  if (currentUserId !== userId) {
+    if (currentUserId && userDatabases.has(currentUserId)) {
+      const oldDb = userDatabases.get(currentUserId)
+      if (oldDb) {
+        oldDb.close()
+        userDatabases.delete(currentUserId)
+      }
+    }
+    currentUserId = userId
+  }
+}
 
 async function openDB(): Promise<IDBDatabase> {
-  return new Promise((resolve, reject) => {
-    if (db) {
-      resolve(db)
-      return
-    }
+  const userId = getCurrentUserId()
 
-    const request = indexedDB.open(DB_NAME, DB_VERSION)
+  // 检查是否已有该用户的数据库连接
+  if (userDatabases.has(userId)) {
+    const existingDb = userDatabases.get(userId)!
+    return existingDb
+  }
+
+  return new Promise((resolve, reject) => {
+    const dbName = getUserDatabaseName(userId)
+    const request = indexedDB.open(dbName, DB_VERSION)
 
     request.onupgradeneeded = (event: IDBVersionChangeEvent) => {
       const target = event.target as DBRequest | null
@@ -36,14 +72,17 @@ async function openDB(): Promise<IDBDatabase> {
     request.onsuccess = (event: Event) => {
       const target = event.target as DBRequest | null
       if (target) {
-        db = target.result
-        resolve(db as IDBDatabase)
+        const database = target.result as IDBDatabase
+        userDatabases.set(userId, database)
+        setCurrentUser(userId)
+        console.log(`✅ IndexedDB connection established for user ${userId}`)
+        resolve(database)
       }
     }
 
     request.onerror = (event: Event) => {
       const target = event.target as DBRequest | null
-      console.error('IndexedDB error:', target?.error)
+      console.error(`❌ IndexedDB error for user ${userId}:`, target?.error)
       reject(target?.error)
     }
   })
