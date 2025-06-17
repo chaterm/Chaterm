@@ -17,6 +17,7 @@
     />
     <v-contextmenu ref="contextmenu">
       <Context
+        :isConnect="isConnect"
         @contextAct="contextAct"
         :wsInstance="socket"
         :termInstance="term"
@@ -60,7 +61,7 @@ import { getListCmd } from '@/api/asset/asset'
 import { aliasConfigStore } from '@/store/aliasConfigStore'
 const emit = defineEmits(['closeTabInTerm', 'createNewTerm'])
 import eventBus from '@/utils/eventBus'
-
+const isConnect = ref(true)
 const props = defineProps({
   serverInfo: {
     type: Object,
@@ -279,7 +280,7 @@ const connectWebsocket = () => {
     term.value.writeln(welcome)
     api.openHeartbeatWindow(heartbeatId, 5000)
     api.heartBeatTick(listenerHeartbeat)
-
+    isConnect.value = true
     setTimeout(() => {
       getALlCmdList()
     }, 1000)
@@ -342,6 +343,7 @@ const connectWebsocket = () => {
     api.closeHeartbeatWindow(heartbeatId)
     // setTimeout(connectWebsocket, 3000)
     socket.value = null
+    isConnect.value = false
   }
 
   socket.value.onerror = () => {
@@ -802,6 +804,7 @@ const contextAct = (action) => {
       break
     case 'disconnect':
       socket.value.close()
+      isConnect.value = false
       break
     case 'reconnect':
       // 重新连接
