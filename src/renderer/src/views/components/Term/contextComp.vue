@@ -17,8 +17,16 @@
         @click="onContextMenuAction('focusAllTabs')"
         >聚焦所有标签页</v-contextmenu-item
       > -->
-    <v-contextmenu-item @click="onContextMenuAction('disconnect')">断开连接</v-contextmenu-item>
-    <v-contextmenu-item @click="onContextMenuAction('reconnect')">重新连接</v-contextmenu-item>
+    <v-contextmenu-item
+      :disabled="!props.isConnect"
+      @click="onContextMenuAction('disconnect')"
+      >断开连接</v-contextmenu-item
+    >
+    <v-contextmenu-item
+      :disabled="props.isConnect"
+      @click="onContextMenuAction('reconnect')"
+      >重新连接</v-contextmenu-item
+    >
     <!-- <v-contextmenu-item
         :disabled="true"
         @click="onContextMenuAction('openSftpPanel')"
@@ -52,7 +60,8 @@ const props = defineProps({
   },
   termInstance: { type: Object, required: true },
   copyText: { type: String, required: true },
-  terminalId: { type: String, required: true }
+  terminalId: { type: String, required: true },
+  isConnect: { type: Boolean, default: true }
 })
 const onContextMenuAction = (action) => {
   switch (action) {
