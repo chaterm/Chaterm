@@ -62,7 +62,7 @@
   </div>
 </template>
 <script setup lang="ts">
-import { computed, ref, defineExpose, ComponentPublicInstance, PropType, watch } from 'vue'
+import { computed, ref, defineExpose, ComponentPublicInstance, PropType, watch, nextTick } from 'vue'
 import draggable from 'vuedraggable'
 import Term from '@views/components/Term/index.vue'
 import Dashboard from '@views/components/Term/dashboard.vue'
@@ -118,6 +118,16 @@ watch(
       if (activeTab) {
         // 使用 eventBus 发送事件
         eventBus.emit('activeTabChanged', activeTab)
+        // 自动聚焦到终端
+        nextTick(() => {
+          const termInstance = termRefMap.value[newTabId]
+          const sshInstance = sshConnectRefMap.value[newTabId]
+          if (termInstance) {
+            termInstance.focus()
+          } else if (sshInstance) {
+            sshInstance.focus()
+          }
+        })
       }
     }
   }
@@ -196,9 +206,7 @@ async function getTerminalOutputContent(tabId: string): Promise<string | null> {
         return 'Error retrieving output from Term component.'
       }
     }
-    console.warn(
-      `Component instance not found or method getTerminalBufferContent missing for tabId: ${tabId}`
-    )
+    console.warn(`Component instance not found or method getTerminalBufferContent missing for tabId: ${tabId}`)
     return `Instance for tab ${tabId} not found or method missing.`
   }
 }
