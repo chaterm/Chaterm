@@ -2,14 +2,64 @@ import Database from 'better-sqlite3'
 import { app } from 'electron'
 import { join } from 'path'
 import fs from 'fs'
-import path from 'path'
 import { v4 as uuidv4 } from 'uuid'
+
 // 定义数据库路径
 const USER_DATA_PATH = app.getPath('userData')
-const COMPLETE_DB_PATH = join(USER_DATA_PATH, 'databases/complete_data.db')
-const Chaterm_DB_PATH = join(USER_DATA_PATH, 'databases/chaterm_data.db')
 const INIT_DB_PATH = getInitDbPath()
 const INIT_CDB_PATH = getInitChatermDbPath()
+
+// 当前用户ID，用于数据库隔离
+let currentUserId: number | null = null
+
+// 获取用户专属数据库路径
+function getUserDatabasePath(userId: number, dbType: 'complete' | 'chaterm'): string {
+  const userDir = join(USER_DATA_PATH, 'databases', `${userId}`)
+  const dbName = dbType === 'complete' ? 'complete_data.db' : 'chaterm_data.db'
+  return join(userDir, dbName)
+}
+
+// 确保用户数据库目录存在
+function ensureUserDatabaseDir(userId: number): string {
+  const userDir = join(USER_DATA_PATH, 'databases', `${userId}`)
+  if (!fs.existsSync(userDir)) {
+    fs.mkdirSync(userDir, { recursive: true })
+  }
+  return userDir
+}
+
+// 获取遗留数据库文件路径
+function getLegacyDatabasePath(dbType: 'complete' | 'chaterm'): string {
+  const dbName = dbType === 'complete' ? 'complete_data.db' : 'chaterm_data.db'
+  return join(USER_DATA_PATH, 'databases', dbName)
+}
+
+// 迁移遗留数据库文件到用户目录
+function migrateLegacyDatabase(userId: number, dbType: 'complete' | 'chaterm'): boolean {
+  const legacyPath = getLegacyDatabasePath(dbType)
+  const userPath = getUserDatabasePath(userId, dbType)
+
+  if (fs.existsSync(legacyPath)) {
+    try {
+      console.log(`🔄 Found legacy ${dbType} database at: ${legacyPath}`)
+      console.log(`📦 Migrating to user directory: ${userPath}`)
+
+      // 确保目标目录存在
+      ensureUserDatabaseDir(userId)
+
+      // 移动文件到用户目录
+      fs.renameSync(legacyPath, userPath)
+
+      console.log(`✅ Successfully migrated legacy ${dbType} database for user ${userId}`)
+      return true
+    } catch (error) {
+      console.error(`❌ Failed to migrate legacy ${dbType} database:`, error)
+      return false
+    }
+  }
+
+  return false
+}
 
 function getInitChatermDbPath(): string {
   if (app.isPackaged) {
@@ -27,22 +77,39 @@ function getInitDbPath(): string {
   }
 }
 
-export async function initDatabase(): Promise<Database.Database> {
+export function setCurrentUserId(userId: number): void {
+  currentUserId = userId
+}
+
+export function getCurrentUserId(): number | null {
+  return currentUserId
+}
+
+export async function initDatabase(userId?: number): Promise<Database.Database> {
+  const targetUserId = userId || currentUserId
+  if (!targetUserId) {
+    throw new Error('User ID is required for database initialization')
+  }
+
   try {
+    ensureUserDatabaseDir(targetUserId)
+    const COMPLETE_DB_PATH = getUserDatabasePath(targetUserId, 'complete')
+
     // 检查目标数据库是否存在
     if (!fs.existsSync(COMPLETE_DB_PATH)) {
-      console.log('Target database does not exist, initializing from:', INIT_DB_PATH)
-      // 确保 init_data.db 存在
-      if (!fs.existsSync(INIT_DB_PATH)) {
-        throw new Error('Initial database (init_data.db) not found')
+      // 首先尝试迁移遗留数据库
+      const migrated = migrateLegacyDatabase(targetUserId, 'complete')
+
+      if (!migrated) {
+        console.log('Target database does not exist, initializing from:', INIT_DB_PATH)
+        // 确保 init_data.db 存在
+        if (!fs.existsSync(INIT_DB_PATH)) {
+          throw new Error('Initial database (init_data.db) not found')
+        }
+        const sourceDb = new Database(INIT_DB_PATH, { readonly: true })
+        await sourceDb.backup(COMPLETE_DB_PATH)
+        sourceDb.close()
       }
-      const sourceDb = new Database(INIT_DB_PATH, { readonly: true })
-      const dir = path.dirname(COMPLETE_DB_PATH)
-      if (!fs.existsSync(dir)) {
-        fs.mkdirSync(dir, { recursive: true })
-      }
-      await sourceDb.backup(COMPLETE_DB_PATH)
-      sourceDb.close()
     } else {
       console.log('Target database already exists, skipping initialization')
     }
@@ -57,13 +124,16 @@ export async function initDatabase(): Promise<Database.Database> {
   }
 }
 
-export async function initChatermDatabase(): Promise<Database.Database> {
-  try {
-    const dbDir = path.dirname(Chaterm_DB_PATH)
-    if (!fs.existsSync(dbDir)) {
-      fs.mkdirSync(dbDir, { recursive: true })
-    }
+export async function initChatermDatabase(userId?: number): Promise<Database.Database> {
+  const targetUserId = userId || currentUserId
+  if (!targetUserId) {
+    throw new Error('User ID is required for Chaterm database initialization')
+  }
 
+  ensureUserDatabaseDir(targetUserId)
+  const Chaterm_DB_PATH = getUserDatabasePath(targetUserId, 'chaterm')
+
+  try {
     if (!fs.existsSync(INIT_CDB_PATH)) {
       throw new Error(`Initial database (init_chaterm.db) not found at ${INIT_CDB_PATH}`)
     }
@@ -71,13 +141,18 @@ export async function initChatermDatabase(): Promise<Database.Database> {
     const targetDbExists = fs.existsSync(Chaterm_DB_PATH)
 
     if (!targetDbExists) {
-      console.log('Target Chaterm database does not exist. Copying from initial database.')
-      const sourceDb = new Database(INIT_CDB_PATH, { readonly: true, fileMustExist: true })
-      try {
-        await sourceDb.backup(Chaterm_DB_PATH)
-        console.log('✅ Chaterm database successfully copied.')
-      } finally {
-        sourceDb.close()
+      // 首先尝试迁移遗留数据库
+      const migrated = migrateLegacyDatabase(targetUserId, 'chaterm')
+
+      if (!migrated) {
+        console.log('Target Chaterm database does not exist. Copying from initial database.')
+        const sourceDb = new Database(INIT_CDB_PATH, { readonly: true, fileMustExist: true })
+        try {
+          await sourceDb.backup(Chaterm_DB_PATH)
+          console.log('✅ Chaterm database successfully copied.')
+        } finally {
+          sourceDb.close()
+        }
       }
     } else {
       console.log('Target Chaterm database exists. Attempting schema synchronization.')
@@ -169,6 +244,7 @@ export async function initChatermDatabase(): Promise<Database.Database> {
 
     // Return the database instance (always from Chaterm_DB_PATH)
     const finalDb = new Database(Chaterm_DB_PATH)
+    console.log('✅ Chaterm database connection established at:', Chaterm_DB_PATH)
     return finalDb
   } catch (error: any) {
     console.error('Failed database path:', Chaterm_DB_PATH)
@@ -216,19 +292,34 @@ interface EvictConfig {
 }
 
 export class ChatermDatabaseService {
-  private static instance: ChatermDatabaseService
+  private static instances: Map<number, ChatermDatabaseService> = new Map()
   private db: Database.Database
+  private userId: number
 
-  private constructor(db: Database.Database) {
+  private constructor(db: Database.Database, userId: number) {
     this.db = db
+    this.userId = userId
   }
 
-  public static async getInstance(): Promise<ChatermDatabaseService> {
-    if (!ChatermDatabaseService.instance) {
-      const db = await initChatermDatabase()
-      ChatermDatabaseService.instance = new ChatermDatabaseService(db)
+  public static async getInstance(userId?: number): Promise<ChatermDatabaseService> {
+    const targetUserId = userId || currentUserId
+    if (!targetUserId) {
+      throw new Error('User ID is required for ChatermDatabaseService')
     }
-    return ChatermDatabaseService.instance
+
+    if (!ChatermDatabaseService.instances.has(targetUserId)) {
+      console.log(`Creating new ChatermDatabaseService instance for user ${targetUserId}`)
+      const db = await initChatermDatabase(targetUserId)
+      const instance = new ChatermDatabaseService(db, targetUserId)
+      ChatermDatabaseService.instances.set(targetUserId, instance)
+    } else {
+      console.log(`Reusing existing ChatermDatabaseService instance for user ${targetUserId}`)
+    }
+    return ChatermDatabaseService.instances.get(targetUserId)!
+  }
+
+  public getUserId(): number {
+    return this.userId
   }
 
   getLocalAssetRoute(searchType: string, params: any[] = []): any {
@@ -688,7 +779,7 @@ export class ChatermDatabaseService {
 
   // Agent API对话历史相关方法
 
- async deleteChatermHistoryByTaskId(taskId: string): Promise<void> {
+  async deleteChatermHistoryByTaskId(taskId: string): Promise<void> {
     try {
       this.db.prepare(`DELETE FROM agent_api_conversation_history_v1 WHERE task_id = ?`).run(taskId)
       this.db.prepare(`DELETE FROM agent_ui_messages_v1 WHERE task_id = ?`).run(taskId)
@@ -753,7 +844,7 @@ export class ChatermDatabaseService {
     }
   }
 
-  async saveApiConversationHistory(taskId: string, apiConversationHistory: any[]): Promise<void> {
+    async saveApiConversationHistory(taskId: string, apiConversationHistory: any[]): Promise<void> {
     try {
       // 首先清除现有记录（事务之外）
       const deleteStmt = this.db.prepare(
@@ -1029,13 +1120,15 @@ export class ChatermDatabaseService {
 }
 
 export class autoCompleteDatabaseService {
-  private static instance: autoCompleteDatabaseService
+  private static instances: Map<number, autoCompleteDatabaseService> = new Map()
   private db: Database.Database
   private commandCount: number = 0
   private lastEvictTime: number = 0
+  private userId: number
 
-  private constructor(db: Database.Database) {
+  private constructor(db: Database.Database, userId: number) {
     this.db = db
+    this.userId = userId
     this.initEvictSystem()
   }
   private async initEvictSystem() {
@@ -1128,12 +1221,23 @@ export class autoCompleteDatabaseService {
     })()
   }
 
-  public static async getInstance(): Promise<autoCompleteDatabaseService> {
-    if (!autoCompleteDatabaseService.instance) {
-      const db = await initDatabase()
-      autoCompleteDatabaseService.instance = new autoCompleteDatabaseService(db)
+  public static async getInstance(userId?: number): Promise<autoCompleteDatabaseService> {
+    const targetUserId = userId || currentUserId
+    if (!targetUserId) {
+      throw new Error('User ID is required for autoCompleteDatabaseService')
     }
-    return autoCompleteDatabaseService.instance
+
+    if (!autoCompleteDatabaseService.instances.has(targetUserId)) {
+      console.log(`Creating new autoCompleteDatabaseService instance for user ${targetUserId}`)
+      const db = await initDatabase(targetUserId)
+      const instance = new autoCompleteDatabaseService(db, targetUserId)
+      autoCompleteDatabaseService.instances.set(targetUserId, instance)
+    }
+    return autoCompleteDatabaseService.instances.get(targetUserId)!
+  }
+
+  public getUserId(): number {
+    return this.userId
   }
 
   private isValidCommand(command: string): boolean {

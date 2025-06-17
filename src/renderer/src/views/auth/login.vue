@@ -238,43 +238,59 @@ const emailForm = reactive<EmailFormState>({
   code: ''
 })
 
-const onAccountFinish = () => {
-  removeToken()
-  userLogin({
-    username: accountForm.username,
-    password: accountForm.password
-  })
-    .then((res) => {
-      if (res.code == 200) {
-        console.log(res, 'ressss')
-        setUserInfo(res.data)
-        localStorage.setItem('ctm-token', res.data.token)
-        router.push('/')
-      }
-    })
-    .catch((err) => {
-      console.log(err, 'err')
-    })
+// 公共的登录成功处理函数
+const handleLoginSuccess = async (userData: any) => {
+  try {
+    console.log('Login successful:', userData)
+    setUserInfo(userData)
+    localStorage.setItem('ctm-token', userData.token)
+
+    // 初始化用户数据库
+    const api = window.api as any
+    const dbResult = await api.initUserDatabase({ uid: userData.uid })
+    if (!dbResult.success) {
+      console.error('数据库初始化失败:', dbResult.error)
+      return false
+    }
+
+    router.push('/')
+    return true
+  } catch (error) {
+    console.error('登录处理失败:', error)
+    return false
+  }
 }
 
-const onEmailFinish = () => {
-  emailLogin({
-    email: emailForm.email,
-    code: emailForm.code
-  })
-    .then((res) => {
-      console.log(res, 'ressss')
-      if (res.code == 200) {
-        console.log(res, 'ressss')
-        setUserInfo(res.data)
-        localStorage.setItem('ctm-token', res.data.token)
-        router.push('/')
-      }
+const onAccountFinish = async () => {
+  removeToken()
+  try {
+    const res = await userLogin({
+      username: accountForm.username,
+      password: accountForm.password
     })
-    .catch((err) => {
-      message.error(err.response.data.message)
+
+    if (res.code == 200) {
+      await handleLoginSuccess(res.data)
+    }
+  } catch (err) {
+    console.log(err, 'err')
+  }
+}
+
+const onEmailFinish = async () => {
+  try {
+    const res = await emailLogin({
+      email: emailForm.email,
+      code: emailForm.code
     })
-    .finally(() => {})
+
+    console.log(res, 'ressss')
+    if (res.code == 200) {
+      await handleLoginSuccess(res.data)
+    }
+  } catch (err: any) {
+    console.error('邮箱登录失败:', err)
+  }
 }
 
 const onFinishFailed = (errorInfo: any) => {
