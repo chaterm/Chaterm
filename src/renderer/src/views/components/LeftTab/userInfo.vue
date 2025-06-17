@@ -8,15 +8,17 @@
         <img :src="userInfo.avatar" />
       </div>
       <div class="registration_type">
-        {{ userInfo.registrationType === 1 ? $t('user.enterprise') : $t('user.personal') }}
+        {{ userInfo.registrationType === 1 ? t('userInfo.enterprise') : t('userInfo.personal') }}
       </div>
       <div class="divider-container">
-        <a-divider style="border-color: #4a4a4a; margin-bottom: 40px" />
+        <a-divider style="border-color: #4a4a4a; margin-bottom: 20px" />
       </div>
+
       <a-form
         :label-col="{ span: 10, offset: 2 }"
         :wrapper-col="{ span: 12 }"
         class="custom-form"
+        :model="formState"
       >
         <a-form-item
           label="UID"
@@ -25,64 +27,272 @@
           {{ userInfo.uid }}
         </a-form-item>
         <a-form-item
-          :label="$t('user.name')"
+          :label="t('userInfo.name')"
           class="user_my-ant-form-item"
+          name="name"
         >
-          {{ userInfo.name }}
+          <a-input
+            v-if="isEditing"
+            v-model:value="formState.name"
+            :placeholder="t('userInfo.pleaseInputName')"
+            class="custom-input"
+          />
+          <span v-else>{{ userInfo.name }}</span>
         </a-form-item>
         <a-form-item
-          :label="$t('user.email')"
+          :label="t('userInfo.username')"
+          class="user_my-ant-form-item"
+          name="username"
+        >
+          <a-input
+            v-if="isEditing"
+            v-model:value="formState.username"
+            :placeholder="t('userInfo.pleaseInputUsername')"
+            class="custom-input"
+          />
+          <span v-else>{{ userInfo.username }}</span>
+        </a-form-item>
+        <a-form-item
+          :label="t('userInfo.mobile')"
+          class="user_my-ant-form-item"
+          name="mobile"
+        >
+          <a-input
+            v-if="isEditing"
+            v-model:value="formState.mobile"
+            :placeholder="t('userInfo.pleaseInputMobile')"
+            class="custom-input"
+          />
+          <span v-else>{{ userInfo.mobile }}</span>
+        </a-form-item>
+        <a-form-item
+          :label="t('userInfo.password')"
+          class="user_my-ant-form-item"
+        >
+          <template v-if="isEditingPassword">
+            <a-input-password
+              v-model:value="formState.newPassword"
+              :placeholder="t('userInfo.pleaseInputNewPassword')"
+              class="custom-input"
+              style="width: 300px"
+            />
+          </template>
+
+          <template v-else>
+            <span>******</span>
+            <a-button
+              v-if="!unChange"
+              type="link"
+              style="margin-left: 8px"
+              @click="startEditingPassword"
+            >
+              {{ t('userInfo.resetPassword') }}
+            </a-button>
+          </template>
+        </a-form-item>
+        <a-form-item
+          v-if="isEditingPassword"
+          :label="t('userInfo.passwordStrength')"
+        >
+          <span
+            v-if="strength == 1"
+            style="color: red"
+            >{{ t('userInfo.passwordStrengthWeak') }}</span
+          >
+          <span
+            v-if="strength == 2"
+            style="color: #d46b08"
+            >{{ t('userInfo.passwordStrengthMedium') }}</span
+          >
+          <span
+            v-if="strength > 2"
+            style="color: rgb(50, 100, 237)"
+            >{{ t('userInfo.passwordStrengthStrong') }}</span
+          >
+        </a-form-item>
+        <a-form-item
+          :label="t('userInfo.email')"
           class="user_my-ant-form-item"
         >
           {{ userInfo.email }}
         </a-form-item>
         <a-form-item
-          :label="$t('user.mobile')"
-          class="user_my-ant-form-item"
-        >
-          {{ userInfo.mobile }}
-        </a-form-item>
-        <a-form-item
           v-if="userInfo.secondaryOrganization"
-          :label="$t('user.organization')"
+          :label="t('userInfo.organization')"
           class="user_my-ant-form-item"
         >
-          {{ userInfo.secondaryOrganization }}/{{ userInfo.tertiaryOrganization }}/{{
-            userInfo.team
-          }}
+          {{ userInfo.secondaryOrganization }}/{{ userInfo.tertiaryOrganization }}/{{ userInfo.team }}
         </a-form-item>
         <a-form-item
-          :label="$t('user.ip')"
+          :label="t('userInfo.ip')"
           class="user_my-ant-form-item"
         >
           {{ userInfo.localIp }}
         </a-form-item>
         <a-form-item
-          :label="$t('user.macAddress')"
+          :label="t('userInfo.macAddress')"
           class="user_my-ant-form-item"
         >
           {{ userInfo.macAddress }}
         </a-form-item>
       </a-form>
-      <p></p>
+      <div
+        v-if="!unChange"
+        class="button-container"
+      >
+        <template v-if="!isEditing && !isEditingPassword">
+          <a-button
+            type="primary"
+            @click="startEditing"
+          >
+            {{ t('userInfo.edit') }}
+          </a-button>
+        </template>
+        <template v-else>
+          <a-button
+            type="primary"
+            style="margin-right: 8px"
+            @click="handleSave"
+          >
+            {{ t('userInfo.save') }}
+          </a-button>
+          <a-button @click="cancelEditing">
+            {{ t('userInfo.cancel') }}
+          </a-button>
+        </template>
+      </div>
     </a-card>
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted, onBeforeUnmount } from 'vue'
+import { ref, onMounted, onBeforeUnmount, reactive, computed } from 'vue'
 import 'xterm/css/xterm.css'
-import { getUser } from '@api/user/user'
+import i18n from '@/locales'
+import { getUser, updateUser, changePassword } from '@api/user/user'
 import { useDeviceStore } from '@/store/useDeviceStore'
-
+import { message } from 'ant-design-vue'
+import zxcvbn from 'zxcvbn'
+const { t } = i18n.global
 const deviceStore = useDeviceStore()
 const userInfo = ref({})
+const isEditing = ref(false)
+const isEditingPassword = ref(false)
+const unChange = ref(true)
+const formState = reactive({
+  username: '',
+  name: '',
+  mobile: '',
+  newPassword: ''
+})
+
 const getUserInfo = () => {
   getUser().then((res) => {
     userInfo.value = res.data
     userInfo.value.localIp = deviceStore.getDeviceIp
     userInfo.value.macAddress = deviceStore.getMacAddress
+    if (userInfo.value.uid != 2000001) unChange.value = false
+    // 初始化表单数据
+    formState.username = userInfo.value.username
+    formState.name = userInfo.value.name
+    formState.mobile = userInfo.value.mobile
   })
+}
+// const strength = zxcvbn(password)
+const strength = computed(() => {
+  if (formState.newPassword == '') return null
+  else return zxcvbn(formState.newPassword).score
+})
+
+const startEditing = () => {
+  isEditing.value = true
+  isEditingPassword.value = false
+}
+
+const startEditingPassword = () => {
+  isEditingPassword.value = true
+  isEditing.value = false
+}
+
+const cancelEditing = () => {
+  isEditing.value = false
+  isEditingPassword.value = false
+  // 重置表单数据
+  formState.name = userInfo.value.name
+  formState.mobile = userInfo.value.mobile
+  formState.newPassword = ''
+}
+
+const validatePassword = () => {
+  if (formState.newPassword.length < 6) {
+    message.error(t('userInfo.passwordLengthError'))
+    return false
+  }
+  if (strength.value < 1) {
+    message.error(t('userInfo.passwordStrengthError'))
+    return false
+  }
+  return true
+}
+const validateSave = () => {
+  if (!/^1[3-9]\d{9}$/.test(formState.mobile)) {
+    message.error(t('userInfo.mobileInvalid'))
+    return false
+  }
+
+  if (!formState.username || formState.username.length < 6 || formState.username.length > 20) {
+    message.error(t('userInfo.usernameLengthError'))
+    return false
+  }
+
+  if (!/^[a-zA-Z0-9_]+$/.test(formState.username)) {
+    message.error(t('userInfo.usernameFormatError'))
+    return false
+  }
+
+  if (!formState.name || formState.name.trim().length === 0) {
+    message.error(t('userInfo.nameRequired'))
+    return false
+  } else if (formState.name.length > 20) {
+    message.error(t('userInfo.nameTooLong'))
+    return false
+  }
+  return true
+}
+const handleSave = async () => {
+  try {
+    if (isEditingPassword.value) {
+      if (!validatePassword()) {
+        return
+      }
+      const response = await changePassword({
+        password: formState.newPassword
+      })
+      if (response.code == 200) {
+        message.success(t('userInfo.passwordResetSuccess'))
+        cancelEditing()
+      } else {
+        message.error(response.message || t('userInfo.passwordResetFailed'))
+      }
+    } else {
+      if (!validateSave()) return
+      const response = await updateUser({
+        username: formState.username,
+        name: formState.name,
+        mobile: formState.mobile
+      })
+      console.log(response)
+      if (response.code == 200) {
+        message.success(t('userInfo.updateSuccess'))
+        cancelEditing()
+        getUserInfo()
+      } else {
+        message.error(response.message || t('userInfo.updateFailed'))
+      }
+    }
+  } catch (error) {
+    message.error(isEditingPassword.value ? t('userInfo.passwordResetFailed') : t('userInfo.updateFailed'))
+  }
 }
 
 // 初始化终端
@@ -120,40 +330,60 @@ onBeforeUnmount(() => {})
   display: flex;
   flex-direction: column;
   align-items: center;
+  overflow-y: scroll;
 }
 
-/* 设置整个表单的字体颜色 */
+/* 表单样式 */
 .custom-form {
-  color: #ffffff;
+  color: #f8f8f8;
   align-content: center;
   width: 100%;
 }
 
 .custom-form :deep(.ant-form-item-label) {
-  padding-right: 1px; /* 增加右侧间距 */
+  padding-right: 1px;
 }
 
-/* 设置表单标签(label)的字体颜色 */
 .custom-form :deep(.ant-form-item-label > label) {
-  color: #ffffff;
+  color: #f8f8f8;
 }
 
-/* 设置表单输入框的字体颜色 */
-.custom-form :deep(.ant-input),
-.custom-form :deep(.ant-input-password input) {
-  color: #ffffff;
+/* 输入框样式 */
+.custom-input,
+:deep(.ant-input-password),
+:deep(.ant-input-password .ant-input) {
+  background-color: #1f1f1f !important;
+  /* border: 1px solid #434343 !important; */
+  color: #f8f8f8 !important;
+  border-radius: 4px !important;
+  width: 300px !important;
+  &::placeholder {
+    color: #999;
+  }
 }
 
-/* 设置错误提示文字的颜色 */
+.custom-input:hover,
+.custom-input:focus,
+:deep(.ant-input-password:hover),
+:deep(.ant-input-password-focused) {
+  border-color: #2a82e4 !important;
+  box-shadow: 0 0 0 2px rgba(42, 130, 228, 0.2) !important;
+}
+
+:deep(.ant-input-password .anticon) {
+  color: #f8f8f8 !important;
+}
+
+/* 错误提示样式 */
 .custom-form :deep(.ant-form-item-explain-error) {
   color: #ff4d4f;
 }
 
-/* 设置必填星号的颜色 */
 .custom-form :deep(.ant-form-item-required::before) {
   color: #ff4d4f;
 }
 
+/* 表单项样式 */
 .user_my-ant-form-item {
   -webkit-box-sizing: border-box;
   box-sizing: border-box;
@@ -167,20 +397,20 @@ onBeforeUnmount(() => {})
   -webkit-font-feature-settings: 'tnum';
   font-feature-settings: 'tnum';
   margin-bottom: 14px;
-  margin-bottom: 14px;
   vertical-align: top;
-  color: #ffffff;
+  color: #f8f8f8;
   width: 100%;
 }
 
+/* 头像样式 */
 .user_avatar {
-  width: 18vmin; /* 使用视口较小边的百分比 */
-  height: 18vmin; /* 保持宽高一致 */
+  width: 18vmin;
+  height: 18vmin;
   margin: 0 auto 20px;
   border-radius: 50%;
   overflow: hidden;
   position: relative;
-  flex-shrink: 0; /* 防止flex布局压缩 */
+  flex-shrink: 0;
 }
 
 .user_avatar img {
@@ -190,10 +420,20 @@ onBeforeUnmount(() => {})
   object-fit: cover;
   left: 50%;
   top: 50%;
-  transform: translate(-50%, -50%); /* 确保图片绝对居中 */
+  transform: translate(-50%, -50%);
 }
 
-/* 添加媒体查询应对小屏幕 */
+/* 按钮容器样式 */
+.button-container {
+  margin-top: 20px;
+  text-align: center;
+}
+
+.button-container .ant-btn {
+  min-width: 80px;
+}
+
+/* 响应式样式 */
 @media (max-width: 768px) {
   .user_avatar {
     width: 20vmin;
@@ -209,6 +449,6 @@ onBeforeUnmount(() => {})
 .divider-container {
   width: 70%;
   margin: 0 auto;
-  text-align: center; /* 确保内部元素居中 */
+  text-align: center;
 }
 </style>
