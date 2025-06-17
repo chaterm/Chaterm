@@ -343,10 +343,18 @@ onMounted(async () => {
   termInstance.write = cusWrite as any
   window.addEventListener('resize', handleResize)
   connectSSH()
-  eventBus.on('executeTerminalCommand', (command) => {
+
+  const handleExecuteCommand = (command) => {
     if (props.activeTabId !== props.currentConnectionId) return
     autoExecuteCode(command)
     termInstance.focus()
+  }
+
+  eventBus.on('executeTerminalCommand', handleExecuteCommand)
+
+  // 将清理逻辑移到 onBeforeUnmount
+  cleanupListeners.value.push(() => {
+    eventBus.off('executeTerminalCommand', handleExecuteCommand)
   })
 })
 const getCmdList = async (terminalId) => {
@@ -363,15 +371,17 @@ const getCmdList = async (terminalId) => {
 onBeforeUnmount(() => {
   window.removeEventListener('resize', handleResize)
 
-  // 清理IPC监听器
+  // 清理IPC监听器和事件总线监听器
   cleanupListeners.value.forEach((cleanup) => cleanup())
+  cleanupListeners.value = [] // 清空数组
+
   if (typeof removeOtpRequestListener === 'function') removeOtpRequestListener()
   if (typeof removeOtpTimeoutListener === 'function') removeOtpTimeoutListener()
   if (typeof removeOtpResultListener === 'function') removeOtpResultListener()
   if (isConnected.value) {
     disconnectSSH()
   }
-  eventBus.off('executeTerminalCommand')
+  // eventBus.off('executeTerminalCommand') // 此行已通过 cleanupListeners 处理
 })
 const getFileExt = (filePath: string) => {
   const idx = filePath.lastIndexOf('.')
