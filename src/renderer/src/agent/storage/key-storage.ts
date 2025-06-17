@@ -46,6 +46,89 @@ export function setCurrentUser(userId: number): void {
   }
 }
 
+async function migrateOldDatabase(userId: number): Promise<void> {
+  return new Promise((resolve) => {
+    const oldDbName = DB_BASE_NAME
+    const request = indexedDB.open(oldDbName)
+
+    let dbExists = true
+    request.onupgradeneeded = () => {
+      dbExists = false
+      request.transaction?.abort()
+      indexedDB.deleteDatabase(oldDbName) // Clean up empty DB
+      resolve()
+    }
+
+    request.onsuccess = (event: Event) => {
+      if (!dbExists) return
+
+      console.log(`Old database "${oldDbName}" found. Attempting to migrate...`)
+      const oldDb = (event.target as DBRequest).result
+      if (!oldDb.objectStoreNames.contains(STORE_NAME)) {
+        oldDb.close()
+        indexedDB.deleteDatabase(oldDbName).onsuccess = () => resolve()
+        return
+      }
+
+      const transaction = oldDb.transaction(STORE_NAME, 'readonly')
+      const store = transaction.objectStore(STORE_NAME)
+      const getAllRequest = store.getAll()
+
+      getAllRequest.onsuccess = () => {
+        const data = getAllRequest.result
+        oldDb.close()
+
+        const newDbName = getUserDatabaseName(userId)
+        const newDbRequest = indexedDB.open(newDbName, DB_VERSION)
+
+        newDbRequest.onupgradeneeded = (e: IDBVersionChangeEvent) => {
+          const newDb = (e.target as DBRequest).result
+          if (!newDb.objectStoreNames.contains(STORE_NAME)) {
+            newDb.createObjectStore(STORE_NAME, { keyPath: 'key' })
+          }
+        }
+
+        newDbRequest.onsuccess = () => {
+          const newDb = newDbRequest.result
+          const writeTransaction = newDb.transaction(STORE_NAME, 'readwrite')
+          const newStore = writeTransaction.objectStore(STORE_NAME)
+
+          if (data?.length > 0) {
+            data.forEach((item) => newStore.put(item))
+          }
+
+          writeTransaction.oncomplete = () => {
+            newDb.close()
+            indexedDB.deleteDatabase(oldDbName).onsuccess = () => {
+              console.log('✅ Old database migrated and deleted successfully.')
+              resolve()
+            }
+          }
+          writeTransaction.onerror = () => {
+            console.error('Error writing data to new database during migration.')
+            newDb.close()
+            resolve() // Resolve anyway to not block app startup
+          }
+        }
+        newDbRequest.onerror = () => {
+          console.error('Error opening new database during migration.')
+          resolve()
+        }
+      }
+      getAllRequest.onerror = () => {
+        console.error('Error reading from old database during migration.')
+        oldDb.close()
+        resolve()
+      }
+    }
+    request.onerror = () => {
+      // This can happen for various reasons, including browser settings.
+      // We assume no migration is possible or needed.
+      resolve()
+    }
+  })
+}
+
 async function openDB(): Promise<IDBDatabase> {
   const userId = getCurrentUserId()
 
@@ -54,6 +137,8 @@ async function openDB(): Promise<IDBDatabase> {
     const existingDb = userDatabases.get(userId)!
     return existingDb
   }
+
+  await migrateOldDatabase(userId)
 
   return new Promise((resolve, reject) => {
     const dbName = getUserDatabaseName(userId)
