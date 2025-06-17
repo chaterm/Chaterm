@@ -285,6 +285,7 @@ onMounted(async () => {
     const core = (terminal as any).value._core
     const inputHandler = core._inputHandler
     // 确保 parse 方法仅绑定一次
+
     if (!inputHandler._isWrapped) {
       inputHandler._originalParse = inputHandler.parse
       inputHandler.parse = function (data: string) {
@@ -938,12 +939,20 @@ const setupTerminalInput = () => {
       startStr.value = beginStr.value
     }
     if (data === '\t') {
+      console.log(data, 'datttt')
       sendData(data)
+      const cmd = JSON.parse(JSON.stringify(terminalState.value.content))
+      selectFlag.value = true
       // Tab键
       // if (suggestions.value.length) {
       //   selectSuggestion(suggestions.value[activeSuggestion.value])
       //   selectFlag.value = true
       // }
+      suggestions.value = []
+      activeSuggestion.value = 0
+      setTimeout(() => {
+        queryCommand(cmd)
+      }, 100)
     }
     if (data === '\x03') {
       // Ctrl+C
@@ -1425,11 +1434,11 @@ const selectSuggestion = (suggestion) => {
     activeSuggestion.value = 0
   }, 10)
 }
-const queryCommand = async () => {
+const queryCommand = async (cmd = '') => {
   if (!queryCommandFlag.value) return
   try {
     const result = await window.api.queryCommand({
-      command: terminalState.value.beforeCursor,
+      command: cmd ? cmd : terminalState.value.beforeCursor,
       ip: props.connectData.ip
     })
     if (result) {
