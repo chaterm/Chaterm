@@ -183,6 +183,7 @@ const initTerminal = async () => {
   term.value.onData((data) => {
     if (socket.value && socket.value.readyState === WebSocket.OPEN) {
       //   socket.value.send(data)
+      // 快捷键
       if (data === '\t') {
         // Tab键
         selectSuggestion(suggestions.value[activeSuggestion.value])
@@ -229,6 +230,7 @@ const initTerminal = async () => {
         if (suggestions.value.length && (data == '\u001b[A' || data == '\u001b[B')) {
           // 键盘上下选中提示项目
           data == '\u001b[A' && activeSuggestion.value > 0 ? (activeSuggestion.value -= 1) : ''
+          data == '\u001b[B' && activeSuggestion.value < suggestions.value.length - 1 ? (activeSuggestion.value += 1) : ''
           data == '\u001b[B' && activeSuggestion.value < suggestions.value.length - 1 ? (activeSuggestion.value += 1) : ''
         } else if (suggestions.value.length && data == '\u001b[C') {
           selectSuggestion(suggestions.value[activeSuggestion.value])
@@ -305,7 +307,10 @@ const connectWebsocket = () => {
           term.value.write(enc.decode(event.data))
         } else {
           const data = JSON.parse(event.data)
-          allDatas.value = data
+          console.log(data, 'data')
+          if (data && data.highLightData) {
+            allDatas.value = data
+          }
           if (data.highLightData && keyCodeArr.indexOf(keyCode.value) != -1) {
             if (stashConfig.highlightStatus == 1) {
               highlightSyntax(data.highLightData)
@@ -318,6 +323,7 @@ const connectWebsocket = () => {
         //非初始输入且非特殊按键
         if (typeof event.data !== 'object') {
           const data = JSON.parse(event.data)
+          console.log(data, 'data2')
           allDatas.value = data
           if (data.highLightData) {
             if (stashConfig.highlightStatus == 1) {
