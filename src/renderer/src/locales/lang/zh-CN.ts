@@ -137,7 +137,9 @@ export default {
     customInstructionsPh: '这些指令添加到每个请求发送的系统提示的末尾。例如：总是用中文回答',
     deepSeekApiKey: 'DeepSeek API Key',
     deepSeekApiKeyPh: '请输入API Key',
-    deepSeekApiKeyDescribe: '此密钥存储在本地，仅用于从此客服端发出API请求'
+    deepSeekApiKeyDescribe: '此密钥存储在本地，仅用于从此客服端发出API请求',
+    checkModelConfigFailedMessage: '缺少必要的模型配置',
+    checkModelConfigFailedDescription: '请填写必要的模型配置，设置->AI->API配置'
   },
   extensions: {
     extensions: '插件',

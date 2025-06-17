@@ -392,7 +392,9 @@ import {
   litellmAiModelOptions,
   deepseekAiModelOptions
 } from '@views/components/LeftTab/components/aiOptions'
-
+import debounce from 'lodash/debounce'
+import i18n from '@/locales'
+const { t } = i18n.global
 const MarkdownRenderer = defineAsyncComponent(
   () => import('@views/components/AiTab/MarkdownRenderer.vue')
 )
@@ -415,8 +417,6 @@ declare module '@/utils/eventBus' {
 }
 
 const hostSearchInputRef = ref()
-import debounce from 'lodash/debounce'
-
 const showHostSelect = ref(false)
 const hostOptions = ref<{ label: string; value: string; uuid: string }[]>([])
 const hostSearchValue = ref('')
@@ -551,7 +551,47 @@ const handleTabChange = (key: string | number) => {
   currentChatId.value = historyList.value.find((item) => item.chatType === key)?.id || null
 }
 
+const checkModelConfig = async () => {
+  const apiProvider = await getGlobalState('apiProvider')
+  switch (apiProvider) {
+    case 'bedrock':
+      const awsAccessKey = await getGlobalState('awsAccessKey')
+      const awsSecretKey = await getGlobalState('awsSecretKey')
+      const awsRegion = await getGlobalState('awsRegion')
+      const apiModelId = await getGlobalState('apiModelId')
+      if (apiModelId == '' || awsAccessKey == '' || awsSecretKey == '' || awsRegion == '') {
+        return false
+      }
+      break
+    case 'litellm':
+      const liteLlmBaseUrl = await getGlobalState('liteLlmBaseUrl')
+      const liteLlmApiKey = await getGlobalState('liteLlmApiKey')
+      const liteLlmModelId = await getGlobalState('liteLlmModelId')
+      if (liteLlmBaseUrl == '' || liteLlmApiKey == '' || liteLlmModelId == '') {
+        return false
+      }
+      break
+    case 'deepseek':
+      const deepSeekApiKey = await getGlobalState('deepSeekApiKey')
+      const apiModelIdDeepSeek = await getGlobalState('apiModelId')
+      if (deepSeekApiKey == '' || apiModelIdDeepSeek == '') {
+        return false
+      }
+      break
+  }
+  return true
+}
+
 const sendMessage = async () => {
+  const checkModelConfigResult = await checkModelConfig()
+  if (!checkModelConfigResult) {
+    notification.error({
+      message: t('user.checkModelConfigFailedMessage'),
+      description: t('user.checkModelConfigFailedDescription'),
+      duration: 3
+    })
+    return 'SEND_ERROR'
+  }
   if (chatInputValue.value.trim() === '') {
     notification.error({
       message: '发送内容错误',
