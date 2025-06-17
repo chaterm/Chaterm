@@ -28,7 +28,9 @@ const urls = {
   aliasRefreshTerm: '/term-api/alias/refresh',
   ssoToBearerToken: '/user/login-sso',
   sendEmailCode: '/user/login-email/send-code',
-  emailLogin: '/user/login-email'
+  emailLogin: '/user/login-email',
+  updateUser: '/user/info',
+  changePassword: '/user/password'
 }
 export function sendEmailCode(params) {
   return request({
@@ -149,6 +151,22 @@ export function aliasRefresh(data) {
   return request({
     method: 'post',
     url: urls.aliasRefreshTerm,
+    data: data
+  })
+}
+
+export function updateUser(data) {
+  return request({
+    method: 'post',
+    url: urls.updateUser,
+    data: data
+  })
+}
+
+export function changePassword(data) {
+  return request({
+    method: 'post',
+    url: urls.changePassword,
     data: data
   })
 }
