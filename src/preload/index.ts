@@ -499,6 +499,14 @@ const api = {
     ipcRenderer.on('heartbeat-tick', (event, heartbeatId) => {
       callback(heartbeatId)
     })
+  },
+  validateApiKey: async () => {
+    try {
+      const result = await ipcRenderer.invoke('validate-api-key')
+      return result
+    } catch (error) {
+      return Promise.reject(error)
+    }
   }
 }
 // 自定义 API 用于浏览器控制
