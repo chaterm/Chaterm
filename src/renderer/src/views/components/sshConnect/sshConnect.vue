@@ -180,6 +180,7 @@ let cusWrite: ((data: string, options?: { isUserCall?: boolean }) => void) | nul
 //   }
 // }
 // 编辑序列
+
 const isEditorMode = ref(false)
 const dataBuffer = ref<number[]>([])
 const EDITOR_SEQUENCES = {
@@ -200,6 +201,7 @@ const userInputFlag = ref(false)
 const currentCwd = ref('')
 const currentCwdStore = useCurrentCwdStore()
 let termOndata: IDisposable | null = null
+const pasteFlag = ref(false)
 let dbConfigStash: {
   aliasStatus?: number
   autoCompleteStatus?: number
@@ -293,10 +295,11 @@ onMounted(async () => {
             updateTerminalState(false)
           }
         }
+
         // 走高亮的条件
         let highLightFlag: boolean = true
         // 条件1, 如果beforeCursor为空 content有内容 则代表enter键，不能走highlight
-        if (!terminalState.value.beforeCursor.length && terminalState.value.content.length) {
+        if (!terminalState.value.beforeCursor.length && terminalState.value.content.length && enterPress.value) {
           highLightFlag = false
         }
         // 条件2, 进入编辑模式下，不走highlight
@@ -310,7 +313,7 @@ onMounted(async () => {
         // 条件4, 服务器返回包含命令提示符，不走highlight，避免渲染异常
         // TODO: 条件5, 进入子交互模式 不开启高亮
         //TODO: 服务器返回  xxx\r\n,   \r\n{startStr.value}xxx 时特殊处理
-        if (data.indexOf(startStr.value) !== -1) {
+        if (data.indexOf(startStr.value) !== -1 && startStr.value != '') {
           highLightFlag = false
         }
         if (highLightFlag) {
@@ -923,6 +926,7 @@ const setupTerminalInput = () => {
   if (!terminal.value) return
 
   termOndata = terminal.value.onData(async (data) => {
+    // 快捷键
     // 发送数据到SSH会话
     // alias替换
     if (startStr.value == '') {
@@ -1529,10 +1533,9 @@ const contextAct = (action) => {
   switch (action) {
     case 'paste':
       // 粘贴
+      pasteFlag.value = true
       navigator.clipboard.readText().then((text) => {
-        cusWrite?.(text, {
-          isUserCall: true
-        })
+        sendData(text)
         terminal.value?.focus()
       })
       break
