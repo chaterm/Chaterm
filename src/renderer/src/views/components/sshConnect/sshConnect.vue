@@ -18,7 +18,7 @@
       <Context
         :isConnect="isConnected"
         @contextAct="contextAct"
-        :termInstance="terminal"
+        :termInstance="terminal as any"
         :copyText="copyText"
         :terminalId="connectionId"
       />
@@ -166,6 +166,7 @@ const cursorStartX = ref(0)
 const api = window.api as any
 const encoder = new TextEncoder()
 let cusWrite: ((data: string, options?: { isUserCall?: boolean }) => void) | null = null
+let resizeObserver: ResizeObserver | null = null
 // const userConfig = ref({
 //   aliasStatus: 2,
 //   quickVimStatus: 2
@@ -349,6 +350,21 @@ onMounted(async () => {
   }
 
   termInstance.write = cusWrite as any
+  const boxId = `${props.currentConnectionId}-box`
+  const box = document.getElementById(boxId)
+  console.log(document.getElementById(boxId), 'document.getElementById')
+
+  // 使用 ResizeObserver 监听 box 元素的尺寸变化
+  if (box) {
+    resizeObserver = new ResizeObserver(
+      debounce(() => {
+        handleResize()
+      }, 50)
+    )
+    resizeObserver.observe(box)
+  }
+
+  // 保留 window resize 监听作为备用
   window.addEventListener('resize', handleResize)
   connectSSH()
 
@@ -378,6 +394,12 @@ const getCmdList = async (terminalId) => {
 }
 onBeforeUnmount(() => {
   window.removeEventListener('resize', handleResize)
+
+  // 清理 ResizeObserver
+  if (resizeObserver) {
+    resizeObserver.disconnect()
+    resizeObserver = null
+  }
 
   // 清理IPC监听器和事件总线监听器
   cleanupListeners.value.forEach((cleanup) => cleanup())
@@ -1087,9 +1109,9 @@ const detectEditorMode = (response: MarkedResponse): void => {
       // 如果是字符串，转换为字节数组
       const encoder = new TextEncoder()
       bytes = Array.from(encoder.encode(response.data))
-    } else if (response.data instanceof Uint8Array) {
+    } else if (response.data && typeof response.data === 'object' && 'byteLength' in response.data) {
       // 如果是Uint8Array，直接转换
-      bytes = Array.from(response.data)
+      bytes = Array.from(response.data as Uint8Array)
     } else if (Array.isArray(response.data)) {
       // 如果已经是数组
       bytes = response.data
