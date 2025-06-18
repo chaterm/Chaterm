@@ -92,9 +92,7 @@
               <div class="message-actions">
                 <a-tooltip :title="$t('ai.copy')">
                   <a-button
-                    v-if="
-                      chatTypeValue === 'cmd' && message.ask === 'command' && message.actioned
-                    "
+                    v-if="chatTypeValue === 'cmd' && message.ask === 'command' && message.actioned"
                     size="small"
                     class="history-copy-btn"
                     @click="handleHistoryCopy(message)"
@@ -224,7 +222,7 @@
             v-model:value="chatInputValue"
             :placeholder="$t('ai.agentMessage')"
             class="chat-textarea"
-            :auto-size="{ minRows: 2, maxRows: 20 }"
+            :auto-size="{ minRows: 2, maxRows: 2 }"
             @keydown="handleKeyDown"
             @input="handleInputChange"
           />
@@ -1114,7 +1112,8 @@ const changeModel = debounce(async (newValue) => {
       case 'litellm':
         chatAiModelValue.value = (await getGlobalState('liteLlmModelId')) as string
         const exists =
-          litellmAiModelOptions.findIndex((option) => option.value === chatAiModelValue.value) !== -1
+          litellmAiModelOptions.findIndex((option) => option.value === chatAiModelValue.value) !==
+          -1
         if (!exists && chatAiModelValue.value) {
           litellmAiModelOptions.push({
             value: chatAiModelValue.value,
