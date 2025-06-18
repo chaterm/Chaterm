@@ -9,6 +9,7 @@ export interface ApiHandler {
   createMessage(systemPrompt: string, messages: Anthropic.Messages.MessageParam[]): ApiStream
   getModel(): { id: string; info: ModelInfo }
   getApiStreamUsage?(): Promise<ApiStreamUsageChunk | undefined>
+  validateApiKey(): Promise<{ isValid: boolean; error?: string }>
 }
 
 export interface SingleCompletionHandler {

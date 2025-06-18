@@ -206,8 +206,11 @@ export class LiteLlmHandler implements ApiHandler {
       })
       return { isValid: true }
     } catch (error) {
-      console.error('API key validation failed:', error)
-      return { isValid: false, error: error instanceof Error ? error.message : String(error) }
+      console.error('OpenAI compatible configuration validation failed:', error)
+      return {
+        isValid: false,
+        error: `Validation failed:  ${error instanceof Error ? error.message : String(error)}`
+      }
     }
   }
 }
