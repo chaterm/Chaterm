@@ -6,7 +6,11 @@
   >
     <a-tab-pane
       key="chat"
-      :tab="currentChatId ? historyList.find((item) => item.id === currentChatId)?.chatTitle || 'New chat' : 'New chat'"
+      :tab="
+        currentChatId
+          ? historyList.find((item) => item.id === currentChatId)?.chatTitle || 'New chat'
+          : 'New chat'
+      "
     >
       <div
         v-if="chatHistory.length === 0"
@@ -64,7 +68,8 @@
               v-if="message.role === 'assistant'"
               class="assistant-message-container"
               :class="{
-                'has-history-copy-btn': chatTypeValue === 'cmd' && message.ask === 'command' && message.actioned
+                'has-history-copy-btn':
+                  chatTypeValue === 'cmd' && message.ask === 'command' && message.actioned
               }"
             >
               <MarkdownRenderer
@@ -97,13 +102,19 @@
                     </template>
                   </a-button>
                 </a-tooltip>
-                <template v-if="typeof message.content === 'object' && 'options' in message.content">
+                <template
+                  v-if="typeof message.content === 'object' && 'options' in message.content"
+                >
                   <div class="options-container">
                     <a-button
                       v-for="(option, index) in (message.content as MessageContent).options"
                       :key="index"
                       size="small"
-                      :class="['action-btn', 'option-btn', { selected: message.selectedOption === option }]"
+                      :class="[
+                        'action-btn',
+                        'option-btn',
+                        { selected: message.selectedOption === option }
+                      ]"
                       @click="handleOptionChoose(message, option)"
                     >
                       {{ option }}
@@ -211,7 +222,7 @@
             v-model:value="chatInputValue"
             :placeholder="$t('ai.agentMessage')"
             class="chat-textarea"
-            :auto-size="{ minRows: 2, maxRows: 20 }"
+            :auto-size="{ minRows: 2, maxRows: 2 }"
             @keydown="handleKeyDown"
             @input="handleInputChange"
           />
@@ -419,7 +430,17 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted, defineAsyncComponent, onUnmounted, watch, computed, nextTick, onBeforeUnmount } from 'vue'
+import {
+  ref,
+  reactive,
+  onMounted,
+  defineAsyncComponent,
+  onUnmounted,
+  watch,
+  computed,
+  nextTick,
+  onBeforeUnmount
+} from 'vue'
 import {
   CloseOutlined,
   LaptopOutlined,
@@ -436,7 +457,14 @@ import { notification } from 'ant-design-vue'
 import { v4 as uuidv4 } from 'uuid'
 import eventBus from '@/utils/eventBus'
 import { getGlobalState, updateGlobalState } from '@renderer/agent/storage/state'
-import type { HistoryItem, TaskHistoryItem, Host, ChatMessage, MessageContent, AssetInfo } from './types'
+import type {
+  HistoryItem,
+  TaskHistoryItem,
+  Host,
+  ChatMessage,
+  MessageContent,
+  AssetInfo
+} from './types'
 import { createNewMessage, parseMessageContent, truncateText, formatHosts } from './utils'
 import foldIcon from '@/assets/icons/fold.svg'
 import historyIcon from '@/assets/icons/history.svg'
@@ -444,12 +472,17 @@ import plusIcon from '@/assets/icons/plus.svg'
 import sendIcon from '@/assets/icons/send.svg'
 import { useCurrentCwdStore } from '@/store/currentCwdStore'
 import { getassetMenu } from '@/api/asset/asset'
-import { aiModelOptions, litellmAiModelOptions, deepseekAiModelOptions } from '@views/components/LeftTab/components/aiOptions'
+import {
+  aiModelOptions,
+  litellmAiModelOptions,
+  deepseekAiModelOptions
+} from '@views/components/LeftTab/components/aiOptions'
 import debounce from 'lodash/debounce'
 import i18n from '@/locales'
-
 const { t } = i18n.global
-const MarkdownRenderer = defineAsyncComponent(() => import('@views/components/AiTab/MarkdownRenderer.vue'))
+const MarkdownRenderer = defineAsyncComponent(
+  () => import('@views/components/AiTab/MarkdownRenderer.vue')
+)
 
 import { ChatermMessage } from 'src/main/agent/shared/ExtensionMessage'
 
@@ -727,7 +760,8 @@ const handlePlusClick = async () => {
       host: assetInfo.ip,
       uuid: assetInfo.uuid,
       connection: assetInfo.organizationId === 'personal' ? 'personal' : 'organization',
-      organizationId: assetInfo.organizationId !== 'personal' ? assetInfo.organizationId : 'personal_01'
+      organizationId:
+        assetInfo.organizationId !== 'personal' ? assetInfo.organizationId : 'personal_01'
     })
   }
 
@@ -774,7 +808,11 @@ const restoreHistoryTab = async (history: HistoryItem) => {
     if (history.chatType === 'agent' || history.chatType === 'cmd') {
       try {
         const metadataResult = await (window.api as any).getTaskMetadata(history.id)
-        if (metadataResult.success && metadataResult.data && Array.isArray(metadataResult.data.hosts)) {
+        if (
+          metadataResult.success &&
+          metadataResult.data &&
+          Array.isArray(metadataResult.data.hosts)
+        ) {
           hosts.value = metadataResult.data.hosts.map((item: any) => ({
             host: item.host,
             uuid: item.uuid || '',
@@ -793,7 +831,11 @@ const restoreHistoryTab = async (history: HistoryItem) => {
       conversationHistory.forEach((item, index) => {
         // 检查是否与前一项重复
         const isDuplicate =
-          lastItem && item.text === lastItem.text && item.ask === lastItem.ask && item.say === lastItem.say && item.type === lastItem.type
+          lastItem &&
+          item.text === lastItem.text &&
+          item.ask === lastItem.ask &&
+          item.say === lastItem.say &&
+          item.type === lastItem.type
 
         if (
           !isDuplicate &&
@@ -944,7 +986,9 @@ const handleRejectContent = async () => {
       case 'followup':
         messageRsp.askResponse = 'messageResponse'
         messageRsp.text =
-          typeof message.content === 'object' && 'options' in message.content ? (message.content as MessageContent).options?.[1] || '' : ''
+          typeof message.content === 'object' && 'options' in message.content
+            ? (message.content as MessageContent).options?.[1] || ''
+            : ''
         break
       case 'api_req_failed':
         messageRsp.askResponse = 'noButtonClicked'
@@ -1008,7 +1052,9 @@ const handleApproveCommand = async () => {
       case 'followup':
         messageRsp.askResponse = 'messageResponse'
         messageRsp.text =
-          typeof message.content === 'object' && 'options' in message.content ? (message.content as MessageContent).options?.[0] || '' : ''
+          typeof message.content === 'object' && 'options' in message.content
+            ? (message.content as MessageContent).options?.[0] || ''
+            : ''
         break
       case 'api_req_failed':
         messageRsp.askResponse = 'yesButtonClicked'
@@ -1126,7 +1172,8 @@ const changeModel = debounce(async (newValue) => {
         break
       case 'litellm':
         chatAiModelValue.value = newValue?.[2]
-        const exists = litellmAiModelOptions.findIndex((option) => option.value === newValue?.[2]) !== -1
+        const exists =
+          litellmAiModelOptions.findIndex((option) => option.value === newValue?.[2]) !== -1
         if (!exists && newValue?.[2]) {
           litellmAiModelOptions.push({
             value: newValue?.[2],
@@ -1149,7 +1196,9 @@ const changeModel = debounce(async (newValue) => {
         break
       case 'litellm':
         chatAiModelValue.value = (await getGlobalState('liteLlmModelId')) as string
-        const exists = litellmAiModelOptions.findIndex((option) => option.value === chatAiModelValue.value) !== -1
+        const exists =
+          litellmAiModelOptions.findIndex((option) => option.value === chatAiModelValue.value) !==
+          -1
         if (!exists && chatAiModelValue.value) {
           litellmAiModelOptions.push({
             value: chatAiModelValue.value,
@@ -1249,8 +1298,10 @@ onMounted(async () => {
       } else if (lastMessageInChat && lastMessageInChat.role === 'assistant') {
         lastMessageInChat.content = message.partialMessage.text
         lastMessageInChat.type = message.partialMessage.type
-        lastMessageInChat.ask = message.partialMessage.type === 'ask' ? message.partialMessage.ask : ''
-        lastMessageInChat.say = message.partialMessage.type === 'say' ? message.partialMessage.say : ''
+        lastMessageInChat.ask =
+          message.partialMessage.type === 'ask' ? message.partialMessage.ask : ''
+        lastMessageInChat.say =
+          message.partialMessage.type === 'say' ? message.partialMessage.say : ''
         lastMessageInChat.partial = message.partialMessage.partial
 
         if (!message.partialMessage.partial && message.partialMessage.type === 'ask') {
@@ -1371,7 +1422,9 @@ const showBottomButton = computed(() => {
 })
 
 // 1. 新增状态变量
-const filteredHostOptions = computed(() => hostOptions.value.filter((item) => item.label.includes(hostSearchValue.value)))
+const filteredHostOptions = computed(() =>
+  hostOptions.value.filter((item) => item.label.includes(hostSearchValue.value))
+)
 const onHostClick = (item: any) => {
   const newHost = {
     host: item.label,
@@ -1439,7 +1492,9 @@ const fetchHostOptions = async (search: string) => {
     // 忽略资产接口异常
   }
   // 去重，只保留唯一 ip+organizationId
-  const uniqueAssetHosts = Array.from(new Map(assetHosts.map((h) => [h.ip + '_' + h.organizationId, h])).values())
+  const uniqueAssetHosts = Array.from(
+    new Map(assetHosts.map((h) => [h.ip + '_' + h.organizationId, h])).values()
+  )
   // 转换为 hostOptions 兼容格式
   const assetHostOptions = uniqueAssetHosts.map((h) => ({
     label: h.ip,
@@ -1455,7 +1510,9 @@ const fetchHostOptions = async (search: string) => {
   }
 
   const allOptions = [...assetHostOptions]
-  const deduped = Array.from(new Map(allOptions.map((h) => [h.label + '_' + (h.organizationId || ''), h])).values())
+  const deduped = Array.from(
+    new Map(allOptions.map((h) => [h.label + '_' + (h.organizationId || ''), h])).values()
+  )
 
   hostOptions.value.splice(0, hostOptions.value.length, ...deduped)
 

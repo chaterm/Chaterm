@@ -42,12 +42,12 @@ export default {
     pleaseInputUsername: 'Please input username',
     pleaseInputPassword: 'Please input password',
     pleaseInputEmail: 'Please input email',
-    pleaseInputCode: 'Please input verification code',
+    pleaseInputCode: 'Please input code',
     invalidEmail: 'Please input a valid email address',
     usernameTooltip: 'Please input your username',
     passwordTooltip: 'Please input your password',
     retryAfter: 'Retry after {seconds} seconds',
-    getCode: 'Get verification code'
+    getCode: 'Send code'
   },
   workspace: {
     workspace: 'Workspace',
