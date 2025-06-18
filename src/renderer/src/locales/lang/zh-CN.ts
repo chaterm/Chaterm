@@ -219,7 +219,10 @@ export default {
     showChatHistory: '显示历史记录',
     closeAiSidebar: '关闭AI侧边栏',
     addHost: '添加主机',
-    processing: '处理中...'
+    processing: '处理中...',
+    searchHistoryPH: '请输入',
+    loading: '加载中...',
+    loadMore: '加载'
   },
   keyChain: {
     newKey: '添加密钥',

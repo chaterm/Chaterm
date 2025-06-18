@@ -6,11 +6,7 @@
   >
     <a-tab-pane
       key="chat"
-      :tab="
-        currentChatId
-          ? historyList.find((item) => item.id === currentChatId)?.chatTitle || 'New chat'
-          : 'New chat'
-      "
+      :tab="currentChatId ? historyList.find((item) => item.id === currentChatId)?.chatTitle || 'New chat' : 'New chat'"
     >
       <div
         v-if="chatHistory.length === 0"
@@ -68,8 +64,7 @@
               v-if="message.role === 'assistant'"
               class="assistant-message-container"
               :class="{
-                'has-history-copy-btn':
-                  chatTypeValue === 'cmd' && message.ask === 'command' && message.actioned
+                'has-history-copy-btn': chatTypeValue === 'cmd' && message.ask === 'command' && message.actioned
               }"
             >
               <MarkdownRenderer
@@ -92,9 +87,7 @@
               <div class="message-actions">
                 <a-tooltip :title="$t('ai.copy')">
                   <a-button
-                    v-if="
-                      chatTypeValue === 'cmd' && message.ask === 'command' && message.actioned
-                    "
+                    v-if="chatTypeValue === 'cmd' && message.ask === 'command' && message.actioned"
                     size="small"
                     class="history-copy-btn"
                     @click="handleHistoryCopy(message)"
@@ -104,19 +97,13 @@
                     </template>
                   </a-button>
                 </a-tooltip>
-                <template
-                  v-if="typeof message.content === 'object' && 'options' in message.content"
-                >
+                <template v-if="typeof message.content === 'object' && 'options' in message.content">
                   <div class="options-container">
                     <a-button
                       v-for="(option, index) in (message.content as MessageContent).options"
                       :key="index"
                       size="small"
-                      :class="[
-                        'action-btn',
-                        'option-btn',
-                        { selected: message.selectedOption === option }
-                      ]"
+                      :class="['action-btn', 'option-btn', { selected: message.selectedOption === option }]"
                       @click="handleOptionChoose(message, option)"
                     >
                       {{ option }}
@@ -320,17 +307,97 @@
             </a-button>
             <template #overlay>
               <a-menu class="history-dropdown-menu">
-                <a-menu-item
-                  v-for="(history, index) in historyList"
-                  :key="index"
-                  class="history-menu-item"
-                  @click="restoreHistoryTab(history)"
-                >
-                  <div class="history-item-content">
-                    <div class="history-title">{{ history.chatTitle }}</div>
-                    <div class="history-type">{{ history.chatType }}</div>
+                <div class="history-search-container">
+                  <a-input
+                    v-model:value="historySearchValue"
+                    :placeholder="$t('ai.searchHistoryPH')"
+                    size="small"
+                    class="history-search-input"
+                    allow-clear
+                    @input="handleHistorySearch"
+                  >
+                    <template #prefix>
+                      <SearchOutlined style="color: #666" />
+                    </template>
+                  </a-input>
+                </div>
+                <div class="history-virtual-list-container">
+                  <a-menu-item
+                    v-for="history in paginatedHistoryList"
+                    :key="history.id"
+                    class="history-menu-item"
+                    @click="!history.isEditing && restoreHistoryTab(history)"
+                  >
+                    <div class="history-item-content">
+                      <div
+                        v-if="!history.isEditing"
+                        class="history-title"
+                      >
+                        {{ history.chatTitle }}
+                      </div>
+                      <a-input
+                        v-else
+                        v-model:value="history.editingTitle"
+                        size="small"
+                        class="history-title-input"
+                        @press-enter="saveHistoryTitle(history)"
+                        @blur="saveHistoryTitle(history)"
+                        @click.stop
+                      />
+                      <div class="menu-action-buttons">
+                        <template v-if="!history.isEditing">
+                          <a-button
+                            size="small"
+                            class="menu-action-btn"
+                            @click.stop="editHistory(history)"
+                          >
+                            <template #icon>
+                              <EditOutlined />
+                            </template>
+                          </a-button>
+                          <a-button
+                            size="small"
+                            class="menu-action-btn"
+                            @click.stop="deleteHistory(history)"
+                          >
+                            <template #icon>
+                              <DeleteOutlined />
+                            </template>
+                          </a-button>
+                        </template>
+                        <template v-else>
+                          <a-button
+                            size="small"
+                            class="menu-action-btn save-btn"
+                            @click.stop="saveHistoryTitle(history)"
+                          >
+                            <template #icon>
+                              <CheckOutlined />
+                            </template>
+                          </a-button>
+                          <a-button
+                            size="small"
+                            class="menu-action-btn cancel-btn"
+                            @click.stop="cancelEdit(history)"
+                          >
+                            <template #icon>
+                              <CloseOutlined />
+                            </template>
+                          </a-button>
+                        </template>
+                      </div>
+                      <!--                      <div class="history-type">{{ history.chatType }}</div>-->
+                    </div>
+                  </a-menu-item>
+                  <div
+                    v-if="hasMoreHistory"
+                    class="history-load-more"
+                    @click="loadMoreHistory"
+                    @intersection="handleIntersection"
+                  >
+                    {{ isLoadingMore ? $t('ai.loading') : $t('ai.loadMore') }}
                   </div>
-                </a-menu-item>
+                </div>
               </a-menu>
             </template>
           </a-dropdown>
@@ -353,37 +420,24 @@
 </template>
 
 <script setup lang="ts">
-import {
-  ref,
-  reactive,
-  onMounted,
-  defineAsyncComponent,
-  onUnmounted,
-  watch,
-  computed,
-  nextTick,
-  onBeforeUnmount
-} from 'vue'
+import { ref, reactive, onMounted, defineAsyncComponent, onUnmounted, watch, computed, nextTick, onBeforeUnmount } from 'vue'
 import {
   CloseOutlined,
   LaptopOutlined,
   CopyOutlined,
   PlayCircleOutlined,
   RedoOutlined,
-  HourglassOutlined
+  HourglassOutlined,
+  EditOutlined,
+  DeleteOutlined,
+  SearchOutlined,
+  CheckOutlined
 } from '@ant-design/icons-vue'
 import { notification } from 'ant-design-vue'
 import { v4 as uuidv4 } from 'uuid'
 import eventBus from '@/utils/eventBus'
 import { getGlobalState, updateGlobalState } from '@renderer/agent/storage/state'
-import type {
-  HistoryItem,
-  TaskHistoryItem,
-  Host,
-  ChatMessage,
-  MessageContent,
-  AssetInfo
-} from './types'
+import type { HistoryItem, TaskHistoryItem, Host, ChatMessage, MessageContent, AssetInfo } from './types'
 import { createNewMessage, parseMessageContent, truncateText, formatHosts } from './utils'
 import foldIcon from '@/assets/icons/fold.svg'
 import historyIcon from '@/assets/icons/history.svg'
@@ -391,17 +445,12 @@ import plusIcon from '@/assets/icons/plus.svg'
 import sendIcon from '@/assets/icons/send.svg'
 import { useCurrentCwdStore } from '@/store/currentCwdStore'
 import { getassetMenu } from '@/api/asset/asset'
-import {
-  aiModelOptions,
-  litellmAiModelOptions,
-  deepseekAiModelOptions
-} from '@views/components/LeftTab/components/aiOptions'
+import { aiModelOptions, litellmAiModelOptions, deepseekAiModelOptions } from '@views/components/LeftTab/components/aiOptions'
 import debounce from 'lodash/debounce'
 import i18n from '@/locales'
+
 const { t } = i18n.global
-const MarkdownRenderer = defineAsyncComponent(
-  () => import('@views/components/AiTab/MarkdownRenderer.vue')
-)
+const MarkdownRenderer = defineAsyncComponent(() => import('@views/components/AiTab/MarkdownRenderer.vue'))
 
 import { ChatermMessage } from 'src/main/agent/shared/ExtensionMessage'
 
@@ -590,8 +639,8 @@ const sendMessage = async () => {
   const checkModelConfigResult = await checkModelConfig()
   if (!checkModelConfigResult) {
     notification.error({
-      message: t('user.checkModelConfigFailedMessage'),
-      description: t('user.checkModelConfigFailedDescription'),
+      message: t('user.checkModelConfigFailMessage'),
+      description: t('user.checkModelConfigFailDescription'),
       duration: 3
     })
     return 'SEND_ERROR'
@@ -679,8 +728,7 @@ const handlePlusClick = async () => {
       host: assetInfo.ip,
       uuid: assetInfo.uuid,
       connection: assetInfo.organizationId === 'personal' ? 'personal' : 'organization',
-      organizationId:
-        assetInfo.organizationId !== 'personal' ? assetInfo.organizationId : 'personal_01'
+      organizationId: assetInfo.organizationId !== 'personal' ? assetInfo.organizationId : 'personal_01'
     })
   }
 
@@ -727,11 +775,7 @@ const restoreHistoryTab = async (history: HistoryItem) => {
     if (history.chatType === 'agent') {
       try {
         const metadataResult = await (window.api as any).getTaskMetadata(history.id)
-        if (
-          metadataResult.success &&
-          metadataResult.data &&
-          Array.isArray(metadataResult.data.hosts)
-        ) {
+        if (metadataResult.success && metadataResult.data && Array.isArray(metadataResult.data.hosts)) {
           hosts.value = metadataResult.data.hosts.map((item: any) => ({
             host: item.host,
             uuid: item.uuid || '',
@@ -750,11 +794,7 @@ const restoreHistoryTab = async (history: HistoryItem) => {
       conversationHistory.forEach((item, index) => {
         // 检查是否与前一项重复
         const isDuplicate =
-          lastItem &&
-          item.text === lastItem.text &&
-          item.ask === lastItem.ask &&
-          item.say === lastItem.say &&
-          item.type === lastItem.type
+          lastItem && item.text === lastItem.text && item.ask === lastItem.ask && item.say === lastItem.say && item.type === lastItem.type
 
         if (
           !isDuplicate &&
@@ -828,20 +868,22 @@ const restoreHistoryTab = async (history: HistoryItem) => {
 const handleHistoryClick = async () => {
   try {
     if (chatTypeValue.value === 'agent') {
+      // 重置分页状态
+      currentPage.value = 1
+      isLoadingMore.value = false
+
       // 从 globalState 获取所有 agent 历史记录并按 ts 倒序排序
-      const agentHistory = (
-        ((await getGlobalState('taskHistory')) as TaskHistoryItem[]) || []
-      ).sort((a, b) => b.ts - a.ts)
-      // 转换格式并添加到历史列表
-      historyList.value = []
-      agentHistory.forEach((messages) => {
-        historyList.value.push({
+      const agentHistory = (((await getGlobalState('taskHistory')) as TaskHistoryItem[]) || [])
+        .sort((a, b) => b.ts - a.ts)
+        .map((messages) => ({
           id: messages.id,
           chatTitle: truncateText(messages?.task || 'Agent Chat'),
           chatType: 'agent',
           chatContent: []
-        })
-      })
+        }))
+
+      // 批量更新历史列表
+      historyList.value = agentHistory
     }
   } catch (err) {
     console.error('Failed to get conversation list:', err)
@@ -903,9 +945,7 @@ const handleRejectContent = async () => {
       case 'followup':
         messageRsp.askResponse = 'messageResponse'
         messageRsp.text =
-          typeof message.content === 'object' && 'options' in message.content
-            ? (message.content as MessageContent).options?.[1] || ''
-            : ''
+          typeof message.content === 'object' && 'options' in message.content ? (message.content as MessageContent).options?.[1] || '' : ''
         break
       case 'api_req_failed':
         messageRsp.askResponse = 'noButtonClicked'
@@ -969,9 +1009,7 @@ const handleApproveCommand = async () => {
       case 'followup':
         messageRsp.askResponse = 'messageResponse'
         messageRsp.text =
-          typeof message.content === 'object' && 'options' in message.content
-            ? (message.content as MessageContent).options?.[0] || ''
-            : ''
+          typeof message.content === 'object' && 'options' in message.content ? (message.content as MessageContent).options?.[0] || '' : ''
         break
       case 'api_req_failed':
         messageRsp.askResponse = 'yesButtonClicked'
@@ -1070,7 +1108,7 @@ watch(
 )
 
 const handleChatAiModelChange = async () => {
-  const apiProvider = await getGlobalState('apiProvider')
+      const apiProvider = await getGlobalState('apiProvider')
   debouncedUpdateGlobalState(apiProvider, chatAiModelValue.value)
   debouncedEmitModelChange(chatTypeValue.value, chatAiModelValue.value)
 }
@@ -1082,15 +1120,14 @@ const changeModel = debounce(async (newValue) => {
   let apiProvider = ''
   if (newValue?.[0]) {
     apiProvider = newValue?.[0]
-    switch (apiProvider) {
-      case 'bedrock':
+      switch (apiProvider) {
+        case 'bedrock':
         chatAiModelValue.value = newValue?.[1]
         AgentAiModelsOptions = aiModelOptions
-        break
-      case 'litellm':
+          break
+        case 'litellm':
         chatAiModelValue.value = newValue?.[2]
-        const exists =
-          litellmAiModelOptions.findIndex((option) => option.value === newValue?.[2]) !== -1
+        const exists = litellmAiModelOptions.findIndex((option) => option.value === newValue?.[2]) !== -1
         if (!exists && newValue?.[2]) {
           litellmAiModelOptions.push({
             value: newValue?.[2],
@@ -1098,12 +1135,12 @@ const changeModel = debounce(async (newValue) => {
           })
         }
         AgentAiModelsOptions = litellmAiModelOptions
-        break
-      case 'deepseek':
+          break
+        case 'deepseek':
         chatAiModelValue.value = newValue?.[1]
         AgentAiModelsOptions = deepseekAiModelOptions
-        break
-    }
+          break
+      }
   } else {
     apiProvider = (await getGlobalState('apiProvider')) as string
     switch (apiProvider) {
@@ -1113,8 +1150,7 @@ const changeModel = debounce(async (newValue) => {
         break
       case 'litellm':
         chatAiModelValue.value = (await getGlobalState('liteLlmModelId')) as string
-        const exists =
-          litellmAiModelOptions.findIndex((option) => option.value === chatAiModelValue.value) !== -1
+        const exists = litellmAiModelOptions.findIndex((option) => option.value === chatAiModelValue.value) !== -1
         if (!exists && chatAiModelValue.value) {
           litellmAiModelOptions.push({
             value: chatAiModelValue.value,
@@ -1214,10 +1250,8 @@ onMounted(async () => {
       } else if (lastMessageInChat && lastMessageInChat.role === 'assistant') {
         lastMessageInChat.content = message.partialMessage.text
         lastMessageInChat.type = message.partialMessage.type
-        lastMessageInChat.ask =
-          message.partialMessage.type === 'ask' ? message.partialMessage.ask : ''
-        lastMessageInChat.say =
-          message.partialMessage.type === 'say' ? message.partialMessage.say : ''
+        lastMessageInChat.ask = message.partialMessage.type === 'ask' ? message.partialMessage.ask : ''
+        lastMessageInChat.say = message.partialMessage.type === 'say' ? message.partialMessage.say : ''
         lastMessageInChat.partial = message.partialMessage.partial
 
         if (!message.partialMessage.partial && message.partialMessage.type === 'ask') {
@@ -1284,7 +1318,7 @@ const sendMessageToMain = async (userContent: string) => {
     console.log('发送消息到主进程:', message)
     const response = await (window.api as any).sendToMain(message)
     console.log('主进程响应:', response)
-  } catch (error) {
+    } catch (error) {
     console.error('发送消息到主进程失败:', error)
   }
 }
@@ -1338,9 +1372,7 @@ const showBottomButton = computed(() => {
 })
 
 // 1. 新增状态变量
-const filteredHostOptions = computed(() =>
-  hostOptions.value.filter((item) => item.label.includes(hostSearchValue.value))
-)
+const filteredHostOptions = computed(() => hostOptions.value.filter((item) => item.label.includes(hostSearchValue.value)))
 const onHostClick = (item: any) => {
   const newHost = {
     host: item.label,
@@ -1408,9 +1440,7 @@ const fetchHostOptions = async (search: string) => {
     // 忽略资产接口异常
   }
   // 去重，只保留唯一 ip+organizationId
-  const uniqueAssetHosts = Array.from(
-    new Map(assetHosts.map((h) => [h.ip + '_' + h.organizationId, h])).values()
-  )
+  const uniqueAssetHosts = Array.from(new Map(assetHosts.map((h) => [h.ip + '_' + h.organizationId, h])).values())
   // 转换为 hostOptions 兼容格式
   const assetHostOptions = uniqueAssetHosts.map((h) => ({
     label: h.ip,
@@ -1426,9 +1456,7 @@ const fetchHostOptions = async (search: string) => {
   }
 
   const allOptions = [...assetHostOptions]
-  const deduped = Array.from(
-    new Map(allOptions.map((h) => [h.label + '_' + (h.organizationId || ''), h])).values()
-  )
+  const deduped = Array.from(new Map(allOptions.map((h) => [h.label + '_' + (h.organizationId || ''), h])).values())
 
   hostOptions.value.splice(0, hostOptions.value.length, ...deduped)
 
@@ -1465,7 +1493,164 @@ watch(
   },
   { immediate: true }
 )
+
+const currentEditingId = ref(null)
+
+const editHistory = async (history) => {
+  // 如果有其他正在编辑的项，先还原它
+  if (currentEditingId.value && currentEditingId.value !== history.id) {
+    const previousEditingHistory = paginatedHistoryList.value.find((h) => h.id === currentEditingId.value)
+    if (previousEditingHistory) {
+      previousEditingHistory.isEditing = false
+      previousEditingHistory.editingTitle = ''
+    }
+  }
+
+  // 设置当前编辑项
+  currentEditingId.value = history.id
+  history.isEditing = true
+  history.editingTitle = history.chatTitle
+
+  // 等待DOM更新后聚焦输入框
+  await nextTick()
+  const input = document.querySelector('.history-title-input input')
+  if (input) {
+    input.focus()
+    input.select()
+  }
+}
+
+const saveHistoryTitle = async (history) => {
+  if (!history.editingTitle?.trim()) {
+    history.editingTitle = history.chatTitle
+  }
+
+  // 更新历史记录标题
+  history.chatTitle = history.editingTitle.trim()
+  history.isEditing = false
+  currentEditingId.value = null
+
+  try {
+    // 获取当前历史记录
+    const taskHistory = ((await getGlobalState('taskHistory')) as TaskHistoryItem[]) || []
+    // 更新对应记录的标题
+    const targetHistory = taskHistory.find((item) => item.id === history.id)
+    if (targetHistory) {
+      targetHistory.task = history.chatTitle
+      // 保存更新后的历史记录
+      await updateGlobalState('taskHistory', taskHistory)
+    }
+  } catch (err) {
+    console.error('Failed to update history title:', err)
+  }
+}
+
+const deleteHistory = async (history) => {
+  // 获取当前历史记录
+  const agentHistory = ((await getGlobalState('taskHistory')) as TaskHistoryItem[]) || []
+
+  // 过滤掉要删除的记录
+  const filteredHistory = agentHistory.filter((item) => item.id !== history.id)
+
+  // 更新全局状态
+  await updateGlobalState('taskHistory', filteredHistory)
+
+  // 更新显示列表
+  historyList.value = filteredHistory
+    .sort((a, b) => b.ts - a.ts)
+    .map((messages) => ({
+      id: messages.id,
+      chatTitle: truncateText(messages?.task || 'Agent Chat'),
+      chatType: 'agent',
+      chatContent: []
+    }))
+  const message = {
+    type: 'deleteTaskWithId',
+    text: history.id,
+    cwd: currentCwd.value
+  }
+  console.log('发送消息到主进程:', message)
+  const response = await (window.api as any).sendToMain(message)
+  console.log('主进程响应:', response)
+}
+
+const historySearchValue = ref('')
+
+const handleHistorySearch = () => {
+  // 实现搜索逻辑
+  console.log('Searching for:', historySearchValue.value)
+}
+
+const filteredHistoryList = computed(() => {
+  // 实现过滤逻辑
+  return historyList.value.filter((history) => {
+    return history.chatTitle.toLowerCase().includes(historySearchValue.value.toLowerCase())
+  })
+})
+
+const PAGE_SIZE = 20
+const currentPage = ref(1)
+const isLoadingMore = ref(false)
+
+const paginatedHistoryList = computed(() => {
+  const filtered = filteredHistoryList.value
+  const end = currentPage.value * PAGE_SIZE
+  return filtered.slice(0, end)
+})
+
+const hasMoreHistory = computed(() => {
+  return paginatedHistoryList.value.length < filteredHistoryList.value.length
+})
+
+const loadMoreHistory = async () => {
+  if (isLoadingMore.value || !hasMoreHistory.value) return
+
+  isLoadingMore.value = true
+  try {
+    await new Promise((resolve) => setTimeout(resolve, 300)) // 添加小延迟使加载更平滑
+    currentPage.value++
+  } finally {
+    isLoadingMore.value = false
+  }
+}
+
+// 使用 Intersection Observer 实现无限滚动
+const handleIntersection = (entries) => {
+  if (entries[0].isIntersecting) {
+    loadMoreHistory()
+  }
+}
+
+// 监听搜索值变化时重置分页
+watch(historySearchValue, () => {
+  currentPage.value = 1
+})
+
+const cancelEdit = (history) => {
+  history.isEditing = false
+  history.editingTitle = ''
+  currentEditingId.value = null
+}
 </script>
+
+<style lang="less">
+.history-dropdown-menu {
+  .ant-input {
+    background-color: #4a4a4a !important;
+    border: 1px solid #3a3a3a !important;
+    color: #ffffff !important;
+    font-size: 12px !important;
+    padding: 0 4px !important;
+    height: 16px !important;
+    line-height: 16px !important;
+
+    &:focus {
+      border-color: #1890ff !important;
+      box-shadow: 0 0 0 2px rgba(24, 144, 255, 0.2) !important;
+    }
+  }
+}
+</style>
 
 <style lang="less" scoped>
 .ai-chat-custom-tabs {
@@ -1912,13 +2097,50 @@ watch(
 }
 
 .history-dropdown-menu {
-  max-height: 400px;
-  overflow-y: auto;
+  max-height: none;
+  overflow: visible;
   padding: 4px;
   background-color: #2a2a2a;
   border: 1px solid #3a3a3a;
   border-radius: 8px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+
+  .history-search-container {
+    padding: 4px;
+    border-bottom: 1px solid #3a3a3a;
+    margin-bottom: 4px;
+  }
+
+  .history-search-input {
+    background-color: #1f1f1f !important;
+    border: 1px solid #3a3a3a !important;
+
+    :deep(.ant-input) {
+      background-color: #1f1f1f !important;
+      border: none !important;
+      color: #e0e0e0 !important;
+      font-size: 12px !important;
+
+      &::placeholder {
+        color: #666 !important;
+      }
+    }
+
+    :deep(.ant-input-clear-icon) {
+      color: #666;
+
+      &:hover {
+        color: #999;
+      }
+    }
+  }
+}
+
+.history-virtual-list-container {
+  max-height: 360px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: #4a4a4a transparent;
 
   &::-webkit-scrollbar {
     width: 4px;
@@ -1941,9 +2163,18 @@ watch(
   transition: all 0.2s ease !important;
   min-height: unset !important;
 
+  .menu-action-buttons {
+    opacity: 0;
+    transition: opacity 0.2s ease;
+  }
+
   &:hover {
     background-color: #3a3a3a !important;
     transform: translateX(2px);
+
+    .menu-action-buttons {
+      opacity: 1;
+    }
   }
 
   &:active {
@@ -1956,6 +2187,28 @@ watch(
   flex-direction: row;
   align-items: center;
   gap: 8px;
+  width: 100%;
+
+  :deep(.ant-input) {
+    background-color: #4a4a4a !important;
+    border: 1px solid #3a3a3a !important;
+    color: #ffffff !important;
+    font-size: 13px !important;
+    padding: 0 4px !important;
+    height: 20px !important;
+    line-height: 20px !important;
+
+    &:focus {
+      border-color: #3a3a3a !important;
+      box-shadow: 0 0 0 2px rgba(58, 58, 58, 0.2) !important;
+    }
+  }
+
+  .menu-action-buttons {
+    display: flex;
+    gap: 2px;
+    margin-left: 4px;
+  }
 }
 
 .history-title {
@@ -1966,6 +2219,11 @@ watch(
   overflow: hidden;
   text-overflow: ellipsis;
   flex: 1;
+}
+
+.history-title-input {
+  flex: 1;
+  margin-right: 8px;
 }
 
 .history-type {
@@ -2245,6 +2503,57 @@ watch(
     text-align: center;
     font-weight: 400;
     opacity: 0.65;
+  }
+}
+
+.menu-action-btn {
+  background: none !important;
+  border: none !important;
+  box-shadow: none !important;
+  color: #fff !important;
+  padding: 0 2px;
+  min-width: 0;
+  height: 16px;
+  line-height: 20px;
+  font-size: 12px;
+  margin-left: 0;
+  margin-right: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+
+  :deep(.anticon) {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+  }
+
+  &:hover,
+  &:focus {
+    background: none !important;
+  }
+
+  &.save-btn:hover {
+    color: #52c41a !important;
+  }
+
+  &.cancel-btn:hover {
+    color: #ff4d4f !important;
+  }
+}
+
+.history-load-more {
+  text-align: center;
+  padding: 8px;
+  color: #888;
+  font-size: 12px;
+  cursor: pointer;
+  transition: color 0.2s;
+
+  &:hover {
+    color: #1890ff;
   }
 }
 </style>
