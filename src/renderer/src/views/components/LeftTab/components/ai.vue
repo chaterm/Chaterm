@@ -360,7 +360,7 @@ const awsRegionOptions = ref([
   { value: 'us-gov-west-1', label: 'us-gov-west-1' }
 ])
 
-let apiModelId = ref('')
+const apiModelId = ref('')
 const thinkingBudgetTokens = ref(2048)
 const enableExtendedThinking = ref(true)
 // const enableCheckpoints = ref(false)
@@ -376,7 +376,7 @@ const awsEndpointSelected = ref(false)
 const awsBedrockEndpoint = ref('')
 const liteLlmBaseUrl = ref('')
 const liteLlmApiKey = ref('')
-let liteLlmModelId = ref('')
+const liteLlmModelId = ref('')
 const deepSeekApiKey = ref('')
 const autoApprovalSettings = ref<AutoApprovalSettings>(DEFAULT_AUTO_APPROVAL_SETTINGS)
 const chatSettings = ref<ChatSettings>(DEFAULT_CHAT_SETTINGS)
@@ -559,7 +559,7 @@ const loadSavedConfig = async () => {
 }
 
 // 保存配置到存储
-const saveConfig = async () => {
+const saveConfig = async (newvalue) => {
   try {
     // 保存API相关配置
     await updateGlobalState('apiProvider', apiProvider.value)
@@ -628,7 +628,8 @@ watch(
     liteLlmBaseUrl,
     liteLlmModelId,
     liteLlmApiKey,
-    customInstructions
+    customInstructions,
+    deepSeekApiKey
   ],
   async () => {
     // Skip autoApprovalSettings.enabled and chatSettings.mode updates as they're handled by specific watchers
