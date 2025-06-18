@@ -1582,7 +1582,7 @@ const filteredHistoryList = computed(() => {
   })
 })
 
-const PAGE_SIZE = 10
+const PAGE_SIZE = 20
 const currentPage = ref(1)
 const isLoadingMore = ref(false)
 
