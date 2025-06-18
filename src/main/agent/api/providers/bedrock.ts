@@ -716,10 +716,11 @@ export class AwsBedrockHandler implements ApiHandler {
       let receivedResponse = false
 
       for await (const chunk of stream) {
-        if (chunk.type === 'text' || chunk.type === 'reasoning') {
-          receivedResponse = true
-          break
+        if (chunk.type === 'text' && chunk.text.includes('[ERROR]')) {
+          throw new Error(chunk.text)
         }
+        receivedResponse = true
+        break
       }
 
       if (!receivedResponse) {
