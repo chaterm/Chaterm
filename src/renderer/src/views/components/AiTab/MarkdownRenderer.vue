@@ -290,16 +290,10 @@ const detectLanguage = (content: string): string => {
   if (contentLower.includes('package ') && contentLower.includes('func ')) {
     return 'go'
   }
-  if (
-    contentLower.includes('def ') &&
-    (contentLower.includes('import ') || contentLower.includes('print('))
-  ) {
+  if (contentLower.includes('def ') && (contentLower.includes('import ') || contentLower.includes('print('))) {
     return 'python'
   }
-  if (
-    contentLower.includes('interface ') &&
-    (contentLower.includes('extends ') || contentLower.includes('implements '))
-  ) {
+  if (contentLower.includes('interface ') && (contentLower.includes('extends ') || contentLower.includes('implements '))) {
     return 'typescript'
   }
   if (contentLower.includes('const ') || contentLower.includes('let ') || content.includes('=>')) {
@@ -308,10 +302,7 @@ const detectLanguage = (content: string): string => {
   if (contentLower.includes('public class ') || contentLower.includes('private class ')) {
     return 'java'
   }
-  if (
-    contentLower.includes('#include') &&
-    (contentLower.includes('std::') || contentLower.includes('cout'))
-  ) {
+  if (contentLower.includes('#include') && (contentLower.includes('std::') || contentLower.includes('cout'))) {
     return 'cpp'
   }
   if (contentLower.includes('namespace ') && contentLower.includes('using ')) {
@@ -320,19 +311,13 @@ const detectLanguage = (content: string): string => {
   if (contentLower.includes('require ') && contentLower.includes('end')) {
     return 'ruby'
   }
-  if (
-    contentLower.includes('<?php') ||
-    (contentLower.includes('namespace ') && contentLower.includes('use '))
-  ) {
+  if (contentLower.includes('<?php') || (contentLower.includes('namespace ') && contentLower.includes('use '))) {
     return 'php'
   }
   if (contentLower.includes('fn ') && contentLower.includes('impl ')) {
     return 'rust'
   }
-  if (
-    contentLower.includes('select ') &&
-    (contentLower.includes('from ') || contentLower.includes('where '))
-  ) {
+  if (contentLower.includes('select ') && (contentLower.includes('from ') || contentLower.includes('where '))) {
     return 'sql'
   }
 
@@ -542,10 +527,7 @@ const processContent = (content: string) => {
     // Replace code blocks with placeholders in order
     let processedContent = content
     blocks.forEach((_, index) => {
-      processedContent = processedContent.replace(
-        /```(?:\w+)?\n[\s\S]*?```/,
-        `[CODE_BLOCK_${index}]`
-      )
+      processedContent = processedContent.replace(/```(?:\w+)?\n[\s\S]*?```/, `[CODE_BLOCK_${index}]`)
     })
 
     // Set the normal content
@@ -838,9 +820,7 @@ const contentLines = computed(() => {
     }
 
     // Check if it's an ls output line
-    const lsMatch = line.match(
-      /^([drwx-]+)\s+(\d+)\s+(\w+)\s+(\w+)\s+(\d+)\s+(\w+\s+\d+\s+\d+:\d+)\s+(.+)$/
-    )
+    const lsMatch = line.match(/^([drwx-]+)\s+(\d+)\s+(\w+)\s+(\w+)\s+(\d+)\s+(\w+\s+\d+\s+\d+:\d+)\s+(.+)$/)
     if (lsMatch) {
       const [, permissions, , user, group, size, date, name] = lsMatch
       return {
@@ -851,11 +831,7 @@ const contentLines = computed(() => {
         size,
         date,
         name,
-        fileType: permissions.startsWith('d')
-          ? 'directory'
-          : permissions.includes('x')
-            ? 'executable'
-            : 'file'
+        fileType: permissions.startsWith('d') ? 'directory' : permissions.includes('x') ? 'executable' : 'file'
       }
     }
 
@@ -1241,15 +1217,14 @@ code {
 }
 
 .command-output::after {
-  content: 'output';
+  content: 'OUTPUT';
   position: absolute;
   top: 0;
-  right: 8px;
+  left: 8px;
   height: 18px;
   line-height: 18px;
   font-size: 10px;
-  color: #888;
-  text-transform: uppercase;
+  color: #7e8ba3;
 }
 
 .command-output .error {
@@ -1399,7 +1374,8 @@ code {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
-  white-space: nowrap;
+  white-space: normal;
+  word-break: break-all;
 }
 
 .command-output .permissions {
@@ -1471,6 +1447,7 @@ code {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
-  white-space: nowrap;
+  white-space: normal;
+  word-break: break-all;
 }
 </style>
