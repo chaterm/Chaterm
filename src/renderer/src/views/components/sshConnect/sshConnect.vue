@@ -281,14 +281,11 @@ onMounted(async () => {
     const originalRequestRefresh = renderService.refreshRows.bind(renderService)
     const originalTriggerRedraw = renderService._renderDebouncer.refresh.bind(renderService._renderDebouncer)
     // 临时禁用渲染
-
     renderService.refreshRows = () => {}
     renderService._renderDebouncer.refresh = () => {}
-
     const core = (terminal as any).value._core
     const inputHandler = core._inputHandler
     // 确保 parse 方法仅绑定一次
-
     if (!inputHandler._isWrapped) {
       inputHandler._originalParse = inputHandler.parse
       inputHandler.parse = function (data: string) {
@@ -318,7 +315,15 @@ onMounted(async () => {
         // 条件4, 服务器返回包含命令提示符，不走highlight，避免渲染异常
         // TODO: 条件5, 进入子交互模式 不开启高亮
         //TODO: 服务器返回  xxx\r\n,   \r\n{startStr.value}xxx 时特殊处理
-        if (data.indexOf(startStr.value) !== -1 && startStr.value != '') {
+        // if (data.indexOf(startStr.value) !== -1 && startStr.value != '') {
+        //   highLightFlag = false
+        // }
+        if (
+          stripAnsi(data)
+            .replace(/[\x00-\x09\x0B\x0C\x0E-\x1F\x7F]/g, '')
+            .endsWith(startStr.value) &&
+          startStr.value != ''
+        ) {
           highLightFlag = false
         }
         if (highLightFlag) {
@@ -868,7 +873,7 @@ const substrWidth = (str: string, startWidth: number, endWidth?: number): string
       i++
     }
   }
-
+  console.log(startStr.value, 'substrWidthFNstartStr.value')
   if (startStr.value != '') {
     startStr.value = str.substring(0, startIndex)
   } else {
@@ -951,8 +956,8 @@ const setupTerminalInput = () => {
       startStr.value = beginStr.value
     }
     if (data === '\t') {
-      console.log(data, 'datttt')
-      sendData(data)
+      // console.log(JSON.stringify(data), 'datttt')
+      // sendData(data)
       const cmd = JSON.parse(JSON.stringify(terminalState.value.content))
       selectFlag.value = true
       // Tab键
@@ -1187,6 +1192,7 @@ const highlightSyntax = (allData) => {
   let arg = ''
   //当前光标位置
   const currentCursorX = cursorStartX.value + beforeCursor.length
+  // const currentCursorX = (terminal.value as any)?._core.buffer.x
   //首个空格位置 用来分割命令和参数
   const index = content.indexOf(' ')
   // 大前提 命令以第一个空格切割 前为命令 后为参数
@@ -1209,24 +1215,30 @@ const highlightSyntax = (allData) => {
   activeMarkers.value.forEach((marker) => marker.dispose())
 
   activeMarkers.value = []
-  const startY = currentLineStartY.value
-  const isValidCommand = commands.value.includes(command)
+  // const startY = currentLineStartY.value
+  const startY = (terminal.value as any)?._core.buffer.y
+  const isValidCommand = commands.value?.includes(command)
   // 高亮命令
-
+  // console.log('000',content,allData,'==')
   if (command) {
     const commandMarker = terminal.value?.registerMarker(startY)
     activeMarkers.value.push(commandMarker)
+    // console.log(11,activeMarkers.value,startY)
+    // cusWrite?.('\u001b[H\u001b[J[root@VM-12-6-centos ~]# s', {
+    //   isUserCall: true
+    // })
     cusWrite?.(`\x1b[${startY + 1};${cursorStartX.value + 1}H`, {
       isUserCall: true
     })
 
     const colorCode = isValidCommand ? '38;2;24;144;255' : '31'
-
+    // console.log(22)
     cusWrite?.(`\x1b[${colorCode}m${command}\x1b[0m`, {
       isUserCall: true
     })
+
     setTimeout(() => {
-      cusWrite?.(`\x1b[${cursorY.value + 1};${currentCursorX + 1}H`, {
+      cusWrite?.(`\x1b[${startY + 1};${currentCursorX + 1}H`, {
         isUserCall: true
       })
     })
@@ -1435,11 +1447,9 @@ const selectSuggestion = (suggestion) => {
   selectFlag.value = true
   const DELCODE = String.fromCharCode(127)
   const RIGHTCODE = String.fromCharCode(27, 91, 67)
-
   sendData(RIGHTCODE.repeat(terminalState.value.content.length - terminalState.value.beforeCursor.length))
 
   sendData(DELCODE.repeat(terminalState.value.content.length))
-
   sendData(suggestion)
   setTimeout(() => {
     suggestions.value = []
@@ -1520,7 +1530,9 @@ const handleKeyInput = (e) => {
     specialCode.value = true
     // this.initList()
   } else if (ev.keyCode == 9) {
-    selectFlag.value = true
+    // selectFlag.value = true
+    // console.log(JSON.stringify(data), 'datttt')
+    // sendData('\t')
   } else if (printable) {
     selectFlag.value = false
 
