@@ -195,4 +195,19 @@ export class LiteLlmHandler implements ApiHandler {
       info: this.options.liteLlmModelInfo || liteLlmModelInfoSaneDefaults
     }
   }
+
+  async validateApiKey(): Promise<{ isValid: boolean; error?: string }> {
+    try {
+      // 尝试创建一个最小的聊天请求来验证 API key
+      await this.client.chat.completions.create({
+        model: this.options.liteLlmModelId || liteLlmDefaultModelId,
+        messages: [{ role: 'user', content: 'test' }],
+        max_tokens: 1
+      })
+      return { isValid: true }
+    } catch (error) {
+      console.error('API key validation failed:', error)
+      return { isValid: false, error: error instanceof Error ? error.message : String(error) }
+    }
+  }
 }

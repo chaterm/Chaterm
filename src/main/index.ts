@@ -8,7 +8,8 @@ import { registerRemoteTerminalHandlers } from './ssh/agentHandle'
 import {
   autoCompleteDatabaseService,
   ChatermDatabaseService,
-  setCurrentUserId } from './storage/database'
+  setCurrentUserId
+} from './storage/database'
 import { Controller } from './agent/core/controller'
 import { createExtensionContext } from './agent/core/controller/context'
 import { ElectronOutputChannel } from './agent/core/controller/outputChannel'
@@ -714,4 +715,11 @@ ipcMain.handle('get-user-hosts', async (_, data) => {
     console.error('Chaterm获取用户主机列表失败:', error)
     return null
   }
+})
+
+ipcMain.handle('validate-api-key', async () => {
+  if (controller) {
+    return await controller.validateApiKey()
+  }
+  return { isValid: false, error: 'Controller not initialized' }
 })

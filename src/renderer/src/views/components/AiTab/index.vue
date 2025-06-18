@@ -67,6 +67,10 @@
             <div
               v-if="message.role === 'assistant'"
               class="assistant-message-container"
+              :class="{
+                'has-history-copy-btn':
+                  chatTypeValue === 'cmd' && message.ask === 'command' && message.actioned
+              }"
             >
               <MarkdownRenderer
                 v-if="typeof message.content === 'object' && 'question' in message.content"
@@ -1727,6 +1731,10 @@ watch(
   width: 100%;
   position: relative;
 
+  &.has-history-copy-btn :deep(.command-editor-container) {
+    padding-right: 20px;
+  }
+
   .message-actions {
     display: flex;
     flex-direction: column;
@@ -1845,14 +1853,14 @@ watch(
 
 .history-copy-btn {
   position: absolute;
-  top: 5px;
+  top: 16px;
   right: 5px;
   background-color: #2a2a2a;
   color: #e0e0e0;
   border: none;
   border-radius: 4px;
-  width: 20px;
-  height: 20px;
+  width: 13px;
+  height: 13px;
   display: flex;
   align-items: center;
   justify-content: center;

@@ -272,8 +272,9 @@ const onAccountFinish = async () => {
     if (res.code == 200) {
       await handleLoginSuccess(res.data)
     }
-  } catch (err) {
+  } catch (err: any) {
     console.log(err, 'err')
+    message.error(err?.response?.data?.message)
   }
 }
 
