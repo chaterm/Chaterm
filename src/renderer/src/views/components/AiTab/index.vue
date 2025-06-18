@@ -314,7 +314,6 @@
                     size="small"
                     class="history-search-input"
                     allow-clear
-                    @input="handleHistorySearch"
                   >
                     <template #prefix>
                       <SearchOutlined style="color: #666" />
@@ -341,7 +340,7 @@
                         size="small"
                         class="history-title-input"
                         @press-enter="saveHistoryTitle(history)"
-                        @blur="saveHistoryTitle(history)"
+                        @blur.stop="() => {}"
                         @click.stop
                       />
                       <div class="menu-action-buttons">
@@ -378,7 +377,7 @@
                           <a-button
                             size="small"
                             class="menu-action-btn cancel-btn"
-                            @click.stop="cancelEdit(history)"
+                            @click.stop.prevent="cancelEdit(history)"
                           >
                             <template #icon>
                               <CloseOutlined />
@@ -1576,11 +1575,6 @@ const deleteHistory = async (history) => {
 
 const historySearchValue = ref('')
 
-const handleHistorySearch = () => {
-  // 实现搜索逻辑
-  console.log('Searching for:', historySearchValue.value)
-}
-
 const filteredHistoryList = computed(() => {
   // 实现过滤逻辑
   return historyList.value.filter((history) => {
@@ -1628,10 +1622,27 @@ watch(historySearchValue, () => {
   currentPage.value = 1
 })
 
-const cancelEdit = (history) => {
-  history.isEditing = false
-  history.editingTitle = ''
-  currentEditingId.value = null
+const cancelEdit = async (history) => {
+  try {
+    // 获取当前历史记录
+    const taskHistory = ((await getGlobalState('taskHistory')) as TaskHistoryItem[]) || []
+    // 找到对应的记录
+    const targetHistory = taskHistory.find((item) => item.id === history.id)
+    if (targetHistory) {
+      // 重置为数据库中的标题
+      history.chatTitle = truncateText(targetHistory?.task || 'Agent Chat')
+    }
+    // 重置编辑状态
+    history.isEditing = false
+    history.editingTitle = ''
+    currentEditingId.value = null
+  } catch (err) {
+    console.error('Failed to cancel edit:', err)
+    // 发生错误时也要重置编辑状态
+    history.isEditing = false
+    history.editingTitle = ''
+    currentEditingId.value = null
+  }
 }
 </script>
 
@@ -2106,6 +2117,7 @@ const cancelEdit = (history) => {
   border: 1px solid #3a3a3a;
   border-radius: 8px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  width: 280px !important; // 添加固定宽度
 
   .history-search-container {
     padding: 4px;
@@ -2114,6 +2126,7 @@ const cancelEdit = (history) => {
   }
 
   .history-search-input {
+    width: 100%;
     background-color: #1f1f1f !important;
     border: 1px solid #3a3a3a !important;
 
@@ -2190,6 +2203,7 @@ const cancelEdit = (history) => {
   align-items: center;
   gap: 8px;
   width: 100%;
+  min-width: 0; // 添加最小宽度约束
 
   :deep(.ant-input) {
     background-color: #4a4a4a !important;
@@ -2211,80 +2225,81 @@ const cancelEdit = (history) => {
     gap: 2px;
     margin-left: 4px;
   }
-}
 
-.history-title {
-  color: #e0e0e0;
-  font-size: 12px;
-  font-weight: 500;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  flex: 1;
-}
-
-.history-title-input {
-  flex: 1;
-  margin-right: 8px;
-}
-
-.history-type {
-  color: #888;
-  font-size: 10px;
-  padding: 1px 4px;
-  background-color: #333;
-  border-radius: 3px;
-  display: inline-block;
-  width: fit-content;
-  flex-shrink: 0;
-}
-
-:deep(.ant-input::placeholder) {
-  color: #666 !important;
-}
-
-.action-status {
-  padding: 4px 8px;
-  border-radius: 4px;
-  font-size: 12px;
-
-  &.approved {
-    background-color: #52c41a20;
-    color: #52c41a;
+  .history-title {
+    color: #e0e0e0;
+    font-size: 12px;
+    font-weight: 500;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    flex: 1;
+    min-width: 0; // 添加最小宽度约束，确保文本可以正确截断
   }
 
-  &.rejected {
-    background-color: #ff4d4f20;
-    color: #ff4d4f;
+  .history-title-input {
+    flex: 1;
+    margin-right: 8px;
   }
-}
 
-.action-buttons {
-  margin: 0;
-  padding: 0;
-  width: 100%;
+  .history-type {
+    color: #888;
+    font-size: 10px;
+    padding: 1px 4px;
+    background-color: #333;
+    border-radius: 3px;
+    display: inline-block;
+    width: fit-content;
+    flex-shrink: 0;
+  }
 
-  .button-row {
-    display: flex;
-    gap: 4px;
-    justify-content: flex-end;
-    margin-top: 2px;
+  :deep(.ant-input::placeholder) {
+    color: #666 !important;
+  }
 
-    .options-container {
+  .action-status {
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+
+    &.approved {
+      background-color: #52c41a20;
+      color: #52c41a;
+    }
+
+    &.rejected {
+      background-color: #ff4d4f20;
+      color: #ff4d4f;
+    }
+  }
+
+  .action-buttons {
+    margin: 0;
+    padding: 0;
+    width: 100%;
+
+    .button-row {
       display: flex;
-      flex-wrap: wrap;
       gap: 4px;
-      width: 100%;
       justify-content: flex-end;
+      margin-top: 2px;
 
-      &.vertical-layout {
-        flex-direction: column;
-        align-items: stretch;
+      .options-container {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 4px;
+        width: 100%;
+        justify-content: flex-end;
 
-        .action-btn {
-          width: 100%;
-          justify-content: flex-start;
-          text-align: left;
+        &.vertical-layout {
+          flex-direction: column;
+          align-items: stretch;
+
+          .action-btn {
+            width: 100%;
+            justify-content: flex-start;
+            text-align: left;
+          }
         }
       }
     }
