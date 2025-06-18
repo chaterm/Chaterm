@@ -683,10 +683,7 @@ export class Controller {
   async validateApiKey(): Promise<{ isValid: boolean; error?: string }> {
     const { apiConfiguration } = await getAllExtensionState()
     const api = buildApiHandler(apiConfiguration)
-    if (api instanceof LiteLlmHandler) {
-      return await api.validateApiKey()
-    }
-    return { isValid: false, error: 'Unsupported API handler' }
+    return await api.validateApiKey()
   }
 }
 

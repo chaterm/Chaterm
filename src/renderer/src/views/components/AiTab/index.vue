@@ -772,7 +772,7 @@ const restoreHistoryTab = async (history: HistoryItem) => {
   lastChatMessageId.value = ''
 
   try {
-    if (history.chatType === 'agent') {
+    if (history.chatType === 'agent' || history.chatType === 'cmd') {
       try {
         const metadataResult = await (window.api as any).getTaskMetadata(history.id)
         if (metadataResult.success && metadataResult.data && Array.isArray(metadataResult.data.hosts)) {

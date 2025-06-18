@@ -700,4 +700,39 @@ export class AwsBedrockHandler implements ApiHandler {
       }
     })
   }
+
+  async validateApiKey(): Promise<{ isValid: boolean; error?: string }> {
+    try {
+      if (!this.options.awsRegion || !this.options.awsAccessKey || !this.options.awsSecretKey) {
+        throw new Error('Missing required AWS configuration (region, access key or secret key)')
+      }
+
+      const testSystemPrompt = "This is a connection test. Respond with only the word 'OK'."
+      const testMessages: Anthropic.Messages.MessageParam[] = [
+        { role: 'user', content: 'Connection test' }
+      ]
+
+      const stream = this.createMessage(testSystemPrompt, testMessages)
+      let receivedResponse = false
+
+      for await (const chunk of stream) {
+        if (chunk.type === 'text' || chunk.type === 'reasoning') {
+          receivedResponse = true
+          break
+        }
+      }
+
+      if (!receivedResponse) {
+        throw new Error('No valid response received')
+      }
+
+      return { isValid: true }
+    } catch (error) {
+      console.error('AWS Bedrock configuration validation failed:', error)
+      return {
+        isValid: false,
+        error: `Validation failed: ${error instanceof Error ? error.message : String(error)}`
+      }
+    }
+  }
 }
