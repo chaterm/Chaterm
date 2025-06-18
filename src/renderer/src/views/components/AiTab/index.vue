@@ -1597,7 +1597,6 @@ const hasMoreHistory = computed(() => {
 })
 
 const loadMoreHistory = async () => {
-  console.log('[loadMoreHistory]', filteredHistoryList.value)
   if (isLoadingMore.value || !hasMoreHistory.value) return
 
   isLoadingMore.value = true
@@ -1607,7 +1606,6 @@ const loadMoreHistory = async () => {
   } finally {
     isLoadingMore.value = false
   }
-  console.log('[loadMoreHistory]', filteredHistoryList.value)
 }
 
 // 使用 Intersection Observer 实现无限滚动
