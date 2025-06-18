@@ -559,7 +559,7 @@ const loadSavedConfig = async () => {
 }
 
 // 保存配置到存储
-const saveConfig = async (newvalue) => {
+const saveConfig = async () => {
   try {
     // 保存API相关配置
     await updateGlobalState('apiProvider', apiProvider.value)
