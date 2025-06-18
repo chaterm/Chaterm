@@ -137,7 +137,14 @@ export default {
     customInstructionsPh: `These instructions are added to the end of the system prompt sent with every request. e.g. Always respond in Chinese-simplified`,
     deepSeekApiKey: `DeepSeek API Key`,
     deepSeekApiKeyPh: `Enter API Key...`,
-    deepSeekApiKeyDescribe: `This key is stored locally and only used to make API requests from this client.`
+    deepSeekApiKeyDescribe: `This key is stored locally and only used to make API requests from this client.`,
+    checkModelConfigFailMessage: 'Missing configuration parameters',
+    checkModelConfigFailDescription: 'Please fill in the necessary model configuration, Setting -> AI -> API Configuration',
+    checkSuccessMessage: 'Connection successful',
+    checkSuccessDescription: 'API key is valid',
+    checkFailMessage: 'Connection failed',
+    checkFailDescriptionDefault: 'unknown error',
+    checkFailDescriptionMain: 'Unable to connect to the main process'
   },
   extensions: {
     extensions: 'Extensions',
