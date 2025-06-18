@@ -234,6 +234,20 @@ defineExpose({
   height: 26px;
 }
 
+.tabs-bar::-webkit-scrollbar {
+  height: 3px;
+  background: transparent;
+}
+
+.tabs-bar::-webkit-scrollbar-thumb {
+  background: #333;
+  border-radius: 2px;
+}
+
+.tabs-bar::-webkit-scrollbar-thumb:hover {
+  background: #555;
+}
+
 .tab-item {
   display: flex;
   align-items: center;
