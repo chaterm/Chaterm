@@ -1213,7 +1213,7 @@ code {
   font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
   background-color: #1a1a1a;
   color: #ffffff;
-  padding: 12px;
+  padding: 28px 12px 12px;
   border-radius: 8px;
   white-space: pre-wrap;
   word-wrap: break-word;
@@ -1222,6 +1222,7 @@ code {
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
   border: 1px solid #2a2a2a;
   overflow: hidden;
+  position: relative;
   width: 100%;
   min-width: 0;
   display: flex;
@@ -1234,24 +1235,21 @@ code {
   top: 0;
   left: 0;
   right: 0;
-  height: 24px;
+  height: 18px;
   background: #2a2a2a;
   border-bottom: 1px solid #3a3a3a;
-  border-radius: 8px 8px 0 0;
 }
 
 .command-output::after {
-  content: '';
+  content: 'output';
   position: absolute;
-  top: 8px;
-  left: 12px;
-  width: 12px;
-  height: 12px;
-  border-radius: 50%;
-  background: #ff5f56;
-  box-shadow:
-    20px 0 0 #ffbd2e,
-    40px 0 0 #27c93f;
+  top: 0;
+  right: 8px;
+  height: 18px;
+  line-height: 18px;
+  font-size: 10px;
+  color: #888;
+  text-transform: uppercase;
 }
 
 .command-output .error {
