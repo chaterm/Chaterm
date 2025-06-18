@@ -1108,7 +1108,7 @@ watch(
 )
 
 const handleChatAiModelChange = async () => {
-      const apiProvider = await getGlobalState('apiProvider')
+  const apiProvider = await getGlobalState('apiProvider')
   debouncedUpdateGlobalState(apiProvider, chatAiModelValue.value)
   debouncedEmitModelChange(chatTypeValue.value, chatAiModelValue.value)
 }
@@ -1120,12 +1120,12 @@ const changeModel = debounce(async (newValue) => {
   let apiProvider = ''
   if (newValue?.[0]) {
     apiProvider = newValue?.[0]
-      switch (apiProvider) {
-        case 'bedrock':
+    switch (apiProvider) {
+      case 'bedrock':
         chatAiModelValue.value = newValue?.[1]
         AgentAiModelsOptions = aiModelOptions
-          break
-        case 'litellm':
+        break
+      case 'litellm':
         chatAiModelValue.value = newValue?.[2]
         const exists = litellmAiModelOptions.findIndex((option) => option.value === newValue?.[2]) !== -1
         if (!exists && newValue?.[2]) {
@@ -1135,12 +1135,12 @@ const changeModel = debounce(async (newValue) => {
           })
         }
         AgentAiModelsOptions = litellmAiModelOptions
-          break
-        case 'deepseek':
+        break
+      case 'deepseek':
         chatAiModelValue.value = newValue?.[1]
         AgentAiModelsOptions = deepseekAiModelOptions
-          break
-      }
+        break
+    }
   } else {
     apiProvider = (await getGlobalState('apiProvider')) as string
     switch (apiProvider) {
@@ -1180,6 +1180,15 @@ onMounted(async () => {
   authTokenInCookie.value = localStorage.getItem('ctm-token')
   const chatId = uuidv4()
 
+  historyList.value = [
+    {
+      id: chatId,
+      chatTitle: 'New chat',
+      chatType: chatTypeValue.value,
+      chatContent: []
+    }
+  ]
+
   // 初始化资产信息
   await initAssetInfo()
 
@@ -1200,15 +1209,6 @@ onMounted(async () => {
       updateHosts(null)
     }
   })
-
-  historyList.value = [
-    {
-      id: chatId,
-      chatTitle: 'New chat',
-      chatType: chatTypeValue.value,
-      chatContent: []
-    }
-  ]
 
   currentChatId.value = chatId
 
@@ -1318,7 +1318,7 @@ const sendMessageToMain = async (userContent: string) => {
     console.log('发送消息到主进程:', message)
     const response = await (window.api as any).sendToMain(message)
     console.log('主进程响应:', response)
-    } catch (error) {
+  } catch (error) {
     console.error('发送消息到主进程失败:', error)
   }
 }
@@ -1588,7 +1588,7 @@ const filteredHistoryList = computed(() => {
   })
 })
 
-const PAGE_SIZE = 20
+const PAGE_SIZE = 10
 const currentPage = ref(1)
 const isLoadingMore = ref(false)
 
@@ -1603,6 +1603,7 @@ const hasMoreHistory = computed(() => {
 })
 
 const loadMoreHistory = async () => {
+  console.log('[loadMoreHistory]', filteredHistoryList.value)
   if (isLoadingMore.value || !hasMoreHistory.value) return
 
   isLoadingMore.value = true
@@ -1612,6 +1613,7 @@ const loadMoreHistory = async () => {
   } finally {
     isLoadingMore.value = false
   }
+  console.log('[loadMoreHistory]', filteredHistoryList.value)
 }
 
 // 使用 Intersection Observer 实现无限滚动
