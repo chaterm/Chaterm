@@ -138,8 +138,13 @@ export default {
     deepSeekApiKey: `DeepSeek API Key`,
     deepSeekApiKeyPh: `Enter API Key...`,
     deepSeekApiKeyDescribe: `This key is stored locally and only used to make API requests from this client.`,
-    checkModelConfigFailedMessage: 'Missing configuration parameters',
-    checkModelConfigFailedDescription: 'Please fill in the necessary model configuration, Setting -> AI -> API Configuration'
+    checkModelConfigFailMessage: 'Missing configuration parameters',
+    checkModelConfigFailDescription: 'Please fill in the necessary model configuration, Setting -> AI -> API Configuration',
+    checkSuccessMessage: 'Connection successful',
+    checkSuccessDescription: 'API key is valid',
+    checkFailMessage: 'Connection failed',
+    checkFailDescriptionDefault: 'unknown error',
+    checkFailDescriptionMain: 'Unable to connect to the main process'
   },
   extensions: {
     extensions: 'Extensions',

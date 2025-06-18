@@ -138,8 +138,13 @@ export default {
     deepSeekApiKey: 'DeepSeek API Key',
     deepSeekApiKeyPh: '请输入API Key',
     deepSeekApiKeyDescribe: '此密钥存储在本地，仅用于从此客服端发出API请求',
-    checkModelConfigFailedMessage: '缺少必要的模型配置',
-    checkModelConfigFailedDescription: '请填写必要的模型配置，设置->AI->API配置'
+    checkModelConfigFailMessage: '缺少必要的模型配置',
+    checkModelConfigFailDescription: '请填写必要的模型配置，设置->AI->API配置',
+    checkSuccessMessage: '连接成功',
+    checkSuccessDescription: 'API密钥有效',
+    checkFailMessage: '连接失败',
+    checkFailDescriptionDefault: '未知错误',
+    checkFailDescriptionMain: '无法连接到主进程'
   },
   extensions: {
     extensions: '插件',
