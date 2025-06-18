@@ -217,7 +217,10 @@ export default {
     showChatHistory: 'Show History',
     closeAiSidebar: 'Close AI Sidebar',
     addHost: 'Add Host',
-    processing: 'processing...'
+    processing: 'processing...',
+    searchHistoryPH: 'Please Input',
+    loading: 'loading...',
+    loadMore: 'load more'
   },
   keyChain: {
     newKey: 'New Key',
