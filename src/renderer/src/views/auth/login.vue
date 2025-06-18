@@ -215,7 +215,7 @@ const configLang: MenuProps['onClick'] = ({ key }) => {
 }
 
 const router = useRouter()
-const activeKey = ref('account')
+const activeKey = ref('email')
 const countdown = ref(0)
 
 interface AccountFormState {
@@ -229,8 +229,8 @@ interface EmailFormState {
 }
 
 const accountForm = reactive<AccountFormState>({
-  username: 'test_user',
-  password: 'ctm123456'
+  username: '',
+  password: ''
 })
 
 const emailForm = reactive<EmailFormState>({
@@ -422,6 +422,10 @@ onMounted(async () => {
       // 悬停状态
       &:hover {
         border-bottom-color: #1890ff;
+      }
+
+      &::placeholder {
+        color: #999;
       }
     }
   }
