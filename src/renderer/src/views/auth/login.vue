@@ -257,6 +257,7 @@ const handleLoginSuccess = async (userData: any) => {
     return true
   } catch (error) {
     console.error('登录处理失败:', error)
+    message.error(error?.response?.data?.message)
     return false
   }
 }
@@ -291,6 +292,7 @@ const onEmailFinish = async () => {
     }
   } catch (err: any) {
     console.error('邮箱登录失败:', err)
+    message.error(err?.response?.data?.message)
   }
 }
 
