@@ -318,17 +318,96 @@
             </a-button>
             <template #overlay>
               <a-menu class="history-dropdown-menu">
-                <a-menu-item
-                  v-for="(history, index) in historyList"
-                  :key="index"
-                  class="history-menu-item"
-                  @click="restoreHistoryTab(history)"
-                >
-                  <div class="history-item-content">
-                    <div class="history-title">{{ history.chatTitle }}</div>
-                    <div class="history-type">{{ history.chatType }}</div>
+                <div class="history-search-container">
+                  <a-input
+                    v-model:value="historySearchValue"
+                    :placeholder="$t('ai.searchHistoryPH')"
+                    size="small"
+                    class="history-search-input"
+                    allow-clear
+                  >
+                    <template #prefix>
+                      <SearchOutlined style="color: #666" />
+                    </template>
+                  </a-input>
+                </div>
+                <div class="history-virtual-list-container">
+                  <a-menu-item
+                    v-for="history in paginatedHistoryList"
+                    :key="history.id"
+                    class="history-menu-item"
+                    @click="!history.isEditing && restoreHistoryTab(history)"
+                  >
+                    <div class="history-item-content">
+                      <div
+                        v-if="!history.isEditing"
+                        class="history-title"
+                      >
+                        {{ history.chatTitle }}
+                      </div>
+                      <a-input
+                        v-else
+                        v-model:value="history.editingTitle"
+                        size="small"
+                        class="history-title-input"
+                        @press-enter="saveHistoryTitle(history)"
+                        @blur.stop="() => {}"
+                        @click.stop
+                      />
+                      <div class="menu-action-buttons">
+                        <template v-if="!history.isEditing">
+                          <a-button
+                            size="small"
+                            class="menu-action-btn"
+                            @click.stop="editHistory(history)"
+                          >
+                            <template #icon>
+                              <EditOutlined />
+                            </template>
+                          </a-button>
+                          <a-button
+                            size="small"
+                            class="menu-action-btn"
+                            @click.stop="deleteHistory(history)"
+                          >
+                            <template #icon>
+                              <DeleteOutlined />
+                            </template>
+                          </a-button>
+                        </template>
+                        <template v-else>
+                          <a-button
+                            size="small"
+                            class="menu-action-btn save-btn"
+                            @click.stop="saveHistoryTitle(history)"
+                          >
+                            <template #icon>
+                              <CheckOutlined />
+                            </template>
+                          </a-button>
+                          <a-button
+                            size="small"
+                            class="menu-action-btn cancel-btn"
+                            @click.stop.prevent="cancelEdit(history)"
+                          >
+                            <template #icon>
+                              <CloseOutlined />
+                            </template>
+                          </a-button>
+                        </template>
+                      </div>
+                      <!--                      <div class="history-type">{{ history.chatType }}</div>-->
+                    </div>
+                  </a-menu-item>
+                  <div
+                    v-if="hasMoreHistory"
+                    class="history-load-more"
+                    @click="loadMoreHistory"
+                    @intersection="handleIntersection"
+                  >
+                    {{ isLoadingMore ? $t('ai.loading') : $t('ai.loadMore') }}
                   </div>
-                </a-menu-item>
+                </div>
               </a-menu>
             </template>
           </a-dropdown>
@@ -368,7 +447,11 @@ import {
   CopyOutlined,
   PlayCircleOutlined,
   RedoOutlined,
-  HourglassOutlined
+  HourglassOutlined,
+  EditOutlined,
+  DeleteOutlined,
+  SearchOutlined,
+  CheckOutlined
 } from '@ant-design/icons-vue'
 import { notification } from 'ant-design-vue'
 import { v4 as uuidv4 } from 'uuid'
@@ -588,8 +671,8 @@ const sendMessage = async () => {
   const checkModelConfigResult = await checkModelConfig()
   if (!checkModelConfigResult) {
     notification.error({
-      message: t('user.checkModelConfigFailedMessage'),
-      description: t('user.checkModelConfigFailedDescription'),
+      message: t('user.checkModelConfigFailMessage'),
+      description: t('user.checkModelConfigFailDescription'),
       duration: 3
     })
     return 'SEND_ERROR'
@@ -826,20 +909,22 @@ const restoreHistoryTab = async (history: HistoryItem) => {
 const handleHistoryClick = async () => {
   try {
     if (chatTypeValue.value === 'agent') {
+      // 重置分页状态
+      currentPage.value = 1
+      isLoadingMore.value = false
+
       // 从 globalState 获取所有 agent 历史记录并按 ts 倒序排序
-      const agentHistory = (
-        ((await getGlobalState('taskHistory')) as TaskHistoryItem[]) || []
-      ).sort((a, b) => b.ts - a.ts)
-      // 转换格式并添加到历史列表
-      historyList.value = []
-      agentHistory.forEach((messages) => {
-        historyList.value.push({
+      const agentHistory = (((await getGlobalState('taskHistory')) as TaskHistoryItem[]) || [])
+        .sort((a, b) => b.ts - a.ts)
+        .map((messages) => ({
           id: messages.id,
           chatTitle: truncateText(messages?.task || 'Agent Chat'),
           chatType: 'agent',
           chatContent: []
-        })
-      })
+        }))
+
+      // 批量更新历史列表
+      historyList.value = agentHistory
     }
   } catch (err) {
     console.error('Failed to get conversation list:', err)
@@ -1143,6 +1228,15 @@ onMounted(async () => {
   authTokenInCookie.value = localStorage.getItem('ctm-token')
   const chatId = uuidv4()
 
+  historyList.value = [
+    {
+      id: chatId,
+      chatTitle: 'New chat',
+      chatType: chatTypeValue.value,
+      chatContent: []
+    }
+  ]
+
   // 初始化资产信息
   await initAssetInfo()
 
@@ -1163,15 +1257,6 @@ onMounted(async () => {
       updateHosts(null)
     }
   })
-
-  historyList.value = [
-    {
-      id: chatId,
-      chatTitle: 'New chat',
-      chatType: chatTypeValue.value,
-      chatContent: []
-    }
-  ]
 
   currentChatId.value = chatId
 
@@ -1464,7 +1549,176 @@ watch(
   },
   { immediate: true }
 )
+
+const currentEditingId = ref(null)
+
+const editHistory = async (history) => {
+  // 如果有其他正在编辑的项，先还原它
+  if (currentEditingId.value && currentEditingId.value !== history.id) {
+    const previousEditingHistory = paginatedHistoryList.value.find((h) => h.id === currentEditingId.value)
+    if (previousEditingHistory) {
+      previousEditingHistory.isEditing = false
+      previousEditingHistory.editingTitle = ''
+    }
+  }
+
+  // 设置当前编辑项
+  currentEditingId.value = history.id
+  history.isEditing = true
+  history.editingTitle = history.chatTitle
+
+  // 等待DOM更新后聚焦输入框
+  await nextTick()
+  const input = document.querySelector('.history-title-input input')
+  if (input) {
+    input.focus()
+    input.select()
+  }
+}
+
+const saveHistoryTitle = async (history) => {
+  if (!history.editingTitle?.trim()) {
+    history.editingTitle = history.chatTitle
+  }
+
+  // 更新历史记录标题
+  history.chatTitle = history.editingTitle.trim()
+  history.isEditing = false
+  currentEditingId.value = null
+
+  try {
+    // 获取当前历史记录
+    const taskHistory = ((await getGlobalState('taskHistory')) as TaskHistoryItem[]) || []
+    // 更新对应记录的标题
+    const targetHistory = taskHistory.find((item) => item.id === history.id)
+    if (targetHistory) {
+      targetHistory.task = history.chatTitle
+      // 保存更新后的历史记录
+      await updateGlobalState('taskHistory', taskHistory)
+    }
+  } catch (err) {
+    console.error('Failed to update history title:', err)
+  }
+}
+
+const deleteHistory = async (history) => {
+  // 获取当前历史记录
+  const agentHistory = ((await getGlobalState('taskHistory')) as TaskHistoryItem[]) || []
+
+  // 过滤掉要删除的记录
+  const filteredHistory = agentHistory.filter((item) => item.id !== history.id)
+
+  // 更新全局状态
+  await updateGlobalState('taskHistory', filteredHistory)
+
+  // 更新显示列表
+  historyList.value = filteredHistory
+    .sort((a, b) => b.ts - a.ts)
+    .map((messages) => ({
+      id: messages.id,
+      chatTitle: truncateText(messages?.task || 'Agent Chat'),
+      chatType: 'agent',
+      chatContent: []
+    }))
+  const message = {
+    type: 'deleteTaskWithId',
+    text: history.id,
+    cwd: currentCwd.value
+  }
+  console.log('发送消息到主进程:', message)
+  const response = await (window.api as any).sendToMain(message)
+  console.log('主进程响应:', response)
+}
+
+const historySearchValue = ref('')
+
+const filteredHistoryList = computed(() => {
+  // 实现过滤逻辑
+  return historyList.value.filter((history) => {
+    return history.chatTitle.toLowerCase().includes(historySearchValue.value.toLowerCase())
+  })
+})
+
+const PAGE_SIZE = 20
+const currentPage = ref(1)
+const isLoadingMore = ref(false)
+
+const paginatedHistoryList = computed(() => {
+  const filtered = filteredHistoryList.value
+  const end = currentPage.value * PAGE_SIZE
+  return filtered.slice(0, end)
+})
+
+const hasMoreHistory = computed(() => {
+  return paginatedHistoryList.value.length < filteredHistoryList.value.length
+})
+
+const loadMoreHistory = async () => {
+  if (isLoadingMore.value || !hasMoreHistory.value) return
+
+  isLoadingMore.value = true
+  try {
+    await new Promise((resolve) => setTimeout(resolve, 300)) // 添加小延迟使加载更平滑
+    currentPage.value++
+  } finally {
+    isLoadingMore.value = false
+  }
+}
+
+// 使用 Intersection Observer 实现无限滚动
+const handleIntersection = (entries) => {
+  if (entries[0].isIntersecting) {
+    loadMoreHistory()
+  }
+}
+
+// 监听搜索值变化时重置分页
+watch(historySearchValue, () => {
+  currentPage.value = 1
+})
+
+const cancelEdit = async (history) => {
+  try {
+    // 获取当前历史记录
+    const taskHistory = ((await getGlobalState('taskHistory')) as TaskHistoryItem[]) || []
+    // 找到对应的记录
+    const targetHistory = taskHistory.find((item) => item.id === history.id)
+    if (targetHistory) {
+      // 重置为数据库中的标题
+      history.chatTitle = truncateText(targetHistory?.task || 'Agent Chat')
+    }
+    // 重置编辑状态
+    history.isEditing = false
+    history.editingTitle = ''
+    currentEditingId.value = null
+  } catch (err) {
+    console.error('Failed to cancel edit:', err)
+    // 发生错误时也要重置编辑状态
+    history.isEditing = false
+    history.editingTitle = ''
+    currentEditingId.value = null
+  }
+}
 </script>
+
+<style lang="less">
+.history-dropdown-menu {
+  .ant-input {
+    background-color: #4a4a4a !important;
+    border: 1px solid #3a3a3a !important;
+    color: #ffffff !important;
+    font-size: 12px !important;
+    padding: 0 4px !important;
+    height: 16px !important;
+    line-height: 16px !important;
+
+    &:focus {
+      border-color: #1890ff !important;
+      box-shadow: 0 0 0 2px rgba(24, 144, 255, 0.2) !important;
+    }
+  }
+}
+</style>
 
 <style lang="less" scoped>
 .ai-chat-custom-tabs {
@@ -1911,13 +2165,52 @@ watch(
 }
 
 .history-dropdown-menu {
-  max-height: 400px;
-  overflow-y: auto;
+  max-height: none;
+  overflow: visible;
   padding: 4px;
   background-color: #2a2a2a;
   border: 1px solid #3a3a3a;
   border-radius: 8px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  width: 280px !important; // 添加固定宽度
+
+  .history-search-container {
+    padding: 4px;
+    border-bottom: 1px solid #3a3a3a;
+    margin-bottom: 4px;
+  }
+
+  .history-search-input {
+    width: 100%;
+    background-color: #1f1f1f !important;
+    border: 1px solid #3a3a3a !important;
+
+    :deep(.ant-input) {
+      background-color: #1f1f1f !important;
+      border: none !important;
+      color: #e0e0e0 !important;
+      font-size: 12px !important;
+
+      &::placeholder {
+        color: #666 !important;
+      }
+    }
+
+    :deep(.ant-input-clear-icon) {
+      color: #666;
+
+      &:hover {
+        color: #999;
+      }
+    }
+  }
+}
+
+.history-virtual-list-container {
+  max-height: 360px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: #4a4a4a transparent;
 
   &::-webkit-scrollbar {
     width: 4px;
@@ -1940,9 +2233,18 @@ watch(
   transition: all 0.2s ease !important;
   min-height: unset !important;
 
+  .menu-action-buttons {
+    opacity: 0;
+    transition: opacity 0.2s ease;
+  }
+
   &:hover {
     background-color: #3a3a3a !important;
     transform: translateX(2px);
+
+    .menu-action-buttons {
+      opacity: 1;
+    }
   }
 
   &:active {
@@ -1955,75 +2257,104 @@ watch(
   flex-direction: row;
   align-items: center;
   gap: 8px;
-}
-
-.history-title {
-  color: #e0e0e0;
-  font-size: 12px;
-  font-weight: 500;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  flex: 1;
-}
-
-.history-type {
-  color: #888;
-  font-size: 10px;
-  padding: 1px 4px;
-  background-color: #333;
-  border-radius: 3px;
-  display: inline-block;
-  width: fit-content;
-  flex-shrink: 0;
-}
-
-:deep(.ant-input::placeholder) {
-  color: #666 !important;
-}
-
-.action-status {
-  padding: 4px 8px;
-  border-radius: 4px;
-  font-size: 12px;
-
-  &.approved {
-    background-color: #52c41a20;
-    color: #52c41a;
-  }
-
-  &.rejected {
-    background-color: #ff4d4f20;
-    color: #ff4d4f;
-  }
-}
-
-.action-buttons {
-  margin: 0;
-  padding: 0;
   width: 100%;
+  min-width: 0; // 添加最小宽度约束
 
-  .button-row {
+  :deep(.ant-input) {
+    background-color: #4a4a4a !important;
+    border: 1px solid #3a3a3a !important;
+    color: #ffffff !important;
+    font-size: 13px !important;
+    padding: 0 4px !important;
+    height: 20px !important;
+    line-height: 20px !important;
+
+    &:focus {
+      border-color: #3a3a3a !important;
+      box-shadow: 0 0 0 2px rgba(58, 58, 58, 0.2) !important;
+    }
+  }
+
+  .menu-action-buttons {
     display: flex;
-    gap: 4px;
-    justify-content: flex-end;
-    margin-top: 2px;
+    gap: 2px;
+    margin-left: 4px;
+  }
 
-    .options-container {
+  .history-title {
+    color: #e0e0e0;
+    font-size: 12px;
+    font-weight: 500;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    flex: 1;
+    min-width: 0; // 添加最小宽度约束，确保文本可以正确截断
+  }
+
+  .history-title-input {
+    flex: 1;
+    margin-right: 8px;
+  }
+
+  .history-type {
+    color: #888;
+    font-size: 10px;
+    padding: 1px 4px;
+    background-color: #333;
+    border-radius: 3px;
+    display: inline-block;
+    width: fit-content;
+    flex-shrink: 0;
+  }
+
+  :deep(.ant-input::placeholder) {
+    color: #666 !important;
+  }
+
+  .action-status {
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+
+    &.approved {
+      background-color: #52c41a20;
+      color: #52c41a;
+    }
+
+    &.rejected {
+      background-color: #ff4d4f20;
+      color: #ff4d4f;
+    }
+  }
+
+  .action-buttons {
+    margin: 0;
+    padding: 0;
+    width: 100%;
+
+    .button-row {
       display: flex;
-      flex-wrap: wrap;
       gap: 4px;
-      width: 100%;
       justify-content: flex-end;
+      margin-top: 2px;
 
-      &.vertical-layout {
-        flex-direction: column;
-        align-items: stretch;
+      .options-container {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 4px;
+        width: 100%;
+        justify-content: flex-end;
 
-        .action-btn {
-          width: 100%;
-          justify-content: flex-start;
-          text-align: left;
+        &.vertical-layout {
+          flex-direction: column;
+          align-items: stretch;
+
+          .action-btn {
+            width: 100%;
+            justify-content: flex-start;
+            text-align: left;
+          }
         }
       }
     }
@@ -2244,6 +2575,57 @@ watch(
     text-align: center;
     font-weight: 400;
     opacity: 0.65;
+  }
+}
+
+.menu-action-btn {
+  background: none !important;
+  border: none !important;
+  box-shadow: none !important;
+  color: #fff !important;
+  padding: 0 2px;
+  min-width: 0;
+  height: 16px;
+  line-height: 20px;
+  font-size: 12px;
+  margin-left: 0;
+  margin-right: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+
+  :deep(.anticon) {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+  }
+
+  &:hover,
+  &:focus {
+    background: none !important;
+  }
+
+  &.save-btn:hover {
+    color: #52c41a !important;
+  }
+
+  &.cancel-btn:hover {
+    color: #ff4d4f !important;
+  }
+}
+
+.history-load-more {
+  text-align: center;
+  padding: 8px;
+  color: #888;
+  font-size: 12px;
+  cursor: pointer;
+  transition: color 0.2s;
+
+  &:hover {
+    color: #1890ff;
   }
 }
 </style>
