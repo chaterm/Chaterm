@@ -1,10 +1,6 @@
 import { Controller } from './index'
-import { handleAccountServiceRequest } from './account'
-import { handleBrowserServiceRequest } from './browser/index'
-import { handleFileServiceRequest } from './file'
 import { handleTaskServiceRequest } from './task'
 import { handleCheckpointsServiceRequest } from './checkpoints'
-import { handleMcpServiceRequest } from './mcp'
 
 /**
  * Handles gRPC requests from the webview
@@ -32,34 +28,14 @@ export class GrpcHandler {
   }> {
     try {
       switch (service) {
-        case 'cline.AccountService':
-          return {
-            message: await handleAccountServiceRequest(this.controller, method, message),
-            request_id: requestId
-          }
-        case 'cline.BrowserService':
-          return {
-            message: await handleBrowserServiceRequest(this.controller, method, message),
-            request_id: requestId
-          }
         case 'cline.CheckpointsService':
           return {
             message: await handleCheckpointsServiceRequest(this.controller, method, message),
             request_id: requestId
           }
-        case 'cline.FileService':
-          return {
-            message: await handleFileServiceRequest(this.controller, method, message),
-            request_id: requestId
-          }
         case 'cline.TaskService':
           return {
             message: await handleTaskServiceRequest(this.controller, method, message),
-            request_id: requestId
-          }
-        case 'cline.McpService':
-          return {
-            message: await handleMcpServiceRequest(this.controller, method, message),
             request_id: requestId
           }
         default:

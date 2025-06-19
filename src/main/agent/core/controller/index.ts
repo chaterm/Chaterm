@@ -8,6 +8,8 @@ import pWaitFor from 'p-wait-for'
 import * as path from 'path'
 import * as vscode from 'vscode'
 import { buildApiHandler } from '@api/index'
+import { LiteLlmHandler } from '@api/providers/litellm'
+
 import { cleanupLegacyCheckpoints } from '@integrations/checkpoints/CheckpointMigration'
 import { downloadTask } from '@integrations/misc/export-markdown'
 import WorkspaceTracker from '@integrations/workspace/WorkspaceTracker'
@@ -676,6 +678,12 @@ export class Controller {
     }
     vscode.window.showInformationMessage('State reset')
     await this.postStateToWebview()
+  }
+
+  async validateApiKey(): Promise<{ isValid: boolean; error?: string }> {
+    const { apiConfiguration } = await getAllExtensionState()
+    const api = buildApiHandler(apiConfiguration)
+    return await api.validateApiKey()
   }
 }
 

@@ -290,16 +290,10 @@ const detectLanguage = (content: string): string => {
   if (contentLower.includes('package ') && contentLower.includes('func ')) {
     return 'go'
   }
-  if (
-    contentLower.includes('def ') &&
-    (contentLower.includes('import ') || contentLower.includes('print('))
-  ) {
+  if (contentLower.includes('def ') && (contentLower.includes('import ') || contentLower.includes('print('))) {
     return 'python'
   }
-  if (
-    contentLower.includes('interface ') &&
-    (contentLower.includes('extends ') || contentLower.includes('implements '))
-  ) {
+  if (contentLower.includes('interface ') && (contentLower.includes('extends ') || contentLower.includes('implements '))) {
     return 'typescript'
   }
   if (contentLower.includes('const ') || contentLower.includes('let ') || content.includes('=>')) {
@@ -308,10 +302,7 @@ const detectLanguage = (content: string): string => {
   if (contentLower.includes('public class ') || contentLower.includes('private class ')) {
     return 'java'
   }
-  if (
-    contentLower.includes('#include') &&
-    (contentLower.includes('std::') || contentLower.includes('cout'))
-  ) {
+  if (contentLower.includes('#include') && (contentLower.includes('std::') || contentLower.includes('cout'))) {
     return 'cpp'
   }
   if (contentLower.includes('namespace ') && contentLower.includes('using ')) {
@@ -320,19 +311,13 @@ const detectLanguage = (content: string): string => {
   if (contentLower.includes('require ') && contentLower.includes('end')) {
     return 'ruby'
   }
-  if (
-    contentLower.includes('<?php') ||
-    (contentLower.includes('namespace ') && contentLower.includes('use '))
-  ) {
+  if (contentLower.includes('<?php') || (contentLower.includes('namespace ') && contentLower.includes('use '))) {
     return 'php'
   }
   if (contentLower.includes('fn ') && contentLower.includes('impl ')) {
     return 'rust'
   }
-  if (
-    contentLower.includes('select ') &&
-    (contentLower.includes('from ') || contentLower.includes('where '))
-  ) {
+  if (contentLower.includes('select ') && (contentLower.includes('from ') || contentLower.includes('where '))) {
     return 'sql'
   }
 
@@ -542,10 +527,7 @@ const processContent = (content: string) => {
     // Replace code blocks with placeholders in order
     let processedContent = content
     blocks.forEach((_, index) => {
-      processedContent = processedContent.replace(
-        /```(?:\w+)?\n[\s\S]*?```/,
-        `[CODE_BLOCK_${index}]`
-      )
+      processedContent = processedContent.replace(/```(?:\w+)?\n[\s\S]*?```/, `[CODE_BLOCK_${index}]`)
     })
 
     // Set the normal content
@@ -838,9 +820,7 @@ const contentLines = computed(() => {
     }
 
     // Check if it's an ls output line
-    const lsMatch = line.match(
-      /^([drwx-]+)\s+(\d+)\s+(\w+)\s+(\w+)\s+(\d+)\s+(\w+\s+\d+\s+\d+:\d+)\s+(.+)$/
-    )
+    const lsMatch = line.match(/^([drwx-]+)\s+(\d+)\s+(\w+)\s+(\w+)\s+(\d+)\s+(\w+\s+\d+\s+\d+:\d+)\s+(.+)$/)
     if (lsMatch) {
       const [, permissions, , user, group, size, date, name] = lsMatch
       return {
@@ -851,11 +831,7 @@ const contentLines = computed(() => {
         size,
         date,
         name,
-        fileType: permissions.startsWith('d')
-          ? 'directory'
-          : permissions.includes('x')
-            ? 'executable'
-            : 'file'
+        fileType: permissions.startsWith('d') ? 'directory' : permissions.includes('x') ? 'executable' : 'file'
       }
     }
 
@@ -1213,7 +1189,7 @@ code {
   font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
   background-color: #1a1a1a;
   color: #ffffff;
-  padding: 12px;
+  padding: 28px 12px 12px;
   border-radius: 8px;
   white-space: pre-wrap;
   word-wrap: break-word;
@@ -1222,6 +1198,7 @@ code {
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
   border: 1px solid #2a2a2a;
   overflow: hidden;
+  position: relative;
   width: 100%;
   min-width: 0;
   display: flex;
@@ -1234,24 +1211,20 @@ code {
   top: 0;
   left: 0;
   right: 0;
-  height: 24px;
+  height: 18px;
   background: #2a2a2a;
   border-bottom: 1px solid #3a3a3a;
-  border-radius: 8px 8px 0 0;
 }
 
 .command-output::after {
-  content: '';
+  content: 'OUTPUT';
   position: absolute;
-  top: 8px;
-  left: 12px;
-  width: 12px;
-  height: 12px;
-  border-radius: 50%;
-  background: #ff5f56;
-  box-shadow:
-    20px 0 0 #ffbd2e,
-    40px 0 0 #27c93f;
+  top: 0;
+  left: 8px;
+  height: 18px;
+  line-height: 18px;
+  font-size: 10px;
+  color: #7e8ba3;
 }
 
 .command-output .error {
@@ -1401,7 +1374,8 @@ code {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
-  white-space: nowrap;
+  white-space: normal;
+  word-break: break-all;
 }
 
 .command-output .permissions {
@@ -1473,6 +1447,7 @@ code {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
-  white-space: nowrap;
+  white-space: normal;
+  word-break: break-all;
 }
 </style>

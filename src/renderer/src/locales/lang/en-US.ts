@@ -42,12 +42,12 @@ export default {
     pleaseInputUsername: 'Please input username',
     pleaseInputPassword: 'Please input password',
     pleaseInputEmail: 'Please input email',
-    pleaseInputCode: 'Please input verification code',
+    pleaseInputCode: 'Please input code',
     invalidEmail: 'Please input a valid email address',
     usernameTooltip: 'Please input your username',
     passwordTooltip: 'Please input your password',
     retryAfter: 'Retry after {seconds} seconds',
-    getCode: 'Get verification code'
+    getCode: 'Send code'
   },
   workspace: {
     workspace: 'Workspace',
@@ -137,7 +137,14 @@ export default {
     customInstructionsPh: `These instructions are added to the end of the system prompt sent with every request. e.g. Always respond in Chinese-simplified`,
     deepSeekApiKey: `DeepSeek API Key`,
     deepSeekApiKeyPh: `Enter API Key...`,
-    deepSeekApiKeyDescribe: `This key is stored locally and only used to make API requests from this client.`
+    deepSeekApiKeyDescribe: `This key is stored locally and only used to make API requests from this client.`,
+    checkModelConfigFailMessage: 'Missing configuration parameters',
+    checkModelConfigFailDescription: 'Please fill in the necessary model configuration, Setting -> AI -> API Configuration',
+    checkSuccessMessage: 'Connection successful',
+    checkSuccessDescription: 'API key is valid',
+    checkFailMessage: 'Connection failed',
+    checkFailDescriptionDefault: 'unknown error',
+    checkFailDescriptionMain: 'Unable to connect to the main process'
   },
   extensions: {
     extensions: 'Extensions',
@@ -210,7 +217,10 @@ export default {
     showChatHistory: 'Show History',
     closeAiSidebar: 'Close AI Sidebar',
     addHost: 'Add Host',
-    processing: 'processing...'
+    processing: 'processing...',
+    searchHistoryPH: 'Please Input',
+    loading: 'loading...',
+    loadMore: 'load more'
   },
   keyChain: {
     newKey: 'New Key',
