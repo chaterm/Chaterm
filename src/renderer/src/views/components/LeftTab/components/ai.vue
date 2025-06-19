@@ -762,6 +762,7 @@ watch(
 // 组件挂载时加载保存的配置
 onMounted(async () => {
   await loadSavedConfig()
+  await saveConfig()
   // 添加事件监听
   eventBus.on('AiTabModelChanged', async (newValue) => {
     console.log(newValue)
