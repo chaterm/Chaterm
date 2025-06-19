@@ -606,7 +606,6 @@ const saveConfig = async () => {
   }
 }
 
-// Add specific watch for liteLlmBaseUrl
 watch(
   () => apiProvider.value,
   async (newValue) => {
@@ -744,7 +743,7 @@ watch(
   () => thinkingBudgetTokens.value,
   async (newValue) => {
     enableExtendedThinking.value = newValue > 0
-    await updateGlobalState('thinkingBudgetTokens', thinkingBudgetTokens.value)
+    await updateGlobalState('thinkingBudgetTokens', newValue)
   }
 )
 
@@ -917,6 +916,7 @@ const checkModelConfig = async () => {
 }
 
 const handleCheck = async () => {
+  await saveConfig()
   const checkModelConfigResult = await checkModelConfig()
   if (!checkModelConfigResult) {
     notification.error({
@@ -926,7 +926,6 @@ const handleCheck = async () => {
     })
     return 'SEND_ERROR'
   }
-  await saveConfig()
   try {
     checkLoading.value = true
     const result = await (window.api as any).validateApiKey()
