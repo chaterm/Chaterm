@@ -79,7 +79,7 @@
           </template>
 
           <template v-else>
-            <span>******</span>
+            <span>****************</span>
             <a-button
               v-if="!unChange"
               type="link"
@@ -396,10 +396,15 @@ onBeforeUnmount(() => {})
   list-style: none;
   -webkit-font-feature-settings: 'tnum';
   font-feature-settings: 'tnum';
-  margin-bottom: 14px;
+  margin-bottom: 8px;
   vertical-align: top;
   color: #f8f8f8;
   width: 100%;
+}
+
+/* 密码强度表单项样式覆盖 */
+.custom-form :deep(.ant-form-item) {
+  margin-bottom: 8px;
 }
 
 /* 头像样式 */
