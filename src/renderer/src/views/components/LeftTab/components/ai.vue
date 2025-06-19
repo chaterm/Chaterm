@@ -606,51 +606,144 @@ const saveConfig = async () => {
   }
 }
 
-// 监听配置变化
 watch(
-  [
-    apiModelId,
-    thinkingBudgetTokens,
-    enableExtendedThinking,
-    // enableCheckpoints,
-    autoApprovalSettings,
-    chatSettings,
-    reasoningEffort,
-    shellIntegrationTimeout,
-    apiProvider,
-    awsAccessKey,
-    awsSecretKey,
-    awsSessionToken,
-    awsRegion,
-    awsUseCrossRegionInference,
-    awsEndpointSelected,
-    awsBedrockEndpoint,
-    liteLlmBaseUrl,
-    liteLlmModelId,
-    liteLlmApiKey,
-    customInstructions,
-    deepSeekApiKey
-  ],
-  async () => {
-    // Skip autoApprovalSettings.enabled and chatSettings.mode updates as they're handled by specific watchers
-    const currentState = await getGlobalState('autoApprovalSettings')
-    const currentChatSettings = await getGlobalState('chatSettings')
-
-    if (
-      autoApprovalSettings.value.enabled !== (currentState as AutoApprovalSettings)?.enabled ||
-      chatSettings.value.mode !== (currentChatSettings as ChatSettings)?.mode
-    ) {
-      return
+  () => apiProvider.value,
+  async (newValue) => {
+    try {
+      await updateGlobalState('apiProvider', newValue)
+    } catch (error) {
+      console.error('Failed to update apiProvider:', error)
     }
-    await saveConfig()
+  }
+)
+
+watch(
+  () => apiModelId.value,
+  async (newValue) => {
+    try {
+      await updateGlobalState('apiModelId', newValue)
+    } catch (error) {
+      console.error('Failed to update apiModelId:', error)
+    }
+  }
+)
+
+watch(
+  () => reasoningEffort.value,
+  async (newValue) => {
+    try {
+      await updateGlobalState('reasoningEffort', newValue)
+    } catch (error) {
+      console.error('Failed to update reasoningEffort:', error)
+    }
+  }
+)
+
+watch(
+  () => awsAccessKey.value,
+  async (newValue) => {
+    try {
+      await storeSecret('awsAccessKey', newValue)
+    } catch (error) {
+      console.error('Failed to update awsAccessKey:', error)
+    }
+  }
+)
+
+watch(
+  () => awsSecretKey.value,
+  async (newValue) => {
+    try {
+      await storeSecret('awsSecretKey', newValue)
+    } catch (error) {
+      console.error('Failed to update awsSecretKey:', error)
+    }
+  }
+)
+
+watch(
+  () => awsSessionToken.value,
+  async (newValue) => {
+    try {
+      await storeSecret('awsSessionToken', newValue)
+    } catch (error) {
+      console.error('Failed to update awsSessionToken:', error)
+    }
+  }
+)
+
+watch(
+  () => awsRegion.value,
+  async (newValue) => {
+    try {
+      await updateGlobalState('awsRegion', newValue)
+    } catch (error) {
+      console.error('Failed to update awsRegion:', error)
+    }
+  }
+)
+
+watch(
+  () => awsUseCrossRegionInference.value,
+  async (newValue) => {
+    try {
+      await updateGlobalState('awsUseCrossRegionInference', newValue)
+    } catch (error) {
+      console.error('Failed to update awsUseCrossRegionInference:', error)
+    }
+  }
+)
+
+watch(
+  () => awsEndpointSelected.value,
+  async (newValue) => {
+    try {
+      await updateGlobalState('awsEndpointSelected', newValue)
+    } catch (error) {
+      console.error('Failed to update awsEndpointSelected:', error)
+    }
+  }
+)
+
+watch(
+  () => awsBedrockEndpoint.value,
+  async (newValue) => {
+    try {
+      await updateGlobalState('awsBedrockEndpoint', newValue)
+    } catch (error) {
+      console.error('Failed to update awsBedrockEndpoint:', error)
+    }
+  }
+)
+
+watch(
+  () => customInstructions.value,
+  async (newValue) => {
+    try {
+      await updateGlobalState('customInstructions', newValue)
+    } catch (error) {
+      console.error('Failed to update customInstructions:', error)
+    }
+  }
+)
+
+watch(
+  () => deepSeekApiKey.value,
+  async (newValue) => {
+    try {
+      await storeSecret('deepSeekApiKey', newValue)
+    } catch (error) {
+      console.error('Failed to update deepSeekApiKey:', error)
+    }
   }
 )
 
 // 监听thinkingBudgetTokens变化来同步enableExtendedThinking状态
 watch(
   () => thinkingBudgetTokens.value,
-  (newValue) => {
+  async (newValue) => {
     enableExtendedThinking.value = newValue > 0
+    await updateGlobalState('thinkingBudgetTokens', newValue)
   }
 )
 
@@ -669,6 +762,7 @@ watch(
 // 组件挂载时加载保存的配置
 onMounted(async () => {
   await loadSavedConfig()
+  await saveConfig()
   // 添加事件监听
   eventBus.on('AiTabModelChanged', async (newValue) => {
     console.log(newValue)
@@ -720,9 +814,13 @@ const validateTimeout = (value: string) => {
 // 处理 shell integration timeout 变化
 watch(
   () => shellIntegrationTimeout.value,
-  (newValue) => {
-    if (validateTimeout(String(newValue))) {
-      saveConfig()
+  async (newValue) => {
+    try {
+      if (validateTimeout(String(newValue))) {
+        await updateGlobalState('shellIntegrationTimeout', newValue)
+      }
+    } catch (error) {
+      console.error('Failed to update shellIntegrationTimeout:', error)
     }
   }
 )
@@ -819,6 +917,7 @@ const checkModelConfig = async () => {
 }
 
 const handleCheck = async () => {
+  await saveConfig()
   const checkModelConfigResult = await checkModelConfig()
   if (!checkModelConfigResult) {
     notification.error({
