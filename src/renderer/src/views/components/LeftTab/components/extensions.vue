@@ -33,7 +33,7 @@
         <!-- <div v-if="userConfig.vimStatus"> -->
         <!-- <a-form-item>
             <template #label>
-              <span style="font-weight: 1000; margin-right: 10px; margin-left: 10px">|</span>{{ $t('user.commandLineOpen') }}
+              <span style="font-weight: 1000; margin-right: 10px; margin-left: 10px">|</span>{{ $t('user.visualVimEditor') }}
             </template>
             <a-switch
               :checked="userConfig.quickVimStatus === 1"
@@ -83,7 +83,7 @@
 
         <a-form-item>
           <template #label>
-            {{ $t('user.commandLineOpen') }}
+            {{ $t('user.visualVimEditor') }}
           </template>
           <a-switch
             :checked="userConfig.quickVimStatus === 1"
@@ -268,6 +268,11 @@ const uninstall = () => {
   color: #ffffff;
 }
 
+/* 统一设置所有表单项的行间距 */
+.custom-form :deep(.ant-form-item) {
+  margin-bottom: 14px !important;
+}
+
 /* 设置表单输入框的字体颜色 */
 .custom-form :deep(.ant-input),
 .custom-form :deep(.ant-input-password input) {
@@ -347,14 +352,8 @@ const uninstall = () => {
   list-style: none;
   -webkit-font-feature-settings: 'tnum';
   font-feature-settings: 'tnum';
-  margin-bottom: 14px;
-  margin-bottom: 14px;
   vertical-align: top;
   color: #ffffff;
-}
-
-.user_my-ant-form-item-content {
-  /* //background-color: #4a4a4a; */
 }
 
 .user_avatar {

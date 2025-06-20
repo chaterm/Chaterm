@@ -85,7 +85,7 @@ export default {
     ai: 'AI',
     keychain: '秘钥',
     textEditor: '文本编辑器',
-    commandLineOpen: '命令行打开',
+    visualVimEditor: '可视化Vim编辑器',
     fileManagerPlugin: '文件管理器插件',
     fileManagerPluginDescribe: '安装后通过 "鼠标右键-文件管理器" 打开',
     cursorStyleBlock: '块',
