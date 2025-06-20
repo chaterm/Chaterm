@@ -36,6 +36,8 @@ export interface HistoryItem {
   chatTitle: string
   chatType: string
   chatContent: ChatMessage[]
+  isEditing?: boolean
+  editingTitle?: string
 }
 
 export interface TaskHistoryItem {
