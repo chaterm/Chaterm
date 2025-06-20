@@ -878,15 +878,6 @@ const restoreHistoryTab = async (history: HistoryItem) => {
           lastItem = item
         }
       })
-      // TODO:将hosts的发送时机推迟到点击resume按钮时
-      if (hosts.value.length === 0) {
-        notification.error({
-          message: '获取当前资产连接信息失败',
-          description: '请先建立资产连接',
-          duration: 3
-        })
-        return 'ASSET_ERROR'
-      }
       await (window.api as any).sendToMain({
         type: 'showTaskWithId',
         text: history.id,
@@ -895,8 +886,7 @@ const restoreHistoryTab = async (history: HistoryItem) => {
           uuid: h.uuid,
           connection: h.connection,
           organizationId: h.organizationId
-        })),
-        cwd: currentCwd.value
+        }))
       })
     }
     chatInputValue.value = ''
@@ -1111,9 +1101,8 @@ let removeListener: (() => void) | null = null
 const currentCwdStore = useCurrentCwdStore()
 
 // 使用计算属性来获取当前工作目录
-const currentCwd = computed(() => currentCwdStore.currentCwd)
+const currentCwd = computed(() => currentCwdStore.keyValueMap)
 
-// 监听 currentCwd 的变化
 watch(currentCwd, (newValue) => {
   console.log('当前工作目录:', newValue)
 })
@@ -1343,6 +1332,13 @@ onUnmounted(() => {
 const sendMessageToMain = async (userContent: string) => {
   try {
     let message
+    // 只发送hosts中IP对应的cwd键值对
+    const filteredCwd = new Map()
+    hosts.value.forEach((h) => {
+      if (h.host && currentCwd.value[h.host]) {
+        filteredCwd.set(h.host, currentCwd.value[h.host])
+      }
+    })
     if (chatHistory.length === 0) {
       message = {
         type: 'newTask',
@@ -1355,14 +1351,14 @@ const sendMessageToMain = async (userContent: string) => {
           connection: h.connection,
           organizationId: h.organizationId
         })),
-        cwd: currentCwd.value
+        cwd: filteredCwd
       }
     } else {
       message = {
         type: 'askResponse',
         askResponse: 'messageResponse',
         text: userContent,
-        cwd: currentCwd.value
+        cwd: filteredCwd
       }
     }
     console.log('发送消息到主进程:', message)
@@ -1555,7 +1551,9 @@ const currentEditingId = ref(null)
 const editHistory = async (history) => {
   // 如果有其他正在编辑的项，先还原它
   if (currentEditingId.value && currentEditingId.value !== history.id) {
-    const previousEditingHistory = paginatedHistoryList.value.find((h) => h.id === currentEditingId.value)
+    const previousEditingHistory = paginatedHistoryList.value.find(
+      (h) => h.id === currentEditingId.value
+    )
     if (previousEditingHistory) {
       previousEditingHistory.isEditing = false
       previousEditingHistory.editingTitle = ''

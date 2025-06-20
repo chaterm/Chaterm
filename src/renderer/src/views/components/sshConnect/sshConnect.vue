@@ -205,7 +205,6 @@ const EDITOR_SEQUENCES = {
   ]
 }
 const userInputFlag = ref(false)
-const currentCwd = ref('')
 const currentCwdStore = useCurrentCwdStore()
 let termOndata: IDisposable | null = null
 const pasteFlag = ref(false)
@@ -680,10 +679,6 @@ const startShell = async () => {
         isConnected.value = false
       })
       cleanupListeners.value = [removeDataListener, removeErrorListener, removeCloseListener]
-      // 获取初始cwd
-      setTimeout(() => {
-        sendMarkedData('pwd\r', 'Chaterm:pwd')
-      }, 500)
     } else {
       terminal.value?.writeln(
         JSON.stringify({
@@ -1034,6 +1029,7 @@ const setupTerminalInput = () => {
       } else {
         sendData(data)
       }
+      // detect cd command
       if (/\bcd\b/.test(command)) {
         setTimeout(() => {
           sendMarkedData('pwd\r', 'Chaterm:pwd')
@@ -1183,9 +1179,17 @@ const handleServerOutput = (response: MarkedResponse) => {
       cusWrite?.(data)
     }
   } else if (response.marker === 'Chaterm:pwd') {
-    currentCwd.value = data.trim()
-    currentCwdStore.setCurrentCwd(currentCwd.value)
-    console.log('current working directory:', currentCwd.value)
+    let currentCwd = ''
+    const temp = stripAnsi(data)
+
+    const lines = temp.trim().split(/\r?\n/)
+
+    if (lines.length >= 2 && lines[0].trim() === 'pwd') {
+      currentCwd = lines[1].trim()
+    }
+
+    currentCwdStore.setKeyValue(props.connectData.ip, currentCwd)
+    console.log(`${props.connectData.ip} current working directory:`, currentCwd)
   } else {
     cusWrite?.(data)
   }
