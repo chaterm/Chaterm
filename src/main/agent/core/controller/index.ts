@@ -20,21 +20,8 @@ import { fileExistsAtPath } from '@utils/fs'
 import { getWorkspacePath } from '@utils/path'
 import { getTotalTasksSize } from '@utils/storage'
 import type { Host } from '@shared/WebviewMessage'
-import {
-  ensureTaskExists,
-  getSavedApiConversationHistory,
-  deleteChatermHistoryByTaskId,
-  getTaskMetadata,
-  saveTaskMetadata
-} from '../storage/disk'
-import {
-  getAllExtensionState,
-  getGlobalState,
-  resetExtensionState,
-  storeSecret,
-  updateApiConfiguration,
-  updateGlobalState
-} from '../storage/state'
+import { ensureTaskExists, getSavedApiConversationHistory, deleteChatermHistoryByTaskId, getTaskMetadata, saveTaskMetadata } from '../storage/disk'
+import { getAllExtensionState, getGlobalState, resetExtensionState, storeSecret, updateApiConfiguration, updateGlobalState } from '../storage/state'
 import { Task } from '../task'
 
 export class Controller {
@@ -56,11 +43,9 @@ export class Controller {
     this.workspaceTracker = new WorkspaceTracker((msg) => this.postMessageToWebview(msg))
 
     // Clean up legacy checkpoints
-    cleanupLegacyCheckpoints(this.context.globalStorageUri.fsPath, this.outputChannel).catch(
-      (error) => {
-        console.error('Failed to cleanup legacy checkpoints:', error)
-      }
-    )
+    cleanupLegacyCheckpoints(this.context.globalStorageUri.fsPath, this.outputChannel).catch((error) => {
+      console.error('Failed to cleanup legacy checkpoints:', error)
+    })
   }
 
   async dispose() {
@@ -100,25 +85,14 @@ export class Controller {
     }
   }
 
-  async setUserInfo(info?: {
-    displayName: string | null
-    email: string | null
-    photoURL: string | null
-  }) {
+  async setUserInfo(info?: { displayName: string | null; email: string | null; photoURL: string | null }) {
     await updateGlobalState('userInfo', info)
   }
 
-  async initTask(
-    task?: string,
-    historyItem?: HistoryItem,
-    hosts?: Host[],
-    terminalOutput?: string,
-    cwd?: Map<string, string>
-  ) {
+  async initTask(task?: string, historyItem?: HistoryItem, hosts?: Host[], terminalOutput?: string, cwd?: Map<string, string>) {
     console.log('initTask', task, historyItem)
     await this.clearTask() // ensures that an existing task doesn't exist before starting a new one, although this shouldn't be possible since user must clear task before starting a new one
-    const { apiConfiguration, customInstructions, autoApprovalSettings, chatSettings } =
-      await getAllExtensionState()
+    const { apiConfiguration, customInstructions, autoApprovalSettings, chatSettings } = await getAllExtensionState()
     this.task = new Task(
       this.workspaceTracker,
       (historyItem) => this.updateTaskHistory(historyItem),
@@ -166,13 +140,7 @@ export class Controller {
         break
 
       case 'newTask':
-        await this.initTask(
-          message.text,
-          undefined,
-          message.hosts,
-          message.terminalOutput,
-          message.cwd
-        )
+        await this.initTask(message.text, undefined, message.hosts, message.terminalOutput, message.cwd)
         if (this.task?.taskId && message.hosts) {
           await updateTaskHosts(this.task.taskId, message.hosts)
         }
@@ -305,11 +273,7 @@ export class Controller {
         console.error('Failed to abort task', error)
       }
       await pWaitFor(
-        () =>
-          this.task === undefined ||
-          this.task.isStreaming === false ||
-          this.task.didFinishAbortingStream ||
-          this.task.isWaitingForFirstChunk, // if only first chunk is processed, then there's no need to wait for graceful abort (closes edits, browser, etc)
+        () => this.task === undefined || this.task.isStreaming === false || this.task.didFinishAbortingStream || this.task.isWaitingForFirstChunk, // if only first chunk is processed, then there's no need to wait for graceful abort (closes edits, browser, etc)
         {
           timeout: 3_000
         }
@@ -403,12 +367,7 @@ export class Controller {
   }
 
   // 'Add to Cline' context menu in editor and code action
-  async addSelectedCodeToChat(
-    code: string,
-    filePath: string,
-    languageId: string,
-    diagnostics?: vscode.Diagnostic[]
-  ) {
+  async addSelectedCodeToChat(code: string, filePath: string, languageId: string, diagnostics?: vscode.Diagnostic[]) {
     // Ensure the sidebar view is visible
     await vscode.commands.executeCommand('claude-dev.SidebarProvider.focus')
     await setTimeoutPromise(100)
@@ -452,21 +411,14 @@ export class Controller {
   }
 
   // 'Fix with Cline' in code actions
-  async fixWithCline(
-    code: string,
-    filePath: string,
-    languageId: string,
-    diagnostics: vscode.Diagnostic[]
-  ) {
+  async fixWithCline(code: string, filePath: string, languageId: string, diagnostics: vscode.Diagnostic[]) {
     // Ensure the sidebar view is visible
     await vscode.commands.executeCommand('claude-dev.SidebarProvider.focus')
     await setTimeoutPromise(100)
 
     const fileMention = this.getFileMentionFromPath(filePath)
     const problemsString = this.convertDiagnosticsToProblemsString(diagnostics)
-    await this.initTask(
-      `Fix the following code in ${fileMention}\n\`\`\`\n${code}\n\`\`\`\n\nProblems:\n${problemsString}`
-    )
+    await this.initTask(`Fix the following code in ${fileMention}\n\`\`\`\n${code}\n\`\`\`\n\nProblems:\n${problemsString}`)
 
     console.log('fixWithCline', code, filePath, languageId, diagnostics, problemsString)
   }
