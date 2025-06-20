@@ -4,7 +4,7 @@ import { ChatSettings } from './ChatSettings'
 import { ChatContent } from './ChatContent'
 // import { TelemetrySetting } from "./TelemetrySetting"
 
-export type Host = { host: string, uuid: string, connection: string, organizationId: string }
+export type Host = { host: string; uuid: string; connection: string; organizationId: string }
 
 export interface WebviewMessage {
   type:
@@ -87,7 +87,7 @@ export interface WebviewMessage {
   askResponse?: ChatermAskResponse
   terminalOutput?: string
   hosts?: Host[]
-  cwd?: string
+  cwd?: Map<string, string>
 }
 
 export type ChatermAskResponse = 'yesButtonClicked' | 'noButtonClicked' | 'messageResponse'

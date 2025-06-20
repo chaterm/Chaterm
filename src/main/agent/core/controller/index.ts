@@ -8,7 +8,6 @@ import pWaitFor from 'p-wait-for'
 import * as path from 'path'
 import * as vscode from 'vscode'
 import { buildApiHandler } from '@api/index'
-import { LiteLlmHandler } from '@api/providers/litellm'
 
 import { cleanupLegacyCheckpoints } from '@integrations/checkpoints/CheckpointMigration'
 import { downloadTask } from '@integrations/misc/export-markdown'
@@ -114,7 +113,7 @@ export class Controller {
     historyItem?: HistoryItem,
     hosts?: Host[],
     terminalOutput?: string,
-    cwd?: string
+    cwd?: Map<string, string>
   ) {
     console.log('initTask', task, historyItem)
     await this.clearTask() // ensures that an existing task doesn't exist before starting a new one, although this shouldn't be possible since user must clear task before starting a new one
@@ -167,15 +166,6 @@ export class Controller {
         break
 
       case 'newTask':
-        // Code that should run in response to the hello message command
-        //vscode.window.showInformationMessage(message.text!)
-
-        // Send a message to our webview.
-        // You can send any JSON serializable data.
-        // Could also do this in extension .ts
-        //this.postMessageToWebview({ type: "text", text: `Extension: ${Date.now()}` })
-        // initializing new instance of Cline will make sure that any agentically running promises in old instance don't affect our new task. this essentially creates a fresh slate for the new task
-
         await this.initTask(
           message.text,
           undefined,
@@ -536,7 +526,7 @@ export class Controller {
     throw new Error('Task not found')
   }
 
-  async showTaskWithId(id: string, hosts: Host[], cwd?: string) {
+  async showTaskWithId(id: string, hosts: Host[], cwd?: Map<string, string>) {
     if (id !== this.task?.taskId) {
       // non-current task
       const { historyItem } = await this.getTaskWithId(id)
