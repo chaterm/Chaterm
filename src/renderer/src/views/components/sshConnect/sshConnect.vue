@@ -5,8 +5,8 @@
   >
     <div
       ref="terminalElement"
-      class="terminal"
       v-contextmenu:contextmenu
+      class="terminal"
     ></div>
     <SuggComp
       v-bind="{ ref: (el) => setRef(el, connectionId) }"
@@ -16,11 +16,11 @@
     />
     <v-contextmenu ref="contextmenu">
       <Context
-        :isConnect="isConnected"
-        @contextAct="contextAct"
-        :termInstance="terminal as any"
-        :copyText="copyText"
-        :terminalId="connectionId"
+        :is-connect="isConnected"
+        :term-instance="terminal as any"
+        :copy-text="copyText"
+        :terminal-id="connectionId"
+        @context-act="contextAct"
       />
     </v-contextmenu>
   </div>
@@ -1023,7 +1023,27 @@ const setupTerminalInput = () => {
     }
     if (data === '\x03') {
       // Ctrl+C
+      if (suggestions.value.length) {
+        suggestions.value = []
+        activeSuggestion.value = 0
+        nextTick(() => {
+          console.log('Ctrl+C: 推荐界面已清除')
+        })
+        return // 如果有推荐界面，只清除推荐界面，不发送Ctrl+C
+      }
       sendData(data)
+    } else if (data === '\x1b') {
+      // ESC键 - 取消推荐界面
+      if (suggestions.value.length) {
+        suggestions.value = []
+        activeSuggestion.value = 0
+        nextTick(() => {
+          console.log('ESC: 推荐界面已清除')
+        })
+        return // 如果有推荐界面，只清除推荐界面，不发送ESC
+      } else {
+        sendData(data)
+      }
     } else if (data === '\x16') {
       // Ctrl+V
       navigator.clipboard
