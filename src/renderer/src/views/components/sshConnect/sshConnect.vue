@@ -105,7 +105,6 @@ import { useCurrentCwdStore } from '@/store/currentCwdStore'
 import { markRaw, onBeforeUnmount, onMounted, onUnmounted, PropType, nextTick, reactive, ref } from 'vue'
 import { Terminal } from 'xterm'
 import { FitAddon } from 'xterm-addon-fit'
-import { WebLinksAddon } from 'xterm-addon-web-links'
 import { IDisposable } from 'xterm'
 import 'xterm/css/xterm.css'
 import { defineEmits } from 'vue/dist/vue'
@@ -602,9 +601,6 @@ const debounce = (func, wait) => {
     timeout = setTimeout(later, wait)
   }
 }
-const autoWriteCode = (command) => {
-  terminal.value?.write(command.replace(/([^\r])\n/g, '$1\r\n'))
-}
 const autoExecuteCode = (command) => {
   sendData(command)
 }
@@ -700,12 +696,6 @@ const startShell = async () => {
         cusWrite?.(data)
       })
       const removeCloseListener = api.onShellClose(connectionId.value, () => {
-        terminal.value?.writeln(
-          JSON.stringify({
-            cmd: '\r\n远程主机关闭了连接。',
-            isUserCall: true
-          })
-        )
         isConnected.value = false
       })
       cleanupListeners.value = [removeDataListener, removeErrorListener, removeCloseListener]
