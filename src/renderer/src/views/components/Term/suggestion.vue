@@ -83,6 +83,7 @@ defineExpose({ updateSuggestionsPosition })
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
   font-family: monospace;
   z-index: 1000;
+  max-width: 500px;
   /* 确保提示框在终端内容上方 */
 }
 
@@ -91,7 +92,7 @@ defineExpose({ updateSuggestionsPosition })
   cursor: pointer;
   line-height: 1.2;
   font-size: 16px;
-  height: 30px;
+  height: auto;
 }
 
 .suggestions div.active {
@@ -103,14 +104,16 @@ defineExpose({ updateSuggestionsPosition })
   display: flex;
   align-items: center;
   min-width: 160px;
-  height: 30px;
   min-height: 30px;
 }
 
 .suggestion-item .icon {
   width: 18px;
   height: 18px;
-  margin-right: 0;
+  margin-right: 8px;
+  flex-shrink: 0;
+  align-self: flex-start;
+  margin-top: 6px;
 }
 
 .suggestion-item .icon.base {
@@ -126,12 +129,21 @@ defineExpose({ updateSuggestionsPosition })
 .text {
   flex: 1;
   font-size: 14px;
+  word-wrap: break-word;
+  word-break: break-all;
+  white-space: pre-wrap;
+  max-width: 400px;
+  line-height: 1.4;
+  padding: 2px 0;
 }
 
 .arrow-icon {
   width: 22px;
   height: 22px;
   margin-left: 8px;
+  flex-shrink: 0;
+  align-self: flex-start;
+  margin-top: 4px;
   background: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="%2352c41a"><path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.41z"/></svg>')
     no-repeat center/contain;
   opacity: 0.9;
