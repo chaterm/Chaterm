@@ -350,19 +350,18 @@ onMounted(async () => {
   }
 
   termInstance.write = cusWrite as any
-  const boxId = `${props.currentConnectionId}-box`
-  const box = document.getElementById(boxId)
-  console.log(document.getElementById(boxId), 'document.getElementById')
+  // const boxId = `${props.currentConnectionId}-box`
+  // const box = document.getElementById(boxId)
 
   // 使用 ResizeObserver 监听 box 元素的尺寸变化
-  if (box) {
-    resizeObserver = new ResizeObserver(
-      debounce(() => {
-        handleResize()
-      }, 50)
-    )
-    resizeObserver.observe(box)
-  }
+  // if (box) {
+  //   resizeObserver = new ResizeObserver(
+  //     debounce(() => {
+  //       handleResize()
+  //     }, 50)
+  //   )
+  //   resizeObserver.observe(box)
+  // }
 
   // 保留 window resize 监听作为备用
   window.addEventListener('resize', handleResize)
