@@ -162,19 +162,16 @@ export async function initChatermDatabase(userId?: number): Promise<Database.Dat
         mainDb = new Database(Chaterm_DB_PATH)
         initDb = new Database(INIT_CDB_PATH, { readonly: true, fileMustExist: true })
 
-        const initTables = initDb
-          .prepare(
-            "SELECT name, sql FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'"
-          )
-          .all() as { name: string; sql: string }[]
+        const initTables = initDb.prepare("SELECT name, sql FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'").all() as {
+          name: string
+          sql: string
+        }[]
 
         for (const initTable of initTables) {
           const tableName = initTable.name
           const createTableSql = initTable.sql
 
-          const tableExists = mainDb
-            .prepare("SELECT name FROM sqlite_master WHERE type='table' AND name = ?")
-            .get(tableName)
+          const tableExists = mainDb.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name = ?").get(tableName)
 
           if (!tableExists) {
             console.log(`Table ${tableName} not found in target DB. Creating table.`)
@@ -217,15 +214,11 @@ export async function initChatermDatabase(userId?: number): Promise<Database.Dat
                   }
                 }
                 try {
-                  console.log(
-                    `Attempting to add column ${initColumn.name} to table ${tableName} with SQL: ${addColumnSql}`
-                  )
+                  console.log(`Attempting to add column ${initColumn.name} to table ${tableName} with SQL: ${addColumnSql}`)
                   mainDb.exec(addColumnSql)
                   console.log(`Successfully added column ${initColumn.name} to table ${tableName}.`)
                 } catch (e: any) {
-                  console.error(
-                    `Failed to add column ${initColumn.name} to table ${tableName}: ${e.message}. SQL: ${addColumnSql}`
-                  )
+                  console.error(`Failed to add column ${initColumn.name} to table ${tableName}: ${e.message}. SQL: ${addColumnSql}`)
                 }
               }
             }
@@ -501,13 +494,7 @@ export class ChatermDatabaseService {
       const insertStmt = this.db.prepare(`
         INSERT INTO t_asset_chains (chain_name, chain_private_key, chain_public_key, chain_type, passphrase) VALUES (?, ?, ?, ?, ?)
       `)
-      const result = insertStmt.run(
-        form.chain_name,
-        form.private_key,
-        form.public_key,
-        form.chain_type,
-        form.passphrase
-      )
+      const result = insertStmt.run(form.chain_name, form.private_key, form.public_key, form.chain_type, form.passphrase)
       return {
         data: {
           message: result.changes > 0 ? 'success' : 'failed'
@@ -565,14 +552,7 @@ export class ChatermDatabaseService {
             passphrase = ?
         WHERE key_chain_id = ?
       `)
-      const result = stmt.run(
-        form.chain_name,
-        form.private_key,
-        form.public_key,
-        form.chain_type,
-        form.passphrase,
-        form.key_chain_id
-      )
+      const result = stmt.run(form.chain_name, form.private_key, form.public_key, form.chain_type, form.passphrase, form.key_chain_id)
       return {
         data: {
           message: result.changes > 0 ? 'success' : 'failed'
@@ -842,12 +822,10 @@ export class ChatermDatabaseService {
     }
   }
 
-    async saveApiConversationHistory(taskId: string, apiConversationHistory: any[]): Promise<void> {
+  async saveApiConversationHistory(taskId: string, apiConversationHistory: any[]): Promise<void> {
     try {
       // 首先清除现有记录（事务之外）
-      const deleteStmt = this.db.prepare(
-        'DELETE FROM agent_api_conversation_history_v1 WHERE task_id = ?'
-      )
+      const deleteStmt = this.db.prepare('DELETE FROM agent_api_conversation_history_v1 WHERE task_id = ?')
       deleteStmt.run(taskId)
 
       // 然后在一个新事务中插入所有记录
@@ -878,27 +856,11 @@ export class ChatermDatabaseService {
                 toolUseId = content.tool_use_id
               }
 
-              insertStmt.run(
-                taskId,
-                now,
-                message.role,
-                contentType,
-                JSON.stringify(contentData),
-                toolUseId,
-                sequenceOrder++
-              )
+              insertStmt.run(taskId, now, message.role, contentType, JSON.stringify(contentData), toolUseId, sequenceOrder++)
             }
           } else {
             // 处理简单文本消息
-            insertStmt.run(
-              taskId,
-              now,
-              message.role,
-              'text',
-              JSON.stringify({ text: message.content }),
-              null,
-              sequenceOrder++
-            )
+            insertStmt.run(taskId, now, message.role, 'text', JSON.stringify({ text: message.content }), null, sequenceOrder++)
           }
         }
       })()
@@ -934,9 +896,7 @@ export class ChatermDatabaseService {
         isCheckpointCheckedOut: row.is_checkpoint_checked_out === 1,
         isOperationOutsideWorkspace: row.is_operation_outside_workspace === 1,
         conversationHistoryIndex: row.conversation_history_index,
-        conversationHistoryDeletedRange: row.conversation_history_deleted_range
-          ? JSON.parse(row.conversation_history_deleted_range)
-          : undefined
+        conversationHistoryDeletedRange: row.conversation_history_deleted_range ? JSON.parse(row.conversation_history_deleted_range) : undefined
       }))
     } catch (error) {
       console.error('Failed to get Cline messages:', error)
@@ -975,9 +935,7 @@ export class ChatermDatabaseService {
             message.isCheckpointCheckedOut ? 1 : 0,
             message.isOperationOutsideWorkspace ? 1 : 0,
             message.conversationHistoryIndex || null,
-            message.conversationHistoryDeletedRange
-              ? JSON.stringify(message.conversationHistoryDeletedRange)
-              : null
+            message.conversationHistoryDeletedRange ? JSON.stringify(message.conversationHistoryDeletedRange) : null
           )
         }
       })()
@@ -1023,12 +981,7 @@ export class ChatermDatabaseService {
           updated_at = strftime('%s', 'now')
       `)
 
-      upsertStmt.run(
-        taskId,
-        JSON.stringify(metadata.files_in_context),
-        JSON.stringify(metadata.model_usage),
-        JSON.stringify(metadata.hosts)
-      )
+      upsertStmt.run(taskId, JSON.stringify(metadata.files_in_context), JSON.stringify(metadata.model_usage), JSON.stringify(metadata.hosts))
     } catch (error) {
       console.error('Failed to save task metadata:', error)
     }
@@ -1060,18 +1013,10 @@ export class ChatermDatabaseService {
     let jsonDataString: string | undefined
     try {
       jsonDataString = JSON.stringify(contextHistory)
-      console.log(
-        '[saveContextHistory] JSON.stringify successful. Data:',
-        jsonDataString,
-        'Type:',
-        typeof jsonDataString
-      )
+      console.log('[saveContextHistory] JSON.stringify successful. Data:', jsonDataString, 'Type:', typeof jsonDataString)
     } catch (stringifyError) {
       console.error('[saveContextHistory] Error during JSON.stringify:', stringifyError)
-      console.error(
-        '[saveContextHistory] Original contextHistory object that caused error:',
-        contextHistory
-      )
+      console.error('[saveContextHistory] Original contextHistory object that caused error:', contextHistory)
       if (stringifyError instanceof Error) {
         throw new Error(`Failed to stringify contextHistory: ${stringifyError.message}`)
       } else {
@@ -1080,10 +1025,7 @@ export class ChatermDatabaseService {
     }
 
     if (typeof jsonDataString !== 'string') {
-      console.error(
-        '[saveContextHistory] jsonDataString is not a string after stringify. Value:',
-        jsonDataString
-      )
+      console.error('[saveContextHistory] jsonDataString is not a string after stringify. Value:', jsonDataString)
       throw new Error('jsonDataString is not a string after JSON.stringify')
     }
 
@@ -1096,21 +1038,11 @@ export class ChatermDatabaseService {
           updated_at = strftime('%s', 'now')
       `)
 
-      console.log(
-        '[saveContextHistory] Executing upsert. Task ID:',
-        taskId,
-        'Data:',
-        jsonDataString
-      )
+      console.log('[saveContextHistory] Executing upsert. Task ID:', taskId, 'Data:', jsonDataString)
       upsertStmt.run(taskId, jsonDataString)
       console.log('[saveContextHistory] Upsert successful for Task ID:', taskId)
     } catch (error) {
-      console.error(
-        '[saveContextHistory] Failed to save context history to DB. Task ID:',
-        taskId,
-        'Error:',
-        error
-      )
+      console.error('[saveContextHistory] Failed to save context history to DB. Task ID:', taskId, 'Error:', error)
       console.error('[saveContextHistory] Data that caused error:', jsonDataString)
       throw error
     }
@@ -1132,15 +1064,11 @@ export class autoCompleteDatabaseService {
   private async initEvictSystem() {
     // 初始化淘汰配置
     const timeConfig = this.db
-      .prepare(
-        'SELECT evict_value, evict_current_value FROM linux_commands_evict WHERE evict_type = ?'
-      )
+      .prepare('SELECT evict_value, evict_current_value FROM linux_commands_evict WHERE evict_type = ?')
       .get('time') as EvictConfig
 
     // 获取当前命令总数
-    const currentCount = this.db
-      .prepare('SELECT COUNT(*) as count FROM linux_commands_history')
-      .get() as { count: number }
+    const currentCount = this.db.prepare('SELECT COUNT(*) as count FROM linux_commands_history').get() as { count: number }
     this.commandCount = currentCount.count
     this.lastEvictTime = timeConfig.evict_current_value
 
@@ -1149,13 +1077,9 @@ export class autoCompleteDatabaseService {
   }
 
   private async checkAndEvict() {
-    const countConfig = this.db
-      .prepare('SELECT evict_value FROM linux_commands_evict WHERE evict_type = ?')
-      .get('count') as EvictConfig
+    const countConfig = this.db.prepare('SELECT evict_value FROM linux_commands_evict WHERE evict_type = ?').get('count') as EvictConfig
 
-    const timeConfig = this.db
-      .prepare('SELECT evict_value FROM linux_commands_evict WHERE evict_type = ?')
-      .get('time') as EvictConfig
+    const timeConfig = this.db.prepare('SELECT evict_value FROM linux_commands_evict WHERE evict_type = ?').get('time') as EvictConfig
 
     // 检查时间阈值
     const now = Math.floor(Date.now() / 1000)
@@ -1201,19 +1125,13 @@ export class autoCompleteDatabaseService {
 
       const result = deleteStmt.run(secondMonthsAgo, oneYearAgo)
       // 获取删除后的命令总数
-      const currentCount = this.db
-        .prepare('SELECT COUNT(*) as count FROM linux_commands_history')
-        .get() as { count: number }
+      const currentCount = this.db.prepare('SELECT COUNT(*) as count FROM linux_commands_history').get() as { count: number }
       this.commandCount = currentCount.count
       this.lastEvictTime = Math.floor(Date.now() / 1000)
       // 更新淘汰配置表
-      this.db
-        .prepare('UPDATE linux_commands_evict SET evict_current_value = ? WHERE evict_type = ?')
-        .run(this.commandCount, 'count')
+      this.db.prepare('UPDATE linux_commands_evict SET evict_current_value = ? WHERE evict_type = ?').run(this.commandCount, 'count')
 
-      this.db
-        .prepare('UPDATE linux_commands_evict SET evict_current_value = ? WHERE evict_type = ?')
-        .run(this.lastEvictTime, 'time')
+      this.db.prepare('UPDATE linux_commands_evict SET evict_current_value = ? WHERE evict_type = ?').run(this.lastEvictTime, 'time')
 
       console.log(`Evicted ${result.changes} commands. Current count: ${this.commandCount}`)
     })()
@@ -1280,37 +1198,49 @@ export class autoCompleteDatabaseService {
     if (command.length < 2) {
       return []
     }
-    command = command + '%'
-    let results: CommandResult[] = []
+
+    // 修改返回类型: { command: string; source: 'history' | 'base' }
+    type Suggestion = {
+      command: string
+      source: 'history' | 'base'
+    }
+
+    const likePattern = command + '%'
     const limit = 6
-    // 首先查询 linux_commands_history 当前IP的历史记录
-    const historyStmt = this.db.prepare(
+    const suggestions: Suggestion[] = []
+    const exists = (cmd: string) => suggestions.some((s) => s.command === cmd)
+    const push = (cmd: string, source: 'history' | 'base') => {
+      if (!exists(cmd) && suggestions.length < limit) {
+        suggestions.push({ command: cmd, source })
+      }
+    }
+
+    // 1. 当前 IP 的历史记录
+    const historyStmtCurr = this.db.prepare(
       'SELECT DISTINCT command FROM linux_commands_history WHERE command LIKE ? AND ip = ? ORDER BY count DESC LIMIT ?'
     )
-    const historyResults = historyStmt.all(command, ip, limit) as CommandResult[]
-    results = results.concat(historyResults)
+    const historyCurr = historyStmtCurr.all(likePattern, ip, limit) as CommandResult[]
+    historyCurr.forEach((row) => push(row.command, 'history'))
 
-    if (results.length < limit) {
-      const remainingLimit = limit - results.length
-      // 查询其他IP的历史记录
-      const otherIpStmt = this.db.prepare(
+    // 2. 其他 IP 的历史记录
+    if (suggestions.length < limit) {
+      const remain = limit - suggestions.length
+      const historyStmtOther = this.db.prepare(
         'SELECT DISTINCT command FROM linux_commands_history WHERE command LIKE ? AND ip != ? ORDER BY count DESC LIMIT ?'
       )
-      const otherIpResults = otherIpStmt.all(command, ip, remainingLimit) as CommandResult[]
-      results = results.concat(otherIpResults)
+      const historyOther = historyStmtOther.all(likePattern, ip, remain) as CommandResult[]
+      historyOther.forEach((row) => push(row.command, 'history'))
     }
 
-    // 如果仍然少于limit条，查询通用命令
-    if (results.length < limit) {
-      const finalLimit = limit - results.length
-      const commonStmt = this.db.prepare(
-        'SELECT command FROM linux_commands_common WHERE command LIKE ? LIMIT ?'
-      )
-      const commonResults = commonStmt.all(command, finalLimit) as CommandResult[]
-      results = results.concat(commonResults)
+    // 3. 通用基础命令 (base)
+    if (suggestions.length < limit) {
+      const remain = limit - suggestions.length
+      const commonStmt = this.db.prepare('SELECT command FROM linux_commands_common WHERE command LIKE ? LIMIT ?')
+      const common = commonStmt.all(likePattern, remain) as CommandResult[]
+      common.forEach((row) => push(row.command, 'base'))
     }
-    // 提取命令列表并去重
-    return [...new Set(results.map((r) => r.command))]
+
+    return suggestions
   }
 
   insertCommand(command: string, ip: string) {
@@ -1319,21 +1249,15 @@ export class autoCompleteDatabaseService {
     }
 
     const result = this.db.transaction(() => {
-      const selectStmt = this.db.prepare(
-        'SELECT id, count FROM linux_commands_history WHERE command = ? AND ip = ?'
-      )
+      const selectStmt = this.db.prepare('SELECT id, count FROM linux_commands_history WHERE command = ? AND ip = ?')
       const existing = selectStmt.get(command, ip)
 
       let insertResult: any
       if (existing) {
-        const updateStmt = this.db.prepare(
-          'UPDATE linux_commands_history SET count = count + 1, update_time = CURRENT_TIMESTAMP WHERE id = ?'
-        )
+        const updateStmt = this.db.prepare('UPDATE linux_commands_history SET count = count + 1, update_time = CURRENT_TIMESTAMP WHERE id = ?')
         insertResult = updateStmt.run(existing.id)
       } else {
-        const insertStmt = this.db.prepare(
-          'INSERT INTO linux_commands_history (command, cmd_length, ip) VALUES (?, ?, ?)'
-        )
+        const insertStmt = this.db.prepare('INSERT INTO linux_commands_history (command, cmd_length, ip) VALUES (?, ?, ?)')
         const cmdLength = command.length
         insertResult = insertStmt.run(command, cmdLength, ip)
         this.commandCount++

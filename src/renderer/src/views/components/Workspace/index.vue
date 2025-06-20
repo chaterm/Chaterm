@@ -19,9 +19,6 @@
 
       <!-- 资产管理 -->
       <div style="width: 100%; margin-top: 10px">
-        <!-- <a-button @click="queryCommand">查询命令</a-button> -->
-        <!-- 功能自动补全接入示例，不要删除 -->
-        <!-- <a-button @click="insertCommand">插入命令</a-button> -->
         <div class="manage">
           <a-input
             v-model:value="searchValue"
@@ -195,7 +192,6 @@
 
 <script setup lang="ts">
 interface ApiType {
-  queryCommand: (data: { command: string; ip: string }) => Promise<any>
   insertCommand: (data: { command: string; ip: string }) => Promise<any>
   getLocalAssetRoute: (data: { searchType: string; params?: any[] }) => Promise<any>
   updateLocalAssetLabel: (data: { uuid: string; label: string }) => Promise<any>
@@ -467,32 +463,6 @@ const clickServer = (item) => {
 const assetManagement = () => {
   emit('open-user-tab', 'assetConfig')
 }
-
-// const queryCommand = async () => {
-//   try {
-//     const result = await window.api.queryCommand({ command: 'git checkout -b', ip: '10.23.2.2' })
-//     if (result) {
-//       message.success(`查询成功: ${JSON.stringify(result)}`)
-//     } else {
-//       message.info('未找到命令')
-//     }
-//   } catch (error) {
-//     console.log(error)
-//     message.error('查询失败' + error)
-//   }
-// }
-
-// const insertCommand = async () => {
-//   try {
-//     await window.api.insertCommand({
-//       command: 'git checkout -b new-branch',
-//       ip: '10.23.2.2'
-//     })
-//     message.success('命令插入成功')
-//   } catch (error) {
-//     message.error('命令插入失败')
-//   }
-// }
 getLocalAssetMenu()
 onMounted(async () => {
   await GetUserWorkSpace()
