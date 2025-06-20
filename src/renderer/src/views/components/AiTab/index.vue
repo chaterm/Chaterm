@@ -1247,6 +1247,20 @@ onMounted(async () => {
     }
   })
 
+  eventBus.on('chatToAi', async (text) => {
+    chatInputValue.value = text
+    initAssetInfo() //防止初始化失败
+    nextTick(() => {
+      const textarea = document.getElementsByClassName(
+        'chat-textarea'
+      )[0] as HTMLTextAreaElement | null
+      if (textarea) {
+        textarea.scrollTop = textarea.scrollHeight
+        textarea.focus({ preventScroll: true })
+      }
+    })
+  })
+
   currentChatId.value = chatId
 
   let lastMessage: any = null
@@ -1326,6 +1340,7 @@ onUnmounted(() => {
   // 移除事件监听
   eventBus.off('apiProviderChanged')
   eventBus.off('activeTabChanged')
+  eventBus.off('chatToAi')
 })
 
 // 添加发送消息到主进程的方法

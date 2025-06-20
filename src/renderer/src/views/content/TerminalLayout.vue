@@ -264,6 +264,9 @@ const toggleMenu = function (params) {
   if (params.menu == 'ai') {
     currentMenu.value = params.beforeActive
     rightSize.value == 0 ? expandFn('right') : shrinkFn('right')
+  } else if (params.menu == 'openAiRight') {
+    currentMenu.value = params.beforeActive
+    rightSize.value == 0 ? expandFn('right') : ''
   } else {
     currentMenu.value = params.menu
     switch (type) {
