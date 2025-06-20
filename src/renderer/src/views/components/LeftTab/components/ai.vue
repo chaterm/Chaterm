@@ -946,7 +946,7 @@ const handleCheck = async () => {
   } catch (error) {
     notification.error({
       message: t('user.checkFailMessage'),
-      description: t('user.checkFailDescriptionMain'),
+      description: error,
       duration: 3
     })
   } finally {
