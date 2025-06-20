@@ -276,9 +276,6 @@ const isPersonalWorkspace = computed(() => {
   const currentWorkspace = workspaceData.value.find((item) => item.key === company.value)
   return currentWorkspace?.type === 'personal'
 })
-const keyChainConfig = () => {
-  emit('open-user-tab', 'keyChainConfig')
-}
 
 const getLocalAssetMenu = () => {
   window.api
@@ -487,7 +484,6 @@ onUnmounted(() => {
     height: auto;
   }
   .term_com_list {
-    display: inline-block;
     float: right;
   }
   .term_com_list .ant-select-selection-item {
