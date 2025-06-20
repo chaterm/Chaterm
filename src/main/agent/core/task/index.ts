@@ -60,7 +60,7 @@ export class Task {
   readonly taskId: string
   hosts?: Host[]
   terminalOutput?: string = ''
-  cwd: string = ''
+  cwd: Map<string, string> = new Map()
   private taskIsFavorited?: boolean
   api: ApiHandler
   contextManager: ContextManager
@@ -114,7 +114,7 @@ export class Task {
     historyItem?: HistoryItem,
     hosts?: Host[],
     terminalOutput?: string,
-    cwd?: string
+    cwd?: Map<string, string>
   ) {
     this.workspaceTracker = workspaceTracker
     this.updateTaskHistory = updateTaskHistory
@@ -127,8 +127,13 @@ export class Task {
     this.autoApprovalSettings = autoApprovalSettings
     this.chatSettings = chatSettings
     this.hosts = hosts
-    this.terminalOutput = terminalOutput
-    this.cwd = cwd || ''
+    if (hosts) {
+      for (const host of hosts) {
+        this.cwd.set(host.host, cwd?.get(host.host) || '')
+      }
+    }
+
+    this.terminalOutput = terminalOutput // TODO:remove
     // Initialize taskId first
     if (historyItem) {
       this.taskId = historyItem.id
@@ -440,11 +445,14 @@ export class Task {
     }
   }
 
-  async handleWebviewAskResponse(askResponse: ChatermAskResponse, text?: string, cwd?: string) {
+  async handleWebviewAskResponse(askResponse: ChatermAskResponse, text?: string, cwd?: Map<string, string>) {
     this.askResponse = askResponse
     this.askResponseText = text
-    if (cwd) {
-      this.cwd = cwd
+    if (!cwd) return
+    for (const [key, value] of cwd.entries()) {
+      if (this.cwd.has(key)) {
+        this.cwd.set(key, value)
+      }
     }
   }
 
@@ -664,13 +672,7 @@ export class Task {
 
     const wasRecent = lastChatermMessage?.ts && Date.now() - lastChatermMessage.ts < 30_000
 
-    const [taskResumptionMessage, userResponseMessage] = formatResponse.taskResumption(
-      this.chatSettings?.mode,
-      agoText,
-      this.cwd,
-      wasRecent,
-      responseText
-    )
+    const [taskResumptionMessage, userResponseMessage] = formatResponse.taskResumption(this.chatSettings?.mode, agoText, wasRecent, responseText)
 
     if (taskResumptionMessage !== '') {
       newUserContent.push({
@@ -753,8 +755,7 @@ export class Task {
       return 'Failed to connect to terminal'
     }
     terminalInfo.terminal.show()
-    // TODO:add support for multiple hosts
-    const process = this.remoteTerminalManager.runCommand(terminalInfo, command, this.hosts?.length === 1 ? this.cwd : undefined)
+    const process = this.remoteTerminalManager.runCommand(terminalInfo, command, this.cwd.get(ip) || undefined)
 
     // Chunked terminal output buffering
     const CHUNK_LINE_COUNT = 20
@@ -1406,13 +1407,20 @@ export class Task {
     const timeZoneOffsetStr = `${timeZoneOffset >= 0 ? '+' : ''}${timeZoneOffset}:00`
     details += `\n\n# Current Time:\n${formatter.format(now)} (${timeZone}, UTC${timeZoneOffsetStr})`
 
-    if (includeHostDetails) {
-      details += `\n\n# Current Hosts:\n${this.hosts?.map((h) => h.host).join(', ')}`
-      // TODO:how to include system information when there are multiple servers?
-      if (this.hosts?.length === 1) {
-        details += `\n\n# Current Working Directory (${this.cwd.toPosix()}) Files:\n`
-        const res = await this.executeCommandInRemoteServer('ls -al', this.hosts[0].host, this.cwd)
-        // TODO: add ignore files
+    if (includeHostDetails && this.hosts && this.hosts.length > 0) {
+      details += `\n\n# Current Hosts:\n${this.hosts.map((h) => h.host).join(', ')}`
+
+      for (const host of this.hosts) {
+        let currentCwd = this.cwd.get(host.host)
+        if (!currentCwd) {
+          currentCwd = (await this.executeCommandInRemoteServer('pwd', host.host))?.trim()
+          this.cwd.set(host.host, currentCwd)
+        }
+
+        details += `\n\n# Host ${host.host} - Current Working Directory (${currentCwd}) Files:\n`
+
+        const res = await this.executeCommandInRemoteServer('ls -al', host.host, currentCwd)
+
         const processLsOutput = (output: string): string => {
           const lines = output.split('\n')
           const totalLine = lines[0]
@@ -1428,7 +1436,6 @@ export class Task {
 
         const processedOutput = processLsOutput(res)
         details += processedOutput
-        details += res
       }
     }
 
@@ -2049,7 +2056,7 @@ export class Task {
   }
 
   private async buildSystemPrompt(): Promise<string> {
-    let systemPrompt = await SYSTEM_PROMPT(this.cwd)
+    let systemPrompt = await SYSTEM_PROMPT()
     let systemInformation = '# SYSTEM INFORMATION\n\n'
     for (const host of this.hosts!) {
       const osVersion = await this.executeCommandInRemoteServer('uname -a', host.host)
@@ -2063,6 +2070,7 @@ export class Task {
         Operating System: ${osVersion}
         Default Shell: ${defaultShell}
         Home Directory: ${homeDir.toPosix()}
+        Current Working Directory: ${this.cwd.get(host.host) || homeDir}
         Hostname: ${hostName}
         User: ${userName}
         ====

@@ -5,8 +5,8 @@
   >
     <div
       ref="terminalElement"
-      class="terminal"
       v-contextmenu:contextmenu
+      class="terminal"
     ></div>
     <SuggComp
       v-bind="{ ref: (el) => setRef(el, connectionId) }"
@@ -16,11 +16,11 @@
     />
     <v-contextmenu ref="contextmenu">
       <Context
-        :isConnect="isConnected"
-        @contextAct="contextAct"
-        :termInstance="terminal as any"
-        :copyText="copyText"
-        :terminalId="connectionId"
+        :is-connect="isConnected"
+        :term-instance="terminal as any"
+        :copy-text="copyText"
+        :terminal-id="connectionId"
+        @context-act="contextAct"
       />
     </v-contextmenu>
   </div>
@@ -76,6 +76,12 @@
       </a-button>
     </template>
   </a-modal>
+  <a-button
+    :id="`${connectionId}Button`"
+    class="select-button"
+    style="display: none"
+    >Chat to AI</a-button
+  >
 </template>
 
 <script lang="ts" setup>
@@ -96,7 +102,7 @@ import Context from '../Term/contextComp.vue'
 import SuggComp from '../Term/suggestion.vue'
 import eventBus from '@/utils/eventBus'
 import { useCurrentCwdStore } from '@/store/currentCwdStore'
-import { markRaw, nextTick, onBeforeUnmount, onMounted, PropType, reactive, ref } from 'vue'
+import { markRaw, onBeforeUnmount, onMounted, onUnmounted, PropType, nextTick, reactive, ref } from 'vue'
 import { Terminal } from 'xterm'
 import { FitAddon } from 'xterm-addon-fit'
 import { WebLinksAddon } from 'xterm-addon-web-links'
@@ -165,7 +171,7 @@ const connectionHasSudo = ref(false)
 const connectionSftpAvailable = ref(false)
 const cleanupListeners = ref<Array<() => void>>([])
 const terminalElement = ref(null)
-const terminalContainer = ref(null)
+const terminalContainer = ref<HTMLDivElement | null>(null)
 const cursorStartX = ref(0)
 const api = window.api as any
 const encoder = new TextEncoder()
@@ -205,7 +211,6 @@ const EDITOR_SEQUENCES = {
   ]
 }
 const userInputFlag = ref(false)
-const currentCwd = ref('')
 const currentCwdStore = useCurrentCwdStore()
 let termOndata: IDisposable | null = null
 const pasteFlag = ref(false)
@@ -242,6 +247,30 @@ onMounted(async () => {
       copyText.value = termInstance.getSelection()
     }
   })
+  if (terminalContainer.value) {
+    terminalContainer.value.addEventListener('mouseup', (e) => {
+      setTimeout(() => {
+        if (termInstance.hasSelection()) {
+          const text = termInstance.getSelection()
+          const button = document.getElementById(`${connectionId.value}Button`) as HTMLElement
+
+          // 定位按钮到鼠标抬起位置
+          button.style.left = `${e.clientX + 10}px`
+          button.style.top = `${e.clientY + 10}px`
+          if (text.trim()) button.style.display = 'block'
+
+          button.onclick = () => {
+            eventBus.emit('openAiRight')
+            nextTick(() => {
+              eventBus.emit('chatToAi', text.trim())
+            })
+            termInstance.clearSelection()
+          }
+        }
+      }, 10)
+    })
+    document.addEventListener('mouseup', hideSelectionButton)
+  }
 
   fitAddon.value = new FitAddon()
   termInstance.loadAddon(fitAddon.value)
@@ -354,19 +383,18 @@ onMounted(async () => {
   }
 
   termInstance.write = cusWrite as any
-  const boxId = `${props.currentConnectionId}-box`
-  const box = document.getElementById(boxId)
-  console.log(document.getElementById(boxId), 'document.getElementById')
+  // const boxId = `${props.currentConnectionId}-box`
+  // const box = document.getElementById(boxId)
 
   // 使用 ResizeObserver 监听 box 元素的尺寸变化
-  if (box) {
-    resizeObserver = new ResizeObserver(
-      debounce(() => {
-        handleResize()
-      }, 50)
-    )
-    resizeObserver.observe(box)
-  }
+  // if (box) {
+  //   resizeObserver = new ResizeObserver(
+  //     debounce(() => {
+  //       handleResize()
+  //     }, 50)
+  //   )
+  //   resizeObserver.observe(box)
+  // }
 
   // 保留 window resize 监听作为备用
   window.addEventListener('resize', handleResize)
@@ -681,10 +709,6 @@ const startShell = async () => {
         isConnected.value = false
       })
       cleanupListeners.value = [removeDataListener, removeErrorListener, removeCloseListener]
-      // 获取初始cwd
-      setTimeout(() => {
-        sendMarkedData('pwd\r', 'Chaterm:pwd')
-      }, 500)
     } else {
       terminal.value?.writeln(
         JSON.stringify({
@@ -1055,6 +1079,7 @@ const setupTerminalInput = () => {
       } else {
         sendData(data)
       }
+      // detect cd command
       if (/\bcd\b/.test(command)) {
         setTimeout(() => {
           sendMarkedData('pwd\r', 'Chaterm:pwd')
@@ -1204,9 +1229,17 @@ const handleServerOutput = (response: MarkedResponse) => {
       cusWrite?.(data)
     }
   } else if (response.marker === 'Chaterm:pwd') {
-    currentCwd.value = data.trim()
-    currentCwdStore.setCurrentCwd(currentCwd.value)
-    console.log('current working directory:', currentCwd.value)
+    let currentCwd = ''
+    const temp = stripAnsi(data)
+
+    const lines = temp.trim().split(/\r?\n/)
+
+    if (lines.length >= 2 && lines[0].trim() === 'pwd') {
+      currentCwd = lines[1].trim()
+    }
+
+    currentCwdStore.setKeyValue(props.connectData.ip, currentCwd)
+    console.log(`${props.connectData.ip} current working directory:`, currentCwd)
   } else {
     cusWrite?.(data)
   }
@@ -1663,15 +1696,24 @@ const focus = () => {
   }
 }
 
+const hideSelectionButton = () => {
+  const button = document.getElementById(`${connectionId.value}Button`) as HTMLElement
+  if (button) button.style.display = 'none'
+}
+
 defineExpose({
   handleResize,
   autoExecuteCode,
   terminal,
   focus
 })
+
+onUnmounted(() => {
+  document.removeEventListener('mouseup', hideSelectionButton)
+})
 </script>
 
-<style>
+<style lang="less">
 .ant-form-item .ant-form-item-label > label {
   color: white;
 }
@@ -1695,5 +1737,22 @@ defineExpose({
 
 .terminal ::-webkit-scrollbar {
   width: 0px !important;
+}
+.select-button {
+  position: fixed;
+  display: none;
+  z-index: 999;
+  padding: 4px 8px;
+  border-radius: 4px;
+  color: white;
+  border: none;
+  font-size: 12px;
+  cursor: pointer;
+  background-color: #272727;
+  border: 1px solid #4d4d4d;
+  &:hover {
+    color: white !important;
+    border: 1px solid #4d4d4d !important;
+  }
 }
 </style>

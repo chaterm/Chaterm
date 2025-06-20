@@ -50,6 +50,7 @@
                     @create-tab="createTab"
                     @change-tab="switchTab"
                     @update-tabs="updateTabs"
+                    @close-all-tabs="closeAllTabs"
                   />
                 </pane>
                 <pane :size="rightSize">
@@ -114,6 +115,7 @@
                   @create-tab="createTab"
                   @change-tab="switchTab"
                   @update-tabs="updateTabs"
+                  @close-all-tabs="closeAllTabs"
                 />
               </pane>
               <pane :size="rightSize">
@@ -262,6 +264,9 @@ const toggleMenu = function (params) {
   if (params.menu == 'ai') {
     currentMenu.value = params.beforeActive
     rightSize.value == 0 ? expandFn('right') : shrinkFn('right')
+  } else if (params.menu == 'openAiRight') {
+    currentMenu.value = params.beforeActive
+    rightSize.value == 0 ? expandFn('right') : ''
   } else {
     currentMenu.value = params.menu
     switch (type) {
@@ -273,18 +278,6 @@ const toggleMenu = function (params) {
         break
     }
   }
-}
-
-interface formData {
-  host: string
-  port: number
-  username: string
-  password: string
-  privateKeyPath: string
-  authType: string
-  passphrase: string
-  uuid?: string // 添加可选的 uuid
-  key?: string // 添加可选的 key
 }
 
 interface TabItem {
@@ -343,6 +336,15 @@ const closeTab = (tabId) => {
     }
   }
 }
+
+const closeAllTabs = () => {
+  // 清空所有标签页
+  openedTabs.value = []
+  activeTabId.value = ''
+  // 触发activeTabChanged事件，传递null表示没有活动标签页
+  eventBus.emit('activeTabChanged', null)
+}
+
 const createTab = (infos) => {
   const id_ = uuidv4()
   openedTabs.value.push({
@@ -403,8 +405,6 @@ const changeCompany = () => {
   openedTabs.value = []
 }
 
-const LAST_N_LINES = 100
-
 // 新增函数：获取当前活动标签页的资产信息
 const getActiveTabAssetInfo = async () => {
   if (!activeTabId.value) {
@@ -422,49 +422,8 @@ const getActiveTabAssetInfo = async () => {
     return null
   }
 
-  // const isTerminalSession = activeTab.type === 'term' || activeTab.organizationId === 'personal'
-
   let outputContext = 'Output context not applicable for this tab type.'
 
-  // if (isTerminalSession) {
-  //   // Only attempt to get terminal output if it's a terminal session
-  //   outputContext = 'Terminal output not available or an error occurred.' // Default for terminal sessions
-
-  //   // Check if allTabs (TabsPanel instance) is mounted and the method exists
-  //   if (allTabs.value && typeof allTabs.value.getTerminalOutputContent === 'function') {
-  //     try {
-  //       // This method needs to be implemented/exposed in TabsPanel.vue
-  //       const fullOutput = await allTabs.value.getTerminalOutputContent(activeTabId.value)
-
-  //       if (typeof fullOutput === 'string') {
-  //         const regex = /(\r?\n)+$/
-  //         const result = fullOutput.replace(regex, ``)
-  //         const lines = result.split('\n')
-  //         const lastNLines = lines.slice(-LAST_N_LINES)
-  //         outputContext = lastNLines.join('\n')
-  //       } else if (fullOutput === null || fullOutput === undefined) {
-  //         outputContext = 'Terminal output is empty or not yet available.'
-  //       } else {
-  //         console.warn('Terminal output content is not a string:', fullOutput)
-  //         outputContext = 'Received non-string terminal output.'
-  //       }
-  //     } catch (error: any) {
-  //       // Changed to error: any
-  //       console.error('Error retrieving terminal output via getTerminalOutputContent:', error)
-  //       outputContext = `Error fetching terminal content: ${error.message || error}`
-  //     }
-  //   } else {
-  //     console.warn(
-  //       'allTabs.value (TabsPanel instance) is not available or getTerminalOutputContent method is missing.'
-  //     )
-  //     outputContext =
-  //       'Terminal interaction component (TabsPanel) not ready or getTerminalOutputContent method not implemented in it.'
-  //   }
-  // } else if (!ip) {
-  //   outputContext = 'Terminal output not available or an error occurred.'
-  //   console.warn('Active tab is not a terminal session and does not have a ip for asset info.')
-  //   return null // Or handle as a non-asset, non-terminal tab differently if needed.
-  // }
   const uuid = activeTab.data?.uuid
   return {
     uuid: uuid, // May be undefined if not an asset-related tab, which is fine.

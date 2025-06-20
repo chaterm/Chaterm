@@ -2,11 +2,17 @@ import { defineStore } from 'pinia'
 
 export const useCurrentCwdStore = defineStore('currentCwd', {
   state: () => ({
-    currentCwd: ''
+    keyValueMap: {} as Record<string, string>
   }),
   actions: {
-    setCurrentCwd(cwd: string) {
-      this.currentCwd = cwd
+    setKeyValue(key: string, value: string) {
+      this.keyValueMap[key] = value
+    },
+    getKeyValue(key: string) {
+      return this.keyValueMap[key]
+    },
+    removeKey(key: string) {
+      delete this.keyValueMap[key]
     }
   }
 })
