@@ -84,7 +84,7 @@ export default {
     ai: 'AI',
     keychain: 'Keychain',
     textEditor: 'Text editor',
-    commandLineOpen: 'Command line open',
+    visualVimEditor: 'Visual Vim Editor',
     fileManagerPlugin: 'File manager plugin',
     fileManagerPluginDescribe: 'Open the file manager by right clicking with the mouse',
     cursorStyleBlock: 'Block',
