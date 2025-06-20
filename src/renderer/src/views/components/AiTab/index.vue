@@ -444,9 +444,10 @@ import plusIcon from '@/assets/icons/plus.svg'
 import sendIcon from '@/assets/icons/send.svg'
 import { useCurrentCwdStore } from '@/store/currentCwdStore'
 import { getassetMenu } from '@/api/asset/asset'
-import { aiModelOptions, litellmAiModelOptions, deepseekAiModelOptions } from '@views/components/LeftTab/components/aiOptions'
+import { aiModelOptions, deepseekAiModelOptions } from '@views/components/LeftTab/components/aiOptions'
 import debounce from 'lodash/debounce'
 import i18n from '@/locales'
+
 const { t } = i18n.global
 const MarkdownRenderer = defineAsyncComponent(() => import('@views/components/AiTab/MarkdownRenderer.vue'))
 
@@ -503,7 +504,7 @@ const props = defineProps({
   }
 })
 
-let AgentAiModelsOptions = [
+const AgentAiModelsOptions = ref([
   { label: 'claude-4-sonnet', value: 'claude-4-sonnet' },
   { label: 'claude-4-haiku', value: 'claude-4-haiku' },
   { label: 'claude-3-7-sonnet', value: 'claude-3-7-sonnet' },
@@ -514,7 +515,7 @@ let AgentAiModelsOptions = [
   { label: 'claude-3-5-haiku', value: 'claude-3-5-haiku' },
   { label: 'claude-3-opus-20240229', value: 'claude-3-opus-20240229' },
   { label: 'claude-3-5-opus', value: 'claude-3-5-opus' }
-]
+])
 const AiTypeOptions = [
   { label: 'Chat', value: 'chat' },
   { label: 'Command', value: 'cmd' },
@@ -1112,22 +1113,20 @@ const changeModel = debounce(async (newValue) => {
     switch (apiProvider) {
       case 'bedrock':
         chatAiModelValue.value = newValue?.[1]
-        AgentAiModelsOptions = aiModelOptions
+        AgentAiModelsOptions.value = aiModelOptions
         break
       case 'litellm':
         chatAiModelValue.value = newValue?.[2]
-        const exists = litellmAiModelOptions.findIndex((option) => option.value === newValue?.[2]) !== -1
-        if (!exists && newValue?.[2]) {
-          litellmAiModelOptions.push({
+        AgentAiModelsOptions.value = [
+          {
             value: newValue?.[2],
             label: newValue?.[2]
-          })
-        }
-        AgentAiModelsOptions = litellmAiModelOptions
+          }
+        ]
         break
       case 'deepseek':
         chatAiModelValue.value = newValue?.[1]
-        AgentAiModelsOptions = deepseekAiModelOptions
+        AgentAiModelsOptions.value = deepseekAiModelOptions
         break
     }
   } else {
@@ -1135,22 +1134,20 @@ const changeModel = debounce(async (newValue) => {
     switch (apiProvider) {
       case 'bedrock':
         chatAiModelValue.value = (await getGlobalState('apiModelId')) as string
-        AgentAiModelsOptions = aiModelOptions
+        AgentAiModelsOptions.value = aiModelOptions
         break
       case 'litellm':
         chatAiModelValue.value = (await getGlobalState('liteLlmModelId')) as string
-        const exists = litellmAiModelOptions.findIndex((option) => option.value === chatAiModelValue.value) !== -1
-        if (!exists && chatAiModelValue.value) {
-          litellmAiModelOptions.push({
+        AgentAiModelsOptions.value = [
+          {
             value: chatAiModelValue.value,
             label: chatAiModelValue.value
-          })
-        }
-        AgentAiModelsOptions = litellmAiModelOptions
+          }
+        ]
         break
       case 'deepseek':
         chatAiModelValue.value = (await getGlobalState('apiModelId')) as string
-        AgentAiModelsOptions = deepseekAiModelOptions
+        AgentAiModelsOptions.value = deepseekAiModelOptions
         break
     }
   }
@@ -1183,6 +1180,7 @@ onMounted(async () => {
 
   // 添加事件监听
   eventBus.on('SettingModelChanged', async (newValue) => {
+    console.log('[newValue]', newValue)
     await changeModel(newValue)
   })
 
