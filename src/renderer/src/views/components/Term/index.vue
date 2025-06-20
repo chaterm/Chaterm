@@ -17,12 +17,12 @@
     />
     <v-contextmenu ref="contextmenu">
       <Context
-        :isConnect="isConnect"
-        @contextAct="contextAct"
-        :wsInstance="socket"
-        :termInstance="term"
-        :copyText="copyText"
-        :terminalId="terminalId"
+        :is-connect="isConnect"
+        :ws-instance="socket"
+        :term-instance="term"
+        :copy-text="copyText"
+        :terminal-id="terminalId"
+        @context-act="contextAct"
       />
     </v-contextmenu>
   </div>
@@ -37,13 +37,19 @@
       @handle-save="handleSave"
     />
   </div>
+  <a-button
+    :id="`${infos.id}Button`"
+    class="select-button"
+    style="display: none"
+    >Chat to AI</a-button
+  >
 </template>
 
 <script setup>
 const contextmenu = ref()
 import Context from './contextComp.vue'
 import SuggComp from './suggestion.vue'
-import { ref, onMounted, nextTick, onBeforeUnmount, defineProps, reactive } from 'vue'
+import { ref, onMounted, nextTick, onBeforeUnmount, defineProps, onUnmounted, reactive } from 'vue'
 import { Terminal } from 'xterm'
 import { FitAddon } from 'xterm-addon-fit'
 import { WebLinksAddon } from 'xterm-addon-web-links'
@@ -148,7 +154,9 @@ onMounted(() => {
   // }
 
   window.addEventListener('resize', handleResize)
-  terminalContainer.value.addEventListener('resize', handleResize)
+  if (terminalContainer.value) {
+    terminalContainer.value.addEventListener('resize', handleResize)
+  }
   // 监听 executeTerminalCommand 事件
   eventBus.on('executeTerminalCommand', (command) => {
     autoExecuteCode(command)
@@ -169,6 +177,7 @@ onBeforeUnmount(() => {
   window.removeEventListener('resize', handleResize)
   // 移除事件监听
   eventBus.off('executeTerminalCommand')
+  document.removeEventListener('mouseup', hideSelectionButton)
 })
 // 获取当前机器所有命令
 const getALlCmdList = () => {
@@ -294,6 +303,32 @@ const initTerminal = async () => {
       key: e.data
     })
   })
+  if (terminalElement.value) {
+    terminalElement.value.addEventListener('mouseup', (e) => {
+      setTimeout(() => {
+        console.log('select')
+
+        if (term.value.hasSelection()) {
+          const text = term.value.getSelection()
+          const button = document.getElementById(`${infos.value.id}Button`)
+
+          // 定位按钮到鼠标抬起位置
+          button.style.left = `${e.clientX + 10}px`
+          button.style.top = `${e.clientY + 10}px`
+          if (text.trim()) button.style.display = 'block'
+
+          button.onclick = () => {
+            eventBus.emit('openAiRight')
+            nextTick(() => {
+              eventBus.emit('chatToAi', text.trim())
+            })
+            termInstance.clearSelection()
+          }
+        }
+      }, 10)
+    })
+    document.addEventListener('mouseup', hideSelectionButton)
+  }
 }
 
 // 连接WebSocket服务
@@ -855,6 +890,10 @@ const contextAct = (action) => {
       break
   }
 }
+const hideSelectionButton = () => {
+  const button = document.getElementById(`${infos.value.id}Button`)
+  if (button) button.style.display = 'none'
+}
 
 // 添加focus方法
 const focus = () => {
@@ -871,7 +910,7 @@ defineExpose({
 })
 </script>
 
-<style scoped>
+<style lang="less" scoped>
 .terminal-container {
   width: 100%;
   height: 100%;
@@ -890,5 +929,22 @@ defineExpose({
 
 .terminal ::-webkit-scrollbar {
   width: 0px !important;
+}
+.select-button {
+  position: fixed;
+  display: none;
+  z-index: 999;
+  padding: 4px 8px;
+  border-radius: 4px;
+  color: white;
+  border: none;
+  font-size: 12px;
+  cursor: pointer;
+  background-color: #272727;
+  border: 1px solid #4d4d4d;
+  &:hover {
+    color: white !important;
+    border: 1px solid #4d4d4d !important;
+  }
 }
 </style>
