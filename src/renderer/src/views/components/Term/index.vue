@@ -110,7 +110,7 @@ const cursorX = ref(0)
 const stashCursorX = ref(0)
 let stashConfig = null
 let allDatas = ref({})
-
+let resizeObserver = null
 const authData = {
   email: email,
   ip: props.serverInfo.ip,
@@ -118,9 +118,35 @@ const authData = {
   organizationId: props.serverInfo.organizationId,
   terminalId: terminalId
 }
+// 防抖
+const debounce = (func, wait) => {
+  let timeout
+  return function executedFunction(...args) {
+    const later = () => {
+      clearTimeout(timeout)
+      func(...args)
+    }
+    clearTimeout(timeout)
+    timeout = setTimeout(later, wait)
+  }
+}
 onMounted(() => {
   initTerminal()
   connectWebsocket()
+  const boxId = `${props.serverInfo.id}-box`
+  const box = document.getElementById(boxId)
+  console.log(document.getElementById(boxId), 'document.getElementById')
+
+  // 使用 ResizeObserver 监听 box 元素的尺寸变化
+  if (box) {
+    resizeObserver = new ResizeObserver(
+      debounce(() => {
+        handleResize()
+      }, 50)
+    )
+    resizeObserver.observe(box)
+  }
+
   window.addEventListener('resize', handleResize)
   terminalContainer.value.addEventListener('resize', handleResize)
   // 监听 executeTerminalCommand 事件
@@ -130,6 +156,11 @@ onMounted(() => {
 })
 
 onBeforeUnmount(() => {
+  // 清理 ResizeObserver
+  if (resizeObserver) {
+    resizeObserver.disconnect()
+    resizeObserver = null
+  }
   if (socket.value && socket.value.readyState === WebSocket.OPEN) {
     socket.value.close()
   }
