@@ -1,7 +1,7 @@
 <template>
   <div>
-    <v-contextmenu-item @click="onContextMenuAction('copy')">复制</v-contextmenu-item>
-    <v-contextmenu-item @click="onContextMenuAction('paste')">粘贴</v-contextmenu-item>
+    <v-contextmenu-item @click="onContextMenuAction('copy')">{{ $t('common.copy') }}</v-contextmenu-item>
+    <v-contextmenu-item @click="onContextMenuAction('paste')">{{ $t('common.paste') }}</v-contextmenu-item>
     <!-- <v-contextmenu-item
         :disabled="true"
         @click="onContextMenuAction('saveAsConfig')"
@@ -20,25 +20,25 @@
     <v-contextmenu-item
       :disabled="!props.isConnect"
       @click="onContextMenuAction('disconnect')"
-      >断开连接</v-contextmenu-item
+      >{{ $t('common.disconnect') }}</v-contextmenu-item
     >
     <v-contextmenu-item
       :disabled="props.isConnect"
       @click="onContextMenuAction('reconnect')"
-      >重新连接</v-contextmenu-item
+      >{{ $t('common.reconnect') }}</v-contextmenu-item
     >
     <!-- <v-contextmenu-item
         :disabled="true"
         @click="onContextMenuAction('openSftpPanel')"
         >打开 SFTP 面板</v-contextmenu-item
       > -->
-    <v-contextmenu-item @click="onContextMenuAction('newTerminal')">新终端</v-contextmenu-item>
+    <v-contextmenu-item @click="onContextMenuAction('newTerminal')">{{ $t('common.newTerminal') }}</v-contextmenu-item>
     <!-- <v-contextmenu-item
         :disabled="true"
         @click="onContextMenuAction('newByConfig')"
         >依据配置新建</v-contextmenu-item
       > -->
-    <v-contextmenu-item @click="onContextMenuAction('close')">关闭</v-contextmenu-item>
+    <v-contextmenu-item @click="onContextMenuAction('close')">{{ $t('common.close') }}</v-contextmenu-item>
     <!-- <v-contextmenu-submenu
         title="拆分"
         :disabled="true"

@@ -50,6 +50,7 @@
                     @create-tab="createTab"
                     @change-tab="switchTab"
                     @update-tabs="updateTabs"
+                    @close-all-tabs="closeAllTabs"
                   />
                 </pane>
                 <pane :size="rightSize">
@@ -114,6 +115,7 @@
                   @create-tab="createTab"
                   @change-tab="switchTab"
                   @update-tabs="updateTabs"
+                  @close-all-tabs="closeAllTabs"
                 />
               </pane>
               <pane :size="rightSize">
@@ -343,6 +345,15 @@ const closeTab = (tabId) => {
     }
   }
 }
+
+const closeAllTabs = () => {
+  // 清空所有标签页
+  openedTabs.value = []
+  activeTabId.value = ''
+  // 触发activeTabChanged事件，传递null表示没有活动标签页
+  eventBus.emit('activeTabChanged', null)
+}
+
 const createTab = (infos) => {
   const id_ = uuidv4()
   openedTabs.value.push({
