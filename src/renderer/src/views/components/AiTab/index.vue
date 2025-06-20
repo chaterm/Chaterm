@@ -2119,29 +2119,30 @@ const cancelEdit = async (history) => {
   max-height: none;
   overflow: visible;
   padding: 4px;
-  background-color: #2a2a2a;
+  background-color: #1f1f1f;
   border: 1px solid #3a3a3a;
   border-radius: 8px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
   width: 280px !important; // 添加固定宽度
 
   .history-search-container {
-    padding: 4px;
-    border-bottom: 1px solid #3a3a3a;
-    margin-bottom: 4px;
+    display: flex;
+    gap: 10px;
+    :deep(.ant-input-affix-wrapper) {
+      border-color: rgba(255, 255, 255, 0.1);
+      box-shadow: none;
+    }
   }
 
   .history-search-input {
     width: 100%;
     background-color: #1f1f1f !important;
-    border: 1px solid #3a3a3a !important;
 
     :deep(.ant-input) {
       background-color: #1f1f1f !important;
       border: none !important;
-      color: #e0e0e0 !important;
-      font-size: 12px !important;
-
+      color: rgba(255, 255, 255, 0.65) !important;
+      height: 20px !important;
       &::placeholder {
         color: #666 !important;
       }
@@ -2149,7 +2150,6 @@ const cancelEdit = async (history) => {
 
     :deep(.ant-input-clear-icon) {
       color: #666;
-
       &:hover {
         color: #999;
       }
@@ -2233,7 +2233,7 @@ const cancelEdit = async (history) => {
   }
 
   .history-title {
-    color: #e0e0e0;
+    color: rgba(255, 255, 255, 0.65);
     font-size: 12px;
     font-weight: 500;
     white-space: nowrap;
@@ -2533,7 +2533,7 @@ const cancelEdit = async (history) => {
   background: none !important;
   border: none !important;
   box-shadow: none !important;
-  color: #fff !important;
+  color: rgba(255, 255, 255, 0.65) !important;
   padding: 0 2px;
   min-width: 0;
   height: 16px;
