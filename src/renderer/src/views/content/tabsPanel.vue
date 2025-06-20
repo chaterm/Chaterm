@@ -249,7 +249,7 @@ const contextMenu = ref({
   y: 0
 })
 
-const showContextMenu = (event: MouseEvent, tab: TabItem) => {
+const showContextMenu = (event: MouseEvent, _tab: TabItem) => {
   event.preventDefault()
 
   // 计算菜单位置，确保不超出屏幕边界
