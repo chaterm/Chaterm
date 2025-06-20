@@ -76,6 +76,12 @@
       </a-button>
     </template>
   </a-modal>
+  <a-button
+    :id="`${connectionId}Button`"
+    class="select-button"
+    style="display: none"
+    >Chat to AI</a-button
+  >
 </template>
 
 <script lang="ts" setup>
@@ -96,7 +102,7 @@ import Context from '../Term/contextComp.vue'
 import SuggComp from '../Term/suggestion.vue'
 import eventBus from '@/utils/eventBus'
 import { useCurrentCwdStore } from '@/store/currentCwdStore'
-import { markRaw, onBeforeUnmount, onMounted, PropType, reactive, ref } from 'vue'
+import { markRaw, onBeforeUnmount, onMounted, onUnmounted, PropType, nextTick, reactive, ref } from 'vue'
 import { Terminal } from 'xterm'
 import { FitAddon } from 'xterm-addon-fit'
 import { WebLinksAddon } from 'xterm-addon-web-links'
@@ -165,7 +171,7 @@ const connectionHasSudo = ref(false)
 const connectionSftpAvailable = ref(false)
 const cleanupListeners = ref<Array<() => void>>([])
 const terminalElement = ref(null)
-const terminalContainer = ref(null)
+const terminalContainer = ref<HTMLDivElement | null>(null)
 const cursorStartX = ref(0)
 const api = window.api as any
 const encoder = new TextEncoder()
@@ -241,6 +247,30 @@ onMounted(async () => {
       copyText.value = termInstance.getSelection()
     }
   })
+  if (terminalContainer.value) {
+    terminalContainer.value.addEventListener('mouseup', (e) => {
+      setTimeout(() => {
+        if (termInstance.hasSelection()) {
+          const text = termInstance.getSelection()
+          const button = document.getElementById(`${connectionId.value}Button`) as HTMLElement
+
+          // 定位按钮到鼠标抬起位置
+          button.style.left = `${e.clientX + 10}px`
+          button.style.top = `${e.clientY + 10}px`
+          if (text.trim()) button.style.display = 'block'
+
+          button.onclick = () => {
+            eventBus.emit('openAiRight')
+            nextTick(() => {
+              eventBus.emit('chatToAi', text.trim())
+            })
+            termInstance.clearSelection()
+          }
+        }
+      }, 10)
+    })
+    document.addEventListener('mouseup', hideSelectionButton)
+  }
 
   fitAddon.value = new FitAddon()
   termInstance.loadAddon(fitAddon.value)
@@ -1646,15 +1676,24 @@ const focus = () => {
   }
 }
 
+const hideSelectionButton = () => {
+  const button = document.getElementById(`${connectionId.value}Button`) as HTMLElement
+  if (button) button.style.display = 'none'
+}
+
 defineExpose({
   handleResize,
   autoExecuteCode,
   terminal,
   focus
 })
+
+onUnmounted(() => {
+  document.removeEventListener('mouseup', hideSelectionButton)
+})
 </script>
 
-<style>
+<style lang="less">
 .ant-form-item .ant-form-item-label > label {
   color: white;
 }
@@ -1678,5 +1717,22 @@ defineExpose({
 
 .terminal ::-webkit-scrollbar {
   width: 0px !important;
+}
+.select-button {
+  position: fixed;
+  display: none;
+  z-index: 999;
+  padding: 4px 8px;
+  border-radius: 4px;
+  color: white;
+  border: none;
+  font-size: 12px;
+  cursor: pointer;
+  background-color: #272727;
+  border: 1px solid #4d4d4d;
+  &:hover {
+    color: white !important;
+    border: 1px solid #4d4d4d !important;
+  }
 }
 </style>
