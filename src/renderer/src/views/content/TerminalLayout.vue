@@ -378,6 +378,13 @@ onUnmounted(() => {
 })
 const openUserTab = function (value) {
   activeKey.value = value
+  if (value === 'assetConfig' || value === 'keyChainConfig' || value === 'userInfo' || value === 'userConfig') {
+    const existTab = openedTabs.value.find((tab) => tab.content === value)
+    if (existTab) {
+      activeTabId.value = existTab.id
+      return
+    }
+  }
   const p = {
     title: value,
     key: value,

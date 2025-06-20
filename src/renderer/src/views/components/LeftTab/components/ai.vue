@@ -164,6 +164,7 @@
             size="small"
             :options="aiModelOptions"
             show-search
+            style="width: calc(100% - 100px); margin-right: 6px"
           />
           <a-select
             v-else-if="apiProvider === 'litellm'"
@@ -174,6 +175,7 @@
             mode="tags"
             :max-tag-count="1"
             :filter-option="filterLiteLlmOption"
+            style="width: calc(100% - 100px); margin-right: 6px"
           />
           <a-select
             v-else-if="apiProvider === 'deepseek'"
@@ -181,7 +183,16 @@
             size="small"
             :options="deepseekAiModelOptions"
             show-search
+            style="width: calc(100% - 100px); margin-right: 6px"
           />
+          <a-button
+            class="check-btn"
+            size="small"
+            :loading="checkLoading"
+            @click="handleCheck"
+          >
+            Check
+          </a-button>
         </a-form-item>
       </div>
       <!-- ChatSetting -->
@@ -211,9 +222,7 @@
         </a-checkbox>
         <template v-if="enableExtendedThinking">
           <div class="label-container">
-            <label class="budget-label">
-              <strong>Budget:</strong> {{ thinkingBudgetTokens.toLocaleString() }} tokens
-            </label>
+            <label class="budget-label"> <strong>Budget:</strong> {{ thinkingBudgetTokens.toLocaleString() }} tokens </label>
           </div>
 
           <div class="slider-container">
@@ -275,12 +284,8 @@
             size="small"
           >
             <a-select-option value="low">{{ $t('user.openAIReasoningEffortLow') }}</a-select-option>
-            <a-select-option value="medium"
-              >{{ $t('user.openAIReasoningEffortMedium') }}
-            </a-select-option>
-            <a-select-option value="high"
-              >{{ $t('user.openAIReasoningEffortHigh') }}
-            </a-select-option>
+            <a-select-option value="medium">{{ $t('user.openAIReasoningEffortMedium') }}</a-select-option>
+            <a-select-option value="high">{{ $t('user.openAIReasoningEffortHigh') }}</a-select-option>
           </a-select>
         </a-form-item>
       </div>
@@ -319,17 +324,14 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { notification } from 'ant-design-vue'
-import {
-  updateGlobalState,
-  getGlobalState,
-  getSecret,
-  storeSecret
-} from '@renderer/agent/storage/state'
+import { updateGlobalState, getGlobalState, getSecret, storeSecret } from '@renderer/agent/storage/state'
 import { AutoApprovalSettings, DEFAULT_AUTO_APPROVAL_SETTINGS } from '@/agent/storage/shared'
 import { ChatSettings, DEFAULT_CHAT_SETTINGS } from '@/agent/storage/shared'
 import { aiModelOptions, deepseekAiModelOptions, litellmAiModelOptions } from './aiOptions'
 import eventBus from '@/utils/eventBus'
+import i18n from '@/locales'
 
+const { t } = i18n.global
 const apiProviderOptions = ref([
   { value: 'litellm', label: 'OpenAI Compatible' },
   { value: 'bedrock', label: 'Amazon Bedrock' },
@@ -358,7 +360,7 @@ const awsRegionOptions = ref([
   { value: 'us-gov-west-1', label: 'us-gov-west-1' }
 ])
 
-let apiModelId = ref('')
+const apiModelId = ref('')
 const thinkingBudgetTokens = ref(2048)
 const enableExtendedThinking = ref(true)
 // const enableCheckpoints = ref(false)
@@ -374,12 +376,13 @@ const awsEndpointSelected = ref(false)
 const awsBedrockEndpoint = ref('')
 const liteLlmBaseUrl = ref('')
 const liteLlmApiKey = ref('')
-let liteLlmModelId = ref('')
+const liteLlmModelId = ref('')
 const deepSeekApiKey = ref('')
 const autoApprovalSettings = ref<AutoApprovalSettings>(DEFAULT_AUTO_APPROVAL_SETTINGS)
 const chatSettings = ref<ChatSettings>(DEFAULT_CHAT_SETTINGS)
 const customInstructions = ref('')
 const inputError = ref('')
+const checkLoading = ref(false)
 
 const computedLiteLlmModelId = computed({
   get: () => {
@@ -486,7 +489,7 @@ watch(
       }
 
       await updateGlobalState('chatSettings', settingsToStore)
-      eventBus.emit('SettingModelChanged',[newValue, apiModelId.value, liteLlmModelId.value])
+      eventBus.emit('SettingModelChanged', [newValue, apiModelId.value, liteLlmModelId.value])
     } catch (error) {
       console.error('Failed to update chat settings:', error)
       notification.error({
@@ -505,15 +508,13 @@ const loadSavedConfig = async () => {
     //aws信息
     apiModelId.value = ((await getGlobalState('apiModelId')) as string) || ''
     awsRegion.value = ((await getGlobalState('awsRegion')) as string) || ''
-    awsUseCrossRegionInference.value =
-      ((await getGlobalState('awsUseCrossRegionInference')) as boolean) || false
+    awsUseCrossRegionInference.value = ((await getGlobalState('awsUseCrossRegionInference')) as boolean) || false
     awsBedrockEndpoint.value = ((await getGlobalState('awsBedrockEndpoint')) as string) || ''
     awsAccessKey.value = (await getSecret('awsAccessKey')) || ''
     awsSecretKey.value = (await getSecret('awsSecretKey')) || ''
     awsSessionToken.value = (await getSecret('awsSessionToken')) || ''
     //openai信息
-    liteLlmModelId.value =
-      ((await getGlobalState('liteLlmModelId')) as string) || 'claude-3-7-sonnet'
+    liteLlmModelId.value = ((await getGlobalState('liteLlmModelId')) as string) || 'claude-3-7-sonnet'
     liteLlmBaseUrl.value = ((await getGlobalState('liteLlmBaseUrl')) as string) || ''
     liteLlmApiKey.value = (await getSecret('liteLlmApiKey')) || ''
     deepSeekApiKey.value = (await getSecret('deepSeekApiKey')) || ''
@@ -543,8 +544,7 @@ const loadSavedConfig = async () => {
     }
 
     reasoningEffort.value = ((await getGlobalState('reasoningEffort')) as string) || 'low'
-    shellIntegrationTimeout.value =
-      ((await getGlobalState('shellIntegrationTimeout')) as number) || 4
+    shellIntegrationTimeout.value = ((await getGlobalState('shellIntegrationTimeout')) as number) || 4
     awsEndpointSelected.value = ((await getGlobalState('awsEndpointSelected')) as boolean) || false
     if (!checkApiProviderAndModelId()) {
       getApiProviderDefaultModelId()
@@ -606,50 +606,144 @@ const saveConfig = async () => {
   }
 }
 
-// 监听配置变化
 watch(
-  [
-    apiModelId,
-    thinkingBudgetTokens,
-    enableExtendedThinking,
-    // enableCheckpoints,
-    autoApprovalSettings,
-    chatSettings,
-    reasoningEffort,
-    shellIntegrationTimeout,
-    apiProvider,
-    awsAccessKey,
-    awsSecretKey,
-    awsSessionToken,
-    awsRegion,
-    awsUseCrossRegionInference,
-    awsEndpointSelected,
-    awsBedrockEndpoint,
-    liteLlmBaseUrl,
-    liteLlmModelId,
-    liteLlmApiKey,
-    customInstructions
-  ],
-  async () => {
-    // Skip autoApprovalSettings.enabled and chatSettings.mode updates as they're handled by specific watchers
-    const currentState = await getGlobalState('autoApprovalSettings')
-    const currentChatSettings = await getGlobalState('chatSettings')
-
-    if (
-      autoApprovalSettings.value.enabled !== (currentState as AutoApprovalSettings)?.enabled ||
-      chatSettings.value.mode !== (currentChatSettings as ChatSettings)?.mode
-    ) {
-      return
+  () => apiProvider.value,
+  async (newValue) => {
+    try {
+      await updateGlobalState('apiProvider', newValue)
+    } catch (error) {
+      console.error('Failed to update apiProvider:', error)
     }
-    await saveConfig()
+  }
+)
+
+watch(
+  () => apiModelId.value,
+  async (newValue) => {
+    try {
+      await updateGlobalState('apiModelId', newValue)
+    } catch (error) {
+      console.error('Failed to update apiModelId:', error)
+    }
+  }
+)
+
+watch(
+  () => reasoningEffort.value,
+  async (newValue) => {
+    try {
+      await updateGlobalState('reasoningEffort', newValue)
+    } catch (error) {
+      console.error('Failed to update reasoningEffort:', error)
+    }
+  }
+)
+
+watch(
+  () => awsAccessKey.value,
+  async (newValue) => {
+    try {
+      await storeSecret('awsAccessKey', newValue)
+    } catch (error) {
+      console.error('Failed to update awsAccessKey:', error)
+    }
+  }
+)
+
+watch(
+  () => awsSecretKey.value,
+  async (newValue) => {
+    try {
+      await storeSecret('awsSecretKey', newValue)
+    } catch (error) {
+      console.error('Failed to update awsSecretKey:', error)
+    }
+  }
+)
+
+watch(
+  () => awsSessionToken.value,
+  async (newValue) => {
+    try {
+      await storeSecret('awsSessionToken', newValue)
+    } catch (error) {
+      console.error('Failed to update awsSessionToken:', error)
+    }
+  }
+)
+
+watch(
+  () => awsRegion.value,
+  async (newValue) => {
+    try {
+      await updateGlobalState('awsRegion', newValue)
+    } catch (error) {
+      console.error('Failed to update awsRegion:', error)
+    }
+  }
+)
+
+watch(
+  () => awsUseCrossRegionInference.value,
+  async (newValue) => {
+    try {
+      await updateGlobalState('awsUseCrossRegionInference', newValue)
+    } catch (error) {
+      console.error('Failed to update awsUseCrossRegionInference:', error)
+    }
+  }
+)
+
+watch(
+  () => awsEndpointSelected.value,
+  async (newValue) => {
+    try {
+      await updateGlobalState('awsEndpointSelected', newValue)
+    } catch (error) {
+      console.error('Failed to update awsEndpointSelected:', error)
+    }
+  }
+)
+
+watch(
+  () => awsBedrockEndpoint.value,
+  async (newValue) => {
+    try {
+      await updateGlobalState('awsBedrockEndpoint', newValue)
+    } catch (error) {
+      console.error('Failed to update awsBedrockEndpoint:', error)
+    }
+  }
+)
+
+watch(
+  () => customInstructions.value,
+  async (newValue) => {
+    try {
+      await updateGlobalState('customInstructions', newValue)
+    } catch (error) {
+      console.error('Failed to update customInstructions:', error)
+    }
+  }
+)
+
+watch(
+  () => deepSeekApiKey.value,
+  async (newValue) => {
+    try {
+      await storeSecret('deepSeekApiKey', newValue)
+    } catch (error) {
+      console.error('Failed to update deepSeekApiKey:', error)
+    }
   }
 )
 
 // 监听thinkingBudgetTokens变化来同步enableExtendedThinking状态
 watch(
   () => thinkingBudgetTokens.value,
-  (newValue) => {
+  async (newValue) => {
     enableExtendedThinking.value = newValue > 0
+    await updateGlobalState('thinkingBudgetTokens', newValue)
   }
 )
 
@@ -668,6 +762,7 @@ watch(
 // 组件挂载时加载保存的配置
 onMounted(async () => {
   await loadSavedConfig()
+  await saveConfig()
   // 添加事件监听
   eventBus.on('AiTabModelChanged', async (newValue) => {
     console.log(newValue)
@@ -719,9 +814,13 @@ const validateTimeout = (value: string) => {
 // 处理 shell integration timeout 变化
 watch(
   () => shellIntegrationTimeout.value,
-  (newValue) => {
-    if (validateTimeout(String(newValue))) {
-      saveConfig()
+  async (newValue) => {
+    try {
+      if (validateTimeout(String(newValue))) {
+        await updateGlobalState('shellIntegrationTimeout', newValue)
+      }
+    } catch (error) {
+      console.error('Failed to update shellIntegrationTimeout:', error)
     }
   }
 )
@@ -784,6 +883,75 @@ const checkApiProviderAndModelId = () => {
 
 const filterLiteLlmOption = (input: string, option: any) => {
   return option.label.toLowerCase().indexOf(input.toLowerCase()) >= 0
+}
+
+const checkModelConfig = async () => {
+  const apiProvider = await getGlobalState('apiProvider')
+  switch (apiProvider) {
+    case 'bedrock':
+      const awsAccessKey = await getGlobalState('awsAccessKey')
+      const awsSecretKey = await getGlobalState('awsSecretKey')
+      const awsRegion = await getGlobalState('awsRegion')
+      const apiModelId = await getGlobalState('apiModelId')
+      if (apiModelId == '' || awsAccessKey == '' || awsSecretKey == '' || awsRegion == '') {
+        return false
+      }
+      break
+    case 'litellm':
+      const liteLlmBaseUrl = await getGlobalState('liteLlmBaseUrl')
+      const liteLlmApiKey = await getGlobalState('liteLlmApiKey')
+      const liteLlmModelId = await getGlobalState('liteLlmModelId')
+      if (liteLlmBaseUrl == '' || liteLlmApiKey == '' || liteLlmModelId == '') {
+        return false
+      }
+      break
+    case 'deepseek':
+      const deepSeekApiKey = await getGlobalState('deepSeekApiKey')
+      const apiModelIdDeepSeek = await getGlobalState('apiModelId')
+      if (deepSeekApiKey == '' || apiModelIdDeepSeek == '') {
+        return false
+      }
+      break
+  }
+  return true
+}
+
+const handleCheck = async () => {
+  await saveConfig()
+  const checkModelConfigResult = await checkModelConfig()
+  if (!checkModelConfigResult) {
+    notification.error({
+      message: t('user.checkModelConfigFailMessage'),
+      description: t('user.checkModelConfigFailDescription'),
+      duration: 3
+    })
+    return 'SEND_ERROR'
+  }
+  try {
+    checkLoading.value = true
+    const result = await (window.api as any).validateApiKey()
+    if (result.isValid) {
+      notification.success({
+        message: t('user.checkSuccessMessage'),
+        description: t('user.checkSuccessDescription'),
+        duration: 3
+      })
+    } else {
+      notification.error({
+        message: t('user.checkFailMessage'),
+        description: result.error || t('user.checkFailDescriptionDefault'),
+        duration: 3
+      })
+    }
+  } catch (error) {
+    notification.error({
+      message: t('user.checkFailMessage'),
+      description: t('user.checkFailDescriptionMain'),
+      duration: 3
+    })
+  } finally {
+    checkLoading.value = false
+  }
 }
 </script>
 
@@ -1026,5 +1194,21 @@ const filterLiteLlmOption = (input: string, option: any) => {
       width: 100%;
     }
   }
+}
+
+.check-btn {
+  margin-left: 4px;
+  width: 90px;
+  background-color: #4a4a4a !important;
+  color: #fff !important;
+  border: none !important;
+  box-shadow: none !important;
+  transition: background 0.2s;
+}
+
+.check-btn:hover,
+.check-btn:focus {
+  background-color: #5a5a5a !important;
+  color: #fff !important;
 }
 </style>
