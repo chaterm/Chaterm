@@ -24,7 +24,15 @@ export default {
     create: '创建',
     cancel: '取消',
     remove: '删除',
-    noData: '暂无数据'
+    noData: '暂无数据',
+    close: '关闭',
+    closeOther: '关闭其他',
+    closeAll: '全部关闭',
+    copy: '复制',
+    paste: '粘贴',
+    disconnect: '断开连接',
+    reconnect: '重新连接',
+    newTerminal: '新终端'
   },
   term: {
     welcome: '欢迎使用智能堡垒机Chaterm'

@@ -16,8 +16,7 @@ export const formatResponse = {
 
   toolDenied: () => `The user denied this operation.`,
 
-  toolError: (error?: string) =>
-    `The tool execution failed with the following error:\n<error>\n${error}\n</error>`,
+  toolError: (error?: string) => `The tool execution failed with the following error:\n<error>\n${error}\n</error>`,
 
   chatermIgnoreError: (path: string) =>
     `Access to ${path} is blocked by the .clineignore file settings. You must try to continue in the task without using this file, or ask the user to update the .clineignore file.`,
@@ -43,10 +42,7 @@ Otherwise, if you have not completed the task and do not need additional informa
   invalidMcpToolArgumentError: (serverName: string, toolName: string) =>
     `Invalid JSON argument used with ${serverName} for ${toolName}. Please retry with a properly formatted JSON argument.`,
 
-  toolResult: (
-    text: string,
-    images?: string[]
-  ): string | Array<Anthropic.TextBlockParam | Anthropic.ImageBlockParam> => {
+  toolResult: (text: string, images?: string[]): string | Array<Anthropic.TextBlockParam | Anthropic.ImageBlockParam> => {
     if (images && images.length > 0) {
       const textBlock: Anthropic.TextBlockParam = { type: 'text', text }
       const imageBlocks: Anthropic.ImageBlockParam[] = formatImagesIntoBlocks(images)
@@ -115,13 +111,8 @@ Otherwise, if you have not completed the task and do not need additional informa
 
     const clineIgnoreParsed = sorted
     if (didHitLimit) {
-      return `${clineIgnoreParsed.join(
-        '\n'
-      )}\n\n(File list truncated. Use list_files on specific subdirectories if you need to explore further.)`
-    } else if (
-      clineIgnoreParsed.length === 0 ||
-      (clineIgnoreParsed.length === 1 && clineIgnoreParsed[0] === '')
-    ) {
+      return `${clineIgnoreParsed.join('\n')}\n\n(File list truncated. Use list_files on specific subdirectories if you need to explore further.)`
+    } else if (clineIgnoreParsed.length === 0 || (clineIgnoreParsed.length === 1 && clineIgnoreParsed[0] === '')) {
       return 'No files found.'
     } else {
       return clineIgnoreParsed.join('\n')
@@ -136,20 +127,14 @@ Otherwise, if you have not completed the task and do not need additional informa
     return prettyPatchLines.join('\n')
   },
 
-  taskResumption: (
-    mode: 'chat' | 'cmd' | 'agent',
-    agoText: string,
-    cwd: string,
-    wasRecent: boolean | 0 | undefined,
-    responseText?: string
-  ): [string, string] => {
+  taskResumption: (mode: 'chat' | 'cmd' | 'agent', agoText: string, wasRecent: boolean | 0 | undefined, responseText?: string): [string, string] => {
     let taskMsg = ''
     if (mode === 'cmd') {
-      taskMsg = `The task was interrupted ${agoText}. The conversation might be incomplete. Please note that the project state may have changed since then. The current working directory is '${cwd.toPosix()}'.\n\nNote: If you previously attempted a tool use without receiving a result, assume it was unsuccessful. As you are in CMD mode, please respond directly to the user's message.`
+      taskMsg = `The task was interrupted ${agoText}. The conversation might be incomplete. Please note that the project state may have changed since then.\n\nNote: If you previously attempted a tool use without receiving a result, assume it was unsuccessful. As you are in CMD mode, please respond directly to the user's message.`
     } else if (mode === 'agent') {
-      taskMsg = `The task was interrupted ${agoText}. It may be incomplete, so please reassess the task context. Be aware that the project state may have changed. The current working directory is '${cwd.toPosix()}'.\n\nNote: If you previously used a tool without receiving a result, assume it failed and decide whether a retry is necessary. If the last tool was a browser_action, the browser is closed, and you'll need to relaunch it.`
+      taskMsg = `The task was interrupted ${agoText}. It may be incomplete, so please reassess the task context. Be aware that the project state may have changed. \n\nNote: If you previously used a tool without receiving a result, assume it failed and decide whether a retry is necessary. If the last tool was a browser_action, the browser is closed, and you'll need to relaunch it.`
     } else if (mode === 'chat') {
-      taskMsg = `The task was interrupted ${agoText}. Please review the chat history to confirm the task status. Note that the project state may have changed, and the current working directory is '${cwd.toPosix()}'.`
+      taskMsg = `The task was interrupted ${agoText}. Please review the chat history to confirm the task status. Note that the project state may have changed.`
     }
 
     if (wasRecent) {
@@ -162,8 +147,7 @@ Otherwise, if you have not completed the task and do not need additional informa
     let userMsg = ''
     if (responseText) {
       if (mode === 'agent') {
-        userMsg =
-          'New message for plan_mode_respond tool: please provide your reply in the <response> parameter'
+        userMsg = 'New message for plan_mode_respond tool: please provide your reply in the <response> parameter'
       } else if (mode === 'cmd') {
         userMsg = 'New instructions for continuing the task'
       } else if (mode === 'chat') {
