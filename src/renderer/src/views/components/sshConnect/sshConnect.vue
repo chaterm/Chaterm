@@ -116,7 +116,11 @@ import stripAnsi from 'strip-ansi'
 
 const selectFlag = ref(false)
 const configStore = userConfigStore()
-const suggestions = ref<Array<() => void>>([])
+interface CommandSuggestion {
+  command: string
+  source: 'base' | 'history'
+}
+const suggestions = ref<CommandSuggestion[]>([])
 const activeSuggestion = ref(0) //高亮的补全项
 const props = defineProps({
   connectData: {
@@ -1465,14 +1469,14 @@ const processString = (str) => {
   }
   return result
 }
-const selectSuggestion = (suggestion) => {
+const selectSuggestion = (suggestion: CommandSuggestion) => {
   selectFlag.value = true
   const DELCODE = String.fromCharCode(127)
   const RIGHTCODE = String.fromCharCode(27, 91, 67)
   sendData(RIGHTCODE.repeat(terminalState.value.content.length - terminalState.value.beforeCursor.length))
 
   sendData(DELCODE.repeat(terminalState.value.content.length))
-  sendData(suggestion)
+  sendData(suggestion.command)
   setTimeout(() => {
     suggestions.value = []
     activeSuggestion.value = 0
@@ -1486,7 +1490,7 @@ const queryCommand = async (cmd = '') => {
       ip: props.connectData.ip
     })
     if (result) {
-      suggestions.value = result
+      suggestions.value = result as CommandSuggestion[]
       setTimeout(() => {
         const componentInstance = componentRefs.value[connectionId.value]
         componentInstance?.updateSuggestionsPosition(terminal.value)
