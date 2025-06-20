@@ -25,7 +25,10 @@
     "test": "mocha --require ts-node/register 'src/**/*.test.ts'"
   },
   "lint-staged": {
-    "*.{js,jsx,.cjs,mjs,ts,tsx,cts,mts,vue}": []
+    "*.{js,jsx,.cjs,mjs,ts,tsx,cts,mts,vue}": [
+      "prettier --write ",
+      "eslint --fix"
+    ]
   },
   "dependencies": {
     "@ant-design/icons-vue": "^7.0.1",
