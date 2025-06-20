@@ -1520,7 +1520,7 @@ const editHistory = async (history) => {
 
   // 等待DOM更新后聚焦输入框
   await nextTick()
-  const input = document.querySelector('.history-title-input input')
+  const input = document.querySelector('.history-title-input input') as HTMLInputElement
   if (input) {
     input.focus()
     input.select()
