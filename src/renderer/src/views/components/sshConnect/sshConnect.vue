@@ -1484,8 +1484,16 @@ const selectSuggestion = (suggestion: CommandSuggestion) => {
 }
 const queryCommand = async (cmd = '') => {
   if (!queryCommandFlag.value) return
+
+  // Check if the cursor is at the end of a line. Auto-completion is triggered only at the end of a line
+  const isAtEndOfLine = terminalState.value.beforeCursor.length === terminalState.value.content.length
+  if (!isAtEndOfLine) {
+    suggestions.value = []
+    return
+  }
+
   try {
-    const result = await window.api.queryCommand({
+    const result = await (window.api as any).queryCommand({
       command: cmd ? cmd : terminalState.value.beforeCursor,
       ip: props.connectData.ip
     })
