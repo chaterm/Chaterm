@@ -435,7 +435,7 @@ import {
 import { notification } from 'ant-design-vue'
 import { v4 as uuidv4 } from 'uuid'
 import eventBus from '@/utils/eventBus'
-import { getGlobalState, updateGlobalState } from '@renderer/agent/storage/state'
+import { getGlobalState, updateGlobalState, getSecret } from '@renderer/agent/storage/state'
 import type { HistoryItem, TaskHistoryItem, Host, ChatMessage, MessageContent, AssetInfo } from './types'
 import { createNewMessage, parseMessageContent, truncateText, formatHosts } from './utils'
 import foldIcon from '@/assets/icons/fold.svg'
@@ -602,30 +602,32 @@ const handleTabChange = (key: string | number) => {
   currentChatId.value = historyList.value.find((item) => item.chatType === key)?.id || null
 }
 
+const isEmptyValue = (value) => value === undefined || value === ''
+
 const checkModelConfig = async () => {
   const apiProvider = await getGlobalState('apiProvider')
   switch (apiProvider) {
     case 'bedrock':
-      const awsAccessKey = await getGlobalState('awsAccessKey')
-      const awsSecretKey = await getGlobalState('awsSecretKey')
+      const awsAccessKey = await getSecret('awsAccessKey')
+      const awsSecretKey = await getSecret('awsSecretKey')
       const awsRegion = await getGlobalState('awsRegion')
       const apiModelId = await getGlobalState('apiModelId')
-      if (apiModelId == '' || awsAccessKey == '' || awsSecretKey == '' || awsRegion == '') {
+      if (isEmptyValue(apiModelId) || isEmptyValue(awsAccessKey) || isEmptyValue(awsSecretKey) || isEmptyValue(awsRegion)) {
         return false
       }
       break
     case 'litellm':
       const liteLlmBaseUrl = await getGlobalState('liteLlmBaseUrl')
-      const liteLlmApiKey = await getGlobalState('liteLlmApiKey')
+      const liteLlmApiKey = await getSecret('liteLlmApiKey')
       const liteLlmModelId = await getGlobalState('liteLlmModelId')
-      if (liteLlmBaseUrl == '' || liteLlmApiKey == '' || liteLlmModelId == '') {
+      if (isEmptyValue(liteLlmBaseUrl) || isEmptyValue(liteLlmApiKey) || isEmptyValue(liteLlmModelId)) {
         return false
       }
       break
     case 'deepseek':
-      const deepSeekApiKey = await getGlobalState('deepSeekApiKey')
+      const deepSeekApiKey = await getSecret('deepSeekApiKey')
       const apiModelIdDeepSeek = await getGlobalState('apiModelId')
-      if (deepSeekApiKey == '' || apiModelIdDeepSeek == '') {
+      if (isEmptyValue(deepSeekApiKey) || isEmptyValue(apiModelIdDeepSeek)) {
         return false
       }
       break
