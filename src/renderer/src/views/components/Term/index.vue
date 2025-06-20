@@ -133,19 +133,19 @@ const debounce = (func, wait) => {
 onMounted(() => {
   initTerminal()
   connectWebsocket()
-  const boxId = `${props.serverInfo.id}-box`
-  const box = document.getElementById(boxId)
-  console.log(document.getElementById(boxId), 'document.getElementById')
+  // const boxId = `${props.serverInfo.id}-box`
+  // const box = document.getElementById(boxId)
+  // console.log(document.getElementById(boxId), 'document.getElementById')
 
-  // 使用 ResizeObserver 监听 box 元素的尺寸变化
-  if (box) {
-    resizeObserver = new ResizeObserver(
-      debounce(() => {
-        handleResize()
-      }, 50)
-    )
-    resizeObserver.observe(box)
-  }
+  // // 使用 ResizeObserver 监听 box 元素的尺寸变化
+  // if (box) {
+  //   resizeObserver = new ResizeObserver(
+  //     debounce(() => {
+  //       handleResize()
+  //     }, 50)
+  //   )
+  //   resizeObserver.observe(box)
+  // }
 
   window.addEventListener('resize', handleResize)
   terminalContainer.value.addEventListener('resize', handleResize)
