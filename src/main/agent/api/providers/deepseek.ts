@@ -25,6 +25,37 @@ export class DeepSeekHandler implements ApiHandler {
     })
   }
 
+  // 新增API验证方法
+  async validateApiKey(): Promise<{ isValid: boolean; error?: string }> {
+    try {
+      const testSystemPrompt = "This is a connection test. Respond with only the word 'OK'."
+      const testMessage = [
+        { role: 'user', content: 'Connection test' }
+      ] as Anthropic.Messages.MessageParam[]
+
+      const stream = this.createMessage(testSystemPrompt, testMessage)
+      let firstResponse = false
+
+      for await (const chunk of stream) {
+        if (chunk.type === 'text' || chunk.type === 'reasoning') {
+          firstResponse = true
+          break
+        }
+      }
+      if (!firstResponse) {
+        throw new Error('No valid response received')
+      }
+      return { isValid: true }
+    } catch (error) {
+      console.error('DeepSeek configuration validation failed:', error)
+
+      return {
+        isValid: false,
+        error: `Validation failed: ${error instanceof Error ? error.message : String(error)}`
+      }
+    }
+  }
+
   private async *yieldUsage(
     info: ModelInfo,
     usage: OpenAI.Completions.CompletionUsage | undefined
@@ -66,7 +97,6 @@ export class DeepSeekHandler implements ApiHandler {
       totalCost: totalCost
     }
   }
-
 
   async *createMessage(
     systemPrompt: string,

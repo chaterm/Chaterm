@@ -1,4 +1,4 @@
-appId: com.electron.app
+appId: ai.chaterm.app
 productName: Chaterm
 compression: maximum
 directories:
