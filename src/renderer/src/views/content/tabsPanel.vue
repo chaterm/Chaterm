@@ -26,6 +26,7 @@
       </draggable>
       <div class="tabs-content">
         <div
+          :id="`${tab.id}-box`"
           v-for="tab in tabs"
           :key="tab.id"
           :class="{ 'tab-content': true, active: tab.id === activeTab }"
