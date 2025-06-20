@@ -108,11 +108,12 @@ import { removeToken } from '@/utils/permission'
 
 const emit = defineEmits(['toggle-menu', 'open-user-tab'])
 import { menuTabsData } from './data'
-import { ref } from 'vue'
+import { onMounted, onUnmounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { userLogOut } from '@/api/user/user'
 import { userInfoStore } from '@/store/index'
 import { pinia } from '@/main'
+import eventBus from '@/utils/eventBus'
 
 const keychainConfigClick = () => {
   emit('open-user-tab', 'keyChainConfig')
@@ -142,6 +143,26 @@ const menuClick = (key) => {
 
   emit('toggle-menu', {
     menu: activeKey.value,
+    type,
+    beforeActive
+  })
+}
+
+const openAiRight = () => {
+  let type = ''
+  let beforeActive = ''
+  if (activeKey.value == 'ai') {
+    type = 'same'
+    beforeActive = userStore.stashMenu
+  } else {
+    beforeActive = activeKey.value
+    type = 'dif'
+    userStore.updateStashMenu(activeKey.value)
+    activeKey.value = 'ai'
+  }
+
+  emit('toggle-menu', {
+    menu: 'openAiRight',
     type,
     beforeActive
   })
@@ -177,6 +198,12 @@ const logout = () => {
 
   showUserMenu.value = false
 }
+onMounted(() => {
+  eventBus.on('openAiRight', openAiRight)
+})
+onUnmounted(() => {
+  eventBus.off('openAiRight')
+})
 </script>
 <style lang="less">
 .term_left_tab {

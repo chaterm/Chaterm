@@ -14,6 +14,8 @@ export interface AppEvents {
   AiTabModelChanged: any // AI Tab模型变更事件
   apiProviderChanged: any
   activeTabChanged: any
+  chatToAi: any
+  toggleMenu: any
   updateWatermark: string // 更新水印状态
   // 可扩展更多事件
   [key: string | symbol]: any
