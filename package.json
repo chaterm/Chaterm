@@ -1,9 +1,9 @@
 {
   "name": "chaterm",
-  "version": "0.0.5",
+  "version": "0.0.6",
   "description": "A terminal tool with AI Agent, makes you no need to learn complicated regular expressions, Perl and Python, switches and Linux commands, SQL syntax can easily manage thousands of devices!",
   "main": "./out/main/index.js",
-  "author": "example.com",
+  "author": "intsig.com",
   "homepage": "Welcome to Chaterm",
   "scripts": {
     "format": "prettier --write .",
