@@ -96,7 +96,7 @@ import Context from '../Term/contextComp.vue'
 import SuggComp from '../Term/suggestion.vue'
 import eventBus from '@/utils/eventBus'
 import { useCurrentCwdStore } from '@/store/currentCwdStore'
-import { markRaw, onBeforeUnmount, onMounted, PropType, reactive, ref } from 'vue'
+import { markRaw, nextTick, onBeforeUnmount, onMounted, PropType, reactive, ref } from 'vue'
 import { Terminal } from 'xterm'
 import { FitAddon } from 'xterm-addon-fit'
 import { WebLinksAddon } from 'xterm-addon-web-links'
@@ -999,7 +999,27 @@ const setupTerminalInput = () => {
     }
     if (data === '\x03') {
       // Ctrl+C
+      if (suggestions.value.length) {
+        suggestions.value = []
+        activeSuggestion.value = 0
+        nextTick(() => {
+          console.log('Ctrl+C: 推荐界面已清除')
+        })
+        return // 如果有推荐界面，只清除推荐界面，不发送Ctrl+C
+      }
       sendData(data)
+    } else if (data === '\x1b') {
+      // ESC键 - 取消推荐界面
+      if (suggestions.value.length) {
+        suggestions.value = []
+        activeSuggestion.value = 0
+        nextTick(() => {
+          console.log('ESC: 推荐界面已清除')
+        })
+        return // 如果有推荐界面，只清除推荐界面，不发送ESC
+      } else {
+        sendData(data)
+      }
     } else if (data === '\x16') {
       // Ctrl+V
       navigator.clipboard
