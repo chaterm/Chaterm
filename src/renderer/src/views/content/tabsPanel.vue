@@ -10,7 +10,10 @@
         @end="onDragEnd"
       >
         <template #item="{ element: tab }">
-          <div :class="{ 'tab-item': true, active: tab.id === activeTab }">
+          <div
+            :class="{ 'tab-item': true, active: tab.id === activeTab }"
+            @contextmenu.prevent="showContextMenu($event, tab)"
+          >
             <span
               class="tab-title"
               @click="$emit('change-tab', tab.id)"
@@ -24,6 +27,34 @@
           </div>
         </template>
       </draggable>
+
+      <!-- 右键菜单 -->
+      <div
+        v-if="contextMenu.visible"
+        class="context-menu"
+        :style="{ left: contextMenu.x + 'px', top: contextMenu.y + 'px' }"
+        @click.stop
+      >
+        <div
+          class="context-menu-item"
+          @click="closeCurrentTab"
+        >
+          <span>{{ $t('common.close') }}</span>
+        </div>
+        <div
+          class="context-menu-item"
+          @click="closeOtherTabs"
+        >
+          <span>{{ $t('common.closeOther') }}</span>
+        </div>
+        <div
+          class="context-menu-item"
+          @click="closeAllTabs"
+        >
+          <span>{{ $t('common.closeAll') }}</span>
+        </div>
+      </div>
+
       <div class="tabs-content">
         <div
           :id="`${tab.id}-box`"
@@ -102,7 +133,7 @@ const props = defineProps({
     default: ''
   }
 })
-const emit = defineEmits(['close-tab', 'change-tab', 'update-tabs', 'create-tab'])
+const emit = defineEmits(['close-tab', 'change-tab', 'update-tabs', 'create-tab', 'close-all-tabs'])
 const localTabs = computed({
   get: () => props.tabs,
   set: (value) => {
@@ -212,6 +243,68 @@ async function getTerminalOutputContent(tabId: string): Promise<string | null> {
   }
 }
 
+const contextMenu = ref({
+  visible: false,
+  x: 0,
+  y: 0
+})
+
+const showContextMenu = (event: MouseEvent, tab: TabItem) => {
+  event.preventDefault()
+
+  // 计算菜单位置，确保不超出屏幕边界
+  const menuWidth = 120
+  const menuHeight = 120
+  const screenWidth = window.innerWidth
+  const screenHeight = window.innerHeight
+
+  let x = event.clientX
+  let y = event.clientY
+
+  // 如果菜单会超出右边界，则向左偏移
+  if (x + menuWidth > screenWidth) {
+    x = screenWidth - menuWidth - 10
+  }
+
+  // 如果菜单会超出下边界，则向上偏移
+  if (y + menuHeight > screenHeight) {
+    y = screenHeight - menuHeight - 10
+  }
+
+  contextMenu.value.visible = true
+  contextMenu.value.x = x
+  contextMenu.value.y = y
+
+  // 添加全局点击事件监听器来关闭菜单
+  setTimeout(() => {
+    document.addEventListener('click', hideContextMenu, { once: true })
+  }, 0)
+}
+
+const hideContextMenu = () => {
+  contextMenu.value.visible = false
+}
+
+const closeCurrentTab = () => {
+  closeTab(props.activeTab)
+  hideContextMenu()
+}
+
+const closeOtherTabs = () => {
+  // 关闭除了当前标签页之外的所有标签页
+  const tabsToClose = props.tabs.filter((tab) => tab.id !== props.activeTab)
+  tabsToClose.forEach((tab) => {
+    emit('close-tab', tab.id)
+  })
+  hideContextMenu()
+}
+
+const closeAllTabs = () => {
+  // 关闭所有标签页 - 使用批量关闭事件
+  emit('close-all-tabs')
+  hideContextMenu()
+}
+
 defineExpose({
   resizeTerm,
   getTerminalOutputContent
@@ -312,5 +405,29 @@ defineExpose({
 .sortable-ghost {
   opacity: 0.4;
   background-color: #ccc !important;
+}
+
+.context-menu {
+  position: fixed;
+  background-color: #1e1e1e;
+  border: 1px solid #333;
+  border-radius: 6px;
+  padding: 2px 0;
+  z-index: 1000;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  min-width: 120px;
+  font-size: 12px;
+}
+
+.context-menu-item {
+  padding: 6px 12px;
+  cursor: pointer;
+  color: #e0e0e0;
+  transition: background-color 0.2s ease;
+  user-select: none;
+}
+
+.context-menu-item:hover {
+  background-color: #2d2d2d;
 }
 </style>

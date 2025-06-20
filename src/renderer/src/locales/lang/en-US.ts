@@ -23,7 +23,15 @@ export default {
     save: 'Save',
     create: 'Create',
     cancel: 'Cancel',
-    remove: 'Remove'
+    remove: 'Remove',
+    close: 'Close',
+    closeOther: 'Close Others',
+    closeAll: 'Close All',
+    copy: 'Copy',
+    paste: 'Paste',
+    disconnect: 'Disconnect',
+    reconnect: 'Reconnect',
+    newTerminal: 'New Terminal'
   },
   term: {
     welcome: 'Welcome to use Chaterm'
