@@ -119,7 +119,7 @@
 <script setup>
 import { ref, onMounted, watch } from 'vue'
 import 'xterm/css/xterm.css'
-import { QuestionCircleOutlined } from '@ant-design/icons-vue'
+// import { QuestionCircleOutlined } from '@ant-design/icons-vue'
 import { notification } from 'ant-design-vue'
 import { userConfigStore } from '@/services/userConfigStoreService'
 
@@ -132,7 +132,7 @@ const userConfig = ref({
   highlightStatus: 2
 })
 
-const isProcessing = ref(false)
+// const isProcessing = ref(false)
 
 // 加载保存的配置
 const loadSavedConfig = async () => {
@@ -203,26 +203,26 @@ const handleSwitchChange = (value) => {
   userConfig.value.quickVimStatus = value ? 1 : 2
 }
 
-const handleAction = () => {
-  if (isProcessing.value) return
-  isProcessing.value = true
-  setTimeout(() => {
-    if (userConfig.value.commonVimStatus === 1) {
-      uninstall()
-    } else {
-      install()
-    }
-    isProcessing.value = false
-  }, 1000)
-}
+// const handleAction = () => {
+//   if (isProcessing.value) return
+//   isProcessing.value = true
+//   setTimeout(() => {
+//     if (userConfig.value.commonVimStatus === 1) {
+//       uninstall()
+//     } else {
+//       install()
+//     }
+//     isProcessing.value = false
+//   }, 1000)
+// }
 
-const install = () => {
-  userConfig.value.commonVimStatus = 1
-}
+// const install = () => {
+//   userConfig.value.commonVimStatus = 1
+// }
 
-const uninstall = () => {
-  userConfig.value.commonVimStatus = 2
-}
+// const uninstall = () => {
+//   userConfig.value.commonVimStatus = 2
+// }
 </script>
 
 <style scoped>
