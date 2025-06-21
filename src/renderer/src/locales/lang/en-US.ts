@@ -168,7 +168,7 @@ export default {
     warning: 'Warning',
     missingAliasCommand: 'Missing alias or command!',
     aliasAlreadyExists: 'Alias already exists！',
-    AddCommand: 'Add Command'
+    addCommand: 'Add Command'
   },
   personal: {
     host: 'Host',
