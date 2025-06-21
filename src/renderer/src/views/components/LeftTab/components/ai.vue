@@ -317,12 +317,12 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { notification } from 'ant-design-vue'
 import { updateGlobalState, getGlobalState, getSecret, storeSecret } from '@renderer/agent/storage/state'
 import { AutoApprovalSettings, DEFAULT_AUTO_APPROVAL_SETTINGS } from '@/agent/storage/shared'
 import { ChatSettings, DEFAULT_CHAT_SETTINGS } from '@/agent/storage/shared'
-import { aiModelOptions, deepseekAiModelOptions, litellmAiModelOptions } from './aiOptions'
+import { aiModelOptions, deepseekAiModelOptions } from './aiOptions'
 import eventBus from '@/utils/eventBus'
 import i18n from '@/locales'
 
