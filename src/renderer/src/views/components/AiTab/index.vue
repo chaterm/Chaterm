@@ -451,7 +451,7 @@ import i18n from '@/locales'
 const { t } = i18n.global
 const MarkdownRenderer = defineAsyncComponent(() => import('@views/components/AiTab/MarkdownRenderer.vue'))
 
-import { ChatermMessage } from 'src/main/agent/shared/ExtensionMessage'
+import { ChatermMessage } from '../../../main/agent/shared/ExtensionMessage'
 
 // 定义事件类型
 interface TabInfo {
