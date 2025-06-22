@@ -139,24 +139,27 @@ const debounce = (func, wait) => {
 onMounted(() => {
   initTerminal()
   connectWebsocket()
-  // const boxId = `${props.serverInfo.id}-box`
-  // const box = document.getElementById(boxId)
-  // console.log(document.getElementById(boxId), 'document.getElementById')
 
-  // // 使用 ResizeObserver 监听 box 元素的尺寸变化
-  // if (box) {
-  //   resizeObserver = new ResizeObserver(
-  //     debounce(() => {
-  //       handleResize()
-  //     }, 50)
-  //   )
-  //   resizeObserver.observe(box)
-  // }
-
-  window.addEventListener('resize', handleResize)
+  // 使用 ResizeObserver 监听终端容器的尺寸变化
   if (terminalContainer.value) {
-    terminalContainer.value.addEventListener('resize', handleResize)
+    resizeObserver = new ResizeObserver(
+      debounce(() => {
+        handleResize()
+      }, 50)
+    )
+    resizeObserver.observe(terminalContainer.value)
   }
+
+  // 保留 window resize 监听作为备用
+  window.addEventListener('resize', handleResize)
+
+  // 初始化完成后进行一次自适应调整
+  nextTick(() => {
+    setTimeout(() => {
+      handleResize()
+    }, 100)
+  })
+
   // 监听 executeTerminalCommand 事件
   eventBus.on('executeTerminalCommand', (command) => {
     autoExecuteCode(command)
@@ -347,7 +350,10 @@ const connectWebsocket = () => {
     api.openHeartbeatWindow(heartbeatId, 5000)
     api.heartBeatTick(listenerHeartbeat)
     isConnect.value = true
+
+    // 连接建立后进行自适应调整
     setTimeout(() => {
+      handleResize()
       getALlCmdList()
     }, 1000)
   }
@@ -424,19 +430,32 @@ const listenerHeartbeat = (tackId) => {
   }
 }
 // 处理窗口大小变化
-const handleResize = () => {
-  fitAddon.fit()
-  // 向服务器发送新的终端大小
-  // if (socket.value && socket.value.readyState === WebSocket.OPEN) {
-  //   socket.value.send(
-  //     JSON.stringify({
-  //       type: 'resize',
-  //       cols: term.cols,
-  //       rows: term.rows
-  //     })
-  //   )
-  // }
-}
+const handleResize = debounce(() => {
+  if (fitAddon && term.value && terminalElement.value) {
+    try {
+      // 确保终端元素可见
+      const rect = terminalElement.value.getBoundingClientRect()
+      if (rect.width > 0 && rect.height > 0) {
+        fitAddon.fit()
+        const { cols, rows } = term.value
+
+        // 向服务器发送新的终端大小
+        if (socket.value && socket.value.readyState === WebSocket.OPEN) {
+          socket.value.send(
+            JSON.stringify({
+              terminalId,
+              msgType: 'TERMINAL_RESIZE',
+              data: JSON.stringify({ cols, rows })
+            })
+          )
+        }
+        console.log(`Terminal resized to: ${cols}x${rows}`)
+      }
+    } catch (error) {
+      console.error('Failed to resize terminal:', error)
+    }
+  }
+}, 100)
 // 别的组件通过按钮执行命令
 const autoExecuteCode = (cmd) => {
   const msgType = 'TERMINAL_DATA'
@@ -906,7 +925,11 @@ defineExpose({
   handleResize,
   autoExecuteCode,
   term,
-  focus
+  focus,
+  // 手动触发自适应调整
+  triggerResize: () => {
+    handleResize()
+  }
 })
 </script>
 
@@ -930,6 +953,7 @@ defineExpose({
 .terminal ::-webkit-scrollbar {
   width: 0px !important;
 }
+
 .select-button {
   position: fixed;
   display: none;
@@ -942,6 +966,7 @@ defineExpose({
   cursor: pointer;
   background-color: #272727;
   border: 1px solid #4d4d4d;
+
   &:hover {
     color: white !important;
     border: 1px solid #4d4d4d !important;

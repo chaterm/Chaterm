@@ -169,7 +169,7 @@ let removeOtpResultListener = (): void => {}
 const connectionHasSudo = ref(false)
 const connectionSftpAvailable = ref(false)
 const cleanupListeners = ref<Array<() => void>>([])
-const terminalElement = ref(null)
+const terminalElement = ref<HTMLDivElement | null>(null)
 const terminalContainer = ref<HTMLDivElement | null>(null)
 const cursorStartX = ref(0)
 const api = window.api as any
@@ -382,21 +382,27 @@ onMounted(async () => {
   }
 
   termInstance.write = cusWrite as any
-  // const boxId = `${props.currentConnectionId}-box`
-  // const box = document.getElementById(boxId)
 
-  // 使用 ResizeObserver 监听 box 元素的尺寸变化
-  // if (box) {
-  //   resizeObserver = new ResizeObserver(
-  //     debounce(() => {
-  //       handleResize()
-  //     }, 50)
-  //   )
-  //   resizeObserver.observe(box)
-  // }
+  // 使用 ResizeObserver 监听终端容器的尺寸变化
+  if (terminalContainer.value) {
+    resizeObserver = new ResizeObserver(
+      debounce(() => {
+        handleResize()
+      }, 50)
+    )
+    resizeObserver.observe(terminalContainer.value)
+  }
 
   // 保留 window resize 监听作为备用
   window.addEventListener('resize', handleResize)
+
+  // 初始化完成后进行一次自适应调整
+  nextTick(() => {
+    setTimeout(() => {
+      handleResize()
+    }, 100)
+  })
+
   connectSSH()
 
   const handleExecuteCommand = (command) => {
@@ -605,11 +611,22 @@ const autoExecuteCode = (command) => {
   sendData(command)
 }
 const handleResize = debounce(() => {
-  if (fitAddon.value && terminal.value) {
-    fitAddon.value.fit()
-    const { cols, rows } = terminal.value
-    // 发送新尺寸到服务器
-    resizeSSH(cols, rows)
+  if (fitAddon.value && terminal.value && terminalElement.value) {
+    try {
+      // 确保终端元素可见
+      const rect = terminalElement.value.getBoundingClientRect()
+      if (rect.width > 0 && rect.height > 0) {
+        fitAddon.value.fit()
+        const { cols, rows } = terminal.value
+        // 发送新尺寸到服务器
+        if (isConnected.value) {
+          resizeSSH(cols, rows)
+        }
+        console.log(`Terminal resized to: ${cols}x${rows}`)
+      }
+    } catch (error) {
+      console.error('Failed to resize terminal:', error)
+    }
   }
 }, 100)
 
@@ -662,6 +679,11 @@ const connectSSH = async () => {
       setupTerminalInput()
       getCmdList(connectionId.value)
       handleResize()
+
+      // 连接建立后再次进行自适应调整，确保尺寸正确
+      setTimeout(() => {
+        handleResize()
+      }, 200)
     } else {
       terminal.value?.writeln(
         JSON.stringify({
@@ -1170,7 +1192,10 @@ const detectEditorMode = (response: MarkedResponse): void => {
     for (const seq of EDITOR_SEQUENCES.enter) {
       if (matchPattern(dataBuffer.value, seq.pattern)) {
         isEditorMode.value = true
-        handleResize()
+        // 进入编辑模式时进行自适应调整
+        nextTick(() => {
+          handleResize()
+        })
         return
       }
     }
@@ -1181,7 +1206,10 @@ const detectEditorMode = (response: MarkedResponse): void => {
       if (matchPattern(dataBuffer.value, seq.pattern)) {
         isEditorMode.value = false
         dataBuffer.value = []
-        handleResize()
+        // 退出编辑模式时进行自适应调整
+        nextTick(() => {
+          handleResize()
+        })
         return
       }
     }
@@ -1695,7 +1723,11 @@ defineExpose({
   handleResize,
   autoExecuteCode,
   terminal,
-  focus
+  focus,
+  // 手动触发自适应调整
+  triggerResize: () => {
+    handleResize()
+  }
 })
 
 onUnmounted(() => {
