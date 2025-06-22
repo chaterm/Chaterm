@@ -86,6 +86,19 @@ export class Task {
   // Metadata tracking
   private modelContextTracker: ModelContextTracker
 
+  // 添加系统信息缓存
+  private hostSystemInfoCache: Map<
+    string,
+    {
+      osVersion: string
+      defaultShell: string
+      homeDir: string
+      hostName: string
+      userName: string
+      sudoCheck: string
+    }
+  > = new Map()
+
   // streaming
   isWaitingForFirstChunk = false
   isStreaming = false
@@ -1556,11 +1569,6 @@ export class Task {
         this.consecutiveMistakeCount = 0
         let didAutoApprove = false
 
-        // if (this.chatSettings.mode === 'cmd') {
-        //   await this.askApprovalForCmdMode(toolDescription, command) // Wait for frontend to execute command and return result
-        //   return
-        // }
-
         const autoApproveResult = this.shouldAutoApproveTool(block.name)
         let [autoApproveSafe, autoApproveAll] = Array.isArray(autoApproveResult) ? autoApproveResult : [autoApproveResult, false]
         if (this.chatSettings.mode === 'cmd') {
@@ -1590,7 +1598,6 @@ export class Task {
             })
           }, 30_000)
         }
-        // TODO:support concurrent execution
         const ipList = ip!.split(',')
         let result = ''
         for (const ip of ipList) {
@@ -1694,7 +1701,6 @@ export class Task {
       }
       this.didRejectTool = true
     } else if (text) {
-      // cmd 模式下 text 是命令执行结果
       this.pushToolResult(toolDescription, text)
       await this.saveCheckpoint()
     }
@@ -2109,25 +2115,41 @@ export class Task {
     let systemPrompt = await SYSTEM_PROMPT()
     let systemInformation = '# SYSTEM INFORMATION\n\n'
     for (const host of this.hosts!) {
-      const osVersion = await this.executeCommandInRemoteServer('uname -a', host.host)
-      const defaultShell = await this.executeCommandInRemoteServer('echo $SHELL', host.host)
-      const homeDir = await this.executeCommandInRemoteServer('echo $HOME', host.host)
-      const hostName = await this.executeCommandInRemoteServer('echo $HOSTNAME', host.host)
-      const userName = await this.executeCommandInRemoteServer('whoami', host.host)
-      const sudoCheck = await this.executeCommandInRemoteServer(
-        'sudo -n true 2>/dev/null && echo "has sudo permission" || echo "no sudo permission"',
-        host.host
-      )
-      // const ip = await this.executeCommandInRemoteServer('hostname -I')
+      // 检查缓存，如果没有缓存则获取系统信息并缓存
+      let hostInfo = this.hostSystemInfoCache.get(host.host)
+      if (!hostInfo) {
+        const osVersion = await this.executeCommandInRemoteServer('uname -a', host.host)
+        const defaultShell = await this.executeCommandInRemoteServer('echo $SHELL', host.host)
+        const homeDir = await this.executeCommandInRemoteServer('echo $HOME', host.host)
+        const hostName = await this.executeCommandInRemoteServer('echo $HOSTNAME', host.host)
+        const userName = await this.executeCommandInRemoteServer('whoami', host.host)
+        const sudoCheck = await this.executeCommandInRemoteServer(
+          'sudo -n true 2>/dev/null && echo "has sudo permission" || echo "no sudo permission"',
+          host.host
+        )
+
+        hostInfo = {
+          osVersion,
+          defaultShell,
+          homeDir,
+          hostName,
+          userName,
+          sudoCheck
+        }
+
+        // 缓存系统信息
+        this.hostSystemInfoCache.set(host.host, hostInfo)
+      }
+
       systemInformation += `
         ## Host: ${host.host}
-        Operating System: ${osVersion}
-        Default Shell: ${defaultShell}
-        Home Directory: ${homeDir.toPosix()}
-        Current Working Directory: ${this.cwd.get(host.host) || homeDir}
-        Hostname: ${hostName}
-        User: ${userName}
-        Sudo Access: ${sudoCheck}
+        Operating System: ${hostInfo.osVersion}
+        Default Shell: ${hostInfo.defaultShell}
+        Home Directory: ${hostInfo.homeDir.toPosix()}
+        Current Working Directory: ${this.cwd.get(host.host) || hostInfo.homeDir}
+        Hostname: ${hostInfo.hostName}
+        User: ${hostInfo.userName}
+        Sudo Access: ${hostInfo.sudoCheck}
         ====
       `
     }
