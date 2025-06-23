@@ -499,8 +499,11 @@ export class Task {
     const isUpdatingPreviousPartial = lastMessage && lastMessage.partial && lastMessage.type === 'say' && lastMessage.say === type
     if (partial) {
       if (isUpdatingPreviousPartial) {
-        // existing partial message, so update it
-        lastMessage.text = text
+        if (lastMessage.text && lastMessage.type === 'say' && lastMessage.say === 'command_output') {
+          lastMessage.text += '\n' + text
+        } else {
+          lastMessage.text = text
+        }
         lastMessage.partial = partial
         await this.postMessageToWebview({
           type: 'partialMessage',
