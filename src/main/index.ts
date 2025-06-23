@@ -5,19 +5,12 @@ import icon from '../../resources/icon.png?asset'
 
 import { registerSSHHandlers } from './ssh/sshHandle'
 import { registerRemoteTerminalHandlers } from './ssh/agentHandle'
-import {
-  autoCompleteDatabaseService,
-  ChatermDatabaseService,
-  setCurrentUserId
-} from './storage/database'
+import { autoCompleteDatabaseService, ChatermDatabaseService, setCurrentUserId } from './storage/database'
 import { Controller } from './agent/core/controller'
 import { createExtensionContext } from './agent/core/controller/context'
 import { ElectronOutputChannel } from './agent/core/controller/outputChannel'
 import { executeRemoteCommand } from './agent/integrations/remote-terminal/example'
-import {
-  initializeStorageMain,
-  testStorageFromMain as testRendererStorageFromMain
-} from './agent/core/storage/state'
+import { initializeStorageMain, testStorageFromMain as testRendererStorageFromMain } from './agent/core/storage/state'
 import { getTaskMetadata } from './agent/core/storage/disk'
 import { HeartbeatManager } from './heartBeatManager'
 let mainWindow: BrowserWindow
@@ -25,6 +18,7 @@ let COOKIE_URL = 'http://localhost'
 let browserWindow: BrowserWindow | null = null
 let lastWidth: number = 1344 // 默认窗口宽度
 let lastHeight: number = 756 // 默认窗口高度
+let forceQuit = false
 
 let autoCompleteService: autoCompleteDatabaseService
 let chatermDbService: ChatermDatabaseService
@@ -54,8 +48,7 @@ async function createWindow(): Promise<void> {
       contextIsolation: true,
       nodeIntegration: false,
       defaultFontFamily: {
-        standard:
-          '-apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", "Helvetica Neue", Helvetica, Arial, sans-serif',
+        standard: '-apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", "Helvetica Neue", Helvetica, Arial, sans-serif',
         serif: 'serif',
         sansSerif: 'sans-serif',
         monospace: 'monospace'
@@ -67,6 +60,15 @@ async function createWindow(): Promise<void> {
   mainWindow.on('ready-to-show', () => {
     mainWindow.show()
   })
+
+  if (process.platform === 'darwin') {
+    mainWindow.on('close', (event) => {
+      if (!forceQuit) {
+        event.preventDefault()
+        mainWindow.hide()
+      }
+    })
+  }
 
   mainWindow.webContents.setWindowOpenHandler((details) => {
     shell.openExternal(details.url)
@@ -171,7 +173,11 @@ app.whenReady().then(async () => {
   app.on('activate', function () {
     // On macOS it's common to re-create a window in the app when the
     // dock icon is clicked and there are no other windows open.
-    if (BrowserWindow.getAllWindows().length === 0) createWindow()
+    if (mainWindow) {
+      mainWindow.show()
+    } else if (BrowserWindow.getAllWindows().length === 0) {
+      createWindow()
+    }
   })
 
   try {
@@ -193,21 +199,15 @@ app.whenReady().then(async () => {
   if (mainWindow && mainWindow.webContents) {
     if (mainWindow.webContents.isLoading()) {
       mainWindow.webContents.once('did-finish-load', () => {
-        console.log(
-          '[Main Index] Main window finished loading. Calling testRendererStorageFromMain.'
-        )
+        console.log('[Main Index] Main window finished loading. Calling testRendererStorageFromMain.')
         testRendererStorageFromMain()
       })
     } else {
-      console.log(
-        '[Main Index] Main window already loaded. Calling testRendererStorageFromMain directly.'
-      )
+      console.log('[Main Index] Main window already loaded. Calling testRendererStorageFromMain directly.')
       testRendererStorageFromMain()
     }
   } else {
-    console.warn(
-      '[Main Index] mainWindow or webContents not available when trying to schedule testRendererStorageFromMain.'
-    )
+    console.warn('[Main Index] mainWindow or webContents not available when trying to schedule testRendererStorageFromMain.')
   }
 })
 
@@ -232,6 +232,7 @@ ipcMain.handle('heartbeat-stop', (_, { heartbeatId }) => {
 
 // Add the before-quit event listener here or towards the end of the file
 app.on('before-quit', async () => {
+  forceQuit = true
   console.log('Application is about to quit. Disposing resources...')
   if (controller) {
     try {
@@ -250,9 +251,7 @@ const getCookieByName = async (name) => {
     }
     const cookies = await session.defaultSession.cookies.get({ url: COOKIE_URL })
     const targetCookie = cookies.find((cookie) => cookie.name === name)
-    return targetCookie
-      ? { success: true, value: targetCookie.value }
-      : { success: false, value: null }
+    return targetCookie ? { success: true, value: targetCookie.value } : { success: false, value: null }
   } catch (error) {
     return { success: false, error }
   }
