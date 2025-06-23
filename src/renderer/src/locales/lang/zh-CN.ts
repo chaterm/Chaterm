@@ -232,7 +232,8 @@ export default {
     processing: '处理中...',
     searchHistoryPH: '请输入',
     loading: '加载中...',
-    loadMore: '加载'
+    loadMore: '加载',
+    copyToClipboard: '已复制到剪贴板'
   },
   keyChain: {
     newKey: '添加密钥',

@@ -229,7 +229,8 @@ export default {
     processing: 'processing...',
     searchHistoryPH: 'Please Input',
     loading: 'loading...',
-    loadMore: 'load more'
+    loadMore: 'load more',
+    copyToClipboard: 'Copy to clipboard'
   },
   keyChain: {
     newKey: 'New Key',

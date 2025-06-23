@@ -733,14 +733,14 @@ const handlePlusClick = async () => {
     })
   }
 
-  const chatTitle = currentInput ? truncateText(currentInput) : 'New chat'
+  // const chatTitle = currentInput ? truncateText(currentInput) : 'New chat'
 
-  historyList.value.unshift({
-    id: newChatId,
-    chatTitle,
-    chatType: chatTypeValue.value,
-    chatContent: []
-  })
+  // historyList.value.unshift({
+  //   id: newChatId,
+  //   chatTitle,
+  //   chatType: chatTypeValue.value,
+  //   chatContent: []
+  // })
 
   chatHistory.length = 0
   chatInputValue.value = ''
@@ -1214,6 +1214,7 @@ onMounted(async () => {
   let lastMessage: any = null
   let lastPartialMessage: any = null
   removeListener = (window.api as any).onMainMessage((message: any) => {
+    // console.log('Received main process message:', message)
     if (message?.type === 'partialMessage') {
       showSendButton.value = false
       showCancelButton.value = true
