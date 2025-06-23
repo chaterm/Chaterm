@@ -53,6 +53,12 @@
         >
           <span>{{ $t('common.closeAll') }}</span>
         </div>
+        <div
+          class="context-menu-item"
+          @click="splitRight"
+        >
+          <span>{{ $t('common.splitRight') }}</span>
+        </div>
       </div>
 
       <div class="tabs-content">
@@ -254,7 +260,7 @@ const showContextMenu = (event: MouseEvent, _tab: TabItem) => {
 
   // 计算菜单位置，确保不超出屏幕边界
   const menuWidth = 120
-  const menuHeight = 120
+  const menuHeight = 160 // 增加菜单高度，因为添加了新的菜单项
   const screenWidth = window.innerWidth
   const screenHeight = window.innerHeight
 
@@ -302,6 +308,29 @@ const closeOtherTabs = () => {
 const closeAllTabs = () => {
   // 关闭所有标签页 - 使用批量关闭事件
   emit('close-all-tabs')
+  hideContextMenu()
+}
+
+const splitRight = () => {
+  // 获取当前活动的标签页
+  const currentTab = props.tabs.find((tab) => tab.id === props.activeTab)
+  if (!currentTab) {
+    hideContextMenu()
+    return
+  }
+
+  // 复制当前标签页的配置，创建新的标签页
+  const newTabInfo = {
+    title: `${currentTab.title}`,
+    content: currentTab.content,
+    type: currentTab.type,
+    organizationId: currentTab.organizationId,
+    ip: currentTab.ip,
+    data: currentTab.data
+  }
+
+  // 通过事件总线发送创建新标签页的请求
+  eventBus.emit('createSplitTab', newTabInfo)
   hideContextMenu()
 }
 
