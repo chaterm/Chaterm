@@ -447,11 +447,10 @@ import { getassetMenu } from '@/api/asset/asset'
 import { aiModelOptions, deepseekAiModelOptions } from '@views/components/LeftTab/components/aiOptions'
 import debounce from 'lodash/debounce'
 import i18n from '@/locales'
+import { ChatermMessage } from '@/types/ChatermMessage'
 
 const { t } = i18n.global
-const MarkdownRenderer = defineAsyncComponent(() => import('@views/components/AiTab/MarkdownRenderer.vue'))
-
-import { ChatermMessage } from '../../../main/agent/shared/ExtensionMessage'
+const MarkdownRenderer = defineAsyncComponent(() => import('@views/components/AiTab/markdownRenderer.vue'))
 
 // 定义事件类型
 interface TabInfo {

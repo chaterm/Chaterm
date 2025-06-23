@@ -187,7 +187,7 @@
                       class="copy-button"
                       type="text"
                       size="small"
-                      @click.stop="copyBlockContent(part.blockIndex)"
+                      @click.stop="part.blockIndex !== undefined && copyBlockContent(part.blockIndex)"
                     >
                       <template #icon>
                         <CopyOutlined />
@@ -210,7 +210,7 @@
                     class="copy-button"
                     type="text"
                     size="small"
-                    @click="copyBlockContent(part.blockIndex)"
+                    @click="part.blockIndex !== undefined && copyBlockContent(part.blockIndex)"
                   >
                     <template #icon>
                       <CopyOutlined />
@@ -514,8 +514,8 @@ const extractCodeBlocks = (content: string) => {
     lines: number
     index: number
   }> = []
-  let lastIndex = 0
-  let blockIndex = 0
+  // let lastIndex = 0
+  // let blockIndex = 0
 
   // Find all code blocks while preserving their position
   const codeBlockRegex = /```(?:\w+)?\n([\s\S]*?)```/g
@@ -529,8 +529,8 @@ const extractCodeBlocks = (content: string) => {
       lines: code.split('\n').length,
       index: match.index
     })
-    blockIndex++
-    lastIndex = match.index + match[0].length
+    // blockIndex++
+    // lastIndex = match.index + match[0].length
   }
 
   return blocks.sort((a, b) => a.index - b.index)
