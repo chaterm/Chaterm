@@ -32,12 +32,36 @@
               >
                 代码预览 ({{ totalLines }}行)
               </a-typography-text>
+              <a-button
+                v-if="totalLines >= 10"
+                class="copy-button"
+                type="text"
+                size="small"
+                @click.stop="copyEditorContent"
+              >
+                <template #icon>
+                  <CopyOutlined />
+                </template>
+              </a-button>
             </a-space>
           </template>
           <div
             ref="monacoContainer"
             class="monaco-container"
-          ></div>
+            :class="{ collapsed: !codeActiveKey.includes('1') }"
+          >
+            <a-button
+              v-if="totalLines < 10"
+              class="copy-button"
+              type="text"
+              size="small"
+              @click="copyEditorContent"
+            >
+              <template #icon>
+                <CopyOutlined />
+              </template>
+            </a-button>
+          </div>
         </a-collapse-panel>
       </a-collapse>
     </div>
@@ -158,6 +182,17 @@
                     >
                       代码预览 ({{ part.block.lines }}行)
                     </a-typography-text>
+                    <a-button
+                      v-if="part.block.lines >= 10"
+                      class="copy-button"
+                      type="text"
+                      size="small"
+                      @click.stop="copyBlockContent(part.blockIndex)"
+                    >
+                      <template #icon>
+                        <CopyOutlined />
+                      </template>
+                    </a-button>
                   </a-space>
                 </template>
                 <div
@@ -169,7 +204,19 @@
                     }
                   "
                   class="monaco-container"
-                ></div>
+                >
+                  <a-button
+                    v-if="part.block.lines < 10"
+                    class="copy-button"
+                    type="text"
+                    size="small"
+                    @click="copyBlockContent(part.blockIndex)"
+                  >
+                    <template #icon>
+                      <CopyOutlined />
+                    </template>
+                  </a-button>
+                </div>
               </a-collapse-panel>
             </a-collapse>
           </div>
@@ -197,9 +244,12 @@ import 'monaco-editor/esm/vs/basic-languages/ruby/ruby.contribution'
 import 'monaco-editor/esm/vs/basic-languages/php/php.contribution'
 import 'monaco-editor/esm/vs/basic-languages/rust/rust.contribution'
 import 'monaco-editor/esm/vs/basic-languages/sql/sql.contribution'
-import { LoadingOutlined } from '@ant-design/icons-vue'
+import { LoadingOutlined, CopyOutlined } from '@ant-design/icons-vue'
 import thinkingSvg from '@/assets/icons/thinking.svg'
+import { message } from 'ant-design-vue'
+import i18n from '@/locales'
 
+const { t } = i18n.global
 // 确保Monaco Editor已经完全初始化
 if (monaco.editor) {
   monaco.editor.defineTheme('custom-dark', {
@@ -383,6 +433,18 @@ const initEditor = (content: string) => {
     // 清除初始选中状态
     editor.setSelection(new monaco.Selection(0, 0, 0, 0))
 
+    // 监听内容变化并更新配置
+    editor.onDidChangeModelContent(() => {
+      if (!editor) return
+      const model = editor.getModel()
+      if (model) {
+        const currentLines = model.getLineCount()
+        editor.updateOptions({
+          lineNumbers: currentLines > 1 ? 'on' : 'off'
+        })
+      }
+    })
+
     // 更新行数和折叠状态
     const updateLinesAndCollapse = () => {
       if (!editor) return
@@ -550,6 +612,12 @@ const initCodeBlockEditors = () => {
       const container = codeEditors.value[index]
       if (!container || !monaco.editor) return
 
+      // 清理已存在的编辑器实例
+      const existingEditor = monaco.editor.getEditors().find((e) => e.getContainerDomNode() === container)
+      if (existingEditor) {
+        existingEditor.dispose()
+      }
+
       const editor = monaco.editor.create(container, {
         value: block.content,
         language: detectLanguage(block.content),
@@ -594,6 +662,17 @@ const initCodeBlockEditors = () => {
 
       // 清除初始选中状态
       editor.setSelection(new monaco.Selection(0, 0, 0, 0))
+
+      // 监听内容变化并更新配置
+      editor.onDidChangeModelContent(() => {
+        const model = editor.getModel()
+        if (model) {
+          const currentLines = model.getLineCount()
+          editor.updateOptions({
+            lineNumbers: currentLines > 1 ? 'on' : 'off'
+          })
+        }
+      })
 
       // Update height
       const updateHeight = () => {
@@ -842,6 +921,30 @@ const contentLines = computed(() => {
     }
   })
 })
+
+const copyEditorContent = () => {
+  if (editor) {
+    const content = editor.getValue()
+    navigator.clipboard.writeText(content).then(() => {
+      // 可以添加一个复制成功的提示
+      message.success(t('ai.copyToClipboard'))
+    })
+  }
+}
+
+const copyBlockContent = (blockIndex: number) => {
+  const container = codeEditors.value[blockIndex]
+  if (container) {
+    // 获取对应的 Monaco Editor 实例
+    const editorInstance = monaco.editor.getEditors().find((e) => e.getContainerDomNode() === container)
+    if (editorInstance) {
+      const content = editorInstance.getValue()
+      navigator.clipboard.writeText(content).then(() => {
+        message.success(t('ai.copyToClipboard'))
+      })
+    }
+  }
+}
 </script>
 
 <style>
@@ -1088,17 +1191,13 @@ code {
   padding: 4px 12px !important;
   background: transparent !important;
   transition: all 0.3s;
-  min-height: 0 !important;
-  line-height: 1 !important;
-}
-
-.code-collapse .ant-collapse-item.ant-collapse-item-active .ant-collapse-header {
-  padding-top: 12px !important;
-  padding-bottom: 12px !important;
-}
-
-.code-collapse .ant-collapse-item:not(.ant-collapse-item-active) .ant-collapse-header {
-  padding-top: 12px !important;
+  min-height: 32px !important;
+  height: 32px !important;
+  line-height: 32px !important;
+  display: flex !important;
+  align-items: center !important;
+  padding-top: 0 !important;
+  padding-bottom: 0 !important;
 }
 
 .code-collapse .ant-collapse-content {
@@ -1115,11 +1214,39 @@ code {
   color: #ffffff !important;
   margin-bottom: 0;
   font-size: 12px !important;
-  line-height: 1 !important;
 }
 
 .code-collapse .ant-space {
   gap: 4px !important;
+  height: 100%;
+  align-items: center;
+}
+
+.code-collapse .ant-collapse-header-text {
+  margin-right: 80px;
+  display: flex;
+  align-items: center;
+  height: 100%;
+}
+
+.code-collapse .ant-collapse-expand-icon {
+  position: absolute !important;
+  right: 16px !important;
+  margin-left: 0 !important;
+  height: 32px !important;
+  line-height: 32px !important;
+  display: flex !important;
+  align-items: center !important;
+}
+
+.code-collapse .ant-collapse-header .copy-button {
+  position: absolute;
+  right: 40px;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 1;
+  height: 24px !important;
+  line-height: 24px !important;
 }
 
 .monaco-container {
@@ -1128,6 +1255,30 @@ code {
   overflow: hidden;
   background-color: #282c34;
   min-height: 30px;
+  position: relative;
+}
+
+.monaco-container.collapsed .copy-button {
+  top: -30px;
+  right: 30px;
+}
+
+.copy-button {
+  color: #ffffff;
+  opacity: 0.6;
+  transition: opacity 0.3s;
+}
+
+.monaco-container .copy-button {
+  position: absolute;
+  top: 0;
+  right: 8px;
+  z-index: 100;
+}
+
+.copy-button:hover {
+  opacity: 1;
+  background: rgba(255, 255, 255, 0.1);
 }
 
 .hidden-header {
@@ -1449,5 +1600,20 @@ code {
   text-overflow: ellipsis;
   white-space: normal;
   word-break: break-all;
+}
+
+.header-copy-button {
+  position: absolute;
+  top: 0;
+  right: 8px;
+  z-index: 100;
+  color: #ffffff;
+  opacity: 0.6;
+  transition: opacity 0.3s;
+}
+
+.header-copy-button:hover {
+  opacity: 1;
+  background: rgba(255, 255, 255, 0.1);
 }
 </style>
