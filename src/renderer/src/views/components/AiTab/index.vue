@@ -858,23 +858,25 @@ const restoreHistoryTab = async (history: HistoryItem) => {
 
 const handleHistoryClick = async () => {
   try {
-    if (chatTypeValue.value === 'agent') {
+    if (chatTypeValue.value === 'agent' || chatTypeValue.value === 'cmd') {
       // 重置分页状态
       currentPage.value = 1
       isLoadingMore.value = false
 
       // 从 globalState 获取所有 agent 历史记录并按 ts 倒序排序
-      const agentHistory = (((await getGlobalState('taskHistory')) as TaskHistoryItem[]) || [])
+      const taskHistory = ((await getGlobalState('taskHistory')) as TaskHistoryItem[]) || []
+
+      const historyItems = taskHistory
         .sort((a, b) => b.ts - a.ts)
-        .map((messages) => ({
-          id: messages.id,
-          chatTitle: truncateText(messages?.task || 'Agent Chat'),
-          chatType: 'agent',
+        .map((task) => ({
+          id: task.id,
+          chatTitle: truncateText(task?.task || `${chatTypeValue.value} Chat`),
+          chatType: chatTypeValue.value,
           chatContent: []
         }))
 
       // 批量更新历史列表
-      historyList.value = agentHistory
+      historyList.value = historyItems
     }
   } catch (err) {
     console.error('Failed to get conversation list:', err)
