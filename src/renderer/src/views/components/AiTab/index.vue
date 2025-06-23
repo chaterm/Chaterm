@@ -211,7 +211,7 @@
             v-model:value="chatInputValue"
             :placeholder="$t('ai.agentMessage')"
             class="chat-textarea"
-            :auto-size="{ minRows: 2, maxRows: 2 }"
+            :auto-size="{ minRows: 2, maxRows: 10 }"
             @keydown="handleKeyDown"
             @input="handleInputChange"
           />
@@ -451,7 +451,7 @@ import i18n from '@/locales'
 const { t } = i18n.global
 const MarkdownRenderer = defineAsyncComponent(() => import('@views/components/AiTab/MarkdownRenderer.vue'))
 
-import { ChatermMessage } from 'src/main/agent/shared/ExtensionMessage'
+import { ChatermMessage } from '../../../main/agent/shared/ExtensionMessage'
 
 // 定义事件类型
 interface TabInfo {
@@ -1521,7 +1521,7 @@ const editHistory = async (history) => {
 
   // 等待DOM更新后聚焦输入框
   await nextTick()
-  const input = document.querySelector('.history-title-input input')
+  const input = document.querySelector('.history-title-input input') as HTMLInputElement
   if (input) {
     input.focus()
     input.select()
@@ -1692,6 +1692,13 @@ const cancelEdit = async (history) => {
     line-height: 22px;
     font-size: 12px;
   }
+  :deep(.ant-tabs-content) {
+    max-height: 100%;
+  }
+  :deep(.ant-tabs-tabpane) {
+    display: flex;
+    flex-direction: column;
+  }
 }
 
 .ai-chat-flex-container {
@@ -1715,7 +1722,6 @@ const cancelEdit = async (history) => {
   border-bottom: 0px solid #333;
   justify-content: flex-start;
   user-select: text;
-
   :deep(.ant-tag) {
     font-size: 10px;
     padding: 0 6px;
@@ -1871,7 +1877,7 @@ const cancelEdit = async (history) => {
   align-items: center;
   justify-content: space-between;
   gap: 4px;
-  padding: 4px 8px;
+  padding: 8px 8px;
 
   .ant-select {
     width: 120px;
@@ -2120,29 +2126,30 @@ const cancelEdit = async (history) => {
   max-height: none;
   overflow: visible;
   padding: 4px;
-  background-color: #2a2a2a;
+  background-color: #1f1f1f;
   border: 1px solid #3a3a3a;
   border-radius: 8px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
   width: 280px !important; // 添加固定宽度
 
   .history-search-container {
-    padding: 4px;
-    border-bottom: 1px solid #3a3a3a;
-    margin-bottom: 4px;
+    display: flex;
+    gap: 10px;
+    :deep(.ant-input-affix-wrapper) {
+      border-color: rgba(255, 255, 255, 0.1);
+      box-shadow: none;
+    }
   }
 
   .history-search-input {
     width: 100%;
     background-color: #1f1f1f !important;
-    border: 1px solid #3a3a3a !important;
 
     :deep(.ant-input) {
       background-color: #1f1f1f !important;
       border: none !important;
-      color: #e0e0e0 !important;
-      font-size: 12px !important;
-
+      color: rgba(255, 255, 255, 0.65) !important;
+      height: 20px !important;
       &::placeholder {
         color: #666 !important;
       }
@@ -2150,7 +2157,6 @@ const cancelEdit = async (history) => {
 
     :deep(.ant-input-clear-icon) {
       color: #666;
-
       &:hover {
         color: #999;
       }
@@ -2234,7 +2240,7 @@ const cancelEdit = async (history) => {
   }
 
   .history-title {
-    color: #e0e0e0;
+    color: rgba(255, 255, 255, 0.65);
     font-size: 12px;
     font-weight: 500;
     white-space: nowrap;
@@ -2467,12 +2473,14 @@ const cancelEdit = async (history) => {
 
 .host-select-popup {
   position: absolute;
-  left: 20px;
+  left: 30px;
+  bottom: 30px;
   width: 130px;
   background: #222;
   border-radius: 4px;
   box-shadow: 0 2px 8px #0002;
   border: 1px solid #484747;
+  z-index: 10;
 }
 
 .host-select-list {
@@ -2504,7 +2512,6 @@ const cancelEdit = async (history) => {
 }
 
 .ai-welcome-container {
-  flex: 1;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -2534,7 +2541,7 @@ const cancelEdit = async (history) => {
   background: none !important;
   border: none !important;
   box-shadow: none !important;
-  color: #fff !important;
+  color: rgba(255, 255, 255, 0.65) !important;
   padding: 0 2px;
   min-width: 0;
   height: 16px;

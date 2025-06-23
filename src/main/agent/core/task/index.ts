@@ -86,6 +86,19 @@ export class Task {
   // Metadata tracking
   private modelContextTracker: ModelContextTracker
 
+  // 添加系统信息缓存
+  private hostSystemInfoCache: Map<
+    string,
+    {
+      osVersion: string
+      defaultShell: string
+      homeDir: string
+      hostName: string
+      userName: string
+      sudoCheck: string
+    }
+  > = new Map()
+
   // streaming
   isWaitingForFirstChunk = false
   isStreaming = false
@@ -1001,64 +1014,78 @@ export class Task {
       throw new Error('Chaterm instance aborted')
     }
 
-    // Used to know what models were used in the task if user wants to export metadata for error reporting purposes
+    await this.recordModelUsage()
+    await this.handleConsecutiveMistakes(userContent)
+    await this.handleAutoApprovalLimits()
+
+    await this.prepareApiRequest(userContent, includeHostDetails)
+
+    try {
+      return await this.processApiStreamAndResponse()
+    } catch (error) {
+      // this should never happen since the only thing that can throw an error is the attemptApiRequest,
+      // which is wrapped in a try catch that sends an ask where if noButtonClicked, will clear current task and destroy this instance.
+      //  However to avoid unhandled promise rejection, we will end this loop which will end execution of this instance (see startTask)
+      return true // needs to be true so parent loop knows to end task
+    }
+  }
+
+  private async recordModelUsage(): Promise<void> {
     const currentProviderId = (await getGlobalState('apiProvider')) as string
     if (currentProviderId && this.api.getModel().id) {
       try {
         await this.modelContextTracker.recordModelUsage(currentProviderId, this.api.getModel().id, this.chatSettings.mode)
       } catch {}
     }
+  }
 
-    if (this.consecutiveMistakeCount >= 3) {
-      if (this.autoApprovalSettings.enabled && this.autoApprovalSettings.enableNotifications) {
-        showSystemNotification({
-          subtitle: 'Error',
-          message: 'Chaterm is having trouble. Would you like to continue the task?'
-        })
-      }
-      const { response, text } = await this.ask(
-        'mistake_limit_reached',
-        this.api.getModel().id.includes('claude')
-          ? `This may indicate a failure in his thought process or inability to use a tool properly, which can be mitigated with some user guidance (e.g. "Try breaking down the task into smaller steps").`
-          : "Chaterm uses complex prompts and iterative task execution that may be challenging for less capable models. For best results, it's recommended to use Claude 3.7 Sonnet for its advanced agentic coding capabilities."
-      )
-      if (response === 'messageResponse') {
-        userContent.push(
-          ...[
-            {
-              type: 'text',
-              text: formatResponse.tooManyMistakes(text)
-            } as Anthropic.Messages.TextBlockParam
-            // ...formatResponse.imageBlocks(images),
-          ]
-        )
-      }
-      this.consecutiveMistakeCount = 0
+  private async handleConsecutiveMistakes(userContent: UserContent): Promise<void> {
+    if (this.consecutiveMistakeCount < 3) return
+
+    if (this.autoApprovalSettings.enabled && this.autoApprovalSettings.enableNotifications) {
+      showSystemNotification({
+        subtitle: 'Error',
+        message: 'Chaterm is having trouble. Would you like to continue the task?'
+      })
     }
 
-    if (this.autoApprovalSettings.enabled && this.consecutiveAutoApprovedRequestsCount >= this.autoApprovalSettings.maxRequests) {
-      if (this.autoApprovalSettings.enableNotifications) {
-        showSystemNotification({
-          subtitle: 'Max Requests Reached',
-          message: `Chaterm has auto-approved ${this.autoApprovalSettings.maxRequests.toString()} API requests.`
-        })
-      }
-      await this.ask(
-        'auto_approval_max_req_reached',
-        `Chaterm has auto-approved ${this.autoApprovalSettings.maxRequests.toString()} API requests. Would you like to reset the count and proceed with the task?`
-      )
-      // if we get past the promise it means the user approved and did not start a new task
-      this.consecutiveAutoApprovedRequestsCount = 0
+    const errorMessage = this.api.getModel().id.includes('claude')
+      ? `This may indicate a failure in his thought process or inability to use a tool properly, which can be mitigated with some user guidance (e.g. "Try breaking down the task into smaller steps").`
+      : "Chaterm uses complex prompts and iterative task execution that may be challenging for less capable models. For best results, it's recommended to use Claude 3.7 Sonnet for its advanced agentic coding capabilities."
+
+    const { response, text } = await this.ask('mistake_limit_reached', errorMessage)
+
+    if (response === 'messageResponse') {
+      userContent.push({
+        type: 'text',
+        text: formatResponse.tooManyMistakes(text)
+      } as Anthropic.Messages.TextBlockParam)
     }
 
-    // get previous api req's index to check token usage and determine if we need to truncate conversation history
-    const previousApiReqIndex = findLastIndex(this.chatermMessages, (m) => m.say === 'api_req_started')
-    // console.log('this.chatermMessages', this.chatermMessages)
-    // Save checkpoint if this is the first API request
-    const isFirstRequest = this.chatermMessages.filter((m) => m.say === 'api_req_started').length === 0
+    this.consecutiveMistakeCount = 0
+  }
 
-    // getting verbose details is an expensive operation, it uses globby to top-down build file structure of project which for large projects can take a few seconds
-    // for the best UX we show a placeholder api_req_started message with a loading spinner as this happens
+  private async handleAutoApprovalLimits(): Promise<void> {
+    if (!this.autoApprovalSettings.enabled || this.consecutiveAutoApprovedRequestsCount < this.autoApprovalSettings.maxRequests) {
+      return
+    }
+
+    if (this.autoApprovalSettings.enableNotifications) {
+      showSystemNotification({
+        subtitle: 'Max Requests Reached',
+        message: `Chaterm has auto-approved ${this.autoApprovalSettings.maxRequests.toString()} API requests.`
+      })
+    }
+
+    await this.ask(
+      'auto_approval_max_req_reached',
+      `Chaterm has auto-approved ${this.autoApprovalSettings.maxRequests.toString()} API requests. Would you like to reset the count and proceed with the task?`
+    )
+
+    this.consecutiveAutoApprovedRequestsCount = 0
+  }
+
+  private async prepareApiRequest(userContent: UserContent, includeHostDetails: boolean): Promise<void> {
     await this.say(
       'api_req_started',
       JSON.stringify({
@@ -1066,24 +1093,11 @@ export class Task {
       })
     )
 
-    if (isFirstRequest) {
-      await this.say('checkpoint_created') // no hash since we need to wait for CheckpointTracker to be initialized
-    }
-
-    // Now that checkpoint tracker is initialized, update the dummy checkpoint_created message with the commit hash. (This is necessary since we use the API request loading as an opportunity to initialize the checkpoint tracker, which can take some time)
-    if (isFirstRequest) {
-      //const commitHash = await this.checkpointTracker?.commit()
-      const lastCheckpointMessage = findLast(this.chatermMessages, (m) => m.say === 'checkpoint_created')
-      if (lastCheckpointMessage) {
-        //lastCheckpointMessage.lastCheckpointHash = commitHash
-        await this.saveChatermMessagesAndUpdateHistory()
-      }
-    }
+    await this.handleFirstRequestCheckpoint()
 
     const [parsedUserContent, environmentDetails] = await this.loadContext(userContent, includeHostDetails)
-
-    userContent = parsedUserContent
-    // add environment details as its own text block, separate from tool results
+    userContent.length = 0
+    userContent.push(...parsedUserContent)
     userContent.push({ type: 'text', text: environmentDetails })
 
     await this.addToApiConversationHistory({
@@ -1091,271 +1105,320 @@ export class Task {
       content: userContent
     })
 
-    //telemetryService.captureConversationTurnEvent(this.taskId, currentProviderId, this.api.getModel().id, "user", true)
+    // 更新API请求消息
+    await this.updateApiRequestMessage(userContent)
+  }
 
-    // since we sent off a placeholder api_req_started message to update the webview while waiting to actually start the API request (to load potential details for example), we need to update the text of that message
+  private async handleFirstRequestCheckpoint(): Promise<void> {
+    const isFirstRequest = this.chatermMessages.filter((m) => m.say === 'api_req_started').length === 0
+    if (!isFirstRequest) return
+
+    await this.say('checkpoint_created')
+
+    // 更新检查点消息（等待CheckpointTracker初始化）
+    const lastCheckpointMessage = findLast(this.chatermMessages, (m) => m.say === 'checkpoint_created')
+    if (lastCheckpointMessage) {
+      await this.saveChatermMessagesAndUpdateHistory()
+    }
+  }
+
+  private async updateApiRequestMessage(userContent: UserContent): Promise<void> {
     const lastApiReqIndex = findLastIndex(this.chatermMessages, (m) => m.say === 'api_req_started')
     this.chatermMessages[lastApiReqIndex].text = JSON.stringify({
       request: userContent.map((block) => formatContentBlockToMarkdown(block)).join('\n\n')
     } satisfies ChatermApiReqInfo)
+
     await this.saveChatermMessagesAndUpdateHistory()
     await this.postStateToWebview()
+  }
 
-    try {
-      let cacheWriteTokens = 0
-      let cacheReadTokens = 0
-      let inputTokens = 0
-      let outputTokens = 0
-      let totalCost: number | undefined
+  private async processApiStreamAndResponse(): Promise<boolean> {
+    const streamMetrics = this.createStreamMetrics()
+    const messageUpdater = this.createMessageUpdater(streamMetrics)
 
-      // update api_req_started. we can't use api_req_finished anymore since it's a unique case where it could come after a streaming message (ie in the middle of being updated or executed)
-      // fortunately api_req_finished was always parsed out for the gui anyways, so it remains solely for legacy purposes to keep track of prices in tasks from history
-      // (it's worth removing a few months from now)
-      const updateApiReqMsg = (cancelReason?: ChatermApiReqCancelReason, streamingFailedMessage?: string) => {
+    this.resetStreamingState()
+
+    const previousApiReqIndex = findLastIndex(this.chatermMessages, (m) => m.say === 'api_req_started')
+    const stream = this.attemptApiRequest(previousApiReqIndex)
+
+    const assistantMessage = await this.processStream(stream, streamMetrics, messageUpdater)
+
+    await this.handleStreamUsageUpdate(streamMetrics, messageUpdater)
+
+    return await this.processAssistantResponse(assistantMessage)
+  }
+
+  private createStreamMetrics() {
+    return {
+      cacheWriteTokens: 0,
+      cacheReadTokens: 0,
+      inputTokens: 0,
+      outputTokens: 0,
+      totalCost: undefined as number | undefined,
+      didReceiveUsageChunk: false
+    }
+  }
+
+  private createMessageUpdater(streamMetrics: any) {
+    const lastApiReqIndex = findLastIndex(this.chatermMessages, (m) => m.say === 'api_req_started')
+
+    return {
+      updateApiReqMsg: (cancelReason?: ChatermApiReqCancelReason, streamingFailedMessage?: string) => {
         this.chatermMessages[lastApiReqIndex].text = JSON.stringify({
           ...JSON.parse(this.chatermMessages[lastApiReqIndex].text || '{}'),
-          tokensIn: inputTokens,
-          tokensOut: outputTokens,
-          cacheWrites: cacheWriteTokens,
-          cacheReads: cacheReadTokens,
-          cost: totalCost ?? calculateApiCostAnthropic(this.api.getModel().info, inputTokens, outputTokens, cacheWriteTokens, cacheReadTokens),
+          tokensIn: streamMetrics.inputTokens,
+          tokensOut: streamMetrics.outputTokens,
+          cacheWrites: streamMetrics.cacheWriteTokens,
+          cacheReads: streamMetrics.cacheReadTokens,
+          cost:
+            streamMetrics.totalCost ??
+            calculateApiCostAnthropic(
+              this.api.getModel().info,
+              streamMetrics.inputTokens,
+              streamMetrics.outputTokens,
+              streamMetrics.cacheWriteTokens,
+              streamMetrics.cacheReadTokens
+            ),
           cancelReason,
           streamingFailedMessage
         } satisfies ChatermApiReqInfo)
       }
-
-      const abortStream = async (cancelReason: ChatermApiReqCancelReason, streamingFailedMessage?: string) => {
-        // if (this.diffViewProvider.isEditing) {
-        // 	await this.diffViewProvider.revertChanges() // closes diff view
-        // }
-
-        // if last message is a partial we need to update and save it
-        const lastMessage = this.chatermMessages.at(-1)
-        if (lastMessage && lastMessage.partial) {
-          // lastMessage.ts = Date.now() DO NOT update ts since it is used as a key for virtuoso list
-          lastMessage.partial = false
-          // instead of streaming partialMessage events, we do a save and post like normal to persist to disk
-          console.log('updating partial message', lastMessage)
-          // await this.saveChatermMessagesAndUpdateHistory()
-        }
-
-        // Let assistant know their response was interrupted for when task is resumed
-        await this.addToApiConversationHistory({
-          role: 'assistant',
-          content: [
-            {
-              type: 'text',
-              text:
-                assistantMessage +
-                `\n\n[${cancelReason === 'streaming_failed' ? 'Response interrupted by API Error' : 'Response interrupted by user'}]`
-            }
-          ]
-        })
-
-        // update api_req_started to have cancelled and cost, so that we can display the cost of the partial stream
-        updateApiReqMsg(cancelReason, streamingFailedMessage)
-        await this.saveChatermMessagesAndUpdateHistory()
-
-        // telemetryService.captureConversationTurnEvent(
-        // 	this.taskId,
-        // 	currentProviderId,
-        // 	this.api.getModel().id,
-        // 	"assistant",
-        // 	true,
-        // )
-
-        // signals to provider that it can retrieve the saved messages from disk, as abortTask can not be awaited on in nature
-        this.didFinishAbortingStream = true
-      }
-
-      // reset streaming state
-      this.currentStreamingContentIndex = 0
-      this.assistantMessageContent = []
-      this.didCompleteReadingStream = false
-      this.userMessageContent = []
-      this.userMessageContentReady = false
-      this.didRejectTool = false
-      this.didAlreadyUseTool = false
-      this.presentAssistantMessageLocked = false
-      this.presentAssistantMessageHasPendingUpdates = false
-      this.didAutomaticallyRetryFailedApiRequest = false
-      // await this.diffViewProvider.reset()
-
-      const stream = this.attemptApiRequest(previousApiReqIndex) // yields only if the first chunk is successful, otherwise will allow the user to retry the request (most likely due to rate limit error, which gets thrown on the first chunk)
-      let assistantMessage = ''
-      let reasoningMessage = ''
-      this.isStreaming = true
-      let didReceiveUsageChunk = false
-      try {
-        for await (const chunk of stream) {
-          if (!chunk) {
-            continue
-          }
-          switch (chunk.type) {
-            case 'usage':
-              didReceiveUsageChunk = true
-              inputTokens += chunk.inputTokens
-              outputTokens += chunk.outputTokens
-              cacheWriteTokens += chunk.cacheWriteTokens ?? 0
-              cacheReadTokens += chunk.cacheReadTokens ?? 0
-              totalCost = chunk.totalCost
-              break
-            case 'reasoning':
-              // reasoning will always come before assistant message
-              reasoningMessage += chunk.reasoning
-              // fixes bug where cancelling task > aborts task > for loop may be in middle of streaming reasoning > say function throws error before we get a chance to properly clean up and cancel the task.
-              if (!this.abort) {
-                await this.say('reasoning', reasoningMessage, true)
-              }
-              break
-            case 'text':
-              if (reasoningMessage && assistantMessage.length === 0) {
-                // complete reasoning message
-                await this.say('reasoning', reasoningMessage, false)
-              }
-              assistantMessage += chunk.text
-              // parse raw assistant message into content blocks
-              const prevLength = this.assistantMessageContent.length
-              this.assistantMessageContent = parseAssistantMessageV2(assistantMessage)
-              if (this.assistantMessageContent.length > prevLength) {
-                this.userMessageContentReady = false // new content we need to present, reset to false in case previous content set this to true
-              }
-              // present content to user
-              this.presentAssistantMessage()
-              break
-          }
-
-          if (this.abort) {
-            console.log('aborting stream...')
-            if (!this.abandoned) {
-              // only need to gracefully abort if this instance isn't abandoned (sometimes openrouter stream hangs, in which case this would affect future instances of Chaterm)
-              await abortStream('user_cancelled')
-            }
-            break // aborts the stream
-          }
-
-          if (this.didRejectTool) {
-            // userContent has a tool rejection, so interrupt the assistant's response to present the user's feedback
-            assistantMessage += '\n\n[Response interrupted by user feedback]'
-            // this.userMessageContentReady = true // instead of setting this preemptively, we allow the present iterator to finish and set userMessageContentReady when its ready
-            break
-          }
-
-          // PREV: we need to let the request finish for openrouter to get generation details
-          // UPDATE: it's better UX to interrupt the request at the cost of the api cost not being retrieved
-          if (this.didAlreadyUseTool) {
-            assistantMessage +=
-              '\n\n[Response interrupted by a tool use result. Only one tool may be used at a time and should be placed at the end of the message.]'
-            break
-          }
-        }
-      } catch (error) {
-        // abandoned happens when extension is no longer waiting for the chaterm instance to finish aborting (error is thrown here when any function in the for loop throws due to this.abort)
-        if (!this.abandoned) {
-          this.abortTask() // if the stream failed, there's various states the task could be in (i.e. could have streamed some tools the user may have executed), so we just resort to replicating a cancel task
-          const errorMessage = this.formatErrorWithStatusCode(error)
-
-          await abortStream('streaming_failed', errorMessage)
-          await this.reinitExistingTaskFromId(this.taskId)
-        }
-      } finally {
-        this.isStreaming = false
-      }
-
-      // OpenRouter/Chaterm may not return token usage as part of the stream (since it may abort early), so we fetch after the stream is finished
-      // (updateApiReq below will update the api_req_started message with the usage details. we do this async so it updates the api_req_started message in the background)
-      if (!didReceiveUsageChunk) {
-        this.api.getApiStreamUsage?.().then(async (apiStreamUsage) => {
-          if (apiStreamUsage) {
-            inputTokens += apiStreamUsage.inputTokens
-            outputTokens += apiStreamUsage.outputTokens
-            cacheWriteTokens += apiStreamUsage.cacheWriteTokens ?? 0
-            cacheReadTokens += apiStreamUsage.cacheReadTokens ?? 0
-            totalCost = apiStreamUsage.totalCost
-          }
-          updateApiReqMsg()
-          await this.saveChatermMessagesAndUpdateHistory()
-          await this.postStateToWebview()
-        })
-      }
-
-      // need to call here in case the stream was aborted
-      if (this.abort) {
-        throw new Error('Chaterm instance aborted')
-      }
-
-      this.didCompleteReadingStream = true
-
-      // set any blocks to be complete to allow presentAssistantMessage to finish and set userMessageContentReady to true
-      // (could be a text block that had no subsequent tool uses, or a text block at the very end, or an invalid tool use, etc. whatever the case, presentAssistantMessage relies on these blocks either to be completed or the user to reject a block in order to proceed and eventually set userMessageContentReady to true)
-      const partialBlocks = this.assistantMessageContent.filter((block) => block.partial)
-      partialBlocks.forEach((block) => {
-        block.partial = false
-      })
-      // this.assistantMessageContent.forEach((e) => (e.partial = false)) // can't just do this bc a tool could be in the middle of executing ()
-      if (partialBlocks.length > 0) {
-        this.presentAssistantMessage() // if there is content to update then it will complete and update this.userMessageContentReady to true, which we pwaitfor before making the next request. all this is really doing is presenting the last partial message that we just set to complete
-      }
-
-      updateApiReqMsg()
-      await this.saveChatermMessagesAndUpdateHistory()
-      await this.postStateToWebview()
-
-      // now add to apiconversationhistory
-      // need to save assistant responses to file before proceeding to tool use since user can exit at any moment and we wouldn't be able to save the assistant's response
-      let didEndLoop = false
-      if (assistantMessage.length > 0) {
-        await this.addToApiConversationHistory({
-          role: 'assistant',
-          content: [{ type: 'text', text: assistantMessage }]
-        })
-
-        // NOTE: this comment is here for future reference - this was a workaround for userMessageContent not getting set to true. It was due to it not recursively calling for partial blocks when didRejectTool, so it would get stuck waiting for a partial block to complete before it could continue.
-        // in case the content blocks finished
-        // it may be the api stream finished after the last parsed content block was executed, so  we are able to detect out of bounds and set userMessageContentReady to true (note you should not call presentAssistantMessage since if the last block is completed it will be presented again)
-        // const completeBlocks = this.assistantMessageContent.filter((block) => !block.partial) // if there are any partial blocks after the stream ended we can consider them invalid
-        // if (this.currentStreamingContentIndex >= completeBlocks.length) {
-        // 	this.userMessageContentReady = true
-        // }
-
-        await pWaitFor(() => this.userMessageContentReady)
-
-        // if the model did not tool use, then we need to tell it to either use a tool or attempt_completion
-        const didToolUse = this.assistantMessageContent.some((block) => block.type === 'tool_use')
-
-        if (!didToolUse) {
-          // normal request where tool use is required
-          this.userMessageContent.push({
-            type: 'text',
-            text: formatResponse.noToolsUsed()
-          })
-          this.consecutiveMistakeCount++
-        }
-
-        const recDidEndLoop = await this.recursivelyMakeChatermRequests(this.userMessageContent)
-        didEndLoop = recDidEndLoop
-      } else {
-        // if there's no assistant_responses, that means we got no text or tool_use content blocks from API which we should assume is an error
-        await this.say(
-          'error',
-          "Unexpected API Response: The language model did not provide any assistant messages. This may indicate an issue with the API or the model's output."
-        )
-        await this.addToApiConversationHistory({
-          role: 'assistant',
-          content: [
-            {
-              type: 'text',
-              text: 'Failure: I did not provide a response.'
-            }
-          ]
-        })
-      }
-
-      return didEndLoop // will always be false for now
-    } catch (error) {
-      // this should never happen since the only thing that can throw an error is the attemptApiRequest, which is wrapped in a try catch that sends an ask where if noButtonClicked, will clear current task and destroy this instance. However to avoid unhandled promise rejection, we will end this loop which will end execution of this instance (see startTask)
-      return true // needs to be true so parent loop knows to end task
     }
+  }
+
+  private resetStreamingState(): void {
+    this.currentStreamingContentIndex = 0
+    this.assistantMessageContent = []
+    this.didCompleteReadingStream = false
+    this.userMessageContent = []
+    this.userMessageContentReady = false
+    this.didRejectTool = false
+    this.didAlreadyUseTool = false
+    this.presentAssistantMessageLocked = false
+    this.presentAssistantMessageHasPendingUpdates = false
+    this.didAutomaticallyRetryFailedApiRequest = false
+  }
+
+  private async processStream(stream: any, streamMetrics: any, messageUpdater: any): Promise<string> {
+    let assistantMessage = ''
+    let reasoningMessage = ''
+    this.isStreaming = true
+
+    const abortStream = async (cancelReason: ChatermApiReqCancelReason, streamingFailedMessage?: string) => {
+      await this.handleStreamAbort(assistantMessage, cancelReason, streamingFailedMessage, messageUpdater)
+    }
+
+    try {
+      for await (const chunk of stream) {
+        if (!chunk) continue
+
+        switch (chunk.type) {
+          case 'usage':
+            this.handleUsageChunk(chunk, streamMetrics)
+            break
+          case 'reasoning':
+            reasoningMessage = await this.handleReasoningChunk(chunk, reasoningMessage)
+            break
+          case 'text':
+            assistantMessage = await this.handleTextChunk(chunk, assistantMessage, reasoningMessage)
+            break
+        }
+
+        if (await this.shouldInterruptStream(assistantMessage, abortStream)) {
+          break
+        }
+      }
+    } catch (error) {
+      if (!this.abandoned) {
+        await this.handleStreamError(error, abortStream)
+      }
+    } finally {
+      this.isStreaming = false
+    }
+
+    return assistantMessage
+  }
+
+  private handleUsageChunk(chunk: any, streamMetrics: any): void {
+    streamMetrics.didReceiveUsageChunk = true
+    streamMetrics.inputTokens += chunk.inputTokens
+    streamMetrics.outputTokens += chunk.outputTokens
+    streamMetrics.cacheWriteTokens += chunk.cacheWriteTokens ?? 0
+    streamMetrics.cacheReadTokens += chunk.cacheReadTokens ?? 0
+    streamMetrics.totalCost = chunk.totalCost
+  }
+
+  private async handleReasoningChunk(chunk: any, reasoningMessage: string): Promise<string> {
+    reasoningMessage += chunk.reasoning
+    if (!this.abort) {
+      await this.say('reasoning', reasoningMessage, true)
+    }
+    return reasoningMessage
+  }
+
+  private async handleTextChunk(chunk: any, assistantMessage: string, reasoningMessage: string): Promise<string> {
+    if (reasoningMessage && assistantMessage.length === 0) {
+      await this.say('reasoning', reasoningMessage, false)
+    }
+
+    assistantMessage += chunk.text
+    const prevLength = this.assistantMessageContent.length
+    this.assistantMessageContent = parseAssistantMessageV2(assistantMessage)
+
+    if (this.assistantMessageContent.length > prevLength) {
+      this.userMessageContentReady = false
+    }
+
+    this.presentAssistantMessage()
+    return assistantMessage
+  }
+
+  private async shouldInterruptStream(
+    assistantMessage: string,
+    abortStream: (cancelReason: ChatermApiReqCancelReason, streamingFailedMessage?: string) => Promise<void>
+  ): Promise<boolean> {
+    if (this.abort) {
+      console.log('aborting stream...')
+      if (!this.abandoned) {
+        await abortStream('user_cancelled')
+      }
+      return true
+    }
+
+    if (this.didRejectTool) {
+      assistantMessage += '\n\n[Response interrupted by user feedback]'
+      return true
+    }
+
+    if (this.didAlreadyUseTool) {
+      assistantMessage +=
+        '\n\n[Response interrupted by a tool use result. Only one tool may be used at a time and should be placed at the end of the message.]'
+      return true
+    }
+
+    return false
+  }
+
+  private async handleStreamAbort(
+    assistantMessage: string,
+    cancelReason: ChatermApiReqCancelReason,
+    streamingFailedMessage: string | undefined,
+    messageUpdater: any
+  ): Promise<void> {
+    const lastMessage = this.chatermMessages.at(-1)
+    if (lastMessage && lastMessage.partial) {
+      lastMessage.partial = false
+      console.log('updating partial message', lastMessage)
+    }
+
+    await this.addToApiConversationHistory({
+      role: 'assistant',
+      content: [
+        {
+          type: 'text',
+          text:
+            assistantMessage + `\n\n[${cancelReason === 'streaming_failed' ? 'Response interrupted by API Error' : 'Response interrupted by user'}]`
+        }
+      ]
+    })
+
+    messageUpdater.updateApiReqMsg(cancelReason, streamingFailedMessage)
+    await this.saveChatermMessagesAndUpdateHistory()
+    this.didFinishAbortingStream = true
+  }
+
+  private async handleStreamError(
+    error: any,
+    abortStream: (cancelReason: ChatermApiReqCancelReason, streamingFailedMessage?: string) => Promise<void>
+  ): Promise<void> {
+    this.abortTask()
+    const errorMessage = this.formatErrorWithStatusCode(error)
+    await abortStream('streaming_failed', errorMessage)
+    await this.reinitExistingTaskFromId(this.taskId)
+  }
+
+  private async handleStreamUsageUpdate(streamMetrics: any, messageUpdater: any): Promise<void> {
+    if (!streamMetrics.didReceiveUsageChunk) {
+      // 异步获取使用情况统计
+      this.api.getApiStreamUsage?.().then(async (apiStreamUsage) => {
+        if (apiStreamUsage) {
+          streamMetrics.inputTokens += apiStreamUsage.inputTokens
+          streamMetrics.outputTokens += apiStreamUsage.outputTokens
+          streamMetrics.cacheWriteTokens += apiStreamUsage.cacheWriteTokens ?? 0
+          streamMetrics.cacheReadTokens += apiStreamUsage.cacheReadTokens ?? 0
+          streamMetrics.totalCost = apiStreamUsage.totalCost
+        }
+        messageUpdater.updateApiReqMsg()
+        await this.saveChatermMessagesAndUpdateHistory()
+        await this.postStateToWebview()
+      })
+    }
+
+    if (this.abort) {
+      throw new Error('Chaterm instance aborted')
+    }
+
+    this.didCompleteReadingStream = true
+    this.finalizePartialBlocks()
+
+    messageUpdater.updateApiReqMsg()
+    await this.saveChatermMessagesAndUpdateHistory()
+    await this.postStateToWebview()
+  }
+
+  private finalizePartialBlocks(): void {
+    const partialBlocks = this.assistantMessageContent.filter((block) => block.partial)
+    partialBlocks.forEach((block) => {
+      block.partial = false
+    })
+
+    if (partialBlocks.length > 0) {
+      this.presentAssistantMessage()
+    }
+  }
+
+  private async processAssistantResponse(assistantMessage: string): Promise<boolean> {
+    if (assistantMessage.length === 0) {
+      return await this.handleEmptyAssistantResponse()
+    }
+
+    await this.addToApiConversationHistory({
+      role: 'assistant',
+      content: [{ type: 'text', text: assistantMessage }]
+    })
+
+    await pWaitFor(() => this.userMessageContentReady)
+
+    const didToolUse = this.assistantMessageContent.some((block) => block.type === 'tool_use')
+
+    if (!didToolUse) {
+      this.userMessageContent.push({
+        type: 'text',
+        text: formatResponse.noToolsUsed()
+      })
+      this.consecutiveMistakeCount++
+    }
+
+    return await this.recursivelyMakeChatermRequests(this.userMessageContent)
+  }
+
+  private async handleEmptyAssistantResponse(): Promise<boolean> {
+    await this.say(
+      'error',
+      "Unexpected API Response: The language model did not provide any assistant messages. This may indicate an issue with the API or the model's output."
+    )
+
+    await this.addToApiConversationHistory({
+      role: 'assistant',
+      content: [
+        {
+          type: 'text',
+          text: 'Failure: I did not provide a response.'
+        }
+      ]
+    })
+
+    return false
   }
 
   async loadContext(userContent: UserContent, includeHostDetails: boolean = false): Promise<[UserContent, string]> {
@@ -1506,11 +1569,6 @@ export class Task {
         this.consecutiveMistakeCount = 0
         let didAutoApprove = false
 
-        // if (this.chatSettings.mode === 'cmd') {
-        //   await this.askApprovalForCmdMode(toolDescription, command) // Wait for frontend to execute command and return result
-        //   return
-        // }
-
         const autoApproveResult = this.shouldAutoApproveTool(block.name)
         let [autoApproveSafe, autoApproveAll] = Array.isArray(autoApproveResult) ? autoApproveResult : [autoApproveResult, false]
         if (this.chatSettings.mode === 'cmd') {
@@ -1540,7 +1598,6 @@ export class Task {
             })
           }, 30_000)
         }
-        // TODO:support concurrent execution
         const ipList = ip!.split(',')
         let result = ''
         for (const ip of ipList) {
@@ -1644,7 +1701,6 @@ export class Task {
       }
       this.didRejectTool = true
     } else if (text) {
-      // cmd 模式下 text 是命令执行结果
       this.pushToolResult(toolDescription, text)
       await this.saveCheckpoint()
     }
@@ -2059,20 +2115,41 @@ export class Task {
     let systemPrompt = await SYSTEM_PROMPT()
     let systemInformation = '# SYSTEM INFORMATION\n\n'
     for (const host of this.hosts!) {
-      const osVersion = await this.executeCommandInRemoteServer('uname -a', host.host)
-      const defaultShell = await this.executeCommandInRemoteServer('echo $SHELL', host.host)
-      const homeDir = await this.executeCommandInRemoteServer('echo $HOME', host.host)
-      const hostName = await this.executeCommandInRemoteServer('echo $HOSTNAME', host.host)
-      const userName = await this.executeCommandInRemoteServer('whoami', host.host)
-      // const ip = await this.executeCommandInRemoteServer('hostname -I')
+      // 检查缓存，如果没有缓存则获取系统信息并缓存
+      let hostInfo = this.hostSystemInfoCache.get(host.host)
+      if (!hostInfo) {
+        const osVersion = await this.executeCommandInRemoteServer('uname -a', host.host)
+        const defaultShell = await this.executeCommandInRemoteServer('echo $SHELL', host.host)
+        const homeDir = await this.executeCommandInRemoteServer('echo $HOME', host.host)
+        const hostName = await this.executeCommandInRemoteServer('echo $HOSTNAME', host.host)
+        const userName = await this.executeCommandInRemoteServer('whoami', host.host)
+        const sudoCheck = await this.executeCommandInRemoteServer(
+          'sudo -n true 2>/dev/null && echo "has sudo permission" || echo "no sudo permission"',
+          host.host
+        )
+
+        hostInfo = {
+          osVersion,
+          defaultShell,
+          homeDir,
+          hostName,
+          userName,
+          sudoCheck
+        }
+
+        // 缓存系统信息
+        this.hostSystemInfoCache.set(host.host, hostInfo)
+      }
+
       systemInformation += `
         ## Host: ${host.host}
-        Operating System: ${osVersion}
-        Default Shell: ${defaultShell}
-        Home Directory: ${homeDir.toPosix()}
-        Current Working Directory: ${this.cwd.get(host.host) || homeDir}
-        Hostname: ${hostName}
-        User: ${userName}
+        Operating System: ${hostInfo.osVersion}
+        Default Shell: ${hostInfo.defaultShell}
+        Home Directory: ${hostInfo.homeDir.toPosix()}
+        Current Working Directory: ${this.cwd.get(host.host) || hostInfo.homeDir}
+        Hostname: ${hostInfo.hostName}
+        User: ${hostInfo.userName}
+        Sudo Access: ${hostInfo.sudoCheck}
         ====
       `
     }

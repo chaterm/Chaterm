@@ -1,5 +1,5 @@
 import { resolve } from 'path'
-import { defineConfig, externalizeDepsPlugin, bytecodePlugin } from 'electron-vite'
+import { defineConfig, externalizeDepsPlugin } from 'electron-vite'
 import vue from '@vitejs/plugin-vue'
 import Components from 'unplugin-vue-components/vite'
 import { AntDesignVueResolver } from 'unplugin-vue-components/resolvers'
@@ -12,18 +12,8 @@ export default defineConfig({
   main: {
     plugins: [
       externalizeDepsPlugin({
-        exclude: [
-          'p-wait-for',
-          'chrome-launcher',
-          'globby',
-          'execa',
-          'p-timeout',
-          'get-folder-size',
-          'serialize-error',
-          'os-name'
-        ]
+        exclude: ['p-wait-for', 'chrome-launcher', 'globby', 'execa', 'p-timeout', 'get-folder-size', 'serialize-error', 'os-name']
       })
-      // bytecodePlugin()
     ],
     resolve: {
       alias: {
@@ -41,10 +31,7 @@ export default defineConfig({
     }
   },
   preload: {
-    plugins: [
-      externalizeDepsPlugin()
-      // bytecodePlugin()
-    ],
+    plugins: [externalizeDepsPlugin()],
     build: {
       sourcemap: true
     }
