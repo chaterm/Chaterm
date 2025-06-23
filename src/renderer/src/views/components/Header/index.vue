@@ -55,17 +55,6 @@ const platform = ref<string>('')
 const deviceStore = useDeviceStore()
 const instance = getCurrentInstance()!
 const { appContext } = instance
-
-// declare global {
-//   interface Window {
-//     api: {
-//       invokeCustomAdsorption: (data: { appX: number; appY: number }) => void;
-//       getLocalIP: () => Promise<string>;
-//       getMacAddress: () => Promise<string>;
-//     }
-//   }
-// }
-
 const isKeyDown = ref(false)
 const dinatesX = ref(0)
 const dinatesY = ref(0)
@@ -119,7 +108,6 @@ defineExpose({
   switchIcon
 })
 
-// 添加双击处理函数
 const handleDoubleClick = async () => {
   const api = window.api as any
   const isMaximized = await api.isMaximized()
@@ -150,8 +138,6 @@ onMounted(async () => {
   const userConfig = await userConfigStore.getConfig()
   console.log('[onMounted]', userConfig)
   appContext.config.globalProperties.$i18n.locale = userConfig.language
-
-  // 监听右侧图标更新事件
   eventBus.on('updateRightIcon', (value: boolean) => {
     isRightSidebarCollapsed.value = value
   })
