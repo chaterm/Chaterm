@@ -166,15 +166,10 @@
             show-search
             style="width: calc(100% - 100px); margin-right: 6px"
           />
-          <a-select
+          <a-input
             v-else-if="apiProvider === 'litellm'"
-            v-model:value="computedLiteLlmModelId"
+            v-model:value="liteLlmModelId"
             size="small"
-            :options="litellmAiModelOptions"
-            show-search
-            mode="tags"
-            :max-tag-count="1"
-            :filter-option="filterLiteLlmOption"
             style="width: calc(100% - 100px); margin-right: 6px"
           />
           <a-select
@@ -322,12 +317,12 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { notification } from 'ant-design-vue'
 import { updateGlobalState, getGlobalState, getSecret, storeSecret } from '@renderer/agent/storage/state'
 import { AutoApprovalSettings, DEFAULT_AUTO_APPROVAL_SETTINGS } from '@/agent/storage/shared'
 import { ChatSettings, DEFAULT_CHAT_SETTINGS } from '@/agent/storage/shared'
-import { aiModelOptions, deepseekAiModelOptions, litellmAiModelOptions } from './aiOptions'
+import { aiModelOptions, deepseekAiModelOptions } from './aiOptions'
 import eventBus from '@/utils/eventBus'
 import i18n from '@/locales'
 
@@ -383,39 +378,6 @@ const chatSettings = ref<ChatSettings>(DEFAULT_CHAT_SETTINGS)
 const customInstructions = ref('')
 const inputError = ref('')
 const checkLoading = ref(false)
-
-const computedLiteLlmModelId = computed({
-  get: () => {
-    return liteLlmModelId.value ? [liteLlmModelId.value] : []
-  },
-  set: async (val: string[]) => {
-    try {
-      const newValue = val[val.length - 1] || ''
-      liteLlmModelId.value = newValue
-
-      // If this is a new value, add it to the options
-      const exists = litellmAiModelOptions.findIndex((option) => option.value === newValue) !== -1
-      if (!exists && newValue) {
-        litellmAiModelOptions.push({
-          value: newValue,
-          label: newValue
-        })
-      }
-
-      // Save to storage immediately
-      await updateGlobalState('liteLlmModelId', newValue)
-
-      // Emit event to notify other components
-      eventBus.emit('SettingModelChanged', [apiProvider.value, apiModelId.value, newValue])
-    } catch (error) {
-      console.error('Failed to update liteLlmModelId:', error)
-      notification.error({
-        message: 'Error',
-        description: 'Failed to save model configuration'
-      })
-    }
-  }
-})
 
 // Add specific watch for autoApprovalSettings.enabled
 watch(
@@ -871,8 +833,7 @@ const checkApiProviderAndModelId = () => {
       checkModelList = aiModelOptions
       break
     case 'litellm':
-      checkModelList = litellmAiModelOptions
-      break
+      return true
     case 'deepseek':
       checkModelList = deepseekAiModelOptions
       break
@@ -881,34 +842,32 @@ const checkApiProviderAndModelId = () => {
   return modelIndex !== -1
 }
 
-const filterLiteLlmOption = (input: string, option: any) => {
-  return option.label.toLowerCase().indexOf(input.toLowerCase()) >= 0
-}
+const isEmptyValue = (value) => value === undefined || value === ''
 
 const checkModelConfig = async () => {
   const apiProvider = await getGlobalState('apiProvider')
   switch (apiProvider) {
     case 'bedrock':
-      const awsAccessKey = await getGlobalState('awsAccessKey')
-      const awsSecretKey = await getGlobalState('awsSecretKey')
+      const awsAccessKey = await getSecret('awsAccessKey')
+      const awsSecretKey = await getSecret('awsSecretKey')
       const awsRegion = await getGlobalState('awsRegion')
       const apiModelId = await getGlobalState('apiModelId')
-      if (apiModelId == '' || awsAccessKey == '' || awsSecretKey == '' || awsRegion == '') {
+      if (isEmptyValue(apiModelId) || isEmptyValue(awsAccessKey) || isEmptyValue(awsSecretKey) || isEmptyValue(awsRegion)) {
         return false
       }
       break
     case 'litellm':
       const liteLlmBaseUrl = await getGlobalState('liteLlmBaseUrl')
-      const liteLlmApiKey = await getGlobalState('liteLlmApiKey')
+      const liteLlmApiKey = await getSecret('liteLlmApiKey')
       const liteLlmModelId = await getGlobalState('liteLlmModelId')
-      if (liteLlmBaseUrl == '' || liteLlmApiKey == '' || liteLlmModelId == '') {
+      if (isEmptyValue(liteLlmBaseUrl) || isEmptyValue(liteLlmApiKey) || isEmptyValue(liteLlmModelId)) {
         return false
       }
       break
     case 'deepseek':
-      const deepSeekApiKey = await getGlobalState('deepSeekApiKey')
+      const deepSeekApiKey = await getSecret('deepSeekApiKey')
       const apiModelIdDeepSeek = await getGlobalState('apiModelId')
-      if (deepSeekApiKey == '' || apiModelIdDeepSeek == '') {
+      if (isEmptyValue(deepSeekApiKey) || isEmptyValue(apiModelIdDeepSeek)) {
         return false
       }
       break

@@ -403,6 +403,12 @@ const api = {
     ipcRenderer.on('ssh:keyboard-interactive-request', listener)
     return () => ipcRenderer.removeListener('ssh:keyboard-interactive-request', listener)
   },
+  submitKeyboardInteractiveResponse: (id, code) => {
+    ipcRenderer.send(`ssh:keyboard-interactive-response:${id}`, [code])
+  },
+  cancelKeyboardInteractive: (id) => {
+    ipcRenderer.send(`ssh:keyboard-interactive-cancel:${id}`)
+  },
   onKeyboardInteractiveResult: (callback) => {
     const listener = (_event, data) => {
       callback(data)

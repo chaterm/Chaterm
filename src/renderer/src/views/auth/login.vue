@@ -257,7 +257,7 @@ const handleLoginSuccess = async (userData: any) => {
     return true
   } catch (error) {
     console.error('登录处理失败:', error)
-    message.error(error?.response?.data?.message)
+    message.error('登录处理失败')
     return false
   }
 }
@@ -275,7 +275,7 @@ const onAccountFinish = async () => {
     }
   } catch (err: any) {
     console.log(err, 'err')
-    message.error(err?.response?.data?.message)
+    message.error(err?.response?.data?.message || '网络异常')
   }
 }
 
@@ -292,7 +292,7 @@ const onEmailFinish = async () => {
     }
   } catch (err: any) {
     console.error('邮箱登录失败:', err)
-    message.error(err?.response?.data?.message)
+    message.error(err?.response?.data?.message || '网络异常')
   }
 }
 
@@ -320,11 +320,14 @@ const sendCode = () => {
       console.log(res, 'res')
       if (res.code == 200) {
         message.success('验证码发送成功')
+        countdown.value = 300
       }
     })
-    .catch((err) => {})
+    .catch((err) => {
+      message.error(err?.response?.data?.message || '网络异常')
+      countdown.value = parseInt(err?.response?.data?.message.match(/\d+/)?.[0] || '300')
+    })
   // 倒数
-  countdown.value = 300
   const timer = setInterval(() => {
     countdown.value--
     if (countdown.value <= 0) {

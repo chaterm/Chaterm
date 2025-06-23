@@ -9,7 +9,12 @@ import 'v-contextmenu/dist/themes/default.css'
 
 import 'ant-design-vue/dist/reset.css'
 import piniaPluginPersistedstate from 'pinia-plugin-persistedstate'
+import { notification } from 'ant-design-vue'
 
+// 全局设置 notification 的 top
+notification.config({
+  top: '30px'
+})
 // 导入存储函数
 import * as storageState from './agent/storage/state'
 
