@@ -252,10 +252,11 @@ async function getTerminalOutputContent(tabId: string): Promise<string | null> {
 const contextMenu = ref({
   visible: false,
   x: 0,
-  y: 0
+  y: 0,
+  targetTab: null as TabItem | null
 })
 
-const showContextMenu = (event: MouseEvent, _tab: TabItem) => {
+const showContextMenu = (event: MouseEvent, tab: TabItem) => {
   event.preventDefault()
 
   // 计算菜单位置，确保不超出屏幕边界
@@ -280,6 +281,7 @@ const showContextMenu = (event: MouseEvent, _tab: TabItem) => {
   contextMenu.value.visible = true
   contextMenu.value.x = x
   contextMenu.value.y = y
+  contextMenu.value.targetTab = tab
 
   // 添加全局点击事件监听器来关闭菜单
   setTimeout(() => {
@@ -292,13 +294,16 @@ const hideContextMenu = () => {
 }
 
 const closeCurrentTab = () => {
-  closeTab(props.activeTab)
+  if (contextMenu.value.targetTab) {
+    closeTab(contextMenu.value.targetTab.id)
+  }
   hideContextMenu()
 }
 
 const closeOtherTabs = () => {
   // 关闭除了当前标签页之外的所有标签页
-  const tabsToClose = props.tabs.filter((tab) => tab.id !== props.activeTab)
+  if (!contextMenu.value.targetTab) return
+  const tabsToClose = props.tabs.filter((tab) => tab.id !== contextMenu.value.targetTab?.id)
   tabsToClose.forEach((tab) => {
     emit('close-tab', tab.id)
   })
@@ -313,7 +318,7 @@ const closeAllTabs = () => {
 
 const splitRight = () => {
   // 获取当前活动的标签页
-  const currentTab = props.tabs.find((tab) => tab.id === props.activeTab)
+  const currentTab = contextMenu.value.targetTab
   if (!currentTab) {
     hideContextMenu()
     return
