@@ -31,7 +31,8 @@ export default {
     paste: 'Paste',
     disconnect: 'Disconnect',
     reconnect: 'Reconnect',
-    newTerminal: 'New Terminal'
+    newTerminal: 'New Terminal',
+    splitRight: 'Split Right'
   },
   term: {
     welcome: 'Welcome to use Chaterm'

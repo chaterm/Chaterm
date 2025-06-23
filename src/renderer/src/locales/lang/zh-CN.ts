@@ -32,7 +32,8 @@ export default {
     paste: '粘贴',
     disconnect: '断开连接',
     reconnect: '重新连接',
-    newTerminal: '新终端'
+    newTerminal: '新终端',
+    splitRight: '向右分屏'
   },
   term: {
     welcome: '欢迎使用智能堡垒机Chaterm'
