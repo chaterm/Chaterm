@@ -33,6 +33,7 @@ export default {
     disconnect: '断开连接',
     reconnect: '重新连接',
     newTerminal: '新终端',
+    splitRight: '向右分屏',
     clearTerm: '清屏',
     shrotenName: '缩短主机名',
     fontsize: '字体大小',
@@ -236,7 +237,8 @@ export default {
     processing: '处理中...',
     searchHistoryPH: '请输入',
     loading: '加载中...',
-    loadMore: '加载'
+    loadMore: '加载',
+    copyToClipboard: '已复制到剪贴板'
   },
   keyChain: {
     newKey: '添加密钥',
