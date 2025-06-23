@@ -74,14 +74,25 @@
               v-model:value="formState.newPassword"
               :placeholder="t('userInfo.pleaseInputNewPassword')"
               class="custom-input"
-              style="width: 300px"
             />
+            <a-button
+              type="link"
+              style="width: 40px"
+              :icon="h(CheckOutlined)"
+              @click="handleSave"
+            />
+            <a-button
+              type="link"
+              style="width: 40px; color: #ff4d4f"
+              :icon="h(CloseOutlined)"
+              @click="cancelEditing"
+            ></a-button>
           </template>
 
           <template v-else>
             <span>****************</span>
             <a-button
-              v-if="!unChange"
+              v-if="!unChange && !isEditing"
               type="link"
               style="margin-left: 8px"
               @click="startEditingPassword"
@@ -137,10 +148,10 @@
         </a-form-item>
       </a-form>
       <div
-        v-if="!unChange"
+        v-if="!unChange && !isEditingPassword"
         class="button-container"
       >
-        <template v-if="!isEditing && !isEditingPassword">
+        <template v-if="!isEditing">
           <a-button
             type="primary"
             @click="startEditing"
@@ -166,10 +177,11 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onBeforeUnmount, reactive, computed } from 'vue'
+import { ref, onMounted, onBeforeUnmount, reactive, computed, h } from 'vue'
 import 'xterm/css/xterm.css'
 import i18n from '@/locales'
 import { getUser, updateUser, changePassword } from '@api/user/user'
+import { CloseOutlined, CheckOutlined } from '@ant-design/icons-vue'
 import { useDeviceStore } from '@/store/useDeviceStore'
 import { message } from 'ant-design-vue'
 import zxcvbn from 'zxcvbn'
@@ -356,7 +368,7 @@ onBeforeUnmount(() => {})
   /* border: 1px solid #434343 !important; */
   color: #f8f8f8 !important;
   border-radius: 4px !important;
-  width: 300px !important;
+  width: 250px !important;
   &::placeholder {
     color: #999;
   }
