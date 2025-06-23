@@ -211,7 +211,7 @@
             v-model:value="chatInputValue"
             :placeholder="$t('ai.agentMessage')"
             class="chat-textarea"
-            :auto-size="{ minRows: 2, maxRows: 2 }"
+            :auto-size="{ minRows: 2, maxRows: 10 }"
             @keydown="handleKeyDown"
             @input="handleInputChange"
           />
@@ -1691,6 +1691,13 @@ const cancelEdit = async (history) => {
     line-height: 22px;
     font-size: 12px;
   }
+  :deep(.ant-tabs-content) {
+    max-height: 100%;
+  }
+  :deep(.ant-tabs-tabpane) {
+    display: flex;
+    flex-direction: column;
+  }
 }
 
 .ai-chat-flex-container {
@@ -1714,7 +1721,6 @@ const cancelEdit = async (history) => {
   border-bottom: 0px solid #333;
   justify-content: flex-start;
   user-select: text;
-
   :deep(.ant-tag) {
     font-size: 10px;
     padding: 0 6px;
@@ -1870,7 +1876,7 @@ const cancelEdit = async (history) => {
   align-items: center;
   justify-content: space-between;
   gap: 4px;
-  padding: 4px 8px;
+  padding: 8px 8px;
 
   .ant-select {
     width: 120px;
@@ -2466,12 +2472,14 @@ const cancelEdit = async (history) => {
 
 .host-select-popup {
   position: absolute;
-  left: 20px;
+  left: 30px;
+  bottom: 30px;
   width: 130px;
   background: #222;
   border-radius: 4px;
   box-shadow: 0 2px 8px #0002;
   border: 1px solid #484747;
+  z-index: 10;
 }
 
 .host-select-list {
@@ -2503,7 +2511,6 @@ const cancelEdit = async (history) => {
 }
 
 .ai-welcome-container {
-  flex: 1;
   display: flex;
   flex-direction: column;
   align-items: center;
