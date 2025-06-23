@@ -31,7 +31,12 @@ export default {
     paste: 'Paste',
     disconnect: 'Disconnect',
     reconnect: 'Reconnect',
-    newTerminal: 'New Terminal'
+    newTerminal: 'New Terminal',
+    clearTerm: 'Clear Screen',
+    shrotenName: 'Shorten The Host Name',
+    fontsize: 'Fontsize',
+    largen: 'Largen',
+    smaller: 'Smaller'
   },
   term: {
     welcome: 'Welcome to use Chaterm'

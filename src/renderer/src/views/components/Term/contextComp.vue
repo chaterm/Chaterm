@@ -39,15 +39,12 @@
         >依据配置新建</v-contextmenu-item
       > -->
     <v-contextmenu-item @click="onContextMenuAction('close')">{{ $t('common.close') }}</v-contextmenu-item>
-    <!-- <v-contextmenu-submenu
-        title="拆分"
-        :disabled="true"
-      >
-        <v-contextmenu-item @click="onContextMenuAction('splitRight')">右侧</v-contextmenu-item>
-        <v-contextmenu-item @click="onContextMenuAction('splitDown')">向下</v-contextmenu-item>
-        <v-contextmenu-item @click="onContextMenuAction('splitLeft')">左侧</v-contextmenu-item>
-        <v-contextmenu-item @click="onContextMenuAction('splitUp')">向上</v-contextmenu-item>
-      </v-contextmenu-submenu> -->
+    <v-contextmenu-item @click="onContextMenuAction('clearTerm')">{{ $t('common.clearTerm') }}</v-contextmenu-item>
+    <v-contextmenu-item @click="onContextMenuAction('shrotenName')">{{ $t('common.shrotenName') }}</v-contextmenu-item>
+    <v-contextmenu-submenu :title="$t('common.fontsize')">
+      <v-contextmenu-item @click="onContextMenuAction('fontsizeLargen')">{{ $t('common.largen') }}</v-contextmenu-item>
+      <v-contextmenu-item @click="onContextMenuAction('fontsizeSmaller')">{{ $t('common.smaller') }}</v-contextmenu-item>
+    </v-contextmenu-submenu>
   </div>
 </template>
 
@@ -121,6 +118,18 @@ const onContextMenuAction = (action) => {
       break
     case 'splitUp':
       // 拆分-向上
+      break
+    case 'clearTerm':
+      emit('contextAct', 'clearTerm')
+      break
+    case 'shrotenName':
+      emit('contextAct', 'shrotenName')
+      break
+    case 'fontsizeLargen':
+      emit('contextAct', 'fontsizeLargen')
+      break
+    case 'fontsizeSmaller':
+      emit('contextAct', 'fontsizeSmaller')
       break
     default:
       // 未知操作
