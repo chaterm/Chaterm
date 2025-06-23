@@ -485,22 +485,6 @@ watch(isRightSectionVisible, (val) => {
     editingKeyChainId.value = null
   }
 })
-
-const testMain = async () => {
-  const api = window.api as any
-  try {
-    console.log('Calling api.executeRemoteCommandViaPreload from renderer')
-    const result = await api.executeRemoteCommandViaPreload()
-    console.log('Result from executeRemoteCommandViaPreload:', result)
-    if (result && result.success) {
-      console.log('Remote command output:', result.output)
-    } else {
-      console.error('Remote command failed:', result ? result.error : 'Unknown error')
-    }
-  } catch (error) {
-    console.error('Error calling executeRemoteCommandViaPreload:', error)
-  }
-}
 </script>
 
 <style lang="less" scoped>

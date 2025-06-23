@@ -28,7 +28,7 @@
 </template>
 
 <script setup lang="ts">
-import { defineProps, PropType } from 'vue'
+import { defineProps } from 'vue'
 
 interface CommandSuggestion {
   command: string
