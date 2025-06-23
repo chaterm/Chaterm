@@ -271,8 +271,35 @@ const openNewPanel = () => {
 // 显示右键菜单
 const showContextMenu = (event: MouseEvent, keyChain: KeyChainItem) => {
   event.preventDefault()
-  contextMenuPosition.x = event.clientX
-  contextMenuPosition.y = event.clientY
+
+  // 获取菜单的预估尺寸
+  const menuWidth = 160
+  const menuHeight = 120 // 预估高度，包含两个菜单项
+
+  // 获取视口尺寸
+  const viewportWidth = window.innerWidth
+  const viewportHeight = window.innerHeight
+
+  // 计算最佳位置，避免超出边界
+  let x = event.clientX
+  let y = event.clientY
+
+  // 水平方向边界检测
+  if (x + menuWidth > viewportWidth) {
+    x = viewportWidth - menuWidth - 10
+  }
+
+  // 垂直方向边界检测
+  if (y + menuHeight > viewportHeight) {
+    y = viewportHeight - menuHeight - 10
+  }
+
+  // 确保不会超出左上角边界
+  x = Math.max(10, x)
+  y = Math.max(10, y)
+
+  contextMenuPosition.x = x
+  contextMenuPosition.y = y
   selectedKeyChain.value = keyChain
   contextMenuVisible.value = true
 
@@ -480,11 +507,23 @@ onMounted(() => {
 
   // 添加全局点击事件监听
   document.addEventListener('click', handleDocumentClick)
+
+  // 添加键盘事件监听，支持ESC键关闭右键菜单
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape' && contextMenuVisible.value) {
+      contextMenuVisible.value = false
+    }
+  })
 })
 
 onBeforeUnmount(() => {
   // 移除全局事件监听
   document.removeEventListener('click', handleDocumentClick)
+  document.removeEventListener('keydown', (event) => {
+    if (event.key === 'Escape' && contextMenuVisible.value) {
+      contextMenuVisible.value = false
+    }
+  })
 })
 
 watch(isRightSectionVisible, (val) => {
@@ -828,4 +867,117 @@ const testMain = async () => {
 //     border-color: #40a9ff;
 //   }
 // }
+
+/* 右键菜单样式优化 */
+.context-menu {
+  position: fixed;
+  z-index: 1000;
+  background-color: rgba(44, 44, 44, 0.95);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 12px;
+  box-shadow:
+    0 8px 32px rgba(0, 0, 0, 0.4),
+    0 4px 16px rgba(0, 0, 0, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  min-width: 160px;
+  padding: 6px 0;
+  backdrop-filter: blur(20px);
+  animation: contextMenuFadeIn 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  overflow: hidden;
+}
+
+@keyframes contextMenuFadeIn {
+  from {
+    opacity: 0;
+    transform: scale(0.9) translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.context-menu-item {
+  display: flex;
+  align-items: center;
+  padding: 8px 16px;
+  cursor: pointer;
+  color: rgba(255, 255, 255, 0.85);
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  font-size: 14px;
+  font-weight: 500;
+  margin: 0 4px;
+  border-radius: 8px;
+
+  &:hover {
+    background-color: rgba(255, 255, 255, 0.1);
+    color: #ffffff;
+    transform: translateX(2px);
+
+    .context-menu-icon {
+      transform: scale(1.1);
+      color: #1890ff;
+    }
+  }
+
+  &:active {
+    background-color: rgba(255, 255, 255, 0.15);
+    transform: translateX(2px) scale(0.98);
+  }
+
+  &.delete {
+    color: #ff6b6b;
+
+    &:hover {
+      background-color: rgba(255, 107, 107, 0.15);
+      color: #ff8e8e;
+
+      .context-menu-icon {
+        color: #ff6b6b;
+      }
+    }
+
+    &:active {
+      background-color: rgba(255, 107, 107, 0.2);
+    }
+  }
+
+  /* 添加分隔线 */
+  &:not(:last-child)::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 20px;
+    right: 20px;
+    height: 1px;
+    background: linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.1) 50%, transparent 100%);
+  }
+}
+
+.context-menu-icon {
+  margin-right: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.context-menu-text {
+  flex: 1;
+  font-weight: 500;
+  letter-spacing: 0.3px;
+  user-select: none;
+}
+
+/* 确保右键菜单在边界内显示 */
+.context-menu {
+  max-width: calc(100vw - 20px);
+  max-height: calc(100vh - 20px);
+  overflow: hidden;
+}
 </style>
