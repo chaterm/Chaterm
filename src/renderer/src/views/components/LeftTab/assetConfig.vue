@@ -240,7 +240,7 @@
 </template>
 
 <script setup lang="ts">
-import { Modal, message } from 'ant-design-vue' // ← 引入 Modal
+import { Modal, message } from 'ant-design-vue'
 import type { SelectValue } from 'ant-design-vue/es/select'
 import { ref, onMounted, onBeforeUnmount, reactive, computed, watch } from 'vue'
 import 'xterm/css/xterm.css'
@@ -252,7 +252,6 @@ const { t } = i18n.global
 
 const isEditMode = ref(false)
 const editingAssetUUID = ref<string | null>(null)
-// 资产列表数据
 interface AssetNode {
   key: string
   title: string
@@ -315,16 +314,17 @@ const contextMenuPosition = reactive({ x: 0, y: 0 })
 const selectedHost = ref<AssetNode | null>(null)
 const selectedGroup = ref<AssetNode | null>(null)
 
-// 切换右侧面板
 const openNewPanel = () => {
   isEditMode.value = false
   editingAssetUUID.value = null
   resetForm()
   getAssetGroup()
+  if (createFrom.auth_type === 'keyBased') {
+    getkeyChainData()
+  }
   isRightSectionVisible.value = true
 }
 
-// 显示右键菜单
 const showContextMenu = (event: MouseEvent, host: AssetNode, group: AssetNode) => {
   event.preventDefault()
   contextMenuPosition.x = event.clientX
@@ -333,7 +333,6 @@ const showContextMenu = (event: MouseEvent, host: AssetNode, group: AssetNode) =
   selectedGroup.value = group
   contextMenuVisible.value = true
 
-  // 点击其他区域关闭菜单
   const closeMenu = () => {
     contextMenuVisible.value = false
     document.removeEventListener('click', closeMenu)
@@ -344,19 +343,15 @@ const showContextMenu = (event: MouseEvent, host: AssetNode, group: AssetNode) =
   }, 0)
 }
 
-// 处理卡片点击
 const handleCardClick = (host: AssetNode) => {
   console.log('Card clicked:', host)
-  // 这里可以添加连接逻辑
 }
 
-// 处理连接
 const handleConnect = (item) => {
   console.log('连接资产:', item)
   eventBus.emit('currentClickServer', item)
 }
 
-// 处理编辑
 const handleEdit = (host: AssetNode | null) => {
   if (!host) return
   isEditMode.value = true
@@ -368,7 +363,6 @@ const handleEdit = (host: AssetNode | null) => {
     keyChain = undefined
   }
 
-  // 填充表单
   Object.assign(createFrom, {
     username: host.username || '',
     password: host.password || '',
@@ -381,15 +375,14 @@ const handleEdit = (host: AssetNode | null) => {
   })
 
   getAssetGroup()
-  // 显示右侧面板
+  if (createFrom.auth_type === 'keyBased') {
+    getkeyChainData()
+  }
   isRightSectionVisible.value = true
 }
 
-// 处理删除
 const handleRemove = (host: AssetNode | null) => {
   if (!host || !host.uuid) return
-
-  // 确认删除
   Modal.confirm({
     title: t('personal.deleteConfirm'),
     content: t('personal.deleteConfirmContent', { name: host.title }),
@@ -416,7 +409,9 @@ const handleRemove = (host: AssetNode | null) => {
 }
 
 const authChange = () => {
-  getkeyChainData()
+  if (createFrom.auth_type === 'keyBased') {
+    getkeyChainData()
+  }
   if (createFrom.auth_type === 'password') {
     createFrom.keyChain = undefined
   } else {
@@ -426,7 +421,6 @@ const authChange = () => {
 
 const getkeyChainData = () => {
   const api = window.api as any
-
   api.getKeyChainSelect().then((res) => {
     keyChainOptions.value = res.data.keyChain
   })
@@ -462,7 +456,6 @@ const handleCreateAsset = async () => {
     const api = window.api as any
     const result = await api.createAsset({ form: cleanForm })
     if (result && result.data && result.data.message === 'success') {
-      // Reset form after successful creation
       Object.assign(createFrom, {
         username: '',
         password: '',
@@ -491,13 +484,11 @@ const handleCreateAsset = async () => {
 const handleSaveAsset = async () => {
   if (!editingAssetUUID.value) return message.error('缺少资产 ID')
 
-  // 处理group_name可能是数组的情况
   let groupName = createFrom.group_name
   if (Array.isArray(groupName) && groupName.length > 0) {
     groupName = groupName[0]
   }
 
-  // 处理keyChain可能为空的情况
   const keyChainValue: number | undefined = createFrom.keyChain
 
   const cleanForm = {
@@ -530,7 +521,6 @@ const handleSaveAsset = async () => {
   eventBus.emit('LocalAssetMenu')
 }
 
-// 获取资产列表
 const getAssetList = () => {
   window.api
     .getLocalAssetRoute({ searchType: 'assetConfig', params: [] })
@@ -545,7 +535,6 @@ const getAssetList = () => {
     .catch((err) => console.error(err))
 }
 
-// 过滤资产列表
 const filteredAssetGroups = computed(() => {
   if (!searchValue.value.trim()) return assetGroups.value
 
@@ -576,12 +565,8 @@ const filteredAssetGroups = computed(() => {
   return filterNodes(deepClone(assetGroups.value) as AssetNode[])
 })
 
-// 搜索处理
-const handleSearch = () => {
-  // 搜索逻辑已通过计算属性 filteredAssetGroups 实现
-}
+const handleSearch = () => {}
 
-// 点击页面关闭右键菜单
 const handleDocumentClick = () => {
   if (contextMenuVisible.value) {
     contextMenuVisible.value = false
@@ -591,17 +576,15 @@ const handleDocumentClick = () => {
 onMounted(() => {
   getAssetList()
   getkeyChainData()
-
-  // 添加全局点击事件监听
   document.addEventListener('click', handleDocumentClick)
+  eventBus.on('keyChainUpdated', () => {
+    getkeyChainData()
+  })
 })
 
 onBeforeUnmount(() => {
-  // 移除全局事件监听
   document.removeEventListener('click', handleDocumentClick)
-  document.removeEventListener('contextmenu', () => {
-    contextMenuVisible.value = false
-  })
+  eventBus.off('keyChainUpdated')
 })
 
 watch(isRightSectionVisible, (val) => {
@@ -611,6 +594,15 @@ watch(isRightSectionVisible, (val) => {
     editingAssetUUID.value = null
   }
 })
+
+watch(
+  () => createFrom.auth_type,
+  (newAuthType) => {
+    if (newAuthType === 'keyBased') {
+      getkeyChainData()
+    }
+  }
+)
 </script>
 
 <style lang="less" scoped>
@@ -773,7 +765,7 @@ watch(isRightSectionVisible, (val) => {
 
 .host-card:hover .edit-icon {
   opacity: 1;
-  pointer-events: auto; // 允许点击
+  pointer-events: auto;
 }
 
 .edit-icon:hover {
