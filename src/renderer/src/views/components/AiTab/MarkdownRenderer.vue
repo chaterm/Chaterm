@@ -600,6 +600,12 @@ const initCodeBlockEditors = () => {
       const container = codeEditors.value[index]
       if (!container || !monaco.editor) return
 
+      // 清理已存在的编辑器实例
+      const existingEditor = monaco.editor.getEditors().find((e) => e.getContainerDomNode() === container)
+      if (existingEditor) {
+        existingEditor.dispose()
+      }
+
       const editor = monaco.editor.create(container, {
         value: block.content,
         language: detectLanguage(block.content),
