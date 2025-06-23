@@ -49,7 +49,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, nextTick, onBeforeUnmount, defineProps, reactive } from 'vue'
+import { defineProps } from 'vue'
 const emit = defineEmits(['contextAct'])
 const props = defineProps({
   wsInstance: {
@@ -94,9 +94,6 @@ const onContextMenuAction = (action) => {
       break
     case 'newTerminal':
       emit('contextAct', 'newTerminal')
-      //   console.log(props.serverInfo, 'props.serverInfo.id')
-      //   emit('createNewTerm', props.serverInfo)
-      // 新终端
       break
     case 'newByConfig':
       // 依据配置新建
@@ -106,18 +103,6 @@ const onContextMenuAction = (action) => {
       //   socket.value.close()
       //   emit('closeTabInTerm', props.serverInfo.id)
       // 关闭
-      break
-    case 'splitRight':
-      // 拆分-右侧
-      break
-    case 'splitDown':
-      // 拆分-向下
-      break
-    case 'splitLeft':
-      // 拆分-左侧
-      break
-    case 'splitUp':
-      // 拆分-向上
       break
     case 'clearTerm':
       emit('contextAct', 'clearTerm')
@@ -132,7 +117,6 @@ const onContextMenuAction = (action) => {
       emit('contextAct', 'fontsizeSmaller')
       break
     default:
-      // 未知操作
       break
   }
 }
