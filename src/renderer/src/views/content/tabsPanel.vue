@@ -113,16 +113,14 @@ import SshConnect from '@views/components/sshConnect/sshConnect.vue'
 import Files from '@views/components/Files/index.vue'
 import eventBus from '@/utils/eventBus'
 
-// Define an interface for the tab items
 interface TabItem {
   id: string
   title: string
-  content: string // Corresponds to v-if conditions like 'demo', 'userInfo', etc.
-  type?: string // e.g., 'term'
-  organizationId?: string // e.g., 'personal'
+  content: string
+  type?: string
+  organizationId?: string
   ip?: string
-  data?: any // Data passed to SshConnect or Term
-  // Add other properties if they exist on tab objects
+  data?: any
 }
 
 const props = defineProps({
@@ -147,16 +145,13 @@ const localTabs = computed({
   }
 })
 
-// 监听标签页变化
 watch(
   () => props.activeTab,
   (newTabId) => {
     if (newTabId) {
       const activeTab = props.tabs.find((tab) => tab.id === newTabId)
       if (activeTab) {
-        // 使用 eventBus 发送事件
         eventBus.emit('activeTabChanged', activeTab)
-        // 自动聚焦到终端
         nextTick(() => {
           const termInstance = termRefMap.value[newTabId]
           const sshInstance = sshConnectRefMap.value[newTabId]
@@ -184,7 +179,6 @@ const sshConnectRefMap = ref<Record<string, any>>({})
 
 const setTermRef = (el: Element | ComponentPublicInstance | null, tabId: string) => {
   if (el && '$props' in el) {
-    // Check if el is a ComponentPublicInstance
     termRefMap.value[tabId] = el as ComponentPublicInstance & {
       handleResize: () => void
       autoExecuteCode: (cmd: string) => void
@@ -197,7 +191,6 @@ const setTermRef = (el: Element | ComponentPublicInstance | null, tabId: string)
 
 const setSshConnectRef = (el: Element | ComponentPublicInstance | null, tabId: string) => {
   if (el && '$props' in el) {
-    // Check if el is a ComponentPublicInstance
     sshConnectRefMap.value[tabId] = el as ComponentPublicInstance & {
       getTerminalBufferContent: () => string | null
     }
@@ -207,7 +200,6 @@ const setSshConnectRef = (el: Element | ComponentPublicInstance | null, tabId: s
 }
 
 const resizeTerm = (termid: string = '') => {
-  // Added type for termid
   if (termid) {
     setTimeout(() => {
       if (termRefMap.value[termid]) {
@@ -258,22 +250,16 @@ const contextMenu = ref({
 
 const showContextMenu = (event: MouseEvent, tab: TabItem) => {
   event.preventDefault()
-
-  // 计算菜单位置，确保不超出屏幕边界
   const menuWidth = 120
-  const menuHeight = 160 // 增加菜单高度，因为添加了新的菜单项
+  const menuHeight = 160
   const screenWidth = window.innerWidth
   const screenHeight = window.innerHeight
 
   let x = event.clientX
   let y = event.clientY
-
-  // 如果菜单会超出右边界，则向左偏移
   if (x + menuWidth > screenWidth) {
     x = screenWidth - menuWidth - 10
   }
-
-  // 如果菜单会超出下边界，则向上偏移
   if (y + menuHeight > screenHeight) {
     y = screenHeight - menuHeight - 10
   }
@@ -283,7 +269,6 @@ const showContextMenu = (event: MouseEvent, tab: TabItem) => {
   contextMenu.value.y = y
   contextMenu.value.targetTab = tab
 
-  // 添加全局点击事件监听器来关闭菜单
   setTimeout(() => {
     document.addEventListener('click', hideContextMenu, { once: true })
   }, 0)
@@ -301,7 +286,6 @@ const closeCurrentTab = () => {
 }
 
 const closeOtherTabs = () => {
-  // 关闭除了当前标签页之外的所有标签页
   if (!contextMenu.value.targetTab) return
   const tabsToClose = props.tabs.filter((tab) => tab.id !== contextMenu.value.targetTab?.id)
   tabsToClose.forEach((tab) => {
@@ -311,20 +295,17 @@ const closeOtherTabs = () => {
 }
 
 const closeAllTabs = () => {
-  // 关闭所有标签页 - 使用批量关闭事件
   emit('close-all-tabs')
   hideContextMenu()
 }
 
 const splitRight = () => {
-  // 获取当前活动的标签页
   const currentTab = contextMenu.value.targetTab
   if (!currentTab) {
     hideContextMenu()
     return
   }
 
-  // 复制当前标签页的配置，创建新的标签页
   const newTabInfo = {
     title: `${currentTab.title}`,
     content: currentTab.content,
@@ -334,7 +315,6 @@ const splitRight = () => {
     data: currentTab.data
   }
 
-  // 通过事件总线发送创建新标签页的请求
   eventBus.emit('createSplitTab', newTabInfo)
   hideContextMenu()
 }
