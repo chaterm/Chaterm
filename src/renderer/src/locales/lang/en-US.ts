@@ -31,7 +31,8 @@ export default {
     paste: 'Paste',
     disconnect: 'Disconnect',
     reconnect: 'Reconnect',
-    newTerminal: 'New Terminal'
+    newTerminal: 'New Terminal',
+    splitRight: 'Split Right'
   },
   term: {
     welcome: 'Welcome to use Chaterm'
@@ -228,7 +229,8 @@ export default {
     processing: 'processing...',
     searchHistoryPH: 'Please Input',
     loading: 'loading...',
-    loadMore: 'load more'
+    loadMore: 'load more',
+    copyToClipboard: 'Copy to clipboard'
   },
   keyChain: {
     newKey: 'New Key',
