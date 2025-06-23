@@ -433,6 +433,18 @@ const initEditor = (content: string) => {
     // 清除初始选中状态
     editor.setSelection(new monaco.Selection(0, 0, 0, 0))
 
+    // 监听内容变化并更新配置
+    editor.onDidChangeModelContent(() => {
+      if (!editor) return
+      const model = editor.getModel()
+      if (model) {
+        const currentLines = model.getLineCount()
+        editor.updateOptions({
+          lineNumbers: currentLines > 1 ? 'on' : 'off'
+        })
+      }
+    })
+
     // 更新行数和折叠状态
     const updateLinesAndCollapse = () => {
       if (!editor) return
@@ -650,6 +662,17 @@ const initCodeBlockEditors = () => {
 
       // 清除初始选中状态
       editor.setSelection(new monaco.Selection(0, 0, 0, 0))
+
+      // 监听内容变化并更新配置
+      editor.onDidChangeModelContent(() => {
+        const model = editor.getModel()
+        if (model) {
+          const currentLines = model.getLineCount()
+          editor.updateOptions({
+            lineNumbers: currentLines > 1 ? 'on' : 'off'
+          })
+        }
+      })
 
       // Update height
       const updateHeight = () => {
