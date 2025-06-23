@@ -435,7 +435,7 @@ import {
 import { notification } from 'ant-design-vue'
 import { v4 as uuidv4 } from 'uuid'
 import eventBus from '@/utils/eventBus'
-import { getGlobalState, updateGlobalState } from '@renderer/agent/storage/state'
+import { getGlobalState, updateGlobalState, getSecret } from '@renderer/agent/storage/state'
 import type { HistoryItem, TaskHistoryItem, Host, ChatMessage, MessageContent, AssetInfo } from './types'
 import { createNewMessage, parseMessageContent, truncateText, formatHosts } from './utils'
 import foldIcon from '@/assets/icons/fold.svg'
@@ -444,13 +444,14 @@ import plusIcon from '@/assets/icons/plus.svg'
 import sendIcon from '@/assets/icons/send.svg'
 import { useCurrentCwdStore } from '@/store/currentCwdStore'
 import { getassetMenu } from '@/api/asset/asset'
-import { aiModelOptions, litellmAiModelOptions, deepseekAiModelOptions } from '@views/components/LeftTab/components/aiOptions'
+import { aiModelOptions, deepseekAiModelOptions } from '@views/components/LeftTab/components/aiOptions'
 import debounce from 'lodash/debounce'
 import i18n from '@/locales'
+
 const { t } = i18n.global
 const MarkdownRenderer = defineAsyncComponent(() => import('@views/components/AiTab/MarkdownRenderer.vue'))
 
-import { ChatermMessage } from 'src/main/agent/shared/ExtensionMessage'
+import { ChatermMessage } from '../../../main/agent/shared/ExtensionMessage'
 
 // 定义事件类型
 interface TabInfo {
@@ -503,7 +504,7 @@ const props = defineProps({
   }
 })
 
-let AgentAiModelsOptions = [
+const AgentAiModelsOptions = ref([
   { label: 'claude-4-sonnet', value: 'claude-4-sonnet' },
   { label: 'claude-4-haiku', value: 'claude-4-haiku' },
   { label: 'claude-3-7-sonnet', value: 'claude-3-7-sonnet' },
@@ -514,7 +515,7 @@ let AgentAiModelsOptions = [
   { label: 'claude-3-5-haiku', value: 'claude-3-5-haiku' },
   { label: 'claude-3-opus-20240229', value: 'claude-3-opus-20240229' },
   { label: 'claude-3-5-opus', value: 'claude-3-5-opus' }
-]
+])
 const AiTypeOptions = [
   { label: 'Chat', value: 'chat' },
   { label: 'Command', value: 'cmd' },
@@ -602,30 +603,32 @@ const handleTabChange = (key: string | number) => {
   currentChatId.value = historyList.value.find((item) => item.chatType === key)?.id || null
 }
 
+const isEmptyValue = (value) => value === undefined || value === ''
+
 const checkModelConfig = async () => {
   const apiProvider = await getGlobalState('apiProvider')
   switch (apiProvider) {
     case 'bedrock':
-      const awsAccessKey = await getGlobalState('awsAccessKey')
-      const awsSecretKey = await getGlobalState('awsSecretKey')
+      const awsAccessKey = await getSecret('awsAccessKey')
+      const awsSecretKey = await getSecret('awsSecretKey')
       const awsRegion = await getGlobalState('awsRegion')
       const apiModelId = await getGlobalState('apiModelId')
-      if (apiModelId == '' || awsAccessKey == '' || awsSecretKey == '' || awsRegion == '') {
+      if (isEmptyValue(apiModelId) || isEmptyValue(awsAccessKey) || isEmptyValue(awsSecretKey) || isEmptyValue(awsRegion)) {
         return false
       }
       break
     case 'litellm':
       const liteLlmBaseUrl = await getGlobalState('liteLlmBaseUrl')
-      const liteLlmApiKey = await getGlobalState('liteLlmApiKey')
+      const liteLlmApiKey = await getSecret('liteLlmApiKey')
       const liteLlmModelId = await getGlobalState('liteLlmModelId')
-      if (liteLlmBaseUrl == '' || liteLlmApiKey == '' || liteLlmModelId == '') {
+      if (isEmptyValue(liteLlmBaseUrl) || isEmptyValue(liteLlmApiKey) || isEmptyValue(liteLlmModelId)) {
         return false
       }
       break
     case 'deepseek':
-      const deepSeekApiKey = await getGlobalState('deepSeekApiKey')
+      const deepSeekApiKey = await getSecret('deepSeekApiKey')
       const apiModelIdDeepSeek = await getGlobalState('apiModelId')
-      if (deepSeekApiKey == '' || apiModelIdDeepSeek == '') {
+      if (isEmptyValue(deepSeekApiKey) || isEmptyValue(apiModelIdDeepSeek)) {
         return false
       }
       break
@@ -1110,22 +1113,20 @@ const changeModel = debounce(async (newValue) => {
     switch (apiProvider) {
       case 'bedrock':
         chatAiModelValue.value = newValue?.[1]
-        AgentAiModelsOptions = aiModelOptions
+        AgentAiModelsOptions.value = aiModelOptions
         break
       case 'litellm':
         chatAiModelValue.value = newValue?.[2]
-        const exists = litellmAiModelOptions.findIndex((option) => option.value === newValue?.[2]) !== -1
-        if (!exists && newValue?.[2]) {
-          litellmAiModelOptions.push({
+        AgentAiModelsOptions.value = [
+          {
             value: newValue?.[2],
             label: newValue?.[2]
-          })
-        }
-        AgentAiModelsOptions = litellmAiModelOptions
+          }
+        ]
         break
       case 'deepseek':
         chatAiModelValue.value = newValue?.[1]
-        AgentAiModelsOptions = deepseekAiModelOptions
+        AgentAiModelsOptions.value = deepseekAiModelOptions
         break
     }
   } else {
@@ -1133,22 +1134,20 @@ const changeModel = debounce(async (newValue) => {
     switch (apiProvider) {
       case 'bedrock':
         chatAiModelValue.value = (await getGlobalState('apiModelId')) as string
-        AgentAiModelsOptions = aiModelOptions
+        AgentAiModelsOptions.value = aiModelOptions
         break
       case 'litellm':
         chatAiModelValue.value = (await getGlobalState('liteLlmModelId')) as string
-        const exists = litellmAiModelOptions.findIndex((option) => option.value === chatAiModelValue.value) !== -1
-        if (!exists && chatAiModelValue.value) {
-          litellmAiModelOptions.push({
+        AgentAiModelsOptions.value = [
+          {
             value: chatAiModelValue.value,
             label: chatAiModelValue.value
-          })
-        }
-        AgentAiModelsOptions = litellmAiModelOptions
+          }
+        ]
         break
       case 'deepseek':
         chatAiModelValue.value = (await getGlobalState('apiModelId')) as string
-        AgentAiModelsOptions = deepseekAiModelOptions
+        AgentAiModelsOptions.value = deepseekAiModelOptions
         break
     }
   }
@@ -1181,6 +1180,7 @@ onMounted(async () => {
 
   // 添加事件监听
   eventBus.on('SettingModelChanged', async (newValue) => {
+    console.log('[newValue]', newValue)
     await changeModel(newValue)
   })
 
@@ -1520,7 +1520,7 @@ const editHistory = async (history) => {
 
   // 等待DOM更新后聚焦输入框
   await nextTick()
-  const input = document.querySelector('.history-title-input input')
+  const input = document.querySelector('.history-title-input input') as HTMLInputElement
   if (input) {
     input.focus()
     input.select()
@@ -2119,29 +2119,30 @@ const cancelEdit = async (history) => {
   max-height: none;
   overflow: visible;
   padding: 4px;
-  background-color: #2a2a2a;
+  background-color: #1f1f1f;
   border: 1px solid #3a3a3a;
   border-radius: 8px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
   width: 280px !important; // 添加固定宽度
 
   .history-search-container {
-    padding: 4px;
-    border-bottom: 1px solid #3a3a3a;
-    margin-bottom: 4px;
+    display: flex;
+    gap: 10px;
+    :deep(.ant-input-affix-wrapper) {
+      border-color: rgba(255, 255, 255, 0.1);
+      box-shadow: none;
+    }
   }
 
   .history-search-input {
     width: 100%;
     background-color: #1f1f1f !important;
-    border: 1px solid #3a3a3a !important;
 
     :deep(.ant-input) {
       background-color: #1f1f1f !important;
       border: none !important;
-      color: #e0e0e0 !important;
-      font-size: 12px !important;
-
+      color: rgba(255, 255, 255, 0.65) !important;
+      height: 20px !important;
       &::placeholder {
         color: #666 !important;
       }
@@ -2149,7 +2150,6 @@ const cancelEdit = async (history) => {
 
     :deep(.ant-input-clear-icon) {
       color: #666;
-
       &:hover {
         color: #999;
       }
@@ -2233,7 +2233,7 @@ const cancelEdit = async (history) => {
   }
 
   .history-title {
-    color: #e0e0e0;
+    color: rgba(255, 255, 255, 0.65);
     font-size: 12px;
     font-weight: 500;
     white-space: nowrap;
@@ -2533,7 +2533,7 @@ const cancelEdit = async (history) => {
   background: none !important;
   border: none !important;
   box-shadow: none !important;
-  color: #fff !important;
+  color: rgba(255, 255, 255, 0.65) !important;
   padding: 0 2px;
   min-width: 0;
   height: 16px;

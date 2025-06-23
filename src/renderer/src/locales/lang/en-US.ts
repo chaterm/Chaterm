@@ -84,7 +84,7 @@ export default {
     ai: 'AI',
     keychain: 'Keychain',
     textEditor: 'Text editor',
-    commandLineOpen: 'Command line open',
+    visualVimEditor: 'Visual Vim Editor',
     fileManagerPlugin: 'File manager plugin',
     fileManagerPluginDescribe: 'Open the file manager by right clicking with the mouse',
     cursorStyleBlock: 'Block',
@@ -168,7 +168,7 @@ export default {
     warning: 'Warning',
     missingAliasCommand: 'Missing alias or command!',
     aliasAlreadyExists: 'Alias already exists！',
-    AddCommand: 'Add Command'
+    addCommand: 'Add Command'
   },
   personal: {
     host: 'Host',

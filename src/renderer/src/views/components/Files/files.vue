@@ -89,7 +89,7 @@ import { ReloadOutlined, FolderFilled, LinkOutlined, FileFilled } from '@ant-des
 import { termFileLs } from '@/api/term/term'
 import { encrypt } from '@/utils/util.js'
 import { notification } from 'ant-design-vue'
-import { defineEmits } from 'vue/dist/vue'
+import { defineEmits } from 'vue'
 import { ColumnsType } from 'ant-design-vue/es/table'
 
 const emit = defineEmits(['openFile'])

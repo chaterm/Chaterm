@@ -33,7 +33,7 @@
         <!-- <div v-if="userConfig.vimStatus"> -->
         <!-- <a-form-item>
             <template #label>
-              <span style="font-weight: 1000; margin-right: 10px; margin-left: 10px">|</span>{{ $t('user.commandLineOpen') }}
+              <span style="font-weight: 1000; margin-right: 10px; margin-left: 10px">|</span>{{ $t('user.visualVimEditor') }}
             </template>
             <a-switch
               :checked="userConfig.quickVimStatus === 1"
@@ -83,7 +83,7 @@
 
         <a-form-item>
           <template #label>
-            {{ $t('user.commandLineOpen') }}
+            {{ $t('user.visualVimEditor') }}
           </template>
           <a-switch
             :checked="userConfig.quickVimStatus === 1"
@@ -119,7 +119,7 @@
 <script setup>
 import { ref, onMounted, watch } from 'vue'
 import 'xterm/css/xterm.css'
-import { QuestionCircleOutlined } from '@ant-design/icons-vue'
+// import { QuestionCircleOutlined } from '@ant-design/icons-vue'
 import { notification } from 'ant-design-vue'
 import { userConfigStore } from '@/services/userConfigStoreService'
 
@@ -132,7 +132,7 @@ const userConfig = ref({
   highlightStatus: 2
 })
 
-const isProcessing = ref(false)
+// const isProcessing = ref(false)
 
 // 加载保存的配置
 const loadSavedConfig = async () => {
@@ -203,26 +203,26 @@ const handleSwitchChange = (value) => {
   userConfig.value.quickVimStatus = value ? 1 : 2
 }
 
-const handleAction = () => {
-  if (isProcessing.value) return
-  isProcessing.value = true
-  setTimeout(() => {
-    if (userConfig.value.commonVimStatus === 1) {
-      uninstall()
-    } else {
-      install()
-    }
-    isProcessing.value = false
-  }, 1000)
-}
+// const handleAction = () => {
+//   if (isProcessing.value) return
+//   isProcessing.value = true
+//   setTimeout(() => {
+//     if (userConfig.value.commonVimStatus === 1) {
+//       uninstall()
+//     } else {
+//       install()
+//     }
+//     isProcessing.value = false
+//   }, 1000)
+// }
 
-const install = () => {
-  userConfig.value.commonVimStatus = 1
-}
+// const install = () => {
+//   userConfig.value.commonVimStatus = 1
+// }
 
-const uninstall = () => {
-  userConfig.value.commonVimStatus = 2
-}
+// const uninstall = () => {
+//   userConfig.value.commonVimStatus = 2
+// }
 </script>
 
 <style scoped>
@@ -266,6 +266,11 @@ const uninstall = () => {
 /* 设置表单标签(label)的字体颜色 */
 .custom-form :deep(.ant-form-item-label > label) {
   color: #ffffff;
+}
+
+/* 统一设置所有表单项的行间距 */
+.custom-form :deep(.ant-form-item) {
+  margin-bottom: 14px !important;
 }
 
 /* 设置表单输入框的字体颜色 */
@@ -347,14 +352,8 @@ const uninstall = () => {
   list-style: none;
   -webkit-font-feature-settings: 'tnum';
   font-feature-settings: 'tnum';
-  margin-bottom: 14px;
-  margin-bottom: 14px;
   vertical-align: top;
   color: #ffffff;
-}
-
-.user_my-ant-form-item-content {
-  /* //background-color: #4a4a4a; */
 }
 
 .user_avatar {
