@@ -33,7 +33,12 @@ export default {
     disconnect: '断开连接',
     reconnect: '重新连接',
     newTerminal: '新终端',
-    splitRight: '向右分屏'
+    splitRight: '向右分屏',
+    clearTerm: '清屏',
+    shrotenName: '缩短主机名',
+    fontsize: '字体大小',
+    largen: '放大',
+    smaller: '缩小'
   },
   term: {
     welcome: '欢迎使用智能堡垒机Chaterm'

@@ -905,8 +905,31 @@ const contextAct = (action) => {
       emit('closeTabInTerm', props.serverInfo.id)
       break
     default:
-      // 未知操作
+    case 'clearTerm':
+      // 关闭
+      // socket.value.close()
+      term.value?.clear()
       break
+    case 'shrotenName':
+      // 关闭
+      // socket.value.close()
+      socket.value.send(JSON.stringify({ terminalId, msgType: 'TERMINAL_DATA', data: 'export PS1="[\\u@\\W]\\$"' }))
+      socket.value.send(JSON.stringify({ terminalId, msgType: 'TERMINAL_DATA', data: '\r' }))
+      term.value.focus()
+      // sendData('export PS1="[\\u@\\W]\\$"')
+      // sendData('\r')
+      break
+    case 'fontsizeLargen':
+      if (term.value?.options) {
+        term.value.options.fontSize = (term.value.options.fontSize ?? 12) + 1
+      }
+      break
+    case 'fontsizeSmaller':
+      if (term.value?.options) {
+        term.value.options.fontSize = (term.value.options.fontSize ?? 12) - 1
+      }
+      break
+    // 未知操作
   }
 }
 const hideSelectionButton = () => {

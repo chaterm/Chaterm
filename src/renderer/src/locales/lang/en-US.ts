@@ -32,7 +32,12 @@ export default {
     disconnect: 'Disconnect',
     reconnect: 'Reconnect',
     newTerminal: 'New Terminal',
-    splitRight: 'Split Right'
+    splitRight: 'Split Right',
+    clearTerm: 'Clear Screen',
+    shrotenName: 'Shorten The Host Name',
+    fontsize: 'Fontsize',
+    largen: 'Largen',
+    smaller: 'Smaller'
   },
   term: {
     welcome: 'Welcome to use Chaterm'
