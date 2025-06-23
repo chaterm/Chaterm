@@ -75,7 +75,7 @@
             @close-tab-in-term="closeTab"
             @create-new-term="createNewTerm"
           />
-          <SshConnect
+          <sshConnect
             v-if="tab.content === 'demo' || tab.organizationId === 'personal'"
             :ref="(el) => setSshConnectRef(el, tab.id)"
             :server-info="tab"
@@ -109,7 +109,7 @@ import userConfig from '@views/components/LeftTab/userConfig.vue'
 import assetConfig from '@views/components/LeftTab/assetConfig.vue'
 import aliasConfig from '@views/components/Extensions/aliasConfig.vue'
 import keyChainConfig from '@views/components/LeftTab/keyChainConfig.vue'
-import SshConnect from '@views/components/Ssh/sshConnect.vue'
+import sshConnect from '@views/components/Ssh/sshConnect.vue'
 import Files from '@views/components/Files/index.vue'
 import eventBus from '@/utils/eventBus'
 
@@ -222,8 +222,8 @@ async function getTerminalOutputContent(tabId: string): Promise<string | null> {
       const output = await sshConnectInstance.getTerminalBufferContent()
       return output
     } catch (error: any) {
-      console.error(`Error getting terminal output from SshConnect for tab ${tabId}:`, error)
-      return 'Error retrieving output from SshConnect component.'
+      console.error(`Error getting terminal output from sshConnect for tab ${tabId}:`, error)
+      return 'Error retrieving output from sshConnect component.'
     }
   } else {
     const termInstance = termRefMap.value[tabId]
