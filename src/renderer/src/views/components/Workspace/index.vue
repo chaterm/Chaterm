@@ -192,6 +192,7 @@
 
 <script setup lang="ts">
 interface ApiType {
+  queryCommand: (data: { command: string; ip: string }) => Promise<any>
   insertCommand: (data: { command: string; ip: string }) => Promise<any>
   getLocalAssetRoute: (data: { searchType: string; params?: any[] }) => Promise<any>
   updateLocalAssetLabel: (data: { uuid: string; label: string }) => Promise<any>
