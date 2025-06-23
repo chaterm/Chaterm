@@ -17,6 +17,7 @@ export interface AppEvents {
   chatToAi: any
   toggleMenu: any
   updateWatermark: string // 更新水印状态
+  keyChainUpdated: void // 密钥更新事件，用于同步主机配置中的密钥选项
   // 可扩展更多事件
   [key: string | symbol]: any
 }

@@ -184,6 +184,7 @@ import { Modal, message } from 'ant-design-vue'
 import { EditOutlined, DeleteOutlined, ToTopOutlined, SearchOutlined } from '@ant-design/icons-vue'
 import keyIcon from '@/assets/menu/key.svg'
 import i18n from '@/locales'
+import eventBus from '@/utils/eventBus'
 const { t } = i18n.global
 
 interface KeyChainItem {
@@ -195,9 +196,6 @@ interface KeyChainItem {
   passphrase?: string
 }
 
-// 注意：这里我们不重新定义全局接口，而是使用类型断言
-
-// 状态变量
 const keyChainList = ref<KeyChainItem[]>([])
 const searchValue = ref('')
 const isRightSectionVisible = ref(false)
@@ -207,7 +205,6 @@ const contextMenuVisible = ref(false)
 const contextMenuPosition = reactive({ x: 0, y: 0 })
 const selectedKeyChain = ref<KeyChainItem | null>(null)
 
-// 表单数据
 interface CreateFormType {
   label: string
   privateKey: string
@@ -224,7 +221,6 @@ const createForm = reactive<CreateFormType>({
   passphrase: ''
 })
 
-// 重置表单
 const resetForm = () => {
   Object.assign(createForm, {
     label: '',
@@ -235,7 +231,6 @@ const resetForm = () => {
   })
 }
 
-// 过滤密钥列表
 const filteredKeyChainList = computed(() => {
   if (!searchValue.value.trim()) return keyChainList.value
 
@@ -245,10 +240,8 @@ const filteredKeyChainList = computed(() => {
   )
 })
 
-// 获取秘钥列表
 const fetchKeyChainList = async () => {
   try {
-    // 使用类型断言
     const api = window.api as any
     const result = await api.getKeyChainList()
     if (result && result.data && result.data.keyChain) {
@@ -260,7 +253,6 @@ const fetchKeyChainList = async () => {
   }
 }
 
-// 打开新建面板
 const openNewPanel = () => {
   isEditMode.value = false
   editingKeyChainId.value = null
@@ -268,33 +260,20 @@ const openNewPanel = () => {
   isRightSectionVisible.value = true
 }
 
-// 显示右键菜单
 const showContextMenu = (event: MouseEvent, keyChain: KeyChainItem) => {
   event.preventDefault()
-
-  // 获取菜单的预估尺寸
   const menuWidth = 160
-  const menuHeight = 120 // 预估高度，包含两个菜单项
-
-  // 获取视口尺寸
+  const menuHeight = 120
   const viewportWidth = window.innerWidth
   const viewportHeight = window.innerHeight
-
-  // 计算最佳位置，避免超出边界
   let x = event.clientX
   let y = event.clientY
-
-  // 水平方向边界检测
   if (x + menuWidth > viewportWidth) {
     x = viewportWidth - menuWidth - 10
   }
-
-  // 垂直方向边界检测
   if (y + menuHeight > viewportHeight) {
     y = viewportHeight - menuHeight - 10
   }
-
-  // 确保不会超出左上角边界
   x = Math.max(10, x)
   y = Math.max(10, y)
 
@@ -302,8 +281,6 @@ const showContextMenu = (event: MouseEvent, keyChain: KeyChainItem) => {
   contextMenuPosition.y = y
   selectedKeyChain.value = keyChain
   contextMenuVisible.value = true
-
-  // 点击其他区域关闭菜单
   const closeMenu = () => {
     contextMenuVisible.value = false
     document.removeEventListener('click', closeMenu)
@@ -316,7 +293,6 @@ const showContextMenu = (event: MouseEvent, keyChain: KeyChainItem) => {
 
 const handleCardClick = (keyChain: KeyChainItem) => {
   console.log('Card clicked:', keyChain)
-  // 这里可以添加连接逻辑
 }
 
 const handleEdit = async (keyChain: KeyChainItem | null) => {
@@ -332,7 +308,6 @@ const handleEdit = async (keyChain: KeyChainItem | null) => {
   console.log('sss')
   console.log(keyChain)
 
-  // 填充表单
   Object.assign(createForm, {
     label: keyChain.chain_name || '',
     privateKey: keyChain.private_key || '',
@@ -340,15 +315,12 @@ const handleEdit = async (keyChain: KeyChainItem | null) => {
     type: keyChain.chain_type || 'RSA',
     passphrase: keyChain.passphrase || ''
   })
-  // 显示右侧面板
   isRightSectionVisible.value = true
 }
 
-// 处理删除
 const handleRemove = (keyChain: KeyChainItem | null) => {
   if (!keyChain) return
 
-  // 确认删除
   Modal.confirm({
     title: t('keyChain.deleteConfirm'),
     content: t('keyChain.deleteConfirmContent', { name: keyChain.chain_name }),
@@ -364,6 +336,7 @@ const handleRemove = (keyChain: KeyChainItem | null) => {
           if (res?.data?.message === 'success') {
             message.success(t('keyChain.deleteSuccess', { name: keyChain.chain_name }))
             fetchKeyChainList()
+            eventBus.emit('keyChainUpdated')
           } else {
             message.error(t('keyChain.deleteFailure'))
           }
@@ -378,20 +351,15 @@ const handleRemove = (keyChain: KeyChainItem | null) => {
   })
 }
 
-// 创建密钥
 const handleCreateKeyChain = async () => {
   try {
-    // 验证表单
     if (!createForm.label) {
       return message.error('请输入标签名称')
     }
     if (!createForm.privateKey) {
       return message.error('请输入私钥')
     }
-
-    // 使用类型断言
     const api = window.api as any
-    // 创建密钥
     if (api.createKeyChain) {
       const cleanForm = {
         chain_name: createForm.label,
@@ -407,6 +375,7 @@ const handleCreateKeyChain = async () => {
         message.success('创建成功')
         isRightSectionVisible.value = false
         fetchKeyChainList()
+        eventBus.emit('keyChainUpdated')
       } else {
         throw new Error('创建失败')
       }
@@ -416,12 +385,10 @@ const handleCreateKeyChain = async () => {
   }
 }
 
-// 更新密钥
 const handleUpdateKeyChain = async () => {
   if (!editingKeyChainId.value) return message.error('缺少密钥 ID')
 
   try {
-    // 验证表单
     if (!createForm.label) {
       return message.error('请输入标签名称')
     }
@@ -429,7 +396,6 @@ const handleUpdateKeyChain = async () => {
       return message.error('请输入私钥')
     }
 
-    // 使用类型断言
     const api = window.api as any
     if (api.updateKeyChain) {
       const cleanForm = {
@@ -447,6 +413,7 @@ const handleUpdateKeyChain = async () => {
         message.success('保存成功')
         isRightSectionVisible.value = false
         fetchKeyChainList()
+        eventBus.emit('keyChainUpdated')
       } else {
         throw new Error('保存失败')
       }
@@ -458,12 +425,8 @@ const handleUpdateKeyChain = async () => {
   }
 }
 
-// 搜索处理
-const handleSearch = () => {
-  // 搜索逻辑已通过计算属性 filteredKeyChainList 实现
-}
+const handleSearch = () => {}
 
-// 点击页面关闭右键菜单
 const handleDocumentClick = () => {
   if (contextMenuVisible.value) {
     contextMenuVisible.value = false
@@ -471,24 +434,19 @@ const handleDocumentClick = () => {
 }
 
 function detectKeyType(privateKey = '', publicKey = ''): 'RSA' | 'ED25519' | 'ECDSA' {
-  // 1. 先看 public key
   if (publicKey.trim()) {
-    const algo = publicKey.trim().split(/\s+/)[0] // 取第一段
+    const algo = publicKey.trim().split(/\s+/)[0]
     if (algo === 'ssh-ed25519') return 'ED25519'
     if (algo === 'ssh-rsa') return 'RSA'
     if (algo.startsWith('ecdsa-')) return 'ECDSA'
   }
 
-  // 2. 再看 private key PEM 头
   if (privateKey.includes('BEGIN RSA PRIVATE KEY')) return 'RSA'
   if (privateKey.includes('BEGIN EC PRIVATE KEY')) return 'ECDSA'
 
-  // 3. OpenSSH 私钥（新的统一格式）
   if (privateKey.includes('BEGIN OPENSSH PRIVATE KEY')) {
     try {
-      // 去掉头尾、换行和空格，得到纯 Base64
       const body = privateKey.replace(/-----(BEGIN|END)[\s\S]+?KEY-----/g, '').replace(/\s+/g, '')
-      // 解码看看里面出现谁
       const decoded = atob(body)
       if (decoded.includes('ssh-ed25519')) return 'ED25519'
       if (decoded.includes('ssh-rsa')) return 'RSA'
@@ -498,17 +456,12 @@ function detectKeyType(privateKey = '', publicKey = ''): 'RSA' | 'ED25519' | 'EC
     }
   }
 
-  // 4. 兜底：默认 RSA
   return 'RSA'
 }
 
 onMounted(() => {
   fetchKeyChainList()
-
-  // 添加全局点击事件监听
   document.addEventListener('click', handleDocumentClick)
-
-  // 添加键盘事件监听，支持ESC键关闭右键菜单
   document.addEventListener('keydown', (event) => {
     if (event.key === 'Escape' && contextMenuVisible.value) {
       contextMenuVisible.value = false
@@ -517,7 +470,6 @@ onMounted(() => {
 })
 
 onBeforeUnmount(() => {
-  // 移除全局事件监听
   document.removeEventListener('click', handleDocumentClick)
   document.removeEventListener('keydown', (event) => {
     if (event.key === 'Escape' && contextMenuVisible.value) {
@@ -536,21 +488,17 @@ watch(isRightSectionVisible, (val) => {
 
 const testMain = async () => {
   const api = window.api as any
-  // api.testMain() // 旧的调用
   try {
     console.log('Calling api.executeRemoteCommandViaPreload from renderer')
     const result = await api.executeRemoteCommandViaPreload()
     console.log('Result from executeRemoteCommandViaPreload:', result)
     if (result && result.success) {
       console.log('Remote command output:', result.output)
-      // 在这里处理成功的输出
     } else {
       console.error('Remote command failed:', result ? result.error : 'Unknown error')
-      // 在这里处理错误
     }
   } catch (error) {
     console.error('Error calling executeRemoteCommandViaPreload:', error)
-    // 在这里处理调用本身的错误
   }
 }
 </script>
@@ -831,19 +779,6 @@ const testMain = async () => {
   }
 }
 
-// .header-container {
-//   display: flex;
-//   // justify-content: space-between;
-//   flex: 1 auto;
-//   width: 60%;
-//   align-items: center;
-//   position: absolute;
-//   top: 10px;
-//   left: 15px;
-//   right: 15px;
-//   z-index: 10;
-// }
-
 .toggle-btn {
   flex: 0 0 auto;
   margin-left: 10px;
@@ -854,21 +789,7 @@ const testMain = async () => {
   display: flex;
   width: 60%;
 }
-// .form-actions-button {
-//   width: 96%;
-//   margin: 0 auto;
-//   height: 40px;
-//   font-size: 16px;
-//   border-radius: 12px;
-//   background-color: #1890ff;
-//   border-color: #1890ff;
-//   &:hover {
-//     background-color: #40a9ff;
-//     border-color: #40a9ff;
-//   }
-// }
 
-/* 右键菜单样式优化 */
 .context-menu {
   position: fixed;
   z-index: 1000;
