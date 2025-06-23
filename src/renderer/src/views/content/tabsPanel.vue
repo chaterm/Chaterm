@@ -109,7 +109,7 @@ import userConfig from '@views/components/LeftTab/userConfig.vue'
 import assetConfig from '@views/components/LeftTab/assetConfig.vue'
 import aliasConfig from '@views/components/Extensions/aliasConfig.vue'
 import keyChainConfig from '@views/components/LeftTab/keyChainConfig.vue'
-import SshConnect from '@views/components/sshConnect/sshConnect.vue'
+import SshConnect from '@views/components/SshConnect/sshConnect.vue'
 import Files from '@views/components/Files/index.vue'
 import eventBus from '@/utils/eventBus'
 
