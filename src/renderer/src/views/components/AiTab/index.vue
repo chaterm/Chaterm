@@ -1214,7 +1214,7 @@ onMounted(async () => {
   let lastMessage: any = null
   let lastPartialMessage: any = null
   removeListener = (window.api as any).onMainMessage((message: any) => {
-    console.log('Received main process message:', message)
+    // console.log('Received main process message:', message)
     if (message?.type === 'partialMessage') {
       showSendButton.value = false
       showCancelButton.value = true
