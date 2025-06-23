@@ -29,7 +29,7 @@
               class="workspace-button"
               :icon="h(PlusOutlined)"
             >
-              {{ t('extensions.AddCommand') }}
+              {{ t('extensions.addCommand') }}
             </a-button>
           </div>
         </a-col>
@@ -101,14 +101,7 @@
 
 <script setup>
 import { ref, computed, onMounted, onBeforeUnmount, h } from 'vue'
-import {
-  PlusOutlined,
-  CloseOutlined,
-  EditOutlined,
-  CheckOutlined,
-  CloseSquareOutlined,
-  SearchOutlined
-} from '@ant-design/icons-vue'
+import { PlusOutlined, CloseOutlined, EditOutlined, CheckOutlined, CloseSquareOutlined, SearchOutlined } from '@ant-design/icons-vue'
 import 'xterm/css/xterm.css'
 import { cloneDeep } from 'lodash'
 import i18n from '@/locales'

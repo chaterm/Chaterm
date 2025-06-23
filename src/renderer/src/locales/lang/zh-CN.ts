@@ -32,7 +32,8 @@ export default {
     paste: '粘贴',
     disconnect: '断开连接',
     reconnect: '重新连接',
-    newTerminal: '新终端'
+    newTerminal: '新终端',
+    splitRight: '向右分屏'
   },
   term: {
     welcome: '欢迎使用智能堡垒机Chaterm'
@@ -85,7 +86,7 @@ export default {
     ai: 'AI',
     keychain: '秘钥',
     textEditor: '文本编辑器',
-    commandLineOpen: '命令行打开',
+    visualVimEditor: '可视化Vim编辑器',
     fileManagerPlugin: '文件管理器插件',
     fileManagerPluginDescribe: '安装后通过 "鼠标右键-文件管理器" 打开',
     cursorStyleBlock: '块',

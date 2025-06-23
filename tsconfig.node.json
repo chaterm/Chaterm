@@ -10,6 +10,9 @@
     "experimentalDecorators": true,
     "emitDecoratorMetadata": true,
     "sourceMap": true,
+    "moduleResolution": "node",
+    "allowSyntheticDefaultImports": true,
+    "esModuleInterop": true,
     "paths": {
       "@services/*": ["src/main/agent/services/*"],
       "@api/*": ["src/main/agent/api/*"],

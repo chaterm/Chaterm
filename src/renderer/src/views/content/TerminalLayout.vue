@@ -39,8 +39,8 @@
               <div v-if="currentMenu == 'monitor'">{{ $t('common.monitor') }}</div>
             </pane>
             <pane :size="100 - leftPaneSize">
-              <splitpanes @resize="(params: ResizeParams) => (rightSize = params.nextPane.size)">
-                <pane :size="100 - rightSize">
+              <splitpanes @resize="(params: ResizeParams) => (mainTerminalSize = params.prevPane.size)">
+                <pane :size="mainTerminalSize">
                   <TabsPanel
                     ref="allTabs"
                     :tabs="openedTabs"
@@ -53,9 +53,32 @@
                     @close-all-tabs="closeAllTabs"
                   />
                 </pane>
-                <pane :size="rightSize">
+                <!-- 分屏终端 - 在主终端旁边 -->
+                <pane
+                  v-if="showSplitPane"
+                  :size="splitPaneSize"
+                >
                   <div class="rigth-sidebar">
-                    <AiTab :toggle-sidebar="toggleSideBar" />
+                    <TabsPanel
+                      ref="rightTabsPanel"
+                      :tabs="rightTabs"
+                      :active-tab="rightActiveTabId"
+                      :active-tab-id="rightActiveTabId"
+                      @close-tab="closeRightTab"
+                      @create-tab="createRightTab"
+                      @change-tab="switchRightTab"
+                      @update-tabs="updateRightTabs"
+                      @close-all-tabs="closeAllRightTabs"
+                    />
+                  </div>
+                </pane>
+                <!-- AI侧边栏 - 在最右侧 -->
+                <pane
+                  v-if="showAiSidebar"
+                  :size="aiSidebarSize"
+                >
+                  <div class="rigth-sidebar">
+                    <AiTab :toggle-sidebar="toggleAiSidebar" />
                   </div>
                 </pane>
               </splitpanes>
@@ -104,8 +127,8 @@
             <div v-if="currentMenu == 'monitor'">{{ $t('common.monitor') }}</div>
           </pane>
           <pane :size="100 - leftPaneSize">
-            <splitpanes @resize="(params: ResizeParams) => (rightSize = params.nextPane.size)">
-              <pane :size="100 - rightSize">
+            <splitpanes @resize="(params: ResizeParams) => (mainTerminalSize = params.prevPane.size)">
+              <pane :size="mainTerminalSize">
                 <TabsPanel
                   ref="allTabs"
                   :tabs="openedTabs"
@@ -118,9 +141,32 @@
                   @close-all-tabs="closeAllTabs"
                 />
               </pane>
-              <pane :size="rightSize">
+              <!-- 分屏终端 - 在主终端旁边 -->
+              <pane
+                v-if="showSplitPane"
+                :size="splitPaneSize"
+              >
                 <div class="rigth-sidebar">
-                  <AiTab :toggle-sidebar="toggleSideBar" />
+                  <TabsPanel
+                    ref="rightTabsPanel"
+                    :tabs="rightTabs"
+                    :active-tab="rightActiveTabId"
+                    :active-tab-id="rightActiveTabId"
+                    @close-tab="closeRightTab"
+                    @create-tab="createRightTab"
+                    @change-tab="switchRightTab"
+                    @update-tabs="updateRightTabs"
+                    @close-all-tabs="closeAllRightTabs"
+                  />
+                </div>
+              </pane>
+              <!-- AI侧边栏 - 在最右侧 -->
+              <pane
+                v-if="showAiSidebar"
+                :size="aiSidebarSize"
+              >
+                <div class="rigth-sidebar">
+                  <AiTab :toggle-sidebar="toggleAiSidebar" />
                 </div>
               </pane>
             </splitpanes>
@@ -165,9 +211,18 @@ const watermarkContent = reactive({
   gap: [150, 100] as [number, number]
 })
 
-const rightSize = ref(0)
 const leftPaneSize = ref(30)
+const mainTerminalSize = ref(100) // 主终端面板的大小
 const showWatermark = ref(true)
+
+// 右侧面板显示模式：''(隐藏), 'split'(分屏), 'ai'(AI侧边栏)
+const rightPaneMode = ref('')
+
+// 独立管理AI侧边栏和分屏的状态
+const aiSidebarSize = ref(0) // AI侧边栏的宽度
+const splitPaneSize = ref(0) // 分屏的宽度
+const showAiSidebar = ref(false) // 是否显示AI侧边栏
+const showSplitPane = ref(false) // 是否显示分屏
 
 onMounted(async () => {
   eventBus.on('updateWatermark', (watermark) => {
@@ -181,14 +236,23 @@ onMounted(async () => {
   }
   nextTick(() => {
     updatePaneSize()
+    // 初始化Header图标状态
+    if (headerRef.value) {
+      headerRef.value.switchIcon('right', showAiSidebar.value)
+    }
   })
   window.addEventListener('resize', updatePaneSize)
   aliasConfig.initialize()
   eventBus.on('currentClickServer', currentClickServer)
   eventBus.on('getActiveTabAssetInfo', handleGetActiveTabAssetInfo)
+  eventBus.on('toggleSideBar', toggleSideBar)
+  eventBus.on('createSplitTab', handleCreateSplitTab)
+  eventBus.on('switchRightPaneMode', handleSwitchRightPaneMode)
+  // 监听分屏面板显示状态变化，自动调整为等宽
+  eventBus.on('adjustSplitPaneToEqual', adjustSplitPaneToEqualWidth)
 })
 const timer = ref<number | null>(null)
-watch(rightSize, () => {
+watch(mainTerminalSize, () => {
   if (allTabs.value != null) {
     if (timer.value) {
       return
@@ -212,6 +276,12 @@ watch(leftPaneSize, () => {
     }
   }
 })
+// 监听AI侧边栏状态变化，同步Header图标
+watch(showAiSidebar, (newValue) => {
+  if (headerRef.value) {
+    headerRef.value.switchIcon('right', newValue)
+  }
+})
 const DEFAULT_WIDTH_PX = 240
 const DEFAULT_WIDTH_RIGHT_PX = 400
 const currentMenu = ref('workspace')
@@ -229,7 +299,32 @@ const toggleSideBar = (value: string) => {
   const containerWidth = container.offsetWidth
   switch (value) {
     case 'right':
-      rightSize.value ? (rightSize.value = 0) : (rightSize.value = (DEFAULT_WIDTH_RIGHT_PX / containerWidth) * 100)
+      // 只控制AI侧边栏，不影响分屏功能
+      if (showAiSidebar.value) {
+        showAiSidebar.value = false
+        aiSidebarSize.value = 0
+        // 更新Header图标状态
+        headerRef.value?.switchIcon('right', false)
+        // 如果分屏打开，调整为主终端和分屏等宽
+        if (showSplitPane.value) {
+          adjustSplitPaneToEqualWidth()
+        } else {
+          // 调整主终端面板大小
+          mainTerminalSize.value = 100
+        }
+      } else {
+        showAiSidebar.value = true
+        aiSidebarSize.value = (DEFAULT_WIDTH_RIGHT_PX / containerWidth) * 100
+        // 更新Header图标状态
+        headerRef.value?.switchIcon('right', true)
+        // 如果分屏打开，调整为主终端和分屏等宽
+        if (showSplitPane.value) {
+          adjustSplitPaneToEqualWidth()
+        } else {
+          // 调整主终端面板大小
+          mainTerminalSize.value = 100 - aiSidebarSize.value
+        }
+      }
       break
     case 'left':
       {
@@ -248,7 +343,10 @@ const toggleMenu = function (params) {
       leftPaneSize.value = (DEFAULT_WIDTH_PX / containerWidth) * 100
       headerRef.value?.switchIcon('left', true)
     } else {
-      rightSize.value = (DEFAULT_WIDTH_RIGHT_PX / containerWidth) * 100
+      // 打开AI侧边栏
+      showAiSidebar.value = true
+      aiSidebarSize.value = (DEFAULT_WIDTH_RIGHT_PX / containerWidth) * 100
+      mainTerminalSize.value = 100 - aiSidebarSize.value - (showSplitPane.value ? splitPaneSize.value : 0)
       headerRef.value?.switchIcon('right', true)
     }
   }
@@ -257,16 +355,66 @@ const toggleMenu = function (params) {
       leftPaneSize.value = 0
       headerRef.value?.switchIcon('left', false)
     } else {
-      rightSize.value = 0
+      // 关闭AI侧边栏
+      showAiSidebar.value = false
+      aiSidebarSize.value = 0
+      mainTerminalSize.value = 100 - (showSplitPane.value ? splitPaneSize.value : 0)
       headerRef.value?.switchIcon('right', false)
     }
   }
   if (params.menu == 'ai') {
     currentMenu.value = params.beforeActive
-    rightSize.value == 0 ? expandFn('right') : shrinkFn('right')
+    if (!showAiSidebar.value) {
+      // 打开AI侧边栏
+      const container = document.querySelector('.splitpanes') as HTMLElement
+      if (container) {
+        const containerWidth = container.offsetWidth
+        showAiSidebar.value = true
+        aiSidebarSize.value = (DEFAULT_WIDTH_RIGHT_PX / containerWidth) * 100
+        // 更新Header图标状态
+        headerRef.value?.switchIcon('right', true)
+        // 如果分屏打开，调整为主终端和分屏等宽
+        if (showSplitPane.value) {
+          adjustSplitPaneToEqualWidth()
+        } else {
+          // 调整主终端面板大小
+          mainTerminalSize.value = 100 - aiSidebarSize.value
+        }
+      }
+    } else {
+      // 关闭AI侧边栏
+      showAiSidebar.value = false
+      aiSidebarSize.value = 0
+      // 更新Header图标状态
+      headerRef.value?.switchIcon('right', false)
+      // 如果分屏打开，调整为主终端和分屏等宽
+      if (showSplitPane.value) {
+        adjustSplitPaneToEqualWidth()
+      } else {
+        // 调整主终端面板大小
+        mainTerminalSize.value = 100
+      }
+    }
   } else if (params.menu == 'openAiRight') {
     currentMenu.value = params.beforeActive
-    rightSize.value == 0 ? expandFn('right') : ''
+    if (!showAiSidebar.value) {
+      // 打开AI侧边栏
+      const container = document.querySelector('.splitpanes') as HTMLElement
+      if (container) {
+        const containerWidth = container.offsetWidth
+        showAiSidebar.value = true
+        aiSidebarSize.value = (DEFAULT_WIDTH_RIGHT_PX / containerWidth) * 100
+        // 更新Header图标状态
+        headerRef.value?.switchIcon('right', true)
+        // 如果分屏打开，调整为主终端和分屏等宽
+        if (showSplitPane.value) {
+          adjustSplitPaneToEqualWidth()
+        } else {
+          // 调整主终端面板大小
+          mainTerminalSize.value = 100 - aiSidebarSize.value
+        }
+      }
+    }
   } else {
     currentMenu.value = params.menu
     switch (type) {
@@ -294,6 +442,12 @@ interface TabItem {
 const openedTabs = ref<TabItem[]>([])
 // 选中的tab
 const activeTabId = ref('')
+
+// 右侧分屏的标签页
+const rightTabs = ref<TabItem[]>([])
+// 右侧选中的tab
+const rightActiveTabId = ref('')
+
 // 点击服务器列表中的服务器
 const currentClickServer = async (item) => {
   if (item.children) return
@@ -362,6 +516,34 @@ const createTab = (infos) => {
 
   console.log(openedTabs.value, 'openedTabs.value')
 }
+
+// 调整分屏为等宽显示
+const adjustSplitPaneToEqualWidth = () => {
+  if (showSplitPane.value) {
+    // 计算可用空间（排除AI侧边栏）
+    const availableSpace = 100 - (showAiSidebar.value ? aiSidebarSize.value : 0)
+    // 主终端和分屏终端各占50%
+    mainTerminalSize.value = availableSpace / 2
+    splitPaneSize.value = availableSpace / 2
+  }
+}
+
+// 处理分屏创建新标签页
+const handleCreateSplitTab = (tabInfo) => {
+  // 创建新的标签页到右侧分屏
+  const id_ = uuidv4()
+  const newTab = {
+    ...tabInfo,
+    id: id_
+  }
+  rightTabs.value.push(newTab)
+  rightActiveTabId.value = id_
+
+  // 打开分屏面板，让分屏终端和主终端显示宽度一样
+  showSplitPane.value = true
+  adjustSplitPaneToEqualWidth()
+}
+
 // 切换标签页
 const switchTab = (tabId) => {
   activeTabId.value = tabId
@@ -377,6 +559,10 @@ onUnmounted(() => {
   window.removeEventListener('resize', updatePaneSize)
   eventBus.off('currentClickServer', currentClickServer)
   eventBus.off('getActiveTabAssetInfo', handleGetActiveTabAssetInfo)
+  eventBus.off('toggleSideBar', toggleSideBar)
+  eventBus.off('createSplitTab', handleCreateSplitTab)
+  eventBus.off('switchRightPaneMode', handleSwitchRightPaneMode)
+  eventBus.off('adjustSplitPaneToEqual', adjustSplitPaneToEqualWidth)
 })
 const openUserTab = function (value) {
   activeKey.value = value
@@ -442,11 +628,110 @@ const handleGetActiveTabAssetInfo = async () => {
   eventBus.emit('assetInfoResult', assetInfo)
 }
 
+// 右侧tab相关事件
+const closeRightTab = (tabId) => {
+  const index = rightTabs.value.findIndex((tab) => tab.id === tabId)
+  if (index !== -1) {
+    rightTabs.value.splice(index, 1)
+    if (rightActiveTabId.value === tabId) {
+      if (rightTabs.value.length > 0) {
+        const newActiveIndex = Math.max(0, index - 1)
+        rightActiveTabId.value = rightTabs.value[newActiveIndex].id
+      } else {
+        rightActiveTabId.value = ''
+      }
+    }
+    // 如果没有右侧tab了，关闭分屏面板
+    if (rightTabs.value.length === 0) {
+      showSplitPane.value = false
+      splitPaneSize.value = 0
+      // 调整主终端面板大小
+      mainTerminalSize.value = 100 - (showAiSidebar.value ? aiSidebarSize.value : 0)
+    }
+  }
+}
+const createRightTab = (infos) => {
+  const id_ = uuidv4()
+  rightTabs.value.push({
+    ...infos,
+    id: id_
+  })
+  rightActiveTabId.value = id_
+}
+const switchRightTab = (tabId) => {
+  rightActiveTabId.value = tabId
+}
+const updateRightTabs = (newTabs) => {
+  rightTabs.value = newTabs
+}
+const closeAllRightTabs = () => {
+  rightTabs.value = []
+  rightActiveTabId.value = ''
+  // 关闭分屏面板
+  showSplitPane.value = false
+  splitPaneSize.value = 0
+  // 调整主终端面板大小
+  mainTerminalSize.value = 100 - (showAiSidebar.value ? aiSidebarSize.value : 0)
+}
+
+// 处理切换右侧面板模式（AI/分屏）
+const handleSwitchRightPaneMode = (mode: 'ai' | 'split') => {
+  // 如果AI侧边栏未打开，先打开它
+  if (!showAiSidebar.value) {
+    const container = document.querySelector('.splitpanes') as HTMLElement
+    if (container) {
+      const containerWidth = container.offsetWidth
+      showAiSidebar.value = true
+      aiSidebarSize.value = (DEFAULT_WIDTH_RIGHT_PX / containerWidth) * 100
+      mainTerminalSize.value = 100 - aiSidebarSize.value - (showSplitPane.value ? splitPaneSize.value : 0)
+    }
+  }
+
+  // 切换到指定模式
+  rightPaneMode.value = mode
+}
+
+// 独立控制AI侧边栏
+const toggleAiSidebar = () => {
+  const container = document.querySelector('.splitpanes') as HTMLElement
+  if (container) {
+    const containerWidth = container.offsetWidth
+    if (showAiSidebar.value) {
+      // 关闭AI侧边栏
+      showAiSidebar.value = false
+      aiSidebarSize.value = 0
+      // 更新Header图标状态
+      headerRef.value?.switchIcon('right', false)
+      // 如果分屏打开，调整为主终端和分屏等宽
+      if (showSplitPane.value) {
+        adjustSplitPaneToEqualWidth()
+      } else {
+        // 调整主终端面板大小
+        mainTerminalSize.value = 100
+      }
+    } else {
+      // 打开AI侧边栏
+      showAiSidebar.value = true
+      aiSidebarSize.value = (DEFAULT_WIDTH_RIGHT_PX / containerWidth) * 100
+      // 更新Header图标状态
+      headerRef.value?.switchIcon('right', true)
+      // 如果分屏打开，调整为主终端和分屏等宽
+      if (showSplitPane.value) {
+        adjustSplitPaneToEqualWidth()
+      } else {
+        // 调整主终端面板大小
+        mainTerminalSize.value = 100 - aiSidebarSize.value
+      }
+    }
+  }
+}
+
 defineExpose({
   resizeTerm: () => {
     allTabs.value?.resizeTerm()
   },
-  getActiveTabAssetInfo
+  getActiveTabAssetInfo,
+  adjustSplitPaneToEqualWidth
 })
 </script>
 <style lang="less">
