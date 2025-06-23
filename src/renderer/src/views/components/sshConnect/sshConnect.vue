@@ -1701,6 +1701,27 @@ const contextAct = (action) => {
       // socket.value.close()
       emit('closeTabInTerm', props.serverInfo.id)
       break
+    case 'clearTerm':
+      // 关闭
+      // socket.value.close()
+      terminal.value?.clear()
+      break
+    case 'shrotenName':
+      // 关闭
+      // socket.value.close()
+      sendData('export PS1="[\\u@\\W]\\$"')
+      sendData('\r')
+      break
+    case 'fontsizeLargen':
+      if (terminal.value?.options) {
+        terminal.value.options.fontSize = (terminal.value.options.fontSize ?? 12) + 1
+      }
+      break
+    case 'fontsizeSmaller':
+      if (terminal.value?.options) {
+        terminal.value.options.fontSize = (terminal.value.options.fontSize ?? 12) - 1
+      }
+      break
     default:
       // 未知操作
       break
