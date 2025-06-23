@@ -184,6 +184,7 @@ import { Modal, message } from 'ant-design-vue'
 import { EditOutlined, DeleteOutlined, ToTopOutlined, SearchOutlined } from '@ant-design/icons-vue'
 import keyIcon from '@/assets/menu/key.svg'
 import i18n from '@/locales'
+import eventBus from '@/utils/eventBus'
 const { t } = i18n.global
 
 interface KeyChainItem {
@@ -195,9 +196,6 @@ interface KeyChainItem {
   passphrase?: string
 }
 
-// 注意：这里我们不重新定义全局接口，而是使用类型断言
-
-// 状态变量
 const keyChainList = ref<KeyChainItem[]>([])
 const searchValue = ref('')
 const isRightSectionVisible = ref(false)
@@ -207,7 +205,6 @@ const contextMenuVisible = ref(false)
 const contextMenuPosition = reactive({ x: 0, y: 0 })
 const selectedKeyChain = ref<KeyChainItem | null>(null)
 
-// 表单数据
 interface CreateFormType {
   label: string
   privateKey: string
@@ -224,7 +221,6 @@ const createForm = reactive<CreateFormType>({
   passphrase: ''
 })
 
-// 重置表单
 const resetForm = () => {
   Object.assign(createForm, {
     label: '',
@@ -235,7 +231,6 @@ const resetForm = () => {
   })
 }
 
-// 过滤密钥列表
 const filteredKeyChainList = computed(() => {
   if (!searchValue.value.trim()) return keyChainList.value
 
@@ -245,10 +240,8 @@ const filteredKeyChainList = computed(() => {
   )
 })
 
-// 获取秘钥列表
 const fetchKeyChainList = async () => {
   try {
-    // 使用类型断言
     const api = window.api as any
     const result = await api.getKeyChainList()
     if (result && result.data && result.data.keyChain) {
@@ -260,7 +253,6 @@ const fetchKeyChainList = async () => {
   }
 }
 
-// 打开新建面板
 const openNewPanel = () => {
   isEditMode.value = false
   editingKeyChainId.value = null
@@ -268,15 +260,27 @@ const openNewPanel = () => {
   isRightSectionVisible.value = true
 }
 
-// 显示右键菜单
 const showContextMenu = (event: MouseEvent, keyChain: KeyChainItem) => {
   event.preventDefault()
-  contextMenuPosition.x = event.clientX
-  contextMenuPosition.y = event.clientY
+  const menuWidth = 160
+  const menuHeight = 120
+  const viewportWidth = window.innerWidth
+  const viewportHeight = window.innerHeight
+  let x = event.clientX
+  let y = event.clientY
+  if (x + menuWidth > viewportWidth) {
+    x = viewportWidth - menuWidth - 10
+  }
+  if (y + menuHeight > viewportHeight) {
+    y = viewportHeight - menuHeight - 10
+  }
+  x = Math.max(10, x)
+  y = Math.max(10, y)
+
+  contextMenuPosition.x = x
+  contextMenuPosition.y = y
   selectedKeyChain.value = keyChain
   contextMenuVisible.value = true
-
-  // 点击其他区域关闭菜单
   const closeMenu = () => {
     contextMenuVisible.value = false
     document.removeEventListener('click', closeMenu)
@@ -289,7 +293,6 @@ const showContextMenu = (event: MouseEvent, keyChain: KeyChainItem) => {
 
 const handleCardClick = (keyChain: KeyChainItem) => {
   console.log('Card clicked:', keyChain)
-  // 这里可以添加连接逻辑
 }
 
 const handleEdit = async (keyChain: KeyChainItem | null) => {
@@ -305,7 +308,6 @@ const handleEdit = async (keyChain: KeyChainItem | null) => {
   console.log('sss')
   console.log(keyChain)
 
-  // 填充表单
   Object.assign(createForm, {
     label: keyChain.chain_name || '',
     privateKey: keyChain.private_key || '',
@@ -313,15 +315,12 @@ const handleEdit = async (keyChain: KeyChainItem | null) => {
     type: keyChain.chain_type || 'RSA',
     passphrase: keyChain.passphrase || ''
   })
-  // 显示右侧面板
   isRightSectionVisible.value = true
 }
 
-// 处理删除
 const handleRemove = (keyChain: KeyChainItem | null) => {
   if (!keyChain) return
 
-  // 确认删除
   Modal.confirm({
     title: t('keyChain.deleteConfirm'),
     content: t('keyChain.deleteConfirmContent', { name: keyChain.chain_name }),
@@ -337,6 +336,7 @@ const handleRemove = (keyChain: KeyChainItem | null) => {
           if (res?.data?.message === 'success') {
             message.success(t('keyChain.deleteSuccess', { name: keyChain.chain_name }))
             fetchKeyChainList()
+            eventBus.emit('keyChainUpdated')
           } else {
             message.error(t('keyChain.deleteFailure'))
           }
@@ -351,20 +351,15 @@ const handleRemove = (keyChain: KeyChainItem | null) => {
   })
 }
 
-// 创建密钥
 const handleCreateKeyChain = async () => {
   try {
-    // 验证表单
     if (!createForm.label) {
       return message.error('请输入标签名称')
     }
     if (!createForm.privateKey) {
       return message.error('请输入私钥')
     }
-
-    // 使用类型断言
     const api = window.api as any
-    // 创建密钥
     if (api.createKeyChain) {
       const cleanForm = {
         chain_name: createForm.label,
@@ -380,6 +375,7 @@ const handleCreateKeyChain = async () => {
         message.success('创建成功')
         isRightSectionVisible.value = false
         fetchKeyChainList()
+        eventBus.emit('keyChainUpdated')
       } else {
         throw new Error('创建失败')
       }
@@ -389,12 +385,10 @@ const handleCreateKeyChain = async () => {
   }
 }
 
-// 更新密钥
 const handleUpdateKeyChain = async () => {
   if (!editingKeyChainId.value) return message.error('缺少密钥 ID')
 
   try {
-    // 验证表单
     if (!createForm.label) {
       return message.error('请输入标签名称')
     }
@@ -402,7 +396,6 @@ const handleUpdateKeyChain = async () => {
       return message.error('请输入私钥')
     }
 
-    // 使用类型断言
     const api = window.api as any
     if (api.updateKeyChain) {
       const cleanForm = {
@@ -420,6 +413,7 @@ const handleUpdateKeyChain = async () => {
         message.success('保存成功')
         isRightSectionVisible.value = false
         fetchKeyChainList()
+        eventBus.emit('keyChainUpdated')
       } else {
         throw new Error('保存失败')
       }
@@ -431,12 +425,8 @@ const handleUpdateKeyChain = async () => {
   }
 }
 
-// 搜索处理
-const handleSearch = () => {
-  // 搜索逻辑已通过计算属性 filteredKeyChainList 实现
-}
+const handleSearch = () => {}
 
-// 点击页面关闭右键菜单
 const handleDocumentClick = () => {
   if (contextMenuVisible.value) {
     contextMenuVisible.value = false
@@ -444,24 +434,19 @@ const handleDocumentClick = () => {
 }
 
 function detectKeyType(privateKey = '', publicKey = ''): 'RSA' | 'ED25519' | 'ECDSA' {
-  // 1. 先看 public key
   if (publicKey.trim()) {
-    const algo = publicKey.trim().split(/\s+/)[0] // 取第一段
+    const algo = publicKey.trim().split(/\s+/)[0]
     if (algo === 'ssh-ed25519') return 'ED25519'
     if (algo === 'ssh-rsa') return 'RSA'
     if (algo.startsWith('ecdsa-')) return 'ECDSA'
   }
 
-  // 2. 再看 private key PEM 头
   if (privateKey.includes('BEGIN RSA PRIVATE KEY')) return 'RSA'
   if (privateKey.includes('BEGIN EC PRIVATE KEY')) return 'ECDSA'
 
-  // 3. OpenSSH 私钥（新的统一格式）
   if (privateKey.includes('BEGIN OPENSSH PRIVATE KEY')) {
     try {
-      // 去掉头尾、换行和空格，得到纯 Base64
       const body = privateKey.replace(/-----(BEGIN|END)[\s\S]+?KEY-----/g, '').replace(/\s+/g, '')
-      // 解码看看里面出现谁
       const decoded = atob(body)
       if (decoded.includes('ssh-ed25519')) return 'ED25519'
       if (decoded.includes('ssh-rsa')) return 'RSA'
@@ -471,20 +456,26 @@ function detectKeyType(privateKey = '', publicKey = ''): 'RSA' | 'ED25519' | 'EC
     }
   }
 
-  // 4. 兜底：默认 RSA
   return 'RSA'
 }
 
 onMounted(() => {
   fetchKeyChainList()
-
-  // 添加全局点击事件监听
   document.addEventListener('click', handleDocumentClick)
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape' && contextMenuVisible.value) {
+      contextMenuVisible.value = false
+    }
+  })
 })
 
 onBeforeUnmount(() => {
-  // 移除全局事件监听
   document.removeEventListener('click', handleDocumentClick)
+  document.removeEventListener('keydown', (event) => {
+    if (event.key === 'Escape' && contextMenuVisible.value) {
+      contextMenuVisible.value = false
+    }
+  })
 })
 
 watch(isRightSectionVisible, (val) => {
@@ -497,21 +488,17 @@ watch(isRightSectionVisible, (val) => {
 
 const testMain = async () => {
   const api = window.api as any
-  // api.testMain() // 旧的调用
   try {
     console.log('Calling api.executeRemoteCommandViaPreload from renderer')
     const result = await api.executeRemoteCommandViaPreload()
     console.log('Result from executeRemoteCommandViaPreload:', result)
     if (result && result.success) {
       console.log('Remote command output:', result.output)
-      // 在这里处理成功的输出
     } else {
       console.error('Remote command failed:', result ? result.error : 'Unknown error')
-      // 在这里处理错误
     }
   } catch (error) {
     console.error('Error calling executeRemoteCommandViaPreload:', error)
-    // 在这里处理调用本身的错误
   }
 }
 </script>
@@ -792,19 +779,6 @@ const testMain = async () => {
   }
 }
 
-// .header-container {
-//   display: flex;
-//   // justify-content: space-between;
-//   flex: 1 auto;
-//   width: 60%;
-//   align-items: center;
-//   position: absolute;
-//   top: 10px;
-//   left: 15px;
-//   right: 15px;
-//   z-index: 10;
-// }
-
 .toggle-btn {
   flex: 0 0 auto;
   margin-left: 10px;
@@ -815,17 +789,116 @@ const testMain = async () => {
   display: flex;
   width: 60%;
 }
-// .form-actions-button {
-//   width: 96%;
-//   margin: 0 auto;
-//   height: 40px;
-//   font-size: 16px;
-//   border-radius: 12px;
-//   background-color: #1890ff;
-//   border-color: #1890ff;
-//   &:hover {
-//     background-color: #40a9ff;
-//     border-color: #40a9ff;
-//   }
-// }
+
+.context-menu {
+  position: fixed;
+  z-index: 1000;
+  background-color: rgba(44, 44, 44, 0.95);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 12px;
+  box-shadow:
+    0 8px 32px rgba(0, 0, 0, 0.4),
+    0 4px 16px rgba(0, 0, 0, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  min-width: 160px;
+  padding: 6px 0;
+  backdrop-filter: blur(20px);
+  animation: contextMenuFadeIn 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  overflow: hidden;
+}
+
+@keyframes contextMenuFadeIn {
+  from {
+    opacity: 0;
+    transform: scale(0.9) translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.context-menu-item {
+  display: flex;
+  align-items: center;
+  padding: 8px 16px;
+  cursor: pointer;
+  color: rgba(255, 255, 255, 0.85);
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  font-size: 14px;
+  font-weight: 500;
+  margin: 0 4px;
+  border-radius: 8px;
+
+  &:hover {
+    background-color: rgba(255, 255, 255, 0.1);
+    color: #ffffff;
+    transform: translateX(2px);
+
+    .context-menu-icon {
+      transform: scale(1.1);
+      color: #1890ff;
+    }
+  }
+
+  &:active {
+    background-color: rgba(255, 255, 255, 0.15);
+    transform: translateX(2px) scale(0.98);
+  }
+
+  &.delete {
+    color: #ff6b6b;
+
+    &:hover {
+      background-color: rgba(255, 107, 107, 0.15);
+      color: #ff8e8e;
+
+      .context-menu-icon {
+        color: #ff6b6b;
+      }
+    }
+
+    &:active {
+      background-color: rgba(255, 107, 107, 0.2);
+    }
+  }
+
+  /* 添加分隔线 */
+  &:not(:last-child)::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 20px;
+    right: 20px;
+    height: 1px;
+    background: linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.1) 50%, transparent 100%);
+  }
+}
+
+.context-menu-icon {
+  margin-right: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.context-menu-text {
+  flex: 1;
+  font-weight: 500;
+  letter-spacing: 0.3px;
+  user-select: none;
+}
+
+/* 确保右键菜单在边界内显示 */
+.context-menu {
+  max-width: calc(100vw - 20px);
+  max-height: calc(100vh - 20px);
+  overflow: hidden;
+}
 </style>

@@ -211,7 +211,7 @@
             v-model:value="chatInputValue"
             :placeholder="$t('ai.agentMessage')"
             class="chat-textarea"
-            :auto-size="{ minRows: 2, maxRows: 2 }"
+            :auto-size="{ minRows: 2, maxRows: 10 }"
             @keydown="handleKeyDown"
             @input="handleInputChange"
           />
@@ -733,14 +733,14 @@ const handlePlusClick = async () => {
     })
   }
 
-  const chatTitle = currentInput ? truncateText(currentInput) : 'New chat'
+  // const chatTitle = currentInput ? truncateText(currentInput) : 'New chat'
 
-  historyList.value.unshift({
-    id: newChatId,
-    chatTitle,
-    chatType: chatTypeValue.value,
-    chatContent: []
-  })
+  // historyList.value.unshift({
+  //   id: newChatId,
+  //   chatTitle,
+  //   chatType: chatTypeValue.value,
+  //   chatContent: []
+  // })
 
   chatHistory.length = 0
   chatInputValue.value = ''
@@ -858,23 +858,25 @@ const restoreHistoryTab = async (history: HistoryItem) => {
 
 const handleHistoryClick = async () => {
   try {
-    if (chatTypeValue.value === 'agent') {
+    if (chatTypeValue.value === 'agent' || chatTypeValue.value === 'cmd') {
       // 重置分页状态
       currentPage.value = 1
       isLoadingMore.value = false
 
       // 从 globalState 获取所有 agent 历史记录并按 ts 倒序排序
-      const agentHistory = (((await getGlobalState('taskHistory')) as TaskHistoryItem[]) || [])
+      const taskHistory = ((await getGlobalState('taskHistory')) as TaskHistoryItem[]) || []
+
+      const historyItems = taskHistory
         .sort((a, b) => b.ts - a.ts)
-        .map((messages) => ({
-          id: messages.id,
-          chatTitle: truncateText(messages?.task || 'Agent Chat'),
-          chatType: 'agent',
+        .map((task) => ({
+          id: task.id,
+          chatTitle: truncateText(task?.task || `${chatTypeValue.value} Chat`),
+          chatType: chatTypeValue.value,
           chatContent: []
         }))
 
       // 批量更新历史列表
-      historyList.value = agentHistory
+      historyList.value = historyItems
     }
   } catch (err) {
     console.error('Failed to get conversation list:', err)
@@ -1214,6 +1216,7 @@ onMounted(async () => {
   let lastMessage: any = null
   let lastPartialMessage: any = null
   removeListener = (window.api as any).onMainMessage((message: any) => {
+    // console.log('Received main process message:', message)
     if (message?.type === 'partialMessage') {
       showSendButton.value = false
       showCancelButton.value = true
@@ -1691,6 +1694,13 @@ const cancelEdit = async (history) => {
     line-height: 22px;
     font-size: 12px;
   }
+  :deep(.ant-tabs-content) {
+    max-height: 100%;
+  }
+  :deep(.ant-tabs-tabpane) {
+    display: flex;
+    flex-direction: column;
+  }
 }
 
 .ai-chat-flex-container {
@@ -1714,7 +1724,6 @@ const cancelEdit = async (history) => {
   border-bottom: 0px solid #333;
   justify-content: flex-start;
   user-select: text;
-
   :deep(.ant-tag) {
     font-size: 10px;
     padding: 0 6px;
@@ -1870,7 +1879,7 @@ const cancelEdit = async (history) => {
   align-items: center;
   justify-content: space-between;
   gap: 4px;
-  padding: 4px 8px;
+  padding: 8px 8px;
 
   .ant-select {
     width: 120px;
@@ -2466,12 +2475,14 @@ const cancelEdit = async (history) => {
 
 .host-select-popup {
   position: absolute;
-  left: 20px;
+  left: 30px;
+  bottom: 30px;
   width: 130px;
   background: #222;
   border-radius: 4px;
   box-shadow: 0 2px 8px #0002;
   border: 1px solid #484747;
+  z-index: 10;
 }
 
 .host-select-list {
@@ -2503,7 +2514,6 @@ const cancelEdit = async (history) => {
 }
 
 .ai-welcome-container {
-  flex: 1;
   display: flex;
   flex-direction: column;
   align-items: center;

@@ -32,6 +32,7 @@ export default {
     disconnect: 'Disconnect',
     reconnect: 'Reconnect',
     newTerminal: 'New Terminal',
+    splitRight: 'Split Right',
     clearTerm: 'Clear Screen',
     shrotenName: 'Shorten The Host Name',
     fontsize: 'Fontsize',
@@ -233,7 +234,8 @@ export default {
     processing: 'processing...',
     searchHistoryPH: 'Please Input',
     loading: 'loading...',
-    loadMore: 'load more'
+    loadMore: 'load more',
+    copyToClipboard: 'Copy to clipboard'
   },
   keyChain: {
     newKey: 'New Key',
