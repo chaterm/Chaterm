@@ -38,18 +38,6 @@
                 'has-history-copy-btn': chatTypeValue === 'cmd' && message.ask === 'command' && message.actioned
               }"
             >
-              <a-tooltip :title="$t('ai.copy')">
-                <a-button
-                  v-if="chatTypeValue === 'cmd' && message.ask === 'command' && message.actioned"
-                  size="small"
-                  class="history-copy-btn"
-                  @click="handleHistoryCopy(message)"
-                >
-                  <template #icon>
-                    <CopyOutlined />
-                  </template>
-                </a-button>
-              </a-tooltip>
               <MarkdownRenderer
                 v-if="typeof message.content === 'object' && 'question' in message.content"
                 :content="(message.content as MessageContent).question"
@@ -915,16 +903,6 @@ const handleMessageOperation = async (operation: 'copy' | 'apply') => {
 
 const handleApplyCommand = () => handleMessageOperation('apply')
 const handleCopyContent = () => handleMessageOperation('copy')
-
-const handleHistoryCopy = (message: ChatMessage) => {
-  let content = ''
-  if (typeof message.content === 'string') {
-    content = message.content
-  } else if (message.content && 'question' in message.content) {
-    content = (message.content as MessageContent).question || ''
-  }
-  eventBus.emit('executeTerminalCommand', content)
-}
 
 const handleRejectContent = async () => {
   let message = chatHistory.at(-1)
@@ -2200,29 +2178,6 @@ const cancelEdit = async (history) => {
         font-size: 12px;
       }
     }
-  }
-}
-
-.history-copy-btn {
-  position: absolute;
-  top: 16px;
-  right: 5px;
-  background-color: #2a2a2a;
-  color: #e0e0e0;
-  border: none;
-  border-radius: 4px;
-  width: 13px;
-  height: 13px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  opacity: 0.5;
-  transition: opacity 0.2s;
-
-  &:hover {
-    opacity: 1;
-    background-color: #3a3a3a;
   }
 }
 
