@@ -403,7 +403,7 @@ onMounted(async () => {
 
   const handleExecuteCommand = (command) => {
     if (props.activeTabId !== props.currentConnectionId) return
-    autoExecuteCode(command)
+    sendMarkedData(command, 'Chaterm:command')
     termInstance.focus()
   }
 
@@ -1255,6 +1255,22 @@ const handleServerOutput = (response: MarkedResponse) => {
 
     currentCwdStore.setKeyValue(props.connectData.ip, currentCwd)
     console.log(`${props.connectData.ip} current working directory:`, currentCwd)
+  } else if (response.marker === 'Chaterm:command') {
+    const cleanOutput = stripAnsi(data).trim()
+    if (cleanOutput) {
+      const lines = cleanOutput.split(/\r?\n/)
+      const outputLines = lines.slice(1, -1)
+      const finalOutput = outputLines.join('\n').trim()
+      if (finalOutput) {
+        nextTick(() => {
+          eventBus.emit('chatToAi', finalOutput)
+          setTimeout(() => {
+            eventBus.emit('triggerAiSend')
+          }, 100)
+        })
+      }
+    }
+    cusWrite?.(data)
   } else {
     cusWrite?.(data)
   }
