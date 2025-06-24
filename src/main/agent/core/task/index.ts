@@ -499,11 +499,13 @@ export class Task {
     const isUpdatingPreviousPartial = lastMessage && lastMessage.partial && lastMessage.type === 'say' && lastMessage.say === type
     if (partial) {
       if (isUpdatingPreviousPartial) {
-        if (lastMessage.text && lastMessage.type === 'say' && lastMessage.say === 'command_output') {
-          lastMessage.text += '\n' + text
-        } else {
-          lastMessage.text = text
-        }
+        // if (lastMessage.text && lastMessage.type === 'say' && lastMessage.say === 'command_output') {
+        // if (lastMessage.text) {
+        //   lastMessage.text += '\n' + text
+        // } else {
+
+        // }
+        lastMessage.text = text
         lastMessage.partial = partial
         await this.postMessageToWebview({
           type: 'partialMessage',
@@ -521,6 +523,13 @@ export class Task {
           partial
         })
         await this.postStateToWebview()
+        if (type === 'command_output') {
+          const newMsg = this.chatermMessages.at(-1)!
+          await this.postMessageToWebview({
+            type: 'partialMessage',
+            partialMessage: newMsg
+          })
+        }
       }
     } else {
       // partial=false means its a complete version of a previously partial message
@@ -792,8 +801,8 @@ export class Task {
       outputBufferSize = 0
       chunkEnroute = true
       try {
-        await this.say('command_output', chunk, true)
-        process.continue()
+        // 发送截至目前的完整输出，供前端整体替换
+        await this.say('command_output', result, true)
       } catch (error) {
         console.error('Error while saying for command output:', error) // Log error
       } finally {
