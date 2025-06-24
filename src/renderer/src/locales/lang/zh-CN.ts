@@ -228,7 +228,7 @@ export default {
     reject: '拒绝',
     cancel: '取消',
     resume: '恢复',
-    agentMessage: '可以制定计划,搜索和执行命令等任何事情',
+    agentMessage: '可以做命令查询，排查错误和任务处理等任何事情',
     newChat: '新建对话',
     showChatHistory: '显示历史记录',
     closeAiSidebar: '关闭AI侧边栏',

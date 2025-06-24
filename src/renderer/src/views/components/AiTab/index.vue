@@ -1975,6 +1975,11 @@ const cancelEdit = async (history) => {
     border: none !important;
     box-shadow: none !important;
     font-size: 12px !important;
+
+    &::placeholder {
+      color: #999 !important;
+      opacity: 1;
+    }
   }
 
   .ant-textarea {
