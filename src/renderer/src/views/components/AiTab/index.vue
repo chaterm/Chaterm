@@ -38,6 +38,18 @@
                 'has-history-copy-btn': chatTypeValue === 'cmd' && message.ask === 'command' && message.actioned
               }"
             >
+              <a-tooltip :title="$t('ai.copy')">
+                <a-button
+                  v-if="chatTypeValue === 'cmd' && message.ask === 'command' && message.actioned"
+                  size="small"
+                  class="history-copy-btn"
+                  @click="handleHistoryCopy(message)"
+                >
+                  <template #icon>
+                    <CopyOutlined />
+                  </template>
+                </a-button>
+              </a-tooltip>
               <MarkdownRenderer
                 v-if="typeof message.content === 'object' && 'question' in message.content"
                 :content="(message.content as MessageContent).question"
@@ -56,18 +68,6 @@
               />
 
               <div class="message-actions">
-                <a-tooltip :title="$t('ai.copy')">
-                  <a-button
-                    v-if="chatTypeValue === 'cmd' && message.ask === 'command' && message.actioned"
-                    size="small"
-                    class="history-copy-btn"
-                    @click="handleHistoryCopy(message)"
-                  >
-                    <template #icon>
-                      <CopyOutlined />
-                    </template>
-                  </a-button>
-                </a-tooltip>
                 <template v-if="typeof message.content === 'object' && 'options' in message.content">
                   <div class="options-container">
                     <a-button
