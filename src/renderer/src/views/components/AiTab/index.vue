@@ -732,10 +732,9 @@ const handlePlusClick = async () => {
   const currentInput = chatInputValue.value
   const newChatId = uuidv4()
   currentChatId.value = newChatId
-  chatTypeValue.value = 'agent'
+  const chatSetting = (await getGlobalState('chatSettings')) as { mode?: string }
+  chatTypeValue.value = chatSetting?.mode || 'agent'
   hosts.value = []
-
-  // 获取当前活动标签页的资产信息
   const assetInfo = await getCurentTabAssetInfo()
   if (assetInfo && assetInfo.ip) {
     hosts.value.push({
@@ -745,15 +744,6 @@ const handlePlusClick = async () => {
       organizationId: assetInfo.organizationId !== 'personal' ? assetInfo.organizationId : 'personal_01'
     })
   }
-
-  // const chatTitle = currentInput ? truncateText(currentInput) : 'New chat'
-
-  // historyList.value.unshift({
-  //   id: newChatId,
-  //   chatTitle,
-  //   chatType: chatTypeValue.value,
-  //   chatContent: []
-  // })
 
   chatHistory.length = 0
   chatInputValue.value = ''
@@ -1168,15 +1158,22 @@ const changeModel = debounce(async (newValue) => {
   }
 }, 200)
 
-// 在组件卸载时取消所有未执行的防抖函数
 onBeforeUnmount(() => {
   debouncedEmitModelChange.cancel()
   debouncedUpdateGlobalState.cancel()
   changeModel.cancel()
 })
 
-// 在 onMounted 中添加事件监听
 onMounted(async () => {
+  eventBus.on('triggerAiSend', () => {
+    if (chatInputValue.value.trim()) {
+      sendMessage()
+    }
+  })
+  eventBus.on('chatToAi', (text) => {
+    chatInputValue.value = text
+  })
+
   await changeModel(null)
   authTokenInCookie.value = localStorage.getItem('ctm-token')
   const chatId = uuidv4()
