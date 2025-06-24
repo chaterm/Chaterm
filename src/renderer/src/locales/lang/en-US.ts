@@ -225,7 +225,7 @@ export default {
     reject: 'Reject',
     cancel: 'Cancel',
     resume: 'Resume',
-    agentMessage: 'Plan,search,execute anything',
+    agentMessage: 'Command query,troubleshoot errors,handle tasks,anything',
     newChat: 'New Chat',
     showChatHistory: 'Show History',
     closeAiSidebar: 'Close AI Sidebar',
