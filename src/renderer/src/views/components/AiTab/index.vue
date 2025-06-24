@@ -1818,23 +1818,23 @@ const cancelEdit = async (history) => {
   max-height: 100px;
   overflow-y: auto;
   scrollbar-width: thin;
-  scrollbar-color: #4a4a4a #141414;
+  scrollbar-color: #2a2a2a #1a1a1a;
 
   &::-webkit-scrollbar {
     width: 6px;
   }
 
   &::-webkit-scrollbar-track {
-    background: #141414;
+    background: #1a1a1a;
     border-radius: 3px;
   }
 
   &::-webkit-scrollbar-thumb {
-    background-color: #4a4a4a;
+    background-color: #2a2a2a;
     border-radius: 3px;
 
     &:hover {
-      background-color: #5a5a5a;
+      background-color: #3a3a3a;
     }
   }
 
@@ -1923,6 +1923,7 @@ const cancelEdit = async (history) => {
   padding: 0px 4px 4px 4px;
   margin-top: 2px;
   scrollbar-width: thin;
+  scrollbar-color: #2a2a2a #1a1a1a;
   width: 100%;
   min-height: 0;
 
@@ -1930,12 +1931,17 @@ const cancelEdit = async (history) => {
     width: 6px;
   }
 
+  &::-webkit-scrollbar-track {
+    background: #1a1a1a;
+    border-radius: 3px;
+  }
+
   &::-webkit-scrollbar-thumb {
-    background-color: #4a4a4a;
+    background-color: #2a2a2a;
     border-radius: 3px;
 
     &:hover {
-      background-color: #5a5a5a;
+      background-color: #3a3a3a;
     }
   }
 }
@@ -2306,18 +2312,23 @@ const cancelEdit = async (history) => {
   max-height: 360px;
   overflow-y: auto;
   scrollbar-width: thin;
-  scrollbar-color: #4a4a4a transparent;
+  scrollbar-color: #2a2a2a #1a1a1a;
 
   &::-webkit-scrollbar {
     width: 4px;
   }
 
+  &::-webkit-scrollbar-track {
+    background: #1a1a1a;
+    border-radius: 2px;
+  }
+
   &::-webkit-scrollbar-thumb {
-    background-color: #4a4a4a;
+    background-color: #2a2a2a;
     border-radius: 2px;
 
     &:hover {
-      background-color: #5a5a5a;
+      background-color: #3a3a3a;
     }
   }
 }
@@ -2625,23 +2636,23 @@ const cancelEdit = async (history) => {
   max-height: 150px;
   overflow-y: auto;
   scrollbar-width: thin;
-  scrollbar-color: #4a4a4a #222;
+  scrollbar-color: #2a2a2a #1a1a1a;
 
   &::-webkit-scrollbar {
     width: 6px;
   }
 
   &::-webkit-scrollbar-track {
-    background: #222;
+    background: #1a1a1a;
     border-radius: 3px;
   }
 
   &::-webkit-scrollbar-thumb {
-    background-color: #4a4a4a;
+    background-color: #2a2a2a;
     border-radius: 3px;
 
     &:hover {
-      background-color: #5a5a5a;
+      background-color: #3a3a3a;
     }
   }
 }
