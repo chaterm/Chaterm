@@ -66,8 +66,7 @@ export default {
   workspace: {
     workspace: 'Workspace',
     personal: 'Personal',
-    searchHost: 'Search host',
-    connectToServer: 'Connect to {ip} server'
+    searchHost: 'Search host'
   },
   header: {
     title: 'Smart Bastion Host Management System'

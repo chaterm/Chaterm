@@ -3,6 +3,12 @@
     ref="terminalContainer"
     class="terminal-container"
   >
+    <SearchComp
+      v-if="showSearch"
+      :search-addon="searchAddon"
+      :terminal="term"
+      @close-search="closeSearch"
+    />
     <div
       ref="terminalElement"
       v-contextmenu:contextmenu
@@ -49,10 +55,12 @@
 const contextmenu = ref()
 import Context from './contextComp.vue'
 import SuggComp from './suggestion.vue'
+import SearchComp from './searchComp.vue'
 import { ref, onMounted, nextTick, onBeforeUnmount, defineProps, reactive } from 'vue'
 import { Terminal } from 'xterm'
 import { FitAddon } from 'xterm-addon-fit'
 import { WebLinksAddon } from 'xterm-addon-web-links'
+import { SearchAddon } from 'xterm-addon-search'
 import { v4 as uuidv4 } from 'uuid'
 import { encrypt } from '@/utils/util'
 import 'xterm/css/xterm.css'
@@ -99,6 +107,9 @@ let fitAddon = null //
 const api = window.api
 let heartbeatId = null // 心跳ID
 const copyText = ref('')
+// 搜索相关
+const showSearch = ref(false)
+const searchAddon = ref(null)
 // 语法高亮相关
 const enc = new TextDecoder('utf-8')
 const encoder = new TextEncoder()
@@ -152,6 +163,7 @@ onMounted(() => {
 
   // 保留 window resize 监听作为备用
   window.addEventListener('resize', handleResize)
+  window.addEventListener('keydown', handleGlobalKeyDown)
 
   // 初始化完成后进行一次自适应调整
   nextTick(() => {
@@ -178,6 +190,7 @@ onBeforeUnmount(() => {
   term.value = null
   api.closeHeartbeatWindow(heartbeatId)
   window.removeEventListener('resize', handleResize)
+  window.removeEventListener('keydown', handleGlobalKeyDown)
   // 移除事件监听
   eventBus.off('executeTerminalCommand')
   document.removeEventListener('mouseup', hideSelectionButton)
@@ -212,6 +225,11 @@ const initTerminal = async () => {
     fitAddon = new FitAddon()
     term.value.loadAddon(fitAddon)
     term.value.loadAddon(new WebLinksAddon())
+
+    // 添加搜索插件
+    searchAddon.value = new SearchAddon()
+    term.value.loadAddon(searchAddon.value)
+
     term.value.open(terminalElement.value)
     fitAddon.fit()
     term.value.focus()
@@ -325,7 +343,7 @@ const initTerminal = async () => {
             nextTick(() => {
               eventBus.emit('chatToAi', text.trim())
             })
-            termInstance.clearSelection()
+            term.value.clearSelection()
           }
         }
       }, 10)
@@ -686,7 +704,6 @@ const processString = (str) => {
   }
   return result
 }
-
 const handleKeyInput = (e) => {
   specialCode.value = false
   currentLineStartY.value = term.value._core.buffer.y
@@ -697,6 +714,7 @@ const handleKeyInput = (e) => {
   cursorY.value = buffer.cursorY
   keyCode.value = ev.keyCode
   let index = 0
+
   // 当前行开始输入时的光标的位置，0是初始状态，需要跟当前光标一样，非0时需要小于当前光标位置
   if (cursorStartX.value == 0) {
     cursorStartX.value = cursorX.value
@@ -937,11 +955,34 @@ const hideSelectionButton = () => {
   if (button) button.style.display = 'none'
 }
 
-// 添加focus方法
 const focus = () => {
   if (term.value) {
     term.value.focus()
   }
+}
+
+const handleGlobalKeyDown = (e) => {
+  const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0
+  if ((isMac ? e.metaKey : e.ctrlKey) && e.key === 'f') {
+    e.preventDefault()
+    e.stopPropagation()
+    openSearch()
+  }
+  if (e.key === 'Escape' && showSearch.value) {
+    e.preventDefault()
+    e.stopPropagation()
+    closeSearch()
+  }
+}
+
+const openSearch = () => {
+  showSearch.value = true
+}
+
+const closeSearch = () => {
+  showSearch.value = false
+  searchAddon.value?.clearDecorations()
+  term.value?.focus()
 }
 
 defineExpose({

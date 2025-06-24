@@ -3,6 +3,12 @@
     ref="terminalContainer"
     class="terminal-container"
   >
+    <SearchComp
+      v-if="showSearch"
+      :search-addon="searchAddon"
+      :terminal="terminal"
+      @close-search="closeSearch"
+    />
     <div
       ref="terminalElement"
       v-contextmenu:contextmenu
@@ -85,26 +91,16 @@
 </template>
 
 <script lang="ts" setup>
-interface ApiType {
-  queryCommand: (data: { command: string; ip: string }) => Promise<any>
-  insertCommand: (data: { command: string; ip: string }) => Promise<any>
-  getLocalAssetRoute: (data: { searchType: string; params?: any[] }) => Promise<any>
-  updateLocalAssetLabel: (data: { uuid: string; label: string }) => Promise<any>
-  updateLocalAsseFavorite: (data: { uuid: string; status: number }) => Promise<any>
-}
-declare global {
-  interface Window {
-    api: ApiType
-  }
-}
 const copyText = ref('')
+import SearchComp from '../Term/searchComp.vue'
 import Context from '../Term/contextComp.vue'
 import SuggComp from '../Term/suggestion.vue'
 import eventBus from '@/utils/eventBus'
 import { useCurrentCwdStore } from '@/store/currentCwdStore'
-import { markRaw, onBeforeUnmount, onMounted, onUnmounted, PropType, nextTick, reactive, ref } from 'vue'
+import { markRaw, onBeforeUnmount, onMounted, onUnmounted, PropType, nextTick, reactive, ref, watch } from 'vue'
 import { Terminal } from 'xterm'
 import { FitAddon } from 'xterm-addon-fit'
+import { SearchAddon } from 'xterm-addon-search'
 import { IDisposable } from 'xterm'
 import 'xterm/css/xterm.css'
 import { defineEmits } from 'vue'
@@ -176,6 +172,9 @@ const api = window.api as any
 const encoder = new TextEncoder()
 let cusWrite: ((data: string, options?: { isUserCall?: boolean }) => void) | null = null
 let resizeObserver: ResizeObserver | null = null
+const showSearch = ref(false)
+const searchAddon = ref<SearchAddon | null>(null)
+
 // const userConfig = ref({
 //   aliasStatus: 2,
 //   quickVimStatus: 2
@@ -270,16 +269,15 @@ onMounted(async () => {
     })
     document.addEventListener('mouseup', hideSelectionButton)
   }
-
   fitAddon.value = new FitAddon()
   termInstance.loadAddon(fitAddon.value)
   if (terminalElement.value) {
     termInstance.open(terminalElement!.value)
   }
   fitAddon?.value.fit()
-
+  searchAddon.value = new SearchAddon()
+  termInstance.loadAddon(searchAddon.value)
   termInstance.focus()
-
   termInstance.onResize((size) => {
     resizeSSH(size.cols, size.rows)
   })
@@ -380,9 +378,7 @@ onMounted(async () => {
     renderService._renderDebouncer.refresh = originalTriggerRedraw
     renderService.refreshRows(0, core._bufferService.rows - 1)
   }
-
   termInstance.write = cusWrite as any
-
   // 使用 ResizeObserver 监听终端容器的尺寸变化
   if (terminalContainer.value) {
     resizeObserver = new ResizeObserver(
@@ -392,9 +388,9 @@ onMounted(async () => {
     )
     resizeObserver.observe(terminalContainer.value)
   }
-
   // 保留 window resize 监听作为备用
   window.addEventListener('resize', handleResize)
+  window.addEventListener('keydown', handleGlobalKeyDown)
 
   // 初始化完成后进行一次自适应调整
   nextTick(() => {
@@ -416,6 +412,7 @@ onMounted(async () => {
   // 将清理逻辑移到 onBeforeUnmount
   cleanupListeners.value.push(() => {
     eventBus.off('executeTerminalCommand', handleExecuteCommand)
+    window.removeEventListener('keydown', handleGlobalKeyDown)
   })
 })
 const getCmdList = async (terminalId) => {
@@ -1593,7 +1590,7 @@ const insertCommand = async (cmd) => {
 
 // 输入内容
 const handleKeyInput = (e) => {
-  console.log('keyInput-----')
+  console.log(e)
   enterPress.value = false
   specialCode.value = false
   currentLineStartY.value = (terminal.value as any)?._core.buffer.y
@@ -1610,6 +1607,7 @@ const handleKeyInput = (e) => {
   } else {
     cursorX.value < cursorStartX.value ? (cursorStartX.value = cursorX.value) : ''
   }
+
   if (ev.keyCode === 13) {
     enterPress.value = true
     selectFlag.value = true
@@ -1740,6 +1738,33 @@ const hideSelectionButton = () => {
   if (button) button.style.display = 'none'
 }
 
+const handleGlobalKeyDown = (e: KeyboardEvent) => {
+  if (props.activeTabId !== props.currentConnectionId) return
+
+  const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0
+  if ((isMac ? e.metaKey : e.ctrlKey) && e.key === 'f') {
+    e.preventDefault()
+    e.stopPropagation()
+    openSearch()
+  }
+
+  if (e.key === 'Escape' && showSearch.value) {
+    e.preventDefault()
+    e.stopPropagation()
+    closeSearch()
+  }
+}
+
+const openSearch = () => {
+  showSearch.value = true
+}
+
+const closeSearch = () => {
+  showSearch.value = false
+  searchAddon.value?.clearDecorations()
+  terminal.value?.focus()
+}
+
 defineExpose({
   handleResize,
   autoExecuteCode,
@@ -1760,9 +1785,11 @@ onUnmounted(() => {
 .ant-form-item .ant-form-item-label > label {
   color: white;
 }
+
 .ant-radio-wrapper {
   color: white;
 }
+
 .terminal-container {
   width: 100%;
   height: 100%;
