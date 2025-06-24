@@ -56,7 +56,7 @@ const contextmenu = ref()
 import Context from './contextComp.vue'
 import SuggComp from './suggestion.vue'
 import SearchComp from './searchComp.vue'
-import { ref, onMounted, nextTick, onBeforeUnmount, defineProps, onUnmounted, reactive } from 'vue'
+import { ref, onMounted, nextTick, onBeforeUnmount, defineProps, reactive } from 'vue'
 import { Terminal } from 'xterm'
 import { FitAddon } from 'xterm-addon-fit'
 import { WebLinksAddon } from 'xterm-addon-web-links'
