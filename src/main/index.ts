@@ -1,7 +1,6 @@
-import { app, shell, BrowserWindow, ipcMain, session } from 'electron'
+import { app, BrowserWindow, ipcMain, session } from 'electron'
 import { join } from 'path'
-import { electronApp, optimizer, is } from '@electron-toolkit/utils'
-import icon from '../../resources/icon.png?asset'
+import { electronApp, optimizer } from '@electron-toolkit/utils'
 
 import { registerSSHHandlers } from './ssh/sshHandle'
 import { registerRemoteTerminalHandlers } from './ssh/agentHandle'
@@ -13,6 +12,7 @@ import { executeRemoteCommand } from './agent/integrations/remote-terminal/examp
 import { initializeStorageMain, testStorageFromMain as testRendererStorageFromMain } from './agent/core/storage/state'
 import { getTaskMetadata } from './agent/core/storage/disk'
 import { HeartbeatManager } from './heartBeatManager'
+import { createMainWindow } from './windowManager'
 let mainWindow: BrowserWindow
 let COOKIE_URL = 'http://localhost'
 let browserWindow: BrowserWindow | null = null
@@ -25,86 +25,12 @@ let chatermDbService: ChatermDatabaseService
 let controller: Controller
 
 async function createWindow(): Promise<void> {
-  mainWindow = new BrowserWindow({
-    width: 1344,
-    height: 756,
-    icon: join(__dirname, '../../resources/icon.png'),
-    titleBarStyle: 'hidden',
-    ...(process.platform !== 'darwin'
-      ? {
-          titleBarOverlay: {
-            color: '#141414',
-            symbolColor: '#fff',
-            height: 27
-          }
-        }
-      : {}),
-    show: false,
-    autoHideMenuBar: true,
-    ...(process.platform === 'linux' ? { icon } : {}),
-    webPreferences: {
-      preload: join(__dirname, '../preload/index.js'),
-      sandbox: false,
-      contextIsolation: true,
-      nodeIntegration: false,
-      defaultFontFamily: {
-        standard: '-apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", "Helvetica Neue", Helvetica, Arial, sans-serif',
-        serif: 'serif',
-        sansSerif: 'sans-serif',
-        monospace: 'monospace'
-      }
-    }
-  })
-
-  // 窗口拖拽功能
-  mainWindow.on('ready-to-show', () => {
-    mainWindow.show()
-  })
-
-  if (process.platform === 'darwin') {
-    mainWindow.on('close', (event) => {
-      if (!forceQuit) {
-        event.preventDefault()
-        mainWindow.hide()
-      }
-    })
-  }
-
-  mainWindow.webContents.setWindowOpenHandler((details) => {
-    shell.openExternal(details.url)
-    if (details.url.includes('sso')) {
-      return { action: 'allow' }
-    } else {
-      return { action: 'deny' }
-    }
-  })
-
-  // HMR for renderer base on electron-vite cli.
-  // Load the remote URL for development or the local html file for production.
-  if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
-    mainWindow.loadURL(process.env['ELECTRON_RENDERER_URL'])
-  } else {
-    mainWindow.loadFile(join(__dirname, '../renderer/index.html'))
-  }
-
-  // 动态获取 URL
-  mainWindow.webContents.on('did-finish-load', () => {
-    const url = mainWindow.webContents.getURL()
-    // 替换 file:// 协议为 http://localhost（防止 cookie 失效问题）
-    if (url.startsWith('file://')) {
-      COOKIE_URL = 'http://localhost'
-    } else {
+  mainWindow = await createMainWindow(
+    (url: string) => {
       COOKIE_URL = url
-    }
-  })
-
-  // 配置 WebSocket 连接
-  session.defaultSession.webRequest.onBeforeRequest({ urls: ['ws://*/*'] }, (details, callback) => {
-    callback({
-      cancel: false,
-      redirectURL: details.url
-    })
-  })
+    },
+    () => !forceQuit
+  )
 }
 
 app.whenReady().then(async () => {
