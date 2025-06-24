@@ -20,35 +20,6 @@
         </div>
         <div class="ai-welcome-text">{{ $t('ai.welcome') }}</div>
       </div>
-      <div class="hosts-display-container">
-        <a-tag
-          v-for="item in currentChatHosts"
-          :key="item.uuid"
-          color="blue"
-        >
-          <template #icon>
-            <laptop-outlined />
-          </template>
-          {{ item.host }}
-        </a-tag>
-        <span
-          v-if="!currentChatHosts || currentChatHosts.length === 0"
-          class="hosts-display-container-host-tag"
-          @click="handleAddHostClick"
-        >
-          @ {{ $t('ai.addHost') }}
-        </span>
-        <span
-          v-if="responseLoading"
-          style="color: #ffffff; font-size: 10px"
-        >
-          <HourglassOutlined
-            spin
-            style="color: #1890ff; margin-right: 2px"
-          />
-          {{ $t('ai.processing') }}
-        </span>
-      </div>
       <div
         v-if="chatHistory.length > 0"
         ref="chatContainer"
@@ -207,14 +178,6 @@
           </a-button>
         </div>
         <div class="input-send-container">
-          <a-textarea
-            v-model:value="chatInputValue"
-            :placeholder="$t('ai.agentMessage')"
-            class="chat-textarea"
-            :auto-size="{ minRows: 2, maxRows: 10 }"
-            @keydown="handleKeyDown"
-            @input="handleInputChange"
-          />
           <div
             v-if="showHostSelect"
             class="host-select-popup"
@@ -226,18 +189,26 @@
               size="small"
               class="mini-host-search-input"
               allow-clear
+              @keydown="handleHostSearchKeyDown"
             />
             <div class="host-select-list">
               <div
-                v-for="item in filteredHostOptions"
+                v-for="(item, index) in filteredHostOptions"
                 :key="item.value"
                 class="host-select-item"
-                :class="{ hovered: hovered === item.value }"
-                @mouseover="hovered = item.value"
+                :class="{
+                  hovered: hovered === item.value,
+                  'keyboard-selected': keyboardSelectedIndex === index
+                }"
+                @mouseover="handleMouseOver(item.value, index)"
                 @mouseleave="hovered = null"
                 @click="onHostClick(item)"
               >
-                {{ item.label }}
+                <span class="host-label">{{ item.label }}</span>
+                <CheckOutlined
+                  v-if="isHostSelected(item)"
+                  class="host-selected-icon"
+                />
               </div>
               <div
                 v-if="filteredHostOptions.length === 0"
@@ -246,6 +217,48 @@
               </div>
             </div>
           </div>
+          <div class="hosts-display-container">
+            <span
+              class="hosts-display-container-host-tag"
+              @click="handleAddHostClick"
+            >
+              {{ hosts && hosts.length > 0 ? '@' : `@ ${$t('ai.addHost')}` }}
+            </span>
+            <a-tag
+              v-for="item in hosts"
+              :key="item.uuid"
+              color="blue"
+              class="host-tag-with-delete"
+            >
+              <template #icon>
+                <laptop-outlined />
+              </template>
+              {{ item.host }}
+              <CloseOutlined
+                class="host-delete-btn"
+                @click.stop="removeHost(item)"
+              />
+            </a-tag>
+
+            <span
+              v-if="responseLoading"
+              style="color: #ffffff; font-size: 10px"
+            >
+              <HourglassOutlined
+                spin
+                style="color: #1890ff; margin-right: 2px"
+              />
+              {{ $t('ai.processing') }}
+            </span>
+          </div>
+          <a-textarea
+            v-model:value="chatInputValue"
+            :placeholder="$t('ai.agentMessage')"
+            class="chat-textarea"
+            :auto-size="{ minRows: 2, maxRows: 5 }"
+            @keydown="handleKeyDown"
+            @input="handleInputChange"
+          />
           <div class="input-controls">
             <a-select
               v-model:value="chatTypeValue"
@@ -447,11 +460,10 @@ import { getassetMenu } from '@/api/asset/asset'
 import { aiModelOptions, deepseekAiModelOptions } from '@views/components/LeftTab/components/aiOptions'
 import debounce from 'lodash/debounce'
 import i18n from '@/locales'
+import { ChatermMessage } from '@/types/ChatermMessage'
 
 const { t } = i18n.global
-const MarkdownRenderer = defineAsyncComponent(() => import('@views/components/AiTab/MarkdownRenderer.vue'))
-
-import { ChatermMessage } from '../../../main/agent/shared/ExtensionMessage'
+const MarkdownRenderer = defineAsyncComponent(() => import('@views/components/AiTab/markdownRenderer.vue'))
 
 // 定义事件类型
 interface TabInfo {
@@ -473,6 +485,7 @@ const showHostSelect = ref(false)
 const hostOptions = ref<{ label: string; value: string; uuid: string }[]>([])
 const hostSearchValue = ref('')
 const hovered = ref<string | null>(null)
+const keyboardSelectedIndex = ref(-1)
 const historyList = ref<HistoryItem[]>([])
 const hosts = ref<Host[]>([])
 const chatInputValue = ref('')
@@ -1353,8 +1366,6 @@ watch(
   { deep: true }
 )
 
-// 计算属性，用于获取当前聊天会话的 hosts
-const currentChatHosts = computed(() => hosts.value)
 // Watch chatHistory length changes to enable buttons
 watch(
   () => chatHistory.length,
@@ -1381,8 +1392,11 @@ const showBottomButton = computed(() => {
   )
 })
 
-// 1. 新增状态变量
 const filteredHostOptions = computed(() => hostOptions.value.filter((item) => item.label.includes(hostSearchValue.value)))
+
+const isHostSelected = (hostOption: any) => {
+  return hosts.value.some((h) => h.host === hostOption.label)
+}
 const onHostClick = (item: any) => {
   const newHost = {
     host: item.label,
@@ -1390,15 +1404,78 @@ const onHostClick = (item: any) => {
     connection: item.connection,
     organizationId: item.organizationId
   }
+
   if (chatTypeValue.value === 'cmd') {
     hosts.value = [newHost]
   } else {
-    if (!hosts.value.some((h) => h.host === item.label)) {
+    // 检查是否已选中
+    const existingIndex = hosts.value.findIndex((h) => h.host === item.label)
+    if (existingIndex > -1) {
+      // 如果已选中，则取消选择
+      hosts.value.splice(existingIndex, 1)
+    } else {
+      // 如果未选中，则添加
       hosts.value.push(newHost)
     }
   }
-  showHostSelect.value = false
+  // showHostSelect.value = false
   chatInputValue.value = ''
+}
+
+// 移除指定的host
+const removeHost = (hostToRemove: any) => {
+  const index = hosts.value.findIndex((h) => h.uuid === hostToRemove.uuid)
+  if (index > -1) {
+    hosts.value.splice(index, 1)
+  }
+}
+
+// 处理host搜索框的键盘事件
+const handleHostSearchKeyDown = (e: KeyboardEvent) => {
+  if (!showHostSelect.value || filteredHostOptions.value.length === 0) return
+
+  switch (e.key) {
+    case 'ArrowDown':
+      e.preventDefault()
+      if (keyboardSelectedIndex.value === -1) {
+        keyboardSelectedIndex.value = 0
+      } else {
+        keyboardSelectedIndex.value = Math.min(keyboardSelectedIndex.value + 1, filteredHostOptions.value.length - 1)
+      }
+      break
+    case 'ArrowUp':
+      e.preventDefault()
+      if (keyboardSelectedIndex.value === -1) {
+        keyboardSelectedIndex.value = filteredHostOptions.value.length - 1
+      } else {
+        keyboardSelectedIndex.value = Math.max(keyboardSelectedIndex.value - 1, 0)
+      }
+      break
+    case 'Enter':
+      e.preventDefault()
+      if (keyboardSelectedIndex.value >= 0 && keyboardSelectedIndex.value < filteredHostOptions.value.length) {
+        onHostClick(filteredHostOptions.value[keyboardSelectedIndex.value])
+      }
+      break
+    case 'Escape':
+      e.preventDefault()
+      showHostSelect.value = false
+      keyboardSelectedIndex.value = -1
+      // 将焦点回到主输入框
+      nextTick(() => {
+        const textarea = document.getElementsByClassName('chat-textarea')[0] as HTMLTextAreaElement | null
+        if (textarea) {
+          textarea.focus()
+        }
+      })
+      break
+  }
+}
+
+// 处理鼠标悬停事件
+const handleMouseOver = (value: string, index: number) => {
+  hovered.value = value
+  keyboardSelectedIndex.value = index
 }
 
 // 2. 监听输入框内容变化
@@ -1422,6 +1499,7 @@ const debouncedFetchHostOptions = debounce((search: string) => {
 }, 300)
 
 watch(hostSearchValue, (newVal) => {
+  keyboardSelectedIndex.value = -1
   debouncedFetchHostOptions(newVal)
 })
 const fetchHostOptions = async (search: string) => {
@@ -1488,10 +1566,13 @@ const handleAddHostClick = async () => {
   showHostSelect.value = !showHostSelect.value
   if (showHostSelect.value) {
     hostSearchValue.value = ''
+    keyboardSelectedIndex.value = -1
     await fetchHostOptions('')
     nextTick(() => {
       hostSearchInputRef.value?.focus?.()
     })
+  } else {
+    keyboardSelectedIndex.value = -1
   }
 }
 
@@ -1694,12 +1775,23 @@ const cancelEdit = async (history) => {
     line-height: 22px;
     font-size: 12px;
   }
-  :deep(.ant-tabs-content) {
+
+  :deep(.ant-tabs-content-holder) {
+    display: flex;
+    flex: 1;
+    min-height: 0;
     max-height: 100%;
   }
+
+  :deep(.ant-tabs-content) {
+    height: 100%;
+    width: 100%;
+  }
+
   :deep(.ant-tabs-tabpane) {
     display: flex;
     flex-direction: column;
+    height: 100%;
   }
 }
 
@@ -1718,12 +1810,34 @@ const cancelEdit = async (history) => {
   display: flex;
   flex-wrap: wrap;
   gap: 4px;
-  position: sticky;
-  top: 0;
-  z-index: 1;
-  border-bottom: 0px solid #333;
+
   justify-content: flex-start;
   user-select: text;
+  padding: 4px 8px;
+  border-radius: 8px 8px 0 0;
+  max-height: 100px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: #2a2a2a #1a1a1a;
+
+  &::-webkit-scrollbar {
+    width: 6px;
+  }
+
+  &::-webkit-scrollbar-track {
+    background: #1a1a1a;
+    border-radius: 3px;
+  }
+
+  &::-webkit-scrollbar-thumb {
+    background-color: #2a2a2a;
+    border-radius: 3px;
+
+    &:hover {
+      background-color: #3a3a3a;
+    }
+  }
+
   :deep(.ant-tag) {
     font-size: 10px;
     padding: 0 6px;
@@ -1740,6 +1854,29 @@ const cancelEdit = async (history) => {
     .anticon-laptop {
       color: #1890ff !important;
       margin-right: 0cap;
+    }
+  }
+
+  .host-tag-with-delete {
+    position: relative;
+    padding-right: 20px !important;
+
+    .host-delete-btn {
+      position: absolute;
+      right: 4px;
+      top: 50%;
+      transform: translateY(-50%);
+      font-size: 8px;
+      color: #888;
+      cursor: pointer;
+      padding: 1px;
+      border-radius: 2px;
+      transition: all 0.2s ease;
+
+      &:hover {
+        color: #ff4d4f;
+        background-color: rgba(255, 77, 79, 0.1);
+      }
     }
   }
 }
@@ -1786,21 +1923,25 @@ const cancelEdit = async (history) => {
   padding: 0px 4px 4px 4px;
   margin-top: 2px;
   scrollbar-width: thin;
-  height: v-bind(
-    '(showResumeButton || showCancelButton) ? "calc(100vh - 202px)" : (showBottomButton ? "calc(100vh - 202px)" : "calc(100vh - 165px)")'
-  );
+  scrollbar-color: #2a2a2a #1a1a1a;
   width: 100%;
+  min-height: 0;
 
   &::-webkit-scrollbar {
     width: 6px;
   }
 
+  &::-webkit-scrollbar-track {
+    background: #1a1a1a;
+    border-radius: 3px;
+  }
+
   &::-webkit-scrollbar-thumb {
-    background-color: #4a4a4a;
+    background-color: #2a2a2a;
     border-radius: 3px;
 
     &:hover {
-      background-color: #5a5a5a;
+      background-color: #3a3a3a;
     }
   }
 }
@@ -1844,6 +1985,7 @@ const cancelEdit = async (history) => {
 }
 
 .input-send-container {
+  position: relative;
   display: flex;
   flex-direction: column;
   gap: 4px;
@@ -2170,18 +2312,23 @@ const cancelEdit = async (history) => {
   max-height: 360px;
   overflow-y: auto;
   scrollbar-width: thin;
-  scrollbar-color: #4a4a4a transparent;
+  scrollbar-color: #2a2a2a #1a1a1a;
 
   &::-webkit-scrollbar {
     width: 4px;
   }
 
+  &::-webkit-scrollbar-track {
+    background: #1a1a1a;
+    border-radius: 2px;
+  }
+
   &::-webkit-scrollbar-thumb {
-    background-color: #4a4a4a;
+    background-color: #2a2a2a;
     border-radius: 2px;
 
     &:hover {
-      background-color: #5a5a5a;
+      background-color: #3a3a3a;
     }
   }
 }
@@ -2325,6 +2472,8 @@ const cancelEdit = async (history) => {
   display: flex;
   flex-direction: column;
   gap: 4px;
+  position: relative;
+  flex-shrink: 0;
 }
 
 .bottom-buttons {
@@ -2475,14 +2624,37 @@ const cancelEdit = async (history) => {
 
 .host-select-popup {
   position: absolute;
-  left: 30px;
-  bottom: 30px;
+  bottom: 100%;
+  left: 0;
   width: 130px;
   background: #222;
   border-radius: 4px;
-  box-shadow: 0 2px 8px #0002;
+  box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.3);
   border: 1px solid #484747;
-  z-index: 10;
+  margin-bottom: 4px;
+  margin-left: 8px;
+  max-height: 150px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: #2a2a2a #1a1a1a;
+
+  &::-webkit-scrollbar {
+    width: 6px;
+  }
+
+  &::-webkit-scrollbar-track {
+    background: #1a1a1a;
+    border-radius: 3px;
+  }
+
+  &::-webkit-scrollbar-thumb {
+    background-color: #2a2a2a;
+    border-radius: 3px;
+
+    &:hover {
+      background-color: #3a3a3a;
+    }
+  }
 }
 
 .host-select-list {
@@ -2494,16 +2666,36 @@ const cancelEdit = async (history) => {
 .host-select-item {
   padding: 2px 6px;
   cursor: pointer;
+  bottom: 100%;
   border-radius: 3px;
   margin-bottom: 2px;
   background: #222;
   color: #fff;
   font-size: 12px;
   line-height: 16px;
-  transition: background 0.2s;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+
+  .host-label {
+    flex: 1;
+  }
+
+  .host-selected-icon {
+    font-size: 10px;
+    color: #52c41a;
+    margin-left: 4px;
+  }
 
   &.hovered {
     background: #1656b1;
+  }
+
+  &.keyboard-selected {
+    background: #1656b1;
+    outline: 2px solid rgba(24, 144, 255, 0.5);
+    outline-offset: -2px;
   }
 }
 
@@ -2514,11 +2706,11 @@ const cancelEdit = async (history) => {
 }
 
 .ai-welcome-container {
+  flex: 1;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  height: calc(100vh - 165px);
 
   .ai-welcome-icon {
     margin-bottom: 12px;

@@ -73,12 +73,7 @@
 <script setup lang="ts">
 import EditorCode from './monacoEditor.vue'
 import DraggableResizable from './dragResize.vue'
-import {
-  FullscreenOutlined,
-  FullscreenExitOutlined,
-  CloseOutlined,
-  SaveOutlined
-} from '@ant-design/icons-vue'
+import { FullscreenOutlined, FullscreenExitOutlined, CloseOutlined, SaveOutlined } from '@ant-design/icons-vue'
 
 import { PropType, defineEmits, shallowRef } from 'vue'
 
@@ -140,10 +135,8 @@ const fullScreenVimEditor = () => {
   editor.lastVimEditorY = editor.vimEditorY
   editor.lastVimEditorHeight = editor.vimEditorHeight
   editor.lastVimEditorWidth = editor.vimEditorWidth
-  editor.vimEditorX =
-    Math.round(window.innerWidth * 0.5) - Math.round(window.innerWidth * 0.85 * 0.5)
-  editor.vimEditorY =
-    Math.round(window.innerHeight * 0.5) - Math.round(window.innerHeight * 0.85 * 0.5)
+  editor.vimEditorX = Math.round(window.innerWidth * 0.5) - Math.round(window.innerWidth * 0.85 * 0.5)
+  editor.vimEditorY = Math.round(window.innerHeight * 0.5) - Math.round(window.innerHeight * 0.85 * 0.5)
   editor.vimEditorHeight = Math.round(window.innerHeight * 0.85)
   editor.vimEditorWidth = Math.round(window.innerWidth * 0.85)
   showVimFullScreenEditor.value = false
