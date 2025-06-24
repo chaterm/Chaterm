@@ -1608,11 +1608,6 @@ const handleKeyInput = (e) => {
     cursorX.value < cursorStartX.value ? (cursorStartX.value = cursorX.value) : ''
   }
 
-  if (e.key == '\u0006') {
-    console.log('ctrl+f--------------------')
-    openSearch()
-  }
-
   if (ev.keyCode === 13) {
     enterPress.value = true
     selectFlag.value = true
@@ -1745,6 +1740,13 @@ const hideSelectionButton = () => {
 
 const handleGlobalKeyDown = (e: KeyboardEvent) => {
   if (props.activeTabId !== props.currentConnectionId) return
+
+  const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0
+  if ((isMac ? e.metaKey : e.ctrlKey) && e.key === 'f') {
+    e.preventDefault()
+    e.stopPropagation()
+    openSearch()
+  }
 
   if (e.key === 'Escape' && showSearch.value) {
     e.preventDefault()
