@@ -58,7 +58,7 @@ export class Task {
   private reinitExistingTaskFromId: (taskId: string) => Promise<void>
 
   readonly taskId: string
-  hosts?: Host[]
+  hosts: Host[]
   terminalOutput?: string = ''
   cwd: Map<string, string> = new Map()
   private taskIsFavorited?: boolean
@@ -122,10 +122,10 @@ export class Task {
     apiConfiguration: ApiConfiguration,
     autoApprovalSettings: AutoApprovalSettings,
     chatSettings: ChatSettings,
+    hosts: Host[],
     customInstructions?: string,
     task?: string,
     historyItem?: HistoryItem,
-    hosts?: Host[],
     terminalOutput?: string,
     cwd?: Map<string, string>
   ) {

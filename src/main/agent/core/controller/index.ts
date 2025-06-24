@@ -89,7 +89,7 @@ export class Controller {
     await updateGlobalState('userInfo', info)
   }
 
-  async initTask(task?: string, historyItem?: HistoryItem, hosts?: Host[], terminalOutput?: string, cwd?: Map<string, string>) {
+  async initTask(hosts: Host[], task?: string, historyItem?: HistoryItem, terminalOutput?: string, cwd?: Map<string, string>) {
     console.log('initTask', task, historyItem)
     await this.clearTask() // ensures that an existing task doesn't exist before starting a new one, although this shouldn't be possible since user must clear task before starting a new one
     const { apiConfiguration, customInstructions, autoApprovalSettings, chatSettings } = await getAllExtensionState()
@@ -102,10 +102,10 @@ export class Controller {
       apiConfiguration,
       autoApprovalSettings,
       chatSettings,
+      hosts,
       customInstructions,
       task,
       historyItem,
-      hosts,
       terminalOutput,
       cwd
     )
@@ -114,7 +114,7 @@ export class Controller {
   async reinitExistingTaskFromId(taskId: string) {
     const history = await this.getTaskWithId(taskId)
     if (history) {
-      await this.initTask(undefined, history.historyItem)
+      await this.initTask(this.task?.hosts || [], undefined, history.historyItem)
     }
   }
 
@@ -140,7 +140,7 @@ export class Controller {
         break
 
       case 'newTask':
-        await this.initTask(message.text, undefined, message.hosts, message.terminalOutput, message.cwd)
+        await this.initTask(message.hosts!, message.text, undefined, message.terminalOutput, message.cwd)
         if (this.task?.taskId && message.hosts) {
           await updateTaskHosts(this.task.taskId, message.hosts)
         }
@@ -284,7 +284,7 @@ export class Controller {
         // 'abandoned' will prevent this cline instance from affecting future cline instance gui. this may happen if its hanging on a streaming request
         this.task.abandoned = true
       }
-      await this.initTask(undefined, historyItem) // clears task again, so we need to abortTask manually above
+      await this.initTask(this.task.hosts, undefined, historyItem) // clears task again, so we need to abortTask manually above
       // await this.postStateToWebview() // new Cline instance will post state when it's ready. having this here sent an empty messages array to webview leading to virtuoso having to reload the entire list
     }
   }
@@ -410,19 +410,6 @@ export class Controller {
     console.log('addSelectedTerminalOutputToChat', output, terminalName)
   }
 
-  // 'Fix with Cline' in code actions
-  async fixWithCline(code: string, filePath: string, languageId: string, diagnostics: vscode.Diagnostic[]) {
-    // Ensure the sidebar view is visible
-    await vscode.commands.executeCommand('claude-dev.SidebarProvider.focus')
-    await setTimeoutPromise(100)
-
-    const fileMention = this.getFileMentionFromPath(filePath)
-    const problemsString = this.convertDiagnosticsToProblemsString(diagnostics)
-    await this.initTask(`Fix the following code in ${fileMention}\n\`\`\`\n${code}\n\`\`\`\n\nProblems:\n${problemsString}`)
-
-    console.log('fixWithCline', code, filePath, languageId, diagnostics, problemsString)
-  }
-
   convertDiagnosticsToProblemsString(diagnostics: vscode.Diagnostic[]) {
     let problemsString = ''
     for (const diagnostic of diagnostics) {
@@ -482,7 +469,7 @@ export class Controller {
     if (id !== this.task?.taskId) {
       // non-current task
       const { historyItem } = await this.getTaskWithId(id)
-      await this.initTask(undefined, historyItem, hosts, undefined, cwd) // clears existing task
+      await this.initTask(hosts, undefined, historyItem, undefined, cwd) // clears existing task
     }
   }
 
