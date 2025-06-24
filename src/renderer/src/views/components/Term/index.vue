@@ -714,10 +714,6 @@ const handleKeyInput = (e) => {
   cursorY.value = buffer.cursorY
   keyCode.value = ev.keyCode
   let index = 0
-  if (e.key == '\u0006') {
-    console.log('ctrl+f--------------------')
-    openSearch()
-  }
 
   // 当前行开始输入时的光标的位置，0是初始状态，需要跟当前光标一样，非0时需要小于当前光标位置
   if (cursorStartX.value == 0) {
@@ -959,16 +955,15 @@ const hideSelectionButton = () => {
   if (button) button.style.display = 'none'
 }
 
-// 添加focus方法
 const focus = () => {
   if (term.value) {
     term.value.focus()
   }
 }
 
-// 全局键盘事件处理
 const handleGlobalKeyDown = (e) => {
-  if (e.ctrlKey && e.key === 'f') {
+  const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0
+  if ((isMac ? e.metaKey : e.ctrlKey) && e.key === 'f') {
     e.preventDefault()
     e.stopPropagation()
     openSearch()
