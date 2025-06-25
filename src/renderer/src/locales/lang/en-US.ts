@@ -292,5 +292,13 @@ export default {
     save: 'Save',
     cancel: 'Cancel',
     resetPassword: 'Reset Password'
+  },
+  update: {
+    available: 'A new version is available',
+    update: 'Update',
+    later: 'Later',
+    downloading: 'Downloading update',
+    complete: 'Download complete, install now?',
+    install: 'Install'
   }
 }
