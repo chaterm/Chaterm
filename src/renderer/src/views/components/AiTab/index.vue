@@ -26,7 +26,10 @@
         :key="containerKey"
         class="chat-response-container"
       >
-        <div class="chat-response">
+        <div
+          ref="chatResponse"
+          class="chat-response"
+        >
           <template
             v-for="message in chatHistory"
             :key="message"
@@ -45,6 +48,7 @@
                 :ask="message.ask"
                 :say="message.say"
                 :partial="message.partial"
+                @collapse-change="handleCollapseChange"
               />
               <MarkdownRenderer
                 v-else
@@ -53,6 +57,7 @@
                 :ask="message.ask"
                 :say="message.say"
                 :partial="message.partial"
+                @collapse-change="handleCollapseChange"
               />
 
               <div class="message-actions">
@@ -1346,17 +1351,6 @@ const sendMessageToMain = async (userContent: string) => {
   }
 }
 
-const chatContainer = ref<HTMLElement | null>(null)
-
-// Add auto scroll function
-const scrollToBottom = () => {
-  nextTick(() => {
-    if (chatContainer.value) {
-      chatContainer.value.scrollTop = chatContainer.value.scrollHeight
-    }
-  })
-}
-
 // Watch chatHistory changes
 watch(
   chatHistory,
@@ -1732,6 +1726,79 @@ const cancelEdit = async (history) => {
     history.isEditing = false
     history.editingTitle = ''
     currentEditingId.value = null
+  }
+}
+
+const chatContainer = ref<HTMLElement | null>(null)
+const chatResponse = ref<HTMLElement | null>(null)
+// 添加一个标志来跟踪是否正在处理折叠操作
+const isHandlingCollapse = ref(false)
+
+// Add auto scroll function
+const scrollToBottom = () => {
+  // 如果正在处理折叠操作，则不执行滚动
+  if (isHandlingCollapse.value) {
+    // console.log('正在处理折叠操作，跳过自动滚动')
+    return
+  }
+
+  // 记录当前容器底部位置
+  const prevBottom = chatResponse.value?.getBoundingClientRect().bottom
+
+  nextTick(() => {
+    if (chatResponse.value) {
+      // 获取更新后的容器底部位置
+      const currentBottom = chatResponse.value.getBoundingClientRect().bottom
+      // console.log('容器高度变化，直接滚动到底部', prevBottom, currentBottom)
+      // 如果容器底部位置发生了变化，直接滚动到底部
+      if (prevBottom !== currentBottom && prevBottom > 0 && currentBottom > 0) {
+        chatContainer.value.scrollTop = chatContainer.value.scrollHeight
+      }
+    }
+  })
+}
+
+// 修改 handleCollapseChange 函数
+const handleCollapseChange = () => {
+  // 设置标志，表示正在处理折叠操作
+  isHandlingCollapse.value = true
+
+  // 折叠完成后，直接调用adjustScrollPosition确保内容可见
+  nextTick(() => {
+    adjustScrollPosition()
+
+    // 延迟重置标志，确保在处理完成后才允许自动滚动
+    setTimeout(() => {
+      isHandlingCollapse.value = false
+    }, 500)
+  })
+}
+
+// 添加一个专门用于调整折叠后滚动位置的函数
+const adjustScrollPosition = () => {
+  if (!chatContainer.value) return
+
+  // 尝试找到最后一条可见消息
+  const messages = Array.from(chatContainer.value.querySelectorAll('.message.assistant, .message.user'))
+
+  if (messages.length > 0) {
+    // 获取最后一条消息
+    const lastMessage = messages[messages.length - 1]
+
+    // 检查最后一条消息是否在视口内
+    const rect = lastMessage.getBoundingClientRect()
+    const containerRect = chatContainer.value.getBoundingClientRect()
+
+    if (rect.bottom > containerRect.bottom || rect.top < containerRect.top) {
+      // 如果最后一条消息不在视口内，将其滚动到视口中央
+      lastMessage.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      // console.log('将最后一条消息滚动到视口中央')
+    } else {
+      // console.log('最后一条消息已在视口内，无需调整')
+    }
+  } else {
+    // 如果没有消息，滚动到底部
+    chatContainer.value.scrollTop = chatContainer.value.scrollHeight
   }
 }
 </script>
@@ -2279,6 +2346,7 @@ const cancelEdit = async (history) => {
   .history-search-container {
     display: flex;
     gap: 10px;
+
     :deep(.ant-input-affix-wrapper) {
       border-color: rgba(255, 255, 255, 0.1);
       box-shadow: none;
@@ -2294,6 +2362,7 @@ const cancelEdit = async (history) => {
       border: none !important;
       color: rgba(255, 255, 255, 0.65) !important;
       height: 20px !important;
+
       &::placeholder {
         color: #666 !important;
       }
@@ -2301,6 +2370,7 @@ const cancelEdit = async (history) => {
 
     :deep(.ant-input-clear-icon) {
       color: #666;
+
       &:hover {
         color: #999;
       }
