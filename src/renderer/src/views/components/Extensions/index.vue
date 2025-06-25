@@ -47,11 +47,12 @@
 
 <script setup lang="ts">
 import { SearchOutlined } from '@ant-design/icons-vue'
-import { computed, ref, watch, onMounted } from 'vue'
+import { computed, ref, watch, onMounted, onBeforeUnmount } from 'vue'
 import i18n from '@/locales'
 import iconAlias from '@/assets/img/alias.svg'
 import { userConfigStore } from '@/services/userConfigStoreService'
 import { defineExpose } from 'vue'
+import eventBus from '@/utils/eventBus'
 
 const emit = defineEmits(['open-user-tab'])
 const searchValue = ref('')
@@ -99,6 +100,20 @@ const loadConfig = async () => {
   }
 }
 
+// 初始加载配置
+onMounted(() => {
+  loadConfig()
+  // 监听别名状态变化事件
+  eventBus.on('aliasStatusChanged', () => {
+    loadConfig()
+  })
+})
+
+// 移除事件监听
+onBeforeUnmount(() => {
+  eventBus.off('aliasStatusChanged')
+})
+
 // 监听配置变化
 watch(
   () => userConfig.value.aliasStatus,
@@ -107,11 +122,6 @@ watch(
     loadConfig()
   }
 )
-
-// 初始加载配置
-onMounted(() => {
-  loadConfig()
-})
 
 const list = computed(() => {
   return [
