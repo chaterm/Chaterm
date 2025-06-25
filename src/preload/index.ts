@@ -302,8 +302,7 @@ const chatermGetChatermMessages = async (data: { taskId: string }) => {
 }
 
 const getPlatform = () => ipcRenderer.invoke('get-platform')
-const invokeCustomAdsorption = (data: { appX: number; appY: number }) =>
-  ipcRenderer.invoke('custom-adsorption', data)
+const invokeCustomAdsorption = (data: { appX: number; appY: number }) => ipcRenderer.invoke('custom-adsorption', data)
 
 const getTaskMetadata = async (taskId) => {
   try {
@@ -382,9 +381,7 @@ const api = {
   refresh: (): void => {
     ipcRenderer.send('browser-refresh')
   },
-  onNavigationStateChanged: (
-    callback: (state: { canGoBack: boolean; canGoForward: boolean }) => void
-  ): void => {
+  onNavigationStateChanged: (callback: (state: { canGoBack: boolean; canGoForward: boolean }) => void): void => {
     ipcRenderer.on('navigation-state-changed', (_event, state) => callback(state))
   },
 
@@ -429,11 +426,9 @@ const api = {
   checkSftpConnAvailable: (id: string) => ipcRenderer.invoke('ssh:sftp:conn:check', { id }),
   shell: (params) => ipcRenderer.invoke('ssh:shell', params),
   resizeShell: (id, cols, rows) => ipcRenderer.invoke('ssh:shell:resize', { id, cols, rows }),
-  sshSftpList: (opts: { id: string; remotePath: string }) =>
-    ipcRenderer.invoke('ssh:sftp:list', opts) as Promise<FileRecord[] | string[]>,
+  sshSftpList: (opts: { id: string; remotePath: string }) => ipcRenderer.invoke('ssh:sftp:list', opts) as Promise<FileRecord[] | string[]>,
   sftpConnList: () => ipcRenderer.invoke('ssh:sftp:conn:list') as Promise<string[]>,
-  sshConnExec: (args: { id: string; cmd: string }) =>
-    ipcRenderer.invoke('ssh:conn:exec', args) as Promise<ExecResult>,
+  sshConnExec: (args: { id: string; cmd: string }) => ipcRenderer.invoke('ssh:conn:exec', args) as Promise<ExecResult>,
   writeToShell: (params) => ipcRenderer.send('ssh:shell:write', params),
   disconnect: (params) => ipcRenderer.invoke('ssh:disconnect', params),
   selectPrivateKey: () => ipcRenderer.invoke('ssh:select-private-key'),
@@ -513,7 +508,13 @@ const api = {
     } catch (error) {
       return Promise.reject(error)
     }
-  }
+  },
+  checkUpdate: () => ipcRenderer.invoke('update:checkUpdate'),
+  download: () => ipcRenderer.invoke('update:download'),
+  autoUpdate: (update) => {
+    ipcRenderer.on('update:autoUpdate', (event, params) => update(params))
+  },
+  quitAndInstall: () => ipcRenderer.invoke('update:quitAndInstall')
 }
 // 自定义 API 用于浏览器控制
 
