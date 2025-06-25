@@ -1,13 +1,7 @@
 import { Anthropic } from '@anthropic-ai/sdk'
 import OpenAI from 'openai'
 import { ApiHandler } from '../'
-import {
-  ApiHandlerOptions,
-  DeepSeekModelId,
-  ModelInfo,
-  deepSeekDefaultModelId,
-  deepSeekModels
-} from '@shared/api'
+import { ApiHandlerOptions, DeepSeekModelId, ModelInfo, deepSeekDefaultModelId, deepSeekModels } from '@shared/api'
 import { calculateApiCostOpenAI } from '../../utils/cost'
 import { convertToOpenAiMessages } from '../transform/openai-format'
 import { ApiStream } from '../transform/stream'
@@ -29,9 +23,7 @@ export class DeepSeekHandler implements ApiHandler {
   async validateApiKey(): Promise<{ isValid: boolean; error?: string }> {
     try {
       const testSystemPrompt = "This is a connection test. Respond with only the word 'OK'."
-      const testMessage = [
-        { role: 'user', content: 'Connection test' }
-      ] as Anthropic.Messages.MessageParam[]
+      const testMessage = [{ role: 'user', content: 'Connection test' }] as Anthropic.Messages.MessageParam[]
 
       const stream = this.createMessage(testSystemPrompt, testMessage)
       let firstResponse = false
@@ -56,10 +48,7 @@ export class DeepSeekHandler implements ApiHandler {
     }
   }
 
-  private async *yieldUsage(
-    info: ModelInfo,
-    usage: OpenAI.Completions.CompletionUsage | undefined
-  ): ApiStream {
+  private async *yieldUsage(info: ModelInfo, usage: OpenAI.Completions.CompletionUsage | undefined): ApiStream {
     // Deepseek reports total input AND cache reads/writes,
     // see context caching: https://api-docs.deepseek.com/guides/kv_cache)
     // where the input tokens is the sum of the cache hits/misses, just like OpenAI.
@@ -80,13 +69,7 @@ export class DeepSeekHandler implements ApiHandler {
     const outputTokens = deepUsage?.completion_tokens || 0
     const cacheReadTokens = deepUsage?.prompt_cache_hit_tokens || 0
     const cacheWriteTokens = deepUsage?.prompt_cache_miss_tokens || 0
-    const totalCost = calculateApiCostOpenAI(
-      info,
-      inputTokens,
-      outputTokens,
-      cacheWriteTokens,
-      cacheReadTokens
-    )
+    const totalCost = calculateApiCostOpenAI(info, inputTokens, outputTokens, cacheWriteTokens, cacheReadTokens)
     const nonCachedInputTokens = Math.max(0, inputTokens - cacheReadTokens - cacheWriteTokens) // this will always be 0
     yield {
       type: 'usage',
@@ -98,18 +81,12 @@ export class DeepSeekHandler implements ApiHandler {
     }
   }
 
-  async *createMessage(
-    systemPrompt: string,
-    messages: Anthropic.Messages.MessageParam[]
-  ): ApiStream {
+  async *createMessage(systemPrompt: string, messages: Anthropic.Messages.MessageParam[]): ApiStream {
     const model = this.getModel()
 
     const isDeepseekReasoner = model.id.includes('deepseek-reasoner')
 
-    let openAiMessages: OpenAI.Chat.ChatCompletionMessageParam[] = [
-      { role: 'system', content: systemPrompt },
-      ...convertToOpenAiMessages(messages)
-    ]
+    let openAiMessages: OpenAI.Chat.ChatCompletionMessageParam[] = [{ role: 'system', content: systemPrompt }, ...convertToOpenAiMessages(messages)]
 
     if (isDeepseekReasoner) {
       openAiMessages = convertToR1Format([{ role: 'user', content: systemPrompt }, ...messages])
