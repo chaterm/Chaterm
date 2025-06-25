@@ -270,7 +270,7 @@
               size="small"
               class="custom-round-button compact-button"
               style="margin-left: 8px"
-              @click="sendMessage"
+              @click="sendMessage('send')"
             >
               <img
                 :src="sendIcon"
@@ -640,7 +640,7 @@ const checkModelConfig = async () => {
   return true
 }
 
-const sendMessage = async () => {
+const sendMessage = async (sendType: string) => {
   const checkModelConfigResult = await checkModelConfig()
   if (!checkModelConfigResult) {
     notification.error({
@@ -689,7 +689,7 @@ const sendMessage = async () => {
       return 'ASSET_ERROR'
     }
   }
-  await sendMessageToMain(userContent)
+  await sendMessageToMain(userContent, sendType)
 
   const userMessage: ChatMessage = {
     id: uuidv4(),
@@ -715,7 +715,7 @@ const handleKeyDown = (e: KeyboardEvent) => {
   // 检查是否是输入法确认键
   if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) {
     e.preventDefault()
-    sendMessage()
+    sendMessage('send')
   }
 }
 
@@ -751,7 +751,7 @@ const handlePlusClick = async () => {
   showSendButton.value = true
   responseLoading.value = false
   if (currentInput.trim()) {
-    sendMessage()
+    sendMessage('newTask')
   }
 }
 
@@ -1153,7 +1153,7 @@ onBeforeUnmount(() => {
 onMounted(async () => {
   eventBus.on('triggerAiSend', () => {
     if (chatInputValue.value.trim()) {
-      sendMessage()
+      sendMessage('commandSend')
     }
   })
   eventBus.on('chatToAi', (text) => {
@@ -1292,7 +1292,7 @@ onUnmounted(() => {
 })
 
 // 添加发送消息到主进程的方法
-const sendMessageToMain = async (userContent: string) => {
+const sendMessageToMain = async (userContent: string, sendType: string) => {
   try {
     let message
     // 只发送hosts中IP对应的cwd键值对
@@ -1315,6 +1315,13 @@ const sendMessageToMain = async (userContent: string) => {
         text: userContent,
         terminalOutput: '',
         hosts: hostsArray,
+        cwd: filteredCwd
+      }
+    } else if (sendType === 'commandSend') {
+      message = {
+        type: 'askResponse',
+        askResponse: 'yesButtonClicked',
+        text: userContent,
         cwd: filteredCwd
       }
     } else {
