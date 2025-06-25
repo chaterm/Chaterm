@@ -226,6 +226,7 @@ export default {
     cancel: 'Cancel',
     resume: 'Resume',
     agentMessage: 'Command query,troubleshoot errors,handle tasks,anything',
+    cmdMessage: 'Work on explicitly opened terminal',
     newChat: 'New Chat',
     showChatHistory: 'Show History',
     closeAiSidebar: 'Close AI Sidebar',
