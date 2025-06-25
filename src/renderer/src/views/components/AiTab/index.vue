@@ -207,6 +207,7 @@
           </div>
           <div class="hosts-display-container">
             <span
+              v-if="chatTypeValue === 'agent' && chatHistory.length === 0"
               class="hosts-display-container-host-tag"
               @click="handleAddHostClick"
             >
@@ -223,6 +224,7 @@
               </template>
               {{ item.host }}
               <CloseOutlined
+                v-if="chatTypeValue === 'agent' && chatHistory.length === 0"
                 class="host-delete-btn"
                 @click.stop="removeHost(item)"
               />
@@ -241,7 +243,7 @@
           </div>
           <a-textarea
             v-model:value="chatInputValue"
-            :placeholder="$t('ai.agentMessage')"
+            :placeholder="chatTypeValue === 'agent' ? $t('ai.agentMessage') : $t('ai.cmdMessage')"
             class="chat-textarea"
             :auto-size="{ minRows: 2, maxRows: 5 }"
             @keydown="handleKeyDown"
@@ -476,6 +478,7 @@ const hovered = ref<string | null>(null)
 const keyboardSelectedIndex = ref(-1)
 const historyList = ref<HistoryItem[]>([])
 const hosts = ref<Host[]>([])
+const autoUpdateHost = ref(true)
 const chatInputValue = ref('')
 const chatAiModelValue = ref('claude-4-sonnet')
 const chatTypeValue = ref('agent')
@@ -723,6 +726,9 @@ const handlePlusClick = async () => {
   const chatSetting = (await getGlobalState('chatSettings')) as { mode?: string }
   chatTypeValue.value = chatSetting?.mode || 'agent'
   hosts.value = []
+  autoUpdateHost.value = true
+
+  // 获取当前活动标签页的资产信息
   const assetInfo = await getCurentTabAssetInfo()
   if (assetInfo && assetInfo.ip) {
     hosts.value.push({
@@ -762,6 +768,8 @@ const restoreHistoryTab = async (history: HistoryItem) => {
   currentChatId.value = history.id
   chatTypeValue.value = history.chatType
   lastChatMessageId.value = ''
+
+  autoUpdateHost.value = false
 
   try {
     if (history.chatType === 'agent' || history.chatType === 'cmd') {
@@ -1176,6 +1184,9 @@ onMounted(async () => {
 
   // 监听标签页变化
   eventBus.on('activeTabChanged', async (tabInfo) => {
+    if (!autoUpdateHost.value || chatHistory.length > 0) {
+      return
+    }
     if (tabInfo && tabInfo.ip) {
       updateHosts({
         ip: tabInfo.ip,
@@ -1291,18 +1302,19 @@ const sendMessageToMain = async (userContent: string) => {
         filteredCwd.set(h.host, currentCwd.value[h.host])
       }
     })
+    const hostsArray = hosts.value.map((h) => ({
+      host: h.host,
+      uuid: h.uuid,
+      connection: h.connection,
+      organizationId: h.organizationId
+    }))
     if (chatHistory.length === 0) {
       message = {
         type: 'newTask',
         askResponse: 'messageResponse',
         text: userContent,
         terminalOutput: '',
-        hosts: hosts.value.map((h) => ({
-          host: h.host,
-          uuid: h.uuid,
-          connection: h.connection,
-          organizationId: h.organizationId
-        })),
+        hosts: hostsArray,
         cwd: filteredCwd
       }
     } else {
@@ -1393,6 +1405,7 @@ const onHostClick = (item: any) => {
       hosts.value.push(newHost)
     }
   }
+  autoUpdateHost.value = false
   // showHostSelect.value = false
   chatInputValue.value = ''
 }
@@ -1402,6 +1415,7 @@ const removeHost = (hostToRemove: any) => {
   const index = hosts.value.findIndex((h) => h.uuid === hostToRemove.uuid)
   if (index > -1) {
     hosts.value.splice(index, 1)
+    autoUpdateHost.value = false
   }
 }
 
@@ -1455,6 +1469,9 @@ const handleMouseOver = (value: string, index: number) => {
 
 // 2. 监听输入框内容变化
 const handleInputChange = async (e: Event) => {
+  if (chatTypeValue.value === 'cmd') {
+    return
+  }
   const value = (e.target as HTMLTextAreaElement).value
   if (value === '@') {
     showHostSelect.value = true
@@ -1975,11 +1992,10 @@ const cancelEdit = async (history) => {
     border: none !important;
     box-shadow: none !important;
     font-size: 12px !important;
+  }
 
-    &::placeholder {
-      color: #999 !important;
-      opacity: 1;
-    }
+  :deep(.ant-input::placeholder) {
+    color: #666 !important;
   }
 
   .ant-textarea {
@@ -1989,10 +2005,6 @@ const cancelEdit = async (history) => {
     color: #e0e0e0 !important;
     padding: 8px 12px !important;
     font-size: 12px !important;
-
-    :deep(.ant-input::placeholder) {
-      color: #666 !important;
-    }
   }
 }
 
