@@ -296,5 +296,13 @@ export default {
     save: '保存',
     cancel: '取消',
     resetPassword: '重置密码'
+  },
+  update: {
+    available: '有最新版本可以更新',
+    update: '更新',
+    later: '稍后',
+    downloading: '正在下载更新',
+    complete: '已下载完毕，是否立即安装',
+    install: '安装'
   }
 }
