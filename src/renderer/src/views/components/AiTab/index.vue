@@ -705,6 +705,10 @@ const sendMessage = async (sendType: string) => {
     say: '',
     ts: 0
   }
+  if (sendType === 'commandSend') {
+    userMessage.role = 'assistant'
+    userMessage.say = 'command_output'
+  }
   chatHistory.push(userMessage)
   chatInputValue.value = ''
   responseLoading.value = true
