@@ -13,6 +13,8 @@ import { initializeStorageMain, testStorageFromMain as testRendererStorageFromMa
 import { getTaskMetadata } from './agent/core/storage/disk'
 import { HeartbeatManager } from './heartBeatManager'
 import { createMainWindow } from './windowManager'
+import { registerUpdater } from './updater'
+
 let mainWindow: BrowserWindow
 let COOKIE_URL = 'http://localhost'
 let browserWindow: BrowserWindow | null = null
@@ -95,7 +97,7 @@ app.whenReady().then(async () => {
   // 注册ssh组件
   registerSSHHandlers()
   registerRemoteTerminalHandlers()
-
+  registerUpdater(mainWindow)
   app.on('activate', function () {
     // On macOS it's common to re-create a window in the app when the
     // dock icon is clicked and there are no other windows open.
