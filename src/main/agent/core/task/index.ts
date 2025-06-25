@@ -926,28 +926,16 @@ export class Task {
       yield firstChunk.value
       this.isWaitingForFirstChunk = false
     } catch (error) {
-      if (!this.didAutomaticallyRetryFailedApiRequest) {
-        this.conversationHistoryDeletedRange = this.contextManager.getNextTruncationRange(
-          this.apiConversationHistory,
-          this.conversationHistoryDeletedRange,
-          'quarter' // Force aggressive truncation
-        )
-        await this.saveChatermMessagesAndUpdateHistory()
-        await this.contextManager.triggerApplyStandardContextTruncationNoticeChange(Date.now(), this.taskId)
+      const errorMessage = this.formatErrorWithStatusCode(error)
 
-        this.didAutomaticallyRetryFailedApiRequest = true
-      } else {
-        const errorMessage = this.formatErrorWithStatusCode(error)
+      const { response } = await this.ask('api_req_failed', errorMessage, false)
 
-        const { response } = await this.ask('api_req_failed', errorMessage) // TODO:this message is not sent to the webview
-
-        if (response !== 'yesButtonClicked') {
-          // this will never happen since if noButtonClicked, we will clear current task, aborting this instance
-          throw new Error('API request failed')
-        }
-
-        await this.say('api_req_retried')
+      if (response !== 'yesButtonClicked') {
+        // this will never happen since if noButtonClicked, we will clear current task, aborting this instance
+        throw new Error('API request failed')
       }
+
+      await this.say('api_req_retried')
       // delegate generator output from the recursive call
       yield* this.attemptApiRequest(previousApiReqIndex)
       return
