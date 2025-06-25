@@ -24,6 +24,7 @@ export default {
     create: 'Create',
     cancel: 'Cancel',
     remove: 'Remove',
+    noData: 'No Data',
     close: 'Close',
     closeOther: 'Close Others',
     closeAll: 'Close All',

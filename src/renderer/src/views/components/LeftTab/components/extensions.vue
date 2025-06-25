@@ -98,7 +98,7 @@
           <a-switch
             :checked="userConfig.aliasStatus === 1"
             class="user_my-ant-form-item-content"
-            @change="(checked) => (userConfig.aliasStatus = checked ? 1 : 2)"
+            @change="(checked) => handleAliasStatusChange(checked)"
           />
         </a-form-item>
         <a-form-item
@@ -122,6 +122,7 @@ import 'xterm/css/xterm.css'
 // import { QuestionCircleOutlined } from '@ant-design/icons-vue'
 import { notification } from 'ant-design-vue'
 import { userConfigStore } from '@/services/userConfigStoreService'
+import eventBus from '@/utils/eventBus'
 
 const userConfig = ref({
   autoCompleteStatus: 2,
@@ -188,7 +189,12 @@ const saveConfig = async () => {
 // 监听配置变化
 watch(
   () => userConfig.value,
-  async () => {
+  async (newValue, oldValue) => {
+    // 如果是aliasStatus变化，则由handleAliasStatusChange处理
+    if (oldValue && newValue.aliasStatus !== oldValue.aliasStatus) {
+      return
+    }
+
     await saveConfig()
   },
   { deep: true }
@@ -223,6 +229,26 @@ const handleSwitchChange = (value) => {
 // const uninstall = () => {
 //   userConfig.value.commonVimStatus = 2
 // }
+
+// 处理别名状态变化
+const handleAliasStatusChange = async (checked) => {
+  const newValue = checked ? 1 : 2
+  // 更新状态
+  userConfig.value.aliasStatus = newValue
+
+  // 等待配置保存完成
+  try {
+    // 直接调用saveConfig确保配置已保存
+    await saveConfig()
+    eventBus.emit('aliasStatusChanged', newValue)
+  } catch (error) {
+    console.error('保存别名状态失败:', error)
+    notification.error({
+      message: '错误',
+      description: '保存别名状态失败'
+    })
+  }
+}
 </script>
 
 <style scoped>
