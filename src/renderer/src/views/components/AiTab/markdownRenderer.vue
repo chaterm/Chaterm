@@ -1291,7 +1291,7 @@ code {
 .monaco-container .copy-button {
   position: absolute;
   top: -1px;
-  right: -4px;
+  right: -8px;
   z-index: 100;
 }
 
