@@ -108,6 +108,7 @@ import i18n from '@/locales'
 import { notification } from 'ant-design-vue'
 import { commandStore } from '@/services/commandStoreService' // 引入 commandStoreService
 import { aliasConfigStore } from '@/store/aliasConfigStore'
+import eventBus from '@/utils/eventBus'
 
 const searchText = ref('')
 const list = ref([])
@@ -220,19 +221,16 @@ const columnOpt = async (type, record) => {
             })
             return
           }
-
-          // 需要重命名别名
-          const success = await commandStore.renameAlias(cloneRecord.value.alias, record.alias)
-          if (!success) {
-            throw new Error('Failed to rename alias')
-          }
-
-          // 更新内容
-          await commandStore.update({
+          const recordNew = {
             id: record.id,
             alias: record.alias,
             command: record.command
-          })
+          }
+          // 需要重命名别名
+          const success = await commandStore.renameAlias(cloneRecord.value.alias, recordNew)
+          if (!success) {
+            throw new Error('Failed to rename alias')
+          }
 
           notification.success({
             message: t('extensions.success'),
@@ -288,7 +286,7 @@ const columnOpt = async (type, record) => {
         console.error('Error saving alias:', err)
         notification.error({
           message: t('extensions.error'),
-          description: t('extensions.errorSavingAlias'),
+          description: err,
           placement: 'topRight',
           duration: 3
         })
@@ -310,14 +308,24 @@ const columnOpt = async (type, record) => {
   }
 }
 
-// 初始化
+// 监听别名状态变化事件
 onMounted(() => {
+  // 初始加载数据
   handleTableChange()
+  // 使用eventBus监听
+  eventBus.on('aliasStatusChanged', () => {
+    // 重新加载数据
+    handleTableChange()
+      .then(() => {})
+      .catch((err) => {
+        console.error('重新加载别名数据失败:', err)
+      })
+  })
 })
 
-// 销毁时清理资源
+// 移除事件监听
 onBeforeUnmount(() => {
-  // 清理工作如果需要
+  eventBus.off('aliasStatusChanged')
 })
 
 const cloneRecordReset = () => {

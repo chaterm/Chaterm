@@ -291,16 +291,17 @@ export class CommandStoreService {
     }
   }
 
-  async renameAlias(oldAlias: string, newAlias: string): Promise<boolean> {
+  async renameAlias(oldAlias: string, newItem: AliasItemInput): Promise<boolean> {
     try {
       const item = await this.getByAlias(oldAlias)
       if (!item) {
         return false
       }
 
-      const updatedItem = { ...item, alias: newAlias }
+      const updatedItem = { ...item, alias: newItem.alias, id: '' }
       await this.add(updatedItem)
       await this.delete(oldAlias)
+      await this.update(newItem)
 
       return true
     } catch (error) {

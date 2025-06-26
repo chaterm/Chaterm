@@ -1535,7 +1535,7 @@ export class Task {
     details += '\n\n# Current Mode:'
     switch (this.chatSettings.mode) {
       case 'chat':
-        details += '\nCHAT MODE\n' + formatResponse.planModeInstructions()
+        details += '\nCHAT MODE'
         break
       case 'cmd':
         details += '\CMD MODE'
@@ -1569,12 +1569,14 @@ export class Task {
         this.consecutiveMistakeCount = 0
         let didAutoApprove = false
 
+        if (this.chatSettings.mode === 'cmd') {
+          await this.askApproval(toolDescription, 'command', command) // Wait for frontend to execute command and return result
+          return
+        }
+
         const autoApproveResult = this.shouldAutoApproveTool(block.name)
         let [autoApproveSafe, autoApproveAll] = Array.isArray(autoApproveResult) ? autoApproveResult : [autoApproveResult, false]
-        if (this.chatSettings.mode === 'cmd') {
-          autoApproveSafe = false
-          autoApproveAll = false
-        }
+
         if ((!requiresApprovalPerLLM && autoApproveSafe) || (requiresApprovalPerLLM && autoApproveSafe && autoApproveAll)) {
           this.removeLastPartialMessageIfExistsWithType('ask', 'command')
           await this.say('command', command, false)
@@ -1684,24 +1686,6 @@ export class Task {
     } else if (text) {
       this.pushAdditionalToolFeedback(text)
       await this.say('user_feedback', text)
-      await this.saveCheckpoint()
-    }
-    return approved
-  }
-
-  private async askApprovalForCmdMode(toolDescription: string, command: string): Promise<boolean> {
-    const { response, text } = await this.ask('command', command, false)
-    const approved = response === 'yesButtonClicked'
-    if (!approved) {
-      this.pushToolResult(toolDescription, formatResponse.toolDenied())
-      if (text) {
-        this.pushAdditionalToolFeedback(text)
-        await this.say('user_feedback', text)
-        await this.saveCheckpoint()
-      }
-      this.didRejectTool = true
-    } else if (text) {
-      this.pushToolResult(toolDescription, text)
       await this.saveCheckpoint()
     }
     return approved
@@ -2157,7 +2141,8 @@ export class Task {
     systemPrompt += systemInformation
 
     const settingsCustomInstructions = this.customInstructions?.trim()
-    const preferredLanguageInstructions = `# Preferred Language\n\nSpeak in ${DEFAULT_LANGUAGE_SETTINGS}.`
+
+    const preferredLanguageInstructions = `# Language Settings:\n\nDefault language : ${DEFAULT_LANGUAGE_SETTINGS}.\n\n rules:1.You should response based on the user's question language 2.This applies to ALL parts of your response, including thinking sections, explanations, and any other text content.`
     if (settingsCustomInstructions || preferredLanguageInstructions) {
       const userInstructions = addUserInstructions(settingsCustomInstructions, preferredLanguageInstructions)
       systemPrompt += userInstructions

@@ -161,11 +161,6 @@ Otherwise, if you have not completed the task and do not need additional informa
     return [taskResumptionMessage, userResponseMessage]
   },
 
-  planModeInstructions: () => {
-    return `In this mode you should focus on information gathering, asking questions, and architecting a solution. Once you have a plan, use the plan_mode_respond tool to engage in a conversational back and forth with the user. Do not use the plan_mode_respond tool until you've gathered all the information you need e.g. with read_file or ask_followup_question.
-(Remember: If it seems the user wants you to use tools only available in Act Mode, you should ask the user to "toggle to Act mode" (use those words) - they will have to manually do this themselves with the Plan/Act toggle button below. You do not have the ability to switch to Act Mode yourself, and must wait for the user to do it themselves once they are satisfied with the plan. You also cannot present an option to toggle to Act mode, as this will be something you need to direct the user to do manually themselves.)`
-  },
-
   fileEditWithUserChanges: (
     relPath: string,
     userEdits: string,
