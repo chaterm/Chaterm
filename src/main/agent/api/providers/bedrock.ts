@@ -4,21 +4,10 @@ import { withRetry } from '../retry'
 import type { ApiHandler } from '../'
 import type { ApiStream } from '../transform/stream'
 import { convertToR1Format } from '../transform/r1-format'
-import {
-  ApiHandlerOptions,
-  bedrockDefaultModelId,
-  BedrockModelId,
-  bedrockModels,
-  ModelInfo
-} from '../../shared/api'
+import { ApiHandlerOptions, bedrockDefaultModelId, BedrockModelId, bedrockModels, ModelInfo } from '../../shared/api'
 import { calculateApiCostOpenAI } from '../../utils/cost'
 import { fromNodeProviderChain } from '@aws-sdk/credential-providers'
-import {
-  BedrockRuntimeClient,
-  ConversationRole,
-  ConverseStreamCommand,
-  InvokeModelWithResponseStreamCommand
-} from '@aws-sdk/client-bedrock-runtime'
+import { BedrockRuntimeClient, ConversationRole, ConverseStreamCommand, InvokeModelWithResponseStreamCommand } from '@aws-sdk/client-bedrock-runtime'
 
 // https://docs.anthropic.com/en/api/claude-on-amazon-bedrock
 export class AwsBedrockHandler implements ApiHandler {
@@ -29,10 +18,7 @@ export class AwsBedrockHandler implements ApiHandler {
   }
 
   @withRetry()
-  async *createMessage(
-    systemPrompt: string,
-    messages: Anthropic.Messages.MessageParam[]
-  ): ApiStream {
+  async *createMessage(systemPrompt: string, messages: Anthropic.Messages.MessageParam[]): ApiStream {
     // cross region inference requires prefixing the model id with the region
 
     const modelId = await this.getModelId()
@@ -54,12 +40,13 @@ export class AwsBedrockHandler implements ApiHandler {
     const reasoningOn = modelId.includes('3-7') && budget_tokens !== 0 ? true : false
 
     // Get model info and message indices for caching
-    const userMsgIndices = messages.reduce(
-      (acc, msg, index) => (msg.role === 'user' ? [...acc, index] : acc),
-      [] as number[]
-    )
+    const userMsgIndices = messages.reduce((acc, msg, index) => (msg.role === 'user' ? [...acc, index] : acc), [] as number[])
     const lastUserMsgIndex = userMsgIndices[userMsgIndices.length - 1] ?? -1
     const secondLastMsgUserIndex = userMsgIndices[userMsgIndices.length - 2] ?? -1
+
+    // Define cache control object if prompt caching is enabled
+    // const cacheControl = this.options.awsBedrockUsePromptCache === true ? { cache_control: { type: 'ephemeral' as const } } : undefined
+    const cacheControl = { cache_control: { type: 'ephemeral' as const } }
 
     // Create anthropic client, using sessions created or renewed after this handler's
     // initialization, and allowing for session renewal if necessary as well
@@ -73,9 +60,7 @@ export class AwsBedrockHandler implements ApiHandler {
         {
           text: systemPrompt,
           type: 'text',
-          ...(this.options.awsBedrockUsePromptCache === true && {
-            cache_control: { type: 'ephemeral' }
-          })
+          ...(cacheControl && cacheControl)
         }
       ],
       messages: messages.map((message, index) => {
@@ -88,18 +73,14 @@ export class AwsBedrockHandler implements ApiHandler {
                     {
                       type: 'text',
                       text: message.content,
-                      ...(this.options.awsBedrockUsePromptCache === true && {
-                        cache_control: { type: 'ephemeral' }
-                      })
+                      ...(cacheControl && cacheControl)
                     }
                   ]
                 : message.content.map((content, contentIndex) =>
                     contentIndex === message.content.length - 1
                       ? {
                           ...content,
-                          ...(this.options.awsBedrockUsePromptCache === true && {
-                            cache_control: { type: 'ephemeral' }
-                          })
+                          ...(cacheControl && cacheControl)
                         }
                       : content
                   )
@@ -434,13 +415,7 @@ export class AwsBedrockHandler implements ApiHandler {
       }
 
       // Add final total cost calculation that includes both input and output tokens
-      const finalTotalCost = calculateApiCostOpenAI(
-        model.info,
-        inputTokenEstimate,
-        outputTokens,
-        0,
-        0
-      )
+      const finalTotalCost = calculateApiCostOpenAI(model.info, inputTokenEstimate, outputTokens, 0, 0)
       yield {
         type: 'usage',
         inputTokens: inputTokenEstimate,
@@ -455,10 +430,7 @@ export class AwsBedrockHandler implements ApiHandler {
    * First uses convertToR1Format to merge consecutive messages with the same role,
    * then converts to the string format that DeepSeek R1 expects
    */
-  private formatDeepseekR1Prompt(
-    systemPrompt: string,
-    messages: Anthropic.Messages.MessageParam[]
-  ): string {
+  private formatDeepseekR1Prompt(systemPrompt: string, messages: Anthropic.Messages.MessageParam[]): string {
     // First use convertToR1Format to merge consecutive messages with the same role
     const r1Messages = convertToR1Format([{ role: 'user', content: systemPrompt }, ...messages])
 
@@ -480,22 +452,20 @@ export class AwsBedrockHandler implements ApiHandler {
         }
       }
 
-      combinedContent +=
-        message.role === 'user' ? 'User: ' + content + '\n' : 'Assistant: ' + content + '\n'
+      combinedContent += message.role === 'user' ? 'User: ' + content + '\n' : 'Assistant: ' + content + '\n'
     }
 
     // Format according to DeepSeek R1's expected prompt format
-    return `<｜begin▁of▁sentence｜><｜User｜>${combinedContent}<｜Assistant｜><think>\n`
+    return `
+${combinedContent}
+`
   }
 
   /**
    * Estimates token count based on text length (approximate)
    * Note: This is a rough estimation, as the actual token count depends on the tokenizer
    */
-  private estimateInputTokens(
-    systemPrompt: string,
-    messages: Anthropic.Messages.MessageParam[]
-  ): number {
+  private estimateInputTokens(systemPrompt: string, messages: Anthropic.Messages.MessageParam[]): number {
     // For Deepseek R1, we estimate the token count of the formatted prompt
     // The formatted prompt includes special tokens and consistent formatting
     const formattedPrompt = this.formatDeepseekR1Prompt(systemPrompt, messages)
@@ -618,9 +588,7 @@ export class AwsBedrockHandler implements ApiHandler {
   /**
    * Formats messages for Amazon Nova models according to the SDK specification
    */
-  private formatNovaMessages(
-    messages: Anthropic.Messages.MessageParam[]
-  ): { role: ConversationRole; content: any[] }[] {
+  private formatNovaMessages(messages: Anthropic.Messages.MessageParam[]): { role: ConversationRole; content: any[] }[] {
     return messages.map((message) => {
       // Determine role (user or assistant)
       const role = message.role === 'user' ? ConversationRole.USER : ConversationRole.ASSISTANT
@@ -708,9 +676,7 @@ export class AwsBedrockHandler implements ApiHandler {
       }
 
       const testSystemPrompt = "This is a connection test. Respond with only the word 'OK'."
-      const testMessages: Anthropic.Messages.MessageParam[] = [
-        { role: 'user', content: 'Connection test' }
-      ]
+      const testMessages: Anthropic.Messages.MessageParam[] = [{ role: 'user', content: 'Connection test' }]
 
       const stream = this.createMessage(testSystemPrompt, testMessages)
       let receivedResponse = false

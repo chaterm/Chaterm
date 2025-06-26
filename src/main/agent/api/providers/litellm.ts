@@ -81,7 +81,8 @@ export class LiteLlmHandler implements ApiHandler {
     }
 
     // Define cache control object if prompt caching is enabled
-    const cacheControl = this.options.liteLlmUsePromptCache ? { cache_control: { type: 'ephemeral' } } : undefined
+    // const cacheControl = this.options.liteLlmUsePromptCache ? { cache_control: { type: 'ephemeral' } } : undefined
+    const cacheControl = { cache_control: { type: 'ephemeral' as const } }
 
     // Add cache_control to system message if enabled
     const enhancedSystemMessage = {
