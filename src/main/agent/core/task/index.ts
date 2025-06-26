@@ -1535,7 +1535,7 @@ export class Task {
     details += '\n\n# Current Mode:'
     switch (this.chatSettings.mode) {
       case 'chat':
-        details += '\nCHAT MODE\n' + formatResponse.planModeInstructions()
+        details += '\nCHAT MODE'
         break
       case 'cmd':
         details += '\CMD MODE'
