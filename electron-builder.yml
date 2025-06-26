@@ -54,8 +54,13 @@ linux:
     - deb
   maintainer: electronjs.org
   category: Utility
+  artifactName: ${name}-${version}-${arch}.${ext}
 appImage:
-  artifactName: ${name}-${version}.${ext}
+  artifactName: ${name}-${version}-${arch}.${ext}
+snap:
+  artifactName: ${name}-${version}-${arch}.${ext}
+deb:
+  artifactName: ${name}-${version}-${arch}.${ext}
 npmRebuild: true
 publish:
   provider: github

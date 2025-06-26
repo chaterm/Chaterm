@@ -30,6 +30,13 @@
         >
           <AI />
         </a-tab-pane>
+        <a-tab-pane
+          key="3"
+          :tab="$t('user.about')"
+          type="card"
+        >
+          <About />
+        </a-tab-pane>
       </a-tabs>
     </div>
   </div>
@@ -39,6 +46,7 @@
 import General from '@/views/components/LeftTab/components/general.vue'
 import Extensions from '@/views/components/LeftTab/components/extensions.vue'
 import AI from '@/views/components/LeftTab/components/ai.vue'
+import About from '@/views/components/LeftTab/components/about.vue'
 </script>
 
 <style lang="less" scoped>
