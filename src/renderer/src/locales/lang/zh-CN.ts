@@ -111,6 +111,7 @@ export default {
     macAddress: 'Mac地址',
     general: '通用',
     extensions: '扩展',
+    about: '关于',
     model: '模型',
     enableExtendedThinking: '开启扩展思考',
     enableExtendedThinkingDescribe: '提高预算可实现更全面、更细致的推理',
@@ -305,5 +306,8 @@ export default {
     downloading: '正在下载更新',
     complete: '已下载完毕，是否立即安装',
     install: '安装'
+  },
+  about: {
+    version: '版本'
   }
 }
