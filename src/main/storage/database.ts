@@ -1217,26 +1217,26 @@ export class autoCompleteDatabaseService {
 
     // 1. 当前 IP 的历史记录
     const historyStmtCurr = this.db.prepare(
-      'SELECT DISTINCT command FROM linux_commands_history WHERE command LIKE ? AND ip = ? ORDER BY count DESC LIMIT ?'
+      'SELECT DISTINCT command FROM linux_commands_history WHERE command LIKE ? AND command != ? AND ip = ? ORDER BY count DESC LIMIT ?'
     )
-    const historyCurr = historyStmtCurr.all(likePattern, ip, limit) as CommandResult[]
+    const historyCurr = historyStmtCurr.all(likePattern, command, ip, limit) as CommandResult[]
     historyCurr.forEach((row) => push(row.command, 'history'))
 
     // 2. 其他 IP 的历史记录
     if (suggestions.length < limit) {
       const remain = limit - suggestions.length
       const historyStmtOther = this.db.prepare(
-        'SELECT DISTINCT command FROM linux_commands_history WHERE command LIKE ? AND ip != ? ORDER BY count DESC LIMIT ?'
+        'SELECT DISTINCT command FROM linux_commands_history WHERE command LIKE ? AND command != ? AND ip != ? ORDER BY count DESC LIMIT ?'
       )
-      const historyOther = historyStmtOther.all(likePattern, ip, remain) as CommandResult[]
+      const historyOther = historyStmtOther.all(likePattern, command, ip, remain) as CommandResult[]
       historyOther.forEach((row) => push(row.command, 'history'))
     }
 
     // 3. 通用基础命令 (base)
     if (suggestions.length < limit) {
       const remain = limit - suggestions.length
-      const commonStmt = this.db.prepare('SELECT command FROM linux_commands_common WHERE command LIKE ? LIMIT ?')
-      const common = commonStmt.all(likePattern, remain) as CommandResult[]
+      const commonStmt = this.db.prepare('SELECT command FROM linux_commands_common WHERE command LIKE ? AND command != ? LIMIT ?')
+      const common = commonStmt.all(likePattern, command, remain) as CommandResult[]
       common.forEach((row) => push(row.command, 'base'))
     }
 
