@@ -212,7 +212,7 @@
           </div>
           <div class="hosts-display-container">
             <span
-              v-if="chatTypeValue === 'agent' && chatHistory.length === 0"
+              v-if="chatTypeValue !== 'cmd' && chatHistory.length === 0"
               class="hosts-display-container-host-tag"
               @click="handleAddHostClick"
             >
@@ -229,7 +229,7 @@
               </template>
               {{ item.host }}
               <CloseOutlined
-                v-if="chatTypeValue === 'agent' && chatHistory.length === 0"
+                v-if="chatTypeValue !== 'cmd' && chatHistory.length === 0"
                 class="host-delete-btn"
                 @click.stop="removeHost(item)"
               />
@@ -248,7 +248,7 @@
           </div>
           <a-textarea
             v-model:value="chatInputValue"
-            :placeholder="chatTypeValue === 'agent' ? $t('ai.agentMessage') : $t('ai.cmdMessage')"
+            :placeholder="chatTypeValue === 'agent' ? $t('ai.agentMessage') : chatTypeValue === 'chat' ? $t('ai.chatMessage') : $t('ai.cmdMessage')"
             class="chat-textarea"
             :auto-size="{ minRows: 2, maxRows: 5 }"
             @keydown="handleKeyDown"
@@ -666,33 +666,13 @@ const sendMessage = async (sendType: string) => {
   const userContent = chatInputValue.value.trim()
   if (!userContent) return
   // 获取当前活跃主机是否存在
-  if (hosts.value.length === 0) {
-    const assetInfo = await getCurentTabAssetInfo()
-    // console.log('assetInsssssfo', assetInfo)
-    if (assetInfo) {
-      if (assetInfo.organizationId !== 'personal') {
-        hosts.value.push({
-          host: assetInfo.ip,
-          uuid: assetInfo.uuid,
-          connection: 'organization',
-          organizationId: assetInfo.organizationId
-        })
-      } else {
-        hosts.value.push({
-          host: assetInfo.ip,
-          uuid: assetInfo.uuid,
-          connection: 'personal',
-          organizationId: 'personal_01'
-        })
-      }
-    } else {
-      notification.error({
-        message: '获取当前资产连接信息失败',
-        description: '请先建立资产连接',
-        duration: 3
-      })
-      return 'ASSET_ERROR'
-    }
+  if (hosts.value.length === 0 && chatTypeValue.value !== 'chat') {
+    notification.error({
+      message: '获取当前资产连接信息失败',
+      description: '请先建立资产连接',
+      duration: 3
+    })
+    return 'ASSET_ERROR'
   }
   await sendMessageToMain(userContent, sendType)
 
