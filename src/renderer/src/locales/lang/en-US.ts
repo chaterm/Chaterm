@@ -111,6 +111,7 @@ export default {
     macAddress: 'Mac Address',
     general: 'General',
     extensions: 'Extensions',
+    about: 'About',
     model: 'Model',
     enableExtendedThinking: 'Enable extended thinking',
     enableExtendedThinkingDescribe: 'Higher budgets may allow you to achieve more comprehensive and nuanced reasoning',
@@ -303,5 +304,8 @@ export default {
     downloading: 'Downloading update',
     complete: 'Download complete, install now?',
     install: 'Install'
+  },
+  about: {
+    version: 'Version'
   }
 }
