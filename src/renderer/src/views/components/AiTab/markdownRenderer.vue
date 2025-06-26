@@ -400,7 +400,7 @@ const initEditor = (content: string) => {
       minimap: { enabled: false },
       lineNumbers: lines > 1 ? 'on' : 'off',
       lineNumbersMinChars: 3,
-      lineDecorationsWidth: 12,
+      lineDecorationsWidth: 2,
       scrollBeyondLastLine: false,
       automaticLayout: true,
       fontSize: 13,
@@ -635,7 +635,7 @@ const initCodeBlockEditors = () => {
         minimap: { enabled: false },
         lineNumbers: block.lines > 1 ? 'on' : 'off',
         lineNumbersMinChars: 3,
-        lineDecorationsWidth: 12,
+        lineDecorationsWidth: 2,
         scrollBeyondLastLine: false,
         automaticLayout: true,
         fontSize: 13,
@@ -1291,7 +1291,7 @@ code {
 .monaco-container .copy-button {
   position: absolute;
   top: -1px;
-  right: -8px;
+  right: -4px;
   z-index: 100;
 }
 

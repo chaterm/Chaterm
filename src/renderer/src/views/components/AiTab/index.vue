@@ -2152,10 +2152,6 @@ const adjustScrollPosition = () => {
   width: 100%;
   position: relative;
 
-  &.has-history-copy-btn :deep(.command-editor-container) {
-    padding-right: 20px;
-  }
-
   .message-actions {
     display: flex;
     flex-direction: column;
