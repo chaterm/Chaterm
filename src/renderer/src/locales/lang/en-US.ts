@@ -111,6 +111,7 @@ export default {
     macAddress: 'Mac Address',
     general: 'General',
     extensions: 'Extensions',
+    about: 'About',
     model: 'Model',
     enableExtendedThinking: 'Enable extended thinking',
     enableExtendedThinkingDescribe: 'Higher budgets may allow you to achieve more comprehensive and nuanced reasoning',
@@ -228,6 +229,7 @@ export default {
     resume: 'Resume',
     agentMessage: 'Command query,troubleshoot errors,handle tasks,anything',
     cmdMessage: 'Work on explicitly opened terminal',
+    chatMessage: 'Ask, learn, brainstorm ',
     newChat: 'New Chat',
     showChatHistory: 'Show History',
     closeAiSidebar: 'Close AI Sidebar',
@@ -303,5 +305,8 @@ export default {
     downloading: 'Downloading update',
     complete: 'Download complete, install now?',
     install: 'Install'
+  },
+  about: {
+    version: 'Version'
   }
 }

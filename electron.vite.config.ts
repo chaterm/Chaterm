@@ -4,6 +4,7 @@ import vue from '@vitejs/plugin-vue'
 import Components from 'unplugin-vue-components/vite'
 import { AntDesignVueResolver } from 'unplugin-vue-components/resolvers'
 import AutoImport from 'unplugin-auto-import/vite'
+import pkg from './package.json'
 
 const publicDir = resolve('resources')
 const envDir = resolve('build')
@@ -77,6 +78,11 @@ export default defineConfig({
         resolvers: [AntDesignVueResolver()]
       })
     ],
+    define: {
+      __APP_INFO__: {
+        version: pkg.version
+      }
+    },
     css: {
       preprocessorOptions: {
         less: {
