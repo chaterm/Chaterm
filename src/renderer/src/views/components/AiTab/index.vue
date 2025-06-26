@@ -1237,21 +1237,12 @@ onMounted(async () => {
   removeListener = (window.api as any).onMainMessage((message: any) => {
     console.log('Received main process message:', message.type, message)
     if (message?.type === 'partialMessage') {
-      if (message.partialMessage.type === 'ask' || message.partialMessage.type === 'api_req_failed') {
-        const newAssistantMessage = createNewMessage(
-          'assistant',
-          message.partialMessage.text,
-          message.partialMessage.type,
-          message.partialMessage.type === 'ask' ? message.partialMessage.ask : '',
-          message.partialMessage.type === 'say' ? message.partialMessage.say : '',
-          message.partialMessage.ts,
-          false
-        )
-        chatHistory.push(newAssistantMessage)
-        showRetryButton.value = true
-        responseLoading.value = false
+      // handle model error -- api_req_failed
+      if (message.partialMessage.type === 'ask' && message.partialMessage.ask === 'api_req_failed') {
+        handleModelApiReqFailed(message)
         return
       }
+      showRetryButton.value = false
       showSendButton.value = false
       showCancelButton.value = true
       let lastMessageInChat = chatHistory.at(-1)
@@ -1314,6 +1305,22 @@ onMounted(async () => {
     lastMessage = message
   })
 })
+
+const handleModelApiReqFailed = (message: any) => {
+  const newAssistantMessage = createNewMessage(
+    'assistant',
+    message.partialMessage.text,
+    message.partialMessage.type,
+    message.partialMessage.type === 'ask' ? message.partialMessage.ask : '',
+    message.partialMessage.type === 'say' ? message.partialMessage.say : '',
+    message.partialMessage.ts,
+    false
+  )
+  chatHistory.push(newAssistantMessage)
+  console.log('showRetryButton.value', showRetryButton.value)
+  showRetryButton.value = true
+  responseLoading.value = false
+}
 
 onUnmounted(() => {
   if (typeof removeListener === 'function') {
