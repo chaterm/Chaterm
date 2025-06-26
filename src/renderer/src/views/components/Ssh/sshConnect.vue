@@ -1038,8 +1038,24 @@ const setupTerminalInput = () => {
         nextTick(() => {
           console.log('Ctrl+C: 推荐界面已清除')
         })
-        return // 如果有推荐界面，只清除推荐界面，不发送Ctrl+C
       }
+      // 阻止本轮 queryCommand 重新触发
+      selectFlag.value = true
+      // 无论是否存在推荐界面，都继续将 Ctrl+C 发送给终端
+      sendData(data)
+    } else if (data === '\x0c') {
+      // Ctrl+L 清屏
+      if (suggestions.value.length) {
+        // 清除推荐界面
+        suggestions.value = []
+        activeSuggestion.value = 0
+        nextTick(() => {
+          console.log('Ctrl+L: 推荐界面已清除')
+        })
+      }
+      // 阻止本轮 queryCommand 重新触发
+      selectFlag.value = true
+      // 将 Ctrl+L 发送给终端
       sendData(data)
     } else if (data === '\x1b') {
       // ESC键 - 取消推荐界面

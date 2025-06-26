@@ -111,6 +111,7 @@ export default {
     macAddress: 'Mac地址',
     general: '通用',
     extensions: '扩展',
+    about: '关于',
     model: '模型',
     enableExtendedThinking: '开启扩展思考',
     enableExtendedThinkingDescribe: '提高预算可实现更全面、更细致的推理',
@@ -230,6 +231,7 @@ export default {
     resume: '恢复',
     agentMessage: '到任意主机执行命令查询，排查错误和任务处理等任何事情',
     cmdMessage: '到当前活跃终端执行任务，请先连接目标主机',
+    chatMessage: '与AI对话，学习，头脑风暴（无法操作服务器）',
     newChat: '新建对话',
     showChatHistory: '显示历史记录',
     closeAiSidebar: '关闭AI侧边栏',
@@ -305,5 +307,8 @@ export default {
     downloading: '正在下载更新',
     complete: '已下载完毕，是否立即安装',
     install: '安装'
+  },
+  about: {
+    version: '版本'
   }
 }

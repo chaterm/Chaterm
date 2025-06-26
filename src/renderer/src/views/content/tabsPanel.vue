@@ -100,7 +100,7 @@
   </div>
 </template>
 <script setup lang="ts">
-import { computed, ref, defineExpose, ComponentPublicInstance, PropType, watch, nextTick } from 'vue'
+import { computed, ref, defineExpose, ComponentPublicInstance, PropType, watch, nextTick, onMounted, onUnmounted } from 'vue'
 import draggable from 'vuedraggable'
 import Term from '@views/components/Term/index.vue'
 import Dashboard from '@views/components/Term/dashboard.vue'
@@ -318,6 +318,26 @@ const splitRight = () => {
   eventBus.emit('createSplitTab', newTabInfo)
   hideContextMenu()
 }
+
+const handleKeyDown = (event: KeyboardEvent) => {
+  if ((event.metaKey || event.ctrlKey) && event.key === 'w') {
+    if (!props.tabs || props.tabs.length === 0) {
+      return
+    }
+    event.preventDefault()
+    if (props.activeTab) {
+      closeTab(props.activeTab)
+    }
+  }
+}
+
+onMounted(() => {
+  window.addEventListener('keydown', handleKeyDown)
+})
+
+onUnmounted(() => {
+  window.removeEventListener('keydown', handleKeyDown)
+})
 
 defineExpose({
   resizeTerm,

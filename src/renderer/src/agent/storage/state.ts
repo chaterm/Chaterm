@@ -202,9 +202,7 @@ export async function getAllExtensionState() {
     getGlobalState('previousModeThinkingBudgetTokens') as Promise<number | undefined>,
     getGlobalState('previousModeReasoningEffort') as Promise<string | undefined>,
     getGlobalState('previousModeAwsBedrockCustomSelected') as Promise<boolean | undefined>,
-    getGlobalState('previousModeAwsBedrockCustomModelBaseId') as Promise<
-      BedrockModelId | undefined
-    >,
+    getGlobalState('previousModeAwsBedrockCustomModelBaseId') as Promise<BedrockModelId | undefined>,
     //getGlobalState('qwenApiLine') as Promise<string | undefined>,
     getSecret('liteLlmApiKey') as Promise<string | undefined>,
     getGlobalState('telemetrySetting') as Promise<TelemetrySetting | undefined>,
