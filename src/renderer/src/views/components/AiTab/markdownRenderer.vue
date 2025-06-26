@@ -95,7 +95,16 @@
             <span :class="line.fileType">{{ line.name }}</span>
           </template>
           <template v-else>
-            <span class="content">{{ line.content }}</span>
+            <span
+              v-if="line.html"
+              class="content"
+              v-html="line.html"
+            ></span>
+            <span
+              v-else
+              class="content"
+              >{{ line.content }}</span
+            >
           </template>
         </div>
       </div>
@@ -898,23 +907,135 @@ const contentParts = computed(() => {
   return parts
 })
 
+// Function to strip ANSI escape codes
+const stripAnsiCodes = (str: string): string => {
+  // This regex matches ANSI escape sequences like color codes
+  return str.replace(/\u001b\[\d+(;\d+)*m/g, '')
+}
+
+// Function to process ANSI escape codes into HTML with CSS classes
+const processAnsiCodes = (str: string): string => {
+  // If no ANSI codes, return as is
+  if (!str.includes('\u001b[')) return str
+
+  // Replace common ANSI color codes with span elements
+  let result = str
+    // Text formatting
+    .replace(/\u001b\[0m/g, '</span>') // Reset
+    .replace(/\u001b\[1m/g, '<span class="ansi-bold">') // Bold
+    .replace(/\u001b\[3m/g, '<span class="ansi-italic">') // Italic
+    .replace(/\u001b\[4m/g, '<span class="ansi-underline">') // Underline
+
+    // Foreground colors
+    .replace(/\u001b\[30m/g, '<span class="ansi-black">') // Black
+    .replace(/\u001b\[31m/g, '<span class="ansi-red">') // Red
+    .replace(/\u001b\[32m/g, '<span class="ansi-green">') // Green
+    .replace(/\u001b\[33m/g, '<span class="ansi-yellow">') // Yellow
+    .replace(/\u001b\[34m/g, '<span class="ansi-blue">') // Blue
+    .replace(/\u001b\[35m/g, '<span class="ansi-magenta">') // Magenta
+    .replace(/\u001b\[36m/g, '<span class="ansi-cyan">') // Cyan
+    .replace(/\u001b\[37m/g, '<span class="ansi-white">') // White
+
+    // Bright foreground colors
+    .replace(/\u001b\[90m/g, '<span class="ansi-bright-black">') // Bright Black
+    .replace(/\u001b\[91m/g, '<span class="ansi-bright-red">') // Bright Red
+    .replace(/\u001b\[92m/g, '<span class="ansi-bright-green">') // Bright Green
+    .replace(/\u001b\[93m/g, '<span class="ansi-bright-yellow">') // Bright Yellow
+    .replace(/\u001b\[94m/g, '<span class="ansi-bright-blue">') // Bright Blue
+    .replace(/\u001b\[95m/g, '<span class="ansi-bright-magenta">') // Bright Magenta
+    .replace(/\u001b\[96m/g, '<span class="ansi-bright-cyan">') // Bright Cyan
+    .replace(/\u001b\[97m/g, '<span class="ansi-bright-white">') // Bright White
+
+    // Background colors
+    .replace(/\u001b\[40m/g, '<span class="ansi-bg-black">') // Black background
+    .replace(/\u001b\[41m/g, '<span class="ansi-bg-red">') // Red background
+    .replace(/\u001b\[42m/g, '<span class="ansi-bg-green">') // Green background
+    .replace(/\u001b\[43m/g, '<span class="ansi-bg-yellow">') // Yellow background
+    .replace(/\u001b\[44m/g, '<span class="ansi-bg-blue">') // Blue background
+    .replace(/\u001b\[45m/g, '<span class="ansi-bg-magenta">') // Magenta background
+    .replace(/\u001b\[46m/g, '<span class="ansi-bg-cyan">') // Cyan background
+    .replace(/\u001b\[47m/g, '<span class="ansi-bg-white">') // White background
+
+    // Bright background colors
+    .replace(/\u001b\[100m/g, '<span class="ansi-bg-bright-black">') // Bright Black background
+    .replace(/\u001b\[101m/g, '<span class="ansi-bg-bright-red">') // Bright Red background
+    .replace(/\u001b\[102m/g, '<span class="ansi-bg-bright-green">') // Bright Green background
+    .replace(/\u001b\[103m/g, '<span class="ansi-bg-bright-yellow">') // Bright Yellow background
+    .replace(/\u001b\[104m/g, '<span class="ansi-bg-bright-blue">') // Bright Blue background
+    .replace(/\u001b\[105m/g, '<span class="ansi-bg-bright-magenta">') // Bright Magenta background
+    .replace(/\u001b\[106m/g, '<span class="ansi-bg-bright-cyan">') // Bright Cyan background
+    .replace(/\u001b\[107m/g, '<span class="ansi-bg-bright-white">') // Bright White background
+
+  // Handle combined color codes like \u001b[1;31m (bold red)
+  result = result.replace(/\u001b\[(\d+);(\d+)m/g, (match, p1, p2) => {
+    let replacement = ''
+
+    // Handle first parameter
+    if (p1 === '0') replacement += '</span><span>'
+    else if (p1 === '1') replacement += '<span class="ansi-bold">'
+    else if (p1 === '3') replacement += '<span class="ansi-italic">'
+    else if (p1 === '4') replacement += '<span class="ansi-underline">'
+    else if (p1 >= '30' && p1 <= '37') replacement += `<span class="ansi-${getColorName(parseInt(p1, 10) - 30)}">`
+    else if (p1 >= '40' && p1 <= '47') replacement += `<span class="ansi-bg-${getColorName(parseInt(p1, 10) - 40)}">`
+    else if (p1 >= '90' && p1 <= '97') replacement += `<span class="ansi-bright-${getColorName(parseInt(p1, 10) - 90)}">`
+    else if (p1 >= '100' && p1 <= '107') replacement += `<span class="ansi-bg-bright-${getColorName(parseInt(p1, 10) - 100)}">`
+
+    // Handle second parameter
+    if (p2 === '0') replacement += '</span><span>'
+    else if (p2 === '1') replacement += '<span class="ansi-bold">'
+    else if (p2 === '3') replacement += '<span class="ansi-italic">'
+    else if (p2 === '4') replacement += '<span class="ansi-underline">'
+    else if (p2 >= '30' && p2 <= '37') replacement += `<span class="ansi-${getColorName(parseInt(p2, 10) - 30)}">`
+    else if (p2 >= '40' && p2 <= '47') replacement += `<span class="ansi-bg-${getColorName(parseInt(p2, 10) - 40)}">`
+    else if (p2 >= '90' && p2 <= '97') replacement += `<span class="ansi-bright-${getColorName(parseInt(p2, 10) - 90)}">`
+    else if (p2 >= '100' && p2 <= '107') replacement += `<span class="ansi-bg-bright-${getColorName(parseInt(p2, 10) - 100)}">`
+
+    return replacement
+  })
+
+  // Handle any remaining ANSI codes by stripping them
+  result = result.replace(/\u001b\[\d+[A-Za-z]/g, '') // Remove cursor movement codes
+  result = result.replace(/\u001b\[\d+(;\d+)*[A-Za-z]/g, '') // Remove other control sequences
+  result = result.replace(/\u001b\[\??\d+[hl]/g, '') // Remove mode setting
+  result = result.replace(/\u001b\[K/g, '') // Remove EL - Erase in Line
+
+  // Ensure all spans are closed
+  const openTags = (result.match(/<span/g) || []).length
+  const closeTags = (result.match(/<\/span>/g) || []).length
+
+  if (openTags > closeTags) {
+    result += '</span>'.repeat(openTags - closeTags)
+  }
+
+  return result
+}
+
+// Helper function to get color name from index
+const getColorName = (index: number): string => {
+  const colors = ['black', 'red', 'green', 'yellow', 'blue', 'magenta', 'cyan', 'white']
+  return colors[index] || 'white'
+}
+
 // Add computed property for content lines
 const contentLines = computed(() => {
   if (!props.content) return []
 
   const lines = props.content.split('\n')
   return lines.map((line) => {
+    // Process ANSI escape codes for display
+    const processedLine = stripAnsiCodes(line)
+
     // Check if it's a prompt line
-    if (line.startsWith('$ ') || line.startsWith('# ')) {
+    if (processedLine.startsWith('$ ') || processedLine.startsWith('# ')) {
       return {
         type: 'prompt',
-        prompt: line.charAt(0),
-        command: line.substring(2)
+        prompt: processedLine.charAt(0),
+        command: processedLine.substring(2)
       }
     }
 
     // Check if it's an ls output line
-    const lsMatch = line.match(/^([drwx-]+)\s+(\d+)\s+(\w+)\s+(\w+)\s+(\d+)\s+(\w+\s+\d+\s+\d+:\d+)\s+(.+)$/)
+    const lsMatch = processedLine.match(/^([drwx-]+)\s+(\d+)\s+(\w+)\s+(\w+)\s+(\d+)\s+(\w+\s+\d+\s+\d+:\d+)\s+(.+)$/)
     if (lsMatch) {
       const [, permissions, , user, group, size, date, name] = lsMatch
       return {
@@ -929,10 +1050,11 @@ const contentLines = computed(() => {
       }
     }
 
-    // Regular content line
+    // Regular content line with ANSI processing
     return {
       type: 'content',
-      content: line
+      content: processedLine,
+      html: processAnsiCodes(line)
     }
   })
 })
@@ -1626,5 +1748,148 @@ code {
   text-overflow: ellipsis;
   white-space: normal;
   word-break: break-all;
+}
+
+/* ANSI Color Styles */
+.ansi-black {
+  color: #000000;
+}
+
+.ansi-red {
+  color: #e06c75;
+}
+
+.ansi-green {
+  color: #98c379;
+}
+
+.ansi-yellow {
+  color: #e5c07b;
+}
+
+.ansi-blue {
+  color: #61afef;
+}
+
+.ansi-magenta {
+  color: #c678dd;
+}
+
+.ansi-cyan {
+  color: #56b6c2;
+}
+
+.ansi-white {
+  color: #abb2bf;
+}
+
+.ansi-bright-black {
+  color: #5c6370;
+}
+
+.ansi-bright-red {
+  color: #ff7b86;
+}
+
+.ansi-bright-green {
+  color: #b5e890;
+}
+
+.ansi-bright-yellow {
+  color: #ffd68a;
+}
+
+.ansi-bright-blue {
+  color: #79c0ff;
+}
+
+.ansi-bright-magenta {
+  color: #d8a6ff;
+}
+
+.ansi-bright-cyan {
+  color: #7ce8ff;
+}
+
+.ansi-bright-white {
+  color: #ffffff;
+}
+
+/* ANSI Background Colors */
+.ansi-bg-black {
+  background-color: #000000;
+}
+
+.ansi-bg-red {
+  background-color: #e06c75;
+}
+
+.ansi-bg-green {
+  background-color: #98c379;
+}
+
+.ansi-bg-yellow {
+  background-color: #e5c07b;
+}
+
+.ansi-bg-blue {
+  background-color: #61afef;
+}
+
+.ansi-bg-magenta {
+  background-color: #c678dd;
+}
+
+.ansi-bg-cyan {
+  background-color: #56b6c2;
+}
+
+.ansi-bg-white {
+  background-color: #abb2bf;
+}
+
+.ansi-bg-bright-black {
+  background-color: #5c6370;
+}
+
+.ansi-bg-bright-red {
+  background-color: #ff7b86;
+}
+
+.ansi-bg-bright-green {
+  background-color: #b5e890;
+}
+
+.ansi-bg-bright-yellow {
+  background-color: #ffd68a;
+}
+
+.ansi-bg-bright-blue {
+  background-color: #79c0ff;
+}
+
+.ansi-bg-bright-magenta {
+  background-color: #d8a6ff;
+}
+
+.ansi-bg-bright-cyan {
+  background-color: #7ce8ff;
+}
+
+.ansi-bg-bright-white {
+  background-color: #ffffff;
+}
+
+/* ANSI Text Formatting */
+.ansi-bold {
+  font-weight: bold;
+}
+
+.ansi-italic {
+  font-style: italic;
+}
+
+.ansi-underline {
+  text-decoration: underline;
 }
 </style>
