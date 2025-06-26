@@ -26,7 +26,10 @@
         :key="containerKey"
         class="chat-response-container"
       >
-        <div class="chat-response">
+        <div
+          ref="chatResponse"
+          class="chat-response"
+        >
           <template
             v-for="message in chatHistory"
             :key="message"
@@ -45,6 +48,7 @@
                 :ask="message.ask"
                 :say="message.say"
                 :partial="message.partial"
+                @collapse-change="handleCollapseChange"
               />
               <MarkdownRenderer
                 v-else
@@ -53,6 +57,7 @@
                 :ask="message.ask"
                 :say="message.say"
                 :partial="message.partial"
+                @collapse-change="handleCollapseChange"
               />
 
               <div class="message-actions">
@@ -207,7 +212,7 @@
           </div>
           <div class="hosts-display-container">
             <span
-              v-if="chatTypeValue === 'agent' && chatHistory.length === 0"
+              v-if="chatTypeValue !== 'cmd' && chatHistory.length === 0"
               class="hosts-display-container-host-tag"
               @click="handleAddHostClick"
             >
@@ -224,7 +229,7 @@
               </template>
               {{ item.host }}
               <CloseOutlined
-                v-if="chatTypeValue === 'agent' && chatHistory.length === 0"
+                v-if="chatTypeValue !== 'cmd' && chatHistory.length === 0"
                 class="host-delete-btn"
                 @click.stop="removeHost(item)"
               />
@@ -243,7 +248,7 @@
           </div>
           <a-textarea
             v-model:value="chatInputValue"
-            :placeholder="chatTypeValue === 'agent' ? $t('ai.agentMessage') : $t('ai.cmdMessage')"
+            :placeholder="chatTypeValue === 'agent' ? $t('ai.agentMessage') : chatTypeValue === 'chat' ? $t('ai.chatMessage') : $t('ai.cmdMessage')"
             class="chat-textarea"
             :auto-size="{ minRows: 2, maxRows: 5 }"
             @keydown="handleKeyDown"
@@ -270,7 +275,7 @@
               size="small"
               class="custom-round-button compact-button"
               style="margin-left: 8px"
-              @click="sendMessage"
+              @click="sendMessage('send')"
             >
               <img
                 :src="sendIcon"
@@ -640,7 +645,7 @@ const checkModelConfig = async () => {
   return true
 }
 
-const sendMessage = async () => {
+const sendMessage = async (sendType: string) => {
   const checkModelConfigResult = await checkModelConfig()
   if (!checkModelConfigResult) {
     notification.error({
@@ -661,35 +666,15 @@ const sendMessage = async () => {
   const userContent = chatInputValue.value.trim()
   if (!userContent) return
   // 获取当前活跃主机是否存在
-  if (hosts.value.length === 0) {
-    const assetInfo = await getCurentTabAssetInfo()
-    // console.log('assetInsssssfo', assetInfo)
-    if (assetInfo) {
-      if (assetInfo.organizationId !== 'personal') {
-        hosts.value.push({
-          host: assetInfo.ip,
-          uuid: assetInfo.uuid,
-          connection: 'organization',
-          organizationId: assetInfo.organizationId
-        })
-      } else {
-        hosts.value.push({
-          host: assetInfo.ip,
-          uuid: assetInfo.uuid,
-          connection: 'personal',
-          organizationId: 'personal_01'
-        })
-      }
-    } else {
-      notification.error({
-        message: '获取当前资产连接信息失败',
-        description: '请先建立资产连接',
-        duration: 3
-      })
-      return 'ASSET_ERROR'
-    }
+  if (hosts.value.length === 0 && chatTypeValue.value !== 'chat') {
+    notification.error({
+      message: '获取当前资产连接信息失败',
+      description: '请先建立资产连接',
+      duration: 3
+    })
+    return 'ASSET_ERROR'
   }
-  await sendMessageToMain(userContent)
+  await sendMessageToMain(userContent, sendType)
 
   const userMessage: ChatMessage = {
     id: uuidv4(),
@@ -699,6 +684,10 @@ const sendMessage = async () => {
     ask: '',
     say: '',
     ts: 0
+  }
+  if (sendType === 'commandSend') {
+    userMessage.role = 'assistant'
+    userMessage.say = 'command_output'
   }
   chatHistory.push(userMessage)
   chatInputValue.value = ''
@@ -715,7 +704,7 @@ const handleKeyDown = (e: KeyboardEvent) => {
   // 检查是否是输入法确认键
   if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) {
     e.preventDefault()
-    sendMessage()
+    sendMessage('send')
   }
 }
 
@@ -751,7 +740,7 @@ const handlePlusClick = async () => {
   showSendButton.value = true
   responseLoading.value = false
   if (currentInput.trim()) {
-    sendMessage()
+    sendMessage('newTask')
   }
 }
 
@@ -1153,7 +1142,7 @@ onBeforeUnmount(() => {
 onMounted(async () => {
   eventBus.on('triggerAiSend', () => {
     if (chatInputValue.value.trim()) {
-      sendMessage()
+      sendMessage('commandSend')
     }
   })
   eventBus.on('chatToAi', (text) => {
@@ -1292,7 +1281,7 @@ onUnmounted(() => {
 })
 
 // 添加发送消息到主进程的方法
-const sendMessageToMain = async (userContent: string) => {
+const sendMessageToMain = async (userContent: string, sendType: string) => {
   try {
     let message
     // 只发送hosts中IP对应的cwd键值对
@@ -1317,6 +1306,13 @@ const sendMessageToMain = async (userContent: string) => {
         hosts: hostsArray,
         cwd: filteredCwd
       }
+    } else if (sendType === 'commandSend') {
+      message = {
+        type: 'askResponse',
+        askResponse: 'yesButtonClicked',
+        text: userContent,
+        cwd: filteredCwd
+      }
     } else {
       message = {
         type: 'askResponse',
@@ -1331,17 +1327,6 @@ const sendMessageToMain = async (userContent: string) => {
   } catch (error) {
     console.error('发送消息到主进程失败:', error)
   }
-}
-
-const chatContainer = ref<HTMLElement | null>(null)
-
-// Add auto scroll function
-const scrollToBottom = () => {
-  nextTick(() => {
-    if (chatContainer.value) {
-      chatContainer.value.scrollTop = chatContainer.value.scrollHeight
-    }
-  })
 }
 
 // Watch chatHistory changes
@@ -1724,6 +1709,79 @@ const cancelEdit = async (history) => {
     history.isEditing = false
     history.editingTitle = ''
     currentEditingId.value = null
+  }
+}
+
+const chatContainer = ref<HTMLElement | null>(null)
+const chatResponse = ref<HTMLElement | null>(null)
+// 添加一个标志来跟踪是否正在处理折叠操作
+const isHandlingCollapse = ref(false)
+
+// Add auto scroll function
+const scrollToBottom = () => {
+  // 如果正在处理折叠操作，则不执行滚动
+  if (isHandlingCollapse.value) {
+    // console.log('正在处理折叠操作，跳过自动滚动')
+    return
+  }
+
+  // 记录当前容器底部位置
+  const prevBottom = chatResponse.value?.getBoundingClientRect().bottom
+
+  nextTick(() => {
+    if (chatResponse.value) {
+      // 获取更新后的容器底部位置
+      const currentBottom = chatResponse.value.getBoundingClientRect().bottom
+      // console.log('容器高度变化，直接滚动到底部', prevBottom, currentBottom)
+      // 如果容器底部位置发生了变化，直接滚动到底部
+      if (prevBottom !== currentBottom && prevBottom > 0 && currentBottom > 0) {
+        chatContainer.value.scrollTop = chatContainer.value.scrollHeight
+      }
+    }
+  })
+}
+
+// 修改 handleCollapseChange 函数
+const handleCollapseChange = () => {
+  // 设置标志，表示正在处理折叠操作
+  isHandlingCollapse.value = true
+
+  // 折叠完成后，直接调用adjustScrollPosition确保内容可见
+  nextTick(() => {
+    adjustScrollPosition()
+
+    // 延迟重置标志，确保在处理完成后才允许自动滚动
+    setTimeout(() => {
+      isHandlingCollapse.value = false
+    }, 500)
+  })
+}
+
+// 添加一个专门用于调整折叠后滚动位置的函数
+const adjustScrollPosition = () => {
+  if (!chatContainer.value) return
+
+  // 尝试找到最后一条可见消息
+  const messages = Array.from(chatContainer.value.querySelectorAll('.message.assistant, .message.user'))
+
+  if (messages.length > 0) {
+    // 获取最后一条消息
+    const lastMessage = messages[messages.length - 1]
+
+    // 检查最后一条消息是否在视口内
+    const rect = lastMessage.getBoundingClientRect()
+    const containerRect = chatContainer.value.getBoundingClientRect()
+
+    if (rect.bottom > containerRect.bottom || rect.top < containerRect.top) {
+      // 如果最后一条消息不在视口内，将其滚动到视口中央
+      lastMessage.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      // console.log('将最后一条消息滚动到视口中央')
+    } else {
+      // console.log('最后一条消息已在视口内，无需调整')
+    }
+  } else {
+    // 如果没有消息，滚动到底部
+    chatContainer.value.scrollTop = chatContainer.value.scrollHeight
   }
 }
 </script>
@@ -2248,6 +2306,7 @@ const cancelEdit = async (history) => {
   .history-search-container {
     display: flex;
     gap: 10px;
+
     :deep(.ant-input-affix-wrapper) {
       border-color: rgba(255, 255, 255, 0.1);
       box-shadow: none;
@@ -2263,6 +2322,7 @@ const cancelEdit = async (history) => {
       border: none !important;
       color: rgba(255, 255, 255, 0.65) !important;
       height: 20px !important;
+
       &::placeholder {
         color: #666 !important;
       }
@@ -2270,6 +2330,7 @@ const cancelEdit = async (history) => {
 
     :deep(.ant-input-clear-icon) {
       color: #666;
+
       &:hover {
         color: #999;
       }

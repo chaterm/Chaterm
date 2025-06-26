@@ -39,9 +39,11 @@
                 size="small"
                 @click.stop="copyEditorContent"
               >
-                <template #icon>
-                  <CopyOutlined />
-                </template>
+                <img
+                  :src="copySvg"
+                  alt="copy"
+                  class="copy-icon"
+                />
               </a-button>
             </a-space>
           </template>
@@ -57,9 +59,11 @@
               size="small"
               @click="copyEditorContent"
             >
-              <template #icon>
-                <CopyOutlined />
-              </template>
+              <img
+                :src="copySvg"
+                alt="copy"
+                class="copy-icon"
+              />
             </a-button>
           </div>
         </a-collapse-panel>
@@ -189,9 +193,11 @@
                       size="small"
                       @click.stop="part.blockIndex !== undefined && copyBlockContent(part.blockIndex)"
                     >
-                      <template #icon>
-                        <CopyOutlined />
-                      </template>
+                      <img
+                        :src="copySvg"
+                        alt="copy"
+                        class="copy-icon"
+                      />
                     </a-button>
                   </a-space>
                 </template>
@@ -212,9 +218,11 @@
                     size="small"
                     @click="part.blockIndex !== undefined && copyBlockContent(part.blockIndex)"
                   >
-                    <template #icon>
-                      <CopyOutlined />
-                    </template>
+                    <img
+                      :src="copySvg"
+                      alt="copy"
+                      class="copy-icon"
+                    />
                   </a-button>
                 </div>
               </a-collapse-panel>
@@ -246,6 +254,7 @@ import 'monaco-editor/esm/vs/basic-languages/rust/rust.contribution'
 import 'monaco-editor/esm/vs/basic-languages/sql/sql.contribution'
 import { LoadingOutlined, CopyOutlined } from '@ant-design/icons-vue'
 import thinkingSvg from '@/assets/icons/thinking.svg'
+import copySvg from '@/assets/icons/copy.svg'
 import { message } from 'ant-design-vue'
 import i18n from '@/locales'
 
@@ -463,7 +472,7 @@ const initEditor = (content: string) => {
 
       const contentHeight = editor.getContentHeight()
       if (monacoContainer.value) {
-        monacoContainer.value.style.height = `${contentHeight}px`
+        monacoContainer.value.style.height = `${contentHeight + 10}px`
         editor.layout()
       }
     }
@@ -679,7 +688,7 @@ const initCodeBlockEditors = () => {
         if (!editor) return
         const contentHeight = editor.getContentHeight()
         if (container) {
-          container.style.height = `${contentHeight}px`
+          container.style.height = `${contentHeight + 10}px`
           editor.layout()
         }
       }
@@ -723,6 +732,9 @@ const checkContentHeight = async () => {
     setTimeout(() => {
       activeKey.value = shouldCollapse ? [] : ['1']
       thinkingLoading.value = false
+      // 触发折叠状态变化事件
+      // console.log('思考内容折叠状态变化:', activeKey.value)
+      emit('collapse-change', activeKey.value)
     }, 1000) // 与折叠动画时间相同
   }
 }
@@ -786,6 +798,9 @@ watch(
           const model = editor.getModel()
           if (model && model.getLineCount() > 10) {
             codeActiveKey.value = []
+            // 触发折叠状态变化事件
+            // console.log('代码块思考内容折叠状态变化:', codeActiveKey.value)
+            emit('collapse-change', codeActiveKey.value)
           }
         }
       }, 2000) // 等待1秒无变化
@@ -945,6 +960,9 @@ const copyBlockContent = (blockIndex: number) => {
     }
   }
 }
+
+// 定义emit
+const emit = defineEmits(['collapse-change'])
 </script>
 
 <style>
@@ -1241,8 +1259,8 @@ code {
 
 .code-collapse .ant-collapse-header .copy-button {
   position: absolute;
-  right: 40px;
-  top: 50%;
+  right: 30px;
+  top: 40%;
   transform: translateY(-50%);
   z-index: 1;
   height: 24px !important;
@@ -1256,6 +1274,7 @@ code {
   background-color: #282c34;
   min-height: 30px;
   position: relative;
+  padding: 2px 0 8px 0;
 }
 
 .monaco-container.collapsed .copy-button {
@@ -1271,8 +1290,8 @@ code {
 
 .monaco-container .copy-button {
   position: absolute;
-  top: 0;
-  right: 8px;
+  top: -1px;
+  right: -8px;
   z-index: 100;
 }
 
@@ -1317,6 +1336,13 @@ code {
 .thinking-icon {
   width: 16px;
   height: 16px;
+  vertical-align: middle;
+  filter: invert(0.25);
+}
+
+.copy-icon {
+  width: 11px;
+  height: 11px;
   vertical-align: middle;
   filter: invert(0.25);
 }
@@ -1600,20 +1626,5 @@ code {
   text-overflow: ellipsis;
   white-space: normal;
   word-break: break-all;
-}
-
-.header-copy-button {
-  position: absolute;
-  top: 0;
-  right: 8px;
-  z-index: 100;
-  color: #ffffff;
-  opacity: 0.6;
-  transition: opacity 0.3s;
-}
-
-.header-copy-button:hover {
-  opacity: 1;
-  background: rgba(255, 255, 255, 0.1);
 }
 </style>
