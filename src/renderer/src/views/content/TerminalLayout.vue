@@ -181,6 +181,7 @@ interface ResizeParams {
   prevPane: { size: number }
   nextPane: { size: number }
 }
+import { useI18n } from 'vue-i18n'
 import { userConfigStore } from '@/services/userConfigStoreService'
 import { ref, onMounted, nextTick, onUnmounted, watch } from 'vue'
 import { Splitpanes, Pane } from 'splitpanes'
@@ -196,7 +197,9 @@ import { v4 as uuidv4 } from 'uuid'
 import { userInfoStore } from '@/store'
 import { aliasConfigStore } from '@/store/aliasConfigStore'
 import eventBus from '@/utils/eventBus'
+import { Notice } from '../components/Notice'
 
+const { t } = useI18n()
 const aliasConfig = aliasConfigStore()
 const headerRef = ref<InstanceType<typeof Header> | null>(null)
 const extensionsRef = ref<InstanceType<typeof Extensions> | null>(null)
@@ -244,6 +247,8 @@ onMounted(async () => {
   eventBus.on('createSplitTab', handleCreateSplitTab)
   eventBus.on('switchRightPaneMode', handleSwitchRightPaneMode)
   eventBus.on('adjustSplitPaneToEqual', adjustSplitPaneToEqualWidth)
+
+  checkVersion()
 })
 const timer = ref<number | null>(null)
 watch(mainTerminalSize, () => {
@@ -646,6 +651,63 @@ const toggleAiSidebar = () => {
         mainTerminalSize.value = 100 - aiSidebarSize.value
       }
     }
+  }
+}
+const checkVersion = async () => {
+  const api = window.api as any
+  const info = await api.checkUpdate()
+  if (info?.isUpdateAvailable)
+    Notice.open({
+      id: 'update-notice',
+      type: 'info',
+      duration: 180,
+      description: t('update.available'),
+      btns: [
+        {
+          text: t('update.update'),
+          action: () => {
+            Download()
+            Notice.close('update-notice')
+          }
+        },
+        { text: t('update.later'), class: 'notice-btn-withe', action: () => Notice.close('update-notice') }
+      ]
+    })
+
+  const Download = () => {
+    api.download()
+    api.autoUpdate((params) => {
+      console.log(params)
+      if (params.progress <= 100) {
+        Notice.progress({
+          id: 'update-download-progress',
+          type: 'info',
+          description: `${t('update.downloading')} ${params.desc}`,
+          duration: 180,
+          progress: params.progress
+        })
+      } else {
+        Notice.close('update-download-progress')
+      }
+      if (params.status == 4) {
+        Notice.open({
+          id: 'update-download-complete',
+          type: 'success',
+          duration: 180,
+          description: t('update.complete'),
+          btns: [
+            {
+              text: t('update.install'),
+              action: () => {
+                api.quitAndInstall()
+                Notice.close('update-download-complete')
+              }
+            },
+            { text: t('update.later'), class: 'notice-btn-withe', action: () => Notice.close('update-download-complete') }
+          ]
+        })
+      }
+    })
   }
 }
 

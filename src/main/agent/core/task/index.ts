@@ -58,7 +58,7 @@ export class Task {
   private reinitExistingTaskFromId: (taskId: string) => Promise<void>
 
   readonly taskId: string
-  hosts?: Host[]
+  hosts: Host[]
   terminalOutput?: string = ''
   cwd: Map<string, string> = new Map()
   private taskIsFavorited?: boolean
@@ -122,10 +122,10 @@ export class Task {
     apiConfiguration: ApiConfiguration,
     autoApprovalSettings: AutoApprovalSettings,
     chatSettings: ChatSettings,
+    hosts: Host[],
     customInstructions?: string,
     task?: string,
     historyItem?: HistoryItem,
-    hosts?: Host[],
     terminalOutput?: string,
     cwd?: Map<string, string>
   ) {
@@ -499,11 +499,13 @@ export class Task {
     const isUpdatingPreviousPartial = lastMessage && lastMessage.partial && lastMessage.type === 'say' && lastMessage.say === type
     if (partial) {
       if (isUpdatingPreviousPartial) {
-        if (lastMessage.text && lastMessage.type === 'say' && lastMessage.say === 'command_output') {
-          lastMessage.text += '\n' + text
-        } else {
-          lastMessage.text = text
-        }
+        // if (lastMessage.text && lastMessage.type === 'say' && lastMessage.say === 'command_output') {
+        // if (lastMessage.text) {
+        //   lastMessage.text += '\n' + text
+        // } else {
+
+        // }
+        lastMessage.text = text
         lastMessage.partial = partial
         await this.postMessageToWebview({
           type: 'partialMessage',
@@ -521,6 +523,13 @@ export class Task {
           partial
         })
         await this.postStateToWebview()
+        if (type === 'command_output') {
+          const newMsg = this.chatermMessages.at(-1)!
+          await this.postMessageToWebview({
+            type: 'partialMessage',
+            partialMessage: newMsg
+          })
+        }
       }
     } else {
       // partial=false means its a complete version of a previously partial message
@@ -792,8 +801,8 @@ export class Task {
       outputBufferSize = 0
       chunkEnroute = true
       try {
-        await this.say('command_output', chunk, true)
-        process.continue()
+        // 发送截至目前的完整输出，供前端整体替换
+        await this.say('command_output', result, true)
       } catch (error) {
         console.error('Error while saying for command output:', error) // Log error
       } finally {
@@ -917,28 +926,16 @@ export class Task {
       yield firstChunk.value
       this.isWaitingForFirstChunk = false
     } catch (error) {
-      if (!this.didAutomaticallyRetryFailedApiRequest) {
-        this.conversationHistoryDeletedRange = this.contextManager.getNextTruncationRange(
-          this.apiConversationHistory,
-          this.conversationHistoryDeletedRange,
-          'quarter' // Force aggressive truncation
-        )
-        await this.saveChatermMessagesAndUpdateHistory()
-        await this.contextManager.triggerApplyStandardContextTruncationNoticeChange(Date.now(), this.taskId)
+      const errorMessage = this.formatErrorWithStatusCode(error)
 
-        this.didAutomaticallyRetryFailedApiRequest = true
-      } else {
-        const errorMessage = this.formatErrorWithStatusCode(error)
+      const { response } = await this.ask('api_req_failed', errorMessage, false)
 
-        const { response } = await this.ask('api_req_failed', errorMessage) // TODO:this message is not sent to the webview
-
-        if (response !== 'yesButtonClicked') {
-          // this will never happen since if noButtonClicked, we will clear current task, aborting this instance
-          throw new Error('API request failed')
-        }
-
-        await this.say('api_req_retried')
+      if (response !== 'yesButtonClicked') {
+        // this will never happen since if noButtonClicked, we will clear current task, aborting this instance
+        throw new Error('API request failed')
       }
+
+      await this.say('api_req_retried')
       // delegate generator output from the recursive call
       yield* this.attemptApiRequest(previousApiReqIndex)
       return
@@ -1538,7 +1535,7 @@ export class Task {
     details += '\n\n# Current Mode:'
     switch (this.chatSettings.mode) {
       case 'chat':
-        details += '\nCHAT MODE\n' + formatResponse.planModeInstructions()
+        details += '\nCHAT MODE'
         break
       case 'cmd':
         details += '\CMD MODE'
@@ -1572,12 +1569,14 @@ export class Task {
         this.consecutiveMistakeCount = 0
         let didAutoApprove = false
 
+        if (this.chatSettings.mode === 'cmd') {
+          await this.askApproval(toolDescription, 'command', command) // Wait for frontend to execute command and return result
+          return
+        }
+
         const autoApproveResult = this.shouldAutoApproveTool(block.name)
         let [autoApproveSafe, autoApproveAll] = Array.isArray(autoApproveResult) ? autoApproveResult : [autoApproveResult, false]
-        if (this.chatSettings.mode === 'cmd') {
-          autoApproveSafe = false
-          autoApproveAll = false
-        }
+
         if ((!requiresApprovalPerLLM && autoApproveSafe) || (requiresApprovalPerLLM && autoApproveSafe && autoApproveAll)) {
           this.removeLastPartialMessageIfExistsWithType('ask', 'command')
           await this.say('command', command, false)
@@ -1687,24 +1686,6 @@ export class Task {
     } else if (text) {
       this.pushAdditionalToolFeedback(text)
       await this.say('user_feedback', text)
-      await this.saveCheckpoint()
-    }
-    return approved
-  }
-
-  private async askApprovalForCmdMode(toolDescription: string, command: string): Promise<boolean> {
-    const { response, text } = await this.ask('command', command, false)
-    const approved = response === 'yesButtonClicked'
-    if (!approved) {
-      this.pushToolResult(toolDescription, formatResponse.toolDenied())
-      if (text) {
-        this.pushAdditionalToolFeedback(text)
-        await this.say('user_feedback', text)
-        await this.saveCheckpoint()
-      }
-      this.didRejectTool = true
-    } else if (text) {
-      this.pushToolResult(toolDescription, text)
       await this.saveCheckpoint()
     }
     return approved
@@ -2160,7 +2141,8 @@ export class Task {
     systemPrompt += systemInformation
 
     const settingsCustomInstructions = this.customInstructions?.trim()
-    const preferredLanguageInstructions = `# Preferred Language\n\nSpeak in ${DEFAULT_LANGUAGE_SETTINGS}.`
+
+    const preferredLanguageInstructions = `# Language Settings:\n\nDefault language : ${DEFAULT_LANGUAGE_SETTINGS}.\n\n rules:1.You should response based on the user's question language 2.This applies to ALL parts of your response, including thinking sections, explanations, and any other text content.`
     if (settingsCustomInstructions || preferredLanguageInstructions) {
       const userInstructions = addUserInstructions(settingsCustomInstructions, preferredLanguageInstructions)
       systemPrompt += userInstructions

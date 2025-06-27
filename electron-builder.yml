@@ -32,10 +32,14 @@ nsis:
 mac:
   icon: resources/icon.icns
   target:
-    target: dmg
-    arch:
-      - x64
-      - arm64
+    - target: dmg
+      arch:
+        - x64
+        - arm64
+    - target: zip
+      arch:
+        - x64
+        - arm64
   extendInfo:
     - NSCameraUsageDescription: Application requests access to the device's camera.
     - NSMicrophoneUsageDescription: Application requests access to the device's microphone.
@@ -50,11 +54,17 @@ linux:
     - deb
   maintainer: electronjs.org
   category: Utility
+  artifactName: ${name}-${version}-${arch}.${ext}
 appImage:
-  artifactName: ${name}-${version}.${ext}
+  artifactName: ${name}-${version}-${arch}.${ext}
+snap:
+  artifactName: ${name}-${version}-${arch}.${ext}
+deb:
+  artifactName: ${name}-${version}-${arch}.${ext}
 npmRebuild: true
 publish:
-  provider: generic
-  url: https://example.com/auto-updates
+  provider: github
+  owner: chaterm
+  repo: Chaterm
 electronDownload:
   mirror: https://npmmirror.com/mirrors/electron/
