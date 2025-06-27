@@ -1186,8 +1186,8 @@ export class autoCompleteDatabaseService {
 
     if (dangerousPatterns.some((pattern) => pattern.test(command))) return false
 
-    // 基本的命令格式验证
-    const validCommandFormat = /^[a-zA-Z_][a-zA-Z0-9_\-./\s]*$/ // 移除了不必要的转义字符
+    // 允许管道、并行、重定向等常见符号 | & > < ;
+    const validCommandFormat = /^[a-zA-Z_][a-zA-Z0-9_\-.\/\s|&><;]*$/
     if (!validCommandFormat.test(command)) return false
 
     return true
