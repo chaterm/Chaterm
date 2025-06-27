@@ -170,6 +170,22 @@
             {{ $t('ai.resume') }}
           </a-button>
         </div>
+        <div
+          v-if="showRetryButton"
+          class="bottom-buttons"
+        >
+          <a-button
+            size="small"
+            type="primary"
+            class="retry-btn"
+            @click="handleRetry"
+          >
+            <template #icon>
+              <ReloadOutlined />
+            </template>
+            {{ $t('ai.retry') }}
+          </a-button>
+        </div>
         <div class="input-send-container">
           <div
             v-if="showHostSelect"
@@ -438,7 +454,8 @@ import {
   EditOutlined,
   DeleteOutlined,
   SearchOutlined,
-  CheckOutlined
+  CheckOutlined,
+  ReloadOutlined
 } from '@ant-design/icons-vue'
 import { notification } from 'ant-design-vue'
 import { v4 as uuidv4 } from 'uuid'
@@ -497,6 +514,7 @@ const shouldShowSendButton = computed(() => {
 const lastChatMessageId = ref('')
 const buttonsDisabled = ref(false)
 const resumeDisabled = ref(false)
+const showRetryButton = ref(false)
 const showCancelButton = ref(false)
 
 // 当前活动对话的 ID
@@ -692,6 +710,7 @@ const sendMessage = async (sendType: string) => {
   chatHistory.push(userMessage)
   chatInputValue.value = ''
   responseLoading.value = true
+  showRetryButton.value = false
   return
 }
 
@@ -742,6 +761,7 @@ const handlePlusClick = async () => {
   if (currentInput.trim()) {
     sendMessage('newTask')
   }
+  showRetryButton.value = false
 }
 
 const containerKey = ref(0)
@@ -846,26 +866,24 @@ const restoreHistoryTab = async (history: HistoryItem) => {
 
 const handleHistoryClick = async () => {
   try {
-    if (chatTypeValue.value === 'agent' || chatTypeValue.value === 'cmd') {
-      // 重置分页状态
-      currentPage.value = 1
-      isLoadingMore.value = false
+    // 重置分页状态
+    currentPage.value = 1
+    isLoadingMore.value = false
 
-      // 从 globalState 获取所有 agent 历史记录并按 ts 倒序排序
-      const taskHistory = ((await getGlobalState('taskHistory')) as TaskHistoryItem[]) || []
+    // 从 globalState 获取所有 agent 历史记录并按 ts 倒序排序
+    const taskHistory = ((await getGlobalState('taskHistory')) as TaskHistoryItem[]) || []
 
-      const historyItems = taskHistory
-        .sort((a, b) => b.ts - a.ts)
-        .map((task) => ({
-          id: task.id,
-          chatTitle: truncateText(task?.task || `${chatTypeValue.value} Chat`),
-          chatType: chatTypeValue.value,
-          chatContent: []
-        }))
+    const historyItems = taskHistory
+      .sort((a, b) => b.ts - a.ts)
+      .map((task) => ({
+        id: task.id,
+        chatTitle: truncateText(task?.task || `${chatTypeValue.value} Chat`),
+        chatType: chatTypeValue.value,
+        chatContent: []
+      }))
 
-      // 批量更新历史列表
-      historyList.value = historyItems
-    }
+    // 批量更新历史列表
+    historyList.value = historyItems
   } catch (err) {
     console.error('Failed to get conversation list:', err)
   }
@@ -1028,7 +1046,19 @@ const handleResume = async () => {
   const response = await (window.api as any).sendToMain(messageRsp)
   console.log('主进程响应:', response)
   resumeDisabled.value = true
-  responseLoading.value = false
+  responseLoading.value = true
+}
+
+const handleRetry = async () => {
+  console.log('handleRetry:重试')
+  const messageRsp = {
+    type: 'askResponse',
+    askResponse: 'yesButtonClicked'
+  }
+  console.log('发送消息到主进程:', messageRsp)
+  const response = await (window.api as any).sendToMain(messageRsp)
+  console.log('主进程响应:', response)
+  showRetryButton.value = false
 }
 
 // 声明removeListener变量
@@ -1204,8 +1234,14 @@ onMounted(async () => {
   let lastMessage: any = null
   let lastPartialMessage: any = null
   removeListener = (window.api as any).onMainMessage((message: any) => {
-    console.log('Received main process message:', message)
+    console.log('Received main process message:', message.type, message)
     if (message?.type === 'partialMessage') {
+      // handle model error -- api_req_failed
+      if (message.partialMessage.type === 'ask' && message.partialMessage.ask === 'api_req_failed') {
+        handleModelApiReqFailed(message)
+        return
+      }
+      showRetryButton.value = false
       showSendButton.value = false
       showCancelButton.value = true
       let lastMessageInChat = chatHistory.at(-1)
@@ -1268,6 +1304,22 @@ onMounted(async () => {
     lastMessage = message
   })
 })
+
+const handleModelApiReqFailed = (message: any) => {
+  const newAssistantMessage = createNewMessage(
+    'assistant',
+    message.partialMessage.text,
+    message.partialMessage.type,
+    message.partialMessage.type === 'ask' ? message.partialMessage.ask : '',
+    message.partialMessage.type === 'say' ? message.partialMessage.say : '',
+    message.partialMessage.ts,
+    false
+  )
+  chatHistory.push(newAssistantMessage)
+  console.log('showRetryButton.value', showRetryButton.value)
+  showRetryButton.value = true
+  responseLoading.value = false
+}
 
 onUnmounted(() => {
   if (typeof removeListener === 'function') {
@@ -2136,10 +2188,6 @@ const adjustScrollPosition = () => {
   width: 100%;
   position: relative;
 
-  &.has-history-copy-btn :deep(.command-editor-container) {
-    padding-right: 20px;
-  }
-
   .message-actions {
     display: flex;
     flex-direction: column;
@@ -2519,6 +2567,7 @@ const adjustScrollPosition = () => {
   .reject-btn,
   .approve-btn,
   .cancel-btn,
+  .retry-btn,
   .resume-btn {
     flex: 1;
     display: flex;
