@@ -31,10 +31,9 @@ const appInfo = {
   justify-content: center;
 }
 .about-card {
-  background: #141414;
+  background: transparent;
   color: #f8f8f8;
   border-radius: 8px;
-  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.15);
   text-align: center;
 }
 .about-title {
