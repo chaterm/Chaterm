@@ -88,5 +88,6 @@ export type GlobalStateKey =
   | 'requestTimeoutMs'
   | 'shellIntegrationTimeout'
   | 'userConfig'
+  | 'modelOptions'
 
 export type LocalStateKey = 'localClineRulesToggles'

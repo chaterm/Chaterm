@@ -427,32 +427,31 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted, defineAsyncComponent, onUnmounted, watch, computed, nextTick, onBeforeUnmount } from 'vue'
+import { computed, defineAsyncComponent, nextTick, onBeforeUnmount, onMounted, onUnmounted, reactive, ref, watch } from 'vue'
 import {
+  CheckOutlined,
   CloseOutlined,
-  LaptopOutlined,
   CopyOutlined,
+  DeleteOutlined,
+  EditOutlined,
+  HourglassOutlined,
+  LaptopOutlined,
   PlayCircleOutlined,
   RedoOutlined,
-  HourglassOutlined,
-  EditOutlined,
-  DeleteOutlined,
-  SearchOutlined,
-  CheckOutlined
+  SearchOutlined
 } from '@ant-design/icons-vue'
 import { notification } from 'ant-design-vue'
 import { v4 as uuidv4 } from 'uuid'
 import eventBus from '@/utils/eventBus'
-import { getGlobalState, updateGlobalState, getSecret } from '@renderer/agent/storage/state'
-import type { HistoryItem, TaskHistoryItem, Host, ChatMessage, MessageContent, AssetInfo } from './types'
-import { createNewMessage, parseMessageContent, truncateText, formatHosts } from './utils'
+import { getGlobalState, getSecret, updateGlobalState } from '@renderer/agent/storage/state'
+import type { AssetInfo, ChatMessage, HistoryItem, Host, MessageContent, TaskHistoryItem } from './types'
+import { createNewMessage, formatHosts, parseMessageContent, truncateText } from './utils'
 import foldIcon from '@/assets/icons/fold.svg'
 import historyIcon from '@/assets/icons/history.svg'
 import plusIcon from '@/assets/icons/plus.svg'
 import sendIcon from '@/assets/icons/send.svg'
 import { useCurrentCwdStore } from '@/store/currentCwdStore'
 import { getassetMenu } from '@/api/asset/asset'
-import { aiModelOptions, deepseekAiModelOptions } from '@views/components/LeftTab/components/aiOptions'
 import debounce from 'lodash/debounce'
 import i18n from '@/locales'
 import { ChatermMessage } from '@/types/ChatermMessage'
@@ -485,8 +484,8 @@ const historyList = ref<HistoryItem[]>([])
 const hosts = ref<Host[]>([])
 const autoUpdateHost = ref(true)
 const chatInputValue = ref('')
-const chatAiModelValue = ref('claude-4-sonnet')
-const chatTypeValue = ref('agent')
+const chatAiModelValue = ref('')
+const chatTypeValue = ref('')
 const activeKey = ref('chat')
 const showSendButton = ref(true)
 const responseLoading = ref(false)
@@ -513,18 +512,7 @@ const props = defineProps({
   }
 })
 
-const AgentAiModelsOptions = ref([
-  { label: 'claude-4-sonnet', value: 'claude-4-sonnet' },
-  { label: 'claude-4-haiku', value: 'claude-4-haiku' },
-  { label: 'claude-3-7-sonnet', value: 'claude-3-7-sonnet' },
-  { label: 'claude-3-7-haiku', value: 'claude-3-7-haiku' },
-  { label: 'claude-3-5-sonnet', value: 'claude-3-5-sonnet' },
-  { label: 'claude-3-haiku', value: 'claude-3-haiku' },
-  { label: 'claude-3-opus', value: 'claude-3-opus' },
-  { label: 'claude-3-5-haiku', value: 'claude-3-5-haiku' },
-  { label: 'claude-3-opus-20240229', value: 'claude-3-opus-20240229' },
-  { label: 'claude-3-5-opus', value: 'claude-3-5-opus' }
-])
+const AgentAiModelsOptions = ref([])
 const AiTypeOptions = [
   { label: 'Chat', value: 'chat' },
   { label: 'Command', value: 'cmd' },
@@ -1043,34 +1031,26 @@ watch(currentCwd, (newValue) => {
   console.log('当前工作目录:', newValue)
 })
 
-// 创建防抖的事件发送函数
-const debouncedEmitModelChange = debounce(async (type, model) => {
-  eventBus.emit('AiTabModelChanged', [type, model])
-}, 200)
-
-const debouncedUpdateGlobalState = debounce(async (provider, model) => {
-  switch (provider) {
-    case 'bedrock':
-      await updateGlobalState('apiModelId', model)
-      break
-    case 'litellm':
-      await updateGlobalState('liteLlmModelId', model)
-      break
-    case 'deepseek':
-      await updateGlobalState('apiModelId', model)
-      break
-  }
-}, 200)
-
 // 修改 watch 处理函数
 watch(
   () => chatTypeValue.value,
-  async (newValue) => {
+  async (newValue, oldValue) => {
     try {
       await updateGlobalState('chatSettings', {
         mode: newValue
       })
-      debouncedEmitModelChange(chatTypeValue.value, chatAiModelValue.value)
+      console.log('chatTypeValue', newValue, oldValue)
+    } catch (error) {
+      console.error('更新 chatSettings 失败:', error)
+    }
+  }
+)
+// 修改 watch 处理函数
+watch(
+  () => chatAiModelValue.value,
+  async (newValue, oldValue) => {
+    try {
+      console.log('chatAiModelValue', newValue, oldValue)
     } catch (error) {
       console.error('更新 chatSettings 失败:', error)
     }
@@ -1078,66 +1058,66 @@ watch(
 )
 
 const handleChatAiModelChange = async () => {
-  const apiProvider = await getGlobalState('apiProvider')
-  debouncedUpdateGlobalState(apiProvider, chatAiModelValue.value)
-  debouncedEmitModelChange(chatTypeValue.value, chatAiModelValue.value)
+  const modelOptions = await getGlobalState('modelOptions')
+  const selectedModel = modelOptions.find((model) => model.name === chatAiModelValue.value)
+  if (selectedModel && selectedModel.apiProvider) {
+    await updateGlobalState('apiProvider', selectedModel.apiProvider)
+  }
+  const apiProvider = selectedModel?.apiProvider
+  switch (apiProvider) {
+    case 'bedrock':
+      await updateGlobalState('apiModelId', chatAiModelValue.value)
+      break
+    case 'litellm':
+      await updateGlobalState('liteLlmModelId', chatAiModelValue.value)
+      break
+    case 'deepseek':
+      await updateGlobalState('apiModelId', chatAiModelValue.value)
+      break
+  }
 }
 
 // 修改模型更新函数
-const changeModel = debounce(async (newValue) => {
+const initModel = async () => {
   const chatSetting = (await getGlobalState('chatSettings')) as { mode?: string }
   chatTypeValue.value = chatSetting?.mode || 'agent'
-  let apiProvider = ''
-  if (newValue?.[0]) {
-    apiProvider = newValue?.[0]
-    switch (apiProvider) {
-      case 'bedrock':
-        chatAiModelValue.value = newValue?.[1]
-        AgentAiModelsOptions.value = aiModelOptions
-        break
-      case 'litellm':
-        chatAiModelValue.value = newValue?.[2]
-        AgentAiModelsOptions.value = [
-          {
-            value: newValue?.[2],
-            label: newValue?.[2]
-          }
-        ]
-        break
-      case 'deepseek':
-        chatAiModelValue.value = newValue?.[1]
-        AgentAiModelsOptions.value = deepseekAiModelOptions
-        break
-    }
-  } else {
-    apiProvider = (await getGlobalState('apiProvider')) as string
-    switch (apiProvider) {
-      case 'bedrock':
-        chatAiModelValue.value = (await getGlobalState('apiModelId')) as string
-        AgentAiModelsOptions.value = aiModelOptions
-        break
-      case 'litellm':
-        chatAiModelValue.value = (await getGlobalState('liteLlmModelId')) as string
-        AgentAiModelsOptions.value = [
-          {
-            value: chatAiModelValue.value,
-            label: chatAiModelValue.value
-          }
-        ]
-        break
-      case 'deepseek':
-        chatAiModelValue.value = (await getGlobalState('apiModelId')) as string
-        AgentAiModelsOptions.value = deepseekAiModelOptions
-        break
-    }
+  const apiProvider = (await getGlobalState('apiProvider')) as string
+  switch (apiProvider) {
+    case 'bedrock':
+      chatAiModelValue.value = (await getGlobalState('apiModelId')) as string
+      break
+    case 'litellm':
+      chatAiModelValue.value = (await getGlobalState('liteLlmModelId')) as string
+      break
+    case 'deepseek':
+      chatAiModelValue.value = (await getGlobalState('apiModelId')) as string
+      break
   }
-}, 200)
+  const modelOptions = await getGlobalState('modelOptions')
+  AgentAiModelsOptions.value = modelOptions
+    .filter((item) => item.checked)
+    .map((item) => ({
+      label: item.name,
+      value: item.name
+    }))
+}
 
-onBeforeUnmount(() => {
-  debouncedEmitModelChange.cancel()
-  debouncedUpdateGlobalState.cancel()
-  changeModel.cancel()
-})
+// Watch for changes in AgentAiModelsOptions to ensure chatAiModelValue is valid
+watch(
+  AgentAiModelsOptions,
+  async (newOptions) => {
+    if (newOptions.length > 0) {
+      // If current value is not in the options, set it to the first available option
+      const isCurrentValueValid = newOptions.some((option) => option.value === chatAiModelValue.value)
+      if (!isCurrentValueValid && newOptions[0]) {
+        chatAiModelValue.value = ''
+      }
+    }
+  },
+  { immediate: true }
+)
+
+onBeforeUnmount(() => {})
 
 onMounted(async () => {
   eventBus.on('triggerAiSend', () => {
@@ -1149,7 +1129,7 @@ onMounted(async () => {
     chatInputValue.value = text
   })
 
-  await changeModel(null)
+  await initModel()
   authTokenInCookie.value = localStorage.getItem('ctm-token')
   const chatId = uuidv4()
 
@@ -1166,9 +1146,8 @@ onMounted(async () => {
   await initAssetInfo()
 
   // 添加事件监听
-  eventBus.on('SettingModelChanged', async (newValue) => {
-    console.log('[newValue]', newValue)
-    await changeModel(newValue)
+  eventBus.on('SettingModelOptionsChanged', async () => {
+    await initModel()
   })
 
   // 监听标签页变化
