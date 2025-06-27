@@ -1053,8 +1053,7 @@ const handleRetry = async () => {
   console.log('handleRetry:重试')
   const messageRsp = {
     type: 'askResponse',
-    askResponse: 'messageResponse',
-    text: 'retry'
+    askResponse: 'yesButtonClicked'
   }
   console.log('发送消息到主进程:', messageRsp)
   const response = await (window.api as any).sendToMain(messageRsp)
