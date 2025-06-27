@@ -238,7 +238,8 @@ export default {
     searchHistoryPH: 'Please Input',
     loading: 'loading...',
     loadMore: 'load more',
-    copyToClipboard: 'Copy to clipboard'
+    copyToClipboard: 'Copy to clipboard',
+    retry: 'Retry'
   },
   keyChain: {
     newKey: 'New Key',

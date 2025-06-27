@@ -240,7 +240,8 @@ export default {
     searchHistoryPH: '请输入',
     loading: '加载中...',
     loadMore: '加载',
-    copyToClipboard: '已复制到剪贴板'
+    copyToClipboard: '已复制到剪贴板',
+    retry: '重试'
   },
   keyChain: {
     newKey: '添加密钥',
