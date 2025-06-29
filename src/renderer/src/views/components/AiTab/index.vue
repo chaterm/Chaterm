@@ -228,7 +228,7 @@
           </div>
           <div class="hosts-display-container">
             <span
-              v-if="chatTypeValue !== 'cmd' && chatHistory.length === 0"
+              v-if="chatTypeValue === 'agent' && chatHistory.length === 0"
               class="hosts-display-container-host-tag"
               @click="handleAddHostClick"
             >
@@ -245,7 +245,7 @@
               </template>
               {{ item.host }}
               <CloseOutlined
-                v-if="chatTypeValue !== 'cmd' && chatHistory.length === 0"
+                v-if="chatTypeValue === 'agent' && chatHistory.length === 0"
                 class="host-delete-btn"
                 @click.stop="removeHost(item)"
               />
