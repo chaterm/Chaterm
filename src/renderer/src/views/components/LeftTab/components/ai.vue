@@ -921,6 +921,12 @@ const handleCheck = async () => {
   :deep(.ant-card-body) {
     padding: 16px;
   }
+
+  :deep(.ant-form-item) {
+    .ant-form-item-label > label {
+      color: var(--text-color);
+    }
+  }
 }
 
 .section-header {
