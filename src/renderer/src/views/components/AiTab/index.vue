@@ -228,7 +228,7 @@
           </div>
           <div class="hosts-display-container">
             <span
-              v-if="chatTypeValue === 'agent' && chatHistory.length === 0"
+              v-if="chatTypeValue !== 'cmd' && chatHistory.length === 0"
               class="hosts-display-container-host-tag"
               @click="handleAddHostClick"
             >
@@ -264,7 +264,7 @@
           </div>
           <a-textarea
             v-model:value="chatInputValue"
-            :placeholder="chatTypeValue === 'agent' ? $t('ai.agentMessage') : chatTypeValue === 'chat' ? $t('ai.chatMessage') : $t('ai.cmdMessage')"
+            :placeholder="chatTypeValue !== 'cmd' ? $t('ai.agentMessage') : chatTypeValue === 'chat' ? $t('ai.chatMessage') : $t('ai.cmdMessage')"
             class="chat-textarea"
             :auto-size="{ minRows: 2, maxRows: 5 }"
             @keydown="handleKeyDown"
