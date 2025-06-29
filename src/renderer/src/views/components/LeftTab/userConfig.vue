@@ -110,6 +110,7 @@ import About from '@/views/components/LeftTab/components/about.vue'
   }
 
   :deep(.ant-tabs-tabpane) {
+    padding-left: 0 !important;
     height: 100%;
     overflow: auto;
     background-color: var(--bg-color);
