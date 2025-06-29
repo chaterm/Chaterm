@@ -18,6 +18,19 @@
           </template>
         </a-form-item>
         <a-form-item
+          :label="$t('user.theme')"
+          class="user_my-ant-form-item"
+        >
+          <a-radio-group
+            v-model:value="userConfig.theme"
+            class="custom-radio-group"
+            @change="changeTheme"
+          >
+            <a-radio value="dark">{{ $t('user.themeDark') }}</a-radio>
+            <a-radio value="light">{{ $t('user.themeLight') }}</a-radio>
+          </a-radio-group>
+        </a-form-item>
+        <a-form-item
           :label="$t('user.fontSize')"
           class="user_my-ant-form-item"
         >
@@ -100,7 +113,8 @@ const userConfig = ref({
   scrollBack: 1000,
   language: 'zh-CN',
   cursorStyle: 'block',
-  watermark: 'open'
+  watermark: 'open',
+  theme: 'dark'
 })
 
 // 加载保存的配置
@@ -131,7 +145,8 @@ const saveConfig = async () => {
       scrollBack: userConfig.value.scrollBack,
       language: userConfig.value.language,
       cursorStyle: userConfig.value.cursorStyle,
-      watermark: userConfig.value.watermark
+      watermark: userConfig.value.watermark,
+      theme: userConfig.value.theme
     }
 
     // Get existing config and merge with new config
@@ -143,6 +158,7 @@ const saveConfig = async () => {
 
     await userConfigStore.saveConfig(mergedConfig)
     eventBus.emit('updateWatermark', mergedConfig.watermark)
+    eventBus.emit('updateTheme', mergedConfig.theme)
   } catch (error) {
     console.error('Failed to save config:', error)
     notification.error({
@@ -169,6 +185,10 @@ onMounted(async () => {
 const changeLanguage = async () => {
   appContext.config.globalProperties.$i18n.locale = userConfig.value.language
 }
+
+const changeTheme = async () => {
+  eventBus.emit('updateTheme', userConfig.value.theme)
+}
 </script>
 
 <style scoped>
@@ -180,27 +200,29 @@ const changeLanguage = async () => {
 .userInfo-container {
   width: 100%;
   height: 100%;
-  background-color: #141414;
+  background-color: var(--bg-color) !important;
   border-radius: 6px;
   overflow: hidden;
   padding: 4px;
   box-shadow: 0 4px 10px rgba(0, 0, 0, 0.15);
-  color: #f8f8f8;
+  color: var(--text-color);
 }
 
 :deep(.ant-card) {
   height: 100%;
+  background-color: var(--bg-color) !important;
 }
 
 :deep(.ant-card-body) {
   height: 100%;
   display: flex;
   flex-direction: column;
+  background-color: var(--bg-color);
 }
 
 /* 设置整个表单的字体颜色 */
 .custom-form {
-  color: #ffffff;
+  color: var(--text-color);
   align-content: center;
 }
 
@@ -211,74 +233,67 @@ const changeLanguage = async () => {
 
 /* 设置表单标签(label)的字体颜色 */
 .custom-form :deep(.ant-form-item-label > label) {
-  color: #ffffff;
+  color: var(--text-color);
 }
 
 /* 设置表单输入框的字体颜色 */
 .custom-form :deep(.ant-input),
-.custom-form :deep(.ant-input-password input) {
-  color: #ffffff;
-  border-color: #ffffff;
+.custom-form :deep(.ant-input-number),
+.custom-form :deep(.ant-radio-wrapper) {
+  color: var(--text-color);
 }
 
-/* 隐藏数字输入框右侧的增减按钮 */
-.custom-form :deep(.ant-input-number-handler-wrap) {
-  display: none;
+/* 输入框样式 */
+.custom-form :deep(.ant-input-number) {
+  background-color: var(--bg-color-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  transition: all 0.3s;
+  width: 100px !important;
 }
 
-/* 调整输入框的padding */
+.custom-form :deep(.ant-input-number:hover) {
+  border-color: #1890ff;
+  background-color: var(--bg-color-hover);
+}
+
+.custom-form :deep(.ant-input-number:focus),
+.custom-form :deep(.ant-input-number-focused) {
+  border-color: #1890ff;
+  box-shadow: 0 0 0 2px rgba(24, 144, 255, 0.2);
+  background-color: var(--bg-color-hover);
+}
+
 .custom-form :deep(.ant-input-number-input) {
-  padding-right: 0;
-  color: #ffffff;
-  background-color: #4a4a4a;
+  height: 32px;
+  padding: 4px 8px;
+  background-color: transparent;
+  color: var(--text-color);
 }
 
-/* 调整ratio文字颜色 */
-.custom-form :deep(.ant-radio-wrapper) {
-  color: #ffffff;
+[data-theme='light'] .custom-form :deep(.ant-input-number) {
+  background-color: #f5f5f5;
 }
 
-/* 调整badge颜色 */
-/* 成功状态 */
-.custom-form :deep(.ant-badge-status-success .ant-badge-status-dot) {
-  background-color: #52c41a !important;
-  /* 绿色 */
-  box-shadow: 0 0 0 2px rgba(82, 196, 26, 0.1);
+[data-theme='light'] .custom-form :deep(.ant-input-number:hover),
+[data-theme='light'] .custom-form :deep(.ant-input-number:focus),
+[data-theme='light'] .custom-form :deep(.ant-input-number-focused) {
+  background-color: #fafafa;
 }
 
-.custom-form :deep(.ant-badge-status-error .ant-badge-status-dot) {
-  background-color: #ff4d4f !important;
-  /* 红色 */
-  box-shadow: 0 0 0 2px rgba(82, 196, 26, 0.1);
+[data-theme='dark'] .custom-form :deep(.ant-input-number) {
+  background-color: #2a2a2a;
 }
 
-.custom-form :deep(.ant-badge-status-text) {
-  color: #ffffff;
+[data-theme='dark'] .custom-form :deep(.ant-input-number:hover),
+[data-theme='dark'] .custom-form :deep(.ant-input-number:focus),
+[data-theme='dark'] .custom-form :deep(.ant-input-number-focused) {
+  background-color: #363636;
 }
 
-.custom-form :deep(.ant-switch) {
-  background-color: #4a4a4a;
-}
-
-/* 选中状态样式 */
-.custom-form :deep(.ant-switch.ant-switch-checked) {
-  background: #1890ff !important;
-  /* Ant Design默认蓝色 */
-}
-
-/* 调整输入框的padding */
-.custom-form :deep(.ant-radio-wrapper) {
-  color: #ffffff;
-}
-
-/* 设置错误提示文字的颜色 */
-.custom-form :deep(.ant-form-item-explain-error) {
-  color: #ff4d4f;
-}
-
-/* 设置必填星号的颜色 */
-.custom-form :deep(.ant-form-item-required::before) {
-  color: #ff4d4f;
+.label-text {
+  color: var(--text-color);
+  font-weight: 500;
 }
 
 .user_my-ant-form-item {
@@ -333,13 +348,6 @@ const changeLanguage = async () => {
 :deep(.right-aligned-wrapper) {
   text-align: right;
   color: #ffffff;
-}
-
-.label-text {
-  font-size: 20px;
-  /* 设置字体大小 */
-  font-weight: bold;
-  line-height: 1.3;
 }
 
 .checkbox-md :deep(.ant-checkbox-inner) {

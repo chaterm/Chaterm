@@ -916,10 +916,16 @@ const handleCheck = async () => {
 
 <style lang="less" scoped>
 .settings-section {
-  background-color: transparent;
+  background-color: var(--bg-color);
 
   :deep(.ant-card-body) {
     padding: 16px;
+  }
+
+  :deep(.ant-form-item) {
+    .ant-form-item-label > label {
+      color: var(--text-color);
+    }
   }
 }
 
@@ -931,6 +937,7 @@ const handleCheck = async () => {
     font-size: 20px;
     font-weight: 500;
     margin: 0;
+    color: var(--text-color);
   }
 }
 
@@ -945,14 +952,14 @@ const handleCheck = async () => {
 .setting-description {
   margin-top: 8px;
   font-size: 12px;
-  color: rgba(255, 255, 255, 0.45);
+  color: var(--text-color-tertiary);
   padding-left: 22px;
 }
 
 .setting-description-no-padding {
   margin-top: 8px;
   font-size: 12px;
-  color: rgba(255, 255, 255, 0.45);
+  color: var(--text-color-tertiary);
 }
 
 // 统一组件样式
@@ -961,15 +968,18 @@ const handleCheck = async () => {
 :deep(.ant-select),
 :deep(.ant-input),
 :deep(.ant-input-password) {
-  color: rgba(255, 255, 255, 0.85);
+  color: var(--text-color);
 }
 
-:deep(.ant-checkbox),
+:deep(.ant-checkbox) {
+  border: 0 !important;
+}
+
 :deep(.ant-select-selector),
 :deep(.ant-input),
 :deep(.ant-input-password) {
-  background-color: #4a4a4a !important; // 添加 !important 确保覆盖默认样式
-  border: none;
+  background-color: var(--bg-color-secondary) !important;
+  border: 1px solid var(--border-color);
 
   &:hover,
   &:focus {
@@ -977,40 +987,40 @@ const handleCheck = async () => {
   }
 
   &::placeholder {
-    color: rgba(255, 255, 255, 0.25) !important;
+    color: var(--text-color-tertiary) !important;
   }
 }
 
 // 密码输入框特定样式
 :deep(.ant-input-password) {
   .ant-input {
-    background-color: #4a4a4a !important;
-    color: rgba(255, 255, 255, 0.85);
+    background-color: var(--bg-color-secondary) !important;
+    color: var(--text-color);
   }
 
   .anticon {
-    color: rgba(255, 255, 255, 0.45);
+    color: var(--text-color-tertiary);
   }
 
   &:hover .anticon {
-    color: rgba(255, 255, 255, 0.65);
+    color: var(--text-color-secondary);
   }
 }
 
 // 添加选择框的特定样式
 :deep(.ant-select) {
   .ant-select-selector {
-    background-color: #4a4a4a !important;
-    border: none;
+    background-color: var(--bg-color-secondary) !important;
+    border: 1px solid var(--border-color);
 
     .ant-select-selection-placeholder {
-      color: rgba(255, 255, 255, 0.25) !important;
+      color: var(--text-color-tertiary) !important;
     }
   }
 
   &.ant-select-focused {
     .ant-select-selector {
-      background-color: #4a4a4a !important;
+      background-color: var(--bg-color-secondary) !important;
       border-color: #1890ff !important;
     }
   }
@@ -1024,29 +1034,29 @@ const handleCheck = async () => {
 
 // 下拉菜单样式
 :deep(.ant-select-dropdown) {
-  background-color: #4a4a4a;
-  border: 1px solid rgba(255, 255, 255, 0.15);
+  background-color: var(--bg-color);
+  border: 1px solid var(--border-color);
 
   .ant-select-item {
-    color: rgba(255, 255, 255, 0.85);
-    background-color: #4a4a4a;
+    color: var(--text-color);
+    background-color: var(--bg-color);
 
     &-option-active,
     &-option-selected {
-      color: rgba(255, 255, 255, 0.85) !important; // 添加选中项的文字颜色
-      background-color: rgba(24, 144, 255, 0.2);
+      color: var(--text-color) !important;
+      background-color: var(--hover-bg-color);
     }
 
     &-option:hover {
-      color: rgba(255, 255, 255, 0.85);
-      background-color: rgba(255, 255, 255, 0.08);
+      color: var(--text-color);
+      background-color: var(--hover-bg-color);
     }
   }
 }
 
 // 选择框中已选项的颜色
 :deep(.ant-select-selection-item) {
-  color: rgba(255, 255, 255, 0.85) !important;
+  color: var(--text-color) !important;
 }
 
 .label-container {
@@ -1061,18 +1071,18 @@ const handleCheck = async () => {
   font-weight: 500;
   display: block;
   margin-right: auto;
-  color: rgba(255, 255, 255, 0.45);
+  color: var(--text-color-tertiary);
 }
 
 .slider-container {
   padding: 8px 0;
-  color: rgba(255, 255, 255, 0.45);
+  color: var(--text-color-tertiary);
 
   :deep(.ant-slider) {
     margin: 0;
     // 轨道样式
     .ant-slider-rail {
-      background-color: #4a4a4a;
+      background-color: var(--bg-color-secondary);
     }
 
     // 已选择部分的轨道样式
@@ -1082,22 +1092,19 @@ const handleCheck = async () => {
 
     // 滑块手柄样式
     .ant-slider-handle {
-      width: 16px;
-      height: 16px;
-      border: 2px solid var(--vscode-progressBar-background);
-      background-color: var(--vscode-foreground);
+      background-color: var(--bg-color);
       box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
 
       &:focus {
-        box-shadow: 0 0 0 5px var(--vscode-focusBorder);
+        box-shadow: 0 0 0 5px rgba(24, 144, 255, 0.2);
       }
 
       &:hover {
-        border-color: var(--vscode-progressBar-background);
+        border-color: #40a9ff;
       }
 
       &:active {
-        box-shadow: 0 0 0 5px var(--vscode-focusBorder);
+        box-shadow: 0 0 0 5px rgba(24, 144, 255, 0.2);
       }
     }
   }
@@ -1111,15 +1118,15 @@ const handleCheck = async () => {
 
 // 减小表单项之间的间距
 :deep(.ant-form-item) {
-  margin-bottom: 8px; // 减小底部边距
+  margin-bottom: 8px;
 }
 
 // 减小label和输入框之间的间距
 :deep(.ant-form-item-label) {
-  padding-bottom: 0; // 移除label的底部padding
+  padding-bottom: 0;
   > label {
-    height: 24px; // 减小label高度
-    line-height: 24px; // 调整行高以匹配高度
+    height: 24px;
+    line-height: 24px;
   }
 }
 
@@ -1138,18 +1145,18 @@ const handleCheck = async () => {
 
     &.user {
       align-self: flex-end;
-      background-color: rgba(255, 255, 255, 0.1); // 浅灰色背景
-      color: #ffffff; // 白色文字
-      border: none; // 移除边框
-      width: 90%; // 父组件的90%宽度
-      margin-left: auto; // 靠右对齐
+      background-color: var(--hover-bg-color);
+      color: var(--text-color);
+      border: none;
+      width: 90%;
+      margin-left: auto;
     }
 
     &.assistant {
       align-self: flex-start;
-      background-color: #1e2a38;
-      color: #e0e0e0;
-      border: 1px solid #2c3e50;
+      background-color: var(--bg-color-secondary);
+      color: var(--text-color);
+      border: 1px solid var(--border-color);
       width: 100%;
     }
   }
@@ -1158,16 +1165,17 @@ const handleCheck = async () => {
 .check-btn {
   margin-left: 4px;
   width: 90px;
-  background-color: #4a4a4a !important;
-  color: #fff !important;
-  border: none !important;
+  background-color: var(--bg-color-secondary) !important;
+  color: var(--text-color) !important;
+  border: 1px solid var(--border-color) !important;
   box-shadow: none !important;
   transition: background 0.2s;
 }
 
 .check-btn:hover,
 .check-btn:focus {
-  background-color: #5a5a5a !important;
-  color: #fff !important;
+  background-color: var(--hover-bg-color) !important;
+  color: var(--text-color) !important;
+  border-color: #1890ff !important;
 }
 </style>
