@@ -241,39 +241,54 @@ const changeTheme = async () => {
 .custom-form :deep(.ant-input-number),
 .custom-form :deep(.ant-radio-wrapper) {
   color: var(--text-color);
-  background-color: var(--bg-color);
+}
+
+/* 输入框样式 */
+.custom-form :deep(.ant-input-number) {
+  background-color: var(--bg-color-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  transition: all 0.3s;
+  width: 100px !important;
+}
+
+.custom-form :deep(.ant-input-number:hover) {
+  border-color: #1890ff;
+  background-color: var(--bg-color-hover);
+}
+
+.custom-form :deep(.ant-input-number:focus),
+.custom-form :deep(.ant-input-number-focused) {
+  border-color: #1890ff;
+  box-shadow: 0 0 0 2px rgba(24, 144, 255, 0.2);
+  background-color: var(--bg-color-hover);
 }
 
 .custom-form :deep(.ant-input-number-input) {
-  background-color: var(--bg-color);
+  height: 32px;
+  padding: 4px 8px;
+  background-color: transparent;
   color: var(--text-color);
 }
 
-.custom-form :deep(.ant-radio-inner) {
-  background-color: var(--bg-color);
-  border-color: var(--border-color);
+[data-theme='light'] .custom-form :deep(.ant-input-number) {
+  background-color: #f5f5f5;
 }
 
-.custom-form :deep(.ant-radio-checked .ant-radio-inner) {
-  border-color: #1890ff;
-  &:after {
-    background-color: #1890ff;
-  }
+[data-theme='light'] .custom-form :deep(.ant-input-number:hover),
+[data-theme='light'] .custom-form :deep(.ant-input-number:focus),
+[data-theme='light'] .custom-form :deep(.ant-input-number-focused) {
+  background-color: #fafafa;
 }
 
-.custom-form :deep(.ant-input-number-handler-wrap) {
-  background-color: var(--bg-color-secondary);
-  border-left: 1px solid var(--border-color);
+[data-theme='dark'] .custom-form :deep(.ant-input-number) {
+  background-color: #2a2a2a;
 }
 
-.custom-form :deep(.ant-input-number-handler) {
-  border-bottom: 1px solid var(--border-color);
-  color: var(--text-color);
-}
-
-.custom-form :deep(.ant-input-number-handler:hover .ant-input-number-handler-up-inner),
-.custom-form :deep(.ant-input-number-handler:hover .ant-input-number-handler-down-inner) {
-  color: #1890ff;
+[data-theme='dark'] .custom-form :deep(.ant-input-number:hover),
+[data-theme='dark'] .custom-form :deep(.ant-input-number:focus),
+[data-theme='dark'] .custom-form :deep(.ant-input-number-focused) {
+  background-color: #363636;
 }
 
 .label-text {
