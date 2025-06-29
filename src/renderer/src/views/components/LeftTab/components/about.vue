@@ -35,6 +35,7 @@ const appInfo = {
   color: var(--text-color);
   border-radius: 8px;
   text-align: center;
+  box-shadow: none;
 }
 .about-title {
   font-size: 16px;
