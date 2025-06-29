@@ -125,7 +125,7 @@ import About from '@/views/components/LeftTab/components/about.vue'
 
   // 修改分割线样式
   :deep(.ant-tabs-nav-list) {
-    border-right: 1px solid var(--border-color);
+    border-right: 1px solid var(--bg-color);
     height: 100%;
   }
 
