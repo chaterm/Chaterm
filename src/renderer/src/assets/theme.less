@@ -34,6 +34,17 @@
 body {
   background-color: var(--bg-color);
   color: var(--text-color);
+  transition:
+    background-color 0.3s ease,
+    color 0.3s ease;
+}
+
+// 确保所有使用主题变量的元素都有过渡效果
+* {
+  transition:
+    background-color 0.3s ease,
+    color 0.3s ease,
+    border-color 0.3s ease;
 }
 
 .terminal-layout {
