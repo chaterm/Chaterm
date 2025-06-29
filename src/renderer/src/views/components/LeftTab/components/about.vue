@@ -31,8 +31,8 @@ const appInfo = {
   justify-content: center;
 }
 .about-card {
-  background: transparent;
-  color: #f8f8f8;
+  background-color: var(--bg-color);
+  color: var(--text-color);
   border-radius: 8px;
   text-align: center;
 }
@@ -40,10 +40,12 @@ const appInfo = {
   font-size: 16px;
   font-weight: bold;
   margin-bottom: 8px;
+  color: var(--text-color);
 }
 .about-description {
   font-size: 16px;
   margin-bottom: 8px;
+  color: var(--text-color-secondary);
 }
 .about-logo {
   text-align: center;

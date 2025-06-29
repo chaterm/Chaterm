@@ -1841,9 +1841,9 @@ const adjustScrollPosition = () => {
 <style lang="less">
 .history-dropdown-menu {
   .ant-input {
-    background-color: #4a4a4a !important;
-    border: 1px solid #3a3a3a !important;
-    color: #ffffff !important;
+    background-color: var(--bg-color) !important;
+    border: 1px solid var(--border-color) !important;
+    color: var(--text-color) !important;
     font-size: 12px !important;
     padding: 0 4px !important;
     height: 16px !important;
@@ -1858,9 +1858,45 @@ const adjustScrollPosition = () => {
 </style>
 
 <style lang="less" scoped>
+:root {
+  // 暗色主题变量
+  .dark-theme {
+    --bg-color: #141414;
+    --bg-color-secondary: #1f1f1f;
+    --text-color: #ffffff;
+    --text-color-secondary: #e0e0e0;
+    --text-color-tertiary: #666666;
+    --border-color: #333333;
+    --border-color-light: #3a3a3a;
+    --hover-bg-color: #2a2a2a;
+    --scrollbar-thumb: #2a2a2a;
+    --scrollbar-track: #1a1a1a;
+    --scrollbar-thumb-hover: #3a3a3a;
+    --icon-filter: invert(0.25);
+    --icon-filter-hover: invert(0.1);
+  }
+
+  // 亮色主题变量
+  .light-theme {
+    --bg-color: #ffffff;
+    --bg-color-secondary: #f5f5f5;
+    --text-color: #000000;
+    --text-color-secondary: #333333;
+    --text-color-tertiary: #666666;
+    --border-color: #d9d9d9;
+    --border-color-light: #e8e8e8;
+    --hover-bg-color: #f0f0f0;
+    --scrollbar-thumb: #e8e8e8;
+    --scrollbar-track: #f5f5f5;
+    --scrollbar-thumb-hover: #d9d9d9;
+    --icon-filter: invert(0.75);
+    --icon-filter-hover: invert(0.9);
+  }
+}
+
 .ai-chat-custom-tabs {
   :deep(.ant-tabs-tab:not(.ant-tabs-tab-active) .ant-tabs-tab-btn) {
-    color: #e0e0e0;
+    color: var(--text-color-secondary);
     transition:
       color 0.2s,
       text-shadow 0.2s;
@@ -1901,18 +1937,17 @@ const adjustScrollPosition = () => {
   display: flex;
   flex-direction: column;
   height: 100%;
-  background-color: #141414;
+  background-color: var(--bg-color);
   border-radius: 8px;
   overflow: hidden;
 }
 
 .hosts-display-container {
   position: relative;
-  background-color: #141414;
+  background-color: var(--bg-color);
   display: flex;
   flex-wrap: wrap;
   gap: 4px;
-
   justify-content: flex-start;
   user-select: text;
   padding: 4px 8px;
@@ -1920,23 +1955,23 @@ const adjustScrollPosition = () => {
   max-height: 100px;
   overflow-y: auto;
   scrollbar-width: thin;
-  scrollbar-color: #2a2a2a #1a1a1a;
+  scrollbar-color: var(--border-color) var(--bg-color-secondary);
 
   &::-webkit-scrollbar {
     width: 6px;
   }
 
   &::-webkit-scrollbar-track {
-    background: #1a1a1a;
+    background: var(--bg-color-secondary);
     border-radius: 3px;
   }
 
   &::-webkit-scrollbar-thumb {
-    background-color: #2a2a2a;
+    background-color: var(--border-color);
     border-radius: 3px;
 
     &:hover {
-      background-color: #3a3a3a;
+      background-color: var(--border-color-light);
     }
   }
 
@@ -1949,9 +1984,9 @@ const adjustScrollPosition = () => {
     align-items: center;
     margin-left: 2px;
     margin-bottom: 2px;
-    background-color: #2a2a2a !important;
-    border: 1px solid #3a3a3a !important;
-    color: #ffffff !important;
+    background-color: var(--bg-color-secondary) !important;
+    border: 1px solid var(--border-color) !important;
+    color: var(--text-color) !important;
 
     .anticon-laptop {
       color: #1890ff !important;
@@ -1969,7 +2004,7 @@ const adjustScrollPosition = () => {
       top: 50%;
       transform: translateY(-50%);
       font-size: 8px;
-      color: #888;
+      color: var(--text-color-tertiary);
       cursor: pointer;
       padding: 1px;
       border-radius: 2px;
@@ -1984,11 +2019,11 @@ const adjustScrollPosition = () => {
 }
 
 .other-hosts-display-container {
-  background: #2a2a2a;
-  color: #fff;
+  background: var(--bg-color-secondary);
+  color: var(--text-color);
   padding: 0 6px;
   border-radius: 4px;
-  border: 1px solid #3a3a3a;
+  border: 1px solid var(--border-color);
   font-weight: 400;
   display: inline-flex;
   align-items: center;
@@ -1999,23 +2034,15 @@ const adjustScrollPosition = () => {
 }
 
 .hosts-display-container-host-tag {
-  font-size: 10px !important;
-  display: flex;
-  align-items: center;
-  padding: 0 6px;
-  height: 16px;
-  line-height: 16px;
-  background-color: #2a2a2a;
-  border: 1px solid #3a3a3a;
-  color: #ffffff;
-  border-radius: 2px;
-  margin-bottom: 2px;
+  color: var(--text-color-secondary);
   cursor: pointer;
+  font-size: 12px;
+  padding: 2px 6px;
+  border-radius: 4px;
   transition: all 0.2s ease;
 
   &:hover {
-    background-color: #3a3a3a;
-    border-color: #4a4a4a;
+    background-color: var(--hover-bg-color);
   }
 }
 
@@ -2066,8 +2093,8 @@ const adjustScrollPosition = () => {
 
     &.user {
       align-self: flex-end;
-      background-color: #3a3a3a;
-      color: #ffffff;
+      background-color: var(--bg-color-secondary);
+      color: var(--text-color);
       border-radius: 4px;
       border: none;
       margin-left: auto;
@@ -2076,10 +2103,7 @@ const adjustScrollPosition = () => {
     }
 
     &.assistant {
-      // align-self: flex-start;
-      // background-color: #1e2a38;
-      color: #ffffff;
-      // border: 1px solid #2c3e50;
+      color: var(--text-color);
       width: 100%;
       padding: 0px;
     }
@@ -2091,28 +2115,28 @@ const adjustScrollPosition = () => {
   display: flex;
   flex-direction: column;
   gap: 4px;
-  background-color: #141414;
+  background-color: var(--bg-color);
   border-radius: 8px;
-  border: 1px solid #333;
+  border: 1px solid var(--border-color);
   width: 100%;
 
   .chat-textarea {
-    background-color: #141414 !important;
-    color: #fff !important;
+    background-color: var(--bg-color) !important;
+    color: var(--text-color) !important;
     border: none !important;
     box-shadow: none !important;
     font-size: 12px !important;
   }
 
   :deep(.ant-input::placeholder) {
-    color: #666 !important;
+    color: var(--text-color-tertiary) !important;
   }
 
   .ant-textarea {
-    background-color: #141414 !important;
+    background-color: var(--bg-color) !important;
     border: none !important;
     border-radius: 8px !important;
-    color: #e0e0e0 !important;
+    color: var(--text-color) !important;
     padding: 8px 12px !important;
     font-size: 12px !important;
   }
@@ -2132,7 +2156,7 @@ const adjustScrollPosition = () => {
       background-color: transparent !important;
       border: none !important;
       border-radius: 4px !important;
-      color: #e0e0e0 !important;
+      color: var(--text-color) !important;
       height: 24px !important;
       line-height: 24px !important;
     }
@@ -2140,6 +2164,17 @@ const adjustScrollPosition = () => {
     :deep(.ant-select-selection-item) {
       font-size: 12px !important;
       line-height: 24px !important;
+      color: var(--text-color) !important;
+    }
+
+    :deep(.ant-select-arrow) {
+      color: var(--text-color-tertiary) !important;
+    }
+
+    &:hover {
+      :deep(.ant-select-selector) {
+        background-color: var(--hover-bg-color) !important;
+      }
     }
   }
 
@@ -2317,19 +2352,19 @@ const adjustScrollPosition = () => {
     display: flex;
     align-items: center;
     justify-content: center;
-    color: #e0e0e0;
+    color: var(--text-color);
     border-radius: 4px;
     transition: all 0.3s ease;
-    filter: invert(0.25);
+    filter: var(--icon-filter);
 
     &:hover {
-      background-color: rgba(255, 255, 255, 0.1);
-      color: #fff;
-      filter: invert(0.1);
+      background-color: rgba(0, 0, 0, 0.06);
+      color: var(--text-color);
+      filter: var(--icon-filter-hover);
     }
 
     &:active {
-      background-color: rgba(255, 255, 255, 0.15);
+      background-color: rgba(0, 0, 0, 0.1);
     }
 
     .anticon,
@@ -2345,42 +2380,42 @@ const adjustScrollPosition = () => {
   max-height: none;
   overflow: visible;
   padding: 4px;
-  background-color: #1f1f1f;
-  border: 1px solid #3a3a3a;
+  background-color: var(--bg-color);
+  border: 1px solid var(--border-color);
   border-radius: 8px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-  width: 280px !important; // 添加固定宽度
+  width: 280px !important;
 
   .history-search-container {
     display: flex;
     gap: 10px;
 
     :deep(.ant-input-affix-wrapper) {
-      border-color: rgba(255, 255, 255, 0.1);
+      border-color: var(--border-color);
       box-shadow: none;
     }
   }
 
   .history-search-input {
     width: 100%;
-    background-color: #1f1f1f !important;
+    background-color: var(--bg-color) !important;
 
     :deep(.ant-input) {
-      background-color: #1f1f1f !important;
+      background-color: var(--bg-color) !important;
       border: none !important;
-      color: rgba(255, 255, 255, 0.65) !important;
+      color: var(--text-color) !important;
       height: 20px !important;
 
       &::placeholder {
-        color: #666 !important;
+        color: var(--text-color-tertiary) !important;
       }
     }
 
     :deep(.ant-input-clear-icon) {
-      color: #666;
+      color: var(--text-color-tertiary);
 
       &:hover {
-        color: #999;
+        color: var(--text-color-secondary);
       }
     }
   }
@@ -2390,23 +2425,23 @@ const adjustScrollPosition = () => {
   max-height: 360px;
   overflow-y: auto;
   scrollbar-width: thin;
-  scrollbar-color: #2a2a2a #1a1a1a;
+  scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
 
   &::-webkit-scrollbar {
     width: 4px;
   }
 
   &::-webkit-scrollbar-track {
-    background: #1a1a1a;
+    background: var(--scrollbar-track);
     border-radius: 2px;
   }
 
   &::-webkit-scrollbar-thumb {
-    background-color: #2a2a2a;
+    background-color: var(--scrollbar-thumb);
     border-radius: 2px;
 
     &:hover {
-      background-color: #3a3a3a;
+      background-color: var(--scrollbar-thumb-hover);
     }
   }
 }
@@ -2424,7 +2459,7 @@ const adjustScrollPosition = () => {
   }
 
   &:hover {
-    background-color: #3a3a3a !important;
+    background-color: var(--hover-bg-color) !important;
     transform: translateX(2px);
 
     .menu-action-buttons {
@@ -2433,7 +2468,7 @@ const adjustScrollPosition = () => {
   }
 
   &:active {
-    background-color: #4a4a4a !important;
+    background-color: var(--bg-color-secondary) !important;
   }
 }
 
@@ -2443,19 +2478,19 @@ const adjustScrollPosition = () => {
   align-items: center;
   gap: 8px;
   width: 100%;
-  min-width: 0; // 添加最小宽度约束
+  min-width: 0;
 
   :deep(.ant-input) {
-    background-color: #4a4a4a !important;
-    border: 1px solid #3a3a3a !important;
-    color: #ffffff !important;
+    background-color: var(--bg-color-secondary) !important;
+    border: 1px solid var(--border-color) !important;
+    color: var(--text-color) !important;
     font-size: 13px !important;
     padding: 0 4px !important;
     height: 20px !important;
     line-height: 20px !important;
 
     &:focus {
-      border-color: #3a3a3a !important;
+      border-color: var(--border-color) !important;
       box-shadow: 0 0 0 2px rgba(58, 58, 58, 0.2) !important;
     }
   }
@@ -2467,14 +2502,14 @@ const adjustScrollPosition = () => {
   }
 
   .history-title {
-    color: rgba(255, 255, 255, 0.65);
+    color: var(--text-color);
     font-size: 12px;
     font-weight: 500;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
     flex: 1;
-    min-width: 0; // 添加最小宽度约束，确保文本可以正确截断
+    min-width: 0;
   }
 
   .history-title-input {
@@ -2683,17 +2718,17 @@ const adjustScrollPosition = () => {
 }
 
 .mini-host-search-input {
-  background-color: #2b2b2b !important;
-  border: 1px solid #3a3a3a !important;
+  background-color: var(--bg-color-secondary) !important;
+  border: 1px solid var(--border-color) !important;
 
   :deep(.ant-input) {
     height: 22px !important;
     font-size: 12px !important;
-    background-color: #2b2b2b !important;
-    color: #999 !important;
+    background-color: var(--bg-color-secondary) !important;
+    color: var(--text-color-secondary) !important;
 
     &::placeholder {
-      color: #999 !important;
+      color: var(--text-color-tertiary) !important;
     }
 
     padding: 0px 0px 2px 2px !important;
@@ -2706,32 +2741,32 @@ const adjustScrollPosition = () => {
   bottom: 100%;
   left: 0;
   width: 130px;
-  background: #222;
+  background: var(--bg-color);
   border-radius: 4px;
-  box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.3);
-  border: 1px solid #484747;
+  box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.15);
+  border: 1px solid var(--border-color);
   margin-bottom: 4px;
   margin-left: 8px;
   max-height: 150px;
   overflow-y: auto;
   scrollbar-width: thin;
-  scrollbar-color: #2a2a2a #1a1a1a;
+  scrollbar-color: var(--border-color) var(--bg-color-secondary);
 
   &::-webkit-scrollbar {
     width: 6px;
   }
 
   &::-webkit-scrollbar-track {
-    background: #1a1a1a;
+    background: var(--bg-color-secondary);
     border-radius: 3px;
   }
 
   &::-webkit-scrollbar-thumb {
-    background-color: #2a2a2a;
+    background-color: var(--border-color);
     border-radius: 3px;
 
     &:hover {
-      background-color: #3a3a3a;
+      background-color: var(--border-color-light);
     }
   }
 }
@@ -2748,8 +2783,8 @@ const adjustScrollPosition = () => {
   bottom: 100%;
   border-radius: 3px;
   margin-bottom: 2px;
-  background: #222;
-  color: #fff;
+  background: var(--bg-color);
+  color: var(--text-color);
   font-size: 12px;
   line-height: 16px;
   transition: all 0.2s;
@@ -2768,18 +2803,18 @@ const adjustScrollPosition = () => {
   }
 
   &.hovered {
-    background: #1656b1;
+    background: var(--hover-bg-color);
   }
 
   &.keyboard-selected {
-    background: #1656b1;
+    background: var(--hover-bg-color);
     outline: 2px solid rgba(24, 144, 255, 0.5);
     outline-offset: -2px;
   }
 }
 
 .host-select-empty {
-  color: #888;
+  color: var(--text-color-tertiary);
   text-align: center;
   padding: 8px 0;
 }
@@ -2802,7 +2837,7 @@ const adjustScrollPosition = () => {
   }
 
   .ai-welcome-text {
-    color: #e0e0e0;
+    color: var(--text-color);
     font-size: 14px;
     text-align: center;
     font-weight: 400;
