@@ -421,7 +421,6 @@ defineExpose({
   flex: 1;
   overflow: auto;
   background-color: var(--bg-color);
-  padding: 4px;
 }
 
 .tab-content {
