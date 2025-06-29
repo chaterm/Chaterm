@@ -99,7 +99,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, watch, getCurrentInstance } from 'vue'
+import { ref, onMounted, watch, getCurrentInstance, onBeforeUnmount } from 'vue'
 import 'xterm/css/xterm.css'
 import { notification } from 'ant-design-vue'
 import { userConfigStore } from '@/services/userConfigStoreService'
@@ -126,13 +126,20 @@ const loadSavedConfig = async () => {
         ...userConfig.value,
         ...savedConfig
       }
+      // 确保初始主题正确应用
+      document.body.className = `theme-${userConfig.value.theme}`
+      // 通知其他组件当前主题
+      eventBus.emit('updateTheme', userConfig.value.theme)
     }
   } catch (error) {
     console.error('Failed to load config:', error)
     notification.error({
-      message: 'Error',
-      description: 'Failed to load saved configuration'
+      message: '加载配置失败',
+      description: '将使用默认配置'
     })
+    // 使用默认主题
+    document.body.className = 'theme-dark'
+    userConfig.value.theme = 'dark'
   }
 }
 
@@ -182,12 +189,31 @@ onMounted(async () => {
   await loadSavedConfig()
 })
 
+// 组件卸载时清理
+onBeforeUnmount(() => {
+  // 清理所有相关的事件监听器
+  eventBus.off('updateTheme')
+})
+
 const changeLanguage = async () => {
   appContext.config.globalProperties.$i18n.locale = userConfig.value.language
 }
 
 const changeTheme = async () => {
-  eventBus.emit('updateTheme', userConfig.value.theme)
+  try {
+    // 先更新 DOM 的主题类
+    document.body.className = `theme-${userConfig.value.theme}`
+    // 发送主题更新事件
+    eventBus.emit('updateTheme', userConfig.value.theme)
+    // 保存配置到存储
+    await saveConfig()
+  } catch (error) {
+    console.error('Failed to change theme:', error)
+    notification.error({
+      message: '主题切换失败',
+      description: '请稍后重试'
+    })
+  }
 }
 </script>
 
