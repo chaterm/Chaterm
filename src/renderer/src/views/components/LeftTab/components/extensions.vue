@@ -260,12 +260,12 @@ const handleAliasStatusChange = async (checked) => {
 .userInfo-container {
   width: 100%;
   height: 100%;
-  background-color: #141414;
+  background-color: var(--bg-color);
   border-radius: 6px;
   overflow: hidden;
   padding: 4px;
   box-shadow: 0 4px 10px rgba(0, 0, 0, 0.15);
-  color: #f8f8f8;
+  color: var(--text-color);
 }
 
 :deep(.ant-card) {
@@ -280,18 +280,17 @@ const handleAliasStatusChange = async (checked) => {
 
 /* 设置整个表单的字体颜色 */
 .custom-form {
-  color: #ffffff;
+  color: var(--text-color);
   align-content: center;
 }
 
 .custom-form :deep(.ant-form-item-label) {
   padding-right: 20px;
-  /* 增加右侧间距 */
 }
 
 /* 设置表单标签(label)的字体颜色 */
 .custom-form :deep(.ant-form-item-label > label) {
-  color: #ffffff;
+  color: var(--text-color);
 }
 
 /* 统一设置所有表单项的行间距 */
@@ -302,8 +301,9 @@ const handleAliasStatusChange = async (checked) => {
 /* 设置表单输入框的字体颜色 */
 .custom-form :deep(.ant-input),
 .custom-form :deep(.ant-input-password input) {
-  color: #ffffff;
-  border-color: #ffffff;
+  color: var(--text-color);
+  border-color: var(--border-color);
+  background-color: var(--bg-color-secondary);
 }
 
 /* 隐藏数字输入框右侧的增减按钮 */
@@ -314,46 +314,43 @@ const handleAliasStatusChange = async (checked) => {
 /* 调整输入框的padding */
 .custom-form :deep(.ant-input-number-input) {
   padding-right: 0;
-  color: #ffffff;
-  background-color: #4a4a4a;
+  color: var(--text-color);
+  background-color: var(--bg-color-secondary);
 }
 
 /* 调整ratio文字颜色 */
 .custom-form :deep(.ant-radio-wrapper) {
-  color: #ffffff;
+  color: var(--text-color);
 }
 
 /* 调整badge颜色 */
 /* 成功状态 */
 .custom-form :deep(.ant-badge-status-success .ant-badge-status-dot) {
   background-color: #52c41a !important;
-  /* 绿色 */
   box-shadow: 0 0 0 2px rgba(82, 196, 26, 0.1);
 }
 
 .custom-form :deep(.ant-badge-status-error .ant-badge-status-dot) {
   background-color: #ff4d4f !important;
-  /* 红色 */
-  box-shadow: 0 0 0 2px rgba(82, 196, 26, 0.1);
+  box-shadow: 0 0 0 2px rgba(255, 77, 79, 0.1);
 }
 
 .custom-form :deep(.ant-badge-status-text) {
-  color: #ffffff;
+  color: var(--text-color);
 }
 
 .custom-form :deep(.ant-switch) {
-  background-color: #4a4a4a;
+  background-color: var(--bg-color-secondary);
 }
 
 /* 选中状态样式 */
 .custom-form :deep(.ant-switch.ant-switch-checked) {
   background: #1890ff !important;
-  /* Ant Design默认蓝色 */
 }
 
 /* 调整输入框的padding */
 .custom-form :deep(.ant-radio-wrapper) {
-  color: #ffffff;
+  color: var(--text-color);
 }
 
 /* 设置错误提示文字的颜色 */
@@ -371,7 +368,7 @@ const handleAliasStatusChange = async (checked) => {
   box-sizing: border-box;
   margin: 0;
   padding: 0;
-  color: rgba(0, 0, 0, 0.65);
+  color: var(--text-color);
   font-size: 30px;
   font-variant: tabular-nums;
   line-height: 1.5;
@@ -379,7 +376,6 @@ const handleAliasStatusChange = async (checked) => {
   -webkit-font-feature-settings: 'tnum';
   font-feature-settings: 'tnum';
   vertical-align: top;
-  color: #ffffff;
 }
 
 .user_avatar {
@@ -402,21 +398,17 @@ const handleAliasStatusChange = async (checked) => {
 }
 
 .divider-container {
-  /* 24格布局中：offset6(25%) + label4(16.66%) 的起始位置 */
-  /* 与左侧对称 */
   width: calc(65%);
-  /* 总宽度 = 100% - 左右margin */
   margin: -10px calc(16%);
 }
 
 :deep(.right-aligned-wrapper) {
   text-align: right;
-  color: #ffffff;
+  color: var(--text-color);
 }
 
 .label-text {
   font-size: 20px;
-  /* 设置字体大小 */
   font-weight: bold;
   line-height: 1.3;
 }

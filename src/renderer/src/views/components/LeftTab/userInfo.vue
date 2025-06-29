@@ -325,16 +325,17 @@ onBeforeUnmount(() => {})
 .userInfo-container {
   width: 100%;
   height: 100%;
-  background-color: #141414;
+  background-color: var(--chaterm-bg-color);
   border-radius: 6px;
   overflow: hidden;
   padding: 4px;
   box-shadow: 0 4px 10px rgba(0, 0, 0, 0.15);
-  color: #f8f8f8;
+  color: var(--chaterm-text-color);
 }
 
 :deep(.ant-card) {
   height: 100%;
+  background-color: var(--chaterm-bg-color);
 }
 
 :deep(.ant-card-body) {
@@ -347,7 +348,7 @@ onBeforeUnmount(() => {})
 
 /* 表单样式 */
 .custom-form {
-  color: #f8f8f8;
+  color: var(--chaterm-text-color);
   align-content: center;
   width: 100%;
 }
@@ -357,20 +358,19 @@ onBeforeUnmount(() => {})
 }
 
 .custom-form :deep(.ant-form-item-label > label) {
-  color: #f8f8f8;
+  color: var(--chaterm-text-color);
 }
 
 /* 输入框样式 */
 .custom-input,
 :deep(.ant-input-password),
 :deep(.ant-input-password .ant-input) {
-  background-color: #1f1f1f !important;
-  /* border: 1px solid #434343 !important; */
-  color: #f8f8f8 !important;
+  background-color: var(--chaterm-input-bg-color) !important;
+  color: var(--chaterm-text-color) !important;
   border-radius: 4px !important;
   width: 250px !important;
   &::placeholder {
-    color: #999;
+    color: var(--chaterm-placeholder-color);
   }
 }
 
@@ -401,7 +401,7 @@ onBeforeUnmount(() => {})
   box-sizing: border-box;
   margin: 0;
   padding: 0;
-  color: rgba(0, 0, 0, 0.65);
+  color: var(--chaterm-text-color);
   font-size: 30px;
   font-variant: tabular-nums;
   line-height: 1.5;
@@ -410,7 +410,6 @@ onBeforeUnmount(() => {})
   font-feature-settings: 'tnum';
   margin-bottom: 8px;
   vertical-align: top;
-  color: #f8f8f8;
   width: 100%;
 }
 
@@ -467,5 +466,9 @@ onBeforeUnmount(() => {})
   width: 70%;
   margin: 0 auto;
   text-align: center;
+}
+
+.divider-container :deep(.ant-divider) {
+  border-color: var(--chaterm-divider-color);
 }
 </style>

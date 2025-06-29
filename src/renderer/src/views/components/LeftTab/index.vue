@@ -209,12 +209,12 @@ onUnmounted(() => {
 .term_left_tab {
   width: 100%;
   height: 100%;
-  border-right: 1px solid rgb(65, 65, 65);
+  border-right: 1px solid var(--border-color-light);
   padding: 10px 0;
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  background-color: #1e1e1e;
+  background-color: var(--bg-color-secondary);
 
   .main-menu,
   .bottom-menu {
@@ -236,7 +236,7 @@ onUnmounted(() => {
     transition: all 0.3s ease;
 
     &:hover {
-      background-color: rgba(255, 255, 255, 0.1);
+      background-color: var(--hover-bg-color);
     }
 
     &:active {
@@ -248,6 +248,7 @@ onUnmounted(() => {
       height: 20px;
       transition: all 0.3s ease;
       opacity: 0.45;
+      filter: var(--icon-filter);
     }
 
     &:hover img,
@@ -261,26 +262,26 @@ onUnmounted(() => {
     position: absolute;
     bottom: 80px;
     left: 40px;
-    background: #2a2a2a;
+    background: var(--bg-color-secondary);
     border-radius: 8px;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
     z-index: 1000;
     min-width: 120px;
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    border: 1px solid var(--border-color);
 
     .menu-item {
       padding: 4px 12px;
-      color: #fff;
+      color: var(--text-color);
       cursor: pointer;
       transition: all 0.2s ease;
       font-size: 14px;
 
       &:hover {
-        background: rgba(255, 255, 255, 0.1);
+        background: var(--hover-bg-color);
       }
 
       &:active {
-        background: rgba(255, 255, 255, 0.15);
+        background: var(--active-bg-color);
       }
     }
   }

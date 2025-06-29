@@ -466,33 +466,64 @@ onUnmounted(() => {
 .term_host_list {
   width: 100%;
   height: 100%;
-  padding: 10px;
+  padding: 4px;
   display: flex;
   justify-content: space-between;
   flex-wrap: wrap;
+  background-color: var(--bg-color);
+  color: var(--text-color);
+
   .term_host_header {
     width: 100%;
     height: auto;
   }
-  .term_com_list {
-    float: right;
+
+  .active-text {
+    color: #1890ff;
+    cursor: pointer;
   }
-  .term_com_list .ant-select-selection-item {
-    color: #ccc !important;
+
+  .no-active-text {
+    color: var(--text-color-secondary);
+    cursor: pointer;
+    &:hover {
+      color: #1890ff;
+    }
   }
-  .term_com_list .ant-select-selector {
-    color: #ffffff !important;
-  }
-  .term_com_list .ant-select-single {
-    color: #ffffff !important;
-  }
-  :deep(.term_com_list .ant-select-selector) {
-    color: #fff !important;
-    background-color: #333 !important;
-    border-color: #444 !important;
-  }
-  :deep(.term_com_list .ant-select-arrow) {
-    color: #ccc !important;
+
+  .manage {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px;
+
+    .transparent-Input {
+      background-color: var(--bg-color-secondary) !important;
+      border: 1px solid var(--border-color) !important;
+
+      :deep(.ant-input) {
+        background-color: var(--bg-color-secondary) !important;
+        color: var(--text-color) !important;
+        &::placeholder {
+          color: var(--text-color-tertiary) !important;
+        }
+      }
+
+      :deep(.ant-input-suffix) {
+        color: var(--text-color-tertiary) !important;
+      }
+    }
+
+    .workspace-button {
+      background-color: var(--bg-color-secondary) !important;
+      border: 1px solid var(--border-color) !important;
+      color: var(--text-color) !important;
+
+      &:hover {
+        color: #1890ff !important;
+        border-color: #1890ff !important;
+      }
+    }
   }
 }
 .tree-container {
@@ -511,32 +542,28 @@ onUnmounted(() => {
   .ant-tree-title,
   .ant-tree-switcher,
   .ant-tree-node-selected {
-    color: white !important;
+    color: var(--text-color) !important;
   }
 
   .ant-tree-switcher {
-    color: #bbb !important;
+    color: var(--text-color-tertiary) !important;
   }
 
   .ant-tree-node-selected {
     background-color: transparent;
   }
 
-  // .ant-tree-node-content-wrapper:hover {
-  //   background-color: #434343 !important;
-  // }
-
   .ant-tree-treenode {
     width: 100%;
     &:hover {
-      background-color: #333;
+      background-color: var(--hover-bg-color);
     }
   }
 }
 
 .custom-tree-node {
   display: flex;
-  justify-content: space-between; // 这确保内容分布在两端
+  justify-content: space-between;
   align-items: center;
   width: 100%;
   position: relative;
@@ -545,51 +572,42 @@ onUnmounted(() => {
   .title-with-icon {
     display: flex;
     align-items: center;
-    color: white;
+    color: var(--text-color);
     flex-grow: 1;
 
     .computer-icon {
       margin-right: 6px;
       font-size: 14px;
-      color: white;
+      color: var(--text-color);
     }
   }
 
   .favorite-icon {
-    position: absolute; // 使用绝对定位
-    right: 0; // 放在最右侧
-    top: 50%; // 垂直居中
-    transform: translateY(-50%); // 确保完全垂直居中
+    position: absolute;
+    right: 0;
+    top: 50%;
+    transform: translateY(-50%);
     cursor: pointer;
-    color: white;
+    color: var(--text-color);
     margin-left: 8px;
-
-    // &:hover {
-    //   opacity: 0.8;
-    // }
   }
 
   .favorite-filled {
-    color: #faad14; // 黄色
+    color: #faad14;
   }
 
   .favorite-outlined {
-    color: #d9d9d9; // 灰色
+    color: var(--text-color-tertiary);
   }
   .edit-icon {
     display: none;
     cursor: pointer;
-    color: #d9d9d9;
+    color: var(--text-color-tertiary);
     font-size: 14px;
     margin-left: 6px;
     &:hover {
       color: #1890ff;
     }
-  }
-}
-:deep(.ant-tree-node-content-wrapper:hover) {
-  .edit-icon {
-    display: inline-block;
   }
 }
 
@@ -600,9 +618,9 @@ onUnmounted(() => {
   width: 100%;
 
   .ant-input {
-    background-color: #1f1f1f;
-    border-color: #434343;
-    color: white;
+    background-color: var(--bg-color-secondary);
+    border-color: var(--border-color);
+    color: var(--text-color);
     flex: 1;
     min-width: 50px;
     height: 24px;

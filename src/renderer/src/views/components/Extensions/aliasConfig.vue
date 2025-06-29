@@ -391,24 +391,24 @@ const aliasConfigRefresh = async () => {
 .alias-config-container {
   width: 100%;
   height: 100%;
-  background-color: #141414;
+  background-color: var(--bg-color);
   border-radius: 6px;
   padding: 4px;
   box-shadow: 0 4px 10px rgba(0, 0, 0, 0);
-  color: #ffffff;
+  color: var(--text-color);
 }
 
 .search-input {
-  background-color: #2c2c2c;
-  border-color: #2c2c2c;
-  color: white;
+  background-color: var(--bg-color-secondary);
+  border-color: var(--border-color);
+  color: var(--text-color);
   :deep(.ant-input) {
-    color: rgba(255, 255, 255, 0.85);
-    background-color: transparent !important; /* 设置背景透明 */
-    border-color: rgba(255, 255, 255, 0.2) !important;
+    color: var(--text-color-secondary);
+    background-color: transparent !important;
+    border-color: var(--border-color) !important;
 
     &::placeholder {
-      color: rgba(255, 255, 255, 0.5);
+      color: var(--text-color-tertiary);
     }
   }
 }
@@ -443,41 +443,37 @@ const aliasConfigRefresh = async () => {
 }
 
 .alias-config-table :deep(.ant-table-tbody) {
-  background-color: #141414; /* 黑色背景 */
+  background-color: var(--bg-color);
 }
 
 .alias-config-table :deep(.ant-table-thead > tr > th) {
-  background: #3a3a3a; /* 深灰色表头 */
-  color: #fff;
+  background: var(--bg-color-secondary);
+  color: var(--text-color);
   padding: 8px;
   border-radius: 0;
   border: none !important;
-  border-bottom: 1px solid #4a4a4a !important; /* 可选：保留表头底部边框 */
+  border-bottom: 1px solid var(--border-color) !important;
 }
 
 .alias-config-table :deep(.ant-table-tbody > tr:nth-child(even) > td) {
-  /* 可以选择保留默认样式或自定义 */
-  /* 例如: */
-  background: #141414;
-  color: #fff;
+  background: var(--bg-color);
+  color: var(--text-color);
   padding: 8px;
   border: none !important;
 }
 
 .alias-config-table :deep(.ant-table-tbody > tr:nth-child(odd) > td) {
-  /* 可以选择保留默认样式或自定义 */
-  /* 例如: */
-  background: #1f1f1f;
-  color: #fff;
+  background: var(--bg-color-secondary);
+  color: var(--text-color);
   padding: 8px;
   border: none !important;
 }
 
 .alias-config-table :deep(.ant-input) {
-  background-color: transparent; /* 透明背景 */
-  border: none; /* 移除边框 */
-  box-shadow: none; /* 移除阴影 */
-  color: #fff; /* 输入文字为白色 */
+  background-color: transparent;
+  border: none;
+  box-shadow: none;
+  color: var(--text-color);
 }
 
 .alias-config-table :deep(.ant-table-container table > thead > tr:first-child > *:last-child) {
@@ -491,9 +487,8 @@ const aliasConfigRefresh = async () => {
 }
 
 .alias-config-table {
-  /* 可编辑状态的输入框样式 - 灰色背景 */
   .editable-input {
-    background-color: #3a3a3a !important; /* 灰色背景 */
+    background-color: var(--bg-color-secondary) !important;
     padding: 4px 8px;
     border-radius: 4px;
   }
@@ -521,6 +516,6 @@ const aliasConfigRefresh = async () => {
 }
 
 .alias-config-table:deep(.ant-table-tbody > tr:hover > td) {
-  background-color: #4a4a4a !important; /* 浅灰色悬浮背景 */
+  background-color: var(--hover-bg-color) !important;
 }
 </style>

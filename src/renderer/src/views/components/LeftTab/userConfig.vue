@@ -1,7 +1,7 @@
 <template>
   <div class="user-config">
     <div class="user-config-title"> {{ $t('common.userConfig') }}</div>
-    <a-divider style="border-color: #4a4a4a; margin: 0 0 0 0" />
+    <a-divider style="border-color: var(--border-color); margin: 0 0 0 0" />
     <div class="tabs-container">
       <a-tabs
         default-active-key="0"
@@ -55,6 +55,7 @@ import About from '@/views/components/LeftTab/components/about.vue'
   height: 100%;
   display: flex;
   flex-direction: column;
+  background-color: var(--bg-color);
 }
 
 .user-config-title {
@@ -63,6 +64,7 @@ import About from '@/views/components/LeftTab/components/about.vue'
   font-weight: 600;
   margin-left: 10px;
   flex-shrink: 0;
+  color: var(--text-color);
 }
 
 .tabs-container {
@@ -71,7 +73,7 @@ import About from '@/views/components/LeftTab/components/about.vue'
 }
 
 .user-config-tab {
-  color: #f8f8f8;
+  color: var(--text-color);
   height: 100%;
 
   :deep(.ant-tabs) {
@@ -86,6 +88,7 @@ import About from '@/views/components/LeftTab/components/about.vue'
   :deep(.ant-tabs-nav) {
     height: 100%;
     width: 100px;
+    background-color: var(--bg-color);
 
     &::before {
       display: none; // 移除默认的上边框
@@ -96,6 +99,7 @@ import About from '@/views/components/LeftTab/components/about.vue'
   :deep(.ant-tabs-content-holder) {
     height: 100%;
     overflow: auto;
+    background-color: var(--bg-color);
 
     &::-webkit-scrollbar {
       display: none;
@@ -108,6 +112,7 @@ import About from '@/views/components/LeftTab/components/about.vue'
   :deep(.ant-tabs-tabpane) {
     height: 100%;
     overflow: auto;
+    background-color: var(--bg-color);
 
     &::-webkit-scrollbar {
       display: none;
@@ -119,7 +124,7 @@ import About from '@/views/components/LeftTab/components/about.vue'
 
   // 修改分割线样式
   :deep(.ant-tabs-nav-list) {
-    border-right: 1px solid #4a4a4a;
+    border-right: 1px solid var(--border-color);
     height: 100%;
   }
 
@@ -131,11 +136,15 @@ import About from '@/views/components/LeftTab/components/about.vue'
     min-height: 40px; // 设置最小高度
     // 如果需要调整文字大小
     font-size: 14px;
+    color: var(--text-color-secondary);
   }
 
   // 激活状态的 tab 样式
   :deep(.ant-tabs-tab-active) {
-    background-color: rgba(255, 255, 255, 0.04); // 可以根据需要调整激活态背景色
+    background-color: var(--hover-bg-color); // 可以根据需要调整激活态背景色
+    .ant-tabs-tab-btn {
+      color: #1890ff !important;
+    }
   }
 
   // 确保内容区域填满剩余空间
