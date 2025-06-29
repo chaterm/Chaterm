@@ -965,7 +965,10 @@ const handleCheck = async () => {
   color: var(--text-color);
 }
 
-:deep(.ant-checkbox),
+:deep(.ant-checkbox) {
+  border: 0 !important;
+}
+
 :deep(.ant-select-selector),
 :deep(.ant-input),
 :deep(.ant-input-password) {
@@ -1083,9 +1086,6 @@ const handleCheck = async () => {
 
     // 滑块手柄样式
     .ant-slider-handle {
-      width: 16px;
-      height: 16px;
-      border: 2px solid #1890ff;
       background-color: var(--bg-color);
       box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
 
