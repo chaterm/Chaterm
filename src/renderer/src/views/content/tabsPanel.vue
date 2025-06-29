@@ -355,8 +355,8 @@ defineExpose({
 
 .tabs-bar {
   display: flex;
-  background-color: #141414;
-  border-bottom: 1px solid #202020;
+  background-color: var(--bg-color);
+  border-bottom: 1px solid var(--border-color);
   overflow-x: auto;
   user-select: none;
   height: 26px;
@@ -368,25 +368,26 @@ defineExpose({
 }
 
 .tabs-bar::-webkit-scrollbar-thumb {
-  background: #333;
+  background: var(--border-color);
   border-radius: 2px;
 }
 
 .tabs-bar::-webkit-scrollbar-thumb:hover {
-  background: #555;
+  background: var(--border-color-light);
 }
 
 .tab-item {
   display: flex;
   align-items: center;
   padding: 0 4px;
-  border-right: 1px solid #202020;
-  background-color: #141414;
+  border-right: 1px solid var(--border-color);
+  background-color: var(--bg-color);
   width: 120px;
+  color: var(--text-color);
 }
 
 .tab-item.active {
-  background-color: #202020;
+  background-color: var(--bg-color-secondary);
   border-top: 2px solid #007acc;
 }
 
@@ -397,6 +398,7 @@ defineExpose({
   overflow: hidden;
   text-overflow: ellipsis;
   cursor: pointer;
+  color: var(--text-color);
 }
 
 .close-btn {
@@ -406,18 +408,19 @@ defineExpose({
   font-size: 12px;
   margin-left: 8px;
   padding: 0 4px;
-  color: #666;
+  color: var(--text-color-tertiary);
 }
 
 .close-btn:hover {
-  background-color: rgba(0, 0, 0, 0.1);
+  background-color: var(--hover-bg-color);
   border-radius: 4px;
+  color: var(--text-color);
 }
 
 .tabs-content {
   flex: 1;
   overflow: auto;
-  background-color: #141414;
+  background-color: var(--bg-color);
   padding: 4px;
 }
 
@@ -433,22 +436,22 @@ defineExpose({
 /* 拖拽时的样式 */
 .sortable-chosen {
   opacity: 0.8;
-  background-color: #e0e0e0 !important;
+  background-color: var(--hover-bg-color) !important;
 }
 
 .sortable-ghost {
   opacity: 0.4;
-  background-color: #ccc !important;
+  background-color: var(--bg-color-secondary) !important;
 }
 
 .context-menu {
   position: fixed;
-  background-color: #1e1e1e;
-  border: 1px solid #333;
+  background-color: var(--bg-color);
+  border: 1px solid var(--border-color);
   border-radius: 6px;
   padding: 2px 0;
   z-index: 1000;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
   min-width: 120px;
   font-size: 12px;
 }
@@ -456,12 +459,12 @@ defineExpose({
 .context-menu-item {
   padding: 6px 12px;
   cursor: pointer;
-  color: #e0e0e0;
+  color: var(--text-color);
   transition: background-color 0.2s ease;
   user-select: none;
 }
 
 .context-menu-item:hover {
-  background-color: #2d2d2d;
+  background-color: var(--hover-bg-color);
 }
 </style>

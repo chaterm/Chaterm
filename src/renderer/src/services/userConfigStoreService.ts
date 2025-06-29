@@ -14,6 +14,7 @@ interface UserConfig {
   language: string
   cursorStyle: 'bar' | 'block' | 'underline' | undefined
   watermark: 'open' | 'close' | undefined
+  theme: 'dark' | 'light' | undefined
 }
 
 export class UserConfigStoreService {
@@ -58,7 +59,8 @@ export class UserConfigStoreService {
       scrollBack: 1000,
       language: 'zh-CN',
       cursorStyle: 'block' as 'block' | 'underline' | 'bar',
-      watermark: 'open' as 'open' | 'close'
+      watermark: 'open' as 'open' | 'close',
+      theme: 'dark' as 'dark' | 'light'
     }
   }
 
