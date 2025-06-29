@@ -209,7 +209,7 @@ const watermarkContent = reactive({
   content: [userInfoStore().userInfo.name, userInfoStore().userInfo.email],
   font: {
     fontSize: 12,
-    color: computed(() => (currentTheme.value === 'dark' ? 'rgba(255, 255, 255, 0.04)' : 'rgba(0, 0, 0, 0.05)'))
+    color: computed(() => (currentTheme.value === 'dark' ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.05)'))
   },
   rotate: -22,
   gap: [150, 100] as [number, number]
