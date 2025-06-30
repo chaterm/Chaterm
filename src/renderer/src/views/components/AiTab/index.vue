@@ -2971,7 +2971,7 @@ const toggleFavorite = async (history) => {
   background: none !important;
   border: none !important;
   box-shadow: none !important;
-  color: var(--text-color); !important;
+  color: var(--text-color) !important;
   padding: 0;
   min-width: 0;
   height: 16px;
