@@ -343,12 +343,30 @@
                       <SearchOutlined style="color: #666" />
                     </template>
                   </a-input>
+                  <a-button
+                    size="small"
+                    class="favorites-button"
+                    type="text"
+                    @click="showOnlyFavorites = !showOnlyFavorites"
+                  >
+                    <template #icon>
+                      <StarFilled
+                        v-if="showOnlyFavorites"
+                        style="color: #faad14"
+                      />
+                      <StarOutlined
+                        v-else
+                        style="color: #999999"
+                      />
+                    </template>
+                  </a-button>
                 </div>
                 <div class="history-virtual-list-container">
                   <a-menu-item
                     v-for="history in paginatedHistoryList"
                     :key="history.id"
                     class="history-menu-item"
+                    :class="{ 'favorite-item': history.isFavorite }"
                     @click="!history.isEditing && restoreHistoryTab(history)"
                   >
                     <div class="history-item-content">
@@ -371,11 +389,25 @@
                         <template v-if="!history.isEditing">
                           <a-button
                             size="small"
+                            class="menu-action-btn favorite-btn"
+                            @click.stop="toggleFavorite(history)"
+                          >
+                            <template #icon>
+                              <template v-if="history.isFavorite">
+                                <StarFilled style="color: #faad14" />
+                              </template>
+                              <template v-else>
+                                <StarOutlined style="color: #999999" />
+                              </template>
+                            </template>
+                          </a-button>
+                          <a-button
+                            size="small"
                             class="menu-action-btn"
                             @click.stop="editHistory(history)"
                           >
                             <template #icon>
-                              <EditOutlined />
+                              <EditOutlined style="color: #999999" />
                             </template>
                           </a-button>
                           <a-button
@@ -384,7 +416,7 @@
                             @click.stop="deleteHistory(history)"
                           >
                             <template #icon>
-                              <DeleteOutlined />
+                              <DeleteOutlined style="color: #999999" />
                             </template>
                           </a-button>
                         </template>
@@ -395,7 +427,7 @@
                             @click.stop="saveHistoryTitle(history)"
                           >
                             <template #icon>
-                              <CheckOutlined />
+                              <CheckOutlined style="color: #999999" />
                             </template>
                           </a-button>
                           <a-button
@@ -404,12 +436,11 @@
                             @click.stop.prevent="cancelEdit(history)"
                           >
                             <template #icon>
-                              <CloseOutlined />
+                              <CloseOutlined style="color: #999999" />
                             </template>
                           </a-button>
                         </template>
                       </div>
-                      <!--                      <div class="history-type">{{ history.chatType }}</div>-->
                     </div>
                   </a-menu-item>
                   <div
@@ -455,7 +486,9 @@ import {
   DeleteOutlined,
   SearchOutlined,
   CheckOutlined,
-  ReloadOutlined
+  ReloadOutlined,
+  StarOutlined,
+  StarFilled
 } from '@ant-design/icons-vue'
 import { notification } from 'ant-design-vue'
 import { v4 as uuidv4 } from 'uuid'
@@ -499,6 +532,7 @@ const hostSearchValue = ref('')
 const hovered = ref<string | null>(null)
 const keyboardSelectedIndex = ref(-1)
 const historyList = ref<HistoryItem[]>([])
+const favoriteTaskList = ref<string[]>([])
 const hosts = ref<Host[]>([])
 const autoUpdateHost = ref(true)
 const chatInputValue = ref('')
@@ -873,13 +907,18 @@ const handleHistoryClick = async () => {
     // 从 globalState 获取所有 agent 历史记录并按 ts 倒序排序
     const taskHistory = ((await getGlobalState('taskHistory')) as TaskHistoryItem[]) || []
 
+    // 加载收藏列表
+    const favorites = ((await getGlobalState('favoriteTaskList')) as string[]) || []
+    favoriteTaskList.value = favorites
+
     const historyItems = taskHistory
       .sort((a, b) => b.ts - a.ts)
       .map((task) => ({
         id: task.id,
         chatTitle: truncateText(task?.task || `${chatTypeValue.value} Chat`),
         chatType: chatTypeValue.value,
-        chatContent: []
+        chatContent: [],
+        isFavorite: favorites.includes(task.id)
       }))
 
     // 批量更新历史列表
@@ -1191,6 +1230,10 @@ onMounted(async () => {
       chatContent: []
     }
   ]
+
+  // 初始化收藏列表
+  const favorites = ((await getGlobalState('favoriteTaskList')) as string[]) || []
+  favoriteTaskList.value = favorites
 
   // 初始化资产信息
   await initAssetInfo()
@@ -1695,12 +1738,26 @@ const deleteHistory = async (history) => {
 }
 
 const historySearchValue = ref('')
+const showOnlyFavorites = ref(false)
 
 const filteredHistoryList = computed(() => {
   // 实现过滤逻辑
-  return historyList.value.filter((history) => {
-    return history.chatTitle.toLowerCase().includes(historySearchValue.value.toLowerCase())
-  })
+  return historyList.value
+    .filter((history) => {
+      // Filter by search term
+      const matchesSearch = history.chatTitle.toLowerCase().includes(historySearchValue.value.toLowerCase())
+
+      // Filter by favorites if the toggle is on
+      const matchesFavorite = !showOnlyFavorites.value || history.isFavorite
+
+      return matchesSearch && matchesFavorite
+    })
+    .sort((a, b) => {
+      // Sort favorites to the top
+      if (a.isFavorite && !b.isFavorite) return -1
+      if (!a.isFavorite && b.isFavorite) return 1
+      return 0
+    })
 })
 
 const PAGE_SIZE = 20
@@ -1781,12 +1838,12 @@ const scrollToBottom = () => {
   const prevBottom = chatResponse.value?.getBoundingClientRect().bottom
 
   nextTick(() => {
-    if (chatResponse.value) {
+    if (chatResponse.value && chatContainer.value) {
       // 获取更新后的容器底部位置
       const currentBottom = chatResponse.value.getBoundingClientRect().bottom
       // console.log('容器高度变化，直接滚动到底部', prevBottom, currentBottom)
       // 如果容器底部位置发生了变化，直接滚动到底部
-      if (prevBottom !== currentBottom && prevBottom > 0 && currentBottom > 0) {
+      if (prevBottom !== undefined && prevBottom !== currentBottom && prevBottom > 0 && currentBottom > 0) {
         chatContainer.value.scrollTop = chatContainer.value.scrollHeight
       }
     }
@@ -1834,6 +1891,36 @@ const adjustScrollPosition = () => {
   } else {
     // 如果没有消息，滚动到底部
     chatContainer.value.scrollTop = chatContainer.value.scrollHeight
+  }
+}
+
+const toggleFavorite = async (history) => {
+  history.isFavorite = !history.isFavorite
+
+  try {
+    // Load current favorite list
+    const currentFavorites = ((await getGlobalState('favoriteTaskList')) as string[]) || []
+
+    if (history.isFavorite) {
+      // Add to favorites if not already there
+      if (!currentFavorites.includes(history.id)) {
+        currentFavorites.push(history.id)
+      }
+    } else {
+      // Remove from favorites
+      const index = currentFavorites.indexOf(history.id)
+      if (index !== -1) {
+        currentFavorites.splice(index, 1)
+      }
+    }
+
+    // Update local ref
+    favoriteTaskList.value = currentFavorites
+
+    // Save to global state
+    await updateGlobalState('favoriteTaskList', currentFavorites)
+  } catch (err) {
+    console.error('Failed to update favorite status:', err)
   }
 }
 </script>
@@ -2379,20 +2466,42 @@ const adjustScrollPosition = () => {
 .history-dropdown-menu {
   max-height: none;
   overflow: visible;
-  padding: 4px;
+  padding: 4px 0 4px 4px;
   background-color: var(--bg-color);
   border: 1px solid var(--border-color);
   border-radius: 8px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
   width: 280px !important;
 
+  :deep(.ant-dropdown-menu-item) {
+    padding-right: 4px !important;
+  }
+
   .history-search-container {
     display: flex;
     gap: 10px;
+    align-items: center;
 
     :deep(.ant-input-affix-wrapper) {
       border-color: var(--border-color);
       box-shadow: none;
+    }
+
+    .favorites-button {
+      flex-shrink: 0;
+      border: none;
+      background-color: transparent;
+      margin-right: 6px;
+      padding: 0 6px;
+      height: 22px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+
+      &.ant-btn-primary {
+        background-color: transparent;
+        border: none;
+      }
     }
   }
 
@@ -2470,13 +2579,22 @@ const adjustScrollPosition = () => {
   &:active {
     background-color: var(--bg-color-secondary) !important;
   }
+
+  &.favorite-item {
+    background-color: var(--bg-color) !important;
+    border-left: 2px solid #faad14 !important;
+
+    &:hover {
+      background-color: var(--bg-color-secondary) !important;
+    }
+  }
 }
 
 .history-item-content {
   display: flex;
   flex-direction: row;
   align-items: center;
-  gap: 8px;
+  gap: 4px;
   width: 100%;
   min-width: 0;
 
@@ -2497,8 +2615,12 @@ const adjustScrollPosition = () => {
 
   .menu-action-buttons {
     display: flex;
-    gap: 2px;
-    margin-left: 4px;
+    gap: 0px;
+    margin-left: 0px;
+
+    > .menu-action-btn {
+      margin-left: -3px;
+    }
   }
 
   .history-title {
@@ -2849,8 +2971,8 @@ const adjustScrollPosition = () => {
   background: none !important;
   border: none !important;
   box-shadow: none !important;
-  color: rgba(255, 255, 255, 0.65) !important;
-  padding: 0 2px;
+  color: var(--text-color) !important;
+  padding: 0;
   min-width: 0;
   height: 16px;
   line-height: 20px;
@@ -2874,12 +2996,20 @@ const adjustScrollPosition = () => {
     background: none !important;
   }
 
-  &.save-btn:hover {
+  &:hover :deep(.anticon) {
+    color: #1890ff !important;
+  }
+
+  &.save-btn:hover :deep(.anticon) {
     color: #52c41a !important;
   }
 
-  &.cancel-btn:hover {
+  &.cancel-btn:hover :deep(.anticon) {
     color: #ff4d4f !important;
+  }
+
+  &.favorite-btn:hover :deep(.anticon) {
+    color: #faad14 !important;
   }
 }
 

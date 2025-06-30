@@ -38,6 +38,7 @@ export type GlobalStateKey =
   | 'lastShownAnnouncementId'
   | 'customInstructions'
   | 'taskHistory'
+  | 'favoriteTaskList'
   | 'openAiBaseUrl'
   | 'openAiModelId'
   | 'openAiModelInfo'
