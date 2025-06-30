@@ -150,7 +150,7 @@ onMounted(async () => {
   display: flex;
   align-items: center;
   /* 垂直居中 */
-  border-bottom: 1px solid rgb(65, 65, 65);
+  border-bottom: 1px solid var(--border-color);
 
   justify-content: space-between;
 
@@ -187,28 +187,22 @@ onMounted(async () => {
     margin-right: 4px;
 
     &:hover {
-      background: rgba(255, 255, 255, 0.1);
+      background: var(--hover-bg-color);
     }
 
     &:active {
-      background: rgba(255, 255, 255, 0.15);
+      background: var(--active-bg-color);
     }
   }
 
-  .sidebar-toggle-icon {
-    width: 16px;
-    height: 16px;
-    display: block;
-    opacity: 0.45;
-    transition: opacity 0.2s ease;
-  }
-
+  .sidebar-toggle-icon,
   .sidebar-toggle-icon_mac {
     width: 16px;
     height: 16px;
     display: block;
     opacity: 0.45;
     transition: opacity 0.2s ease;
+    filter: var(--icon-filter);
   }
 
   .toggle-right-btn:hover {
@@ -226,7 +220,7 @@ onMounted(async () => {
   }
 
   .logout {
-    color: #fff;
+    color: var(--text-color);
     font-family: 'Courier New', monospace;
     font-size: 0.9em;
     cursor: pointer;

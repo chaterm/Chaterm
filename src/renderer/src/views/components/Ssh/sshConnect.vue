@@ -232,10 +232,22 @@ onMounted(async () => {
       cursorStyle: config.cursorStyle,
       fontSize: config.fontSize || 12,
       fontFamily: 'Menlo, Monaco, "Courier New", Courier, monospace',
-      theme: {
-        background: '#141414',
-        foreground: '#f0f0f0'
-      }
+      theme:
+        config.theme === 'light'
+          ? {
+              background: '#ffffff',
+              foreground: '#000000',
+              cursor: '#000000',
+              cursorAccent: '#000000',
+              selection: 'rgba(0, 0, 0, 0.3)'
+            }
+          : {
+              background: '#141414',
+              foreground: '#f0f0f0',
+              cursor: '#f0f0f0',
+              cursorAccent: '#f0f0f0',
+              selection: 'rgba(255, 255, 255, 0.3)'
+            }
     })
   )
   terminal.value = termInstance
@@ -245,6 +257,29 @@ onMounted(async () => {
       copyText.value = termInstance.getSelection()
     }
   })
+
+  // Add theme change listener
+  eventBus.on('updateTheme', (theme) => {
+    if (terminal.value) {
+      terminal.value.options.theme =
+        theme === 'light'
+          ? {
+              background: '#ffffff',
+              foreground: '#000000',
+              cursor: '#000000',
+              cursorAccent: '#000000',
+              selection: 'rgba(0, 0, 0, 0.3)'
+            }
+          : {
+              background: '#141414',
+              foreground: '#f0f0f0',
+              cursor: '#f0f0f0',
+              cursorAccent: '#f0f0f0',
+              selection: 'rgba(255, 255, 255, 0.3)'
+            }
+    }
+  })
+
   if (terminalContainer.value) {
     terminalContainer.value.addEventListener('mouseup', (e) => {
       setTimeout(() => {
@@ -450,13 +485,15 @@ onBeforeUnmount(() => {
   cleanupListeners.value.forEach((cleanup) => cleanup())
   cleanupListeners.value = [] // 清空数组
 
+  // Remove theme change listener
+  eventBus.off('updateTheme')
+
   if (typeof removeOtpRequestListener === 'function') removeOtpRequestListener()
   if (typeof removeOtpTimeoutListener === 'function') removeOtpTimeoutListener()
   if (typeof removeOtpResultListener === 'function') removeOtpResultListener()
   if (isConnected.value) {
     disconnectSSH()
   }
-  // eventBus.off('executeTerminalCommand') // 此行已通过 cleanupListeners 处理
 })
 const getFileExt = (filePath: string) => {
   const idx = filePath.lastIndexOf('.')
