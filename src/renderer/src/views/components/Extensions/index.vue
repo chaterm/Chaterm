@@ -18,7 +18,7 @@
         v-model:open-keys="openKeys"
         class="menu_list"
         mode="inline"
-        theme="dark"
+        :theme="currentTheme.value === 'light' ? 'light' : 'dark'"
         @select="handleSelect"
       >
         <template
@@ -59,6 +59,7 @@ const searchValue = ref('')
 const userConfig = ref({
   aliasStatus: 2
 })
+const currentTheme = ref('dark')
 
 const iconMap = {
   'alias.svg': iconAlias
@@ -94,6 +95,7 @@ const loadConfig = async () => {
     const config = await userConfigStore.getConfig()
     if (config) {
       userConfig.value = config
+      currentTheme.value = config.theme || 'dark'
     }
   } catch (error) {
     console.error('Failed to load config:', error)
@@ -107,11 +109,16 @@ onMounted(() => {
   eventBus.on('aliasStatusChanged', () => {
     loadConfig()
   })
+  // 监听主题变化事件
+  eventBus.on('updateTheme', (theme) => {
+    currentTheme.value = theme
+  })
 })
 
 // 移除事件监听
 onBeforeUnmount(() => {
   eventBus.off('aliasStatusChanged')
+  eventBus.off('updateTheme')
 })
 
 // 监听配置变化
@@ -147,57 +154,70 @@ const filteredList = computed(() => {
 <style lang="less" scoped>
 .extension_list {
   padding: 10px;
+  background-color: var(--bg-color);
+  color: var(--text-color);
 }
 
 /* 鼠标悬停时变色 */
 .menu_list {
-  background: #141414;
+  background: var(--bg-color);
   margin-top: 10px;
 
   .menu_list_item_name {
     line-height: 24px;
     font-weight: bold;
     font-size: 14px;
+    color: var(--text-color);
   }
 
   .menu_list_item_description {
     line-height: 24px;
     font-size: 14px;
+    color: var(--text-color-secondary);
   }
 
   :deep(.ant-menu-item-selected) {
     border-radius: 0;
     border: 1px solid #398bff;
-    background-color: transparent;
+    background-color: var(--hover-bg-color);
   }
 
   :deep(.ant-menu-item) {
     height: 60px;
+    background-color: var(--bg-color);
+    color: var(--text-color);
+
+    &:hover {
+      background-color: var(--hover-bg-color);
+    }
   }
 
   :deep(.ant-menu-item-icon) {
-    align-self: center; /* 独立控制头像容器对齐 */
-    flex: 0 0 auto; /* 禁止伸缩，保持原始宽度 */
-    min-width: 28px; /* 设置最小宽度 */
-    max-width: 32px; /* 设置最小宽度 */
+    align-self: center;
+    flex: 0 0 auto;
+    min-width: 28px;
+    max-width: 32px;
+    filter: var(--icon-filter);
   }
 }
+
 :deep(.ant-input-affix-wrapper) {
-  background-color: transparent;
-  border-color: rgba(255, 255, 255, 0.25);
+  background-color: var(--bg-color);
+  border-color: var(--border-color);
   box-shadow: none;
   &:hover {
-    border-color: rgba(255, 255, 255, 0.25);
+    border-color: #1890ff;
   }
 }
+
 .transparent-Input {
-  background-color: transparent;
-  color: rgba(255, 255, 255, 1);
+  background-color: var(--bg-color);
+  color: var(--text-color);
   :deep(.ant-input) {
-    background-color: transparent;
-    color: rgba(255, 255, 255, 1);
+    background-color: var(--bg-color);
+    color: var(--text-color);
     &::placeholder {
-      color: rgba(255, 255, 255, 0.25);
+      color: var(--text-color-tertiary);
     }
   }
 }
