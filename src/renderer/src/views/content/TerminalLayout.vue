@@ -232,16 +232,23 @@ onMounted(async () => {
   eventBus.on('updateTheme', (theme) => {
     currentTheme.value = theme
     document.body.className = `theme-${theme}`
+    nextTick(() => {
+      showWatermark.value = true
+    })
   })
   try {
     const config = await userConfigStore.getConfig()
-    showWatermark.value = config.watermark !== 'close'
     currentTheme.value = config.theme || 'dark'
     document.body.className = `theme-${currentTheme.value}`
+    nextTick(() => {
+      showWatermark.value = config.watermark !== 'close'
+    })
   } catch (e) {
-    showWatermark.value = true
     currentTheme.value = 'dark'
     document.body.className = 'theme-dark'
+    nextTick(() => {
+      showWatermark.value = true
+    })
   }
   nextTick(() => {
     updatePaneSize()
