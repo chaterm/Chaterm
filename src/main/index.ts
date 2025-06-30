@@ -650,3 +650,13 @@ ipcMain.handle('validate-api-key', async () => {
   }
   return { isValid: false, error: 'Controller not initialized' }
 })
+
+ipcMain.handle('update-theme', (_, theme) => {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.setTitleBarOverlay({
+      color: theme === 'dark' ? '#141414' : '#ffffff',
+      symbolColor: theme === 'dark' ? '#ffffff' : '#141414',
+      height: 27
+    })
+  }
+})

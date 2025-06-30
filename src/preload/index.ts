@@ -514,7 +514,8 @@ const api = {
   autoUpdate: (update) => {
     ipcRenderer.on('update:autoUpdate', (event, params) => update(params))
   },
-  quitAndInstall: () => ipcRenderer.invoke('update:quitAndInstall')
+  quitAndInstall: () => ipcRenderer.invoke('update:quitAndInstall'),
+  updateTheme: (params) => ipcRenderer.invoke('update-theme', params)
 }
 // 自定义 API 用于浏览器控制
 
