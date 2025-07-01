@@ -241,14 +241,14 @@ onMounted(async () => {
               foreground: '#000000',
               cursor: '#000000',
               cursorAccent: '#000000',
-              selection: 'rgba(0, 0, 0, 0.3)'
+              selectionBackground: 'rgba(0, 0, 0, 0.3)'
             }
           : {
               background: '#141414',
               foreground: '#f0f0f0',
               cursor: '#f0f0f0',
               cursorAccent: '#f0f0f0',
-              selection: 'rgba(255, 255, 255, 0.3)'
+              selectionBackground: 'rgba(255, 255, 255, 0.3)'
             }
     })
   )
@@ -270,14 +270,14 @@ onMounted(async () => {
               foreground: '#000000',
               cursor: '#000000',
               cursorAccent: '#000000',
-              selection: 'rgba(0, 0, 0, 0.3)'
+              selectionBackground: 'rgba(0, 0, 0, 0.3)'
             }
           : {
               background: '#141414',
               foreground: '#f0f0f0',
               cursor: '#f0f0f0',
               cursorAccent: '#f0f0f0',
-              selection: 'rgba(255, 255, 255, 0.3)'
+              selectionBackground: 'rgba(255, 255, 255, 0.3)'
             }
     }
   })
