@@ -4,6 +4,8 @@ import { ApiHandlerOptions, liteLlmDefaultModelId, liteLlmModelInfoSaneDefaults 
 import { ApiHandler } from '..'
 import { ApiStream } from '../transform/stream'
 import { convertToOpenAiMessages } from '../transform/openai-format'
+import { createProxyAgent, checkProxyConnectivity } from './proxy'
+import type { Agent } from 'http'
 
 export class LiteLlmHandler implements ApiHandler {
   private options: ApiHandlerOptions
@@ -11,9 +13,17 @@ export class LiteLlmHandler implements ApiHandler {
 
   constructor(options: ApiHandlerOptions) {
     this.options = options
+
+    // 判断是否需要使用代理
+    let httpAgent: Agent | undefined = undefined
+    if (this.options.needProxy !== false) {
+      const proxyConfig = this.options.proxyConfig
+      httpAgent = createProxyAgent(proxyConfig)
+    }
     this.client = new OpenAI({
       baseURL: this.options.liteLlmBaseUrl || 'http://localhost:4000',
-      apiKey: this.options.liteLlmApiKey || 'noop'
+      apiKey: this.options.liteLlmApiKey || 'noop',
+      httpAgent: httpAgent
     })
   }
 
@@ -182,6 +192,11 @@ export class LiteLlmHandler implements ApiHandler {
 
   async validateApiKey(): Promise<{ isValid: boolean; error?: string }> {
     try {
+      // 验证代理
+      if (this.options.needProxy) {
+        await checkProxyConnectivity(this.options.proxyConfig!)
+      }
+
       // 尝试创建一个最小的聊天请求来验证 API key
       await this.client.chat.completions.create({
         model: this.options.liteLlmModelId || liteLlmDefaultModelId,
