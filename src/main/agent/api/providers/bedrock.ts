@@ -7,7 +7,15 @@ import { convertToR1Format } from '../transform/r1-format'
 import { ApiHandlerOptions, bedrockDefaultModelId, BedrockModelId, bedrockModels, ModelInfo } from '../../shared/api'
 import { calculateApiCostOpenAI } from '../../utils/cost'
 import { fromNodeProviderChain } from '@aws-sdk/credential-providers'
-import { BedrockRuntimeClient, ConversationRole, ConverseStreamCommand, InvokeModelWithResponseStreamCommand } from '@aws-sdk/client-bedrock-runtime'
+import { NodeHttpHandler } from '@aws-sdk/node-http-handler'
+import { checkProxyConnectivity, createProxyAgent } from './proxy'
+import {
+  BedrockRuntimeClient,
+  BedrockRuntimeClientConfig,
+  ConversationRole,
+  ConverseStreamCommand,
+  InvokeModelWithResponseStreamCommand
+} from '@aws-sdk/client-bedrock-runtime'
 
 // https://docs.anthropic.com/en/api/claude-on-amazon-bedrock
 export class AwsBedrockHandler implements ApiHandler {
@@ -222,15 +230,38 @@ export class AwsBedrockHandler implements ApiHandler {
   private async getBedrockClient(): Promise<BedrockRuntimeClient> {
     const credentials = await this.getAwsCredentials()
 
-    return new BedrockRuntimeClient({
+    const clientConfig: BedrockRuntimeClientConfig = {
       region: this.getRegion(),
       credentials: {
         accessKeyId: credentials.accessKeyId,
         secretAccessKey: credentials.secretAccessKey,
         sessionToken: credentials.sessionToken
       },
-      ...(this.options.awsBedrockEndpoint && { endpoint: this.options.awsBedrockEndpoint })
-    })
+      ...(this.options.awsBedrockEndpoint && {
+        endpoint: this.options.awsBedrockEndpoint
+      })
+    }
+
+    if (this.options.needProxy !== false) {
+      const proxyConfig = this.options.proxyConfig
+
+      try {
+        const httpAgent = createProxyAgent(proxyConfig)
+        if (httpAgent) {
+          console.log('Using proxy agent')
+          clientConfig.requestHandler = new NodeHttpHandler({
+            httpsAgent: httpAgent as any,
+            httpAgent: httpAgent as any,
+            requestTimeout: 30000,
+            connectionTimeout: 5000
+          })
+        }
+      } catch (error) {
+        console.error('Proxy configuration error:', error)
+      }
+    }
+
+    return new BedrockRuntimeClient(clientConfig)
   }
 
   /**
@@ -576,11 +607,30 @@ ${combinedContent}
           }
         }
       }
-    } catch (error) {
-      console.error('Error processing Nova model response:', error)
+    } catch (error: unknown) {
+      let errorMessage = '[ERROR] Failed to process Nova response:'
+
+      if (error instanceof Error) {
+        // 检查是否存在 $response.body 并调用 body.toString()
+        if ((error as any)?.$response?.body) {
+          try {
+            const body = (error as any).$response.body.toString()
+            errorMessage += ` body: ${body}`
+          } catch (toStringError) {
+            errorMessage += ` ${error.message}`
+          }
+        } else {
+          errorMessage += ` ${error.message}`
+        }
+      } else {
+        // 如果 error 不是 Error 实例，直接转为字符串打印
+        errorMessage += ` ${String(error)}`
+        console.error('Error processing Nova model response: Unknown error type.')
+      }
+
       yield {
         type: 'text',
-        text: `[ERROR] Failed to process Nova response: ${error instanceof Error ? error.message : String(error)}`
+        text: errorMessage
       }
     }
   }
@@ -677,6 +727,11 @@ ${combinedContent}
 
       const testSystemPrompt = "This is a connection test. Respond with only the word 'OK'."
       const testMessages: Anthropic.Messages.MessageParam[] = [{ role: 'user', content: 'Connection test' }]
+
+      // 验证代理
+      if (this.options.needProxy) {
+        await checkProxyConnectivity(this.options.proxyConfig!)
+      }
 
       const stream = this.createMessage(testSystemPrompt, testMessages)
       let receivedResponse = false
