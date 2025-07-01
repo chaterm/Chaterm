@@ -342,6 +342,9 @@ defineExpose({
   display: flex;
   justify-content: space-between;
   flex-wrap: wrap;
+  background-color: var(--bg-color);
+  color: var(--text-color);
+
   .term_host_header {
     width: 100%;
     height: auto;
@@ -351,16 +354,16 @@ defineExpose({
     float: right;
   }
   .term_com_list .ant-select-selection-item {
-    color: #ccc !important;
+    color: var(--text-color) !important;
   }
   .term_com_list .ant-select-selector {
-    color: #ffffff !important;
+    color: var(--text-color) !important;
   }
   .term_com_list .ant-select-single {
-    color: #ffffff !important;
+    color: var(--text-color) !important;
   }
   :deep(.term_com_list .ant-select-selector) {
-    color: #fff !important;
+    color: var(--text-color) !important;
   }
 }
 .tree-container {
@@ -370,29 +373,30 @@ defineExpose({
   overflow-x: hidden;
   border-radius: 2px;
   padding: 5px;
-  background-color: #141414;
+  background-color: var(--bg-color);
 }
 
 :deep(.dark-tree) {
-  background-color: rgb(26, 26, 26);
+  background-color: var(--bg-color-secondary);
   height: 30% !important;
+
   .ant-tree-node-content-wrapper,
   .ant-tree-title,
   .ant-tree-switcher,
   .ant-tree-node-selected {
-    color: white !important;
+    color: var(--text-color) !important;
   }
 
   .ant-tree-switcher {
-    color: #bbb !important;
+    color: var(--text-color-tertiary) !important;
   }
 
   .ant-tree-node-selected {
-    background-color: #141414 !important;
+    background-color: var(--hover-bg-color) !important;
   }
 
   .ant-tree-node-content-wrapper:hover {
-    background-color: #141414 !important;
+    background-color: var(--hover-bg-color) !important;
   }
 }
 
@@ -407,13 +411,13 @@ defineExpose({
   .title-with-icon {
     display: flex;
     align-items: center;
-    color: white;
+    color: var(--text-color);
     flex-grow: 1;
 
     .computer-icon {
       margin-right: 6px;
       font-size: 14px;
-      color: white;
+      color: var(--text-color);
     }
   }
 
@@ -423,7 +427,7 @@ defineExpose({
     top: 50%;
     transform: translateY(-50%);
     cursor: pointer;
-    color: white;
+    color: var(--text-color);
     margin-left: 8px;
 
     &:hover {
@@ -436,12 +440,12 @@ defineExpose({
   }
 
   .favorite-outlined {
-    color: #d9d9d9;
+    color: var(--text-color-tertiary);
   }
   .edit-icon {
     display: none;
     cursor: pointer;
-    color: #d9d9d9;
+    color: var(--text-color-tertiary);
     font-size: 14px;
     margin-left: 6px;
     &:hover {
@@ -462,9 +466,9 @@ defineExpose({
   width: 100%;
 
   .ant-input {
-    background-color: #1f1f1f;
-    border-color: #434343;
-    color: white;
+    background-color: var(--bg-color-secondary);
+    border-color: var(--border-color);
+    color: var(--text-color);
     flex: 1;
     min-width: 50px;
     height: 24px;

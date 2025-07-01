@@ -649,7 +649,7 @@ watch(
   transition: all 0.3s ease;
   padding: 10px;
   overflow-y: auto;
-  background-color: #141414;
+  background-color: var(--bg-color);
   width: 100%; /* 确保左侧部分占满可用空间 */
 }
 
@@ -660,21 +660,21 @@ watch(
 }
 
 .search-input {
-  background-color: #2c2c2c;
-  border-color: #2c2c2c;
-  color: white;
+  background-color: var(--bg-color-secondary);
+  border-color: var(--border-color);
+  color: var(--text-color);
   :deep(.ant-input) {
-    background-color: #2c2c2c;
-    color: white;
+    background-color: var(--bg-color-secondary);
+    color: var(--text-color);
     height: 20px;
 
     &::placeholder {
-      color: rgba(255, 255, 255, 0.5);
+      color: var(--text-color-tertiary);
     }
   }
 
   :deep(.ant-input-prefix) {
-    color: rgba(255, 255, 255, 0.7);
+    color: var(--text-color-secondary);
     margin-right: 8px;
   }
 }
@@ -690,7 +690,7 @@ watch(
 .group-title {
   font-size: 14px;
   font-weight: bold;
-  color: white;
+  color: var(--text-color);
   margin-bottom: 8px;
   margin-top: 16px;
 }
@@ -735,14 +735,14 @@ watch(
 .host-card {
   position: relative;
   padding-right: 36px;
-  background-color: #2c2c2c;
+  background-color: var(--bg-color-secondary);
   border-radius: 6px;
   overflow: hidden;
   cursor: pointer;
   transition: all 0.3s ease;
 
   &:hover {
-    background-color: #383838;
+    background-color: var(--hover-bg-color);
   }
 
   :deep(.ant-card-body) {
@@ -754,7 +754,7 @@ watch(
   top: 50%;
   right: 24px;
   transform: translateY(-50%);
-  color: rgba(255, 255, 255, 0.6);
+  color: var(--text-color-tertiary);
   font-size: 22px;
   opacity: 0;
   pointer-events: none;
@@ -801,7 +801,7 @@ watch(
 .host-name {
   font-size: 13px;
   font-weight: bold;
-  color: white;
+  color: var(--text-color);
   margin-bottom: 2px;
   white-space: nowrap;
   overflow: hidden;
@@ -811,24 +811,24 @@ watch(
 .group-count,
 .host-type {
   font-size: 12px;
-  color: rgba(255, 255, 255, 0.6);
+  color: var(--text-color-tertiary);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
 .search-card {
-  border: 1px dashed rgba(255, 255, 255, 0.2);
-  background-color: rgba(44, 44, 44, 0.5);
+  border: 1px dashed var(--border-color);
+  background-color: var(--bg-color-secondary);
 
   .host-name {
-    color: rgba(255, 255, 255, 0.5);
+    color: var(--text-color-tertiary);
   }
 }
 
 .right-section {
   flex: 0 0 30%;
-  background: #141414;
+  background: var(--bg-color);
   transition: all 0.3s ease;
   height: 100%;
   display: flex;
@@ -850,7 +850,7 @@ watch(
 }
 
 .right-section-content {
-  color: #ffffff;
+  color: var(--text-color);
   flex: 1;
   display: flex;
   flex-direction: column;
@@ -907,9 +907,9 @@ watch(
 .context-menu {
   position: fixed;
   z-index: 1000;
-  background-color: #2c2c2c;
+  background-color: var(--bg-color);
   border-radius: 4px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
   min-width: 150px;
   padding: 5px 0;
 }
@@ -919,11 +919,11 @@ watch(
   align-items: center;
   padding: 8px 16px;
   cursor: pointer;
-  color: white;
+  color: var(--text-color);
   transition: background-color 0.2s;
 
   &:hover {
-    background-color: #383838;
+    background-color: var(--hover-bg-color);
   }
 
   &.delete {
@@ -943,32 +943,44 @@ watch(
   width: 16px;
 }
 .custom-form {
-  color: rgba(255, 255, 255, 0.85);
+  color: var(--text-color);
   :deep(.ant-form-item) {
     margin-bottom: 12px;
   }
   :deep(.ant-form-item-label) {
     min-width: 250px;
     padding-bottom: 4px;
+    > label {
+      color: var(--text-color);
+    }
   }
 }
 :deep(.ant-form-item) {
-  color: rgba(255, 255, 255, 0.65);
+  color: var(--text-color-secondary);
 }
+
+:global(.light-theme) {
+  .custom-form {
+    :deep(.ant-form-item-label > label) {
+      color: rgba(0, 0, 0, 0.85) !important;
+    }
+  }
+}
+
 .custom-form :deep(.ant-input),
 .custom-form :deep(.ant-input-password),
 .custom-form :deep(.ant-select-selector),
 .custom-form :deep(.ant-input-number-input) {
-  color: rgba(255, 255, 255, 0.85);
-  background-color: transparent !important; /* 设置背景透明 */
-  border-color: rgba(255, 255, 255, 0.2) !important;
+  color: var(--text-color);
+  background-color: var(--bg-color) !important;
+  border-color: var(--border-color) !important;
   &::placeholder {
-    color: rgba(255, 255, 255, 0.6);
+    color: var(--text-color-tertiary);
   }
 }
 .custom-form :deep(.ant-radio-button-wrapper) {
-  background: transparent !important;
-  color: rgba(255, 255, 255, 0.85);
+  background: var(--bg-color) !important;
+  color: var(--text-color);
   .ant-radio-button-checked {
     border: #1677ff;
   }
@@ -980,10 +992,10 @@ watch(
 .custom-form :deep(.ant-select-selector),
 .custom-form :deep(.anticon.ant-input-password-icon),
 .custom-form :deep(.ant-select-arrow) {
-  color: rgba(255, 255, 255, 0.85);
+  color: var(--text-color);
 }
 .general-group :deep(.ant-select-selection-item) {
-  background-color: rgba(255, 255, 255, 0.25);
+  background-color: var(--hover-bg-color);
 }
 .formTitle {
   display: flex;

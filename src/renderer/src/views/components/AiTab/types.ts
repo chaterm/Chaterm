@@ -38,12 +38,14 @@ export interface HistoryItem {
   chatContent: ChatMessage[]
   isEditing?: boolean
   editingTitle?: string
+  isFavorite?: boolean
 }
 
 export interface TaskHistoryItem {
   id: string
-  task: string
+  task?: string
   ts: number
+  isFavorite?: boolean
 }
 
 export interface ModelOption {

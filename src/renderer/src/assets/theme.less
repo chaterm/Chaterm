@@ -1,0 +1,205 @@
+// Dark theme variables
+.theme-dark {
+  --bg-color: #141414;
+  --bg-color-secondary: #1e1e1e;
+  --bg-color-tertiary: #252525;
+  --bg-color-quaternary: #3a3a3a;
+  --bg-color-quinary: #2a2a2a;
+  --bg-color-senary: #1a1a1a;
+  --bg-color-septenary: #282c34;
+  --text-color: #e0e0e0;
+  --text-color-secondary: rgba(255, 255, 255, 0.85);
+  --text-color-tertiary: rgba(255, 255, 255, 0.45);
+  --border-color: #1e1e1e;
+  --border-color-light: rgb(65, 65, 65);
+  --hover-bg-color: rgba(255, 255, 255, 0.1);
+  --active-bg-color: rgba(255, 255, 255, 0.15);
+  --watermark-color: rgba(255, 255, 255, 0.05);
+  --icon-filter: brightness(0) invert(1);
+}
+
+// Light theme variables
+.theme-light {
+  --bg-color: #ffffff;
+  --bg-color-secondary: #f5f5f5;
+  --bg-color-tertiary: #fafafa;
+  --bg-color-quaternary: #f4f4f4;
+  --bg-color-quinary: #f6f6f6;
+  --bg-color-senary: #f0f0f0;
+  --bg-color-septenary: #d9e1ff;
+  --text-color: #000000;
+  --text-color-secondary: rgba(0, 0, 0, 0.85);
+  --text-color-tertiary: rgba(0, 0, 0, 0.45);
+  --border-color: #f5f5f5;
+  --border-color-light: #e8e8e8;
+  --hover-bg-color: rgba(0, 0, 0, 0.04);
+  --active-bg-color: rgba(0, 0, 0, 0.08);
+  --watermark-color: rgba(0, 0, 0, 0.05);
+  --icon-filter: brightness(0);
+}
+
+// Apply theme variables to components
+body {
+  background-color: var(--bg-color);
+  color: var(--text-color);
+  transition:
+    background-color 0.3s ease,
+    color 0.3s ease;
+}
+
+// 确保所有使用主题变量的元素都有过渡效果
+* {
+  transition:
+    background-color 0.3s ease,
+    color 0.3s ease,
+    border-color 0.3s ease;
+}
+
+.terminal-layout {
+  background: var(--bg-color) !important;
+  color: var(--text-color) !important;
+}
+
+.term_left_tab {
+  background-color: var(--bg-color-secondary) !important;
+  border-right-color: var(--border-color-light) !important;
+}
+
+.userInfo-container {
+  background-color: var(--bg-color) !important;
+  color: var(--text-color) !important;
+}
+
+.custom-form {
+  color: var(--text-color) !important;
+}
+
+.custom-form :deep(.ant-form-item-label > label) {
+  color: var(--text-color) !important;
+}
+
+// Ant Design 组件主题适配
+:deep(.ant-radio-wrapper),
+:deep(.ant-checkbox-wrapper),
+:deep(.ant-form-item-label label),
+:deep(.ant-select),
+:deep(.ant-input),
+:deep(.ant-input-password) {
+  color: var(--text-color-secondary) !important;
+}
+
+:deep(.ant-radio-inner),
+:deep(.ant-checkbox-inner) {
+  background-color: var(--bg-color) !important;
+  border-color: var(--border-color) !important;
+}
+
+:deep(.ant-radio-checked .ant-radio-inner),
+:deep(.ant-checkbox-checked .ant-checkbox-inner) {
+  border-color: #1890ff !important;
+}
+
+:deep(.ant-select-selector),
+:deep(.ant-input),
+:deep(.ant-input-password) {
+  background-color: var(--bg-color) !important;
+  border-color: var(--border-color) !important;
+}
+
+.ant-input-group-wrapper {
+  background-color: var(--bg-color-secondary) !important;
+
+  .ant-input {
+    background-color: var(--bg-color-secondary) !important;
+    border: none;
+    color: var(--text-color) !important;
+  }
+
+  .ant-input-group-addon {
+    background-color: var(--bg-color-secondary) !important;
+    border: none;
+    color: var(--text-color) !important;
+
+    button {
+      background-color: var(--bg-color-secondary) !important;
+      border: none;
+      color: var(--text-color) !important;
+    }
+  }
+}
+
+.rigth-sidebar {
+  background: var(--bg-color-tertiary) !important;
+}
+
+.splitpanes__splitter {
+  background-color: var(--bg-color-secondary) !important;
+}
+
+.splitpanes__splitter:before {
+  background-color: var(--hover-bg-color) !important;
+}
+
+// 菜单和标签页样式
+:deep(.ant-tabs-tab),
+:deep(.ant-menu-item) {
+  color: var(--text-color-secondary) !important;
+}
+
+:deep(.ant-tabs-tab.ant-tabs-tab-active),
+:deep(.ant-menu-item-selected) {
+  color: #1890ff !important;
+}
+
+:deep(.ant-tabs-ink-bar) {
+  background: #1890ff !important;
+}
+
+:deep(.ant-tabs-nav::before) {
+  border-bottom-color: var(--border-color) !important;
+}
+
+// 卡片样式
+:deep(.ant-card) {
+  background-color: var(--bg-color) !important;
+  border-color: var(--border-color) !important;
+}
+
+// 按钮样式
+:deep(.ant-btn) {
+  color: var(--text-color-secondary) !important;
+  border-color: var(--border-color) !important;
+  background: var(--bg-color) !important;
+
+  &:hover {
+    color: #1890ff !important;
+    border-color: #1890ff !important;
+  }
+}
+
+:deep(.ant-btn-primary) {
+  color: #fff !important;
+  background: #1890ff !important;
+  border-color: #1890ff !important;
+
+  &:hover {
+    background: #40a9ff !important;
+    border-color: #40a9ff !important;
+  }
+}
+
+// 下拉菜单样式
+:deep(.ant-dropdown-menu) {
+  background-color: var(--bg-color) !important;
+  border: 1px solid var(--border-color) !important;
+}
+
+:deep(.ant-dropdown-menu-item) {
+  color: var(--text-color-secondary) !important;
+
+  &:hover {
+    background-color: var(--hover-bg-color) !important;
+  }
+}
+
+// Add more component theme styles as needed

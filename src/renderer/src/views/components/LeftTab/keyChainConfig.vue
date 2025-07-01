@@ -531,27 +531,25 @@ watch(isRightSectionVisible, (val) => {
   transition: all 0.3s ease;
   padding: 10px;
   overflow-y: auto;
-  background-color: #141414;
+  background-color: var(--bg-color);
   width: 100%; /* 确保左侧部分占满可用空间 */
 }
 
-/* 移除旧的搜索容器样式 */
-
 .search-input {
-  background-color: #3a3a3a;
-  border-color: #3a3a3a;
-  color: white;
+  background-color: var(--bg-color-secondary);
+  border-color: var(--border-color);
+  color: var(--text-color);
   :deep(.ant-input) {
-    background-color: #3a3a3a;
-    color: white;
+    background-color: var(--bg-color-secondary);
+    color: var(--text-color);
 
     &::placeholder {
-      color: rgba(255, 255, 255, 0.5);
+      color: var(--text-color-tertiary);
     }
   }
 
   :deep(.ant-input-prefix) {
-    color: rgba(255, 255, 255, 0.7);
+    color: var(--text-color-secondary);
     margin-right: 8px;
   }
 }
@@ -599,14 +597,14 @@ watch(isRightSectionVisible, (val) => {
 .keychain-card {
   position: relative;
   padding-right: 36px;
-  background-color: #2c2c2c;
+  background-color: var(--bg-color-secondary);
   border-radius: 8px;
   overflow: hidden;
   cursor: pointer;
   transition: all 0.3s ease;
 
   &:hover {
-    background-color: #383838;
+    background-color: var(--hover-bg-color);
   }
 }
 
@@ -615,7 +613,7 @@ watch(isRightSectionVisible, (val) => {
   top: 50%;
   right: 24px;
   transform: translateY(-50%);
-  color: rgba(255, 255, 255, 0.6);
+  color: var(--text-color-tertiary);
   font-size: 22px;
   opacity: 0;
   pointer-events: none;
@@ -646,8 +644,15 @@ watch(isRightSectionVisible, (val) => {
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #1890ff;
   margin-right: 12px;
+
+  img {
+    filter: brightness(0) saturate(100%) invert(48%) sepia(57%) saturate(2303%) hue-rotate(198deg) brightness(102%) contrast(96%);
+  }
+
+  :global(.light-theme) & img {
+    filter: brightness(0) saturate(100%) invert(31%) sepia(98%) saturate(1720%) hue-rotate(199deg) brightness(95%) contrast(107%);
+  }
 }
 
 .keychain-info {
@@ -658,7 +663,7 @@ watch(isRightSectionVisible, (val) => {
 .keychain-name {
   font-size: 14px;
   font-weight: bold;
-  color: white;
+  color: var(--text-color);
   margin-bottom: 4px;
   white-space: nowrap;
   overflow: hidden;
@@ -667,7 +672,7 @@ watch(isRightSectionVisible, (val) => {
 
 .keychain-type {
   font-size: 12px;
-  color: rgba(255, 255, 255, 0.6);
+  color: var(--text-color-tertiary);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis; /* 文本过长时显示省略号 */
@@ -675,7 +680,7 @@ watch(isRightSectionVisible, (val) => {
 
 .right-section {
   flex: 0 0 30%;
-  background: #141414;
+  background: var(--bg-color);
   transition: all 0.3s ease;
   height: 100%;
   display: flex;
@@ -742,13 +747,13 @@ watch(isRightSectionVisible, (val) => {
   :deep(.ant-picker),
   :deep(.ant-input-affix-wrapper),
   :deep(.ant-textarea) {
-    color: rgba(255, 255, 255, 0.85);
-    background-color: transparent !important;
-    border-color: rgba(255, 255, 255, 0.2) !important;
+    color: var(--text-color);
+    background-color: var(--bg-color) !important;
+    border-color: var(--border-color) !important;
     padding: 4px 11px;
 
     &::placeholder {
-      color: rgba(255, 255, 255, 0.25) !important;
+      color: var(--text-color-tertiary) !important;
     }
     &:hover,
     &:focus {
@@ -757,9 +762,18 @@ watch(isRightSectionVisible, (val) => {
   }
   :deep(.ant-form-item-label) {
     padding-bottom: 4px;
+    > label {
+      color: var(--text-color);
+    }
   }
   :deep(.anticon.ant-input-password-icon) {
-    color: rgba(255, 255, 255, 0.85);
+    color: var(--text-color);
+  }
+
+  :global(.light-theme) & {
+    :deep(.ant-form-item-label) > label {
+      color: rgba(0, 0, 0, 0.85) !important;
+    }
   }
 }
 
@@ -777,12 +791,12 @@ watch(isRightSectionVisible, (val) => {
 .context-menu {
   position: fixed;
   z-index: 1000;
-  background-color: rgba(44, 44, 44, 0.95);
-  border: 1px solid rgba(255, 255, 255, 0.15);
+  background-color: var(--bg-color);
+  border: 1px solid var(--border-color);
   border-radius: 12px;
   box-shadow:
-    0 8px 32px rgba(0, 0, 0, 0.4),
-    0 4px 16px rgba(0, 0, 0, 0.3),
+    0 8px 32px rgba(0, 0, 0, 0.1),
+    0 4px 16px rgba(0, 0, 0, 0.08),
     inset 0 1px 0 rgba(255, 255, 255, 0.1);
   min-width: 160px;
   padding: 6px 0;
@@ -807,7 +821,7 @@ watch(isRightSectionVisible, (val) => {
   align-items: center;
   padding: 8px 16px;
   cursor: pointer;
-  color: rgba(255, 255, 255, 0.85);
+  color: var(--text-color);
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   position: relative;
   font-size: 14px;
@@ -816,8 +830,8 @@ watch(isRightSectionVisible, (val) => {
   border-radius: 8px;
 
   &:hover {
-    background-color: rgba(255, 255, 255, 0.1);
-    color: #ffffff;
+    background-color: var(--hover-bg-color);
+    color: var(--text-color);
     transform: translateX(2px);
 
     .context-menu-icon {
@@ -827,7 +841,7 @@ watch(isRightSectionVisible, (val) => {
   }
 
   &:active {
-    background-color: rgba(255, 255, 255, 0.15);
+    background-color: var(--active-bg-color);
     transform: translateX(2px) scale(0.98);
   }
 
@@ -856,7 +870,7 @@ watch(isRightSectionVisible, (val) => {
     left: 20px;
     right: 20px;
     height: 1px;
-    background: linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.1) 50%, transparent 100%);
+    background: linear-gradient(90deg, transparent 0%, var(--border-color) 50%, transparent 100%);
   }
 }
 
@@ -869,7 +883,7 @@ watch(isRightSectionVisible, (val) => {
   height: 16px;
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   font-size: 14px;
-  color: rgba(255, 255, 255, 0.7);
+  color: var(--text-color-tertiary);
 }
 
 .context-menu-text {

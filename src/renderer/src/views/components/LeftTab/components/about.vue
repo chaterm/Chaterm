@@ -31,20 +31,22 @@ const appInfo = {
   justify-content: center;
 }
 .about-card {
-  background: #141414;
-  color: #f8f8f8;
+  background-color: var(--bg-color);
+  color: var(--text-color);
   border-radius: 8px;
-  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.15);
   text-align: center;
+  box-shadow: none;
 }
 .about-title {
   font-size: 16px;
   font-weight: bold;
   margin-bottom: 8px;
+  color: var(--text-color);
 }
 .about-description {
   font-size: 16px;
   margin-bottom: 8px;
+  color: var(--text-color-secondary);
 }
 .about-logo {
   text-align: center;
