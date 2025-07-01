@@ -70,12 +70,7 @@
                     class="title-with-icon"
                   >
                     <laptop-outlined class="computer-icon" />
-                    <a-tooltip
-                      v-if="editingNode !== dataRef.key"
-                      :title="t('workspace.connectToServer', { ip: dataRef.ip })"
-                    >
-                      <span v-if="editingNode !== dataRef.key">{{ title }}</span>
-                    </a-tooltip>
+                    <span v-if="editingNode !== dataRef.key">{{ title }}</span>
                     <span
                       v-else
                       class="edit-container"
@@ -139,12 +134,7 @@
                     class="title-with-icon"
                   >
                     <laptop-outlined class="computer-icon" />
-                    <a-tooltip
-                      v-if="editingNode !== dataRef.key"
-                      :title="t('workspace.connectToServer', { ip: dataRef.ip })"
-                    >
-                      <span v-if="editingNode !== dataRef.key">{{ title }}</span>
-                    </a-tooltip>
+                    <span v-if="editingNode !== dataRef.key">{{ title }}</span>
                     <span
                       v-else
                       class="edit-container"

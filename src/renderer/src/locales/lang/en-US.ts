@@ -24,6 +24,7 @@ export default {
     create: 'Create',
     cancel: 'Cancel',
     remove: 'Remove',
+    noData: 'No Data',
     close: 'Close',
     closeOther: 'Close Others',
     closeAll: 'Close All',
@@ -66,8 +67,7 @@ export default {
   workspace: {
     workspace: 'Workspace',
     personal: 'Personal',
-    searchHost: 'Search host',
-    connectToServer: 'Connect to {ip} server'
+    searchHost: 'Search host'
   },
   header: {
     title: 'Smart Bastion Host Management System'
@@ -111,6 +111,7 @@ export default {
     macAddress: 'Mac Address',
     general: 'General',
     extensions: 'Extensions',
+    about: 'About',
     model: 'Model',
     enableExtendedThinking: 'Enable extended thinking',
     enableExtendedThinkingDescribe: 'Higher budgets may allow you to achieve more comprehensive and nuanced reasoning',
@@ -226,7 +227,9 @@ export default {
     reject: 'Reject',
     cancel: 'Cancel',
     resume: 'Resume',
-    agentMessage: 'Plan,search,execute anything',
+    agentMessage: 'Command query,troubleshoot errors,handle tasks,anything',
+    cmdMessage: 'Work on explicitly opened terminal',
+    chatMessage: 'Ask, learn, brainstorm ',
     newChat: 'New Chat',
     showChatHistory: 'Show History',
     closeAiSidebar: 'Close AI Sidebar',
@@ -293,5 +296,16 @@ export default {
     save: 'Save',
     cancel: 'Cancel',
     resetPassword: 'Reset Password'
+  },
+  update: {
+    available: 'A new version is available',
+    update: 'Update',
+    later: 'Later',
+    downloading: 'Downloading update',
+    complete: 'Download complete, install now?',
+    install: 'Install'
+  },
+  about: {
+    version: 'Version'
   }
 }

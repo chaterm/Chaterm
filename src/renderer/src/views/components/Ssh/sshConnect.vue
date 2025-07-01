@@ -409,7 +409,7 @@ onMounted(async () => {
 
   const handleExecuteCommand = (command) => {
     if (props.activeTabId !== props.currentConnectionId) return
-    autoExecuteCode(command)
+    sendMarkedData(command, 'Chaterm:command')
     termInstance.focus()
   }
 
@@ -1016,6 +1016,7 @@ const getWrappedContentLastLineY = () => {
 // 更新终端状态
 const updateTerminalState = (quickInit: boolean) => {
   if (!terminal.value) return
+
   try {
     const buffer = (terminal as any).value._core._bufferService.buffer
     const cursorX = buffer.x
@@ -1808,6 +1809,9 @@ const handleKeyInput = (e) => {
     terminalState.value.contentCrossRowStatus = false
     terminalState.value.contentCrossStartLine = 0
     terminalState.value.contentCrossRowLines = 0
+    terminalState.value.contentCrossRowStatus = false
+    terminalState.value.contentCrossStartLine = 0
+    terminalState.value.contentCrossRowLines = 0
     insertCommand(terminalState.value.content)
   } else if (ev.keyCode === 8) {
     // 删除
@@ -1933,6 +1937,13 @@ const hideSelectionButton = () => {
 
 const handleGlobalKeyDown = (e: KeyboardEvent) => {
   if (props.activeTabId !== props.currentConnectionId) return
+
+  const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0
+  if ((isMac ? e.metaKey : e.ctrlKey) && e.key === 'f') {
+    e.preventDefault()
+    e.stopPropagation()
+    openSearch()
+  }
 
   if (e.key === 'Escape' && showSearch.value) {
     e.preventDefault()

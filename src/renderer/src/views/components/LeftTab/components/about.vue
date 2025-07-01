@@ -1,0 +1,56 @@
+<template>
+  <div class="about-container">
+    <a-card
+      :bordered="false"
+      class="about-card"
+    >
+      <img
+        class="about-logo"
+        src="@/assets/logo.svg"
+      />
+      <div class="about-title">Chaterm</div>
+      <div class="about-description">{{ t('about.version') }} {{ appInfo.version }}</div>
+    </a-card>
+  </div>
+</template>
+
+<script setup lang="ts">
+import i18n from '@/locales'
+const { t } = i18n.global
+
+const appInfo = {
+  ...__APP_INFO__
+}
+</script>
+
+<style scoped>
+.about-container {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  justify-content: center;
+}
+.about-card {
+  background: #141414;
+  color: #f8f8f8;
+  border-radius: 8px;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.15);
+  text-align: center;
+}
+.about-title {
+  font-size: 16px;
+  font-weight: bold;
+  margin-bottom: 8px;
+}
+.about-description {
+  font-size: 16px;
+  margin-bottom: 8px;
+}
+.about-logo {
+  text-align: center;
+  justify-content: center;
+  margin-bottom: 10px;
+  width: 62px;
+  height: 62px;
+}
+</style>
