@@ -223,60 +223,8 @@ let dbConfigStash: {
 } = {}
 let config
 onMounted(async () => {
-  const debouncedUpdateTerminalState = (data) => {
-    if (updateTimeout) {
-      clearTimeout(updateTimeout)
-    }
-    updateTimeout = setTimeout(() => {
-      if (!userInputFlag.value && !isEditorMode.value) {
-        if (JSON.stringify(data).endsWith(startStr.value)) {
-          updateTerminalState(true)
-        } else {
-          updateTerminalState(false)
-        }
-      }
-
-      // 走高亮的条件
-      let highLightFlag: boolean = true
-      // 条件1, 如果beforeCursor为空 content有内容 则代表enter键，不能走highlight
-      if ((!terminalState.value.beforeCursor.length && terminalState.value.content.length) || enterPress.value || specialCode.value) {
-        highLightFlag = false
-      }
-      // 条件2, 进入编辑模式下，不走highlight
-      if (isEditorMode.value) {
-        highLightFlag = false
-      }
-      // 条件3, 高亮触发的写入，不走highlight
-      if (userInputFlag.value) {
-        highLightFlag = false
-      }
-      // 条件4, 服务器返回包含命令提示符，不走highlight，避免渲染异常
-      // TODO: 条件5, 进入子交互模式 不开启高亮
-      //TODO: 服务器返回  xxx\r\n,   \r\n{startStr.value}xxx 时特殊处理
-      // if (data.indexOf(startStr.value) !== -1 && startStr.value != '') {
-      //   highLightFlag = false
-      // }
-      if (
-        stripAnsi(data)
-          .replace(/[\x00-\x09\x0B\x0C\x0E-\x1F\x7F]/g, '')
-          .endsWith(startStr.value) &&
-        startStr.value != ''
-      ) {
-        highLightFlag = false
-      }
-      if (highLightFlag) {
-        if (config.highlightStatus == 1) {
-          highlightSyntax(terminalState.value)
-        }
-        if (!selectFlag.value) {
-          queryCommand()
-        }
-      }
-      updateTimeout = null
-    }, 50) // 100ms 延迟，可根据需要调整
-  }
-
   config = await serviceUserConfig.getConfig()
+  console.log(config, 'config')
   dbConfigStash = config
   queryCommandFlag.value = config.autoCompleteStatus == 1
   const termInstance = markRaw(
@@ -403,8 +351,65 @@ onMounted(async () => {
   const core = (termInstance as any)._core
   const renderService = core._renderService
   const originalWrite = termInstance.write.bind(termInstance)
+
+  // 更新TerminalState
+  const debouncedUpdateTerminalState = (data) => {
+    if (updateTimeout) {
+      clearTimeout(updateTimeout)
+    }
+    updateTimeout = setTimeout(() => {
+      if (!userInputFlag.value || !isEditorMode.value) {
+        if (JSON.stringify(data).endsWith(startStr.value)) {
+          updateTerminalState(true)
+        } else {
+          updateTerminalState(false)
+        }
+      }
+
+      // 走高亮的条件
+      let highLightFlag: boolean = true
+      // 条件1, 如果beforeCursor为空 content有内容 则代表enter键，不能走highlight
+      if ((!terminalState.value.beforeCursor.length && terminalState.value.content.length) || enterPress.value || specialCode.value) {
+        highLightFlag = false
+      }
+      // 条件2, 进入编辑模式下，不走highlight
+      if (isEditorMode.value) {
+        highLightFlag = false
+      }
+      // 条件3, 高亮触发的写入，不走highlight
+      if (userInputFlag.value) {
+        highLightFlag = false
+      }
+      // 条件4, 服务器返回包含命令提示符，不走highlight，避免渲染异常
+      // TODO: 条件5, 进入子交互模式 不开启高亮
+      //TODO: 服务器返回  xxx\r\n,   \r\n{startStr.value}xxx 时特殊处理
+      // if (data.indexOf(startStr.value) !== -1 && startStr.value != '') {
+      //   highLightFlag = false
+      // }
+      if (
+        stripAnsi(data)
+          .replace(/[\x00-\x09\x0B\x0C\x0E-\x1F\x7F]/g, '')
+          .endsWith(startStr.value) &&
+        startStr.value != ''
+      ) {
+        highLightFlag = false
+      }
+      if (highLightFlag) {
+        if (config.highlightStatus == 1) {
+          console.log('触发高亮:', terminalState.value)
+          highlightSyntax(terminalState.value)
+        }
+        if (!selectFlag.value) {
+          queryCommand()
+        }
+      }
+      updateTimeout = null
+    }, 10) // 100ms 延迟，可根据需要调整
+  }
+
   // termInstance.write
   cusWrite = function (data: string, options?: { isUserCall?: boolean }): void {
+    console.log(JSON.stringify(data), 'data')
     userInputFlag.value = options?.isUserCall ?? false
     const originalRequestRefresh = renderService.refreshRows.bind(renderService)
     const originalTriggerRedraw = renderService._renderDebouncer.refresh.bind(renderService._renderDebouncer)
@@ -673,8 +678,11 @@ const handleResize = debounce(() => {
         if (isConnected.value) {
           resizeSSH(cols, rows)
         }
+        console.log(`Terminal resized to: ${cols}x${rows}`)
       }
-    } catch (error) {}
+    } catch (error) {
+      console.error('Failed to resize terminal:', error)
+    }
   }
 }, 100)
 
@@ -987,11 +995,6 @@ const substrWidth = (str: string, startWidth: number, endWidth?: number): string
       i++
     }
   }
-  if (startStr.value != '') {
-    startStr.value = str.substring(0, startIndex)
-  } else {
-    beginStr.value = str.substring(0, startIndex)
-  }
 
   return str.substring(startIndex, endIndex)
 }
@@ -1021,7 +1024,6 @@ const setupTerminalStateTracking = () => {
   // })
 }
 // 更新终端状态
-
 const cursorLastY = ref(0)
 const cursorLastX = ref(0)
 let cursorEndY = ref(0)
@@ -1066,136 +1068,231 @@ const updateTerminalState = (quickInit: boolean) => {
   if (!terminal.value) return
 
   try {
-    const buffer = (terminal as any).value._core._bufferService.buffer
-    const cursorX = buffer.x
+    const terminalCore = (terminal as any).value._core
+    const buffer = terminalCore._bufferService.buffer
+    const { x: cursorX, y: cursorY } = buffer
+    const { cols: maxCols, rows: maxRows } = terminalCore
+    const maxX = maxCols - 1
+    const maxY = maxRows - 1
+
     let contentCursorX = cursorX
-    const cursorY = buffer.y
-    const maxX = (terminal as any).value._core.cols - 1
-    const maxY = (terminal as any).value._core.rows - 1
     let parseStrTag = true
 
-    // resize不触发解析
-    if (cursorMaxX.value !== 0 && cursorMaxY.value !== 0 && (cursorMaxX.value !== maxX || cursorMaxY.value !== maxY)) {
+    // 检查是否由窗口调整触发，如果是则跳过解析
+    const isResizeTriggered = shouldSkipParseOnResize(maxX, maxY)
+    if (isResizeTriggered) {
       parseStrTag = false
     }
 
-    // 最新的endY与上次对比, 如果都是Wrapped, 则出现currentCursorEndY < cursorEndY则需要刷新
-    // 如果光标变动,Wrapped发生了变化, 则通过X判断, 判断X是否发生改变, X未发生改变则为非光标变动引起的, 此时需要刷新
-    const currentCursorEndY = getWrappedContentLastLineY() - terminal.value?.buffer.active.baseY // 最新Wrapped的行, //如果光标变动Wrapped发生了变化,需要其他条件辅助
-    let refreshCrossRow = false
-    if (currentCursorEndY < cursorEndY.value && currentCursorEndY != 0 && cursorLastX.value === cursorX) {
-      refreshCrossRow = true
-    }
-    cursorEndY.value = currentCursorEndY // 更新最新endY
+    // 处理跨行刷新逻辑
+    const currentCursorEndY = getWrappedContentLastLineY() - terminal.value?.buffer.active.baseY
+    const refreshCrossRow = shouldRefreshCrossRow(currentCursorEndY, cursorX)
+    cursorEndY.value = currentCursorEndY
 
-    // 当前行
-    const currentLine = buffer.lines.get(terminal.value?.buffer.active.baseY + buffer.y)
+    // 获取当前行信息
+    const currentLine = buffer.lines.get(terminal.value?.buffer.active.baseY + cursorY)
+    const isCrossRow = determineCrossRowStatus(currentLine, cursorY, currentCursorEndY)
 
-    // 跨行处理
-    // 判断当前行是否换行
+    // 更新光标起始位置
+    updateCursorStartPosition(cursorX, quickInit)
 
-    let isCrossRow = currentLine.isWrapped
-    // 如果调整光标, Wrapped发生了变化，通过当前Y和最大显示Y判断
-    if (!currentLine.isWrapped && cursorY !== cursorEndY.value) {
-      isCrossRow = true
-    }
+    // 处理行内容
+    const { lineContent, finalContentCursorX } = processLineContent(
+      currentLine,
+      isCrossRow,
+      refreshCrossRow,
+      parseStrTag,
+      cursorX,
+      cursorY,
+      buffer,
+      contentCursorX
+    )
 
-    // 如果触发了换行, 光标变动导致所有行的Wrapped 变成了False, 并且是同行操作, 则依赖之前的status
-    if (terminalState.value.contentCrossRowStatus && cursorY === cursorEndY.value) {
-      isCrossRow = true
-    }
+    // 更新历史记录
+    updateCursorHistory(cursorX, cursorY, maxX, maxY)
 
-    // 如果部分行Wrapped值发生了变化, 依据当前行的Wrapped值
-    if (currentLine.isWrapped && cursorY === cursorEndY.value) {
-      isCrossRow = true
-    }
-
-    // 当前行开始输入时的光标的位置
-    if (cursorStartX.value === 0 || quickInit) {
-      cursorStartX.value = cursorX
-    } else {
-      cursorStartX.value = Math.min(cursorStartX.value, cursorX)
-    }
-
-    let crossRowLines = terminalState.value.contentCrossRowLines
-    let crossStartLine = terminalState.value.contentCrossStartLine
-    let currentCursorCrossRowLines = terminalState.value.contentCurrentCursorCrossRowLines
-
-    let lineContent = currentLine.translateToString(true)
-
-    if (isCrossRow) {
-      const currentBufferLine = terminal.value?.buffer.active.baseY
-      // 初次换行更新crossStartLine
-      if ((crossStartLine === 0 && crossRowLines === 0) || (!parseStrTag && cursorY !== cursorLastY.value)) {
-        crossStartLine = getLogicalInputStartLine() - currentBufferLine
-      }
-      // 终端刷新触发更新crossStartLine
-      if (refreshCrossRow) {
-        crossStartLine = cursorY - currentCursorCrossRowLines + 1
-      }
-      let fullContent = ''
-      let totalCharacterPosition = 0
-
-      // 获取所有跨行内容
-      // 获取跨越行数（基于当前光标位置）// 当前行 - start 行
-      if (crossRowLines === 0 || cursorY > cursorLastY.value || (!parseStrTag && cursorY !== cursorLastY.value)) {
-        crossRowLines = cursorEndY.value - crossStartLine + 1
-      }
-      // 当前光标所在行的跨行
-      currentCursorCrossRowLines = cursorY - crossStartLine + 1
-
-      for (let i = 0; i < currentCursorCrossRowLines; i++) {
-        const lineIndex = currentBufferLine + crossStartLine + i
-        const lineContent = buffer.lines.get(lineIndex).translateToString(true)
-        if (i === currentCursorCrossRowLines - 1) {
-          totalCharacterPosition += cursorX
-        } else {
-          totalCharacterPosition += lineContent.length
-        }
-      }
-      for (let i = 0; i < crossRowLines; i++) {
-        const lineIndex = currentBufferLine + crossStartLine + i
-        const lineContent = buffer.lines.get(lineIndex).translateToString(true)
-        fullContent += lineContent
-      }
-      lineContent = fullContent
-      contentCursorX = totalCharacterPosition
-      // 换行后，cursorX会小于startStr,需要重新负责
-      cursorStartX.value = startStr.value.length
-    }
-
-    // 更新记录数据
-    cursorLastY.value = cursorY
-    cursorLastX.value = cursorX
-    cursorMaxX.value = maxX
-    cursorMaxY.value = maxY
-
+    // 解析和更新内容
     if (parseStrTag) {
-      terminalState.value.content = substrWidth(lineContent, cursorStartX.value)
-      terminalState.value.beforeCursor = substrWidth(lineContent, cursorStartX.value, contentCursorX)
+      updateContentStrings(lineContent, cursorX)
+      updateTerminalContent(lineContent, finalContentCursorX)
     }
-    terminalState.value.cursorPosition = { col: cursorX, row: cursorY }
-    terminalState.value.contentCrossRowStatus = isCrossRow
-    terminalState.value.contentCrossRowLines = crossRowLines
-    terminalState.value.contentCrossStartLine = crossStartLine
-    terminalState.value.contentCurrentCursorCrossRowLines = currentCursorCrossRowLines
-    api
-      .recordTerminalState({
-        id: connectionId.value,
-        state: {
-          cursorPosition: {
-            row: terminalState.value.cursorPosition.row,
-            col: terminalState.value.cursorPosition.col
-          },
-          beforeCursor: terminalState.value.beforeCursor,
-          const: terminalState.value.content
-        }
-      })
-      .catch((err) => {
-        console.error('发送终端状态时出错:', err)
-      })
+
+    // 更新终端状态
+    updateTerminalStateObject(cursorX, cursorY, isCrossRow)
+
+    // 发送状态到服务器
+    sendTerminalStateToServer()
   } catch (error) {
     console.error('更新终端状态时出错:', error)
+  }
+}
+
+// 检查是否应该跳过解析（由窗口调整触发）
+const shouldSkipParseOnResize = (maxX: number, maxY: number): boolean => {
+  return cursorMaxX.value !== 0 && cursorMaxY.value !== 0 && (cursorMaxX.value !== maxX || cursorMaxY.value !== maxY)
+}
+
+// 检查是否需要刷新跨行
+const shouldRefreshCrossRow = (currentCursorEndY: number, cursorX: number): boolean => {
+  return currentCursorEndY < cursorEndY.value && currentCursorEndY !== 0 && cursorLastX.value === cursorX
+}
+
+// 确定跨行状态
+const determineCrossRowStatus = (currentLine: any, cursorY: number, currentCursorEndY: number): boolean => {
+  // 基本跨行判断
+  if (currentLine.isWrapped) return true
+
+  // 光标调整导致的跨行
+  if (!currentLine.isWrapped && cursorY !== currentCursorEndY) return true
+
+  // 基于之前状态的跨行判断
+  if (terminalState.value.contentCrossRowStatus && cursorY === currentCursorEndY) return true
+
+  return false
+}
+
+// 更新光标起始位置
+const updateCursorStartPosition = (cursorX: number, quickInit: boolean): void => {
+  if (cursorStartX.value === 0 || quickInit) {
+    cursorStartX.value = cursorX
+  } else {
+    cursorStartX.value = Math.min(cursorStartX.value, cursorX)
+  }
+}
+
+// 处理行内容
+const processLineContent = (
+  currentLine: any,
+  isCrossRow: boolean,
+  refreshCrossRow: boolean,
+  parseStrTag: boolean,
+  cursorX: number,
+  cursorY: number,
+  buffer: any,
+  contentCursorX: number
+) => {
+  let lineContent = currentLine.translateToString(true)
+  let finalContentCursorX = contentCursorX
+
+  if (isCrossRow) {
+    const crossRowData = processCrossRowContent(parseStrTag, refreshCrossRow, cursorX, cursorY, buffer)
+    lineContent = crossRowData.fullContent
+    finalContentCursorX = crossRowData.totalCharacterPosition
+
+    // 更新终端状态的跨行信息
+    terminalState.value.contentCrossRowLines = crossRowData.crossRowLines
+    terminalState.value.contentCrossStartLine = crossRowData.crossStartLine
+    terminalState.value.contentCurrentCursorCrossRowLines = crossRowData.currentCursorCrossRowLines
+
+    // 换行后重新设置起始位置
+    cursorStartX.value = startStr.value.length
+  }
+
+  return { lineContent, finalContentCursorX }
+}
+
+// 处理跨行内容
+const processCrossRowContent = (parseStrTag: boolean, refreshCrossRow: boolean, cursorX: number, cursorY: number, buffer: any) => {
+  const currentBufferLine = terminal.value?.buffer.active.baseY || 0
+  let { contentCrossRowLines: crossRowLines, contentCrossStartLine: crossStartLine } = terminalState.value
+  let { contentCurrentCursorCrossRowLines: currentCursorCrossRowLines } = terminalState.value
+
+  // 更新跨行起始位置
+  if ((crossStartLine === 0 && crossRowLines === 0) || (!parseStrTag && cursorY !== cursorLastY.value)) {
+    crossStartLine = getLogicalInputStartLine() - currentBufferLine
+  }
+
+  if (refreshCrossRow) {
+    crossStartLine = cursorY - currentCursorCrossRowLines + 1
+  }
+
+  // 计算跨行数量
+  if (crossRowLines === 0 || cursorY > cursorLastY.value || (!parseStrTag && cursorY !== cursorLastY.value)) {
+    crossRowLines = cursorEndY.value - crossStartLine + 1
+  }
+
+  currentCursorCrossRowLines = cursorY - crossStartLine + 1
+
+  // 计算字符位置和获取完整内容
+  let totalCharacterPosition = 0
+  let fullContent = ''
+
+  // 计算当前光标位置的字符数
+  for (let i = 0; i < currentCursorCrossRowLines; i++) {
+    const lineIndex = currentBufferLine + crossStartLine + i
+    const lineContent = buffer.lines.get(lineIndex).translateToString(true)
+    if (i === currentCursorCrossRowLines - 1) {
+      totalCharacterPosition += cursorX
+    } else {
+      totalCharacterPosition += lineContent.length
+    }
+  }
+
+  // 获取所有跨行内容
+  for (let i = 0; i < crossRowLines; i++) {
+    const lineIndex = currentBufferLine + crossStartLine + i
+    const lineContent = buffer.lines.get(lineIndex).translateToString(true)
+    fullContent += lineContent
+  }
+
+  return {
+    fullContent,
+    totalCharacterPosition,
+    crossRowLines,
+    crossStartLine,
+    currentCursorCrossRowLines
+  }
+}
+
+// 更新光标历史记录
+const updateCursorHistory = (cursorX: number, cursorY: number, maxX: number, maxY: number): void => {
+  cursorLastY.value = cursorY
+  cursorLastX.value = cursorX
+  cursorMaxX.value = maxX
+  cursorMaxY.value = maxY
+}
+
+// 更新内容字符串
+const updateContentStrings = (lineContent: string, cursorX: number): void => {
+  if (startStr.value !== '') {
+    const newStartStr = lineContent.substring(0, cursorStartX.value)
+    if (newStartStr !== startStr.value) {
+      cursorStartX.value = cursorX
+      startStr.value = lineContent.substring(0, cursorX)
+    }
+  } else {
+    beginStr.value = lineContent.substring(0, cursorStartX.value)
+  }
+}
+
+// 更新终端内容
+const updateTerminalContent = (lineContent: string, contentCursorX: number): void => {
+  terminalState.value.content = substrWidth(lineContent, cursorStartX.value)
+  terminalState.value.beforeCursor = substrWidth(lineContent, cursorStartX.value, contentCursorX)
+}
+
+// 更新终端状态对象
+const updateTerminalStateObject = (cursorX: number, cursorY: number, isCrossRow: boolean): void => {
+  terminalState.value.cursorPosition = { col: cursorX, row: cursorY }
+  terminalState.value.contentCrossRowStatus = isCrossRow
+}
+
+// 发送终端状态到服务器
+const sendTerminalStateToServer = async (): Promise<void> => {
+  try {
+    await api.recordTerminalState({
+      id: connectionId.value,
+      state: {
+        cursorPosition: {
+          row: terminalState.value.cursorPosition.row,
+          col: terminalState.value.cursorPosition.col
+        },
+        beforeCursor: terminalState.value.beforeCursor,
+        content: terminalState.value.content // 修复了原代码中的 "const" 错误
+      }
+    })
+  } catch (err) {
+    console.error('发送终端状态时出错:', err)
   }
 }
 const setupTerminalInput = () => {
@@ -1209,6 +1306,7 @@ const setupTerminalInput = () => {
       startStr.value = beginStr.value
     }
     if (data === '\t') {
+      // console.log(JSON.stringify(data), 'datttt')
       // sendData(data)
       const cmd = JSON.parse(JSON.stringify(terminalState.value.content))
       selectFlag.value = true
@@ -1228,16 +1326,36 @@ const setupTerminalInput = () => {
       if (suggestions.value.length) {
         suggestions.value = []
         activeSuggestion.value = 0
-        nextTick(() => {})
-        return // 如果有推荐界面，只清除推荐界面，不发送Ctrl+C
+        nextTick(() => {
+          console.log('Ctrl+C: 推荐界面已清除')
+        })
       }
+      // 阻止本轮 queryCommand 重新触发
+      selectFlag.value = true
+      // 无论是否存在推荐界面，都继续将 Ctrl+C 发送给终端
+      sendData(data)
+    } else if (data === '\x0c') {
+      // Ctrl+L 清屏
+      if (suggestions.value.length) {
+        // 清除推荐界面
+        suggestions.value = []
+        activeSuggestion.value = 0
+        nextTick(() => {
+          console.log('Ctrl+L: 推荐界面已清除')
+        })
+      }
+      // 阻止本轮 queryCommand 重新触发
+      selectFlag.value = true
+      // 将 Ctrl+L 发送给终端
       sendData(data)
     } else if (data === '\x1b') {
       // ESC键 - 取消推荐界面
       if (suggestions.value.length) {
         suggestions.value = []
         activeSuggestion.value = 0
-        nextTick(() => {})
+        nextTick(() => {
+          console.log('ESC: 推荐界面已清除')
+        })
         return // 如果有推荐界面，只清除推荐界面，不发送ESC
       } else {
         sendData(data)
@@ -1413,6 +1531,7 @@ const handleServerOutput = (response: MarkedResponse) => {
     data = lastLine
     cusWrite?.(data)
   } else if (response.marker === 'Chaterm:save' || response.marker === 'Chaterm:history' || response.marker === 'Chaterm:pass') {
+    console.log('跳过：', response.marker)
   } else if (response.marker === 'Chaterm:[A') {
     // 跳过命令
     if (data.indexOf('Chaterm:vim') !== -1) {
@@ -1442,6 +1561,23 @@ const handleServerOutput = (response: MarkedResponse) => {
     }
 
     currentCwdStore.setKeyValue(props.connectData.ip, currentCwd)
+    console.log(`${props.connectData.ip} current working directory:`, currentCwd)
+  } else if (response.marker === 'Chaterm:command') {
+    const cleanOutput = stripAnsi(data).trim()
+    if (cleanOutput) {
+      const lines = cleanOutput.split(/\r?\n/)
+      const outputLines = lines.slice(1, -1)
+      const finalOutput = outputLines.join('\n').trim()
+      if (finalOutput) {
+        nextTick(() => {
+          eventBus.emit('chatToAi', finalOutput)
+          setTimeout(() => {
+            eventBus.emit('triggerAiSend')
+          }, 100)
+        })
+      }
+    }
+    cusWrite?.(data)
   } else {
     cusWrite?.(data)
   }
@@ -1614,6 +1750,7 @@ const highlightSyntax = (allData) => {
     }
   }
 }
+
 type ResultItem = { type: string; content: string; startIndex: number; endIndex?: number }
 // 对 非命令字符串进行处理
 const processString = (str: string): ResultItem[] => {
@@ -1823,6 +1960,7 @@ const insertCommand = async (cmd) => {
 
 // 输入内容
 const handleKeyInput = (e) => {
+  console.log(e)
   enterPress.value = false
   specialCode.value = false
   currentLineStartY.value = (terminal.value as any)?._core.buffer.y
@@ -1840,11 +1978,7 @@ const handleKeyInput = (e) => {
     cursorX.value < cursorStartX.value ? (cursorStartX.value = cursorX.value) : ''
   }
 
-  if (e.key == '\u0006') {
-    openSearch()
-  }
-
-  if (ev.keyCode === 13 || ev.key === '\u0003') {
+  if (ev.keyCode === 13 || e.key === '\u0003') {
     enterPress.value = true
     selectFlag.value = true
     // Enter
@@ -1854,9 +1988,6 @@ const handleKeyInput = (e) => {
 
     suggestions.value = []
     activeSuggestion.value = 0
-    terminalState.value.contentCrossRowStatus = false
-    terminalState.value.contentCrossStartLine = 0
-    terminalState.value.contentCrossRowLines = 0
     terminalState.value.contentCrossRowStatus = false
     terminalState.value.contentCrossStartLine = 0
     terminalState.value.contentCrossRowLines = 0
