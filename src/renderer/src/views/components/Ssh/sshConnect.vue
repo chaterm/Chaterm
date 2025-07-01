@@ -221,8 +221,60 @@ let dbConfigStash: {
 } = {}
 let config
 onMounted(async () => {
+  const debouncedUpdateTerminalState = (data) => {
+    if (updateTimeout) {
+      clearTimeout(updateTimeout)
+    }
+    updateTimeout = setTimeout(() => {
+      if (!userInputFlag.value && !isEditorMode.value) {
+        if (JSON.stringify(data).endsWith(startStr.value)) {
+          updateTerminalState(true)
+        } else {
+          updateTerminalState(false)
+        }
+      }
+
+      // 走高亮的条件
+      let highLightFlag: boolean = true
+      // 条件1, 如果beforeCursor为空 content有内容 则代表enter键，不能走highlight
+      if ((!terminalState.value.beforeCursor.length && terminalState.value.content.length) || enterPress.value || specialCode.value) {
+        highLightFlag = false
+      }
+      // 条件2, 进入编辑模式下，不走highlight
+      if (isEditorMode.value) {
+        highLightFlag = false
+      }
+      // 条件3, 高亮触发的写入，不走highlight
+      if (userInputFlag.value) {
+        highLightFlag = false
+      }
+      // 条件4, 服务器返回包含命令提示符，不走highlight，避免渲染异常
+      // TODO: 条件5, 进入子交互模式 不开启高亮
+      //TODO: 服务器返回  xxx\r\n,   \r\n{startStr.value}xxx 时特殊处理
+      // if (data.indexOf(startStr.value) !== -1 && startStr.value != '') {
+      //   highLightFlag = false
+      // }
+      if (
+        stripAnsi(data)
+          .replace(/[\x00-\x09\x0B\x0C\x0E-\x1F\x7F]/g, '')
+          .endsWith(startStr.value) &&
+        startStr.value != ''
+      ) {
+        highLightFlag = false
+      }
+      if (highLightFlag) {
+        if (config.highlightStatus == 1) {
+          highlightSyntax(terminalState.value)
+        }
+        if (!selectFlag.value) {
+          queryCommand()
+        }
+      }
+      updateTimeout = null
+    }, 50) // 100ms 延迟，可根据需要调整
+  }
+
   config = await serviceUserConfig.getConfig()
-  console.log(config, 'config')
   dbConfigStash = config
   queryCommandFlag.value = config.autoCompleteStatus == 1
   const termInstance = markRaw(
@@ -307,7 +359,6 @@ onMounted(async () => {
   const originalWrite = termInstance.write.bind(termInstance)
   // termInstance.write
   cusWrite = function (data: string, options?: { isUserCall?: boolean }): void {
-    console.log(JSON.stringify(data), 'data')
     userInputFlag.value = options?.isUserCall ?? false
     const originalRequestRefresh = renderService.refreshRows.bind(renderService)
     const originalTriggerRedraw = renderService._renderDebouncer.refresh.bind(renderService._renderDebouncer)
@@ -321,52 +372,7 @@ onMounted(async () => {
       inputHandler._originalParse = inputHandler.parse
       inputHandler.parse = function (data: string) {
         inputHandler._originalParse.call(this, data)
-        if (!userInputFlag.value && !isEditorMode.value) {
-          if (JSON.stringify(data).endsWith(startStr.value)) {
-            updateTerminalState(true)
-          } else {
-            updateTerminalState(false)
-          }
-        }
-
-        // 走高亮的条件
-        let highLightFlag: boolean = true
-        // 条件1, 如果beforeCursor为空 content有内容 则代表enter键，不能走highlight
-        if (!terminalState.value.beforeCursor.length && terminalState.value.content.length && enterPress.value) {
-          highLightFlag = false
-        }
-        // 条件2, 进入编辑模式下，不走highlight
-        if (isEditorMode.value) {
-          highLightFlag = false
-        }
-        // 条件3, 高亮触发的写入，不走highlight
-        if (userInputFlag.value) {
-          highLightFlag = false
-        }
-        // 条件4, 服务器返回包含命令提示符，不走highlight，避免渲染异常
-        // TODO: 条件5, 进入子交互模式 不开启高亮
-        //TODO: 服务器返回  xxx\r\n,   \r\n{startStr.value}xxx 时特殊处理
-        // if (data.indexOf(startStr.value) !== -1 && startStr.value != '') {
-        //   highLightFlag = false
-        // }
-        if (
-          stripAnsi(data)
-            .replace(/[\x00-\x09\x0B\x0C\x0E-\x1F\x7F]/g, '')
-            .endsWith(startStr.value) &&
-          startStr.value != ''
-        ) {
-          highLightFlag = false
-        }
-        if (highLightFlag) {
-          if (config.highlightStatus == 1) {
-            setTimeout(() => {
-              highlightSyntax(terminalState.value)
-            }, 20)
-          }
-          if (!selectFlag.value) {
-            queryCommand()
-          }
-        }
+        debouncedUpdateTerminalState(data)
       }
       inputHandler._isWrapped = true
     }
@@ -619,11 +625,8 @@ const handleResize = debounce(() => {
         if (isConnected.value) {
           resizeSSH(cols, rows)
         }
-        console.log(`Terminal resized to: ${cols}x${rows}`)
       }
-    } catch (error) {
-      console.error('Failed to resize terminal:', error)
-    }
+    } catch (error) {}
   }
 }, 100)
 
@@ -862,7 +865,11 @@ const terminalState = ref({
     row: 0,
     col: 0
   },
-  beforeCursor: ''
+  beforeCursor: '',
+  contentCrossRowStatus: false,
+  contentCrossRowLines: 0,
+  contentCrossStartLine: 0,
+  contentCurrentCursorCrossRowLines: 0
 })
 
 const substrWidth = (str: string, startWidth: number, endWidth?: number): string => {
@@ -932,7 +939,6 @@ const substrWidth = (str: string, startWidth: number, endWidth?: number): string
       i++
     }
   }
-  console.log(startStr.value, 'substrWidthFNstartStr.value')
   if (startStr.value != '') {
     startStr.value = str.substring(0, startIndex)
   } else {
@@ -967,12 +973,93 @@ const setupTerminalStateTracking = () => {
   // })
 }
 // 更新终端状态
+
+const cursorLastY = ref(0)
+const cursorLastX = ref(0)
+let cursorEndY = ref(0)
+const cursorMaxY = ref(0)
+const cursorMaxX = ref(0)
+let updateTimeout: NodeJS.Timeout | null = null
+
+// 寻找输入行
+const getLogicalInputStartLine = () => {
+  const bufferService = (terminal as any).value._core._bufferService
+  const buffer = bufferService.buffer
+  let y = terminal.value?.buffer.active.baseY + buffer.y
+
+  // 向上查找，直到找到第一行非 wrapped 的行
+  while (y > 0 && buffer.lines.get(y)?.isWrapped) {
+    y--
+  }
+  return y
+}
+
+// 寻找最大显示内容行(Wrapped）
+const getWrappedContentLastLineY = () => {
+  const bufferService = (terminal as any).value._core._bufferService
+  const buffer = bufferService.buffer
+  // 获取绝对位置
+  let lastY = terminal.value?.buffer.active.baseY + buffer.y
+  // 确保不会超出缓冲区范围
+  const maxLineIndex = buffer.lines.length - 1
+  while (lastY < maxLineIndex) {
+    const nextLine = buffer.lines.get(lastY + 1)
+
+    if (!nextLine || !nextLine.isWrapped) {
+      break
+    }
+    lastY++
+  }
+  return lastY
+}
+
+// 更新终端状态
 const updateTerminalState = (quickInit: boolean) => {
   if (!terminal.value) return
   try {
     const buffer = (terminal as any).value._core._bufferService.buffer
     const cursorX = buffer.x
+    let contentCursorX = cursorX
     const cursorY = buffer.y
+    const maxX = (terminal as any).value._core.cols - 1
+    const maxY = (terminal as any).value._core.rows - 1
+    let parseStrTag = true
+
+    // resize不触发解析
+    if (cursorMaxX.value !== 0 && cursorMaxY.value !== 0 && (cursorMaxX.value !== maxX || cursorMaxY.value !== maxY)) {
+      parseStrTag = false
+    }
+
+    // 最新的endY与上次对比, 如果都是Wrapped, 则出现currentCursorEndY < cursorEndY则需要刷新
+    // 如果光标变动,Wrapped发生了变化, 则通过X判断, 判断X是否发生改变, X未发生改变则为非光标变动引起的, 此时需要刷新
+    const currentCursorEndY = getWrappedContentLastLineY() - terminal.value?.buffer.active.baseY // 最新Wrapped的行, //如果光标变动Wrapped发生了变化,需要其他条件辅助
+    let refreshCrossRow = false
+    if (currentCursorEndY < cursorEndY.value && currentCursorEndY != 0 && cursorLastX.value === cursorX) {
+      refreshCrossRow = true
+    }
+    cursorEndY.value = currentCursorEndY // 更新最新endY
+
+    // 当前行
+    const currentLine = buffer.lines.get(terminal.value?.buffer.active.baseY + buffer.y)
+
+    // 跨行处理
+    // 判断当前行是否换行
+
+    let isCrossRow = currentLine.isWrapped
+    // 如果调整光标, Wrapped发生了变化，通过当前Y和最大显示Y判断
+    if (!currentLine.isWrapped && cursorY !== cursorEndY.value) {
+      isCrossRow = true
+    }
+
+    // 如果触发了换行, 光标变动导致所有行的Wrapped 变成了False, 并且是同行操作, 则依赖之前的status
+    if (terminalState.value.contentCrossRowStatus && cursorY === cursorEndY.value) {
+      isCrossRow = true
+    }
+
+    // 如果部分行Wrapped值发生了变化, 依据当前行的Wrapped值
+    if (currentLine.isWrapped && cursorY === cursorEndY.value) {
+      isCrossRow = true
+    }
 
     // 当前行开始输入时的光标的位置
     if (cursorStartX.value === 0 || quickInit) {
@@ -980,11 +1067,69 @@ const updateTerminalState = (quickInit: boolean) => {
     } else {
       cursorStartX.value = Math.min(cursorStartX.value, cursorX)
     }
-    const lineContent = buffer.lines.get(terminal.value?.buffer.active.baseY + buffer.y).translateToString(true)
-    terminalState.value.content = substrWidth(lineContent, cursorStartX.value)
-    terminalState.value.beforeCursor = substrWidth(lineContent, cursorStartX.value, cursorX)
-    terminalState.value.cursorPosition = { col: cursorX, row: cursorY }
 
+    let crossRowLines = terminalState.value.contentCrossRowLines
+    let crossStartLine = terminalState.value.contentCrossStartLine
+    let currentCursorCrossRowLines = terminalState.value.contentCurrentCursorCrossRowLines
+
+    let lineContent = currentLine.translateToString(true)
+
+    if (isCrossRow) {
+      const currentBufferLine = terminal.value?.buffer.active.baseY
+      // 初次换行更新crossStartLine
+      if ((crossStartLine === 0 && crossRowLines === 0) || (!parseStrTag && cursorY !== cursorLastY.value)) {
+        crossStartLine = getLogicalInputStartLine() - currentBufferLine
+      }
+      // 终端刷新触发更新crossStartLine
+      if (refreshCrossRow) {
+        crossStartLine = cursorY - currentCursorCrossRowLines + 1
+      }
+      let fullContent = ''
+      let totalCharacterPosition = 0
+
+      // 获取所有跨行内容
+      // 获取跨越行数（基于当前光标位置）// 当前行 - start 行
+      if (crossRowLines === 0 || cursorY > cursorLastY.value || (!parseStrTag && cursorY !== cursorLastY.value)) {
+        crossRowLines = cursorEndY.value - crossStartLine + 1
+      }
+      // 当前光标所在行的跨行
+      currentCursorCrossRowLines = cursorY - crossStartLine + 1
+
+      for (let i = 0; i < currentCursorCrossRowLines; i++) {
+        const lineIndex = currentBufferLine + crossStartLine + i
+        const lineContent = buffer.lines.get(lineIndex).translateToString(true)
+        if (i === currentCursorCrossRowLines - 1) {
+          totalCharacterPosition += cursorX
+        } else {
+          totalCharacterPosition += lineContent.length
+        }
+      }
+      for (let i = 0; i < crossRowLines; i++) {
+        const lineIndex = currentBufferLine + crossStartLine + i
+        const lineContent = buffer.lines.get(lineIndex).translateToString(true)
+        fullContent += lineContent
+      }
+      lineContent = fullContent
+      contentCursorX = totalCharacterPosition
+      // 换行后，cursorX会小于startStr,需要重新负责
+      cursorStartX.value = startStr.value.length
+    }
+
+    // 更新记录数据
+    cursorLastY.value = cursorY
+    cursorLastX.value = cursorX
+    cursorMaxX.value = maxX
+    cursorMaxY.value = maxY
+
+    if (parseStrTag) {
+      terminalState.value.content = substrWidth(lineContent, cursorStartX.value)
+      terminalState.value.beforeCursor = substrWidth(lineContent, cursorStartX.value, contentCursorX)
+    }
+    terminalState.value.cursorPosition = { col: cursorX, row: cursorY }
+    terminalState.value.contentCrossRowStatus = isCrossRow
+    terminalState.value.contentCrossRowLines = crossRowLines
+    terminalState.value.contentCrossStartLine = crossStartLine
+    terminalState.value.contentCurrentCursorCrossRowLines = currentCursorCrossRowLines
     api
       .recordTerminalState({
         id: connectionId.value,
@@ -1015,7 +1160,6 @@ const setupTerminalInput = () => {
       startStr.value = beginStr.value
     }
     if (data === '\t') {
-      // console.log(JSON.stringify(data), 'datttt')
       // sendData(data)
       const cmd = JSON.parse(JSON.stringify(terminalState.value.content))
       selectFlag.value = true
@@ -1035,9 +1179,7 @@ const setupTerminalInput = () => {
       if (suggestions.value.length) {
         suggestions.value = []
         activeSuggestion.value = 0
-        nextTick(() => {
-          console.log('Ctrl+C: 推荐界面已清除')
-        })
+        nextTick(() => {})
         return // 如果有推荐界面，只清除推荐界面，不发送Ctrl+C
       }
       sendData(data)
@@ -1046,9 +1188,7 @@ const setupTerminalInput = () => {
       if (suggestions.value.length) {
         suggestions.value = []
         activeSuggestion.value = 0
-        nextTick(() => {
-          console.log('ESC: 推荐界面已清除')
-        })
+        nextTick(() => {})
         return // 如果有推荐界面，只清除推荐界面，不发送ESC
       } else {
         sendData(data)
@@ -1224,7 +1364,6 @@ const handleServerOutput = (response: MarkedResponse) => {
     data = lastLine
     cusWrite?.(data)
   } else if (response.marker === 'Chaterm:save' || response.marker === 'Chaterm:history' || response.marker === 'Chaterm:pass') {
-    console.log('跳过：', response.marker)
   } else if (response.marker === 'Chaterm:[A') {
     // 跳过命令
     if (data.indexOf('Chaterm:vim') !== -1) {
@@ -1254,7 +1393,6 @@ const handleServerOutput = (response: MarkedResponse) => {
     }
 
     currentCwdStore.setKeyValue(props.connectData.ip, currentCwd)
-    console.log(`${props.connectData.ip} current working directory:`, currentCwd)
   } else {
     cusWrite?.(data)
   }
@@ -1279,7 +1417,7 @@ const startStr = ref<string>('')
 
 const highlightSyntax = (allData) => {
   // 所有内容 光标前内容
-  const { content, beforeCursor } = allData
+  const { content, beforeCursor, cursorPosition } = allData
   //命令
   let command = ''
   //参数
@@ -1310,38 +1448,38 @@ const highlightSyntax = (allData) => {
 
   activeMarkers.value = []
   // const startY = currentLineStartY.value
-  const startY = (terminal.value as any)?._core.buffer.y
+  let startY = (terminal.value as any)?._core.buffer.y
+  if (allData.contentCrossRowStatus) {
+    startY = allData.contentCrossStartLine
+  }
   const isValidCommand = commands.value?.includes(command)
   // 高亮命令
-  // console.log('000',content,allData,'==')
   if (command) {
     const commandMarker = terminal.value?.registerMarker(startY)
     activeMarkers.value.push(commandMarker)
-    // console.log(11,activeMarkers.value,startY)
     // cusWrite?.('\u001b[H\u001b[J[root@VM-12-6-centos ~]# s', {
     //   isUserCall: true
     // })
     cusWrite?.(`\x1b[${startY + 1};${cursorStartX.value + 1}H`, {
       isUserCall: true
     })
-
     const colorCode = isValidCommand ? '38;2;24;144;255' : '31'
-    // console.log(22)
     cusWrite?.(`\x1b[${colorCode}m${command}\x1b[0m`, {
       isUserCall: true
     })
-
     setTimeout(() => {
-      cusWrite?.(`\x1b[${startY + 1};${currentCursorX + 1}H`, {
+      cusWrite?.(`\x1b[${cursorPosition.row + 1};${cursorPosition.col + 1}H`, {
         isUserCall: true
       })
     })
   }
   if (!arg) return
   // 高亮参数
-  if (arg.includes("'") || arg.includes('"') || arg.includes('(')) {
+  if (arg.includes("'") || arg.includes('"') || arg.includes('(') || arg.includes('{') || arg.includes('[')) {
     // 带闭合符号的输入
     const afterCommandArr: any = processString(arg)
+    console.log(afterCommandArr, 'afterCommandArr')
+    console.log(arg, 'arg')
     let unMatchFlag = false
     for (let i = 0; i < afterCommandArr.length; i++) {
       if (afterCommandArr[i].type == 'unmatched') {
@@ -1353,7 +1491,7 @@ const highlightSyntax = (allData) => {
           isUserCall: true
         })
 
-        cusWrite?.(`\x1b[${cursorY.value + 1};${currentCursorX + 1}H`, {
+        cusWrite?.(`\x1b[${cursorPosition.row + 1};${cursorPosition.col + 1}H`, {
           isUserCall: true
         })
         unMatchFlag = true
@@ -1361,6 +1499,7 @@ const highlightSyntax = (allData) => {
     }
     if (!unMatchFlag) {
       for (let i = 0; i < afterCommandArr.length; i++) {
+        // debugger
         if (afterCommandArr[i].content == ' ') {
           cusWrite?.(`\x1b[${startY + 1};${cursorStartX.value + command.length + 1 + afterCommandArr[i].startIndex}H`, {
             isUserCall: true
@@ -1369,13 +1508,14 @@ const highlightSyntax = (allData) => {
             isUserCall: true
           })
         } else {
-          cusWrite?.(`\x1b[${startY + 1};${cursorStartX.value + command.length + 1 + afterCommandArr[i].startIndex}H`, {
-            isUserCall: true
-          })
+          // cusWrite?.(`\x1b[${startY + 1};${cursorStartX.value + command.length + 1 + afterCommandArr[i].startIndex}H`, {
+          //   isUserCall: true
+          // })
           const colorCode = afterCommandArr[i].type == 'matched' ? '38;2;250;173;20' : '38;2;126;193;255'
           cusWrite?.(`\x1b[${colorCode}m${afterCommandArr[i].content}\x1b[0m`, {
             isUserCall: true
           })
+          // debugger
         }
       }
     }
@@ -1388,7 +1528,10 @@ const highlightSyntax = (allData) => {
 
       cusWrite?.(`\x1b[38;2;126;193;255m${arg}\x1b[0m`, { isUserCall: true })
 
-      cusWrite?.(`\x1b[${cursorY.value + 1};${currentCursorX + 1}H`, {
+      // cusWrite?.(`\x1b[${cursorY.value + 1};${currentCursorX + 1}H`, {
+      //   isUserCall: true
+      // })
+      cusWrite?.(`\x1b[${cursorPosition.row + 1};${cursorPosition.col + 1}H`, {
         isUserCall: true
       })
     } else if (currentCursorX < cursorStartX.value + command.length) {
@@ -1400,7 +1543,10 @@ const highlightSyntax = (allData) => {
 
       cusWrite?.(`\x1b[38;2;126;193;255m${arg}\x1b[0m`, { isUserCall: true })
 
-      cusWrite?.(`\x1b[${cursorY.value + 1};${currentCursorX + 1}H`, {
+      // cusWrite?.(`\x1b[${cursorY.value + 1};${currentCursorX + 1}H`, {
+      //   isUserCall: true
+      // })
+      cusWrite?.(`\x1b[${cursorPosition.row + 1};${cursorPosition.col + 1}H`, {
         isUserCall: true
       })
     } else {
@@ -1412,129 +1558,167 @@ const highlightSyntax = (allData) => {
 
       cusWrite?.(`\x1b[38;2;126;193;255m${arg}\x1b[0m`, { isUserCall: true })
 
-      cusWrite?.(`\x1b[${cursorY.value + 1};${currentCursorX}H`, { isUserCall: true })
+      // cusWrite?.(`\x1b[${cursorY.value + 1};${currentCursorX}H`, { isUserCall: true })
+      cusWrite?.(`\x1b[${cursorPosition.row + 1};${cursorPosition.col + 1}H`, {
+        isUserCall: true
+      })
     }
   }
 }
-type ResultItem = {
-  type: string
-  content: string
-  endIndex?: number
-  index?: number
-  startIndex?: number
-}
+type ResultItem = { type: string; content: string; startIndex: number; endIndex?: number }
 // 对 非命令字符串进行处理
-const processString = (str) => {
-  const asymmetricClosing = [')', '}', ']']
-  const symmetric = ['"', "'"]
-  const opening = ['(', '{', '[']
-  const pairs = {
-    ')': '(',
-    '}': '{',
-    ']': '[',
-    '"': '"',
-    "'": "'"
-  }
-  const stack = [] as Array<{
-    symbol: any
-    index?: number
-  }>
-  const result: ResultItem[] = [] // 明确
-  let lastIndex = -1 // 上一个处理的字符位置
-  // let lastType = ''
-  for (let i = 0; i < str.length; i++) {
-    const c = str[i]
-    if (asymmetricClosing.includes(c)) {
-      if (stack.length > 0 && stack[stack.length - 1].symbol === pairs[c]) {
-        const item: any = stack.pop()
-        const startIndex = item.index
-        if (lastIndex < startIndex - 1) {
-          result.push({
-            type: 'afterMatched',
-            content: str.slice(lastIndex + 1, startIndex),
-            startIndex: lastIndex + 1
-          })
+const processString = (str: string): ResultItem[] => {
+  const result: ResultItem[] = []
+  let i = 0
+
+  while (i < str.length) {
+    // 1. 处理引号整体
+    if (str[i] === '"' || str[i] === "'") {
+      const quote = str[i]
+      let j = i + 1
+
+      // 查找匹配的闭引号
+      while (j < str.length && str[j] !== quote) {
+        // 跳过转义引号
+        if (str[j] === '\\' && str[j + 1] === quote) {
+          j += 2
+        } else {
+          j++
         }
+      }
+
+      if (j < str.length) {
+        // 找到匹配的闭引号
         result.push({
           type: 'matched',
-          startIndex,
-          endIndex: i,
-          content: pairs[c] + str.slice(startIndex + 1, i) + c
+          startIndex: i,
+          endIndex: j,
+          content: str.slice(i, j + 1)
         })
-        lastIndex = i
-        // lastType = 'matched'
+        i = j + 1
       } else {
-        if (lastIndex < i - 1) {
-          result.push({
-            type: 'afterMatched',
-            content: str.slice(lastIndex + 1, i),
-            startIndex: i + 1
-          })
-        }
-        result.push({ type: 'unmatched', index: i, content: c })
-        lastIndex = i
-        // lastType = 'unmatched'
-      }
-    } else if (symmetric.includes(c)) {
-      if (stack.length > 0 && stack[stack.length - 1].symbol === c) {
-        const item: any = stack.pop()
-        const startIndex = item.index
-        if (lastIndex < startIndex - 1) {
-          result.push({
-            type: 'afterMatched',
-            content: str.slice(lastIndex + 1, startIndex),
-            startIndex: i + 1
-          })
-        }
+        // 未找到匹配的闭引号，将开引号作为未匹配处理
         result.push({
-          type: 'matched',
-          startIndex,
-          endIndex: i,
-          content: pairs[c] + str.slice(startIndex + 1, i) + c
+          type: 'unmatched',
+          content: str[i],
+          startIndex: i
         })
-        lastIndex = i
-        // lastType = 'matched'
-      } else {
-        if (lastIndex < i - 1) {
-          result.push({
-            type: 'afterMatched',
-            content: str.slice(lastIndex + 1, i),
-            startIndex: lastIndex + 1
-          })
-        }
-        stack.push({ symbol: c, index: i })
-        lastIndex = i // 更新 lastIndex，即使是未匹配的符号
+        i++
       }
-    } else if (opening.includes(c)) {
-      if (lastIndex < i - 1) {
-        result.push({
-          type: 'afterMatched',
-          content: str.slice(lastIndex + 1, i),
-          startIndex: lastIndex + 1
-        })
-      }
-      stack.push({ symbol: c, index: i })
-      lastIndex = i // 更新 lastIndex
+      continue
     }
-  }
-  // 处理末尾文本
-  if (lastIndex < str.length - 1) {
-    result.push({
-      type: 'afterMatched',
-      content: str.slice(lastIndex + 1),
-      startIndex: lastIndex + 1
-    })
+
+    // 2. 处理 {{...}} 嵌套
+    if (str[i] === '{' && str[i + 1] === '{') {
+      let depth = 1
+      let j = i + 2
+
+      // 查找匹配的闭合括号
+      while (j < str.length) {
+        if (str[j] === '{' && str[j + 1] === '{') {
+          depth++
+          j++
+        } else if (str[j] === '}' && str[j + 1] === '}') {
+          depth--
+          if (depth === 0) break
+          j++
+        }
+        j++
+      }
+
+      if (depth === 0 && j < str.length) {
+        // 找到匹配的闭合括号
+        result.push({
+          type: 'matched',
+          startIndex: i,
+          endIndex: j + 1,
+          content: str.slice(i, j + 2)
+        })
+        i = j + 2
+      } else {
+        // 未找到匹配的闭合括号，将开括号作为未匹配处理
+        result.push({
+          type: 'unmatched',
+          content: str[i],
+          startIndex: i
+        })
+        i++
+      }
+      continue
+    }
+
+    // 3. 处理单字符闭合符号 {} [] ()
+    if (str[i] === '{' || str[i] === '[' || str[i] === '(') {
+      const openChar = str[i]
+      const closeChar = openChar === '{' ? '}' : openChar === '[' ? ']' : ')'
+      let depth = 1
+      let j = i + 1
+
+      // 查找匹配的闭合符号
+      while (j < str.length) {
+        if (str[j] === openChar) {
+          depth++
+        } else if (str[j] === closeChar) {
+          depth--
+          if (depth === 0) break
+        }
+        j++
+      }
+
+      if (depth === 0 && j < str.length) {
+        // 找到匹配的闭合符号
+        result.push({
+          type: 'matched',
+          startIndex: i,
+          endIndex: j,
+          content: str.slice(i, j + 1)
+        })
+        i = j + 1
+      } else {
+        // 未找到匹配的闭合符号，将开符号作为未匹配处理
+        result.push({
+          type: 'unmatched',
+          content: str[i],
+          startIndex: i
+        })
+        i++
+      }
+      continue
+    }
+
+    // 4. 普通字符处理
+    let start = i
+    while (
+      i < str.length &&
+      str[i] !== '"' &&
+      str[i] !== "'" &&
+      !(str[i] === '{' && str[i + 1] === '{') &&
+      str[i] !== '{' &&
+      str[i] !== '[' &&
+      str[i] !== '('
+    ) {
+      i++
+    }
+
+    if (start < i) {
+      result.push({
+        type: 'afterMatched',
+        content: str.slice(start, i),
+        startIndex: start
+      })
+    }
+
+    // 防止无限循环的安全检查
+    if (i === start) {
+      result.push({
+        type: 'afterMatched',
+        content: str[i],
+        startIndex: i
+      })
+      i++
+    }
   }
 
-  // 处理未匹配的开符号
-  while (stack.length > 0) {
-    const item: any = stack.pop()
-    result.push({
-      type: 'unmatched',
-      index: item.index,
-      content: item.symbol
-    })
-  }
   return result
 }
 const selectSuggestion = (suggestion: CommandSuggestion) => {
@@ -1590,7 +1774,6 @@ const insertCommand = async (cmd) => {
 
 // 输入内容
 const handleKeyInput = (e) => {
-  console.log(e)
   enterPress.value = false
   specialCode.value = false
   currentLineStartY.value = (terminal.value as any)?._core.buffer.y
@@ -1609,11 +1792,10 @@ const handleKeyInput = (e) => {
   }
 
   if (e.key == '\u0006') {
-    console.log('ctrl+f--------------------')
     openSearch()
   }
 
-  if (ev.keyCode === 13) {
+  if (ev.keyCode === 13 || ev.key === '\u0003') {
     enterPress.value = true
     selectFlag.value = true
     // Enter
@@ -1623,6 +1805,9 @@ const handleKeyInput = (e) => {
 
     suggestions.value = []
     activeSuggestion.value = 0
+    terminalState.value.contentCrossRowStatus = false
+    terminalState.value.contentCrossStartLine = 0
+    terminalState.value.contentCrossRowLines = 0
     insertCommand(terminalState.value.content)
   } else if (ev.keyCode === 8) {
     // 删除
@@ -1636,6 +1821,9 @@ const handleKeyInput = (e) => {
     // 左箭头
     stashLine.value = JSON.parse(JSON.stringify(currentLine.value))
     specialCode.value = true
+    if (suggestions.value.length) {
+      specialCode.value = false
+    }
     // this.initList()
   } else if (ev.keyCode == 9) {
     // selectFlag.value = true
