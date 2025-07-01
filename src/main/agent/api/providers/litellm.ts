@@ -17,10 +17,7 @@ export class LiteLlmHandler implements ApiHandler {
     })
   }
 
-  async calculateCost(
-    prompt_tokens: number,
-    completion_tokens: number
-  ): Promise<number | undefined> {
+  async calculateCost(prompt_tokens: number, completion_tokens: number): Promise<number | undefined> {
     // Reference: https://github.com/BerriAI/litellm/blob/122ee634f434014267af104814022af1d9a0882f/litellm/proxy/spend_tracking/spend_management_endpoints.py#L1473
     const modelId = this.options.liteLlmModelId || liteLlmDefaultModelId
     try {
@@ -63,25 +60,19 @@ export class LiteLlmHandler implements ApiHandler {
     }
   }
 
-  async *createMessage(
-    systemPrompt: string,
-    messages: Anthropic.Messages.MessageParam[]
-  ): ApiStream {
+  async *createMessage(systemPrompt: string, messages: Anthropic.Messages.MessageParam[]): ApiStream {
     const formattedMessages = convertToOpenAiMessages(messages)
     const systemMessage: OpenAI.Chat.ChatCompletionSystemMessageParam = {
       role: 'system',
       content: systemPrompt
     }
     const modelId = this.options.liteLlmModelId || liteLlmDefaultModelId
-    const isOminiModel =
-      modelId.includes('o1-mini') || modelId.includes('o3-mini') || modelId.includes('o4-mini')
+    const isOminiModel = modelId.includes('o1-mini') || modelId.includes('o3-mini') || modelId.includes('o4-mini')
 
     // Configuration for extended thinking
     const budgetTokens = this.options.thinkingBudgetTokens || 0
     const reasoningOn = budgetTokens !== 0 ? true : false
-    const thinkingConfig = reasoningOn
-      ? { type: 'enabled', budget_tokens: budgetTokens }
-      : undefined
+    const thinkingConfig = reasoningOn ? { type: 'enabled', budget_tokens: budgetTokens } : undefined
 
     let temperature: number | undefined = this.options.liteLlmModelInfo?.temperature ?? 0
 
@@ -90,9 +81,8 @@ export class LiteLlmHandler implements ApiHandler {
     }
 
     // Define cache control object if prompt caching is enabled
-    const cacheControl = this.options.liteLlmUsePromptCache
-      ? { cache_control: { type: 'ephemeral' } }
-      : undefined
+    // const cacheControl = this.options.liteLlmUsePromptCache ? { cache_control: { type: 'ephemeral' } } : undefined
+    const cacheControl = { cache_control: { type: 'ephemeral' as const } }
 
     // Add cache_control to system message if enabled
     const enhancedSystemMessage = {
@@ -101,10 +91,7 @@ export class LiteLlmHandler implements ApiHandler {
     }
 
     // Find the last two user messages to apply caching
-    const userMsgIndices = formattedMessages.reduce(
-      (acc, msg, index) => (msg.role === 'user' ? [...acc, index] : acc),
-      [] as number[]
-    )
+    const userMsgIndices = formattedMessages.reduce((acc, msg, index) => (msg.role === 'user' ? [...acc, index] : acc), [] as number[])
     const lastUserMsgIndex = userMsgIndices[userMsgIndices.length - 1] ?? -1
     const secondLastUserMsgIndex = userMsgIndices[userMsgIndices.length - 2] ?? -1
 
@@ -158,9 +145,7 @@ export class LiteLlmHandler implements ApiHandler {
 
       // Handle token usage information
       if (chunk.usage) {
-        const totalCost =
-          (inputCost * chunk.usage.prompt_tokens) / 1e6 +
-          (outputCost * chunk.usage.completion_tokens) / 1e6
+        const totalCost = (inputCost * chunk.usage.prompt_tokens) / 1e6 + (outputCost * chunk.usage.completion_tokens) / 1e6
 
         // Extract cache-related information if available
         // Need to use type assertion since these properties are not in the standard OpenAI types
@@ -173,8 +158,7 @@ export class LiteLlmHandler implements ApiHandler {
           prompt_cache_hit_tokens?: number
         }
 
-        const cacheWriteTokens =
-          usage.cache_creation_input_tokens || usage.prompt_cache_miss_tokens || 0
+        const cacheWriteTokens = usage.cache_creation_input_tokens || usage.prompt_cache_miss_tokens || 0
         const cacheReadTokens = usage.cache_read_input_tokens || usage.prompt_cache_hit_tokens || 0
 
         yield {

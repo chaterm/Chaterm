@@ -112,3 +112,11 @@ $ npm run build:linux
 
 在这个充满无限机遇和挑战时代，一群不同背景的DevOps小伙伴，怀揣梦想汇聚于此。利用业余时间打造了这款匠心独运的工具。
 希望它成为您提升效率、改善生活品质的可靠伙伴。同时也期待更多志同道合的朋友加入我们，携手共创美好未来！
+
+## Star History
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=chaterm/chaterm&type=Date&theme=dark" />
+  <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=chaterm/chaterm&type=Date" />
+  <img width="100%" src="https://api.star-history.com/svg?repos=chaterm/chaterm&type=Date" />
+</picture>

@@ -202,7 +202,7 @@
             size="small"
           >
             <a-select-option value="chat">Chat</a-select-option>
-            <a-select-option value="cmd">Cmd</a-select-option>
+            <a-select-option value="cmd">Command</a-select-option>
             <a-select-option value="agent">Agent</a-select-option>
           </a-select>
         </a-form-item>
