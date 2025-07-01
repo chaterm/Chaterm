@@ -1783,9 +1783,9 @@ const processString = (str: string): ResultItem[] => {
         })
         i = j + 1
       } else {
-        // 未找到匹配的闭引号，将开引号作为普通字符处理
+        // 未找到匹配的闭引号，将开引号作为未匹配处理
         result.push({
-          type: 'afterMatched',
+          type: 'unmatched',
           content: str[i],
           startIndex: i
         })
@@ -1822,9 +1822,9 @@ const processString = (str: string): ResultItem[] => {
         })
         i = j + 2
       } else {
-        // 未找到匹配的闭合括号，将开括号作为普通字符处理
+        // 未找到匹配的闭合括号，将开括号作为未匹配处理
         result.push({
-          type: 'afterMatched',
+          type: 'unmatched',
           content: str[i],
           startIndex: i
         })
@@ -1833,9 +1833,56 @@ const processString = (str: string): ResultItem[] => {
       continue
     }
 
-    // 3. 普通字符处理
+    // 3. 处理单字符闭合符号 {} [] ()
+    if (str[i] === '{' || str[i] === '[' || str[i] === '(') {
+      const openChar = str[i]
+      const closeChar = openChar === '{' ? '}' : openChar === '[' ? ']' : ')'
+      let depth = 1
+      let j = i + 1
+
+      // 查找匹配的闭合符号
+      while (j < str.length) {
+        if (str[j] === openChar) {
+          depth++
+        } else if (str[j] === closeChar) {
+          depth--
+          if (depth === 0) break
+        }
+        j++
+      }
+
+      if (depth === 0 && j < str.length) {
+        // 找到匹配的闭合符号
+        result.push({
+          type: 'matched',
+          startIndex: i,
+          endIndex: j,
+          content: str.slice(i, j + 1)
+        })
+        i = j + 1
+      } else {
+        // 未找到匹配的闭合符号，将开符号作为未匹配处理
+        result.push({
+          type: 'unmatched',
+          content: str[i],
+          startIndex: i
+        })
+        i++
+      }
+      continue
+    }
+
+    // 4. 普通字符处理
     let start = i
-    while (i < str.length && str[i] !== '"' && str[i] !== "'" && !(str[i] === '{' && str[i + 1] === '{')) {
+    while (
+      i < str.length &&
+      str[i] !== '"' &&
+      str[i] !== "'" &&
+      !(str[i] === '{' && str[i + 1] === '{') &&
+      str[i] !== '{' &&
+      str[i] !== '[' &&
+      str[i] !== '('
+    ) {
       i++
     }
 
