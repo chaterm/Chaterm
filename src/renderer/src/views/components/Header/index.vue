@@ -1,9 +1,5 @@
 <template>
-  <div
-    class="term_tab"
-    @mousedown="mousedown"
-    @dblclick="handleDoubleClick"
-  >
+  <div class="term_tab">
     <div
       class="term_tab_Info"
       :style="{ marginRight: platform.includes('darwin') ? '0px' : '140px' }"
@@ -55,37 +51,6 @@ const platform = ref<string>('')
 const deviceStore = useDeviceStore()
 const instance = getCurrentInstance()!
 const { appContext } = instance
-const isKeyDown = ref(false)
-const dinatesX = ref(0)
-const dinatesY = ref(0)
-let lastWidth: number, lastHeight: number
-
-const mousedown = (e: MouseEvent) => {
-  if (isKeyDown.value == false) {
-    lastWidth = window.outerWidth
-    lastHeight = window.outerHeight
-  }
-  isKeyDown.value = true
-  dinatesX.value = e.x
-  dinatesY.value = e.y
-  document.onmousemove = (ev) => {
-    if (isKeyDown.value) {
-      const x = ev.screenX - dinatesX.value
-      const y = ev.screenY - dinatesY.value
-      const data = {
-        appX: x,
-        appY: y,
-        width: lastWidth,
-        height: lastHeight
-      }
-      const api = window.api as any
-      api.invokeCustomAdsorption(data)
-    }
-  }
-  document.onmouseup = () => {
-    isKeyDown.value = false
-  }
-}
 
 const isLeftSidebarCollapsed = ref(true)
 const isRightSidebarCollapsed = ref(false)
@@ -107,18 +72,6 @@ const switchIcon = (dir, value) => {
 defineExpose({
   switchIcon
 })
-
-const handleDoubleClick = async () => {
-  const api = window.api as any
-  const isMaximized = await api.isMaximized()
-  if (isMaximized) {
-    api.unmaximizeWindow()
-  } else {
-    lastWidth = window.outerWidth
-    lastHeight = window.outerHeight
-    api.maximizeWindow()
-  }
-}
 
 onMounted(async () => {
   const api = window.api as any
@@ -153,7 +106,7 @@ onMounted(async () => {
   border-bottom: 1px solid var(--border-color);
 
   justify-content: space-between;
-
+  -webkit-app-region: drag;
   .term_logo_content {
     width: 18px;
     height: 18px;
