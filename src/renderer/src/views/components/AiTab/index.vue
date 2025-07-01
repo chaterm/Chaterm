@@ -268,6 +268,7 @@
               style="width: 150px"
               :options="AgentAiModelsOptions"
               show-search
+              :placeholder="$t('ai.chooseModel') || '选择模型'"
               @change="handleChatAiModelChange"
             ></a-select>
             <a-button
@@ -443,7 +444,7 @@ import {
 import { notification } from 'ant-design-vue'
 import { v4 as uuidv4 } from 'uuid'
 import eventBus from '@/utils/eventBus'
-import { getGlobalState, getSecret, updateGlobalState } from '@renderer/agent/storage/state'
+import { getGlobalState, getSecret, updateGlobalState, storeSecret } from '@renderer/agent/storage/state'
 import type { AssetInfo, ChatMessage, HistoryItem, Host, MessageContent, TaskHistoryItem } from './types'
 import { createNewMessage, formatHosts, parseMessageContent, truncateText } from './utils'
 import foldIcon from '@/assets/icons/fold.svg'
@@ -455,6 +456,7 @@ import { getassetMenu } from '@/api/asset/asset'
 import debounce from 'lodash/debounce'
 import i18n from '@/locales'
 import { ChatermMessage } from '@/types/ChatermMessage'
+import { getUser } from '@api/user/user'
 
 const { t } = i18n.global
 const MarkdownRenderer = defineAsyncComponent(() => import('@views/components/AiTab/markdownRenderer.vue'))
@@ -512,7 +514,13 @@ const props = defineProps({
   }
 })
 
-const AgentAiModelsOptions = ref([])
+// 定义AgentAiModelsOptions的类型
+interface ModelSelectOption {
+  label: string
+  value: string
+}
+
+const AgentAiModelsOptions = ref<ModelSelectOption[]>([])
 const AiTypeOptions = [
   { label: 'Chat', value: 'chat' },
   { label: 'Command', value: 'cmd' },
@@ -1058,7 +1066,7 @@ watch(
 )
 
 const handleChatAiModelChange = async () => {
-  const modelOptions = await getGlobalState('modelOptions')
+  const modelOptions = (await getGlobalState('modelOptions')) as ModelOption[]
   const selectedModel = modelOptions.find((model) => model.name === chatAiModelValue.value)
   if (selectedModel && selectedModel.apiProvider) {
     await updateGlobalState('apiProvider', selectedModel.apiProvider)
@@ -1073,6 +1081,9 @@ const handleChatAiModelChange = async () => {
       break
     case 'deepseek':
       await updateGlobalState('apiModelId', chatAiModelValue.value)
+      break
+    default:
+      await updateGlobalState('defaultModelId', chatAiModelValue.value)
       break
   }
 }
@@ -1092,8 +1103,11 @@ const initModel = async () => {
     case 'deepseek':
       chatAiModelValue.value = (await getGlobalState('apiModelId')) as string
       break
+    default:
+      chatAiModelValue.value = (await getGlobalState('defaultModelId')) as string
+      break
   }
-  const modelOptions = await getGlobalState('modelOptions')
+  const modelOptions = (await getGlobalState('modelOptions')) as ModelOption[]
   AgentAiModelsOptions.value = modelOptions
     .filter((item) => item.checked)
     .map((item) => ({
@@ -1128,7 +1142,7 @@ onMounted(async () => {
   eventBus.on('chatToAi', (text) => {
     chatInputValue.value = text
   })
-
+  await initModelOptions()
   await initModel()
   authTokenInCookie.value = localStorage.getItem('ctm-token')
   const chatId = uuidv4()
@@ -1708,7 +1722,7 @@ const scrollToBottom = () => {
   const prevBottom = chatResponse.value?.getBoundingClientRect().bottom
 
   nextTick(() => {
-    if (chatResponse.value) {
+    if (chatResponse.value && chatContainer.value && prevBottom) {
       // 获取更新后的容器底部位置
       const currentBottom = chatResponse.value.getBoundingClientRect().bottom
       // console.log('容器高度变化，直接滚动到底部', prevBottom, currentBottom)
@@ -1761,6 +1775,66 @@ const adjustScrollPosition = () => {
   } else {
     // 如果没有消息，滚动到底部
     chatContainer.value.scrollTop = chatContainer.value.scrollHeight
+  }
+}
+
+// Define interface for default models from API
+interface DefaultModel {
+  id: string
+  name?: string
+  provider?: string
+
+  [key: string]: any
+}
+
+// Define interface for model options
+interface ModelOption {
+  id: string
+  name: string
+  checked: boolean
+  type: string
+  apiProvider: string
+}
+
+const initModelOptions = async () => {
+  let modelOptions: ModelOption[]
+  try {
+    const savedModelOptions = ((await getGlobalState('modelOptions')) || []) as ModelOption[]
+    console.log('savedModelOptions', savedModelOptions)
+    if (savedModelOptions.length !== 0) {
+      return
+    }
+    let defaultModels: DefaultModel[] = []
+    await getUser({}).then((res) => {
+      console.log('res', res)
+      defaultModels = res?.data?.models || []
+      updateGlobalState('defaultBaseUrl', 'https://test-litellm.intsig.net')
+      storeSecret('defaultApiKey', res?.data?.key)
+    })
+    modelOptions = defaultModels.map((model) => ({
+      id: String(model) || '',
+      name: String(model) || '',
+      checked: true,
+      type: 'standard',
+      apiProvider: 'default'
+    }))
+
+    // 创建一个简单的可序列化对象数组
+    const serializableModelOptions = modelOptions.map((model) => ({
+      id: model.id,
+      name: model.name,
+      checked: Boolean(model.checked),
+      type: model.type || 'standard',
+      apiProvider: model.apiProvider || 'default'
+    }))
+
+    await updateGlobalState('modelOptions', serializableModelOptions)
+  } catch (error) {
+    console.error('Failed to get/save model options:', error)
+    notification.error({
+      message: 'Error',
+      description: 'Failed to get/save model options'
+    })
   }
 }
 </script>

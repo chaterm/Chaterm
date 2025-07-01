@@ -39,146 +39,42 @@
         <div class="section-header">
           <h3>{{ $t('user.apiConfiguration') }}</h3>
         </div>
+
+        <!-- OpenAI Compatible (LiteLLM) Configuration -->
         <a-card
           class="settings-section"
           :bordered="false"
         >
-          <!-- API Configuration Selection -->
+          <div class="api-provider-header">
+            <h4>OpenAI Compatible</h4>
+          </div>
+
           <div class="setting-item">
             <a-form-item
-              :label="$t('user.apiProvider')"
+              :label="$t('user.liteLlmBaseUrl')"
               :label-col="{ span: 24 }"
               :wrapper-col="{ span: 24 }"
             >
-              <a-select
-                v-model:value="apiProvider"
-                size="small"
-                :options="apiProviderOptions"
-                show-search
+              <a-input
+                v-model:value="liteLlmBaseUrl"
+                :placeholder="$t('user.liteLlmBaseUrlPh')"
               />
             </a-form-item>
           </div>
-          <div v-if="apiProvider === 'bedrock'">
-            <div class="setting-item">
-              <a-form-item
-                :label="$t('user.awsAccessKey')"
-                :label-col="{ span: 24 }"
-                :wrapper-col="{ span: 24 }"
-              >
-                <a-input
-                  v-model:value="awsAccessKey"
-                  :placeholder="$t('user.awsAccessKeyPh')"
-                />
-              </a-form-item>
-            </div>
-            <div class="setting-item">
-              <a-form-item
-                :label="$t('user.awsSecretKey')"
-                :label-col="{ span: 24 }"
-                :wrapper-col="{ span: 24 }"
-              >
-                <a-input
-                  v-model:value="awsSecretKey"
-                  :placeholder="$t('user.awsSecretKeyPh')"
-                />
-              </a-form-item>
-            </div>
-            <div class="setting-item">
-              <a-form-item
-                :label="$t('user.awsSessionToken')"
-                :label-col="{ span: 24 }"
-                :wrapper-col="{ span: 24 }"
-              >
-                <a-input
-                  v-model:value="awsSessionToken"
-                  :placeholder="$t('user.awsSessionTokenPh')"
-                />
-              </a-form-item>
-            </div>
-            <div class="setting-item">
-              <a-form-item
-                :label="$t('user.awsRegion')"
-                :label-col="{ span: 24 }"
-                :wrapper-col="{ span: 24 }"
-              >
-                <a-select
-                  v-model:value="awsRegion"
-                  size="small"
-                  :options="awsRegionOptions"
-                  :placeholder="$t('user.awsRegionPh')"
-                  show-search
-                />
-              </a-form-item>
-            </div>
-            <p class="setting-description-no-padding">
-              {{ $t('user.apiProviderDescribe') }}
-            </p>
-            <div class="setting-item">
-              <!-- AWS VPC Endpoint Checkbox -->
-              <a-checkbox v-model:checked="awsEndpointSelected">
-                {{ $t('user.awsEndpointSelected') }}
-              </a-checkbox>
 
-              <!-- AWS VPC Endpoint Input -->
-              <template v-if="awsEndpointSelected">
-                <a-input
-                  v-model:value="awsBedrockEndpoint"
-                  type="url"
-                  :placeholder="$t('user.awsBedrockEndpointPh')"
-                />
-              </template>
-            </div>
-            <div class="setting-item">
-              <!-- Cross Region Inference Checkbox -->
-              <a-checkbox v-model:checked="awsUseCrossRegionInference">
-                {{ $t('user.awsUseCrossRegionInference') }}
-              </a-checkbox>
-            </div>
+          <div class="setting-item">
+            <a-form-item
+              :label="$t('user.liteLlmApiKey')"
+              :label-col="{ span: 24 }"
+              :wrapper-col="{ span: 24 }"
+            >
+              <a-input-password
+                v-model:value="liteLlmApiKey"
+                :placeholder="$t('user.liteLlmApiKeyPh')"
+              />
+            </a-form-item>
           </div>
-          <div v-else-if="apiProvider === 'litellm'">
-            <div class="setting-item">
-              <a-form-item
-                :label="$t('user.liteLlmBaseUrl')"
-                :label-col="{ span: 24 }"
-                :wrapper-col="{ span: 24 }"
-              >
-                <a-input
-                  v-model:value="liteLlmBaseUrl"
-                  :placeholder="$t('user.liteLlmBaseUrlPh')"
-                />
-              </a-form-item>
-            </div>
-            <div class="setting-item">
-              <a-form-item
-                :label="$t('user.liteLlmApiKey')"
-                :label-col="{ span: 24 }"
-                :wrapper-col="{ span: 24 }"
-              >
-                <a-input-password
-                  v-model:value="liteLlmApiKey"
-                  :placeholder="$t('user.liteLlmApiKeyPh')"
-                />
-              </a-form-item>
-            </div>
-          </div>
-          <div v-else-if="apiProvider === 'deepseek'">
-            <div class="setting-item">
-              <a-form-item
-                :label="$t('user.deepSeekApiKey')"
-                :label-col="{ span: 24 }"
-                :wrapper-col="{ span: 24 }"
-              >
-                <a-input-password
-                  v-model:value="deepSeekApiKey"
-                  :placeholder="$t('user.deepSeekApiKeyPh')"
-                />
-                <p class="setting-description-no-padding">
-                  {{ $t('user.deepSeekApiKeyDescribe') }}
-                </p>
-              </a-form-item>
-            </div>
-          </div>
-          <!-- Model Selection -->
+
           <div class="setting-item">
             <a-form-item
               :label="$t('user.model')"
@@ -187,7 +83,7 @@
             >
               <div class="model-input-container">
                 <a-input
-                  v-model:value="apiModelId"
+                  v-model:value="liteLlmModelId"
                   size="small"
                   class="model-input"
                 />
@@ -195,15 +91,199 @@
                   <a-button
                     class="check-btn"
                     size="small"
-                    :loading="checkLoading"
-                    @click="handleCheck"
+                    :loading="checkLoadingLiteLLM"
+                    @click="() => handleCheck('litellm')"
                   >
                     Check
                   </a-button>
                   <a-button
                     class="save-btn"
                     size="small"
-                    @click="handleSave"
+                    @click="() => handleSave('litellm')"
+                  >
+                    Save
+                  </a-button>
+                </div>
+              </div>
+            </a-form-item>
+          </div>
+        </a-card>
+
+        <!-- Amazon Bedrock Configuration -->
+        <a-card
+          class="settings-section"
+          :bordered="false"
+        >
+          <div class="api-provider-header">
+            <h4>Amazon Bedrock</h4>
+          </div>
+
+          <div class="setting-item">
+            <a-form-item
+              :label="$t('user.awsAccessKey')"
+              :label-col="{ span: 24 }"
+              :wrapper-col="{ span: 24 }"
+            >
+              <a-input
+                v-model:value="awsAccessKey"
+                :placeholder="$t('user.awsAccessKeyPh')"
+              />
+            </a-form-item>
+          </div>
+
+          <div class="setting-item">
+            <a-form-item
+              :label="$t('user.awsSecretKey')"
+              :label-col="{ span: 24 }"
+              :wrapper-col="{ span: 24 }"
+            >
+              <a-input
+                v-model:value="awsSecretKey"
+                :placeholder="$t('user.awsSecretKeyPh')"
+              />
+            </a-form-item>
+          </div>
+
+          <div class="setting-item">
+            <a-form-item
+              :label="$t('user.awsSessionToken')"
+              :label-col="{ span: 24 }"
+              :wrapper-col="{ span: 24 }"
+            >
+              <a-input
+                v-model:value="awsSessionToken"
+                :placeholder="$t('user.awsSessionTokenPh')"
+              />
+            </a-form-item>
+          </div>
+
+          <div class="setting-item">
+            <a-form-item
+              :label="$t('user.awsRegion')"
+              :label-col="{ span: 24 }"
+              :wrapper-col="{ span: 24 }"
+            >
+              <a-select
+                v-model:value="awsRegion"
+                size="small"
+                :options="awsRegionOptions"
+                :placeholder="$t('user.awsRegionPh')"
+                show-search
+              />
+            </a-form-item>
+          </div>
+
+          <p class="setting-description-no-padding">
+            {{ $t('user.apiProviderDescribe') }}
+          </p>
+
+          <div class="setting-item">
+            <!-- AWS VPC Endpoint Checkbox -->
+            <a-checkbox v-model:checked="awsEndpointSelected">
+              {{ $t('user.awsEndpointSelected') }}
+            </a-checkbox>
+
+            <!-- AWS VPC Endpoint Input -->
+            <template v-if="awsEndpointSelected">
+              <a-input
+                v-model:value="awsBedrockEndpoint"
+                type="url"
+                :placeholder="$t('user.awsBedrockEndpointPh')"
+              />
+            </template>
+          </div>
+
+          <div class="setting-item">
+            <!-- Cross Region Inference Checkbox -->
+            <a-checkbox v-model:checked="awsUseCrossRegionInference">
+              {{ $t('user.awsUseCrossRegionInference') }}
+            </a-checkbox>
+          </div>
+
+          <div class="setting-item">
+            <a-form-item
+              :label="$t('user.model')"
+              :label-col="{ span: 24 }"
+              :wrapper-col="{ span: 24 }"
+            >
+              <div class="model-input-container">
+                <a-input
+                  v-model:value="awsModelId"
+                  size="small"
+                  class="model-input"
+                />
+                <div class="button-group">
+                  <a-button
+                    class="check-btn"
+                    size="small"
+                    :loading="checkLoadingBedrock"
+                    @click="() => handleCheck('bedrock')"
+                  >
+                    Check
+                  </a-button>
+                  <a-button
+                    class="save-btn"
+                    size="small"
+                    @click="() => handleSave('bedrock')"
+                  >
+                    Save
+                  </a-button>
+                </div>
+              </div>
+            </a-form-item>
+          </div>
+        </a-card>
+
+        <!-- DeepSeek Configuration -->
+        <a-card
+          class="settings-section"
+          :bordered="false"
+        >
+          <div class="api-provider-header">
+            <h4>DeepSeek</h4>
+          </div>
+
+          <div class="setting-item">
+            <a-form-item
+              :label="$t('user.deepSeekApiKey')"
+              :label-col="{ span: 24 }"
+              :wrapper-col="{ span: 24 }"
+            >
+              <a-input-password
+                v-model:value="deepSeekApiKey"
+                :placeholder="$t('user.deepSeekApiKeyPh')"
+              />
+              <p class="setting-description-no-padding">
+                {{ $t('user.deepSeekApiKeyDescribe') }}
+              </p>
+            </a-form-item>
+          </div>
+
+          <div class="setting-item">
+            <a-form-item
+              :label="$t('user.model')"
+              :label-col="{ span: 24 }"
+              :wrapper-col="{ span: 24 }"
+            >
+              <div class="model-input-container">
+                <a-input
+                  v-model:value="deepSeekModelId"
+                  size="small"
+                  class="model-input"
+                />
+                <div class="button-group">
+                  <a-button
+                    class="check-btn"
+                    size="small"
+                    :loading="checkLoadingDeepSeek"
+                    @click="() => handleCheck('deepseek')"
+                  >
+                    Check
+                  </a-button>
+                  <a-button
+                    class="save-btn"
+                    size="small"
+                    @click="() => handleSave('deepseek')"
                   >
                     Save
                   </a-button>
@@ -223,23 +303,28 @@ import { notification } from 'ant-design-vue'
 import { updateGlobalState, getGlobalState, getSecret, storeSecret } from '@renderer/agent/storage/state'
 import eventBus from '@/utils/eventBus'
 import i18n from '@/locales'
+import { getUser } from '@api/user/user'
+
+// Define interface for model options
+interface ModelOption {
+  id: string
+  name: string
+  checked: boolean
+  type: string
+  apiProvider: string
+}
+
+// Define interface for default models from API
+interface DefaultModel {
+  id: string
+  name?: string
+  provider?: string
+
+  [key: string]: any
+}
 
 const { t } = i18n.global
-const apiProviderOptions = ref([
-  { value: 'litellm', label: 'OpenAI Compatible' },
-  { value: 'bedrock', label: 'Amazon Bedrock' },
-  { value: 'deepseek', label: 'DeepSeek' }
-])
-
-const modelOptions = ref([
-  // {
-  //   id: 'deepseek-r1-0528',
-  //   name: 'deepseek-r1-0528',
-  //   checked: true,
-  //   type: 'standard',
-  //   apiProvider: 'default'
-  // }
-])
+const modelOptions = ref<ModelOption[]>([])
 
 const awsRegionOptions = ref([
   { value: 'us-east-1', label: 'us-east-1' },
@@ -264,7 +349,9 @@ const awsRegionOptions = ref([
 ])
 
 const apiModelId = ref('')
-const apiProvider = ref('litellm')
+const awsModelId = ref('')
+const deepSeekModelId = ref('')
+// const apiProvider = ref('litellm')
 const awsAccessKey = ref('')
 const awsSecretKey = ref('')
 const awsSessionToken = ref('')
@@ -277,6 +364,9 @@ const liteLlmApiKey = ref('')
 const liteLlmModelId = ref('')
 const deepSeekApiKey = ref('')
 const checkLoading = ref(false)
+const checkLoadingLiteLLM = ref(false)
+const checkLoadingBedrock = ref(false)
+const checkLoadingDeepSeek = ref(false)
 const addModelSwitch = ref(false)
 
 // Add specific watch for liteLlmBaseUrl
@@ -469,24 +559,20 @@ onBeforeUnmount(async () => {
 
 const isEmptyValue = (value) => value === undefined || value === ''
 
-const checkModelConfig = async () => {
-  console.log('apiProvider.value', apiProvider.value)
-  switch (apiProvider.value) {
+const checkModelConfig = async (provider) => {
+  switch (provider) {
     case 'bedrock':
-      console.log('bedrock', apiModelId.value, awsAccessKey.value, awsSecretKey.value, awsRegion.value)
-      if (isEmptyValue(apiModelId.value) || isEmptyValue(awsAccessKey.value) || isEmptyValue(awsSecretKey.value) || isEmptyValue(awsRegion.value)) {
+      if (isEmptyValue(awsModelId.value) || isEmptyValue(awsAccessKey.value) || isEmptyValue(awsSecretKey.value) || isEmptyValue(awsRegion.value)) {
         return false
       }
       break
     case 'litellm':
-      console.log('litellm', liteLlmBaseUrl.value, liteLlmApiKey.value, apiModelId.value)
-      if (isEmptyValue(liteLlmBaseUrl.value) || isEmptyValue(liteLlmApiKey.value) || isEmptyValue(apiModelId.value)) {
+      if (isEmptyValue(liteLlmBaseUrl.value) || isEmptyValue(liteLlmApiKey.value) || isEmptyValue(liteLlmModelId.value)) {
         return false
       }
       break
     case 'deepseek':
-      console.log('deepseek', deepSeekApiKey.value, apiModelId.value)
-      if (isEmptyValue(deepSeekApiKey.value) || isEmptyValue(apiModelId.value)) {
+      if (isEmptyValue(deepSeekApiKey.value) || isEmptyValue(deepSeekModelId.value)) {
         return false
       }
       break
@@ -494,9 +580,9 @@ const checkModelConfig = async () => {
   return true
 }
 
-const handleCheck = async () => {
+const handleCheck = async (provider) => {
   await saveConfig()
-  const checkModelConfigResult = await checkModelConfig()
+  const checkModelConfigResult = await checkModelConfig(provider)
   if (!checkModelConfigResult) {
     notification.error({
       message: t('user.checkModelConfigFailMessage'),
@@ -507,23 +593,37 @@ const handleCheck = async () => {
   }
   const originApiProvider = ((await getGlobalState('apiProvider')) as string) || ''
   let originApiModel = ''
-  await updateGlobalState('apiProvider', apiProvider.value)
+
+  // 设置对应的loading状态
+  switch (provider) {
+    case 'bedrock':
+      checkLoadingBedrock.value = true
+      break
+    case 'litellm':
+      checkLoadingLiteLLM.value = true
+      break
+    case 'deepseek':
+      checkLoadingDeepSeek.value = true
+      break
+    default:
+      checkLoading.value = true
+  }
+
   try {
-    checkLoading.value = true
     // validateApiKey 根据 apiProvider 进行验证，所以此处暂需要先更新为需要 check 模型的 apiProvider
-    await updateGlobalState('apiProvider', apiProvider.value)
-    switch (apiProvider.value) {
+    await updateGlobalState('apiProvider', provider)
+    switch (provider) {
       case 'bedrock':
         originApiModel = ((await getGlobalState('apiModelId')) as string) || ''
-        await updateGlobalState('apiModelId', apiModelId.value)
+        await updateGlobalState('apiModelId', awsModelId.value)
         break
       case 'litellm':
         originApiModel = ((await getGlobalState('liteLlmModelId')) as string) || ''
-        await updateGlobalState('liteLlmModelId', apiModelId.value)
+        await updateGlobalState('liteLlmModelId', liteLlmModelId.value)
         break
       case 'deepseek':
         originApiModel = ((await getGlobalState('apiModelId')) as string) || ''
-        await updateGlobalState('apiModelId', apiModelId.value)
+        await updateGlobalState('apiModelId', deepSeekModelId.value)
         break
     }
     const result = await (window.api as any).validateApiKey()
@@ -547,9 +647,14 @@ const handleCheck = async () => {
       duration: 3
     })
   } finally {
+    // 重置loading状态
+    checkLoadingBedrock.value = false
+    checkLoadingLiteLLM.value = false
+    checkLoadingDeepSeek.value = false
     checkLoading.value = false
+
     await updateGlobalState('apiProvider', originApiProvider)
-    switch (apiProvider.value) {
+    switch (provider) {
       case 'bedrock':
         await updateGlobalState('apiModelId', originApiModel)
         break
@@ -607,26 +712,74 @@ const saveModelOptions = async () => {
 
 const loadModelOptions = async () => {
   try {
-    const savedModelOptions = await getGlobalState('modelOptions')
+    let defaultModels: DefaultModel[] = []
+    await getUser({}).then((res) => {
+      console.log('res', res)
+      defaultModels = res?.data?.models || []
+      updateGlobalState('defaultBaseUrl', 'https://test-litellm.intsig.net')
+      storeSecret('defaultApiKey', res?.data?.key)
+    })
+    const savedModelOptions = (await getGlobalState('modelOptions')) || []
+    console.log('savedModelOptions', savedModelOptions)
     if (savedModelOptions && Array.isArray(savedModelOptions)) {
+      // 1. 过滤掉 type=='standard' 且不存在于 defaultModels 中的模型
+      const filteredOptions = savedModelOptions.filter((option) => {
+        if (option.type !== 'standard') return true
+        return defaultModels.some((defaultModel) => defaultModel === option.name)
+      })
+
+      // 2. 添加 defaultModels 中不存在于 savedModelOptions 的模型
+      defaultModels.forEach((defaultModel) => {
+        const exists = filteredOptions.some((option) => option.name === defaultModel)
+        if (!exists) {
+          filteredOptions.push({
+            id: defaultModel || '',
+            name: defaultModel || defaultModel || '',
+            checked: true,
+            type: 'standard',
+            apiProvider: 'default'
+          })
+        }
+      })
+
       // 确保加载的数据包含所有必要的属性
-      modelOptions.value = savedModelOptions.map((option) => ({
+      modelOptions.value = filteredOptions.map((option) => ({
         id: option.id || '',
         name: option.name || '',
         checked: Boolean(option.checked),
         type: option.type || 'standard',
-        apiProvider: option.apiProvider || 'litellm'
+        apiProvider: option.apiProvider || 'default'
       }))
     }
+    await saveModelOptions()
+    console.log('modelOptions', modelOptions.value)
   } catch (error) {
     console.error('Failed to load model options:', error)
   }
 }
 
 // 处理保存新模型
-const handleSave = () => {
-  let modelId = apiModelId.value
-  let modelName = apiModelId.value
+const handleSave = (provider) => {
+  let modelId = ''
+  let modelName = ''
+
+  switch (provider) {
+    case 'bedrock':
+      modelId = awsModelId.value
+      modelName = awsModelId.value
+      break
+    case 'litellm':
+      modelId = liteLlmModelId.value
+      modelName = liteLlmModelId.value
+      break
+    case 'deepseek':
+      modelId = deepSeekModelId.value
+      modelName = deepSeekModelId.value
+      break
+    default:
+      modelId = apiModelId.value
+      modelName = apiModelId.value
+  }
 
   // 检查模型 ID 或名称是否为空
   if (!modelId || !modelName) {
@@ -654,7 +807,7 @@ const handleSave = () => {
     name: modelName,
     checked: true,
     type: 'custom',
-    apiProvider: apiProvider.value
+    apiProvider: provider
   }
 
   modelOptions.value.push(newModel)
@@ -1053,5 +1206,21 @@ const handleSave = () => {
 .button-group {
   display: flex;
   gap: 8px;
+}
+
+.api-provider-options {
+  margin-bottom: 16px;
+}
+
+.api-provider-header {
+  margin-bottom: 16px;
+  border-bottom: 1px solid #3a3a3a;
+  padding-bottom: 8px;
+
+  h4 {
+    margin: 0;
+    font-size: 16px;
+    color: #1890ff;
+  }
 }
 </style>
