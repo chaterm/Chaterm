@@ -97,10 +97,13 @@ export default {
     cursorStyleBar: '竖线',
     cursorStyleUnderline: '下划线',
     watermark: '水印',
-    watermarkDescribe: '显示水印',
+    watermarkDescribe: '在终端上显示水印',
     watermarkOpen: '开启',
     watermarkClose: '关闭',
     language: '语言',
+    theme: '主题',
+    themeDark: '暗色',
+    themeLight: '亮色',
     enterprise: '企业用户',
     personal: '个人用户',
     name: '名称',
@@ -240,7 +243,8 @@ export default {
     searchHistoryPH: '请输入',
     loading: '加载中...',
     loadMore: '加载',
-    copyToClipboard: '已复制到剪贴板'
+    copyToClipboard: '已复制到剪贴板',
+    retry: '重试'
   },
   keyChain: {
     newKey: '添加密钥',

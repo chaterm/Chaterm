@@ -101,6 +101,9 @@ export default {
     watermarkOpen: 'Open',
     watermarkClose: 'Close',
     language: 'Language',
+    theme: 'Theme',
+    themeDark: 'Dark',
+    themeLight: 'Light',
     enterprise: 'Enterprise',
     personal: 'Personal',
     name: 'Name',
@@ -238,7 +241,8 @@ export default {
     searchHistoryPH: 'Please Input',
     loading: 'loading...',
     loadMore: 'load more',
-    copyToClipboard: 'Copy to clipboard'
+    copyToClipboard: 'Copy to clipboard',
+    retry: 'Retry'
   },
   keyChain: {
     newKey: 'New Key',

@@ -11,6 +11,8 @@ export async function createMainWindow(onCookieUrlChange?: (url: string) => void
   const mainWindow = new BrowserWindow({
     width: 1344,
     height: 756,
+    minWidth: 1060,
+    minHeight: 600,
     icon: join(__dirname, '../../resources/icon.png'),
     titleBarStyle: 'hidden',
     ...(process.platform !== 'darwin'
