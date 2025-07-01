@@ -89,5 +89,7 @@ export type GlobalStateKey =
   | 'requestTimeoutMs'
   | 'shellIntegrationTimeout'
   | 'userConfig'
+  | 'needProxy'
+  | 'proxyConfig'
 
 export type LocalStateKey = 'localClineRulesToggles'
