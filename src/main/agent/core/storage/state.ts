@@ -11,7 +11,7 @@ export function initializeStorageMain(window: BrowserWindow): void {
 // 主进程API函数 - 通过executeJavaScript调用renderer的storage函数
 export async function getGlobalState(key: GlobalStateKey): Promise<any> {
   if (!mainWindow) throw new Error('Main window not initialized')
-  
+
   const script = `
     (async () => {
       // 使用全局变量访问存储函数
@@ -22,13 +22,13 @@ export async function getGlobalState(key: GlobalStateKey): Promise<any> {
       }
     })()
   `
-  
+
   return await mainWindow.webContents.executeJavaScript(script)
 }
 
 export async function updateGlobalState(key: GlobalStateKey, value: any): Promise<void> {
   if (!mainWindow) throw new Error('Main window not initialized')
-  
+
   const script = `
     (async () => {
       if (window.storageAPI && window.storageAPI.updateGlobalState) {
@@ -38,13 +38,13 @@ export async function updateGlobalState(key: GlobalStateKey, value: any): Promis
       }
     })()
   `
-  
+
   await mainWindow.webContents.executeJavaScript(script)
 }
 
 export async function getSecret(key: SecretKey): Promise<string | undefined> {
   if (!mainWindow) throw new Error('Main window not initialized')
-  
+
   const script = `
     (async () => {
       if (window.storageAPI && window.storageAPI.getSecret) {
@@ -54,13 +54,13 @@ export async function getSecret(key: SecretKey): Promise<string | undefined> {
       }
     })()
   `
-  
+
   return await mainWindow.webContents.executeJavaScript(script)
 }
 
 export async function storeSecret(key: SecretKey, value?: string): Promise<void> {
   if (!mainWindow) throw new Error('Main window not initialized')
-  
+
   const script = `
     (async () => {
       if (window.storageAPI && window.storageAPI.storeSecret) {
@@ -70,13 +70,13 @@ export async function storeSecret(key: SecretKey, value?: string): Promise<void>
       }
     })()
   `
-  
+
   await mainWindow.webContents.executeJavaScript(script)
 }
 
 export async function getWorkspaceState(key: string): Promise<any> {
   if (!mainWindow) throw new Error('Main window not initialized')
-  
+
   const script = `
     (async () => {
       if (window.storageAPI && window.storageAPI.getWorkspaceState) {
@@ -86,13 +86,13 @@ export async function getWorkspaceState(key: string): Promise<any> {
       }
     })()
   `
-  
+
   return await mainWindow.webContents.executeJavaScript(script)
 }
 
 export async function updateWorkspaceState(key: string, value: any): Promise<void> {
   if (!mainWindow) throw new Error('Main window not initialized')
-  
+
   const script = `
     (async () => {
       if (window.storageAPI && window.storageAPI.updateWorkspaceState) {
@@ -102,13 +102,13 @@ export async function updateWorkspaceState(key: string, value: any): Promise<voi
       }
     })()
   `
-  
+
   await mainWindow.webContents.executeJavaScript(script)
 }
 
 export async function getAllExtensionState(): Promise<any> {
   if (!mainWindow) throw new Error('Main window not initialized')
-  
+
   const script = `
     (async () => {
       if (window.storageAPI && window.storageAPI.getAllExtensionState) {
@@ -118,13 +118,13 @@ export async function getAllExtensionState(): Promise<any> {
       }
     })()
   `
-  
+
   return await mainWindow.webContents.executeJavaScript(script)
 }
 
 export async function updateApiConfiguration(config: ApiConfiguration): Promise<void> {
   if (!mainWindow) throw new Error('Main window not initialized')
-  
+
   const script = `
     (async () => {
       if (window.storageAPI && window.storageAPI.updateApiConfiguration) {
@@ -134,13 +134,13 @@ export async function updateApiConfiguration(config: ApiConfiguration): Promise<
       }
     })()
   `
-  
+
   await mainWindow.webContents.executeJavaScript(script)
 }
 
 export async function resetExtensionState(): Promise<void> {
   if (!mainWindow) throw new Error('Main window not initialized')
-  
+
   const script = `
     (async () => {
       if (window.storageAPI && window.storageAPI.resetExtensionState) {
@@ -150,8 +150,25 @@ export async function resetExtensionState(): Promise<void> {
       }
     })()
   `
-  
+
   await mainWindow.webContents.executeJavaScript(script)
+}
+
+// 获取用户信息
+export async function getUserId(): Promise<any> {
+  if (!mainWindow) throw new Error('Main window not initialized')
+
+  const script = `
+    (async () => {
+      if (window.storageAPI && window.storageAPI.getUserId) {
+        return await window.storageAPI.getUserId();
+      } else {
+        throw new Error('Storage API not available in renderer');
+      }
+    })()
+  `
+
+  return await mainWindow.webContents.executeJavaScript(script)
 }
 
 // Test function
@@ -166,21 +183,17 @@ export async function testStorageFromMain(): Promise<void> {
   //   setTimeout(testStorageFromMain, 1000);
   //   return;
   // }
-
   // console.log('[Main Storage Test] Running comprehensive storage tests...');
-
   // try {
   //   // Test getGlobalState and updateGlobalState
   //   const globalStateKey = 'apiProvider' as GlobalStateKey; // Example key
   //   console.log(`[Main Storage Test] Attempting to call getGlobalState('${globalStateKey}')`);
   //   let globalStateValue = await getGlobalState(globalStateKey);
   //   console.log(`[Main Storage Test] Initial getGlobalState('${globalStateKey}') result:`, globalStateValue);
-
   //   const newProvider = 'testProviderFromMainAgentStorage'; // Example value
   //   console.log(`[Main Storage Test] Attempting to call updateGlobalState('${globalStateKey}', '${newProvider}')`);
   //   await updateGlobalState(globalStateKey, newProvider);
   //   console.log(`[Main Storage Test] updateGlobalState('${globalStateKey}', '${newProvider}') called`);
-
   //   console.log(`[Main Storage Test] Attempting to call getGlobalState('${globalStateKey}') after update`);
   //   globalStateValue = await getGlobalState(globalStateKey);
   //   console.log(`[Main Storage Test] getGlobalState('${globalStateKey}') after update:`, globalStateValue);
@@ -189,21 +202,17 @@ export async function testStorageFromMain(): Promise<void> {
   //   } else {
   //       console.log(`[Main Storage Test] PASSED: updateGlobalState for ${globalStateKey}`);
   //   }
-
   //   // Test getAllExtensionState
   //   console.log('[Main Storage Test] Attempting to call getAllExtensionState()');
   //   const allState = await getAllExtensionState();
   //   // console.log('[Main Storage Test] getAllExtensionState result:', JSON.stringify(allState, null, 2)); // Avoid overly long output in normal runs
   //   console.log('[Main Storage Test] getAllExtensionState() call completed. Result keys:', allState ? Object.keys(allState) : 'null/undefined');
-
-
   //   // Test storeSecret and getSecret
   //   const secretKey = 'testSecretKeyFromMainAgentStorage' as SecretKey;
   //   const secretValue = 'mySuperSecretValueFromMainAgentStorage';
   //   console.log(`[Main Storage Test] Attempting to call storeSecret('${secretKey}', '********')`);
   //   await storeSecret(secretKey, secretValue);
   //   console.log(`[Main Storage Test] storeSecret('${secretKey}', '********') called`);
-
   //   console.log(`[Main Storage Test] Attempting to call getSecret('${secretKey}')`);
   //   const retrievedSecret = await getSecret(secretKey);
   //   console.log(`[Main Storage Test] getSecret('${secretKey}') result:`, retrievedSecret);
@@ -212,7 +221,6 @@ export async function testStorageFromMain(): Promise<void> {
   //   } else {
   //       console.log(`[Main Storage Test] PASSED: storeSecret/getSecret for ${secretKey}`);
   //   }
-
   //   // Cleanup test secret
   //   console.log(`[Main Storage Test] Attempting to call storeSecret('${secretKey}', undefined) to delete it`);
   //   await storeSecret(secretKey, undefined);
@@ -223,9 +231,7 @@ export async function testStorageFromMain(): Promise<void> {
   //   } else {
   //       console.log(`[Main Storage Test] PASSED: Secret '${secretKey}' deleted successfully.`);
   //   }
-
   //   console.log('[Main Storage Test] All tests completed!');
-
   // } catch (error) {
   //   console.error('[Main Storage Test] Error during storage tests:', error);
   // }

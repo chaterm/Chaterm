@@ -2,7 +2,7 @@ import { ApiConfiguration } from './api'
 import { ChatSettings } from './ChatSettings'
 // import { UserInfo } from "./UserInfo"
 import { ChatContent } from './ChatContent'
-// import { TelemetrySetting } from "./TelemetrySetting"
+import { TelemetrySetting } from './TelemetrySetting'
 
 export type Host = { host: string; uuid: string; connection: string; organizationId: string }
 
@@ -21,7 +21,7 @@ export interface WebviewMessage {
     // | "fetchMcpMarketplace"
     | 'searchCommits'
     // | "fetchLatestMcpServersFromHub"
-    // | "telemetrySetting"
+    | 'telemetrySetting'
     | 'invoke'
     | 'updateSettings'
     | 'clearAllTaskHistory'
@@ -35,6 +35,7 @@ export interface WebviewMessage {
     | 'askResponse'
     | 'deleteTaskWithId'
     | 'showTaskWithId'
+    | 'taskFeedback'
 
   text?: string
   disabled?: boolean
@@ -59,7 +60,7 @@ export interface WebviewMessage {
   // url?: string
   planActSeparateModelsSetting?: boolean
   enableCheckpointsSetting?: boolean
-  // telemetrySetting?: TelemetrySetting
+  telemetrySetting?: TelemetrySetting
   customInstructionsSetting?: string
   mentionsRequestId?: string
   query?: string
@@ -88,6 +89,7 @@ export interface WebviewMessage {
   terminalOutput?: string
   hosts?: Host[]
   cwd?: Map<string, string>
+  feedbackType?: TaskFeedbackType
 }
 
 export type ChatermAskResponse = 'yesButtonClicked' | 'noButtonClicked' | 'messageResponse'

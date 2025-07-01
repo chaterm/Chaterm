@@ -28,7 +28,7 @@ export const parseMessageContent = (text: string): string | MessageContent => {
   }
 }
 
-export const truncateText = (text: string, maxLength = 15): string => {
+export const truncateText = (text: string, maxLength = 17): string => {
   return text.length > maxLength ? `${text.substring(0, maxLength)}...` : text
 }
 

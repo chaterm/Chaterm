@@ -3,7 +3,7 @@ import cloneDeep from 'clone-deep'
 import { setTimeout as setTimeoutPromise } from 'node:timers/promises'
 import os from 'os'
 import { v4 as uuidv4 } from 'uuid'
-
+import { telemetryService } from '@services/telemetry/TelemetryService'
 import pWaitFor from 'p-wait-for'
 import { serializeError } from 'serialize-error'
 import { ApiHandler, buildApiHandler } from '@api/index'
@@ -171,6 +171,15 @@ export class Task {
       this.resumeTaskFromHistory()
     } else if (task) {
       this.startTask(task)
+    }
+
+    // initialize telemetry
+    if (historyItem) {
+      // Open task from history
+      telemetryService.captureTaskRestarted(this.taskId, apiConfiguration.apiProvider)
+    } else {
+      // New task started
+      telemetryService.captureTaskCreated(this.taskId, apiConfiguration.apiProvider)
     }
   }
 
@@ -1104,7 +1113,7 @@ export class Task {
       role: 'user',
       content: userContent
     })
-
+    telemetryService.captureConversationTurnEvent(this.taskId, await getGlobalState('apiProvider'), this.api.getModel().id, 'user')
     // 更新API请求消息
     await this.updateApiRequestMessage(userContent)
   }
@@ -1324,6 +1333,9 @@ export class Task {
 
     messageUpdater.updateApiReqMsg(cancelReason, streamingFailedMessage)
     await this.saveChatermMessagesAndUpdateHistory()
+
+    telemetryService.captureConversationTurnEvent(this.taskId, await getGlobalState('apiProvider'), this.api.getModel().id, 'assistant')
+
     this.didFinishAbortingStream = true
   }
 
@@ -1381,6 +1393,7 @@ export class Task {
     if (assistantMessage.length === 0) {
       return await this.handleEmptyAssistantResponse()
     }
+    telemetryService.captureConversationTurnEvent(this.taskId, await getGlobalState('apiProvider'), this.api.getModel().id, 'assistant')
 
     await this.addToApiConversationHistory({
       role: 'assistant',
@@ -1750,6 +1763,8 @@ export class Task {
           message: question.replace(/\n/g, ' ')
         })
       }
+      // Store the number of options for telemetry
+      const options = parsePartialArrayString(optionsRaw || '[]')
 
       const { text } = await this.ask('followup', JSON.stringify(sharedMessage), false)
 
@@ -1761,8 +1776,10 @@ export class Task {
             selected: text
           } as ChatermAskQuestion)
           await this.saveChatermMessagesAndUpdateHistory()
+          telemetryService.captureOptionSelected(this.taskId, options.length, 'act')
         }
       } else {
+        telemetryService.captureOptionsIgnored(this.taskId, options.length, 'act')
         await this.say('user_feedback', text ?? '')
       }
 
@@ -1825,6 +1842,7 @@ export class Task {
           await this.say('completion_result', result, false)
           await this.saveCheckpoint(true)
           await addNewChangesFlagToLastCompletionResultMessage()
+          telemetryService.captureTaskCompleted(this.taskId)
         } else {
           await this.saveCheckpoint(true)
         }
@@ -1840,6 +1858,7 @@ export class Task {
         await this.say('completion_result', result, false)
         await this.saveCheckpoint(true)
         await addNewChangesFlagToLastCompletionResultMessage()
+        telemetryService.captureTaskCompleted(this.taskId)
       }
 
       const { response, text } = await this.ask('completion_result', '', false)
