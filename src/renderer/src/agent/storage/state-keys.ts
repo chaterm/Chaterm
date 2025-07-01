@@ -20,6 +20,7 @@ export type SecretKey =
   | 'asksageApiKey'
   | 'xaiApiKey'
   | 'sambanovaApiKey'
+  | 'defaultApiKey'
 
 export type GlobalStateKey =
   | 'apiProvider'
@@ -89,5 +90,7 @@ export type GlobalStateKey =
   | 'shellIntegrationTimeout'
   | 'userConfig'
   | 'modelOptions'
+  | 'defaultBaseUrl'
+  | 'defaultModelId'
 
 export type LocalStateKey = 'localClineRulesToggles'

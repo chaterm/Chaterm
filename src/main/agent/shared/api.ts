@@ -23,6 +23,9 @@ export interface ApiHandlerOptions {
   openAiHeaders?: Record<string, string> // Custom headers for OpenAI requests
   liteLlmModelInfo?: LiteLLMModelInfo
   deepSeekApiKey?: string
+  defaultBaseUrl?: string
+  defaultModelId?: string
+  defaultApiKey?: string
 }
 
 export type ApiConfiguration = ApiHandlerOptions & {
