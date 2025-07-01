@@ -138,7 +138,7 @@ onMounted(async () => {
     background: transparent;
     border-radius: 4px;
     margin-right: 4px;
-
+    -webkit-app-region: no-drag;
     &:hover {
       background: var(--hover-bg-color);
     }
