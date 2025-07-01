@@ -253,7 +253,7 @@
 
             <span
               v-if="responseLoading"
-              style="color: #ffffff; font-size: 10px"
+              class="processing-text"
             >
               <HourglassOutlined
                 spin
@@ -2139,7 +2139,8 @@ const toggleFavorite = async (history) => {
   padding: 0px 4px 4px 4px;
   margin-top: 2px;
   scrollbar-width: thin;
-  scrollbar-color: #2a2a2a #1a1a1a;
+  // scrollbar-color: #2a2a2a #1a1a1a;
+  scrollbar-color: var(--bg-color-quinary) var(--bg-color-senary);
   width: 100%;
   min-height: 0;
 
@@ -2148,16 +2149,16 @@ const toggleFavorite = async (history) => {
   }
 
   &::-webkit-scrollbar-track {
-    background: #1a1a1a;
+    background: var(--bg-color-senary);
     border-radius: 3px;
   }
 
   &::-webkit-scrollbar-thumb {
-    background-color: #2a2a2a;
+    background-color: var(--bg-color-quinary);
     border-radius: 3px;
 
     &:hover {
-      background-color: #3a3a3a;
+      background-color: var(--bg-color-quaternary);
     }
   }
 }
@@ -3024,5 +3025,10 @@ const toggleFavorite = async (history) => {
   &:hover {
     color: #1890ff;
   }
+}
+
+.processing-text {
+  font-size: 10px;
+  color: var(--text-color);
 }
 </style>
