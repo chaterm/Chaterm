@@ -348,10 +348,8 @@ const awsRegionOptions = ref([
   { value: 'us-gov-west-1', label: 'us-gov-west-1' }
 ])
 
-const apiModelId = ref('')
 const awsModelId = ref('')
 const deepSeekModelId = ref('')
-// const apiProvider = ref('litellm')
 const awsAccessKey = ref('')
 const awsSecretKey = ref('')
 const awsSessionToken = ref('')
@@ -776,9 +774,6 @@ const handleSave = (provider) => {
       modelId = deepSeekModelId.value
       modelName = deepSeekModelId.value
       break
-    default:
-      modelId = apiModelId.value
-      modelName = apiModelId.value
   }
 
   // 检查模型 ID 或名称是否为空
