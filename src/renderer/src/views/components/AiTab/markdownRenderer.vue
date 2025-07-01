@@ -292,6 +292,30 @@ if (monaco.editor) {
       'editor.lineHighlightBackground': '#2c313c'
     }
   })
+
+  // 定义亮色主题
+  monaco.editor.defineTheme('custom-light', {
+    base: 'vs',
+    inherit: true,
+    rules: [
+      { token: 'keyword', foreground: '0000ff', fontStyle: 'bold' },
+      { token: 'string', foreground: 'a31515' },
+      { token: 'number', foreground: '098658' },
+      { token: 'comment', foreground: '008000' },
+      { token: 'variable', foreground: '001080' },
+      { token: 'type', foreground: '267f99' },
+      { token: 'function', foreground: '795e26' },
+      { token: 'operator', foreground: '000000' }
+    ],
+    colors: {
+      'editor.background': '#d9e1ff',
+      'editor.foreground': '#000000',
+      'editorLineNumber.foreground': '#999999',
+      'editorLineNumber.activeForeground': '#333333',
+      'editor.selectionBackground': '#add6ff',
+      'editor.lineHighlightBackground': '#f5f5f5'
+    }
+  })
 }
 
 const renderedContent = ref('')
@@ -404,7 +428,7 @@ const initEditor = (content: string) => {
     const options: monaco.editor.IStandaloneEditorConstructionOptions = {
       value: editorContent,
       language: detectLanguage(editorContent),
-      theme: 'custom-dark',
+      theme: document.body.classList.contains('theme-dark') ? 'custom-dark' : 'custom-light',
       readOnly: true,
       minimap: { enabled: false },
       lineNumbers: lines > 1 ? 'on' : 'off',
@@ -639,7 +663,7 @@ const initCodeBlockEditors = () => {
       const editor = monaco.editor.create(container, {
         value: block.content,
         language: detectLanguage(block.content),
-        theme: 'custom-dark',
+        theme: document.body.classList.contains('theme-dark') ? 'custom-dark' : 'custom-light',
         readOnly: true,
         minimap: { enabled: false },
         lineNumbers: block.lines > 1 ? 'on' : 'off',
@@ -760,11 +784,33 @@ watch(
   { immediate: true }
 )
 
+// 主题变化观察器
+const themeObserver = new MutationObserver((mutations) => {
+  mutations.forEach((mutation) => {
+    if (mutation.target === document.body && mutation.attributeName === 'class') {
+      const isDark = document.body.classList.contains('theme-dark')
+      // 更新主编辑器主题
+      if (editor) {
+        monaco.editor.setTheme(isDark ? 'custom-dark' : 'custom-light')
+      }
+      // 更新代码块编辑器主题
+      monaco.editor.getEditors().forEach((ed) => {
+        if (ed !== editor) {
+          monaco.editor.setTheme(isDark ? 'custom-dark' : 'custom-light')
+        }
+      })
+    }
+  })
+})
+
 onMounted(() => {
   marked.setOptions({
     breaks: true,
     gfm: true
   })
+
+  // 开始观察主题变化
+  themeObserver.observe(document.body, { attributes: true })
 
   if (props.content) {
     if (props.ask === 'command' || props.say === 'command') {
@@ -854,6 +900,9 @@ watch(
 
 // Cleanup
 onBeforeUnmount(() => {
+  // 停止主题观察
+  themeObserver.disconnect()
+
   if (contentStableTimeout.value) {
     clearTimeout(contentStableTimeout.value)
   }
@@ -1105,50 +1154,50 @@ code {
   margin: 4px 0;
   border-radius: 6px;
   overflow: hidden;
-  background-color: #282c34;
+  background-color: var(--bg-color-septenary);
   min-height: 30px;
   height: auto;
 }
 
 .thinking-collapse {
-  background-color: #3a3a3a !important;
+  background-color: var(--bg-color-quaternary) !important;
   border: none !important;
 }
 
 .thinking-collapse .ant-collapse-item {
-  background-color: #3a3a3a !important;
+  background-color: var(--bg-color-quaternary) !important;
   border: none !important;
 }
 
 .thinking-collapse .ant-collapse-header {
-  background-color: #3a3a3a !important;
-  color: #ffffff !important;
+  background-color: var(--bg-color-quaternary) !important;
+  color: var(--text-color) !important;
 }
 
 .thinking-collapse .ant-collapse-content {
-  background-color: #3a3a3a !important;
-  color: #ffffff !important;
+  background-color: var(--bg-color-quaternary) !important;
+  color: var(--text-color) !important;
   border: none !important;
 }
 
 .thinking-collapse .ant-typography {
-  color: #ffffff !important;
+  color: var(--text-color) !important;
 }
 
 .thinking-collapse .thinking-content {
-  color: #ffffff !important;
+  color: var(--text-color) !important;
 }
 
 .thinking-collapse .ant-collapse-arrow {
-  color: #ffffff !important;
+  color: var(--text-color) !important;
 }
 
 .thinking-collapse .anticon {
-  color: #ffffff !important;
+  color: var(--text-color) !important;
 }
 
 .thinking-collapse.ant-collapse {
-  background: #3a3a3a;
+  background: var(--bg-color-quaternary);
   border: none;
   margin-bottom: 10px;
   border-radius: 4px !important;
@@ -1157,7 +1206,7 @@ code {
 
 .thinking-collapse.ant-collapse .ant-collapse-item {
   border: none;
-  background: #3a3a3a;
+  background: var(--bg-color-quaternary);
   border-radius: 4px !important;
   overflow: hidden;
   font-size: 12px;
@@ -1167,13 +1216,13 @@ code {
   padding: 8px 12px !important;
   border-radius: 4px !important;
   transition: all 0.3s;
-  color: #ffffff !important;
-  background-color: #1e1e1e !important;
+  color: var(--text-color) !important;
+  background-color: var(--bg-color-secondary) !important;
   font-size: 12px !important;
 }
 
 .thinking-collapse.ant-collapse .ant-collapse-content {
-  background-color: #1e1e1e !important;
+  background-color: var(--bg-color-secondary) !important;
   border-top: none;
   border-radius: 0 0 4px 4px !important;
 }
@@ -1187,29 +1236,29 @@ code {
 }
 
 .thinking-collapse.ant-collapse .ant-typography {
-  color: #ffffff !important;
+  color: var(--text-color) !important;
   margin-bottom: 0;
   font-size: 12px !important;
 }
 
 .thinking-collapse.ant-collapse .ant-collapse-header:hover {
-  background-color: #1e1e1e !important;
+  background-color: var(--bg-color-secondary) !important;
 }
 
 .thinking-collapse.ant-collapse .thinking-content {
   padding: 0px 5px 5px 5px;
   margin: 0;
-  background-color: #1e1e1e !important;
+  background-color: var(--bg-color-secondary) !important;
   border-radius: 0 0 4px 4px;
   font-size: 12px;
   line-height: 1.5715;
-  color: #ffffff;
+  color: var(--text-color);
 }
 
 .thinking-collapse.ant-collapse .ant-collapse-arrow {
   font-size: 12px;
   right: 12px;
-  color: #ffffff;
+  color: var(--text-color);
 }
 
 .thinking-collapse.ant-collapse .ant-space {
@@ -1221,7 +1270,7 @@ code {
 .thinking-collapse.ant-collapse .anticon {
   display: inline-flex;
   align-items: center;
-  color: #ffffff;
+  color: var(--text-color);
   font-size: 12px;
 }
 
@@ -1268,7 +1317,7 @@ code {
 .markdown-content {
   font-size: 12px;
   line-height: 1.6;
-  color: #ffffff;
+  color: var(--text-color);
 }
 
 .markdown-content ul,
@@ -1282,7 +1331,7 @@ code {
 }
 
 .markdown-content code {
-  background-color: #2a2a2a;
+  background-color: var(--bg-color-quinary);
   padding: 2px 4px;
   border-radius: 3px;
   font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
@@ -1303,14 +1352,14 @@ code {
 .thinking-collapse.no-collapse .thinking-header {
   padding: 8px 12px !important;
   border-radius: 4px 4px 0 0 !important;
-  color: #ffffff !important;
-  background-color: #3a3a3a;
+  color: var(--text-color) !important;
+  background-color: var(--bg-color-quaternary);
   font-size: 12px !important;
 }
 
 .thinking-collapse.no-collapse .thinking-content {
   padding: 0px 5px 5px 5px;
-  background-color: #3a3a3a;
+  background-color: var(--bg-color-quaternary);
   border-radius: 0 0 4px 4px;
 }
 
@@ -1327,7 +1376,7 @@ code {
 }
 
 .code-collapse .ant-collapse-header {
-  color: #ffffff !important;
+  color: var(--text-color) !important;
   padding: 4px 12px !important;
   background: transparent !important;
   transition: all 0.3s;
@@ -1341,7 +1390,7 @@ code {
 }
 
 .code-collapse .ant-collapse-content {
-  color: #ffffff !important;
+  color: var(--text-color) !important;
   border: none !important;
   background: transparent !important;
 }
@@ -1351,7 +1400,7 @@ code {
 }
 
 .code-collapse .ant-typography {
-  color: #ffffff !important;
+  color: var(--text-color) !important;
   margin-bottom: 0;
   font-size: 12px !important;
 }
@@ -1393,7 +1442,7 @@ code {
   margin: 4px 0;
   border-radius: 6px;
   overflow: hidden;
-  background-color: #282c34;
+  background-color: var(--bg-color-septenary);
   min-height: 30px;
   position: relative;
   padding: 2px 0 8px 0;
@@ -1405,7 +1454,7 @@ code {
 }
 
 .copy-button {
-  color: #ffffff;
+  color: var(--text-color);
   opacity: 0.6;
   transition: opacity 0.3s;
 }
@@ -1470,7 +1519,7 @@ code {
 }
 
 .markdown-content pre {
-  background-color: #2a2a2a;
+  background-color: var(--bg-color-quinary);
   border-radius: 8px;
   padding: 8px;
   overflow-x: hidden;
@@ -1486,8 +1535,8 @@ code {
 
 .command-output {
   font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
-  background-color: #1a1a1a;
-  color: #ffffff;
+  background-color: var(--bg-color-quinary);
+  color: var(--text-color);
   padding: 28px 12px 12px;
   border-radius: 8px;
   white-space: pre-wrap;
@@ -1495,7 +1544,7 @@ code {
   font-size: 12px;
   line-height: 1.6;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
-  border: 1px solid #2a2a2a;
+  border: 1px solid var(--border-color);
   overflow: hidden;
   position: relative;
   width: 100%;
@@ -1511,8 +1560,8 @@ code {
   left: 0;
   right: 0;
   height: 18px;
-  background: #2a2a2a;
-  border-bottom: 1px solid #3a3a3a;
+  background: var(--bg-color-quinary);
+  border-bottom: 1px solid var(--bg-color-quaternary);
 }
 
 .command-output::after {
@@ -1578,7 +1627,7 @@ code {
   display: inline-block;
   width: 8px;
   height: 16px;
-  background-color: #ffffff;
+  background-color: var(--text-color);
   animation: blink 1s step-end infinite;
   margin-left: 2px;
   vertical-align: middle;
@@ -1643,7 +1692,7 @@ code {
 
 .command-output .progress-bar {
   height: 4px;
-  background-color: #2a2a2a;
+  background-color: var(--bg-color-quinary);
   border-radius: 2px;
   margin: 8px 0;
   overflow: hidden;
