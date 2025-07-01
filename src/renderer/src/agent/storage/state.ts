@@ -13,6 +13,7 @@ import {
 } from './shared'
 import { GlobalStateKey, SecretKey } from './state-keys'
 import { storageContext } from './storage-context'
+import { getUserInfo } from '@/utils/permission'
 
 // global
 
@@ -477,5 +478,14 @@ export async function resetExtensionState() {
     for (const key of workspaceKeys) {
       await storageContext.workspaceState.update(key, undefined)
     }
+  }
+}
+
+export async function getUserId(): Promise<any> {
+  const userInfo = getUserInfo()
+  if (userInfo && userInfo.uid) {
+    return userInfo.uid
+  } else {
+    return null
   }
 }

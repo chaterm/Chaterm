@@ -13,7 +13,14 @@
       ref="terminalElement"
       v-contextmenu:contextmenu
       class="terminal"
-    ></div>
+    >
+    </div>
+    <a-button
+      :id="`${connectionId}Button`"
+      class="select-button"
+      style="display: none"
+      >Chat to AI</a-button
+    >
     <SuggComp
       v-bind="{ ref: (el) => setRef(el, connectionId) }"
       :unique-key="connectionId"
@@ -23,6 +30,7 @@
     <v-contextmenu ref="contextmenu">
       <Context
         :is-connect="isConnected"
+        :is-sync-input="isSyncInput"
         :term-instance="terminal as any"
         :copy-text="copyText"
         :terminal-id="connectionId"
@@ -82,12 +90,6 @@
       </a-button>
     </template>
   </a-modal>
-  <a-button
-    :id="`${connectionId}Button`"
-    class="select-button"
-    style="display: none"
-    >Chat to AI</a-button
-  >
 </template>
 
 <script lang="ts" setup>
@@ -284,10 +286,22 @@ onMounted(async () => {
       cursorStyle: config.cursorStyle,
       fontSize: config.fontSize || 12,
       fontFamily: 'Menlo, Monaco, "Courier New", Courier, monospace',
-      theme: {
-        background: '#141414',
-        foreground: '#f0f0f0'
-      }
+      theme:
+        config.theme === 'light'
+          ? {
+              background: '#ffffff',
+              foreground: '#000000',
+              cursor: '#000000',
+              cursorAccent: '#000000',
+              selectionBackground: 'rgba(0, 0, 0, 0.3)'
+            }
+          : {
+              background: '#141414',
+              foreground: '#f0f0f0',
+              cursor: '#f0f0f0',
+              cursorAccent: '#f0f0f0',
+              selectionBackground: 'rgba(255, 255, 255, 0.3)'
+            }
     })
   )
   terminal.value = termInstance
@@ -297,17 +311,49 @@ onMounted(async () => {
       copyText.value = termInstance.getSelection()
     }
   })
+
+  // Add theme change listener
+  eventBus.on('updateTheme', (theme) => {
+    if (terminal.value) {
+      terminal.value.options.theme =
+        theme === 'light'
+          ? {
+              background: '#ffffff',
+              foreground: '#000000',
+              cursor: '#000000',
+              cursorAccent: '#000000',
+              selectionBackground: 'rgba(0, 0, 0, 0.3)'
+            }
+          : {
+              background: '#141414',
+              foreground: '#f0f0f0',
+              cursor: '#f0f0f0',
+              cursorAccent: '#f0f0f0',
+              selectionBackground: 'rgba(255, 255, 255, 0.3)'
+            }
+    }
+  })
+
   if (terminalContainer.value) {
     terminalContainer.value.addEventListener('mouseup', (e) => {
       setTimeout(() => {
-        if (termInstance.hasSelection()) {
-          const text = termInstance.getSelection()
+        const text = termInstance.getSelection()
+        const position = termInstance.getSelectionPosition()
+        if (position && text.trim()) {
           const button = document.getElementById(`${connectionId.value}Button`) as HTMLElement
+          const { y } = position.start
+          const viewportY = termInstance.buffer.active.viewportY
+          const visibleRow = y - viewportY
 
-          // 定位按钮到鼠标抬起位置
-          button.style.left = `${e.clientX + 10}px`
-          button.style.top = `${e.clientY + 10}px`
-          if (text.trim()) button.style.display = 'block'
+          // 获取字符单元尺寸
+          const cellHeight = (termInstance as any)._core._renderService.dimensions.css.cell.height
+
+          // 将字符坐标转换为像素坐标
+          const top = visibleRow - 2 > 0 ? (visibleRow - 2) * cellHeight : 0
+
+          button.style.right = `26px`
+          button.style.top = `${top}px`
+          button.style.display = 'block'
 
           button.onclick = () => {
             eventBus.emit('openAiRight')
@@ -445,13 +491,15 @@ onBeforeUnmount(() => {
   cleanupListeners.value.forEach((cleanup) => cleanup())
   cleanupListeners.value = [] // 清空数组
 
+  // Remove theme change listener
+  eventBus.off('updateTheme')
+
   if (typeof removeOtpRequestListener === 'function') removeOtpRequestListener()
   if (typeof removeOtpTimeoutListener === 'function') removeOtpTimeoutListener()
   if (typeof removeOtpResultListener === 'function') removeOtpResultListener()
   if (isConnected.value) {
     disconnectSSH()
   }
-  // eventBus.off('executeTerminalCommand') // 此行已通过 cleanupListeners 处理
 })
 const getFileExt = (filePath: string) => {
   const idx = filePath.lastIndexOf('.')
@@ -2006,20 +2054,18 @@ onUnmounted(() => {
   width: 0px !important;
 }
 .select-button {
-  position: fixed;
+  position: absolute;
   display: none;
-  z-index: 999;
+  z-index: 10;
   padding: 4px 8px;
   border-radius: 4px;
-  color: white;
-  border: none;
+  color: var(--text-color);
   font-size: 12px;
-  cursor: pointer;
-  background-color: #272727;
-  border: 1px solid #4d4d4d;
+  background-color: var(--bg-color-secondary);
+  border: 1px solid var(--border-color-light);
   &:hover {
-    color: white !important;
-    border: 1px solid #4d4d4d !important;
+    color: var(--text-color) !important;
+    border: 1px solid var(--border-color-light) !important;
   }
 }
 </style>

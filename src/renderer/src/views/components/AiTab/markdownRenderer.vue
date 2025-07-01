@@ -95,7 +95,16 @@
             <span :class="line.fileType">{{ line.name }}</span>
           </template>
           <template v-else>
-            <span class="content">{{ line.content }}</span>
+            <span
+              v-if="line.html"
+              class="content"
+              v-html="line.html"
+            ></span>
+            <span
+              v-else
+              class="content"
+              >{{ line.content }}</span
+            >
           </template>
         </div>
       </div>
@@ -283,6 +292,30 @@ if (monaco.editor) {
       'editor.lineHighlightBackground': '#2c313c'
     }
   })
+
+  // 定义亮色主题
+  monaco.editor.defineTheme('custom-light', {
+    base: 'vs',
+    inherit: true,
+    rules: [
+      { token: 'keyword', foreground: '0000ff', fontStyle: 'bold' },
+      { token: 'string', foreground: 'a31515' },
+      { token: 'number', foreground: '098658' },
+      { token: 'comment', foreground: '008000' },
+      { token: 'variable', foreground: '001080' },
+      { token: 'type', foreground: '267f99' },
+      { token: 'function', foreground: '795e26' },
+      { token: 'operator', foreground: '000000' }
+    ],
+    colors: {
+      'editor.background': '#d9e1ff',
+      'editor.foreground': '#000000',
+      'editorLineNumber.foreground': '#999999',
+      'editorLineNumber.activeForeground': '#333333',
+      'editor.selectionBackground': '#add6ff',
+      'editor.lineHighlightBackground': '#f5f5f5'
+    }
+  })
 }
 
 const renderedContent = ref('')
@@ -395,12 +428,12 @@ const initEditor = (content: string) => {
     const options: monaco.editor.IStandaloneEditorConstructionOptions = {
       value: editorContent,
       language: detectLanguage(editorContent),
-      theme: 'custom-dark',
+      theme: document.body.classList.contains('theme-dark') ? 'custom-dark' : 'custom-light',
       readOnly: true,
       minimap: { enabled: false },
       lineNumbers: lines > 1 ? 'on' : 'off',
       lineNumbersMinChars: 3,
-      lineDecorationsWidth: 12,
+      lineDecorationsWidth: 2,
       scrollBeyondLastLine: false,
       automaticLayout: true,
       fontSize: 13,
@@ -630,12 +663,12 @@ const initCodeBlockEditors = () => {
       const editor = monaco.editor.create(container, {
         value: block.content,
         language: detectLanguage(block.content),
-        theme: 'custom-dark',
+        theme: document.body.classList.contains('theme-dark') ? 'custom-dark' : 'custom-light',
         readOnly: true,
         minimap: { enabled: false },
         lineNumbers: block.lines > 1 ? 'on' : 'off',
         lineNumbersMinChars: 3,
-        lineDecorationsWidth: 12,
+        lineDecorationsWidth: 2,
         scrollBeyondLastLine: false,
         automaticLayout: true,
         fontSize: 13,
@@ -751,11 +784,33 @@ watch(
   { immediate: true }
 )
 
+// 主题变化观察器
+const themeObserver = new MutationObserver((mutations) => {
+  mutations.forEach((mutation) => {
+    if (mutation.target === document.body && mutation.attributeName === 'class') {
+      const isDark = document.body.classList.contains('theme-dark')
+      // 更新主编辑器主题
+      if (editor) {
+        monaco.editor.setTheme(isDark ? 'custom-dark' : 'custom-light')
+      }
+      // 更新代码块编辑器主题
+      monaco.editor.getEditors().forEach((ed) => {
+        if (ed !== editor) {
+          monaco.editor.setTheme(isDark ? 'custom-dark' : 'custom-light')
+        }
+      })
+    }
+  })
+})
+
 onMounted(() => {
   marked.setOptions({
     breaks: true,
     gfm: true
   })
+
+  // 开始观察主题变化
+  themeObserver.observe(document.body, { attributes: true })
 
   if (props.content) {
     if (props.ask === 'command' || props.say === 'command') {
@@ -845,6 +900,9 @@ watch(
 
 // Cleanup
 onBeforeUnmount(() => {
+  // 停止主题观察
+  themeObserver.disconnect()
+
   if (contentStableTimeout.value) {
     clearTimeout(contentStableTimeout.value)
   }
@@ -898,23 +956,135 @@ const contentParts = computed(() => {
   return parts
 })
 
+// Function to strip ANSI escape codes
+const stripAnsiCodes = (str: string): string => {
+  // This regex matches ANSI escape sequences like color codes
+  return str.replace(/\u001b\[\d+(;\d+)*m/g, '')
+}
+
+// Function to process ANSI escape codes into HTML with CSS classes
+const processAnsiCodes = (str: string): string => {
+  // If no ANSI codes, return as is
+  if (!str.includes('\u001b[')) return str
+
+  // Replace common ANSI color codes with span elements
+  let result = str
+    // Text formatting
+    .replace(/\u001b\[0m/g, '</span>') // Reset
+    .replace(/\u001b\[1m/g, '<span class="ansi-bold">') // Bold
+    .replace(/\u001b\[3m/g, '<span class="ansi-italic">') // Italic
+    .replace(/\u001b\[4m/g, '<span class="ansi-underline">') // Underline
+
+    // Foreground colors
+    .replace(/\u001b\[30m/g, '<span class="ansi-black">') // Black
+    .replace(/\u001b\[31m/g, '<span class="ansi-red">') // Red
+    .replace(/\u001b\[32m/g, '<span class="ansi-green">') // Green
+    .replace(/\u001b\[33m/g, '<span class="ansi-yellow">') // Yellow
+    .replace(/\u001b\[34m/g, '<span class="ansi-blue">') // Blue
+    .replace(/\u001b\[35m/g, '<span class="ansi-magenta">') // Magenta
+    .replace(/\u001b\[36m/g, '<span class="ansi-cyan">') // Cyan
+    .replace(/\u001b\[37m/g, '<span class="ansi-white">') // White
+
+    // Bright foreground colors
+    .replace(/\u001b\[90m/g, '<span class="ansi-bright-black">') // Bright Black
+    .replace(/\u001b\[91m/g, '<span class="ansi-bright-red">') // Bright Red
+    .replace(/\u001b\[92m/g, '<span class="ansi-bright-green">') // Bright Green
+    .replace(/\u001b\[93m/g, '<span class="ansi-bright-yellow">') // Bright Yellow
+    .replace(/\u001b\[94m/g, '<span class="ansi-bright-blue">') // Bright Blue
+    .replace(/\u001b\[95m/g, '<span class="ansi-bright-magenta">') // Bright Magenta
+    .replace(/\u001b\[96m/g, '<span class="ansi-bright-cyan">') // Bright Cyan
+    .replace(/\u001b\[97m/g, '<span class="ansi-bright-white">') // Bright White
+
+    // Background colors
+    .replace(/\u001b\[40m/g, '<span class="ansi-bg-black">') // Black background
+    .replace(/\u001b\[41m/g, '<span class="ansi-bg-red">') // Red background
+    .replace(/\u001b\[42m/g, '<span class="ansi-bg-green">') // Green background
+    .replace(/\u001b\[43m/g, '<span class="ansi-bg-yellow">') // Yellow background
+    .replace(/\u001b\[44m/g, '<span class="ansi-bg-blue">') // Blue background
+    .replace(/\u001b\[45m/g, '<span class="ansi-bg-magenta">') // Magenta background
+    .replace(/\u001b\[46m/g, '<span class="ansi-bg-cyan">') // Cyan background
+    .replace(/\u001b\[47m/g, '<span class="ansi-bg-white">') // White background
+
+    // Bright background colors
+    .replace(/\u001b\[100m/g, '<span class="ansi-bg-bright-black">') // Bright Black background
+    .replace(/\u001b\[101m/g, '<span class="ansi-bg-bright-red">') // Bright Red background
+    .replace(/\u001b\[102m/g, '<span class="ansi-bg-bright-green">') // Bright Green background
+    .replace(/\u001b\[103m/g, '<span class="ansi-bg-bright-yellow">') // Bright Yellow background
+    .replace(/\u001b\[104m/g, '<span class="ansi-bg-bright-blue">') // Bright Blue background
+    .replace(/\u001b\[105m/g, '<span class="ansi-bg-bright-magenta">') // Bright Magenta background
+    .replace(/\u001b\[106m/g, '<span class="ansi-bg-bright-cyan">') // Bright Cyan background
+    .replace(/\u001b\[107m/g, '<span class="ansi-bg-bright-white">') // Bright White background
+
+  // Handle combined color codes like \u001b[1;31m (bold red)
+  result = result.replace(/\u001b\[(\d+);(\d+)m/g, (match, p1, p2) => {
+    let replacement = ''
+
+    // Handle first parameter
+    if (p1 === '0') replacement += '</span><span>'
+    else if (p1 === '1') replacement += '<span class="ansi-bold">'
+    else if (p1 === '3') replacement += '<span class="ansi-italic">'
+    else if (p1 === '4') replacement += '<span class="ansi-underline">'
+    else if (p1 >= '30' && p1 <= '37') replacement += `<span class="ansi-${getColorName(parseInt(p1, 10) - 30)}">`
+    else if (p1 >= '40' && p1 <= '47') replacement += `<span class="ansi-bg-${getColorName(parseInt(p1, 10) - 40)}">`
+    else if (p1 >= '90' && p1 <= '97') replacement += `<span class="ansi-bright-${getColorName(parseInt(p1, 10) - 90)}">`
+    else if (p1 >= '100' && p1 <= '107') replacement += `<span class="ansi-bg-bright-${getColorName(parseInt(p1, 10) - 100)}">`
+
+    // Handle second parameter
+    if (p2 === '0') replacement += '</span><span>'
+    else if (p2 === '1') replacement += '<span class="ansi-bold">'
+    else if (p2 === '3') replacement += '<span class="ansi-italic">'
+    else if (p2 === '4') replacement += '<span class="ansi-underline">'
+    else if (p2 >= '30' && p2 <= '37') replacement += `<span class="ansi-${getColorName(parseInt(p2, 10) - 30)}">`
+    else if (p2 >= '40' && p2 <= '47') replacement += `<span class="ansi-bg-${getColorName(parseInt(p2, 10) - 40)}">`
+    else if (p2 >= '90' && p2 <= '97') replacement += `<span class="ansi-bright-${getColorName(parseInt(p2, 10) - 90)}">`
+    else if (p2 >= '100' && p2 <= '107') replacement += `<span class="ansi-bg-bright-${getColorName(parseInt(p2, 10) - 100)}">`
+
+    return replacement
+  })
+
+  // Handle any remaining ANSI codes by stripping them
+  result = result.replace(/\u001b\[\d+[A-Za-z]/g, '') // Remove cursor movement codes
+  result = result.replace(/\u001b\[\d+(;\d+)*[A-Za-z]/g, '') // Remove other control sequences
+  result = result.replace(/\u001b\[\??\d+[hl]/g, '') // Remove mode setting
+  result = result.replace(/\u001b\[K/g, '') // Remove EL - Erase in Line
+
+  // Ensure all spans are closed
+  const openTags = (result.match(/<span/g) || []).length
+  const closeTags = (result.match(/<\/span>/g) || []).length
+
+  if (openTags > closeTags) {
+    result += '</span>'.repeat(openTags - closeTags)
+  }
+
+  return result
+}
+
+// Helper function to get color name from index
+const getColorName = (index: number): string => {
+  const colors = ['black', 'red', 'green', 'yellow', 'blue', 'magenta', 'cyan', 'white']
+  return colors[index] || 'white'
+}
+
 // Add computed property for content lines
 const contentLines = computed(() => {
   if (!props.content) return []
 
   const lines = props.content.split('\n')
   return lines.map((line) => {
+    // Process ANSI escape codes for display
+    const processedLine = stripAnsiCodes(line)
+
     // Check if it's a prompt line
-    if (line.startsWith('$ ') || line.startsWith('# ')) {
+    if (processedLine.startsWith('$ ') || processedLine.startsWith('# ')) {
       return {
         type: 'prompt',
-        prompt: line.charAt(0),
-        command: line.substring(2)
+        prompt: processedLine.charAt(0),
+        command: processedLine.substring(2)
       }
     }
 
     // Check if it's an ls output line
-    const lsMatch = line.match(/^([drwx-]+)\s+(\d+)\s+(\w+)\s+(\w+)\s+(\d+)\s+(\w+\s+\d+\s+\d+:\d+)\s+(.+)$/)
+    const lsMatch = processedLine.match(/^([drwx-]+)\s+(\d+)\s+(\w+)\s+(\w+)\s+(\d+)\s+(\w+\s+\d+\s+\d+:\d+)\s+(.+)$/)
     if (lsMatch) {
       const [, permissions, , user, group, size, date, name] = lsMatch
       return {
@@ -929,10 +1099,11 @@ const contentLines = computed(() => {
       }
     }
 
-    // Regular content line
+    // Regular content line with ANSI processing
     return {
       type: 'content',
-      content: line
+      content: processedLine,
+      html: processAnsiCodes(line)
     }
   })
 })
@@ -983,50 +1154,50 @@ code {
   margin: 4px 0;
   border-radius: 6px;
   overflow: hidden;
-  background-color: #282c34;
+  background-color: var(--bg-color-septenary);
   min-height: 30px;
   height: auto;
 }
 
 .thinking-collapse {
-  background-color: #3a3a3a !important;
+  background-color: var(--bg-color-quaternary) !important;
   border: none !important;
 }
 
 .thinking-collapse .ant-collapse-item {
-  background-color: #3a3a3a !important;
+  background-color: var(--bg-color-quaternary) !important;
   border: none !important;
 }
 
 .thinking-collapse .ant-collapse-header {
-  background-color: #3a3a3a !important;
-  color: #ffffff !important;
+  background-color: var(--bg-color-quaternary) !important;
+  color: var(--text-color) !important;
 }
 
 .thinking-collapse .ant-collapse-content {
-  background-color: #3a3a3a !important;
-  color: #ffffff !important;
+  background-color: var(--bg-color-quaternary) !important;
+  color: var(--text-color) !important;
   border: none !important;
 }
 
 .thinking-collapse .ant-typography {
-  color: #ffffff !important;
+  color: var(--text-color) !important;
 }
 
 .thinking-collapse .thinking-content {
-  color: #ffffff !important;
+  color: var(--text-color) !important;
 }
 
 .thinking-collapse .ant-collapse-arrow {
-  color: #ffffff !important;
+  color: var(--text-color) !important;
 }
 
 .thinking-collapse .anticon {
-  color: #ffffff !important;
+  color: var(--text-color) !important;
 }
 
 .thinking-collapse.ant-collapse {
-  background: #3a3a3a;
+  background: var(--bg-color-quaternary);
   border: none;
   margin-bottom: 10px;
   border-radius: 4px !important;
@@ -1035,7 +1206,7 @@ code {
 
 .thinking-collapse.ant-collapse .ant-collapse-item {
   border: none;
-  background: #3a3a3a;
+  background: var(--bg-color-quaternary);
   border-radius: 4px !important;
   overflow: hidden;
   font-size: 12px;
@@ -1045,13 +1216,13 @@ code {
   padding: 8px 12px !important;
   border-radius: 4px !important;
   transition: all 0.3s;
-  color: #ffffff !important;
-  background-color: #1e1e1e !important;
+  color: var(--text-color) !important;
+  background-color: var(--bg-color-secondary) !important;
   font-size: 12px !important;
 }
 
 .thinking-collapse.ant-collapse .ant-collapse-content {
-  background-color: #1e1e1e !important;
+  background-color: var(--bg-color-secondary) !important;
   border-top: none;
   border-radius: 0 0 4px 4px !important;
 }
@@ -1065,29 +1236,29 @@ code {
 }
 
 .thinking-collapse.ant-collapse .ant-typography {
-  color: #ffffff !important;
+  color: var(--text-color) !important;
   margin-bottom: 0;
   font-size: 12px !important;
 }
 
 .thinking-collapse.ant-collapse .ant-collapse-header:hover {
-  background-color: #1e1e1e !important;
+  background-color: var(--bg-color-secondary) !important;
 }
 
 .thinking-collapse.ant-collapse .thinking-content {
   padding: 0px 5px 5px 5px;
   margin: 0;
-  background-color: #1e1e1e !important;
+  background-color: var(--bg-color-secondary) !important;
   border-radius: 0 0 4px 4px;
   font-size: 12px;
   line-height: 1.5715;
-  color: #ffffff;
+  color: var(--text-color);
 }
 
 .thinking-collapse.ant-collapse .ant-collapse-arrow {
   font-size: 12px;
   right: 12px;
-  color: #ffffff;
+  color: var(--text-color);
 }
 
 .thinking-collapse.ant-collapse .ant-space {
@@ -1099,7 +1270,7 @@ code {
 .thinking-collapse.ant-collapse .anticon {
   display: inline-flex;
   align-items: center;
-  color: #ffffff;
+  color: var(--text-color);
   font-size: 12px;
 }
 
@@ -1146,7 +1317,7 @@ code {
 .markdown-content {
   font-size: 12px;
   line-height: 1.6;
-  color: #ffffff;
+  color: var(--text-color);
 }
 
 .markdown-content ul,
@@ -1160,7 +1331,7 @@ code {
 }
 
 .markdown-content code {
-  background-color: #2a2a2a;
+  background-color: var(--bg-color-quinary);
   padding: 2px 4px;
   border-radius: 3px;
   font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
@@ -1181,14 +1352,14 @@ code {
 .thinking-collapse.no-collapse .thinking-header {
   padding: 8px 12px !important;
   border-radius: 4px 4px 0 0 !important;
-  color: #ffffff !important;
-  background-color: #3a3a3a;
+  color: var(--text-color) !important;
+  background-color: var(--bg-color-quaternary);
   font-size: 12px !important;
 }
 
 .thinking-collapse.no-collapse .thinking-content {
   padding: 0px 5px 5px 5px;
-  background-color: #3a3a3a;
+  background-color: var(--bg-color-quaternary);
   border-radius: 0 0 4px 4px;
 }
 
@@ -1205,7 +1376,7 @@ code {
 }
 
 .code-collapse .ant-collapse-header {
-  color: #ffffff !important;
+  color: var(--text-color) !important;
   padding: 4px 12px !important;
   background: transparent !important;
   transition: all 0.3s;
@@ -1219,7 +1390,7 @@ code {
 }
 
 .code-collapse .ant-collapse-content {
-  color: #ffffff !important;
+  color: var(--text-color) !important;
   border: none !important;
   background: transparent !important;
 }
@@ -1229,7 +1400,7 @@ code {
 }
 
 .code-collapse .ant-typography {
-  color: #ffffff !important;
+  color: var(--text-color) !important;
   margin-bottom: 0;
   font-size: 12px !important;
 }
@@ -1271,7 +1442,7 @@ code {
   margin: 4px 0;
   border-radius: 6px;
   overflow: hidden;
-  background-color: #282c34;
+  background-color: var(--bg-color-septenary);
   min-height: 30px;
   position: relative;
   padding: 2px 0 8px 0;
@@ -1283,7 +1454,7 @@ code {
 }
 
 .copy-button {
-  color: #ffffff;
+  color: var(--text-color);
   opacity: 0.6;
   transition: opacity 0.3s;
 }
@@ -1291,7 +1462,7 @@ code {
 .monaco-container .copy-button {
   position: absolute;
   top: -1px;
-  right: -8px;
+  right: -4px;
   z-index: 100;
 }
 
@@ -1348,7 +1519,7 @@ code {
 }
 
 .markdown-content pre {
-  background-color: #2a2a2a;
+  background-color: var(--bg-color-quinary);
   border-radius: 8px;
   padding: 8px;
   overflow-x: hidden;
@@ -1364,8 +1535,8 @@ code {
 
 .command-output {
   font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
-  background-color: #1a1a1a;
-  color: #ffffff;
+  background-color: var(--bg-color-quinary);
+  color: var(--text-color);
   padding: 28px 12px 12px;
   border-radius: 8px;
   white-space: pre-wrap;
@@ -1373,7 +1544,7 @@ code {
   font-size: 12px;
   line-height: 1.6;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
-  border: 1px solid #2a2a2a;
+  border: 1px solid var(--border-color);
   overflow: hidden;
   position: relative;
   width: 100%;
@@ -1389,8 +1560,8 @@ code {
   left: 0;
   right: 0;
   height: 18px;
-  background: #2a2a2a;
-  border-bottom: 1px solid #3a3a3a;
+  background: var(--bg-color-quinary);
+  border-bottom: 1px solid var(--bg-color-quaternary);
 }
 
 .command-output::after {
@@ -1456,7 +1627,7 @@ code {
   display: inline-block;
   width: 8px;
   height: 16px;
-  background-color: #ffffff;
+  background-color: var(--text-color);
   animation: blink 1s step-end infinite;
   margin-left: 2px;
   vertical-align: middle;
@@ -1521,7 +1692,7 @@ code {
 
 .command-output .progress-bar {
   height: 4px;
-  background-color: #2a2a2a;
+  background-color: var(--bg-color-quinary);
   border-radius: 2px;
   margin: 8px 0;
   overflow: hidden;
@@ -1626,5 +1797,148 @@ code {
   text-overflow: ellipsis;
   white-space: normal;
   word-break: break-all;
+}
+
+/* ANSI Color Styles */
+.ansi-black {
+  color: #000000;
+}
+
+.ansi-red {
+  color: #e06c75;
+}
+
+.ansi-green {
+  color: #98c379;
+}
+
+.ansi-yellow {
+  color: #e5c07b;
+}
+
+.ansi-blue {
+  color: #61afef;
+}
+
+.ansi-magenta {
+  color: #c678dd;
+}
+
+.ansi-cyan {
+  color: #56b6c2;
+}
+
+.ansi-white {
+  color: #abb2bf;
+}
+
+.ansi-bright-black {
+  color: #5c6370;
+}
+
+.ansi-bright-red {
+  color: #ff7b86;
+}
+
+.ansi-bright-green {
+  color: #b5e890;
+}
+
+.ansi-bright-yellow {
+  color: #ffd68a;
+}
+
+.ansi-bright-blue {
+  color: #79c0ff;
+}
+
+.ansi-bright-magenta {
+  color: #d8a6ff;
+}
+
+.ansi-bright-cyan {
+  color: #7ce8ff;
+}
+
+.ansi-bright-white {
+  color: #ffffff;
+}
+
+/* ANSI Background Colors */
+.ansi-bg-black {
+  background-color: #000000;
+}
+
+.ansi-bg-red {
+  background-color: #e06c75;
+}
+
+.ansi-bg-green {
+  background-color: #98c379;
+}
+
+.ansi-bg-yellow {
+  background-color: #e5c07b;
+}
+
+.ansi-bg-blue {
+  background-color: #61afef;
+}
+
+.ansi-bg-magenta {
+  background-color: #c678dd;
+}
+
+.ansi-bg-cyan {
+  background-color: #56b6c2;
+}
+
+.ansi-bg-white {
+  background-color: #abb2bf;
+}
+
+.ansi-bg-bright-black {
+  background-color: #5c6370;
+}
+
+.ansi-bg-bright-red {
+  background-color: #ff7b86;
+}
+
+.ansi-bg-bright-green {
+  background-color: #b5e890;
+}
+
+.ansi-bg-bright-yellow {
+  background-color: #ffd68a;
+}
+
+.ansi-bg-bright-blue {
+  background-color: #79c0ff;
+}
+
+.ansi-bg-bright-magenta {
+  background-color: #d8a6ff;
+}
+
+.ansi-bg-bright-cyan {
+  background-color: #7ce8ff;
+}
+
+.ansi-bg-bright-white {
+  background-color: #ffffff;
+}
+
+/* ANSI Text Formatting */
+.ansi-bold {
+  font-weight: bold;
+}
+
+.ansi-italic {
+  font-style: italic;
+}
+
+.ansi-underline {
+  text-decoration: underline;
 }
 </style>

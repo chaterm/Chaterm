@@ -1,9 +1,13 @@
 import { PostHog } from 'posthog-node'
-import * as vscode from 'vscode'
 import { version as extensionVersion } from '../../../../../package.json'
 
 import type { TaskFeedbackType } from '@shared/WebviewMessage'
 import type { BrowserSettings } from '@shared/BrowserSettings'
+import os from 'os'
+import crypto from 'crypto'
+import { app } from 'electron'
+import path from 'path'
+import fs from 'fs'
 
 /**
  * PostHogClient handles telemetry event tracking for the Cline extension
@@ -81,8 +85,8 @@ class PostHogClient {
   private static instance: PostHogClient
   /** PostHog client instance for sending analytics events */
   private client: PostHog
-  /** Unique identifier for the current VSCode instance */
-  private distinctId: string = vscode.env.machineId
+  /** Unique identifier for the current user */
+  private distinctId: string = generatePersistentMachineId()
   /** Whether telemetry is currently enabled based on user and VSCode settings */
   private telemetryEnabled: boolean = false
   /** Current version of the extension */
@@ -93,30 +97,19 @@ class PostHogClient {
    * Initializes PostHog client with configuration
    */
   private constructor() {
-    this.client = new PostHog('phc_qfOAGxZw2TL5O8p9KYd9ak3bPBFzfjC8fy5L6jNWY7K', {
+    this.client = new PostHog('phc_soaFIGBpywruW8dckk93xUs0FGn2otNi5CUkEbd2a4U', {
       host: 'https://us.i.posthog.com',
       enableExceptionAutocapture: false
     })
   }
 
   /**
-   * Updates the telemetry state based on user preferences and VSCode settings
-   * Only enables telemetry if both VSCode global telemetry is enabled and user has opted in
    * @param didUserOptIn Whether the user has explicitly opted into telemetry
    */
   public updateTelemetryState(didUserOptIn: boolean): void {
     this.telemetryEnabled = false
 
-    // First check global telemetry level - telemetry should only be enabled when level is "all"
-    const telemetryLevel = vscode.workspace
-      .getConfiguration('telemetry')
-      .get<string>('telemetryLevel', 'all')
-    const globalTelemetryEnabled = telemetryLevel === 'all'
-
-    // We only enable telemetry if global vscode telemetry is enabled
-    if (globalTelemetryEnabled) {
-      this.telemetryEnabled = didUserOptIn
-    }
+    this.telemetryEnabled = didUserOptIn
 
     // Update PostHog client state based on telemetry preference
     if (this.telemetryEnabled) {
@@ -198,12 +191,7 @@ class PostHogClient {
    * @param model The specific model used (e.g., GPT-4, Claude)
    * @param source The source of the message ("user" | "model"). Used to track message patterns and identify when users need to correct the model's responses.
    */
-  public captureConversationTurnEvent(
-    taskId: string,
-    provider: string = 'unknown',
-    model: string = 'unknown',
-    source: 'user' | 'assistant'
-  ) {
+  public captureConversationTurnEvent(taskId: string, provider: string = 'unknown', model: string = 'unknown', source: 'user' | 'assistant') {
     // Ensure required parameters are provided
     if (!taskId || !provider || !model || !source) {
       console.warn('TelemetryService: Missing required parameters for message capture')
@@ -324,12 +312,7 @@ class PostHogClient {
    * @param location Where the switch occurred (settings panel or bottom bar)
    * @param taskId Optional task identifier if switch occurred during a task
    */
-  public captureProviderSwitch(
-    from: string,
-    to: string,
-    location: 'settings' | 'bottom',
-    taskId?: string
-  ) {
+  public captureProviderSwitch(from: string, to: string, location: 'settings' | 'bottom', taskId?: string) {
     this.capture({
       event: PostHogClient.EVENTS.UI.PROVIDER_SWITCH,
       properties: {
@@ -611,5 +594,71 @@ class PostHogClient {
     await this.client.shutdown()
   }
 }
+/**
+ * 生成持久的机器标识符
+ * 基于机器的硬件和系统信息生成唯一且持久的标识符
+ */
+function generatePersistentMachineId(): string {
+  const userDataPath = app.getPath('userData')
+  const machineIdPath = path.join(userDataPath, '.machine-id')
 
+  // 尝试读取已存在的机器ID
+  try {
+    if (fs.existsSync(machineIdPath)) {
+      const existingId = fs.readFileSync(machineIdPath, 'utf8').trim()
+      if (existingId && existingId.length > 0) {
+        return existingId
+      }
+    }
+  } catch (error) {
+    console.warn('Failed to read existing machine ID:', error)
+  }
+
+  // 生成新的机器ID
+  const machineInfo = {
+    hostname: os.hostname(),
+    platform: os.platform(),
+    arch: os.arch(),
+    userInfo: os.userInfo().username,
+    // 获取第一个非内部网络接口的MAC地址
+    macAddress: getMacAddress(),
+    // 添加一些随机性以确保唯一性
+    random: Math.random().toString(36).substr(2, 9)
+  }
+
+  // 创建基于机器信息的哈希
+  const hash = crypto.createHash('sha256')
+  hash.update(JSON.stringify(machineInfo))
+  const machineId = 'chaterm-' + hash.digest('hex').substr(0, 32)
+
+  // 保存到文件
+  try {
+    // 确保目录存在
+    fs.mkdirSync(path.dirname(machineIdPath), { recursive: true })
+    fs.writeFileSync(machineIdPath, machineId, 'utf8')
+  } catch (error) {
+    console.warn('Failed to save machine ID:', error)
+  }
+
+  return machineId
+}
+
+/**
+ * 获取MAC地址的辅助函数
+ */
+function getMacAddress(): string {
+  const interfaces = os.networkInterfaces()
+  for (const name of Object.keys(interfaces)) {
+    const nets = interfaces[name]
+    if (nets) {
+      for (const net of nets) {
+        // 跳过内部接口和无效的MAC地址
+        if (!net.internal && net.mac !== '00:00:00:00:00:00') {
+          return net.mac
+        }
+      }
+    }
+  }
+  return 'unknown-mac'
+}
 export const telemetryService = PostHogClient.getInstance()
