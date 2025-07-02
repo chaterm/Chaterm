@@ -131,7 +131,7 @@ export default {
     apiConfiguration: 'API Configuration',
     apiProvider: 'API Provider',
     apiProviderDescribe:
-      'Authenticate by either providing the keys above or use the default AWS credential providers, i.e. ~/.aws/credentials or environment variables. These credentials are only used locally to make API requests from this extension.\n',
+      'Authenticate by either providing the keys above or use the default AWS credential providers, i.e. ~/.aws/credentials or environment variables. These credentials are only used locally to make API requests from this client.',
     awsAccessKey: 'AWS Access Key',
     awsAccessKeyPh: 'Enter Access Key',
     awsSecretKey: 'AWS Secret Key',
@@ -148,6 +148,7 @@ export default {
     liteLlmBaseUrlPh: 'Enter Base URL',
     liteLlmApiKey: 'API Key',
     liteLlmApiKeyPh: 'Enter API Key',
+    liteLlmApiKeyDescribe: 'This key is stored locally and only used to make API requests from this client.',
     customInstructions: 'Custom Instructions',
     customInstructionsPh: `These instructions are added to the end of the system prompt sent with every request. e.g. Always respond in Chinese-simplified`,
     deepSeekApiKey: `DeepSeek API Key`,
