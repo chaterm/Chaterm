@@ -315,7 +315,6 @@ export class ChatermDatabaseService {
 
   getLocalAssetRoute(searchType: string, params: any[] = []): any {
     try {
-      console.log('Chaterm database query params:', params)
       const result: QueryResult = {
         code: 200,
         data: {

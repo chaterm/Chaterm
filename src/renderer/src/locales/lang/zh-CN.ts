@@ -263,6 +263,7 @@ export default {
   },
   keyChain: {
     newKey: '添加密钥',
+    keyDrop: '拖拽私钥文件到此处导入',
     editKey: '编辑密钥',
     saveKey: '保存密钥',
     createKey: '创建密钥',

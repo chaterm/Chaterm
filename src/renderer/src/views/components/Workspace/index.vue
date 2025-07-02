@@ -57,7 +57,8 @@
               <template #title="{ title, dataRef }">
                 <div
                   class="custom-tree-node"
-                  @click="clickServer(dataRef)"
+                  @click="handleClick(dataRef)"
+                  @dblclick="handleDblClick(dataRef)"
                 >
                   <span
                     v-if="!isSecondLevel(dataRef)"
@@ -451,6 +452,23 @@ const clickServer = (item) => {
 const assetManagement = () => {
   emit('open-user-tab', 'assetConfig')
 }
+
+let clickTimer: any = null
+const handleClick = (dataRef: any) => {
+  if (clickTimer) clearTimeout(clickTimer)
+  clickTimer = setTimeout(() => {
+    clickServer(dataRef)
+    clickTimer = null
+  }, 500)
+}
+const handleDblClick = (dataRef: any) => {
+  if (clickTimer) {
+    clearTimeout(clickTimer)
+    clickTimer = null
+  }
+  clickServer(dataRef)
+}
+
 getLocalAssetMenu()
 onMounted(async () => {
   await GetUserWorkSpace()
