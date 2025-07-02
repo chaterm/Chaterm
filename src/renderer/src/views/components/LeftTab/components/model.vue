@@ -72,6 +72,9 @@
                 v-model:value="liteLlmApiKey"
                 :placeholder="$t('user.liteLlmApiKeyPh')"
               />
+              <p class="setting-description-no-padding">
+                {{ $t('user.liteLlmApiKeyDescribe') }}
+              </p>
             </a-form-item>
           </div>
 
