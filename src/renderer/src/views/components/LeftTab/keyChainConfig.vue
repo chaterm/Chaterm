@@ -161,6 +161,53 @@
                 :placeholder="t('keyChain.pleaseInput')"
               />
             </a-form-item>
+            <div
+              class="drag-drop-area"
+              :class="{ 'drag-over': isDragOver }"
+              style="
+                margin-top: 8px;
+                padding: 18px 0;
+                border: 1px dashed #d9d9d9;
+                border-radius: 8px;
+                text-align: center;
+                background: var(--bg-color-secondary);
+                cursor: pointer;
+              "
+              @dragover.prevent
+              @dragenter.prevent="isDragOver = true"
+              @dragleave.prevent="isDragOver = false"
+              @drop.prevent="handleDrop"
+            >
+              <div style="display: flex; flex-direction: column; align-items: center; justify-content: center">
+                <svg
+                  width="32"
+                  height="32"
+                  viewBox="0 0 32 32"
+                  fill="none"
+                  xmlns="http://www.w3.org/2000/svg"
+                >
+                  <rect
+                    width="32"
+                    height="32"
+                    rx="8"
+                    fill="#E0E0E0"
+                  />
+                  <path
+                    d="M16 10V22"
+                    stroke="#B0B6BE"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                  />
+                  <path
+                    d="M10 16L16 10L22 16"
+                    stroke="#B0B6BE"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                  />
+                </svg>
+                <div style="color: #888; font-size: 14px; margin-top: 8px">{{ t('keyChain.keyDrop') }}</div>
+              </div>
+            </div>
           </a-form>
         </div>
 
@@ -204,6 +251,7 @@ const editingKeyChainId = ref<number | null>(null)
 const contextMenuVisible = ref(false)
 const contextMenuPosition = reactive({ x: 0, y: 0 })
 const selectedKeyChain = ref<KeyChainItem | null>(null)
+const isDragOver = ref(false)
 
 interface CreateFormType {
   label: string
@@ -457,6 +505,24 @@ function detectKeyType(privateKey = '', publicKey = ''): 'RSA' | 'ED25519' | 'EC
   }
 
   return 'RSA'
+}
+
+function handleDrop(e: DragEvent) {
+  isDragOver.value = false
+  const files = e.dataTransfer?.files
+  if (files && files.length > 0) {
+    const file = files[0]
+    const reader = new FileReader()
+    reader.onload = (event) => {
+      const text = event.target?.result as string
+      createForm.privateKey = text
+      message.success('密钥文件已导入')
+    }
+    reader.onerror = () => {
+      message.error('读取文件失败')
+    }
+    reader.readAsText(file)
+  }
 }
 
 onMounted(() => {
@@ -898,5 +964,15 @@ watch(isRightSectionVisible, (val) => {
   max-width: calc(100vw - 20px);
   max-height: calc(100vh - 20px);
   overflow: hidden;
+}
+
+.drag-drop-area {
+  transition:
+    border-color 0.2s,
+    background 0.2s;
+}
+.drag-drop-area.drag-over {
+  border-color: #1890ff;
+  background: #e6f7ff;
 }
 </style>
