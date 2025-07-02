@@ -47,10 +47,8 @@
   font-size: 20px;
   font-weight: bold;
   background: linear-gradient(90deg, #00eaff 0%, #1677ff 100%);
-  background-clip: text;
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
-  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
   line-height: 56px;
   margin: 0;
   letter-spacing: 1px;

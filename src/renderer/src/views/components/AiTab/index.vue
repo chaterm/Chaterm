@@ -170,6 +170,22 @@
             {{ $t('ai.resume') }}
           </a-button>
         </div>
+        <div
+          v-if="showRetryButton"
+          class="bottom-buttons"
+        >
+          <a-button
+            size="small"
+            type="primary"
+            class="retry-btn"
+            @click="handleRetry"
+          >
+            <template #icon>
+              <ReloadOutlined />
+            </template>
+            {{ $t('ai.retry') }}
+          </a-button>
+        </div>
         <div class="input-send-container">
           <div
             v-if="showHostSelect"
@@ -212,7 +228,7 @@
           </div>
           <div class="hosts-display-container">
             <span
-              v-if="chatTypeValue !== 'cmd' && chatHistory.length === 0"
+              v-if="chatTypeValue === 'agent' && chatHistory.length === 0"
               class="hosts-display-container-host-tag"
               @click="handleAddHostClick"
             >
@@ -229,7 +245,7 @@
               </template>
               {{ item.host }}
               <CloseOutlined
-                v-if="chatTypeValue !== 'cmd' && chatHistory.length === 0"
+                v-if="chatTypeValue === 'agent' && chatHistory.length === 0"
                 class="host-delete-btn"
                 @click.stop="removeHost(item)"
               />
@@ -237,7 +253,7 @@
 
             <span
               v-if="responseLoading"
-              style="color: #ffffff; font-size: 10px"
+              class="processing-text"
             >
               <HourglassOutlined
                 spin
@@ -268,7 +284,6 @@
               style="width: 150px"
               :options="AgentAiModelsOptions"
               show-search
-              :placeholder="$t('ai.chooseModel') || '选择模型'"
               @change="handleChatAiModelChange"
             ></a-select>
             <a-button
@@ -328,12 +343,30 @@
                       <SearchOutlined style="color: #666" />
                     </template>
                   </a-input>
+                  <a-button
+                    size="small"
+                    class="favorites-button"
+                    type="text"
+                    @click="showOnlyFavorites = !showOnlyFavorites"
+                  >
+                    <template #icon>
+                      <StarFilled
+                        v-if="showOnlyFavorites"
+                        style="color: #faad14"
+                      />
+                      <StarOutlined
+                        v-else
+                        style="color: #999999"
+                      />
+                    </template>
+                  </a-button>
                 </div>
                 <div class="history-virtual-list-container">
                   <a-menu-item
                     v-for="history in paginatedHistoryList"
                     :key="history.id"
                     class="history-menu-item"
+                    :class="{ 'favorite-item': history.isFavorite }"
                     @click="!history.isEditing && restoreHistoryTab(history)"
                   >
                     <div class="history-item-content">
@@ -356,11 +389,25 @@
                         <template v-if="!history.isEditing">
                           <a-button
                             size="small"
+                            class="menu-action-btn favorite-btn"
+                            @click.stop="toggleFavorite(history)"
+                          >
+                            <template #icon>
+                              <template v-if="history.isFavorite">
+                                <StarFilled style="color: #faad14" />
+                              </template>
+                              <template v-else>
+                                <StarOutlined style="color: #999999" />
+                              </template>
+                            </template>
+                          </a-button>
+                          <a-button
+                            size="small"
                             class="menu-action-btn"
                             @click.stop="editHistory(history)"
                           >
                             <template #icon>
-                              <EditOutlined />
+                              <EditOutlined style="color: #999999" />
                             </template>
                           </a-button>
                           <a-button
@@ -369,7 +416,7 @@
                             @click.stop="deleteHistory(history)"
                           >
                             <template #icon>
-                              <DeleteOutlined />
+                              <DeleteOutlined style="color: #999999" />
                             </template>
                           </a-button>
                         </template>
@@ -380,7 +427,7 @@
                             @click.stop="saveHistoryTitle(history)"
                           >
                             <template #icon>
-                              <CheckOutlined />
+                              <CheckOutlined style="color: #999999" />
                             </template>
                           </a-button>
                           <a-button
@@ -389,12 +436,11 @@
                             @click.stop.prevent="cancelEdit(history)"
                           >
                             <template #icon>
-                              <CloseOutlined />
+                              <CloseOutlined style="color: #999999" />
                             </template>
                           </a-button>
                         </template>
                       </div>
-                      <!--                      <div class="history-type">{{ history.chatType }}</div>-->
                     </div>
                   </a-menu-item>
                   <div
@@ -428,25 +474,28 @@
 </template>
 
 <script setup lang="ts">
-import { computed, defineAsyncComponent, nextTick, onBeforeUnmount, onMounted, onUnmounted, reactive, ref, watch } from 'vue'
+import { ref, reactive, onMounted, defineAsyncComponent, onUnmounted, watch, computed, nextTick, onBeforeUnmount } from 'vue'
 import {
-  CheckOutlined,
   CloseOutlined,
-  CopyOutlined,
-  DeleteOutlined,
-  EditOutlined,
-  HourglassOutlined,
   LaptopOutlined,
+  CopyOutlined,
   PlayCircleOutlined,
   RedoOutlined,
-  SearchOutlined
+  HourglassOutlined,
+  EditOutlined,
+  DeleteOutlined,
+  SearchOutlined,
+  CheckOutlined,
+  ReloadOutlined,
+  StarOutlined,
+  StarFilled
 } from '@ant-design/icons-vue'
 import { notification } from 'ant-design-vue'
 import { v4 as uuidv4 } from 'uuid'
 import eventBus from '@/utils/eventBus'
-import { getGlobalState, getSecret, updateGlobalState, storeSecret } from '@renderer/agent/storage/state'
-import type { AssetInfo, ChatMessage, HistoryItem, Host, MessageContent, TaskHistoryItem } from './types'
-import { createNewMessage, formatHosts, parseMessageContent, truncateText } from './utils'
+import { getGlobalState, updateGlobalState, getSecret, storeSecret } from '@renderer/agent/storage/state'
+import type { HistoryItem, TaskHistoryItem, Host, ChatMessage, MessageContent, AssetInfo } from './types'
+import { createNewMessage, parseMessageContent, truncateText, formatHosts } from './utils'
 import foldIcon from '@/assets/icons/fold.svg'
 import historyIcon from '@/assets/icons/history.svg'
 import plusIcon from '@/assets/icons/plus.svg'
@@ -483,6 +532,7 @@ const hostSearchValue = ref('')
 const hovered = ref<string | null>(null)
 const keyboardSelectedIndex = ref(-1)
 const historyList = ref<HistoryItem[]>([])
+const favoriteTaskList = ref<string[]>([])
 const hosts = ref<Host[]>([])
 const autoUpdateHost = ref(true)
 const chatInputValue = ref('')
@@ -498,6 +548,7 @@ const shouldShowSendButton = computed(() => {
 const lastChatMessageId = ref('')
 const buttonsDisabled = ref(false)
 const resumeDisabled = ref(false)
+const showRetryButton = ref(false)
 const showCancelButton = ref(false)
 
 // 当前活动对话的 ID
@@ -688,6 +739,7 @@ const sendMessage = async (sendType: string) => {
   chatHistory.push(userMessage)
   chatInputValue.value = ''
   responseLoading.value = true
+  showRetryButton.value = false
   return
 }
 
@@ -738,6 +790,7 @@ const handlePlusClick = async () => {
   if (currentInput.trim()) {
     sendMessage('newTask')
   }
+  showRetryButton.value = false
 }
 
 const containerKey = ref(0)
@@ -842,26 +895,29 @@ const restoreHistoryTab = async (history: HistoryItem) => {
 
 const handleHistoryClick = async () => {
   try {
-    if (chatTypeValue.value === 'agent' || chatTypeValue.value === 'cmd') {
-      // 重置分页状态
-      currentPage.value = 1
-      isLoadingMore.value = false
+    // 重置分页状态
+    currentPage.value = 1
+    isLoadingMore.value = false
 
-      // 从 globalState 获取所有 agent 历史记录并按 ts 倒序排序
-      const taskHistory = ((await getGlobalState('taskHistory')) as TaskHistoryItem[]) || []
+    // 从 globalState 获取所有 agent 历史记录并按 ts 倒序排序
+    const taskHistory = ((await getGlobalState('taskHistory')) as TaskHistoryItem[]) || []
 
-      const historyItems = taskHistory
-        .sort((a, b) => b.ts - a.ts)
-        .map((task) => ({
-          id: task.id,
-          chatTitle: truncateText(task?.task || `${chatTypeValue.value} Chat`),
-          chatType: chatTypeValue.value,
-          chatContent: []
-        }))
+    // 加载收藏列表
+    const favorites = ((await getGlobalState('favoriteTaskList')) as string[]) || []
+    favoriteTaskList.value = favorites
 
-      // 批量更新历史列表
-      historyList.value = historyItems
-    }
+    const historyItems = taskHistory
+      .sort((a, b) => b.ts - a.ts)
+      .map((task) => ({
+        id: task.id,
+        chatTitle: truncateText(task?.task || `${chatTypeValue.value} Chat`),
+        chatType: chatTypeValue.value,
+        chatContent: [],
+        isFavorite: favorites.includes(task.id)
+      }))
+
+    // 批量更新历史列表
+    historyList.value = historyItems
   } catch (err) {
     console.error('Failed to get conversation list:', err)
   }
@@ -1024,7 +1080,19 @@ const handleResume = async () => {
   const response = await (window.api as any).sendToMain(messageRsp)
   console.log('主进程响应:', response)
   resumeDisabled.value = true
-  responseLoading.value = false
+  responseLoading.value = true
+}
+
+const handleRetry = async () => {
+  console.log('handleRetry:重试')
+  const messageRsp = {
+    type: 'askResponse',
+    askResponse: 'yesButtonClicked'
+  }
+  console.log('发送消息到主进程:', messageRsp)
+  const response = await (window.api as any).sendToMain(messageRsp)
+  console.log('主进程响应:', response)
+  showRetryButton.value = false
 }
 
 // 声明removeListener变量
@@ -1156,6 +1224,10 @@ onMounted(async () => {
     }
   ]
 
+  // 初始化收藏列表
+  const favorites = ((await getGlobalState('favoriteTaskList')) as string[]) || []
+  favoriteTaskList.value = favorites
+
   // 初始化资产信息
   await initAssetInfo()
 
@@ -1197,8 +1269,14 @@ onMounted(async () => {
   let lastMessage: any = null
   let lastPartialMessage: any = null
   removeListener = (window.api as any).onMainMessage((message: any) => {
-    console.log('Received main process message:', message)
+    console.log('Received main process message:', message.type, message)
     if (message?.type === 'partialMessage') {
+      // handle model error -- api_req_failed
+      if (message.partialMessage.type === 'ask' && message.partialMessage.ask === 'api_req_failed') {
+        handleModelApiReqFailed(message)
+        return
+      }
+      showRetryButton.value = false
       showSendButton.value = false
       showCancelButton.value = true
       let lastMessageInChat = chatHistory.at(-1)
@@ -1261,6 +1339,22 @@ onMounted(async () => {
     lastMessage = message
   })
 })
+
+const handleModelApiReqFailed = (message: any) => {
+  const newAssistantMessage = createNewMessage(
+    'assistant',
+    message.partialMessage.text,
+    message.partialMessage.type,
+    message.partialMessage.type === 'ask' ? message.partialMessage.ask : '',
+    message.partialMessage.type === 'say' ? message.partialMessage.say : '',
+    message.partialMessage.ts,
+    false
+  )
+  chatHistory.push(newAssistantMessage)
+  console.log('showRetryButton.value', showRetryButton.value)
+  showRetryButton.value = true
+  responseLoading.value = false
+}
 
 onUnmounted(() => {
   if (typeof removeListener === 'function') {
@@ -1636,12 +1730,26 @@ const deleteHistory = async (history) => {
 }
 
 const historySearchValue = ref('')
+const showOnlyFavorites = ref(false)
 
 const filteredHistoryList = computed(() => {
   // 实现过滤逻辑
-  return historyList.value.filter((history) => {
-    return history.chatTitle.toLowerCase().includes(historySearchValue.value.toLowerCase())
-  })
+  return historyList.value
+    .filter((history) => {
+      // Filter by search term
+      const matchesSearch = history.chatTitle.toLowerCase().includes(historySearchValue.value.toLowerCase())
+
+      // Filter by favorites if the toggle is on
+      const matchesFavorite = !showOnlyFavorites.value || history.isFavorite
+
+      return matchesSearch && matchesFavorite
+    })
+    .sort((a, b) => {
+      // Sort favorites to the top
+      if (a.isFavorite && !b.isFavorite) return -1
+      if (!a.isFavorite && b.isFavorite) return 1
+      return 0
+    })
 })
 
 const PAGE_SIZE = 20
@@ -1727,7 +1835,7 @@ const scrollToBottom = () => {
       const currentBottom = chatResponse.value.getBoundingClientRect().bottom
       // console.log('容器高度变化，直接滚动到底部', prevBottom, currentBottom)
       // 如果容器底部位置发生了变化，直接滚动到底部
-      if (prevBottom !== currentBottom && prevBottom > 0 && currentBottom > 0) {
+      if (prevBottom !== undefined && prevBottom !== currentBottom && prevBottom > 0 && currentBottom > 0) {
         chatContainer.value.scrollTop = chatContainer.value.scrollHeight
       }
     }
@@ -1775,6 +1883,36 @@ const adjustScrollPosition = () => {
   } else {
     // 如果没有消息，滚动到底部
     chatContainer.value.scrollTop = chatContainer.value.scrollHeight
+  }
+}
+
+const toggleFavorite = async (history) => {
+  history.isFavorite = !history.isFavorite
+
+  try {
+    // Load current favorite list
+    const currentFavorites = ((await getGlobalState('favoriteTaskList')) as string[]) || []
+
+    if (history.isFavorite) {
+      // Add to favorites if not already there
+      if (!currentFavorites.includes(history.id)) {
+        currentFavorites.push(history.id)
+      }
+    } else {
+      // Remove from favorites
+      const index = currentFavorites.indexOf(history.id)
+      if (index !== -1) {
+        currentFavorites.splice(index, 1)
+      }
+    }
+
+    // Update local ref
+    favoriteTaskList.value = currentFavorites
+
+    // Save to global state
+    await updateGlobalState('favoriteTaskList', currentFavorites)
+  } catch (err) {
+    console.error('Failed to update favorite status:', err)
   }
 }
 
@@ -1842,9 +1980,9 @@ const initModelOptions = async () => {
 <style lang="less">
 .history-dropdown-menu {
   .ant-input {
-    background-color: #4a4a4a !important;
-    border: 1px solid #3a3a3a !important;
-    color: #ffffff !important;
+    background-color: var(--bg-color) !important;
+    border: 1px solid var(--border-color) !important;
+    color: var(--text-color) !important;
     font-size: 12px !important;
     padding: 0 4px !important;
     height: 16px !important;
@@ -1859,9 +1997,45 @@ const initModelOptions = async () => {
 </style>
 
 <style lang="less" scoped>
+:root {
+  // 暗色主题变量
+  .dark-theme {
+    --bg-color: #141414;
+    --bg-color-secondary: #1f1f1f;
+    --text-color: #ffffff;
+    --text-color-secondary: #e0e0e0;
+    --text-color-tertiary: #666666;
+    --border-color: #333333;
+    --border-color-light: #3a3a3a;
+    --hover-bg-color: #2a2a2a;
+    --scrollbar-thumb: #2a2a2a;
+    --scrollbar-track: #1a1a1a;
+    --scrollbar-thumb-hover: #3a3a3a;
+    --icon-filter: invert(0.25);
+    --icon-filter-hover: invert(0.1);
+  }
+
+  // 亮色主题变量
+  .light-theme {
+    --bg-color: #ffffff;
+    --bg-color-secondary: #f5f5f5;
+    --text-color: #000000;
+    --text-color-secondary: #333333;
+    --text-color-tertiary: #666666;
+    --border-color: #d9d9d9;
+    --border-color-light: #e8e8e8;
+    --hover-bg-color: #f0f0f0;
+    --scrollbar-thumb: #e8e8e8;
+    --scrollbar-track: #f5f5f5;
+    --scrollbar-thumb-hover: #d9d9d9;
+    --icon-filter: invert(0.75);
+    --icon-filter-hover: invert(0.9);
+  }
+}
+
 .ai-chat-custom-tabs {
   :deep(.ant-tabs-tab:not(.ant-tabs-tab-active) .ant-tabs-tab-btn) {
-    color: #e0e0e0;
+    color: var(--text-color-secondary);
     transition:
       color 0.2s,
       text-shadow 0.2s;
@@ -1902,18 +2076,17 @@ const initModelOptions = async () => {
   display: flex;
   flex-direction: column;
   height: 100%;
-  background-color: #141414;
+  background-color: var(--bg-color);
   border-radius: 8px;
   overflow: hidden;
 }
 
 .hosts-display-container {
   position: relative;
-  background-color: #141414;
+  background-color: var(--bg-color);
   display: flex;
   flex-wrap: wrap;
   gap: 4px;
-
   justify-content: flex-start;
   user-select: text;
   padding: 4px 8px;
@@ -1921,23 +2094,23 @@ const initModelOptions = async () => {
   max-height: 100px;
   overflow-y: auto;
   scrollbar-width: thin;
-  scrollbar-color: #2a2a2a #1a1a1a;
+  scrollbar-color: var(--border-color) var(--bg-color-secondary);
 
   &::-webkit-scrollbar {
     width: 6px;
   }
 
   &::-webkit-scrollbar-track {
-    background: #1a1a1a;
+    background: var(--bg-color-secondary);
     border-radius: 3px;
   }
 
   &::-webkit-scrollbar-thumb {
-    background-color: #2a2a2a;
+    background-color: var(--border-color);
     border-radius: 3px;
 
     &:hover {
-      background-color: #3a3a3a;
+      background-color: var(--border-color-light);
     }
   }
 
@@ -1950,9 +2123,9 @@ const initModelOptions = async () => {
     align-items: center;
     margin-left: 2px;
     margin-bottom: 2px;
-    background-color: #2a2a2a !important;
-    border: 1px solid #3a3a3a !important;
-    color: #ffffff !important;
+    background-color: var(--bg-color-secondary) !important;
+    border: 1px solid var(--border-color) !important;
+    color: var(--text-color) !important;
 
     .anticon-laptop {
       color: #1890ff !important;
@@ -1970,7 +2143,7 @@ const initModelOptions = async () => {
       top: 50%;
       transform: translateY(-50%);
       font-size: 8px;
-      color: #888;
+      color: var(--text-color-tertiary);
       cursor: pointer;
       padding: 1px;
       border-radius: 2px;
@@ -1985,11 +2158,11 @@ const initModelOptions = async () => {
 }
 
 .other-hosts-display-container {
-  background: #2a2a2a;
-  color: #fff;
+  background: var(--bg-color-secondary);
+  color: var(--text-color);
   padding: 0 6px;
   border-radius: 4px;
-  border: 1px solid #3a3a3a;
+  border: 1px solid var(--border-color);
   font-weight: 400;
   display: inline-flex;
   align-items: center;
@@ -2000,23 +2173,15 @@ const initModelOptions = async () => {
 }
 
 .hosts-display-container-host-tag {
-  font-size: 10px !important;
-  display: flex;
-  align-items: center;
-  padding: 0 6px;
-  height: 16px;
-  line-height: 16px;
-  background-color: #2a2a2a;
-  border: 1px solid #3a3a3a;
-  color: #ffffff;
-  border-radius: 2px;
-  margin-bottom: 2px;
+  color: var(--text-color-secondary);
   cursor: pointer;
+  font-size: 12px;
+  padding: 2px 6px;
+  border-radius: 4px;
   transition: all 0.2s ease;
 
   &:hover {
-    background-color: #3a3a3a;
-    border-color: #4a4a4a;
+    background-color: var(--hover-bg-color);
   }
 }
 
@@ -2026,7 +2191,8 @@ const initModelOptions = async () => {
   padding: 0px 4px 4px 4px;
   margin-top: 2px;
   scrollbar-width: thin;
-  scrollbar-color: #2a2a2a #1a1a1a;
+  // scrollbar-color: #2a2a2a #1a1a1a;
+  scrollbar-color: var(--bg-color-quinary) var(--bg-color-senary);
   width: 100%;
   min-height: 0;
 
@@ -2035,16 +2201,16 @@ const initModelOptions = async () => {
   }
 
   &::-webkit-scrollbar-track {
-    background: #1a1a1a;
+    background: var(--bg-color-senary);
     border-radius: 3px;
   }
 
   &::-webkit-scrollbar-thumb {
-    background-color: #2a2a2a;
+    background-color: var(--bg-color-quinary);
     border-radius: 3px;
 
     &:hover {
-      background-color: #3a3a3a;
+      background-color: var(--bg-color-quaternary);
     }
   }
 }
@@ -2067,8 +2233,8 @@ const initModelOptions = async () => {
 
     &.user {
       align-self: flex-end;
-      background-color: #3a3a3a;
-      color: #ffffff;
+      background-color: var(--bg-color-secondary);
+      color: var(--text-color);
       border-radius: 4px;
       border: none;
       margin-left: auto;
@@ -2077,10 +2243,7 @@ const initModelOptions = async () => {
     }
 
     &.assistant {
-      // align-self: flex-start;
-      // background-color: #1e2a38;
-      color: #ffffff;
-      // border: 1px solid #2c3e50;
+      color: var(--text-color);
       width: 100%;
       padding: 0px;
     }
@@ -2092,28 +2255,28 @@ const initModelOptions = async () => {
   display: flex;
   flex-direction: column;
   gap: 4px;
-  background-color: #141414;
+  background-color: var(--bg-color);
   border-radius: 8px;
-  border: 1px solid #333;
+  border: 1px solid var(--border-color);
   width: 100%;
 
   .chat-textarea {
-    background-color: #141414 !important;
-    color: #fff !important;
+    background-color: var(--bg-color) !important;
+    color: var(--text-color) !important;
     border: none !important;
     box-shadow: none !important;
     font-size: 12px !important;
   }
 
   :deep(.ant-input::placeholder) {
-    color: #666 !important;
+    color: var(--text-color-tertiary) !important;
   }
 
   .ant-textarea {
-    background-color: #141414 !important;
+    background-color: var(--bg-color) !important;
     border: none !important;
     border-radius: 8px !important;
-    color: #e0e0e0 !important;
+    color: var(--text-color) !important;
     padding: 8px 12px !important;
     font-size: 12px !important;
   }
@@ -2133,7 +2296,7 @@ const initModelOptions = async () => {
       background-color: transparent !important;
       border: none !important;
       border-radius: 4px !important;
-      color: #e0e0e0 !important;
+      color: var(--text-color) !important;
       height: 24px !important;
       line-height: 24px !important;
     }
@@ -2141,6 +2304,17 @@ const initModelOptions = async () => {
     :deep(.ant-select-selection-item) {
       font-size: 12px !important;
       line-height: 24px !important;
+      color: var(--text-color) !important;
+    }
+
+    :deep(.ant-select-arrow) {
+      color: var(--text-color-tertiary) !important;
+    }
+
+    &:hover {
+      :deep(.ant-select-selector) {
+        background-color: var(--hover-bg-color) !important;
+      }
     }
   }
 
@@ -2188,10 +2362,6 @@ const initModelOptions = async () => {
   gap: 2px;
   width: 100%;
   position: relative;
-
-  &.has-history-copy-btn :deep(.command-editor-container) {
-    padding-right: 20px;
-  }
 
   .message-actions {
     display: flex;
@@ -2322,19 +2492,19 @@ const initModelOptions = async () => {
     display: flex;
     align-items: center;
     justify-content: center;
-    color: #e0e0e0;
+    color: var(--text-color);
     border-radius: 4px;
     transition: all 0.3s ease;
-    filter: invert(0.25);
+    filter: var(--icon-filter);
 
     &:hover {
-      background-color: rgba(255, 255, 255, 0.1);
-      color: #fff;
-      filter: invert(0.1);
+      background-color: rgba(0, 0, 0, 0.06);
+      color: var(--text-color);
+      filter: var(--icon-filter-hover);
     }
 
     &:active {
-      background-color: rgba(255, 255, 255, 0.15);
+      background-color: rgba(0, 0, 0, 0.1);
     }
 
     .anticon,
@@ -2349,43 +2519,65 @@ const initModelOptions = async () => {
 .history-dropdown-menu {
   max-height: none;
   overflow: visible;
-  padding: 4px;
-  background-color: #1f1f1f;
-  border: 1px solid #3a3a3a;
+  padding: 4px 0 4px 4px;
+  background-color: var(--bg-color);
+  border: 1px solid var(--border-color);
   border-radius: 8px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-  width: 280px !important; // 添加固定宽度
+  width: 280px !important;
+
+  :deep(.ant-dropdown-menu-item) {
+    padding-right: 4px !important;
+  }
 
   .history-search-container {
     display: flex;
     gap: 10px;
+    align-items: center;
 
     :deep(.ant-input-affix-wrapper) {
-      border-color: rgba(255, 255, 255, 0.1);
+      border-color: var(--border-color);
       box-shadow: none;
+    }
+
+    .favorites-button {
+      flex-shrink: 0;
+      border: none;
+      background-color: transparent;
+      margin-right: 6px;
+      padding: 0 6px;
+      height: 22px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+
+      &.ant-btn-primary {
+        background-color: transparent;
+        border: none;
+      }
     }
   }
 
   .history-search-input {
     width: 100%;
-    background-color: #1f1f1f !important;
+    background-color: var(--bg-color) !important;
 
     :deep(.ant-input) {
-      background-color: #1f1f1f !important;
+      background-color: var(--bg-color) !important;
       border: none !important;
-      color: rgba(255, 255, 255, 0.65) !important;
+      color: var(--text-color) !important;
       height: 20px !important;
 
       &::placeholder {
-        color: #666 !important;
+        color: var(--text-color-tertiary) !important;
       }
     }
 
     :deep(.ant-input-clear-icon) {
-      color: #666;
+      color: var(--text-color-tertiary);
 
       &:hover {
-        color: #999;
+        color: var(--text-color-secondary);
       }
     }
   }
@@ -2395,23 +2587,23 @@ const initModelOptions = async () => {
   max-height: 360px;
   overflow-y: auto;
   scrollbar-width: thin;
-  scrollbar-color: #2a2a2a #1a1a1a;
+  scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
 
   &::-webkit-scrollbar {
     width: 4px;
   }
 
   &::-webkit-scrollbar-track {
-    background: #1a1a1a;
+    background: var(--scrollbar-track);
     border-radius: 2px;
   }
 
   &::-webkit-scrollbar-thumb {
-    background-color: #2a2a2a;
+    background-color: var(--scrollbar-thumb);
     border-radius: 2px;
 
     &:hover {
-      background-color: #3a3a3a;
+      background-color: var(--scrollbar-thumb-hover);
     }
   }
 }
@@ -2429,7 +2621,7 @@ const initModelOptions = async () => {
   }
 
   &:hover {
-    background-color: #3a3a3a !important;
+    background-color: var(--hover-bg-color) !important;
     transform: translateX(2px);
 
     .menu-action-buttons {
@@ -2438,7 +2630,16 @@ const initModelOptions = async () => {
   }
 
   &:active {
-    background-color: #4a4a4a !important;
+    background-color: var(--bg-color-secondary) !important;
+  }
+
+  &.favorite-item {
+    background-color: var(--bg-color) !important;
+    border-left: 2px solid #faad14 !important;
+
+    &:hover {
+      background-color: var(--bg-color-secondary) !important;
+    }
   }
 }
 
@@ -2446,40 +2647,44 @@ const initModelOptions = async () => {
   display: flex;
   flex-direction: row;
   align-items: center;
-  gap: 8px;
+  gap: 4px;
   width: 100%;
-  min-width: 0; // 添加最小宽度约束
+  min-width: 0;
 
   :deep(.ant-input) {
-    background-color: #4a4a4a !important;
-    border: 1px solid #3a3a3a !important;
-    color: #ffffff !important;
+    background-color: var(--bg-color-secondary) !important;
+    border: 1px solid var(--border-color) !important;
+    color: var(--text-color) !important;
     font-size: 13px !important;
     padding: 0 4px !important;
     height: 20px !important;
     line-height: 20px !important;
 
     &:focus {
-      border-color: #3a3a3a !important;
+      border-color: var(--border-color) !important;
       box-shadow: 0 0 0 2px rgba(58, 58, 58, 0.2) !important;
     }
   }
 
   .menu-action-buttons {
     display: flex;
-    gap: 2px;
-    margin-left: 4px;
+    gap: 0px;
+    margin-left: 0px;
+
+    > .menu-action-btn {
+      margin-left: -3px;
+    }
   }
 
   .history-title {
-    color: rgba(255, 255, 255, 0.65);
+    color: var(--text-color);
     font-size: 12px;
     font-weight: 500;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
     flex: 1;
-    min-width: 0; // 添加最小宽度约束，确保文本可以正确截断
+    min-width: 0;
   }
 
   .history-title-input {
@@ -2572,6 +2777,7 @@ const initModelOptions = async () => {
   .reject-btn,
   .approve-btn,
   .cancel-btn,
+  .retry-btn,
   .resume-btn {
     flex: 1;
     display: flex;
@@ -2687,17 +2893,17 @@ const initModelOptions = async () => {
 }
 
 .mini-host-search-input {
-  background-color: #2b2b2b !important;
-  border: 1px solid #3a3a3a !important;
+  background-color: var(--bg-color-secondary) !important;
+  border: 1px solid var(--border-color) !important;
 
   :deep(.ant-input) {
     height: 22px !important;
     font-size: 12px !important;
-    background-color: #2b2b2b !important;
-    color: #999 !important;
+    background-color: var(--bg-color-secondary) !important;
+    color: var(--text-color-secondary) !important;
 
     &::placeholder {
-      color: #999 !important;
+      color: var(--text-color-tertiary) !important;
     }
 
     padding: 0px 0px 2px 2px !important;
@@ -2710,32 +2916,32 @@ const initModelOptions = async () => {
   bottom: 100%;
   left: 0;
   width: 130px;
-  background: #222;
+  background: var(--bg-color);
   border-radius: 4px;
-  box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.3);
-  border: 1px solid #484747;
+  box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.15);
+  border: 1px solid var(--border-color);
   margin-bottom: 4px;
   margin-left: 8px;
   max-height: 150px;
   overflow-y: auto;
   scrollbar-width: thin;
-  scrollbar-color: #2a2a2a #1a1a1a;
+  scrollbar-color: var(--border-color) var(--bg-color-secondary);
 
   &::-webkit-scrollbar {
     width: 6px;
   }
 
   &::-webkit-scrollbar-track {
-    background: #1a1a1a;
+    background: var(--bg-color-secondary);
     border-radius: 3px;
   }
 
   &::-webkit-scrollbar-thumb {
-    background-color: #2a2a2a;
+    background-color: var(--border-color);
     border-radius: 3px;
 
     &:hover {
-      background-color: #3a3a3a;
+      background-color: var(--border-color-light);
     }
   }
 }
@@ -2752,8 +2958,8 @@ const initModelOptions = async () => {
   bottom: 100%;
   border-radius: 3px;
   margin-bottom: 2px;
-  background: #222;
-  color: #fff;
+  background: var(--bg-color);
+  color: var(--text-color);
   font-size: 12px;
   line-height: 16px;
   transition: all 0.2s;
@@ -2772,18 +2978,18 @@ const initModelOptions = async () => {
   }
 
   &.hovered {
-    background: #1656b1;
+    background: var(--hover-bg-color);
   }
 
   &.keyboard-selected {
-    background: #1656b1;
+    background: var(--hover-bg-color);
     outline: 2px solid rgba(24, 144, 255, 0.5);
     outline-offset: -2px;
   }
 }
 
 .host-select-empty {
-  color: #888;
+  color: var(--text-color-tertiary);
   text-align: center;
   padding: 8px 0;
 }
@@ -2806,7 +3012,7 @@ const initModelOptions = async () => {
   }
 
   .ai-welcome-text {
-    color: #e0e0e0;
+    color: var(--text-color);
     font-size: 14px;
     text-align: center;
     font-weight: 400;
@@ -2818,8 +3024,8 @@ const initModelOptions = async () => {
   background: none !important;
   border: none !important;
   box-shadow: none !important;
-  color: rgba(255, 255, 255, 0.65) !important;
-  padding: 0 2px;
+  color: var(--text-color) !important;
+  padding: 0;
   min-width: 0;
   height: 16px;
   line-height: 20px;
@@ -2843,12 +3049,20 @@ const initModelOptions = async () => {
     background: none !important;
   }
 
-  &.save-btn:hover {
+  &:hover :deep(.anticon) {
+    color: #1890ff !important;
+  }
+
+  &.save-btn:hover :deep(.anticon) {
     color: #52c41a !important;
   }
 
-  &.cancel-btn:hover {
+  &.cancel-btn:hover :deep(.anticon) {
     color: #ff4d4f !important;
+  }
+
+  &.favorite-btn:hover :deep(.anticon) {
+    color: #faad14 !important;
   }
 }
 
@@ -2863,5 +3077,10 @@ const initModelOptions = async () => {
   &:hover {
     color: #1890ff;
   }
+}
+
+.processing-text {
+  font-size: 10px;
+  color: var(--text-color);
 }
 </style>

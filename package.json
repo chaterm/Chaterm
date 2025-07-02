@@ -1,6 +1,6 @@
 {
   "name": "chaterm",
-  "version": "0.0.12",
+  "version": "0.0.13",
   "description": "A terminal tool with AI Agent, makes you no need to learn complicated regular expressions, Perl and Python, switches and Linux commands, SQL syntax can easily manage thousands of devices!",
   "main": "./out/main/index.js",
   "author": "intsig.com",
@@ -35,6 +35,7 @@
     "@anthropic-ai/bedrock-sdk": "^0.22.0",
     "@anthropic-ai/sdk": "^0.37.0",
     "@aws-sdk/client-bedrock-runtime": "^3.812.0",
+    "@aws-sdk/node-http-handler": "^3.374.0",
     "@bufbuild/protobuf": "^2.2.5",
     "@electron-toolkit/preload": "^3.0.0",
     "@electron-toolkit/utils": "^3.0.0",

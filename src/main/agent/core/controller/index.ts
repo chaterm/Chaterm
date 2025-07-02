@@ -12,12 +12,12 @@ import { buildApiHandler } from '@api/index'
 import { cleanupLegacyCheckpoints } from '@integrations/checkpoints/CheckpointMigration'
 import { downloadTask } from '@integrations/misc/export-markdown'
 import WorkspaceTracker from '@integrations/workspace/WorkspaceTracker'
-import { searchWorkspaceFiles } from '@services/search/file-search'
+import { TelemetrySetting } from '@shared/TelemetrySetting'
+import { telemetryService } from '@services/telemetry/TelemetryService'
 import { ExtensionMessage, ExtensionState, Invoke, Platform } from '@shared/ExtensionMessage'
 import { HistoryItem } from '@shared/HistoryItem'
 import { WebviewMessage } from '@shared/WebviewMessage'
 import { fileExistsAtPath } from '@utils/fs'
-import { getWorkspacePath } from '@utils/path'
 import { getTotalTasksSize } from '@utils/storage'
 import type { Host } from '@shared/WebviewMessage'
 import { ensureTaskExists, getSavedApiConversationHistory, deleteChatermHistoryByTaskId, getTaskMetadata, saveTaskMetadata } from '../storage/disk'
@@ -178,6 +178,11 @@ export class Controller {
         this.refreshTotalTasksSize()
         break
       }
+      case 'taskFeedback':
+        if (message.feedbackType && this.task?.taskId) {
+          telemetryService.captureTaskFeedback(this.task.taskId, message.feedbackType)
+        }
+        break
       case 'invoke': {
         if (message.text) {
           await this.postMessageToWebview({
@@ -199,11 +204,10 @@ export class Controller {
         // custom instructions
         await this.updateCustomInstructions(message.customInstructionsSetting)
 
-        // plan act setting
-        // await updateGlobalState(
-        //   'planActSeparateModelsSetting',
-        //   message.planActSeparateModelsSetting
-        // )
+        // telemetry setting
+        if (message.telemetrySetting) {
+          await this.updateTelemetrySetting(message.telemetrySetting)
+        }
 
         // after settings are updated, post state to webview
         await this.postStateToWebview()
@@ -218,50 +222,20 @@ export class Controller {
         this.postMessageToWebview({ type: 'relinquishControl' })
         break
       }
-      case 'searchFiles': {
-        const workspacePath = getWorkspacePath()
-
-        if (!workspacePath) {
-          // Handle case where workspace path is not available
-          await this.postMessageToWebview({
-            type: 'fileSearchResults',
-            results: [],
-            mentionsRequestId: message.mentionsRequestId,
-            error: 'No workspace path available'
-          })
-          break
+      case 'telemetrySetting': {
+        if (message.telemetrySetting) {
+          await this.updateTelemetrySetting(message.telemetrySetting)
         }
-        try {
-          // Call file search service with query from message
-          const results = await searchWorkspaceFiles(
-            message.query || '',
-            workspacePath,
-            20 // Use default limit, as filtering is now done in the backend
-          )
-
-          // debug logging to be removed
-          //console.log(`controller/index.ts: Search results: ${results.length}`)
-
-          // Send results back to webview
-          await this.postMessageToWebview({
-            type: 'fileSearchResults',
-            results,
-            mentionsRequestId: message.mentionsRequestId
-          })
-        } catch (error) {
-          const errorMessage = error instanceof Error ? error.message : String(error)
-
-          // Send error response to webview
-          await this.postMessageToWebview({
-            type: 'fileSearchResults',
-            results: [],
-            error: errorMessage,
-            mentionsRequestId: message.mentionsRequestId
-          })
-        }
+        await this.postStateToWebview()
         break
       }
     }
+  }
+
+  async updateTelemetrySetting(telemetrySetting: TelemetrySetting) {
+    await updateGlobalState('telemetrySetting', telemetrySetting)
+    const isOptedIn = telemetrySetting === 'enabled'
+    telemetryService.updateTelemetryState(isOptedIn)
   }
 
   async cancelTask() {

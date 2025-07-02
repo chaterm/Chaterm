@@ -183,7 +183,7 @@ interface ResizeParams {
 }
 import { useI18n } from 'vue-i18n'
 import { userConfigStore } from '@/services/userConfigStoreService'
-import { ref, onMounted, nextTick, onUnmounted, watch } from 'vue'
+import { ref, onMounted, nextTick, onUnmounted, watch, computed } from 'vue'
 import { Splitpanes, Pane } from 'splitpanes'
 import 'splitpanes/dist/splitpanes.css'
 import AiTab from '@views/components/AiTab/index.vue'
@@ -198,7 +198,8 @@ import { userInfoStore } from '@/store'
 import { aliasConfigStore } from '@/store/aliasConfigStore'
 import eventBus from '@/utils/eventBus'
 import { Notice } from '../components/Notice'
-
+import '@/assets/theme.less'
+const api = window.api as any
 const { t } = useI18n()
 const aliasConfig = aliasConfigStore()
 const headerRef = ref<InstanceType<typeof Header> | null>(null)
@@ -208,7 +209,7 @@ const watermarkContent = reactive({
   content: [userInfoStore().userInfo.name, userInfoStore().userInfo.email],
   font: {
     fontSize: 12,
-    color: 'rgba(255, 255, 255, 0.15)'
+    color: computed(() => (currentTheme.value === 'dark' ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.05)'))
   },
   rotate: -22,
   gap: [150, 100] as [number, number]
@@ -217,6 +218,7 @@ const watermarkContent = reactive({
 const leftPaneSize = ref(30)
 const mainTerminalSize = ref(100)
 const showWatermark = ref(true)
+const currentTheme = ref('dark')
 const rightPaneMode = ref('')
 const aiSidebarSize = ref(0)
 const splitPaneSize = ref(0)
@@ -227,11 +229,31 @@ onMounted(async () => {
   eventBus.on('updateWatermark', (watermark) => {
     showWatermark.value = watermark !== 'close'
   })
+  eventBus.on('updateTheme', (theme) => {
+    currentTheme.value = theme
+    document.body.className = `theme-${theme}`
+    nextTick(() => {
+      showWatermark.value = true
+    })
+    setTimeout(() => {
+      api.updateTheme(theme)
+    }, 80)
+  })
   try {
     const config = await userConfigStore.getConfig()
-    showWatermark.value = config.watermark !== 'close'
+    currentTheme.value = config.theme || 'dark'
+    document.body.className = `theme-${currentTheme.value}`
+    nextTick(() => {
+      showWatermark.value = config.watermark !== 'close'
+      api.updateTheme(currentTheme.value)
+    })
   } catch (e) {
-    showWatermark.value = true
+    currentTheme.value = 'dark'
+    document.body.className = 'theme-dark'
+    nextTick(() => {
+      showWatermark.value = true
+      api.updateTheme('dark')
+    })
   }
   nextTick(() => {
     updatePaneSize()
@@ -725,8 +747,8 @@ defineExpose({
   width: 100vw;
   display: flex;
   flex-direction: column;
-  background: #141414;
-  color: #e0e0e0;
+  background: var(--bg-color);
+  color: var(--text-color);
   margin: 0;
 
   ::-webkit-scrollbar {

@@ -13,6 +13,7 @@ import {
 } from './shared'
 import { GlobalStateKey, SecretKey } from './state-keys'
 import { storageContext } from './storage-context'
+import { getUserInfo } from '@/utils/permission'
 
 // global
 
@@ -132,7 +133,9 @@ export async function getAllExtensionState() {
     favoritedModelIds,
     //globalClineRulesToggles,
     requestTimeoutMs,
-    shellIntegrationTimeout
+    shellIntegrationTimeout,
+    needProxy,
+    proxyConfig
   ] = await Promise.all([
     getGlobalState('apiProvider') as Promise<ApiProvider | undefined>,
     getGlobalState('apiModelId') as Promise<string | undefined>,
@@ -216,7 +219,9 @@ export async function getAllExtensionState() {
     getGlobalState('favoritedModelIds') as Promise<string[] | undefined>,
     //getGlobalState('globalClineRulesToggles') as Promise<ClineRulesToggles | undefined>,
     getGlobalState('requestTimeoutMs') as Promise<number | undefined>,
-    getGlobalState('shellIntegrationTimeout') as Promise<number | undefined>
+    getGlobalState('shellIntegrationTimeout') as Promise<number | undefined>,
+    getGlobalState('needProxy') as Promise<boolean | undefined>,
+    getGlobalState('proxyConfig') as Promise<ApiConfiguration['proxyConfig'] | undefined>
   ])
 
   let apiProvider: ApiProvider
@@ -327,7 +332,9 @@ export async function getAllExtensionState() {
       //xaiApiKey,
       //sambanovaApiKey,
       favoritedModelIds,
-      requestTimeoutMs
+      requestTimeoutMs,
+      needProxy,
+      proxyConfig
     },
     //lastShownAnnouncementId,
     customInstructions,
@@ -437,6 +444,8 @@ export async function updateApiConfiguration(apiConfiguration: ApiConfiguration)
   //await storeSecret('sambanovaApiKey', sambanovaApiKey)
   await updateGlobalState('favoritedModelIds', favoritedModelIds)
   await updateGlobalState('requestTimeoutMs', apiConfiguration.requestTimeoutMs)
+  await updateGlobalState('needProxy', apiConfiguration.needProxy)
+  await updateGlobalState('proxyConfig', apiConfiguration.proxyConfig)
 }
 
 export async function resetExtensionState() {
@@ -477,5 +486,14 @@ export async function resetExtensionState() {
     for (const key of workspaceKeys) {
       await storageContext.workspaceState.update(key, undefined)
     }
+  }
+}
+
+export async function getUserId(): Promise<any> {
+  const userInfo = getUserInfo()
+  if (userInfo && userInfo.uid) {
+    return userInfo.uid
+  } else {
+    return null
   }
 }

@@ -2,6 +2,15 @@ export interface ChatSettings {
   mode: 'chat' | 'cmd' | 'agent'
 }
 
+export interface ProxyConfig {
+  type?: string // 'HTTP' | 'HTTPS' | 'SOCKS4' | 'SOCKS5'
+  host?: string
+  port?: number
+  enableProxyIdentity?: boolean
+  username?: string
+  password?: string
+}
+
 export const DEFAULT_CHAT_SETTINGS: ChatSettings = {
   mode: 'agent'
 }
@@ -68,6 +77,8 @@ export interface ApiHandlerOptions {
   requestTimeoutMs?: number
   onRetryAttempt?: (attempt: number, maxRetries: number, delay: number, error: any) => void
   deepSeekApiKey?: string
+  needProxy?: boolean
+  proxyConfig?: ProxyConfig
 }
 
 export type ApiConfiguration = ApiHandlerOptions & {
