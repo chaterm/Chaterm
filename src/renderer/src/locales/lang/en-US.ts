@@ -256,6 +256,7 @@ export default {
     newKey: 'New Key',
     editKey: 'Edit Key',
     saveKey: 'Save Key',
+    keyDrop: 'Drag and drop private key file here to import',
     createKey: 'Create Key',
     deleteConfirm: 'Delete Confirmation',
     deleteConfirmContent: 'Are you sure you want to delete key "{name}"?',
