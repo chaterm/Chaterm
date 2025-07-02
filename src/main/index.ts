@@ -396,6 +396,23 @@ function setupIPC(): void {
       mainWindow.webContents.send('url-changed', url)
     }
   })
+
+  ipcMain.handle('update-theme', (_, theme) => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      // 更新标题栏颜色
+      if (process.platform !== 'darwin') {
+        mainWindow.setTitleBarOverlay({
+          color: theme === 'dark' ? '#141414' : '#ffffff',
+          symbolColor: theme === 'dark' ? '#ffffff' : '#141414',
+          height: 27
+        })
+      }
+      // 通知渲染进程主题已更新
+      mainWindow.webContents.send('theme-updated', theme)
+      return true
+    }
+    return false
+  })
 }
 
 // 初始化用户数据库
