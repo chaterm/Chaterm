@@ -1,3 +1,5 @@
+import { ProxyConfig } from './Proxy'
+
 export type ApiProvider = 'bedrock' | 'litellm' | 'deepseek'
 
 export interface ApiHandlerOptions {
@@ -23,6 +25,8 @@ export interface ApiHandlerOptions {
   openAiHeaders?: Record<string, string> // Custom headers for OpenAI requests
   liteLlmModelInfo?: LiteLLMModelInfo
   deepSeekApiKey?: string
+  needProxy?: boolean
+  proxyConfig?: ProxyConfig
 }
 
 export type ApiConfiguration = ApiHandlerOptions & {

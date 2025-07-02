@@ -287,6 +287,94 @@
     </a-card>
 
     <div class="section-header">
+      <h3>{{ $t('user.proxySettings') }}</h3>
+    </div>
+    <a-card
+      class="settings-section"
+      :bordered="false"
+    >
+      <!-- 开关 -->
+      <div class="setting-item">
+        <a-checkbox v-model:checked="needProxy">
+          {{ $t('user.enableProxy') }}
+        </a-checkbox>
+
+        <!-- 配置项：仅在开启时显示 -->
+        <template v-if="needProxy">
+          <div class="setting-item">
+            <a-form-item
+              :label="$t('user.proxyType')"
+              :label-col="{ span: 24 }"
+              :wrapper-col="{ span: 24 }"
+            >
+              <a-select
+                v-model:value="proxyConfig.type"
+                size="small"
+              >
+                <a-select-option value="HTTP">HTTP</a-select-option>
+                <a-select-option value="HTTPS">HTTPS</a-select-option>
+                <a-select-option value="SOCKS4">SOCKS4</a-select-option>
+                <a-select-option value="SOCKS5">SOCKS5</a-select-option>
+              </a-select>
+            </a-form-item>
+          </div>
+          <div class="setting-item">
+            <a-form-item
+              :label="$t('user.proxyHost')"
+              :label-col="{ span: 24 }"
+              :wrapper-col="{ span: 24 }"
+            >
+              <a-input
+                v-model:value="proxyConfig.host"
+                placeholder="127.0.0.1"
+              />
+            </a-form-item>
+          </div>
+
+          <div class="setting-item">
+            <a-form-item
+              :label="$t('user.proxyPort')"
+              :label-col="{ span: 24 }"
+              :wrapper-col="{ span: 24 }"
+            >
+              <a-input-number
+                v-model:value="proxyConfig.port"
+                :min="1"
+                :max="65535"
+                style="width: 100%"
+              />
+            </a-form-item>
+          </div>
+
+          <div class="setting-item">
+            <!-- AWS VPC Endpoint Checkbox -->
+            <a-checkbox v-model:checked="proxyConfig.enableProxyIdentity">
+              {{ $t('user.enableProxyIdentity') }}
+            </a-checkbox>
+
+            <!-- AWS VPC Endpoint Input -->
+            <template v-if="proxyConfig.enableProxyIdentity">
+              <a-form-item
+                :label="$t('user.proxyUsername')"
+                :label-col="{ span: 24 }"
+                :wrapper-col="{ span: 24 }"
+              >
+                <a-input v-model:value="proxyConfig.username" />
+              </a-form-item>
+              <a-form-item
+                :label="$t('user.proxyPassword')"
+                :label-col="{ span: 24 }"
+                :wrapper-col="{ span: 24 }"
+              >
+                <a-input-password v-model:value="proxyConfig.password" />
+              </a-form-item>
+            </template>
+          </div>
+        </template>
+      </div>
+    </a-card>
+
+    <div class="section-header">
       <h3>{{ $t('user.terminal') }}</h3>
     </div>
     <a-card
@@ -321,7 +409,7 @@ import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { notification } from 'ant-design-vue'
 import { updateGlobalState, getGlobalState, getSecret, storeSecret } from '@renderer/agent/storage/state'
 import { AutoApprovalSettings, DEFAULT_AUTO_APPROVAL_SETTINGS } from '@/agent/storage/shared'
-import { ChatSettings, DEFAULT_CHAT_SETTINGS } from '@/agent/storage/shared'
+import { ChatSettings, DEFAULT_CHAT_SETTINGS, ProxyConfig } from '@/agent/storage/shared'
 import { aiModelOptions, deepseekAiModelOptions } from './aiOptions'
 import eventBus from '@/utils/eventBus'
 import i18n from '@/locales'
@@ -378,6 +466,16 @@ const chatSettings = ref<ChatSettings>(DEFAULT_CHAT_SETTINGS)
 const customInstructions = ref('')
 const inputError = ref('')
 const checkLoading = ref(false)
+const needProxy = ref(false)
+const defaultProxyConfig: ProxyConfig = {
+  type: 'SOCKS5',
+  host: '',
+  port: 22,
+  enableProxyIdentity: false,
+  username: '',
+  password: ''
+}
+const proxyConfig = ref<ProxyConfig>(defaultProxyConfig)
 
 // Add specific watch for autoApprovalSettings.enabled
 watch(
@@ -483,6 +581,9 @@ const loadSavedConfig = async () => {
     // 加载其他配置
     thinkingBudgetTokens.value = ((await getGlobalState('thinkingBudgetTokens')) as number) || 2048
     customInstructions.value = ((await getGlobalState('customInstructions')) as string) || ''
+
+    needProxy.value = ((await getGlobalState('needProxy')) as boolean) || false
+    proxyConfig.value = ((await getGlobalState('proxyConfig')) as ProxyConfig) || defaultProxyConfig
     // enableCheckpoints.value = (await getGlobalState('enableCheckpoints')) || false
 
     const savedAutoApprovalSettings = await getGlobalState('autoApprovalSettings')
@@ -559,6 +660,11 @@ const saveConfig = async () => {
     await updateGlobalState('chatSettings', chatSettingsToSave)
     await updateGlobalState('reasoningEffort', reasoningEffort.value)
     await updateGlobalState('shellIntegrationTimeout', shellIntegrationTimeout.value)
+    await updateGlobalState('needProxy', needProxy.value)
+    const proxyConfigToSave: ProxyConfig = {
+      ...proxyConfig.value
+    }
+    await updateGlobalState('proxyConfig', proxyConfigToSave)
   } catch (error) {
     console.error('Failed to save config:', error)
     notification.error({
@@ -977,6 +1083,7 @@ const handleCheck = async () => {
 
 :deep(.ant-select-selector),
 :deep(.ant-input),
+:deep(.ant-input-number),
 :deep(.ant-input-password) {
   background-color: var(--bg-color-secondary) !important;
   border: 1px solid var(--border-color);
@@ -1004,6 +1111,12 @@ const handleCheck = async () => {
 
   &:hover .anticon {
     color: var(--text-color-secondary);
+  }
+}
+:deep(.ant-input-number) {
+  .ant-input-number-input {
+    background-color: #4a4a4a !important;
+    color: rgba(255, 255, 255, 0.85);
   }
 }
 

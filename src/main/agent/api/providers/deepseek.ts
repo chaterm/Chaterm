@@ -6,6 +6,8 @@ import { calculateApiCostOpenAI } from '../../utils/cost'
 import { convertToOpenAiMessages } from '../transform/openai-format'
 import { ApiStream } from '../transform/stream'
 import { convertToR1Format } from '../transform/r1-format'
+import { Agent } from 'http'
+import { checkProxyConnectivity, createProxyAgent } from './proxy'
 
 export class DeepSeekHandler implements ApiHandler {
   private options: ApiHandlerOptions
@@ -13,9 +15,18 @@ export class DeepSeekHandler implements ApiHandler {
 
   constructor(options: ApiHandlerOptions) {
     this.options = options
+
+    // 判断是否需要使用代理
+    let httpAgent: Agent | undefined = undefined
+    if (this.options.needProxy !== false) {
+      const proxyConfig = this.options.proxyConfig
+      httpAgent = createProxyAgent(proxyConfig)
+    }
+    console.log('Using DeepSeekHandler with options:', this.options)
     this.client = new OpenAI({
       baseURL: 'https://api.deepseek.com/v1',
-      apiKey: this.options.deepSeekApiKey
+      apiKey: this.options.deepSeekApiKey,
+      httpAgent: httpAgent
     })
   }
 
@@ -24,6 +35,11 @@ export class DeepSeekHandler implements ApiHandler {
     try {
       const testSystemPrompt = "This is a connection test. Respond with only the word 'OK'."
       const testMessage = [{ role: 'user', content: 'Connection test' }] as Anthropic.Messages.MessageParam[]
+
+      // 验证代理
+      if (this.options.needProxy) {
+        await checkProxyConnectivity(this.options.proxyConfig!)
+      }
 
       const stream = this.createMessage(testSystemPrompt, testMessage)
       let firstResponse = false
