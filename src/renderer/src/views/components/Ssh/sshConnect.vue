@@ -99,7 +99,7 @@ import Context from '../Term/contextComp.vue'
 import SuggComp from '../Term/suggestion.vue'
 import eventBus from '@/utils/eventBus'
 import { useCurrentCwdStore } from '@/store/currentCwdStore'
-import { markRaw, onBeforeUnmount, onMounted, onUnmounted, PropType, nextTick, reactive, ref, watch } from 'vue'
+import { markRaw, onBeforeUnmount, onMounted, onUnmounted, PropType, nextTick, reactive, ref } from 'vue'
 import { Terminal } from 'xterm'
 import { FitAddon } from 'xterm-addon-fit'
 import { SearchAddon } from 'xterm-addon-search'
@@ -137,7 +137,8 @@ const props = defineProps({
     }
   },
   activeTabId: { type: String, required: true },
-  currentConnectionId: { type: String, required: true }
+  currentConnectionId: { type: String, required: true },
+  isSyncInput: { type: Boolean, default: false }
 })
 const queryCommandFlag = ref(false)
 export interface sshConnectData {
@@ -283,7 +284,7 @@ onMounted(async () => {
   })
 
   if (terminalContainer.value) {
-    terminalContainer.value.addEventListener('mouseup', (e) => {
+    terminalContainer.value.addEventListener('mouseup', () => {
       setTimeout(() => {
         const text = termInstance.getSelection()
         const position = termInstance.getSelectionPosition()
