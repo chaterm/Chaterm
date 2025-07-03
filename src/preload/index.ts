@@ -501,9 +501,9 @@ const api = {
       callback(heartbeatId)
     })
   },
-  validateApiKey: async () => {
+  validateApiKey: async (configuration?: any) => {
     try {
-      const result = await ipcRenderer.invoke('validate-api-key')
+      const result = await ipcRenderer.invoke('validate-api-key', configuration)
       return result
     } catch (error) {
       return Promise.reject(error)
