@@ -13,6 +13,7 @@ interface NoticeOptions {
   description: string
   duration?: number
   placement?: 'topLeft' | 'topRight' | 'bottomLeft' | 'bottomRight'
+  showCloseIcon?: boolean
   btns?: Array<{
     text: string
     class?: 'notice-btn' | 'notice-btn-withe'
@@ -46,7 +47,7 @@ function getIcon(type: NoticeType = 'info') {
 }
 
 function doOpen(opts: NoticeOptions | NoticeProgressOptions) {
-  const { id, type = 'info', title = '', description, duration = 4, btns, placement } = opts as NoticeOptions
+  const { id, type = 'info', title = '', description, duration = 4, btns, placement, showCloseIcon = true } = opts as NoticeOptions
   const key = id ?? `notice-${uuidv4()}`
 
   activeKeys.add(key)
@@ -54,6 +55,17 @@ function doOpen(opts: NoticeOptions | NoticeProgressOptions) {
 
   children.push(h('div', { class: 'notice-description' }, description))
 
+  if ('progress' in opts) {
+    children.push(
+      h('div', { class: 'notice-progress' }, [
+        h(Progress, {
+          percent: (opts as NoticeProgressOptions).progress,
+          size: 'small',
+          showInfo: false
+        })
+      ])
+    )
+  }
   if (btns && btns.length > 0) {
     children.push(
       h(
@@ -72,29 +84,19 @@ function doOpen(opts: NoticeOptions | NoticeProgressOptions) {
       )
     )
   }
-  if ('progress' in opts) {
-    children.push(
-      h('div', { class: 'notice-progress' }, [
-        h(Progress, {
-          percent: (opts as NoticeProgressOptions).progress,
-          size: 'small',
-          showInfo: false
-        })
-      ])
-    )
-  }
 
   const descVNode = h('div', { class: 'notice-desc' }, children)
   const closeIcon = h(CloseOutlined, {
     class: 'notice-close'
   })
+  const notificationClass = `notification ${showCloseIcon ? '' : 'no-closeIcon'}`
   notification.open({
     key,
     icon: h('span', { class: 'notice-icon' }, getIcon(type)),
     message: h('span', { class: 'notice-title' }, title),
     description: descVNode,
     closeIcon,
-    class: 'notification',
+    class: notificationClass,
     placement: placement || 'bottomRight',
     duration,
     onClose: () => {
