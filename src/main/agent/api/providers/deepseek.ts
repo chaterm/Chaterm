@@ -142,13 +142,16 @@ export class DeepSeekHandler implements ApiHandler {
 
   getModel(): { id: DeepSeekModelId; info: ModelInfo } {
     const modelId = this.options.apiModelId
-    if (modelId && modelId in deepSeekModels) {
-      const id = modelId as DeepSeekModelId
-      return { id, info: deepSeekModels[id] }
+    if (!modelId) {
+      throw new Error('DeepSeek model ID is not configured')
     }
-    return {
-      id: deepSeekDefaultModelId,
-      info: deepSeekModels[deepSeekDefaultModelId]
+
+    if (!(modelId in deepSeekModels)) {
+      const availableModels = Object.keys(deepSeekModels).join(', ')
+      throw new Error(`Invalid DeepSeek model ID: "${modelId}". Available model IDs: ${availableModels}`)
     }
+
+    const id = modelId as DeepSeekModelId
+    return { id, info: deepSeekModels[id] }
   }
 }
