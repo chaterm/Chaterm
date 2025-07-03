@@ -301,9 +301,9 @@
 </template>
 
 <script setup lang="ts">
-import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { onBeforeUnmount, onMounted, ref } from 'vue'
 import { notification } from 'ant-design-vue'
-import { updateGlobalState, getGlobalState, getSecret, storeSecret } from '@renderer/agent/storage/state'
+import { updateGlobalState, getGlobalState, getSecret, storeSecret, getAllExtensionState } from '@renderer/agent/storage/state'
 import eventBus from '@/utils/eventBus'
 import i18n from '@/locales'
 import { getUser } from '@api/user/user'
@@ -364,43 +364,10 @@ const liteLlmBaseUrl = ref('')
 const liteLlmApiKey = ref('')
 const liteLlmModelId = ref('')
 const deepSeekApiKey = ref('')
-const checkLoading = ref(false)
 const checkLoadingLiteLLM = ref(false)
 const checkLoadingBedrock = ref(false)
 const checkLoadingDeepSeek = ref(false)
 const addModelSwitch = ref(false)
-
-// Add specific watch for liteLlmBaseUrl
-watch(
-  () => liteLlmBaseUrl.value,
-  async (newValue) => {
-    try {
-      await updateGlobalState('liteLlmBaseUrl', newValue)
-    } catch (error) {
-      console.error('Failed to update liteLlmBaseUrl:', error)
-      notification.error({
-        message: 'Error',
-        description: 'Failed to save LiteLLM Base URL'
-      })
-    }
-  }
-)
-
-// Add specific watch for liteLlmApiKey
-watch(
-  () => liteLlmApiKey.value,
-  async (newValue) => {
-    try {
-      await storeSecret('liteLlmApiKey', newValue)
-    } catch (error) {
-      console.error('Failed to update liteLlmApiKey:', error)
-      notification.error({
-        message: 'Error',
-        description: 'Failed to save LiteLLM API Key'
-      })
-    }
-  }
-)
 
 // 加载保存的配置
 const loadSavedConfig = async () => {
@@ -430,133 +397,58 @@ const loadSavedConfig = async () => {
   }
 }
 
-// 保存配置到存储
-const saveConfig = async () => {
+// 根据不同provider保存对应配置
+const saveBedrockConfig = async () => {
   try {
-    // 保存API相关配置
-    // await updateGlobalState('apiProvider', apiProvider.value)
-    // await updateGlobalState('apiModelId', apiModelId.value)
     await updateGlobalState('awsRegion', awsRegion.value)
     await updateGlobalState('awsUseCrossRegionInference', awsUseCrossRegionInference.value)
     await updateGlobalState('awsBedrockEndpoint', awsBedrockEndpoint.value)
     await updateGlobalState('awsEndpointSelected', awsEndpointSelected.value)
-    await updateGlobalState('liteLlmBaseUrl', liteLlmBaseUrl.value)
-    // await updateGlobalState('liteLlmModelId', liteLlmModelId.value)
-
-    // 保存敏感信息
     await storeSecret('awsAccessKey', awsAccessKey.value)
     await storeSecret('awsSecretKey', awsSecretKey.value)
     await storeSecret('awsSessionToken', awsSessionToken.value)
-    await storeSecret('liteLlmApiKey', liteLlmApiKey.value)
-    await storeSecret('deepSeekApiKey', deepSeekApiKey.value)
   } catch (error) {
-    console.error('Failed to save config:', error)
+    console.error('Failed to save Bedrock config:', error)
     notification.error({
       message: 'Error',
-      description: 'Failed to save configuration'
+      description: 'Failed to save Bedrock configuration'
     })
   }
 }
 
-watch(
-  () => awsAccessKey.value,
-  async (newValue) => {
-    try {
-      await storeSecret('awsAccessKey', newValue)
-    } catch (error) {
-      console.error('Failed to update awsAccessKey:', error)
-    }
+const saveLiteLlmConfig = async () => {
+  try {
+    await updateGlobalState('liteLlmBaseUrl', liteLlmBaseUrl.value)
+    await storeSecret('liteLlmApiKey', liteLlmApiKey.value)
+  } catch (error) {
+    console.error('Failed to save LiteLLM config:', error)
+    notification.error({
+      message: 'Error',
+      description: 'Failed to save LiteLLM configuration'
+    })
   }
-)
+}
 
-watch(
-  () => awsSecretKey.value,
-  async (newValue) => {
-    try {
-      await storeSecret('awsSecretKey', newValue)
-    } catch (error) {
-      console.error('Failed to update awsSecretKey:', error)
-    }
+const saveDeepSeekConfig = async () => {
+  try {
+    await storeSecret('deepSeekApiKey', deepSeekApiKey.value)
+  } catch (error) {
+    console.error('Failed to save DeepSeek config:', error)
+    notification.error({
+      message: 'Error',
+      description: 'Failed to save DeepSeek configuration'
+    })
   }
-)
-
-watch(
-  () => awsSessionToken.value,
-  async (newValue) => {
-    try {
-      await storeSecret('awsSessionToken', newValue)
-    } catch (error) {
-      console.error('Failed to update awsSessionToken:', error)
-    }
-  }
-)
-
-watch(
-  () => awsRegion.value,
-  async (newValue) => {
-    try {
-      await updateGlobalState('awsRegion', newValue)
-    } catch (error) {
-      console.error('Failed to update awsRegion:', error)
-    }
-  }
-)
-
-watch(
-  () => awsUseCrossRegionInference.value,
-  async (newValue) => {
-    try {
-      await updateGlobalState('awsUseCrossRegionInference', newValue)
-    } catch (error) {
-      console.error('Failed to update awsUseCrossRegionInference:', error)
-    }
-  }
-)
-
-watch(
-  () => awsEndpointSelected.value,
-  async (newValue) => {
-    try {
-      await updateGlobalState('awsEndpointSelected', newValue)
-    } catch (error) {
-      console.error('Failed to update awsEndpointSelected:', error)
-    }
-  }
-)
-
-watch(
-  () => awsBedrockEndpoint.value,
-  async (newValue) => {
-    try {
-      await updateGlobalState('awsBedrockEndpoint', newValue)
-    } catch (error) {
-      console.error('Failed to update awsBedrockEndpoint:', error)
-    }
-  }
-)
-
-watch(
-  () => deepSeekApiKey.value,
-  async (newValue) => {
-    try {
-      await storeSecret('deepSeekApiKey', newValue)
-    } catch (error) {
-      console.error('Failed to update deepSeekApiKey:', error)
-    }
-  }
-)
+}
 
 // 组件挂载时加载保存的配置
 onMounted(async () => {
   await loadSavedConfig()
-  await saveConfig()
   await loadModelOptions()
 })
 
 // 组件卸载前保存配置
-onBeforeUnmount(async () => {
-  await saveConfig()
-})
+onBeforeUnmount(async () => {})
 
 const isEmptyValue = (value) => value === undefined || value === ''
 
@@ -582,7 +474,6 @@ const checkModelConfig = async (provider) => {
 }
 
 const handleCheck = async (provider) => {
-  await saveConfig()
   const checkModelConfigResult = await checkModelConfig(provider)
   if (!checkModelConfigResult) {
     notification.error({
@@ -592,42 +483,49 @@ const handleCheck = async (provider) => {
     })
     return 'SEND_ERROR'
   }
-  const originApiProvider = ((await getGlobalState('apiProvider')) as string) || ''
-  let originApiModel = ''
 
-  // 设置对应的loading状态
+  // 设置对应的loading状态,check参数
+  let checkParam = await getAllExtensionState()
+  console.log('[handleCheck] getAllExtensionState.apiConfiguration', checkParam?.apiConfiguration)
+  let checkApiConfiguration = checkParam?.apiConfiguration
+  let checkOptions = {}
+
   switch (provider) {
     case 'bedrock':
       checkLoadingBedrock.value = true
+      checkOptions = {
+        apiProvider: provider,
+        apiModelId: awsModelId.value,
+        awsAccessKey: awsAccessKey.value,
+        awsSecretKey: awsSecretKey.value,
+        awsRegion: awsRegion.value
+      }
       break
     case 'litellm':
       checkLoadingLiteLLM.value = true
+      checkOptions = {
+        apiProvider: provider,
+        liteLlmBaseUrl: liteLlmBaseUrl.value,
+        liteLlmApiKey: liteLlmApiKey.value,
+        liteLlmModelId: liteLlmModelId.value
+      }
       break
     case 'deepseek':
       checkLoadingDeepSeek.value = true
+      checkOptions = {
+        apiProvider: provider,
+        apiModelId: deepSeekModelId.value,
+        deepSeekApiKey: deepSeekApiKey.value
+      }
       break
-    default:
-      checkLoading.value = true
   }
 
+  // 覆盖checkApiConfiguration的内容
+  checkApiConfiguration = { ...checkApiConfiguration, ...checkOptions }
   try {
-    // validateApiKey 根据 apiProvider 进行验证，所以此处暂需要先更新为需要 check 模型的 apiProvider
-    await updateGlobalState('apiProvider', provider)
-    switch (provider) {
-      case 'bedrock':
-        originApiModel = ((await getGlobalState('apiModelId')) as string) || ''
-        await updateGlobalState('apiModelId', awsModelId.value)
-        break
-      case 'litellm':
-        originApiModel = ((await getGlobalState('liteLlmModelId')) as string) || ''
-        await updateGlobalState('liteLlmModelId', liteLlmModelId.value)
-        break
-      case 'deepseek':
-        originApiModel = ((await getGlobalState('apiModelId')) as string) || ''
-        await updateGlobalState('apiModelId', deepSeekModelId.value)
-        break
-    }
-    const result = await (window.api as any).validateApiKey()
+    console.log('[validateApiKey] checkApiConfiguration', checkApiConfiguration)
+    // 确保传递正确的参数格式
+    const result = await (window.api as any).validateApiKey(checkApiConfiguration)
     if (result.isValid) {
       notification.success({
         message: t('user.checkSuccessMessage'),
@@ -652,20 +550,6 @@ const handleCheck = async (provider) => {
     checkLoadingBedrock.value = false
     checkLoadingLiteLLM.value = false
     checkLoadingDeepSeek.value = false
-    checkLoading.value = false
-
-    await updateGlobalState('apiProvider', originApiProvider)
-    switch (provider) {
-      case 'bedrock':
-        await updateGlobalState('apiModelId', originApiModel)
-        break
-      case 'litellm':
-        await updateGlobalState('liteLlmModelId', originApiModel)
-        break
-      case 'deepseek':
-        await updateGlobalState('apiModelId', originApiModel)
-        break
-    }
   }
 }
 
@@ -715,13 +599,11 @@ const loadModelOptions = async () => {
   try {
     let defaultModels: DefaultModel[] = []
     await getUser({}).then((res) => {
-      console.log('res', res)
       defaultModels = res?.data?.models || []
-      updateGlobalState('defaultBaseUrl', 'https://test-litellm.intsig.net')
+      updateGlobalState('defaultBaseUrl', res?.data?.llmGatewayAddr)
       storeSecret('defaultApiKey', res?.data?.key)
     })
     const savedModelOptions = (await getGlobalState('modelOptions')) || []
-    console.log('savedModelOptions', savedModelOptions)
     if (savedModelOptions && Array.isArray(savedModelOptions)) {
       // 1. 过滤掉 type=='standard' 且不存在于 defaultModels 中的模型
       const filteredOptions = savedModelOptions.filter((option) => {
@@ -753,14 +635,13 @@ const loadModelOptions = async () => {
       }))
     }
     await saveModelOptions()
-    console.log('modelOptions', modelOptions.value)
   } catch (error) {
     console.error('Failed to load model options:', error)
   }
 }
 
 // 处理保存新模型
-const handleSave = (provider) => {
+const handleSave = async (provider) => {
   let modelId = ''
   let modelName = ''
 
@@ -799,6 +680,19 @@ const handleSave = (provider) => {
     return
   }
 
+  // 根据provider保存对应配置
+  switch (provider) {
+    case 'bedrock':
+      await saveBedrockConfig()
+      break
+    case 'litellm':
+      await saveLiteLlmConfig()
+      break
+    case 'deepseek':
+      await saveDeepSeekConfig()
+      break
+  }
+
   // 添加新模型
   const newModel = {
     id: modelId,
@@ -809,7 +703,7 @@ const handleSave = (provider) => {
   }
 
   modelOptions.value.push(newModel)
-  saveModelOptions()
+  await saveModelOptions()
 
   notification.success({
     message: 'Success',

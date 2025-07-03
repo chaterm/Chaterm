@@ -1946,7 +1946,7 @@ const initModelOptions = async () => {
     await getUser({}).then((res) => {
       console.log('res', res)
       defaultModels = res?.data?.models || []
-      updateGlobalState('defaultBaseUrl', 'https://test-litellm.intsig.net')
+      updateGlobalState('defaultBaseUrl', res?.data?.llmGatewayAddr)
       storeSecret('defaultApiKey', res?.data?.key)
     })
     modelOptions = defaultModels.map((model) => ({
