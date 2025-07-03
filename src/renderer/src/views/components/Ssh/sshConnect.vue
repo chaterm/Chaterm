@@ -708,6 +708,7 @@ const connectSSH = async () => {
 
     // terminal.value?.writeln(`尝试连接 ${props.connectData.ip}:${props.connectData.port}...`)
     const email = userInfoStore().userInfo.email
+    const name = userInfoStore().userInfo.name
     connectionId.value = `${props.connectData.username}@${props.connectData.ip}:local:${uuidv4()}`
     const result = await api.connect({
       id: connectionId.value,
@@ -721,7 +722,6 @@ const connectSSH = async () => {
     const connectReadyData = await api.connectReadyData(connectionId.value)
     connectionHasSudo.value = connectReadyData?.hasSudo
     if (result.status === 'connected') {
-      // terminal.value?.writeln(`已成功连接到 ${props.connectData.ip}`)
       let welcome = '\x1b[38;2;22;119;255m' + name + ', 欢迎您使用智能堡垒机Chaterm \x1b[m\r\n'
       if (configStore.getUserConfig.language == 'en-US') {
         welcome = '\x1b[38;2;22;119;255m' + email.split('@')[0] + ', Welcome to use Chaterm \x1b[m\r\n'
@@ -1575,6 +1575,12 @@ const handleServerOutput = (response: MarkedResponse) => {
             eventBus.emit('triggerAiSend')
           }, 100)
         })
+      } else {
+        const output = configStore.getUserConfig.language == 'en-US' ? 'Command executed successfully, no output returned' : '执行完成，没有输出返回'
+        eventBus.emit('chatToAi', output)
+        setTimeout(() => {
+          eventBus.emit('triggerAiSend')
+        }, 100)
       }
     }
     cusWrite?.(data)
