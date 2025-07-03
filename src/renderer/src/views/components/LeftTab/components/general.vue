@@ -103,6 +103,7 @@ import { ref, onMounted, watch, getCurrentInstance, onBeforeUnmount } from 'vue'
 import 'xterm/css/xterm.css'
 import { notification } from 'ant-design-vue'
 import { userConfigStore } from '@/services/userConfigStoreService'
+import { userConfigStore as configStore } from '@/store/userConfigStore'
 import eventBus from '@/utils/eventBus'
 
 const instance = getCurrentInstance()
@@ -197,6 +198,7 @@ onBeforeUnmount(() => {
 
 const changeLanguage = async () => {
   appContext.config.globalProperties.$i18n.locale = userConfig.value.language
+  configStore().updateLanguage(userConfig.value.language)
 }
 
 const changeTheme = async () => {

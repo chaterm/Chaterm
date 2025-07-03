@@ -682,7 +682,7 @@ const checkVersion = async () => {
     Notice.open({
       id: 'update-notice',
       type: 'info',
-      duration: 180,
+      duration: 300,
       description: t('update.available'),
       btns: [
         {
@@ -699,23 +699,11 @@ const checkVersion = async () => {
   const Download = () => {
     api.download()
     api.autoUpdate((params) => {
-      console.log(params)
-      if (params.progress <= 100) {
-        Notice.progress({
-          id: 'update-download-progress',
-          type: 'info',
-          description: `${t('update.downloading')} ${params.desc}`,
-          duration: 180,
-          progress: params.progress
-        })
-      } else {
-        Notice.close('update-download-progress')
-      }
       if (params.status == 4) {
         Notice.open({
           id: 'update-download-complete',
           type: 'success',
-          duration: 180,
+          duration: 1800,
           description: t('update.complete'),
           btns: [
             {

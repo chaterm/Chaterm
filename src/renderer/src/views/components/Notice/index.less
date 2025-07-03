@@ -1,5 +1,5 @@
 .notification {
-  background: #252526 !important;
+  background: var(--bg-color-quinary) !important;
   border-radius: 4px !important;
   box-shadow: 0 3px 8px rgba(0, 0, 0, 0.5) !important;
   width: 420px !important;
@@ -8,12 +8,12 @@
 
 .notice-title {
   display: none;
-  color: #ffffff;
+  color: var(--text-color);
   font-weight: 600;
 }
 
 .notice-desc {
-  color: #cccccc;
+  color: var(--text-color);
   font-size: 14px;
   line-height: 1;
 }
@@ -31,13 +31,12 @@
   background: #0e639c;
   color: #ffffff;
   border: none;
-  border-radius: 2px;
+  border-radius: 3px;
   padding: 4px 12px;
   cursor: pointer;
   font-size: 13px;
-  height: 27px;
+  height: 30px;
   margin-left: 10px;
-  border-radius: 5px;
 }
 
 .notice-btn:hover {
@@ -48,13 +47,12 @@
   background: #5e5e5e;
   color: #ffffff;
   border: none;
-  border-radius: 2px;
+  border-radius: 3px;
   padding: 4px 12px;
   cursor: pointer;
   font-size: 13px;
-  height: 27px;
+  height: 30px;
   margin-left: 10px;
-  border-radius: 5px;
 }
 .notice-btn-withe:hover {
   background: #686868;
@@ -79,18 +77,20 @@
 }
 
 .ant-notification-notice-close {
-  color: #ffffff;
+  color: var(--text-color);
   :hover {
-    color: #ffffff;
-    // background-color: #525050;
+    color: var(--text-color);
   }
 }
 .ant-notification-close-x {
-  color: #ffffff;
+  color: var(--text-color);
   :hover {
-    color: #ffffff;
+    color: var(--text-color);
   }
 }
 .ant-progress-inner {
   background-color: #555555 !important;
+}
+.no-closeIcon .ant-notification-notice-close {
+  display: none !important;
 }
