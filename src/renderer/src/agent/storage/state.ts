@@ -106,7 +106,6 @@ export async function getAllExtensionState() {
     liteLlmBaseUrl,
     liteLlmModelId,
     //liteLlmModelInfo,
-    //liteLlmUsePromptCache,
     //fireworksApiKey,
     //fireworksModelId,
     //fireworksModelMaxCompletionTokens,
@@ -192,7 +191,6 @@ export async function getAllExtensionState() {
     getGlobalState('liteLlmBaseUrl') as Promise<string | undefined>,
     getGlobalState('liteLlmModelId') as Promise<string | undefined>,
     //getGlobalState('liteLlmModelInfo') as Promise<ModelInfo | undefined>,
-    //getGlobalState('liteLlmUsePromptCache') as Promise<boolean | undefined>,
     //getSecret('fireworksApiKey') as Promise<string | undefined>,
     //getGlobalState('fireworksModelId') as Promise<string | undefined>,
     //getGlobalState('fireworksModelMaxCompletionTokens') as Promise<number | undefined>,
@@ -322,7 +320,6 @@ export async function getAllExtensionState() {
       liteLlmModelId,
       //liteLlmModelInfo,
       liteLlmApiKey,
-      //liteLlmUsePromptCache,
       //fireworksApiKey,
       //fireworksModelId,
       //fireworksModelMaxCompletionTokens,
@@ -431,7 +428,6 @@ export async function updateApiConfiguration(apiConfiguration: ApiConfiguration)
   await updateGlobalState('liteLlmBaseUrl', liteLlmBaseUrl)
   await updateGlobalState('liteLlmModelId', liteLlmModelId)
   //await updateGlobalState('liteLlmModelInfo', liteLlmModelInfo)
-  //await updateGlobalState('liteLlmUsePromptCache', liteLlmUsePromptCache)
   //await updateGlobalState('qwenApiLine', qwenApiLine)
   //await updateGlobalState('requestyModelId', requestyModelId)
   //await updateGlobalState('requestyModelInfo', requestyModelInfo)

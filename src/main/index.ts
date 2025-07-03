@@ -661,9 +661,9 @@ ipcMain.handle('get-user-hosts', async (_, data) => {
   }
 })
 
-ipcMain.handle('validate-api-key', async () => {
+ipcMain.handle('validate-api-key', async (_, data) => {
   if (controller) {
-    return await controller.validateApiKey()
+    return await controller.validateApiKey(data)
   }
   return { isValid: false, error: 'Controller not initialized' }
 })

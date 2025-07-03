@@ -90,8 +90,6 @@ export class LiteLlmHandler implements ApiHandler {
       temperature = undefined // Thinking mode doesn't support temperature
     }
 
-    // Define cache control object if prompt caching is enabled
-    // const cacheControl = this.options.liteLlmUsePromptCache ? { cache_control: { type: 'ephemeral' } } : undefined
     const cacheControl = { cache_control: { type: 'ephemeral' as const } }
 
     // Add cache_control to system message if enabled
