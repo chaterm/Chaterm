@@ -99,7 +99,7 @@ import Context from '../Term/contextComp.vue'
 import SuggComp from '../Term/suggestion.vue'
 import eventBus from '@/utils/eventBus'
 import { useCurrentCwdStore } from '@/store/currentCwdStore'
-import { markRaw, onBeforeUnmount, onMounted, onUnmounted, PropType, nextTick, reactive, ref, watch } from 'vue'
+import { markRaw, onBeforeUnmount, onMounted, onUnmounted, PropType, nextTick, reactive, ref } from 'vue'
 import { Terminal } from 'xterm'
 import { FitAddon } from 'xterm-addon-fit'
 import { SearchAddon } from 'xterm-addon-search'
@@ -137,7 +137,8 @@ const props = defineProps({
     }
   },
   activeTabId: { type: String, required: true },
-  currentConnectionId: { type: String, required: true }
+  currentConnectionId: { type: String, required: true },
+  isSyncInput: { type: Boolean, default: false }
 })
 const queryCommandFlag = ref(false)
 export interface sshConnectData {
@@ -283,7 +284,7 @@ onMounted(async () => {
   })
 
   if (terminalContainer.value) {
-    terminalContainer.value.addEventListener('mouseup', (e) => {
+    terminalContainer.value.addEventListener('mouseup', () => {
       setTimeout(() => {
         const text = termInstance.getSelection()
         const position = termInstance.getSelectionPosition()
@@ -708,6 +709,7 @@ const connectSSH = async () => {
 
     // terminal.value?.writeln(`尝试连接 ${props.connectData.ip}:${props.connectData.port}...`)
     const email = userInfoStore().userInfo.email
+    const name = userInfoStore().userInfo.name
     connectionId.value = `${props.connectData.username}@${props.connectData.ip}:local:${uuidv4()}`
     const result = await api.connect({
       id: connectionId.value,
@@ -721,7 +723,6 @@ const connectSSH = async () => {
     const connectReadyData = await api.connectReadyData(connectionId.value)
     connectionHasSudo.value = connectReadyData?.hasSudo
     if (result.status === 'connected') {
-      // terminal.value?.writeln(`已成功连接到 ${props.connectData.ip}`)
       let welcome = '\x1b[38;2;22;119;255m' + name + ', 欢迎您使用智能堡垒机Chaterm \x1b[m\r\n'
       if (configStore.getUserConfig.language == 'en-US') {
         welcome = '\x1b[38;2;22;119;255m' + email.split('@')[0] + ', Welcome to use Chaterm \x1b[m\r\n'
@@ -1575,6 +1576,12 @@ const handleServerOutput = (response: MarkedResponse) => {
             eventBus.emit('triggerAiSend')
           }, 100)
         })
+      } else {
+        const output = configStore.getUserConfig.language == 'en-US' ? 'Command executed successfully, no output returned' : '执行完成，没有输出返回'
+        eventBus.emit('chatToAi', output)
+        setTimeout(() => {
+          eventBus.emit('triggerAiSend')
+        }, 100)
       }
     }
     cusWrite?.(data)
