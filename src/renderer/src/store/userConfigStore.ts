@@ -4,7 +4,7 @@ export const userConfigStore = defineStore('userConfig', {
   state: () => {
     return {
       userConfig: {
-        language: 'en-US',
+        language: 'zh-CN',
         aliasStatus: 2,
         uid: 0,
         autoCompleteStatus: 2,
@@ -36,7 +36,7 @@ export const userConfigStore = defineStore('userConfig', {
     } => {
       return (
         state?.userConfig || {
-          language: 'en-US',
+          language: 'zh-CN',
           aliasStatus: 2,
           uid: 0,
           autoCompleteStatus: 2,
@@ -54,6 +54,9 @@ export const userConfigStore = defineStore('userConfig', {
   actions: {
     setUserConfig(data) {
       this.userConfig = data
+    },
+    updateLanguage(language: string) {
+      this.userConfig.language = language
     }
   }
 })
