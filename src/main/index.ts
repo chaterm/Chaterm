@@ -661,9 +661,13 @@ ipcMain.handle('get-user-hosts', async (_, data) => {
   }
 })
 
-ipcMain.handle('validate-api-key', async (_, data) => {
+ipcMain.handle('validate-api-key', async (_, configuration) => {
   if (controller) {
-    return await controller.validateApiKey(data)
+    // 如果没有传递配置数据，返回错误
+    if (!configuration) {
+      return { isValid: false, error: 'No API configuration provided' }
+    }
+    return await controller.validateApiKey(configuration)
   }
   return { isValid: false, error: 'Controller not initialized' }
 })
