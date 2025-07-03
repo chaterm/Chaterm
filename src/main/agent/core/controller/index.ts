@@ -23,6 +23,7 @@ import type { Host } from '@shared/WebviewMessage'
 import { ensureTaskExists, getSavedApiConversationHistory, deleteChatermHistoryByTaskId, getTaskMetadata, saveTaskMetadata } from '../storage/disk'
 import { getAllExtensionState, getGlobalState, resetExtensionState, storeSecret, updateApiConfiguration, updateGlobalState } from '../storage/state'
 import { Task } from '../task'
+import { ApiConfiguration } from '@shared/api'
 
 export class Controller {
   private postMessage: (message: ExtensionMessage) => Promise<boolean> | undefined
@@ -587,9 +588,8 @@ export class Controller {
     await this.postStateToWebview()
   }
 
-  async validateApiKey(): Promise<{ isValid: boolean; error?: string }> {
-    const { apiConfiguration } = await getAllExtensionState()
-    const api = buildApiHandler(apiConfiguration)
+  async validateApiKey(configuration: ApiConfiguration): Promise<{ isValid: boolean; error?: string }> {
+    const api = buildApiHandler(configuration)
     return await api.validateApiKey()
   }
 }

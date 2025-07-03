@@ -71,7 +71,6 @@ export type GlobalStateKey =
   | 'liteLlmBaseUrl'
   | 'liteLlmModelId'
   | 'liteLlmModelInfo'
-  | 'liteLlmUsePromptCache'
   | 'fireworksModelId'
   | 'fireworksModelMaxCompletionTokens'
   | 'fireworksModelMaxTokens'
