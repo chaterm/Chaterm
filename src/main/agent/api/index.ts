@@ -25,7 +25,14 @@ export function buildApiHandler(configuration: ApiConfiguration): ApiHandler {
       return new LiteLlmHandler(options)
     case 'deepseek':
       return new DeepSeekHandler(options)
+    case 'default':
+      return new LiteLlmHandler({
+        ...options,
+        liteLlmModelId: options.defaultModelId,
+        liteLlmBaseUrl: options.defaultBaseUrl,
+        liteLlmApiKey: options.defaultApiKey
+      })
     default:
-      return new AwsBedrockHandler(options)
+      throw new Error(`Unsupported API provider: ${apiProvider}`)
   }
 }
