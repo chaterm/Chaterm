@@ -344,6 +344,10 @@ onMounted(async () => {
         key: e.data
       })
     })
+    // 监听复制粘贴, 标记此行为, 稍后高亮处理
+    textarea.addEventListener('paste', () => {
+      pasteFlag.value = true
+    })
   }
   // removeOtpSuccessListener = window.api.onKeyboardInteractiveSuccess(handleOtpSuccess)
   removeOtpRequestListener = api.onKeyboardInteractiveRequest(handleOtpRequest)
@@ -387,6 +391,10 @@ onMounted(async () => {
       // if (data.indexOf(startStr.value) !== -1 && startStr.value != '') {
       //   highLightFlag = false
       // }
+      // 条件5, 粘贴行为，走highlight
+      if (pasteFlag.value) {
+        highLightFlag = true
+      }
       if (
         stripAnsi(data)
           .replace(/[\x00-\x09\x0B\x0C\x0E-\x1F\x7F]/g, '')
@@ -399,6 +407,7 @@ onMounted(async () => {
         if (config.highlightStatus == 1) {
           console.log('触发高亮:', terminalState.value)
           highlightSyntax(terminalState.value)
+          pasteFlag.value = false
         }
         if (!selectFlag.value) {
           queryCommand()
