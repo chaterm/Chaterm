@@ -1587,17 +1587,21 @@ const handleServerOutput = (response: MarkedResponse) => {
     console.log(`${props.connectData.ip} current working directory:`, currentCwd)
   } else if (response.marker === 'Chaterm:command') {
     isCollectingOutput.value = true
-    commandOutput.value = ''
-    cusWrite?.(data)
-  } else if (isCollectingOutput.value) {
     const cleanOutput = stripAnsi(data).trim()
     commandOutput.value += cleanOutput + '\n'
+    console.log('commandOutput: ', commandOutput.value)
     const promptRegex = /(?:\[([^@]+)@([^\]]+)\][#$]|([^@]+)@([^:]+):(?:[^$]*|\s*~)\s*[$#]|\[([^@]+)@([^\]]+)\s+[^\]]*\][#$])\s*$/
     if (promptRegex.test(cleanOutput)) {
       isCollectingOutput.value = false
-      const lines = commandOutput.value.split(/\r?\n/).filter((line) => line.trim())
-      const outputLines = lines.slice(0, -1)
+      const lines = commandOutput.value
+        .replace(/\r\n|\r/g, '\n')
+        .split('\n')
+        .filter((line) => line.trim())
+      console.log('lines: ', lines)
+      const outputLines = lines.slice(1, -1)
+      console.log('outputLines: ', outputLines)
       const finalOutput = outputLines.join('\n').trim()
+      console.log('finalOutput: ', finalOutput)
       if (finalOutput) {
         nextTick(() => {
           eventBus.emit('chatToAi', finalOutput)
@@ -1612,6 +1616,40 @@ const handleServerOutput = (response: MarkedResponse) => {
           eventBus.emit('triggerAiSend')
         }, 100)
       }
+      commandOutput.value = ''
+    }
+    cusWrite?.(data)
+  } else if (isCollectingOutput.value) {
+    const cleanOutput = stripAnsi(data).trim()
+    commandOutput.value += cleanOutput + '\n'
+    console.log('commandOutput: ', commandOutput.value)
+    const promptRegex = /(?:\[([^@]+)@([^\]]+)\][#$]|([^@]+)@([^:]+):(?:[^$]*|\s*~)\s*[$#]|\[([^@]+)@([^\]]+)\s+[^\]]*\][#$])\s*$/
+    if (promptRegex.test(cleanOutput)) {
+      isCollectingOutput.value = false
+      const lines = commandOutput.value
+        .replace(/\r\n|\r/g, '\n')
+        .split('\n')
+        .filter((line) => line.trim())
+      console.log('lines: ', lines)
+      const outputLines = lines.slice(1, -1)
+      console.log('outputLines: ', outputLines)
+      const finalOutput = outputLines.join('\n').trim()
+      console.log('finalOutput: ', finalOutput)
+      if (finalOutput) {
+        nextTick(() => {
+          eventBus.emit('chatToAi', finalOutput)
+          setTimeout(() => {
+            eventBus.emit('triggerAiSend')
+          }, 100)
+        })
+      } else {
+        const output = configStore.getUserConfig.language == 'en-US' ? 'Command executed successfully, no output returned' : '执行完成，没有输出返回'
+        eventBus.emit('chatToAi', output)
+        setTimeout(() => {
+          eventBus.emit('triggerAiSend')
+        }, 100)
+      }
+      commandOutput.value = ''
     }
     cusWrite?.(data)
   } else {
