@@ -1586,10 +1586,17 @@ const handleServerOutput = (response: MarkedResponse) => {
     currentCwdStore.setKeyValue(props.connectData.ip, currentCwd)
     console.log(`${props.connectData.ip} current working directory:`, currentCwd)
   } else if (response.marker === 'Chaterm:command') {
+    isCollectingOutput.value = true
+    commandOutput.value = ''
+    cusWrite?.(data)
+  } else if (isCollectingOutput.value) {
     const cleanOutput = stripAnsi(data).trim()
-    if (cleanOutput) {
-      const lines = cleanOutput.split(/\r?\n/)
-      const outputLines = lines.slice(1, -1)
+    commandOutput.value += cleanOutput + '\n'
+    const promptRegex = /(?:\[([^@]+)@([^\]]+)\][#$]|([^@]+)@([^:]+):(?:[^$]*|\s*~)\s*[$#]|\[([^@]+)@([^\]]+)\s+[^\]]*\][#$])\s*$/
+    if (promptRegex.test(cleanOutput)) {
+      isCollectingOutput.value = false
+      const lines = commandOutput.value.split(/\r?\n/).filter((line) => line.trim())
+      const outputLines = lines.slice(0, -1)
       const finalOutput = outputLines.join('\n').trim()
       if (finalOutput) {
         nextTick(() => {
@@ -2210,6 +2217,10 @@ onUnmounted(() => {
   document.removeEventListener('mouseup', hideSelectionButton)
   inputManager.unregisterInstances(connectionId.value)
 })
+
+// 在 script setup 部分添加新变量
+const commandOutput = ref('')
+const isCollectingOutput = ref(false)
 </script>
 
 <style lang="less">
