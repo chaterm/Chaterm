@@ -16,6 +16,7 @@
   --active-bg-color: rgba(255, 255, 255, 0.15);
   --watermark-color: rgba(255, 255, 255, 0.05);
   --icon-filter: brightness(0) invert(1);
+  --globalInput-bg-color: #2e2e2e;
 }
 
 // Light theme variables
@@ -36,6 +37,7 @@
   --active-bg-color: rgba(0, 0, 0, 0.08);
   --watermark-color: rgba(0, 0, 0, 0.05);
   --icon-filter: brightness(0);
+  --globalInput-bg-color: #e2e2e2;
 }
 
 // Apply theme variables to components
@@ -84,7 +86,8 @@ body {
 :deep(.ant-form-item-label label),
 :deep(.ant-select),
 :deep(.ant-input),
-:deep(.ant-input-password) {
+:deep(.ant-input-password),
+:deep(.ant-select-selection-placeholder) {
   color: var(--text-color-secondary) !important;
 }
 
@@ -199,6 +202,13 @@ body {
 
   &:hover {
     background-color: var(--hover-bg-color) !important;
+  }
+}
+// 输入框清除图标样式
+.ant-input-clear-icon {
+  color: var(--text-color-tertiary) !important;
+  &:hover {
+    color: var(--text-color-tertiary) !important;
   }
 }
 

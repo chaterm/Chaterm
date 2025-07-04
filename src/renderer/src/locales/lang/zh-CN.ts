@@ -38,7 +38,12 @@ export default {
     shrotenName: '缩短主机名',
     fontsize: '字体大小',
     largen: '放大',
-    smaller: '缩小'
+    smaller: '缩小',
+    globalExecOn: '全局执行命令(已开)',
+    globalExec: '全局执行命令',
+    syncInputOn: '同步输入(已开)',
+    syncInput: '同步输入',
+    allExecuted: '全部执行'
   },
   term: {
     welcome: '欢迎使用智能堡垒机Chaterm'
