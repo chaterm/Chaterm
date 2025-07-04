@@ -39,7 +39,7 @@
               <div v-if="currentMenu == 'monitor'">{{ $t('common.monitor') }}</div>
             </pane>
             <pane :size="100 - leftPaneSize">
-              <splitpanes @resize="(params: ResizeParams) => (mainTerminalSize = params.prevPane.size)">
+              <splitpanes @resize="onMainSplitResize">
                 <pane :size="mainTerminalSize">
                   <TabsPanel
                     ref="allTabs"
@@ -84,6 +84,35 @@
               </splitpanes>
             </pane>
           </splitpanes>
+          <div
+            v-if="isGlobalInput"
+            :style="{ width: globalInputWidth + 'px', left: leftPaneSize + '%' }"
+            class="globalInput"
+          >
+            <a-input
+              v-model:value="globalInput"
+              size="small"
+              class="command-input"
+              allow-clear
+              @press-enter="sendGlobalCommand"
+            >
+            </a-input>
+            <a-button
+              size="small"
+              class="menu-action-btn"
+              :wave="false"
+              @click="sendGlobalCommand"
+            >
+              {{ $t('common.allExecuted') }}
+            </a-button>
+            <a-button
+              size="small"
+              class="menu-action-btn"
+              @click="isGlobalInput = false"
+            >
+              {{ $t('common.close') }}
+            </a-button>
+          </div>
         </div>
       </div>
     </div>
@@ -127,7 +156,7 @@
             <div v-if="currentMenu == 'monitor'">{{ $t('common.monitor') }}</div>
           </pane>
           <pane :size="100 - leftPaneSize">
-            <splitpanes @resize="(params: ResizeParams) => (mainTerminalSize = params.prevPane.size)">
+            <splitpanes @resize="onMainSplitResize">
               <pane :size="mainTerminalSize">
                 <TabsPanel
                   ref="allTabs"
@@ -199,6 +228,9 @@ import { aliasConfigStore } from '@/store/aliasConfigStore'
 import eventBus from '@/utils/eventBus'
 import { Notice } from '../components/Notice'
 import '@/assets/theme.less'
+import { isGlobalInput } from '@renderer/views/components/Ssh/termInputManager'
+import { inputManager } from '../components/Ssh/termInputManager'
+
 const api = window.api as any
 const { t } = useI18n()
 const aliasConfig = aliasConfigStore()
@@ -224,7 +256,7 @@ const aiSidebarSize = ref(0)
 const splitPaneSize = ref(0)
 const showAiSidebar = ref(false)
 const showSplitPane = ref(false)
-
+const globalInput = ref('')
 onMounted(async () => {
   eventBus.on('updateWatermark', (watermark) => {
     showWatermark.value = watermark !== 'close'
@@ -235,9 +267,6 @@ onMounted(async () => {
     nextTick(() => {
       showWatermark.value = true
     })
-    setTimeout(() => {
-      api.updateTheme(theme)
-    }, 80)
   })
   try {
     const config = await userConfigStore.getConfig()
@@ -301,6 +330,12 @@ watch(showAiSidebar, (newValue) => {
   if (headerRef.value) {
     headerRef.value.switchIcon('right', newValue)
   }
+})
+const globalInputWidth = computed(() => {
+  const container = document.querySelector('.splitpanes') as HTMLElement
+  const containerWidth = container?.offsetWidth
+  const width = ((100 - leftPaneSize.value) * containerWidth * (100 - aiSidebarSize.value)) / 10000 - 60
+  return isGlobalInput.value ? width : 0
 })
 const DEFAULT_WIDTH_PX = 240
 const DEFAULT_WIDTH_RIGHT_PX = 400
@@ -454,6 +489,7 @@ const currentClickServer = async (item) => {
     data: item
   })
   activeTabId.value = id_
+  checkActiveTab(item.type || 'term')
 }
 
 const closeTab = (tabId) => {
@@ -494,7 +530,7 @@ const createTab = (infos) => {
     data: infos.data
   })
   activeTabId.value = id_
-  console.log(openedTabs.value, 'openedTabs.value')
+  checkActiveTab(infos.type)
 }
 
 const adjustSplitPaneToEqualWidth = () => {
@@ -515,11 +551,17 @@ const handleCreateSplitTab = (tabInfo) => {
   rightActiveTabId.value = id_
   showSplitPane.value = true
   adjustSplitPaneToEqualWidth()
+  checkActiveTab(tabInfo.type)
 }
 
 const switchTab = (tabId) => {
   activeTabId.value = tabId
   allTabs.value?.resizeTerm(tabId)
+  openedTabs.value.forEach((tab) => {
+    if (tab.id === tabId) {
+      checkActiveTab(tab.type)
+    }
+  })
 }
 
 const updateTabs = (newTabs) => {
@@ -611,7 +653,7 @@ const closeRightTab = (tabId) => {
     if (rightTabs.value.length === 0) {
       showSplitPane.value = false
       splitPaneSize.value = 0
-      mainTerminalSize.value = 100 - (showAiSidebar.value ? aiSidebarSize.value : 0)
+      aiSidebarSize.value = showAiSidebar.value ? 50 : 0
     }
   }
 }
@@ -622,9 +664,15 @@ const createRightTab = (infos) => {
     id: id_
   })
   rightActiveTabId.value = id_
+  checkActiveTab(infos.type)
 }
 const switchRightTab = (tabId) => {
   rightActiveTabId.value = tabId
+  rightTabs.value.forEach((tab) => {
+    if (tab.id === tabId) {
+      checkActiveTab(tab.type)
+    }
+  })
 }
 const updateRightTabs = (newTabs) => {
   rightTabs.value = newTabs
@@ -720,7 +768,25 @@ const checkVersion = async () => {
     })
   }
 }
+const onMainSplitResize = (params) => {
+  mainTerminalSize.value = params.prevPane.size
+  if (showAiSidebar.value) {
+    aiSidebarSize.value = params.panes[params.panes.length - 1].size
+  }
+}
 
+const sendGlobalCommand = () => {
+  if (globalInput.value != '') {
+    inputManager.globalSend(globalInput.value)
+    inputManager.globalSend('\r')
+    globalInput.value = ''
+  }
+}
+const checkActiveTab = (type) => {
+  if (isGlobalInput.value && type !== 'term') {
+    isGlobalInput.value = false
+  }
+}
 defineExpose({
   resizeTerm: () => {
     allTabs.value?.resizeTerm()
@@ -832,6 +898,52 @@ defineExpose({
       border: none;
       color: #fff !important;
     }
+  }
+}
+.globalInput {
+  position: absolute;
+  bottom: 10px;
+  left: 0;
+  color: var(--text-color);
+  width: 100%;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-left: 40px;
+  .ant-input {
+    background-color: transparent;
+    color: var(--text-color);
+  }
+
+  .ant-input-affix-wrapper {
+    border-color: var(--border-color);
+    &:hover,
+    &:focus,
+    &:active {
+      border-color: var(--border-color) !important;
+      box-shadow: none !important;
+    }
+  }
+}
+
+.command-input {
+  background: var(--globalInput-bg-color);
+  height: 32px;
+}
+
+.menu-action-btn {
+  background: var(--globalInput-bg-color);
+  border: none;
+  color: var(--text-color);
+  height: 32px !important;
+  margin-left: 8px;
+  &:hover,
+  &:focus,
+  &:active {
+    background: var(--globalInput-bg-color);
+    color: var(--text-color) !important;
+    box-shadow: none !important;
   }
 }
 </style>

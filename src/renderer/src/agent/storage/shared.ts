@@ -79,6 +79,9 @@ export interface ApiHandlerOptions {
   deepSeekApiKey?: string
   needProxy?: boolean
   proxyConfig?: ProxyConfig
+  defaultBaseUrl?: string
+  defaultModelId?: string
+  defaultApiKey?: string
 }
 
 export type ApiConfiguration = ApiHandlerOptions & {

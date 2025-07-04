@@ -1,212 +1,12 @@
 <template>
   <div>
     <div class="section-header">
-      <h3>{{ $t('user.apiConfiguration') }}</h3>
-    </div>
-    <a-card
-      class="settings-section"
-      :bordered="false"
-    >
-      <!-- API Configuration Selection -->
-      <div class="setting-item">
-        <a-form-item
-          :label="$t('user.apiProvider')"
-          :label-col="{ span: 24 }"
-          :wrapper-col="{ span: 24 }"
-        >
-          <a-select
-            v-model:value="apiProvider"
-            size="small"
-            :options="apiProviderOptions"
-            show-search
-            @change="getApiProviderDefaultModelId"
-          />
-        </a-form-item>
-      </div>
-      <div v-if="apiProvider === 'bedrock'">
-        <div class="setting-item">
-          <a-form-item
-            :label="$t('user.awsAccessKey')"
-            :label-col="{ span: 24 }"
-            :wrapper-col="{ span: 24 }"
-          >
-            <a-input
-              v-model:value="awsAccessKey"
-              :placeholder="$t('user.awsAccessKeyPh')"
-            />
-          </a-form-item>
-        </div>
-        <div class="setting-item">
-          <a-form-item
-            :label="$t('user.awsSecretKey')"
-            :label-col="{ span: 24 }"
-            :wrapper-col="{ span: 24 }"
-          >
-            <a-input
-              v-model:value="awsSecretKey"
-              :placeholder="$t('user.awsSecretKeyPh')"
-            />
-          </a-form-item>
-        </div>
-        <div class="setting-item">
-          <a-form-item
-            :label="$t('user.awsSessionToken')"
-            :label-col="{ span: 24 }"
-            :wrapper-col="{ span: 24 }"
-          >
-            <a-input
-              v-model:value="awsSessionToken"
-              :placeholder="$t('user.awsSessionTokenPh')"
-            />
-          </a-form-item>
-        </div>
-        <div class="setting-item">
-          <a-form-item
-            :label="$t('user.awsRegion')"
-            :label-col="{ span: 24 }"
-            :wrapper-col="{ span: 24 }"
-          >
-            <a-select
-              v-model:value="awsRegion"
-              size="small"
-              :options="awsRegionOptions"
-              :placeholder="$t('user.awsRegionPh')"
-              show-search
-            />
-          </a-form-item>
-        </div>
-        <p class="setting-description-no-padding">
-          {{ $t('user.apiProviderDescribe') }}
-        </p>
-        <div class="setting-item">
-          <!-- AWS VPC Endpoint Checkbox -->
-          <a-checkbox v-model:checked="awsEndpointSelected">
-            {{ $t('user.awsEndpointSelected') }}
-          </a-checkbox>
-
-          <!-- AWS VPC Endpoint Input -->
-          <template v-if="awsEndpointSelected">
-            <a-input
-              v-model:value="awsBedrockEndpoint"
-              type="url"
-              :placeholder="$t('user.awsBedrockEndpointPh')"
-            />
-          </template>
-        </div>
-        <div class="setting-item">
-          <!-- Cross Region Inference Checkbox -->
-          <a-checkbox v-model:checked="awsUseCrossRegionInference">
-            {{ $t('user.awsUseCrossRegionInference') }}
-          </a-checkbox>
-        </div>
-      </div>
-      <div v-else-if="apiProvider === 'litellm'">
-        <div class="setting-item">
-          <a-form-item
-            :label="$t('user.liteLlmBaseUrl')"
-            :label-col="{ span: 24 }"
-            :wrapper-col="{ span: 24 }"
-          >
-            <a-input
-              v-model:value="liteLlmBaseUrl"
-              :placeholder="$t('user.liteLlmBaseUrlPh')"
-            />
-          </a-form-item>
-        </div>
-        <div class="setting-item">
-          <a-form-item
-            :label="$t('user.liteLlmApiKey')"
-            :label-col="{ span: 24 }"
-            :wrapper-col="{ span: 24 }"
-          >
-            <a-input-password
-              v-model:value="liteLlmApiKey"
-              :placeholder="$t('user.liteLlmApiKeyPh')"
-            />
-          </a-form-item>
-        </div>
-      </div>
-      <div v-else-if="apiProvider === 'deepseek'">
-        <div class="setting-item">
-          <a-form-item
-            :label="$t('user.deepSeekApiKey')"
-            :label-col="{ span: 24 }"
-            :wrapper-col="{ span: 24 }"
-          >
-            <a-input-password
-              v-model:value="deepSeekApiKey"
-              :placeholder="$t('user.deepSeekApiKeyPh')"
-            />
-            <p class="setting-description-no-padding">
-              {{ $t('user.deepSeekApiKeyDescribe') }}
-            </p>
-          </a-form-item>
-        </div>
-      </div>
-    </a-card>
-    <div class="section-header">
       <h3>{{ $t('user.general') }}</h3>
     </div>
     <a-card
       class="settings-section"
       :bordered="false"
     >
-      <!-- Model Selection -->
-      <div class="setting-item">
-        <a-form-item
-          :label="$t('user.model')"
-          :label-col="{ span: 24 }"
-          :wrapper-col="{ span: 24 }"
-        >
-          <a-select
-            v-if="apiProvider === 'bedrock'"
-            v-model:value="apiModelId"
-            size="small"
-            :options="aiModelOptions"
-            show-search
-            style="width: calc(100% - 100px); margin-right: 6px"
-          />
-          <a-input
-            v-else-if="apiProvider === 'litellm'"
-            v-model:value="liteLlmModelId"
-            size="small"
-            style="width: calc(100% - 100px); margin-right: 6px"
-          />
-          <a-select
-            v-else-if="apiProvider === 'deepseek'"
-            v-model:value="apiModelId"
-            size="small"
-            :options="deepseekAiModelOptions"
-            show-search
-            style="width: calc(100% - 100px); margin-right: 6px"
-          />
-          <a-button
-            class="check-btn"
-            size="small"
-            :loading="checkLoading"
-            @click="handleCheck"
-          >
-            Check
-          </a-button>
-        </a-form-item>
-      </div>
-      <!-- ChatSetting -->
-      <div class="setting-item">
-        <a-form-item
-          :label="$t('user.chatSettings')"
-          :label-col="{ span: 24 }"
-          :wrapper-col="{ span: 24 }"
-        >
-          <a-select
-            v-model:value="chatSettings.mode"
-            size="small"
-          >
-            <a-select-option value="chat">Chat</a-select-option>
-            <a-select-option value="cmd">Command</a-select-option>
-            <a-select-option value="agent">Agent</a-select-option>
-          </a-select>
-        </a-form-item>
-      </div>
       <!-- Extended Thinking -->
       <div class="setting-item">
         <a-checkbox
@@ -407,7 +207,7 @@
 <script setup lang="ts">
 import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { notification } from 'ant-design-vue'
-import { updateGlobalState, getGlobalState, getSecret, storeSecret } from '@renderer/agent/storage/state'
+import { updateGlobalState, getGlobalState, getSecret } from '@renderer/agent/storage/state'
 import { AutoApprovalSettings, DEFAULT_AUTO_APPROVAL_SETTINGS } from '@/agent/storage/shared'
 import { ChatSettings, DEFAULT_CHAT_SETTINGS, ProxyConfig } from '@/agent/storage/shared'
 import { aiModelOptions, deepseekAiModelOptions } from './aiOptions'
@@ -415,52 +215,12 @@ import eventBus from '@/utils/eventBus'
 import i18n from '@/locales'
 
 const { t } = i18n.global
-const apiProviderOptions = ref([
-  { value: 'litellm', label: 'OpenAI Compatible' },
-  { value: 'bedrock', label: 'Amazon Bedrock' },
-  { value: 'deepseek', label: 'DeepSeek' }
-])
 
-const awsRegionOptions = ref([
-  { value: 'us-east-1', label: 'us-east-1' },
-  { value: 'us-east-2', label: 'us-east-2' },
-  { value: 'us-west-2', label: 'us-west-2' },
-  { value: 'ap-south-1', label: 'ap-south-1' },
-  { value: 'ap-northeast-1', label: 'ap-northeast-1' },
-  { value: 'ap-northeast-2', label: 'ap-northeast-2' },
-  { value: 'ap-northeast-3', label: 'ap-northeast-3' },
-  { value: 'ap-southeast-1', label: 'ap-southeast-1' },
-  { value: 'ap-southeast-2', label: 'ap-southeast-2' },
-  { value: 'ca-central-1', label: 'ca-central-1' },
-  { value: 'eu-central-1', label: 'eu-central-1' },
-  { value: 'eu-central-2', label: 'eu-central-2' },
-  { value: 'eu-west-1', label: 'eu-west-1' },
-  { value: 'eu-west-2', label: 'eu-west-2' },
-  { value: 'eu-west-3', label: 'eu-west-3' },
-  { value: 'eu-north-1', label: 'eu-north-1' },
-  { value: 'sa-east-1', label: 'sa-east-1' },
-  { value: 'us-gov-east-1', label: 'us-gov-east-1' },
-  { value: 'us-gov-west-1', label: 'us-gov-west-1' }
-])
-
-const apiModelId = ref('')
 const thinkingBudgetTokens = ref(2048)
 const enableExtendedThinking = ref(true)
 // const enableCheckpoints = ref(false)
 const reasoningEffort = ref('low')
 const shellIntegrationTimeout = ref(4)
-const apiProvider = ref('litellm')
-const awsAccessKey = ref('')
-const awsSecretKey = ref('')
-const awsSessionToken = ref('')
-const awsRegion = ref('us-east-1')
-const awsUseCrossRegionInference = ref(false)
-const awsEndpointSelected = ref(false)
-const awsBedrockEndpoint = ref('')
-const liteLlmBaseUrl = ref('')
-const liteLlmApiKey = ref('')
-const liteLlmModelId = ref('')
-const deepSeekApiKey = ref('')
 const autoApprovalSettings = ref<AutoApprovalSettings>(DEFAULT_AUTO_APPROVAL_SETTINGS)
 const chatSettings = ref<ChatSettings>(DEFAULT_CHAT_SETTINGS)
 const customInstructions = ref('')
@@ -506,38 +266,6 @@ watch(
   }
 )
 
-// Add specific watch for liteLlmBaseUrl
-watch(
-  () => liteLlmBaseUrl.value,
-  async (newValue) => {
-    try {
-      await updateGlobalState('liteLlmBaseUrl', newValue)
-    } catch (error) {
-      console.error('Failed to update liteLlmBaseUrl:', error)
-      notification.error({
-        message: 'Error',
-        description: 'Failed to save LiteLLM Base URL'
-      })
-    }
-  }
-)
-
-// Add specific watch for liteLlmApiKey
-watch(
-  () => liteLlmApiKey.value,
-  async (newValue) => {
-    try {
-      await storeSecret('liteLlmApiKey', newValue)
-    } catch (error) {
-      console.error('Failed to update liteLlmApiKey:', error)
-      notification.error({
-        message: 'Error',
-        description: 'Failed to save LiteLLM API Key'
-      })
-    }
-  }
-)
-
 // Add specific watch for chatSettings.mode
 watch(
   () => chatSettings.value.mode,
@@ -549,7 +277,6 @@ watch(
       }
 
       await updateGlobalState('chatSettings', settingsToStore)
-      eventBus.emit('SettingModelChanged', [newValue, apiModelId.value, liteLlmModelId.value])
     } catch (error) {
       console.error('Failed to update chat settings:', error)
       notification.error({
@@ -563,21 +290,6 @@ watch(
 // 加载保存的配置
 const loadSavedConfig = async () => {
   try {
-    // 加载API相关配置
-    apiProvider.value = ((await getGlobalState('apiProvider')) as string) || 'litellm'
-    //aws信息
-    apiModelId.value = ((await getGlobalState('apiModelId')) as string) || ''
-    awsRegion.value = ((await getGlobalState('awsRegion')) as string) || ''
-    awsUseCrossRegionInference.value = ((await getGlobalState('awsUseCrossRegionInference')) as boolean) || false
-    awsBedrockEndpoint.value = ((await getGlobalState('awsBedrockEndpoint')) as string) || ''
-    awsAccessKey.value = (await getSecret('awsAccessKey')) || ''
-    awsSecretKey.value = (await getSecret('awsSecretKey')) || ''
-    awsSessionToken.value = (await getSecret('awsSessionToken')) || ''
-    //openai信息
-    liteLlmModelId.value = ((await getGlobalState('liteLlmModelId')) as string) || 'claude-3-7-sonnet'
-    liteLlmBaseUrl.value = ((await getGlobalState('liteLlmBaseUrl')) as string) || ''
-    liteLlmApiKey.value = (await getSecret('liteLlmApiKey')) || ''
-    deepSeekApiKey.value = (await getSecret('deepSeekApiKey')) || ''
     // 加载其他配置
     thinkingBudgetTokens.value = ((await getGlobalState('thinkingBudgetTokens')) as number) || 2048
     customInstructions.value = ((await getGlobalState('customInstructions')) as string) || ''
@@ -608,10 +320,6 @@ const loadSavedConfig = async () => {
 
     reasoningEffort.value = ((await getGlobalState('reasoningEffort')) as string) || 'low'
     shellIntegrationTimeout.value = ((await getGlobalState('shellIntegrationTimeout')) as number) || 4
-    awsEndpointSelected.value = ((await getGlobalState('awsEndpointSelected')) as boolean) || false
-    if (!checkApiProviderAndModelId()) {
-      getApiProviderDefaultModelId()
-    }
   } catch (error) {
     console.error('Failed to load config:', error)
     notification.error({
@@ -624,23 +332,6 @@ const loadSavedConfig = async () => {
 // 保存配置到存储
 const saveConfig = async () => {
   try {
-    // 保存API相关配置
-    await updateGlobalState('apiProvider', apiProvider.value)
-    await updateGlobalState('apiModelId', apiModelId.value)
-    await updateGlobalState('awsRegion', awsRegion.value)
-    await updateGlobalState('awsUseCrossRegionInference', awsUseCrossRegionInference.value)
-    await updateGlobalState('awsBedrockEndpoint', awsBedrockEndpoint.value)
-    await updateGlobalState('awsEndpointSelected', awsEndpointSelected.value)
-    await updateGlobalState('liteLlmBaseUrl', liteLlmBaseUrl.value)
-    await updateGlobalState('liteLlmModelId', liteLlmModelId.value)
-
-    // 保存敏感信息
-    await storeSecret('awsAccessKey', awsAccessKey.value)
-    await storeSecret('awsSecretKey', awsSecretKey.value)
-    await storeSecret('awsSessionToken', awsSessionToken.value)
-    await storeSecret('liteLlmApiKey', liteLlmApiKey.value)
-    await storeSecret('deepSeekApiKey', deepSeekApiKey.value)
-
     // 保存其他配置
     await updateGlobalState('thinkingBudgetTokens', thinkingBudgetTokens.value)
     await updateGlobalState('customInstructions', customInstructions.value)
@@ -675,28 +366,6 @@ const saveConfig = async () => {
 }
 
 watch(
-  () => apiProvider.value,
-  async (newValue) => {
-    try {
-      await updateGlobalState('apiProvider', newValue)
-    } catch (error) {
-      console.error('Failed to update apiProvider:', error)
-    }
-  }
-)
-
-watch(
-  () => apiModelId.value,
-  async (newValue) => {
-    try {
-      await updateGlobalState('apiModelId', newValue)
-    } catch (error) {
-      console.error('Failed to update apiModelId:', error)
-    }
-  }
-)
-
-watch(
   () => reasoningEffort.value,
   async (newValue) => {
     try {
@@ -708,100 +377,12 @@ watch(
 )
 
 watch(
-  () => awsAccessKey.value,
-  async (newValue) => {
-    try {
-      await storeSecret('awsAccessKey', newValue)
-    } catch (error) {
-      console.error('Failed to update awsAccessKey:', error)
-    }
-  }
-)
-
-watch(
-  () => awsSecretKey.value,
-  async (newValue) => {
-    try {
-      await storeSecret('awsSecretKey', newValue)
-    } catch (error) {
-      console.error('Failed to update awsSecretKey:', error)
-    }
-  }
-)
-
-watch(
-  () => awsSessionToken.value,
-  async (newValue) => {
-    try {
-      await storeSecret('awsSessionToken', newValue)
-    } catch (error) {
-      console.error('Failed to update awsSessionToken:', error)
-    }
-  }
-)
-
-watch(
-  () => awsRegion.value,
-  async (newValue) => {
-    try {
-      await updateGlobalState('awsRegion', newValue)
-    } catch (error) {
-      console.error('Failed to update awsRegion:', error)
-    }
-  }
-)
-
-watch(
-  () => awsUseCrossRegionInference.value,
-  async (newValue) => {
-    try {
-      await updateGlobalState('awsUseCrossRegionInference', newValue)
-    } catch (error) {
-      console.error('Failed to update awsUseCrossRegionInference:', error)
-    }
-  }
-)
-
-watch(
-  () => awsEndpointSelected.value,
-  async (newValue) => {
-    try {
-      await updateGlobalState('awsEndpointSelected', newValue)
-    } catch (error) {
-      console.error('Failed to update awsEndpointSelected:', error)
-    }
-  }
-)
-
-watch(
-  () => awsBedrockEndpoint.value,
-  async (newValue) => {
-    try {
-      await updateGlobalState('awsBedrockEndpoint', newValue)
-    } catch (error) {
-      console.error('Failed to update awsBedrockEndpoint:', error)
-    }
-  }
-)
-
-watch(
   () => customInstructions.value,
   async (newValue) => {
     try {
       await updateGlobalState('customInstructions', newValue)
     } catch (error) {
       console.error('Failed to update customInstructions:', error)
-    }
-  }
-)
-
-watch(
-  () => deepSeekApiKey.value,
-  async (newValue) => {
-    try {
-      await storeSecret('deepSeekApiKey', newValue)
-    } catch (error) {
-      console.error('Failed to update deepSeekApiKey:', error)
     }
   }
 )
@@ -831,33 +412,11 @@ watch(
 onMounted(async () => {
   await loadSavedConfig()
   await saveConfig()
-  // 添加事件监听
-  eventBus.on('AiTabModelChanged', async (newValue) => {
-    console.log(newValue)
-    await changeModel(newValue)
-  })
 })
-
-const changeModel = (newValue) => {
-  chatSettings.value.mode = newValue?.[0]
-  switch (apiProvider.value) {
-    case 'bedrock':
-      apiModelId.value = newValue?.[1]
-      break
-    case 'litellm':
-      liteLlmModelId.value = newValue?.[1]
-      break
-    case 'deepseek':
-      apiModelId.value = newValue?.[1]
-      break
-  }
-}
 
 // 组件卸载前保存配置
 onBeforeUnmount(async () => {
   await saveConfig()
-  // 移除 apiProvider 变更事件监听
-  eventBus.off('AiTabModelChanged')
 })
 
 // 验证 shell integration timeout 输入
@@ -902,96 +461,8 @@ const handleEnableExtendedThinking = (checked: boolean) => {
   }
 }
 
-watch([apiProvider, apiModelId, liteLlmModelId], async (newValue) => {
-  try {
-    // 发送事件通知其他组件
-    eventBus.emit('SettingModelChanged', newValue)
-  } catch (error) {
-    console.error('Failed to update AiTab', error)
-  }
-})
-
-const getApiProviderDefaultModelId = () => {
-  switch (apiProvider.value) {
-    case 'bedrock':
-      apiModelId.value = 'anthropic.claude-3-7-sonnet-20250219-v1:0'
-      break
-    case 'litellm':
-      if (liteLlmModelId.value === '') {
-        liteLlmModelId.value = 'claude-3-7-sonnet'
-      }
-      break
-    case 'deepseek':
-      apiModelId.value = 'deepseek-chat'
-      break
-  }
-}
-
-const checkApiProviderAndModelId = () => {
-  interface ModelOption {
-    value: string
-    label: string
-  }
-
-  let checkModelList: ModelOption[] = []
-  switch (apiProvider.value) {
-    case 'bedrock':
-      checkModelList = aiModelOptions
-      break
-    case 'litellm':
-      return true
-    case 'deepseek':
-      checkModelList = deepseekAiModelOptions
-      break
-  }
-  const modelIndex = checkModelList.findIndex((model) => model.value === apiModelId.value)
-  return modelIndex !== -1
-}
-
-const isEmptyValue = (value) => value === undefined || value === ''
-
-const checkModelConfig = async () => {
-  const apiProvider = await getGlobalState('apiProvider')
-  switch (apiProvider) {
-    case 'bedrock':
-      const awsAccessKey = await getSecret('awsAccessKey')
-      const awsSecretKey = await getSecret('awsSecretKey')
-      const awsRegion = await getGlobalState('awsRegion')
-      const apiModelId = await getGlobalState('apiModelId')
-      if (isEmptyValue(apiModelId) || isEmptyValue(awsAccessKey) || isEmptyValue(awsSecretKey) || isEmptyValue(awsRegion)) {
-        return false
-      }
-      break
-    case 'litellm':
-      const liteLlmBaseUrl = await getGlobalState('liteLlmBaseUrl')
-      const liteLlmApiKey = await getSecret('liteLlmApiKey')
-      const liteLlmModelId = await getGlobalState('liteLlmModelId')
-      if (isEmptyValue(liteLlmBaseUrl) || isEmptyValue(liteLlmApiKey) || isEmptyValue(liteLlmModelId)) {
-        return false
-      }
-      break
-    case 'deepseek':
-      const deepSeekApiKey = await getSecret('deepSeekApiKey')
-      const apiModelIdDeepSeek = await getGlobalState('apiModelId')
-      if (isEmptyValue(deepSeekApiKey) || isEmptyValue(apiModelIdDeepSeek)) {
-        return false
-      }
-      break
-  }
-  return true
-}
-
 const handleCheck = async () => {
   await saveConfig()
-  const checkModelConfigResult = await checkModelConfig()
-  if (!checkModelConfigResult) {
-    notification.error({
-      message: t('user.checkModelConfigFailMessage'),
-      description: t('user.checkModelConfigFailDescription'),
-      duration: 3
-    })
-    return 'SEND_ERROR'
-  }
   try {
     checkLoading.value = true
     const result = await (window.api as any).validateApiKey()

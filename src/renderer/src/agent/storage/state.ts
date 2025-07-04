@@ -55,7 +55,6 @@ export async function getAllExtensionState() {
     apiModelId,
     apiKey,
     //openRouterApiKey,
-    //clineApiKey,
     awsAccessKey,
     awsSecretKey,
     awsSessionToken,
@@ -130,17 +129,18 @@ export async function getAllExtensionState() {
     //sambanovaApiKey,
     //planActSeparateModelsSettingRaw,
     favoritedModelIds,
-    //globalClineRulesToggles,
     requestTimeoutMs,
     shellIntegrationTimeout,
     needProxy,
-    proxyConfig
+    proxyConfig,
+    defaultBaseUrl,
+    defaultModelId,
+    defaultApiKey
   ] = await Promise.all([
     getGlobalState('apiProvider') as Promise<ApiProvider | undefined>,
     getGlobalState('apiModelId') as Promise<string | undefined>,
     getSecret('apiKey') as Promise<string | undefined>,
     //getSecret('openRouterApiKey') as Promise<string | undefined>,
-    //getSecret('clineApiKey') as Promise<string | undefined>,
     getSecret('awsAccessKey') as Promise<string | undefined>,
     getSecret('awsSecretKey') as Promise<string | undefined>,
     getSecret('awsSessionToken') as Promise<string | undefined>,
@@ -215,11 +215,13 @@ export async function getAllExtensionState() {
     //getSecret('sambanovaApiKey') as Promise<string | undefined>,
     //getGlobalState('planActSeparateModelsSetting') as Promise<boolean | undefined>,
     getGlobalState('favoritedModelIds') as Promise<string[] | undefined>,
-    //getGlobalState('globalClineRulesToggles') as Promise<ClineRulesToggles | undefined>,
     getGlobalState('requestTimeoutMs') as Promise<number | undefined>,
     getGlobalState('shellIntegrationTimeout') as Promise<number | undefined>,
     getGlobalState('needProxy') as Promise<boolean | undefined>,
-    getGlobalState('proxyConfig') as Promise<ApiConfiguration['proxyConfig'] | undefined>
+    getGlobalState('proxyConfig') as Promise<ApiConfiguration['proxyConfig'] | undefined>,
+    getGlobalState('defaultBaseUrl') as Promise<string | undefined>,
+    getGlobalState('defaultModelId') as Promise<string | undefined>,
+    getSecret('defaultApiKey') as Promise<string | undefined>
   ])
 
   let apiProvider: ApiProvider
@@ -237,10 +239,6 @@ export async function getAllExtensionState() {
     //   apiProvider = 'openrouter'
     // }
   }
-
-  // const localClineRulesToggles = (await getWorkspaceState(
-  //   'localClineRulesToggles'
-  // )) as ClineRulesToggles
 
   const o3MiniReasoningEffort = 'medium'
 
@@ -270,7 +268,6 @@ export async function getAllExtensionState() {
       apiModelId,
       apiKey,
       //openRouterApiKey,
-      //clineApiKey,
       awsAccessKey,
       awsSecretKey,
       awsSessionToken,
@@ -331,14 +328,15 @@ export async function getAllExtensionState() {
       favoritedModelIds,
       requestTimeoutMs,
       needProxy,
-      proxyConfig
+      proxyConfig,
+      defaultBaseUrl,
+      defaultModelId,
+      defaultApiKey
     },
     //lastShownAnnouncementId,
     customInstructions,
     taskHistory,
     autoApprovalSettings: autoApprovalSettings || DEFAULT_AUTO_APPROVAL_SETTINGS, // default value can be 0 or empty string
-    //globalClineRulesToggles: globalClineRulesToggles || {},
-    //localClineRulesToggles: localClineRulesToggles || {},
     //browserSettings: { ...DEFAULT_BROWSER_SETTINGS, ...browserSettings }, // this will ensure that older versions of browserSettings (e.g. before remoteBrowserEnabled was added) are merged with the default values (false for remoteBrowserEnabled)
     chatSettings: chatSettings || DEFAULT_CHAT_SETTINGS,
     userInfo,
@@ -379,7 +377,10 @@ export async function updateApiConfiguration(apiConfiguration: ApiConfiguration)
     liteLlmModelId,
     liteLlmApiKey,
     favoritedModelIds,
-    deepSeekApiKey
+    deepSeekApiKey,
+    defaultBaseUrl,
+    defaultModelId,
+    defaultApiKey
   } = apiConfiguration
   await updateGlobalState('apiProvider', apiProvider)
   await updateGlobalState('apiModelId', apiModelId)
@@ -436,12 +437,14 @@ export async function updateApiConfiguration(apiConfiguration: ApiConfiguration)
   //await updateGlobalState('asksageApiUrl', asksageApiUrl)
   await updateGlobalState('thinkingBudgetTokens', thinkingBudgetTokens)
   await updateGlobalState('reasoningEffort', reasoningEffort)
-  //await storeSecret('clineApiKey', clineApiKey)
   //await storeSecret('sambanovaApiKey', sambanovaApiKey)
   await updateGlobalState('favoritedModelIds', favoritedModelIds)
   await updateGlobalState('requestTimeoutMs', apiConfiguration.requestTimeoutMs)
   await updateGlobalState('needProxy', apiConfiguration.needProxy)
   await updateGlobalState('proxyConfig', apiConfiguration.proxyConfig)
+  await updateGlobalState('defaultBaseUrl', defaultBaseUrl)
+  await updateGlobalState('defaultModelId', defaultModelId)
+  await storeSecret('defaultApiKey', defaultApiKey)
 }
 
 export async function resetExtensionState() {
@@ -466,12 +469,12 @@ export async function resetExtensionState() {
     'qwenApiKey',
     'doubaoApiKey',
     'mistralApiKey',
-    'clineApiKey',
     'liteLlmApiKey',
     'fireworksApiKey',
     'asksageApiKey',
     'xaiApiKey',
-    'sambanovaApiKey'
+    'sambanovaApiKey',
+    'defaultApiKey'
   ]
   for (const key of secretKeys) {
     await storageContext.secrets.delete(key)

@@ -17,6 +17,12 @@
         @click="onContextMenuAction('focusAllTabs')"
         >聚焦所有标签页</v-contextmenu-item
       > -->
+    <v-contextmenu-item @click="onContextMenuAction('openAllExecuted')">{{
+      isGlobalInput ? $t('common.globalExecOn') : $t('common.globalExec')
+    }}</v-contextmenu-item>
+    <v-contextmenu-item @click="onContextMenuAction('registerSyncInput')">{{
+      props.isSyncInput ? $t('common.syncInputOn') : $t('common.syncInput')
+    }}</v-contextmenu-item>
     <v-contextmenu-item
       :disabled="!props.isConnect"
       @click="onContextMenuAction('disconnect')"
@@ -50,6 +56,7 @@
 
 <script setup lang="ts">
 import { defineProps } from 'vue'
+import { isGlobalInput } from '../Ssh/termInputManager'
 const emit = defineEmits(['contextAct'])
 const props = defineProps({
   wsInstance: {
@@ -58,7 +65,11 @@ const props = defineProps({
   termInstance: { type: Object, required: true },
   copyText: { type: String, required: true },
   terminalId: { type: String, required: true },
-  isConnect: { type: Boolean, default: true }
+  isConnect: { type: Boolean, default: true },
+  isSyncInput: {
+    type: Boolean,
+    default: false
+  }
 })
 const onContextMenuAction = (action) => {
   switch (action) {
@@ -115,6 +126,12 @@ const onContextMenuAction = (action) => {
       break
     case 'fontsizeSmaller':
       emit('contextAct', 'fontsizeSmaller')
+      break
+    case 'registerSyncInput':
+      emit('contextAct', 'registerSyncInput')
+      break
+    case 'openAllExecuted':
+      isGlobalInput.value = !isGlobalInput.value
       break
     default:
       break
