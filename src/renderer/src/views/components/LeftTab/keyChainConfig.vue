@@ -177,7 +177,15 @@
               @dragenter.prevent="isDragOver = true"
               @dragleave.prevent="isDragOver = false"
               @drop.prevent="handleDrop"
+              @click="handleClickUpload"
             >
+              <input
+                ref="fileInputRef"
+                type="file"
+                style="display: none"
+                accept=".pem,.key,.txt,.pub,.asc,.crt,.cer,.der,.p12,.pfx,.ssh,.ppk,.gpg,.asc,.any"
+                @change="handleFileChange"
+              />
               <div style="display: flex; flex-direction: column; align-items: center; justify-content: center">
                 <svg
                   width="32"
@@ -252,6 +260,7 @@ const contextMenuVisible = ref(false)
 const contextMenuPosition = reactive({ x: 0, y: 0 })
 const selectedKeyChain = ref<KeyChainItem | null>(null)
 const isDragOver = ref(false)
+const fileInputRef = ref<HTMLInputElement | null>(null)
 
 interface CreateFormType {
   label: string
@@ -512,6 +521,30 @@ function handleDrop(e: DragEvent) {
   const files = e.dataTransfer?.files
   if (files && files.length > 0) {
     const file = files[0]
+    const reader = new FileReader()
+    reader.onload = (event) => {
+      const text = event.target?.result as string
+      createForm.privateKey = text
+      message.success('密钥文件已导入')
+    }
+    reader.onerror = () => {
+      message.error('读取文件失败')
+    }
+    reader.readAsText(file)
+  }
+}
+
+function handleClickUpload() {
+  if (fileInputRef.value) {
+    fileInputRef.value.value = '' // 清空，确保可重复选择同一文件
+    fileInputRef.value.click()
+  }
+}
+
+function handleFileChange(e: Event) {
+  const input = e.target as HTMLInputElement
+  if (input.files && input.files.length > 0) {
+    const file = input.files[0]
     const reader = new FileReader()
     reader.onload = (event) => {
       const text = event.target?.result as string
