@@ -24,8 +24,15 @@
           <Extensions />
         </a-tab-pane>
         <a-tab-pane
+          key="4"
+          :tab="$t('user.models')"
+          type="card"
+        >
+          <Model />
+        </a-tab-pane>
+        <a-tab-pane
           key="2"
-          tab="AI"
+          :tab="$t('user.aiPreferences')"
           type="card"
         >
           <AI />
@@ -47,6 +54,7 @@ import General from '@/views/components/LeftTab/components/general.vue'
 import Extensions from '@/views/components/LeftTab/components/extensions.vue'
 import AI from '@/views/components/LeftTab/components/ai.vue'
 import About from '@/views/components/LeftTab/components/about.vue'
+import Model from '@/views/components/LeftTab/components/Model.vue'
 </script>
 
 <style lang="less" scoped>
@@ -87,7 +95,7 @@ import About from '@/views/components/LeftTab/components/about.vue'
   // 修改左侧 tab 栏样式
   :deep(.ant-tabs-nav) {
     height: 100%;
-    width: 100px;
+    width: 120px;
     background-color: var(--bg-color);
 
     &::before {

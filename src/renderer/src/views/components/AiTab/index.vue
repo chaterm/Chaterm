@@ -493,7 +493,7 @@ import {
 import { notification } from 'ant-design-vue'
 import { v4 as uuidv4 } from 'uuid'
 import eventBus from '@/utils/eventBus'
-import { getGlobalState, updateGlobalState, getSecret } from '@renderer/agent/storage/state'
+import { getGlobalState, updateGlobalState, getSecret, storeSecret } from '@renderer/agent/storage/state'
 import type { HistoryItem, TaskHistoryItem, Host, ChatMessage, MessageContent, AssetInfo } from './types'
 import { createNewMessage, parseMessageContent, truncateText, formatHosts } from './utils'
 import foldIcon from '@/assets/icons/fold.svg'
@@ -502,10 +502,10 @@ import plusIcon from '@/assets/icons/plus.svg'
 import sendIcon from '@/assets/icons/send.svg'
 import { useCurrentCwdStore } from '@/store/currentCwdStore'
 import { getassetMenu } from '@/api/asset/asset'
-import { aiModelOptions, deepseekAiModelOptions } from '@views/components/LeftTab/components/aiOptions'
 import debounce from 'lodash/debounce'
 import i18n from '@/locales'
 import { ChatermMessage } from '@/types/ChatermMessage'
+import { getUser } from '@api/user/user'
 
 const { t } = i18n.global
 const MarkdownRenderer = defineAsyncComponent(() => import('@views/components/AiTab/markdownRenderer.vue'))
@@ -536,8 +536,8 @@ const favoriteTaskList = ref<string[]>([])
 const hosts = ref<Host[]>([])
 const autoUpdateHost = ref(true)
 const chatInputValue = ref('')
-const chatAiModelValue = ref('claude-3-7-sonnet')
-const chatTypeValue = ref('agent')
+const chatAiModelValue = ref('')
+const chatTypeValue = ref('')
 const activeKey = ref('chat')
 const showSendButton = ref(true)
 const responseLoading = ref(false)
@@ -565,18 +565,13 @@ const props = defineProps({
   }
 })
 
-const AgentAiModelsOptions = ref([
-  { label: 'claude-4-sonnet', value: 'claude-4-sonnet' },
-  { label: 'claude-4-haiku', value: 'claude-4-haiku' },
-  { label: 'claude-3-7-sonnet', value: 'claude-3-7-sonnet' },
-  { label: 'claude-3-7-haiku', value: 'claude-3-7-haiku' },
-  { label: 'claude-3-5-sonnet', value: 'claude-3-5-sonnet' },
-  { label: 'claude-3-haiku', value: 'claude-3-haiku' },
-  { label: 'claude-3-opus', value: 'claude-3-opus' },
-  { label: 'claude-3-5-haiku', value: 'claude-3-5-haiku' },
-  { label: 'claude-3-opus-20240229', value: 'claude-3-opus-20240229' },
-  { label: 'claude-3-5-opus', value: 'claude-3-5-opus' }
-])
+// 定义AgentAiModelsOptions的类型
+interface ModelSelectOption {
+  label: string
+  value: string
+}
+
+const AgentAiModelsOptions = ref<ModelSelectOption[]>([])
 const AiTypeOptions = [
   { label: 'Chat', value: 'chat' },
   { label: 'Command', value: 'cmd' },
@@ -815,82 +810,80 @@ const restoreHistoryTab = async (history: HistoryItem) => {
   autoUpdateHost.value = false
 
   try {
-    if (history.chatType === 'agent' || history.chatType === 'cmd') {
-      try {
-        const metadataResult = await (window.api as any).getTaskMetadata(history.id)
-        if (metadataResult.success && metadataResult.data && Array.isArray(metadataResult.data.hosts)) {
-          hosts.value = metadataResult.data.hosts.map((item: any) => ({
-            host: item.host,
-            uuid: item.uuid || '',
-            connection: item.connection,
-            organizationId: item.organizationId
-          }))
-        }
-      } catch (e) {
-        console.error('获取metadata失败:', e)
-      }
-      const conversationHistory = await getChatermMessages()
-      console.log('[conversationHistory]', conversationHistory)
-      chatHistory.length = 0
-      // 按时间戳排序并过滤相邻重复项
-      let lastItem: any = null
-      conversationHistory.forEach((item, index) => {
-        // 检查是否与前一项重复
-        const isDuplicate =
-          lastItem && item.text === lastItem.text && item.ask === lastItem.ask && item.say === lastItem.say && item.type === lastItem.type
-
-        if (
-          !isDuplicate &&
-          (item.ask === 'followup' ||
-            item.ask === 'command' ||
-            item.say === 'command_output' ||
-            item.say === 'completion_result' ||
-            item.say === 'text' ||
-            item.say === 'reasoning' ||
-            item.ask === 'resume_task' ||
-            item.say === 'user_feedback')
-        ) {
-          let role: 'assistant' | 'user' = 'assistant'
-          if (index === 0 || item.say === 'user_feedback') {
-            role = 'user'
-          }
-          const userMessage: ChatMessage = {
-            id: uuidv4(),
-            role: role,
-            content: item.text || '',
-            type: item.type,
-            ask: item.ask,
-            say: item.say,
-            ts: item.ts
-          }
-          if (!item.partial && item.type === 'ask' && item.text) {
-            try {
-              let contentJson = JSON.parse(item.text)
-              if (item.ask === 'followup') {
-                userMessage.content = contentJson
-                userMessage.selectedOption = contentJson?.selected
-              } else {
-                userMessage.content = contentJson?.question
-              }
-            } catch (e) {
-              userMessage.content = item.text
-            }
-          }
-          chatHistory.push(userMessage)
-          lastItem = item
-        }
-      })
-      await (window.api as any).sendToMain({
-        type: 'showTaskWithId',
-        text: history.id,
-        hosts: hosts.value.map((h) => ({
-          host: h.host,
-          uuid: h.uuid,
-          connection: h.connection,
-          organizationId: h.organizationId
+    try {
+      const metadataResult = await (window.api as any).getTaskMetadata(history.id)
+      if (metadataResult.success && metadataResult.data && Array.isArray(metadataResult.data.hosts)) {
+        hosts.value = metadataResult.data.hosts.map((item: any) => ({
+          host: item.host,
+          uuid: item.uuid || '',
+          connection: item.connection,
+          organizationId: item.organizationId
         }))
-      })
+      }
+    } catch (e) {
+      console.error('获取metadata失败:', e)
     }
+    const conversationHistory = await getChatermMessages()
+    console.log('[conversationHistory]', conversationHistory)
+    chatHistory.length = 0
+    // 按时间戳排序并过滤相邻重复项
+    let lastItem: any = null
+    conversationHistory.forEach((item, index) => {
+      // 检查是否与前一项重复
+      const isDuplicate =
+        lastItem && item.text === lastItem.text && item.ask === lastItem.ask && item.say === lastItem.say && item.type === lastItem.type
+
+      if (
+        !isDuplicate &&
+        (item.ask === 'followup' ||
+          item.ask === 'command' ||
+          item.say === 'command_output' ||
+          item.say === 'completion_result' ||
+          item.say === 'text' ||
+          item.say === 'reasoning' ||
+          item.ask === 'resume_task' ||
+          item.say === 'user_feedback')
+      ) {
+        let role: 'assistant' | 'user' = 'assistant'
+        if (index === 0 || item.say === 'user_feedback') {
+          role = 'user'
+        }
+        const userMessage: ChatMessage = {
+          id: uuidv4(),
+          role: role,
+          content: item.text || '',
+          type: item.type,
+          ask: item.ask,
+          say: item.say,
+          ts: item.ts
+        }
+        if (!item.partial && item.type === 'ask' && item.text) {
+          try {
+            let contentJson = JSON.parse(item.text)
+            if (item.ask === 'followup') {
+              userMessage.content = contentJson
+              userMessage.selectedOption = contentJson?.selected
+            } else {
+              userMessage.content = contentJson?.question
+            }
+          } catch (e) {
+            userMessage.content = item.text
+          }
+        }
+        chatHistory.push(userMessage)
+        lastItem = item
+      }
+    })
+    await (window.api as any).sendToMain({
+      type: 'showTaskWithId',
+      text: history.id,
+      hosts: hosts.value.map((h) => ({
+        host: h.host,
+        uuid: h.uuid,
+        connection: h.connection,
+        organizationId: h.organizationId
+      }))
+    })
     chatInputValue.value = ''
     responseLoading.value = false
   } catch (err) {
@@ -976,6 +969,7 @@ const handleRejectContent = async () => {
           typeof message.content === 'object' && 'options' in message.content ? (message.content as MessageContent).options?.[1] || '' : ''
         break
       case 'api_req_failed':
+      case 'ssh_con_failed':
         messageRsp.askResponse = 'noButtonClicked'
         break
       case 'completion_result':
@@ -1040,6 +1034,7 @@ const handleApproveCommand = async () => {
           typeof message.content === 'object' && 'options' in message.content ? (message.content as MessageContent).options?.[0] || '' : ''
         break
       case 'api_req_failed':
+      case 'ssh_con_failed':
         messageRsp.askResponse = 'yesButtonClicked'
         break
       case 'completion_result':
@@ -1112,25 +1107,6 @@ watch(currentCwd, (newValue) => {
   console.log('当前工作目录:', newValue)
 })
 
-// 创建防抖的事件发送函数
-const debouncedEmitModelChange = debounce(async (type, model) => {
-  eventBus.emit('AiTabModelChanged', [type, model])
-}, 200)
-
-const debouncedUpdateGlobalState = debounce(async (provider, model) => {
-  switch (provider) {
-    case 'bedrock':
-      await updateGlobalState('apiModelId', model)
-      break
-    case 'litellm':
-      await updateGlobalState('liteLlmModelId', model)
-      break
-    case 'deepseek':
-      await updateGlobalState('apiModelId', model)
-      break
-  }
-}, 200)
-
 // 修改 watch 处理函数
 watch(
   () => chatTypeValue.value,
@@ -1139,7 +1115,6 @@ watch(
       await updateGlobalState('chatSettings', {
         mode: newValue
       })
-      debouncedEmitModelChange(chatTypeValue.value, chatAiModelValue.value)
     } catch (error) {
       console.error('更新 chatSettings 失败:', error)
     }
@@ -1147,66 +1122,76 @@ watch(
 )
 
 const handleChatAiModelChange = async () => {
-  const apiProvider = await getGlobalState('apiProvider')
-  debouncedUpdateGlobalState(apiProvider, chatAiModelValue.value)
-  debouncedEmitModelChange(chatTypeValue.value, chatAiModelValue.value)
+  const modelOptions = (await getGlobalState('modelOptions')) as ModelOption[]
+  const selectedModel = modelOptions.find((model) => model.name === chatAiModelValue.value)
+  if (selectedModel && selectedModel.apiProvider) {
+    await updateGlobalState('apiProvider', selectedModel.apiProvider)
+  }
+  const apiProvider = selectedModel?.apiProvider
+  switch (apiProvider) {
+    case 'bedrock':
+      await updateGlobalState('apiModelId', chatAiModelValue.value)
+      break
+    case 'litellm':
+      await updateGlobalState('liteLlmModelId', chatAiModelValue.value)
+      break
+    case 'deepseek':
+      await updateGlobalState('apiModelId', chatAiModelValue.value)
+      break
+    default:
+      await updateGlobalState('defaultModelId', chatAiModelValue.value)
+      break
+  }
 }
 
 // 修改模型更新函数
-const changeModel = debounce(async (newValue) => {
+const initModel = async () => {
   const chatSetting = (await getGlobalState('chatSettings')) as { mode?: string }
   chatTypeValue.value = chatSetting?.mode || 'agent'
-  let apiProvider = ''
-  if (newValue?.[0]) {
-    apiProvider = newValue?.[0]
-    switch (apiProvider) {
-      case 'bedrock':
-        chatAiModelValue.value = newValue?.[1]
-        AgentAiModelsOptions.value = aiModelOptions
-        break
-      case 'litellm':
-        chatAiModelValue.value = newValue?.[2]
-        AgentAiModelsOptions.value = [
-          {
-            value: newValue?.[2],
-            label: newValue?.[2]
-          }
-        ]
-        break
-      case 'deepseek':
-        chatAiModelValue.value = newValue?.[1]
-        AgentAiModelsOptions.value = deepseekAiModelOptions
-        break
-    }
-  } else {
-    apiProvider = (await getGlobalState('apiProvider')) as string
-    switch (apiProvider) {
-      case 'bedrock':
-        chatAiModelValue.value = (await getGlobalState('apiModelId')) as string
-        AgentAiModelsOptions.value = aiModelOptions
-        break
-      case 'litellm':
-        chatAiModelValue.value = (await getGlobalState('liteLlmModelId')) as string
-        AgentAiModelsOptions.value = [
-          {
-            value: chatAiModelValue.value,
-            label: chatAiModelValue.value
-          }
-        ]
-        break
-      case 'deepseek':
-        chatAiModelValue.value = (await getGlobalState('apiModelId')) as string
-        AgentAiModelsOptions.value = deepseekAiModelOptions
-        break
-    }
+  const apiProvider = (await getGlobalState('apiProvider')) as string
+  switch (apiProvider) {
+    case 'bedrock':
+      chatAiModelValue.value = (await getGlobalState('apiModelId')) as string
+      break
+    case 'litellm':
+      chatAiModelValue.value = (await getGlobalState('liteLlmModelId')) as string
+      break
+    case 'deepseek':
+      chatAiModelValue.value = (await getGlobalState('apiModelId')) as string
+      break
+    default:
+      chatAiModelValue.value = (await getGlobalState('defaultModelId')) as string
+      break
   }
-}, 200)
+  const modelOptions = (await getGlobalState('modelOptions')) as ModelOption[]
+  AgentAiModelsOptions.value = modelOptions
+    .filter((item) => item.checked)
+    .map((item) => ({
+      label: item.name,
+      value: item.name
+    }))
+  if ((chatAiModelValue.value === undefined || chatAiModelValue.value === '') && AgentAiModelsOptions.value[0]) {
+    chatAiModelValue.value = AgentAiModelsOptions.value[0].label
+    await handleChatAiModelChange()
+  }
+}
 
-onBeforeUnmount(() => {
-  debouncedEmitModelChange.cancel()
-  debouncedUpdateGlobalState.cancel()
-  changeModel.cancel()
-})
+// Watch for changes in AgentAiModelsOptions to ensure chatAiModelValue is valid
+watch(
+  AgentAiModelsOptions,
+  async (newOptions) => {
+    if (newOptions.length > 0) {
+      // If current value is not in the options, set it to the first available option
+      const isCurrentValueValid = newOptions.some((option) => option.value === chatAiModelValue.value)
+      if (!isCurrentValueValid && newOptions[0]) {
+        chatAiModelValue.value = ''
+      }
+    }
+  },
+  { immediate: true }
+)
+
+onBeforeUnmount(() => {})
 
 onMounted(async () => {
   eventBus.on('triggerAiSend', () => {
@@ -1217,8 +1202,8 @@ onMounted(async () => {
   eventBus.on('chatToAi', (text) => {
     chatInputValue.value = text
   })
-
-  await changeModel(null)
+  await initModelOptions()
+  await initModel()
   authTokenInCookie.value = localStorage.getItem('ctm-token')
   const chatId = uuidv4()
 
@@ -1239,9 +1224,8 @@ onMounted(async () => {
   await initAssetInfo()
 
   // 添加事件监听
-  eventBus.on('SettingModelChanged', async (newValue) => {
-    console.log('[newValue]', newValue)
-    await changeModel(newValue)
+  eventBus.on('SettingModelOptionsChanged', async () => {
+    await initModel()
   })
 
   // 监听标签页变化
@@ -1279,8 +1263,11 @@ onMounted(async () => {
   removeListener = (window.api as any).onMainMessage((message: any) => {
     console.log('Received main process message:', message.type, message)
     if (message?.type === 'partialMessage') {
-      // handle model error -- api_req_failed
-      if (message.partialMessage.type === 'ask' && message.partialMessage.ask === 'api_req_failed') {
+      // handle model error -- api_req_failed 或 ssh_con_failed
+      if (
+        message.partialMessage.type === 'ask' &&
+        (message.partialMessage.ask === 'api_req_failed' || message.partialMessage.ask === 'ssh_con_failed')
+      ) {
         handleModelApiReqFailed(message)
         return
       }
@@ -1631,7 +1618,7 @@ const showResumeButton = computed(() => {
   if (!message) {
     return false
   }
-  return chatTypeValue.value === 'agent' && message.ask === 'resume_task'
+  return message.ask === 'resume_task'
 })
 
 const handleAddHostClick = async () => {
@@ -1838,7 +1825,7 @@ const scrollToBottom = () => {
   const prevBottom = chatResponse.value?.getBoundingClientRect().bottom
 
   nextTick(() => {
-    if (chatResponse.value && chatContainer.value) {
+    if (chatResponse.value && chatContainer.value && prevBottom) {
       // 获取更新后的容器底部位置
       const currentBottom = chatResponse.value.getBoundingClientRect().bottom
       // console.log('容器高度变化，直接滚动到底部', prevBottom, currentBottom)
@@ -1921,6 +1908,66 @@ const toggleFavorite = async (history) => {
     await updateGlobalState('favoriteTaskList', currentFavorites)
   } catch (err) {
     console.error('Failed to update favorite status:', err)
+  }
+}
+
+// Define interface for default models from API
+interface DefaultModel {
+  id: string
+  name?: string
+  provider?: string
+
+  [key: string]: any
+}
+
+// Define interface for model options
+interface ModelOption {
+  id: string
+  name: string
+  checked: boolean
+  type: string
+  apiProvider: string
+}
+
+const initModelOptions = async () => {
+  let modelOptions: ModelOption[]
+  try {
+    const savedModelOptions = ((await getGlobalState('modelOptions')) || []) as ModelOption[]
+    console.log('savedModelOptions', savedModelOptions)
+    if (savedModelOptions.length !== 0) {
+      return
+    }
+    let defaultModels: DefaultModel[] = []
+    await getUser({}).then((res) => {
+      console.log('res', res)
+      defaultModels = res?.data?.models || []
+      updateGlobalState('defaultBaseUrl', res?.data?.llmGatewayAddr)
+      storeSecret('defaultApiKey', res?.data?.key)
+    })
+    modelOptions = defaultModels.map((model) => ({
+      id: String(model) || '',
+      name: String(model) || '',
+      checked: true,
+      type: 'standard',
+      apiProvider: 'default'
+    }))
+
+    // 创建一个简单的可序列化对象数组
+    const serializableModelOptions = modelOptions.map((model) => ({
+      id: model.id,
+      name: model.name,
+      checked: Boolean(model.checked),
+      type: model.type || 'standard',
+      apiProvider: model.apiProvider || 'default'
+    }))
+
+    await updateGlobalState('modelOptions', serializableModelOptions)
+  } catch (error) {
+    console.error('Failed to get/save model options:', error)
+    notification.error({
+      message: 'Error',
+      description: 'Failed to get/save model options'
+    })
   }
 }
 </script>
@@ -2738,103 +2785,186 @@ const toggleFavorite = async (history) => {
   }
 
   .reject-btn {
-    background-color: #2a2a2a;
-    border-color: #3a3a3a;
-    color: #e0e0e0;
-
-    &:hover {
-      background-color: #ff4d4f20;
-      border-color: #ff4d4f;
-      color: #ff4d4f;
-    }
-
-    &[disabled] {
-      background-color: #141414 !important;
-      border-color: #2a2a2a !important;
-      color: #666666 !important;
-      cursor: not-allowed;
+    :global(.dark-theme) & {
+      background-color: #2a2a2a;
+      border-color: #3a3a3a;
+      color: #e0e0e0;
 
       &:hover {
+        background-color: #ff4d4f20;
+        border-color: #ff4d4f;
+        color: #ff4d4f;
+      }
+
+      &[disabled] {
         background-color: #141414 !important;
         border-color: #2a2a2a !important;
         color: #666666 !important;
+        cursor: not-allowed;
+
+        &:hover {
+          background-color: #141414 !important;
+          border-color: #2a2a2a !important;
+          color: #666666 !important;
+        }
+      }
+    }
+
+    :global(.light-theme) & {
+      background-color: #fff;
+      border: 1px solid #d9d9d9;
+      color: #666;
+
+      &:hover {
+        color: #ff4d4f;
+        border-color: #ff4d4f;
+        background-color: #fff1f0;
+      }
+
+      &[disabled] {
+        background-color: #f5f5f5 !important;
+        border-color: #d9d9d9 !important;
+        color: #d9d9d9 !important;
+        cursor: not-allowed;
       }
     }
   }
 
   .approve-btn {
-    color: #e0e0e0;
-    background-color: #1656b1;
-    border-color: #2d6fcd;
-
-    &:hover {
-      background-color: #52c41a20;
-      border-color: #52c41a;
-      color: #52c41a;
-    }
-
-    &[disabled] {
-      background-color: #141414 !important;
-      border-color: #2a2a2a !important;
-      color: #666666 !important;
-      cursor: not-allowed;
+    :global(.dark-theme) & {
+      color: #e0e0e0;
+      background-color: #1656b1;
+      border-color: #2d6fcd;
 
       &:hover {
+        background-color: #52c41a20;
+        border-color: #52c41a;
+        color: #52c41a;
+      }
+
+      &[disabled] {
         background-color: #141414 !important;
         border-color: #2a2a2a !important;
         color: #666666 !important;
+        cursor: not-allowed;
+
+        &:hover {
+          background-color: #141414 !important;
+          border-color: #2a2a2a !important;
+          color: #666666 !important;
+        }
+      }
+    }
+
+    :global(.light-theme) & {
+      background-color: #1890ff;
+      border-color: #1890ff;
+      color: #fff;
+
+      &:hover {
+        background-color: #40a9ff;
+        border-color: #40a9ff;
+      }
+
+      &[disabled] {
+        background-color: #f5f5f5 !important;
+        border-color: #d9d9d9 !important;
+        color: #d9d9d9 !important;
+        cursor: not-allowed;
       }
     }
   }
 
   .cancel-btn {
-    background-color: #2a2a2a;
-    border-color: #3a3a3a;
-    color: #666666;
-
-    &:hover {
-      background-color: #3a3a3a;
-      border-color: #4a4a4a;
-      color: #888888;
-    }
-
-    &[disabled] {
-      background-color: #141414 !important;
-      border-color: #2a2a2a !important;
-      color: #666666 !important;
-      cursor: not-allowed;
+    :global(.dark-theme) & {
+      background-color: #2a2a2a;
+      border-color: #3a3a3a;
+      color: #666666;
 
       &:hover {
+        background-color: #3a3a3a;
+        border-color: #4a4a4a;
+        color: #888888;
+      }
+
+      &[disabled] {
         background-color: #141414 !important;
         border-color: #2a2a2a !important;
         color: #666666 !important;
+        cursor: not-allowed;
+
+        &:hover {
+          background-color: #141414 !important;
+          border-color: #2a2a2a !important;
+          color: #666666 !important;
+        }
+      }
+    }
+
+    :global(.light-theme) & {
+      background-color: #fff;
+      border: 1px solid #d9d9d9;
+      color: #666;
+
+      &:hover {
+        color: #40a9ff;
+        border-color: #40a9ff;
+      }
+
+      &[disabled] {
+        background-color: #f5f5f5 !important;
+        border-color: #d9d9d9 !important;
+        color: #d9d9d9 !important;
+        cursor: not-allowed;
       }
     }
   }
 
   .resume-btn {
-    background-color: #1656b1;
-    border-color: #2d6fcd;
-    color: #cccccc;
-    opacity: 0.65;
-
-    &:hover {
-      opacity: 1;
+    :global(.dark-theme) & {
       background-color: #1656b1;
       border-color: #2d6fcd;
-      color: #ffffff;
-    }
-
-    &[disabled] {
-      background-color: #141414 !important;
-      border-color: #2a2a2a !important;
-      color: #666666 !important;
-      cursor: not-allowed;
+      color: #cccccc;
+      opacity: 0.65;
 
       &:hover {
+        opacity: 1;
+        background-color: #1656b1;
+        border-color: #2d6fcd;
+        color: #ffffff;
+      }
+
+      &[disabled] {
         background-color: #141414 !important;
         border-color: #2a2a2a !important;
         color: #666666 !important;
+        cursor: not-allowed;
+
+        &:hover {
+          background-color: #141414 !important;
+          border-color: #2a2a2a !important;
+          color: #666666 !important;
+        }
+      }
+    }
+
+    :global(.light-theme) & {
+      background-color: #1890ff;
+      border-color: #1890ff;
+      color: #fff;
+      opacity: 0.65;
+
+      &:hover {
+        opacity: 1;
+        background-color: #40a9ff;
+        border-color: #40a9ff;
+      }
+
+      &[disabled] {
+        background-color: #f5f5f5 !important;
+        border-color: #d9d9d9 !important;
+        color: #d9d9d9 !important;
+        cursor: not-allowed;
       }
     }
   }

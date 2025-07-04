@@ -180,14 +180,17 @@ export class AwsBedrockHandler implements ApiHandler {
 
   getModel(): { id: BedrockModelId; info: ModelInfo } {
     const modelId = this.options.apiModelId
-    if (modelId && modelId in bedrockModels) {
-      const id = modelId as BedrockModelId
-      return { id, info: bedrockModels[id] }
+    if (!modelId) {
+      throw new Error('Bedrock model ID is not configured')
     }
-    return {
-      id: bedrockDefaultModelId,
-      info: bedrockModels[bedrockDefaultModelId]
+
+    if (!(modelId in bedrockModels)) {
+      const availableModels = Object.keys(bedrockModels).join(', ')
+      throw new Error(`Invalid Bedrock model ID: "${modelId}". Available model IDs: ${availableModels}`)
     }
+
+    const id = modelId as BedrockModelId
+    return { id, info: bedrockModels[id] }
   }
 
   // Default AWS region

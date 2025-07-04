@@ -99,7 +99,7 @@ import Context from '../Term/contextComp.vue'
 import SuggComp from '../Term/suggestion.vue'
 import eventBus from '@/utils/eventBus'
 import { useCurrentCwdStore } from '@/store/currentCwdStore'
-import { markRaw, onBeforeUnmount, onMounted, onUnmounted, PropType, nextTick, reactive, ref } from 'vue'
+import { markRaw, onBeforeUnmount, onMounted, onUnmounted, PropType, nextTick, reactive, ref, watch } from 'vue'
 import { Terminal } from 'xterm'
 import { FitAddon } from 'xterm-addon-fit'
 import { SearchAddon } from 'xterm-addon-search'
@@ -116,6 +116,7 @@ import { userConfigStore as serviceUserConfig } from '@/services/userConfigStore
 import { v4 as uuidv4 } from 'uuid'
 import { userInfoStore } from '@/store/index'
 import stripAnsi from 'strip-ansi'
+import { isGlobalInput, inputManager } from './termInputManager'
 
 const selectFlag = ref(false)
 const configStore = userConfigStore()
@@ -137,8 +138,7 @@ const props = defineProps({
     }
   },
   activeTabId: { type: String, required: true },
-  currentConnectionId: { type: String, required: true },
-  isSyncInput: { type: Boolean, default: false }
+  currentConnectionId: { type: String, required: true }
 })
 const queryCommandFlag = ref(false)
 export interface sshConnectData {
@@ -159,6 +159,7 @@ const setRef = (el, key) => {
   }
 }
 const isConnected = ref(false)
+const isSyncInput = ref(false)
 const terminal = ref<Terminal | null>(null)
 const fitAddon = ref<FitAddon | null>(null)
 const connectionId = ref('')
@@ -214,6 +215,7 @@ const EDITOR_SEQUENCES = {
 const userInputFlag = ref(false)
 const currentCwdStore = useCurrentCwdStore()
 let termOndata: IDisposable | null = null
+let handleInput
 const pasteFlag = ref(false)
 let dbConfigStash: {
   aliasStatus?: number
@@ -415,6 +417,8 @@ onMounted(async () => {
       }
       updateTimeout = null
     }, 10) // 100ms 延迟，可根据需要调整
+
+    terminalContainerResize()
   }
 
   // termInstance.write
@@ -463,6 +467,14 @@ onMounted(async () => {
   nextTick(() => {
     setTimeout(() => {
       handleResize()
+      //  注册全局输入实例
+      inputManager.registerInstances(
+        {
+          termOndata: handleExternalInput,
+          syncInput: false
+        },
+        connectionId.value
+      )
     }, 100)
   })
 
@@ -1305,10 +1317,19 @@ const sendTerminalStateToServer = async (): Promise<void> => {
     console.error('发送终端状态时出错:', err)
   }
 }
+// 允许外部调用，模拟输入
+function handleExternalInput(data) {
+  handleInput && handleInput(data, false) // 传递标记，防止死循环
+}
+
 const setupTerminalInput = () => {
   if (!terminal.value) return
 
-  termOndata = terminal.value.onData(async (data) => {
+  handleInput = async (data, isInputManagerCall = true) => {
+    // 本地输入时广播给其他终端
+    if (isInputManagerCall && isSyncInput.value) {
+      inputManager.sendToOthers(connectionId.value, data)
+    }
     // 快捷键
     // 发送数据到SSH会话
     // alias替换
@@ -1389,7 +1410,7 @@ const setupTerminalInput = () => {
       const newCommand = aliasStore.getCommand(command) // 全局alias
       if (dbConfigStash.aliasStatus === 1 && newCommand !== null) {
         sendData(delData.repeat(command.length) + newCommand + '\r')
-      } else if (config.quickVimStatus === 1) {
+      } else if (config.quickVimStatus === 1 && !isSyncInput.value) {
         connectionSftpAvailable.value = await api.checkSftpConnAvailable(connectionId.value)
         const vimMatch = command.match(/^\s*vim\s+(.+)$/i)
         if (vimMatch && connectionSftpAvailable.value) {
@@ -1437,7 +1458,8 @@ const setupTerminalInput = () => {
     if (!selectFlag.value) {
       queryCommand()
     }
-  })
+  }
+  termOndata = terminal.value.onData(handleInput)
   setupTerminalStateTracking()
 }
 
@@ -1937,7 +1959,7 @@ const selectSuggestion = (suggestion: CommandSuggestion) => {
   }, 10)
 }
 const queryCommand = async (cmd = '') => {
-  if (!queryCommandFlag.value) return
+  if (!queryCommandFlag.value || isSyncInput.value) return
 
   // Check if the cursor is at the end of a line. Auto-completion is triggered only at the end of a line
   const isAtEndOfLine = terminalState.value.beforeCursor.length === terminalState.value.content.length
@@ -2112,6 +2134,15 @@ const contextAct = (action) => {
         terminal.value.options.fontSize = (terminal.value.options.fontSize ?? 12) - 1
       }
       break
+    case 'registerSyncInput':
+      if (isSyncInput.value) {
+        inputManager.unregisterSyncInput(connectionId.value)
+        isSyncInput.value = false
+      } else {
+        inputManager.registerSyncInput(connectionId.value)
+        isSyncInput.value = true
+      }
+      break
     default:
       // 未知操作
       break
@@ -2157,6 +2188,22 @@ const closeSearch = () => {
   terminal.value?.focus()
 }
 
+watch(
+  () => isGlobalInput.value,
+  (newVal) => {
+    terminalContainerResize()
+  }
+)
+
+const terminalContainerResize = () => {
+  if (isGlobalInput.value) {
+    terminalContainer.value?.style.setProperty('height', 'calc(100% - 35px)')
+  } else {
+    terminalContainer.value?.style.setProperty('height', '100%')
+    if (terminal.value) terminal.value.scrollToBottom()
+  }
+}
+
 defineExpose({
   handleResize,
   autoExecuteCode,
@@ -2170,6 +2217,7 @@ defineExpose({
 
 onUnmounted(() => {
   document.removeEventListener('mouseup', hideSelectionButton)
+  inputManager.unregisterInstances(connectionId.value)
 })
 </script>
 
@@ -2188,7 +2236,6 @@ onUnmounted(() => {
   border-radius: 6px;
   overflow: hidden;
   padding: 4px;
-  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.15);
   position: relative;
 }
 
@@ -2196,7 +2243,9 @@ onUnmounted(() => {
   width: 100%;
   height: 100%;
 }
-
+.terminal .xterm-viewport {
+  background-color: transparent;
+}
 .terminal ::-webkit-scrollbar {
   width: 0px !important;
 }
