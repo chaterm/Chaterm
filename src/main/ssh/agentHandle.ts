@@ -1,34 +1,61 @@
 import { ipcMain } from 'electron'
-import { Client } from 'ssh2'
+import { Client, ConnectConfig } from 'ssh2'
+import { ConnectionInfo } from '../agent/integrations/remote-terminal'
 
 // 存储 SSH 连接
 const remoteConnections = new Map<string, Client>()
 // 存储 shell 会话流
 const remoteShellStreams = new Map()
 
-export async function remoteSshConnect(connectionInfo: any): Promise<{ id?: string; error?: string }> {
+export async function remoteSshConnect(connectionInfo: ConnectionInfo): Promise<{ id?: string; error?: string }> {
   const { host, port, username, password, privateKey, passphrase } = connectionInfo
   const connectionId = `ssh_${Date.now()}_${Math.random().toString(36).substr(2, 12)}`
 
   return new Promise((resolve) => {
     const conn = new Client()
+    let secondAuthTriggered = false
+    let resolved = false
+
+    const safeResolve = (result: { id?: string; error?: string }) => {
+      if (!resolved) {
+        resolved = true
+        resolve(result)
+      }
+    }
+
+    conn.on('keyboard-interactive', () => {
+      secondAuthTriggered = true
+      conn.end()
+      safeResolve({ error: '服务器要求二次认证（如OTP/2FA），无法连接。' })
+    })
 
     conn.on('ready', () => {
+      if (secondAuthTriggered) return
       remoteConnections.set(connectionId, conn)
       console.log(`SSH连接成功: ${connectionId}`)
-      resolve({ id: connectionId })
+      safeResolve({ id: connectionId })
     })
 
     conn.on('error', (err) => {
+      if (secondAuthTriggered) return
       console.error('SSH连接错误:', err.message)
-      resolve({ error: err.message })
+      conn.end()
+      safeResolve({ error: err.message })
     })
 
-    const connectConfig: any = {
+    conn.on('close', () => {
+      if (secondAuthTriggered) return
+      // 如果连接在 'ready' 事件之前关闭，并且没有触发 'error' 事件，
+      // 这通常意味着所有认证方法都失败了。
+      safeResolve({ error: 'SSH 连接关闭，可能是认证失败。' })
+    })
+
+    const connectConfig: ConnectConfig = {
       host,
       port: port || 22,
       username,
-      keepaliveInterval: 10000 // 保持连接活跃
+      keepaliveInterval: 10000, // 保持连接活跃
+      tryKeyboard: true // 禁用 keyboard-interactive
     }
 
     try {
@@ -40,14 +67,14 @@ export async function remoteSshConnect(connectionInfo: any): Promise<{ id?: stri
       } else if (password) {
         connectConfig.password = password
       } else {
-        resolve({ error: '缺少密码或私钥' })
+        safeResolve({ error: '缺少密码或私钥' })
         return
       }
       conn.connect(connectConfig)
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : String(err)
       console.error('SSH连接配置错误:', errorMessage)
-      resolve({ error: `连接配置错误: ${errorMessage}` })
+      safeResolve({ error: `连接配置错误: ${errorMessage}` })
     }
   })
 }
@@ -71,7 +98,7 @@ export async function remoteSshExec(
     let timeoutHandler: NodeJS.Timeout
     let finished = false
 
-    function safeResolve(result: any) {
+    function safeResolve(result: { success?: boolean; output?: string; error?: string }) {
       if (!finished) {
         finished = true
         clearTimeout(timeoutHandler)
@@ -141,7 +168,7 @@ export async function remoteSshExecStream(
     let timeoutHandler: NodeJS.Timeout
     let finished = false
 
-    function safeResolve(result: any) {
+    function safeResolve(result: { success?: boolean; error?: string }) {
       if (!finished) {
         finished = true
         clearTimeout(timeoutHandler)
@@ -213,16 +240,28 @@ export async function remoteSshDisconnect(sessionId: string): Promise<{ success?
 
 export const registerRemoteTerminalHandlers = () => {
   ipcMain.handle('ssh:remote-connect', async (_event, connectionInfo) => {
-    return remoteSshConnect(connectionInfo)
+    try {
+      return await remoteSshConnect(connectionInfo)
+    } catch (err) {
+      return { error: err instanceof Error ? err.message : String(err) }
+    }
   })
 
   ipcMain.handle('ssh:remote-exec', async (_event, sessionId, command) => {
-    return remoteSshExec(sessionId, command)
+    try {
+      return await remoteSshExec(sessionId, command)
+    } catch (err) {
+      return { success: false, error: err instanceof Error ? err.message : String(err) }
+    }
   })
 
   // 流式执行不通过 IPC 暴露，保持内部调用即可
 
   ipcMain.handle('ssh:remote-disconnect', async (_event, sessionId) => {
-    return remoteSshDisconnect(sessionId)
+    try {
+      return await remoteSshDisconnect(sessionId)
+    } catch (err) {
+      return { success: false, error: err instanceof Error ? err.message : String(err) }
+    }
   })
 }
