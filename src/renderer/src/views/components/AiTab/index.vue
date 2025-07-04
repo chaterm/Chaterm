@@ -74,7 +74,7 @@
               <MarkdownRenderer
                 v-if="typeof message.content === 'object' && 'question' in message.content"
                 :content="(message.content as MessageContent).question"
-                :class="`message ${message.role} ${message.ask === 'completion_result' ? 'completion-result' : ''}`"
+                :class="`message ${message.role} ${message.ask === 'completion_result_to_do' ? 'completion-result' : ''}`"
                 :ask="message.ask"
                 :say="message.say"
                 :partial="message.partial"
@@ -83,7 +83,7 @@
               <MarkdownRenderer
                 v-else
                 :content="typeof message.content === 'string' ? message.content : ''"
-                :class="`message ${message.role} ${message.ask === 'completion_result' ? 'completion-result' : ''}`"
+                :class="`message ${message.role} ${message.ask === 'completion_result_to_do' ? 'completion-result' : ''}`"
                 :ask="message.ask"
                 :say="message.say"
                 :partial="message.partial"
