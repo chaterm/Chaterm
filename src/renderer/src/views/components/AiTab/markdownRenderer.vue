@@ -1318,6 +1318,9 @@ code {
   font-size: 12px;
   line-height: 1.6;
   color: var(--text-color);
+  word-wrap: break-word;
+  word-break: break-word;
+  overflow-wrap: break-word;
 }
 
 .markdown-content ul,
