@@ -1586,11 +1586,22 @@ const handleServerOutput = (response: MarkedResponse) => {
     currentCwdStore.setKeyValue(props.connectData.ip, currentCwd)
     console.log(`${props.connectData.ip} current working directory:`, currentCwd)
   } else if (response.marker === 'Chaterm:command') {
+    isCollectingOutput.value = true
     const cleanOutput = stripAnsi(data).trim()
-    if (cleanOutput) {
-      const lines = cleanOutput.split(/\r?\n/)
+    commandOutput.value += cleanOutput + '\n'
+    console.log('commandOutput: ', commandOutput.value)
+    const promptRegex = /(?:\[([^@]+)@([^\]]+)\][#$]|([^@]+)@([^:]+):(?:[^$]*|\s*~)\s*[$#]|\[([^@]+)@([^\]]+)\s+[^\]]*\][#$])\s*$/
+    if (promptRegex.test(cleanOutput)) {
+      isCollectingOutput.value = false
+      const lines = commandOutput.value
+        .replace(/\r\n|\r/g, '\n')
+        .split('\n')
+        .filter((line) => line.trim())
+      console.log('lines: ', lines)
       const outputLines = lines.slice(1, -1)
+      console.log('outputLines: ', outputLines)
       const finalOutput = outputLines.join('\n').trim()
+      console.log('finalOutput: ', finalOutput)
       if (finalOutput) {
         nextTick(() => {
           eventBus.emit('chatToAi', finalOutput)
@@ -1605,6 +1616,40 @@ const handleServerOutput = (response: MarkedResponse) => {
           eventBus.emit('triggerAiSend')
         }, 100)
       }
+      commandOutput.value = ''
+    }
+    cusWrite?.(data)
+  } else if (isCollectingOutput.value) {
+    const cleanOutput = stripAnsi(data).trim()
+    commandOutput.value += cleanOutput + '\n'
+    console.log('commandOutput: ', commandOutput.value)
+    const promptRegex = /(?:\[([^@]+)@([^\]]+)\][#$]|([^@]+)@([^:]+):(?:[^$]*|\s*~)\s*[$#]|\[([^@]+)@([^\]]+)\s+[^\]]*\][#$])\s*$/
+    if (promptRegex.test(cleanOutput)) {
+      isCollectingOutput.value = false
+      const lines = commandOutput.value
+        .replace(/\r\n|\r/g, '\n')
+        .split('\n')
+        .filter((line) => line.trim())
+      console.log('lines: ', lines)
+      const outputLines = lines.slice(1, -1)
+      console.log('outputLines: ', outputLines)
+      const finalOutput = outputLines.join('\n').trim()
+      console.log('finalOutput: ', finalOutput)
+      if (finalOutput) {
+        nextTick(() => {
+          eventBus.emit('chatToAi', finalOutput)
+          setTimeout(() => {
+            eventBus.emit('triggerAiSend')
+          }, 100)
+        })
+      } else {
+        const output = configStore.getUserConfig.language == 'en-US' ? 'Command executed successfully, no output returned' : '执行完成，没有输出返回'
+        eventBus.emit('chatToAi', output)
+        setTimeout(() => {
+          eventBus.emit('triggerAiSend')
+        }, 100)
+      }
+      commandOutput.value = ''
     }
     cusWrite?.(data)
   } else {
@@ -2210,6 +2255,10 @@ onUnmounted(() => {
   document.removeEventListener('mouseup', hideSelectionButton)
   inputManager.unregisterInstances(connectionId.value)
 })
+
+// 在 script setup 部分添加新变量
+const commandOutput = ref('')
+const isCollectingOutput = ref(false)
 </script>
 
 <style lang="less">
@@ -2223,6 +2272,7 @@ onUnmounted(() => {
 
 .terminal-container {
   width: 100%;
+  height: 100%;
   border-radius: 6px;
   overflow: hidden;
   padding: 4px;
@@ -2233,7 +2283,9 @@ onUnmounted(() => {
   width: 100%;
   height: 100%;
 }
-
+.terminal .xterm-viewport {
+  background-color: transparent;
+}
 .terminal ::-webkit-scrollbar {
   width: 0px !important;
 }

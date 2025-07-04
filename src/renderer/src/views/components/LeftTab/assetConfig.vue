@@ -188,7 +188,17 @@
                 :option-filter-prop="'label'"
                 :field-names="{ value: 'key', label: 'label' }"
                 :allow-clear="true"
-              />
+              >
+                <template #notFoundContent>
+                  <div style="text-align: center; width: 100%">
+                    <a-button
+                      type="link"
+                      @click="addKeychain"
+                      >{{ t('keyChain.newKey') }}</a-button
+                    >
+                  </div>
+                </template>
+              </a-select>
             </a-form-item>
 
             <div class="formTitle">
@@ -571,6 +581,10 @@ const handleDocumentClick = () => {
   if (contextMenuVisible.value) {
     contextMenuVisible.value = false
   }
+}
+
+const addKeychain = () => {
+  eventBus.emit('openUserTab', 'keyChainConfig')
 }
 
 onMounted(() => {
@@ -977,6 +991,9 @@ watch(
   &::placeholder {
     color: var(--text-color-tertiary);
   }
+}
+.custom-form :deep(.ant-select-selection-placeholder) {
+  color: var(--text-color-tertiary);
 }
 .custom-form :deep(.ant-radio-button-wrapper) {
   background: var(--bg-color) !important;

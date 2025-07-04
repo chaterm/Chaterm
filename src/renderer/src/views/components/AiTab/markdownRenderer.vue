@@ -88,6 +88,7 @@
           </template>
           <template v-else-if="line.type === 'ls'">
             <span class="permissions">{{ line.permissions }}</span>
+            <span class="links">{{ line.links }}</span>
             <span class="user">{{ line.user }}</span>
             <span class="group">{{ line.group }}</span>
             <span class="size">{{ line.size }}</span>
@@ -1084,12 +1085,13 @@ const contentLines = computed(() => {
     }
 
     // Check if it's an ls output line
-    const lsMatch = processedLine.match(/^([drwx-]+)\s+(\d+)\s+(\w+)\s+(\w+)\s+(\d+)\s+(\w+\s+\d+\s+\d+:\d+)\s+(.+)$/)
+    const lsMatch = processedLine.match(/^([drwx-]+)\s+(\d+)\s+(\w+)\s+(\w+)\s+(\d+)\s+([A-Za-z]+\s+\d+\s+(?:\d{2}:\d{2}|\d{4}))\s+(.+)$/)
     if (lsMatch) {
-      const [, permissions, , user, group, size, date, name] = lsMatch
+      const [, permissions, links, user, group, size, date, name] = lsMatch
       return {
         type: 'ls',
         permissions,
+        links,
         user,
         group,
         size,
@@ -1734,6 +1736,15 @@ code {
   font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
   width: 100px;
   flex-shrink: 0;
+}
+
+.command-output .links {
+  color: #98c379;
+  font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+  width: 40px;
+  flex-shrink: 0;
+  margin: 0 8px;
+  text-align: right;
 }
 
 .command-output .user {

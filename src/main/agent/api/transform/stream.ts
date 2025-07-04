@@ -17,5 +17,6 @@ export interface ApiStreamUsageChunk {
   outputTokens: number
   cacheWriteTokens?: number
   cacheReadTokens?: number
+  reasoningTokens?: number // for reasoning models like o1, o3, etc.
   totalCost?: number // openrouter
 }
