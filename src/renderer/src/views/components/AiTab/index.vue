@@ -2780,103 +2780,186 @@ const initModelOptions = async () => {
   }
 
   .reject-btn {
-    background-color: #2a2a2a;
-    border-color: #3a3a3a;
-    color: #e0e0e0;
-
-    &:hover {
-      background-color: #ff4d4f20;
-      border-color: #ff4d4f;
-      color: #ff4d4f;
-    }
-
-    &[disabled] {
-      background-color: #141414 !important;
-      border-color: #2a2a2a !important;
-      color: #666666 !important;
-      cursor: not-allowed;
+    :global(.dark-theme) & {
+      background-color: #2a2a2a;
+      border-color: #3a3a3a;
+      color: #e0e0e0;
 
       &:hover {
+        background-color: #ff4d4f20;
+        border-color: #ff4d4f;
+        color: #ff4d4f;
+      }
+
+      &[disabled] {
         background-color: #141414 !important;
         border-color: #2a2a2a !important;
         color: #666666 !important;
+        cursor: not-allowed;
+
+        &:hover {
+          background-color: #141414 !important;
+          border-color: #2a2a2a !important;
+          color: #666666 !important;
+        }
+      }
+    }
+
+    :global(.light-theme) & {
+      background-color: #fff;
+      border: 1px solid #d9d9d9;
+      color: #666;
+
+      &:hover {
+        color: #ff4d4f;
+        border-color: #ff4d4f;
+        background-color: #fff1f0;
+      }
+
+      &[disabled] {
+        background-color: #f5f5f5 !important;
+        border-color: #d9d9d9 !important;
+        color: #d9d9d9 !important;
+        cursor: not-allowed;
       }
     }
   }
 
   .approve-btn {
-    color: #e0e0e0;
-    background-color: #1656b1;
-    border-color: #2d6fcd;
-
-    &:hover {
-      background-color: #52c41a20;
-      border-color: #52c41a;
-      color: #52c41a;
-    }
-
-    &[disabled] {
-      background-color: #141414 !important;
-      border-color: #2a2a2a !important;
-      color: #666666 !important;
-      cursor: not-allowed;
+    :global(.dark-theme) & {
+      color: #e0e0e0;
+      background-color: #1656b1;
+      border-color: #2d6fcd;
 
       &:hover {
+        background-color: #52c41a20;
+        border-color: #52c41a;
+        color: #52c41a;
+      }
+
+      &[disabled] {
         background-color: #141414 !important;
         border-color: #2a2a2a !important;
         color: #666666 !important;
+        cursor: not-allowed;
+
+        &:hover {
+          background-color: #141414 !important;
+          border-color: #2a2a2a !important;
+          color: #666666 !important;
+        }
+      }
+    }
+
+    :global(.light-theme) & {
+      background-color: #1890ff;
+      border-color: #1890ff;
+      color: #fff;
+
+      &:hover {
+        background-color: #40a9ff;
+        border-color: #40a9ff;
+      }
+
+      &[disabled] {
+        background-color: #f5f5f5 !important;
+        border-color: #d9d9d9 !important;
+        color: #d9d9d9 !important;
+        cursor: not-allowed;
       }
     }
   }
 
   .cancel-btn {
-    background-color: #2a2a2a;
-    border-color: #3a3a3a;
-    color: #666666;
-
-    &:hover {
-      background-color: #3a3a3a;
-      border-color: #4a4a4a;
-      color: #888888;
-    }
-
-    &[disabled] {
-      background-color: #141414 !important;
-      border-color: #2a2a2a !important;
-      color: #666666 !important;
-      cursor: not-allowed;
+    :global(.dark-theme) & {
+      background-color: #2a2a2a;
+      border-color: #3a3a3a;
+      color: #666666;
 
       &:hover {
+        background-color: #3a3a3a;
+        border-color: #4a4a4a;
+        color: #888888;
+      }
+
+      &[disabled] {
         background-color: #141414 !important;
         border-color: #2a2a2a !important;
         color: #666666 !important;
+        cursor: not-allowed;
+
+        &:hover {
+          background-color: #141414 !important;
+          border-color: #2a2a2a !important;
+          color: #666666 !important;
+        }
+      }
+    }
+
+    :global(.light-theme) & {
+      background-color: #fff;
+      border: 1px solid #d9d9d9;
+      color: #666;
+
+      &:hover {
+        color: #40a9ff;
+        border-color: #40a9ff;
+      }
+
+      &[disabled] {
+        background-color: #f5f5f5 !important;
+        border-color: #d9d9d9 !important;
+        color: #d9d9d9 !important;
+        cursor: not-allowed;
       }
     }
   }
 
   .resume-btn {
-    background-color: #1656b1;
-    border-color: #2d6fcd;
-    color: #cccccc;
-    opacity: 0.65;
-
-    &:hover {
-      opacity: 1;
+    :global(.dark-theme) & {
       background-color: #1656b1;
       border-color: #2d6fcd;
-      color: #ffffff;
-    }
-
-    &[disabled] {
-      background-color: #141414 !important;
-      border-color: #2a2a2a !important;
-      color: #666666 !important;
-      cursor: not-allowed;
+      color: #cccccc;
+      opacity: 0.65;
 
       &:hover {
+        opacity: 1;
+        background-color: #1656b1;
+        border-color: #2d6fcd;
+        color: #ffffff;
+      }
+
+      &[disabled] {
         background-color: #141414 !important;
         border-color: #2a2a2a !important;
         color: #666666 !important;
+        cursor: not-allowed;
+
+        &:hover {
+          background-color: #141414 !important;
+          border-color: #2a2a2a !important;
+          color: #666666 !important;
+        }
+      }
+    }
+
+    :global(.light-theme) & {
+      background-color: #1890ff;
+      border-color: #1890ff;
+      color: #fff;
+      opacity: 0.65;
+
+      &:hover {
+        opacity: 1;
+        background-color: #40a9ff;
+        border-color: #40a9ff;
+      }
+
+      &[disabled] {
+        background-color: #f5f5f5 !important;
+        border-color: #d9d9d9 !important;
+        color: #d9d9d9 !important;
+        cursor: not-allowed;
       }
     }
   }
