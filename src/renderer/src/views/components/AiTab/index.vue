@@ -810,82 +810,80 @@ const restoreHistoryTab = async (history: HistoryItem) => {
   autoUpdateHost.value = false
 
   try {
-    if (history.chatType === 'agent' || history.chatType === 'cmd') {
-      try {
-        const metadataResult = await (window.api as any).getTaskMetadata(history.id)
-        if (metadataResult.success && metadataResult.data && Array.isArray(metadataResult.data.hosts)) {
-          hosts.value = metadataResult.data.hosts.map((item: any) => ({
-            host: item.host,
-            uuid: item.uuid || '',
-            connection: item.connection,
-            organizationId: item.organizationId
-          }))
-        }
-      } catch (e) {
-        console.error('获取metadata失败:', e)
-      }
-      const conversationHistory = await getChatermMessages()
-      console.log('[conversationHistory]', conversationHistory)
-      chatHistory.length = 0
-      // 按时间戳排序并过滤相邻重复项
-      let lastItem: any = null
-      conversationHistory.forEach((item, index) => {
-        // 检查是否与前一项重复
-        const isDuplicate =
-          lastItem && item.text === lastItem.text && item.ask === lastItem.ask && item.say === lastItem.say && item.type === lastItem.type
-
-        if (
-          !isDuplicate &&
-          (item.ask === 'followup' ||
-            item.ask === 'command' ||
-            item.say === 'command_output' ||
-            item.say === 'completion_result' ||
-            item.say === 'text' ||
-            item.say === 'reasoning' ||
-            item.ask === 'resume_task' ||
-            item.say === 'user_feedback')
-        ) {
-          let role: 'assistant' | 'user' = 'assistant'
-          if (index === 0 || item.say === 'user_feedback') {
-            role = 'user'
-          }
-          const userMessage: ChatMessage = {
-            id: uuidv4(),
-            role: role,
-            content: item.text || '',
-            type: item.type,
-            ask: item.ask,
-            say: item.say,
-            ts: item.ts
-          }
-          if (!item.partial && item.type === 'ask' && item.text) {
-            try {
-              let contentJson = JSON.parse(item.text)
-              if (item.ask === 'followup') {
-                userMessage.content = contentJson
-                userMessage.selectedOption = contentJson?.selected
-              } else {
-                userMessage.content = contentJson?.question
-              }
-            } catch (e) {
-              userMessage.content = item.text
-            }
-          }
-          chatHistory.push(userMessage)
-          lastItem = item
-        }
-      })
-      await (window.api as any).sendToMain({
-        type: 'showTaskWithId',
-        text: history.id,
-        hosts: hosts.value.map((h) => ({
-          host: h.host,
-          uuid: h.uuid,
-          connection: h.connection,
-          organizationId: h.organizationId
+    try {
+      const metadataResult = await (window.api as any).getTaskMetadata(history.id)
+      if (metadataResult.success && metadataResult.data && Array.isArray(metadataResult.data.hosts)) {
+        hosts.value = metadataResult.data.hosts.map((item: any) => ({
+          host: item.host,
+          uuid: item.uuid || '',
+          connection: item.connection,
+          organizationId: item.organizationId
         }))
-      })
+      }
+    } catch (e) {
+      console.error('获取metadata失败:', e)
     }
+    const conversationHistory = await getChatermMessages()
+    console.log('[conversationHistory]', conversationHistory)
+    chatHistory.length = 0
+    // 按时间戳排序并过滤相邻重复项
+    let lastItem: any = null
+    conversationHistory.forEach((item, index) => {
+      // 检查是否与前一项重复
+      const isDuplicate =
+        lastItem && item.text === lastItem.text && item.ask === lastItem.ask && item.say === lastItem.say && item.type === lastItem.type
+
+      if (
+        !isDuplicate &&
+        (item.ask === 'followup' ||
+          item.ask === 'command' ||
+          item.say === 'command_output' ||
+          item.say === 'completion_result' ||
+          item.say === 'text' ||
+          item.say === 'reasoning' ||
+          item.ask === 'resume_task' ||
+          item.say === 'user_feedback')
+      ) {
+        let role: 'assistant' | 'user' = 'assistant'
+        if (index === 0 || item.say === 'user_feedback') {
+          role = 'user'
+        }
+        const userMessage: ChatMessage = {
+          id: uuidv4(),
+          role: role,
+          content: item.text || '',
+          type: item.type,
+          ask: item.ask,
+          say: item.say,
+          ts: item.ts
+        }
+        if (!item.partial && item.type === 'ask' && item.text) {
+          try {
+            let contentJson = JSON.parse(item.text)
+            if (item.ask === 'followup') {
+              userMessage.content = contentJson
+              userMessage.selectedOption = contentJson?.selected
+            } else {
+              userMessage.content = contentJson?.question
+            }
+          } catch (e) {
+            userMessage.content = item.text
+          }
+        }
+        chatHistory.push(userMessage)
+        lastItem = item
+      }
+    })
+    await (window.api as any).sendToMain({
+      type: 'showTaskWithId',
+      text: history.id,
+      hosts: hosts.value.map((h) => ({
+        host: h.host,
+        uuid: h.uuid,
+        connection: h.connection,
+        organizationId: h.organizationId
+      }))
+    })
     chatInputValue.value = ''
     responseLoading.value = false
   } catch (err) {
@@ -1110,23 +1108,11 @@ watch(currentCwd, (newValue) => {
 // 修改 watch 处理函数
 watch(
   () => chatTypeValue.value,
-  async (newValue, oldValue) => {
+  async (newValue) => {
     try {
       await updateGlobalState('chatSettings', {
         mode: newValue
       })
-      console.log('chatTypeValue', newValue, oldValue)
-    } catch (error) {
-      console.error('更新 chatSettings 失败:', error)
-    }
-  }
-)
-// 修改 watch 处理函数
-watch(
-  () => chatAiModelValue.value,
-  async (newValue, oldValue) => {
-    try {
-      console.log('chatAiModelValue', newValue, oldValue)
     } catch (error) {
       console.error('更新 chatSettings 失败:', error)
     }
@@ -1182,6 +1168,10 @@ const initModel = async () => {
       label: item.name,
       value: item.name
     }))
+  if ((chatAiModelValue.value === undefined || chatAiModelValue.value === '') && AgentAiModelsOptions.value[0]) {
+    chatAiModelValue.value = AgentAiModelsOptions.value[0].label
+    await handleChatAiModelChange()
+  }
 }
 
 // Watch for changes in AgentAiModelsOptions to ensure chatAiModelValue is valid
@@ -1623,7 +1613,7 @@ const showResumeButton = computed(() => {
   if (!message) {
     return false
   }
-  return chatTypeValue.value === 'agent' && message.ask === 'resume_task'
+  return message.ask === 'resume_task'
 })
 
 const handleAddHostClick = async () => {
@@ -2790,103 +2780,186 @@ const initModelOptions = async () => {
   }
 
   .reject-btn {
-    background-color: #2a2a2a;
-    border-color: #3a3a3a;
-    color: #e0e0e0;
-
-    &:hover {
-      background-color: #ff4d4f20;
-      border-color: #ff4d4f;
-      color: #ff4d4f;
-    }
-
-    &[disabled] {
-      background-color: #141414 !important;
-      border-color: #2a2a2a !important;
-      color: #666666 !important;
-      cursor: not-allowed;
+    :global(.dark-theme) & {
+      background-color: #2a2a2a;
+      border-color: #3a3a3a;
+      color: #e0e0e0;
 
       &:hover {
+        background-color: #ff4d4f20;
+        border-color: #ff4d4f;
+        color: #ff4d4f;
+      }
+
+      &[disabled] {
         background-color: #141414 !important;
         border-color: #2a2a2a !important;
         color: #666666 !important;
+        cursor: not-allowed;
+
+        &:hover {
+          background-color: #141414 !important;
+          border-color: #2a2a2a !important;
+          color: #666666 !important;
+        }
+      }
+    }
+
+    :global(.light-theme) & {
+      background-color: #fff;
+      border: 1px solid #d9d9d9;
+      color: #666;
+
+      &:hover {
+        color: #ff4d4f;
+        border-color: #ff4d4f;
+        background-color: #fff1f0;
+      }
+
+      &[disabled] {
+        background-color: #f5f5f5 !important;
+        border-color: #d9d9d9 !important;
+        color: #d9d9d9 !important;
+        cursor: not-allowed;
       }
     }
   }
 
   .approve-btn {
-    color: #e0e0e0;
-    background-color: #1656b1;
-    border-color: #2d6fcd;
-
-    &:hover {
-      background-color: #52c41a20;
-      border-color: #52c41a;
-      color: #52c41a;
-    }
-
-    &[disabled] {
-      background-color: #141414 !important;
-      border-color: #2a2a2a !important;
-      color: #666666 !important;
-      cursor: not-allowed;
+    :global(.dark-theme) & {
+      color: #e0e0e0;
+      background-color: #1656b1;
+      border-color: #2d6fcd;
 
       &:hover {
+        background-color: #52c41a20;
+        border-color: #52c41a;
+        color: #52c41a;
+      }
+
+      &[disabled] {
         background-color: #141414 !important;
         border-color: #2a2a2a !important;
         color: #666666 !important;
+        cursor: not-allowed;
+
+        &:hover {
+          background-color: #141414 !important;
+          border-color: #2a2a2a !important;
+          color: #666666 !important;
+        }
+      }
+    }
+
+    :global(.light-theme) & {
+      background-color: #1890ff;
+      border-color: #1890ff;
+      color: #fff;
+
+      &:hover {
+        background-color: #40a9ff;
+        border-color: #40a9ff;
+      }
+
+      &[disabled] {
+        background-color: #f5f5f5 !important;
+        border-color: #d9d9d9 !important;
+        color: #d9d9d9 !important;
+        cursor: not-allowed;
       }
     }
   }
 
   .cancel-btn {
-    background-color: #2a2a2a;
-    border-color: #3a3a3a;
-    color: #666666;
-
-    &:hover {
-      background-color: #3a3a3a;
-      border-color: #4a4a4a;
-      color: #888888;
-    }
-
-    &[disabled] {
-      background-color: #141414 !important;
-      border-color: #2a2a2a !important;
-      color: #666666 !important;
-      cursor: not-allowed;
+    :global(.dark-theme) & {
+      background-color: #2a2a2a;
+      border-color: #3a3a3a;
+      color: #666666;
 
       &:hover {
+        background-color: #3a3a3a;
+        border-color: #4a4a4a;
+        color: #888888;
+      }
+
+      &[disabled] {
         background-color: #141414 !important;
         border-color: #2a2a2a !important;
         color: #666666 !important;
+        cursor: not-allowed;
+
+        &:hover {
+          background-color: #141414 !important;
+          border-color: #2a2a2a !important;
+          color: #666666 !important;
+        }
+      }
+    }
+
+    :global(.light-theme) & {
+      background-color: #fff;
+      border: 1px solid #d9d9d9;
+      color: #666;
+
+      &:hover {
+        color: #40a9ff;
+        border-color: #40a9ff;
+      }
+
+      &[disabled] {
+        background-color: #f5f5f5 !important;
+        border-color: #d9d9d9 !important;
+        color: #d9d9d9 !important;
+        cursor: not-allowed;
       }
     }
   }
 
   .resume-btn {
-    background-color: #1656b1;
-    border-color: #2d6fcd;
-    color: #cccccc;
-    opacity: 0.65;
-
-    &:hover {
-      opacity: 1;
+    :global(.dark-theme) & {
       background-color: #1656b1;
       border-color: #2d6fcd;
-      color: #ffffff;
-    }
-
-    &[disabled] {
-      background-color: #141414 !important;
-      border-color: #2a2a2a !important;
-      color: #666666 !important;
-      cursor: not-allowed;
+      color: #cccccc;
+      opacity: 0.65;
 
       &:hover {
+        opacity: 1;
+        background-color: #1656b1;
+        border-color: #2d6fcd;
+        color: #ffffff;
+      }
+
+      &[disabled] {
         background-color: #141414 !important;
         border-color: #2a2a2a !important;
         color: #666666 !important;
+        cursor: not-allowed;
+
+        &:hover {
+          background-color: #141414 !important;
+          border-color: #2a2a2a !important;
+          color: #666666 !important;
+        }
+      }
+    }
+
+    :global(.light-theme) & {
+      background-color: #1890ff;
+      border-color: #1890ff;
+      color: #fff;
+      opacity: 0.65;
+
+      &:hover {
+        opacity: 1;
+        background-color: #40a9ff;
+        border-color: #40a9ff;
+      }
+
+      &[disabled] {
+        background-color: #f5f5f5 !important;
+        border-color: #d9d9d9 !important;
+        color: #d9d9d9 !important;
+        cursor: not-allowed;
       }
     }
   }
