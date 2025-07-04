@@ -38,7 +38,12 @@ export default {
     shrotenName: 'Shorten The Host Name',
     fontsize: 'Fontsize',
     largen: 'Largen',
-    smaller: 'Smaller'
+    smaller: 'Smaller',
+    globalExecOn: 'Global Execution (On)',
+    globalExec: 'Global Execution',
+    syncInputOn: 'Synchronous Input (On)',
+    syncInput: 'Synchronous Input',
+    allExecuted: 'All Executed'
   },
   term: {
     welcome: 'Welcome to use Chaterm'
