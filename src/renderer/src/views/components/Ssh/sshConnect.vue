@@ -2223,6 +2223,7 @@ onUnmounted(() => {
 
 .terminal-container {
   width: 100%;
+  height: 100%;
   border-radius: 6px;
   overflow: hidden;
   padding: 4px;
@@ -2233,7 +2234,9 @@ onUnmounted(() => {
   width: 100%;
   height: 100%;
 }
-
+.terminal .xterm-viewport {
+  background-color: transparent;
+}
 .terminal ::-webkit-scrollbar {
   width: 0px !important;
 }
