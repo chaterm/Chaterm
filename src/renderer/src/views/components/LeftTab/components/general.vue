@@ -106,6 +106,7 @@ import { userConfigStore } from '@/services/userConfigStoreService'
 import { userConfigStore as configStore } from '@/store/userConfigStore'
 import eventBus from '@/utils/eventBus'
 
+const api = window.api
 const instance = getCurrentInstance()
 const { appContext } = instance
 
@@ -131,6 +132,7 @@ const loadSavedConfig = async () => {
       document.body.className = `theme-${userConfig.value.theme}`
       // 通知其他组件当前主题
       eventBus.emit('updateTheme', userConfig.value.theme)
+      api.updateTheme(userConfig.value.theme)
     }
   } catch (error) {
     console.error('Failed to load config:', error)
@@ -207,6 +209,9 @@ const changeTheme = async () => {
     document.body.className = `theme-${userConfig.value.theme}`
     // 发送主题更新事件
     eventBus.emit('updateTheme', userConfig.value.theme)
+    setTimeout(() => {
+      api.updateTheme(userConfig.value.theme)
+    }, 80)
     // 保存配置到存储
     await saveConfig()
   } catch (error) {

@@ -267,9 +267,6 @@ onMounted(async () => {
     nextTick(() => {
       showWatermark.value = true
     })
-    setTimeout(() => {
-      api.updateTheme(theme)
-    }, 80)
   })
   try {
     const config = await userConfigStore.getConfig()
