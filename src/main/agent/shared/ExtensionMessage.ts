@@ -82,15 +82,7 @@ export interface ExtensionMessage {
 
 export type Invoke = 'sendMessage' | 'primaryButtonClick' | 'secondaryButtonClick'
 
-export type Platform =
-  | 'aix'
-  | 'darwin'
-  | 'freebsd'
-  | 'linux'
-  | 'openbsd'
-  | 'sunos'
-  | 'win32'
-  | 'unknown'
+export type Platform = 'aix' | 'darwin' | 'freebsd' | 'linux' | 'openbsd' | 'sunos' | 'win32' | 'unknown'
 
 export const DEFAULT_PLATFORM = 'unknown'
 
@@ -145,6 +137,7 @@ export type ChatermAsk =
   | 'completion_result'
   | 'tool'
   | 'api_req_failed'
+  | 'ssh_con_failed' // 新增：SSH 连接失败
   | 'resume_task'
   | 'resume_completed_task'
   | 'mistake_limit_reached'
