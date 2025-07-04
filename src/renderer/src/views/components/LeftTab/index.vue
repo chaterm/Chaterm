@@ -200,9 +200,13 @@ const logout = () => {
 }
 onMounted(() => {
   eventBus.on('openAiRight', openAiRight)
+  eventBus.on('openUserTab', (tab) => {
+    emit('open-user-tab', tab)
+  })
 })
 onUnmounted(() => {
   eventBus.off('openAiRight')
+  eventBus.off('openUserTab')
 })
 </script>
 <style lang="less">
