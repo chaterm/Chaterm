@@ -2091,8 +2091,8 @@ export class Task {
     let content = block.content
     if (content) {
       // 移除 <thinking> 标签
-      content = content.replace(/<thinking>\s?/g, '')
-      content = content.replace(/\s?<\/thinking>/g, '')
+      // content = content.replace(/<thinking>\s?/g, '')
+      // content = content.replace(/\s?<\/thinking>/g, '')
 
       const lastOpenBracketIndex = content.lastIndexOf('<')
       if (lastOpenBracketIndex !== -1) {
