@@ -21,6 +21,7 @@ export type ChatermAsk =
   | 'completion_result'
   | 'tool'
   | 'api_req_failed'
+  | 'ssh_con_failed'
   | 'resume_task'
   | 'resume_completed_task'
   | 'mistake_limit_reached'
