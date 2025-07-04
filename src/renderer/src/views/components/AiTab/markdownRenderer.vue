@@ -1615,7 +1615,7 @@ code {
 }
 
 .command-output .file {
-  color: #d4d4d4;
+  color: var(--text-color);
 }
 
 .command-output .executable {
