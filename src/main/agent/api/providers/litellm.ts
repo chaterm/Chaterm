@@ -7,6 +7,24 @@ import { convertToOpenAiMessages } from '../transform/openai-format'
 import { createProxyAgent, checkProxyConnectivity } from './proxy'
 import type { Agent } from 'http'
 
+/**
+ * LiteLLM Handler for OpenAI-compatible API with enhanced reasoning support
+ *
+ * Reasoning/Thinking Data Handling:
+ * - Supports multiple field formats for maximum compatibility
+ * - Follows OpenAI's Responses API standards where possible
+ * - Handles both streaming and non-streaming reasoning content
+ *
+ * Supported reasoning field formats:
+ * 1. delta.reasoning (OpenAI Responses API standard)
+ * 2. delta.thinking (legacy format)
+ * 3. delta.reasoning_content (some LiteLLM providers)
+ *
+ *
+ * Reference: https://platform.openai.com/docs/guides/reasoning
+ * Reference: https://docs.litellm.ai/docs/reasoning_content
+ */
+
 export class LiteLlmHandler implements ApiHandler {
   private options: ApiHandlerOptions
   private client: OpenAI
@@ -139,21 +157,36 @@ export class LiteLlmHandler implements ApiHandler {
       }
 
       // Handle reasoning events (thinking)
-      // Thinking is not in the standard types but may be in the response
-      interface ThinkingDelta {
+      // Different providers may use different field names for reasoning content
+      // Based on OpenAI's documentation, reasoning data can appear in multiple formats:
+      // 1. delta.thinking (legacy format)
+      // 2. delta.reasoning_content (some LiteLLM providers)
+      // 3. delta.reasoning (OpenAI Responses API format)
+      interface ReasoningDelta {
         thinking?: string
+        reasoning_content?: string
+        reasoning?: string
       }
 
-      if ((delta as ThinkingDelta)?.thinking) {
+      const reasoningContent =
+        (delta as ReasoningDelta)?.reasoning || (delta as ReasoningDelta)?.thinking || (delta as ReasoningDelta)?.reasoning_content
+
+      if (reasoningContent) {
         yield {
           type: 'reasoning',
-          reasoning: (delta as ThinkingDelta).thinking || ''
+          reasoning: reasoningContent
         }
       }
 
       // Handle token usage information
       if (chunk.usage) {
-        const totalCost = (inputCost * chunk.usage.prompt_tokens) / 1e6 + (outputCost * chunk.usage.completion_tokens) / 1e6
+        let totalCost = (inputCost * chunk.usage.prompt_tokens) / 1e6 + (outputCost * chunk.usage.completion_tokens) / 1e6
+
+        // Add reasoning tokens cost if available (reasoning tokens are typically billed as output tokens)
+        const reasoningTokens = (chunk.usage as any).reasoning_tokens || 0
+        if (reasoningTokens > 0) {
+          totalCost += (outputCost * reasoningTokens) / 1e6
+        }
 
         // Extract cache-related information if available
         // Need to use type assertion since these properties are not in the standard OpenAI types
@@ -164,6 +197,7 @@ export class LiteLlmHandler implements ApiHandler {
           prompt_cache_miss_tokens?: number
           cache_read_input_tokens?: number
           prompt_cache_hit_tokens?: number
+          reasoning_tokens?: number // Add reasoning tokens support
         }
 
         const cacheWriteTokens = usage.cache_creation_input_tokens || usage.prompt_cache_miss_tokens || 0
@@ -175,6 +209,7 @@ export class LiteLlmHandler implements ApiHandler {
           outputTokens: usage.completion_tokens || 0,
           cacheWriteTokens: cacheWriteTokens > 0 ? cacheWriteTokens : undefined,
           cacheReadTokens: cacheReadTokens > 0 ? cacheReadTokens : undefined,
+          reasoningTokens: usage.reasoning_tokens || undefined,
           totalCost
         }
       }
