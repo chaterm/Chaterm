@@ -1559,10 +1559,10 @@ code {
   white-space: pre-wrap;
   word-wrap: break-word;
   font-size: 12px;
-  line-height: 1.6;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
   border: 1px solid var(--border-color);
   overflow: hidden;
+  overflow-x: auto;
   position: relative;
   width: 100%;
   min-width: 0;
@@ -1726,7 +1726,7 @@ code {
   display: flex;
   align-items: center;
   flex-wrap: nowrap;
-  min-width: 0;
+  min-width: max-content;
   width: 100%;
 }
 
@@ -1746,17 +1746,15 @@ code {
 .command-output .permissions {
   color: #e5c07b;
   font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
-  width: 100px;
+  width: 80px;
   flex-shrink: 0;
 }
 
 .command-output .links {
   color: #98c379;
   font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
-  width: 40px;
+  width: 20px;
   flex-shrink: 0;
-  margin: 0 8px;
-  text-align: right;
 }
 
 .command-output .user {
@@ -1764,7 +1762,6 @@ code {
   font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
   width: 80px;
   flex-shrink: 0;
-  margin: 0 8px;
 }
 
 .command-output .group {
@@ -1772,7 +1769,6 @@ code {
   font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
   width: 80px;
   flex-shrink: 0;
-  margin: 0 8px;
 }
 
 .command-output .size {
@@ -1780,8 +1776,6 @@ code {
   font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
   width: 60px;
   flex-shrink: 0;
-  margin: 0 8px;
-  text-align: right;
 }
 
 .command-output .date {
@@ -1789,7 +1783,6 @@ code {
   font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
   width: 120px;
   flex-shrink: 0;
-  margin: 0 8px;
 }
 
 .command-output .filename {
@@ -1798,7 +1791,6 @@ code {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  margin: 0 8px;
 }
 
 .command-output .prompt {
@@ -1966,5 +1958,18 @@ code {
 
 .ansi-underline {
   text-decoration: underline;
+}
+
+.command-output::-webkit-scrollbar {
+  height: 2px;
+}
+
+.command-output::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.command-output::-webkit-scrollbar-thumb {
+  background: var(--bg-color-quaternary);
+  border-radius: 1px;
 }
 </style>
