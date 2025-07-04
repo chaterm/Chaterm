@@ -744,14 +744,14 @@ const handleSave = async (provider) => {
 .setting-description {
   margin-top: 8px;
   font-size: 12px;
-  color: rgba(255, 255, 255, 0.45);
+  color: var(--text-color-tertiary);
   padding-left: 22px;
 }
 
 .setting-description-no-padding {
   margin-top: 8px;
   font-size: 12px;
-  color: rgba(255, 255, 255, 0.45);
+  color: var(--text-color-tertiary);
 }
 
 // 统一组件样式
@@ -760,15 +760,15 @@ const handleSave = async (provider) => {
 :deep(.ant-select),
 :deep(.ant-input),
 :deep(.ant-input-password) {
-  color: rgba(255, 255, 255, 0.85);
+  color: var(--text-color-secondary);
 }
 
 :deep(.ant-checkbox),
 :deep(.ant-select-selector),
 :deep(.ant-input),
 :deep(.ant-input-password) {
-  background-color: #4a4a4a !important; // 添加 !important 确保覆盖默认样式
-  border: none;
+  background-color: var(--bg-color-octonary) !important;
+  border: 1px solid var(--bg-color-octonary) !important;
 
   &:hover,
   &:focus {
@@ -776,40 +776,39 @@ const handleSave = async (provider) => {
   }
 
   &::placeholder {
-    color: rgba(255, 255, 255, 0.25) !important;
+    color: var(--text-color-quaternary) !important;
   }
 }
 
 // 密码输入框特定样式
 :deep(.ant-input-password) {
   .ant-input {
-    background-color: #4a4a4a !important;
-    color: rgba(255, 255, 255, 0.85);
+    background-color: var(--bg-color-octonary) !important;
+    color: var(--text-color-secondary);
   }
-
   .anticon {
-    color: rgba(255, 255, 255, 0.45);
+    color: var(--text-color-tertiary);
   }
 
   &:hover .anticon {
-    color: rgba(255, 255, 255, 0.65);
+    color: var(--text-color-secondary-light);
   }
 }
 
 // 添加选择框的特定样式
 :deep(.ant-select) {
   .ant-select-selector {
-    background-color: #4a4a4a !important;
+    background-color: var(--bg-color-octonary) !important;
     border: none;
 
     .ant-select-selection-placeholder {
-      color: rgba(255, 255, 255, 0.25) !important;
+      color: var(--text-color-quaternary) !important;
     }
   }
 
   &.ant-select-focused {
     .ant-select-selector {
-      background-color: #4a4a4a !important;
+      background-color: var(--bg-color-octonary) !important;
       border-color: #1890ff !important;
     }
   }
@@ -822,21 +821,21 @@ const handleSave = async (provider) => {
 
 // 下拉菜单样式
 :deep(.ant-select-dropdown) {
-  background-color: #4a4a4a;
+  background-color: var(--bg-color-octonary);
   border: 1px solid rgba(255, 255, 255, 0.15);
 
   .ant-select-item {
-    color: rgba(255, 255, 255, 0.85);
-    background-color: #4a4a4a;
+    color: var(--text-color-secondary);
+    background-color: var(--bg-color-octonary);
 
     &-option-active,
     &-option-selected {
-      color: rgba(255, 255, 255, 0.85) !important; // 添加选中项的文字颜色
+      color: var(--text-color-secondary) !important; // 添加选中项的文字颜色
       background-color: rgba(24, 144, 255, 0.2);
     }
 
     &-option:hover {
-      color: rgba(255, 255, 255, 0.85);
+      color: var(--text-color-secondary);
       background-color: rgba(255, 255, 255, 0.08);
     }
   }
@@ -844,7 +843,7 @@ const handleSave = async (provider) => {
 
 // 选择框中已选项的颜色
 :deep(.ant-select-selection-item) {
-  color: rgba(255, 255, 255, 0.85) !important;
+  color: var(--text-color-secondary) !important;
 }
 
 .label-container {
@@ -859,18 +858,18 @@ const handleSave = async (provider) => {
   font-weight: 500;
   display: block;
   margin-right: auto;
-  color: rgba(255, 255, 255, 0.45);
+  color: var(--text-color-tertiary);
 }
 
 .slider-container {
   padding: 8px 0;
-  color: rgba(255, 255, 255, 0.45);
+  color: var(--text-color-tertiary);
 
   :deep(.ant-slider) {
     margin: 0;
     // 轨道样式
     .ant-slider-rail {
-      background-color: #4a4a4a;
+      background-color: var(--bg-color-octonary);
     }
 
     // 已选择部分的轨道样式
@@ -884,7 +883,7 @@ const handleSave = async (provider) => {
       height: 16px;
       border: 2px solid var(--vscode-progressBar-background);
       background-color: var(--vscode-foreground);
-      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+      box-shadow: var(--box-shadow);
 
       &:focus {
         box-shadow: 0 0 0 5px var(--vscode-focusBorder);
@@ -936,8 +935,8 @@ const handleSave = async (provider) => {
 
     &.user {
       align-self: flex-end;
-      background-color: rgba(255, 255, 255, 0.1); // 浅灰色背景
-      color: #ffffff; // 白色文字
+      background-color: var(--text-color-senary); // 浅灰色背景
+      color: var(--text-color); // 白色文字
       border: none; // 移除边框
       width: 90%; // 父组件的90%宽度
       margin-left: auto; // 靠右对齐
@@ -945,9 +944,9 @@ const handleSave = async (provider) => {
 
     &.assistant {
       align-self: flex-start;
-      background-color: #1e2a38;
-      color: #e0e0e0;
-      border: 1px solid #2c3e50;
+      background-color: var(--bg-color-quinary);
+      color: var(--text-color);
+      border: 1px solid var(--bg-color-quinary);
       width: 100%;
     }
   }
@@ -956,8 +955,8 @@ const handleSave = async (provider) => {
 .check-btn {
   margin-left: 4px;
   width: 90px;
-  background-color: #4a4a4a !important;
-  color: #fff !important;
+  background-color: var(--bg-color-octonary) !important;
+  color: var(--text-color) !important;
   border: none !important;
   box-shadow: none !important;
   transition: background 0.2s;
@@ -965,8 +964,8 @@ const handleSave = async (provider) => {
 
 .check-btn:hover,
 .check-btn:focus {
-  background-color: #5a5a5a !important;
-  color: #fff !important;
+  background-color: var(--bg-color-novenary) !important;
+  color: var(--text-color) !important;
 }
 
 /* Model list styles */
@@ -993,12 +992,12 @@ const handleSave = async (provider) => {
 }
 
 .model-item:hover {
-  background-color: rgba(255, 255, 255, 0.05);
+  background-color: var(--text-color-septenary);
 }
 
 .remove-button {
   padding: 0 8px;
-  color: rgba(255, 255, 255, 0.45);
+  color: var(--text-color-tertiary);
   background: transparent !important;
   border: none !important;
   box-shadow: none !important;
@@ -1010,7 +1009,7 @@ const handleSave = async (provider) => {
 }
 
 .remove-button:hover {
-  color: rgba(255, 255, 255, 0.85);
+  color: var(--text-color-secondary);
 }
 
 .remove-icon {
@@ -1020,7 +1019,7 @@ const handleSave = async (provider) => {
 }
 
 :deep(.ant-checkbox-wrapper) {
-  color: rgba(255, 255, 255, 0.85);
+  color: var(--text-color-secondary);
   height: 24px;
   line-height: 24px;
   display: flex;
@@ -1032,8 +1031,8 @@ const handleSave = async (provider) => {
 }
 
 :deep(.ant-checkbox-inner) {
-  background-color: #4a4a4a !important;
-  border-color: rgba(255, 255, 255, 0.15) !important;
+  background-color: var(--bg-color-octonary) !important;
+  border-color: var(--text-color-quinary) !important;
 }
 
 :deep(.ant-checkbox-checked .ant-checkbox-inner) {
@@ -1048,11 +1047,11 @@ const handleSave = async (provider) => {
 
   .switch-label {
     margin-right: 16px;
-    color: rgba(255, 255, 255, 0.85);
+    color: var(--text-color-secondary);
   }
 
   :deep(.ant-switch) {
-    background-color: #4a4a4a;
+    background-color: var(--bg-color-octonary);
     transition: background-color 0.1s ease !important; // 减少过渡时间
 
     &.ant-switch-checked {
@@ -1064,15 +1063,15 @@ const handleSave = async (provider) => {
     }
 
     &:hover:not(.ant-switch-disabled):not(.ant-switch-checked) {
-      background-color: #4a4a4a; // 未选中状态下悬浮保持灰色
+      background-color: var(--bg-color-octonary); // 未选中状态下悬浮保持灰色
     }
   }
 }
 
 .save-btn {
   width: 90px;
-  background-color: #4a4a4a !important;
-  color: #fff !important;
+  background-color: var(--bg-color-octonary) !important;
+  color: var(--text-color) !important;
   border: none !important;
   box-shadow: none !important;
   transition: background 0.2s;
@@ -1080,8 +1079,8 @@ const handleSave = async (provider) => {
 
 .save-btn:hover,
 .save-btn:focus {
-  background-color: #5a5a5a !important;
-  color: #fff !important;
+  background-color: var(--bg-color-novenary) !important;
+  color: var(--text-color) !important;
 }
 
 .model-input-container {
@@ -1106,7 +1105,7 @@ const handleSave = async (provider) => {
 
 .api-provider-header {
   margin-bottom: 16px;
-  border-bottom: 1px solid #3a3a3a;
+  border-bottom: 1px solid var(--bg-color-quaternary);
   padding-bottom: 8px;
 
   h4 {
