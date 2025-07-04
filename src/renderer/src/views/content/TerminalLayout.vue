@@ -274,12 +274,14 @@ onMounted(async () => {
     document.body.className = `theme-${currentTheme.value}`
     nextTick(() => {
       showWatermark.value = config.watermark !== 'close'
+      api.updateTheme(currentTheme.value)
     })
   } catch (e) {
     currentTheme.value = 'dark'
     document.body.className = 'theme-dark'
     nextTick(() => {
       showWatermark.value = true
+      api.updateTheme('dark')
     })
   }
   nextTick(() => {
