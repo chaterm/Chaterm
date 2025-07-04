@@ -31,20 +31,50 @@
           class="chat-response"
         >
           <template
-            v-for="message in chatHistory"
+            v-for="(message, index) in chatHistory"
             :key="message"
           >
             <div
               v-if="message.role === 'assistant'"
               class="assistant-message-container"
               :class="{
-                'has-history-copy-btn': chatTypeValue === 'cmd' && message.ask === 'command' && message.actioned
+                'has-history-copy-btn': chatTypeValue === 'cmd' && message.ask === 'command' && message.actioned,
+                'last-message': index === chatHistory.length - 1 + 1
               }"
             >
+              <div
+                v-if="index === chatHistory.length - 1 && message.ask === 'completion_result_to_do'"
+                class="message-header"
+              >
+                <div class="message-title">
+                  <CheckCircleFilled style="color: #52c41a; margin-right: 4px" />
+                  Task Completed
+                </div>
+                <div class="message-feedback">
+                  <a-button
+                    type="text"
+                    class="feedback-btn like-btn"
+                    @click="handleFeedback(message, 'like')"
+                  >
+                    <template #icon>
+                      <LikeOutlined :style="{ color: getMessageFeedback(message.id) === 'like' ? '#52c41a' : '' }" />
+                    </template>
+                  </a-button>
+                  <a-button
+                    type="text"
+                    class="feedback-btn dislike-btn"
+                    @click="handleFeedback(message, 'dislike')"
+                  >
+                    <template #icon>
+                      <DislikeOutlined :style="{ color: getMessageFeedback(message.id) === 'dislike' ? '#ff4d4f' : '' }" />
+                    </template>
+                  </a-button>
+                </div>
+              </div>
               <MarkdownRenderer
                 v-if="typeof message.content === 'object' && 'question' in message.content"
                 :content="(message.content as MessageContent).question"
-                :class="`message ${message.role}`"
+                :class="`message ${message.role} ${message.ask === 'completion_result' ? 'completion-result' : ''}`"
                 :ask="message.ask"
                 :say="message.say"
                 :partial="message.partial"
@@ -53,7 +83,7 @@
               <MarkdownRenderer
                 v-else
                 :content="typeof message.content === 'string' ? message.content : ''"
-                :class="`message ${message.role}`"
+                :class="`message ${message.role} ${message.ask === 'completion_result' ? 'completion-result' : ''}`"
                 :ask="message.ask"
                 :say="message.say"
                 :partial="message.partial"
@@ -488,7 +518,10 @@ import {
   CheckOutlined,
   ReloadOutlined,
   StarOutlined,
-  StarFilled
+  StarFilled,
+  LikeOutlined,
+  DislikeOutlined,
+  CheckCircleFilled
 } from '@ant-design/icons-vue'
 import { notification } from 'ant-design-vue'
 import { v4 as uuidv4 } from 'uuid'
@@ -523,6 +556,14 @@ declare module '@/utils/eventBus' {
   interface AppEvents {
     tabChanged: TabInfo
   }
+}
+
+// 添加消息反馈存储
+const messageFeedbacks = ref<Record<string, 'like' | 'dislike'>>({})
+
+// 获取消息反馈状态
+const getMessageFeedback = (messageId: string): 'like' | 'dislike' | undefined => {
+  return messageFeedbacks.value[messageId]
 }
 
 const hostSearchInputRef = ref()
@@ -755,7 +796,6 @@ const handleKeyDown = (e: KeyboardEvent) => {
     sendMessage('send')
   }
 }
-
 const handlePlusClick = async () => {
   const currentInput = chatInputValue.value
   const newChatId = uuidv4()
@@ -778,6 +818,10 @@ const handlePlusClick = async () => {
 
   chatHistory.length = 0
   chatInputValue.value = ''
+
+  // 清除当前反馈数据
+  messageFeedbacks.value = {}
+
   // 开启新窗口后，cancel掉原始的agent窗口
   console.log('handleCancel:取消')
   const response = await (window.api as any).cancelTask()
@@ -806,7 +850,6 @@ const restoreHistoryTab = async (history: HistoryItem) => {
   currentChatId.value = history.id
   chatTypeValue.value = history.chatType
   lastChatMessageId.value = ''
-
   autoUpdateHost.value = false
 
   try {
@@ -874,6 +917,11 @@ const restoreHistoryTab = async (history: HistoryItem) => {
         lastItem = item
       }
     })
+
+    // 加载此对话的反馈数据
+    const feedbacks = ((await getGlobalState('messageFeedbacks')) || {}) as Record<string, 'like' | 'dislike'>
+    messageFeedbacks.value = feedbacks
+
     await (window.api as any).sendToMain({
       type: 'showTaskWithId',
       text: history.id,
@@ -1222,6 +1270,10 @@ onMounted(async () => {
 
   // 初始化资产信息
   await initAssetInfo()
+
+  // 加载消息反馈
+  const feedbacks = ((await getGlobalState('messageFeedbacks')) || {}) as Record<string, 'like' | 'dislike'>
+  messageFeedbacks.value = feedbacks
 
   // 添加事件监听
   eventBus.on('SettingModelOptionsChanged', async () => {
@@ -1970,6 +2022,49 @@ const initModelOptions = async () => {
     })
   }
 }
+
+// 添加处理反馈的方法
+const handleFeedback = async (message: ChatMessage, type: 'like' | 'dislike') => {
+  // 获取当前反馈状态
+  const currentFeedback = getMessageFeedback(message.id)
+
+  // 如果已经选择了相同的反馈，则取消选择
+  if (currentFeedback === type) {
+    // 从本地状态中移除
+    delete messageFeedbacks.value[message.id]
+
+    // 从 globalState 中获取当前反馈
+    const feedbacks = ((await getGlobalState('messageFeedbacks')) || {}) as Record<string, 'like' | 'dislike'>
+
+    // 删除此消息的反馈
+    if (feedbacks[message.id]) {
+      delete feedbacks[message.id]
+      // 更新 globalState
+      await updateGlobalState('messageFeedbacks', feedbacks)
+    }
+  } else {
+    // 更新本地状态
+    messageFeedbacks.value[message.id] = type
+
+    // 从 globalState 中获取当前反馈
+    const feedbacks = ((await getGlobalState('messageFeedbacks')) || {}) as Record<string, 'like' | 'dislike'>
+
+    // 添加或更新此消息的反馈
+    feedbacks[message.id] = type
+
+    // 更新 globalState
+    await updateGlobalState('messageFeedbacks', feedbacks)
+  }
+
+  // 获取当前反馈状态用于显示通知
+  const updatedFeedback = getMessageFeedback(message.id)
+
+  // 显示反馈成功的通知
+  notification.success({
+    message: updatedFeedback ? (type === 'like' ? t('ai.feedbackLikeSuccess') : t('ai.feedbackDislikeSuccess')) : t('ai.feedbackCancelled'),
+    duration: 2
+  })
+}
 </script>
 
 <style lang="less">
@@ -1994,9 +2089,11 @@ const initModelOptions = async () => {
 <style lang="less" scoped>
 :root {
   // 暗色主题变量
-  .dark-theme {
+  .theme-dark {
     --bg-color: #141414;
     --bg-color-secondary: #1f1f1f;
+    --bg-color-quaternary: #3a3a3a;
+    --bg-color-quinary: #2a2a2a;
     --text-color: #ffffff;
     --text-color-secondary: #e0e0e0;
     --text-color-tertiary: #666666;
@@ -2011,9 +2108,11 @@ const initModelOptions = async () => {
   }
 
   // 亮色主题变量
-  .light-theme {
+  .theme-light {
     --bg-color: #ffffff;
     --bg-color-secondary: #f5f5f5;
+    --bg-color-quaternary: #d9d9d9;
+    --bg-color-quinary: #e8e8e8;
     --text-color: #000000;
     --text-color-secondary: #333333;
     --text-color-tertiary: #666666;
@@ -2240,7 +2339,14 @@ const initModelOptions = async () => {
     &.assistant {
       color: var(--text-color);
       width: 100%;
-      padding: 0px;
+      padding: 0;
+
+      &.completion-result {
+        background-color: var(--bg-color-secondary);
+        border-radius: 0 0 4px 4px;
+        padding: 8px 12px;
+        margin-top: 0;
+      }
     }
   }
 }
@@ -2354,9 +2460,72 @@ const initModelOptions = async () => {
 .assistant-message-container {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 0;
   width: 100%;
   position: relative;
+
+  &.last-message {
+    border-radius: 4px;
+    overflow: hidden;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+
+    .message-header {
+      background-color: var(--bg-color-secondary);
+      border-radius: 4px 4px 0 0;
+      padding: 4px 8px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: none;
+      margin-bottom: 0;
+    }
+
+    .message-title {
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--text-color);
+    }
+
+    .message-feedback {
+      display: flex;
+      gap: 4px;
+
+      .feedback-btn {
+        padding: 0 4px;
+        height: 20px;
+        border: none;
+        background: transparent;
+
+        &:hover {
+          background: var(--hover-bg-color);
+        }
+
+        .anticon {
+          font-size: 14px;
+        }
+      }
+
+      .like-btn {
+        .anticon {
+          color: var(--text-color-tertiary);
+
+          &:hover {
+            color: #52c41a;
+          }
+        }
+      }
+
+      .dislike-btn {
+        .anticon {
+          color: var(--text-color-tertiary);
+
+          &:hover {
+            color: #ff4d4f;
+          }
+        }
+      }
+    }
+  }
 
   .message-actions {
     display: flex;
@@ -2522,7 +2691,9 @@ const initModelOptions = async () => {
   width: 280px !important;
 
   :deep(.ant-dropdown-menu-item) {
-    padding-right: 4px !important;
+    padding: 0 4px 0 4px !important;
+    line-height: 30px !important;
+    height: 30px !important;
   }
 
   .history-search-container {
@@ -2582,23 +2753,23 @@ const initModelOptions = async () => {
   max-height: 360px;
   overflow-y: auto;
   scrollbar-width: thin;
-  scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
+  scrollbar-color: var(--bg-color-quinary) transparent;
 
   &::-webkit-scrollbar {
     width: 4px;
   }
 
   &::-webkit-scrollbar-track {
-    background: var(--scrollbar-track);
+    background: transparent;
     border-radius: 2px;
   }
 
   &::-webkit-scrollbar-thumb {
-    background-color: var(--scrollbar-thumb);
+    background-color: var(--bg-color-quinary);
     border-radius: 2px;
 
     &:hover {
-      background-color: var(--scrollbar-thumb-hover);
+      background-color: var(--bg-color-quaternary);
     }
   }
 }
@@ -2618,6 +2789,7 @@ const initModelOptions = async () => {
   &:hover {
     background-color: var(--hover-bg-color) !important;
     transform: translateX(2px);
+    border-color: var(--border-color-light);
 
     .menu-action-buttons {
       opacity: 1;
@@ -2785,7 +2957,7 @@ const initModelOptions = async () => {
   }
 
   .reject-btn {
-    :global(.dark-theme) & {
+    .theme-dark & {
       background-color: #2a2a2a;
       border-color: #3a3a3a;
       color: #e0e0e0;
@@ -2810,7 +2982,7 @@ const initModelOptions = async () => {
       }
     }
 
-    :global(.light-theme) & {
+    .theme-light & {
       background-color: #fff;
       border: 1px solid #d9d9d9;
       color: #666;
@@ -2831,7 +3003,7 @@ const initModelOptions = async () => {
   }
 
   .approve-btn {
-    :global(.dark-theme) & {
+    .theme-dark & {
       color: #e0e0e0;
       background-color: #1656b1;
       border-color: #2d6fcd;
@@ -2856,7 +3028,7 @@ const initModelOptions = async () => {
       }
     }
 
-    :global(.light-theme) & {
+    .theme-light & {
       background-color: #1890ff;
       border-color: #1890ff;
       color: #fff;
@@ -2876,7 +3048,7 @@ const initModelOptions = async () => {
   }
 
   .cancel-btn {
-    :global(.dark-theme) & {
+    .theme-dark & {
       background-color: #2a2a2a;
       border-color: #3a3a3a;
       color: #666666;
@@ -2901,7 +3073,7 @@ const initModelOptions = async () => {
       }
     }
 
-    :global(.light-theme) & {
+    .theme-light & {
       background-color: #fff;
       border: 1px solid #d9d9d9;
       color: #666;
@@ -2921,7 +3093,7 @@ const initModelOptions = async () => {
   }
 
   .resume-btn {
-    :global(.dark-theme) & {
+    .theme-dark & {
       background-color: #1656b1;
       border-color: #2d6fcd;
       color: #cccccc;
@@ -2948,7 +3120,7 @@ const initModelOptions = async () => {
       }
     }
 
-    :global(.light-theme) & {
+    .theme-light & {
       background-color: #1890ff;
       border-color: #1890ff;
       color: #fff;
@@ -3147,13 +3319,14 @@ const initModelOptions = async () => {
 .history-load-more {
   text-align: center;
   padding: 8px;
-  color: #888;
+  color: var(--text-color-tertiary);
   font-size: 12px;
   cursor: pointer;
   transition: color 0.2s;
 
   &:hover {
     color: #1890ff;
+    background-color: var(--hover-bg-color);
   }
 }
 

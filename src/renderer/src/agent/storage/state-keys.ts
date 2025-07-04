@@ -94,5 +94,6 @@ export type GlobalStateKey =
   | 'modelOptions'
   | 'defaultBaseUrl'
   | 'defaultModelId'
+  | 'messageFeedbacks'
 
 export type LocalStateKey = 'localClineRulesToggles'
