@@ -184,26 +184,34 @@ export class Task {
   }
 
   private async executeCommandInRemoteServer(command: string, ip?: string, cwd?: string): Promise<string> {
-    const terminalInfo = await this.connectTerminal(ip)
-    if (!terminalInfo) {
-      throw new Error('Failed to connect to terminal')
+    try {
+      const terminalInfo = await this.connectTerminal(ip)
+      if (!terminalInfo) {
+        await this.ask('ssh_con_failed', 'SSH连接失败，未获取到终端信息', false)
+        await this.abortTask()
+        throw new Error('Failed to connect to terminal')
+      }
+      return new Promise<string>((resolve, reject) => {
+        const outputLines: string[] = []
+        const process = this.remoteTerminalManager.runCommand(terminalInfo, command, cwd)
+
+        process.on('line', (line) => {
+          outputLines.push(line)
+        })
+
+        process.on('error', (error) => {
+          reject(new Error(`Command execution failed: ${error.message}`))
+        })
+
+        process.once('completed', () => {
+          resolve(outputLines.join('\n'))
+        })
+      })
+    } catch (err) {
+      await this.ask('ssh_con_failed', err instanceof Error ? err.message : String(err), false)
+      await this.abortTask()
+      throw err
     }
-    return new Promise<string>((resolve, reject) => {
-      const outputLines: string[] = []
-      const process = this.remoteTerminalManager.runCommand(terminalInfo, command, cwd)
-
-      process.on('line', (line) => {
-        outputLines.push(line)
-      })
-
-      process.on('error', (error) => {
-        reject(new Error(`Command execution failed: ${error.message}`))
-      })
-
-      process.once('completed', () => {
-        resolve(outputLines.join('\n'))
-      })
-    })
   }
 
   private async connectTerminal(ip?: string) {
@@ -784,104 +792,112 @@ export class Task {
   }
 
   async executeCommandTool(command: string, ip: string): Promise<ToolResponse> {
-    const terminalInfo = await this.connectTerminal(ip)
-    if (!terminalInfo) {
-      return 'Failed to connect to terminal'
-    }
-    terminalInfo.terminal.show()
-    const process = this.remoteTerminalManager.runCommand(terminalInfo, command, this.cwd.get(ip) || undefined)
-
-    // Chunked terminal output buffering
-    const CHUNK_LINE_COUNT = 20
-    const CHUNK_BYTE_SIZE = 2048 // 2KB
-    const CHUNK_DEBOUNCE_MS = 100
-
-    let outputBuffer: string[] = []
-    let outputBufferSize: number = 0
-    let chunkTimer: NodeJS.Timeout | null = null
-    let chunkEnroute = false
-
-    const flushBuffer = async (force = false) => {
-      if (!force && (chunkEnroute || outputBuffer.length === 0)) {
-        return
+    try {
+      const terminalInfo = await this.connectTerminal(ip)
+      if (!terminalInfo) {
+        await this.ask('ssh_con_failed', 'SSH连接失败，未获取到终端信息', false)
+        await this.abortTask()
+        return 'Failed to connect to terminal'
       }
-      const chunk = outputBuffer.join('\n')
-      outputBuffer = []
-      outputBufferSize = 0
-      chunkEnroute = true
-      try {
-        // 发送截至目前的完整输出，供前端整体替换
-        await this.say('command_output', result, true)
-      } catch (error) {
-        console.error('Error while saying for command output:', error) // Log error
-      } finally {
-        chunkEnroute = false
-        // If more output accumulated while chunkEnroute, flush again
-        if (outputBuffer.length > 0) {
-          await flushBuffer()
+      terminalInfo.terminal.show()
+      const process = this.remoteTerminalManager.runCommand(terminalInfo, command, this.cwd.get(ip) || undefined)
+
+      // Chunked terminal output buffering
+      const CHUNK_LINE_COUNT = 20
+      const CHUNK_BYTE_SIZE = 2048 // 2KB
+      const CHUNK_DEBOUNCE_MS = 100
+
+      let outputBuffer: string[] = []
+      let outputBufferSize: number = 0
+      let chunkTimer: NodeJS.Timeout | null = null
+      let chunkEnroute = false
+
+      const flushBuffer = async (force = false) => {
+        if (!force && (chunkEnroute || outputBuffer.length === 0)) {
+          return
+        }
+        const chunk = outputBuffer.join('\n')
+        outputBuffer = []
+        outputBufferSize = 0
+        chunkEnroute = true
+        try {
+          // 发送截至目前的完整输出，供前端整体替换
+          await this.say('command_output', result, true)
+        } catch (error) {
+          console.error('Error while saying for command output:', error) // Log error
+        } finally {
+          chunkEnroute = false
+          // If more output accumulated while chunkEnroute, flush again
+          if (outputBuffer.length > 0) {
+            await flushBuffer()
+          }
         }
       }
-    }
 
-    const scheduleFlush = () => {
-      if (chunkTimer) {
-        clearTimeout(chunkTimer)
-      }
-      chunkTimer = setTimeout(async () => await flushBuffer(), CHUNK_DEBOUNCE_MS)
-    }
-
-    let result = ''
-    process.on('line', async (line) => {
-      result += line + '\n'
-
-      outputBuffer.push(line)
-      outputBufferSize += Buffer.byteLength(line, 'utf8')
-      // Flush if buffer is large enough
-      if (outputBuffer.length >= CHUNK_LINE_COUNT || outputBufferSize >= CHUNK_BYTE_SIZE) {
-        await flushBuffer()
-      } else {
-        scheduleFlush()
-      }
-    })
-
-    let completed = false
-    process.once('completed', async () => {
-      completed = true
-      // Flush any remaining buffered output
-      if (outputBuffer.length > 0) {
+      const scheduleFlush = () => {
         if (chunkTimer) {
           clearTimeout(chunkTimer)
-          chunkTimer = null
         }
-        await flushBuffer(true)
+        chunkTimer = setTimeout(async () => await flushBuffer(), CHUNK_DEBOUNCE_MS)
       }
-    })
 
-    process.once('no_shell_integration', async () => {
-      await this.say('shell_integration_warning')
-    })
+      let result = ''
+      process.on('line', async (line) => {
+        result += line + '\n'
 
-    await process
+        outputBuffer.push(line)
+        outputBufferSize += Buffer.byteLength(line, 'utf8')
+        // Flush if buffer is large enough
+        if (outputBuffer.length >= CHUNK_LINE_COUNT || outputBufferSize >= CHUNK_BYTE_SIZE) {
+          await flushBuffer()
+        } else {
+          scheduleFlush()
+        }
+      })
 
-    // Wait for a short delay to ensure all messages are sent to the webview
-    // This delay allows time for non-awaited promises to be created and
-    // for their associated messages to be sent to the webview, maintaining
-    // the correct order of messages (although the webview is smart about
-    // grouping command_output messages despite any gaps anyways)
-    await setTimeoutPromise(50)
+      let completed = false
+      process.once('completed', async () => {
+        completed = true
+        // Flush any remaining buffered output
+        if (outputBuffer.length > 0) {
+          if (chunkTimer) {
+            clearTimeout(chunkTimer)
+            chunkTimer = null
+          }
+          await flushBuffer(true)
+        }
+      })
 
-    const lastMessage = this.chatermMessages.at(-1)
-    if (lastMessage?.say === 'command_output') {
-      await this.say('command_output', lastMessage.text, false)
-    }
-    result = result.trim()
+      process.once('no_shell_integration', async () => {
+        await this.say('shell_integration_warning')
+      })
 
-    if (completed) {
-      return `Command executed.${result.length > 0 ? `\nOutput:\n${result}` : ''}`
-    } else {
-      return `Command is still running in the user\'s terminal.${
-        result.length > 0 ? `\nHere\'s the output so far:\n${result}` : ''
-      }\n\nYou will be updated on the terminal status and new output in the future.`
+      await process
+
+      // Wait for a short delay to ensure all messages are sent to the webview
+      // This delay allows time for non-awaited promises to be created and
+      // for their associated messages to be sent to the webview, maintaining
+      // the correct order of messages (although the webview is smart about
+      // grouping command_output messages despite any gaps anyways)
+      await setTimeoutPromise(50)
+
+      const lastMessage = this.chatermMessages.at(-1)
+      if (lastMessage?.say === 'command_output') {
+        await this.say('command_output', lastMessage.text, false)
+      }
+      result = result.trim()
+
+      if (completed) {
+        return `Command executed.${result.length > 0 ? `\nOutput:\n${result}` : ''}`
+      } else {
+        return `Command is still running in the user\'s terminal.${
+          result.length > 0 ? `\nHere\'s the output so far:\n${result}` : ''
+        }\n\nYou will be updated on the terminal status and new output in the future.`
+      }
+    } catch (err) {
+      await this.ask('ssh_con_failed', err instanceof Error ? err.message : String(err), false)
+      await this.abortTask()
+      return `SSH连接失败: ${err instanceof Error ? err.message : String(err)}`
     }
   }
   // Check if the tool should be auto-approved based on the settings

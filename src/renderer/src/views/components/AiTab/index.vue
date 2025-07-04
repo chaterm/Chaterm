@@ -969,6 +969,7 @@ const handleRejectContent = async () => {
           typeof message.content === 'object' && 'options' in message.content ? (message.content as MessageContent).options?.[1] || '' : ''
         break
       case 'api_req_failed':
+      case 'ssh_con_failed':
         messageRsp.askResponse = 'noButtonClicked'
         break
       case 'completion_result':
@@ -1033,6 +1034,7 @@ const handleApproveCommand = async () => {
           typeof message.content === 'object' && 'options' in message.content ? (message.content as MessageContent).options?.[0] || '' : ''
         break
       case 'api_req_failed':
+      case 'ssh_con_failed':
         messageRsp.askResponse = 'yesButtonClicked'
         break
       case 'completion_result':
@@ -1261,8 +1263,11 @@ onMounted(async () => {
   removeListener = (window.api as any).onMainMessage((message: any) => {
     console.log('Received main process message:', message.type, message)
     if (message?.type === 'partialMessage') {
-      // handle model error -- api_req_failed
-      if (message.partialMessage.type === 'ask' && message.partialMessage.ask === 'api_req_failed') {
+      // handle model error -- api_req_failed 或 ssh_con_failed
+      if (
+        message.partialMessage.type === 'ask' &&
+        (message.partialMessage.ask === 'api_req_failed' || message.partialMessage.ask === 'ssh_con_failed')
+      ) {
         handleModelApiReqFailed(message)
         return
       }
