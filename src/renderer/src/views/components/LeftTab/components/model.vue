@@ -920,6 +920,10 @@ const handleSave = async (provider) => {
   }
 }
 
+:deep(.ant-form-item .ant-form-item-label > label) {
+  color: var(--text-color-secondary);
+}
+
 .chat-response {
   display: flex;
   flex-direction: column;
