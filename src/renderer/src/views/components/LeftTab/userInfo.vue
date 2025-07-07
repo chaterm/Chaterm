@@ -338,17 +338,17 @@ onBeforeUnmount(() => {})
 .userInfo-container {
   width: 100%;
   height: 100%;
-  background-color: var(--chaterm-bg-color);
+  background-color: var(--bg-color);
   border-radius: 6px;
   overflow: hidden;
   padding: 4px;
   box-shadow: 0 4px 10px rgba(0, 0, 0, 0.15);
-  color: var(--chaterm-text-color);
+  color: var(--text-color);
 }
 
 :deep(.ant-card) {
   height: 100%;
-  background-color: var(--chaterm-bg-color);
+  background-color: var(--bg-color);
 }
 
 :deep(.ant-card-body) {
@@ -361,7 +361,7 @@ onBeforeUnmount(() => {})
 
 /* 表单样式 */
 .custom-form {
-  color: var(--chaterm-text-color);
+  color: var(--text-color);
   align-content: center;
   width: 100%;
 }
@@ -371,19 +371,19 @@ onBeforeUnmount(() => {})
 }
 
 .custom-form :deep(.ant-form-item-label > label) {
-  color: var(--chaterm-text-color);
+  color: var(--text-color);
 }
 
 /* 输入框样式 */
 .custom-input,
 :deep(.ant-input-password),
 :deep(.ant-input-password .ant-input) {
-  background-color: var(--chaterm-input-bg-color) !important;
-  color: var(--chaterm-text-color) !important;
+  background-color: var(--bg-color) !important;
+  color: var(--text-color) !important;
   border-radius: 4px !important;
   width: 250px !important;
   &::placeholder {
-    color: var(--chaterm-placeholder-color);
+    color: var(--text-color-secondary);
   }
 }
 
@@ -414,7 +414,7 @@ onBeforeUnmount(() => {})
   box-sizing: border-box;
   margin: 0;
   padding: 0;
-  color: var(--chaterm-text-color);
+  color: var(--text-color);
   font-size: 30px;
   font-variant: tabular-nums;
   line-height: 1.5;
@@ -482,7 +482,7 @@ onBeforeUnmount(() => {})
 }
 
 .divider-container :deep(.ant-divider) {
-  border-color: var(--chaterm-divider-color);
+  border-color: var(--border-color-light);
 }
 
 .subscription-tag {

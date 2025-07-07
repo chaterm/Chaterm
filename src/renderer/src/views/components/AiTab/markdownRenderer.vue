@@ -2,7 +2,7 @@
 <template>
   <!--  当 props.ask === 'command' 时，整个内容会使用 Monaco 编辑器以代码形式显示。-->
   <!--  当 props.ask !== 'command' 时，内容会被分成三个部分：-->
-  <!--      1.<think></think> 标签中的内容会显示为思考内容，带有折叠面板-->
+  <!--      1.<think></think> 或 <thinking></thinking> 标签中的内容会显示为思考内容，带有折叠面板-->
   <!--      2.代码块（被 ``` ``` 包围的内容）会使用 Monaco 编辑器显示-->
   <!--      3.其他内容会作为普通文本显示，支持 Markdown 渲染-->
   <div>
@@ -596,18 +596,30 @@ const processContent = (content: string) => {
     normalContent.value = content
     return
   }
-  // 检查是否开始于 <think> 标签
+
+  // 检查是否开始于 <think> 或 <thinking> 标签
+  let startTag = ''
+  let endTag = ''
+
   if (content.startsWith('<think>')) {
+    startTag = '<think>'
+    endTag = '</think>'
+  } else if (content.startsWith('<thinking>')) {
+    startTag = '<thinking>'
+    endTag = '</thinking>'
+  }
+
+  if (startTag) {
     // 移除开始标签
-    content = content.substring('<think>'.length)
+    content = content.substring(startTag.length)
 
     // 查找结束标签位置
-    const endIndex = content.indexOf('</think>')
+    const endIndex = content.indexOf(endTag)
     if (endIndex !== -1) {
       // 提取思考内容
       thinkingContent.value = content.substring(0, endIndex).trim()
       // 获取剩余内容
-      content = content.substring(endIndex + '</think>'.length).trim()
+      content = content.substring(endIndex + endTag.length).trim()
       thinkingLoading.value = false
       if (activeKey.value.length !== 0) {
         checkContentHeight()
@@ -1547,10 +1559,10 @@ code {
   white-space: pre-wrap;
   word-wrap: break-word;
   font-size: 12px;
-  line-height: 1.6;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
   border: 1px solid var(--border-color);
   overflow: hidden;
+  overflow-x: auto;
   position: relative;
   width: 100%;
   min-width: 0;
@@ -1603,7 +1615,7 @@ code {
 }
 
 .command-output .file {
-  color: #d4d4d4;
+  color: var(--text-color);
 }
 
 .command-output .executable {
@@ -1714,7 +1726,7 @@ code {
   display: flex;
   align-items: center;
   flex-wrap: nowrap;
-  min-width: 0;
+  min-width: max-content;
   width: 100%;
 }
 
@@ -1734,17 +1746,15 @@ code {
 .command-output .permissions {
   color: #e5c07b;
   font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
-  width: 100px;
+  width: 80px;
   flex-shrink: 0;
 }
 
 .command-output .links {
   color: #98c379;
   font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
-  width: 40px;
+  width: 20px;
   flex-shrink: 0;
-  margin: 0 8px;
-  text-align: right;
 }
 
 .command-output .user {
@@ -1752,7 +1762,6 @@ code {
   font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
   width: 80px;
   flex-shrink: 0;
-  margin: 0 8px;
 }
 
 .command-output .group {
@@ -1760,7 +1769,6 @@ code {
   font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
   width: 80px;
   flex-shrink: 0;
-  margin: 0 8px;
 }
 
 .command-output .size {
@@ -1768,8 +1776,6 @@ code {
   font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
   width: 60px;
   flex-shrink: 0;
-  margin: 0 8px;
-  text-align: right;
 }
 
 .command-output .date {
@@ -1777,7 +1783,6 @@ code {
   font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
   width: 120px;
   flex-shrink: 0;
-  margin: 0 8px;
 }
 
 .command-output .filename {
@@ -1786,7 +1791,6 @@ code {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  margin: 0 8px;
 }
 
 .command-output .prompt {
@@ -1954,5 +1958,18 @@ code {
 
 .ansi-underline {
   text-decoration: underline;
+}
+
+.command-output::-webkit-scrollbar {
+  height: 2px;
+}
+
+.command-output::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.command-output::-webkit-scrollbar-thumb {
+  background: var(--bg-color-quaternary);
+  border-radius: 1px;
 }
 </style>
