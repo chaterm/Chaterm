@@ -109,6 +109,11 @@ export default {
     theme: 'Theme',
     themeDark: 'Dark',
     themeLight: 'Light',
+    telemetry: 'Telemetry',
+    telemetryEnabled: 'Enabled',
+    telemetryDisabled: 'Disabled',
+    telemetryDescription:
+      'Help improve Chaterm by sending anonymous usage data and error reports. We never send any code, prompt content, or personal information. For more information, please see our <a href="https://docs.chaterm.ai/user/privacy" target="_blank" rel="noopener noreferrer">privacy policy</a>.',
     enterprise: 'Enterprise',
     personal: 'Personal',
     name: 'Name',

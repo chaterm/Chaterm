@@ -93,6 +93,29 @@
             <a-radio value="close">{{ $t('user.watermarkClose') }}</a-radio>
           </a-radio-group>
         </a-form-item>
+        <a-form-item
+          :label="$t('user.telemetry')"
+          class="user_my-ant-form-item"
+        >
+          <a-radio-group
+            v-model:value="userConfig.telemetry"
+            class="custom-radio-group"
+            @change="updateTelemetry"
+          >
+            <a-radio value="enabled">{{ $t('user.telemetryEnabled') }}</a-radio>
+            <a-radio value="disabled">{{ $t('user.telemetryDisabled') }}</a-radio>
+          </a-radio-group>
+        </a-form-item>
+        <a-form-item
+          class="telemetry-description-item"
+          :label-col="{ span: 0 }"
+          :wrapper-col="{ span: 24 }"
+        >
+          <div
+            class="telemetry-description"
+            v-html="$t('user.telemetryDescription')"
+          ></div>
+        </a-form-item>
       </a-form>
     </a-card>
   </div>
@@ -116,7 +139,8 @@ const userConfig = ref({
   language: 'zh-CN',
   cursorStyle: 'block',
   watermark: 'open',
-  theme: 'dark'
+  theme: 'dark',
+  telemetry: 'enabled'
 })
 
 // 加载保存的配置
@@ -156,7 +180,8 @@ const saveConfig = async () => {
       language: userConfig.value.language,
       cursorStyle: userConfig.value.cursorStyle,
       watermark: userConfig.value.watermark,
-      theme: userConfig.value.theme
+      theme: userConfig.value.theme,
+      telemetry: userConfig.value.telemetry
     }
 
     // Get existing config and merge with new config
@@ -190,6 +215,7 @@ watch(
 // 组件挂载时加载保存的配置
 onMounted(async () => {
   await loadSavedConfig()
+  updateTelemetry()
 })
 
 // 组件卸载时清理
@@ -218,6 +244,25 @@ const changeTheme = async () => {
     console.error('Failed to change theme:', error)
     notification.error({
       message: '主题切换失败',
+      description: '请稍后重试'
+    })
+  }
+}
+
+const updateTelemetry = async () => {
+  try {
+    // 向主进程发送遥测设置消息
+    await window.api.sendToMain({
+      type: 'telemetrySetting',
+      telemetrySetting: userConfig.value.telemetry
+    })
+
+    // 保存配置到存储
+    await saveConfig()
+  } catch (error) {
+    console.error('Failed to change telemetry setting:', error)
+    notification.error({
+      message: '遥测设置更新失败',
       description: '请稍后重试'
     })
   }
@@ -386,5 +431,38 @@ const changeTheme = async () => {
 .checkbox-md :deep(.ant-checkbox-inner) {
   width: 20px;
   height: 20px;
+}
+
+.telemetry-description-item {
+  margin-top: -15px; /* 减少与上一个表单项的间距 */
+  margin-bottom: 14px; /* 与其他表单项保持一致的间距 */
+}
+
+.telemetry-description-item :deep(.ant-form-item-control) {
+  margin-left: 0 !important; /* 移除左边距，使内容从最左侧开始 */
+  max-width: 100% !important;
+}
+
+.telemetry-description {
+  font-size: 12px;
+  color: var(--text-color-secondary);
+  line-height: 1.4;
+  opacity: 0.8;
+  text-align: left;
+  margin: 0;
+  margin-left: 20px; /* 向右稍微挪动一点 */
+  padding: 0;
+  word-wrap: break-word; /* 确保长文本能够换行 */
+}
+
+.telemetry-description a {
+  color: #1890ff;
+  text-decoration: none;
+  transition: color 0.3s;
+}
+
+.telemetry-description a:hover {
+  color: #40a9ff;
+  text-decoration: underline;
 }
 </style>
