@@ -2133,34 +2133,94 @@ export class Task {
   private async buildSystemPrompt(): Promise<string> {
     let systemPrompt = await SYSTEM_PROMPT()
     let systemInformation = '# SYSTEM INFORMATION\n\n'
-    for (const host of this.hosts!) {
-      // 检查缓存，如果没有缓存则获取系统信息并缓存
-      let hostInfo = this.hostSystemInfoCache.get(host.host)
-      if (!hostInfo) {
-        const osVersion = await this.executeCommandInRemoteServer('uname -a', host.host)
-        const defaultShell = await this.executeCommandInRemoteServer('echo $SHELL', host.host)
-        const homeDir = await this.executeCommandInRemoteServer('echo $HOME', host.host)
-        const hostName = await this.executeCommandInRemoteServer('echo $HOSTNAME', host.host)
-        const userName = await this.executeCommandInRemoteServer('whoami', host.host)
-        const sudoCheck = await this.executeCommandInRemoteServer(
-          'sudo -n true 2>/dev/null && echo "has sudo permission" || echo "no sudo permission"',
-          host.host
-        )
 
-        hostInfo = {
-          osVersion,
-          defaultShell,
-          homeDir,
-          hostName,
-          userName,
-          sudoCheck
-        }
+    // 检查 hosts 是否存在且不为空
+    if (!this.hosts || this.hosts.length === 0) {
+      console.warn('No hosts configured, skipping system information collection')
+      systemInformation += 'No hosts configured.\n'
+    } else {
+      console.log(`Collecting system information for ${this.hosts.length} host(s)`)
 
-        // 缓存系统信息
-        this.hostSystemInfoCache.set(host.host, hostInfo)
-      }
+      for (const host of this.hosts) {
+        try {
+          // 检查缓存，如果没有缓存则获取系统信息并缓存
+          let hostInfo = this.hostSystemInfoCache.get(host.host)
+          if (!hostInfo) {
+            console.log(`Fetching system information for host: ${host.host}`)
 
-      systemInformation += `
+            // 优化：一次性获取所有系统信息，避免多次网络请求
+            const systemInfoScript = `
+              echo "OS_VERSION:$(uname -a)"
+              echo "DEFAULT_SHELL:$SHELL"
+              echo "HOME_DIR:$HOME"
+              echo "HOSTNAME:$HOSTNAME"
+              echo "USERNAME:$(whoami)"
+              echo "SUDO_CHECK:$(sudo -n true 2>/dev/null && echo "has sudo permission" || echo "no sudo permission")"
+            `
+
+            const systemInfoOutput = await this.executeCommandInRemoteServer(systemInfoScript, host.host)
+            console.log(`System info output for ${host.host}:`, systemInfoOutput)
+
+            // 解析输出结果
+            const parseSystemInfo = (
+              output: string
+            ): {
+              osVersion: string
+              defaultShell: string
+              homeDir: string
+              hostName: string
+              userName: string
+              sudoCheck: string
+            } => {
+              const lines = output.split('\n').filter((line) => line.trim())
+              const info = {
+                osVersion: '',
+                defaultShell: '',
+                homeDir: '',
+                hostName: '',
+                userName: '',
+                sudoCheck: ''
+              }
+
+              lines.forEach((line) => {
+                const [key, ...valueParts] = line.split(':')
+                const value = valueParts.join(':').trim()
+
+                switch (key) {
+                  case 'OS_VERSION':
+                    info.osVersion = value
+                    break
+                  case 'DEFAULT_SHELL':
+                    info.defaultShell = value
+                    break
+                  case 'HOME_DIR':
+                    info.homeDir = value
+                    break
+                  case 'HOSTNAME':
+                    info.hostName = value
+                    break
+                  case 'USERNAME':
+                    info.userName = value
+                    break
+                  case 'SUDO_CHECK':
+                    info.sudoCheck = value
+                    break
+                }
+              })
+
+              return info
+            }
+
+            hostInfo = parseSystemInfo(systemInfoOutput)
+            console.log(`Parsed system info for ${host.host}:`, hostInfo)
+
+            // 缓存系统信息
+            this.hostSystemInfoCache.set(host.host, hostInfo)
+          } else {
+            console.log(`Using cached system information for host: ${host.host}`)
+          }
+
+          systemInformation += `
         ## Host: ${host.host}
         Operating System: ${hostInfo.osVersion}
         Default Shell: ${hostInfo.defaultShell}
@@ -2171,8 +2231,25 @@ export class Task {
         Sudo Access: ${hostInfo.sudoCheck}
         ====
       `
+        } catch (error) {
+          console.error(`Failed to get system information for host ${host.host}:`, error)
+          // 即使获取系统信息失败，也要添加基本信息
+          systemInformation += `
+        ## Host: ${host.host}
+        Operating System: Unable to retrieve (${error instanceof Error ? error.message : 'Unknown error'})
+        Default Shell: Unable to retrieve
+        Home Directory: Unable to retrieve
+        Current Working Directory: ${this.cwd.get(host.host) || 'Unknown'}
+        Hostname: Unable to retrieve
+        User: Unable to retrieve
+        Sudo Access: Unable to retrieve
+        ====
+      `
+        }
+      }
     }
 
+    console.log('Final system information section:', systemInformation)
     systemPrompt += systemInformation
 
     const settingsCustomInstructions = this.customInstructions?.trim()
