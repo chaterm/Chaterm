@@ -39,11 +39,11 @@
               class="assistant-message-container"
               :class="{
                 'has-history-copy-btn': chatTypeValue === 'cmd' && message.ask === 'command' && message.actioned,
-                'last-message': index === chatHistory.length - 1 + 1
+                'last-message': index === chatHistory.length - 1
               }"
             >
               <div
-                v-if="index === chatHistory.length - 1 && message.ask === 'completion_result_to_do'"
+                v-if="index === chatHistory.length - 1 && message.say === 'completion_result'"
                 class="message-header"
               >
                 <div class="message-title">
@@ -74,7 +74,7 @@
               <MarkdownRenderer
                 v-if="typeof message.content === 'object' && 'question' in message.content"
                 :content="(message.content as MessageContent).question"
-                :class="`message ${message.role} ${message.ask === 'completion_result_to_do' ? 'completion-result' : ''}`"
+                :class="`message ${message.role} ${message.say === 'completion_result' ? 'completion-result' : ''}`"
                 :ask="message.ask"
                 :say="message.say"
                 :partial="message.partial"
@@ -83,7 +83,7 @@
               <MarkdownRenderer
                 v-else
                 :content="typeof message.content === 'string' ? message.content : ''"
-                :class="`message ${message.role} ${message.ask === 'completion_result_to_do' ? 'completion-result' : ''}`"
+                :class="`message ${message.role} ${message.say === 'completion_result' ? 'completion-result' : ''}`"
                 :ask="message.ask"
                 :say="message.say"
                 :partial="message.partial"
@@ -214,6 +214,22 @@
               <ReloadOutlined />
             </template>
             {{ $t('ai.retry') }}
+          </a-button>
+        </div>
+        <div
+          v-if="showNewTaskButton"
+          class="bottom-buttons"
+        >
+          <a-button
+            size="small"
+            type="primary"
+            class="retry-btn"
+            @click="handlePlusClick"
+          >
+            <template #icon>
+              <PlusOutlined />
+            </template>
+            {{ $t('ai.newTask') }}
           </a-button>
         </div>
         <div class="input-send-container">
@@ -521,7 +537,8 @@ import {
   StarFilled,
   LikeOutlined,
   DislikeOutlined,
-  CheckCircleFilled
+  CheckCircleFilled,
+  PlusOutlined
 } from '@ant-design/icons-vue'
 import { notification } from 'ant-design-vue'
 import { v4 as uuidv4 } from 'uuid'
@@ -591,6 +608,7 @@ const buttonsDisabled = ref(false)
 const resumeDisabled = ref(false)
 const showRetryButton = ref(false)
 const showCancelButton = ref(false)
+const showNewTaskButton = ref(false)
 
 // 当前活动对话的 ID
 const currentChatId = ref<string | null>(null)
@@ -835,6 +853,7 @@ const handlePlusClick = async () => {
     chatInputValue.value = ''
   }
   showRetryButton.value = false
+  showNewTaskButton.value = false
 }
 
 const containerKey = ref(0)
@@ -1315,6 +1334,10 @@ onMounted(async () => {
   removeListener = (window.api as any).onMainMessage((message: any) => {
     console.log('Received main process message:', message.type, message)
     if (message?.type === 'partialMessage') {
+      if (message.partialMessage.type === 'ask' && message.partialMessage.ask === 'completion_result') {
+        showNewTaskButton.value = true
+        return
+      }
       // handle model error -- api_req_failed 或 ssh_con_failed
       if (
         message.partialMessage.type === 'ask' &&
@@ -2024,7 +2047,7 @@ const initModelOptions = async () => {
 }
 
 // 添加处理反馈的方法
-const handleFeedback = async (message: ChatMessage, type: 'like' | 'dislike') => {
+const handleFeedback = async (message: ChatMessage, type: 'thumbs_up' | 'thumbs_down') => {
   // 获取当前反馈状态
   const currentFeedback = getMessageFeedback(message.id)
 

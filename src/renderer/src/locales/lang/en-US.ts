@@ -262,7 +262,8 @@ export default {
     loading: 'loading...',
     loadMore: 'load more',
     copyToClipboard: 'Copy to clipboard',
-    retry: 'Retry'
+    retry: 'Retry',
+    newTask: 'Start New Task'
   },
   keyChain: {
     newKey: 'New Key',
@@ -320,7 +321,8 @@ export default {
     edit: 'Edit',
     save: 'Save',
     cancel: 'Cancel',
-    resetPassword: 'Reset Password'
+    resetPassword: 'Reset Password',
+    expirationTime: 'Expiration Time'
   },
   update: {
     available: 'A new version is available',
