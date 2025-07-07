@@ -9,6 +9,19 @@
       </div>
       <div class="registration_type">
         {{ userInfo.registrationType === 1 ? t('userInfo.enterprise') : t('userInfo.personal') }}
+        <a-tag
+          v-if="userInfo.expires && new Date() < new Date(userInfo.expires) && false"
+          :key="userInfo.subscription"
+          :title="t('userInfo.expirationTime') + `：${userInfo.expires}`"
+          class="subscription-tag"
+        >
+          {{ userInfo.subscription }}
+        </a-tag>
+        <a-tag
+          v-else
+          class="subscription-tag free-tag"
+          >free</a-tag
+        >
       </div>
       <div class="divider-container">
         <a-divider style="border-color: #4a4a4a; margin-bottom: 20px" />
@@ -470,5 +483,20 @@ onBeforeUnmount(() => {})
 
 .divider-container :deep(.ant-divider) {
   border-color: var(--chaterm-divider-color);
+}
+
+.subscription-tag {
+  background-color: rgba(128, 128, 128, 0.1);
+  color: var(--chaterm-text-color, #333);
+  border: 1px solid rgba(128, 128, 128, 0.15);
+  border-radius: 4px;
+  font-size: 11px;
+  padding: 0 4px;
+}
+
+.free-tag {
+  background-color: rgba(128, 128, 128, 0.1);
+  border-color: rgba(128, 128, 128, 0.15);
+  color: var(--chaterm-secondary-text-color, #999);
 }
 </style>

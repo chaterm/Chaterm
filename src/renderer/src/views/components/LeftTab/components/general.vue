@@ -287,14 +287,14 @@ const changeTheme = async () => {
 
 .custom-form :deep(.ant-input-number:hover) {
   border-color: #1890ff;
-  background-color: var(--bg-color-hover);
+  background-color: var(--hover-bg-color);
 }
 
 .custom-form :deep(.ant-input-number:focus),
 .custom-form :deep(.ant-input-number-focused) {
   border-color: #1890ff;
   box-shadow: 0 0 0 2px rgba(24, 144, 255, 0.2);
-  background-color: var(--bg-color-hover);
+  background-color: var(--hover-bg-color);
 }
 
 .custom-form :deep(.ant-input-number-input) {
