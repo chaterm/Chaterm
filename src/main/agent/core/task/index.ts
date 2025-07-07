@@ -112,6 +112,7 @@ export class Task {
   private didAlreadyUseTool = false
   private didCompleteReadingStream = false
   private didAutomaticallyRetryFailedApiRequest = false
+  private isInsideThinkingBlock = false
 
   constructor(
     workspaceTracker: WorkspaceTracker,
@@ -1222,6 +1223,7 @@ export class Task {
     this.presentAssistantMessageLocked = false
     this.presentAssistantMessageHasPendingUpdates = false
     this.didAutomaticallyRetryFailedApiRequest = false
+    this.isInsideThinkingBlock = false
   }
 
   private async processStream(stream: any, streamMetrics: any, messageUpdater: any): Promise<string> {
@@ -1418,15 +1420,15 @@ export class Task {
 
     await pWaitFor(() => this.userMessageContentReady)
 
-    const didToolUse = this.assistantMessageContent.some((block) => block.type === 'tool_use')
+    // const didToolUse = this.assistantMessageContent.some((block) => block.type === 'tool_use')
 
-    if (!didToolUse) {
-      this.userMessageContent.push({
-        type: 'text',
-        text: formatResponse.noToolsUsed()
-      })
-      this.consecutiveMistakeCount++
-    }
+    // if (!didToolUse) {
+    //   this.userMessageContent.push({
+    //     type: 'text',
+    //     text: formatResponse.noToolsUsed()
+    //   })
+    //   this.consecutiveMistakeCount++
+    // }
 
     return await this.recursivelyMakeChatermRequests(this.userMessageContent)
   }
@@ -2090,9 +2092,8 @@ export class Task {
 
     let content = block.content
     if (content) {
-      // 移除 <thinking> 标签
-      // content = content.replace(/<thinking>\s?/g, '')
-      // content = content.replace(/\s?<\/thinking>/g, '')
+      // 处理流式的 <thinking> 标签
+      content = this.processThinkingTags(content)
 
       const lastOpenBracketIndex = content.lastIndexOf('<')
       if (lastOpenBracketIndex !== -1) {
@@ -2128,6 +2129,41 @@ export class Task {
     }
 
     await this.say('text', content, block.partial)
+  }
+
+  private processThinkingTags(content: string): string {
+    if (!content) return content
+
+    // 如果当前已经在思考块内部，检查是否有结束标签
+    if (this.isInsideThinkingBlock) {
+      const endIndex = content.indexOf('</thinking>')
+      if (endIndex !== -1) {
+        // 找到结束标签，退出思考块状态，返回结束标签后的内容
+        this.isInsideThinkingBlock = false
+        return content.slice(endIndex + '</thinking>'.length)
+      } else {
+        // 仍在思考块内部，移除所有内容
+        return ''
+      }
+    }
+
+    const startIndex = content.indexOf('<thinking>')
+    if (startIndex !== -1) {
+      // 找到开始标签
+      const beforeThinking = content.slice(0, startIndex)
+      const afterThinking = content.slice(startIndex + '<thinking>'.length)
+
+      const endIndex = afterThinking.indexOf('</thinking>')
+      if (endIndex !== -1) {
+        const afterThinkingBlock = afterThinking.slice(endIndex + '</thinking>'.length)
+        return beforeThinking + afterThinkingBlock
+      } else {
+        this.isInsideThinkingBlock = true
+        return beforeThinking
+      }
+    }
+
+    return content
   }
 
   private async buildSystemPrompt(): Promise<string> {
