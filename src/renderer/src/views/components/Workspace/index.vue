@@ -722,8 +722,7 @@ onUnmounted(() => {
   }
 }
 .active-text {
-  color: rgba(255, 255, 255, 1);
-  border-bottom: 1px solid #ffffff;
+  border-bottom: 1px solid var(--text-color);
 }
 .no-active-text {
   border-bottom: 1px solid transparent;
