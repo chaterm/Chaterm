@@ -40,7 +40,10 @@
             </pane>
             <pane :size="100 - leftPaneSize">
               <splitpanes @resize="onMainSplitResize">
-                <pane :size="mainTerminalSize">
+                <pane
+                  :size="mainTerminalSize"
+                  :min-size="30"
+                >
                   <TabsPanel
                     ref="allTabs"
                     :tabs="openedTabs"
@@ -57,6 +60,7 @@
                 <pane
                   v-if="showSplitPane"
                   :size="splitPaneSize"
+                  :min-size="30"
                 >
                   <div class="rigth-sidebar">
                     <TabsPanel
@@ -157,7 +161,10 @@
           </pane>
           <pane :size="100 - leftPaneSize">
             <splitpanes @resize="onMainSplitResize">
-              <pane :size="mainTerminalSize">
+              <pane
+                :size="mainTerminalSize"
+                :min-size="30"
+              >
                 <TabsPanel
                   ref="allTabs"
                   :tabs="openedTabs"
@@ -174,6 +181,7 @@
               <pane
                 v-if="showSplitPane"
                 :size="splitPaneSize"
+                :min-size="30"
               >
                 <div class="rigth-sidebar">
                   <TabsPanel
@@ -862,6 +870,7 @@ defineExpose({
 
       .term_content_left {
         width: 190px;
+        min-width: 200px;
       }
     }
   }
