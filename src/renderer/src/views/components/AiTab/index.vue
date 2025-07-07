@@ -817,8 +817,6 @@ const handlePlusClick = async () => {
   }
 
   chatHistory.length = 0
-  chatInputValue.value = ''
-
   // 清除当前反馈数据
   messageFeedbacks.value = {}
 
@@ -833,6 +831,8 @@ const handlePlusClick = async () => {
   responseLoading.value = false
   if (currentInput.trim()) {
     sendMessage('newTask')
+  } else {
+    chatInputValue.value = ''
   }
   showRetryButton.value = false
 }
