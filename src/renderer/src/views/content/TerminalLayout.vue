@@ -220,6 +220,7 @@ interface ResizeParams {
 }
 import { useI18n } from 'vue-i18n'
 import { userConfigStore } from '@/services/userConfigStoreService'
+import { userConfigStore as piniaUserConfigStore } from '@/store/userConfigStore'
 import { ref, onMounted, nextTick, onUnmounted, watch, computed } from 'vue'
 import { Splitpanes, Pane } from 'splitpanes'
 import 'splitpanes/dist/splitpanes.css'
@@ -276,6 +277,7 @@ const showAiSidebar = ref(false)
 const showSplitPane = ref(false)
 const globalInput = ref('')
 onMounted(async () => {
+  const store = piniaUserConfigStore()
   eventBus.on('updateWatermark', (watermark) => {
     showWatermark.value = watermark !== 'close'
   })
@@ -287,7 +289,13 @@ onMounted(async () => {
     })
   })
   try {
-    const config = await userConfigStore.getConfig()
+    let config = await userConfigStore.getConfig()
+    if (!config.feature || config.feature < 1.0) {
+      config.autoCompleteStatus = 1
+      config.feature = 1.0
+      await userConfigStore.saveConfig(config)
+    }
+    store.setUserConfig(config)
     currentTheme.value = config.theme || 'dark'
     document.body.className = `theme-${currentTheme.value}`
     nextTick(() => {
