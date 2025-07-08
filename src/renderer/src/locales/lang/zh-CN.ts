@@ -192,7 +192,7 @@ export default {
     addModel: '添加模型',
     addModelExistError: '模型名称已存在',
     addModelSuccess: '新增模型成功',
-    billing: '计费使用情况',
+    billing: '计费概览',
     expires: '过期时间',
     ratio: '使用比例'
   },
