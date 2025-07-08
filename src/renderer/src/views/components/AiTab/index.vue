@@ -804,6 +804,14 @@ const checkModelConfig = async () => {
         return false
       }
       break
+    case 'openai':
+      const openAiBaseUrl = await getGlobalState('openAiBaseUrl')
+      const openAiApiKey = await getSecret('openAiApiKey')
+      const openAiModelId = await getGlobalState('openAiModelId')
+      if (isEmptyValue(openAiBaseUrl) || isEmptyValue(openAiApiKey) || isEmptyValue(openAiModelId)) {
+        return false
+      }
+      break
   }
   return true
 }
@@ -1260,6 +1268,9 @@ const handleChatAiModelChange = async () => {
     case 'deepseek':
       await updateGlobalState('apiModelId', chatAiModelValue.value)
       break
+    case 'openai':
+      await updateGlobalState('openAiModelId', chatAiModelValue.value)
+      break
     default:
       await updateGlobalState('defaultModelId', chatAiModelValue.value)
       break
@@ -1280,6 +1291,9 @@ const initModel = async () => {
       break
     case 'deepseek':
       chatAiModelValue.value = (await getGlobalState('apiModelId')) as string
+      break
+    case 'openai':
+      chatAiModelValue.value = (await getGlobalState('openAiModelId')) as string
       break
     default:
       chatAiModelValue.value = (await getGlobalState('defaultModelId')) as string
