@@ -33,6 +33,14 @@
         </a-tab-pane>
         <a-tab-pane
           v-if="!isSkippedLogin"
+          key="5"
+          :tab="$t('user.billing')"
+          type="card"
+        >
+          <Billing />
+        </a-tab-pane>
+        <a-tab-pane
+          v-if="!isSkippedLogin"
           key="2"
           :tab="$t('user.aiPreferences')"
           type="card"
