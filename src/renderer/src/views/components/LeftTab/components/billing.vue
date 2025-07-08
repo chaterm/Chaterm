@@ -3,10 +3,6 @@
     <div class="section-header">
       <div class="title-container">
         <h3>{{ $t('user.billing') }}</h3>
-        <div class="user-info">
-          <div class="user-email">{{ userInfo.email }}</div>
-          <div class="subscription">{{ userInfo.subscription }}</div>
-        </div>
       </div>
     </div>
     <a-card
@@ -14,6 +10,14 @@
       :bordered="false"
     >
       <div class="setting-item">
+        <div class="info-row lr-row">
+          <span class="info-label">{{ $t('user.email') }}</span>
+          <span class="info-value">{{ userInfo.email || '-' }}</span>
+        </div>
+        <div class="info-row lr-row">
+          <span class="info-label">{{ $t('user.subscription') }}</span>
+          <span class="info-value subscription-type">{{ userInfo.subscription || '-' }}</span>
+        </div>
         <div class="info-row lr-row">
           <span class="info-label">{{ $t('user.expires') }}</span>
           <span class="info-value">{{ userInfo.expires || '-' }}</span>
@@ -93,23 +97,6 @@ const getUserInfo = () => {
     margin: 0;
     color: var(--text-color);
   }
-
-  .user-info {
-    display: flex;
-    flex-direction: column;
-
-    .user-email {
-      font-size: 11px;
-      color: var(--text-color);
-    }
-
-    .subscription {
-      margin-top: 2px;
-      font-size: 12px;
-      line-height: 1;
-      border-radius: 4px;
-    }
-  }
 }
 
 .setting-item {
@@ -129,15 +116,27 @@ const getUserInfo = () => {
 
 .info-label {
   color: var(--text-color);
-}
-
-.lr-row .info-label {
   min-width: 100px;
   margin-right: 15px;
 }
 
 .info-value {
   color: var(--text-color-secondary);
+}
+
+.subscription-type {
+  font-weight: 500;
+  color: #eee;
+  padding: 2px 10px;
+  background-color: #2a2a2a;
+  border-radius: 4px;
+  font-size: 12px;
+  display: inline-block;
+  min-width: 60px;
+  text-align: center;
+  border: none;
+  box-shadow: none;
+  text-shadow: none;
 }
 
 .progress-wrapper {
