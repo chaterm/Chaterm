@@ -268,6 +268,7 @@ export default {
     loadMore: 'load more',
     copyToClipboard: 'Copy to clipboard',
     retry: 'Retry',
+    taskCompleted: 'Task Completed',
     newTask: 'Start New Task'
   },
   keyChain: {

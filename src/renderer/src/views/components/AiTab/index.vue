@@ -39,34 +39,51 @@
               class="assistant-message-container"
               :class="{
                 'has-history-copy-btn': chatTypeValue === 'cmd' && message.ask === 'command' && message.actioned,
-                'last-message': index === chatHistory.length - 1
+                'last-message': message.say === 'completion_result'
               }"
             >
               <div
-                v-if="index === chatHistory.length - 1 && message.say === 'completion_result'"
+                v-if="message.say === 'completion_result'"
                 class="message-header"
               >
                 <div class="message-title">
                   <CheckCircleFilled style="color: #52c41a; margin-right: 4px" />
-                  Task Completed
+                  {{ $t('ai.taskCompleted') }}
                 </div>
-                <div class="message-feedback">
+                <div
+                  v-if="index === chatHistory.length - 1"
+                  class="message-feedback"
+                >
                   <a-button
                     type="text"
                     class="feedback-btn like-btn"
+                    size="small"
+                    :disabled="isMessageFeedbackSubmitted(message.id)"
                     @click="handleFeedback(message, 'like')"
                   >
                     <template #icon>
-                      <LikeOutlined :style="{ color: getMessageFeedback(message.id) === 'like' ? '#52c41a' : '' }" />
+                      <LikeOutlined
+                        :style="{
+                          color: getMessageFeedback(message.id) === 'like' ? '#52c41a' : '',
+                          opacity: getMessageFeedback(message.id) === 'like' ? 1 : ''
+                        }"
+                      />
                     </template>
                   </a-button>
                   <a-button
                     type="text"
                     class="feedback-btn dislike-btn"
+                    size="small"
+                    :disabled="isMessageFeedbackSubmitted(message.id)"
                     @click="handleFeedback(message, 'dislike')"
                   >
                     <template #icon>
-                      <DislikeOutlined :style="{ color: getMessageFeedback(message.id) === 'dislike' ? '#ff4d4f' : '' }" />
+                      <DislikeOutlined
+                        :style="{
+                          color: getMessageFeedback(message.id) === 'dislike' ? '#ff4d4f' : '',
+                          opacity: getMessageFeedback(message.id) === 'dislike' ? 1 : ''
+                        }"
+                      />
                     </template>
                   </a-button>
                 </div>
@@ -583,6 +600,12 @@ const getMessageFeedback = (messageId: string): 'like' | 'dislike' | undefined =
   return messageFeedbacks.value[messageId]
 }
 
+// 检查消息是否已提交反馈
+const isMessageFeedbackSubmitted = (messageId: string): boolean => {
+  // 检查是否有反馈记录且已提交
+  return !!messageFeedbacks.value[messageId]
+}
+
 const hostSearchInputRef = ref()
 const showHostSelect = ref(false)
 const hostOptions = ref<{ label: string; value: string; uuid: string }[]>([])
@@ -604,6 +627,7 @@ const shouldShowSendButton = computed(() => {
   return trimmedValue.length >= 1 && !/^\s*$/.test(trimmedValue)
 })
 const lastChatMessageId = ref('')
+const isCurrentChatMessage = ref(true)
 const buttonsDisabled = ref(false)
 const resumeDisabled = ref(false)
 const showRetryButton = ref(false)
@@ -799,6 +823,7 @@ const sendMessage = async (sendType: string) => {
   chatInputValue.value = ''
   responseLoading.value = true
   showRetryButton.value = false
+  showNewTaskButton.value = false
   return
 }
 
@@ -936,11 +961,8 @@ const restoreHistoryTab = async (history: HistoryItem) => {
         lastItem = item
       }
     })
-
+    isCurrentChatMessage.value = false
     // 加载此对话的反馈数据
-    const feedbacks = ((await getGlobalState('messageFeedbacks')) || {}) as Record<string, 'like' | 'dislike'>
-    messageFeedbacks.value = feedbacks
-
     await (window.api as any).sendToMain({
       type: 'showTaskWithId',
       text: history.id,
@@ -1284,15 +1306,13 @@ onMounted(async () => {
   ]
 
   // 初始化收藏列表
-  const favorites = ((await getGlobalState('favoriteTaskList')) as string[]) || []
-  favoriteTaskList.value = favorites
+  favoriteTaskList.value = ((await getGlobalState('favoriteTaskList')) as string[]) || []
 
   // 初始化资产信息
   await initAssetInfo()
 
   // 加载消息反馈
-  const feedbacks = ((await getGlobalState('messageFeedbacks')) || {}) as Record<string, 'like' | 'dislike'>
-  messageFeedbacks.value = feedbacks
+  messageFeedbacks.value = ((await getGlobalState('messageFeedbacks')) || {}) as Record<string, 'like' | 'dislike'>
 
   // 添加事件监听
   eventBus.on('SettingModelOptionsChanged', async () => {
@@ -1360,7 +1380,7 @@ onMounted(async () => {
       if (lastMessage && JSON.stringify(lastMessage) === JSON.stringify(message)) {
         return
       }
-
+      isCurrentChatMessage.value = true
       if (openNewMessage) {
         const newAssistantMessage = createNewMessage(
           'assistant',
@@ -1905,7 +1925,7 @@ const scrollToBottom = () => {
       const currentBottom = chatResponse.value.getBoundingClientRect().bottom
       // console.log('容器高度变化，直接滚动到底部', prevBottom, currentBottom)
       // 如果容器底部位置发生了变化，直接滚动到底部
-      if (prevBottom !== undefined && prevBottom !== currentBottom && prevBottom > 0 && currentBottom > 0) {
+      if (prevBottom !== currentBottom && prevBottom > 0 && currentBottom > 0) {
         chatContainer.value.scrollTop = chatContainer.value.scrollHeight
       }
     }
@@ -2047,46 +2067,28 @@ const initModelOptions = async () => {
 }
 
 // 添加处理反馈的方法
-const handleFeedback = async (message: ChatMessage, type: 'thumbs_up' | 'thumbs_down') => {
-  // 获取当前反馈状态
-  const currentFeedback = getMessageFeedback(message.id)
-
-  // 如果已经选择了相同的反馈，则取消选择
-  if (currentFeedback === type) {
-    // 从本地状态中移除
-    delete messageFeedbacks.value[message.id]
-
-    // 从 globalState 中获取当前反馈
-    const feedbacks = ((await getGlobalState('messageFeedbacks')) || {}) as Record<string, 'like' | 'dislike'>
-
-    // 删除此消息的反馈
-    if (feedbacks[message.id]) {
-      delete feedbacks[message.id]
-      // 更新 globalState
-      await updateGlobalState('messageFeedbacks', feedbacks)
-    }
-  } else {
-    // 更新本地状态
-    messageFeedbacks.value[message.id] = type
-
-    // 从 globalState 中获取当前反馈
-    const feedbacks = ((await getGlobalState('messageFeedbacks')) || {}) as Record<string, 'like' | 'dislike'>
-
-    // 添加或更新此消息的反馈
-    feedbacks[message.id] = type
-
-    // 更新 globalState
-    await updateGlobalState('messageFeedbacks', feedbacks)
+const handleFeedback = async (message: ChatMessage, type: 'like' | 'dislike') => {
+  // 如果已经提交过反馈，则不允许再次操作
+  if (isMessageFeedbackSubmitted(message.id)) {
+    return
   }
 
-  // 获取当前反馈状态用于显示通知
-  const updatedFeedback = getMessageFeedback(message.id)
-
-  // 显示反馈成功的通知
-  notification.success({
-    message: updatedFeedback ? (type === 'like' ? t('ai.feedbackLikeSuccess') : t('ai.feedbackDislikeSuccess')) : t('ai.feedbackCancelled'),
-    duration: 2
-  })
+  // 更新本地状态
+  messageFeedbacks.value[message.id] = type
+  // 从 globalState 中获取当前反馈
+  const feedbacks = ((await getGlobalState('messageFeedbacks')) || {}) as Record<string, 'like' | 'dislike'>
+  // 添加或更新此消息的反馈
+  feedbacks[message.id] = type
+  // 更新 globalState
+  await updateGlobalState('messageFeedbacks', feedbacks)
+  // 发送反馈到主进程
+  let messageRsp = {
+    type: 'taskFeedback',
+    feedbackType: type === 'like' ? 'thumbs_up' : 'thumbs_down'
+  }
+  console.log('发送消息到主进程:', messageRsp)
+  const response = await (window.api as any).sendToMain(messageRsp)
+  console.log('主进程响应:', response)
 }
 </script>
 
@@ -2367,7 +2369,7 @@ const handleFeedback = async (message: ChatMessage, type: 'thumbs_up' | 'thumbs_
       &.completion-result {
         background-color: var(--bg-color-secondary);
         border-radius: 0 0 4px 4px;
-        padding: 8px 12px;
+        padding: 0 8px 2px 8px;
         margin-top: 0;
       }
     }
@@ -2495,12 +2497,14 @@ const handleFeedback = async (message: ChatMessage, type: 'thumbs_up' | 'thumbs_
     .message-header {
       background-color: var(--bg-color-secondary);
       border-radius: 4px 4px 0 0;
-      padding: 4px 8px;
+      padding: 4px 8px 0 8px;
       display: flex;
       justify-content: space-between;
       align-items: center;
       border-bottom: none;
       margin-bottom: 0;
+      z-index: 2;
+      position: relative;
     }
 
     .message-title {
@@ -2511,11 +2515,13 @@ const handleFeedback = async (message: ChatMessage, type: 'thumbs_up' | 'thumbs_
 
     .message-feedback {
       display: flex;
-      gap: 4px;
+      gap: 6px;
 
       .feedback-btn {
-        padding: 0 4px;
-        height: 20px;
+        height: 16px;
+        width: 16px;
+        padding: 0;
+        margin: 0;
         border: none;
         background: transparent;
 
@@ -2523,8 +2529,20 @@ const handleFeedback = async (message: ChatMessage, type: 'thumbs_up' | 'thumbs_
           background: var(--hover-bg-color);
         }
 
+        &[disabled] {
+          cursor: not-allowed;
+
+          .anticon:not([style*='opacity: 1']) {
+            opacity: 0.5;
+          }
+
+          &:hover {
+            background: transparent;
+          }
+        }
+
         .anticon {
-          font-size: 14px;
+          font-size: 12px;
         }
       }
 
@@ -2536,6 +2554,11 @@ const handleFeedback = async (message: ChatMessage, type: 'thumbs_up' | 'thumbs_
             color: #52c41a;
           }
         }
+
+        &[disabled] .anticon[style*='color: #52c41a'] {
+          opacity: 1;
+          color: #52c41a !important;
+        }
       }
 
       .dislike-btn {
@@ -2545,6 +2568,11 @@ const handleFeedback = async (message: ChatMessage, type: 'thumbs_up' | 'thumbs_
           &:hover {
             color: #ff4d4f;
           }
+        }
+
+        &[disabled] .anticon[style*='color: #ff4d4f'] {
+          opacity: 1;
+          color: #ff4d4f !important;
         }
       }
     }
