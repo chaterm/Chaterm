@@ -37,7 +37,6 @@ import { ref, onMounted, computed } from 'vue'
 import { getUser } from '@/api/user/user'
 
 const userInfo = ref<any>({})
-
 const getRatioPercent = computed(() => {
   const ratio = userInfo.value.ratio
   if (ratio === undefined || ratio === null) return 0
