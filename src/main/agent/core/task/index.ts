@@ -990,10 +990,8 @@ export class Task {
       if (this.didCompleteReadingStream) {
         this.userMessageContentReady = true
       }
-      // console.log("no more content blocks to stream! this shouldn't happen?")
       this.presentAssistantMessageLocked = false
       return
-      //throw new Error("No more content blocks to stream! This shouldn't happen...") // remove and just return after testing
     }
 
     const block = cloneDeep(this.assistantMessageContent[this.currentStreamingContentIndex]) // need to create copy bc while stream is updating the array, it could be updating the reference block properties too
@@ -1007,22 +1005,13 @@ export class Task {
         break
     }
 
-    /*
-		Seeing out of bounds is fine, it means that the next too call is being built up and ready to add to assistantMessageContent to present. 
-		When you see the UI inactive during this, it means that a tool is breaking without presenting any UI. For example the write_to_file tool was breaking when relpath was undefined, and for invalid relpath it never presented UI.
-		*/
     this.presentAssistantMessageLocked = false // this needs to be placed here, if not then calling this.presentAssistantMessage below would fail (sometimes) since it's locked
-    // NOTE: when tool is rejected, iterator stream is interrupted and it waits for userMessageContentReady to be true. Future calls to present will skip execution since didRejectTool and iterate until contentIndex is set to message length and it sets userMessageContentReady to true itself (instead of preemptively doing it in iterator)
     if (!block.partial || this.didRejectTool || this.didAlreadyUseTool) {
-      // block is finished streaming and executing
       if (this.currentStreamingContentIndex === this.assistantMessageContent.length - 1) {
-        // its okay that we increment if !didCompleteReadingStream, it'll just return bc out of bounds and as streaming continues it will call presentAssistantMessage if a new block is ready. if streaming is finished then we set userMessageContentReady to true when out of bounds. This gracefully allows the stream to continue on and all potential content blocks be presented.
-        // last block is complete and it is finished executing
         this.userMessageContentReady = true // will allow pwaitfor to continue
       }
 
-      // call next block if it exists (if not then read stream will call it when its ready)
-      this.currentStreamingContentIndex++ // need to increment regardless, so when read stream calls this function again it will be streaming the next block
+      this.currentStreamingContentIndex++
 
       if (this.currentStreamingContentIndex < this.assistantMessageContent.length) {
         this.presentAssistantMessage()
