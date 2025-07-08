@@ -1,19 +1,25 @@
 <template>
   <div>
     <div class="section-header">
-      <h3>{{ $t('user.billing') }}</h3>
+      <div class="title-container">
+        <h3>{{ $t('user.billing') }}</h3>
+        <div class="user-info">
+          <div class="user-email">{{ userInfo.email }}</div>
+          <div class="subscription">{{ userInfo.subscription }}</div>
+        </div>
+      </div>
     </div>
     <a-card
       class="settings-section"
       :bordered="false"
     >
       <div class="setting-item">
-        <div class="info-row">
-          <span class="info-label">{{ $t('user.expires') }}:</span>
+        <div class="info-row lr-row">
+          <span class="info-label">{{ $t('user.expires') }}</span>
           <span class="info-value">{{ userInfo.expires || '-' }}</span>
         </div>
-        <div class="info-row">
-          <span class="info-label">{{ $t('user.ratio') }}:</span>
+        <div class="info-row lr-row">
+          <span class="info-label">{{ $t('user.ratio') }}</span>
           <div class="progress-wrapper">
             <div class="progress-container">
               <a-progress
@@ -65,17 +71,9 @@ const getUserInfo = () => {
 .settings-section {
   background-color: var(--bg-color);
   box-shadow: none;
-  border-bottom: none;
 
   :deep(.ant-card-body) {
     padding: 16px;
-    border-bottom: none;
-  }
-
-  :deep(.ant-form-item) {
-    .ant-form-item-label > label {
-      color: var(--text-color);
-    }
   }
 }
 
@@ -83,32 +81,59 @@ const getUserInfo = () => {
   margin-top: 8px;
   margin-left: 16px;
 
+  .title-container {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
   h3 {
     font-size: 20px;
     font-weight: 500;
     margin: 0;
     color: var(--text-color);
   }
+
+  .user-info {
+    display: flex;
+    flex-direction: column;
+
+    .user-email {
+      font-size: 11px;
+      color: var(--text-color);
+    }
+
+    .subscription {
+      margin-top: 2px;
+      font-size: 12px;
+      line-height: 1;
+      border-radius: 4px;
+    }
+  }
 }
 
 .setting-item {
   margin-bottom: 8px;
-
-  &:last-child {
-    margin-bottom: 0;
-  }
 }
 
 .info-row {
   display: flex;
   margin-bottom: 20px;
+  flex-direction: column;
+}
+
+.lr-row {
+  flex-direction: row;
   align-items: center;
 }
 
 .info-label {
-  font-weight: 500;
   color: var(--text-color);
-  min-width: 120px;
+}
+
+.lr-row .info-label {
+  min-width: 100px;
+  margin-right: 15px;
 }
 
 .info-value {
@@ -134,7 +159,6 @@ const getUserInfo = () => {
 
 :deep(.ant-progress) {
   flex: 1;
-  margin-right: 10px;
 
   .ant-progress-bg {
     height: 8px !important;
@@ -145,5 +169,10 @@ const getUserInfo = () => {
     margin-right: 0;
     padding-right: 0;
   }
+}
+
+:deep(.ant-progress-line) {
+  margin: 0 !important;
+  line-height: 1 !important;
 }
 </style>
