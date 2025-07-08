@@ -700,6 +700,18 @@ const saveModelOptions = async () => {
   }
 }
 
+// 对模型列表进行排序：内置模型在前，用户自定义模型在后
+const sortModelOptions = () => {
+  modelOptions.value.sort((a, b) => {
+    // 首先按模型类型排序：standard (内置) 在前，custom (用户自定义) 在后
+    if (a.type === 'standard' && b.type === 'custom') return -1
+    if (a.type === 'custom' && b.type === 'standard') return 1
+
+    // 如果类型相同，按名称字母顺序排序
+    return a.name.localeCompare(b.name)
+  })
+}
+
 const loadModelOptions = async () => {
   try {
     let defaultModels: DefaultModel[] = []
@@ -738,6 +750,9 @@ const loadModelOptions = async () => {
         type: option.type || 'standard',
         apiProvider: option.apiProvider || 'default'
       }))
+
+      // 排序模型列表：内置模型在前，用户自定义模型在后
+      sortModelOptions()
     }
     await saveModelOptions()
   } catch (error) {
@@ -815,6 +830,10 @@ const handleSave = async (provider) => {
   }
 
   modelOptions.value.push(newModel)
+
+  // 重新排序模型列表，确保内置模型在前，用户自定义模型在后
+  sortModelOptions()
+
   await saveModelOptions()
 
   notification.success({
