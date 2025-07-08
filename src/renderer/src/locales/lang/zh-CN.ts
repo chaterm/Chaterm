@@ -187,7 +187,10 @@ export default {
     aiPreferences: 'AI 偏好设置',
     addModel: '添加模型',
     addModelExistError: '模型名称已存在',
-    addModelSuccess: '新增模型成功'
+    addModelSuccess: '新增模型成功',
+    billing: '计费使用情况',
+    expires: '过期时间',
+    ratio: '使用比例'
   },
   extensions: {
     extensions: '插件',
