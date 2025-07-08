@@ -11,7 +11,6 @@ request.interceptors.request.use(
   async function (config) {
     const isSkippedLogin = localStorage.getItem('login-skipped') === 'true'
     if (isSkippedLogin) {
-      // 跳过登录的用户使用特殊的访客token
       config.headers['Authorization'] = `Bearer guest_token`
     } else {
       const BearerToken = localStorage.getItem('ctm-token')
@@ -33,12 +32,9 @@ request.interceptors.response.use(
   function (error) {
     const isSkippedLogin = localStorage.getItem('login-skipped') === 'true'
 
-    // 如果是跳过登录的用户，对于401错误返回空数据
     if (isSkippedLogin && error.response?.status === 401) {
       return Promise.resolve({ data: {} })
     }
-
-    console.log(error, 'error.response')
     if (error.response?.status === 401) {
       const data = error.response.data
       if (!(data.result && data.result.isLogin)) {

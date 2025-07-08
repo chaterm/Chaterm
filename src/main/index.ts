@@ -306,15 +306,11 @@ function updateNavigationState(): void {
 function setupIPC(): void {
   ipcMain.handle('init-user-database', async (event, { uid }) => {
     try {
-      console.log('Initializing database for user:', uid)
-      // 从渲染进程获取登录状态
       const isSkippedLogin = await event.sender.executeJavaScript("localStorage.getItem('login-skipped') === 'true'")
       const targetUserId = uid || (isSkippedLogin ? getGuestUserId() : null)
-
       if (!targetUserId) {
         throw new Error('User ID is required')
       }
-
       setCurrentUserId(targetUserId)
       chatermDbService = await ChatermDatabaseService.getInstance(targetUserId)
       autoCompleteService = await autoCompleteDatabaseService.getInstance(targetUserId)
