@@ -112,6 +112,7 @@ export class Task {
   private didAlreadyUseTool = false
   private didCompleteReadingStream = false
   private didAutomaticallyRetryFailedApiRequest = false
+  private isInsideThinkingBlock = false
 
   constructor(
     workspaceTracker: WorkspaceTracker,
@@ -1222,6 +1223,7 @@ export class Task {
     this.presentAssistantMessageLocked = false
     this.presentAssistantMessageHasPendingUpdates = false
     this.didAutomaticallyRetryFailedApiRequest = false
+    this.isInsideThinkingBlock = false
   }
 
   private async processStream(stream: any, streamMetrics: any, messageUpdater: any): Promise<string> {
@@ -1418,15 +1420,15 @@ export class Task {
 
     await pWaitFor(() => this.userMessageContentReady)
 
-    const didToolUse = this.assistantMessageContent.some((block) => block.type === 'tool_use')
+    // const didToolUse = this.assistantMessageContent.some((block) => block.type === 'tool_use')
 
-    if (!didToolUse) {
-      this.userMessageContent.push({
-        type: 'text',
-        text: formatResponse.noToolsUsed()
-      })
-      this.consecutiveMistakeCount++
-    }
+    // if (!didToolUse) {
+    //   this.userMessageContent.push({
+    //     type: 'text',
+    //     text: formatResponse.noToolsUsed()
+    //   })
+    //   this.consecutiveMistakeCount++
+    // }
 
     return await this.recursivelyMakeChatermRequests(this.userMessageContent)
   }
@@ -2090,9 +2092,8 @@ export class Task {
 
     let content = block.content
     if (content) {
-      // 移除 <thinking> 标签
-      content = content.replace(/<thinking>\s?/g, '')
-      content = content.replace(/\s?<\/thinking>/g, '')
+      // 处理流式的 <thinking> 标签
+      content = this.processThinkingTags(content)
 
       const lastOpenBracketIndex = content.lastIndexOf('<')
       if (lastOpenBracketIndex !== -1) {
@@ -2130,37 +2131,132 @@ export class Task {
     await this.say('text', content, block.partial)
   }
 
+  private processThinkingTags(content: string): string {
+    if (!content) return content
+
+    // 如果当前已经在思考块内部，检查是否有结束标签
+    if (this.isInsideThinkingBlock) {
+      const endIndex = content.indexOf('</thinking>')
+      if (endIndex !== -1) {
+        // 找到结束标签，退出思考块状态，返回结束标签后的内容
+        this.isInsideThinkingBlock = false
+        return content.slice(endIndex + '</thinking>'.length)
+      } else {
+        // 仍在思考块内部，移除所有内容
+        return ''
+      }
+    }
+
+    const startIndex = content.indexOf('<thinking>')
+    if (startIndex !== -1) {
+      // 找到开始标签
+      const beforeThinking = content.slice(0, startIndex)
+      const afterThinking = content.slice(startIndex + '<thinking>'.length)
+
+      const endIndex = afterThinking.indexOf('</thinking>')
+      if (endIndex !== -1) {
+        const afterThinkingBlock = afterThinking.slice(endIndex + '</thinking>'.length)
+        return beforeThinking + afterThinkingBlock
+      } else {
+        this.isInsideThinkingBlock = true
+        return beforeThinking
+      }
+    }
+
+    return content
+  }
+
   private async buildSystemPrompt(): Promise<string> {
     let systemPrompt = await SYSTEM_PROMPT()
     let systemInformation = '# SYSTEM INFORMATION\n\n'
-    for (const host of this.hosts!) {
-      // 检查缓存，如果没有缓存则获取系统信息并缓存
-      let hostInfo = this.hostSystemInfoCache.get(host.host)
-      if (!hostInfo) {
-        const osVersion = await this.executeCommandInRemoteServer('uname -a', host.host)
-        const defaultShell = await this.executeCommandInRemoteServer('echo $SHELL', host.host)
-        const homeDir = await this.executeCommandInRemoteServer('echo $HOME', host.host)
-        const hostName = await this.executeCommandInRemoteServer('echo $HOSTNAME', host.host)
-        const userName = await this.executeCommandInRemoteServer('whoami', host.host)
-        const sudoCheck = await this.executeCommandInRemoteServer(
-          'sudo -n true 2>/dev/null && echo "has sudo permission" || echo "no sudo permission"',
-          host.host
-        )
 
-        hostInfo = {
-          osVersion,
-          defaultShell,
-          homeDir,
-          hostName,
-          userName,
-          sudoCheck
-        }
+    // 检查 hosts 是否存在且不为空
+    if (!this.hosts || this.hosts.length === 0) {
+      console.warn('No hosts configured, skipping system information collection')
+      systemInformation += 'No hosts configured.\n'
+    } else {
+      console.log(`Collecting system information for ${this.hosts.length} host(s)`)
 
-        // 缓存系统信息
-        this.hostSystemInfoCache.set(host.host, hostInfo)
-      }
+      for (const host of this.hosts) {
+        try {
+          // 检查缓存，如果没有缓存则获取系统信息并缓存
+          let hostInfo = this.hostSystemInfoCache.get(host.host)
+          if (!hostInfo) {
+            console.log(`Fetching system information for host: ${host.host}`)
 
-      systemInformation += `
+            // 优化：一次性获取所有系统信息，避免多次网络请求
+            const systemInfoScript = `
+              echo "OS_VERSION:$(uname -a)"
+              echo "DEFAULT_SHELL:$SHELL"
+              echo "HOME_DIR:$HOME"
+              echo "HOSTNAME:$HOSTNAME"
+              echo "USERNAME:$(whoami)"
+              echo "SUDO_CHECK:$(sudo -n true 2>/dev/null && echo "has sudo permission" || echo "no sudo permission")"
+            `
+
+            const systemInfoOutput = await this.executeCommandInRemoteServer(systemInfoScript, host.host)
+            console.log(`System info output for ${host.host}:`, systemInfoOutput)
+
+            // 解析输出结果
+            const parseSystemInfo = (
+              output: string
+            ): {
+              osVersion: string
+              defaultShell: string
+              homeDir: string
+              hostName: string
+              userName: string
+              sudoCheck: string
+            } => {
+              const lines = output.split('\n').filter((line) => line.trim())
+              const info = {
+                osVersion: '',
+                defaultShell: '',
+                homeDir: '',
+                hostName: '',
+                userName: '',
+                sudoCheck: ''
+              }
+
+              lines.forEach((line) => {
+                const [key, ...valueParts] = line.split(':')
+                const value = valueParts.join(':').trim()
+
+                switch (key) {
+                  case 'OS_VERSION':
+                    info.osVersion = value
+                    break
+                  case 'DEFAULT_SHELL':
+                    info.defaultShell = value
+                    break
+                  case 'HOME_DIR':
+                    info.homeDir = value
+                    break
+                  case 'HOSTNAME':
+                    info.hostName = value
+                    break
+                  case 'USERNAME':
+                    info.userName = value
+                    break
+                  case 'SUDO_CHECK':
+                    info.sudoCheck = value
+                    break
+                }
+              })
+
+              return info
+            }
+
+            hostInfo = parseSystemInfo(systemInfoOutput)
+            console.log(`Parsed system info for ${host.host}:`, hostInfo)
+
+            // 缓存系统信息
+            this.hostSystemInfoCache.set(host.host, hostInfo)
+          } else {
+            console.log(`Using cached system information for host: ${host.host}`)
+          }
+
+          systemInformation += `
         ## Host: ${host.host}
         Operating System: ${hostInfo.osVersion}
         Default Shell: ${hostInfo.defaultShell}
@@ -2171,8 +2267,25 @@ export class Task {
         Sudo Access: ${hostInfo.sudoCheck}
         ====
       `
+        } catch (error) {
+          console.error(`Failed to get system information for host ${host.host}:`, error)
+          // 即使获取系统信息失败，也要添加基本信息
+          systemInformation += `
+        ## Host: ${host.host}
+        Operating System: Unable to retrieve (${error instanceof Error ? error.message : 'Unknown error'})
+        Default Shell: Unable to retrieve
+        Home Directory: Unable to retrieve
+        Current Working Directory: ${this.cwd.get(host.host) || 'Unknown'}
+        Hostname: Unable to retrieve
+        User: Unable to retrieve
+        Sudo Access: Unable to retrieve
+        ====
+      `
+        }
+      }
     }
 
+    console.log('Final system information section:', systemInformation)
     systemPrompt += systemInformation
 
     const settingsCustomInstructions = this.customInstructions?.trim()

@@ -1,6 +1,7 @@
 import axios from 'axios'
 import config from '@/config'
 import { removeToken } from '@/utils/permission'
+
 const request = axios.create({
   baseURL: config.api
 })
@@ -8,8 +9,13 @@ const request = axios.create({
 // 添加请求拦截器
 request.interceptors.request.use(
   async function (config) {
-    const BearerToken = localStorage.getItem('ctm-token')
-    config.headers['Authorization'] = `Bearer ${BearerToken}`
+    const isSkippedLogin = localStorage.getItem('login-skipped') === 'true'
+    if (isSkippedLogin) {
+      config.headers['Authorization'] = `Bearer guest_token`
+    } else {
+      const BearerToken = localStorage.getItem('ctm-token')
+      config.headers['Authorization'] = `Bearer ${BearerToken}`
+    }
     return config
   },
   function (error) {
@@ -24,11 +30,17 @@ request.interceptors.response.use(
     return res.data
   },
   function (error) {
-    console.log(error, 'error.response')
-    const data = error.response.data
-    if (error.response.status === 401 && !(data.result && data.result.isLogin)) {
-      removeToken()
-      window.location.hash = '#/login'
+    const isSkippedLogin = localStorage.getItem('login-skipped') === 'true'
+
+    if (isSkippedLogin && error.response?.status === 401) {
+      return Promise.resolve({ data: {} })
+    }
+    if (error.response?.status === 401) {
+      const data = error.response.data
+      if (!(data.result && data.result.isLogin)) {
+        removeToken()
+        window.location.hash = '#/login'
+      }
     }
     // 超出 2xx 范围的状态码都会触发该函数。
     // 对响应错误做点什么

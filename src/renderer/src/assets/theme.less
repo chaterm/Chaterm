@@ -7,9 +7,16 @@
   --bg-color-quinary: #2a2a2a;
   --bg-color-senary: #1a1a1a;
   --bg-color-septenary: #282c34;
+  --bg-color-octonary: #4a4a4a;
+  --bg-color-novenary: #5a5a5a;
   --text-color: #e0e0e0;
   --text-color-secondary: rgba(255, 255, 255, 0.85);
+  --text-color-secondary-light: rgba(255, 255, 255, 0.65);
   --text-color-tertiary: rgba(255, 255, 255, 0.45);
+  --text-color-quaternary: rgba(255, 255, 255, 0.25);
+  --text-color-quinary: rgba(255, 255, 255, 0.15);
+  --text-color-senary: rgba(255, 255, 255, 0.1);
+  --text-color-septenary: rgba(255, 255, 255, 0.05);
   --border-color: #1e1e1e;
   --border-color-light: rgb(65, 65, 65);
   --hover-bg-color: rgba(255, 255, 255, 0.1);
@@ -17,6 +24,7 @@
   --watermark-color: rgba(255, 255, 255, 0.05);
   --icon-filter: brightness(0) invert(1);
   --globalInput-bg-color: #2e2e2e;
+  --box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
 }
 
 // Light theme variables
@@ -28,9 +36,15 @@
   --bg-color-quinary: #f6f6f6;
   --bg-color-senary: #f0f0f0;
   --bg-color-septenary: #d9e1ff;
+  --bg-color-octonary: #f4f4f4;
+  --bg-color-novenary: #f5f5f5;
   --text-color: #000000;
   --text-color-secondary: rgba(0, 0, 0, 0.85);
   --text-color-tertiary: rgba(0, 0, 0, 0.45);
+  --text-color-quaternary: rgba(0, 0, 0, 0.25);
+  --text-color-quinary: rgba(0, 0, 0, 0.15);
+  --text-color-senary: rgba(0, 0, 0, 0.1);
+  --text-color-septenary: rgba(0, 0, 0, 0.05);
   --border-color: #f5f5f5;
   --border-color-light: #e8e8e8;
   --hover-bg-color: rgba(0, 0, 0, 0.04);
@@ -38,6 +52,7 @@
   --watermark-color: rgba(0, 0, 0, 0.05);
   --icon-filter: brightness(0);
   --globalInput-bg-color: #e2e2e2;
+  --box-shadow: 0 2px 4px rgba(255, 255, 255, 0.8);
 }
 
 // Apply theme variables to components
@@ -212,4 +227,27 @@ body {
   }
 }
 
+.ant-select-dropdown {
+  background-color: var(--bg-color) !important;
+  color: var(--text-color) !important;
+  &:hover {
+    background-color: var(--hover-bg-color);
+  }
+}
+.ant-select-dropdown .ant-select-item-option {
+  font-size: 14px;
+  color: var(--text-color) !important;
+  background-color: var(--bg-color-tertiary) !important;
+  border: none !important;
+}
+.ant-input-clear-icon {
+  color: var(--text-color-tertiary);
+  &:hover {
+    color: var(--text-color-tertiary);
+  }
+}
+.ant-select-clear {
+  background: var(--bg-color) !important;
+  color: var(--text-color) !important;
+}
 // Add more component theme styles as needed

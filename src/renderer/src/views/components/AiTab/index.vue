@@ -18,7 +18,21 @@
             alt="AI"
           />
         </div>
-        <div class="ai-welcome-text">{{ $t('ai.welcome') }}</div>
+        <template v-if="isSkippedLogin">
+          <div class="ai-login-prompt">
+            <p>{{ $t('ai.loginPrompt') }}</p>
+            <a-button
+              type="primary"
+              class="login-button"
+              @click="goToLogin"
+            >
+              {{ $t('common.login') }}
+            </a-button>
+          </div>
+        </template>
+        <template v-else>
+          <div class="ai-welcome-text">{{ $t('ai.welcome') }}</div>
+        </template>
       </div>
       <div
         v-if="chatHistory.length > 0"
@@ -31,20 +45,67 @@
           class="chat-response"
         >
           <template
-            v-for="message in chatHistory"
+            v-for="(message, index) in chatHistory"
             :key="message"
           >
             <div
               v-if="message.role === 'assistant'"
               class="assistant-message-container"
               :class="{
-                'has-history-copy-btn': chatTypeValue === 'cmd' && message.ask === 'command' && message.actioned
+                'has-history-copy-btn': chatTypeValue === 'cmd' && message.ask === 'command' && message.actioned,
+                'last-message': message.say === 'completion_result'
               }"
             >
+              <div
+                v-if="message.say === 'completion_result'"
+                class="message-header"
+              >
+                <div class="message-title">
+                  <CheckCircleFilled style="color: #52c41a; margin-right: 4px" />
+                  {{ $t('ai.taskCompleted') }}
+                </div>
+                <div
+                  v-if="index === chatHistory.length - 1"
+                  class="message-feedback"
+                >
+                  <a-button
+                    type="text"
+                    class="feedback-btn like-btn"
+                    size="small"
+                    :disabled="isMessageFeedbackSubmitted(message.id)"
+                    @click="handleFeedback(message, 'like')"
+                  >
+                    <template #icon>
+                      <LikeOutlined
+                        :style="{
+                          color: getMessageFeedback(message.id) === 'like' ? '#52c41a' : '',
+                          opacity: getMessageFeedback(message.id) === 'like' ? 1 : ''
+                        }"
+                      />
+                    </template>
+                  </a-button>
+                  <a-button
+                    type="text"
+                    class="feedback-btn dislike-btn"
+                    size="small"
+                    :disabled="isMessageFeedbackSubmitted(message.id)"
+                    @click="handleFeedback(message, 'dislike')"
+                  >
+                    <template #icon>
+                      <DislikeOutlined
+                        :style="{
+                          color: getMessageFeedback(message.id) === 'dislike' ? '#ff4d4f' : '',
+                          opacity: getMessageFeedback(message.id) === 'dislike' ? 1 : ''
+                        }"
+                      />
+                    </template>
+                  </a-button>
+                </div>
+              </div>
               <MarkdownRenderer
                 v-if="typeof message.content === 'object' && 'question' in message.content"
                 :content="(message.content as MessageContent).question"
-                :class="`message ${message.role}`"
+                :class="`message ${message.role} ${message.say === 'completion_result' ? 'completion-result' : ''}`"
                 :ask="message.ask"
                 :say="message.say"
                 :partial="message.partial"
@@ -53,7 +114,7 @@
               <MarkdownRenderer
                 v-else
                 :content="typeof message.content === 'string' ? message.content : ''"
-                :class="`message ${message.role}`"
+                :class="`message ${message.role} ${message.say === 'completion_result' ? 'completion-result' : ''}`"
                 :ask="message.ask"
                 :say="message.say"
                 :partial="message.partial"
@@ -186,6 +247,22 @@
             {{ $t('ai.retry') }}
           </a-button>
         </div>
+        <div
+          v-if="showNewTaskButton"
+          class="bottom-buttons"
+        >
+          <a-button
+            size="small"
+            type="primary"
+            class="retry-btn"
+            @click="handlePlusClick"
+          >
+            <template #icon>
+              <PlusOutlined />
+            </template>
+            {{ $t('ai.newTask') }}
+          </a-button>
+        </div>
         <div class="input-send-container">
           <div
             v-if="showHostSelect"
@@ -226,79 +303,84 @@
               </div>
             </div>
           </div>
-          <div class="hosts-display-container">
-            <span
-              v-if="chatTypeValue === 'agent' && chatHistory.length === 0"
-              class="hosts-display-container-host-tag"
-              @click="handleAddHostClick"
-            >
-              {{ hosts && hosts.length > 0 ? '@' : `@ ${$t('ai.addHost')}` }}
-            </span>
-            <a-tag
-              v-for="item in hosts"
-              :key="item.uuid"
-              color="blue"
-              class="host-tag-with-delete"
-            >
-              <template #icon>
-                <laptop-outlined />
-              </template>
-              {{ item.host }}
-              <CloseOutlined
+          <div
+            v-if="!isSkippedLogin"
+            class="input-container"
+          >
+            <div class="hosts-display-container">
+              <span
                 v-if="chatTypeValue === 'agent' && chatHistory.length === 0"
-                class="host-delete-btn"
-                @click.stop="removeHost(item)"
-              />
-            </a-tag>
+                class="hosts-display-container-host-tag"
+                @click="handleAddHostClick"
+              >
+                {{ hosts && hosts.length > 0 ? '@' : `@ ${$t('ai.addHost')}` }}
+              </span>
+              <a-tag
+                v-for="item in hosts"
+                :key="item.uuid"
+                color="blue"
+                class="host-tag-with-delete"
+              >
+                <template #icon>
+                  <laptop-outlined />
+                </template>
+                {{ item.host }}
+                <CloseOutlined
+                  v-if="chatTypeValue === 'agent' && chatHistory.length === 0"
+                  class="host-delete-btn"
+                  @click.stop="removeHost(item)"
+                />
+              </a-tag>
 
-            <span
-              v-if="responseLoading"
-              class="processing-text"
-            >
-              <HourglassOutlined
-                spin
-                style="color: #1890ff; margin-right: 2px"
-              />
-              {{ $t('ai.processing') }}
-            </span>
-          </div>
-          <a-textarea
-            v-model:value="chatInputValue"
-            :placeholder="chatTypeValue === 'agent' ? $t('ai.agentMessage') : chatTypeValue === 'chat' ? $t('ai.chatMessage') : $t('ai.cmdMessage')"
-            class="chat-textarea"
-            :auto-size="{ minRows: 2, maxRows: 5 }"
-            @keydown="handleKeyDown"
-            @input="handleInputChange"
-          />
-          <div class="input-controls">
-            <a-select
-              v-model:value="chatTypeValue"
-              size="small"
-              style="width: 100px"
-              :options="AiTypeOptions"
-              show-search
-            ></a-select>
-            <a-select
-              v-model:value="chatAiModelValue"
-              size="small"
-              style="width: 150px"
-              :options="AgentAiModelsOptions"
-              show-search
-              @change="handleChatAiModelChange"
-            ></a-select>
-            <a-button
-              :disabled="!showSendButton"
-              size="small"
-              class="custom-round-button compact-button"
-              style="margin-left: 8px"
-              @click="sendMessage('send')"
-            >
-              <img
-                :src="sendIcon"
-                alt="send"
-                style="width: 18px; height: 18px"
-              />
-            </a-button>
+              <span
+                v-if="responseLoading"
+                class="processing-text"
+              >
+                <HourglassOutlined
+                  spin
+                  style="color: #1890ff; margin-right: 2px"
+                />
+                {{ $t('ai.processing') }}
+              </span>
+            </div>
+            <a-textarea
+              v-model:value="chatInputValue"
+              :placeholder="chatTypeValue === 'agent' ? $t('ai.agentMessage') : chatTypeValue === 'chat' ? $t('ai.chatMessage') : $t('ai.cmdMessage')"
+              class="chat-textarea"
+              :auto-size="{ minRows: 2, maxRows: 5 }"
+              @keydown="handleKeyDown"
+              @input="handleInputChange"
+            />
+            <div class="input-controls">
+              <a-select
+                v-model:value="chatTypeValue"
+                size="small"
+                style="width: 100px"
+                :options="AiTypeOptions"
+                show-search
+              ></a-select>
+              <a-select
+                v-model:value="chatAiModelValue"
+                size="small"
+                style="width: 150px"
+                :options="AgentAiModelsOptions"
+                show-search
+                @change="handleChatAiModelChange"
+              ></a-select>
+              <a-button
+                :disabled="!showSendButton"
+                size="small"
+                class="custom-round-button compact-button"
+                style="margin-left: 8px"
+                @click="sendMessage('send')"
+              >
+                <img
+                  :src="sendIcon"
+                  alt="send"
+                  style="width: 18px; height: 18px"
+                />
+              </a-button>
+            </div>
           </div>
         </div>
       </div>
@@ -475,6 +557,7 @@
 
 <script setup lang="ts">
 import { ref, reactive, onMounted, defineAsyncComponent, onUnmounted, watch, computed, nextTick, onBeforeUnmount } from 'vue'
+import { useRouter } from 'vue-router'
 import {
   CloseOutlined,
   LaptopOutlined,
@@ -488,7 +571,11 @@ import {
   CheckOutlined,
   ReloadOutlined,
   StarOutlined,
-  StarFilled
+  StarFilled,
+  LikeOutlined,
+  DislikeOutlined,
+  CheckCircleFilled,
+  PlusOutlined
 } from '@ant-design/icons-vue'
 import { notification } from 'ant-design-vue'
 import { v4 as uuidv4 } from 'uuid'
@@ -509,6 +596,19 @@ import { getUser } from '@api/user/user'
 
 const { t } = i18n.global
 const MarkdownRenderer = defineAsyncComponent(() => import('@views/components/AiTab/markdownRenderer.vue'))
+const router = useRouter()
+const isSkippedLogin = ref(localStorage.getItem('login-skipped') === 'true')
+
+watch(
+  () => localStorage.getItem('login-skipped'),
+  (newValue) => {
+    isSkippedLogin.value = newValue === 'true'
+  }
+)
+
+const goToLogin = () => {
+  router.push('/login')
+}
 
 // 定义事件类型
 interface TabInfo {
@@ -523,6 +623,20 @@ declare module '@/utils/eventBus' {
   interface AppEvents {
     tabChanged: TabInfo
   }
+}
+
+// 添加消息反馈存储
+const messageFeedbacks = ref<Record<string, 'like' | 'dislike'>>({})
+
+// 获取消息反馈状态
+const getMessageFeedback = (messageId: string): 'like' | 'dislike' | undefined => {
+  return messageFeedbacks.value[messageId]
+}
+
+// 检查消息是否已提交反馈
+const isMessageFeedbackSubmitted = (messageId: string): boolean => {
+  // 检查是否有反馈记录且已提交
+  return !!messageFeedbacks.value[messageId]
 }
 
 const hostSearchInputRef = ref()
@@ -546,10 +660,12 @@ const shouldShowSendButton = computed(() => {
   return trimmedValue.length >= 1 && !/^\s*$/.test(trimmedValue)
 })
 const lastChatMessageId = ref('')
+const isCurrentChatMessage = ref(true)
 const buttonsDisabled = ref(false)
 const resumeDisabled = ref(false)
 const showRetryButton = ref(false)
 const showCancelButton = ref(false)
+const showNewTaskButton = ref(false)
 
 // 当前活动对话的 ID
 const currentChatId = ref<string | null>(null)
@@ -740,6 +856,7 @@ const sendMessage = async (sendType: string) => {
   chatInputValue.value = ''
   responseLoading.value = true
   showRetryButton.value = false
+  showNewTaskButton.value = false
   return
 }
 
@@ -755,7 +872,6 @@ const handleKeyDown = (e: KeyboardEvent) => {
     sendMessage('send')
   }
 }
-
 const handlePlusClick = async () => {
   const currentInput = chatInputValue.value
   const newChatId = uuidv4()
@@ -777,7 +893,9 @@ const handlePlusClick = async () => {
   }
 
   chatHistory.length = 0
-  chatInputValue.value = ''
+  // 清除当前反馈数据
+  messageFeedbacks.value = {}
+
   // 开启新窗口后，cancel掉原始的agent窗口
   console.log('handleCancel:取消')
   const response = await (window.api as any).cancelTask()
@@ -789,8 +907,11 @@ const handlePlusClick = async () => {
   responseLoading.value = false
   if (currentInput.trim()) {
     sendMessage('newTask')
+  } else {
+    chatInputValue.value = ''
   }
   showRetryButton.value = false
+  showNewTaskButton.value = false
 }
 
 const containerKey = ref(0)
@@ -806,7 +927,6 @@ const restoreHistoryTab = async (history: HistoryItem) => {
   currentChatId.value = history.id
   chatTypeValue.value = history.chatType
   lastChatMessageId.value = ''
-
   autoUpdateHost.value = false
 
   try {
@@ -874,6 +994,8 @@ const restoreHistoryTab = async (history: HistoryItem) => {
         lastItem = item
       }
     })
+    isCurrentChatMessage.value = false
+    // 加载此对话的反馈数据
     await (window.api as any).sendToMain({
       type: 'showTaskWithId',
       text: history.id,
@@ -1217,11 +1339,13 @@ onMounted(async () => {
   ]
 
   // 初始化收藏列表
-  const favorites = ((await getGlobalState('favoriteTaskList')) as string[]) || []
-  favoriteTaskList.value = favorites
+  favoriteTaskList.value = ((await getGlobalState('favoriteTaskList')) as string[]) || []
 
   // 初始化资产信息
   await initAssetInfo()
+
+  // 加载消息反馈
+  messageFeedbacks.value = ((await getGlobalState('messageFeedbacks')) || {}) as Record<string, 'like' | 'dislike'>
 
   // 添加事件监听
   eventBus.on('SettingModelOptionsChanged', async () => {
@@ -1263,6 +1387,10 @@ onMounted(async () => {
   removeListener = (window.api as any).onMainMessage((message: any) => {
     console.log('Received main process message:', message.type, message)
     if (message?.type === 'partialMessage') {
+      if (message.partialMessage.type === 'ask' && message.partialMessage.ask === 'completion_result') {
+        showNewTaskButton.value = true
+        return
+      }
       // handle model error -- api_req_failed 或 ssh_con_failed
       if (
         message.partialMessage.type === 'ask' &&
@@ -1285,7 +1413,7 @@ onMounted(async () => {
       if (lastMessage && JSON.stringify(lastMessage) === JSON.stringify(message)) {
         return
       }
-
+      isCurrentChatMessage.value = true
       if (openNewMessage) {
         const newAssistantMessage = createNewMessage(
           'assistant',
@@ -1830,7 +1958,7 @@ const scrollToBottom = () => {
       const currentBottom = chatResponse.value.getBoundingClientRect().bottom
       // console.log('容器高度变化，直接滚动到底部', prevBottom, currentBottom)
       // 如果容器底部位置发生了变化，直接滚动到底部
-      if (prevBottom !== undefined && prevBottom !== currentBottom && prevBottom > 0 && currentBottom > 0) {
+      if (prevBottom !== currentBottom && prevBottom > 0 && currentBottom > 0) {
         chatContainer.value.scrollTop = chatContainer.value.scrollHeight
       }
     }
@@ -1970,6 +2098,31 @@ const initModelOptions = async () => {
     })
   }
 }
+
+// 添加处理反馈的方法
+const handleFeedback = async (message: ChatMessage, type: 'like' | 'dislike') => {
+  // 如果已经提交过反馈，则不允许再次操作
+  if (isMessageFeedbackSubmitted(message.id)) {
+    return
+  }
+
+  // 更新本地状态
+  messageFeedbacks.value[message.id] = type
+  // 从 globalState 中获取当前反馈
+  const feedbacks = ((await getGlobalState('messageFeedbacks')) || {}) as Record<string, 'like' | 'dislike'>
+  // 添加或更新此消息的反馈
+  feedbacks[message.id] = type
+  // 更新 globalState
+  await updateGlobalState('messageFeedbacks', feedbacks)
+  // 发送反馈到主进程
+  let messageRsp = {
+    type: 'taskFeedback',
+    feedbackType: type === 'like' ? 'thumbs_up' : 'thumbs_down'
+  }
+  console.log('发送消息到主进程:', messageRsp)
+  const response = await (window.api as any).sendToMain(messageRsp)
+  console.log('主进程响应:', response)
+}
 </script>
 
 <style lang="less">
@@ -1994,9 +2147,11 @@ const initModelOptions = async () => {
 <style lang="less" scoped>
 :root {
   // 暗色主题变量
-  .dark-theme {
+  .theme-dark {
     --bg-color: #141414;
     --bg-color-secondary: #1f1f1f;
+    --bg-color-quaternary: #3a3a3a;
+    --bg-color-quinary: #2a2a2a;
     --text-color: #ffffff;
     --text-color-secondary: #e0e0e0;
     --text-color-tertiary: #666666;
@@ -2011,9 +2166,11 @@ const initModelOptions = async () => {
   }
 
   // 亮色主题变量
-  .light-theme {
+  .theme-light {
     --bg-color: #ffffff;
     --bg-color-secondary: #f5f5f5;
+    --bg-color-quaternary: #d9d9d9;
+    --bg-color-quinary: #e8e8e8;
     --text-color: #000000;
     --text-color-secondary: #333333;
     --text-color-tertiary: #666666;
@@ -2240,7 +2397,14 @@ const initModelOptions = async () => {
     &.assistant {
       color: var(--text-color);
       width: 100%;
-      padding: 0px;
+      padding: 0;
+
+      &.completion-result {
+        background-color: var(--bg-color-secondary);
+        border-radius: 0 0 4px 4px;
+        padding: 0 8px 2px 8px;
+        margin-top: 0;
+      }
     }
   }
 }
@@ -2354,9 +2518,98 @@ const initModelOptions = async () => {
 .assistant-message-container {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 0;
   width: 100%;
   position: relative;
+
+  &.last-message {
+    border-radius: 4px;
+    overflow: hidden;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+
+    .message-header {
+      background-color: var(--bg-color-secondary);
+      border-radius: 4px 4px 0 0;
+      padding: 4px 8px 0 8px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: none;
+      margin-bottom: 0;
+      z-index: 2;
+      position: relative;
+    }
+
+    .message-title {
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--text-color);
+    }
+
+    .message-feedback {
+      display: flex;
+      gap: 6px;
+
+      .feedback-btn {
+        height: 16px;
+        width: 16px;
+        padding: 0;
+        margin: 0;
+        border: none;
+        background: transparent;
+
+        &:hover {
+          background: var(--hover-bg-color);
+        }
+
+        &[disabled] {
+          cursor: not-allowed;
+
+          .anticon:not([style*='opacity: 1']) {
+            opacity: 0.5;
+          }
+
+          &:hover {
+            background: transparent;
+          }
+        }
+
+        .anticon {
+          font-size: 12px;
+        }
+      }
+
+      .like-btn {
+        .anticon {
+          color: var(--text-color-tertiary);
+
+          &:hover {
+            color: #52c41a;
+          }
+        }
+
+        &[disabled] .anticon[style*='color: #52c41a'] {
+          opacity: 1;
+          color: #52c41a !important;
+        }
+      }
+
+      .dislike-btn {
+        .anticon {
+          color: var(--text-color-tertiary);
+
+          &:hover {
+            color: #ff4d4f;
+          }
+        }
+
+        &[disabled] .anticon[style*='color: #ff4d4f'] {
+          opacity: 1;
+          color: #ff4d4f !important;
+        }
+      }
+    }
+  }
 
   .message-actions {
     display: flex;
@@ -2522,7 +2775,9 @@ const initModelOptions = async () => {
   width: 280px !important;
 
   :deep(.ant-dropdown-menu-item) {
-    padding-right: 4px !important;
+    padding: 0 4px 0 4px !important;
+    line-height: 30px !important;
+    height: 30px !important;
   }
 
   .history-search-container {
@@ -2582,23 +2837,23 @@ const initModelOptions = async () => {
   max-height: 360px;
   overflow-y: auto;
   scrollbar-width: thin;
-  scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
+  scrollbar-color: var(--bg-color-quinary) transparent;
 
   &::-webkit-scrollbar {
     width: 4px;
   }
 
   &::-webkit-scrollbar-track {
-    background: var(--scrollbar-track);
+    background: transparent;
     border-radius: 2px;
   }
 
   &::-webkit-scrollbar-thumb {
-    background-color: var(--scrollbar-thumb);
+    background-color: var(--bg-color-quinary);
     border-radius: 2px;
 
     &:hover {
-      background-color: var(--scrollbar-thumb-hover);
+      background-color: var(--bg-color-quaternary);
     }
   }
 }
@@ -2618,6 +2873,7 @@ const initModelOptions = async () => {
   &:hover {
     background-color: var(--hover-bg-color) !important;
     transform: translateX(2px);
+    border-color: var(--border-color-light);
 
     .menu-action-buttons {
       opacity: 1;
@@ -2785,7 +3041,7 @@ const initModelOptions = async () => {
   }
 
   .reject-btn {
-    :global(.dark-theme) & {
+    .theme-dark & {
       background-color: #2a2a2a;
       border-color: #3a3a3a;
       color: #e0e0e0;
@@ -2810,7 +3066,7 @@ const initModelOptions = async () => {
       }
     }
 
-    :global(.light-theme) & {
+    .theme-light & {
       background-color: #fff;
       border: 1px solid #d9d9d9;
       color: #666;
@@ -2831,7 +3087,7 @@ const initModelOptions = async () => {
   }
 
   .approve-btn {
-    :global(.dark-theme) & {
+    .theme-dark & {
       color: #e0e0e0;
       background-color: #1656b1;
       border-color: #2d6fcd;
@@ -2856,7 +3112,7 @@ const initModelOptions = async () => {
       }
     }
 
-    :global(.light-theme) & {
+    .theme-light & {
       background-color: #1890ff;
       border-color: #1890ff;
       color: #fff;
@@ -2876,7 +3132,7 @@ const initModelOptions = async () => {
   }
 
   .cancel-btn {
-    :global(.dark-theme) & {
+    .theme-dark & {
       background-color: #2a2a2a;
       border-color: #3a3a3a;
       color: #666666;
@@ -2901,7 +3157,7 @@ const initModelOptions = async () => {
       }
     }
 
-    :global(.light-theme) & {
+    .theme-light & {
       background-color: #fff;
       border: 1px solid #d9d9d9;
       color: #666;
@@ -2921,7 +3177,7 @@ const initModelOptions = async () => {
   }
 
   .resume-btn {
-    :global(.dark-theme) & {
+    .theme-dark & {
       background-color: #1656b1;
       border-color: #2d6fcd;
       color: #cccccc;
@@ -2948,7 +3204,7 @@ const initModelOptions = async () => {
       }
     }
 
-    :global(.light-theme) & {
+    .theme-light & {
       background-color: #1890ff;
       border-color: #1890ff;
       color: #fff;
@@ -3147,18 +3403,36 @@ const initModelOptions = async () => {
 .history-load-more {
   text-align: center;
   padding: 8px;
-  color: #888;
+  color: var(--text-color-tertiary);
   font-size: 12px;
   cursor: pointer;
   transition: color 0.2s;
 
   &:hover {
     color: #1890ff;
+    background-color: var(--hover-bg-color);
   }
 }
 
 .processing-text {
   font-size: 10px;
   color: var(--text-color);
+}
+
+.ai-login-prompt {
+  text-align: center;
+  margin-top: 20px;
+
+  p {
+    color: var(--text-color);
+    font-size: 12px;
+    margin-bottom: 20px;
+  }
+
+  .login-button {
+    min-width: 150px;
+    height: 32px;
+    font-size: 14px;
+  }
 }
 </style>

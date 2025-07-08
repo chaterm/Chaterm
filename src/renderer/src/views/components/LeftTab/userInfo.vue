@@ -9,9 +9,22 @@
       </div>
       <div class="registration_type">
         {{ userInfo.registrationType === 1 ? t('userInfo.enterprise') : t('userInfo.personal') }}
+        <a-tag
+          v-if="userInfo.expires && new Date() < new Date(userInfo.expires)"
+          :key="userInfo.subscription"
+          :title="t('userInfo.expirationTime') + `：${userInfo.expires}`"
+          class="subscription-tag"
+        >
+          {{ userInfo.subscription }}
+        </a-tag>
+        <a-tag
+          v-else
+          class="subscription-tag free-tag"
+          >free</a-tag
+        >
       </div>
       <div class="divider-container">
-        <a-divider style="border-color: #4a4a4a; margin-bottom: 20px" />
+        <a-divider style="border-color: var(--border-color-light, #e8e8e8); margin-bottom: 20px" />
       </div>
 
       <a-form
@@ -320,22 +333,31 @@ onBeforeUnmount(() => {})
 .userInfo {
   width: 100%;
   height: 100%;
+  overflow: hidden;
+  border-right: none;
 }
 
 .userInfo-container {
   width: 100%;
   height: 100%;
-  background-color: var(--chaterm-bg-color);
+  background-color: var(--bg-color);
   border-radius: 6px;
   overflow: hidden;
   padding: 4px;
-  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.15);
-  color: var(--chaterm-text-color);
+  box-shadow: none;
+  color: var(--text-color);
+  border: none;
 }
 
 :deep(.ant-card) {
   height: 100%;
-  background-color: var(--chaterm-bg-color);
+  background-color: var(--bg-color);
+  border: none;
+  box-shadow: none;
+}
+
+:deep(.ant-card-body) {
+  border: none;
 }
 
 :deep(.ant-card-body) {
@@ -343,12 +365,29 @@ onBeforeUnmount(() => {})
   display: flex;
   flex-direction: column;
   align-items: center;
-  overflow-y: scroll;
+  overflow-y: auto;
+  border: none;
+  scrollbar-width: thin;
+  scrollbar-color: var(--scrollbar-thumb-color, rgba(0, 0, 0, 0.2)) transparent;
+}
+
+/* 自定义滚动条样式 */
+:deep(.ant-card-body)::-webkit-scrollbar {
+  width: 6px;
+}
+
+:deep(.ant-card-body)::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+:deep(.ant-card-body)::-webkit-scrollbar-thumb {
+  background-color: var(--scrollbar-thumb-color, rgba(0, 0, 0, 0.2));
+  border-radius: 3px;
 }
 
 /* 表单样式 */
 .custom-form {
-  color: var(--chaterm-text-color);
+  color: var(--text-color);
   align-content: center;
   width: 100%;
 }
@@ -358,19 +397,19 @@ onBeforeUnmount(() => {})
 }
 
 .custom-form :deep(.ant-form-item-label > label) {
-  color: var(--chaterm-text-color);
+  color: var(--text-color);
 }
 
 /* 输入框样式 */
 .custom-input,
 :deep(.ant-input-password),
 :deep(.ant-input-password .ant-input) {
-  background-color: var(--chaterm-input-bg-color) !important;
-  color: var(--chaterm-text-color) !important;
+  background-color: var(--bg-color) !important;
+  color: var(--text-color) !important;
   border-radius: 4px !important;
   width: 250px !important;
   &::placeholder {
-    color: var(--chaterm-placeholder-color);
+    color: var(--text-color-secondary);
   }
 }
 
@@ -401,7 +440,7 @@ onBeforeUnmount(() => {})
   box-sizing: border-box;
   margin: 0;
   padding: 0;
-  color: var(--chaterm-text-color);
+  color: var(--text-color);
   font-size: 30px;
   font-variant: tabular-nums;
   line-height: 1.5;
@@ -469,6 +508,21 @@ onBeforeUnmount(() => {})
 }
 
 .divider-container :deep(.ant-divider) {
-  border-color: var(--chaterm-divider-color);
+  border-color: var(--border-color-light);
+}
+
+.subscription-tag {
+  background-color: rgba(128, 128, 128, 0.1);
+  color: var(--text-color, #333);
+  border: 1px solid rgba(128, 128, 128, 0.15);
+  border-radius: 4px;
+  font-size: 11px;
+  padding: 0 4px;
+}
+
+.free-tag {
+  background-color: rgba(128, 128, 128, 0.1);
+  border-color: rgba(128, 128, 128, 0.15);
+  color: var(--text-color-secondary, #999);
 }
 </style>
