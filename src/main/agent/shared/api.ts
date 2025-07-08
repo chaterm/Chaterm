@@ -1,6 +1,6 @@
 import { ProxyConfig } from './Proxy'
 
-export type ApiProvider = 'bedrock' | 'litellm' | 'deepseek' | 'default'
+export type ApiProvider = 'bedrock' | 'litellm' | 'deepseek' | 'default' | 'openai'
 
 export interface ApiHandlerOptions {
   apiModelId?: string
@@ -29,6 +29,12 @@ export interface ApiHandlerOptions {
   deepSeekApiKey?: string
   needProxy?: boolean
   proxyConfig?: ProxyConfig
+  openAiBaseUrl?: string
+  openAiApiKey?: string
+  openAiModelId?: string
+  openAiModelInfo?: OpenAiCompatibleModelInfo
+  azureApiVersion?: string
+  o3MiniReasoningEffort?: string
 }
 
 export type ApiConfiguration = ApiHandlerOptions & {
@@ -255,3 +261,24 @@ export const deepSeekModels = {
     cacheReadsPrice: 0.14
   }
 } as const satisfies Record<string, ModelInfo>
+
+export interface OpenAiCompatibleModelInfo extends ModelInfo {
+  temperature?: number
+  isR1FormatRequired?: boolean
+}
+
+// Azure OpenAI
+// https://learn.microsoft.com/en-us/azure/ai-services/openai/api-version-deprecation
+// https://learn.microsoft.com/en-us/azure/ai-services/openai/reference#api-specs
+export const azureOpenAiDefaultApiVersion = '2024-08-01-preview'
+
+export const openAiModelInfoSaneDefaults: OpenAiCompatibleModelInfo = {
+  maxTokens: -1,
+  contextWindow: 128_000,
+  supportsImages: true,
+  supportsPromptCache: false,
+  isR1FormatRequired: false,
+  inputPrice: 0,
+  outputPrice: 0,
+  temperature: 0
+}

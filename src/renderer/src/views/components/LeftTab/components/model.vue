@@ -40,13 +40,13 @@
           <h3>{{ $t('user.apiConfiguration') }}</h3>
         </div>
 
-        <!-- OpenAI Compatible (LiteLLM) Configuration -->
+        <!-- LiteLLM Configuration -->
         <a-card
           class="settings-section"
           :bordered="false"
         >
           <div class="api-provider-header">
-            <h4>OpenAI Compatible</h4>
+            <h4>LiteLLM</h4>
           </div>
 
           <div class="setting-item">
@@ -103,6 +103,78 @@
                     class="save-btn"
                     size="small"
                     @click="() => handleSave('litellm')"
+                  >
+                    Save
+                  </a-button>
+                </div>
+              </div>
+            </a-form-item>
+          </div>
+        </a-card>
+
+        <!-- OpenAI Compatible Configuration -->
+        <a-card
+          class="settings-section"
+          :bordered="false"
+        >
+          <div class="api-provider-header">
+            <h4>OpenAI Compatible</h4>
+          </div>
+
+          <div class="setting-item">
+            <a-form-item
+              :label="$t('user.openAiBaseUrl')"
+              :label-col="{ span: 24 }"
+              :wrapper-col="{ span: 24 }"
+            >
+              <a-input
+                v-model:value="openAiBaseUrl"
+                :placeholder="$t('user.openAiBaseUrlPh')"
+              />
+            </a-form-item>
+          </div>
+
+          <div class="setting-item">
+            <a-form-item
+              :label="$t('user.openAiApiKey')"
+              :label-col="{ span: 24 }"
+              :wrapper-col="{ span: 24 }"
+            >
+              <a-input-password
+                v-model:value="openAiApiKey"
+                :placeholder="$t('user.openAiApiKeyPh')"
+              />
+              <p class="setting-description-no-padding">
+                {{ $t('user.openAiApiKeyDescribe') }}
+              </p>
+            </a-form-item>
+          </div>
+
+          <div class="setting-item">
+            <a-form-item
+              :label="$t('user.model')"
+              :label-col="{ span: 24 }"
+              :wrapper-col="{ span: 24 }"
+            >
+              <div class="model-input-container">
+                <a-input
+                  v-model:value="openAiModelId"
+                  size="small"
+                  class="model-input"
+                />
+                <div class="button-group">
+                  <a-button
+                    class="check-btn"
+                    size="small"
+                    :loading="checkLoadingOpenAI"
+                    @click="() => handleCheck('openai')"
+                  >
+                    Check
+                  </a-button>
+                  <a-button
+                    class="save-btn"
+                    size="small"
+                    @click="() => handleSave('openai')"
                   >
                     Save
                   </a-button>
@@ -364,9 +436,13 @@ const liteLlmBaseUrl = ref('')
 const liteLlmApiKey = ref('')
 const liteLlmModelId = ref('')
 const deepSeekApiKey = ref('')
+const openAiBaseUrl = ref('https://api.openai.com/v1')
+const openAiApiKey = ref('')
+const openAiModelId = ref('')
 const checkLoadingLiteLLM = ref(false)
 const checkLoadingBedrock = ref(false)
 const checkLoadingDeepSeek = ref(false)
+const checkLoadingOpenAI = ref(false)
 const addModelSwitch = ref(false)
 
 // 加载保存的配置
@@ -383,10 +459,11 @@ const loadSavedConfig = async () => {
     awsSecretKey.value = (await getSecret('awsSecretKey')) || ''
     awsSessionToken.value = (await getSecret('awsSessionToken')) || ''
     //openai信息
-    // liteLlmModelId.value = ((await getGlobalState('liteLlmModelId')) as string) || 'claude-3-7-sonnet'
     liteLlmBaseUrl.value = ((await getGlobalState('liteLlmBaseUrl')) as string) || ''
     liteLlmApiKey.value = (await getSecret('liteLlmApiKey')) || ''
     deepSeekApiKey.value = (await getSecret('deepSeekApiKey')) || ''
+    openAiBaseUrl.value = ((await getGlobalState('openAiBaseUrl')) as string) || 'https://api.openai.com/v1'
+    openAiApiKey.value = (await getSecret('openAiApiKey')) || ''
     awsEndpointSelected.value = ((await getGlobalState('awsEndpointSelected')) as boolean) || false
   } catch (error) {
     console.error('Failed to load config:', error)
@@ -441,6 +518,19 @@ const saveDeepSeekConfig = async () => {
   }
 }
 
+const saveOpenAiConfig = async () => {
+  try {
+    await updateGlobalState('openAiBaseUrl', openAiBaseUrl.value)
+    await storeSecret('openAiApiKey', openAiApiKey.value)
+  } catch (error) {
+    console.error('Failed to save OpenAI config:', error)
+    notification.error({
+      message: 'Error',
+      description: 'Failed to save OpenAI configuration'
+    })
+  }
+}
+
 // 组件挂载时加载保存的配置
 onMounted(async () => {
   await loadSavedConfig()
@@ -466,6 +556,11 @@ const checkModelConfig = async (provider) => {
       break
     case 'deepseek':
       if (isEmptyValue(deepSeekApiKey.value) || isEmptyValue(deepSeekModelId.value)) {
+        return false
+      }
+      break
+    case 'openai':
+      if (isEmptyValue(openAiBaseUrl.value) || isEmptyValue(openAiApiKey.value) || isEmptyValue(openAiModelId.value)) {
         return false
       }
       break
@@ -518,6 +613,15 @@ const handleCheck = async (provider) => {
         deepSeekApiKey: deepSeekApiKey.value
       }
       break
+    case 'openai':
+      checkLoadingOpenAI.value = true
+      checkOptions = {
+        apiProvider: provider,
+        openAiBaseUrl: openAiBaseUrl.value,
+        openAiApiKey: openAiApiKey.value,
+        openAiModelId: openAiModelId.value
+      }
+      break
   }
 
   // 覆盖checkApiConfiguration的内容
@@ -550,6 +654,7 @@ const handleCheck = async (provider) => {
     checkLoadingBedrock.value = false
     checkLoadingLiteLLM.value = false
     checkLoadingDeepSeek.value = false
+    checkLoadingOpenAI.value = false
   }
 }
 
@@ -658,6 +763,10 @@ const handleSave = async (provider) => {
       modelId = deepSeekModelId.value
       modelName = deepSeekModelId.value
       break
+    case 'openai':
+      modelId = openAiModelId.value
+      modelName = openAiModelId.value
+      break
   }
 
   // 检查模型 ID 或名称是否为空
@@ -690,6 +799,9 @@ const handleSave = async (provider) => {
       break
     case 'deepseek':
       await saveDeepSeekConfig()
+      break
+    case 'openai':
+      await saveOpenAiConfig()
       break
   }
 
