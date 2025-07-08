@@ -16,9 +16,11 @@
     >
     </div>
     <a-button
+      v-show="showAiButton"
       :id="`${connectionId}Button`"
       class="select-button"
-      style="display: none"
+      @mousedown.prevent
+      @click="onChatToAiClick"
       >Chat to AI</a-button
     >
     <SuggComp
@@ -178,6 +180,7 @@ let cusWrite: ((data: string, options?: { isUserCall?: boolean }) => void) | nul
 let resizeObserver: ResizeObserver | null = null
 const showSearch = ref(false)
 const searchAddon = ref<SearchAddon | null>(null)
+const showAiButton = ref(false)
 
 // const userConfig = ref({
 //   aliasStatus: 2,
@@ -259,6 +262,21 @@ onMounted(async () => {
   termInstance?.onSelectionChange(function () {
     if (termInstance.hasSelection()) {
       copyText.value = termInstance.getSelection()
+      // 计算按钮位置并显示
+      const position = termInstance.getSelectionPosition()
+      if (position && termInstance.getSelection().trim()) {
+        const button = document.getElementById(`${connectionId.value}Button`) as HTMLElement
+        const { y } = position.start
+        const viewportY = termInstance.buffer.active.viewportY
+        const visibleRow = y - viewportY
+        // 获取字符单元尺寸
+        const cellHeight = (termInstance as any)._core._renderService.dimensions.css.cell.height
+        // 将字符坐标转换为像素坐标
+        const top = visibleRow - 2 > 0 ? (visibleRow - 2) * cellHeight : 0
+        button.style.right = `26px`
+        button.style.top = `${top}px`
+        showAiButton.value = true
+      }
     }
   })
 
@@ -284,39 +302,6 @@ onMounted(async () => {
     }
   })
 
-  if (terminalContainer.value) {
-    terminalContainer.value.addEventListener('mouseup', () => {
-      setTimeout(() => {
-        const text = termInstance.getSelection()
-        const position = termInstance.getSelectionPosition()
-        if (position && text.trim()) {
-          const button = document.getElementById(`${connectionId.value}Button`) as HTMLElement
-          const { y } = position.start
-          const viewportY = termInstance.buffer.active.viewportY
-          const visibleRow = y - viewportY
-
-          // 获取字符单元尺寸
-          const cellHeight = (termInstance as any)._core._renderService.dimensions.css.cell.height
-
-          // 将字符坐标转换为像素坐标
-          const top = visibleRow - 2 > 0 ? (visibleRow - 2) * cellHeight : 0
-
-          button.style.right = `26px`
-          button.style.top = `${top}px`
-          button.style.display = 'block'
-
-          button.onclick = () => {
-            eventBus.emit('openAiRight')
-            nextTick(() => {
-              eventBus.emit('chatToAi', text.trim())
-            })
-            termInstance.clearSelection()
-          }
-        }
-      }, 10)
-    })
-    document.addEventListener('mouseup', hideSelectionButton)
-  }
   fitAddon.value = new FitAddon()
   termInstance.loadAddon(fitAddon.value)
   if (terminalElement.value) {
@@ -491,6 +476,16 @@ onMounted(async () => {
     eventBus.off('executeTerminalCommand', handleExecuteCommand)
     window.removeEventListener('keydown', handleGlobalKeyDown)
   })
+
+  // 新增：terminal 失去焦点时隐藏按钮
+  if (terminal.value.textarea) {
+    terminal.value.textarea.addEventListener('blur', hideSelectionButton)
+    cleanupListeners.value.push(() => {
+      if (terminal.value?.textarea) {
+        terminal.value.textarea.removeEventListener('blur', hideSelectionButton)
+      }
+    })
+  }
 })
 const getCmdList = async (terminalId) => {
   const data = await api.sshConnExec({
@@ -505,7 +500,7 @@ const getCmdList = async (terminalId) => {
 }
 onBeforeUnmount(() => {
   window.removeEventListener('resize', handleResize)
-
+  inputManager.unregisterInstances(connectionId.value)
   // 清理 ResizeObserver
   if (resizeObserver) {
     resizeObserver.disconnect()
@@ -2184,8 +2179,7 @@ const focus = () => {
 }
 
 const hideSelectionButton = () => {
-  const button = document.getElementById(`${connectionId.value}Button`) as HTMLElement
-  if (button) button.style.display = 'none'
+  showAiButton.value = false
 }
 
 const handleGlobalKeyDown = (e: KeyboardEvent) => {
@@ -2231,6 +2225,17 @@ const terminalContainerResize = () => {
   }
 }
 
+const onChatToAiClick = () => {
+  if (terminal.value && terminal.value.hasSelection()) {
+    const text = terminal.value.getSelection()
+    eventBus.emit('openAiRight')
+    nextTick(() => {
+      eventBus.emit('chatToAi', text.trim())
+    })
+    terminal.value.clearSelection()
+  }
+}
+
 defineExpose({
   handleResize,
   autoExecuteCode,
@@ -2240,11 +2245,6 @@ defineExpose({
   triggerResize: () => {
     handleResize()
   }
-})
-
-onUnmounted(() => {
-  document.removeEventListener('mouseup', hideSelectionButton)
-  inputManager.unregisterInstances(connectionId.value)
 })
 
 // 在 script setup 部分添加新变量
@@ -2282,7 +2282,6 @@ const isCollectingOutput = ref(false)
 }
 .select-button {
   position: absolute;
-  display: none;
   z-index: 10;
   padding: 4px 8px;
   border-radius: 4px;
