@@ -193,6 +193,7 @@ export default {
     addModelExistError: '模型名称已存在',
     addModelSuccess: '新增模型成功',
     billing: '计费概览',
+    subscription: '订阅类型',
     expires: '过期时间',
     ratio: '用量占比'
   },

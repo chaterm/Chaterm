@@ -193,6 +193,7 @@ export default {
     addModelExistError: 'A model with this name already exists',
     addModelSuccess: 'Model added successfully',
     billing: 'Billing Usage',
+    subscription: 'Subscription Type',
     expires: 'Expiration Date',
     ratio: 'Usage Ratio'
   },
