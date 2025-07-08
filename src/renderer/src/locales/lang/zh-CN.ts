@@ -194,7 +194,7 @@ export default {
     addModelSuccess: '新增模型成功',
     billing: '计费概览',
     expires: '过期时间',
-    ratio: '使用比例'
+    ratio: '用量占比'
   },
   extensions: {
     extensions: '插件',
