@@ -270,6 +270,7 @@ export default {
     loadMore: '加载',
     copyToClipboard: '已复制到剪贴板',
     retry: '重试',
+    taskCompleted: '任务已完成',
     newTask: '开始新任务'
   },
   keyChain: {
