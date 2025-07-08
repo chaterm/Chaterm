@@ -238,15 +238,25 @@ import { Notice } from '../components/Notice'
 import '@/assets/theme.less'
 import { isGlobalInput } from '@renderer/views/components/Ssh/termInputManager'
 import { inputManager } from '../components/Ssh/termInputManager'
+import { useRouter } from 'vue-router'
 
+const router = useRouter()
 const api = window.api as any
 const { t } = useI18n()
 const aliasConfig = aliasConfigStore()
 const headerRef = ref<InstanceType<typeof Header> | null>(null)
 const extensionsRef = ref<InstanceType<typeof Extensions> | null>(null)
 const allTabs = ref<InstanceType<typeof TabsPanel> | null>(null)
+const isSkippedLogin = computed(() => {
+  return localStorage.getItem('login-skipped') === 'true'
+})
 const watermarkContent = reactive({
-  content: [userInfoStore().userInfo.name, userInfoStore().userInfo.email],
+  content: computed(() => {
+    if (isSkippedLogin.value) {
+      return ['Guest User']
+    }
+    return [userInfoStore().userInfo.name, userInfoStore().userInfo.email]
+  }),
   font: {
     fontSize: 12,
     color: computed(() => (currentTheme.value === 'dark' ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.05)'))
@@ -484,6 +494,24 @@ const activeTabId = ref('')
 const rightTabs = ref<TabItem[]>([])
 const rightActiveTabId = ref('')
 const currentClickServer = async (item) => {
+  // 如果是跳过登录的用户，检查是否需要登录的功能
+  if (isSkippedLogin.value && needsAuth(item)) {
+    Notice.open({
+      type: 'warning',
+      description: t('common.pleaseLoginFirst'),
+      duration: 3,
+      btns: [
+        {
+          text: t('common.login'),
+          action: () => {
+            router.push('/login')
+          }
+        }
+      ]
+    })
+    return
+  }
+
   if (item.children) return
 
   const id_ = uuidv4()
@@ -498,6 +526,14 @@ const currentClickServer = async (item) => {
   })
   activeTabId.value = id_
   checkActiveTab(item.type || 'term')
+}
+
+const needsAuth = (item) => {
+  const authRequiredTypes = ['extensions', 'monitor']
+  if (item.type === 'term' && item.data?.type === 'ssh') {
+    return false
+  }
+  return authRequiredTypes.includes(item.type || 'term')
 }
 
 const closeTab = (tabId) => {
@@ -870,7 +906,6 @@ defineExpose({
 
       .term_content_left {
         width: 190px;
-        min-width: 200px;
       }
     }
   }

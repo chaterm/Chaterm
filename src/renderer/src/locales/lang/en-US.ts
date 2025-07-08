@@ -11,6 +11,7 @@ export default {
     setting: 'Setting',
     notice: 'Notice',
     logout: 'Logout',
+    login: 'Login',
     userInfo: 'User Info',
     userConfig: 'Setting',
     alias: 'Alias Config',
@@ -43,7 +44,8 @@ export default {
     globalExec: 'Global Execution',
     syncInputOn: 'Synchronous Input (On)',
     syncInput: 'Synchronous Input',
-    allExecuted: 'All Executed'
+    allExecuted: 'All Executed',
+    pleaseLoginFirst: 'Please login first'
   },
   term: {
     welcome: 'Welcome to use Chaterm'
@@ -57,6 +59,8 @@ export default {
     loginByUser: 'Login with account',
     loginByEmail: 'Login with email',
     login: 'Login',
+    skip: "Don't want to sign in right now?",
+    skipLogin: 'Skip for now',
     applyTag: 'No account ? ',
     apply: 'Apply',
     pleaseInputUsername: 'Please input username',
@@ -248,6 +252,7 @@ export default {
   },
   ai: {
     welcome: 'What can I do for you in the terminal?',
+    loginPrompt: 'Login to use AI features, new users can use for free for two weeks',
     searchHost: 'Search by IP',
     noMatchingHosts: 'No matching hosts',
     copy: 'Copy',
