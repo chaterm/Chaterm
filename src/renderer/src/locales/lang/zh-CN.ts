@@ -11,6 +11,7 @@ export default {
     setting: '设置',
     notice: '通知',
     logout: '退出登录',
+    login: '登录',
     userInfo: '个人信息',
     userConfig: '设置',
     alias: 'Alias配置',
@@ -43,7 +44,8 @@ export default {
     globalExec: '全局执行命令',
     syncInputOn: '同步输入(已开)',
     syncInput: '同步输入',
-    allExecuted: '全部执行'
+    allExecuted: '全部执行',
+    pleaseLoginFirst: '请先登录'
   },
   term: {
     welcome: '欢迎使用智能堡垒机Chaterm'
@@ -57,6 +59,8 @@ export default {
     loginByUser: '账号密码登录',
     loginByEmail: '邮箱验证码登录',
     login: '立即登录',
+    skip: '暂不登录？',
+    skipLogin: '跳过',
     applyTag: '还没有账号？ ',
     apply: '立即申请',
     pleaseInputUsername: '请输入账号',
@@ -250,6 +254,7 @@ export default {
   },
   ai: {
     welcome: '您好，请问需要在终端做什么操作？',
+    loginPrompt: '登录后即可使用 AI 功能，新用户注册免费使用两周',
     searchHost: '输入IP搜索',
     noMatchingHosts: '无匹配主机',
     copy: '复制',
