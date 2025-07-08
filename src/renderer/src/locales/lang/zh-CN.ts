@@ -48,14 +48,14 @@ export default {
     pleaseLoginFirst: '请先登录'
   },
   term: {
-    welcome: '欢迎使用智能堡垒机Chaterm'
+    welcome: '欢迎使用 Chaterm'
   },
   login: {
     enterprise: '企业版',
     personal: '个人版',
     contact: '联系我们',
     welcome: '欢迎使用',
-    title: '智能堡垒机Chaterm',
+    title: 'Chaterm',
     loginByUser: '账号密码登录',
     loginByEmail: '邮箱验证码登录',
     login: '立即登录',
@@ -179,6 +179,11 @@ export default {
     deepSeekApiKey: 'DeepSeek API Key',
     deepSeekApiKeyPh: '请输入API Key',
     deepSeekApiKeyDescribe: '此密钥存储在本地，仅用于从此客户端发出API请求',
+    openAiBaseUrl: 'OpenAI URL地址',
+    openAiBaseUrlPh: '请输入URL地址',
+    openAiApiKey: 'OpenAI API Key',
+    openAiApiKeyPh: '请输入API Key',
+    openAiApiKeyDescribe: '此密钥存储在本地，仅用于从此客户端发出API请求',
     checkModelConfigFailMessage: '缺少必要的模型配置',
     checkModelConfigFailDescription: '请填写必要的模型配置，设置->模型->添加模型->API 配置',
     checkSuccessMessage: '连接成功',
