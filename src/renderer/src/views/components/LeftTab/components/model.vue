@@ -1031,6 +1031,8 @@ const handleSave = async (provider) => {
 }
 
 :deep(.ant-checkbox) {
+  border: 0 !important;
+  background-color: var(--bg-color) !important;
   top: 0;
 }
 
