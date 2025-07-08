@@ -18,7 +18,21 @@
             alt="AI"
           />
         </div>
-        <div class="ai-welcome-text">{{ $t('ai.welcome') }}</div>
+        <template v-if="isSkippedLogin">
+          <div class="ai-login-prompt">
+            <p>{{ $t('ai.loginPrompt') }}</p>
+            <a-button
+              type="primary"
+              class="login-button"
+              @click="goToLogin"
+            >
+              {{ $t('common.login') }}
+            </a-button>
+          </div>
+        </template>
+        <template v-else>
+          <div class="ai-welcome-text">{{ $t('ai.welcome') }}</div>
+        </template>
       </div>
       <div
         v-if="chatHistory.length > 0"
@@ -289,79 +303,84 @@
               </div>
             </div>
           </div>
-          <div class="hosts-display-container">
-            <span
-              v-if="chatTypeValue === 'agent' && chatHistory.length === 0"
-              class="hosts-display-container-host-tag"
-              @click="handleAddHostClick"
-            >
-              {{ hosts && hosts.length > 0 ? '@' : `@ ${$t('ai.addHost')}` }}
-            </span>
-            <a-tag
-              v-for="item in hosts"
-              :key="item.uuid"
-              color="blue"
-              class="host-tag-with-delete"
-            >
-              <template #icon>
-                <laptop-outlined />
-              </template>
-              {{ item.host }}
-              <CloseOutlined
+          <div
+            v-if="!isSkippedLogin"
+            class="input-container"
+          >
+            <div class="hosts-display-container">
+              <span
                 v-if="chatTypeValue === 'agent' && chatHistory.length === 0"
-                class="host-delete-btn"
-                @click.stop="removeHost(item)"
-              />
-            </a-tag>
+                class="hosts-display-container-host-tag"
+                @click="handleAddHostClick"
+              >
+                {{ hosts && hosts.length > 0 ? '@' : `@ ${$t('ai.addHost')}` }}
+              </span>
+              <a-tag
+                v-for="item in hosts"
+                :key="item.uuid"
+                color="blue"
+                class="host-tag-with-delete"
+              >
+                <template #icon>
+                  <laptop-outlined />
+                </template>
+                {{ item.host }}
+                <CloseOutlined
+                  v-if="chatTypeValue === 'agent' && chatHistory.length === 0"
+                  class="host-delete-btn"
+                  @click.stop="removeHost(item)"
+                />
+              </a-tag>
 
-            <span
-              v-if="responseLoading"
-              class="processing-text"
-            >
-              <HourglassOutlined
-                spin
-                style="color: #1890ff; margin-right: 2px"
-              />
-              {{ $t('ai.processing') }}
-            </span>
-          </div>
-          <a-textarea
-            v-model:value="chatInputValue"
-            :placeholder="chatTypeValue === 'agent' ? $t('ai.agentMessage') : chatTypeValue === 'chat' ? $t('ai.chatMessage') : $t('ai.cmdMessage')"
-            class="chat-textarea"
-            :auto-size="{ minRows: 2, maxRows: 5 }"
-            @keydown="handleKeyDown"
-            @input="handleInputChange"
-          />
-          <div class="input-controls">
-            <a-select
-              v-model:value="chatTypeValue"
-              size="small"
-              style="width: 100px"
-              :options="AiTypeOptions"
-              show-search
-            ></a-select>
-            <a-select
-              v-model:value="chatAiModelValue"
-              size="small"
-              style="width: 150px"
-              :options="AgentAiModelsOptions"
-              show-search
-              @change="handleChatAiModelChange"
-            ></a-select>
-            <a-button
-              :disabled="!showSendButton"
-              size="small"
-              class="custom-round-button compact-button"
-              style="margin-left: 8px"
-              @click="sendMessage('send')"
-            >
-              <img
-                :src="sendIcon"
-                alt="send"
-                style="width: 18px; height: 18px"
-              />
-            </a-button>
+              <span
+                v-if="responseLoading"
+                class="processing-text"
+              >
+                <HourglassOutlined
+                  spin
+                  style="color: #1890ff; margin-right: 2px"
+                />
+                {{ $t('ai.processing') }}
+              </span>
+            </div>
+            <a-textarea
+              v-model:value="chatInputValue"
+              :placeholder="chatTypeValue === 'agent' ? $t('ai.agentMessage') : chatTypeValue === 'chat' ? $t('ai.chatMessage') : $t('ai.cmdMessage')"
+              class="chat-textarea"
+              :auto-size="{ minRows: 2, maxRows: 5 }"
+              @keydown="handleKeyDown"
+              @input="handleInputChange"
+            />
+            <div class="input-controls">
+              <a-select
+                v-model:value="chatTypeValue"
+                size="small"
+                style="width: 100px"
+                :options="AiTypeOptions"
+                show-search
+              ></a-select>
+              <a-select
+                v-model:value="chatAiModelValue"
+                size="small"
+                style="width: 150px"
+                :options="AgentAiModelsOptions"
+                show-search
+                @change="handleChatAiModelChange"
+              ></a-select>
+              <a-button
+                :disabled="!showSendButton"
+                size="small"
+                class="custom-round-button compact-button"
+                style="margin-left: 8px"
+                @click="sendMessage('send')"
+              >
+                <img
+                  :src="sendIcon"
+                  alt="send"
+                  style="width: 18px; height: 18px"
+                />
+              </a-button>
+            </div>
           </div>
         </div>
       </div>
@@ -538,6 +557,7 @@
 
 <script setup lang="ts">
 import { ref, reactive, onMounted, defineAsyncComponent, onUnmounted, watch, computed, nextTick, onBeforeUnmount } from 'vue'
+import { useRouter } from 'vue-router'
 import {
   CloseOutlined,
   LaptopOutlined,
@@ -576,6 +596,19 @@ import { getUser } from '@api/user/user'
 
 const { t } = i18n.global
 const MarkdownRenderer = defineAsyncComponent(() => import('@views/components/AiTab/markdownRenderer.vue'))
+const router = useRouter()
+const isSkippedLogin = ref(localStorage.getItem('login-skipped') === 'true')
+
+watch(
+  () => localStorage.getItem('login-skipped'),
+  (newValue) => {
+    isSkippedLogin.value = newValue === 'true'
+  }
+)
+
+const goToLogin = () => {
+  router.push('/login')
+}
 
 // 定义事件类型
 interface TabInfo {
@@ -3384,5 +3417,22 @@ const handleFeedback = async (message: ChatMessage, type: 'like' | 'dislike') =>
 .processing-text {
   font-size: 10px;
   color: var(--text-color);
+}
+
+.ai-login-prompt {
+  text-align: center;
+  margin-top: 20px;
+
+  p {
+    color: var(--text-color);
+    font-size: 12px;
+    margin-bottom: 20px;
+  }
+
+  .login-button {
+    min-width: 150px;
+    height: 32px;
+    font-size: 14px;
+  }
 }
 </style>
