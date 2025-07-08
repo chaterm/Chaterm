@@ -108,7 +108,7 @@ const isSkippedLogin = ref(localStorage.getItem('login-skipped') === 'true')
   // 修改左侧 tab 栏样式
   :deep(.ant-tabs-nav) {
     height: 100%;
-    width: 100px;
+    width: 120px;
     background-color: var(--bg-color);
 
     &::before {
