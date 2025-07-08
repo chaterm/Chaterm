@@ -1021,14 +1021,14 @@ defineExpose({
 }
 
 .splitpanes--vertical > .splitpanes__splitter:before {
-  left: -10px;
-  right: -10px;
+  left: -8px;
+  right: -8px;
   height: 100%;
 }
 
 .splitpanes--horizontal > .splitpanes__splitter:before {
-  left: -10px;
-  right: -10px;
+  left: -8px;
+  right: -8px;
   height: 100%;
 }
 </style>
