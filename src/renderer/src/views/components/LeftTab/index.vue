@@ -91,11 +91,19 @@
       class="user-menu"
     >
       <div
+        v-if="isSkippedLogin"
+        class="menu-item"
+        @click="goToLogin"
+        >{{ $t('common.login') }}</div
+      >
+      <div
+        v-if="!isSkippedLogin"
         class="menu-item"
         @click="userInfo"
         >{{ $t('common.userInfo') }}</div
       >
       <div
+        v-if="!isSkippedLogin"
         class="menu-item"
         @click="logout"
         >{{ $t('common.logout') }}</div
@@ -115,13 +123,23 @@ import { userInfoStore } from '@/store/index'
 import { pinia } from '@/main'
 import eventBus from '@/utils/eventBus'
 
+// 声明存储事件处理函数的变量
+let storageEventHandler: ((e: StorageEvent) => void) | null = null
+
 const keychainConfigClick = () => {
   emit('open-user-tab', 'keyChainConfig')
 }
 const userStore = userInfoStore(pinia)
 const activeKey = ref('workspace')
 const showUserMenu = ref<boolean>(false)
+const isSkippedLogin = ref<boolean>(localStorage.getItem('login-skipped') === 'true')
 const router = useRouter()
+
+const goToLogin = () => {
+  showUserMenu.value = false
+  router.push('/login')
+}
+
 const menuClick = (key) => {
   let type = ''
   let beforeActive = ''
@@ -182,10 +200,21 @@ const files = () => {
   showUserMenu.value = false
 }
 const logout = () => {
+  const isSkippedLogin = localStorage.getItem('login-skipped') === 'true'
+
+  if (isSkippedLogin) {
+    // 如果是跳过登录的用户，直接清除状态并跳转
+    localStorage.removeItem('login-skipped')
+    removeToken()
+    router.push('/login')
+    showUserMenu.value = false
+    return
+  }
+
+  // 正常登录用户的登出流程
   userLogOut()
     .then((res) => {
       console.log(res, 'logout')
-      // localStorage.removeItem('ctm-token')
       removeToken()
       router.push('/login')
     })
@@ -200,9 +229,27 @@ const logout = () => {
 }
 onMounted(() => {
   eventBus.on('openAiRight', openAiRight)
+  eventBus.on('openUserTab', (tab) => {
+    emit('open-user-tab', tab)
+  })
+
+  // 监听登录状态变化
+  storageEventHandler = (e: StorageEvent) => {
+    if (e.key === 'login-skipped') {
+      isSkippedLogin.value = e.newValue === 'true'
+    }
+  }
+  window.addEventListener('storage', storageEventHandler)
 })
+
 onUnmounted(() => {
   eventBus.off('openAiRight')
+  eventBus.off('openUserTab')
+  // 使用保存的引用移除事件监听器
+  if (storageEventHandler) {
+    window.removeEventListener('storage', storageEventHandler)
+    storageEventHandler = null
+  }
 })
 </script>
 <style lang="less">
@@ -260,7 +307,7 @@ onUnmounted(() => {
 
   .user-menu {
     position: absolute;
-    bottom: 80px;
+    bottom: 120px;
     left: 40px;
     background: var(--bg-color-secondary);
     border-radius: 8px;

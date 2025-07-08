@@ -11,6 +11,7 @@ export default {
     setting: 'Setting',
     notice: 'Notice',
     logout: 'Logout',
+    login: 'Login',
     userInfo: 'User Info',
     userConfig: 'Setting',
     alias: 'Alias Config',
@@ -43,7 +44,8 @@ export default {
     globalExec: 'Global Execution',
     syncInputOn: 'Synchronous Input (On)',
     syncInput: 'Synchronous Input',
-    allExecuted: 'All Executed'
+    allExecuted: 'All Executed',
+    pleaseLoginFirst: 'Please login first'
   },
   term: {
     welcome: 'Welcome to use Chaterm'
@@ -57,6 +59,8 @@ export default {
     loginByUser: 'Login with account',
     loginByEmail: 'Login with email',
     login: 'Login',
+    skip: "Don't want to sign in right now?",
+    skipLogin: 'Skip for now',
     applyTag: 'No account ? ',
     apply: 'Apply',
     pleaseInputUsername: 'Please input username',
@@ -109,6 +113,11 @@ export default {
     theme: 'Theme',
     themeDark: 'Dark',
     themeLight: 'Light',
+    telemetry: 'Telemetry',
+    telemetryEnabled: 'Enabled',
+    telemetryDisabled: 'Disabled',
+    telemetryDescription:
+      'Help improve Chaterm by sending anonymous usage data and error reports. We never send any code, prompt content, or personal information. For more information, please see our <a href="https://docs.chaterm.ai/user/privacy" target="_blank" rel="noopener noreferrer">privacy policy</a>.',
     enterprise: 'Enterprise',
     personal: 'Personal',
     name: 'Name',
@@ -182,7 +191,10 @@ export default {
     aiPreferences: 'AI Preferences',
     addModel: 'Add Model',
     addModelExistError: 'A model with this name already exists',
-    addModelSuccess: 'Model added successfully'
+    addModelSuccess: 'Model added successfully',
+    billing: 'Billing Usage',
+    expires: 'Expiration Date',
+    ratio: 'Usage Ratio'
   },
   extensions: {
     extensions: 'Extensions',
@@ -243,6 +255,7 @@ export default {
   },
   ai: {
     welcome: 'What can I do for you in the terminal?',
+    loginPrompt: 'Login to use AI features, new users can use for free for two weeks',
     searchHost: 'Search by IP',
     noMatchingHosts: 'No matching hosts',
     copy: 'Copy',
@@ -262,7 +275,9 @@ export default {
     loading: 'loading...',
     loadMore: 'load more',
     copyToClipboard: 'Copy to clipboard',
-    retry: 'Retry'
+    retry: 'Retry',
+    taskCompleted: 'Task Completed',
+    newTask: 'Start New Task'
   },
   keyChain: {
     newKey: 'New Key',
@@ -320,7 +335,8 @@ export default {
     edit: 'Edit',
     save: 'Save',
     cancel: 'Cancel',
-    resetPassword: 'Reset Password'
+    resetPassword: 'Reset Password',
+    expirationTime: 'Expiration Time'
   },
   update: {
     available: 'A new version is available',

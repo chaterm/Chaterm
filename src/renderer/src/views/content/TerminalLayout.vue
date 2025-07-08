@@ -40,7 +40,10 @@
             </pane>
             <pane :size="100 - leftPaneSize">
               <splitpanes @resize="onMainSplitResize">
-                <pane :size="mainTerminalSize">
+                <pane
+                  :size="mainTerminalSize"
+                  :min-size="30"
+                >
                   <TabsPanel
                     ref="allTabs"
                     :tabs="openedTabs"
@@ -57,6 +60,7 @@
                 <pane
                   v-if="showSplitPane"
                   :size="splitPaneSize"
+                  :min-size="30"
                 >
                   <div class="rigth-sidebar">
                     <TabsPanel
@@ -157,7 +161,10 @@
           </pane>
           <pane :size="100 - leftPaneSize">
             <splitpanes @resize="onMainSplitResize">
-              <pane :size="mainTerminalSize">
+              <pane
+                :size="mainTerminalSize"
+                :min-size="30"
+              >
                 <TabsPanel
                   ref="allTabs"
                   :tabs="openedTabs"
@@ -174,6 +181,7 @@
               <pane
                 v-if="showSplitPane"
                 :size="splitPaneSize"
+                :min-size="30"
               >
                 <div class="rigth-sidebar">
                   <TabsPanel
@@ -212,6 +220,7 @@ interface ResizeParams {
 }
 import { useI18n } from 'vue-i18n'
 import { userConfigStore } from '@/services/userConfigStoreService'
+import { userConfigStore as piniaUserConfigStore } from '@/store/userConfigStore'
 import { ref, onMounted, nextTick, onUnmounted, watch, computed } from 'vue'
 import { Splitpanes, Pane } from 'splitpanes'
 import 'splitpanes/dist/splitpanes.css'
@@ -230,15 +239,25 @@ import { Notice } from '../components/Notice'
 import '@/assets/theme.less'
 import { isGlobalInput } from '@renderer/views/components/Ssh/termInputManager'
 import { inputManager } from '../components/Ssh/termInputManager'
+import { useRouter } from 'vue-router'
 
+const router = useRouter()
 const api = window.api as any
 const { t } = useI18n()
 const aliasConfig = aliasConfigStore()
 const headerRef = ref<InstanceType<typeof Header> | null>(null)
 const extensionsRef = ref<InstanceType<typeof Extensions> | null>(null)
 const allTabs = ref<InstanceType<typeof TabsPanel> | null>(null)
+const isSkippedLogin = computed(() => {
+  return localStorage.getItem('login-skipped') === 'true'
+})
 const watermarkContent = reactive({
-  content: [userInfoStore().userInfo.name, userInfoStore().userInfo.email],
+  content: computed(() => {
+    if (isSkippedLogin.value) {
+      return ['Guest User']
+    }
+    return [userInfoStore().userInfo.name, userInfoStore().userInfo.email]
+  }),
   font: {
     fontSize: 12,
     color: computed(() => (currentTheme.value === 'dark' ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.05)'))
@@ -258,6 +277,7 @@ const showAiSidebar = ref(false)
 const showSplitPane = ref(false)
 const globalInput = ref('')
 onMounted(async () => {
+  const store = piniaUserConfigStore()
   eventBus.on('updateWatermark', (watermark) => {
     showWatermark.value = watermark !== 'close'
   })
@@ -269,7 +289,13 @@ onMounted(async () => {
     })
   })
   try {
-    const config = await userConfigStore.getConfig()
+    let config = await userConfigStore.getConfig()
+    if (!config.feature || config.feature < 1.0) {
+      config.autoCompleteStatus = 1
+      config.feature = 1.0
+      await userConfigStore.saveConfig(config)
+    }
+    store.setUserConfig(config)
     currentTheme.value = config.theme || 'dark'
     document.body.className = `theme-${currentTheme.value}`
     nextTick(() => {
@@ -476,6 +502,24 @@ const activeTabId = ref('')
 const rightTabs = ref<TabItem[]>([])
 const rightActiveTabId = ref('')
 const currentClickServer = async (item) => {
+  // 如果是跳过登录的用户，检查是否需要登录的功能
+  if (isSkippedLogin.value && needsAuth(item)) {
+    Notice.open({
+      type: 'warning',
+      description: t('common.pleaseLoginFirst'),
+      duration: 3,
+      btns: [
+        {
+          text: t('common.login'),
+          action: () => {
+            router.push('/login')
+          }
+        }
+      ]
+    })
+    return
+  }
+
   if (item.children) return
 
   const id_ = uuidv4()
@@ -490,6 +534,14 @@ const currentClickServer = async (item) => {
   })
   activeTabId.value = id_
   checkActiveTab(item.type || 'term')
+}
+
+const needsAuth = (item) => {
+  const authRequiredTypes = ['extensions', 'monitor']
+  if (item.type === 'term' && item.data?.type === 'ssh') {
+    return false
+  }
+  return authRequiredTypes.includes(item.type || 'term')
 }
 
 const closeTab = (tabId) => {

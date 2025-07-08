@@ -216,7 +216,6 @@ export class RemoteTerminalManager {
     )
 
     if (existingTerminal) {
-      console.log('发现现有终端连接，返回现有连接')
       return existingTerminal
     }
 

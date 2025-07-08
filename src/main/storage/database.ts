@@ -4,22 +4,18 @@ import { join } from 'path'
 import fs from 'fs'
 import { v4 as uuidv4 } from 'uuid'
 
-// 定义数据库路径
 const USER_DATA_PATH = app.getPath('userData')
 const INIT_DB_PATH = getInitDbPath()
 const INIT_CDB_PATH = getInitChatermDbPath()
 
-// 当前用户ID，用于数据库隔离
 let currentUserId: number | null = null
 
-// 获取用户专属数据库路径
 function getUserDatabasePath(userId: number, dbType: 'complete' | 'chaterm'): string {
   const userDir = join(USER_DATA_PATH, 'databases', `${userId}`)
   const dbName = dbType === 'complete' ? 'complete_data.db' : 'chaterm_data.db'
   return join(userDir, dbName)
 }
 
-// 确保用户数据库目录存在
 function ensureUserDatabaseDir(userId: number): string {
   const userDir = join(USER_DATA_PATH, 'databases', `${userId}`)
   if (!fs.existsSync(userDir)) {
@@ -28,13 +24,11 @@ function ensureUserDatabaseDir(userId: number): string {
   return userDir
 }
 
-// 获取遗留数据库文件路径
 function getLegacyDatabasePath(dbType: 'complete' | 'chaterm'): string {
   const dbName = dbType === 'complete' ? 'complete_data.db' : 'chaterm_data.db'
   return join(USER_DATA_PATH, 'databases', dbName)
 }
 
-// 迁移遗留数据库文件到用户目录
 function migrateLegacyDatabase(userId: number, dbType: 'complete' | 'chaterm'): boolean {
   const legacyPath = getLegacyDatabasePath(dbType)
   const userPath = getUserDatabasePath(userId, dbType)
@@ -43,13 +37,8 @@ function migrateLegacyDatabase(userId: number, dbType: 'complete' | 'chaterm'): 
     try {
       console.log(`🔄 Found legacy ${dbType} database at: ${legacyPath}`)
       console.log(`📦 Migrating to user directory: ${userPath}`)
-
-      // 确保目标目录存在
       ensureUserDatabaseDir(userId)
-
-      // 移动文件到用户目录
       fs.renameSync(legacyPath, userPath)
-
       console.log(`✅ Successfully migrated legacy ${dbType} database for user ${userId}`)
       return true
     } catch (error) {
@@ -77,7 +66,7 @@ function getInitDbPath(): string {
   }
 }
 
-export function setCurrentUserId(userId: number): void {
+export function setCurrentUserId(userId: number | null): void {
   currentUserId = userId
 }
 
@@ -85,8 +74,14 @@ export function getCurrentUserId(): number | null {
   return currentUserId
 }
 
+export function getGuestUserId(): number {
+  return 999999999
+}
+
 export async function initDatabase(userId?: number): Promise<Database.Database> {
-  const targetUserId = userId || currentUserId
+  const isSkippedLogin = !userId && localStorage.getItem('login-skipped') === 'true'
+  const targetUserId = userId || (isSkippedLogin ? getGuestUserId() : currentUserId)
+
   if (!targetUserId) {
     throw new Error('User ID is required for database initialization')
   }
@@ -95,14 +90,11 @@ export async function initDatabase(userId?: number): Promise<Database.Database> 
     ensureUserDatabaseDir(targetUserId)
     const COMPLETE_DB_PATH = getUserDatabasePath(targetUserId, 'complete')
 
-    // 检查目标数据库是否存在
     if (!fs.existsSync(COMPLETE_DB_PATH)) {
-      // 首先尝试迁移遗留数据库
       const migrated = migrateLegacyDatabase(targetUserId, 'complete')
 
       if (!migrated) {
         console.log('Target database does not exist, initializing from:', INIT_DB_PATH)
-        // 确保 init_data.db 存在
         if (!fs.existsSync(INIT_DB_PATH)) {
           throw new Error('Initial database (init_data.db) not found')
         }
@@ -114,7 +106,6 @@ export async function initDatabase(userId?: number): Promise<Database.Database> 
       console.log('Target database already exists, skipping initialization')
     }
 
-    // 返回数据库实例
     const db = new Database(COMPLETE_DB_PATH)
     console.log('✅ Complete database connection established at:', COMPLETE_DB_PATH)
     return db
@@ -141,7 +132,6 @@ export async function initChatermDatabase(userId?: number): Promise<Database.Dat
     const targetDbExists = fs.existsSync(Chaterm_DB_PATH)
 
     if (!targetDbExists) {
-      // 首先尝试迁移遗留数据库
       const migrated = migrateLegacyDatabase(targetUserId, 'chaterm')
 
       if (!migrated) {
@@ -195,7 +185,6 @@ export async function initChatermDatabase(userId?: number): Promise<Database.Dat
                 if (initColumn.dflt_value !== null) {
                   let defaultValueFormatted
                   if (typeof initColumn.dflt_value === 'string') {
-                    // PRAGMA dflt_value is already SQL-literal like for strings (e.g. 'text' or "'text'")
                     defaultValueFormatted = initColumn.dflt_value
                   } else {
                     defaultValueFormatted = initColumn.dflt_value
@@ -204,7 +193,6 @@ export async function initChatermDatabase(userId?: number): Promise<Database.Dat
                 }
 
                 if (initColumn.notnull) {
-                  // 1 if NOT NULL, 0 otherwise
                   if (initColumn.dflt_value !== null) {
                     addColumnSql += ' NOT NULL'
                   } else {
@@ -227,15 +215,12 @@ export async function initChatermDatabase(userId?: number): Promise<Database.Dat
         console.log('Chaterm database schema synchronization attempt complete.')
       } catch (syncError: any) {
         console.error('Error during Chaterm database schema synchronization:', syncError.message)
-        // Rethrow if we want the entire init to fail.
-        // throw syncError;
       } finally {
         if (mainDb && mainDb.open) mainDb.close()
         if (initDb && initDb.open) initDb.close()
       }
     }
 
-    // Return the database instance (always from Chaterm_DB_PATH)
     const finalDb = new Database(Chaterm_DB_PATH)
     console.log('✅ Chaterm database connection established at:', Chaterm_DB_PATH)
     return finalDb
@@ -570,10 +555,8 @@ export class ChatermDatabaseService {
         throw new Error('No asset data provided')
       }
 
-      // 生成UUID
       const uuid = uuidv4()
 
-      // 准备插入语句
       const insertStmt = this.db.prepare(`
         INSERT INTO t_assets (
           label,
@@ -589,7 +572,6 @@ export class ChatermDatabaseService {
         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `)
 
-      // 执行插入
       const result = insertStmt.run(
         form.label || form.ip,
         form.ip,
@@ -1165,28 +1147,32 @@ export class autoCompleteDatabaseService {
     // 命令长度限制 (1-255字符)
     if (command.length < 1 || command.length > 255) return false
 
-    // 不允许以数字开头
-    if (/^\d/.test(command)) return false
-
-    // 不允许以这些特殊字符开头
-    const invalidStartChars = /^[!@#$%^&*()+=\-[\]{};:'"\\|,.<>?~`]/
+    // 不允许以这些特殊字符开头，但允许 ./ 和 ~/
+    const invalidStartChars = /^[!@#$%^&*()+=\-[\]{};:'"\\|,<>?`]/
     if (invalidStartChars.test(command)) return false
+
+    // 特殊处理以 . 开头的命令：只允许 ./ 开头，不允许其他以 . 开头的情况
+    if (command.startsWith('.') && !command.startsWith('./')) {
+      return false
+    }
+
     // 不允许起始位置有连续三个及以上相同的字符
     if (/^(.)\1{2,}/.test(command)) return false
 
     // 不允许包含这些危险字符组合
     const dangerousPatterns = [
       /rm\s+-rf\s+\//, // 删除根目录
-      />[>&]?\/dev\/sd[a-z]/, // 写入磁盘设备（保留必要转义）
-      /mkfs\./, // 格式化命令（保留必要转义）
+      />[>&]?\/dev\/sd[a-z]/, // 写入磁盘设备
+      /mkfs\./, // 格式化命令
       /dd\s+if=.*of=\/dev\/sd[a-z]/, // DD写入磁盘
       /:\(\)\{\s*:\|:&\s*\};:/ // Fork炸弹
     ]
 
     if (dangerousPatterns.some((pattern) => pattern.test(command))) return false
 
-    // 允许管道、并行、重定向等常见符号 | & > < ;
-    const validCommandFormat = /^[a-zA-Z_][a-zA-Z0-9_\-.\/\s|&><;]*$/
+    // 允许管道、并行、重定向等常见符号 | & > < ; + =
+    // 支持以字母、下划线、数字、./ 或 ~ 开头的命令
+    const validCommandFormat = /^(\.\/|~\/|[a-zA-Z_]|\d)[a-zA-Z0-9_\-\.\/\s|&><;+=]*$/
     if (!validCommandFormat.test(command)) return false
 
     return true

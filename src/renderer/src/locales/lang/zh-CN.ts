@@ -11,6 +11,7 @@ export default {
     setting: '设置',
     notice: '通知',
     logout: '退出登录',
+    login: '登录',
     userInfo: '个人信息',
     userConfig: '设置',
     alias: 'Alias配置',
@@ -43,7 +44,8 @@ export default {
     globalExec: '全局执行命令',
     syncInputOn: '同步输入(已开)',
     syncInput: '同步输入',
-    allExecuted: '全部执行'
+    allExecuted: '全部执行',
+    pleaseLoginFirst: '请先登录'
   },
   term: {
     welcome: '欢迎使用智能堡垒机Chaterm'
@@ -57,6 +59,8 @@ export default {
     loginByUser: '账号密码登录',
     loginByEmail: '邮箱验证码登录',
     login: '立即登录',
+    skip: '暂不登录？',
+    skipLogin: '跳过',
     applyTag: '还没有账号？ ',
     apply: '立即申请',
     pleaseInputUsername: '请输入账号',
@@ -109,6 +113,11 @@ export default {
     theme: '主题',
     themeDark: '暗色',
     themeLight: '亮色',
+    telemetry: '遥测',
+    telemetryEnabled: '开启',
+    telemetryDisabled: '关闭',
+    telemetryDescription:
+      '通过发送匿名使用数据和错误报告帮助改进 Chaterm。我们绝不会发送任何代码、提示内容或个人信息。如需了解详细信息，请查看我们的<a href="https://docs.chaterm.ai/user/privacy" target="_blank" rel="noopener noreferrer">隐私政策</a>。',
     enterprise: '企业用户',
     personal: '个人用户',
     name: '名称',
@@ -182,7 +191,10 @@ export default {
     aiPreferences: 'AI 偏好设置',
     addModel: '添加模型',
     addModelExistError: '模型名称已存在',
-    addModelSuccess: '新增模型成功'
+    addModelSuccess: '新增模型成功',
+    billing: '计费使用情况',
+    expires: '过期时间',
+    ratio: '使用比例'
   },
   extensions: {
     extensions: '插件',
@@ -245,6 +257,7 @@ export default {
   },
   ai: {
     welcome: '您好，请问需要在终端做什么操作？',
+    loginPrompt: '登录后即可使用 AI 功能，新用户注册免费使用两周',
     searchHost: '输入IP搜索',
     noMatchingHosts: '无匹配主机',
     copy: '复制',
@@ -264,7 +277,9 @@ export default {
     loading: '加载中...',
     loadMore: '加载',
     copyToClipboard: '已复制到剪贴板',
-    retry: '重试'
+    retry: '重试',
+    taskCompleted: '任务已完成',
+    newTask: '开始新任务'
   },
   keyChain: {
     newKey: '添加密钥',
@@ -322,7 +337,8 @@ export default {
     edit: '编辑',
     save: '保存',
     cancel: '取消',
-    resetPassword: '重置密码'
+    resetPassword: '重置密码',
+    expirationTime: '过期时间'
   },
   update: {
     available: '有最新版本可以更新',

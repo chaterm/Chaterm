@@ -24,6 +24,7 @@
           <Extensions />
         </a-tab-pane>
         <a-tab-pane
+          v-if="!isSkippedLogin"
           key="4"
           :tab="$t('user.models')"
           type="card"
@@ -31,6 +32,15 @@
           <Model />
         </a-tab-pane>
         <a-tab-pane
+          v-if="!isSkippedLogin"
+          key="5"
+          :tab="$t('user.billing')"
+          type="card"
+        >
+          <Billing />
+        </a-tab-pane>
+        <a-tab-pane
+          v-if="!isSkippedLogin"
           key="2"
           :tab="$t('user.aiPreferences')"
           type="card"
@@ -50,11 +60,14 @@
 </template>
 
 <script setup lang="ts">
+import { ref } from 'vue'
 import General from '@/views/components/LeftTab/components/general.vue'
 import Extensions from '@/views/components/LeftTab/components/extensions.vue'
 import AI from '@/views/components/LeftTab/components/ai.vue'
+import Billing from '@/views/components/LeftTab/components/billing.vue'
 import About from '@/views/components/LeftTab/components/about.vue'
-import Model from '@/views/components/LeftTab/components/Model.vue'
+import Model from '@/views/components/LeftTab/components/model.vue'
+const isSkippedLogin = ref(localStorage.getItem('login-skipped') === 'true')
 </script>
 
 <style lang="less" scoped>
@@ -95,7 +108,7 @@ import Model from '@/views/components/LeftTab/components/Model.vue'
   // 修改左侧 tab 栏样式
   :deep(.ant-tabs-nav) {
     height: 100%;
-    width: 120px;
+    width: 100px;
     background-color: var(--bg-color);
 
     &::before {
