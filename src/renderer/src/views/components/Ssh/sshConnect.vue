@@ -2266,7 +2266,7 @@ const isCollectingOutput = ref(false)
   height: 100%;
   border-radius: 6px;
   overflow: hidden;
-  padding: 4px;
+  padding: 4px 4px 4px 12px;
   position: relative;
 }
 
