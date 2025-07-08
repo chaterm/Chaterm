@@ -48,14 +48,14 @@ export default {
     pleaseLoginFirst: '请先登录'
   },
   term: {
-    welcome: '欢迎使用智能堡垒机Chaterm'
+    welcome: '欢迎使用 Chaterm'
   },
   login: {
     enterprise: '企业版',
     personal: '个人版',
     contact: '联系我们',
     welcome: '欢迎使用',
-    title: '智能堡垒机Chaterm',
+    title: 'Chaterm',
     loginByUser: '账号密码登录',
     loginByEmail: '邮箱验证码登录',
     login: '立即登录',
