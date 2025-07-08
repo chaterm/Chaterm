@@ -2068,7 +2068,7 @@ const handleKeyInput = (e) => {
     insertCommand(terminalState.value.content)
   } else if (ev.keyCode === 8) {
     // 删除
-    specialCode.value = true
+    // specialCode.value = true
     index = cursorX.value - 1 - cursorStartX.value
     currentLine.value = currentLine.value.slice(0, index) + currentLine.value.slice(index + 1)
   } else if (ev.keyCode == 38 || ev.keyCode == 40) {
