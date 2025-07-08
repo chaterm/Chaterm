@@ -1147,28 +1147,32 @@ export class autoCompleteDatabaseService {
     // 命令长度限制 (1-255字符)
     if (command.length < 1 || command.length > 255) return false
 
-    // 不允许以数字开头
-    if (/^\d/.test(command)) return false
-
-    // 不允许以这些特殊字符开头
-    const invalidStartChars = /^[!@#$%^&*()+=\-[\]{};:'"\\|,.<>?~`]/
+    // 不允许以这些特殊字符开头，但允许 ./ 和 ~/
+    const invalidStartChars = /^[!@#$%^&*()+=\-[\]{};:'"\\|,<>?`]/
     if (invalidStartChars.test(command)) return false
+
+    // 特殊处理以 . 开头的命令：只允许 ./ 开头，不允许其他以 . 开头的情况
+    if (command.startsWith('.') && !command.startsWith('./')) {
+      return false
+    }
+
     // 不允许起始位置有连续三个及以上相同的字符
     if (/^(.)\1{2,}/.test(command)) return false
 
     // 不允许包含这些危险字符组合
     const dangerousPatterns = [
       /rm\s+-rf\s+\//, // 删除根目录
-      />[>&]?\/dev\/sd[a-z]/, // 写入磁盘设备（保留必要转义）
-      /mkfs\./, // 格式化命令（保留必要转义）
+      />[>&]?\/dev\/sd[a-z]/, // 写入磁盘设备
+      /mkfs\./, // 格式化命令
       /dd\s+if=.*of=\/dev\/sd[a-z]/, // DD写入磁盘
       /:\(\)\{\s*:\|:&\s*\};:/ // Fork炸弹
     ]
 
     if (dangerousPatterns.some((pattern) => pattern.test(command))) return false
 
-    // 允许管道、并行、重定向等常见符号 | & > < ;
-    const validCommandFormat = /^[a-zA-Z_][a-zA-Z0-9_\-.\/\s|&><;]*$/
+    // 允许管道、并行、重定向等常见符号 | & > < ; + =
+    // 支持以字母、下划线、数字、./ 或 ~ 开头的命令
+    const validCommandFormat = /^(\.\/|~\/|[a-zA-Z_]|\d)[a-zA-Z0-9_\-\.\/\s|&><;+=]*$/
     if (!validCommandFormat.test(command)) return false
 
     return true

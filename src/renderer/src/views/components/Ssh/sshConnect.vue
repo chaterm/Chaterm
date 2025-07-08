@@ -227,7 +227,6 @@ let dbConfigStash: {
 let config
 onMounted(async () => {
   config = await serviceUserConfig.getConfig()
-  console.log(config, 'config')
   dbConfigStash = config
   queryCommandFlag.value = config.autoCompleteStatus == 1
   const termInstance = markRaw(
@@ -414,7 +413,6 @@ onMounted(async () => {
 
   // termInstance.write
   cusWrite = function (data: string, options?: { isUserCall?: boolean }): void {
-    console.log(JSON.stringify(data), 'data')
     userInputFlag.value = options?.isUserCall ?? false
     const originalRequestRefresh = renderService.refreshRows.bind(renderService)
     const originalTriggerRedraw = renderService._renderDebouncer.refresh.bind(renderService._renderDebouncer)
@@ -1348,9 +1346,7 @@ const setupTerminalInput = () => {
       if (suggestions.value.length) {
         suggestions.value = []
         activeSuggestion.value = 0
-        nextTick(() => {
-          console.log('Ctrl+C: 推荐界面已清除')
-        })
+        nextTick(() => {})
       }
       // 阻止本轮 queryCommand 重新触发
       selectFlag.value = true
@@ -1362,9 +1358,7 @@ const setupTerminalInput = () => {
         // 清除推荐界面
         suggestions.value = []
         activeSuggestion.value = 0
-        nextTick(() => {
-          console.log('Ctrl+L: 推荐界面已清除')
-        })
+        nextTick(() => {})
       }
       // 阻止本轮 queryCommand 重新触发
       selectFlag.value = true
@@ -1375,9 +1369,7 @@ const setupTerminalInput = () => {
       if (suggestions.value.length) {
         suggestions.value = []
         activeSuggestion.value = 0
-        nextTick(() => {
-          console.log('ESC: 推荐界面已清除')
-        })
+        nextTick(() => {})
         return // 如果有推荐界面，只清除推荐界面，不发送ESC
       } else {
         sendData(data)
@@ -1554,7 +1546,6 @@ const handleServerOutput = (response: MarkedResponse) => {
     data = lastLine
     cusWrite?.(data)
   } else if (response.marker === 'Chaterm:save' || response.marker === 'Chaterm:history' || response.marker === 'Chaterm:pass') {
-    console.log('跳过：', response.marker)
   } else if (response.marker === 'Chaterm:[A') {
     // 跳过命令
     if (data.indexOf('Chaterm:vim') !== -1) {
@@ -1584,12 +1575,10 @@ const handleServerOutput = (response: MarkedResponse) => {
     }
 
     currentCwdStore.setKeyValue(props.connectData.ip, currentCwd)
-    console.log(`${props.connectData.ip} current working directory:`, currentCwd)
   } else if (response.marker === 'Chaterm:command') {
     isCollectingOutput.value = true
     const cleanOutput = stripAnsi(data).trim()
     commandOutput.value += cleanOutput + '\n'
-    console.log('commandOutput: ', commandOutput.value)
     const promptRegex = /(?:\[([^@]+)@([^\]]+)\][#$]|([^@]+)@([^:]+):(?:[^$]*|\s*~)\s*[$#]|\[([^@]+)@([^\]]+)\s+[^\]]*\][#$])\s*$/
     if (promptRegex.test(cleanOutput)) {
       isCollectingOutput.value = false
@@ -1597,11 +1586,8 @@ const handleServerOutput = (response: MarkedResponse) => {
         .replace(/\r\n|\r/g, '\n')
         .split('\n')
         .filter((line) => line.trim())
-      console.log('lines: ', lines)
       const outputLines = lines.slice(1, -1)
-      console.log('outputLines: ', outputLines)
       const finalOutput = outputLines.join('\n').trim()
-      console.log('finalOutput: ', finalOutput)
       if (finalOutput) {
         nextTick(() => {
           eventBus.emit('chatToAi', finalOutput)
@@ -1622,7 +1608,6 @@ const handleServerOutput = (response: MarkedResponse) => {
   } else if (isCollectingOutput.value) {
     const cleanOutput = stripAnsi(data).trim()
     commandOutput.value += cleanOutput + '\n'
-    console.log('commandOutput: ', commandOutput.value)
     const promptRegex = /(?:\[([^@]+)@([^\]]+)\][#$]|([^@]+)@([^:]+):(?:[^$]*|\s*~)\s*[$#]|\[([^@]+)@([^\]]+)\s+[^\]]*\][#$])\s*$/
     if (promptRegex.test(cleanOutput)) {
       isCollectingOutput.value = false
@@ -1630,11 +1615,8 @@ const handleServerOutput = (response: MarkedResponse) => {
         .replace(/\r\n|\r/g, '\n')
         .split('\n')
         .filter((line) => line.trim())
-      console.log('lines: ', lines)
       const outputLines = lines.slice(1, -1)
-      console.log('outputLines: ', outputLines)
       const finalOutput = outputLines.join('\n').trim()
-      console.log('finalOutput: ', finalOutput)
       if (finalOutput) {
         nextTick(() => {
           eventBus.emit('chatToAi', finalOutput)
@@ -1737,8 +1719,6 @@ const highlightSyntax = (allData) => {
   if (arg.includes("'") || arg.includes('"') || arg.includes('(') || arg.includes('{') || arg.includes('[')) {
     // 带闭合符号的输入
     const afterCommandArr: any = processString(arg)
-    console.log(afterCommandArr, 'afterCommandArr')
-    console.log(arg, 'arg')
     let unMatchFlag = false
     for (let i = 0; i < afterCommandArr.length; i++) {
       if (afterCommandArr[i].type == 'unmatched') {
@@ -2032,9 +2012,9 @@ const insertCommand = async (cmd) => {
   }
 }
 
-// 输入内容
-const handleKeyInput = (e) => {
-  console.log(e)
+// 输入内容 - 原始处理函数
+const handleKeyInputOriginal = (e) => {
+  console.log(e, '----------------------')
   enterPress.value = false
   specialCode.value = false
   currentLineStartY.value = (terminal.value as any)?._core.buffer.y
@@ -2068,7 +2048,7 @@ const handleKeyInput = (e) => {
     insertCommand(terminalState.value.content)
   } else if (ev.keyCode === 8) {
     // 删除
-    specialCode.value = true
+    // specialCode.value = true
     index = cursorX.value - 1 - cursorStartX.value
     currentLine.value = currentLine.value.slice(0, index) + currentLine.value.slice(index + 1)
   } else if (ev.keyCode == 38 || ev.keyCode == 40) {
@@ -2084,7 +2064,6 @@ const handleKeyInput = (e) => {
     // this.initList()
   } else if (ev.keyCode == 9) {
     // selectFlag.value = true
-    // console.log(JSON.stringify(data), 'datttt')
     // sendData('\t')
   } else if (printable) {
     selectFlag.value = false
@@ -2096,6 +2075,9 @@ const handleKeyInput = (e) => {
     selectFlag.value = false
   }
 }
+
+// 防抖处理的输入函数
+const handleKeyInput = debounce(handleKeyInputOriginal, 1000)
 
 const disconnectSSH = async () => {
   try {

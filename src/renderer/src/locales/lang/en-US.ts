@@ -191,7 +191,10 @@ export default {
     aiPreferences: 'AI Preferences',
     addModel: 'Add Model',
     addModelExistError: 'A model with this name already exists',
-    addModelSuccess: 'Model added successfully'
+    addModelSuccess: 'Model added successfully',
+    billing: 'Billing Usage',
+    expires: 'Expiration Date',
+    ratio: 'Usage Ratio'
   },
   extensions: {
     extensions: 'Extensions',
@@ -272,7 +275,9 @@ export default {
     loading: 'loading...',
     loadMore: 'load more',
     copyToClipboard: 'Copy to clipboard',
-    retry: 'Retry'
+    retry: 'Retry',
+    taskCompleted: 'Task Completed',
+    newTask: 'Start New Task'
   },
   keyChain: {
     newKey: 'New Key',
@@ -330,7 +335,8 @@ export default {
     edit: 'Edit',
     save: 'Save',
     cancel: 'Cancel',
-    resetPassword: 'Reset Password'
+    resetPassword: 'Reset Password',
+    expirationTime: 'Expiration Time'
   },
   update: {
     available: 'A new version is available',

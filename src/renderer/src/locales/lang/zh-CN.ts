@@ -191,7 +191,10 @@ export default {
     aiPreferences: 'AI 偏好设置',
     addModel: '添加模型',
     addModelExistError: '模型名称已存在',
-    addModelSuccess: '新增模型成功'
+    addModelSuccess: '新增模型成功',
+    billing: '计费使用情况',
+    expires: '过期时间',
+    ratio: '使用比例'
   },
   extensions: {
     extensions: '插件',
@@ -274,7 +277,9 @@ export default {
     loading: '加载中...',
     loadMore: '加载',
     copyToClipboard: '已复制到剪贴板',
-    retry: '重试'
+    retry: '重试',
+    taskCompleted: '任务已完成',
+    newTask: '开始新任务'
   },
   keyChain: {
     newKey: '添加密钥',
@@ -332,7 +337,8 @@ export default {
     edit: '编辑',
     save: '保存',
     cancel: '取消',
-    resetPassword: '重置密码'
+    resetPassword: '重置密码',
+    expirationTime: '过期时间'
   },
   update: {
     available: '有最新版本可以更新',

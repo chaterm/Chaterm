@@ -14,7 +14,8 @@ export const userConfigStore = defineStore('userConfig', {
         fontSize: 12,
         highlightStatus: 2,
         scrollBack: 1000,
-        watermark: 'open'
+        watermark: 'open',
+        feature: 0.0
       }
     }
   },
@@ -33,6 +34,7 @@ export const userConfigStore = defineStore('userConfig', {
       highlightStatus: number
       scrollBack: number
       watermark: string
+      feature: number
     } => {
       return (
         state?.userConfig || {
@@ -46,7 +48,8 @@ export const userConfigStore = defineStore('userConfig', {
           fontSize: 12,
           highlightStatus: 2,
           scrollBack: 1000,
-          watermark: 'open'
+          watermark: 'open',
+          feature: 0.0
         }
       )
     }
