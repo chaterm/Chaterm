@@ -187,7 +187,10 @@ export default {
     aiPreferences: 'AI Preferences',
     addModel: 'Add Model',
     addModelExistError: 'A model with this name already exists',
-    addModelSuccess: 'Model added successfully'
+    addModelSuccess: 'Model added successfully',
+    billing: 'Billing Usage',
+    expires: 'Expiration Date',
+    ratio: 'Usage Ratio'
   },
   extensions: {
     extensions: 'Extensions',
