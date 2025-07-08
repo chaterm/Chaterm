@@ -1003,6 +1003,7 @@ defineExpose({
 .splitpanes__splitter {
   background-color: #202020;
   position: relative;
+  margin-right: 10px;
 }
 
 .splitpanes__splitter:before {
@@ -1022,13 +1023,13 @@ defineExpose({
 
 .splitpanes--vertical > .splitpanes__splitter:before {
   left: -10px;
-  right: -10px;
+  right: -6px;
   height: 100%;
 }
 
 .splitpanes--horizontal > .splitpanes__splitter:before {
   left: -10px;
-  right: -10px;
+  right: -6px;
   height: 100%;
 }
 </style>
