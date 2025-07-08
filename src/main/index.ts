@@ -304,6 +304,23 @@ function updateNavigationState(): void {
 }
 // 设置 IPC 处理
 function setupIPC(): void {
+  ipcMain.handle('init-user-database', async (event, { uid }) => {
+    try {
+      const isSkippedLogin = await event.sender.executeJavaScript("localStorage.getItem('login-skipped') === 'true'")
+      const targetUserId = uid || (isSkippedLogin ? getGuestUserId() : null)
+      if (!targetUserId) {
+        throw new Error('User ID is required')
+      }
+      setCurrentUserId(targetUserId)
+      chatermDbService = await ChatermDatabaseService.getInstance(targetUserId)
+      autoCompleteService = await autoCompleteDatabaseService.getInstance(targetUserId)
+      return { success: true }
+    } catch (error) {
+      console.error('Database initialization failed:', error)
+      return { success: false, error: error.message }
+    }
+  })
+
   ipcMain.handle('window:maximize', () => {
     if (mainWindow && !mainWindow.isDestroyed()) {
       mainWindow.maximize()
@@ -416,24 +433,6 @@ function setupIPC(): void {
 }
 
 // 初始化用户数据库
-ipcMain.handle('init-user-database', async (_, data) => {
-  try {
-    const { uid } = data
-    if (!uid) {
-      throw new Error('User ID is required')
-    }
-    console.log('Initializing database for user:', uid)
-    setCurrentUserId(uid)
-    autoCompleteService = await autoCompleteDatabaseService.getInstance(uid)
-    chatermDbService = await ChatermDatabaseService.getInstance(uid)
-
-    return { success: true }
-  } catch (error) {
-    console.error('初始化用户数据库失败:', error)
-    return { success: false, error: error }
-  }
-})
-
 ipcMain.handle('query-command', async (_, data) => {
   try {
     const { command, ip } = data

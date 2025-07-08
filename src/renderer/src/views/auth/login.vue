@@ -34,7 +34,7 @@
       </div>
       <div class="term_login_input">
         <a-tabs
-          v-model:activeKey="activeKey"
+          v-model:active-key="activeKey"
           centered
         >
           <a-tab-pane
@@ -109,6 +109,14 @@
                   >{{ $t('login.login') }}</a-button
                 >
               </a-form-item>
+              <div class="skip-login">
+                {{ $t('login.skip') }}
+                <a
+                  class="skip-link"
+                  @click="skipLogin"
+                  >{{ $t('login.skipLogin') }}</a
+                >
+              </div>
             </a-form>
           </a-tab-pane>
           <a-tab-pane
@@ -161,8 +169,8 @@
                     <a-button
                       type="link"
                       :disabled="countdown > 0"
-                      @click="sendCode"
                       style="color: #2a82e4; padding: 0"
+                      @click="sendCode"
                     >
                       {{ countdown > 0 ? $t('login.retryAfter', { seconds: countdown }) : $t('login.getCode') }}
                     </a-button>
@@ -186,6 +194,14 @@
                   >{{ $t('login.login') }}</a-button
                 >
               </a-form-item>
+              <div class="skip-login">
+                {{ $t('login.skip') }}
+                <a
+                  class="skip-link"
+                  @click="skipLogin"
+                  >{{ $t('login.skipLogin') }}</a
+                >
+              </div>
             </a-form>
           </a-tab-pane>
         </a-tabs>
@@ -198,7 +214,7 @@
 import { removeToken } from '@/utils/permission'
 import { UserOutlined, InfoCircleOutlined, LockOutlined, MailOutlined, SafetyOutlined } from '@ant-design/icons-vue'
 import { useRouter } from 'vue-router'
-import { ref, reactive, getCurrentInstance, onMounted } from 'vue'
+import { ref, reactive, getCurrentInstance, onMounted, nextTick } from 'vue'
 import { GlobalOutlined } from '@ant-design/icons-vue'
 import type { MenuProps } from 'ant-design-vue'
 import { userLogin, sendEmailCode, emailLogin } from '@/api/user/user'
@@ -217,6 +233,59 @@ const configLang: MenuProps['onClick'] = ({ key }) => {
 const router = useRouter()
 const activeKey = ref('email')
 const countdown = ref(0)
+
+const skipLogin = async () => {
+  try {
+    localStorage.removeItem('ctm-token')
+    localStorage.removeItem('userInfo')
+    localStorage.removeItem('login-skipped')
+    removeToken()
+    localStorage.setItem('login-skipped', 'true')
+    localStorage.setItem('ctm-token', 'guest_token')
+
+    const guestUserInfo = {
+      uid: 999999999,
+      username: 'guest',
+      name: 'Guest',
+      email: 'guest@chaterm.ai',
+      token: 'guest_token'
+    }
+    setUserInfo(guestUserInfo)
+
+    const api = window.api as any
+    const dbResult = await api.initUserDatabase({ uid: 999999999 })
+
+    if (!dbResult.success) {
+      console.error('访客数据库初始化失败:', dbResult.error)
+      message.error('初始化失败，请重试')
+      // 清除状态
+      localStorage.removeItem('login-skipped')
+      localStorage.removeItem('ctm-token')
+      localStorage.removeItem('userInfo')
+      return
+    }
+
+    // 等待下一个tick，确保状态已更新
+    await nextTick()
+
+    try {
+      await router.replace({
+        path: '/',
+        replace: true
+      })
+    } catch (error) {
+      console.error('路由跳转失败:', error)
+      message.error('跳转失败，请重试')
+    }
+  } catch (error) {
+    console.error('跳过登录处理失败:', error)
+    message.error('操作失败，请重试')
+    // 清除跳过登录标记，以防止卡在中间状态
+    localStorage.removeItem('login-skipped')
+    localStorage.removeItem('ctm-token')
+    localStorage.removeItem('userInfo')
+  }
+}
 
 interface AccountFormState {
   username: string
@@ -241,7 +310,6 @@ const emailForm = reactive<EmailFormState>({
 // 公共的登录成功处理函数
 const handleLoginSuccess = async (userData: any) => {
   try {
-    console.log('Login successful:', userData)
     setUserInfo(userData)
     localStorage.setItem('ctm-token', userData.token)
 
@@ -274,7 +342,6 @@ const onAccountFinish = async () => {
       await handleLoginSuccess(res.data)
     }
   } catch (err: any) {
-    console.log(err, 'err')
     message.error(err?.response?.data?.message || '网络异常')
   }
 }
@@ -286,7 +353,6 @@ const onEmailFinish = async () => {
       code: emailForm.code
     })
 
-    console.log(res, 'ressss')
     if (res.code == 200) {
       await handleLoginSuccess(res.data)
     }
@@ -317,7 +383,6 @@ const sendCode = () => {
     email: emailForm.email
   })
     .then((res) => {
-      console.log(res, 'res')
       if (res.code == 200) {
         message.success('验证码发送成功')
         countdown.value = 300
@@ -508,6 +573,23 @@ onMounted(async () => {
     width: 20px;
     height: 15px;
     color: #fff;
+  }
+
+  .skip-login {
+    text-align: center;
+    margin-top: 16px;
+    color: #e0ebff;
+    font-size: 14px;
+
+    .skip-link {
+      color: #2a82e4;
+      text-decoration: none;
+      margin-left: 4px;
+
+      &:hover {
+        text-decoration: underline;
+      }
+    }
   }
 }
 
