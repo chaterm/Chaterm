@@ -38,10 +38,15 @@ export class LiteLlmHandler implements ApiHandler {
       const proxyConfig = this.options.proxyConfig
       httpAgent = createProxyAgent(proxyConfig)
     }
+
+    // 设置超时时间，默认为 20 秒，由于内部会重试3次，所以实际超时时间为 60 秒
+    const timeoutMs = this.options.requestTimeoutMs || 20000
+
     this.client = new OpenAI({
       baseURL: this.options.liteLlmBaseUrl || 'http://localhost:4000',
       apiKey: this.options.liteLlmApiKey || 'noop',
-      httpAgent: httpAgent
+      httpAgent: httpAgent,
+      timeout: timeoutMs // 设置超时时间（毫秒）
     })
   }
 
@@ -139,7 +144,9 @@ export class LiteLlmHandler implements ApiHandler {
       stream: true,
       stream_options: { include_usage: true },
       max_tokens: this.options.liteLlmModelInfo?.maxTokens || 8192,
-      ...(thinkingConfig && { thinking: thinkingConfig }) // Add thinking configuration when applicable
+      ...(thinkingConfig && { thinking: thinkingConfig }), // Add thinking configuration when applicable
+      enable_thinking: reasoningOn,
+      thinking_budget: budgetTokens
     })
 
     const inputCost = (await this.calculateCost(1e6, 0)) || 0
