@@ -269,7 +269,9 @@ export default {
     loading: '加载中...',
     loadMore: '加载',
     copyToClipboard: '已复制到剪贴板',
-    retry: '重试'
+    retry: '重试',
+    taskCompleted: '任务已完成',
+    newTask: '开始新任务'
   },
   keyChain: {
     newKey: '添加密钥',
@@ -327,7 +329,8 @@ export default {
     edit: '编辑',
     save: '保存',
     cancel: '取消',
-    resetPassword: '重置密码'
+    resetPassword: '重置密码',
+    expirationTime: '过期时间'
   },
   update: {
     available: '有最新版本可以更新',
