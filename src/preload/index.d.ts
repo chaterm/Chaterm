@@ -66,6 +66,11 @@ interface ApiType {
   openHeartbeatWindow: (heartbeatId: string, interval: number) => Promise<any>
   closeHeartbeatWindow: (heartbeatId: string) => Promise<any>
   heartBeatTick: (callback: (heartbeatId: string) => void) => () => void
+  userSnippetOperation: (data: { operation: 'list' | 'create' | 'delete' | 'update' | 'swap'; params?: any }) => Promise<{
+    code: number
+    message?: string
+    data?: any
+  }>
 }
 
 declare global {
