@@ -101,6 +101,7 @@ const terminalContainer = ref(null)
 const terminalId = `${email.split('@')[0]}@${props.serverInfo.ip}:remote:${uuidv4()}`
 const suggestions = ref([]) //返回的补全列表
 const activeSuggestion = ref(0) //高亮的补全项
+let isCommandExecuting = false // 命令执行锁，防止回车后补全窗口又弹出
 const socket = ref(null) //ws实例
 const term = ref(null) //term实例
 let fitAddon = null //
@@ -269,6 +270,13 @@ const initTerminal = async () => {
         } else {
           socket.value.send(JSON.stringify({ terminalId, msgType, data }))
         }
+        // 新增：回车后清空推荐并加锁
+        suggestions.value = []
+        activeSuggestion.value = 0
+        isCommandExecuting = true
+        setTimeout(() => {
+          isCommandExecuting = false
+        }, 300)
       } else if (data == '\x0c' || data == '\x04') {
         specialCode.value = true
         const msgType = 'TERMINAL_DATA'
@@ -382,12 +390,17 @@ const connectWebsocket = () => {
       const o = JSON.parse(event.data)
       const componentInstance = componentRefs.value[infos.value.id]
       if (o.msgType == 'TERMINAL_AUTO_COMPLEMENT' && stashConfig.autoCompleteStatus == 1) {
-        o.autoComplement
-          ? ((suggestions.value = o.autoComplement),
-            nextTick(() => {
-              componentInstance?.updateSuggestionsPosition(term.value)
-            }))
-          : (suggestions.value = [])
+        if (!isCommandExecuting) {
+          o.autoComplement
+            ? ((suggestions.value = o.autoComplement),
+              nextTick(() => {
+                componentInstance?.updateSuggestionsPosition(term.value)
+              }))
+            : (suggestions.value = [])
+        } else {
+          // 命令执行期间不显示补全
+          suggestions.value = []
+        }
       }
       dispatch(term.value, event.data, socket.value)
     }
@@ -727,6 +740,9 @@ const handleKeyInput = (e) => {
     currentLine.value = ''
     currentLineStartY.value = term.value._core.buffer.y + 1
     cursorStartX.value = 0
+    // 新增：回车后清空推荐
+    suggestions.value = []
+    activeSuggestion.value = 0
   } else if (ev.keyCode === 8) {
     // 删除
     specialCode.value = true
