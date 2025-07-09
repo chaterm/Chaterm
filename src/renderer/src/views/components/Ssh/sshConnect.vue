@@ -1394,6 +1394,13 @@ const setupTerminalInput = () => {
           // 如果剪贴板访问失败，静默处理
         })
     } else if (data == '\r') {
+      // 如果有推荐列表，选中当前高亮的推荐项
+      if (suggestions.value.length) {
+        selectSuggestion(suggestions.value[activeSuggestion.value])
+        selectFlag.value = true
+        return
+      }
+
       selectFlag.value = true
       // 立即清空推荐窗口
       suggestions.value = []
@@ -1440,12 +1447,8 @@ const setupTerminalInput = () => {
         sendMarkedData(data, 'Chaterm:[B')
       }
     } else if (data == '\u001b[C') {
-      if (suggestions.value.length) {
-        selectSuggestion(suggestions.value[activeSuggestion.value])
-        selectFlag.value = true
-      } else {
-        sendData(data)
-      }
+      // 右箭头键 - 只执行正常的光标移动
+      sendData(data)
     } else {
       sendData(data)
       // 正常输入时立即允许查询推荐
