@@ -68,9 +68,9 @@ export async function getAllExtensionState() {
     awsBedrockCustomModelBaseId,
     //vertexProjectId,
     //vertexRegion,
-    //openAiBaseUrl,
-    //openAiApiKey,
-    //openAiModelId,
+    openAiBaseUrl,
+    openAiApiKey,
+    openAiModelId,
     //openAiModelInfo,
     //openAiHeaders,
     //ollamaModelId,
@@ -154,9 +154,9 @@ export async function getAllExtensionState() {
     getGlobalState('awsBedrockCustomModelBaseId') as Promise<BedrockModelId | undefined>,
     //getGlobalState('vertexProjectId') as Promise<string | undefined>,
     //getGlobalState('vertexRegion') as Promise<string | undefined>,
-    //getGlobalState('openAiBaseUrl') as Promise<string | undefined>,
-    //getSecret('openAiApiKey') as Promise<string | undefined>,
-    //getGlobalState('openAiModelId') as Promise<string | undefined>,
+    getGlobalState('openAiBaseUrl') as Promise<string | undefined>,
+    getSecret('openAiApiKey') as Promise<string | undefined>,
+    getGlobalState('openAiModelId') as Promise<string | undefined>,
     //getGlobalState('openAiModelInfo') as Promise<ModelInfo | undefined>,
     //getGlobalState('openAiHeaders') as Promise<Record<string, string> | undefined>,
     //getGlobalState('ollamaModelId') as Promise<string | undefined>,
@@ -281,9 +281,9 @@ export async function getAllExtensionState() {
       awsBedrockCustomModelBaseId,
       //vertexProjectId,
       //vertexRegion,
-      //openAiBaseUrl,
-      //openAiApiKey,
-      //openAiModelId,
+      openAiBaseUrl,
+      openAiApiKey,
+      openAiModelId,
       //openAiModelInfo,
       //openAiHeaders: openAiHeaders || {},
       //ollamaModelId,
@@ -378,6 +378,9 @@ export async function updateApiConfiguration(apiConfiguration: ApiConfiguration)
     liteLlmApiKey,
     favoritedModelIds,
     deepSeekApiKey,
+    openAiBaseUrl,
+    openAiApiKey,
+    openAiModelId,
     defaultBaseUrl,
     defaultModelId,
     defaultApiKey
@@ -399,9 +402,9 @@ export async function updateApiConfiguration(apiConfiguration: ApiConfiguration)
   //await updateGlobalState('awsBedrockCustomModelBaseId', awsBedrockCustomModelBaseId)
   //await updateGlobalState('vertexProjectId', vertexProjectId)
   //await updateGlobalState('vertexRegion', vertexRegion)
-  //await updateGlobalState('openAiBaseUrl', openAiBaseUrl)
-  //await storeSecret('openAiApiKey', openAiApiKey)
-  //await updateGlobalState('openAiModelId', openAiModelId)
+  await updateGlobalState('openAiBaseUrl', openAiBaseUrl)
+  await storeSecret('openAiApiKey', openAiApiKey)
+  await updateGlobalState('openAiModelId', openAiModelId)
   //await updateGlobalState('openAiModelInfo', openAiModelInfo)
   //await updateGlobalState('openAiHeaders', openAiHeaders || {})
   //await updateGlobalState('ollamaModelId', ollamaModelId)
