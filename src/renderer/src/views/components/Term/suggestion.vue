@@ -17,29 +17,27 @@
       ></span>
       <!-- 命令文本 -->
       <span class="text">{{ suggestion.command }}</span>
-      <!-- 右箭头图标，仅在选中时显示 -->
       <span
         v-if="index === activeSuggestion"
         class="arrow-icon"
         title="按回车键补全命令"
       ></span>
     </div>
-    <!-- 快捷键提示 -->
     <div class="keyboard-hints">
       <div class="hint-item">
         <kbd class="key esc-key">Esc</kbd>
-        关闭
+        {{ $t('common.close') }}
       </div>
       <div class="hint-item">
         <div class="key-group">
           <kbd class="key">↑</kbd>
           <kbd class="key">↓</kbd>
         </div>
-        选择
+        {{ $t('common.select') }}
       </div>
       <div class="hint-item">
         <kbd class="key enter-key">↵</kbd>
-        确认
+        {{ $t('common.confirm') }}
       </div>
     </div>
   </div>
