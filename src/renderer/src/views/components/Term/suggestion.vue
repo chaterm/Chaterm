@@ -21,8 +21,26 @@
       <span
         v-if="index === activeSuggestion"
         class="arrow-icon"
-        title="按右箭头键补全命令"
+        title="按回车键补全命令"
       ></span>
+    </div>
+    <!-- 快捷键提示 -->
+    <div class="keyboard-hints">
+      <div class="hint-item">
+        <kbd class="key esc-key">Esc</kbd>
+        关闭
+      </div>
+      <div class="hint-item">
+        <div class="key-group">
+          <kbd class="key">↑</kbd>
+          <kbd class="key">↓</kbd>
+        </div>
+        选择
+      </div>
+      <div class="hint-item">
+        <kbd class="key enter-key">↵</kbd>
+        确认
+      </div>
     </div>
   </div>
 </template>
@@ -78,7 +96,7 @@ defineExpose({ updateSuggestionsPosition })
   /* 绝对定位 */
   background: rgba(51, 51, 51, 0.95);
   color: #f2f2f2;
-  padding: 6px 8px;
+  padding: 6px 8px 0;
   border-radius: 8px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
   font-family: monospace;
@@ -88,11 +106,12 @@ defineExpose({ updateSuggestionsPosition })
 }
 
 .suggestions div {
-  padding: 4px 8px;
+  padding: 0px;
   cursor: pointer;
   line-height: 1.2;
   font-size: 16px;
   height: auto;
+  margin: 0;
 }
 
 .suggestions div.active {
@@ -105,6 +124,12 @@ defineExpose({ updateSuggestionsPosition })
   align-items: center;
   min-width: 160px;
   min-height: 30px;
+  margin: 0;
+  padding: 0;
+}
+
+.suggestion-item:last-of-type {
+  margin-bottom: -2px;
 }
 
 .suggestion-item .icon {
@@ -138,14 +163,139 @@ defineExpose({ updateSuggestionsPosition })
 }
 
 .arrow-icon {
-  width: 22px;
-  height: 22px;
+  width: 20px;
+  height: 20px;
   margin-left: 8px;
   flex-shrink: 0;
   align-self: flex-start;
-  margin-top: 4px;
-  background: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="%2352c41a"><path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.41z"/></svg>')
-    no-repeat center/contain;
+  margin-top: 5px;
+  background: url('@/assets/icons/return-left.svg') no-repeat center/contain;
+  filter: brightness(0) saturate(100%) invert(47%) sepia(79%) saturate(2476%) hue-rotate(86deg) brightness(118%) contrast(119%);
   opacity: 0.9;
+  transition: all 0.15s ease;
+}
+
+.arrow-icon:hover {
+  opacity: 1;
+  transform: scale(1.05);
+}
+
+.keyboard-hints {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 16px;
+  padding: 0;
+  margin: -4px 0 0 0;
+  background: linear-gradient(135deg, rgba(0, 0, 0, 0.12) 0%, rgba(0, 0, 0, 0.2) 100%);
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 0 0 6px 6px;
+  backdrop-filter: blur(8px);
+  position: relative;
+  height: 16px;
+  line-height: 1;
+}
+
+.keyboard-hints::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent);
+}
+
+.hint-item {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.6);
+  font-weight: 500;
+  letter-spacing: 0.1px;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  line-height: 1;
+  transform: scale(0.6);
+  transform-origin: center;
+  margin: 0;
+  padding: 0;
+}
+
+.hint-item:hover {
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.key-group {
+  display: flex;
+  gap: 1px;
+}
+
+.key {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2px 4px;
+  min-width: 16px;
+  height: 14px;
+  background: linear-gradient(145deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0.04) 100%);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 2px;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-size: 9px;
+  font-weight: 500;
+  line-height: 1;
+  text-align: center;
+  color: rgba(255, 255, 255, 0.7);
+  box-shadow:
+    0 1px 1px rgba(0, 0, 0, 0.1),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.key:hover {
+  background: linear-gradient(145deg, rgba(255, 255, 255, 0.12) 0%, rgba(255, 255, 255, 0.08) 100%);
+  border-color: rgba(255, 255, 255, 0.18);
+  color: rgba(255, 255, 255, 0.85);
+  box-shadow:
+    0 1px 1px rgba(0, 0, 0, 0.15),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+}
+
+.key.enter-key {
+  background: linear-gradient(145deg, rgba(82, 196, 26, 0.15) 0%, rgba(82, 196, 26, 0.08) 100%);
+  border-color: rgba(82, 196, 26, 0.25);
+  color: rgba(82, 196, 26, 0.85);
+  box-shadow:
+    0 1px 1px rgba(0, 0, 0, 0.1),
+    inset 0 1px 0 rgba(82, 196, 26, 0.1);
+}
+
+.key.enter-key:hover {
+  background: linear-gradient(145deg, rgba(82, 196, 26, 0.22) 0%, rgba(82, 196, 26, 0.12) 100%);
+  border-color: rgba(82, 196, 26, 0.35);
+  color: rgba(82, 196, 26, 0.95);
+  box-shadow:
+    0 1px 1px rgba(0, 0, 0, 0.15),
+    inset 0 1px 0 rgba(82, 196, 26, 0.15);
+}
+
+.key.esc-key {
+  background: linear-gradient(145deg, rgba(255, 77, 79, 0.12) 0%, rgba(255, 77, 79, 0.06) 100%);
+  border-color: rgba(255, 77, 79, 0.2);
+  color: rgba(255, 77, 79, 0.85);
+  box-shadow:
+    0 1px 1px rgba(0, 0, 0, 0.1),
+    inset 0 1px 0 rgba(255, 77, 79, 0.08);
+}
+
+.key.esc-key:hover {
+  background: linear-gradient(145deg, rgba(255, 77, 79, 0.18) 0%, rgba(255, 77, 79, 0.1) 100%);
+  border-color: rgba(255, 77, 79, 0.3);
+  color: rgba(255, 77, 79, 0.95);
+  box-shadow:
+    0 1px 1px rgba(0, 0, 0, 0.15),
+    inset 0 1px 0 rgba(255, 77, 79, 0.12);
 }
 </style>
