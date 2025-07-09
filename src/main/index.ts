@@ -660,6 +660,20 @@ ipcMain.handle('get-user-hosts', async (_, data) => {
   }
 })
 
+ipcMain.handle('user-snippet-operation', async (_, data) => {
+  try {
+    const { operation, params } = data
+    const result = chatermDbService.userSnippetOperation(operation, params)
+    return result
+  } catch (error) {
+    console.error('Chaterm用户snippet操作失败:', error)
+    return {
+      code: 500,
+      message: error instanceof Error ? error.message : 'Unknown error occurred'
+    }
+  }
+})
+
 ipcMain.handle('validate-api-key', async (_, configuration) => {
   if (controller) {
     // 如果没有传递配置数据，返回错误

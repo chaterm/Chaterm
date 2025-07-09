@@ -331,6 +331,16 @@ const initUserDatabase = async (data: { uid: number }) => {
   }
 }
 
+// 用户片段操作
+const userSnippetOperation = async (data: { operation: 'list' | 'create' | 'delete' | 'update' | 'swap'; params?: any }) => {
+  try {
+    const result = await ipcRenderer.invoke('user-snippet-operation', data)
+    return result
+  } catch (error) {
+    return Promise.reject(error)
+  }
+}
+
 const api = {
   getLocalIP,
   getMacAddress,
@@ -363,6 +373,7 @@ const api = {
   getTaskMetadata,
   getUserHosts,
   initUserDatabase,
+  userSnippetOperation,
   maximizeWindow: () => ipcRenderer.invoke('window:maximize'),
   unmaximizeWindow: () => ipcRenderer.invoke('window:unmaximize'),
   isMaximized: () => ipcRenderer.invoke('window:is-maximized'),

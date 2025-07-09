@@ -97,6 +97,14 @@ CREATE TABLE IF NOT EXISTS agent_context_history_v1 (
 );
 CREATE INDEX IF NOT EXISTS idx_context_created_at ON agent_context_history_v1(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_context_updated_at ON agent_context_history_v1(updated_at DESC);
+
+CREATE TABLE IF NOT EXISTS user_snippet_v1 (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,                -- 新增自增主键
+  created_at INTEGER DEFAULT (strftime('%s', 'now')),  -- 写入时间戳
+  updated_at INTEGER DEFAULT (strftime('%s', 'now')),  -- 更新时间戳
+  snippet_name TEXT NOT NULL,                           -- 快捷命令名称
+  snippet_content TEXT NOT NULL                        -- 快捷命令内容
+)
 `)
 
 console.log('数据库创建成功，表已创建')
@@ -106,9 +114,7 @@ const count = db.prepare('SELECT COUNT(*) as count FROM t_assets').get()
 console.log(`数据库中共有 ${count.count} 条命令记录`)
 
 // 验证新创建的对话历史表
-const conversationCount = db
-  .prepare('SELECT COUNT(*) as count FROM agent_api_conversation_history_v1')
-  .get()
+const conversationCount = db.prepare('SELECT COUNT(*) as count FROM agent_api_conversation_history_v1').get()
 console.log(`对话历史表中共有 ${conversationCount.count} 条记录`)
 
 // 验证新创建的UI消息表
@@ -120,10 +126,12 @@ const metadataCount = db.prepare('SELECT COUNT(*) as count FROM agent_task_metad
 console.log(`任务元数据表中共有 ${metadataCount.count} 条记录`)
 
 // 验证新创建的上下文历史表
-const contextHistoryCount = db
-  .prepare('SELECT COUNT(*) as count FROM agent_context_history_v1')
-  .get()
+const contextHistoryCount = db.prepare('SELECT COUNT(*) as count FROM agent_context_history_v1').get()
 console.log(`上下文历史表中共有 ${contextHistoryCount.count} 条记录`)
+
+// 验证新创建的快捷命令表
+const snippetCount = db.prepare('SELECT COUNT(*) as count FROM user_snippet_v1').get()
+console.log(`快捷命令表中共有 ${snippetCount.count} 条记录`)
 
 // 关闭数据库连接
 db.close()
