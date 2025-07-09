@@ -2047,7 +2047,7 @@ const insertCommand = async (cmd) => {
 }
 
 // 输入内容 - 原始处理函数
-const handleKeyInput = (e) => {
+const handleKeyInputOriginal = (e) => {
   console.log(e, '----------------------')
   enterPress.value = false
   specialCode.value = false
@@ -2113,7 +2113,7 @@ const handleKeyInput = (e) => {
 }
 
 // 防抖处理的输入函数
-// const handleKeyInput = debounce(handleKeyInputOriginal, 1000)
+const handleKeyInput = debounce(handleKeyInputOriginal, 1000)
 
 const disconnectSSH = async () => {
   try {
