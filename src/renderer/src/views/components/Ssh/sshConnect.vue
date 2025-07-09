@@ -1394,6 +1394,9 @@ const setupTerminalInput = () => {
           // 如果剪贴板访问失败，静默处理
         })
     } else if (data == '\r') {
+      // 获取当前命令内容
+      const command = terminalState.value.content
+
       // 如果有推荐列表，选中当前高亮的推荐项
       if (suggestions.value.length) {
         selectSuggestion(suggestions.value[activeSuggestion.value])
@@ -1405,8 +1408,13 @@ const setupTerminalInput = () => {
       // 立即清空推荐窗口
       suggestions.value = []
       activeSuggestion.value = 0
+
+      // 记录命令到数据库（无论是否有推荐都要记录）
+      if (command && command.trim()) {
+        insertCommand(command)
+      }
+
       const delData = String.fromCharCode(127)
-      const command = terminalState.value.content
       const aliasStore = aliasConfigStore()
       // configStore.getUserConfig.quickVimStatus = 1
       const newCommand = aliasStore.getCommand(command) // 全局alias
@@ -1986,6 +1994,7 @@ const selectSuggestion = (suggestion: CommandSuggestion) => {
 
   sendData(DELCODE.repeat(terminalState.value.content.length))
   sendData(suggestion.command)
+
   // 立即清空推荐窗口，不延迟
   suggestions.value = []
   activeSuggestion.value = 0
@@ -2062,7 +2071,8 @@ const handleKeyInputOriginal = (e) => {
     terminalState.value.contentCrossRowStatus = false
     terminalState.value.contentCrossStartLine = 0
     terminalState.value.contentCrossRowLines = 0
-    insertCommand(terminalState.value.content)
+    // 移除这里的命令记录逻辑，避免重复记录
+    // insertCommand(terminalState.value.content)
   } else if (ev.keyCode === 8) {
     // 删除
     // specialCode.value = true
