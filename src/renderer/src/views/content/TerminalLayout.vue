@@ -775,6 +775,20 @@ const updateRightTabs = (newTabs, paneIndex) => {
   const pane = splitPanes.value[paneIndex]
   if (pane) {
     pane.tabs = newTabs
+
+    // 检查更新后分屏是否为空
+    if (newTabs.length === 0) {
+      // 如果分屏没有标签页了，移除这个分屏
+      splitPanes.value.splice(paneIndex, 1)
+
+      // 重新调整剩余分屏的大小
+      if (splitPanes.value.length === 0) {
+        showSplitPane.value = false
+        mainTerminalSize.value = 100 - (showAiSidebar.value ? aiSidebarSize.value : 0)
+      } else {
+        adjustSplitPaneToEqualWidth()
+      }
+    }
   }
 }
 
@@ -908,28 +922,48 @@ const checkActiveTab = (type) => {
 const handleTabMovedToMainPane = (evt) => {
   const { tab, fromElement } = evt
 
-  // 找到来源分屏的索引
-  const fromPaneIndex = Array.from(document.querySelectorAll('.rigth-sidebar')).findIndex((el) => el.contains(fromElement))
+  // 找到来源分屏的索引 - 使用更可靠的方法
+  let fromPaneIndex = -1
+  const rightSidebars = document.querySelectorAll('.rigth-sidebar')
+
+  for (let i = 0; i < rightSidebars.length; i++) {
+    if (rightSidebars[i].contains(fromElement)) {
+      fromPaneIndex = i
+      break
+    }
+  }
 
   if (fromPaneIndex !== -1) {
     // 从分屏移动到主窗口
     const fromPane = splitPanes.value[fromPaneIndex]
     if (fromPane) {
-      // 从源分屏移除标签页
-      const tabIndex = fromPane.tabs.findIndex((t) => t.id === tab.id)
-      if (tabIndex !== -1) {
-        fromPane.tabs.splice(tabIndex, 1)
-        if (fromPane.tabs.length === 0) {
-          // 如果分屏没有标签页了，移除这个分屏
-          splitPanes.value.splice(fromPaneIndex, 1)
-          if (splitPanes.value.length === 0) {
-            showSplitPane.value = false
-            mainTerminalSize.value = 100 - (showAiSidebar.value ? aiSidebarSize.value : 0)
-          } else {
-            adjustSplitPaneToEqualWidth()
-          }
-        }
+      // 如果移动的是当前活动的标签页，需要激活最后一个标签页
+      if (fromPane.activeTabId === tab.id && fromPane.tabs.length > 0) {
+        fromPane.activeTabId = fromPane.tabs[fromPane.tabs.length - 1].id
+        // 通知事件总线更新终端大小
+        nextTick(() => {
+          eventBus.emit('resizeTerminal', fromPane.activeTabId)
+        })
       }
+      // 从源分屏移除标签页
+      // const tabIndex = fromPane.tabs.findIndex((t) => t.id === tab.id)
+      // if (tabIndex !== -1) {
+      //   fromPane.tabs.splice(tabIndex, 1)
+
+      //   // 检查移除标签页后分屏是否为空
+      //   if (fromPane.tabs.length === 0) {
+      //     // 如果分屏没有标签页了，移除这个分屏
+      //     splitPanes.value.splice(fromPaneIndex, 1)
+
+      //     // 重新调整剩余分屏的大小
+      //     if (splitPanes.value.length === 0) {
+      //       showSplitPane.value = false
+      //       mainTerminalSize.value = 100 - (showAiSidebar.value ? aiSidebarSize.value : 0)
+      //     } else {
+      //       adjustSplitPaneToEqualWidth()
+      //     }
+      //   }
+      // }
     }
   }
 }
@@ -941,23 +975,36 @@ const handleTabMovedToSplitPane = (evt, toPaneIndex) => {
   // 检查是否从主窗口移动
   const mainTabsElement = allTabs.value?.$el.querySelector('.tabs-bar')
   if (mainTabsElement && mainTabsElement.contains(fromElement)) {
+    activeTabId.value = openedTabs.value[openedTabs.value.length - 1].id
     // 从主窗口移动到分屏
-    const tabIndex = openedTabs.value.findIndex((t) => t.id === tab.id)
-    if (tabIndex !== -1) {
-      openedTabs.value.splice(tabIndex, 1)
-      if (activeTabId.value === tab.id) {
-        if (openedTabs.value.length > 0) {
-          const newActiveIndex = Math.max(0, tabIndex - 1)
-          activeTabId.value = openedTabs.value[newActiveIndex].id
-        } else {
-          activeTabId.value = ''
-          eventBus.emit('activeTabChanged', null)
-        }
+    // const tabIndex = openedTabs.value.findIndex((t) => t.id === tab.id)
+    // if (tabIndex !== -1) {
+    //   openedTabs.value.splice(tabIndex, 1)
+    //   if (activeTabId.value === tab.id) {
+    //     if (openedTabs.value.length > 0) {
+    //       // 修改为激活最后一个标签页
+    //       activeTabId.value = openedTabs.value[openedTabs.value.length - 1].id
+    //       // 确保重新调整终端大小
+    //       nextTick(() => {
+    //         allTabs.value?.resizeTerm(activeTabId.value)
+    //       })
+    //     } else {
+    //       activeTabId.value = ''
+    //       eventBus.emit('activeTabChanged', null)
+    //     }
+    //   }
+    // }
+  } else {
+    // 从其他分屏移动 - 使用更可靠的方法查找源分屏索引
+    let fromPaneIndex = -1
+    const rightSidebars = document.querySelectorAll('.rigth-sidebar')
+
+    for (let i = 0; i < rightSidebars.length; i++) {
+      if (rightSidebars[i].contains(fromElement)) {
+        fromPaneIndex = i
+        break
       }
     }
-  } else {
-    // 从其他分屏移动
-    const fromPaneIndex = Array.from(document.querySelectorAll('.rigth-sidebar')).findIndex((el) => el.contains(fromElement))
 
     if (fromPaneIndex !== -1 && fromPaneIndex !== toPaneIndex) {
       const fromPane = splitPanes.value[fromPaneIndex]
@@ -966,9 +1013,13 @@ const handleTabMovedToSplitPane = (evt, toPaneIndex) => {
         const tabIndex = fromPane.tabs.findIndex((t) => t.id === tab.id)
         if (tabIndex !== -1) {
           fromPane.tabs.splice(tabIndex, 1)
+
+          // 检查移除标签页后分屏是否为空
           if (fromPane.tabs.length === 0) {
             // 如果分屏没有标签页了，移除这个分屏
             splitPanes.value.splice(fromPaneIndex, 1)
+
+            // 重新调整剩余分屏的大小
             if (splitPanes.value.length === 0) {
               showSplitPane.value = false
               mainTerminalSize.value = 100 - (showAiSidebar.value ? aiSidebarSize.value : 0)
