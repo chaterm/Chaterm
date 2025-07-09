@@ -43,6 +43,7 @@
                 <pane
                   :size="mainTerminalSize"
                   :min-size="30"
+                  @mousedown="handleMainPaneFocus"
                 >
                   <TabsPanel
                     ref="allTabs"
@@ -64,7 +65,10 @@
                   :size="splitPane.size"
                   :min-size="30"
                 >
-                  <div class="rigth-sidebar">
+                  <div
+                    class="rigth-sidebar"
+                    @mousedown="handleSplitPaneFocus(index)"
+                  >
                     <TabsPanel
                       :tabs="splitPane.tabs"
                       :active-tab="splitPane.activeTabId"
@@ -166,6 +170,7 @@
               <pane
                 :size="mainTerminalSize"
                 :min-size="30"
+                @mousedown="handleMainPaneFocus"
               >
                 <TabsPanel
                   ref="allTabs"
@@ -187,7 +192,10 @@
                 :size="splitPane.size"
                 :min-size="30"
               >
-                <div class="rigth-sidebar">
+                <div
+                  class="rigth-sidebar"
+                  @mousedown="handleSplitPaneFocus(index)"
+                >
                   <TabsPanel
                     :tabs="splitPane.tabs"
                     :active-tab="splitPane.activeTabId"
@@ -274,12 +282,13 @@ const leftPaneSize = ref(30)
 const mainTerminalSize = ref(100)
 const showWatermark = ref(true)
 const currentTheme = ref('dark')
-const rightPaneMode = ref('')
 const aiSidebarSize = ref(0)
 const splitPanes = ref<{ size: number; tabs: TabItem[]; activeTabId: string }[]>([])
 const showAiSidebar = ref(false)
 const showSplitPane = ref(false)
 const globalInput = ref('')
+// 添加跟踪当前聚焦分屏的状态
+const focusedSplitPaneIndex = ref<number | null>(null)
 onMounted(async () => {
   const store = piniaUserConfigStore()
   eventBus.on('updateWatermark', (watermark) => {
@@ -326,7 +335,6 @@ onMounted(async () => {
   eventBus.on('getActiveTabAssetInfo', handleGetActiveTabAssetInfo)
   eventBus.on('toggleSideBar', toggleSideBar)
   eventBus.on('createSplitTab', handleCreateSplitTab)
-  eventBus.on('switchRightPaneMode', handleSwitchRightPaneMode)
   eventBus.on('adjustSplitPaneToEqual', adjustSplitPaneToEqualWidth)
 
   checkVersion()
@@ -370,7 +378,6 @@ const globalInputWidth = computed(() => {
 const DEFAULT_WIDTH_PX = 240
 const DEFAULT_WIDTH_RIGHT_PX = 400
 const currentMenu = ref('workspace')
-const activeKey = ref('mainTerminal')
 const updatePaneSize = () => {
   const container = document.querySelector('.splitpanes') as HTMLElement
   if (container) {
@@ -504,8 +511,6 @@ interface TabItem {
 }
 const openedTabs = ref<TabItem[]>([])
 const activeTabId = ref('')
-const rightTabs = ref<TabItem[]>([])
-const rightActiveTabId = ref('')
 const currentClickServer = async (item) => {
   // 如果是跳过登录的用户，检查是否需要登录的功能
   if (isSkippedLogin.value && needsAuth(item)) {
@@ -528,7 +533,7 @@ const currentClickServer = async (item) => {
   if (item.children) return
 
   const id_ = uuidv4()
-  openedTabs.value.push({
+  const newTab = {
     id: id_,
     title: item.title,
     content: item.key,
@@ -536,8 +541,19 @@ const currentClickServer = async (item) => {
     organizationId: item.organizationId ? item.organizationId : '',
     ip: item.ip ? item.ip : '',
     data: item
-  })
-  activeTabId.value = id_
+  }
+
+  // 检查是否有聚焦的分屏，如果有则将标签页添加到对应的分屏
+  if (focusedSplitPaneIndex.value !== null && focusedSplitPaneIndex.value < splitPanes.value.length) {
+    const targetPane = splitPanes.value[focusedSplitPaneIndex.value]
+    targetPane.tabs.push(newTab)
+    targetPane.activeTabId = id_
+  } else {
+    // 否则添加到主窗口
+    openedTabs.value.push(newTab)
+    activeTabId.value = id_
+  }
+
   checkActiveTab(item.type || 'term')
 }
 
@@ -652,11 +668,9 @@ onUnmounted(() => {
   eventBus.off('getActiveTabAssetInfo', handleGetActiveTabAssetInfo)
   eventBus.off('toggleSideBar', toggleSideBar)
   eventBus.off('createSplitTab', handleCreateSplitTab)
-  eventBus.off('switchRightPaneMode', handleSwitchRightPaneMode)
   eventBus.off('adjustSplitPaneToEqual', adjustSplitPaneToEqualWidth)
 })
 const openUserTab = function (value) {
-  activeKey.value = value
   if (value === 'assetConfig' || value === 'keyChainConfig' || value === 'userInfo' || value === 'userConfig') {
     const existTab = openedTabs.value.find((tab) => tab.content === value)
     if (existTab) {
@@ -684,12 +698,10 @@ const changeCompany = () => {
 
 const getActiveTabAssetInfo = async () => {
   if (!activeTabId.value) {
-    console.warn('No active tab selected.')
     return null
   }
   const activeTab = openedTabs.value.find((tab) => tab.id === activeTabId.value)
   if (!activeTab) {
-    console.warn('Active tab not found in openedTabs.')
     return null
   }
 
@@ -800,20 +812,6 @@ const closeAllRightTabs = (paneIndex) => {
   } else {
     adjustSplitPaneToEqualWidth()
   }
-}
-
-const handleSwitchRightPaneMode = (mode: 'ai' | 'split') => {
-  if (!showAiSidebar.value) {
-    const container = document.querySelector('.splitpanes') as HTMLElement
-    if (container) {
-      const containerWidth = container.offsetWidth
-      showAiSidebar.value = true
-      aiSidebarSize.value = (DEFAULT_WIDTH_RIGHT_PX / containerWidth) * 100
-      mainTerminalSize.value =
-        100 - aiSidebarSize.value - (splitPanes.value.length > 0 ? splitPanes.value.reduce((acc, pane) => acc + pane.size, 0) : 0)
-    }
-  }
-  rightPaneMode.value = mode
 }
 
 const toggleAiSidebar = () => {
@@ -945,25 +943,6 @@ const handleTabMovedToMainPane = (evt) => {
           eventBus.emit('resizeTerminal', fromPane.activeTabId)
         })
       }
-      // 从源分屏移除标签页
-      // const tabIndex = fromPane.tabs.findIndex((t) => t.id === tab.id)
-      // if (tabIndex !== -1) {
-      //   fromPane.tabs.splice(tabIndex, 1)
-
-      //   // 检查移除标签页后分屏是否为空
-      //   if (fromPane.tabs.length === 0) {
-      //     // 如果分屏没有标签页了，移除这个分屏
-      //     splitPanes.value.splice(fromPaneIndex, 1)
-
-      //     // 重新调整剩余分屏的大小
-      //     if (splitPanes.value.length === 0) {
-      //       showSplitPane.value = false
-      //       mainTerminalSize.value = 100 - (showAiSidebar.value ? aiSidebarSize.value : 0)
-      //     } else {
-      //       adjustSplitPaneToEqualWidth()
-      //     }
-      //   }
-      // }
     }
   }
 }
@@ -976,24 +955,6 @@ const handleTabMovedToSplitPane = (evt, toPaneIndex) => {
   const mainTabsElement = allTabs.value?.$el.querySelector('.tabs-bar')
   if (mainTabsElement && mainTabsElement.contains(fromElement)) {
     activeTabId.value = openedTabs.value[openedTabs.value.length - 1].id
-    // 从主窗口移动到分屏
-    // const tabIndex = openedTabs.value.findIndex((t) => t.id === tab.id)
-    // if (tabIndex !== -1) {
-    //   openedTabs.value.splice(tabIndex, 1)
-    //   if (activeTabId.value === tab.id) {
-    //     if (openedTabs.value.length > 0) {
-    //       // 修改为激活最后一个标签页
-    //       activeTabId.value = openedTabs.value[openedTabs.value.length - 1].id
-    //       // 确保重新调整终端大小
-    //       nextTick(() => {
-    //         allTabs.value?.resizeTerm(activeTabId.value)
-    //       })
-    //     } else {
-    //       activeTabId.value = ''
-    //       eventBus.emit('activeTabChanged', null)
-    //     }
-    //   }
-    // }
   } else {
     // 从其他分屏移动 - 使用更可靠的方法查找源分屏索引
     let fromPaneIndex = -1
@@ -1031,6 +992,16 @@ const handleTabMovedToSplitPane = (evt, toPaneIndex) => {
       }
     }
   }
+}
+
+// 处理分屏获得焦点
+const handleSplitPaneFocus = (paneIndex: number) => {
+  focusedSplitPaneIndex.value = paneIndex
+}
+
+// 处理主窗口获得焦点
+const handleMainPaneFocus = () => {
+  focusedSplitPaneIndex.value = null
 }
 
 defineExpose({
