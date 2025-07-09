@@ -1028,6 +1028,152 @@ export class ChatermDatabaseService {
       throw error
     }
   }
+  // 快捷命令相关方法
+  userSnippetOperation(operation: 'list' | 'create' | 'delete' | 'update' | 'swap', params?: any): any {
+    try {
+      switch (operation) {
+        case 'list':
+          // 查询表中所有数据
+          const listStmt = this.db.prepare(`
+            SELECT id, snippet_name, snippet_content, created_at, updated_at
+            FROM user_snippet_v1
+            ORDER BY created_at DESC
+          `)
+          const results = listStmt.all() || []
+          return {
+            code: 200,
+            data: {
+              snippets: results
+            },
+            message: 'success'
+          }
+
+        case 'create':
+          // 创建新记录
+          if (!params || !params.snippet_name || !params.snippet_content) {
+            return {
+              code: 400,
+              message: 'snippet_name and snippet_content are required for create operation'
+            }
+          }
+          const createStmt = this.db.prepare(`
+            INSERT INTO user_snippet_v1 (snippet_name, snippet_content)
+            VALUES (?, ?)
+          `)
+          const createResult = createStmt.run(params.snippet_name, params.snippet_content)
+          return {
+            code: 200,
+            data: {
+              message: createResult.changes > 0 ? 'success' : 'failed',
+              insertedId: createResult.lastInsertRowid,
+              insertedCount: createResult.changes
+            }
+          }
+
+        case 'delete':
+          // 删除记录
+          if (!params || !params.id) {
+            return {
+              code: 400,
+              message: 'ID is required for delete operation'
+            }
+          }
+          const deleteStmt = this.db.prepare(`
+            DELETE FROM user_snippet_v1 WHERE id = ?
+          `)
+          const deleteResult = deleteStmt.run(params.id)
+          return {
+            code: 200,
+            data: {
+              message: deleteResult.changes > 0 ? 'success' : 'failed',
+              deletedCount: deleteResult.changes
+            }
+          }
+
+        case 'update':
+          // 修改记录
+          if (!params || !params.id || !params.snippet_name || !params.snippet_content) {
+            return {
+              code: 400,
+              message: 'ID, snippet_name and snippet_content are required for update operation'
+            }
+          }
+          const updateStmt = this.db.prepare(`
+            UPDATE user_snippet_v1 
+            SET snippet_name = ?, 
+                snippet_content = ?, 
+                updated_at = strftime('%s', 'now')
+            WHERE id = ?
+          `)
+          const updateResult = updateStmt.run(params.snippet_name, params.snippet_content, params.id)
+          return {
+            code: 200,
+            data: {
+              message: updateResult.changes > 0 ? 'success' : 'failed',
+              updatedCount: updateResult.changes
+            }
+          }
+
+        case 'swap':
+          // 交换两行记录数据
+          if (!params || !params.id1 || !params.id2) {
+            return {
+              code: 400,
+              message: 'Both id1 and id2 are required for swap operation'
+            }
+          }
+
+          // 使用事务确保数据一致性
+          const swapResult = this.db.transaction(() => {
+            // 获取两条记录的数据
+            const getStmt = this.db.prepare(`
+              SELECT id, snippet_name, snippet_content FROM user_snippet_v1 WHERE id = ?
+            `)
+            const record1 = getStmt.get(params.id1)
+            const record2 = getStmt.get(params.id2)
+
+            if (!record1 || !record2) {
+              throw new Error('One or both records not found')
+            }
+
+            // 交换数据
+            const swapStmt = this.db.prepare(`
+              UPDATE user_snippet_v1 
+              SET snippet_name = ?, 
+                  snippet_content = ?, 
+                  updated_at = strftime('%s', 'now')
+              WHERE id = ?
+            `)
+
+            // 交换record1和record2的内容
+            swapStmt.run(record2.snippet_name, record2.snippet_content, record1.id)
+            swapStmt.run(record1.snippet_name, record1.snippet_content, record2.id)
+
+            return { changes: 2 }
+          })()
+
+          return {
+            code: 200,
+            data: {
+              message: swapResult.changes === 2 ? 'success' : 'failed',
+              swappedCount: swapResult.changes
+            }
+          }
+
+        default:
+          return {
+            code: 400,
+            message: 'Invalid operation. Supported operations: list, create, delete, update, swap'
+          }
+      }
+    } catch (error) {
+      console.error('Chaterm database user snippet operation error:', error)
+      return {
+        code: 500,
+        message: error instanceof Error ? error.message : 'Unknown error occurred'
+      }
+    }
+  }
 }
 
 export class autoCompleteDatabaseService {
