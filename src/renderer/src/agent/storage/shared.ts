@@ -55,7 +55,7 @@ export const DEFAULT_AUTO_APPROVAL_SETTINGS: AutoApprovalSettings = {
   favorites: ['enableAutoApprove', 'readFiles']
 }
 
-export type ApiProvider = 'bedrock'
+export type ApiProvider = 'bedrock' | 'litellm' | 'deepseek' | 'openai' | 'default'
 
 export interface ApiHandlerOptions {
   apiModelId?: string
@@ -77,6 +77,9 @@ export interface ApiHandlerOptions {
   requestTimeoutMs?: number
   onRetryAttempt?: (attempt: number, maxRetries: number, delay: number, error: any) => void
   deepSeekApiKey?: string
+  openAiBaseUrl?: string
+  openAiApiKey?: string
+  openAiModelId?: string
   needProxy?: boolean
   proxyConfig?: ProxyConfig
   defaultBaseUrl?: string
