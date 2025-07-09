@@ -7,7 +7,9 @@
         :animation="150"
         handle=".tab-title"
         item-key="id"
+        :group="{ name: 'tabs', pull: true, put: true }"
         @end="onDragEnd"
+        @add="onDragAdd"
       >
         <template #item="{ element: tab }">
           <div
@@ -137,7 +139,7 @@ const props = defineProps({
     default: ''
   }
 })
-const emit = defineEmits(['close-tab', 'change-tab', 'update-tabs', 'create-tab', 'close-all-tabs'])
+const emit = defineEmits(['close-tab', 'change-tab', 'update-tabs', 'create-tab', 'close-all-tabs', 'tab-moved-from-other-pane'])
 const localTabs = computed({
   get: () => props.tabs,
   set: (value) => {
@@ -173,7 +175,35 @@ const closeTab = (id) => {
   console.log(id, 'iddd')
   emit('close-tab', id)
 }
-const onDragEnd = () => {}
+const onDragEnd = (evt) => {
+  if (evt.from === evt.to) {
+    // 同一分屏内的拖拽，只需要更新顺序
+    emit('update-tabs', localTabs.value)
+    // 激活拖拽的标签页
+    const draggedTab = localTabs.value[evt.newIndex]
+    if (draggedTab) {
+      emit('change-tab', draggedTab.id)
+    }
+  }
+}
+
+const onDragAdd = (evt) => {
+  // 从其他分屏拖入的标签页
+  const movedTab = evt.item.__draggable_context.element
+
+  // 通知父组件处理跨分屏移动
+  emit('tab-moved-from-other-pane', {
+    tab: movedTab,
+    fromElement: evt.from,
+    toElement: evt.to
+  })
+
+  // 激活新拖入的标签页
+  if (movedTab) {
+    emit('change-tab', movedTab.id)
+  }
+}
+
 const termRefMap = ref<Record<string, any>>({})
 const sshConnectRefMap = ref<Record<string, any>>({})
 
