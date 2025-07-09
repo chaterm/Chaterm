@@ -45,7 +45,10 @@ export default {
     syncInputOn: '同步输入(已开)',
     syncInput: '同步输入',
     allExecuted: '全部执行',
-    pleaseLoginFirst: '请先登录'
+    pleaseLoginFirst: '请先登录',
+    select: '选择',
+    confirm: '确认',
+    ok: '确定'
   },
   term: {
     welcome: '欢迎使用 Chaterm'

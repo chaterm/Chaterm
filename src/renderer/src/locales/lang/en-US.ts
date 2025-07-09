@@ -45,7 +45,10 @@ export default {
     syncInputOn: 'Synchronous Input (On)',
     syncInput: 'Synchronous Input',
     allExecuted: 'All Executed',
-    pleaseLoginFirst: 'Please login first'
+    pleaseLoginFirst: 'Please login first',
+    select: 'Select',
+    confirm: 'Confirm',
+    ok: 'OK'
   },
   term: {
     welcome: 'Welcome to use Chaterm'
