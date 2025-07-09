@@ -127,7 +127,7 @@ interface CommandSuggestion {
   source: 'base' | 'history'
 }
 const suggestions = ref<CommandSuggestion[]>([])
-const activeSuggestion = ref(0) //高亮的补全项
+const activeSuggestion = ref(-1) //高亮的补全项，-1表示没有选中
 const props = defineProps({
   connectData: {
     type: Object as PropType<sshConnectData>,
@@ -1340,7 +1340,7 @@ const setupTerminalInput = () => {
       //   selectFlag.value = true
       // }
       suggestions.value = []
-      activeSuggestion.value = 0
+      activeSuggestion.value = -1
       setTimeout(() => {
         queryCommand(cmd)
       }, 100)
@@ -1349,7 +1349,7 @@ const setupTerminalInput = () => {
       // Ctrl+C
       if (suggestions.value.length) {
         suggestions.value = []
-        activeSuggestion.value = 0
+        activeSuggestion.value = -1
         nextTick(() => {})
       }
       // 阻止本轮 queryCommand 重新触发
@@ -1361,7 +1361,7 @@ const setupTerminalInput = () => {
       if (suggestions.value.length) {
         // 清除推荐界面
         suggestions.value = []
-        activeSuggestion.value = 0
+        activeSuggestion.value = -1
         nextTick(() => {})
       }
       // 阻止本轮 queryCommand 重新触发
@@ -1372,7 +1372,7 @@ const setupTerminalInput = () => {
       // ESC键 - 取消推荐界面
       if (suggestions.value.length) {
         suggestions.value = []
-        activeSuggestion.value = 0
+        activeSuggestion.value = -1
         nextTick(() => {})
         return // 如果有推荐界面，只清除推荐界面，不发送ESC
       } else {
@@ -1392,8 +1392,8 @@ const setupTerminalInput = () => {
       // 获取当前命令内容
       const command = terminalState.value.content
 
-      // 如果有推荐列表，选中当前高亮的推荐项
-      if (suggestions.value.length) {
+      // 如果有推荐列表且有选中项，选中当前高亮的推荐项
+      if (suggestions.value.length && activeSuggestion.value >= 0) {
         selectSuggestion(suggestions.value[activeSuggestion.value])
         selectFlag.value = true
         return
@@ -1402,7 +1402,7 @@ const setupTerminalInput = () => {
       selectFlag.value = true
       // 立即清空推荐窗口
       suggestions.value = []
-      activeSuggestion.value = 0
+      activeSuggestion.value = -1
 
       // 记录命令到数据库（无论是否有推荐都要记录）
       if (command && command.trim()) {
@@ -1439,13 +1439,25 @@ const setupTerminalInput = () => {
       }
     } else if (JSON.stringify(data) === '"\\u001b[A"') {
       if (suggestions.value.length) {
-        data == '\u001b[A' && activeSuggestion.value > 0 ? (activeSuggestion.value -= 1) : ''
+        if (data == '\u001b[A') {
+          if (activeSuggestion.value > 0) {
+            activeSuggestion.value -= 1
+          } else if (activeSuggestion.value === 0) {
+            activeSuggestion.value = -1
+          }
+        }
       } else {
         sendMarkedData(data, 'Chaterm:[A')
       }
     } else if (JSON.stringify(data) === '"\\u001b[B"') {
       if (suggestions.value.length) {
-        data == '\u001b[B' && activeSuggestion.value < suggestions.value.length - 1 ? (activeSuggestion.value += 1) : ''
+        if (data == '\u001b[B') {
+          if (activeSuggestion.value < suggestions.value.length - 1) {
+            activeSuggestion.value += 1
+          } else if (activeSuggestion.value === -1) {
+            activeSuggestion.value = 0
+          }
+        }
       } else {
         sendMarkedData(data, 'Chaterm:[B')
       }
@@ -1992,7 +2004,7 @@ const selectSuggestion = (suggestion: CommandSuggestion) => {
 
   // 立即清空推荐窗口，不延迟
   suggestions.value = []
-  activeSuggestion.value = 0
+  activeSuggestion.value = -1
 }
 const queryCommand = async (cmd = '') => {
   if (!queryCommandFlag.value || isSyncInput.value) return
@@ -2062,7 +2074,7 @@ const handleKeyInputOriginal = (e) => {
 
     // 立即清空推荐窗口（确保秒关）
     suggestions.value = []
-    activeSuggestion.value = 0
+    activeSuggestion.value = -1
     terminalState.value.contentCrossRowStatus = false
     terminalState.value.contentCrossStartLine = 0
     terminalState.value.contentCrossRowLines = 0
