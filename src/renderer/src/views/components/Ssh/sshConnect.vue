@@ -277,6 +277,8 @@ onMounted(async () => {
         button.style.top = `${top}px`
         showAiButton.value = true
       }
+    } else {
+      showAiButton.value = false
     }
   })
 
