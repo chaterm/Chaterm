@@ -1395,6 +1395,9 @@ const setupTerminalInput = () => {
         })
     } else if (data == '\r') {
       selectFlag.value = true
+      // 立即清空推荐窗口
+      suggestions.value = []
+      activeSuggestion.value = 0
       const delData = String.fromCharCode(127)
       const command = terminalState.value.content
       const aliasStore = aliasConfigStore()
@@ -1445,6 +1448,8 @@ const setupTerminalInput = () => {
       }
     } else {
       sendData(data)
+      // 正常输入时立即允许查询推荐
+      selectFlag.value = false
     }
 
     if (!selectFlag.value) {
@@ -1978,10 +1983,9 @@ const selectSuggestion = (suggestion: CommandSuggestion) => {
 
   sendData(DELCODE.repeat(terminalState.value.content.length))
   sendData(suggestion.command)
-  setTimeout(() => {
-    suggestions.value = []
-    activeSuggestion.value = 0
-  }, 10)
+  // 立即清空推荐窗口，不延迟
+  suggestions.value = []
+  activeSuggestion.value = 0
 }
 const queryCommand = async (cmd = '') => {
   if (!queryCommandFlag.value || isSyncInput.value) return
@@ -2049,6 +2053,7 @@ const handleKeyInputOriginal = (e) => {
     currentLineStartY.value = (terminal.value as any)?._core.buffer.y + 1
     cursorStartX.value = 0
 
+    // 立即清空推荐窗口（确保秒关）
     suggestions.value = []
     activeSuggestion.value = 0
     terminalState.value.contentCrossRowStatus = false
