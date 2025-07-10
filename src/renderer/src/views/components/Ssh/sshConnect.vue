@@ -346,92 +346,78 @@ onMounted(async () => {
   const originalWrite = termInstance.write.bind(termInstance)
 
   // 更新TerminalState
-  const debouncedUpdateTerminalState = (data) => {
+  const debouncedUpdateTerminalState = (data, currentIsUserCall) => {
     if (updateTimeout) {
       clearTimeout(updateTimeout)
     }
-    updateTimeout = setTimeout(() => {
-      if (!userInputFlag.value || !isEditorMode.value) {
-        if (JSON.stringify(data).endsWith(startStr.value)) {
-          updateTerminalState(true)
-        } else {
-          updateTerminalState(false)
-        }
-      }
+    if (currentIsUserCall || !isEditorMode.value) {
+      updateTerminalState(JSON.stringify(data).endsWith(startStr.value), enterPress.value)
+    }
 
-      // 走高亮的条件
-      let highLightFlag: boolean = true
-      // 条件1, 如果beforeCursor为空 content有内容 则代表enter键，不能走highlight
-      if ((!terminalState.value.beforeCursor.length && terminalState.value.content.length) || enterPress.value || specialCode.value) {
-        highLightFlag = false
+    // 走高亮的条件
+    let highLightFlag: boolean = true
+    // 条件1, 如果beforeCursor为空 content有内容 则代表enter键，不能走highlight
+    if ((!terminalState.value.beforeCursor.length && terminalState.value.content.length) || enterPress.value || specialCode.value) {
+      highLightFlag = false
+    }
+    // 条件2, 进入编辑模式下，不走highlight
+    if (isEditorMode.value) {
+      highLightFlag = false
+    }
+    // 条件3, 高亮触发的写入，不走highlight
+    if (currentIsUserCall) {
+      highLightFlag = false
+    }
+    // 条件4, 服务器返回包含命令提示符，不走highlight，避免渲染异常
+    // TODO: 条件5, 进入子交互模式 不开启高亮
+    //TODO: 服务器返回  xxx\r\n,   \r\n{startStr.value}xxx 时特殊处理
+    // if (data.indexOf(startStr.value) !== -1 && startStr.value != '') {
+    //   highLightFlag = false
+    // }
+    // 条件5, 粘贴行为，走highlight
+    if (pasteFlag.value) {
+      highLightFlag = true
+    }
+
+    // let stripAnsiData =  stripAnsi(data)
+    //   .replace(/[\x00-\x09\x0B\x0C\x0E-\x1F\x7F]/g, '')
+    //   .endsWith(startStr.value)
+    if (data.indexOf(startStr.value) !== -1 && startStr.value != '') {
+      highLightFlag = false
+    }
+    // if (suggestionEnter.value) {
+    //   highLightFlag = true
+    //   suggestionEnter.value = false
+    // }
+    if (highLightFlag) {
+      if (config.highlightStatus == 1) {
+        highlightSyntax(terminalState.value)
+        pasteFlag.value = false
       }
-      // 条件2, 进入编辑模式下，不走highlight
-      if (isEditorMode.value) {
-        highLightFlag = false
+      if (!selectFlag.value) {
+        queryCommand()
       }
-      // 条件3, 高亮触发的写入，不走highlight
-      if (userInputFlag.value) {
-        highLightFlag = false
-      }
-      // 条件4, 服务器返回包含命令提示符，不走highlight，避免渲染异常
-      // TODO: 条件5, 进入子交互模式 不开启高亮
-      //TODO: 服务器返回  xxx\r\n,   \r\n{startStr.value}xxx 时特殊处理
-      // if (data.indexOf(startStr.value) !== -1 && startStr.value != '') {
-      //   highLightFlag = false
-      // }
-      // 条件5, 粘贴行为，走highlight
-      if (pasteFlag.value) {
-        highLightFlag = true
-      }
-      if (
-        stripAnsi(data)
-          .replace(/[\x00-\x09\x0B\x0C\x0E-\x1F\x7F]/g, '')
-          .endsWith(startStr.value) &&
-        startStr.value != ''
-      ) {
-        highLightFlag = false
-      }
-      // if (suggestionEnter.value) {
-      //   highLightFlag = true
-      //   suggestionEnter.value = false
-      // }
-      if (highLightFlag) {
-        if (config.highlightStatus == 1) {
-          console.log('触发高亮:', terminalState.value)
-          highlightSyntax(terminalState.value)
-          pasteFlag.value = false
-        }
-        if (!selectFlag.value) {
-          queryCommand()
-        }
-      }
-      updateTimeout = null
-    }, 10) // 100ms 延迟，可根据需要调整
+    }
+    updateTimeout = null
 
     terminalContainerResize()
   }
 
   // termInstance.write
   cusWrite = function (data: string, options?: { isUserCall?: boolean }): void {
-    userInputFlag.value = options?.isUserCall ?? false
+    const currentIsUserCall = options?.isUserCall ?? false
+    userInputFlag.value = currentIsUserCall
     const originalRequestRefresh = renderService.refreshRows.bind(renderService)
     const originalTriggerRedraw = renderService._renderDebouncer.refresh.bind(renderService._renderDebouncer)
     // 临时禁用渲染
     renderService.refreshRows = () => {}
     renderService._renderDebouncer.refresh = () => {}
-    const core = (terminal as any).value._core
-    const inputHandler = core._inputHandler
-    // 确保 parse 方法仅绑定一次
-    if (!inputHandler._isWrapped) {
-      inputHandler._originalParse = inputHandler.parse
-      inputHandler.parse = function (data: string) {
-        inputHandler._originalParse.call(this, data)
-        debouncedUpdateTerminalState(data)
-      }
-      inputHandler._isWrapped = true
-    }
 
-    originalWrite(data)
+    originalWrite(data, () => {
+      if (!currentIsUserCall) {
+        debouncedUpdateTerminalState(data, currentIsUserCall)
+      }
+    })
 
     // 恢复渲染
     renderService.refreshRows = originalRequestRefresh
@@ -1129,7 +1115,7 @@ const getWrappedContentLastLineY = () => {
 }
 
 // 更新终端状态
-const updateTerminalState = (quickInit: boolean) => {
+const updateTerminalState = (quickInit: boolean, enterPress: boolean) => {
   if (!terminal.value) return
 
   try {
@@ -1156,10 +1142,15 @@ const updateTerminalState = (quickInit: boolean) => {
 
     // 获取当前行信息
     const currentLine = buffer.lines.get(terminal.value?.buffer.active.baseY + cursorY)
-    const isCrossRow = determineCrossRowStatus(currentLine, cursorY, currentCursorEndY)
+    let isCrossRow = determineCrossRowStatus(currentLine, cursorY, currentCursorEndY)
 
     // 更新光标起始位置
     updateCursorStartPosition(cursorX, quickInit)
+
+    // enter状态下不处理跨行
+    if (enterPress) {
+      isCrossRow = false
+    }
 
     // 处理行内容
     const { lineContent, finalContentCursorX } = processLineContent(
@@ -1364,20 +1355,21 @@ const sendTerminalStateToServer = async (): Promise<void> => {
 function handleExternalInput(data) {
   handleInput && handleInput(data, false) // 传递标记，防止死循环
 }
+// const lastDeleteTime = ref(0)
+// const DELETE_MIN_INTERVAL = 0 // 删除键最小
 const suggestionEnter = ref(false)
 const setupTerminalInput = () => {
   if (!terminal.value) return
-
   handleInput = async (data, isInputManagerCall = true) => {
-    // 检查是否为删除键并进行间隔限制
-    const isDeleteKey = data === '\x08' || data === '\x7f' || data === String.fromCharCode(8) || data === String.fromCharCode(127)
-    if (isDeleteKey) {
-      const currentTime = Date.now()
-      if (currentTime - lastDeleteTime.value < DELETE_MIN_INTERVAL) {
-        return // 如果删除键间隔小于50ms，直接返回，不处理输入
-      }
-      lastDeleteTime.value = currentTime
-    }
+    // // 检查是否为删除键并进行间隔限制
+    // const isDeleteKey = data === '\x08' || data === '\x7f' || data === String.fromCharCode(8) || data === String.fromCharCode(127)
+    // if (isDeleteKey) {
+    //   const currentTime = Date.now()
+    //   if (currentTime - lastDeleteTime.value < DELETE_MIN_INTERVAL) {
+    //     return // 如果删除键间隔小于50ms，直接返回，不处理输入
+    //   }
+    //   lastDeleteTime.value = currentTime
+    // } // 检查是否为删除键并进行间隔限制
 
     // 本地输入时广播给其他终端
     if (isInputManagerCall && isSyncInput.value) {
@@ -1390,7 +1382,6 @@ const setupTerminalInput = () => {
       startStr.value = beginStr.value
     }
     if (data === '\t') {
-      // console.log(JSON.stringify(data), 'datttt')
       // sendData(data)
       const cmd = JSON.parse(JSON.stringify(terminalState.value.content))
       selectFlag.value = true
@@ -2108,7 +2099,6 @@ const insertCommand = async (cmd) => {
 
 // 输入内容 - 原始处理函数
 const handleKeyInput = (e) => {
-  console.log(e, '----------------------')
   enterPress.value = false
   specialCode.value = false
   currentLineStartY.value = (terminal.value as any)?._core.buffer.y
