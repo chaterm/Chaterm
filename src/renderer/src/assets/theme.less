@@ -23,8 +23,10 @@
   --active-bg-color: rgba(255, 255, 255, 0.15);
   --watermark-color: rgba(255, 255, 255, 0.05);
   --icon-filter: brightness(0) invert(1);
-  --globalInput-bg-color: #2e2e2e;
+  --globalInput-bg-color: #252525;
   --box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  --button-default-bg-color: #3d3d3d;
+  --bg-color-default: #3b3b3b;
 }
 
 // Light theme variables
@@ -51,8 +53,10 @@
   --active-bg-color: rgba(0, 0, 0, 0.08);
   --watermark-color: rgba(0, 0, 0, 0.05);
   --icon-filter: brightness(0);
-  --globalInput-bg-color: #e2e2e2;
+  --globalInput-bg-color: #ececec;
   --box-shadow: 0 2px 4px rgba(255, 255, 255, 0.8);
+  --button-default-bg-color: #ffffff;
+  --bg-color-default: #d9d9d9;
 }
 
 // Apply theme variables to components
@@ -249,5 +253,58 @@ body {
 .ant-select-clear {
   background: var(--bg-color) !important;
   color: var(--text-color) !important;
+}
+
+/*右键菜单样式*/
+.v-contextmenu {
+  background-color: var(--bg-color) !important;
+  padding: 0 4px;
+  border: 1px solid var(--text-color-tertiary) !important;
+  border-radius: 3px;
+  box-shadow: none !important;
+}
+
+.v-contextmenu .v-contextmenu-item {
+  height: 24px;
+  color: var(--text-color) !important;
+}
+.v-contextmenu .v-contextmenu-item:hover {
+  color: var(--text-color);
+  border-radius: 3px;
+}
+//
+.commandDialog {
+  .ant-modal-content {
+    background-color: var(--bg-color) !important;
+    border: 1px solid var(--text-color-quinary);
+  }
+  .ant-modal-title {
+    color: var(--text-color);
+  }
+  .ant-modal-header {
+    background: transparent;
+  }
+  .ant-modal-close-x {
+    color: var(--text-color);
+  }
+  .ant-btn-default {
+    background-color: var(--button-default-bg-color);
+    color: var(--text-color) !important;
+    border-color: var(--bg-color-default) !important;
+  }
+  .ant-input {
+    color: var(--text-color);
+    background-color: var(--bg-color) !important;
+    border-color: var(--bg-color-default) !important;
+    padding: 4px 11px;
+
+    &::placeholder {
+      color: var(--text-color-tertiary) !important;
+    }
+    &:hover,
+    &:focus {
+      border-color: #1890ff;
+    }
+  }
 }
 // Add more component theme styles as needed
