@@ -1360,6 +1360,16 @@ const setupTerminalInput = () => {
   if (!terminal.value) return
 
   handleInput = async (data, isInputManagerCall = true) => {
+    // 检查是否为删除键并进行间隔限制
+    const isDeleteKey = data === '\x08' || data === '\x7f' || data === String.fromCharCode(8) || data === String.fromCharCode(127)
+    if (isDeleteKey) {
+      const currentTime = Date.now()
+      if (currentTime - lastDeleteTime.value < DELETE_MIN_INTERVAL) {
+        return // 如果删除键间隔小于50ms，直接返回，不处理输入
+      }
+      lastDeleteTime.value = currentTime
+    }
+
     // 本地输入时广播给其他终端
     if (isInputManagerCall && isSyncInput.value) {
       inputManager.sendToOthers(connectionId.value, data)
@@ -1443,10 +1453,6 @@ const setupTerminalInput = () => {
         suggestions.value = []
         activeSuggestion.value = -1
 
-        // 记录命令到数据库（无论是否有推荐都要记录）
-        if (command && command.trim()) {
-          insertCommand(command)
-        }
         return
       } else {
         const delData = String.fromCharCode(127)
@@ -1477,6 +1483,10 @@ const setupTerminalInput = () => {
             sendMarkedData('pwd\r', 'Chaterm:pwd')
           }, 100)
         }
+      }
+      // 记录命令到数据库（无论是否有推荐都要记录）
+      if (command && command.trim()) {
+        insertCommand(command)
       }
       suggestions.value = []
       activeSuggestion.value = -1
@@ -2326,6 +2336,9 @@ defineExpose({
 // 在 script setup 部分添加新变量
 const commandOutput = ref('')
 const isCollectingOutput = ref(false)
+// 删除键输入限制相关变量
+const lastDeleteTime = ref(0)
+const DELETE_MIN_INTERVAL = 0 // 删除键最小输入间隔50ms
 </script>
 
 <style lang="less">
