@@ -391,6 +391,10 @@ onMounted(async () => {
       ) {
         highLightFlag = false
       }
+      // if (suggestionEnter.value) {
+      //   highLightFlag = true
+      //   suggestionEnter.value = false
+      // }
       if (highLightFlag) {
         if (config.highlightStatus == 1) {
           console.log('触发高亮:', terminalState.value)
@@ -438,9 +442,13 @@ onMounted(async () => {
   // 使用 ResizeObserver 监听终端容器的尺寸变化
   if (terminalContainer.value) {
     resizeObserver = new ResizeObserver(
-      debounce(() => {
-        handleResize()
-      }, 50)
+      debounce(
+        () => {
+          handleResize()
+        },
+        30,
+        true
+      )
     )
     resizeObserver.observe(terminalContainer.value)
   }
@@ -669,15 +677,46 @@ const createEditor = async (filePath, contentType) => {
 }
 
 // 防抖
-const debounce = (func, wait) => {
+const debounce = (func, wait, immediate = false) => {
   let timeout
+  let isFirstCall = true
+  let isDragging = false
+  let lastCallTime = 0
+
   return function executedFunction(...args) {
+    const now = Date.now()
+    const timeSinceLastCall = now - lastCallTime
+    lastCallTime = now
+
+    // 检测是否在拖拽过程中（连续快速调用）
+    isDragging = timeSinceLastCall < 50
+
     const later = () => {
       clearTimeout(timeout)
-      func(...args)
+      timeout = null
+      if (!immediate) func(...args)
+      isDragging = false
     }
+
+    const callNow = immediate && !timeout
     clearTimeout(timeout)
-    timeout = setTimeout(later, wait)
+
+    // 拖拽时使用更短的延迟，首次调用立即执行
+    let dynamicWait
+    if (isDragging) {
+      dynamicWait = 5 // 拖拽时极短延迟
+    } else if (isFirstCall) {
+      dynamicWait = 0 // 首次立即执行
+    } else {
+      dynamicWait = wait // 正常延迟
+    }
+
+    timeout = setTimeout(later, dynamicWait)
+
+    if (callNow) {
+      func(...args)
+      isFirstCall = false
+    }
   }
 }
 const autoExecuteCode = (command) => {
@@ -1316,7 +1355,7 @@ const sendTerminalStateToServer = async (): Promise<void> => {
 function handleExternalInput(data) {
   handleInput && handleInput(data, false) // 传递标记，防止死循环
 }
-
+const suggestionEnter = ref(false)
 const setupTerminalInput = () => {
   if (!terminal.value) return
 
@@ -1398,46 +1437,49 @@ const setupTerminalInput = () => {
       if (suggestions.value.length && activeSuggestion.value >= 0) {
         selectSuggestion(suggestions.value[activeSuggestion.value])
         selectFlag.value = true
+        suggestionEnter.value = true
+
+        selectFlag.value = true
+        suggestions.value = []
+        activeSuggestion.value = -1
+
+        // 记录命令到数据库（无论是否有推荐都要记录）
+        if (command && command.trim()) {
+          insertCommand(command)
+        }
         return
-      }
-
-      selectFlag.value = true
-      suggestions.value = []
-      activeSuggestion.value = -1
-
-      // 记录命令到数据库（无论是否有推荐都要记录）
-      if (command && command.trim()) {
-        insertCommand(command)
-      }
-
-      const delData = String.fromCharCode(127)
-      const aliasStore = aliasConfigStore()
-      // configStore.getUserConfig.quickVimStatus = 1
-      const newCommand = aliasStore.getCommand(command) // 全局alias
-      if (dbConfigStash.aliasStatus === 1 && newCommand !== null) {
-        sendData(delData.repeat(command.length) + newCommand + '\r')
-      } else if (config.quickVimStatus === 1 && !isSyncInput.value) {
-        connectionSftpAvailable.value = await api.checkSftpConnAvailable(connectionId.value)
-        const vimMatch = command.match(/^\s*vim\s+(.+)$/i)
-        if (vimMatch && connectionSftpAvailable.value) {
-          if (vimMatch[1].startsWith('/')) {
-            data = delData.repeat(command.length) + 'echo "' + vimMatch[1] + '"  #Chaterm:vim  \r'
+      } else {
+        const delData = String.fromCharCode(127)
+        const aliasStore = aliasConfigStore()
+        // configStore.getUserConfig.quickVimStatus = 1
+        const newCommand = aliasStore.getCommand(command) // 全局alias
+        if (dbConfigStash.aliasStatus === 1 && newCommand !== null) {
+          sendData(delData.repeat(command.length) + newCommand + '\r')
+        } else if (config.quickVimStatus === 1 && !isSyncInput.value) {
+          connectionSftpAvailable.value = await api.checkSftpConnAvailable(connectionId.value)
+          const vimMatch = command.match(/^\s*vim\s+(.+)$/i)
+          if (vimMatch && connectionSftpAvailable.value) {
+            if (vimMatch[1].startsWith('/')) {
+              data = delData.repeat(command.length) + 'echo "' + vimMatch[1] + '"  #Chaterm:vim  \r'
+            } else {
+              data = delData.repeat(command.length) + 'echo "$(pwd)/' + vimMatch[1] + '"  #Chaterm:vim  \r'
+            }
+            sendMarkedData(data, 'Chaterm:vim')
           } else {
-            data = delData.repeat(command.length) + 'echo "$(pwd)/' + vimMatch[1] + '"  #Chaterm:vim  \r'
+            sendData(data)
           }
-          sendMarkedData(data, 'Chaterm:vim')
         } else {
           sendData(data)
         }
-      } else {
-        sendData(data)
+        // detect cd command
+        if (/\bcd\b/.test(command)) {
+          setTimeout(() => {
+            sendMarkedData('pwd\r', 'Chaterm:pwd')
+          }, 100)
+        }
       }
-      // detect cd command
-      if (/\bcd\b/.test(command)) {
-        setTimeout(() => {
-          sendMarkedData('pwd\r', 'Chaterm:pwd')
-        }, 100)
-      }
+      suggestions.value = []
+      activeSuggestion.value = -1
     } else if (JSON.stringify(data) === '"\\u001b[A"') {
       if (suggestions.value.length) {
         if (data == '\u001b[A') {
@@ -2066,6 +2108,15 @@ const handleKeyInput = (e) => {
   }
 
   if (ev.keyCode === 13 || e.key === '\u0003') {
+    if (suggestions.value.length && activeSuggestion.value >= 0) {
+      // 延迟5ms清空推荐窗口，确保 handleInput 先执行
+      // setTimeout(() => {
+      //   suggestions.value = []
+      //   activeSuggestion.value = -1
+      // }, 5)
+      return
+    }
+
     enterPress.value = true
     selectFlag.value = true
     // Enter
@@ -2073,11 +2124,6 @@ const handleKeyInput = (e) => {
     currentLineStartY.value = (terminal.value as any)?._core.buffer.y + 1
     cursorStartX.value = 0
 
-    // 延迟5ms清空推荐窗口，确保 handleInput 先执行
-    setTimeout(() => {
-      suggestions.value = []
-      activeSuggestion.value = -1
-    }, 5)
     terminalState.value.contentCrossRowStatus = false
     terminalState.value.contentCrossStartLine = 0
     terminalState.value.contentCrossRowLines = 0
