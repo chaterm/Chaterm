@@ -1402,11 +1402,8 @@ const setupTerminalInput = () => {
       }
 
       selectFlag.value = true
-      // 阻塞 5ms 后立即清空推荐窗口
-      setTimeout(() => {
-        suggestions.value = []
-        activeSuggestion.value = -1
-      }, 5)
+      suggestions.value = []
+      activeSuggestion.value = -1
 
       // 记录命令到数据库（无论是否有推荐都要记录）
       if (command && command.trim()) {
