@@ -172,9 +172,9 @@ const createNewTerm = (infos) => {
   emit('create-tab', infos)
 }
 const closeTab = (id) => {
-  console.log(id, 'iddd')
   emit('close-tab', id)
 }
+
 const onDragEnd = (evt) => {
   if (evt.from === evt.to) {
     // 同一分屏内的拖拽，只需要更新顺序
@@ -252,7 +252,6 @@ async function getTerminalOutputContent(tabId: string): Promise<string | null> {
       const output = await sshConnectInstance.getTerminalBufferContent()
       return output
     } catch (error: any) {
-      console.error(`Error getting terminal output from sshConnect for tab ${tabId}:`, error)
       return 'Error retrieving output from sshConnect component.'
     }
   } else {
@@ -262,11 +261,9 @@ async function getTerminalOutputContent(tabId: string): Promise<string | null> {
         const output = await termInstance.getTerminalBufferContent()
         return output
       } catch (error: any) {
-        console.error(`Error getting terminal output from Term for tab ${tabId}:`, error)
         return 'Error retrieving output from Term component.'
       }
     }
-    console.warn(`Component instance not found or method getTerminalBufferContent missing for tabId: ${tabId}`)
     return `Instance for tab ${tabId} not found or method missing.`
   }
 }
