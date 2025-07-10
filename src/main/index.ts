@@ -82,9 +82,7 @@ app.whenReady().then(async () => {
     })
   })
 
-  app.on('browser-window-created', (_, window) => {
-    optimizer.watchWindowShortcuts(window)
-  })
+  app.on('browser-window-created', (_, window) => {})
 
   // IPC test
   ipcMain.on('ping', () => console.log('pong'))
