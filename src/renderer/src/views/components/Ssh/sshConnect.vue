@@ -1402,9 +1402,11 @@ const setupTerminalInput = () => {
       }
 
       selectFlag.value = true
-      // 立即清空推荐窗口
-      suggestions.value = []
-      activeSuggestion.value = -1
+      // 阻塞 5ms 后立即清空推荐窗口
+      setTimeout(() => {
+        suggestions.value = []
+        activeSuggestion.value = -1
+      }, 5)
 
       // 记录命令到数据库（无论是否有推荐都要记录）
       if (command && command.trim()) {
@@ -2047,7 +2049,7 @@ const insertCommand = async (cmd) => {
 }
 
 // 输入内容 - 原始处理函数
-const handleKeyInputOriginal = (e) => {
+const handleKeyInput = (e) => {
   console.log(e, '----------------------')
   enterPress.value = false
   specialCode.value = false
@@ -2074,9 +2076,11 @@ const handleKeyInputOriginal = (e) => {
     currentLineStartY.value = (terminal.value as any)?._core.buffer.y + 1
     cursorStartX.value = 0
 
-    // 立即清空推荐窗口（确保秒关）
-    suggestions.value = []
-    activeSuggestion.value = -1
+    // 延迟5ms清空推荐窗口，确保 handleInput 先执行
+    setTimeout(() => {
+      suggestions.value = []
+      activeSuggestion.value = -1
+    }, 5)
     terminalState.value.contentCrossRowStatus = false
     terminalState.value.contentCrossStartLine = 0
     terminalState.value.contentCrossRowLines = 0
@@ -2111,9 +2115,6 @@ const handleKeyInputOriginal = (e) => {
     selectFlag.value = false
   }
 }
-
-// 防抖处理的输入函数
-const handleKeyInput = debounce(handleKeyInputOriginal, 1000)
 
 const disconnectSSH = async () => {
   try {
