@@ -2111,7 +2111,7 @@ const handleKeyInput = (e) => {
     currentLine.value = currentLine.value.slice(0, index) + currentLine.value.slice(index + 1)
   } else if (ev.keyCode == 38 || ev.keyCode == 40) {
     //上下按键
-    specialCode.value = true
+    // specialCode.value = true
   } else if (ev.keyCode == 37 || ev.keyCode == 39) {
     // 左箭头
     stashLine.value = JSON.parse(JSON.stringify(currentLine.value))
