@@ -118,7 +118,7 @@ import { userConfigStore as serviceUserConfig } from '@/services/userConfigStore
 import { v4 as uuidv4 } from 'uuid'
 import { userInfoStore } from '@/store/index'
 import stripAnsi from 'strip-ansi'
-import { isGlobalInput, inputManager } from './termInputManager'
+import { isGlobalInput, inputManager, commandBarHeight } from './termInputManager'
 
 const selectFlag = ref(false)
 const configStore = userConfigStore()
@@ -473,11 +473,20 @@ onMounted(async () => {
     window.removeEventListener('keydown', handleGlobalKeyDown)
   })
 
-  // 新增：terminal 失去焦点时隐藏按钮
   if (terminal.value.textarea) {
+    // 监听获得焦点
+    terminal.value.textarea.addEventListener('focus', () => {
+      inputManager.setActiveTerm(connectionId.value)
+    })
+
+    // 监听失去焦点时隐藏按钮
     terminal.value.textarea.addEventListener('blur', hideSelectionButton)
+
     cleanupListeners.value.push(() => {
       if (terminal.value?.textarea) {
+        terminal.value.textarea.removeEventListener('focus', () => {
+          inputManager.setActiveTerm(connectionId.value)
+        })
         terminal.value.textarea.removeEventListener('blur', hideSelectionButton)
       }
     })
@@ -1347,7 +1356,7 @@ function handleExternalInput(data) {
   handleInput && handleInput(data, false) // 传递标记，防止死循环
 }
 // const lastDeleteTime = ref(0)
-const DELETE_MIN_INTERVAL = 0 // 删除键最小
+// const DELETE_MIN_INTERVAL = 0 // 删除键最小
 const suggestionEnter = ref(false)
 const setupTerminalInput = () => {
   if (!terminal.value) return
@@ -1361,6 +1370,7 @@ const setupTerminalInput = () => {
     //   }
     //   lastDeleteTime.value = currentTime
     // } // 检查是否为删除键并进行间隔限制
+
     // 本地输入时广播给其他终端
     if (isInputManagerCall && isSyncInput.value) {
       inputManager.sendToOthers(connectionId.value, data)
@@ -1443,10 +1453,6 @@ const setupTerminalInput = () => {
         suggestions.value = []
         activeSuggestion.value = -1
 
-        // 记录命令到数据库（无论是否有推荐都要记录）
-        if (command && command.trim()) {
-          insertCommand(command)
-        }
         return
       } else {
         const delData = String.fromCharCode(127)
@@ -1477,6 +1483,10 @@ const setupTerminalInput = () => {
             sendMarkedData('pwd\r', 'Chaterm:pwd')
           }, 100)
         }
+      }
+      // 记录命令到数据库（无论是否有推荐都要记录）
+      if (command && command.trim()) {
+        insertCommand(command)
       }
       suggestions.value = []
       activeSuggestion.value = -1
@@ -2250,6 +2260,8 @@ const contextAct = (action) => {
 const focus = () => {
   if (terminal.value) {
     terminal.value.focus()
+    // 手动调用focus时也更新激活状态
+    inputManager.setActiveTerm(connectionId.value)
   }
 }
 
@@ -2285,15 +2297,16 @@ const closeSearch = () => {
 }
 
 watch(
-  () => isGlobalInput.value,
-  (newVal) => {
+  () => commandBarHeight.value,
+  () => {
     terminalContainerResize()
   }
 )
 
 const terminalContainerResize = () => {
-  if (isGlobalInput.value) {
-    terminalContainer.value?.style.setProperty('height', 'calc(100% - 35px)')
+  const currentHeight = commandBarHeight.value
+  if (currentHeight > 0) {
+    terminalContainer.value?.style.setProperty('height', `calc(100% - ${currentHeight}px)`)
   } else {
     terminalContainer.value?.style.setProperty('height', '100%')
     if (terminal.value) terminal.value.scrollToBottom()
@@ -2325,6 +2338,9 @@ defineExpose({
 // 在 script setup 部分添加新变量
 const commandOutput = ref('')
 const isCollectingOutput = ref(false)
+// 删除键输入限制相关变量
+const lastDeleteTime = ref(0)
+const DELETE_MIN_INTERVAL = 0 // 删除键最小输入间隔50ms
 </script>
 
 <style lang="less">
