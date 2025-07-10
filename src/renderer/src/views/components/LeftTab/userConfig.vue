@@ -17,6 +17,14 @@
           <General />
         </a-tab-pane>
         <a-tab-pane
+          key="6"
+          :tab="$t('user.terminal')"
+          force-render
+          type="card"
+        >
+          <Terminal />
+        </a-tab-pane>
+        <a-tab-pane
           key="1"
           :tab="$t('user.extensions')"
           type="card"
@@ -62,6 +70,7 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import General from '@/views/components/LeftTab/components/general.vue'
+import Terminal from '@/views/components/LeftTab/components/terminal.vue'
 import Extensions from '@/views/components/LeftTab/components/extensions.vue'
 import AI from '@/views/components/LeftTab/components/ai.vue'
 import Billing from '@/views/components/LeftTab/components/billing.vue'
