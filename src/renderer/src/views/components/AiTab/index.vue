@@ -3356,6 +3356,8 @@ const handleFeedback = async (message: ChatMessage, type: 'like' | 'dislike') =>
       width: 28px;
       height: 28px;
       opacity: 0.65;
+      filter: var(--icon-filter);
+      transition: filter 0.2s ease;
     }
   }
 
