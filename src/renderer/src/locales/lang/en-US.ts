@@ -99,6 +99,7 @@ export default {
     uninstall: 'Uninstall',
     uninstalling: 'Uninstalling',
     baseSetting: 'Base setting',
+    terminalSetting: 'Terminal setting',
     ai: 'AI',
     keychain: 'Keychain',
     textEditor: 'Text editor',
