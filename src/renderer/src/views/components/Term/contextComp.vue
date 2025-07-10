@@ -23,6 +23,9 @@
     <v-contextmenu-item @click="onContextMenuAction('registerSyncInput')">{{
       props.isSyncInput ? $t('common.syncInputOn') : $t('common.syncInput')
     }}</v-contextmenu-item>
+    <v-contextmenu-item @click="onContextMenuAction('quickCommand')">{{
+      isShowQuickCommand ? $t('common.quickCommandOn') : $t('common.quickCommand')
+    }}</v-contextmenu-item>
     <v-contextmenu-item
       :disabled="!props.isConnect"
       @click="onContextMenuAction('disconnect')"
@@ -56,7 +59,7 @@
 
 <script setup lang="ts">
 import { defineProps } from 'vue'
-import { isGlobalInput } from '../Ssh/termInputManager'
+import { isGlobalInput, isShowQuickCommand } from '../Ssh/termInputManager'
 const emit = defineEmits(['contextAct'])
 const props = defineProps({
   wsInstance: {
@@ -132,6 +135,9 @@ const onContextMenuAction = (action) => {
       break
     case 'openAllExecuted':
       isGlobalInput.value = !isGlobalInput.value
+      break
+    case 'quickCommand':
+      isShowQuickCommand.value = !isShowQuickCommand.value
       break
     default:
       break

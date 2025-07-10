@@ -118,7 +118,7 @@ import { userConfigStore as serviceUserConfig } from '@/services/userConfigStore
 import { v4 as uuidv4 } from 'uuid'
 import { userInfoStore } from '@/store/index'
 import stripAnsi from 'strip-ansi'
-import { isGlobalInput, inputManager } from './termInputManager'
+import { isGlobalInput, inputManager, commandBarHeight } from './termInputManager'
 
 const selectFlag = ref(false)
 const configStore = userConfigStore()
@@ -487,11 +487,20 @@ onMounted(async () => {
     window.removeEventListener('keydown', handleGlobalKeyDown)
   })
 
-  // 新增：terminal 失去焦点时隐藏按钮
   if (terminal.value.textarea) {
+    // 监听获得焦点
+    terminal.value.textarea.addEventListener('focus', () => {
+      inputManager.setActiveTerm(connectionId.value)
+    })
+
+    // 监听失去焦点时隐藏按钮
     terminal.value.textarea.addEventListener('blur', hideSelectionButton)
+
     cleanupListeners.value.push(() => {
       if (terminal.value?.textarea) {
+        terminal.value.textarea.removeEventListener('focus', () => {
+          inputManager.setActiveTerm(connectionId.value)
+        })
         terminal.value.textarea.removeEventListener('blur', hideSelectionButton)
       }
     })
@@ -2261,6 +2270,8 @@ const contextAct = (action) => {
 const focus = () => {
   if (terminal.value) {
     terminal.value.focus()
+    // 手动调用focus时也更新激活状态
+    inputManager.setActiveTerm(connectionId.value)
   }
 }
 
@@ -2296,15 +2307,16 @@ const closeSearch = () => {
 }
 
 watch(
-  () => isGlobalInput.value,
-  (newVal) => {
+  () => commandBarHeight.value,
+  () => {
     terminalContainerResize()
   }
 )
 
 const terminalContainerResize = () => {
-  if (isGlobalInput.value) {
-    terminalContainer.value?.style.setProperty('height', 'calc(100% - 35px)')
+  const currentHeight = commandBarHeight.value
+  if (currentHeight > 0) {
+    terminalContainer.value?.style.setProperty('height', `calc(100% - ${currentHeight}px)`)
   } else {
     terminalContainer.value?.style.setProperty('height', '100%')
     if (terminal.value) terminal.value.scrollToBottom()
