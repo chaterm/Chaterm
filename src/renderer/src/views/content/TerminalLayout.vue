@@ -95,33 +95,42 @@
             </pane>
           </splitpanes>
           <div
-            v-if="isGlobalInput"
-            :style="{ width: globalInputWidth + 'px', left: leftPaneSize + '%' }"
-            class="globalInput"
+            class="toolbar"
+            :style="{ width: commandBarStyle.width + 'px', left: commandBarStyle.left + 'px' }"
           >
-            <a-input
-              v-model:value="globalInput"
-              size="small"
-              class="command-input"
-              allow-clear
-              @press-enter="sendGlobalCommand"
+            <QuickCommandBar
+              v-if="isShowQuickCommand"
+              @send="sendQuickCommand"
+            />
+            <div
+              v-if="isGlobalInput"
+              class="globalInput"
             >
-            </a-input>
-            <a-button
-              size="small"
-              class="menu-action-btn"
-              :wave="false"
-              @click="sendGlobalCommand"
-            >
-              {{ $t('common.allExecuted') }}
-            </a-button>
-            <a-button
-              size="small"
-              class="menu-action-btn"
-              @click="isGlobalInput = false"
-            >
-              {{ $t('common.close') }}
-            </a-button>
+              <a-input
+                v-model:value="globalInput"
+                size="small"
+                class="command-input"
+                placeholder="执行命令到全部窗口"
+                allow-clear
+                @press-enter="sendGlobalCommand"
+              >
+              </a-input>
+              <!-- <a-button
+                size="small"
+                class="menu-action-btn"
+                :wave="false"
+                @click="sendGlobalCommand"
+              >
+                {{ $t('common.allExecuted') }}
+              </a-button>
+              <a-button
+                size="small"
+                class="menu-action-btn"
+                @click="isGlobalInput = false"
+              >
+                {{ $t('common.close') }}
+              </a-button> -->
+            </div>
           </div>
         </div>
       </div>
@@ -242,6 +251,7 @@ import LeftTab from '@views/components/LeftTab/index.vue'
 import Workspace from '@views/components/Workspace/index.vue'
 import Extensions from '@views/components/Extensions/index.vue'
 import TabsPanel from './tabsPanel.vue'
+import QuickCommandBar from '@/views/components/Ssh/quickCommandBar.vue'
 import { reactive } from 'vue'
 import { v4 as uuidv4 } from 'uuid'
 import { userInfoStore } from '@/store'
@@ -249,7 +259,7 @@ import { aliasConfigStore } from '@/store/aliasConfigStore'
 import eventBus from '@/utils/eventBus'
 import { Notice } from '../components/Notice'
 import '@/assets/theme.less'
-import { isGlobalInput } from '@renderer/views/components/Ssh/termInputManager'
+import { isGlobalInput, isShowQuickCommand } from '@renderer/views/components/Ssh/termInputManager'
 import { inputManager } from '../components/Ssh/termInputManager'
 import { useRouter } from 'vue-router'
 
@@ -369,11 +379,12 @@ watch(showAiSidebar, (newValue) => {
     headerRef.value.switchIcon('right', newValue)
   }
 })
-const globalInputWidth = computed(() => {
+const commandBarStyle = computed(() => {
   const container = document.querySelector('.splitpanes') as HTMLElement
   const containerWidth = container?.offsetWidth
-  const width = ((100 - leftPaneSize.value) * containerWidth * (100 - aiSidebarSize.value)) / 10000 - 60
-  return isGlobalInput.value ? width : 0
+  const width = ((100 - leftPaneSize.value) * containerWidth * (100 - aiSidebarSize.value)) / 10000 - 10
+  const left = (leftPaneSize.value * containerWidth) / 100 + 45
+  return { width, left }
 })
 const DEFAULT_WIDTH_PX = 240
 const DEFAULT_WIDTH_RIGHT_PX = 400
@@ -902,7 +913,9 @@ const onMainSplitResize = (params) => {
     }
   }
 }
-
+const sendQuickCommand = (cmd: string) => {
+  inputManager.sendToActiveTerm(cmd)
+}
 const sendGlobalCommand = () => {
   if (globalInput.value != '') {
     inputManager.globalSend(globalInput.value)
@@ -911,8 +924,9 @@ const sendGlobalCommand = () => {
   }
 }
 const checkActiveTab = (type) => {
-  if (isGlobalInput.value && type !== 'term') {
+  if ((isGlobalInput.value || isShowQuickCommand) && type !== 'term') {
     isGlobalInput.value = false
+    isShowQuickCommand.value = false
   }
 }
 
@@ -1117,20 +1131,25 @@ defineExpose({
     }
   }
 }
-.globalInput {
+.toolbar {
   position: absolute;
-  bottom: 10px;
   left: 0;
+  bottom: 4px;
   color: var(--text-color);
   width: 100%;
   z-index: 10;
+}
+.globalInput {
+  width: 100%;
   display: flex;
   align-items: center;
   justify-content: center;
-  margin-left: 40px;
   .ant-input {
     background-color: transparent;
     color: var(--text-color);
+    &::placeholder {
+      color: var(--text-color-tertiary);
+    }
   }
 
   .ant-input-affix-wrapper {
