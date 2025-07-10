@@ -126,7 +126,12 @@ export async function remoteSshExec(
         safeResolve({
           success: code === 0,
           output: output,
-          error: code !== 0 ? `命令执行失败，退出码: ${code}` : undefined
+          error:
+            code !== 0
+              ? code === 127
+                ? '命令未找到，执行失败。 请检查命令是否存在于远程服务器的 PATH 中。'
+                : `命令执行失败，退出码: ${code}`
+              : undefined
         })
       })
 
@@ -201,7 +206,12 @@ export async function remoteSshExecStream(
       stream.on('close', (code: number | null) => {
         safeResolve({
           success: code === 0,
-          error: code !== 0 ? `命令执行失败，退出码: ${code}` : undefined
+          error:
+            code !== 0
+              ? code === 127
+                ? '命令未找到，执行失败。 请检查命令是否存在于远程服务器的 PATH 中。'
+                : `命令执行失败，退出码: ${code}`
+              : undefined
         })
       })
 
