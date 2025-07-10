@@ -48,7 +48,10 @@ export default {
     pleaseLoginFirst: 'Please login first',
     select: 'Select',
     confirm: 'Confirm',
-    ok: 'OK'
+    ok: 'OK',
+    quickCommandOn: 'Quick Command (On) ',
+    quickCommand: 'Quick Command',
+    add: 'Add'
   },
   term: {
     welcome: 'Welcome to use Chaterm'
@@ -99,6 +102,7 @@ export default {
     uninstall: 'Uninstall',
     uninstalling: 'Uninstalling',
     baseSetting: 'Base setting',
+    terminalSetting: 'Terminal setting',
     ai: 'AI',
     keychain: 'Keychain',
     textEditor: 'Text editor',

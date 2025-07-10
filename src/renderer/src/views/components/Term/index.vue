@@ -136,16 +136,47 @@ const authData = {
   organizationId: props.serverInfo.organizationId,
   terminalId: terminalId
 }
-// 防抖
-const debounce = (func, wait) => {
+// 优化的防抖函数，支持立即执行、动态延迟和拖拽模式
+const debounce = (func, wait, immediate = false) => {
   let timeout
+  let isFirstCall = true
+  let isDragging = false
+  let lastCallTime = 0
+
   return function executedFunction(...args) {
+    const now = Date.now()
+    const timeSinceLastCall = now - lastCallTime
+    lastCallTime = now
+
+    // 检测是否在拖拽过程中（连续快速调用）
+    isDragging = timeSinceLastCall < 50
+
     const later = () => {
       clearTimeout(timeout)
-      func(...args)
+      timeout = null
+      if (!immediate) func(...args)
+      isDragging = false
     }
+
+    const callNow = immediate && !timeout
     clearTimeout(timeout)
-    timeout = setTimeout(later, wait)
+
+    // 拖拽时使用更短的延迟，首次调用立即执行
+    let dynamicWait
+    if (isDragging) {
+      dynamicWait = 5 // 拖拽时极短延迟
+    } else if (isFirstCall) {
+      dynamicWait = 0 // 首次立即执行
+    } else {
+      dynamicWait = wait // 正常延迟
+    }
+
+    timeout = setTimeout(later, dynamicWait)
+
+    if (callNow) {
+      func(...args)
+      isFirstCall = false
+    }
   }
 }
 onMounted(() => {
@@ -155,9 +186,13 @@ onMounted(() => {
   // 使用 ResizeObserver 监听终端容器的尺寸变化
   if (terminalContainer.value) {
     resizeObserver = new ResizeObserver(
-      debounce(() => {
-        handleResize()
-      }, 50)
+      debounce(
+        () => {
+          handleResize()
+        },
+        30,
+        true
+      ) // 立即执行首次调用，后续30ms防抖
     )
     resizeObserver.observe(terminalContainer.value)
   }

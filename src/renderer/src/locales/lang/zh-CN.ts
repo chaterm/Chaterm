@@ -4,7 +4,7 @@ export default {
     workspace: '工作空间',
     files: '文件管理',
     keychain: '秘钥',
-    extensions: '插件',
+    extensions: '扩展',
     monitor: '监控',
     ai: 'AI',
     user: '用户',
@@ -48,7 +48,10 @@ export default {
     pleaseLoginFirst: '请先登录',
     select: '选择',
     confirm: '确认',
-    ok: '确定'
+    ok: '确定',
+    quickCommandOn: '快速命令(已开)',
+    quickCommand: '快速命令',
+    add: '添加'
   },
   term: {
     welcome: '欢迎使用 Chaterm'
@@ -99,11 +102,12 @@ export default {
     uninstall: '卸载',
     uninstalling: '卸载中',
     baseSetting: '基础设置',
+    terminalSetting: '终端设置',
     ai: 'AI',
     keychain: '秘钥',
     textEditor: '文本编辑器',
     visualVimEditor: '可视化Vim编辑器',
-    fileManagerPlugin: '文件管理器插件',
+    fileManagerPlugin: '文件管理器扩展',
     fileManagerPluginDescribe: '安装后通过 "鼠标右键-文件管理器" 打开',
     cursorStyleBlock: '块',
     cursorStyleBar: '竖线',
@@ -206,7 +210,7 @@ export default {
     ratio: '用量占比'
   },
   extensions: {
-    extensions: '插件',
+    extensions: '扩展',
     alias: '别名',
     fuzzySearch: '模糊搜索',
     aliasDescription: '全局Alias配置',

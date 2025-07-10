@@ -5,11 +5,12 @@ import { electronApp, optimizer } from '@electron-toolkit/utils'
 import { registerSSHHandlers } from './ssh/sshHandle'
 import { registerRemoteTerminalHandlers } from './ssh/agentHandle'
 import { autoCompleteDatabaseService, ChatermDatabaseService, setCurrentUserId } from './storage/database'
+import { getGuestUserId } from './storage/db/connection'
 import { Controller } from './agent/core/controller'
 import { createExtensionContext } from './agent/core/controller/context'
 import { ElectronOutputChannel } from './agent/core/controller/outputChannel'
 import { executeRemoteCommand } from './agent/integrations/remote-terminal/example'
-import { initializeStorageMain, testStorageFromMain as testRendererStorageFromMain } from './agent/core/storage/state'
+import { initializeStorageMain, testStorageFromMain as testRendererStorageFromMain, getGlobalState } from './agent/core/storage/state'
 import { getTaskMetadata } from './agent/core/storage/disk'
 import { HeartbeatManager } from './heartBeatManager'
 import { createMainWindow } from './windowManager'
@@ -123,6 +124,19 @@ app.whenReady().then(async () => {
     console.error('Failed to initialize Controller:', error)
   }
 
+  // Function to initialize telemetry setting
+  const initializeTelemetrySetting = async () => {
+    try {
+      const telemetrySetting = await getGlobalState('telemetrySetting')
+
+      if (controller && telemetrySetting) {
+        await controller.updateTelemetrySetting(telemetrySetting)
+      }
+    } catch (error) {
+      console.error('[Main Index] Failed to initialize telemetry setting:', error)
+    }
+  }
+
   // Call the test function (imported from ./agent/core/storage/state.ts)
   if (mainWindow && mainWindow.webContents) {
     if (mainWindow.webContents.isLoading()) {
@@ -137,6 +151,7 @@ app.whenReady().then(async () => {
   } else {
     console.warn('[Main Index] mainWindow or webContents not available when trying to schedule testRendererStorageFromMain.')
   }
+  setTimeout(initializeTelemetrySetting, 1000)
 })
 
 // Quit when all windows are closed, except on macOS. There, it's common
@@ -317,7 +332,7 @@ function setupIPC(): void {
       return { success: true }
     } catch (error) {
       console.error('Database initialization failed:', error)
-      return { success: false, error: error.message }
+      return { success: false, error: error instanceof Error ? error.message : 'Unknown error occurred' }
     }
   })
 
