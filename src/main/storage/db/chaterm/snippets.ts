@@ -1,0 +1,180 @@
+import Database from 'better-sqlite3'
+
+// 快捷命令相关方法
+export function userSnippetOperationLogic(db: Database.Database, operation: 'list' | 'create' | 'delete' | 'update' | 'swap', params?: any): any {
+  try {
+    switch (operation) {
+      case 'list':
+        // 查询表中所有数据，按排序列排序
+        const listStmt = db.prepare(`
+            SELECT id, snippet_name, snippet_content, created_at, updated_at, sort_order
+            FROM user_snippet_v1
+            ORDER BY sort_order ASC, id ASC
+          `)
+        const results = listStmt.all() || []
+        return {
+          code: 200,
+          data: {
+            snippets: results
+          },
+          message: 'success'
+        }
+
+      case 'create':
+        // 创建新记录
+        if (!params || !params.snippet_name || !params.snippet_content) {
+          return {
+            code: 400,
+            message: 'snippet_name and snippet_content are required for create operation'
+          }
+        }
+
+        const createResult = db.transaction(() => {
+          // 获取当前最大的排序值
+          const maxSortResult = db.prepare('SELECT MAX(sort_order) as max_sort FROM user_snippet_v1').get() as { max_sort: number | null }
+          const nextSortOrder = (maxSortResult.max_sort || 0) + 10
+
+          // 插入新记录
+          const createStmt = db.prepare(`
+              INSERT INTO user_snippet_v1 (snippet_name, snippet_content, sort_order)
+              VALUES (?, ?, ?)
+            `)
+          return createStmt.run(params.snippet_name, params.snippet_content, nextSortOrder)
+        })()
+
+        return {
+          code: 200,
+          data: {
+            message: createResult.changes > 0 ? 'success' : 'failed',
+            insertedId: createResult.lastInsertRowid,
+            insertedCount: createResult.changes
+          }
+        }
+
+      case 'delete':
+        // 删除记录
+        if (!params || !params.id) {
+          return {
+            code: 400,
+            message: 'ID is required for delete operation'
+          }
+        }
+        const deleteStmt = db.prepare(`
+            DELETE FROM user_snippet_v1 WHERE id = ?
+          `)
+        const deleteResult = deleteStmt.run(params.id)
+        return {
+          code: 200,
+          data: {
+            message: deleteResult.changes > 0 ? 'success' : 'failed',
+            deletedCount: deleteResult.changes
+          }
+        }
+
+      case 'update':
+        // 修改记录
+        if (!params || !params.id || !params.snippet_name || !params.snippet_content) {
+          return {
+            code: 400,
+            message: 'ID, snippet_name and snippet_content are required for update operation'
+          }
+        }
+        const updateStmt = db.prepare(`
+            UPDATE user_snippet_v1 
+            SET snippet_name = ?, 
+                snippet_content = ?, 
+                updated_at = strftime('%s', 'now')
+            WHERE id = ?
+          `)
+        const updateResult = updateStmt.run(params.snippet_name, params.snippet_content, params.id)
+        return {
+          code: 200,
+          data: {
+            message: updateResult.changes > 0 ? 'success' : 'failed',
+            updatedCount: updateResult.changes
+          }
+        }
+
+      case 'swap':
+        // 将id1位置的记录移动到id2位置，id2之后的记录往后移动
+        if (!params || !params.id1 || !params.id2) {
+          return {
+            code: 400,
+            message: 'Both id1 and id2 are required for swap operation'
+          }
+        }
+
+        // 使用事务确保数据一致性
+        const swapResult = db.transaction(() => {
+          // 获取源记录和目标记录的排序值
+          const getRecordStmt = db.prepare('SELECT id, sort_order FROM user_snippet_v1 WHERE id = ?')
+          const sourceRecord = getRecordStmt.get(params.id1)
+          const targetRecord = getRecordStmt.get(params.id2)
+
+          if (!sourceRecord) {
+            throw new Error(`Record with id ${params.id1} not found`)
+          }
+          if (!targetRecord) {
+            throw new Error(`Record with id ${params.id2} not found`)
+          }
+
+          // 如果源记录和目标记录相同，无需移动
+          if (params.id1 === params.id2) {
+            return { changes: 0 }
+          }
+
+          const sourceSortOrder = sourceRecord.sort_order
+          const targetSortOrder = targetRecord.sort_order
+
+          // 更新排序值
+          const updateStmt = db.prepare("UPDATE user_snippet_v1 SET sort_order = ?, updated_at = strftime('%s', 'now') WHERE id = ?")
+
+          if (sourceSortOrder < targetSortOrder) {
+            // 向后移动：源记录移到目标位置，中间的记录都向前移动
+            db.prepare(
+              `
+                UPDATE user_snippet_v1 
+                SET sort_order = sort_order - 1, updated_at = strftime('%s', 'now')
+                WHERE sort_order > ? AND sort_order <= ?
+              `
+            ).run(sourceSortOrder, targetSortOrder)
+
+            updateStmt.run(targetSortOrder, params.id1)
+          } else {
+            // 向前移动：源记录移到目标位置，中间的记录都向后移动
+            db.prepare(
+              `
+                UPDATE user_snippet_v1 
+                SET sort_order = sort_order + 1, updated_at = strftime('%s', 'now')
+                WHERE sort_order >= ? AND sort_order < ?
+              `
+            ).run(targetSortOrder, sourceSortOrder)
+
+            updateStmt.run(targetSortOrder, params.id1)
+          }
+
+          return { changes: 1 }
+        })()
+
+        return {
+          code: 200,
+          data: {
+            message: swapResult.changes > 0 ? 'success' : 'failed',
+            affectedCount: swapResult.changes
+          }
+        }
+
+      default:
+        return {
+          code: 400,
+          message: 'Invalid operation. Supported operations: list, create, delete, update, swap'
+        }
+    }
+  } catch (error) {
+    console.error('Chaterm database user snippet operation error:', error)
+    return {
+      code: 500,
+      message: error instanceof Error ? error.message : 'Unknown error occurred'
+    }
+  }
+}
