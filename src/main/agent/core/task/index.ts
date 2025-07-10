@@ -792,6 +792,34 @@ export class Task {
     }
   }
 
+  private truncateCommandOutput(output: string): string {
+    const MAX_OUTPUT_LENGTH = 8000
+    const HEAD_LENGTH = 2000
+    const TAIL_LENGTH = 6000
+    const headLines = 50
+    const tailLines = 150
+
+    if (output.length <= MAX_OUTPUT_LENGTH) {
+      return output
+    }
+
+    const lines = output.split('\n')
+    const totalLines = lines.length
+
+    if (totalLines <= headLines + tailLines) {
+      const headPart = output.substring(0, HEAD_LENGTH)
+      const tailPart = output.substring(output.length - TAIL_LENGTH)
+      const truncatedBytes = output.length - HEAD_LENGTH - TAIL_LENGTH
+      return `${headPart}\n\n[... Output truncated, omitted ${truncatedBytes} characters ...]\n\n${tailPart}`
+    }
+
+    const headPart = lines.slice(0, headLines).join('\n')
+    const tailPart = lines.slice(-tailLines).join('\n')
+    const truncatedLines = totalLines - headLines - tailLines
+
+    return `${headPart}\n\n[... Output truncated, omitted ${truncatedLines} lines ...]\n\n${tailPart}`
+  }
+
   async executeCommandTool(command: string, ip: string): Promise<ToolResponse> {
     try {
       const terminalInfo = await this.connectTerminal(ip)
@@ -888,11 +916,13 @@ export class Task {
       }
       result = result.trim()
 
+      const truncatedResult = this.truncateCommandOutput(result)
+
       if (completed) {
-        return `Command executed.${result.length > 0 ? `\nOutput:\n${result}` : ''}`
+        return `Command executed.${truncatedResult.length > 0 ? `\nOutput:\n${truncatedResult}` : ''}`
       } else {
         return `Command is still running in the user\'s terminal.${
-          result.length > 0 ? `\nHere\'s the output so far:\n${result}` : ''
+          truncatedResult.length > 0 ? `\nHere\'s the output so far:\n${truncatedResult}` : ''
         }\n\nYou will be updated on the terminal status and new output in the future.`
       }
     } catch (err) {
@@ -1409,15 +1439,15 @@ export class Task {
 
     await pWaitFor(() => this.userMessageContentReady)
 
-    // const didToolUse = this.assistantMessageContent.some((block) => block.type === 'tool_use')
+    const didToolUse = this.assistantMessageContent.some((block) => block.type === 'tool_use')
 
-    // if (!didToolUse) {
-    //   this.userMessageContent.push({
-    //     type: 'text',
-    //     text: formatResponse.noToolsUsed()
-    //   })
-    //   this.consecutiveMistakeCount++
-    // }
+    if (!didToolUse) {
+      this.userMessageContent.push({
+        type: 'text',
+        text: formatResponse.noToolsUsed()
+      })
+      this.consecutiveMistakeCount++
+    }
 
     return await this.recursivelyMakeChatermRequests(this.userMessageContent)
   }
@@ -1684,7 +1714,8 @@ export class Task {
 
   private pushAdditionalToolFeedback(feedback?: string): void {
     if (!feedback) return
-    const content = formatResponse.toolResult(`The user provided the following feedback:\n<feedback>\n${feedback}\n</feedback>`)
+    const truncatedFeedback = this.truncateCommandOutput(feedback)
+    const content = formatResponse.toolResult(`The user provided the following feedback:\n<feedback>\n${truncatedFeedback}\n</feedback>`)
     if (typeof content === 'string') {
       this.userMessageContent.push({ type: 'text', text: content })
     } else {
