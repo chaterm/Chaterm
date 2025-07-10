@@ -14,69 +14,46 @@
       >
         <a-form-item>
           <template #label>
-            <span class="label-text">{{ $t('user.baseSetting') }}</span>
+            <span class="label-text">{{ $t('user.terminalSetting') }}</span>
           </template>
         </a-form-item>
         <a-form-item
-          :label="$t('user.theme')"
+          :label="$t('user.fontSize')"
+          class="user_my-ant-form-item"
+        >
+          <a-input-number
+            v-model:value="userConfig.fontSize"
+            :bordered="false"
+            style="width: 20%"
+            :min="8"
+            :max="64"
+            class="user_my-ant-form-item-content"
+          />
+        </a-form-item>
+        <a-form-item
+          :label="$t('user.scrollBack')"
+          class="user_my-ant-form-item"
+        >
+          <a-input-number
+            v-model:value="userConfig.scrollBack"
+            :bordered="false"
+            style="width: 20%"
+            :min="1"
+            class="user_my-ant-form-item-content"
+          />
+        </a-form-item>
+        <a-form-item
+          :label="$t('user.cursorStyle')"
           class="user_my-ant-form-item"
         >
           <a-radio-group
-            v-model:value="userConfig.theme"
-            class="custom-radio-group"
-            @change="changeTheme"
-          >
-            <a-radio value="dark">{{ $t('user.themeDark') }}</a-radio>
-            <a-radio value="light">{{ $t('user.themeLight') }}</a-radio>
-          </a-radio-group>
-        </a-form-item>
-        <a-form-item
-          :label="$t('user.language')"
-          class="user_my-ant-form-item"
-        >
-          <a-radio-group
-            v-model:value="userConfig.language"
-            class="custom-radio-group"
-            @change="changeLanguage"
-          >
-            <a-radio value="zh-CN">简体中文</a-radio>
-            <a-radio value="en-US">English</a-radio>
-          </a-radio-group>
-        </a-form-item>
-        <a-form-item
-          :label="$t('user.watermark')"
-          class="user_my-ant-form-item"
-        >
-          <a-radio-group
-            v-model:value="userConfig.watermark"
+            v-model:value="userConfig.cursorStyle"
             class="custom-radio-group"
           >
-            <a-radio value="open">{{ $t('user.watermarkOpen') }}</a-radio>
-            <a-radio value="close">{{ $t('user.watermarkClose') }}</a-radio>
+            <a-radio value="block">{{ $t('user.cursorStyleBlock') }}</a-radio>
+            <a-radio value="bar">{{ $t('user.cursorStyleBar') }}</a-radio>
+            <a-radio value="underline">{{ $t('user.cursorStyleUnderline') }}</a-radio>
           </a-radio-group>
-        </a-form-item>
-        <a-form-item
-          :label="$t('user.telemetry')"
-          class="user_my-ant-form-item"
-        >
-          <a-radio-group
-            v-model:value="userConfig.telemetry"
-            class="custom-radio-group"
-            @change="updateTelemetry"
-          >
-            <a-radio value="enabled">{{ $t('user.telemetryEnabled') }}</a-radio>
-            <a-radio value="disabled">{{ $t('user.telemetryDisabled') }}</a-radio>
-          </a-radio-group>
-        </a-form-item>
-        <a-form-item
-          class="telemetry-description-item"
-          :label-col="{ span: 0 }"
-          :wrapper-col="{ span: 24 }"
-        >
-          <div
-            class="telemetry-description"
-            v-html="$t('user.telemetryDescription')"
-          ></div>
         </a-form-item>
       </a-form>
     </a-card>
@@ -84,24 +61,17 @@
 </template>
 
 <script setup>
-import { ref, onMounted, watch, getCurrentInstance, onBeforeUnmount } from 'vue'
-import 'xterm/css/xterm.css'
+import { ref, onMounted, watch } from 'vue'
 import { notification } from 'ant-design-vue'
 import { userConfigStore } from '@/services/userConfigStoreService'
-import { userConfigStore as configStore } from '@/store/userConfigStore'
-import eventBus from '@/utils/eventBus'
-
-const api = window.api
-const instance = getCurrentInstance()
-const { appContext } = instance
 
 const userConfig = ref({
-  language: 'zh-CN',
-  watermark: 'open',
-  theme: 'dark',
-  telemetry: 'enabled'
+  fontSize: 12,
+  scrollBack: 1000,
+  cursorStyle: 'block'
 })
 
+// 加载保存的配置
 const loadSavedConfig = async () => {
   try {
     const savedConfig = await userConfigStore.getConfig()
@@ -110,9 +80,6 @@ const loadSavedConfig = async () => {
         ...userConfig.value,
         ...savedConfig
       }
-      document.body.className = `theme-${userConfig.value.theme}`
-      eventBus.emit('updateTheme', userConfig.value.theme)
-      api.updateTheme(userConfig.value.theme)
     }
   } catch (error) {
     console.error('Failed to load config:', error)
@@ -120,18 +87,15 @@ const loadSavedConfig = async () => {
       message: '加载配置失败',
       description: '将使用默认配置'
     })
-    document.body.className = 'theme-dark'
-    userConfig.value.theme = 'dark'
   }
 }
 
 const saveConfig = async () => {
   try {
     const configToStore = {
-      language: userConfig.value.language,
-      watermark: userConfig.value.watermark,
-      theme: userConfig.value.theme,
-      telemetry: userConfig.value.telemetry
+      fontSize: userConfig.value.fontSize,
+      scrollBack: userConfig.value.scrollBack,
+      cursorStyle: userConfig.value.cursorStyle
     }
 
     const existingConfig = (await userConfigStore.getConfig()) || {}
@@ -141,8 +105,6 @@ const saveConfig = async () => {
     }
 
     await userConfigStore.saveConfig(mergedConfig)
-    eventBus.emit('updateWatermark', mergedConfig.watermark)
-    eventBus.emit('updateTheme', mergedConfig.theme)
   } catch (error) {
     console.error('Failed to save config:', error)
     notification.error({
@@ -162,51 +124,7 @@ watch(
 
 onMounted(async () => {
   await loadSavedConfig()
-  updateTelemetry()
 })
-
-onBeforeUnmount(() => {
-  eventBus.off('updateTheme')
-})
-
-const changeLanguage = async () => {
-  appContext.config.globalProperties.$i18n.locale = userConfig.value.language
-  configStore().updateLanguage(userConfig.value.language)
-}
-
-const changeTheme = async () => {
-  try {
-    document.body.className = `theme-${userConfig.value.theme}`
-    eventBus.emit('updateTheme', userConfig.value.theme)
-    setTimeout(() => {
-      api.updateTheme(userConfig.value.theme)
-    }, 80)
-    await saveConfig()
-  } catch (error) {
-    console.error('Failed to change theme:', error)
-    notification.error({
-      message: '主题切换失败',
-      description: '请稍后重试'
-    })
-  }
-}
-
-const updateTelemetry = async () => {
-  try {
-    await window.api.sendToMain({
-      type: 'telemetrySetting',
-      telemetrySetting: userConfig.value.telemetry
-    })
-
-    await saveConfig()
-  } catch (error) {
-    console.error('Failed to change telemetry setting:', error)
-    notification.error({
-      message: '遥测设置更新失败',
-      description: '请稍后重试'
-    })
-  }
-}
 </script>
 
 <style scoped>
