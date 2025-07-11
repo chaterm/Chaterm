@@ -95,6 +95,7 @@
             </pane>
           </splitpanes>
           <div
+            v-if="isShowCommandBar"
             class="toolbar"
             :style="{ width: commandBarStyle.width + 'px', left: commandBarStyle.left + 'px' }"
           >
@@ -115,21 +116,6 @@
                 @press-enter="sendGlobalCommand"
               >
               </a-input>
-              <!-- <a-button
-                size="small"
-                class="menu-action-btn"
-                :wave="false"
-                @click="sendGlobalCommand"
-              >
-                {{ $t('common.allExecuted') }}
-              </a-button>
-              <a-button
-                size="small"
-                class="menu-action-btn"
-                @click="isGlobalInput = false"
-              >
-                {{ $t('common.close') }}
-              </a-button> -->
             </div>
           </div>
         </div>
@@ -230,6 +216,30 @@
             </splitpanes>
           </pane>
         </splitpanes>
+        <div
+          v-if="isShowCommandBar"
+          class="toolbar"
+          :style="{ width: commandBarStyle.width + 'px', left: commandBarStyle.left + 'px' }"
+        >
+          <QuickCommandBar
+            v-if="isShowQuickCommand"
+            @send="sendQuickCommand"
+          />
+          <div
+            v-if="isGlobalInput"
+            class="globalInput"
+          >
+            <a-input
+              v-model:value="globalInput"
+              size="small"
+              class="command-input"
+              placeholder="执行命令到全部窗口"
+              allow-clear
+              @press-enter="sendGlobalCommand"
+            >
+            </a-input>
+          </div>
+        </div>
       </div>
     </div>
   </div>
@@ -259,7 +269,7 @@ import { aliasConfigStore } from '@/store/aliasConfigStore'
 import eventBus from '@/utils/eventBus'
 import { Notice } from '../components/Notice'
 import '@/assets/theme.less'
-import { isGlobalInput, isShowQuickCommand } from '@renderer/views/components/Ssh/termInputManager'
+import { isGlobalInput, isShowCommandBar, isShowQuickCommand } from '@renderer/views/components/Ssh/termInputManager'
 import { inputManager } from '../components/Ssh/termInputManager'
 import { useRouter } from 'vue-router'
 
@@ -579,12 +589,14 @@ const needsAuth = (item) => {
 const closeTab = (tabId) => {
   const index = openedTabs.value.findIndex((tab) => tab.id === tabId)
   const closedTab = openedTabs.value[index]
+  let activeTabType = 'term'
   if (index !== -1) {
     openedTabs.value.splice(index, 1)
     if (activeTabId.value === tabId) {
       if (openedTabs.value.length > 0) {
         const newActiveIndex = Math.max(0, index - 1)
         activeTabId.value = openedTabs.value[newActiveIndex].id
+        activeTabType = openedTabs.value[newActiveIndex].type
       } else {
         activeTabId.value = ''
         eventBus.emit('activeTabChanged', null)
@@ -594,6 +606,7 @@ const closeTab = (tabId) => {
       extensionsRef.value.handleExplorerActive(closedTab.data.key)
     }
   }
+  checkActiveTab(activeTabType)
 }
 
 const closeAllTabs = () => {
@@ -924,10 +937,7 @@ const sendGlobalCommand = () => {
   }
 }
 const checkActiveTab = (type) => {
-  if ((isGlobalInput.value || isShowQuickCommand) && type !== 'term') {
-    isGlobalInput.value = false
-    isShowQuickCommand.value = false
-  }
+  isShowCommandBar.value = type == 'term' ? true : false
 }
 
 // 处理标签页移动到主窗口
