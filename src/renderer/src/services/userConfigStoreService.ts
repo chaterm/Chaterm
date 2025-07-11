@@ -16,6 +16,7 @@ interface UserConfig {
   watermark: 'open' | 'close' | undefined
   theme: 'dark' | 'light' | undefined
   feature?: number
+  quickComand?: boolean
 }
 
 export class UserConfigStoreService {
@@ -62,7 +63,8 @@ export class UserConfigStoreService {
       cursorStyle: 'block' as 'block' | 'underline' | 'bar',
       watermark: 'open' as 'open' | 'close',
       theme: 'dark' as 'dark' | 'light',
-      feature: 0.0
+      feature: 0.0,
+      quickComand: false
     }
   }
 
