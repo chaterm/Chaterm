@@ -1,4 +1,5 @@
 import { ref, watch } from 'vue'
+import { userConfigStore } from '@/services/userConfigStoreService'
 interface Target {
   termOndata?: any
   syncInput?: boolean
@@ -11,6 +12,33 @@ interface ComponentEntry {
 export const componentInstances = ref<ComponentEntry[]>([])
 export const isGlobalInput = ref(false)
 export const isShowQuickCommand = ref(false)
+
+// 初始化快捷命令状态
+const initQuickCommandState = async () => {
+  try {
+    const config = await userConfigStore.getConfig()
+    isShowQuickCommand.value = config.quickComand || false
+  } catch (error) {
+    console.error('Failed to load quick command state:', error)
+  }
+}
+
+// 保存快捷命令状态
+const saveQuickCommandState = async (enabled: boolean) => {
+  try {
+    await userConfigStore.saveConfig({ quickComand: enabled })
+  } catch (error) {
+    console.error('Failed to save quick command state:', error)
+  }
+}
+
+// 初始化状态
+initQuickCommandState()
+
+// 监听快捷命令状态变化并保存
+watch(isShowQuickCommand, (newValue) => {
+  saveQuickCommandState(newValue)
+})
 
 // 激活状态管理
 export const activeTermId = ref<string>('')
