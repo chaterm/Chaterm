@@ -56,6 +56,13 @@
           <AI />
         </a-tab-pane>
         <a-tab-pane
+          key="7"
+          :tab="$t('user.shortcuts')"
+          type="card"
+        >
+          <Shortcuts />
+        </a-tab-pane>
+        <a-tab-pane
           key="3"
           :tab="$t('user.about')"
           type="card"
@@ -76,6 +83,7 @@ import AI from '@/views/components/LeftTab/components/ai.vue'
 import Billing from '@/views/components/LeftTab/components/billing.vue'
 import About from '@/views/components/LeftTab/components/about.vue'
 import Model from '@/views/components/LeftTab/components/model.vue'
+import Shortcuts from '@/views/components/LeftTab/components/shortcuts.vue'
 const isSkippedLogin = ref(localStorage.getItem('login-skipped') === 'true')
 </script>
 

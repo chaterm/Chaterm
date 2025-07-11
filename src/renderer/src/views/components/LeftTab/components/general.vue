@@ -162,7 +162,6 @@ watch(
 
 onMounted(async () => {
   await loadSavedConfig()
-  updateTelemetry()
 })
 
 onBeforeUnmount(() => {

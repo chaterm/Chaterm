@@ -1,6 +1,10 @@
 import { indexedDBService, DB_CONFIG } from './indexedDBService'
 
-interface UserConfig {
+export interface ShortcutConfig {
+  [key: string]: string
+}
+
+export interface UserConfig {
   id: string
   updatedAt: number
   autoCompleteStatus: number
@@ -17,6 +21,7 @@ interface UserConfig {
   theme: 'dark' | 'light' | undefined
   feature?: number
   quickComand?: boolean
+  shortcuts?: ShortcutConfig
 }
 
 export class UserConfigStoreService {
@@ -48,6 +53,9 @@ export class UserConfigStoreService {
   }
 
   private getDefaultConfig(): UserConfig {
+    // 检测是否是Mac系统
+    const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0
+
     return {
       id: 'userConfig',
       updatedAt: Date.now(),
@@ -64,7 +72,12 @@ export class UserConfigStoreService {
       watermark: 'open' as 'open' | 'close',
       theme: 'dark' as 'dark' | 'light',
       feature: 0.0,
-      quickComand: false
+      quickComand: false,
+      shortcuts: {
+        openSettings: isMac ? 'Command+,' : 'Ctrl+,',
+        toggleLeftSidebar: isMac ? 'Command+B' : 'Ctrl+B',
+        toggleRightSidebar: isMac ? 'Command+Option+B' : 'Ctrl+Alt+B'
+      }
     }
   }
 
