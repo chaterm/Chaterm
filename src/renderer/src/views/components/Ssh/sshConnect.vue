@@ -500,7 +500,12 @@ const getCmdList = async (terminalId) => {
   if (data.stdout == '' || data.stderr !== '') {
     commands.value = shellCommands
   } else {
-    commands.value = data.stdout.split('\n').filter(Boolean).concat(shellCommands)
+    // 合并系统命令和自定义命令，然后去重
+    const systemCommands = data.stdout.split('\n').filter(Boolean)
+    const allCommands = [...systemCommands, ...shellCommands]
+    // 使用 Set 进行去重，然后转回数组并排序
+    commands.value = [...new Set(allCommands)].sort()
+    console.log(commands.value, 'commands.value')
   }
 }
 onBeforeUnmount(() => {
