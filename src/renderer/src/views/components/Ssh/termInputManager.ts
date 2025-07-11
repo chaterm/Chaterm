@@ -40,6 +40,7 @@ watch(isShowQuickCommand, (newValue) => {
   saveQuickCommandState(newValue)
 })
 
+export const isShowCommandBar = ref(false)
 // 激活状态管理
 export const activeTermId = ref<string>('')
 export const activeTermOndata = ref<any>(null)
@@ -56,9 +57,8 @@ watch(
   () => componentInstances.value.length,
   (len) => {
     if (len == 0) {
-      isGlobalInput.value = false
-      isShowQuickCommand.value = false
-      // 当没有实例时，清空激活状态
+      isShowCommandBar.value = false
+
       activeTermId.value = ''
       activeTermOndata.value = null
       // 重置commandBar状态
