@@ -363,10 +363,25 @@
                 v-model:value="chatAiModelValue"
                 size="small"
                 style="width: 150px"
-                :options="AgentAiModelsOptions"
                 show-search
                 @change="handleChatAiModelChange"
-              ></a-select>
+              >
+                <a-select-option
+                  v-for="model in AgentAiModelsOptions"
+                  :key="model.value"
+                  :value="model.value"
+                >
+                  <span class="model-label">
+                    <img
+                      v-if="model.label.endsWith('-Thinking')"
+                      src="@/assets/icons/thinking.svg"
+                      alt="Thinking"
+                      class="thinking-icon"
+                    />
+                    {{ model.label.replace(/-Thinking$/, '') }}
+                  </span>
+                </a-select-option>
+              </a-select>
               <a-button
                 :disabled="!showSendButton"
                 size="small"
@@ -1300,6 +1315,18 @@ const initModel = async () => {
       break
   }
   const modelOptions = (await getGlobalState('modelOptions')) as ModelOption[]
+
+  // Sort modelOptions: models with '-Thinking' suffix first
+  modelOptions.sort((a, b) => {
+    const aIsThinking = a.name.endsWith('-Thinking')
+    const bIsThinking = b.name.endsWith('-Thinking')
+
+    if (aIsThinking && !bIsThinking) return -1
+    if (!aIsThinking && bIsThinking) return 1
+
+    return a.name.localeCompare(b.name)
+  })
+
   AgentAiModelsOptions.value = modelOptions
     .filter((item) => item.checked)
     .map((item) => ({
@@ -2434,11 +2461,13 @@ const handleFeedback = async (message: ChatMessage, type: 'like' | 'dislike') =>
   width: 100%;
 
   .chat-textarea {
-    background-color: var(--bg-color) !important;
-    color: var(--text-color) !important;
-    border: none !important;
-    box-shadow: none !important;
-    font-size: 12px !important;
+    flex-grow: 1;
+    border: none;
+    background-color: var(--bg-color-tertiary);
+    color: var(--text-color);
+    resize: none;
+    border-radius: 8px;
+    padding: 8px;
   }
 
   :deep(.ant-input::placeholder) {
@@ -3450,5 +3479,16 @@ const handleFeedback = async (message: ChatMessage, type: 'like' | 'dislike') =>
     height: 32px;
     font-size: 14px;
   }
+}
+
+.model-label {
+  display: inline-flex;
+  align-items: center;
+}
+
+.thinking-icon {
+  width: 16px;
+  height: 16px;
+  margin-right: 6px;
 }
 </style>
