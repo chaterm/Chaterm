@@ -63,7 +63,7 @@
           class="help-header"
           @click="toggleHelp"
         >
-          <h4 style="margin: 0; color: #1890ff; font-size: 14px">📖 脚本语法说明</h4>
+          <span class="help-title">📖 脚本语法说明</span>
           <span class="toggle-icon">{{ showHelp ? '▼' : '▶' }}</span>
         </div>
 
@@ -71,19 +71,43 @@
           v-if="showHelp"
           class="help-content"
         >
-          <!-- 示例脚本 - 可点击展开 -->
-          <div class="help-section">
-            <div
-              class="example-header"
-              @click="toggleExample"
-            >
-              <strong>💡 示例脚本</strong>
-              <span class="toggle-icon">{{ showExample ? '▼' : '▶' }}</span>
+          <div class="help-layout">
+            <!-- 左侧：命令说明 -->
+            <div class="help-left">
+              <div class="help-item">
+                <strong>⚡ 基本命令：</strong>
+                <span>每行一个命令，按顺序执行</span>
+              </div>
+
+              <div class="help-item">
+                <strong>⏰ 延时命令：</strong>
+                <code>sleep==秒数</code>
+                <span>如：<code>sleep==3</code></span>
+              </div>
+
+              <div class="help-item">
+                <strong>⌨️ 特殊按键：</strong>
+                <div class="key-list">
+                  <code>esc</code>
+                  <code>tab</code>
+                  <code>return</code>
+                  <code>backspace</code>
+                </div>
+              </div>
             </div>
-            <div
-              v-if="showExample"
-              class="example-content"
-            >
+
+            <!-- 右侧：示例代码 -->
+            <div class="help-right">
+              <div class="example-header">
+                <span>💡 示例脚本</span>
+                <button
+                  class="copy-btn"
+                  :class="{ copied: copySuccess }"
+                  @click="copyExample"
+                >
+                  {{ copySuccess ? '已复制' : '复制' }}
+                </button>
+              </div>
               <pre class="example-code">
 ls -la
 sleep==2
@@ -93,22 +117,6 @@ sleep==1
 sudo systemctl status nginx</pre
               >
             </div>
-          </div>
-
-          <div class="help-section">
-            <strong>基本命令：</strong>
-            <p>每行一个命令，脚本会按顺序执行</p>
-          </div>
-
-          <div class="help-section">
-            <strong>延时命令：</strong>
-            <code>sleep==秒数</code>
-            <p>例如：<code>sleep==3</code> 表示等待3秒</p>
-          </div>
-
-          <div class="help-section">
-            <strong>特殊按键：</strong>
-            <p><code>esc</code> <code>tab</code> <code>return</code> <code>backspace</code></p>
           </div>
         </div>
       </div>
@@ -148,8 +156,8 @@ const newCommandLabel = ref('')
 const newCommandValue = ref('')
 const selectedCommandId = ref<number | null>(null)
 const isEditMode = ref(false)
-const showExample = ref(false)
 const showHelp = ref(true)
+const copySuccess = ref(false)
 
 onMounted(async () => {
   await refresh()
@@ -235,12 +243,27 @@ const handleClick = (cmd: QuickCommand) => {
   executeScript(cmd.snippet_content, terminal)
 }
 
-const toggleExample = () => {
-  showExample.value = !showExample.value
-}
-
 const toggleHelp = () => {
   showHelp.value = !showHelp.value
+}
+
+const copyExample = async () => {
+  const exampleText = `ls -la
+sleep==2
+cd /home
+pwd
+sleep==1
+sudo systemctl status nginx`
+
+  try {
+    await navigator.clipboard.writeText(exampleText)
+    copySuccess.value = true
+    setTimeout(() => {
+      copySuccess.value = false
+    }, 2000)
+  } catch (err) {
+    console.error('复制失败:', err)
+  }
 }
 
 const api = (window as any).api
@@ -342,7 +365,6 @@ const swapCommand = async (id1: number, id2: number) => {
 .script-help {
   background: var(--bg-color-secondary, #f8f9fa);
   border-radius: 6px;
-  padding: 12px;
   border: 1px solid var(--border-color, #e1e1e1);
   font-size: 12px;
   line-height: 1.4;
@@ -352,15 +374,19 @@ const swapCommand = async (id1: number, id2: number) => {
     justify-content: space-between;
     align-items: center;
     cursor: pointer;
-    padding: 8px 0;
+    padding: 12px 16px;
     color: var(--text-color);
-    border-radius: 4px;
+    border-bottom: 1px solid var(--border-color, #e1e1e1);
     transition: background-color 0.2s ease;
 
     &:hover {
-      background-color: var(--bg-color-tertiary, rgba(0, 0, 0, 0.05));
-      padding-left: 8px;
-      padding-right: 8px;
+      background-color: var(--bg-color-tertiary, rgba(0, 0, 0, 0.02));
+    }
+
+    .help-title {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text-color, #333);
     }
 
     .toggle-icon {
@@ -371,13 +397,43 @@ const swapCommand = async (id1: number, id2: number) => {
   }
 
   .help-content {
-    margin-top: 8px;
-    padding-left: 10px;
-    border-left: 3px solid var(--border-color, #1890ff);
+    padding: 16px;
     animation: slideDown 0.3s ease;
   }
 
-  .help-section {
+  .help-layout {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+
+    @media (max-width: 768px) {
+      grid-template-columns: 1fr;
+      gap: 12px;
+    }
+  }
+
+  .help-left {
+    padding-right: 8px;
+    border-right: 1px solid var(--border-color, #e1e1e1);
+
+    @media (max-width: 768px) {
+      padding-right: 0;
+      border-right: none;
+      border-bottom: 1px solid var(--border-color, #e1e1e1);
+      padding-bottom: 12px;
+    }
+  }
+
+  .help-right {
+    padding-left: 8px;
+
+    @media (max-width: 768px) {
+      padding-left: 0;
+      padding-top: 12px;
+    }
+  }
+
+  .help-item {
     margin-bottom: 12px;
 
     &:last-child {
@@ -386,65 +442,87 @@ const swapCommand = async (id1: number, id2: number) => {
 
     strong {
       color: var(--text-color, #333);
-      font-size: 13px;
+      font-size: 12px;
+      display: block;
+      margin-bottom: 4px;
     }
 
-    p {
-      margin: 4px 0 0 0;
+    span {
       color: var(--text-color-secondary, #666);
+      font-size: 11px;
     }
 
     code {
-      background: var(--bg-color-tertiary, #f0f0f0);
+      background: var(--bg-color-quaternary, #f0f0f0);
       padding: 2px 4px;
       border-radius: 3px;
       font-family: 'Consolas', 'Monaco', monospace;
       font-size: 11px;
-      color: var(--text-color-primary, #d63384);
+      color: #1890ff;
+      margin: 0 2px;
     }
-  }
 
-  .example-code {
-    background: var(--bg-color-quaternary, #2d3748);
-    color: var(--text-color-inverse, #e2e8f0);
-    padding: 8px 10px;
-    border-radius: 4px;
-    font-family: 'Consolas', 'Monaco', monospace;
-    font-size: 11px;
-    line-height: 1.5;
-    margin: 4px 0 0 0;
-    overflow-x: auto;
-    white-space: pre;
+    .key-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+      margin-top: 4px;
+
+      code {
+        background: var(--bg-color-quaternary, #f8f9fa);
+        padding: 2px 6px;
+        border-radius: 3px;
+        font-family: 'Consolas', 'Monaco', monospace;
+        font-size: 10px;
+        color: var(--text-color, #333);
+        border: 1px solid var(--border-color, #e1e1e1);
+      }
+    }
   }
 
   .example-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    cursor: pointer;
-    padding: 8px 0;
-    color: var(--text-color);
-    border-radius: 4px;
-    transition: background-color 0.2s ease;
+    margin-bottom: 8px;
 
-    &:hover {
-      background-color: var(--bg-color-tertiary, rgba(0, 0, 0, 0.05));
-      padding-left: 8px;
-      padding-right: 8px;
+    span {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-color, #333);
     }
 
-    .toggle-icon {
-      font-size: 12px;
-      transition: transform 0.3s ease;
-      color: var(--text-color-secondary, #666);
+    .copy-btn {
+      background: #1890ff;
+      color: white;
+      border: none;
+      padding: 4px 8px;
+      border-radius: 3px;
+      font-size: 11px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+
+      &:hover {
+        background: #40a9ff;
+      }
+
+      &.copied {
+        background: #52c41a;
+      }
     }
   }
 
-  .example-content {
-    margin-top: 8px;
-    padding-left: 10px;
-    border-left: 3px solid var(--border-color, #1890ff);
-    animation: slideDown 0.3s ease;
+  .example-code {
+    background: var(--bg-color-quaternary, #2d3748);
+    color: var(--text-color-inverse, #e2e8f0);
+    padding: 12px;
+    border-radius: 4px;
+    font-family: 'Consolas', 'Monaco', monospace;
+    font-size: 11px;
+    line-height: 1.5;
+    margin: 0;
+    overflow-x: auto;
+    white-space: pre;
   }
 
   @keyframes slideDown {
@@ -456,52 +534,6 @@ const swapCommand = async (id1: number, id2: number) => {
       opacity: 1;
       transform: translateY(0);
     }
-  }
-}
-
-/* 深色主题适配 */
-.theme-dark .script-help {
-  background: var(--bg-color-secondary, #1a1a1a);
-  border-color: var(--border-color, #333);
-
-  .help-header {
-    &:hover {
-      background-color: var(--bg-color-tertiary, rgba(255, 255, 255, 0.05));
-    }
-  }
-
-  .help-content {
-    border-left-color: var(--border-color, #1890ff);
-  }
-
-  .help-section {
-    strong {
-      color: var(--text-color, #fff);
-    }
-
-    p {
-      color: var(--text-color-secondary, #ccc);
-    }
-
-    code {
-      background: var(--bg-color-tertiary, #333);
-      color: var(--text-color-primary, #ff6b9d);
-    }
-  }
-
-  .example-header {
-    &:hover {
-      background-color: var(--bg-color-tertiary, rgba(255, 255, 255, 0.05));
-    }
-  }
-
-  .example-content {
-    border-left-color: var(--border-color, #1890ff);
-  }
-
-  .example-code {
-    background: var(--bg-color-quaternary, #0f1419);
-    color: var(--text-color-inverse, #e6e6e6);
   }
 }
 </style>
