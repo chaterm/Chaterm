@@ -589,7 +589,7 @@ const needsAuth = (item) => {
 const closeTab = (tabId) => {
   const index = openedTabs.value.findIndex((tab) => tab.id === tabId)
   const closedTab = openedTabs.value[index]
-  let activeTabType = 'term'
+  let activeTabType = ''
   if (index !== -1) {
     openedTabs.value.splice(index, 1)
     if (activeTabId.value === tabId) {
@@ -601,12 +601,12 @@ const closeTab = (tabId) => {
         activeTabId.value = ''
         eventBus.emit('activeTabChanged', null)
       }
+      checkActiveTab(activeTabType)
     }
     if (closedTab.type === 'extensions' && extensionsRef.value && closedTab.data?.key) {
       extensionsRef.value.handleExplorerActive(closedTab.data.key)
     }
   }
-  checkActiveTab(activeTabType)
 }
 
 const closeAllTabs = () => {
