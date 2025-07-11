@@ -18,7 +18,7 @@
         v-model:open-keys="openKeys"
         class="menu_list"
         mode="inline"
-        :theme="currentTheme.value === 'light' ? 'light' : 'dark'"
+        :theme="currentTheme === 'light' ? 'light' : 'dark'"
         @select="handleSelect"
       >
         <template
