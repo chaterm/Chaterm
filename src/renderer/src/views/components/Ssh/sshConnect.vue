@@ -21,8 +21,9 @@
       class="select-button"
       @mousedown.prevent
       @click="onChatToAiClick"
-      >Chat to AI</a-button
     >
+      Chat to AI
+    </a-button>
     <SuggComp
       v-bind="{ ref: (el) => setRef(el, connectionId) }"
       :unique-key="connectionId"
@@ -1675,7 +1676,8 @@ const handleServerOutput = (response: MarkedResponse) => {
       const finalOutput = outputLines.join('\n').trim()
       if (finalOutput) {
         nextTick(() => {
-          eventBus.emit('chatToAi', finalOutput)
+          const formattedOutput = `Terminal output:\n\`\`\`\n${finalOutput}\n\`\`\``
+          eventBus.emit('chatToAi', formattedOutput)
           setTimeout(() => {
             eventBus.emit('triggerAiSend')
           }, 100)
@@ -1704,7 +1706,8 @@ const handleServerOutput = (response: MarkedResponse) => {
       const finalOutput = outputLines.join('\n').trim()
       if (finalOutput) {
         nextTick(() => {
-          eventBus.emit('chatToAi', finalOutput)
+          const formattedOutput = `Terminal output:\n\`\`\`\n${finalOutput}\n\`\`\``
+          eventBus.emit('chatToAi', formattedOutput)
           setTimeout(() => {
             eventBus.emit('triggerAiSend')
           }, 100)
@@ -2318,7 +2321,8 @@ const onChatToAiClick = () => {
     const text = terminal.value.getSelection()
     eventBus.emit('openAiRight')
     nextTick(() => {
-      eventBus.emit('chatToAi', text.trim())
+      const formattedText = `Terminal output:\n\`\`\`\n${text.trim()}\n\`\`\``
+      eventBus.emit('chatToAi', formattedText)
     })
     terminal.value.clearSelection()
   }

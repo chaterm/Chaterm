@@ -24,13 +24,29 @@ export interface ParsedShortcut {
 }
 
 export class ShortcutService {
+  private static _instance: ShortcutService
+
   private shortcuts: Map<string, ShortcutAction> = new Map()
   private keyListeners: Map<string, (event: KeyboardEvent) => void> = new Map()
   private currentShortcuts: ShortcutConfig | null = null
   private isRecording: boolean = false
   private recordingListener: ((event: KeyboardEvent) => void) | null = null
 
-  constructor() {
+  private constructor() {
+    console.log('ShortcutService constructor is now private.')
+  }
+
+  public static get instance(): ShortcutService {
+    if (!ShortcutService._instance) {
+      ShortcutService._instance = new ShortcutService()
+      ShortcutService._instance.init()
+    }
+    return ShortcutService._instance
+  }
+
+  public init() {
+    console.log('Initializing ShortcutService...')
+    this.destroy() // 清理旧状态
     this.initializeShortcuts()
   }
 
@@ -359,4 +375,4 @@ export class ShortcutService {
   }
 }
 
-export const shortcutService = new ShortcutService()
+export const shortcutService = ShortcutService.instance
