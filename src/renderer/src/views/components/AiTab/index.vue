@@ -1335,9 +1335,23 @@ onMounted(async () => {
       sendMessage('commandSend')
     }
   })
-  eventBus.on('chatToAi', (text) => {
-    chatInputValue.value = text
+
+  eventBus.on('chatToAi', async (text) => {
+    if (chatInputValue.value.trim()) {
+      chatInputValue.value = chatInputValue.value + '\n' + text
+    } else {
+      chatInputValue.value = text
+    }
+    initAssetInfo() //防止初始化失败
+    nextTick(() => {
+      const textarea = document.getElementsByClassName('chat-textarea')[0] as HTMLTextAreaElement | null
+      if (textarea) {
+        textarea.scrollTop = textarea.scrollHeight
+        textarea.focus({ preventScroll: true })
+      }
+    })
   })
+
   await initModelOptions()
   await initModel()
   authTokenInCookie.value = localStorage.getItem('ctm-token')
@@ -1380,18 +1394,6 @@ onMounted(async () => {
     } else {
       updateHosts(null)
     }
-  })
-
-  eventBus.on('chatToAi', async (text) => {
-    chatInputValue.value = text
-    initAssetInfo() //防止初始化失败
-    nextTick(() => {
-      const textarea = document.getElementsByClassName('chat-textarea')[0] as HTMLTextAreaElement | null
-      if (textarea) {
-        textarea.scrollTop = textarea.scrollHeight
-        textarea.focus({ preventScroll: true })
-      }
-    })
   })
 
   currentChatId.value = chatId
