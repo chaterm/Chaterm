@@ -51,7 +51,8 @@ export default {
     ok: '确定',
     quickCommandOn: '快速命令(已开)',
     quickCommand: '快速命令',
-    add: '添加'
+    add: '添加',
+    all: '全部'
   },
   term: {
     welcome: '欢迎使用 Chaterm'
@@ -136,6 +137,25 @@ export default {
     general: '通用',
     extensions: '扩展',
     about: '关于',
+    shortcuts: '快捷键',
+    shortcutSettings: '快捷键设置',
+    shortcutDescription: '自定义应用程序快捷键',
+    shortcutAction: '动作',
+    shortcutKey: '快捷键',
+    shortcutModify: '修改',
+    shortcutReset: '重置',
+    shortcutSave: '保存',
+    shortcutCancel: '取消',
+    shortcutConflict: '快捷键冲突',
+    shortcutConflictMessage: '此快捷键已被占用，请选择其他快捷键',
+    shortcutInvalid: '无效的快捷键',
+    shortcutInvalidMessage: '请输入有效的快捷键组合',
+    shortcutSaveSuccess: '快捷键保存成功',
+    shortcutSaveFailed: '快捷键保存失败',
+    shortcutResetSuccess: '快捷键重置成功',
+    shortcutPressKeys: '请按下快捷键组合',
+    shortcutRecording: '录制中...',
+    shortcutClickToModify: '点击修改',
     model: '模型',
     enableExtendedThinking: '开启扩展思考',
     enableExtendedThinkingDescribe: '提高预算可实现更全面、更细致的推理',
@@ -226,6 +246,13 @@ export default {
     errorDeletingAlias: '删除失败！',
     aliasAlreadyExists: '别名已存在！',
     addCommand: '添加命令'
+  },
+  shortcuts: {
+    actions: {
+      openSettings: '打开设置',
+      toggleLeftSidebar: '切换左侧边栏',
+      toggleRightSidebar: '切换右侧边栏'
+    }
   },
   personal: {
     host: '主机',

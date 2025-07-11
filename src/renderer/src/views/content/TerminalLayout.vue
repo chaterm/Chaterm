@@ -189,6 +189,7 @@
               >
                 <div
                   class="rigth-sidebar"
+                  tabindex="0"
                   @mousedown="handleSplitPaneFocus(index)"
                 >
                   <TabsPanel
@@ -209,7 +210,10 @@
                 v-if="showAiSidebar"
                 :size="aiSidebarSize"
               >
-                <div class="rigth-sidebar">
+                <div
+                  class="rigth-sidebar"
+                  tabindex="0"
+                >
                   <AiTab :toggle-sidebar="toggleAiSidebar" />
                 </div>
               </pane>
@@ -272,6 +276,7 @@ import '@/assets/theme.less'
 import { isGlobalInput, isShowCommandBar, isShowQuickCommand } from '@renderer/views/components/Ssh/termInputManager'
 import { inputManager } from '../components/Ssh/termInputManager'
 import { useRouter } from 'vue-router'
+import { shortcutService } from '@/services/shortcutService'
 
 const router = useRouter()
 const api = window.api as any
@@ -309,8 +314,44 @@ const showSplitPane = ref(false)
 const globalInput = ref('')
 // 添加跟踪当前聚焦分屏的状态
 const focusedSplitPaneIndex = ref<number | null>(null)
+// 光标定位相关状态
+const lastFocusedElement = ref<HTMLElement | null>(null)
+
+// 光标定位函数
+const savePreviousFocus = () => {
+  const activeElement = document.activeElement as HTMLElement
+  if (activeElement && activeElement !== document.body) {
+    lastFocusedElement.value = activeElement
+  }
+}
+
+const restorePreviousFocus = () => {
+  if (lastFocusedElement.value) {
+    nextTick(() => {
+      try {
+        lastFocusedElement.value?.focus()
+      } catch (error) {
+        console.warn('Failed to restore focus:', error)
+      }
+    })
+  }
+}
+
+const focusRightSidebar = () => {
+  nextTick(() => {
+    const chatTextarea = document.querySelector('.rigth-sidebar .chat-textarea')
+    if (chatTextarea) {
+      ;(chatTextarea as HTMLElement).focus()
+    }
+  })
+}
+
 onMounted(async () => {
   const store = piniaUserConfigStore()
+
+  // 初始化快捷键系统
+  await shortcutService.loadShortcuts()
+
   eventBus.on('updateWatermark', (watermark) => {
     showWatermark.value = watermark !== 'close'
   })
@@ -421,7 +462,11 @@ const toggleSideBar = (value: string) => {
         } else {
           mainTerminalSize.value = 100
         }
+        // 关闭右侧边栏 - 恢复之前的光标位置
+        restorePreviousFocus()
       } else {
+        // 打开右侧边栏 - 保存当前光标位置并定位到右侧边栏
+        savePreviousFocus()
         showAiSidebar.value = true
         aiSidebarSize.value = (DEFAULT_WIDTH_RIGHT_PX / containerWidth) * 100
         headerRef.value?.switchIcon('right', true)
@@ -430,6 +475,8 @@ const toggleSideBar = (value: string) => {
         } else {
           mainTerminalSize.value = 100 - aiSidebarSize.value
         }
+        // 定位到右侧边栏
+        focusRightSidebar()
       }
       break
     case 'left':
@@ -470,6 +517,8 @@ const toggleMenu = function (params) {
   if (params.menu == 'ai') {
     currentMenu.value = params.beforeActive
     if (!showAiSidebar.value) {
+      // 打开AI侧边栏 - 保存当前光标位置
+      savePreviousFocus()
       const container = document.querySelector('.splitpanes') as HTMLElement
       if (container) {
         const containerWidth = container.offsetWidth
@@ -481,8 +530,11 @@ const toggleMenu = function (params) {
         } else {
           mainTerminalSize.value = 100 - aiSidebarSize.value
         }
+        // 定位到右侧边栏
+        focusRightSidebar()
       }
     } else {
+      // 关闭AI侧边栏 - 恢复之前的光标位置
       showAiSidebar.value = false
       aiSidebarSize.value = 0
       headerRef.value?.switchIcon('right', false)
@@ -491,10 +543,14 @@ const toggleMenu = function (params) {
       } else {
         mainTerminalSize.value = 100
       }
+      // 恢复光标位置
+      restorePreviousFocus()
     }
   } else if (params.menu == 'openAiRight') {
     currentMenu.value = params.beforeActive
     if (!showAiSidebar.value) {
+      // 打开AI侧边栏 - 保存当前光标位置
+      savePreviousFocus()
       const container = document.querySelector('.splitpanes') as HTMLElement
       if (container) {
         const containerWidth = container.offsetWidth
@@ -506,6 +562,8 @@ const toggleMenu = function (params) {
         } else {
           mainTerminalSize.value = 100 - aiSidebarSize.value
         }
+        // 定位到右侧边栏
+        focusRightSidebar()
       }
     }
   } else {
@@ -687,6 +745,9 @@ const updateTabs = (newTabs) => {
   openedTabs.value = newTabs
 }
 onUnmounted(() => {
+  // 清理快捷键系统
+  shortcutService.destroy()
+
   window.removeEventListener('resize', updatePaneSize)
   eventBus.off('currentClickServer', currentClickServer)
   eventBus.off('getActiveTabAssetInfo', handleGetActiveTabAssetInfo)
@@ -843,6 +904,7 @@ const toggleAiSidebar = () => {
   if (container) {
     const containerWidth = container.offsetWidth
     if (showAiSidebar.value) {
+      // 关闭AI侧边栏 - 恢复之前的光标位置
       showAiSidebar.value = false
       aiSidebarSize.value = 0
       headerRef.value?.switchIcon('right', false)
@@ -851,7 +913,11 @@ const toggleAiSidebar = () => {
       } else {
         mainTerminalSize.value = 100
       }
+      // 恢复光标位置
+      restorePreviousFocus()
     } else {
+      // 打开AI侧边栏 - 保存当前光标位置并定位到右侧边栏
+      savePreviousFocus()
       showAiSidebar.value = true
       aiSidebarSize.value = (DEFAULT_WIDTH_RIGHT_PX / containerWidth) * 100
       headerRef.value?.switchIcon('right', true)
@@ -860,6 +926,8 @@ const toggleAiSidebar = () => {
       } else {
         mainTerminalSize.value = 100 - aiSidebarSize.value
       }
+      // 定位到右侧边栏
+      focusRightSidebar()
     }
   }
 }
@@ -1114,6 +1182,11 @@ defineExpose({
   background: var(--bg-color) !important;
   transition: width 0.3s ease;
   position: relative;
+  outline: none;
+}
+
+.rigth-sidebar:focus-within {
+  box-shadow: inset 2px 0 0 var(--primary-color, #1890ff);
 }
 
 .rigth-sidebar.collapsed {
