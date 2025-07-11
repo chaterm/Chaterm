@@ -17,7 +17,15 @@
             v-model:checked="model.checked"
             @change="handleModelChange(model)"
           >
-            {{ model.name }}
+            <span class="model-label">
+              <img
+                v-if="model.name.endsWith('-Thinking')"
+                src="@/assets/icons/thinking.svg"
+                alt="Thinking"
+                class="thinking-icon"
+              />
+              {{ model.name.replace(/-Thinking$/, '') }}
+            </span>
           </a-checkbox>
           <a-button
             v-if="model.checked && model.type === 'custom'"
@@ -703,6 +711,12 @@ const saveModelOptions = async () => {
 // 对模型列表进行排序：内置模型在前，用户自定义模型在后
 const sortModelOptions = () => {
   modelOptions.value.sort((a, b) => {
+    const aIsThinking = a.name.endsWith('-Thinking')
+    const bIsThinking = b.name.endsWith('-Thinking')
+
+    if (aIsThinking && !bIsThinking) return -1
+    if (!aIsThinking && bIsThinking) return 1
+
     // 首先按模型类型排序：standard (内置) 在前，custom (用户自定义) 在后
     if (a.type === 'standard' && b.type === 'custom') return -1
     if (a.type === 'custom' && b.type === 'standard') return 1
@@ -1107,6 +1121,17 @@ const handleSave = async (provider) => {
 .model-header {
   margin-top: 0;
   margin-left: 0;
+}
+
+.model-label {
+  display: inline-flex;
+  align-items: center;
+}
+
+.thinking-icon {
+  width: 16px;
+  height: 16px;
+  margin-right: 6px;
 }
 
 .model-list {
