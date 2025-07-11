@@ -287,11 +287,6 @@ body {
   .ant-modal-close-x {
     color: var(--text-color);
   }
-  .ant-btn-default {
-    background-color: var(--button-default-bg-color);
-    color: var(--text-color) !important;
-    border-color: var(--bg-color-default) !important;
-  }
   .ant-input {
     color: var(--text-color);
     background-color: var(--bg-color) !important;
@@ -305,6 +300,45 @@ body {
     &:focus {
       border-color: #1890ff;
     }
+  }
+}
+
+.ant-btn-default {
+  background-color: var(--button-default-bg-color);
+  color: var(--text-color) !important;
+  border-color: var(--bg-color-default) !important;
+}
+// shortcut modal style
+.shortcut-modal {
+  .ant-modal-content {
+    background-color: var(--bg-color) !important;
+  }
+  .ant-modal-header {
+    background-color: var(--bg-color) !important;
+    border-bottom-color: var(--border-color) !important;
+  }
+  .ant-modal-title {
+    color: var(--text-color) !important;
+  }
+  .ant-modal-close-x {
+    color: var(--text-color) !important;
+  }
+  .recording-instruction {
+    p {
+      color: var(--text-color-secondary) !important;
+    }
+    .current-shortcut {
+      background-color: var(--bg-color-secondary) !important;
+      color: var(--text-color) !important;
+      border: 1px solid var(--border-color-light) !important;
+    }
+  }
+
+  .ant-btn-primary[disabled],
+  .ant-btn-primary[disabled]:hover {
+    background-color: rgba(24, 144, 255, 0.5) !important;
+    color: rgba(255, 255, 255, 0.65) !important;
+    border-color: rgba(24, 144, 255, 0.5) !important;
   }
 }
 // Add more component theme styles as needed

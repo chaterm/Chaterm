@@ -51,7 +51,8 @@ export default {
     ok: 'OK',
     quickCommandOn: 'Quick Command (On) ',
     quickCommand: 'Quick Command',
-    add: 'Add'
+    add: 'Add',
+    all: 'All'
   },
   term: {
     welcome: 'Welcome to use Chaterm'
@@ -136,6 +137,25 @@ export default {
     general: 'General',
     extensions: 'Extensions',
     about: 'About',
+    shortcuts: 'Shortcuts',
+    shortcutSettings: 'Shortcut Settings',
+    shortcutDescription: 'Customize application shortcuts',
+    shortcutAction: 'Action',
+    shortcutKey: 'Shortcut',
+    shortcutModify: 'Modify',
+    shortcutReset: 'Reset',
+    shortcutSave: 'Save',
+    shortcutCancel: 'Cancel',
+    shortcutConflict: 'Shortcut Conflict',
+    shortcutConflictMessage: 'This shortcut is already in use, please choose another',
+    shortcutInvalid: 'Invalid Shortcut',
+    shortcutInvalidMessage: 'Please enter a valid shortcut combination',
+    shortcutSaveSuccess: 'Shortcut saved successfully',
+    shortcutSaveFailed: 'Failed to save shortcut',
+    shortcutResetSuccess: 'Shortcut reset successfully',
+    shortcutPressKeys: 'Press shortcut keys',
+    shortcutRecording: 'Recording...',
+    shortcutClickToModify: 'Click to modify',
     model: 'Model',
     enableExtendedThinking: 'Enable extended thinking',
     enableExtendedThinkingDescribe: 'Higher budgets may allow you to achieve more comprehensive and nuanced reasoning',
@@ -224,6 +244,13 @@ export default {
     missingAliasCommand: 'Missing alias or command!',
     aliasAlreadyExists: 'Alias already exists！',
     addCommand: 'Add Command'
+  },
+  shortcuts: {
+    actions: {
+      openSettings: 'Open Settings',
+      toggleLeftSidebar: 'Toggle Left Sidebar',
+      toggleRightSidebar: 'Toggle Right Sidebar'
+    }
   },
   personal: {
     host: 'Host',
