@@ -103,8 +103,9 @@ export class LiteLlmHandler implements ApiHandler {
     const isOminiModel = modelId.includes('o1-mini') || modelId.includes('o3-mini') || modelId.includes('o4-mini')
 
     // Configuration for extended thinking
-    const budgetTokens = this.options.thinkingBudgetTokens || 0
-    const reasoningOn = budgetTokens !== 0 ? true : false
+    const budgetTokens = 1024
+    const isThinkingModel = modelId.endsWith('-Thinking')
+    const reasoningOn = isThinkingModel
     const thinkingConfig = reasoningOn ? { type: 'enabled', budget_tokens: budgetTokens } : undefined
 
     let temperature: number | undefined = this.options.liteLlmModelInfo?.temperature ?? 0
@@ -137,17 +138,24 @@ export class LiteLlmHandler implements ApiHandler {
       return message
     })
 
-    const stream = await this.client.chat.completions.create({
+    const params: OpenAI.Chat.ChatCompletionCreateParamsStreaming = {
       model: this.options.liteLlmModelId || liteLlmDefaultModelId,
       messages: [enhancedSystemMessage, ...enhancedMessages],
       temperature,
       stream: true,
       stream_options: { include_usage: true },
-      max_tokens: this.options.liteLlmModelInfo?.maxTokens || 8192,
-      ...(thinkingConfig && { thinking: thinkingConfig }), // Add thinking configuration when applicable
-      enable_thinking: reasoningOn,
-      thinking_budget: budgetTokens
-    })
+      max_tokens: this.options.liteLlmModelInfo?.maxTokens || 8192
+    }
+
+    if (reasoningOn) {
+      Object.assign(params, {
+        thinking: thinkingConfig,
+        enable_thinking: true,
+        thinking_budget: budgetTokens
+      })
+    }
+
+    const stream = await this.client.chat.completions.create(params)
 
     const inputCost = (await this.calculateCost(1e6, 0)) || 0
     const outputCost = (await this.calculateCost(0, 1e6)) || 0
