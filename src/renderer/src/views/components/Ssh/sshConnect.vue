@@ -119,7 +119,7 @@ import { v4 as uuidv4 } from 'uuid'
 import { userInfoStore } from '@/store/index'
 import stripAnsi from 'strip-ansi'
 import { isGlobalInput, inputManager, commandBarHeight } from './termInputManager'
-
+import { shellCommands } from './shellCmd'
 const selectFlag = ref(false)
 const configStore = userConfigStore()
 interface CommandSuggestion {
@@ -498,9 +498,9 @@ const getCmdList = async (terminalId) => {
     id: terminalId
   })
   if (data.stdout == '' || data.stderr !== '') {
-    commands.value = ['cd', 'ls']
+    commands.value = shellCommands
   } else {
-    commands.value = data.stdout.split('\n').filter(Boolean)
+    commands.value = data.stdout.split('\n').filter(Boolean).concat(shellCommands)
   }
 }
 onBeforeUnmount(() => {
