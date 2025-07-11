@@ -124,14 +124,9 @@ export async function remoteSshExec(
 
       stream.on('close', (code: number | null) => {
         safeResolve({
-          success: code === 0,
-          output: output,
-          error:
-            code !== 0
-              ? code === 127
-                ? '命令未找到，执行失败。 请检查命令是否存在于远程服务器的 PATH 中。'
-                : `命令执行失败，退出码: ${code}`
-              : undefined
+          success: code === 0 || code === 127,
+          output: code === 127 ? output + "\nCommand not found. Please check if the command exists in the remote server's PATH." : output,
+          error: code !== 0 && code !== 127 ? `Command failed with exit code: ${code}` : undefined
         })
       })
 
@@ -204,14 +199,16 @@ export async function remoteSshExecStream(
       })
 
       stream.on('close', (code: number | null) => {
+        if (code === 127) {
+          try {
+            onData("\nCommand not found. Please check if the command exists in the remote server's PATH.")
+          } catch (cbErr) {
+            console.error('remoteSshExecStream onData 回调错误:', cbErr)
+          }
+        }
         safeResolve({
-          success: code === 0,
-          error:
-            code !== 0
-              ? code === 127
-                ? '命令未找到，执行失败。 请检查命令是否存在于远程服务器的 PATH 中。'
-                : `命令执行失败，退出码: ${code}`
-              : undefined
+          success: code === 0 || code === 127,
+          error: code !== 0 && code !== 127 ? `Command failed with exit code: ${code}` : undefined
         })
       })
 
