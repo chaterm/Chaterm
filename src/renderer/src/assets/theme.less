@@ -49,8 +49,8 @@
   --text-color-septenary: rgba(0, 0, 0, 0.05);
   --border-color: #f5f5f5;
   --border-color-light: #e8e8e8;
-  --hover-bg-color: rgba(0, 0, 0, 0.04);
-  --active-bg-color: rgba(0, 0, 0, 0.08);
+  --hover-bg-color: rgba(0, 0, 0, 0.08);
+  --active-bg-color: rgba(0, 0, 0, 0.12);
   --watermark-color: rgba(0, 0, 0, 0.05);
   --icon-filter: brightness(0);
   --globalInput-bg-color: #ececec;
@@ -243,6 +243,41 @@ body {
   color: var(--text-color) !important;
   background-color: var(--bg-color-tertiary) !important;
   border: none !important;
+}
+
+.ant-select-dropdown .ant-select-item-option:hover {
+  background-color: var(--hover-bg-color) !important;
+}
+
+.ant-select-dropdown .ant-select-item-option-selected {
+  background-color: var(--bg-color-secondary) !important;
+  color: var(--text-color) !important;
+}
+
+.ant-select-dropdown .ant-select-item-option-active {
+  background-color: var(--hover-bg-color) !important;
+}
+
+/* 更高优先级的悬浮样式 */
+.ant-select-dropdown .ant-select-item-option.ant-select-item-option-active {
+  background-color: var(--hover-bg-color) !important;
+}
+
+.ant-select-dropdown .ant-select-item-option:hover.ant-select-item-option-active {
+  background-color: var(--hover-bg-color) !important;
+}
+
+/* 亮色主题专用悬浮样式 */
+.theme-light .ant-select-dropdown .ant-select-item-option:hover {
+  background-color: rgba(0, 0, 0, 0.12) !important;
+}
+
+.theme-light .ant-select-dropdown .ant-select-item-option.ant-select-item-option-active {
+  background-color: rgba(0, 0, 0, 0.12) !important;
+}
+
+.theme-light .ant-select-dropdown .ant-select-item-option:hover.ant-select-item-option-active {
+  background-color: rgba(0, 0, 0, 0.12) !important;
 }
 .ant-input-clear-icon {
   color: var(--text-color-tertiary);
