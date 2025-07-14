@@ -10,6 +10,7 @@ import 'v-contextmenu/dist/themes/default.css'
 import 'ant-design-vue/dist/reset.css'
 import piniaPluginPersistedstate from 'pinia-plugin-persistedstate'
 import { notification } from 'ant-design-vue'
+import { shortcutService } from './services/shortcutService'
 
 // 全局设置 notification 的 top
 notification.config({
@@ -40,4 +41,11 @@ declare global {
 window.storageAPI = storageState
 
 app.mount('#app')
+
+if (import.meta.hot) {
+  import.meta.hot.on('vite:afterUpdate', () => {
+    shortcutService.init()
+  })
+}
+
 export { pinia }
