@@ -419,6 +419,7 @@ onMounted(async () => {
   display: flex;
   align-items: center;
   justify-content: center;
+  -webkit-app-region: drag;
 
   .term_login_content {
     width: 430px;
@@ -427,6 +428,7 @@ onMounted(async () => {
     display: flex;
     flex-direction: column;
     align-items: center;
+    -webkit-app-region: no-drag;
   }
 
   .logo {
@@ -445,6 +447,7 @@ onMounted(async () => {
     // background-color: #fff;
     color: #dddddd;
     font-size: 12px;
+    -webkit-app-region: no-drag;
   }
 
   .term_login_type {
