@@ -119,7 +119,7 @@ import { v4 as uuidv4 } from 'uuid'
 import { userInfoStore } from '@/store/index'
 import stripAnsi from 'strip-ansi'
 import { isGlobalInput, inputManager, commandBarHeight } from './termInputManager'
-
+import { shellCommands } from './shellCmd'
 const selectFlag = ref(false)
 const configStore = userConfigStore()
 interface CommandSuggestion {
@@ -498,9 +498,14 @@ const getCmdList = async (terminalId) => {
     id: terminalId
   })
   if (data.stdout == '' || data.stderr !== '') {
-    commands.value = ['cd', 'ls']
+    commands.value = shellCommands
   } else {
-    commands.value = data.stdout.split('\n').filter(Boolean)
+    // 合并系统命令和自定义命令，然后去重
+    const systemCommands = data.stdout.split('\n').filter(Boolean)
+    const allCommands = [...systemCommands, ...shellCommands]
+    // 使用 Set 进行去重，然后转回数组并排序
+    commands.value = [...new Set(allCommands)].sort()
+    console.log(commands.value, 'commands.value')
   }
 }
 onBeforeUnmount(() => {
@@ -2145,7 +2150,7 @@ const handleKeyInput = (e) => {
     currentLine.value = currentLine.value.slice(0, index) + currentLine.value.slice(index + 1)
   } else if (ev.keyCode == 38 || ev.keyCode == 40) {
     //上下按键
-    specialCode.value = true
+    // specialCode.value = true
   } else if (ev.keyCode == 37 || ev.keyCode == 39) {
     // 左箭头
     stashLine.value = JSON.parse(JSON.stringify(currentLine.value))
