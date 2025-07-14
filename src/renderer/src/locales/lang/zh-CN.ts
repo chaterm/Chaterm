@@ -97,6 +97,7 @@ export default {
     fontSize: '字体大小(px)',
     cursorStyle: '光标样式',
     scrollBack: '终端回滚量',
+    terminalType: '终端类型',
     install: '安装',
     installing: '安装中',
     notInstall: '未安装',

@@ -97,6 +97,7 @@ export default {
     fontSize: 'Font size',
     cursorStyle: 'Cursor type',
     scrollBack: 'Number of scroll rollback lines',
+    terminalType: 'Specify terminal type',
     install: 'Installed',
     installing: 'Installing',
     notInstall: 'Not Installed',

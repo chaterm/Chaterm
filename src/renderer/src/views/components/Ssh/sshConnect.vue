@@ -818,7 +818,7 @@ const connectSSH = async () => {
 const startShell = async () => {
   try {
     // 请求启动shell会话
-    const result = await api.shell({ id: connectionId.value })
+    const result = await api.shell({ id: connectionId.value, terminalType: config.terminalType })
     if (result.status === 'success') {
       isConnected.value = true
       const removeDataListener = api.onShellData(connectionId.value, (response: MarkedResponse) => {
