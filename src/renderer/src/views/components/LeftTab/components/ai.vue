@@ -586,8 +586,8 @@ const handleCheck = async () => {
 }
 :deep(.ant-input-number) {
   .ant-input-number-input {
-    background-color: #4a4a4a !important;
-    color: rgba(255, 255, 255, 0.85);
+    background-color: var(--bg-color-secondary) !important;
+    color: var(--text-color);
   }
 }
 
