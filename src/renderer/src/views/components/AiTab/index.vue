@@ -2359,7 +2359,6 @@ const handleFeedback = async (message: ChatMessage, type: 'like' | 'dislike') =>
   flex-direction: column;
   height: 100%;
   background-color: var(--bg-color);
-  border-radius: 8px;
   overflow: hidden;
 }
 
@@ -2550,13 +2549,11 @@ const handleFeedback = async (message: ChatMessage, type: 'like' | 'dislike') =>
   width: 100%;
 
   .chat-textarea {
-    flex-grow: 1;
-    border: none;
-    background-color: var(--bg-color-tertiary);
-    color: var(--text-color);
-    resize: none;
-    border-radius: 8px;
-    padding: 8px;
+    background-color: var(--bg-color) !important;
+    color: var(--text-color) !important;
+    border: none !important;
+    box-shadow: none !important;
+    font-size: 12px !important;
   }
 
   :deep(.ant-input::placeholder) {
