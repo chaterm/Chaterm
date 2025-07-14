@@ -47,8 +47,10 @@
     :id="`${infos.id}Button`"
     class="select-button"
     style="display: none"
-    >Chat to AI</a-button
   >
+    <span class="main-text">Chat to AI</span>
+    <span class="shortcut-text">{{ shortcutKey }}</span>
+  </a-button>
 </template>
 
 <script setup>
@@ -56,7 +58,7 @@ const contextmenu = ref()
 import Context from './contextComp.vue'
 import SuggComp from './suggestion.vue'
 import SearchComp from './searchComp.vue'
-import { ref, onMounted, nextTick, onBeforeUnmount, defineProps, reactive } from 'vue'
+import { ref, onMounted, nextTick, onBeforeUnmount, defineProps, reactive, computed } from 'vue'
 import { Terminal } from 'xterm'
 import { FitAddon } from 'xterm-addon-fit'
 import { WebLinksAddon } from 'xterm-addon-web-links'
@@ -75,6 +77,7 @@ import { getListCmd } from '@/api/asset/asset'
 import { aliasConfigStore } from '@/store/aliasConfigStore'
 const emit = defineEmits(['closeTabInTerm', 'createNewTerm'])
 import eventBus from '@/utils/eventBus'
+import { shortcutService } from '@/services/shortcutService'
 const isConnect = ref(true)
 const props = defineProps({
   serverInfo: {
@@ -179,6 +182,17 @@ const debounce = (func, wait, immediate = false) => {
     }
   }
 }
+
+const shortcutKey = computed(() => {
+  const shortcuts = shortcutService.getShortcuts()
+  if (shortcuts && shortcuts['sendOrToggleAi']) {
+    return shortcutService.formatShortcut(shortcuts['sendOrToggleAi'])
+  }
+  // 如果没有配置，返回默认值
+  const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0
+  return isMac ? '⌘L' : 'Ctrl+L'
+})
+
 onMounted(() => {
   initTerminal()
   connectWebsocket()
@@ -212,6 +226,34 @@ onMounted(() => {
   eventBus.on('executeTerminalCommand', (command) => {
     autoExecuteCode(command)
   })
+
+  // 监听 getActiveTerminalSelection 事件
+  eventBus.on('sendOrToggleAiFromTerminal', () => {
+    // 检查焦点是否在终端或者终端容器内
+    const activeElement = document.activeElement
+    const terminalContainer = terminalElement.value?.closest('.terminal-container')
+    const isTerminalFocused =
+      activeElement === term.value?.textarea ||
+      terminalContainer?.contains(activeElement) ||
+      activeElement?.classList.contains('xterm-helper-textarea')
+
+    // 优先检查是否有选中文本，但只有在终端有焦点时才发送
+    if (term.value && term.value.hasSelection() && isTerminalFocused) {
+      const selectedText = term.value.getSelection().trim()
+      if (selectedText) {
+        // 如果终端有选中文本且终端有焦点，总是发送到AI并确保侧边栏打开
+        eventBus.emit('openAiRight')
+        nextTick(() => {
+          const formattedText = `Terminal output:\n\`\`\`\n${selectedText}\n\`\`\``
+          eventBus.emit('chatToAi', formattedText)
+        })
+        return
+      }
+    }
+
+    // 如果没有选中文本或焦点不在终端，则切换侧边栏状态
+    eventBus.emit('toggleSideBar', 'right')
+  })
 })
 
 onBeforeUnmount(() => {
@@ -229,6 +271,7 @@ onBeforeUnmount(() => {
   window.removeEventListener('keydown', handleGlobalKeyDown)
   // 移除事件监听
   eventBus.off('executeTerminalCommand')
+  eventBus.off('sendOrToggleAiFromTerminal')
   document.removeEventListener('mouseup', hideSelectionButton)
 })
 // 获取当前机器所有命令
@@ -1082,9 +1125,30 @@ defineExpose({
   background-color: #272727;
   border: 1px solid #4d4d4d;
 
+  .main-text {
+    color: white;
+    font-size: 12px;
+    font-weight: 500;
+  }
+
+  .shortcut-text {
+    color: #888;
+    font-size: 10px;
+    margin-left: 4px;
+    font-weight: 400;
+  }
+
   &:hover {
     color: white !important;
     border: 1px solid #4d4d4d !important;
+
+    .main-text {
+      color: white !important;
+    }
+
+    .shortcut-text {
+      color: #aaa !important;
+    }
   }
 }
 </style>
