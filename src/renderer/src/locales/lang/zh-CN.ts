@@ -49,8 +49,8 @@ export default {
     select: '选择',
     confirm: '确认',
     ok: '确定',
-    quickCommandOn: '快速命令(已开)',
-    quickCommand: '快速命令',
+    quickCommandOn: '快捷命令(已开)',
+    quickCommand: '快捷命令',
     add: '添加',
     all: '全部'
   },
