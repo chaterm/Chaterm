@@ -351,7 +351,7 @@ onMounted(async () => {
     if (updateTimeout) {
       clearTimeout(updateTimeout)
     }
-    if (currentIsUserCall || !isEditorMode.value) {
+    if (currentIsUserCall || terminalMode.value === 'none') {
       updateTerminalState(JSON.stringify(data).endsWith(startStr.value), enterPress.value)
     }
 
@@ -362,7 +362,7 @@ onMounted(async () => {
       highLightFlag = false
     }
     // 条件2, 进入编辑模式下，不走highlight
-    if (isEditorMode.value) {
+    if (terminalMode.value !== 'none') {
       highLightFlag = false
     }
     // 条件3, 高亮触发的写入，不走highlight
@@ -383,9 +383,9 @@ onMounted(async () => {
     // let stripAnsiData =  stripAnsi(data)
     //   .replace(/[\x00-\x09\x0B\x0C\x0E-\x1F\x7F]/g, '')
     //   .endsWith(startStr.value)
-    if (data.indexOf(startStr.value) !== -1 && startStr.value != '') {
-      highLightFlag = false
-    }
+    // if (data.indexOf(startStr.value) !== -1 && startStr.value != '') {
+    //   highLightFlag = false
+    // }
     // if (suggestionEnter.value) {
     //   highLightFlag = true
     //   suggestionEnter.value = false
@@ -493,22 +493,13 @@ onMounted(async () => {
     })
   }
 })
-const getCmdList = async (terminalId) => {
-  const data = await api.sshConnExec({
-    cmd: `ls /usr/bin/ /usr/local/bin/ /usr/sbin/ /usr/local/sbin/ /bin/ | sort | uniq`,
-    id: terminalId
-  })
-  if (data.stdout == '' || data.stderr !== '') {
-    commands.value = shellCommands
-  } else {
-    // 合并系统命令和自定义命令，然后去重
-    const systemCommands = data.stdout.split('\n').filter(Boolean)
-    const allCommands = [...systemCommands, ...shellCommands]
-    // 使用 Set 进行去重，然后转回数组并排序
-    commands.value = [...new Set(allCommands)].sort()
-    console.log(commands.value, 'commands.value')
-  }
+const getCmdList = async (systemCommands) => {
+  // 合并系统命令和自定义命令，然后去重
+  const allCommands = [...systemCommands, ...shellCommands]
+  // 使用 Set 进行去重，然后转回数组并排序
+  commands.value = [...new Set(allCommands)].sort()
 }
+
 onBeforeUnmount(() => {
   window.removeEventListener('resize', handleResize)
   inputManager.unregisterInstances(connectionId.value)
@@ -776,8 +767,18 @@ const connectSSH = async () => {
       privateKey: privateKey.value,
       passphrase: passphrase.value
     })
-    const connectReadyData = await api.connectReadyData(connectionId.value)
-    connectionHasSudo.value = connectReadyData?.hasSudo
+
+    api
+      .connectReadyData(connectionId.value)
+      .then((connectReadyData) => {
+        connectionHasSudo.value = connectReadyData?.hasSudo
+        getCmdList(connectReadyData?.commandList)
+      })
+      .catch(() => {
+        connectionHasSudo.value = false
+        getCmdList([])
+      })
+
     if (result.status === 'connected') {
       let welcome = '\x1b[38;2;22;119;255m' + name + ', 欢迎您使用智能堡垒机Chaterm \x1b[m\r\n'
       if (configStore.getUserConfig.language == 'en-US') {
@@ -790,9 +791,7 @@ const connectSSH = async () => {
 
       // 设置输入处理
       setupTerminalInput()
-      getCmdList(connectionId.value)
       handleResize()
-
       // 连接建立后再次进行自适应调整，确保尺寸正确
       setTimeout(() => {
         handleResize()
@@ -824,7 +823,7 @@ const startShell = async () => {
       isConnected.value = true
       const removeDataListener = api.onShellData(connectionId.value, (response: MarkedResponse) => {
         // 验证编辑模式
-        detectEditorMode(response)
+        checkEditorMode(response)
         handleServerOutput(response)
       })
       const removeErrorListener = api.onShellError(connectionId.value, (data) => {
@@ -832,7 +831,10 @@ const startShell = async () => {
       })
       const removeCloseListener = api.onShellClose(connectionId.value, () => {
         isConnected.value = false
+        cusWrite?.('\r\nConnection closed.\r\n\r\n')
+        cusWrite?.(`Disconnected from remote host(${props.serverInfo.title}) at ${new Date().toDateString()}\r\n`)
       })
+
       cleanupListeners.value = [removeDataListener, removeErrorListener, removeCloseListener]
     } else {
       terminal.value?.writeln(
@@ -1496,7 +1498,7 @@ const setupTerminalInput = () => {
       }
       suggestions.value = []
       activeSuggestion.value = -1
-    } else if (JSON.stringify(data) === '"\\u001b[A"') {
+    } else if (JSON.stringify(data) === '"\\u001b[A"' && terminalMode.value === 'none') {
       if (suggestions.value.length) {
         if (data == '\u001b[A') {
           if (activeSuggestion.value > 0) {
@@ -1508,7 +1510,7 @@ const setupTerminalInput = () => {
       } else {
         sendMarkedData(data, 'Chaterm:[A')
       }
-    } else if (JSON.stringify(data) === '"\\u001b[B"') {
+    } else if (JSON.stringify(data) === '"\\u001b[B"' && terminalMode.value === 'none') {
       if (suggestions.value.length) {
         if (data == '\u001b[B') {
           if (activeSuggestion.value < suggestions.value.length - 1) {
@@ -1573,7 +1575,32 @@ const matchPattern = (data: number[], pattern: number[]): boolean => {
 }
 
 // 判断是否进入编辑模式
-const detectEditorMode = (response: MarkedResponse): void => {
+type TerminalMode = 'none' | 'alternate' | 'ui'
+const terminalMode = ref<TerminalMode>('none')
+
+const checkFullScreenClear = (data: string) => {
+  const isSimpleCtrlL = data.includes('\x1b[H\x1b[2J')
+  if (isSimpleCtrlL) return false
+  const clearScreenPatterns = [
+    /\x1b\[H\x1b\[J/,
+    /\x1b\[2J\x1b\[H/,
+    /\x1b\[H.*?\x1b\[J/s,
+    /\x1b\[J.*?\x1b\[H/s,
+    /\x1b\[\d+;\d+H.*?\x1b\[J/s,
+    /\x1b\[2J(?:\x1b\[H)?/
+  ]
+  return clearScreenPatterns.some((pattern) => pattern.test(data))
+}
+
+const checkHeavyUiStyle = (data: string) => {
+  const moveCount = (data.match(/\x1b\[\d+;\d+H/g) || []).length
+  const clearCount = (data.match(/\x1b\[\d*K/g) || []).length
+  const hasTable = /NUM\s+NAME\s+IP:PORT/.test(data) || /=+/.test(data)
+
+  return moveCount >= 5 && clearCount >= 5 && hasTable
+}
+
+const checkEditorMode = (response: MarkedResponse): void => {
   let bytes: number[] = []
   if (response.data) {
     if (typeof response.data === 'string') {
@@ -1594,14 +1621,18 @@ const detectEditorMode = (response: MarkedResponse): void => {
   dataBuffer.value.push(...bytes)
 
   // 限制缓冲区大小
-  if (dataBuffer.value.length > 2000) {
-    dataBuffer.value = dataBuffer.value.slice(-1000)
+  if (dataBuffer.value.length > 4000) {
+    dataBuffer.value = dataBuffer.value.slice(-2000)
   }
+
+  const buffer = dataBuffer.value
+  const text = new TextDecoder().decode(new Uint8Array(buffer))
+
   // 检测进入编辑器模式
-  if (!isEditorMode.value) {
+  if (terminalMode.value === 'none') {
     for (const seq of EDITOR_SEQUENCES.enter) {
       if (matchPattern(dataBuffer.value, seq.pattern)) {
-        isEditorMode.value = true
+        terminalMode.value = 'alternate'
         // 进入编辑模式时进行自适应调整
         nextTick(() => {
           handleResize()
@@ -1611,10 +1642,10 @@ const detectEditorMode = (response: MarkedResponse): void => {
     }
   }
   // 检测退出编辑器模式
-  if (isEditorMode.value) {
+  if (terminalMode.value === 'alternate') {
     for (const seq of EDITOR_SEQUENCES.exit) {
       if (matchPattern(dataBuffer.value, seq.pattern)) {
-        isEditorMode.value = false
+        terminalMode.value = 'none'
         dataBuffer.value = []
         // 退出编辑模式时进行自适应调整
         nextTick(() => {
@@ -1622,6 +1653,35 @@ const detectEditorMode = (response: MarkedResponse): void => {
         })
         return
       }
+    }
+  }
+
+  if (terminalMode.value === 'none') {
+    if (checkFullScreenClear(text) || checkHeavyUiStyle(text)) {
+      terminalMode.value = 'ui'
+      nextTick(handleResize)
+      return terminalMode.value
+    }
+  }
+
+  if (terminalMode.value === 'ui') {
+    let score = 0
+    // Bracketed paste 开启
+    if (text.includes('\x1b[?2004h')) score += 2
+    // 8-bit input 模式（CentOS等）
+    if (text.includes('\x1b[?1034h')) score += 2
+    // 设置终端标题栏
+    if (text.includes('\x1b]0;') && text.includes('\x07')) score += 1
+    // 光标跳转序列是否消失
+    const commonJumps = ['\x1b[23;1H', '\x1b[39;1H', '\x1b[11;1H']
+    const cursorGone = !commonJumps.some((seq) => text.includes(seq))
+    if (cursorGone) score += 1
+
+    if (score >= 3) {
+      terminalMode.value = 'none'
+      dataBuffer.value = []
+      nextTick(handleResize)
+      return terminalMode.value
     }
   }
 }
