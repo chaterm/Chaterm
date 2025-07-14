@@ -13,8 +13,30 @@ files:
   - '!node_modules/**/*.ts'
   - '!node_modules/**/*.map'
   - '!node_modules/**/test/**'
+  - '!node_modules/**/tests/**'
   - '!node_modules/**/docs/**'
+  - '!node_modules/**/documentation/**'
   - '!node_modules/**/examples/**'
+  - '!node_modules/**/.github/**'
+  - '!node_modules/**/README.md'
+  - '!node_modules/**/readme.md'
+  - '!node_modules/**/CHANGELOG.md'
+  - '!node_modules/**/changelog.md'
+  - '!node_modules/**/LICENSE*'
+  - '!node_modules/**/license*'
+  - '!node_modules/**/*.d.ts'
+  - '!node_modules/**/*.flow'
+  - '!node_modules/**/.DS_Store'
+  - '!node_modules/**/Thumbs.db'
+  - '!resources/demo.mp4'
+  - '!resources/demo.jpg'
+  - '!resources/deploy.jpg'
+  - '!node_modules/**/webpack/**'
+  - '!node_modules/**/rollup/**'
+  - '!node_modules/**/vite/**'
+  - '!node_modules/**/@types/**'
+  - '!node_modules/monaco-editor/esm/vs/language/!(typescript|javascript|json|css|html)/**'
+  - '!node_modules/monaco-editor/min/vs/language/!(typescript|javascript|json|css|html)/**'
 extraResources:
   - from: 'src/renderer/src/assets/db/'
     to: 'db/'
@@ -50,16 +72,9 @@ dmg:
 linux:
   target:
     - AppImage
-    - snap
     - deb
-  maintainer: electronjs.org
+  maintainer: chaterm.ai
   category: Utility
-  artifactName: ${name}-${version}-${arch}.${ext}
-appImage:
-  artifactName: ${name}-${version}-${arch}.${ext}
-snap:
-  artifactName: ${name}-${version}-${arch}.${ext}
-deb:
   artifactName: ${name}-${version}-${arch}.${ext}
 npmRebuild: true
 publish:
