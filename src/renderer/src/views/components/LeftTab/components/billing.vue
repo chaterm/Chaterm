@@ -126,9 +126,9 @@ const getUserInfo = () => {
 
 .subscription-type {
   font-weight: 500;
-  color: #eee;
+  color: var(--text-color);
   padding: 2px 10px;
-  background-color: #2a2a2a;
+  background-color: var(--bg-color-tertiary);
   border-radius: 4px;
   font-size: 12px;
   display: inline-block;
