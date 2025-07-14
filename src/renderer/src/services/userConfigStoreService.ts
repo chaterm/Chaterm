@@ -125,6 +125,7 @@ export class UserConfigStoreService {
   async saveConfig(config: Partial<UserConfig>): Promise<void> {
     try {
       await this.ensureDBReady()
+      const defaultConfig = await this.getConfig()
 
       return new Promise((resolve, reject) => {
         if (!this.db) {
@@ -134,7 +135,7 @@ export class UserConfigStoreService {
 
         try {
           const sanitizedConfig: UserConfig = {
-            ...this.getDefaultConfig(),
+            ...defaultConfig,
             ...config,
             id: 'userConfig',
             updatedAt: Date.now()

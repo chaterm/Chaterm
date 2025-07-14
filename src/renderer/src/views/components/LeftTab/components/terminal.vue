@@ -118,13 +118,7 @@ const saveConfig = async () => {
       terminalType: userConfig.value.terminalType
     }
 
-    const existingConfig = (await userConfigStore.getConfig()) || {}
-    const mergedConfig = {
-      ...existingConfig,
-      ...configToStore
-    }
-
-    await userConfigStore.saveConfig(mergedConfig)
+    await userConfigStore.saveConfig(configToStore)
   } catch (error) {
     console.error('Failed to save config:', error)
     notification.error({
