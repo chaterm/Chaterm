@@ -1428,6 +1428,9 @@ onMounted(async () => {
   let lastMessage: any = null
   let lastPartialMessage: any = null
   removeListener = (window.api as any).onMainMessage((message: any) => {
+    // const responseStartTime = new Date().toLocaleString()
+    // console.log(`[AI请求耗时分析] 2. Renderer端AI收到主进程消息时间: ${responseStartTime}`)
+
     console.log('Received main process message:', message.type, message)
     if (message?.type === 'partialMessage') {
       if (message.partialMessage.type === 'ask' && message.partialMessage.ask === 'completion_result') {
@@ -1540,6 +1543,10 @@ onUnmounted(() => {
 // 添加发送消息到主进程的方法
 const sendMessageToMain = async (userContent: string, sendType: string) => {
   try {
+    // // 记录AI消息发送开始时间,时间格式化为yyyy-MM-dd HH:mm:ss
+    // const sendStartTime = new Date().toLocaleString()
+    // console.log(`[AI请求耗时分析] 1. Renderer端AI发送消息开始时间: ${sendStartTime}`)
+
     let message
     // 只发送hosts中IP对应的cwd键值对
     const filteredCwd = new Map()
@@ -3572,5 +3579,7 @@ const handleFeedback = async (message: ChatMessage, type: 'like' | 'dislike') =>
   width: 16px;
   height: 16px;
   margin-right: 6px;
+  filter: var(--icon-filter);
+  transition: filter 0.2s ease;
 }
 </style>
