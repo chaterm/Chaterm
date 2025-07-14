@@ -75,7 +75,6 @@ const handleRequestKeyboardInteractive = (event, id, prompts, finish) => {
             }
           } else {
             KeyboardInteractiveAttempts.delete(id)
-            console.log('发送成功事件:', { id })
             event.sender.send('ssh:keyboard-interactive-result', { id, status: 'success' })
             // finish(responses)
           }
@@ -95,6 +94,153 @@ const handleRequestKeyboardInteractive = (event, id, prompts, finish) => {
   })
 }
 
+const attemptSecondaryConnection = (event, connectionInfo) => {
+  const { id, host, port, username, password, privateKey, passphrase } = connectionInfo
+  const conn = new Client()
+  const connectConfig: any = {
+    host,
+    port: port || 22,
+    username,
+    keepaliveInterval: 10000,
+    readyTimeout: KeyboardInteractiveTimeout
+  }
+
+  if (privateKey) {
+    connectConfig.privateKey = privateKey
+    if (passphrase) connectConfig.passphrase = passphrase
+  } else if (password) {
+    connectConfig.password = password
+  }
+
+  // 发送初始化命令结果
+  const readyResult: {
+    hasSudo?: boolean
+    commandList?: string[]
+  } = {}
+
+  let execCount = 0
+  const totalCounts = 2
+
+  const sendReadyData = () => {
+    execCount++
+    if (execCount === totalCounts) {
+      event.sender.send(`ssh:connect:data:${id}`, readyResult)
+    }
+  }
+
+  const sftpAsync = (conn) => {
+    return new Promise<void>((resolve) => {
+      conn.sftp((err, sftp) => {
+        if (err || !sftp) {
+          console.log(`SFTPCheckError [${id}]`, err)
+          connectionStatus.set(id, {
+            sftpAvailable: false,
+            sftpError: err?.message || 'SFTP对象为空'
+          })
+          resolve()
+        } else {
+          console.log(`startSftp [${id}]`)
+          sftp.readdir('.', (readDirErr) => {
+            if (readDirErr) {
+              console.log(`SFTPCheckFailed [${id}]`)
+              connectionStatus.set(id, {
+                sftpAvailable: false,
+                sftpError: readDirErr.message
+              })
+              sftp.end()
+            } else {
+              console.log(`SFTPCheckSuccess [${id}]`)
+              sftpConnections.set(id, sftp)
+              connectionStatus.set(id, { sftpAvailable: true })
+            }
+            resolve()
+          })
+        }
+      })
+    })
+  }
+
+  conn
+    .on('ready', async () => {
+      // 执行 sftp 检测
+      try {
+        await sftpAsync(conn)
+      } catch (e) {
+        connectionStatus.set(id, {
+          sftpAvailable: false,
+          sftpError: 'SFTP连接失败'
+        })
+      }
+
+      // 执行 sudo 检测
+      try {
+        conn.exec('sudo -n true 2>/dev/null && echo true || echo false', (err, stream) => {
+          if (err) {
+            readyResult.hasSudo = false
+            sendReadyData()
+          } else {
+            stream
+              .on('data', (data: Buffer) => {
+                const result = data.toString().trim()
+                readyResult.hasSudo = result === 'true'
+              })
+              .stderr.on('data', () => {
+                readyResult.hasSudo = false
+              })
+              .on('close', () => {
+                sendReadyData()
+              })
+          }
+        })
+      } catch (e) {
+        readyResult.hasSudo = false
+        sendReadyData()
+      }
+
+      // 执行 cmd 检测
+      try {
+        let stdout = ''
+        let stderr = ''
+        conn.exec('ls /usr/bin/ /usr/local/bin/ /usr/sbin/ /usr/local/sbin/ /bin/ | sort | uniq', (err, stream) => {
+          if (err) {
+            readyResult.commandList = []
+            sendReadyData()
+          } else {
+            stream
+              .on('data', (data: Buffer) => {
+                stdout += data.toString()
+              })
+              .stderr.on('data', (data: Buffer) => {
+                stderr += data.toString()
+              })
+              .on('close', () => {
+                if (stderr) {
+                  readyResult.commandList = []
+                } else {
+                  readyResult.commandList = stdout.split('\n').filter(Boolean)
+                }
+                sendReadyData()
+              })
+          }
+        })
+      } catch (e) {
+        readyResult.commandList = []
+        sendReadyData()
+      }
+    })
+    .on('error', (err) => {
+      readyResult.hasSudo = false
+      readyResult.commandList = []
+      sendReadyData()
+      connectionStatus.set(id, {
+        sftpAvailable: false,
+        sftpError: err.message
+      })
+    })
+
+  conn.connect(connectConfig)
+}
+
 const handleAttemptConnection = (event, connectionInfo, resolve, reject, retryCount) => {
   const { id, host, port, username, password, privateKey, passphrase } = connectionInfo
   retryCount++
@@ -106,60 +252,13 @@ const handleAttemptConnection = (event, connectionInfo, resolve, reject, retryCo
   conn.on('ready', () => {
     sshConnections.set(id, conn) // 保存连接对象
     connectionStatus.set(id, { isVerified: true })
-    // 建立保存sftp
-    conn.sftp((err, sftp) => {
-      if (err || !sftp) {
-        connectionStatus.set(id, {
-          isVerified: true,
-          sftpAvailable: false,
-          sftpError: err?.message || 'SFTP对象为空'
-        })
-        return
-      }
-      // 测试sftp连接是否真正可用
-      sftp.readdir('.', (testErr) => {
-        if (testErr) {
-          console.error(`SFTPCheckFilaed [${id}]:`, testErr.message)
-          connectionStatus.set(id, {
-            sftpAvailable: false,
-            sftpError: testErr.message
-          })
-          sftp.end()
-        } else {
-          sftpConnections.set(id, sftp)
-          connectionStatus.set(id, {
-            sftpAvailable: true
-          })
-          console.log(`SFTPCheckSuccess [${id}]`)
-        }
-      })
-    })
     connectionEvents.emit(`connection-status-changed:${id}`, { isVerified: true })
-    // 检查是否有 sudo 权限
-    conn.exec('sudo -n true 2>/dev/null && echo true || echo  false', (err, stream) => {
-      if (err) {
-        event.sender.send(`ssh:connect:data:${id}`, { hasSudo: false })
-      }
-      stream
-        .on('close', () => {
-          event.sender.send(`ssh:connect:data:${id}`, { hasSudo: false })
-        })
-        .on('data', (data) => {
-          event.sender.send(`ssh:connect:data:${id}`, {
-            hasSudo: data.toString().trim() === 'true'
-          })
-        })
-        .stderr.on('data', () => {
-          event.sender.send(`ssh:connect:data:${id}`, { hasSudo: false })
-        })
-    })
-
+    attemptSecondaryConnection(event, connectionInfo)
     resolve({ status: 'connected', message: '连接成功' })
   })
 
   conn.on('error', (err) => {
     connectionStatus.set(id, { isVerified: false })
-    console.log('err set ')
 
     connectionEvents.emit(`connection-status-changed:${id}`, { isVerified: false })
     if (err.level === 'client-authentication' && KeyboardInteractiveAttempts.has(id)) {
@@ -171,6 +270,7 @@ const handleAttemptConnection = (event, connectionInfo, resolve, reject, retryCo
         reject(new Error('最大重试次数已达到，认证失败'))
       }
     } else {
+      console.log('Connection error:', err)
       reject(new Error(err.message))
     }
   })
@@ -243,50 +343,58 @@ export const registerSSHHandlers = () => {
       return { status: 'error', message: '未连接到服务器' }
     }
     return new Promise((resolve, reject) => {
-      conn.shell((err, stream) => {
-        if (err) {
-          reject(new Error(err.message))
-          return
-        }
-
-        shellStreams.set(id, stream)
-        stream.on('data', (data) => {
-          const markedCmd = markedCommands.get(id)
-          if (markedCmd !== undefined) {
-            markedCmd.output += data.toString()
-            markedCmd.lastActivity = Date.now()
-            if (markedCmd.idleTimer) {
-              clearTimeout(markedCmd.idleTimer)
-            }
-            markedCmd.idleTimer = setTimeout(() => {
-              if (markedCmd && !markedCmd.completed) {
-                markedCmd.completed = true
-                _event.sender.send(`ssh:shell:data:${id}`, {
-                  data: markedCmd.output,
-                  marker: markedCmd.marker
-                })
-                markedCommands.delete(id)
-              }
-            }, 100)
-          } else {
-            _event.sender.send(`ssh:shell:data:${id}`, {
-              data: data.toString(),
-              marker: ''
-            })
+      conn.shell(
+        {
+          //TODO: 配置项
+          term: 'xterm-256color'
+        },
+        (err, stream) => {
+          if (err) {
+            console.log('start shell error:', err)
+            reject(new Error(err.message))
+            return
           }
-        })
 
-        stream.stderr.on('data', (data) => {
-          _event.sender.send(`ssh:shell:stderr:${id}`, data.toString())
-        })
+          shellStreams.set(id, stream)
+          stream.on('data', (data) => {
+            const markedCmd = markedCommands.get(id)
+            if (markedCmd !== undefined) {
+              markedCmd.output += data.toString()
+              markedCmd.lastActivity = Date.now()
+              if (markedCmd.idleTimer) {
+                clearTimeout(markedCmd.idleTimer)
+              }
+              markedCmd.idleTimer = setTimeout(() => {
+                if (markedCmd && !markedCmd.completed) {
+                  markedCmd.completed = true
+                  _event.sender.send(`ssh:shell:data:${id}`, {
+                    data: markedCmd.output,
+                    marker: markedCmd.marker
+                  })
+                  markedCommands.delete(id)
+                }
+              }, 10)
+            } else {
+              _event.sender.send(`ssh:shell:data:${id}`, {
+                data: data.toString(),
+                marker: ''
+              })
+            }
+          })
 
-        stream.on('close', () => {
-          _event.sender.send(`ssh:shell:close:${id}`)
-          shellStreams.delete(id)
-        })
+          stream.stderr.on('data', (data) => {
+            _event.sender.send(`ssh:shell:stderr:${id}`, data.toString())
+          })
 
-        resolve({ status: 'success', message: 'Shell已启动' })
-      })
+          stream.on('close', () => {
+            console.log(`Shell stream closed for id=${id}`)
+            _event.sender.send(`ssh:shell:close:${id}`)
+            shellStreams.delete(id)
+          })
+
+          resolve({ status: 'success', message: 'Shell已启动' })
+        }
+      )
     })
   })
 
@@ -330,23 +438,39 @@ export const registerSSHHandlers = () => {
   ipcMain.handle('ssh:conn:exec', async (_event, { id, cmd }) => {
     const conn = sshConnections.get(id)
     if (!conn) {
-      throw new Error(`No SSH connection for id=${id}`)
+      return {
+        success: false,
+        error: `No SSH connection for id=${id}`,
+        stdout: '',
+        stderr: '',
+        exitCode: undefined,
+        exitSignal: undefined
+      }
     }
 
-    return new Promise<ExecResult>((resolve, reject) => {
+    return new Promise((resolve) => {
       conn.exec(cmd, (err, stream) => {
-        if (err) return reject(err)
+        if (err) {
+          return resolve({
+            success: false,
+            error: err.message,
+            stdout: '',
+            stderr: '',
+            exitCode: undefined,
+            exitSignal: undefined
+          })
+        }
 
         let stdout = ''
         let stderr = ''
-        let exitCode: number | undefined
-        let exitSignal: string | undefined
+        let exitCode = undefined
+        let exitSignal = undefined
 
-        stream.on('data', (chunk: Buffer) => {
+        stream.on('data', (chunk) => {
           stdout += chunk.toString()
         })
-        stream.stderr.on('data', (chunk: Buffer) => {
-          // 收集输出
+
+        stream.stderr.on('data', (chunk) => {
           stderr += chunk.toString()
         })
 
@@ -359,17 +483,30 @@ export const registerSSHHandlers = () => {
           const finalCode = exitCode !== undefined ? exitCode : code
           const finalSignal = exitSignal !== undefined ? exitSignal : signal
 
-          // 无论成功还是失败都返回结果
           resolve({
+            success: true,
             stdout,
             stderr,
             exitCode: finalCode ?? undefined,
             exitSignal: finalSignal ?? undefined
           })
         })
+
+        // 处理stream错误
+        stream.on('error', (streamErr) => {
+          resolve({
+            success: false,
+            error: streamErr.message,
+            stdout,
+            stderr,
+            exitCode: undefined,
+            exitSignal: undefined
+          })
+        })
       })
     })
   })
+
   ipcMain.handle('ssh:sftp:list', async (_e, { path, id }) => {
     if (!sftpConnections.has(id)) {
       return Promise.reject(new Error(`no sftp conn for ${id}`))
