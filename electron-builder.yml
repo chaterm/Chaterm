@@ -73,14 +73,8 @@ linux:
   target:
     - AppImage
     - deb
-  maintainer: electronjs.org
+  maintainer: chaterm.ai
   category: Utility
-  artifactName: ${name}-${version}-${arch}.${ext}
-  compression: xz
-appImage:
-  artifactName: ${name}-${version}-${arch}.${ext}
-  compression: xz
-deb:
   artifactName: ${name}-${version}-${arch}.${ext}
 npmRebuild: true
 publish:
