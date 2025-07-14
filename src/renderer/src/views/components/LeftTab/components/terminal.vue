@@ -18,6 +18,24 @@
           </template>
         </a-form-item>
         <a-form-item
+          :label="$t('user.terminalType')"
+          class="user_my-ant-form-item"
+        >
+          <a-select
+            v-model:value="userConfig.terminalType"
+            style="min-width: 15px; max-width: 150px; width: 33%; text-align: left"
+          >
+            <a-select-option value="xterm">xterm</a-select-option>
+            <a-select-option value="xterm-256color">xterm-256color</a-select-option>
+            <a-select-option value="vt102">vt102</a-select-option>
+            <a-select-option value="vt220">vt220</a-select-option>
+            <a-select-option value="vt320">vt320</a-select-option>
+            <a-select-option value="linux">linux</a-select-option>
+            <a-select-option value="scoansi">scoansi</a-select-option>
+            <a-select-option value="ansi">ansi</a-select-option>
+          </a-select>
+        </a-form-item>
+        <a-form-item
           :label="$t('user.fontSize')"
           class="user_my-ant-form-item"
         >
@@ -68,7 +86,8 @@ import { userConfigStore } from '@/services/userConfigStoreService'
 const userConfig = ref({
   fontSize: 12,
   scrollBack: 1000,
-  cursorStyle: 'block'
+  cursorStyle: 'block',
+  terminalType: 'xterm'
 })
 
 // 加载保存的配置
@@ -95,7 +114,8 @@ const saveConfig = async () => {
     const configToStore = {
       fontSize: userConfig.value.fontSize,
       scrollBack: userConfig.value.scrollBack,
-      cursorStyle: userConfig.value.cursorStyle
+      cursorStyle: userConfig.value.cursorStyle,
+      terminalType: userConfig.value.terminalType
     }
 
     const existingConfig = (await userConfigStore.getConfig()) || {}
@@ -291,5 +311,20 @@ onMounted(async () => {
 .telemetry-description a:hover {
   color: #40a9ff;
   text-decoration: underline;
+}
+
+:deep(.ant-select) {
+  .ant-select-selector {
+    background-color: var(--bg-color-secondary) !important;
+    border: 1px solid var(--border-color);
+    color: var(--text-color);
+  }
+
+  &.ant-select-focused {
+    .ant-select-selector {
+      background-color: var(--bg-color-secondary) !important;
+      border-color: #1890ff !important;
+    }
+  }
 }
 </style>
