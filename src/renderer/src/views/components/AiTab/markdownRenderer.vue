@@ -1525,7 +1525,8 @@ code {
   width: 16px;
   height: 16px;
   vertical-align: middle;
-  filter: invert(0.25);
+  filter: var(--icon-filter, invert(0.25));
+  transition: filter 0.2s ease;
 }
 
 .copy-icon {

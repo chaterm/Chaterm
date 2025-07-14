@@ -1132,6 +1132,8 @@ const handleSave = async (provider) => {
   width: 16px;
   height: 16px;
   margin-right: 6px;
+  filter: var(--icon-filter, invert(0.25));
+  transition: filter 0.2s ease;
 }
 
 .model-list {
