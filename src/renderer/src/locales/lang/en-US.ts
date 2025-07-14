@@ -250,7 +250,8 @@ export default {
     actions: {
       openSettings: 'Open Settings',
       toggleLeftSidebar: 'Toggle Left Sidebar',
-      toggleRightSidebar: 'Toggle Right Sidebar'
+      toggleRightSidebar: 'Toggle Right Sidebar',
+      sendOrToggleAi: 'Send to AI / Toggle AI Sidebar'
     }
   },
   personal: {

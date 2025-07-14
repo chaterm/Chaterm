@@ -40,5 +40,16 @@ export const shortcutActions: Omit<ShortcutAction, 'name'>[] = [
     handler: () => {
       eventBus.emit('toggleSideBar', 'right')
     }
+  },
+  {
+    id: 'sendOrToggleAi',
+    nameKey: 'shortcuts.actions.sendOrToggleAi',
+    defaultKey: {
+      mac: 'Command+L',
+      other: 'Ctrl+L'
+    },
+    handler: () => {
+      eventBus.emit('sendOrToggleAiFromTerminal')
+    }
   }
 ]

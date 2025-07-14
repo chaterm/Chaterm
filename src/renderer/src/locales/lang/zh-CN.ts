@@ -252,7 +252,8 @@ export default {
     actions: {
       openSettings: '打开设置',
       toggleLeftSidebar: '切换左侧边栏',
-      toggleRightSidebar: '切换右侧边栏'
+      toggleRightSidebar: '切换右侧边栏',
+      sendOrToggleAi: '发送到AI / 切换AI侧边栏'
     }
   },
   personal: {
