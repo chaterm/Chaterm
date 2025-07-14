@@ -1403,7 +1403,11 @@ onMounted(async () => {
     if (message?.type === 'partialMessage') {
       if (message.partialMessage.type === 'ask' && message.partialMessage.ask === 'completion_result') {
         showNewTaskButton.value = true
+        responseLoading.value = false
+        showCancelButton.value = false
         return
+      } else {
+        showNewTaskButton.value = false
       }
       // handle model error -- api_req_failed 或 ssh_con_failed
       if (
@@ -1566,6 +1570,7 @@ watch(
 watch(
   () => chatHistory.length,
   () => {
+    // console.log('watch  chatHistory.length')
     buttonsDisabled.value = false
     resumeDisabled.value = false
   }
@@ -1960,7 +1965,23 @@ const scrollToBottom = () => {
   // 如果正在处理折叠操作，则不执行滚动
   if (isHandlingCollapse.value) {
     // console.log('正在处理折叠操作，跳过自动滚动')
+    // console.log('1.scrollToBottom isHandlingCollapse')
+    handleCollapseChange()
     return
+  }
+
+  // 检查滚动条是否接近底部（阈值为20px）
+  if (chatContainer.value) {
+    const scrollPosition = chatContainer.value.scrollTop + chatContainer.value.clientHeight
+    const scrollHeight = chatContainer.value.scrollHeight
+    const isNearBottom = scrollHeight - scrollPosition < 20
+
+    // 如果不接近底部，则不执行滚动
+    if (!isNearBottom) {
+      // console.log('2.scrollToBottom not isNearBottom')
+      handleCollapseChange()
+      return
+    }
   }
 
   // 记录当前容器底部位置
@@ -1980,25 +2001,80 @@ const scrollToBottom = () => {
 }
 
 // 修改 handleCollapseChange 函数
-const handleCollapseChange = () => {
-  // 设置标志，表示正在处理折叠操作
-  isHandlingCollapse.value = true
+const handleCollapseChange = (collapseType = '') => {
+  // console.log('3.handleCollapseChange begin', collapseType)
+  if (collapseType === 'code' || collapseType === 'thinking') {
+    // 设置标志，表示正在处理折叠操作
+    isHandlingCollapse.value = true
+  }
 
   // 折叠完成后，直接调用adjustScrollPosition确保内容可见
   nextTick(() => {
-    adjustScrollPosition()
+    if (chatContainer.value) {
+      // 先检查是否有Monaco编辑器折叠块
+      const codeCollapses = chatContainer.value.querySelectorAll('.code-collapse')
+      if (collapseType === 'code' && codeCollapses.length > 0) {
+        const lastCodeCollapse = codeCollapses[codeCollapses.length - 1]
+        const collapseHeader = lastCodeCollapse.querySelector('.ant-collapse-header')
 
-    // 延迟重置标志，确保在处理完成后才允许自动滚动
+        // 检查是展开还是折叠状态
+        const isCollapsed = lastCodeCollapse.querySelector('.ant-collapse-content-inactive')
+
+        if (collapseHeader) {
+          if (isCollapsed) {
+            // 如果是折叠状态，将 Monaco 编辑器顶部滚动到窗口中间，使用平滑滚动
+            // console.log('4.handleCollapseChange collapseHeader isCollapsed center', isCollapsed)
+            collapseHeader.scrollIntoView({ behavior: 'smooth', block: 'start' })
+            return
+          } else {
+            // console.log('5.handleCollapseChange collapseHeader normal adjustScrollPosition', isCollapsed)
+            adjustScrollPosition()
+            return
+          }
+        }
+      }
+
+      // 检查是否有thinking折叠块
+      const thinkingCollapses = chatContainer.value.querySelectorAll('.thinking-collapse')
+      if (collapseType === 'thinking' && thinkingCollapses.length > 0) {
+        const lastThinkingCollapse = thinkingCollapses[thinkingCollapses.length - 1]
+        const thinkingHeader = lastThinkingCollapse.querySelector('.ant-collapse-header')
+
+        // 检查是展开还是折叠状态
+        const isCollapsed = lastThinkingCollapse.querySelector('.ant-collapse-content-inactive')
+
+        if (thinkingHeader) {
+          if (isCollapsed) {
+            // 如果是折叠状态，将thinking顶部滚动到窗口中间，使用平滑滚动
+            // console.log('6.handleCollapseChange thinkingHeader isCollapsed center', isCollapsed)
+            thinkingHeader.scrollIntoView({ behavior: 'smooth', block: 'start' })
+            return
+          } else {
+            // console.log('7.handleCollapseChange thinkingHeader normal adjustScrollPosition', isCollapsed)
+            adjustScrollPosition()
+            return
+          }
+        }
+      }
+      // 如果不存在特殊折叠块，使用普通的滚动逻辑
+      adjustScrollPosition()
+      // console.log('8.handleCollapseChange normal adjustScrollPosition')
+    }
+  })
+  if (collapseType === 'code' || collapseType === 'thinking') {
+    // 延迟重置标志，确保在处理完成
     setTimeout(() => {
       isHandlingCollapse.value = false
-    }, 500)
-  })
+      // console.log('10 adjustScrollPosition collapseType', collapseType)
+    }, 200)
+    adjustScrollPosition()
+  }
 }
 
 // 添加一个专门用于调整折叠后滚动位置的函数
 const adjustScrollPosition = () => {
   if (!chatContainer.value) return
-
+  // if (isHandlingCollapse.value) return
   // 尝试找到最后一条可见消息
   const messages = Array.from(chatContainer.value.querySelectorAll('.message.assistant, .message.user'))
 
@@ -2011,15 +2087,19 @@ const adjustScrollPosition = () => {
     const containerRect = chatContainer.value.getBoundingClientRect()
 
     if (rect.bottom > containerRect.bottom || rect.top < containerRect.top) {
-      // 如果最后一条消息不在视口内，将其滚动到视口中央
-      lastMessage.scrollIntoView({ behavior: 'smooth', block: 'center' })
-      // console.log('将最后一条消息滚动到视口中央')
+      // 如果最后一条消息不在视口内，将其滚动到视口底部，使用平滑滚动
+      // console.log('9.adjustScrollPosition 最后一条消息滚动到窗口底部')
+      lastMessage.scrollIntoView({ behavior: 'smooth', block: 'end' })
+      // console.log('将最后一条消息滚动到视口底部')
     } else {
       // console.log('最后一条消息已在视口内，无需调整')
     }
   } else {
-    // 如果没有消息，滚动到底部
-    chatContainer.value.scrollTop = chatContainer.value.scrollHeight
+    // 如果没有消息，滚动到底部，使用平滑滚动
+    chatContainer.value.scrollTo({
+      top: chatContainer.value.scrollHeight,
+      behavior: 'smooth'
+    })
   }
 }
 
