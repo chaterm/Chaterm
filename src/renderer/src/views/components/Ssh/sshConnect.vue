@@ -1565,6 +1565,10 @@ const setupTerminalInput = () => {
       // 将 Ctrl+L 发送给终端
       sendData(data)
     } else if (data === '\x1b') {
+      // 通过ref直接关闭菜单栏
+      if (contextmenu.value && typeof contextmenu.value.hide === 'function') {
+        contextmenu.value.hide()
+      }
       // ESC键 - 取消推荐界面
       if (suggestions.value.length) {
         suggestions.value = []
