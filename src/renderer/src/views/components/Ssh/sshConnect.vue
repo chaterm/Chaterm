@@ -349,38 +349,14 @@ onMounted(async () => {
   )
   terminal.value = termInstance
   termInstance?.onKey(handleKeyInput)
-  termInstance?.onSelectionChange(function () {
-    if (termInstance.hasSelection()) {
-      copyText.value = termInstance.getSelection()
-
-      // 自动复制选中内容到粘贴板
-      if (copyText.value.trim()) {
-        navigator.clipboard.writeText(copyText.value.trim()).catch(() => {
-          // 如果 Clipboard API 失败，静默处理或使用备用方法
-          console.warn('Failed to copy to clipboard')
-        })
-      }
-
-      // 计算按钮位置并显示
-      const position = termInstance.getSelectionPosition()
-      if (position && termInstance.getSelection().trim()) {
-        const button = document.getElementById(`${connectionId.value}Button`) as HTMLElement
-        const { y } = position.start
-        const viewportY = termInstance.buffer.active.viewportY
-        const visibleRow = y - viewportY
-        // 获取字符单元尺寸
-        const cellHeight = (termInstance as any)._core._renderService.dimensions.css.cell.height
-        // 将字符坐标转换为像素坐标
-        const top = visibleRow - 2 > 0 ? (visibleRow - 2) * cellHeight : 0
-        button.style.right = `26px`
-        button.style.top = `${top}px`
-        showAiButton.value = true
-      }
-    } else {
-      showAiButton.value = false
+  termInstance?.onSelectionChange(() => updateSelectionButtonPosition())
+  nextTick(() => {
+    // 监听 xterm 内部 viewport 的滚动
+    const viewport = terminalElement.value?.querySelector('.xterm-viewport')
+    if (viewport) {
+      viewport.addEventListener('scroll', () => updateSelectionButtonPosition())
     }
   })
-
   // Add theme change listener
   eventBus.on('updateTheme', (theme) => {
     if (terminal.value) {
@@ -656,6 +632,11 @@ onBeforeUnmount(() => {
   if (typeof removeOtpResultListener === 'function') removeOtpResultListener()
   if (isConnected.value) {
     disconnectSSH()
+  }
+
+  const viewport = terminalElement.value?.querySelector('.xterm-viewport')
+  if (viewport) {
+    viewport.removeEventListener('scroll', () => updateSelectionButtonPosition())
   }
 })
 const getFileExt = (filePath: string) => {
@@ -2551,6 +2532,44 @@ const isCollectingOutput = ref(false)
 // 删除键输入限制相关变量
 const lastDeleteTime = ref(0)
 const DELETE_MIN_INTERVAL = 0 // 删除键最小输入间隔50ms
+
+function updateSelectionButtonPosition() {
+  if (!terminal.value) return
+  const termInstance = terminal.value
+  if (!termInstance.hasSelection()) {
+    showAiButton.value = false
+    return
+  }
+  const position = termInstance.getSelectionPosition()
+  if (position && termInstance.getSelection().trim()) {
+    const button = document.getElementById(`${connectionId.value}Button`) as HTMLElement
+    if (!button) return
+
+    const viewportY = termInstance.buffer.active.viewportY
+    const viewportRows = termInstance.rows
+    const visibleStart = viewportY
+    const visibleEnd = viewportY + viewportRows - 1
+
+    const { y: startY } = position.start
+    const { y: endY } = position.end
+
+    if ((startY < visibleStart || startY > visibleEnd) && (endY < visibleStart || endY > visibleEnd)) {
+      showAiButton.value = false
+      return
+    }
+
+    const visibleRow = startY - viewportY
+
+    const cellHeight = (termInstance as any)._core._renderService.dimensions.css.cell.height
+
+    const top = visibleRow - 2 > 0 ? (visibleRow - 2) * cellHeight : 0
+    button.style.right = `26px`
+    button.style.top = `${top}px`
+    showAiButton.value = true
+  } else {
+    showAiButton.value = false
+  }
+}
 </script>
 
 <style lang="less">
@@ -2567,7 +2586,7 @@ const DELETE_MIN_INTERVAL = 0 // 删除键最小输入间隔50ms
   height: 100%;
   border-radius: 6px;
   overflow: hidden;
-  padding: 4px 4px 4px 12px;
+  padding: 4px 4px 0px 12px;
   position: relative;
 }
 
