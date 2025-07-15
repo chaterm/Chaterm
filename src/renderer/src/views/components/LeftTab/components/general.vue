@@ -133,16 +133,9 @@ const saveConfig = async () => {
       theme: userConfig.value.theme,
       telemetry: userConfig.value.telemetry
     }
-
-    const existingConfig = (await userConfigStore.getConfig()) || {}
-    const mergedConfig = {
-      ...existingConfig,
-      ...configToStore
-    }
-
-    await userConfigStore.saveConfig(mergedConfig)
-    eventBus.emit('updateWatermark', mergedConfig.watermark)
-    eventBus.emit('updateTheme', mergedConfig.theme)
+    await userConfigStore.saveConfig(configToStore)
+    eventBus.emit('updateWatermark', configToStore.watermark)
+    eventBus.emit('updateTheme', configToStore.theme)
   } catch (error) {
     console.error('Failed to save config:', error)
     notification.error({

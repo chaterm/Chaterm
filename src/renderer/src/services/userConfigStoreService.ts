@@ -18,6 +18,8 @@ export interface UserConfig {
   scrollBack: number
   language: string
   cursorStyle: 'bar' | 'block' | 'underline' | undefined
+  middleMouseEvent?: 'paste' | 'contextMenu' | 'none'
+  rightMouseEvent?: 'paste' | 'contextMenu' | 'none'
   watermark: 'open' | 'close' | undefined
   theme: 'dark' | 'light' | undefined
   feature?: number
@@ -76,6 +78,8 @@ export class UserConfigStoreService {
       scrollBack: 1000,
       language: 'zh-CN',
       cursorStyle: 'block' as 'block' | 'underline' | 'bar',
+      middleMouseEvent: 'paste' as 'paste' | 'contextMenu' | 'none',
+      rightMouseEvent: 'contextMenu' as 'paste' | 'contextMenu' | 'none',
       watermark: 'open' as 'open' | 'close',
       theme: 'dark' as 'dark' | 'light',
       feature: 0.0,
@@ -125,6 +129,7 @@ export class UserConfigStoreService {
   async saveConfig(config: Partial<UserConfig>): Promise<void> {
     try {
       await this.ensureDBReady()
+      const defaultConfig = await this.getConfig()
 
       return new Promise((resolve, reject) => {
         if (!this.db) {
@@ -134,7 +139,7 @@ export class UserConfigStoreService {
 
         try {
           const sanitizedConfig: UserConfig = {
-            ...this.getDefaultConfig(),
+            ...defaultConfig,
             ...config,
             id: 'userConfig',
             updatedAt: Date.now()
