@@ -73,6 +73,35 @@
             <a-radio value="underline">{{ $t('user.cursorStyleUnderline') }}</a-radio>
           </a-radio-group>
         </a-form-item>
+        <a-form-item
+          :label="$t('user.mouseEvent')"
+          class="user_my-ant-form-item"
+        >
+          <div class="mouse-event-container">
+            <div class="mouse-event-row">
+              <span class="mouse-event-label">{{ $t('user.middleMouseEvent') }}:</span>
+              <a-select
+                v-model:value="userConfig.middleMouseEvent"
+                class="mouse-event-select"
+              >
+                <a-select-option value="none">{{ $t('user.none') }}</a-select-option>
+                <a-select-option value="paste">{{ $t('user.pasteClipboard') }}</a-select-option>
+                <a-select-option value="contextMenu">{{ $t('user.showContextMenu') }}</a-select-option>
+              </a-select>
+            </div>
+            <div class="mouse-event-row">
+              <span class="mouse-event-label">{{ $t('user.rightMouseEvent') }}:</span>
+              <a-select
+                v-model:value="userConfig.rightMouseEvent"
+                class="mouse-event-select"
+              >
+                <a-select-option value="none">{{ $t('user.none') }}</a-select-option>
+                <a-select-option value="paste">{{ $t('user.pasteClipboard') }}</a-select-option>
+                <a-select-option value="contextMenu">{{ $t('user.showContextMenu') }}</a-select-option>
+              </a-select>
+            </div>
+          </div>
+        </a-form-item>
       </a-form>
     </a-card>
   </div>
@@ -87,6 +116,8 @@ const userConfig = ref({
   fontSize: 12,
   scrollBack: 1000,
   cursorStyle: 'block',
+  middleMouseEvent: 'paste',
+  rightMouseEvent: 'contextMenu',
   terminalType: 'xterm'
 })
 
@@ -115,6 +146,8 @@ const saveConfig = async () => {
       fontSize: userConfig.value.fontSize,
       scrollBack: userConfig.value.scrollBack,
       cursorStyle: userConfig.value.cursorStyle,
+      middleMouseEvent: userConfig.value.middleMouseEvent,
+      rightMouseEvent: userConfig.value.rightMouseEvent,
       terminalType: userConfig.value.terminalType
     }
 
@@ -305,6 +338,86 @@ onMounted(async () => {
 .telemetry-description a:hover {
   color: #40a9ff;
   text-decoration: underline;
+}
+
+/* .mouse-event-container {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+} */
+
+.mouse-event-row {
+  margin-bottom: 10px;
+  min-height: 32px;
+}
+
+.mouse-event-label {
+  font-size: 14px;
+  color: var(--text-color);
+  min-width: 110px;
+  text-align: left;
+  opacity: 0.9;
+  margin-right: 10px;
+}
+
+.mouse-event-select {
+  width: 140px;
+}
+
+.mouse-event-select :deep(.ant-select-selector) {
+  background-color: var(--bg-color-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  color: var(--text-color);
+  transition: all 0.3s;
+  height: 32px;
+}
+
+.mouse-event-select :deep(.ant-select-selector:hover) {
+  border-color: #1890ff;
+  background-color: var(--hover-bg-color);
+  background-color: var(--bg-color-secondary);
+}
+
+.mouse-event-select :deep(.ant-select-focused .ant-select-selector),
+.mouse-event-select :deep(.ant-select-selector:focus) {
+  border-color: #1890ff;
+  box-shadow: 0 0 0 2px rgba(24, 144, 255, 0.2);
+  background-color: var(--hover-bg-color);
+  background-color: var(--bg-color-secondary);
+}
+
+.mouse-event-select :deep(.ant-select-selection-item) {
+  color: var(--text-color);
+  font-size: 14px;
+  line-height: 32px;
+}
+
+.mouse-event-select :deep(.ant-select-arrow) {
+  color: var(--text-color);
+  opacity: 0.7;
+}
+
+[data-theme='light'] .mouse-event-select :deep(.ant-select-selector) {
+  background-color: #f5f5f5;
+  border-color: #d9d9d9;
+}
+
+[data-theme='light'] .mouse-event-select :deep(.ant-select-selector:hover),
+[data-theme='light'] .mouse-event-select :deep(.ant-select-focused .ant-select-selector) {
+  background-color: #fafafa;
+  border-color: #1890ff;
+}
+
+[data-theme='dark'] .mouse-event-select :deep(.ant-select-selector) {
+  background-color: #2a2a2a;
+  border-color: #404040;
+}
+
+[data-theme='dark'] .mouse-event-select :deep(.ant-select-selector:hover),
+[data-theme='dark'] .mouse-event-select :deep(.ant-select-focused .ant-select-selector) {
+  background-color: #363636;
+  border-color: #1890ff;
 }
 
 :deep(.ant-select) {
