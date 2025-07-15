@@ -121,9 +121,9 @@ const attemptSecondaryConnection = (event, connectionInfo) => {
   let execCount = 0
   const totalCounts = 2
 
-  const sendReadyData = () => {
+  const sendReadyData = (stopCount) => {
     execCount++
-    if (execCount === totalCounts) {
+    if (execCount === totalCounts || stopCount) {
       event.sender.send(`ssh:connect:data:${id}`, readyResult)
     }
   }
@@ -177,7 +177,7 @@ const attemptSecondaryConnection = (event, connectionInfo) => {
         conn.exec('sudo -n true 2>/dev/null && echo true || echo false', (err, stream) => {
           if (err) {
             readyResult.hasSudo = false
-            sendReadyData()
+            sendReadyData(false)
           } else {
             stream
               .on('data', (data: Buffer) => {
@@ -188,13 +188,13 @@ const attemptSecondaryConnection = (event, connectionInfo) => {
                 readyResult.hasSudo = false
               })
               .on('close', () => {
-                sendReadyData()
+                sendReadyData(false)
               })
           }
         })
       } catch (e) {
         readyResult.hasSudo = false
-        sendReadyData()
+        sendReadyData(false)
       }
 
       // 执行 cmd 检测
@@ -204,7 +204,7 @@ const attemptSecondaryConnection = (event, connectionInfo) => {
         conn.exec('ls /usr/bin/ /usr/local/bin/ /usr/sbin/ /usr/local/sbin/ /bin/ | sort | uniq', (err, stream) => {
           if (err) {
             readyResult.commandList = []
-            sendReadyData()
+            sendReadyData(false)
           } else {
             stream
               .on('data', (data: Buffer) => {
@@ -219,19 +219,19 @@ const attemptSecondaryConnection = (event, connectionInfo) => {
                 } else {
                   readyResult.commandList = stdout.split('\n').filter(Boolean)
                 }
-                sendReadyData()
+                sendReadyData(false)
               })
           }
         })
       } catch (e) {
         readyResult.commandList = []
-        sendReadyData()
+        sendReadyData(false)
       }
     })
     .on('error', (err) => {
       readyResult.hasSudo = false
       readyResult.commandList = []
-      sendReadyData()
+      sendReadyData(true)
       connectionStatus.set(id, {
         sftpAvailable: false,
         sftpError: err.message
