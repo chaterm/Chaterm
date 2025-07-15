@@ -46,8 +46,10 @@
       >
         <EditorCode
           :editor="editor"
+          :is-active="editor.key === activeEditorKey"
           @close-vim-editor="closeVimEditor"
           @handle-save="handleSave"
+          @focus-editor="() => handleFocusEditor(editor.key)"
         />
       </div>
     </div>
@@ -66,6 +68,7 @@ import { userInfoStore } from '@/store'
 import { encrypt } from '@/utils/util.js'
 import { termFileContent, termFileContentSave } from '@/api/term/term'
 import EditorCode from '../Term/Editor/dragEditor.vue'
+import { editorData } from '../Term/Editor/dragEditor.vue'
 import { message, Modal, notification } from 'ant-design-vue'
 
 import { LanguageMap } from '../Term/Editor/languageMap'
@@ -75,6 +78,13 @@ onMounted(() => {
 })
 const api = window.api as any
 const expandedKeys = ref<string[]>([])
+
+// editor绑定
+const activeEditorKey = ref(null)
+
+const handleFocusEditor = (key) => {
+  activeEditorKey.value = key
+}
 
 const listUserSessions = async () => {
   const sessionData: string[] = await api.sftpConnList()
@@ -117,30 +127,8 @@ function updateTreeData(newData: object) {
 }
 
 // 定义编辑器接口
-interface Editor {
-  filePath: string
-  visible: boolean
-  vimText: string
-  originVimText: string
-  action: string
-  vimEditorX: number
-  vimEditorY: number
-  contentType: string
-  vimEditorHeight: number
-  vimEditorWidth: number
-  lastVimEditorY: number
-  lastVimEditorHeight: number
-  lastVimEditorWidth: number
-  lastVimEditorX: number
-  loading: boolean
-  fileChange: boolean
-  saved: boolean
-  key: string
-  editorType: string
-}
-
 // 使用接口类型化响应式数组
-const openEditors = reactive<Editor[]>([])
+const openEditors = reactive<editorData[]>([])
 
 const getFileExt = (filePath: string) => {
   const idx = filePath.lastIndexOf('.')
@@ -176,9 +164,10 @@ const openFile = async (data) => {
             loading: false,
             fileChange: false,
             saved: false,
-            key: terminalId,
+            key: terminalId + '-' + filePath,
+            terminalId: terminalId,
             editorType: connectType
-          } as UnwrapRef<Editor>)
+          } as UnwrapRef<editorData>)
         } else {
           existingEditor.visible = true
           existingEditor.vimText = response.content
@@ -216,9 +205,10 @@ const openFile = async (data) => {
           loading: false,
           fileChange: false,
           saved: false,
-          key: terminalId,
+          key: terminalId + '-' + filePath,
+          terminalId: terminalId,
           editorType: contentType
-        } as UnwrapRef<Editor>)
+        } as UnwrapRef<editorData>)
       } else {
         existingEditor.visible = true
         existingEditor.vimText = data
@@ -228,8 +218,8 @@ const openFile = async (data) => {
 }
 
 const closeVimEditor = (data) => {
-  const { filePath, editorType } = data
-  const editor = openEditors.find((editor) => editor?.filePath === filePath)
+  const { key, editorType } = data
+  const editor = openEditors.find((editor) => editor?.key === key)
   if (editor?.fileChange) {
     if (!editor?.saved) {
       Modal.confirm({
@@ -237,7 +227,7 @@ const closeVimEditor = (data) => {
         okText: '确定',
         cancelText: '取消',
         onOk() {
-          handleSave({ filePath: editor?.filePath, needClose: true, editorType: editorType })
+          handleSave({ key: editor?.key, needClose: true, editorType: editorType })
         },
         onCancel() {
           const index = openEditors.indexOf(editor)
@@ -256,12 +246,12 @@ const closeVimEditor = (data) => {
 }
 
 const handleSave = async (data) => {
-  const { filePath, needClose, editorType } = data
-  const editor = openEditors.find((editor) => editor?.filePath === filePath)
+  const { key, needClose, editorType } = data
+  const editor = openEditors.find((editor) => editor?.key === key)
   if (editorType === 'remote') {
     const authData = {
       uuid: editor?.key,
-      filePath: filePath,
+      filePath: editor.filePath,
       content: editor?.vimText
     }
     const auth = decodeURIComponent(encrypt(authData))
@@ -270,14 +260,9 @@ const handleSave = async (data) => {
         editor.loading = true
         const response = await termFileContentSave({ data: auth })
         if (response.error !== '') {
-          notification.error({
-            message: '保存失败！',
-            class: 'notification-common'
-          })
+          message.error(`保存失败: ${response.error}`)
         } else {
-          notification.success({
-            message: '保存成功'
-          })
+          message.success('保存成功')
           // 关闭
           if (needClose) {
             const index = openEditors.indexOf(editor)
@@ -291,41 +276,41 @@ const handleSave = async (data) => {
           }
         }
       } else {
-        notification.success({
-          message: '保存成功'
-        })
+        message.success('保存成功')
       }
     } catch (error) {
-      // 处理异常
-      notification.error({
-        message: '保存失败！'
-      })
+      message.error(`保存失败: ${error}`)
     }
   } else {
+    let errMsg = ''
+
     if (editor?.fileChange) {
       editor.loading = true
-      await api.sshConnExec({
-        cmd: `cat <<'EOFChaterm' > ${filePath}\n${editor?.vimText}\nEOFChaterm\n`,
-        id: editor?.key
+      const { stderr } = await api.sshConnExec({
+        cmd: `cat <<'EOFChaterm:save' > ${editor.filePath}\n${editor?.vimText}\nEOFChaterm:save\n`,
+        id: editor?.terminalId
       })
+      errMsg = stderr
 
-      if (needClose) {
-        const index = openEditors.indexOf(editor)
-        if (index !== -1) {
-          openEditors.splice(index, 1)
-        }
-      } else {
+      if (errMsg !== '') {
+        message.error(`保存失败: ${errMsg}`)
         editor.loading = false
-        editor.saved = true
-        editor.fileChange = false
+      } else {
+        message.success('保存成功')
+        // 关闭
+        if (editor) {
+          if (needClose) {
+            const index = openEditors.indexOf(editor)
+            if (index !== -1) {
+              openEditors.splice(index, 1)
+            }
+          } else {
+            editor.loading = false
+            editor.saved = true
+            editor.fileChange = false
+          }
+        }
       }
-      notification.success({
-        message: '保存成功'
-      })
-    } else {
-      notification.success({
-        message: '保存成功'
-      })
     }
   }
 }

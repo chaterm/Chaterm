@@ -1,73 +1,79 @@
 <template>
-  <DraggableResizable
-    :x="editor.vimEditorX"
-    :y="editor.vimEditorY"
-    :width="editor.vimEditorWidth"
-    :height="editor.vimEditorHeight"
-    class="file-vim-content"
-    :drag-handle="'.drag-handle'"
-    @drag-stop="(args) => onDragStop(args, editor)"
-    @resize-stop="(args) => onResizeStop(args, editor)"
+  <div
+    class="editor-container"
+    @click="emit('focusEditor', editor.key)"
   >
-    <div class="editor-container">
-      <div class="editor-toolbar drag-handle">
-        <div class="toolbar-left">
-          <a-button
-            class="toolbar-btn save-btn"
-            :loading="editor.loading"
-            @click="handleSave(editor.filePath, false)"
-          >
-            <span class="btn-icon"><SaveOutlined :style="{ fontSize: '18px' }" /></span>
-            <span>保存</span>
-          </a-button>
-        </div>
-        <div class="toolbar-center">
-          <span
-            class="file-path"
-            :title="editorFilter(editor.action) + editor.filePath"
-          >
-            {{ editorFilter(editor.action) }}{{ editor.filePath }}
-          </span>
-        </div>
-        <div class="toolbar-right">
-          <a-tooltip
-            v-if="showVimFullScreenEditor"
-            title="全屏"
-            @click="fullScreenVimEditor()"
-          >
-            <a-button class="toolbar-btn op-btn">
-              <span class="btn-icon"><FullscreenOutlined :style="{ fontSize: '18px' }" /></span>
-            </a-button>
-          </a-tooltip>
-
-          <a-tooltip
-            v-if="showVimFullScreenExitEditor"
-            title="退出全屏"
-            @click="exitFullScreenVimEditor()"
-          >
-            <a-button class="toolbar-btn op-btn">
-              <span class="btn-icon"><FullscreenExitOutlined :style="{ fontSize: '18px' }" /></span>
-            </a-button>
-          </a-tooltip>
-
-          <a-tooltip title="关闭">
+    <DraggableResizable
+      :x="editor.vimEditorX"
+      :y="editor.vimEditorY"
+      :width="editor.vimEditorWidth"
+      :height="editor.vimEditorHeight"
+      class="file-vim-content"
+      :drag-handle="'.drag-handle'"
+      :z-index="isActive ? 100 : 10"
+      @drag-stop="(args) => onDragStop(args, editor)"
+      @resize-stop="(args) => onResizeStop(args, editor)"
+    >
+      <div class="editor-container">
+        <div class="editor-toolbar drag-handle">
+          <div class="toolbar-left">
             <a-button
-              class="toolbar-btn op-btn"
-              @click="closeVimEditor(editor.filePath)"
+              class="toolbar-btn save-btn"
+              :loading="editor.loading"
+              @click="handleSave(editor.key, false)"
             >
-              <span class="btn-icon"><CloseOutlined :style="{ fontSize: '18px' }" /></span>
+              <span class="btn-icon"><SaveOutlined :style="{ fontSize: '18px' }" /></span>
+              <span>保存</span>
             </a-button>
-          </a-tooltip>
+          </div>
+          <div class="toolbar-center">
+            <span
+              class="file-path"
+              :title="editorFilter(editor.action) + editor.filePath"
+            >
+              {{ editorFilter(editor.action) }}{{ editor.filePath }}
+            </span>
+          </div>
+          <div class="toolbar-right">
+            <a-tooltip
+              v-if="showVimFullScreenEditor"
+              title="全屏"
+              @click="fullScreenVimEditor()"
+            >
+              <a-button class="toolbar-btn op-btn">
+                <span class="btn-icon"><FullscreenOutlined :style="{ fontSize: '18px' }" /></span>
+              </a-button>
+            </a-tooltip>
+
+            <a-tooltip
+              v-if="showVimFullScreenExitEditor"
+              title="退出全屏"
+              @click="exitFullScreenVimEditor()"
+            >
+              <a-button class="toolbar-btn op-btn">
+                <span class="btn-icon"><FullscreenExitOutlined :style="{ fontSize: '18px' }" /></span>
+              </a-button>
+            </a-tooltip>
+
+            <a-tooltip title="关闭">
+              <a-button
+                class="toolbar-btn op-btn"
+                @click="closeVimEditor(editor.key)"
+              >
+                <span class="btn-icon"><CloseOutlined :style="{ fontSize: '18px' }" /></span>
+              </a-button>
+            </a-tooltip>
+          </div>
         </div>
+        <EditorCode
+          v-model="editor.vimText"
+          :language="editor.contentType"
+          theme="vs-dark"
+          @update:model-value="(newValue) => handleTextChange(editor, newValue)"
+        />
       </div>
-      <EditorCode
-        v-model="editor.vimText"
-        :language="editor.contentType"
-        theme="vs-dark"
-        @update:model-value="(newValue) => handleTextChange(editor, newValue)"
-      />
-    </div>
-  </DraggableResizable>
+    </DraggableResizable>
+  </div>
 </template>
 
 <script setup lang="ts">
@@ -75,7 +81,7 @@ import EditorCode from './monacoEditor.vue'
 import DraggableResizable from './dragResize.vue'
 import { FullscreenOutlined, FullscreenExitOutlined, CloseOutlined, SaveOutlined } from '@ant-design/icons-vue'
 
-import { PropType, defineEmits, shallowRef } from 'vue'
+import { PropType, defineEmits, shallowRef, onBeforeUnmount, watch } from 'vue'
 
 export interface editorData {
   filePath: string
@@ -96,6 +102,7 @@ export interface editorData {
   fileChange: boolean
   saved: boolean
   key: string
+  terminalId: string
   editorType: string
 }
 // 定义属性
@@ -103,20 +110,49 @@ const props = defineProps({
   editor: {
     type: Object as PropType<editorData>,
     default: () => ({})
+  },
+  isActive: {
+    type: Boolean,
+    default: false
   }
 })
-const editor = props.editor
-const emit = defineEmits(['handleSave', 'closeVimEditor'])
 
-const handleSave = (filePath, needClose) => {
+const handleKeydown = (e: KeyboardEvent) => {
+  const isSaveShortcut = (e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 's'
+  if (isSaveShortcut) {
+    e.preventDefault()
+    // 调用保存方法
+    handleSave(editor.key, false)
+  }
+}
+
+watch(
+  () => props.isActive,
+  (val) => {
+    if (val) {
+      window.addEventListener('keydown', handleKeydown)
+    } else {
+      window.removeEventListener('keydown', handleKeydown)
+    }
+  },
+  { immediate: true }
+)
+
+onBeforeUnmount(() => {
+  window.removeEventListener('keydown', handleKeydown)
+})
+const editor = props.editor
+const emit = defineEmits(['handleSave', 'closeVimEditor', 'focusEditor'])
+
+const handleSave = (key, needClose) => {
   emit('handleSave', {
-    filePath: filePath,
+    key: key,
     needClose: needClose,
     editorType: props.editor.editorType
   })
 }
-const closeVimEditor = (filePath) => {
-  emit('closeVimEditor', { filePath: filePath, editorType: props.editor.editorType })
+const closeVimEditor = (key) => {
+  emit('closeVimEditor', { key: key, editorType: props.editor.editorType })
 }
 
 const showVimFullScreenEditor = shallowRef(true)
