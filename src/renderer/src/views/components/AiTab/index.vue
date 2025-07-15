@@ -693,8 +693,14 @@ const props = defineProps({
   toggleSidebar: {
     type: Function,
     required: true
+  },
+  savedState: {
+    type: Object,
+    default: null
   }
 })
+
+const emit = defineEmits(['state-changed'])
 
 // 定义AgentAiModelsOptions的类型
 interface ModelSelectOption {
@@ -896,7 +902,6 @@ const handleKeyDown = (e: KeyboardEvent) => {
   }
 }
 const handlePlusClick = async () => {
-  const currentInput = chatInputValue.value
   const newChatId = uuidv4()
   currentChatId.value = newChatId
   const chatSetting = (await getGlobalState('chatSettings')) as { mode?: string }
@@ -928,11 +933,6 @@ const handlePlusClick = async () => {
   showCancelButton.value = false
   showSendButton.value = true
   responseLoading.value = false
-  if (currentInput.trim()) {
-    sendMessage('newTask')
-  } else {
-    chatInputValue.value = ''
-  }
   showRetryButton.value = false
   showNewTaskButton.value = false
 }
@@ -940,6 +940,9 @@ const handlePlusClick = async () => {
 const containerKey = ref(0)
 
 const restoreHistoryTab = async (history: HistoryItem) => {
+  // 保存当前输入框内容
+  const currentInput = chatInputValue.value
+
   if (webSocket.value) {
     webSocket.value.close()
     webSocket.value = null
@@ -1029,7 +1032,8 @@ const restoreHistoryTab = async (history: HistoryItem) => {
         organizationId: h.organizationId
       }))
     })
-    chatInputValue.value = ''
+    // 恢复保存的输入框内容
+    chatInputValue.value = currentInput
     responseLoading.value = false
   } catch (err) {
     console.error(err)
@@ -1260,11 +1264,21 @@ watch(
       await updateGlobalState('chatSettings', {
         mode: newValue
       })
+      // 发出状态变化事件
+      emitStateChange()
     } catch (error) {
       console.error('更新 chatSettings 失败:', error)
     }
   }
 )
+watch(
+  () => hosts.value,
+  () => emitStateChange(),
+  { deep: true }
+)
+watch(chatInputValue, () => emitStateChange())
+watch(currentChatId, () => emitStateChange())
+watch(chatAiModelValue, () => emitStateChange())
 
 const handleChatAiModelChange = async () => {
   const modelOptions = (await getGlobalState('modelOptions')) as ModelOption[]
@@ -1398,6 +1412,20 @@ onMounted(async () => {
 
   // 初始化资产信息
   await initAssetInfo()
+
+  // 如果有保存的状态，恢复状态
+  if (props.savedState) {
+    chatInputValue.value = props.savedState.chatInputValue || ''
+    chatTypeValue.value = props.savedState.chatTypeValue || 'agent'
+    chatAiModelValue.value = props.savedState.chatAiModelValue || ''
+    if (props.savedState.hosts && props.savedState.hosts.length > 0) {
+      hosts.value = props.savedState.hosts
+      autoUpdateHost.value = false
+    }
+    if (props.savedState.currentChatId) {
+      currentChatId.value = props.savedState.currentChatId
+    }
+  }
 
   // 加载消息反馈
   messageFeedbacks.value = ((await getGlobalState('messageFeedbacks')) || {}) as Record<string, 'like' | 'dislike'>
@@ -2253,6 +2281,66 @@ const handleFeedback = async (message: ChatMessage, type: 'like' | 'dislike') =>
   const response = await (window.api as any).sendToMain(messageRsp)
   console.log('主进程响应:', response)
 }
+
+// 恢复保存的状态
+const restoreState = (savedState: any) => {
+  if (!savedState) return
+  // 恢复输入框内容
+  if (savedState.chatInputValue !== undefined) {
+    chatInputValue.value = savedState.chatInputValue
+  }
+
+  // 恢复聊天类型和AI模型
+  if (savedState.chatTypeValue) {
+    chatTypeValue.value = savedState.chatTypeValue
+  }
+  if (savedState.chatAiModelValue) {
+    chatAiModelValue.value = savedState.chatAiModelValue
+  }
+
+  // 恢复主机列表
+  if (savedState.hosts && savedState.hosts.length > 0) {
+    hosts.value = [...savedState.hosts]
+    autoUpdateHost.value = false
+  }
+
+  // 恢复聊天历史
+  if (savedState.chatHistory && savedState.chatHistory.length > 0) {
+    chatHistory.length = 0 // 清空当前历史
+    savedState.chatHistory.forEach((message: any) => {
+      chatHistory.push(message)
+    })
+  }
+
+  // 恢复当前对话ID
+  if (savedState.currentChatId) {
+    currentChatId.value = savedState.currentChatId
+  }
+}
+
+// 获取当前状态的函数
+const getCurrentState = () => {
+  return {
+    size: 0, // 这个会在父组件中设置
+    chatInputValue: chatInputValue.value,
+    chatHistory: [...chatHistory], // 创建副本以避免引用问题
+    currentChatId: currentChatId.value,
+    hosts: [...hosts.value], // 创建副本以避免引用问题
+    chatTypeValue: chatTypeValue.value,
+    chatAiModelValue: chatAiModelValue.value
+  }
+}
+
+// 发出状态变化事件的函数
+const emitStateChange = () => {
+  const currentState = getCurrentState()
+  emit('state-changed', currentState)
+}
+// 暴露getCurrentState和restoreState方法给父组件使用
+defineExpose({
+  getCurrentState,
+  restoreState
+})
 </script>
 
 <style lang="less">
