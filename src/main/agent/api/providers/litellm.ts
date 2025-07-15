@@ -157,8 +157,7 @@ export class LiteLlmHandler implements ApiHandler {
 
     const stream = await this.client.chat.completions.create(params)
 
-    const inputCost = (await this.calculateCost(1e6, 0)) || 0
-    const outputCost = (await this.calculateCost(0, 1e6)) || 0
+    let usageInfo: OpenAI.CompletionUsage | undefined | null = undefined
 
     for await (const chunk of stream) {
       const delta = chunk.choices[0]?.delta
@@ -195,38 +194,35 @@ export class LiteLlmHandler implements ApiHandler {
 
       // Handle token usage information
       if (chunk.usage) {
-        let totalCost = (inputCost * chunk.usage.prompt_tokens) / 1e6 + (outputCost * chunk.usage.completion_tokens) / 1e6
+        usageInfo = chunk.usage
+      }
+    }
 
-        // Add reasoning tokens cost if available (reasoning tokens are typically billed as output tokens)
-        const reasoningTokens = (chunk.usage as any).reasoning_tokens || 0
-        if (reasoningTokens > 0) {
-          totalCost += (outputCost * reasoningTokens) / 1e6
-        }
+    if (usageInfo) {
+      const totalCost = await this.calculateCost(usageInfo.prompt_tokens, usageInfo.completion_tokens)
+      // Extract cache-related information if available
+      // Need to use type assertion since these properties are not in the standard OpenAI types
+      const usage = usageInfo as {
+        prompt_tokens: number
+        completion_tokens: number
+        cache_creation_input_tokens?: number
+        prompt_cache_miss_tokens?: number
+        cache_read_input_tokens?: number
+        prompt_cache_hit_tokens?: number
+        reasoning_tokens?: number // Add reasoning tokens support
+      }
 
-        // Extract cache-related information if available
-        // Need to use type assertion since these properties are not in the standard OpenAI types
-        const usage = chunk.usage as {
-          prompt_tokens: number
-          completion_tokens: number
-          cache_creation_input_tokens?: number
-          prompt_cache_miss_tokens?: number
-          cache_read_input_tokens?: number
-          prompt_cache_hit_tokens?: number
-          reasoning_tokens?: number // Add reasoning tokens support
-        }
+      const cacheWriteTokens = usage.cache_creation_input_tokens || usage.prompt_cache_miss_tokens || 0
+      const cacheReadTokens = usage.cache_read_input_tokens || usage.prompt_cache_hit_tokens || 0
 
-        const cacheWriteTokens = usage.cache_creation_input_tokens || usage.prompt_cache_miss_tokens || 0
-        const cacheReadTokens = usage.cache_read_input_tokens || usage.prompt_cache_hit_tokens || 0
-
-        yield {
-          type: 'usage',
-          inputTokens: usage.prompt_tokens || 0,
-          outputTokens: usage.completion_tokens || 0,
-          cacheWriteTokens: cacheWriteTokens > 0 ? cacheWriteTokens : undefined,
-          cacheReadTokens: cacheReadTokens > 0 ? cacheReadTokens : undefined,
-          reasoningTokens: usage.reasoning_tokens || undefined,
-          totalCost
-        }
+      yield {
+        type: 'usage',
+        inputTokens: usage.prompt_tokens || 0,
+        outputTokens: usage.completion_tokens || 0,
+        cacheWriteTokens: cacheWriteTokens > 0 ? cacheWriteTokens : undefined,
+        cacheReadTokens: cacheReadTokens > 0 ? cacheReadTokens : undefined,
+        reasoningTokens: usage.reasoning_tokens || undefined,
+        totalCost
       }
     }
   }
