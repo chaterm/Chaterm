@@ -1,4 +1,5 @@
 import { indexedDBService, DB_CONFIG } from './indexedDBService'
+import { shortcutActions } from '@/config/shortcutActions'
 
 export interface ShortcutConfig {
   [key: string]: string
@@ -58,6 +59,12 @@ export class UserConfigStoreService {
     // 检测是否是Mac系统
     const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0
 
+    // 从 shortcutActions 动态生成默认快捷键配置
+    const defaultShortcuts: ShortcutConfig = {}
+    shortcutActions.forEach((action) => {
+      defaultShortcuts[action.id] = isMac ? action.defaultKey.mac : action.defaultKey.other
+    })
+
     return {
       id: 'userConfig',
       updatedAt: Date.now(),
@@ -77,11 +84,7 @@ export class UserConfigStoreService {
       theme: 'dark' as 'dark' | 'light',
       feature: 0.0,
       quickComand: false,
-      shortcuts: {
-        openSettings: isMac ? 'Command+,' : 'Ctrl+,',
-        toggleLeftSidebar: isMac ? 'Command+B' : 'Ctrl+B',
-        toggleRightSidebar: isMac ? 'Command+Option+B' : 'Ctrl+Alt+B'
-      }
+      shortcuts: defaultShortcuts
     }
   }
 
@@ -126,6 +129,7 @@ export class UserConfigStoreService {
   async saveConfig(config: Partial<UserConfig>): Promise<void> {
     try {
       await this.ensureDBReady()
+      const defaultConfig = await this.getConfig()
 
       return new Promise((resolve, reject) => {
         if (!this.db) {
@@ -135,7 +139,7 @@ export class UserConfigStoreService {
 
         try {
           const sanitizedConfig: UserConfig = {
-            ...this.getDefaultConfig(),
+            ...defaultConfig,
             ...config,
             id: 'userConfig',
             updatedAt: Date.now()

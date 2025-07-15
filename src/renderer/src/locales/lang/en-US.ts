@@ -97,6 +97,7 @@ export default {
     fontSize: 'Font size',
     cursorStyle: 'Cursor type',
     scrollBack: 'Number of scroll rollback lines',
+    terminalType: 'Specify terminal type',
     install: 'Installed',
     installing: 'Installing',
     notInstall: 'Not Installed',
@@ -255,7 +256,8 @@ export default {
     actions: {
       openSettings: 'Open Settings',
       toggleLeftSidebar: 'Toggle Left Sidebar',
-      toggleRightSidebar: 'Toggle Right Sidebar'
+      toggleRightSidebar: 'Toggle Right Sidebar',
+      sendOrToggleAi: 'Send to AI / Toggle AI Sidebar'
     }
   },
   personal: {

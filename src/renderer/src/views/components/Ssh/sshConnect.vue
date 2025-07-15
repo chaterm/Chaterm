@@ -16,7 +16,22 @@
       @mousedown="handleMouseDown"
     >
     </div>
-
+    <a-button
+      v-show="showAiButton"
+      :id="`${connectionId}Button`"
+      class="select-button"
+      @mousedown.prevent
+      @click="onChatToAiClick"
+    >
+      <span class="main-text">Chat to AI</span>
+      <span class="shortcut-text">{{ shortcutKey }}</span>
+    </a-button>
+    <SuggComp
+      v-bind="{ ref: (el) => setRef(el, connectionId) }"
+      :unique-key="connectionId"
+      :suggestions="suggestions"
+      :active-suggestion="activeSuggestion"
+    />
     <v-contextmenu ref="contextmenu">
       <Context
         :is-connect="isConnected"
@@ -104,7 +119,8 @@ import Context from '../Term/contextComp.vue'
 import SuggComp from '../Term/suggestion.vue'
 import eventBus from '@/utils/eventBus'
 import { useCurrentCwdStore } from '@/store/currentCwdStore'
-import { markRaw, onBeforeUnmount, onMounted, onUnmounted, PropType, nextTick, reactive, ref, watch } from 'vue'
+import { markRaw, onBeforeUnmount, onMounted, onUnmounted, PropType, nextTick, reactive, ref, watch, computed } from 'vue'
+import { shortcutService } from '@/services/shortcutService'
 import { Terminal } from 'xterm'
 import { FitAddon } from 'xterm-addon-fit'
 import { SearchAddon } from 'xterm-addon-search'
@@ -244,6 +260,17 @@ let resizeObserver: ResizeObserver | null = null
 const showSearch = ref(false)
 const searchAddon = ref<SearchAddon | null>(null)
 const showAiButton = ref(false)
+
+// 计算快捷键显示文本
+const shortcutKey = computed(() => {
+  const shortcuts = shortcutService.getShortcuts()
+  if (shortcuts && shortcuts['sendOrToggleAi']) {
+    return shortcutService.formatShortcut(shortcuts['sendOrToggleAi'])
+  }
+  // 如果没有配置，返回默认值
+  const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0
+  return isMac ? '⌘L' : 'Ctrl+L'
+})
 
 // const userConfig = ref({
 //   aliasStatus: 2,
@@ -539,11 +566,46 @@ onMounted(async () => {
     termInstance.focus()
   }
 
+  // 处理 sendOrToggleAiFromTerminal 事件
+  const handleSendOrToggleAi = () => {
+    if (props.activeTabId !== props.currentConnectionId) {
+      console.log('Not active tab, ignoring event')
+      return
+    }
+
+    // 检查焦点是否在终端或者终端容器内
+    const activeElement = document.activeElement
+    const terminalContainer = terminalElement.value?.closest('.terminal-container')
+    const isTerminalFocused =
+      activeElement === terminal.value?.textarea ||
+      terminalContainer?.contains(activeElement) ||
+      activeElement?.classList.contains('xterm-helper-textarea')
+
+    // 优先检查是否有选中文本，但只有在终端有焦点时才发送
+    if (termInstance && termInstance.hasSelection() && isTerminalFocused) {
+      const selectedText = termInstance.getSelection().trim()
+      if (selectedText) {
+        // 如果终端有选中文本且终端有焦点，总是发送到AI并确保侧边栏打开
+        eventBus.emit('openAiRight')
+        nextTick(() => {
+          const formattedText = `Terminal output:\n\`\`\`\n${selectedText}\n\`\`\``
+          eventBus.emit('chatToAi', formattedText)
+        })
+        return
+      }
+    }
+
+    // 如果没有选中文本或焦点不在终端，则切换侧边栏状态
+    eventBus.emit('toggleSideBar', 'right')
+  }
+
   eventBus.on('executeTerminalCommand', handleExecuteCommand)
+  eventBus.on('sendOrToggleAiFromTerminal', handleSendOrToggleAi)
 
   // 将清理逻辑移到 onBeforeUnmount
   cleanupListeners.value.push(() => {
     eventBus.off('executeTerminalCommand', handleExecuteCommand)
+    eventBus.off('sendOrToggleAiFromTerminal', handleSendOrToggleAi)
     window.removeEventListener('keydown', handleGlobalKeyDown)
   })
 
@@ -891,7 +953,7 @@ const connectSSH = async () => {
 const startShell = async () => {
   try {
     // 请求启动shell会话
-    const result = await api.shell({ id: connectionId.value })
+    const result = await api.shell({ id: connectionId.value, terminalType: config.terminalType })
     if (result.status === 'success') {
       isConnected.value = true
       const removeDataListener = api.onShellData(connectionId.value, (response: MarkedResponse) => {
@@ -2524,9 +2586,31 @@ const DELETE_MIN_INTERVAL = 0 // 删除键最小输入间隔50ms
   font-size: 12px;
   background-color: var(--bg-color-secondary);
   border: 1px solid var(--border-color-light);
+
+  .main-text {
+    color: white;
+    font-size: 12px;
+    font-weight: 500;
+  }
+
+  .shortcut-text {
+    color: #888;
+    font-size: 10px;
+    margin-left: 4px;
+    font-weight: 400;
+  }
+
   &:hover {
     color: var(--text-color) !important;
     border: 1px solid var(--border-color-light) !important;
+
+    .main-text {
+      color: white !important;
+    }
+
+    .shortcut-text {
+      color: #aaa !important;
+    }
   }
 }
 </style>

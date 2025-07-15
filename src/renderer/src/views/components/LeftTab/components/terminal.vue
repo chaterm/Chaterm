@@ -18,6 +18,24 @@
           </template>
         </a-form-item>
         <a-form-item
+          :label="$t('user.terminalType')"
+          class="user_my-ant-form-item"
+        >
+          <a-select
+            v-model:value="userConfig.terminalType"
+            style="min-width: 15px; max-width: 150px; width: 33%; text-align: left"
+          >
+            <a-select-option value="xterm">xterm</a-select-option>
+            <a-select-option value="xterm-256color">xterm-256color</a-select-option>
+            <a-select-option value="vt102">vt102</a-select-option>
+            <a-select-option value="vt220">vt220</a-select-option>
+            <a-select-option value="vt320">vt320</a-select-option>
+            <a-select-option value="linux">linux</a-select-option>
+            <a-select-option value="scoansi">scoansi</a-select-option>
+            <a-select-option value="ansi">ansi</a-select-option>
+          </a-select>
+        </a-form-item>
+        <a-form-item
           :label="$t('user.fontSize')"
           class="user_my-ant-form-item"
         >
@@ -99,7 +117,8 @@ const userConfig = ref({
   scrollBack: 1000,
   cursorStyle: 'block',
   middleMouseEvent: 'paste',
-  rightMouseEvent: 'contextMenu'
+  rightMouseEvent: 'contextMenu',
+  terminalType: 'xterm'
 })
 
 // 加载保存的配置
@@ -128,16 +147,11 @@ const saveConfig = async () => {
       scrollBack: userConfig.value.scrollBack,
       cursorStyle: userConfig.value.cursorStyle,
       middleMouseEvent: userConfig.value.middleMouseEvent,
-      rightMouseEvent: userConfig.value.rightMouseEvent
+      rightMouseEvent: userConfig.value.rightMouseEvent,
+      terminalType: userConfig.value.terminalType
     }
 
-    const existingConfig = (await userConfigStore.getConfig()) || {}
-    const mergedConfig = {
-      ...existingConfig,
-      ...configToStore
-    }
-
-    await userConfigStore.saveConfig(mergedConfig)
+    await userConfigStore.saveConfig(configToStore)
   } catch (error) {
     console.error('Failed to save config:', error)
     notification.error({
@@ -404,5 +418,20 @@ onMounted(async () => {
 [data-theme='dark'] .mouse-event-select :deep(.ant-select-focused .ant-select-selector) {
   background-color: #363636;
   border-color: #1890ff;
+}
+
+:deep(.ant-select) {
+  .ant-select-selector {
+    background-color: var(--bg-color-secondary) !important;
+    border: 1px solid var(--border-color);
+    color: var(--text-color);
+  }
+
+  &.ant-select-focused {
+    .ant-select-selector {
+      background-color: var(--bg-color-secondary) !important;
+      border-color: #1890ff !important;
+    }
+  }
 }
 </style>

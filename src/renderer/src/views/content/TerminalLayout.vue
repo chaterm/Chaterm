@@ -1,8 +1,5 @@
 <template>
-  <a-watermark
-    v-if="showWatermark"
-    v-bind="watermarkContent"
-  >
+  <a-watermark v-bind="watermarkContent">
     <div class="terminal-layout">
       <div class="term_header">
         <Header
@@ -67,6 +64,7 @@
                 >
                   <div
                     class="rigth-sidebar"
+                    tabindex="0"
                     @mousedown="handleSplitPaneFocus(index)"
                   >
                     <TabsPanel
@@ -87,7 +85,10 @@
                   v-if="showAiSidebar"
                   :size="aiSidebarSize"
                 >
-                  <div class="rigth-sidebar">
+                  <div
+                    class="rigth-sidebar"
+                    tabindex="0"
+                  >
                     <AiTab :toggle-sidebar="toggleAiSidebar" />
                   </div>
                 </pane>
@@ -122,131 +123,6 @@
       </div>
     </div>
   </a-watermark>
-  <div
-    v-else
-    class="terminal-layout"
-  >
-    <div class="term_header">
-      <Header
-        ref="headerRef"
-        @toggle-sidebar="toggleSideBar"
-      ></Header>
-    </div>
-    <div class="term_body">
-      <div class="term_left_menu">
-        <LeftTab
-          @toggle-menu="toggleMenu"
-          @open-user-tab="openUserTab"
-        ></LeftTab>
-      </div>
-      <div class="term_content">
-        <splitpanes @resize="(params: ResizeParams) => (leftPaneSize = params.prevPane.size)">
-          <pane
-            class="term_content_left"
-            :size="leftPaneSize"
-          >
-            <Workspace
-              v-if="currentMenu == 'workspace'"
-              :toggle-sidebar="toggleSideBar"
-              @change-company="changeCompany"
-              @current-click-server="currentClickServer"
-              @open-user-tab="openUserTab"
-            />
-            <Extensions
-              v-if="currentMenu == 'extensions'"
-              ref="extensionsRef"
-              :toggle-sidebar="toggleSideBar"
-              @open-user-tab="openUserTab"
-            />
-            <div v-if="currentMenu == 'monitor'">{{ $t('common.monitor') }}</div>
-          </pane>
-          <pane :size="100 - leftPaneSize">
-            <splitpanes @resize="onMainSplitResize">
-              <pane
-                :size="mainTerminalSize"
-                :min-size="30"
-                @mousedown="handleMainPaneFocus"
-              >
-                <TabsPanel
-                  ref="allTabs"
-                  :tabs="openedTabs"
-                  :active-tab="activeTabId"
-                  :active-tab-id="activeTabId"
-                  @close-tab="closeTab"
-                  @create-tab="createTab"
-                  @change-tab="switchTab"
-                  @update-tabs="updateTabs"
-                  @close-all-tabs="closeAllTabs"
-                  @tab-moved-from-other-pane="handleTabMovedToMainPane"
-                />
-              </pane>
-              <!-- 分屏终端 -->
-              <pane
-                v-for="(splitPane, index) in splitPanes"
-                :key="index"
-                :size="splitPane.size"
-                :min-size="30"
-              >
-                <div
-                  class="rigth-sidebar"
-                  tabindex="0"
-                  @mousedown="handleSplitPaneFocus(index)"
-                >
-                  <TabsPanel
-                    :tabs="splitPane.tabs"
-                    :active-tab="splitPane.activeTabId"
-                    :active-tab-id="splitPane.activeTabId"
-                    @close-tab="(tabId) => closeRightTab(tabId, index)"
-                    @create-tab="(info) => createRightTab(info, index)"
-                    @change-tab="(tabId) => switchRightTab(tabId, index)"
-                    @update-tabs="(tabs) => updateRightTabs(tabs, index)"
-                    @close-all-tabs="() => closeAllRightTabs(index)"
-                    @tab-moved-from-other-pane="(evt) => handleTabMovedToSplitPane(evt, index)"
-                  />
-                </div>
-              </pane>
-              <!-- AI侧边栏 -->
-              <pane
-                v-if="showAiSidebar"
-                :size="aiSidebarSize"
-              >
-                <div
-                  class="rigth-sidebar"
-                  tabindex="0"
-                >
-                  <AiTab :toggle-sidebar="toggleAiSidebar" />
-                </div>
-              </pane>
-            </splitpanes>
-          </pane>
-        </splitpanes>
-        <div
-          v-if="isShowCommandBar"
-          class="toolbar"
-          :style="{ width: commandBarStyle.width + 'px', left: commandBarStyle.left + 'px' }"
-        >
-          <QuickCommandBar
-            v-if="isShowQuickCommand"
-            @send="sendQuickCommand"
-          />
-          <div
-            v-if="isGlobalInput"
-            class="globalInput"
-          >
-            <a-input
-              v-model:value="globalInput"
-              size="small"
-              class="command-input"
-              placeholder="执行命令到全部窗口"
-              allow-clear
-              @press-enter="sendGlobalCommand"
-            >
-            </a-input>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
 </template>
 <script setup lang="ts">
 interface ResizeParams {
@@ -293,7 +169,7 @@ const watermarkContent = reactive({
     if (isSkippedLogin.value) {
       return ['Guest User']
     }
-    return [userInfoStore().userInfo.name, userInfoStore().userInfo.email]
+    return showWatermark.value ? [userInfoStore().userInfo.name, userInfoStore().userInfo.email] : ['']
   }),
   font: {
     fontSize: 12,
@@ -358,9 +234,6 @@ onMounted(async () => {
   eventBus.on('updateTheme', (theme) => {
     currentTheme.value = theme
     document.body.className = `theme-${theme}`
-    nextTick(() => {
-      showWatermark.value = true
-    })
   })
   try {
     let config = await userConfigStore.getConfig()

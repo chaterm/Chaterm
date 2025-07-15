@@ -337,16 +337,16 @@ export const registerSSHHandlers = () => {
     return [...sftpConnections.keys()]
   })
 
-  ipcMain.handle('ssh:shell', async (_event, { id }) => {
+  ipcMain.handle('ssh:shell', async (_event, { id, terminalType }) => {
     const conn = sshConnections.get(id)
     if (!conn) {
       return { status: 'error', message: '未连接到服务器' }
     }
+    const termType = terminalType || 'xterm'
     return new Promise((resolve, reject) => {
       conn.shell(
         {
-          //TODO: 配置项
-          term: 'xterm-256color'
+          term: termType
         },
         (err, stream) => {
           if (err) {

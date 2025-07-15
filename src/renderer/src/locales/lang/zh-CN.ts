@@ -49,8 +49,8 @@ export default {
     select: '选择',
     confirm: '确认',
     ok: '确定',
-    quickCommandOn: '快速命令(已开)',
-    quickCommand: '快速命令',
+    quickCommandOn: '快捷命令(已开)',
+    quickCommand: '快捷命令',
     add: '添加',
     all: '全部'
   },
@@ -97,6 +97,7 @@ export default {
     fontSize: '字体大小(px)',
     cursorStyle: '光标样式',
     scrollBack: '终端回滚量',
+    terminalType: '终端类型',
     install: '安装',
     installing: '安装中',
     notInstall: '未安装',
@@ -257,7 +258,8 @@ export default {
     actions: {
       openSettings: '打开设置',
       toggleLeftSidebar: '切换左侧边栏',
-      toggleRightSidebar: '切换右侧边栏'
+      toggleRightSidebar: '切换右侧边栏',
+      sendOrToggleAi: '发送到AI / 切换AI侧边栏'
     }
   },
   personal: {

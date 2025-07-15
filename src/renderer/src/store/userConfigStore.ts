@@ -15,7 +15,8 @@ export const userConfigStore = defineStore('userConfig', {
         highlightStatus: 2,
         scrollBack: 1000,
         watermark: 'open',
-        feature: 0.0
+        feature: 0.0,
+        terminalType: 'xterm'
       }
     }
   },
@@ -35,6 +36,7 @@ export const userConfigStore = defineStore('userConfig', {
       scrollBack: number
       watermark: string
       feature: number
+      terminalType: string
     } => {
       return (
         state?.userConfig || {
@@ -49,7 +51,8 @@ export const userConfigStore = defineStore('userConfig', {
           highlightStatus: 2,
           scrollBack: 1000,
           watermark: 'open',
-          feature: 0.0
+          feature: 0.0,
+          terminalType: 'xterm'
         }
       )
     }
