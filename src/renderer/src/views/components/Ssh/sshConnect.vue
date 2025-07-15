@@ -11,25 +11,12 @@
     />
     <div
       ref="terminalElement"
-      v-contextmenu:contextmenu
       class="terminal"
+      @contextmenu="handleRightClick"
+      @mousedown="handleMouseDown"
     >
     </div>
-    <a-button
-      v-show="showAiButton"
-      :id="`${connectionId}Button`"
-      class="select-button"
-      @mousedown.prevent
-      @click="onChatToAiClick"
-    >
-      Chat to AI
-    </a-button>
-    <SuggComp
-      v-bind="{ ref: (el) => setRef(el, connectionId) }"
-      :unique-key="connectionId"
-      :suggestions="suggestions"
-      :active-suggestion="activeSuggestion"
-    />
+
     <v-contextmenu ref="contextmenu">
       <Context
         :is-connect="isConnected"
@@ -40,6 +27,21 @@
         @context-act="contextAct"
       />
     </v-contextmenu>
+    <SuggComp
+      v-bind="{ ref: (el) => setRef(el, connectionId) }"
+      :unique-key="connectionId"
+      :suggestions="suggestions"
+      :active-suggestion="activeSuggestion"
+    />
+    <a-button
+      v-show="showAiButton"
+      :id="`${connectionId}Button`"
+      class="select-button"
+      @mousedown.prevent
+      @click="onChatToAiClick"
+    >
+      Chat to AI
+    </a-button>
   </div>
 
   <div
@@ -154,6 +156,65 @@ export interface sshConnectData {
   authType: string
   passphrase: string
 }
+
+const handleRightClick = (event) => {
+  event.preventDefault() // 阻止默认右键菜单
+
+  switch (config.rightMouseEvent) {
+    case 'paste':
+      // 右键点击时粘贴剪贴板内容
+      pasteFlag.value = true
+      navigator.clipboard
+        .readText()
+        .then((text) => {
+          sendData(text)
+          terminal.value?.focus()
+        })
+        .catch(() => {
+          // 如果剪贴板读取失败，静默处理
+          console.warn('无法读取剪贴板内容')
+        })
+      break
+    case 'contextMenu':
+      // 手动触发右键菜单显示
+      if (contextmenu.value && contextmenu.value.show) {
+        contextmenu.value.show(event)
+      }
+      break
+    default:
+      break
+  }
+}
+
+const handleMouseDown = (event) => {
+  event.preventDefault() // 阻止默认的中键行为（如自动滚动）
+  if (event.button === 1) {
+    switch (config.middleMouseEvent) {
+      case 'paste':
+        // 中键点击时粘贴剪贴板内容
+        pasteFlag.value = true
+        navigator.clipboard
+          .readText()
+          .then((text) => {
+            sendData(text)
+            terminal.value?.focus()
+          })
+          .catch(() => {
+            // 如果剪贴板读取失败，静默处理
+            console.warn('无法读取剪贴板内容')
+          })
+        break
+      case 'contextMenu':
+        // 中键点击时显示右键菜单
+        if (contextmenu.value && contextmenu.value.show) {
+          contextmenu.value.show(event)
+        }
+        break
+      case 'none':
+        break
+    }
+  }
+}
 const componentRefs = ref({})
 // 设置动态引用的函数
 const setRef = (el, key) => {
@@ -174,6 +235,7 @@ const connectionSftpAvailable = ref(false)
 const cleanupListeners = ref<Array<() => void>>([])
 const terminalElement = ref<HTMLDivElement | null>(null)
 const terminalContainer = ref<HTMLDivElement | null>(null)
+const contextmenu = ref()
 const cursorStartX = ref(0)
 const api = window.api as any
 const encoder = new TextEncoder()
@@ -263,6 +325,15 @@ onMounted(async () => {
   termInstance?.onSelectionChange(function () {
     if (termInstance.hasSelection()) {
       copyText.value = termInstance.getSelection()
+
+      // 自动复制选中内容到粘贴板
+      if (copyText.value.trim()) {
+        navigator.clipboard.writeText(copyText.value.trim()).catch(() => {
+          // 如果 Clipboard API 失败，静默处理或使用备用方法
+          console.warn('Failed to copy to clipboard')
+        })
+      }
+
       // 计算按钮位置并显示
       const position = termInstance.getSelectionPosition()
       if (position && termInstance.getSelection().trim()) {
@@ -354,7 +425,7 @@ onMounted(async () => {
     if (currentIsUserCall || terminalMode.value === 'none') {
       updateTerminalState(JSON.stringify(data).endsWith(startStr.value), enterPress.value)
     }
-
+    console.log(100000, 'data')
     // 走高亮的条件
     let highLightFlag: boolean = true
     // 条件1, 如果beforeCursor为空 content有内容 则代表enter键，不能走highlight
@@ -391,6 +462,8 @@ onMounted(async () => {
     //   suggestionEnter.value = false
     // }
     if (highLightFlag) {
+      console.log(config.highlightStatus)
+      console.log(terminalState.value, 'terminalState.value')
       if (config.highlightStatus == 1) {
         highlightSyntax(terminalState.value)
         pasteFlag.value = false
@@ -1369,6 +1442,7 @@ const suggestionEnter = ref(false)
 const setupTerminalInput = () => {
   if (!terminal.value) return
   handleInput = async (data, isInputManagerCall = true) => {
+    console.log(data, 'data')
     // // 检查是否为删除键并进行间隔限制
     // const isDeleteKey = data === '\x08' || data === '\x7f' || data === String.fromCharCode(8) || data === String.fromCharCode(127)
     // if (isDeleteKey) {
@@ -1416,6 +1490,7 @@ const setupTerminalInput = () => {
       // 无论是否存在推荐界面，都继续将 Ctrl+C 发送给终端
       sendData(data)
     } else if (data === '\x0c') {
+      console.log('Ctrl+L', 'data')
       // Ctrl+L 清屏
       if (suggestions.value.length) {
         // 清除推荐界面
@@ -1660,7 +1735,7 @@ const checkEditorMode = (response: MarkedResponse): void => {
     if (checkFullScreenClear(text) || checkHeavyUiStyle(text)) {
       terminalMode.value = 'ui'
       nextTick(handleResize)
-      return terminalMode.value
+      return
     }
   }
 
@@ -1681,7 +1756,7 @@ const checkEditorMode = (response: MarkedResponse): void => {
       terminalMode.value = 'none'
       dataBuffer.value = []
       nextTick(handleResize)
-      return terminalMode.value
+      return
     }
   }
 }
