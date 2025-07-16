@@ -1182,7 +1182,7 @@ defineExpose({
 .toolbar {
   position: absolute;
   left: 0;
-  bottom: 4px;
+  bottom: 2px;
   color: var(--text-color);
   width: 100%;
   z-index: 10;
@@ -1213,7 +1213,7 @@ defineExpose({
 
 .command-input {
   background: var(--globalInput-bg-color);
-  height: 32px;
+  height: 30px;
 }
 
 .menu-action-btn {
