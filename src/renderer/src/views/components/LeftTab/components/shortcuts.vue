@@ -50,6 +50,8 @@
 
       <div class="shortcuts-footer">
         <a-button
+          class="reset-button"
+          size="small"
           :disabled="recordingAction !== null"
           @click="resetAllShortcuts"
         >
@@ -65,7 +67,9 @@
       :footer="null"
       :closable="false"
       :mask-closable="false"
-      :style="{ top: '200px' }"
+      :centered="true"
+      :width="320"
+      :style="{ left: '100px' }"
       @cancel="cancelRecording"
     >
       <div class="recording-modal">
@@ -323,23 +327,23 @@ const resetAllShortcuts = async () => {
 .shortcuts-container {
   width: 100%;
   height: 100%;
-  padding: 20px;
+  padding: 16px; // 减少容器内边距
   background-color: var(--bg-color);
   overflow-y: auto;
 }
 
 .section-header {
-  margin-bottom: 20px;
+  margin-bottom: 16px; // 减少标题底部间距
 
   h3 {
     margin: 0;
-    font-size: 18px;
+    font-size: 16px; // 稍微减小标题字体
     font-weight: 600;
     color: var(--text-color);
   }
 
   .section-description {
-    margin: 8px 0 0 0;
+    margin: 6px 0 0 0; // 减少描述间距
     font-size: 14px;
     color: var(--text-color-secondary);
   }
@@ -350,7 +354,7 @@ const resetAllShortcuts = async () => {
   border-radius: 8px;
 
   :deep(.ant-card-body) {
-    padding: 20px;
+    padding: 16px; // 减少卡片内边距
   }
 }
 
@@ -358,16 +362,16 @@ const resetAllShortcuts = async () => {
   .table-header {
     display: grid;
     grid-template-columns: 1fr 2fr;
-    gap: 20px;
-    padding: 12px 16px;
+    gap: 8px; // 减少列间距
+    padding: 8px 6px; // 减少头部内边距
     background-color: var(--hover-bg-color);
     border-radius: 4px;
-    margin-bottom: 16px;
+    margin-bottom: 6px; // 减少底部间距
     border: 1px solid var(--border-color);
 
     .header-shortcut,
     .header-action {
-      font-size: 14px;
+      font-size: 13px; // 减小头部字体
       font-weight: 600;
       color: var(--text-color);
     }
@@ -377,8 +381,8 @@ const resetAllShortcuts = async () => {
     .table-row {
       display: grid;
       grid-template-columns: 1fr 2fr;
-      gap: 20px;
-      padding: 8px;
+      gap: 8px; // 减少列间距
+      padding: 6px; // 减少行内边距
       border-bottom: 1px solid var(--border-color);
       transition: background-color 0.2s;
 
@@ -395,8 +399,8 @@ const resetAllShortcuts = async () => {
         align-items: center;
 
         .shortcut-display {
-          min-width: 120px;
-          padding: 8px 12px;
+          min-width: 100px; // 减小最小宽度
+          padding: 6px 10px; // 减少内边距
           border: 1px solid var(--border-color);
           border-radius: 4px;
           background-color: var(--bg-color);
@@ -416,12 +420,12 @@ const resetAllShortcuts = async () => {
 
           .shortcut-text {
             font-family: 'SFMono-Regular', 'Monaco', 'Inconsolata', 'Roboto Mono', monospace;
-            font-size: 14px;
+            font-size: 13px; // 减小字体
             color: var(--text-color);
           }
 
           .recording-text {
-            font-size: 14px;
+            font-size: 13px; // 减小字体
             color: #1890ff;
           }
         }
@@ -433,15 +437,16 @@ const resetAllShortcuts = async () => {
         justify-content: center;
 
         .action-name {
-          font-size: 16px;
+          font-size: 14px; // 减小字体
           font-weight: 500;
           color: var(--text-color);
-          margin-bottom: 4px;
+          margin-bottom: 2px; // 减少间距
         }
 
         .action-description {
-          font-size: 14px;
+          font-size: 13px; // 减小字体
           color: var(--text-color-secondary);
+          line-height: 1.3; // 紧凑行高
         }
       }
     }
@@ -449,10 +454,58 @@ const resetAllShortcuts = async () => {
 }
 
 .shortcuts-footer {
-  margin-top: 20px;
-  padding-top: 20px;
+  margin-top: 16px; // 减少顶部间距
+  padding-top: 16px; // 减少顶部内边距
   border-top: 1px solid var(--border-color);
   text-align: right;
+
+  .reset-button {
+    padding: 4px 16px;
+    height: 32px;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 500;
+    background-color: var(--bg-color);
+    border: 1px solid var(--border-color);
+    color: var(--text-color);
+    transition: all 0.2s ease;
+
+    &:hover:not(:disabled) {
+      background-color: var(--hover-bg-color);
+      border-color: var(--text-color-secondary);
+      color: var(--text-color);
+    }
+
+    &:active:not(:disabled) {
+      background-color: var(--border-color);
+      transform: translateY(1px);
+    }
+
+    &:disabled {
+      background-color: var(--bg-color);
+      border-color: var(--border-color);
+      color: var(--text-color-disabled);
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+
+    &:focus {
+      outline: none;
+      box-shadow: 0 0 0 2px rgba(24, 144, 255, 0.2);
+    }
+  }
+}
+
+.shortcut-modal {
+  :deep(.ant-modal-content) {
+    border-radius: 8px;
+    background-color: var(--bg-color);
+    border: 1px solid var(--border-color);
+  }
+
+  :deep(.ant-modal-body) {
+    padding: 24px;
+  }
 }
 
 .recording-modal {
@@ -462,30 +515,76 @@ const resetAllShortcuts = async () => {
     margin-bottom: 20px;
 
     p {
-      font-size: 16px;
+      font-size: 14px;
       color: var(--text-color);
-      margin-bottom: 16px;
+      margin-bottom: 12px;
+      font-weight: 500;
+      line-height: 1.4;
     }
 
     .current-shortcut {
-      padding: 12px 16px;
+      padding: 10px 14px;
       background-color: var(--hover-bg-color);
       border: 1px solid var(--border-color);
-      border-radius: 4px;
+      border-radius: 6px;
       font-family: 'SFMono-Regular', 'Monaco', 'Inconsolata', 'Roboto Mono', monospace;
-      font-size: 16px;
+      font-size: 14px;
       color: var(--text-color);
-      min-height: 40px;
+      min-height: 36px;
       display: flex;
       align-items: center;
       justify-content: center;
+      transition: all 0.2s ease;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+
+      &:empty::before {
+        content: '等待输入...';
+        color: var(--text-color-secondary);
+        font-style: italic;
+      }
     }
   }
 
   .recording-actions {
     display: flex;
-    gap: 12px;
+    gap: 10px;
     justify-content: center;
+
+    .ant-btn {
+      height: 32px;
+      padding: 4px 16px;
+      font-size: 13px;
+      border-radius: 6px;
+      font-weight: 500;
+      transition: all 0.2s ease;
+
+      &:not(.ant-btn-primary) {
+        background-color: var(--bg-color);
+        border-color: var(--border-color);
+        color: var(--text-color);
+
+        &:hover {
+          background-color: var(--hover-bg-color);
+          border-color: var(--text-color-secondary);
+        }
+      }
+
+      &.ant-btn-primary {
+        background-color: #1890ff;
+        border-color: #1890ff;
+
+        &:hover:not(:disabled) {
+          background-color: #40a9ff;
+          border-color: #40a9ff;
+        }
+
+        &:disabled {
+          background-color: var(--border-color);
+          border-color: var(--border-color);
+          opacity: 0.6;
+        }
+      }
+    }
   }
 }
 
