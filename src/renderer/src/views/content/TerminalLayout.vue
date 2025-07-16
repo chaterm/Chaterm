@@ -89,7 +89,12 @@
                     class="rigth-sidebar"
                     tabindex="0"
                   >
-                    <AiTab :toggle-sidebar="toggleAiSidebar" />
+                    <AiTab
+                      ref="aiTabRef"
+                      :toggle-sidebar="toggleAiSidebar"
+                      :saved-state="savedAiSidebarState || undefined"
+                      @state-changed="handleAiTabStateChanged"
+                    />
                   </div>
                 </pane>
               </splitpanes>
@@ -192,6 +197,77 @@ const globalInput = ref('')
 const focusedSplitPaneIndex = ref<number | null>(null)
 // 光标定位相关状态
 const lastFocusedElement = ref<HTMLElement | null>(null)
+
+// AI侧边栏状态保存
+interface AiSidebarState {
+  size: number
+  chatInputValue: string
+  chatHistory: any[]
+  currentChatId: string | null
+  hosts: any[]
+  chatTypeValue: string
+  chatAiModelValue: string
+}
+
+const savedAiSidebarState = ref<AiSidebarState | null>(null)
+const aiTabRef = ref<InstanceType<typeof AiTab> | null>(null)
+
+// 处理AI Tab状态变化
+const handleAiTabStateChanged = (state: AiSidebarState) => {
+  // 实时保存AI Tab的状态变化
+  savedAiSidebarState.value = state
+}
+
+// 保存AI侧边栏状态
+const saveAiSidebarState = () => {
+  // 从AiTab组件获取当前完整状态
+  if (aiTabRef.value) {
+    try {
+      // 尝试获取AI Tab的当前状态
+      const currentState = aiTabRef.value.getCurrentState?.() || savedAiSidebarState.value
+      if (currentState) {
+        savedAiSidebarState.value = {
+          ...currentState,
+          size: aiSidebarSize.value // 确保保存当前侧边栏大小
+        }
+      } else if (savedAiSidebarState.value) {
+        // 如果无法获取状态但有之前保存的状态，只更新大小
+        savedAiSidebarState.value.size = aiSidebarSize.value
+      }
+    } catch (error) {
+      console.warn('Failed to get AI Tab state:', error)
+      // 如果获取状态失败，至少保存当前大小
+      if (savedAiSidebarState.value) {
+        savedAiSidebarState.value.size = aiSidebarSize.value
+      } else {
+        savedAiSidebarState.value = {
+          size: aiSidebarSize.value,
+          chatInputValue: '',
+          chatHistory: [],
+          currentChatId: null,
+          hosts: [],
+          chatTypeValue: 'agent',
+          chatAiModelValue: ''
+        }
+      }
+    }
+  } else {
+    // 如果AiTab组件不存在，使用基本的状态保存
+    if (savedAiSidebarState.value) {
+      savedAiSidebarState.value.size = aiSidebarSize.value
+    } else {
+      savedAiSidebarState.value = {
+        size: aiSidebarSize.value,
+        chatInputValue: '',
+        chatHistory: [],
+        currentChatId: null,
+        hosts: [],
+        chatTypeValue: 'agent',
+        chatAiModelValue: ''
+      }
+    }
+  }
+}
 
 // 光标定位函数
 const savePreviousFocus = () => {
@@ -327,6 +403,8 @@ const toggleSideBar = (value: string) => {
   switch (value) {
     case 'right':
       if (showAiSidebar.value) {
+        // 关闭AI侧边栏前，保存当前状态
+        saveAiSidebarState()
         showAiSidebar.value = false
         aiSidebarSize.value = 0
         headerRef.value?.switchIcon('right', false)
@@ -341,13 +419,21 @@ const toggleSideBar = (value: string) => {
         // 打开右侧边栏 - 保存当前光标位置并定位到右侧边栏
         savePreviousFocus()
         showAiSidebar.value = true
-        aiSidebarSize.value = (DEFAULT_WIDTH_RIGHT_PX / containerWidth) * 100
+        // 如果有保存的状态，恢复之前的大小，否则使用默认大小
+        const restoredSize = savedAiSidebarState.value?.size || (DEFAULT_WIDTH_RIGHT_PX / containerWidth) * 100
+        aiSidebarSize.value = restoredSize
         headerRef.value?.switchIcon('right', true)
         if (showSplitPane.value) {
           adjustSplitPaneToEqualWidth()
         } else {
           mainTerminalSize.value = 100 - aiSidebarSize.value
         }
+        // 恢复AI Tab的完整状态
+        nextTick(() => {
+          if (aiTabRef.value && savedAiSidebarState.value) {
+            aiTabRef.value.restoreState(savedAiSidebarState.value)
+          }
+        })
         // 定位到右侧边栏
         focusRightSidebar()
       }
@@ -370,10 +456,18 @@ const toggleMenu = function (params) {
       headerRef.value?.switchIcon('left', true)
     } else {
       showAiSidebar.value = true
-      aiSidebarSize.value = (DEFAULT_WIDTH_RIGHT_PX / containerWidth) * 100
+      // 如果有保存的状态，恢复之前的大小，否则使用默认大小
+      const restoredSize = savedAiSidebarState.value?.size || (DEFAULT_WIDTH_RIGHT_PX / containerWidth) * 100
+      aiSidebarSize.value = restoredSize
       mainTerminalSize.value =
         100 - aiSidebarSize.value - (splitPanes.value.length > 0 ? splitPanes.value.reduce((acc, pane) => acc + pane.size, 0) : 0)
       headerRef.value?.switchIcon('right', true)
+      // 恢复AI Tab的完整状态
+      nextTick(() => {
+        if (aiTabRef.value && savedAiSidebarState.value) {
+          aiTabRef.value.restoreState(savedAiSidebarState.value)
+        }
+      })
     }
   }
   const shrinkFn = (dir) => {
@@ -396,18 +490,27 @@ const toggleMenu = function (params) {
       if (container) {
         const containerWidth = container.offsetWidth
         showAiSidebar.value = true
-        aiSidebarSize.value = (DEFAULT_WIDTH_RIGHT_PX / containerWidth) * 100
+        // 如果有保存的状态，恢复之前的大小，否则使用默认大小
+        const restoredSize = savedAiSidebarState.value?.size || (DEFAULT_WIDTH_RIGHT_PX / containerWidth) * 100
+        aiSidebarSize.value = restoredSize
         headerRef.value?.switchIcon('right', true)
         if (showSplitPane.value) {
           adjustSplitPaneToEqualWidth()
         } else {
           mainTerminalSize.value = 100 - aiSidebarSize.value
         }
+        // 恢复AI Tab的完整状态
+        nextTick(() => {
+          if (aiTabRef.value && savedAiSidebarState.value) {
+            aiTabRef.value.restoreState(savedAiSidebarState.value)
+          }
+        })
         // 定位到右侧边栏
         focusRightSidebar()
       }
     } else {
-      // 关闭AI侧边栏 - 恢复之前的光标位置
+      // 关闭AI侧边栏前，保存当前状态
+      saveAiSidebarState()
       showAiSidebar.value = false
       aiSidebarSize.value = 0
       headerRef.value?.switchIcon('right', false)
@@ -424,20 +527,9 @@ const toggleMenu = function (params) {
     if (!showAiSidebar.value) {
       // 打开AI侧边栏 - 保存当前光标位置
       savePreviousFocus()
-      const container = document.querySelector('.splitpanes') as HTMLElement
-      if (container) {
-        const containerWidth = container.offsetWidth
-        showAiSidebar.value = true
-        aiSidebarSize.value = (DEFAULT_WIDTH_RIGHT_PX / containerWidth) * 100
-        headerRef.value?.switchIcon('right', true)
-        if (showSplitPane.value) {
-          adjustSplitPaneToEqualWidth()
-        } else {
-          mainTerminalSize.value = 100 - aiSidebarSize.value
-        }
-        // 定位到右侧边栏
-        focusRightSidebar()
-      }
+      expandFn('right')
+      // 定位到右侧边栏
+      focusRightSidebar()
     }
   } else {
     currentMenu.value = params.menu
@@ -1090,7 +1182,7 @@ defineExpose({
 .toolbar {
   position: absolute;
   left: 0;
-  bottom: 4px;
+  bottom: 2px;
   color: var(--text-color);
   width: 100%;
   z-index: 10;
@@ -1121,7 +1213,7 @@ defineExpose({
 
 .command-input {
   background: var(--globalInput-bg-color);
-  height: 32px;
+  height: 30px;
 }
 
 .menu-action-btn {
