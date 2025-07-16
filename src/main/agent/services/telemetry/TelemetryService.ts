@@ -17,6 +17,12 @@ import fs from 'fs'
 class PostHogClient {
   // Event constants for tracking user interactions and system events
   private static readonly EVENTS = {
+    USER: {
+      // Tracks when the user opts out of telemetry
+      OPT_OUT: 'user.opt_out',
+      // Tracks when the app is started
+      APP_STARTED: 'user.app_started'
+    },
     // Task-related events for tracking conversation and execution flow
     TASK: {
       // Tracks when a new task/conversation is started
@@ -91,6 +97,7 @@ class PostHogClient {
   private telemetryEnabled: boolean = false
   /** Current version of the extension */
   private readonly version: string = extensionVersion
+  private readonly isDev = process.env.IS_DEV
 
   /**
    * Private constructor to enforce singleton pattern
@@ -98,8 +105,7 @@ class PostHogClient {
    */
   private constructor() {
     this.client = new PostHog('phc_soaFIGBpywruW8dckk93xUs0FGn2otNi5CUkEbd2a4U', {
-      host: 'https://us.i.posthog.com',
-      enableExceptionAutocapture: false
+      host: 'https://us.i.posthog.com'
     })
   }
 
@@ -114,7 +120,9 @@ class PostHogClient {
     // Update PostHog client state based on telemetry preference
     if (this.telemetryEnabled) {
       this.client.optIn()
+      this.client.identify({ distinctId: this.distinctId })
     } else {
+      this.capture({ event: PostHogClient.EVENTS.USER.OPT_OUT })
       this.client.optOut()
     }
   }
@@ -140,7 +148,8 @@ class PostHogClient {
       // Include extension version in all event properties
       const propertiesWithVersion = {
         ...event.properties,
-        extension_version: this.version
+        extension_version: this.version,
+        is_dev: this.isDev
       }
       this.client.capture({
         distinctId: this.distinctId,
@@ -148,6 +157,21 @@ class PostHogClient {
         properties: propertiesWithVersion
       })
     }
+  }
+
+  // User events
+  /**
+   * Records when the app is started
+   */
+  public captureAppStarted() {
+    this.capture({
+      event: PostHogClient.EVENTS.USER.APP_STARTED,
+      properties: {
+        timestamp: new Date().toISOString(),
+        platform: process.platform,
+        architecture: process.arch
+      }
+    })
   }
 
   // Task events
