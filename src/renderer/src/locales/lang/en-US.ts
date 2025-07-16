@@ -35,6 +35,7 @@ export default {
     reconnect: 'Reconnect',
     newTerminal: 'New Terminal',
     splitRight: 'Split Right',
+    splitDown: 'Split Down',
     clearTerm: 'Clear Screen',
     shrotenName: 'Shorten The Host Name',
     fontsize: 'Fontsize',
