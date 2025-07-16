@@ -180,6 +180,7 @@ onMounted(async () => {
       })
     }
   })
+  if (buttonListRef.value) buttonListRef.value.addEventListener('wheel', handleWheel, { passive: false })
 })
 
 onBeforeUnmount(() => {
@@ -187,7 +188,14 @@ onBeforeUnmount(() => {
     sortable.destroy()
     sortable = null
   }
+  if (buttonListRef.value) buttonListRef.value.removeEventListener('wheel', handleWheel)
 })
+
+function handleWheel(e) {
+  if (e.deltaY === 0) return
+  e.preventDefault()
+  if (buttonListRef.value) buttonListRef.value.scrollLeft += e.deltaY
+}
 
 const openAddCommandDialog = () => {
   newCommandLabel.value = ''
@@ -312,14 +320,13 @@ const swapCommand = async (id1: number, id2: number) => {
 <style scoped lang="less">
 .quick-command-bar {
   width: 100%;
-  height: 36px;
+  height: 30px;
   background: var(--globalInput-bg-color);
   display: flex;
   align-items: center;
   border-radius: 4px;
-  margin-bottom: 1px;
   .quick-command-btn {
-    height: 100%;
+    height: 30px;
     flex-shrink: 0;
     max-width: 120px;
     padding: 4px 15px;
@@ -335,7 +342,7 @@ const swapCommand = async (id1: number, id2: number) => {
     span {
       display: inline-block;
       max-width: 90px;
-      text-overflow: ellipsis; /* 超出部分显示... */
+      text-overflow: ellipsis;
       overflow: hidden;
     }
   }
@@ -351,8 +358,8 @@ const swapCommand = async (id1: number, id2: number) => {
   scrollbar-width: none;
 }
 .add-button {
-  height: 35px;
-  width: 35px;
+  height: 30px;
+  width: 30px;
   flex-shrink: 0;
   background-color: var(--bg-color-octonary);
   color: var(--text-color);
@@ -360,6 +367,8 @@ const swapCommand = async (id1: number, id2: number) => {
     background-color: var(--bg-color-octonary) !important;
     color: var(--text-color);
   }
+  text-align: center;
+  line-height: 15px;
 }
 
 .script-help {
