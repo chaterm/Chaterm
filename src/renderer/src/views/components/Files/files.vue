@@ -15,7 +15,7 @@
         <div class="fs-header-right">
           <a-space>
             <div class="fs-header-right-item">
-              <a-tooltip title="刷新">
+              <a-tooltip :title="$t('common.refresh')">
                 <a-button
                   type="primary"
                   size="small"
@@ -91,9 +91,11 @@ import { encrypt } from '@/utils/util.js'
 import { notification } from 'ant-design-vue'
 import { defineEmits } from 'vue'
 import { ColumnsType } from 'ant-design-vue/es/table'
+import { useI18n } from 'vue-i18n'
 
 const emit = defineEmits(['openFile'])
 const api = window.api as any
+const { t } = useI18n()
 
 // 定义props，并提供默认值
 const props = defineProps({
@@ -157,7 +159,7 @@ type FlexibleColumn = Partial<ColumnsType<FileRecord>[number]>
 
 const columns: FlexibleColumn[] = [
   {
-    title: '名称',
+    title: t('files.name'),
     dataIndex: 'name',
     key: 'name',
     sorter: (a: FileRecord, b: FileRecord) => {
@@ -173,7 +175,7 @@ const columns: FlexibleColumn[] = [
     ellipsis: true
   },
   {
-    title: '权限',
+    title: t('files.permissions'),
     dataIndex: 'mode',
     key: 'mode',
     customRender: ({ record }: { record: FileRecord }) => {
@@ -182,7 +184,7 @@ const columns: FlexibleColumn[] = [
     ellipsis: true
   },
   {
-    title: '大小',
+    title: t('files.size'),
     dataIndex: 'size',
     key: 'size',
     customRender: ({ record }: { record: FileRecord }) => {
@@ -203,7 +205,7 @@ const columns: FlexibleColumn[] = [
     ellipsis: true
   },
   {
-    title: '修改日期',
+    title: t('files.modifyDate'),
     dataIndex: 'modTime',
     key: 'modTime',
     sorter: (a: FileRecord, b: FileRecord) => {
