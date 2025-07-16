@@ -35,6 +35,7 @@ export default {
     reconnect: '重新连接',
     newTerminal: '新终端',
     splitRight: '向右分屏',
+    splitDown: '向下分屏',
     clearTerm: '清屏',
     shrotenName: '缩短主机名',
     fontsize: '字体大小',
