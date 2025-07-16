@@ -50,8 +50,8 @@ export const commandBarHeight = ref<number>(0)
 export const commandBarVisible = ref<boolean>(false)
 
 // 默认高度配置
-const DEFAULT_COMMAND_BAR_HEIGHT = 35
-const DEFAULT_GLOBAL_INPUT_HEIGHT = 36
+const DEFAULT_COMMAND_BAR_HEIGHT = 30
+const DEFAULT_GLOBAL_INPUT_HEIGHT = 30
 
 watch(
   () => componentInstances.value.length,
