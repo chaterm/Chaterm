@@ -181,6 +181,9 @@ const handleRightClick = (event) => {
   switch (config.rightMouseEvent) {
     case 'paste':
       // 右键点击时粘贴剪贴板内容
+      if (startStr.value == '') {
+        startStr.value = beginStr.value
+      }
       pasteFlag.value = true
       navigator.clipboard
         .readText()
@@ -209,7 +212,9 @@ const handleMouseDown = (event) => {
   if (event.button === 1) {
     switch (config.middleMouseEvent) {
       case 'paste':
-        // 中键点击时粘贴剪贴板内容
+        if (startStr.value == '') {
+          startStr.value = beginStr.value
+        }
         pasteFlag.value = true
         navigator.clipboard
           .readText()
@@ -437,7 +442,6 @@ onMounted(async () => {
     if (currentIsUserCall || terminalMode.value === 'none') {
       updateTerminalState(JSON.stringify(data).endsWith(startStr.value), enterPress.value)
     }
-    console.log(100000, 'data')
     // 走高亮的条件
     let highLightFlag: boolean = true
     // 条件1, 如果beforeCursor为空 content有内容 则代表enter键，不能走highlight
@@ -474,8 +478,6 @@ onMounted(async () => {
     //   suggestionEnter.value = false
     // }
     if (highLightFlag) {
-      console.log(config.highlightStatus)
-      console.log(terminalState.value, 'terminalState.value')
       if (config.highlightStatus == 1) {
         highlightSyntax(terminalState.value)
         pasteFlag.value = false
@@ -527,6 +529,11 @@ onMounted(async () => {
   // 保留 window resize 监听作为备用
   window.addEventListener('resize', handleResize)
   window.addEventListener('keydown', handleGlobalKeyDown)
+  window.addEventListener('click', () => {
+    if (contextmenu.value && typeof contextmenu.value.hide === 'function') {
+      contextmenu.value.hide()
+    }
+  })
 
   // 初始化完成后进行一次自适应调整
   nextTick(() => {
@@ -1340,16 +1347,19 @@ const updateTerminalState = (quickInit: boolean, enterPress: boolean) => {
       buffer,
       contentCursorX
     )
-
+    // console.log(lineContent, 'lineContent')
+    // console.log(cursorX, 'cursorX')
+    // console.log(cursorY, 'cursorY')
+    // console.log(maxX, 'maxX')
+    // console.log(maxY, 'maxY')
     // 更新历史记录
     updateCursorHistory(cursorX, cursorY, maxX, maxY)
 
-    // 解析和更新内容
+    // 解析和更新内容】
     if (parseStrTag) {
       updateContentStrings(lineContent, cursorX)
       updateTerminalContent(lineContent, finalContentCursorX)
     }
-
     // 更新终端状态
     updateTerminalStateObject(cursorX, cursorY, isCrossRow)
 
@@ -1538,7 +1548,6 @@ const suggestionEnter = ref(false)
 const setupTerminalInput = () => {
   if (!terminal.value) return
   handleInput = async (data, isInputManagerCall = true) => {
-    console.log(data, 'data')
     // // 检查是否为删除键并进行间隔限制
     // const isDeleteKey = data === '\x08' || data === '\x7f' || data === String.fromCharCode(8) || data === String.fromCharCode(127)
     // if (isDeleteKey) {
@@ -1586,7 +1595,6 @@ const setupTerminalInput = () => {
       // 无论是否存在推荐界面，都继续将 Ctrl+C 发送给终端
       sendData(data)
     } else if (data === '\x0c') {
-      console.log('Ctrl+L', 'data')
       // Ctrl+L 清屏
       if (suggestions.value.length) {
         // 清除推荐界面
@@ -2375,7 +2383,6 @@ const handleKeyInput = (e) => {
     currentLine.value = ''
     currentLineStartY.value = (terminal.value as any)?._core.buffer.y + 1
     cursorStartX.value = 0
-
     terminalState.value.contentCrossRowStatus = false
     terminalState.value.contentCrossStartLine = 0
     terminalState.value.contentCrossRowLines = 0
@@ -2438,6 +2445,9 @@ const contextAct = (action) => {
   switch (action) {
     case 'paste':
       // 粘贴
+      if (startStr.value == '') {
+        startStr.value = beginStr.value
+      }
       pasteFlag.value = true
       navigator.clipboard.readText().then((text) => {
         sendData(text)
@@ -2513,6 +2523,9 @@ const hideSelectionButton = () => {
 }
 
 const handleGlobalKeyDown = (e: KeyboardEvent) => {
+  if (contextmenu.value && typeof contextmenu.value.hide === 'function') {
+    contextmenu.value.hide()
+  }
   if (props.activeTabId !== props.currentConnectionId) return
 
   const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0
