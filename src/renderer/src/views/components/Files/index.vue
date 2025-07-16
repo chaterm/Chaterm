@@ -353,16 +353,14 @@ defineExpose({
 }
 .tree-container {
   margin-top: 8px;
-  max-height: 77vh;
   overflow-y: auto;
   overflow-x: hidden;
   border-radius: 2px;
-  padding: 5px;
   background-color: var(--bg-color);
 }
 
 :deep(.dark-tree) {
-  background-color: var(--bg-color-secondary);
+  background-color: var(--bg-color);
   height: 30% !important;
 
   .ant-tree-node-content-wrapper,
@@ -370,6 +368,7 @@ defineExpose({
   .ant-tree-switcher,
   .ant-tree-node-selected {
     color: var(--text-color) !important;
+    background-color: var(--bg-color) !important;
   }
 
   .ant-tree-switcher {
@@ -377,11 +376,11 @@ defineExpose({
   }
 
   .ant-tree-node-selected {
-    background-color: var(--hover-bg-color) !important;
+    background-color: var(--bg-color) !important;
   }
 
   .ant-tree-node-content-wrapper:hover {
-    background-color: var(--hover-bg-color) !important;
+    background-color: var(--bg-color) !important;
   }
 }
 
@@ -434,7 +433,7 @@ defineExpose({
     font-size: 14px;
     margin-left: 6px;
     &:hover {
-      color: #1890ff;
+      color: var(--text-color-tertiary);
     }
   }
 }
@@ -466,12 +465,12 @@ defineExpose({
     justify-content: center;
     margin-left: 10px;
     cursor: pointer;
-    color: #1890ff;
+    color: var(--text-color-tertiary);
     min-width: 10px;
     height: 24px;
     flex-shrink: 0;
     &:hover {
-      color: #40a9ff;
+      color: var(--text-color-tertiary);
     }
   }
 }
