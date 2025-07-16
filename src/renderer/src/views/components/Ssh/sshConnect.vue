@@ -42,12 +42,6 @@
         @context-act="contextAct"
       />
     </v-contextmenu>
-    <SuggComp
-      v-bind="{ ref: (el) => setRef(el, connectionId) }"
-      :unique-key="connectionId"
-      :suggestions="suggestions"
-      :active-suggestion="activeSuggestion"
-    />
     <a-button
       v-show="showAiButton"
       :id="`${connectionId}Button`"
