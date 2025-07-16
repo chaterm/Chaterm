@@ -10,6 +10,7 @@
       />
       <div class="about-title">Chaterm</div>
       <div class="about-description">{{ t('about.version') }} {{ appInfo.version }}</div>
+      <div class="about-description">Copyright © 2025 Chaterm.ai All rights reserved.</div>
     </a-card>
   </div>
 </template>
@@ -40,12 +41,12 @@ const appInfo = {
 .about-title {
   font-size: 16px;
   font-weight: bold;
-  margin-bottom: 8px;
+  margin-bottom: 4px;
   color: var(--text-color);
 }
 .about-description {
-  font-size: 16px;
-  margin-bottom: 8px;
+  font-size: 12px;
+  margin-bottom: 4px;
   color: var(--text-color-secondary);
 }
 .about-logo {

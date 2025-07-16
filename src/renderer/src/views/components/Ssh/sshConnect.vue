@@ -42,12 +42,6 @@
         @context-act="contextAct"
       />
     </v-contextmenu>
-    <SuggComp
-      v-bind="{ ref: (el) => setRef(el, connectionId) }"
-      :unique-key="connectionId"
-      :suggestions="suggestions"
-      :active-suggestion="activeSuggestion"
-    />
     <a-button
       v-show="showAiButton"
       :id="`${connectionId}Button`"
@@ -66,8 +60,10 @@
   >
     <EditorCode
       :editor="editor"
+      :is-active="editor.key === activeEditorKey"
       @close-vim-editor="closeVimEditor"
       @handle-save="handleSave"
+      @focus-editor="() => handleFocusEditor(editor)"
     />
   </div>
 
@@ -127,7 +123,7 @@ import { SearchAddon } from 'xterm-addon-search'
 import { IDisposable } from 'xterm'
 import 'xterm/css/xterm.css'
 import { defineEmits } from 'vue'
-import type { editorData } from '@/views/components/Term/Editor/dragEditor.vue'
+import { editorData } from '../Term/Editor/dragEditor.vue'
 import { LanguageMap } from '@/views/components/Term/Editor/languageMap'
 import EditorCode from '@/views/components//Term/Editor/dragEditor.vue'
 import { message, Modal } from 'ant-design-vue'
@@ -179,6 +175,9 @@ const handleRightClick = (event) => {
   switch (config.rightMouseEvent) {
     case 'paste':
       // 右键点击时粘贴剪贴板内容
+      if (startStr.value == '') {
+        startStr.value = beginStr.value
+      }
       pasteFlag.value = true
       navigator.clipboard
         .readText()
@@ -207,7 +206,9 @@ const handleMouseDown = (event) => {
   if (event.button === 1) {
     switch (config.middleMouseEvent) {
       case 'paste':
-        // 中键点击时粘贴剪贴板内容
+        if (startStr.value == '') {
+          startStr.value = beginStr.value
+        }
         pasteFlag.value = true
         navigator.clipboard
           .readText()
@@ -272,6 +273,13 @@ const shortcutKey = computed(() => {
   return isMac ? '⌘L' : 'Ctrl+L'
 })
 
+// editor绑定
+const activeEditorKey = ref(null)
+
+const handleFocusEditor = (editor) => {
+  activeEditorKey.value = editor.key
+}
+
 // const userConfig = ref({
 //   aliasStatus: 2,
 //   quickVimStatus: 2
@@ -287,9 +295,9 @@ const shortcutKey = computed(() => {
 //     console.error('Failed to load user config:', error)
 //   }
 // }
-// 编辑序列
 
-const isEditorMode = ref(false)
+// const isEditorMode = ref(false)
+// 编辑序列
 const dataBuffer = ref<number[]>([])
 const EDITOR_SEQUENCES = {
   // 进入编辑器模式的序列
@@ -349,38 +357,14 @@ onMounted(async () => {
   )
   terminal.value = termInstance
   termInstance?.onKey(handleKeyInput)
-  termInstance?.onSelectionChange(function () {
-    if (termInstance.hasSelection()) {
-      copyText.value = termInstance.getSelection()
-
-      // 自动复制选中内容到粘贴板
-      if (copyText.value.trim()) {
-        navigator.clipboard.writeText(copyText.value.trim()).catch(() => {
-          // 如果 Clipboard API 失败，静默处理或使用备用方法
-          console.warn('Failed to copy to clipboard')
-        })
-      }
-
-      // 计算按钮位置并显示
-      const position = termInstance.getSelectionPosition()
-      if (position && termInstance.getSelection().trim()) {
-        const button = document.getElementById(`${connectionId.value}Button`) as HTMLElement
-        const { y } = position.start
-        const viewportY = termInstance.buffer.active.viewportY
-        const visibleRow = y - viewportY
-        // 获取字符单元尺寸
-        const cellHeight = (termInstance as any)._core._renderService.dimensions.css.cell.height
-        // 将字符坐标转换为像素坐标
-        const top = visibleRow - 2 > 0 ? (visibleRow - 2) * cellHeight : 0
-        button.style.right = `26px`
-        button.style.top = `${top}px`
-        showAiButton.value = true
-      }
-    } else {
-      showAiButton.value = false
+  termInstance?.onSelectionChange(() => updateSelectionButtonPosition())
+  nextTick(() => {
+    // 监听 xterm 内部 viewport 的滚动
+    const viewport = terminalElement.value?.querySelector('.xterm-viewport')
+    if (viewport) {
+      viewport.addEventListener('scroll', () => updateSelectionButtonPosition())
     }
   })
-
   // Add theme change listener
   eventBus.on('updateTheme', (theme) => {
     if (terminal.value) {
@@ -452,7 +436,6 @@ onMounted(async () => {
     if (currentIsUserCall || terminalMode.value === 'none') {
       updateTerminalState(JSON.stringify(data).endsWith(startStr.value), enterPress.value)
     }
-    console.log(100000, 'data')
     // 走高亮的条件
     let highLightFlag: boolean = true
     // 条件1, 如果beforeCursor为空 content有内容 则代表enter键，不能走highlight
@@ -489,8 +472,6 @@ onMounted(async () => {
     //   suggestionEnter.value = false
     // }
     if (highLightFlag) {
-      console.log(config.highlightStatus)
-      console.log(terminalState.value, 'terminalState.value')
       if (config.highlightStatus == 1) {
         highlightSyntax(terminalState.value)
         pasteFlag.value = false
@@ -542,6 +523,11 @@ onMounted(async () => {
   // 保留 window resize 监听作为备用
   window.addEventListener('resize', handleResize)
   window.addEventListener('keydown', handleGlobalKeyDown)
+  window.addEventListener('click', () => {
+    if (contextmenu.value && typeof contextmenu.value.hide === 'function') {
+      contextmenu.value.hide()
+    }
+  })
 
   // 初始化完成后进行一次自适应调整
   nextTick(() => {
@@ -657,53 +643,101 @@ onBeforeUnmount(() => {
   if (isConnected.value) {
     disconnectSSH()
   }
+
+  const viewport = terminalElement.value?.querySelector('.xterm-viewport')
+  if (viewport) {
+    viewport.removeEventListener('scroll', () => updateSelectionButtonPosition())
+  }
 })
-const getFileExt = (filePath: string) => {
-  const idx = filePath.lastIndexOf('.')
-  if (idx === -1) return '' // 没有扩展名
-  return filePath.slice(idx).toLowerCase()
+// 解析Chaterm:vim 返回
+const getFileExt = (fileName: string): string => {
+  const match = fileName.match(/\.[^.\/\\]+$/)
+  return match ? match[0] : ''
 }
-const parseVimLine = (str) => {
-  // 过滤ANSI 转义序列
-  let cleanedStr = stripAnsi(str)
-  cleanedStr = cleanedStr.replace(/[\x00-\x09\x0B\x0C\x0E-\x1F\x7F]/g, '')
-  cleanedStr = cleanedStr.trim()
-  const lines = cleanedStr.split(/\r?\n/) // 同时处理 \n 和 \r\n 换行符
-  if (lines.length > 0) {
-    // 处理文件名里无意义符号
-    const fileName = lines[1].replace(/[\x00-\x1F\x7F]/g, '').trimEnd()
-    const contentType = getFileExt(fileName) ? getFileExt(fileName) : '.python'
-    if (cleanedStr.indexOf('No such file or directory') !== -1) {
-      return {
-        checkStatus: lines[0].trim().endsWith('#Chaterm:vim'),
-        lastLine: '\r\n' + lines[lines.length - 1],
-        filePath: fileName,
-        contentType: LanguageMap[contentType]
-      }
+
+const isOnlyAnsiCodes = (str: string): boolean => {
+  const cleaned = stripAnsi(str)
+    .replace(/[\x00-\x1F\x7F]/g, '')
+    .trim()
+  return cleaned.length === 0
+}
+
+const cleanForFileName = (str: string): string => {
+  return stripAnsi(str)
+    .replace(/[\x00-\x1F\x7F]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+// 去掉退格和 \x1B[K 控制符
+const normalizeControl = (str: string): string => {
+  // 优先去掉退格清除序列：\b\x1B[K
+  str = str.replace(/\x08\x1B\[K/g, '')
+
+  const chars: string[] = []
+  for (const ch of str) {
+    if (ch === '\b') {
+      // 删除前一个字符
+      chars.pop()
     } else {
-      return {
-        checkStatus: lines[0].trim().endsWith('#Chaterm:vim'),
-        lastLine: '\r\n' + lines[lines.length - 1],
-        filePath: fileName,
-        contentType: LanguageMap[contentType]
-      }
+      chars.push(ch)
     }
   }
 
+  return chars.join('')
+}
+
+// 数据解析
+const parseVimLine = (raw: string) => {
+  const originalLines = raw.split(/\r?\n/)
+
+  // 1. 清理控制符
+  const cleaned = normalizeControl(raw)
+    .replace(/\x1B\][0-9]*;[^\x07]*\x07/g, '')
+    .replace(/\x1BP.*?\x1B\\/g, '')
+    .replace(/\x1B\[\?[0-9;]*[hl]/g, '')
+    .replace(/\x1B\[[0-9;]*[ABCDEFGJKST]/g, '')
+    .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '')
+    .replace(/[ \t]+/g, ' ')
+    .trim()
+
+  const lines = cleaned.split(/\r?\n/)
+
+  let filePath = ''
+  if (lines.length > 1) {
+    filePath = stripAnsi(lines[1])
+      .replace(/[\x00-\x1F\x7F]/g, '')
+      .trim()
+  }
+
+  const ext = getFileExt(filePath)
+  const contentType = LanguageMap[ext] || 'python'
+
+  // 提取原始 lastLine 保留原有的颜色和控制符
+  let lastLine = ''
+  for (let i = originalLines.length - 1; i >= 0; i--) {
+    const line = originalLines[i].trim()
+    if (line && !isOnlyAnsiCodes(line)) {
+      lastLine = '\r\n' + originalLines[i]
+      break
+    }
+  }
+
+  if (filePath.includes('No such file or directory')) {
+    filePath = cleanForFileName(filePath.replace('No such file or directory', ''))
+  }
+
   return {
-    checkStatus: false,
-    lastLine: '',
-    content: '',
-    filePath: '',
-    contentType: '',
-    action: ''
+    lastLine,
+    filePath,
+    contentType
   }
 }
 
 const openEditors = reactive<editorData[]>([])
 const closeVimEditor = (data) => {
-  const { filePath } = data
-  const editor = openEditors.find((editor) => editor?.filePath === filePath)
+  const { key } = data
+  const editor = openEditors.find((editor) => editor?.key === key)
   if (editor?.fileChange) {
     if (!editor?.saved) {
       Modal.confirm({
@@ -711,7 +745,7 @@ const closeVimEditor = (data) => {
         okText: '确定',
         cancelText: '取消',
         onOk() {
-          handleSave({ filePath: editor?.filePath, needClose: true })
+          handleSave({ key: editor?.key, needClose: true })
         },
         onCancel() {
           const index = openEditors.indexOf(editor)
@@ -730,14 +764,14 @@ const closeVimEditor = (data) => {
 }
 
 const handleSave = async (data) => {
-  const { filePath, needClose } = data
+  const { key, needClose } = data
   let errMsg = ''
-  const editor = openEditors.find((editor) => editor?.filePath === filePath)
+  const editor = openEditors.find((editor) => editor?.key === key)
   if (editor?.fileChange) {
     const newContent = editor.vimText.replace(/\r\n/g, '\n')
-    let cmd = `cat <<'EOFChaterm:save' > ${filePath}\n${newContent}\nEOFChaterm:save\n`
+    let cmd = `cat <<'EOFChaterm:save' > ${editor.filePath}\n${newContent}\nEOFChaterm:save\n`
     if (connectionHasSudo.value) {
-      cmd = `cat <<'EOFChaterm:save' | sudo tee  ${filePath} > /dev/null \n${newContent}\nEOFChaterm:save\n`
+      cmd = `cat <<'EOFChaterm:save' | sudo tee  ${editor.filePath} > /dev/null \n${newContent}\nEOFChaterm:save\n`
     }
     const { stderr } = await api.sshConnExec({
       cmd: cmd,
@@ -794,7 +828,8 @@ const createEditor = async (filePath, contentType) => {
         loading: false,
         fileChange: false,
         saved: false,
-        key: filePath
+        key: connectionId.value + '-' + filePath,
+        terminalId: connectionId.value
       } as editorData)
     } else {
       existingEditor.visible = true
@@ -1306,16 +1341,19 @@ const updateTerminalState = (quickInit: boolean, enterPress: boolean) => {
       buffer,
       contentCursorX
     )
-
+    // console.log(lineContent, 'lineContent')
+    // console.log(cursorX, 'cursorX')
+    // console.log(cursorY, 'cursorY')
+    // console.log(maxX, 'maxX')
+    // console.log(maxY, 'maxY')
     // 更新历史记录
     updateCursorHistory(cursorX, cursorY, maxX, maxY)
 
-    // 解析和更新内容
+    // 解析和更新内容】
     if (parseStrTag) {
       updateContentStrings(lineContent, cursorX)
       updateTerminalContent(lineContent, finalContentCursorX)
     }
-
     // 更新终端状态
     updateTerminalStateObject(cursorX, cursorY, isCrossRow)
 
@@ -1504,7 +1542,6 @@ const suggestionEnter = ref(false)
 const setupTerminalInput = () => {
   if (!terminal.value) return
   handleInput = async (data, isInputManagerCall = true) => {
-    console.log(data, 'data')
     // // 检查是否为删除键并进行间隔限制
     // const isDeleteKey = data === '\x08' || data === '\x7f' || data === String.fromCharCode(8) || data === String.fromCharCode(127)
     // if (isDeleteKey) {
@@ -1552,7 +1589,6 @@ const setupTerminalInput = () => {
       // 无论是否存在推荐界面，都继续将 Ctrl+C 发送给终端
       sendData(data)
     } else if (data === '\x0c') {
-      console.log('Ctrl+L', 'data')
       // Ctrl+L 清屏
       if (suggestions.value.length) {
         // 清除推荐界面
@@ -1565,6 +1601,10 @@ const setupTerminalInput = () => {
       // 将 Ctrl+L 发送给终端
       sendData(data)
     } else if (data === '\x1b') {
+      // 通过ref直接关闭菜单栏
+      if (contextmenu.value && typeof contextmenu.value.hide === 'function') {
+        contextmenu.value.hide()
+      }
       // ESC键 - 取消推荐界面
       if (suggestions.value.length) {
         suggestions.value = []
@@ -2337,7 +2377,6 @@ const handleKeyInput = (e) => {
     currentLine.value = ''
     currentLineStartY.value = (terminal.value as any)?._core.buffer.y + 1
     cursorStartX.value = 0
-
     terminalState.value.contentCrossRowStatus = false
     terminalState.value.contentCrossStartLine = 0
     terminalState.value.contentCrossRowLines = 0
@@ -2400,6 +2439,9 @@ const contextAct = (action) => {
   switch (action) {
     case 'paste':
       // 粘贴
+      if (startStr.value == '') {
+        startStr.value = beginStr.value
+      }
       pasteFlag.value = true
       navigator.clipboard.readText().then((text) => {
         sendData(text)
@@ -2475,6 +2517,9 @@ const hideSelectionButton = () => {
 }
 
 const handleGlobalKeyDown = (e: KeyboardEvent) => {
+  if (contextmenu.value && typeof contextmenu.value.hide === 'function') {
+    contextmenu.value.hide()
+  }
   if (props.activeTabId !== props.currentConnectionId) return
 
   const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0
@@ -2547,6 +2592,44 @@ const isCollectingOutput = ref(false)
 // 删除键输入限制相关变量
 const lastDeleteTime = ref(0)
 const DELETE_MIN_INTERVAL = 0 // 删除键最小输入间隔50ms
+
+function updateSelectionButtonPosition() {
+  if (!terminal.value) return
+  const termInstance = terminal.value
+  if (!termInstance.hasSelection()) {
+    showAiButton.value = false
+    return
+  }
+  const position = termInstance.getSelectionPosition()
+  if (position && termInstance.getSelection().trim()) {
+    const button = document.getElementById(`${connectionId.value}Button`) as HTMLElement
+    if (!button) return
+
+    const viewportY = termInstance.buffer.active.viewportY
+    const viewportRows = termInstance.rows
+    const visibleStart = viewportY
+    const visibleEnd = viewportY + viewportRows - 1
+
+    const { y: startY } = position.start
+    const { y: endY } = position.end
+
+    if ((startY < visibleStart || startY > visibleEnd) && (endY < visibleStart || endY > visibleEnd)) {
+      showAiButton.value = false
+      return
+    }
+
+    const visibleRow = startY - viewportY
+
+    const cellHeight = (termInstance as any)._core._renderService.dimensions.css.cell.height
+
+    const top = visibleRow - 2 > 0 ? (visibleRow - 2) * cellHeight : 0
+    button.style.right = `26px`
+    button.style.top = `${top}px`
+    showAiButton.value = true
+  } else {
+    showAiButton.value = false
+  }
+}
 </script>
 
 <style lang="less">
@@ -2563,7 +2646,7 @@ const DELETE_MIN_INTERVAL = 0 // 删除键最小输入间隔50ms
   height: 100%;
   border-radius: 6px;
   overflow: hidden;
-  padding: 4px 4px 4px 12px;
+  padding: 4px 4px 0px 12px;
   position: relative;
 }
 

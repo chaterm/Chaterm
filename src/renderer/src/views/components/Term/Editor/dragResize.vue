@@ -20,6 +20,7 @@ interface Props {
   x?: number
   y?: number
   dragHandle?: string
+  zIndex?: number
 }
 const dragResize = ref()
 
@@ -83,7 +84,8 @@ const containerStyle = computed(
     left: `${position.x}px`,
     top: `${position.y}px`,
     width: `${position.width}px`,
-    height: `${position.height}px`
+    height: `${position.height}px`,
+    zIndex: props.zIndex || 'auto'
   })
 )
 
