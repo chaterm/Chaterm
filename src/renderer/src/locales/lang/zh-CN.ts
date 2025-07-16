@@ -52,7 +52,8 @@ export default {
     quickCommandOn: '快捷命令(已开)',
     quickCommand: '快捷命令',
     add: '添加',
-    all: '全部'
+    all: '全部',
+    refresh: '刷新'
   },
   term: {
     welcome: '欢迎使用 Chaterm'
@@ -395,6 +396,12 @@ export default {
     downloading: '正在下载更新',
     complete: '已下载完毕，是否立即安装',
     install: '安装'
+  },
+  files: {
+    name: '名称',
+    permissions: '权限',
+    size: '大小',
+    modifyDate: '修改日期'
   },
   about: {
     version: '版本'
