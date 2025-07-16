@@ -93,7 +93,7 @@ export class Controller {
   async initTask(hosts: Host[], task?: string, historyItem?: HistoryItem, terminalOutput?: string, cwd?: Map<string, string>) {
     console.log('initTask', task, historyItem)
     await this.clearTask() // ensures that an existing task doesn't exist before starting a new one, although this shouldn't be possible since user must clear task before starting a new one
-    const { apiConfiguration, customInstructions, autoApprovalSettings, chatSettings } = await getAllExtensionState()
+    const { apiConfiguration, customInstructions, autoApprovalSettings } = await getAllExtensionState()
     this.task = new Task(
       this.workspaceTracker,
       (historyItem) => this.updateTaskHistory(historyItem),
@@ -102,7 +102,6 @@ export class Controller {
       (taskId) => this.reinitExistingTaskFromId(taskId),
       apiConfiguration,
       autoApprovalSettings,
-      chatSettings,
       hosts,
       customInstructions,
       task,
