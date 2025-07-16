@@ -1,6 +1,10 @@
 import { app, BrowserWindow, ipcMain, session } from 'electron'
 import { join } from 'path'
 import { electronApp, optimizer } from '@electron-toolkit/utils'
+import { is } from '@electron-toolkit/utils'
+
+// 设置环境变量
+process.env.IS_DEV = is.dev ? 'true' : 'false'
 
 import { registerSSHHandlers } from './ssh/sshHandle'
 import { registerRemoteTerminalHandlers } from './ssh/agentHandle'
@@ -15,6 +19,7 @@ import { getTaskMetadata } from './agent/core/storage/disk'
 import { HeartbeatManager } from './heartBeatManager'
 import { createMainWindow } from './windowManager'
 import { registerUpdater } from './updater'
+import { telemetryService } from './agent/services/telemetry/TelemetryService'
 
 let mainWindow: BrowserWindow
 let COOKIE_URL = 'http://localhost'
@@ -130,6 +135,9 @@ app.whenReady().then(async () => {
       if (controller && telemetrySetting) {
         await controller.updateTelemetrySetting(telemetrySetting)
       }
+
+      // Capture app started event after telemetry is initialized
+      telemetryService.captureAppStarted()
     } catch (error) {
       console.error('[Main Index] Failed to initialize telemetry setting:', error)
     }
