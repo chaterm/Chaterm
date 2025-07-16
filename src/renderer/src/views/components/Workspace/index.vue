@@ -546,10 +546,8 @@ onUnmounted(() => {
 }
 .tree-container {
   margin-top: 8px;
-  max-height: 77vh;
   overflow-y: auto;
   border-radius: 2px;
-  padding: 5px;
   background-color: transparent;
 }
 
