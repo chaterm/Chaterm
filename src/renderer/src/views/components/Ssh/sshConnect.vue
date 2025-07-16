@@ -179,6 +179,9 @@ const handleRightClick = (event) => {
   switch (config.rightMouseEvent) {
     case 'paste':
       // 右键点击时粘贴剪贴板内容
+      if (startStr.value == '') {
+        startStr.value = beginStr.value
+      }
       pasteFlag.value = true
       navigator.clipboard
         .readText()
@@ -207,7 +210,9 @@ const handleMouseDown = (event) => {
   if (event.button === 1) {
     switch (config.middleMouseEvent) {
       case 'paste':
-        // 中键点击时粘贴剪贴板内容
+        if (startStr.value == '') {
+          startStr.value = beginStr.value
+        }
         pasteFlag.value = true
         navigator.clipboard
           .readText()
@@ -452,7 +457,6 @@ onMounted(async () => {
     if (currentIsUserCall || terminalMode.value === 'none') {
       updateTerminalState(JSON.stringify(data).endsWith(startStr.value), enterPress.value)
     }
-    console.log(100000, 'data')
     // 走高亮的条件
     let highLightFlag: boolean = true
     // 条件1, 如果beforeCursor为空 content有内容 则代表enter键，不能走highlight
@@ -489,7 +493,6 @@ onMounted(async () => {
     //   suggestionEnter.value = false
     // }
     if (highLightFlag) {
-      console.log(config.highlightStatus)
       console.log(terminalState.value, 'terminalState.value')
       if (config.highlightStatus == 1) {
         highlightSyntax(terminalState.value)
@@ -506,6 +509,7 @@ onMounted(async () => {
 
   // termInstance.write
   cusWrite = function (data: string, options?: { isUserCall?: boolean }): void {
+    console.log(data, 'data')
     const currentIsUserCall = options?.isUserCall ?? false
     userInputFlag.value = currentIsUserCall
     const originalRequestRefresh = renderService.refreshRows.bind(renderService)
@@ -1259,7 +1263,9 @@ const getWrappedContentLastLineY = () => {
 
 // 更新终端状态
 const updateTerminalState = (quickInit: boolean, enterPress: boolean) => {
+  console.log(quickInit, 'quickInit11111')
   if (!terminal.value) return
+  console.log(startStr.value, 'startStr.value')
 
   try {
     const terminalCore = (terminal as any).value._core
@@ -1287,6 +1293,7 @@ const updateTerminalState = (quickInit: boolean, enterPress: boolean) => {
     const currentLine = buffer.lines.get(terminal.value?.buffer.active.baseY + cursorY)
     let isCrossRow = determineCrossRowStatus(currentLine, cursorY, currentCursorEndY)
 
+    console.log(cursorX, 'cursorX222', quickInit, 'quickInit')
     // 更新光标起始位置
     updateCursorStartPosition(cursorX, quickInit)
 
@@ -1306,16 +1313,19 @@ const updateTerminalState = (quickInit: boolean, enterPress: boolean) => {
       buffer,
       contentCursorX
     )
-
+    // console.log(lineContent, 'lineContent')
+    // console.log(cursorX, 'cursorX')
+    // console.log(cursorY, 'cursorY')
+    // console.log(maxX, 'maxX')
+    // console.log(maxY, 'maxY')
     // 更新历史记录
     updateCursorHistory(cursorX, cursorY, maxX, maxY)
 
-    // 解析和更新内容
+    // 解析和更新内容】
     if (parseStrTag) {
       updateContentStrings(lineContent, cursorX)
       updateTerminalContent(lineContent, finalContentCursorX)
     }
-
     // 更新终端状态
     updateTerminalStateObject(cursorX, cursorY, isCrossRow)
 
@@ -1353,9 +1363,12 @@ const determineCrossRowStatus = (currentLine: any, cursorY: number, currentCurso
 // 更新光标起始位置
 const updateCursorStartPosition = (cursorX: number, quickInit: boolean): void => {
   if (cursorStartX.value === 0 || quickInit) {
+    console.log(3333, 'cursorStartX.value:', cursorStartX.value)
+    console.log(cursorX, 'cursorX')
     cursorStartX.value = cursorX
   } else {
     cursorStartX.value = Math.min(cursorStartX.value, cursorX)
+    console.log(4444, 'cursorStartX.value:', cursorStartX.value)
   }
 }
 
@@ -1385,6 +1398,7 @@ const processLineContent = (
 
     // 换行后重新设置起始位置
     cursorStartX.value = startStr.value.length
+    console.log(555, 'cursorStartX.value:', cursorStartX.value)
   }
 
   return { lineContent, finalContentCursorX }
@@ -1458,6 +1472,7 @@ const updateContentStrings = (lineContent: string, cursorX: number): void => {
     if (newStartStr !== startStr.value) {
       cursorStartX.value = cursorX
       startStr.value = lineContent.substring(0, cursorX)
+      console.log(666, 'cursorStartX.value:', cursorStartX.value)
     }
   } else {
     beginStr.value = lineContent.substring(0, cursorStartX.value)
@@ -1466,6 +1481,9 @@ const updateContentStrings = (lineContent: string, cursorX: number): void => {
 
 // 更新终端内容
 const updateTerminalContent = (lineContent: string, contentCursorX: number): void => {
+  console.log(lineContent, 'lineContent')
+  console.log(cursorStartX.value, 'cursorStartX')
+  console.log(contentCursorX, 'contentCursorX')
   terminalState.value.content = substrWidth(lineContent, cursorStartX.value)
   terminalState.value.beforeCursor = substrWidth(lineContent, cursorStartX.value, contentCursorX)
 }
@@ -2308,6 +2326,7 @@ const insertCommand = async (cmd) => {
 
 // 输入内容 - 原始处理函数
 const handleKeyInput = (e) => {
+  console.log(e, 'eeeeeeee')
   enterPress.value = false
   specialCode.value = false
   currentLineStartY.value = (terminal.value as any)?._core.buffer.y
@@ -2321,8 +2340,10 @@ const handleKeyInput = (e) => {
   // 当前行开始输入时的光标的位置，0是初始状态，需要跟当前光标一样，非0时需要小于当前光标位置
   if (cursorStartX.value == 0) {
     cursorStartX.value = cursorX.value
+    console.log(777, 'cursorStartX.value:', cursorStartX.value)
   } else {
     cursorX.value < cursorStartX.value ? (cursorStartX.value = cursorX.value) : ''
+    console.log(888, 'cursorStartX.value:', cursorStartX.value)
   }
 
   if (ev.keyCode === 13 || e.key === '\u0003') {
@@ -2341,7 +2362,7 @@ const handleKeyInput = (e) => {
     currentLine.value = ''
     currentLineStartY.value = (terminal.value as any)?._core.buffer.y + 1
     cursorStartX.value = 0
-
+    console.log(999, 'cursorStartX.value:', cursorStartX.value)
     terminalState.value.contentCrossRowStatus = false
     terminalState.value.contentCrossStartLine = 0
     terminalState.value.contentCrossRowLines = 0
@@ -2404,6 +2425,9 @@ const contextAct = (action) => {
   switch (action) {
     case 'paste':
       // 粘贴
+      if (startStr.value == '') {
+        startStr.value = beginStr.value
+      }
       pasteFlag.value = true
       navigator.clipboard.readText().then((text) => {
         sendData(text)
