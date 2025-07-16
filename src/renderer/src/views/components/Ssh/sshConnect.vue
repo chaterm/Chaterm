@@ -66,8 +66,10 @@
   >
     <EditorCode
       :editor="editor"
+      :is-active="editor.key === activeEditorKey"
       @close-vim-editor="closeVimEditor"
       @handle-save="handleSave"
+      @focus-editor="() => handleFocusEditor(editor)"
     />
   </div>
 
@@ -127,7 +129,7 @@ import { SearchAddon } from 'xterm-addon-search'
 import { IDisposable } from 'xterm'
 import 'xterm/css/xterm.css'
 import { defineEmits } from 'vue'
-import type { editorData } from '@/views/components/Term/Editor/dragEditor.vue'
+import { editorData } from '../Term/Editor/dragEditor.vue'
 import { LanguageMap } from '@/views/components/Term/Editor/languageMap'
 import EditorCode from '@/views/components//Term/Editor/dragEditor.vue'
 import { message, Modal } from 'ant-design-vue'
@@ -277,6 +279,13 @@ const shortcutKey = computed(() => {
   return isMac ? '⌘L' : 'Ctrl+L'
 })
 
+// editor绑定
+const activeEditorKey = ref(null)
+
+const handleFocusEditor = (editor) => {
+  activeEditorKey.value = editor.key
+}
+
 // const userConfig = ref({
 //   aliasStatus: 2,
 //   quickVimStatus: 2
@@ -292,9 +301,9 @@ const shortcutKey = computed(() => {
 //     console.error('Failed to load user config:', error)
 //   }
 // }
-// 编辑序列
 
-const isEditorMode = ref(false)
+// const isEditorMode = ref(false)
+// 编辑序列
 const dataBuffer = ref<number[]>([])
 const EDITOR_SEQUENCES = {
   // 进入编辑器模式的序列
@@ -354,38 +363,14 @@ onMounted(async () => {
   )
   terminal.value = termInstance
   termInstance?.onKey(handleKeyInput)
-  termInstance?.onSelectionChange(function () {
-    if (termInstance.hasSelection()) {
-      copyText.value = termInstance.getSelection()
-
-      // 自动复制选中内容到粘贴板
-      if (copyText.value.trim()) {
-        navigator.clipboard.writeText(copyText.value.trim()).catch(() => {
-          // 如果 Clipboard API 失败，静默处理或使用备用方法
-          console.warn('Failed to copy to clipboard')
-        })
-      }
-
-      // 计算按钮位置并显示
-      const position = termInstance.getSelectionPosition()
-      if (position && termInstance.getSelection().trim()) {
-        const button = document.getElementById(`${connectionId.value}Button`) as HTMLElement
-        const { y } = position.start
-        const viewportY = termInstance.buffer.active.viewportY
-        const visibleRow = y - viewportY
-        // 获取字符单元尺寸
-        const cellHeight = (termInstance as any)._core._renderService.dimensions.css.cell.height
-        // 将字符坐标转换为像素坐标
-        const top = visibleRow - 2 > 0 ? (visibleRow - 2) * cellHeight : 0
-        button.style.right = `26px`
-        button.style.top = `${top}px`
-        showAiButton.value = true
-      }
-    } else {
-      showAiButton.value = false
+  termInstance?.onSelectionChange(() => updateSelectionButtonPosition())
+  nextTick(() => {
+    // 监听 xterm 内部 viewport 的滚动
+    const viewport = terminalElement.value?.querySelector('.xterm-viewport')
+    if (viewport) {
+      viewport.addEventListener('scroll', () => updateSelectionButtonPosition())
     }
   })
-
   // Add theme change listener
   eventBus.on('updateTheme', (theme) => {
     if (terminal.value) {
@@ -661,53 +646,101 @@ onBeforeUnmount(() => {
   if (isConnected.value) {
     disconnectSSH()
   }
+
+  const viewport = terminalElement.value?.querySelector('.xterm-viewport')
+  if (viewport) {
+    viewport.removeEventListener('scroll', () => updateSelectionButtonPosition())
+  }
 })
-const getFileExt = (filePath: string) => {
-  const idx = filePath.lastIndexOf('.')
-  if (idx === -1) return '' // 没有扩展名
-  return filePath.slice(idx).toLowerCase()
+// 解析Chaterm:vim 返回
+const getFileExt = (fileName: string): string => {
+  const match = fileName.match(/\.[^.\/\\]+$/)
+  return match ? match[0] : ''
 }
-const parseVimLine = (str) => {
-  // 过滤ANSI 转义序列
-  let cleanedStr = stripAnsi(str)
-  cleanedStr = cleanedStr.replace(/[\x00-\x09\x0B\x0C\x0E-\x1F\x7F]/g, '')
-  cleanedStr = cleanedStr.trim()
-  const lines = cleanedStr.split(/\r?\n/) // 同时处理 \n 和 \r\n 换行符
-  if (lines.length > 0) {
-    // 处理文件名里无意义符号
-    const fileName = lines[1].replace(/[\x00-\x1F\x7F]/g, '').trimEnd()
-    const contentType = getFileExt(fileName) ? getFileExt(fileName) : '.python'
-    if (cleanedStr.indexOf('No such file or directory') !== -1) {
-      return {
-        checkStatus: lines[0].trim().endsWith('#Chaterm:vim'),
-        lastLine: '\r\n' + lines[lines.length - 1],
-        filePath: fileName,
-        contentType: LanguageMap[contentType]
-      }
+
+const isOnlyAnsiCodes = (str: string): boolean => {
+  const cleaned = stripAnsi(str)
+    .replace(/[\x00-\x1F\x7F]/g, '')
+    .trim()
+  return cleaned.length === 0
+}
+
+const cleanForFileName = (str: string): string => {
+  return stripAnsi(str)
+    .replace(/[\x00-\x1F\x7F]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+// 去掉退格和 \x1B[K 控制符
+const normalizeControl = (str: string): string => {
+  // 优先去掉退格清除序列：\b\x1B[K
+  str = str.replace(/\x08\x1B\[K/g, '')
+
+  const chars: string[] = []
+  for (const ch of str) {
+    if (ch === '\b') {
+      // 删除前一个字符
+      chars.pop()
     } else {
-      return {
-        checkStatus: lines[0].trim().endsWith('#Chaterm:vim'),
-        lastLine: '\r\n' + lines[lines.length - 1],
-        filePath: fileName,
-        contentType: LanguageMap[contentType]
-      }
+      chars.push(ch)
     }
   }
 
+  return chars.join('')
+}
+
+// 数据解析
+const parseVimLine = (raw: string) => {
+  const originalLines = raw.split(/\r?\n/)
+
+  // 1. 清理控制符
+  const cleaned = normalizeControl(raw)
+    .replace(/\x1B\][0-9]*;[^\x07]*\x07/g, '')
+    .replace(/\x1BP.*?\x1B\\/g, '')
+    .replace(/\x1B\[\?[0-9;]*[hl]/g, '')
+    .replace(/\x1B\[[0-9;]*[ABCDEFGJKST]/g, '')
+    .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '')
+    .replace(/[ \t]+/g, ' ')
+    .trim()
+
+  const lines = cleaned.split(/\r?\n/)
+
+  let filePath = ''
+  if (lines.length > 1) {
+    filePath = stripAnsi(lines[1])
+      .replace(/[\x00-\x1F\x7F]/g, '')
+      .trim()
+  }
+
+  const ext = getFileExt(filePath)
+  const contentType = LanguageMap[ext] || 'python'
+
+  // 提取原始 lastLine 保留原有的颜色和控制符
+  let lastLine = ''
+  for (let i = originalLines.length - 1; i >= 0; i--) {
+    const line = originalLines[i].trim()
+    if (line && !isOnlyAnsiCodes(line)) {
+      lastLine = '\r\n' + originalLines[i]
+      break
+    }
+  }
+
+  if (filePath.includes('No such file or directory')) {
+    filePath = cleanForFileName(filePath.replace('No such file or directory', ''))
+  }
+
   return {
-    checkStatus: false,
-    lastLine: '',
-    content: '',
-    filePath: '',
-    contentType: '',
-    action: ''
+    lastLine,
+    filePath,
+    contentType
   }
 }
 
 const openEditors = reactive<editorData[]>([])
 const closeVimEditor = (data) => {
-  const { filePath } = data
-  const editor = openEditors.find((editor) => editor?.filePath === filePath)
+  const { key } = data
+  const editor = openEditors.find((editor) => editor?.key === key)
   if (editor?.fileChange) {
     if (!editor?.saved) {
       Modal.confirm({
@@ -715,7 +748,7 @@ const closeVimEditor = (data) => {
         okText: '确定',
         cancelText: '取消',
         onOk() {
-          handleSave({ filePath: editor?.filePath, needClose: true })
+          handleSave({ key: editor?.key, needClose: true })
         },
         onCancel() {
           const index = openEditors.indexOf(editor)
@@ -734,14 +767,14 @@ const closeVimEditor = (data) => {
 }
 
 const handleSave = async (data) => {
-  const { filePath, needClose } = data
+  const { key, needClose } = data
   let errMsg = ''
-  const editor = openEditors.find((editor) => editor?.filePath === filePath)
+  const editor = openEditors.find((editor) => editor?.key === key)
   if (editor?.fileChange) {
     const newContent = editor.vimText.replace(/\r\n/g, '\n')
-    let cmd = `cat <<'EOFChaterm:save' > ${filePath}\n${newContent}\nEOFChaterm:save\n`
+    let cmd = `cat <<'EOFChaterm:save' > ${editor.filePath}\n${newContent}\nEOFChaterm:save\n`
     if (connectionHasSudo.value) {
-      cmd = `cat <<'EOFChaterm:save' | sudo tee  ${filePath} > /dev/null \n${newContent}\nEOFChaterm:save\n`
+      cmd = `cat <<'EOFChaterm:save' | sudo tee  ${editor.filePath} > /dev/null \n${newContent}\nEOFChaterm:save\n`
     }
     const { stderr } = await api.sshConnExec({
       cmd: cmd,
@@ -798,7 +831,8 @@ const createEditor = async (filePath, contentType) => {
         loading: false,
         fileChange: false,
         saved: false,
-        key: filePath
+        key: connectionId.value + '-' + filePath,
+        terminalId: connectionId.value
       } as editorData)
     } else {
       existingEditor.visible = true
@@ -2575,6 +2609,44 @@ const isCollectingOutput = ref(false)
 // 删除键输入限制相关变量
 const lastDeleteTime = ref(0)
 const DELETE_MIN_INTERVAL = 0 // 删除键最小输入间隔50ms
+
+function updateSelectionButtonPosition() {
+  if (!terminal.value) return
+  const termInstance = terminal.value
+  if (!termInstance.hasSelection()) {
+    showAiButton.value = false
+    return
+  }
+  const position = termInstance.getSelectionPosition()
+  if (position && termInstance.getSelection().trim()) {
+    const button = document.getElementById(`${connectionId.value}Button`) as HTMLElement
+    if (!button) return
+
+    const viewportY = termInstance.buffer.active.viewportY
+    const viewportRows = termInstance.rows
+    const visibleStart = viewportY
+    const visibleEnd = viewportY + viewportRows - 1
+
+    const { y: startY } = position.start
+    const { y: endY } = position.end
+
+    if ((startY < visibleStart || startY > visibleEnd) && (endY < visibleStart || endY > visibleEnd)) {
+      showAiButton.value = false
+      return
+    }
+
+    const visibleRow = startY - viewportY
+
+    const cellHeight = (termInstance as any)._core._renderService.dimensions.css.cell.height
+
+    const top = visibleRow - 2 > 0 ? (visibleRow - 2) * cellHeight : 0
+    button.style.right = `26px`
+    button.style.top = `${top}px`
+    showAiButton.value = true
+  } else {
+    showAiButton.value = false
+  }
+}
 </script>
 
 <style lang="less">
@@ -2591,7 +2663,7 @@ const DELETE_MIN_INTERVAL = 0 // 删除键最小输入间隔50ms
   height: 100%;
   border-radius: 6px;
   overflow: hidden;
-  padding: 4px 4px 4px 12px;
+  padding: 4px 4px 0px 12px;
   position: relative;
 }
 
