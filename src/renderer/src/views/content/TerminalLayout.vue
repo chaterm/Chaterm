@@ -660,7 +660,7 @@ const adjustSplitPaneToEqualWidth = () => {
     const equalSize = availableSpace / paneCount
 
     mainTerminalSize.value = equalSize
-    splitPanes.value.forEach((pane, index) => {
+    splitPanes.value.forEach((pane) => {
       pane.size = equalSize
     })
   }
