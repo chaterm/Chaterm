@@ -15,7 +15,7 @@
         <div class="fs-header-right">
           <a-space>
             <div class="fs-header-right-item">
-              <a-tooltip title="刷新">
+              <a-tooltip :title="$t('common.refresh')">
                 <a-button
                   type="primary"
                   size="small"
@@ -72,7 +72,7 @@
                 placement="top"
                 title="双击打开"
               >
-                <FileFilled style="color: white; margin-right: -1px" />
+                <FileFilled style="color: var(--text-color-quaternary); margin-right: -1px" />
                 {{ record.name }}
               </a-tooltip>
             </span>
@@ -91,9 +91,11 @@ import { encrypt } from '@/utils/util.js'
 import { notification } from 'ant-design-vue'
 import { defineEmits } from 'vue'
 import { ColumnsType } from 'ant-design-vue/es/table'
+import { useI18n } from 'vue-i18n'
 
 const emit = defineEmits(['openFile'])
 const api = window.api as any
+const { t } = useI18n()
 
 // 定义props，并提供默认值
 const props = defineProps({
@@ -157,7 +159,7 @@ type FlexibleColumn = Partial<ColumnsType<FileRecord>[number]>
 
 const columns: FlexibleColumn[] = [
   {
-    title: '名称',
+    title: t('files.name'),
     dataIndex: 'name',
     key: 'name',
     sorter: (a: FileRecord, b: FileRecord) => {
@@ -173,7 +175,7 @@ const columns: FlexibleColumn[] = [
     ellipsis: true
   },
   {
-    title: '权限',
+    title: t('files.permissions'),
     dataIndex: 'mode',
     key: 'mode',
     customRender: ({ record }: { record: FileRecord }) => {
@@ -182,7 +184,7 @@ const columns: FlexibleColumn[] = [
     ellipsis: true
   },
   {
-    title: '大小',
+    title: t('files.size'),
     dataIndex: 'size',
     key: 'size',
     customRender: ({ record }: { record: FileRecord }) => {
@@ -203,7 +205,7 @@ const columns: FlexibleColumn[] = [
     ellipsis: true
   },
   {
-    title: '修改日期',
+    title: t('files.modifyDate'),
     dataIndex: 'modTime',
     key: 'modTime',
     sorter: (a: FileRecord, b: FileRecord) => {
@@ -426,8 +428,8 @@ defineExpose({
 
 <style scoped>
 .base-file {
-  border-color: #141414;
-  background-color: #141414;
+  border-color: var(--border-color);
+  background-color: var(--bg-color);
 }
 .base-file :deep(.ant-card-body) {
   padding: 0px 7px;
@@ -452,28 +454,28 @@ defineExpose({
 }
 
 .files-table :deep(.ant-table-tbody) {
-  background-color: #141414;
+  background-color: var(--bg-color);
 }
 
 .files-table :deep(.ant-table-thead > tr > th) {
-  background: #141414;
-  color: #fff;
+  background: var(--bg-color);
+  color: var(--text-color);
   padding: 8px;
   border-radius: 0;
   border: none !important;
-  border-bottom: 1px solid #f0f0f0 !important;
+  border-bottom: 1px solid var(--border-color) !important;
 }
 
 .files-table :deep(.ant-table-tbody > tr > td) {
-  background: #141414;
-  color: #fff;
+  background: var(--bg-color);
+  color: var(--text-color);
   padding: 8px;
   border: none !important;
-  border-bottom: 1px solid #333;
+  border-bottom: 1px solid var(--border-color);
 }
 
 .files-table :deep(.ant-table-tbody > tr:hover > td) {
-  background-color: #4a4a4a !important;
+  background-color: var(--bg-color-secondary) !important;
 }
 
 .files-table :deep(.ant-table-tbody > tr > td) {
@@ -485,7 +487,7 @@ defineExpose({
 }
 
 .files-table :deep(.ant-table-column-has-sorters:hover) {
-  background-color: #4a4a4a !important;
+  background-color: var(--bg-color-secondary) !important;
   padding: 5px 5px;
 }
 
@@ -494,8 +496,8 @@ defineExpose({
 }
 
 .input-search {
-  background-color: #b0b0b0;
-  border-color: #b0b0b0;
+  background-color: var(--bg-color-secondary);
+  border-color: var(--bg-color-secondary);
   height: 80%;
 }
 </style>

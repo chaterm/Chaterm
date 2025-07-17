@@ -61,6 +61,12 @@
         >
           <span>{{ $t('common.splitRight') }}</span>
         </div>
+        <div
+          class="context-menu-item"
+          @click="splitDown"
+        >
+          <span>{{ $t('common.splitDown') }}</span>
+        </div>
       </div>
 
       <div class="tabs-content">
@@ -177,9 +183,7 @@ const closeTab = (id) => {
 
 const onDragEnd = (evt) => {
   if (evt.from === evt.to) {
-    // 同一分屏内的拖拽，只需要更新顺序
     emit('update-tabs', localTabs.value)
-    // 激活拖拽的标签页
     const draggedTab = localTabs.value[evt.newIndex]
     if (draggedTab) {
       emit('change-tab', draggedTab.id)
@@ -188,17 +192,12 @@ const onDragEnd = (evt) => {
 }
 
 const onDragAdd = (evt) => {
-  // 从其他分屏拖入的标签页
   const movedTab = evt.item.__draggable_context.element
-
-  // 通知父组件处理跨分屏移动
   emit('tab-moved-from-other-pane', {
     tab: movedTab,
     fromElement: evt.from,
     toElement: evt.to
   })
-
-  // 激活新拖入的标签页
   if (movedTab) {
     emit('change-tab', movedTab.id)
   }
@@ -346,6 +345,26 @@ const splitRight = () => {
   hideContextMenu()
 }
 
+const splitDown = () => {
+  const currentTab = contextMenu.value.targetTab
+  if (!currentTab) {
+    hideContextMenu()
+    return
+  }
+
+  const newTabInfo = {
+    title: `${currentTab.title}`,
+    content: currentTab.content,
+    type: currentTab.type,
+    organizationId: currentTab.organizationId,
+    ip: currentTab.ip,
+    data: currentTab.data
+  }
+
+  eventBus.emit('createVerticalSplitTab', newTabInfo)
+  hideContextMenu()
+}
+
 const handleKeyDown = (event: KeyboardEvent) => {
   if ((event.metaKey || event.ctrlKey) && event.key === 'w') {
     if (!props.tabs || props.tabs.length === 0) {
@@ -459,7 +478,6 @@ defineExpose({
   display: block;
 }
 
-/* 拖拽时的样式 */
 .sortable-chosen {
   opacity: 0.8;
   background-color: var(--hover-bg-color) !important;

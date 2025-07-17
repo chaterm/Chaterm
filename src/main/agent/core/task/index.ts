@@ -67,7 +67,6 @@ export class Task {
   private remoteTerminalManager: RemoteTerminalManager
   customInstructions?: string
   autoApprovalSettings: AutoApprovalSettings
-  chatSettings: ChatSettings
   apiConversationHistory: Anthropic.MessageParam[] = []
   chatermMessages: ChatermMessage[] = []
   // private chatermIgnoreController: ChatermIgnoreController
@@ -122,7 +121,6 @@ export class Task {
     reinitExistingTaskFromId: (taskId: string) => Promise<void>,
     apiConfiguration: ApiConfiguration,
     autoApprovalSettings: AutoApprovalSettings,
-    chatSettings: ChatSettings,
     hosts: Host[],
     customInstructions?: string,
     task?: string,
@@ -139,7 +137,6 @@ export class Task {
     this.contextManager = new ContextManager()
     this.customInstructions = customInstructions
     this.autoApprovalSettings = autoApprovalSettings
-    this.chatSettings = chatSettings
     this.hosts = hosts
     if (hosts) {
       for (const host of hosts) {
@@ -714,8 +711,9 @@ export class Task {
     })()
 
     const wasRecent = lastChatermMessage?.ts && Date.now() - lastChatermMessage.ts < 30_000
+    const chatSettings = await getGlobalState('chatSettings')
 
-    const [taskResumptionMessage, userResponseMessage] = formatResponse.taskResumption(this.chatSettings?.mode, agoText, wasRecent, responseText)
+    const [taskResumptionMessage, userResponseMessage] = formatResponse.taskResumption(chatSettings?.mode, agoText, wasRecent, responseText)
 
     if (taskResumptionMessage !== '') {
       newUserContent.push({
@@ -1079,7 +1077,8 @@ export class Task {
     const currentProviderId = (await getGlobalState('apiProvider')) as string
     if (currentProviderId && this.api.getModel().id) {
       try {
-        await this.modelContextTracker.recordModelUsage(currentProviderId, this.api.getModel().id, this.chatSettings.mode)
+        const chatSettings = await getGlobalState('chatSettings')
+        this.modelContextTracker.recordModelUsage(currentProviderId, this.api.getModel().id, chatSettings?.mode)
       } catch {}
     }
   }
@@ -1578,12 +1577,13 @@ export class Task {
 
     const lastApiReqTotalTokens = lastApiReqMessage ? getTotalTokensFromApiReqMessage(lastApiReqMessage) : 0
     const usagePercentage = Math.round((lastApiReqTotalTokens / contextWindow) * 100)
+    const chatSettings = await getGlobalState('chatSettings')
 
     details += '\n\n# Context Window Usage:'
     details += `\n${lastApiReqTotalTokens.toLocaleString()} / ${(contextWindow / 1000).toLocaleString()}K tokens used (${usagePercentage}%)`
 
     details += '\n\n# Current Mode:'
-    switch (this.chatSettings.mode) {
+    switch (chatSettings?.mode) {
       case 'chat':
         details += '\nCHAT MODE'
         break
@@ -1618,8 +1618,9 @@ export class Task {
 
         this.consecutiveMistakeCount = 0
         let didAutoApprove = false
+        const chatSettings = await getGlobalState('chatSettings')
 
-        if (this.chatSettings.mode === 'cmd') {
+        if (chatSettings?.mode === 'cmd') {
           await this.askApproval(toolDescription, 'command', command) // Wait for frontend to execute command and return result
           return
         }
