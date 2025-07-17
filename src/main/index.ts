@@ -717,3 +717,26 @@ ipcMain.handle('refresh-organization-assets', async (_, data) => {
     return { data: { message: 'failed', error: error.message } }
   }
 })
+
+ipcMain.handle('organization-asset-favorite', async (_, data) => {
+  console.log('=== 主进程 organization-asset-favorite 开始 ===')
+  console.log('接收到的数据:', data)
+
+  try {
+    const { organizationUuid, host, status } = data
+
+    if (!organizationUuid || !host || status === undefined) {
+      console.error('参数不完整:', { organizationUuid, host, status })
+      return { data: { message: 'failed', error: '参数不完整' } }
+    }
+
+    console.log('调用 chatermDbService.updateOrganizationAssetFavorite')
+    const result = chatermDbService.updateOrganizationAssetFavorite(organizationUuid, host, status)
+    console.log('数据库操作结果:', result)
+
+    return result
+  } catch (error) {
+    console.error('主进程 organization-asset-favorite 错误:', error)
+    return { data: { message: 'failed', error: error.message } }
+  }
+})

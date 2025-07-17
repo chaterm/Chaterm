@@ -307,7 +307,7 @@ export default {
     personalAsset: '个人',
     enterpriseAsset: '企业',
     organizationTip: '仅支持 Jumpserver',
-    refreshAssets: '刷新资产',
+    refreshAssets: '资产',
     refreshingAssets: '正在刷新资产...',
     refreshSuccess: '资产刷新成功',
     refreshError: '资产刷新失败'

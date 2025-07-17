@@ -350,6 +350,21 @@ const refreshOrganizationAssets = async (data: { organizationUuid: string; jumpS
   }
 }
 
+const updateOrganizationAssetFavorite = async (data: { organizationUuid: string; host: string; status: number }) => {
+  console.log('=== preload updateOrganizationAssetFavorite 开始 ===')
+  console.log('传入参数:', data)
+
+  try {
+    console.log('调用 IPC: organization-asset-favorite')
+    const result = await ipcRenderer.invoke('organization-asset-favorite', data)
+    console.log('IPC 返回结果:', result)
+    return result
+  } catch (error) {
+    console.error('preload updateOrganizationAssetFavorite 错误:', error)
+    return Promise.reject(error)
+  }
+}
+
 const api = {
   getLocalIP,
   getMacAddress,
@@ -384,6 +399,7 @@ const api = {
   initUserDatabase,
   userSnippetOperation,
   refreshOrganizationAssets,
+  updateOrganizationAssetFavorite,
   maximizeWindow: () => ipcRenderer.invoke('window:maximize'),
   unmaximizeWindow: () => ipcRenderer.invoke('window:unmaximize'),
   isMaximized: () => ipcRenderer.invoke('window:is-maximized'),

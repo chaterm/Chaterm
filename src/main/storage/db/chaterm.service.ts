@@ -10,7 +10,8 @@ import {
   updateAssetLogic,
   connectAssetInfoLogic,
   getUserHostsLogic,
-  refreshOrganizationAssetsLogic
+  refreshOrganizationAssetsLogic,
+  updateOrganizationAssetFavoriteLogic
 } from './chaterm/assets'
 import {
   deleteChatermHistoryByTaskIdLogic,
@@ -171,5 +172,15 @@ export class ChatermDatabaseService {
 
   async refreshOrganizationAssets(organizationUuid: string, jumpServerConfig: any): Promise<any> {
     return await refreshOrganizationAssetsLogic(this.db, organizationUuid, jumpServerConfig)
+  }
+
+  updateOrganizationAssetFavorite(organizationUuid: string, host: string, status: number): any {
+    try {
+      const result = updateOrganizationAssetFavoriteLogic(this.db, organizationUuid, host, status)
+      return result
+    } catch (error) {
+      console.error('ChatermDatabaseService.updateOrganizationAssetFavorite 错误:', error)
+      throw error
+    }
   }
 }
