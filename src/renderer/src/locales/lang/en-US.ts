@@ -403,6 +403,12 @@ export default {
     modifyDate: 'Modified Date'
   },
   about: {
-    version: 'Version'
+    version: 'Version',
+    checkUpdate: 'Check Update',
+    latestVersion: 'Latest Version',
+    downLoadUpdate: 'Download Update',
+    downloading: 'Downloading',
+    checkUpdateError: 'Check update failed',
+    checking: 'Checking'
   }
 }
