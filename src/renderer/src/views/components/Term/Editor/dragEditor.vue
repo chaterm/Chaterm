@@ -22,7 +22,7 @@
               :loading="editor.loading"
               @click="handleSave(editor.key, false)"
             >
-              <span class="btn-icon"><SaveOutlined :style="{ fontSize: '18px' }" /></span>
+              <span class="btn-icon"><SaveOutlined /></span>
               <span>保存</span>
             </a-button>
           </div>
@@ -257,7 +257,7 @@ const editorFilter = (action) => {
 .toolbar-btn {
   display: flex;
   align-items: center;
-  padding: 6px 12px;
+  padding: 4px 12px;
   border: none;
   border-radius: 4px;
   cursor: pointer;
@@ -267,12 +267,12 @@ const editorFilter = (action) => {
 }
 
 .save-btn {
-  background-color: #0e639c;
+  background-color: #1890ff;
   color: white;
 }
 
 .save-btn:hover {
-  background-color: #1177bb;
+  background-color: #40a9ff;
   color: white;
 }
 
