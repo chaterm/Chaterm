@@ -194,6 +194,23 @@
                   >{{ $t('login.login') }}</a-button
                 >
               </a-form-item>
+              <a-form-item>
+                <a-button
+                  style="
+                    margin-top: 20px;
+                    margin-left: 50%;
+                    transform: translateX(-50%);
+                    border-radius: 6px;
+                    width: 200px;
+                    height: 36px;
+                    font-size: 16px;
+                    background-color: #2a82e4;
+                  "
+                  type="primary"
+                  @click="handleExternalLogin"
+                  >外部登录测试</a-button
+                >
+              </a-form-item>
               <div class="skip-login">
                 {{ $t('login.skip') }}
                 <a
@@ -214,7 +231,7 @@
 import { removeToken } from '@/utils/permission'
 import { UserOutlined, InfoCircleOutlined, LockOutlined, MailOutlined, SafetyOutlined } from '@ant-design/icons-vue'
 import { useRouter } from 'vue-router'
-import { ref, reactive, getCurrentInstance, onMounted, nextTick } from 'vue'
+import { ref, reactive, getCurrentInstance, onMounted, nextTick, onBeforeUnmount } from 'vue'
 import { GlobalOutlined } from '@ant-design/icons-vue'
 import type { MenuProps } from 'ant-design-vue'
 import { userLogin, sendEmailCode, emailLogin } from '@/api/user/user'
@@ -401,9 +418,59 @@ const sendCode = () => {
   }, 1000)
 }
 
+const handleExternalLogin = async () => {
+  try {
+    // 调用主进程方法打开外部登录页面
+    const api = window.api as any
+    await api.openExternalLogin()
+  } catch (err) {
+    console.error('启动外部登录失败:', err)
+    message.error('启动外部登录失败')
+  }
+}
+
 onMounted(async () => {
   const api = window.api as any
   platform.value = await api.getPlatform()
+
+  // 监听外部登录成功事件
+  const ipcRenderer = (window as any).electron?.ipcRenderer
+  ipcRenderer?.on('external-login-success', async (event, data) => {
+    try {
+      const { token, userInfo } = data
+
+      if (token && userInfo) {
+        // 保存token
+        localStorage.setItem('ctm-token', token)
+
+        // 设置用户信息
+        setUserInfo(userInfo)
+
+        // 初始化用户数据库
+        const api = window.api as any
+        const dbResult = await api.initUserDatabase({ uid: userInfo.uid })
+
+        if (!dbResult.success) {
+          console.error('数据库初始化失败:', dbResult.error)
+          message.error('数据库初始化失败')
+          return
+        }
+
+        // 跳转到主页
+        router.push('/')
+        message.success('外部登录成功')
+      }
+    } catch (error) {
+      console.error('处理外部登录数据失败:', error)
+      message.error('登录处理失败')
+    }
+  })
+})
+
+onBeforeUnmount(() => {
+  // 移除事件监听
+  const ipcRenderer = (window as any).electron?.ipcRenderer
+  ipcRenderer?.removeAllListeners('external-login-success')
 })
 </script>
 <style lang="less" scoped>
