@@ -336,7 +336,7 @@ onMounted(async () => {
       cursorBlink: true,
       cursorStyle: config.cursorStyle,
       fontSize: config.fontSize || 12,
-      fontFamily: 'IBM Plex Mono, Source Code Pro, monospace',
+      fontFamily: 'Menlo, Monaco, "Courier New", Courier, monospace',
       theme:
         config.theme === 'light'
           ? {
