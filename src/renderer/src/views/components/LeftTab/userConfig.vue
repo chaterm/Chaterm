@@ -17,7 +17,7 @@
           <General />
         </a-tab-pane>
         <a-tab-pane
-          key="6"
+          key="1"
           :tab="$t('user.terminal')"
           force-render
           type="card"
@@ -25,7 +25,7 @@
           <Terminal />
         </a-tab-pane>
         <a-tab-pane
-          key="1"
+          key="2"
           :tab="$t('user.extensions')"
           type="card"
         >
@@ -33,7 +33,7 @@
         </a-tab-pane>
         <a-tab-pane
           v-if="!isSkippedLogin"
-          key="4"
+          key="3"
           :tab="$t('user.models')"
           type="card"
         >
@@ -41,7 +41,7 @@
         </a-tab-pane>
         <a-tab-pane
           v-if="!isSkippedLogin"
-          key="5"
+          key="4"
           :tab="$t('user.billing')"
           type="card"
         >
@@ -49,21 +49,21 @@
         </a-tab-pane>
         <a-tab-pane
           v-if="!isSkippedLogin"
-          key="2"
+          key="5"
           :tab="$t('user.aiPreferences')"
           type="card"
         >
           <AI />
         </a-tab-pane>
         <a-tab-pane
-          key="7"
+          key="6"
           :tab="$t('user.shortcuts')"
           type="card"
         >
           <Shortcuts />
         </a-tab-pane>
         <a-tab-pane
-          key="3"
+          key="7"
           :tab="$t('user.about')"
           type="card"
         >
@@ -122,18 +122,16 @@ const isSkippedLogin = ref(localStorage.getItem('login-skipped') === 'true')
     height: 100%;
   }
 
-  // 修改左侧 tab 栏样式
   :deep(.ant-tabs-nav) {
     height: 100%;
     width: 120px;
     background-color: var(--bg-color);
 
     &::before {
-      display: none; // 移除默认的上边框
+      display: none;
     }
   }
 
-  // 隐藏内容区域滚动条
   :deep(.ant-tabs-content-holder) {
     height: 100%;
     overflow: auto;
@@ -161,32 +159,26 @@ const isSkippedLogin = ref(localStorage.getItem('login-skipped') === 'true')
     scrollbar-width: none;
   }
 
-  // 修改分割线样式
   :deep(.ant-tabs-nav-list) {
     border-right: 1px solid var(--bg-color);
     height: 100%;
   }
 
-  // 缩小 tab 之间的间隔
   :deep(.ant-tabs-tab) {
-    padding: 8px 16px !important; // 减小内边距
-    margin: 0 !important; // 移除外边距
-    // 可以根据需要调整高度
-    min-height: 40px; // 设置最小高度
-    // 如果需要调整文字大小
+    padding: 8px 16px !important;
+    margin: 0 !important;
+    min-height: 40px;
     font-size: 14px;
     color: var(--text-color-secondary);
   }
 
-  // 激活状态的 tab 样式
   :deep(.ant-tabs-tab-active) {
-    background-color: var(--hover-bg-color); // 可以根据需要调整激活态背景色
+    background-color: var(--hover-bg-color);
     .ant-tabs-tab-btn {
       color: #1890ff !important;
     }
   }
 
-  // 确保内容区域填满剩余空间
   :deep(.ant-tabs-content-holder) {
     height: 100%;
     overflow: auto;
