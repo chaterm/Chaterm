@@ -45,13 +45,42 @@ const editorContainer = ref<HTMLElement | null>(null)
 let editor: monaco.editor.IStandaloneCodeEditor | null = null
 const monacoVimInstance: any = null
 
+// 根据主题设置不同的颜色配置
+const getThemeColors = (): monaco.editor.IColors => {
+  if (props.theme === 'vs') {
+    // 亮色主题配置
+    return {
+      'editor.background': '#ffffff',
+      'editor.foreground': '#000000',
+      'editor.lineHighlightBackground': '#f0f0f0',
+      'editorLineNumber.foreground': '#666666',
+      'editorLineNumber.activeForeground': '#000000',
+      'editorCursor.foreground': '#000000',
+      'editor.selectionBackground': '#add6ff',
+      'editor.inactiveSelectionBackground': '#e5ebf1'
+    }
+  }
+  return {} // 暗色主题保持默认
+}
+
 const createEditor = (): void => {
   if (!editorContainer.value) return
+
+  // 如果是亮色主题，先定义自定义主题
+  if (props.theme === 'vs') {
+    const themeColors = getThemeColors()
+    monaco.editor.defineTheme('custom-light', {
+      base: 'vs',
+      inherit: true,
+      rules: [],
+      colors: themeColors
+    })
+  }
 
   const defaultOptions: monaco.editor.IStandaloneEditorConstructionOptions = {
     value: props.modelValue,
     language: props.language,
-    theme: props.theme,
+    theme: props.theme === 'vs' ? 'custom-light' : props.theme,
     scrollBeyondLastLine: false,
     fontSize: 12,
     fontFamily: 'Hack',
@@ -143,7 +172,20 @@ watch(
   () => props.theme,
   (newValue) => {
     if (editor) {
-      monaco.editor.setTheme(newValue)
+      if (newValue === 'vs') {
+        // 亮色主题：应用自定义颜色配置
+        const themeColors = getThemeColors()
+        monaco.editor.defineTheme('custom-light', {
+          base: 'vs',
+          inherit: true,
+          rules: [],
+          colors: themeColors
+        })
+        editor.updateOptions({ theme: 'custom-light' })
+      } else {
+        // 暗色主题：使用默认主题
+        editor.updateOptions({ theme: newValue })
+      }
     }
   }
 )
