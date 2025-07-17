@@ -341,6 +341,15 @@ const userSnippetOperation = async (data: { operation: 'list' | 'create' | 'dele
   }
 }
 
+const refreshOrganizationAssets = async (data: { organizationUuid: string; jumpServerConfig: any }) => {
+  try {
+    const result = await ipcRenderer.invoke('refresh-organization-assets', data)
+    return result
+  } catch (error) {
+    return Promise.reject(error)
+  }
+}
+
 const api = {
   getLocalIP,
   getMacAddress,
@@ -374,6 +383,7 @@ const api = {
   getUserHosts,
   initUserDatabase,
   userSnippetOperation,
+  refreshOrganizationAssets,
   maximizeWindow: () => ipcRenderer.invoke('window:maximize'),
   unmaximizeWindow: () => ipcRenderer.invoke('window:unmaximize'),
   isMaximized: () => ipcRenderer.invoke('window:is-maximized'),

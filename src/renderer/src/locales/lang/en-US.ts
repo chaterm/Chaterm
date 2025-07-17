@@ -301,7 +301,14 @@ export default {
     favoriteUpdateFailure: 'Failed to update favorite status',
     favoriteUpdateError: 'Error updating favorite status',
     defaultGroup: 'Hosts',
-    hostType: 'ssh'
+    hostType: 'ssh',
+    personalAsset: 'Personal Asset',
+    enterpriseAsset: 'Enterprise Asset',
+    organizationTip: 'Connect to enterprise assets via Jumpserver',
+    refreshAssets: 'Refresh Assets',
+    refreshingAssets: 'Refreshing assets...',
+    refreshSuccess: 'Assets refreshed successfully',
+    refreshError: 'Failed to refresh assets'
   },
   ai: {
     welcome: 'What can I do for you in the terminal?',

@@ -9,7 +9,8 @@ import {
   deleteAssetLogic,
   updateAssetLogic,
   connectAssetInfoLogic,
-  getUserHostsLogic
+  getUserHostsLogic,
+  refreshOrganizationAssetsLogic
 } from './chaterm/assets'
 import {
   deleteChatermHistoryByTaskIdLogic,
@@ -166,5 +167,9 @@ export class ChatermDatabaseService {
   // 快捷命令相关方法
   userSnippetOperation(operation: 'list' | 'create' | 'delete' | 'update' | 'swap', params?: any): any {
     return userSnippetOperationLogic(this.db, operation, params)
+  }
+
+  async refreshOrganizationAssets(organizationUuid: string, jumpServerConfig: any): Promise<any> {
+    return await refreshOrganizationAssetsLogic(this.db, organizationUuid, jumpServerConfig)
   }
 }

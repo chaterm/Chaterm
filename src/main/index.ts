@@ -705,3 +705,15 @@ ipcMain.handle('validate-api-key', async (_, configuration) => {
   }
   return { isValid: false, error: 'Controller not initialized' }
 })
+
+// 添加刷新企业资产的 IPC 处理
+ipcMain.handle('refresh-organization-assets', async (_, data) => {
+  try {
+    const { organizationUuid, jumpServerConfig } = data
+    const result = await chatermDbService.refreshOrganizationAssets(organizationUuid, jumpServerConfig)
+    return result
+  } catch (error) {
+    console.error('刷新企业资产失败:', error)
+    return { data: { message: 'failed', error: error.message } }
+  }
+})
