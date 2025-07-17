@@ -23,7 +23,7 @@
               @click="handleSave(editor.key, false)"
             >
               <span class="btn-icon"><SaveOutlined /></span>
-              <span>保存</span>
+              <span>{{ t('common.save') }}</span>
             </a-button>
           </div>
           <div class="toolbar-center">
@@ -37,7 +37,7 @@
           <div class="toolbar-right">
             <a-tooltip
               v-if="showVimFullScreenEditor"
-              title="全屏"
+              :title="t('common.fullscreen')"
               @click="fullScreenVimEditor()"
             >
               <a-button class="toolbar-btn op-btn">
@@ -47,7 +47,7 @@
 
             <a-tooltip
               v-if="showVimFullScreenExitEditor"
-              title="退出全屏"
+              :title="t('common.exitFullscreen')"
               @click="exitFullScreenVimEditor()"
             >
               <a-button class="toolbar-btn op-btn">
@@ -55,7 +55,7 @@
               </a-button>
             </a-tooltip>
 
-            <a-tooltip title="关闭">
+            <a-tooltip :title="t('common.close')">
               <a-button
                 class="toolbar-btn op-btn"
                 @click="closeVimEditor(editor.key)"
@@ -80,7 +80,7 @@
 import EditorCode from './monacoEditor.vue'
 import DraggableResizable from './dragResize.vue'
 import { FullscreenOutlined, FullscreenExitOutlined, CloseOutlined, SaveOutlined } from '@ant-design/icons-vue'
-
+import { useI18n } from 'vue-i18n'
 import { PropType, defineEmits, shallowRef, onBeforeUnmount, watch } from 'vue'
 
 export interface editorData {
@@ -141,6 +141,7 @@ watch(
 onBeforeUnmount(() => {
   window.removeEventListener('keydown', handleKeydown)
 })
+const { t } = useI18n()
 const editor = props.editor
 const emit = defineEmits(['handleSave', 'closeVimEditor', 'focusEditor'])
 
@@ -200,9 +201,9 @@ const onResizeStop = (args, editor) => {
 }
 const editorFilter = (action) => {
   if (action === 'editor') {
-    return '编辑文件：'
+    return t('common.editFile')
   } else {
-    return '新建文件：'
+    return t('common.newFile')
   }
 }
 </script>

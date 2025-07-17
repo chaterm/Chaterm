@@ -411,10 +411,10 @@ const handleRemove = (keyChain: KeyChainItem | null) => {
 const handleCreateKeyChain = async () => {
   try {
     if (!createForm.label) {
-      return message.error('请输入标签名称')
+      return message.error(t('common.pleaseInputLabel'))
     }
     if (!createForm.privateKey) {
-      return message.error('请输入私钥')
+      return message.error(t('common.pleaseInputPrivateKey'))
     }
     const api = window.api as any
     if (api.createKeyChain) {
@@ -447,10 +447,10 @@ const handleUpdateKeyChain = async () => {
 
   try {
     if (!createForm.label) {
-      return message.error('请输入标签名称')
+      return message.error(t('common.pleaseInputLabel'))
     }
     if (!createForm.privateKey) {
-      return message.error('请输入私钥')
+      return message.error(t('common.pleaseInputPrivateKey'))
     }
 
     const api = window.api as any
@@ -467,18 +467,18 @@ const handleUpdateKeyChain = async () => {
 
       const res = await api.updateKeyChain({ form: cleanForm })
       if (res?.data?.message === 'success') {
-        message.success('保存成功')
+        message.success(t('common.saveSuccess'))
         isRightSectionVisible.value = false
         fetchKeyChainList()
         eventBus.emit('keyChainUpdated')
       } else {
-        throw new Error('保存失败')
+        throw new Error(t('common.saveFailed'))
       }
     } else {
       console.error('updateKeyChain API not implemented')
     }
   } catch (e: any) {
-    message.error(e.message || '保存出错')
+    message.error(e.message || t('common.saveError'))
   }
 }
 
