@@ -54,7 +54,18 @@ export default {
     quickCommand: 'Quick Command',
     add: 'Add',
     all: 'All',
-    refresh: 'Refresh'
+    refresh: 'Refresh',
+    fullscreen: 'Fullscreen',
+    exitFullscreen: 'Exit Fullscreen',
+    editFile: 'Edit File:',
+    newFile: 'New File:',
+    saveSuccess: 'Save successful',
+    saveFailed: 'Save failed',
+    saveError: 'Save error',
+    saveConfirmTitle: 'Save Changes',
+    saveConfirmContent: 'Do you want to save changes to {filePath}?',
+    pleaseInputLabel: 'Please input label name',
+    pleaseInputPrivateKey: 'Please input private key'
   },
   term: {
     welcome: 'Welcome to use Chaterm'

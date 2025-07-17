@@ -59,6 +59,7 @@ import Context from './contextComp.vue'
 import SuggComp from './suggestion.vue'
 import SearchComp from './searchComp.vue'
 import { ref, onMounted, nextTick, onBeforeUnmount, defineProps, reactive, computed } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { Terminal } from 'xterm'
 import { FitAddon } from 'xterm-addon-fit'
 import { WebLinksAddon } from 'xterm-addon-web-links'
@@ -75,6 +76,7 @@ import EditorCode from './Editor/dragEditor.vue'
 import { Modal } from 'ant-design-vue'
 import { getListCmd } from '@/api/asset/asset'
 import { aliasConfigStore } from '@/store/aliasConfigStore'
+const { t } = useI18n()
 const emit = defineEmits(['closeTabInTerm', 'createNewTerm'])
 import eventBus from '@/utils/eventBus'
 import { shortcutService } from '@/services/shortcutService'
@@ -889,9 +891,10 @@ const closeVimEditor = (data) => {
   if (editor.fileChange) {
     if (!editor.saved) {
       Modal.confirm({
-        content: `您想将更改保存到 ${editor.filePath} 吗？`,
-        okText: '确定',
-        cancelText: '取消',
+        title: t('common.saveConfirmTitle'),
+        content: t('common.saveConfirmContent', { filePath: editor.filePath }),
+        okText: t('common.confirm'),
+        cancelText: t('common.cancel'),
         onOk() {
           handleSave({ filePath: editor.filePath, needClose: true })
         },
@@ -926,12 +929,12 @@ const handleSave = async (data) => {
       const response = await termFileContentSave({ data: auth })
       if (response.error !== '') {
         notification.error({
-          message: '保存失败！',
+          message: t('common.saveFailed'),
           class: 'notification-common'
         })
       } else {
         notification.success({
-          message: '保存成功'
+          message: t('common.saveSuccess')
         })
         // 关闭
         if (needClose) {
@@ -947,13 +950,13 @@ const handleSave = async (data) => {
       }
     } else {
       notification.success({
-        message: '保存成功'
+        message: t('common.saveSuccess')
       })
     }
   } catch (error) {
     // 处理异常
     notification.error({
-      message: '保存失败！'
+      message: t('common.saveFailed')
     })
   }
 }
