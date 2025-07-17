@@ -336,7 +336,7 @@ onMounted(async () => {
       cursorBlink: true,
       cursorStyle: config.cursorStyle,
       fontSize: config.fontSize || 12,
-      fontFamily: 'Menlo, Monaco, "Courier New", Courier, monospace',
+      fontFamily: 'IBM Plex Mono, Source Code Pro, monospace',
       theme:
         config.theme === 'light'
           ? {
@@ -440,7 +440,6 @@ onMounted(async () => {
   const core = (termInstance as any)._core
   const renderService = core._renderService
   const originalWrite = termInstance.write.bind(termInstance)
-
   // 更新TerminalState
   const debouncedUpdateTerminalState = (data, currentIsUserCall) => {
     if (updateTimeout) {
@@ -452,7 +451,8 @@ onMounted(async () => {
     // 走高亮的条件
     let highLightFlag: boolean = true
     // 条件1, 如果beforeCursor为空 content有内容 则代表enter键，不能走highlight
-    if ((!terminalState.value.beforeCursor.length && terminalState.value.content.length) || enterPress.value || specialCode.value) {
+    // if ((!terminalState.value.beforeCursor.length && terminalState.value.content.length) || enterPress.value || specialCode.value) {
+    if (enterPress.value || specialCode.value) {
       highLightFlag = false
     }
     // 条件2, 进入编辑模式下，不走highlight
@@ -1354,11 +1354,6 @@ const updateTerminalState = (quickInit: boolean, enterPress: boolean) => {
       buffer,
       contentCursorX
     )
-    // console.log(lineContent, 'lineContent')
-    // console.log(cursorX, 'cursorX')
-    // console.log(cursorY, 'cursorY')
-    // console.log(maxX, 'maxX')
-    // console.log(maxY, 'maxY')
     // 更新历史记录
     updateCursorHistory(cursorX, cursorY, maxX, maxY)
 
