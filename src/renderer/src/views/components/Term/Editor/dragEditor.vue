@@ -68,7 +68,7 @@
         <EditorCode
           v-model="editor.vimText"
           :language="editor.contentType"
-          theme="vs-dark"
+          :theme="currentTheme"
           @update:model-value="(newValue) => handleTextChange(editor, newValue)"
         />
       </div>
@@ -81,7 +81,7 @@ import EditorCode from './monacoEditor.vue'
 import DraggableResizable from './dragResize.vue'
 import { FullscreenOutlined, FullscreenExitOutlined, CloseOutlined, SaveOutlined } from '@ant-design/icons-vue'
 import { useI18n } from 'vue-i18n'
-import { PropType, defineEmits, shallowRef, onBeforeUnmount, watch } from 'vue'
+import { PropType, defineEmits, shallowRef, onBeforeUnmount, watch, computed } from 'vue'
 
 export interface editorData {
   filePath: string
@@ -159,6 +159,11 @@ const closeVimEditor = (key) => {
 const showVimFullScreenEditor = shallowRef(true)
 const showVimFullScreenExitEditor = shallowRef(false)
 
+// 根据当前主题设置编辑器主题
+const currentTheme = computed(() => {
+  return document.body.classList.contains('theme-dark') ? 'vs-dark' : 'vs'
+})
+
 const handleTextChange = (editor, newValue) => {
   if (editor.originVimText !== newValue) {
     editor.fileChange = true
@@ -215,7 +220,7 @@ const editorFilter = (action) => {
   height: 100%;
   width: 100%;
   overflow: hidden;
-  background-color: #1e1e1e;
+  background-color: var(--bg-color-vim-editor);
 }
 
 .editor-toolbar {
@@ -225,8 +230,8 @@ const editorFilter = (action) => {
   height: 40px;
   min-height: 40px;
   padding: 0 10px;
-  background-color: #2d2d2d;
-  border-bottom: 1px solid #3d3d3d;
+  background-color: var(--bg-color-vim-editor);
+  border-bottom: 1px solid var(--border-color-light);
   transition: all 0.3s ease;
 }
 
@@ -248,7 +253,8 @@ const editorFilter = (action) => {
 
 .file-path {
   cursor: default;
-  color: #cecece;
+  font-size: 14px;
+  color: var(--text-color-secondary);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -281,12 +287,12 @@ const editorFilter = (action) => {
   color: gray;
 }
 .op-btn:hover {
-  color: white;
+  color: var(--text-color-secondary);
 }
 
 .op-btn {
   background-color: transparent;
-  color: #cccccc;
+  color: var(--text-color-secondary-light);
 }
 
 .btn-icon {
@@ -295,7 +301,7 @@ const editorFilter = (action) => {
 }
 
 .file-vim-content {
-  background: #2c2c2c;
+  background: var(--bg-color-vim-editor);
   padding: 4px;
   border-radius: 8px;
   width: 1000px;
