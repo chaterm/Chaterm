@@ -177,6 +177,10 @@ const handleCheckUpdate = async () => {
   cursor: pointer;
   transition: background 0.2s;
 }
+.about-update-btn:hover:not(:disabled) {
+  background: var(--bg-color-default);
+  color: var(--text-color);
+}
 .about-update-btn:disabled {
   background: var(--bg-color-octonary);
   color: var(--text-color-secondary);
