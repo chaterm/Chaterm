@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, session } from 'electron'
+import { app, shell, BrowserWindow, ipcMain, session } from 'electron'
 import { join } from 'path'
 import { electronApp, optimizer } from '@electron-toolkit/utils'
 
@@ -696,4 +696,80 @@ ipcMain.handle('validate-api-key', async (_, configuration) => {
     return await controller.validateApiKey(configuration)
   }
   return { isValid: false, error: 'Controller not initialized' }
+})
+
+// 在app ready之前注册协议
+if (!app.isDefaultProtocolClient('chaterm')) {
+  app.setAsDefaultProtocolClient('chaterm')
+}
+
+// 处理协议重定向
+const handleProtocolRedirect = (url: string) => {
+  const mainWindow = BrowserWindow.getAllWindows()[0]
+  if (!mainWindow) return
+
+  // 解析URL中的token和用户信息
+  const urlObj = new URL(url)
+  const token = urlObj.searchParams.get('token')
+  const userInfo = urlObj.searchParams.get('userInfo')
+
+  if (token && userInfo) {
+    try {
+      // 将数据发送到渲染进程
+      mainWindow.webContents.send('external-login-success', {
+        token,
+        userInfo: JSON.parse(userInfo)
+      })
+    } catch (error) {
+      console.error('处理外部登录数据失败:', error)
+    }
+  }
+}
+
+// Windows下处理协议激活
+if (process.platform === 'win32') {
+  const gotTheLock = app.requestSingleInstanceLock()
+
+  if (!gotTheLock) {
+    app.quit()
+  } else {
+    app.on('second-instance', (_event, commandLine) => {
+      // 有人尝试运行第二个实例，我们应该聚焦到我们的窗口
+      const mainWindow = BrowserWindow.getAllWindows()[0]
+      if (mainWindow) {
+        if (mainWindow.isMinimized()) mainWindow.restore()
+        mainWindow.focus()
+      }
+
+      // 处理协议URL
+      const url = commandLine.pop()
+      if (url && url.startsWith('chaterm://')) {
+        handleProtocolRedirect(url)
+      }
+    })
+  }
+}
+
+// macOS下处理协议激活
+app.on('open-url', (_event, url) => {
+  if (url.startsWith('chaterm://')) {
+    handleProtocolRedirect(url)
+  }
+})
+
+// 在createWindow函数后添加IPC处理程序
+ipcMain.handle('open-external-login', async () => {
+  try {
+    // 生成一个随机状态值用于安全验证
+    const state = Math.random().toString(36).substring(2)
+    // 存储状态值以供后续验证
+    global.authState = state
+    // 这里替换为你的外部登录URL，需要包含重定向回应用的信息
+    const externalLoginUrl = 'http://localhost:5174/login?client_id=chaterm&state=${state}&redirect_uri=chaterm://auth/callback'
+    await shell.openExternal(externalLoginUrl)
+    return { success: true }
+  } catch (error: any) {
+    console.error('打开外部登录页面失败:', error)
+    return { success: false, error: error.message }
+  }
 })
