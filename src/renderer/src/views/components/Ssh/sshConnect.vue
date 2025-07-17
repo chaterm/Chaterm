@@ -336,7 +336,7 @@ onMounted(async () => {
       cursorBlink: true,
       cursorStyle: config.cursorStyle,
       fontSize: config.fontSize || 12,
-      fontFamily: 'Menlo, Monaco, "Courier New", Courier, monospace',
+      fontFamily: 'IBM Plex Mono, Source Code Pro, monospace',
       theme:
         config.theme === 'light'
           ? {
@@ -427,7 +427,6 @@ onMounted(async () => {
   const core = (termInstance as any)._core
   const renderService = core._renderService
   const originalWrite = termInstance.write.bind(termInstance)
-
   // 更新TerminalState
   const debouncedUpdateTerminalState = (data, currentIsUserCall) => {
     if (updateTimeout) {
@@ -439,15 +438,20 @@ onMounted(async () => {
     // 走高亮的条件
     let highLightFlag: boolean = true
     // 条件1, 如果beforeCursor为空 content有内容 则代表enter键，不能走highlight
-    if ((!terminalState.value.beforeCursor.length && terminalState.value.content.length) || enterPress.value || specialCode.value) {
+    // if ((!terminalState.value.beforeCursor.length && terminalState.value.content.length) || enterPress.value || specialCode.value) {
+    if (enterPress.value || specialCode.value) {
+      console.log(1111)
       highLightFlag = false
     }
     // 条件2, 进入编辑模式下，不走highlight
     if (terminalMode.value !== 'none') {
+      console.log(222)
+
       highLightFlag = false
     }
     // 条件3, 高亮触发的写入，不走highlight
     if (currentIsUserCall) {
+      console.log(333)
       highLightFlag = false
     }
     // 条件4, 服务器返回包含命令提示符，不走highlight，避免渲染异常
@@ -471,6 +475,7 @@ onMounted(async () => {
     //   highLightFlag = true
     //   suggestionEnter.value = false
     // }
+    console.log(highLightFlag, 'highLightFlag')
     if (highLightFlag) {
       if (config.highlightStatus == 1) {
         highlightSyntax(terminalState.value)
