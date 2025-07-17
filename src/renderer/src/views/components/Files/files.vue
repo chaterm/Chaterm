@@ -495,9 +495,24 @@ defineExpose({
   padding: 5px 5px;
 }
 
+.files-table :deep(.ant-table-container table > thead > tr:first-child > *:last-child) {
+  border-start-end-radius: 0 !important;
+  border-end-end-radius: 0 !important;
+}
+
+.files-table :deep(.ant-table-container table > thead > tr:first-child > *:first-child) {
+  border-start-start-radius: 0 !important;
+  border-end-start-radius: 0 !important;
+}
+
+:deep(.ant-table-wrapper .ant-table-column-sorter) {
+  color: var(--text-color) !important;
+}
+
 .input-search {
   background-color: var(--bg-color-secondary);
   border-color: var(--bg-color-secondary);
+  color: var(--text-color);
   height: 80%;
 }
 </style>
