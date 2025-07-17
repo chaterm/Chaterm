@@ -440,18 +440,14 @@ onMounted(async () => {
     // 条件1, 如果beforeCursor为空 content有内容 则代表enter键，不能走highlight
     // if ((!terminalState.value.beforeCursor.length && terminalState.value.content.length) || enterPress.value || specialCode.value) {
     if (enterPress.value || specialCode.value) {
-      console.log(1111)
       highLightFlag = false
     }
     // 条件2, 进入编辑模式下，不走highlight
     if (terminalMode.value !== 'none') {
-      console.log(222)
-
       highLightFlag = false
     }
     // 条件3, 高亮触发的写入，不走highlight
     if (currentIsUserCall) {
-      console.log(333)
       highLightFlag = false
     }
     // 条件4, 服务器返回包含命令提示符，不走highlight，避免渲染异常
@@ -475,7 +471,6 @@ onMounted(async () => {
     //   highLightFlag = true
     //   suggestionEnter.value = false
     // }
-    console.log(highLightFlag, 'highLightFlag')
     if (highLightFlag) {
       if (config.highlightStatus == 1) {
         highlightSyntax(terminalState.value)
@@ -1346,11 +1341,6 @@ const updateTerminalState = (quickInit: boolean, enterPress: boolean) => {
       buffer,
       contentCursorX
     )
-    // console.log(lineContent, 'lineContent')
-    // console.log(cursorX, 'cursorX')
-    // console.log(cursorY, 'cursorY')
-    // console.log(maxX, 'maxX')
-    // console.log(maxY, 'maxY')
     // 更新历史记录
     updateCursorHistory(cursorX, cursorY, maxX, maxY)
 
