@@ -405,6 +405,12 @@ export default {
     modifyDate: '修改日期'
   },
   about: {
-    version: '版本'
+    version: '版本',
+    checkUpdate: '检查更新',
+    latestVersion: '最新版本',
+    downLoadUpdate: '下载更新',
+    downloading: '正在下载',
+    checkUpdateError: '检查更新失败',
+    checking: '检查中'
   }
 }
