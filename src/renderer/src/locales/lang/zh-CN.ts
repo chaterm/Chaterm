@@ -303,7 +303,14 @@ export default {
     favoriteUpdateFailure: '更新收藏状态失败',
     favoriteUpdateError: '更新收藏状态出错',
     defaultGroup: '主机',
-    hostType: 'ssh'
+    hostType: 'ssh',
+    personalAsset: '个人',
+    enterpriseAsset: '企业',
+    organizationTip: '仅支持 Jumpserver',
+    refreshAssets: '刷新资产',
+    refreshingAssets: '正在刷新资产...',
+    refreshSuccess: '资产刷新成功',
+    refreshError: '资产刷新失败'
   },
   ai: {
     welcome: '您好，请问需要在终端做什么操作？',

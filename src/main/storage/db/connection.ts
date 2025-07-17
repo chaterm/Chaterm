@@ -108,6 +108,26 @@ function upgradeUserSnippetTable(db: Database.Database): void {
   }
 }
 
+function upgradeTAssetsTable(db: Database.Database): void {
+  try {
+    // 检查 asset_type 列是否存在
+    try {
+      db.prepare('SELECT asset_type FROM t_assets LIMIT 1').get()
+    } catch (error) {
+      // 列不存在，需要升级表结构
+      db.transaction(() => {
+        // 添加 asset_type 列
+        db.exec("ALTER TABLE t_assets ADD COLUMN asset_type TEXT DEFAULT 'person'")
+        console.log('✅ Added asset_type column to t_assets')
+      })()
+
+      console.log('✅ t_assets table upgrade completed')
+    }
+  } catch (error) {
+    console.error('❌ Failed to upgrade t_assets table:', error)
+  }
+}
+
 export async function initDatabase(userId?: number): Promise<Database.Database> {
   const isSkippedLogin = !userId && localStorage.getItem('login-skipped') === 'true'
   const targetUserId = userId || (isSkippedLogin ? getGuestUserId() : currentUserId)
@@ -256,6 +276,7 @@ export async function initChatermDatabase(userId?: number): Promise<Database.Dat
 
     // 执行表结构升级
     upgradeUserSnippetTable(finalDb)
+    upgradeTAssetsTable(finalDb)
 
     return finalDb
   } catch (error: any) {

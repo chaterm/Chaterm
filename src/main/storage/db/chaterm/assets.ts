@@ -1,6 +1,7 @@
 import Database from 'better-sqlite3'
 import { v4 as uuidv4 } from 'uuid'
 import { QueryResult } from '../types'
+import JumpServerClient from '../../../ssh/jumpserver/asset'
 
 export function getLocalAssetRouteLogic(db: Database.Database, searchType: string, params: any[] = []): any {
   try {
@@ -13,7 +14,7 @@ export function getLocalAssetRouteLogic(db: Database.Database, searchType: strin
     }
     if (searchType !== 'assetConfig') {
       const favoritesStmt = db.prepare(`
-        SELECT label, asset_ip, uuid, group_name,label,auth_type,port,username,password,key_chain_id
+        SELECT label, asset_ip, uuid, group_name,label,auth_type,port,username,password,key_chain_id,asset_type
         FROM t_assets
         WHERE favorite = 1
         ORDER BY created_at
@@ -37,6 +38,7 @@ export function getLocalAssetRouteLogic(db: Database.Database, searchType: strin
             username: item.username || '',
             password: item.password || '',
             key_chain_id: item.key_chain_id || 0,
+            asset_type: item.asset_type || 'person',
             organizationId: 'personal'
           }))
         })
@@ -54,7 +56,7 @@ export function getLocalAssetRouteLogic(db: Database.Database, searchType: strin
     for (const group of groups) {
       if (!group || !group.group_name) continue
       const assetsStmt = db.prepare(`
-          SELECT label, asset_ip, uuid, favorite,group_name,label,auth_type,port,username,password,key_chain_id
+          SELECT label, asset_ip, uuid, favorite,group_name,label,auth_type,port,username,password,key_chain_id,asset_type
           FROM t_assets
           WHERE group_name = ?
           ORDER BY created_at
@@ -78,6 +80,7 @@ export function getLocalAssetRouteLogic(db: Database.Database, searchType: strin
             username: item.username || '',
             password: item.password || '',
             key_chain_id: item.key_chain_id || 0,
+            asset_type: item.asset_type || 'person',
             organizationId: 'personal'
           }))
         })
@@ -170,8 +173,9 @@ export function createAssetLogic(db: Database.Database, params: any): any {
           password,
           key_chain_id,
           group_name,
-          favorite
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          favorite,
+          asset_type
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `)
 
     const result = insertStmt.run(
@@ -184,7 +188,8 @@ export function createAssetLogic(db: Database.Database, params: any): any {
       form.password,
       form.keyChain,
       form.group_name,
-      2
+      2,
+      form.asset_type || 'person'
     )
 
     return {
@@ -307,5 +312,104 @@ export function getUserHostsLogic(db: Database.Database, search: string): any {
   } catch (error) {
     console.error('Chaterm database get user hosts error:', error)
     throw error
+  }
+}
+
+export async function refreshOrganizationAssetsLogic(db: Database.Database, organizationUuid: string, jumpServerConfig: any): Promise<any> {
+  try {
+    console.log('开始刷新企业资产，组织UUID:', organizationUuid)
+
+    // 处理密钥链配置
+    let finalConfig = {
+      host: jumpServerConfig.host,
+      port: jumpServerConfig.port || 22,
+      username: jumpServerConfig.username,
+      privateKey: '',
+      passphrase: '',
+      password: ''
+    }
+
+    if (jumpServerConfig.keyChain && jumpServerConfig.keyChain > 0) {
+      // 从数据库获取私钥
+      const keyChainStmt = db.prepare(`
+        SELECT chain_private_key as privateKey, passphrase
+        FROM t_asset_chains
+        WHERE key_chain_id = ?
+      `)
+      const keyChainResult = keyChainStmt.get(jumpServerConfig.keyChain)
+
+      if (keyChainResult && keyChainResult.privateKey) {
+        finalConfig.privateKey = keyChainResult.privateKey
+        if (keyChainResult.passphrase) {
+          finalConfig.passphrase = keyChainResult.passphrase
+        }
+      } else {
+        throw new Error('未找到对应的密钥链')
+      }
+    } else if (jumpServerConfig.password) {
+      finalConfig.password = jumpServerConfig.password
+    } else {
+      throw new Error('缺少认证信息：需要私钥或密码')
+    }
+
+    console.log('最终配置:', { ...finalConfig, privateKey: finalConfig.privateKey ? '[HIDDEN]' : undefined })
+
+    const client = new JumpServerClient(finalConfig)
+    const assets = await client.getAllAssets()
+
+    console.log('获取到资产数量:', assets.length)
+
+    // 确保表存在
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS t_organization_assets (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        organization_uuid TEXT,
+        hostname TEXT,
+        host TEXT,
+        jump_server_type TEXT,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      )
+    `)
+
+    // 清空现有的组织资产
+    const deleteStmt = db.prepare(`
+      DELETE FROM t_organization_assets 
+      WHERE organization_uuid = ?
+    `)
+    const deleteResult = deleteStmt.run(organizationUuid)
+    console.log('删除旧资产记录数:', deleteResult.changes)
+
+    // 插入新的资产数据
+    const insertStmt = db.prepare(`
+      INSERT INTO t_organization_assets (
+        organization_uuid, hostname, host, jump_server_type, created_at, updated_at
+      ) VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+    `)
+
+    let insertedCount = 0
+    for (const asset of assets) {
+      const result = insertStmt.run(organizationUuid, asset.name, asset.address, 'jumpserver')
+      if (result.changes > 0) insertedCount++
+    }
+
+    console.log('成功插入资产数量:', insertedCount)
+    client.close()
+
+    return {
+      data: {
+        message: 'success',
+        insertedCount,
+        totalAssets: assets.length
+      }
+    }
+  } catch (error) {
+    console.error('刷新企业资产失败:', error)
+    return {
+      data: {
+        message: 'failed',
+        error: error instanceof Error ? error.message : String(error)
+      }
+    }
   }
 }

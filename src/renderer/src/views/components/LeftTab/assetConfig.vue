@@ -59,10 +59,16 @@
                   <div class="host-card-content">
                     <div class="host-icon">
                       <DatabaseOutlined style="font-size: 24px" />
+                      <div
+                        v-if="host.asset_type === 'organization'"
+                        class="enterprise-indicator"
+                      >
+                        <ApiOutlined />
+                      </div>
                     </div>
                     <div class="host-info">
                       <div class="host-name">{{ host.title }}</div>
-                      <div class="host-type"> {{ t('personal.hostType') }}{{ host.username ? ', ' + host.username : '' }} </div>
+                      <div class="host-type">{{ t('personal.hostType') }}{{ host.username ? ', ' + host.username : '' }}</div>
                     </div>
                     <div
                       class="edit-icon"
@@ -94,6 +100,14 @@
                 >
                   <div class="context-menu-icon"><EditOutlined /></div>
                   <div>{{ t('common.edit') }}</div>
+                </div>
+                <div
+                  v-if="selectedHost?.asset_type === 'organization'"
+                  class="context-menu-item"
+                  @click="handleRefreshOrganizationAssets(selectedHost)"
+                >
+                  <div class="context-menu-icon"><ReloadOutlined /></div>
+                  <div>{{ t('personal.refreshAssets') }}</div>
                 </div>
                 <div
                   class="context-menu-item delete"
@@ -129,6 +143,20 @@
             layout="vertical"
             class="custom-form"
           >
+            <a-form-item v-if="!isEditMode">
+              <a-radio-group
+                v-model:value="createFrom.asset_type"
+                button-style="solid"
+                style="width: 100%"
+              >
+                <a-radio-button value="person">{{ t('personal.personalAsset') }}</a-radio-button>
+                <a-radio-button value="organization">
+                  <a-tooltip :title="t('personal.organizationTip')">
+                    {{ t('personal.enterpriseAsset') }}
+                  </a-tooltip>
+                </a-radio-button>
+              </a-radio-group>
+            </a-form-item>
             <div class="formTitle">
               <div class="titleHeader"></div>
               {{ t('personal.address') }}</div
@@ -148,7 +176,10 @@
                 style="width: 100%"
               />
             </a-form-item>
-            <a-form-item :label="t('personal.verificationMethod')">
+            <a-form-item
+              v-if="createFrom.asset_type === 'person'"
+              :label="t('personal.verificationMethod')"
+            >
               <a-radio-group
                 v-model:value="createFrom.auth_type"
                 button-style="solid"
@@ -174,32 +205,40 @@
                 :placeholder="t('personal.pleaseInputPassword')"
               />
             </a-form-item>
-            <a-form-item
-              v-else
-              :label="t('personal.key')"
-            >
-              <a-select
-                v-model:value="createFrom.keyChain"
-                :placeholder="t('personal.pleaseSelectKeychain')"
-                style="width: 100%"
-                show-search
-                :max-tag-count="4"
-                :options="keyChainOptions"
-                :option-filter-prop="'label'"
-                :field-names="{ value: 'key', label: 'label' }"
-                :allow-clear="true"
+            <template v-if="createFrom.auth_type === 'keyBased'">
+              <a-form-item :label="t('personal.key')">
+                <a-select
+                  v-model:value="createFrom.keyChain"
+                  :placeholder="t('personal.pleaseSelectKeychain')"
+                  style="width: 100%"
+                  show-search
+                  :max-tag-count="4"
+                  :options="keyChainOptions"
+                  :option-filter-prop="'label'"
+                  :field-names="{ value: 'key', label: 'label' }"
+                  :allow-clear="true"
+                >
+                  <template #notFoundContent>
+                    <div style="text-align: center; width: 100%">
+                      <a-button
+                        type="link"
+                        @click="addKeychain"
+                        >{{ t('keyChain.newKey') }}</a-button
+                      >
+                    </div>
+                  </template>
+                </a-select>
+              </a-form-item>
+              <a-form-item
+                v-if="createFrom.asset_type === 'organization'"
+                :label="t('personal.password')"
               >
-                <template #notFoundContent>
-                  <div style="text-align: center; width: 100%">
-                    <a-button
-                      type="link"
-                      @click="addKeychain"
-                      >{{ t('keyChain.newKey') }}</a-button
-                    >
-                  </div>
-                </template>
-              </a-select>
-            </a-form-item>
+                <a-input-password
+                  v-model:value="createFrom.password"
+                  :placeholder="t('personal.pleaseInputPassword')"
+                />
+              </a-form-item>
+            </template>
 
             <div class="formTitle">
               <div class="titleHeader"></div>
@@ -255,7 +294,7 @@ import type { SelectValue } from 'ant-design-vue/es/select'
 import { ref, onMounted, onBeforeUnmount, reactive, computed, watch } from 'vue'
 import 'xterm/css/xterm.css'
 import { deepClone } from '@/utils/util'
-import { ToTopOutlined, DatabaseOutlined, EditOutlined, ApiOutlined, DeleteOutlined, SearchOutlined } from '@ant-design/icons-vue'
+import { ToTopOutlined, DatabaseOutlined, EditOutlined, ApiOutlined, DeleteOutlined, SearchOutlined, ReloadOutlined } from '@ant-design/icons-vue'
 import eventBus from '@/utils/eventBus'
 import i18n from '@/locales'
 const { t } = i18n.global
@@ -286,6 +325,7 @@ interface CreateForm {
   auth_type: string
   keyChain?: number
   port: number
+  asset_type: string
 }
 
 const createFrom = reactive<CreateForm>({
@@ -296,7 +336,8 @@ const createFrom = reactive<CreateForm>({
   group_name: t('personal.defaultGroup'),
   auth_type: 'password',
   keyChain: undefined,
-  port: 22
+  port: 22,
+  asset_type: 'person'
 })
 
 const resetForm = () => {
@@ -308,7 +349,8 @@ const resetForm = () => {
     group_name: t('personal.defaultGroup'),
     auth_type: 'password',
     keyChain: undefined,
-    port: 22
+    port: 22,
+    asset_type: 'person'
   })
 }
 
@@ -381,7 +423,8 @@ const handleEdit = (host: AssetNode | null) => {
     group_name: host.group_name || 'Hosts',
     auth_type: host.auth_type || 'password',
     keyChain: keyChain,
-    port: host.port || 22
+    port: host.port || 22,
+    asset_type: host.asset_type || 'person'
   })
 
   getAssetGroup()
@@ -461,7 +504,8 @@ const handleCreateAsset = async () => {
       group_name: groupName,
       auth_type: createFrom.auth_type,
       keyChain: keyChainValue,
-      port: createFrom.port
+      port: createFrom.port,
+      asset_type: createFrom.asset_type
     }
     const api = window.api as any
     const result = await api.createAsset({ form: cleanForm })
@@ -474,7 +518,8 @@ const handleCreateAsset = async () => {
         group_name: 'Hosts',
         auth_type: 'password',
         keyChain: undefined,
-        port: 22
+        port: 22,
+        asset_type: 'person'
       })
 
       isRightSectionVisible.value = false
@@ -510,7 +555,8 @@ const handleSaveAsset = async () => {
     group_name: groupName,
     auth_type: createFrom.auth_type,
     keyChain: keyChainValue,
-    port: createFrom.port
+    port: createFrom.port,
+    asset_type: createFrom.asset_type
   }
   console.log(cleanForm)
 
@@ -617,6 +663,63 @@ watch(
     }
   }
 )
+
+watch(
+  () => createFrom.asset_type,
+  (newAssetType) => {
+    if (newAssetType === 'organization') {
+      createFrom.auth_type = 'keyBased'
+    } else {
+      createFrom.auth_type = 'password'
+    }
+  }
+)
+
+watch(
+  [isEditMode, () => createFrom.asset_type],
+  ([editing, assetType]) => {
+    if (editing && assetType === 'organization') {
+      createFrom.auth_type = 'keyBased'
+    }
+  },
+  { immediate: true }
+)
+
+// 刷新企业资产函数
+const handleRefreshOrganizationAssets = async (host: AssetNode | null) => {
+  if (!host || host.asset_type !== 'organization') return
+
+  try {
+    message.loading(t('personal.refreshingAssets'), 0)
+
+    const api = window.api as any
+    const result = await api.refreshOrganizationAssets({
+      organizationUuid: host.uuid,
+      jumpServerConfig: {
+        host: host.ip,
+        port: host.port || 22,
+        username: host.username,
+        password: host.password,
+        keyChain: host.key_chain_id
+      }
+    })
+
+    if (result?.data?.message === 'success') {
+      message.success(t('personal.refreshSuccess'))
+      getAssetList() // 刷新资产列表
+      eventBus.emit('LocalAssetMenu')
+    } else {
+      throw new Error('刷新失败')
+    }
+  } catch (error) {
+    console.error('刷新企业资产失败:', error)
+    message.error(t('personal.refreshError'))
+  } finally {
+    message.destroy()
+  }
+
+  contextMenuVisible.value = false
+}
 </script>
 
 <style lang="less" scoped>
@@ -803,6 +906,26 @@ watch(
   justify-content: center;
   color: #1890ff;
   margin-right: 8px;
+  position: relative;
+}
+
+.enterprise-indicator {
+  position: absolute;
+  top: -6px;
+  left: -6px;
+  width: 14px;
+  height: 14px;
+  background-color: #1890ff;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--bg-color);
+
+  :deep(.anticon) {
+    font-size: 8px;
+    color: white;
+  }
 }
 
 .group-info,
