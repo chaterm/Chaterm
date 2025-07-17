@@ -137,6 +137,7 @@ import { isGlobalInput, inputManager, commandBarHeight } from './termInputManage
 import { shellCommands } from './shellCmd'
 const selectFlag = ref(false)
 const configStore = userConfigStore()
+import { WebglAddon } from 'xterm-addon-webgl'
 interface CommandSuggestion {
   command: string
   source: 'base' | 'history'
@@ -336,7 +337,7 @@ onMounted(async () => {
       cursorBlink: true,
       cursorStyle: config.cursorStyle,
       fontSize: config.fontSize || 12,
-      fontFamily: 'Menlo, Monaco, "Courier New", Courier, monospace',
+      fontFamily: 'Menlo, Monaco, "Courier New", Consolas, Courier, monospace',
       theme:
         config.theme === 'light'
           ? {
@@ -409,6 +410,9 @@ onMounted(async () => {
   searchAddon.value = new SearchAddon()
   termInstance.loadAddon(searchAddon.value)
   termInstance.focus()
+
+  const webgl = new WebglAddon()
+  termInstance.loadAddon(webgl)
   termInstance.onResize((size) => {
     resizeSSH(size.cols, size.rows)
   })
@@ -446,7 +450,7 @@ onMounted(async () => {
       clearTimeout(updateTimeout)
     }
     if (currentIsUserCall || terminalMode.value === 'none') {
-      updateTerminalState(JSON.stringify(data).endsWith(startStr.value), enterPress.value)
+      updateTerminalState(JSON.stringify(data).endsWith(startStr.value), enterPress.value, tagPress.value)
     }
     // 走高亮的条件
     let highLightFlag: boolean = true
@@ -1306,7 +1310,7 @@ const getWrappedContentLastLineY = () => {
 }
 
 // 更新终端状态
-const updateTerminalState = (quickInit: boolean, enterPress: boolean) => {
+const updateTerminalState = (quickInit: boolean, enterPress, tagPress: boolean) => {
   if (!terminal.value) return
 
   try {
@@ -1336,8 +1340,9 @@ const updateTerminalState = (quickInit: boolean, enterPress: boolean) => {
     let isCrossRow = determineCrossRowStatus(currentLine, cursorY, currentCursorEndY)
 
     // 更新光标起始位置
-    updateCursorStartPosition(cursorX, quickInit)
-
+    if (!tagPress) {
+      updateCursorStartPosition(cursorX, quickInit)
+    }
     // enter状态下不处理跨行
     if (enterPress) {
       isCrossRow = false
@@ -1357,9 +1362,12 @@ const updateTerminalState = (quickInit: boolean, enterPress: boolean) => {
     // 更新历史记录
     updateCursorHistory(cursorX, cursorY, maxX, maxY)
 
-    // 解析和更新内容】
+    // 解析和更新内容
     if (parseStrTag) {
-      updateContentStrings(lineContent, cursorX)
+      // tab补全不处理
+      if (!tagPress) {
+        updateContentStrings(lineContent, cursorX)
+      }
       updateTerminalContent(lineContent, finalContentCursorX)
     }
     // 更新终端状态
@@ -1990,6 +1998,7 @@ const commands = ref()
 const cursorY = ref(0)
 const cursorX = ref(0)
 const enterPress = ref(false)
+const tagPress = ref(false)
 const beginStr = ref<string>('')
 const startStr = ref<string>('')
 // 高亮
@@ -2353,6 +2362,7 @@ const insertCommand = async (cmd) => {
 // 输入内容 - 原始处理函数
 const handleKeyInput = (e) => {
   enterPress.value = false
+  tagPress.value = false
   specialCode.value = false
   currentLineStartY.value = (terminal.value as any)?._core.buffer.y
   const ev = e.domEvent
@@ -2366,7 +2376,7 @@ const handleKeyInput = (e) => {
   if (cursorStartX.value == 0) {
     cursorStartX.value = cursorX.value
   } else {
-    cursorX.value < cursorStartX.value ? (cursorStartX.value = cursorX.value) : ''
+    cursorX.value !== 0 && cursorX.value < cursorStartX.value && (cursorStartX.value = cursorX.value)
   }
 
   if (ev.keyCode === 13 || e.key === '\u0003') {
@@ -2409,6 +2419,7 @@ const handleKeyInput = (e) => {
   } else if (ev.keyCode == 9) {
     // selectFlag.value = true
     // sendData('\t')
+    tagPress.value = true
   } else if (printable) {
     selectFlag.value = false
 
@@ -2662,6 +2673,12 @@ function updateSelectionButtonPosition() {
   width: 100%;
   height: 100%;
 }
+
+.xterm-screen {
+  -webkit-font-smoothing: subpixel-antialiased;
+  transform: translateZ(0);
+}
+
 .terminal .xterm-viewport {
   background-color: transparent;
 }
