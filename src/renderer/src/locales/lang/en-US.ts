@@ -35,6 +35,7 @@ export default {
     reconnect: 'Reconnect',
     newTerminal: 'New Terminal',
     splitRight: 'Split Right',
+    splitDown: 'Split Down',
     clearTerm: 'Clear Screen',
     shrotenName: 'Shorten The Host Name',
     fontsize: 'Fontsize',
@@ -52,7 +53,8 @@ export default {
     quickCommandOn: 'Quick Command (On) ',
     quickCommand: 'Quick Command',
     add: 'Add',
-    all: 'All'
+    all: 'All',
+    refresh: 'Refresh'
   },
   term: {
     welcome: 'Welcome to use Chaterm'
@@ -393,6 +395,12 @@ export default {
     downloading: 'Downloading update',
     complete: 'Download complete, install now?',
     install: 'Install'
+  },
+  files: {
+    name: 'Name',
+    permissions: 'Permissions',
+    size: 'Size',
+    modifyDate: 'Modified Date'
   },
   about: {
     version: 'Version'
