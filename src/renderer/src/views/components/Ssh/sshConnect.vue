@@ -357,7 +357,20 @@ onMounted(async () => {
   )
   terminal.value = termInstance
   termInstance?.onKey(handleKeyInput)
-  termInstance?.onSelectionChange(() => updateSelectionButtonPosition())
+  termInstance?.onSelectionChange(() => {
+    if (termInstance.hasSelection()) {
+      copyText.value = termInstance.getSelection()
+
+      // 自动复制选中内容到粘贴板
+      if (copyText.value.trim()) {
+        navigator.clipboard.writeText(copyText.value.trim()).catch(() => {
+          // 如果 Clipboard API 失败，静默处理或使用备用方法
+          console.warn('Failed to copy to clipboard')
+        })
+      }
+    }
+    updateSelectionButtonPosition()
+  })
   nextTick(() => {
     // 监听 xterm 内部 viewport 的滚动
     const viewport = terminalElement.value?.querySelector('.xterm-viewport')
