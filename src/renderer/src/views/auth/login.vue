@@ -222,6 +222,7 @@ import { userLogin, sendEmailCode, emailLogin } from '@/api/user/user'
 import { setUserInfo } from '@/utils/permission'
 import { message } from 'ant-design-vue'
 import { captureButtonClick, LoginFunnelEvents, LoginMethods, LoginFailureReasons } from '@/utils/telemetry'
+import { shortcutService } from '@/services/shortcutService'
 const platform = ref<string>('')
 import config from '@renderer/config'
 const instance = getCurrentInstance()!
@@ -270,6 +271,8 @@ const skipLogin = async () => {
       localStorage.removeItem('userInfo')
       return
     }
+
+    shortcutService.init()
 
     // 等待下一个tick，确保状态已更新
     await nextTick()
@@ -331,6 +334,8 @@ const handleLoginSuccess = async (userData: any, method: string) => {
       })
       return false
     }
+
+    shortcutService.init()
 
     await captureButtonClick(LoginFunnelEvents.LOGIN_SUCCESS, {
       method: method
