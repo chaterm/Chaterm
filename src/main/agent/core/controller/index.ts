@@ -233,7 +233,9 @@ export class Controller {
   }
 
   async updateTelemetrySetting(telemetrySetting: TelemetrySetting) {
-    await updateGlobalState('telemetrySetting', telemetrySetting)
+    try {
+      await updateGlobalState('telemetrySetting', telemetrySetting)
+    } catch (error) {}
     const isOptedIn = telemetrySetting === 'enabled'
     telemetryService.updateTelemetryState(isOptedIn)
   }

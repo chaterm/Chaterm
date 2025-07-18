@@ -19,7 +19,7 @@ import { getTaskMetadata } from './agent/core/storage/disk'
 import { HeartbeatManager } from './heartBeatManager'
 import { createMainWindow } from './windowManager'
 import { registerUpdater } from './updater'
-import { telemetryService } from './agent/services/telemetry/TelemetryService'
+import { telemetryService, checkIsFirstLaunch } from './agent/services/telemetry/TelemetryService'
 
 let mainWindow: BrowserWindow
 let COOKIE_URL = 'http://localhost'
@@ -129,18 +129,24 @@ app.whenReady().then(async () => {
 
   // Function to initialize telemetry setting
   const initializeTelemetrySetting = async () => {
+    let telemetrySetting
     try {
-      const telemetrySetting = (await getGlobalState('telemetrySetting')) || 'enabled'
-
-      if (controller) {
-        await controller.updateTelemetrySetting(telemetrySetting)
-      }
-
-      // Capture app started event after telemetry is initialized
-      telemetryService.captureAppStarted()
+      telemetrySetting = await getGlobalState('telemetrySetting')
     } catch (error) {
-      console.error('[Main Index] Failed to initialize telemetry setting:', error)
+      telemetrySetting = 'enabled'
     }
+
+    if (controller) {
+      await controller.updateTelemetrySetting(telemetrySetting)
+    }
+
+    const isFirstLaunch = checkIsFirstLaunch()
+
+    if (isFirstLaunch) {
+      telemetryService.captureAppFirstLaunch()
+    }
+
+    telemetryService.captureAppStarted()
   }
 
   // Call the test function (imported from ./agent/core/storage/state.ts)
