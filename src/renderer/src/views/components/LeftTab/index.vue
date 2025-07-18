@@ -122,6 +122,7 @@ import { userLogOut } from '@/api/user/user'
 import { userInfoStore } from '@/store/index'
 import { pinia } from '@/main'
 import eventBus from '@/utils/eventBus'
+import { shortcutService } from '@/services/shortcutService'
 
 // 声明存储事件处理函数的变量
 let storageEventHandler: ((e: StorageEvent) => void) | null = null
@@ -206,6 +207,7 @@ const logout = () => {
     // 如果是跳过登录的用户，直接清除状态并跳转
     localStorage.removeItem('login-skipped')
     removeToken()
+    shortcutService.init()
     router.push('/login')
     showUserMenu.value = false
     return
@@ -216,12 +218,14 @@ const logout = () => {
     .then((res) => {
       console.log(res, 'logout')
       removeToken()
+      shortcutService.init()
       router.push('/login')
     })
     .catch((err) => {
       console.log(err, 'err')
       // 即使登出 API 失败，也应该清理本地状态并跳转到登录页
       removeToken()
+      shortcutService.init()
       router.push('/login')
     })
 

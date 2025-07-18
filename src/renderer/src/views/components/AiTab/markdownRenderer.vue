@@ -309,12 +309,12 @@ if (monaco.editor) {
       { token: 'operator', foreground: '000000' }
     ],
     colors: {
-      'editor.background': '#d9e1ff',
+      'editor.background': '#ffffff',
       'editor.foreground': '#000000',
-      'editorLineNumber.foreground': '#999999',
-      'editorLineNumber.activeForeground': '#333333',
+      'editorLineNumber.foreground': '#666666',
+      'editorLineNumber.activeForeground': '#000000',
       'editor.selectionBackground': '#add6ff',
-      'editor.lineHighlightBackground': '#f5f5f5'
+      'editor.lineHighlightBackground': '#f0f0f0'
     }
   })
 }
