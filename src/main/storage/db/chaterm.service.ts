@@ -9,7 +9,9 @@ import {
   deleteAssetLogic,
   updateAssetLogic,
   connectAssetInfoLogic,
-  getUserHostsLogic
+  getUserHostsLogic,
+  refreshOrganizationAssetsLogic,
+  updateOrganizationAssetFavoriteLogic
 } from './chaterm/assets'
 import {
   deleteChatermHistoryByTaskIdLogic,
@@ -166,5 +168,19 @@ export class ChatermDatabaseService {
   // 快捷命令相关方法
   userSnippetOperation(operation: 'list' | 'create' | 'delete' | 'update' | 'swap', params?: any): any {
     return userSnippetOperationLogic(this.db, operation, params)
+  }
+
+  async refreshOrganizationAssets(organizationUuid: string, jumpServerConfig: any): Promise<any> {
+    return await refreshOrganizationAssetsLogic(this.db, organizationUuid, jumpServerConfig)
+  }
+
+  updateOrganizationAssetFavorite(organizationUuid: string, host: string, status: number): any {
+    try {
+      const result = updateOrganizationAssetFavoriteLogic(this.db, organizationUuid, host, status)
+      return result
+    } catch (error) {
+      console.error('ChatermDatabaseService.updateOrganizationAssetFavorite 错误:', error)
+      throw error
+    }
   }
 }

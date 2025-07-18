@@ -1,5 +1,12 @@
 import { ipcMain } from 'electron'
 import { Client } from 'ssh2'
+import {
+  jumpserverConnections,
+  handleJumpServerConnection,
+  jumpserverShellStreams,
+  jumpserverMarkedCommands,
+  jumpserverConnectionStatus
+} from './jumpserverHandle'
 
 // 存储 SSH 连接
 export const sshConnections = new Map()
@@ -317,12 +324,37 @@ const handleAttemptConnection = (event, connectionInfo, resolve, reject, retryCo
 }
 
 export const registerSSHHandlers = () => {
-  // 处理连接
+  // 统一连接入口 - 根据 sshType 路由到不同连接方式
   ipcMain.handle('ssh:connect', async (_event, connectionInfo) => {
-    const retryCount = 0
-    return new Promise((resolve, reject) => {
-      handleAttemptConnection(_event, connectionInfo, resolve, reject, retryCount)
-    })
+    const { sshType } = connectionInfo
+
+    if (sshType === 'jumpserver') {
+      // 路由到 JumpServer 连接
+      try {
+        const result = await handleJumpServerConnection(connectionInfo)
+
+        // 连接成功后，发送初始化数据（模拟 attemptSecondaryConnection 的行为）
+        if (result.status === 'connected') {
+          const readyResult = {
+            hasSudo: false,
+            commandList: []
+          }
+
+          // 发送连接数据事件
+          _event.sender.send(`ssh:connect:data:${connectionInfo.id}`, readyResult)
+        }
+
+        return result
+      } catch (error: unknown) {
+        return { status: 'error', message: error instanceof Error ? error.message : String(error) }
+      }
+    } else {
+      // 默认走 SSH 连接
+      const retryCount = 0
+      return new Promise((resolve, reject) => {
+        handleAttemptConnection(_event, connectionInfo, resolve, reject, retryCount)
+      })
+    }
   })
 
   ipcMain.handle('ssh:sftp:conn:check', async (_event, { id }) => {
@@ -338,6 +370,56 @@ export const registerSSHHandlers = () => {
   })
 
   ipcMain.handle('ssh:shell', async (_event, { id, terminalType }) => {
+    // 检查是否为 JumpServer 连接
+    if (jumpserverConnections.has(id)) {
+      // 使用 JumpServer 的 shell 处理
+      const stream = jumpserverShellStreams.get(id)
+      if (!stream) {
+        return { status: 'error', message: '未找到 JumpServer 连接' }
+      }
+
+      // 设置 shell 数据流监听器
+      stream.removeAllListeners('data')
+      stream.on('data', (data) => {
+        const markedCmd = jumpserverMarkedCommands.get(id)
+        if (markedCmd !== undefined) {
+          markedCmd.output += data.toString()
+          markedCmd.lastActivity = Date.now()
+          if (markedCmd.idleTimer) {
+            clearTimeout(markedCmd.idleTimer)
+          }
+          markedCmd.idleTimer = setTimeout(() => {
+            if (markedCmd && !markedCmd.completed) {
+              markedCmd.completed = true
+              _event.sender.send(`ssh:shell:data:${id}`, {
+                data: markedCmd.output,
+                marker: markedCmd.marker
+              })
+              jumpserverMarkedCommands.delete(id)
+            }
+          }, 10)
+        } else {
+          _event.sender.send(`ssh:shell:data:${id}`, {
+            data: data.toString(),
+            marker: ''
+          })
+        }
+      })
+
+      stream.stderr.on('data', (data) => {
+        _event.sender.send(`ssh:shell:stderr:${id}`, data.toString())
+      })
+
+      stream.on('close', () => {
+        console.log(`JumpServer shell stream closed for id=${id}`)
+        _event.sender.send(`ssh:shell:close:${id}`)
+        jumpserverShellStreams.delete(id)
+      })
+
+      return { status: 'success', message: 'JumpServer Shell 已就绪' }
+    }
+
+    // 默认 SSH shell 处理
     const conn = sshConnections.get(id)
     if (!conn) {
       return { status: 'error', message: '未连接到服务器' }
@@ -400,6 +482,22 @@ export const registerSSHHandlers = () => {
 
   // resize处理
   ipcMain.handle('ssh:shell:resize', async (_event, { id, cols, rows }) => {
+    // 检查是否为 JumpServer 连接
+    if (jumpserverConnections.has(id)) {
+      const stream = jumpserverShellStreams.get(id)
+      if (!stream) {
+        return { status: 'error', message: 'JumpServer Shell未找到' }
+      }
+
+      try {
+        stream.setWindow(rows, cols, 0, 0)
+        return { status: 'success', message: `JumpServer窗口大小已设置为 ${cols}x${rows}` }
+      } catch (error: unknown) {
+        return { status: 'error', message: error instanceof Error ? error.message : String(error) }
+      }
+    }
+
+    // 默认 SSH 处理
     const stream = shellStreams.get(id)
     if (!stream) {
       return { status: 'error', message: 'Shell未找到' }
@@ -409,12 +507,36 @@ export const registerSSHHandlers = () => {
       // 设置SSH shell窗口大小
       stream.setWindow(rows, cols, 0, 0)
       return { status: 'success', message: `窗口大小已设置为 ${cols}x${rows}` }
-    } catch (error) {
-      return { status: 'error', message: error }
+    } catch (error: unknown) {
+      return { status: 'error', message: error instanceof Error ? error.message : String(error) }
     }
   })
 
   ipcMain.on('ssh:shell:write', (_event, { id, data, marker }) => {
+    // 检查是否为 JumpServer 连接
+    if (jumpserverConnections.has(id)) {
+      const stream = jumpserverShellStreams.get(id)
+      if (stream) {
+        if (jumpserverMarkedCommands.has(id)) {
+          jumpserverMarkedCommands.delete(id)
+        }
+        if (marker) {
+          jumpserverMarkedCommands.set(id, {
+            marker,
+            output: '',
+            completed: false,
+            lastActivity: Date.now(),
+            idleTimer: null
+          })
+        }
+        stream.write(data)
+      } else {
+        console.warn('尝试写入不存在的JumpServer stream:', id)
+      }
+      return
+    }
+
+    // 默认 SSH 处理
     const stream = shellStreams.get(id)
     if (stream) {
       if (markedCommands.has(id)) {
@@ -512,10 +634,10 @@ export const registerSSHHandlers = () => {
       return Promise.reject(new Error(`no sftp conn for ${id}`))
     }
     const sftp = sftpConnections.get(id)
-    return new Promise<any[]>((resolve) => {
+    return new Promise<unknown[]>((resolve) => {
       sftp!.readdir(path, (err, list) => {
         if (err) {
-          const errorCode = (err as any).code
+          const errorCode = (err as { code?: number }).code
           switch (errorCode) {
             case 2: // SSH_FX_NO_SUCH_FILE
               return resolve([`cannot open directory '${path}': No such file or directory`])
@@ -533,7 +655,7 @@ export const registerSSHHandlers = () => {
               return resolve([`cannot open directory '${path}': Operation not supported`])
             default:
               // 未知错误码
-              const message = err.message || `Unknown error (code: ${errorCode})`
+              const message = (err as Error).message || `Unknown error (code: ${errorCode})`
               return resolve([`cannot open directory '${path}': ${message}`])
           }
         }
@@ -557,6 +679,26 @@ export const registerSSHHandlers = () => {
   })
 
   ipcMain.handle('ssh:disconnect', async (_event, { id }) => {
+    // 检查是否为 JumpServer 连接
+    if (jumpserverConnections.has(id)) {
+      const stream = jumpserverShellStreams.get(id)
+      if (stream) {
+        stream.end()
+        jumpserverShellStreams.delete(id)
+      }
+
+      const conn = jumpserverConnections.get(id)
+      if (conn) {
+        conn.end()
+        jumpserverConnections.delete(id)
+        jumpserverConnectionStatus.delete(id)
+        return { status: 'success', message: 'JumpServer 连接已断开' }
+      }
+
+      return { status: 'warning', message: '没有活动的 JumpServer 连接' }
+    }
+
+    // 默认 SSH 处理
     const stream = shellStreams.get(id)
     if (stream) {
       stream.end()
