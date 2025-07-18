@@ -117,6 +117,7 @@ import eventBus from '@/utils/eventBus'
 import { useCurrentCwdStore } from '@/store/currentCwdStore'
 import { markRaw, onBeforeUnmount, onMounted, onUnmounted, PropType, nextTick, reactive, ref, watch, computed } from 'vue'
 import { shortcutService } from '@/services/shortcutService'
+import { useI18n } from 'vue-i18n'
 import { Terminal } from 'xterm'
 import { FitAddon } from 'xterm-addon-fit'
 import { SearchAddon } from 'xterm-addon-search'
@@ -133,8 +134,9 @@ import { userConfigStore as serviceUserConfig } from '@/services/userConfigStore
 import { v4 as uuidv4 } from 'uuid'
 import { userInfoStore } from '@/store/index'
 import stripAnsi from 'strip-ansi'
-import { isGlobalInput, inputManager, commandBarHeight } from './termInputManager'
+import { inputManager, commandBarHeight } from './termInputManager'
 import { shellCommands } from './shellCmd'
+const { t } = useI18n()
 const selectFlag = ref(false)
 const configStore = userConfigStore()
 import { WebglAddon } from 'xterm-addon-webgl'
@@ -498,8 +500,6 @@ onMounted(async () => {
       }
     }
     updateTimeout = null
-
-    terminalContainerResize()
   }
 
   // termInstance.write
@@ -559,6 +559,7 @@ onMounted(async () => {
         connectionId.value
       )
     }, 100)
+    terminalContainerResize()
   })
 
   connectSSH()
@@ -758,9 +759,10 @@ const closeVimEditor = (data) => {
   if (editor?.fileChange) {
     if (!editor?.saved) {
       Modal.confirm({
-        content: `您想将更改保存到 ${editor?.filePath} 吗？`,
-        okText: '确定',
-        cancelText: '取消',
+        title: t('common.saveConfirmTitle'),
+        content: t('common.saveConfirmContent', { filePath: editor?.filePath }),
+        okText: t('common.confirm'),
+        cancelText: t('common.cancel'),
         onOk() {
           handleSave({ key: editor?.key, needClose: true })
         },
@@ -797,9 +799,9 @@ const handleSave = async (data) => {
     errMsg = stderr
   }
   if (errMsg !== '') {
-    message.error(`保存失败: ${errMsg}`)
+    message.error(`${t('common.saveFailed')}: ${errMsg}`)
   } else {
-    message.success('保存成功')
+    message.success(t('common.saveSuccess'))
     // 关闭
     if (editor) {
       if (needClose) {
