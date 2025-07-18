@@ -340,61 +340,94 @@ export const registerSSHHandlers = () => {
   ipcMain.handle('ssh:shell', async (_event, { id, terminalType }) => {
     const conn = sshConnections.get(id)
     if (!conn) {
-      return { status: 'error', message: '未连接到服务器' }
+      return { status: 'error', message: 'Not connected to the server' }
     }
-    const termType = terminalType || 'xterm'
+
+    const termType = terminalType || 'vt100'
+    const delayMs = 300
+    const fallbackExecs = ['bash', 'sh']
+
+    const isConnected = () => conn && conn['_sock'] && !conn['_sock'].destroyed
+
+    const handleStream = (stream, method: 'shell' | 'exec') => {
+      shellStreams.set(id, stream)
+
+      stream.on('data', (data) => {
+        const markedCmd = markedCommands.get(id)
+        if (markedCmd !== undefined) {
+          markedCmd.output += data.toString()
+          markedCmd.lastActivity = Date.now()
+          if (markedCmd.idleTimer) {
+            clearTimeout(markedCmd.idleTimer)
+          }
+          markedCmd.idleTimer = setTimeout(() => {
+            if (markedCmd && !markedCmd.completed) {
+              markedCmd.completed = true
+              _event.sender.send(`ssh:shell:data:${id}`, {
+                data: markedCmd.output,
+                marker: markedCmd.marker
+              })
+              markedCommands.delete(id)
+            }
+          }, 10)
+        } else {
+          _event.sender.send(`ssh:shell:data:${id}`, {
+            data: data.toString(),
+            marker: ''
+          })
+        }
+      })
+
+      stream.stderr?.on('data', (data) => {
+        _event.sender.send(`ssh:shell:stderr:${id}`, data.toString())
+      })
+
+      stream.on('close', () => {
+        console.log(`Shell stream closed for id=${id} (${method})`)
+        _event.sender.send(`ssh:shell:close:${id}`)
+        shellStreams.delete(id)
+      })
+    }
+
+    const tryExecFallback = (execList: string[], resolve, reject) => {
+      const [cmd, ...rest] = execList
+      if (!cmd) {
+        return reject(new Error('shell and exec run failed'))
+      }
+
+      conn.exec(cmd, { pty: true }, (execErr, execStream) => {
+        if (execErr) {
+          console.warn(`[${id}] exec(${cmd}) Failed: ${execErr.message}`)
+          return tryExecFallback(rest, resolve, reject)
+        }
+
+        console.info(`[${id}] use exec(${cmd}) Successfully started the terminal`)
+        handleStream(execStream, 'exec')
+        resolve({ status: 'success', message: `The terminal has been started（exec:${cmd}）` })
+      })
+    }
+
     return new Promise((resolve, reject) => {
-      conn.shell(
-        {
-          term: termType
-        },
-        (err, stream) => {
+      if (!isConnected()) {
+        return reject(new Error('Connection disconnected, unable to start terminal'))
+      }
+
+      setTimeout(() => {
+        if (!isConnected()) {
+          return reject(new Error('The connection has been disconnected after a delay'))
+        }
+
+        conn.shell({ term: termType }, (err, stream) => {
           if (err) {
-            console.log('start shell error:', err)
-            reject(new Error(err.message))
-            return
+            console.warn(`[${id}] shell() start error: ${err.message}`)
+            return tryExecFallback(fallbackExecs, resolve, reject)
           }
 
-          shellStreams.set(id, stream)
-          stream.on('data', (data) => {
-            const markedCmd = markedCommands.get(id)
-            if (markedCmd !== undefined) {
-              markedCmd.output += data.toString()
-              markedCmd.lastActivity = Date.now()
-              if (markedCmd.idleTimer) {
-                clearTimeout(markedCmd.idleTimer)
-              }
-              markedCmd.idleTimer = setTimeout(() => {
-                if (markedCmd && !markedCmd.completed) {
-                  markedCmd.completed = true
-                  _event.sender.send(`ssh:shell:data:${id}`, {
-                    data: markedCmd.output,
-                    marker: markedCmd.marker
-                  })
-                  markedCommands.delete(id)
-                }
-              }, 10)
-            } else {
-              _event.sender.send(`ssh:shell:data:${id}`, {
-                data: data.toString(),
-                marker: ''
-              })
-            }
-          })
-
-          stream.stderr.on('data', (data) => {
-            _event.sender.send(`ssh:shell:stderr:${id}`, data.toString())
-          })
-
-          stream.on('close', () => {
-            console.log(`Shell stream closed for id=${id}`)
-            _event.sender.send(`ssh:shell:close:${id}`)
-            shellStreams.delete(id)
-          })
-
-          resolve({ status: 'success', message: 'Shell已启动' })
-        }
-      )
+          console.info(`[${id}] shell() Successfully started`)
+          handleStream(stream, 'shell')
+          resolve({ status: 'success', message: 'Shell has started' })
+        })
+      }, delayMs)
     })
   })
 
