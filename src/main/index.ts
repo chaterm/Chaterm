@@ -130,9 +130,9 @@ app.whenReady().then(async () => {
   // Function to initialize telemetry setting
   const initializeTelemetrySetting = async () => {
     try {
-      const telemetrySetting = await getGlobalState('telemetrySetting')
+      const telemetrySetting = (await getGlobalState('telemetrySetting')) || 'enabled'
 
-      if (controller && telemetrySetting) {
+      if (controller) {
         await controller.updateTelemetrySetting(telemetrySetting)
       }
 
@@ -704,4 +704,21 @@ ipcMain.handle('validate-api-key', async (_, configuration) => {
     return await controller.validateApiKey(configuration)
   }
   return { isValid: false, error: 'Controller not initialized' }
+})
+
+ipcMain.handle('capture-telemetry-event', async (_, { eventType, data }) => {
+  try {
+    switch (eventType) {
+      case 'button_click':
+        const taskId = controller?.task?.taskId
+        telemetryService.captureButtonClick(data.button, taskId, data.properties)
+        break
+      default:
+        console.warn('Unknown telemetry event type:', eventType)
+    }
+    return { success: true }
+  } catch (error) {
+    console.error('Failed to capture telemetry event:', error)
+    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' }
+  }
 })

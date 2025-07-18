@@ -34,7 +34,7 @@ class PostHogClient {
       // Tracks user feedback on completed tasks
       FEEDBACK: 'task.feedback',
       // Tracks when a message is sent in a conversation
-      CONVERSATION_TURN: 'task.conversation_turn',
+      API_REQUEST: 'task.api_request',
       // Tracks token consumption for cost and usage analysis
       TOKEN_USAGE: 'task.tokens',
       // Tracks switches between plan and act modes
@@ -215,9 +215,15 @@ class PostHogClient {
    * @param model The specific model used (e.g., GPT-4, Claude)
    * @param source The source of the message ("user" | "model"). Used to track message patterns and identify when users need to correct the model's responses.
    */
-  public captureConversationTurnEvent(taskId: string, provider: string = 'unknown', model: string = 'unknown', source: 'user' | 'assistant') {
+  public captureApiRequestEvent(
+    taskId: string,
+    provider: string = 'unknown',
+    model: string = 'unknown',
+    source: 'user' | 'assistant',
+    mode: 'chat' | 'cmd' | 'agent'
+  ) {
     // Ensure required parameters are provided
-    if (!taskId || !provider || !model || !source) {
+    if (!taskId || !provider || !model || !source || !mode) {
       console.warn('TelemetryService: Missing required parameters for message capture')
       return
     }
@@ -227,11 +233,12 @@ class PostHogClient {
       provider,
       model,
       source,
+      mode,
       timestamp: new Date().toISOString() // Add timestamp for message sequencing
     }
 
     this.capture({
-      event: PostHogClient.EVENTS.TASK.CONVERSATION_TURN,
+      event: PostHogClient.EVENTS.TASK.API_REQUEST,
       properties
     })
   }
@@ -367,13 +374,15 @@ class PostHogClient {
    * Records general button click interactions in the UI
    * @param button Identifier for the button that was clicked
    * @param taskId Optional task identifier if click occurred during a task
+   * @param properties Optional additional properties to include with the event
    */
-  public captureButtonClick(button: string, taskId?: string) {
+  public captureButtonClick(button: string, taskId?: string, properties?: Record<string, any>) {
     this.capture({
       event: PostHogClient.EVENTS.UI.BUTTON_CLICK,
       properties: {
         button,
-        taskId
+        taskId,
+        ...(properties || {})
       }
     })
   }
