@@ -645,7 +645,6 @@ const currentClickServer = async (item) => {
     ip: item.ip ? item.ip : '',
     data: item
   }
-
   if (focusedPane.value.type === 'rightVertical' && focusedPane.value.index !== undefined && focusedPane.value.rightPaneIndex !== undefined) {
     const rightPane = splitPanes.value[focusedPane.value.rightPaneIndex]
     if (rightPane && rightPane.verticalSplitPanes && focusedPane.value.index < rightPane.verticalSplitPanes.length) {
@@ -674,11 +673,12 @@ const currentClickServer = async (item) => {
 }
 
 const needsAuth = (item) => {
-  const authRequiredTypes = ['extensions', 'monitor']
-  if (item.type === 'term' && item.data?.type === 'ssh') {
-    return false
-  }
-  return authRequiredTypes.includes(item.type || 'term')
+  return false
+  // const authRequiredTypes = ['extensions', 'monitor']
+  // if (item.type === 'term' && item.data?.type === 'ssh') {
+  //   return false
+  // }
+  // return authRequiredTypes.includes(item.type || 'term')
 }
 
 const closeTab = (tabId) => {
