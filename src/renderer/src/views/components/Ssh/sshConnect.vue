@@ -500,8 +500,6 @@ onMounted(async () => {
       }
     }
     updateTimeout = null
-
-    terminalContainerResize()
   }
 
   // termInstance.write
@@ -561,6 +559,7 @@ onMounted(async () => {
         connectionId.value
       )
     }, 100)
+    terminalContainerResize()
   })
 
   connectSSH()
