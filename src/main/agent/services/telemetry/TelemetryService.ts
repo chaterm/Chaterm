@@ -21,7 +21,9 @@ class PostHogClient {
       // Tracks when the user opts out of telemetry
       OPT_OUT: 'user.opt_out',
       // Tracks when the app is started
-      APP_STARTED: 'user.app_started'
+      APP_STARTED: 'user.app_started',
+      // Tracks when the app is launched for the first time after installation
+      APP_FIRST_LAUNCH: 'user.app_first_launch'
     },
     // Task-related events for tracking conversation and execution flow
     TASK: {
@@ -170,6 +172,21 @@ class PostHogClient {
         timestamp: new Date().toISOString(),
         platform: process.platform,
         architecture: process.arch
+      }
+    })
+  }
+
+  /**
+   * Records when the app is launched for the first time after installation
+   */
+  public captureAppFirstLaunch() {
+    this.capture({
+      event: PostHogClient.EVENTS.USER.APP_FIRST_LAUNCH,
+      properties: {
+        timestamp: new Date().toISOString(),
+        platform: process.platform,
+        architecture: process.arch,
+        version: this.version
       }
     })
   }
@@ -674,6 +691,29 @@ function generatePersistentMachineId(): string {
   }
 
   return machineId
+}
+
+/**
+ * Checks if this is the first launch
+ * Determines by checking the first launch flag file
+ */
+export function checkIsFirstLaunch(): boolean {
+  const userDataPath = app.getPath('userData')
+  const firstLaunchFlagPath = path.join(userDataPath, '.first-launch-completed')
+
+  try {
+    // If the file does not exist, it is the first launch
+    if (!fs.existsSync(firstLaunchFlagPath)) {
+      // Create the flag file to indicate the first launch is complete
+      fs.mkdirSync(path.dirname(firstLaunchFlagPath), { recursive: true })
+      fs.writeFileSync(firstLaunchFlagPath, new Date().toISOString(), 'utf8')
+      return true
+    }
+    return false
+  } catch (error) {
+    console.warn('Failed to check first launch status:', error)
+    return false
+  }
 }
 
 /**
