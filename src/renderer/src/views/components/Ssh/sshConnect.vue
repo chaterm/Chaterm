@@ -930,12 +930,14 @@ const connectSSH = async () => {
     connectionId.value = `${props.connectData.username}@${props.connectData.ip}:local:${uuidv4()}`
     const result = await api.connect({
       id: connectionId.value,
-      host: props.connectData.ip,
-      port: props.connectData.port,
-      username: props.connectData.username,
-      password: password.value,
+      host: assetInfo.asset_ip,
+      port: assetInfo.port,
+      username: assetInfo.username,
+      password: assetInfo.password,
       privateKey: privateKey.value,
-      passphrase: passphrase.value
+      passphrase: passphrase.value,
+      targetIp: assetInfo.host,
+      sshType: assetInfo.sshType
     })
 
     api

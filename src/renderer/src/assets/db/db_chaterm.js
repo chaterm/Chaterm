@@ -104,7 +104,17 @@ CREATE TABLE IF NOT EXISTS user_snippet_v1 (
   updated_at INTEGER DEFAULT (strftime('%s', 'now')),  -- 更新时间戳
   snippet_name TEXT NOT NULL,                           -- 快捷命令名称
   snippet_content TEXT NOT NULL                        -- 快捷命令内容
-)
+);
+CREATE TABLE IF NOT EXISTS t_organization_assets (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,             -- 资源ID
+  organization_uuid TEXT,                           -- 组织UUID
+  hostname TEXT,                                    -- 主机名
+  host TEXT,                                        -- 主机IP
+  jump_server_type TEXT,                            -- 跳板机类型
+  favorite INTEGER DEFAULT 2,                       -- 是否收藏
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,    -- 创建时间
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP     -- 更新时间
+);
 `)
 
 console.log('数据库创建成功，表已创建')

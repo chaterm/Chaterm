@@ -76,15 +76,8 @@
           :key="tab.id"
           :class="{ 'tab-content': true, active: tab.id === activeTab }"
         >
-          <Term
-            v-if="tab.type === 'term' && tab.organizationId !== 'personal'"
-            :ref="(el) => setTermRef(el, tab.id)"
-            :server-info="tab"
-            @close-tab-in-term="closeTab"
-            @create-new-term="createNewTerm"
-          />
           <sshConnect
-            v-if="tab.content === 'demo' || tab.organizationId === 'personal'"
+            v-if="tab.organizationId !== ''"
             :ref="(el) => setSshConnectRef(el, tab.id)"
             :server-info="tab"
             :connect-data="tab.data"

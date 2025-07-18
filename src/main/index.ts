@@ -705,3 +705,32 @@ ipcMain.handle('validate-api-key', async (_, configuration) => {
   }
   return { isValid: false, error: 'Controller not initialized' }
 })
+
+// 添加刷新企业资产的 IPC 处理
+ipcMain.handle('refresh-organization-assets', async (_, data) => {
+  try {
+    const { organizationUuid, jumpServerConfig } = data
+    const result = await chatermDbService.refreshOrganizationAssets(organizationUuid, jumpServerConfig)
+    return result
+  } catch (error) {
+    console.error('刷新企业资产失败:', error)
+    return { data: { message: 'failed', error: error.message } }
+  }
+})
+
+ipcMain.handle('organization-asset-favorite', async (_, data) => {
+  try {
+    const { organizationUuid, host, status } = data
+
+    if (!organizationUuid || !host || status === undefined) {
+      console.error('参数不完整:', { organizationUuid, host, status })
+      return { data: { message: 'failed', error: '参数不完整' } }
+    }
+
+    const result = chatermDbService.updateOrganizationAssetFavorite(organizationUuid, host, status)
+    return result
+  } catch (error) {
+    console.error('主进程 organization-asset-favorite 错误:', error)
+    return { data: { message: 'failed', error: error.message } }
+  }
+})
