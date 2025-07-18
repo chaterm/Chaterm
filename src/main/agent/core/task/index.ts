@@ -13,7 +13,6 @@ import { showSystemNotification } from '@integrations/notifications'
 import { ApiConfiguration } from '@shared/api'
 import { findLast, findLastIndex, parsePartialArrayString } from '@shared/array'
 import { AutoApprovalSettings } from '@shared/AutoApprovalSettings'
-import { ChatSettings } from '@shared/ChatSettings'
 import { combineApiRequests } from '@shared/combineApiRequests'
 import { combineCommandSequences } from '@shared/combineCommandSequences'
 import {
@@ -1148,7 +1147,8 @@ export class Task {
       role: 'user',
       content: userContent
     })
-    telemetryService.captureConversationTurnEvent(this.taskId, await getGlobalState('apiProvider'), this.api.getModel().id, 'user')
+    const chatSettings = await getGlobalState('chatSettings')
+    telemetryService.captureApiRequestEvent(this.taskId, await getGlobalState('apiProvider'), this.api.getModel().id, 'user', chatSettings?.mode)
     // 更新API请求消息
     await this.updateApiRequestMessage(userContent)
   }
@@ -1370,7 +1370,7 @@ export class Task {
     messageUpdater.updateApiReqMsg(cancelReason, streamingFailedMessage)
     await this.saveChatermMessagesAndUpdateHistory()
 
-    telemetryService.captureConversationTurnEvent(this.taskId, await getGlobalState('apiProvider'), this.api.getModel().id, 'assistant')
+    // telemetryService.captureConversationTurnEvent(this.taskId, await getGlobalState('apiProvider'), this.api.getModel().id, 'assistant')
 
     this.didFinishAbortingStream = true
   }
@@ -1429,7 +1429,7 @@ export class Task {
     if (assistantMessage.length === 0) {
       return await this.handleEmptyAssistantResponse()
     }
-    telemetryService.captureConversationTurnEvent(this.taskId, await getGlobalState('apiProvider'), this.api.getModel().id, 'assistant')
+    // telemetryService.captureConversationTurnEvent(this.taskId, await getGlobalState('apiProvider'), this.api.getModel().id, 'assistant')
 
     await this.addToApiConversationHistory({
       role: 'assistant',

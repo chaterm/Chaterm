@@ -106,8 +106,9 @@
                   "
                   type="primary"
                   html-type="submit"
-                  >{{ $t('login.login') }}</a-button
                 >
+                  {{ $t('login.login') }}
+                </a-button>
               </a-form-item>
               <div class="skip-login">
                 {{ $t('login.skip') }}
@@ -220,6 +221,7 @@ import type { MenuProps } from 'ant-design-vue'
 import { userLogin, sendEmailCode, emailLogin } from '@/api/user/user'
 import { setUserInfo } from '@/utils/permission'
 import { message } from 'ant-design-vue'
+import { captureButtonClick, LoginFunnelEvents, LoginMethods, LoginFailureReasons } from '@/utils/telemetry'
 const platform = ref<string>('')
 import config from '@renderer/config'
 const instance = getCurrentInstance()!
@@ -236,6 +238,10 @@ const countdown = ref(0)
 
 const skipLogin = async () => {
   try {
+    await captureButtonClick(LoginFunnelEvents.SKIP_LOGIN, {
+      method: LoginMethods.GUEST
+    })
+
     localStorage.removeItem('ctm-token')
     localStorage.removeItem('userInfo')
     localStorage.removeItem('login-skipped')
@@ -308,7 +314,7 @@ const emailForm = reactive<EmailFormState>({
 })
 
 // 公共的登录成功处理函数
-const handleLoginSuccess = async (userData: any) => {
+const handleLoginSuccess = async (userData: any, method: string) => {
   try {
     setUserInfo(userData)
     localStorage.setItem('ctm-token', userData.token)
@@ -318,19 +324,35 @@ const handleLoginSuccess = async (userData: any) => {
     const dbResult = await api.initUserDatabase({ uid: userData.uid })
     if (!dbResult.success) {
       console.error('数据库初始化失败:', dbResult.error)
+      await captureButtonClick(LoginFunnelEvents.LOGIN_FAILED, {
+        method: method,
+        failure_reason: LoginFailureReasons.DATABASE_ERROR,
+        error_message: dbResult.error
+      })
       return false
     }
 
+    await captureButtonClick(LoginFunnelEvents.LOGIN_SUCCESS, {
+      method: method
+    })
     router.push('/')
     return true
   } catch (error) {
     console.error('登录处理失败:', error)
     message.error('登录处理失败')
+    await captureButtonClick(LoginFunnelEvents.LOGIN_FAILED, {
+      method: method,
+      failure_reason: LoginFailureReasons.UNKNOWN_ERROR,
+      error_message: (error as any)?.message || 'Unknown error'
+    })
     return false
   }
 }
 
 const onAccountFinish = async () => {
+  await captureButtonClick(LoginFunnelEvents.CLICK_LOGIN_BUTTON, {
+    method: LoginMethods.ACCOUNT
+  })
   removeToken()
   try {
     const res = await userLogin({
@@ -339,14 +361,26 @@ const onAccountFinish = async () => {
     })
 
     if (res.code == 200) {
-      await handleLoginSuccess(res.data)
+      await handleLoginSuccess(res.data, LoginMethods.ACCOUNT)
     }
   } catch (err: any) {
-    message.error(err?.response?.data?.message || '网络异常')
+    const errorMessage = err?.response?.data?.message || '网络异常'
+    message.error(errorMessage)
+
+    // 捕获登录失败事件
+    await captureButtonClick(LoginFunnelEvents.LOGIN_FAILED, {
+      method: LoginMethods.ACCOUNT,
+      failure_reason: err?.response?.status === 401 ? LoginFailureReasons.INVALID_CREDENTIALS : LoginFailureReasons.NETWORK_ERROR,
+      error_message: errorMessage
+    })
   }
 }
 
 const onEmailFinish = async () => {
+  await captureButtonClick(LoginFunnelEvents.CLICK_LOGIN_BUTTON, {
+    method: LoginMethods.EMAIL
+  })
+
   try {
     const res = await emailLogin({
       email: emailForm.email,
@@ -354,11 +388,19 @@ const onEmailFinish = async () => {
     })
 
     if (res.code == 200) {
-      await handleLoginSuccess(res.data)
+      await handleLoginSuccess(res.data, LoginMethods.EMAIL)
     }
   } catch (err: any) {
+    const errorMessage = err?.response?.data?.message || '网络异常'
     console.error('邮箱登录失败:', err)
-    message.error(err?.response?.data?.message || '网络异常')
+    message.error(errorMessage)
+
+    // 捕获登录失败事件
+    await captureButtonClick(LoginFunnelEvents.LOGIN_FAILED, {
+      method: LoginMethods.EMAIL,
+      failure_reason: err?.response?.status === 401 ? LoginFailureReasons.INVALID_CREDENTIALS : LoginFailureReasons.NETWORK_ERROR,
+      error_message: errorMessage
+    })
   }
 }
 
@@ -386,6 +428,10 @@ const sendCode = () => {
       if (res.code == 200) {
         message.success('验证码发送成功')
         countdown.value = 300
+        // 捕获发送验证码成功事件
+        captureButtonClick(LoginFunnelEvents.SEND_VERIFICATION_CODE, {
+          method: LoginMethods.EMAIL
+        })
       }
     })
     .catch((err) => {
@@ -404,6 +450,8 @@ const sendCode = () => {
 onMounted(async () => {
   const api = window.api as any
   platform.value = await api.getPlatform()
+
+  await captureButtonClick(LoginFunnelEvents.ENTER_LOGIN_PAGE)
 })
 </script>
 <style lang="less" scoped>
