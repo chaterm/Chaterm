@@ -520,6 +520,18 @@ const api = {
       return Promise.reject(error)
     }
   },
+  // 遥测事件
+  captureButtonClick: async (button: string, properties?: Record<string, any>) => {
+    try {
+      const result = await ipcRenderer.invoke('capture-telemetry-event', {
+        eventType: 'button_click',
+        data: { button, properties }
+      })
+      return result
+    } catch (error) {
+      return Promise.reject(error)
+    }
+  },
   checkUpdate: () => ipcRenderer.invoke('update:checkUpdate'),
   download: () => ipcRenderer.invoke('update:download'),
   autoUpdate: (update) => {
