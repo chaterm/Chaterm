@@ -228,6 +228,7 @@ export default JumpServerClient
 //     port: 37000,
 //     username: 'xuhong_yao',
 //     privateKeyPath: '/Users/xuhong_yao/fish/codeShare/ssh2jumpserver/xuhong.pem',
+//      password:"158026H&h"
 //   });
 
 //   try {

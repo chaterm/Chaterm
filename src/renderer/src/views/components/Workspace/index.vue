@@ -128,7 +128,8 @@
               <template #title="{ title, dataRef }">
                 <div
                   class="custom-tree-node"
-                  @click="clickServer(dataRef)"
+                  @click="handleClick(dataRef)"
+                  @dblclick="handleDblClick(dataRef)"
                 >
                   <span
                     v-if="!isSecondLevel(dataRef)"
@@ -229,8 +230,6 @@ const workspaceData = ref<WorkspaceItem[]>([
   }
 ])
 
-const remoteWorkSpace = ref<WorkspaceItem[]>([])
-
 interface AssetNode {
   key: string
   title: string
@@ -309,16 +308,6 @@ const getUserAssetMenu = () => {
           expandDefaultNodes(enterpriseData.value)
         }, 200)
       }
-    })
-    .catch((err) => console.error(err))
-}
-
-const GetUserWorkSpace = async () => {
-  getUserWorkSpace()
-    .then((res) => {
-      const data = res.data.data
-      const newData = deepClone(data) as WorkspaceItem[]
-      remoteWorkSpace.value = [...newData]
     })
     .catch((err) => console.error(err))
 }
@@ -410,17 +399,6 @@ const isSecondLevel = (node) => {
 }
 
 const toggleFavorite = (dataRef: any): void => {
-  console.log('=== toggleFavorite 开始 ===')
-  console.log('toggleFavorite called with:', {
-    dataRef: JSON.stringify(dataRef, null, 2),
-    isPersonalWorkspace: isPersonalWorkspace.value,
-    asset_type: dataRef.asset_type,
-    organizationId: dataRef.organizationId,
-    ip: dataRef.ip,
-    favorite: dataRef.favorite,
-    key: dataRef.key
-  })
-
   if (isPersonalWorkspace.value) {
     console.log('执行个人资产收藏逻辑')
     window.api

@@ -178,7 +178,7 @@ export function getLocalAssetRouteLogic(db: Database.Database, searchType: strin
 
         // 查询收藏的组织子资产
         const favoriteSubAssetsStmt = db.prepare(`
-          SELECT oa.hostname as asset_name, oa.host as asset_ip, oa.organization_uuid, oa.favorite,
+          SELECT oa.hostname as asset_name, oa.host as asset_ip, oa.organization_uuid, oa.uuid, oa.favorite,
                  a.label as org_label, a.asset_ip as org_ip
           FROM t_organization_assets oa
           JOIN t_assets a ON oa.organization_uuid = a.uuid
@@ -194,7 +194,7 @@ export function getLocalAssetRouteLogic(db: Database.Database, searchType: strin
             title: subAsset.asset_name || subAsset.asset_ip,
             favorite: true,
             ip: subAsset.asset_ip,
-            uuid: `${subAsset.organization_uuid}_${subAsset.asset_ip}`,
+            uuid: subAsset.uuid,
             asset_type: 'organization',
             organizationId: subAsset.organization_uuid
           })
@@ -221,7 +221,7 @@ export function getLocalAssetRouteLogic(db: Database.Database, searchType: strin
 
       for (const orgAsset of organizationAssets) {
         const nodesStmt = db.prepare(`
-          SELECT hostname as asset_name, host as asset_ip, organization_uuid, created_at, favorite
+          SELECT hostname as asset_name, host as asset_ip, organization_uuid, uuid, created_at, favorite
           FROM t_organization_assets
           WHERE organization_uuid = ?
           ORDER BY hostname
@@ -234,7 +234,7 @@ export function getLocalAssetRouteLogic(db: Database.Database, searchType: strin
             title: node.asset_name || node.asset_ip,
             favorite: node.favorite === 1,
             ip: node.asset_ip,
-            uuid: `${orgAsset.uuid}_${node.asset_ip}`,
+            uuid: node.uuid,
             asset_type: 'organization',
             organizationId: orgAsset.uuid
           }
@@ -439,26 +439,49 @@ export function updateAssetLogic(db: Database.Database, params: any): any {
 
 export function connectAssetInfoLogic(db: Database.Database, uuid: string): any {
   try {
+    // 首先在 t_assets 表中查找
     const stmt = db.prepare(`
         SELECT asset_ip, auth_type, port, username, password, key_chain_id
         FROM t_assets
         WHERE uuid = ?
       `)
-    const result = stmt.get(uuid)
+    let result = stmt.get(uuid)
+    let sshType = 'ssh' // 默认为 ssh
+
+    // 如果在 t_assets 中没找到，尝试在 t_organization_assets 中查找
+    if (!result) {
+      const orgAssetStmt = db.prepare(`
+        SELECT oa.hostname, oa.host, a.asset_ip, oa.organization_uuid, oa.uuid, oa.jump_server_type,
+              a.auth_type, a.port, a.username, a.password, a.key_chain_id
+        FROM t_organization_assets oa
+        JOIN t_assets a ON oa.organization_uuid = a.uuid
+        WHERE oa.uuid = ?
+      `)
+      result = orgAssetStmt.get(uuid)
+      if (result) {
+        sshType = result.jump_server_type || 'jumpserver'
+      }
+    } else {
+      result.host = result.asset_ip
+    }
+
+    if (!result) {
+      return null
+    }
+
     if (result && result.auth_type === 'keyBased') {
       const keyChainStmt = db.prepare(`
           SELECT chain_private_key as privateKey, passphrase
           FROM t_asset_chains
           WHERE key_chain_id = ?
         `)
-      result.key_chain_id
       const keyChainResult = keyChainStmt.get(result.key_chain_id)
       if (keyChainResult) {
         result.privateKey = keyChainResult.privateKey
         result.passphrase = keyChainResult.passphrase
       }
     }
-    result.host = result.asset_ip
+    result.sshType = sshType
     return result
   } catch (error) {
     console.error('Chaterm database get asset error:', error)
@@ -531,36 +554,24 @@ export async function refreshOrganizationAssetsLogic(db: Database.Database, orga
 
     console.log('获取到资产数量:', assets.length)
 
-    // 确保表存在
-    db.exec(`
-      CREATE TABLE IF NOT EXISTS t_organization_assets (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        organization_uuid TEXT,
-        hostname TEXT,
-        host TEXT,
-        jump_server_type TEXT,
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
-      )
-    `)
-
     // 清空现有的组织资产
     const deleteStmt = db.prepare(`
       DELETE FROM t_organization_assets 
       WHERE organization_uuid = ?
     `)
-    const deleteResult = deleteStmt.run(organizationUuid)
+    deleteStmt.run(organizationUuid)
 
     // 插入新的资产数据
     const insertStmt = db.prepare(`
       INSERT INTO t_organization_assets (
-        organization_uuid, hostname, host, jump_server_type, created_at, updated_at
-      ) VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+        organization_uuid, hostname, host, uuid, jump_server_type, created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
     `)
 
     let insertedCount = 0
     for (const asset of assets) {
-      const result = insertStmt.run(organizationUuid, asset.name, asset.address, 'jumpserver')
+      const assetUuid = uuidv4()
+      const result = insertStmt.run(organizationUuid, asset.name, asset.address, assetUuid, 'jumpserver')
       if (result.changes > 0) insertedCount++
     }
 
