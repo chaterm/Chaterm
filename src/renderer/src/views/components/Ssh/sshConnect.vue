@@ -2,6 +2,7 @@
   <div
     ref="terminalContainer"
     class="terminal-container"
+    :data-ssh-connect-id="connectionId"
   >
     <SearchComp
       v-if="showSearch"
@@ -109,6 +110,7 @@ import { useCurrentCwdStore } from '@/store/currentCwdStore'
 import { markRaw, onBeforeUnmount, onMounted, PropType, nextTick, reactive, ref, watch, computed } from 'vue'
 import { shortcutService } from '@/services/shortcutService'
 import { useI18n } from 'vue-i18n'
+
 import { Terminal } from 'xterm'
 import { FitAddon } from 'xterm-addon-fit'
 import { SearchAddon } from 'xterm-addon-search'
@@ -514,11 +516,19 @@ onMounted(async () => {
     eventBus.emit('toggleSideBar', 'right')
   }
 
+  const handleSendOrToggleAiForTab = (targetTabId: string) => {
+    if (targetTabId !== props.currentConnectionId) {
+      return
+    }
+
+    handleSendOrToggleAi()
+  }
+
   eventBus.on('executeTerminalCommand', handleExecuteCommand)
-  eventBus.on('sendOrToggleAiFromTerminal', handleSendOrToggleAi)
+  eventBus.on('sendOrToggleAiFromTerminalForTab', handleSendOrToggleAiForTab)
   cleanupListeners.value.push(() => {
     eventBus.off('executeTerminalCommand', handleExecuteCommand)
-    eventBus.off('sendOrToggleAiFromTerminal', handleSendOrToggleAi)
+    eventBus.off('sendOrToggleAiFromTerminalForTab', handleSendOrToggleAiForTab)
     window.removeEventListener('keydown', handleGlobalKeyDown)
   })
 
@@ -889,7 +899,7 @@ const startShell = async () => {
         cusWrite?.(`Disconnected from remote host(${props.serverInfo.title}) at ${new Date().toDateString()}\r\n`)
       })
 
-      cleanupListeners.value = [removeDataListener, removeErrorListener, removeCloseListener]
+      cleanupListeners.value.push(removeDataListener, removeErrorListener, removeCloseListener)
     } else {
       terminal.value?.writeln(
         JSON.stringify({

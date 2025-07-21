@@ -91,9 +91,9 @@ const props = defineProps({
 })
 const configStore = userConfigStore()
 const infos = ref(props.serverInfo)
-// 用于存储引用的对象
+// Store reference objects
 const componentRefs = ref({})
-// 设置动态引用的函数
+// Function to set dynamic references
 const setRef = (el, key) => {
   if (el) {
     componentRefs.value[key] = el
@@ -104,19 +104,19 @@ const name = userInfoStore().userInfo.name
 const terminalElement = ref(null)
 const terminalContainer = ref(null)
 const terminalId = `${email.split('@')[0]}@${props.serverInfo.ip}:remote:${uuidv4()}`
-const suggestions = ref([]) //返回的补全列表
-const activeSuggestion = ref(0) //高亮的补全项
-let isCommandExecuting = false // 命令执行锁，防止回车后补全窗口又弹出
-const socket = ref(null) //ws实例
-const term = ref(null) //term实例
+const suggestions = ref([]) // Returned completion list
+const activeSuggestion = ref(0) // Highlighted completion item
+let isCommandExecuting = false // Command execution lock, prevent completion window from popping up after Enter
+const socket = ref(null) // WebSocket instance
+const term = ref(null) // Terminal instance
 let fitAddon = null //
 const api = window.api
-let heartbeatId = null // 心跳ID
+let heartbeatId = null // Heartbeat ID
 const copyText = ref('')
-// 搜索相关
+// Search related
 const showSearch = ref(false)
 const searchAddon = ref(null)
-// 语法高亮相关
+// Syntax highlighting related
 const enc = new TextDecoder('utf-8')
 const encoder = new TextEncoder()
 const cursorStartX = ref(0)
@@ -141,7 +141,7 @@ const authData = {
   organizationId: props.serverInfo.organizationId,
   terminalId: terminalId
 }
-// 优化的防抖函数，支持立即执行、动态延迟和拖拽模式
+// Optimized debounce function, supports immediate execution, dynamic delay and drag mode
 const debounce = (func, wait, immediate = false) => {
   let timeout
   let isFirstCall = true
@@ -153,7 +153,7 @@ const debounce = (func, wait, immediate = false) => {
     const timeSinceLastCall = now - lastCallTime
     lastCallTime = now
 
-    // 检测是否在拖拽过程中（连续快速调用）
+    // Detect if in drag process (continuous rapid calls)
     isDragging = timeSinceLastCall < 50
 
     const later = () => {
@@ -166,14 +166,14 @@ const debounce = (func, wait, immediate = false) => {
     const callNow = immediate && !timeout
     clearTimeout(timeout)
 
-    // 拖拽时使用更短的延迟，首次调用立即执行
+    // Use shorter delay when dragging, immediate execution for first call
     let dynamicWait
     if (isDragging) {
-      dynamicWait = 5 // 拖拽时极短延迟
+      dynamicWait = 5 // Very short delay when dragging
     } else if (isFirstCall) {
-      dynamicWait = 0 // 首次立即执行
+      dynamicWait = 0 // Immediate execution for first call
     } else {
-      dynamicWait = wait // 正常延迟
+      dynamicWait = wait // Normal delay
     }
 
     timeout = setTimeout(later, dynamicWait)
@@ -190,7 +190,7 @@ const shortcutKey = computed(() => {
   if (shortcuts && shortcuts['sendOrToggleAi']) {
     return shortcutService.formatShortcut(shortcuts['sendOrToggleAi'])
   }
-  // 如果没有配置，返回默认值
+  // If not configured, return default value
   const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0
   return isMac ? '⌘L' : 'Ctrl+L'
 })
@@ -199,7 +199,7 @@ onMounted(() => {
   initTerminal()
   connectWebsocket()
 
-  // 使用 ResizeObserver 监听终端容器的尺寸变化
+  // Use ResizeObserver to monitor terminal container size changes
   if (terminalContainer.value) {
     resizeObserver = new ResizeObserver(
       debounce(
@@ -208,30 +208,35 @@ onMounted(() => {
         },
         30,
         true
-      ) // 立即执行首次调用，后续30ms防抖
+      ) // Execute first call immediately, then 30ms debounce
     )
     resizeObserver.observe(terminalContainer.value)
   }
 
-  // 保留 window resize 监听作为备用
+  // Keep window resize listener as backup
   window.addEventListener('resize', handleResize)
   window.addEventListener('keydown', handleGlobalKeyDown)
 
-  // 初始化完成后进行一次自适应调整
+  // Perform adaptive adjustment after initialization
   nextTick(() => {
     setTimeout(() => {
       handleResize()
     }, 100)
   })
 
-  // 监听 executeTerminalCommand 事件
+  // Listen for executeTerminalCommand event
   eventBus.on('executeTerminalCommand', (command) => {
     autoExecuteCode(command)
   })
 
-  // 监听 getActiveTerminalSelection 事件
-  eventBus.on('sendOrToggleAiFromTerminal', () => {
-    // 检查焦点是否在终端或者终端容器内
+  // Listen for specific tab events
+  eventBus.on('sendOrToggleAiFromTerminalForTab', (targetTabId) => {
+    // Only process when target tabId matches current terminalId
+    if (targetTabId !== terminalId) {
+      return
+    }
+
+    // Check if focus is in terminal or terminal container
     const activeElement = document.activeElement
     const terminalContainer = terminalElement.value?.closest('.terminal-container')
     const isTerminalFocused =
@@ -239,11 +244,11 @@ onMounted(() => {
       terminalContainer?.contains(activeElement) ||
       activeElement?.classList.contains('xterm-helper-textarea')
 
-    // 优先检查是否有选中文本，但只有在终端有焦点时才发送
+    // Prioritize checking for selected text, but only send when terminal has focus
     if (term.value && term.value.hasSelection() && isTerminalFocused) {
       const selectedText = term.value.getSelection().trim()
       if (selectedText) {
-        // 如果终端有选中文本且终端有焦点，总是发送到AI并确保侧边栏打开
+        // If terminal has selected text and terminal has focus, always send to AI and ensure sidebar opens
         eventBus.emit('openAiRight')
         nextTick(() => {
           const formattedText = `Terminal output:\n\`\`\`\n${selectedText}\n\`\`\``
@@ -253,13 +258,13 @@ onMounted(() => {
       }
     }
 
-    // 如果没有选中文本或焦点不在终端，则切换侧边栏状态
+    // If no selected text or focus is not in terminal, toggle sidebar state
     eventBus.emit('toggleSideBar', 'right')
   })
 })
 
 onBeforeUnmount(() => {
-  // 清理 ResizeObserver
+  // Clean up ResizeObserver
   if (resizeObserver) {
     resizeObserver.disconnect()
     resizeObserver = null
@@ -271,12 +276,12 @@ onBeforeUnmount(() => {
   api.closeHeartbeatWindow(heartbeatId)
   window.removeEventListener('resize', handleResize)
   window.removeEventListener('keydown', handleGlobalKeyDown)
-  // 移除事件监听
+  // Remove event listeners
   eventBus.off('executeTerminalCommand')
-  eventBus.off('sendOrToggleAiFromTerminal')
+  eventBus.off('sendOrToggleAiFromTerminalForTab')
   document.removeEventListener('mouseup', hideSelectionButton)
 })
-// 获取当前机器所有命令
+// Get all commands for current machine
 const getALlCmdList = () => {
   const authData2 = {
     uuid: terminalId
@@ -286,7 +291,7 @@ const getALlCmdList = () => {
     commands.value = res.data
   })
 }
-// 初始化xterm终端
+// Initialize xterm terminal
 const initTerminal = async () => {
   try {
     const config = await serviceUserConfig.getConfig()
@@ -307,7 +312,7 @@ const initTerminal = async () => {
     term.value.loadAddon(fitAddon)
     term.value.loadAddon(new WebLinksAddon())
 
-    // 添加搜索插件
+    // Add search addon
     searchAddon.value = new SearchAddon()
     term.value.loadAddon(searchAddon.value)
 
@@ -323,17 +328,17 @@ const initTerminal = async () => {
     suggestions.value = []
     activeSuggestion.value = 0
   }
-  // 处理用户输入
+  // Handle user input
   term.value.onData((data) => {
     if (socket.value && socket.value.readyState === WebSocket.OPEN) {
       //   socket.value.send(data)
-      // 快捷键
+      // Shortcuts
       if (data === '\t') {
-        // Tab键
+        // Tab key
         selectSuggestion(suggestions.value[activeSuggestion.value])
       } else if (data == '\x0b') {
         specialCode.value = true
-        // Ctrl+K 清屏
+        // Ctrl+K clear screen
         const msgType = 'TERMINAL_DATA'
         const data = 'clear\r'
         socket.value.send(JSON.stringify({ terminalId, msgType, data }))
@@ -350,7 +355,7 @@ const initTerminal = async () => {
         } else {
           socket.value.send(JSON.stringify({ terminalId, msgType, data }))
         }
-        // 新增：回车后清空推荐并加锁
+        // New: Clear recommendations and lock after Enter
         suggestions.value = []
         activeSuggestion.value = 0
         isCommandExecuting = true
@@ -362,16 +367,16 @@ const initTerminal = async () => {
         const msgType = 'TERMINAL_DATA'
         socket.value.send(JSON.stringify({ terminalId, msgType, data }))
       } else if (data == '\x03') {
-        // Ctrl+C 发送中断信号
+        // Ctrl+C send interrupt signal
         specialCode.value = true
         const msgType = 'TERMINAL_DATA'
         socket.value.send(JSON.stringify({ terminalId, msgType, data }))
       } else if (data == '\x16') {
-        // Ctrl+V 执行粘贴
+        // Ctrl+V execute paste
         navigator.clipboard
           .readText()
           .then((text) => {
-            // 将剪贴板的内容写入到终端
+            // Write clipboard content to terminal
             socket.value.send(JSON.stringify({ terminalId, msgType: 'TERMINAL_DATA', data: text }))
             term.value.focus()
           })
@@ -379,7 +384,7 @@ const initTerminal = async () => {
       } else {
         const msgType = 'TERMINAL_DATA'
         if (suggestions.value.length && (data == '\u001b[A' || data == '\u001b[B')) {
-          // 键盘上下选中提示项目
+          // Keyboard up/down to select suggestion items
           data == '\u001b[A' && activeSuggestion.value > 0 ? (activeSuggestion.value -= 1) : ''
           data == '\u001b[B' && activeSuggestion.value < suggestions.value.length - 1 ? (activeSuggestion.value += 1) : ''
           data == '\u001b[B' && activeSuggestion.value < suggestions.value.length - 1 ? (activeSuggestion.value += 1) : ''
@@ -397,7 +402,7 @@ const initTerminal = async () => {
       copyText.value = term.value.getSelection()
     }
   })
-  //onKey监听不到输入法，补充监听
+  // onKey cannot listen to input method, add supplementary listener
   const textarea = term.value.element.querySelector('.xterm-helper-textarea')
   textarea.addEventListener('compositionend', (e) => {
     handleKeyInput({
@@ -421,7 +426,7 @@ const initTerminal = async () => {
           const text = term.value.getSelection()
           const button = document.getElementById(`${infos.value.id}Button`)
 
-          // 定位按钮到鼠标抬起位置
+          // Position button to mouse up position
           button.style.left = `${e.clientX + 10}px`
           button.style.top = `${e.clientY + 10}px`
           if (text.trim()) button.style.display = 'block'
@@ -440,11 +445,11 @@ const initTerminal = async () => {
   }
 }
 
-// 连接WebSocket服务
+// Connect WebSocket service
 const connectWebsocket = () => {
   if (socket.value) return
   const auth = encrypt(authData)
-  const wsUrl = 'ws://demo.chaterm.ai/v1/term-api/ws?&uuid=' + auth // 后端WebSocket地址
+  const wsUrl = 'ws://demo.chaterm.ai/v1/term-api/ws?&uuid=' + auth // Backend WebSocket address
   socket.value = new WebSocket(wsUrl)
   heartbeatId = `ws-${Date.now()}`
   socket.value.onopen = () => {
@@ -457,7 +462,7 @@ const connectWebsocket = () => {
     api.heartBeatTick(listenerHeartbeat)
     isConnect.value = true
 
-    // 连接建立后进行自适应调整
+    // Perform adaptive adjustment after connection is established
     setTimeout(() => {
       handleResize()
       getALlCmdList()
@@ -478,7 +483,7 @@ const connectWebsocket = () => {
               }))
             : (suggestions.value = [])
         } else {
-          // 命令执行期间不显示补全
+          // Do not show completion during command execution
           suggestions.value = []
         }
       }
@@ -486,7 +491,7 @@ const connectWebsocket = () => {
     }
     if (term.value) {
       // term.write(enc.decode(event.data))
-      //初始输入光标为0时||特殊按键
+      // Initial input cursor at 0 or special keys
       if (!cursorStartX.value || specialCode.value) {
         if (typeof event.data == 'object') {
           term.value.write(enc.decode(event.data))
@@ -505,7 +510,7 @@ const connectWebsocket = () => {
           }
         }
       } else {
-        //非初始输入且非特殊按键
+        // Non-initial input and non-special keys
         if (typeof event.data !== 'object') {
           const data = JSON.parse(event.data)
           console.log(data, 'data2')
@@ -540,17 +545,17 @@ const listenerHeartbeat = (tackId) => {
     socket.value.send(JSON.stringify({ terminalId, msgType, data }))
   }
 }
-// 处理窗口大小变化
+// Handle window size changes
 const handleResize = debounce(() => {
   if (fitAddon && term.value && terminalElement.value) {
     try {
-      // 确保终端元素可见
+      // Ensure terminal element is visible
       const rect = terminalElement.value.getBoundingClientRect()
       if (rect.width > 0 && rect.height > 0) {
         fitAddon.fit()
         const { cols, rows } = term.value
 
-        // 向服务器发送新的终端大小
+        // Send new terminal size to server
         if (socket.value && socket.value.readyState === WebSocket.OPEN) {
           socket.value.send(
             JSON.stringify({
@@ -567,7 +572,7 @@ const handleResize = debounce(() => {
     }
   }
 }, 100)
-// 别的组件通过按钮执行命令
+// Other components execute commands through buttons
 const autoExecuteCode = (cmd) => {
   const msgType = 'TERMINAL_DATA'
   socket.value.send(JSON.stringify({ terminalId, msgType, data: cmd }))
@@ -597,39 +602,39 @@ const dispatch = (term, msgData, ws) => {
   }
 }
 const highlightSyntax = (allData) => {
-  // 所有内容 光标前内容
+  // All content, content before cursor
   const { allContent, beforeCursor } = allData
-  //命令
+  // Command
   let command = ''
-  //参数
+  // Parameters
   let arg = ''
-  //当前光标位置
+  // Current cursor position
   const currentCursorX = cursorStartX.value + beforeCursor.length
-  //首个空格位置 用来分割命令和参数
+  // First space position to split command and parameters
   const index = allContent.indexOf(' ')
-  // 大前提 命令以第一个空格切割 前为命令 后为参数
-  // 如果光标前有内容 且有空格，表示光标前内容有命令
-  // 光标前没有命令，需要在整段内容中找命令
+  // Basic premise: command is split by first space, before is command, after is parameters
+  // If there is content before cursor and has space, it means there is a command before cursor
+  // If there is no command before cursor, need to find command in the entire content
   const i = allContent.indexOf(' ')
   if (i != -1) {
-    // 有空格 代表有命令 切割
+    // Has space, means there is a command, split
     command = allContent.slice(0, i)
     arg = allContent.slice(i)
   } else {
-    // 无空格 代表全是命令
+    // No space, means all is command
     command = allContent
     arg = ''
     // }
   }
   currentLine.value = allContent
-  // 获取当前光标所在的行号
-  // 清除之前的标记
+  // Get current cursor line number
+  // Clear previous markers
   activeMarkers.value.forEach((marker) => marker.dispose())
   activeMarkers.value = []
   const startY = currentLineStartY.value
-  // 检查命令是否匹配
+  // Check if command matches
   const isValidCommand = commands.value.includes(command)
-  // 高亮命令
+  // Highlight command
   if (command) {
     const commandMarker = term.value.registerMarker(startY)
     activeMarkers.value.push(commandMarker)
@@ -641,9 +646,9 @@ const highlightSyntax = (allData) => {
     })
   }
   if (!arg) return
-  // 高亮参数
+  // Highlight parameters
   if (arg.includes("'") || arg.includes('"') || arg.includes('(')) {
-    // 带闭合符号的输入
+    // Input with closing symbols
     const afterCommandArr = processString(arg)
     let unMatchFlag = false
     for (let i = 0; i < afterCommandArr.length; i++) {
@@ -668,17 +673,17 @@ const highlightSyntax = (allData) => {
     }
   } else {
     if (index == -1 && currentCursorX >= cursorStartX.value + command.length) {
-      // 没有空格 且 光标在命令末尾
+      // No space and cursor at command end
       term.value.write(`\x1b[${startY + 1};${cursorStartX.value + command.length + 1}H`)
       term.value.write(`\x1b[38;2;126;193;255m${arg}\x1b[0m`)
       term.value.write(`\x1b[${cursorY.value + 1};${currentCursorX + 1}H`)
     } else if (currentCursorX < cursorStartX.value + command.length) {
-      // 光标在命令中间
+      // Cursor in command middle
       term.value.write(`\x1b[${startY + 1};${cursorStartX.value + command.length + 1}H`)
       term.value.write(`\x1b[38;2;126;193;255m${arg}\x1b[0m`)
       term.value.write(`\x1b[${cursorY.value + 1};${currentCursorX + 1}H`)
     } else {
-      // 光标不在命令范围内
+      // Cursor not in command range
       term.value.write(`\x1b[${startY + 1};${cursorStartX.value + command.length + 1}H`)
       term.value.write(`\x1b[38;2;126;193;255m${arg}\x1b[0m`)
       term.value.write(`\x1b[${cursorY.value + 1};${currentCursorX}H`)
@@ -686,7 +691,7 @@ const highlightSyntax = (allData) => {
   }
 }
 
-// 对 非命令字符串进行处理
+// Process non-command strings
 const processString = (str) => {
   const asymmetricClosing = [')', '}', ']']
   const symmetric = ['"', "'"]
@@ -700,7 +705,7 @@ const processString = (str) => {
   }
   const stack = []
   const result = []
-  let lastIndex = -1 // 上一个处理的字符位置
+  let lastIndex = -1 // Last processed character position
   // let lastType = null
   for (let i = 0; i < str.length; i++) {
     const c = str[i]
@@ -763,7 +768,7 @@ const processString = (str) => {
           })
         }
         stack.push({ symbol: c, index: i })
-        lastIndex = i // 更新 lastIndex，即使是未匹配的符号
+        lastIndex = i // Update lastIndex, even for unmatched symbols
       }
     } else if (opening.includes(c)) {
       if (lastIndex < i - 1) {
@@ -774,10 +779,10 @@ const processString = (str) => {
         })
       }
       stack.push({ symbol: c, index: i })
-      lastIndex = i // 更新 lastIndex
+      lastIndex = i // Update lastIndex
     }
   }
-  // 处理末尾文本
+  // Process ending text
   if (lastIndex < str.length - 1) {
     result.push({
       type: 'afterMatched',
@@ -786,7 +791,7 @@ const processString = (str) => {
     })
   }
 
-  // 处理未匹配的开符号
+  // Process unmatched opening symbols
   while (stack.length > 0) {
     const item = stack.pop()
     result.push({
@@ -808,7 +813,7 @@ const handleKeyInput = (e) => {
   keyCode.value = ev.keyCode
   let index = 0
 
-  // 当前行开始输入时的光标的位置，0是初始状态，需要跟当前光标一样，非0时需要小于当前光标位置
+  // Cursor position when starting input on current line, 0 is initial state, should be same as current cursor, non-0 should be less than current cursor position
   if (cursorStartX.value == 0) {
     cursorStartX.value = cursorX.value
   } else {
@@ -820,19 +825,19 @@ const handleKeyInput = (e) => {
     currentLine.value = ''
     currentLineStartY.value = term.value._core.buffer.y + 1
     cursorStartX.value = 0
-    // 新增：回车后清空推荐
+    // New: Clear recommendations after Enter
     suggestions.value = []
     activeSuggestion.value = 0
   } else if (ev.keyCode === 8) {
-    // 删除
+    // Delete
     specialCode.value = true
     index = cursorX.value - 1 - cursorStartX.value
     currentLine.value = currentLine.value.slice(0, index) + currentLine.value.slice(index + 1)
   } else if (ev.keyCode == 38 || ev.keyCode == 40) {
-    //上下按键
+    // Up/down keys
     specialCode.value = true
   } else if (ev.keyCode == 37 || ev.keyCode == 39) {
-    // 左箭头
+    // Left arrow
     stashLine.value = JSON.parse(JSON.stringify(currentLine.value))
     specialCode.value = true
     // this.initList()
@@ -936,7 +941,7 @@ const handleSave = async (data) => {
         notification.success({
           message: t('common.saveSuccess')
         })
-        // 关闭
+        // Close
         if (needClose) {
           const index = openEditors.indexOf(editor)
           if (index !== -1) {
@@ -954,14 +959,14 @@ const handleSave = async (data) => {
       })
     }
   } catch (error) {
-    // 处理异常
+    // Handle exception
     notification.error({
       message: t('common.saveFailed')
     })
   }
 }
 
-// // 处理消息的函数
+// // Function to handle messages
 const handleMessage = (msg, terminalId) => {
   const regexPath = /^\s*\/[\w\-./&\u4E00-\u9FFF]+/g
   const matchPath = msg.data.match(regexPath)
@@ -980,7 +985,7 @@ const handleMessage = (msg, terminalId) => {
           data
         })
       )
-      // 直接调用函数，不需要 that
+      // Call function directly, no need for that
       submitData(filePath)
     }
   } else {
@@ -988,15 +993,15 @@ const handleMessage = (msg, terminalId) => {
   }
 }
 
-// 右键菜单方法
+// Right-click menu methods
 const contextAct = (action) => {
   switch (action) {
     case 'paste':
-      // 粘贴
+      // Paste
       navigator.clipboard
         .readText()
         .then((text) => {
-          // 将剪贴板的内容写入到终端
+          // Write clipboard content to terminal
           socket.value.send(JSON.stringify({ terminalId, msgType: 'TERMINAL_DATA', data: text }))
           term.value.focus()
         })
@@ -1007,26 +1012,26 @@ const contextAct = (action) => {
       isConnect.value = false
       break
     case 'reconnect':
-      // 重新连接
+      // Reconnect
       connectWebsocket()
       break
     case 'newTerminal':
       emit('createNewTerm', props.serverInfo)
-      // 新终端
+      // New terminal
       break
     case 'close':
-      // 关闭
+      // Close
       socket.value.close()
       emit('closeTabInTerm', props.serverInfo.id)
       break
     default:
     case 'clearTerm':
-      // 关闭
+      // Close
       // socket.value.close()
       term.value?.clear()
       break
     case 'shrotenName':
-      // 关闭
+      // Close
       // socket.value.close()
       socket.value.send(JSON.stringify({ terminalId, msgType: 'TERMINAL_DATA', data: 'export PS1="[\\u@\\W]\\$"' }))
       socket.value.send(JSON.stringify({ terminalId, msgType: 'TERMINAL_DATA', data: '\r' }))
@@ -1044,7 +1049,7 @@ const contextAct = (action) => {
         term.value.options.fontSize = (term.value.options.fontSize ?? 12) - 1
       }
       break
-    // 未知操作
+    // Unknown operation
   }
 }
 const hideSelectionButton = () => {
@@ -1087,7 +1092,7 @@ defineExpose({
   autoExecuteCode,
   term,
   focus,
-  // 手动触发自适应调整
+  // Manually trigger adaptive adjustment
   triggerResize: () => {
     handleResize()
   }
