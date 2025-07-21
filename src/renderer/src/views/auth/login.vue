@@ -436,6 +436,7 @@ onMounted(async () => {
   // 监听外部登录成功事件
   const ipcRenderer = (window as any).electron?.ipcRenderer
   ipcRenderer?.on('external-login-success', async (event, data) => {
+    console.log('external-login-success', '===================')
     try {
       const { token, userInfo } = data
 

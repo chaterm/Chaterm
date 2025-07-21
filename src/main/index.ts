@@ -712,7 +712,9 @@ const handleProtocolRedirect = (url: string) => {
   const urlObj = new URL(url)
   const token = urlObj.searchParams.get('token')
   const userInfo = urlObj.searchParams.get('userInfo')
-
+  console.log('url', url)
+  console.log('token', token)
+  console.log('userInfo', userInfo)
   if (token && userInfo) {
     try {
       // 将数据发送到渲染进程
@@ -765,7 +767,7 @@ ipcMain.handle('open-external-login', async () => {
     // 存储状态值以供后续验证
     global.authState = state
     // 这里替换为你的外部登录URL，需要包含重定向回应用的信息
-    const externalLoginUrl = 'http://localhost:5174/login?client_id=chaterm&state=${state}&redirect_uri=chaterm://auth/callback'
+    const externalLoginUrl = `http://localhost:5174/login?client_id=chaterm&state=${state}&redirect_uri=chaterm://auth/callback`
     await shell.openExternal(externalLoginUrl)
     return { success: true }
   } catch (error: any) {
