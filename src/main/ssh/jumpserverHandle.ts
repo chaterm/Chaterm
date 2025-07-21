@@ -184,21 +184,11 @@ export const registerJumpServerHandlers = () => {
   })
 
   // 处理 shell 写入
-  ipcMain.on('jumpserver:shell:write', (_event, { id, data, marker, lineCommand }) => {
+  ipcMain.on('jumpserver:shell:write', (_event, { id, data, marker }) => {
     const stream = jumpserverShellStreams.get(id)
     if (stream) {
       if (!jumpserverInputBuffer.has(id)) {
         jumpserverInputBuffer.set(id, '')
-      }
-
-      // 使用 lineCommand 进行命令检测，如果没有则回退到 data.trim()
-      const command = lineCommand || data.trim()
-      if (lineCommand) {
-        if (['exit', 'logout', '\x04'].includes(command)) {
-          jumpserverLastCommand.set(id, command)
-        } else {
-          jumpserverLastCommand.delete(id)
-        }
       }
 
       if (jumpserverMarkedCommands.has(id)) {
