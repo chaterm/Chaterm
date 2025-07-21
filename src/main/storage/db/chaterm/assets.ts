@@ -378,6 +378,22 @@ export function createAssetLogic(db: Database.Database, params: any): any {
 
 export function deleteAssetLogic(db: Database.Database, uuid: string): any {
   try {
+    // 首先检查是否为组织类型资产
+    const checkStmt = db.prepare(`
+      SELECT asset_type FROM t_assets WHERE uuid = ?
+    `)
+    const asset = checkStmt.get(uuid)
+
+    if (asset && asset.asset_type === 'organization') {
+      // 如果是组织资产，先删除相关的组织子资产
+      const deleteOrgAssetsStmt = db.prepare(`
+        DELETE FROM t_organization_assets 
+        WHERE organization_uuid = ?
+      `)
+      deleteOrgAssetsStmt.run(uuid)
+    }
+
+    // 删除主资产记录
     const stmt = db.prepare(`
         DELETE FROM t_assets
         WHERE uuid = ?
