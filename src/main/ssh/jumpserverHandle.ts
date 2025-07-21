@@ -15,6 +15,8 @@ export interface JumpServerExecResult {
 // 存储 shell 会话流
 export const jumpserverShellStreams = new Map()
 export const jumpserverMarkedCommands = new Map()
+export const jumpserverLastCommand = new Map()
+const jumpserverInputBuffer = new Map() // 为每个会话创建输入缓冲区
 
 export const jumpserverConnectionStatus = new Map()
 
@@ -90,8 +92,7 @@ export const handleJumpServerConnection = async (connectionInfo: {
           const ansiRegex = /[\u001b\u009b][[()#;?]*.{0,2}(?:[0-9]{1,4}(?:;[0-9]{0,4})*)?[0-9A-ORZcf-nry=><]/g
           const chunk = data.toString().replace(ansiRegex, '')
           outputBuffer += chunk
-
-          console.log(`Phase: ${connectionPhase}, Buffer: ${outputBuffer}`)
+          // console.log(`Phase: ${connectionPhase}, Buffer: ${outputBuffer}`)
 
           // 根据连接阶段处理不同的响应
           if (connectionPhase === 'connecting' && outputBuffer.includes('Opt>')) {
@@ -134,7 +135,12 @@ export const handleJumpServerConnection = async (connectionInfo: {
         })
 
         stream.on('close', () => {
-          console.log('JumpServer stream closed')
+          console.log(`JumpServer stream closed for connection ${connectionId}`)
+          jumpserverShellStreams.delete(connectionId)
+          jumpserverConnections.delete(connectionId)
+          jumpserverConnectionStatus.delete(connectionId)
+          jumpserverLastCommand.delete(connectionId) // 确保关闭时也清理
+          jumpserverInputBuffer.delete(connectionId) // 清理缓冲区
           if (connectionPhase !== 'connected') {
             reject(new Error('连接在完成前被关闭'))
           }
@@ -178,9 +184,23 @@ export const registerJumpServerHandlers = () => {
   })
 
   // 处理 shell 写入
-  ipcMain.on('jumpserver:shell:write', (_event, { id, data, marker }) => {
+  ipcMain.on('jumpserver:shell:write', (_event, { id, data, marker, lineCommand }) => {
     const stream = jumpserverShellStreams.get(id)
     if (stream) {
+      if (!jumpserverInputBuffer.has(id)) {
+        jumpserverInputBuffer.set(id, '')
+      }
+
+      // 使用 lineCommand 进行命令检测，如果没有则回退到 data.trim()
+      const command = lineCommand || data.trim()
+      if (lineCommand) {
+        if (['exit', 'logout', '\x04'].includes(command)) {
+          jumpserverLastCommand.set(id, command)
+        } else {
+          jumpserverLastCommand.delete(id)
+        }
+      }
+
       if (jumpserverMarkedCommands.has(id)) {
         jumpserverMarkedCommands.delete(id)
       }
@@ -257,14 +277,17 @@ export const registerJumpServerHandlers = () => {
     const stream = jumpserverShellStreams.get(id)
     if (stream) {
       stream.end()
-      jumpserverShellStreams.delete(id)
     }
 
     const conn = jumpserverConnections.get(id)
     if (conn) {
       conn.end()
-      jumpserverConnections.delete(id)
-      jumpserverConnectionStatus.delete(id)
+    }
+
+    // 在流和连接关闭后，相关映射会自动在 'close' 事件中清理
+    // 这里检查是否存在任一对象，以判断是否发起了断开操作
+    if (stream || conn) {
+      console.log(`JumpServer disconnect initiated for id: ${id}`)
       return { status: 'success', message: 'JumpServer 连接已断开' }
     }
 
