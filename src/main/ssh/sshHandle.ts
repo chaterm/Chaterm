@@ -5,7 +5,8 @@ import {
   handleJumpServerConnection,
   jumpserverShellStreams,
   jumpserverMarkedCommands,
-  jumpserverConnectionStatus
+  jumpserverConnectionStatus,
+  jumpserverLastCommand
 } from './jumpserverHandle'
 
 // 存储 SSH 连接
@@ -381,9 +382,34 @@ export const registerSSHHandlers = () => {
       // 设置 shell 数据流监听器
       stream.removeAllListeners('data')
       stream.on('data', (data) => {
+        const dataStr = data.toString()
+        // 添加 JumpServer 退出检测逻辑
+        const lastCommand = jumpserverLastCommand.get(id)
+        const exitCommands = ['exit', 'logout', '\x04']
+
+        // 检测 JumpServer 菜单返回并自动退出
+        if (dataStr.includes('[Host]>') && lastCommand && exitCommands.includes(lastCommand)) {
+          jumpserverLastCommand.delete(id) // 使用后清除命令
+          // 发送 'q' 命令退出 JumpServer 会话
+          stream.write('q\r', (err) => {
+            if (err) {
+              console.error(`[JumpServer ${id}] 发送 "q" 命令失败:`, err)
+            } else {
+              console.log(`[JumpServer ${id}] 已发送 "q" 命令以终止会话。`)
+            }
+            // 结束流和连接
+            stream.end()
+            const conn = jumpserverConnections.get(id)
+            if (conn) {
+              conn.end()
+            }
+          })
+          return // 不再继续处理数据
+        }
+
         const markedCmd = jumpserverMarkedCommands.get(id)
         if (markedCmd !== undefined) {
-          markedCmd.output += data.toString()
+          markedCmd.output += dataStr
           markedCmd.lastActivity = Date.now()
           if (markedCmd.idleTimer) {
             clearTimeout(markedCmd.idleTimer)
@@ -400,7 +426,7 @@ export const registerSSHHandlers = () => {
           }, 10)
         } else {
           _event.sender.send(`ssh:shell:data:${id}`, {
-            data: data.toString(),
+            data: dataStr,
             marker: ''
           })
         }
@@ -512,11 +538,19 @@ export const registerSSHHandlers = () => {
     }
   })
 
-  ipcMain.on('ssh:shell:write', (_event, { id, data, marker }) => {
+  ipcMain.on('ssh:shell:write', (_event, { id, data, marker, lineCommand }) => {
     // 检查是否为 JumpServer 连接
     if (jumpserverConnections.has(id)) {
       const stream = jumpserverShellStreams.get(id)
       if (stream) {
+        // 使用 lineCommand 进行命令检测，如果没有则回退到 data.trim()
+        const command = lineCommand || data.trim()
+
+        if (['exit', 'logout', '\x04'].includes(command)) {
+          jumpserverLastCommand.set(id, command)
+        } else {
+          jumpserverLastCommand.delete(id)
+        }
         if (jumpserverMarkedCommands.has(id)) {
           jumpserverMarkedCommands.delete(id)
         }
@@ -539,6 +573,18 @@ export const registerSSHHandlers = () => {
     // 默认 SSH 处理
     const stream = shellStreams.get(id)
     if (stream) {
+      console.log(`ssh:shell:write (default) raw data: "${data}"`)
+      // 使用 lineCommand 进行命令检测，如果没有则回退到 data.trim()
+      const command = lineCommand || data.trim()
+      console.log(`ssh:shell:write (default) command for detection: "${command}"`)
+      if (['exit', 'logout', '\x04'].includes(command)) {
+        console.log(`ssh:shell:write (default) exit command detected: "${command}"`)
+        const conn = sshConnections.get(id)
+        if (conn) {
+          conn.end()
+        }
+        return
+      }
       if (markedCommands.has(id)) {
         markedCommands.delete(id)
       }
