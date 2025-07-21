@@ -3,7 +3,7 @@ import { join } from 'path'
 import { electronApp, optimizer } from '@electron-toolkit/utils'
 import { is } from '@electron-toolkit/utils'
 
-// 设置环境变量
+// Set environment variables
 process.env.IS_DEV = is.dev ? 'true' : 'false'
 
 import { registerSSHHandlers } from './ssh/sshHandle'
@@ -24,8 +24,8 @@ import { telemetryService, checkIsFirstLaunch } from './agent/services/telemetry
 let mainWindow: BrowserWindow
 let COOKIE_URL = 'http://localhost'
 let browserWindow: BrowserWindow | null = null
-let lastWidth: number = 1344 // 默认窗口宽度
-let lastHeight: number = 756 // 默认窗口高度
+let lastWidth: number = 1344 // Default window width
+let lastHeight: number = 756 // Default window height
 let forceQuit = false
 
 let autoCompleteService: autoCompleteDatabaseService
@@ -48,34 +48,34 @@ app.whenReady().then(async () => {
     app.dock.setIcon(join(__dirname, '../../resources/icon.png'))
   }
 
-  // 注册窗口拖拽处理程序（只注册一次）
+  // Register window drag handler (register only once)
   ipcMain.handle('custom-adsorption', (_, res) => {
     const { appX, appY, width, height } = res
 
-    // 获取屏幕尺寸
+    // Get screen dimensions
     const { screen } = require('electron')
     const primaryDisplay = screen.getPrimaryDisplay()
     const { width: screenWidth, height: screenHeight } = primaryDisplay.workAreaSize
 
-    // 计算边界吸附
+    // Calculate boundary snapping
     let finalX = Math.round(appX)
     let finalY = Math.round(appY)
 
-    // 左右边界吸附
+    // Left and right boundary snapping
     if (Math.abs(appX) < 20) {
       finalX = 0
     } else if (Math.abs(screenWidth - (appX + width)) < 20) {
       finalX = Math.round(screenWidth - width)
     }
 
-    // 上下边界吸附
+    // Top and bottom boundary snapping
     if (Math.abs(appY) < 20) {
       finalY = 0
     } else if (Math.abs(screenHeight - (appY + height)) < 20) {
       finalY = Math.round(screenHeight - height)
     }
 
-    // 直接设置窗口位置，使用更小的缓动系数实现平滑效果
+    // Directly set window position, using smaller easing coefficient for smooth effect
     const currentBounds = mainWindow.getBounds()
     const newX = Math.round(currentBounds.x + (finalX - currentBounds.x) * 0.5)
     const newY = Math.round(currentBounds.y + (finalY - currentBounds.y) * 0.5)
@@ -95,10 +95,10 @@ app.whenReady().then(async () => {
   setupIPC()
   await createWindow()
 
-  // 初始化存储系统
+  // Initialize storage system
   initializeStorageMain(mainWindow)
 
-  // 注册ssh组件
+  // Register SSH components
   registerSSHHandlers()
   registerRemoteTerminalHandlers()
   registerUpdater(mainWindow)
@@ -180,7 +180,7 @@ ipcMain.handle('heartbeat-start', (event, { heartbeatId, interval }) => {
   hbManager.start(heartbeatId, interval, event.sender)
 })
 
-// 2. 渲染进程请求关闭心跳
+// 2. Renderer process requests to stop heartbeat
 ipcMain.handle('heartbeat-stop', (_, { heartbeatId }) => {
   hbManager.stop(heartbeatId)
 })
@@ -215,7 +215,7 @@ ipcMain.handle('get-platform', () => {
   return process.platform
 })
 
-// 获取所有 Cookies
+// Get all Cookies
 const getAllCookies = async () => {
   try {
     const cookies = await session.defaultSession.cookies.get({ url: COOKIE_URL })
@@ -225,7 +225,7 @@ const getAllCookies = async () => {
     return { success: false, error }
   }
 }
-// 移除 Cookie 方法
+// Remove Cookie method
 const removeCookie = async (name) => {
   try {
     await session.defaultSession.cookies.remove(COOKIE_URL, name)
@@ -237,7 +237,7 @@ const removeCookie = async (name) => {
   }
 }
 
-ipcMain.handle('get-cookie-url', () => COOKIE_URL) // 返回 Cookie URL
+ipcMain.handle('get-cookie-url', () => COOKIE_URL) // Return Cookie URL
 ipcMain.handle('set-cookie', async (_, name, value, expirationDays) => {
   const expirationDate = new Date()
   expirationDate.setDate(expirationDate.getDate() + expirationDays)
@@ -269,14 +269,14 @@ ipcMain.handle('remove-cookie', async (_, { name }) => {
 })
 
 function createBrowserWindow(url: string): void {
-  // 如果浏览器窗口已经存在，就聚焦
+  // If browser window already exists, focus it
   if (browserWindow && !browserWindow.isDestroyed()) {
     browserWindow.focus()
     browserWindow.loadURL(url)
     return
   }
 
-  // 创建新的浏览器窗口
+  // Create new browser window
   browserWindow = new BrowserWindow({
     width: 1024,
     height: 768,
@@ -289,17 +289,17 @@ function createBrowserWindow(url: string): void {
     }
   })
 
-  // 加载指定 URL
+  // Load specified URL
   browserWindow.loadURL(url)
 
-  // 监听 URL 变化
+  // Listen for URL changes
   browserWindow.webContents.on('did-navigate', (_, url) => {
-    console.log('新窗口导航到了:', url)
+    console.log('New window navigated to:', url)
     if (mainWindow && !mainWindow.isDestroyed()) {
       mainWindow.webContents.send('url-changed', url)
     }
 
-    // 更新导航状态
+    // Update navigation state
     updateNavigationState()
   })
 
@@ -308,11 +308,11 @@ function createBrowserWindow(url: string): void {
       mainWindow.webContents.send('url-changed', url)
     }
 
-    // 更新导航状态
+    // Update navigation state
     updateNavigationState()
   })
 
-  // 处理窗口关闭事件
+  // Handle window close event
   browserWindow.on('closed', () => {
     browserWindow = null
   })
@@ -329,7 +329,7 @@ function updateNavigationState(): void {
     })
   }
 }
-// 设置 IPC 处理
+// Setup IPC handlers
 function setupIPC(): void {
   ipcMain.handle('init-user-database', async (event, { uid }) => {
     try {
@@ -359,12 +359,12 @@ function setupIPC(): void {
       if (mainWindow.isMaximized()) {
         mainWindow.unmaximize()
         if (lastWidth && lastHeight) {
-          // 获取当前窗口所在的显示器
+          // Get the display where the current window is located
           const { screen } = require('electron')
           const currentDisplay = screen.getDisplayNearestPoint(mainWindow.getBounds())
           const { width: screenWidth, height: screenHeight } = currentDisplay.workAreaSize
 
-          // 计算窗口在当前显示器中的居中位置
+          // Calculate the centered position of the window on the current display
           const x = Math.floor((screenWidth - lastWidth) / 2) + currentDisplay.bounds.x
           const y = Math.floor((screenHeight - lastHeight) / 2) + currentDisplay.bounds.y
 
@@ -393,7 +393,7 @@ function setupIPC(): void {
     }
     return null
   })
-  // 添加从渲染进程到主进程的消息处理器
+  // Add message handler from renderer process to main process
   ipcMain.handle('webview-to-main', async (_, message) => {
     console.log('webview-to-main', message)
     if (controller) {
@@ -402,29 +402,29 @@ function setupIPC(): void {
     return null
   })
 
-  // 添加从主进程到渲染进程的消息处理器
+  // Add message handler from main process to renderer process
   ipcMain.on('main-to-webview', (_, message) => {
     if (mainWindow && !mainWindow.isDestroyed()) {
       mainWindow.webContents.send('main-to-webview', message)
     }
   })
-  // 打开浏览器窗口
+  // Open browser window
   ipcMain.on('open-browser-window', (_, url) => {
     createBrowserWindow(url)
   })
 
-  // 浏览器导航控制
+  // Browser navigation control
   ipcMain.on('browser-go-back', () => {
     if (browserWindow && !browserWindow.isDestroyed() && browserWindow.webContents.canGoBack()) {
       browserWindow.webContents.goBack()
-      // 导航完成后会触发 did-navigate 事件，从而更新导航状态
+      // After navigation completes, the did-navigate event will be triggered, thus updating the navigation state
     }
   })
 
   ipcMain.on('browser-go-forward', () => {
     if (browserWindow && !browserWindow.isDestroyed() && browserWindow.webContents.canGoForward()) {
       browserWindow.webContents.goForward()
-      // 导航完成后会触发 did-navigate 事件，从而更新导航状态
+      // After navigation completes, the did-navigate event will be triggered, thus updating the navigation state
     }
   })
 
@@ -434,7 +434,7 @@ function setupIPC(): void {
     }
   })
 
-  // 处理 SPA 路由变化
+  // Handle SPA route changes
   ipcMain.on('spa-url-changed', (_, url) => {
     if (mainWindow && !mainWindow.isDestroyed()) {
       mainWindow.webContents.send('url-changed', url)
@@ -443,7 +443,7 @@ function setupIPC(): void {
 
   ipcMain.handle('update-theme', (_, theme) => {
     if (mainWindow && !mainWindow.isDestroyed()) {
-      // 更新标题栏颜色
+      // Update title bar color
       if (process.platform !== 'darwin') {
         mainWindow.setTitleBarOverlay({
           color: theme === 'dark' ? '#141414' : '#ffffff',
@@ -451,7 +451,7 @@ function setupIPC(): void {
           height: 27
         })
       }
-      // 通知渲染进程主题已更新
+      // Notify renderer process that theme has been updated
       mainWindow.webContents.send('theme-updated', theme)
       return true
     }
@@ -459,14 +459,14 @@ function setupIPC(): void {
   })
 }
 
-// 初始化用户数据库
+// Initialize user database
 ipcMain.handle('query-command', async (_, data) => {
   try {
     const { command, ip } = data
     const result = autoCompleteService.queryCommand(command, ip)
     return result
   } catch (error) {
-    console.error('查询命令失败:', error)
+    console.error('Query command failed:', error)
     return null
   }
 })
@@ -477,19 +477,19 @@ ipcMain.handle('insert-command', async (_, data) => {
     const result = autoCompleteService.insertCommand(command, ip)
     return result
   } catch (error) {
-    console.error('插入命令失败:', error)
+    console.error('Insert command failed:', error)
     return null
   }
 })
 
-// Chaterm数据库相关的IPC处理程序
+// Chaterm database related IPC handlers
 ipcMain.handle('asset-route-local-get', async (_, data) => {
   try {
     const { searchType, params } = data
     const result = chatermDbService.getLocalAssetRoute(searchType, params || [])
     return result
   } catch (error) {
-    console.error('Chaterm查询失败:', error)
+    console.error('Chaterm query failed:', error)
     return null
   }
 })
@@ -500,7 +500,7 @@ ipcMain.handle('asset-route-local-update', async (_, data) => {
     const result = chatermDbService.updateLocalAssetLabel(uuid, label)
     return result
   } catch (error) {
-    console.error('Chaterm修改数据失败:', error)
+    console.error('Chaterm data modification failed:', error)
     return null
   }
 })
@@ -511,7 +511,7 @@ ipcMain.handle('asset-route-local-favorite', async (_, data) => {
     const result = chatermDbService.updateLocalAsseFavorite(uuid, status)
     return result
   } catch (error) {
-    console.error('Chaterm修改数据失败:', error)
+    console.error('Chaterm data modification failed:', error)
     return null
   }
 })
@@ -521,7 +521,7 @@ ipcMain.handle('key-chain-local-get', async () => {
     const result = chatermDbService.getKeyChainSelect()
     return result
   } catch (error) {
-    console.error('Chaterm获取数据失败:', error)
+    console.error('Chaterm get data failed:', error)
     return null
   }
 })
@@ -531,7 +531,7 @@ ipcMain.handle('asset-group-local-get', async () => {
     const result = chatermDbService.getAssetGroup()
     return result
   } catch (error) {
-    console.error('Chaterm获取数据失败:', error)
+    console.error('Chaterm get data failed:', error)
     return null
   }
 })
@@ -542,7 +542,7 @@ ipcMain.handle('asset-delete', async (_, data) => {
     const result = chatermDbService.deleteAsset(uuid)
     return result
   } catch (error) {
-    console.error('Chaterm删除数据失败:', error)
+    console.error('Chaterm delete data failed:', error)
     return null
   }
 })
@@ -553,7 +553,7 @@ ipcMain.handle('asset-create', async (_, data) => {
     const result = chatermDbService.createAsset(form)
     return result
   } catch (error) {
-    console.error('Chaterm创建资产失败:', error)
+    console.error('Chaterm create asset failed:', error)
     return null
   }
 })
@@ -564,7 +564,7 @@ ipcMain.handle('asset-update', async (_, data) => {
     const result = chatermDbService.updateAsset(form)
     return result
   } catch (error) {
-    console.error('Chaterm修改资产失败:', error)
+    console.error('Chaterm update asset failed:', error)
     return null
   }
 })
@@ -574,7 +574,7 @@ ipcMain.handle('key-chain-local-get-list', async () => {
     const result = chatermDbService.getKeyChainList()
     return result
   } catch (error) {
-    console.error('Chaterm获取资产失败:', error)
+    console.error('Chaterm get asset failed:', error)
     return null
   }
 })
@@ -585,7 +585,7 @@ ipcMain.handle('key-chain-local-create', async (_, data) => {
     const result = chatermDbService.createKeyChain(form)
     return result
   } catch (error) {
-    console.error('Chaterm创建密钥失败:', error)
+    console.error('Chaterm create keychain failed:', error)
     return null
   }
 })
@@ -596,7 +596,7 @@ ipcMain.handle('key-chain-local-delete', async (_, data) => {
     const result = chatermDbService.deleteKeyChain(id)
     return result
   } catch (error) {
-    console.error('Chaterm删除密钥失败:', error)
+    console.error('Chaterm delete keychain failed:', error)
     return null
   }
 })
@@ -607,7 +607,7 @@ ipcMain.handle('key-chain-local-get-info', async (_, data) => {
     const result = chatermDbService.getKeyChainInfo(id)
     return result
   } catch (error) {
-    console.error('Chaterm获取密钥失败:', error)
+    console.error('Chaterm get keychain failed:', error)
     return null
   }
 })
@@ -618,7 +618,7 @@ ipcMain.handle('key-chain-local-update', async (_, data) => {
     const result = chatermDbService.updateKeyChain(form)
     return result
   } catch (error) {
-    console.error('Chaterm修改密钥失败:', error)
+    console.error('Chaterm update keychain failed:', error)
     return null
   }
 })
@@ -629,7 +629,7 @@ ipcMain.handle('chaterm-connect-asset-info', async (_, data) => {
     const result = chatermDbService.connectAssetInfo(uuid)
     return result
   } catch (error) {
-    console.error('Chaterm获取资产信息失败:', error)
+    console.error('Chaterm get asset info failed:', error)
     return null
   }
 })
@@ -640,27 +640,27 @@ ipcMain.handle('agent-chaterm-messages', async (_, data) => {
     const result = chatermDbService.getSavedChatermMessages(taskId)
     return result
   } catch (error) {
-    console.error('Chaterm获取UI消息失败:', error)
+    console.error('Chaterm get UI messages failed:', error)
     return null
   }
 })
 
-// 这段代码是新增的，用于处理来自渲染进程的调用
+// This code is newly added to handle calls from the renderer process
 ipcMain.handle('execute-remote-command', async () => {
-  console.log('Received execute-remote-command IPC call') // 添加日志
+  console.log('Received execute-remote-command IPC call') // Add log
   try {
     const output = await executeRemoteCommand()
-    console.log('executeRemoteCommand output:', output) // 添加日志
+    console.log('executeRemoteCommand output:', output) // Add log
     return { success: true, output }
   } catch (error) {
-    console.error('Failed to execute remote command in main process:', error) // 修改日志
+    console.error('Failed to execute remote command in main process:', error) // Modified log
     if (error instanceof Error) {
       return {
         success: false,
         error: { message: error.message, stack: error.stack, name: error.name }
       }
     }
-    return { success: false, error: { message: 'An unknown error occurred in main process' } } // 修改日志
+    return { success: false, error: { message: 'An unknown error occurred in main process' } } // Modified log
   }
 })
 
@@ -682,7 +682,7 @@ ipcMain.handle('get-user-hosts', async (_, data) => {
     const result = chatermDbService.getUserHosts(search)
     return result
   } catch (error) {
-    console.error('Chaterm获取用户主机列表失败:', error)
+    console.error('Chaterm get user hosts list failed:', error)
     return null
   }
 })
@@ -693,7 +693,7 @@ ipcMain.handle('user-snippet-operation', async (_, data) => {
     const result = chatermDbService.userSnippetOperation(operation, params)
     return result
   } catch (error) {
-    console.error('Chaterm用户snippet操作失败:', error)
+    console.error('Chaterm user snippet operation failed:', error)
     return {
       code: 500,
       message: error instanceof Error ? error.message : 'Unknown error occurred'
@@ -703,7 +703,7 @@ ipcMain.handle('user-snippet-operation', async (_, data) => {
 
 ipcMain.handle('validate-api-key', async (_, configuration) => {
   if (controller) {
-    // 如果没有传递配置数据，返回错误
+    // If no configuration data is passed, return error
     if (!configuration) {
       return { isValid: false, error: 'No API configuration provided' }
     }

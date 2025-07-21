@@ -30,7 +30,7 @@ export type GlobalStateKey =
   | 'requestTimeoutMs'
   | 'shellIntegrationTimeout'
   | 'mcpMarketplaceEnabled'
-  | 'testGlobalKey' // 用于测试
+  | 'testGlobalKey' // For testing
 
 export type SecretKey =
   | 'apiKey'
@@ -53,7 +53,7 @@ export type SecretKey =
   | 'asksageApiKey'
   | 'xaiApiKey'
   | 'sambanovaApiKey'
-  | 'testSecretKey' // 用于测试
+  | 'testSecretKey' // For testing
 
 export interface ApiHandlerOptions {
   apiModelId?: string

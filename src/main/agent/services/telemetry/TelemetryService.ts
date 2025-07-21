@@ -645,14 +645,14 @@ class PostHogClient {
   }
 }
 /**
- * 生成持久的机器标识符
- * 基于机器的硬件和系统信息生成唯一且持久的标识符
+ * Generates a persistent machine identifier
+ * Generates a unique and persistent identifier based on machine hardware and system information
  */
 function generatePersistentMachineId(): string {
   const userDataPath = app.getPath('userData')
   const machineIdPath = path.join(userDataPath, '.machine-id')
 
-  // 尝试读取已存在的机器ID
+  // Try to read existing machine ID
   try {
     if (fs.existsSync(machineIdPath)) {
       const existingId = fs.readFileSync(machineIdPath, 'utf8').trim()
@@ -664,26 +664,26 @@ function generatePersistentMachineId(): string {
     console.warn('Failed to read existing machine ID:', error)
   }
 
-  // 生成新的机器ID
+  // Generate new machine ID
   const machineInfo = {
     hostname: os.hostname(),
     platform: os.platform(),
     arch: os.arch(),
     userInfo: os.userInfo().username,
-    // 获取第一个非内部网络接口的MAC地址
+    // Get MAC address of the first non-internal network interface
     macAddress: getMacAddress(),
-    // 添加一些随机性以确保唯一性
+    // Add some randomness to ensure uniqueness
     random: Math.random().toString(36).substr(2, 9)
   }
 
-  // 创建基于机器信息的哈希
+  // Create hash based on machine information
   const hash = crypto.createHash('sha256')
   hash.update(JSON.stringify(machineInfo))
   const machineId = 'chaterm-' + hash.digest('hex').substr(0, 32)
 
-  // 保存到文件
+  // Save to file
   try {
-    // 确保目录存在
+    // Ensure directory exists
     fs.mkdirSync(path.dirname(machineIdPath), { recursive: true })
     fs.writeFileSync(machineIdPath, machineId, 'utf8')
   } catch (error) {
@@ -717,7 +717,7 @@ export function checkIsFirstLaunch(): boolean {
 }
 
 /**
- * 获取MAC地址的辅助函数
+ * Helper function to get MAC address
  */
 function getMacAddress(): string {
   const interfaces = os.networkInterfaces()
@@ -725,7 +725,7 @@ function getMacAddress(): string {
     const nets = interfaces[name]
     if (nets) {
       for (const net of nets) {
-        // 跳过内部接口和无效的MAC地址
+        // Skip internal interfaces and invalid MAC addresses
         if (!net.internal && net.mac !== '00:00:00:00:00:00') {
           return net.mac
         }
