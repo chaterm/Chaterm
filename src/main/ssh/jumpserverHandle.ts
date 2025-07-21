@@ -106,20 +106,26 @@ export const handleJumpServerConnection = async (connectionInfo: {
             setTimeout(() => {
               stream.write(connectionInfo.password + '\r')
             }, 100)
-          } else if (
-            connectionPhase === 'inputPassword' &&
-            (outputBuffer.includes('$') || outputBuffer.includes('#') || outputBuffer.includes('~'))
-          ) {
-            console.log('JumpServer 连接成功，到达目标服务器')
-            connectionPhase = 'connected'
-            outputBuffer = ''
+          } else if (connectionPhase === 'inputPassword') {
+            // 检测密码认证错误
+            if (outputBuffer.includes('password auth error') || outputBuffer.includes('[Host]>')) {
+              console.log('JumpServer 密码认证失败')
+              conn.end()
+              return reject(new Error('JumpServer 密码认证失败，请检查密码是否正确'))
+            }
+            // 检测连接成功
+            if (outputBuffer.includes('$') || outputBuffer.includes('#') || outputBuffer.includes('~')) {
+              console.log('JumpServer 连接成功，到达目标服务器')
+              connectionPhase = 'connected'
+              outputBuffer = ''
 
-            // 保存连接对象和流对象
-            jumpserverConnections.set(connectionId, conn)
-            jumpserverShellStreams.set(connectionId, stream)
-            jumpserverConnectionStatus.set(connectionId, { isVerified: true })
+              // 保存连接对象和流对象
+              jumpserverConnections.set(connectionId, conn)
+              jumpserverShellStreams.set(connectionId, stream)
+              jumpserverConnectionStatus.set(connectionId, { isVerified: true })
 
-            resolve({ status: 'connected', message: '连接成功' })
+              resolve({ status: 'connected', message: '连接成功' })
+            }
           }
         })
 
