@@ -267,6 +267,7 @@ import thinkingSvg from '@/assets/icons/thinking.svg'
 import copySvg from '@/assets/icons/copy.svg'
 import { message } from 'ant-design-vue'
 import i18n from '@/locales'
+import { extractFinalOutput } from '@/utils/terminalOutputExtractor'
 
 const { t } = i18n.global
 // 确保Monaco Editor已经完全初始化
@@ -1081,8 +1082,8 @@ const getColorName = (index: number): string => {
 // Add computed property for content lines
 const contentLines = computed(() => {
   if (!props.content) return []
-
-  const lines = props.content.split('\n')
+  const formattedOutput = extractFinalOutput(props.content)
+  const lines = formattedOutput.split('\n')
   return lines.map((line) => {
     // Process ANSI escape codes for display
     const processedLine = stripAnsiCodes(line)
