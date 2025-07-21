@@ -52,7 +52,7 @@ export class Controller {
   async dispose() {
     this.outputChannel.appendLine('Disposing ClineProvider...')
 
-    // 释放终端资源
+    // Release terminal resources
     if (this.task) {
       const terminalManager = this.task.getTerminalManager()
 
@@ -120,7 +120,7 @@ export class Controller {
 
   // Send any JSON serializable data to the react app
   async postMessageToWebview(message: ExtensionMessage) {
-    // 这里发送消息到 webview
+    // Send a message to the webview here
     const safeMessage = removeSensitiveKeys(message)
     await this.postMessage(safeMessage)
   }
@@ -607,7 +607,7 @@ function removeSensitiveKeys(obj: any): any {
         key.toLowerCase().includes('endpoint') ||
         key.toLowerCase().includes('awsProfile')
       ) {
-        newObj[key] = undefined // 或 '***'
+        newObj[key] = undefined // or '***'
       } else {
         newObj[key] = removeSensitiveKeys(obj[key])
       }

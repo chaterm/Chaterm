@@ -7,7 +7,7 @@ import net from 'net'
 import tls from 'tls'
 import { SocksClient } from 'socks'
 
-// 创建代理
+// Create proxy
 export function createProxyAgent(config?: ProxyConfig): Agent | undefined {
   if (!config) return undefined
   const { type, host, port, enableProxyIdentity, username, password } = config
@@ -27,7 +27,7 @@ export function createProxyAgent(config?: ProxyConfig): Agent | undefined {
   }
 }
 
-// 验证代理连通性
+// Validate proxy connectivity
 export async function checkProxyConnectivity(config?: ProxyConfig): Promise<void> {
   if (!config) return
 
@@ -45,7 +45,7 @@ export async function checkProxyConnectivity(config?: ProxyConfig): Promise<void
       return await checkSocksConnection(config!)
 
     default:
-      throw new Error(`不支持的代理类型: ${type}`)
+      throw new Error(`Unsupported proxy type: ${type}`)
   }
 }
 
@@ -61,7 +61,7 @@ function checkTcpConnection(host: string, port: number): Promise<void> {
     socket.once('error', reject)
     socket.once('timeout', () => {
       socket.destroy()
-      reject(new Error('连接超时'))
+      reject(new Error('Connection timed out'))
     })
   })
 }
@@ -78,7 +78,7 @@ function checkTlsConnection(host: string, port: number): Promise<void> {
     socket.once('error', reject)
     socket.once('timeout', () => {
       socket.destroy()
-      reject(new Error('TLS 握手超时'))
+      reject(new Error('TLS handshake timed out'))
     })
   })
 }
@@ -108,6 +108,6 @@ async function checkSocksConnection(config: ProxyConfig): Promise<void> {
     const info = await SocksClient.createConnection(options)
     info.socket.end()
   } catch (err) {
-    throw new Error(`SOCKS 代理连接失败: ${(err as Error).message}`)
+    throw new Error(`SOCKS proxy connection failed: ${(err as Error).message}`)
   }
 }

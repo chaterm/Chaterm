@@ -14,11 +14,11 @@ interface DBRequest extends EventTarget {
   onerror: ((this: DBRequest, ev: Event) => any) | null
 }
 
-// 用户数据库实例缓存
+// User database instance cache
 const userDatabases = new Map<number, IDBDatabase>()
 let currentUserId: number | null = null
 
-// 获取当前用户ID
+// Get current user ID
 function getCurrentUserId(): number {
   const userInfo = getUserInfo()
   if (!userInfo || !userInfo.uid) {
@@ -27,12 +27,12 @@ function getCurrentUserId(): number {
   return userInfo.uid
 }
 
-// 生成用户专属数据库名称
+// Generate user-specific database name
 function getUserDatabaseName(userId: number): string {
   return `${DB_BASE_NAME}_user_${userId}`
 }
 
-// 设置当前用户ID（用于用户切换时清理连接）
+// Set current user ID (for cleaning up connections when user switches)
 export function setCurrentUser(userId: number): void {
   if (currentUserId !== userId) {
     if (currentUserId && userDatabases.has(currentUserId)) {
@@ -132,7 +132,7 @@ async function migrateOldDatabase(userId: number): Promise<void> {
 async function openDB(): Promise<IDBDatabase> {
   const userId = getCurrentUserId()
 
-  // 检查是否已有该用户的数据库连接
+  // Check if there is already a database connection for this user
   if (userDatabases.has(userId)) {
     const existingDb = userDatabases.get(userId)!
     return existingDb

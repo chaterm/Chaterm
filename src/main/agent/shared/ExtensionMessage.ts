@@ -137,7 +137,7 @@ export type ChatermAsk =
   | 'completion_result'
   | 'tool'
   | 'api_req_failed'
-  | 'ssh_con_failed' // 新增：SSH 连接失败
+  | 'ssh_con_failed' // New: SSH connection failed
   | 'resume_task'
   | 'resume_completed_task'
   | 'mistake_limit_reached'

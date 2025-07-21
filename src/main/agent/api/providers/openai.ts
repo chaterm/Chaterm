@@ -120,7 +120,7 @@ export class OpenAiHandler implements ApiHandler {
 
   async validateApiKey(): Promise<{ isValid: boolean; error?: string }> {
     try {
-      // 验证代理
+      // Validate proxy
       if (this.options.needProxy) {
         await checkProxyConnectivity(this.options.proxyConfig!)
       }
