@@ -538,6 +538,10 @@ if (process.contextIsolated) {
   try {
     contextBridge.exposeInMainWorld('electron', {
       electronAPI,
+      ipcRenderer: {
+        on: (channel, listener) => ipcRenderer.on(channel, listener),
+        removeAllListeners: (channel) => ipcRenderer.removeAllListeners(channel)
+      },
       getCurrentURL: () => window.location.href // 通过 window.location 获取当前 URL
     })
     contextBridge.exposeInMainWorld('api', api)

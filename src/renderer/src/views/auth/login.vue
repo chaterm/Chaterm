@@ -438,11 +438,11 @@ onMounted(async () => {
   ipcRenderer?.on('external-login-success', async (event, data) => {
     console.log('external-login-success', '===================')
     try {
-      const { token, userInfo } = data
+      const { userInfo } = data
 
-      if (token && userInfo) {
+      if (userInfo) {
         // 保存token
-        localStorage.setItem('ctm-token', token)
+        localStorage.setItem('ctm-token', data?.token)
 
         // 设置用户信息
         setUserInfo(userInfo)

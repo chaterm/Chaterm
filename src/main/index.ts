@@ -705,23 +705,20 @@ if (!app.isDefaultProtocolClient('chaterm')) {
 
 // 处理协议重定向
 const handleProtocolRedirect = (url: string) => {
-  console.log('external-login-success-----------------url', url)
+  console.log('handleProtocolRedirect-----------------url', url)
   const mainWindow = BrowserWindow.getAllWindows()[0]
   if (!mainWindow) return
 
   // 解析URL中的token和用户信息
   const urlObj = new URL(url)
-  const token = urlObj.searchParams.get('token')
   const userInfo = urlObj.searchParams.get('userInfo')
   console.log('url', url)
-  console.log('token', token)
   console.log('userInfo', userInfo)
-  if (token && userInfo) {
+  if (userInfo) {
     try {
       // 将数据发送到渲染进程
       console.log('external-login-success-----------------')
       mainWindow.webContents.send('external-login-success', {
-        token,
         userInfo: JSON.parse(userInfo)
       })
     } catch (error) {
