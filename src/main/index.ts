@@ -705,6 +705,7 @@ if (!app.isDefaultProtocolClient('chaterm')) {
 
 // 处理协议重定向
 const handleProtocolRedirect = (url: string) => {
+  console.log('external-login-success-----------------url', url)
   const mainWindow = BrowserWindow.getAllWindows()[0]
   if (!mainWindow) return
 
@@ -718,6 +719,7 @@ const handleProtocolRedirect = (url: string) => {
   if (token && userInfo) {
     try {
       // 将数据发送到渲染进程
+      console.log('external-login-success-----------------')
       mainWindow.webContents.send('external-login-success', {
         token,
         userInfo: JSON.parse(userInfo)
