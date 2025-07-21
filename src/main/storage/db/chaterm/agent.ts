@@ -21,7 +21,7 @@ export async function getApiConversationHistoryLogic(db: Database.Database, task
       `)
     const rows = stmt.all(taskId)
 
-    // 重构为Anthropic.MessageParam格式
+    // Refactor to Anthropic.MessageParam format
     const messages: any[] = []
     const messageMap = new Map()
 
@@ -67,11 +67,11 @@ export async function getApiConversationHistoryLogic(db: Database.Database, task
 
 export async function saveApiConversationHistoryLogic(db: Database.Database, taskId: string, apiConversationHistory: any[]): Promise<void> {
   try {
-    // 首先清除现有记录（事务之外）
+    // First clear existing records (outside transaction)
     const deleteStmt = db.prepare('DELETE FROM agent_api_conversation_history_v1 WHERE task_id = ?')
     deleteStmt.run(taskId)
 
-    // 然后在一个新事务中插入所有记录
+    // Then insert all records in a new transaction
     db.transaction(() => {
       const insertStmt = db.prepare(`
           INSERT INTO agent_api_conversation_history_v1 
@@ -102,7 +102,7 @@ export async function saveApiConversationHistoryLogic(db: Database.Database, tas
             insertStmt.run(taskId, now, message.role, contentType, JSON.stringify(contentData), toolUseId, sequenceOrder++)
           }
         } else {
-          // 处理简单文本消息
+          // Handle simple text messages
           insertStmt.run(taskId, now, message.role, 'text', JSON.stringify({ text: message.content }), null, sequenceOrder++)
         }
       }
@@ -113,7 +113,7 @@ export async function saveApiConversationHistoryLogic(db: Database.Database, tas
   }
 }
 
-// Agent UI消息相关方法
+// Agent UI message related methods
 export async function getSavedChatermMessagesLogic(db: Database.Database, taskId: string): Promise<any[]> {
   try {
     const stmt = db.prepare(`
@@ -150,11 +150,11 @@ export async function getSavedChatermMessagesLogic(db: Database.Database, taskId
 export async function saveChatermMessagesLogic(db: Database.Database, taskId: string, uiMessages: any[]): Promise<void> {
   try {
     db.transaction(() => {
-      // 清除现有记录
+      // Clear existing records
       const deleteStmt = db.prepare('DELETE FROM agent_ui_messages_v1 WHERE task_id = ?')
       deleteStmt.run(taskId)
 
-      // 插入新记录
+      // Insert new records
       const insertStmt = db.prepare(`
           INSERT INTO agent_ui_messages_v1 
           (task_id, ts, type, ask_type, say_type, text, reasoning, images, partial,
@@ -187,7 +187,7 @@ export async function saveChatermMessagesLogic(db: Database.Database, taskId: st
   }
 }
 
-// Agent任务元数据相关方法
+// Agent task metadata related methods
 export async function getTaskMetadataLogic(db: Database.Database, taskId: string): Promise<any> {
   try {
     const stmt = db.prepare(`
@@ -230,7 +230,7 @@ export async function saveTaskMetadataLogic(db: Database.Database, taskId: strin
   }
 }
 
-// Agent上下文历史相关方法
+// Agent context history related methods
 export async function getContextHistoryLogic(db: Database.Database, taskId: string): Promise<any> {
   try {
     const stmt = db.prepare(`

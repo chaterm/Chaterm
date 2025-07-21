@@ -1,6 +1,6 @@
 import Database from 'better-sqlite3'
 
-// 获取密钥链选项
+// Get keychain options
 export function getKeyChainSelectLogic(db: Database.Database): any {
   try {
     const stmt = db.prepare(`

@@ -16,7 +16,7 @@ export class DeepSeekHandler implements ApiHandler {
   constructor(options: ApiHandlerOptions) {
     this.options = options
 
-    // 判断是否需要使用代理
+    // Determine if a proxy is needed
     let httpAgent: Agent | undefined = undefined
     if (this.options.needProxy !== false) {
       const proxyConfig = this.options.proxyConfig
@@ -30,13 +30,13 @@ export class DeepSeekHandler implements ApiHandler {
     })
   }
 
-  // 新增API验证方法
+  // Add API validation method
   async validateApiKey(): Promise<{ isValid: boolean; error?: string }> {
     try {
       const testSystemPrompt = "This is a connection test. Respond with only the word 'OK'."
       const testMessage = [{ role: 'user', content: 'Connection test' }] as Anthropic.Messages.MessageParam[]
 
-      // 验证代理
+      // Validate proxy
       if (this.options.needProxy) {
         await checkProxyConnectivity(this.options.proxyConfig!)
       }

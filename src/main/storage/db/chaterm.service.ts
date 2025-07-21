@@ -77,7 +77,7 @@ export class ChatermDatabaseService {
     return getAssetGroupLogic(this.db)
   }
 
-  // 获取密钥链选项
+  // Get keychain options
   getKeyChainSelect(): any {
     return getKeyChainSelectLogic(this.db)
   }
@@ -113,17 +113,17 @@ export class ChatermDatabaseService {
   connectAssetInfo(uuid: string): any {
     return connectAssetInfoLogic(this.db, uuid)
   }
-  // @获取用户主机列表
+  // @Get user host list
   getUserHosts(search: string): any {
     return getUserHostsLogic(this.db, search)
   }
 
-  // 事务处理
+  // Transaction handling
   transaction(fn: () => void): any {
     return this.db.transaction(fn)()
   }
 
-  // Agent API对话历史相关方法
+  // Agent API conversation history related methods
 
   async deleteChatermHistoryByTaskId(taskId: string): Promise<void> {
     return deleteChatermHistoryByTaskIdLogic(this.db, taskId)
@@ -137,7 +137,7 @@ export class ChatermDatabaseService {
     return saveApiConversationHistoryLogic(this.db, taskId, apiConversationHistory)
   }
 
-  // Agent UI消息相关方法
+  // Agent UI message related methods
   async getSavedChatermMessages(taskId: string): Promise<any[]> {
     return getSavedChatermMessagesLogic(this.db, taskId)
   }
@@ -146,7 +146,7 @@ export class ChatermDatabaseService {
     return saveChatermMessagesLogic(this.db, taskId, uiMessages)
   }
 
-  // Agent任务元数据相关方法
+  // Agent task metadata related methods
   async getTaskMetadata(taskId: string): Promise<any> {
     return getTaskMetadataLogic(this.db, taskId)
   }
@@ -155,7 +155,7 @@ export class ChatermDatabaseService {
     return saveTaskMetadataLogic(this.db, taskId, metadata)
   }
 
-  // Agent上下文历史相关方法
+  // Agent context history related methods
   async getContextHistory(taskId: string): Promise<any> {
     return getContextHistoryLogic(this.db, taskId)
   }
@@ -163,7 +163,7 @@ export class ChatermDatabaseService {
   async saveContextHistory(taskId: string, contextHistory: any): Promise<void> {
     return saveContextHistoryLogic(this.db, taskId, contextHistory)
   }
-  // 快捷命令相关方法
+  // Shortcut command related methods
   userSnippetOperation(operation: 'list' | 'create' | 'delete' | 'update' | 'swap', params?: any): any {
     return userSnippetOperationLogic(this.db, operation, params)
   }

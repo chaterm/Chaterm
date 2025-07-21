@@ -84,7 +84,7 @@ export class Task {
   // Metadata tracking
   private modelContextTracker: ModelContextTracker
 
-  // 添加系统信息缓存
+  // Add system information cache
   private hostSystemInfoCache: Map<
     string,
     {
@@ -184,7 +184,7 @@ export class Task {
     try {
       const terminalInfo = await this.connectTerminal(ip)
       if (!terminalInfo) {
-        await this.ask('ssh_con_failed', 'SSH连接失败，未获取到终端信息', false)
+        await this.ask('ssh_con_failed', 'SSH connection failed, terminal information not obtained', false)
         await this.abortTask()
         throw new Error('Failed to connect to terminal')
       }
@@ -847,7 +847,7 @@ export class Task {
         outputBufferSize = 0
         chunkEnroute = true
         try {
-          // 发送截至目前的完整输出，供前端整体替换
+          // Send the complete output up to now, for the frontend to replace entirely
           await this.say('command_output', result, true)
         } catch (error) {
           console.error('Error while saying for command output:', error) // Log error
@@ -925,7 +925,7 @@ export class Task {
     } catch (err) {
       await this.ask('ssh_con_failed', err instanceof Error ? err.message : String(err), false)
       await this.abortTask()
-      return `SSH连接失败: ${err instanceof Error ? err.message : String(err)}`
+      return `SSH connection failed: ${err instanceof Error ? err.message : String(err)}`
     }
   }
   // Check if the tool should be auto-approved based on the settings
@@ -951,7 +951,7 @@ export class Task {
   }
 
   async *attemptApiRequest(previousApiReqIndex: number): ApiStream {
-    // 构建系统提示
+    // Build system prompt
     let systemPrompt = await this.buildSystemPrompt()
 
     const contextManagementMetadata = await this.contextManager.getNewContextMessagesAndMetadata(
@@ -1149,7 +1149,7 @@ export class Task {
     })
     const chatSettings = await getGlobalState('chatSettings')
     telemetryService.captureApiRequestEvent(this.taskId, await getGlobalState('apiProvider'), this.api.getModel().id, 'user', chatSettings?.mode)
-    // 更新API请求消息
+    // Update API request message
     await this.updateApiRequestMessage(userContent)
   }
 
@@ -1159,7 +1159,7 @@ export class Task {
 
     await this.say('checkpoint_created')
 
-    // 更新检查点消息（等待CheckpointTracker初始化）
+    // Update checkpoint message (waiting for CheckpointTracker initialization)
     const lastCheckpointMessage = findLast(this.chatermMessages, (m) => m.say === 'checkpoint_created')
     if (lastCheckpointMessage) {
       await this.saveChatermMessagesAndUpdateHistory()
@@ -1387,7 +1387,7 @@ export class Task {
 
   private async handleStreamUsageUpdate(streamMetrics: any, messageUpdater: any): Promise<void> {
     if (!streamMetrics.didReceiveUsageChunk) {
-      // 异步获取使用情况统计
+      // Asynchronously get usage statistics
       this.api.getApiStreamUsage?.().then(async (apiStreamUsage) => {
         if (apiStreamUsage) {
           streamMetrics.inputTokens += apiStreamUsage.inputTokens
@@ -2053,7 +2053,7 @@ export class Task {
         )
       } else {
         this.pushToolResult(toolDescription, formatResponse.toolResult('The user accepted the creation of the Github issue.'))
-        // 可在此创建 issue 的逻辑
+        // Logic to create an issue can be added here
       }
       await this.saveCheckpoint()
     } catch (error) {
@@ -2108,12 +2108,12 @@ export class Task {
   }
 
   private async handleTextBlock(block: TextContent): Promise<void> {
-    // 若之前已拒绝或已执行工具，则忽略纯文本更新
+    // If previously rejected or tool executed, ignore plain text updates
     if (this.didRejectTool || this.didAlreadyUseTool) return
 
     let content = block.content
     if (content) {
-      // 处理流式的 <thinking> 标签
+      // Handle streaming <thinking> tags
       content = this.processThinkingTags(content)
 
       const lastOpenBracketIndex = content.lastIndexOf('<')
@@ -2141,7 +2141,7 @@ export class Task {
       }
     }
 
-    // 对完整块清理可能附带的代码块结尾噪声
+    // Clean up potential trailing noise from code blocks for the complete block
     if (!block.partial) {
       const match = content?.trimEnd().match(/```[a-zA-Z0-9_-]+$/)
       if (match) {
@@ -2155,22 +2155,22 @@ export class Task {
   private processThinkingTags(content: string): string {
     if (!content) return content
 
-    // 如果当前已经在思考块内部，检查是否有结束标签
+    // If currently inside a thinking block, check for an end tag
     if (this.isInsideThinkingBlock) {
       const endIndex = content.indexOf('</thinking>')
       if (endIndex !== -1) {
-        // 找到结束标签，退出思考块状态，返回结束标签后的内容
+        // Found end tag, exit thinking block state, return content after end tag
         this.isInsideThinkingBlock = false
         return content.slice(endIndex + '</thinking>'.length)
       } else {
-        // 仍在思考块内部，移除所有内容
+        // Still inside thinking block, remove all content
         return ''
       }
     }
 
     const startIndex = content.indexOf('<thinking>')
     if (startIndex !== -1) {
-      // 找到开始标签
+      // Found start tag
       const beforeThinking = content.slice(0, startIndex)
       const afterThinking = content.slice(startIndex + '<thinking>'.length)
 
@@ -2191,7 +2191,7 @@ export class Task {
     let systemPrompt = await SYSTEM_PROMPT()
     let systemInformation = '# SYSTEM INFORMATION\n\n'
 
-    // 检查 hosts 是否存在且不为空
+    // Check if hosts exist and are not empty
     if (!this.hosts || this.hosts.length === 0) {
       console.warn('No hosts configured, skipping system information collection')
       systemInformation += 'No hosts configured.\n'
@@ -2200,12 +2200,12 @@ export class Task {
 
       for (const host of this.hosts) {
         try {
-          // 检查缓存，如果没有缓存则获取系统信息并缓存
+          // Check cache, if no cache, get system info and cache it
           let hostInfo = this.hostSystemInfoCache.get(host.host)
           if (!hostInfo) {
             console.log(`Fetching system information for host: ${host.host}`)
 
-            // 优化：一次性获取所有系统信息，避免多次网络请求
+            // Optimization: Get all system information at once to avoid multiple network requests
             const systemInfoScript = `
               echo "OS_VERSION:$(uname -a)"
               echo "DEFAULT_SHELL:$SHELL"
@@ -2218,7 +2218,7 @@ export class Task {
             const systemInfoOutput = await this.executeCommandInRemoteServer(systemInfoScript, host.host)
             console.log(`System info output for ${host.host}:`, systemInfoOutput)
 
-            // 解析输出结果
+            // Parse output result
             const parseSystemInfo = (
               output: string
             ): {
@@ -2271,7 +2271,7 @@ export class Task {
             hostInfo = parseSystemInfo(systemInfoOutput)
             console.log(`Parsed system info for ${host.host}:`, hostInfo)
 
-            // 缓存系统信息
+            // Cache system information
             this.hostSystemInfoCache.set(host.host, hostInfo)
           } else {
             console.log(`Using cached system information for host: ${host.host}`)
@@ -2290,7 +2290,7 @@ export class Task {
       `
         } catch (error) {
           console.error(`Failed to get system information for host ${host.host}:`, error)
-          // 即使获取系统信息失败，也要添加基本信息
+          // Even if getting system information fails, add basic information
           systemInformation += `
         ## Host: ${host.host}
         Operating System: Unable to retrieve (${error instanceof Error ? error.message : 'Unknown error'})

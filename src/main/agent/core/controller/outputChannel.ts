@@ -11,7 +11,7 @@ export class ElectronOutputChannel implements OutputChannel {
 
   constructor(name: string = 'Cline') {
     this._name = name
-    // 在用户数据目录下创建日志文件
+    // Create a log file in the user data directory
     this.logFile = path.join(app.getPath('userData'), `${name}.log`)
   }
 
@@ -30,7 +30,7 @@ export class ElectronOutputChannel implements OutputChannel {
 
   clear(): void {
     this.buffer = []
-    // 清空日志文件
+    // Clear the log file
     fs.writeFileSync(this.logFile, '')
   }
 
