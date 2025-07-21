@@ -546,24 +546,10 @@ export const registerSSHHandlers = () => {
         // 使用 lineCommand 进行命令检测，如果没有则回退到 data.trim()
         const command = lineCommand || data.trim()
 
-        // 添加详细日志
-        console.log(`[JumpServer ${id}] ssh:shell:write 接收到数据:`)
-        console.log(`  - data: "${data}" (length: ${data.length}) (hex: ${Buffer.from(data).toString('hex')})`)
-        console.log(`  - lineCommand: "${lineCommand}" (type: ${typeof lineCommand})`)
-        console.log(`  - command (最终检测): "${command}" (type: ${typeof command})`)
-        console.log(`  - 退出命令检测: ${['exit', 'logout', '\x04'].includes(command)}`)
-        console.log(`  - 当前 jumpserverLastCommand 状态: ${jumpserverLastCommand.has(id) ? `存在 - "${jumpserverLastCommand.get(id)}"` : '不存在'}`)
-
         if (['exit', 'logout', '\x04'].includes(command)) {
-          console.log(`[JumpServer ${id}] 检测到退出命令: "${command}"，设置 jumpserverLastCommand`)
           jumpserverLastCommand.set(id, command)
-          console.log(`[JumpServer ${id}] jumpserverLastCommand 已设置为: "${jumpserverLastCommand.get(id)}"`)
         } else {
-          console.log(`[JumpServer ${id}] 非退出命令: "${command}"，清除 jumpserverLastCommand`)
-          const hadCommand = jumpserverLastCommand.has(id)
-          const previousCommand = jumpserverLastCommand.get(id)
           jumpserverLastCommand.delete(id)
-          console.log(`[JumpServer ${id}] jumpserverLastCommand 已清除 (之前${hadCommand ? `存在: "${previousCommand}"` : '不存在'})`)
         }
         if (jumpserverMarkedCommands.has(id)) {
           jumpserverMarkedCommands.delete(id)
