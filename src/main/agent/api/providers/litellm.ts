@@ -32,21 +32,21 @@ export class LiteLlmHandler implements ApiHandler {
   constructor(options: ApiHandlerOptions) {
     this.options = options
 
-    // 判断是否需要使用代理
+    // Determine if a proxy is needed
     let httpAgent: Agent | undefined = undefined
     if (this.options.needProxy !== false) {
       const proxyConfig = this.options.proxyConfig
       httpAgent = createProxyAgent(proxyConfig)
     }
 
-    // 设置超时时间，默认为 20 秒，由于内部会重试3次，所以实际超时时间为 60 秒
+    // Set timeout, default is 20 seconds, since it will retry 3 times internally, the actual timeout is 60 seconds
     const timeoutMs = this.options.requestTimeoutMs || 20000
 
     this.client = new OpenAI({
       baseURL: this.options.liteLlmBaseUrl || 'http://localhost:4000',
       apiKey: this.options.liteLlmApiKey || 'noop',
       httpAgent: httpAgent,
-      timeout: timeoutMs // 设置超时时间（毫秒）
+      timeout: timeoutMs // Set timeout (milliseconds)
     })
   }
 
@@ -192,12 +192,12 @@ export class LiteLlmHandler implements ApiHandler {
 
   async validateApiKey(): Promise<{ isValid: boolean; error?: string }> {
     try {
-      // 验证代理
+      // Validate proxy
       if (this.options.needProxy) {
         await checkProxyConnectivity(this.options.proxyConfig!)
       }
 
-      // 尝试创建一个最小的聊天请求来验证 API key
+      // Try to create a minimal chat request to validate the API key
       await this.client.chat.completions.create({
         model: this.options.liteLlmModelId || liteLlmDefaultModelId,
         messages: [{ role: 'user', content: 'test' }],

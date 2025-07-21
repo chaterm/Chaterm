@@ -1,26 +1,26 @@
 import { contextBridge, ipcRenderer } from 'electron'
 
-// 公开一些 API 给浏览器窗口
+// Expose some APIs to the browser window
 contextBridge.exposeInMainWorld('api', {
-  // 如果需要公开其他功能，可以在这里添加
+  // If other functions need to be exposed, add them here
 })
 
-// 监听 DOM 变化，捕获 SPA 的路由变化
+// Listen for DOM changes to capture SPA route changes
 window.addEventListener('DOMContentLoaded', () => {
   let lastUrl = location.href
 
-  // 使用 MutationObserver 监听 DOM 变化
+  // Use MutationObserver to listen for DOM changes
   const observer = new MutationObserver(() => {
     if (location.href !== lastUrl) {
       lastUrl = location.href
-      // 通知主进程 URL 已经变化 (针对单页应用)
+      // Notify main process that URL has changed (for single-page applications)
       ipcRenderer.send('spa-url-changed', lastUrl)
     }
   })
 
   observer.observe(document, { subtree: true, childList: true })
 
-  // 重写 history 方法以捕获单页应用的路由变化
+  // Override history methods to capture single-page application route changes
   const originalPushState = history.pushState
   const originalReplaceState = history.replaceState
 

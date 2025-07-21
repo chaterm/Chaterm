@@ -1,7 +1,7 @@
 import * as keyStorage from './key-storage'
 
-// 存储在 secrets 中的值的类型，简化为 string
-// GlobalState 和 WorkspaceState 可以存储 any 类型
+// Type of values stored in secrets, simplified to string
+// GlobalState and WorkspaceState can store any type
 
 interface StateLike {
   get<T>(key: string): Promise<T | undefined>
@@ -43,9 +43,7 @@ export class StorageContext {
       },
       keys: async (): Promise<string[]> => {
         const allKeys = await keyStorage.getAllKeys()
-        return allKeys
-          .filter((k) => k.startsWith('workspace_'))
-          .map((k) => k.replace('workspace_', ''))
+        return allKeys.filter((k) => k.startsWith('workspace_')).map((k) => k.replace('workspace_', ''))
       }
     }
 
