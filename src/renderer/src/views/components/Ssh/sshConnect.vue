@@ -1633,7 +1633,8 @@ const handleServerOutput = (response: MarkedResponse) => {
         })
       } else {
         const output = configStore.getUserConfig.language == 'en-US' ? 'Command executed successfully, no output returned' : '执行完成，没有输出返回'
-        eventBus.emit('chatToAi', output)
+        const formattedOutput = `Terminal output:\n\`\`\`\n${output}\n\`\`\``
+        eventBus.emit('chatToAi', formattedOutput)
         setTimeout(() => {
           eventBus.emit('triggerAiSend')
         }, 100)
