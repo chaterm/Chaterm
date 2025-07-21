@@ -1721,14 +1721,16 @@ const setupTerminalInput = () => {
 const sendData = (data) => {
   api.writeToShell({
     id: connectionId.value,
-    data: data
+    data: data,
+    lineCommand: terminalState.value.content
   })
 }
 const sendMarkedData = (data, marker) => {
   api.writeToShell({
     id: connectionId.value,
     data: data,
-    marker: marker
+    marker: marker,
+    lineCommand: terminalState.value.content
   })
 }
 export interface MarkedResponse {
