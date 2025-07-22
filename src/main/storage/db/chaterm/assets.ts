@@ -520,7 +520,7 @@ export function getUserHostsLogic(db: Database.Database, search: string): any {
 
     // 查询组织资产
     const orgStmt = db.prepare(`
-        SELECT host, uuid, 'organization' as asset_type
+        SELECT host, uuid, jump_server_type as asset_type
         FROM t_organization_assets
         WHERE host LIKE '${safeSearch}%'
         GROUP BY host

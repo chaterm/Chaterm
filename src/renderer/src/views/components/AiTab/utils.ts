@@ -36,6 +36,7 @@ export const formatHosts = (hosts: any[]): any[] => {
   return hosts.map((item) => ({
     label: item.host || '',
     value: item.uuid,
-    uuid: item.uuid
+    uuid: item.uuid,
+    connection: item.asset_type
   }))
 }
