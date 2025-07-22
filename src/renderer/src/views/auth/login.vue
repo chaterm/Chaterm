@@ -1,10 +1,5 @@
 <template>
   <div class="term_login">
-    <img
-      src="@/assets/logo.svg"
-      class="logo"
-      alt=""
-    />
     <div
       class="connetus"
       :style="{ right: platform.includes('darwin') ? '0px' : '120px' }"
@@ -21,207 +16,58 @@
             <a-menu-item
               v-for="item in config.LANG"
               :key="item.value"
-              >{{ item.name }}</a-menu-item
-            >
+              >{{ item.name }}
+            </a-menu-item>
           </a-menu>
         </template>
       </a-dropdown>
     </div>
     <div class="term_login_content">
+      <div>
+        <img
+          src="@/assets/logo.svg"
+          class="logo"
+          alt=""
+        />
+      </div>
       <div class="term_login_welcome">
         <span>{{ $t('login.welcome') }}</span>
-        <span style="color: #2a82e4; margin-left: 8px">{{ $t('login.title') }}</span>
+        <span style="color: #2a82e4; margin-left: 12px">{{ $t('login.title') }}</span>
       </div>
       <div class="term_login_input">
-        <a-tabs
-          v-model:active-key="activeKey"
-          centered
+        <a-form
+          name="login"
+          :label-col="{ span: 0 }"
+          :wrapper-col="{ span: 24 }"
+          autocomplete="off"
         >
-          <a-tab-pane
-            key="account"
-            :tab="$t('login.loginByUser')"
-          >
-            <a-form
-              :model="accountForm"
-              name="account"
-              :label-col="{ span: 0 }"
-              :wrapper-col="{ span: 24 }"
-              autocomplete="off"
-              @finish="onAccountFinish"
-              @finish-failed="onFinishFailed"
+          <a-form-item>
+            <a-button
+              style="
+                margin-top: 20px;
+                margin-left: 50%;
+                transform: translateX(-50%);
+                border-radius: 6px;
+                width: 200px;
+                height: 36px;
+                font-size: 16px;
+                background-color: #2a82e4;
+              "
+              type="primary"
+              html-type="submit"
+              @click="handleExternalLogin"
+              >{{ $t('login.login') }}
+            </a-button>
+          </a-form-item>
+          <div class="skip-login">
+            {{ $t('login.skip') }}
+            <a
+              class="skip-link"
+              @click="skipLogin"
+              >{{ $t('login.skipLogin') }}</a
             >
-              <a-form-item
-                label=""
-                name="username"
-                :rules="[{ required: true, message: $t('login.pleaseInputUsername') }]"
-              >
-                <a-input
-                  v-model:value="accountForm.username"
-                  style="width: 300px"
-                  class="custom-borderless-input"
-                  :placeholder="$t('login.pleaseInputUsername')"
-                >
-                  <template #prefix>
-                    <user-outlined type="user" />
-                  </template>
-                  <template #suffix>
-                    <a-tooltip :title="$t('login.usernameTooltip')">
-                      <info-circle-outlined style="color: #fff" />
-                    </a-tooltip>
-                  </template>
-                </a-input>
-              </a-form-item>
-
-              <a-form-item
-                label=""
-                name="password"
-                :rules="[{ required: true, message: $t('login.pleaseInputPassword') }]"
-              >
-                <a-input-password
-                  v-model:value="accountForm.password"
-                  style="width: 300px"
-                  :placeholder="$t('login.pleaseInputPassword')"
-                >
-                  <template #prefix>
-                    <lock-outlined />
-                  </template>
-                  <template #suffix>
-                    <a-tooltip :title="$t('login.passwordTooltip')">
-                      <info-circle-outlined style="color: #e0ebff" />
-                    </a-tooltip>
-                  </template>
-                </a-input-password>
-              </a-form-item>
-              <a-form-item>
-                <a-button
-                  style="
-                    margin-top: 20px;
-                    margin-left: 50%;
-                    transform: translateX(-50%);
-                    border-radius: 6px;
-                    width: 200px;
-                    height: 36px;
-                    font-size: 16px;
-                    background-color: #2a82e4;
-                  "
-                  type="primary"
-                  html-type="submit"
-                  >{{ $t('login.login') }}</a-button
-                >
-              </a-form-item>
-              <div class="skip-login">
-                {{ $t('login.skip') }}
-                <a
-                  class="skip-link"
-                  @click="skipLogin"
-                  >{{ $t('login.skipLogin') }}</a
-                >
-              </div>
-            </a-form>
-          </a-tab-pane>
-          <a-tab-pane
-            key="email"
-            :tab="$t('login.loginByEmail')"
-          >
-            <a-form
-              :model="emailForm"
-              name="email"
-              :label-col="{ span: 0 }"
-              :wrapper-col="{ span: 24 }"
-              autocomplete="off"
-              @finish="onEmailFinish"
-              @finish-failed="onFinishFailed"
-            >
-              <a-form-item
-                label=""
-                name="email"
-                :rules="[
-                  { required: true, message: $t('login.pleaseInputEmail') },
-                  { type: 'email', message: $t('login.invalidEmail') }
-                ]"
-              >
-                <a-input
-                  v-model:value="emailForm.email"
-                  style="width: 300px"
-                  class="custom-borderless-input"
-                  :placeholder="$t('login.pleaseInputEmail')"
-                >
-                  <template #prefix>
-                    <mail-outlined />
-                  </template>
-                </a-input>
-              </a-form-item>
-
-              <a-form-item
-                label=""
-                name="code"
-                :rules="[{ required: true, message: $t('login.pleaseInputCode') }]"
-              >
-                <a-input
-                  v-model:value="emailForm.code"
-                  style="width: 300px"
-                  :placeholder="$t('login.pleaseInputCode')"
-                >
-                  <template #prefix>
-                    <safety-outlined />
-                  </template>
-                  <template #suffix>
-                    <a-button
-                      type="link"
-                      :disabled="countdown > 0"
-                      style="color: #2a82e4; padding: 0"
-                      @click="sendCode"
-                    >
-                      {{ countdown > 0 ? $t('login.retryAfter', { seconds: countdown }) : $t('login.getCode') }}
-                    </a-button>
-                  </template>
-                </a-input>
-              </a-form-item>
-              <a-form-item>
-                <a-button
-                  style="
-                    margin-top: 20px;
-                    margin-left: 50%;
-                    transform: translateX(-50%);
-                    border-radius: 6px;
-                    width: 200px;
-                    height: 36px;
-                    font-size: 16px;
-                    background-color: #2a82e4;
-                  "
-                  type="primary"
-                  html-type="submit"
-                  >{{ $t('login.login') }}</a-button
-                >
-              </a-form-item>
-              <a-form-item>
-                <a-button
-                  style="
-                    margin-top: 20px;
-                    margin-left: 50%;
-                    transform: translateX(-50%);
-                    border-radius: 6px;
-                    width: 200px;
-                    height: 36px;
-                    font-size: 16px;
-                    background-color: #2a82e4;
-                  "
-                  type="primary"
-                  @click="handleExternalLogin"
-                  >外部登录测试</a-button
-                >
-              </a-form-item>
-              <div class="skip-login">
-                {{ $t('login.skip') }}
-                <a
-                  class="skip-link"
-                  @click="skipLogin"
-                  >{{ $t('login.skipLogin') }}</a
-                >
-              </div>
-            </a-form>
-          </a-tab-pane>
-        </a-tabs>
+          </div>
+        </a-form>
       </div>
     </div>
   </div>
@@ -229,16 +75,16 @@
 
 <script setup lang="ts">
 import { removeToken } from '@/utils/permission'
-import { UserOutlined, InfoCircleOutlined, LockOutlined, MailOutlined, SafetyOutlined } from '@ant-design/icons-vue'
 import { useRouter } from 'vue-router'
-import { ref, reactive, getCurrentInstance, onMounted, nextTick, onBeforeUnmount } from 'vue'
+import { ref, getCurrentInstance, onMounted, nextTick, onBeforeUnmount } from 'vue'
 import { GlobalOutlined } from '@ant-design/icons-vue'
 import type { MenuProps } from 'ant-design-vue'
-import { userLogin, sendEmailCode, emailLogin } from '@/api/user/user'
 import { setUserInfo } from '@/utils/permission'
 import { message } from 'ant-design-vue'
+
 const platform = ref<string>('')
 import config from '@renderer/config'
+
 const instance = getCurrentInstance()!
 const { appContext } = instance
 const configLang: MenuProps['onClick'] = ({ key }) => {
@@ -248,8 +94,6 @@ const configLang: MenuProps['onClick'] = ({ key }) => {
 }
 
 const router = useRouter()
-const activeKey = ref('email')
-const countdown = ref(0)
 
 const skipLogin = async () => {
   try {
@@ -302,120 +146,6 @@ const skipLogin = async () => {
     localStorage.removeItem('ctm-token')
     localStorage.removeItem('userInfo')
   }
-}
-
-interface AccountFormState {
-  username: string
-  password: string
-}
-
-interface EmailFormState {
-  email: string
-  code: string
-}
-
-const accountForm = reactive<AccountFormState>({
-  username: '',
-  password: ''
-})
-
-const emailForm = reactive<EmailFormState>({
-  email: '',
-  code: ''
-})
-
-// 公共的登录成功处理函数
-const handleLoginSuccess = async (userData: any) => {
-  try {
-    setUserInfo(userData)
-    localStorage.setItem('ctm-token', userData.token)
-
-    // 初始化用户数据库
-    const api = window.api as any
-    const dbResult = await api.initUserDatabase({ uid: userData.uid })
-    if (!dbResult.success) {
-      console.error('数据库初始化失败:', dbResult.error)
-      return false
-    }
-
-    router.push('/')
-    return true
-  } catch (error) {
-    console.error('登录处理失败:', error)
-    message.error('登录处理失败')
-    return false
-  }
-}
-
-const onAccountFinish = async () => {
-  removeToken()
-  try {
-    const res = await userLogin({
-      username: accountForm.username,
-      password: accountForm.password
-    })
-
-    if (res.code == 200) {
-      await handleLoginSuccess(res.data)
-    }
-  } catch (err: any) {
-    message.error(err?.response?.data?.message || '网络异常')
-  }
-}
-
-const onEmailFinish = async () => {
-  try {
-    const res = await emailLogin({
-      email: emailForm.email,
-      code: emailForm.code
-    })
-
-    if (res.code == 200) {
-      await handleLoginSuccess(res.data)
-    }
-  } catch (err: any) {
-    console.error('邮箱登录失败:', err)
-    message.error(err?.response?.data?.message || '网络异常')
-  }
-}
-
-const onFinishFailed = (errorInfo: any) => {
-  console.log('Failed:', errorInfo)
-}
-
-const sendCode = () => {
-  // 校验邮箱是否已输入
-  if (!emailForm.email) {
-    message.error('请先输入邮箱地址')
-    return
-  }
-
-  // 校验邮箱格式
-  const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/
-  if (!emailRegex.test(emailForm.email)) {
-    message.error('请输入有效的邮箱地址')
-    return
-  }
-  sendEmailCode({
-    email: emailForm.email
-  })
-    .then((res) => {
-      if (res.code == 200) {
-        message.success('验证码发送成功')
-        countdown.value = 300
-      }
-    })
-    .catch((err) => {
-      message.error(err?.response?.data?.message || '网络异常')
-      countdown.value = parseInt(err?.response?.data?.message.match(/\d+/)?.[0] || '300')
-    })
-  // 倒数
-  const timer = setInterval(() => {
-    countdown.value--
-    if (countdown.value <= 0) {
-      clearInterval(timer)
-    }
-  }, 1000)
 }
 
 const handleExternalLogin = async () => {
@@ -474,6 +204,7 @@ onBeforeUnmount(() => {
   ipcRenderer?.removeAllListeners('external-login-success')
 })
 </script>
+
 <style lang="less" scoped>
 .term_login {
   position: relative;
@@ -495,16 +226,15 @@ onBeforeUnmount(() => {
     background: transparent;
     display: flex;
     flex-direction: column;
-    align-items: center;
+    align-items: center; // 水平居中
+    justify-content: center; // 垂直居中
     -webkit-app-region: no-drag;
   }
 
   .logo {
-    position: absolute;
-    width: 40px;
-    top: 40px;
-    left: 10px;
-    height: 30px;
+    width: 150px;
+    height: 150px;
+    margin-bottom: 2px;
   }
 
   .connetus {
@@ -524,11 +254,12 @@ onBeforeUnmount(() => {
 
   .term_login_welcome {
     text-align: center;
-    margin-top: 50px;
-    font-size: 16px;
+    margin-top: 20px;
+    font-size: 36px;
     color: #fff;
     font-weight: 500;
     letter-spacing: 2px;
+    white-space: nowrap;
   }
 
   .term_login_input {
@@ -649,11 +380,10 @@ onBeforeUnmount(() => {
   .skip-login {
     text-align: center;
     margin-top: 16px;
-    color: #e0ebff;
-    font-size: 14px;
+    color: #949494;
 
     .skip-link {
-      color: #2a82e4;
+      color: #48688e;
       text-decoration: none;
       margin-left: 4px;
 
