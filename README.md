@@ -114,10 +114,3 @@ In this era full of unlimited opportunities and challenges, a group of DevOps pa
 
 We hope it will become a reliable partner for you to improve efficiency and quality of life. At the same time, we also look forward to more like-minded friends joining us to create a better future together!
 
-## Star History
-
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=chaterm/chaterm&type=Date&theme=dark" />
-  <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=chaterm/chaterm&type=Date" />
-  <img width="100%" src="https://api.star-history.com/svg?repos=chaterm/chaterm&type=Date" />
-</picture>

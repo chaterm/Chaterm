@@ -79,23 +79,23 @@ export function getGuestUserId(): number {
 
 function upgradeUserSnippetTable(db: Database.Database): void {
   try {
-    // 检查 sort_order 列是否存在
+    // Check if sort_order column exists
     try {
       db.prepare('SELECT sort_order FROM user_snippet_v1 LIMIT 1').get()
     } catch (error) {
-      // 列不存在，需要升级表结构
+      // Column does not exist, need to upgrade table structure
 
       db.transaction(() => {
-        // 添加 sort_order 列
+        // Add sort_order column
         db.exec('ALTER TABLE user_snippet_v1 ADD COLUMN sort_order INTEGER DEFAULT 0')
         console.log('✅ Added sort_order column to user_snippet_v1')
 
-        // 初始化现有记录的排序值
+        // Initialize sort_order for existing records
         const allRecords = db.prepare('SELECT id FROM user_snippet_v1 ORDER BY created_at ASC').all()
         if (allRecords.length > 0) {
           const updateSortStmt = db.prepare('UPDATE user_snippet_v1 SET sort_order = ? WHERE id = ?')
           allRecords.forEach((record: any, index: number) => {
-            updateSortStmt.run((index + 1) * 10, record.id) // 用10的倍数留出插入空间
+            updateSortStmt.run((index + 1) * 10, record.id) // Use multiples of 10 to leave space for insertion
           })
           console.log(`✅ Initialized sort_order for ${allRecords.length} existing records`)
         }
@@ -254,7 +254,7 @@ export async function initChatermDatabase(userId?: number): Promise<Database.Dat
     const finalDb = new Database(Chaterm_DB_PATH)
     console.log('✅ Chaterm database connection established at:', Chaterm_DB_PATH)
 
-    // 执行表结构升级
+    // Execute table structure upgrade
     upgradeUserSnippetTable(finalDb)
 
     return finalDb

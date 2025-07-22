@@ -2,9 +2,9 @@ import { ipcMain } from 'electron'
 import { Client, ConnectConfig } from 'ssh2'
 import { ConnectionInfo } from '../agent/integrations/remote-terminal'
 
-// 存储 SSH 连接
+// Store SSH connections
 const remoteConnections = new Map<string, Client>()
-// 存储 shell 会话流
+// Store shell session streams
 const remoteShellStreams = new Map()
 
 export async function remoteSshConnect(connectionInfo: ConnectionInfo): Promise<{ id?: string; error?: string }> {
@@ -26,36 +26,36 @@ export async function remoteSshConnect(connectionInfo: ConnectionInfo): Promise<
     conn.on('keyboard-interactive', () => {
       secondAuthTriggered = true
       conn.end()
-      safeResolve({ error: '服务器要求二次认证（如OTP/2FA），无法连接。' })
+      safeResolve({ error: 'Server requires second authentication (e.g., OTP/2FA), cannot connect.' })
     })
 
     conn.on('ready', () => {
       if (secondAuthTriggered) return
       remoteConnections.set(connectionId, conn)
-      console.log(`SSH连接成功: ${connectionId}`)
+      console.log(`SSH connection successful: ${connectionId}`)
       safeResolve({ id: connectionId })
     })
 
     conn.on('error', (err) => {
       if (secondAuthTriggered) return
-      console.error('SSH连接错误:', err.message)
+      console.error('SSH connection error:', err.message)
       conn.end()
       safeResolve({ error: err.message })
     })
 
     conn.on('close', () => {
       if (secondAuthTriggered) return
-      // 如果连接在 'ready' 事件之前关闭，并且没有触发 'error' 事件，
-      // 这通常意味着所有认证方法都失败了。
-      safeResolve({ error: 'SSH 连接关闭，可能是认证失败。' })
+      // If the connection closes before the 'ready' event, and no 'error' event is triggered,
+      // this usually means all authentication methods failed.
+      safeResolve({ error: 'SSH connection closed, possibly authentication failed.' })
     })
 
     const connectConfig: ConnectConfig = {
       host,
       port: port || 22,
       username,
-      keepaliveInterval: 10000, // 保持连接活跃
-      tryKeyboard: true // 禁用 keyboard-interactive
+      keepaliveInterval: 10000, // Keep connection alive
+      tryKeyboard: true // Disable keyboard-interactive
     }
 
     try {
@@ -67,13 +67,13 @@ export async function remoteSshConnect(connectionInfo: ConnectionInfo): Promise<
       } else if (password) {
         connectConfig.password = password
       } else {
-        safeResolve({ error: '缺少密码或私钥' })
+        safeResolve({ error: 'Missing password or private key' })
         return
       }
       conn.connect(connectConfig)
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : String(err)
-      console.error('SSH连接配置错误:', errorMessage)
+      console.error('SSH connection configuration error:', errorMessage)
       safeResolve({ error: `连接配置错误: ${errorMessage}` })
     }
   })
@@ -86,10 +86,10 @@ export async function remoteSshExec(
 ): Promise<{ success?: boolean; output?: string; error?: string }> {
   const conn = remoteConnections.get(sessionId)
   if (!conn) {
-    console.error(`SSH连接不存在: ${sessionId}`)
-    return { success: false, error: '未连接到远程服务器' }
+    console.error(`SSH connection does not exist: ${sessionId}`)
+    return { success: false, error: 'Not connected to remote server' }
   }
-  console.log(`开始执行SSH命令: ${command} (会话: ${sessionId})`)
+  console.log(`Starting SSH command: ${command} (Session: ${sessionId})`)
 
   const base64Command = Buffer.from(command, 'utf-8').toString('base64')
   const shellCommand = `CHATERM_COMMAND_B64='${base64Command}' exec bash -l -c 'eval "$(echo $CHATERM_COMMAND_B64 | base64 -d)"'`
@@ -130,23 +130,23 @@ export async function remoteSshExec(
         })
       })
 
-      // 设置超时
+      // Set timeout
       timeoutHandler = setTimeout(() => {
-        // stream 终止
+        // stream termination
         try {
           stream.close()
         } catch {}
         safeResolve({
           success: false,
           output: output,
-          error: `命令执行超时（${timeoutMs}ms）`
+          error: `Command execution timed out (${timeoutMs}ms)`
         })
       }, timeoutMs)
     })
   })
 }
 
-// 新增：支持实时流式输出的 SSH 命令执行方法
+// New: SSH command execution method supporting real-time streaming output
 export async function remoteSshExecStream(
   sessionId: string,
   command: string,
@@ -155,11 +155,11 @@ export async function remoteSshExecStream(
 ): Promise<{ success?: boolean; error?: string }> {
   const conn = remoteConnections.get(sessionId)
   if (!conn) {
-    console.error(`SSH连接不存在: ${sessionId}`)
-    return { success: false, error: '未连接到远程服务器' }
+    console.error(`SSH connection does not exist: ${sessionId}`)
+    return { success: false, error: 'Not connected to remote server' }
   }
 
-  console.log(`开始执行SSH命令(流式): ${command} (会话: ${sessionId})`)
+  console.log(`Starting SSH command (stream): ${command} (Session: ${sessionId})`)
 
   const base64Command = Buffer.from(command, 'utf-8').toString('base64')
   const shellCommand = `CHATERM_COMMAND_B64='${base64Command}' exec bash -l -c 'eval "$(echo $CHATERM_COMMAND_B64 | base64 -d)"'`
@@ -186,7 +186,7 @@ export async function remoteSshExecStream(
         try {
           onData(data.toString())
         } catch (cbErr) {
-          console.error('remoteSshExecStream onData 回调错误:', cbErr)
+          console.error('remoteSshExecStream onData callback error:', cbErr)
         }
       })
 
@@ -194,7 +194,7 @@ export async function remoteSshExecStream(
         try {
           onData(data.toString())
         } catch (cbErr) {
-          console.error('remoteSshExecStream stderr onData 回调错误:', cbErr)
+          console.error('remoteSshExecStream stderr onData callback error:', cbErr)
         }
       })
 
@@ -203,7 +203,7 @@ export async function remoteSshExecStream(
           try {
             onData("\nCommand not found. Please check if the command exists in the remote server's PATH.")
           } catch (cbErr) {
-            console.error('remoteSshExecStream onData 回调错误:', cbErr)
+            console.error('remoteSshExecStream onData callback error:', cbErr)
           }
         }
         safeResolve({
@@ -212,14 +212,14 @@ export async function remoteSshExecStream(
         })
       })
 
-      // 设置超时
+      // Set timeout
       timeoutHandler = setTimeout(() => {
         try {
           stream.close()
         } catch {}
         safeResolve({
           success: false,
-          error: `命令执行超时（${timeoutMs}ms）`
+          error: `Command execution timed out (${timeoutMs}ms)`
         })
       }, timeoutMs)
     })
@@ -237,12 +237,12 @@ export async function remoteSshDisconnect(sessionId: string): Promise<{ success?
   if (conn) {
     conn.end()
     remoteConnections.delete(sessionId)
-    console.log(`SSH连接已断开: ${sessionId}`)
+    console.log(`SSH connection disconnected: ${sessionId}`)
     return { success: true }
   }
 
-  console.warn(`尝试断开不存在的SSH连接: ${sessionId}`)
-  return { success: false, error: '没有活动的远程连接' }
+  console.warn(`Attempting to disconnect non-existent SSH connection: ${sessionId}`)
+  return { success: false, error: 'No active remote connection' }
 }
 
 export const registerRemoteTerminalHandlers = () => {
@@ -262,7 +262,7 @@ export const registerRemoteTerminalHandlers = () => {
     }
   })
 
-  // 流式执行不通过 IPC 暴露，保持内部调用即可
+  // Streaming execution is not exposed via IPC, keep it internal
 
   ipcMain.handle('ssh:remote-disconnect', async (_event, sessionId) => {
     try {

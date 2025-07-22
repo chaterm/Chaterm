@@ -32,65 +32,22 @@ export class LiteLlmHandler implements ApiHandler {
   constructor(options: ApiHandlerOptions) {
     this.options = options
 
-    // 判断是否需要使用代理
+    // Determine if a proxy is needed
     let httpAgent: Agent | undefined = undefined
     if (this.options.needProxy !== false) {
       const proxyConfig = this.options.proxyConfig
       httpAgent = createProxyAgent(proxyConfig)
     }
 
-    // 设置超时时间，默认为 20 秒，由于内部会重试3次，所以实际超时时间为 60 秒
+    // Set timeout, default is 20 seconds, since it will retry 3 times internally, the actual timeout is 60 seconds
     const timeoutMs = this.options.requestTimeoutMs || 20000
 
     this.client = new OpenAI({
       baseURL: this.options.liteLlmBaseUrl || 'http://localhost:4000',
       apiKey: this.options.liteLlmApiKey || 'noop',
       httpAgent: httpAgent,
-      timeout: timeoutMs // 设置超时时间（毫秒）
+      timeout: timeoutMs // Set timeout (milliseconds)
     })
-  }
-
-  async calculateCost(prompt_tokens: number, completion_tokens: number): Promise<number | undefined> {
-    // Reference: https://github.com/BerriAI/litellm/blob/122ee634f434014267af104814022af1d9a0882f/litellm/proxy/spend_tracking/spend_management_endpoints.py#L1473
-    const modelId = this.options.liteLlmModelId || liteLlmDefaultModelId
-    try {
-      const response = await fetch(`${this.client.baseURL}/spend/calculate`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${this.options.liteLlmApiKey}`
-        },
-        body: JSON.stringify({
-          completion_response: {
-            model: modelId,
-            usage: {
-              prompt_tokens,
-              completion_tokens
-            }
-          }
-        })
-      })
-
-      if (response.ok) {
-        const data: { cost: number } = await response.json()
-        return data.cost
-      } else if (response.status === 404) {
-        // 如果接口不存在，使用默认计算方式
-        console.warn('Spend calculation endpoint not found, using default calculation')
-        const defaultInputPrice = 0.000003 // $3 per million tokens
-        const defaultOutputPrice = 0.000015 // $15 per million tokens
-        return prompt_tokens * defaultInputPrice + completion_tokens * defaultOutputPrice
-      } else {
-        console.error('Error calculating spend:', response.statusText)
-        return undefined
-      }
-    } catch (error) {
-      console.error('Error calculating spend:', error)
-      // 发生错误时使用默认计算方式
-      const defaultInputPrice = 0.000003 // $3 per million tokens
-      const defaultOutputPrice = 0.000015 // $15 per million tokens
-      return prompt_tokens * defaultInputPrice + completion_tokens * defaultOutputPrice
-    }
   }
 
   async *createMessage(systemPrompt: string, messages: Anthropic.Messages.MessageParam[]): ApiStream {
@@ -199,7 +156,6 @@ export class LiteLlmHandler implements ApiHandler {
     }
 
     if (usageInfo) {
-      const totalCost = await this.calculateCost(usageInfo.prompt_tokens, usageInfo.completion_tokens)
       // Extract cache-related information if available
       // Need to use type assertion since these properties are not in the standard OpenAI types
       const usage = usageInfo as {
@@ -222,7 +178,7 @@ export class LiteLlmHandler implements ApiHandler {
         cacheWriteTokens: cacheWriteTokens > 0 ? cacheWriteTokens : undefined,
         cacheReadTokens: cacheReadTokens > 0 ? cacheReadTokens : undefined,
         reasoningTokens: usage.reasoning_tokens || undefined,
-        totalCost
+        totalCost: 0
       }
     }
   }
@@ -236,12 +192,12 @@ export class LiteLlmHandler implements ApiHandler {
 
   async validateApiKey(): Promise<{ isValid: boolean; error?: string }> {
     try {
-      // 验证代理
+      // Validate proxy
       if (this.options.needProxy) {
         await checkProxyConnectivity(this.options.proxyConfig!)
       }
 
-      // 尝试创建一个最小的聊天请求来验证 API key
+      // Try to create a minimal chat request to validate the API key
       await this.client.chat.completions.create({
         model: this.options.liteLlmModelId || liteLlmDefaultModelId,
         messages: [{ role: 'user', content: 'test' }],

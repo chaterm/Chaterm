@@ -92,8 +92,8 @@ defineExpose({ updateSuggestionsPosition })
 .suggestions {
   position: absolute;
   /* 绝对定位 */
-  background: rgba(51, 51, 51, 0.95);
-  color: #f2f2f2;
+  background: var(--bg-color-quinary);
+  color: var(--text-color-secondary);
   padding: 6px 8px 0;
   border-radius: 8px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
@@ -113,7 +113,7 @@ defineExpose({ updateSuggestionsPosition })
 }
 
 .suggestions div.active {
-  background: #4a6b8a;
+  background: var(--bg-color-suggestion);
   border-radius: 4px;
 }
 
@@ -152,6 +152,7 @@ defineExpose({ updateSuggestionsPosition })
 .text {
   flex: 1;
   font-size: 14px;
+  color: var(--text-color-secondary) !important;
   word-wrap: break-word;
   word-break: break-all;
   white-space: pre-wrap;
@@ -185,8 +186,8 @@ defineExpose({ updateSuggestionsPosition })
   gap: 16px;
   padding: 0;
   margin: -4px 0 0 0;
-  background: linear-gradient(135deg, rgba(0, 0, 0, 0.12) 0%, rgba(0, 0, 0, 0.2) 100%);
-  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  background: var(--bg-color-quinary);
+  border-top: 1px solid var(--border-color-light);
   border-radius: 0 0 6px 6px;
   backdrop-filter: blur(8px);
   position: relative;
@@ -209,7 +210,7 @@ defineExpose({ updateSuggestionsPosition })
   align-items: center;
   gap: 3px;
   font-size: 10px;
-  color: rgba(255, 255, 255, 0.6);
+  color: var(--text-color-secondary);
   font-weight: 500;
   letter-spacing: 0.1px;
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
@@ -221,7 +222,7 @@ defineExpose({ updateSuggestionsPosition })
 }
 
 .hint-item:hover {
-  color: rgba(255, 255, 255, 0.9);
+  color: var(--text-color-secondary-light);
 }
 
 .key-group {
@@ -245,7 +246,7 @@ defineExpose({ updateSuggestionsPosition })
   font-weight: 500;
   line-height: 1;
   text-align: center;
-  color: rgba(255, 255, 255, 0.7);
+  color: var(--text-color-secondary);
   box-shadow:
     0 1px 1px rgba(0, 0, 0, 0.1),
     inset 0 1px 0 rgba(255, 255, 255, 0.06);
@@ -255,7 +256,7 @@ defineExpose({ updateSuggestionsPosition })
 .key:hover {
   background: linear-gradient(145deg, rgba(255, 255, 255, 0.12) 0%, rgba(255, 255, 255, 0.08) 100%);
   border-color: rgba(255, 255, 255, 0.18);
-  color: rgba(255, 255, 255, 0.85);
+  color: var(--text-color-secondary-light);
   box-shadow:
     0 1px 1px rgba(0, 0, 0, 0.15),
     inset 0 1px 0 rgba(255, 255, 255, 0.1);

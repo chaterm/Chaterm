@@ -61,31 +61,27 @@
 import { ref, onMounted, reactive, UnwrapRef } from 'vue'
 import type { TreeProps } from 'ant-design-vue/es/tree'
 import TermFileSystem from './files.vue'
-
+import { useI18n } from 'vue-i18n'
 import { getUserSessionList } from '@/api/term/term'
-
 import { userInfoStore } from '@/store'
 import { encrypt } from '@/utils/util.js'
 import { termFileContent, termFileContentSave } from '@/api/term/term'
 import EditorCode from '../Term/Editor/dragEditor.vue'
 import { editorData } from '../Term/Editor/dragEditor.vue'
 import { message, Modal, notification } from 'ant-design-vue'
-
 import { LanguageMap } from '../Term/Editor/languageMap'
 
+const { t } = useI18n()
 onMounted(() => {
   listUserSessions()
 })
 const api = window.api as any
 const expandedKeys = ref<string[]>([])
-
 // editor绑定
 const activeEditorKey = ref(null)
-
 const handleFocusEditor = (key) => {
   activeEditorKey.value = key
 }
-
 const listUserSessions = async () => {
   const sessionData: string[] = await api.sftpConnList()
   const sessionResult = sessionData.reduce<Record<string, string>>((acc, uuid) => {
@@ -223,9 +219,10 @@ const closeVimEditor = (data) => {
   if (editor?.fileChange) {
     if (!editor?.saved) {
       Modal.confirm({
-        content: `您想将更改保存到 ${editor?.filePath} 吗？`,
-        okText: '确定',
-        cancelText: '取消',
+        title: t('common.saveConfirmTitle'),
+        content: t('common.saveConfirmContent', { filePath: editor?.filePath }),
+        okText: t('common.confirm'),
+        cancelText: t('common.cancel'),
         onOk() {
           handleSave({ key: editor?.key, needClose: true, editorType: editorType })
         },
@@ -248,11 +245,12 @@ const closeVimEditor = (data) => {
 const handleSave = async (data) => {
   const { key, needClose, editorType } = data
   const editor = openEditors.find((editor) => editor?.key === key)
+  if (!editor) return
   if (editorType === 'remote') {
     const authData = {
-      uuid: editor?.key,
+      uuid: editor.key,
       filePath: editor.filePath,
-      content: editor?.vimText
+      content: editor.vimText
     }
     const auth = decodeURIComponent(encrypt(authData))
     try {
@@ -260,9 +258,9 @@ const handleSave = async (data) => {
         editor.loading = true
         const response = await termFileContentSave({ data: auth })
         if (response.error !== '') {
-          message.error(`保存失败: ${response.error}`)
+          message.error(`${t('common.saveFailed')}: ${response.error}`)
         } else {
-          message.success('保存成功')
+          message.success(t('common.saveSuccess'))
           // 关闭
           if (needClose) {
             const index = openEditors.indexOf(editor)
@@ -276,10 +274,10 @@ const handleSave = async (data) => {
           }
         }
       } else {
-        message.success('保存成功')
+        message.success(t('common.saveSuccess'))
       }
     } catch (error) {
-      message.error(`保存失败: ${error}`)
+      message.error(`${t('common.saveFailed')}: ${error}`)
     }
   } else {
     let errMsg = ''
@@ -293,10 +291,10 @@ const handleSave = async (data) => {
       errMsg = stderr
 
       if (errMsg !== '') {
-        message.error(`保存失败: ${errMsg}`)
+        message.error(`${t('common.saveFailed')}: ${errMsg}`)
         editor.loading = false
       } else {
-        message.success('保存成功')
+        message.success(t('common.saveSuccess'))
         // 关闭
         if (editor) {
           if (needClose) {
@@ -353,16 +351,14 @@ defineExpose({
 }
 .tree-container {
   margin-top: 8px;
-  max-height: 77vh;
   overflow-y: auto;
   overflow-x: hidden;
   border-radius: 2px;
-  padding: 5px;
   background-color: var(--bg-color);
 }
 
 :deep(.dark-tree) {
-  background-color: var(--bg-color-secondary);
+  background-color: var(--bg-color);
   height: 30% !important;
 
   .ant-tree-node-content-wrapper,
@@ -370,6 +366,7 @@ defineExpose({
   .ant-tree-switcher,
   .ant-tree-node-selected {
     color: var(--text-color) !important;
+    background-color: var(--bg-color) !important;
   }
 
   .ant-tree-switcher {
@@ -377,11 +374,11 @@ defineExpose({
   }
 
   .ant-tree-node-selected {
-    background-color: var(--hover-bg-color) !important;
+    background-color: var(--bg-color) !important;
   }
 
   .ant-tree-node-content-wrapper:hover {
-    background-color: var(--hover-bg-color) !important;
+    background-color: var(--bg-color) !important;
   }
 }
 
@@ -434,7 +431,7 @@ defineExpose({
     font-size: 14px;
     margin-left: 6px;
     &:hover {
-      color: #1890ff;
+      color: var(--text-color-tertiary);
     }
   }
 }
@@ -466,12 +463,12 @@ defineExpose({
     justify-content: center;
     margin-left: 10px;
     cursor: pointer;
-    color: #1890ff;
+    color: var(--text-color-tertiary);
     min-width: 10px;
     height: 24px;
     flex-shrink: 0;
     &:hover {
-      color: #40a9ff;
+      color: var(--text-color-tertiary);
     }
   }
 }

@@ -5,7 +5,7 @@ export class HeartbeatManager {
   }
 
   start(heartbeatId, interval, webContents) {
-    // 如果已有定时器，先取消
+    // If a timer already exists, cancel it first
     this.stop(heartbeatId)
 
     const timerId = setInterval(() => {

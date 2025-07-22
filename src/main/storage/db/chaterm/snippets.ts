@@ -1,11 +1,11 @@
 import Database from 'better-sqlite3'
 
-// 快捷命令相关方法
+// Shortcut command related methods
 export function userSnippetOperationLogic(db: Database.Database, operation: 'list' | 'create' | 'delete' | 'update' | 'swap', params?: any): any {
   try {
     switch (operation) {
       case 'list':
-        // 查询表中所有数据，按排序列排序
+        // Query all data in the table, ordered by sort_order
         const listStmt = db.prepare(`
             SELECT id, snippet_name, snippet_content, created_at, updated_at, sort_order
             FROM user_snippet_v1
@@ -21,7 +21,7 @@ export function userSnippetOperationLogic(db: Database.Database, operation: 'lis
         }
 
       case 'create':
-        // 创建新记录
+        // Create new record
         if (!params || !params.snippet_name || !params.snippet_content) {
           return {
             code: 400,
@@ -30,11 +30,11 @@ export function userSnippetOperationLogic(db: Database.Database, operation: 'lis
         }
 
         const createResult = db.transaction(() => {
-          // 获取当前最大的排序值
+          // Get current maximum sort value
           const maxSortResult = db.prepare('SELECT MAX(sort_order) as max_sort FROM user_snippet_v1').get() as { max_sort: number | null }
           const nextSortOrder = (maxSortResult.max_sort || 0) + 10
 
-          // 插入新记录
+          // Insert new record
           const createStmt = db.prepare(`
               INSERT INTO user_snippet_v1 (snippet_name, snippet_content, sort_order)
               VALUES (?, ?, ?)
@@ -52,7 +52,7 @@ export function userSnippetOperationLogic(db: Database.Database, operation: 'lis
         }
 
       case 'delete':
-        // 删除记录
+        // Delete record
         if (!params || !params.id) {
           return {
             code: 400,
@@ -72,7 +72,7 @@ export function userSnippetOperationLogic(db: Database.Database, operation: 'lis
         }
 
       case 'update':
-        // 修改记录
+        // Modify record
         if (!params || !params.id || !params.snippet_name || !params.snippet_content) {
           return {
             code: 400,
@@ -96,7 +96,7 @@ export function userSnippetOperationLogic(db: Database.Database, operation: 'lis
         }
 
       case 'swap':
-        // 将id1位置的记录移动到id2位置，id2之后的记录往后移动
+        // Move record at id1 to id2, records after id2 move back
         if (!params || !params.id1 || !params.id2) {
           return {
             code: 400,
@@ -104,9 +104,9 @@ export function userSnippetOperationLogic(db: Database.Database, operation: 'lis
           }
         }
 
-        // 使用事务确保数据一致性
+        // Use transaction to ensure data consistency
         const swapResult = db.transaction(() => {
-          // 获取源记录和目标记录的排序值
+          // Get sort values of source and target records
           const getRecordStmt = db.prepare('SELECT id, sort_order FROM user_snippet_v1 WHERE id = ?')
           const sourceRecord = getRecordStmt.get(params.id1)
           const targetRecord = getRecordStmt.get(params.id2)
@@ -118,7 +118,7 @@ export function userSnippetOperationLogic(db: Database.Database, operation: 'lis
             throw new Error(`Record with id ${params.id2} not found`)
           }
 
-          // 如果源记录和目标记录相同，无需移动
+          // If source and target records are the same, no movement needed
           if (params.id1 === params.id2) {
             return { changes: 0 }
           }
@@ -126,11 +126,11 @@ export function userSnippetOperationLogic(db: Database.Database, operation: 'lis
           const sourceSortOrder = sourceRecord.sort_order
           const targetSortOrder = targetRecord.sort_order
 
-          // 更新排序值
+          // Update sort value
           const updateStmt = db.prepare("UPDATE user_snippet_v1 SET sort_order = ?, updated_at = strftime('%s', 'now') WHERE id = ?")
 
           if (sourceSortOrder < targetSortOrder) {
-            // 向后移动：源记录移到目标位置，中间的记录都向前移动
+            // Move backward: source record moves to target position, intermediate records move forward
             db.prepare(
               `
                 UPDATE user_snippet_v1 
@@ -141,7 +141,7 @@ export function userSnippetOperationLogic(db: Database.Database, operation: 'lis
 
             updateStmt.run(targetSortOrder, params.id1)
           } else {
-            // 向前移动：源记录移到目标位置，中间的记录都向后移动
+            // Move forward: source record moves to target position, intermediate records move backward
             db.prepare(
               `
                 UPDATE user_snippet_v1 

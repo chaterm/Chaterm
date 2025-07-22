@@ -21,11 +21,11 @@ export async function ensureTaskExists(taskId: string): Promise<string> {
     return ''
   } catch (error) {
     console.error('Failed to check task existence in DB:', error)
-    return '' 
+    return ''
   }
 }
 
-// 获取保存的API对话历史
+// Get saved API conversation history
 export async function deleteChatermHistoryByTaskId(taskId: string): Promise<void> {
   try {
     const dbService = await ChatermDatabaseService.getInstance()
@@ -34,9 +34,7 @@ export async function deleteChatermHistoryByTaskId(taskId: string): Promise<void
     console.error('Failed to delete Chaterm history by task ID:', error)
   }
 }
-export async function getSavedApiConversationHistory(
-  taskId: string
-): Promise<Anthropic.MessageParam[]> {
+export async function getSavedApiConversationHistory(taskId: string): Promise<Anthropic.MessageParam[]> {
   try {
     const dbService = await ChatermDatabaseService.getInstance()
     const history = await dbService.getApiConversationHistory(taskId)
@@ -47,11 +45,8 @@ export async function getSavedApiConversationHistory(
   }
 }
 
-// 保存API对话历史
-export async function saveApiConversationHistory(
-  taskId: string,
-  apiConversationHistory: Anthropic.MessageParam[]
-) {
+// Save API conversation history
+export async function saveApiConversationHistory(taskId: string, apiConversationHistory: Anthropic.MessageParam[]) {
   try {
     const dbService = await ChatermDatabaseService.getInstance()
     await dbService.saveApiConversationHistory(taskId, apiConversationHistory)
@@ -80,13 +75,13 @@ export async function saveChatermMessages(taskId: string, uiMessages: ChatermMes
   }
 }
 
-// 获取任务元数据
+// Get task metadata
 export async function getTaskMetadata(taskId: string): Promise<TaskMetadata> {
   const defaultMetadata: TaskMetadata = { files_in_context: [], model_usage: [], hosts: [] }
   try {
     const dbService = await ChatermDatabaseService.getInstance()
     const metadata = await dbService.getTaskMetadata(taskId)
-    // 假设 metadata 结构与 TaskMetadata 兼容，或者需要转换
+    // Assume metadata structure is compatible with TaskMetadata, or needs conversion
     return (metadata as TaskMetadata) || defaultMetadata
   } catch (error) {
     console.error('Failed to get task metadata from DB:', error)
@@ -94,7 +89,7 @@ export async function getTaskMetadata(taskId: string): Promise<TaskMetadata> {
   }
 }
 
-// 保存任务元数据
+// Save task metadata
 export async function saveTaskMetadata(taskId: string, metadata: TaskMetadata) {
   try {
     const dbService = await ChatermDatabaseService.getInstance()
@@ -104,9 +99,9 @@ export async function saveTaskMetadata(taskId: string, metadata: TaskMetadata) {
   }
 }
 
-// 获取上下文历史
+// Get context history
 export async function getContextHistoryStorage(taskId: string): Promise<any> {
-  // 返回类型保持 any，或根据需要调整
+  // Return type remains any, or adjust as needed
   try {
     const dbService = await ChatermDatabaseService.getInstance()
     const history = await dbService.getContextHistory(taskId)
@@ -117,7 +112,7 @@ export async function getContextHistoryStorage(taskId: string): Promise<any> {
   }
 }
 
-// 保存上下文历史
+// Save context history
 export async function saveContextHistoryStorage(taskId: string, contextHistory: any) {
   try {
     const dbService = await ChatermDatabaseService.getInstance()

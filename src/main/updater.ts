@@ -2,7 +2,7 @@ import { ipcMain } from 'electron'
 import { autoUpdater } from 'electron-updater'
 
 export const registerUpdater = (targetWindow) => {
-  // 状态
+  // Status
   const status = {
     error: -1,
     available: 1,
@@ -15,14 +15,14 @@ export const registerUpdater = (targetWindow) => {
   autoUpdater.autoInstallOnAppQuit = false
 
   /**
-   * 检查更新（连接 GitHub Releases）
+   * Check for updates (connect to GitHub Releases)
    */
   ipcMain.handle('update:checkUpdate', async () => {
     return await autoUpdater.checkForUpdates()
   })
 
   /**
-   * 下载更新
+   * Download update
    */
   ipcMain.handle('update:download', async () => {
     return await autoUpdater.downloadUpdate()
@@ -32,7 +32,7 @@ export const registerUpdater = (targetWindow) => {
     return autoUpdater.quitAndInstall()
   })
 
-  // 监听 autoUpdater 各类事件
+  // Listen for various autoUpdater events
   autoUpdater.on('checking-for-update', () => {})
 
   autoUpdater.on('update-available', () => {
