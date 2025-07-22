@@ -1,14 +1,14 @@
 /**
- * 从格式化的终端输出中提取原始输出内容
- * @param formattedOutput 格式化的输出字符串，格式如：Terminal output:\n```\n内容\n```
- * @returns 提取的原始输出内容，如果未找到则返回空字符串
+ * Extracts the raw output content from formatted terminal output
+ * @param formattedOutput The formatted output string, format: Terminal output:\n```\ncontent\n```
+ * @returns The extracted raw output content, or an empty string if not found
  */
 export const extractFinalOutput = (formattedOutput: string): string => {
   if (!formattedOutput || typeof formattedOutput !== 'string') {
-    return ''
+    return formattedOutput
   }
 
-  // 主要匹配模式：Terminal output:\n```\n内容\n```
+  // Main match pattern: Terminal output:\n```\ncontent\n```
   const mainRegex = /Terminal output:\n```\n([\s\S]*?)\n```/
   const mainMatch = formattedOutput.match(mainRegex)
 
@@ -16,7 +16,7 @@ export const extractFinalOutput = (formattedOutput: string): string => {
     return mainMatch[1].trim()
   }
 
-  // 备用匹配模式：```\n内容\n```
+  // Alternative match pattern: ```\ncontent\n```
   const alternativeRegex = /```\n([\s\S]*?)\n```/
   const altMatch = formattedOutput.match(alternativeRegex)
 
@@ -24,7 +24,7 @@ export const extractFinalOutput = (formattedOutput: string): string => {
     return altMatch[1].trim()
   }
 
-  // 如果都不匹配，尝试提取 ``` 之间的所有内容
+  // If neither matches, try to extract everything between ```
   const simpleRegex = /```([\s\S]*?)```/
   const simpleMatch = formattedOutput.match(simpleRegex)
 
@@ -32,11 +32,11 @@ export const extractFinalOutput = (formattedOutput: string): string => {
     return simpleMatch[1].trim()
   }
 
-  return ''
+  return formattedOutput
 }
 
 /**
- * 测试提取函数
+ * Test extraction function
  */
 export const testExtractFinalOutput = () => {
   const testCases = [
@@ -49,17 +49,17 @@ export const testExtractFinalOutput = () => {
       expected: 'pwd\n/home/user'
     },
     {
-      input: '没有格式化的输出',
+      input: 'No formatted output',
       expected: ''
     }
   ]
 
   testCases.forEach((testCase, index) => {
     const result = extractFinalOutput(testCase.input)
-    console.log(`测试用例 ${index + 1}:`, result === testCase.expected ? '通过' : '失败')
-    console.log('输入:', testCase.input)
-    console.log('期望:', testCase.expected)
-    console.log('实际:', result)
+    console.log(`Test case ${index + 1}:`, result === testCase.expected ? 'Passed' : 'Failed')
+    console.log('Input:', testCase.input)
+    console.log('Expected:', testCase.expected)
+    console.log('Actual:', result)
     console.log('---')
   })
 }
