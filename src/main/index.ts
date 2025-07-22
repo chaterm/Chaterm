@@ -742,11 +742,13 @@ const handleProtocolRedirect = (url: string) => {
   // Parse the token and user information in the URL
   const urlObj = new URL(url)
   const userInfo = urlObj.searchParams.get('userInfo')
+  const method = urlObj.searchParams.get('method')
   if (userInfo) {
     try {
       // Send data to the rendering process
       mainWindow.webContents.send('external-login-success', {
-        userInfo: JSON.parse(userInfo)
+        userInfo: JSON.parse(userInfo),
+        method: method
       })
     } catch (error) {
       console.error('Failed to process external login data:', error)
