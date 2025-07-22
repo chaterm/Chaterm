@@ -552,7 +552,15 @@ const api = {
     ipcRenderer.on('update:autoUpdate', (event, params) => update(params))
   },
   quitAndInstall: () => ipcRenderer.invoke('update:quitAndInstall'),
-  updateTheme: (params) => ipcRenderer.invoke('update-theme', params)
+  updateTheme: (params) => ipcRenderer.invoke('update-theme', params),
+  // 添加 JumpServer 状态更新监听
+  onJumpServerStatusUpdate: (callback) => {
+    const listener = (_event, data) => {
+      callback(data)
+    }
+    ipcRenderer.on('jumpserver:status-update', listener)
+    return () => ipcRenderer.removeListener('jumpserver:status-update', listener)
+  }
 }
 // 自定义 API 用于浏览器控制
 
