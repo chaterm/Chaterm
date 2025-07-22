@@ -2,7 +2,6 @@ import { Anthropic } from '@anthropic-ai/sdk'
 import cloneDeep from 'clone-deep'
 import { setTimeout as setTimeoutPromise } from 'node:timers/promises'
 import os from 'os'
-import { v4 as uuidv4 } from 'uuid'
 import { telemetryService } from '@services/telemetry/TelemetryService'
 import pWaitFor from 'p-wait-for'
 import { serializeError } from 'serialize-error'
@@ -45,7 +44,6 @@ import WorkspaceTracker from '@integrations/workspace/WorkspaceTracker'
 import { connectAssetInfo } from '../../../storage/database'
 
 import type { Host } from '@shared/WebviewMessage'
-import { encrypt } from '../../integrations/remote-terminal/ws'
 
 type ToolResponse = string | Array<Anthropic.TextBlockParam | Anthropic.ImageBlockParam>
 type UserContent = Array<Anthropic.ContentBlockParam>
@@ -144,6 +142,8 @@ export class Task {
       }
     }
 
+    console.log('hosxxxxxxxxxxxxts', hosts)
+
     this.terminalOutput = terminalOutput // TODO:remove
     // Initialize taskId first
     if (historyItem) {
@@ -229,7 +229,6 @@ export class Task {
       this.remoteTerminalManager.setConnectionInfo(connectionInfo)
       terminalInfo = await this.remoteTerminalManager.createTerminal()
     }
-
     return terminalInfo
   }
 
