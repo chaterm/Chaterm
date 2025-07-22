@@ -1774,51 +1774,8 @@ watch(hostSearchValue, (newVal) => {
 })
 const fetchHostOptions = async (search: string) => {
   const hostsList = await (window.api as any).getUserHosts(search)
-
   let formatted = formatHosts(hostsList || [])
-
-  // 获取资产菜单数据
-  let assetHosts: { ip: string; organizationId: string }[] = []
-  try {
-    const res = await getassetMenu({ organizationId: 'firm-0001' })
-    if (res && res.data && Array.isArray(res.data.routers)) {
-      // 遍历 routers 下所有 children
-      const routers = res.data.routers
-      routers.forEach((group: any) => {
-        if (Array.isArray(group.children)) {
-          group.children.forEach((item: any) => {
-            if (item.ip && item.organizationId) {
-              assetHosts.push({ ip: item.ip, organizationId: item.organizationId })
-            }
-          })
-        }
-      })
-    }
-  } catch (e) {
-    // 忽略资产接口异常
-  }
-  // 去重，只保留唯一 ip+organizationId
-  const uniqueAssetHosts = Array.from(new Map(assetHosts.map((h) => [h.ip + '_' + h.organizationId, h])).values())
-  // 转换为 hostOptions 兼容格式
-  const assetHostOptions = uniqueAssetHosts.map((h) => ({
-    label: h.ip,
-    value: h.ip + '_' + h.organizationId,
-    uuid: h.ip + '_' + h.organizationId,
-    organizationId: h.organizationId,
-    connection: 'organization'
-  }))
-
-  for (const host of formatted) {
-    host.connection = 'personal'
-    assetHostOptions.push(host)
-  }
-
-  const allOptions = [...assetHostOptions]
-  const deduped = Array.from(new Map(allOptions.map((h) => [h.label + '_' + (h.organizationId || ''), h])).values())
-
-  hostOptions.value.splice(0, hostOptions.value.length, ...deduped)
-
-  console.log('hostOptions', hostOptions.value)
+  hostOptions.value.splice(0, hostOptions.value.length, ...formatted)
 }
 
 const showResumeButton = computed(() => {
