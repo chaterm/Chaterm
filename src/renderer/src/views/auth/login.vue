@@ -173,32 +173,35 @@ onMounted(async () => {
   await captureButtonClick(LoginFunnelEvents.ENTER_LOGIN_PAGE)
   // 监听外部登录成功事件
   const ipcRenderer = (window as any).electron?.ipcRenderer
-  ipcRenderer?.on('external-login-success', async (userData: any, method: string) => {
+  ipcRenderer?.on('external-login-success', async (event, data) => {
     console.log('external-login-success', '===================')
+    const { userInfo, method } = data
     try {
-      setUserInfo(userData)
-      localStorage.setItem('ctm-token', userData.token)
+      if (userInfo) {
+        // 保存token
+        localStorage.setItem('ctm-token', data?.token)
 
-      // 初始化用户数据库
-      const api = window.api as any
-      const dbResult = await api.initUserDatabase({ uid: userData.uid })
-      if (!dbResult.success) {
-        console.error('数据库初始化失败:', dbResult.error)
-        await captureButtonClick(LoginFunnelEvents.LOGIN_FAILED, {
-          method: method,
-          failure_reason: LoginFailureReasons.DATABASE_ERROR,
-          error_message: dbResult.error
+        // 初始化用户数据库
+        const api = window.api as any
+        const dbResult = await api.initUserDatabase({ uid: userInfo.uid })
+        if (!dbResult.success) {
+          console.error('数据库初始化失败:', dbResult.error)
+          await captureButtonClick(LoginFunnelEvents.LOGIN_FAILED, {
+            method: method,
+            failure_reason: LoginFailureReasons.DATABASE_ERROR,
+            error_message: dbResult.error
+          })
+          return false
+        }
+
+        shortcutService.init()
+
+        await captureButtonClick(LoginFunnelEvents.LOGIN_SUCCESS, {
+          method: method
         })
-        return false
+        router.push('/')
+        return true
       }
-
-      shortcutService.init()
-
-      await captureButtonClick(LoginFunnelEvents.LOGIN_SUCCESS, {
-        method: method
-      })
-      router.push('/')
-      return true
     } catch (error) {
       console.error('登录处理失败:', error)
       message.error('登录处理失败')
