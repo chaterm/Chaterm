@@ -81,6 +81,8 @@ import { GlobalOutlined } from '@ant-design/icons-vue'
 import type { MenuProps } from 'ant-design-vue'
 import { setUserInfo } from '@/utils/permission'
 import { message } from 'ant-design-vue'
+import { captureButtonClick, LoginFunnelEvents, LoginMethods, LoginFailureReasons } from '@/utils/telemetry'
+import { shortcutService } from '@/services/shortcutService'
 
 const platform = ref<string>('')
 import config from '@renderer/config'
@@ -97,6 +99,10 @@ const router = useRouter()
 
 const skipLogin = async () => {
   try {
+    await captureButtonClick(LoginFunnelEvents.SKIP_LOGIN, {
+      method: LoginMethods.GUEST
+    })
+
     localStorage.removeItem('ctm-token')
     localStorage.removeItem('userInfo')
     localStorage.removeItem('login-skipped')
@@ -125,6 +131,8 @@ const skipLogin = async () => {
       localStorage.removeItem('userInfo')
       return
     }
+
+    shortcutService.init()
 
     // 等待下一个tick，确保状态已更新
     await nextTick()
@@ -158,42 +166,48 @@ const handleExternalLogin = async () => {
     message.error('启动外部登录失败')
   }
 }
-
 onMounted(async () => {
   const api = window.api as any
   platform.value = await api.getPlatform()
 
+  await captureButtonClick(LoginFunnelEvents.ENTER_LOGIN_PAGE)
   // 监听外部登录成功事件
   const ipcRenderer = (window as any).electron?.ipcRenderer
-  ipcRenderer?.on('external-login-success', async (event, data) => {
+  ipcRenderer?.on('external-login-success', async (userData: any, method: string) => {
     console.log('external-login-success', '===================')
     try {
-      const { userInfo } = data
+      setUserInfo(userData)
+      localStorage.setItem('ctm-token', userData.token)
 
-      if (userInfo) {
-        // 保存token
-        localStorage.setItem('ctm-token', data?.token)
-
-        // 设置用户信息
-        setUserInfo(userInfo)
-
-        // 初始化用户数据库
-        const api = window.api as any
-        const dbResult = await api.initUserDatabase({ uid: userInfo.uid })
-
-        if (!dbResult.success) {
-          console.error('数据库初始化失败:', dbResult.error)
-          message.error('数据库初始化失败')
-          return
-        }
-
-        // 跳转到主页
-        router.push('/')
-        message.success('外部登录成功')
+      // 初始化用户数据库
+      const api = window.api as any
+      const dbResult = await api.initUserDatabase({ uid: userData.uid })
+      if (!dbResult.success) {
+        console.error('数据库初始化失败:', dbResult.error)
+        await captureButtonClick(LoginFunnelEvents.LOGIN_FAILED, {
+          method: method,
+          failure_reason: LoginFailureReasons.DATABASE_ERROR,
+          error_message: dbResult.error
+        })
+        return false
       }
+
+      shortcutService.init()
+
+      await captureButtonClick(LoginFunnelEvents.LOGIN_SUCCESS, {
+        method: method
+      })
+      router.push('/')
+      return true
     } catch (error) {
-      console.error('处理外部登录数据失败:', error)
+      console.error('登录处理失败:', error)
       message.error('登录处理失败')
+      await captureButtonClick(LoginFunnelEvents.LOGIN_FAILED, {
+        method: method,
+        failure_reason: LoginFailureReasons.UNKNOWN_ERROR,
+        error_message: (error as any)?.message || 'Unknown error'
+      })
+      return false
     }
   })
 })

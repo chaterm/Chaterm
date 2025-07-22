@@ -614,7 +614,7 @@ ${combinedContent}
       let errorMessage = '[ERROR] Failed to process Nova response:'
 
       if (error instanceof Error) {
-        // 检查是否存在 $response.body 并调用 body.toString()
+        // Check if $response.body exists and call body.toString()
         if ((error as any)?.$response?.body) {
           try {
             const body = (error as any).$response.body.toString()
@@ -626,7 +626,7 @@ ${combinedContent}
           errorMessage += ` ${error.message}`
         }
       } else {
-        // 如果 error 不是 Error 实例，直接转为字符串打印
+        // If error is not an Error instance, convert it to a string and print it directly
         errorMessage += ` ${String(error)}`
         console.error('Error processing Nova model response: Unknown error type.')
       }
@@ -731,7 +731,7 @@ ${combinedContent}
       const testSystemPrompt = "This is a connection test. Respond with only the word 'OK'."
       const testMessages: Anthropic.Messages.MessageParam[] = [{ role: 'user', content: 'Connection test' }]
 
-      // 验证代理
+      // Validate proxy
       if (this.options.needProxy) {
         await checkProxyConnectivity(this.options.proxyConfig!)
       }

@@ -288,7 +288,7 @@ export function connectAssetInfoLogic(db: Database.Database, uuid: string): any 
     throw error
   }
 }
-// @获取用户主机列表
+// @Get user host list
 export function getUserHostsLogic(db: Database.Database, search: string): any {
   try {
     const safeSearch = search ?? ''

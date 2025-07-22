@@ -35,6 +35,7 @@ export default {
     reconnect: '重新连接',
     newTerminal: '新终端',
     splitRight: '向右分屏',
+    splitDown: '向下分屏',
     clearTerm: '清屏',
     shrotenName: '缩短主机名',
     fontsize: '字体大小',
@@ -52,7 +53,19 @@ export default {
     quickCommandOn: '快捷命令(已开)',
     quickCommand: '快捷命令',
     add: '添加',
-    all: '全部'
+    all: '全部',
+    refresh: '刷新',
+    fullscreen: '全屏',
+    exitFullscreen: '退出全屏',
+    editFile: '编辑文件：',
+    newFile: '新建文件：',
+    saveSuccess: '保存成功',
+    saveFailed: '保存失败',
+    saveError: '保存出错',
+    saveConfirmTitle: '保存更改',
+    saveConfirmContent: '您想将更改保存到 {filePath} 吗？',
+    pleaseInputLabel: '请输入标签名称',
+    pleaseInputPrivateKey: '请输入私钥'
   },
   term: {
     welcome: '欢迎使用 Chaterm'
@@ -396,7 +409,19 @@ export default {
     complete: '已下载完毕，是否立即安装',
     install: '安装'
   },
+  files: {
+    name: '名称',
+    permissions: '权限',
+    size: '大小',
+    modifyDate: '修改日期'
+  },
   about: {
-    version: '版本'
+    version: '版本',
+    checkUpdate: '检查更新',
+    latestVersion: '最新版本',
+    downLoadUpdate: '下载更新',
+    downloading: '正在下载',
+    checkUpdateError: '检查更新失败',
+    checking: '检查中'
   }
 }

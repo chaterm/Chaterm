@@ -62,7 +62,6 @@ watch(
       activeTermId.value = ''
       activeTermOndata.value = null
       // 重置commandBar状态
-      commandBarHeight.value = 0
       commandBarVisible.value = false
     }
   },

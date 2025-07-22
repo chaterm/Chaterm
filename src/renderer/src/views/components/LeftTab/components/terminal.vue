@@ -23,10 +23,11 @@
         >
           <a-select
             v-model:value="userConfig.terminalType"
-            style="min-width: 15px; max-width: 150px; width: 33%; text-align: left"
+            class="terminal-type-select"
           >
             <a-select-option value="xterm">xterm</a-select-option>
             <a-select-option value="xterm-256color">xterm-256color</a-select-option>
+            <a-select-option value="vt100">vt100</a-select-option>
             <a-select-option value="vt102">vt102</a-select-option>
             <a-select-option value="vt220">vt220</a-select-option>
             <a-select-option value="vt320">vt320</a-select-option>
@@ -118,7 +119,7 @@ const userConfig = ref({
   cursorStyle: 'block',
   middleMouseEvent: 'paste',
   rightMouseEvent: 'contextMenu',
-  terminalType: 'xterm'
+  terminalType: 'vt100'
 })
 
 // 加载保存的配置
@@ -290,6 +291,11 @@ onMounted(async () => {
   margin-bottom: 14px;
   vertical-align: top;
   color: #ffffff;
+}
+
+.terminal-type-select {
+  width: 150px !important;
+  text-align: left;
 }
 
 .divider-container {

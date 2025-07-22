@@ -14,6 +14,7 @@ import {
 import { GlobalStateKey, SecretKey } from './state-keys'
 import { storageContext } from './storage-context'
 import { getUserInfo } from '@/utils/permission'
+import { userConfigStore } from '@/store/userConfigStore'
 
 // global
 
@@ -498,4 +499,11 @@ export async function getUserId(): Promise<any> {
   } else {
     return null
   }
+}
+
+export async function getUserConfig(): Promise<any> {
+  const store = userConfigStore()
+  // Return the actual config object from the getter
+  // Clone the object to avoid serialization issues when passing to main process
+  return JSON.parse(JSON.stringify(store.getUserConfig))
 }

@@ -127,7 +127,7 @@ export class ExtensionContextImpl implements vscode.ExtensionContext {
   }
 }
 
-// 实现一个真正可用的 Memento 类
+// Implement a truly usable Memento class
 class MementoImpl implements vscode.Memento {
   private storage: Map<string, any>
 
@@ -151,27 +151,27 @@ class MementoImpl implements vscode.Memento {
   }
 }
 
-// 实现全局状态的 Memento 类
+// Implement the Memento class for global state
 class GlobalMementoImpl extends MementoImpl {
   setKeysForSync(keys: readonly string[]): void {
-    // 实现同步逻辑
+    // Implement synchronization logic
     console.log('Keys to sync:', keys)
   }
 }
 
-// 示例：如何实例化 ExtensionContextImpl
+// Example: how to instantiate ExtensionContextImpl
 export const createExtensionContext = () => {
-  // 创建必要的 Uri 对象
+  // Create necessary Uri objects
   const extensionUri = Uri.file('/path/to/extension')
   const storageUri = Uri.file('/path/to/storage')
   const globalStorageUri = Uri.file('/path/to/global/storage')
   const logUri = Uri.file('/path/to/logs')
 
-  // 创建 Memento 对象
+  // Create Memento objects
   const workspaceState = new MementoImpl()
   const globalState = new GlobalMementoImpl()
 
-  // 创建 SecretStorage 对象
+  // Create SecretStorage object
   const secrets: vscode.SecretStorage = {
     get: (key: string) => Promise.resolve(undefined),
     store: (key: string, value: string) => Promise.resolve(),
@@ -179,7 +179,7 @@ export const createExtensionContext = () => {
     onDidChange: new vscode.EventEmitter<vscode.SecretStorageChangeEvent>().event
   }
 
-  // 创建 EnvironmentVariableCollection 对象
+  // Create EnvironmentVariableCollection object
   const environmentVariableCollection: vscode.GlobalEnvironmentVariableCollection = {
     persistent: true,
     replace: (variable: string, value: string) => {},
@@ -187,11 +187,7 @@ export const createExtensionContext = () => {
     prepend: (variable: string, value: string) => {},
     get: (variable: string) => undefined,
     forEach: (
-      callback: (
-        variable: string,
-        mutator: vscode.EnvironmentVariableMutator,
-        collection: vscode.EnvironmentVariableCollection
-      ) => any
+      callback: (variable: string, mutator: vscode.EnvironmentVariableMutator, collection: vscode.EnvironmentVariableCollection) => any
     ) => {},
     delete: (variable: string) => {},
     clear: () => {},
@@ -199,7 +195,7 @@ export const createExtensionContext = () => {
     description: 'Example Environment Variables'
   }
 
-  // 创建 Extension 对象
+  // Create Extension object
   const extension: vscode.Extension<any> = {
     id: 'example.extension',
     extensionUri: extensionUri,
@@ -210,13 +206,13 @@ export const createExtensionContext = () => {
     activate: () => Promise.resolve({})
   }
 
-  // 创建 LanguageModelAccessInformation 对象
+  // Create LanguageModelAccessInformation object
   const languageModelAccessInformation: vscode.LanguageModelAccessInformation = {
     onDidChange: new vscode.EventEmitter<void>().event,
     canSendRequest: (chat: vscode.LanguageModelChat) => true
   }
 
-  // 实例化 ExtensionContextImpl
+  // Instantiate ExtensionContextImpl
   const context = new ExtensionContextImpl(
     workspaceState,
     globalState,

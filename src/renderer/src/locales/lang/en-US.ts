@@ -35,6 +35,7 @@ export default {
     reconnect: 'Reconnect',
     newTerminal: 'New Terminal',
     splitRight: 'Split Right',
+    splitDown: 'Split Down',
     clearTerm: 'Clear Screen',
     shrotenName: 'Shorten The Host Name',
     fontsize: 'Fontsize',
@@ -52,7 +53,19 @@ export default {
     quickCommandOn: 'Quick Command (On) ',
     quickCommand: 'Quick Command',
     add: 'Add',
-    all: 'All'
+    all: 'All',
+    refresh: 'Refresh',
+    fullscreen: 'Fullscreen',
+    exitFullscreen: 'Exit Fullscreen',
+    editFile: 'Edit File:',
+    newFile: 'New File:',
+    saveSuccess: 'Save successful',
+    saveFailed: 'Save failed',
+    saveError: 'Save error',
+    saveConfirmTitle: 'Save Changes',
+    saveConfirmContent: 'Do you want to save changes to {filePath}?',
+    pleaseInputLabel: 'Please input label name',
+    pleaseInputPrivateKey: 'Please input private key'
   },
   term: {
     welcome: 'Welcome to use Chaterm'
@@ -394,7 +407,19 @@ export default {
     complete: 'Download complete, install now?',
     install: 'Install'
   },
+  files: {
+    name: 'Name',
+    permissions: 'Permissions',
+    size: 'Size',
+    modifyDate: 'Modified Date'
+  },
   about: {
-    version: 'Version'
+    version: 'Version',
+    checkUpdate: 'Check Update',
+    latestVersion: 'Latest Version',
+    downLoadUpdate: 'Download Update',
+    downloading: 'Downloading',
+    checkUpdateError: 'Check update failed',
+    checking: 'Checking'
   }
 }
