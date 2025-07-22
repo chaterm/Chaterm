@@ -1,6 +1,5 @@
 import { BrownEventEmitter } from './event'
 import { remoteSshConnect, remoteSshExecStream, remoteSshDisconnect } from '../../../ssh/agentHandle'
-import { remoteWsConnect, remoteWsExec, remoteWsDisconnect, RemoteWsConnectionInfo } from './ws'
 
 export interface RemoteTerminalProcessEvents extends Record<string, any[]> {
   line: [line: string]
@@ -159,54 +158,6 @@ export class RemoteTerminalManager {
       throw new Error('未设置连接信息，请先调用 setConnectionInfo()')
     }
 
-    // WebSocket 连接逻辑
-    if (this.connectionInfo.type === 'websocket') {
-      const { wsUrl, token, terminalId, host, organizationId, uid } = this.connectionInfo
-      if (!wsUrl || !terminalId || !host || !organizationId || uid === undefined) {
-        throw new Error('WebSocket 连接缺少 wsUrl, terminalId, host, organizationId, 或 uid')
-      }
-
-      // 使用 IP, organizationId, 和 uid 创建唯一键
-      const connectionKey = `${host}:${organizationId}:${uid}`
-
-      // 检查是否已有此连接
-      const existingSessionId = this.wsConnections.get(connectionKey)
-      if (existingSessionId) {
-        const existingTerminal = Array.from(this.terminals.values()).find((t) => t.sessionId === existingSessionId)
-        if (existingTerminal) {
-          console.log(`复用现有的 WebSocket 连接: ${connectionKey}`)
-          return existingTerminal
-        } else {
-          // 如果连接池中有记录，但终端列表中没有，说明状态不一致，移除无效记录
-          this.wsConnections.delete(connectionKey)
-        }
-      }
-
-      const wsInfo: RemoteWsConnectionInfo = {
-        wsUrl: wsUrl,
-        token: token,
-        terminalId: terminalId
-      }
-      const connectResult = await remoteWsConnect(wsInfo)
-      if (!('id' in connectResult)) {
-        throw new Error('WebSocket连接失败: ' + (connectResult.error || '未知错误'))
-      }
-
-      const newSessionId = connectResult.id
-      this.wsConnections.set(connectionKey, newSessionId) // 存储新连接
-
-      const terminalInfo: RemoteTerminalInfo = {
-        id: this.nextTerminalId++,
-        sessionId: newSessionId,
-        busy: false,
-        lastCommand: '',
-        connectionInfo: this.connectionInfo,
-        terminal: { show: () => {} }
-      }
-      this.terminals.set(terminalInfo.id, terminalInfo)
-      return terminalInfo
-    }
-
     // SSH 连接逻辑
     const existingTerminal = Array.from(this.terminals.values()).find(
       (terminal) =>
@@ -260,35 +211,7 @@ export class RemoteTerminalManager {
       process.once('error', (error) => {
         reject(error)
       })
-      if (terminalInfo.connectionInfo.type === 'websocket') {
-        remoteWsExec(terminalInfo.sessionId, command)
-          .then((execResult) => {
-            if (execResult.success) {
-              const output = execResult.output || ''
-              process['fullOutput'] = output
-              if (output) {
-                const lines = output.split('\n')
-                for (const line of lines) {
-                  if (line.trim()) process.emit('line', line)
-                }
-              }
-              console.log('WebSocket 命令执行成功')
-              process.emit('completed')
-              process.emit('continue')
-            } else {
-              const error = new Error(execResult.error || 'WebSocket命令执行失败')
-              process.emit('error', error)
-              reject(error)
-            }
-          })
-          .catch((err) => {
-            const error = err instanceof Error ? err : new Error(String(err))
-            process.emit('error', error)
-            reject(error)
-          })
-      } else {
-        process.run(terminalInfo.sessionId, command, cwd).catch(reject)
-      }
+      process.run(terminalInfo.sessionId, command, cwd).catch(reject)
     })
     const result = mergeRemotePromise(process, promise)
     return result
@@ -348,18 +271,8 @@ export class RemoteTerminalManager {
       this.processes.delete(terminalId)
       this.terminals.delete(terminalId)
       try {
-        if (terminalInfo.connectionInfo.type === 'websocket') {
-          const { host, organizationId, uid } = terminalInfo.connectionInfo
-          if (host && organizationId && uid !== undefined) {
-            const connectionKey = `${host}:${organizationId}:${uid}`
-            this.wsConnections.delete(connectionKey)
-          }
-          await remoteWsDisconnect(terminalInfo.sessionId)
-          console.log(`WebSocket 终端 ${terminalId} (Session: ${terminalInfo.sessionId}) 已断开.`)
-        } else {
-          await remoteSshDisconnect(terminalInfo.sessionId)
-          console.log(`SSH 终端 ${terminalId} (Session: ${terminalInfo.sessionId}) 已断开.`)
-        }
+        await remoteSshDisconnect(terminalInfo.sessionId)
+        console.log(`SSH 终端 ${terminalId} (Session: ${terminalInfo.sessionId}) 已断开.`)
       } catch (error) {
         console.error(`断开终端 ${terminalId} 时出错:`, error)
       }
