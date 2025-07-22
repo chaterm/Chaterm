@@ -141,10 +141,7 @@ export class Task {
         this.cwd.set(host.host, cwd?.get(host.host) || '')
       }
     }
-
-    console.log('hosxxxxxxxxxxxxts', hosts)
-
-    this.terminalOutput = terminalOutput // TODO:remove
+    this.terminalOutput = terminalOutput
     // Initialize taskId first
     if (historyItem) {
       this.taskId = historyItem.id
@@ -218,17 +215,14 @@ export class Task {
       return
     }
     let terminalInfo: RemoteTerminalInfo | null = null
-    if (this.hosts[0].connection === 'personal') {
-      let terminalUuid = ip ? this.hosts.find((host) => host.host === ip)?.uuid : this.hosts[0].uuid
-      if (!terminalUuid) {
-        console.log('Terminal UUID is not set')
-        return
-      }
-      const connectionInfo = await connectAssetInfo(terminalUuid)
-      connectionInfo.type = 'ssh'
-      this.remoteTerminalManager.setConnectionInfo(connectionInfo)
-      terminalInfo = await this.remoteTerminalManager.createTerminal()
+    let terminalUuid = ip ? this.hosts.find((host) => host.host === ip)?.uuid : this.hosts[0].uuid
+    if (!terminalUuid) {
+      console.log('Terminal UUID is not set')
+      return
     }
+    const connectionInfo = await connectAssetInfo(terminalUuid)
+    this.remoteTerminalManager.setConnectionInfo(connectionInfo)
+    terminalInfo = await this.remoteTerminalManager.createTerminal()
     return terminalInfo
   }
 
