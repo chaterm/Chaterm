@@ -228,30 +228,6 @@ export class Task {
       connectionInfo.type = 'ssh'
       this.remoteTerminalManager.setConnectionInfo(connectionInfo)
       terminalInfo = await this.remoteTerminalManager.createTerminal()
-    } else {
-      // websocket
-      let authData = {
-        user: 'test',
-        email: 'test@gmail.com',
-        ip: this.hosts[0].host,
-        organizationId: this.hosts[0].organizationId,
-        uid: 2000001,
-        terminalId: ''
-      }
-      const dynamicTerminalId = `${authData.user}@${authData.ip}:remote:${uuidv4()}`
-      authData.terminalId = dynamicTerminalId
-
-      const auth = encrypt(authData)
-      const wsUrl = 'ws://demo.chaterm.ai/v1/term-api/ws?&uuid=' + auth // Backend WebSocket address
-      let connectionInfo: ConnectionInfo = {}
-      connectionInfo.type = 'websocket'
-      connectionInfo.wsUrl = wsUrl
-      connectionInfo.terminalId = dynamicTerminalId
-      connectionInfo.host = authData.ip
-      connectionInfo.organizationId = authData.organizationId
-      connectionInfo.uid = authData.uid
-      this.remoteTerminalManager.setConnectionInfo(connectionInfo)
-      terminalInfo = await this.remoteTerminalManager.createTerminal()
     }
 
     return terminalInfo
