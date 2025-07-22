@@ -33,7 +33,7 @@ import { calculateApiCostAnthropic } from '@utils/cost'
 import { AssistantMessageContent, parseAssistantMessageV2, ToolParamName, ToolUseName, TextContent, ToolUse } from '@core/assistant-message'
 import { RemoteTerminalManager, ConnectionInfo, RemoteTerminalInfo } from '../../integrations/remote-terminal'
 import { formatResponse } from '@core/prompts/responses'
-import { addUserInstructions, SYSTEM_PROMPT } from '@core/prompts/system'
+import { addUserInstructions, SYSTEM_PROMPT, SYSTEM_PROMPT_CHAT } from '@core/prompts/system'
 import { getContextWindowInfo } from '@core/context/context-management/context-window-utils'
 import { ModelContextTracker } from '@core/context/context-tracking/ModelContextTracker'
 import { ContextManager } from '@core/context/context-management/ContextManager'
@@ -1438,16 +1438,6 @@ export class Task {
 
     await pWaitFor(() => this.userMessageContentReady)
 
-    const didToolUse = this.assistantMessageContent.some((block) => block.type === 'tool_use')
-
-    if (!didToolUse) {
-      this.userMessageContent.push({
-        type: 'text',
-        text: formatResponse.noToolsUsed()
-      })
-      this.consecutiveMistakeCount++
-    }
-
     return await this.recursivelyMakeChatermRequests(this.userMessageContent)
   }
 
@@ -1581,19 +1571,6 @@ export class Task {
 
     details += '\n\n# Context Window Usage:'
     details += `\n${lastApiReqTotalTokens.toLocaleString()} / ${(contextWindow / 1000).toLocaleString()}K tokens used (${usagePercentage}%)`
-
-    details += '\n\n# Current Mode:'
-    switch (chatSettings?.mode) {
-      case 'chat':
-        details += '\nCHAT MODE'
-        break
-      case 'cmd':
-        details += '\CMD MODE'
-        break
-      case 'agent':
-        details += '\nAGENT MODE'
-        break
-    }
 
     return `<environment_details>\n${details.trim()}\n</environment_details>`
   }
@@ -2150,6 +2127,30 @@ export class Task {
     }
 
     await this.say('text', content, block.partial)
+
+    // If this is a complete text block and the last content block, wait for user input
+    if (!block.partial && this.currentStreamingContentIndex === this.assistantMessageContent.length - 1) {
+      // Check if there is a tool call
+      // const hasToolUse = this.assistantMessageContent.some((block) => block.type === 'tool_use')
+
+      // if (!hasToolUse) {
+      const { response, text } = await this.ask('followup', '', false)
+
+      if (response === 'yesButtonClicked') {
+        return
+      }
+
+      if (text) {
+        await this.say('user_feedback', text)
+        this.userMessageContent.push({
+          type: 'text',
+          text: `The user has provided feedback on the response. Consider their input to continue the conversation.\n<feedback>\n${text}\n</feedback>`
+        })
+      }
+
+      this.didAlreadyUseTool = true
+      // }
+    }
   }
 
   private processThinkingTags(content: string): string {
@@ -2188,7 +2189,11 @@ export class Task {
   }
 
   private async buildSystemPrompt(): Promise<string> {
-    let systemPrompt = await SYSTEM_PROMPT()
+    const chatSettings = await getGlobalState('chatSettings')
+    let systemPrompt = SYSTEM_PROMPT
+    if (chatSettings?.mode === 'chat') {
+      systemPrompt = SYSTEM_PROMPT_CHAT
+    }
     let systemInformation = '# SYSTEM INFORMATION\n\n'
 
     // Check if hosts exist and are not empty
