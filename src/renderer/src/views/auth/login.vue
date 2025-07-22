@@ -174,13 +174,12 @@ onMounted(async () => {
   // 监听外部登录成功事件
   const ipcRenderer = (window as any).electron?.ipcRenderer
   ipcRenderer?.on('external-login-success', async (event, data) => {
-    console.log('external-login-success', '===================')
     const { userInfo, method } = data
     try {
       if (userInfo) {
         // 保存token
-        localStorage.setItem('ctm-token', data?.token)
-
+        localStorage.setItem('ctm-token', userInfo?.token)
+        setUserInfo(userInfo)
         // 初始化用户数据库
         const api = window.api as any
         const dbResult = await api.initUserDatabase({ uid: userInfo.uid })
