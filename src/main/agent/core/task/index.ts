@@ -39,7 +39,7 @@ import { ModelContextTracker } from '@core/context/context-tracking/ModelContext
 import { ContextManager } from '@core/context/context-management/ContextManager'
 import { getSavedApiConversationHistory, getChatermMessages, saveApiConversationHistory, saveChatermMessages } from '@core/storage/disk'
 
-import { getGlobalState } from '@core/storage/state'
+import { getGlobalState, getUserConfig } from '@core/storage/state'
 import WorkspaceTracker from '@integrations/workspace/WorkspaceTracker'
 import { connectAssetInfo } from '../../../storage/database'
 
@@ -2316,7 +2316,16 @@ export class Task {
 
     const settingsCustomInstructions = this.customInstructions?.trim()
 
-    const preferredLanguageInstructions = `# Language Settings:\n\nDefault language : ${DEFAULT_LANGUAGE_SETTINGS}.\n\n rules:1.You should response based on the user's question language 2.This applies to ALL parts of your response, including thinking sections, explanations, and any other text content.`
+    // Get user language setting from renderer process
+    let userLanguage = DEFAULT_LANGUAGE_SETTINGS
+    try {
+      const userConfig = await getUserConfig()
+      if (userConfig && userConfig.language) {
+        userLanguage = userConfig.language
+      }
+    } catch (error) {}
+
+    const preferredLanguageInstructions = `# Language Settings:\n\nDefault language : ${userLanguage}.\n\n rules:1.You should response based on the user's question language 2.This applies to ALL parts of your response, including thinking sections, explanations, and any other text content.`
     if (settingsCustomInstructions || preferredLanguageInstructions) {
       const userInstructions = addUserInstructions(settingsCustomInstructions, preferredLanguageInstructions)
       systemPrompt += userInstructions

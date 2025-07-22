@@ -99,7 +99,6 @@ class PostHogClient {
   private telemetryEnabled: boolean = false
   /** Current version of the extension */
   private readonly version: string = extensionVersion
-  private readonly isDev = process.env.IS_DEV
 
   /**
    * Private constructor to enforce singleton pattern
@@ -145,14 +144,13 @@ class PostHogClient {
    * @param event The event to capture with its properties
    */
   public capture(event: { event: string; properties?: any }): void {
-    // Only send events if telemetry is enabled
     if (this.telemetryEnabled) {
-      // Include extension version in all event properties
       const propertiesWithVersion = {
         ...event.properties,
         extension_version: this.version,
-        is_dev: this.isDev
+        is_dev: process.env.IS_DEV
       }
+      console.log('[PostHog] Capturing event properties:', propertiesWithVersion)
       this.client.capture({
         distinctId: this.distinctId,
         event: event.event,

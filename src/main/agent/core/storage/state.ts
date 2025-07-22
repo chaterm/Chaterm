@@ -171,6 +171,23 @@ export async function getUserId(): Promise<any> {
   return await mainWindow.webContents.executeJavaScript(script)
 }
 
+// Get user config from renderer process
+export async function getUserConfig(): Promise<any> {
+  if (!mainWindow) throw new Error('Main window not initialized')
+
+  const script = `
+      (async () => {
+        if (window.storageAPI && window.storageAPI.getUserConfig) {
+          return await window.storageAPI.getUserConfig();
+        } else {
+          throw new Error('Storage API not available in renderer');
+        }
+      })()
+    `
+
+  return await mainWindow.webContents.executeJavaScript(script)
+}
+
 // Test function
 export async function testStorageFromMain(): Promise<void> {
   // if (!mainWindow) {
