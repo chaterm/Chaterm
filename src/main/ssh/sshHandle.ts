@@ -332,7 +332,7 @@ export const registerSSHHandlers = () => {
     if (sshType === 'jumpserver') {
       // 路由到 JumpServer 连接
       try {
-        const result = await handleJumpServerConnection(connectionInfo)
+        const result = await handleJumpServerConnection(connectionInfo, _event)
 
         // 连接成功后，发送初始化数据（模拟 attemptSecondaryConnection 的行为）
         if (result.status === 'connected') {
