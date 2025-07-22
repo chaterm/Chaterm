@@ -34,7 +34,7 @@ export const truncateText = (text: string, maxLength = 15): string => {
 
 export const formatHosts = (hosts: any[]): any[] => {
   return hosts.map((item) => ({
-    label: item.asset_ip || item.host || '',
+    label: item.host || '',
     value: item.uuid,
     uuid: item.uuid
   }))
