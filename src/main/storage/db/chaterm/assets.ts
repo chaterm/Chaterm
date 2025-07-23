@@ -508,17 +508,33 @@ export function connectAssetInfoLogic(db: Database.Database, uuid: string): any 
 export function getUserHostsLogic(db: Database.Database, search: string): any {
   try {
     const safeSearch = search ?? ''
-    const stmt = db.prepare(`
-        SELECT asset_ip, uuid
+
+    // 查询个人资产
+    const personalStmt = db.prepare(`
+        SELECT asset_ip as host, uuid, 'person' as asset_type
         FROM t_assets
-        WHERE asset_ip LIKE '${safeSearch}%'
+        WHERE asset_ip LIKE '${safeSearch}%' AND asset_type = 'person'
         GROUP BY asset_ip
-        LIMIT 10
       `)
-    const results = stmt.all() || []
-    return results.map((item: any) => ({
-      host: item.asset_ip,
-      uuid: item.uuid
+    const personalResults = personalStmt.all() || []
+
+    // 查询组织资产
+    const orgStmt = db.prepare(`
+        SELECT host, uuid, jump_server_type as asset_type
+        FROM t_organization_assets
+        WHERE host LIKE '${safeSearch}%'
+        GROUP BY host
+      `)
+    const orgResults = orgStmt.all() || []
+
+    // 合并结果并去重
+    const allResults = [...personalResults, ...orgResults]
+    const uniqueResults = Array.from(new Map(allResults.map((item) => [item.host, item])).values()).slice(0, 10)
+
+    return uniqueResults.map((item: any) => ({
+      host: item.host,
+      uuid: item.uuid,
+      asset_type: item.asset_type
     }))
   } catch (error) {
     console.error('Chaterm database get user hosts error:', error)

@@ -1,6 +1,6 @@
 import { BrownEventEmitter } from './event'
 import { remoteSshConnect, remoteSshExecStream, remoteSshDisconnect } from '../../../ssh/agentHandle'
-import { remoteWsConnect, remoteWsExec, remoteWsDisconnect, RemoteWsConnectionInfo } from './ws'
+import { handleJumpServerConnection, jumpserverShellStreams, jumpserverMarkedCommands } from './jumpserverHandle'
 
 export interface RemoteTerminalProcessEvents extends Record<string, any[]> {
   line: [line: string]
@@ -25,14 +25,9 @@ export interface ConnectionInfo {
    */
   privateKey?: string
   passphrase?: string
-  // For WebSocket connections, these are required.
-  type?: 'ssh' | 'websocket'
-  wsUrl?: string
-  token?: string
-  terminalId?: string
-  email?: string
-  organizationId?: string
-  uid?: number | string
+  asset_ip?: string
+  targetIp?: string
+  sshType?: string
 }
 
 export interface RemoteTerminalInfo {
@@ -57,67 +52,164 @@ export class RemoteTerminalProcess extends BrownEventEmitter<RemoteTerminalProce
     super()
   }
 
-  async run(sessionId: string, command: string, cwd?: string): Promise<void> {
+  async run(sessionId: string, command: string, cwd?: string, sshType?: string): Promise<void> {
     try {
-      // 清理cwd中的ANSI转义序列
-      const cleanCwd = cwd ? cwd.replace(/\x1B\[[^m]*m/g, '').replace(/\x1B\[[?][0-9]*[hl]/g, '') : undefined
-      const commandToExecute = cleanCwd ? `cd ${cleanCwd} && ${command}` : command
-
-      // 用于处理跨 chunk 的残余行
-      let lineBuffer = ''
-
-      // 通过流式方法执行远程命令
-      const execResult = await remoteSshExecStream(sessionId, commandToExecute, (chunk: string) => {
-        // 累积完整输出
-        this.fullOutput += chunk
-
-        if (!this.isListening) return
-
-        // 处理行切分，保留末尾不完整部分
-        let data = lineBuffer + chunk
-        const lines = data.split(/\r?\n/)
-        lineBuffer = lines.pop() || '' // 最后一个可能是不完整行，缓存起来
-
-        for (const line of lines) {
-          if (line.trim()) this.emit('line', line)
-        }
-        // 更新检索索引
-        this.lastRetrievedIndex = this.fullOutput.length
-      })
-
-      // 处理命令结束后的残余行
-      if (lineBuffer && this.isListening) {
-        this.emit('line', lineBuffer)
+      if (sshType === 'jumpserver') {
+        await this.runJumpServerCommand(sessionId, command, cwd)
+      } else if (sshType === 'ssh') {
+        await this.runSshCommand(sessionId, command, cwd)
       }
-
-      if (execResult && execResult.success) {
-        this.emit('completed')
-      } else {
-        const error = new Error(execResult?.error || '远程命令执行失败')
-        this.emit('error', error)
-        throw error
-      }
-
-      // 触发 continue，以便外部 promise 解析
-      this.emit('continue')
     } catch (error) {
-      const err = error instanceof Error ? error : new Error(String(error))
-      console.log('catch中的error事件:', err.message)
-      console.log('错误堆栈:', err.stack)
-      this.emit('error', err)
-      throw err
+      this.emit('error', error instanceof Error ? error : new Error(String(error)))
+      throw error
     }
   }
 
-  continue(): void {
-    this.isListening = false
+  private async runSshCommand(sessionId: string, command: string, cwd?: string): Promise<void> {
+    const cleanCwd = cwd ? cwd.replace(/\x1B\[[^m]*m/g, '').replace(/\x1B\[[?][0-9]*[hl]/g, '') : undefined
+    const commandToExecute = cleanCwd ? `cd ${cleanCwd} && ${command}` : command
+
+    let lineBuffer = ''
+
+    const execResult = await remoteSshExecStream(sessionId, commandToExecute, (chunk: string) => {
+      this.fullOutput += chunk
+
+      if (!this.isListening) return
+
+      let data = lineBuffer + chunk
+      const lines = data.split(/\r?\n/)
+      lineBuffer = lines.pop() || ''
+
+      for (const line of lines) {
+        if (line.trim()) this.emit('line', line)
+      }
+      this.lastRetrievedIndex = this.fullOutput.length
+    })
+
+    if (lineBuffer && this.isListening) {
+      this.emit('line', lineBuffer)
+    }
+
+    if (execResult && execResult.success) {
+      this.emit('completed')
+    } else {
+      const error = new Error(execResult?.error || '远程命令执行失败')
+      this.emit('error', error)
+      throw error
+    }
+    // 触发 continue，以便外部 promise 解析
     this.emit('continue')
   }
 
-  getUnretrievedOutput(): string {
-    const unretrieved = this.fullOutput.slice(this.lastRetrievedIndex)
-    this.lastRetrievedIndex = this.fullOutput.length
-    return unretrieved
+  private async runJumpServerCommand(sessionId: string, command: string, cwd?: string): Promise<void> {
+    const stream = jumpserverShellStreams.get(sessionId)
+    if (!stream) {
+      throw new Error('未找到 JumpServer 连接')
+    }
+
+    let cleanCwd = cwd ? cwd.replace(/\x1B\[[^m]*m/g, '').replace(/\x1B\[[?][0-9]*[hl]/g, '') : undefined
+    const commandToExecute = cleanCwd ? `cd ${cleanCwd} && ${command}` : command
+
+    // 创建唯一的命令标记
+    const startMarker = `CHATERM_START_${Date.now()}_${Math.random().toString(36).substr(2, 8)}`
+    const endMarker = `CHATERM_END_${Date.now()}_${Math.random().toString(36).substr(2, 8)}`
+
+    // 包装命令，添加开始和结束标记
+    const wrappedCommand = `echo "${startMarker}"; ${commandToExecute}; EXIT_CODE=$?; echo "${endMarker}:$EXIT_CODE"`
+
+    jumpserverMarkedCommands.set(sessionId, {
+      marker: startMarker,
+      output: '',
+      completed: false,
+      lastActivity: Date.now(),
+      idleTimer: null
+    })
+
+    let lineBuffer = ''
+    let commandStarted = false
+    let commandCompleted = false
+    let exitCode = 0
+
+    const processLine = (line: string) => {
+      // 检测命令开始标记
+      if (line.includes(startMarker)) {
+        commandStarted = true
+        console.log(`[JumpServer ${sessionId}] 检测到命令开始标记`)
+        return
+      }
+
+      // 检测命令结束标记
+      if (line.includes(endMarker)) {
+        console.log(`[JumpServer ${sessionId}] 检测到命令结束标记: ${line}`)
+        const match = line.match(new RegExp(`${endMarker.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}:(\\d+)`))
+        if (match && match[1]) {
+          exitCode = parseInt(match[1], 10)
+          console.log(`[JumpServer ${sessionId}] 命令退出码: ${exitCode}`)
+        }
+
+        // 立即完成命令
+        if (!commandCompleted) {
+          commandCompleted = true
+          console.log(`[JumpServer ${sessionId}] 命令执行完成，发送 completed 事件`)
+
+          // 发送剩余的缓冲区内容
+          if (lineBuffer && this.isListening) {
+            this.emit('line', lineBuffer)
+          }
+
+          this.emit('completed')
+          stream.removeListener('data', dataHandler)
+          jumpserverMarkedCommands.delete(sessionId)
+        }
+        this.emit('continue')
+        return
+      }
+
+      // 只有在命令开始标记之后且未完成时才发送输出行
+      if (commandStarted && !commandCompleted && line.trim()) {
+        this.emit('line', line)
+      }
+    }
+
+    const dataHandler = (data: Buffer) => {
+      if (commandCompleted) return
+
+      const chunk = data.toString()
+      this.fullOutput += chunk
+
+      if (!this.isListening) return
+
+      // 处理数据，包括缓冲区中的内容
+      let dataStr = lineBuffer + chunk
+      const lines = dataStr.split(/\r?\n/)
+      lineBuffer = lines.pop() || ''
+
+      // 处理完整的行
+      for (const line of lines) {
+        processLine(line)
+      }
+
+      // 检查缓冲区中是否包含结束标记（处理同行情况）
+      if (lineBuffer.includes(endMarker)) {
+        console.log(`[JumpServer ${sessionId}] 在缓冲区中检测到结束标记: ${lineBuffer}`)
+        processLine(lineBuffer)
+        lineBuffer = ''
+      }
+    }
+
+    stream.on('data', dataHandler)
+    stream.write(`${wrappedCommand}\r`)
+
+    // 保留超时机制作为备份
+    setTimeout(() => {
+      if (!commandCompleted) {
+        console.log(`[JumpServer ${sessionId}] 命令执行超时，强制完成`)
+        commandCompleted = true
+        stream.removeListener('data', dataHandler)
+        jumpserverMarkedCommands.delete(sessionId)
+        this.emit('error', new Error('JumpServer 命令执行超时'))
+      }
+    }, 30000)
   }
 }
 
@@ -140,7 +232,6 @@ export function mergeRemotePromise(process: RemoteTerminalProcess, promise: Prom
 export class RemoteTerminalManager {
   private terminals: Map<number, RemoteTerminalInfo> = new Map()
   private processes: Map<number, RemoteTerminalProcess> = new Map()
-  private wsConnections: Map<string, string> = new Map() // connectionKey -> sessionId
   private nextTerminalId = 1
   private connectionInfo: ConnectionInfo | null = null
 
@@ -159,55 +250,7 @@ export class RemoteTerminalManager {
       throw new Error('未设置连接信息，请先调用 setConnectionInfo()')
     }
 
-    // WebSocket 连接逻辑
-    if (this.connectionInfo.type === 'websocket') {
-      const { wsUrl, token, terminalId, host, organizationId, uid } = this.connectionInfo
-      if (!wsUrl || !terminalId || !host || !organizationId || uid === undefined) {
-        throw new Error('WebSocket 连接缺少 wsUrl, terminalId, host, organizationId, 或 uid')
-      }
-
-      // 使用 IP, organizationId, 和 uid 创建唯一键
-      const connectionKey = `${host}:${organizationId}:${uid}`
-
-      // 检查是否已有此连接
-      const existingSessionId = this.wsConnections.get(connectionKey)
-      if (existingSessionId) {
-        const existingTerminal = Array.from(this.terminals.values()).find((t) => t.sessionId === existingSessionId)
-        if (existingTerminal) {
-          console.log(`复用现有的 WebSocket 连接: ${connectionKey}`)
-          return existingTerminal
-        } else {
-          // 如果连接池中有记录，但终端列表中没有，说明状态不一致，移除无效记录
-          this.wsConnections.delete(connectionKey)
-        }
-      }
-
-      const wsInfo: RemoteWsConnectionInfo = {
-        wsUrl: wsUrl,
-        token: token,
-        terminalId: terminalId
-      }
-      const connectResult = await remoteWsConnect(wsInfo)
-      if (!('id' in connectResult)) {
-        throw new Error('WebSocket连接失败: ' + (connectResult.error || '未知错误'))
-      }
-
-      const newSessionId = connectResult.id
-      this.wsConnections.set(connectionKey, newSessionId) // 存储新连接
-
-      const terminalInfo: RemoteTerminalInfo = {
-        id: this.nextTerminalId++,
-        sessionId: newSessionId,
-        busy: false,
-        lastCommand: '',
-        connectionInfo: this.connectionInfo,
-        terminal: { show: () => {} }
-      }
-      this.terminals.set(terminalInfo.id, terminalInfo)
-      return terminalInfo
-    }
-
-    // SSH 连接逻辑
+    // 检查是否已存在相同的连接
     const existingTerminal = Array.from(this.terminals.values()).find(
       (terminal) =>
         terminal.connectionInfo.host === this.connectionInfo?.host &&
@@ -220,9 +263,35 @@ export class RemoteTerminalManager {
     }
 
     try {
-      const connectResult = await remoteSshConnect(this.connectionInfo)
-      if (!connectResult || !connectResult.id) {
-        throw new Error('SSH 连接失败: ' + (connectResult?.error || '未知错误'))
+      let connectResult: any
+
+      // 根据 sshType 选择连接方式
+      if (this.connectionInfo.sshType === 'jumpserver') {
+        // 使用 JumpServer 连接
+        const jumpServerConnectionInfo = {
+          id: `jumpserver_${Date.now()}_${Math.random().toString(36).substr(2, 12)}`,
+          host: this.connectionInfo.asset_ip!,
+          port: this.connectionInfo.port,
+          username: this.connectionInfo.username!,
+          password: this.connectionInfo.password,
+          privateKey: this.connectionInfo.privateKey,
+          passphrase: this.connectionInfo.passphrase,
+          targetIp: this.connectionInfo.host!
+        }
+
+        connectResult = await handleJumpServerConnection(jumpServerConnectionInfo)
+        if (!connectResult || connectResult.status !== 'connected') {
+          throw new Error('JumpServer 连接失败: ' + (connectResult?.message || '未知错误'))
+        }
+
+        // 为 JumpServer 连接设置 ID
+        connectResult.id = jumpServerConnectionInfo.id
+      } else {
+        // 使用标准 SSH 连接
+        connectResult = await remoteSshConnect(this.connectionInfo)
+        if (!connectResult || !connectResult.id) {
+          throw new Error('SSH 连接失败: ' + (connectResult?.error || '未知错误'))
+        }
       }
 
       const terminalInfo: RemoteTerminalInfo = {
@@ -260,44 +329,10 @@ export class RemoteTerminalManager {
       process.once('error', (error) => {
         reject(error)
       })
-      if (terminalInfo.connectionInfo.type === 'websocket') {
-        remoteWsExec(terminalInfo.sessionId, command)
-          .then((execResult) => {
-            if (execResult.success) {
-              const output = execResult.output || ''
-              process['fullOutput'] = output
-              if (output) {
-                const lines = output.split('\n')
-                for (const line of lines) {
-                  if (line.trim()) process.emit('line', line)
-                }
-              }
-              console.log('WebSocket 命令执行成功')
-              process.emit('completed')
-              process.emit('continue')
-            } else {
-              const error = new Error(execResult.error || 'WebSocket命令执行失败')
-              process.emit('error', error)
-              reject(error)
-            }
-          })
-          .catch((err) => {
-            const error = err instanceof Error ? err : new Error(String(err))
-            process.emit('error', error)
-            reject(error)
-          })
-      } else {
-        process.run(terminalInfo.sessionId, command, cwd).catch(reject)
-      }
+      process.run(terminalInfo.sessionId, command, cwd, terminalInfo.connectionInfo.sshType).catch(reject)
     })
     const result = mergeRemotePromise(process, promise)
     return result
-  }
-
-  // 获取未检索的输出
-  getUnretrievedOutput(terminalId: number): string {
-    const process = this.processes.get(terminalId)
-    return process ? process.getUnretrievedOutput() : ''
   }
 
   // 检查进程是否处于热状态
@@ -337,7 +372,6 @@ export class RemoteTerminalManager {
     await Promise.all(disconnectPromises)
     this.terminals.clear()
     this.processes.clear()
-    this.wsConnections.clear() // 清空 WebSocket 连接池
     console.log('所有远程终端已关闭。')
   }
 
@@ -348,14 +382,22 @@ export class RemoteTerminalManager {
       this.processes.delete(terminalId)
       this.terminals.delete(terminalId)
       try {
-        if (terminalInfo.connectionInfo.type === 'websocket') {
-          const { host, organizationId, uid } = terminalInfo.connectionInfo
-          if (host && organizationId && uid !== undefined) {
-            const connectionKey = `${host}:${organizationId}:${uid}`
-            this.wsConnections.delete(connectionKey)
+        if (terminalInfo.connectionInfo.sshType === 'jumpserver') {
+          const { jumpserverConnections, jumpserverShellStreams } = await import('./jumpserverHandle')
+
+          const stream = jumpserverShellStreams.get(terminalInfo.sessionId)
+          if (stream) {
+            stream.end()
+            jumpserverShellStreams.delete(terminalInfo.sessionId)
           }
-          await remoteWsDisconnect(terminalInfo.sessionId)
-          console.log(`WebSocket 终端 ${terminalId} (Session: ${terminalInfo.sessionId}) 已断开.`)
+
+          const conn = jumpserverConnections.get(terminalInfo.sessionId)
+          if (conn) {
+            conn.end()
+            jumpserverConnections.delete(terminalInfo.sessionId)
+          }
+
+          console.log(`JumpServer 终端 ${terminalId} (Session: ${terminalInfo.sessionId}) 已断开.`)
         } else {
           await remoteSshDisconnect(terminalInfo.sessionId)
           console.log(`SSH 终端 ${terminalId} (Session: ${terminalInfo.sessionId}) 已断开.`)
