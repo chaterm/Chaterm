@@ -202,18 +202,37 @@ export class Task {
       }
       return new Promise<string>((resolve, reject) => {
         const outputLines: string[] = []
+        let isCompleted = false
         const process = this.remoteTerminalManager.runCommand(terminalInfo, command, cwd)
-
+        const timeout = setTimeout(() => {
+          if (!isCompleted) {
+            isCompleted = true
+            const result = outputLines.join('\n')
+            resolve(result)
+          }
+        }, 10000)
         process.on('line', (line) => {
           outputLines.push(line)
         })
 
         process.on('error', (error) => {
           reject(new Error(`Command execution failed: ${error.message}`))
+          clearTimeout(timeout)
+          if (!isCompleted) {
+            isCompleted = true
+            resolve('')
+          }
         })
 
         process.once('completed', () => {
-          resolve(outputLines.join('\n'))
+          clearTimeout(timeout)
+          setTimeout(() => {
+            if (!isCompleted) {
+              isCompleted = true
+              const result = outputLines.join('\n')
+              resolve(result)
+            }
+          }, 100)
         })
       })
     } catch (err) {
