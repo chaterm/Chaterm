@@ -335,12 +335,6 @@ export class RemoteTerminalManager {
     return result
   }
 
-  // 获取未检索的输出
-  getUnretrievedOutput(terminalId: number): string {
-    const process = this.processes.get(terminalId)
-    return process ? process.getUnretrievedOutput() : ''
-  }
-
   // 检查进程是否处于热状态
   isProcessHot(terminalId: number): boolean {
     const process = this.processes.get(terminalId)
