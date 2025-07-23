@@ -198,18 +198,6 @@ const onDragAdd = (evt) => {
 const termRefMap = ref<Record<string, any>>({})
 const sshConnectRefMap = ref<Record<string, any>>({})
 
-const setTermRef = (el: Element | ComponentPublicInstance | null, tabId: string) => {
-  if (el && '$props' in el) {
-    termRefMap.value[tabId] = el as ComponentPublicInstance & {
-      handleResize: () => void
-      autoExecuteCode: (cmd: string) => void
-      getTerminalBufferContent?: () => string | null
-    }
-  } else {
-    delete termRefMap.value[tabId]
-  }
-}
-
 const setSshConnectRef = (el: Element | ComponentPublicInstance | null, tabId: string) => {
   if (el && '$props' in el) {
     sshConnectRefMap.value[tabId] = el as ComponentPublicInstance & {
