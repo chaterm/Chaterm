@@ -142,6 +142,7 @@ export type ChatermAsk =
   | 'resume_completed_task'
   | 'mistake_limit_reached'
   | 'auto_approval_max_req_reached'
+  | 'interactive_command' // New: Interactive command prompt
   // | 'new_task'
   | 'condense'
   | 'report_bug'
