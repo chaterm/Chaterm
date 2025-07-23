@@ -340,7 +340,10 @@ export default {
     copyToClipboard: '已复制到剪贴板',
     retry: '重试',
     taskCompleted: '任务已完成',
-    newTask: '开始新任务'
+    newTask: '开始新任务',
+    interactivePrompt: '交互式命令提示',
+    interactiveInputPlaceholder: '请输入 y 或 n',
+    submit: '提交'
   },
   keyChain: {
     newKey: '添加密钥',

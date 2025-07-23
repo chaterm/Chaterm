@@ -72,6 +72,8 @@ export class Task {
   private askResponse?: ChatermAskResponse
   private askResponseText?: string
   private lastMessageTs?: number
+  private lastAskType?: ChatermAsk
+  private currentSessionId?: string
   private consecutiveAutoApprovedRequestsCount: number = 0
   private consecutiveMistakeCount: number = 0
   private abort: boolean = false
@@ -372,6 +374,9 @@ export class Task {
       throw new Error('Chaterm instance aborted')
     }
 
+    // Set last ask type for interactive command handling
+    this.lastAskType = type
+
     let askTsRef = { value: Date.now() }
     this.lastMessageTs = askTsRef.value
 
@@ -479,6 +484,26 @@ export class Task {
     for (const [key, value] of cwd.entries()) {
       if (this.cwd.has(key)) {
         this.cwd.set(key, value)
+      }
+    }
+
+    // Handle interactive command input
+    if (askResponse === 'messageResponse' && text && this.lastAskType === 'interactive_command') {
+      // Send input directly to SSH stream
+      if (this.currentSessionId) {
+        try {
+          const { remoteSshSendInput } = await import('../../../ssh/agentHandle')
+          const result = await remoteSshSendInput(this.currentSessionId, text)
+          if (!result.success) {
+            console.error('Failed to send interactive input:', result.error)
+          } else {
+            console.log('Interactive input sent successfully to session:', this.currentSessionId)
+          }
+        } catch (error) {
+          console.error('Failed to send interactive input:', error)
+        }
+      } else {
+        console.error('No current session ID available for interactive input')
       }
     }
   }
@@ -837,6 +862,15 @@ export class Task {
       let outputBufferSize: number = 0
       let chunkTimer: NodeJS.Timeout | null = null
       let chunkEnroute = false
+      let isInteractiveCommand = false
+      let interactivePrompt = ''
+      let waitingForUserInput = false
+      this.currentSessionId = terminalInfo.sessionId
+      let currentSessionId = terminalInfo.sessionId
+
+      // Check if command is interactive
+      const interactiveCommands = ['rm -i', 'rm -I', 'cp -i', 'mv -i', 'rmdir -i']
+      isInteractiveCommand = interactiveCommands.some((cmd) => command.includes(cmd))
 
       const flushBuffer = async (force = false) => {
         if (!force && (chunkEnroute || outputBuffer.length === 0)) {
@@ -870,6 +904,36 @@ export class Task {
       let result = ''
       process.on('line', async (line) => {
         result += line + '\n'
+
+        // Check for interactive prompts
+        if (isInteractiveCommand && !waitingForUserInput) {
+          const promptPatterns = [
+            /^rm: remove regular file '([^']+)'\? /,
+            /^rm: remove directory '([^']+)'\? /,
+            /^overwrite '([^']+)'\? /,
+            /^cp: overwrite '([^']+)'\? /,
+            /^mv: overwrite '([^']+)'\? /,
+            /^rmdir: remove directory '([^']+)'\? /,
+            /^rm: remove regular file '([^']+)'\?$/,
+            /^rm: remove directory '([^']+)'\?$/,
+            /^overwrite '([^']+)'\?$/,
+            /^cp: overwrite '([^']+)'\?$/,
+            /^mv: overwrite '([^']+)'\?$/,
+            /^rmdir: remove directory '([^']+)'\?$/
+          ]
+
+          for (const pattern of promptPatterns) {
+            const match = line.match(pattern)
+            if (match) {
+              console.log('Interactive prompt detected:', line)
+              waitingForUserInput = true
+              interactivePrompt = line
+              // Send interactive prompt to frontend
+              await this.ask('interactive_command', `Interactive command prompt: ${line}\nPlease respond with 'y' for yes or 'n' for no:`, false)
+              return
+            }
+          }
+        }
 
         outputBuffer.push(line)
         outputBufferSize += Buffer.byteLength(line, 'utf8')
@@ -2211,14 +2275,7 @@ export class Task {
             console.log(`Fetching system information for host: ${host.host}`)
 
             // Optimization: Get all system information at once to avoid multiple network requests
-            const systemInfoScript = `
-              echo "OS_VERSION:$(uname -a)"
-              echo "DEFAULT_SHELL:$SHELL"
-              echo "HOME_DIR:$HOME"
-              echo "HOSTNAME:$HOSTNAME"
-              echo "USERNAME:$(whoami)"
-              echo "SUDO_CHECK:$(sudo -n true 2>/dev/null && echo "has sudo permission" || echo "no sudo permission")"
-            `
+            const systemInfoScript = `echo "OS_VERSION:$(uname -a)" && echo "DEFAULT_SHELL:$SHELL" && echo "HOME_DIR:$HOME" && echo "HOSTNAME:$HOSTNAME" && echo "USERNAME:$(whoami)" && echo "SUDO_CHECK:$(sudo -n true 2>/dev/null && echo 'has sudo permission' || echo 'no sudo permission')"`
 
             const systemInfoOutput = await this.executeCommandInRemoteServer(systemInfoScript, host.host)
             console.log(`System info output for ${host.host}:`, systemInfoOutput)
