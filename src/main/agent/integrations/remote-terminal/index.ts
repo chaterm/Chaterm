@@ -8,6 +8,7 @@ export interface RemoteTerminalProcessEvents extends Record<string, any[]> {
   completed: []
   error: [error: Error]
   no_shell_integration: []
+  interactive_input: [input: string]
 }
 
 export interface ConnectionInfo {
@@ -52,6 +53,8 @@ export class RemoteTerminalProcess extends BrownEventEmitter<RemoteTerminalProce
   private fullOutput: string = ''
   private lastRetrievedIndex: number = 0
   isHot: boolean = false
+  private currentStream: any = null
+  private sessionId: string = ''
 
   constructor() {
     super()
@@ -59,6 +62,7 @@ export class RemoteTerminalProcess extends BrownEventEmitter<RemoteTerminalProce
 
   async run(sessionId: string, command: string, cwd?: string): Promise<void> {
     try {
+      this.sessionId = sessionId
       // Clean ANSI escape sequences from cwd
       const cleanCwd = cwd ? cwd.replace(/\x1B\[[^m]*m/g, '').replace(/\x1B\[[?][0-9]*[hl]/g, '') : undefined
       const commandToExecute = cleanCwd ? `cd ${cleanCwd} && ${command}` : command
@@ -91,6 +95,10 @@ export class RemoteTerminalProcess extends BrownEventEmitter<RemoteTerminalProce
       }
 
       if (execResult && execResult.success) {
+        // Set stream for interactive input if available
+        if (execResult.stream) {
+          this.setStream(execResult.stream)
+        }
         this.emit('completed')
       } else {
         const error = new Error(execResult?.error || '远程命令执行失败')
@@ -107,6 +115,19 @@ export class RemoteTerminalProcess extends BrownEventEmitter<RemoteTerminalProce
       this.emit('error', err)
       throw err
     }
+  }
+
+  // Send input to interactive command
+  sendInteractiveInput(input: string): void {
+    if (this.currentStream) {
+      this.currentStream.write(input + '\n')
+      this.emit('interactive_input', input)
+    }
+  }
+
+  // Set current stream for interactive input
+  setStream(stream: any): void {
+    this.currentStream = stream
   }
 
   continue(): void {
