@@ -1,14 +1,6 @@
-// type that represents json data that is sent from extension to webview, called ExtensionMessage and has 'type' enum which can be 'plusButtonClicked' or 'settingsButtonClicked' or 'hello'
-
-//import { GitCommit } from "../utils/git"
-import { ApiConfiguration, ModelInfo } from './api'
+import { ApiConfiguration } from './api'
 import { AutoApprovalSettings } from './AutoApprovalSettings'
 import { ChatSettings } from './ChatSettings'
-// import { HistoryItem } from "./HistoryItem"
-// import { TelemetrySetting } from "./TelemetrySetting"
-// import type { BalanceResponse, UsageTransaction, PaymentTransaction } from "../shared/ClineAccount"
-
-// webview will hold state
 export interface ExtensionMessage {
   type:
     | 'action'
@@ -30,7 +22,7 @@ export interface ExtensionMessage {
     | 'addToInput'
     | 'browserConnectionResult'
     | 'fileSearchResults'
-    | 'grpc_response' // New type for gRPC responses
+    | 'grpc_response'
     | 'requestyModels'
 
   text?: string
@@ -48,7 +40,6 @@ export interface ExtensionMessage {
   partialMessage?: ChatermMessage
   customToken?: string
   error?: string
-  // commits?: GitCommit[]
   openGraphData?: {
     title?: string
     description?: string
@@ -72,11 +63,11 @@ export interface ExtensionMessage {
     label?: string
   }>
   grpc_response?: {
-    message?: any // JSON serialized protobuf message
-    request_id: string // Same ID as the request
-    error?: string // Optional error message
-    is_streaming?: boolean // Whether this is part of a streaming response
-    sequence_number?: number // For ordering chunks in streaming responses
+    message?: any
+    request_id: string
+    error?: string
+    is_streaming?: boolean
+    sequence_number?: number
   }
 }
 
@@ -94,15 +85,11 @@ export interface ExtensionState {
   chatSettings: ChatSettings
   checkpointTrackerErrorMessage?: string
   chatermMessages: ChatermMessage[]
-  // currentTaskItem?: HistoryItem
   customInstructions?: string
   mcpMarketplaceEnabled?: boolean
-  // planActSeparateModelsSetting: boolean
   enableCheckpointsSetting?: boolean
   platform: Platform
   shouldShowAnnouncement: boolean
-  // taskHistory: HistoryItem[]
-  // telemetrySetting: TelemetrySetting
   shellIntegrationTimeout: number
   uriScheme?: string
   userInfo?: {
@@ -127,7 +114,7 @@ export interface ChatermMessage {
   isCheckpointCheckedOut?: boolean
   isOperationOutsideWorkspace?: boolean
   conversationHistoryIndex?: number
-  conversationHistoryDeletedRange?: [number, number] // for when conversation history is truncated for API requests
+  conversationHistoryDeletedRange?: [number, number]
 }
 
 export type ChatermAsk =
@@ -137,13 +124,12 @@ export type ChatermAsk =
   | 'completion_result'
   | 'tool'
   | 'api_req_failed'
-  | 'ssh_con_failed' // New: SSH connection failed
+  | 'ssh_con_failed'
   | 'resume_task'
   | 'resume_completed_task'
   | 'mistake_limit_reached'
   | 'auto_approval_max_req_reached'
-  | 'interactive_command' // New: Interactive command prompt
-  // | 'new_task'
+  | 'interactive_command'
   | 'condense'
   | 'report_bug'
 
@@ -164,17 +150,11 @@ export type ChatermSay =
   | 'shell_integration_warning'
   | 'diff_error'
   | 'deleted_api_reqs'
-  // | "clineignore_error"
   | 'checkpoint_created'
-  | 'info' // Added for general informational messages like retry status
+  | 'info'
 
 export interface ChatermSayTool {
-  tool: // | "newFileCreated"
-  | 'readFile'
-    | 'listFilesTopLevel'
-    | 'listFilesRecursive'
-    // | "listCodeDefinitionNames"
-    | 'searchFiles'
+  tool: 'readFile' | 'listFilesTopLevel' | 'listFilesRecursive' | 'searchFiles'
   path?: string
   diff?: string
   content?: string
