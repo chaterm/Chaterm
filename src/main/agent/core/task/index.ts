@@ -72,8 +72,6 @@ export class Task {
   private askResponse?: ChatermAskResponse
   private askResponseText?: string
   private lastMessageTs?: number
-  private lastAskType?: ChatermAsk
-  private currentSessionId?: string
   private consecutiveAutoApprovedRequestsCount: number = 0
   private consecutiveMistakeCount: number = 0
   private abort: boolean = false
@@ -391,9 +389,6 @@ export class Task {
       throw new Error('Chaterm instance aborted')
     }
 
-    // Set last ask type for interactive command handling
-    this.lastAskType = type
-
     let askTsRef = { value: Date.now() }
     this.lastMessageTs = askTsRef.value
 
@@ -501,53 +496,6 @@ export class Task {
     for (const [key, value] of cwd.entries()) {
       if (this.cwd.has(key)) {
         this.cwd.set(key, value)
-      }
-    }
-
-    // Handle interactive command input
-    if (askResponse === 'messageResponse' && text && this.lastAskType === 'interactive_command') {
-      // Send input directly to SSH stream
-      if (this.currentSessionId) {
-        try {
-          const { remoteSshSendInput } = await import('../../../ssh/agentHandle')
-          const result = await remoteSshSendInput(this.currentSessionId, text)
-          if (!result.success) {
-            console.error('Failed to send interactive input:', result.error)
-          } else {
-            console.log('Interactive input sent successfully to session:', this.currentSessionId)
-          }
-        } catch (error) {
-          console.error('Failed to send interactive input:', error)
-        }
-      } else {
-        console.error('No current session ID available for interactive input')
-      }
-    }
-
-    // Handle converted command confirmation
-    if (askResponse === 'yesButtonClicked' && this.lastAskType === 'command') {
-      // Check if the last message contains a converted command
-      const lastMessage = this.chatermMessages.at(-1)
-      if (lastMessage && lastMessage.text && lastMessage.text.includes('转换后命令:')) {
-        // Extract the converted command from the message
-        const convertedCommandMatch = lastMessage.text.match(/转换后命令: (.+?)(?:\n|$)/)
-        if (convertedCommandMatch) {
-          const convertedCommand = convertedCommandMatch[1].trim()
-          console.log('Executing converted command:', convertedCommand)
-
-          // Execute the converted command directly without going through the conversion logic again
-          const ipList = this.hosts.map((h) => h.host)
-          let result = ''
-          for (const ip of ipList) {
-            result += `\n\n# Executing converted command on ${ip}:`
-            // Use a direct execution method to avoid the conversion loop
-            result += await this.executeConvertedCommand(convertedCommand, ip)
-          }
-
-          // Add the result to the conversation
-          this.pushToolResult(`[execute_command for converted command '${convertedCommand}']`, result)
-          await this.saveCheckpoint()
-        }
       }
     }
   }
@@ -906,31 +854,6 @@ export class Task {
       let outputBufferSize: number = 0
       let chunkTimer: NodeJS.Timeout | null = null
       let chunkEnroute = false
-      let isInteractiveCommand = false
-      let waitingForUserInput = false
-      let isConvertedCommand = false
-      this.currentSessionId = terminalInfo.sessionId
-
-      // Check if command is interactive and convert to non-interactive
-      const interactiveCommands = ['rm -i', 'rm -I', 'cp -i', 'mv -i', 'rmdir -i']
-      isInteractiveCommand = interactiveCommands.some((cmd) => command.includes(cmd))
-
-      // Convert interactive command to non-interactive version
-      let nonInteractiveCommand = command
-      if (isInteractiveCommand && !isConvertedCommand) {
-        // Replace interactive flags with non-interactive equivalents
-        nonInteractiveCommand = command
-          .replace(/rm -i/g, 'rm -f')
-          .replace(/rm -I/g, 'rm -f')
-          .replace(/cp -i/g, 'cp -f')
-          .replace(/mv -i/g, 'mv -f')
-          .replace(/rmdir -i/g, 'rmdir')
-
-        // Show the converted command to user for confirmation
-        const confirmationMessage = `检测到交互式命令，已转换为非交互式命令供您确认：\n\n原始命令: ${command}\n转换后命令: ${nonInteractiveCommand}\n\n是否执行转换后的命令？`
-        await this.ask('command', confirmationMessage, false)
-        return 'Command converted to non-interactive version and awaiting user confirmation'
-      }
 
       const flushBuffer = async (force = false) => {
         if (!force && (chunkEnroute || outputBuffer.length === 0)) {
@@ -964,36 +887,6 @@ export class Task {
       let result = ''
       process.on('line', async (line) => {
         result += line + '\n'
-
-        // Check for interactive prompts (this should not happen with converted commands)
-        if (isInteractiveCommand && !waitingForUserInput) {
-          const promptPatterns = [
-            /^rm: remove regular file '([^']+)'\? /,
-            /^rm: remove directory '([^']+)'\? /,
-            /^overwrite '([^']+)'\? /,
-            /^cp: overwrite '([^']+)'\? /,
-            /^mv: overwrite '([^']+)'\? /,
-            /^rmdir: remove directory '([^']+)'\? /,
-            /^rm: remove regular file '([^']+)'\?$/,
-            /^rm: remove directory '([^']+)'\?$/,
-            /^overwrite '([^']+)'\?$/,
-            /^cp: overwrite '([^']+)'\?$/,
-            /^mv: overwrite '([^']+)'\?$/,
-            /^rmdir: remove directory '([^']+)'\?$/
-          ]
-
-          for (const pattern of promptPatterns) {
-            const match = line.match(pattern)
-            if (match) {
-              console.log('Interactive prompt detected:', line)
-              waitingForUserInput = true
-              // Send interactive prompt to frontend
-              await this.ask('interactive_command', `Interactive command prompt: ${line}\nPlease respond with 'y' for yes or 'n' for no:`, false)
-              return
-            }
-          }
-        }
-
         outputBuffer.push(line)
         outputBufferSize += Buffer.byteLength(line, 'utf8')
         // Flush if buffer is large enough
@@ -1047,104 +940,6 @@ export class Task {
     } catch (err) {
       await this.ask('ssh_con_failed', err instanceof Error ? err.message : String(err), false)
       await this.abortTask()
-      return `SSH connection failed: ${err instanceof Error ? err.message : String(err)}`
-    }
-  }
-
-  // Direct execution method for converted commands to avoid conversion loop
-  private async executeConvertedCommand(command: string, ip: string): Promise<ToolResponse> {
-    try {
-      const terminalInfo = await this.connectTerminal(ip)
-      if (!terminalInfo) {
-        return 'Failed to connect to terminal'
-      }
-      terminalInfo.terminal.show()
-      const process = this.remoteTerminalManager.runCommand(terminalInfo, command, this.cwd.get(ip) || undefined)
-
-      // Chunked terminal output buffering
-      const CHUNK_LINE_COUNT = 20
-      const CHUNK_BYTE_SIZE = 2048 // 2KB
-      const CHUNK_DEBOUNCE_MS = 100
-
-      let outputBuffer: string[] = []
-      let outputBufferSize: number = 0
-      let chunkTimer: NodeJS.Timeout | null = null
-      let chunkEnroute = false
-
-      const flushBuffer = async (force = false) => {
-        if (!force && (chunkEnroute || outputBuffer.length === 0)) {
-          return
-        }
-        outputBuffer = []
-        outputBufferSize = 0
-        chunkEnroute = true
-        try {
-          await this.say('command_output', result, true)
-        } catch (error) {
-          console.error('Error while saying for command output:', error)
-        } finally {
-          chunkEnroute = false
-          if (outputBuffer.length > 0) {
-            await flushBuffer()
-          }
-        }
-      }
-
-      const scheduleFlush = () => {
-        if (chunkTimer) {
-          clearTimeout(chunkTimer)
-        }
-        chunkTimer = setTimeout(async () => await flushBuffer(), CHUNK_DEBOUNCE_MS)
-      }
-
-      let result = ''
-      process.on('line', async (line) => {
-        result += line + '\n'
-        outputBuffer.push(line)
-        outputBufferSize += Buffer.byteLength(line, 'utf8')
-        if (outputBuffer.length >= CHUNK_LINE_COUNT || outputBufferSize >= CHUNK_BYTE_SIZE) {
-          await flushBuffer()
-        } else {
-          scheduleFlush()
-        }
-      })
-
-      let completed = false
-      process.once('completed', async () => {
-        completed = true
-        if (outputBuffer.length > 0) {
-          if (chunkTimer) {
-            clearTimeout(chunkTimer)
-            chunkTimer = null
-          }
-          await flushBuffer(true)
-        }
-      })
-
-      process.once('no_shell_integration', async () => {
-        await this.say('shell_integration_warning')
-      })
-
-      await process
-
-      await new Promise((resolve) => setTimeout(resolve, 100))
-
-      const lastMessage = this.chatermMessages.at(-1)
-      if (lastMessage?.say === 'command_output') {
-        await this.say('command_output', lastMessage.text, false)
-      }
-      result = result.trim()
-
-      const truncatedResult = this.truncateCommandOutput(result)
-
-      if (completed) {
-        return `${this.messages.commandExecutedOutput}${truncatedResult.length > 0 ? `\nOutput:\n${truncatedResult}` : ''}`
-      } else {
-        return `${this.messages.commandStillRunning}${
-          truncatedResult.length > 0 ? `${this.messages.commandHereIsOutput}${truncatedResult}` : ''
-        }${this.messages.commandUpdateFuture}`
-      }
-    } catch (err) {
       return `SSH connection failed: ${err instanceof Error ? err.message : String(err)}`
     }
   }
