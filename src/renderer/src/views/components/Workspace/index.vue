@@ -33,7 +33,6 @@
             </template>
           </a-input>
           <a-button
-            v-if="isPersonalWorkspace"
             type="primary"
             size="small"
             class="workspace-button"
@@ -526,11 +525,20 @@ const handleDblClick = (dataRef: any) => {
 }
 
 getLocalAssetMenu()
+
+const refreshAssetMenu = () => {
+  if (isPersonalWorkspace.value) {
+    getLocalAssetMenu()
+  } else {
+    getUserAssetMenu()
+  }
+}
+
 onMounted(() => {
-  eventBus.on('LocalAssetMenu', getLocalAssetMenu)
+  eventBus.on('LocalAssetMenu', refreshAssetMenu)
 })
 onUnmounted(() => {
-  eventBus.off('LocalAssetMenu', getLocalAssetMenu)
+  eventBus.off('LocalAssetMenu', refreshAssetMenu)
 })
 </script>
 
