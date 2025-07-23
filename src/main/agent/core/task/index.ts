@@ -530,12 +530,13 @@ export class Task {
           const convertedCommand = convertedCommandMatch[1].trim()
           console.log('Executing converted command:', convertedCommand)
 
-          // Execute the converted command
+          // Execute the converted command directly without going through the conversion logic again
           const ipList = this.hosts.map((h) => h.host)
           let result = ''
           for (const ip of ipList) {
             result += `\n\n# Executing converted command on ${ip}:`
-            result += await this.executeCommandTool(convertedCommand, ip)
+            // Use a direct execution method to avoid the conversion loop
+            result += await this.executeConvertedCommand(convertedCommand, ip)
           }
 
           // Add the result to the conversation
@@ -902,6 +903,7 @@ export class Task {
       let chunkEnroute = false
       let isInteractiveCommand = false
       let waitingForUserInput = false
+      let isConvertedCommand = false
       this.currentSessionId = terminalInfo.sessionId
 
       // Check if command is interactive and convert to non-interactive
@@ -910,7 +912,7 @@ export class Task {
 
       // Convert interactive command to non-interactive version
       let nonInteractiveCommand = command
-      if (isInteractiveCommand) {
+      if (isInteractiveCommand && !isConvertedCommand) {
         // Replace interactive flags with non-interactive equivalents
         nonInteractiveCommand = command
           .replace(/rm -i/g, 'rm -f')
@@ -1043,6 +1045,105 @@ export class Task {
       return `SSH connection failed: ${err instanceof Error ? err.message : String(err)}`
     }
   }
+
+  // Direct execution method for converted commands to avoid conversion loop
+  private async executeConvertedCommand(command: string, ip: string): Promise<ToolResponse> {
+    try {
+      const terminalInfo = await this.connectTerminal(ip)
+      if (!terminalInfo) {
+        return 'Failed to connect to terminal'
+      }
+      terminalInfo.terminal.show()
+      const process = this.remoteTerminalManager.runCommand(terminalInfo, command, this.cwd.get(ip) || undefined)
+
+      // Chunked terminal output buffering
+      const CHUNK_LINE_COUNT = 20
+      const CHUNK_BYTE_SIZE = 2048 // 2KB
+      const CHUNK_DEBOUNCE_MS = 100
+
+      let outputBuffer: string[] = []
+      let outputBufferSize: number = 0
+      let chunkTimer: NodeJS.Timeout | null = null
+      let chunkEnroute = false
+
+      const flushBuffer = async (force = false) => {
+        if (!force && (chunkEnroute || outputBuffer.length === 0)) {
+          return
+        }
+        outputBuffer = []
+        outputBufferSize = 0
+        chunkEnroute = true
+        try {
+          await this.say('command_output', result, true)
+        } catch (error) {
+          console.error('Error while saying for command output:', error)
+        } finally {
+          chunkEnroute = false
+          if (outputBuffer.length > 0) {
+            await flushBuffer()
+          }
+        }
+      }
+
+      const scheduleFlush = () => {
+        if (chunkTimer) {
+          clearTimeout(chunkTimer)
+        }
+        chunkTimer = setTimeout(async () => await flushBuffer(), CHUNK_DEBOUNCE_MS)
+      }
+
+      let result = ''
+      process.on('line', async (line) => {
+        result += line + '\n'
+        outputBuffer.push(line)
+        outputBufferSize += Buffer.byteLength(line, 'utf8')
+        if (outputBuffer.length >= CHUNK_LINE_COUNT || outputBufferSize >= CHUNK_BYTE_SIZE) {
+          await flushBuffer()
+        } else {
+          scheduleFlush()
+        }
+      })
+
+      let completed = false
+      process.once('completed', async () => {
+        completed = true
+        if (outputBuffer.length > 0) {
+          if (chunkTimer) {
+            clearTimeout(chunkTimer)
+            chunkTimer = null
+          }
+          await flushBuffer(true)
+        }
+      })
+
+      process.once('no_shell_integration', async () => {
+        await this.say('shell_integration_warning')
+      })
+
+      await process
+
+      await new Promise((resolve) => setTimeout(resolve, 100))
+
+      const lastMessage = this.chatermMessages.at(-1)
+      if (lastMessage?.say === 'command_output') {
+        await this.say('command_output', lastMessage.text, false)
+      }
+      result = result.trim()
+
+      const truncatedResult = this.truncateCommandOutput(result)
+
+      if (completed) {
+        return `${this.messages.commandExecutedOutput}${truncatedResult.length > 0 ? `\nOutput:\n${truncatedResult}` : ''}`
+      } else {
+        return `${this.messages.commandStillRunning}${
+          truncatedResult.length > 0 ? `${this.messages.commandHereIsOutput}${truncatedResult}` : ''
+        }${this.messages.commandUpdateFuture}`
+      }
+    } catch (err) {
+      return `SSH connection failed: ${err instanceof Error ? err.message : String(err)}`
+    }
+  }
+
   // Check if the tool should be auto-approved based on the settings
   // Returns bool for most tools, and tuple for tools with nested settings
   shouldAutoApproveTool(toolName: ToolUseName): boolean | [boolean, boolean] {
@@ -1355,7 +1456,7 @@ export class Task {
     this.didAlreadyUseTool = false
     this.presentAssistantMessageLocked = false
     this.presentAssistantMessageHasPendingUpdates = false
-    this.didAutomaticallyRetryFailedApiRequest = false
+    // this.didAutomaticallyRetryFailedApiRequest = false
     this.isInsideThinkingBlock = false
   }
 

@@ -74,7 +74,7 @@ export async function remoteSshConnect(connectionInfo: ConnectionInfo): Promise<
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : String(err)
       console.error('SSH connection configuration error:', errorMessage)
-      safeResolve({ error: `连接配置错误: ${errorMessage}` })
+      safeResolve({ error: `Connection configuration error: ${errorMessage}` })
     }
   })
 }
@@ -232,7 +232,7 @@ export async function remoteSshExecStream(
   })
 }
 
-// 新增: 交互式 SSH 执行，支持事件推送输出和输入
+// New: Interactive SSH execution with event-driven output and input support
 export async function remoteSshExecInteractive(
   sessionId: string,
   command: string,
@@ -318,7 +318,7 @@ export const registerRemoteTerminalHandlers = () => {
     }
   })
 
-  // 新增: 交互式命令执行
+  // New: Interactive command execution
   ipcMain.handle('ssh:remote-exec-interactive', async (event, sessionId, command) => {
     return await remoteSshExecInteractive(sessionId, command, event.sender)
   })
