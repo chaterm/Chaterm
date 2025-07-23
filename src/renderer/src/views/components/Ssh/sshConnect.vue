@@ -524,11 +524,19 @@ onMounted(async () => {
     handleSendOrToggleAi()
   }
 
+  const handleRequestUpdateCwdForHost = (hostIp: string) => {
+    if (props.connectData.ip !== hostIp) return
+
+    sendMarkedData('pwd\r', 'Chaterm:pwd')
+  }
+
   eventBus.on('executeTerminalCommand', handleExecuteCommand)
   eventBus.on('sendOrToggleAiFromTerminalForTab', handleSendOrToggleAiForTab)
+  eventBus.on('requestUpdateCwdForHost', handleRequestUpdateCwdForHost)
   cleanupListeners.value.push(() => {
     eventBus.off('executeTerminalCommand', handleExecuteCommand)
     eventBus.off('sendOrToggleAiFromTerminalForTab', handleSendOrToggleAiForTab)
+    eventBus.off('requestUpdateCwdForHost', handleRequestUpdateCwdForHost)
     window.removeEventListener('keydown', handleGlobalKeyDown)
   })
 
@@ -1406,11 +1414,6 @@ const setupTerminalInput = () => {
         } else {
           sendData(data)
         }
-        if (/\bcd\b/.test(command)) {
-          setTimeout(() => {
-            sendMarkedData('pwd\r', 'Chaterm:pwd')
-          }, 100)
-        }
       }
       if (command && command.trim()) {
         insertCommand(command)
@@ -1620,6 +1623,8 @@ const handleServerOutput = (response: MarkedResponse) => {
     }
 
     currentCwdStore.setKeyValue(props.connectData.ip, currentCwd)
+
+    eventBus.emit('cwdUpdatedForHost', props.connectData.ip)
   } else if (response.marker === 'Chaterm:command') {
     isCollectingOutput.value = true
     const cleanOutput = stripAnsi(data).trim()
