@@ -219,6 +219,11 @@ export class Task {
         })
       })
     } catch (err) {
+      // Check if we're in chat or cmd mode, if so return empty string
+      const chatSettings = await getGlobalState('chatSettings')
+      if (chatSettings?.mode === 'chat' || chatSettings?.mode === 'cmd') {
+        return ''
+      }
       await this.ask('ssh_con_failed', err instanceof Error ? err.message : String(err), false)
       await this.abortTask()
       throw err
