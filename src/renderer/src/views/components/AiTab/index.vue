@@ -174,7 +174,6 @@
             {{ $t('ai.run') }}
           </a-button>
         </div>
-        <!-- Interactive command input removed - now using converted non-interactive commands -->
         <div
           v-if="showBottomButton && chatTypeValue == 'cmd'"
           class="bottom-buttons"
@@ -682,7 +681,6 @@ const resumeDisabled = ref(false)
 const showRetryButton = ref(false)
 const showCancelButton = ref(false)
 const showNewTaskButton = ref(false)
-// Interactive command input variables removed - now using converted non-interactive commands
 
 // 当前活动对话的 ID
 const currentChatId = ref<string | null>(null)
@@ -1246,8 +1244,6 @@ const handleRetry = async () => {
   showRetryButton.value = false
 }
 
-// Interactive command input methods removed - now using converted non-interactive commands
-
 // 声明removeListener变量
 let removeListener: (() => void) | null = null
 
@@ -1479,16 +1475,6 @@ onMounted(async () => {
         (message.partialMessage.ask === 'api_req_failed' || message.partialMessage.ask === 'ssh_con_failed')
       ) {
         handleModelApiReqFailed(message)
-        return
-      }
-
-      // handle interactive command prompt
-      if (message.partialMessage.type === 'ask' && message.partialMessage.ask === 'interactive_command') {
-        // Interactive command handling is now done through command conversion
-        // No need to show interactive input interface
-        showSendButton.value = true
-        showCancelButton.value = false
-        responseLoading.value = false
         return
       }
       showRetryButton.value = false
@@ -3651,8 +3637,6 @@ defineExpose({
   font-size: 10px;
   color: var(--text-color);
 }
-
-/* Interactive command input styles removed - now using converted non-interactive commands */
 
 .ai-login-prompt {
   text-align: center;

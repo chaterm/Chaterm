@@ -129,7 +129,6 @@ export type ChatermAsk =
   | 'resume_completed_task'
   | 'mistake_limit_reached'
   | 'auto_approval_max_req_reached'
-  | 'interactive_command'
   | 'condense'
   | 'report_bug'
 
