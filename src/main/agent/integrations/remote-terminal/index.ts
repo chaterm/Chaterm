@@ -56,7 +56,7 @@ export class RemoteTerminalProcess extends BrownEventEmitter<RemoteTerminalProce
     try {
       if (sshType === 'jumpserver') {
         await this.runJumpServerCommand(sessionId, command, cwd)
-      } else {
+      } else if (sshType === 'ssh') {
         await this.runSshCommand(sessionId, command, cwd)
       }
     } catch (error) {
@@ -97,6 +97,8 @@ export class RemoteTerminalProcess extends BrownEventEmitter<RemoteTerminalProce
       this.emit('error', error)
       throw error
     }
+    // 触发 continue，以便外部 promise 解析
+    this.emit('continue')
   }
 
   private async runJumpServerCommand(sessionId: string, command: string, cwd?: string): Promise<void> {
@@ -106,7 +108,6 @@ export class RemoteTerminalProcess extends BrownEventEmitter<RemoteTerminalProce
     }
 
     let cleanCwd = cwd ? cwd.replace(/\x1B\[[^m]*m/g, '').replace(/\x1B\[[?][0-9]*[hl]/g, '') : undefined
-    cleanCwd = undefined
     const commandToExecute = cleanCwd ? `cd ${cleanCwd} && ${command}` : command
 
     // 创建唯一的命令标记
@@ -160,6 +161,7 @@ export class RemoteTerminalProcess extends BrownEventEmitter<RemoteTerminalProce
           stream.removeListener('data', dataHandler)
           jumpserverMarkedCommands.delete(sessionId)
         }
+        this.emit('continue')
         return
       }
 
