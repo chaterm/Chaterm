@@ -1,6 +1,6 @@
 import { Anthropic } from '@anthropic-ai/sdk'
 import cloneDeep from 'clone-deep'
-import { setTimeout as setTimeoutPromise } from 'node:timers/promises'
+// import { setTimeout as setTimeoutPromise } from 'node:timers/promises'
 import os from 'os'
 import { v4 as uuidv4 } from 'uuid'
 import { telemetryService } from '@services/telemetry/TelemetryService'
@@ -111,7 +111,7 @@ export class Task {
   private didRejectTool = false
   private didAlreadyUseTool = false
   private didCompleteReadingStream = false
-  private didAutomaticallyRetryFailedApiRequest = false
+  // private didAutomaticallyRetryFailedApiRequest = false
   private isInsideThinkingBlock = false
 
   constructor(
@@ -506,6 +506,32 @@ export class Task {
         console.error('No current session ID available for interactive input')
       }
     }
+
+    // Handle converted command confirmation
+    if (askResponse === 'yesButtonClicked' && this.lastAskType === 'command') {
+      // Check if the last message contains a converted command
+      const lastMessage = this.chatermMessages.at(-1)
+      if (lastMessage && lastMessage.text && lastMessage.text.includes('转换后命令:')) {
+        // Extract the converted command from the message
+        const convertedCommandMatch = lastMessage.text.match(/转换后命令: (.+?)(?:\n|$)/)
+        if (convertedCommandMatch) {
+          const convertedCommand = convertedCommandMatch[1].trim()
+          console.log('Executing converted command:', convertedCommand)
+
+          // Execute the converted command
+          const ipList = this.hosts.map((h) => h.host)
+          let result = ''
+          for (const ip of ipList) {
+            result += `\n\n# Executing converted command on ${ip}:`
+            result += await this.executeCommandTool(convertedCommand, ip)
+          }
+
+          // Add the result to the conversation
+          this.pushToolResult(`[execute_command for converted command '${convertedCommand}']`, result)
+          await this.saveCheckpoint()
+        }
+      }
+    }
   }
 
   async say(type: ChatermSay, text?: string, partial?: boolean): Promise<undefined> {
@@ -863,20 +889,35 @@ export class Task {
       let chunkTimer: NodeJS.Timeout | null = null
       let chunkEnroute = false
       let isInteractiveCommand = false
-      let interactivePrompt = ''
       let waitingForUserInput = false
       this.currentSessionId = terminalInfo.sessionId
-      let currentSessionId = terminalInfo.sessionId
 
-      // Check if command is interactive
+      // Check if command is interactive and convert to non-interactive
       const interactiveCommands = ['rm -i', 'rm -I', 'cp -i', 'mv -i', 'rmdir -i']
       isInteractiveCommand = interactiveCommands.some((cmd) => command.includes(cmd))
+
+      // Convert interactive command to non-interactive version
+      let nonInteractiveCommand = command
+      if (isInteractiveCommand) {
+        // Replace interactive flags with non-interactive equivalents
+        nonInteractiveCommand = command
+          .replace(/rm -i/g, 'rm -f')
+          .replace(/rm -I/g, 'rm -f')
+          .replace(/cp -i/g, 'cp -f')
+          .replace(/mv -i/g, 'mv -f')
+          .replace(/rmdir -i/g, 'rmdir')
+
+        // Show the converted command to user for confirmation
+        const confirmationMessage = `检测到交互式命令，已转换为非交互式命令供您确认：\n\n原始命令: ${command}\n转换后命令: ${nonInteractiveCommand}\n\n是否执行转换后的命令？`
+        await this.ask('command', confirmationMessage, false)
+        return 'Command converted to non-interactive version and awaiting user confirmation'
+      }
 
       const flushBuffer = async (force = false) => {
         if (!force && (chunkEnroute || outputBuffer.length === 0)) {
           return
         }
-        const chunk = outputBuffer.join('\n')
+        // const chunk = outputBuffer.join('\n')
         outputBuffer = []
         outputBufferSize = 0
         chunkEnroute = true
@@ -905,7 +946,7 @@ export class Task {
       process.on('line', async (line) => {
         result += line + '\n'
 
-        // Check for interactive prompts
+        // Check for interactive prompts (this should not happen with converted commands)
         if (isInteractiveCommand && !waitingForUserInput) {
           const promptPatterns = [
             /^rm: remove regular file '([^']+)'\? /,
@@ -927,7 +968,6 @@ export class Task {
             if (match) {
               console.log('Interactive prompt detected:', line)
               waitingForUserInput = true
-              interactivePrompt = line
               // Send interactive prompt to frontend
               await this.ask('interactive_command', `Interactive command prompt: ${line}\nPlease respond with 'y' for yes or 'n' for no:`, false)
               return
@@ -967,9 +1007,8 @@ export class Task {
       // Wait for a short delay to ensure all messages are sent to the webview
       // This delay allows time for non-awaited promises to be created and
       // for their associated messages to be sent to the webview, maintaining
-      // the correct order of messages (although the webview is smart about
-      // grouping command_output messages despite any gaps anyways)
-      await setTimeoutPromise(50)
+      // the correct order of messages
+      await new Promise((resolve) => setTimeout(resolve, 100))
 
       const lastMessage = this.chatermMessages.at(-1)
       if (lastMessage?.say === 'command_output') {

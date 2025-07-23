@@ -174,32 +174,7 @@
             {{ $t('ai.run') }}
           </a-button>
         </div>
-        <div
-          v-if="showInteractiveCommandInput && chatTypeValue == 'agent'"
-          class="bottom-buttons interactive-command-input"
-        >
-          <div class="interactive-prompt">
-            {{ $t('ai.interactivePrompt') }}
-          </div>
-          <div class="interactive-input-container">
-            <a-input
-              v-model:value="interactiveCommandInput"
-              :placeholder="$t('ai.interactiveInputPlaceholder')"
-              size="small"
-              class="interactive-input"
-              @keydown="handleInteractiveInputKeyDown"
-            />
-            <a-button
-              size="small"
-              type="primary"
-              class="interactive-submit-btn"
-              :disabled="!interactiveCommandInput.trim()"
-              @click="handleInteractiveCommandSubmit"
-            >
-              {{ $t('ai.submit') }}
-            </a-button>
-          </div>
-        </div>
+        <!-- Interactive command input removed - now using converted non-interactive commands -->
         <div
           v-if="showBottomButton && chatTypeValue == 'cmd'"
           class="bottom-buttons"
@@ -707,8 +682,7 @@ const resumeDisabled = ref(false)
 const showRetryButton = ref(false)
 const showCancelButton = ref(false)
 const showNewTaskButton = ref(false)
-const showInteractiveCommandInput = ref(false)
-const interactiveCommandInput = ref('')
+// Interactive command input variables removed - now using converted non-interactive commands
 
 // 当前活动对话的 ID
 const currentChatId = ref<string | null>(null)
@@ -1272,30 +1246,7 @@ const handleRetry = async () => {
   showRetryButton.value = false
 }
 
-const handleInteractiveInputKeyDown = (e: KeyboardEvent) => {
-  if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) {
-    e.preventDefault()
-    handleInteractiveCommandSubmit()
-  }
-}
-
-const handleInteractiveCommandSubmit = async () => {
-  if (!interactiveCommandInput.value.trim()) return
-
-  const messageRsp = {
-    type: 'askResponse',
-    askResponse: 'messageResponse',
-    text: interactiveCommandInput.value.trim()
-  }
-  console.log('发送交互式命令输入到主进程:', messageRsp)
-  const response = await (window.api as any).sendToMain(messageRsp)
-  console.log('主进程响应:', response)
-
-  // Clear input and hide interface
-  interactiveCommandInput.value = ''
-  showInteractiveCommandInput.value = false
-  responseLoading.value = true
-}
+// Interactive command input methods removed - now using converted non-interactive commands
 
 // 声明removeListener变量
 let removeListener: (() => void) | null = null
@@ -1533,8 +1484,9 @@ onMounted(async () => {
 
       // handle interactive command prompt
       if (message.partialMessage.type === 'ask' && message.partialMessage.ask === 'interactive_command') {
-        showInteractiveCommandInput.value = true
-        showSendButton.value = false
+        // Interactive command handling is now done through command conversion
+        // No need to show interactive input interface
+        showSendButton.value = true
         showCancelButton.value = false
         responseLoading.value = false
         return
@@ -3700,71 +3652,7 @@ defineExpose({
   color: var(--text-color);
 }
 
-.interactive-command-input {
-  flex-direction: column;
-  gap: 8px;
-  padding: 12px;
-  background-color: var(--bg-color-secondary);
-  border-radius: 8px;
-  border: 1px solid var(--border-color);
-
-  .interactive-prompt {
-    font-size: 12px;
-    color: var(--text-color);
-    font-weight: 500;
-    margin-bottom: 4px;
-  }
-
-  .interactive-input-container {
-    display: flex;
-    gap: 8px;
-    align-items: center;
-
-    .interactive-input {
-      flex: 1;
-      background-color: var(--bg-color) !important;
-      border: 1px solid var(--border-color) !important;
-      color: var(--text-color) !important;
-
-      :deep(.ant-input) {
-        background-color: var(--bg-color) !important;
-        border: none !important;
-        color: var(--text-color) !important;
-        font-size: 12px !important;
-
-        &::placeholder {
-          color: var(--text-color-tertiary) !important;
-        }
-      }
-
-      &:focus {
-        border-color: #1890ff !important;
-        box-shadow: 0 0 0 2px rgba(24, 144, 255, 0.2) !important;
-      }
-    }
-
-    .interactive-submit-btn {
-      height: 24px;
-      padding: 0 12px;
-      font-size: 12px;
-      background-color: #1890ff;
-      border-color: #1890ff;
-      color: white;
-
-      &:hover {
-        background-color: #40a9ff;
-        border-color: #40a9ff;
-      }
-
-      &:disabled {
-        background-color: var(--bg-color-quaternary) !important;
-        border-color: var(--border-color) !important;
-        color: var(--text-color-tertiary) !important;
-        cursor: not-allowed;
-      }
-    }
-  }
-}
+/* Interactive command input styles removed - now using converted non-interactive commands */
 
 .ai-login-prompt {
   text-align: center;
