@@ -88,6 +88,7 @@
                 @click="contextMenuVisible = false"
               >
                 <div
+                  v-if="selectedHost?.asset_type !== 'organization'"
                   class="context-menu-item"
                   @click="handleConnect(selectedHost)"
                 >
