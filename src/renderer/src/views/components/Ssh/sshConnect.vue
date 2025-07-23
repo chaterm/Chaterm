@@ -115,7 +115,7 @@ import Context from '../Term/contextComp.vue'
 import SuggComp from '../Term/suggestion.vue'
 import eventBus from '@/utils/eventBus'
 import { useCurrentCwdStore } from '@/store/currentCwdStore'
-import { markRaw, onBeforeUnmount, onMounted, onUnmounted, PropType, nextTick, reactive, ref, watch, computed } from 'vue'
+import { markRaw, onBeforeUnmount, onMounted, PropType, nextTick, reactive, ref, watch, computed } from 'vue'
 import { shortcutService } from '@/services/shortcutService'
 import { Terminal } from 'xterm'
 import { FitAddon } from 'xterm-addon-fit'
@@ -135,6 +135,7 @@ import { userInfoStore } from '@/store/index'
 import stripAnsi from 'strip-ansi'
 import { isGlobalInput, inputManager, commandBarHeight } from './termInputManager'
 import { shellCommands } from './shellCmd'
+import { createJumpServerStatusHandler, formatStatusMessage } from './jumpServerStatusHandler'
 const selectFlag = ref(false)
 const configStore = userConfigStore()
 interface CommandSuggestion {
@@ -261,6 +262,7 @@ let resizeObserver: ResizeObserver | null = null
 const showSearch = ref(false)
 const searchAddon = ref<SearchAddon | null>(null)
 const showAiButton = ref(false)
+let jumpServerStatusHandler: ReturnType<typeof createJumpServerStatusHandler> | null = null
 
 // 计算快捷键显示文本
 const shortcutKey = computed(() => {
@@ -907,7 +909,6 @@ const handleResize = debounce(() => {
 const emit = defineEmits(['connectSSH', 'disconnectSSH', 'closeTabInTerm', 'createNewTerm'])
 
 const connectSSH = async () => {
-  // 连接
   try {
     // 获取私钥或密码
     const assetInfo = await api.connectAssetInfo({ uuid: props.connectData.uuid })
@@ -924,10 +925,16 @@ const connectSSH = async () => {
       passphrase.value = props.connectData.passphrase || ''
     }
 
-    // terminal.value?.writeln(`尝试连接 ${props.connectData.ip}:${props.connectData.port}...`)
     const email = userInfoStore().userInfo.email
     const name = userInfoStore().userInfo.name
     connectionId.value = `${props.connectData.username}@${props.connectData.ip}:local:${uuidv4()}`
+
+    // 设置 JumpServer 状态监听
+    if (assetInfo.sshType === 'jumpserver' && terminal.value) {
+      jumpServerStatusHandler = createJumpServerStatusHandler(terminal.value, connectionId.value)
+      jumpServerStatusHandler.setupStatusListener(api)
+    }
+
     const result = await api.connect({
       id: connectionId.value,
       host: assetInfo.asset_ip,
@@ -939,6 +946,12 @@ const connectSSH = async () => {
       targetIp: assetInfo.host,
       sshType: assetInfo.sshType
     })
+
+    // 清理 JumpServer 状态监听器
+    if (jumpServerStatusHandler) {
+      jumpServerStatusHandler.cleanup()
+      jumpServerStatusHandler = null
+    }
 
     api
       .connectReadyData(connectionId.value)
@@ -956,35 +969,32 @@ const connectSSH = async () => {
       if (configStore.getUserConfig.language == 'en-US') {
         welcome = '\x1b[38;2;22;119;255m' + email.split('@')[0] + ', Welcome to use Chaterm \x1b[m\r\n'
       }
+      terminal.value?.writeln('') // 添加空行分隔
       terminal.value?.writeln(welcome)
-      terminal.value?.writeln(`Connecting to ${props.connectData.ip}`)
+
       // 启动shell会话
       await startShell()
-
-      // 设置输入处理
       setupTerminalInput()
       handleResize()
-      // 连接建立后再次进行自适应调整，确保尺寸正确
+
       setTimeout(() => {
         handleResize()
       }, 200)
     } else {
-      terminal.value?.writeln(
-        JSON.stringify({
-          cmd: `错误: ${result.message}`,
-          isUserCall: true
-        })
-      )
+      const errorMsg = formatStatusMessage(`连接失败: ${result.message}`, 'error')
+      terminal.value?.writeln(errorMsg)
     }
   } catch (error: any) {
-    terminal.value?.writeln(
-      JSON.stringify({
-        cmd: `连接失败: ${error.message || '未知错误'}`,
-        isUserCall: true
-      })
-    )
+    // 清理 JumpServer 状态监听器
+    if (jumpServerStatusHandler) {
+      jumpServerStatusHandler.cleanup()
+      jumpServerStatusHandler = null
+    }
+
+    const errorMsg = formatStatusMessage(`连接错误: ${error.message || '未知错误'}`, 'error')
+    terminal.value?.writeln(errorMsg)
   }
-  // emit('connectSSH', { isConnected: isConnected })
+  emit('connectSSH', { isConnected: isConnected })
 }
 
 const startShell = async () => {

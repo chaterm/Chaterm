@@ -336,7 +336,11 @@ const filterTreeNodes = (inputValue: string): AssetNode[] => {
   const filterNodes = (nodes: AssetNode[]): AssetNode[] => {
     return nodes
       .map((node) => {
-        if (node.title.toLowerCase().includes(lowerCaseInput)) {
+        // 检查标题或IP是否匹配
+        const titleMatch = node.title.toLowerCase().includes(lowerCaseInput)
+        const ipMatch = node.ip && node.ip.toLowerCase().includes(lowerCaseInput)
+
+        if (titleMatch || ipMatch) {
           return { ...node }
         }
 

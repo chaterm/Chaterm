@@ -21,26 +21,40 @@ const jumpserverInputBuffer = new Map() // 为每个会话创建输入缓冲区
 export const jumpserverConnectionStatus = new Map()
 
 // JumpServer 连接处理 - 导出供 sshHandle 使用
-export const handleJumpServerConnection = async (connectionInfo: {
-  id: string
-  host: string
-  port?: number
-  username: string
-  password?: string
-  privateKey?: string
-  passphrase?: string
-  targetIp: string
-}): Promise<{ status: string; message: string }> => {
-  // 使用固定配置，但保留连接ID
-
+export const handleJumpServerConnection = async (
+  connectionInfo: {
+    id: string
+    host: string
+    port?: number
+    username: string
+    password?: string
+    privateKey?: string
+    passphrase?: string
+    targetIp: string
+  },
+  event?: Electron.IpcMainInvokeEvent
+): Promise<{ status: string; message: string }> => {
   const connectionId = connectionInfo.id
 
+  // 发送状态更新的辅助函数
+  const sendStatusUpdate = (message: string, type: 'info' | 'success' | 'warning' | 'error' = 'info') => {
+    if (event) {
+      event.sender.send('jumpserver:status-update', {
+        id: connectionId,
+        message,
+        type,
+        timestamp: new Date().toLocaleTimeString()
+      })
+    }
+  }
+
   return new Promise((resolve, reject) => {
-    // 检查是否已有连接
     if (jumpserverConnections.has(connectionId)) {
       console.log('复用现有JumpServer连接')
       return resolve({ status: 'connected', message: '复用现有JumpServer连接' })
     }
+
+    sendStatusUpdate('🔗 Chaterm正在连接企业堡垒机...', 'info')
 
     const conn = new Client()
     let outputBuffer = ''
@@ -81,6 +95,7 @@ export const handleJumpServerConnection = async (connectionInfo: {
 
     conn.on('ready', () => {
       console.log('JumpServer 连接建立，开始创建 shell')
+      sendStatusUpdate('✅ 堡垒机连接成功，正在初始化终端...', 'success')
 
       conn.shell((err, stream) => {
         if (err) {
@@ -97,11 +112,13 @@ export const handleJumpServerConnection = async (connectionInfo: {
           // 根据连接阶段处理不同的响应
           if (connectionPhase === 'connecting' && outputBuffer.includes('Opt>')) {
             console.log('检测到 JumpServer 菜单，输入目标 IP')
+            sendStatusUpdate(`🎯 正在连接目标服务器 ${connectionInfo.targetIp}...`, 'info')
             connectionPhase = 'inputIp'
             outputBuffer = ''
             stream.write(connectionInfo.targetIp + '\r')
           } else if (connectionPhase === 'inputIp' && (outputBuffer.includes('Password:') || outputBuffer.includes('password:'))) {
             console.log('检测到密码提示，输入密码')
+            sendStatusUpdate('🔐 正在进行身份验证...', 'info')
             connectionPhase = 'inputPassword'
             outputBuffer = ''
             setTimeout(() => {
@@ -117,6 +134,7 @@ export const handleJumpServerConnection = async (connectionInfo: {
             // 检测连接成功
             if (outputBuffer.includes('$') || outputBuffer.includes('#') || outputBuffer.includes('~')) {
               console.log('JumpServer 连接成功，到达目标服务器')
+              sendStatusUpdate('🎉 连接成功！', 'success')
               connectionPhase = 'connected'
               outputBuffer = ''
 
@@ -164,9 +182,9 @@ export const handleJumpServerConnection = async (connectionInfo: {
 
 export const registerJumpServerHandlers = () => {
   // 处理 JumpServer 连接
-  ipcMain.handle('jumpserver:connect', async (_event, connectionInfo) => {
+  ipcMain.handle('jumpserver:connect', async (event, connectionInfo) => {
     try {
-      return await handleJumpServerConnection(connectionInfo)
+      return await handleJumpServerConnection(connectionInfo, event)
     } catch (error: unknown) {
       return { status: 'error', message: error instanceof Error ? error.message : String(error) }
     }
