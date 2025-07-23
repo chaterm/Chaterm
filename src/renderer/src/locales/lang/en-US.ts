@@ -338,10 +338,7 @@ export default {
     copyToClipboard: 'Copy to clipboard',
     retry: 'Retry',
     taskCompleted: 'Task Completed',
-    newTask: 'Start New Task',
-    interactivePrompt: 'Interactive Command Prompt',
-    interactiveInputPlaceholder: 'Enter y or n',
-    submit: 'Submit'
+    newTask: 'Start New Task'
   },
   keyChain: {
     newKey: 'New Key',
