@@ -690,9 +690,9 @@ watch(
 const handleRefreshOrganizationAssets = async (host: AssetNode | null) => {
   if (!host || host.asset_type !== 'organization') return
 
-  try {
-    message.loading(t('personal.refreshingAssets'), 0)
+  const hide = message.loading(t('personal.refreshingAssets'), 0)
 
+  try {
     const api = window.api as any
     const result = await api.refreshOrganizationAssets({
       organizationUuid: host.uuid,
@@ -704,8 +704,9 @@ const handleRefreshOrganizationAssets = async (host: AssetNode | null) => {
         keyChain: host.key_chain_id
       }
     })
-
+    console.log('刷新企业资产结果:', result)
     if (result?.data?.message === 'success') {
+      hide() // 只隐藏加载消息
       message.success(t('personal.refreshSuccess'))
       getAssetList() // 刷新资产列表
       eventBus.emit('LocalAssetMenu')
@@ -714,9 +715,8 @@ const handleRefreshOrganizationAssets = async (host: AssetNode | null) => {
     }
   } catch (error) {
     console.error('刷新企业资产失败:', error)
+    hide() // 隐藏加载消息
     message.error(t('personal.refreshError'))
-  } finally {
-    message.destroy()
   }
 
   contextMenuVisible.value = false
