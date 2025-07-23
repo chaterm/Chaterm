@@ -603,11 +603,13 @@ onUnmounted(() => {
   overflow-y: auto;
   border-radius: 2px;
   background-color: transparent;
+  max-height: calc(100vh - 120px);
+  height: auto;
 }
 
 :deep(.dark-tree) {
   background-color: transparent;
-  height: 30% !important;
+  height: auto !important;
   .ant-tree-node-content-wrapper,
   .ant-tree-title,
   .ant-tree-switcher,
