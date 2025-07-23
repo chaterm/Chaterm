@@ -142,8 +142,6 @@ export function getLocalAssetRouteLogic(db: Database.Database, searchType: strin
       }
     } else if (assetType === 'organization') {
       // 企业资产逻辑 - 添加收藏栏支持
-      console.log('开始查询企业资产，assetType:', assetType)
-
       // 1. 首先添加收藏栏（如果不是 assetConfig 页面）
       if (searchType !== 'assetConfig') {
         // 查询所有收藏的企业资产（包括组织本身和组织下的子资产）
@@ -586,25 +584,52 @@ export async function refreshOrganizationAssetsLogic(db: Database.Database, orga
 
     console.log('获取到资产数量:', assets.length)
 
-    // 清空现有的组织资产
-    const deleteStmt = db.prepare(`
-      DELETE FROM t_organization_assets 
+    // 获取现有的组织资产
+    const existingAssetsStmt = db.prepare(`
+      SELECT host, hostname, uuid, favorite 
+      FROM t_organization_assets 
       WHERE organization_uuid = ?
     `)
-    deleteStmt.run(organizationUuid)
+    const existingAssets = existingAssetsStmt.all(organizationUuid) || []
+    const existingAssetsByHost = new Map(existingAssets.map((asset) => [asset.host, asset]))
 
-    // 插入新的资产数据
+    // 准备SQL语句
+    const updateStmt = db.prepare(`
+      UPDATE t_organization_assets 
+      SET hostname = ?, updated_at = CURRENT_TIMESTAMP
+      WHERE organization_uuid = ? AND host = ?
+    `)
+
     const insertStmt = db.prepare(`
       INSERT INTO t_organization_assets (
         organization_uuid, hostname, host, uuid, jump_server_type, created_at, updated_at
       ) VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
     `)
 
-    let insertedCount = 0
+    const currentAssetHosts = new Set()
+    // 处理从JumpServer获取的资产
     for (const asset of assets) {
-      const assetUuid = uuidv4()
-      const result = insertStmt.run(organizationUuid, asset.name, asset.address, assetUuid, 'jumpserver')
-      if (result.changes > 0) insertedCount++
+      currentAssetHosts.add(asset.address)
+      if (existingAssetsByHost.has(asset.address)) {
+        // 存在的资产：更新hostname和updated_at
+        updateStmt.run(asset.name, organizationUuid, asset.address)
+      } else {
+        // 新资产：插入新记录
+        const assetUuid = uuidv4()
+        insertStmt.run(organizationUuid, asset.name, asset.address, assetUuid, 'jumpserver')
+      }
+    }
+
+    // 删除不存在的资产
+    const deleteStmt = db.prepare(`
+      DELETE FROM t_organization_assets 
+      WHERE organization_uuid = ? AND host = ?
+    `)
+
+    for (const existingAsset of existingAssets) {
+      if (!currentAssetHosts.has(existingAsset.host)) {
+        deleteStmt.run(organizationUuid, existingAsset.host)
+      }
     }
 
     client.close()
@@ -612,7 +637,6 @@ export async function refreshOrganizationAssetsLogic(db: Database.Database, orga
     return {
       data: {
         message: 'success',
-        insertedCount,
         totalAssets: assets.length
       }
     }
@@ -652,9 +676,6 @@ export function updateOrganizationAssetFavoriteLogic(db: Database.Database, orga
       WHERE organization_uuid = ? AND host = ?
     `)
     const result = updateStmt.run(status, organizationUuid, host)
-
-    // 验证更新后的记录
-    const updatedRecord = selectStmt.get(organizationUuid, host)
 
     return {
       data: {
