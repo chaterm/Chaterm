@@ -1568,6 +1568,34 @@ onUnmounted(() => {
   eventBus.off('chatToAi')
 })
 
+// Update cwd for all hosts with timeout protection
+const updateCwdForAllHosts = async () => {
+  if (hosts.value.length > 0) {
+    const updatePromises = hosts.value.map((host) => {
+      return new Promise<void>((resolve, reject) => {
+        // Add timeout mechanism to prevent infinite waiting
+        const timeout = setTimeout(() => {
+          eventBus.off('cwdUpdatedForHost', handleCwdUpdated)
+          resolve()
+        }, 1000)
+
+        const handleCwdUpdated = (updatedHost: string) => {
+          if (updatedHost === host.host) {
+            clearTimeout(timeout) // Clear timeout when response received
+            eventBus.off('cwdUpdatedForHost', handleCwdUpdated)
+            resolve()
+          }
+        }
+
+        eventBus.on('cwdUpdatedForHost', handleCwdUpdated)
+        eventBus.emit('requestUpdateCwdForHost', host.host)
+      })
+    })
+
+    await Promise.all(updatePromises)
+  }
+}
+
 // 添加发送消息到主进程的方法
 const sendMessageToMain = async (userContent: string, sendType: string) => {
   try {
@@ -1575,8 +1603,9 @@ const sendMessageToMain = async (userContent: string, sendType: string) => {
     // const sendStartTime = new Date().toLocaleString()
     // console.log(`[AI请求耗时分析] 1. Renderer端AI发送消息开始时间: ${sendStartTime}`)
 
-    let message
-    // 只发送hosts中IP对应的cwd键值对
+    await updateCwdForAllHosts() // TODO:use cache
+
+    // Update cwd for all hosts with timeout protection
     const filteredCwd = new Map()
     hosts.value.forEach((h) => {
       if (h.host && currentCwd.value[h.host]) {
@@ -1589,6 +1618,8 @@ const sendMessageToMain = async (userContent: string, sendType: string) => {
       connection: h.connection,
       organizationId: h.organizationId
     }))
+
+    let message
     if (chatHistory.length === 0) {
       message = {
         type: 'newTask',

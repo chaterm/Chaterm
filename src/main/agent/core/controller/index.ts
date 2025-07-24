@@ -90,7 +90,7 @@ export class Controller {
     await updateGlobalState('userInfo', info)
   }
 
-  async initTask(hosts: Host[], task?: string, historyItem?: HistoryItem, terminalOutput?: string, cwd?: Map<string, string>) {
+  async initTask(hosts: Host[], task?: string, historyItem?: HistoryItem, cwd?: Map<string, string>) {
     console.log('initTask', task, historyItem)
     await this.clearTask() // ensures that an existing task doesn't exist before starting a new one, although this shouldn't be possible since user must clear task before starting a new one
     const { apiConfiguration, customInstructions, autoApprovalSettings } = await getAllExtensionState()
@@ -106,7 +106,6 @@ export class Controller {
       customInstructions,
       task,
       historyItem,
-      terminalOutput,
       cwd
     )
   }
@@ -140,7 +139,7 @@ export class Controller {
         break
 
       case 'newTask':
-        await this.initTask(message.hosts!, message.text, undefined, message.terminalOutput, message.cwd)
+        await this.initTask(message.hosts!, message.text, undefined, message.cwd)
         if (this.task?.taskId && message.hosts) {
           await updateTaskHosts(this.task.taskId, message.hosts)
         }
@@ -445,7 +444,7 @@ export class Controller {
     if (id !== this.task?.taskId) {
       // non-current task
       const { historyItem } = await this.getTaskWithId(id)
-      await this.initTask(hosts, undefined, historyItem, undefined, cwd) // clears existing task
+      await this.initTask(hosts, undefined, historyItem, cwd) // clears existing task
     }
   }
 

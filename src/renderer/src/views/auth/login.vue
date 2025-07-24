@@ -4,7 +4,7 @@
       class="connetus"
       :style="{ right: platform.includes('darwin') ? '0px' : '120px' }"
     >
-      <a-dropdown>
+      <a-dropdown overlay-class-name="app-region-no-drag">
         <a
           class="ant-dropdown-link"
           @click.prevent
