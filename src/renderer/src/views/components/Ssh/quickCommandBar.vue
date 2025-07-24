@@ -331,11 +331,10 @@ const swapCommand = async (id1: number, id2: number) => {
     max-width: 120px;
     padding: 4px 15px;
     background-color: transparent;
-    border-left: 1px solid var(--text-color-senary) !important;
     color: var(--text-color);
     border: none;
     &:hover {
-      background-color: var(--bg-color-octonary);
+      background-color: var(--button-bg-color);
     }
   }
   :deep(.ant-btn) {
@@ -358,17 +357,19 @@ const swapCommand = async (id1: number, id2: number) => {
   scrollbar-width: none;
 }
 .add-button {
-  height: 30px;
-  width: 30px;
+  height: 26px;
+  width: 26px;
   flex-shrink: 0;
-  background-color: var(--bg-color-octonary);
+  background-color: var(--globalInput-bg-color);
   color: var(--text-color);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
   &:hover {
-    background-color: var(--bg-color-octonary) !important;
+    background-color: var(--button-bg-color);
     color: var(--text-color);
   }
-  text-align: center;
-  line-height: 15px;
 }
 
 .script-help {

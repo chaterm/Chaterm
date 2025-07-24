@@ -21,7 +21,9 @@ class PostHogClient {
       // Tracks when the user opts out of telemetry
       OPT_OUT: 'user.opt_out',
       // Tracks when the app is started
-      APP_STARTED: 'user.app_started'
+      APP_STARTED: 'user.app_started',
+      // Tracks when the app is launched for the first time after installation
+      APP_FIRST_LAUNCH: 'user.app_first_launch'
     },
     // Task-related events for tracking conversation and execution flow
     TASK: {
@@ -34,7 +36,7 @@ class PostHogClient {
       // Tracks user feedback on completed tasks
       FEEDBACK: 'task.feedback',
       // Tracks when a message is sent in a conversation
-      CONVERSATION_TURN: 'task.conversation_turn',
+      API_REQUEST: 'task.api_request',
       // Tracks token consumption for cost and usage analysis
       TOKEN_USAGE: 'task.tokens',
       // Tracks switches between plan and act modes
@@ -97,7 +99,6 @@ class PostHogClient {
   private telemetryEnabled: boolean = false
   /** Current version of the extension */
   private readonly version: string = extensionVersion
-  private readonly isDev = process.env.IS_DEV
 
   /**
    * Private constructor to enforce singleton pattern
@@ -143,14 +144,13 @@ class PostHogClient {
    * @param event The event to capture with its properties
    */
   public capture(event: { event: string; properties?: any }): void {
-    // Only send events if telemetry is enabled
     if (this.telemetryEnabled) {
-      // Include extension version in all event properties
       const propertiesWithVersion = {
         ...event.properties,
         extension_version: this.version,
-        is_dev: this.isDev
+        is_dev: process.env.IS_DEV
       }
+      console.log('[PostHog] Capturing event properties:', propertiesWithVersion)
       this.client.capture({
         distinctId: this.distinctId,
         event: event.event,
@@ -170,6 +170,21 @@ class PostHogClient {
         timestamp: new Date().toISOString(),
         platform: process.platform,
         architecture: process.arch
+      }
+    })
+  }
+
+  /**
+   * Records when the app is launched for the first time after installation
+   */
+  public captureAppFirstLaunch() {
+    this.capture({
+      event: PostHogClient.EVENTS.USER.APP_FIRST_LAUNCH,
+      properties: {
+        timestamp: new Date().toISOString(),
+        platform: process.platform,
+        architecture: process.arch,
+        version: this.version
       }
     })
   }
@@ -215,9 +230,15 @@ class PostHogClient {
    * @param model The specific model used (e.g., GPT-4, Claude)
    * @param source The source of the message ("user" | "model"). Used to track message patterns and identify when users need to correct the model's responses.
    */
-  public captureConversationTurnEvent(taskId: string, provider: string = 'unknown', model: string = 'unknown', source: 'user' | 'assistant') {
+  public captureApiRequestEvent(
+    taskId: string,
+    provider: string = 'unknown',
+    model: string = 'unknown',
+    source: 'user' | 'assistant',
+    mode: 'chat' | 'cmd' | 'agent'
+  ) {
     // Ensure required parameters are provided
-    if (!taskId || !provider || !model || !source) {
+    if (!taskId || !provider || !model || !source || !mode) {
       console.warn('TelemetryService: Missing required parameters for message capture')
       return
     }
@@ -227,11 +248,12 @@ class PostHogClient {
       provider,
       model,
       source,
+      mode,
       timestamp: new Date().toISOString() // Add timestamp for message sequencing
     }
 
     this.capture({
-      event: PostHogClient.EVENTS.TASK.CONVERSATION_TURN,
+      event: PostHogClient.EVENTS.TASK.API_REQUEST,
       properties
     })
   }
@@ -367,13 +389,15 @@ class PostHogClient {
    * Records general button click interactions in the UI
    * @param button Identifier for the button that was clicked
    * @param taskId Optional task identifier if click occurred during a task
+   * @param properties Optional additional properties to include with the event
    */
-  public captureButtonClick(button: string, taskId?: string) {
+  public captureButtonClick(button: string, taskId?: string, properties?: Record<string, any>) {
     this.capture({
       event: PostHogClient.EVENTS.UI.BUTTON_CLICK,
       properties: {
         button,
-        taskId
+        taskId,
+        ...(properties || {})
       }
     })
   }
@@ -619,14 +643,14 @@ class PostHogClient {
   }
 }
 /**
- * 生成持久的机器标识符
- * 基于机器的硬件和系统信息生成唯一且持久的标识符
+ * Generates a persistent machine identifier
+ * Generates a unique and persistent identifier based on machine hardware and system information
  */
 function generatePersistentMachineId(): string {
   const userDataPath = app.getPath('userData')
   const machineIdPath = path.join(userDataPath, '.machine-id')
 
-  // 尝试读取已存在的机器ID
+  // Try to read existing machine ID
   try {
     if (fs.existsSync(machineIdPath)) {
       const existingId = fs.readFileSync(machineIdPath, 'utf8').trim()
@@ -638,26 +662,26 @@ function generatePersistentMachineId(): string {
     console.warn('Failed to read existing machine ID:', error)
   }
 
-  // 生成新的机器ID
+  // Generate new machine ID
   const machineInfo = {
     hostname: os.hostname(),
     platform: os.platform(),
     arch: os.arch(),
     userInfo: os.userInfo().username,
-    // 获取第一个非内部网络接口的MAC地址
+    // Get MAC address of the first non-internal network interface
     macAddress: getMacAddress(),
-    // 添加一些随机性以确保唯一性
+    // Add some randomness to ensure uniqueness
     random: Math.random().toString(36).substr(2, 9)
   }
 
-  // 创建基于机器信息的哈希
+  // Create hash based on machine information
   const hash = crypto.createHash('sha256')
   hash.update(JSON.stringify(machineInfo))
   const machineId = 'chaterm-' + hash.digest('hex').substr(0, 32)
 
-  // 保存到文件
+  // Save to file
   try {
-    // 确保目录存在
+    // Ensure directory exists
     fs.mkdirSync(path.dirname(machineIdPath), { recursive: true })
     fs.writeFileSync(machineIdPath, machineId, 'utf8')
   } catch (error) {
@@ -668,7 +692,30 @@ function generatePersistentMachineId(): string {
 }
 
 /**
- * 获取MAC地址的辅助函数
+ * Checks if this is the first launch
+ * Determines by checking the first launch flag file
+ */
+export function checkIsFirstLaunch(): boolean {
+  const userDataPath = app.getPath('userData')
+  const firstLaunchFlagPath = path.join(userDataPath, '.first-launch-completed')
+
+  try {
+    // If the file does not exist, it is the first launch
+    if (!fs.existsSync(firstLaunchFlagPath)) {
+      // Create the flag file to indicate the first launch is complete
+      fs.mkdirSync(path.dirname(firstLaunchFlagPath), { recursive: true })
+      fs.writeFileSync(firstLaunchFlagPath, new Date().toISOString(), 'utf8')
+      return true
+    }
+    return false
+  } catch (error) {
+    console.warn('Failed to check first launch status:', error)
+    return false
+  }
+}
+
+/**
+ * Helper function to get MAC address
  */
 function getMacAddress(): string {
   const interfaces = os.networkInterfaces()
@@ -676,7 +723,7 @@ function getMacAddress(): string {
     const nets = interfaces[name]
     if (nets) {
       for (const net of nets) {
-        // 跳过内部接口和无效的MAC地址
+        // Skip internal interfaces and invalid MAC addresses
         if (!net.internal && net.mac !== '00:00:00:00:00:00') {
           return net.mac
         }

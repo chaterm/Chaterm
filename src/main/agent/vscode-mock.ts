@@ -3,7 +3,7 @@
 export class TabInputText {
   constructor(public uri: Uri) {}
 }
-// 添加 LanguageModelAccessInformation 接口
+// Add LanguageModelAccessInformation interface
 export interface LanguageModelAccessInformation {
   onDidChange: (listener: () => void) => { dispose(): void }
   canSendRequest: (chat: LanguageModelChat) => boolean
@@ -14,13 +14,13 @@ export interface LanguageModelChat {
   readonly name: string
 }
 
-// 导出现有的 vscode 类型定义，但排除冲突的类型
+// Export existing vscode type definitions, but exclude conflicting types
 export * from './api/providers/types'
 
-// Thenable 类型定义
+// Thenable type definition
 export interface Thenable<T> extends PromiseLike<T> {}
 
-// EventEmitter 实现
+// EventEmitter implementation
 export class EventEmitter<T> {
   private listeners: Array<(e: T) => void> = []
 
@@ -47,7 +47,7 @@ export class EventEmitter<T> {
   }
 }
 
-// CancellationToken 实现
+// CancellationToken implementation
 export interface CancellationToken {
   isCancellationRequested: boolean
   onCancellationRequested: (listener: () => void) => { dispose(): void }
@@ -100,7 +100,7 @@ export class CancellationError extends Error {
   }
 }
 
-// Uri 实现
+// Uri implementation
 export class Uri {
   private constructor(
     public readonly scheme: string,
@@ -115,15 +115,9 @@ export class Uri {
   }
 
   static parse(value: string): Uri {
-    // 简单的 URL 解析实现
+    // Simple URL parsing implementation
     const url = new URL(value)
-    return new Uri(
-      url.protocol.slice(0, -1),
-      url.hostname,
-      url.pathname,
-      url.search.slice(1),
-      url.hash.slice(1)
-    )
+    return new Uri(url.protocol.slice(0, -1), url.hostname, url.pathname, url.search.slice(1), url.hash.slice(1))
   }
 
   static joinPath(base: Uri, ...paths: string[]): Uri {
@@ -135,13 +129,7 @@ export class Uri {
     return this.path
   }
 
-  with(change: {
-    scheme?: string
-    authority?: string
-    path?: string
-    query?: string
-    fragment?: string
-  }): Uri {
+  with(change: { scheme?: string; authority?: string; path?: string; query?: string; fragment?: string }): Uri {
     return new Uri(
       change.scheme ?? this.scheme,
       change.authority ?? this.authority,
@@ -156,14 +144,14 @@ export class Uri {
   }
 }
 
-// ExtensionMode 枚举
+// ExtensionMode enum
 export enum ExtensionMode {
   Production = 1,
   Development = 2,
   Test = 3
 }
 
-// 基本接口定义
+// Basic interface definitions
 export interface Memento {
   keys(): readonly string[]
   get<T>(key: string): T | undefined
@@ -214,13 +202,7 @@ export interface EnvironmentVariableCollection {
   append(variable: string, value: string, options?: EnvironmentVariableMutatorOptions): void
   prepend(variable: string, value: string, options?: EnvironmentVariableMutatorOptions): void
   get(variable: string): EnvironmentVariableMutator | undefined
-  forEach(
-    callback: (
-      variable: string,
-      mutator: EnvironmentVariableMutator,
-      collection: EnvironmentVariableCollection
-    ) => any
-  ): void
+  forEach(callback: (variable: string, mutator: EnvironmentVariableMutator, collection: EnvironmentVariableCollection) => any): void
   delete(variable: string): void
   clear(): void
 }
@@ -351,7 +333,7 @@ export const workspace = {
   }
 }
 
-// Language Model API mock (基于之前提供的文件中的定义)
+// Language Model API mock (based on definitions in previously provided file)
 export enum LanguageModelChatMessageRole {
   User = 1,
   Assistant = 2
@@ -386,25 +368,17 @@ export class LanguageModelToolResultPart {
 }
 
 export class LanguageModelChatMessage {
-  static User(
-    content: string | Array<LanguageModelTextPart | LanguageModelToolResultPart>,
-    name?: string
-  ): LanguageModelChatMessage {
+  static User(content: string | Array<LanguageModelTextPart | LanguageModelToolResultPart>, name?: string): LanguageModelChatMessage {
     return new LanguageModelChatMessage(LanguageModelChatMessageRole.User, content, name)
   }
 
-  static Assistant(
-    content: string | Array<LanguageModelTextPart | LanguageModelToolCallPart>,
-    name?: string
-  ): LanguageModelChatMessage {
+  static Assistant(content: string | Array<LanguageModelTextPart | LanguageModelToolCallPart>, name?: string): LanguageModelChatMessage {
     return new LanguageModelChatMessage(LanguageModelChatMessageRole.Assistant, content, name)
   }
 
   constructor(
     public role: LanguageModelChatMessageRole,
-    public content:
-      | string
-      | Array<LanguageModelTextPart | LanguageModelToolResultPart | LanguageModelToolCallPart>,
+    public content: string | Array<LanguageModelTextPart | LanguageModelToolResultPart | LanguageModelToolCallPart>,
     public name?: string
   ) {}
 }
@@ -412,7 +386,7 @@ export class LanguageModelChatMessage {
 // Language Model mock
 export const lm = {
   selectChatModels: async (selector?: any) => {
-    // 返回一个模拟的语言模型
+    // Return a mock language model
     return [
       {
         id: 'mock-model',
@@ -437,7 +411,7 @@ export const lm = {
   }
 }
 
-// 在文件末尾添加window对象的模拟
+// Add window object mock at the end of the file
 export interface TextEditorDecorationType {
   key: string
   dispose(): void
@@ -559,19 +533,13 @@ export interface TextEditor {
   visibleRanges: Range[]
   options: TextEditorOptions
   viewColumn?: ViewColumn
-  edit(
-    callback: (editBuilder: TextEditorEdit) => void,
-    options?: { undoStopBefore: boolean; undoStopAfter: boolean }
-  ): Thenable<boolean>
+  edit(callback: (editBuilder: TextEditorEdit) => void, options?: { undoStopBefore: boolean; undoStopAfter: boolean }): Thenable<boolean>
   insertSnippet(
     snippet: SnippetString,
     location?: Position | Range | Position[] | Range[],
     options?: { undoStopBefore: boolean; undoStopAfter: boolean }
   ): Thenable<boolean>
-  setDecorations(
-    decorationType: TextEditorDecorationType,
-    rangesOrOptions: Range[] | DecorationOptions[]
-  ): void
+  setDecorations(decorationType: TextEditorDecorationType, rangesOrOptions: Range[] | DecorationOptions[]): void
   revealRange(range: Range, revealType?: TextEditorRevealType): void
   show(column?: ViewColumn): void
   hide(): void
@@ -631,10 +599,7 @@ export class SnippetString {
     return this
   }
 
-  appendPlaceholder(
-    value: string | ((snippet: SnippetString) => any),
-    number?: number
-  ): SnippetString {
+  appendPlaceholder(value: string | ((snippet: SnippetString) => any), number?: number): SnippetString {
     if (typeof value === 'string') {
       this.value = (this.value || '') + `\${${number || 0}:${value}}`
     }
@@ -646,10 +611,7 @@ export class SnippetString {
     return this
   }
 
-  appendVariable(
-    name: string,
-    defaultValue?: string | ((snippet: SnippetString) => any)
-  ): SnippetString {
+  appendVariable(name: string, defaultValue?: string | ((snippet: SnippetString) => any)): SnippetString {
     if (typeof defaultValue === 'string') {
       this.value = (this.value || '') + `\${${name}:${defaultValue}}`
     } else {
@@ -724,7 +686,7 @@ export interface TabGroup {
   tabs: Tab[]
 }
 
-// Terminal 相关接口
+// Terminal related interfaces
 export interface Terminal {
   name: string
   processId: Thenable<number | undefined>
@@ -755,11 +717,9 @@ export const window = {
   },
   showTextDocument: async (
     document: TextDocument | Uri,
-    column?:
-      | ViewColumn
-      | { viewColumn?: ViewColumn; preserveFocus?: boolean; preview?: boolean; selection?: Range }
+    column?: ViewColumn | { viewColumn?: ViewColumn; preserveFocus?: boolean; preview?: boolean; selection?: Range }
   ): Promise<TextEditor> => {
-    // 返回一个模拟的TextEditor
+    // Return a mock TextEditor
     const mockDocument: TextDocument =
       document instanceof Uri
         ? {
@@ -902,10 +862,7 @@ export const commands = {
   registerCommand: (command: string, callback: (...args: any[]) => any) => {
     return { dispose: () => {} }
   },
-  registerTextEditorCommand: (
-    command: string,
-    callback: (textEditor: TextEditor, edit: TextEditorEdit, ...args: any[]) => void
-  ) => {
+  registerTextEditorCommand: (command: string, callback: (textEditor: TextEditor, edit: TextEditorEdit, ...args: any[]) => void) => {
     return { dispose: () => {} }
   },
   getCommands: async (filterInternal?: boolean) => {
@@ -933,11 +890,7 @@ export const languages = {
   registerHoverProvider: (selector: any, provider: any) => {
     return { dispose: () => {} }
   },
-  registerCompletionItemProvider: (
-    selector: any,
-    provider: any,
-    ...triggerCharacters: string[]
-  ) => {
+  registerCompletionItemProvider: (selector: any, provider: any, ...triggerCharacters: string[]) => {
     return { dispose: () => {} }
   },
   registerDefinitionProvider: (selector: any, provider: any) => {
@@ -964,12 +917,7 @@ export const languages = {
   registerDocumentRangeFormattingEditProvider: (selector: any, provider: any) => {
     return { dispose: () => {} }
   },
-  registerOnTypeFormattingEditProvider: (
-    selector: any,
-    provider: any,
-    firstTriggerCharacter: string,
-    ...moreTriggerCharacter: string[]
-  ) => {
+  registerOnTypeFormattingEditProvider: (selector: any, provider: any, firstTriggerCharacter: string, ...moreTriggerCharacter: string[]) => {
     return { dispose: () => {} }
   },
   registerSignatureHelpProvider: (selector: any, provider: any, ...triggerCharacters: string[]) => {
@@ -1025,39 +973,33 @@ export const languages = {
   }
 }
 
-// 添加 ExtensionKind 枚举
+// Add ExtensionKind enum
 export enum ExtensionKind {
   Workspace = 1,
   UI = 2
 }
 
-// 修改 GlobalEnvironmentVariableCollection 接口
+// Modify GlobalEnvironmentVariableCollection interface
 export interface GlobalEnvironmentVariableCollection extends EnvironmentVariableCollection {
   getScoped(scope: EnvironmentVariableScope): EnvironmentVariableCollection
   description: string | undefined
 }
 
-// 修改 environmentVariableCollection 的实现
+// Modify environmentVariableCollection implementation
 const environmentVariableCollection: GlobalEnvironmentVariableCollection = {
   persistent: true,
   replace: (variable: string, value: string) => {},
   append: (variable: string, value: string) => {},
   prepend: (variable: string, value: string) => {},
   get: (variable: string) => undefined,
-  forEach: (
-    callback: (
-      variable: string,
-      mutator: EnvironmentVariableMutator,
-      collection: EnvironmentVariableCollection
-    ) => any
-  ) => {},
+  forEach: (callback: (variable: string, mutator: EnvironmentVariableMutator, collection: EnvironmentVariableCollection) => any) => {},
   delete: (variable: string) => {},
   clear: () => {},
   getScoped: (scope: EnvironmentVariableScope) => environmentVariableCollection,
   description: 'Example Environment Variables'
 }
 
-// 修改 extension 的实现
+// Modify extension implementation
 const extension: Extension<any> = {
   id: 'example.extension',
   extensionUri: Uri.file('/path/to/extension'),
@@ -1068,12 +1010,12 @@ const extension: Extension<any> = {
   activate: () => Promise.resolve({})
 }
 
-// 添加基础接口
+// Add basic interfaces
 export interface Disposable {
   dispose(): any
 }
 
-// 添加文件类型枚举
+// Add file type enum
 export enum FileType {
   Unknown = 0,
   File = 1,
@@ -1081,7 +1023,7 @@ export enum FileType {
   SymbolicLink = 64
 }
 
-// 添加文件事件相关接口
+// Add file event related interfaces
 export interface FileCreateEvent {
   files: Uri[]
 }
@@ -1094,7 +1036,7 @@ export interface FileRenameEvent {
   files: { oldUri: Uri; newUri: Uri }[]
 }
 
-// 添加文件系统接口
+// Add file system interface
 export interface FileSystem {
   stat(uri: Uri): Promise<{ type: FileType }>
   readFile(uri: Uri): Promise<Uint8Array>
@@ -1103,7 +1045,7 @@ export interface FileSystem {
   rename(source: Uri, target: Uri): Promise<void>
 }
 
-// 添加 FileSystemWatcher 接口
+// Add FileSystemWatcher interface
 export interface FileSystemWatcher {
   onDidCreate: (listener: (uri: Uri) => void) => { dispose(): void }
   onDidChange: (listener: (uri: Uri) => void) => { dispose(): void }
@@ -1111,7 +1053,7 @@ export interface FileSystemWatcher {
   dispose(): void
 }
 
-// 添加 RelativePattern 类
+// Add RelativePattern class
 export class RelativePattern {
   constructor(
     public base: string | Uri | WorkspaceFolder,
@@ -1119,7 +1061,7 @@ export class RelativePattern {
   ) {}
 }
 
-// 添加 OutputChannel 接口
+// Add OutputChannel interface
 export interface OutputChannel {
   name: string
   append(value: string): void
@@ -1131,7 +1073,7 @@ export interface OutputChannel {
   replace(value: string): void
 }
 
-// 添加 Diagnostic 相关定义
+// Add Diagnostic related definitions
 export enum DiagnosticSeverity {
   Error = 0,
   Warning = 1,
@@ -1146,7 +1088,7 @@ export interface Diagnostic {
   source?: string
 }
 
-// 更新默认导出
+// Update default export
 export default {
   Uri,
   ExtensionMode,

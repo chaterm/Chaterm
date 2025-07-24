@@ -1,6 +1,6 @@
 import { Anthropic } from '@anthropic-ai/sdk'
 import cloneDeep from 'clone-deep'
-import { setTimeout as setTimeoutPromise } from 'node:timers/promises'
+// import { setTimeout as setTimeoutPromise } from 'node:timers/promises'
 import os from 'os'
 import { telemetryService } from '@services/telemetry/TelemetryService'
 import pWaitFor from 'p-wait-for'
@@ -12,7 +12,6 @@ import { showSystemNotification } from '@integrations/notifications'
 import { ApiConfiguration } from '@shared/api'
 import { findLast, findLastIndex, parsePartialArrayString } from '@shared/array'
 import { AutoApprovalSettings } from '@shared/AutoApprovalSettings'
-import { ChatSettings } from '@shared/ChatSettings'
 import { combineApiRequests } from '@shared/combineApiRequests'
 import { combineCommandSequences } from '@shared/combineCommandSequences'
 import {
@@ -33,15 +32,16 @@ import { calculateApiCostAnthropic } from '@utils/cost'
 import { AssistantMessageContent, parseAssistantMessageV2, ToolParamName, ToolUseName, TextContent, ToolUse } from '@core/assistant-message'
 import { RemoteTerminalManager, ConnectionInfo, RemoteTerminalInfo } from '../../integrations/remote-terminal'
 import { formatResponse } from '@core/prompts/responses'
-import { addUserInstructions, SYSTEM_PROMPT } from '@core/prompts/system'
+import { addUserInstructions, SYSTEM_PROMPT, SYSTEM_PROMPT_CHAT, SYSTEM_PROMPT_CN, SYSTEM_PROMPT_CHAT_CN } from '@core/prompts/system'
 import { getContextWindowInfo } from '@core/context/context-management/context-window-utils'
 import { ModelContextTracker } from '@core/context/context-tracking/ModelContextTracker'
 import { ContextManager } from '@core/context/context-management/ContextManager'
 import { getSavedApiConversationHistory, getChatermMessages, saveApiConversationHistory, saveChatermMessages } from '@core/storage/disk'
 
-import { getGlobalState } from '@core/storage/state'
+import { getGlobalState, getUserConfig } from '@core/storage/state'
 import WorkspaceTracker from '@integrations/workspace/WorkspaceTracker'
 import { connectAssetInfo } from '../../../storage/database'
+import { getMessages, formatMessage, Messages } from './messages'
 
 import type { Host } from '@shared/WebviewMessage'
 
@@ -57,7 +57,6 @@ export class Task {
 
   readonly taskId: string
   hosts: Host[]
-  terminalOutput?: string = ''
   cwd: Map<string, string> = new Map()
   private taskIsFavorited?: boolean
   api: ApiHandler
@@ -83,7 +82,7 @@ export class Task {
   // Metadata tracking
   private modelContextTracker: ModelContextTracker
 
-  // 添加系统信息缓存
+  // Add system information cache
   private hostSystemInfoCache: Map<
     string,
     {
@@ -108,8 +107,9 @@ export class Task {
   private didRejectTool = false
   private didAlreadyUseTool = false
   private didCompleteReadingStream = false
-  private didAutomaticallyRetryFailedApiRequest = false
+  // private didAutomaticallyRetryFailedApiRequest = false
   private isInsideThinkingBlock = false
+  private messages: Messages = getMessages(DEFAULT_LANGUAGE_SETTINGS)
 
   constructor(
     workspaceTracker: WorkspaceTracker,
@@ -123,7 +123,6 @@ export class Task {
     customInstructions?: string,
     task?: string,
     historyItem?: HistoryItem,
-    terminalOutput?: string,
     cwd?: Map<string, string>
   ) {
     this.workspaceTracker = workspaceTracker
@@ -141,7 +140,8 @@ export class Task {
         this.cwd.set(host.host, cwd?.get(host.host) || '')
       }
     }
-    this.terminalOutput = terminalOutput
+    this.updateMessagesLanguage()
+
     // Initialize taskId first
     if (historyItem) {
       this.taskId = historyItem.id
@@ -178,31 +178,66 @@ export class Task {
     }
   }
 
+  private async updateMessagesLanguage(): Promise<void> {
+    try {
+      const userConfig = await getUserConfig()
+      const userLanguage = userConfig?.language || DEFAULT_LANGUAGE_SETTINGS
+      this.messages = getMessages(userLanguage)
+    } catch (error) {
+      // If error, use default language
+      this.messages = getMessages(DEFAULT_LANGUAGE_SETTINGS)
+    }
+  }
+
   private async executeCommandInRemoteServer(command: string, ip?: string, cwd?: string): Promise<string> {
     try {
       const terminalInfo = await this.connectTerminal(ip)
       if (!terminalInfo) {
-        await this.ask('ssh_con_failed', 'SSH连接失败，未获取到终端信息', false)
+        await this.ask('ssh_con_failed', this.messages.sshConnectionFailed, false)
         await this.abortTask()
         throw new Error('Failed to connect to terminal')
       }
       return new Promise<string>((resolve, reject) => {
         const outputLines: string[] = []
+        let isCompleted = false
         const process = this.remoteTerminalManager.runCommand(terminalInfo, command, cwd)
-
+        const timeout = setTimeout(() => {
+          if (!isCompleted) {
+            isCompleted = true
+            const result = outputLines.join('\n')
+            resolve(result)
+          }
+        }, 10000)
         process.on('line', (line) => {
           outputLines.push(line)
         })
 
         process.on('error', (error) => {
           reject(new Error(`Command execution failed: ${error.message}`))
+          clearTimeout(timeout)
+          if (!isCompleted) {
+            isCompleted = true
+            resolve('')
+          }
         })
 
         process.once('completed', () => {
-          resolve(outputLines.join('\n'))
+          clearTimeout(timeout)
+          setTimeout(() => {
+            if (!isCompleted) {
+              isCompleted = true
+              const result = outputLines.join('\n')
+              resolve(result)
+            }
+          }, 100)
         })
       })
     } catch (err) {
+      // Check if we're in chat or cmd mode, if so return empty string
+      const chatSettings = await getGlobalState('chatSettings')
+      if (chatSettings?.mode === 'chat' || chatSettings?.mode === 'cmd') {
+        return ''
+      }
       await this.ask('ssh_con_failed', err instanceof Error ? err.message : String(err), false)
       await this.abortTask()
       throw err
@@ -397,7 +432,7 @@ export class Task {
           partialMessage: lastMessage
         })
       } else {
-        // 添加新的部分消息
+        // Add new partial message
         askTsRef.value = Date.now()
         this.lastMessageTs = askTsRef.value
         await this.addToChatermMessages({
@@ -410,11 +445,11 @@ export class Task {
         await this.postStateToWebview()
       }
     } else {
-      // 完成部分消息
+      // Complete partial message
       this.resetAskState()
 
       if (isUpdatingPreviousPartial) {
-        // 更新为完整版本
+        // Update to complete version
         askTsRef.value = lastMessage.ts
         this.lastMessageTs = lastMessage.ts
         lastMessage.text = text
@@ -425,7 +460,7 @@ export class Task {
           partialMessage: lastMessage
         })
       } else {
-        // 添加新的完整消息
+        // Add new complete message
         askTsRef.value = Date.now()
         this.lastMessageTs = askTsRef.value
         const newMessage: ChatermMessage = {
@@ -777,21 +812,21 @@ export class Task {
       const headPart = output.substring(0, HEAD_LENGTH)
       const tailPart = output.substring(output.length - TAIL_LENGTH)
       const truncatedBytes = output.length - HEAD_LENGTH - TAIL_LENGTH
-      return `${headPart}\n\n[... Output truncated, omitted ${truncatedBytes} characters ...]\n\n${tailPart}`
+      return `${headPart}\n\n${formatMessage(this.messages.outputTruncatedChars, { count: truncatedBytes })}\n\n${tailPart}`
     }
 
     const headPart = lines.slice(0, headLines).join('\n')
     const tailPart = lines.slice(-tailLines).join('\n')
     const truncatedLines = totalLines - headLines - tailLines
 
-    return `${headPart}\n\n[... Output truncated, omitted ${truncatedLines} lines ...]\n\n${tailPart}`
+    return `${headPart}\n\n${formatMessage(this.messages.outputTruncatedLines, { count: truncatedLines })}\n\n${tailPart}`
   }
 
   async executeCommandTool(command: string, ip: string): Promise<ToolResponse> {
     try {
       const terminalInfo = await this.connectTerminal(ip)
       if (!terminalInfo) {
-        await this.ask('ssh_con_failed', 'SSH连接失败，未获取到终端信息', false)
+        await this.ask('ssh_con_failed', this.messages.sshConnectionFailed, false)
         await this.abortTask()
         return 'Failed to connect to terminal'
       }
@@ -812,12 +847,12 @@ export class Task {
         if (!force && (chunkEnroute || outputBuffer.length === 0)) {
           return
         }
-        const chunk = outputBuffer.join('\n')
+        // const chunk = outputBuffer.join('\n')
         outputBuffer = []
         outputBufferSize = 0
         chunkEnroute = true
         try {
-          // 发送截至目前的完整输出，供前端整体替换
+          // Send the complete output up to now, for the frontend to replace entirely
           await this.say('command_output', result, true)
         } catch (error) {
           console.error('Error while saying for command output:', error) // Log error
@@ -840,7 +875,6 @@ export class Task {
       let result = ''
       process.on('line', async (line) => {
         result += line + '\n'
-
         outputBuffer.push(line)
         outputBufferSize += Buffer.byteLength(line, 'utf8')
         // Flush if buffer is large enough
@@ -873,9 +907,8 @@ export class Task {
       // Wait for a short delay to ensure all messages are sent to the webview
       // This delay allows time for non-awaited promises to be created and
       // for their associated messages to be sent to the webview, maintaining
-      // the correct order of messages (although the webview is smart about
-      // grouping command_output messages despite any gaps anyways)
-      await setTimeoutPromise(50)
+      // the correct order of messages
+      await new Promise((resolve) => setTimeout(resolve, 100))
 
       const lastMessage = this.chatermMessages.at(-1)
       if (lastMessage?.say === 'command_output') {
@@ -886,18 +919,19 @@ export class Task {
       const truncatedResult = this.truncateCommandOutput(result)
 
       if (completed) {
-        return `Command executed.${truncatedResult.length > 0 ? `\nOutput:\n${truncatedResult}` : ''}`
+        return `${this.messages.commandExecutedOutput}${truncatedResult.length > 0 ? `\nOutput:\n${truncatedResult}` : ''}`
       } else {
-        return `Command is still running in the user\'s terminal.${
-          truncatedResult.length > 0 ? `\nHere\'s the output so far:\n${truncatedResult}` : ''
-        }\n\nYou will be updated on the terminal status and new output in the future.`
+        return `${this.messages.commandStillRunning}${
+          truncatedResult.length > 0 ? `${this.messages.commandHereIsOutput}${truncatedResult}` : ''
+        }${this.messages.commandUpdateFuture}`
       }
     } catch (err) {
       await this.ask('ssh_con_failed', err instanceof Error ? err.message : String(err), false)
       await this.abortTask()
-      return `SSH连接失败: ${err instanceof Error ? err.message : String(err)}`
+      return `SSH connection failed: ${err instanceof Error ? err.message : String(err)}`
     }
   }
+
   // Check if the tool should be auto-approved based on the settings
   // Returns bool for most tools, and tuple for tools with nested settings
   shouldAutoApproveTool(toolName: ToolUseName): boolean | [boolean, boolean] {
@@ -921,7 +955,7 @@ export class Task {
   }
 
   async *attemptApiRequest(previousApiReqIndex: number): ApiStream {
-    // 构建系统提示
+    // Build system prompt
     let systemPrompt = await this.buildSystemPrompt()
 
     const contextManagementMetadata = await this.contextManager.getNewContextMessagesAndMetadata(
@@ -1063,8 +1097,8 @@ export class Task {
     }
 
     const errorMessage = this.api.getModel().id.includes('claude')
-      ? `This may indicate a failure in his thought process or inability to use a tool properly, which can be mitigated with some user guidance (e.g. "Try breaking down the task into smaller steps").`
-      : "Chaterm uses complex prompts and iterative task execution that may be challenging for less capable models. For best results, it's recommended to use Claude 3.7 Sonnet for its advanced agentic coding capabilities."
+      ? this.messages.consecutiveMistakesErrorClaude
+      : this.messages.consecutiveMistakesErrorOther
 
     const { response, text } = await this.ask('mistake_limit_reached', errorMessage)
 
@@ -1086,13 +1120,13 @@ export class Task {
     if (this.autoApprovalSettings.enableNotifications) {
       showSystemNotification({
         subtitle: 'Max Requests Reached',
-        message: `Chaterm has auto-approved ${this.autoApprovalSettings.maxRequests.toString()} API requests.`
+        message: formatMessage(this.messages.autoApprovalMaxRequestsMessage, { count: this.autoApprovalSettings.maxRequests.toString() })
       })
     }
 
     await this.ask(
       'auto_approval_max_req_reached',
-      `Chaterm has auto-approved ${this.autoApprovalSettings.maxRequests.toString()} API requests. Would you like to reset the count and proceed with the task?`
+      formatMessage(this.messages.autoApprovalMaxRequestsMessage, { count: this.autoApprovalSettings.maxRequests.toString() })
     )
 
     this.consecutiveAutoApprovedRequestsCount = 0
@@ -1117,8 +1151,9 @@ export class Task {
       role: 'user',
       content: userContent
     })
-    telemetryService.captureConversationTurnEvent(this.taskId, await getGlobalState('apiProvider'), this.api.getModel().id, 'user')
-    // 更新API请求消息
+    const chatSettings = await getGlobalState('chatSettings')
+    telemetryService.captureApiRequestEvent(this.taskId, await getGlobalState('apiProvider'), this.api.getModel().id, 'user', chatSettings?.mode)
+    // Update API request message
     await this.updateApiRequestMessage(userContent)
   }
 
@@ -1128,7 +1163,7 @@ export class Task {
 
     await this.say('checkpoint_created')
 
-    // 更新检查点消息（等待CheckpointTracker初始化）
+    // Update checkpoint message (waiting for CheckpointTracker initialization)
     const lastCheckpointMessage = findLast(this.chatermMessages, (m) => m.say === 'checkpoint_created')
     if (lastCheckpointMessage) {
       await this.saveChatermMessagesAndUpdateHistory()
@@ -1209,7 +1244,7 @@ export class Task {
     this.didAlreadyUseTool = false
     this.presentAssistantMessageLocked = false
     this.presentAssistantMessageHasPendingUpdates = false
-    this.didAutomaticallyRetryFailedApiRequest = false
+    // this.didAutomaticallyRetryFailedApiRequest = false
     this.isInsideThinkingBlock = false
   }
 
@@ -1300,13 +1335,12 @@ export class Task {
     }
 
     if (this.didRejectTool) {
-      assistantMessage += '\n\n[Response interrupted by user feedback]'
+      assistantMessage += this.messages.responseInterruptedUserFeedback
       return true
     }
 
     if (this.didAlreadyUseTool) {
-      assistantMessage +=
-        '\n\n[Response interrupted by a tool use result. Only one tool may be used at a time and should be placed at the end of the message.]'
+      assistantMessage += this.messages.responseInterruptedToolUse
       return true
     }
 
@@ -1331,7 +1365,8 @@ export class Task {
         {
           type: 'text',
           text:
-            assistantMessage + `\n\n[${cancelReason === 'streaming_failed' ? 'Response interrupted by API Error' : 'Response interrupted by user'}]`
+            assistantMessage +
+            `\n\n[${cancelReason === 'streaming_failed' ? this.messages.responseInterruptedApiError : this.messages.responseInterruptedUser}]`
         }
       ]
     })
@@ -1339,7 +1374,7 @@ export class Task {
     messageUpdater.updateApiReqMsg(cancelReason, streamingFailedMessage)
     await this.saveChatermMessagesAndUpdateHistory()
 
-    telemetryService.captureConversationTurnEvent(this.taskId, await getGlobalState('apiProvider'), this.api.getModel().id, 'assistant')
+    // telemetryService.captureConversationTurnEvent(this.taskId, await getGlobalState('apiProvider'), this.api.getModel().id, 'assistant')
 
     this.didFinishAbortingStream = true
   }
@@ -1356,7 +1391,7 @@ export class Task {
 
   private async handleStreamUsageUpdate(streamMetrics: any, messageUpdater: any): Promise<void> {
     if (!streamMetrics.didReceiveUsageChunk) {
-      // 异步获取使用情况统计
+      // Asynchronously get usage statistics
       this.api.getApiStreamUsage?.().then(async (apiStreamUsage) => {
         if (apiStreamUsage) {
           streamMetrics.inputTokens += apiStreamUsage.inputTokens
@@ -1398,7 +1433,7 @@ export class Task {
     if (assistantMessage.length === 0) {
       return await this.handleEmptyAssistantResponse()
     }
-    telemetryService.captureConversationTurnEvent(this.taskId, await getGlobalState('apiProvider'), this.api.getModel().id, 'assistant')
+    // telemetryService.captureConversationTurnEvent(this.taskId, await getGlobalState('apiProvider'), this.api.getModel().id, 'assistant')
 
     await this.addToApiConversationHistory({
       role: 'assistant',
@@ -1407,31 +1442,18 @@ export class Task {
 
     await pWaitFor(() => this.userMessageContentReady)
 
-    const didToolUse = this.assistantMessageContent.some((block) => block.type === 'tool_use')
-
-    if (!didToolUse) {
-      this.userMessageContent.push({
-        type: 'text',
-        text: formatResponse.noToolsUsed()
-      })
-      this.consecutiveMistakeCount++
-    }
-
     return await this.recursivelyMakeChatermRequests(this.userMessageContent)
   }
 
   private async handleEmptyAssistantResponse(): Promise<boolean> {
-    await this.say(
-      'error',
-      "Unexpected API Response: The language model did not provide any assistant messages. This may indicate an issue with the API or the model's output."
-    )
+    await this.say('error', this.messages.unexpectedApiResponse)
 
     await this.addToApiConversationHistory({
       role: 'assistant',
       content: [
         {
           type: 'text',
-          text: 'Failure: I did not provide a response.'
+          text: this.messages.failureNoResponse
         }
       ]
     })
@@ -1486,10 +1508,10 @@ export class Task {
     const timeZone = formatter.resolvedOptions().timeZone
     const timeZoneOffset = -now.getTimezoneOffset() / 60 // Convert to hours and invert sign to match conventional notation
     const timeZoneOffsetStr = `${timeZoneOffset >= 0 ? '+' : ''}${timeZoneOffset}:00`
-    details += `\n\n# Current Time:\n${formatter.format(now)} (${timeZone}, UTC${timeZoneOffsetStr})`
+    details += `\n\n# ${this.messages.currentTimeTitle}:\n${formatter.format(now)} (${timeZone}, UTC${timeZoneOffsetStr})`
 
     if (includeHostDetails && this.hosts && this.hosts.length > 0) {
-      details += `\n\n# Current Hosts:\n${this.hosts.map((h) => h.host).join(', ')}`
+      details += `\n\n# ${this.messages.currentHostsTitle}:\n${this.hosts.map((h) => h.host).join(', ')}`
 
       for (const host of this.hosts) {
         let currentCwd = this.cwd.get(host.host)
@@ -1498,7 +1520,7 @@ export class Task {
           this.cwd.set(host.host, currentCwd)
         }
 
-        details += `\n\n# Host ${host.host} - Current Working Directory (${currentCwd}) Files:\n`
+        details += `\n\n# ${formatMessage(this.messages.hostWorkingDirectory, { host: host.host, cwd: currentCwd })}:\n`
 
         const res = await this.executeCommandInRemoteServer('ls -al', host.host, currentCwd)
 
@@ -1510,7 +1532,7 @@ export class Task {
           let result = totalLine + '\n'
           result += limitedLines.join('\n')
           if (fileLines.length > 200) {
-            result += `\n... (${fileLines.length - 200} more files not shown)`
+            result += formatMessage(this.messages.moreFilesNotShown, { count: fileLines.length - 200 })
           }
           return result
         }
@@ -1546,23 +1568,13 @@ export class Task {
 
     const lastApiReqTotalTokens = lastApiReqMessage ? getTotalTokensFromApiReqMessage(lastApiReqMessage) : 0
     const usagePercentage = Math.round((lastApiReqTotalTokens / contextWindow) * 100)
-    const chatSettings = await getGlobalState('chatSettings')
 
-    details += '\n\n# Context Window Usage:'
-    details += `\n${lastApiReqTotalTokens.toLocaleString()} / ${(contextWindow / 1000).toLocaleString()}K tokens used (${usagePercentage}%)`
-
-    details += '\n\n# Current Mode:'
-    switch (chatSettings?.mode) {
-      case 'chat':
-        details += '\nCHAT MODE'
-        break
-      case 'cmd':
-        details += '\CMD MODE'
-        break
-      case 'agent':
-        details += '\nAGENT MODE'
-        break
-    }
+    details += `\n\n# ${this.messages.contextWindowUsageTitle}:`
+    details += `\n${formatMessage(this.messages.tokensUsed, {
+      used: lastApiReqTotalTokens.toLocaleString(),
+      total: (contextWindow / 1000).toLocaleString(),
+      percentage: usagePercentage
+    })}`
 
     return `<environment_details>\n${details.trim()}\n</environment_details>`
   }
@@ -1685,7 +1697,7 @@ export class Task {
   private pushAdditionalToolFeedback(feedback?: string): void {
     if (!feedback) return
     const truncatedFeedback = this.truncateCommandOutput(feedback)
-    const content = formatResponse.toolResult(`The user provided the following feedback:\n<feedback>\n${truncatedFeedback}\n</feedback>`)
+    const content = formatResponse.toolResult(formatMessage(this.messages.userProvidedFeedback, { feedback: truncatedFeedback }))
     if (typeof content === 'string') {
       this.userMessageContent.push({ type: 'text', text: content })
     } else {
@@ -2022,7 +2034,7 @@ export class Task {
         )
       } else {
         this.pushToolResult(toolDescription, formatResponse.toolResult('The user accepted the creation of the Github issue.'))
-        // 可在此创建 issue 的逻辑
+        // Logic to create an issue can be added here
       }
       await this.saveCheckpoint()
     } catch (error) {
@@ -2077,12 +2089,12 @@ export class Task {
   }
 
   private async handleTextBlock(block: TextContent): Promise<void> {
-    // 若之前已拒绝或已执行工具，则忽略纯文本更新
+    // If previously rejected or tool executed, ignore plain text updates
     if (this.didRejectTool || this.didAlreadyUseTool) return
 
     let content = block.content
     if (content) {
-      // 处理流式的 <thinking> 标签
+      // Handle streaming <thinking> tags
       content = this.processThinkingTags(content)
 
       const lastOpenBracketIndex = content.lastIndexOf('<')
@@ -2110,7 +2122,7 @@ export class Task {
       }
     }
 
-    // 对完整块清理可能附带的代码块结尾噪声
+    // Clean up potential trailing noise from code blocks for the complete block
     if (!block.partial) {
       const match = content?.trimEnd().match(/```[a-zA-Z0-9_-]+$/)
       if (match) {
@@ -2119,27 +2131,51 @@ export class Task {
     }
 
     await this.say('text', content, block.partial)
+
+    // If this is a complete text block and the last content block, wait for user input
+    if (!block.partial && this.currentStreamingContentIndex === this.assistantMessageContent.length - 1) {
+      // Check if there is a tool call
+      // const hasToolUse = this.assistantMessageContent.some((block) => block.type === 'tool_use')
+
+      // if (!hasToolUse) {
+      const { response, text } = await this.ask('followup', '', false)
+
+      if (response === 'yesButtonClicked') {
+        return
+      }
+
+      if (text) {
+        await this.say('user_feedback', text)
+        this.userMessageContent.push({
+          type: 'text',
+          text: `The user has provided feedback on the response. Consider their input to continue the conversation.\n<feedback>\n${text}\n</feedback>`
+        })
+      }
+
+      this.didAlreadyUseTool = true
+      // }
+    }
   }
 
   private processThinkingTags(content: string): string {
     if (!content) return content
 
-    // 如果当前已经在思考块内部，检查是否有结束标签
+    // If currently inside a thinking block, check for an end tag
     if (this.isInsideThinkingBlock) {
       const endIndex = content.indexOf('</thinking>')
       if (endIndex !== -1) {
-        // 找到结束标签，退出思考块状态，返回结束标签后的内容
+        // Found end tag, exit thinking block state, return content after end tag
         this.isInsideThinkingBlock = false
         return content.slice(endIndex + '</thinking>'.length)
       } else {
-        // 仍在思考块内部，移除所有内容
+        // Still inside thinking block, remove all content
         return ''
       }
     }
 
     const startIndex = content.indexOf('<thinking>')
     if (startIndex !== -1) {
-      // 找到开始标签
+      // Found start tag
       const beforeThinking = content.slice(0, startIndex)
       const afterThinking = content.slice(startIndex + '<thinking>'.length)
 
@@ -2157,37 +2193,57 @@ export class Task {
   }
 
   private async buildSystemPrompt(): Promise<string> {
-    let systemPrompt = await SYSTEM_PROMPT()
-    let systemInformation = '# SYSTEM INFORMATION\n\n'
+    const chatSettings = await getGlobalState('chatSettings')
 
-    // 检查 hosts 是否存在且不为空
+    // Get user language setting from renderer process
+    let userLanguage = DEFAULT_LANGUAGE_SETTINGS
+    try {
+      const userConfig = await getUserConfig()
+      if (userConfig && userConfig.language) {
+        userLanguage = userConfig.language
+      }
+    } catch (error) {}
+
+    // Select system prompt based on language and mode
+    let systemPrompt
+    if (userLanguage === 'zh-CN') {
+      if (chatSettings?.mode === 'chat') {
+        systemPrompt = SYSTEM_PROMPT_CHAT_CN
+      } else {
+        systemPrompt = SYSTEM_PROMPT_CN
+      }
+    } else {
+      if (chatSettings?.mode === 'chat') {
+        systemPrompt = SYSTEM_PROMPT_CHAT
+      } else {
+        systemPrompt = SYSTEM_PROMPT
+      }
+    }
+    // Update messages language before building system information
+
+    let systemInformation = `# ${this.messages.systemInformationTitle}\n\n`
+
+    // Check if hosts exist and are not empty
     if (!this.hosts || this.hosts.length === 0) {
       console.warn('No hosts configured, skipping system information collection')
-      systemInformation += 'No hosts configured.\n'
+      systemInformation += this.messages.noHostsConfigured + '\n'
     } else {
       console.log(`Collecting system information for ${this.hosts.length} host(s)`)
 
       for (const host of this.hosts) {
         try {
-          // 检查缓存，如果没有缓存则获取系统信息并缓存
+          // Check cache, if no cache, get system info and cache it
           let hostInfo = this.hostSystemInfoCache.get(host.host)
           if (!hostInfo) {
             console.log(`Fetching system information for host: ${host.host}`)
 
-            // 优化：一次性获取所有系统信息，避免多次网络请求
-            const systemInfoScript = `
-              echo "OS_VERSION:$(uname -a)"
-              echo "DEFAULT_SHELL:$SHELL"
-              echo "HOME_DIR:$HOME"
-              echo "HOSTNAME:$HOSTNAME"
-              echo "USERNAME:$(whoami)"
-              echo "SUDO_CHECK:$(sudo -n true 2>/dev/null && echo "has sudo permission" || echo "no sudo permission")"
-            `
+            // Optimization: Get all system information at once to avoid multiple network requests
+            const systemInfoScript = `echo "OS_VERSION:$(uname -a)" && echo "DEFAULT_SHELL:$SHELL" && echo "HOME_DIR:$HOME" && echo "HOSTNAME:$HOSTNAME" && echo "USERNAME:$(whoami)" && echo "SUDO_CHECK:$(sudo -n true 2>/dev/null && echo 'has sudo permission' || echo 'no sudo permission')"`
 
             const systemInfoOutput = await this.executeCommandInRemoteServer(systemInfoScript, host.host)
             console.log(`System info output for ${host.host}:`, systemInfoOutput)
 
-            // 解析输出结果
+            // Parse output result
             const parseSystemInfo = (
               output: string
             ): {
@@ -2240,37 +2296,37 @@ export class Task {
             hostInfo = parseSystemInfo(systemInfoOutput)
             console.log(`Parsed system info for ${host.host}:`, hostInfo)
 
-            // 缓存系统信息
+            // Cache system information
             this.hostSystemInfoCache.set(host.host, hostInfo)
           } else {
             console.log(`Using cached system information for host: ${host.host}`)
           }
 
           systemInformation += `
-        ## Host: ${host.host}
-        Operating System: ${hostInfo.osVersion}
-        Default Shell: ${hostInfo.defaultShell}
-        Home Directory: ${hostInfo.homeDir.toPosix()}
-        Current Working Directory: ${this.cwd.get(host.host) || hostInfo.homeDir}
-        Hostname: ${hostInfo.hostName}
-        User: ${hostInfo.userName}
-        Sudo Access: ${hostInfo.sudoCheck}
-        ====
-      `
+            ## Host: ${host.host}
+            ${this.messages.osVersion}: ${hostInfo.osVersion}
+            ${this.messages.defaultShell}: ${hostInfo.defaultShell}
+            ${this.messages.homeDirectory}: ${hostInfo.homeDir.toPosix()}
+            ${this.messages.currentWorkingDirectory}: ${this.cwd.get(host.host) || hostInfo.homeDir}
+            ${this.messages.hostname}: ${hostInfo.hostName}
+            ${this.messages.user}: ${hostInfo.userName}
+            ${this.messages.sudoAccess}: ${hostInfo.sudoCheck}
+            ====
+          `
         } catch (error) {
           console.error(`Failed to get system information for host ${host.host}:`, error)
-          // 即使获取系统信息失败，也要添加基本信息
+          // Even if getting system information fails, add basic information
           systemInformation += `
-        ## Host: ${host.host}
-        Operating System: Unable to retrieve (${error instanceof Error ? error.message : 'Unknown error'})
-        Default Shell: Unable to retrieve
-        Home Directory: Unable to retrieve
-        Current Working Directory: ${this.cwd.get(host.host) || 'Unknown'}
-        Hostname: Unable to retrieve
-        User: Unable to retrieve
-        Sudo Access: Unable to retrieve
-        ====
-      `
+            ## Host: ${host.host}
+            ${this.messages.osVersion}: ${this.messages.unableToRetrieve} (${error instanceof Error ? error.message : this.messages.unknown})
+            ${this.messages.defaultShell}: ${this.messages.unableToRetrieve}
+            ${this.messages.homeDirectory}: ${this.messages.unableToRetrieve}
+            ${this.messages.currentWorkingDirectory}: ${this.cwd.get(host.host) || this.messages.unknown}
+            ${this.messages.hostname}: ${this.messages.unableToRetrieve}
+            ${this.messages.user}: ${this.messages.unableToRetrieve}
+            ${this.messages.sudoAccess}: ${this.messages.unableToRetrieve}
+            ====
+          `
         }
       }
     }
@@ -2280,9 +2336,9 @@ export class Task {
 
     const settingsCustomInstructions = this.customInstructions?.trim()
 
-    const preferredLanguageInstructions = `# Language Settings:\n\nDefault language : ${DEFAULT_LANGUAGE_SETTINGS}.\n\n rules:1.You should response based on the user's question language 2.This applies to ALL parts of your response, including thinking sections, explanations, and any other text content.`
+    const preferredLanguageInstructions = `# ${this.messages.languageSettingsTitle}:\n\n${formatMessage(this.messages.defaultLanguage, { language: userLanguage })}\n\n${this.messages.languageRules}`
     if (settingsCustomInstructions || preferredLanguageInstructions) {
-      const userInstructions = addUserInstructions(settingsCustomInstructions, preferredLanguageInstructions)
+      const userInstructions = addUserInstructions(userLanguage, settingsCustomInstructions, preferredLanguageInstructions)
       systemPrompt += userInstructions
     }
 

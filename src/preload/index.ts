@@ -17,16 +17,16 @@ interface FileRecord {
 
 const envPath = path.resolve(__dirname, '../../../build/.env')
 
-// 确保路径存在
+// Ensure path exists
 if (!fs.existsSync(envPath)) {
-  console.warn(`环境变量文件不存在: ${envPath}`)
-  // 可以尝试其他路径或设置默认值
+  console.warn(`Environment file does not exist: ${envPath}`)
+  // Can try other paths or set default values
 }
 
-// 加载环境变量
+// Load environment variables
 dotenv.config({ path: envPath })
 
-// 如果有特定环境的 .env 文件，也可以加载
+// If there is a .env file for a specific environment, it can also be loaded
 const nodeEnv = process.env.NODE_ENV || 'development'
 const envSpecificPath = path.resolve(__dirname, `../../build/.env.${nodeEnv}`)
 const envContent: Record<string, string> = {}
@@ -36,9 +36,9 @@ if (fs.existsSync(envSpecificPath)) {
 
   try {
     const fileContent = fs.readFileSync(envSpecificPath, 'utf8')
-    // 手动解析环境变量
+    // Manually parse environment variables
     fileContent.split('\n').forEach((line) => {
-      // 忽略注释和空行
+      // Ignore comments and empty lines
       if (!line || line.startsWith('#')) return
 
       const match = line.match(/^\s*([\w.-]+)\s*=\s*(.*)?\s*$/)
@@ -46,13 +46,13 @@ if (fs.existsSync(envSpecificPath)) {
         const key = match[1]
         let value = match[2] || ''
 
-        // 去除引号
+        // Remove quotes
         value = value.replace(/^['"]|['"]$/g, '')
 
-        // 将解析的环境变量存储到对象中
+        // Store parsed environment variables in an object
         envContent[key] = value
 
-        // 设置到 process.env 中
+        // Set to process.env
         process.env[key] = value
       }
     })
@@ -90,18 +90,18 @@ const getMacAddress = () => {
   }
   return ''
 }
-// 获取当前 URL
+// Get current URL
 const getCookieUrl = async () => {
   const cookieUrl = await ipcRenderer.invoke('get-cookie-url')
   return cookieUrl
 }
 
-// 设置 Cookie
+// Set Cookie
 const setCookie = async (name, value, expirationDays = 7) => {
   const result = await ipcRenderer.invoke('set-cookie', name, value, expirationDays)
   return result
 }
-// 获取cookie
+// Get cookie
 const getCookie = async (name) => {
   try {
     const result = await ipcRenderer.invoke('get-cookie', name)
@@ -111,16 +111,16 @@ const getCookie = async (name) => {
   }
 }
 
-// 获取所有 Cookies
+// Get all Cookies
 const getAllCookies = async () => {
   try {
-    const result = await ipcRenderer.invoke('get-cookie', null) // 如果不传 name，获取全部 Cookies
+    const result = await ipcRenderer.invoke('get-cookie', null) // If no name is passed, get all Cookies
     return result
   } catch (error) {
     return { success: false, error }
   }
 }
-// 移除一个 Cookie
+// Remove a Cookie
 const removeCookie = async (name) => {
   try {
     const result = await ipcRenderer.invoke('remove-cookie', { name })
@@ -148,7 +148,7 @@ const insertCommand = async (data: { command: string; ip: string }) => {
   }
 }
 
-// Chaterm数据库相关的IPC处理程序
+// Chaterm database related IPC handlers
 const getLocalAssetRoute = async (data: { searchType: string; params?: any[] }) => {
   try {
     const result = await ipcRenderer.invoke('asset-route-local-get', data)
@@ -331,7 +331,7 @@ const initUserDatabase = async (data: { uid: number }) => {
   }
 }
 
-// 用户片段操作
+// User snippet operations
 const userSnippetOperation = async (data: { operation: 'list' | 'create' | 'delete' | 'update' | 'swap'; params?: any }) => {
   try {
     const result = await ipcRenderer.invoke('user-snippet-operation', data)
@@ -422,7 +422,7 @@ const api = {
     ipcRenderer.on('navigation-state-changed', (_event, state) => callback(state))
   },
 
-  // keyboard-interactive 认证
+  // keyboard-interactive authentication
   onKeyboardInteractiveTimeout: (callback) => {
     const listener = (_event, data) => {
       callback(data)
@@ -508,16 +508,16 @@ const api = {
       ipcRenderer.removeListener('main-to-webview', handler)
     }
   },
-  // 新增的方法，用于调用主进程的 executeRemoteCommand
+  // New method to call executeRemoteCommand in the main process
   executeRemoteCommandViaPreload: async () => {
     try {
-      console.log('Calling execute-remote-command via preload') // 添加日志
+      console.log('Calling execute-remote-command via preload') // Add log
       const result = await ipcRenderer.invoke('execute-remote-command')
-      console.log('Result from main process:', result) // 添加日志
+      console.log('Result from main process:', result) // Add log
       return result
     } catch (error) {
-      console.error('Error invoking execute-remote-command from preload:', error) // 添加日志
-      // 确保错误是一个可序列化的对象
+      console.error('Error invoking execute-remote-command from preload:', error) // Add log
+      // Ensure error is a serializable object
       if (error instanceof Error) {
         return {
           success: false,
@@ -546,6 +546,18 @@ const api = {
       return Promise.reject(error)
     }
   },
+  // Telemetry events
+  captureButtonClick: async (button: string, properties?: Record<string, any>) => {
+    try {
+      const result = await ipcRenderer.invoke('capture-telemetry-event', {
+        eventType: 'button_click',
+        data: { button, properties }
+      })
+      return result
+    } catch (error) {
+      return Promise.reject(error)
+    }
+  },
   checkUpdate: () => ipcRenderer.invoke('update:checkUpdate'),
   download: () => ipcRenderer.invoke('update:download'),
   autoUpdate: (update) => {
@@ -560,7 +572,8 @@ const api = {
     }
     ipcRenderer.on('jumpserver:status-update', listener)
     return () => ipcRenderer.removeListener('jumpserver:status-update', listener)
-  }
+  },
+  openExternalLogin: () => ipcRenderer.invoke('open-external-login')
 }
 // 自定义 API 用于浏览器控制
 
@@ -571,6 +584,10 @@ if (process.contextIsolated) {
   try {
     contextBridge.exposeInMainWorld('electron', {
       electronAPI,
+      ipcRenderer: {
+        on: (channel, listener) => ipcRenderer.on(channel, listener),
+        removeAllListeners: (channel) => ipcRenderer.removeAllListeners(channel)
+      },
       getCurrentURL: () => window.location.href // 通过 window.location 获取当前 URL
     })
     contextBridge.exposeInMainWorld('api', api)
