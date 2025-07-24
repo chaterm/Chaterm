@@ -5,7 +5,10 @@
       class="userInfo-container"
     >
       <div class="user_avatar">
-        <img :src="userInfo.avatar" />
+        <img
+          :src="userInfo.avatar"
+          referrerpolicy="no-referrer"
+        />
       </div>
       <div class="registration_type">
         {{ userInfo.registrationType === 1 ? t('userInfo.enterprise') : t('userInfo.personal') }}

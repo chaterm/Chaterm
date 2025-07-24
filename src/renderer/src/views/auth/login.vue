@@ -272,7 +272,7 @@ const handleExternalLogin = async () => {
 onMounted(async () => {
   const api = window.api as any
   platform.value = await api.getPlatform()
-  isDevWin.value = import.meta.env.MODE === 'development' && platform.value.includes('win')
+  isDevWin.value = import.meta.env.MODE === 'development' && platform.value === 'win32'
   await captureButtonClick(LoginFunnelEvents.ENTER_LOGIN_PAGE)
   if (!isDevWin.value) {
     // 监听外部登录成功事件
