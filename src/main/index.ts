@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, session } from 'electron'
+import { app, shell, BrowserWindow, ipcMain, session } from 'electron'
 import { join } from 'path'
 import { electronApp, optimizer } from '@electron-toolkit/utils'
 import { is } from '@electron-toolkit/utils'
@@ -726,5 +726,80 @@ ipcMain.handle('capture-telemetry-event', async (_, { eventType, data }) => {
   } catch (error) {
     console.error('Failed to capture telemetry event:', error)
     return { success: false, error: error instanceof Error ? error.message : 'Unknown error' }
+  }
+})
+
+// Register the agreement before the app is ready
+if (!app.isDefaultProtocolClient('chaterm')) {
+  app.setAsDefaultProtocolClient('chaterm')
+}
+
+// Process protocol redirection
+const handleProtocolRedirect = (url: string) => {
+  const mainWindow = BrowserWindow.getAllWindows()[0]
+  if (!mainWindow) return
+
+  // Parse the token and user information in the URL
+  const urlObj = new URL(url)
+  const userInfo = urlObj.searchParams.get('userInfo')
+  const method = urlObj.searchParams.get('method')
+  if (userInfo) {
+    try {
+      // Send data to the rendering process
+      mainWindow.webContents.send('external-login-success', {
+        userInfo: JSON.parse(userInfo),
+        method: method
+      })
+    } catch (error) {
+      console.error('Failed to process external login data:', error)
+    }
+  }
+}
+
+// Activation of Processing Protocol in Windows
+if (process.platform === 'win32') {
+  const gotTheLock = app.requestSingleInstanceLock()
+
+  if (!gotTheLock) {
+    app.quit()
+  } else {
+    app.on('second-instance', (_event, commandLine) => {
+      // Someone is trying to run the second instance, we should focus on our window
+      const mainWindow = BrowserWindow.getAllWindows()[0]
+      if (mainWindow) {
+        if (mainWindow.isMinimized()) mainWindow.restore()
+        mainWindow.focus()
+      }
+
+      // Processing Protocol URL
+      const url = commandLine.pop()
+      if (url && url.startsWith('chaterm://')) {
+        handleProtocolRedirect(url)
+      }
+    })
+  }
+}
+
+// Protocol Activation in macOS Processing
+app.on('open-url', (_event, url) => {
+  if (url.startsWith('chaterm://')) {
+    handleProtocolRedirect(url)
+  }
+})
+
+// Add IPC handler after creating Window function
+ipcMain.handle('open-external-login', async () => {
+  try {
+    // Generate a random state value for security verification
+    const state = Math.random().toString(36).substring(2)
+    // Store status values for subsequent verification
+    global.authState = state
+    // Replace here with your external login URL, which needs to include information about redirecting back to the application
+    const externalLoginUrl = `https://login.chaterm.ai/login?client_id=chaterm&state=${state}&redirect_uri=chaterm://auth/callback`
+    await shell.openExternal(externalLoginUrl)
+    return { success: true }
+  } catch (error: any) {
+    console.error('Failed to open external login page:', error)
+    return { success: false, error: error.message }
   }
 })

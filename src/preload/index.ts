@@ -538,7 +538,8 @@ const api = {
     ipcRenderer.on('update:autoUpdate', (event, params) => update(params))
   },
   quitAndInstall: () => ipcRenderer.invoke('update:quitAndInstall'),
-  updateTheme: (params) => ipcRenderer.invoke('update-theme', params)
+  updateTheme: (params) => ipcRenderer.invoke('update-theme', params),
+  openExternalLogin: () => ipcRenderer.invoke('open-external-login')
 }
 // 自定义 API 用于浏览器控制
 
@@ -549,6 +550,10 @@ if (process.contextIsolated) {
   try {
     contextBridge.exposeInMainWorld('electron', {
       electronAPI,
+      ipcRenderer: {
+        on: (channel, listener) => ipcRenderer.on(channel, listener),
+        removeAllListeners: (channel) => ipcRenderer.removeAllListeners(channel)
+      },
       getCurrentURL: () => window.location.href // 通过 window.location 获取当前 URL
     })
     contextBridge.exposeInMainWorld('api', api)
