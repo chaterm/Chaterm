@@ -762,6 +762,16 @@ if (!app.isDefaultProtocolClient('chaterm')) {
   app.setAsDefaultProtocolClient('chaterm')
 }
 
+// Linux 下处理 chaterm:// 协议参数
+if (process.platform === 'linux') {
+  const protocolArg = process.argv.find((arg) => arg.startsWith('chaterm://'))
+  if (protocolArg) {
+    app.whenReady().then(() => {
+      handleProtocolRedirect(protocolArg)
+    })
+  }
+}
+
 // Process protocol redirection
 const handleProtocolRedirect = (url: string) => {
   const mainWindow = BrowserWindow.getAllWindows()[0]
