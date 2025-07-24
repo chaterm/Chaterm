@@ -782,6 +782,9 @@ const updateHosts = (hostInfo: { ip: string; uuid: string; connection: string } 
 
 // 初始化资产信息
 const initAssetInfo = async () => {
+  if (!autoUpdateHost.value || chatHistory.length > 0) {
+    return
+  }
   const assetInfo = await getCurentTabAssetInfo()
   if (assetInfo) {
     updateHosts({
@@ -909,17 +912,17 @@ const handlePlusClick = async () => {
   currentChatId.value = newChatId
   const chatSetting = (await getGlobalState('chatSettings')) as { mode?: string }
   chatTypeValue.value = chatSetting?.mode || 'agent'
-  hosts.value = []
-  autoUpdateHost.value = true
-
-  // 获取当前活动标签页的资产信息
-  const assetInfo = await getCurentTabAssetInfo()
-  if (assetInfo && assetInfo.ip) {
-    hosts.value.push({
-      host: assetInfo.ip,
-      uuid: assetInfo.uuid,
-      connection: assetInfo.connection ? assetInfo.connection : 'personal'
-    })
+  if (autoUpdateHost.value) {
+    hosts.value = []
+    // Get the asset information of the current active tab
+    const assetInfo = await getCurentTabAssetInfo()
+    if (assetInfo && assetInfo.ip) {
+      hosts.value.push({
+        host: assetInfo.ip,
+        uuid: assetInfo.uuid,
+        connection: assetInfo.connection ? assetInfo.connection : 'personal'
+      })
+    }
   }
 
   chatHistory.length = 0
@@ -1365,7 +1368,17 @@ watch(
 
 onBeforeUnmount(() => {})
 
+// Global ESC key listener
+const handleGlobalEscKey = (e: KeyboardEvent) => {
+  if (e.key === 'Escape' && showHostSelect.value) {
+    closeHostSelect()
+  }
+}
+
 onMounted(async () => {
+  // Add global ESC key listener
+  document.addEventListener('keydown', handleGlobalEscKey)
+
   eventBus.on('triggerAiSend', () => {
     if (chatInputValue.value.trim()) {
       sendMessage('commandSend')
@@ -1557,7 +1570,7 @@ onUnmounted(() => {
     removeListener()
     removeListener = null
   }
-  // 移除事件监听
+  document.removeEventListener('keydown', handleGlobalEscKey)
   eventBus.off('apiProviderChanged')
   eventBus.off('activeTabChanged')
   eventBus.off('chatToAi')
@@ -1733,6 +1746,7 @@ const handleHostSearchKeyDown = (e: KeyboardEvent) => {
       } else {
         keyboardSelectedIndex.value = Math.min(keyboardSelectedIndex.value + 1, filteredHostOptions.value.length - 1)
       }
+      scrollToSelectedItem()
       break
     case 'ArrowUp':
       e.preventDefault()
@@ -1741,6 +1755,7 @@ const handleHostSearchKeyDown = (e: KeyboardEvent) => {
       } else {
         keyboardSelectedIndex.value = Math.max(keyboardSelectedIndex.value - 1, 0)
       }
+      scrollToSelectedItem()
       break
     case 'Enter':
       e.preventDefault()
@@ -1750,17 +1765,42 @@ const handleHostSearchKeyDown = (e: KeyboardEvent) => {
       break
     case 'Escape':
       e.preventDefault()
-      showHostSelect.value = false
-      keyboardSelectedIndex.value = -1
-      // 将焦点回到主输入框
-      nextTick(() => {
-        const textarea = document.getElementsByClassName('chat-textarea')[0] as HTMLTextAreaElement | null
-        if (textarea) {
-          textarea.focus()
-        }
-      })
+      closeHostSelect()
       break
   }
+}
+
+// Scroll to the selected item
+const scrollToSelectedItem = () => {
+  nextTick(() => {
+    const hostSelectList = document.querySelector('.host-select-list')
+    const selectedItem = document.querySelector('.host-select-item.keyboard-selected')
+
+    if (hostSelectList && selectedItem) {
+      const listRect = hostSelectList.getBoundingClientRect()
+      const itemRect = selectedItem.getBoundingClientRect()
+
+      // Scroll to the visible position if the selected item is outside the visible area of the list
+      if (itemRect.top < listRect.top) {
+        selectedItem.scrollIntoView({ block: 'start', behavior: 'smooth' })
+      } else if (itemRect.bottom > listRect.bottom) {
+        selectedItem.scrollIntoView({ block: 'end', behavior: 'smooth' })
+      }
+    }
+  })
+}
+
+// Close the host selection box
+const closeHostSelect = () => {
+  showHostSelect.value = false
+  keyboardSelectedIndex.value = -1
+  // Refocus on the main input field
+  nextTick(() => {
+    const textarea = document.getElementsByClassName('chat-textarea')[0] as HTMLTextAreaElement | null
+    if (textarea) {
+      textarea.focus()
+    }
+  })
 }
 
 // 处理鼠标悬停事件
@@ -2486,6 +2526,10 @@ defineExpose({
   .host-tag-with-delete {
     position: relative;
     padding-right: 20px !important;
+    height: 20px !important;
+    line-height: 20px !important;
+    padding-top: 2px !important;
+    padding-bottom: 2px !important;
 
     .host-delete-btn {
       position: absolute;
@@ -2523,15 +2567,23 @@ defineExpose({
 }
 
 .hosts-display-container-host-tag {
-  color: var(--text-color-secondary);
+  background-color: var(--bg-color-secondary) !important;
+  border: 1px solid var(--border-color) !important;
+  color: var(--text-color) !important;
   cursor: pointer;
   font-size: 12px;
   padding: 2px 6px;
   border-radius: 4px;
   transition: all 0.2s ease;
+  height: 20px;
+  line-height: 20px;
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid #3a3a3a;
 
   &:hover {
-    background-color: var(--hover-bg-color);
+    background-color: var(--hover-bg-color) !important;
+    border-color: var(--border-color-light) !important;
   }
 }
 
@@ -3447,41 +3499,41 @@ defineExpose({
   position: absolute;
   bottom: 100%;
   left: 0;
-  width: 130px;
+  width: 229px;
   background: var(--bg-color);
   border-radius: 4px;
   box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.15);
   border: 1px solid var(--border-color);
   margin-bottom: 4px;
   margin-left: 8px;
-  max-height: 150px;
+  max-height: 240px;
+  // overflow: hidden;
+}
+
+.host-select-list {
+  max-height: 200px;
   overflow-y: auto;
+  padding: 2px 0px 2px 0px;
   scrollbar-width: thin;
-  scrollbar-color: var(--border-color) var(--bg-color-secondary);
+  scrollbar-color: var(--bg-color-quinary) var(--bg-color-senary);
 
   &::-webkit-scrollbar {
     width: 6px;
   }
 
   &::-webkit-scrollbar-track {
-    background: var(--bg-color-secondary);
+    background: var(--scrollbar-track);
     border-radius: 3px;
   }
 
   &::-webkit-scrollbar-thumb {
-    background-color: var(--border-color);
+    background-color: var(--scrollbar-thumb);
     border-radius: 3px;
 
     &:hover {
-      background-color: var(--border-color-light);
+      background-color: var(--scrollbar-thumb-hover);
     }
   }
-}
-
-.host-select-list {
-  max-height: 120px;
-  overflow-y: auto;
-  padding: 2px 0px 2px 0px;
 }
 
 .host-select-item {

@@ -511,7 +511,7 @@ export function getUserHostsLogic(db: Database.Database, search: string): any {
     const personalStmt = db.prepare(`
         SELECT asset_ip as host, uuid, 'person' as asset_type
         FROM t_assets
-        WHERE asset_ip LIKE '${safeSearch}%' AND asset_type = 'person'
+        WHERE asset_ip LIKE '%${safeSearch}%' AND asset_type = 'person'
         GROUP BY asset_ip
       `)
     const personalResults = personalStmt.all() || []
