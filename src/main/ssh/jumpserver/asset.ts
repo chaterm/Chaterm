@@ -221,29 +221,3 @@ class JumpServerClient {
 }
 
 export default JumpServerClient
-
-// async function main() {
-//   const client = new JumpServerClient({
-//     host: 'd1000.intsig.net',
-//     port: 37000,
-//     username: 'xuhong_yao',
-//     privateKeyPath: '/Users/xuhong_yao/fish/codeShare/ssh2jumpserver/xuhong.pem',
-//      password:"158026H&h"
-//   });
-
-//   try {
-//     // connect() 会在 getAllAssets() 内部按需调用
-//     const allAssets = await client.getAllAssets();
-//     const serverInfoList: ServerInfo[] = allAssets.map(asset => ({
-//       name: asset.name,
-//       address: asset.address,
-//     }));
-//     console.log(JSON.stringify(serverInfoList, null, 2));
-//   } catch (error) {
-//     console.error('发生错误:', error);
-//   } finally {
-//     client.close();
-//   }
-// }
-
-// main();
