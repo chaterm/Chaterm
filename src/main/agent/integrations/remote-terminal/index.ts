@@ -108,7 +108,8 @@ export class RemoteTerminalProcess extends BrownEventEmitter<RemoteTerminalProce
     }
 
     let cleanCwd = cwd ? cwd.replace(/\x1B\[[^m]*m/g, '').replace(/\x1B\[[?][0-9]*[hl]/g, '') : undefined
-    const commandToExecute = cleanCwd ? `cd ${cleanCwd} && ${command}` : command
+    // 对于 JumpServer，使用不同的命令构造方式
+    const commandToExecute = cleanCwd ? `cd "${cleanCwd}" ; ${command}` : command
 
     // 创建唯一的命令标记
     const startMarker = `CHATERM_START_${Date.now()}_${Math.random().toString(36).substr(2, 8)}`
