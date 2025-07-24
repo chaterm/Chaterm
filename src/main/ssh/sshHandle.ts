@@ -9,11 +9,11 @@ import {
   jumpserverLastCommand
 } from './jumpserverHandle'
 
-// 存储 SSH 连接
+// Store SSH connections
 export const sshConnections = new Map()
 export const sftpConnections = new Map()
 
-// 执行命令结果
+// Execute command result
 export interface ExecResult {
   stdout: string
   stderr: string
@@ -21,16 +21,16 @@ export interface ExecResult {
   exitSignal?: string
 }
 
-// 存储 shell 会话流
+// Store shell session streams
 const shellStreams = new Map()
 const markedCommands = new Map()
 
 const KeyboardInteractiveAttempts = new Map()
 const connectionStatus = new Map()
 
-// 设置KeyboardInteractive验证超时时间（毫秒）
-const KeyboardInteractiveTimeout = 300000 // 5分钟超时
-const MaxKeyboardInteractiveAttempts = 5 // 最大KeyboardInteractive尝试次数
+// Set KeyboardInteractive authentication timeout (milliseconds)
+const KeyboardInteractiveTimeout = 300000 // 5 minutes timeout
+const MaxKeyboardInteractiveAttempts = 5 // Max KeyboardInteractive attempts
 
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const EventEmitter = require('events')
@@ -44,18 +44,18 @@ const handleRequestKeyboardInteractive = (event, id, prompts, finish) => {
       })
       KeyboardInteractiveAttempts.set(id, 0)
       const timeoutId = setTimeout(() => {
-        // 移除监听器
+        // Remove listener
         ipcMain.removeAllListeners(`ssh:keyboard-interactive-response:${id}`)
         ipcMain.removeAllListeners(`ssh:keyboard-interactive-cancel:${id}`)
 
-        // 取消验证
+        // Cancel authentication
         finish([])
 
         event.sender.send('ssh:keyboard-interactive-timeout', { id })
-        reject(new Error('验证超时，请重试连接'))
+        reject(new Error('Authentication timed out, please try connecting again'))
       }, KeyboardInteractiveTimeout)
       ipcMain.once(`ssh:keyboard-interactive-response:${id}`, (_evt, responses) => {
-        clearTimeout(timeoutId) // 清除超时定时器
+        clearTimeout(timeoutId) // Clear timeout timer
         finish(responses)
 
         const attemptCount = KeyboardInteractiveAttempts.get(id)
@@ -65,7 +65,7 @@ const handleRequestKeyboardInteractive = (event, id, prompts, finish) => {
           isVerified = status.isVerified
 
           if (!isVerified) {
-            // 尝试次数加1
+            // Increment attempt count
             const newAttemptCount = attemptCount + 1
             KeyboardInteractiveAttempts.set(id, newAttemptCount)
 
@@ -74,7 +74,7 @@ const handleRequestKeyboardInteractive = (event, id, prompts, finish) => {
               attempts: newAttemptCount,
               status: 'failed'
             })
-            // 如果尝试次数小于最大尝试次数，重新请求
+            // If attempts are less than max attempts, re-request
             if (newAttemptCount < MaxKeyboardInteractiveAttempts) {
               RequestKeyboardInteractive()
             } else {
@@ -95,7 +95,7 @@ const handleRequestKeyboardInteractive = (event, id, prompts, finish) => {
         KeyboardInteractiveAttempts.delete(id)
         clearTimeout(timeoutId)
         finish([])
-        reject(new Error('验证已取消'))
+        reject(new Error('Authentication cancelled'))
       })
     }
     RequestKeyboardInteractive()
@@ -120,7 +120,7 @@ const attemptSecondaryConnection = (event, connectionInfo) => {
     connectConfig.password = password
   }
 
-  // 发送初始化命令结果
+  // Send initialization command result
   const readyResult: {
     hasSudo?: boolean
     commandList?: string[]
@@ -143,7 +143,7 @@ const attemptSecondaryConnection = (event, connectionInfo) => {
           console.log(`SFTPCheckError [${id}]`, err)
           connectionStatus.set(id, {
             sftpAvailable: false,
-            sftpError: err?.message || 'SFTP对象为空'
+            sftpError: err?.message || 'SFTP object is empty'
           })
           resolve()
         } else {
@@ -170,17 +170,17 @@ const attemptSecondaryConnection = (event, connectionInfo) => {
 
   conn
     .on('ready', async () => {
-      // 执行 sftp 检测
+      // Perform sftp check
       try {
         await sftpAsync(conn)
       } catch (e) {
         connectionStatus.set(id, {
           sftpAvailable: false,
-          sftpError: 'SFTP连接失败'
+          sftpError: 'SFTP connection failed'
         })
       }
 
-      // 执行 sudo 检测
+      // Perform sudo check
       try {
         conn.exec('sudo -n true 2>/dev/null && echo true || echo false', (err, stream) => {
           if (err) {
@@ -205,7 +205,7 @@ const attemptSecondaryConnection = (event, connectionInfo) => {
         sendReadyData(false)
       }
 
-      // 执行 cmd 检测
+      // Perform cmd check
       try {
         let stdout = ''
         let stderr = ''
@@ -253,16 +253,16 @@ const handleAttemptConnection = (event, connectionInfo, resolve, reject, retryCo
   const { id, host, port, username, password, privateKey, passphrase } = connectionInfo
   retryCount++
 
-  connectionStatus.set(id, { isVerified: false }) // 更新连接状态
+  connectionStatus.set(id, { isVerified: false }) // Update connection status
 
   const conn = new Client()
 
   conn.on('ready', () => {
-    sshConnections.set(id, conn) // 保存连接对象
+    sshConnections.set(id, conn) // Save connection object
     connectionStatus.set(id, { isVerified: true })
     connectionEvents.emit(`connection-status-changed:${id}`, { isVerified: true })
     attemptSecondaryConnection(event, connectionInfo)
-    resolve({ status: 'connected', message: '连接成功' })
+    resolve({ status: 'connected', message: 'Connection successful' })
   })
 
   conn.on('error', (err) => {
@@ -275,7 +275,7 @@ const handleAttemptConnection = (event, connectionInfo, resolve, reject, retryCo
       if (retryCount < MaxKeyboardInteractiveAttempts) {
         handleAttemptConnection(event, connectionInfo, resolve, reject, retryCount)
       } else {
-        reject(new Error('最大重试次数已达到，认证失败'))
+        reject(new Error('Maximum retries reached, authentication failed'))
       }
     } else {
       console.log('Connection error:', err)
@@ -283,49 +283,49 @@ const handleAttemptConnection = (event, connectionInfo, resolve, reject, retryCo
     }
   })
 
-  // 配置连接设置
+  // Configure connection settings
   const connectConfig: any = {
     host,
     port: port || 22,
     username,
-    keepaliveInterval: 10000, // 保持连接活跃
-    tryKeyboard: true, // 启用键盘交互认证方式
-    readyTimeout: KeyboardInteractiveTimeout // 连接超时时间，30秒
+    keepaliveInterval: 10000, // Keep connection alive
+    tryKeyboard: true, // Enable keyboard interactive authentication
+    readyTimeout: KeyboardInteractiveTimeout // Connection timeout, 30 seconds
   }
 
   conn.on('keyboard-interactive', async (_name, _instructions, _instructionsLang, prompts, finish) => {
     try {
-      // 等待用户响应
+      // Wait for user response
       await handleRequestKeyboardInteractive(event, id, prompts, finish)
     } catch (err) {
-      conn.end() // 关闭连接
+      conn.end() // Close connection
       reject(err)
     }
   })
 
   try {
     if (privateKey) {
-      // 使用私钥认证
+      // Authenticate with private key
       connectConfig.privateKey = privateKey
       if (passphrase) {
         connectConfig.passphrase = passphrase
       }
     } else if (password) {
-      // 使用密码认证
+      // Authenticate with password
       connectConfig.password = password
     } else {
-      reject(new Error('没有提供有效的认证方式'))
+      reject(new Error('No valid authentication method provided'))
       return
     }
-    conn.connect(connectConfig) // 尝试连接
+    conn.connect(connectConfig) // Attempt to connect
   } catch (err) {
     console.error('Connection configuration error:', err)
-    reject(new Error(`连接配置错误: ${err}`))
+    reject(new Error(`Connection configuration error: ${err}`))
   }
 }
 
 export const registerSSHHandlers = () => {
-  // 统一连接入口 - 根据 sshType 路由到不同连接方式
+  // Handle connection
   ipcMain.handle('ssh:connect', async (_event, connectionInfo) => {
     const { sshType } = connectionInfo
 
@@ -448,65 +448,98 @@ export const registerSSHHandlers = () => {
     // 默认 SSH shell 处理
     const conn = sshConnections.get(id)
     if (!conn) {
-      return { status: 'error', message: '未连接到服务器' }
+      return { status: 'error', message: 'Not connected to the server' }
     }
-    const termType = terminalType || 'xterm'
+
+    const termType = terminalType || 'vt100'
+    const delayMs = 300
+    const fallbackExecs = ['bash', 'sh']
+
+    const isConnected = () => conn && conn['_sock'] && !conn['_sock'].destroyed
+
+    const handleStream = (stream, method: 'shell' | 'exec') => {
+      shellStreams.set(id, stream)
+
+      stream.on('data', (data) => {
+        const markedCmd = markedCommands.get(id)
+        if (markedCmd !== undefined) {
+          markedCmd.output += data.toString()
+          markedCmd.lastActivity = Date.now()
+          if (markedCmd.idleTimer) {
+            clearTimeout(markedCmd.idleTimer)
+          }
+          markedCmd.idleTimer = setTimeout(() => {
+            if (markedCmd && !markedCmd.completed) {
+              markedCmd.completed = true
+              _event.sender.send(`ssh:shell:data:${id}`, {
+                data: markedCmd.output,
+                marker: markedCmd.marker
+              })
+              markedCommands.delete(id)
+            }
+          }, 10)
+        } else {
+          _event.sender.send(`ssh:shell:data:${id}`, {
+            data: data.toString(),
+            marker: ''
+          })
+        }
+      })
+
+      stream.stderr?.on('data', (data) => {
+        _event.sender.send(`ssh:shell:stderr:${id}`, data.toString())
+      })
+
+      stream.on('close', () => {
+        console.log(`Shell stream closed for id=${id} (${method})`)
+        _event.sender.send(`ssh:shell:close:${id}`)
+        shellStreams.delete(id)
+      })
+    }
+
+    const tryExecFallback = (execList: string[], resolve, reject) => {
+      const [cmd, ...rest] = execList
+      if (!cmd) {
+        return reject(new Error('shell and exec run failed'))
+      }
+
+      conn.exec(cmd, { pty: true }, (execErr, execStream) => {
+        if (execErr) {
+          console.warn(`[${id}] exec(${cmd}) Failed: ${execErr.message}`)
+          return tryExecFallback(rest, resolve, reject)
+        }
+
+        console.info(`[${id}] use exec(${cmd}) Successfully started the terminal`)
+        handleStream(execStream, 'exec')
+        resolve({ status: 'success', message: `The terminal has been started（exec:${cmd}）` })
+      })
+    }
+
     return new Promise((resolve, reject) => {
-      conn.shell(
-        {
-          term: termType
-        },
-        (err, stream) => {
+      if (!isConnected()) {
+        return reject(new Error('Connection disconnected, unable to start terminal'))
+      }
+
+      setTimeout(() => {
+        if (!isConnected()) {
+          return reject(new Error('The connection has been disconnected after a delay'))
+        }
+
+        conn.shell({ term: termType }, (err, stream) => {
           if (err) {
-            console.log('start shell error:', err)
-            reject(new Error(err.message))
-            return
+            console.warn(`[${id}] shell() start error: ${err.message}`)
+            return tryExecFallback(fallbackExecs, resolve, reject)
           }
 
-          shellStreams.set(id, stream)
-          stream.on('data', (data) => {
-            const markedCmd = markedCommands.get(id)
-            if (markedCmd !== undefined) {
-              markedCmd.output += data.toString()
-              markedCmd.lastActivity = Date.now()
-              if (markedCmd.idleTimer) {
-                clearTimeout(markedCmd.idleTimer)
-              }
-              markedCmd.idleTimer = setTimeout(() => {
-                if (markedCmd && !markedCmd.completed) {
-                  markedCmd.completed = true
-                  _event.sender.send(`ssh:shell:data:${id}`, {
-                    data: markedCmd.output,
-                    marker: markedCmd.marker
-                  })
-                  markedCommands.delete(id)
-                }
-              }, 10)
-            } else {
-              _event.sender.send(`ssh:shell:data:${id}`, {
-                data: data.toString(),
-                marker: ''
-              })
-            }
-          })
-
-          stream.stderr.on('data', (data) => {
-            _event.sender.send(`ssh:shell:stderr:${id}`, data.toString())
-          })
-
-          stream.on('close', () => {
-            console.log(`Shell stream closed for id=${id}`)
-            _event.sender.send(`ssh:shell:close:${id}`)
-            shellStreams.delete(id)
-          })
-
-          resolve({ status: 'success', message: 'Shell已启动' })
-        }
-      )
+          console.info(`[${id}] shell() Successfully started`)
+          handleStream(stream, 'shell')
+          resolve({ status: 'success', message: 'Shell has started' })
+        })
+      }, delayMs)
     })
   })
 
-  // resize处理
+  // Resize handling
   ipcMain.handle('ssh:shell:resize', async (_event, { id, cols, rows }) => {
     // 检查是否为 JumpServer 连接
     if (jumpserverConnections.has(id)) {
@@ -526,13 +559,13 @@ export const registerSSHHandlers = () => {
     // 默认 SSH 处理
     const stream = shellStreams.get(id)
     if (!stream) {
-      return { status: 'error', message: 'Shell未找到' }
+      return { status: 'error', message: 'Shell not found' }
     }
 
     try {
-      // 设置SSH shell窗口大小
+      // Set SSH shell window size
       stream.setWindow(rows, cols, 0, 0)
-      return { status: 'success', message: `窗口大小已设置为 ${cols}x${rows}` }
+      return { status: 'success', message: `Window size set to  ${cols}x${rows}` }
     } catch (error: unknown) {
       return { status: 'error', message: error instanceof Error ? error.message : String(error) }
     }
@@ -599,7 +632,7 @@ export const registerSSHHandlers = () => {
       }
       stream.write(data)
     } else {
-      console.warn('尝试写入不存在的stream:', id)
+      console.warn('Attempting to write to non-existent stream:', id)
     }
   })
 
@@ -660,7 +693,7 @@ export const registerSSHHandlers = () => {
           })
         })
 
-        // 处理stream错误
+        // Handle stream errors
         stream.on('error', (streamErr) => {
           resolve({
             success: false,
@@ -700,7 +733,7 @@ export const registerSSHHandlers = () => {
             case 8: // SSH_FX_OP_UNSUPPORTED
               return resolve([`cannot open directory '${path}': Operation not supported`])
             default:
-              // 未知错误码
+              // Unknown error code
               const message = (err as Error).message || `Unknown error (code: ${errorCode})`
               return resolve([`cannot open directory '${path}': ${message}`])
           }
@@ -755,9 +788,9 @@ export const registerSSHHandlers = () => {
       conn.end()
       sshConnections.delete(id)
       sftpConnections.delete(id)
-      return { status: 'success', message: '已断开连接' }
+      return { status: 'success', message: 'Disconnected' }
     }
-    return { status: 'warning', message: '没有活动的连接' }
+    return { status: 'warning', message: 'No active connection' }
   })
 
   ipcMain.handle('ssh:recordTerminalState', async (_event, params) => {
@@ -773,7 +806,7 @@ export const registerSSHHandlers = () => {
   ipcMain.handle('ssh:recordCommand', async (_event, params) => {
     const { id, command, timestamp } = params
 
-    // 记录命令
+    // Record command
     const connection = sshConnections.get(id)
     if (connection) {
       if (!connection.commandHistory) {

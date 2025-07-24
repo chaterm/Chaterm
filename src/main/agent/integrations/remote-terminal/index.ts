@@ -41,7 +41,7 @@ export interface RemoteTerminalInfo {
   }
 }
 
-// 远程终端进程类，使用自定义事件发射器
+// Remote terminal process class, using custom event emitter
 export class RemoteTerminalProcess extends BrownEventEmitter<RemoteTerminalProcessEvents> {
   private isListening: boolean = true
   private fullOutput: string = ''
@@ -213,14 +213,14 @@ export class RemoteTerminalProcess extends BrownEventEmitter<RemoteTerminalProce
   }
 }
 
-// 远程终端进程结果 Promise 类型
+// Remote terminal process result Promise type
 export type RemoteTerminalProcessResultPromise = RemoteTerminalProcess & Promise<void>
 
-// 合并进程和 Promise
+// Merge process and Promise
 export function mergeRemotePromise(process: RemoteTerminalProcess, promise: Promise<void>): RemoteTerminalProcessResultPromise {
   const merged = process as RemoteTerminalProcessResultPromise
 
-  // 复制 Promise 方法
+  // Copy Promise methods
   merged.then = promise.then.bind(promise)
   merged.catch = promise.catch.bind(promise)
   merged.finally = promise.finally.bind(promise)
@@ -228,7 +228,7 @@ export function mergeRemotePromise(process: RemoteTerminalProcess, promise: Prom
   return merged
 }
 
-// 远程终端管理器类
+// Remote terminal manager class
 export class RemoteTerminalManager {
   private terminals: Map<number, RemoteTerminalInfo> = new Map()
   private processes: Map<number, RemoteTerminalProcess> = new Map()
@@ -236,21 +236,20 @@ export class RemoteTerminalManager {
   private connectionInfo: ConnectionInfo | null = null
 
   constructor() {
-    // 设置默认连接信息
+    // Set default connection information
   }
 
-  // 设置 SSH 连接信息
+  // Set SSH connection information
   setConnectionInfo(info: ConnectionInfo): void {
     this.connectionInfo = info
   }
 
-  // 创建新的远程终端
+  // Create new remote terminal
   async createTerminal(): Promise<RemoteTerminalInfo> {
     if (!this.connectionInfo) {
-      throw new Error('未设置连接信息，请先调用 setConnectionInfo()')
+      throw new Error('Connection information not set, please call setConnectionInfo() first')
     }
-
-    // 检查是否已存在相同的连接
+    // SSH connection logic
     const existingTerminal = Array.from(this.terminals.values()).find(
       (terminal) =>
         terminal.connectionInfo.host === this.connectionInfo?.host &&
@@ -264,7 +263,6 @@ export class RemoteTerminalManager {
 
     try {
       let connectResult: any
-
       // 根据 sshType 选择连接方式
       if (this.connectionInfo.sshType === 'jumpserver') {
         // 使用 JumpServer 连接
@@ -301,18 +299,18 @@ export class RemoteTerminalManager {
         lastCommand: '',
         connectionInfo: this.connectionInfo,
         terminal: {
-          show: () => {} // 远程终端的 show 方法为空操作
+          show: () => {} // The show method of the remote terminal is a no-op
         }
       }
 
       this.terminals.set(terminalInfo.id, terminalInfo)
       return terminalInfo
     } catch (error) {
-      throw new Error('创建远程终端失败: ' + (error instanceof Error ? error.message : String(error)))
+      throw new Error('Failed to create remote terminal: ' + (error instanceof Error ? error.message : String(error)))
     }
   }
 
-  // 运行远程命令
+  // Run remote command
   runCommand(terminalInfo: RemoteTerminalInfo, command: string, cwd?: string): RemoteTerminalProcessResultPromise {
     terminalInfo.busy = true
     terminalInfo.lastCommand = command
@@ -320,7 +318,7 @@ export class RemoteTerminalManager {
     this.processes.set(terminalInfo.id, process)
     process.once('error', (error) => {
       terminalInfo.busy = false
-      console.error(`远程终端 ${terminalInfo.id} 出错:`, error)
+      console.error(`Remote terminal ${terminalInfo.id} error:`, error)
     })
     const promise = new Promise<void>((resolve, reject) => {
       process.once('continue', () => {
@@ -341,19 +339,19 @@ export class RemoteTerminalManager {
     return process ? process.isHot : false
   }
 
-  // 获取终端信息
+  // Get terminal information
   getTerminals(busy: boolean): { id: number; lastCommand: string }[] {
     return Array.from(this.terminals.values())
       .filter((t) => t.busy === busy)
       .map((t) => ({ id: t.id, lastCommand: t.lastCommand }))
   }
 
-  // 检查是否已连接
+  // Check if connected
   isConnected(): boolean {
     return this.terminals.size > 0
   }
 
-  // 获取连接状态
+  // Get connection status
   getConnectionStatus(): { connected: boolean; terminalCount: number; busyCount: number } {
     const terminals = Array.from(this.terminals.values())
     return {
@@ -363,7 +361,7 @@ export class RemoteTerminalManager {
     }
   }
 
-  // 清理所有连接
+  // Clean up all connections
   async disposeAll(): Promise<void> {
     const disconnectPromises: Promise<void>[] = []
     for (const terminalInfo of this.terminals.values()) {
@@ -375,7 +373,7 @@ export class RemoteTerminalManager {
     console.log('所有远程终端已关闭。')
   }
 
-  // 断开指定终端连接
+  // Disconnect specified terminal connection
   async disconnectTerminal(terminalId: number): Promise<void> {
     const terminalInfo = this.terminals.get(terminalId)
     if (terminalInfo) {
@@ -400,10 +398,10 @@ export class RemoteTerminalManager {
           console.log(`JumpServer 终端 ${terminalId} (Session: ${terminalInfo.sessionId}) 已断开.`)
         } else {
           await remoteSshDisconnect(terminalInfo.sessionId)
-          console.log(`SSH 终端 ${terminalId} (Session: ${terminalInfo.sessionId}) 已断开.`)
+          console.log(`SSH terminal ${terminalId} (Session: ${terminalInfo.sessionId}) disconnected.`)
         }
       } catch (error) {
-        console.error(`断开终端 ${terminalId} 时出错:`, error)
+        console.error(`Error disconnecting terminal ${terminalId}:`, error)
       }
     }
   }

@@ -8,13 +8,13 @@ export function initializeStorageMain(window: BrowserWindow): void {
   console.log('[Main] Storage initialized - using executeJavaScript.')
 }
 
-// 主进程API函数 - 通过executeJavaScript调用renderer的storage函数
+// Main process API function - calls renderer's storage function via executeJavaScript
 export async function getGlobalState(key: GlobalStateKey): Promise<any> {
   if (!mainWindow) throw new Error('Main window not initialized')
 
   const script = `
     (async () => {
-      // 使用全局变量访问存储函数
+      // Use global variable to access storage function
       if (window.storageAPI && window.storageAPI.getGlobalState) {
         return await window.storageAPI.getGlobalState('${key}');
       } else {
@@ -154,7 +154,7 @@ export async function resetExtensionState(): Promise<void> {
   await mainWindow.webContents.executeJavaScript(script)
 }
 
-// 获取用户信息
+// Get user information
 export async function getUserId(): Promise<any> {
   if (!mainWindow) throw new Error('Main window not initialized')
 
@@ -167,6 +167,23 @@ export async function getUserId(): Promise<any> {
       }
     })()
   `
+
+  return await mainWindow.webContents.executeJavaScript(script)
+}
+
+// Get user config from renderer process
+export async function getUserConfig(): Promise<any> {
+  if (!mainWindow) throw new Error('Main window not initialized')
+
+  const script = `
+      (async () => {
+        if (window.storageAPI && window.storageAPI.getUserConfig) {
+          return await window.storageAPI.getUserConfig();
+        } else {
+          throw new Error('Storage API not available in renderer');
+        }
+      })()
+    `
 
   return await mainWindow.webContents.executeJavaScript(script)
 }

@@ -35,7 +35,7 @@
     <div class="separator"></div>
     <button
       class="search-button close-button"
-      title="关闭 (Esc)"
+      :title="`${t('common.close')} (Esc)`"
       @click="closeSearch"
     >
       ✕
@@ -46,7 +46,9 @@
 <script setup lang="ts">
 import { ref, onMounted, nextTick, onBeforeUnmount, defineProps, reactive, watch } from 'vue'
 import { SearchAddon } from 'xterm-addon-search'
+import { useI18n } from 'vue-i18n'
 
+const { t } = useI18n()
 const emit = defineEmits(['closeSearch'])
 const searchTerm = ref('')
 const searchInput = ref<HTMLInputElement | null>(null)

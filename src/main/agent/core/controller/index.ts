@@ -52,7 +52,7 @@ export class Controller {
   async dispose() {
     this.outputChannel.appendLine('Disposing ClineProvider...')
 
-    // 释放终端资源
+    // Release terminal resources
     if (this.task) {
       const terminalManager = this.task.getTerminalManager()
 
@@ -90,7 +90,7 @@ export class Controller {
     await updateGlobalState('userInfo', info)
   }
 
-  async initTask(hosts: Host[], task?: string, historyItem?: HistoryItem, terminalOutput?: string, cwd?: Map<string, string>) {
+  async initTask(hosts: Host[], task?: string, historyItem?: HistoryItem, cwd?: Map<string, string>) {
     console.log('initTask', task, historyItem)
     await this.clearTask() // ensures that an existing task doesn't exist before starting a new one, although this shouldn't be possible since user must clear task before starting a new one
     const { apiConfiguration, customInstructions, autoApprovalSettings } = await getAllExtensionState()
@@ -106,7 +106,6 @@ export class Controller {
       customInstructions,
       task,
       historyItem,
-      terminalOutput,
       cwd
     )
   }
@@ -120,7 +119,7 @@ export class Controller {
 
   // Send any JSON serializable data to the react app
   async postMessageToWebview(message: ExtensionMessage) {
-    // 这里发送消息到 webview
+    // Send a message to the webview here
     const safeMessage = removeSensitiveKeys(message)
     await this.postMessage(safeMessage)
   }
@@ -140,7 +139,7 @@ export class Controller {
         break
 
       case 'newTask':
-        await this.initTask(message.hosts!, message.text, undefined, message.terminalOutput, message.cwd)
+        await this.initTask(message.hosts!, message.text, undefined, message.cwd)
         if (this.task?.taskId && message.hosts) {
           await updateTaskHosts(this.task.taskId, message.hosts)
         }
@@ -233,7 +232,9 @@ export class Controller {
   }
 
   async updateTelemetrySetting(telemetrySetting: TelemetrySetting) {
-    await updateGlobalState('telemetrySetting', telemetrySetting)
+    try {
+      await updateGlobalState('telemetrySetting', telemetrySetting)
+    } catch (error) {}
     const isOptedIn = telemetrySetting === 'enabled'
     telemetryService.updateTelemetryState(isOptedIn)
   }
@@ -443,7 +444,7 @@ export class Controller {
     if (id !== this.task?.taskId) {
       // non-current task
       const { historyItem } = await this.getTaskWithId(id)
-      await this.initTask(hosts, undefined, historyItem, undefined, cwd) // clears existing task
+      await this.initTask(hosts, undefined, historyItem, cwd) // clears existing task
     }
   }
 
@@ -605,7 +606,7 @@ function removeSensitiveKeys(obj: any): any {
         key.toLowerCase().includes('endpoint') ||
         key.toLowerCase().includes('awsProfile')
       ) {
-        newObj[key] = undefined // 或 '***'
+        newObj[key] = undefined // or '***'
       } else {
         newObj[key] = removeSensitiveKeys(obj[key])
       }

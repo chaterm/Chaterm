@@ -1,114 +1,107 @@
-// 远程终端使用示例
+// Remote terminal usage example
 import { ConnectionInfo, RemoteTerminalManager } from './index'
 import { testStorageFromMain } from '../../core/storage/state'
 
-
-
-
-// 示例：连接远程服务器并执行命令
+// Example: Connect to a remote server and execute commands
 export async function executeRemoteCommand() {
-
-  // 注意：testStorageFromMain 需要主窗口初始化才能工作
-  // 如果在主进程启动早期调用可能会失败
+  // Note: testStorageFromMain requires the main window to be initialized to work
+  // It may fail if called early in the main process startup
   try {
-    console.log('尝试调用 testStorageFromMain...')
+    console.log('Attempting to call testStorageFromMain...')
     await testStorageFromMain()
-    console.log('testStorageFromMain 调用成功')
+    console.log('testStorageFromMain call successful')
   } catch (error) {
-    console.error('testStorageFromMain 调用失败:', error)
-    console.log('这可能是因为主窗口尚未初始化，这是正常的')
+    console.error('testStorageFromMain call failed:', error)
+    console.log('This may be because the main window has not been initialized, which is normal')
   }
-  
 
-  // 使用指定的连接信息
-//   const connectionInfo: ConnectionInfo = {
-//     host: '127.0.0.1',
-//     port: 2222,
-//     username: 'root',
-//     password: '', // 如果使用私钥，密码通常为空
-//     privateKey: `-----BEGIN OPENSSH PRIVATE KEY-----
-// b3BlbnNzaC1rZXktdjEAAAAABG5vbmUAAAAEbm9uZQAAAAAAAAABAAAAMwAAAAtzc2gtZW
-// QyNTUxOQAAACDJqVbjzi15L+3tUqdBG02PZ5KNZ+ZgWJ2vh/IxpA3uVAAAAKBCN/ObQjfz
-// mwAAAAtzc2gtZWQyNTUxOQAAACDJqVbjzi15L+3tUqdBG02PZ5KNZ+ZgWJ2vh/IxpA3uVA
-// AAAECN0lht9B1lfiIpeM5eNB5LNhJQAEWgpGg9CjThPAjUzcmpVuPOLXkv7e1Sp0EbTY9n
-// ko1n5mBYna+H8jGkDe5UAAAAGXh1aG9uZ195YW9ASEhOQjIwMjQwMjAwNDMBAgME
-// -----END OPENSSH PRIVATE KEY-----`, 
-//     passphrase: ''
-//   }
-const connectionInfo: ConnectionInfo = {
-      host: '49.235.159.86',
-      port: 22,
-      username: 'test',
-      password: 'HsAyC3AT',
-      privateKey: ``, 
-      passphrase: ''
-    }
+  // Use specified connection information
+  //   const connectionInfo: ConnectionInfo = {
+  //     host: '127.0.0.1',
+  //     port: 2222,
+  //     username: 'root',
+  //     password: '', // If using a private key, the password is usually empty
+  //     privateKey: `-----BEGIN OPENSSH PRIVATE KEY-----
+  // b3BlbnNzaC1rZXktdjEAAAAABG5vbmUAAAAEbm9uZQAAAAAAAAABAAAAMwAAAAtzc2gtZW
+  // QyNTUxOQAAACDJqVbjzi15L+3tUqdBG02PZ5KNZ+ZgWJ2vh/IxpA3uVAAAAKBCN/ObQjfz
+  // mwAAAAtzc2gtZWQyNTUxOQAAACDJqVbjzi15L+3tUqdBG02PZ5KNZ+ZgWJ2vh/IxpA3uVA
+  // AAAECN0lht9B1lfiIpeM5eNB5LNhJQAEWgpGg9CjThPAjUzcmpVuPOLXkv7e1Sp0EbTY9n
+  // ko1n5mBYna+H8jGkDe5UAAAAGXh1aG9uZ195YW9ASEhOQjIwMjQwMjAwNDMBAgME
+  // -----END OPENSSH PRIVATE KEY-----`,
+  //     passphrase: ''
+  //   }
+  const connectionInfo: ConnectionInfo = {
+    host: '49.235.159.86',
+    port: 22,
+    username: 'test',
+    password: 'HsAyC3AT',
+    privateKey: ``,
+    passphrase: ''
+  }
 
   const cwd = '/home'
   const remoteManager = new RemoteTerminalManager()
-  
+
   try {
-    // 设置连接信息
+    // Set connection information
     remoteManager.setConnectionInfo(connectionInfo)
-    
-    console.log('正在连接到远程服务器...')
-    console.log(`主机: ${connectionInfo.host}:${connectionInfo.port}`)
-    console.log(`用户名: ${connectionInfo.username}`)
-    
-    // 创建新的远程终端
+
+    console.log('Connecting to remote server...')
+    console.log(`Host: ${connectionInfo.host}:${connectionInfo.port}`)
+    console.log(`Username: ${connectionInfo.username}`)
+
+    // Create new remote terminal
     const terminalInfo = await remoteManager.createTerminal()
-    
-    // 执行一个简单的测试命令
+
+    // Execute a simple test command
     const command = 'ls /home'
-    console.log(`执行命令: ${command}`)
-    
-    console.log('调用 runCommand...')
+    console.log(`Executing command: ${command}`)
+
+    console.log('Calling runCommand...')
 
     const process = remoteManager.runCommand(terminalInfo, command, cwd)
-    console.log('runCommand 返回，开始注册事件监听器...')
-    
-    let output = ''
-    
-    // 立即注册所有事件监听器（在await之前）
-    console.log('注册 line 事件监听器')
+    console.log('runCommand returned, starting to register event listeners...')
 
+    let output = ''
+
+    // Register all event listeners immediately (before await)
+    console.log('Registering line event listener')
 
     process.on('line', (line) => {
       output += line + '\n'
-      console.log('收到输出行:', line)
+      console.log('Received output line:', line)
     })
-    
+
     process.on('completed', () => {
       terminalInfo.busy = false
-      console.log('🎉🎉🎉 用户自定义的completed事件监听器被触发了！🎉🎉🎉')
+      console.log('🎉🎉🎉 User-defined completed event listener triggered! 🎉🎉🎉')
     })
     process.on('error', (error) => {
-      console.error('命令执行出错:', error)
+      console.error('Command execution error:', error)
     })
-    
-    // 现在等待命令完成
-    console.log('所有事件监听器已注册，等待命令执行完成...')
+
+    // Now wait for the command to complete
+    console.log('All event listeners registered, waiting for command execution to complete...')
     await process
-    
-    // 清理连接
+
+    // Clean up connection
     await remoteManager.disposeAll()
-    console.log('远程连接已关闭')
-    
+    console.log('Remote connection closed')
+
     return output
-    
   } catch (error) {
-    console.error('远程终端操作失败:', error)
-    
-    // 输出更详细的错误信息
+    console.error('Remote terminal operation failed:', error)
+
+    // Output more detailed error information
     if (error instanceof Error) {
-      console.error('错误详情:')
-      console.error('- 消息:', error.message)
-      console.error('- 堆栈:', error.stack)
+      console.error('Error details:')
+      console.error('- Message:', error.message)
+      console.error('- Stack:', error.stack)
     }
-    
+
     throw error
   }
 }
 
-// 默认导出主要示例函数
-export default executeRemoteCommand 
+// Default export of the main example function
+export default executeRemoteCommand

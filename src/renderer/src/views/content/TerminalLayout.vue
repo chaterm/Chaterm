@@ -37,17 +37,17 @@
             </pane>
             <pane :size="100 - leftPaneSize">
               <splitpanes @resize="onMainSplitResize">
-                <!-- 主终端区域（包含垂直分屏） -->
+                <!-- Main terminal area (including vertical split) -->
                 <pane
                   :size="mainTerminalSize"
                   :min-size="30"
                 >
-                  <!-- 垂直分屏的容器，仅影响主终端区域 -->
+                  <!-- Vertical split container, only affects main terminal area -->
                   <splitpanes
                     horizontal
                     @resize="onVerticalSplitResize"
                   >
-                    <!-- 主终端窗口 -->
+                    <!-- Main terminal window -->
                     <pane
                       :size="mainVerticalSize"
                       :min-size="30"
@@ -70,7 +70,7 @@
                         />
                       </div>
                     </pane>
-                    <!-- 垂直分屏终端 -->
+                    <!-- Vertical split terminal -->
                     <pane
                       v-for="(vSplitPane, vIndex) in verticalSplitPanes"
                       :key="`v-${vIndex}`"
@@ -97,19 +97,19 @@
                     </pane>
                   </splitpanes>
                 </pane>
-                <!-- 水平分屏终端 -->
+                <!-- Horizontal split terminal -->
                 <pane
                   v-for="(splitPane, index) in splitPanes"
                   :key="index"
                   :size="splitPane.size"
                   :min-size="30"
                 >
-                  <!-- 每个右分屏也支持垂直分屏 -->
+                  <!-- Each right pane also supports vertical split -->
                   <splitpanes
                     horizontal
                     @resize="(params) => onRightPaneVerticalSplitResize(params, index)"
                   >
-                    <!-- 右分屏的主窗口 -->
+                    <!-- Right pane main window -->
                     <pane
                       :size="splitPane.mainVerticalSize || 100"
                       :min-size="30"
@@ -132,7 +132,7 @@
                         />
                       </div>
                     </pane>
-                    <!-- 右分屏的垂直分屏 -->
+                    <!-- Right pane vertical split -->
                     <pane
                       v-for="(vSplitPane, vIndex) in splitPane.verticalSplitPanes || []"
                       :key="`r-v-${index}-${vIndex}`"
@@ -159,7 +159,7 @@
                     </pane>
                   </splitpanes>
                 </pane>
-                <!-- AI侧边栏 -->
+                <!-- AI sidebar -->
                 <pane
                   v-if="showAiSidebar"
                   :size="aiSidebarSize"
@@ -422,6 +422,7 @@ onMounted(async () => {
   eventBus.on('createSplitTab', handleCreateSplitTab)
   eventBus.on('createVerticalSplitTab', handleCreateVerticalSplitTab)
   eventBus.on('adjustSplitPaneToEqual', adjustSplitPaneToEqualWidth)
+  eventBus.on('sendOrToggleAiFromTerminal', handleSendOrToggleAiFromTerminal)
 
   checkVersion()
 })
@@ -1403,6 +1404,49 @@ const closeAllRightVerticalTabs = (rightPaneIndex: number, vPaneIndex: number) =
 
 const handleTabMovedToRightVerticalSplitPane = (evt: any, rightPaneIndex: number, vPaneIndex: number) => {
   console.log('Tab moved to right pane vertical split:', rightPaneIndex, vPaneIndex)
+}
+
+const handleSendOrToggleAiFromTerminal = () => {
+  const currentActiveTabId = getCurrentActiveTabId()
+  if (currentActiveTabId) {
+    eventBus.emit('sendOrToggleAiFromTerminalForTab', currentActiveTabId)
+  } else {
+    toggleSideBar('right')
+  }
+}
+
+const getCurrentActiveTabId = (): string | null => {
+  // Active tab in main panel
+  if (activeTabId.value && openedTabs.value.some((tab) => tab.id === activeTabId.value)) {
+    return activeTabId.value
+  }
+
+  // Check horizontal split panels
+  for (const pane of splitPanes.value) {
+    if (pane.activeTabId && pane.tabs.length > 0) {
+      return pane.activeTabId
+    }
+  }
+
+  // Check vertical split panels
+  for (const pane of verticalSplitPanes.value) {
+    if (pane.activeTabId && pane.tabs.length > 0) {
+      return pane.activeTabId
+    }
+  }
+
+  // Check vertical split panels in right panes
+  for (const rightPane of splitPanes.value) {
+    if (rightPane.verticalSplitPanes) {
+      for (const vPane of rightPane.verticalSplitPanes) {
+        if (vPane.activeTabId && vPane.tabs.length > 0) {
+          return vPane.activeTabId
+        }
+      }
+    }
+  }
+
+  return null
 }
 
 defineExpose({
