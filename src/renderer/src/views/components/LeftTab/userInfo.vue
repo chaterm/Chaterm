@@ -8,6 +8,7 @@
         <img
           :src="userInfo.avatar"
           referrerpolicy="no-referrer"
+          alt=""
         />
       </div>
       <div class="registration_type">
@@ -23,8 +24,8 @@
         <a-tag
           v-else
           class="subscription-tag free-tag"
-          >free</a-tag
-        >
+          >free
+        </a-tag>
       </div>
       <div class="divider-container">
         <a-divider style="border-color: var(--border-color-light, #e8e8e8); margin-bottom: 20px" />
@@ -201,6 +202,7 @@ import { CloseOutlined, CheckOutlined } from '@ant-design/icons-vue'
 import { useDeviceStore } from '@/store/useDeviceStore'
 import { message } from 'ant-design-vue'
 import zxcvbn from 'zxcvbn'
+
 const { t } = i18n.global
 const deviceStore = useDeviceStore()
 const userInfo = ref({})
@@ -411,6 +413,7 @@ onBeforeUnmount(() => {})
   color: var(--text-color) !important;
   border-radius: 4px !important;
   width: 250px !important;
+
   &::placeholder {
     color: var(--text-color-secondary);
   }
