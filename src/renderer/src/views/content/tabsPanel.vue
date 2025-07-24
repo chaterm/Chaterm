@@ -76,15 +76,8 @@
           :key="tab.id"
           :class="{ 'tab-content': true, active: tab.id === activeTab }"
         >
-          <Term
-            v-if="tab.type === 'term' && tab.organizationId !== 'personal'"
-            :ref="(el) => setTermRef(el, tab.id)"
-            :server-info="tab"
-            @close-tab-in-term="closeTab"
-            @create-new-term="createNewTerm"
-          />
           <sshConnect
-            v-if="tab.content === 'demo' || tab.organizationId === 'personal'"
+            v-if="tab.organizationId !== ''"
             :ref="(el) => setSshConnectRef(el, tab.id)"
             :server-info="tab"
             :connect-data="tab.data"
@@ -110,7 +103,6 @@
 <script setup lang="ts">
 import { computed, ref, defineExpose, ComponentPublicInstance, PropType, watch, nextTick, onMounted, onUnmounted } from 'vue'
 import draggable from 'vuedraggable'
-import Term from '@views/components/Term/index.vue'
 import Dashboard from '@views/components/Term/dashboard.vue'
 import UserInfo from '@views/components/LeftTab/userInfo.vue'
 import userConfig from '@views/components/LeftTab/userConfig.vue'
@@ -205,18 +197,6 @@ const onDragAdd = (evt) => {
 
 const termRefMap = ref<Record<string, any>>({})
 const sshConnectRefMap = ref<Record<string, any>>({})
-
-const setTermRef = (el: Element | ComponentPublicInstance | null, tabId: string) => {
-  if (el && '$props' in el) {
-    termRefMap.value[tabId] = el as ComponentPublicInstance & {
-      handleResize: () => void
-      autoExecuteCode: (cmd: string) => void
-      getTerminalBufferContent?: () => string | null
-    }
-  } else {
-    delete termRefMap.value[tabId]
-  }
-}
 
 const setSshConnectRef = (el: Element | ComponentPublicInstance | null, tabId: string) => {
   if (el && '$props' in el) {

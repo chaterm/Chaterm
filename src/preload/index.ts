@@ -341,6 +341,30 @@ const userSnippetOperation = async (data: { operation: 'list' | 'create' | 'dele
   }
 }
 
+const refreshOrganizationAssets = async (data: { organizationUuid: string; jumpServerConfig: any }) => {
+  try {
+    const result = await ipcRenderer.invoke('refresh-organization-assets', data)
+    return result
+  } catch (error) {
+    return Promise.reject(error)
+  }
+}
+
+const updateOrganizationAssetFavorite = async (data: { organizationUuid: string; host: string; status: number }) => {
+  console.log('=== preload updateOrganizationAssetFavorite 开始 ===')
+  console.log('传入参数:', data)
+
+  try {
+    console.log('调用 IPC: organization-asset-favorite')
+    const result = await ipcRenderer.invoke('organization-asset-favorite', data)
+    console.log('IPC 返回结果:', result)
+    return result
+  } catch (error) {
+    console.error('preload updateOrganizationAssetFavorite 错误:', error)
+    return Promise.reject(error)
+  }
+}
+
 const api = {
   getLocalIP,
   getMacAddress,
@@ -374,6 +398,8 @@ const api = {
   getUserHosts,
   initUserDatabase,
   userSnippetOperation,
+  refreshOrganizationAssets,
+  updateOrganizationAssetFavorite,
   maximizeWindow: () => ipcRenderer.invoke('window:maximize'),
   unmaximizeWindow: () => ipcRenderer.invoke('window:unmaximize'),
   isMaximized: () => ipcRenderer.invoke('window:is-maximized'),
@@ -539,6 +565,14 @@ const api = {
   },
   quitAndInstall: () => ipcRenderer.invoke('update:quitAndInstall'),
   updateTheme: (params) => ipcRenderer.invoke('update-theme', params),
+  // 添加 JumpServer 状态更新监听
+  onJumpServerStatusUpdate: (callback) => {
+    const listener = (_event, data) => {
+      callback(data)
+    }
+    ipcRenderer.on('jumpserver:status-update', listener)
+    return () => ipcRenderer.removeListener('jumpserver:status-update', listener)
+  },
   openExternalLogin: () => ipcRenderer.invoke('open-external-login')
 }
 // 自定义 API 用于浏览器控制

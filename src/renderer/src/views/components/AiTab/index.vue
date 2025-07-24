@@ -656,7 +656,7 @@ const isMessageFeedbackSubmitted = (messageId: string): boolean => {
 
 const hostSearchInputRef = ref()
 const showHostSelect = ref(false)
-const hostOptions = ref<{ label: string; value: string; uuid: string }[]>([])
+const hostOptions = ref<{ label: string; value: string; uuid: string; connect: string }[]>([])
 const hostSearchValue = ref('')
 const hovered = ref<string | null>(null)
 const keyboardSelectedIndex = ref(-1)
@@ -687,7 +687,6 @@ const currentChatId = ref<string | null>(null)
 const authTokenInCookie = ref<string | null>(null)
 
 const chatHistory = reactive<ChatMessage[]>([])
-const webSocket = ref<WebSocket | null>(null)
 
 const props = defineProps({
   toggleSidebar: {
@@ -747,6 +746,11 @@ const getCurentTabAssetInfo = async (): Promise<AssetInfo | null> => {
     })
     // 直接在这里处理结果
     if (assetInfo) {
+      if (assetInfo.organizationId != 'personal') {
+        assetInfo.connection = 'jumpserver'
+      } else {
+        assetInfo.connection = 'personal'
+      }
       return assetInfo
     } else {
       return null
@@ -758,19 +762,18 @@ const getCurentTabAssetInfo = async (): Promise<AssetInfo | null> => {
 }
 
 // 创建主机信息对象
-const createHostInfo = (ip: string, uuid: string, organizationId: string) => {
+const createHostInfo = (ip: string, uuid: string, connection: string) => {
   return {
     host: ip,
     uuid: uuid,
-    connection: organizationId !== 'personal' ? 'organization' : 'personal',
-    organizationId: organizationId !== 'personal' ? organizationId : 'personal_01'
+    connection: connection
   }
 }
 
 // 更新主机列表
-const updateHosts = (hostInfo: { ip: string; uuid: string; organizationId: string } | null) => {
+const updateHosts = (hostInfo: { ip: string; uuid: string; connection: string } | null) => {
   if (hostInfo) {
-    const newHost = createHostInfo(hostInfo.ip, hostInfo.uuid, hostInfo.organizationId)
+    const newHost = createHostInfo(hostInfo.ip, hostInfo.uuid, hostInfo.connection)
     hosts.value = [newHost]
   } else {
     hosts.value = []
@@ -784,7 +787,7 @@ const initAssetInfo = async () => {
     updateHosts({
       ip: assetInfo.ip,
       uuid: assetInfo.uuid,
-      organizationId: assetInfo.organizationId
+      connection: assetInfo.connection ? assetInfo.connection : 'personal'
     })
   } else {
     updateHosts(null)
@@ -915,8 +918,7 @@ const handlePlusClick = async () => {
     hosts.value.push({
       host: assetInfo.ip,
       uuid: assetInfo.uuid,
-      connection: assetInfo.organizationId === 'personal' ? 'personal' : 'organization',
-      organizationId: assetInfo.organizationId !== 'personal' ? assetInfo.organizationId : 'personal_01'
+      connection: assetInfo.connection ? assetInfo.connection : 'personal'
     })
   }
 
@@ -943,11 +945,6 @@ const restoreHistoryTab = async (history: HistoryItem) => {
   // 保存当前输入框内容
   const currentInput = chatInputValue.value
 
-  if (webSocket.value) {
-    webSocket.value.close()
-    webSocket.value = null
-  }
-
   containerKey.value++
 
   currentChatId.value = history.id
@@ -962,8 +959,7 @@ const restoreHistoryTab = async (history: HistoryItem) => {
         hosts.value = metadataResult.data.hosts.map((item: any) => ({
           host: item.host,
           uuid: item.uuid || '',
-          connection: item.connection,
-          organizationId: item.organizationId
+          connection: item.connection
         }))
       }
     } catch (e) {
@@ -1028,8 +1024,7 @@ const restoreHistoryTab = async (history: HistoryItem) => {
       hosts: hosts.value.map((h) => ({
         host: h.host,
         uuid: h.uuid,
-        connection: h.connection,
-        organizationId: h.organizationId
+        connection: h.connection
       }))
     })
     // 恢复保存的输入框内容
@@ -1444,7 +1439,7 @@ onMounted(async () => {
       updateHosts({
         ip: tabInfo.ip,
         uuid: tabInfo.data.uuid,
-        organizationId: tabInfo.organizationId || 'personal'
+        connection: tabInfo.connection || 'personal'
       })
     } else {
       updateHosts(null)
@@ -1615,8 +1610,7 @@ const sendMessageToMain = async (userContent: string, sendType: string) => {
     const hostsArray = hosts.value.map((h) => ({
       host: h.host,
       uuid: h.uuid,
-      connection: h.connection,
-      organizationId: h.organizationId
+      connection: h.connection
     }))
 
     let message
@@ -1697,8 +1691,7 @@ const onHostClick = (item: any) => {
   const newHost = {
     host: item.label,
     uuid: item.uuid,
-    connection: item.connection,
-    organizationId: item.organizationId
+    connection: item.connection
   }
 
   if (chatTypeValue.value === 'cmd') {
@@ -1805,51 +1798,8 @@ watch(hostSearchValue, (newVal) => {
 })
 const fetchHostOptions = async (search: string) => {
   const hostsList = await (window.api as any).getUserHosts(search)
-
   let formatted = formatHosts(hostsList || [])
-
-  // 获取资产菜单数据
-  let assetHosts: { ip: string; organizationId: string }[] = []
-  try {
-    const res = await getassetMenu({ organizationId: 'firm-0001' })
-    if (res && res.data && Array.isArray(res.data.routers)) {
-      // 遍历 routers 下所有 children
-      const routers = res.data.routers
-      routers.forEach((group: any) => {
-        if (Array.isArray(group.children)) {
-          group.children.forEach((item: any) => {
-            if (item.ip && item.organizationId) {
-              assetHosts.push({ ip: item.ip, organizationId: item.organizationId })
-            }
-          })
-        }
-      })
-    }
-  } catch (e) {
-    // 忽略资产接口异常
-  }
-  // 去重，只保留唯一 ip+organizationId
-  const uniqueAssetHosts = Array.from(new Map(assetHosts.map((h) => [h.ip + '_' + h.organizationId, h])).values())
-  // 转换为 hostOptions 兼容格式
-  const assetHostOptions = uniqueAssetHosts.map((h) => ({
-    label: h.ip,
-    value: h.ip + '_' + h.organizationId,
-    uuid: h.ip + '_' + h.organizationId,
-    organizationId: h.organizationId,
-    connection: 'organization'
-  }))
-
-  for (const host of formatted) {
-    host.connection = 'personal'
-    assetHostOptions.push(host)
-  }
-
-  const allOptions = [...assetHostOptions]
-  const deduped = Array.from(new Map(allOptions.map((h) => [h.label + '_' + (h.organizationId || ''), h])).values())
-
-  hostOptions.value.splice(0, hostOptions.value.length, ...deduped)
-
-  console.log('hostOptions', hostOptions.value)
+  hostOptions.value.splice(0, hostOptions.value.length, ...formatted)
 }
 
 const showResumeButton = computed(() => {

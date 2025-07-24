@@ -130,6 +130,7 @@ import { userInfoStore } from '@/store/index'
 import stripAnsi from 'strip-ansi'
 import { inputManager, commandBarHeight } from './termInputManager'
 import { shellCommands } from './shellCmd'
+import { createJumpServerStatusHandler, formatStatusMessage } from './jumpServerStatusHandler'
 const { t } = useI18n()
 const selectFlag = ref(false)
 const configStore = userConfigStore()
@@ -251,6 +252,9 @@ let resizeObserver: ResizeObserver | null = null
 const showSearch = ref(false)
 const searchAddon = ref<SearchAddon | null>(null)
 const showAiButton = ref(false)
+let jumpServerStatusHandler: ReturnType<typeof createJumpServerStatusHandler> | null = null
+
+// 计算快捷键显示文本
 const shortcutKey = computed(() => {
   const shortcuts = shortcutService.getShortcuts()
   if (shortcuts && shortcuts['sendOrToggleAi']) {
@@ -837,15 +841,30 @@ const connectSSH = async () => {
     const email = userInfoStore().userInfo.email
     const name = userInfoStore().userInfo.name
     connectionId.value = `${props.connectData.username}@${props.connectData.ip}:local:${uuidv4()}`
+
+    // 设置 JumpServer 状态监听
+    if (assetInfo.sshType === 'jumpserver' && terminal.value) {
+      jumpServerStatusHandler = createJumpServerStatusHandler(terminal.value, connectionId.value)
+      jumpServerStatusHandler.setupStatusListener(api)
+    }
+
     const result = await api.connect({
       id: connectionId.value,
-      host: props.connectData.ip,
-      port: props.connectData.port,
-      username: props.connectData.username,
-      password: password.value,
+      host: assetInfo.asset_ip,
+      port: assetInfo.port,
+      username: assetInfo.username,
+      password: assetInfo.password,
       privateKey: privateKey.value,
-      passphrase: passphrase.value
+      passphrase: passphrase.value,
+      targetIp: assetInfo.host,
+      sshType: assetInfo.sshType
     })
+
+    // 清理 JumpServer 状态监听器
+    if (jumpServerStatusHandler) {
+      jumpServerStatusHandler.cleanup()
+      jumpServerStatusHandler = null
+    }
 
     api
       .connectReadyData(connectionId.value)
@@ -863,6 +882,7 @@ const connectSSH = async () => {
       if (configStore.getUserConfig.language == 'en-US') {
         welcome = '\x1b[38;2;22;119;255m' + email.split('@')[0] + ', Welcome to use Chaterm \x1b[m\r\n'
       }
+      terminal.value?.writeln('') // 添加空行分隔
       terminal.value?.writeln(welcome)
       terminal.value?.writeln(`Connecting to ${props.connectData.ip}`)
       await startShell()
@@ -872,21 +892,20 @@ const connectSSH = async () => {
         handleResize()
       }, 200)
     } else {
-      terminal.value?.writeln(
-        JSON.stringify({
-          cmd: `错误: ${result.message}`,
-          isUserCall: true
-        })
-      )
+      const errorMsg = formatStatusMessage(`连接失败: ${result.message}`, 'error')
+      terminal.value?.writeln(errorMsg)
     }
   } catch (error: any) {
-    terminal.value?.writeln(
-      JSON.stringify({
-        cmd: `连接失败: ${error.message || '未知错误'}`,
-        isUserCall: true
-      })
-    )
+    // 清理 JumpServer 状态监听器
+    if (jumpServerStatusHandler) {
+      jumpServerStatusHandler.cleanup()
+      jumpServerStatusHandler = null
+    }
+
+    const errorMsg = formatStatusMessage(`连接错误: ${error.message || '未知错误'}`, 'error')
+    terminal.value?.writeln(errorMsg)
   }
+  emit('connectSSH', { isConnected: isConnected })
 }
 
 const startShell = async () => {
@@ -1460,14 +1479,16 @@ const setupTerminalInput = () => {
 const sendData = (data) => {
   api.writeToShell({
     id: connectionId.value,
-    data: data
+    data: data,
+    lineCommand: terminalState.value.content
   })
 }
 const sendMarkedData = (data, marker) => {
   api.writeToShell({
     id: connectionId.value,
     data: data,
-    marker: marker
+    marker: marker,
+    lineCommand: terminalState.value.content
   })
 }
 export interface MarkedResponse {

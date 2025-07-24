@@ -29,6 +29,7 @@ export interface AssetInfo {
   type?: string
   outputContext?: string
   tabSessionId?: string
+  connection?: string
 }
 
 export interface HistoryItem {
@@ -57,5 +58,4 @@ export interface Host {
   host: string
   uuid: string
   connection: string
-  organizationId: string
 }
