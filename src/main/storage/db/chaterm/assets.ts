@@ -295,7 +295,7 @@ export function getUserHostsLogic(db: Database.Database, search: string): any {
     const stmt = db.prepare(`
         SELECT asset_ip, uuid
         FROM t_assets
-        WHERE asset_ip LIKE '${safeSearch}%'
+        WHERE asset_ip LIKE '%${safeSearch}%'
         GROUP BY asset_ip
         LIMIT 10
       `)
