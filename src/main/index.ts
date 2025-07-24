@@ -6,6 +6,13 @@ import { is } from '@electron-toolkit/utils'
 // Set environment variables
 process.env.IS_DEV = is.dev ? 'true' : 'false'
 
+// 修正开发环境下通过 chaterm:// 协议启动时参数错乱的问题
+if (process.env.IS_DEV === 'true' && process.argv[1] && process.argv[1].startsWith('chaterm://')) {
+  const protocolArg = process.argv[1]
+  process.argv.splice(1, 1)
+  process.argv.push(protocolArg)
+}
+
 import { registerSSHHandlers } from './ssh/sshHandle'
 import { registerRemoteTerminalHandlers } from './ssh/agentHandle'
 import { autoCompleteDatabaseService, ChatermDatabaseService, setCurrentUserId } from './storage/database'
@@ -732,6 +739,16 @@ ipcMain.handle('capture-telemetry-event', async (_, { eventType, data }) => {
 // Register the agreement before the app is ready
 if (!app.isDefaultProtocolClient('chaterm')) {
   app.setAsDefaultProtocolClient('chaterm')
+}
+
+// Linux 下处理 chaterm:// 协议参数
+if (process.platform === 'linux') {
+  const protocolArg = process.argv.find((arg) => arg.startsWith('chaterm://'))
+  if (protocolArg) {
+    app.whenReady().then(() => {
+      handleProtocolRedirect(protocolArg)
+    })
+  }
 }
 
 // Process protocol redirection
