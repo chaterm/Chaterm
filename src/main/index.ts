@@ -795,7 +795,7 @@ ipcMain.handle('open-external-login', async () => {
     // Store status values for subsequent verification
     global.authState = state
     // Replace here with your external login URL, which needs to include information about redirecting back to the application
-    const externalLoginUrl = `http://login.chaterm.ai/login?client_id=chaterm&state=${state}&redirect_uri=chaterm://auth/callback`
+    const externalLoginUrl = `https://login.chaterm.ai/login?client_id=chaterm&state=${state}&redirect_uri=chaterm://auth/callback`
     await shell.openExternal(externalLoginUrl)
     return { success: true }
   } catch (error: any) {
