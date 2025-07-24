@@ -33,7 +33,6 @@
             </template>
           </a-input>
           <a-button
-            v-if="isPersonalWorkspace"
             type="primary"
             size="small"
             class="workspace-button"
@@ -92,9 +91,15 @@
                     @click.stop="handleEdit(dataRef)"
                   />
                   <span
-                    v-if="dataRef && dataRef.favorite !== undefined && !dataRef.key.startsWith('common_') && editingNode !== dataRef.key"
+                    v-if="
+                      dataRef &&
+                      dataRef.favorite !== undefined &&
+                      !dataRef.key.startsWith('common_') &&
+                      editingNode !== dataRef.key &&
+                      !(dataRef.asset_type === 'organization' && dataRef.children)
+                    "
                     class="favorite-icon"
-                    @click.stop="toggleFavorite(dataRef)"
+                    @click.stop="handleFavoriteClick(dataRef)"
                   >
                     <star-filled
                       v-if="dataRef.favorite"
@@ -122,7 +127,8 @@
               <template #title="{ title, dataRef }">
                 <div
                   class="custom-tree-node"
-                  @click="clickServer(dataRef)"
+                  @click="handleClick(dataRef)"
+                  @dblclick="handleDblClick(dataRef)"
                 >
                   <span
                     v-if="!isSecondLevel(dataRef)"
@@ -156,9 +162,15 @@
                     @click.stop="handleEdit(dataRef)"
                   />
                   <span
-                    v-if="dataRef && dataRef.favorite !== undefined && !dataRef.key.startsWith('common_') && editingNode !== dataRef.key"
+                    v-if="
+                      dataRef &&
+                      dataRef.favorite !== undefined &&
+                      !dataRef.key.startsWith('common_') &&
+                      editingNode !== dataRef.key &&
+                      !(dataRef.asset_type === 'organization' && dataRef.children)
+                    "
                     class="favorite-icon"
-                    @click.stop="toggleFavorite(dataRef)"
+                    @click.stop="handleFavoriteClick(dataRef)"
                   >
                     <star-filled
                       v-if="dataRef.favorite"
@@ -182,34 +194,22 @@
 </template>
 
 <script setup lang="ts">
-interface ApiType {
-  queryCommand: (data: { command: string; ip: string }) => Promise<any>
-  insertCommand: (data: { command: string; ip: string }) => Promise<any>
-  getLocalAssetRoute: (data: { searchType: string; params?: any[] }) => Promise<any>
-  updateLocalAssetLabel: (data: { uuid: string; label: string }) => Promise<any>
-  updateLocalAsseFavorite: (data: { uuid: string; status: number }) => Promise<any>
-}
-declare global {
-  interface Window {
-    api: ApiType
-  }
-}
-import { getassetMenu, setUserfavorite, getUserWorkSpace, setAlias } from '@/api/asset/asset'
 import { deepClone } from '@/utils/util'
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { StarFilled, StarOutlined, LaptopOutlined, SearchOutlined, EditOutlined, CheckOutlined } from '@ant-design/icons-vue'
 import eventBus from '@/utils/eventBus'
 import i18n from '@/locales'
-const { t } = i18n.global
 
+const { t } = i18n.global
+const emit = defineEmits(['currentClickServer', 'change-company', 'open-user-tab'])
+
+// 添加缺失的变量声明
+const company = ref('personal_user_id')
+const selectedKeys = ref<string[]>([])
+const expandedKeys = ref<string[]>([])
 const searchValue = ref('')
 const editingNode = ref(null)
 const editingTitle = ref('')
-const selectedKeys = ref([])
-const expandedKeys = ref<string[]>([])
-const company = ref('personal_user_id')
-
-const emit = defineEmits(['currentClickServer', 'change-company', 'open-user-tab'])
 
 interface WorkspaceItem {
   key: string
@@ -228,8 +228,6 @@ const workspaceData = ref<WorkspaceItem[]>([
     type: 'organization'
   }
 ])
-
-const remoteWorkSpace = ref<WorkspaceItem[]>([])
 
 interface AssetNode {
   key: string
@@ -261,17 +259,29 @@ const companyChange = (item) => {
   } else {
     getUserAssetMenu()
   }
-  // emit('change-company')
 }
 
 const isPersonalWorkspace = computed(() => {
   const currentWorkspace = workspaceData.value.find((item) => item.key === company.value)
   return currentWorkspace?.type === 'personal'
 })
+const handleFavoriteClick = (dataRef: any) => {
+  // 检查是否有必要的字段
+  if (!dataRef) {
+    console.error('dataRef 为空')
+    return
+  }
 
+  if (dataRef.favorite === undefined) {
+    console.error('dataRef.favorite 未定义')
+    return
+  }
+
+  toggleFavorite(dataRef)
+}
 const getLocalAssetMenu = () => {
   window.api
-    .getLocalAssetRoute({ searchType: 'tree', params: [] })
+    .getLocalAssetRoute({ searchType: 'tree', params: ['person'] })
     .then((res) => {
       if (res && res.data) {
         const data = res.data.routers || []
@@ -286,22 +296,17 @@ const getLocalAssetMenu = () => {
 }
 
 const getUserAssetMenu = () => {
-  getassetMenu({ organizationId: remoteWorkSpace.value[0]?.key || '' })
+  window.api
+    .getLocalAssetRoute({ searchType: 'tree', params: ['organization'] })
     .then((res) => {
-      const data = res.data.routers || []
-      originalTreeData.value = deepClone(data) as AssetNode[]
-      enterpriseData.value = deepClone(data) as AssetNode[]
-      expandDefaultNodes(enterpriseData.value)
-    })
-    .catch((err) => console.error(err))
-}
-
-const GetUserWorkSpace = async () => {
-  getUserWorkSpace()
-    .then((res) => {
-      const data = res.data.data
-      const newData = deepClone(data) as WorkspaceItem[]
-      remoteWorkSpace.value = [...newData]
+      if (res && res.data) {
+        const data = res.data.routers || []
+        originalTreeData.value = deepClone(data) as AssetNode[]
+        enterpriseData.value = deepClone(data) as AssetNode[]
+        setTimeout(() => {
+          expandDefaultNodes(enterpriseData.value)
+        }, 200)
+      }
     })
     .catch((err) => console.error(err))
 }
@@ -330,7 +335,11 @@ const filterTreeNodes = (inputValue: string): AssetNode[] => {
   const filterNodes = (nodes: AssetNode[]): AssetNode[] => {
     return nodes
       .map((node) => {
-        if (node.title.toLowerCase().includes(lowerCaseInput)) {
+        // 检查标题或IP是否匹配
+        const titleMatch = node.title.toLowerCase().includes(lowerCaseInput)
+        const ipMatch = node.ip && node.ip.toLowerCase().includes(lowerCaseInput)
+
+        if (titleMatch || ipMatch) {
           return { ...node }
         }
 
@@ -353,8 +362,13 @@ const filterTreeNodes = (inputValue: string): AssetNode[] => {
 }
 
 const onSearchInput = () => {
-  assetTreeData.value = filterTreeNodes(searchValue.value)
-  expandedKeys.value = getAllKeys(assetTreeData.value)
+  if (isPersonalWorkspace.value) {
+    assetTreeData.value = filterTreeNodes(searchValue.value)
+    expandedKeys.value = getAllKeys(assetTreeData.value)
+  } else {
+    enterpriseData.value = filterTreeNodes(searchValue.value)
+    expandedKeys.value = getAllKeys(enterpriseData.value)
+  }
 }
 
 const getAllKeys = (nodes: AssetNode[]): string[] => {
@@ -389,28 +403,69 @@ const isSecondLevel = (node) => {
 
 const toggleFavorite = (dataRef: any): void => {
   if (isPersonalWorkspace.value) {
+    console.log('执行个人资产收藏逻辑')
     window.api
       .updateLocalAsseFavorite({ uuid: dataRef.uuid, status: dataRef.favorite ? 2 : 1 })
       .then((res) => {
+        console.log('个人资产收藏响应:', res)
         if (res.data.message === 'success') {
           dataRef.favorite = !dataRef.favorite
           getLocalAssetMenu()
         }
       })
-      .catch((err) => console.error(err))
+      .catch((err) => console.error('个人资产收藏错误:', err))
   } else {
-    const keyString = dataRef.key || ''
-    const lastUnderscoreIndex = keyString.lastIndexOf('_')
-    const ip = lastUnderscoreIndex !== -1 ? keyString.substring(lastUnderscoreIndex + 1) : keyString
-    setUserfavorite({ assetIp: ip, action: dataRef.favorite ? 'unfavorite' : 'favorite' })
-      .then((res) => {
-        if (res.data.message === 'success') {
-          dataRef.favorite = !dataRef.favorite
-          getUserAssetMenu()
-        }
+    console.log('执行企业资产收藏逻辑')
+    // 企业资产需要区分是组织本身还是组织下的子资产
+    if (dataRef.asset_type === 'organization' && !dataRef.organizationId) {
+      console.log('更新组织本身收藏状态')
+      // 组织本身，修改 t_assets
+      window.api
+        .updateLocalAsseFavorite({ uuid: dataRef.uuid, status: dataRef.favorite ? 2 : 1 })
+        .then((res) => {
+          console.log('组织本身收藏响应:', res)
+          if (res.data.message === 'success') {
+            dataRef.favorite = !dataRef.favorite
+            getUserAssetMenu()
+          }
+        })
+        .catch((err) => console.error('组织本身收藏错误:', err))
+    } else {
+      console.log('更新组织子资产收藏状态:', {
+        organizationUuid: dataRef.organizationId,
+        host: dataRef.ip,
+        status: dataRef.favorite ? 2 : 1
       })
-      .catch((err) => console.error(err))
+
+      // 检查 API 方法是否存在
+      if (!window.api.updateOrganizationAssetFavorite) {
+        console.error('window.api.updateOrganizationAssetFavorite 方法不存在!')
+        return
+      }
+
+      // 组织下的子资产，修改 t_organization_assets
+      window.api
+        .updateOrganizationAssetFavorite({
+          organizationUuid: dataRef.organizationId,
+          host: dataRef.ip,
+          status: dataRef.favorite ? 2 : 1
+        })
+        .then((res) => {
+          console.log('updateOrganizationAssetFavorite 响应:', res)
+          if (res && res.data && res.data.message === 'success') {
+            console.log('收藏状态更新成功，刷新菜单')
+            dataRef.favorite = !dataRef.favorite
+            getUserAssetMenu()
+          } else {
+            console.error('收藏状态更新失败:', res)
+          }
+        })
+        .catch((err) => {
+          console.error('updateOrganizationAssetFavorite 错误:', err)
+        })
+    }
   }
+  console.log('=== toggleFavorite 结束 ===')
 }
 const handleEdit = (dataRef) => {
   editingNode.value = dataRef.key
@@ -418,7 +473,6 @@ const handleEdit = (dataRef) => {
 }
 
 const confirmEdit = (dataRef) => {
-  // 这里判断传入是否为非空
   if (!editingTitle.value.trim()) {
     return
   }
@@ -436,7 +490,8 @@ const confirmEdit = (dataRef) => {
       })
       .catch((err) => console.error(err))
   } else {
-    setAlias({ key: dataRef.key, alias: dataRef.title })
+    window.api
+      .updateLocalAssetLabel({ uuid: dataRef.uuid, label: dataRef.title })
       .then((res) => {
         if (res.data.message === 'success') {
           getUserAssetMenu()
@@ -470,13 +525,20 @@ const handleDblClick = (dataRef: any) => {
 }
 
 getLocalAssetMenu()
-onMounted(async () => {
-  await GetUserWorkSpace()
 
-  eventBus.on('LocalAssetMenu', getLocalAssetMenu)
+const refreshAssetMenu = () => {
+  if (isPersonalWorkspace.value) {
+    getLocalAssetMenu()
+  } else {
+    getUserAssetMenu()
+  }
+}
+
+onMounted(() => {
+  eventBus.on('LocalAssetMenu', refreshAssetMenu)
 })
 onUnmounted(() => {
-  eventBus.off('LocalAssetMenu', getLocalAssetMenu)
+  eventBus.off('LocalAssetMenu', refreshAssetMenu)
 })
 </script>
 
@@ -549,11 +611,13 @@ onUnmounted(() => {
   overflow-y: auto;
   border-radius: 2px;
   background-color: transparent;
+  max-height: calc(100vh - 120px);
+  height: auto;
 }
 
 :deep(.dark-tree) {
   background-color: transparent;
-  height: 30% !important;
+  height: auto !important;
   .ant-tree-node-content-wrapper,
   .ant-tree-title,
   .ant-tree-switcher,

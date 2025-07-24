@@ -2,7 +2,6 @@ import { Anthropic } from '@anthropic-ai/sdk'
 import cloneDeep from 'clone-deep'
 // import { setTimeout as setTimeoutPromise } from 'node:timers/promises'
 import os from 'os'
-import { v4 as uuidv4 } from 'uuid'
 import { telemetryService } from '@services/telemetry/TelemetryService'
 import pWaitFor from 'p-wait-for'
 import { serializeError } from 'serialize-error'
@@ -45,7 +44,6 @@ import { connectAssetInfo } from '../../../storage/database'
 import { getMessages, formatMessage, Messages } from './messages'
 
 import type { Host } from '@shared/WebviewMessage'
-import { encrypt } from '../../integrations/remote-terminal/ws'
 
 type ToolResponse = string | Array<Anthropic.TextBlockParam | Anthropic.ImageBlockParam>
 type UserContent = Array<Anthropic.ContentBlockParam>
@@ -142,7 +140,6 @@ export class Task {
         this.cwd.set(host.host, cwd?.get(host.host) || '')
       }
     }
-
     this.updateMessagesLanguage()
 
     // Initialize taskId first
@@ -253,42 +250,14 @@ export class Task {
       return
     }
     let terminalInfo: RemoteTerminalInfo | null = null
-    if (this.hosts[0].connection === 'personal') {
-      let terminalUuid = ip ? this.hosts.find((host) => host.host === ip)?.uuid : this.hosts[0].uuid
-      if (!terminalUuid) {
-        console.log('Terminal UUID is not set')
-        return
-      }
-      const connectionInfo = await connectAssetInfo(terminalUuid)
-      connectionInfo.type = 'ssh'
-      this.remoteTerminalManager.setConnectionInfo(connectionInfo)
-      terminalInfo = await this.remoteTerminalManager.createTerminal()
-    } else {
-      // websocket
-      let authData = {
-        user: 'test',
-        email: 'test@gmail.com',
-        ip: this.hosts[0].host,
-        organizationId: this.hosts[0].organizationId,
-        uid: 2000001,
-        terminalId: ''
-      }
-      const dynamicTerminalId = `${authData.user}@${authData.ip}:remote:${uuidv4()}`
-      authData.terminalId = dynamicTerminalId
-
-      const auth = encrypt(authData)
-      const wsUrl = 'ws://demo.chaterm.ai/v1/term-api/ws?&uuid=' + auth // Backend WebSocket address
-      let connectionInfo: ConnectionInfo = {}
-      connectionInfo.type = 'websocket'
-      connectionInfo.wsUrl = wsUrl
-      connectionInfo.terminalId = dynamicTerminalId
-      connectionInfo.host = authData.ip
-      connectionInfo.organizationId = authData.organizationId
-      connectionInfo.uid = authData.uid
-      this.remoteTerminalManager.setConnectionInfo(connectionInfo)
-      terminalInfo = await this.remoteTerminalManager.createTerminal()
+    let terminalUuid = ip ? this.hosts.find((host) => host.host === ip)?.uuid : this.hosts[0].uuid
+    if (!terminalUuid) {
+      console.log('Terminal UUID is not set')
+      return
     }
-
+    const connectionInfo = await connectAssetInfo(terminalUuid)
+    this.remoteTerminalManager.setConnectionInfo(connectionInfo)
+    terminalInfo = await this.remoteTerminalManager.createTerminal()
     return terminalInfo
   }
 
