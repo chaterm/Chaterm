@@ -6,13 +6,6 @@ import { is } from '@electron-toolkit/utils'
 // Set environment variables
 process.env.IS_DEV = is.dev ? 'true' : 'false'
 
-// 修正开发环境下通过 chaterm:// 协议启动时参数错乱的问题
-if (process.env.IS_DEV === 'true' && process.argv[1] && process.argv[1].startsWith('chaterm://')) {
-  const protocolArg = process.argv[1]
-  process.argv.splice(1, 1)
-  process.argv.push(protocolArg)
-}
-
 import { registerSSHHandlers } from './ssh/sshHandle'
 import { registerRemoteTerminalHandlers } from './ssh/agentHandle'
 import { autoCompleteDatabaseService, ChatermDatabaseService, setCurrentUserId } from './storage/database'
