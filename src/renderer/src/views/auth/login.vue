@@ -43,16 +43,7 @@
         >
           <a-form-item>
             <a-button
-              style="
-                margin-top: 20px;
-                margin-left: 50%;
-                transform: translateX(-50%);
-                border-radius: 6px;
-                width: 200px;
-                height: 36px;
-                font-size: 16px;
-                background-color: #2a82e4;
-              "
+              class="login-button"
               type="primary"
               html-type="submit"
               @click="handleExternalLogin"
@@ -248,9 +239,12 @@ onBeforeUnmount(() => {
   }
 
   .logo {
-    width: 150px;
-    height: 150px;
-    margin-bottom: 2px;
+    width: 100px;
+    height: 100px;
+    &:hover {
+      transform: scale(1.05);
+      filter: drop-shadow(0 6px 12px rgba(0, 0, 0, 0.3));
+    }
   }
 
   .connetus {
@@ -269,13 +263,36 @@ onBeforeUnmount(() => {
   }
 
   .term_login_welcome {
-    text-align: center;
+    font-size: 32px;
+    font-weight: bolder;
+    letter-spacing: 1px;
+    background: linear-gradient(135deg, #00eaff 0%, #1677ff 50%, #2a82e4 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+
+  .login-button {
     margin-top: 20px;
-    font-size: 36px;
-    color: #fff;
-    font-weight: 500;
-    letter-spacing: 2px;
-    white-space: nowrap;
+    margin-left: 50%;
+    transform: translateX(-50%);
+    border-radius: 6px;
+    width: 220px;
+    height: 36px;
+    font-size: 16px;
+    border: none;
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 8px rgba(42, 130, 228, 0.3);
+
+    &:hover {
+      background-color: #1677ff;
+      transform: translateX(-50%) translateY(-2px);
+      box-shadow: 0 4px 12px rgba(42, 130, 228, 0.4);
+    }
+
+    &:active {
+      transform: translateX(-50%) translateY(0);
+      box-shadow: 0 2px 4px rgba(42, 130, 228, 0.3);
+    }
   }
 
   .term_login_input {
