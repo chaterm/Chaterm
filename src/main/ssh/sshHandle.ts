@@ -39,7 +39,7 @@ const MaxKeyboardInteractiveAttempts = 5 // Max KeyboardInteractive attempts
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const EventEmitter = require('events')
 const connectionEvents = new EventEmitter()
-const handleRequestKeyboardInteractive = (event, id, prompts, finish) => {
+export const handleRequestKeyboardInteractive = (event, id, prompts, finish) => {
   return new Promise((_resolve, reject) => {
     const RequestKeyboardInteractive = () => {
       event.sender.send('ssh:keyboard-interactive-request', {

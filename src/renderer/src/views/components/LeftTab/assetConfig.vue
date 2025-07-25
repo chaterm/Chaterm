@@ -287,6 +287,47 @@
       </div>
     </div>
   </div>
+
+  <!-- 二次验证弹窗 -->
+  <a-modal
+    v-model:visible="showOtpDialog"
+    title="二次验证"
+    width="30%"
+    :mask-closable="false"
+    :keyboard="false"
+  >
+    <div>
+      <p>{{ otpPrompt || '请输入验证码' }}</p>
+      <a-input-password
+        v-model:value="otpCode"
+        placeholder="验证码"
+        :visibility-toggle="false"
+        @press-enter="submitOtpCode"
+      />
+      <span
+        v-show="showOtpDialogErr"
+        style="color: red"
+        >验证码错误</span
+      >
+      <span
+        v-show="showOtpDialogCheckErr"
+        style="color: red"
+        >请输入验证码</span
+      >
+    </div>
+    <template #footer>
+      <a-button
+        key="submit"
+        @click="cancelOtp"
+        >取消</a-button
+      >
+      <a-button
+        type="primary"
+        @click="submitOtpCode"
+        >确认
+      </a-button>
+    </template>
+  </a-modal>
 </template>
 
 <script setup lang="ts">
@@ -367,6 +408,21 @@ const contextMenuPosition = reactive({ x: 0, y: 0 })
 const selectedHost = ref<AssetNode | null>(null)
 const selectedGroup = ref<AssetNode | null>(null)
 
+// 二次验证相关变量
+const showOtpDialog = ref(false)
+const showOtpDialogErr = ref(false)
+const showOtpDialogCheckErr = ref(false)
+const otpPrompt = ref('')
+const otpCode = ref('')
+const currentOtpId = ref<string | null>(null)
+const otpAttempts = ref(0)
+const MAX_OTP_ATTEMPTS = 5
+
+// 二次验证监听器
+let removeOtpRequestListener = (): void => {}
+let removeOtpTimeoutListener = (): void => {}
+let removeOtpResultListener = (): void => {}
+
 const openNewPanel = () => {
   isEditMode.value = false
   editingAssetUUID.value = null
@@ -375,6 +431,8 @@ const openNewPanel = () => {
   if (createFrom.auth_type === 'keyBased') {
     getkeyChainData()
   }
+  // 新建资产不需要设置MFA监听器，只有刷新企业资产时才需要
+  // 因此不调用 resetOtpConnection() 避免与sshConnect.vue冲突
   isRightSectionVisible.value = true
 }
 
@@ -402,6 +460,8 @@ const handleCardClick = (host: AssetNode) => {
 
 const handleConnect = (item) => {
   console.log('连接资产:', item)
+  // 连接操作不需要处理MFA，MFA由sshConnect.vue组件处理
+  // 因此不调用 resetOtpConnection() 避免与sshConnect.vue冲突
   eventBus.emit('currentClickServer', item)
 }
 
@@ -432,6 +492,8 @@ const handleEdit = (host: AssetNode | null) => {
   if (createFrom.auth_type === 'keyBased') {
     getkeyChainData()
   }
+  // 编辑操作不需要设置MFA监听器，只有刷新企业资产时才需要
+  // 因此不调用 resetOtpConnection() 避免与sshConnect.vue冲突
   isRightSectionVisible.value = true
 }
 
@@ -641,11 +703,19 @@ onMounted(() => {
   eventBus.on('keyChainUpdated', () => {
     getkeyChainData()
   })
+
+  // 不在组件挂载时自动设置MFA监听器，避免与sshConnect.vue冲突
+  // MFA监听器只在刷新企业资产时临时设置
 })
 
 onBeforeUnmount(() => {
   document.removeEventListener('click', handleDocumentClick)
   eventBus.off('keyChainUpdated')
+
+  // 清理二次验证监听器
+  if (typeof removeOtpRequestListener === 'function') removeOtpRequestListener()
+  if (typeof removeOtpTimeoutListener === 'function') removeOtpTimeoutListener()
+  if (typeof removeOtpResultListener === 'function') removeOtpResultListener()
 })
 
 watch(isRightSectionVisible, (val) => {
@@ -690,6 +760,9 @@ watch(
 const handleRefreshOrganizationAssets = async (host: AssetNode | null) => {
   if (!host || host.asset_type !== 'organization') return
 
+  // 为刷新企业资产专门设置MFA监听器
+  setupOtpListenersForRefresh()
+
   const hide = message.loading(t('personal.refreshingAssets'), 0)
 
   try {
@@ -717,9 +790,113 @@ const handleRefreshOrganizationAssets = async (host: AssetNode | null) => {
     console.error('刷新企业资产失败:', error)
     hide() // 隐藏加载消息
     message.error(t('personal.refreshError'))
+  } finally {
+    // 刷新完成后清理MFA监听器，避免与后续连接操作冲突
+    cleanupOtpListeners()
   }
 
   contextMenuVisible.value = false
+}
+
+// 二次验证处理方法
+const handleOtpRequest = (data: any) => {
+  currentOtpId.value = data.id
+  otpPrompt.value = data.prompts.join('\n')
+  showOtpDialog.value = true
+  showOtpDialogErr.value = false
+  showOtpDialogCheckErr.value = false
+  otpAttempts.value = 0
+}
+
+const handleOtpError = (data: any) => {
+  if (data.id === currentOtpId.value) {
+    if (data.status === 'success') {
+      closeOtp()
+    } else {
+      showOtpDialogErr.value = true
+      otpAttempts.value += 1
+      otpCode.value = ''
+      if (otpAttempts.value >= MAX_OTP_ATTEMPTS) {
+        showOtpDialog.value = false
+        cancelOtp()
+      }
+    }
+  }
+}
+
+const submitOtpCode = () => {
+  showOtpDialogCheckErr.value = false
+  showOtpDialogErr.value = false
+  if (otpCode.value && currentOtpId.value) {
+    const api = window.api as any
+    api.submitKeyboardInteractiveResponse(currentOtpId.value, otpCode.value)
+  } else {
+    showOtpDialogCheckErr.value = true
+  }
+}
+
+const cancelOtp = () => {
+  if (currentOtpId.value) {
+    const api = window.api as any
+    api.cancelKeyboardInteractive(currentOtpId.value)
+    if (typeof removeOtpRequestListener === 'function') removeOtpRequestListener()
+    if (typeof removeOtpTimeoutListener === 'function') removeOtpTimeoutListener()
+    if (typeof removeOtpResultListener === 'function') removeOtpResultListener()
+    resetOtpDialog()
+  }
+}
+
+const closeOtp = () => {
+  if (currentOtpId.value) {
+    if (typeof removeOtpRequestListener === 'function') removeOtpRequestListener()
+    if (typeof removeOtpTimeoutListener === 'function') removeOtpTimeoutListener()
+    if (typeof removeOtpResultListener === 'function') removeOtpResultListener()
+    resetOtpDialog()
+  }
+}
+
+const resetOtpDialog = () => {
+  showOtpDialog.value = false
+  showOtpDialogErr.value = false
+  showOtpDialogCheckErr.value = false
+  otpPrompt.value = ''
+  otpCode.value = ''
+  currentOtpId.value = null
+}
+
+// 为刷新企业资产设置MFA监听器
+const setupOtpListenersForRefresh = () => {
+  // 先清理现有的监听器
+  if (typeof removeOtpRequestListener === 'function') removeOtpRequestListener()
+  if (typeof removeOtpTimeoutListener === 'function') removeOtpTimeoutListener()
+  if (typeof removeOtpResultListener === 'function') removeOtpResultListener()
+
+  // 重置二次验证相关状态
+  resetOtpDialog()
+
+  // 重新设置监听器（仅用于刷新企业资产）
+  const api = window.api as any
+  removeOtpRequestListener = api.onKeyboardInteractiveRequest(handleOtpRequest)
+  removeOtpTimeoutListener = api.onKeyboardInteractiveTimeout(handleOtpTimeout)
+  removeOtpResultListener = api.onKeyboardInteractiveResult(handleOtpError)
+}
+
+// 清理MFA监听器（刷新完成后）
+const cleanupOtpListeners = () => {
+  if (typeof removeOtpRequestListener === 'function') removeOtpRequestListener()
+  if (typeof removeOtpTimeoutListener === 'function') removeOtpTimeoutListener()
+  if (typeof removeOtpResultListener === 'function') removeOtpResultListener()
+
+  // 重置为空函数
+  removeOtpRequestListener = (): void => {}
+  removeOtpTimeoutListener = (): void => {}
+  removeOtpResultListener = (): void => {}
+}
+
+const handleOtpTimeout = (data: any) => {
+  if (data.id === currentOtpId.value && showOtpDialog.value) {
+    resetOtpDialog()
+  }
 }
 </script>
 
