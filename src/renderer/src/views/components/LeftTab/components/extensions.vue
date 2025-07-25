@@ -24,7 +24,7 @@
           <a-switch
             :checked="userConfig.autoCompleteStatus === 1"
             class="user_my-ant-form-item-content"
-            @change="(checked) => (userConfig.autoCompleteStatus = checked ? 1 : 2)"
+            @change="handleAutoCompleteChange"
           />
         </a-form-item>
         <a-form-item>
@@ -54,7 +54,7 @@
           <a-switch
             :checked="userConfig.highlightStatus === 1"
             class="user_my-ant-form-item-content"
-            @change="(checked) => (userConfig.highlightStatus = checked ? 1 : 2)"
+            @change="handleHighlightChange"
           />
         </a-form-item>
       </a-form>
@@ -68,6 +68,7 @@ import 'xterm/css/xterm.css'
 import { notification } from 'ant-design-vue'
 import { userConfigStore } from '@/services/userConfigStoreService'
 import eventBus from '@/utils/eventBus'
+import { captureExtensionUsage, ExtensionNames, ExtensionStatus } from '@/utils/telemetry'
 
 const userConfig = ref({
   autoCompleteStatus: 1,
@@ -134,8 +135,19 @@ onMounted(async () => {
   await loadSavedConfig()
 })
 
-const handleSwitchChange = (value) => {
+const handleAutoCompleteChange = async (checked) => {
+  const newValue = checked ? 1 : 2
+  userConfig.value.autoCompleteStatus = newValue
+
+  const status = checked ? ExtensionStatus.ENABLED : ExtensionStatus.DISABLED
+  await captureExtensionUsage(ExtensionNames.AUTO_COMPLETE, status)
+}
+
+const handleSwitchChange = async (value) => {
   userConfig.value.quickVimStatus = value ? 1 : 2
+
+  const status = value ? ExtensionStatus.ENABLED : ExtensionStatus.DISABLED
+  await captureExtensionUsage(ExtensionNames.VIM_EDITOR, status)
 }
 
 const handleAliasStatusChange = async (checked) => {
@@ -145,6 +157,9 @@ const handleAliasStatusChange = async (checked) => {
   try {
     await saveConfig()
     eventBus.emit('aliasStatusChanged', newValue)
+
+    const status = checked ? ExtensionStatus.ENABLED : ExtensionStatus.DISABLED
+    await captureExtensionUsage(ExtensionNames.ALIAS, status)
   } catch (error) {
     console.error('保存别名状态失败:', error)
     notification.error({
@@ -152,6 +167,14 @@ const handleAliasStatusChange = async (checked) => {
       description: '保存别名状态失败'
     })
   }
+}
+
+const handleHighlightChange = async (checked) => {
+  const newValue = checked ? 1 : 2
+  userConfig.value.highlightStatus = newValue
+
+  const status = checked ? ExtensionStatus.ENABLED : ExtensionStatus.DISABLED
+  await captureExtensionUsage(ExtensionNames.HIGHLIGHT, status)
 }
 </script>
 

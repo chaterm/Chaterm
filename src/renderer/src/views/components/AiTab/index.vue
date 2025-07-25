@@ -912,6 +912,7 @@ const handlePlusClick = async () => {
   const chatSetting = (await getGlobalState('chatSettings')) as { mode?: string }
   chatTypeValue.value = chatSetting?.mode || 'agent'
   hosts.value = []
+  autoUpdateHost.value = true
   // Get the asset information of the current active tab
   const assetInfo = await getCurentTabAssetInfo()
   if (assetInfo && assetInfo.ip) {
