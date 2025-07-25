@@ -992,16 +992,21 @@ const startOtpTimer = (durationMs = OTP_TIMEOUT) => {
   }, 1000)
 }
 const handleOtpRequest = (data) => {
+  console.log('收到MFA请求，ID:', data.id, '当前连接ID:', connectionId.value)
   currentOtpId.value = data.id
   otpPrompt.value = data.prompts.join('\n')
   showOtpDialog.value = true
+  showOtpDialogCheckErr.value = false // 重置错误状态
   startOtpTimer()
 }
 const handleOtpError = (data) => {
+  console.log('收到MFA验证结果:', data, '当前OTP ID:', currentOtpId.value)
   if (data.id === currentOtpId.value) {
-    if (data.status == 'success') {
+    if (data.status === 'success') {
+      console.log('MFA验证成功，关闭弹窗')
       closeOtp()
     } else {
+      console.log('MFA验证失败，显示错误')
       showOtpDialogErr.value = true
       otpAttempts.value += 1
       otpCode.value = ''
@@ -1010,6 +1015,8 @@ const handleOtpError = (data) => {
         cancelOtp()
       }
     }
+  } else {
+    console.log('ID不匹配，忽略结果')
   }
 }
 
@@ -1019,6 +1026,7 @@ const submitOtpCode = () => {
   if (otpCode.value && currentOtpId.value) {
     api.submitKeyboardInteractiveResponse(currentOtpId.value, otpCode.value)
   } else {
+    console.log('验证码或ID为空，显示错误')
     showOtpDialogCheckErr.value = true
   }
 }
@@ -1033,6 +1041,7 @@ const cancelOtp = () => {
   }
 }
 const closeOtp = () => {
+  console.log('关闭MFA弹窗，当前OTP ID:', currentOtpId.value)
   if (currentOtpId.value) {
     if (typeof removeOtpRequestListener === 'function') removeOtpRequestListener()
     if (typeof removeOtpTimeoutListener === 'function') removeOtpTimeoutListener()
@@ -1042,11 +1051,18 @@ const closeOtp = () => {
 }
 
 const resetOtpDialog = () => {
+  console.log('重置MFA弹窗状态')
   showOtpDialog.value = false
   showOtpDialogErr.value = false
+  showOtpDialogCheckErr.value = false
   otpPrompt.value = ''
   otpCode.value = ''
   currentOtpId.value = null
+  // 清理定时器
+  if (otpTimerInterval) {
+    clearInterval(otpTimerInterval)
+    otpTimerInterval = null
+  }
 }
 
 const handleOtpTimeout = (data) => {
