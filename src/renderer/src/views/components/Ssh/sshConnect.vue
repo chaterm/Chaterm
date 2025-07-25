@@ -2241,11 +2241,11 @@ function updateSelectionButtonPosition() {
 
 <style lang="less">
 .ant-form-item .ant-form-item-label > label {
-  color: white;
+  color: var(--text-color);
 }
 
 .ant-radio-wrapper {
-  color: white;
+  color: var(--text-color);
 }
 
 .terminal-container {
@@ -2284,13 +2284,13 @@ function updateSelectionButtonPosition() {
   border: 1px solid var(--border-color-light);
 
   .main-text {
-    color: white;
+    color: var(--text-color);
     font-size: 12px;
     font-weight: 500;
   }
 
   .shortcut-text {
-    color: #888;
+    color: var(--text-color-secondary);
     font-size: 10px;
     margin-left: 4px;
     font-weight: 400;
@@ -2301,11 +2301,11 @@ function updateSelectionButtonPosition() {
     border: 1px solid var(--border-color-light) !important;
 
     .main-text {
-      color: white !important;
+      color: var(--text-color) !important;
     }
 
     .shortcut-text {
-      color: #aaa !important;
+      color: var(--text-color-secondary) !important;
     }
   }
 }
