@@ -51,3 +51,42 @@ export const LoginFailureReasons = {
   DATABASE_ERROR: 'database_error', // Database error
   UNKNOWN_ERROR: 'unknown_error' // Unknown error
 } as const
+
+/**
+ * Extension name enumeration
+ */
+export const ExtensionNames = {
+  AUTO_COMPLETE: 'auto_complete',
+  VIM_EDITOR: 'vim_editor',
+  ALIAS: 'alias',
+  HIGHLIGHT: 'highlight'
+} as const
+
+/**
+ * Extension status enumeration
+ */
+export const ExtensionStatus = {
+  ENABLED: 'enabled',
+  DISABLED: 'disabled'
+} as const
+
+/**
+ * Capture extension usage event telemetry data
+ * @param extensionName Extension name
+ * @param status Extension status (enabled/disabled)
+ * @param properties Optional event properties
+ */
+export const captureExtensionUsage = async (extensionName: string, status: string, properties?: Record<string, any>): Promise<void> => {
+  try {
+    const api = window.api as any
+    const eventName = `extension_${extensionName}_${status}`
+    const eventProperties = {
+      extension_name: extensionName,
+      status: status,
+      ...properties
+    }
+    await api.captureButtonClick(eventName, eventProperties)
+  } catch (telemetryError) {
+    console.warn('Failed to capture extension usage telemetry:', telemetryError)
+  }
+}
