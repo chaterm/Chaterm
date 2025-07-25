@@ -89,9 +89,6 @@ $ npm run build:mac
 $ npm run build:linux
 ```
 
-### 本地前后端调试
-
-<p>打开electron.vite.config.ts文件，将target指向改为本地url地址即可。</p>
 
 ### 贡献指南
 

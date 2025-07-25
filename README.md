@@ -77,9 +77,6 @@ $ npm run build:mac
 $ npm run build:linux
 ```
 
-### Local front-end and back-end debugging
-
-<p>Modify the electron.vite.config.ts file and set the target to the local URL address.</p>
 
 ### Contributing Guide
 
