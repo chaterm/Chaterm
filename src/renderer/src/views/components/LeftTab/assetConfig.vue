@@ -551,6 +551,48 @@ const getAssetGroup = () => {
 }
 
 const handleCreateAsset = async () => {
+  // 企业资产校验
+  if (createFrom.asset_type === 'organization') {
+    console.log('正在校验企业资产:', createFrom)
+
+    // 校验远程地址
+    if (!createFrom.ip || !createFrom.ip.trim()) {
+      message.error(t('personal.validationRemoteHostRequired'))
+      return
+    }
+
+    // 校验端口
+    if (!createFrom.port || createFrom.port <= 0) {
+      message.error(t('personal.validationPortRequired'))
+      return
+    }
+
+    // 校验用户名
+    if (!createFrom.username || !createFrom.username.trim()) {
+      message.error(t('personal.validationUsernameRequired'))
+      return
+    }
+
+    // 校验认证信息：对于企业资产，必须选择密钥，并且必须有密码
+    if (createFrom.auth_type === 'keyBased') {
+      if (!createFrom.keyChain) {
+        message.error(t('personal.validationKeychainRequired'))
+        return
+      }
+      // 企业资产使用密钥认证时，还需要密码
+      if (!createFrom.password || !createFrom.password.trim()) {
+        message.error(t('personal.validationPasswordRequired'))
+        return
+      }
+    } else if (createFrom.auth_type === 'password') {
+      if (!createFrom.password || !createFrom.password.trim()) {
+        message.error(t('personal.validationPasswordRequired'))
+        return
+      }
+    }
+    console.log('企业资产校验通过')
+  }
+
   try {
     let groupName = createFrom.group_name
     if (Array.isArray(groupName) && groupName.length > 0) {
@@ -601,6 +643,37 @@ const handleCreateAsset = async () => {
 
 const handleSaveAsset = async () => {
   if (!editingAssetUUID.value) return message.error('缺少资产 ID')
+
+  // 企业资产校验
+  if (createFrom.asset_type === 'organization') {
+    // 校验远程地址
+    if (!createFrom.ip || !createFrom.ip.trim()) {
+      message.error(t('personal.validationRemoteHostRequired'))
+      return
+    }
+    // 校验端口
+    if (!createFrom.port || createFrom.port <= 0) {
+      message.error(t('personal.validationPortRequired'))
+      return
+    }
+    // 校验用户名
+    if (!createFrom.username || !createFrom.username.trim()) {
+      message.error(t('personal.validationUsernameRequired'))
+      return
+    }
+    // 校验认证信息：密码或密钥至少一个不能为空
+    if (createFrom.auth_type === 'password') {
+      if (!createFrom.password && !createFrom.password.trim()) {
+        message.error(t('personal.validationPasswordRequired'))
+        return
+      }
+    } else if (createFrom.auth_type === 'keyBased') {
+      if (!createFrom.keyChain) {
+        message.error(t('personal.validationKeychainRequired'))
+        return
+      }
+    }
+  }
 
   let groupName = createFrom.group_name
   if (Array.isArray(groupName) && groupName.length > 0) {

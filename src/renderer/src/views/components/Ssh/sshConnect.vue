@@ -1459,10 +1459,11 @@ const setupTerminalInput = () => {
     } else if (JSON.stringify(data) === '"\\u001b[A"' && terminalMode.value === 'none') {
       if (suggestions.value.length) {
         if (data == '\u001b[A') {
-          if (activeSuggestion.value > 0) {
+          // 上方向键：循环向上导航
+          if (activeSuggestion.value <= 0) {
+            activeSuggestion.value = suggestions.value.length - 1
+          } else {
             activeSuggestion.value -= 1
-          } else if (activeSuggestion.value === 0) {
-            activeSuggestion.value = -1
           }
         }
       } else {
@@ -1471,10 +1472,11 @@ const setupTerminalInput = () => {
     } else if (JSON.stringify(data) === '"\\u001b[B"' && terminalMode.value === 'none') {
       if (suggestions.value.length) {
         if (data == '\u001b[B') {
-          if (activeSuggestion.value < suggestions.value.length - 1) {
-            activeSuggestion.value += 1
-          } else if (activeSuggestion.value === -1) {
+          // 下方向键：循环向下导航
+          if (activeSuggestion.value >= suggestions.value.length - 1) {
             activeSuggestion.value = 0
+          } else {
+            activeSuggestion.value += 1
           }
         }
       } else {

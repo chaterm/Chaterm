@@ -385,9 +385,21 @@ const initTerminal = async () => {
         const msgType = 'TERMINAL_DATA'
         if (suggestions.value.length && (data == '\u001b[A' || data == '\u001b[B')) {
           // Keyboard up/down to select suggestion items
-          data == '\u001b[A' && activeSuggestion.value > 0 ? (activeSuggestion.value -= 1) : ''
-          data == '\u001b[B' && activeSuggestion.value < suggestions.value.length - 1 ? (activeSuggestion.value += 1) : ''
-          data == '\u001b[B' && activeSuggestion.value < suggestions.value.length - 1 ? (activeSuggestion.value += 1) : ''
+          if (data == '\u001b[A') {
+            // 上方向键：循环向上导航
+            if (activeSuggestion.value <= 0) {
+              activeSuggestion.value = suggestions.value.length - 1
+            } else {
+              activeSuggestion.value -= 1
+            }
+          } else if (data == '\u001b[B') {
+            // 下方向键：循环向下导航
+            if (activeSuggestion.value >= suggestions.value.length - 1) {
+              activeSuggestion.value = 0
+            } else {
+              activeSuggestion.value += 1
+            }
+          }
         } else if (suggestions.value.length && data == '\u001b[C') {
           selectSuggestion(suggestions.value[activeSuggestion.value])
         } else {

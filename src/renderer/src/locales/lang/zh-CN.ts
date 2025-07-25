@@ -321,7 +321,13 @@ export default {
     refreshAssets: '资产',
     refreshingAssets: '正在刷新资产...',
     refreshSuccess: '资产刷新成功',
-    refreshError: '资产刷新失败'
+    refreshError: '资产刷新失败',
+    validationRemoteHostRequired: '远程连接地址不能为空',
+    validationPortRequired: '端口不能为空',
+    validationUsernameRequired: '用户名不能为空',
+    validationPasswordRequired: '密码不能为空',
+    validationKeychainRequired: '密钥不能为空',
+    validationEnterpriseRequiredFields: '企业资产的远程地址、端口、用户名、密码或密钥不能为空'
   },
   ai: {
     welcome: '您好，请问需要在终端做什么操作？',
