@@ -319,7 +319,13 @@ export default {
     refreshAssets: 'Refresh Assets',
     refreshingAssets: 'Refreshing assets...',
     refreshSuccess: 'Assets refreshed successfully',
-    refreshError: 'Failed to refresh assets'
+    refreshError: 'Failed to refresh assets',
+    validationRemoteHostRequired: 'Remote host cannot be empty',
+    validationPortRequired: 'Port cannot be empty',
+    validationUsernameRequired: 'Username cannot be empty',
+    validationPasswordRequired: 'Password cannot be empty',
+    validationKeychainRequired: 'Keychain cannot be empty',
+    validationEnterpriseRequiredFields: 'Enterprise asset remote host, port, username, password or keychain cannot be empty'
   },
   ai: {
     welcome: 'What can I do for you in the terminal?',
