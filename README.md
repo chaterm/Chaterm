@@ -77,25 +77,8 @@ $ npm run build:mac
 $ npm run build:linux
 ```
 
-
-### Contributing Guide
-
-We use the [ESLint](https://eslint.org/) for code quality and [Prettier](https://prettier.io/) for code formatting. Please download the plugins for your IDE to get the best experience.
-You can add following code into `.vscode/settings.json` (if you are using VSCode) to enable Prettier aoto-formatting:
-
-```json
-{
-  "editor.defaultFormatter": "esbenp.prettier-vscode",
-  "editor.formatOnSave": true,
-  "[vue]": {
-    "editor.defaultFormatter": "esbenp.prettier-vscode"
-  }
-}
-```
-
 ## Contributors
 
 In this era full of unlimited opportunities and challenges, a group of DevOps partners from different backgrounds gathered here with their dreams. They used their spare time to create this ingenious tool.
 
 We hope it will become a reliable partner for you to improve efficiency and quality of life. At the same time, we also look forward to more like-minded friends joining us to create a better future together!
-
