@@ -1,5 +1,7 @@
-import { ipcMain } from 'electron'
+import { BrowserWindow, dialog, ipcMain } from 'electron'
 import { Client } from 'ssh2'
+import type { SFTPWrapper } from 'ssh2'
+
 import {
   jumpserverConnections,
   handleJumpServerConnection,
@@ -8,6 +10,8 @@ import {
   jumpserverConnectionStatus,
   jumpserverLastCommand
 } from './jumpserverHandle'
+import path from 'path'
+import fs from 'fs'
 
 // Store SSH connections
 export const sshConnections = new Map()
@@ -322,6 +326,171 @@ const handleAttemptConnection = (event, connectionInfo, resolve, reject, retryCo
     console.error('Connection configuration error:', err)
     reject(new Error(`Connection configuration error: ${err}`))
   }
+}
+
+const getSftp = (conn: Client): Promise<SFTPWrapper> => {
+  return new Promise((resolve, reject) => {
+    conn.sftp((err, sftp) => {
+      err ? reject(err) : resolve(sftp)
+    })
+  })
+}
+
+const getUniqueRemoteName = async (sftp: SFTPWrapper, remoteDir: string, originalName: string, isDir: boolean): Promise<string> => {
+  const list = await new Promise<{ filename: string; longname: string; attrs: any }[]>((resolve, reject) => {
+    sftp.readdir(remoteDir, (err, list) => (err ? reject(err) : resolve(list as any)))
+  })
+  let existing = new Set(list.map((f) => f.filename))
+
+  if (isDir) {
+    existing = new Set(list.filter((f) => f.attrs.isDirectory()).map((f) => f.filename))
+  }
+
+  let finalName = originalName
+  const { name, ext } = path.parse(originalName)
+  let count = 1
+
+  while (existing.has(finalName)) {
+    finalName = `${name}${ext}.${count}`
+    count++
+  }
+
+  return finalName
+}
+
+// Upload file
+const handleUploadFile = (_event, id, remotePath, localPath, resolve, reject) => {
+  const conn = sshConnections.get(id)
+  if (!conn) return reject('Not connected')
+
+  getSftp(conn)
+    .then((sftp) => {
+      // Make sure the local file exists
+      return fs.promises.access(localPath).then(() => sftp)
+    })
+    .then(async (sftp) => {
+      const fileName = path.basename(localPath)
+      const finalName = await getUniqueRemoteName(sftp, remotePath, fileName, false)
+      const remoteFilePath = path.posix.join(remotePath, finalName)
+
+      return new Promise((res, rej) => {
+        sftp.fastPut(localPath, remoteFilePath, {}, (err) => {
+          if (err) return rej(err)
+          res(remoteFilePath)
+        })
+      })
+        .then((remoteFilePath) => {
+          resolve({ status: 'success', remoteFilePath })
+        })
+        .catch((err) => {
+          reject(`Upload failed: ${err.message || err}`)
+        })
+    })
+    .catch((err) => {
+      reject(`Upload failed: ${err.message || err}`)
+    })
+}
+
+// Delete file
+const handleDeleteFile = (_event, id, remotePath, resolve, reject) => {
+  const conn = sshConnections.get(id)
+  if (!conn) return reject('Not connected')
+
+  getSftp(conn)
+    .then((sftp) => {
+      if (!remotePath || remotePath.trim() === '' || remotePath.trim() === '*' || remotePath === '/') {
+        return Promise.reject('Illegal path, cannot be deleted')
+      }
+
+      return new Promise<void>((res, rej) => {
+        sftp.unlink(remotePath, (err) => (err ? rej(err) : res()))
+      })
+    })
+    .then(() => {
+      resolve({
+        status: 'success',
+        message: 'File deleted successfully',
+        deletedPath: remotePath
+      })
+    })
+    .catch((err) => {
+      reject(err?.message || String(err))
+    })
+}
+
+// download file
+const handleDownloadFile = (_event, id, remotePath, localPath, resolve, reject) => {
+  const conn = sshConnections.get(id)
+  if (!conn) return reject('Not connected')
+
+  getSftp(conn)
+    .then((sftp) => {
+      return new Promise<void>((res, rej) => {
+        sftp.fastGet(remotePath, localPath, {}, (err) => (err ? rej(err) : res()))
+      })
+    })
+    .then(() => {
+      resolve({ status: 'success', localPath })
+    })
+    .catch((err) => {
+      reject(err?.message || String(err))
+    })
+}
+
+// upload Directory
+const uploadDirectory = (_event, id, localDir, remoteDir, resolve, reject) => {
+  const conn = sshConnections.get(id)
+  if (!conn) return reject('Not connected')
+
+  let sftp: any
+  getSftp(conn)
+    .then((_sftp) => {
+      sftp = _sftp
+      const dirName = path.basename(localDir)
+      return getUniqueRemoteName(sftp, remoteDir, dirName, true).then((finalName) => {
+        const finalDir = path.posix.join(remoteDir, finalName)
+        return new Promise<string>((res, rej) => {
+          sftp.mkdir(finalDir, { mode: 0o755 }, (err) => {
+            if (err && (err as any).code !== 4) rej(err)
+            else res(finalDir)
+          })
+        })
+      })
+    })
+    .then((finalDir) => {
+      const files = fs.readdirSync(localDir)
+      const processNext = (index: number) => {
+        if (index >= files.length) {
+          return resolve({ status: 'success', localDir })
+        }
+
+        const file = files[index]
+        const localPath = path.join(localDir, file)
+        const remotePath = path.posix.join(finalDir, file)
+        const stat = fs.statSync(localPath)
+
+        if (stat.isDirectory()) {
+          uploadDirectory(
+            _event,
+            id,
+            localPath,
+            finalDir,
+            () => processNext(index + 1),
+            (err) => reject(err)
+          )
+        } else {
+          sftp.fastPut(localPath, remotePath, {}, (err) => {
+            if (err) return reject(err)
+            processNext(index + 1)
+          })
+        }
+      }
+
+      processNext(0)
+    })
+    .catch((err) => {
+      reject(err?.message || String(err))
+    })
 }
 
 export const registerSSHHandlers = () => {
@@ -815,5 +984,72 @@ export const registerSSHHandlers = () => {
       connection.commandHistory.push({ command, timestamp })
     }
     return { success: true }
+  })
+
+  //sftp
+  ipcMain.handle('ssh:sftp:upload-file', (event, { id, remotePath, localPath }) => {
+    return new Promise((resolve, reject) => {
+      handleUploadFile(event, id, remotePath, localPath, resolve, reject)
+    })
+  })
+  ipcMain.handle('ssh:sftp:upload-dir', (event, { id, remoteDir, localDir }) => {
+    return new Promise((resolve, reject) => {
+      uploadDirectory(event, id, localDir, remoteDir, resolve, reject)
+    })
+  })
+
+  ipcMain.handle('ssh:sftp:download-file', (event, { id, remotePath, localPath }) => {
+    return new Promise((resolve, reject) => {
+      handleDownloadFile(event, id, remotePath, localPath, resolve, reject)
+    })
+  })
+
+  ipcMain.handle('ssh:sftp:delete-file', (event, { id, remotePath }) => {
+    return new Promise((resolve, reject) => {
+      handleDeleteFile(event, id, remotePath, resolve, reject)
+    })
+  })
+
+  ipcMain.handle('ssh:sftp:rename-move', async (_e, { id, oldPath, newPath }) => {
+    const conn = sshConnections.get(id)
+    if (!conn) return { status: 'error', message: 'Not connected' }
+
+    try {
+      const sftp = await getSftp(conn)
+      await new Promise<void>((res, rej) => {
+        sftp.rename(oldPath, newPath, (err) => (err ? rej(err) : res()))
+      })
+      return { status: 'success' }
+    } catch (err) {
+      return { status: 'error', message: (err as Error).message }
+    }
+  })
+
+  // Select File
+  ipcMain.handle('dialog:open-file', async (event) => {
+    const result = await dialog.showOpenDialog(BrowserWindow.fromWebContents(event.sender)!, {
+      title: 'Select File',
+      properties: ['openFile']
+    })
+    return result.canceled ? null : result.filePaths[0]
+  })
+
+  // Select Directory
+  ipcMain.handle('dialog:open-directory', async (event) => {
+    const result = await dialog.showOpenDialog(BrowserWindow.fromWebContents(event.sender)!, {
+      title: 'Select Directory',
+      properties: ['openDirectory']
+    })
+    return result.canceled ? null : result.filePaths[0]
+  })
+
+  ipcMain.handle('dialog:save-file', async (event, { fileName }) => {
+    const result = await dialog.showSaveDialog(BrowserWindow.fromWebContents(event.sender)!, {
+      title: 'Save the file to...',
+      defaultPath: fileName,
+      buttonLabel: 'Save',
+      filters: [{ name: 'All files', extensions: ['*'] }]
+    })
+    return result.canceled ? null : result.filePath
   })
 }

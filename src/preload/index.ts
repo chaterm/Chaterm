@@ -573,7 +573,17 @@ const api = {
     ipcRenderer.on('jumpserver:status-update', listener)
     return () => ipcRenderer.removeListener('jumpserver:status-update', listener)
   },
-  openExternalLogin: () => ipcRenderer.invoke('open-external-login')
+  openExternalLogin: () => ipcRenderer.invoke('open-external-login'),
+
+  // sftp
+  uploadFile: (opts: { id: string; remotePath: string; localPath: string }) => ipcRenderer.invoke('ssh:sftp:upload-file', opts),
+  downloadFile: (opts: { id: string; remotePath: string; localPath: string }) => ipcRenderer.invoke('ssh:sftp:download-file', opts),
+  uploadDirectory: (opts: { id: string; remoteDir: string; localDir: string }) => ipcRenderer.invoke('ssh:sftp:upload-dir', opts),
+  renameFile: (opts: { id: string; oldPath: string; newPath: string }) => ipcRenderer.invoke('ssh:sftp:rename-move', opts),
+  deleteFile: (opts: { id: string; remotePath: string }) => ipcRenderer.invoke('ssh:sftp:delete-file', opts),
+  openFileDialog: () => ipcRenderer.invoke('dialog:open-file'),
+  openDirectoryDialog: () => ipcRenderer.invoke('dialog:open-directory'),
+  openSaveDialog: (opts: { fileName: string }) => ipcRenderer.invoke('dialog:save-file', opts)
 }
 // 自定义 API 用于浏览器控制
 
