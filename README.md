@@ -48,19 +48,7 @@ Want syntax highlighting and smart completion, but don't have root privileges, a
 ### Install Electron
 
 ```sh
-1、update npm registry
-npm config set registry https://registry.npmmirror.com
-
-2、npm config
-npm config edit
-
-3、Set configuration at the end:
-electron_mirror=https://cdn.npmmirror.com/binaries/electron/
-electron_builder_binaries_mirror=https://npmmirror.com/mirrors/electron-builder-binaries/
-
-4、install Electron：
-npm i electron -D
-
+$ npm i electron -D
 ```
 
 ### Install
