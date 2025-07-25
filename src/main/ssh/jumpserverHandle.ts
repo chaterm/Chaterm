@@ -1,6 +1,9 @@
 import { ipcMain } from 'electron'
 import { Client } from 'ssh2'
 
+// Import keyboard-interactive handler from sshHandle
+import { handleRequestKeyboardInteractive } from './sshHandle'
+
 // 存储 JumpServer 连接
 export const jumpserverConnections = new Map()
 
@@ -66,6 +69,7 @@ export const handleJumpServerConnection = async (
       username: string
       keepaliveInterval: number
       readyTimeout: number
+      tryKeyboard: boolean
       privateKey?: Buffer
       passphrase?: string
       password?: string
@@ -74,7 +78,8 @@ export const handleJumpServerConnection = async (
       port: connectionInfo.port || 22,
       username: connectionInfo.username,
       keepaliveInterval: 10000,
-      readyTimeout: 30000
+      readyTimeout: 30000,
+      tryKeyboard: true // Enable keyboard interactive authentication for 2FA
     }
 
     // 处理私钥认证
@@ -92,6 +97,19 @@ export const handleJumpServerConnection = async (
     } else {
       return reject(new Error('缺少认证信息：需要私钥或密码'))
     }
+
+    // Handle keyboard-interactive authentication for 2FA
+    conn.on('keyboard-interactive', async (_name, _instructions, _instructionsLang, prompts, finish) => {
+      try {
+        sendStatusUpdate('🔐 需要二次验证，请输入验证码...', 'info')
+        // Wait for user response using the same handler as regular SSH
+        await handleRequestKeyboardInteractive(event, connectionId, prompts, finish)
+      } catch (err) {
+        sendStatusUpdate('❌ 二次验证失败', 'error')
+        conn.end() // Close connection
+        reject(err)
+      }
+    })
 
     conn.on('ready', () => {
       console.log('JumpServer 连接建立，开始创建 shell')

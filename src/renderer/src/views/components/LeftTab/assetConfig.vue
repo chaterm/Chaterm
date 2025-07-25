@@ -287,6 +287,47 @@
       </div>
     </div>
   </div>
+
+  <!-- 二次验证弹窗 -->
+  <a-modal
+    v-model:visible="showOtpDialog"
+    title="二次验证"
+    width="30%"
+    :mask-closable="false"
+    :keyboard="false"
+  >
+    <div>
+      <p>{{ otpPrompt || '请输入验证码' }}</p>
+      <a-input-password
+        v-model:value="otpCode"
+        placeholder="验证码"
+        :visibility-toggle="false"
+        @press-enter="submitOtpCode"
+      />
+      <span
+        v-show="showOtpDialogErr"
+        style="color: red"
+        >验证码错误</span
+      >
+      <span
+        v-show="showOtpDialogCheckErr"
+        style="color: red"
+        >请输入验证码</span
+      >
+    </div>
+    <template #footer>
+      <a-button
+        key="submit"
+        @click="cancelOtp"
+        >取消</a-button
+      >
+      <a-button
+        type="primary"
+        @click="submitOtpCode"
+        >确认
+      </a-button>
+    </template>
+  </a-modal>
 </template>
 
 <script setup lang="ts">
@@ -367,6 +408,21 @@ const contextMenuPosition = reactive({ x: 0, y: 0 })
 const selectedHost = ref<AssetNode | null>(null)
 const selectedGroup = ref<AssetNode | null>(null)
 
+// 二次验证相关变量
+const showOtpDialog = ref(false)
+const showOtpDialogErr = ref(false)
+const showOtpDialogCheckErr = ref(false)
+const otpPrompt = ref('')
+const otpCode = ref('')
+const currentOtpId = ref<string | null>(null)
+const otpAttempts = ref(0)
+const MAX_OTP_ATTEMPTS = 5
+
+// 二次验证监听器
+let removeOtpRequestListener = (): void => {}
+let removeOtpTimeoutListener = (): void => {}
+let removeOtpResultListener = (): void => {}
+
 const openNewPanel = () => {
   isEditMode.value = false
   editingAssetUUID.value = null
@@ -375,6 +431,8 @@ const openNewPanel = () => {
   if (createFrom.auth_type === 'keyBased') {
     getkeyChainData()
   }
+  // 在打开新面板时重置二次验证状态
+  resetOtpConnection()
   isRightSectionVisible.value = true
 }
 
@@ -402,6 +460,8 @@ const handleCardClick = (host: AssetNode) => {
 
 const handleConnect = (item) => {
   console.log('连接资产:', item)
+  // 在连接前重置二次验证状态，确保每次连接都是全新的
+  resetOtpConnection()
   eventBus.emit('currentClickServer', item)
 }
 
@@ -432,6 +492,8 @@ const handleEdit = (host: AssetNode | null) => {
   if (createFrom.auth_type === 'keyBased') {
     getkeyChainData()
   }
+  // 在编辑时重置二次验证状态
+  resetOtpConnection()
   isRightSectionVisible.value = true
 }
 
@@ -641,11 +703,22 @@ onMounted(() => {
   eventBus.on('keyChainUpdated', () => {
     getkeyChainData()
   })
+
+  // 设置二次验证监听器
+  const api = window.api as any
+  removeOtpRequestListener = api.onKeyboardInteractiveRequest(handleOtpRequest)
+  removeOtpTimeoutListener = api.onKeyboardInteractiveTimeout(handleOtpTimeout)
+  removeOtpResultListener = api.onKeyboardInteractiveResult(handleOtpError)
 })
 
 onBeforeUnmount(() => {
   document.removeEventListener('click', handleDocumentClick)
   eventBus.off('keyChainUpdated')
+
+  // 清理二次验证监听器
+  if (typeof removeOtpRequestListener === 'function') removeOtpRequestListener()
+  if (typeof removeOtpTimeoutListener === 'function') removeOtpTimeoutListener()
+  if (typeof removeOtpResultListener === 'function') removeOtpResultListener()
 })
 
 watch(isRightSectionVisible, (val) => {
@@ -690,6 +763,9 @@ watch(
 const handleRefreshOrganizationAssets = async (host: AssetNode | null) => {
   if (!host || host.asset_type !== 'organization') return
 
+  // 在开始刷新前，先清理之前的二次验证监听器和状态
+  resetOtpConnection()
+
   const hide = message.loading(t('personal.refreshingAssets'), 0)
 
   try {
@@ -720,6 +796,95 @@ const handleRefreshOrganizationAssets = async (host: AssetNode | null) => {
   }
 
   contextMenuVisible.value = false
+}
+
+// 二次验证处理方法
+const handleOtpRequest = (data: any) => {
+  currentOtpId.value = data.id
+  otpPrompt.value = data.prompts.join('\n')
+  showOtpDialog.value = true
+  showOtpDialogErr.value = false
+  showOtpDialogCheckErr.value = false
+  otpAttempts.value = 0
+}
+
+const handleOtpError = (data: any) => {
+  if (data.id === currentOtpId.value) {
+    if (data.status === 'success') {
+      closeOtp()
+    } else {
+      showOtpDialogErr.value = true
+      otpAttempts.value += 1
+      otpCode.value = ''
+      if (otpAttempts.value >= MAX_OTP_ATTEMPTS) {
+        showOtpDialog.value = false
+        cancelOtp()
+      }
+    }
+  }
+}
+
+const submitOtpCode = () => {
+  showOtpDialogCheckErr.value = false
+  showOtpDialogErr.value = false
+  if (otpCode.value && currentOtpId.value) {
+    const api = window.api as any
+    api.submitKeyboardInteractiveResponse(currentOtpId.value, otpCode.value)
+  } else {
+    showOtpDialogCheckErr.value = true
+  }
+}
+
+const cancelOtp = () => {
+  if (currentOtpId.value) {
+    const api = window.api as any
+    api.cancelKeyboardInteractive(currentOtpId.value)
+    if (typeof removeOtpRequestListener === 'function') removeOtpRequestListener()
+    if (typeof removeOtpTimeoutListener === 'function') removeOtpTimeoutListener()
+    if (typeof removeOtpResultListener === 'function') removeOtpResultListener()
+    resetOtpDialog()
+  }
+}
+
+const closeOtp = () => {
+  if (currentOtpId.value) {
+    if (typeof removeOtpRequestListener === 'function') removeOtpRequestListener()
+    if (typeof removeOtpTimeoutListener === 'function') removeOtpTimeoutListener()
+    if (typeof removeOtpResultListener === 'function') removeOtpResultListener()
+    resetOtpDialog()
+  }
+}
+
+const resetOtpDialog = () => {
+  showOtpDialog.value = false
+  showOtpDialogErr.value = false
+  showOtpDialogCheckErr.value = false
+  otpPrompt.value = ''
+  otpCode.value = ''
+  currentOtpId.value = null
+}
+
+// 重置二次验证连接状态
+const resetOtpConnection = () => {
+  // 先清理现有的监听器
+  if (typeof removeOtpRequestListener === 'function') removeOtpRequestListener()
+  if (typeof removeOtpTimeoutListener === 'function') removeOtpTimeoutListener()
+  if (typeof removeOtpResultListener === 'function') removeOtpResultListener()
+
+  // 重置二次验证相关状态
+  resetOtpDialog()
+
+  // 重新设置监听器
+  const api = window.api as any
+  removeOtpRequestListener = api.onKeyboardInteractiveRequest(handleOtpRequest)
+  removeOtpTimeoutListener = api.onKeyboardInteractiveTimeout(handleOtpTimeout)
+  removeOtpResultListener = api.onKeyboardInteractiveResult(handleOtpError)
+}
+
+const handleOtpTimeout = (data: any) => {
+  if (data.id === currentOtpId.value && showOtpDialog.value) {
+    resetOtpDialog()
+  }
 }
 </script>
 
