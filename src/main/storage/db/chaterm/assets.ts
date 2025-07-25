@@ -540,7 +540,13 @@ export function getUserHostsLogic(db: Database.Database, search: string): any {
   }
 }
 
-export async function refreshOrganizationAssetsLogic(db: Database.Database, organizationUuid: string, jumpServerConfig: any): Promise<any> {
+export async function refreshOrganizationAssetsLogic(
+  db: Database.Database,
+  organizationUuid: string,
+  jumpServerConfig: any,
+  keyboardInteractiveHandler?: any,
+  authResultCallback?: any
+): Promise<any> {
   try {
     console.log('开始刷新企业资产，组织UUID:', organizationUuid)
 
@@ -579,18 +585,26 @@ export async function refreshOrganizationAssetsLogic(db: Database.Database, orga
 
     console.log('最终配置:', { ...finalConfig, privateKey: finalConfig.privateKey ? '[HIDDEN]' : undefined })
 
-    const client = new JumpServerClient(finalConfig)
+    console.log('创建 JumpServerClient 实例...')
+    const client = new JumpServerClient(finalConfig, keyboardInteractiveHandler, authResultCallback)
+
+    console.log('开始调用 getAllAssets()...')
     const assets = await client.getAllAssets()
 
-    console.log('获取到资产数量:', assets.length)
+    console.log('getAllAssets() 调用完成，获取到资产数量:', assets.length)
+    if (assets.length > 0) {
+      console.log('前几个资产示例:', assets.slice(0, 3))
+    }
 
     // 获取现有的组织资产
+    console.log('查询现有的组织资产...')
     const existingAssetsStmt = db.prepare(`
-      SELECT host, hostname, uuid, favorite 
-      FROM t_organization_assets 
+      SELECT host, hostname, uuid, favorite
+      FROM t_organization_assets
       WHERE organization_uuid = ?
     `)
     const existingAssets = existingAssetsStmt.all(organizationUuid) || []
+    console.log('现有组织资产数量:', existingAssets.length)
     const existingAssetsByHost = new Map(existingAssets.map((asset) => [asset.host, asset]))
 
     // 准备SQL语句
@@ -607,18 +621,22 @@ export async function refreshOrganizationAssetsLogic(db: Database.Database, orga
     `)
 
     const currentAssetHosts = new Set()
+    console.log('开始处理从 JumpServer 获取的资产...')
     // 处理从JumpServer获取的资产
     for (const asset of assets) {
       currentAssetHosts.add(asset.address)
       if (existingAssetsByHost.has(asset.address)) {
         // 存在的资产：更新hostname和updated_at
+        console.log(`更新现有资产: ${asset.name} (${asset.address})`)
         updateStmt.run(asset.name, organizationUuid, asset.address)
       } else {
         // 新资产：插入新记录
         const assetUuid = uuidv4()
+        console.log(`插入新资产: ${asset.name} (${asset.address})`)
         insertStmt.run(organizationUuid, asset.name, asset.address, assetUuid, 'jumpserver')
       }
     }
+    console.log('资产处理完成')
 
     // 删除不存在的资产
     const deleteStmt = db.prepare(`
@@ -632,8 +650,10 @@ export async function refreshOrganizationAssetsLogic(db: Database.Database, orga
       }
     }
 
+    console.log('关闭 JumpServer 客户端连接')
     client.close()
 
+    console.log('资产刷新完成，返回成功结果')
     return {
       data: {
         message: 'success',
@@ -641,7 +661,8 @@ export async function refreshOrganizationAssetsLogic(db: Database.Database, orga
       }
     }
   } catch (error) {
-    console.error('刷新企业资产失败:', error)
+    console.error('刷新企业资产失败，错误详情:', error)
+    console.error('错误堆栈:', error instanceof Error ? error.stack : 'No stack trace')
     return {
       data: {
         message: 'failed',

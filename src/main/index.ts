@@ -712,14 +712,69 @@ ipcMain.handle('validate-api-key', async (_, configuration) => {
   return { isValid: false, error: 'Controller not initialized' }
 })
 
-ipcMain.handle('refresh-organization-assets', async (_, data) => {
+ipcMain.handle('refresh-organization-assets', async (event, data) => {
   try {
     const { organizationUuid, jumpServerConfig } = data
-    const result = await chatermDbService.refreshOrganizationAssets(organizationUuid, jumpServerConfig)
+
+    // 生成唯一的连接ID用于二次验证
+    const connectionId = `refresh-assets-${organizationUuid}-${Date.now()}`
+
+    // 创建二次验证处理器，用于与渲染进程交互
+    const keyboardInteractiveHandler = async (prompts: any[], finish: (responses: string[]) => void) => {
+      return new Promise<void>((resolve, reject) => {
+        // 发送二次验证请求到渲染进程
+        event.sender.send('ssh:keyboard-interactive-request', {
+          id: connectionId,
+          prompts: prompts.map((p) => p.prompt)
+        })
+
+        // 设置超时
+        const timeoutId = setTimeout(() => {
+          ipcMain.removeAllListeners(`ssh:keyboard-interactive-response:${connectionId}`)
+          ipcMain.removeAllListeners(`ssh:keyboard-interactive-cancel:${connectionId}`)
+          finish([])
+          event.sender.send('ssh:keyboard-interactive-timeout', { id: connectionId })
+          reject(new Error('二次验证超时'))
+        }, 30000) // 30秒超时
+
+        // 监听用户响应
+        ipcMain.once(`ssh:keyboard-interactive-response:${connectionId}`, (_evt, responses) => {
+          clearTimeout(timeoutId)
+          finish(responses)
+          resolve() // 立即 resolve，验证结果会通过 authResultCallback 处理
+        })
+
+        // 监听用户取消
+        ipcMain.once(`ssh:keyboard-interactive-cancel:${connectionId}`, () => {
+          clearTimeout(timeoutId)
+          finish([])
+          reject(new Error('用户取消了二次验证'))
+        })
+      })
+    }
+
+    // 创建验证结果回调
+    const authResultCallback = (success: boolean, error?: string) => {
+      console.log('主进程: authResultCallback 被调用，success:', success, 'error:', error)
+      if (success) {
+        console.log('主进程: 二次验证成功，发送成功事件到前端')
+        event.sender.send('ssh:keyboard-interactive-result', { id: connectionId, status: 'success' })
+      } else {
+        console.log('主进程: 二次验证失败，发送失败事件到前端', error)
+        event.sender.send('ssh:keyboard-interactive-result', { id: connectionId, status: 'failed' })
+      }
+    }
+
+    const result = await chatermDbService.refreshOrganizationAssetsWithAuth(
+      organizationUuid,
+      jumpServerConfig,
+      keyboardInteractiveHandler,
+      authResultCallback
+    )
     return result
   } catch (error) {
     console.error('刷新企业资产失败:', error)
-    return { data: { message: 'failed', error: error.message } }
+    return { data: { message: 'failed', error: error instanceof Error ? error.message : String(error) } }
   }
 })
 
@@ -736,7 +791,7 @@ ipcMain.handle('organization-asset-favorite', async (_, data) => {
     return result
   } catch (error) {
     console.error('主进程 organization-asset-favorite 错误:', error)
-    return { data: { message: 'failed', error: error.message } }
+    return { data: { message: 'failed', error: error instanceof Error ? error.message : String(error) } }
   }
 })
 
@@ -836,8 +891,8 @@ ipcMain.handle('open-external-login', async () => {
     const externalLoginUrl = `https://login.chaterm.ai/login?client_id=chaterm&state=${state}&redirect_uri=chaterm://auth/callback`
     await shell.openExternal(externalLoginUrl)
     return { success: true }
-  } catch (error: any) {
+  } catch (error) {
     console.error('Failed to open external login page:', error)
-    return { success: false, error: error.message }
+    return { success: false, error: error instanceof Error ? error.message : String(error) }
   }
 })

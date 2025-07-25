@@ -174,6 +174,15 @@ export class ChatermDatabaseService {
     return await refreshOrganizationAssetsLogic(this.db, organizationUuid, jumpServerConfig)
   }
 
+  async refreshOrganizationAssetsWithAuth(
+    organizationUuid: string,
+    jumpServerConfig: any,
+    keyboardInteractiveHandler?: any,
+    authResultCallback?: any
+  ): Promise<any> {
+    return await refreshOrganizationAssetsLogic(this.db, organizationUuid, jumpServerConfig, keyboardInteractiveHandler, authResultCallback)
+  }
+
   updateOrganizationAssetFavorite(organizationUuid: string, host: string, status: number): any {
     try {
       const result = updateOrganizationAssetFavoriteLogic(this.db, organizationUuid, host, status)
