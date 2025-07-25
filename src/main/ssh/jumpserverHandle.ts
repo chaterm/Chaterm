@@ -66,6 +66,7 @@ export const handleJumpServerConnection = async (
     privateKey?: string
     passphrase?: string
     targetIp: string
+    terminalType?: string
   },
   event?: Electron.IpcMainInvokeEvent
 ): Promise<{ status: string; message: string }> => {
@@ -156,7 +157,7 @@ export const handleJumpServerConnection = async (
         })
       }
 
-      conn.shell((err, stream) => {
+      conn.shell({ term: connectionInfo.terminalType || 'vt100' }, (err, stream) => {
         if (err) {
           return reject(new Error(`创建 shell 失败: ${err.message}`))
         }

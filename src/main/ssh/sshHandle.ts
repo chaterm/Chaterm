@@ -776,17 +776,7 @@ export const registerSSHHandlers = () => {
     const stream = shellStreams.get(id)
     if (stream) {
       console.log(`ssh:shell:write (default) raw data: "${data}"`)
-      // 使用 lineCommand 进行命令检测，如果没有则回退到 data.trim()
-      const command = lineCommand || data.trim()
-      console.log(`ssh:shell:write (default) command for detection: "${command}"`)
-      if (['exit', 'logout', '\x04'].includes(command)) {
-        console.log(`ssh:shell:write (default) exit command detected: "${command}"`)
-        const conn = sshConnections.get(id)
-        if (conn) {
-          conn.end()
-        }
-        return
-      }
+      // 对于默认SSH连接，不做退出命令检测，让终端自然处理退出
       if (markedCommands.has(id)) {
         markedCommands.delete(id)
       }
