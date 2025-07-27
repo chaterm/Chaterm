@@ -777,20 +777,30 @@ const handleProtocolRedirect = (url: string) => {
   const mainWindow = BrowserWindow.getAllWindows()[0]
   if (!mainWindow) return
 
-  // Parse the token and user information in the URL
-  const urlObj = new URL(url)
-  const userInfo = urlObj.searchParams.get('userInfo')
-  const method = urlObj.searchParams.get('method')
-  if (userInfo) {
-    try {
-      // Send data to the rendering process
-      mainWindow.webContents.send('external-login-success', {
-        userInfo: JSON.parse(userInfo),
-        method: method
-      })
-    } catch (error) {
-      console.error('Failed to process external login data:', error)
+  console.log('Processing protocol redirect for URL:', url)
+
+  try {
+    // Parse the token and user information in the URL
+    const urlObj = new URL(url)
+    const userInfo = urlObj.searchParams.get('userInfo')
+    const method = urlObj.searchParams.get('method')
+
+    if (userInfo) {
+      try {
+        // Send data to the rendering process
+        console.log('Sending external-login-success event with userInfo')
+        mainWindow.webContents.send('external-login-success', {
+          userInfo: JSON.parse(userInfo),
+          method: method
+        })
+      } catch (error) {
+        console.error('Failed to process external login data:', error)
+      }
+    } else {
+      console.log('No userInfo found in URL, params:', Array.from(urlObj.searchParams.entries()))
     }
+  } catch (error) {
+    console.error('Failed to parse URL:', url, error)
   }
 }
 
@@ -851,20 +861,85 @@ ipcMain.handle('open-external-login', async () => {
 
       // 监听URL变化，检测重定向回应用的URL
       loginWindow.webContents.on('will-navigate', (event, url) => {
+        console.log('will-navigate event triggered with URL:', url)
         if (url.startsWith('chaterm://')) {
           event.preventDefault()
           handleProtocolRedirect(url)
           loginWindow.close()
+
+          // 确保窗口关闭后主窗口获得焦点
+          const mainWindow = BrowserWindow.getAllWindows()[0]
+          if (mainWindow && !mainWindow.isDestroyed()) {
+            mainWindow.focus()
+          }
         }
       })
 
       // 监听加载完成事件
       loginWindow.webContents.on('did-finish-load', () => {
         const currentUrl = loginWindow.webContents.getURL()
+        console.log('did-finish-load event triggered with URL:', currentUrl)
         if (currentUrl.startsWith('chaterm://')) {
           handleProtocolRedirect(currentUrl)
           loginWindow.close()
+
+          // 确保窗口关闭后主窗口获得焦点
+          const mainWindow = BrowserWindow.getAllWindows()[0]
+          if (mainWindow && !mainWindow.isDestroyed()) {
+            mainWindow.focus()
+          }
         }
+      })
+
+      // 监听页面内导航事件
+      loginWindow.webContents.on('did-navigate', (event, url) => {
+        console.log('did-navigate event triggered with URL:', url)
+        if (url.startsWith('chaterm://')) {
+          handleProtocolRedirect(url)
+          loginWindow.close()
+
+          // 确保窗口关闭后主窗口获得焦点
+          const mainWindow = BrowserWindow.getAllWindows()[0]
+          if (mainWindow && !mainWindow.isDestroyed()) {
+            mainWindow.focus()
+          }
+        }
+      })
+
+      // 监听页面内导航事件（不刷新页面的导航）
+      loginWindow.webContents.on('did-navigate-in-page', (event, url) => {
+        console.log('did-navigate-in-page event triggered with URL:', url)
+        if (url.startsWith('chaterm://')) {
+          handleProtocolRedirect(url)
+          loginWindow.close()
+
+          // 确保窗口关闭后主窗口获得焦点
+          const mainWindow = BrowserWindow.getAllWindows()[0]
+          if (mainWindow && !mainWindow.isDestroyed()) {
+            mainWindow.focus()
+          }
+        }
+      })
+
+      // 监听重定向事件
+      loginWindow.webContents.on('will-redirect', (event, url) => {
+        console.log('will-redirect event triggered with URL:', url)
+        if (url.startsWith('chaterm://')) {
+          event.preventDefault()
+          handleProtocolRedirect(url)
+          loginWindow.close()
+
+          // 确保窗口关闭后主窗口获得焦点
+          const mainWindow = BrowserWindow.getAllWindows()[0]
+          if (mainWindow && !mainWindow.isDestroyed()) {
+            mainWindow.focus()
+          }
+        }
+      })
+
+      // 设置窗口关闭时的清理操作
+      loginWindow.on('closed', () => {
+        console.log('Login window closed')
       })
 
       await loginWindow.loadURL(externalLoginUrl)
