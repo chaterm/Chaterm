@@ -834,10 +834,48 @@ ipcMain.handle('open-external-login', async () => {
     global.authState = state
     // Replace here with your external login URL, which needs to include information about redirecting back to the application
     const externalLoginUrl = `https://login.chaterm.ai/login?client_id=chaterm&state=${state}&redirect_uri=chaterm://auth/callback`
-    await shell.openExternal(externalLoginUrl)
+
+    // 在Linux环境下使用不同的方式打开外部链接，避免xdg-open问题
+    if (process.platform === 'linux') {
+      // 在Linux环境下使用BrowserWindow打开URL而不是shell.openExternal
+      const loginWindow = new BrowserWindow({
+        width: 800,
+        height: 600,
+        show: true,
+        autoHideMenuBar: true,
+        webPreferences: {
+          nodeIntegration: false,
+          contextIsolation: true
+        }
+      })
+
+      // 监听URL变化，检测重定向回应用的URL
+      loginWindow.webContents.on('will-navigate', (event, url) => {
+        if (url.startsWith('chaterm://')) {
+          event.preventDefault()
+          handleProtocolRedirect(url)
+          loginWindow.close()
+        }
+      })
+
+      // 监听加载完成事件
+      loginWindow.webContents.on('did-finish-load', () => {
+        const currentUrl = loginWindow.webContents.getURL()
+        if (currentUrl.startsWith('chaterm://')) {
+          handleProtocolRedirect(currentUrl)
+          loginWindow.close()
+        }
+      })
+
+      await loginWindow.loadURL(externalLoginUrl)
+    } else {
+      // 在非Linux平台上使用默认的shell.openExternal
+      await shell.openExternal(externalLoginUrl)
+    }
+
     return { success: true }
   } catch (error: any) {
     console.error('Failed to open external login page:', error)
-    return { success: false, error: error.message }
+    return { success: false, error: error.message || 'Unknown error occurred' }
   }
 })
