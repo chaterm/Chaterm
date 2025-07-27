@@ -1,4 +1,4 @@
-import { app, shell, BrowserWindow, ipcMain, session } from 'electron'
+import { app, shell, BrowserWindow, ipcMain, session, protocol } from 'electron'
 import { join } from 'path'
 import { electronApp, optimizer } from '@electron-toolkit/utils'
 import { is } from '@electron-toolkit/utils'
@@ -46,6 +46,22 @@ app.whenReady().then(async () => {
 
   if (process.platform === 'darwin') {
     app.dock.setIcon(join(__dirname, '../../resources/icon.png'))
+  }
+
+  // 确保在Linux环境下正确注册协议处理器
+  if (process.platform === 'linux') {
+    // 注册全局协议处理
+    protocol.registerStringProtocol('chaterm', (request, callback) => {
+      const url = request.url
+      console.log('Global protocol handler called with URL:', url)
+
+      // 延迟处理以确保主窗口已创建
+      setTimeout(() => {
+        handleProtocolRedirect(url)
+      }, 100)
+
+      callback('') // 必须调用回调，否则会导致请求挂起
+    })
   }
 
   // Register window drag handler (register only once)
@@ -717,9 +733,10 @@ ipcMain.handle('refresh-organization-assets', async (_, data) => {
     const { organizationUuid, jumpServerConfig } = data
     const result = await chatermDbService.refreshOrganizationAssets(organizationUuid, jumpServerConfig)
     return result
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('刷新企业资产失败:', error)
-    return { data: { message: 'failed', error: error.message } }
+    const errorMessage = error instanceof Error ? error.message : '未知错误'
+    return { data: { message: 'failed', error: errorMessage } }
   }
 })
 
@@ -734,9 +751,10 @@ ipcMain.handle('organization-asset-favorite', async (_, data) => {
 
     const result = chatermDbService.updateOrganizationAssetFavorite(organizationUuid, host, status)
     return result
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('主进程 organization-asset-favorite 错误:', error)
-    return { data: { message: 'failed', error: error.message } }
+    const errorMessage = error instanceof Error ? error.message : '未知错误'
+    return { data: { message: 'failed', error: errorMessage } }
   }
 })
 
@@ -759,7 +777,13 @@ ipcMain.handle('capture-telemetry-event', async (_, { eventType, data }) => {
 
 // Register the agreement before the app is ready
 if (!app.isDefaultProtocolClient('chaterm')) {
-  app.setAsDefaultProtocolClient('chaterm')
+  // 在不同平台上使用不同的方式注册协议
+  if (process.platform === 'linux') {
+    // Linux平台需要额外的处理
+    app.setAsDefaultProtocolClient('chaterm', process.execPath, ['--'])
+  } else {
+    app.setAsDefaultProtocolClient('chaterm')
+  }
 }
 
 // Linux 下处理 chaterm:// 协议参数
@@ -855,7 +879,11 @@ ipcMain.handle('open-external-login', async () => {
         autoHideMenuBar: true,
         webPreferences: {
           nodeIntegration: false,
-          contextIsolation: true
+          contextIsolation: true,
+          // 允许窗口间通信
+          webSecurity: true,
+          // 允许重定向处理
+          allowRunningInsecureContent: false
         }
       })
 
@@ -930,6 +958,22 @@ ipcMain.handle('open-external-login', async () => {
           loginWindow.close()
 
           // 确保窗口关闭后主窗口获得焦点
+          const mainWindow = BrowserWindow.getAllWindows()[0]
+          if (mainWindow && !mainWindow.isDestroyed()) {
+            mainWindow.focus()
+          }
+        }
+      })
+
+      // 添加新的事件监听器，处理导航错误
+      loginWindow.webContents.on('did-fail-load', (_, errorCode, errorDescription, validatedURL) => {
+        console.log(`Navigation failed: ${errorDescription} (${errorCode}) for URL: ${validatedURL}`)
+
+        // 检查是否是自定义协议导致的错误
+        if (validatedURL.startsWith('chaterm://')) {
+          handleProtocolRedirect(validatedURL)
+          loginWindow.close()
+
           const mainWindow = BrowserWindow.getAllWindows()[0]
           if (mainWindow && !mainWindow.isDestroyed()) {
             mainWindow.focus()
