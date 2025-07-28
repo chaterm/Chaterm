@@ -329,6 +329,7 @@ function updateNavigationState(): void {
     })
   }
 }
+
 // Setup IPC handlers
 function setupIPC(): void {
   ipcMain.handle('init-user-database', async (event, { uid }) => {
@@ -825,6 +826,15 @@ if (process.platform === 'linux') {
       handleProtocolRedirect(protocolArg)
     })
   }
+
+  // 为 Linux 添加额外的 IPC 处理程序，用于处理应用运行过程中的协议调用
+  ipcMain.handle('handle-protocol-url', async (_, url) => {
+    if (url && url.startsWith('chaterm://')) {
+      handleProtocolRedirect(url)
+      return { success: true }
+    }
+    return { success: false, error: 'Invalid protocol URL' }
+  })
 }
 
 // Process protocol redirection
