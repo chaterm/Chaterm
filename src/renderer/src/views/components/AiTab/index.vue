@@ -603,7 +603,6 @@ import historyIcon from '@/assets/icons/history.svg'
 import plusIcon from '@/assets/icons/plus.svg'
 import sendIcon from '@/assets/icons/send.svg'
 import { useCurrentCwdStore } from '@/store/currentCwdStore'
-import { getassetMenu } from '@/api/asset/asset'
 import debounce from 'lodash/debounce'
 import i18n from '@/locales'
 import { ChatermMessage } from '@/types/ChatermMessage'
@@ -625,7 +624,7 @@ const goToLogin = () => {
   router.push('/login')
 }
 
-// 定义事件类型
+// Define event type
 interface TabInfo {
   id: string
   ip: string
@@ -633,24 +632,24 @@ interface TabInfo {
   title?: string
 }
 
-// 扩展 AppEvents 类型
+// Extend AppEvents type
 declare module '@/utils/eventBus' {
   interface AppEvents {
     tabChanged: TabInfo
   }
 }
 
-// 添加消息反馈存储
+// Add message feedback storage
 const messageFeedbacks = ref<Record<string, 'like' | 'dislike'>>({})
 
-// 获取消息反馈状态
+// Get message feedback status
 const getMessageFeedback = (messageId: string): 'like' | 'dislike' | undefined => {
   return messageFeedbacks.value[messageId]
 }
 
-// 检查消息是否已提交反馈
+// Check if message feedback has been submitted
 const isMessageFeedbackSubmitted = (messageId: string): boolean => {
-  // 检查是否有反馈记录且已提交
+  // Check if there are feedback records and they have been submitted
   return !!messageFeedbacks.value[messageId]
 }
 
@@ -682,7 +681,7 @@ const showRetryButton = ref(false)
 const showCancelButton = ref(false)
 const showNewTaskButton = ref(false)
 
-// 当前活动对话的 ID
+// Current active conversation ID
 const currentChatId = ref<string | null>(null)
 const authTokenInCookie = ref<string | null>(null)
 
@@ -701,7 +700,7 @@ const props = defineProps({
 
 const emit = defineEmits(['state-changed'])
 
-// 定义AgentAiModelsOptions的类型
+// Define AgentAiModelsOptions type
 interface ModelSelectOption {
   label: string
   value: string
@@ -715,7 +714,7 @@ const AiTypeOptions = [
 ]
 
 const getChatermMessages = async () => {
-  const result = await (window.api as any).chatermGetChatermMessages({
+  const result = await window.api.chatermGetChatermMessages({
     taskId: currentChatId.value
   })
   const messages = result as ChatermMessage[]
@@ -723,28 +722,28 @@ const getChatermMessages = async () => {
   return messages
 }
 
-// 获取当前活跃Tab的主机信息
+// Get current active tab host information
 const getCurentTabAssetInfo = async (): Promise<AssetInfo | null> => {
   try {
-    // 创建一个Promise来等待assetInfoResult事件
+    // Create a Promise to wait for assetInfoResult event
     const assetInfo = await new Promise<AssetInfo | null>((resolve, reject) => {
-      // 设置超时
+      // Set timeout
       const timeout = setTimeout(() => {
         eventBus.off('assetInfoResult', handleResult)
-        reject(new Error('获取资产信息超时'))
-      }, 5000) // 5秒超时
+        reject(new Error('Timeout getting asset information'))
+      }, 5000) // 5 second timeout
 
-      // 监听结果事件
+      // Listen for result event
       const handleResult = (result: AssetInfo | null) => {
         clearTimeout(timeout)
         eventBus.off('assetInfoResult', handleResult)
         resolve(result)
       }
       eventBus.on('assetInfoResult', handleResult)
-      // 发出请求事件
+      // Emit request event
       eventBus.emit('getActiveTabAssetInfo')
     })
-    // 直接在这里处理结果
+    // Process result directly here
     if (assetInfo) {
       if (assetInfo.organizationId != 'personal') {
         assetInfo.connection = 'jumpserver'
@@ -756,12 +755,12 @@ const getCurentTabAssetInfo = async (): Promise<AssetInfo | null> => {
       return null
     }
   } catch (error) {
-    console.error('获取资产信息时发生错误:', error)
+    console.error('Error getting asset information:', error)
     return null
   }
 }
 
-// 创建主机信息对象
+// Create host information object
 const createHostInfo = (ip: string, uuid: string, connection: string) => {
   return {
     host: ip,
@@ -770,7 +769,7 @@ const createHostInfo = (ip: string, uuid: string, connection: string) => {
   }
 }
 
-// 更新主机列表
+// Update host list
 const updateHosts = (hostInfo: { ip: string; uuid: string; connection: string } | null) => {
   if (hostInfo) {
     const newHost = createHostInfo(hostInfo.ip, hostInfo.uuid, hostInfo.connection)
@@ -780,7 +779,7 @@ const updateHosts = (hostInfo: { ip: string; uuid: string; connection: string } 
   }
 }
 
-// 初始化资产信息
+// Initialize asset information
 const initAssetInfo = async () => {
   if (!autoUpdateHost.value || chatHistory.length > 0) {
     return
@@ -797,7 +796,7 @@ const initAssetInfo = async () => {
   }
 }
 
-// 切换标签时候，当前的对话ID修改为对应的chat tag的id
+// When switching tabs, update current conversation ID to match the chat tag ID
 const handleTabChange = (key: string | number) => {
   currentChatId.value = historyList.value.find((item) => item.chatType === key)?.id || null
 }
@@ -863,7 +862,7 @@ const sendMessage = async (sendType: string) => {
   }
   const userContent = chatInputValue.value.trim()
   if (!userContent) return
-  // 获取当前活跃主机是否存在
+  // Check if current active host exists
   if (hosts.value.length === 0 && chatTypeValue.value !== 'chat') {
     notification.error({
       message: '获取当前资产连接信息失败',
@@ -901,7 +900,7 @@ const handleClose = () => {
 }
 
 const handleKeyDown = (e: KeyboardEvent) => {
-  // 检查是否是输入法确认键
+  // Check if it's an input method confirmation key
   if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) {
     e.preventDefault()
     sendMessage('send')
@@ -912,27 +911,26 @@ const handlePlusClick = async () => {
   currentChatId.value = newChatId
   const chatSetting = (await getGlobalState('chatSettings')) as { mode?: string }
   chatTypeValue.value = chatSetting?.mode || 'agent'
-  if (autoUpdateHost.value) {
-    hosts.value = []
-    // Get the asset information of the current active tab
-    const assetInfo = await getCurentTabAssetInfo()
-    if (assetInfo && assetInfo.ip) {
-      hosts.value.push({
-        host: assetInfo.ip,
-        uuid: assetInfo.uuid,
-        connection: assetInfo.connection ? assetInfo.connection : 'personal'
-      })
-    }
+  hosts.value = []
+  autoUpdateHost.value = true
+  // Get the asset information of the current active tab
+  const assetInfo = await getCurentTabAssetInfo()
+  if (assetInfo && assetInfo.ip) {
+    hosts.value.push({
+      host: assetInfo.ip,
+      uuid: assetInfo.uuid,
+      connection: assetInfo.connection ? assetInfo.connection : 'personal'
+    })
   }
 
   chatHistory.length = 0
-  // 清除当前反馈数据
+  // Clear current feedback data
   messageFeedbacks.value = {}
 
-  // 开启新窗口后，cancel掉原始的agent窗口
-  console.log('handleCancel:取消')
-  const response = await (window.api as any).cancelTask()
-  console.log('主进程响应:', response)
+  // After opening new window, cancel the original agent window
+  console.log('handleCancel: cancel')
+  const response = await window.api.cancelTask()
+  console.log('Main process response:', response)
   buttonsDisabled.value = false
   resumeDisabled.value = false
   showCancelButton.value = false
@@ -945,7 +943,7 @@ const handlePlusClick = async () => {
 const containerKey = ref(0)
 
 const restoreHistoryTab = async (history: HistoryItem) => {
-  // 保存当前输入框内容
+  // Save current input content
   const currentInput = chatInputValue.value
 
   containerKey.value++
@@ -957,7 +955,7 @@ const restoreHistoryTab = async (history: HistoryItem) => {
 
   try {
     try {
-      const metadataResult = await (window.api as any).getTaskMetadata(history.id)
+      const metadataResult = await window.api.getTaskMetadata(history.id)
       if (metadataResult.success && metadataResult.data && Array.isArray(metadataResult.data.hosts)) {
         hosts.value = metadataResult.data.hosts.map((item: any) => ({
           host: item.host,
@@ -966,15 +964,15 @@ const restoreHistoryTab = async (history: HistoryItem) => {
         }))
       }
     } catch (e) {
-      console.error('获取metadata失败:', e)
+      console.error('Failed to get metadata:', e)
     }
     const conversationHistory = await getChatermMessages()
     console.log('[conversationHistory]', conversationHistory)
     chatHistory.length = 0
-    // 按时间戳排序并过滤相邻重复项
+    // Sort by timestamp and filter adjacent duplicates
     let lastItem: any = null
     conversationHistory.forEach((item, index) => {
-      // 检查是否与前一项重复
+      // Check if duplicate with previous item
       const isDuplicate =
         lastItem && item.text === lastItem.text && item.ask === lastItem.ask && item.say === lastItem.say && item.type === lastItem.type
 
@@ -1020,8 +1018,8 @@ const restoreHistoryTab = async (history: HistoryItem) => {
       }
     })
     isCurrentChatMessage.value = false
-    // 加载此对话的反馈数据
-    await (window.api as any).sendToMain({
+    // Load feedback data for this conversation
+    await window.api.sendToMain({
       type: 'showTaskWithId',
       text: history.id,
       hosts: hosts.value.map((h) => ({
@@ -1030,7 +1028,7 @@ const restoreHistoryTab = async (history: HistoryItem) => {
         connection: h.connection
       }))
     })
-    // 恢复保存的输入框内容
+    // Restore saved input content
     chatInputValue.value = currentInput
     responseLoading.value = false
   } catch (err) {
@@ -1040,14 +1038,14 @@ const restoreHistoryTab = async (history: HistoryItem) => {
 
 const handleHistoryClick = async () => {
   try {
-    // 重置分页状态
+    // Reset pagination state
     currentPage.value = 1
     isLoadingMore.value = false
 
-    // 从 globalState 获取所有 agent 历史记录并按 ts 倒序排序
+    // Get all agent history records from globalState and sort by ts in descending order
     const taskHistory = ((await getGlobalState('taskHistory')) as TaskHistoryItem[]) || []
 
-    // 加载收藏列表
+    // Load favorites list
     const favorites = ((await getGlobalState('favoriteTaskList')) as string[]) || []
     favoriteTaskList.value = favorites
 
@@ -1061,7 +1059,7 @@ const handleHistoryClick = async () => {
         isFavorite: favorites.includes(task.id)
       }))
 
-    // 批量更新历史列表
+    // Batch update history list
     historyList.value = historyItems
   } catch (err) {
     console.error('Failed to get conversation list:', err)
@@ -1128,13 +1126,13 @@ const handleRejectContent = async () => {
         break
     }
     message.action = 'rejected'
-    console.log('发送消息到主进程:', messageRsp)
-    const response = await (window.api as any).sendToMain(messageRsp)
+    console.log('Send message to main process:', messageRsp)
+    const response = await window.api.sendToMain(messageRsp)
     buttonsDisabled.value = true
-    console.log('主进程响应:', response)
+    console.log('Main process response:', response)
     responseLoading.value = true
   } catch (error) {
-    console.error('发送消息到主进程失败:', error)
+    console.error('Failed to send message to main process:', error)
   }
 }
 
@@ -1154,12 +1152,12 @@ const handleOptionChoose = async (message: ChatMessage, option?: string) => {
         messageRsp.text = option || ''
         break
     }
-    console.log('发送消息到主进程:', messageRsp)
-    const response = await (window.api as any).sendToMain(messageRsp)
-    console.log('主进程响应:', response)
+    console.log('Send message to main process:', messageRsp)
+    const response = await window.api.sendToMain(messageRsp)
+    console.log('Main process response:', response)
     responseLoading.value = true
   } catch (error) {
-    console.error('发送消息到主进程失败:', error)
+    console.error('Failed to send message to main process:', error)
   }
 }
 
@@ -1193,20 +1191,20 @@ const handleApproveCommand = async () => {
         break
     }
     message.action = 'approved'
-    console.log('发送消息到主进程:', messageRsp)
-    const response = await (window.api as any).sendToMain(messageRsp)
+    console.log('Send message to main process:', messageRsp)
+    const response = await window.api.sendToMain(messageRsp)
     buttonsDisabled.value = true
-    console.log('主进程响应:', response)
+    console.log('Main process response:', response)
     responseLoading.value = true
   } catch (error) {
-    console.error('发送消息到主进程失败:', error)
+    console.error('Failed to send message to main process:', error)
   }
 }
 
 const handleCancel = async () => {
-  console.log('handleCancel:取消')
-  const response = await (window.api as any).cancelTask()
-  console.log('主进程响应:', response)
+  console.log('handleCancel: cancel')
+  const response = await window.api.cancelTask()
+  console.log('Main process response:', response)
   showCancelButton.value = false
   showSendButton.value = true
   responseLoading.value = false
@@ -1218,43 +1216,43 @@ const handleResume = async () => {
   if (!message) {
     return false
   }
-  console.log('handleResume:恢复')
+  console.log('handleResume: resume')
   const messageRsp = {
     type: 'askResponse',
     askResponse: 'yesButtonClicked'
   }
-  console.log('发送消息到主进程:', messageRsp)
-  const response = await (window.api as any).sendToMain(messageRsp)
-  console.log('主进程响应:', response)
+  console.log('Send message to main process:', messageRsp)
+  const response = await window.api.sendToMain(messageRsp)
+  console.log('Main process response:', response)
   resumeDisabled.value = true
   responseLoading.value = true
 }
 
 const handleRetry = async () => {
-  console.log('handleRetry:重试')
+  console.log('handleRetry: retry')
   const messageRsp = {
     type: 'askResponse',
     askResponse: 'yesButtonClicked'
   }
-  console.log('发送消息到主进程:', messageRsp)
-  const response = await (window.api as any).sendToMain(messageRsp)
-  console.log('主进程响应:', response)
+  console.log('Send message to main process:', messageRsp)
+  const response = await window.api.sendToMain(messageRsp)
+  console.log('Main process response:', response)
   showRetryButton.value = false
 }
 
-// 声明removeListener变量
+// Declare removeListener variable
 let removeListener: (() => void) | null = null
 
 const currentCwdStore = useCurrentCwdStore()
 
-// 使用计算属性来获取当前工作目录
+// Use computed property to get current working directory
 const currentCwd = computed(() => currentCwdStore.keyValueMap)
 
 watch(currentCwd, (newValue) => {
-  console.log('当前工作目录:', newValue)
+  console.log('Current working directory:', newValue)
 })
 
-// 修改 watch 处理函数
+// Modify watch handler function
 watch(
   () => chatTypeValue.value,
   async (newValue) => {
@@ -1262,10 +1260,10 @@ watch(
       await updateGlobalState('chatSettings', {
         mode: newValue
       })
-      // 发出状态变化事件
+      // Emit state change event
       emitStateChange()
     } catch (error) {
-      console.error('更新 chatSettings 失败:', error)
+      console.error('Failed to update chatSettings:', error)
     }
   }
 )
@@ -1304,7 +1302,7 @@ const handleChatAiModelChange = async () => {
   }
 }
 
-// 修改模型更新函数
+// Modify model update function
 const initModel = async () => {
   const chatSetting = (await getGlobalState('chatSettings')) as { mode?: string }
   chatTypeValue.value = chatSetting?.mode || 'agent'
@@ -1391,7 +1389,7 @@ onMounted(async () => {
     } else {
       chatInputValue.value = text
     }
-    initAssetInfo() //防止初始化失败
+    initAssetInfo() // Prevent initialization failure
     nextTick(() => {
       const textarea = document.getElementsByClassName('chat-textarea')[0] as HTMLTextAreaElement | null
       if (textarea) {
@@ -1415,13 +1413,13 @@ onMounted(async () => {
     }
   ]
 
-  // 初始化收藏列表
+  // Initialize favorites list
   favoriteTaskList.value = ((await getGlobalState('favoriteTaskList')) as string[]) || []
 
-  // 初始化资产信息
+  // Initialize asset information
   await initAssetInfo()
 
-  // 如果有保存的状态，恢复状态
+  // If there's saved state, restore it
   if (props.savedState) {
     chatInputValue.value = props.savedState.chatInputValue || ''
     chatTypeValue.value = props.savedState.chatTypeValue || 'agent'
@@ -1435,15 +1433,15 @@ onMounted(async () => {
     }
   }
 
-  // 加载消息反馈
+  // Load message feedback
   messageFeedbacks.value = ((await getGlobalState('messageFeedbacks')) || {}) as Record<string, 'like' | 'dislike'>
 
-  // 添加事件监听
+  // Add event listeners
   eventBus.on('SettingModelOptionsChanged', async () => {
     await initModel()
   })
 
-  // 监听标签页变化
+  // Listen for tab changes
   eventBus.on('activeTabChanged', async (tabInfo) => {
     if (!autoUpdateHost.value || chatHistory.length > 0) {
       return
@@ -1463,9 +1461,9 @@ onMounted(async () => {
 
   let lastMessage: any = null
   let lastPartialMessage: any = null
-  removeListener = (window.api as any).onMainMessage((message: any) => {
+  removeListener = window.api.onMainMessage((message: any) => {
     // const responseStartTime = new Date().toLocaleString()
-    // console.log(`[AI请求耗时分析] 2. Renderer端AI收到主进程消息时间: ${responseStartTime}`)
+    // console.log(`[AI Request Time Analysis] 2. Renderer AI received main process message time: ${responseStartTime}`)
 
     console.log('Received main process message:', message.type, message)
     if (message?.type === 'partialMessage') {
@@ -1477,7 +1475,7 @@ onMounted(async () => {
       } else {
         showNewTaskButton.value = false
       }
-      // handle model error -- api_req_failed 或 ssh_con_failed
+      // Handle model error -- api_req_failed or ssh_con_failed
       if (
         message.partialMessage.type === 'ask' &&
         (message.partialMessage.ask === 'api_req_failed' || message.partialMessage.ask === 'ssh_con_failed')
@@ -1604,12 +1602,12 @@ const updateCwdForAllHosts = async () => {
   }
 }
 
-// 添加发送消息到主进程的方法
+// Add method to send message to main process
 const sendMessageToMain = async (userContent: string, sendType: string) => {
   try {
-    // // 记录AI消息发送开始时间,时间格式化为yyyy-MM-dd HH:mm:ss
+    // // Record AI message send start time, format as yyyy-MM-dd HH:mm:ss
     // const sendStartTime = new Date().toLocaleString()
-    // console.log(`[AI请求耗时分析] 1. Renderer端AI发送消息开始时间: ${sendStartTime}`)
+    // console.log(`[AI Request Time Analysis] 1. Renderer AI send message start time: ${sendStartTime}`)
 
     await updateCwdForAllHosts() // TODO:use cache
 
@@ -1651,11 +1649,11 @@ const sendMessageToMain = async (userContent: string, sendType: string) => {
         cwd: filteredCwd
       }
     }
-    console.log('发送消息到主进程:', message)
-    const response = await (window.api as any).sendToMain(message)
-    console.log('主进程响应:', response)
+    console.log('Send message to main process:', message)
+    const response = await window.api.sendToMain(message)
+    console.log('Main process response:', response)
   } catch (error) {
-    console.error('发送消息到主进程失败:', error)
+    console.error('Failed to send message to main process:', error)
   }
 }
 
@@ -1710,13 +1708,13 @@ const onHostClick = (item: any) => {
   if (chatTypeValue.value === 'cmd') {
     hosts.value = [newHost]
   } else {
-    // 检查是否已选中
+    // Check if already selected
     const existingIndex = hosts.value.findIndex((h) => h.host === item.label)
     if (existingIndex > -1) {
-      // 如果已选中，则取消选择
+      // If already selected, then deselect
       hosts.value.splice(existingIndex, 1)
     } else {
-      // 如果未选中，则添加
+      // If not selected, then add
       hosts.value.push(newHost)
     }
   }
@@ -1725,7 +1723,7 @@ const onHostClick = (item: any) => {
   chatInputValue.value = ''
 }
 
-// 移除指定的host
+// Remove specified host
 const removeHost = (hostToRemove: any) => {
   const index = hosts.value.findIndex((h) => h.uuid === hostToRemove.uuid)
   if (index > -1) {
@@ -1734,7 +1732,7 @@ const removeHost = (hostToRemove: any) => {
   }
 }
 
-// 处理host搜索框的键盘事件
+// Handle host search box keyboard events
 const handleHostSearchKeyDown = (e: KeyboardEvent) => {
   if (!showHostSelect.value || filteredHostOptions.value.length === 0) return
 
@@ -1803,13 +1801,13 @@ const closeHostSelect = () => {
   })
 }
 
-// 处理鼠标悬停事件
+// Handle mouse hover event
 const handleMouseOver = (value: string, index: number) => {
   hovered.value = value
   keyboardSelectedIndex.value = index
 }
 
-// 2. 监听输入框内容变化
+// 2. Listen for input box content changes
 const handleInputChange = async (e: Event) => {
   if (chatTypeValue.value === 'cmd') {
     return
@@ -1817,8 +1815,8 @@ const handleInputChange = async (e: Event) => {
   const value = (e.target as HTMLTextAreaElement).value
   if (value === '@') {
     showHostSelect.value = true
-    hostSearchValue.value = '' // 清空搜索框
-    await fetchHostOptions('') // 这里调用，获取所有主机
+    hostSearchValue.value = '' // Clear search box
+    await fetchHostOptions('') // Call here to get all hosts
     nextTick(() => {
       hostSearchInputRef.value?.focus?.()
     })
@@ -1827,7 +1825,7 @@ const handleInputChange = async (e: Event) => {
   }
 }
 
-// 3. 获取主机列表
+// 3. Get host list
 const debouncedFetchHostOptions = debounce((search: string) => {
   fetchHostOptions(search)
 }, 300)
@@ -1837,7 +1835,7 @@ watch(hostSearchValue, (newVal) => {
   debouncedFetchHostOptions(newVal)
 })
 const fetchHostOptions = async (search: string) => {
-  const hostsList = await (window.api as any).getUserHosts(search)
+  const hostsList = await window.api.getUserHosts(search)
   let formatted = formatHosts(hostsList || [])
   hostOptions.value.splice(0, hostOptions.value.length, ...formatted)
 }
@@ -1867,7 +1865,7 @@ const handleAddHostClick = async () => {
   }
 }
 
-// 使用immediate选项确保初始化时也执行一次
+// Use immediate option to ensure execution during initialization
 watch(
   shouldShowSendButton,
   (newValue) => {
@@ -1879,7 +1877,7 @@ watch(
 const currentEditingId = ref(null)
 
 const editHistory = async (history) => {
-  // 如果有其他正在编辑的项，先还原它
+  // If there are other items being edited, restore them first
   if (currentEditingId.value && currentEditingId.value !== history.id) {
     const previousEditingHistory = paginatedHistoryList.value.find((h) => h.id === currentEditingId.value)
     if (previousEditingHistory) {
@@ -1888,12 +1886,12 @@ const editHistory = async (history) => {
     }
   }
 
-  // 设置当前编辑项
+  // Set current editing item
   currentEditingId.value = history.id
   history.isEditing = true
   history.editingTitle = history.chatTitle
 
-  // 等待DOM更新后聚焦输入框
+  // Wait for DOM update then focus input box
   await nextTick()
   const input = document.querySelector('.history-title-input input') as HTMLInputElement
   if (input) {
@@ -1907,19 +1905,19 @@ const saveHistoryTitle = async (history) => {
     history.editingTitle = history.chatTitle
   }
 
-  // 更新历史记录标题
+  // Update history record title
   history.chatTitle = history.editingTitle.trim()
   history.isEditing = false
   currentEditingId.value = null
 
   try {
-    // 获取当前历史记录
+    // Get current history records
     const taskHistory = ((await getGlobalState('taskHistory')) as TaskHistoryItem[]) || []
-    // 更新对应记录的标题
+    // Update corresponding record title
     const targetHistory = taskHistory.find((item) => item.id === history.id)
     if (targetHistory) {
       targetHistory.task = history.chatTitle
-      // 保存更新后的历史记录
+      // Save updated history records
       await updateGlobalState('taskHistory', taskHistory)
     }
   } catch (err) {
@@ -1928,16 +1926,16 @@ const saveHistoryTitle = async (history) => {
 }
 
 const deleteHistory = async (history) => {
-  // 获取当前历史记录
+  // Get current history records
   const agentHistory = ((await getGlobalState('taskHistory')) as TaskHistoryItem[]) || []
 
-  // 过滤掉要删除的记录
+  // Filter out records to be deleted
   const filteredHistory = agentHistory.filter((item) => item.id !== history.id)
 
-  // 更新全局状态
+  // Update global state
   await updateGlobalState('taskHistory', filteredHistory)
 
-  // 更新显示列表
+  // Update display list
   historyList.value = filteredHistory
     .sort((a, b) => b.ts - a.ts)
     .map((messages) => ({
@@ -1951,16 +1949,16 @@ const deleteHistory = async (history) => {
     text: history.id,
     cwd: currentCwd.value
   }
-  console.log('发送消息到主进程:', message)
-  const response = await (window.api as any).sendToMain(message)
-  console.log('主进程响应:', response)
+  console.log('Send message to main process:', message)
+  const response = await window.api.sendToMain(message)
+  console.log('Main process response:', response)
 }
 
 const historySearchValue = ref('')
 const showOnlyFavorites = ref(false)
 
 const filteredHistoryList = computed(() => {
-  // 实现过滤逻辑
+  // Implement filtering logic
   return historyList.value
     .filter((history) => {
       // Filter by search term
@@ -1998,42 +1996,42 @@ const loadMoreHistory = async () => {
 
   isLoadingMore.value = true
   try {
-    await new Promise((resolve) => setTimeout(resolve, 300)) // 添加小延迟使加载更平滑
+    await new Promise((resolve) => setTimeout(resolve, 300)) // Add small delay to make loading smoother
     currentPage.value++
   } finally {
     isLoadingMore.value = false
   }
 }
 
-// 使用 Intersection Observer 实现无限滚动
+// Use Intersection Observer to implement infinite scrolling
 const handleIntersection = (entries) => {
   if (entries[0].isIntersecting) {
     loadMoreHistory()
   }
 }
 
-// 监听搜索值变化时重置分页
+// Listen for search value changes to reset pagination
 watch(historySearchValue, () => {
   currentPage.value = 1
 })
 
 const cancelEdit = async (history) => {
   try {
-    // 获取当前历史记录
+    // Get current history records
     const taskHistory = ((await getGlobalState('taskHistory')) as TaskHistoryItem[]) || []
-    // 找到对应的记录
+    // Find corresponding record
     const targetHistory = taskHistory.find((item) => item.id === history.id)
     if (targetHistory) {
-      // 重置为数据库中的标题
+      // Reset to title in database
       history.chatTitle = truncateText(targetHistory?.task || 'Agent Chat')
     }
-    // 重置编辑状态
+    // Reset editing state
     history.isEditing = false
     history.editingTitle = ''
     currentEditingId.value = null
   } catch (err) {
     console.error('Failed to cancel edit:', err)
-    // 发生错误时也要重置编辑状态
+    // Also reset editing state when error occurs
     history.isEditing = false
     history.editingTitle = ''
     currentEditingId.value = null
@@ -2042,26 +2040,26 @@ const cancelEdit = async (history) => {
 
 const chatContainer = ref<HTMLElement | null>(null)
 const chatResponse = ref<HTMLElement | null>(null)
-// 添加一个标志来跟踪是否正在处理折叠操作
+// Add a flag to track if collapse operation is being processed
 const isHandlingCollapse = ref(false)
 
 // Add auto scroll function
 const scrollToBottom = () => {
-  // 如果正在处理折叠操作，则不执行滚动
+  // If collapse operation is being processed, don't execute scrolling
   if (isHandlingCollapse.value) {
-    // console.log('正在处理折叠操作，跳过自动滚动')
+    // console.log('Processing collapse operation, skip auto scroll')
     // console.log('1.scrollToBottom isHandlingCollapse')
     handleCollapseChange()
     return
   }
 
-  // 检查滚动条是否接近底部（阈值为20px）
+  // Check if scrollbar is near bottom (threshold 20px)
   if (chatContainer.value) {
     const scrollPosition = chatContainer.value.scrollTop + chatContainer.value.clientHeight
     const scrollHeight = chatContainer.value.scrollHeight
     const isNearBottom = scrollHeight - scrollPosition < 20
 
-    // 如果不接近底部，则不执行滚动
+    // If not near bottom, don't execute scrolling
     if (!isNearBottom) {
       // console.log('2.scrollToBottom not isNearBottom')
       handleCollapseChange()
@@ -2069,15 +2067,15 @@ const scrollToBottom = () => {
     }
   }
 
-  // 记录当前容器底部位置
+  // Record current container bottom position
   const prevBottom = chatResponse.value?.getBoundingClientRect().bottom
 
   nextTick(() => {
     if (chatResponse.value && chatContainer.value && prevBottom) {
-      // 获取更新后的容器底部位置
+      // Get updated container bottom position
       const currentBottom = chatResponse.value.getBoundingClientRect().bottom
-      // console.log('容器高度变化，直接滚动到底部', prevBottom, currentBottom)
-      // 如果容器底部位置发生了变化，直接滚动到底部
+      // console.log('Container height changed, scroll to bottom directly', prevBottom, currentBottom)
+      // If container bottom position changed, scroll to bottom directly
       if (prevBottom !== currentBottom && prevBottom > 0 && currentBottom > 0) {
         chatContainer.value.scrollTop = chatContainer.value.scrollHeight
       }
@@ -2085,29 +2083,29 @@ const scrollToBottom = () => {
   })
 }
 
-// 修改 handleCollapseChange 函数
+// Modify handleCollapseChange function
 const handleCollapseChange = (collapseType = '') => {
   // console.log('3.handleCollapseChange begin', collapseType)
   if (collapseType === 'code' || collapseType === 'thinking') {
-    // 设置标志，表示正在处理折叠操作
+    // Set flag to indicate collapse operation is being processed
     isHandlingCollapse.value = true
   }
 
-  // 折叠完成后，直接调用adjustScrollPosition确保内容可见
+  // After collapse completes, directly call adjustScrollPosition to ensure content is visible
   nextTick(() => {
     if (chatContainer.value) {
-      // 先检查是否有Monaco编辑器折叠块
+      // First check if there are Monaco editor collapse blocks
       const codeCollapses = chatContainer.value.querySelectorAll('.code-collapse')
       if (collapseType === 'code' && codeCollapses.length > 0) {
         const lastCodeCollapse = codeCollapses[codeCollapses.length - 1]
         const collapseHeader = lastCodeCollapse.querySelector('.ant-collapse-header')
 
-        // 检查是展开还是折叠状态
+        // Check if expanded or collapsed state
         const isCollapsed = lastCodeCollapse.querySelector('.ant-collapse-content-inactive')
 
         if (collapseHeader) {
           if (isCollapsed) {
-            // 如果是折叠状态，将 Monaco 编辑器顶部滚动到窗口中间，使用平滑滚动
+            // If collapsed state, scroll Monaco editor top to center of window with smooth scrolling
             // console.log('4.handleCollapseChange collapseHeader isCollapsed center', isCollapsed)
             collapseHeader.scrollIntoView({ behavior: 'smooth', block: 'start' })
             return
@@ -2119,18 +2117,18 @@ const handleCollapseChange = (collapseType = '') => {
         }
       }
 
-      // 检查是否有thinking折叠块
+      // Check if there are thinking collapse blocks
       const thinkingCollapses = chatContainer.value.querySelectorAll('.thinking-collapse')
       if (collapseType === 'thinking' && thinkingCollapses.length > 0) {
         const lastThinkingCollapse = thinkingCollapses[thinkingCollapses.length - 1]
         const thinkingHeader = lastThinkingCollapse.querySelector('.ant-collapse-header')
 
-        // 检查是展开还是折叠状态
+        // Check if expanded or collapsed state
         const isCollapsed = lastThinkingCollapse.querySelector('.ant-collapse-content-inactive')
 
         if (thinkingHeader) {
           if (isCollapsed) {
-            // 如果是折叠状态，将thinking顶部滚动到窗口中间，使用平滑滚动
+            // If collapsed state, scroll thinking top to center of window with smooth scrolling
             // console.log('6.handleCollapseChange thinkingHeader isCollapsed center', isCollapsed)
             thinkingHeader.scrollIntoView({ behavior: 'smooth', block: 'start' })
             return
@@ -2141,13 +2139,13 @@ const handleCollapseChange = (collapseType = '') => {
           }
         }
       }
-      // 如果不存在特殊折叠块，使用普通的滚动逻辑
+      // If no special collapse blocks exist, use normal scroll logic
       adjustScrollPosition()
       // console.log('8.handleCollapseChange normal adjustScrollPosition')
     }
   })
   if (collapseType === 'code' || collapseType === 'thinking') {
-    // 延迟重置标志，确保在处理完成
+    // Delay reset flag to ensure processing is complete
     setTimeout(() => {
       isHandlingCollapse.value = false
       // console.log('10 adjustScrollPosition collapseType', collapseType)
@@ -2156,31 +2154,31 @@ const handleCollapseChange = (collapseType = '') => {
   }
 }
 
-// 添加一个专门用于调整折叠后滚动位置的函数
+// Add a function specifically for adjusting scroll position after collapse
 const adjustScrollPosition = () => {
   if (!chatContainer.value) return
   // if (isHandlingCollapse.value) return
-  // 尝试找到最后一条可见消息
+  // Try to find the last visible message
   const messages = Array.from(chatContainer.value.querySelectorAll('.message.assistant, .message.user'))
 
   if (messages.length > 0) {
-    // 获取最后一条消息
+    // Get the last message
     const lastMessage = messages[messages.length - 1]
 
-    // 检查最后一条消息是否在视口内
+    // Check if the last message is within the viewport
     const rect = lastMessage.getBoundingClientRect()
     const containerRect = chatContainer.value.getBoundingClientRect()
 
     if (rect.bottom > containerRect.bottom || rect.top < containerRect.top) {
-      // 如果最后一条消息不在视口内，将其滚动到视口底部，使用平滑滚动
-      // console.log('9.adjustScrollPosition 最后一条消息滚动到窗口底部')
+      // If the last message is not within the viewport, scroll it to the bottom of the viewport with smooth scrolling
+      // console.log('9.adjustScrollPosition scroll last message to bottom of window')
       lastMessage.scrollIntoView({ behavior: 'smooth', block: 'end' })
-      // console.log('将最后一条消息滚动到视口底部')
+      // console.log('Scroll last message to bottom of viewport')
     } else {
-      // console.log('最后一条消息已在视口内，无需调整')
+      // console.log('Last message is already within viewport, no adjustment needed')
     }
   } else {
-    // 如果没有消息，滚动到底部，使用平滑滚动
+    // If no messages, scroll to bottom with smooth scrolling
     chatContainer.value.scrollTo({
       top: chatContainer.value.scrollHeight,
       behavior: 'smooth'
@@ -2259,7 +2257,7 @@ const initModelOptions = async () => {
       apiProvider: 'default'
     }))
 
-    // 创建一个简单的可序列化对象数组
+    // Create a simple serializable object array
     const serializableModelOptions = modelOptions.map((model) => ({
       id: model.id,
       name: model.name,
@@ -2278,40 +2276,40 @@ const initModelOptions = async () => {
   }
 }
 
-// 添加处理反馈的方法
+// Add method to handle feedback
 const handleFeedback = async (message: ChatMessage, type: 'like' | 'dislike') => {
-  // 如果已经提交过反馈，则不允许再次操作
+  // If feedback has already been submitted, don't allow operation again
   if (isMessageFeedbackSubmitted(message.id)) {
     return
   }
 
-  // 更新本地状态
+  // Update local state
   messageFeedbacks.value[message.id] = type
-  // 从 globalState 中获取当前反馈
+  // Get current feedback from globalState
   const feedbacks = ((await getGlobalState('messageFeedbacks')) || {}) as Record<string, 'like' | 'dislike'>
-  // 添加或更新此消息的反馈
+  // Add or update feedback for this message
   feedbacks[message.id] = type
-  // 更新 globalState
+  // Update globalState
   await updateGlobalState('messageFeedbacks', feedbacks)
-  // 发送反馈到主进程
+  // Send feedback to main process
   let messageRsp = {
     type: 'taskFeedback',
     feedbackType: type === 'like' ? 'thumbs_up' : 'thumbs_down'
   }
-  console.log('发送消息到主进程:', messageRsp)
-  const response = await (window.api as any).sendToMain(messageRsp)
-  console.log('主进程响应:', response)
+  console.log('Send message to main process:', messageRsp)
+  const response = await window.api.sendToMain(messageRsp)
+  console.log('Main process response:', response)
 }
 
-// 恢复保存的状态
+// Restore saved state
 const restoreState = (savedState: any) => {
   if (!savedState) return
-  // 恢复输入框内容
+  // Restore input box content
   if (savedState.chatInputValue !== undefined) {
     chatInputValue.value = savedState.chatInputValue
   }
 
-  // 恢复聊天类型和AI模型
+  // Restore chat type and AI model
   if (savedState.chatTypeValue) {
     chatTypeValue.value = savedState.chatTypeValue
   }
@@ -2319,45 +2317,45 @@ const restoreState = (savedState: any) => {
     chatAiModelValue.value = savedState.chatAiModelValue
   }
 
-  // 恢复主机列表
+  // Restore host list
   if (savedState.hosts && savedState.hosts.length > 0) {
     hosts.value = [...savedState.hosts]
     autoUpdateHost.value = false
   }
 
-  // 恢复聊天历史
+  // Restore chat history
   if (savedState.chatHistory && savedState.chatHistory.length > 0) {
-    chatHistory.length = 0 // 清空当前历史
+    chatHistory.length = 0 // Clear current history
     savedState.chatHistory.forEach((message: any) => {
       chatHistory.push(message)
     })
   }
 
-  // 恢复当前对话ID
+  // Restore current conversation ID
   if (savedState.currentChatId) {
     currentChatId.value = savedState.currentChatId
   }
 }
 
-// 获取当前状态的函数
+// Function to get current state
 const getCurrentState = () => {
   return {
-    size: 0, // 这个会在父组件中设置
+    size: 0, // This will be set in parent component
     chatInputValue: chatInputValue.value,
-    chatHistory: [...chatHistory], // 创建副本以避免引用问题
+    chatHistory: [...chatHistory], // Create copy to avoid reference issues
     currentChatId: currentChatId.value,
-    hosts: [...hosts.value], // 创建副本以避免引用问题
+    hosts: [...hosts.value], // Create copy to avoid reference issues
     chatTypeValue: chatTypeValue.value,
     chatAiModelValue: chatAiModelValue.value
   }
 }
 
-// 发出状态变化事件的函数
+// Function to emit state change event
 const emitStateChange = () => {
   const currentState = getCurrentState()
   emit('state-changed', currentState)
 }
-// 暴露getCurrentState和restoreState方法给父组件使用
+// Expose getCurrentState and restoreState methods for parent component use
 defineExpose({
   getCurrentState,
   restoreState
@@ -2385,7 +2383,7 @@ defineExpose({
 
 <style lang="less" scoped>
 :root {
-  // 暗色主题变量
+  // Dark theme variables
   .theme-dark {
     --bg-color: #141414;
     --bg-color-secondary: #1f1f1f;
@@ -2404,7 +2402,7 @@ defineExpose({
     --icon-filter-hover: invert(0.1);
   }
 
-  // 亮色主题变量
+  // Light theme variables
   .theme-light {
     --bg-color: #ffffff;
     --bg-color-secondary: #f5f5f5;

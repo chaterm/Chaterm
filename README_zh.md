@@ -89,25 +89,6 @@ $ npm run build:mac
 $ npm run build:linux
 ```
 
-### 本地前后端调试
-
-<p>打开electron.vite.config.ts文件，将target指向改为本地url地址即可。</p>
-
-### 贡献指南
-
-我们使用 ESLint 进行代码质量检查，使用 Prettier 进行代码格式化。请为您的IDE下载[ESLint](https://marketplace.visualstudio.com/items?itemName=dbaeumer.vscode-eslint) 、[Prettier](https://marketplace.visualstudio.com/items?itemName=esbenp.prettier-vscode)插件以获得最佳开发体验。
-如果您使用 VSCode，可以将以下代码添加到 .vscode/settings.json 文件中以启用 Prettier 自动格式化功能：
-
-```json
-{
-  "editor.defaultFormatter": "esbenp.prettier-vscode",
-  "editor.formatOnSave": true,
-  "[vue]": {
-    "editor.defaultFormatter": "esbenp.prettier-vscode"
-  }
-}
-```
-
 ## Contributors
 
 在这个充满无限机遇和挑战时代，一群不同背景的DevOps小伙伴，怀揣梦想汇聚于此。利用业余时间打造了这款匠心独运的工具。
