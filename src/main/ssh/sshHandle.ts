@@ -592,7 +592,7 @@ export const registerSSHHandlers = () => {
               })
               jumpserverMarkedCommands.delete(id)
             }
-          }, 10)
+          }, 200)
         } else {
           _event.sender.send(`ssh:shell:data:${id}`, {
             data: dataStr,
@@ -646,7 +646,7 @@ export const registerSSHHandlers = () => {
               })
               markedCommands.delete(id)
             }
-          }, 10)
+          }, 200)
         } else {
           _event.sender.send(`ssh:shell:data:${id}`, {
             data: data.toString(),
