@@ -666,6 +666,10 @@ onUnmounted(() => {
     color: var(--text-color) !important;
   }
 
+  .ant-tree-node-content-wrapper {
+    width: 100%;
+  }
+
   .ant-tree-switcher {
     color: var(--text-color-tertiary) !important;
   }
@@ -716,6 +720,7 @@ onUnmounted(() => {
   .favorite-icon {
     display: flex;
     align-items: center;
+    margin-right: 10px;
     cursor: pointer;
     color: var(--text-color);
     flex-shrink: 0;
@@ -741,6 +746,7 @@ onUnmounted(() => {
   .refresh-icon {
     display: flex;
     align-items: center;
+    margin-right: 10px;
     cursor: pointer;
     color: var(--text-color-tertiary);
     font-size: 14px;
