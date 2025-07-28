@@ -54,11 +54,7 @@
               @select="handleSelect"
             >
               <template #title="{ title, dataRef }">
-                <div
-                  class="custom-tree-node"
-                  @click="handleClick(dataRef)"
-                  @dblclick="handleDblClick(dataRef)"
-                >
+                <div class="custom-tree-node">
                   <span
                     v-if="!isSecondLevel(dataRef)"
                     class="title-with-icon"
@@ -70,8 +66,13 @@
                     class="title-with-icon"
                   >
                     <laptop-outlined class="computer-icon" />
-                    <span v-if="editingNode !== dataRef.key">{{ title }}</span>
                     <span
+                      v-if="editingNode !== dataRef.key"
+                      @click="handleClick(dataRef)"
+                      @dblclick="handleDblClick(dataRef)"
+                      >{{ title }}</span
+                    >
+                    <!-- <span
                       v-else
                       class="edit-container"
                     >
@@ -83,13 +84,13 @@
                         class="confirm-icon"
                         @click.stop="confirmEdit(dataRef)"
                       />
-                    </span>
+                    </span> -->
                   </span>
-                  <edit-outlined
+                  <!-- <edit-outlined
                     v-if="isSecondLevel(dataRef) && editingNode !== dataRef.key"
                     class="edit-icon"
                     @click.stop="handleEdit(dataRef)"
-                  />
+                  /> -->
                   <span
                     v-if="
                       dataRef &&
@@ -125,11 +126,7 @@
               @select="handleSelect"
             >
               <template #title="{ title, dataRef }">
-                <div
-                  class="custom-tree-node"
-                  @click="handleClick(dataRef)"
-                  @dblclick="handleDblClick(dataRef)"
-                >
+                <div class="custom-tree-node">
                   <span
                     v-if="!isSecondLevel(dataRef)"
                     class="title-with-icon"
@@ -141,8 +138,13 @@
                     class="title-with-icon"
                   >
                     <laptop-outlined class="computer-icon" />
-                    <span v-if="editingNode !== dataRef.key">{{ title }}</span>
                     <span
+                      v-if="editingNode !== dataRef.key"
+                      @click="handleClick(dataRef)"
+                      @dblclick="handleDblClick(dataRef)"
+                      >{{ title }}</span
+                    >
+                    <!-- <span
                       v-else
                       class="edit-container"
                     >
@@ -154,13 +156,13 @@
                         class="confirm-icon"
                         @click.stop="confirmEdit(dataRef)"
                       />
-                    </span>
+                    </span> -->
                   </span>
-                  <edit-outlined
+                  <!-- <edit-outlined
                     v-if="isSecondLevel(dataRef) && editingNode !== dataRef.key"
                     class="edit-icon"
                     @click.stop="handleEdit(dataRef)"
-                  />
+                  /> -->
                   <!-- 企业资产一级节点刷新按钮 -->
                   <reload-outlined
                     v-if="
