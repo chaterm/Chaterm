@@ -203,9 +203,6 @@
     </div>
     <div></div>
   </div>
-
-  <!-- 二次验证弹窗组件 -->
-  <OtpDialog />
 </template>
 
 <script setup lang="ts">
@@ -215,7 +212,6 @@ import { StarFilled, StarOutlined, LaptopOutlined, SearchOutlined, EditOutlined,
 import eventBus from '@/utils/eventBus'
 import i18n from '@/locales'
 import { refreshOrganizationAssetFromWorkspace } from '../LeftTab/components/refreshOrganizationAssets'
-import OtpDialog from '../LeftTab/components/OtpDialog.vue'
 
 const { t } = i18n.global
 const emit = defineEmits(['currentClickServer', 'change-company', 'open-user-tab'])

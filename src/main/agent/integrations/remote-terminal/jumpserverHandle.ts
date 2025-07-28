@@ -1,4 +1,5 @@
 import { Client } from 'ssh2'
+import { ipcMain } from 'electron'
 
 // 存储 JumpServer 连接
 export const jumpserverConnections = new Map()
@@ -64,6 +65,7 @@ export const handleJumpServerConnection = async (connectionInfo: {
       username: string
       keepaliveInterval: number
       readyTimeout: number
+      tryKeyboard: boolean
       privateKey?: Buffer
       passphrase?: string
       password?: string
@@ -72,7 +74,8 @@ export const handleJumpServerConnection = async (connectionInfo: {
       port: connectionInfo.port || 22,
       username: connectionInfo.username,
       keepaliveInterval: 10000,
-      readyTimeout: 30000
+      readyTimeout: 30000,
+      tryKeyboard: true // Enable keyboard interactive authentication for 2FA
     }
 
     // 处理私钥认证
@@ -97,9 +100,68 @@ export const handleJumpServerConnection = async (connectionInfo: {
       return reject(new Error('缺少认证信息：需要私钥或密码'))
     }
 
+    // Handle keyboard-interactive authentication for 2FA
+    conn.on('keyboard-interactive', async (_name, _instructions, _instructionsLang, prompts, finish) => {
+      try {
+        console.log(`[JumpServer ${connectionId}] 需要二次验证，请输入验证码...`)
+
+        // 直接使用简化的 MFA 处理
+        const promptTexts = prompts.map((p: any) => p.prompt)
+
+        // 发送 MFA 请求到前端
+        const { BrowserWindow } = require('electron')
+        const mainWindow = BrowserWindow.getAllWindows()[0]
+        if (mainWindow) {
+          mainWindow.webContents.send('ssh:keyboard-interactive-request', {
+            id: connectionId,
+            prompts: promptTexts
+          })
+        }
+
+        // 设置超时
+        const timeoutId = setTimeout(() => {
+          ipcMain.removeAllListeners(`ssh:keyboard-interactive-response:${connectionId}`)
+          ipcMain.removeAllListeners(`ssh:keyboard-interactive-cancel:${connectionId}`)
+          finish([])
+          if (mainWindow) {
+            mainWindow.webContents.send('ssh:keyboard-interactive-timeout', { id: connectionId })
+          }
+          reject(new Error('二次验证超时'))
+        }, 30000) // 30秒超时
+
+        // 监听用户响应
+        ipcMain.once(`ssh:keyboard-interactive-response:${connectionId}`, (_evt: any, responses: string[]) => {
+          clearTimeout(timeoutId)
+          finish(responses)
+        })
+
+        // 监听用户取消
+        ipcMain.once(`ssh:keyboard-interactive-cancel:${connectionId}`, () => {
+          clearTimeout(timeoutId)
+          finish([])
+          reject(new Error('用户取消了二次验证'))
+        })
+      } catch (err) {
+        console.error(`[JumpServer ${connectionId}] 二次验证失败:`, err)
+        conn.end() // Close connection
+        reject(err)
+      }
+    })
+
     conn.on('ready', () => {
       const elapsed = Date.now() - startTime
       console.log(`[JumpServer ${connectionId}] SSH连接建立成功，耗时 ${elapsed}ms，开始创建 shell`)
+
+      // 发送MFA验证成功事件到前端
+      const { BrowserWindow } = require('electron')
+      const mainWindow = BrowserWindow.getAllWindows()[0]
+      if (mainWindow) {
+        console.log(`[JumpServer ${connectionId}] 发送MFA验证成功事件:`, { connectionId, status: 'success' })
+        mainWindow.webContents.send('ssh:keyboard-interactive-result', {
+          id: connectionId,
+          status: 'success'
+        })
+      }
 
       conn.shell((err, stream) => {
         if (err) {
@@ -136,6 +198,17 @@ export const handleJumpServerConnection = async (connectionInfo: {
             // 检测密码认证错误
             if (outputBuffer.includes('password auth error') || outputBuffer.includes('[Host]>')) {
               console.error(`[JumpServer ${connectionId}] 目标服务器密码认证失败`)
+
+              // 发送MFA验证失败事件到前端
+              const { BrowserWindow } = require('electron')
+              const mainWindow = BrowserWindow.getAllWindows()[0]
+              if (mainWindow) {
+                mainWindow.webContents.send('ssh:keyboard-interactive-result', {
+                  id: connectionId,
+                  status: 'failed'
+                })
+              }
+
               clearTimeout(connectionTimeout)
               conn.end()
               return reject(new Error('JumpServer 密码认证失败，请检查密码是否正确'))
@@ -184,10 +257,21 @@ export const handleJumpServerConnection = async (connectionInfo: {
       })
     })
 
-    conn.on('error', (err) => {
+    conn.on('error', (err: any) => {
       const elapsed = Date.now() - startTime
       console.error(`[JumpServer ${connectionId}] 连接错误，耗时 ${elapsed}ms:`, err)
       console.error(`[JumpServer ${connectionId}] 错误详情 - 代码: ${err.code}, 级别: ${err.level}`)
+
+      // 发送MFA验证失败事件到前端
+      const { BrowserWindow } = require('electron')
+      const mainWindow = BrowserWindow.getAllWindows()[0]
+      if (mainWindow) {
+        mainWindow.webContents.send('ssh:keyboard-interactive-result', {
+          id: connectionId,
+          status: 'failed'
+        })
+      }
+
       clearTimeout(connectionTimeout)
       reject(new Error(`JumpServer 连接失败: ${err.message}`))
     })
@@ -205,7 +289,7 @@ export const jumpServerExec = async (sessionId: string, command: string): Promis
   }
 
   return new Promise((resolve) => {
-    conn.exec(command, (err, stream) => {
+    conn.exec(command, (err: any, stream: any) => {
       if (err) {
         resolve({
           stdout: '',

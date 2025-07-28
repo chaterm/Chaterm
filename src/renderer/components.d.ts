@@ -46,6 +46,7 @@ declare module 'vue' {
     ATree: typeof import('ant-design-vue/es')['Tree']
     ATypographyText: typeof import('ant-design-vue/es')['TypographyText']
     AWatermark: typeof import('ant-design-vue/es')['Watermark']
+    MfaDialog: typeof import('./src/components/global/mfa/MfaDialog.vue')['default']
     RouterLink: typeof import('vue-router')['RouterLink']
     RouterView: typeof import('vue-router')['RouterView']
   }
