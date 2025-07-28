@@ -1,4 +1,4 @@
-import { app, shell, BrowserWindow, ipcMain, session, protocol } from 'electron'
+import { app, shell, BrowserWindow, ipcMain, session } from 'electron'
 import { join } from 'path'
 import { electronApp, optimizer } from '@electron-toolkit/utils'
 import { is } from '@electron-toolkit/utils'
@@ -46,40 +46,6 @@ app.whenReady().then(async () => {
 
   if (process.platform === 'darwin') {
     app.dock.setIcon(join(__dirname, '../../resources/icon.png'))
-  }
-
-  // 确保在Linux环境下正确注册协议处理器
-  if (process.platform === 'linux') {
-    // 检查协议处理能力
-    console.log('Checking protocol handling capabilities on Linux...')
-    console.log('Is default protocol client for chaterm://', app.isDefaultProtocolClient('chaterm'))
-
-    try {
-      // 尝试注册全局协议处理器
-      protocol.registerStringProtocol('chaterm', (request, callback) => {
-        const url = request.url
-        console.log('Global protocol handler called with URL:', url)
-
-        // 延迟处理以确保主窗口已创建
-        setTimeout(() => {
-          handleProtocolRedirect(url)
-        }, 100)
-
-        callback('') // 必须调用回调，否则会导致请求挂起
-      })
-      console.log('Successfully registered global protocol handler')
-    } catch (err) {
-      console.error('Failed to register global protocol handler:', err)
-
-      // 尝试使用另一种方法注册
-      try {
-        app.removeAsDefaultProtocolClient('chaterm')
-        app.setAsDefaultProtocolClient('chaterm', process.execPath, ['--'])
-        console.log('Re-registered protocol handler with alternative method')
-      } catch (err2) {
-        console.error('Failed to re-register protocol handler:', err2)
-      }
-    }
   }
 
   // Register window drag handler (register only once)
@@ -794,107 +760,39 @@ ipcMain.handle('capture-telemetry-event', async (_, { eventType, data }) => {
 })
 
 // Register the agreement before the app is ready
-try {
-  if (!app.isDefaultProtocolClient('chaterm')) {
-    // 在不同平台上使用不同的方式注册协议
-    if (process.platform === 'linux') {
-      // Linux平台需要额外的处理
-      try {
-        app.setAsDefaultProtocolClient('chaterm', process.execPath, ['--'])
-        console.log('Registered chaterm:// protocol with Linux-specific arguments')
-      } catch (err) {
-        console.error('Failed to register protocol with Linux-specific arguments:', err)
-
-        // 尝试使用默认方式注册
-        try {
-          app.setAsDefaultProtocolClient('chaterm')
-          console.log('Registered chaterm:// protocol with default method')
-        } catch (err2) {
-          console.error('Failed to register protocol with default method:', err2)
-        }
-      }
-    } else {
-      app.setAsDefaultProtocolClient('chaterm')
-      console.log('Registered chaterm:// protocol')
-    }
-  } else {
-    console.log('chaterm:// protocol already registered')
-  }
-} catch (err) {
-  console.error('Error during protocol registration:', err)
+if (!app.isDefaultProtocolClient('chaterm')) {
+  app.setAsDefaultProtocolClient('chaterm')
 }
 
 // Linux 下处理 chaterm:// 协议参数
 if (process.platform === 'linux') {
-  console.log('Linux platform detected, checking for protocol arguments')
-  console.log('Process arguments:', process.argv)
-
-  // 查找所有可能的协议参数
-  const protocolArgs = process.argv.filter((arg) => arg.includes('chaterm://'))
-  if (protocolArgs.length > 0) {
-    console.log('Found protocol arguments:', protocolArgs)
-
+  const protocolArg = process.argv.find((arg) => arg.startsWith('chaterm://'))
+  if (protocolArg) {
     app.whenReady().then(() => {
-      // 处理找到的第一个协议参数
-      const protocolArg = protocolArgs[0]
-      console.log('Processing protocol argument:', protocolArg)
-
-      // 提取实际的URL部分
-      const urlMatch = protocolArg.match(/(chaterm:\/\/[^\s"']+)/)
-      if (urlMatch && urlMatch[1]) {
-        const cleanUrl = urlMatch[1]
-        console.log('Extracted clean URL:', cleanUrl)
-        handleProtocolRedirect(cleanUrl)
-      } else {
-        handleProtocolRedirect(protocolArg)
-      }
+      handleProtocolRedirect(protocolArg)
     })
   }
 }
 
 // Process protocol redirection
 const handleProtocolRedirect = (url: string) => {
-  try {
-    // 安全地获取主窗口
-    const allWindows = BrowserWindow.getAllWindows()
-    if (!allWindows || allWindows.length === 0) {
-      console.log('No windows available for protocol redirect')
-      return
-    }
+  const mainWindow = BrowserWindow.getAllWindows()[0]
+  if (!mainWindow) return
 
-    const mainWindow = allWindows[0]
-    if (!mainWindow || mainWindow.isDestroyed()) {
-      console.log('Main window not available for protocol redirect')
-      return
-    }
-
-    console.log('Processing protocol redirect for URL:', url)
-
+  // Parse the token and user information in the URL
+  const urlObj = new URL(url)
+  const userInfo = urlObj.searchParams.get('userInfo')
+  const method = urlObj.searchParams.get('method')
+  if (userInfo) {
     try {
-      // Parse the token and user information in the URL
-      const urlObj = new URL(url)
-      const userInfo = urlObj.searchParams.get('userInfo')
-      const method = urlObj.searchParams.get('method')
-
-      if (userInfo) {
-        try {
-          // Send data to the rendering process
-          console.log('Sending external-login-success event with userInfo')
-          mainWindow.webContents.send('external-login-success', {
-            userInfo: JSON.parse(userInfo),
-            method: method
-          })
-        } catch (error) {
-          console.error('Failed to process external login data:', error)
-        }
-      } else {
-        console.log('No userInfo found in URL, params:', Array.from(urlObj.searchParams.entries()))
-      }
+      // Send data to the rendering process
+      mainWindow.webContents.send('external-login-success', {
+        userInfo: JSON.parse(userInfo),
+        method: method
+      })
     } catch (error) {
-      console.error('Failed to parse URL:', url, error)
+      console.error('Failed to process external login data:', error)
     }
-  } catch (error) {
-    console.error('Error in handleProtocolRedirect:', error)
   }
 }
 
@@ -936,297 +834,12 @@ ipcMain.handle('open-external-login', async () => {
     const state = Math.random().toString(36).substring(2)
     // Store status values for subsequent verification
     global.authState = state
-
-    // 针对Linux平台使用特殊的重定向URI格式
-    let redirectUri = 'chaterm://auth/callback'
-    if (process.platform === 'linux') {
-      // 在Linux上，可能需要使用完整的URI格式
-      redirectUri = encodeURIComponent('chaterm://auth/callback')
-      console.log('Using encoded redirect URI for Linux:', redirectUri)
-    }
-
     // Replace here with your external login URL, which needs to include information about redirecting back to the application
-    const externalLoginUrl = `https://login.chaterm.ai/login?client_id=chaterm&state=${state}&redirect_uri=${redirectUri}`
-    console.log('Generated external login URL:', externalLoginUrl)
-
-    // 在Linux环境下使用不同的方式打开外部链接，避免xdg-open问题
-    if (process.platform === 'linux') {
-      // 在Linux环境下使用BrowserWindow打开URL而不是shell.openExternal
-      const loginWindow = new BrowserWindow({
-        width: 800,
-        height: 600,
-        show: true,
-        autoHideMenuBar: true,
-        webPreferences: {
-          nodeIntegration: false,
-          contextIsolation: true,
-          // 允许窗口间通信
-          webSecurity: true,
-          // 允许重定向处理
-          allowRunningInsecureContent: false
-        }
-      })
-
-      // 监听所有导航事件，使用更全面的方法捕获URL变化
-      const handleUrlChange = (url) => {
-        try {
-          console.log('URL changed to:', url)
-          if (!url) {
-            console.log('Empty URL received, ignoring')
-            return false
-          }
-
-          if (url.startsWith('chaterm://')) {
-            // 立即处理协议URL
-            try {
-              handleProtocolRedirect(url)
-            } catch (err) {
-              console.error('Error in handleProtocolRedirect:', err)
-            }
-
-            // 安全地关闭登录窗口
-            try {
-              if (loginWindow && !loginWindow.isDestroyed()) {
-                loginWindow.close()
-              }
-            } catch (err) {
-              console.error('Error closing login window:', err)
-            }
-
-            // 安全地聚焦主窗口
-            try {
-              const mainWindow = BrowserWindow.getAllWindows()[0]
-              if (mainWindow && !mainWindow.isDestroyed()) {
-                mainWindow.focus()
-                return true
-              }
-            } catch (err) {
-              console.error('Error focusing main window:', err)
-            }
-          }
-          return false
-        } catch (err) {
-          console.error('Error in handleUrlChange:', err)
-          return false
-        }
-      }
-
-      // 监听URL变化，检测重定向回应用的URL
-      loginWindow.webContents.on('will-navigate', (event, url) => {
-        console.log('will-navigate event triggered with URL:', url)
-        if (handleUrlChange(url)) {
-          event.preventDefault()
-        }
-      })
-
-      // 监听加载完成事件
-      loginWindow.webContents.on('did-finish-load', () => {
-        const currentUrl = loginWindow.webContents.getURL()
-        console.log('did-finish-load event triggered with URL:', currentUrl)
-        handleUrlChange(currentUrl)
-      })
-
-      // 监听页面内导航事件
-      loginWindow.webContents.on('did-navigate', (event, url) => {
-        console.log('did-navigate event triggered with URL:', url)
-        handleUrlChange(url)
-      })
-
-      // 监听页面内导航事件（不刷新页面的导航）
-      loginWindow.webContents.on('did-navigate-in-page', (event, url) => {
-        console.log('did-navigate-in-page event triggered with URL:', url)
-        handleUrlChange(url)
-      })
-
-      // 监听重定向事件
-      loginWindow.webContents.on('will-redirect', (event, url) => {
-        console.log('will-redirect event triggered with URL:', url)
-        if (handleUrlChange(url)) {
-          event.preventDefault()
-        }
-      })
-
-      // 添加新的事件监听器，处理导航错误
-      loginWindow.webContents.on('did-fail-load', (_, errorCode, errorDescription, validatedURL) => {
-        console.log(`Navigation failed: ${errorDescription} (${errorCode}) for URL: ${validatedURL}`)
-
-        // 检查是否是自定义协议导致的错误
-        if (validatedURL.startsWith('chaterm://')) {
-          handleUrlChange(validatedURL)
-        }
-      })
-
-      // 添加新的事件监听器，直接监听URL变化
-      loginWindow.webContents.on('did-start-navigation', (event, url) => {
-        console.log('did-start-navigation event triggered with URL:', url)
-        if (handleUrlChange(url)) {
-          event.preventDefault()
-        }
-      })
-
-      // 设置窗口关闭时的清理操作
-      loginWindow.on('closed', () => {
-        console.log('Login window closed')
-      })
-
-      // 在加载URL之前先尝试注册协议处理器
-      try {
-        // 确保当前会话能处理chaterm协议
-        loginWindow.webContents.session.protocol.registerStringProtocol('chaterm', (request, callback) => {
-          console.log('Session protocol handler called with URL:', request.url)
-          handleUrlChange(request.url)
-          callback('')
-        })
-      } catch (err) {
-        console.error('Failed to register protocol handler:', err)
-      }
-
-      // 使用loadURL加载外部登录页面
-      await loginWindow.loadURL(externalLoginUrl)
-
-      // 添加调试信息
-      console.log('Login window loaded with URL:', externalLoginUrl)
-      console.log('Redirect URI:', `chaterm://auth/callback`)
-
-      // 在Linux环境下，可能需要添加一个定时器来检查登录状态
-      // 这是一个备用方案，防止协议重定向失败
-      let checkLoginInterval
-      try {
-        checkLoginInterval = setInterval(() => {
-          try {
-            // 首先检查窗口是否还存在
-            if (!loginWindow || loginWindow.isDestroyed()) {
-              if (checkLoginInterval) {
-                clearInterval(checkLoginInterval)
-                checkLoginInterval = null
-              }
-              return
-            }
-
-            // 尝试获取当前URL
-            const currentUrl = loginWindow.webContents.getURL()
-            console.log('Current URL in login window:', currentUrl)
-
-            // 检查URL中是否包含登录成功的标志
-            if (currentUrl.includes('login-success') || currentUrl.includes('auth/callback')) {
-              console.log('Detected successful login via URL pattern')
-
-              try {
-                // 尝试提取用户信息
-                loginWindow.webContents
-                  .executeJavaScript(
-                    `
-                  (function() {
-                    try {
-                      // 尝试从页面中提取用户信息
-                      const userInfoElement = document.getElementById('user-info') || 
-                                            document.querySelector('.user-info-data');
-                      if (userInfoElement) {
-                        return userInfoElement.textContent;
-                      }
-                      
-                      // 尝试从URL中提取
-                      const urlParams = new URLSearchParams(window.location.search);
-                      const userInfo = urlParams.get('userInfo');
-                      if (userInfo) {
-                        return userInfo;
-                      }
-                      
-                      // 尝试从localStorage中提取
-                      return localStorage.getItem('userInfo');
-                    } catch (e) {
-                      console.error('Error extracting user info:', e);
-                      return null;
-                    }
-                  })();
-                `
-                  )
-                  .then((userInfoStr) => {
-                    try {
-                      if (userInfoStr) {
-                        console.log('Extracted user info from page:', userInfoStr)
-                        try {
-                          const userInfo = JSON.parse(userInfoStr)
-
-                          // 手动触发登录成功事件
-                          const mainWindow = BrowserWindow.getAllWindows()[0]
-                          if (mainWindow && !mainWindow.isDestroyed()) {
-                            mainWindow.webContents.send('external-login-success', {
-                              userInfo,
-                              method: 'linux-fallback'
-                            })
-
-                            // 关闭登录窗口
-                            if (loginWindow && !loginWindow.isDestroyed()) {
-                              loginWindow.close()
-                            }
-
-                            // 聚焦主窗口
-                            mainWindow.focus()
-                          }
-                        } catch (e) {
-                          console.error('Error parsing user info:', e)
-                        }
-                      }
-                    } catch (e) {
-                      console.error('Error processing userInfoStr:', e)
-                    }
-
-                    // 无论如何，清除定时器
-                    if (checkLoginInterval) {
-                      clearInterval(checkLoginInterval)
-                      checkLoginInterval = null
-                    }
-                  })
-                  .catch((err) => {
-                    console.error('Error executing script:', err)
-
-                    // 发生错误时也清除定时器
-                    if (checkLoginInterval) {
-                      clearInterval(checkLoginInterval)
-                      checkLoginInterval = null
-                    }
-                  })
-              } catch (scriptErr) {
-                console.error('Error setting up script execution:', scriptErr)
-
-                // 发生错误时清除定时器
-                if (checkLoginInterval) {
-                  clearInterval(checkLoginInterval)
-                  checkLoginInterval = null
-                }
-              }
-            }
-          } catch (err) {
-            console.error('Error in login check interval:', err)
-
-            // 发生错误时清除定时器
-            if (checkLoginInterval) {
-              clearInterval(checkLoginInterval)
-              checkLoginInterval = null
-            }
-          }
-        }, 1000) // 每秒检查一次
-      } catch (timerErr) {
-        console.error('Error setting up login check interval:', timerErr)
-      }
-
-      // 确保在窗口关闭时清除定时器
-      loginWindow.on('closed', () => {
-        console.log('Login window closed')
-        if (checkLoginInterval) {
-          clearInterval(checkLoginInterval)
-          checkLoginInterval = null
-        }
-      })
-    } else {
-      // 在非Linux平台上使用默认的shell.openExternal
-      await shell.openExternal(externalLoginUrl)
-    }
-
+    const externalLoginUrl = `https://login.chaterm.ai/login?client_id=chaterm&state=${state}&redirect_uri=chaterm://auth/callback`
+    await shell.openExternal(externalLoginUrl)
     return { success: true }
-  } catch (error: any) {
+  } catch (error) {
     console.error('Failed to open external login page:', error)
-    return { success: false, error: error.message || 'Unknown error occurred' }
+    return { success: false, error: error instanceof Error ? error.message : String(error) }
   }
 })
