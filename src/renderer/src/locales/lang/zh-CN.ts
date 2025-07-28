@@ -353,7 +353,8 @@ export default {
     copyToClipboard: '已复制到剪贴板',
     retry: '重试',
     taskCompleted: '任务已完成',
-    newTask: '开始新任务'
+    newTask: '开始新任务',
+    codePreview: '代码预览 ({lines}行)'
   },
   keyChain: {
     newKey: '添加密钥',
