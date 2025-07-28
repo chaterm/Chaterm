@@ -235,9 +235,6 @@ const isSyncInput = ref(false)
 const terminal = ref<Terminal | null>(null)
 const fitAddon = ref<FitAddon | null>(null)
 const connectionId = ref('')
-let removeOtpRequestListener = (): void => {}
-let removeOtpTimeoutListener = (): void => {}
-let removeOtpResultListener = (): void => {}
 const connectionHasSudo = ref(false)
 const connectionSftpAvailable = ref(false)
 const cleanupListeners = ref<Array<() => void>>([])
@@ -394,9 +391,7 @@ onMounted(async () => {
       pasteFlag.value = true
     })
   }
-  removeOtpRequestListener = api.onKeyboardInteractiveRequest(handleOtpRequest)
-  removeOtpTimeoutListener = api.onKeyboardInteractiveTimeout(handleOtpTimeout)
-  removeOtpResultListener = api.onKeyboardInteractiveResult(handleOtpError)
+  // MFA 监听器已移至全局 App.vue
   const core = (termInstance as any)._core
   const renderService = core._renderService
   const originalWrite = termInstance.write.bind(termInstance)
@@ -574,9 +569,7 @@ onBeforeUnmount(() => {
   cleanupListeners.value.forEach((cleanup) => cleanup())
   cleanupListeners.value = []
   eventBus.off('updateTheme')
-  if (typeof removeOtpRequestListener === 'function') removeOtpRequestListener()
-  if (typeof removeOtpTimeoutListener === 'function') removeOtpTimeoutListener()
-  if (typeof removeOtpResultListener === 'function') removeOtpResultListener()
+  // MFA 监听器清理已移至全局 App.vue
   if (isConnected.value) {
     disconnectSSH()
   }
@@ -1035,18 +1028,12 @@ const submitOtpCode = () => {
 const cancelOtp = () => {
   if (currentOtpId.value) {
     api.cancelKeyboardInteractive(currentOtpId.value)
-    if (typeof removeOtpRequestListener === 'function') removeOtpRequestListener()
-    if (typeof removeOtpTimeoutListener === 'function') removeOtpTimeoutListener()
-    if (typeof removeOtpResultListener === 'function') removeOtpResultListener()
     resetOtpDialog()
   }
 }
 const closeOtp = () => {
   console.log('关闭MFA弹窗，当前OTP ID:', currentOtpId.value)
   if (currentOtpId.value) {
-    if (typeof removeOtpRequestListener === 'function') removeOtpRequestListener()
-    if (typeof removeOtpTimeoutListener === 'function') removeOtpTimeoutListener()
-    if (typeof removeOtpResultListener === 'function') removeOtpResultListener()
     resetOtpDialog()
   }
 }

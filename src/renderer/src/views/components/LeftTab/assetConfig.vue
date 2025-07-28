@@ -287,9 +287,6 @@
       </div>
     </div>
   </div>
-
-  <!-- 二次验证弹窗组件 -->
-  <OtpDialog />
 </template>
 
 <script setup lang="ts">
@@ -301,7 +298,6 @@ import { ToTopOutlined, DatabaseOutlined, EditOutlined, ApiOutlined, DeleteOutli
 import eventBus from '@/utils/eventBus'
 import i18n from '@/locales'
 import { handleRefreshOrganizationAssets } from './components/refreshOrganizationAssets'
-import OtpDialog from './components/OtpDialog.vue'
 const { t } = i18n.global
 
 const isEditMode = ref(false)

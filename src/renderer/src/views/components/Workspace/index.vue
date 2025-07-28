@@ -205,9 +205,6 @@
     </div>
     <div></div>
   </div>
-
-  <!-- 二次验证弹窗组件 -->
-  <OtpDialog />
 </template>
 
 <script setup lang="ts">
@@ -217,7 +214,6 @@ import { StarFilled, StarOutlined, LaptopOutlined, SearchOutlined, EditOutlined,
 import eventBus from '@/utils/eventBus'
 import i18n from '@/locales'
 import { refreshOrganizationAssetFromWorkspace } from '../LeftTab/components/refreshOrganizationAssets'
-import OtpDialog from '../LeftTab/components/OtpDialog.vue'
 
 const { t } = i18n.global
 const emit = defineEmits(['currentClickServer', 'change-company', 'open-user-tab'])
@@ -722,19 +718,44 @@ onUnmounted(() => {
   .favorite-icon {
     display: flex;
     align-items: center;
-    margin-right: 10px;
+    margin-right: 8px;
     cursor: pointer;
-    color: var(--text-color);
+    color: var(--text-color-tertiary);
     flex-shrink: 0;
+    padding: 3px 5px;
+    border-radius: 4px;
+    /* 降低亮度：更微妙的背景和阴影，营造次要层级感 */
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+    transition: all 0.2s ease;
+
+    &:hover {
+      background: rgba(255, 255, 255, 0.06);
+      border-color: rgba(255, 255, 255, 0.12);
+      box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
+      transform: translateY(-0.5px);
+      color: var(--text-color);
+    }
+
+    &:active {
+      background: rgba(255, 255, 255, 0.01);
+      box-shadow: 0 1px 1px rgba(0, 0, 0, 0.3);
+      transform: translateY(0);
+    }
   }
 
   .favorite-filled {
-    color: #faad14;
+    color: #e6b800;
+    opacity: 0.9;
+    filter: drop-shadow(0 0 3px rgba(230, 184, 0, 0.4));
   }
 
   .favorite-outlined {
-    color: var(--text-color-tertiary);
+    color: rgba(255, 255, 255, 0.3);
+    opacity: 0.6;
   }
+
   .edit-icon {
     display: none;
     cursor: pointer;
@@ -748,26 +769,41 @@ onUnmounted(() => {
   .refresh-icon {
     display: flex;
     align-items: center;
-    margin-right: 10px;
+    margin-right: 8px;
     cursor: pointer;
     color: var(--text-color-tertiary);
     font-size: 14px;
-    margin-left: 8px;
+    margin-left: 6px;
     flex-shrink: 0;
-    transition: all 0.3s ease;
+    padding: 3px 5px;
+    border-radius: 4px;
+    /* 简约的层级感：微妙的背景和阴影 */
+    background: rgba(24, 144, 255, 0.08);
+    border: 1px solid rgba(24, 144, 255, 0.15);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+    transition: all 0.2s ease;
+
     &:hover {
+      background: rgba(24, 144, 255, 0.15);
+      border-color: rgba(24, 144, 255, 0.3);
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+      transform: translateY(-1px);
       color: #1890ff;
-      transform: scale(1.1);
     }
+
     &:active {
+      background: rgba(24, 144, 255, 0.05);
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
+      transform: translateY(0);
       color: #1890ff;
-      transform: scale(0.95);
     }
   }
 
   .refresh-icon-active {
-    color: #1890ff !important;
-    transform: scale(1.2);
+    background: rgba(82, 196, 26, 0.15) !important;
+    border-color: rgba(82, 196, 26, 0.4) !important;
+    color: #52c41a !important;
+    box-shadow: 0 0 8px rgba(82, 196, 26, 0.3) !important;
     animation: refresh-pulse 0.8s ease-in-out;
   }
 
@@ -783,6 +819,22 @@ onUnmounted(() => {
     &:active {
       color: #1890ff;
     }
+  }
+}
+
+/* 简约的脉动动画效果 */
+@keyframes refresh-pulse {
+  0% {
+    transform: translateY(0);
+    box-shadow: 0 0 8px rgba(82, 196, 26, 0.3);
+  }
+  50% {
+    transform: translateY(-1px);
+    box-shadow: 0 2px 12px rgba(82, 196, 26, 0.5);
+  }
+  100% {
+    transform: translateY(0);
+    box-shadow: 0 0 8px rgba(82, 196, 26, 0.3);
   }
 }
 
