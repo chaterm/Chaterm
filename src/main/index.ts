@@ -329,6 +329,7 @@ function updateNavigationState(): void {
     })
   }
 }
+
 // Setup IPC handlers
 function setupIPC(): void {
   ipcMain.handle('init-user-database', async (event, { uid }) => {
@@ -819,32 +820,106 @@ if (!app.isDefaultProtocolClient('chaterm')) {
 
 // Linux 下处理 chaterm:// 协议参数
 if (process.platform === 'linux') {
+  // 为 Linux 平台实现单实例锁，确保只有一个应用实例运行
+  const gotTheLock = app.requestSingleInstanceLock()
+
+  if (!gotTheLock) {
+    // 如果无法获取锁，说明已经有一个实例在运行，退出当前实例
+    app.quit()
+  } else {
+    // 监听第二个实例的启动
+    app.on('second-instance', (_event, commandLine, _workingDirectory) => {
+      // 有人试图运行第二个实例，我们应该聚焦到我们的窗口
+      const mainWindow = BrowserWindow.getAllWindows()[0]
+      if (mainWindow) {
+        if (mainWindow.isMinimized()) mainWindow.restore()
+        mainWindow.focus()
+      }
+
+      // 处理协议 URL
+      const protocolUrl = commandLine.find((arg) => arg.startsWith('chaterm://'))
+      if (protocolUrl) {
+        handleProtocolRedirect(protocolUrl)
+      }
+    })
+  }
+
+  // 处理应用启动时的协议参数
   const protocolArg = process.argv.find((arg) => arg.startsWith('chaterm://'))
   if (protocolArg) {
     app.whenReady().then(() => {
       handleProtocolRedirect(protocolArg)
     })
   }
+
+  // 为 Linux 添加额外的 IPC 处理程序，用于处理应用运行过程中的协议调用
+  ipcMain.handle('handle-protocol-url', async (_, url) => {
+    if (url && url.startsWith('chaterm://')) {
+      handleProtocolRedirect(url)
+      return { success: true }
+    }
+    return { success: false, error: 'Invalid protocol URL' }
+  })
 }
 
 // Process protocol redirection
-const handleProtocolRedirect = (url: string) => {
-  const mainWindow = BrowserWindow.getAllWindows()[0]
-  if (!mainWindow) return
+const handleProtocolRedirect = async (url: string) => {
+  // 获取主窗口
+  let targetWindow = BrowserWindow.getAllWindows()[0]
 
-  // Parse the token and user information in the URL
+  // 在 Linux 平台上，尝试找到发起登录的原始窗口
+  if (process.platform === 'linux') {
+    try {
+      // 尝试从 cookie 中获取原始窗口 ID
+      const authStateCookie = await session.defaultSession.cookies.get({
+        url: COOKIE_URL,
+        name: 'chaterm_auth_state'
+      })
+
+      if (authStateCookie && authStateCookie.length > 0) {
+        const authState = JSON.parse(authStateCookie[0].value)
+        const originalWindowId = authState.windowId
+
+        // 尝试找到原始窗口
+        const originalWindow = BrowserWindow.fromId(originalWindowId)
+        if (originalWindow && !originalWindow.isDestroyed()) {
+          targetWindow = originalWindow
+          console.log('找到原始窗口，ID:', originalWindowId)
+
+          // 清除认证状态 cookie
+          await session.defaultSession.cookies.remove(COOKIE_URL, 'chaterm_auth_state')
+        }
+      }
+    } catch (error) {
+      console.error('获取原始窗口失败:', error)
+    }
+  }
+
+  if (!targetWindow) {
+    console.error('找不到可用窗口来处理协议重定向')
+    return
+  }
+
+  // 解析 URL 中的令牌和用户信息
   const urlObj = new URL(url)
   const userInfo = urlObj.searchParams.get('userInfo')
   const method = urlObj.searchParams.get('method')
+
   if (userInfo) {
     try {
-      // Send data to the rendering process
-      mainWindow.webContents.send('external-login-success', {
+      // 将数据发送到渲染进程
+      targetWindow.webContents.send('external-login-success', {
         userInfo: JSON.parse(userInfo),
         method: method
       })
+
+      // 确保窗口可见并聚焦
+      if (targetWindow.isMinimized()) {
+        targetWindow.restore()
+      }
+      targetWindow.focus()
     } catch (error) {
-      console.error('Failed to process external login data:', error)
+      console.error('处理外部登录数据失败:', error)
     }
   }
 }
@@ -887,8 +962,27 @@ ipcMain.handle('open-external-login', async () => {
     const state = Math.random().toString(36).substring(2)
     // Store status values for subsequent verification
     global.authState = state
-    // Replace here with your external login URL, which needs to include information about redirecting back to the application
+
+    // 构建外部登录 URL
     const externalLoginUrl = `https://login.chaterm.ai/login?client_id=chaterm&state=${state}&redirect_uri=chaterm://auth/callback`
+
+    // 在 Linux 平台上，将状态保存到本地存储，以便新实例可以访问
+    if (process.platform === 'linux') {
+      try {
+        // 保存当前窗口 ID，以便回调时可以找到正确的窗口
+        const windowId = mainWindow.id
+        await session.defaultSession.cookies.set({
+          url: COOKIE_URL,
+          name: 'chaterm_auth_state',
+          value: JSON.stringify({ state, windowId }),
+          expirationDate: Date.now() / 1000 + 600 // 10分钟过期
+        })
+      } catch (error) {
+        console.error('Failed to save auth state:', error)
+      }
+    }
+
+    // 打开外部登录页面
     await shell.openExternal(externalLoginUrl)
     return { success: true }
   } catch (error) {

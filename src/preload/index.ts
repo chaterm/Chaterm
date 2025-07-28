@@ -421,6 +421,10 @@ const api = {
   onNavigationStateChanged: (callback: (state: { canGoBack: boolean; canGoForward: boolean }) => void): void => {
     ipcRenderer.on('navigation-state-changed', (_event, state) => callback(state))
   },
+  // 添加处理协议 URL 的函数，特别用于 Linux 系统
+  handleProtocolUrl: (url: string): Promise<{ success: boolean; error?: string }> => {
+    return ipcRenderer.invoke('handle-protocol-url', url)
+  },
 
   // keyboard-interactive authentication
   onKeyboardInteractiveTimeout: (callback) => {
