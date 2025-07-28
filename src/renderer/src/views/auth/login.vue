@@ -138,6 +138,36 @@ const emailForm = reactive({
   code: ''
 })
 
+// 检查 URL 参数，处理外部登录回调
+const checkUrlForAuthCallback = () => {
+  // 获取当前 URL
+  const url = window.location.href
+  const urlObj = new URL(url)
+
+  // 检查是否是 auth/callback 路径
+  if (urlObj.pathname.includes('auth/callback')) {
+    console.log('检测到认证回调 URL:', url)
+
+    // 获取 userInfo 参数
+    const userInfo = urlObj.searchParams.get('userInfo')
+    const method = urlObj.searchParams.get('method')
+
+    if (userInfo) {
+      // 构建一个符合 chaterm:// 协议的 URL
+      const chatermUrl = `chaterm://auth/callback?userInfo=${userInfo}&method=${method || ''}&state=${urlObj.searchParams.get('state') || ''}`
+
+      // 使用 API 处理这个 URL
+      const api = window.api as any
+      if (platform.value === 'linux') {
+        console.log('在 Linux 平台上处理认证回调')
+        api.handleProtocolUrl(chatermUrl).catch((error: any) => {
+          console.error('处理协议 URL 失败:', error)
+        })
+      }
+    }
+  }
+}
+
 const instance = getCurrentInstance()!
 const { appContext } = instance
 const configLang: MenuProps['onClick'] = ({ key }) => {
@@ -302,6 +332,18 @@ onMounted(async () => {
         return false
       }
     })
+
+    // 为 Linux 平台添加 URL 处理功能
+    if (platform.value === 'linux') {
+      // 检查当前 URL 是否包含认证回调信息
+      checkUrlForAuthCallback()
+
+      // 监听 URL 变化
+      window.addEventListener('popstate', checkUrlForAuthCallback)
+
+      // 监听窗口焦点事件，可能是从浏览器返回
+      window.addEventListener('focus', checkUrlForAuthCallback)
+    }
   }
 })
 
@@ -309,6 +351,12 @@ onBeforeUnmount(() => {
   if (!isDevWin.value) {
     const ipcRenderer = (window as any).electron?.ipcRenderer
     ipcRenderer?.removeAllListeners('external-login-success')
+
+    // 清理 Linux 平台的事件监听器
+    if (platform.value === 'linux') {
+      window.removeEventListener('popstate', checkUrlForAuthCallback)
+      window.removeEventListener('focus', checkUrlForAuthCallback)
+    }
   }
 })
 </script>
