@@ -351,7 +351,8 @@ export default {
     copyToClipboard: 'Copy to clipboard',
     retry: 'Retry',
     taskCompleted: 'Task Completed',
-    newTask: 'Start New Task'
+    newTask: 'Start New Task',
+    codePreview: 'Code Preview ({lines} lines)'
   },
   keyChain: {
     newKey: 'New Key',
