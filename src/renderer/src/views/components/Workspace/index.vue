@@ -161,6 +161,18 @@
                     class="edit-icon"
                     @click.stop="handleEdit(dataRef)"
                   />
+                  <!-- 企业资产一级节点刷新按钮 -->
+                  <reload-outlined
+                    v-if="
+                      !isSecondLevel(dataRef) &&
+                      !dataRef.key.startsWith('common_') &&
+                      editingNode !== dataRef.key &&
+                      company !== 'personal_user_id' &&
+                      dataRef.title !== '收藏栏'
+                    "
+                    :class="['refresh-icon', { 'refresh-icon-active': refreshingNode === dataRef.key }]"
+                    @click.stop="handleRefresh(dataRef)"
+                  />
                   <span
                     v-if="
                       dataRef &&
@@ -191,14 +203,19 @@
     </div>
     <div></div>
   </div>
+
+  <!-- 二次验证弹窗组件 -->
+  <OtpDialog />
 </template>
 
 <script setup lang="ts">
 import { deepClone } from '@/utils/util'
 import { ref, computed, onMounted, onUnmounted } from 'vue'
-import { StarFilled, StarOutlined, LaptopOutlined, SearchOutlined, EditOutlined, CheckOutlined } from '@ant-design/icons-vue'
+import { StarFilled, StarOutlined, LaptopOutlined, SearchOutlined, EditOutlined, CheckOutlined, ReloadOutlined } from '@ant-design/icons-vue'
 import eventBus from '@/utils/eventBus'
 import i18n from '@/locales'
+import { refreshOrganizationAssetFromWorkspace } from '../LeftTab/components/refreshOrganizationAssets'
+import OtpDialog from '../LeftTab/components/OtpDialog.vue'
 
 const { t } = i18n.global
 const emit = defineEmits(['currentClickServer', 'change-company', 'open-user-tab'])
@@ -210,6 +227,7 @@ const expandedKeys = ref<string[]>([])
 const searchValue = ref('')
 const editingNode = ref(null)
 const editingTitle = ref('')
+const refreshingNode = ref(null)
 
 interface WorkspaceItem {
   key: string
@@ -524,6 +542,29 @@ const handleDblClick = (dataRef: any) => {
   clickServer(dataRef)
 }
 
+const handleRefresh = async (dataRef: any) => {
+  console.log('刷新企业资产节点:', dataRef)
+  // 设置刷新状态
+  refreshingNode.value = dataRef.key
+
+  try {
+    // 使用共享的刷新功能，支持二次验证
+    await refreshOrganizationAssetFromWorkspace(dataRef, () => {
+      // 刷新成功后的回调
+      getUserAssetMenu()
+    })
+  } catch (error) {
+    console.error('刷新失败:', error)
+    // 即使失败也要刷新菜单，以防有部分数据更新
+    getUserAssetMenu()
+  } finally {
+    // 延迟清除刷新状态，给用户视觉反馈
+    setTimeout(() => {
+      refreshingNode.value = null
+    }, 800)
+  }
+}
+
 getLocalAssetMenu()
 
 const refreshAssetMenu = () => {
@@ -647,29 +688,37 @@ onUnmounted(() => {
   align-items: center;
   width: 100%;
   position: relative;
-  padding-right: 24px;
+  padding-right: 4px;
 
   .title-with-icon {
     display: flex;
     align-items: center;
     color: var(--text-color);
-    flex-grow: 1;
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
 
     .computer-icon {
       margin-right: 6px;
       font-size: 14px;
       color: var(--text-color);
+      flex-shrink: 0;
     }
   }
 
+  .action-buttons {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    flex-shrink: 0;
+  }
+
   .favorite-icon {
-    position: absolute;
-    right: 0;
-    top: 50%;
-    transform: translateY(-50%);
+    display: flex;
+    align-items: center;
     cursor: pointer;
     color: var(--text-color);
-    margin-left: 8px;
+    flex-shrink: 0;
   }
 
   .favorite-filled {
@@ -684,8 +733,46 @@ onUnmounted(() => {
     cursor: pointer;
     color: var(--text-color-tertiary);
     font-size: 14px;
-    margin-left: 6px;
     &:hover {
+      color: #1890ff;
+    }
+  }
+
+  .refresh-icon {
+    display: flex;
+    align-items: center;
+    cursor: pointer;
+    color: var(--text-color-tertiary);
+    font-size: 14px;
+    margin-left: 8px;
+    flex-shrink: 0;
+    transition: all 0.3s ease;
+    &:hover {
+      color: #1890ff;
+      transform: scale(1.1);
+    }
+    &:active {
+      color: #1890ff;
+      transform: scale(0.95);
+    }
+  }
+
+  .refresh-icon-active {
+    color: #1890ff !important;
+    transform: scale(1.2);
+    animation: refresh-pulse 0.8s ease-in-out;
+  }
+
+  .refresh-icon-inline {
+    cursor: pointer;
+    color: var(--text-color-tertiary);
+    font-size: 14px;
+    margin-left: 8px;
+    transition: color 0.3s;
+    &:hover {
+      color: #1890ff;
+    }
+    &:active {
       color: #1890ff;
     }
   }
@@ -799,6 +886,18 @@ onUnmounted(() => {
     &::placeholder {
       color: rgba(255, 255, 255, 0.25);
     }
+  }
+}
+
+@keyframes refresh-pulse {
+  0% {
+    transform: scale(1.2);
+  }
+  50% {
+    transform: scale(1.3) rotate(180deg);
+  }
+  100% {
+    transform: scale(1.2) rotate(360deg);
   }
 }
 </style>
