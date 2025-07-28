@@ -105,7 +105,7 @@
                 <div
                   v-if="selectedHost?.asset_type === 'organization'"
                   class="context-menu-item"
-                  @click="handleRefreshOrganizationAssets(selectedHost)"
+                  @click="handleRefreshOrganizationAssetsLocal(selectedHost)"
                 >
                   <div class="context-menu-icon"><ReloadOutlined /></div>
                   <div>{{ t('personal.refreshAssets') }}</div>
@@ -261,7 +261,7 @@
                 :placeholder="t('personal.pleaseSelectGroup')"
                 :max-tag-count="2"
                 style="width: 100%"
-                @change="(val: SelectValue) => (createFrom.group_name = Array.isArray(val) && val.length > 0 ? String(val[val.length - 1]) : '')"
+                @change="(val) => (createFrom.group_name = Array.isArray(val) && val.length > 0 ? String(val[val.length - 1]) : '')"
               >
                 <a-select-option
                   v-for="item1 in defaultGroups"
@@ -288,57 +288,20 @@
     </div>
   </div>
 
-  <!-- 二次验证弹窗 -->
-  <a-modal
-    v-model:visible="showOtpDialog"
-    title="二次验证"
-    width="30%"
-    :mask-closable="false"
-    :keyboard="false"
-  >
-    <div>
-      <p>{{ otpPrompt || '请输入验证码' }}</p>
-      <a-input-password
-        v-model:value="otpCode"
-        placeholder="验证码"
-        :visibility-toggle="false"
-        @press-enter="submitOtpCode"
-      />
-      <span
-        v-show="showOtpDialogErr"
-        style="color: red"
-        >验证码错误</span
-      >
-      <span
-        v-show="showOtpDialogCheckErr"
-        style="color: red"
-        >请输入验证码</span
-      >
-    </div>
-    <template #footer>
-      <a-button
-        key="submit"
-        @click="cancelOtp"
-        >取消</a-button
-      >
-      <a-button
-        type="primary"
-        @click="submitOtpCode"
-        >确认
-      </a-button>
-    </template>
-  </a-modal>
+  <!-- 二次验证弹窗组件 -->
+  <OtpDialog />
 </template>
 
 <script setup lang="ts">
 import { Modal, message } from 'ant-design-vue'
-import type { SelectValue } from 'ant-design-vue/es/select'
 import { ref, onMounted, onBeforeUnmount, reactive, computed, watch } from 'vue'
 import 'xterm/css/xterm.css'
 import { deepClone } from '@/utils/util'
 import { ToTopOutlined, DatabaseOutlined, EditOutlined, ApiOutlined, DeleteOutlined, SearchOutlined, ReloadOutlined } from '@ant-design/icons-vue'
 import eventBus from '@/utils/eventBus'
 import i18n from '@/locales'
+import { handleRefreshOrganizationAssets } from './components/refreshOrganizationAssets'
+import OtpDialog from './components/OtpDialog.vue'
 const { t } = i18n.global
 
 const isEditMode = ref(false)
@@ -408,20 +371,7 @@ const contextMenuPosition = reactive({ x: 0, y: 0 })
 const selectedHost = ref<AssetNode | null>(null)
 const selectedGroup = ref<AssetNode | null>(null)
 
-// 二次验证相关变量
-const showOtpDialog = ref(false)
-const showOtpDialogErr = ref(false)
-const showOtpDialogCheckErr = ref(false)
-const otpPrompt = ref('')
-const otpCode = ref('')
-const currentOtpId = ref<string | null>(null)
-const otpAttempts = ref(0)
-const MAX_OTP_ATTEMPTS = 5
-
-// 二次验证监听器
-let removeOtpRequestListener = (): void => {}
-let removeOtpTimeoutListener = (): void => {}
-let removeOtpResultListener = (): void => {}
+// 二次验证相关变量现在从共享模块导入
 
 const openNewPanel = () => {
   isEditMode.value = false
@@ -784,11 +734,7 @@ onMounted(() => {
 onBeforeUnmount(() => {
   document.removeEventListener('click', handleDocumentClick)
   eventBus.off('keyChainUpdated')
-
-  // 清理二次验证监听器
-  if (typeof removeOtpRequestListener === 'function') removeOtpRequestListener()
-  if (typeof removeOtpTimeoutListener === 'function') removeOtpTimeoutListener()
-  if (typeof removeOtpResultListener === 'function') removeOtpResultListener()
+  // 二次验证监听器现在在共享模块中管理
 })
 
 watch(isRightSectionVisible, (val) => {
@@ -829,148 +775,18 @@ watch(
   { immediate: true }
 )
 
-// 刷新企业资产函数
-const handleRefreshOrganizationAssets = async (host: AssetNode | null) => {
+// 刷新企业资产函数 - 现在使用共享模块
+const handleRefreshOrganizationAssetsLocal = async (host: AssetNode | null) => {
   if (!host || host.asset_type !== 'organization') return
 
-  // 为刷新企业资产专门设置MFA监听器
-  setupOtpListenersForRefresh()
-
-  const hide = message.loading(t('personal.refreshingAssets'), 0)
-
-  try {
-    const api = window.api as any
-    const result = await api.refreshOrganizationAssets({
-      organizationUuid: host.uuid,
-      jumpServerConfig: {
-        host: host.ip,
-        port: host.port || 22,
-        username: host.username,
-        password: host.password,
-        keyChain: host.key_chain_id
-      }
-    })
-    console.log('刷新企业资产结果:', result)
-    if (result?.data?.message === 'success') {
-      hide() // 只隐藏加载消息
-      message.success(t('personal.refreshSuccess'))
-      getAssetList() // 刷新资产列表
-      eventBus.emit('LocalAssetMenu')
-    } else {
-      throw new Error('刷新失败')
-    }
-  } catch (error) {
-    console.error('刷新企业资产失败:', error)
-    hide() // 隐藏加载消息
-    message.error(t('personal.refreshError'))
-  } finally {
-    // 刷新完成后清理MFA监听器，避免与后续连接操作冲突
-    cleanupOtpListeners()
-  }
+  await handleRefreshOrganizationAssets(host, () => {
+    getAssetList() // 刷新资产列表
+  })
 
   contextMenuVisible.value = false
 }
 
-// 二次验证处理方法
-const handleOtpRequest = (data: any) => {
-  currentOtpId.value = data.id
-  otpPrompt.value = data.prompts.join('\n')
-  showOtpDialog.value = true
-  showOtpDialogErr.value = false
-  showOtpDialogCheckErr.value = false
-  otpAttempts.value = 0
-}
-
-const handleOtpError = (data: any) => {
-  if (data.id === currentOtpId.value) {
-    if (data.status === 'success') {
-      closeOtp()
-    } else {
-      showOtpDialogErr.value = true
-      otpAttempts.value += 1
-      otpCode.value = ''
-      if (otpAttempts.value >= MAX_OTP_ATTEMPTS) {
-        showOtpDialog.value = false
-        cancelOtp()
-      }
-    }
-  }
-}
-
-const submitOtpCode = () => {
-  showOtpDialogCheckErr.value = false
-  showOtpDialogErr.value = false
-  if (otpCode.value && currentOtpId.value) {
-    const api = window.api as any
-    api.submitKeyboardInteractiveResponse(currentOtpId.value, otpCode.value)
-  } else {
-    showOtpDialogCheckErr.value = true
-  }
-}
-
-const cancelOtp = () => {
-  if (currentOtpId.value) {
-    const api = window.api as any
-    api.cancelKeyboardInteractive(currentOtpId.value)
-    if (typeof removeOtpRequestListener === 'function') removeOtpRequestListener()
-    if (typeof removeOtpTimeoutListener === 'function') removeOtpTimeoutListener()
-    if (typeof removeOtpResultListener === 'function') removeOtpResultListener()
-    resetOtpDialog()
-  }
-}
-
-const closeOtp = () => {
-  if (currentOtpId.value) {
-    if (typeof removeOtpRequestListener === 'function') removeOtpRequestListener()
-    if (typeof removeOtpTimeoutListener === 'function') removeOtpTimeoutListener()
-    if (typeof removeOtpResultListener === 'function') removeOtpResultListener()
-    resetOtpDialog()
-  }
-}
-
-const resetOtpDialog = () => {
-  showOtpDialog.value = false
-  showOtpDialogErr.value = false
-  showOtpDialogCheckErr.value = false
-  otpPrompt.value = ''
-  otpCode.value = ''
-  currentOtpId.value = null
-}
-
-// 为刷新企业资产设置MFA监听器
-const setupOtpListenersForRefresh = () => {
-  // 先清理现有的监听器
-  if (typeof removeOtpRequestListener === 'function') removeOtpRequestListener()
-  if (typeof removeOtpTimeoutListener === 'function') removeOtpTimeoutListener()
-  if (typeof removeOtpResultListener === 'function') removeOtpResultListener()
-
-  // 重置二次验证相关状态
-  resetOtpDialog()
-
-  // 重新设置监听器（仅用于刷新企业资产）
-  const api = window.api as any
-  removeOtpRequestListener = api.onKeyboardInteractiveRequest(handleOtpRequest)
-  removeOtpTimeoutListener = api.onKeyboardInteractiveTimeout(handleOtpTimeout)
-  removeOtpResultListener = api.onKeyboardInteractiveResult(handleOtpError)
-}
-
-// 清理MFA监听器（刷新完成后）
-const cleanupOtpListeners = () => {
-  if (typeof removeOtpRequestListener === 'function') removeOtpRequestListener()
-  if (typeof removeOtpTimeoutListener === 'function') removeOtpTimeoutListener()
-  if (typeof removeOtpResultListener === 'function') removeOtpResultListener()
-
-  // 重置为空函数
-  removeOtpRequestListener = (): void => {}
-  removeOtpTimeoutListener = (): void => {}
-  removeOtpResultListener = (): void => {}
-}
-
-const handleOtpTimeout = (data: any) => {
-  if (data.id === currentOtpId.value && showOtpDialog.value) {
-    resetOtpDialog()
-  }
-}
+// 二次验证处理方法现在从共享模块导入
 </script>
 
 <style lang="less" scoped>
