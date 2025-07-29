@@ -377,6 +377,50 @@ const focusRightSidebar = () => {
   })
 }
 
+const switchToNextTab = () => {
+  if (openedTabs.value.length <= 1) return
+
+  const currentIndex = openedTabs.value.findIndex((tab) => tab.id === activeTabId.value)
+  if (currentIndex !== -1) {
+    const nextIndex = (currentIndex + 1) % openedTabs.value.length
+    const nextTab = openedTabs.value[nextIndex]
+    if (nextTab) {
+      switchTab(nextTab.id)
+    }
+  }
+}
+
+const switchToPrevTab = () => {
+  if (openedTabs.value.length <= 1) return
+
+  const currentIndex = openedTabs.value.findIndex((tab) => tab.id === activeTabId.value)
+  if (currentIndex !== -1) {
+    const prevIndex = (currentIndex - 1 + openedTabs.value.length) % openedTabs.value.length
+    const prevTab = openedTabs.value[prevIndex]
+    if (prevTab) {
+      switchTab(prevTab.id)
+    }
+  }
+}
+
+const switchToSpecificTab = (tabNumber: number) => {
+  if (tabNumber < 1 || tabNumber > 9) return
+
+  // Focus the main panel first
+  if (focusedPane.value.type !== 'main') {
+    focusedPane.value = { type: 'main' }
+    focusedSplitPaneIndex.value = null
+  }
+
+  // Switch to the specified tab (1-based index)
+  if (openedTabs.value.length >= tabNumber) {
+    const targetTab = openedTabs.value[tabNumber - 1]
+    if (targetTab) {
+      switchTab(targetTab.id)
+    }
+  }
+}
+
 onMounted(async () => {
   const store = piniaUserConfigStore()
   await shortcutService.loadShortcuts()
@@ -440,6 +484,9 @@ onMounted(async () => {
   eventBus.on('createVerticalSplitTab', handleCreateVerticalSplitTab)
   eventBus.on('adjustSplitPaneToEqual', adjustSplitPaneToEqualWidth)
   eventBus.on('sendOrToggleAiFromTerminal', handleSendOrToggleAiFromTerminal)
+  eventBus.on('switchToNextTab', switchToNextTab)
+  eventBus.on('switchToPrevTab', switchToPrevTab)
+  eventBus.on('switchToSpecificTab', switchToSpecificTab)
 
   checkVersion()
 })
@@ -884,6 +931,9 @@ onUnmounted(() => {
   eventBus.off('createSplitTab', handleCreateSplitTab)
   eventBus.off('createVerticalSplitTab', handleCreateVerticalSplitTab)
   eventBus.off('adjustSplitPaneToEqual', adjustSplitPaneToEqualWidth)
+  eventBus.off('switchToNextTab', switchToNextTab)
+  eventBus.off('switchToPrevTab', switchToPrevTab)
+  eventBus.off('switchToSpecificTab', switchToSpecificTab)
 })
 const openUserTab = function (value) {
   if (value === 'assetConfig' || value === 'keyChainConfig' || value === 'userInfo' || value === 'userConfig') {

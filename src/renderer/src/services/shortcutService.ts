@@ -27,10 +27,11 @@ export class ShortcutService {
   private static _instance: ShortcutService
 
   private shortcuts: Map<string, ShortcutAction> = new Map()
-  private keyListeners: Map<string, (event: KeyboardEvent) => void> = new Map()
+  private shortcutMappings: Map<string, { parsed: ParsedShortcut; handler: () => void }> = new Map()
   private currentShortcuts: ShortcutConfig | null = null
   private isRecording: boolean = false
   private recordingListener: ((event: KeyboardEvent) => void) | null = null
+  private listener: ((event: KeyboardEvent) => void) | null = null
 
   private constructor() {
     console.log('ShortcutService constructor is now private.')
@@ -89,46 +90,78 @@ export class ShortcutService {
   }
 
   private bindShortcuts() {
-    // Clear previous listeners
-    this.clearListeners()
+    // Clear previous shortcuts
+    this.clearShortcuts()
 
     if (!this.currentShortcuts) return
 
-    // Bind new shortcuts
+    // Build shortcut mappings
     Object.entries(this.currentShortcuts).forEach(([actionId, shortcutKey]) => {
       const action = this.shortcuts.get(actionId)
       if (action) {
-        this.bindShortcut(shortcutKey, action.handler)
+        if (actionId === 'switchToSpecificTab') {
+          this.addDigitShortcuts()
+        } else {
+          this.addShortcutMapping(shortcutKey, action.handler)
+        }
       }
     })
+
+    // Always add digit shortcuts even if not in user config
+    if (!this.currentShortcuts.switchToSpecificTab) {
+      this.addDigitShortcuts()
+    }
+
+    // Set up single global listener
+    this.setupListener()
   }
 
-  private bindShortcut(shortcutKey: string, handler: () => void) {
+  private addShortcutMapping(shortcutKey: string, handler: () => void) {
     if (!shortcutKey) return
 
     const parsedShortcut = this.parseShortcut(shortcutKey)
     if (!parsedShortcut) return
 
-    const listener = (event: KeyboardEvent) => {
+    this.shortcutMappings.set(shortcutKey, {
+      parsed: parsedShortcut,
+      handler
+    })
+  }
+
+  private setupListener() {
+    // Remove existing global listener
+    this.removeListener()
+
+    // Create new global listener
+    this.listener = (event: KeyboardEvent) => {
       // If currently recording shortcuts, don't trigger any shortcut actions
       if (this.isRecording) return
 
-      if (this.matchesShortcut(event, parsedShortcut)) {
-        event.preventDefault()
-        event.stopPropagation()
-        handler()
+      // Check all registered shortcuts
+      for (const [shortcutKey, { parsed, handler }] of this.shortcutMappings) {
+        if (this.matchesShortcut(event, parsed)) {
+          event.preventDefault()
+          event.stopPropagation()
+          handler()
+          return // Only trigger the first matching shortcut
+        }
       }
     }
 
-    this.keyListeners.set(shortcutKey, listener)
-    document.addEventListener('keydown', listener)
+    // Add global listener with capture mode
+    document.addEventListener('keydown', this.listener, true)
   }
 
-  private clearListeners() {
-    this.keyListeners.forEach((listener) => {
-      document.removeEventListener('keydown', listener)
-    })
-    this.keyListeners.clear()
+  private removeListener() {
+    if (this.listener) {
+      document.removeEventListener('keydown', this.listener, true)
+      this.listener = null
+    }
+  }
+
+  private clearShortcuts() {
+    this.shortcutMappings.clear()
+    this.removeListener()
   }
 
   parseShortcut(shortcutString: string): ParsedShortcut | null {
@@ -174,7 +207,15 @@ export class ShortcutService {
       }
     }
 
-    if (!mainKey) return null
+    // Allow shortcuts with only modifier keys (for special cases like switchToSpecificTab)
+    if (!mainKey) {
+      // Check if we have at least one modifier key
+      if (parsed.ctrlKey || parsed.shiftKey || parsed.altKey || parsed.metaKey) {
+        parsed.key = '' // Empty key for modifier-only shortcuts
+        return parsed
+      }
+      return null
+    }
 
     parsed.key = mainKey.toLowerCase()
     return parsed
@@ -183,6 +224,11 @@ export class ShortcutService {
   private matchesShortcut(event: KeyboardEvent, parsed: ParsedShortcut): boolean {
     const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0
     let eventKey = event.key.toLowerCase()
+
+    // Special handling for Tab key
+    if (event.code === 'Tab' || event.key === 'Tab') {
+      eventKey = 'tab'
+    }
 
     // If Option key is pressed on Mac, use event.code to get the correct key name
     if (event.altKey && isMac) {
@@ -205,7 +251,8 @@ export class ShortcutService {
           Equal: '=',
           Space: ' ',
           Enter: 'enter',
-          Escape: 'escape'
+          Escape: 'escape',
+          Tab: 'tab'
         }
         eventKey = (codeMap[event.code] || event.code).toLowerCase()
       }
@@ -213,48 +260,117 @@ export class ShortcutService {
 
     const parsedKey = parsed.key.toLowerCase()
 
-    // Special key mapping
-    const keyMap: { [key: string]: string } = {
-      ',': 'comma',
-      '.': 'period',
-      '/': 'slash',
-      ';': 'semicolon',
-      "'": 'quote',
-      '[': 'bracketleft',
-      ']': 'bracketright',
-      '\\': 'backslash',
-      '`': 'backquote',
-      '-': 'minus',
-      '=': 'equal'
-    }
+    // Special handling for modifier-only shortcuts (empty key)
+    if (parsed.key === '') {
+      // For modifier-only shortcuts, we need to check if only modifiers are pressed
+      // and no other keys are pressed
+      const isModifierKey = ['Control', 'Alt', 'Shift', 'Meta', 'Command'].includes(event.key)
+      if (!isModifierKey) {
+        return false // A non-modifier key was pressed
+      }
+    } else {
+      // Special key mapping
+      const keyMap: { [key: string]: string } = {
+        ',': 'comma',
+        '.': 'period',
+        '/': 'slash',
+        ';': 'semicolon',
+        "'": 'quote',
+        '[': 'bracketleft',
+        ']': 'bracketright',
+        '\\': 'backslash',
+        '`': 'backquote',
+        '-': 'minus',
+        '=': 'equal',
+        tab: 'tab'
+      }
 
-    // Check if main key matches
-    let keyMatches = false
-    if (parsedKey === eventKey) {
-      keyMatches = true
-    } else if (keyMap[parsedKey] === eventKey) {
-      keyMatches = true
-    } else if (parsedKey === keyMap[eventKey]) {
-      keyMatches = true
-    } else if (parsedKey === 'comma' && eventKey === ',') {
-      keyMatches = true
+      // Check if main key matches
+      let keyMatches = false
+      if (parsedKey === eventKey) {
+        keyMatches = true
+      } else if (keyMap[parsedKey] === eventKey) {
+        keyMatches = true
+      } else if (parsedKey === keyMap[eventKey]) {
+        keyMatches = true
+      } else if (parsedKey === 'comma' && eventKey === ',') {
+        keyMatches = true
+      } else if (parsedKey === 'tab' && (eventKey === 'tab' || event.code === 'Tab')) {
+        keyMatches = true
+      }
+
+      if (!keyMatches) {
+        return false
+      }
     }
 
     return (
-      keyMatches &&
-      event.ctrlKey === parsed.ctrlKey &&
-      event.shiftKey === parsed.shiftKey &&
-      event.altKey === parsed.altKey &&
-      event.metaKey === parsed.metaKey
+      event.ctrlKey === parsed.ctrlKey && event.shiftKey === parsed.shiftKey && event.altKey === parsed.altKey && event.metaKey === parsed.metaKey
     )
+  }
+
+  // Add digit shortcuts (Command/Ctrl + 1-9)
+  private addDigitShortcuts() {
+    const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0
+    const action = this.shortcuts.get('switchToSpecificTab')
+
+    if (!action) return
+
+    // Get the configured prefix shortcut (without the digit part)
+    let prefixShortcut = this.currentShortcuts?.switchToSpecificTab || (isMac ? 'Command' : 'Ctrl')
+
+    // Add shortcuts for digits 1-9
+    for (let digit = 1; digit <= 9; digit++) {
+      const shortcutKey = `${prefixShortcut}+${digit}`
+      const parsedShortcut = this.parseShortcut(shortcutKey)
+
+      if (parsedShortcut) {
+        this.shortcutMappings.set(shortcutKey, {
+          parsed: parsedShortcut,
+          handler: () => {
+            eventBus.emit('switchToSpecificTab', digit)
+          }
+        })
+      }
+    }
+  }
+
+  // Validate switchToSpecificTab shortcut - only modifier keys can be changed
+  private validateSpecificTabShortcut(shortcut: string): boolean {
+    if (!shortcut) return false
+
+    // The shortcut should not contain digit keys, as they will be added automatically
+    const parts = shortcut.split('+').map((part) => part.trim())
+    const hasDigit = parts.some((part) => /^\d$/.test(part))
+
+    if (hasDigit) {
+      return false // User shouldn't specify digit keys
+    }
+
+    // Must have at least one modifier key
+    const hasModifier = parts.some((part) => {
+      const lowerPart = part.toLowerCase()
+      return ['ctrl', 'control', 'shift', 'alt', 'option', 'cmd', 'command', 'meta'].includes(lowerPart)
+    })
+
+    return hasModifier
   }
 
   async updateShortcut(actionId: string, newShortcut: string): Promise<boolean> {
     try {
-      // Check if shortcut is valid
-      const parsed = this.parseShortcut(newShortcut)
-      if (!parsed) {
-        throw new Error('Invalid shortcut format')
+      // Special validation for switchToSpecificTab
+      if (actionId === 'switchToSpecificTab') {
+        if (!this.validateSpecificTabShortcut(newShortcut)) {
+          throw new Error(
+            'Invalid shortcut format for tab switching. Please only specify modifier keys (e.g., Command, Ctrl, Alt, Shift). Digit keys 1-9 are automatically added.'
+          )
+        }
+      } else {
+        // Check if shortcut is valid for other actions
+        const parsed = this.parseShortcut(newShortcut)
+        if (!parsed) {
+          throw new Error('Invalid shortcut format')
+        }
       }
 
       // Check if shortcut is already in use
@@ -313,7 +429,7 @@ export class ShortcutService {
   }
 
   destroy() {
-    this.clearListeners()
+    this.clearShortcuts()
     this.shortcuts.clear()
   }
 
@@ -345,7 +461,7 @@ export class ShortcutService {
   }
 
   // Format shortcut for display
-  formatShortcut(shortcut: string): string {
+  formatShortcut(shortcut: string, actionId?: string): string {
     if (!shortcut) return ''
 
     const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0
@@ -356,7 +472,7 @@ export class ShortcutService {
         .replace(/Command/g, '⌘')
         .replace(/Option/g, '⌥')
         .replace(/Alt/g, '⌥')
-        .replace(/Shift/g, '⇧')
+        .replace(/Shift/g, 'Shift')
         .replace(/Control/g, '⌃')
         .replace(/Ctrl/g, '⌃')
     } else {
@@ -364,6 +480,10 @@ export class ShortcutService {
         .replace(/Command/g, 'Ctrl')
         .replace(/Option/g, 'Alt')
         .replace(/Meta/g, 'Ctrl')
+    }
+
+    if (actionId === 'switchToSpecificTab') {
+      formatted = `${formatted}+[1...9]`
     }
 
     return formatted

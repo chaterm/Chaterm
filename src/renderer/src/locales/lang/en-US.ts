@@ -270,7 +270,10 @@ export default {
       openSettings: 'Open Settings',
       toggleLeftSidebar: 'Toggle Left Sidebar',
       toggleRightSidebar: 'Toggle Right Sidebar',
-      sendOrToggleAi: 'Send to AI / Toggle AI Sidebar'
+      sendOrToggleAi: 'Send to AI / Toggle AI Sidebar',
+      switchToNextTab: 'Next Tab',
+      switchToPrevTab: 'Previous Tab',
+      switchToSpecificTab: 'Switch to specific Tab[1...9]'
     }
   },
   personal: {
