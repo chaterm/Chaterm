@@ -237,6 +237,7 @@ import { isGlobalInput, isShowCommandBar, isShowQuickCommand } from '@renderer/v
 import { inputManager } from '../components/Ssh/termInputManager'
 import { useRouter } from 'vue-router'
 import { shortcutService } from '@/services/shortcutService'
+import { captureExtensionUsage, ExtensionNames, ExtensionStatus } from '@/utils/telemetry'
 
 const router = useRouter()
 const api = window.api as any
@@ -396,6 +397,22 @@ onMounted(async () => {
     store.setUserConfig(config)
     currentTheme.value = config.theme || 'dark'
     document.body.className = `theme-${currentTheme.value}`
+
+    // Delay of 2 seconds to wait for the main thread to complete initializeTelemetrySetting
+    setTimeout(async () => {
+      const extensionStates = [
+        { name: ExtensionNames.AUTO_COMPLETE, enabled: config.autoCompleteStatus === 1 },
+        { name: ExtensionNames.VIM_EDITOR, enabled: config.quickVimStatus === 1 },
+        { name: ExtensionNames.ALIAS, enabled: config.aliasStatus === 1 },
+        { name: ExtensionNames.HIGHLIGHT, enabled: config.highlightStatus === 1 }
+      ]
+
+      for (const extension of extensionStates) {
+        const status = extension.enabled ? ExtensionStatus.ENABLED : ExtensionStatus.DISABLED
+        await captureExtensionUsage(extension.name, status, { trigger: 'app_startup' })
+      }
+    }, 2000)
+
     nextTick(() => {
       showWatermark.value = config.watermark !== 'close'
       api.updateTheme(currentTheme.value)
