@@ -17,14 +17,12 @@
         </div>
       </div>
 
-      <!-- 资产管理 -->
       <div style="width: 100%; margin-top: 10px">
         <div class="manage">
           <a-input
             v-model:value="searchValue"
             class="transparent-Input"
             :placeholder="t('common.search')"
-            :style="isPersonalWorkspace ? 'width: 70%' : 'width: 100%'"
             allow-clear
             @input="onSearchInput"
           >
@@ -72,25 +70,7 @@
                       @dblclick="handleDblClick(dataRef)"
                       >{{ title }}</span
                     >
-                    <!-- <span
-                      v-else
-                      class="edit-container"
-                    >
-                      <a-input
-                        v-model:value="editingTitle"
-                        size="small"
-                      />
-                      <check-outlined
-                        class="confirm-icon"
-                        @click.stop="confirmEdit(dataRef)"
-                      />
-                    </span> -->
                   </span>
-                  <!-- <edit-outlined
-                    v-if="isSecondLevel(dataRef) && editingNode !== dataRef.key"
-                    class="edit-icon"
-                    @click.stop="handleEdit(dataRef)"
-                  /> -->
                   <span
                     v-if="
                       dataRef &&
@@ -144,27 +124,8 @@
                       @dblclick="handleDblClick(dataRef)"
                       >{{ title }}</span
                     >
-                    <!-- <span
-                      v-else
-                      class="edit-container"
-                    >
-                      <a-input
-                        v-model:value="editingTitle"
-                        size="small"
-                      />
-                      <check-outlined
-                        class="confirm-icon"
-                        @click.stop="confirmEdit(dataRef)"
-                      />
-                    </span> -->
                   </span>
-                  <!-- <edit-outlined
-                    v-if="isSecondLevel(dataRef) && editingNode !== dataRef.key"
-                    class="edit-icon"
-                    @click.stop="handleEdit(dataRef)"
-                  /> -->
-                  <!-- 企业资产一级节点刷新按钮 -->
-                  <reload-outlined
+                  <div
                     v-if="
                       !isSecondLevel(dataRef) &&
                       !dataRef.key.startsWith('common_') &&
@@ -172,9 +133,21 @@
                       company !== 'personal_user_id' &&
                       dataRef.title !== '收藏栏'
                     "
-                    :class="['refresh-icon', { 'refresh-icon-active': refreshingNode === dataRef.key }]"
-                    @click.stop="handleRefresh(dataRef)"
-                  />
+                    class="refresh-icon"
+                  >
+                    <a-tooltip :title="$t('common.refresh')">
+                      <a-button
+                        type="primary"
+                        size="small"
+                        ghost
+                        @click="handleRefresh(dataRef)"
+                      >
+                        <template #icon>
+                          <RedoOutlined />
+                        </template>
+                      </a-button>
+                    </a-tooltip>
+                  </div>
                   <span
                     v-if="
                       dataRef &&
@@ -201,24 +174,20 @@
           </div>
         </div>
       </div>
-      <!-- 资产创建 -->
     </div>
-    <div></div>
   </div>
 </template>
 
 <script setup lang="ts">
 import { deepClone } from '@/utils/util'
 import { ref, computed, onMounted, onUnmounted } from 'vue'
-import { StarFilled, StarOutlined, LaptopOutlined, SearchOutlined, EditOutlined, CheckOutlined, ReloadOutlined } from '@ant-design/icons-vue'
+import { StarFilled, StarOutlined, LaptopOutlined, SearchOutlined, RedoOutlined } from '@ant-design/icons-vue'
 import eventBus from '@/utils/eventBus'
 import i18n from '@/locales'
 import { refreshOrganizationAssetFromWorkspace } from '../LeftTab/components/refreshOrganizationAssets'
 
 const { t } = i18n.global
 const emit = defineEmits(['currentClickServer', 'change-company', 'open-user-tab'])
-
-// 添加缺失的变量声明
 const company = ref('personal_user_id')
 const selectedKeys = ref<string[]>([])
 const expandedKeys = ref<string[]>([])
@@ -328,7 +297,6 @@ const getUserAssetMenu = () => {
 }
 
 const expandDefaultNodes = (data) => {
-  // Expand all parent nodes by default
   const keys: string[] = []
   const traverseTree = (nodes: AssetNode[]) => {
     if (!nodes) return
@@ -351,7 +319,6 @@ const filterTreeNodes = (inputValue: string): AssetNode[] => {
   const filterNodes = (nodes: AssetNode[]): AssetNode[] => {
     return nodes
       .map((node) => {
-        // 检查标题或IP是否匹配
         const titleMatch = node.title.toLowerCase().includes(lowerCaseInput)
         const ipMatch = node.ip && node.ip.toLowerCase().includes(lowerCaseInput)
 
@@ -432,10 +399,8 @@ const toggleFavorite = (dataRef: any): void => {
       .catch((err) => console.error('个人资产收藏错误:', err))
   } else {
     console.log('执行企业资产收藏逻辑')
-    // 企业资产需要区分是组织本身还是组织下的子资产
     if (dataRef.asset_type === 'organization' && !dataRef.organizationId) {
       console.log('更新组织本身收藏状态')
-      // 组织本身，修改 t_assets
       window.api
         .updateLocalAsseFavorite({ uuid: dataRef.uuid, status: dataRef.favorite ? 2 : 1 })
         .then((res) => {
@@ -453,13 +418,11 @@ const toggleFavorite = (dataRef: any): void => {
         status: dataRef.favorite ? 2 : 1
       })
 
-      // 检查 API 方法是否存在
       if (!window.api.updateOrganizationAssetFavorite) {
         console.error('window.api.updateOrganizationAssetFavorite 方法不存在!')
         return
       }
 
-      // 组织下的子资产，修改 t_organization_assets
       window.api
         .updateOrganizationAssetFavorite({
           organizationUuid: dataRef.organizationId,
@@ -483,39 +446,7 @@ const toggleFavorite = (dataRef: any): void => {
   }
   console.log('=== toggleFavorite 结束 ===')
 }
-const handleEdit = (dataRef) => {
-  editingNode.value = dataRef.key
-  editingTitle.value = dataRef.title
-}
 
-const confirmEdit = (dataRef) => {
-  if (!editingTitle.value.trim()) {
-    return
-  }
-  dataRef.title = editingTitle.value
-  editingNode.value = null
-  editingTitle.value = ''
-
-  if (isPersonalWorkspace.value) {
-    window.api
-      .updateLocalAssetLabel({ uuid: dataRef.uuid, label: dataRef.title })
-      .then((res) => {
-        if (res.data.message === 'success') {
-          getLocalAssetMenu()
-        }
-      })
-      .catch((err) => console.error(err))
-  } else {
-    window.api
-      .updateLocalAssetLabel({ uuid: dataRef.uuid, label: dataRef.title })
-      .then((res) => {
-        if (res.data.message === 'success') {
-          getUserAssetMenu()
-        }
-      })
-      .catch((err) => console.error(err))
-  }
-}
 const clickServer = (item) => {
   emit('currentClickServer', item)
 }
@@ -542,21 +473,16 @@ const handleDblClick = (dataRef: any) => {
 
 const handleRefresh = async (dataRef: any) => {
   console.log('刷新企业资产节点:', dataRef)
-  // 设置刷新状态
   refreshingNode.value = dataRef.key
 
   try {
-    // 使用共享的刷新功能，支持二次验证
     await refreshOrganizationAssetFromWorkspace(dataRef, () => {
-      // 刷新成功后的回调
       getUserAssetMenu()
     })
   } catch (error) {
     console.error('刷新失败:', error)
-    // 即使失败也要刷新菜单，以防有部分数据更新
     getUserAssetMenu()
   } finally {
-    // 延迟清除刷新状态，给用户视觉反馈
     setTimeout(() => {
       refreshingNode.value = null
     }, 800)
@@ -682,6 +608,10 @@ onUnmounted(() => {
       background-color: var(--hover-bg-color);
     }
   }
+
+  .ant-tree-indent {
+    display: none !important;
+  }
 }
 
 .custom-tree-node {
@@ -722,26 +652,11 @@ onUnmounted(() => {
     cursor: pointer;
     color: var(--text-color-tertiary);
     flex-shrink: 0;
-    padding: 3px 5px;
-    border-radius: 4px;
-    /* 降低亮度：更微妙的背景和阴影，营造次要层级感 */
-    background: rgba(255, 255, 255, 0.02);
-    border: 1px solid rgba(255, 255, 255, 0.05);
-    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
     transition: all 0.2s ease;
 
     &:hover {
-      background: rgba(255, 255, 255, 0.06);
-      border-color: rgba(255, 255, 255, 0.12);
-      box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
       transform: translateY(-0.5px);
       color: var(--text-color);
-    }
-
-    &:active {
-      background: rgba(255, 255, 255, 0.01);
-      box-shadow: 0 1px 1px rgba(0, 0, 0, 0.3);
-      transform: translateY(0);
     }
   }
 
@@ -752,7 +667,7 @@ onUnmounted(() => {
   }
 
   .favorite-outlined {
-    color: rgba(255, 255, 255, 0.3);
+    color: var(--text-color-tertiary);
     opacity: 0.6;
   }
 
@@ -767,74 +682,7 @@ onUnmounted(() => {
   }
 
   .refresh-icon {
-    display: flex;
-    align-items: center;
-    margin-right: 8px;
-    cursor: pointer;
-    color: var(--text-color-tertiary);
-    font-size: 14px;
-    margin-left: 6px;
-    flex-shrink: 0;
-    padding: 3px 5px;
-    border-radius: 4px;
-    /* 简约的层级感：微妙的背景和阴影 */
-    background: rgba(24, 144, 255, 0.08);
-    border: 1px solid rgba(24, 144, 255, 0.15);
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
-    transition: all 0.2s ease;
-
-    &:hover {
-      background: rgba(24, 144, 255, 0.15);
-      border-color: rgba(24, 144, 255, 0.3);
-      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
-      transform: translateY(-1px);
-      color: #1890ff;
-    }
-
-    &:active {
-      background: rgba(24, 144, 255, 0.05);
-      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
-      transform: translateY(0);
-      color: #1890ff;
-    }
-  }
-
-  .refresh-icon-active {
-    background: rgba(82, 196, 26, 0.15) !important;
-    border-color: rgba(82, 196, 26, 0.4) !important;
-    color: #52c41a !important;
-    box-shadow: 0 0 8px rgba(82, 196, 26, 0.3) !important;
-    animation: refresh-pulse 0.8s ease-in-out;
-  }
-
-  .refresh-icon-inline {
-    cursor: pointer;
-    color: var(--text-color-tertiary);
-    font-size: 14px;
-    margin-left: 8px;
-    transition: color 0.3s;
-    &:hover {
-      color: #1890ff;
-    }
-    &:active {
-      color: #1890ff;
-    }
-  }
-}
-
-/* 简约的脉动动画效果 */
-@keyframes refresh-pulse {
-  0% {
-    transform: translateY(0);
-    box-shadow: 0 0 8px rgba(82, 196, 26, 0.3);
-  }
-  50% {
-    transform: translateY(-1px);
-    box-shadow: 0 2px 12px rgba(82, 196, 26, 0.5);
-  }
-  100% {
-    transform: translateY(0);
-    box-shadow: 0 0 8px rgba(82, 196, 26, 0.3);
+    margin-right: 3px;
   }
 }
 
@@ -902,11 +750,10 @@ onUnmounted(() => {
   }
 }
 :deep(.ant-card) {
-  background-color: #f5f4f4; // 浅灰色背景
-  border: 1px solid #333; // 稍深的边框色
+  background-color: #f5f4f4;
+  border: 1px solid #333;
 }
 
-/* 下拉菜单样式 */
 :global(.ant-select-dropdown) {
   background-color: #333 !important;
   border-color: #444 !important;
@@ -949,15 +796,7 @@ onUnmounted(() => {
   }
 }
 
-@keyframes refresh-pulse {
-  0% {
-    transform: scale(1.2);
-  }
-  50% {
-    transform: scale(1.3) rotate(180deg);
-  }
-  100% {
-    transform: scale(1.2) rotate(360deg);
-  }
+:deep(.css-dev-only-do-not-override-1p3hq3p.ant-btn-primary.ant-btn-background-ghost) {
+  border-color: transparent !important;
 }
 </style>
