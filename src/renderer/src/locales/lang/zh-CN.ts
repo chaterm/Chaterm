@@ -272,7 +272,10 @@ export default {
       openSettings: '打开设置',
       toggleLeftSidebar: '切换左侧边栏',
       toggleRightSidebar: '切换右侧边栏',
-      sendOrToggleAi: '发送到AI / 切换AI侧边栏'
+      sendOrToggleAi: '发送到AI / 切换AI侧边栏',
+      switchToNextTab: '切换到下一个标签页',
+      switchToPrevTab: '切换到上一个标签页',
+      switchToSpecificTab: '切换到指定标签页[1...9]'
     }
   },
   personal: {
