@@ -396,6 +396,7 @@ export class RemoteTerminalManager {
       }
 
       this.terminals.set(terminalInfo.id, terminalInfo)
+      console.log('SSH connection established successfully, terminal created')
       return terminalInfo
     } catch (error) {
       throw new Error('Failed to create remote terminal: ' + (error instanceof Error ? error.message : String(error)))

@@ -95,6 +95,9 @@ export class Task {
     }
   > = new Map()
 
+  // SSH connection status tracking
+  private lastConnectionHost: string | null = null
+
   // streaming
   isWaitingForFirstChunk = false
   isStreaming = false
@@ -255,10 +258,63 @@ export class Task {
       console.log('Terminal UUID is not set')
       return
     }
-    const connectionInfo = await connectAssetInfo(terminalUuid)
-    this.remoteTerminalManager.setConnectionInfo(connectionInfo)
-    terminalInfo = await this.remoteTerminalManager.createTerminal()
-    return terminalInfo
+
+    try {
+      const connectionInfo = await connectAssetInfo(terminalUuid)
+      this.remoteTerminalManager.setConnectionInfo(connectionInfo)
+
+      // Create a unique connection identifier
+      const currentConnectionId = `${connectionInfo.host}:${connectionInfo.port}:${connectionInfo.username}`
+      const isNewConnection = this.lastConnectionHost !== currentConnectionId
+
+      if (isNewConnection) {
+        // Send connection start message only for new connections
+        await this.postMessageToWebview({
+          type: 'partialMessage',
+          partialMessage: {
+            ts: Date.now(),
+            type: 'say',
+            say: 'sshInfo',
+            text: this.messages.sshConnectionStarting || ' 开始连接服务器...',
+            partial: false
+          }
+        })
+      }
+
+      terminalInfo = await this.remoteTerminalManager.createTerminal()
+
+      if (terminalInfo && isNewConnection) {
+        // Send connection success message only for new connections
+        await this.postMessageToWebview({
+          type: 'partialMessage',
+          partialMessage: {
+            ts: Date.now(),
+            type: 'say',
+            say: 'sshInfo',
+            text: this.messages.sshConnectionSuccess || '服务器连接成功',
+            partial: false
+          }
+        })
+
+        // Update the last connection host
+        this.lastConnectionHost = currentConnectionId
+      }
+
+      return terminalInfo
+    } catch (error) {
+      // Send connection failed message
+      await this.postMessageToWebview({
+        type: 'partialMessage',
+        partialMessage: {
+          ts: Date.now(),
+          type: 'say',
+          say: 'sshInfo',
+          text: this.messages.sshConnectionFailed || `服务器连接失败: ${error instanceof Error ? error.message : String(error)}`,
+          partial: false
+        }
+      })
+      throw error
+    }
   }
 
   // Set remote connection information

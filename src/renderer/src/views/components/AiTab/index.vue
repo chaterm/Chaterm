@@ -9,7 +9,7 @@
       :tab="currentChatId ? historyList.find((item) => item.id === currentChatId)?.chatTitle || 'New chat' : 'New chat'"
     >
       <div
-        v-if="chatHistory.length === 0"
+        v-if="filteredChatHistory.length === 0"
         class="ai-welcome-container"
       >
         <div class="ai-welcome-icon">
@@ -35,7 +35,7 @@
         </template>
       </div>
       <div
-        v-if="chatHistory.length > 0"
+        v-if="filteredChatHistory.length > 0"
         ref="chatContainer"
         :key="containerKey"
         class="chat-response-container"
@@ -45,7 +45,7 @@
           class="chat-response"
         >
           <template
-            v-for="(message, index) in chatHistory"
+            v-for="(message, index) in filteredChatHistory"
             :key="message"
           >
             <div
@@ -65,7 +65,7 @@
                   {{ $t('ai.taskCompleted') }}
                 </div>
                 <div
-                  v-if="index === chatHistory.length - 1"
+                  v-if="index === filteredChatHistory.length - 1"
                   class="message-feedback"
                 >
                   <a-button
@@ -687,6 +687,14 @@ const authTokenInCookie = ref<string | null>(null)
 
 const chatHistory = reactive<ChatMessage[]>([])
 
+// 过滤SSH连接消息：Agent回复后隐藏sshInfo消息
+const filteredChatHistory = computed(() => {
+  const hasAgentReply = chatHistory.some(
+    (msg) => msg.role === 'assistant' && msg.say !== 'sshInfo' && (msg.say === 'text' || msg.say === 'completion_result' || msg.ask === 'command')
+  )
+  return hasAgentReply ? chatHistory.filter((msg) => msg.say !== 'sshInfo') : chatHistory
+})
+
 const props = defineProps({
   toggleSidebar: {
     type: Function,
@@ -985,7 +993,8 @@ const restoreHistoryTab = async (history: HistoryItem) => {
           item.say === 'text' ||
           item.say === 'reasoning' ||
           item.ask === 'resume_task' ||
-          item.say === 'user_feedback')
+          item.say === 'user_feedback' ||
+          item.say === 'sshInfo')
       ) {
         let role: 'assistant' | 'user' = 'assistant'
         if (index === 0 || item.say === 'user_feedback') {

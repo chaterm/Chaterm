@@ -47,7 +47,7 @@ export type ChatermSay =
   | 'diff_error'
   | 'deleted_api_reqs'
   | 'checkpoint_created'
-  | 'info' // Added for general informational messages like retry status
+  | 'sshInfo' // Added for SSH connection status messages
 
 export interface ChatermSayTool {
   tool: 'readFile' | 'listFilesTopLevel' | 'listFilesRecursive' | 'searchFiles'
