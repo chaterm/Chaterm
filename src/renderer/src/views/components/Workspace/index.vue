@@ -578,6 +578,28 @@ onUnmounted(() => {
   background-color: transparent;
   max-height: calc(100vh - 120px);
   height: auto;
+
+  /* 滚动条样式 */
+  &::-webkit-scrollbar {
+    width: 6px;
+  }
+
+  &::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  &::-webkit-scrollbar-thumb {
+    background-color: var(--border-color-light);
+    border-radius: 3px;
+  }
+
+  &::-webkit-scrollbar-thumb:hover {
+    background-color: var(--text-color-tertiary);
+  }
+
+  /* Firefox 滚动条样式 */
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-color-light) transparent;
 }
 
 :deep(.dark-tree) {
@@ -741,7 +763,7 @@ onUnmounted(() => {
 }
 
 :deep(.ant-form-item-label > label) {
-  color: #ffffff !important;
+  color: var(--text-color) !important;
 }
 .top-icon {
   &:hover {
@@ -750,30 +772,30 @@ onUnmounted(() => {
   }
 }
 :deep(.ant-card) {
-  background-color: #f5f4f4;
-  border: 1px solid #333;
+  background-color: var(--bg-color-secondary);
+  border: 1px solid var(--border-color);
 }
 
 :global(.ant-select-dropdown) {
-  background-color: #333 !important;
-  border-color: #444 !important;
+  background-color: var(--bg-color-secondary) !important;
+  border-color: var(--border-color) !important;
 }
 :global(.ant-select-dropdown .ant-select-item) {
-  color: #e0e0e0 !important;
+  color: var(--text-color-secondary) !important;
 }
 :global(.ant-select-item-option-selected:not(.ant-select-item-option-disabled)) {
-  background-color: #444 !important;
-  color: #fff !important;
+  background-color: var(--hover-bg-color) !important;
+  color: var(--text-color) !important;
 }
 :global(.ant-select-item-option-active:not(.ant-select-item-option-disabled)) {
-  background-color: #444 !important;
+  background-color: var(--hover-bg-color) !important;
 }
 .manage {
   display: flex;
   gap: 10px;
   :deep(.ant-input-affix-wrapper) {
     background-color: transparent;
-    border-color: rgba(255, 255, 255, 0.25);
+    border-color: var(--border-color);
     box-shadow: none;
   }
 }
@@ -785,13 +807,13 @@ onUnmounted(() => {
 }
 .transparent-Input {
   background-color: transparent;
-  color: rgba(255, 255, 255, 1);
+  color: var(--text-color);
 
   :deep(.ant-input) {
     background-color: transparent;
-    color: rgba(255, 255, 255, 1);
+    color: var(--text-color);
     &::placeholder {
-      color: rgba(255, 255, 255, 0.25);
+      color: var(--text-color-tertiary);
     }
   }
 }
