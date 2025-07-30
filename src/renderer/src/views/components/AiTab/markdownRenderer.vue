@@ -157,6 +157,7 @@
           <div
             v-if="part.type === 'text'"
             class="markdown-content"
+            :class="{ 'ssh-info-message': props.say === 'sshInfo' }"
             style="margin: 0 8px"
             v-html="marked(part.content || '', null)"
           ></div>
@@ -1867,6 +1868,81 @@ code {
 
 .command-output::-webkit-scrollbar-track {
   background: transparent;
+}
+
+/* Info message styling */
+.info-message {
+  background: linear-gradient(135deg, rgba(24, 144, 255, 0.1), rgba(24, 144, 255, 0.05));
+  border-left: 3px solid #1890ff;
+  border-radius: 6px;
+  padding: 12px 16px;
+  margin: 8px 0;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--text-color);
+  position: relative;
+  overflow: hidden;
+}
+
+.info-message::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(24, 144, 255, 0.3), transparent);
+}
+
+.info-message p {
+  margin: 0;
+  font-weight: 500;
+}
+
+.info-message p:first-child {
+  margin-top: 0;
+}
+
+.info-message p:last-child {
+  margin-bottom: 0;
+}
+
+/* Dark theme adjustments for info messages */
+.theme-dark .info-message {
+  background: linear-gradient(135deg, rgba(24, 144, 255, 0.15), rgba(24, 144, 255, 0.08));
+  border-left-color: #40a9ff;
+}
+
+/* SSH Info message styling - Agent-like appearance */
+.ssh-info-message {
+  background-color: transparent;
+  color: var(--text-color-secondary);
+  font-size: 12px;
+  line-height: 1.5;
+  padding: 4px 0;
+  margin: 2px 0;
+  border-radius: 0;
+  border: none;
+  font-style: italic;
+  opacity: 0.8;
+}
+
+.ssh-info-message p {
+  margin: 0;
+  font-weight: 400;
+}
+
+.ssh-info-message p:first-child {
+  margin-top: 0;
+}
+
+.ssh-info-message p:last-child {
+  margin-bottom: 0;
+}
+
+/* Dark theme adjustments for SSH info messages */
+.theme-dark .ssh-info-message {
+  color: var(--text-color-tertiary);
 }
 
 .command-output::-webkit-scrollbar-thumb {
