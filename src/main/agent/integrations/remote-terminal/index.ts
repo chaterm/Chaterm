@@ -107,16 +107,47 @@ export class RemoteTerminalProcess extends BrownEventEmitter<RemoteTerminalProce
       throw new Error('未找到 JumpServer 连接')
     }
 
-    let cleanCwd = cwd ? cwd.replace(/\x1B\[[^m]*m/g, '').replace(/\x1B\[[?][0-9]*[hl]/g, '') : undefined
+    // 改进的路径清理：移除所有ANSI序列、终端提示符和特殊字符
+    let cleanCwd: string | undefined = undefined
+    if (cwd) {
+      cleanCwd = cwd
+        // 移除ANSI转义序列
+        .replace(/\x1B\[[0-9;]*[JKmsu]/g, '')
+        .replace(/\x1B\[[?][0-9]*[hl]/g, '')
+        .replace(/\x1B\[K/g, '')
+        .replace(/\x1B\[[0-9]+[ABCD]/g, '')
+        // 移除终端提示符模式 (如: [user@host dir]$ 或 user@host:dir$)
+        .replace(/\[[^\]]*\]\$.*$/g, '')
+        .replace(/[^@]*@[^:]*:[^$]*\$.*$/g, '')
+        .replace(/.*\$.*$/g, '')
+        // 移除回车换行和其他控制字符
+        .replace(/[\r\n\x00-\x1F\x7F]/g, '')
+        .trim()
+
+      // 验证路径是否有效（应该是绝对路径或相对路径）
+      if (cleanCwd && !cleanCwd.match(/^[\/~]|^[a-zA-Z0-9_\-\.\/]+$/)) {
+        console.log(`[JumpServer ${sessionId}] 无效的工作目录路径，忽略: "${cleanCwd}"`)
+        cleanCwd = undefined
+      }
+
+      if (cwd && cleanCwd) {
+        console.log(`[JumpServer ${sessionId}] 原始路径: "${cwd}" -> 清理后: "${cleanCwd}"`)
+      } else if (cwd && !cleanCwd) {
+        console.log(`[JumpServer ${sessionId}] 路径清理失败，原始: "${cwd}"`)
+      }
+    }
+
     // 对于 JumpServer，使用不同的命令构造方式
-    const commandToExecute = cleanCwd ? `cd "${cleanCwd}" ; ${command}` : command
+    const commandToExecute = cleanCwd ? `cd "${cleanCwd}" && ${command}` : command
 
-    // 创建唯一的命令标记
-    const startMarker = `CHATERM_START_${Date.now()}_${Math.random().toString(36).substr(2, 8)}`
-    const endMarker = `CHATERM_END_${Date.now()}_${Math.random().toString(36).substr(2, 8)}`
+    // 创建唯一的命令标记，使用更独特的格式
+    const timestamp = Date.now()
+    const randomId = Math.random().toString(36).substring(2, 14)
+    const startMarker = `===CHATERM_START_${timestamp}_${randomId}===`
+    const endMarker = `===CHATERM_END_${timestamp}_${randomId}===`
 
-    // 包装命令，添加开始和结束标记
-    const wrappedCommand = `echo "${startMarker}"; ${commandToExecute}; EXIT_CODE=$?; echo "${endMarker}:$EXIT_CODE"`
+    // 改进的命令包装：使用bash确保可靠性和更好的错误处理
+    const wrappedCommand = `bash -c 'echo "${startMarker}"; ${commandToExecute}; EXIT_CODE=$?; echo "${endMarker}:$EXIT_CODE"'`
 
     jumpserverMarkedCommands.set(sessionId, {
       marker: startMarker,
@@ -130,19 +161,63 @@ export class RemoteTerminalProcess extends BrownEventEmitter<RemoteTerminalProce
     let commandStarted = false
     let commandCompleted = false
     let exitCode = 0
+    let commandEchoFiltered = false
+
+    // 改进的ANSI清理正则表达式
+    const cleanAnsiCodes = (text: string): string => {
+      return (
+        text
+          // 清理所有ANSI转义序列
+          .replace(/\x1B\[[0-9;]*[a-zA-Z]/g, '') // 通用ANSI序列
+          .replace(/\x1B\[[?][0-9]*[hl]/g, '') // 模式设置
+          .replace(/\x1B\[K/g, '') // 行擦除
+          .replace(/\x1B\[[0-9]+[ABCD]/g, '') // 光标移动
+          .replace(/\x1B\]0;[^\x07]*\x07/g, '') // 窗口标题设置
+          .replace(/\x1B\[[0-9;]*[JKmsu]/g, '') // 其他控制序列
+          // 清理终端提示符相关字符
+          .replace(/\x00/g, '') // NULL字符
+          .replace(/\r/g, '') // 回车符
+          .replace(/\x07/g, '')
+      ) // 响铃字符
+    }
+
+    // 检测是否为命令回显
+    const isCommandEcho = (line: string): boolean => {
+      const cleanLine = cleanAnsiCodes(line).trim()
+      // 检测包装命令的回显
+      if (
+        cleanLine.includes('bash -c') ||
+        cleanLine.includes(`echo "${startMarker}"`) ||
+        cleanLine.includes(commandToExecute) ||
+        cleanLine.includes(`echo "${endMarker}:$EXIT_CODE"`) ||
+        cleanLine === wrappedCommand.trim()
+      ) {
+        return true
+      }
+      return false
+    }
 
     const processLine = (line: string) => {
+      const cleanLine = cleanAnsiCodes(line)
+
+      // 检测并过滤命令回显
+      if (!commandStarted && !commandEchoFiltered && isCommandEcho(cleanLine)) {
+        console.log(`[JumpServer ${sessionId}] 过滤命令回显: ${cleanLine.substring(0, 50)}...`)
+        return
+      }
+
       // 检测命令开始标记
-      if (line.includes(startMarker)) {
+      if (cleanLine.includes(startMarker)) {
         commandStarted = true
+        commandEchoFiltered = true
         console.log(`[JumpServer ${sessionId}] 检测到命令开始标记`)
         return
       }
 
       // 检测命令结束标记
-      if (line.includes(endMarker)) {
-        console.log(`[JumpServer ${sessionId}] 检测到命令结束标记: ${line}`)
-        const match = line.match(new RegExp(`${endMarker.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}:(\\d+)`))
+      if (cleanLine.includes(endMarker)) {
+        console.log(`[JumpServer ${sessionId}] 检测到命令结束标记: ${cleanLine}`)
+        const match = cleanLine.match(new RegExp(`${endMarker.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}:(\\d+)`))
         if (match && match[1]) {
           exitCode = parseInt(match[1], 10)
           console.log(`[JumpServer ${sessionId}] 命令退出码: ${exitCode}`)
@@ -155,7 +230,10 @@ export class RemoteTerminalProcess extends BrownEventEmitter<RemoteTerminalProce
 
           // 发送剩余的缓冲区内容
           if (lineBuffer && this.isListening) {
-            this.emit('line', lineBuffer)
+            const cleanBufferLine = cleanAnsiCodes(lineBuffer).trim()
+            if (cleanBufferLine && !cleanBufferLine.includes(endMarker)) {
+              this.emit('line', cleanBufferLine)
+            }
           }
 
           this.emit('completed')
@@ -167,8 +245,11 @@ export class RemoteTerminalProcess extends BrownEventEmitter<RemoteTerminalProce
       }
 
       // 只有在命令开始标记之后且未完成时才发送输出行
-      if (commandStarted && !commandCompleted && line.trim()) {
-        this.emit('line', line)
+      if (commandStarted && !commandCompleted) {
+        const trimmedLine = cleanLine.trim()
+        if (trimmedLine && !trimmedLine.includes(startMarker) && !trimmedLine.includes(endMarker)) {
+          this.emit('line', trimmedLine)
+        }
       }
     }
 
@@ -196,9 +277,19 @@ export class RemoteTerminalProcess extends BrownEventEmitter<RemoteTerminalProce
         processLine(lineBuffer)
         lineBuffer = ''
       }
+
+      // 检查缓冲区中是否包含开始标记（处理同行情况）
+      if (!commandStarted && lineBuffer.includes(startMarker)) {
+        console.log(`[JumpServer ${sessionId}] 在缓冲区中检测到开始标记: ${lineBuffer}`)
+        processLine(lineBuffer)
+        lineBuffer = ''
+      }
     }
 
     stream.on('data', dataHandler)
+
+    // 发送命令前先清理可能的残留输出
+    console.log(`[JumpServer ${sessionId}] 发送包装命令: ${wrappedCommand}`)
     stream.write(`${wrappedCommand}\r`)
 
     // 保留超时机制作为备份
@@ -263,12 +354,12 @@ export class RemoteTerminalManager {
     }
 
     try {
-      let connectResult: any
+      let connectResult: { id?: string; status?: string; message?: string; error?: string } | undefined
       // 根据 sshType 选择连接方式
       if (this.connectionInfo.sshType === 'jumpserver') {
         // 使用 JumpServer 连接
         const jumpServerConnectionInfo = {
-          id: `jumpserver_${Date.now()}_${Math.random().toString(36).substr(2, 12)}`,
+          id: `jumpserver_${Date.now()}_${Math.random().toString(36).substring(2, 14)}`,
           host: this.connectionInfo.asset_ip!,
           port: this.connectionInfo.port,
           username: this.connectionInfo.username!,
@@ -305,6 +396,7 @@ export class RemoteTerminalManager {
       }
 
       this.terminals.set(terminalInfo.id, terminalInfo)
+      console.log('SSH connection established successfully, terminal created')
       return terminalInfo
     } catch (error) {
       throw new Error('Failed to create remote terminal: ' + (error instanceof Error ? error.message : String(error)))

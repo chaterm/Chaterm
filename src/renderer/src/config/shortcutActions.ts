@@ -51,5 +51,38 @@ export const shortcutActions: Omit<ShortcutAction, 'name'>[] = [
     handler: () => {
       eventBus.emit('sendOrToggleAiFromTerminal')
     }
+  },
+  {
+    id: 'switchToNextTab',
+    nameKey: 'shortcuts.actions.switchToNextTab',
+    defaultKey: {
+      mac: 'Control+Tab',
+      other: 'Ctrl+Tab'
+    },
+    handler: () => {
+      eventBus.emit('switchToNextTab')
+    }
+  },
+  {
+    id: 'switchToPrevTab',
+    nameKey: 'shortcuts.actions.switchToPrevTab',
+    defaultKey: {
+      mac: 'Control+Shift+Tab',
+      other: 'Ctrl+Shift+Tab'
+    },
+    handler: () => {
+      eventBus.emit('switchToPrevTab')
+    }
+  },
+  {
+    id: 'switchToSpecificTab',
+    nameKey: 'shortcuts.actions.switchToSpecificTab',
+    defaultKey: {
+      mac: 'Command',
+      other: 'Ctrl'
+    },
+    handler: () => {
+      eventBus.emit('switchToSpecificTab')
+    }
   }
 ]

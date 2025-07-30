@@ -83,6 +83,14 @@
                 ></span>
                 {{ loading ? $t('login.loggingIn') : $t('login.login') }}
               </button>
+              <div class="skip-login">
+                {{ $t('login.skip') }}
+                <a
+                  class="skip-link"
+                  @click="skipLogin"
+                  >{{ $t('login.skipLogin') }}</a
+                >
+              </div>
             </div>
           </div>
         </template>

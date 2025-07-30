@@ -47,7 +47,7 @@ icon: resources/icon.ico
 win:
   executableName: Chaterm
 nsis:
-  artifactName: ${name}-${version}-setup.${ext}
+  artifactName: ${name}-${version}-setup-${arch}.${ext}
   shortcutName: ${productName}
   uninstallDisplayName: ${productName}
   createDesktopShortcut: always
@@ -68,14 +68,14 @@ mac:
     - NSDocumentsFolderUsageDescription: Application requests access to the user's Documents folder.
     - NSDownloadsFolderUsageDescription: Application requests access to the user's Downloads folder.
 dmg:
-  artifactName: ${name}-${version}-${arch}.${ext}
+  artifactName: ${name}-${version}-macos-${arch}.${ext}
 linux:
   target:
     - AppImage
     - deb
   maintainer: chaterm.ai
   category: Utility
-  artifactName: ${name}-${version}-${arch}.${ext}
+  artifactName: ${name}-${version}-linux-${arch}.${ext}
 npmRebuild: true
 publish:
   provider: github

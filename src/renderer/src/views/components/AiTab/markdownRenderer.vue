@@ -1,12 +1,5 @@
-# Update the template and script
 <template>
-  <!--  当 props.ask === 'command' 时，整个内容会使用 Monaco 编辑器以代码形式显示。-->
-  <!--  当 props.ask !== 'command' 时，内容会被分成三个部分：-->
-  <!--      1.<think></think> 或 <thinking></thinking> 标签中的内容会显示为思考内容，带有折叠面板-->
-  <!--      2.代码块（被 ``` ``` 包围的内容）会使用 Monaco 编辑器显示-->
-  <!--      3.其他内容会作为普通文本显示，支持 Markdown 渲染-->
   <div>
-    <!-- Command mode -->
     <div
       v-if="props.ask === 'command' || props.say === 'command'"
       ref="editorContainer"
@@ -30,7 +23,7 @@
                 italic
                 :class="{ 'hidden-header': totalLines < 10 }"
               >
-                代码预览 ({{ totalLines }}行)
+                {{ t('ai.codePreview', { lines: totalLines }) }}
               </a-typography-text>
               <a-button
                 v-if="totalLines >= 10"
@@ -69,10 +62,7 @@
         </a-collapse-panel>
       </a-collapse>
     </div>
-
-    <!-- Non-command mode -->
     <div v-else>
-      <!-- Command output mode -->
       <div
         v-if="props.say === 'command_output'"
         class="command-output"
@@ -110,7 +100,6 @@
         </div>
       </div>
 
-      <!-- Thinking content -->
       <template v-else-if="thinkingContent">
         <div
           ref="contentRef"
@@ -160,7 +149,6 @@
         </a-collapse>
       </template>
 
-      <!-- Normal content with interspersed code blocks -->
       <div v-else-if="normalContent || codeBlocks.length > 0">
         <template
           v-for="(part, index) in contentParts"
@@ -169,6 +157,7 @@
           <div
             v-if="part.type === 'text'"
             class="markdown-content"
+            :class="{ 'ssh-info-message': props.say === 'sshInfo' }"
             style="margin: 0 8px"
             v-html="marked(part.content || '', null)"
           ></div>
@@ -194,7 +183,7 @@
                       italic
                       :class="{ 'hidden-header': part.block.lines < 10 }"
                     >
-                      代码预览 ({{ part.block.lines }}行)
+                      {{ t('ai.codePreview', { lines: part.block.lines }) }}
                     </a-typography-text>
                     <a-button
                       v-if="part.block.lines >= 10"
@@ -270,7 +259,7 @@ import i18n from '@/locales'
 import { extractFinalOutput } from '@/utils/terminalOutputExtractor'
 
 const { t } = i18n.global
-// 确保Monaco Editor已经完全初始化
+
 if (monaco.editor) {
   monaco.editor.defineTheme('custom-dark', {
     base: 'vs-dark',
@@ -294,8 +283,6 @@ if (monaco.editor) {
       'editor.lineHighlightBackground': '#2c313c'
     }
   })
-
-  // 定义亮色主题
   monaco.editor.defineTheme('custom-light', {
     base: 'vs',
     inherit: true,
@@ -344,14 +331,12 @@ const codeEditors = ref<Array<HTMLElement | null>>([])
 
 const contentStableTimeout = ref<NodeJS.Timeout | null>(null)
 
-// Function to detect language from content
 const detectLanguage = (content: string): string => {
   if (!content) return 'shell'
 
   const contentLower = content.toLowerCase()
   const firstLine = content.split('\n')[0].trim()
 
-  // Shebang detection
   if (firstLine.startsWith('#!')) {
     if (firstLine.includes('python')) return 'python'
     if (firstLine.includes('node')) return 'javascript'
@@ -360,7 +345,6 @@ const detectLanguage = (content: string): string => {
     return 'shell'
   }
 
-  // File extension in first line comment
   const extensionMatch = firstLine.match(/\.(ts|js|py|go|java|cpp|cs|rb|php|rs|sql)$/i)
   if (extensionMatch) {
     const ext = extensionMatch[1].toLowerCase()
@@ -380,7 +364,6 @@ const detectLanguage = (content: string): string => {
     if (extensionMap[ext]) return extensionMap[ext]
   }
 
-  // Language specific patterns
   if (contentLower.includes('package ') && contentLower.includes('func ')) {
     return 'go'
   }
@@ -418,11 +401,9 @@ const detectLanguage = (content: string): string => {
   return 'shell'
 }
 
-// Initialize editor with content
 const initEditor = (content: string) => {
   if (!monacoContainer.value || !monaco.editor) return
 
-  // 确保有内容
   const editorContent = content || ''
   const lines = editorContent.split('\n').length
 
@@ -471,13 +452,10 @@ const initEditor = (content: string) => {
       links: false
     }
 
-    // 创建编辑器实例
     editor = monaco.editor.create(monacoContainer.value, options)
 
-    // 清除初始选中状态
     editor.setSelection(new monaco.Selection(0, 0, 0, 0))
 
-    // 监听内容变化并更新配置
     editor.onDidChangeModelContent(() => {
       if (!editor) return
       const model = editor.getModel()
@@ -489,19 +467,16 @@ const initEditor = (content: string) => {
       }
     })
 
-    // 更新行数和折叠状态
     const updateLinesAndCollapse = () => {
       if (!editor) return
       const model = editor.getModel()
       if (model) {
         const lines = model.getLineCount()
         totalLines.value = lines
-        // 默认展开
         codeActiveKey.value = ['1']
       }
     }
 
-    // 设置编辑器高度
     const updateHeight = () => {
       if (!editor) return
 
@@ -512,7 +487,6 @@ const initEditor = (content: string) => {
       }
     }
 
-    // 监听内容变化
     editor.onDidChangeModelContent(() => {
       updateLinesAndCollapse()
     })
@@ -520,10 +494,8 @@ const initEditor = (content: string) => {
     editor.onDidContentSizeChange(updateHeight)
     updateHeight()
 
-    // 初始化行数和折叠状态
     updateLinesAndCollapse()
 
-    // 监听折叠状态变化
     watch(codeActiveKey, () => {
       if (!editor) return
       nextTick(() => {
@@ -535,7 +507,6 @@ const initEditor = (content: string) => {
   }
 }
 
-// Update editor content and language
 const updateEditor = (content: string) => {
   if (!editor) {
     initEditor(content)
@@ -550,7 +521,6 @@ const updateEditor = (content: string) => {
   }
 }
 
-// Function to extract code blocks from content
 const extractCodeBlocks = (content: string) => {
   const blocks: Array<{
     content: string
@@ -558,10 +528,7 @@ const extractCodeBlocks = (content: string) => {
     lines: number
     index: number
   }> = []
-  // let lastIndex = 0
-  // let blockIndex = 0
 
-  // Find all code blocks while preserving their position
   const codeBlockRegex = /```(?:\w+)?\n([\s\S]*?)```/g
   let match
 
@@ -573,14 +540,11 @@ const extractCodeBlocks = (content: string) => {
       lines: code.split('\n').length,
       index: match.index
     })
-    // blockIndex++
-    // lastIndex = match.index + match[0].length
   }
 
   return blocks.sort((a, b) => a.index - b.index)
 }
 
-// Function to process content and extract think tags and code blocks
 const processContent = (content: string) => {
   if (!content) {
     thinkingContent.value = ''
@@ -598,7 +562,6 @@ const processContent = (content: string) => {
     return
   }
 
-  // 检查是否开始于 <think> 或 <thinking> 标签
   let startTag = ''
   let endTag = ''
 
@@ -611,64 +574,51 @@ const processContent = (content: string) => {
   }
 
   if (startTag) {
-    // 移除开始标签
     content = content.substring(startTag.length)
 
-    // 查找结束标签位置
     const endIndex = content.indexOf(endTag)
     if (endIndex !== -1) {
-      // 提取思考内容
       thinkingContent.value = content.substring(0, endIndex).trim()
-      // 获取剩余内容
       content = content.substring(endIndex + endTag.length).trim()
       thinkingLoading.value = false
       if (activeKey.value.length !== 0) {
         checkContentHeight()
       }
     } else {
-      // 没有找到结束标签，全部内容都是思考内容
       thinkingContent.value = content.trim()
       content = ''
-      // 保持 loading 状态，因为还没有结束标签
       thinkingLoading.value = true
     }
   } else {
     thinkingContent.value = ''
   }
 
-  // 处理剩余的普通内容
   if (content) {
-    // Extract code blocks while preserving their position
     const blocks = extractCodeBlocks(content)
     codeBlocks.value = blocks
 
-    // Replace code blocks with placeholders in order
     let processedContent = content
     blocks.forEach((_, index) => {
       processedContent = processedContent.replace(/```(?:\w+)?\n[\s\S]*?```/, `[CODE_BLOCK_${index}]`)
     })
 
-    // Set the normal content
     normalContent.value = processedContent.trim()
   } else {
     normalContent.value = ''
     codeBlocks.value = []
   }
 
-  // Initialize editors after content is processed
   nextTick(() => {
     initCodeBlockEditors()
   })
 }
 
-// Initialize code block editors
 const initCodeBlockEditors = () => {
   nextTick(() => {
     codeBlocks.value.forEach((block, index) => {
       const container = codeEditors.value[index]
       if (!container || !monaco.editor) return
 
-      // 清理已存在的编辑器实例
       const existingEditor = monaco.editor.getEditors().find((e) => e.getContainerDomNode() === container)
       if (existingEditor) {
         existingEditor.dispose()
@@ -716,10 +666,8 @@ const initCodeBlockEditors = () => {
         links: false
       })
 
-      // 清除初始选中状态
       editor.setSelection(new monaco.Selection(0, 0, 0, 0))
 
-      // 监听内容变化并更新配置
       editor.onDidChangeModelContent(() => {
         const model = editor.getModel()
         if (model) {
@@ -730,7 +678,6 @@ const initCodeBlockEditors = () => {
         }
       })
 
-      // Update height
       const updateHeight = () => {
         if (!editor) return
         const contentHeight = editor.getContentHeight()
@@ -774,15 +721,12 @@ const checkContentHeight = async () => {
   if (contentRef.value) {
     const lineHeight = 19.2
     const maxHeight = lineHeight
-    // 先计算高度
     const shouldCollapse = contentRef.value.scrollHeight > maxHeight
     setTimeout(() => {
       activeKey.value = shouldCollapse ? [] : ['1']
       thinkingLoading.value = false
-      // 触发折叠状态变化事件
-      // console.log('思考内容折叠状态变化:', activeKey.value)
       emit('collapse-change', 'thinking')
-    }, 1000) // 与折叠动画时间相同
+    }, 1000)
   }
 }
 
@@ -798,16 +742,13 @@ watch(
   { immediate: true }
 )
 
-// 主题变化观察器
 const themeObserver = new MutationObserver((mutations) => {
   mutations.forEach((mutation) => {
     if (mutation.target === document.body && mutation.attributeName === 'class') {
       const isDark = document.body.classList.contains('theme-dark')
-      // 更新主编辑器主题
       if (editor) {
         monaco.editor.setTheme(isDark ? 'custom-dark' : 'custom-light')
       }
-      // 更新代码块编辑器主题
       monaco.editor.getEditors().forEach((ed) => {
         if (ed !== editor) {
           monaco.editor.setTheme(isDark ? 'custom-dark' : 'custom-light')
@@ -823,7 +764,6 @@ onMounted(() => {
     gfm: true
   })
 
-  // 开始观察主题变化
   themeObserver.observe(document.body, { attributes: true })
 
   if (props.content) {
@@ -836,7 +776,6 @@ onMounted(() => {
   }
 })
 
-// Update the watch handler for content
 watch(
   () => props.content,
   (newContent) => {
@@ -852,34 +791,28 @@ watch(
     }
 
     if (props.ask === 'command' || props.say === 'command') {
-      // 每次内容变化时先清除之前的定时器
       if (contentStableTimeout.value) {
         clearTimeout(contentStableTimeout.value)
       }
 
-      // 内容变化时先更新编辑器并展开
       updateEditor(newContent)
       codeActiveKey.value = ['1']
 
-      // 设置新的定时器等待内容稳定
       contentStableTimeout.value = setTimeout(() => {
         if (editor) {
           const model = editor.getModel()
           if (model && model.getLineCount() > 10) {
             codeActiveKey.value = []
-            // 触发折叠状态变化事件
-            // console.log('代码块思考内容折叠状态变化:', codeActiveKey.value)
             emit('collapse-change', 'code')
           }
         }
-      }, 2000) // 等待1秒无变化
+      }, 2000)
     } else {
       processContent(newContent)
     }
   }
 )
 
-// Watch for ask type changes
 watch(
   () => props.ask,
   (newAsk) => {
@@ -912,9 +845,7 @@ watch(
   }
 )
 
-// Cleanup
 onBeforeUnmount(() => {
-  // 停止主题观察
   themeObserver.disconnect()
 
   if (contentStableTimeout.value) {
@@ -936,7 +867,6 @@ const getThinkingContent = (content: string) => {
   return firstLineEnd > -1 ? content.substring(firstLineEnd + 1).trim() : ''
 }
 
-// Add computed property for content parts
 const contentParts = computed(() => {
   if (!normalContent.value && codeBlocks.value.length === 0) return []
 
@@ -950,12 +880,10 @@ const contentParts = computed(() => {
 
   segments.forEach((segment, index) => {
     if (index % 2 === 0) {
-      // Text content
       if (segment.trim()) {
         parts.push({ type: 'text', content: segment.trim() })
       }
     } else {
-      // Code block reference
       const blockIndex = parseInt(segment)
       if (!isNaN(blockIndex) && blockIndex < codeBlocks.value.length) {
         parts.push({
@@ -970,26 +898,18 @@ const contentParts = computed(() => {
   return parts
 })
 
-// Function to strip ANSI escape codes
 const stripAnsiCodes = (str: string): string => {
-  // This regex matches ANSI escape sequences like color codes
   return str.replace(/\u001b\[\d+(;\d+)*m/g, '')
 }
 
-// Function to process ANSI escape codes into HTML with CSS classes
 const processAnsiCodes = (str: string): string => {
-  // If no ANSI codes, return as is
   if (!str.includes('\u001b[')) return str
 
-  // Replace common ANSI color codes with span elements
   let result = str
-    // Text formatting
     .replace(/\u001b\[0m/g, '</span>') // Reset
     .replace(/\u001b\[1m/g, '<span class="ansi-bold">') // Bold
     .replace(/\u001b\[3m/g, '<span class="ansi-italic">') // Italic
     .replace(/\u001b\[4m/g, '<span class="ansi-underline">') // Underline
-
-    // Foreground colors
     .replace(/\u001b\[30m/g, '<span class="ansi-black">') // Black
     .replace(/\u001b\[31m/g, '<span class="ansi-red">') // Red
     .replace(/\u001b\[32m/g, '<span class="ansi-green">') // Green
@@ -998,8 +918,6 @@ const processAnsiCodes = (str: string): string => {
     .replace(/\u001b\[35m/g, '<span class="ansi-magenta">') // Magenta
     .replace(/\u001b\[36m/g, '<span class="ansi-cyan">') // Cyan
     .replace(/\u001b\[37m/g, '<span class="ansi-white">') // White
-
-    // Bright foreground colors
     .replace(/\u001b\[90m/g, '<span class="ansi-bright-black">') // Bright Black
     .replace(/\u001b\[91m/g, '<span class="ansi-bright-red">') // Bright Red
     .replace(/\u001b\[92m/g, '<span class="ansi-bright-green">') // Bright Green
@@ -1008,8 +926,6 @@ const processAnsiCodes = (str: string): string => {
     .replace(/\u001b\[95m/g, '<span class="ansi-bright-magenta">') // Bright Magenta
     .replace(/\u001b\[96m/g, '<span class="ansi-bright-cyan">') // Bright Cyan
     .replace(/\u001b\[97m/g, '<span class="ansi-bright-white">') // Bright White
-
-    // Background colors
     .replace(/\u001b\[40m/g, '<span class="ansi-bg-black">') // Black background
     .replace(/\u001b\[41m/g, '<span class="ansi-bg-red">') // Red background
     .replace(/\u001b\[42m/g, '<span class="ansi-bg-green">') // Green background
@@ -1018,8 +934,6 @@ const processAnsiCodes = (str: string): string => {
     .replace(/\u001b\[45m/g, '<span class="ansi-bg-magenta">') // Magenta background
     .replace(/\u001b\[46m/g, '<span class="ansi-bg-cyan">') // Cyan background
     .replace(/\u001b\[47m/g, '<span class="ansi-bg-white">') // White background
-
-    // Bright background colors
     .replace(/\u001b\[100m/g, '<span class="ansi-bg-bright-black">') // Bright Black background
     .replace(/\u001b\[101m/g, '<span class="ansi-bg-bright-red">') // Bright Red background
     .replace(/\u001b\[102m/g, '<span class="ansi-bg-bright-green">') // Bright Green background
@@ -1029,11 +943,9 @@ const processAnsiCodes = (str: string): string => {
     .replace(/\u001b\[106m/g, '<span class="ansi-bg-bright-cyan">') // Bright Cyan background
     .replace(/\u001b\[107m/g, '<span class="ansi-bg-bright-white">') // Bright White background
 
-  // Handle combined color codes like \u001b[1;31m (bold red)
   result = result.replace(/\u001b\[(\d+);(\d+)m/g, (match, p1, p2) => {
     let replacement = ''
 
-    // Handle first parameter
     if (p1 === '0') replacement += '</span><span>'
     else if (p1 === '1') replacement += '<span class="ansi-bold">'
     else if (p1 === '3') replacement += '<span class="ansi-italic">'
@@ -1043,7 +955,6 @@ const processAnsiCodes = (str: string): string => {
     else if (p1 >= '90' && p1 <= '97') replacement += `<span class="ansi-bright-${getColorName(parseInt(p1, 10) - 90)}">`
     else if (p1 >= '100' && p1 <= '107') replacement += `<span class="ansi-bg-bright-${getColorName(parseInt(p1, 10) - 100)}">`
 
-    // Handle second parameter
     if (p2 === '0') replacement += '</span><span>'
     else if (p2 === '1') replacement += '<span class="ansi-bold">'
     else if (p2 === '3') replacement += '<span class="ansi-italic">'
@@ -1056,13 +967,11 @@ const processAnsiCodes = (str: string): string => {
     return replacement
   })
 
-  // Handle any remaining ANSI codes by stripping them
   result = result.replace(/\u001b\[\d+[A-Za-z]/g, '') // Remove cursor movement codes
   result = result.replace(/\u001b\[\d+(;\d+)*[A-Za-z]/g, '') // Remove other control sequences
   result = result.replace(/\u001b\[\??\d+[hl]/g, '') // Remove mode setting
   result = result.replace(/\u001b\[K/g, '') // Remove EL - Erase in Line
 
-  // Ensure all spans are closed
   const openTags = (result.match(/<span/g) || []).length
   const closeTags = (result.match(/<\/span>/g) || []).length
 
@@ -1073,22 +982,18 @@ const processAnsiCodes = (str: string): string => {
   return result
 }
 
-// Helper function to get color name from index
 const getColorName = (index: number): string => {
   const colors = ['black', 'red', 'green', 'yellow', 'blue', 'magenta', 'cyan', 'white']
   return colors[index] || 'white'
 }
 
-// Add computed property for content lines
 const contentLines = computed(() => {
   if (!props.content) return []
   const formattedOutput = extractFinalOutput(props.content)
   const lines = formattedOutput.split('\n')
   return lines.map((line) => {
-    // Process ANSI escape codes for display
     const processedLine = stripAnsiCodes(line)
 
-    // Check if it's a prompt line
     if (processedLine.startsWith('$ ') || processedLine.startsWith('# ')) {
       return {
         type: 'prompt',
@@ -1097,7 +1002,6 @@ const contentLines = computed(() => {
       }
     }
 
-    // Check if it's an ls output line
     const lsMatch = processedLine.match(/^([drwx-]+)\s+(\d+)\s+(\w+)\s+(\w+)\s+(\d+)\s+([A-Za-z]+\s+\d+\s+(?:\d{2}:\d{2}|\d{4}))\s+(.+)$/)
     if (lsMatch) {
       const [, permissions, links, user, group, size, date, name] = lsMatch
@@ -1114,7 +1018,6 @@ const contentLines = computed(() => {
       }
     }
 
-    // Regular content line with ANSI processing
     return {
       type: 'content',
       content: processedLine,
@@ -1127,7 +1030,6 @@ const copyEditorContent = () => {
   if (editor) {
     const content = editor.getValue()
     navigator.clipboard.writeText(content).then(() => {
-      // 可以添加一个复制成功的提示
       message.success(t('ai.copyToClipboard'))
     })
   }
@@ -1136,7 +1038,6 @@ const copyEditorContent = () => {
 const copyBlockContent = (blockIndex: number) => {
   const container = codeEditors.value[blockIndex]
   if (container) {
-    // 获取对应的 Monaco Editor 实例
     const editorInstance = monaco.editor.getEditors().find((e) => e.getContainerDomNode() === container)
     if (editorInstance) {
       const content = editorInstance.getValue()
@@ -1147,7 +1048,6 @@ const copyBlockContent = (blockIndex: number) => {
   }
 }
 
-// 定义emit
 const emit = defineEmits(['collapse-change'])
 </script>
 
@@ -1968,6 +1868,81 @@ code {
 
 .command-output::-webkit-scrollbar-track {
   background: transparent;
+}
+
+/* Info message styling */
+.info-message {
+  background: linear-gradient(135deg, rgba(24, 144, 255, 0.1), rgba(24, 144, 255, 0.05));
+  border-left: 3px solid #1890ff;
+  border-radius: 6px;
+  padding: 12px 16px;
+  margin: 8px 0;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--text-color);
+  position: relative;
+  overflow: hidden;
+}
+
+.info-message::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(24, 144, 255, 0.3), transparent);
+}
+
+.info-message p {
+  margin: 0;
+  font-weight: 500;
+}
+
+.info-message p:first-child {
+  margin-top: 0;
+}
+
+.info-message p:last-child {
+  margin-bottom: 0;
+}
+
+/* Dark theme adjustments for info messages */
+.theme-dark .info-message {
+  background: linear-gradient(135deg, rgba(24, 144, 255, 0.15), rgba(24, 144, 255, 0.08));
+  border-left-color: #40a9ff;
+}
+
+/* SSH Info message styling - Agent-like appearance */
+.ssh-info-message {
+  background-color: transparent;
+  color: var(--text-color-secondary);
+  font-size: 12px;
+  line-height: 1.5;
+  padding: 4px 0;
+  margin: 2px 0;
+  border-radius: 0;
+  border: none;
+  font-style: italic;
+  opacity: 0.8;
+}
+
+.ssh-info-message p {
+  margin: 0;
+  font-weight: 400;
+}
+
+.ssh-info-message p:first-child {
+  margin-top: 0;
+}
+
+.ssh-info-message p:last-child {
+  margin-bottom: 0;
+}
+
+/* Dark theme adjustments for SSH info messages */
+.theme-dark .ssh-info-message {
+  color: var(--text-color-tertiary);
 }
 
 .command-output::-webkit-scrollbar-thumb {

@@ -90,7 +90,7 @@ export const handleJumpServerConnection = async (
       return resolve({ status: 'connected', message: '复用现有JumpServer连接' })
     }
 
-    sendStatusUpdate('🔗 Chaterm正在连接企业堡垒机...', 'info')
+    sendStatusUpdate('正在连接到远程服务器...', 'info')
 
     const conn = new Client()
     let outputBuffer = ''
@@ -134,11 +134,11 @@ export const handleJumpServerConnection = async (
     // Handle keyboard-interactive authentication for 2FA
     conn.on('keyboard-interactive', async (_name, _instructions, _instructionsLang, prompts, finish) => {
       try {
-        sendStatusUpdate('🔐 需要二次验证，请输入验证码...', 'info')
+        sendStatusUpdate('需要二次验证，请输入验证码...', 'info')
         // JumpServer specific MFA handling
         await handleJumpServerKeyboardInteractive(event, connectionId, prompts, finish)
       } catch (err) {
-        sendStatusUpdate('❌ 二次验证失败', 'error')
+        sendStatusUpdate('二次验证失败', 'error')
         conn.end() // Close connection
         reject(err)
       }
@@ -146,7 +146,7 @@ export const handleJumpServerConnection = async (
 
     conn.on('ready', () => {
       console.log('JumpServer 连接建立，开始创建 shell')
-      sendStatusUpdate('✅ 堡垒机连接成功，正在初始化终端...', 'success')
+      sendStatusUpdate('已成功连接到服务器，请稍等...', 'success')
 
       // 发送MFA验证成功事件到前端
       if (event) {
@@ -172,13 +172,13 @@ export const handleJumpServerConnection = async (
           // 根据连接阶段处理不同的响应
           if (connectionPhase === 'connecting' && outputBuffer.includes('Opt>')) {
             console.log('检测到 JumpServer 菜单，输入目标 IP')
-            sendStatusUpdate(`🎯 正在连接目标服务器 ${connectionInfo.targetIp}...`, 'info')
+            sendStatusUpdate(`正在连接到目标服务器...`, 'info')
             connectionPhase = 'inputIp'
             outputBuffer = ''
             stream.write(connectionInfo.targetIp + '\r')
           } else if (connectionPhase === 'inputIp' && (outputBuffer.includes('Password:') || outputBuffer.includes('password:'))) {
             console.log('检测到密码提示，输入密码')
-            sendStatusUpdate('🔐 正在进行身份验证...', 'info')
+            sendStatusUpdate('正在进行身份验证...', 'info')
             connectionPhase = 'inputPassword'
             outputBuffer = ''
             setTimeout(() => {
@@ -203,7 +203,7 @@ export const handleJumpServerConnection = async (
             // 检测连接成功
             if (outputBuffer.includes('$') || outputBuffer.includes('#') || outputBuffer.includes('~')) {
               console.log('JumpServer 连接成功，到达目标服务器')
-              sendStatusUpdate('🎉 连接成功！', 'success')
+              sendStatusUpdate('已成功连接到服务器，请稍等...', 'success')
               connectionPhase = 'connected'
               outputBuffer = ''
 
