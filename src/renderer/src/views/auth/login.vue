@@ -36,7 +36,7 @@
       </div>
       <div class="term_login_input">
         <!-- In the Windows development environment, only the email verification code login is displayed -->
-        <template v-if="isDevWin">
+        <template v-if="isDev">
           <div class="login-form">
             <div class="form-content">
               <div class="input-group">
@@ -77,7 +77,11 @@
                 :disabled="loading"
                 @click="onEmailLogin"
               >
-                {{ $t('login.login') }}
+                <span
+                  v-if="loading"
+                  class="loading-spinner"
+                ></span>
+                {{ loading ? $t('login.loggingIn') : $t('login.login') }}
               </button>
               <div class="skip-login">
                 {{ $t('login.skip') }}
@@ -103,6 +107,7 @@
                 class="login-button"
                 type="primary"
                 html-type="submit"
+                :loading="externalLoginLoading"
                 @click="handleExternalLogin"
               >
                 {{ $t('login.login') }}
@@ -137,8 +142,9 @@ import config from '@renderer/config'
 import { sendEmailCode, emailLogin } from '@/api/user/user'
 
 const platform = ref<string>('')
-const isDevWin = ref(false)
+const isDev = ref(false)
 const loading = ref(false)
+const externalLoginLoading = ref(false)
 const codeSending = ref(false)
 const countdown = ref(0)
 const emailForm = reactive({
@@ -290,21 +296,37 @@ const skipLogin = async () => {
 
 const handleExternalLogin = async () => {
   try {
+    externalLoginLoading.value = true
     const api = window.api as any
+    // 外部登录时进行IP检测
+    try {
+      await api.detectIpLocation()
+    } catch (error) {
+      console.error('[外部登录] IP检测异常:', error)
+    }
     await api.openExternalLogin()
   } catch (err) {
     console.error('启动外部登录失败:', err)
     message.error('启动外部登录失败')
+  } finally {
+    externalLoginLoading.value = false
   }
 }
 
 onMounted(async () => {
   const api = window.api as any
   platform.value = await api.getPlatform()
-  isDevWin.value = import.meta.env.MODE === 'development'
-  // isDevWin.value = import.meta.env.MODE === 'development' && platform.value === 'win32'
+  isDev.value = import.meta.env.MODE === 'development'
+  // isDev.value = import.meta.env.MODE === 'development' && platform.value === 'win32'
   await captureButtonClick(LoginFunnelEvents.ENTER_LOGIN_PAGE)
-  if (!isDevWin.value) {
+
+  // 异步进行IP检测
+  try {
+    await api.detectIpLocation()
+  } catch (error) {
+    console.error('[登录页面] IP检测异常:', error)
+  }
+  if (!isDev.value) {
     // 监听外部登录成功事件
     const ipcRenderer = (window as any).electron?.ipcRenderer
     ipcRenderer?.on('external-login-success', async (event, data) => {
@@ -356,7 +378,7 @@ onMounted(async () => {
 })
 
 onBeforeUnmount(() => {
-  if (!isDevWin.value) {
+  if (!isDev.value) {
     const ipcRenderer = (window as any).electron?.ipcRenderer
     ipcRenderer?.removeAllListeners('external-login-success')
 
@@ -398,6 +420,7 @@ onBeforeUnmount(() => {
   .logo {
     width: 100px;
     height: 100px;
+
     &:hover {
       transform: scale(1.05);
       filter: drop-shadow(0 6px 12px rgba(0, 0, 0, 0.3));
@@ -494,6 +517,7 @@ onBeforeUnmount(() => {
 
     &::placeholder {
       color: #999;
+      font-size: 13px;
     }
   }
 
@@ -828,5 +852,29 @@ onBeforeUnmount(() => {
 .login-btn.primary:disabled {
   background: rgba(64, 156, 255, 0.5);
   cursor: not-allowed;
+}
+
+// Loading spinner styles
+.loading-spinner {
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-radius: 50%;
+  border-top-color: #ffffff;
+  animation: spin 1s ease-in-out infinite;
+  margin-right: 8px;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.login-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 </style>

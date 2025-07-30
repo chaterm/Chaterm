@@ -79,6 +79,7 @@ export default {
     loginByUser: '账号密码登录',
     loginByEmail: '邮箱验证码登录',
     login: '立即登录',
+    loggingIn: '正在登录中...',
     skip: '暂不登录？',
     skipLogin: '跳过',
     applyTag: '还没有账号？ ',
@@ -247,7 +248,8 @@ export default {
     billing: '计费概览',
     subscription: '订阅类型',
     expires: '过期时间',
-    ratio: '用量占比'
+    ratio: '用量占比',
+    budgetResetAt: '下次重置时间'
   },
   extensions: {
     extensions: '扩展',
