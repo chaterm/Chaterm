@@ -147,7 +147,7 @@
               <a-textarea
                 v-model:value="createForm.publicKey"
                 :rows="4"
-                :auto-size="{ minRows: 5, maxRows: 8 }"
+                :auto-size="{ minRows: 3, maxRows: 8 }"
                 spellcheck="false"
                 autocorrect="off"
                 autocapitalize="off"
