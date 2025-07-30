@@ -272,7 +272,10 @@ export default {
       openSettings: 'Open Settings',
       toggleLeftSidebar: 'Toggle Left Sidebar',
       toggleRightSidebar: 'Toggle Right Sidebar',
-      sendOrToggleAi: 'Send to AI / Toggle AI Sidebar'
+      sendOrToggleAi: 'Send to AI / Toggle AI Sidebar',
+      switchToNextTab: 'Next Tab',
+      switchToPrevTab: 'Previous Tab',
+      switchToSpecificTab: 'Switch to specific Tab[1...9]'
     }
   },
   personal: {
@@ -353,7 +356,8 @@ export default {
     copyToClipboard: 'Copy to clipboard',
     retry: 'Retry',
     taskCompleted: 'Task Completed',
-    newTask: 'Start New Task'
+    newTask: 'Start New Task',
+    codePreview: 'Code Preview ({lines} lines)'
   },
   keyChain: {
     newKey: 'New Key',

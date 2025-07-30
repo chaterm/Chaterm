@@ -237,6 +237,7 @@ import { isGlobalInput, isShowCommandBar, isShowQuickCommand } from '@renderer/v
 import { inputManager } from '../components/Ssh/termInputManager'
 import { useRouter } from 'vue-router'
 import { shortcutService } from '@/services/shortcutService'
+import { captureExtensionUsage, ExtensionNames, ExtensionStatus } from '@/utils/telemetry'
 
 const router = useRouter()
 const api = window.api as any
@@ -376,6 +377,50 @@ const focusRightSidebar = () => {
   })
 }
 
+const switchToNextTab = () => {
+  if (openedTabs.value.length <= 1) return
+
+  const currentIndex = openedTabs.value.findIndex((tab) => tab.id === activeTabId.value)
+  if (currentIndex !== -1) {
+    const nextIndex = (currentIndex + 1) % openedTabs.value.length
+    const nextTab = openedTabs.value[nextIndex]
+    if (nextTab) {
+      switchTab(nextTab.id)
+    }
+  }
+}
+
+const switchToPrevTab = () => {
+  if (openedTabs.value.length <= 1) return
+
+  const currentIndex = openedTabs.value.findIndex((tab) => tab.id === activeTabId.value)
+  if (currentIndex !== -1) {
+    const prevIndex = (currentIndex - 1 + openedTabs.value.length) % openedTabs.value.length
+    const prevTab = openedTabs.value[prevIndex]
+    if (prevTab) {
+      switchTab(prevTab.id)
+    }
+  }
+}
+
+const switchToSpecificTab = (tabNumber: number) => {
+  if (tabNumber < 1 || tabNumber > 9) return
+
+  // Focus the main panel first
+  if (focusedPane.value.type !== 'main') {
+    focusedPane.value = { type: 'main' }
+    focusedSplitPaneIndex.value = null
+  }
+
+  // Switch to the specified tab (1-based index)
+  if (openedTabs.value.length >= tabNumber) {
+    const targetTab = openedTabs.value[tabNumber - 1]
+    if (targetTab) {
+      switchTab(targetTab.id)
+    }
+  }
+}
+
 onMounted(async () => {
   const store = piniaUserConfigStore()
   await shortcutService.loadShortcuts()
@@ -396,6 +441,22 @@ onMounted(async () => {
     store.setUserConfig(config)
     currentTheme.value = config.theme || 'dark'
     document.body.className = `theme-${currentTheme.value}`
+
+    // Delay of 2 seconds to wait for the main thread to complete initializeTelemetrySetting
+    setTimeout(async () => {
+      const extensionStates = [
+        { name: ExtensionNames.AUTO_COMPLETE, enabled: config.autoCompleteStatus === 1 },
+        { name: ExtensionNames.VIM_EDITOR, enabled: config.quickVimStatus === 1 },
+        { name: ExtensionNames.ALIAS, enabled: config.aliasStatus === 1 },
+        { name: ExtensionNames.HIGHLIGHT, enabled: config.highlightStatus === 1 }
+      ]
+
+      for (const extension of extensionStates) {
+        const status = extension.enabled ? ExtensionStatus.ENABLED : ExtensionStatus.DISABLED
+        await captureExtensionUsage(extension.name, status, { trigger: 'app_startup' })
+      }
+    }, 2000)
+
     nextTick(() => {
       showWatermark.value = config.watermark !== 'close'
       api.updateTheme(currentTheme.value)
@@ -423,6 +484,9 @@ onMounted(async () => {
   eventBus.on('createVerticalSplitTab', handleCreateVerticalSplitTab)
   eventBus.on('adjustSplitPaneToEqual', adjustSplitPaneToEqualWidth)
   eventBus.on('sendOrToggleAiFromTerminal', handleSendOrToggleAiFromTerminal)
+  eventBus.on('switchToNextTab', switchToNextTab)
+  eventBus.on('switchToPrevTab', switchToPrevTab)
+  eventBus.on('switchToSpecificTab', switchToSpecificTab)
 
   checkVersion()
 })
@@ -463,7 +527,7 @@ const commandBarStyle = computed(() => {
   const left = (leftPaneSize.value * containerWidth) / 100 + 45
   return { width, left }
 })
-const DEFAULT_WIDTH_PX = 240
+const DEFAULT_WIDTH_PX = 320
 const DEFAULT_WIDTH_RIGHT_PX = 400
 const currentMenu = ref('workspace')
 const updatePaneSize = () => {
@@ -867,6 +931,9 @@ onUnmounted(() => {
   eventBus.off('createSplitTab', handleCreateSplitTab)
   eventBus.off('createVerticalSplitTab', handleCreateVerticalSplitTab)
   eventBus.off('adjustSplitPaneToEqual', adjustSplitPaneToEqualWidth)
+  eventBus.off('switchToNextTab', switchToNextTab)
+  eventBus.off('switchToPrevTab', switchToPrevTab)
+  eventBus.off('switchToSpecificTab', switchToSpecificTab)
 })
 const openUserTab = function (value) {
   if (value === 'assetConfig' || value === 'keyChainConfig' || value === 'userInfo' || value === 'userConfig') {

@@ -150,7 +150,7 @@ export type ChatermSay =
   | 'diff_error'
   | 'deleted_api_reqs'
   | 'checkpoint_created'
-  | 'info'
+  | 'sshInfo'
 
 export interface ChatermSayTool {
   tool: 'readFile' | 'listFilesTopLevel' | 'listFilesRecursive' | 'searchFiles'

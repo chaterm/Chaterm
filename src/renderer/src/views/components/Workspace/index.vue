@@ -17,14 +17,12 @@
         </div>
       </div>
 
-      <!-- 资产管理 -->
       <div style="width: 100%; margin-top: 10px">
         <div class="manage">
           <a-input
             v-model:value="searchValue"
             class="transparent-Input"
             :placeholder="t('common.search')"
-            :style="isPersonalWorkspace ? 'width: 70%' : 'width: 100%'"
             allow-clear
             @input="onSearchInput"
           >
@@ -54,11 +52,7 @@
               @select="handleSelect"
             >
               <template #title="{ title, dataRef }">
-                <div
-                  class="custom-tree-node"
-                  @click="handleClick(dataRef)"
-                  @dblclick="handleDblClick(dataRef)"
-                >
+                <div class="custom-tree-node">
                   <span
                     v-if="!isSecondLevel(dataRef)"
                     class="title-with-icon"
@@ -70,26 +64,13 @@
                     class="title-with-icon"
                   >
                     <laptop-outlined class="computer-icon" />
-                    <span v-if="editingNode !== dataRef.key">{{ title }}</span>
                     <span
-                      v-else
-                      class="edit-container"
+                      v-if="editingNode !== dataRef.key"
+                      @click="handleClick(dataRef)"
+                      @dblclick="handleDblClick(dataRef)"
+                      >{{ title }}</span
                     >
-                      <a-input
-                        v-model:value="editingTitle"
-                        size="small"
-                      />
-                      <check-outlined
-                        class="confirm-icon"
-                        @click.stop="confirmEdit(dataRef)"
-                      />
-                    </span>
                   </span>
-                  <edit-outlined
-                    v-if="isSecondLevel(dataRef) && editingNode !== dataRef.key"
-                    class="edit-icon"
-                    @click.stop="handleEdit(dataRef)"
-                  />
                   <span
                     v-if="
                       dataRef &&
@@ -125,11 +106,7 @@
               @select="handleSelect"
             >
               <template #title="{ title, dataRef }">
-                <div
-                  class="custom-tree-node"
-                  @click="handleClick(dataRef)"
-                  @dblclick="handleDblClick(dataRef)"
-                >
+                <div class="custom-tree-node">
                   <span
                     v-if="!isSecondLevel(dataRef)"
                     class="title-with-icon"
@@ -141,26 +118,36 @@
                     class="title-with-icon"
                   >
                     <laptop-outlined class="computer-icon" />
-                    <span v-if="editingNode !== dataRef.key">{{ title }}</span>
                     <span
-                      v-else
-                      class="edit-container"
+                      v-if="editingNode !== dataRef.key"
+                      @click="handleClick(dataRef)"
+                      @dblclick="handleDblClick(dataRef)"
+                      >{{ title }}</span
                     >
-                      <a-input
-                        v-model:value="editingTitle"
-                        size="small"
-                      />
-                      <check-outlined
-                        class="confirm-icon"
-                        @click.stop="confirmEdit(dataRef)"
-                      />
-                    </span>
                   </span>
-                  <edit-outlined
-                    v-if="isSecondLevel(dataRef) && editingNode !== dataRef.key"
-                    class="edit-icon"
-                    @click.stop="handleEdit(dataRef)"
-                  />
+                  <div
+                    v-if="
+                      !isSecondLevel(dataRef) &&
+                      !dataRef.key.startsWith('common_') &&
+                      editingNode !== dataRef.key &&
+                      company !== 'personal_user_id' &&
+                      dataRef.title !== '收藏栏'
+                    "
+                    class="refresh-icon"
+                  >
+                    <a-tooltip :title="$t('common.refresh')">
+                      <a-button
+                        type="primary"
+                        size="small"
+                        ghost
+                        @click="handleRefresh(dataRef)"
+                      >
+                        <template #icon>
+                          <RedoOutlined />
+                        </template>
+                      </a-button>
+                    </a-tooltip>
+                  </div>
                   <span
                     v-if="
                       dataRef &&
@@ -187,29 +174,27 @@
           </div>
         </div>
       </div>
-      <!-- 资产创建 -->
     </div>
-    <div></div>
   </div>
 </template>
 
 <script setup lang="ts">
 import { deepClone } from '@/utils/util'
 import { ref, computed, onMounted, onUnmounted } from 'vue'
-import { StarFilled, StarOutlined, LaptopOutlined, SearchOutlined, EditOutlined, CheckOutlined } from '@ant-design/icons-vue'
+import { StarFilled, StarOutlined, LaptopOutlined, SearchOutlined, RedoOutlined } from '@ant-design/icons-vue'
 import eventBus from '@/utils/eventBus'
 import i18n from '@/locales'
+import { refreshOrganizationAssetFromWorkspace } from '../LeftTab/components/refreshOrganizationAssets'
 
 const { t } = i18n.global
 const emit = defineEmits(['currentClickServer', 'change-company', 'open-user-tab'])
-
-// 添加缺失的变量声明
 const company = ref('personal_user_id')
 const selectedKeys = ref<string[]>([])
 const expandedKeys = ref<string[]>([])
 const searchValue = ref('')
 const editingNode = ref(null)
 const editingTitle = ref('')
+const refreshingNode = ref(null)
 
 interface WorkspaceItem {
   key: string
@@ -312,7 +297,6 @@ const getUserAssetMenu = () => {
 }
 
 const expandDefaultNodes = (data) => {
-  // Expand all parent nodes by default
   const keys: string[] = []
   const traverseTree = (nodes: AssetNode[]) => {
     if (!nodes) return
@@ -335,7 +319,6 @@ const filterTreeNodes = (inputValue: string): AssetNode[] => {
   const filterNodes = (nodes: AssetNode[]): AssetNode[] => {
     return nodes
       .map((node) => {
-        // 检查标题或IP是否匹配
         const titleMatch = node.title.toLowerCase().includes(lowerCaseInput)
         const ipMatch = node.ip && node.ip.toLowerCase().includes(lowerCaseInput)
 
@@ -416,10 +399,8 @@ const toggleFavorite = (dataRef: any): void => {
       .catch((err) => console.error('个人资产收藏错误:', err))
   } else {
     console.log('执行企业资产收藏逻辑')
-    // 企业资产需要区分是组织本身还是组织下的子资产
     if (dataRef.asset_type === 'organization' && !dataRef.organizationId) {
       console.log('更新组织本身收藏状态')
-      // 组织本身，修改 t_assets
       window.api
         .updateLocalAsseFavorite({ uuid: dataRef.uuid, status: dataRef.favorite ? 2 : 1 })
         .then((res) => {
@@ -437,13 +418,11 @@ const toggleFavorite = (dataRef: any): void => {
         status: dataRef.favorite ? 2 : 1
       })
 
-      // 检查 API 方法是否存在
       if (!window.api.updateOrganizationAssetFavorite) {
         console.error('window.api.updateOrganizationAssetFavorite 方法不存在!')
         return
       }
 
-      // 组织下的子资产，修改 t_organization_assets
       window.api
         .updateOrganizationAssetFavorite({
           organizationUuid: dataRef.organizationId,
@@ -467,39 +446,7 @@ const toggleFavorite = (dataRef: any): void => {
   }
   console.log('=== toggleFavorite 结束 ===')
 }
-const handleEdit = (dataRef) => {
-  editingNode.value = dataRef.key
-  editingTitle.value = dataRef.title
-}
 
-const confirmEdit = (dataRef) => {
-  if (!editingTitle.value.trim()) {
-    return
-  }
-  dataRef.title = editingTitle.value
-  editingNode.value = null
-  editingTitle.value = ''
-
-  if (isPersonalWorkspace.value) {
-    window.api
-      .updateLocalAssetLabel({ uuid: dataRef.uuid, label: dataRef.title })
-      .then((res) => {
-        if (res.data.message === 'success') {
-          getLocalAssetMenu()
-        }
-      })
-      .catch((err) => console.error(err))
-  } else {
-    window.api
-      .updateLocalAssetLabel({ uuid: dataRef.uuid, label: dataRef.title })
-      .then((res) => {
-        if (res.data.message === 'success') {
-          getUserAssetMenu()
-        }
-      })
-      .catch((err) => console.error(err))
-  }
-}
 const clickServer = (item) => {
   emit('currentClickServer', item)
 }
@@ -522,6 +469,24 @@ const handleDblClick = (dataRef: any) => {
     clickTimer = null
   }
   clickServer(dataRef)
+}
+
+const handleRefresh = async (dataRef: any) => {
+  console.log('刷新企业资产节点:', dataRef)
+  refreshingNode.value = dataRef.key
+
+  try {
+    await refreshOrganizationAssetFromWorkspace(dataRef, () => {
+      getUserAssetMenu()
+    })
+  } catch (error) {
+    console.error('刷新失败:', error)
+    getUserAssetMenu()
+  } finally {
+    setTimeout(() => {
+      refreshingNode.value = null
+    }, 800)
+  }
 }
 
 getLocalAssetMenu()
@@ -613,6 +578,28 @@ onUnmounted(() => {
   background-color: transparent;
   max-height: calc(100vh - 120px);
   height: auto;
+
+  /* 滚动条样式 */
+  &::-webkit-scrollbar {
+    width: 6px;
+  }
+
+  &::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  &::-webkit-scrollbar-thumb {
+    background-color: var(--border-color-light);
+    border-radius: 3px;
+  }
+
+  &::-webkit-scrollbar-thumb:hover {
+    background-color: var(--text-color-tertiary);
+  }
+
+  /* Firefox 滚动条样式 */
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-color-light) transparent;
 }
 
 :deep(.dark-tree) {
@@ -623,6 +610,10 @@ onUnmounted(() => {
   .ant-tree-switcher,
   .ant-tree-node-selected {
     color: var(--text-color) !important;
+  }
+
+  .ant-tree-node-content-wrapper {
+    width: 100%;
   }
 
   .ant-tree-switcher {
@@ -639,6 +630,10 @@ onUnmounted(() => {
       background-color: var(--hover-bg-color);
     }
   }
+
+  .ant-tree-indent {
+    display: none !important;
+  }
 }
 
 .custom-tree-node {
@@ -647,47 +642,69 @@ onUnmounted(() => {
   align-items: center;
   width: 100%;
   position: relative;
-  padding-right: 24px;
+  padding-right: 4px;
 
   .title-with-icon {
     display: flex;
     align-items: center;
     color: var(--text-color);
-    flex-grow: 1;
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
 
     .computer-icon {
       margin-right: 6px;
       font-size: 14px;
       color: var(--text-color);
+      flex-shrink: 0;
     }
   }
 
+  .action-buttons {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    flex-shrink: 0;
+  }
+
   .favorite-icon {
-    position: absolute;
-    right: 0;
-    top: 50%;
-    transform: translateY(-50%);
+    display: flex;
+    align-items: center;
+    margin-right: 8px;
     cursor: pointer;
-    color: var(--text-color);
-    margin-left: 8px;
+    color: var(--text-color-tertiary);
+    flex-shrink: 0;
+    transition: all 0.2s ease;
+
+    &:hover {
+      transform: translateY(-0.5px);
+      color: var(--text-color);
+    }
   }
 
   .favorite-filled {
-    color: #faad14;
+    color: #e6b800;
+    opacity: 0.9;
+    filter: drop-shadow(0 0 3px rgba(230, 184, 0, 0.4));
   }
 
   .favorite-outlined {
     color: var(--text-color-tertiary);
+    opacity: 0.6;
   }
+
   .edit-icon {
     display: none;
     cursor: pointer;
     color: var(--text-color-tertiary);
     font-size: 14px;
-    margin-left: 6px;
     &:hover {
       color: #1890ff;
     }
+  }
+
+  .refresh-icon {
+    margin-right: 3px;
   }
 }
 
@@ -746,7 +763,7 @@ onUnmounted(() => {
 }
 
 :deep(.ant-form-item-label > label) {
-  color: #ffffff !important;
+  color: var(--text-color) !important;
 }
 .top-icon {
   &:hover {
@@ -755,31 +772,30 @@ onUnmounted(() => {
   }
 }
 :deep(.ant-card) {
-  background-color: #f5f4f4; // 浅灰色背景
-  border: 1px solid #333; // 稍深的边框色
+  background-color: var(--bg-color-secondary);
+  border: 1px solid var(--border-color);
 }
 
-/* 下拉菜单样式 */
 :global(.ant-select-dropdown) {
-  background-color: #333 !important;
-  border-color: #444 !important;
+  background-color: var(--bg-color-secondary) !important;
+  border-color: var(--border-color) !important;
 }
 :global(.ant-select-dropdown .ant-select-item) {
-  color: #e0e0e0 !important;
+  color: var(--text-color-secondary) !important;
 }
 :global(.ant-select-item-option-selected:not(.ant-select-item-option-disabled)) {
-  background-color: #444 !important;
-  color: #fff !important;
+  background-color: var(--hover-bg-color) !important;
+  color: var(--text-color) !important;
 }
 :global(.ant-select-item-option-active:not(.ant-select-item-option-disabled)) {
-  background-color: #444 !important;
+  background-color: var(--hover-bg-color) !important;
 }
 .manage {
   display: flex;
   gap: 10px;
   :deep(.ant-input-affix-wrapper) {
     background-color: transparent;
-    border-color: rgba(255, 255, 255, 0.25);
+    border-color: var(--border-color);
     box-shadow: none;
   }
 }
@@ -791,14 +807,18 @@ onUnmounted(() => {
 }
 .transparent-Input {
   background-color: transparent;
-  color: rgba(255, 255, 255, 1);
+  color: var(--text-color);
 
   :deep(.ant-input) {
     background-color: transparent;
-    color: rgba(255, 255, 255, 1);
+    color: var(--text-color);
     &::placeholder {
-      color: rgba(255, 255, 255, 0.25);
+      color: var(--text-color-tertiary);
     }
   }
+}
+
+:deep(.css-dev-only-do-not-override-1p3hq3p.ant-btn-primary.ant-btn-background-ghost) {
+  border-color: transparent !important;
 }
 </style>
