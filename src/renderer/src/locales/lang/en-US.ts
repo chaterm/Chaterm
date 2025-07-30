@@ -248,7 +248,8 @@ export default {
     billing: 'Billing Usage',
     subscription: 'Subscription Type',
     expires: 'Expiration Date',
-    ratio: 'Usage Ratio'
+    ratio: 'Usage Ratio',
+    budgetResetAt: 'Next Reset Time'
   },
   extensions: {
     extensions: 'Extensions',

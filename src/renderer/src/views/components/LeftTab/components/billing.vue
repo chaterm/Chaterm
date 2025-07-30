@@ -19,8 +19,8 @@
           <span class="info-value subscription-type">{{ userInfo.subscription || '-' }}</span>
         </div>
         <div class="info-row lr-row">
-          <span class="info-label">{{ $t('user.expires') }}</span>
-          <span class="info-value">{{ userInfo.expires || '-' }}</span>
+          <span class="info-label">{{ $t('user.budgetResetAt') }}</span>
+          <span class="info-value">{{ userInfo.budgetResetAt || '-' }}</span>
         </div>
         <div class="info-row lr-row">
           <span class="info-label">{{ $t('user.ratio') }}</span>

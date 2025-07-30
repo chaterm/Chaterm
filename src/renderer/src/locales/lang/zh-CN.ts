@@ -248,7 +248,8 @@ export default {
     billing: '计费概览',
     subscription: '订阅类型',
     expires: '过期时间',
-    ratio: '用量占比'
+    ratio: '用量占比',
+    budgetResetAt: '下次重置时间'
   },
   extensions: {
     extensions: '扩展',

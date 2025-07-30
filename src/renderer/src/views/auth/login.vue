@@ -292,12 +292,7 @@ const handleExternalLogin = async () => {
     const api = window.api as any
     // 外部登录时进行IP检测
     try {
-      const ipDetectionResult = await api.detectIpLocation()
-      if (ipDetectionResult.success) {
-        console.log('[外部登录] IP检测完成:', ipDetectionResult.isMainlandChina ? '中国大陆IP' : '国外IP')
-      } else {
-        console.warn('[外部登录] IP检测失败:', ipDetectionResult.error)
-      }
+      await api.detectIpLocation()
     } catch (error) {
       console.error('[外部登录] IP检测异常:', error)
     }
@@ -313,18 +308,13 @@ const handleExternalLogin = async () => {
 onMounted(async () => {
   const api = window.api as any
   platform.value = await api.getPlatform()
-  isDev.value = import.meta.env.MODE !== 'development'
+  isDev.value = import.meta.env.MODE === 'development'
   // isDev.value = import.meta.env.MODE === 'development' && platform.value === 'win32'
   await captureButtonClick(LoginFunnelEvents.ENTER_LOGIN_PAGE)
 
   // 异步进行IP检测
   try {
-    const ipDetectionResult = await api.detectIpLocation()
-    if (ipDetectionResult.success) {
-      console.log('[登录页面] IP检测完成:', ipDetectionResult.isMainlandChina ? '中国大陆IP' : '国外IP')
-    } else {
-      console.warn('[登录页面] IP检测失败:', ipDetectionResult.error)
-    }
+    await api.detectIpLocation()
   } catch (error) {
     console.error('[登录页面] IP检测异常:', error)
   }
@@ -519,6 +509,7 @@ onBeforeUnmount(() => {
 
     &::placeholder {
       color: #999;
+      font-size: 13px;
     }
   }
 
