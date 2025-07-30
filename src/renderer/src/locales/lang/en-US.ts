@@ -79,6 +79,7 @@ export default {
     loginByUser: 'Login with account',
     loginByEmail: 'Login with email',
     login: 'Login',
+    loggingIn: 'Logging in...',
     skip: "Don't want to sign in right now?",
     skipLogin: 'Skip for now',
     applyTag: 'No account ? ',

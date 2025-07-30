@@ -79,6 +79,7 @@ export default {
     loginByUser: '账号密码登录',
     loginByEmail: '邮箱验证码登录',
     login: '立即登录',
+    loggingIn: '正在登录中...',
     skip: '暂不登录？',
     skipLogin: '跳过',
     applyTag: '还没有账号？ ',
