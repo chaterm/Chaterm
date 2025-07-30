@@ -338,26 +338,7 @@ onMounted(async () => {
       viewport.addEventListener('scroll', () => updateSelectionButtonPosition())
     }
   })
-  eventBus.on('updateTheme', (theme) => {
-    if (terminal.value) {
-      terminal.value.options.theme =
-        theme === 'light'
-          ? {
-              background: '#ffffff',
-              foreground: '#000000',
-              cursor: '#000000',
-              cursorAccent: '#000000',
-              selectionBackground: 'rgba(0, 0, 0, 0.3)'
-            }
-          : {
-              background: '#141414',
-              foreground: '#f0f0f0',
-              cursor: '#f0f0f0',
-              cursorAccent: '#f0f0f0',
-              selectionBackground: 'rgba(255, 255, 255, 0.3)'
-            }
-    }
-  })
+
   fitAddon.value = new FitAddon()
   termInstance.loadAddon(fitAddon.value)
   if (terminalElement.value) {
@@ -528,11 +509,32 @@ onMounted(async () => {
 
     sendMarkedData('pwd\r', 'Chaterm:pwd')
   }
-
+  const handleUpdateTheme = (theme) => {
+    if (terminal.value) {
+      terminal.value.options.theme =
+        theme === 'light'
+          ? {
+              background: '#ffffff',
+              foreground: '#000000',
+              cursor: '#000000',
+              cursorAccent: '#000000',
+              selectionBackground: 'rgba(0, 0, 0, 0.3)'
+            }
+          : {
+              background: '#141414',
+              foreground: '#f0f0f0',
+              cursor: '#f0f0f0',
+              cursorAccent: '#f0f0f0',
+              selectionBackground: 'rgba(255, 255, 255, 0.3)'
+            }
+    }
+  }
   eventBus.on('executeTerminalCommand', handleExecuteCommand)
   eventBus.on('sendOrToggleAiFromTerminalForTab', handleSendOrToggleAiForTab)
   eventBus.on('requestUpdateCwdForHost', handleRequestUpdateCwdForHost)
+  eventBus.on('updateTheme', handleUpdateTheme)
   cleanupListeners.value.push(() => {
+    eventBus.off('updateTheme', handleUpdateTheme)
     eventBus.off('executeTerminalCommand', handleExecuteCommand)
     eventBus.off('sendOrToggleAiFromTerminalForTab', handleSendOrToggleAiForTab)
     eventBus.off('requestUpdateCwdForHost', handleRequestUpdateCwdForHost)
@@ -568,7 +570,6 @@ onBeforeUnmount(() => {
   }
   cleanupListeners.value.forEach((cleanup) => cleanup())
   cleanupListeners.value = []
-  eventBus.off('updateTheme')
   // MFA 监听器清理已移至全局 App.vue
   if (isConnected.value) {
     disconnectSSH()
