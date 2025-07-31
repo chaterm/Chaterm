@@ -256,7 +256,7 @@ import thinkingSvg from '@/assets/icons/thinking.svg'
 import copySvg from '@/assets/icons/copy.svg'
 import { message } from 'ant-design-vue'
 import i18n from '@/locales'
-import { extractFinalOutput } from '@/utils/terminalOutputExtractor'
+import { extractFinalOutput, cleanAnsiEscapeSequences } from '@/utils/terminalOutputExtractor'
 
 const { t } = i18n.global
 
@@ -899,13 +899,29 @@ const contentParts = computed(() => {
 })
 
 const stripAnsiCodes = (str: string): string => {
-  return str.replace(/\u001b\[\d+(;\d+)*m/g, '')
+  return cleanAnsiEscapeSequences(str)
 }
 
 const processAnsiCodes = (str: string): string => {
   if (!str.includes('\u001b[')) return str
 
   let result = str
+    .replace(/\u001b\[[\d;]*[HfABCDEFGJKSTijklmnpqrsu]/g, '')
+    .replace(/\u001b\[\?[0-9;]*[hl]/g, '')
+    .replace(/\u001b\([AB01]/g, '')
+    .replace(/\u001b[=>]/g, '')
+    .replace(/\u001b[NO]/g, '')
+    .replace(/\u001b\]0;[^\x07]*\x07/g, '')
+    .replace(/\u001b\[K/g, '')
+    .replace(/\u001b\[J/g, '')
+    .replace(/\u001b\[2J/g, '')
+    .replace(/\u001b\[H/g, '')
+    .replace(/\x00/g, '')
+    .replace(/\r/g, '')
+    .replace(/\x07/g, '')
+    .replace(/\x08/g, '')
+    .replace(/\x0B/g, '')
+    .replace(/\x0C/g, '')
     .replace(/\u001b\[0m/g, '</span>') // Reset
     .replace(/\u001b\[1m/g, '<span class="ansi-bold">') // Bold
     .replace(/\u001b\[3m/g, '<span class="ansi-italic">') // Italic
@@ -967,10 +983,9 @@ const processAnsiCodes = (str: string): string => {
     return replacement
   })
 
-  result = result.replace(/\u001b\[\d+[A-Za-z]/g, '') // Remove cursor movement codes
-  result = result.replace(/\u001b\[\d+(;\d+)*[A-Za-z]/g, '') // Remove other control sequences
-  result = result.replace(/\u001b\[\??\d+[hl]/g, '') // Remove mode setting
-  result = result.replace(/\u001b\[K/g, '') // Remove EL - Erase in Line
+  result = result.replace(/\u001b\[[0-9;]*[a-zA-Z]/g, '')
+  result = result.replace(/\u001b\[\??\d+[hl]/g, '')
+  result = result.replace(/\u001b\[K/g, '')
 
   const openTags = (result.match(/<span/g) || []).length
   const closeTags = (result.match(/<\/span>/g) || []).length
