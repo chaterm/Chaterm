@@ -147,7 +147,7 @@ export class RemoteTerminalProcess extends BrownEventEmitter<RemoteTerminalProce
     const endMarker = `===CHATERM_END_${timestamp}_${randomId}===`
 
     // Improved command wrapping: use bash for reliability and better error handling
-    const wrappedCommand = `bash -c 'echo "${startMarker}"; ${commandToExecute}; EXIT_CODE=$?; echo "${endMarker}:$EXIT_CODE"'`
+    const wrappedCommand = `bash -l -c 'echo "${startMarker}"; ${commandToExecute}; EXIT_CODE=$?; echo "${endMarker}:$EXIT_CODE"'`
 
     jumpserverMarkedCommands.set(sessionId, {
       marker: startMarker,

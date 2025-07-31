@@ -2301,9 +2301,10 @@ export class Task {
             console.log(`Fetching system information for host: ${host.host}`)
 
             // Optimization: Get all system information at once to avoid multiple network requests
-            const systemInfoScript = `echo "OS_VERSION:$(uname -a)" && echo "DEFAULT_SHELL:$SHELL" && echo "HOME_DIR:$HOME" && echo "HOSTNAME:$HOSTNAME" && echo "USERNAME:$(whoami)" && echo "SUDO_CHECK:$(sudo -n true 2>/dev/null && echo 'has sudo permission' || echo 'no sudo permission')"`
+            // Simplified script to avoid complex quoting issues in JumpServer environment
+            const systemInfoScript = `uname -a | sed 's/^/OS_VERSION:/' && echo "DEFAULT_SHELL:$SHELL" && echo "HOME_DIR:$HOME" && hostname | sed 's/^/HOSTNAME:/' && whoami | sed 's/^/USERNAME:/' && (sudo -n true 2>/dev/null && echo "SUDO_CHECK:has sudo permission" || echo "SUDO_CHECK:no sudo permission")`
 
-            const systemInfoOutput = await this.executeCommandInRemoteServer(systemInfoScript, host.host)
+            let systemInfoOutput = await this.executeCommandInRemoteServer(systemInfoScript, host.host)
             console.log(`System info output for ${host.host}:`, systemInfoOutput)
 
             if (!systemInfoOutput || systemInfoOutput.trim() === '') {
