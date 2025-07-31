@@ -519,22 +519,15 @@ const handleCreateAsset = async () => {
       return
     }
 
-    // 校验认证信息：对于企业资产，必须选择密钥，并且必须有密码
+    // 校验认证信息：对于企业资产，密钥认证时必须选择密钥，密码认证时密码为可选
     if (createFrom.auth_type === 'keyBased') {
       if (!createFrom.keyChain) {
         message.error(t('personal.validationKeychainRequired'))
         return
       }
-      // 企业资产使用密钥认证时，还需要密码
-      if (!createFrom.password || !createFrom.password.trim()) {
-        message.error(t('personal.validationPasswordRequired'))
-        return
-      }
+      // 企业资产使用密钥认证时，密码为可选，不再强制要求
     } else if (createFrom.auth_type === 'password') {
-      if (!createFrom.password || !createFrom.password.trim()) {
-        message.error(t('personal.validationPasswordRequired'))
-        return
-      }
+      // 企业资产使用密码认证时，密码为可选，不再强制要求
     }
     console.log('企业资产校验通过')
   }
@@ -607,12 +600,9 @@ const handleSaveAsset = async () => {
       message.error(t('personal.validationUsernameRequired'))
       return
     }
-    // 校验认证信息：密码或密钥至少一个不能为空
+    // 校验认证信息：企业资产密码为可选，密钥认证时必须选择密钥
     if (createFrom.auth_type === 'password') {
-      if (!createFrom.password && !createFrom.password.trim()) {
-        message.error(t('personal.validationPasswordRequired'))
-        return
-      }
+      // 企业资产使用密码认证时，密码为可选，不再强制要求
     } else if (createFrom.auth_type === 'keyBased') {
       if (!createFrom.keyChain) {
         message.error(t('personal.validationKeychainRequired'))
