@@ -988,6 +988,7 @@ const restoreHistoryTab = async (history: HistoryItem) => {
         !isDuplicate &&
         (item.ask === 'followup' ||
           item.ask === 'command' ||
+          item.say === 'command' ||
           item.say === 'command_output' ||
           item.say === 'completion_result' ||
           item.say === 'text' ||
