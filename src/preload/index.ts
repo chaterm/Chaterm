@@ -588,7 +588,11 @@ const api = {
   deleteFile: (opts: { id: string; remotePath: string }) => ipcRenderer.invoke('ssh:sftp:delete-file', opts),
   openFileDialog: () => ipcRenderer.invoke('dialog:open-file'),
   openDirectoryDialog: () => ipcRenderer.invoke('dialog:open-directory'),
-  openSaveDialog: (opts: { fileName: string }) => ipcRenderer.invoke('dialog:save-file', opts)
+  openSaveDialog: (opts: { fileName: string }) => ipcRenderer.invoke('dialog:save-file', opts),
+  agentEnableAndConfigure: (opts: { enabled: boolean }) => ipcRenderer.invoke('ssh:agent:enable-and-configure', opts),
+  addKey: (opts: { keyData: string; passphrase?: string; comment?: string }) => ipcRenderer.invoke('ssh:agent:add-key', opts),
+  removeKey: (opts: { keyId: string }) => ipcRenderer.invoke('ssh:agent:remove-key', opts),
+  listKeys: () => ipcRenderer.invoke('ssh:agent:list-key') as Promise<[]>
 }
 // 自定义 API 用于浏览器控制
 

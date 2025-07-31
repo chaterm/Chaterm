@@ -201,6 +201,7 @@ import { StarFilled, StarOutlined, LaptopOutlined, SearchOutlined, RedoOutlined 
 import eventBus from '@/utils/eventBus'
 import i18n from '@/locales'
 import { refreshOrganizationAssetFromWorkspace } from '../LeftTab/components/refreshOrganizationAssets'
+import { userConfigStore } from '@/services/userConfigStoreService'
 
 const { t } = i18n.global
 const emit = defineEmits(['currentClickServer', 'change-company', 'open-user-tab'])
@@ -529,6 +530,32 @@ const handleRefresh = async (dataRef: any) => {
 }
 
 getLocalAssetMenu()
+
+const getSSHAgentStatus = async () => {
+  const savedConfig = await userConfigStore.getConfig()
+  if (savedConfig && savedConfig.sshAgentsStatus == 1) {
+    window.api.agentEnableAndConfigure({ enabled: true }).then((res) => {
+      if (res.success) {
+        const sshAgentMaps = JSON.parse(savedConfig.sshAgentsMap)
+        for (const keyId in sshAgentMaps) {
+          loadKey(sshAgentMaps[keyId])
+        }
+      }
+    })
+  }
+}
+
+const loadKey = (keyId) => {
+  window.api.getKeyChainInfo({ id: keyId }).then((res) => {
+    window.api.addKey({
+      keyData: res.private_key,
+      comment: res.chain_name,
+      passphrase: res.passphrase
+    })
+  })
+}
+
+getSSHAgentStatus()
 
 const refreshAssetMenu = () => {
   if (isPersonalWorkspace.value) {

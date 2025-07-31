@@ -12,6 +12,7 @@ import {
 } from './jumpserverHandle'
 import path from 'path'
 import fs from 'fs'
+import { SSHAgentManager } from './ssh-agent/ChatermSSHAgent'
 
 // Store SSH connections
 export const sshConnections = new Map()
@@ -254,7 +255,7 @@ const attemptSecondaryConnection = (event, connectionInfo) => {
 }
 
 const handleAttemptConnection = (event, connectionInfo, resolve, reject, retryCount) => {
-  const { id, host, port, username, password, privateKey, passphrase } = connectionInfo
+  const { id, host, port, username, password, privateKey, passphrase, agentForward } = connectionInfo
   retryCount++
 
   connectionStatus.set(id, { isVerified: false }) // Update connection status
@@ -295,6 +296,13 @@ const handleAttemptConnection = (event, connectionInfo, resolve, reject, retryCo
     keepaliveInterval: 10000, // Keep connection alive
     tryKeyboard: true, // Enable keyboard interactive authentication
     readyTimeout: KeyboardInteractiveTimeout // Connection timeout, 30 seconds
+  }
+
+  if (agentForward) {
+    const manager = SSHAgentManager.getInstance()
+    // 如果使用 Agent 认证
+    connectConfig.agent = manager.getAgent()
+    connectConfig.agentForward = true
   }
 
   conn.on('keyboard-interactive', async (_name, _instructions, _instructionsLang, prompts, finish) => {
@@ -1041,5 +1049,49 @@ export const registerSSHHandlers = () => {
       filters: [{ name: 'All files', extensions: ['*'] }]
     })
     return result.canceled ? null : result.filePath
+  })
+
+  ipcMain.handle('ssh:agent:enable-and-configure', async (_event: any, { enabled }: { enabled: boolean }) => {
+    const manager = SSHAgentManager.getInstance()
+
+    try {
+      const result = await manager.enableAgent(enabled)
+      console.log('SSH Agent enabled:', result.SSH_AUTH_SOCK)
+      return { success: true }
+    } catch (error: any) {
+      console.error('Error in agent:enable-and-configure:', error)
+      return { success: false }
+    }
+  })
+
+  ipcMain.handle('ssh:agent:add-key', async (_e, { keyData, passphrase, comment }) => {
+    try {
+      const manager = SSHAgentManager.getInstance()
+      const keyId = await manager.addKey(keyData, passphrase, comment)
+      return { success: true, keyId }
+    } catch (error: any) {
+      console.error('Error in agent:add-key:', error)
+      return { success: false, error: error.message }
+    }
+  })
+  ipcMain.handle('ssh:agent:remove-key', async (_e, { keyId }) => {
+    try {
+      const manager = SSHAgentManager.getInstance()
+      const removeStatus = manager.removeKey(keyId)
+      return { success: removeStatus }
+    } catch (error: any) {
+      console.error('Error in agent:add-key:', error)
+      return { success: false, error: error.message }
+    }
+  })
+  ipcMain.handle('ssh:agent:list-key', async (_e) => {
+    try {
+      const manager = SSHAgentManager.getInstance()
+      const keyIdMapList = manager.listKeys()
+      return { success: true, keys: keyIdMapList }
+    } catch (error: any) {
+      console.error('Error in agent:add-key:', error)
+      return { success: false, error: error.message }
+    }
   })
 }
