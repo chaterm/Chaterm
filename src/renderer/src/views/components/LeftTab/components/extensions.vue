@@ -75,8 +75,8 @@ const userConfig = ref({
   vimStatus: false,
   quickVimStatus: 1,
   commonVimStatus: 2,
-  aliasStatus: 2,
-  highlightStatus: 2
+  aliasStatus: 1,
+  highlightStatus: 1
 })
 
 const loadSavedConfig = async () => {
