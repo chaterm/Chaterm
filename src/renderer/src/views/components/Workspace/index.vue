@@ -57,7 +57,15 @@
                     v-if="!isSecondLevel(dataRef)"
                     class="title-with-icon"
                   >
-                    <span v-if="editingNode !== dataRef.key">{{ title }}</span>
+                    <span v-if="editingNode !== dataRef.key">
+                      {{ title }}
+                      <span
+                        v-if="!isSecondLevel(dataRef) && getOriginalChildrenCount(dataRef) > 0"
+                        class="child-count"
+                      >
+                        ({{ getOriginalChildrenCount(dataRef) }})
+                      </span>
+                    </span>
                   </span>
                   <span
                     v-else
@@ -111,7 +119,15 @@
                     v-if="!isSecondLevel(dataRef)"
                     class="title-with-icon"
                   >
-                    <span v-if="editingNode !== dataRef.key">{{ title }}</span>
+                    <span v-if="editingNode !== dataRef.key">
+                      {{ title }}
+                      <span
+                        v-if="!isSecondLevel(dataRef) && getOriginalChildrenCount(dataRef) > 0"
+                        class="child-count"
+                      >
+                        ({{ getOriginalChildrenCount(dataRef) }})
+                      </span>
+                    </span>
                   </span>
                   <span
                     v-else
@@ -382,6 +398,29 @@ const handleSelect = (_, { selected, selectedNodes }) => {
 
 const isSecondLevel = (node) => {
   return node && node.children === undefined
+}
+
+const getOriginalChildrenCount = (dataRef: any): number => {
+  if (!dataRef || !dataRef.key) return 0
+
+  // 在原始数据中查找对应的节点
+  const findNodeInOriginal = (nodes: AssetNode[], targetKey: string): AssetNode | null => {
+    if (!nodes) return null
+
+    for (const node of nodes) {
+      if (node.key === targetKey) {
+        return node
+      }
+      if (node.children) {
+        const found = findNodeInOriginal(node.children, targetKey)
+        if (found) return found
+      }
+    }
+    return null
+  }
+
+  const originalNode = findNodeInOriginal(originalTreeData.value, dataRef.key)
+  return originalNode?.children?.length || 0
 }
 
 const toggleFavorite = (dataRef: any): void => {
@@ -706,6 +745,13 @@ onUnmounted(() => {
   .refresh-icon {
     margin-right: 3px;
   }
+}
+
+.child-count {
+  color: var(--text-color-tertiary);
+  font-size: 12px;
+  margin-left: 4px;
+  opacity: 0.8;
 }
 
 .edit-container {
