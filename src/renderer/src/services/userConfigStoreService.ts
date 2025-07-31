@@ -25,6 +25,8 @@ export interface UserConfig {
   feature?: number
   quickComand?: boolean
   shortcuts?: ShortcutConfig
+  sshAgentsStatus: number
+  sshAgentsMap?: string
 }
 
 export class UserConfigStoreService {
@@ -84,7 +86,9 @@ export class UserConfigStoreService {
       theme: 'dark' as 'dark' | 'light',
       feature: 0.0,
       quickComand: false,
-      shortcuts: defaultShortcuts
+      shortcuts: defaultShortcuts,
+      sshAgentsStatus: 2,
+      sshAgentsMap: '[]'
     }
   }
 

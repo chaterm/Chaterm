@@ -249,7 +249,15 @@ export default {
     subscription: 'Subscription Type',
     expires: 'Expiration Date',
     ratio: 'Usage Ratio',
-    budgetResetAt: 'Next Reset Time'
+    budgetResetAt: 'Next Reset Time',
+    sshAgentSettings: 'SSH Agent Settiong',
+    noKeyAdd: 'No key added yet',
+    remove: 'Remove',
+    comment: 'Comment',
+    fingerprint: 'Fingerprint',
+    addSuccess: 'add Success',
+    addFailed: 'Add Failed',
+    type: 'Type'
   },
   extensions: {
     extensions: 'Extensions',

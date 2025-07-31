@@ -852,7 +852,8 @@ const connectSSH = async () => {
       passphrase: passphrase.value,
       targetIp: assetInfo.host,
       sshType: assetInfo.sshType,
-      terminalType: config.terminalType
+      terminalType: config.terminalType,
+      agentForward: config.sshAgentsStatus === 1
     })
 
     // 清理 JumpServer 状态监听器
