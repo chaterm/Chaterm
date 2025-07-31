@@ -232,7 +232,7 @@ class JumpServerClient {
     })
 
     // 设置最大页数限制，避免获取过多页面
-    const MAX_PAGES = 15 // 进一步减少到15页，更保守
+    const MAX_PAGES = 100 // 进一步减少到100页，更保守
     const maxPagesToFetch = Math.min(pagination.totalPages, MAX_PAGES)
 
     console.log(`JumpServerClient.getAllAssets: 总页数 ${pagination.totalPages}，限制获取 ${maxPagesToFetch} 页`)
