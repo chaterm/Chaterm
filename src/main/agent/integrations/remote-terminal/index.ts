@@ -146,8 +146,8 @@ export class RemoteTerminalProcess extends BrownEventEmitter<RemoteTerminalProce
     const startMarker = `===CHATERM_START_${timestamp}_${randomId}===`
     const endMarker = `===CHATERM_END_${timestamp}_${randomId}===`
 
-    // 改进的命令包装：使用bash确保可靠性和更好的错误处理
-    const wrappedCommand = `bash -c 'echo "${startMarker}"; ${commandToExecute}; EXIT_CODE=$?; echo "${endMarker}:$EXIT_CODE"'`
+    // 改进的命令包装：使用bash -l确保可靠性和更好的错误处理，-l参数启动登录shell以加载完整环境
+    const wrappedCommand = `bash -l -c 'echo "${startMarker}"; ${commandToExecute}; EXIT_CODE=$?; echo "${endMarker}:$EXIT_CODE"'`
 
     jumpserverMarkedCommands.set(sessionId, {
       marker: startMarker,
