@@ -267,7 +267,12 @@ export class Task {
       const currentConnectionId = `${connectionInfo.host}:${connectionInfo.port}:${connectionInfo.username}`
       const isNewConnection = this.lastConnectionHost !== currentConnectionId
 
-      if (isNewConnection) {
+      // Check if this is an agent mode + local connection scenario that will fail
+      const chatSettings = await getGlobalState('chatSettings')
+      const isLocalConnection = connectionInfo?.sshType === 'ssh'
+      const shouldSkipConnectionMessages = chatSettings?.mode === 'agent' && isLocalConnection
+
+      if (isNewConnection && !shouldSkipConnectionMessages) {
         // Send connection start message only for new connections
         await this.postMessageToWebview({
           type: 'partialMessage',
@@ -284,17 +289,19 @@ export class Task {
       terminalInfo = await this.remoteTerminalManager.createTerminal()
 
       if (terminalInfo && isNewConnection) {
-        // Send connection success message only for new connections
-        await this.postMessageToWebview({
-          type: 'partialMessage',
-          partialMessage: {
-            ts: Date.now(),
-            type: 'say',
-            say: 'sshInfo',
-            text: this.messages.sshConnectionSuccess || '服务器连接成功',
-            partial: false
-          }
-        })
+        if (!shouldSkipConnectionMessages) {
+          // Send connection success message only for new connections
+          await this.postMessageToWebview({
+            type: 'partialMessage',
+            partialMessage: {
+              ts: Date.now(),
+              type: 'say',
+              say: 'sshInfo',
+              text: this.messages.sshConnectionSuccess || '服务器连接成功',
+              partial: false
+            }
+          })
+        }
 
         // Update the last connection host
         this.lastConnectionHost = currentConnectionId
@@ -2299,6 +2306,10 @@ export class Task {
             const systemInfoOutput = await this.executeCommandInRemoteServer(systemInfoScript, host.host)
             console.log(`System info output for ${host.host}:`, systemInfoOutput)
 
+            if (!systemInfoOutput || systemInfoOutput.trim() === '') {
+              throw new Error('Failed to get system information: connection failed or no output received')
+            }
+
             // Parse output result
             const parseSystemInfo = (
               output: string
@@ -2371,6 +2382,23 @@ export class Task {
           `
         } catch (error) {
           console.error(`Failed to get system information for host ${host.host}:`, error)
+          const chatSettings = await getGlobalState('chatSettings')
+          const isLocalConnection = await Promise.all(
+            this.hosts.map(async (h) => {
+              try {
+                const connectionInfo = await connectAssetInfo(h.uuid)
+                return connectionInfo?.sshType === 'ssh'
+              } catch {
+                return false
+              }
+            })
+          ).then((results) => results.some((isLocal) => isLocal))
+
+          if (chatSettings?.mode === 'agent' && isLocalConnection) {
+            const errorMessage = 'Error: Agent模式下连不上本地连接的目标机器，请新建任务选择Command模式操作。'
+            await this.ask('ssh_con_failed', errorMessage, false)
+            await this.abortTask()
+          }
           // Even if getting system information fails, add basic information
           systemInformation += `
             ## Host: ${host.host}

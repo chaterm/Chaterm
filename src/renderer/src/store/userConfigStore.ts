@@ -5,14 +5,14 @@ export const userConfigStore = defineStore('userConfig', {
     return {
       userConfig: {
         language: 'zh-CN',
-        aliasStatus: 2,
+        aliasStatus: 1,
         uid: 0,
-        autoCompleteStatus: 2,
+        autoCompleteStatus: 1,
         commonVimStatus: 2,
-        quickVimStatus: 2,
+        quickVimStatus: 1,
         cursorStyle: 'bar',
         fontSize: 12,
-        highlightStatus: 2,
+        highlightStatus: 1,
         scrollBack: 1000,
         watermark: 'open',
         feature: 0.0,
