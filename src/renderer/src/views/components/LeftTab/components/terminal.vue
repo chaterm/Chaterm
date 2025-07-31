@@ -75,6 +75,23 @@
           </a-radio-group>
         </a-form-item>
         <a-form-item
+          label="SSH Agents"
+          class="user_my-ant-form-item"
+        >
+          <a-switch
+            :checked="userConfig.sshAgentsStatus === 1"
+            class="user_my-ant-form-item-content"
+            @change="handleSshAgentsStatusChange"
+          />
+        </a-form-item>
+        <a-form-item
+          v-show="userConfig.sshAgentsStatus === 1"
+          :label="$t('user.sshAgentSettings')"
+          class="user_my-ant-form-item"
+        >
+          <a-button @click="openAgentConfig">{{ $t('common.setting') }}</a-button>
+        </a-form-item>
+        <a-form-item
           :label="$t('user.mouseEvent')"
           class="user_my-ant-form-item"
         >
@@ -105,6 +122,60 @@
         </a-form-item>
       </a-form>
     </a-card>
+
+    <a-modal
+      v-model:visible="agentConfigModalVisible"
+      :title="$t('user.sshAgentSettings')"
+      width="700px"
+    >
+      <a-table
+        :row-key="(record) => record.fingerprint"
+        :columns="columns"
+        :data-source="agentKeys"
+        size="small"
+        :pagination="false"
+        :locale="{ emptyText: $t('user.noKeyAdd') }"
+        class="agent-table"
+      >
+        <template #bodyCell="{ column, record }">
+          <template v-if="column.key === 'action'">
+            <a-button
+              type="link"
+              @click="removeKey(record)"
+              >{{ $t('user.remove') }}
+            </a-button>
+          </template>
+        </template>
+      </a-table>
+
+      <a-form
+        layout="inline"
+        style="width: 100%; margin-top: 20px; margin-bottom: 10px"
+      >
+        <a-form-item
+          :label="t('personal.key')"
+          style="flex: 1"
+        >
+          <a-select
+            v-model:value="keyChainData"
+            :options="keyChainOptions"
+            :field-names="{ value: 'key', label: 'label' }"
+            style="width: 200px"
+          />
+        </a-form-item>
+        <a-form-item>
+          <a-button
+            type="primary"
+            @click="addKey"
+            >{{ $t('common.add') }}</a-button
+          >
+        </a-form-item>
+      </a-form>
+
+      <template #footer>
+        <a-button @click="handleAgentConfigClose">{{ $t('common.close') }}</a-button>
+      </template>
+    </a-modal>
   </div>
 </template>
 
@@ -112,15 +183,41 @@
 import { ref, onMounted, watch } from 'vue'
 import { notification } from 'ant-design-vue'
 import { userConfigStore } from '@/services/userConfigStoreService'
-
+import { useI18n } from 'vue-i18n'
+const { t } = useI18n()
 const userConfig = ref({
   fontSize: 12,
   scrollBack: 1000,
   cursorStyle: 'block',
   middleMouseEvent: 'paste',
   rightMouseEvent: 'contextMenu',
-  terminalType: 'vt100'
+  terminalType: 'vt100',
+  sshAgentsStatus: 2,
+  sshAgentsMap: '[]'
 })
+
+const columns = [
+  {
+    title: t('user.fingerprint'),
+    dataIndex: 'fingerprint',
+    key: 'fingerprint'
+  },
+  {
+    title: t('user.comment'),
+    dataIndex: 'comment',
+    key: 'comment'
+  },
+  {
+    title: t('user.type'),
+    dataIndex: 'keyType',
+    key: 'keyType'
+  },
+  {
+    title: t('extensions.action'),
+    dataIndex: 'action',
+    key: 'action'
+  }
+]
 
 // 加载保存的配置
 const loadSavedConfig = async () => {
@@ -141,6 +238,98 @@ const loadSavedConfig = async () => {
   }
 }
 
+const handleSshAgentsStatusChange = async (checked) => {
+  userConfig.value.sshAgentsStatus = checked ? 1 : 2
+  window.api.agentEnableAndConfigure({ enabled: checked }).then((res) => {
+    if (checked && res.success) {
+      const sshAgentMaps = JSON.parse(userConfig.value.sshAgentsMap)
+      for (const keyId in sshAgentMaps) {
+        loadKey(sshAgentMaps[keyId])
+      }
+    }
+  })
+}
+
+const agentConfigModalVisible = ref(false)
+
+const keyChainOptions = ref([])
+const agentKeys = ref([])
+const keyChainData = ref()
+
+const openAgentConfig = async () => {
+  agentConfigModalVisible.value = true
+  getKeyChainData()
+  await getAgentKeys()
+}
+
+const handleAgentConfigClose = async () => {
+  agentConfigModalVisible.value = false
+}
+
+const removeKey = async (record) => {
+  await api.removeKey({ keyId: record.id })
+  const target = keyChainOptions.value.find((item) => item.label === record.comment)
+
+  if (target) {
+    const sshAgentsMap = JSON.parse(userConfig.value.sshAgentsMap)
+    const index = sshAgentsMap.indexOf(target.key)
+    if (index !== -1) {
+      sshAgentsMap.splice(index, 1)
+    }
+    userConfig.value.sshAgentsMap = JSON.stringify(sshAgentsMap)
+  }
+  await getAgentKeys()
+}
+
+const loadKey = async (keyId) => {
+  await window.api.getKeyChainInfo({ id: keyId }).then((res) => {
+    window.api.addKey({
+      keyData: res.private_key,
+      comment: res.chain_name,
+      passphrase: res.passphrase
+    })
+  })
+}
+const addKey = async () => {
+  if (keyChainData.value) {
+    await api.getKeyChainInfo({ id: keyChainData.value }).then((res) => {
+      api
+        .addKey({
+          keyData: res.private_key,
+          comment: res.chain_name,
+          passphrase: res.passphrase
+        })
+        .then(() => {
+          notification.success({
+            message: t('user.addSuccess')
+          })
+          let sshAgentKey = JSON.parse(userConfig.value.sshAgentsMap)
+          sshAgentKey.push(keyChainData.value)
+          sshAgentKey = Array.from(new Set(sshAgentKey))
+          userConfig.value.sshAgentsMap = JSON.stringify(sshAgentKey)
+          keyChainData.value = null
+          getAgentKeys()
+        })
+        .catch((error) => {
+          notification.error({
+            message: t('user.addFailed')
+          })
+          keyChainData.value = null
+        })
+    })
+  }
+}
+const getAgentKeys = async () => {
+  const res = await api.listKeys()
+  agentKeys.value = res.keys
+}
+
+const getKeyChainData = () => {
+  api.getKeyChainSelect().then((res) => {
+    keyChainOptions.value = res.data.keyChain
+  })
+}
+
 const saveConfig = async () => {
   try {
     const configToStore = {
@@ -149,7 +338,9 @@ const saveConfig = async () => {
       cursorStyle: userConfig.value.cursorStyle,
       middleMouseEvent: userConfig.value.middleMouseEvent,
       rightMouseEvent: userConfig.value.rightMouseEvent,
-      terminalType: userConfig.value.terminalType
+      terminalType: userConfig.value.terminalType,
+      sshAgentsStatus: userConfig.value.sshAgentsStatus,
+      sshAgentsMap: userConfig.value.sshAgentsMap
     }
 
     await userConfigStore.saveConfig(configToStore)
@@ -439,5 +630,15 @@ onMounted(async () => {
       border-color: #1890ff !important;
     }
   }
+}
+::v-deep(.agent-table .ant-table-tbody > tr > td),
+::v-deep(.agent-table .ant-table-thead > tr > th) {
+  padding-top: 2px !important;
+  padding-bottom: 2px !important;
+  line-height: 1 !important;
+  font-size: 12px !important;
+}
+.agent-table .ant-table-tbody > tr {
+  height: 28px !important;
 }
 </style>

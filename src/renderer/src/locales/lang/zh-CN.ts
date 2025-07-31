@@ -249,7 +249,15 @@ export default {
     subscription: '订阅类型',
     expires: '过期时间',
     ratio: '用量占比',
-    budgetResetAt: '下次重置时间'
+    budgetResetAt: '下次重置时间',
+    sshAgentSettings: 'SSH Agent设置',
+    noKeyAdd: '暂无已添加秘钥',
+    remove: '移除',
+    comment: '备注',
+    fingerprint: '指纹',
+    addSuccess: '添加成功',
+    addFailed: '添加失败',
+    type: '类型'
   },
   extensions: {
     extensions: '扩展',
