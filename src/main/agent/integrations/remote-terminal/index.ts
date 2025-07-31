@@ -97,7 +97,7 @@ export class RemoteTerminalProcess extends BrownEventEmitter<RemoteTerminalProce
       this.emit('error', error)
       throw error
     }
-    // 触发 continue，以便外部 promise 解析
+    // Trigger continue to resolve external promise
     this.emit('continue')
   }
 
@@ -107,24 +107,24 @@ export class RemoteTerminalProcess extends BrownEventEmitter<RemoteTerminalProce
       throw new Error('未找到 JumpServer 连接')
     }
 
-    // 改进的路径清理：移除所有ANSI序列、终端提示符和特殊字符
+    // Improved path cleaning: remove all ANSI sequences, terminal prompts and special characters
     let cleanCwd: string | undefined = undefined
     if (cwd) {
       cleanCwd = cwd
-        // 移除ANSI转义序列
+        // Remove ANSI escape sequences
         .replace(/\x1B\[[0-9;]*[JKmsu]/g, '')
         .replace(/\x1B\[[?][0-9]*[hl]/g, '')
         .replace(/\x1B\[K/g, '')
         .replace(/\x1B\[[0-9]+[ABCD]/g, '')
-        // 移除终端提示符模式 (如: [user@host dir]$ 或 user@host:dir$)
+        // Remove terminal prompt patterns (like: [user@host dir]$ or user@host:dir$)
         .replace(/\[[^\]]*\]\$.*$/g, '')
         .replace(/[^@]*@[^:]*:[^$]*\$.*$/g, '')
         .replace(/.*\$.*$/g, '')
-        // 移除回车换行和其他控制字符
+        // Remove carriage returns, line feeds and other control characters
         .replace(/[\r\n\x00-\x1F\x7F]/g, '')
         .trim()
 
-      // 验证路径是否有效（应该是绝对路径或相对路径）
+      // Validate if path is valid (should be absolute path or relative path)
       if (cleanCwd && !cleanCwd.match(/^[\/~]|^[a-zA-Z0-9_\-\.\/]+$/)) {
         console.log(`[JumpServer ${sessionId}] 无效的工作目录路径，忽略: "${cleanCwd}"`)
         cleanCwd = undefined
@@ -137,16 +137,16 @@ export class RemoteTerminalProcess extends BrownEventEmitter<RemoteTerminalProce
       }
     }
 
-    // 对于 JumpServer，使用不同的命令构造方式
+    // For JumpServer, use different command construction method
     const commandToExecute = cleanCwd ? `cd "${cleanCwd}" && ${command}` : command
 
-    // 创建唯一的命令标记，使用更独特的格式
+    // Create unique command marker with more distinctive format
     const timestamp = Date.now()
     const randomId = Math.random().toString(36).substring(2, 14)
     const startMarker = `===CHATERM_START_${timestamp}_${randomId}===`
     const endMarker = `===CHATERM_END_${timestamp}_${randomId}===`
 
-    // 改进的命令包装：使用bash -l确保可靠性和更好的错误处理，-l参数启动登录shell以加载完整环境
+    // Improved command wrapping: use bash for reliability and better error handling
     const wrappedCommand = `bash -l -c 'echo "${startMarker}"; ${commandToExecute}; EXIT_CODE=$?; echo "${endMarker}:$EXIT_CODE"'`
 
     jumpserverMarkedCommands.set(sessionId, {
@@ -163,28 +163,128 @@ export class RemoteTerminalProcess extends BrownEventEmitter<RemoteTerminalProce
     let exitCode = 0
     let commandEchoFiltered = false
 
-    // 改进的ANSI清理正则表达式
-    const cleanAnsiCodes = (text: string): string => {
-      return (
-        text
-          // 清理所有ANSI转义序列
-          .replace(/\x1B\[[0-9;]*[a-zA-Z]/g, '') // 通用ANSI序列
-          .replace(/\x1B\[[?][0-9]*[hl]/g, '') // 模式设置
-          .replace(/\x1B\[K/g, '') // 行擦除
-          .replace(/\x1B\[[0-9]+[ABCD]/g, '') // 光标移动
-          .replace(/\x1B\]0;[^\x07]*\x07/g, '') // 窗口标题设置
-          .replace(/\x1B\[[0-9;]*[JKmsu]/g, '') // 其他控制序列
-          // 清理终端提示符相关字符
-          .replace(/\x00/g, '') // NULL字符
-          .replace(/\r/g, '') // 回车符
-          .replace(/\x07/g, '')
-      ) // 响铃字符
+    // Helper function to get color name by index
+    const getColorName = (index: number): string => {
+      const colors = ['black', 'red', 'green', 'yellow', 'blue', 'magenta', 'cyan', 'white']
+      return colors[index] || 'white'
     }
 
-    // 检测是否为命令回显
+    // Convert ANSI escape sequences to HTML with color styles
+    const processAnsiCodes = (text: string): string => {
+      if (!text.includes('\u001b[') && !text.includes('\x1B[')) return text
+
+      let result = text
+        // First, normalize escape sequences to use \u001b format
+        .replace(/\x1B/g, '\u001b')
+        // Remove cursor movement and screen control sequences
+        .replace(/\u001b\[[\d;]*[HfABCDEFGJKSTijklmnpqrsu]/g, '')
+        .replace(/\u001b\[\?[0-9;]*[hl]/g, '')
+        .replace(/\u001b\([AB01]/g, '')
+        .replace(/\u001b[=>]/g, '')
+        .replace(/\u001b[NO]/g, '')
+        .replace(/\u001b\]0;[^\x07]*\x07/g, '')
+        .replace(/\u001b\[K/g, '')
+        .replace(/\u001b\[J/g, '')
+        .replace(/\u001b\[2J/g, '')
+        .replace(/\u001b\[H/g, '')
+        .replace(/\x00/g, '')
+        .replace(/\r/g, '')
+        .replace(/\x07/g, '')
+        .replace(/\x08/g, '')
+        .replace(/\x0B/g, '')
+        .replace(/\x0C/g, '')
+        // Convert color and style codes to HTML spans
+        .replace(/\u001b\[0m/g, '</span>') // Reset
+        .replace(/\u001b\[1m/g, '<span class="ansi-bold">') // Bold
+        .replace(/\u001b\[3m/g, '<span class="ansi-italic">') // Italic
+        .replace(/\u001b\[4m/g, '<span class="ansi-underline">') // Underline
+        // Foreground colors
+        .replace(/\u001b\[30m/g, '<span class="ansi-black">') // Black
+        .replace(/\u001b\[31m/g, '<span class="ansi-red">') // Red
+        .replace(/\u001b\[32m/g, '<span class="ansi-green">') // Green
+        .replace(/\u001b\[33m/g, '<span class="ansi-yellow">') // Yellow
+        .replace(/\u001b\[34m/g, '<span class="ansi-blue">') // Blue
+        .replace(/\u001b\[35m/g, '<span class="ansi-magenta">') // Magenta
+        .replace(/\u001b\[36m/g, '<span class="ansi-cyan">') // Cyan
+        .replace(/\u001b\[37m/g, '<span class="ansi-white">') // White
+        // Bright foreground colors
+        .replace(/\u001b\[90m/g, '<span class="ansi-bright-black">') // Bright Black
+        .replace(/\u001b\[91m/g, '<span class="ansi-bright-red">') // Bright Red
+        .replace(/\u001b\[92m/g, '<span class="ansi-bright-green">') // Bright Green
+        .replace(/\u001b\[93m/g, '<span class="ansi-bright-yellow">') // Bright Yellow
+        .replace(/\u001b\[94m/g, '<span class="ansi-bright-blue">') // Bright Blue
+        .replace(/\u001b\[95m/g, '<span class="ansi-bright-magenta">') // Bright Magenta
+        .replace(/\u001b\[96m/g, '<span class="ansi-bright-cyan">') // Bright Cyan
+        .replace(/\u001b\[97m/g, '<span class="ansi-bright-white">') // Bright White
+        // Background colors
+        .replace(/\u001b\[40m/g, '<span class="ansi-bg-black">') // Black background
+        .replace(/\u001b\[41m/g, '<span class="ansi-bg-red">') // Red background
+        .replace(/\u001b\[42m/g, '<span class="ansi-bg-green">') // Green background
+        .replace(/\u001b\[43m/g, '<span class="ansi-bg-yellow">') // Yellow background
+        .replace(/\u001b\[44m/g, '<span class="ansi-bg-blue">') // Blue background
+        .replace(/\u001b\[45m/g, '<span class="ansi-bg-magenta">') // Magenta background
+        .replace(/\u001b\[46m/g, '<span class="ansi-bg-cyan">') // Cyan background
+        .replace(/\u001b\[47m/g, '<span class="ansi-bg-white">') // White background
+        // Bright background colors
+        .replace(/\u001b\[100m/g, '<span class="ansi-bg-bright-black">') // Bright Black background
+        .replace(/\u001b\[101m/g, '<span class="ansi-bg-bright-red">') // Bright Red background
+        .replace(/\u001b\[102m/g, '<span class="ansi-bg-bright-green">') // Bright Green background
+        .replace(/\u001b\[103m/g, '<span class="ansi-bg-bright-yellow">') // Bright Yellow background
+        .replace(/\u001b\[104m/g, '<span class="ansi-bg-bright-blue">') // Bright Blue background
+        .replace(/\u001b\[105m/g, '<span class="ansi-bg-bright-magenta">') // Bright Magenta background
+        .replace(/\u001b\[106m/g, '<span class="ansi-bg-bright-cyan">') // Bright Cyan background
+        .replace(/\u001b\[107m/g, '<span class="ansi-bg-bright-white">') // Bright White background
+
+      // Handle complex sequences with multiple parameters (e.g., \u001b[1;31m for bold red)
+      result = result.replace(/\u001b\[(\d+);(\d+)m/g, (match, p1, p2) => {
+        let replacement = ''
+
+        // Process first parameter
+        if (p1 === '0') replacement += '</span><span>'
+        else if (p1 === '1') replacement += '<span class="ansi-bold">'
+        else if (p1 === '3') replacement += '<span class="ansi-italic">'
+        else if (p1 === '4') replacement += '<span class="ansi-underline">'
+        else if (p1 >= '30' && p1 <= '37') replacement += `<span class="ansi-${getColorName(parseInt(p1, 10) - 30)}">`
+        else if (p1 >= '40' && p1 <= '47') replacement += `<span class="ansi-bg-${getColorName(parseInt(p1, 10) - 40)}">`
+        else if (p1 >= '90' && p1 <= '97') replacement += `<span class="ansi-bright-${getColorName(parseInt(p1, 10) - 90)}">`
+        else if (p1 >= '100' && p1 <= '107') replacement += `<span class="ansi-bg-bright-${getColorName(parseInt(p1, 10) - 100)}">`
+
+        // Process second parameter
+        if (p2 === '0') replacement += '</span><span>'
+        else if (p2 === '1') replacement += '<span class="ansi-bold">'
+        else if (p2 === '3') replacement += '<span class="ansi-italic">'
+        else if (p2 === '4') replacement += '<span class="ansi-underline">'
+        else if (p2 >= '30' && p2 <= '37') replacement += `<span class="ansi-${getColorName(parseInt(p2, 10) - 30)}">`
+        else if (p2 >= '40' && p2 <= '47') replacement += `<span class="ansi-bg-${getColorName(parseInt(p2, 10) - 40)}">`
+        else if (p2 >= '90' && p2 <= '97') replacement += `<span class="ansi-bright-${getColorName(parseInt(p2, 10) - 90)}">`
+        else if (p2 >= '100' && p2 <= '107') replacement += `<span class="ansi-bg-bright-${getColorName(parseInt(p2, 10) - 100)}">`
+
+        return replacement
+      })
+
+      // Clean up remaining unhandled escape sequences
+      result = result.replace(/\u001b\[[0-9;]*[a-zA-Z]/g, '')
+      result = result.replace(/\u001b\[\??\d+[hl]/g, '')
+      result = result.replace(/\u001b\[K/g, '')
+
+      // Balance HTML tags
+      const openTags = (result.match(/<span/g) || []).length
+      const closeTags = (result.match(/<\/span>/g) || []).length
+
+      if (openTags > closeTags) {
+        result += '</span>'.repeat(openTags - closeTags)
+      }
+
+      return result
+    }
+
+    // Detect if it's command echo
     const isCommandEcho = (line: string): boolean => {
-      const cleanLine = cleanAnsiCodes(line).trim()
-      // 检测包装命令的回显
+      // Strip HTML tags and ANSI codes for echo detection
+      const cleanLine = processAnsiCodes(line)
+        .replace(/<[^>]*>/g, '')
+        .trim()
+      // Detect wrapped command echo
       if (
         cleanLine.includes('bash -c') ||
         cleanLine.includes(`echo "${startMarker}"`) ||
@@ -198,15 +298,16 @@ export class RemoteTerminalProcess extends BrownEventEmitter<RemoteTerminalProce
     }
 
     const processLine = (line: string) => {
-      const cleanLine = cleanAnsiCodes(line)
+      const processedLine = processAnsiCodes(line)
+      const cleanLine = processedLine.replace(/<[^>]*>/g, '').trim()
 
-      // 检测并过滤命令回显
-      if (!commandStarted && !commandEchoFiltered && isCommandEcho(cleanLine)) {
+      // Detect and filter command echo
+      if (!commandStarted && !commandEchoFiltered && isCommandEcho(line)) {
         console.log(`[JumpServer ${sessionId}] 过滤命令回显: ${cleanLine.substring(0, 50)}...`)
         return
       }
 
-      // 检测命令开始标记
+      // Detect command start marker
       if (cleanLine.includes(startMarker)) {
         commandStarted = true
         commandEchoFiltered = true
@@ -214,7 +315,7 @@ export class RemoteTerminalProcess extends BrownEventEmitter<RemoteTerminalProce
         return
       }
 
-      // 检测命令结束标记
+      // Detect command end marker
       if (cleanLine.includes(endMarker)) {
         console.log(`[JumpServer ${sessionId}] 检测到命令结束标记: ${cleanLine}`)
         const match = cleanLine.match(new RegExp(`${endMarker.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}:(\\d+)`))
@@ -223,16 +324,18 @@ export class RemoteTerminalProcess extends BrownEventEmitter<RemoteTerminalProce
           console.log(`[JumpServer ${sessionId}] 命令退出码: ${exitCode}`)
         }
 
-        // 立即完成命令
+        // Complete command immediately
         if (!commandCompleted) {
           commandCompleted = true
           console.log(`[JumpServer ${sessionId}] 命令执行完成，发送 completed 事件`)
 
-          // 发送剩余的缓冲区内容
+          // Send remaining buffer content
           if (lineBuffer && this.isListening) {
-            const cleanBufferLine = cleanAnsiCodes(lineBuffer).trim()
+            const cleanBufferLine = processAnsiCodes(lineBuffer)
+              .replace(/<[^>]*>/g, '')
+              .trim()
             if (cleanBufferLine && !cleanBufferLine.includes(endMarker)) {
-              this.emit('line', cleanBufferLine)
+              this.emit('line', processAnsiCodes(lineBuffer))
             }
           }
 
@@ -244,11 +347,10 @@ export class RemoteTerminalProcess extends BrownEventEmitter<RemoteTerminalProce
         return
       }
 
-      // 只有在命令开始标记之后且未完成时才发送输出行
+      // Only send output lines after command start marker and before completion
       if (commandStarted && !commandCompleted) {
-        const trimmedLine = cleanLine.trim()
-        if (trimmedLine && !trimmedLine.includes(startMarker) && !trimmedLine.includes(endMarker)) {
-          this.emit('line', trimmedLine)
+        if (cleanLine && !cleanLine.includes(startMarker) && !cleanLine.includes(endMarker)) {
+          this.emit('line', processedLine)
         }
       }
     }
@@ -261,24 +363,24 @@ export class RemoteTerminalProcess extends BrownEventEmitter<RemoteTerminalProce
 
       if (!this.isListening) return
 
-      // 处理数据，包括缓冲区中的内容
+      // Process data including buffer content
       let dataStr = lineBuffer + chunk
       const lines = dataStr.split(/\r?\n/)
       lineBuffer = lines.pop() || ''
 
-      // 处理完整的行
+      // Process complete lines
       for (const line of lines) {
         processLine(line)
       }
 
-      // 检查缓冲区中是否包含结束标记（处理同行情况）
+      // Check if buffer contains end marker (handle same-line case)
       if (lineBuffer.includes(endMarker)) {
         console.log(`[JumpServer ${sessionId}] 在缓冲区中检测到结束标记: ${lineBuffer}`)
         processLine(lineBuffer)
         lineBuffer = ''
       }
 
-      // 检查缓冲区中是否包含开始标记（处理同行情况）
+      // Check if buffer contains start marker (handle same-line case)
       if (!commandStarted && lineBuffer.includes(startMarker)) {
         console.log(`[JumpServer ${sessionId}] 在缓冲区中检测到开始标记: ${lineBuffer}`)
         processLine(lineBuffer)
@@ -288,11 +390,11 @@ export class RemoteTerminalProcess extends BrownEventEmitter<RemoteTerminalProce
 
     stream.on('data', dataHandler)
 
-    // 发送命令前先清理可能的残留输出
+    // Clear possible residual output before sending command
     console.log(`[JumpServer ${sessionId}] 发送包装命令: ${wrappedCommand}`)
     stream.write(`${wrappedCommand}\r`)
 
-    // 保留超时机制作为备份
+    // Keep timeout mechanism as backup
     setTimeout(() => {
       if (!commandCompleted) {
         console.log(`[JumpServer ${sessionId}] 命令执行超时，强制完成`)
@@ -355,9 +457,9 @@ export class RemoteTerminalManager {
 
     try {
       let connectResult: { id?: string; status?: string; message?: string; error?: string } | undefined
-      // 根据 sshType 选择连接方式
+      // Choose connection method based on sshType
       if (this.connectionInfo.sshType === 'jumpserver') {
-        // 使用 JumpServer 连接
+        // Use JumpServer connection
         const jumpServerConnectionInfo = {
           id: `jumpserver_${Date.now()}_${Math.random().toString(36).substring(2, 14)}`,
           host: this.connectionInfo.asset_ip!,
@@ -374,10 +476,10 @@ export class RemoteTerminalManager {
           throw new Error('JumpServer 连接失败: ' + (connectResult?.message || '未知错误'))
         }
 
-        // 为 JumpServer 连接设置 ID
+        // Set ID for JumpServer connection
         connectResult.id = jumpServerConnectionInfo.id
       } else {
-        // 使用标准 SSH 连接
+        // Use standard SSH connection
         connectResult = await remoteSshConnect(this.connectionInfo)
         if (!connectResult || !connectResult.id) {
           throw new Error('SSH 连接失败: ' + (connectResult?.error || '未知错误'))
@@ -426,7 +528,7 @@ export class RemoteTerminalManager {
     return result
   }
 
-  // 检查进程是否处于热状态
+  // Check if process is in hot state
   isProcessHot(terminalId: number): boolean {
     const process = this.processes.get(terminalId)
     return process ? process.isHot : false

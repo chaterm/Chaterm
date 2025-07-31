@@ -27,12 +27,12 @@
       isShowQuickCommand ? $t('common.quickCommandOn') : $t('common.quickCommand')
     }}</v-contextmenu-item>
     <v-contextmenu-item
-      :disabled="!props.isConnect"
+      v-if="props.isConnect"
       @click="onContextMenuAction('disconnect')"
       >{{ $t('common.disconnect') }}</v-contextmenu-item
     >
     <v-contextmenu-item
-      :disabled="props.isConnect"
+      v-if="!props.isConnect"
       @click="onContextMenuAction('reconnect')"
       >{{ $t('common.reconnect') }}</v-contextmenu-item
     >

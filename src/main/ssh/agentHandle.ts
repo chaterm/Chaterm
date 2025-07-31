@@ -206,6 +206,7 @@ export async function remoteSshExecStream(
             console.error('remoteSshExecStream onData callback error:', cbErr)
           }
         }
+
         safeResolve({
           success: code === 0 || code === 127,
           error: code !== 0 && code !== 127 ? `Command failed with exit code: ${code}` : undefined
@@ -226,8 +227,7 @@ export async function remoteSshExecStream(
       // Store stream for interactive input
       remoteShellStreams.set(sessionId, stream)
 
-      // Return stream for interactive input
-      safeResolve({ success: true, stream })
+      // 不再立即返回，而是等待 'close' 事件
     })
   })
 }
