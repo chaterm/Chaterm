@@ -19,7 +19,13 @@
             <span
               class="tab-title"
               @click="$emit('change-tab', tab.id)"
-              >{{ tab.ip ? tab.title : $t(`common.${tab.title}`) }}</span
+              >{{
+                tab.ip
+                  ? tab.title
+                  : tab.content === 'loginLogs' || tab.content === 'operationLogs'
+                    ? $t(`logs.${tab.title}`)
+                    : $t(`common.${tab.title}`)
+              }}</span
             >
             <button
               class="close-btn"
@@ -92,6 +98,8 @@
           <aliasConfig v-if="tab.content === 'aliasConfig'" />
           <assetConfig v-if="tab.content === 'assetConfig'" />
           <keyChainConfig v-if="tab.content === 'keyChainConfig'" />
+          <loginLog v-if="tab.content === 'loginLogs'" />
+          <operationLog v-if="tab.content === 'operationLogs'" />
         </div>
       </div>
     </template>
@@ -111,6 +119,8 @@ import aliasConfig from '@views/components/Extensions/aliasConfig.vue'
 import keyChainConfig from '@views/components/LeftTab/keyChainConfig.vue'
 import sshConnect from '@views/components/Ssh/sshConnect.vue'
 import Files from '@views/components/Files/index.vue'
+import loginLog from '@views/components/Logs/loginLog.vue'
+import operationLog from '@views/components/Logs/operationLog.vue'
 import eventBus from '@/utils/eventBus'
 
 interface TabItem {

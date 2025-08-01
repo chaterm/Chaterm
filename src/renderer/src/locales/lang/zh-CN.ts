@@ -506,5 +506,12 @@ export default {
     downloading: '正在下载',
     checkUpdateError: '检查更新失败',
     checking: '检查中'
+  },
+  logs: {
+    logs: '日志',
+    loginLogs: '登录日志',
+    operationLogs: '操作日志',
+    loginLogsDesc: '查看用户登录记录',
+    operationLogsDesc: '查看命令操作记录'
   }
 }

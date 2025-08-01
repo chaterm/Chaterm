@@ -504,5 +504,12 @@ export default {
     downloading: 'Downloading',
     checkUpdateError: 'Check update failed',
     checking: 'Checking'
+  },
+  logs: {
+    logs: 'Logs',
+    loginLogs: 'Login Logs',
+    operationLogs: 'Operation Logs',
+    loginLogsDesc: 'View user login records',
+    operationLogsDesc: 'View command operation records'
   }
 }
