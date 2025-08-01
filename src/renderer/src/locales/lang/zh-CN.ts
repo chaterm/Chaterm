@@ -48,6 +48,7 @@ export default {
     allExecuted: '全部执行',
     pleaseLoginFirst: '请先登录',
     select: '选择',
+    reset: '重置',
     confirm: '确认',
     ok: '确定',
     quickCommandOn: '快捷命令(已开)',
@@ -512,6 +513,23 @@ export default {
     loginLogs: '登录日志',
     operationLogs: '操作日志',
     loginLogsDesc: '查看用户登录记录',
-    operationLogsDesc: '查看命令操作记录'
+    operationLogsDesc: '查看命令操作记录',
+    username: '用户名',
+    email: '邮箱',
+    ipAddress: 'IP地址',
+    macAddress: 'MAC地址',
+    loginMethod: '登录方式',
+    status: '状态',
+    platform: '平台',
+    loginTime: '登录时间',
+    loginSuccess: '登录成功',
+    loginFailed: '登录失败',
+    unknown: '未知',
+    searchByEmail: '按邮箱搜索',
+    startDate: '开始日期',
+    endDate: '结束日期',
+    items: '条',
+    fetchError: '获取数据失败',
+    reset: '重置'
   }
 }

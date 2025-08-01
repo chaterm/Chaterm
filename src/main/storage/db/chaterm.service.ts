@@ -192,4 +192,98 @@ export class ChatermDatabaseService {
       throw error
     }
   }
+
+  // Login log related methods
+  insertLoginLog(loginData: {
+    username?: string
+    email?: string
+    ip_address?: string
+    mac_address?: string
+    login_method?: string
+    status?: string
+    user_agent?: string
+    platform?: string
+  }): any {
+    try {
+      const stmt = this.db.prepare(`
+        INSERT INTO login_log (username, email, ip_address, mac_address, login_method, status, user_agent, platform)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      `)
+      const result = stmt.run(
+        loginData.username || null,
+        loginData.email || null,
+        loginData.ip_address || null,
+        loginData.mac_address || null,
+        loginData.login_method || null,
+        loginData.status || 'success',
+        loginData.user_agent || null,
+        loginData.platform || null
+      )
+      return { success: true, data: result }
+    } catch (error) {
+      console.error('ChatermDatabaseService.insertLoginLog 错误:', error)
+      return { success: false, error: error.message }
+    }
+  }
+
+  getLoginLogs(
+    params: {
+      limit?: number
+      offset?: number
+      email?: string
+      startDate?: string
+      endDate?: string
+    } = {}
+  ): any {
+    try {
+      const { limit = 50, offset = 0, email, startDate, endDate } = params
+
+      let whereClauses: string[] = []
+      let values: any[] = []
+
+      if (email) {
+        whereClauses.push('email = ?')
+        values.push(email)
+      }
+
+      if (startDate) {
+        whereClauses.push('created_at >= ?')
+        values.push(startDate)
+      }
+
+      if (endDate) {
+        whereClauses.push('created_at <= ?')
+        values.push(endDate)
+      }
+
+      const whereClause = whereClauses.length > 0 ? `WHERE ${whereClauses.join(' AND ')}` : ''
+
+      const stmt = this.db.prepare(`
+        SELECT * FROM login_log 
+        ${whereClause}
+        ORDER BY created_at DESC 
+        LIMIT ? OFFSET ?
+      `)
+
+      const countStmt = this.db.prepare(`
+        SELECT COUNT(*) as total FROM login_log ${whereClause}
+      `)
+
+      const logs = stmt.all(...values, limit, offset)
+      const totalResult = countStmt.get(...values) as { total: number }
+
+      return {
+        success: true,
+        data: {
+          logs,
+          total: totalResult.total,
+          limit,
+          offset
+        }
+      }
+    } catch (error) {
+      console.error('ChatermDatabaseService.getLoginLogs 错误:', error)
+      return { success: false, error: error.message }
+    }
+  }
 }
