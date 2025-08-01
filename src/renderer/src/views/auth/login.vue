@@ -224,23 +224,47 @@ const onEmailLogin = async () => {
   try {
     loading.value = true
     const res = await emailLogin({ email: emailForm.email, code: emailForm.code })
-    if (res && res.code === 200 && res.data && res.data.token) {
-      localStorage.setItem('ctm-token', res.data.token)
-      setUserInfo(res.data)
+    if (res && (res as any).code === 200 && (res as any).data && (res as any).data.token) {
+      localStorage.setItem('ctm-token', (res as any).data.token)
+      setUserInfo((res as any).data)
+
       // 初始化用户数据库
       const api = window.api as any
-      const dbResult = await api.initUserDatabase({ uid: res.data.uid })
+      const dbResult = await api.initUserDatabase({ uid: (res as any).data.uid })
       if (!dbResult.success) {
         message.error('数据库初始化失败')
         return
       }
+
+      // 记录登录日志
+      try {
+        const { recordLoginLog } = await import('@/utils/loginLogger')
+        await recordLoginLog((res as any).data, '邮箱验证码', 'success')
+      } catch (logError) {
+        console.error('记录登录日志失败:', logError)
+      }
+
       shortcutService.init()
       await nextTick()
       await router.replace({ path: '/', replace: true })
     } else {
-      message.error(res && res.Message ? res.Message : '登录失败')
+      // 记录登录失败日志
+      try {
+        const { recordLoginLog } = await import('@/utils/loginLogger')
+        await recordLoginLog({ email: emailForm.email }, '邮箱验证码', 'failed')
+      } catch (logError) {
+        console.error('记录登录失败日志失败:', logError)
+      }
+      message.error(res && (res as any).Message ? (res as any).Message : '登录失败')
     }
   } catch (err: any) {
+    // 记录登录失败日志
+    try {
+      const { recordLoginLog } = await import('@/utils/loginLogger')
+      await recordLoginLog({ email: emailForm.email }, '邮箱验证码', 'failed')
+    } catch (logError) {
+      console.error('记录登录失败日志失败:', logError)
+    }
     message.error(err?.response?.data?.message || err?.message || '登录失败')
   } finally {
     loading.value = false
@@ -335,6 +359,7 @@ onMounted(async () => {
         if (userInfo) {
           localStorage.setItem('ctm-token', userInfo?.token)
           setUserInfo(userInfo)
+
           const api = window.api as any
           const dbResult = await api.initUserDatabase({ uid: userInfo.uid })
           if (!dbResult.success) {
@@ -346,6 +371,15 @@ onMounted(async () => {
             })
             return false
           }
+
+          // 记录登录日志
+          try {
+            const { recordLoginLog } = await import('@/utils/loginLogger')
+            await recordLoginLog(userInfo, method || 'Other', 'success')
+          } catch (logError) {
+            console.error('记录登录日志失败:', logError)
+          }
+
           shortcutService.init()
           await captureButtonClick(LoginFunnelEvents.LOGIN_SUCCESS, { method: method })
           router.push('/')

@@ -48,6 +48,7 @@ export default {
     allExecuted: 'All Executed',
     pleaseLoginFirst: 'Please login first',
     select: 'Select',
+    reset: 'Reset',
     confirm: 'Confirm',
     ok: 'OK',
     quickCommandOn: 'Quick Command (On) ',
@@ -510,6 +511,23 @@ export default {
     loginLogs: 'Login Logs',
     operationLogs: 'Operation Logs',
     loginLogsDesc: 'View user login records',
-    operationLogsDesc: 'View command operation records'
+    operationLogsDesc: 'View command operation records',
+    username: 'Username',
+    email: 'Email',
+    ipAddress: 'IP Address',
+    macAddress: 'MAC Address',
+    loginMethod: 'Login Method',
+    status: 'Status',
+    platform: 'Platform',
+    loginTime: 'Login Time',
+    loginSuccess: 'Success',
+    loginFailed: 'Failed',
+    unknown: 'Unknown',
+    searchByEmail: 'Search by email',
+    startDate: 'Start Date',
+    endDate: 'End Date',
+    items: 'items',
+    fetchError: 'Failed to fetch data',
+    reset: 'Reset'
   }
 }

@@ -837,6 +837,29 @@ ipcMain.handle('capture-telemetry-event', async (_, { eventType, data }) => {
   }
 })
 
+// Login log-related IPC processor
+ipcMain.handle('insert-login-log', async (_, data) => {
+  try {
+    const service = await ChatermDatabaseService.getInstance()
+    const result = service.insertLoginLog(data)
+    return result
+  } catch (error) {
+    console.error('插入登录日志失败:', error)
+    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' }
+  }
+})
+
+ipcMain.handle('get-login-logs', async (_, params) => {
+  try {
+    const service = await ChatermDatabaseService.getInstance()
+    const result = service.getLoginLogs(params)
+    return result
+  } catch (error) {
+    console.error('获取登录日志失败:', error)
+    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' }
+  }
+})
+
 // Register the agreement before the app is ready
 if (!app.isDefaultProtocolClient('chaterm')) {
   app.setAsDefaultProtocolClient('chaterm')
