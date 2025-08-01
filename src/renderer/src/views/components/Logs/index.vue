@@ -1,5 +1,5 @@
 <template>
-  <div class="extension_list">
+  <div class="logs_list">
     <div style="display: inline-block; font-size: 16px">{{ t('logs.logs') }}</div>
     <div style="width: 100%; margin-top: 7px">
       <a-menu
@@ -84,7 +84,7 @@ defineExpose({
 </script>
 
 <style lang="less" scoped>
-.extension_list {
+.logs_list {
   padding: 16px;
   height: 100%;
   overflow-y: auto;
@@ -142,7 +142,7 @@ defineExpose({
 }
 
 // Light theme specific style adjustments
-:global(.theme-light) .extension_list {
+:global(.theme-light) .logs_list {
   .menu_list {
     :deep(.ant-menu-item) {
       &:hover {
