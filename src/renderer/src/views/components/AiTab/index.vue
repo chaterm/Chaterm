@@ -105,7 +105,7 @@
               <MarkdownRenderer
                 v-if="typeof message.content === 'object' && 'question' in message.content"
                 :content="(message.content as MessageContent).question"
-                :class="`message ${message.role} ${message.say === 'completion_result' ? 'completion-result' : ''}`"
+                :class="`message ${message.role} ${message.say === 'completion_result' ? 'completion-result' : ''} ${message.say === 'interactive_command_notification' ? 'interactive-notification' : ''}`"
                 :ask="message.ask"
                 :say="message.say"
                 :partial="message.partial"
@@ -114,7 +114,7 @@
               <MarkdownRenderer
                 v-else
                 :content="typeof message.content === 'string' ? message.content : ''"
-                :class="`message ${message.role} ${message.say === 'completion_result' ? 'completion-result' : ''}`"
+                :class="`message ${message.role} ${message.say === 'completion_result' ? 'completion-result' : ''} ${message.say === 'interactive_command_notification' ? 'interactive-notification' : ''}`"
                 :ask="message.ask"
                 :say="message.say"
                 :partial="message.partial"
@@ -681,6 +681,9 @@ const showRetryButton = ref(false)
 const showCancelButton = ref(false)
 const showNewTaskButton = ref(false)
 
+// Track the current state of command execution
+const isExecutingCommand = ref(false)
+
 // Current active conversation ID
 const currentChatId = ref<string | null>(null)
 const authTokenInCookie = ref<string | null>(null)
@@ -935,6 +938,8 @@ const handlePlusClick = async () => {
   // Clear current feedback data
   messageFeedbacks.value = {}
 
+  isExecutingCommand.value = false
+
   // After opening new window, cancel the original agent window
   console.log('handleCancel: cancel')
   const response = await window.api.cancelTask()
@@ -995,7 +1000,8 @@ const restoreHistoryTab = async (history: HistoryItem) => {
           item.say === 'reasoning' ||
           item.ask === 'resume_task' ||
           item.say === 'user_feedback' ||
-          item.say === 'sshInfo')
+          item.say === 'sshInfo' ||
+          item.say === 'interactive_command_notification')
       ) {
         let role: 'assistant' | 'user' = 'assistant'
         if (index === 0 || item.say === 'user_feedback') {
@@ -1201,6 +1207,11 @@ const handleApproveCommand = async () => {
         break
     }
     message.action = 'approved'
+
+    if (message.ask === 'command') {
+      isExecutingCommand.value = true
+    }
+
     console.log('Send message to main process:', messageRsp)
     const response = await window.api.sendToMain(messageRsp)
     buttonsDisabled.value = true
@@ -1213,12 +1224,22 @@ const handleApproveCommand = async () => {
 
 const handleCancel = async () => {
   console.log('handleCancel: cancel')
-  const response = await window.api.cancelTask()
-  console.log('Main process response:', response)
+
+  if (isExecutingCommand.value) {
+    const response = await window.api.gracefulCancelTask()
+    console.log('Main process graceful cancel response:', response)
+  } else {
+    // Use regular cancel for non-command operations
+    const response = await window.api.cancelTask()
+    console.log('Main process cancel response:', response)
+  }
+
   showCancelButton.value = false
   showSendButton.value = true
   responseLoading.value = false
   lastChatMessageId.value = ''
+
+  isExecutingCommand.value = false
 }
 
 const handleResume = async () => {
@@ -1485,6 +1506,13 @@ onMounted(async () => {
       } else {
         showNewTaskButton.value = false
       }
+
+      // Handle interactive_command_notification messages
+      if (message.partialMessage.say === 'interactive_command_notification') {
+        handleInteractiveCommandNotification(message)
+        return
+      }
+
       // Handle model error -- api_req_failed or ssh_con_failed
       if (
         message.partialMessage.type === 'ask' &&
@@ -1523,6 +1551,10 @@ onMounted(async () => {
           newAssistantMessage.content = parseMessageContent(message.partialMessage.text)
         }
 
+        if (message.partialMessage.type === 'say' && message.partialMessage.say === 'command') {
+          isExecutingCommand.value = true
+        }
+
         lastChatMessageId.value = newAssistantMessage.id
         chatHistory.push(newAssistantMessage)
       } else if (lastMessageInChat && lastMessageInChat.role === 'assistant') {
@@ -1534,6 +1566,10 @@ onMounted(async () => {
 
         if (!message.partialMessage.partial && message.partialMessage.type === 'ask') {
           lastMessageInChat.content = parseMessageContent(message.partialMessage.text)
+        }
+
+        if (message.partialMessage.type === 'say' && message.partialMessage.say === 'command_output' && !message.partialMessage.partial) {
+          isExecutingCommand.value = false
         }
       }
 
@@ -1571,6 +1607,24 @@ const handleModelApiReqFailed = (message: any) => {
   console.log('showRetryButton.value', showRetryButton.value)
   showRetryButton.value = true
   responseLoading.value = false
+}
+
+const handleInteractiveCommandNotification = (message: any) => {
+  console.log('Processing interactive_command_notification:', message)
+
+  const notificationMessage = createNewMessage(
+    'assistant',
+    message.partialMessage.text,
+    message.partialMessage.type,
+    message.partialMessage.type === 'ask' ? message.partialMessage.ask : '',
+    message.partialMessage.type === 'say' ? message.partialMessage.say : '',
+    message.partialMessage.ts,
+    false
+  )
+
+  chatHistory.push(notificationMessage)
+
+  console.log('Interactive command notification processed and added to chat history')
 }
 
 onUnmounted(() => {
@@ -1635,7 +1689,14 @@ const sendMessageToMain = async (userContent: string, sendType: string) => {
     }))
 
     let message
-    if (chatHistory.length === 0) {
+    // Check if it is an interactive command input: only when a command is currently executing, the user's message is considered as interactive input
+    if (isExecutingCommand.value && chatHistory.length > 0) {
+      message = {
+        type: 'interactiveCommandInput',
+        input: userContent
+      }
+      console.log('Sending interactive command input:', userContent)
+    } else if (chatHistory.length === 0) {
       message = {
         type: 'newTask',
         askResponse: 'messageResponse',
@@ -2662,6 +2723,54 @@ defineExpose({
         border-radius: 0 0 4px 4px;
         padding: 0 8px 2px 8px;
         margin-top: 0;
+      }
+
+      &.interactive-notification {
+        background-color: var(--bg-color-quaternary) !important;
+        border: none !important;
+        border-radius: 4px !important;
+        margin: 8px 0 !important;
+        padding: 8px 12px !important;
+        font-size: 12px !important;
+        line-height: 1.5715 !important;
+        position: relative;
+        overflow: hidden;
+
+        &:before {
+          content: '💡';
+          position: absolute;
+          left: 12px;
+          top: 8px;
+          font-size: 14px;
+          line-height: 1;
+        }
+
+        :deep(.markdown-content) {
+          color: var(--text-color) !important;
+          margin-left: 24px !important;
+          padding: 0 !important;
+          margin-top: 0 !important;
+          margin-bottom: 0 !important;
+          font-size: 12px !important;
+          line-height: 1.5715 !important;
+
+          p,
+          div,
+          span {
+            color: var(--text-color) !important;
+            font-size: 12px !important;
+            line-height: 1.5715 !important;
+            margin: 0 !important;
+          }
+
+          p:first-child {
+            margin-top: 0 !important;
+          }
+
+          p:last-child {
+            margin-bottom: 0 !important;
+          }
+        }
       }
     }
   }

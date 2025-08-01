@@ -151,6 +151,7 @@ export type ChatermSay =
   | 'deleted_api_reqs'
   | 'checkpoint_created'
   | 'sshInfo'
+  | 'interactive_command_notification'
 
 export interface ChatermSayTool {
   tool: 'readFile' | 'listFilesTopLevel' | 'listFilesRecursive' | 'searchFiles'
