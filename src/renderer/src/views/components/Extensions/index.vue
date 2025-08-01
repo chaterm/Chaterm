@@ -1,6 +1,6 @@
 <template>
   <div class="extension_list">
-    <div style="display: inline-block; font-size: 14px">{{ t('extensions.extensions') }}</div>
+    <div style="display: inline-block; font-size: 16px">{{ t('extensions.extensions') }}</div>
     <div style="width: 100%; margin-top: 7px">
       <a-input
         v-model:value="searchValue"
