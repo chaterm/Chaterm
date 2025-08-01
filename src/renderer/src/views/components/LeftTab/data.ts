@@ -25,6 +25,11 @@ const menuTabsData = [
     icon: new URL('@/assets/menu/monitor.svg', import.meta.url).href
   },
   {
+    name: 'Logs',
+    key: 'logs',
+    icon: new URL('@/assets/menu/logs.svg', import.meta.url).href
+  },
+  {
     name: 'AI',
     key: 'ai',
     icon: new URL('@/assets/menu/ai.svg', import.meta.url).href
