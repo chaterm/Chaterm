@@ -131,6 +131,7 @@ import stripAnsi from 'strip-ansi'
 import { inputManager, commandBarHeight } from './termInputManager'
 import { shellCommands } from './shellCmd'
 import { createJumpServerStatusHandler, formatStatusMessage } from './jumpServerStatusHandler'
+// import { createContextFetcher, type ContextFetcher } from './autocomplete/contextFetcher'
 const { t } = useI18n()
 const selectFlag = ref(false)
 const configStore = userConfigStore()
@@ -250,6 +251,7 @@ const showSearch = ref(false)
 const searchAddon = ref<SearchAddon | null>(null)
 const showAiButton = ref(false)
 let jumpServerStatusHandler: ReturnType<typeof createJumpServerStatusHandler> | null = null
+// let contextFetcher: ContextFetcher | null = null
 
 // 计算快捷键显示文本
 const shortcutKey = computed(() => {
@@ -806,7 +808,6 @@ const handleResize = debounce(() => {
         if (isConnected.value) {
           resizeSSH(cols, rows)
         }
-        console.log(`Terminal resized to: ${cols}x${rows}`)
       }
     } catch (error) {
       console.error('Failed to resize terminal:', error)
@@ -923,6 +924,15 @@ const startShell = async () => {
       })
 
       cleanupListeners.value.push(removeDataListener, removeErrorListener, removeCloseListener)
+
+      // contextFetcher = createContextFetcher({
+      //   connectionId: connectionId.value,
+      //   api: api,
+      //   enableOutput: false, // 禁用终端输出，避免干扰前台
+      //   outputCallback: (message) => {
+      //     console.log('[ContextFetcher] 上下文信息:', message)
+      //   }
+      // })
     } else {
       terminal.value?.writeln(
         JSON.stringify({
@@ -1442,6 +1452,8 @@ const setupTerminalInput = () => {
       }
       if (command && command.trim()) {
         insertCommand(command)
+        // 触发后台上下文获取
+        // contextFetcher?.fetchContext()
       }
       suggestions.value = []
       activeSuggestion.value = -1
