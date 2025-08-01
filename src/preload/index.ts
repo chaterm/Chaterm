@@ -542,6 +542,14 @@ const api = {
       return Promise.reject(error)
     }
   },
+  gracefulCancelTask: async () => {
+    try {
+      const result = await ipcRenderer.invoke('graceful-cancel-task')
+      return result
+    } catch (error) {
+      return Promise.reject(error)
+    }
+  },
   sendToMain: (message: any) => ipcRenderer.invoke('webview-to-main', message),
   onMainMessage: (callback) => {
     const handler = (_event, message) => callback(message)

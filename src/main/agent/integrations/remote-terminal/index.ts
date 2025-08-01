@@ -45,14 +45,19 @@ export interface RemoteTerminalInfo {
 export class RemoteTerminalProcess extends BrownEventEmitter<RemoteTerminalProcessEvents> {
   private isListening: boolean = true
   private fullOutput: string = ''
-  private lastRetrievedIndex: number = 0
   isHot: boolean = false
+  private pendingOutputTimer: NodeJS.Timeout | null = null
+  private readonly PENDING_OUTPUT_DELAY = 150 // 150ms delay
+  private sessionId: string = ''
+  private sshType: string = ''
 
   constructor() {
     super()
   }
 
   async run(sessionId: string, command: string, cwd?: string, sshType?: string): Promise<void> {
+    this.sessionId = sessionId
+    this.sshType = sshType || 'ssh'
     try {
       if (sshType === 'jumpserver') {
         await this.runJumpServerCommand(sessionId, command, cwd)
@@ -65,11 +70,50 @@ export class RemoteTerminalProcess extends BrownEventEmitter<RemoteTerminalProce
     }
   }
 
+  // Send input to running command
+  async sendInput(input: string): Promise<boolean> {
+    try {
+      if (this.sshType === 'jumpserver') {
+        const { jumpserverShellStreams } = await import('./jumpserverHandle')
+        const stream = jumpserverShellStreams.get(this.sessionId)
+        if (stream) {
+          stream.write(input)
+          return true
+        }
+        return false
+      } else {
+        // For SSH, call handler function directly
+        const { handleRemoteExecInput } = await import('../../../ssh/agentHandle')
+        const result = handleRemoteExecInput(this.sessionId, input)
+        return result.success
+      }
+    } catch (error) {
+      console.error('Failed to send input to command:', error)
+      return false
+    }
+  }
+
   private async runSshCommand(sessionId: string, command: string, cwd?: string): Promise<void> {
     const cleanCwd = cwd ? cwd.replace(/\x1B\[[^m]*m/g, '').replace(/\x1B\[[?][0-9]*[hl]/g, '') : undefined
     const commandToExecute = cleanCwd ? `cd ${cleanCwd} && ${command}` : command
 
     let lineBuffer = ''
+
+    // Delayed output function - unified handling of all data without newlines
+    const scheduleDelayedOutput = (data: string) => {
+      // Clear previous timer
+      if (this.pendingOutputTimer) {
+        clearTimeout(this.pendingOutputTimer)
+      }
+
+      // Set new delayed timer
+      this.pendingOutputTimer = setTimeout(() => {
+        if (data.trim() && this.isListening) {
+          this.emit('line', data)
+        }
+        this.pendingOutputTimer = null
+      }, this.PENDING_OUTPUT_DELAY)
+    }
 
     const execResult = await remoteSshExecStream(sessionId, commandToExecute, (chunk: string) => {
       this.fullOutput += chunk
@@ -78,22 +122,45 @@ export class RemoteTerminalProcess extends BrownEventEmitter<RemoteTerminalProce
 
       let data = lineBuffer + chunk
       const lines = data.split(/\r?\n/)
-      lineBuffer = lines.pop() || ''
 
-      for (const line of lines) {
-        if (line.trim()) this.emit('line', line)
+      if (lines.length === 1) {
+        // Only one line of data (no newlines), use delay mechanism uniformly
+        lineBuffer = data
+        scheduleDelayedOutput(data)
+      } else {
+        // When there are multiple lines of data, process complete lines
+        if (this.pendingOutputTimer) {
+          clearTimeout(this.pendingOutputTimer)
+          this.pendingOutputTimer = null
+        }
+
+        lineBuffer = lines.pop() || ''
+
+        for (const line of lines) {
+          if (line.trim()) this.emit('line', line)
+        }
+
+        // Apply delay mechanism to remaining lineBuffer as well
+        if (lineBuffer.trim()) {
+          scheduleDelayedOutput(lineBuffer)
+        }
       }
-      this.lastRetrievedIndex = this.fullOutput.length
     })
 
-    if (lineBuffer && this.isListening) {
+    // Clean up timer and ensure sending last buffer content
+    if (this.pendingOutputTimer) {
+      clearTimeout(this.pendingOutputTimer)
+      this.pendingOutputTimer = null
+    }
+
+    if (lineBuffer && this.isListening && lineBuffer.trim()) {
       this.emit('line', lineBuffer)
     }
 
     if (execResult && execResult.success) {
       this.emit('completed')
     } else {
-      const error = new Error(execResult?.error || '远程命令执行失败')
+      const error = new Error(execResult?.error || 'Remote command execution failed')
       this.emit('error', error)
       throw error
     }
@@ -104,7 +171,7 @@ export class RemoteTerminalProcess extends BrownEventEmitter<RemoteTerminalProce
   private async runJumpServerCommand(sessionId: string, command: string, cwd?: string): Promise<void> {
     const stream = jumpserverShellStreams.get(sessionId)
     if (!stream) {
-      throw new Error('未找到 JumpServer 连接')
+      throw new Error('JumpServer connection not found')
     }
 
     // Improved path cleaning: remove all ANSI sequences, terminal prompts and special characters
@@ -126,14 +193,14 @@ export class RemoteTerminalProcess extends BrownEventEmitter<RemoteTerminalProce
 
       // Validate if path is valid (should be absolute path or relative path)
       if (cleanCwd && !cleanCwd.match(/^[\/~]|^[a-zA-Z0-9_\-\.\/]+$/)) {
-        console.log(`[JumpServer ${sessionId}] 无效的工作目录路径，忽略: "${cleanCwd}"`)
+        console.log(`[JumpServer ${sessionId}] Invalid working directory path, ignoring: "${cleanCwd}"`)
         cleanCwd = undefined
       }
 
       if (cwd && cleanCwd) {
-        console.log(`[JumpServer ${sessionId}] 原始路径: "${cwd}" -> 清理后: "${cleanCwd}"`)
+        console.log(`[JumpServer ${sessionId}] Original path: "${cwd}" -> Cleaned: "${cleanCwd}"`)
       } else if (cwd && !cleanCwd) {
-        console.log(`[JumpServer ${sessionId}] 路径清理失败，原始: "${cwd}"`)
+        console.log(`[JumpServer ${sessionId}] Path cleaning failed, original: "${cwd}"`)
       }
     }
 
@@ -303,7 +370,7 @@ export class RemoteTerminalProcess extends BrownEventEmitter<RemoteTerminalProce
 
       // Detect and filter command echo
       if (!commandStarted && !commandEchoFiltered && isCommandEcho(line)) {
-        console.log(`[JumpServer ${sessionId}] 过滤命令回显: ${cleanLine.substring(0, 50)}...`)
+        console.log(`[JumpServer ${sessionId}] Filtering command echo: ${cleanLine.substring(0, 50)}...`)
         return
       }
 
@@ -311,23 +378,23 @@ export class RemoteTerminalProcess extends BrownEventEmitter<RemoteTerminalProce
       if (cleanLine.includes(startMarker)) {
         commandStarted = true
         commandEchoFiltered = true
-        console.log(`[JumpServer ${sessionId}] 检测到命令开始标记`)
+        console.log(`[JumpServer ${sessionId}] Detected command start marker`)
         return
       }
 
       // Detect command end marker
       if (cleanLine.includes(endMarker)) {
-        console.log(`[JumpServer ${sessionId}] 检测到命令结束标记: ${cleanLine}`)
+        console.log(`[JumpServer ${sessionId}] Detected command end marker: ${cleanLine}`)
         const match = cleanLine.match(new RegExp(`${endMarker.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}:(\\d+)`))
         if (match && match[1]) {
           exitCode = parseInt(match[1], 10)
-          console.log(`[JumpServer ${sessionId}] 命令退出码: ${exitCode}`)
+          console.log(`[JumpServer ${sessionId}] Command exit code: ${exitCode}`)
         }
 
         // Complete command immediately
         if (!commandCompleted) {
           commandCompleted = true
-          console.log(`[JumpServer ${sessionId}] 命令执行完成，发送 completed 事件`)
+          console.log(`[JumpServer ${sessionId}] Command execution completed, sending completed event`)
 
           // Send remaining buffer content
           if (lineBuffer && this.isListening) {
@@ -375,14 +442,14 @@ export class RemoteTerminalProcess extends BrownEventEmitter<RemoteTerminalProce
 
       // Check if buffer contains end marker (handle same-line case)
       if (lineBuffer.includes(endMarker)) {
-        console.log(`[JumpServer ${sessionId}] 在缓冲区中检测到结束标记: ${lineBuffer}`)
+        console.log(`[JumpServer ${sessionId}] Detected end marker in buffer: ${lineBuffer}`)
         processLine(lineBuffer)
         lineBuffer = ''
       }
 
       // Check if buffer contains start marker (handle same-line case)
       if (!commandStarted && lineBuffer.includes(startMarker)) {
-        console.log(`[JumpServer ${sessionId}] 在缓冲区中检测到开始标记: ${lineBuffer}`)
+        console.log(`[JumpServer ${sessionId}] Detected start marker in buffer: ${lineBuffer}`)
         processLine(lineBuffer)
         lineBuffer = ''
       }
@@ -391,17 +458,17 @@ export class RemoteTerminalProcess extends BrownEventEmitter<RemoteTerminalProce
     stream.on('data', dataHandler)
 
     // Clear possible residual output before sending command
-    console.log(`[JumpServer ${sessionId}] 发送包装命令: ${wrappedCommand}`)
+    console.log(`[JumpServer ${sessionId}] Sending wrapped command: ${wrappedCommand}`)
     stream.write(`${wrappedCommand}\r`)
 
     // Keep timeout mechanism as backup
     setTimeout(() => {
       if (!commandCompleted) {
-        console.log(`[JumpServer ${sessionId}] 命令执行超时，强制完成`)
+        console.log(`[JumpServer ${sessionId}] Command execution timeout, forcing completion`)
         commandCompleted = true
         stream.removeListener('data', dataHandler)
         jumpserverMarkedCommands.delete(sessionId)
-        this.emit('error', new Error('JumpServer 命令执行超时'))
+        this.emit('error', new Error('JumpServer command execution timeout'))
       }
     }, 30000)
   }
@@ -473,7 +540,7 @@ export class RemoteTerminalManager {
 
         connectResult = await handleJumpServerConnection(jumpServerConnectionInfo)
         if (!connectResult || connectResult.status !== 'connected') {
-          throw new Error('JumpServer 连接失败: ' + (connectResult?.message || '未知错误'))
+          throw new Error('JumpServer connection failed: ' + (connectResult?.message || 'Unknown error'))
         }
 
         // Set ID for JumpServer connection
@@ -482,7 +549,7 @@ export class RemoteTerminalManager {
         // Use standard SSH connection
         connectResult = await remoteSshConnect(this.connectionInfo)
         if (!connectResult || !connectResult.id) {
-          throw new Error('SSH 连接失败: ' + (connectResult?.error || '未知错误'))
+          throw new Error('SSH connection failed: ' + (connectResult?.error || 'Unknown error'))
         }
       }
 
@@ -565,7 +632,7 @@ export class RemoteTerminalManager {
     await Promise.all(disconnectPromises)
     this.terminals.clear()
     this.processes.clear()
-    console.log('所有远程终端已关闭。')
+    console.log('All remote terminals have been closed.')
   }
 
   // Disconnect specified terminal connection
@@ -590,7 +657,7 @@ export class RemoteTerminalManager {
             jumpserverConnections.delete(terminalInfo.sessionId)
           }
 
-          console.log(`JumpServer 终端 ${terminalId} (Session: ${terminalInfo.sessionId}) 已断开.`)
+          console.log(`JumpServer terminal ${terminalId} (Session: ${terminalInfo.sessionId}) disconnected.`)
         } else {
           await remoteSshDisconnect(terminalInfo.sessionId)
           console.log(`SSH terminal ${terminalId} (Session: ${terminalInfo.sessionId}) disconnected.`)

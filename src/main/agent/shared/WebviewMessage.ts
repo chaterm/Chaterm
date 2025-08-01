@@ -36,6 +36,7 @@ export interface WebviewMessage {
     | 'deleteTaskWithId'
     | 'showTaskWithId'
     | 'taskFeedback'
+    | 'interactiveCommandInput'
 
   text?: string
   disabled?: boolean
@@ -90,6 +91,8 @@ export interface WebviewMessage {
   hosts?: Host[]
   cwd?: Map<string, string>
   feedbackType?: TaskFeedbackType
+  // For interactive command input
+  input?: string
 }
 
 export type ChatermAskResponse = 'yesButtonClicked' | 'noButtonClicked' | 'messageResponse'

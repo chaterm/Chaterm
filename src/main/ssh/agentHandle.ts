@@ -182,6 +182,9 @@ export async function remoteSshExecStream(
         return
       }
 
+      // Store the stream for later input operations
+      remoteShellStreams.set(sessionId, stream)
+
       stream.on('data', (data: Buffer) => {
         try {
           onData(data.toString())
@@ -199,6 +202,9 @@ export async function remoteSshExecStream(
       })
 
       stream.on('close', (code: number | null) => {
+        // Clean up the stored stream when it closes
+        remoteShellStreams.delete(sessionId)
+
         if (code === 127) {
           try {
             onData("\nCommand not found. Please check if the command exists in the remote server's PATH.")
@@ -218,68 +224,15 @@ export async function remoteSshExecStream(
         try {
           stream.close()
         } catch {}
+        // Clean up the stored stream on timeout
+        remoteShellStreams.delete(sessionId)
         safeResolve({
           success: false,
           error: `Command execution timed out (${timeoutMs}ms)`
         })
       }, timeoutMs)
-
-      // Store stream for interactive input
-      remoteShellStreams.set(sessionId, stream)
-
-      // 不再立即返回，而是等待 'close' 事件
     })
   })
-}
-
-// New: Interactive SSH execution with event-driven output and input support
-export async function remoteSshExecInteractive(
-  sessionId: string,
-  command: string,
-  webContents: Electron.WebContents
-): Promise<{ streamId?: string; error?: string }> {
-  const conn = remoteConnections.get(sessionId)
-  if (!conn) return { error: 'Not connected to remote server' }
-
-  const streamId = `stream_${Date.now()}_${Math.random().toString(36).substr(2, 8)}`
-  const base64Command = Buffer.from(command, 'utf-8').toString('base64')
-  const shellCommand = `CHATERM_COMMAND_B64='${base64Command}' exec bash -l -c 'eval \"$(echo $CHATERM_COMMAND_B64 | base64 -d)\"'`
-
-  conn.exec(shellCommand, { pty: true }, (err, stream) => {
-    if (err) {
-      webContents.send('ssh:remote-exec-data', { streamId, data: '', error: err.message, close: true })
-      return
-    }
-    remoteShellStreams.set(streamId, stream)
-
-    stream.on('data', (data: Buffer) => {
-      webContents.send('ssh:remote-exec-data', { streamId, data: data.toString(), error: null, close: false })
-    })
-    stream.stderr.on('data', (data: Buffer) => {
-      webContents.send('ssh:remote-exec-data', { streamId, data: data.toString(), error: null, close: false })
-    })
-    stream.on('close', (code: number | null) => {
-      webContents.send('ssh:remote-exec-data', { streamId, data: '', error: null, close: true, code })
-      remoteShellStreams.delete(streamId)
-    })
-  })
-
-  return { streamId }
-}
-
-export async function remoteSshSendInput(sessionId: string, input: string): Promise<{ success?: boolean; error?: string }> {
-  const stream = remoteShellStreams.get(sessionId)
-  if (!stream) {
-    return { success: false, error: 'No active stream for this session' }
-  }
-
-  try {
-    stream.write(input + '\n')
-    return { success: true }
-  } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : String(error)
-    return { success: false, error: `Failed to send input: ${errorMessage}` }
-  }
 }
 
 export async function remoteSshDisconnect(sessionId: string): Promise<{ success?: boolean; error?: string }> {
@@ -301,6 +254,16 @@ export async function remoteSshDisconnect(sessionId: string): Promise<{ success?
   return { success: false, error: 'No active remote connection' }
 }
 
+// Export function for direct use in main process
+export function handleRemoteExecInput(streamId: string, input: string): { success: boolean; error?: string } {
+  const stream = remoteShellStreams.get(streamId)
+  if (stream) {
+    stream.write(input)
+    return { success: true }
+  }
+  return { success: false, error: 'Stream not found' }
+}
+
 export const registerRemoteTerminalHandlers = () => {
   ipcMain.handle('ssh:remote-connect', async (_event, connectionInfo) => {
     try {
@@ -316,30 +279,6 @@ export const registerRemoteTerminalHandlers = () => {
     } catch (err) {
       return { success: false, error: err instanceof Error ? err.message : String(err) }
     }
-  })
-
-  // New: Interactive command execution
-  ipcMain.handle('ssh:remote-exec-interactive', async (event, sessionId, command) => {
-    return await remoteSshExecInteractive(sessionId, command, event.sender)
-  })
-
-  ipcMain.handle('ssh:remote-exec-input', async (_event, streamId, input) => {
-    const stream = remoteShellStreams.get(streamId)
-    if (stream) {
-      stream.write(input)
-      return { success: true }
-    }
-    return { success: false, error: 'Stream not found' }
-  })
-
-  ipcMain.handle('ssh:remote-exec-close', async (_event, streamId) => {
-    const stream = remoteShellStreams.get(streamId)
-    if (stream) {
-      stream.end()
-      remoteShellStreams.delete(streamId)
-      return { success: true }
-    }
-    return { success: false, error: 'Stream not found' }
   })
 
   // Streaming execution is not exposed via IPC, keep it internal

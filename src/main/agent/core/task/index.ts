@@ -75,6 +75,7 @@ export class Task {
   private abort: boolean = false
   didFinishAbortingStream = false
   abandoned = false
+  private gracefulCancel: boolean = false
   checkpointTrackerErrorMessage?: string
   conversationHistoryDeletedRange?: [number, number]
   isInitialized = false
@@ -97,6 +98,9 @@ export class Task {
 
   // SSH connection status tracking
   private lastConnectionHost: string | null = null
+
+  // Interactive command input handling
+  private currentRunningProcess: any = null
 
   // streaming
   isWaitingForFirstChunk = false
@@ -551,6 +555,24 @@ export class Task {
     }
   }
 
+  // Handle interactive command input from frontend
+  async handleInteractiveCommandInput(input: string): Promise<void> {
+    try {
+      console.log('Handling interactive command input:', input)
+
+      if (!this.currentRunningProcess || !this.currentRunningProcess.sendInput) {
+        return
+      }
+
+      const success = await this.currentRunningProcess.sendInput(input + '\n')
+      if (!success) {
+        console.error('Failed to send input to running command')
+      }
+    } catch (error) {
+      console.error('Error handling interactive command input:', error)
+    }
+  }
+
   async say(type: ChatermSay, text?: string, partial?: boolean): Promise<undefined> {
     if (this.abort) {
       throw new Error('Chaterm instance aborted')
@@ -829,6 +851,16 @@ export class Task {
     this.remoteTerminalManager.disposeAll()
   }
 
+  async gracefulAbortTask() {
+    this.gracefulCancel = true
+    // Don't set abort = true, so the main loop continues
+    // Just stop the current process
+    if (this.currentRunningProcess) {
+      // Stop the current process but don't terminate the entire task
+      this.remoteTerminalManager.disposeAll()
+    }
+  }
+
   // Checkpoints
 
   async saveCheckpoint(isAttemptCompletionMessage: boolean = false) {
@@ -886,6 +918,9 @@ export class Task {
   }
 
   async executeCommandTool(command: string, ip: string): Promise<ToolResponse> {
+    let result = ''
+    let chunkTimer: NodeJS.Timeout | null = null
+
     try {
       const terminalInfo = await this.connectTerminal(ip)
       if (!terminalInfo) {
@@ -896,6 +931,9 @@ export class Task {
       terminalInfo.terminal.show()
       const process = this.remoteTerminalManager.runCommand(terminalInfo, command, this.cwd.get(ip) || undefined)
 
+      // Store the current running process so it can receive interactive input
+      this.currentRunningProcess = process
+
       // Chunked terminal output buffering
       const CHUNK_LINE_COUNT = 20
       const CHUNK_BYTE_SIZE = 2048 // 2KB
@@ -903,7 +941,6 @@ export class Task {
 
       let outputBuffer: string[] = []
       let outputBufferSize: number = 0
-      let chunkTimer: NodeJS.Timeout | null = null
       let chunkEnroute = false
 
       const flushBuffer = async (force = false) => {
@@ -935,11 +972,11 @@ export class Task {
         chunkTimer = setTimeout(async () => await flushBuffer(), CHUNK_DEBOUNCE_MS)
       }
 
-      let result = ''
       process.on('line', async (line) => {
         result += line + '\n'
         outputBuffer.push(line)
         outputBufferSize += Buffer.byteLength(line, 'utf8')
+
         // Flush if buffer is large enough
         if (outputBuffer.length >= CHUNK_LINE_COUNT || outputBufferSize >= CHUNK_BYTE_SIZE) {
           await flushBuffer()
@@ -951,6 +988,10 @@ export class Task {
       let completed = false
       process.once('completed', async () => {
         completed = true
+
+        // Clear the current running process reference
+        this.currentRunningProcess = null
+
         // Flush any remaining buffered output
         if (outputBuffer.length > 0) {
           if (chunkTimer) {
@@ -989,6 +1030,22 @@ export class Task {
         }${this.messages.commandUpdateFuture}`
       }
     } catch (err) {
+      // Clear the current running process reference on error
+      this.currentRunningProcess = null
+
+      // Clear any pending timer to prevent additional command_output messages
+      if (chunkTimer) {
+        clearTimeout(chunkTimer)
+        chunkTimer = null
+      }
+
+      // Check if this is a graceful cancel with partial output
+      if (this.gracefulCancel && result && result.trim()) {
+        const truncatedResult = this.truncateCommandOutput(result)
+        return `Command was gracefully cancelled with partial output.${truncatedResult.length > 0 ? `\nPartial Output:\n${truncatedResult}` : ''}`
+      }
+
+      // Original error handling logic
       await this.ask('ssh_con_failed', err instanceof Error ? err.message : String(err), false)
       await this.abortTask()
       return `SSH connection failed: ${err instanceof Error ? err.message : String(err)}`
@@ -1648,6 +1705,8 @@ export class Task {
     const toolDescription = this.getToolDescription(block)
     const requiresApprovalRaw: string | undefined = block.params.requires_approval
     const requiresApprovalPerLLM = requiresApprovalRaw?.toLowerCase() === 'true'
+    const interactiveRaw: string | undefined = block.params.interactive
+    const isInteractive = interactiveRaw?.toLowerCase() === 'true'
 
     try {
       if (block.partial) {
@@ -1671,7 +1730,10 @@ export class Task {
 
         const autoApproveResult = this.shouldAutoApproveTool(block.name)
         let [autoApproveSafe, autoApproveAll] = Array.isArray(autoApproveResult) ? autoApproveResult : [autoApproveResult, false]
-
+        // If it's interactive command in agent mode, send notification to frontend after command message
+        if (isInteractive && chatSettings?.mode === 'agent') {
+          await this.say('interactive_command_notification', `${this.messages.interactiveCommandNotification}`, false)
+        }
         if ((!requiresApprovalPerLLM && autoApproveSafe) || (requiresApprovalPerLLM && autoApproveSafe && autoApproveAll)) {
           this.removeLastPartialMessageIfExistsWithType('ask', 'command')
           await this.say('command', command, false)

@@ -418,6 +418,14 @@ function setupIPC(): void {
     }
     return null
   })
+
+  ipcMain.handle('graceful-cancel-task', async () => {
+    console.log('graceful-cancel-task')
+    if (controller) {
+      return await controller.gracefulCancelTask()
+    }
+    return null
+  })
   // Add message handler from renderer process to main process
   ipcMain.handle('webview-to-main', async (_, message) => {
     console.log('webview-to-main', message)
