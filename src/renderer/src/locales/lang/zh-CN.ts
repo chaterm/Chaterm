@@ -530,6 +530,24 @@ export default {
     endDate: '结束日期',
     items: '条',
     fetchError: '获取数据失败',
-    reset: '重置'
+    reset: '重置',
+    searchHostIP: '搜索主机IP',
+    searchInputCommand: '搜索输入命令',
+    searchUsername: '搜索用户名',
+    startTime: '开始时间',
+    endTime: '结束时间',
+    search: '搜索',
+    id: 'ID',
+    ip: 'IP',
+    commandInput: '命令输入',
+    commandOutput: '命令输出',
+    operationTime: '操作时间',
+    success: '成功',
+    failed: '失败',
+    timeout: '超时',
+    total: '总计',
+    records: '条记录',
+    getOperationLogsFailed: '获取操作日志失败',
+    noData: '暂无数据'
   }
 }

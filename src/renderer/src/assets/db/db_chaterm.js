@@ -130,6 +130,22 @@ CREATE TABLE IF NOT EXISTS login_log (
 );
 CREATE INDEX IF NOT EXISTS idx_login_log_created_at ON login_log(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_login_log_email ON login_log(email);
+
+CREATE TABLE IF NOT EXISTS operation_log (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,             -- 自增主键
+  username TEXT,                                    -- 用户名
+  ip TEXT,                                          -- 主机或IP
+  command_input TEXT,                               -- 命令输入
+  command_output TEXT,                              -- 命令输出
+  status TEXT DEFAULT 'success',                    -- 执行状态（success、failed、timeout）
+  session_id TEXT,                                  -- SSH会话ID
+  task_id TEXT,                                     -- 任务ID
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP     -- 操作时间
+);
+CREATE INDEX IF NOT EXISTS idx_operation_log_created_at ON operation_log(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_operation_log_ip ON operation_log(ip);
+CREATE INDEX IF NOT EXISTS idx_operation_log_command ON operation_log(command_input);
+CREATE INDEX IF NOT EXISTS idx_operation_log_username ON operation_log(username);
 `)
 
 console.log('数据库创建成功，表已创建')

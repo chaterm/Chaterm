@@ -528,6 +528,24 @@ export default {
     endDate: 'End Date',
     items: 'items',
     fetchError: 'Failed to fetch data',
-    reset: 'Reset'
+    reset: 'Reset',
+    searchHostIP: 'Search Host IP',
+    searchInputCommand: 'Search Input Command',
+    searchUsername: 'Search Username',
+    startTime: 'Start Time',
+    endTime: 'End Time',
+    search: 'Search',
+    id: 'ID',
+    ip: 'IP',
+    commandInput: 'Command Input',
+    commandOutput: 'Command Output',
+    operationTime: 'Operation Time',
+    success: 'Success',
+    failed: 'Failed',
+    timeout: 'Timeout',
+    total: 'Total',
+    records: 'records',
+    getOperationLogsFailed: 'Failed to fetch operation logs',
+    noData: 'No data available'
   }
 }
