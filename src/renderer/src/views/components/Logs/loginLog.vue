@@ -148,8 +148,7 @@ const columns: TableColumnsType<LoginLogRecord> = [
     title: t('logs.loginTime'),
     dataIndex: 'created_at',
     key: 'created_at',
-    width: 160,
-    sorter: true
+    width: 160
   }
 ]
 
@@ -184,7 +183,7 @@ const fetchLoginLogs = async () => {
       message.error(t('logs.fetchError') + ': ' + result.error)
     }
   } catch (error) {
-    console.error('获取登录日志失败:', error)
+    console.error('Failed to fetch login logs:', error)
     message.error(t('logs.fetchError'))
   } finally {
     loading.value = false
@@ -245,66 +244,345 @@ onMounted(() => {
     }
   }
 
+  // Search form style optimization
+  :deep(.ant-input) {
+    background-color: var(--bg-color-secondary) !important;
+    border-color: var(--border-color-light) !important;
+    color: var(--text-color-secondary) !important;
+    &::placeholder {
+      color: var(--text-color-tertiary) !important;
+    }
+  }
+
+  :deep(.ant-input-affix-wrapper) {
+    background-color: var(--bg-color-secondary) !important;
+    border-color: var(--border-color-light) !important;
+    color: var(--text-color-secondary) !important;
+
+    &:hover {
+      border-color: var(--border-color-light) !important;
+      background-color: var(--bg-color-tertiary) !important;
+    }
+
+    &:focus {
+      border-color: #1890ff !important;
+      background-color: var(--bg-color-tertiary) !important;
+      box-shadow: 0 0 0 2px rgba(24, 144, 255, 0.2) !important;
+    }
+  }
+
+  // Date picker styles
+  :deep(.ant-picker) {
+    background-color: var(--bg-color-secondary) !important;
+    border-color: var(--border-color-light) !important;
+    color: var(--text-color-secondary) !important;
+
+    &:hover {
+      border-color: var(--border-color-light) !important;
+      background-color: var(--bg-color-tertiary) !important;
+    }
+
+    &.ant-picker-focused {
+      border-color: #1890ff !important;
+      background-color: var(--bg-color-tertiary) !important;
+      box-shadow: 0 0 0 2px rgba(24, 144, 255, 0.2) !important;
+    }
+
+    .ant-picker-input > input {
+      color: var(--text-color-secondary) !important;
+
+      &::placeholder {
+        color: var(--text-color-tertiary) !important;
+      }
+    }
+  }
+
+  // Button style optimization
+  :deep(.ant-btn) {
+    border-radius: 6px;
+    transition: all 0.3s ease;
+
+    &:not(.ant-btn-primary) {
+      background-color: var(--bg-color-secondary) !important;
+      border-color: var(--border-color-light) !important;
+      color: var(--text-color-secondary) !important;
+
+      &:hover {
+        background-color: var(--bg-color-tertiary) !important;
+        border-color: #1890ff !important;
+        color: #1890ff !important;
+      }
+    }
+
+    &.ant-btn-primary {
+      background-color: #1890ff !important;
+      border-color: #1890ff !important;
+
+      &:hover {
+        background-color: #40a9ff !important;
+        border-color: #40a9ff !important;
+      }
+    }
+  }
+
+  // Table style optimization
   :deep(.ant-table) {
     background-color: var(--bg-color);
+    border-radius: 8px;
+    overflow: hidden;
+
+    .ant-table-container {
+      border-radius: 8px;
+    }
 
     .ant-table-thead > tr > th {
       background-color: var(--bg-color-secondary);
       color: var(--text-color);
-      border-bottom: 1px solid var(--border-color);
+      border-bottom: 2px solid var(--border-color-light);
+      font-weight: 600;
+      padding: 12px 16px;
+      transition: all 0.3s ease;
+
+      &:hover {
+        background-color: var(--bg-color-tertiary) !important;
+      }
+
+      // Sortable column styles
+      &.ant-table-column-has-sorters {
+        &:hover {
+          background-color: var(--bg-color-tertiary) !important;
+        }
+      }
+
+      // Sort icon color
+      .ant-table-column-sorter {
+        color: var(--text-color-tertiary);
+      }
     }
 
     .ant-table-tbody > tr > td {
       background-color: var(--bg-color);
       color: var(--text-color);
-      border-bottom: 1px solid var(--border-color);
+      padding: 12px 16px;
+      transition: all 0.3s ease;
     }
 
     .ant-table-tbody > tr:hover > td {
-      background-color: var(--hover-bg-color);
+      background-color: var(--bg-color-secondary) !important;
+    }
+
+    // Table border optimization
+    .ant-table-tbody > tr:last-child > td {
+      border-bottom: none;
+    }
+
+    // Empty data state
+    .ant-empty {
+      color: var(--text-color-tertiary);
+
+      .ant-empty-description {
+        color: var(--text-color-tertiary);
+      }
     }
   }
 
+  // Tag style optimization
+  :deep(.ant-tag) {
+    border-radius: 12px;
+    padding: 2px 8px;
+    font-size: 12px;
+    border: none;
+
+    &.ant-tag-green {
+      background-color: rgba(82, 196, 26, 0.15);
+      color: #52c41a;
+    }
+
+    &.ant-tag-red {
+      background-color: rgba(255, 77, 79, 0.15);
+      color: #ff4d4f;
+    }
+
+    &.ant-tag-blue {
+      background-color: rgba(24, 144, 255, 0.15);
+      color: #1890ff;
+    }
+
+    &.ant-tag-purple {
+      background-color: rgba(114, 46, 209, 0.15);
+      color: #722ed1;
+    }
+  }
+
+  // Pagination style optimization
   :deep(.ant-pagination) {
-    margin-top: 16px;
+    margin-top: 20px;
     text-align: right;
+    padding: 16px 0;
 
     .ant-pagination-item {
-      background-color: var(--bg-color);
-      border-color: var(--border-color);
+      background-color: var(--bg-color-secondary);
+      border-color: var(--border-color-light);
+      border-radius: 6px;
+      transition: all 0.3s ease;
 
       a {
-        color: var(--text-color);
+        color: var(--text-color-secondary);
+      }
+
+      &:hover {
+        border-color: #1890ff;
+
+        a {
+          color: #1890ff;
+        }
       }
     }
 
     .ant-pagination-item-active {
-      background-color: var(--primary-color);
+      background-color: #1890ff;
+      border-color: #1890ff;
 
       a {
-        color: var(--text-color);
+        color: #ffffff;
       }
     }
 
     .ant-pagination-prev,
     .ant-pagination-next {
       .ant-pagination-item-link {
-        background-color: var(--bg-color);
-        border-color: var(--border-color);
-        color: var(--text-color);
+        background-color: var(--bg-color-secondary);
+        border-color: var(--border-color-light);
+        color: var(--text-color-secondary);
+        border-radius: 6px;
+        transition: all 0.3s ease;
+
+        &:hover {
+          border-color: #1890ff;
+          color: #1890ff;
+        }
+      }
+    }
+
+    .ant-pagination-options {
+      .ant-select {
+        .ant-select-selector {
+          background-color: var(--bg-color-secondary) !important;
+          border-color: var(--border-color-light) !important;
+          color: var(--text-color-secondary) !important;
+        }
+
+        &:hover .ant-select-selector {
+          border-color: #1890ff !important;
+        }
+      }
+    }
+
+    .ant-pagination-total-text {
+      color: var(--text-color-secondary);
+    }
+
+    .ant-pagination-jump-prev,
+    .ant-pagination-jump-next {
+      .ant-pagination-item-container {
+        .ant-pagination-item-link-icon {
+          color: var(--text-color-tertiary);
+        }
+
+        .ant-pagination-item-ellipsis {
+          color: var(--text-color-tertiary);
+        }
       }
     }
   }
-}
 
-@media (max-width: 768px) {
-  .login-log-container {
-    .header {
-      flex-direction: column;
-      align-items: stretch;
+  :deep(.ant-table),
+  :deep(.ant-table-body),
+  :deep(.ant-table-container) {
+    ::-webkit-scrollbar {
+      width: 8px !important;
+      height: 8px !important;
+    }
 
-      .search-section {
-        justify-content: flex-start;
+    ::-webkit-scrollbar-track {
+      background: var(--bg-color-secondary) !important;
+      border-radius: 6px;
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background-color: var(--border-color-light) !important;
+      border-radius: 6px;
+      transition: background-color 0.3s ease;
+
+      &:hover {
+        background-color: var(--text-color-tertiary) !important;
+      }
+    }
+
+    ::-webkit-scrollbar-corner {
+      background: var(--bg-color-secondary) !important;
+    }
+
+    scrollbar-width: thin !important;
+  }
+
+  :deep(.ant-spin) {
+    .ant-spin-dot {
+      .ant-spin-dot-item {
+        background-color: #1890ff;
+      }
+    }
+
+    .ant-spin-text {
+      color: var(--text-color-secondary);
+    }
+  }
+
+  :deep(.ant-picker-dropdown) {
+    background-color: var(--bg-color) !important;
+    border: 1px solid var(--border-color-light) !important;
+    box-shadow:
+      0 6px 16px 0 rgba(0, 0, 0, 0.08),
+      0 3px 6px -4px rgba(0, 0, 0, 0.12),
+      0 9px 28px 8px rgba(0, 0, 0, 0.05) !important;
+
+    .ant-picker-panel {
+      background-color: var(--bg-color) !important;
+      border: none !important;
+    }
+
+    .ant-picker-header {
+      border-bottom: 1px solid var(--border-color) !important;
+    }
+
+    .ant-picker-header button {
+      color: var(--text-color-secondary) !important;
+
+      &:hover {
+        color: #1890ff !important;
+      }
+    }
+
+    .ant-picker-content {
+      th {
+        color: var(--text-color-tertiary) !important;
+      }
+
+      td {
+        color: var(--text-color-secondary) !important;
+
+        &:hover .ant-picker-cell-inner {
+          background: var(--hover-bg-color) !important;
+        }
+
+        &.ant-picker-cell-selected .ant-picker-cell-inner {
+          background: #1890ff !important;
+          color: #ffffff !important;
+        }
+
+        &.ant-picker-cell-today .ant-picker-cell-inner {
+          border-color: #1890ff !important;
+        }
       }
     }
   }
