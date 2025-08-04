@@ -93,7 +93,30 @@ export default {
     usernameTooltip: 'Please input your username',
     passwordTooltip: 'Please input your password',
     retryAfter: 'Retry after {seconds} seconds',
-    getCode: 'Send code'
+    getCode: 'Send code',
+    pleaseInputEmailAndCode: 'Please input email and verification code',
+    codeSent: 'Verification code sent',
+    codeSendFailed: 'Failed to send verification code',
+    loginFailed: 'Login failed',
+    externalLoginFailed: 'Failed to start external login',
+    loginProcessFailed: 'Login process failed',
+    databaseInitFailed: 'Database initialization failed',
+    initializationFailed: 'Initialization failed, please try again',
+    routeNavigationFailed: 'Navigation failed, please try again',
+    operationFailed: 'Operation failed, please try again',
+    recordLoginLogFailed: 'Failed to record login log',
+    recordLoginFailedLogFailed: 'Failed to record login failure log',
+    guestDatabaseInitFailed: 'Guest database initialization failed',
+    externalLoginIPDetectionError: 'External login IP detection error',
+    loginPageIPDetectionError: 'Login page IP detection error',
+    handleProtocolUrlFailed: 'Failed to handle protocol URL',
+    routeJumpFailed: 'Route navigation failed',
+    skipLoginHandleFailed: 'Skip login handling failed',
+    startExternalLoginFailed: 'Failed to start external login',
+    databaseInitializationFailed: 'Database initialization failed',
+    loginHandleFailed: 'Login handling failed',
+    authCallbackDetected: 'Authentication callback URL detected',
+    linuxPlatformHandleAuth: 'Handling authentication callback on Linux platform'
   },
   workspace: {
     workspace: 'Workspace',
@@ -505,6 +528,16 @@ export default {
     downloading: 'Downloading',
     checkUpdateError: 'Check update failed',
     checking: 'Checking'
+  },
+  mfa: {
+    title: 'Two-Factor Authentication',
+    verificationCode: 'Verification Code',
+    verificationCodeError: 'Verification code error',
+    pleaseInputVerificationCode: 'Please input verification code',
+    remainingTime: 'Remaining time',
+    confirm: 'Confirm',
+    cancel: 'Cancel',
+    setupGlobalListeners: 'Setting up global MFA listeners'
   },
   logs: {
     logs: 'Logs',
