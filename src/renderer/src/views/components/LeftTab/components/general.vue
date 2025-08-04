@@ -84,16 +84,16 @@
 </template>
 
 <script setup>
-import { ref, onMounted, watch, getCurrentInstance, onBeforeUnmount } from 'vue'
+import { ref, onMounted, watch, onBeforeUnmount } from 'vue'
 import 'xterm/css/xterm.css'
 import { notification } from 'ant-design-vue'
 import { userConfigStore } from '@/services/userConfigStoreService'
 import { userConfigStore as configStore } from '@/store/userConfigStore'
 import eventBus from '@/utils/eventBus'
+import { useI18n } from 'vue-i18n'
 
 const api = window.api
-const instance = getCurrentInstance()
-const { appContext } = instance
+const { locale } = useI18n()
 
 const userConfig = ref({
   language: 'zh-CN',
@@ -162,7 +162,8 @@ onBeforeUnmount(() => {
 })
 
 const changeLanguage = async () => {
-  appContext.config.globalProperties.$i18n.locale = userConfig.value.language
+  locale.value = userConfig.value.language
+  localStorage.setItem('lang', userConfig.value.language)
   configStore().updateLanguage(userConfig.value.language)
 }
 
