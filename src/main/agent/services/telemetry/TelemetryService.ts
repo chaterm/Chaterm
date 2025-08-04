@@ -717,7 +717,7 @@ export function checkIsFirstLaunch(): boolean {
 /**
  * Helper function to get MAC address
  */
-function getMacAddress(): string {
+export function getMacAddress(): string {
   const interfaces = os.networkInterfaces()
   for (const name of Object.keys(interfaces)) {
     const nets = interfaces[name]
