@@ -1,7 +1,7 @@
 <template>
   <a-modal
     v-model:visible="showOtpDialog"
-    title="二次验证"
+    :title="$t('mfa.title')"
     width="30%"
     :mask-closable="false"
     :keyboard="false"
@@ -10,31 +10,31 @@
       <p style="margin-bottom: 8px">{{ otpPrompt }}</p>
       <a-input-password
         v-model:value="otpCode"
-        placeholder="验证码"
+        :placeholder="$t('mfa.verificationCode')"
         :visibility-toggle="false"
         @press-enter="submitOtpCode"
       />
       <span
         v-show="showOtpDialogErr"
         style="color: red"
-        >验证码错误</span
+        >{{ $t('mfa.verificationCodeError') }}</span
       >
       <span
         v-show="showOtpDialogCheckErr"
         style="color: red"
-        >请输入验证码</span
+        >{{ $t('mfa.pleaseInputVerificationCode') }}</span
       >
     </div>
     <template #footer>
       <div style="display: flex; justify-content: space-between; align-items: center">
-        <span style="color: #666; font-size: 12px"> 剩余时间: {{ Math.ceil(otpTimeRemaining / 1000) }}s </span>
+        <span style="color: #666; font-size: 12px"> {{ $t('mfa.remainingTime') }}: {{ Math.ceil(otpTimeRemaining / 1000) }}s </span>
         <div>
-          <a-button @click="cancelOtp">取消</a-button>
+          <a-button @click="cancelOtp">{{ $t('mfa.cancel') }}</a-button>
           <a-button
             type="primary"
             style="margin-left: 8px"
             @click="submitOtpCode"
-            >确认</a-button
+            >{{ $t('mfa.confirm') }}</a-button
           >
         </div>
       </div>

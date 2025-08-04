@@ -35,7 +35,6 @@
         <span style="color: #2a82e4; margin-left: 12px">{{ $t('login.title') }}</span>
       </div>
       <div class="term_login_input">
-        <!-- In the Windows development environment, only the email verification code login is displayed -->
         <template v-if="isDev">
           <div class="login-form">
             <div class="form-content">
@@ -94,7 +93,6 @@
             </div>
           </div>
         </template>
-        <!-- Other situations display the original external login and skip login options -->
         <template v-else>
           <a-form
             name="login"
@@ -131,7 +129,7 @@
 <script setup lang="ts">
 import { removeToken } from '@/utils/permission'
 import { useRouter } from 'vue-router'
-import { ref, getCurrentInstance, onMounted, nextTick, onBeforeUnmount, reactive } from 'vue'
+import { ref, onMounted, nextTick, onBeforeUnmount, reactive } from 'vue'
 import { GlobalOutlined, MailOutlined, SafetyOutlined } from '@ant-design/icons-vue'
 import type { MenuProps } from 'ant-design-vue'
 import { setUserInfo } from '@/utils/permission'
@@ -140,7 +138,9 @@ import { captureButtonClick, LoginFunnelEvents, LoginMethods, LoginFailureReason
 import { shortcutService } from '@/services/shortcutService'
 import config from '@renderer/config'
 import { sendEmailCode, emailLogin } from '@/api/user/user'
+import { useI18n } from 'vue-i18n'
 
+const { t, locale } = useI18n()
 const platform = ref<string>('')
 const isDev = ref(false)
 const loading = ref(false)
@@ -152,56 +152,42 @@ const emailForm = reactive({
   code: ''
 })
 
-// 检查 URL 参数，处理外部登录回调
 const checkUrlForAuthCallback = () => {
-  // 获取当前 URL
   const url = window.location.href
   const urlObj = new URL(url)
-
-  // 检查是否是 auth/callback 路径
   if (urlObj.pathname.includes('auth/callback')) {
-    console.log('检测到认证回调 URL:', url)
-
-    // 获取 userInfo 参数
+    console.log(t('login.authCallbackDetected'), url)
     const userInfo = urlObj.searchParams.get('userInfo')
     const method = urlObj.searchParams.get('method')
 
     if (userInfo) {
-      // 构建一个符合 chaterm:// 协议的 URL
       const chatermUrl = `chaterm://auth/callback?userInfo=${userInfo}&method=${method || ''}&state=${urlObj.searchParams.get('state') || ''}`
-
-      // 使用 API 处理这个 URL
       const api = window.api as any
       if (platform.value === 'linux') {
-        console.log('在 Linux 平台上处理认证回调')
+        console.log(t('login.linuxPlatformHandleAuth'))
         api.handleProtocolUrl(chatermUrl).catch((error: any) => {
-          console.error('处理协议 URL 失败:', error)
+          console.error(t('login.handleProtocolUrlFailed'), error)
         })
       }
     }
   }
 }
 
-const instance = getCurrentInstance()!
-const { appContext } = instance
 const configLang: MenuProps['onClick'] = ({ key }) => {
   const lang = String(key)
-  appContext.config.globalProperties.$i18n.locale = lang
+  locale.value = lang
   localStorage.setItem('lang', lang)
 }
-
 const router = useRouter()
-
-// 邮箱验证码登录逻辑
 const sendCode = async () => {
   if (!emailForm.email) {
-    message.error('请输入邮箱')
+    message.error(t('login.pleaseInputEmail'))
     return
   }
   try {
     codeSending.value = true
     await sendEmailCode({ email: emailForm.email })
-    message.success('验证码已发送')
+    message.success(t('login.codeSent'))
     countdown.value = 60
     const timer = setInterval(() => {
       countdown.value--
@@ -210,7 +196,7 @@ const sendCode = async () => {
       }
     }, 1000)
   } catch (err) {
-    message.error('验证码发送失败')
+    message.error(t('login.codeSendFailed'))
   } finally {
     codeSending.value = false
   }
@@ -218,7 +204,7 @@ const sendCode = async () => {
 
 const onEmailLogin = async () => {
   if (!emailForm.email || !emailForm.code) {
-    message.error('请输入邮箱和验证码')
+    message.error(t('login.pleaseInputEmailAndCode'))
     return
   }
   try {
@@ -227,45 +213,39 @@ const onEmailLogin = async () => {
     if (res && (res as any).code === 200 && (res as any).data && (res as any).data.token) {
       localStorage.setItem('ctm-token', (res as any).data.token)
       setUserInfo((res as any).data)
-
-      // 初始化用户数据库
       const api = window.api as any
       const dbResult = await api.initUserDatabase({ uid: (res as any).data.uid })
       if (!dbResult.success) {
-        message.error('数据库初始化失败')
+        message.error(t('login.databaseInitFailed'))
         return
       }
-
-      // 记录登录日志
       try {
         const { recordLoginLog } = await import('@/utils/loginLogger')
         await recordLoginLog((res as any).data, '邮箱验证码', 'success')
       } catch (logError) {
-        console.error('记录登录日志失败:', logError)
+        console.error(t('login.recordLoginLogFailed'), logError)
       }
 
       shortcutService.init()
       await nextTick()
       await router.replace({ path: '/', replace: true })
     } else {
-      // 记录登录失败日志
       try {
         const { recordLoginLog } = await import('@/utils/loginLogger')
         await recordLoginLog({ email: emailForm.email }, '邮箱验证码', 'failed')
       } catch (logError) {
-        console.error('记录登录失败日志失败:', logError)
+        console.error(t('login.recordLoginFailedLogFailed'), logError)
       }
-      message.error(res && (res as any).Message ? (res as any).Message : '登录失败')
+      message.error(res && (res as any).Message ? (res as any).Message : t('login.loginFailed'))
     }
   } catch (err: any) {
-    // 记录登录失败日志
     try {
       const { recordLoginLog } = await import('@/utils/loginLogger')
       await recordLoginLog({ email: emailForm.email }, '邮箱验证码', 'failed')
     } catch (logError) {
-      console.error('记录登录失败日志失败:', logError)
+      console.error(t('login.recordLoginFailedLogFailed'), logError)
     }
-    message.error(err?.response?.data?.message || err?.message || '登录失败')
+    message.error(err?.response?.data?.message || err?.message || t('login.loginFailed'))
   } finally {
     loading.value = false
   }
@@ -293,9 +273,8 @@ const skipLogin = async () => {
     const api = window.api as any
     const dbResult = await api.initUserDatabase({ uid: 999999999 })
     if (!dbResult.success) {
-      console.error('访客数据库初始化失败:', dbResult.error)
-      message.error('初始化失败，请重试')
-      // 清除状态
+      console.error(t('login.guestDatabaseInitFailed'), dbResult.error)
+      message.error(t('login.initializationFailed'))
       localStorage.removeItem('login-skipped')
       localStorage.removeItem('ctm-token')
       localStorage.removeItem('userInfo')
@@ -306,12 +285,12 @@ const skipLogin = async () => {
     try {
       await router.replace({ path: '/', replace: true })
     } catch (error) {
-      console.error('路由跳转失败:', error)
-      message.error('跳转失败，请重试')
+      console.error(t('login.routeJumpFailed'), error)
+      message.error(t('login.routeNavigationFailed'))
     }
   } catch (error) {
-    console.error('跳过登录处理失败:', error)
-    message.error('操作失败，请重试')
+    console.error(t('login.skipLoginHandleFailed'), error)
+    message.error(t('login.operationFailed'))
     localStorage.removeItem('login-skipped')
     localStorage.removeItem('ctm-token')
     localStorage.removeItem('userInfo')
@@ -322,16 +301,15 @@ const handleExternalLogin = async () => {
   try {
     externalLoginLoading.value = true
     const api = window.api as any
-    // 外部登录时进行IP检测
     try {
       await api.detectIpLocation()
     } catch (error) {
-      console.error('[外部登录] IP检测异常:', error)
+      console.error(t('login.externalLoginIPDetectionError'), error)
     }
     await api.openExternalLogin()
   } catch (err) {
-    console.error('启动外部登录失败:', err)
-    message.error('启动外部登录失败')
+    console.error(t('login.startExternalLoginFailed'), err)
+    message.error(t('login.externalLoginFailed'))
   } finally {
     externalLoginLoading.value = false
   }
@@ -341,17 +319,13 @@ onMounted(async () => {
   const api = window.api as any
   platform.value = await api.getPlatform()
   isDev.value = import.meta.env.MODE === 'development'
-  // isDev.value = import.meta.env.MODE === 'development' && platform.value === 'win32'
   await captureButtonClick(LoginFunnelEvents.ENTER_LOGIN_PAGE)
-
-  // 异步进行IP检测
   try {
     await api.detectIpLocation()
   } catch (error) {
-    console.error('[登录页面] IP检测异常:', error)
+    console.error(t('login.loginPageIPDetectionError'), error)
   }
   if (!isDev.value) {
-    // 监听外部登录成功事件
     const ipcRenderer = (window as any).electron?.ipcRenderer
     ipcRenderer?.on('external-login-success', async (event, data) => {
       const { userInfo, method } = data
@@ -363,7 +337,7 @@ onMounted(async () => {
           const api = window.api as any
           const dbResult = await api.initUserDatabase({ uid: userInfo.uid })
           if (!dbResult.success) {
-            console.error('数据库初始化失败:', dbResult.error)
+            console.error(t('login.databaseInitializationFailed'), dbResult.error)
             await captureButtonClick(LoginFunnelEvents.LOGIN_FAILED, {
               method: method,
               failure_reason: LoginFailureReasons.DATABASE_ERROR,
@@ -371,13 +345,11 @@ onMounted(async () => {
             })
             return false
           }
-
-          // 记录登录日志
           try {
             const { recordLoginLog } = await import('@/utils/loginLogger')
             await recordLoginLog(userInfo, method || 'Other', 'success')
           } catch (logError) {
-            console.error('记录登录日志失败:', logError)
+            console.error(t('login.recordLoginLogFailed'), logError)
           }
 
           shortcutService.init()
@@ -386,8 +358,8 @@ onMounted(async () => {
           return true
         }
       } catch (error) {
-        console.error('登录处理失败:', error)
-        message.error('登录处理失败')
+        console.error(t('login.loginHandleFailed'), error)
+        message.error(t('login.loginProcessFailed'))
         await captureButtonClick(LoginFunnelEvents.LOGIN_FAILED, {
           method: method,
           failure_reason: LoginFailureReasons.UNKNOWN_ERROR,
@@ -397,15 +369,9 @@ onMounted(async () => {
       }
     })
 
-    // 为 Linux 平台添加 URL 处理功能
     if (platform.value === 'linux') {
-      // 检查当前 URL 是否包含认证回调信息
       checkUrlForAuthCallback()
-
-      // 监听 URL 变化
       window.addEventListener('popstate', checkUrlForAuthCallback)
-
-      // 监听窗口焦点事件，可能是从浏览器返回
       window.addEventListener('focus', checkUrlForAuthCallback)
     }
   }
@@ -415,8 +381,6 @@ onBeforeUnmount(() => {
   if (!isDev.value) {
     const ipcRenderer = (window as any).electron?.ipcRenderer
     ipcRenderer?.removeAllListeners('external-login-success')
-
-    // 清理 Linux 平台的事件监听器
     if (platform.value === 'linux') {
       window.removeEventListener('popstate', checkUrlForAuthCallback)
       window.removeEventListener('focus', checkUrlForAuthCallback)
@@ -446,8 +410,8 @@ onBeforeUnmount(() => {
     background: transparent;
     display: flex;
     flex-direction: column;
-    align-items: center; // 水平居中
-    justify-content: center; // 垂直居中
+    align-items: center;
+    justify-content: center;
     -webkit-app-region: no-drag;
   }
 
@@ -490,7 +454,6 @@ onBeforeUnmount(() => {
     width: 60px;
     top: 5px;
     height: 20px;
-    // background-color: #fff;
     color: #dddddd;
     font-size: 12px;
     -webkit-app-region: no-drag;
@@ -514,7 +477,6 @@ onBeforeUnmount(() => {
     width: 100%;
   }
 
-  // 邮箱验证码登录表单样式
   .email-login-form {
     width: 100%;
     display: flex;
@@ -628,14 +590,12 @@ onBeforeUnmount(() => {
       transition: border-color 0.3s;
       color: #fff;
 
-      // 去除默认阴影和轮廓
       &:focus {
-        border-bottom: 1px solid #1890ff; // 聚焦时的颜色
+        border-bottom: 1px solid #1890ff;
         box-shadow: none;
         outline: none;
       }
 
-      // 悬停状态
       &:hover {
         border-bottom-color: #1890ff;
       }
@@ -650,7 +610,6 @@ onBeforeUnmount(() => {
     box-shadow: none !important;
   }
 
-  // 禁用状态
   &.ant-input[disabled] {
     background-color: transparent;
     border-bottom-color: #d9d9d9;
@@ -780,7 +739,6 @@ onBeforeUnmount(() => {
   }
 }
 
-// Add the style related to chaterm_login email verification code login
 .input-group {
   display: flex;
   flex-direction: column;
