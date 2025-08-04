@@ -7,7 +7,6 @@ import { onMounted } from 'vue'
 import { MfaDialog, setupGlobalMfaListeners } from './components/global/mfa'
 
 onMounted(() => {
-  // 设置全局 MFA 监听器（用于 Agent 等场景）
   setupGlobalMfaListeners()
 })
 </script>
