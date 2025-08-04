@@ -39,7 +39,7 @@ export const registerUpdater = (targetWindow) => {
     sendStatusToWindow({
       type: 'update-available',
       status: status.available,
-      desc: '有新版本'
+      desc: 'Available'
     })
   })
 
@@ -47,7 +47,7 @@ export const registerUpdater = (targetWindow) => {
     sendStatusToWindow({
       type: 'update-not-available',
       status: status.noAvailable,
-      desc: '无新版本'
+      desc: 'No-Available'
     })
   })
 
@@ -80,21 +80,8 @@ export const registerUpdater = (targetWindow) => {
     sendStatusToWindow({
       ...info,
       status: status.downloaded,
-      desc: '下载完成'
+      desc: 'Downloaded'
     })
-
-    // dialog
-    //   .showMessageBox(targetWindow, {
-    //     type: 'info',
-    //     title: '下载完成',
-    //     message: '更新已下载，应用将退出并开始安装。',
-    //     buttons: ['确定', '稍后更新']
-    //   })
-    //   .then((result) => {
-    //     if (result.response === 0) {
-    //       autoUpdater.quitAndInstall()
-    //     }
-    //   })
   })
 
   function sendStatusToWindow(content = {}) {
