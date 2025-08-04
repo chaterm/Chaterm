@@ -6,32 +6,31 @@ import { createPinia } from 'pinia'
 import i18n from './locales'
 import contextmenu from 'v-contextmenu'
 import 'v-contextmenu/dist/themes/default.css'
-
 import 'ant-design-vue/dist/reset.css'
 import piniaPluginPersistedstate from 'pinia-plugin-persistedstate'
 import { notification } from 'ant-design-vue'
 import { shortcutService } from './services/shortcutService'
 
-// 全局设置 notification 的 top
+// Set global notification top position
 notification.config({
   top: '30px'
 })
-// 导入存储函数
+// Import storage functions
 import * as storageState from './agent/storage/state'
 
 const pinia = createPinia()
 pinia.use(piniaPluginPersistedstate)
 const app = createApp(App)
-//路由
+// Router
 app.use(router)
-//国际化
+// Internationalization
 app.use(i18n)
-//状态管理
+// State management
 app.use(pinia)
-// 右键
+// Context menu
 app.use(contextmenu)
 
-// 将存储 API 暴露到全局 window 对象，供主进程调用
+// Expose storage API to global window object for main process calls
 declare global {
   interface Window {
     storageAPI: typeof storageState
