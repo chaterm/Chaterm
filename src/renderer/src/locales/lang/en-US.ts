@@ -527,7 +527,8 @@ export default {
     downLoadUpdate: 'Download Update',
     downloading: 'Downloading',
     checkUpdateError: 'Check update failed',
-    checking: 'Checking'
+    checking: 'Checking',
+    install: 'Install'
   },
   mfa: {
     title: 'Two-Factor Authentication',

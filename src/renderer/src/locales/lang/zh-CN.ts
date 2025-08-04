@@ -529,7 +529,8 @@ export default {
     downLoadUpdate: '下载更新',
     downloading: '正在下载',
     checkUpdateError: '检查更新失败',
-    checking: '检查中'
+    checking: '检查中',
+    install: '安装'
   },
   mfa: {
     title: '二次验证',

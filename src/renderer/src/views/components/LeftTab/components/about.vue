@@ -72,6 +72,7 @@ const onCheckUpdate = async () => {
     }
   } catch (err) {
     console.error(t('about.checkUpdateError'), err)
+    btnText.value = t('about.checkUpdateError')
   } finally {
     btnDisabled.value = false
   }
@@ -106,7 +107,8 @@ const handleCheckUpdate = async () => {
             { text: t('update.later'), class: 'notice-btn-withe', action: () => Notice.close('update-download-complete') }
           ]
         })
-        updateStatus.value = 0
+        updateStatus.value = 1
+        btnText.value = t('about.install')
         isUpdate.value = false
         progress.value = 0
       }
