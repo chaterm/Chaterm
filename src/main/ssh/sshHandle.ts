@@ -1020,6 +1020,9 @@ export const registerSSHHandlers = () => {
     if (!conn) return { status: 'error', message: 'Not connected' }
 
     try {
+      if (oldPath === newPath) {
+        return { status: 'success' }
+      }
       const sftp = await getSftp(conn)
       await new Promise<void>((res, rej) => {
         sftp.rename(oldPath, newPath, (err) => (err ? rej(err) : res()))

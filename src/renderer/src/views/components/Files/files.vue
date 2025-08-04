@@ -1086,11 +1086,15 @@ const renameOk = async (record) => {
       newPath: joinPath(filePath, newName)
     })
     refresh()
-    message.success({
-      content: res.status === 'success' ? t('files.modifySuccess') : `${t('files.modifyFailed')}：${res.message}`,
-      key,
-      duration: 3
-    })
+    if (res.status === 'success') {
+      message.success({
+        content: t('files.modifySuccess'),
+        key,
+        duration: 3
+      })
+    } else {
+      message.error({ content: `${t('files.modifyFailed')}：${res.message}`, key, duration: 3 })
+    }
   } catch (err) {
     message.error({ content: `${t('files.modifyError')}：${(err as Error).message}`, key, duration: 3 })
   }

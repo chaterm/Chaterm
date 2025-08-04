@@ -25,6 +25,7 @@ export const toolParamNames = [
   'ip',
   'command',
   'requires_approval',
+  'interactive',
   'path',
   'content',
   'diff',

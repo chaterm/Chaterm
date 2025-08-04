@@ -182,6 +182,11 @@ export class Controller {
           telemetryService.captureTaskFeedback(this.task.taskId, message.feedbackType)
         }
         break
+      case 'interactiveCommandInput':
+        if (message.input !== undefined && this.task) {
+          this.task.handleInteractiveCommandInput(message.input)
+        }
+        break
       case 'invoke': {
         if (message.text) {
           await this.postMessageToWebview({
@@ -261,6 +266,16 @@ export class Controller {
       }
       await this.initTask(this.task.hosts, undefined, historyItem) // clears task again, so we need to abortTask manually above
       // await this.postStateToWebview() // new Cline instance will post state when it's ready. having this here sent an empty messages array to webview leading to virtuoso having to reload the entire list
+    }
+  }
+
+  async gracefulCancelTask() {
+    if (this.task) {
+      try {
+        await this.task.gracefulAbortTask()
+      } catch (error) {
+        console.error('Failed to gracefully abort task', error)
+      }
     }
   }
 
