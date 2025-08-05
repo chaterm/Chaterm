@@ -115,37 +115,6 @@ CREATE TABLE IF NOT EXISTS t_organization_assets (
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,    -- 创建时间
   updated_at DATETIME DEFAULT CURRENT_TIMESTAMP     -- 更新时间
 );
-
-CREATE TABLE IF NOT EXISTS login_log (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,             -- 自增主键
-  username TEXT,                                    -- 用户名
-  email TEXT,                                       -- 邮箱
-  ip_address TEXT,                                  -- IP地址
-  mac_address TEXT,                                 -- MAC地址
-  login_method TEXT,                                -- 登录方式（邮箱验证码、Github、Google、QQ、账号密码等）
-  status TEXT DEFAULT 'success',                    -- 登录状态（success、failed）
-  user_agent TEXT,                                  -- 用户代理
-  platform TEXT,                                   -- 平台信息
-  created_at DATETIME DEFAULT CURRENT_TIMESTAMP     -- 登录时间
-);
-CREATE INDEX IF NOT EXISTS idx_login_log_created_at ON login_log(created_at DESC);
-CREATE INDEX IF NOT EXISTS idx_login_log_email ON login_log(email);
-
-CREATE TABLE IF NOT EXISTS operation_log (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,             -- 自增主键
-  username TEXT,                                    -- 用户名
-  ip TEXT,                                          -- 主机或IP
-  command_input TEXT,                               -- 命令输入
-  command_output TEXT,                              -- 命令输出
-  status TEXT DEFAULT 'success',                    -- 执行状态（success、failed、timeout）
-  session_id TEXT,                                  -- SSH会话ID
-  task_id TEXT,                                     -- 任务ID
-  created_at DATETIME DEFAULT CURRENT_TIMESTAMP     -- 操作时间
-);
-CREATE INDEX IF NOT EXISTS idx_operation_log_created_at ON operation_log(created_at DESC);
-CREATE INDEX IF NOT EXISTS idx_operation_log_ip ON operation_log(ip);
-CREATE INDEX IF NOT EXISTS idx_operation_log_command ON operation_log(command_input);
-CREATE INDEX IF NOT EXISTS idx_operation_log_username ON operation_log(username);
 `)
 
 console.log('数据库创建成功，表已创建')

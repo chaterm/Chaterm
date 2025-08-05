@@ -22,19 +22,6 @@
           </div>
           <div class="menu_list_item_description">{{ t('logs.loginLogsDesc') }}</div>
         </a-menu-item>
-
-        <a-menu-item
-          key="operationLogs"
-          :title="t('logs.operationLogs')"
-        >
-          <template #icon>
-            <file-text-outlined />
-          </template>
-          <div class="menu_list_item_name">
-            {{ t('logs.operationLogs') }}
-          </div>
-          <div class="menu_list_item_description">{{ t('logs.operationLogsDesc') }}</div>
-        </a-menu-item>
       </a-menu>
     </div>
   </div>
