@@ -188,7 +188,7 @@ const sendCode = async () => {
     codeSending.value = true
     await sendEmailCode({ email: emailForm.email })
     message.success(t('login.codeSent'))
-    countdown.value = 60
+    countdown.value = 300
     const timer = setInterval(() => {
       countdown.value--
       if (countdown.value <= 0) {
@@ -318,7 +318,7 @@ const handleExternalLogin = async () => {
 onMounted(async () => {
   const api = window.api as any
   platform.value = await api.getPlatform()
-  isDev.value = import.meta.env.MODE === 'development'
+  isDev.value = import.meta.env.MODE !== 'development'
   await captureButtonClick(LoginFunnelEvents.ENTER_LOGIN_PAGE)
   try {
     await api.detectIpLocation()
