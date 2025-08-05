@@ -577,7 +577,6 @@ const handleResize = debounce(() => {
             })
           )
         }
-        console.log(`Terminal resized to: ${cols}x${rows}`)
       }
     } catch (error) {
       console.error('Failed to resize terminal:', error)

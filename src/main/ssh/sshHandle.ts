@@ -829,17 +829,17 @@ export const registerSSHHandlers = () => {
           })
         }
 
-        let stdout = ''
-        let stderr = ''
+        const stdoutChunks: Buffer[] = []
+        const stderrChunks: Buffer[] = []
         let exitCode = undefined
         let exitSignal = undefined
 
         stream.on('data', (chunk) => {
-          stdout += chunk.toString()
+          stdoutChunks.push(chunk)
         })
 
         stream.stderr.on('data', (chunk) => {
-          stderr += chunk.toString()
+          stderrChunks.push(chunk)
         })
 
         stream.on('exit', (code, signal) => {
@@ -850,6 +850,9 @@ export const registerSSHHandlers = () => {
         stream.on('close', (code, signal) => {
           const finalCode = exitCode !== undefined ? exitCode : code
           const finalSignal = exitSignal !== undefined ? exitSignal : signal
+
+          const stdout = Buffer.concat(stdoutChunks).toString()
+          const stderr = Buffer.concat(stderrChunks).toString()
 
           resolve({
             success: true,
@@ -862,6 +865,10 @@ export const registerSSHHandlers = () => {
 
         // Handle stream errors
         stream.on('error', (streamErr) => {
+          // 优化：错误时也使用相同的拼接方式
+          const stdout = Buffer.concat(stdoutChunks).toString()
+          const stderr = Buffer.concat(stderrChunks).toString()
+
           resolve({
             success: false,
             error: streamErr.message,
