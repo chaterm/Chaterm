@@ -59,45 +59,7 @@
     />
   </div>
 
-  <a-modal
-    v-model:visible="showOtpDialog"
-    title="二次验证"
-    width="30%"
-    :mask-closable="false"
-    :keyboard="false"
-  >
-    <div>
-      <p>{{ otpPrompt || '请输入验证码' }}</p>
-      <a-input-password
-        v-model:value="otpCode"
-        placeholder="验证码"
-        :visibility-toggle="false"
-        @press-enter="submitOtpCode"
-      />
-      <span
-        v-show="showOtpDialogErr"
-        style="color: red"
-        >验证码错误</span
-      >
-      <span
-        v-show="showOtpDialogCheckErr"
-        style="color: red"
-        >请输入验证码</span
-      >
-    </div>
-    <template #footer>
-      <a-button
-        key="submit"
-        @click="cancelOtp"
-        >取消</a-button
-      >
-      <a-button
-        type="primary"
-        @click="submitOtpCode"
-        >确认
-      </a-button>
-    </template>
-  </a-modal>
+  <!-- MFA弹窗已移至全局组件 -->
 </template>
 
 <script lang="ts" setup>
@@ -110,6 +72,8 @@ import { useCurrentCwdStore } from '@/store/currentCwdStore'
 import { markRaw, onBeforeUnmount, onMounted, PropType, nextTick, reactive, ref, watch, computed } from 'vue'
 import { shortcutService } from '@/services/shortcutService'
 import { useI18n } from 'vue-i18n'
+// 引入全局MFA状态（已移除本地MFA实现）
+// MFA功能现在由全局组件处理
 
 import { Terminal } from 'xterm'
 import { FitAddon } from 'xterm-addon-fit'
@@ -965,111 +929,8 @@ const resizeSSH = async (cols, rows) => {
   }
 }
 
-const showOtpDialog = ref(false)
-const showOtpDialogErr = ref(false)
-const showOtpDialogCheckErr = ref(false)
-const otpPrompt = ref('')
-const otpCode = ref('')
-const currentOtpId = ref(null)
-const otpTimeRemaining = ref(0)
-const otpAttempts = ref(0)
-const OTP_TIMEOUT = 300000
-const MAX_OTP_ATTEMPTS = 5
-let otpTimerInterval: NodeJS.Timeout | null = null
-
-const startOtpTimer = (durationMs = OTP_TIMEOUT) => {
-  if (otpTimerInterval) {
-    clearInterval(otpTimerInterval)
-  }
-  const endTime = Date.now() + durationMs
-  otpTimeRemaining.value = durationMs
-  otpTimerInterval = setInterval(() => {
-    const remaining = endTime - Date.now()
-    if (remaining <= 0) {
-      if (otpTimerInterval !== null) {
-        clearInterval(otpTimerInterval)
-      }
-      otpTimeRemaining.value = 0
-      showOtpDialog.value = false
-      cancelOtp()
-    } else {
-      otpTimeRemaining.value = remaining
-    }
-  }, 1000)
-}
-const handleOtpRequest = (data) => {
-  console.log('收到MFA请求，ID:', data.id, '当前连接ID:', connectionId.value)
-  currentOtpId.value = data.id
-  otpPrompt.value = data.prompts.join('\n')
-  showOtpDialog.value = true
-  showOtpDialogCheckErr.value = false // 重置错误状态
-  startOtpTimer()
-}
-const handleOtpError = (data) => {
-  console.log('收到MFA验证结果:', data, '当前OTP ID:', currentOtpId.value)
-  if (data.id === currentOtpId.value) {
-    if (data.status === 'success') {
-      console.log('MFA验证成功，关闭弹窗')
-      closeOtp()
-    } else {
-      console.log('MFA验证失败，显示错误')
-      showOtpDialogErr.value = true
-      otpAttempts.value += 1
-      otpCode.value = ''
-      if (otpAttempts.value >= MAX_OTP_ATTEMPTS) {
-        showOtpDialog.value = false
-        cancelOtp()
-      }
-    }
-  } else {
-    console.log('ID不匹配，忽略结果')
-  }
-}
-
-const submitOtpCode = () => {
-  showOtpDialogCheckErr.value = false
-  showOtpDialogErr.value = false
-  if (otpCode.value && currentOtpId.value) {
-    api.submitKeyboardInteractiveResponse(currentOtpId.value, otpCode.value)
-  } else {
-    console.log('验证码或ID为空，显示错误')
-    showOtpDialogCheckErr.value = true
-  }
-}
-
-const cancelOtp = () => {
-  if (currentOtpId.value) {
-    api.cancelKeyboardInteractive(currentOtpId.value)
-    resetOtpDialog()
-  }
-}
-const closeOtp = () => {
-  console.log('关闭MFA弹窗，当前OTP ID:', currentOtpId.value)
-  if (currentOtpId.value) {
-    resetOtpDialog()
-  }
-}
-
-const resetOtpDialog = () => {
-  console.log('重置MFA弹窗状态')
-  showOtpDialog.value = false
-  showOtpDialogErr.value = false
-  showOtpDialogCheckErr.value = false
-  otpPrompt.value = ''
-  otpCode.value = ''
-  currentOtpId.value = null
-  // 清理定时器
-  if (otpTimerInterval) {
-    clearInterval(otpTimerInterval)
-    otpTimerInterval = null
-  }
-}
-
-const handleOtpTimeout = (data) => {
-  if (data.id === currentOtpId.value && showOtpDialog.value) {
-    resetOtpDialog()
-  }
-}
+// MFA相关状态已移至全局组件
+// MFA处理函数已移至全局组件
 
 const terminalState = ref({
   content: '',
