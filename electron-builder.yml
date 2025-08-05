@@ -78,8 +78,7 @@ linux:
   artifactName: ${name}-${version}-linux-${arch}.${ext}
 npmRebuild: true
 publish:
-  provider: github
-  owner: chaterm
-  repo: Chaterm
+  provider: generic
+  url: https://chaterm-static.intsig.net/download/
 electronDownload:
   mirror: https://npmmirror.com/mirrors/electron/

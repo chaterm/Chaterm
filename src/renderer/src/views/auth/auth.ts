@@ -1,12 +1,12 @@
 export const CtmTokenKey: string = 'Ctm-Token'
-// 认证情况
+// Authentication status
 export const isAuthenticated = async () => {
   const api = window.api as any
-  // 认证逻辑
+  // Authentication logic
   return api
     .getCookie(CtmTokenKey)
     .then((res) => {
-      console.log(res, '获取token')
+      console.log(res, 'Get token')
       if (res && res.success) {
         return true
       }

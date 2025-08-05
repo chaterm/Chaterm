@@ -1,7 +1,6 @@
 <template>
   <div class="login-log-container">
     <div class="header">
-      <h2>{{ t('logs.loginLogs') }}</h2>
       <div class="search-section">
         <a-space>
           <a-input
@@ -59,7 +58,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { message } from 'ant-design-vue'
 import { getLoginLogs } from '@/utils/loginLogger'
@@ -89,16 +88,22 @@ const searchForm = ref({
   dateRange: undefined as [string, string] | undefined
 })
 
-const pagination = ref({
-  current: 1,
-  pageSize: 20,
-  total: 0,
+const pagination = computed(() => ({
+  current: paginationData.value.current,
+  pageSize: paginationData.value.pageSize,
+  total: paginationData.value.total,
   showSizeChanger: true,
   showQuickJumper: true,
   showTotal: (total: number, range: [number, number]) => `${range[0]}-${range[1]} / ${total} ${t('logs.items')}`
+}))
+
+const paginationData = ref({
+  current: 1,
+  pageSize: 20,
+  total: 0
 })
 
-const columns: TableColumnsType<LoginLogRecord> = [
+const columns = computed<TableColumnsType<LoginLogRecord>>(() => [
   {
     title: t('logs.username'),
     dataIndex: 'username',
@@ -150,7 +155,7 @@ const columns: TableColumnsType<LoginLogRecord> = [
     key: 'created_at',
     width: 160
   }
-]
+])
 
 const formatDateTime = (dateTime: string) => {
   return dayjs(dateTime).add(8, 'hour').format('YYYY-MM-DD HH:mm:ss')
@@ -161,8 +166,8 @@ const fetchLoginLogs = async () => {
     loading.value = true
 
     const params: any = {
-      limit: pagination.value.pageSize,
-      offset: (pagination.value.current - 1) * pagination.value.pageSize
+      limit: paginationData.value.pageSize,
+      offset: (paginationData.value.current - 1) * paginationData.value.pageSize
     }
 
     if (searchForm.value.email) {
@@ -178,7 +183,7 @@ const fetchLoginLogs = async () => {
 
     if (result.success) {
       loginLogs.value = result.data.logs
-      pagination.value.total = result.data.total
+      paginationData.value.total = result.data.total
     } else {
       message.error(t('logs.fetchError') + ': ' + result.error)
     }
@@ -191,20 +196,20 @@ const fetchLoginLogs = async () => {
 }
 
 const handleSearch = () => {
-  pagination.value.current = 1
+  paginationData.value.current = 1
   fetchLoginLogs()
 }
 
 const handleReset = () => {
   searchForm.value.email = ''
   searchForm.value.dateRange = undefined
-  pagination.value.current = 1
+  paginationData.value.current = 1
   fetchLoginLogs()
 }
 
 const handleTableChange: TableProps['onChange'] = (pag, filters, sorter) => {
-  pagination.value.current = pag.current || 1
-  pagination.value.pageSize = pag.pageSize || 20
+  paginationData.value.current = pag.current || 1
+  paginationData.value.pageSize = pag.pageSize || 20
   fetchLoginLogs()
 }
 

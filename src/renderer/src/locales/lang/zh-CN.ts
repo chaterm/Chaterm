@@ -93,7 +93,30 @@ export default {
     usernameTooltip: '请输入您的账号',
     passwordTooltip: '请输入您的密码',
     retryAfter: '{seconds}秒后重试',
-    getCode: '获取验证码'
+    getCode: '获取验证码',
+    pleaseInputEmailAndCode: '请输入邮箱和验证码',
+    codeSent: '验证码已发送',
+    codeSendFailed: '验证码发送失败',
+    loginFailed: '登录失败',
+    externalLoginFailed: '启动外部登录失败',
+    loginProcessFailed: '登录处理失败',
+    databaseInitFailed: '数据库初始化失败',
+    initializationFailed: '初始化失败，请重试',
+    routeNavigationFailed: '跳转失败，请重试',
+    operationFailed: '操作失败，请重试',
+    recordLoginLogFailed: '记录登录日志失败',
+    recordLoginFailedLogFailed: '记录登录失败日志失败',
+    guestDatabaseInitFailed: '访客数据库初始化失败',
+    externalLoginIPDetectionError: '外部登录IP检测异常',
+    loginPageIPDetectionError: '登录页面IP检测异常',
+    handleProtocolUrlFailed: '处理协议 URL 失败',
+    routeJumpFailed: '路由跳转失败',
+    skipLoginHandleFailed: '跳过登录处理失败',
+    startExternalLoginFailed: '启动外部登录失败',
+    databaseInitializationFailed: '数据库初始化失败',
+    loginHandleFailed: '登录处理失败',
+    authCallbackDetected: '检测到认证回调 URL',
+    linuxPlatformHandleAuth: '在 Linux 平台上处理认证回调'
   },
   workspace: {
     workspace: '工作空间',
@@ -506,7 +529,18 @@ export default {
     downLoadUpdate: '下载更新',
     downloading: '正在下载',
     checkUpdateError: '检查更新失败',
-    checking: '检查中'
+    checking: '检查中',
+    install: '安装'
+  },
+  mfa: {
+    title: '二次验证',
+    verificationCode: '验证码',
+    verificationCodeError: '验证码错误',
+    pleaseInputVerificationCode: '请输入验证码',
+    remainingTime: '剩余时间',
+    confirm: '确认',
+    cancel: '取消',
+    setupGlobalListeners: '设置全局 MFA 监听器'
   },
   logs: {
     logs: '日志',
@@ -530,6 +564,24 @@ export default {
     endDate: '结束日期',
     items: '条',
     fetchError: '获取数据失败',
-    reset: '重置'
+    reset: '重置',
+    searchHostIP: '搜索主机IP',
+    searchInputCommand: '搜索输入命令',
+    searchUsername: '搜索用户名',
+    startTime: '开始时间',
+    endTime: '结束时间',
+    search: '搜索',
+    id: 'ID',
+    ip: 'IP',
+    commandInput: '命令输入',
+    commandOutput: '命令输出',
+    operationTime: '操作时间',
+    success: '成功',
+    failed: '失败',
+    timeout: '超时',
+    total: '总计',
+    records: '条记录',
+    getOperationLogsFailed: '获取操作日志失败',
+    noData: '暂无数据'
   }
 }
