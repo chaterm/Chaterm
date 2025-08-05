@@ -33,13 +33,6 @@
                 :toggle-sidebar="toggleSideBar"
                 @open-user-tab="openUserTab"
               />
-              <Logs
-                v-if="currentMenu == 'logs'"
-                ref="logsRef"
-                :toggle-sidebar="toggleSideBar"
-                @open-user-tab="openUserTab"
-                @open-log-tab="openLogTab"
-              />
               <div v-if="currentMenu == 'monitor'">{{ $t('common.monitor') }}</div>
             </pane>
             <pane :size="100 - leftPaneSize">
@@ -231,7 +224,6 @@ import Header from '@views/components/Header/index.vue'
 import LeftTab from '@views/components/LeftTab/index.vue'
 import Workspace from '@views/components/Workspace/index.vue'
 import Extensions from '@views/components/Extensions/index.vue'
-import Logs from '@views/components/Logs/index.vue'
 import TabsPanel from './tabsPanel.vue'
 import QuickCommandBar from '@/views/components/Ssh/quickCommandBar.vue'
 import { reactive } from 'vue'
@@ -253,7 +245,6 @@ const { t } = useI18n()
 const aliasConfig = aliasConfigStore()
 const headerRef = ref<InstanceType<typeof Header> | null>(null)
 const extensionsRef = ref<InstanceType<typeof Extensions> | null>(null)
-const logsRef = ref<InstanceType<typeof Logs> | null>(null)
 const allTabs = ref<InstanceType<typeof TabsPanel> | null>(null)
 const isSkippedLogin = computed(() => {
   return localStorage.getItem('login-skipped') === 'true'
@@ -964,25 +955,6 @@ const openUserTab = function (value) {
       break
   }
   currentClickServer(p)
-}
-
-const openLogTab = function (logType) {
-  const existTab = openedTabs.value.find((tab) => tab.content === logType)
-  if (existTab) {
-    activeTabId.value = existTab.id
-    return
-  }
-
-  const p = {
-    title: logType,
-    content: logType,
-    type: 'logs',
-    organizationId: '',
-    ip: '',
-    data: null
-  }
-
-  createTab(p)
 }
 
 const changeCompany = () => {
