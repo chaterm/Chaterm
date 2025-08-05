@@ -536,6 +536,7 @@ export class Task {
           ask: type,
           text
         }
+        await this.addToChatermMessages(newMessage)
         await this.postMessageToWebview({
           type: 'partialMessage',
           partialMessage: newMessage
