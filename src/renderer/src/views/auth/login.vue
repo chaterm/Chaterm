@@ -188,7 +188,7 @@ const sendCode = async () => {
     codeSending.value = true
     await sendEmailCode({ email: emailForm.email })
     message.success(t('login.codeSent'))
-    countdown.value = 60
+    countdown.value = 300
     const timer = setInterval(() => {
       countdown.value--
       if (countdown.value <= 0) {
