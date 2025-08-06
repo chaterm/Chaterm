@@ -2264,7 +2264,7 @@ export class Task {
       // const hasToolUse = this.assistantMessageContent.some((block) => block.type === 'tool_use')
 
       // if (!hasToolUse) {
-      const { response, text } = await this.ask('followup', '', false)
+      const { response, text } = await this.ask('completion_result', '', false)
 
       if (response === 'yesButtonClicked') {
         return
