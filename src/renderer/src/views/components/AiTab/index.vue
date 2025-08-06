@@ -1232,13 +1232,12 @@ const handleCancel = async () => {
     // Use regular cancel for non-command operations
     const response = await window.api.cancelTask()
     console.log('Main process cancel response:', response)
+    responseLoading.value = false
   }
 
   showCancelButton.value = false
   showSendButton.value = true
-  responseLoading.value = false
   lastChatMessageId.value = ''
-
   isExecutingCommand.value = false
 }
 
@@ -1577,6 +1576,10 @@ onMounted(async () => {
       if (!message.partialMessage?.partial) {
         showSendButton.value = true
         showCancelButton.value = false
+
+        if (message.partialMessage?.type === 'ask' && message.partialMessage?.ask === 'command') {
+          responseLoading.value = false
+        }
       }
     } else if (message?.type === 'state') {
       let lastStateChatermMessages = message.state?.chatermMessages.at(-1)

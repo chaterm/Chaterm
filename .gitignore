@@ -14,3 +14,7 @@ pnpm-lock.yaml
 yarn-error.log
 yarn.lock
 debug.log
+tests/screenshots
+tests/videos
+tests/playwright-report
+tests/test-results
