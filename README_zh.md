@@ -49,44 +49,44 @@ Chaterm是一款类似Cursor的终端上工具，无需再学习复杂的正则�
 
 ```sh
 1、更换npm源为最新淘宝源
-$ npm config set registry https://registry.npmmirror.com
+npm config set registry https://registry.npmmirror.com
 
 2、编辑npm 配置文件
-$ npm config edit
+npm config edit
 
 3、在打开的配置文件中，添加以下镜像源配置：
 electron_mirror=https://cdn.npmmirror.com/binaries/electron/
 electron_builder_binaries_mirror=https://npmmirror.com/mirrors/electron-builder-binaries/
 
 4、保存并关闭配置文件后，在命令行中安装 Electron：
-$ npm i electron -D
+npm i electron -D
 
 ```
 
 ### Install
 
 ```bash
-$ node scripts/patch-package-lock.js
-$ npm install
+node scripts/patch-package-lock.js
+npm install
 ```
 
 ### Development
 
 ```bash
-$ npm run dev
+npm run dev
 ```
 
 ### Build
 
 ```bash
 # For windows
-$ npm run build:win
+npm run build:win
 
 # For macOS
-$ npm run build:mac
+npm run build:mac
 
 # For Linux
-$ npm run build:linux
+npm run build:linux
 ```
 
 ## Contributors
