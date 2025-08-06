@@ -34,14 +34,14 @@ function migrateLegacyDatabase(userId: number, dbType: 'complete' | 'chaterm'): 
 
   if (fs.existsSync(legacyPath)) {
     try {
-      console.log(`🔄 Found legacy ${dbType} database at: ${legacyPath}`)
+      console.log(`Found legacy ${dbType} database at: ${legacyPath}`)
       console.log(`📦 Migrating to user directory: ${userPath}`)
       ensureUserDatabaseDir(userId)
       fs.renameSync(legacyPath, userPath)
-      console.log(`✅ Successfully migrated legacy ${dbType} database for user ${userId}`)
+      console.log(`Successfully migrated legacy ${dbType} database for user ${userId}`)
       return true
     } catch (error) {
-      console.error(`❌ Failed to migrate legacy ${dbType} database:`, error)
+      console.error(`Failed to migrate legacy ${dbType} database:`, error)
       return false
     }
   }
@@ -88,7 +88,7 @@ function upgradeUserSnippetTable(db: Database.Database): void {
       db.transaction(() => {
         // Add sort_order column
         db.exec('ALTER TABLE user_snippet_v1 ADD COLUMN sort_order INTEGER DEFAULT 0')
-        console.log('✅ Added sort_order column to user_snippet_v1')
+        console.log('Added sort_order column to user_snippet_v1')
 
         // Initialize sort_order for existing records
         const allRecords = db.prepare('SELECT id FROM user_snippet_v1 ORDER BY created_at ASC').all()
@@ -97,14 +97,14 @@ function upgradeUserSnippetTable(db: Database.Database): void {
           allRecords.forEach((record: any, index: number) => {
             updateSortStmt.run((index + 1) * 10, record.id) // Use multiples of 10 to leave space for insertion
           })
-          console.log(`✅ Initialized sort_order for ${allRecords.length} existing records`)
+          console.log(`Initialized sort_order for ${allRecords.length} existing records`)
         }
       })()
 
-      console.log('✅ user_snippet_v1 table upgrade completed')
+      console.log('user_snippet_v1 table upgrade completed')
     }
   } catch (error) {
-    console.error('❌ Failed to upgrade user_snippet_v1 table:', error)
+    console.error('Failed to upgrade user_snippet_v1 table:', error)
   }
 }
 
@@ -118,13 +118,13 @@ function upgradeTAssetsTable(db: Database.Database): void {
       db.transaction(() => {
         // 添加 asset_type 列
         db.exec("ALTER TABLE t_assets ADD COLUMN asset_type TEXT DEFAULT 'person'")
-        console.log('✅ Added asset_type column to t_assets')
+        console.log('Added asset_type column to t_assets')
       })()
 
-      console.log('✅ t_assets table upgrade completed')
+      console.log('t_assets table upgrade completed')
     }
   } catch (error) {
-    console.error('❌ Failed to upgrade t_assets table:', error)
+    console.error('Failed to upgrade t_assets table:', error)
   }
 }
 
@@ -157,10 +157,10 @@ export async function initDatabase(userId?: number): Promise<Database.Database> 
     }
 
     const db = new Database(COMPLETE_DB_PATH)
-    console.log('✅ Complete database connection established at:', COMPLETE_DB_PATH)
+    console.log('Complete database connection established at:', COMPLETE_DB_PATH)
     return db
   } catch (error) {
-    console.error('❌ Complete database initialization failed:', error)
+    console.error('Complete database initialization failed:', error)
     throw error
   }
 }
@@ -189,7 +189,7 @@ export async function initChatermDatabase(userId?: number): Promise<Database.Dat
         const sourceDb = new Database(INIT_CDB_PATH, { readonly: true, fileMustExist: true })
         try {
           await sourceDb.backup(Chaterm_DB_PATH)
-          console.log('✅ Chaterm database successfully copied.')
+          console.log('Chaterm database successfully copied.')
         } finally {
           sourceDb.close()
         }
@@ -272,7 +272,7 @@ export async function initChatermDatabase(userId?: number): Promise<Database.Dat
     }
 
     const finalDb = new Database(Chaterm_DB_PATH)
-    console.log('✅ Chaterm database connection established at:', Chaterm_DB_PATH)
+    console.log('Chaterm database connection established at:', Chaterm_DB_PATH)
 
     // Execute table structure upgrade
     upgradeUserSnippetTable(finalDb)

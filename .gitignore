@@ -14,3 +14,10 @@ pnpm-lock.yaml
 yarn-error.log
 yarn.lock
 debug.log
+
+# 加密存储相关文件
+temp-storage/
+.chaterm-encryption/
+*.enc
+kms_*
+session_*
