@@ -1105,6 +1105,7 @@ const handleMessageOperation = async (operation: 'copy' | 'apply') => {
     eventBus.emit('executeTerminalCommand', content)
   } else if (operation === 'apply') {
     eventBus.emit('executeTerminalCommand', content + '\n')
+    responseLoading.value = true
   }
   lastChatMessageId.value = ''
 }
