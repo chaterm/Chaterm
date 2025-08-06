@@ -74,8 +74,9 @@ class ClientSideCrypto {
 
       console.log('客户端加密初始化完成')
     } catch (error) {
-      console.error('初始化失败:', error)
-      throw new Error(`客户端加密初始化失败: ${(error as Error).message}`)
+      // 简化错误日志，避免重复输出
+      const errorMessage = (error as Error).message
+      throw new Error(`客户端加密初始化失败: ${errorMessage}`)
     }
   }
 
@@ -104,8 +105,10 @@ class ClientSideCrypto {
         throw new Error(`解密数据密钥失败: ${response.error}`)
       }
     } catch (error) {
-      console.error('解密存储的数据密钥失败:', error)
-      throw error
+      // 简化错误日志输出
+      const errorMessage = (error as Error).message
+      console.warn('数据密钥解密失败:', errorMessage)
+      throw new Error(errorMessage.includes('解密数据密钥失败') ? errorMessage : `解密数据密钥失败: ${errorMessage}`)
     }
   }
 
@@ -140,8 +143,10 @@ class ClientSideCrypto {
         throw new Error(`生成数据密钥失败: ${response.error}`)
       }
     } catch (error) {
-      console.error('生成新数据密钥失败:', error)
-      throw error
+      // 简化错误日志输出
+      const errorMessage = (error as Error).message
+      console.warn('数据密钥生成失败:', errorMessage)
+      throw new Error(errorMessage.includes('生成数据密钥失败') ? errorMessage : `生成数据密钥失败: ${errorMessage}`)
     }
   }
 

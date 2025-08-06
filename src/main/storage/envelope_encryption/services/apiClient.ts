@@ -117,10 +117,12 @@ class ApiClient {
       })
       return response as unknown as GenerateDataKeyResponse
     } catch (error) {
-      console.error('生成数据密钥失败:', error)
+      // 只输出基础错误信息，避免详细堆栈
+      const errorMessage = (error as Error).message
+      console.warn('数据密钥生成失败:', errorMessage)
       return {
         success: false,
-        error: (error as Error).message
+        error: errorMessage
       }
     }
   }
@@ -152,10 +154,12 @@ class ApiClient {
       console.log('数据密钥解密成功')
       return response as unknown as DecryptDataKeyResponse
     } catch (error) {
-      console.error('解密数据密钥失败:', error)
+      // 简化错误日志输出
+      const errorMessage = (error as Error).message
+      console.warn('数据密钥解密失败:', errorMessage)
       return {
         success: false,
-        error: (error as Error).message
+        error: errorMessage
       }
     }
   }

@@ -157,12 +157,11 @@ export class EnvelopeEncryptionService {
       this.currentUserId = targetUserId // 保存用户ID用于重试
 
       if (silent) {
-        // 静默模式：只记录警告，不抛出错误
-        console.warn('加密服务初始化失败（静默模式）:', errorMessage)
+        // 静默模式：只记录简要信息
+        console.warn('加密服务初始化失败:', errorMessage)
         return { success: false, message: errorMessage }
       } else {
-        // 非静默模式：抛出错误
-        console.error('加密服务初始化失败:', error)
+        // 非静默模式：抛出错误，但不重复记录详细日志
         throw new Error(`初始化失败: ${errorMessage}`)
       }
     }
@@ -396,12 +395,11 @@ export class EnvelopeEncryptionService {
 
     try {
       const result = await this.initializationPromise
-      if (result.success) {
-      } else {
+      if (!result.success) {
         console.warn('后台加密服务初始化失败:', result.message)
       }
     } catch (error) {
-      console.warn('后台加密服务初始化超时或异常:', (error as Error).message)
+      console.warn('后台加密服务初始化超时:', (error as Error).message)
     }
   }
 

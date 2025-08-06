@@ -78,7 +78,8 @@ class StorageManager {
 
       return parsedData
     } catch (error) {
-      console.error('解析存储的数据密钥失败:', error)
+      // 简化错误日志输出
+      console.warn('解析存储的数据密钥失败:', (error as Error).message)
       return null
     }
   }

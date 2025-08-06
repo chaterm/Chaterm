@@ -91,8 +91,10 @@ class CryptoUtils {
         algorithm: config.encryption.algorithm
       }
     } catch (error) {
-      console.error('AWS Encryption SDK 加密失败:', error)
-      throw new Error(`AWS Encryption SDK 加密失败: ${(error as Error).message}`)
+      // 简化错误日志输出
+      const errorMessage = (error as Error).message
+      console.warn('AWS Encryption SDK 加密失败:', errorMessage)
+      throw new Error(`AWS Encryption SDK 加密失败: ${errorMessage}`)
     }
   }
 
@@ -135,8 +137,10 @@ class CryptoUtils {
 
       return dataPacket.data
     } catch (error) {
-      console.error('AWS Encryption SDK 解密失败:', error)
-      throw new Error(`AWS Encryption SDK 解密失败: ${(error as Error).message}`)
+      // 简化错误日志输出
+      const errorMessage = (error as Error).message
+      console.warn('AWS Encryption SDK 解密失败:', errorMessage)
+      throw new Error(`AWS Encryption SDK 解密失败: ${errorMessage}`)
     }
   }
 
