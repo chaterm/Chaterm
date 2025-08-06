@@ -21,6 +21,7 @@ import { HeartbeatManager } from './heartBeatManager'
 import { createMainWindow } from './windowManager'
 import { registerUpdater } from './updater'
 import { telemetryService, checkIsFirstLaunch, getMacAddress } from './agent/services/telemetry/TelemetryService'
+import { envelopeEncryptionService } from './storage/envelope_encryption/service'
 
 let mainWindow: BrowserWindow
 let COOKIE_URL = 'http://localhost'
@@ -366,6 +367,24 @@ function setupIPC(): void {
       setCurrentUserId(targetUserId)
       chatermDbService = await ChatermDatabaseService.getInstance(targetUserId)
       autoCompleteService = await autoCompleteDatabaseService.getInstance(targetUserId)
+
+      // 后台异步初始化信封加密服务（不阻塞应用启动）
+      setImmediate(async () => {
+        try {
+          // 获取用户认证信息
+          const ctmToken = await event.sender.executeJavaScript("localStorage.getItem('ctm-token')")
+          if (ctmToken && ctmToken !== 'guest_token') {
+            // 设置认证信息到加密服务
+            envelopeEncryptionService.setAuthInfo(ctmToken, targetUserId.toString())
+          }
+
+          // 后台初始化，10秒超时，不阻塞主线程
+          await envelopeEncryptionService.initializeInBackground(targetUserId.toString(), 10000)
+        } catch (encryptionError) {
+          console.warn('后台加密服务初始化异常:', encryptionError)
+        }
+      })
+
       return { success: true }
     } catch (error) {
       console.error('Database initialization failed:', error)
