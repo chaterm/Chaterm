@@ -365,42 +365,6 @@ const updateOrganizationAssetFavorite = async (data: { organizationUuid: string;
   }
 }
 
-// Login log related functions
-const insertLoginLog = async (data: {
-  username?: string
-  email?: string
-  ip_address?: string
-  mac_address?: string
-  login_method?: string
-  status?: string
-  user_agent?: string
-  platform?: string
-}) => {
-  try {
-    const result = await ipcRenderer.invoke('insert-login-log', data)
-    return result
-  } catch (error) {
-    return Promise.reject(error)
-  }
-}
-
-const getLoginLogs = async (
-  params: {
-    limit?: number
-    offset?: number
-    email?: string
-    startDate?: string
-    endDate?: string
-  } = {}
-) => {
-  try {
-    const result = await ipcRenderer.invoke('get-login-logs', params)
-    return result
-  } catch (error) {
-    return Promise.reject(error)
-  }
-}
-
 const api = {
   getLocalIP,
   getMacAddress,
@@ -436,8 +400,6 @@ const api = {
   userSnippetOperation,
   refreshOrganizationAssets,
   updateOrganizationAssetFavorite,
-  insertLoginLog,
-  getLoginLogs,
   maximizeWindow: () => ipcRenderer.invoke('window:maximize'),
   unmaximizeWindow: () => ipcRenderer.invoke('window:unmaximize'),
   isMaximized: () => ipcRenderer.invoke('window:is-maximized'),

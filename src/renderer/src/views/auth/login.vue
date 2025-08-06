@@ -188,7 +188,7 @@ const sendCode = async () => {
     codeSending.value = true
     await sendEmailCode({ email: emailForm.email })
     message.success(t('login.codeSent'))
-    countdown.value = 60
+    countdown.value = 300
     const timer = setInterval(() => {
       countdown.value--
       if (countdown.value <= 0) {
@@ -219,32 +219,14 @@ const onEmailLogin = async () => {
         message.error(t('login.databaseInitFailed'))
         return
       }
-      try {
-        const { recordLoginLog } = await import('@/utils/loginLogger')
-        await recordLoginLog((res as any).data, '邮箱验证码', 'success')
-      } catch (logError) {
-        console.error(t('login.recordLoginLogFailed'), logError)
-      }
 
       shortcutService.init()
       await nextTick()
       await router.replace({ path: '/', replace: true })
     } else {
-      try {
-        const { recordLoginLog } = await import('@/utils/loginLogger')
-        await recordLoginLog({ email: emailForm.email }, '邮箱验证码', 'failed')
-      } catch (logError) {
-        console.error(t('login.recordLoginFailedLogFailed'), logError)
-      }
       message.error(res && (res as any).Message ? (res as any).Message : t('login.loginFailed'))
     }
   } catch (err: any) {
-    try {
-      const { recordLoginLog } = await import('@/utils/loginLogger')
-      await recordLoginLog({ email: emailForm.email }, '邮箱验证码', 'failed')
-    } catch (logError) {
-      console.error(t('login.recordLoginFailedLogFailed'), logError)
-    }
     message.error(err?.response?.data?.message || err?.message || t('login.loginFailed'))
   } finally {
     loading.value = false
@@ -344,12 +326,6 @@ onMounted(async () => {
               error_message: dbResult.error
             })
             return false
-          }
-          try {
-            const { recordLoginLog } = await import('@/utils/loginLogger')
-            await recordLoginLog(userInfo, method || 'Other', 'success')
-          } catch (logError) {
-            console.error(t('login.recordLoginLogFailed'), logError)
           }
 
           shortcutService.init()

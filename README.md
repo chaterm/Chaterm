@@ -48,33 +48,33 @@ Want syntax highlighting and smart completion, but don't have root privileges, a
 ### Install Electron
 
 ```sh
-$ npm i electron -D
+npm i electron -D
 ```
 
 ### Install
 
 ```bash
-$ node scripts/patch-package-lock.js
-$ npm install
+node scripts/patch-package-lock.js
+npm install
 ```
 
 ### Development
 
 ```bash
-$ npm run dev
+npm run dev
 ```
 
 ### Build
 
 ```bash
 # For windows
-$ npm run build:win
+npm run build:win
 
 # For macOS
-$ npm run build:mac
+npm run build:mac
 
 # For Linux
-$ npm run build:linux
+npm run build:linux
 ```
 
 ## Contributors
