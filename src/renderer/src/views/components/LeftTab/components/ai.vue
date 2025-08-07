@@ -93,13 +93,13 @@
       class="settings-section"
       :bordered="false"
     >
-      <!-- 开关 -->
+      <!-- Toggle Switch -->
       <div class="setting-item">
         <a-checkbox v-model:checked="needProxy">
           {{ $t('user.enableProxy') }}
         </a-checkbox>
 
-        <!-- 配置项：仅在开启时显示 -->
+        <!-- Configuration items: only show when enabled -->
         <template v-if="needProxy">
           <div class="setting-item">
             <a-form-item
@@ -207,25 +207,21 @@
 <script setup lang="ts">
 import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { notification } from 'ant-design-vue'
-import { updateGlobalState, getGlobalState, getSecret } from '@renderer/agent/storage/state'
+import { updateGlobalState, getGlobalState } from '@renderer/agent/storage/state'
 import { AutoApprovalSettings, DEFAULT_AUTO_APPROVAL_SETTINGS } from '@/agent/storage/shared'
 import { ChatSettings, DEFAULT_CHAT_SETTINGS, ProxyConfig } from '@/agent/storage/shared'
-import { aiModelOptions, deepseekAiModelOptions } from './aiOptions'
-import eventBus from '@/utils/eventBus'
 import i18n from '@/locales'
 
 const { t } = i18n.global
 
 const thinkingBudgetTokens = ref(2048)
 const enableExtendedThinking = ref(true)
-// const enableCheckpoints = ref(false)
 const reasoningEffort = ref('low')
 const shellIntegrationTimeout = ref(4)
 const autoApprovalSettings = ref<AutoApprovalSettings>(DEFAULT_AUTO_APPROVAL_SETTINGS)
 const chatSettings = ref<ChatSettings>(DEFAULT_CHAT_SETTINGS)
 const customInstructions = ref('')
 const inputError = ref('')
-const checkLoading = ref(false)
 const needProxy = ref(false)
 const defaultProxyConfig: ProxyConfig = {
   type: 'SOCKS5',
@@ -248,7 +244,7 @@ watch(
         enabled: newValue,
         actions: {
           ...autoApprovalSettings.value.actions,
-          executeAllCommands: newValue // 根据开关状态设置 executeAllCommands
+          executeAllCommands: newValue // Set executeAllCommands based on toggle state
         },
         maxRequests: autoApprovalSettings.value.maxRequests,
         enableNotifications: autoApprovalSettings.value.enableNotifications,
@@ -280,23 +276,22 @@ watch(
     } catch (error) {
       console.error('Failed to update chat settings:', error)
       notification.error({
-        message: 'Error',
-        description: 'Failed to update chat settings'
+        message: t('user.error'),
+        description: t('user.saveConfigFailedDescription')
       })
     }
   }
 )
 
-// 加载保存的配置
+// Load saved configuration
 const loadSavedConfig = async () => {
   try {
-    // 加载其他配置
+    // Load other configurations
     thinkingBudgetTokens.value = ((await getGlobalState('thinkingBudgetTokens')) as number) || 2048
     customInstructions.value = ((await getGlobalState('customInstructions')) as string) || ''
 
     needProxy.value = ((await getGlobalState('needProxy')) as boolean) || false
     proxyConfig.value = ((await getGlobalState('proxyConfig')) as ProxyConfig) || defaultProxyConfig
-    // enableCheckpoints.value = (await getGlobalState('enableCheckpoints')) || false
 
     const savedAutoApprovalSettings = await getGlobalState('autoApprovalSettings')
     if (savedAutoApprovalSettings) {
@@ -323,19 +318,18 @@ const loadSavedConfig = async () => {
   } catch (error) {
     console.error('Failed to load config:', error)
     notification.error({
-      message: 'Error',
-      description: 'Failed to load saved configuration'
+      message: t('user.loadConfigFailed'),
+      description: t('user.loadConfigFailedDescription')
     })
   }
 }
 
-// 保存配置到存储
+// Save configuration to storage
 const saveConfig = async () => {
   try {
-    // 保存其他配置
+    // Save other configurations
     await updateGlobalState('thinkingBudgetTokens', thinkingBudgetTokens.value)
     await updateGlobalState('customInstructions', customInstructions.value)
-    // await updateGlobalState('enableCheckpoints', enableCheckpoints.value)
     const settingsToSave: AutoApprovalSettings = {
       version: autoApprovalSettings.value.version,
       enabled: autoApprovalSettings.value.enabled,
@@ -359,8 +353,8 @@ const saveConfig = async () => {
   } catch (error) {
     console.error('Failed to save config:', error)
     notification.error({
-      message: 'Error',
-      description: 'Failed to save configuration'
+      message: t('user.error'),
+      description: t('user.saveConfigFailedDescription')
     })
   }
 }
@@ -387,7 +381,7 @@ watch(
   }
 )
 
-// 监听thinkingBudgetTokens变化来同步enableExtendedThinking状态
+// Watch thinkingBudgetTokens changes to sync enableExtendedThinking state
 watch(
   () => thinkingBudgetTokens.value,
   async (newValue) => {
@@ -396,7 +390,7 @@ watch(
   }
 )
 
-// 监听enableExtendedThinking变化来同步thinkingBudgetTokens
+// Watch enableExtendedThinking changes to sync thinkingBudgetTokens
 watch(
   () => enableExtendedThinking.value,
   (newValue) => {
@@ -408,18 +402,18 @@ watch(
   }
 )
 
-// 组件挂载时加载保存的配置
+// Load saved configuration when component is mounted
 onMounted(async () => {
   await loadSavedConfig()
   await saveConfig()
 })
 
-// 组件卸载前保存配置
+// Save configuration before component unmounts
 onBeforeUnmount(async () => {
   await saveConfig()
 })
 
-// 验证 shell integration timeout 输入
+// Validate shell integration timeout input
 const validateTimeout = (value: string) => {
   const timeout = parseInt(value)
   if (isNaN(timeout)) {
@@ -438,7 +432,7 @@ const validateTimeout = (value: string) => {
   return true
 }
 
-// 处理 shell integration timeout 变化
+// Handle shell integration timeout changes
 watch(
   () => shellIntegrationTimeout.value,
   async (newValue) => {
@@ -452,41 +446,12 @@ watch(
   }
 )
 
-// 处理扩展思考开关
+// Handle extended thinking toggle
 const handleEnableExtendedThinking = (checked: boolean) => {
   if (!checked) {
     thinkingBudgetTokens.value = 0
   } else if (thinkingBudgetTokens.value === 0) {
-    thinkingBudgetTokens.value = 1024 // 默认值
-  }
-}
-
-const handleCheck = async () => {
-  await saveConfig()
-  try {
-    checkLoading.value = true
-    const result = await (window.api as any).validateApiKey()
-    if (result.isValid) {
-      notification.success({
-        message: t('user.checkSuccessMessage'),
-        description: t('user.checkSuccessDescription'),
-        duration: 3
-      })
-    } else {
-      notification.error({
-        message: t('user.checkFailMessage'),
-        description: result.error || t('user.checkFailDescriptionDefault'),
-        duration: 3
-      })
-    }
-  } catch (error) {
-    notification.error({
-      message: t('user.checkFailMessage'),
-      description: String(error),
-      duration: 3
-    })
-  } finally {
-    checkLoading.value = false
+    thinkingBudgetTokens.value = 1024 // Default value
   }
 }
 </script>
@@ -539,7 +504,7 @@ const handleCheck = async () => {
   color: var(--text-color-tertiary);
 }
 
-// 统一组件样式
+// Unified component styles
 :deep(.ant-checkbox-wrapper),
 :deep(.ant-form-item-label label),
 :deep(.ant-select),
@@ -569,7 +534,7 @@ const handleCheck = async () => {
   }
 }
 
-// 密码输入框特定样式
+// Password input specific styles
 :deep(.ant-input-password) {
   .ant-input {
     background-color: var(--bg-color-secondary) !important;
@@ -591,7 +556,7 @@ const handleCheck = async () => {
   }
 }
 
-// 添加选择框的特定样式
+// Add specific styles for select box
 :deep(.ant-select) {
   .ant-select-selector {
     background-color: var(--bg-color-secondary) !important;
@@ -616,7 +581,7 @@ const handleCheck = async () => {
   border-color: #1890ff;
 }
 
-// 下拉菜单样式
+// Dropdown menu styles
 :deep(.ant-select-dropdown) {
   background-color: var(--bg-color);
   border: 1px solid var(--border-color);
@@ -638,7 +603,7 @@ const handleCheck = async () => {
   }
 }
 
-// 选择框中已选项的颜色
+// Color of selected items in select box
 :deep(.ant-select-selection-item) {
   color: var(--text-color) !important;
 }
@@ -664,17 +629,17 @@ const handleCheck = async () => {
 
   :deep(.ant-slider) {
     margin: 0;
-    // 轨道样式
+    // Track styles
     .ant-slider-rail {
       background-color: var(--bg-color-secondary);
     }
 
-    // 已选择部分的轨道样式
+    // Styles for selected portion of track
     .ant-slider-track {
       background-color: #1890ff;
     }
 
-    // 滑块手柄样式
+    // Slider handle styles
     .ant-slider-handle {
       background-color: var(--bg-color);
       box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
@@ -700,12 +665,12 @@ const handleCheck = async () => {
   margin-top: 4px;
 }
 
-// 减小表单项之间的间距
+// Reduce spacing between form items
 :deep(.ant-form-item) {
   margin-bottom: 8px;
 }
 
-// 减小label和输入框之间的间距
+// Reduce spacing between label and input box
 :deep(.ant-form-item-label) {
   padding-bottom: 0;
   > label {

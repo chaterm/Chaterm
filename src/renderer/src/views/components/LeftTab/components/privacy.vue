@@ -243,8 +243,8 @@ const saveConfig = async () => {
   } catch (error) {
     console.error('Failed to save config:', error)
     notification.error({
-      message: 'Error',
-      description: 'Failed to save configuration'
+      message: t('user.error'),
+      description: t('user.saveConfigFailedDescription')
     })
   }
 }
