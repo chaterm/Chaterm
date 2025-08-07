@@ -64,6 +64,13 @@
         </a-tab-pane>
         <a-tab-pane
           key="7"
+          :tab="$t('user.privacy')"
+          type="card"
+        >
+          <Privacy />
+        </a-tab-pane>
+        <a-tab-pane
+          key="8"
           :tab="$t('user.about')"
           type="card"
         >
@@ -81,9 +88,10 @@ import Terminal from '@/views/components/LeftTab/components/terminal.vue'
 import Extensions from '@/views/components/LeftTab/components/extensions.vue'
 import AI from '@/views/components/LeftTab/components/ai.vue'
 import Billing from '@/views/components/LeftTab/components/billing.vue'
-import About from '@/views/components/LeftTab/components/about.vue'
 import Model from '@/views/components/LeftTab/components/model.vue'
 import Shortcuts from '@/views/components/LeftTab/components/shortcuts.vue'
+import Privacy from '@/views/components/LeftTab/components/privacy.vue'
+import About from '@/views/components/LeftTab/components/about.vue'
 const isSkippedLogin = ref(localStorage.getItem('login-skipped') === 'true')
 </script>
 

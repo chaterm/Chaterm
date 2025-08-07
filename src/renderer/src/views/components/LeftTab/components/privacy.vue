@@ -14,45 +14,66 @@
       >
         <a-form-item>
           <template #label>
-            <span class="label-text">{{ $t('user.baseSetting') }}</span>
+            <span class="label-text">{{ $t('user.privacy') }}</span>
           </template>
         </a-form-item>
         <a-form-item
-          :label="$t('user.theme')"
+          :label="$t('user.telemetry')"
           class="user_my-ant-form-item"
         >
           <a-radio-group
-            v-model:value="userConfig.theme"
+            v-model:value="userConfig.telemetry"
             class="custom-radio-group"
-            @change="changeTheme"
+            @change="updateTelemetry"
           >
-            <a-radio value="dark">{{ $t('user.themeDark') }}</a-radio>
-            <a-radio value="light">{{ $t('user.themeLight') }}</a-radio>
+            <a-radio value="enabled">{{ $t('user.telemetryEnabled') }}</a-radio>
+            <a-radio value="disabled">{{ $t('user.telemetryDisabled') }}</a-radio>
           </a-radio-group>
         </a-form-item>
         <a-form-item
-          :label="$t('user.language')"
+          class="description-item"
+          :label-col="{ span: 0 }"
+          :wrapper-col="{ span: 24 }"
+        >
+          <div
+            class="description"
+            v-html="$t('user.telemetryDescription')"
+          ></div>
+        </a-form-item>
+        <a-form-item
+          :label="$t('user.secretRedaction')"
           class="user_my-ant-form-item"
         >
           <a-radio-group
-            v-model:value="userConfig.language"
+            v-model:value="userConfig.secretRedaction"
             class="custom-radio-group"
-            @change="changeLanguage"
+            @change="changeSecretRedaction"
           >
-            <a-radio value="zh-CN">简体中文</a-radio>
-            <a-radio value="en-US">English</a-radio>
+            <a-radio value="enabled">{{ $t('user.secretRedactionEnabled') }}</a-radio>
+            <a-radio value="disabled">{{ $t('user.secretRedactionDisabled') }}</a-radio>
           </a-radio-group>
         </a-form-item>
         <a-form-item
-          :label="$t('user.watermark')"
+          class="description-item"
+          :label-col="{ span: 0 }"
+          :wrapper-col="{ span: 24 }"
+        >
+          <div
+            class="description"
+            v-html="$t('user.secretRedactionDescription')"
+          ></div>
+        </a-form-item>
+        <a-form-item
+          :label="$t('user.dataSync')"
           class="user_my-ant-form-item"
         >
           <a-radio-group
-            v-model:value="userConfig.watermark"
+            v-model:value="userConfig.dataSync"
             class="custom-radio-group"
+            @change="changeDataSync"
           >
-            <a-radio value="open">{{ $t('user.watermarkOpen') }}</a-radio>
-            <a-radio value="close">{{ $t('user.watermarkClose') }}</a-radio>
+            <a-radio value="enabled">{{ $t('user.dataSyncEnabled') }}</a-radio>
+            <a-radio value="disabled">{{ $t('user.dataSyncDisabled') }}</a-radio>
           </a-radio-group>
         </a-form-item>
       </a-form>
@@ -61,20 +82,14 @@
 </template>
 
 <script setup>
-import { ref, onMounted, watch, onBeforeUnmount } from 'vue'
+import { ref, onMounted, watch } from 'vue'
 import { notification } from 'ant-design-vue'
 import { userConfigStore } from '@/services/userConfigStoreService'
-import { userConfigStore as configStore } from '@/store/userConfigStore'
-import eventBus from '@/utils/eventBus'
-import { useI18n } from 'vue-i18n'
-
-const api = window.api
-const { locale } = useI18n()
 
 const userConfig = ref({
-  language: 'zh-CN',
-  watermark: 'open',
-  theme: 'dark'
+  secretRedaction: 'disabled',
+  dataSync: 'disabled',
+  telemetry: 'enabled'
 })
 
 const loadSavedConfig = async () => {
@@ -85,9 +100,6 @@ const loadSavedConfig = async () => {
         ...userConfig.value,
         ...savedConfig
       }
-      document.body.className = `theme-${userConfig.value.theme}`
-      eventBus.emit('updateTheme', userConfig.value.theme)
-      api.updateTheme(userConfig.value.theme)
     }
   } catch (error) {
     console.error('Failed to load config:', error)
@@ -95,21 +107,17 @@ const loadSavedConfig = async () => {
       message: '加载配置失败',
       description: '将使用默认配置'
     })
-    document.body.className = 'theme-dark'
-    userConfig.value.theme = 'dark'
   }
 }
 
 const saveConfig = async () => {
   try {
     const configToStore = {
-      language: userConfig.value.language,
-      watermark: userConfig.value.watermark,
-      theme: userConfig.value.theme
+      secretRedaction: userConfig.value.secretRedaction,
+      dataSync: userConfig.value.dataSync,
+      telemetry: userConfig.value.telemetry
     }
     await userConfigStore.saveConfig(configToStore)
-    eventBus.emit('updateWatermark', configToStore.watermark)
-    eventBus.emit('updateTheme', configToStore.theme)
   } catch (error) {
     console.error('Failed to save config:', error)
     notification.error({
@@ -131,31 +139,29 @@ onMounted(async () => {
   await loadSavedConfig()
 })
 
-onBeforeUnmount(() => {
-  eventBus.off('updateTheme')
-})
-
-const changeLanguage = async () => {
-  locale.value = userConfig.value.language
-  localStorage.setItem('lang', userConfig.value.language)
-  configStore().updateLanguage(userConfig.value.language)
-}
-
-const changeTheme = async () => {
+const updateTelemetry = async () => {
   try {
-    document.body.className = `theme-${userConfig.value.theme}`
-    eventBus.emit('updateTheme', userConfig.value.theme)
-    setTimeout(() => {
-      api.updateTheme(userConfig.value.theme)
-    }, 80)
+    await window.api.sendToMain({
+      type: 'telemetrySetting',
+      telemetrySetting: userConfig.value.telemetry
+    })
+
     await saveConfig()
   } catch (error) {
-    console.error('Failed to change theme:', error)
+    console.error('Failed to change telemetry setting:', error)
     notification.error({
-      message: '主题切换失败',
+      message: '遥测设置更新失败',
       description: '请稍后重试'
     })
   }
+}
+
+const changeSecretRedaction = async () => {
+  await saveConfig()
+}
+
+const changeDataSync = async () => {
+  await saveConfig()
 }
 </script>
 
@@ -290,5 +296,37 @@ const changeTheme = async () => {
 .checkbox-md :deep(.ant-checkbox-inner) {
   width: 20px;
   height: 20px;
+}
+
+.description-item {
+  margin-top: -15px;
+  margin-bottom: 14px;
+}
+
+.description-item :deep(.ant-form-item-control) {
+  margin-left: 0 !important;
+  max-width: 100% !important;
+}
+
+.description {
+  font-size: 12px;
+  color: var(--text-color-secondary);
+  line-height: 1.4;
+  opacity: 0.8;
+  text-align: left;
+  margin: 0;
+  padding: 0;
+  word-wrap: break-word;
+}
+
+.description a {
+  color: #1890ff;
+  text-decoration: none;
+  transition: color 0.3s;
+}
+
+.description a:hover {
+  color: #40a9ff;
+  text-decoration: underline;
 }
 </style>
