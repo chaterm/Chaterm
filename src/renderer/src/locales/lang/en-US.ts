@@ -192,6 +192,7 @@ export default {
     secretRedactionEnabled: 'Enabled',
     secretRedactionDisabled: 'Disabled',
     dataSync: 'Data Sync',
+    dataSyncDescription: 'Data synchronization is designed to synchronize the user-configured assets, keys, and other information across devices.',
     dataSyncEnabled: 'Enabled',
     dataSyncDisabled: 'Disabled',
     shortcuts: 'Shortcuts',

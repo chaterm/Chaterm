@@ -83,6 +83,16 @@
             <a-radio value="disabled">{{ $t('user.dataSyncDisabled') }}</a-radio>
           </a-radio-group>
         </a-form-item>
+
+        <a-form-item
+          class="description-item"
+          :label-col="{ span: 0 }"
+          :wrapper-col="{ span: 24 }"
+        >
+          <div class="description">
+            {{ $t('user.dataSyncDescription') }}
+          </div>
+        </a-form-item>
       </a-form>
     </a-card>
   </div>

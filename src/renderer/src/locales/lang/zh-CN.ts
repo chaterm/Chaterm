@@ -191,6 +191,7 @@ export default {
     secretRedactionEnabled: '开启',
     secretRedactionDisabled: '关闭',
     dataSync: '数据同步',
+    dataSyncDescription: '数据同步旨在将用户配置的资产、密钥等信息进行跨设备同步',
     dataSyncEnabled: '开启',
     dataSyncDisabled: '关闭',
     shortcuts: '快捷键',
