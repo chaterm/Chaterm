@@ -6,5 +6,23 @@
   },
   "[typescript]": {
     "editor.defaultFormatter": "esbenp.prettier-vscode"
-  }
+  },
+  "playwright.testDir": "./tests/e2e",
+  "playwright.configFile": "./playwright.config.ts",
+  "playwright.showTrace": true,
+  "playwright.reuseBrowser": false,
+  "typescript.preferences.importModuleSpecifier": "relative",
+  "nodejs.packageManager": "npm",
+  "terminal.integrated.env.osx": {
+    "NODE_ENV": "test"
+  },
+  "terminal.integrated.env.linux": {
+    "NODE_ENV": "test"
+  },
+  "terminal.integrated.env.windows": {
+    "NODE_ENV": "test"
+  },
+  "testing.automaticallyOpenPeekView": "never",
+  "testing.defaultGutterClickAction": "run",
+  "testing.followRunningTest": false
 }
