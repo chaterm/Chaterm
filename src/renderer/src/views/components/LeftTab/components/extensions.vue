@@ -69,6 +69,9 @@ import { notification } from 'ant-design-vue'
 import { userConfigStore } from '@/services/userConfigStoreService'
 import eventBus from '@/utils/eventBus'
 import { captureExtensionUsage, ExtensionNames, ExtensionStatus } from '@/utils/telemetry'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 const userConfig = ref({
   autoCompleteStatus: 1,
@@ -92,8 +95,8 @@ const loadSavedConfig = async () => {
   } catch (error) {
     console.error('Failed to load config:', error)
     notification.error({
-      message: 'Error',
-      description: 'Failed to load saved configuration'
+      message: t('user.loadConfigFailed'),
+      description: t('user.loadConfigFailedDescription')
     })
   }
 }
@@ -113,8 +116,8 @@ const saveConfig = async () => {
   } catch (error) {
     console.error('Failed to save config:', error)
     notification.error({
-      message: 'Error',
-      description: 'Failed to save configuration'
+      message: t('user.error'),
+      description: t('user.saveConfigFailedDescription')
     })
   }
 }
@@ -163,8 +166,8 @@ const handleAliasStatusChange = async (checked) => {
   } catch (error) {
     console.error('保存别名状态失败:', error)
     notification.error({
-      message: '错误',
-      description: '保存别名状态失败'
+      message: t('user.error'),
+      description: t('user.saveAliasStatusFailed')
     })
   }
 }

@@ -55,9 +55,9 @@ const getRatioPercent = computed(() => {
 
 const getProgressColor = computed(() => {
   const percent = getRatioPercent.value
-  if (percent >= 90) return '#f5222d' // 红色，接近用完
-  if (percent >= 70) return '#fa8c16' // 橙色，警告
-  return '#52c41a' // 绿色，正常
+  if (percent >= 90) return '#f5222d' // Red, close to running out
+  if (percent >= 70) return '#fa8c16' // Orange, warning
+  return '#52c41a' // Green, normal
 })
 
 onMounted(() => {
