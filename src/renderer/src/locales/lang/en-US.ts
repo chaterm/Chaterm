@@ -321,7 +321,12 @@ export default {
     error: 'Error',
     saveConfigFailedDescription: 'Failed to save configuration',
     themeSwitchFailed: 'Failed to switch theme',
-    themeSwitchFailedDescription: 'Please try again later'
+    themeSwitchFailedDescription: 'Please try again later',
+    saveAliasStatusFailed: 'Failed to save alias status',
+    saveBedrockConfigFailed: 'Failed to save Bedrock configuration',
+    saveLiteLlmConfigFailed: 'Failed to save LiteLLM configuration',
+    saveDeepSeekConfigFailed: 'Failed to save DeepSeek configuration',
+    saveOpenAiConfigFailed: 'Failed to save OpenAI configuration'
   },
   extensions: {
     extensions: 'Extensions',

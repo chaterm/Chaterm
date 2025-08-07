@@ -320,7 +320,12 @@ export default {
     error: '错误',
     saveConfigFailedDescription: '保存配置失败',
     themeSwitchFailed: '主题切换失败',
-    themeSwitchFailedDescription: '请稍后重试'
+    themeSwitchFailedDescription: '请稍后重试',
+    saveAliasStatusFailed: '保存别名状态失败',
+    saveBedrockConfigFailed: '保存Bedrock配置失败',
+    saveLiteLlmConfigFailed: '保存LiteLLM配置失败',
+    saveDeepSeekConfigFailed: '保存DeepSeek配置失败',
+    saveOpenAiConfigFailed: '保存OpenAI配置失败'
   },
   extensions: {
     extensions: '扩展',
