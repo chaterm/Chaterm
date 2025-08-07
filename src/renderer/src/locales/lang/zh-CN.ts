@@ -187,7 +187,7 @@ export default {
     about: '关于',
     privacy: '隐私',
     secretRedaction: '密文脱敏',
-    secretRedactionDescription: '密文脱敏功能旨在自动从您的终端输出中删除机密信息和敏感数据，包括密码、IP 地址、API 密钥以及个人身份信息。',
+    secretRedactionDescription: '密文脱敏功能旨在自动从您的终端输出中遮盖密码、IP 地址、API 密钥和个人身份信息等秘密和敏感信息。',
     secretRedactionEnabled: '开启',
     secretRedactionDisabled: '关闭',
     dataSync: '数据同步',
