@@ -35,10 +35,18 @@
           :label-col="{ span: 0 }"
           :wrapper-col="{ span: 24 }"
         >
-          <div
-            class="description"
-            v-html="$t('user.telemetryDescription')"
-          ></div>
+          <div class="description">
+            {{ $t('user.telemetryDescriptionText') }}
+            <a
+              href="https://docs.chaterm.ai/user/privacy"
+              target="_blank"
+              rel="noopener noreferrer"
+              class="privacy-link"
+            >
+              {{ $t('user.privacyPolicy') }}
+            </a>
+            。
+          </div>
         </a-form-item>
         <a-form-item
           :label="$t('user.secretRedaction')"
@@ -58,10 +66,9 @@
           :label-col="{ span: 0 }"
           :wrapper-col="{ span: 24 }"
         >
-          <div
-            class="description"
-            v-html="$t('user.secretRedactionDescription')"
-          ></div>
+          <div class="description">
+            {{ $t('user.secretRedactionDescription') }}
+          </div>
         </a-form-item>
         <a-form-item
           :label="$t('user.dataSync')"
@@ -319,13 +326,15 @@ const changeDataSync = async () => {
   word-wrap: break-word;
 }
 
-.description a {
+.description a,
+.privacy-link {
   color: #1890ff;
   text-decoration: none;
   transition: color 0.3s;
 }
 
-.description a:hover {
+.description a:hover,
+.privacy-link:hover {
   color: #40a9ff;
   text-decoration: underline;
 }
