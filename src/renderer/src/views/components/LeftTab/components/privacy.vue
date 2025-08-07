@@ -69,6 +69,29 @@
           <div class="description">
             {{ $t('user.secretRedactionDescription') }}
           </div>
+          <a-collapse
+            v-if="userConfig.secretRedaction === 'enabled'"
+            class="patterns-collapse"
+            size="small"
+            ghost
+          >
+            <a-collapse-panel
+              key="patterns"
+              :header="$t('user.supportedPatterns')"
+            >
+              <div class="patterns-list">
+                <div
+                  v-for="pattern in secretPatterns"
+                  :key="pattern.name"
+                  class="pattern-item"
+                >
+                  <div class="pattern-name">
+                    {{ pattern.name }}: <code>{{ pattern.regex }}</code>
+                  </div>
+                </div>
+              </div>
+            </a-collapse-panel>
+          </a-collapse>
         </a-form-item>
         <a-form-item
           :label="$t('user.dataSync')"
@@ -99,15 +122,97 @@
 </template>
 
 <script setup>
-import { ref, onMounted, watch } from 'vue'
+import { ref, onMounted, watch, computed } from 'vue'
 import { notification } from 'ant-design-vue'
 import { userConfigStore } from '@/services/userConfigStoreService'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 const userConfig = ref({
   secretRedaction: 'disabled',
   dataSync: 'disabled',
   telemetry: 'enabled'
 })
+
+const secretPatterns = computed(() => [
+  {
+    name: t('user.ipv4Address'),
+    regex: '\\b((25[0-5]|(2[0-4]|1\\d|[1-9]|)\\d)\\.?\\b){4}\\b'
+  },
+  {
+    name: t('user.ipv6Address'),
+    regex: '\\b((([0-9A-Fa-f]{1,4}:){1,6}:)|(([0-9A-Fa-f]{1,4}:){7}))([0-9A-Fa-f]{1,4})\\b'
+  },
+  {
+    name: t('user.slackAppToken'),
+    regex: '\\bxapp-[0-9]+-[A-Za-z0-9_]+-[0-9]+-[a-f0-9]+\\b'
+  },
+  {
+    name: t('user.phoneNumber'),
+    regex: '\\b(\\+\\d{1,2}\\s)?\\(?\\d{3}\\)?[\\s.-]\\d{3}[\\s.-]\\d{4}\\b'
+  },
+  {
+    name: t('user.awsAccessId'),
+    regex: '\\b(AKIA|A3T|AGPA|AIDA|AROA|AIPA|ANPA|ANVA|ASIA)[A-Z0-9]{12,}\\b'
+  },
+  {
+    name: t('user.macAddress'),
+    regex: '\\b((([a-zA-z0-9]{2}[-:]){5}([a-zA-z0-9]{2}))|(([a-zA-z0-9]{2}:){5}([a-zA-z0-9]{2})))\\b'
+  },
+  {
+    name: t('user.googleApiKey'),
+    regex: '\\bAIza[0-9A-Za-z-_]{35}\\b'
+  },
+  {
+    name: t('user.googleOAuthId'),
+    regex: '\\b[0-9]+-[0-9A-Za-z_]{32}\\.apps\\.googleusercontent\\.com\\b'
+  },
+  {
+    name: t('user.githubClassicPersonalAccessToken'),
+    regex: '\\bghp_[A-Za-z0-9_]{36}\\b'
+  },
+  {
+    name: t('user.githubFineGrainedPersonalAccessToken'),
+    regex: '\\bgithub_pat_[A-Za-z0-9_]{82}\\b'
+  },
+  {
+    name: t('user.githubOAuthAccessToken'),
+    regex: '\\bgho_[A-Za-z0-9_]{36}\\b'
+  },
+  {
+    name: t('user.githubUserToServerToken'),
+    regex: '\\bghu_[A-Za-z0-9_]{36}\\b'
+  },
+  {
+    name: t('user.githubServerToServerToken'),
+    regex: '\\bghs_[A-Za-z0-9_]{36}\\b'
+  },
+  {
+    name: t('user.stripeKey'),
+    regex: '\\b(?:r|s)k_(test|live)_[0-9a-zA-Z]{24}\\b'
+  },
+  {
+    name: t('user.firebaseAuthDomain'),
+    regex: '\\b([a-z0-9-]){1,30}(\\.firebaseapp\\.com)\\b'
+  },
+  {
+    name: t('user.jsonWebToken'),
+    regex: '\\b(ey[a-zA-z0-9_\\-=]{10,}\\.){2}[a-zA-z0-9_\\-=]{10,}\\b'
+  },
+  {
+    name: t('user.openaiApiKey'),
+    regex: '\\bsk-[a-zA-Z0-9]{48}\\b'
+  },
+  {
+    name: t('user.anthropicApiKey'),
+    regex: '\\bsk-ant-api\\d{0,2}-[a-zA-Z0-9\\-]{80,120}\\b'
+  },
+  {
+    name: t('user.fireworksApiKey'),
+    regex: '\\bfw_[a-zA-Z0-9]{24}\\b'
+  }
+])
 
 const loadSavedConfig = async () => {
   try {
@@ -121,8 +226,8 @@ const loadSavedConfig = async () => {
   } catch (error) {
     console.error('Failed to load config:', error)
     notification.error({
-      message: '加载配置失败',
-      description: '将使用默认配置'
+      message: t('user.loadConfigFailed'),
+      description: t('user.loadConfigFailedDescription')
     })
   }
 }
@@ -167,8 +272,8 @@ const updateTelemetry = async () => {
   } catch (error) {
     console.error('Failed to change telemetry setting:', error)
     notification.error({
-      message: '遥测设置更新失败',
-      description: '请稍后重试'
+      message: t('user.telemetryUpdateFailed'),
+      description: t('user.telemetryUpdateFailedDescription')
     })
   }
 }
@@ -347,5 +452,60 @@ const changeDataSync = async () => {
 .privacy-link:hover {
   color: #40a9ff;
   text-decoration: underline;
+}
+
+.patterns-collapse {
+  margin-top: 12px;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  background-color: var(--bg-color-secondary);
+}
+
+.patterns-collapse :deep(.ant-collapse-header) {
+  background-color: var(--bg-color-secondary);
+  color: var(--text-color);
+  padding: 8px 12px;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.patterns-collapse :deep(.ant-collapse-content-box) {
+  padding: 12px;
+  background-color: var(--bg-color);
+}
+
+.patterns-list {
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.pattern-item {
+  margin-bottom: 8px;
+  padding: 8px;
+  background-color: var(--bg-color-secondary);
+  border-radius: 4px;
+  border: 1px solid var(--border-color);
+}
+
+.pattern-item:last-child {
+  margin-bottom: 0;
+}
+
+.pattern-name {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-color);
+  margin-bottom: 4px;
+}
+
+.pattern-name code {
+  background-color: var(--bg-color);
+  color: var(--text-color-secondary);
+  padding: 2px 4px;
+  border-radius: 3px;
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+  font-size: 10px;
+  word-break: break-all;
+  border: 1px solid var(--border-color);
 }
 </style>
