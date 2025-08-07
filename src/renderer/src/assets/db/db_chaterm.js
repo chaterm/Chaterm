@@ -108,6 +108,7 @@ CREATE TABLE IF NOT EXISTS user_snippet_v1 (
 CREATE TABLE IF NOT EXISTS t_organization_assets (
   id INTEGER PRIMARY KEY AUTOINCREMENT,             -- 资源ID
   organization_uuid TEXT,                           -- 组织UUID
+  uuid TEXT,                                        -- 资源UUID
   hostname TEXT,                                    -- 主机名
   host TEXT,                                        -- 主机IP
   jump_server_type TEXT,                            -- 跳板机类型
