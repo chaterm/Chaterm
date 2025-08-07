@@ -69,7 +69,7 @@ import eventBus from '@/utils/eventBus'
 import { useI18n } from 'vue-i18n'
 
 const api = window.api
-const { locale } = useI18n()
+const { locale, t } = useI18n()
 
 const userConfig = ref({
   language: 'zh-CN',
@@ -92,8 +92,8 @@ const loadSavedConfig = async () => {
   } catch (error) {
     console.error('Failed to load config:', error)
     notification.error({
-      message: '加载配置失败',
-      description: '将使用默认配置'
+      message: t('user.loadConfigFailed'),
+      description: t('user.loadConfigFailedDescription')
     })
     document.body.className = 'theme-dark'
     userConfig.value.theme = 'dark'
@@ -113,8 +113,8 @@ const saveConfig = async () => {
   } catch (error) {
     console.error('Failed to save config:', error)
     notification.error({
-      message: 'Error',
-      description: 'Failed to save configuration'
+      message: t('user.error'),
+      description: t('user.saveConfigFailedDescription')
     })
   }
 }
@@ -152,8 +152,8 @@ const changeTheme = async () => {
   } catch (error) {
     console.error('Failed to change theme:', error)
     notification.error({
-      message: '主题切换失败',
-      description: '请稍后重试'
+      message: t('user.themeSwitchFailed'),
+      description: t('user.themeSwitchFailedDescription')
     })
   }
 }

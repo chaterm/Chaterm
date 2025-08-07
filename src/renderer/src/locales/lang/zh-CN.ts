@@ -316,7 +316,11 @@ export default {
     loadConfigFailed: '加载配置失败',
     loadConfigFailedDescription: '将使用默认配置',
     telemetryUpdateFailed: '遥测设置更新失败',
-    telemetryUpdateFailedDescription: '请稍后重试'
+    telemetryUpdateFailedDescription: '请稍后重试',
+    error: '错误',
+    saveConfigFailedDescription: '保存配置失败',
+    themeSwitchFailed: '主题切换失败',
+    themeSwitchFailedDescription: '请稍后重试'
   },
   extensions: {
     extensions: '扩展',

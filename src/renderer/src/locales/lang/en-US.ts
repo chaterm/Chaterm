@@ -317,7 +317,11 @@ export default {
     loadConfigFailed: 'Failed to load configuration',
     loadConfigFailedDescription: 'Default configuration will be used',
     telemetryUpdateFailed: 'Failed to update telemetry settings',
-    telemetryUpdateFailedDescription: 'Please try again later'
+    telemetryUpdateFailedDescription: 'Please try again later',
+    error: 'Error',
+    saveConfigFailedDescription: 'Failed to save configuration',
+    themeSwitchFailed: 'Failed to switch theme',
+    themeSwitchFailedDescription: 'Please try again later'
   },
   extensions: {
     extensions: 'Extensions',
