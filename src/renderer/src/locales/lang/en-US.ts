@@ -171,6 +171,9 @@ export default {
     telemetryDisabled: 'Disabled',
     telemetryDescription:
       'Help improve Chaterm by sending anonymous usage data and error reports. We never send any code, prompt content, or personal information. For more information, please see our <a href="https://docs.chaterm.ai/user/privacy" target="_blank" rel="noopener noreferrer">privacy policy</a>.',
+    telemetryDescriptionText:
+      'Help improve Chaterm by sending anonymous usage data and error reports. We never send any code, prompt content, or personal information. For more information, please see our',
+    privacyPolicy: 'privacy policy',
     enterprise: 'Enterprise',
     personal: 'Personal',
     name: 'Name',
@@ -182,6 +185,16 @@ export default {
     general: 'General',
     extensions: 'Extensions',
     about: 'About',
+    privacy: 'Privacy',
+    secretRedaction: 'Secret Redaction',
+    secretRedactionDescription:
+      'Secret Redaction attempts to automatically redact secrets and sensitive information in your terminal output, including passwords, IP addresses, API keys, and PII.',
+    secretRedactionEnabled: 'Enabled',
+    secretRedactionDisabled: 'Disabled',
+    dataSync: 'Data Sync',
+    dataSyncDescription: 'Data synchronization is designed to synchronize the user-configured assets, keys, and other information across devices.',
+    dataSyncEnabled: 'Enabled',
+    dataSyncDisabled: 'Disabled',
     shortcuts: 'Shortcuts',
     shortcutSettings: 'Shortcut Settings',
     shortcutDescription: 'Customize application shortcuts',

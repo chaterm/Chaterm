@@ -21,6 +21,8 @@ export interface UserConfig {
   middleMouseEvent?: 'paste' | 'contextMenu' | 'none'
   rightMouseEvent?: 'paste' | 'contextMenu' | 'none'
   watermark: 'open' | 'close' | undefined
+  secretRedaction: 'enabled' | 'disabled' | undefined
+  dataSync: 'enabled' | 'disabled' | undefined
   theme: 'dark' | 'light' | undefined
   feature?: number
   quickComand?: boolean
@@ -83,6 +85,8 @@ export class UserConfigStoreService {
       middleMouseEvent: 'paste' as 'paste' | 'contextMenu' | 'none',
       rightMouseEvent: 'contextMenu' as 'paste' | 'contextMenu' | 'none',
       watermark: 'open' as 'open' | 'close',
+      secretRedaction: 'disabled' as 'enabled' | 'disabled',
+      dataSync: 'disabled' as 'enabled' | 'disabled',
       theme: 'dark' as 'dark' | 'light',
       feature: 0.0,
       quickComand: false,

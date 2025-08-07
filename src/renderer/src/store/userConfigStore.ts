@@ -15,6 +15,8 @@ export const userConfigStore = defineStore('userConfig', {
         highlightStatus: 1,
         scrollBack: 1000,
         watermark: 'open',
+        secretRedaction: 'disabled',
+        dataSync: 'disabled',
         feature: 0.0,
         terminalType: 'xterm'
       }
@@ -35,6 +37,8 @@ export const userConfigStore = defineStore('userConfig', {
       highlightStatus: number
       scrollBack: number
       watermark: string
+      secretRedaction: string
+      dataSync: string
       feature: number
       terminalType: string
     } => {
@@ -51,6 +55,8 @@ export const userConfigStore = defineStore('userConfig', {
           highlightStatus: 2,
           scrollBack: 1000,
           watermark: 'open',
+          secretRedaction: 'disabled',
+          dataSync: 'disabled',
           feature: 0.0,
           terminalType: 'xterm'
         }
@@ -63,6 +69,12 @@ export const userConfigStore = defineStore('userConfig', {
     },
     updateLanguage(language: string) {
       this.userConfig.language = language
+    },
+    updateSecretRedaction(secretRedaction: string) {
+      this.userConfig.secretRedaction = secretRedaction
+    },
+    updateDataSync(dataSync: string) {
+      this.userConfig.dataSync = dataSync
     }
   }
 })

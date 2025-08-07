@@ -17,6 +17,8 @@ export interface AppEvents {
   chatToAi: any
   toggleMenu: any
   updateWatermark: string // 更新水印状态
+  updateSecretRedaction: string // 更新密文脱敏状态
+  updateDataSync: string // 更新数据同步状态
   keyChainUpdated: void // 密钥更新事件，用于同步主机配置中的密钥选项
   aliasStatusChanged: number // 别名状态变更事件，1表示启用，2表示禁用
   openUserTab: any // 打开Tab
