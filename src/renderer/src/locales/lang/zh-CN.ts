@@ -463,6 +463,7 @@ export default {
   userInfo: {
     enterprise: '企业用户',
     personal: '个人用户',
+    vip: 'VIP用户',
     name: '名称',
     username: '用户名',
     mobile: '手机',

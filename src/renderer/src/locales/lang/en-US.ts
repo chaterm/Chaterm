@@ -462,6 +462,7 @@ export default {
   userInfo: {
     enterprise: 'Enterprise User',
     personal: 'Personal User',
+    vip: 'VIP User',
     name: 'Name',
     username: 'Username',
     mobile: 'Mobile',

@@ -18,7 +18,13 @@
         </div>
       </div>
       <div class="registration_type">
-        {{ userInfo.registrationType === 1 ? t('userInfo.enterprise') : t('userInfo.personal') }}
+        {{
+          userInfo.subscription && (userInfo.subscription.toLowerCase() === 'pro' || userInfo.subscription.toLowerCase() === 'ultra')
+            ? t('userInfo.vip')
+            : userInfo.registrationType === 1
+              ? t('userInfo.enterprise')
+              : t('userInfo.personal')
+        }}
         <a-tag
           v-if="userInfo.expires && new Date() < new Date(userInfo.expires)"
           :key="userInfo.subscription"
