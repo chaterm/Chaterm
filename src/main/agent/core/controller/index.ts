@@ -187,6 +187,11 @@ export class Controller {
           this.task.handleInteractiveCommandInput(message.input)
         }
         break
+      case 'commandGeneration':
+        if (message.instruction) {
+          await this.handleCommandGeneration(message.instruction, message.context)
+        }
+        break
       case 'invoke': {
         if (message.text) {
           await this.postMessageToWebview({
@@ -606,6 +611,137 @@ export class Controller {
   async validateApiKey(configuration: ApiConfiguration): Promise<{ isValid: boolean; error?: string }> {
     const api = buildApiHandler(configuration)
     return await api.validateApiKey()
+  }
+  /**
+   * Handle command generation request from webview
+   * Converts natural language instruction to executable terminal command
+   */
+  async handleCommandGeneration(instruction: string, context?: { cwd: string; platform: string; shell: string }) {
+    try {
+      // Get API configuration
+      const { apiConfiguration } = await getAllExtensionState()
+      if (!apiConfiguration) {
+        throw new Error('API configuration not found')
+      }
+
+      // Build a new API configuration for command generation
+      const commandApiConfiguration = {
+        ...apiConfiguration,
+        apiProvider: 'default' as const,
+        defaultModelId: 'Qwen-Plus'
+      }
+
+      const api = buildApiHandler(commandApiConfiguration)
+
+      // Build system prompt for command generation
+      const systemPrompt = this.buildCommandGenerationPrompt(context)
+
+      // Create conversation with user instruction
+      const conversation: Anthropic.MessageParam[] = [
+        {
+          role: 'user' as const,
+          content: instruction
+        }
+      ]
+
+      // Call AI API to generate command
+      const stream = api.createMessage(systemPrompt, conversation)
+      let generatedCommand = ''
+
+      try {
+        for await (const chunk of stream) {
+          if (chunk.type === 'text') {
+            generatedCommand += chunk.text
+          }
+        }
+
+        // Clean up the generated command (remove markdown formatting if present)
+        const cleanedCommand = this.extractCommandFromResponse(generatedCommand)
+
+        // Send response back to webview
+        await this.postMessageToWebview({
+          type: 'commandGenerationResponse',
+          command: cleanedCommand
+        })
+      } catch (streamError) {
+        console.error('Error processing AI stream:', streamError)
+        throw streamError
+      }
+    } catch (error) {
+      console.error('Command generation failed:', error)
+
+      // Send error response back to webview
+      await this.postMessageToWebview({
+        type: 'commandGenerationResponse',
+        error: error instanceof Error ? error.message : 'Command generation failed'
+      })
+    }
+  }
+
+  /**
+   * Build system prompt for command generation
+   */
+  private buildCommandGenerationPrompt(context?): string {
+    // Convert context object to string
+    let contextString = 'No context provided'
+    if (context && typeof context === 'object') {
+      contextString = Object.entries(context)
+        .map(([key, value]) => `${key}: ${value}`)
+        .join('\n')
+    } else if (context) {
+      contextString = String(context)
+    }
+
+    return `You are a command-line expert assistant. Your job is to convert natural language instructions into precise, executable terminal commands.
+
+Context:
+${contextString}
+
+Guidelines:
+1. Generate ONLY the terminal command, without any explanation or markdown formatting
+2. The command should be safe and commonly used
+3. Use appropriate flags and options for the given OS and shell
+4. If the instruction is unclear, provide the most reasonable interpretation
+5. For complex operations, prefer single commands or simple pipelines
+6. Use absolute paths when necessary for clarity
+
+Examples:
+Input: "list all javascript files"
+Output: find . -name "*.js" -type f
+
+Input: "show disk usage"
+Output: df -h
+
+Input: "find large files over 100MB"
+Output: find . -type f -size +100M -exec ls -lh {} \\;
+
+Now, convert the following instruction to a command:`
+  }
+
+  /**
+   * Extract clean command from AI response
+   * Removes markdown formatting and extra text
+   */
+  private extractCommandFromResponse(response: string): string {
+    let command = response.trim()
+
+    // Remove markdown code blocks
+    command = command.replace(/^```(?:bash|sh|shell)?\s*\n?/gm, '')
+    command = command.replace(/```\s*$/gm, '')
+
+    // Remove common prefixes
+    command = command.replace(/^(?:Command:|Output:|Result:)\s*/i, '')
+
+    // Take only the first line if multiple lines
+    const lines = command.split('\n').filter((line) => line.trim())
+    if (lines.length > 0) {
+      command = lines[0].trim()
+    }
+
+    // Remove leading/trailing quotes
+    command = command.replace(/^["']|["']$/g, '')
+
+    return command
   }
 }
 

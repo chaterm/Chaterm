@@ -37,6 +37,7 @@ export interface WebviewMessage {
     | 'showTaskWithId'
     | 'taskFeedback'
     | 'interactiveCommandInput'
+    | 'commandGeneration'
 
   text?: string
   disabled?: boolean
@@ -93,6 +94,13 @@ export interface WebviewMessage {
   feedbackType?: TaskFeedbackType
   // For interactive command input
   input?: string
+  // For command generation
+  instruction?: string
+  context?: {
+    cwd: string
+    platform: string
+    shell: string
+  }
 }
 
 export type ChatermAskResponse = 'yesButtonClicked' | 'noButtonClicked' | 'messageResponse'

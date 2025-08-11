@@ -345,6 +345,11 @@ export default {
     aliasAlreadyExists: '别名已存在！',
     addCommand: '添加命令'
   },
+  commandDialog: {
+    placeholder: '描述您想要执行的操作...',
+    generating: '正在生成命令...',
+    submit: '生成'
+  },
   shortcuts: {
     actions: {
       openSettings: '打开设置',
@@ -353,7 +358,8 @@ export default {
       sendOrToggleAi: '发送到AI / 切换AI侧边栏',
       switchToNextTab: '切换到下一个标签页',
       switchToPrevTab: '切换到上一个标签页',
-      switchToSpecificTab: '切换到指定标签页[1...9]'
+      switchToSpecificTab: '切换到指定标签页[1...9]',
+      openCommandDialog: '打开AI命令生成对话框'
     }
   },
   personal: {
