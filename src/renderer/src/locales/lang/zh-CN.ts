@@ -181,15 +181,34 @@ export default {
     mobile: '手机',
     organization: '组织',
     ip: 'IP地址',
-    macAddress: 'Mac地址',
+    macAddress: 'MAC地址',
     general: '通用',
     extensions: '扩展',
     about: '关于',
     privacy: '隐私',
     secretRedaction: '密文脱敏',
-    secretRedactionDescription: '密文脱敏功能旨在自动从您的终端输出中遮盖密码、IP 地址、API 密钥和个人身份信息等秘密和敏感信息。',
+    secretRedactionDescription: '密文脱敏功能旨在自动从您的AI对话框输出中遮盖密码、IP 地址、API 密钥和个人身份信息等秘密和敏感信息。',
     secretRedactionEnabled: '开启',
     secretRedactionDisabled: '关闭',
+    supportedPatterns: '支持的正则表达式模式',
+    ipv4Address: 'IPv4 地址',
+    ipv6Address: 'IPv6 地址',
+    slackAppToken: 'Slack 应用令牌',
+    phoneNumber: '电话号码',
+    awsAccessId: 'AWS 访问 ID',
+    googleApiKey: 'Google API 密钥',
+    googleOAuthId: 'Google OAuth ID',
+    githubClassicPersonalAccessToken: 'GitHub 经典个人访问令牌',
+    githubFineGrainedPersonalAccessToken: 'GitHub 精细粒度个人访问令牌',
+    githubOAuthAccessToken: 'GitHub OAuth 访问令牌',
+    githubUserToServerToken: 'GitHub 用户到服务器令牌',
+    githubServerToServerToken: 'GitHub 服务器到服务器令牌',
+    stripeKey: 'Stripe 密钥',
+    firebaseAuthDomain: 'Firebase 认证域名',
+    jsonWebToken: 'JWT 令牌',
+    openaiApiKey: 'OpenAI API 密钥',
+    anthropicApiKey: 'Anthropic API 密钥',
+    fireworksApiKey: 'Fireworks API 密钥',
     dataSync: '数据同步',
     dataSyncDescription: '数据同步旨在将用户配置的资产、密钥等信息进行跨设备同步',
     dataSyncEnabled: '开启',
@@ -293,7 +312,20 @@ export default {
     fingerprint: '指纹',
     addSuccess: '添加成功',
     addFailed: '添加失败',
-    type: '类型'
+    type: '类型',
+    loadConfigFailed: '加载配置失败',
+    loadConfigFailedDescription: '将使用默认配置',
+    telemetryUpdateFailed: '遥测设置更新失败',
+    telemetryUpdateFailedDescription: '请稍后重试',
+    error: '错误',
+    saveConfigFailedDescription: '保存配置失败',
+    themeSwitchFailed: '主题切换失败',
+    themeSwitchFailedDescription: '请稍后重试',
+    saveAliasStatusFailed: '保存别名状态失败',
+    saveBedrockConfigFailed: '保存Bedrock配置失败',
+    saveLiteLlmConfigFailed: '保存LiteLLM配置失败',
+    saveDeepSeekConfigFailed: '保存DeepSeek配置失败',
+    saveOpenAiConfigFailed: '保存OpenAI配置失败'
   },
   extensions: {
     extensions: '扩展',
@@ -313,6 +345,11 @@ export default {
     aliasAlreadyExists: '别名已存在！',
     addCommand: '添加命令'
   },
+  commandDialog: {
+    placeholder: '描述您想要执行的操作...',
+    generating: '正在生成命令...',
+    submit: '生成'
+  },
   shortcuts: {
     actions: {
       openSettings: '打开设置',
@@ -321,7 +358,8 @@ export default {
       sendOrToggleAi: '发送到AI / 切换AI侧边栏',
       switchToNextTab: '切换到下一个标签页',
       switchToPrevTab: '切换到上一个标签页',
-      switchToSpecificTab: '切换到指定标签页[1...9]'
+      switchToSpecificTab: '切换到指定标签页[1...9]',
+      openCommandDialog: '打开AI命令生成对话框'
     }
   },
   personal: {
@@ -431,6 +469,7 @@ export default {
   userInfo: {
     enterprise: '企业用户',
     personal: '个人用户',
+    vip: 'VIP用户',
     name: '名称',
     username: '用户名',
     mobile: '手机',

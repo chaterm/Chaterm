@@ -10,16 +10,28 @@
           referrerpolicy="no-referrer"
           alt=""
         />
+        <div
+          v-if="userInfo.subscription && (userInfo.subscription.toLowerCase() === 'pro' || userInfo.subscription.toLowerCase() === 'ultra')"
+          class="vip-badge"
+        >
+          VIP/{{ userInfo.subscription }}
+        </div>
       </div>
       <div class="registration_type">
-        {{ userInfo.registrationType === 1 ? t('userInfo.enterprise') : t('userInfo.personal') }}
+        {{
+          userInfo.subscription && (userInfo.subscription.toLowerCase() === 'pro' || userInfo.subscription.toLowerCase() === 'ultra')
+            ? t('userInfo.vip')
+            : userInfo.registrationType === 1
+              ? t('userInfo.enterprise')
+              : t('userInfo.personal')
+        }}
         <a-tag
           v-if="userInfo.expires && new Date() < new Date(userInfo.expires)"
           :key="userInfo.subscription"
           :title="t('userInfo.expirationTime') + `：${userInfo.expires}`"
           class="subscription-tag"
         >
-          {{ userInfo.subscription }}
+          {{ userInfo.subscription ? userInfo.subscription.charAt(0).toUpperCase() + userInfo.subscription.slice(1) : '-' }}
         </a-tag>
         <a-tag
           v-else
@@ -484,6 +496,23 @@ onBeforeUnmount(() => {})
   transform: translate(-50%, -50%);
 }
 
+.vip-badge {
+  position: absolute;
+  bottom: 2%;
+  left: 50%;
+  transform: translateX(-50%);
+  background: linear-gradient(135deg, #ffd700, #ff8f00);
+  color: #000;
+  font-size: 8px;
+  font-weight: bold;
+  text-transform: uppercase;
+  padding: 1px 6px;
+  border-radius: 8px;
+  z-index: 10;
+  letter-spacing: 0.8px;
+  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.1);
+}
+
 /* 按钮容器样式 */
 .button-container {
   margin-top: 20px;
@@ -518,12 +547,14 @@ onBeforeUnmount(() => {})
 }
 
 .subscription-tag {
-  background-color: rgba(128, 128, 128, 0.1);
-  color: var(--text-color, #333);
-  border: 1px solid rgba(128, 128, 128, 0.15);
+  background-color: rgba(42, 130, 228, 0.15);
+  color: #1890ff;
+  border: 1px solid rgba(42, 130, 228, 0.3);
   border-radius: 4px;
-  font-size: 11px;
-  padding: 0 4px;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 1px 6px;
+  letter-spacing: 0.5px;
 }
 
 .free-tag {

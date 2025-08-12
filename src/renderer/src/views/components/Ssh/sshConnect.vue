@@ -45,6 +45,9 @@
     </v-contextmenu>
   </div>
 
+  <!-- Per-terminal Command Dialog -->
+  <CommandDialog v-model:visible="isCommandDialogVisible" />
+
   <div
     v-for="editor in openEditors"
     v-show="editor?.visible"
@@ -72,6 +75,7 @@ import { useCurrentCwdStore } from '@/store/currentCwdStore'
 import { markRaw, onBeforeUnmount, onMounted, PropType, nextTick, reactive, ref, watch, computed } from 'vue'
 import { shortcutService } from '@/services/shortcutService'
 import { useI18n } from 'vue-i18n'
+import CommandDialog from '@/components/global/CommandDialog.vue'
 // 引入全局MFA状态（已移除本地MFA实现）
 // MFA功能现在由全局组件处理
 
@@ -215,6 +219,9 @@ const showSearch = ref(false)
 const searchAddon = ref<SearchAddon | null>(null)
 const showAiButton = ref(false)
 let jumpServerStatusHandler: ReturnType<typeof createJumpServerStatusHandler> | null = null
+const isCommandDialogVisible = ref(false)
+const wasDialogVisibleBeforeDeactivation = ref(false)
+
 // let contextFetcher: ContextFetcher | null = null
 
 // 计算快捷键显示文本
@@ -495,13 +502,24 @@ onMounted(async () => {
             }
     }
   }
+  const handleGetCursorPosition = (callback: (position: any) => void) => {
+    if (props.activeTabId !== props.currentConnectionId) return
+
+    const position = getCursorLinePosition()
+    callback(position)
+  }
+
   eventBus.on('executeTerminalCommand', handleExecuteCommand)
+  eventBus.on('autoExecuteCode', autoExecuteCode)
+  eventBus.on('getCursorPosition', handleGetCursorPosition)
   eventBus.on('sendOrToggleAiFromTerminalForTab', handleSendOrToggleAiForTab)
   eventBus.on('requestUpdateCwdForHost', handleRequestUpdateCwdForHost)
   eventBus.on('updateTheme', handleUpdateTheme)
   cleanupListeners.value.push(() => {
     eventBus.off('updateTheme', handleUpdateTheme)
     eventBus.off('executeTerminalCommand', handleExecuteCommand)
+    eventBus.off('autoExecuteCode', autoExecuteCode)
+    eventBus.off('getCursorPosition', handleGetCursorPosition)
     eventBus.off('sendOrToggleAiFromTerminalForTab', handleSendOrToggleAiForTab)
     eventBus.off('requestUpdateCwdForHost', handleRequestUpdateCwdForHost)
     window.removeEventListener('keydown', handleGlobalKeyDown)
@@ -922,7 +940,7 @@ const resizeSSH = async (cols, rows) => {
     if (result.status === 'error') {
       console.error('Resize failed:', result.message)
     } else {
-      console.log('terminal resized:', result.message)
+      // console.log('terminal resized:', result.message)
     }
   } catch (error) {
     console.error('Failed to resize terminal:', error)
@@ -2034,6 +2052,49 @@ const handleGlobalKeyDown = (e: KeyboardEvent) => {
     closeSearch()
   }
 }
+// Open command dialog only for the active tab and focused terminal
+const tryOpenLocalCommandDialog = () => {
+  if (props.activeTabId !== props.currentConnectionId) return
+  const activeElement = document.activeElement
+  const container = terminalElement.value?.closest('.terminal-container')
+  const isTerminalFocused =
+    activeElement === terminal.value?.textarea ||
+    container?.contains(activeElement as Node) ||
+    (activeElement as HTMLElement)?.classList?.contains('xterm-helper-textarea')
+
+  if (!isTerminalFocused) return
+  // Ensure terminal is focused for accurate positioning
+  terminal.value?.focus()
+  isCommandDialogVisible.value = true
+}
+
+// Listen to global openCommandDialog and restrict to this terminal/tab
+eventBus.on('openCommandDialog', () => {
+  tryOpenLocalCommandDialog()
+})
+
+cleanupListeners.value.push(() => {
+  eventBus.off('openCommandDialog')
+})
+
+// Hide dialog when tab deactivates; restore when re-activates
+watch(
+  () => props.activeTabId,
+  (newActive) => {
+    if (newActive !== props.currentConnectionId) {
+      wasDialogVisibleBeforeDeactivation.value = isCommandDialogVisible.value
+      isCommandDialogVisible.value = false
+    } else {
+      if (wasDialogVisibleBeforeDeactivation.value) {
+        // Restore visibility and reposition
+        nextTick(() => {
+          terminal.value?.focus()
+          isCommandDialogVisible.value = true
+        })
+      }
+    }
+  }
+)
 
 const openSearch = () => {
   showSearch.value = true
@@ -2074,11 +2135,76 @@ const onChatToAiClick = () => {
   }
 }
 
+const getCursorLinePosition = () => {
+  if (!terminal.value) {
+    console.warn('Terminal not available')
+    return null
+  }
+
+  try {
+    const termInstance = terminal.value
+    const terminalCore = (termInstance as any)._core
+    const buffer = terminalCore._bufferService.buffer
+    const renderService = terminalCore._renderService
+
+    const { x: cursorX, y: cursorY } = buffer
+    const baseY = termInstance.buffer.active.baseY
+
+    const cellHeight = renderService.dimensions.css.cell.height || 16
+    const cellWidth = renderService.dimensions.css.cell.width || 8
+
+    const terminalRect = terminalElement.value?.getBoundingClientRect()
+
+    const cursorPixelX = cursorX * cellWidth
+    const cursorPixelY = cursorY * cellHeight
+
+    const screenPosition = terminalRect
+      ? {
+          x: terminalRect.left + cursorPixelX,
+          y: terminalRect.top + cursorPixelY
+        }
+      : null
+
+    return {
+      logicalX: cursorX,
+      logicalY: baseY + cursorY,
+
+      screenX: cursorX,
+      screenY: cursorY,
+
+      pixelX: cursorPixelX,
+      pixelY: cursorPixelY,
+
+      absoluteX: screenPosition?.x || null,
+      absoluteY: screenPosition?.y || null,
+
+      cellHeight,
+      cellWidth,
+
+      terminalRect: terminalRect
+        ? {
+            left: terminalRect.left,
+            top: terminalRect.top,
+            width: terminalRect.width,
+            height: terminalRect.height
+          }
+        : null,
+
+      currentLineContent: buffer.lines.get(baseY + cursorY)?.translateToString(true) || '',
+
+      isCrossRow: cursorEndY.value !== cursorY
+    }
+  } catch (error) {
+    console.error('获取光标位置失败:', error)
+    return null
+  }
+}
 defineExpose({
   handleResize,
   autoExecuteCode,
   terminal,
   focus,
+  getCursorLinePosition,
   triggerResize: () => {
     handleResize()
   }

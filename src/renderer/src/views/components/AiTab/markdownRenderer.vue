@@ -257,8 +257,60 @@ import copySvg from '@/assets/icons/copy.svg'
 import { message } from 'ant-design-vue'
 import i18n from '@/locales'
 import { extractFinalOutput, cleanAnsiEscapeSequences } from '@/utils/terminalOutputExtractor'
+import { userConfigStore as userConfigStoreService } from '@/services/userConfigStoreService'
 
 const { t } = i18n.global
+
+// Add functions related to sensitive data de-identification
+const applySecretRedactionToMarkdown = (text: string, enabled: boolean = true): string => {
+  if (!enabled || !text) {
+    return text
+  }
+
+  // Define the detection mode for sensitive data
+  const SECRET_PATTERNS = [
+    { name: 'IPv4 Address', pattern: /\b((25[0-5]|(2[0-4]|1\d|[1-9]|)\d)\.?\b){4}\b/g },
+    { name: 'IPv6 Address', pattern: /\b((([0-9A-Fa-f]{1,4}:){1,6}:)|(([0-9A-Fa-f]{1,4}:){7}))([0-9A-Fa-f]{1,4})\b/g },
+    { name: 'Slack App Token', pattern: /\bxapp-[0-9]+-[A-Za-z0-9_]+-[0-9]+-[a-f0-9]+\b/g },
+    { name: 'Phone Number', pattern: /\b(\+\d{1,2}\s)?\(?\d{3}\)?[\s.-]\d{3}[\s.-]\d{4}\b/g },
+    { name: 'AWS Access ID', pattern: /\b(AKIA|A3T|AGPA|AIDA|AROA|AIPA|ANPA|ANVA|ASIA)[A-Z0-9]{12,}\b/g },
+    { name: 'MAC Address', pattern: /\b((([a-zA-z0-9]{2}[-:]){5}([a-zA-z0-9]{2}))|(([a-zA-z0-9]{2}:){5}([a-zA-z0-9]{2})))\b/g },
+    { name: 'Google API Key', pattern: /\bAIza[0-9A-Za-z-_]{35}\b/g },
+    { name: 'Google OAuth ID', pattern: /\b[0-9]+-[0-9A-Za-z_]{32}\.apps\.googleusercontent\.com\b/g },
+    { name: 'GitHub Classic Personal Access Token', pattern: /\bghp_[A-Za-z0-9_]{36}\b/g },
+    { name: 'GitHub Fine Grained Personal Access Token', pattern: /\bgithub_pat_[A-Za-z0-9_]{82}\b/g },
+    { name: 'GitHub OAuth Access Token', pattern: /\bgho_[A-Za-z0-9_]{36}\b/g },
+    { name: 'GitHub User to Server Token', pattern: /\bghu_[A-Za-z0-9_]{36}\b/g },
+    { name: 'GitHub Server to Server Token', pattern: /\bghs_[A-Za-z0-9_]{36}\b/g },
+    { name: 'Stripe Key', pattern: /\b(?:r|s)k_(test|live)_[0-9a-zA-Z]{24}\b/g },
+    { name: 'Firebase Auth Domain', pattern: /\b([a-z0-9-]){1,30}(\.firebaseapp\.com)\b/g },
+    { name: 'JSON Web Token', pattern: /\b(ey[a-zA-z0-9_\-=]{10,}\.){2}[a-zA-z0-9_\-=]{10,}\b/g },
+    { name: 'OpenAI API Key', pattern: /\bsk-[a-zA-Z0-9]{48}\b/g },
+    { name: 'Anthropic API Key', pattern: /\bsk-ant-api\d{0,2}-[a-zA-Z0-9\-]{80,120}\b/g },
+    { name: 'Fireworks API Key', pattern: /\bfw_[a-zA-Z0-9]{24}\b/g }
+  ]
+
+  let redactedText = text
+  for (const pattern of SECRET_PATTERNS) {
+    redactedText = redactedText.replace(pattern.pattern, (match) => {
+      // Use strikethrough Markdown syntax to mark sensitive information
+      return `~~${match}~~`
+    })
+  }
+
+  return redactedText
+}
+
+// Check if sensitive data de-identification has been enabled
+const isMarkdownSecretRedactionEnabled = async (): Promise<boolean> => {
+  try {
+    const config = await userConfigStoreService.getConfig()
+    return config?.secretRedaction === 'enabled'
+  } catch (error) {
+    console.error('Failed to get secret redaction config for markdown:', error)
+    return false
+  }
+}
 
 if (monaco.editor) {
   monaco.editor.defineTheme('custom-dark', {
@@ -545,7 +597,7 @@ const extractCodeBlocks = (content: string) => {
   return blocks.sort((a, b) => a.index - b.index)
 }
 
-const processContent = (content: string) => {
+const processContent = async (content: string) => {
   if (!content) {
     thinkingContent.value = ''
     normalContent.value = ''
@@ -553,56 +605,61 @@ const processContent = (content: string) => {
     thinkingLoading.value = false
     return
   }
+
+  // Apply sensitive data de-identification
+  const redactionEnabled = await isMarkdownSecretRedactionEnabled()
+  let processedContent = applySecretRedactionToMarkdown(content, redactionEnabled)
+
   if (props.say === 'reasoning') {
-    processReasoningContent(props.content)
+    processReasoningContent(processedContent)
     return
   }
   if (props.say === 'command_output') {
-    normalContent.value = content
+    normalContent.value = processedContent
     return
   }
 
   let startTag = ''
   let endTag = ''
 
-  if (content.startsWith('<think>')) {
+  if (processedContent.startsWith('<think>')) {
     startTag = '<think>'
     endTag = '</think>'
-  } else if (content.startsWith('<thinking>')) {
+  } else if (processedContent.startsWith('<thinking>')) {
     startTag = '<thinking>'
     endTag = '</thinking>'
   }
 
   if (startTag) {
-    content = content.substring(startTag.length)
+    processedContent = processedContent.substring(startTag.length)
 
-    const endIndex = content.indexOf(endTag)
+    const endIndex = processedContent.indexOf(endTag)
     if (endIndex !== -1) {
-      thinkingContent.value = content.substring(0, endIndex).trim()
-      content = content.substring(endIndex + endTag.length).trim()
+      thinkingContent.value = processedContent.substring(0, endIndex).trim()
+      processedContent = processedContent.substring(endIndex + endTag.length).trim()
       thinkingLoading.value = false
       if (activeKey.value.length !== 0) {
         checkContentHeight()
       }
     } else {
-      thinkingContent.value = content.trim()
-      content = ''
+      thinkingContent.value = processedContent.trim()
+      processedContent = ''
       thinkingLoading.value = true
     }
   } else {
     thinkingContent.value = ''
   }
 
-  if (content) {
-    const blocks = extractCodeBlocks(content)
+  if (processedContent) {
+    const blocks = extractCodeBlocks(processedContent)
     codeBlocks.value = blocks
 
-    let processedContent = content
+    let finalContent = processedContent
     blocks.forEach((_, index) => {
-      processedContent = processedContent.replace(/```(?:\w+)?\n[\s\S]*?```/, `[CODE_BLOCK_${index}]`)
+      finalContent = finalContent.replace(/```(?:\w+)?\n[\s\S]*?```/, `[CODE_BLOCK_${index}]`)
     })
 
-    normalContent.value = processedContent.trim()
+    normalContent.value = finalContent.trim()
   } else {
     normalContent.value = ''
     codeBlocks.value = []
@@ -758,10 +815,19 @@ const themeObserver = new MutationObserver((mutations) => {
   })
 })
 
-onMounted(() => {
+onMounted(async () => {
   marked.setOptions({
     breaks: true,
     gfm: true
+  })
+
+  // Make sure that the strikethrough renderer is functioning properly
+  marked.use({
+    renderer: {
+      del(token) {
+        return `<del>${this.parser.parseInline(token.tokens)}</del>`
+      }
+    }
   })
 
   themeObserver.observe(document.body, { attributes: true })
@@ -769,8 +835,10 @@ onMounted(() => {
   if (props.content) {
     if (props.ask === 'command' || props.say === 'command') {
       initEditor(props.content)
+    } else if (props.say === 'command_output') {
+      await processContentLines(props.content)
     } else {
-      processContent(props.content)
+      await processContent(props.content)
       initCodeBlockEditors()
     }
   }
@@ -784,6 +852,7 @@ watch(
       thinkingContent.value = ''
       normalContent.value = ''
       codeBlocks.value = []
+      processedContentLines.value = []
       if (editor) {
         editor.setValue('')
       }
@@ -807,8 +876,15 @@ watch(
           }
         }
       }, 2000)
+    } else if (props.say === 'command_output') {
+      // Process content lines with secret redaction for command output
+      nextTick(async () => {
+        await processContentLines(newContent)
+      })
     } else {
-      processContent(newContent)
+      nextTick(async () => {
+        await processContent(newContent)
+      })
     }
   }
 )
@@ -830,7 +906,42 @@ watch(
         editor = null
       }
       if (props.content) {
-        processContent(props.content)
+        if (props.say === 'command_output') {
+          nextTick(async () => {
+            await processContentLines(props.content)
+          })
+        } else {
+          nextTick(async () => {
+            await processContent(props.content)
+          })
+        }
+      }
+    }
+  }
+)
+
+watch(
+  () => props.say,
+  (newSay) => {
+    if (props.content) {
+      if (newSay === 'command_output') {
+        nextTick(async () => {
+          await processContentLines(props.content)
+        })
+      } else if (newSay === 'command') {
+        if (!editor) {
+          initEditor(props.content)
+        } else {
+          updateEditor(props.content)
+        }
+      } else {
+        if (editor) {
+          editor.dispose()
+          editor = null
+        }
+        nextTick(async () => {
+          await processContent(props.content)
+        })
       }
     }
   }
@@ -840,7 +951,9 @@ watch(
   () => props.partial,
   (newPartial) => {
     if (props.say === 'reasoning' && !newPartial) {
-      processContent(props.content)
+      nextTick(async () => {
+        await processContent(props.content)
+      })
     }
   }
 )
@@ -1002,11 +1115,25 @@ const getColorName = (index: number): string => {
   return colors[index] || 'white'
 }
 
-const contentLines = computed(() => {
-  if (!props.content) return []
-  const formattedOutput = extractFinalOutput(props.content)
-  const lines = formattedOutput.split('\n')
-  return lines.map((line) => {
+// Reactive ref to store processed content lines with redaction applied
+const processedContentLines = ref<Array<any>>([])
+
+// Function to process content lines with secret redaction
+const processContentLines = async (content: string) => {
+  if (!content) {
+    processedContentLines.value = []
+    return
+  }
+
+  const redactionEnabled = await isMarkdownSecretRedactionEnabled()
+  const formattedOutput = extractFinalOutput(content)
+
+  // Apply secret redaction to the entire output if enabled
+  const processedOutput = redactionEnabled ? applySecretRedactionToMarkdown(formattedOutput, true) : formattedOutput
+
+  const lines = processedOutput.split('\n')
+
+  processedContentLines.value = lines.map((line) => {
     const processedLine = stripAnsiCodes(line)
 
     if (processedLine.startsWith('$ ') || processedLine.startsWith('# ')) {
@@ -1033,12 +1160,23 @@ const contentLines = computed(() => {
       }
     }
 
+    // Convert markdown strikethrough to HTML for command output
+    let htmlContent = processAnsiCodes(line)
+    if (redactionEnabled && htmlContent.includes('~~')) {
+      htmlContent = htmlContent.replace(/~~([^~]+)~~/g, '<del>$1</del>')
+    }
+
     return {
       type: 'content',
       content: processedLine,
-      html: processAnsiCodes(line)
+      html: htmlContent
     }
   })
+}
+
+// Computed property that returns the processed content lines
+const contentLines = computed(() => {
+  return processedContentLines.value
 })
 
 const copyEditorContent = () => {
@@ -1465,6 +1603,16 @@ code {
 .markdown-content pre code {
   white-space: pre-wrap;
   word-wrap: break-word;
+}
+
+.markdown-content del,
+.markdown-content s,
+.command-output del,
+.command-output s {
+  color: #999;
+  text-decoration-color: #ff6b6b;
+  text-decoration-thickness: 2px;
+  opacity: 0.7;
 }
 
 .command-output {

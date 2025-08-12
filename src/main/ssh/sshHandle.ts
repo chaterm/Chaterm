@@ -1104,4 +1104,86 @@ export const registerSSHHandlers = () => {
       return { success: false, error: error.message }
     }
   })
+  ipcMain.handle('ssh:get-system-info', async (_event, { id }) => {
+    try {
+      const systemInfo = await getSystemInfo(id)
+      return { success: true, data: systemInfo }
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to get system info'
+      }
+    }
+  })
+}
+
+const getSystemInfo = async (
+  id: string
+): Promise<{
+  osVersion: string
+  defaultShell: string
+  homeDir: string
+  hostname: string
+  username: string
+  sudoPermission: boolean
+}> => {
+  const conn = sshConnections.get(id) || jumpserverConnections.get(id)
+  if (!conn) {
+    throw new Error('No active SSH connection found')
+  }
+
+  const systemInfoScript = `uname -a | sed 's/^/OS_VERSION:/' && echo "DEFAULT_SHELL:$SHELL" && echo "HOME_DIR:$HOME" && hostname | sed 's/^/HOSTNAME:/' && whoami | sed 's/^/USERNAME:/' && (sudo -n true 2>/dev/null && echo "SUDO_CHECK:has sudo permission" || echo "SUDO_CHECK:no sudo permission")`
+
+  return new Promise((resolve, reject) => {
+    conn.exec(systemInfoScript, (err, stream) => {
+      if (err) {
+        return reject(err)
+      }
+
+      let stdout = ''
+      let stderr = ''
+
+      stream.on('data', (data: Buffer) => {
+        stdout += data.toString()
+      })
+
+      stream.stderr.on('data', (data: Buffer) => {
+        stderr += data.toString()
+      })
+
+      stream.on('close', () => {
+        if (stderr) {
+          return reject(new Error(stderr))
+        }
+
+        const lines = stdout.trim().split('\n')
+        const result = {
+          osVersion: '',
+          defaultShell: '',
+          homeDir: '',
+          hostname: '',
+          username: '',
+          sudoPermission: false
+        }
+
+        lines.forEach((line) => {
+          if (line.startsWith('OS_VERSION:')) {
+            result.osVersion = line.replace('OS_VERSION:', '')
+          } else if (line.startsWith('DEFAULT_SHELL:')) {
+            result.defaultShell = line.replace('DEFAULT_SHELL:', '')
+          } else if (line.startsWith('HOME_DIR:')) {
+            result.homeDir = line.replace('HOME_DIR:', '')
+          } else if (line.startsWith('HOSTNAME:')) {
+            result.hostname = line.replace('HOSTNAME:', '')
+          } else if (line.startsWith('USERNAME:')) {
+            result.username = line.replace('USERNAME:', '')
+          } else if (line.startsWith('SUDO_CHECK:')) {
+            result.sudoPermission = line.includes('has sudo permission')
+          }
+        })
+
+        resolve(result)
+      })
+    })
+  })
 }

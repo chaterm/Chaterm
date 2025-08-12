@@ -80,13 +80,13 @@ onMounted(async () => {
     const localIP = await api.getLocalIP()
     deviceStore.setDeviceIp(localIP)
   } catch (error) {
-    console.error('获取IP失败:', error)
+    console.error('Failed to obtain IP address:', error)
   }
   try {
     const macAddress = await api.getMacAddress()
     deviceStore.setMacAddress(macAddress)
   } catch (error) {
-    console.error('获取MacAddress失败:', error)
+    console.error('Failed to obtain the MAC Address:', error)
   }
   const userConfig = await userConfigStore.getConfig()
   console.log('[onMounted]', userConfig)
@@ -102,16 +102,13 @@ onMounted(async () => {
   width: 100%;
   display: flex;
   align-items: center;
-  /* 垂直居中 */
   border-bottom: 1px solid var(--border-color);
-
   justify-content: space-between;
   -webkit-app-region: drag;
   .term_logo_content {
     width: 18px;
     height: 18px;
     margin-left: 8px;
-
     .term_logo {
       width: 100%;
       height: 100%;
