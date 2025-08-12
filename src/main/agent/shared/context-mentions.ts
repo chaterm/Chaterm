@@ -49,6 +49,5 @@ Mention regex:
   - `mentionRegexGlobal`: Creates a global version of the `mentionRegex` to find all matches within a given string.
 
 */
-export const mentionRegex =
-  /@((?:\/|\w+:\/\/)[^\s]+?|[a-f0-9]{7,40}\b|problems\b|terminal\b|git-changes\b)(?=[.,;:!?]?(?=[\s\r\n]|$))/
+export const mentionRegex = /@((?:\/|\w+:\/\/)[^\s]+?|[a-f0-9]{7,40}\b|problems\b|terminal\b|git-changes\b)(?=[.,;:!?]?(?=[\s\r\n]|$))/
 export const mentionRegexGlobal = new RegExp(mentionRegex.source, 'g')

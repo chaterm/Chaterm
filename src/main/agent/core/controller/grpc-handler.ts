@@ -66,12 +66,7 @@ export async function handleGrpcRequest(
 ) {
   try {
     const grpcHandler = new GrpcHandler(controller)
-    const response = await grpcHandler.handleRequest(
-      request.service,
-      request.method,
-      request.message,
-      request.request_id
-    )
+    const response = await grpcHandler.handleRequest(request.service, request.method, request.message, request.request_id)
 
     // Send the response back to the webview
     await controller.postMessageToWebview({

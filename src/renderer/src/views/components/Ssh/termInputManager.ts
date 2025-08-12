@@ -135,7 +135,7 @@ export const inputManager = {
       console.warn('没有激活的term或termOndata不可用')
     }
   },
-  
+
   registerSyncInput(key) {
     const exists = componentInstances.value.find((item) => item.key === key)
     if (exists) exists.target.syncInput = true
@@ -157,7 +157,7 @@ export const inputManager = {
       }
     })
   },
-  
+
   sendToOthers(excludeKey, data) {
     componentInstances.value.forEach(({ target, key }) => {
       if (key === excludeKey) return

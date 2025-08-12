@@ -68,10 +68,7 @@ describe('State Management', () => {
       // 打印前后数据
       logDataChange('updateGlobalState', 'apiProvider', actualBeforeValue, actualAfterValue)
 
-      expect(storageContext.globalState.update).toHaveBeenCalledWith(
-        'apiProvider',
-        'testProviderValue'
-      )
+      expect(storageContext.globalState.update).toHaveBeenCalledWith('apiProvider', 'testProviderValue')
     })
 
     test('getGlobalState should call storageContext.globalState.get', async () => {
@@ -321,10 +318,7 @@ describe('State Management', () => {
       // Check that update was called with undefined for each global key
       expect(storageContext.globalState.update).toHaveBeenCalledWith('apiProvider', undefined)
       expect(storageContext.globalState.update).toHaveBeenCalledWith('apiModelId', undefined)
-      expect(storageContext.globalState.update).toHaveBeenCalledWith(
-        'someOtherGlobalKey',
-        undefined
-      )
+      expect(storageContext.globalState.update).toHaveBeenCalledWith('someOtherGlobalKey', undefined)
 
       // Check that delete was called for predefined secret keys
       expect(storageContext.secrets.delete).toHaveBeenCalledWith('apiKey')
@@ -352,14 +346,8 @@ describe('State Management', () => {
       expect(storageContext.workspaceState.keys).toHaveBeenCalled()
 
       // Check that update was called with undefined for each workspace key
-      expect(storageContext.workspaceState.update).toHaveBeenCalledWith(
-        'localClineRulesToggles',
-        undefined
-      )
-      expect(storageContext.workspaceState.update).toHaveBeenCalledWith(
-        'someWorkspaceKey',
-        undefined
-      )
+      expect(storageContext.workspaceState.update).toHaveBeenCalledWith('localClineRulesToggles', undefined)
+      expect(storageContext.workspaceState.update).toHaveBeenCalledWith('someWorkspaceKey', undefined)
     })
   })
 })

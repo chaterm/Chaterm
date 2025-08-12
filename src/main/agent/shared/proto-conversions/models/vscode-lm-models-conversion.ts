@@ -13,9 +13,7 @@ export interface VsCodeNativeModel {
 /**
  * Converts VS Code native model format to protobuf format
  */
-export function convertVsCodeNativeModelsToProtoModels(
-  models: VsCodeNativeModel[]
-): VsCodeLmModel[] {
+export function convertVsCodeNativeModelsToProtoModels(models: VsCodeNativeModel[]): VsCodeLmModel[] {
   return (models || []).map((model) => ({
     vendor: model.vendor || '',
     family: model.family || '',

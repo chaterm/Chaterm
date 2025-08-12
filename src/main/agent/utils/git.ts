@@ -45,20 +45,16 @@ export async function searchCommits(query: string, cwd: string): Promise<GitComm
     }
 
     // Search commits by hash or message, limiting to 10 results
-    const { stdout } = await execAsync(
-      `git log -n 10 --format="%H%n%h%n%s%n%an%n%ad" --date=short ` +
-        `--grep="${query}" --regexp-ignore-case`,
-      { cwd }
-    )
+    const { stdout } = await execAsync(`git log -n 10 --format="%H%n%h%n%s%n%an%n%ad" --date=short ` + `--grep="${query}" --regexp-ignore-case`, {
+      cwd
+    })
 
     let output = stdout
     if (!output.trim() && /^[a-f0-9]+$/i.test(query)) {
       // If no results from grep search and query looks like a hash, try searching by hash
-      const { stdout: hashStdout } = await execAsync(
-        `git log -n 10 --format="%H%n%h%n%s%n%an%n%ad" --date=short ` +
-          `--author-date-order ${query}`,
-        { cwd }
-      ).catch(() => ({ stdout: '' }))
+      const { stdout: hashStdout } = await execAsync(`git log -n 10 --format="%H%n%h%n%s%n%an%n%ad" --date=short ` + `--author-date-order ${query}`, {
+        cwd
+      }).catch(() => ({ stdout: '' }))
 
       if (!hashStdout.trim()) {
         return []
@@ -103,12 +99,9 @@ export async function getCommitInfo(hash: string, cwd: string): Promise<string> 
     }
 
     // Get commit info, stats, and diff separately
-    const { stdout: info } = await execAsync(
-      `git show --format="%H%n%h%n%s%n%an%n%ad%n%b" --no-patch ${hash}`,
-      {
-        cwd
-      }
-    )
+    const { stdout: info } = await execAsync(`git show --format="%H%n%h%n%s%n%an%n%ad%n%b" --no-patch ${hash}`, {
+      cwd
+    })
     const [fullHash, shortHash, subject, author, date, body] = info.trim().split('\n')
 
     const { stdout: stats } = await execAsync(`git show --stat --format="" ${hash}`, { cwd })
@@ -174,9 +167,5 @@ function truncateOutput(content: string): string {
 
   const beforeLimit = Math.floor(GIT_OUTPUT_LINE_LIMIT * 0.2) // 20% of lines before
   const afterLimit = GIT_OUTPUT_LINE_LIMIT - beforeLimit // remaining 80% after
-  return [
-    ...lines.slice(0, beforeLimit),
-    `\n[...${lines.length - GIT_OUTPUT_LINE_LIMIT} lines omitted...]\n`,
-    ...lines.slice(-afterLimit)
-  ].join('\n')
+  return [...lines.slice(0, beforeLimit), `\n[...${lines.length - GIT_OUTPUT_LINE_LIMIT} lines omitted...]\n`, ...lines.slice(-afterLimit)].join('\n')
 }

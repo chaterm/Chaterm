@@ -1,12 +1,4 @@
-import {
-  AssistantMessageContent,
-  TextContent,
-  ToolUse,
-  ToolParamName,
-  toolParamNames,
-  toolUseNames,
-  ToolUseName
-} from '.' // Assuming types are defined in index.ts or a similar file
+import { AssistantMessageContent, TextContent, ToolUse, ToolParamName, toolParamNames, toolUseNames, ToolUseName } from '.' // Assuming types are defined in index.ts or a similar file
 
 /**
  * @description **Version 1**
@@ -47,9 +39,7 @@ export function parseAssistantMessageV1(assistantMessage: string): AssistantMess
       const paramClosingTag = `</${currentParamName}>`
       if (currentParamValue.endsWith(paramClosingTag)) {
         // End of param value found
-        currentToolUse.params[currentParamName] = currentParamValue
-          .slice(0, -paramClosingTag.length)
-          .trim()
+        currentToolUse.params[currentParamName] = currentParamValue.slice(0, -paramClosingTag.length).trim()
         currentParamName = undefined // Go back to parsing tool content or looking for next param
         continue // Move to next character
       } else {
@@ -93,10 +83,7 @@ export function parseAssistantMessageV1(assistantMessage: string): AssistantMess
         // Check if a </content> tag appears, potentially indicating the end of the content param
         // even if the main tool closing tag hasn't been seen yet.
         const contentParamName: ToolParamName = 'content'
-        if (
-          currentToolUse.name === 'write_to_file' &&
-          accumulator.endsWith(`</${contentParamName}>`)
-        ) {
+        if (currentToolUse.name === 'write_to_file' && accumulator.endsWith(`</${contentParamName}>`)) {
           const toolContent = accumulator.slice(currentToolUseStartIndex)
           const contentStartTag = `<${contentParamName}>`
           const contentEndTag = `</${contentParamName}>`
@@ -116,15 +103,11 @@ export function parseAssistantMessageV1(assistantMessage: string): AssistantMess
             // the <content> tag detection logic, or if the content is very short.
             if (currentParamName === contentParamName) {
               // Already parsing content, now we found the end tag
-              currentToolUse.params[contentParamName] = toolContent
-                .slice(contentStartIndex, contentEndIndex)
-                .trim()
+              currentToolUse.params[contentParamName] = toolContent.slice(contentStartIndex, contentEndIndex).trim()
               currentParamName = undefined // Finished with this param
             } else if (currentParamName === undefined) {
               // Not parsing a param, but found </content>. Assume it closes the content block.
-              currentToolUse.params[contentParamName] = toolContent
-                .slice(contentStartIndex, contentEndIndex)
-                .trim()
+              currentToolUse.params[contentParamName] = toolContent.slice(contentStartIndex, contentEndIndex).trim()
               // We stay in the "parsing tool use" state, looking for more params or the tool end tag.
             }
           }
@@ -156,9 +139,7 @@ export function parseAssistantMessageV1(assistantMessage: string): AssistantMess
           currentTextContent.partial = false
           // Extract text content, removing the part that formed the tool opening tag
           const textEndIndex = accumulator.length - toolUseOpeningTag.length
-          currentTextContent.content = accumulator
-            .slice(currentTextContentStartIndex, textEndIndex)
-            .trim()
+          currentTextContent.content = accumulator.slice(currentTextContentStartIndex, textEndIndex).trim()
           // Only add if there's actual content
           if (currentTextContent.content.length > 0) {
             contentBlocks.push(currentTextContent)
@@ -237,9 +218,7 @@ export function parseAssistantMessageV1(assistantMessage: string): AssistantMess
     // If a parameter was open within that tool use
     if (currentParamName) {
       // The remaining accumulator content belongs to this partial parameter
-      currentToolUse.params[currentParamName] = accumulator
-        .slice(currentParamValueStartIndex)
-        .trim()
+      currentToolUse.params[currentParamName] = accumulator.slice(currentParamValueStartIndex).trim()
     }
     // Add the potentially partial tool use block
     contentBlocks.push(currentToolUse)
@@ -335,10 +314,7 @@ export function parseAssistantMessageV2(assistantMessage: string): AssistantMess
       // Check if starting a new parameter
       let startedNewParam = false
       for (const [tag, paramName] of toolParamOpenTags.entries()) {
-        if (
-          currentCharIndex >= tag.length - 1 &&
-          assistantMessage.startsWith(tag, currentCharIndex - tag.length + 1)
-        ) {
+        if (currentCharIndex >= tag.length - 1 && assistantMessage.startsWith(tag, currentCharIndex - tag.length + 1)) {
           currentParamName = paramName
           currentParamValueStart = currentCharIndex + 1 // Value starts after the tag
           startedNewParam = true
@@ -351,10 +327,7 @@ export function parseAssistantMessageV2(assistantMessage: string): AssistantMess
 
       // Check if closing the current tool use
       const toolCloseTag = `</${currentToolUse.name}>`
-      if (
-        currentCharIndex >= toolCloseTag.length - 1 &&
-        assistantMessage.startsWith(toolCloseTag, currentCharIndex - toolCloseTag.length + 1)
-      ) {
+      if (currentCharIndex >= toolCloseTag.length - 1 && assistantMessage.startsWith(toolCloseTag, currentCharIndex - toolCloseTag.length + 1)) {
         // End of the tool use found
         // Special handling for content params *before* finalizing the tool
         const toolContentSlice = assistantMessage.slice(
@@ -378,9 +351,7 @@ export function parseAssistantMessageV2(assistantMessage: string): AssistantMess
           const contentEnd = toolContentSlice.lastIndexOf(contentEndTag)
 
           if (contentStart !== -1 && contentEnd !== -1 && contentEnd > contentStart) {
-            const contentValue = toolContentSlice
-              .slice(contentStart + contentStartTag.length, contentEnd)
-              .trim()
+            const contentValue = toolContentSlice.slice(contentStart + contentStartTag.length, contentEnd).trim()
             currentToolUse.params[contentParamName] = contentValue
           }
         }
@@ -400,10 +371,7 @@ export function parseAssistantMessageV2(assistantMessage: string): AssistantMess
       // Check if starting a new tool use
       let startedNewTool = false
       for (const [tag, toolName] of toolUseOpenTags.entries()) {
-        if (
-          currentCharIndex >= tag.length - 1 &&
-          assistantMessage.startsWith(tag, currentCharIndex - tag.length + 1)
-        ) {
+        if (currentCharIndex >= tag.length - 1 && assistantMessage.startsWith(tag, currentCharIndex - tag.length + 1)) {
           // End current text block if one was active
           if (currentTextContent) {
             currentTextContent.content = assistantMessage

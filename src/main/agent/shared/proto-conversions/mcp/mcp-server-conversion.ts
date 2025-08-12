@@ -143,9 +143,7 @@ function convertProtoResource(protoResource: ProtoMcpResource): McpResource {
 /**
  * Converts ProtoMcpResourceTemplate to McpResourceTemplate format
  */
-function convertProtoResourceTemplate(
-  protoTemplate: ProtoMcpResourceTemplate
-): McpResourceTemplate {
+function convertProtoResourceTemplate(protoTemplate: ProtoMcpResourceTemplate): McpResourceTemplate {
   return {
     uriTemplate: protoTemplate.uriTemplate,
     name: protoTemplate.name,

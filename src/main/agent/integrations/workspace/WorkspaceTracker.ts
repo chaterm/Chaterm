@@ -43,11 +43,9 @@ class WorkspaceTracker {
 
     // Listen for file renaming
     this.disposables.push(
-      vscode.workspace.onDidRenameFiles(
-        (event: { files: { oldUri: vscode.Uri; newUri: vscode.Uri }[] }) => {
-          this.onFilesRenamed(event)
-        }
-      )
+      vscode.workspace.onDidRenameFiles((event: { files: { oldUri: vscode.Uri; newUri: vscode.Uri }[] }) => {
+        this.onFilesRenamed(event)
+      })
     )
 
     /*
@@ -117,8 +115,7 @@ class WorkspaceTracker {
     try {
       const stat = await vscode.workspace.fs.stat(vscode.Uri.file(normalizedPath))
       const isDirectory = (stat.type & vscode.FileType.Directory) !== 0
-      const pathWithSlash =
-        isDirectory && !normalizedPath.endsWith('/') ? normalizedPath + '/' : normalizedPath
+      const pathWithSlash = isDirectory && !normalizedPath.endsWith('/') ? normalizedPath + '/' : normalizedPath
       this.filePaths.add(pathWithSlash)
       return pathWithSlash
     } catch {

@@ -11,9 +11,7 @@ export function getNewDiagnostics(
 
   for (const [uri, newDiags] of newDiagnostics) {
     const oldDiags = oldMap.get(uri) || []
-    const newProblemsForUri = newDiags.filter(
-      (newDiag) => !oldDiags.some((oldDiag) => deepEqual(oldDiag, newDiag))
-    )
+    const newProblemsForUri = newDiags.filter((newDiag) => !oldDiags.some((oldDiag) => deepEqual(oldDiag, newDiag)))
 
     if (newProblemsForUri.length > 0) {
       newProblems.push([uri, newProblemsForUri])
