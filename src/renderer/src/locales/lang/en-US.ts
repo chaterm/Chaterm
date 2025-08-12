@@ -344,6 +344,11 @@ export default {
     aliasAlreadyExists: 'Alias already exists！',
     addCommand: 'Add Command'
   },
+  commandDialog: {
+    placeholder: 'Command instructions',
+    generating: 'Generating command...',
+    submit: 'Generate'
+  },
   shortcuts: {
     actions: {
       openSettings: 'Open Settings',
@@ -352,7 +357,8 @@ export default {
       sendOrToggleAi: 'Send to AI / Toggle AI Sidebar',
       switchToNextTab: 'Next Tab',
       switchToPrevTab: 'Previous Tab',
-      switchToSpecificTab: 'Switch to specific Tab[1...9]'
+      switchToSpecificTab: 'Switch to specific Tab[1...9]',
+      openCommandDialog: 'Open AI Command Generator'
     }
   },
   personal: {

@@ -357,12 +357,25 @@ const handleKeyDown = (event: KeyboardEvent) => {
   }
 }
 
+// Focus the active terminal
+const focusActiveTerminal = () => {
+  const termInstance = termRefMap.value[props.activeTab]
+  const sshInstance = sshConnectRefMap.value[props.activeTab]
+  if (termInstance) {
+    termInstance.focus()
+  } else if (sshInstance) {
+    sshInstance.focus()
+  }
+}
+
 onMounted(() => {
   window.addEventListener('keydown', handleKeyDown)
+  eventBus.on('focusActiveTerminal', focusActiveTerminal)
 })
 
 onUnmounted(() => {
   window.removeEventListener('keydown', handleKeyDown)
+  eventBus.off('focusActiveTerminal', focusActiveTerminal)
 })
 
 defineExpose({

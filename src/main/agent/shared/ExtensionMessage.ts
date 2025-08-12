@@ -24,6 +24,7 @@ export interface ExtensionMessage {
     | 'fileSearchResults'
     | 'grpc_response'
     | 'requestyModels'
+    | 'commandGenerationResponse'
 
   text?: string
   action?:
@@ -69,6 +70,8 @@ export interface ExtensionMessage {
     is_streaming?: boolean
     sequence_number?: number
   }
+  // For command generation response
+  command?: string
 }
 
 export type Invoke = 'sendMessage' | 'primaryButtonClick' | 'secondaryButtonClick'
