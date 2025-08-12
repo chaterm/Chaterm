@@ -15,6 +15,10 @@ function getUserDatabasePath(userId: number, dbType: 'complete' | 'chaterm'): st
   return join(userDir, dbName)
 }
 
+export function getChatermDbPathForUser(userId: number): string {
+  return getUserDatabasePath(userId, 'chaterm')
+}
+
 function ensureUserDatabaseDir(userId: number): string {
   const userDir = join(USER_DATA_PATH, 'databases', `${userId}`)
   if (!fs.existsSync(userDir)) {
@@ -123,6 +127,60 @@ function upgradeTAssetsTable(db: Database.Database): void {
 
       console.log('t_assets table upgrade completed')
     }
+
+    // 保证 data_sync 相关元表存在（与 data_sync DatabaseManager 对齐）
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS sync_status (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        table_name TEXT NOT NULL,
+        last_sync_time TEXT,
+        updated_at TEXT DEFAULT (datetime('now'))
+      );
+    `)
+
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS change_log (
+        id TEXT PRIMARY KEY,
+        table_name TEXT NOT NULL,
+        record_uuid TEXT NOT NULL,
+        operation_type TEXT NOT NULL,
+        change_data TEXT,
+        before_data TEXT,
+        created_at TEXT DEFAULT (datetime('now')),
+        sync_status TEXT DEFAULT 'pending',
+        retry_count INTEGER DEFAULT 0,
+        error_message TEXT
+      );
+    `)
+
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS sync_meta (
+        key TEXT PRIMARY KEY,
+        value TEXT
+      );
+    `)
+
+    // 追加列升级：t_assets.version
+    try {
+      db.prepare('SELECT version FROM t_assets LIMIT 1').get()
+    } catch (e) {
+      db.exec('ALTER TABLE t_assets ADD COLUMN version INTEGER NOT NULL DEFAULT 1')
+      console.log('Added version column to t_assets')
+    }
+
+    // 追加列升级：t_asset_chains.uuid/version
+    try {
+      db.prepare('SELECT uuid FROM t_asset_chains LIMIT 1').get()
+    } catch (e) {
+      db.exec('ALTER TABLE t_asset_chains ADD COLUMN uuid TEXT')
+      console.log('Added uuid column to t_asset_chains')
+    }
+    try {
+      db.prepare('SELECT version FROM t_asset_chains LIMIT 1').get()
+    } catch (e) {
+      db.exec('ALTER TABLE t_asset_chains ADD COLUMN version INTEGER NOT NULL DEFAULT 1')
+      console.log('Added version column to t_asset_chains')
+    }
   } catch (error) {
     console.error('Failed to upgrade t_assets table:', error)
   }
@@ -214,73 +272,25 @@ export async function initChatermDatabase(userId?: number): Promise<Database.Dat
           const tableExists = mainDb.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name = ?").get(tableName)
 
           if (!tableExists) {
-            console.log(`Table ${tableName} not found in target DB. Creating table.`)
+            console.log(`Creating missing table: ${tableName}`)
             mainDb.exec(createTableSql)
-          } else {
-            console.log(`Table ${tableName} found in target DB. Checking for missing columns.`)
-            const initTableInfo = initDb.pragma(`table_info(${tableName})`) as {
-              name: string
-              type: string
-              notnull: number
-              dflt_value: any
-              pk: number
-            }[]
-            const mainTableInfo = mainDb.pragma(`table_info(${tableName})`) as { name: string }[]
-            const mainTableColumnNames = new Set(mainTableInfo.map((col) => col.name))
-
-            for (const initColumn of initTableInfo) {
-              if (!mainTableColumnNames.has(initColumn.name)) {
-                let addColumnSql = `ALTER TABLE ${tableName} ADD COLUMN ${initColumn.name} ${initColumn.type}`
-
-                if (initColumn.dflt_value !== null) {
-                  let defaultValueFormatted
-                  if (typeof initColumn.dflt_value === 'string') {
-                    defaultValueFormatted = initColumn.dflt_value
-                  } else {
-                    defaultValueFormatted = initColumn.dflt_value
-                  }
-                  addColumnSql += ` DEFAULT ${defaultValueFormatted}`
-                }
-
-                if (initColumn.notnull) {
-                  if (initColumn.dflt_value !== null) {
-                    addColumnSql += ' NOT NULL'
-                  } else {
-                    console.warn(
-                      `Column '${initColumn.name}' in table '${tableName}' is defined as NOT NULL without a default value in the initial schema. Adding it as nullable to the existing table to avoid errors. Manual schema adjustment might be needed if strict NOT NULL is required and the table contains data.`
-                    )
-                  }
-                }
-                try {
-                  console.log(`Attempting to add column ${initColumn.name} to table ${tableName} with SQL: ${addColumnSql}`)
-                  mainDb.exec(addColumnSql)
-                  console.log(`Successfully added column ${initColumn.name} to table ${tableName}.`)
-                } catch (e: any) {
-                  console.error(`Failed to add column ${initColumn.name} to table ${tableName}: ${e.message}. SQL: ${addColumnSql}`)
-                }
-              }
-            }
           }
         }
-        console.log('Chaterm database schema synchronization attempt complete.')
-      } catch (syncError: any) {
-        console.error('Error during Chaterm database schema synchronization:', syncError.message)
+
+        // 进行必要的升级
+        upgradeTAssetsTable(mainDb)
+        upgradeUserSnippetTable(mainDb)
       } finally {
-        if (mainDb && mainDb.open) mainDb.close()
-        if (initDb && initDb.open) initDb.close()
+        if (mainDb) mainDb.close()
+        if (initDb) initDb.close()
       }
     }
 
-    const finalDb = new Database(Chaterm_DB_PATH)
+    const db = new Database(Chaterm_DB_PATH)
     console.log('Chaterm database connection established at:', Chaterm_DB_PATH)
-
-    // Execute table structure upgrade
-    upgradeUserSnippetTable(finalDb)
-    upgradeTAssetsTable(finalDb)
-
-    return finalDb
-  } catch (error: any) {
-    console.error('Failed database path:', Chaterm_DB_PATH)
+    return db
+  } catch (error) {
+    console.error('Chaterm database initialization failed:', error)
     throw error
   }
 }

@@ -179,6 +179,19 @@ const changeSecretRedaction = async () => {
 
 const changeDataSync = async () => {
   await saveConfig()
+  try {
+    await window.api.setDataSyncEnabled(userConfig.value.dataSync === 'enabled')
+    notification.success({
+      message: '数据同步设置已更新',
+      description: userConfig.value.dataSync === 'enabled' ? '已开启数据同步' : '已关闭数据同步'
+    })
+  } catch (error) {
+    console.error('Failed to change data sync setting:', error)
+    notification.error({
+      message: '数据同步设置更新失败',
+      description: '请稍后重试'
+    })
+  }
 }
 </script>
 
