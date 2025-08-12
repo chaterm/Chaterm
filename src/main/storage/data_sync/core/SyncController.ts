@@ -8,6 +8,7 @@ import { syncConfig } from '../config/sync.config'
 import { logger } from '../utils/logger'
 import { EnvelopeEncryptionService } from '../envelope_encryption/service'
 import { setEncryptionService } from '../services/EncryptionRegistry'
+import type { EncryptionServiceStatus } from '../envelope_encryption/service'
 
 export class SyncController {
   private api: ApiClient
@@ -62,6 +63,20 @@ export class SyncController {
     } catch (e: any) {
       logger.warn('加密服务初始化异常', e?.message)
     }
+  }
+
+  /**
+   * Get encryption service status
+   */
+  getEncryptionStatus(): EncryptionServiceStatus {
+    return this.encryptionService.getStatus()
+  }
+
+  /**
+   * Whether encryption service is ready for use
+   */
+  isEncryptionReady(): boolean {
+    return this.encryptionService.getStatus().initialized === true
   }
 
   async initializeAndLogin(): Promise<void> {
