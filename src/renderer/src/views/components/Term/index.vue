@@ -20,6 +20,7 @@
       :unique-key="infos.id"
       :suggestions="suggestions"
       :active-suggestion="activeSuggestion"
+      :selection-mode="suggestionSelectionMode"
     />
     <v-contextmenu ref="contextmenu">
       <Context
@@ -106,6 +107,7 @@ const terminalContainer = ref(null)
 const terminalId = `${email.split('@')[0]}@${props.serverInfo.ip}:remote:${uuidv4()}`
 const suggestions = ref([]) // Returned completion list
 const activeSuggestion = ref(0) // Highlighted completion item
+const suggestionSelectionMode = ref(false) // Whether suggestion box is in selection mode
 let isCommandExecuting = false // Command execution lock, prevent completion window from popping up after Enter
 const socket = ref(null) // WebSocket instance
 const term = ref(null) // Terminal instance
@@ -327,6 +329,7 @@ const initTerminal = async () => {
     socket.value.send(JSON.stringify({ id: terminalId, msgType, data: suggestion }))
     suggestions.value = []
     activeSuggestion.value = 0
+    suggestionSelectionMode.value = false
   }
   // Handle user input
   term.value.onData((data) => {
@@ -335,6 +338,7 @@ const initTerminal = async () => {
       // Shortcuts
       if (data === '\t') {
         // Tab key
+        /* log removed */
         selectSuggestion(suggestions.value[activeSuggestion.value])
       } else if (data == '\x0b') {
         specialCode.value = true
@@ -358,6 +362,7 @@ const initTerminal = async () => {
         // New: Clear recommendations and lock after Enter
         suggestions.value = []
         activeSuggestion.value = 0
+        suggestionSelectionMode.value = false
         isCommandExecuting = true
         setTimeout(() => {
           isCommandExecuting = false
@@ -383,8 +388,9 @@ const initTerminal = async () => {
           .catch(() => {})
       } else {
         const msgType = 'TERMINAL_DATA'
-        if (suggestions.value.length && (data == '\u001b[A' || data == '\u001b[B')) {
-          // Keyboard up/down to select suggestion items
+        if (suggestions.value.length && suggestionSelectionMode.value && (data == '\u001b[A' || data == '\u001b[B')) {
+          // Keyboard up/down to select suggestion items - only when in selection mode
+          /* log removed */
           if (data == '\u001b[A') {
             // 上方向键：循环向上导航
             if (activeSuggestion.value <= 0) {
@@ -400,8 +406,34 @@ const initTerminal = async () => {
               activeSuggestion.value += 1
             }
           }
+          /* log removed */
+        } else if (suggestions.value.length && (data == '\u001b[A' || data == '\u001b[B')) {
+          // Up/Down keys when not in selection mode - pass through to system
+          /* log removed */
+          socket.value.send(JSON.stringify({ terminalId, msgType, data }))
         } else if (suggestions.value.length && data == '\u001b[C') {
-          selectSuggestion(suggestions.value[activeSuggestion.value])
+          // Right arrow key - enter selection mode or select suggestion
+          /* log removed */
+          if (!suggestionSelectionMode.value) {
+            // Enter selection mode and select first item
+            /* log removed */
+            suggestionSelectionMode.value = true
+            activeSuggestion.value = 0
+          } else {
+            // Already in selection mode, select current suggestion
+            /* log removed */
+            selectSuggestion(suggestions.value[activeSuggestion.value])
+          }
+        } else if (suggestions.value.length && data == '\u001b[D') {
+          // Left arrow key - exit selection mode
+          /* log removed */
+          suggestionSelectionMode.value = false
+        } else if (suggestions.value.length && (data == '\u001b\[27~' || data == '\u001b')) {
+          // Escape key - exit selection mode and clear suggestions
+          /* log removed */
+          suggestionSelectionMode.value = false
+          suggestions.value = []
+          activeSuggestion.value = 0
         } else {
           socket.value.send(JSON.stringify({ terminalId, msgType, data }))
         }
@@ -432,7 +464,7 @@ const initTerminal = async () => {
   if (terminalElement.value) {
     terminalElement.value.addEventListener('mouseup', (e) => {
       setTimeout(() => {
-        console.log('select')
+        /* log removed */
 
         if (term.value.hasSelection()) {
           const text = term.value.getSelection()
@@ -488,15 +520,20 @@ const connectWebsocket = () => {
       const componentInstance = componentRefs.value[infos.value.id]
       if (o.msgType == 'TERMINAL_AUTO_COMPLEMENT' && stashConfig.autoCompleteStatus == 1) {
         if (!isCommandExecuting) {
-          o.autoComplement
-            ? ((suggestions.value = o.autoComplement),
-              nextTick(() => {
-                componentInstance?.updateSuggestionsPosition(term.value)
-              }))
-            : (suggestions.value = [])
+          if (o.autoComplement) {
+            suggestions.value = o.autoComplement
+            suggestionSelectionMode.value = false
+            nextTick(() => {
+              componentInstance?.updateSuggestionsPosition(term.value)
+            })
+          } else {
+            suggestions.value = []
+            suggestionSelectionMode.value = false
+          }
         } else {
           // Do not show completion during command execution
           suggestions.value = []
+          suggestionSelectionMode.value = false
         }
       }
       dispatch(term.value, event.data, socket.value)
@@ -839,6 +876,7 @@ const handleKeyInput = (e) => {
     // New: Clear recommendations after Enter
     suggestions.value = []
     activeSuggestion.value = 0
+    suggestionSelectionMode.value = false
   } else if (ev.keyCode === 8) {
     // Delete
     specialCode.value = true

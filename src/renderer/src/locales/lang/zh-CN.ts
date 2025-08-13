@@ -48,6 +48,7 @@ export default {
     allExecuted: '全部执行',
     pleaseLoginFirst: '请先登录',
     select: '选择',
+    rightArrowKey: '方向右键进入推荐模式',
     reset: '重置',
     confirm: '确认',
     ok: '确定',
