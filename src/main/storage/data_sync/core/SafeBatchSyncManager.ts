@@ -76,7 +76,7 @@ export class SafeBatchSyncManager {
     pageSize: number = 500,
     onProgress?: (current: number, total: number, percentage: number) => void
   ): Promise<void> {
-    let session = null
+    let session: FullSyncSession | null = null
 
     try {
       logger.info(`开始安全分批同步: ${tableName}`)
@@ -289,7 +289,8 @@ export class SafeBatchSyncManager {
    */
   private async intelligentMergeRecords(tableName: string, serverRecords: any[], metadata: SyncMetadata): Promise<MergeResult[]> {
     const results: MergeResult[] = []
-    const db = await this.dbManager.getDatabase()
+    // Database instance available if needed for advanced queries
+    // const db = await this.dbManager.getDatabase()
 
     // 性能优化：批量查询本地记录
     const serverUUIDs = serverRecords.map((r) => r.uuid)
@@ -667,7 +668,7 @@ export class SafeBatchSyncManager {
   /**
    * 准备同步环境（复用 OneDrive 逻辑）
    */
-  private async prepareSyncEnvironment(tableName: string): Promise<void> {
+  private async prepareSyncEnvironment(_tableName: string): Promise<void> {
     const db = await this.dbManager.getDatabase()
     await db.exec(`
             CREATE TABLE IF NOT EXISTS sync_metadata (
@@ -741,7 +742,7 @@ export class SafeBatchSyncManager {
   /**
    * 冲突解决/字段级合并（复用 OneDrive 逻辑）
    */
-  private async resolveConflict(tableName: string, localRecord: any, serverRecord: any, metadata: SyncMetadata): Promise<MergeResult> {
+  private async resolveConflict(tableName: string, localRecord: any, serverRecord: any, _metadata: SyncMetadata): Promise<MergeResult> {
     const rules = this.conflictRules.get(tableName) || []
     const localVersion = localRecord.version || 1
     const serverVersion = serverRecord.version || 1
@@ -762,7 +763,12 @@ export class SafeBatchSyncManager {
     return { action: 'conflict', record: localRecord, conflictReason: '版本和时间戳都相同，需要手动解决' }
   }
 
-  private async performFieldLevelMerge(tableName: string, localRecord: any, serverRecord: any, rules: ConflictResolutionRule[]): Promise<any | null> {
+  private async performFieldLevelMerge(
+    _tableName: string,
+    localRecord: any,
+    serverRecord: any,
+    rules: ConflictResolutionRule[]
+  ): Promise<any | null> {
     try {
       const merged = { ...localRecord }
       let hasChanges = false

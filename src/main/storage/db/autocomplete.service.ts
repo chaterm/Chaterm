@@ -143,8 +143,8 @@ export class autoCompleteDatabaseService {
     if (dangerousPatterns.some((pattern) => pattern.test(command))) return false
 
     // Allow common symbols like pipes, parallel execution, redirection | & > < ; + =
-    // Supports commands starting with letters, underscores, numbers, ./ or ~/
-    const validCommandFormat = /^(\.\/|~\/|[a-zA-Z_]|\d)[a-zA-Z0-9_\-\.\/\s|&><;+=]*$/
+    // Support URL/scp-like forms by allowing ':' and '@'
+    const validCommandFormat = /^(\.\/|~\/|[a-zA-Z_]|\d)[a-zA-Z0-9_\-\.\/:@\s|&><;+=]*$/
     if (!validCommandFormat.test(command)) return false
 
     return true
