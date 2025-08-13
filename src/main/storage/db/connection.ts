@@ -128,38 +128,6 @@ function upgradeTAssetsTable(db: Database.Database): void {
       console.log('t_assets table upgrade completed')
     }
 
-    // 保证 data_sync 相关元表存在（与 data_sync DatabaseManager 对齐）
-    db.exec(`
-      CREATE TABLE IF NOT EXISTS sync_status (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        table_name TEXT NOT NULL,
-        last_sync_time TEXT,
-        updated_at TEXT DEFAULT (datetime('now'))
-      );
-    `)
-
-    db.exec(`
-      CREATE TABLE IF NOT EXISTS change_log (
-        id TEXT PRIMARY KEY,
-        table_name TEXT NOT NULL,
-        record_uuid TEXT NOT NULL,
-        operation_type TEXT NOT NULL,
-        change_data TEXT,
-        before_data TEXT,
-        created_at TEXT DEFAULT (datetime('now')),
-        sync_status TEXT DEFAULT 'pending',
-        retry_count INTEGER DEFAULT 0,
-        error_message TEXT
-      );
-    `)
-
-    db.exec(`
-      CREATE TABLE IF NOT EXISTS sync_meta (
-        key TEXT PRIMARY KEY,
-        value TEXT
-      );
-    `)
-
     // 追加列升级：t_assets.version
     try {
       db.prepare('SELECT version FROM t_assets LIMIT 1').get()
