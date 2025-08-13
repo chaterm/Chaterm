@@ -1,6 +1,7 @@
 import { syncConfig } from '../config/sync.config'
 import * as fs from 'fs'
 import * as path from 'path'
+import { app } from 'electron'
 
 type Level = 'debug' | 'info' | 'warn' | 'error'
 
@@ -30,21 +31,39 @@ interface LogEntry {
 class StructuredLogger {
   private logDir: string
   private logFile: string
+  private currentDate: string
+  private fileLoggingEnabled: boolean
 
   constructor() {
-    this.logDir = process.env.LOG_DIR || './logs'
-    this.logFile = path.join(this.logDir, 'sync.log')
+    // 使用与数据库相同的用户数据目录
+    const userDataPath = app.getPath('userData')
+    this.logDir = path.join(userDataPath, 'logs', 'sync')
+    this.currentDate = new Date().toISOString().split('T')[0] // YYYY-MM-DD format
+    this.logFile = path.join(this.logDir, `sync-${this.currentDate}.log`)
+
+    // 从环境变量或配置中读取是否启用文件日志
+    this.fileLoggingEnabled = process.env.ENABLE_FILE_LOGGING !== 'false' && syncConfig.fileLoggingEnabled !== false
+
     this.ensureLogDirectory()
   }
 
   private ensureLogDirectory(): void {
-    if (!fs.existsSync(this.logDir)) {
+    if (this.fileLoggingEnabled && !fs.existsSync(this.logDir)) {
       fs.mkdirSync(this.logDir, { recursive: true })
     }
   }
 
   private shouldLog(level: Level): boolean {
     return levelPriority[level] >= levelPriority[syncConfig.logLevel]
+  }
+
+  private getCurrentLogFile(): string {
+    const today = new Date().toISOString().split('T')[0]
+    if (today !== this.currentDate) {
+      this.currentDate = today
+      this.logFile = path.join(this.logDir, `sync-${this.currentDate}.log`)
+    }
+    return this.logFile
   }
 
   private formatLogEntry(
@@ -93,9 +112,14 @@ class StructuredLogger {
   }
 
   private writeToFile(entry: LogEntry): void {
+    if (!this.fileLoggingEnabled) {
+      return
+    }
+
     try {
+      const logFile = this.getCurrentLogFile()
       const logLine = JSON.stringify(entry) + '\n'
-      fs.appendFileSync(this.logFile, logLine)
+      fs.appendFileSync(logFile, logLine)
     } catch (error) {
       // 如果写文件失败，至少输出到控制台
       console.error('Failed to write to log file:', error)
@@ -193,6 +217,54 @@ class StructuredLogger {
         error
       }
     )
+  }
+
+  /**
+   * 设置是否启用文件日志
+   * @param enabled 是否启用文件日志
+   */
+  setFileLoggingEnabled(enabled: boolean): void {
+    this.fileLoggingEnabled = enabled
+    if (enabled) {
+      this.ensureLogDirectory()
+    }
+  }
+
+  /**
+   * 获取当前日志文件路径
+   */
+  getCurrentLogFilePath(): string {
+    return this.getCurrentLogFile()
+  }
+
+  /**
+   * 清理旧的日志文件（保留最近N天的日志）
+   * @param daysToKeep 保留的天数，默认7天
+   */
+  cleanupOldLogs(daysToKeep: number = 7): void {
+    if (!this.fileLoggingEnabled || !fs.existsSync(this.logDir)) {
+      return
+    }
+
+    try {
+      const files = fs.readdirSync(this.logDir)
+      const now = new Date()
+      const cutoffDate = new Date(now.getTime() - daysToKeep * 24 * 60 * 60 * 1000)
+
+      files.forEach((file) => {
+        if (file.startsWith('sync-') && file.endsWith('.log')) {
+          const filePath = path.join(this.logDir, file)
+          const stats = fs.statSync(filePath)
+
+          if (stats.mtime < cutoffDate) {
+            fs.unlinkSync(filePath)
+            console.log(`Cleaned up old log file: ${file}`)
+          }
+        }
+      })
+    } catch (error) {
+      console.error('Failed to cleanup old logs:', error)
+    }
   }
 }
 

@@ -1,7 +1,11 @@
 import { SyncController } from './core/SyncController'
 import { logger } from './utils/logger'
+import { syncConfig } from './config/sync.config'
 
 export async function startDataSync(dbPath?: string): Promise<SyncController> {
+  // 启动时清理旧日志文件
+  logger.cleanupOldLogs(syncConfig.logRetentionDays)
+
   const controller = new SyncController(dbPath)
   try {
     await controller.initializeAndLogin()

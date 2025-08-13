@@ -15,6 +15,8 @@ export interface SyncConfig {
   compressionEnabled: boolean
   logLevel: 'debug' | 'info' | 'warn' | 'error'
   encryptionKey?: string // passphrase to derive AES key
+  fileLoggingEnabled?: boolean // 是否启用文件日志
+  logRetentionDays?: number // 日志保留天数
 }
 
 export const syncConfig: SyncConfig = {
@@ -29,5 +31,7 @@ export const syncConfig: SyncConfig = {
   maxConcurrentBatches: Number(process.env.MAX_CONCURRENT_BATCHES || 3),
   compressionEnabled: (process.env.COMPRESSION_ENABLED || 'true') === 'true',
   logLevel: (process.env.LOG_LEVEL as SyncConfig['logLevel']) || 'info',
-  encryptionKey: process.env.ENCRYPTION_KEY
+  encryptionKey: process.env.ENCRYPTION_KEY,
+  fileLoggingEnabled: process.env.ENABLE_FILE_LOGGING !== 'false', // 默认启用文件日志
+  logRetentionDays: Number(process.env.LOG_RETENTION_DAYS || 7) // 默认保留7天日志
 }
