@@ -405,6 +405,7 @@ export const shellCommands = [
   'ps',
   'ptpython3',
   'pushd',
+  'pwd',
   'pwgen',
   'pyenv',
   'python',
