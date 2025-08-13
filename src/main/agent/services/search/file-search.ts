@@ -75,14 +75,11 @@ export async function executeRipgrepForFiles(
       }
 
       // Transform directory paths from Set into structured results
-      const dirResults = Array.from(
-        dirSet,
-        (dirPath): { path: string; type: 'folder'; label?: string } => ({
-          path: dirPath,
-          type: 'folder',
-          label: path.basename(dirPath)
-        })
-      )
+      const dirResults = Array.from(dirSet, (dirPath): { path: string; type: 'folder'; label?: string } => ({
+        path: dirPath,
+        type: 'folder',
+        label: path.basename(dirPath)
+      }))
 
       // Resolve combined results of files and directories
       resolve([...fileResults, ...dirResults])
@@ -118,8 +115,7 @@ export async function searchWorkspaceFiles(
     // Get more (2x) results than needed for filtering, we pick the top half after sorting
     const fzfModule = await import('fzf')
     const fzf = new fzfModule.Fzf(allItems, {
-      selector: (item: { label?: string; path: string }) =>
-        `${item.label || ''} ${item.label || ''} ${item.path}`,
+      selector: (item: { label?: string; path: string }) => `${item.label || ''} ${item.label || ''} ${item.path}`,
       tiebreakers: [OrderbyMatchScore, fzfModule.byLengthAsc],
       limit: limit * 2
     })
@@ -136,21 +132,19 @@ export async function searchWorkspaceFiles(
       .slice(0, limit)
 
     // Verify if the path exists and is actually a directory
-    const verifiedResultsPromises = filteredResults.map(
-      async ({ item }: { item: { path: string; type: 'file' | 'folder'; label?: string } }) => {
-        const fullPath = path.join(workspacePath, item.path)
-        let type = item.type
+    const verifiedResultsPromises = filteredResults.map(async ({ item }: { item: { path: string; type: 'file' | 'folder'; label?: string } }) => {
+      const fullPath = path.join(workspacePath, item.path)
+      let type = item.type
 
-        try {
-          const stats = await fs.promises.lstat(fullPath)
-          type = stats.isDirectory() ? 'folder' : 'file'
-        } catch {
-          // Keep original type if path doesn't exist
-        }
-
-        return { ...item, type }
+      try {
+        const stats = await fs.promises.lstat(fullPath)
+        type = stats.isDirectory() ? 'folder' : 'file'
+      } catch {
+        // Keep original type if path doesn't exist
       }
-    )
+
+      return { ...item, type }
+    })
 
     return await Promise.all(verifiedResultsPromises)
   } catch (error) {

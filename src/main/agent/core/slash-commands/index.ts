@@ -47,8 +47,7 @@ export function parseSlashCommands(text: string): string {
         const slashCommandEndIndex = slashCommandStartIndex + match[1].length
 
         // remove the slash command and add custom instructions at the top of this message
-        const textWithoutSlashCommand =
-          text.substring(0, slashCommandStartIndex) + text.substring(slashCommandEndIndex)
+        const textWithoutSlashCommand = text.substring(0, slashCommandStartIndex) + text.substring(slashCommandEndIndex)
         const processedText = commandReplacements[commandName] + textWithoutSlashCommand
 
         return processedText

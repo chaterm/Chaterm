@@ -24,9 +24,9 @@ describe('fixModelHtmlEscaping', () => {
   })
 
   it('should handle multiple entities in the same string', () => {
-    fixModelHtmlEscaping(
-      '&lt;div&gt;Hello &quot;World&quot; &amp; &apos;Universe&apos;&lt;/div&gt;'
-    ).should.equal('<div>Hello "World" & \'Universe\'</div>')
+    fixModelHtmlEscaping('&lt;div&gt;Hello &quot;World&quot; &amp; &apos;Universe&apos;&lt;/div&gt;').should.equal(
+      '<div>Hello "World" & \'Universe\'</div>'
+    )
   })
 
   it('should return unchanged string when no HTML entities are present', () => {

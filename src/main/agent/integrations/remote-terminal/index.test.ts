@@ -89,7 +89,7 @@ describe('RemoteTerminalManager', () => {
   it('should execute a command on a WebSocket terminal', async () => {
     manager.setConnectionInfo(connectionInfo)
     const terminalInfo = await manager.createTerminal()
-    
+
     const command = 'ip addr show'
     const process = manager.runCommand(terminalInfo, command)
 
@@ -131,7 +131,7 @@ describe('RemoteTerminalManager', () => {
   it('should disconnect a specific terminal and clean up resources', async () => {
     manager.setConnectionInfo(connectionInfo)
     const terminalInfo = await manager.createTerminal()
-    
+
     expect(manager.isConnected()).toBe(true)
 
     await manager.disconnectTerminal(terminalInfo.id)
@@ -140,4 +140,4 @@ describe('RemoteTerminalManager', () => {
     expect(manager.getTerminals(false).length).toBe(0)
     expect(manager.getTerminals(true).length).toBe(0)
   }, 30000)
-}) 
+})

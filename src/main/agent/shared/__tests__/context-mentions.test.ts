@@ -38,10 +38,7 @@ describe('Mention Regex', () => {
   describe('Edge Cases', () => {
     it('handles edge cases correctly', () => {
       const cases: Array<[string, string]> = [
-        [
-          '@/C:\\Users\\name\\path\\to\\文件夹\\file.txt',
-          '@/C:\\Users\\name\\path\\to\\文件夹\\file.txt'
-        ],
+        ['@/C:\\Users\\name\\path\\to\\文件夹\\file.txt', '@/C:\\Users\\name\\path\\to\\文件夹\\file.txt'],
         ['@/path123/file-name_2.0.txt', '@/path123/file-name_2.0.txt']
       ]
 
@@ -80,9 +77,7 @@ describe('Mention Regex', () => {
     })
 
     it('matches git hashes', () => {
-      const cases: Array<[string, string]> = [
-        ['@abcdef1234567890abcdef1234567890abcdef12', '@abcdef1234567890abcdef1234567890abcdef12']
-      ]
+      const cases: Array<[string, string]> = [['@abcdef1234567890abcdef1234567890abcdef12', '@abcdef1234567890abcdef1234567890abcdef12']]
 
       cases.forEach(([input, expected]) => {
         const result = testMention(input, expected)
@@ -141,15 +136,9 @@ describe('Mention Regex', () => {
 
   describe('Multiple Mentions', () => {
     it('finds all mentions in a string using global regex', () => {
-      const text =
-        'Check @/path/file1.txt and @/C:\\folder\\file2.txt and report any @problems to @git-changes'
+      const text = 'Check @/path/file1.txt and @/C:\\folder\\file2.txt and report any @problems to @git-changes'
       const matches = text.match(mentionRegexGlobal)
-      expect(matches).deep.eq([
-        '@/path/file1.txt',
-        '@/C:\\folder\\file2.txt',
-        '@problems',
-        '@git-changes'
-      ])
+      expect(matches).deep.eq(['@/path/file1.txt', '@/C:\\folder\\file2.txt', '@problems', '@git-changes'])
     })
   })
 
@@ -157,10 +146,7 @@ describe('Mention Regex', () => {
     it('handles special characters in file paths', () => {
       const cases: Array<[string, string]> = [
         ['@/path/with-dash/file_underscore.txt', '@/path/with-dash/file_underscore.txt'],
-        [
-          '@/C:\\folder+plus\\file(parens)[]brackets.txt',
-          '@/C:\\folder+plus\\file(parens)[]brackets.txt'
-        ],
+        ['@/C:\\folder+plus\\file(parens)[]brackets.txt', '@/C:\\folder+plus\\file(parens)[]brackets.txt'],
         ['@/path/with/file#hash%percent.txt', '@/path/with/file#hash%percent.txt'],
         ['@/path/with/file@symbol$dollar.txt', '@/path/with/file@symbol$dollar.txt']
       ]

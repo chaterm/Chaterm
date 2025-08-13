@@ -90,10 +90,7 @@ class CheckpointTracker {
    * Configuration:
    * - Respects 'cline.enableCheckpoints' VS Code setting
    */
-  public static async create(
-    taskId: string,
-    globalStoragePath: string | undefined
-  ): Promise<CheckpointTracker | undefined> {
+  public static async create(taskId: string, globalStoragePath: string | undefined): Promise<CheckpointTracker | undefined> {
     if (!globalStoragePath) {
       throw new Error('Global storage path is required to create a checkpoint tracker')
     }
@@ -102,8 +99,7 @@ class CheckpointTracker {
       const startTime = performance.now()
 
       // Check if checkpoints are disabled in VS Code settings
-      const enableCheckpoints =
-        vscode.workspace.getConfiguration('cline').get<boolean>('enableCheckpoints') ?? true
+      const enableCheckpoints = vscode.workspace.getConfiguration('cline').get<boolean>('enableCheckpoints') ?? true
       if (!enableCheckpoints) {
         return undefined // Don't create tracker when disabled
       }
@@ -121,11 +117,7 @@ class CheckpointTracker {
 
       const newTracker = new CheckpointTracker(globalStoragePath, taskId, workingDir, cwdHash)
 
-      const gitPath = await getShadowGitPath(
-        newTracker.globalStoragePath,
-        newTracker.taskId,
-        newTracker.cwdHash
-      )
+      const gitPath = await getShadowGitPath(newTracker.globalStoragePath, newTracker.taskId, newTracker.cwdHash)
       await newTracker.gitOperations.initShadowGit(gitPath, workingDir, taskId)
 
       const durationMs = Math.round(performance.now() - startTime)
@@ -197,9 +189,7 @@ class CheckpointTracker {
         taskId: this.taskId,
         error
       })
-      throw new Error(
-        `Failed to create checkpoint: ${error instanceof Error ? error.message : String(error)}`
-      )
+      throw new Error(`Failed to create checkpoint: ${error instanceof Error ? error.message : String(error)}`)
     }
   }
 
@@ -232,8 +222,7 @@ class CheckpointTracker {
     }
     try {
       const gitPath = await getShadowGitPath(this.globalStoragePath, this.taskId, this.cwdHash)
-      this.lastRetrievedShadowGitConfigWorkTree =
-        await this.gitOperations.getShadowGitConfigWorkTree(gitPath)
+      this.lastRetrievedShadowGitConfigWorkTree = await this.gitOperations.getShadowGitConfigWorkTree(gitPath)
       return this.lastRetrievedShadowGitConfigWorkTree
     } catch (error) {
       console.error('Failed to get shadow git config worktree:', error)
@@ -300,17 +289,13 @@ class CheckpointTracker {
     const gitPath = await getShadowGitPath(this.globalStoragePath, this.taskId, this.cwdHash)
     const git = simpleGit(path.dirname(gitPath))
 
-    console.info(
-      `Getting diff between commits: ${lhsHash || 'initial'} -> ${rhsHash || 'working directory'}`
-    )
+    console.info(`Getting diff between commits: ${lhsHash || 'initial'} -> ${rhsHash || 'working directory'}`)
 
     // Stage all changes so that untracked files appear in diff summary
     await this.gitOperations.addCheckpointFiles(git)
 
     const cleanRhs = rhsHash ? this.cleanCommitHash(rhsHash) : undefined
-    const diffRange = cleanRhs
-      ? `${this.cleanCommitHash(lhsHash)}..${cleanRhs}`
-      : this.cleanCommitHash(lhsHash)
+    const diffRange = cleanRhs ? `${this.cleanCommitHash(lhsHash)}..${cleanRhs}` : this.cleanCommitHash(lhsHash)
     console.info(`Diff range: ${diffRange}`)
     const diffSummary = await git.diffSummary([diffRange])
 
@@ -369,17 +354,13 @@ class CheckpointTracker {
     const gitPath = await getShadowGitPath(this.globalStoragePath, this.taskId, this.cwdHash)
     const git = simpleGit(path.dirname(gitPath))
 
-    console.info(
-      `Getting diff count between commits: ${lhsHash || 'initial'} -> ${rhsHash || 'working directory'}`
-    )
+    console.info(`Getting diff count between commits: ${lhsHash || 'initial'} -> ${rhsHash || 'working directory'}`)
 
     // Stage all changes so that untracked files appear in diff summary
     await this.gitOperations.addCheckpointFiles(git)
 
     const cleanRhs = rhsHash ? this.cleanCommitHash(rhsHash) : undefined
-    const diffRange = cleanRhs
-      ? `${this.cleanCommitHash(lhsHash)}..${cleanRhs}`
-      : this.cleanCommitHash(lhsHash)
+    const diffRange = cleanRhs ? `${this.cleanCommitHash(lhsHash)}..${cleanRhs}` : this.cleanCommitHash(lhsHash)
     const diffSummary = await git.diffSummary([diffRange])
 
     const durationMs = Math.round(performance.now() - startTime)

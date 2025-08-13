@@ -18,11 +18,7 @@ import os from 'os'
  * @returns Promise<string> The absolute path to the shadow git directory
  * @throws Error if global storage path is invalid
  */
-export async function getShadowGitPath(
-  globalStoragePath: string,
-  taskId: string,
-  cwdHash: string
-): Promise<string> {
+export async function getShadowGitPath(globalStoragePath: string, taskId: string, cwdHash: string): Promise<string> {
   if (!globalStoragePath) {
     throw new Error('Global storage uri is invalid')
   }

@@ -48,12 +48,7 @@ describe('StorageContext', () => {
     })
 
     test('keys should call keyStorage.getAllKeys and filter/map correctly', async () => {
-      ;(keyStorage.getAllKeys as jest.Mock).mockResolvedValueOnce([
-        'global_key1',
-        'global_key2',
-        'workspace_key3',
-        'secret_key4'
-      ])
+      ;(keyStorage.getAllKeys as jest.Mock).mockResolvedValueOnce(['global_key1', 'global_key2', 'workspace_key3', 'secret_key4'])
       const keys = await storageCtx.globalState.keys!()
       expect(keyStorage.getAllKeys).toHaveBeenCalled()
       expect(keys).toEqual(['key1', 'key2'])
@@ -90,12 +85,7 @@ describe('StorageContext', () => {
     })
 
     test('keys should call keyStorage.getAllKeys and filter/map correctly', async () => {
-      ;(keyStorage.getAllKeys as jest.Mock).mockResolvedValueOnce([
-        'global_key1',
-        'workspace_key2',
-        'workspace_key3',
-        'secret_key4'
-      ])
+      ;(keyStorage.getAllKeys as jest.Mock).mockResolvedValueOnce(['global_key1', 'workspace_key2', 'workspace_key3', 'secret_key4'])
       const keys = await storageCtx.workspaceState.keys!()
       expect(keyStorage.getAllKeys).toHaveBeenCalled()
       expect(keys).toEqual(['key2', 'key3'])

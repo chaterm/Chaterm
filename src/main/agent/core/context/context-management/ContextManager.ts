@@ -1,10 +1,6 @@
 import { getContextWindowInfo } from './context-window-utils'
 import { formatResponse } from '../../prompts/responses'
-import {
-  saveContextHistoryStorage,
-  ensureTaskExists,
-  getContextHistoryStorage
-} from '../../storage/disk'
+import { saveContextHistoryStorage, ensureTaskExists, getContextHistoryStorage } from '../../storage/disk'
 import * as path from 'path'
 import fs from 'fs/promises'
 import cloneDeep from 'clone-deep'
@@ -68,9 +64,7 @@ export class ContextManager {
   /**
    * get the stored context history updates from disk
    */
-  private async getContextHistory(
-    taskId: string
-  ): Promise<Map<number, [number, Map<number, ContextUpdate[]>]>> {
+  private async getContextHistory(taskId: string): Promise<Map<number, [number, Map<number, ContextUpdate[]>]>> {
     try {
       if (await ensureTaskExists(taskId)) {
         const data = await getContextHistoryStorage(taskId)
@@ -79,12 +73,7 @@ export class ContextManager {
         }
         const serializedUpdates = data as SerializedContextHistory
         // Update to properly reconstruct the tuple structure
-        return new Map(
-          serializedUpdates.map(([messageIndex, [numberValue, innerMapArray]]) => [
-            messageIndex,
-            [numberValue, new Map(innerMapArray)]
-          ])
-        )
+        return new Map(serializedUpdates.map(([messageIndex, [numberValue, innerMapArray]]) => [messageIndex, [numberValue, new Map(innerMapArray)]]))
       }
     } catch (error) {
       console.error('Failed to load context history:', error)
@@ -97,12 +86,9 @@ export class ContextManager {
    */
   private async saveContextHistory(taskId: string) {
     try {
-      const serializedUpdates: SerializedContextHistory = Array.from(
-        this.contextHistoryUpdates.entries()
-      ).map(([messageIndex, [numberValue, innerMap]]) => [
-        messageIndex,
-        [numberValue, Array.from(innerMap.entries())]
-      ])
+      const serializedUpdates: SerializedContextHistory = Array.from(this.contextHistoryUpdates.entries()).map(
+        ([messageIndex, [numberValue, innerMap]]) => [messageIndex, [numberValue, Array.from(innerMap.entries())]]
+      )
 
       saveContextHistoryStorage(taskId, JSON.stringify(serializedUpdates))
     } catch (error) {
@@ -128,11 +114,8 @@ export class ContextManager {
       const previousRequest = chatermMessages[previousApiReqIndex]
       if (previousRequest && previousRequest.text) {
         const timestamp = previousRequest.ts
-        const { tokensIn, tokensOut, cacheWrites, cacheReads }: ChatermApiReqInfo = JSON.parse(
-          previousRequest.text
-        )
-        const totalTokens =
-          (tokensIn || 0) + (tokensOut || 0) + (cacheWrites || 0) + (cacheReads || 0)
+        const { tokensIn, tokensOut, cacheWrites, cacheReads }: ChatermApiReqInfo = JSON.parse(previousRequest.text)
+        const totalTokens = (tokensIn || 0) + (tokensOut || 0) + (cacheWrites || 0) + (cacheReads || 0)
         const { maxAllowedSize } = getContextWindowInfo(api)
 
         // This is the most reliable way to know when we're close to hitting the context window.
@@ -163,15 +146,10 @@ export class ContextManager {
 
           if (needToTruncate) {
             // go ahead with truncation
-            anyContextUpdates =
-              this.applyStandardContextTruncationNoticeChange(timestamp) || anyContextUpdates
+            anyContextUpdates = this.applyStandardContextTruncationNoticeChange(timestamp) || anyContextUpdates
 
             // NOTE: it's okay that we overwriteConversationHistory in resume task since we're only ever removing the last user message and not anything in the middle which would affect this range
-            conversationHistoryDeletedRange = this.getNextTruncationRange(
-              apiConversationHistory,
-              conversationHistoryDeletedRange,
-              keep
-            )
+            conversationHistoryDeletedRange = this.getNextTruncationRange(apiConversationHistory, conversationHistoryDeletedRange, keep)
 
             updatedConversationHistoryDeletedRange = true
           }
@@ -184,10 +162,7 @@ export class ContextManager {
       }
     }
 
-    const truncatedConversationHistory = this.getAndAlterTruncatedMessages(
-      apiConversationHistory,
-      conversationHistoryDeletedRange
-    )
+    const truncatedConversationHistory = this.getAndAlterTruncatedMessages(apiConversationHistory, conversationHistoryDeletedRange)
 
     return {
       conversationHistoryDeletedRange: conversationHistoryDeletedRange,
@@ -262,10 +237,7 @@ export class ContextManager {
       return messages
     }
 
-    const updatedMessages = this.applyContextHistoryUpdates(
-      messages,
-      deletedRange ? deletedRange[1] + 1 : 2
-    )
+    const updatedMessages = this.applyContextHistoryUpdates(messages, deletedRange ? deletedRange[1] + 1 : 2)
 
     // OLD NOTE: if you try to console log these, don't forget that logging a reference to an array may not provide the same result as logging a slice() snapshot of that array at that exact moment. The following DOES in fact include the latest assistant message.
     return updatedMessages
@@ -274,10 +246,7 @@ export class ContextManager {
   /**
    * applies deletedRange truncation and other alterations based on changes in this.contextHistoryUpdates
    */
-  private applyContextHistoryUpdates(
-    messages: Anthropic.Messages.MessageParam[],
-    startFromIndex: number
-  ): Anthropic.Messages.MessageParam[] {
+  private applyContextHistoryUpdates(messages: Anthropic.Messages.MessageParam[], startFromIndex: number): Anthropic.Messages.MessageParam[] {
     // runtime is linear in length of user messages, if expecting a limited number of alterations, could be more optimal to loop over alterations
 
     const firstChunk = messages.slice(0, 2) // get first user-assistant pair
@@ -339,10 +308,7 @@ export class ContextManager {
    * alters the context history to remove all alterations after a given timestamp
    * removes the index if there are no alterations there anymore, both outer and inner indices
    */
-  private truncateContextHistoryAtTimestamp(
-    contextHistory: Map<number, [number, Map<number, ContextUpdate[]>]>,
-    timestamp: number
-  ): void {
+  private truncateContextHistoryAtTimestamp(contextHistory: Map<number, [number, Map<number, ContextUpdate[]>]>, timestamp: number): void {
     for (const [messageIndex, [_, innerMap]] of contextHistory) {
       // track which blockIndices to delete
       const blockIndicesToDelete: number[] = []
@@ -387,12 +353,11 @@ export class ContextManager {
     startFromIndex: number,
     timestamp: number
   ): [boolean, Set<number>] {
-    const [fileReadUpdatesBool, uniqueFileReadIndices] =
-      this.findAndPotentiallySaveFileReadContextHistoryUpdates(
-        apiMessages,
-        startFromIndex,
-        timestamp
-      )
+    const [fileReadUpdatesBool, uniqueFileReadIndices] = this.findAndPotentiallySaveFileReadContextHistoryUpdates(
+      apiMessages,
+      startFromIndex,
+      timestamp
+    )
 
     // true if any context optimization steps alter state
     const contextHistoryUpdated = fileReadUpdatesBool
@@ -434,16 +399,8 @@ export class ContextManager {
     startFromIndex: number,
     timestamp: number
   ): [boolean, Set<number>] {
-    const [fileReadIndices, messageFilePaths] = this.getPossibleDuplicateFileReads(
-      apiMessages,
-      startFromIndex
-    )
-    return this.applyFileReadContextHistoryUpdates(
-      fileReadIndices,
-      messageFilePaths,
-      apiMessages,
-      timestamp
-    )
+    const [fileReadIndices, messageFilePaths] = this.getPossibleDuplicateFileReads(apiMessages, startFromIndex)
+    return this.applyFileReadContextHistoryUpdates(fileReadIndices, messageFilePaths, apiMessages, timestamp)
   }
 
   /**
@@ -486,10 +443,7 @@ export class ContextManager {
             if (blockUpdates && blockUpdates.length > 0) {
               // the first list indicates the files we have replaced in this text, second list indicates all unique files in this text
               // if they are equal then we have replaced all the files in this text already, and can ignore further processing
-              if (
-                blockUpdates[blockUpdates.length - 1][3][0].length ===
-                blockUpdates[blockUpdates.length - 1][3][1].length
-              ) {
+              if (blockUpdates[blockUpdates.length - 1][3][0].length === blockUpdates[blockUpdates.length - 1][3][1].length) {
                 continue
               }
               // otherwise there are still file reads here we can overwrite, so still need to process this text chunk
@@ -519,12 +473,7 @@ export class ContextManager {
               if (message.content.length > 1) {
                 const secondBlock = message.content[1]
                 if (secondBlock.type === 'text') {
-                  this.handlePotentialFileChangeToolCalls(
-                    i,
-                    matchTup[1],
-                    secondBlock.text,
-                    fileReadIndices
-                  )
+                  this.handlePotentialFileChangeToolCalls(i, matchTup[1], secondBlock.text, fileReadIndices)
                   foundNormalFileRead = true
                 }
               }
@@ -611,11 +560,7 @@ export class ContextManager {
   /**
    * file_read tool call always pastes the file, so this is always a hit
    */
-  private handleReadFileToolCall(
-    i: number,
-    filePath: string,
-    fileReadIndices: Map<string, [number, number, string, string][]>
-  ) {
+  private handleReadFileToolCall(i: number, filePath: string, fileReadIndices: Map<string, [number, number, string, string][]>) {
     const indices = fileReadIndices.get(filePath) || []
     indices.push([i, EditType.READ_FILE_TOOL, '', formatResponse.duplicateFileReadNotice()])
     fileReadIndices.set(filePath, indices)
@@ -630,16 +575,11 @@ export class ContextManager {
     secondBlockText: string,
     fileReadIndices: Map<string, [number, number, string, string][]>
   ) {
-    const pattern = new RegExp(
-      `(<final_file_content path="[^"]*">)[\\s\\S]*?(</final_file_content>)`
-    )
+    const pattern = new RegExp(`(<final_file_content path="[^"]*">)[\\s\\S]*?(</final_file_content>)`)
 
     // check if this exists in the text, it won't exist if the user rejects the file change for example
     if (pattern.test(secondBlockText)) {
-      const replacementText = secondBlockText.replace(
-        pattern,
-        `$1 ${formatResponse.duplicateFileReadNotice()} $2`
-      )
+      const replacementText = secondBlockText.replace(pattern, `$1 ${formatResponse.duplicateFileReadNotice()} $2`)
       const indices = fileReadIndices.get(filePath) || []
       indices.push([i, EditType.ALTER_FILE_TOOL, '', replacementText])
       fileReadIndices.set(filePath, indices)
@@ -861,12 +801,7 @@ export class ContextManager {
     uniqueFileReadIndices: Set<number>
   ): number {
     // count for first user-assistant message pair
-    const firstChunkResult = this.countCharactersAndSavingsInRange(
-      apiMessages,
-      0,
-      2,
-      uniqueFileReadIndices
-    )
+    const firstChunkResult = this.countCharactersAndSavingsInRange(apiMessages, 0, 2, uniqueFileReadIndices)
 
     // count for the remaining in-range messages
     const secondChunkResult = this.countCharactersAndSavingsInRange(
@@ -877,11 +812,9 @@ export class ContextManager {
     )
 
     const totalCharacters = firstChunkResult.totalCharacters + secondChunkResult.totalCharacters
-    const totalCharactersSaved =
-      firstChunkResult.charactersSaved + secondChunkResult.charactersSaved
+    const totalCharactersSaved = firstChunkResult.charactersSaved + secondChunkResult.charactersSaved
 
-    const percentCharactersSaved =
-      totalCharacters === 0 ? 0 : totalCharactersSaved / totalCharacters
+    const percentCharactersSaved = totalCharacters === 0 ? 0 : totalCharactersSaved / totalCharacters
 
     return percentCharactersSaved
   }

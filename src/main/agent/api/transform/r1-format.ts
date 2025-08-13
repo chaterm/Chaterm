@@ -9,15 +9,10 @@ import OpenAI from 'openai'
  * @param messages Array of Anthropic messages
  * @returns Array of OpenAI messages where consecutive messages with the same role are merged together
  */
-export function convertToR1Format(
-  messages: Anthropic.Messages.MessageParam[]
-): OpenAI.Chat.ChatCompletionMessageParam[] {
+export function convertToR1Format(messages: Anthropic.Messages.MessageParam[]): OpenAI.Chat.ChatCompletionMessageParam[] {
   return messages.reduce<OpenAI.Chat.ChatCompletionMessageParam[]>((merged, message) => {
     const lastMessage = merged[merged.length - 1]
-    let messageContent:
-      | string
-      | (OpenAI.Chat.ChatCompletionContentPartText | OpenAI.Chat.ChatCompletionContentPartImage)[] =
-      ''
+    let messageContent: string | (OpenAI.Chat.ChatCompletionContentPartText | OpenAI.Chat.ChatCompletionContentPartImage)[] = ''
     let hasImages = false
 
     if (Array.isArray(message.content)) {
@@ -38,10 +33,7 @@ export function convertToR1Format(
       })
 
       if (hasImages) {
-        const parts: (
-          | OpenAI.Chat.ChatCompletionContentPartText
-          | OpenAI.Chat.ChatCompletionContentPartImage
-        )[] = []
+        const parts: (OpenAI.Chat.ChatCompletionContentPartText | OpenAI.Chat.ChatCompletionContentPartImage)[] = []
         if (textParts.length > 0) {
           parts.push({ type: 'text', text: textParts.join('\n') })
         }
@@ -59,25 +51,15 @@ export function convertToR1Format(
       if (typeof lastMessage.content === 'string' && typeof messageContent === 'string') {
         lastMessage.content += `\n${messageContent}`
       } else {
-        const lastContent = Array.isArray(lastMessage.content)
-          ? lastMessage.content
-          : [{ type: 'text' as const, text: lastMessage.content || '' }]
+        const lastContent = Array.isArray(lastMessage.content) ? lastMessage.content : [{ type: 'text' as const, text: lastMessage.content || '' }]
 
-        const newContent = Array.isArray(messageContent)
-          ? messageContent
-          : [{ type: 'text' as const, text: messageContent }]
+        const newContent = Array.isArray(messageContent) ? messageContent : [{ type: 'text' as const, text: messageContent }]
 
         if (message.role === 'assistant') {
-          const mergedContent = [
-            ...lastContent,
-            ...newContent
-          ] as OpenAI.Chat.ChatCompletionAssistantMessageParam['content']
+          const mergedContent = [...lastContent, ...newContent] as OpenAI.Chat.ChatCompletionAssistantMessageParam['content']
           lastMessage.content = mergedContent
         } else {
-          const mergedContent = [
-            ...lastContent,
-            ...newContent
-          ] as OpenAI.Chat.ChatCompletionUserMessageParam['content']
+          const mergedContent = [...lastContent, ...newContent] as OpenAI.Chat.ChatCompletionUserMessageParam['content']
           lastMessage.content = mergedContent
         }
       }

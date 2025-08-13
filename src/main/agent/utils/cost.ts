@@ -98,10 +98,7 @@ export function calculateApiCostOpenAI(
   const cacheCreationInputTokensNum = cacheCreationInputTokens || 0
   const cacheReadInputTokensNum = cacheReadInputTokens || 0
   // Calculate non-cached tokens for the internal function's 'inputTokens' parameter
-  const nonCachedInputTokens = Math.max(
-    0,
-    inputTokens - cacheCreationInputTokensNum - cacheReadInputTokensNum
-  )
+  const nonCachedInputTokens = Math.max(0, inputTokens - cacheCreationInputTokensNum - cacheReadInputTokensNum)
   // Pass the original 'inputTokens' as 'totalInputTokensForPricing' for tier lookup
   return calculateApiCostInternal(
     modelInfo,

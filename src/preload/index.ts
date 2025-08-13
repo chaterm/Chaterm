@@ -409,6 +409,7 @@ const api = {
   userSnippetOperation,
   refreshOrganizationAssets,
   updateOrganizationAssetFavorite,
+  setDataSyncEnabled: (enabled: boolean) => ipcRenderer.invoke('data-sync:set-enabled', enabled),
   maximizeWindow: () => ipcRenderer.invoke('window:maximize'),
   unmaximizeWindow: () => ipcRenderer.invoke('window:unmaximize'),
   isMaximized: () => ipcRenderer.invoke('window:is-maximized'),

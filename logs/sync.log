@@ -1,0 +1,226 @@
+{"timestamp":"2025-08-12T09:55:03.814Z","level":"info","message":"全量同步定时器初始化完成，间隔: 1小时","deviceId":"device-default"}
+{"timestamp":"2025-08-12T09:55:03.815Z","level":"info","message":"开始清理全量同步定时器资源...","deviceId":"device-default"}
+{"timestamp":"2025-08-12T09:55:03.816Z","level":"info","message":"全量同步定时器资源已清理完成","deviceId":"device-default"}
+{"timestamp":"2025-08-12T09:55:03.816Z","level":"info","message":"全量同步定时器初始化完成，间隔: 1小时","deviceId":"device-default"}
+{"timestamp":"2025-08-12T09:55:03.844Z","level":"info","message":"全量同步定时器已启动，间隔: 1小时，下次执行: 8/12/2025, 6:55:03 PM","deviceId":"device-default"}
+{"timestamp":"2025-08-12T09:55:03.845Z","level":"info","message":"开始停止全量同步定时器...","deviceId":"device-default"}
+{"timestamp":"2025-08-12T09:55:03.845Z","level":"info","message":"全量同步定时器已停止","deviceId":"device-default"}
+{"timestamp":"2025-08-12T09:55:03.845Z","level":"info","message":"开始清理全量同步定时器资源...","deviceId":"device-default"}
+{"timestamp":"2025-08-12T09:55:03.845Z","level":"info","message":"全量同步定时器资源已清理完成","deviceId":"device-default"}
+{"timestamp":"2025-08-12T09:55:03.845Z","level":"info","message":"全量同步定时器初始化完成，间隔: 1小时","deviceId":"device-default"}
+{"timestamp":"2025-08-12T09:55:03.845Z","level":"info","message":"手动触发全量同步...","deviceId":"device-default"}
+{"timestamp":"2025-08-12T09:55:03.846Z","level":"info","message":"开始执行定时全量同步...","deviceId":"device-default"}
+{"timestamp":"2025-08-12T09:55:03.846Z","level":"info","message":"定时全量同步完成，耗时: 0秒","deviceId":"device-default"}
+{"timestamp":"2025-08-12T09:55:03.846Z","level":"info","message":"开始清理全量同步定时器资源...","deviceId":"device-default"}
+{"timestamp":"2025-08-12T09:55:03.846Z","level":"info","message":"全量同步定时器资源已清理完成","deviceId":"device-default"}
+{"timestamp":"2025-08-12T09:55:03.846Z","level":"info","message":"全量同步定时器初始化完成，间隔: 1小时","deviceId":"device-default"}
+{"timestamp":"2025-08-12T09:55:03.846Z","level":"info","message":"全量同步定时器初始化完成，间隔: 1小时","deviceId":"device-default"}
+{"timestamp":"2025-08-12T09:55:03.846Z","level":"info","message":"手动触发全量同步...","deviceId":"device-default"}
+{"timestamp":"2025-08-12T09:55:03.846Z","level":"info","message":"开始执行定时全量同步...","deviceId":"device-default"}
+{"timestamp":"2025-08-12T09:55:03.846Z","level":"error","message":"定时全量同步失败，耗时: 0秒","deviceId":"device-default","meta":"Sync failed"}
+{"timestamp":"2025-08-12T09:55:03.846Z","level":"info","message":"开始清理全量同步定时器资源...","deviceId":"device-default"}
+{"timestamp":"2025-08-12T09:55:03.846Z","level":"info","message":"全量同步定时器资源已清理完成","deviceId":"device-default"}
+{"timestamp":"2025-08-12T09:55:03.846Z","level":"info","message":"开始清理全量同步定时器资源...","deviceId":"device-default"}
+{"timestamp":"2025-08-12T09:55:03.846Z","level":"info","message":"全量同步定时器资源已清理完成","deviceId":"device-default"}
+{"timestamp":"2025-08-12T09:55:03.847Z","level":"info","message":"全量同步定时器初始化完成，间隔: 1小时","deviceId":"device-default"}
+{"timestamp":"2025-08-12T09:55:03.847Z","level":"info","message":"全量同步定时器间隔已更新: 1小时 -> 2小时","deviceId":"device-default"}
+{"timestamp":"2025-08-12T09:55:03.847Z","level":"info","message":"开始清理全量同步定时器资源...","deviceId":"device-default"}
+{"timestamp":"2025-08-12T09:55:03.847Z","level":"info","message":"全量同步定时器资源已清理完成","deviceId":"device-default"}
+{"timestamp":"2025-08-12T09:55:03.847Z","level":"info","message":"全量同步定时器初始化完成，间隔: 1小时","deviceId":"device-default"}
+{"timestamp":"2025-08-12T09:55:03.848Z","level":"info","message":"开始清理全量同步定时器资源...","deviceId":"device-default"}
+{"timestamp":"2025-08-12T09:55:03.848Z","level":"info","message":"全量同步定时器资源已清理完成","deviceId":"device-default"}
+{"timestamp":"2025-08-12T09:55:03.848Z","level":"info","message":"全量同步定时器初始化完成，间隔: 1小时","deviceId":"device-default"}
+{"timestamp":"2025-08-12T09:55:03.848Z","level":"info","message":"全量同步定时器初始化完成，间隔: 1小时","deviceId":"device-default"}
+{"timestamp":"2025-08-12T09:55:03.848Z","level":"info","message":"全量同步定时器已启动，间隔: 1小时，下次执行: 8/12/2025, 6:55:03 PM","deviceId":"device-default"}
+{"timestamp":"2025-08-12T09:55:03.848Z","level":"info","message":"开始清理全量同步定时器资源...","deviceId":"device-default"}
+{"timestamp":"2025-08-12T09:55:03.848Z","level":"info","message":"开始停止全量同步定时器...","deviceId":"device-default"}
+{"timestamp":"2025-08-12T09:55:03.848Z","level":"info","message":"全量同步定时器已停止","deviceId":"device-default"}
+{"timestamp":"2025-08-12T09:55:03.848Z","level":"info","message":"全量同步定时器资源已清理完成","deviceId":"device-default"}
+{"timestamp":"2025-08-12T09:55:03.848Z","level":"info","message":"开始清理全量同步定时器资源...","deviceId":"device-default"}
+{"timestamp":"2025-08-12T09:55:03.848Z","level":"info","message":"全量同步定时器资源已清理完成","deviceId":"device-default"}
+{"timestamp":"2025-08-12T09:55:03.848Z","level":"info","message":"全量同步定时器初始化完成，间隔: 1小时","deviceId":"device-default"}
+{"timestamp":"2025-08-12T09:55:03.848Z","level":"info","message":"全量同步定时器初始化完成，间隔: 1小时","deviceId":"device-default"}
+{"timestamp":"2025-08-12T09:55:03.849Z","level":"info","message":"开始清理全量同步定时器资源...","deviceId":"device-default"}
+{"timestamp":"2025-08-12T09:55:03.849Z","level":"info","message":"全量同步定时器资源已清理完成","deviceId":"device-default"}
+{"timestamp":"2025-08-12T09:55:03.849Z","level":"info","message":"开始清理全量同步定时器资源...","deviceId":"device-default"}
+{"timestamp":"2025-08-12T09:55:03.849Z","level":"info","message":"全量同步定时器资源已清理完成","deviceId":"device-default"}
+{"timestamp":"2025-08-12T09:55:03.849Z","level":"info","message":"全量同步定时器初始化完成，间隔: 1小时","deviceId":"device-default"}
+{"timestamp":"2025-08-12T09:55:03.849Z","level":"info","message":"全量同步定时器初始化完成，间隔: 1小时","deviceId":"device-default"}
+{"timestamp":"2025-08-12T09:55:03.849Z","level":"info","message":"手动触发全量同步...","deviceId":"device-default"}
+{"timestamp":"2025-08-12T09:55:03.849Z","level":"info","message":"开始执行定时全量同步...","deviceId":"device-default"}
+{"timestamp":"2025-08-12T09:55:03.849Z","level":"warn","message":"全量同步正在进行中，跳过本次请求","deviceId":"device-default"}
+{"timestamp":"2025-08-12T09:55:03.962Z","level":"info","message":"定时全量同步完成，耗时: 0秒","deviceId":"device-default"}
+{"timestamp":"2025-08-12T09:55:03.964Z","level":"info","message":"开始清理全量同步定时器资源...","deviceId":"device-default"}
+{"timestamp":"2025-08-12T09:55:03.964Z","level":"info","message":"全量同步定时器资源已清理完成","deviceId":"device-default"}
+{"timestamp":"2025-08-12T09:55:03.964Z","level":"info","message":"开始清理全量同步定时器资源...","deviceId":"device-default"}
+{"timestamp":"2025-08-12T09:55:03.964Z","level":"info","message":"全量同步定时器资源已清理完成","deviceId":"device-default"}
+{"timestamp":"2025-08-12T09:55:03.965Z","level":"info","message":"全量同步定时器初始化完成，间隔: 1小时","deviceId":"device-default"}
+{"timestamp":"2025-08-12T09:55:03.965Z","level":"info","message":"全量同步定时器已启动，间隔: 1小时，下次执行: 8/12/2025, 6:55:03 PM","deviceId":"device-default"}
+{"timestamp":"2025-08-12T09:55:03.965Z","level":"info","message":"开始清理全量同步定时器资源...","deviceId":"device-default"}
+{"timestamp":"2025-08-12T09:55:03.965Z","level":"info","message":"开始停止全量同步定时器...","deviceId":"device-default"}
+{"timestamp":"2025-08-12T09:55:03.965Z","level":"info","message":"全量同步定时器已停止","deviceId":"device-default"}
+{"timestamp":"2025-08-12T09:55:03.965Z","level":"info","message":"全量同步定时器资源已清理完成","deviceId":"device-default"}
+{"timestamp":"2025-08-12T09:55:03.965Z","level":"info","message":"开始清理全量同步定时器资源...","deviceId":"device-default"}
+{"timestamp":"2025-08-12T09:55:03.965Z","level":"info","message":"全量同步定时器资源已清理完成","deviceId":"device-default"}
+{"timestamp":"2025-08-12T10:00:15.375Z","level":"info","message":"全量同步定时器初始化完成，间隔: 1小时","deviceId":"device-default"}
+{"timestamp":"2025-08-12T10:00:15.376Z","level":"info","message":"开始清理全量同步定时器资源...","deviceId":"device-default"}
+{"timestamp":"2025-08-12T10:00:15.376Z","level":"info","message":"全量同步定时器资源已清理完成","deviceId":"device-default"}
+{"timestamp":"2025-08-12T10:00:15.377Z","level":"info","message":"全量同步定时器初始化完成，间隔: 1小时","deviceId":"device-default"}
+{"timestamp":"2025-08-12T10:00:15.400Z","level":"info","message":"全量同步定时器已启动，间隔: 1小时，下次执行: 8/12/2025, 7:00:15 PM","deviceId":"device-default"}
+{"timestamp":"2025-08-12T10:00:15.400Z","level":"info","message":"开始停止全量同步定时器...","deviceId":"device-default"}
+{"timestamp":"2025-08-12T10:00:15.400Z","level":"info","message":"全量同步定时器已停止","deviceId":"device-default"}
+{"timestamp":"2025-08-12T10:00:15.400Z","level":"info","message":"开始清理全量同步定时器资源...","deviceId":"device-default"}
+{"timestamp":"2025-08-12T10:00:15.400Z","level":"info","message":"全量同步定时器资源已清理完成","deviceId":"device-default"}
+{"timestamp":"2025-08-12T10:00:15.401Z","level":"info","message":"全量同步定时器初始化完成，间隔: 1小时","deviceId":"device-default"}
+{"timestamp":"2025-08-12T10:00:15.401Z","level":"info","message":"手动触发全量同步...","deviceId":"device-default"}
+{"timestamp":"2025-08-12T10:00:15.401Z","level":"info","message":"开始执行定时全量同步...","deviceId":"device-default"}
+{"timestamp":"2025-08-12T10:00:15.401Z","level":"info","message":"定时全量同步完成，耗时: 0秒","deviceId":"device-default"}
+{"timestamp":"2025-08-12T10:00:15.401Z","level":"info","message":"开始清理全量同步定时器资源...","deviceId":"device-default"}
+{"timestamp":"2025-08-12T10:00:15.401Z","level":"info","message":"全量同步定时器资源已清理完成","deviceId":"device-default"}
+{"timestamp":"2025-08-12T10:00:15.401Z","level":"info","message":"全量同步定时器初始化完成，间隔: 1小时","deviceId":"device-default"}
+{"timestamp":"2025-08-12T10:00:15.401Z","level":"info","message":"全量同步定时器初始化完成，间隔: 1小时","deviceId":"device-default"}
+{"timestamp":"2025-08-12T10:00:15.401Z","level":"info","message":"手动触发全量同步...","deviceId":"device-default"}
+{"timestamp":"2025-08-12T10:00:15.401Z","level":"info","message":"开始执行定时全量同步...","deviceId":"device-default"}
+{"timestamp":"2025-08-12T10:00:15.402Z","level":"error","message":"定时全量同步失败，耗时: 0秒","deviceId":"device-default","meta":"Sync failed"}
+{"timestamp":"2025-08-12T10:00:15.402Z","level":"info","message":"开始清理全量同步定时器资源...","deviceId":"device-default"}
+{"timestamp":"2025-08-12T10:00:15.402Z","level":"info","message":"全量同步定时器资源已清理完成","deviceId":"device-default"}
+{"timestamp":"2025-08-12T10:00:15.402Z","level":"info","message":"开始清理全量同步定时器资源...","deviceId":"device-default"}
+{"timestamp":"2025-08-12T10:00:15.402Z","level":"info","message":"全量同步定时器资源已清理完成","deviceId":"device-default"}
+{"timestamp":"2025-08-12T10:00:15.402Z","level":"info","message":"全量同步定时器初始化完成，间隔: 1小时","deviceId":"device-default"}
+{"timestamp":"2025-08-12T10:00:15.402Z","level":"info","message":"全量同步定时器间隔已更新: 1小时 -> 2小时","deviceId":"device-default"}
+{"timestamp":"2025-08-12T10:00:15.402Z","level":"info","message":"开始清理全量同步定时器资源...","deviceId":"device-default"}
+{"timestamp":"2025-08-12T10:00:15.402Z","level":"info","message":"全量同步定时器资源已清理完成","deviceId":"device-default"}
+{"timestamp":"2025-08-12T10:00:15.402Z","level":"info","message":"全量同步定时器初始化完成，间隔: 1小时","deviceId":"device-default"}
+{"timestamp":"2025-08-12T10:00:15.403Z","level":"info","message":"开始清理全量同步定时器资源...","deviceId":"device-default"}
+{"timestamp":"2025-08-12T10:00:15.403Z","level":"info","message":"全量同步定时器资源已清理完成","deviceId":"device-default"}
+{"timestamp":"2025-08-12T10:00:15.403Z","level":"info","message":"全量同步定时器初始化完成，间隔: 1小时","deviceId":"device-default"}
+{"timestamp":"2025-08-12T10:00:15.403Z","level":"info","message":"全量同步定时器初始化完成，间隔: 1小时","deviceId":"device-default"}
+{"timestamp":"2025-08-12T10:00:15.403Z","level":"info","message":"全量同步定时器已启动，间隔: 1小时，下次执行: 8/12/2025, 7:00:15 PM","deviceId":"device-default"}
+{"timestamp":"2025-08-12T10:00:15.403Z","level":"info","message":"开始清理全量同步定时器资源...","deviceId":"device-default"}
+{"timestamp":"2025-08-12T10:00:15.403Z","level":"info","message":"开始停止全量同步定时器...","deviceId":"device-default"}
+{"timestamp":"2025-08-12T10:00:15.403Z","level":"info","message":"全量同步定时器已停止","deviceId":"device-default"}
+{"timestamp":"2025-08-12T10:00:15.403Z","level":"info","message":"全量同步定时器资源已清理完成","deviceId":"device-default"}
+{"timestamp":"2025-08-12T10:00:15.403Z","level":"info","message":"开始清理全量同步定时器资源...","deviceId":"device-default"}
+{"timestamp":"2025-08-12T10:00:15.403Z","level":"info","message":"全量同步定时器资源已清理完成","deviceId":"device-default"}
+{"timestamp":"2025-08-12T10:00:15.403Z","level":"info","message":"全量同步定时器初始化完成，间隔: 1小时","deviceId":"device-default"}
+{"timestamp":"2025-08-12T10:00:15.403Z","level":"info","message":"全量同步定时器初始化完成，间隔: 1小时","deviceId":"device-default"}
+{"timestamp":"2025-08-12T10:00:15.403Z","level":"info","message":"开始清理全量同步定时器资源...","deviceId":"device-default"}
+{"timestamp":"2025-08-12T10:00:15.404Z","level":"info","message":"全量同步定时器资源已清理完成","deviceId":"device-default"}
+{"timestamp":"2025-08-12T10:00:15.404Z","level":"info","message":"开始清理全量同步定时器资源...","deviceId":"device-default"}
+{"timestamp":"2025-08-12T10:00:15.404Z","level":"info","message":"全量同步定时器资源已清理完成","deviceId":"device-default"}
+{"timestamp":"2025-08-12T10:00:15.404Z","level":"info","message":"全量同步定时器初始化完成，间隔: 1小时","deviceId":"device-default"}
+{"timestamp":"2025-08-12T10:00:15.404Z","level":"info","message":"全量同步定时器初始化完成，间隔: 1小时","deviceId":"device-default"}
+{"timestamp":"2025-08-12T10:00:15.404Z","level":"info","message":"手动触发全量同步...","deviceId":"device-default"}
+{"timestamp":"2025-08-12T10:00:15.404Z","level":"info","message":"开始执行定时全量同步...","deviceId":"device-default"}
+{"timestamp":"2025-08-12T10:00:15.404Z","level":"warn","message":"全量同步正在进行中，跳过本次请求","deviceId":"device-default"}
+{"timestamp":"2025-08-12T10:00:15.506Z","level":"info","message":"定时全量同步完成，耗时: 0秒","deviceId":"device-default"}
+{"timestamp":"2025-08-12T10:00:15.506Z","level":"info","message":"开始清理全量同步定时器资源...","deviceId":"device-default"}
+{"timestamp":"2025-08-12T10:00:15.506Z","level":"info","message":"全量同步定时器资源已清理完成","deviceId":"device-default"}
+{"timestamp":"2025-08-12T10:00:15.506Z","level":"info","message":"开始清理全量同步定时器资源...","deviceId":"device-default"}
+{"timestamp":"2025-08-12T10:00:15.506Z","level":"info","message":"全量同步定时器资源已清理完成","deviceId":"device-default"}
+{"timestamp":"2025-08-12T10:00:15.507Z","level":"info","message":"全量同步定时器初始化完成，间隔: 1小时","deviceId":"device-default"}
+{"timestamp":"2025-08-12T10:00:15.507Z","level":"info","message":"全量同步定时器已启动，间隔: 1小时，下次执行: 8/12/2025, 7:00:15 PM","deviceId":"device-default"}
+{"timestamp":"2025-08-12T10:00:15.507Z","level":"info","message":"开始清理全量同步定时器资源...","deviceId":"device-default"}
+{"timestamp":"2025-08-12T10:00:15.507Z","level":"info","message":"开始停止全量同步定时器...","deviceId":"device-default"}
+{"timestamp":"2025-08-12T10:00:15.507Z","level":"info","message":"全量同步定时器已停止","deviceId":"device-default"}
+{"timestamp":"2025-08-12T10:00:15.507Z","level":"info","message":"全量同步定时器资源已清理完成","deviceId":"device-default"}
+{"timestamp":"2025-08-12T10:00:15.507Z","level":"info","message":"开始清理全量同步定时器资源...","deviceId":"device-default"}
+{"timestamp":"2025-08-12T10:00:15.507Z","level":"info","message":"全量同步定时器资源已清理完成","deviceId":"device-default"}
+{"timestamp":"2025-08-12T10:00:15.507Z","level":"info","message":"全量同步定时器初始化完成，间隔: 1小时","deviceId":"device-default"}
+{"timestamp":"2025-08-12T10:00:15.507Z","level":"info","message":"手动触发全量同步...","deviceId":"device-default"}
+{"timestamp":"2025-08-12T10:00:15.507Z","level":"warn","message":"检测到增量同步正在进行中，跳过本次全量同步","deviceId":"device-default"}
+{"timestamp":"2025-08-12T10:00:15.512Z","level":"info","message":"开始清理全量同步定时器资源...","deviceId":"device-default"}
+{"timestamp":"2025-08-12T10:00:15.512Z","level":"info","message":"全量同步定时器资源已清理完成","deviceId":"device-default"}
+{"timestamp":"2025-08-12T10:00:15.513Z","level":"info","message":"全量同步定时器初始化完成，间隔: 1小时","deviceId":"device-default"}
+{"timestamp":"2025-08-12T10:00:15.513Z","level":"info","message":"手动触发全量同步...","deviceId":"device-default"}
+{"timestamp":"2025-08-12T10:00:15.513Z","level":"info","message":"开始执行定时全量同步...","deviceId":"device-default"}
+{"timestamp":"2025-08-12T10:00:15.513Z","level":"info","message":"定时全量同步完成，耗时: 0秒","deviceId":"device-default"}
+{"timestamp":"2025-08-12T10:00:15.513Z","level":"info","message":"开始清理全量同步定时器资源...","deviceId":"device-default"}
+{"timestamp":"2025-08-12T10:00:15.513Z","level":"info","message":"全量同步定时器资源已清理完成","deviceId":"device-default"}
+{"timestamp":"2025-08-12T10:00:15.513Z","level":"info","message":"全量同步定时器初始化完成，间隔: 1小时","deviceId":"device-default"}
+{"timestamp":"2025-08-12T10:00:15.513Z","level":"info","message":"全量同步定时器初始化完成，间隔: 1小时","deviceId":"device-default"}
+{"timestamp":"2025-08-12T10:00:15.513Z","level":"info","message":"开始清理全量同步定时器资源...","deviceId":"device-default"}
+{"timestamp":"2025-08-12T10:00:15.513Z","level":"info","message":"全量同步定时器资源已清理完成","deviceId":"device-default"}
+{"timestamp":"2025-08-12T10:00:15.513Z","level":"info","message":"开始清理全量同步定时器资源...","deviceId":"device-default"}
+{"timestamp":"2025-08-12T10:00:15.514Z","level":"info","message":"全量同步定时器资源已清理完成","deviceId":"device-default"}
+{"timestamp":"2025-08-12T10:00:38.310Z","level":"info","message":"全量同步定时器初始化完成，间隔: 1小时","deviceId":"device-default"}
+{"timestamp":"2025-08-12T10:00:38.311Z","level":"info","message":"开始清理全量同步定时器资源...","deviceId":"device-default"}
+{"timestamp":"2025-08-12T10:00:38.312Z","level":"info","message":"全量同步定时器资源已清理完成","deviceId":"device-default"}
+{"timestamp":"2025-08-12T10:00:38.312Z","level":"info","message":"全量同步定时器初始化完成，间隔: 1小时","deviceId":"device-default"}
+{"timestamp":"2025-08-12T10:00:38.341Z","level":"info","message":"全量同步定时器已启动，间隔: 1小时，下次执行: 8/12/2025, 7:00:38 PM","deviceId":"device-default"}
+{"timestamp":"2025-08-12T10:00:38.341Z","level":"info","message":"开始停止全量同步定时器...","deviceId":"device-default"}
+{"timestamp":"2025-08-12T10:00:38.341Z","level":"info","message":"全量同步定时器已停止","deviceId":"device-default"}
+{"timestamp":"2025-08-12T10:00:38.341Z","level":"info","message":"开始清理全量同步定时器资源...","deviceId":"device-default"}
+{"timestamp":"2025-08-12T10:00:38.341Z","level":"info","message":"全量同步定时器资源已清理完成","deviceId":"device-default"}
+{"timestamp":"2025-08-12T10:00:38.341Z","level":"info","message":"全量同步定时器初始化完成，间隔: 1小时","deviceId":"device-default"}
+{"timestamp":"2025-08-12T10:00:38.342Z","level":"info","message":"手动触发全量同步...","deviceId":"device-default"}
+{"timestamp":"2025-08-12T10:00:38.342Z","level":"info","message":"开始执行定时全量同步...","deviceId":"device-default"}
+{"timestamp":"2025-08-12T10:00:38.342Z","level":"info","message":"定时全量同步完成，耗时: 0秒","deviceId":"device-default"}
+{"timestamp":"2025-08-12T10:00:38.342Z","level":"info","message":"开始清理全量同步定时器资源...","deviceId":"device-default"}
+{"timestamp":"2025-08-12T10:00:38.342Z","level":"info","message":"全量同步定时器资源已清理完成","deviceId":"device-default"}
+{"timestamp":"2025-08-12T10:00:38.342Z","level":"info","message":"全量同步定时器初始化完成，间隔: 1小时","deviceId":"device-default"}
+{"timestamp":"2025-08-12T10:00:38.342Z","level":"info","message":"全量同步定时器初始化完成，间隔: 1小时","deviceId":"device-default"}
+{"timestamp":"2025-08-12T10:00:38.342Z","level":"info","message":"手动触发全量同步...","deviceId":"device-default"}
+{"timestamp":"2025-08-12T10:00:38.342Z","level":"info","message":"开始执行定时全量同步...","deviceId":"device-default"}
+{"timestamp":"2025-08-12T10:00:38.342Z","level":"error","message":"定时全量同步失败，耗时: 0秒","deviceId":"device-default","meta":"Sync failed"}
+{"timestamp":"2025-08-12T10:00:38.343Z","level":"info","message":"开始清理全量同步定时器资源...","deviceId":"device-default"}
+{"timestamp":"2025-08-12T10:00:38.343Z","level":"info","message":"全量同步定时器资源已清理完成","deviceId":"device-default"}
+{"timestamp":"2025-08-12T10:00:38.343Z","level":"info","message":"开始清理全量同步定时器资源...","deviceId":"device-default"}
+{"timestamp":"2025-08-12T10:00:38.343Z","level":"info","message":"全量同步定时器资源已清理完成","deviceId":"device-default"}
+{"timestamp":"2025-08-12T10:00:38.343Z","level":"info","message":"全量同步定时器初始化完成，间隔: 1小时","deviceId":"device-default"}
+{"timestamp":"2025-08-12T10:00:38.343Z","level":"info","message":"全量同步定时器间隔已更新: 1小时 -> 2小时","deviceId":"device-default"}
+{"timestamp":"2025-08-12T10:00:38.343Z","level":"info","message":"开始清理全量同步定时器资源...","deviceId":"device-default"}
+{"timestamp":"2025-08-12T10:00:38.343Z","level":"info","message":"全量同步定时器资源已清理完成","deviceId":"device-default"}
+{"timestamp":"2025-08-12T10:00:38.343Z","level":"info","message":"全量同步定时器初始化完成，间隔: 1小时","deviceId":"device-default"}
+{"timestamp":"2025-08-12T10:00:38.344Z","level":"info","message":"开始清理全量同步定时器资源...","deviceId":"device-default"}
+{"timestamp":"2025-08-12T10:00:38.344Z","level":"info","message":"全量同步定时器资源已清理完成","deviceId":"device-default"}
+{"timestamp":"2025-08-12T10:00:38.344Z","level":"info","message":"全量同步定时器初始化完成，间隔: 1小时","deviceId":"device-default"}
+{"timestamp":"2025-08-12T10:00:38.344Z","level":"info","message":"全量同步定时器初始化完成，间隔: 1小时","deviceId":"device-default"}
+{"timestamp":"2025-08-12T10:00:38.344Z","level":"info","message":"全量同步定时器已启动，间隔: 1小时，下次执行: 8/12/2025, 7:00:38 PM","deviceId":"device-default"}
+{"timestamp":"2025-08-12T10:00:38.344Z","level":"info","message":"开始清理全量同步定时器资源...","deviceId":"device-default"}
+{"timestamp":"2025-08-12T10:00:38.344Z","level":"info","message":"开始停止全量同步定时器...","deviceId":"device-default"}
+{"timestamp":"2025-08-12T10:00:38.344Z","level":"info","message":"全量同步定时器已停止","deviceId":"device-default"}
+{"timestamp":"2025-08-12T10:00:38.344Z","level":"info","message":"全量同步定时器资源已清理完成","deviceId":"device-default"}
+{"timestamp":"2025-08-12T10:00:38.344Z","level":"info","message":"开始清理全量同步定时器资源...","deviceId":"device-default"}
+{"timestamp":"2025-08-12T10:00:38.344Z","level":"info","message":"全量同步定时器资源已清理完成","deviceId":"device-default"}
+{"timestamp":"2025-08-12T10:00:38.345Z","level":"info","message":"全量同步定时器初始化完成，间隔: 1小时","deviceId":"device-default"}
+{"timestamp":"2025-08-12T10:00:38.345Z","level":"info","message":"全量同步定时器初始化完成，间隔: 1小时","deviceId":"device-default"}
+{"timestamp":"2025-08-12T10:00:38.345Z","level":"info","message":"开始清理全量同步定时器资源...","deviceId":"device-default"}
+{"timestamp":"2025-08-12T10:00:38.345Z","level":"info","message":"全量同步定时器资源已清理完成","deviceId":"device-default"}
+{"timestamp":"2025-08-12T10:00:38.345Z","level":"info","message":"开始清理全量同步定时器资源...","deviceId":"device-default"}
+{"timestamp":"2025-08-12T10:00:38.345Z","level":"info","message":"全量同步定时器资源已清理完成","deviceId":"device-default"}
+{"timestamp":"2025-08-12T10:00:38.345Z","level":"info","message":"全量同步定时器初始化完成，间隔: 1小时","deviceId":"device-default"}
+{"timestamp":"2025-08-12T10:00:38.345Z","level":"info","message":"全量同步定时器初始化完成，间隔: 1小时","deviceId":"device-default"}
+{"timestamp":"2025-08-12T10:00:38.345Z","level":"info","message":"手动触发全量同步...","deviceId":"device-default"}
+{"timestamp":"2025-08-12T10:00:38.345Z","level":"info","message":"开始执行定时全量同步...","deviceId":"device-default"}
+{"timestamp":"2025-08-12T10:00:38.345Z","level":"warn","message":"全量同步正在进行中，跳过本次请求","deviceId":"device-default"}
+{"timestamp":"2025-08-12T10:00:38.447Z","level":"info","message":"定时全量同步完成，耗时: 0秒","deviceId":"device-default"}
+{"timestamp":"2025-08-12T10:00:38.447Z","level":"info","message":"开始清理全量同步定时器资源...","deviceId":"device-default"}
+{"timestamp":"2025-08-12T10:00:38.447Z","level":"info","message":"全量同步定时器资源已清理完成","deviceId":"device-default"}
+{"timestamp":"2025-08-12T10:00:38.447Z","level":"info","message":"开始清理全量同步定时器资源...","deviceId":"device-default"}
+{"timestamp":"2025-08-12T10:00:38.447Z","level":"info","message":"全量同步定时器资源已清理完成","deviceId":"device-default"}
+{"timestamp":"2025-08-12T10:00:38.448Z","level":"info","message":"全量同步定时器初始化完成，间隔: 1小时","deviceId":"device-default"}
+{"timestamp":"2025-08-12T10:00:38.448Z","level":"info","message":"全量同步定时器已启动，间隔: 1小时，下次执行: 8/12/2025, 7:00:38 PM","deviceId":"device-default"}
+{"timestamp":"2025-08-12T10:00:38.448Z","level":"info","message":"开始清理全量同步定时器资源...","deviceId":"device-default"}
+{"timestamp":"2025-08-12T10:00:38.448Z","level":"info","message":"开始停止全量同步定时器...","deviceId":"device-default"}
+{"timestamp":"2025-08-12T10:00:38.448Z","level":"info","message":"全量同步定时器已停止","deviceId":"device-default"}
+{"timestamp":"2025-08-12T10:00:38.448Z","level":"info","message":"全量同步定时器资源已清理完成","deviceId":"device-default"}
+{"timestamp":"2025-08-12T10:00:38.448Z","level":"info","message":"开始清理全量同步定时器资源...","deviceId":"device-default"}
+{"timestamp":"2025-08-12T10:00:38.448Z","level":"info","message":"全量同步定时器资源已清理完成","deviceId":"device-default"}
+{"timestamp":"2025-08-12T10:00:38.448Z","level":"info","message":"全量同步定时器初始化完成，间隔: 1小时","deviceId":"device-default"}
+{"timestamp":"2025-08-12T10:00:38.448Z","level":"info","message":"手动触发全量同步...","deviceId":"device-default"}
+{"timestamp":"2025-08-12T10:00:38.449Z","level":"warn","message":"检测到增量同步正在进行中，跳过本次全量同步","deviceId":"device-default"}
+{"timestamp":"2025-08-12T10:00:38.449Z","level":"info","message":"开始清理全量同步定时器资源...","deviceId":"device-default"}
+{"timestamp":"2025-08-12T10:00:38.449Z","level":"info","message":"全量同步定时器资源已清理完成","deviceId":"device-default"}
+{"timestamp":"2025-08-12T10:00:38.449Z","level":"info","message":"全量同步定时器初始化完成，间隔: 1小时","deviceId":"device-default"}
+{"timestamp":"2025-08-12T10:00:38.449Z","level":"info","message":"手动触发全量同步...","deviceId":"device-default"}
+{"timestamp":"2025-08-12T10:00:38.449Z","level":"info","message":"开始执行定时全量同步...","deviceId":"device-default"}
+{"timestamp":"2025-08-12T10:00:38.449Z","level":"info","message":"定时全量同步完成，耗时: 0秒","deviceId":"device-default"}
+{"timestamp":"2025-08-12T10:00:38.449Z","level":"info","message":"开始清理全量同步定时器资源...","deviceId":"device-default"}
+{"timestamp":"2025-08-12T10:00:38.449Z","level":"info","message":"全量同步定时器资源已清理完成","deviceId":"device-default"}
+{"timestamp":"2025-08-12T10:00:38.449Z","level":"info","message":"全量同步定时器初始化完成，间隔: 1小时","deviceId":"device-default"}
+{"timestamp":"2025-08-12T10:00:38.449Z","level":"info","message":"全量同步定时器初始化完成，间隔: 1小时","deviceId":"device-default"}
+{"timestamp":"2025-08-12T10:00:38.449Z","level":"info","message":"开始清理全量同步定时器资源...","deviceId":"device-default"}
+{"timestamp":"2025-08-12T10:00:38.449Z","level":"info","message":"全量同步定时器资源已清理完成","deviceId":"device-default"}
+{"timestamp":"2025-08-12T10:00:38.449Z","level":"info","message":"开始清理全量同步定时器资源...","deviceId":"device-default"}
+{"timestamp":"2025-08-12T10:00:38.449Z","level":"info","message":"全量同步定时器资源已清理完成","deviceId":"device-default"}

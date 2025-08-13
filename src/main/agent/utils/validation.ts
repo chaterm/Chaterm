@@ -11,10 +11,7 @@ import { anthropicModels } from '@shared/api'
  * @param maxTokens The maximum tokens for the current model
  * @returns The validated thinking budget token value
  */
-export function validateThinkingBudget(
-  value: number,
-  maxTokens: number = anthropicModels['claude-3-7-sonnet-20250219'].maxTokens
-): number {
+export function validateThinkingBudget(value: number, maxTokens: number = anthropicModels['claude-3-7-sonnet-20250219'].maxTokens): number {
   // If disabled (0), return as is
   if (value === 0) {
     return 0

@@ -3,11 +3,7 @@ import os from 'os'
 import * as path from 'path'
 import { arePathsEqual } from '@utils/path'
 
-export async function listFiles(
-  dirPath: string,
-  recursive: boolean,
-  limit: number
-): Promise<[string[], boolean]> {
+export async function listFiles(dirPath: string, recursive: boolean, limit: number): Promise<[string[], boolean]> {
   // First resolve the path normally - path.resolve doesn't care about glob special characters
   const absolutePath = path.resolve(dirPath)
   // Do not allow listing files in root or home directory, which cline tends to want to do when the user's prompt is vague.
@@ -54,9 +50,7 @@ export async function listFiles(
 
   // * globs all files in one dir, ** globs files in nested directories
   // For non-recursive listing, we still use a simple pattern
-  const filePaths = recursive
-    ? await globbyLevelByLevel(limit, options)
-    : (await globby('*', options)).slice(0, limit)
+  const filePaths = recursive ? await globbyLevelByLevel(limit, options) : (await globby('*', options)).slice(0, limit)
 
   return [filePaths, filePaths.length >= limit]
 }

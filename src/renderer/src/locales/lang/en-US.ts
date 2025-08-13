@@ -48,6 +48,7 @@ export default {
     allExecuted: 'All Executed',
     pleaseLoginFirst: 'Please login first',
     select: 'Select',
+    rightArrowKey: 'Right arrow to suggestion',
     reset: 'Reset',
     confirm: 'Confirm',
     ok: 'OK',

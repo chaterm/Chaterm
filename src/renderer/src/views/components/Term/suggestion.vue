@@ -2,7 +2,7 @@
   <div
     v-if="suggestions.length"
     :id="uniqueKey"
-    class="suggestions"
+    :class="['suggestions', { 'selection-mode': selectionMode }]"
   >
     <div
       v-for="(suggestion, index) in suggestions"
@@ -28,14 +28,31 @@
         <kbd class="key esc-key">Esc</kbd>
         {{ $t('common.close') }}
       </div>
-      <div class="hint-item">
+      <!-- 未进入选择模式：不允许确认，提示右键选中 -->
+      <div
+        v-if="!selectionMode"
+        class="hint-item"
+      >
+        <div class="key-group">
+          <kbd class="key">→</kbd>
+        </div>
+        {{ $t('common.rightArrowKey') }}
+      </div>
+      <div
+        v-if="selectionMode"
+        class="hint-item"
+      >
         <div class="key-group">
           <kbd class="key">↑</kbd>
           <kbd class="key">↓</kbd>
         </div>
         {{ $t('common.select') }}
       </div>
-      <div class="hint-item">
+      <!-- 仅当已有选中项时才显示确认 -->
+      <div
+        v-if="selectionMode && activeSuggestion >= 0"
+        class="hint-item"
+      >
         <kbd class="key enter-key">↵</kbd>
         {{ $t('common.confirm') }}
       </div>
@@ -55,6 +72,7 @@ const props = defineProps<{
   suggestions: CommandSuggestion[]
   uniqueKey: string
   activeSuggestion: number
+  selectionMode: boolean
 }>()
 
 const updateSuggestionsPosition = (term) => {
@@ -77,14 +95,17 @@ const updateSuggestionsPosition = (term) => {
   // 计算提示框的高度
   const hintBoxHeight = hintBox.offsetHeight
 
-  // 判断是否应该显示在光标上方
-  const shouldShowAbove = y + hintBoxHeight > containerHeight
+  // 设置缓冲距离，避免遮挡命令内容
+  const bufferDistance = charHeight * 0.2 // 0.2个字符高度的缓冲距离
+
+  // 判断是否应该显示在光标上方（考虑缓冲距离）
+  const shouldShowAbove = y + hintBoxHeight + bufferDistance > containerHeight
 
   // 设置提示框位置
   hintBox.style.left = `${x}px`
   hintBox.style.top = shouldShowAbove
-    ? `${y - hintBoxHeight}px` // 显示在光标上方
-    : `${y + charHeight}px` // 显示在光标下方
+    ? `${y - hintBoxHeight - bufferDistance}px` // 显示在光标上方，增加缓冲距离
+    : `${y + charHeight + bufferDistance}px` // 显示在光标下方，增加缓冲距离
 }
 defineExpose({ updateSuggestionsPosition })
 </script>
@@ -100,7 +121,14 @@ defineExpose({ updateSuggestionsPosition })
   font-family: monospace;
   z-index: 1000;
   max-width: 500px;
+  border: 2px solid transparent;
+  transition: border-color 0.2s ease-in-out;
   /* 确保提示框在终端内容上方 */
+}
+
+.suggestions.selection-mode {
+  border-color: #52c41a;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
 }
 
 .suggestions div {

@@ -57,10 +57,8 @@ export function createServiceRegistry(serviceName: string) {
   const registry = new ServiceRegistry(serviceName)
 
   return {
-    registerMethod: (methodName: string, handler: ServiceMethodHandler) =>
-      registry.registerMethod(methodName, handler),
+    registerMethod: (methodName: string, handler: ServiceMethodHandler) => registry.registerMethod(methodName, handler),
 
-    handleRequest: (controller: Controller, method: string, message: any) =>
-      registry.handleRequest(controller, method, message)
+    handleRequest: (controller: Controller, method: string, message: any) => registry.handleRequest(controller, method, message)
   }
 }
