@@ -364,8 +364,17 @@ const updateOrganizationAssetFavorite = async (data: { organizationUuid: string;
     return Promise.reject(error)
   }
 }
+const getSystemInfo = async (id: string) => {
+  try {
+    const result = await ipcRenderer.invoke('ssh:get-system-info', { id })
+    return result
+  } catch (error) {
+    return Promise.reject(error)
+  }
+}
 
 const api = {
+  getSystemInfo,
   getLocalIP,
   getMacAddress,
   removeCookie,

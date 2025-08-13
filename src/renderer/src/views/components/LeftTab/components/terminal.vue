@@ -219,7 +219,7 @@ const columns = [
   }
 ]
 
-// 加载保存的配置
+// Load saved configuration
 const loadSavedConfig = async () => {
   try {
     const savedConfig = await userConfigStore.getConfig()
@@ -232,8 +232,8 @@ const loadSavedConfig = async () => {
   } catch (error) {
     console.error('Failed to load config:', error)
     notification.error({
-      message: '加载配置失败',
-      description: '将使用默认配置'
+      message: t('user.loadConfigFailed'),
+      description: t('user.loadConfigFailedDescription')
     })
   }
 }
@@ -347,8 +347,8 @@ const saveConfig = async () => {
   } catch (error) {
     console.error('Failed to save config:', error)
     notification.error({
-      message: 'Error',
-      description: 'Failed to save configuration'
+      message: t('user.error'),
+      description: t('user.saveConfigFailedDescription')
     })
   }
 }
@@ -536,12 +536,6 @@ onMounted(async () => {
   color: #40a9ff;
   text-decoration: underline;
 }
-
-/* .mouse-event-container {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-} */
 
 .mouse-event-row {
   margin-bottom: 10px;

@@ -453,12 +453,12 @@ const checkLoadingDeepSeek = ref(false)
 const checkLoadingOpenAI = ref(false)
 const addModelSwitch = ref(false)
 
-// 加载保存的配置
+// Load saved configuration
 const loadSavedConfig = async () => {
   try {
-    // 加载API相关配置
+    // Load API related configuration
     // apiProvider.value = ((await getGlobalState('apiProvider')) as string) || 'litellm'
-    //aws信息
+    // AWS information
     // apiModelId.value = ((await getGlobalState('apiModelId')) as string) || ''
     awsRegion.value = ((await getGlobalState('awsRegion')) as string) || ''
     awsUseCrossRegionInference.value = ((await getGlobalState('awsUseCrossRegionInference')) as boolean) || false
@@ -466,7 +466,7 @@ const loadSavedConfig = async () => {
     awsAccessKey.value = (await getSecret('awsAccessKey')) || ''
     awsSecretKey.value = (await getSecret('awsSecretKey')) || ''
     awsSessionToken.value = (await getSecret('awsSessionToken')) || ''
-    //openai信息
+    // OpenAI information
     liteLlmBaseUrl.value = ((await getGlobalState('liteLlmBaseUrl')) as string) || ''
     liteLlmApiKey.value = (await getSecret('liteLlmApiKey')) || ''
     deepSeekApiKey.value = (await getSecret('deepSeekApiKey')) || ''
@@ -482,7 +482,7 @@ const loadSavedConfig = async () => {
   }
 }
 
-// 根据不同provider保存对应配置
+// Save configuration for different providers
 const saveBedrockConfig = async () => {
   try {
     await updateGlobalState('awsRegion', awsRegion.value)
@@ -495,8 +495,8 @@ const saveBedrockConfig = async () => {
   } catch (error) {
     console.error('Failed to save Bedrock config:', error)
     notification.error({
-      message: 'Error',
-      description: 'Failed to save Bedrock configuration'
+      message: t('user.error'),
+      description: t('user.saveBedrockConfigFailed')
     })
   }
 }
@@ -508,8 +508,8 @@ const saveLiteLlmConfig = async () => {
   } catch (error) {
     console.error('Failed to save LiteLLM config:', error)
     notification.error({
-      message: 'Error',
-      description: 'Failed to save LiteLLM configuration'
+      message: t('user.error'),
+      description: t('user.saveLiteLlmConfigFailed')
     })
   }
 }
@@ -520,8 +520,8 @@ const saveDeepSeekConfig = async () => {
   } catch (error) {
     console.error('Failed to save DeepSeek config:', error)
     notification.error({
-      message: 'Error',
-      description: 'Failed to save DeepSeek configuration'
+      message: t('user.error'),
+      description: t('user.saveDeepSeekConfigFailed')
     })
   }
 }
@@ -533,19 +533,19 @@ const saveOpenAiConfig = async () => {
   } catch (error) {
     console.error('Failed to save OpenAI config:', error)
     notification.error({
-      message: 'Error',
-      description: 'Failed to save OpenAI configuration'
+      message: t('user.error'),
+      description: t('user.saveOpenAiConfigFailed')
     })
   }
 }
 
-// 组件挂载时加载保存的配置
+// Load saved configuration when component is mounted
 onMounted(async () => {
   await loadSavedConfig()
   await loadModelOptions()
 })
 
-// 组件卸载前保存配置
+// Save configuration before component unmounts
 onBeforeUnmount(async () => {})
 
 const isEmptyValue = (value) => value === undefined || value === ''
@@ -587,7 +587,7 @@ const handleCheck = async (provider) => {
     return 'SEND_ERROR'
   }
 
-  // 设置对应的loading状态,check参数
+  // Set corresponding loading state, check parameters
   let checkParam = await getAllExtensionState()
   console.log('[handleCheck] getAllExtensionState.apiConfiguration', checkParam?.apiConfiguration)
   let checkApiConfiguration = checkParam?.apiConfiguration
@@ -632,11 +632,11 @@ const handleCheck = async (provider) => {
       break
   }
 
-  // 覆盖checkApiConfiguration的内容
+  // Override checkApiConfiguration content
   checkApiConfiguration = { ...checkApiConfiguration, ...checkOptions }
   try {
     console.log('[validateApiKey] checkApiConfiguration', checkApiConfiguration)
-    // 确保传递正确的参数格式
+    // Ensure correct parameter format is passed
     const result = await (window.api as any).validateApiKey(checkApiConfiguration)
     if (result.isValid) {
       notification.success({
@@ -658,7 +658,7 @@ const handleCheck = async (provider) => {
       duration: 3
     })
   } finally {
-    // 重置loading状态
+    // Reset loading state
     checkLoadingBedrock.value = false
     checkLoadingLiteLLM.value = false
     checkLoadingDeepSeek.value = false
@@ -688,7 +688,7 @@ const removeModel = (model) => {
 
 const saveModelOptions = async () => {
   try {
-    // 创建一个简单的可序列化对象数组
+    // Create a simple serializable object array
     const serializableModelOptions = modelOptions.value.map((model) => ({
       id: model.id,
       name: model.name,
@@ -708,7 +708,7 @@ const saveModelOptions = async () => {
   }
 }
 
-// 对模型列表进行排序：内置模型在前，用户自定义模型在后
+// Sort model list: built-in models first, user-defined models last
 const sortModelOptions = () => {
   modelOptions.value.sort((a, b) => {
     const aIsThinking = a.name.endsWith('-Thinking')
@@ -717,11 +717,11 @@ const sortModelOptions = () => {
     if (aIsThinking && !bIsThinking) return -1
     if (!aIsThinking && bIsThinking) return 1
 
-    // 首先按模型类型排序：standard (内置) 在前，custom (用户自定义) 在后
+    // First sort by model type: standard (built-in) first, custom (user-defined) last
     if (a.type === 'standard' && b.type === 'custom') return -1
     if (a.type === 'custom' && b.type === 'standard') return 1
 
-    // 如果类型相同，按名称字母顺序排序
+    // If types are the same, sort by name alphabetically
     return a.name.localeCompare(b.name)
   })
 }
@@ -736,13 +736,13 @@ const loadModelOptions = async () => {
     })
     const savedModelOptions = (await getGlobalState('modelOptions')) || []
     if (savedModelOptions && Array.isArray(savedModelOptions)) {
-      // 1. 过滤掉 type=='standard' 且不存在于 defaultModels 中的模型
+      // 1. Filter out models that type=='standard' and do not exist in defaultModels
       const filteredOptions = savedModelOptions.filter((option) => {
         if (option.type !== 'standard') return true
         return defaultModels.some((defaultModel) => defaultModel === option.name)
       })
 
-      // 2. 添加 defaultModels 中不存在于 savedModelOptions 的模型
+      // 2. Add models that do not exist in savedModelOptions in defaultModels
       defaultModels.forEach((defaultModel) => {
         const exists = filteredOptions.some((option) => option.name === defaultModel)
         if (!exists) {
@@ -756,7 +756,7 @@ const loadModelOptions = async () => {
         }
       })
 
-      // 确保加载的数据包含所有必要的属性
+      // Ensure loaded data contains all necessary properties
       modelOptions.value = filteredOptions.map((option) => ({
         id: option.id || '',
         name: option.name || '',
@@ -765,7 +765,7 @@ const loadModelOptions = async () => {
         apiProvider: option.apiProvider || 'default'
       }))
 
-      // 排序模型列表：内置模型在前，用户自定义模型在后
+      // Sort model list: built-in models first, user-defined models last
       sortModelOptions()
     }
     await saveModelOptions()
@@ -774,7 +774,7 @@ const loadModelOptions = async () => {
   }
 }
 
-// 处理保存新模型
+// Handle saving new model
 const handleSave = async (provider) => {
   let modelId = ''
   let modelName = ''
@@ -798,7 +798,7 @@ const handleSave = async (provider) => {
       break
   }
 
-  // 检查模型 ID 或名称是否为空
+  // Check if model ID or name is empty
   if (!modelId || !modelName) {
     notification.error({
       message: t('user.checkModelConfigFailMessage'),
@@ -807,7 +807,7 @@ const handleSave = async (provider) => {
     })
     return
   }
-  // 检查是否已存在同名模型
+  // Check if a model with the same name already exists
   const existingModel = modelOptions.value.find((model) => model.name === modelName)
   if (existingModel) {
     notification.error({
@@ -818,7 +818,7 @@ const handleSave = async (provider) => {
     return
   }
 
-  // 根据provider保存对应配置
+  // Save corresponding configuration based on provider
   switch (provider) {
     case 'bedrock':
       await saveBedrockConfig()
@@ -834,7 +834,7 @@ const handleSave = async (provider) => {
       break
   }
 
-  // 添加新模型
+  // Add new model
   const newModel = {
     id: modelId,
     name: modelName,
@@ -845,7 +845,7 @@ const handleSave = async (provider) => {
 
   modelOptions.value.push(newModel)
 
-  // 重新排序模型列表，确保内置模型在前，用户自定义模型在后
+  // Re-sort model list, ensuring built-in models first, user-defined models last
   sortModelOptions()
 
   await saveModelOptions()
@@ -899,7 +899,7 @@ const handleSave = async (provider) => {
   color: var(--text-color-tertiary);
 }
 
-// 统一组件样式
+// Unified component styles
 :deep(.ant-checkbox-wrapper),
 :deep(.ant-form-item-label label),
 :deep(.ant-select),
@@ -925,7 +925,7 @@ const handleSave = async (provider) => {
   }
 }
 
-// 密码输入框特定样式
+// Password input specific styles
 :deep(.ant-input-password) {
   .ant-input {
     background-color: var(--bg-color-octonary) !important;
@@ -940,7 +940,7 @@ const handleSave = async (provider) => {
   }
 }
 
-// 添加选择框的特定样式
+// Add specific styles for select box
 :deep(.ant-select) {
   .ant-select-selector {
     background-color: var(--bg-color-octonary) !important;
@@ -964,7 +964,7 @@ const handleSave = async (provider) => {
   border-color: #1890ff !important;
 }
 
-// 下拉菜单样式
+// Dropdown menu styles
 :deep(.ant-select-dropdown) {
   background-color: var(--bg-color-octonary);
   border: 1px solid rgba(255, 255, 255, 0.15);
@@ -975,7 +975,7 @@ const handleSave = async (provider) => {
 
     &-option-active,
     &-option-selected {
-      color: var(--text-color-secondary) !important; // 添加选中项的文字颜色
+      color: var(--text-color-secondary) !important; // Add selected item text color
       background-color: rgba(24, 144, 255, 0.2);
     }
 
@@ -986,7 +986,7 @@ const handleSave = async (provider) => {
   }
 }
 
-// 选择框中已选项的颜色
+// Color of selected items in select box
 :deep(.ant-select-selection-item) {
   color: var(--text-color-secondary) !important;
 }
@@ -1012,17 +1012,17 @@ const handleSave = async (provider) => {
 
   :deep(.ant-slider) {
     margin: 0;
-    // 轨道样式
+    // Track styles
     .ant-slider-rail {
       background-color: var(--bg-color-octonary);
     }
 
-    // 已选择部分的轨道样式
+    // Styles for selected portion of track
     .ant-slider-track {
       background-color: #1890ff;
     }
 
-    // 滑块手柄样式
+    // Slider handle styles
     .ant-slider-handle {
       width: 16px;
       height: 16px;
@@ -1051,17 +1051,17 @@ const handleSave = async (provider) => {
   margin-top: 4px;
 }
 
-// 减小表单项之间的间距
+// Reduce spacing between form items
 :deep(.ant-form-item) {
-  margin-bottom: 8px; // 减小底部边距
+  margin-bottom: 8px; // Reduce bottom margin
 }
 
-// 减小label和输入框之间的间距
+// Reduce spacing between label and input box
 :deep(.ant-form-item-label) {
-  padding-bottom: 0; // 移除label的底部padding
+  padding-bottom: 0; // Remove label bottom padding
   > label {
-    height: 24px; // 减小label高度
-    line-height: 24px; // 调整行高以匹配高度
+    height: 24px; // Reduce label height
+    line-height: 24px; // Adjust line height to match height
   }
 }
 
@@ -1084,11 +1084,11 @@ const handleSave = async (provider) => {
 
     &.user {
       align-self: flex-end;
-      background-color: var(--text-color-senary); // 浅灰色背景
-      color: var(--text-color); // 白色文字
-      border: none; // 移除边框
-      width: 90%; // 父组件的90%宽度
-      margin-left: auto; // 靠右对齐
+      background-color: var(--text-color-senary); // Light gray background
+      color: var(--text-color); // White text
+      border: none; // Remove border
+      width: 90%; // Parent component's 90% width
+      margin-left: auto; // Right align
     }
 
     &.assistant {
@@ -1216,18 +1216,18 @@ const handleSave = async (provider) => {
 
   :deep(.ant-switch) {
     background-color: var(--bg-color-octonary);
-    transition: background-color 0.1s ease !important; // 减少过渡时间
+    transition: background-color 0.1s ease !important; // Reduce transition time
 
     &.ant-switch-checked {
       background-color: #1890ff;
 
       &:hover:not(.ant-switch-disabled) {
-        background-color: #1890ff; // 选中状态下悬浮保持蓝色
+        background-color: #1890ff; // Keep blue when hovered in selected state
       }
     }
 
     &:hover:not(.ant-switch-disabled):not(.ant-switch-checked) {
-      background-color: var(--bg-color-octonary); // 未选中状态下悬浮保持灰色
+      background-color: var(--bg-color-octonary); // Keep gray when hovered in unselected state
     }
   }
 }

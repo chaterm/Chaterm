@@ -1,89 +1,38 @@
 import Database from 'better-sqlite3'
-import { logger } from '../utils/logger'
 import { Asset, AssetChain, ChangeRecord } from '../models/SyncTypes'
-import { v4 as uuidv4 } from 'uuid'
 
 export class DatabaseManager {
   private db: Database.Database
+  // 预编译常用SQL语句以提高性能
+  private markSyncedStmt: Database.Statement
+  private markConflictStmt: Database.Statement
+  private updateVersionStmt: Database.Statement
+  private updateChainVersionStmt: Database.Statement
+
   constructor(private dbPath: string) {
     this.db = new Database(dbPath)
     this.db.pragma('journal_mode = WAL')
     this.db.pragma('synchronous = NORMAL')
+
+    // 预编译常用SQL语句
+    this.markSyncedStmt = this.db.prepare(`UPDATE change_log SET sync_status = 'synced' WHERE id = ?`)
+    this.markConflictStmt = this.db.prepare(`UPDATE change_log SET sync_status = 'failed', error_message = ? WHERE id = ?`)
+    this.updateVersionStmt = this.db.prepare(`UPDATE t_assets SET version = ?, updated_at = datetime('now') WHERE uuid = ?`)
+    this.updateChainVersionStmt = this.db.prepare(`UPDATE t_asset_chains SET version = ?, updated_at = datetime('now') WHERE uuid = ?`)
+
     this.ensureMetaTables()
     this.ensureChangeTriggers()
   }
 
   private ensureMetaTables() {
-    // 创建业务基础表（若不存在）
-    this.db.exec(`
-      CREATE TABLE IF NOT EXISTS t_assets (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-        label TEXT,
-        asset_ip TEXT,
-        group_name TEXT,
-        uuid TEXT UNIQUE,
-        auth_type TEXT,
-        port INTEGER,
-        username TEXT,
-        password TEXT,
-        key_chain_id INTEGER,
-        favorite INTEGER,
-        asset_type TEXT,
-        version INTEGER NOT NULL DEFAULT 1
-      );
-    `)
-
-    this.db.exec(`
-      CREATE TABLE IF NOT EXISTS t_asset_chains (
-        key_chain_id INTEGER PRIMARY KEY AUTOINCREMENT,
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-        chain_name TEXT,
-        chain_type TEXT,
-        chain_private_key TEXT,
-        chain_public_key TEXT,
-        passphrase TEXT,
-        uuid TEXT UNIQUE,
-        version INTEGER NOT NULL DEFAULT 1
-      );
-    `)
-
-    // 元数据与同步管理表
-    this.db.exec(`
-      CREATE TABLE IF NOT EXISTS sync_status (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        table_name TEXT NOT NULL,
-        last_sync_time TEXT,
-        updated_at TEXT DEFAULT (datetime('now'))
-      );
-    `)
-
-    this.db.exec(`
-      CREATE TABLE IF NOT EXISTS change_log (
-        id TEXT PRIMARY KEY,
-        table_name TEXT NOT NULL,
-        record_uuid TEXT NOT NULL,
-        operation_type TEXT NOT NULL,
-        change_data TEXT,
-        before_data TEXT,
-        created_at TEXT DEFAULT (datetime('now')),
-        sync_status TEXT DEFAULT 'pending',
-        retry_count INTEGER DEFAULT 0,
-        error_message TEXT
-      );
-    `)
-
-    this.db.exec(`
-      CREATE TABLE IF NOT EXISTS sync_meta (
-        key TEXT PRIMARY KEY,
-        value TEXT
-      );
-    `)
+    // 同步相关的表和索引已在数据库服务初始化时自动检测并创建
+    // 这里不需要额外操作
   }
 
-  // 控制是否记录触发器（用于应用远端变更时抑制回声）
+  /**
+   * 控制是否记录触发器（用于应用远端变更时抑制回声）
+   * @param enabled 是否启用远程应用保护
+   */
   setRemoteApplyGuard(enabled: boolean) {
     const flag = enabled ? '1' : null
     // 创建/更新标记
@@ -266,6 +215,10 @@ export class DatabaseManager {
     return rows as AssetChain[]
   }
 
+  /**
+   * 获取待同步的变更记录
+   * @returns 待同步的变更记录数组
+   */
   getPendingChanges(): ChangeRecord[] {
     const stmt = this.db.prepare(`
       SELECT * FROM change_log WHERE sync_status = 'pending' ORDER BY datetime(created_at) ASC
@@ -312,30 +265,43 @@ export class DatabaseManager {
     return result?.count || 0
   }
 
+  /**
+   * 标记变更记录为已同步
+   * @param ids 变更记录ID数组
+   */
   markChangesSynced(ids: string[]) {
     if (ids.length === 0) return
-    const stmt = this.db.prepare(`UPDATE change_log SET sync_status = 'synced' WHERE id = ?`)
     const trx = this.db.transaction((ids: string[]) => {
-      for (const id of ids) stmt.run(id)
+      for (const id of ids) this.markSyncedStmt.run(id)
     })
     trx(ids)
   }
 
+  /**
+   * 标记变更记录为冲突状态
+   * @param ids 变更记录ID数组
+   * @param reason 冲突原因
+   */
   markChangesConflict(ids: string[], reason: string) {
     if (ids.length === 0) return
-    const stmt = this.db.prepare(`UPDATE change_log SET sync_status = 'failed', error_message = ? WHERE id = ?`)
     const trx = this.db.transaction((ids: string[]) => {
-      for (const id of ids) stmt.run(reason, id)
+      for (const id of ids) this.markConflictStmt.run(reason, id)
     })
     trx(ids)
   }
 
+  /**
+   * 更新记录版本号
+   * @param tableName 表名
+   * @param uuid 记录UUID
+   * @param currentVersion 当前版本号
+   */
   bumpVersion(tableName: string, uuid: string, currentVersion: number) {
     if (!uuid || !currentVersion) return
     if (tableName === 't_assets_sync') {
-      this.db.prepare(`UPDATE t_assets SET version = ?, updated_at = datetime('now') WHERE uuid = ?`).run(currentVersion + 1, uuid)
+      this.updateVersionStmt.run(currentVersion + 1, uuid)
     } else if (tableName === 't_asset_chains_sync') {
-      this.db.prepare(`UPDATE t_asset_chains SET version = ?, updated_at = datetime('now') WHERE uuid = ?`).run(currentVersion + 1, uuid)
+      this.updateChainVersionStmt.run(currentVersion + 1, uuid)
     }
   }
 

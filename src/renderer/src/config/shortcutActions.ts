@@ -84,5 +84,16 @@ export const shortcutActions: Omit<ShortcutAction, 'name'>[] = [
     handler: () => {
       eventBus.emit('switchToSpecificTab')
     }
+  },
+  {
+    id: 'openCommandDialog',
+    nameKey: 'shortcuts.actions.openCommandDialog',
+    defaultKey: {
+      mac: 'Command+K',
+      other: 'Ctrl+K'
+    },
+    handler: () => {
+      eventBus.emit('openCommandDialog')
+    }
   }
 ]

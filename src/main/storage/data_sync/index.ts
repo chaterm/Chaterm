@@ -14,6 +14,17 @@ export async function startDataSync(dbPath?: string): Promise<SyncController> {
     logger.warn('加密初始化失败', e?.message)
   }
 
+  // 强制检查加密服务是否就绪；未就绪则停止同步启动
+  try {
+    if (!controller.isEncryptionReady()) {
+      const status = controller.getEncryptionStatus()
+      throw new Error(`Envelope encryption not ready, aborting data sync. status=${JSON.stringify(status)}`)
+    }
+  } catch (err: any) {
+    logger.error('Pre-start check failed: encryption service not ready', err?.message)
+    throw err
+  }
+
   try {
     await controller.backupInit()
   } catch (e: any) {

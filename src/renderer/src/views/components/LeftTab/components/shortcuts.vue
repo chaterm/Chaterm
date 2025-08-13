@@ -74,7 +74,7 @@
       </div>
     </a-card>
 
-    <!-- 录制快捷键的模态框 -->
+    <!-- Modal for recording shortcuts -->
     <a-modal
       v-model:visible="showRecordingModal"
       class="shortcut-modal"
@@ -548,7 +548,7 @@ const resetAllShortcuts = async () => {
       box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 
       &:empty::before {
-        content: '等待输入...';
+        content: 'Waiting for input...';
         color: var(--text-color-secondary);
         font-style: italic;
       }

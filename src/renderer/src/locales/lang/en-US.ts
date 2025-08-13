@@ -181,16 +181,35 @@ export default {
     mobile: 'Mobile',
     organization: 'Organization',
     ip: 'IP Address',
-    macAddress: 'Mac Address',
+    macAddress: 'MAC Address',
     general: 'General',
     extensions: 'Extensions',
     about: 'About',
     privacy: 'Privacy',
     secretRedaction: 'Secret Redaction',
     secretRedactionDescription:
-      'Secret Redaction attempts to automatically redact secrets and sensitive information in your terminal output, including passwords, IP addresses, API keys, and PII.',
+      'Secret Redaction attempts to automatically redact secrets and sensitive information in your AI dialog output, including passwords, IP addresses, API keys, and PII.',
     secretRedactionEnabled: 'Enabled',
     secretRedactionDisabled: 'Disabled',
+    supportedPatterns: 'Supported Regex Patterns',
+    ipv4Address: 'IPv4 Address',
+    ipv6Address: 'IPv6 Address',
+    slackAppToken: 'Slack App Token',
+    phoneNumber: 'Phone Number',
+    awsAccessId: 'AWS Access ID',
+    googleApiKey: 'Google API Key',
+    googleOAuthId: 'Google OAuth ID',
+    githubClassicPersonalAccessToken: 'GitHub Classic Personal Access Token',
+    githubFineGrainedPersonalAccessToken: 'GitHub Fine Grained Personal Access Token',
+    githubOAuthAccessToken: 'GitHub OAuth Access Token',
+    githubUserToServerToken: 'GitHub User to Server Token',
+    githubServerToServerToken: 'GitHub Server to Server Token',
+    stripeKey: 'Stripe Key',
+    firebaseAuthDomain: 'Firebase Auth Domain',
+    jsonWebToken: 'JSON Web Token',
+    openaiApiKey: 'OpenAI API Key',
+    anthropicApiKey: 'Anthropic API Key',
+    fireworksApiKey: 'Fireworks API Key',
     dataSync: 'Data Sync',
     dataSyncDescription: 'Data synchronization is designed to synchronize the user-configured assets, keys, and other information across devices.',
     dataSyncEnabled: 'Enabled',
@@ -294,7 +313,20 @@ export default {
     fingerprint: 'Fingerprint',
     addSuccess: 'add Success',
     addFailed: 'Add Failed',
-    type: 'Type'
+    type: 'Type',
+    loadConfigFailed: 'Failed to load configuration',
+    loadConfigFailedDescription: 'Default configuration will be used',
+    telemetryUpdateFailed: 'Failed to update telemetry settings',
+    telemetryUpdateFailedDescription: 'Please try again later',
+    error: 'Error',
+    saveConfigFailedDescription: 'Failed to save configuration',
+    themeSwitchFailed: 'Failed to switch theme',
+    themeSwitchFailedDescription: 'Please try again later',
+    saveAliasStatusFailed: 'Failed to save alias status',
+    saveBedrockConfigFailed: 'Failed to save Bedrock configuration',
+    saveLiteLlmConfigFailed: 'Failed to save LiteLLM configuration',
+    saveDeepSeekConfigFailed: 'Failed to save DeepSeek configuration',
+    saveOpenAiConfigFailed: 'Failed to save OpenAI configuration'
   },
   extensions: {
     extensions: 'Extensions',
@@ -312,6 +344,11 @@ export default {
     aliasAlreadyExists: 'Alias already exists！',
     addCommand: 'Add Command'
   },
+  commandDialog: {
+    placeholder: 'Command instructions',
+    generating: 'Generating command...',
+    submit: 'Generate'
+  },
   shortcuts: {
     actions: {
       openSettings: 'Open Settings',
@@ -320,7 +357,8 @@ export default {
       sendOrToggleAi: 'Send to AI / Toggle AI Sidebar',
       switchToNextTab: 'Next Tab',
       switchToPrevTab: 'Previous Tab',
-      switchToSpecificTab: 'Switch to specific Tab[1...9]'
+      switchToSpecificTab: 'Switch to specific Tab[1...9]',
+      openCommandDialog: 'Open AI Command Generator'
     }
   },
   personal: {
@@ -430,6 +468,7 @@ export default {
   userInfo: {
     enterprise: 'Enterprise User',
     personal: 'Personal User',
+    vip: 'VIP User',
     name: 'Name',
     username: 'Username',
     mobile: 'Mobile',

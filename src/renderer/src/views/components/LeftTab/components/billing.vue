@@ -16,7 +16,9 @@
         </div>
         <div class="info-row lr-row">
           <span class="info-label">{{ $t('user.subscription') }}</span>
-          <span class="info-value subscription-type">{{ userInfo.subscription || '-' }}</span>
+          <span class="info-value subscription-type">{{
+            userInfo.subscription ? userInfo.subscription.charAt(0).toUpperCase() + userInfo.subscription.slice(1) : '-'
+          }}</span>
         </div>
         <div class="info-row lr-row">
           <span class="info-label">{{ $t('user.budgetResetAt') }}</span>
@@ -55,9 +57,9 @@ const getRatioPercent = computed(() => {
 
 const getProgressColor = computed(() => {
   const percent = getRatioPercent.value
-  if (percent >= 90) return '#f5222d' // 红色，接近用完
-  if (percent >= 70) return '#fa8c16' // 橙色，警告
-  return '#52c41a' // 绿色，正常
+  if (percent >= 90) return '#f5222d' // Red, close to running out
+  if (percent >= 70) return '#fa8c16' // Orange, warning
+  return '#52c41a' // Green, normal
 })
 
 onMounted(() => {
@@ -125,11 +127,12 @@ const getUserInfo = () => {
 }
 
 .subscription-type {
-  font-weight: 500;
-  color: var(--text-color);
+  background-color: rgba(42, 130, 228, 0.15);
+  color: #1890ff;
+  border: 1px solid rgba(42, 130, 228, 0.3);
+  font-weight: bolder;
   padding: 2px 10px;
-  background-color: var(--bg-color-tertiary);
-  border-radius: 4px;
+  border-radius: 10px;
   font-size: 12px;
   display: inline-block;
   min-width: 60px;

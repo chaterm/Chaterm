@@ -322,7 +322,8 @@ export class SyncEngine {
             const { password, username, ...rest } = record
             return { ...rest, data_cipher_text: combined }
           } catch {
-            return record
+            // 如果敏感字段存在但加密失败，抛出错误以防止明文上行
+            throw new Error('Failed to encrypt sensitive fields for t_assets_sync')
           }
         }
       } else if (tableName === 't_asset_chains_sync') {
@@ -335,12 +336,14 @@ export class SyncEngine {
             const { chain_private_key, passphrase, ...rest } = record
             return { ...rest, data_cipher_text: combined }
           } catch {
-            return record
+            // 如果敏感字段存在但加密失败，抛出错误以防止明文上行
+            throw new Error('Failed to encrypt sensitive fields for t_asset_chains_sync')
           }
         }
       }
     } catch (e) {
-      logger.warn('加密敏感字段失败，按明文上行', e)
+      // 加密或服务获取失败都应该中断同步，防止明文外泄
+      throw e instanceof Error ? e : new Error(String(e))
     }
     return record
   }
