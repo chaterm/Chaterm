@@ -144,7 +144,8 @@ export class autoCompleteDatabaseService {
 
     // Allow common symbols like pipes, parallel execution, redirection | & > < ; + =
     // Support URL/scp-like forms by allowing ':' and '@'
-    const validCommandFormat = /^(\.\/|~\/|[a-zA-Z_]|\d)[a-zA-Z0-9_\-\.\/:@\s|&><;+=]*$/
+    const validCommandFormat = /^(?:\.\/|~\/|[\p{L}_]|\p{N})[\p{L}\p{N}\s\-./:@|&><;+=_~`"'()[\]{}!#$%*?\\,^]*$/u
+
     if (!validCommandFormat.test(command)) return false
 
     return true
