@@ -77,14 +77,17 @@ const updateSuggestionsPosition = (term) => {
   // 计算提示框的高度
   const hintBoxHeight = hintBox.offsetHeight
 
-  // 判断是否应该显示在光标上方
-  const shouldShowAbove = y + hintBoxHeight > containerHeight
+  // 设置缓冲距离，避免遮挡命令内容
+  const bufferDistance = charHeight * 0.2 // 0.2个字符高度的缓冲距离
+
+  // 判断是否应该显示在光标上方（考虑缓冲距离）
+  const shouldShowAbove = y + hintBoxHeight + bufferDistance > containerHeight
 
   // 设置提示框位置
   hintBox.style.left = `${x}px`
   hintBox.style.top = shouldShowAbove
-    ? `${y - hintBoxHeight}px` // 显示在光标上方
-    : `${y + charHeight}px` // 显示在光标下方
+    ? `${y - hintBoxHeight - bufferDistance}px` // 显示在光标上方，增加缓冲距离
+    : `${y + charHeight + bufferDistance}px` // 显示在光标下方，增加缓冲距离
 }
 defineExpose({ updateSuggestionsPosition })
 </script>
