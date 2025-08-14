@@ -79,12 +79,17 @@ export class SyncController {
     return this.encryptionService.getStatus().initialized === true
   }
 
-  async initializeAndLogin(): Promise<void> {
-    if (!syncConfig.username || !syncConfig.password) {
-      throw new Error('缺少用户名或密码，请设置环境变量 USERNAME 与 PASSWORD')
+  async initializeAuth(): Promise<void> {
+    // 直接获取认证信息，getAuthToken() 内部已包含有效性检查
+    const currentToken = await this.api.getAuthToken()
+    const currentUserId = await this.api.getCurrentUserId()
+
+    if (!currentToken || !currentUserId) {
+      throw new Error('未找到有效的认证令牌。请确保已通过主应用登录')
     }
-    const info = await this.api.login(syncConfig.username, syncConfig.password)
-    logger.info(`用户 ${info.user_id} 登录，设备 ${info.device_id}`)
+
+    this.encryptionService.setAuthInfo(currentToken, currentUserId)
+    logger.info(`已使用现有认证信息，用户 ${currentUserId}，已同步到加密服务`)
   }
 
   async backupInit(): Promise<void> {
@@ -289,5 +294,38 @@ export class SyncController {
     const pollingStatus = this.pollingManager.getStatus()
     const fullSyncStatus = this.fullSyncTimer.getStatus()
     return pollingStatus.isRunning || fullSyncStatus.isRunning
+  }
+
+  /**
+   * 🔧 检查认证状态
+   */
+  async isAuthenticated(): Promise<boolean> {
+    return await this.api.isAuthenticated()
+  }
+
+  /**
+   * 🔧 获取认证状态详情
+   */
+  getAuthStatus() {
+    return this.api.getAuthStatus()
+  }
+
+  /**
+   * 🔧 处理认证失败的情况
+   * 当API调用返回401时，直接停止同步操作
+   */
+  async handleAuthFailure(): Promise<boolean> {
+    try {
+      logger.warn('检测到认证失败，停止同步操作')
+
+      // 停止所有同步操作
+      await this.stopAutoSync()
+
+      logger.info('已停止同步操作，请通过主应用重新登录以恢复同步功能')
+      return false
+    } catch (error) {
+      logger.error('停止同步操作时出错:', error)
+      return false
+    }
   }
 }

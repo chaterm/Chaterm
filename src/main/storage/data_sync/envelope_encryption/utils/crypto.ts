@@ -17,8 +17,7 @@ interface EncryptionResult {
  * 2. 敏感数据永远不发送到服务端
  * 3. 完全使用 AWS Encryption SDK 官方实现
  * 4. 使用 Raw Keyring，无需客户端访问 KMS
- * 5. 获得 AWS 官方背书和支持
- * 6. 密钥在内存中及时清理
+ * 5. 密钥在内存中及时清理
  */
 class CryptoUtils {
   private static _awsClient: any
@@ -213,49 +212,6 @@ class CryptoUtils {
     if (buffer && Buffer.isBuffer(buffer)) {
       buffer.fill(0)
     }
-  }
-
-  /**
-   * 使用AES-GCM加密（备用方法）
-   * @param plaintext - 明文
-   * @param key - 密钥
-   * @returns 加密结果
-   */
-  static encryptAesGcm(plaintext: string, key: Buffer): EncryptionResult {
-    const iv = crypto.randomBytes(config.encryption.ivLength)
-    const cipher = crypto.createCipher(config.encryption.algorithm, key)
-    cipher.setAAD(Buffer.from('chaterm-encryption'))
-
-    let encrypted = cipher.update(plaintext, 'utf8', 'base64')
-    encrypted += cipher.final('base64')
-    const tag = cipher.getAuthTag()
-
-    return {
-      encrypted,
-      algorithm: config.encryption.algorithm,
-      iv: iv.toString('base64'),
-      tag: tag.toString('base64')
-    }
-  }
-
-  /**
-   * 使用AES-GCM解密（备用方法）
-   * @param encryptedData - 加密数据
-   * @param key - 密钥
-   * @returns 明文
-   */
-  static decryptAesGcm(encryptedData: EncryptionResult, key: Buffer): string {
-    const iv = Buffer.from(encryptedData.iv!, 'base64')
-    const tag = Buffer.from(encryptedData.tag!, 'base64')
-
-    const decipher = crypto.createDecipher(encryptedData.algorithm, key)
-    decipher.setAAD(Buffer.from('chaterm-encryption'))
-    decipher.setAuthTag(tag)
-
-    let decrypted = decipher.update(encryptedData.encrypted, 'base64', 'utf8')
-    decrypted += decipher.final('utf8')
-
-    return decrypted
   }
 }
 
