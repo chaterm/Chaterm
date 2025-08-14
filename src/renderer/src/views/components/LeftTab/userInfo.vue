@@ -174,6 +174,13 @@
           class="user_my-ant-form-item"
         >
           {{ userInfo.macAddress }}
+          <img
+            v-if="userInfo.isOfficeDevice"
+            :src="enterpriseCertificationIcon"
+            :alt="t('userInfo.enterpriseCertification')"
+            class="enterprise-certification-icon"
+            :title="t('userInfo.enterpriseCertification')"
+          />
         </a-form-item>
       </a-form>
       <div
@@ -209,11 +216,12 @@
 import { ref, onMounted, onBeforeUnmount, reactive, computed, h } from 'vue'
 import 'xterm/css/xterm.css'
 import i18n from '@/locales'
-import { getUser, updateUser, changePassword } from '@api/user/user'
+import { getUser, updateUser, changePassword, checkUserDevice } from '@api/user/user'
 import { CloseOutlined, CheckOutlined } from '@ant-design/icons-vue'
 import { useDeviceStore } from '@/store/useDeviceStore'
 import { message } from 'ant-design-vue'
 import zxcvbn from 'zxcvbn'
+import enterpriseCertificationIcon from '@/assets/icons/enterprise-certification.svg'
 
 const { t } = i18n.global
 const deviceStore = useDeviceStore()
@@ -221,6 +229,7 @@ const userInfo = ref({})
 const isEditing = ref(false)
 const isEditingPassword = ref(false)
 const unChange = ref(true)
+
 const formState = reactive({
   username: '',
   name: '',
@@ -233,8 +242,12 @@ const getUserInfo = () => {
     userInfo.value = res.data
     userInfo.value.localIp = deviceStore.getDeviceIp
     userInfo.value.macAddress = deviceStore.getMacAddress
-    if (userInfo.value.uid != 2000001) unChange.value = false
-    // 初始化表单数据
+    checkUserDevice({ ip: userInfo.value.localIp, macAddress: userInfo.value.macAddress }).then((res) => {
+      if (res && res.code === 200) {
+        userInfo.value.isOfficeDevice = res.data.isOfficeDevice
+      }
+    })
+    if (userInfo.value.uid !== 2000001) unChange.value = false // 初始化表单数据
     formState.username = userInfo.value.username
     formState.name = userInfo.value.name
     formState.mobile = userInfo.value.mobile
@@ -242,7 +255,7 @@ const getUserInfo = () => {
 }
 // const strength = zxcvbn(password)
 const strength = computed(() => {
-  if (formState.newPassword == '') return null
+  if (formState.newPassword === '') return null
   else return zxcvbn(formState.newPassword).score
 })
 
@@ -561,5 +574,11 @@ onBeforeUnmount(() => {})
   background-color: rgba(128, 128, 128, 0.1);
   border-color: rgba(128, 128, 128, 0.15);
   color: var(--text-color-secondary, #999);
+}
+
+.enterprise-certification-icon {
+  width: 24px;
+  height: 24px;
+  vertical-align: middle;
 }
 </style>
