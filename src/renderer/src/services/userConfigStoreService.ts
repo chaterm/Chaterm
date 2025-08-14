@@ -156,6 +156,7 @@ export class UserConfigStoreService {
           const transaction = this.db.transaction(this.storeName, 'readwrite')
           const store = transaction.objectStore(this.storeName)
           const request = store.put(sanitizedConfig)
+          localStorage.setItem('theme', sanitizedConfig.theme || 'dark')
 
           request.onsuccess = () => {
             console.log('Config saved successfully')

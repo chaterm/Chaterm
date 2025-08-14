@@ -299,6 +299,8 @@ const handleExternalLogin = async () => {
 
 onMounted(async () => {
   const api = window.api as any
+  api.mainWindowShow()
+
   platform.value = await api.getPlatform()
   isDev.value = import.meta.env.MODE === 'development'
   await captureButtonClick(LoginFunnelEvents.ENTER_LOGIN_PAGE)
