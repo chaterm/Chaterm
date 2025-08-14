@@ -1101,6 +1101,23 @@ const handleMessageOperation = async (operation: 'copy' | 'apply') => {
   }
   lastMessage.actioned = true
 
+  // In the command mode, check whether the current window matches the target server.
+  if (chatTypeValue.value === 'cmd' && hosts.value.length > 0) {
+    const currentAssetInfo = await getCurentTabAssetInfo()
+    const targetHost = hosts.value[0] // The command mode only supports a single host.
+
+    // Check whether the current window matches the target server
+    if (!currentAssetInfo || currentAssetInfo.ip !== targetHost.host) {
+      notification.warning({
+        message: '无法执行命令',
+        description: `当前窗口不是执行命令的服务器窗口。\n目标服务器: ${targetHost.host}\n当前窗口: ${currentAssetInfo?.ip || '非终端窗口'}\n\n请切换到正确的服务器窗口后再执行命令。`,
+        duration: 5,
+        placement: 'topRight'
+      })
+      return
+    }
+  }
+
   if (operation === 'copy') {
     eventBus.emit('executeTerminalCommand', content)
   } else if (operation === 'apply') {
