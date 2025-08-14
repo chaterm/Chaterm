@@ -500,7 +500,8 @@ export default {
     save: 'Save',
     cancel: 'Cancel',
     resetPassword: 'Reset Password',
-    expirationTime: 'Expiration Time'
+    expirationTime: 'Expiration Time',
+    enterpriseCertification: 'Enterprise Certification'
   },
   update: {
     available: 'A new version is available',

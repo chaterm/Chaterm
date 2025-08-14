@@ -501,7 +501,8 @@ export default {
     save: '保存',
     cancel: '取消',
     resetPassword: '重置密码',
-    expirationTime: '过期时间'
+    expirationTime: '过期时间',
+    enterpriseCertification: '企业认证'
   },
   update: {
     available: '有最新版本可以更新',

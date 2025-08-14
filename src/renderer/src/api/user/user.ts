@@ -30,7 +30,8 @@ const urls = {
   sendEmailCode: '/user/login-email/send-code',
   emailLogin: '/user/login-email',
   updateUser: '/user/info',
-  changePassword: '/user/password'
+  changePassword: '/user/password',
+  checkUserDevice: '/user/check-device'
 }
 export function sendEmailCode(params) {
   return request({
@@ -167,6 +168,14 @@ export function changePassword(data) {
   return request({
     method: 'post',
     url: urls.changePassword,
+    data: data
+  })
+}
+
+export function checkUserDevice(data) {
+  return request({
+    method: 'post',
+    url: urls.checkUserDevice,
     data: data
   })
 }
