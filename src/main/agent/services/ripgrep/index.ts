@@ -129,16 +129,7 @@ export async function regexSearchFiles(
     throw new Error('Could not find ripgrep binary')
   }
 
-  const args = [
-    '--json',
-    '-e',
-    regex,
-    '--glob',
-    filePattern || '*',
-    '--context',
-    '1',
-    directoryPath
-  ]
+  const args = ['--json', '-e', regex, '--glob', filePattern || '*', '--context', '1', directoryPath]
 
   let output: string
   try {
@@ -183,9 +174,7 @@ export async function regexSearchFiles(
   }
 
   // Filter results using ChatermIgnoreController if provided
-  const filteredResults = chatermIgnoreController
-    ? results.filter((result) => chatermIgnoreController.validateAccess(result.filePath))
-    : results
+  const filteredResults = chatermIgnoreController ? results.filter((result) => chatermIgnoreController.validateAccess(result.filePath)) : results
 
   return formatResults(filteredResults, cwd)
 }

@@ -10,15 +10,9 @@ function calculateApiCostInternal(
 ): number {
   // Determine effective input price
   let effectiveInputPrice = modelInfo.inputPrice || 0
-  if (
-    modelInfo.inputPriceTiers &&
-    modelInfo.inputPriceTiers.length > 0 &&
-    totalInputTokensForPricing !== undefined
-  ) {
+  if (modelInfo.inputPriceTiers && modelInfo.inputPriceTiers.length > 0 && totalInputTokensForPricing !== undefined) {
     // Ensure tiers are sorted by tokenLimit ascending before finding
-    const sortedInputTiers = [...modelInfo.inputPriceTiers].sort(
-      (a, b) => a.tokenLimit - b.tokenLimit
-    )
+    const sortedInputTiers = [...modelInfo.inputPriceTiers].sort((a, b) => a.tokenLimit - b.tokenLimit)
     // Find the first tier where the total input tokens are less than or equal to the limit
     const tier = sortedInputTiers.find((t) => totalInputTokensForPricing! <= t.tokenLimit)
     if (tier) {
@@ -31,15 +25,9 @@ function calculateApiCostInternal(
 
   // Determine effective output price (based on total *input* tokens for pricing)
   let effectiveOutputPrice = modelInfo.outputPrice || 0
-  if (
-    modelInfo.outputPriceTiers &&
-    modelInfo.outputPriceTiers.length > 0 &&
-    totalInputTokensForPricing !== undefined
-  ) {
+  if (modelInfo.outputPriceTiers && modelInfo.outputPriceTiers.length > 0 && totalInputTokensForPricing !== undefined) {
     // Ensure tiers are sorted by tokenLimit ascending before finding
-    const sortedOutputTiers = [...modelInfo.outputPriceTiers].sort(
-      (a, b) => a.tokenLimit - b.tokenLimit
-    )
+    const sortedOutputTiers = [...modelInfo.outputPriceTiers].sort((a, b) => a.tokenLimit - b.tokenLimit)
     const tier = sortedOutputTiers.find((t) => totalInputTokensForPricing! <= t.tokenLimit)
     if (tier) {
       effectiveOutputPrice = tier.price
@@ -92,10 +80,7 @@ export function calculateApiCostOpenAI(
   const cacheCreationInputTokensNum = cacheCreationInputTokens || 0
   const cacheReadInputTokensNum = cacheReadInputTokens || 0
   // Calculate non-cached tokens for the internal function's 'inputTokens' parameter
-  const nonCachedInputTokens = Math.max(
-    0,
-    inputTokens - cacheCreationInputTokensNum - cacheReadInputTokensNum
-  )
+  const nonCachedInputTokens = Math.max(0, inputTokens - cacheCreationInputTokensNum - cacheReadInputTokensNum)
   // Pass the original 'inputTokens' as 'totalInputTokensForPricing' for tier lookup
   return calculateApiCostInternal(
     modelInfo,

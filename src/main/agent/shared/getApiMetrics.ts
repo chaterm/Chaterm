@@ -35,11 +35,7 @@ export function getApiMetrics(messages: ChatermMessage[]): ApiMetrics {
   }
 
   messages.forEach((message) => {
-    if (
-      message.type === 'say' &&
-      (message.say === 'api_req_started' || message.say === 'deleted_api_reqs') &&
-      message.text
-    ) {
+    if (message.type === 'say' && (message.say === 'api_req_started' || message.say === 'deleted_api_reqs') && message.text) {
       try {
         const parsedData = JSON.parse(message.text)
         const { tokensIn, tokensOut, cacheWrites, cacheReads, cost } = parsedData

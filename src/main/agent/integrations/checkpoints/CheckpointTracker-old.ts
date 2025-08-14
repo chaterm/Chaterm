@@ -21,18 +21,14 @@ class CheckpointTracker {
     this.cwd = cwd
   }
 
-  public static async create(
-    taskId: string,
-    provider?: ClineProvider
-  ): Promise<CheckpointTracker | undefined> {
+  public static async create(taskId: string, provider?: ClineProvider): Promise<CheckpointTracker | undefined> {
     try {
       if (!provider) {
         throw new Error('Provider is required to create a checkpoint tracker')
       }
 
       // Check if checkpoints are disabled in VS Code settings
-      const enableCheckpoints =
-        vscode.workspace.getConfiguration('cline').get<boolean>('enableCheckpoints') ?? true
+      const enableCheckpoints = vscode.workspace.getConfiguration('cline').get<boolean>('enableCheckpoints') ?? true
       if (!enableCheckpoints) {
         return undefined // Don't create tracker when disabled
       }
@@ -89,10 +85,7 @@ class CheckpointTracker {
     return gitPath
   }
 
-  public static async doesShadowGitExist(
-    taskId: string,
-    provider?: ClineProvider
-  ): Promise<boolean> {
+  public static async doesShadowGitExist(taskId: string, provider?: ClineProvider): Promise<boolean> {
     const globalStoragePath = provider?.context.globalStorageUri.fsPath
     if (!globalStoragePath) {
       return false
@@ -330,9 +323,7 @@ class CheckpointTracker {
     // Stage all changes so that untracked files appear in diff summary
     await this.addAllFiles(git)
 
-    const diffSummary = rhsHash
-      ? await git.diffSummary([`${baseHash}..${rhsHash}`])
-      : await git.diffSummary([baseHash])
+    const diffSummary = rhsHash ? await git.diffSummary([`${baseHash}..${rhsHash}`]) : await git.diffSummary([baseHash])
 
     // For each changed file, gather before/after content
     const result = []
@@ -406,21 +397,14 @@ class CheckpointTracker {
       if (disable) {
         newPath = fullPath + GIT_DISABLED_SUFFIX
       } else {
-        newPath = fullPath.endsWith(GIT_DISABLED_SUFFIX)
-          ? fullPath.slice(0, -GIT_DISABLED_SUFFIX.length)
-          : fullPath
+        newPath = fullPath.endsWith(GIT_DISABLED_SUFFIX) ? fullPath.slice(0, -GIT_DISABLED_SUFFIX.length) : fullPath
       }
 
       try {
         await fs.rename(fullPath, newPath)
-        console.log(
-          `CheckpointTracker ${disable ? 'disabled' : 'enabled'} nested git repo ${gitPath}`
-        )
+        console.log(`CheckpointTracker ${disable ? 'disabled' : 'enabled'} nested git repo ${gitPath}`)
       } catch (error) {
-        console.error(
-          `CheckpointTracker failed to ${disable ? 'disable' : 'enable'} nested git repo ${gitPath}:`,
-          error
-        )
+        console.error(`CheckpointTracker failed to ${disable ? 'disable' : 'enable'} nested git repo ${gitPath}:`, error)
       }
     }
   }

@@ -32,6 +32,7 @@
       :unique-key="connectionId"
       :suggestions="suggestions"
       :active-suggestion="activeSuggestion"
+      :selection-mode="suggestionSelectionMode"
     />
     <v-contextmenu ref="contextmenu">
       <Context
@@ -109,6 +110,7 @@ interface CommandSuggestion {
 }
 const suggestions = ref<CommandSuggestion[]>([])
 const activeSuggestion = ref(-1)
+const suggestionSelectionMode = ref(false) // Whether suggestion box is in selection mode
 const props = defineProps({
   connectData: {
     type: Object as PropType<sshConnectData>,
@@ -1253,11 +1255,23 @@ const setupTerminalInput = () => {
     if (startStr.value == '') {
       startStr.value = beginStr.value
     }
+    // Intercept Delete/Backspace when suggestions are visible: clear and forward once to actually delete char
+    if (isDeleteKeyData(data) && suggestions.value.length > 0) {
+      suggestions.value = []
+      activeSuggestion.value = -1
+      suggestionSelectionMode.value = false
+      // Avoid immediate re-query; user will continue typing
+      selectFlag.value = true
+      // Forward the delete/backspace to remote to actually remove character
+      sendData(data)
+      return
+    }
     if (data === '\t') {
       const cmd = JSON.parse(JSON.stringify(terminalState.value.content))
       selectFlag.value = true
       suggestions.value = []
       activeSuggestion.value = -1
+      suggestionSelectionMode.value = false
       setTimeout(() => {
         queryCommand(cmd)
       }, 100)
@@ -1266,6 +1280,7 @@ const setupTerminalInput = () => {
       if (suggestions.value.length) {
         suggestions.value = []
         activeSuggestion.value = -1
+        suggestionSelectionMode.value = false
         nextTick(() => {})
       }
       selectFlag.value = true
@@ -1274,6 +1289,7 @@ const setupTerminalInput = () => {
       if (suggestions.value.length) {
         suggestions.value = []
         activeSuggestion.value = -1
+        suggestionSelectionMode.value = false
         nextTick(() => {})
       }
       selectFlag.value = true
@@ -1285,6 +1301,7 @@ const setupTerminalInput = () => {
       if (suggestions.value.length) {
         suggestions.value = []
         activeSuggestion.value = -1
+        suggestionSelectionMode.value = false
         nextTick(() => {})
         return
       } else {
@@ -1305,6 +1322,7 @@ const setupTerminalInput = () => {
         selectFlag.value = true
         suggestions.value = []
         activeSuggestion.value = -1
+        suggestionSelectionMode.value = false
         return
       } else {
         const delData = String.fromCharCode(127)
@@ -1336,10 +1354,11 @@ const setupTerminalInput = () => {
       }
       suggestions.value = []
       activeSuggestion.value = -1
+      suggestionSelectionMode.value = false
     } else if (JSON.stringify(data) === '"\\u001b[A"' && terminalMode.value === 'none') {
-      if (suggestions.value.length) {
+      if (suggestions.value.length && suggestionSelectionMode.value) {
         if (data == '\u001b[A') {
-          // 上方向键：循环向上导航
+          // 上方向键：循环向上导航 - only when in selection mode
           if (activeSuggestion.value <= 0) {
             activeSuggestion.value = suggestions.value.length - 1
           } else {
@@ -1350,9 +1369,9 @@ const setupTerminalInput = () => {
         sendMarkedData(data, 'Chaterm:[A')
       }
     } else if (JSON.stringify(data) === '"\\u001b[B"' && terminalMode.value === 'none') {
-      if (suggestions.value.length) {
+      if (suggestions.value.length && suggestionSelectionMode.value) {
         if (data == '\u001b[B') {
-          // 下方向键：循环向下导航
+          // 下方向键：循环向下导航 - only when in selection mode
           if (activeSuggestion.value >= suggestions.value.length - 1) {
             activeSuggestion.value = 0
           } else {
@@ -1363,7 +1382,29 @@ const setupTerminalInput = () => {
         sendMarkedData(data, 'Chaterm:[B')
       }
     } else if (data == '\u001b[C') {
-      sendData(data)
+      // Right arrow key - enter selection mode or select suggestion
+      if (suggestions.value.length) {
+        if (!suggestionSelectionMode.value) {
+          // Enter selection mode and select first item
+          suggestionSelectionMode.value = true
+          activeSuggestion.value = 0
+          // Prevent immediate query refresh which would reset selection mode
+          selectFlag.value = true
+        } else {
+          // Already in selection mode, select current suggestion
+          selectSuggestion(suggestions.value[activeSuggestion.value])
+          selectFlag.value = true
+        }
+      } else {
+        sendData(data)
+      }
+    } else if (data == '\u001b[D') {
+      // Left arrow key - exit selection mode or pass through
+      if (suggestions.value.length && suggestionSelectionMode.value) {
+        suggestionSelectionMode.value = false
+      } else {
+        sendData(data)
+      }
     } else {
       sendData(data)
       selectFlag.value = false
@@ -1857,6 +1898,7 @@ const processString = (str: string): ResultItem[] => {
   }
   return result
 }
+
 const selectSuggestion = (suggestion: CommandSuggestion) => {
   selectFlag.value = true
   const DELCODE = String.fromCharCode(127)
@@ -1866,16 +1908,21 @@ const selectSuggestion = (suggestion: CommandSuggestion) => {
   sendData(suggestion.command)
   suggestions.value = []
   activeSuggestion.value = -1
+  suggestionSelectionMode.value = false
 }
 const queryCommand = async (cmd = '') => {
   if (!queryCommandFlag.value || isSyncInput.value) return
   const isAtEndOfLine = terminalState.value.beforeCursor.length === terminalState.value.content.length
   if (!isAtEndOfLine) {
     suggestions.value = []
+    suggestionSelectionMode.value = false
     return
   }
 
   try {
+    if (suggestionSelectionMode.value) {
+      return
+    }
     const result = await (window.api as any).queryCommand({
       command: cmd ? cmd : terminalState.value.beforeCursor,
       ip: props.connectData.ip
@@ -1933,6 +1980,7 @@ const handleKeyInput = (e) => {
     index = cursorX.value - 1 - cursorStartX.value
     currentLine.value = currentLine.value.slice(0, index) + currentLine.value.slice(index + 1)
   } else if (ev.keyCode == 38 || ev.keyCode == 40) {
+    specialCode.value = true
   } else if (ev.keyCode == 37 || ev.keyCode == 39) {
     specialCode.value = true
     if (suggestions.value.length) {
@@ -2244,6 +2292,9 @@ function updateSelectionButtonPosition() {
     showAiButton.value = false
   }
 }
+
+// Helpers for suggestion handling
+const isDeleteKeyData = (d: string) => d === '\x7f' || d === '\b' || d === '\x1b[3~'
 </script>
 
 <style lang="less">

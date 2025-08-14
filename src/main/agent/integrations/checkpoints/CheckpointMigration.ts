@@ -10,10 +10,7 @@ import { fileExistsAtPath } from '@utils/fs'
  * @param globalStoragePath - Path to the extension's global storage
  * @param outputChannel - VSCode output channel for logging
  */
-export async function cleanupLegacyCheckpoints(
-  globalStoragePath: string,
-  outputChannel: vscode.OutputChannel
-): Promise<void> {
+export async function cleanupLegacyCheckpoints(globalStoragePath: string, outputChannel: vscode.OutputChannel): Promise<void> {
   try {
     outputChannel.appendLine('Checking for legacy checkpoints...')
 
@@ -59,9 +56,7 @@ export async function cleanupLegacyCheckpoints(
               await fs.rm(folderCheckpointsDir, { recursive: true, force: true })
             } catch (error) {
               // Ignore error if directory removal fails
-              outputChannel.appendLine(
-                `Warning: Failed to delete checkpoints in ${folder.folder}, continuing...`
-              )
+              outputChannel.appendLine(`Warning: Failed to delete checkpoints in ${folder.folder}, continuing...`)
             }
           }
         }

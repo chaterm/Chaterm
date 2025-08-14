@@ -156,21 +156,14 @@ export class GitOperations {
       if (disable) {
         newPath = fullPath + GIT_DISABLED_SUFFIX
       } else {
-        newPath = fullPath.endsWith(GIT_DISABLED_SUFFIX)
-          ? fullPath.slice(0, -GIT_DISABLED_SUFFIX.length)
-          : fullPath
+        newPath = fullPath.endsWith(GIT_DISABLED_SUFFIX) ? fullPath.slice(0, -GIT_DISABLED_SUFFIX.length) : fullPath
       }
 
       try {
         await fs.rename(fullPath, newPath)
-        console.log(
-          `CheckpointTracker ${disable ? 'disabled' : 'enabled'} nested git repo ${gitPath}`
-        )
+        console.log(`CheckpointTracker ${disable ? 'disabled' : 'enabled'} nested git repo ${gitPath}`)
       } catch (error) {
-        console.error(
-          `CheckpointTracker failed to ${disable ? 'disable' : 'enable'} nested git repo ${gitPath}:`,
-          error
-        )
+        console.error(`CheckpointTracker failed to ${disable ? 'disable' : 'enable'} nested git repo ${gitPath}:`, error)
       }
     }
   }

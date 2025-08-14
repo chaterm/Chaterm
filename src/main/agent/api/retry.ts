@@ -33,10 +33,7 @@ export function withRetry(options: RetryOptions = {}) {
 
           // Get retry delay from header or calculate exponential backoff
           // Check various rate limit headers
-          const retryAfter =
-            error.headers?.['retry-after'] ||
-            error.headers?.['x-ratelimit-reset'] ||
-            error.headers?.['ratelimit-reset']
+          const retryAfter = error.headers?.['retry-after'] || error.headers?.['x-ratelimit-reset'] || error.headers?.['ratelimit-reset']
 
           let delay: number
           if (retryAfter) {

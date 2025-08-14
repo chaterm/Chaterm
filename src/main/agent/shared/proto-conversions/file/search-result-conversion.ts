@@ -3,9 +3,7 @@ import { FileInfo } from '@shared/proto/file'
 /**
  * Converts domain search result objects to proto FileInfo objects
  */
-export function convertSearchResultsToProtoFileInfos(
-  results: { path: string; type: 'file' | 'folder'; label?: string }[]
-): FileInfo[] {
+export function convertSearchResultsToProtoFileInfos(results: { path: string; type: 'file' | 'folder'; label?: string }[]): FileInfo[] {
   return results.map((result) => ({
     path: result.path,
     type: result.type,
@@ -16,9 +14,7 @@ export function convertSearchResultsToProtoFileInfos(
 /**
  * Converts proto FileInfo objects to domain search result objects
  */
-export function convertProtoFileInfosToSearchResults(
-  protoResults: FileInfo[]
-): { path: string; type: 'file' | 'folder'; label?: string }[] {
+export function convertProtoFileInfosToSearchResults(protoResults: FileInfo[]): { path: string; type: 'file' | 'folder'; label?: string }[] {
   return protoResults.map((protoResult) => ({
     path: protoResult.path,
     type: protoResult.type as 'file' | 'folder',

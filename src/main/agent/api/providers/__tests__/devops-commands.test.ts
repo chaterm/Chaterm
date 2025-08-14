@@ -31,8 +31,7 @@ describe('DevOps Command Generation Tests', () => {
       this.timeout(60000) // Increased timeout for actual API call
 
       // Use the actual LLM service instead of mocking
-      const systemPrompt =
-        'You are a DevOps assistant. Provide command-line solutions for system administration tasks. Generate the command only.'
+      const systemPrompt = 'You are a DevOps assistant. Provide command-line solutions for system administration tasks. Generate the command only.'
       const messages: Anthropic.Messages.MessageParam[] = [
         {
           role: 'user',
@@ -59,8 +58,7 @@ describe('DevOps Command Generation Tests', () => {
       this.timeout(30000) // Increased timeout for actual API call
 
       // Use the actual LLM service instead of mocking
-      const systemPrompt =
-        'You are a DevOps assistant. Provide command-line solutions for system administration tasks.'
+      const systemPrompt = 'You are a DevOps assistant. Provide command-line solutions for system administration tasks.'
       const messages: Anthropic.Messages.MessageParam[] = [
         {
           role: 'user',
@@ -87,8 +85,7 @@ describe('DevOps Command Generation Tests', () => {
       this.timeout(30000) // Increased timeout for actual API call
 
       // Use the actual LLM service instead of mocking
-      const systemPrompt =
-        'You are a DevOps assistant. Provide command-line solutions for system administration tasks.'
+      const systemPrompt = 'You are a DevOps assistant. Provide command-line solutions for system administration tasks.'
       const messages: Anthropic.Messages.MessageParam[] = [
         {
           role: 'user',
@@ -115,8 +112,7 @@ describe('DevOps Command Generation Tests', () => {
       this.timeout(30000) // Increased timeout for actual API call
 
       // Use the actual LLM service instead of mocking
-      const systemPrompt =
-        'You are a DevOps assistant. Provide command-line solutions for system administration tasks.'
+      const systemPrompt = 'You are a DevOps assistant. Provide command-line solutions for system administration tasks.'
       const messages: Anthropic.Messages.MessageParam[] = [
         {
           role: 'user',
@@ -143,8 +139,7 @@ describe('DevOps Command Generation Tests', () => {
       this.timeout(30000) // Increased timeout for actual API call
 
       // Use the actual LLM service instead of mocking
-      const systemPrompt =
-        'You are a DevOps assistant. Provide command-line solutions for system administration tasks.'
+      const systemPrompt = 'You are a DevOps assistant. Provide command-line solutions for system administration tasks.'
       const messages: Anthropic.Messages.MessageParam[] = [
         {
           role: 'user',

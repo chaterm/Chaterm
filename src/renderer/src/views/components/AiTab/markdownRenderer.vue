@@ -463,7 +463,7 @@ const initEditor = (content: string) => {
     const options: monaco.editor.IStandaloneEditorConstructionOptions = {
       value: editorContent,
       language: detectLanguage(editorContent),
-      theme: document.body.classList.contains('theme-dark') ? 'custom-dark' : 'custom-light',
+      theme: document.documentElement.classList.contains('theme-dark') ? 'custom-dark' : 'custom-light',
       readOnly: true,
       minimap: { enabled: false },
       lineNumbers: lines > 1 ? 'on' : 'off',
@@ -684,7 +684,7 @@ const initCodeBlockEditors = () => {
       const editor = monaco.editor.create(container, {
         value: block.content,
         language: detectLanguage(block.content),
-        theme: document.body.classList.contains('theme-dark') ? 'custom-dark' : 'custom-light',
+        theme: document.documentElement.classList.contains('theme-dark') ? 'custom-dark' : 'custom-light',
         readOnly: true,
         minimap: { enabled: false },
         lineNumbers: block.lines > 1 ? 'on' : 'off',
@@ -801,8 +801,8 @@ watch(
 
 const themeObserver = new MutationObserver((mutations) => {
   mutations.forEach((mutation) => {
-    if (mutation.target === document.body && mutation.attributeName === 'class') {
-      const isDark = document.body.classList.contains('theme-dark')
+    if (mutation.target === document.documentElement && mutation.attributeName === 'class') {
+      const isDark = document.documentElement.classList.contains('theme-dark')
       if (editor) {
         monaco.editor.setTheme(isDark ? 'custom-dark' : 'custom-light')
       }
@@ -830,7 +830,7 @@ onMounted(async () => {
     }
   })
 
-  themeObserver.observe(document.body, { attributes: true })
+  themeObserver.observe(document.documentElement, { attributes: true })
 
   if (props.content) {
     if (props.ask === 'command' || props.say === 'command') {

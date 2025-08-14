@@ -194,22 +194,7 @@ function getConfigFilePatterns(): string[] {
  * @returns Array of glob patterns for large data files
  */
 function getLargeDataFilePatterns(): string[] {
-  return [
-    '*.zip',
-    '*.tar',
-    '*.gz',
-    '*.rar',
-    '*.7z',
-    '*.iso',
-    '*.bin',
-    '*.exe',
-    '*.dll',
-    '*.so',
-    '*.dylib',
-    '*.dat',
-    '*.dmg',
-    '*.msi'
-  ]
+  return ['*.zip', '*.tar', '*.gz', '*.rar', '*.7z', '*.iso', '*.bin', '*.exe', '*.dll', '*.so', '*.dylib', '*.dat', '*.dmg', '*.msi']
 }
 
 /**
@@ -283,16 +268,7 @@ function getGeospatialPatterns(): string[] {
  * @returns Array of glob patterns for log files
  */
 function getLogFilePatterns(): string[] {
-  return [
-    '*.error',
-    '*.log',
-    '*.logs',
-    '*.npm-debug.log*',
-    '*.out',
-    '*.stdout',
-    'yarn-debug.log*',
-    'yarn-error.log*'
-  ]
+  return ['*.error', '*.log', '*.logs', '*.npm-debug.log*', '*.out', '*.stdout', 'yarn-debug.log*', 'yarn-error.log*']
 }
 
 /**
@@ -302,10 +278,7 @@ function getLogFilePatterns(): string[] {
  * @param gitPath - Path to the .git directory
  * @param lfsPatterns - Optional array of Git LFS patterns to include
  */
-export const writeExcludesFile = async (
-  gitPath: string,
-  lfsPatterns: string[] = []
-): Promise<void> => {
+export const writeExcludesFile = async (gitPath: string, lfsPatterns: string[] = []): Promise<void> => {
   const excludesPath = join(gitPath, 'info', 'exclude')
   await fs.mkdir(join(gitPath, 'info'), { recursive: true })
 

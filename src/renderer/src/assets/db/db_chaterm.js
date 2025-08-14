@@ -28,7 +28,8 @@ CREATE TABLE IF NOT EXISTS t_assets (
   username TEXT,                                    -- 用户名
   password TEXT,                                    -- 密码
   key_chain_id INTEGER,                             -- 密钥链ID
-  favorite  INTEGER                                 -- 是否收藏
+  favorite  INTEGER,                                -- 是否收藏
+  version INTEGER NOT NULL DEFAULT 1                -- 版本号
 );
 
 CREATE TABLE IF NOT EXISTS t_asset_chains (
@@ -39,7 +40,9 @@ CREATE TABLE IF NOT EXISTS t_asset_chains (
   chain_type TEXT,                                  -- 秘钥链类型
   chain_private_key TEXT,                           -- 私钥
   chain_public_key TEXT,                            -- 公钥
-  passphrase TEXT                                   -- 密码
+  passphrase TEXT,                                  -- 密码
+  uuid TEXT UNIQUE,                                 -- 唯一ID
+  version INTEGER NOT NULL DEFAULT 1                -- 版本号
 );
 
 CREATE TABLE IF NOT EXISTS agent_api_conversation_history_v1 (
@@ -116,6 +119,36 @@ CREATE TABLE IF NOT EXISTS t_organization_assets (
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,    -- 创建时间
   updated_at DATETIME DEFAULT CURRENT_TIMESTAMP     -- 更新时间
 );
+
+CREATE TABLE IF NOT EXISTS change_log (
+        id TEXT PRIMARY KEY,
+        table_name TEXT NOT NULL,
+        record_uuid TEXT NOT NULL,
+        operation_type TEXT NOT NULL,
+        change_data TEXT,
+        before_data TEXT,
+        created_at TEXT DEFAULT (datetime('now')),
+        sync_status TEXT DEFAULT 'pending',
+        retry_count INTEGER DEFAULT 0,
+        error_message TEXT
+      );
+CREATE TABLE IF NOT EXISTS sync_status (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        table_name TEXT NOT NULL,
+        last_sync_time TEXT,
+        updated_at TEXT DEFAULT (datetime('now'))
+      );
+
+CREATE TABLE IF NOT EXISTS sync_meta (
+        key TEXT PRIMARY KEY,
+        value TEXT
+      );
+
+-- 创建同步相关表的性能优化索引
+CREATE INDEX IF NOT EXISTS idx_change_log_sync_status ON change_log(sync_status);
+CREATE INDEX IF NOT EXISTS idx_change_log_table_name ON change_log(table_name);
+CREATE INDEX IF NOT EXISTS idx_change_log_created_at ON change_log(created_at);
+CREATE INDEX IF NOT EXISTS idx_sync_status_table_name ON sync_status(table_name);
 `)
 
 console.log('数据库创建成功，表已创建')

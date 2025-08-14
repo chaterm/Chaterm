@@ -52,9 +52,7 @@ export class FileContextTracker {
 
     // Create a file system watcher for this specific file
     const fileUri = vscode.Uri.file(path.resolve(cwd, filePath))
-    const watcher = vscode.workspace.createFileSystemWatcher(
-      new vscode.RelativePattern(path.dirname(fileUri.fsPath), path.basename(fileUri.fsPath))
-    )
+    const watcher = vscode.workspace.createFileSystemWatcher(new vscode.RelativePattern(path.dirname(fileUri.fsPath), path.basename(fileUri.fsPath)))
 
     // Track file changes
     watcher.onDidChange(() => {
@@ -72,10 +70,7 @@ export class FileContextTracker {
 
   // Tracks a file operation in metadata and sets up a watcher for the file
   // This is the main entry point for FileContextTracker and is called when a file is passed to Cline via a tool, mention, or edit.
-  async trackFileContext(
-    filePath: string,
-    operation: 'read_tool' | 'user_edited' | 'chaterm_edited' | 'file_mentioned'
-  ) {
+  async trackFileContext(filePath: string, operation: 'read_tool' | 'user_edited' | 'chaterm_edited' | 'file_mentioned') {
     try {
       const cwd = this.getCwd()
       if (!cwd) {
@@ -95,12 +90,7 @@ export class FileContextTracker {
   // Adds a file to the metadata tracker
   // This handles the business logic of determining if the file is new, stale, or active.
   // It also updates the metadata with the latest read/edit dates.
-  async addFileToFileContextTracker(
-    context: vscode.ExtensionContext,
-    taskId: string,
-    filePath: string,
-    source: FileMetadataEntry['record_source']
-  ) {
+  async addFileToFileContextTracker(context: vscode.ExtensionContext, taskId: string, filePath: string, source: FileMetadataEntry['record_source']) {
     try {
       // const metadata = await getTaskMetadata(context, taskId)
       const metadata = await getTaskMetadata(taskId)
@@ -114,10 +104,7 @@ export class FileContextTracker {
       })
 
       // Helper to get the latest date for a specific field and file
-      const getLatestDateForField = (
-        path: string,
-        field: keyof FileMetadataEntry
-      ): number | null => {
+      const getLatestDateForField = (path: string, field: keyof FileMetadataEntry): number | null => {
         const relevantEntries = metadata.files_in_context
           .filter((entry) => entry.path === path && entry[field])
           .sort((a, b) => (b[field] as number) - (a[field] as number))

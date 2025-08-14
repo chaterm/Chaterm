@@ -3,6 +3,10 @@ import { join } from 'path'
 import { electronApp, optimizer } from '@electron-toolkit/utils'
 import { is } from '@electron-toolkit/utils'
 import axios from 'axios'
+import { startDataSync } from './storage/data_sync/index'
+import type { SyncController as DataSyncController } from './storage/data_sync/core/SyncController'
+import { UserSyncStateManager } from './storage/data_sync/core/UserSyncStateManager'
+import { getChatermDbPathForUser, getCurrentUserId } from './storage/db/connection'
 
 // Set environment variables
 process.env.IS_DEV = is.dev ? 'true' : 'false'
@@ -21,7 +25,7 @@ import { HeartbeatManager } from './heartBeatManager'
 import { createMainWindow } from './windowManager'
 import { registerUpdater } from './updater'
 import { telemetryService, checkIsFirstLaunch, getMacAddress } from './agent/services/telemetry/TelemetryService'
-import { envelopeEncryptionService } from './storage/envelope_encryption/service'
+import { envelopeEncryptionService } from './storage/data_sync/envelope_encryption/service'
 
 let mainWindow: BrowserWindow
 let COOKIE_URL = 'http://localhost'
@@ -33,7 +37,106 @@ let forceQuit = false
 let autoCompleteService: autoCompleteDatabaseService
 let chatermDbService: ChatermDatabaseService
 let controller: Controller
+let dataSyncController: DataSyncController | null = null
+let userSyncStateManager: UserSyncStateManager
 
+// 数据同步服务重启辅助函数
+async function restartDataSyncIfEnabled(userId: number, event?: Electron.IpcMainInvokeEvent): Promise<void> {
+  try {
+    // 先关闭现有的同步控制器（如果存在）
+    if (dataSyncController) {
+      console.log('关闭现有数据同步控制器...')
+      await dataSyncController.destroy()
+      dataSyncController = null
+    }
+
+    // 检查新用户的数据同步开关状态
+    let shouldEnableSync = false
+
+    // 首先检查用户状态管理器中的设置
+    if (userSyncStateManager) {
+      shouldEnableSync = userSyncStateManager.isUserSyncEnabled(userId)
+      console.log(`从用户状态管理器获取用户 ${userId} 的同步设置: ${shouldEnableSync ? '启用' : '禁用'}`)
+    }
+
+    // 如果状态管理器中没有记录，则从渲染进程获取
+    if (!userSyncStateManager || !userSyncStateManager.getUserSyncState(userId)) {
+      if (event && mainWindow && !mainWindow.isDestroyed()) {
+        try {
+          const dataSyncEnabled = await event.sender.executeJavaScript("localStorage.getItem('data-sync-enabled') === 'true'")
+          shouldEnableSync = dataSyncEnabled
+          console.log(`从渲染进程获取用户 ${userId} 的数据同步开关状态: ${shouldEnableSync ? '启用' : '禁用'}`)
+
+          // 更新用户状态管理器
+          if (userSyncStateManager) {
+            if (shouldEnableSync) {
+              userSyncStateManager.enableUserSync(userId)
+            } else {
+              userSyncStateManager.disableUserSync(userId)
+            }
+          }
+        } catch (error) {
+          console.warn('无法获取用户数据同步开关状态，默认不启用:', error)
+          shouldEnableSync = false
+        }
+      } else {
+        // 如果没有event参数，尝试从主窗口获取设置
+        try {
+          if (mainWindow && !mainWindow.isDestroyed()) {
+            const dataSyncEnabled = await mainWindow.webContents.executeJavaScript("localStorage.getItem('data-sync-enabled') === 'true'")
+            shouldEnableSync = dataSyncEnabled
+            console.log(`从主窗口获取用户 ${userId} 的数据同步设置: ${shouldEnableSync ? '启用' : '禁用'}`)
+
+            // 更新用户状态管理器
+            if (userSyncStateManager) {
+              if (shouldEnableSync) {
+                userSyncStateManager.enableUserSync(userId)
+              } else {
+                userSyncStateManager.disableUserSync(userId)
+              }
+            }
+          }
+        } catch (error) {
+          console.warn('无法从主窗口获取数据同步设置:', error)
+        }
+      }
+    }
+
+    // 根据用户设置决定是否启动数据同步
+    if (shouldEnableSync) {
+      console.log(`为用户 ${userId} 启动数据同步服务...`)
+
+      // 更新同步状态为运行中
+      if (userSyncStateManager) {
+        userSyncStateManager.setSyncRunning(userId)
+      }
+
+      const dbPath = getChatermDbPathForUser(userId)
+      const instance = await startDataSync(dbPath)
+      dataSyncController = instance
+
+      // 更新同步状态为完成
+      if (userSyncStateManager) {
+        userSyncStateManager.setSyncCompleted(userId)
+      }
+
+      console.log('数据同步服务已为新用户启动')
+    } else {
+      console.log(`用户 ${userId} 的数据同步已禁用，不启动同步服务`)
+    }
+  } catch (error) {
+    console.error('重启数据同步服务失败:', error)
+
+    // 更新同步状态为错误
+    if (userSyncStateManager) {
+      const errorMessage = error instanceof Error ? error.message : String(error)
+      userSyncStateManager.setSyncError(userId, errorMessage)
+    }
+  }
+}
+
+let winReadyResolve
+let winReady = new Promise((resolve) => (winReadyResolve = resolve))
 async function createWindow(): Promise<void> {
   mainWindow = await createMainWindow(
     (url: string) => {
@@ -45,6 +148,9 @@ async function createWindow(): Promise<void> {
 
 app.whenReady().then(async () => {
   electronApp.setAppUserModelId('com.electron')
+
+  // 初始化用户同步状态管理器
+  userSyncStateManager = new UserSyncStateManager()
 
   if (process.platform === 'darwin') {
     app.dock.setIcon(join(__dirname, '../../resources/icon.png'))
@@ -96,7 +202,7 @@ app.whenReady().then(async () => {
   ipcMain.on('ping', () => console.log('pong'))
   setupIPC()
   await createWindow()
-
+  winReadyResolve()
   // Initialize storage system
   initializeStorageMain(mainWindow)
 
@@ -197,6 +303,15 @@ app.on('before-quit', async () => {
       console.log('Controller disposed successfully.')
     } catch (error) {
       console.error('Error during controller disposal:', error)
+    }
+  }
+  if (dataSyncController) {
+    try {
+      await dataSyncController.destroy()
+      dataSyncController = null
+      console.log('Data sync controller disposed successfully.')
+    } catch (error) {
+      console.error('Error during data sync controller disposal:', error)
     }
   }
 })
@@ -364,6 +479,11 @@ function setupIPC(): void {
       if (!targetUserId) {
         throw new Error('User ID is required')
       }
+
+      // 检查是否为用户切换（用户ID发生变化）
+      const previousUserId = getCurrentUserId()
+      const isUserSwitch = previousUserId && previousUserId !== targetUserId
+
       setCurrentUserId(targetUserId)
       chatermDbService = await ChatermDatabaseService.getInstance(targetUserId)
       autoCompleteService = await autoCompleteDatabaseService.getInstance(targetUserId)
@@ -384,6 +504,12 @@ function setupIPC(): void {
           console.warn('后台加密服务初始化异常:', encryptionError)
         }
       })
+
+      // 如果是用户切换，重启数据同步服务
+      if (isUserSwitch) {
+        console.log(`检测到用户切换: ${previousUserId} -> ${targetUserId}`)
+        setImmediate(() => restartDataSyncIfEnabled(targetUserId, event))
+      }
 
       return { success: true }
     } catch (error) {
@@ -454,6 +580,122 @@ function setupIPC(): void {
     return null
   })
 
+  // 数据同步启停
+  ipcMain.handle('data-sync:set-enabled', async (_evt, enabled: boolean) => {
+    try {
+      const uid = getCurrentUserId()
+      if (!uid) {
+        throw new Error('User ID is required')
+      }
+
+      if (enabled) {
+        if (!dataSyncController) {
+          const dbPath = getChatermDbPathForUser(uid)
+          console.log(`为用户 ${uid} 启动数据同步服务...`)
+          const instance = await startDataSync(dbPath)
+          dataSyncController = instance
+          console.log('数据同步服务已启动')
+        }
+
+        // 更新用户状态管理器
+        if (userSyncStateManager) {
+          userSyncStateManager.enableUserSync(uid)
+        }
+      } else {
+        if (dataSyncController) {
+          console.log('停止数据同步服务...')
+          await dataSyncController.destroy()
+          dataSyncController = null
+          console.log('数据同步服务已停止')
+        }
+
+        // 更新用户状态管理器
+        if (userSyncStateManager) {
+          userSyncStateManager.disableUserSync(uid)
+        }
+      }
+      return { success: true }
+    } catch (e: any) {
+      console.warn('处理 data-sync:set-enabled 失败:', e?.message || e)
+      return { success: false, error: e?.message || String(e) }
+    }
+  })
+
+  // 获取用户同步状态
+  ipcMain.handle('data-sync:get-user-status', async () => {
+    try {
+      const uid = getCurrentUserId()
+      if (!uid) {
+        return { success: false, error: 'User ID is required' }
+      }
+
+      if (!userSyncStateManager) {
+        return { success: false, error: 'User sync state manager not initialized' }
+      }
+
+      const userState = userSyncStateManager.getUserSyncState(uid)
+      const isEnabled = userSyncStateManager.isUserSyncEnabled(uid)
+
+      // 获取全量同步定时器状态
+      let fullSyncTimerStatus: any = null
+      if (dataSyncController) {
+        try {
+          fullSyncTimerStatus = dataSyncController.getFullSyncTimerStatus()
+        } catch (error) {
+          console.warn('获取全量同步定时器状态失败:', error)
+        }
+      }
+
+      return {
+        success: true,
+        data: {
+          userId: uid,
+          enabled: isEnabled,
+          state: userState,
+          hasController: dataSyncController !== null,
+          fullSyncTimer: fullSyncTimerStatus
+        }
+      }
+    } catch (e: any) {
+      console.warn('获取用户同步状态失败:', e?.message || e)
+      return { success: false, error: e?.message || String(e) }
+    }
+  })
+
+  // 立即执行全量同步
+  ipcMain.handle('data-sync:full-sync-now', async () => {
+    try {
+      if (!dataSyncController) {
+        return { success: false, error: 'Data sync controller not initialized' }
+      }
+
+      const result = await dataSyncController.fullSyncNow()
+      return { success: result }
+    } catch (e: any) {
+      console.warn('手动全量同步失败:', e?.message || e)
+      return { success: false, error: e?.message || String(e) }
+    }
+  })
+
+  // 更新全量同步间隔
+  ipcMain.handle('data-sync:update-full-sync-interval', async (_evt, intervalHours: number) => {
+    try {
+      if (!dataSyncController) {
+        return { success: false, error: 'Data sync controller not initialized' }
+      }
+
+      if (intervalHours <= 0) {
+        return { success: false, error: 'Interval must be greater than 0 hours' }
+      }
+
+      dataSyncController.updateFullSyncInterval(intervalHours)
+      return { success: true }
+    } catch (e: any) {
+      console.warn('更新全量同步间隔失败:', e?.message || e)
+      return { success: false, error: e?.message || String(e) }
+    }
+  })
+
   // Add message handler from main process to renderer process
   ipcMain.on('main-to-webview', (_, message) => {
     if (mainWindow && !mainWindow.isDestroyed()) {
@@ -508,6 +750,24 @@ function setupIPC(): void {
       return true
     }
     return false
+  })
+
+  ipcMain.handle('main-window-init', async (_, theme) => {
+    await winReady
+    if (process.platform !== 'darwin') {
+      mainWindow.setTitleBarOverlay({
+        color: theme === 'dark' ? '#141414' : '#ffffff',
+        symbolColor: theme === 'dark' ? '#ffffff' : '#141414',
+        height: 27
+      })
+    }
+  })
+
+  ipcMain.handle('main-window-show', async () => {
+    await winReady
+    if (mainWindow && !mainWindow.isDestroyed() && !mainWindow.isVisible()) {
+      mainWindow.show()
+    }
   })
 }
 
@@ -969,6 +1229,11 @@ const handleProtocolRedirect = async (url: string) => {
         targetWindow.restore()
       }
       targetWindow.focus()
+
+      // 外部登录成功后，检查是否需要重启数据同步服务
+      // 注意：这里我们不能直接获取用户ID，因为渲染进程还没有处理完登录逻辑
+      // 所以我们在渲染进程处理完登录后，通过init-user-database来处理数据同步重启
+      console.log('外部登录成功，等待渲染进程处理用户初始化...')
     } catch (error) {
       console.error('处理外部登录数据失败:', error)
     }
