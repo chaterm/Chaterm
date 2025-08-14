@@ -85,7 +85,7 @@ const loadSavedConfig = async () => {
         ...userConfig.value,
         ...savedConfig
       }
-      document.body.className = `theme-${userConfig.value.theme}`
+      document.documentElement.className = `theme-${userConfig.value.theme}`
       eventBus.emit('updateTheme', userConfig.value.theme)
       api.updateTheme(userConfig.value.theme)
     }
@@ -95,7 +95,7 @@ const loadSavedConfig = async () => {
       message: t('user.loadConfigFailed'),
       description: t('user.loadConfigFailedDescription')
     })
-    document.body.className = 'theme-dark'
+    document.documentElement.className = 'theme-dark'
     userConfig.value.theme = 'dark'
   }
 }
@@ -143,7 +143,7 @@ const changeLanguage = async () => {
 
 const changeTheme = async () => {
   try {
-    document.body.className = `theme-${userConfig.value.theme}`
+    document.documentElement.className = `theme-${userConfig.value.theme}`
     eventBus.emit('updateTheme', userConfig.value.theme)
     setTimeout(() => {
       api.updateTheme(userConfig.value.theme)

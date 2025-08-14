@@ -135,6 +135,8 @@ async function restartDataSyncIfEnabled(userId: number, event?: Electron.IpcMain
   }
 }
 
+let winReadyResolve
+let winReady = new Promise((resolve) => (winReadyResolve = resolve))
 async function createWindow(): Promise<void> {
   mainWindow = await createMainWindow(
     (url: string) => {
@@ -200,7 +202,7 @@ app.whenReady().then(async () => {
   ipcMain.on('ping', () => console.log('pong'))
   setupIPC()
   await createWindow()
-
+  winReadyResolve()
   // Initialize storage system
   initializeStorageMain(mainWindow)
 
@@ -748,6 +750,24 @@ function setupIPC(): void {
       return true
     }
     return false
+  })
+
+  ipcMain.handle('main-window-init', async (_, theme) => {
+    await winReady
+    if (process.platform !== 'darwin') {
+      mainWindow.setTitleBarOverlay({
+        color: theme === 'dark' ? '#141414' : '#ffffff',
+        symbolColor: theme === 'dark' ? '#ffffff' : '#141414',
+        height: 27
+      })
+    }
+  })
+
+  ipcMain.handle('main-window-show', async () => {
+    await winReady
+    if (mainWindow && !mainWindow.isDestroyed() && !mainWindow.isVisible()) {
+      mainWindow.show()
+    }
   })
 }
 

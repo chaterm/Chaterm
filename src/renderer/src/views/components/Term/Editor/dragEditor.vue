@@ -161,7 +161,7 @@ const showVimFullScreenExitEditor = shallowRef(false)
 
 // 根据当前主题设置编辑器主题
 const currentTheme = computed(() => {
-  return document.body.classList.contains('theme-dark') ? 'vs-dark' : 'vs'
+  return document.documentElement.classList.contains('theme-dark') ? 'vs-dark' : 'vs'
 })
 
 const handleTextChange = (editor, newValue) => {

@@ -1,5 +1,5 @@
 <!doctype html>
-<html>
+<html class="theme-dark">
   <head>
     <meta charset="UTF-8" />
     <title>Chaterm</title>
@@ -8,6 +8,12 @@
       http-equiv="Content-Security-Policy"
       content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:"
     /> -->
+    <script>
+      ;(function () {
+        const theme = localStorage.getItem('theme') || 'dark'
+        document.documentElement.className = `theme-${theme}`
+      })()
+    </script>
   </head>
 
   <body>
