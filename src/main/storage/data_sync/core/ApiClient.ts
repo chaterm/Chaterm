@@ -1,15 +1,14 @@
-import axios, { AxiosInstance, AxiosRequestConfig } from 'axios'
+import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse } from 'axios'
 import { Agent as HttpAgent } from 'http'
 import { Agent as HttpsAgent } from 'https'
 import { syncConfig } from '../config/sync.config'
 import { BackupInitResponse, GetChangesResponse, SyncRequest, SyncResponse } from '../models/SyncTypes'
 import { logger } from '../utils/logger'
 import { gzipSync } from 'zlib'
-import { withRetry } from '../services/RetryManager'
+import { chatermAuthAdapter } from '../envelope_encryption/services/auth'
 
 export class ApiClient {
   private client: AxiosInstance
-  private token: string | null = null
   private httpAgent: HttpAgent
   private httpsAgent: HttpsAgent
 
@@ -44,42 +43,47 @@ export class ApiClient {
       }
     })
 
-    this.client.interceptors.request.use((config) => {
-      // 直接就地修改，避免整体覆盖 headers
-      if (!config.headers) config.headers = {} as any
-      if (this.token) {
-        try {
-          ;(config.headers as any).set?.('Authorization', `Bearer ${this.token}`)
-        } catch {}
-        ;(config.headers as any)['Authorization'] = `Bearer ${this.token}`
-      }
-      try {
-        ;(config.headers as any).set?.('X-Device-ID', syncConfig.deviceId)
-      } catch {}
-      ;(config.headers as any)['X-Device-ID'] = syncConfig.deviceId
-      return config
-    })
-  }
+    this.client.interceptors.request.use(
+      async (config) => {
+        // 直接就地修改，避免整体覆盖 headers
+        if (!config.headers) config.headers = {} as any
 
-  async login(username: string, password: string): Promise<{ user_id: string; device_id: string; token: string }> {
-    const res = await withRetry(
-      async () => {
-        return await this.client.post('/auth/login', {
-          username,
-          password,
-          device_id: syncConfig.deviceId,
-          device_name: 'Sync Client',
-          platform: process.platform
-        })
+        // 🔧 使用统一的认证适配器获取token
+        const token = await chatermAuthAdapter.getAuthToken()
+        if (token) {
+          try {
+            ;(config.headers as any).set?.('Authorization', `Bearer ${token}`)
+          } catch {}
+          ;(config.headers as any)['Authorization'] = `Bearer ${token}`
+        }
+
+        try {
+          ;(config.headers as any).set?.('X-Device-ID', syncConfig.deviceId)
+        } catch {}
+        ;(config.headers as any)['X-Device-ID'] = syncConfig.deviceId
+        return config
       },
-      { maxAttempts: 3 },
-      'login'
+      (error) => {
+        logger.error('请求拦截器错误:', error)
+        return Promise.reject(error)
+      }
     )
 
-    const data = res.data as { token: string; user_id: string; device_id: string }
-    this.token = data.token
-    logger.info('登录成功')
-    return { user_id: data.user_id, device_id: data.device_id, token: data.token }
+    // 响应拦截器：统一处理401认证失败
+    this.client.interceptors.response.use(
+      (response: AxiosResponse) => {
+        return response
+      },
+      async (error) => {
+        if (error.response && error.response.status === 401) {
+          logger.warn('认证失败 (401)，清除认证信息')
+          chatermAuthAdapter.clearAuthInfo()
+          // 可以在这里触发重新登录逻辑或通知上层
+        }
+        const errorMessage = error.response?.data?.error || error.message
+        return Promise.reject(new Error(errorMessage))
+      }
+    )
   }
 
   async backupInit(): Promise<BackupInitResponse> {
@@ -166,5 +170,30 @@ export class ApiClient {
         requests: Object.keys(this.httpsAgent.requests).length
       }
     }
+  }
+
+  async isAuthenticated(): Promise<boolean> {
+    const authStatus = chatermAuthAdapter.getAuthStatus()
+    return authStatus.hasToken && authStatus.isValid
+  }
+
+  async getCurrentUserId(): Promise<string | null> {
+    return await chatermAuthAdapter.getCurrentUserId()
+  }
+
+  clearAuthInfo(): void {
+    chatermAuthAdapter.clearAuthInfo()
+    logger.info('已清除认证信息')
+  }
+
+  getAuthStatus() {
+    return chatermAuthAdapter.getAuthStatus()
+  }
+
+  /**
+   * 🔧 获取当前认证令牌
+   */
+  async getAuthToken(): Promise<string | null> {
+    return await chatermAuthAdapter.getAuthToken()
   }
 }

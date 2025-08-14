@@ -1,6 +1,6 @@
 import axios, { AxiosInstance, InternalAxiosRequestConfig, AxiosResponse } from 'axios'
 import config from '../config'
-import { getAuthToken, clearAuthToken } from '../utils/storage'
+import { chatermAuthAdapter } from './auth'
 
 interface GenerateDataKeyRequest {
   encryptionContext: any
@@ -66,16 +66,19 @@ class ApiClient {
     // 请求拦截器：自动附加Authorization头
     this.client.interceptors.request.use(
       async (config: InternalAxiosRequestConfig) => {
-        const token = await getAuthToken()
+        // 🔧 使用统一的认证适配器获取token
+        const token = await chatermAuthAdapter.getAuthToken()
         if (token) {
-          config.headers = config.headers || {}
+          if (!config.headers) {
+            config.headers = {} as any
+          }
           config.headers['Authorization'] = `Bearer ${token}`
-          console.log('请求已附带Token')
+          console.log('KMS请求已附带Token')
         }
         return config
       },
       (error) => {
-        console.error('请求拦截器错误:', error)
+        console.error('KMS请求拦截器错误:', error)
         return Promise.reject(error)
       }
     )
@@ -87,8 +90,9 @@ class ApiClient {
       },
       async (error) => {
         if (error.response && error.response.status === 401) {
-          console.warn('认证失败 (401)，清除本地Token')
-          await clearAuthToken()
+          console.warn('KMS认证失败 (401)，清除认证信息')
+          // 🔧 使用统一的认证适配器清除认证信息
+          chatermAuthAdapter.clearAuthInfo()
         }
         const errorMessage = error.response?.data?.error || error.message
         return Promise.reject(new Error(errorMessage))
