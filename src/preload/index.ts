@@ -587,6 +587,8 @@ const api = {
   },
   quitAndInstall: () => ipcRenderer.invoke('update:quitAndInstall'),
   updateTheme: (params) => ipcRenderer.invoke('update-theme', params),
+  mainWindowInit: (params) => ipcRenderer.invoke('main-window-init', params),
+  mainWindowShow: () => ipcRenderer.invoke('main-window-show'),
   // 添加 JumpServer 状态更新监听
   onJumpServerStatusUpdate: (callback) => {
     const listener = (_event, data) => {

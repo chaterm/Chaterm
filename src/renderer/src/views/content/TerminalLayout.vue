@@ -232,7 +232,6 @@ import { userInfoStore } from '@/store'
 import { aliasConfigStore } from '@/store/aliasConfigStore'
 import eventBus from '@/utils/eventBus'
 import { Notice } from '../components/Notice'
-import '@/assets/theme.less'
 import { isGlobalInput, isShowCommandBar, isShowQuickCommand } from '@renderer/views/components/Ssh/termInputManager'
 import { inputManager } from '../components/Ssh/termInputManager'
 import { useRouter } from 'vue-router'
@@ -429,7 +428,7 @@ onMounted(async () => {
   })
   eventBus.on('updateTheme', (theme) => {
     currentTheme.value = theme
-    document.body.className = `theme-${theme}`
+    document.documentElement.className = `theme-${theme}`
   })
   try {
     let config = await userConfigStore.getConfig()
@@ -440,7 +439,6 @@ onMounted(async () => {
     }
     store.setUserConfig(config)
     currentTheme.value = config.theme || 'dark'
-    document.body.className = `theme-${currentTheme.value}`
 
     // Delay of 2 seconds to wait for the main thread to complete initializeTelemetrySetting
     setTimeout(async () => {
@@ -459,14 +457,11 @@ onMounted(async () => {
 
     nextTick(() => {
       showWatermark.value = config.watermark !== 'close'
-      api.updateTheme(currentTheme.value)
     })
   } catch (e) {
     currentTheme.value = 'dark'
-    document.body.className = 'theme-dark'
     nextTick(() => {
       showWatermark.value = true
-      api.updateTheme('dark')
     })
   }
   nextTick(() => {
@@ -489,6 +484,12 @@ onMounted(async () => {
   eventBus.on('switchToSpecificTab', switchToSpecificTab)
 
   checkVersion()
+
+  nextTick(() => {
+    let theme = localStorage.getItem('theme') || 'dark'
+    api.mainWindowInit(theme)
+    api.mainWindowShow()
+  })
 })
 const timer = ref<number | null>(null)
 watch(mainTerminalSize, () => {
