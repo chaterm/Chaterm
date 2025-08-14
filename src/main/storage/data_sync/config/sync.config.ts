@@ -1,5 +1,5 @@
 import * as dotenv from 'dotenv'
-
+import { getDeviceId } from './devideId'
 dotenv.config()
 
 export interface SyncConfig {
@@ -23,7 +23,7 @@ export const syncConfig: SyncConfig = {
   serverUrl: process.env.SERVER_URL || 'http://localhost:8080',
   apiVersion: process.env.API_VERSION || 'v1',
   dbPath: process.env.DB_PATH || './sqliteDB/chaterm_data.db',
-  deviceId: process.env.DEVICE_ID || 'device-default',
+  deviceId: getDeviceId(), // 使用主板id
   username: process.env.USERNAME,
   password: process.env.PASSWORD,
   syncIntervalMs: Number(process.env.SYNC_INTERVAL_MS || 120000), // 2 minutes

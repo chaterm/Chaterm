@@ -3,6 +3,7 @@ export type OperationType = 'INSERT' | 'UPDATE' | 'DELETE'
 export interface Asset {
   id?: number
   uuid: string
+  uid?: string
   label: string
   asset_ip: string
   group_name: string
@@ -10,12 +11,13 @@ export interface Asset {
   port: number
   username: string
   password: string
-  key_chain_id?: number
+  key_chain_id: number // 改为必填，匹配后端 uint32
   favorite: boolean
   asset_type?: string
   created_at: string | Date
   updated_at: string | Date
-  version?: number
+  version: number // 改为必填，匹配后端 int32
+  data_cipher_text?: string
   sync_status?: 'pending' | 'synced' | 'conflict'
   last_sync_time?: string | Date
   operation_type?: OperationType
@@ -31,7 +33,7 @@ export interface AssetChain {
   passphrase: string
   created_at: string | Date
   updated_at: string | Date
-  version?: number
+  version: number // 改为必填，匹配后端 int32
   sync_status?: 'pending' | 'synced' | 'conflict'
   last_sync_time?: string | Date
   operation_type?: OperationType
@@ -72,7 +74,7 @@ export interface BackupInitResponse {
 
 export interface ServerChangeLog {
   id?: number
-  sequence_id: number
+  sequence_id: number // 匹配后端 uint64 类型
   target_table: string
   record_id: string
   operation_type: OperationType
@@ -89,4 +91,28 @@ export interface GetChangesResponse {
   lastSequenceId: number
   hasMore: boolean
   serverTime: string | number
+}
+
+export interface FullSyncSession {
+  session_id: string
+  table_name: string
+  page_size: number
+  total_count: number
+  total_pages: number
+  created_at: string
+}
+
+export interface FullSyncSessionResponse {
+  success: boolean
+  message: string
+  session: FullSyncSession
+}
+
+export interface FullSyncBatchResponse {
+  success: boolean
+  message: string
+  data: any[]
+  has_more: boolean
+  total_pages: number
+  current_page: number
 }
