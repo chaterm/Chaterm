@@ -116,7 +116,7 @@ class ApiClient {
         headers['Authorization'] = request.authToken.startsWith('Bearer ') ? request.authToken : `Bearer ${request.authToken}`
       }
 
-      const response = await this.client.post('/api/kms/generate-data-key', requestData, {
+      const response = await this.client.post('/kms/generate-data-key', requestData, {
         headers: Object.keys(headers).length > 0 ? headers : undefined
       })
       return response as unknown as GenerateDataKeyResponse
@@ -151,7 +151,7 @@ class ApiClient {
         headers['Authorization'] = request.authToken.startsWith('Bearer ') ? request.authToken : `Bearer ${request.authToken}`
       }
 
-      const response = await this.client.post('/api/kms/decrypt-data-key', requestData, {
+      const response = await this.client.post('/kms/decrypt-data-key', requestData, {
         headers: Object.keys(headers).length > 0 ? headers : undefined
       })
 
@@ -191,7 +191,7 @@ class ApiClient {
   async rotateMasterKey(): Promise<any> {
     try {
       console.log('请求轮换主密钥...')
-      const response = await this.client.post('/api/kms/rotate-master-key')
+      const response = await this.client.post('/kms/rotate-master-key')
       console.log('主密钥轮换成功')
       return response
     } catch (error) {
@@ -207,7 +207,7 @@ class ApiClient {
   async getStats(): Promise<any> {
     try {
       console.log('获取KMS统计信息...')
-      const response = await this.client.get('/api/kms/stats')
+      const response = await this.client.get('/kms/stats')
       console.log('获取统计信息成功')
       return response
     } catch (error) {
@@ -225,7 +225,7 @@ class ApiClient {
   async validateDataKey(encryptedDataKey: string, encryptionContext: any): Promise<any> {
     try {
       console.log('验证数据密钥...')
-      const response = await this.client.post('/api/kms/validate-data-key', {
+      const response = await this.client.post('/kms/validate-data-key', {
         encryptedDataKey,
         encryptionContext
       })
@@ -245,7 +245,7 @@ class ApiClient {
   async revokeDataKey(keyFingerprint: string): Promise<any> {
     try {
       console.log(' 撤销数据密钥...')
-      const response = await this.client.post('/api/kms/revoke-data-key', {
+      const response = await this.client.post('/kms/revoke-data-key', {
         keyFingerprint
       })
       console.log('数据密钥撤销成功')
@@ -264,7 +264,7 @@ class ApiClient {
    */
   async logAudit(action: string, details: any): Promise<any> {
     try {
-      const response = await this.client.post('/api/kms/audit-log', {
+      const response = await this.client.post('/kms/audit-log', {
         action,
         details,
         timestamp: Date.now()
