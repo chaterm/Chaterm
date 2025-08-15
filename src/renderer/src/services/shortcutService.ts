@@ -81,7 +81,14 @@ export class ShortcutService {
     try {
       const config = await userConfigStore.getConfig()
       if (config.shortcuts) {
-        this.currentShortcuts = config.shortcuts
+        const defaultShortcuts: ShortcutConfig = {}
+        const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0
+
+        shortcutActions.forEach((action) => {
+          defaultShortcuts[action.id] = isMac ? action.defaultKey.mac : action.defaultKey.other
+        })
+
+        this.currentShortcuts = { ...defaultShortcuts, ...config.shortcuts }
         this.bindShortcuts()
       }
     } catch (error) {
@@ -381,6 +388,7 @@ export class ShortcutService {
 
       // Update configuration
       const config = await userConfigStore.getConfig()
+
       const shortcuts = { ...(config.shortcuts || {}) } as ShortcutConfig
       shortcuts[actionId] = newShortcut
 
