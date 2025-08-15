@@ -187,7 +187,8 @@ ${t('personal.importFormatExample')}
     title: t('personal.importFormatTitle'),
     content: helpText,
     width: 600,
-    okText: t('common.ok')
+    okText: t('common.ok'),
+    class: 'import-help-modal'
   })
 }
 </script>
@@ -242,6 +243,21 @@ ${t('personal.importFormatExample')}
   &.help-button {
     padding: 0 8px;
     min-width: 32px;
+  }
+}
+
+:global(.import-help-modal) {
+  .ant-modal-body {
+    user-select: text;
+    -webkit-user-select: text;
+    -moz-user-select: text;
+    -ms-user-select: text;
+    white-space: pre-wrap;
+    font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+    font-size: 12px;
+    line-height: 1.5;
+    max-height: 600px;
+    overflow-y: auto;
   }
 }
 </style>
