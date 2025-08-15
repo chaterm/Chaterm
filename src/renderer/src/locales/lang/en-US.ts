@@ -539,7 +539,8 @@ export default {
     later: 'Later',
     downloading: 'Downloading update',
     complete: 'Download complete, install now?',
-    install: 'Install'
+    install: 'Install',
+    clickUpdate: 'Click Restart to update'
   },
   files: {
     name: 'Name',
