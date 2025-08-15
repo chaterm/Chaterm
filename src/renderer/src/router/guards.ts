@@ -3,7 +3,7 @@ import { getUserInfo } from '@/utils/permission'
 export const beforeEach = async (to, from, next) => {
   const token = localStorage.getItem('ctm-token')
   const isSkippedLogin = localStorage.getItem('login-skipped') === 'true'
-
+  const isDev = import.meta.env.MODE === 'development'
   if (to.path === '/login') {
     if (isSkippedLogin) {
       localStorage.removeItem('login-skipped')
@@ -61,6 +61,11 @@ export const beforeEach = async (to, from, next) => {
       }
     } catch (error) {
       console.error('处理失败:', error)
+      // In the development environment, bypass the relevant errors (usually caused by hot updates)
+      if (isDev && (error.message.includes('nextSibling') || error.message.includes('getUserInfo'))) {
+        next()
+        return
+      }
       next('/login')
     }
   } else {
