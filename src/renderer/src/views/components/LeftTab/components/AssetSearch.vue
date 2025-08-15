@@ -256,8 +256,8 @@ ${t('personal.importFormatExample')}
     font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
     font-size: 12px;
     line-height: 1.5;
-    max-height: 600px;
     overflow-y: auto;
+    overflow-x: hidden;
   }
 }
 </style>
