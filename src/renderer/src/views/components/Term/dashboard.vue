@@ -1,17 +1,95 @@
 <template>
   <div class="dashboard-container">
-    <div class="welcome-content">
+    <div class="shortcuts-content">
       <img
         class="logo"
         src="@/assets/logo.svg"
         alt="logo"
       />
-      <div class="welcome-title">{{ $t('term.welcome') }}</div>
+      <div class="shortcuts-list">
+        <div
+          v-for="shortcut in shortcuts"
+          :key="shortcut.id"
+          class="shortcut-item"
+        >
+          <div class="shortcut-description">
+            {{ getCurrentLanguage() === 'zh' ? shortcut.description.zh : shortcut.description.en }}
+          </div>
+
+          <div class="shortcut-key">
+            <kbd
+              v-for="key in shortcut.keys"
+              :key="key"
+              class="key"
+              >{{ key }}</kbd
+            >
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 </template>
 
-<script setup lang="ts"></script>
+<script setup lang="ts">
+import { computed } from 'vue'
+import { shortcutActions, shortcutHints } from '@/config/shortcutActions'
+import { useI18n } from 'vue-i18n'
+
+const { locale } = useI18n()
+
+// Detect current language
+const getCurrentLanguage = () => {
+  return locale.value === 'zh' || locale.value === 'zh-CN' ? 'zh' : 'en'
+}
+
+// Detect if it's Mac system
+const isMac = computed(() => {
+  return navigator.platform.toUpperCase().indexOf('MAC') >= 0
+})
+
+// Format shortcut key display
+const formatShortcutKey = (key: string) => {
+  return key.split('+').map((k) => {
+    switch (k) {
+      case 'Command':
+        return '⌘'
+      case 'Control':
+        return '⌃'
+      case 'Option':
+        return '⌥'
+      case 'Shift':
+        return '⇧'
+      case 'Ctrl':
+        return 'Ctrl'
+      case 'Alt':
+        return 'Alt'
+      default:
+        return k
+    }
+  })
+}
+
+// Get shortcuts to display
+const shortcuts = computed(() => {
+  const targetIds = ['sendOrToggleAi', 'openCommandDialog', 'openSettings']
+  return targetIds
+    .map((id) => {
+      const action = shortcutActions.find((a) => a.id === id)
+      if (!action) return null
+
+      const key = isMac.value ? action.defaultKey.mac : action.defaultKey.other
+      const keys = formatShortcutKey(key)
+      const description = shortcutHints[id as keyof typeof shortcutHints]
+
+      return {
+        id,
+        keys,
+        description
+      }
+    })
+    .filter((item): item is NonNullable<typeof item> => item !== null)
+})
+</script>
 
 <style lang="less" scoped>
 .dashboard-container {
@@ -19,38 +97,94 @@
   justify-content: center;
   align-items: flex-start;
   min-height: 100vh;
-  padding-top: 35vh;
+  padding-top: 20vh;
 }
 
-.welcome-content {
+.shortcuts-content {
   display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 16px;
+  gap: 24px;
   padding: 32px 40px;
   @media (max-width: 600px) {
-    flex-direction: column;
     padding: 20px 10px;
-    gap: 12px;
+    gap: 20px;
   }
 }
 
 .logo {
-  margin-bottom: 0px;
   width: 40px;
   height: 40px;
+  margin-bottom: 8px;
   &:hover {
     transform: scale(1.05);
   }
 }
 
-.welcome-title {
+.shortcuts-title {
   font-size: 20px;
   font-weight: bold;
   background: linear-gradient(90deg, #00eaff 0%, #1677ff 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
-  line-height: 56px;
   margin: 0;
   letter-spacing: 1px;
+  text-align: center;
+}
+
+.shortcuts-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0px;
+  width: 100%;
+  max-width: 400px;
+}
+
+.shortcut-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 20px;
+  border-radius: 8px;
+  transition: all 0.2s ease;
+
+  @media (max-width: 600px) {
+    flex-direction: column;
+    gap: 8px;
+    text-align: center;
+  }
+}
+
+.shortcut-key {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+}
+
+.key {
+  display: inline-block;
+  padding: 1px;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 4px;
+  font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Fira Code', monospace;
+  font-size: 12px;
+  font-weight: 500;
+  color: #a0a0a0;
+  min-width: 24px;
+  text-align: center;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+}
+
+.shortcut-description {
+  font-size: 14px;
+  color: #888888;
+  font-weight: 500;
+  margin-right: 80px;
+
+  @media (max-width: 600px) {
+    font-size: 13px;
+    margin-right: 0;
+  }
 }
 </style>

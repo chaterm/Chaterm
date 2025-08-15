@@ -2,7 +2,14 @@ import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse } from 'axios'
 import { Agent as HttpAgent } from 'http'
 import { Agent as HttpsAgent } from 'https'
 import { syncConfig } from '../config/sync.config'
-import { BackupInitResponse, GetChangesResponse, SyncRequest, SyncResponse } from '../models/SyncTypes'
+import {
+  BackupInitResponse,
+  GetChangesResponse,
+  SyncRequest,
+  SyncResponse,
+  FullSyncSessionResponse,
+  FullSyncBatchResponse
+} from '../models/SyncTypes'
 import { logger } from '../utils/logger'
 import { gzipSync } from 'zlib'
 import { chatermAuthAdapter } from '../envelope_encryption/services/auth'
@@ -69,9 +76,21 @@ export class ApiClient {
       }
     )
 
-    // 响应拦截器：统一处理401认证失败
+    // 响应拦截器：统一处理响应格式和401认证失败
     this.client.interceptors.response.use(
       (response: AxiosResponse) => {
+        // 适配新的统一响应格式: {code, data: {...}, ts}
+        if (response.data && typeof response.data === 'object' && 'code' in response.data && 'data' in response.data) {
+          // 检查后端返回的code
+          if (response.data.code >= 200 && response.data.code < 300) {
+            // 成功响应，返回实际业务数据
+            response.data = response.data.data
+          } else {
+            // 业务错误，抛出异常
+            const errorMessage = response.data.data?.message || `请求失败 (${response.data.code})`
+            throw new Error(errorMessage)
+          }
+        }
         return response
       },
       async (error) => {
@@ -80,25 +99,46 @@ export class ApiClient {
           chatermAuthAdapter.clearAuthInfo()
           // 可以在这里触发重新登录逻辑或通知上层
         }
-        const errorMessage = error.response?.data?.error || error.message
+
+        // 适配新的错误响应格式
+        let errorMessage = error.message
+        if (error.response?.data) {
+          const responseData = error.response.data
+          if (responseData.data?.message) {
+            errorMessage = responseData.data.message
+          } else if (responseData.message) {
+            errorMessage = responseData.message
+          } else if (responseData.error) {
+            errorMessage = responseData.error
+          }
+        }
+
         return Promise.reject(new Error(errorMessage))
       }
     )
   }
 
   async backupInit(): Promise<BackupInitResponse> {
-    const res = await this.client.post('/sync/backup-init', {})
+    const payload = { device_id: syncConfig.deviceId }
+    const res = await this.client.post('/sync/backup-init', payload)
     return res.data as BackupInitResponse
   }
 
   async fullSync(tableName: string): Promise<SyncResponse> {
-    const payload: SyncRequest = { table_name: tableName }
+    const payload = {
+      table_name: tableName,
+      device_id: syncConfig.deviceId
+    }
     const res = await this.client.post('/sync/full-sync', payload)
     return res.data as SyncResponse
   }
 
   async incrementalSync(tableName: string, data: any[]): Promise<SyncResponse> {
-    const payload: SyncRequest & { data: any[] } = { table_name: tableName, data }
+    const payload = {
+      table_name: tableName,
+      data,
+      device_id: syncConfig.deviceId
+    }
     const json = JSON.stringify(payload)
     // 当请求体较大且启用压缩时启用 gzip，简单阈值 1KB
     if (syncConfig.compressionEnabled && Buffer.byteLength(json, 'utf8') > 1024) {
@@ -113,8 +153,47 @@ export class ApiClient {
   }
 
   async getChanges(since: number, limit = 100): Promise<GetChangesResponse> {
-    const res = await this.client.get('/sync/changes', { params: { since, limit } })
+    const params = {
+      since,
+      limit,
+      device_id: syncConfig.deviceId
+    }
+    const res = await this.client.get('/sync/changes', { params })
     return res.data as GetChangesResponse
+  }
+
+  // ==================== 新增分批同步接口 ====================
+
+  /**
+   * 开始全量同步会话
+   */
+  async startFullSync(tableName: string, pageSize = 100): Promise<FullSyncSessionResponse> {
+    const payload = {
+      table_name: tableName,
+      page_size: pageSize
+    }
+    const res = await this.client.post('/sync/full-sync/start', payload)
+    return res.data as FullSyncSessionResponse
+  }
+
+  /**
+   * 获取分批数据
+   */
+  async getFullSyncBatch(sessionId: string, page: number): Promise<FullSyncBatchResponse> {
+    const payload = {
+      session_id: sessionId,
+      page: page
+    }
+    const res = await this.client.post('/sync/full-sync/batch', payload)
+    return res.data as FullSyncBatchResponse
+  }
+
+  /**
+   * 完成全量同步会话
+   */
+  async finishFullSync(sessionId: string): Promise<{ success: boolean; message: string }> {
+    const res = await this.client.delete(`/sync/full-sync/finish/${sessionId}`)
+    return res.data
   }
 
   /**

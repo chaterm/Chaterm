@@ -1,11 +1,26 @@
 import eventBus from '@/utils/eventBus'
 import type { ShortcutAction } from '@/services/shortcutService'
 
+export const shortcutHints = {
+  sendOrToggleAi: {
+    zh: '与AI对话',
+    en: 'Chat With AI'
+  },
+  openCommandDialog: {
+    zh: '内联命令生成',
+    en: 'Inline Command Generator'
+  },
+  openSettings: {
+    zh: '打开设置',
+    en: 'Open Settings'
+  }
+}
+
 /**
- * 集中定义了应用中所有的快捷键操作。
- * 每个操作包含一个唯一的 `id`，一个用于国际化的 `nameKey`，
- * 默认的快捷键 `defaultKey` (区分Mac和非Mac平台)，
- * 以及一个 `handler` 函数来执行具体操作。
+ * Centralized definition of all keyboard shortcuts in the application.
+ * Each action contains a unique `id`, a `nameKey` for internationalization,
+ * default keyboard shortcuts `defaultKey` (different for Mac and non-Mac platforms),
+ * and a `handler` function to execute the specific operation.
  */
 export const shortcutActions: Omit<ShortcutAction, 'name'>[] = [
   {
