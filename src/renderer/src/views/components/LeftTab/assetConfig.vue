@@ -2,14 +2,13 @@
   <div class="asset-config-container">
     <div class="split-layout">
       <div class="left-section">
-        <!-- 搜索组件 -->
         <AssetSearch
           v-model="searchValue"
           @search="handleSearch"
           @new-asset="openNewPanel"
+          @import-assets="handleImportAssets"
+          @export-assets="handleExportAssets"
         />
-
-        <!-- 资产列表组件 -->
         <AssetList
           :asset-groups="assetGroups"
           :search-value="searchValue"
@@ -19,8 +18,6 @@
           @asset-edit="handleAssetEdit"
           @asset-context-menu="handleAssetContextMenu"
         />
-
-        <!-- 全局右键菜单 -->
         <AssetContextMenu
           v-if="contextMenuVisible"
           :visible="contextMenuVisible"
@@ -38,7 +35,6 @@
         class="right-section"
         :class="{ collapsed: !isRightSectionVisible }"
       >
-        <!-- 资产表单组件 -->
         <AssetForm
           v-if="isRightSectionVisible"
           :is-edit-mode="isEditMode"
@@ -69,22 +65,17 @@ import type { AssetNode, AssetFormData, KeyChainItem } from './types'
 
 const { t } = i18n.global
 
-// State
 const isEditMode = ref(false)
 const editingAssetUUID = ref<string | null>(null)
 const isRightSectionVisible = ref(false)
 const searchValue = ref('')
-
 const assetGroups = ref<AssetNode[]>([])
 const keyChainOptions = ref<KeyChainItem[]>([])
 const defaultGroups = ref(['development', 'production', 'staging', 'testing', 'database'])
-
-// 右键菜单状态
 const contextMenuVisible = ref(false)
 const contextMenuPosition = reactive({ x: 0, y: 0 })
 const selectedAsset = ref<AssetNode | null>(null)
 
-// Form data for create/edit
 const formData = reactive<AssetFormData>({
   username: '',
   password: '',
@@ -111,7 +102,6 @@ const resetForm = () => {
   })
 }
 
-// Methods
 const openNewPanel = () => {
   isEditMode.value = false
   editingAssetUUID.value = null
@@ -128,7 +118,7 @@ const closeForm = () => {
 }
 
 const handleSearch = () => {
-  // Search is handled by computed property in AssetList
+  // Search is handled by computed property in AssetList, so we don't need to do anything here
 }
 
 const handleAssetClick = (asset: AssetNode) => {
@@ -136,7 +126,7 @@ const handleAssetClick = (asset: AssetNode) => {
 }
 
 const handleAssetConnect = (asset: AssetNode) => {
-  console.log('连接资产:', asset)
+  console.log('Connecting to asset:', asset)
   eventBus.emit('currentClickServer', asset)
 }
 
@@ -186,7 +176,6 @@ const handleAssetContextMenu = (event: MouseEvent, asset: AssetNode) => {
   selectedAsset.value = asset
   contextMenuVisible.value = true
 
-  // 添加全局点击监听器来关闭菜单
   const closeMenu = () => {
     contextMenuVisible.value = false
     document.removeEventListener('click', closeMenu)
@@ -201,7 +190,6 @@ const closeContextMenu = () => {
   contextMenuVisible.value = false
 }
 
-// 右键菜单操作处理方法
 const handleContextMenuConnect = () => {
   if (selectedAsset.value) {
     handleAssetConnect(selectedAsset.value)
@@ -220,19 +208,17 @@ const handleContextMenuRefresh = () => {
   if (selectedAsset.value) {
     handleAssetRefresh(selectedAsset.value)
   }
-  // handleAssetRefresh 内部已经调用了 closeContextMenu()
 }
 
 const handleContextMenuRemove = () => {
   if (selectedAsset.value) {
     handleAssetRemove(selectedAsset.value)
   }
-  // handleAssetRemove 内部已经调用了 closeContextMenu()
 }
 
 const handleAssetRemove = (asset: AssetNode) => {
   if (!asset || !asset.uuid) return
-  closeContextMenu() // 关闭右键菜单
+  closeContextMenu()
   Modal.confirm({
     title: t('personal.deleteConfirm'),
     content: t('personal.deleteConfirmContent', { name: asset.title }),
@@ -256,6 +242,115 @@ const handleAssetRemove = (asset: AssetNode) => {
       }
     }
   })
+}
+
+const handleImportAssets = async (assets: any[]) => {
+  if (!assets || assets.length === 0) {
+    message.warning(t('personal.importNoData'))
+    return
+  }
+
+  try {
+    const api = window.api as any
+    let successCount = 0
+    let errorCount = 0
+
+    for (const asset of assets) {
+      try {
+        if (!asset.ip || !asset.username) {
+          errorCount++
+          continue
+        }
+
+        const cleanForm = {
+          username: asset.username || '',
+          password: asset.password || '',
+          ip: asset.ip || '',
+          label: asset.label || asset.ip,
+          group_name: asset.group_name || t('personal.defaultGroup'),
+          auth_type: asset.auth_type || 'password',
+          keyChain: asset.keyChain,
+          port: asset.port || 22,
+          asset_type: asset.asset_type || 'person'
+        }
+
+        const result = await api.createAsset({ form: cleanForm })
+        if (result && result.data && result.data.message === 'success') {
+          successCount++
+        } else {
+          errorCount++
+        }
+      } catch (error) {
+        console.error('Import asset error:', error)
+        errorCount++
+      }
+    }
+
+    if (successCount > 0) {
+      message.success(t('personal.importSuccessCount', { count: successCount }))
+      getAssetList()
+      eventBus.emit('LocalAssetMenu')
+    }
+
+    if (errorCount > 0) {
+      message.warning(t('personal.importErrorCount', { count: errorCount }))
+    }
+  } catch (error) {
+    console.error('Batch import error:', error)
+    message.error(t('personal.importError'))
+  }
+}
+
+const handleExportAssets = () => {
+  try {
+    const allAssets: any[] = []
+
+    const extractAssets = (nodes: AssetNode[]) => {
+      nodes.forEach((node) => {
+        if (node.children && node.children.length > 0) {
+          extractAssets(node.children)
+        } else {
+          if (node.ip && node.username) {
+            allAssets.push({
+              username: node.username,
+              password: node.password || '',
+              ip: node.ip,
+              label: node.label || node.title,
+              group_name: node.group_name,
+              auth_type: node.auth_type || 'password',
+              keyChain: node.key_chain_id,
+              port: node.port || 22,
+              asset_type: node.asset_type || 'person'
+            })
+          }
+        }
+      })
+    }
+
+    extractAssets(assetGroups.value)
+
+    if (allAssets.length === 0) {
+      message.warning(t('personal.exportNoData'))
+      return
+    }
+
+    const dataStr = JSON.stringify(allAssets, null, 2)
+    const dataBlob = new Blob([dataStr], { type: 'application/json' })
+    const url = URL.createObjectURL(dataBlob)
+
+    const link = document.createElement('a')
+    link.href = url
+    link.download = `chaterm-assets-${new Date().toISOString().split('T')[0]}.json`
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    URL.revokeObjectURL(url)
+
+    message.success(t('personal.exportSuccess', { count: allAssets.length }))
+  } catch (error) {
+    console.error('Export assets error:', error)
+    message.error(t('personal.exportError'))
+  }
 }
 
 const handleAuthChange = (authType: string) => {
@@ -290,7 +385,7 @@ const handleFormSubmit = async (data: AssetFormData) => {
       await handleCreateAsset(data)
     }
   } catch (error) {
-    console.error('表单提交出错:', error)
+    console.error('Form submission error:', error)
   }
 }
 
@@ -326,7 +421,7 @@ const handleCreateAsset = async (data: AssetFormData) => {
       throw new Error('Failed to create asset')
     }
   } catch (error) {
-    console.error('创建资产出错:', error)
+    console.error('Create asset error:', error)
     message.error(t('personal.createError'))
   }
 }
@@ -387,7 +482,6 @@ const getAssetList = () => {
     .catch((err) => console.error(err))
 }
 
-// Lifecycle
 onMounted(() => {
   getAssetList()
   getkeyChainData()
@@ -400,7 +494,6 @@ onBeforeUnmount(() => {
   eventBus.off('keyChainUpdated')
 })
 
-// Watchers
 watch(isRightSectionVisible, (val) => {
   if (!val) {
     resetForm()
