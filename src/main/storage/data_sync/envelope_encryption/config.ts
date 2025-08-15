@@ -29,11 +29,7 @@ interface Config {
 
 const config: Config = {
   // 主进程中的默认配置，优先使用环境变量，否则使用开发环境默认值
-  serverUrl:
-    process.env.RENDERER_KMS_SERVER_URL ||
-    process.env.KMS_SERVER_URL ||
-    (process.env.NODE_ENV === 'production' ? 'http://demo.chaterm.ai/v1' : 'http://localhost:3000'),
-
+  serverUrl: 'http://demo.chaterm.ai/v1',
   encryption: {
     algorithm: 'aes-256-gcm',
     keyLength: 32, // 256位
