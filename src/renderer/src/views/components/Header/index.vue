@@ -5,6 +5,19 @@
       :style="{ marginRight: platform.includes('darwin') ? '0px' : '140px' }"
     >
       <div
+        v-if="isAvailable"
+        class="update-badge"
+        @click="toInstall"
+      >
+        <div class="update-icon">
+          <ArrowDownOutlined />
+        </div>
+        <span class="update-text">{{ t('update.clickUpdate') }}</span>
+        <div class="update-arrow">
+          <RightOutlined />
+        </div>
+      </div>
+      <div
         class="toggle-right-btn"
         @click="toggleSidebarLeft('left')"
       >
@@ -43,9 +56,13 @@
 </template>
 <script setup lang="ts">
 import { ref, onMounted, defineEmits, getCurrentInstance } from 'vue'
+import { useI18n } from 'vue-i18n'
+import { ArrowDownOutlined, RightOutlined } from '@ant-design/icons-vue'
 import { useDeviceStore } from '@/store/useDeviceStore'
 import { userConfigStore } from '@/services/userConfigStoreService'
 import eventBus from '@/utils/eventBus'
+const api = window.api as any
+const { t } = useI18n()
 
 const platform = ref<string>('')
 const deviceStore = useDeviceStore()
@@ -54,7 +71,7 @@ const { appContext } = instance
 
 const isLeftSidebarCollapsed = ref(true)
 const isRightSidebarCollapsed = ref(false)
-
+const isAvailable = ref(false)
 const emit = defineEmits(['toggle-sidebar'])
 const toggleSidebarRight = (params) => {
   emit('toggle-sidebar', params)
@@ -69,12 +86,27 @@ const switchIcon = (dir, value) => {
   dir == 'left' ? (isLeftSidebarCollapsed.value = value) : ''
   dir == 'right' ? (isRightSidebarCollapsed.value = value) : ''
 }
+const checkVersion = async () => {
+  const info = await api.checkUpdate()
+  if (info?.isUpdateAvailable) {
+    api.download()
+    api.autoUpdate((params) => {
+      if (params.status == 4) {
+        isAvailable.value = true
+      }
+    })
+  }
+}
+
+const toInstall = () => {
+  api.quitAndInstall()
+}
+
 defineExpose({
   switchIcon
 })
 
 onMounted(async () => {
-  const api = window.api as any
   platform.value = await api.getPlatform()
   try {
     const localIP = await api.getLocalIP()
@@ -94,6 +126,7 @@ onMounted(async () => {
   eventBus.on('updateRightIcon', (value: boolean) => {
     isRightSidebarCollapsed.value = value
   })
+  checkVersion()
 })
 </script>
 <style lang="less">
@@ -124,6 +157,44 @@ onMounted(async () => {
   position: relative;
   justify-content: flex-end;
 
+  .update-badge {
+    -webkit-app-region: no-drag;
+    margin-right: 20px;
+    padding: 2px 5px;
+    background: var(--hover-bg-color);
+    border-radius: 9px;
+    font-size: 10px;
+    font-weight: 500;
+    color: var(--text-color);
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    cursor: pointer;
+
+    .update-icon {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 15px;
+      height: 15px;
+      border-radius: 50%;
+      border: 2px solid #1890ff;
+      font-size: 7px;
+      flex-shrink: 0;
+    }
+
+    .update-text {
+      font-size: 11px;
+      white-space: nowrap;
+    }
+
+    .update-arrow {
+      display: flex;
+      align-items: center;
+      color: #999999;
+      font-size: 10px;
+    }
+  }
   .toggle-right-btn {
     width: 24px;
     height: 24px;

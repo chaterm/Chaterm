@@ -483,8 +483,6 @@ onMounted(async () => {
   eventBus.on('switchToPrevTab', switchToPrevTab)
   eventBus.on('switchToSpecificTab', switchToSpecificTab)
 
-  checkVersion()
-
   nextTick(() => {
     let theme = localStorage.getItem('theme') || 'dark'
     api.mainWindowInit(theme)
@@ -1103,51 +1101,7 @@ const toggleAiSidebar = () => {
     }
   }
 }
-const checkVersion = async () => {
-  const api = window.api as any
-  const info = await api.checkUpdate()
-  if (info?.isUpdateAvailable)
-    Notice.open({
-      id: 'update-notice',
-      type: 'info',
-      duration: 300,
-      description: t('update.available'),
-      btns: [
-        {
-          text: t('update.update'),
-          action: () => {
-            Download()
-            Notice.close('update-notice')
-          }
-        },
-        { text: t('update.later'), class: 'notice-btn-withe', action: () => Notice.close('update-notice') }
-      ]
-    })
 
-  const Download = () => {
-    api.download()
-    api.autoUpdate((params) => {
-      if (params.status == 4) {
-        Notice.open({
-          id: 'update-download-complete',
-          type: 'success',
-          duration: 1800,
-          description: t('update.complete'),
-          btns: [
-            {
-              text: t('update.install'),
-              action: () => {
-                api.quitAndInstall()
-                Notice.close('update-download-complete')
-              }
-            },
-            { text: t('update.later'), class: 'notice-btn-withe', action: () => Notice.close('update-download-complete') }
-          ]
-        })
-      }
-    })
-  }
-}
 const onMainSplitResize = (params) => {
   mainTerminalSize.value = params.prevPane.size
   if (showAiSidebar.value) {
