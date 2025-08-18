@@ -1107,6 +1107,23 @@ ipcMain.handle('organization-asset-favorite', async (_, data) => {
   }
 })
 
+ipcMain.handle('organization-asset-comment', async (_, data) => {
+  try {
+    const { organizationUuid, host, comment } = data
+
+    if (!organizationUuid || !host) {
+      console.error('参数不完整:', { organizationUuid, host, comment })
+      return { data: { message: 'failed', error: '参数不完整' } }
+    }
+
+    const result = chatermDbService.updateOrganizationAssetComment(organizationUuid, host, comment || '')
+    return result
+  } catch (error) {
+    console.error('主进程 organization-asset-comment 错误:', error)
+    return { data: { message: 'failed', error: error instanceof Error ? error.message : String(error) } }
+  }
+})
+
 ipcMain.handle('capture-telemetry-event', async (_, { eventType, data }) => {
   try {
     switch (eventType) {

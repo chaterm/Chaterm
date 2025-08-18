@@ -11,7 +11,8 @@ import {
   connectAssetInfoLogic,
   getUserHostsLogic,
   refreshOrganizationAssetsLogic,
-  updateOrganizationAssetFavoriteLogic
+  updateOrganizationAssetFavoriteLogic,
+  updateOrganizationAssetCommentLogic
 } from './chaterm/assets'
 import {
   deleteChatermHistoryByTaskIdLogic,
@@ -189,6 +190,16 @@ export class ChatermDatabaseService {
       return result
     } catch (error) {
       console.error('ChatermDatabaseService.updateOrganizationAssetFavorite 错误:', error)
+      throw error
+    }
+  }
+
+  updateOrganizationAssetComment(organizationUuid: string, host: string, comment: string): any {
+    try {
+      const result = updateOrganizationAssetCommentLogic(this.db, organizationUuid, host, comment)
+      return result
+    } catch (error) {
+      console.error('ChatermDatabaseService.updateOrganizationAssetComment 错误:', error)
       throw error
     }
   }

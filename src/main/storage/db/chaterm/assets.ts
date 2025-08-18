@@ -3,8 +3,30 @@ import { v4 as uuidv4 } from 'uuid'
 import { QueryResult } from '../types'
 import JumpServerClient from '../../../ssh/jumpserver/asset'
 
+// 数据库迁移函数：检查并添加comment字段
+function migrateDatabaseIfNeeded(db: Database.Database) {
+  try {
+    // 检查comment字段是否存在
+    const pragmaStmt = db.prepare('PRAGMA table_info(t_organization_assets)')
+    const columns = pragmaStmt.all()
+    const hasCommentColumn = columns.some((col: any) => col.name === 'comment')
+
+    if (!hasCommentColumn) {
+      console.log('正在添加comment字段到t_organization_assets表...')
+      // 添加comment字段
+      const alterStmt = db.prepare('ALTER TABLE t_organization_assets ADD COLUMN comment TEXT')
+      alterStmt.run()
+      console.log('comment字段添加成功')
+    }
+  } catch (error) {
+    console.error('数据库迁移失败:', error)
+  }
+}
+
 export function getLocalAssetRouteLogic(db: Database.Database, searchType: string, params: any[] = []): any {
   try {
+    // 执行数据库迁移
+    migrateDatabaseIfNeeded(db)
     const result: QueryResult = {
       code: 200,
       data: {
@@ -145,7 +167,7 @@ export function getLocalAssetRouteLogic(db: Database.Database, searchType: strin
       // 1. 首先添加收藏栏（如果不是 assetConfig 页面）
       if (searchType !== 'assetConfig') {
         // 查询所有收藏的企业资产（包括组织本身和组织下的子资产）
-        const favoriteAssets = []
+        const favoriteAssets: any[] = []
 
         // 查询收藏的组织本身
         const favoriteOrgsStmt = db.prepare(`
@@ -176,7 +198,7 @@ export function getLocalAssetRouteLogic(db: Database.Database, searchType: strin
 
         // 查询收藏的组织子资产
         const favoriteSubAssetsStmt = db.prepare(`
-          SELECT oa.hostname as asset_name, oa.host as asset_ip, oa.organization_uuid, oa.uuid, oa.favorite,
+          SELECT oa.hostname as asset_name, oa.host as asset_ip, oa.organization_uuid, oa.uuid, oa.favorite, oa.comment,
                  a.label as org_label, a.asset_ip as org_ip
           FROM t_organization_assets oa
           JOIN t_assets a ON oa.organization_uuid = a.uuid
@@ -193,22 +215,25 @@ export function getLocalAssetRouteLogic(db: Database.Database, searchType: strin
             favorite: true,
             ip: subAsset.asset_ip,
             uuid: subAsset.uuid,
+            comment: subAsset.comment,
             asset_type: 'organization',
             organizationId: subAsset.organization_uuid
           })
         }
 
-        // 如果有收藏的资产，添加收藏栏
+        // 添加收藏栏节点
         if (favoriteAssets.length > 0) {
-          result.data.routers.push({
-            key: 'favorite',
+          result.data.routers.unshift({
+            key: 'favorites',
             title: '收藏栏',
+            favorite: false,
+            asset_type: 'favorites',
             children: favoriteAssets
           })
         }
       }
 
-      // 2. 然后显示所有组织及其子资产
+      // 2. 查询所有企业资产
       const organizationAssetsStmt = db.prepare(`
         SELECT uuid, label, asset_ip, port, username, password, key_chain_id, auth_type, favorite
         FROM t_assets
@@ -219,7 +244,7 @@ export function getLocalAssetRouteLogic(db: Database.Database, searchType: strin
 
       for (const orgAsset of organizationAssets) {
         const nodesStmt = db.prepare(`
-          SELECT hostname as asset_name, host as asset_ip, organization_uuid, uuid, created_at, favorite
+          SELECT hostname as asset_name, host as asset_ip, organization_uuid, uuid, created_at, favorite, comment
           FROM t_organization_assets
           WHERE organization_uuid = ?
           ORDER BY hostname
@@ -233,6 +258,7 @@ export function getLocalAssetRouteLogic(db: Database.Database, searchType: strin
             favorite: node.favorite === 1,
             ip: node.asset_ip,
             uuid: node.uuid,
+            comment: node.comment,
             asset_type: 'organization',
             organizationId: orgAsset.uuid
           }
@@ -243,15 +269,7 @@ export function getLocalAssetRouteLogic(db: Database.Database, searchType: strin
           key: orgAsset.uuid,
           title: orgAsset.label || orgAsset.asset_ip,
           favorite: orgAsset.favorite === 1,
-          ip: orgAsset.asset_ip,
-          uuid: orgAsset.uuid,
-          port: orgAsset.port || 22,
-          username: orgAsset.username,
-          password: orgAsset.password,
-          key_chain_id: orgAsset.key_chain_id || 0,
-          auth_type: orgAsset.auth_type,
           asset_type: 'organization',
-          organizationId: orgAsset.uuid,
           children: children
         })
       }
@@ -706,6 +724,44 @@ export function updateOrganizationAssetFavoriteLogic(db: Database.Database, orga
     }
   } catch (error) {
     console.error('updateOrganizationAssetFavoriteLogic 错误:', error)
+    throw error
+  }
+}
+
+export function updateOrganizationAssetCommentLogic(db: Database.Database, organizationUuid: string, host: string, comment: string): any {
+  try {
+    // 先查询当前记录
+    const selectStmt = db.prepare(`
+      SELECT * FROM t_organization_assets 
+      WHERE organization_uuid = ? AND host = ?
+    `)
+    const currentRecord = selectStmt.get(organizationUuid, host)
+
+    if (!currentRecord) {
+      return {
+        data: {
+          message: 'failed',
+          error: '未找到匹配的记录'
+        }
+      }
+    }
+
+    // 执行更新
+    const updateStmt = db.prepare(`
+      UPDATE t_organization_assets
+      SET comment = ?, updated_at = CURRENT_TIMESTAMP
+      WHERE organization_uuid = ? AND host = ?
+    `)
+    const result = updateStmt.run(comment, organizationUuid, host)
+
+    return {
+      data: {
+        message: result.changes > 0 ? 'success' : 'failed',
+        changes: result.changes
+      }
+    }
+  } catch (error) {
+    console.error('updateOrganizationAssetCommentLogic 错误:', error)
     throw error
   }
 }

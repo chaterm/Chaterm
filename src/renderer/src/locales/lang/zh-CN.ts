@@ -444,7 +444,14 @@ export default {
     importFormatKeyChain: '密钥ID（可选，密钥认证时使用）',
     importFormatPort: '端口（可选，默认22）',
     importFormatAssetType: '资产类型（可选，"person"或"organization"）',
-    importFormatExample: '示例：'
+    importFormatExample: '示例：',
+    comment: '备注',
+    addComment: '添加备注',
+    editComment: '编辑备注',
+    commentPlaceholder: '请输入备注信息',
+    commentSaved: '备注保存成功',
+    commentSaveFailed: '备注保存失败',
+    commentSaveError: '备注保存出错'
   },
   ai: {
     welcome: '您好，请问需要在终端做什么操作？',
