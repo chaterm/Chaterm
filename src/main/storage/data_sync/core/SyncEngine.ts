@@ -291,6 +291,7 @@ export class SyncEngine {
         const cipher: string | undefined = typeof data.data_cipher_text === 'string' ? data.data_cipher_text : undefined
         if (cipher) {
           const sensitive = await decryptPayload(cipher, service)
+
           if (sensitive && sensitive.password !== undefined) data.password = sensitive.password
           if (sensitive && sensitive.username !== undefined) data.username = sensitive.username
         }
@@ -298,6 +299,7 @@ export class SyncEngine {
         const cipher: string | undefined = typeof data.data_cipher_text === 'string' ? data.data_cipher_text : undefined
         if (cipher) {
           const sensitive = await decryptPayload(cipher, service)
+
           if (sensitive.chain_private_key !== undefined) data.chain_private_key = sensitive.chain_private_key
           if (sensitive.passphrase !== undefined) data.passphrase = sensitive.passphrase
         }
@@ -345,6 +347,7 @@ export class SyncEngine {
       // 加密或服务获取失败都应该中断同步，防止明文外泄
       throw e instanceof Error ? e : new Error(String(e))
     }
+    // 🔧 后端已支持原始数据格式，无需标准化
     return record
   }
 

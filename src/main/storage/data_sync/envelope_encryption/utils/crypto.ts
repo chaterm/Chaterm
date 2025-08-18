@@ -56,14 +56,16 @@ class CryptoUtils {
 
       const dataToEncrypt = JSON.stringify(dataPacket)
 
-      // 将Base64编码的数据密钥转换为Buffer
+      // 将Base64编码的数据密钥转换为Buffer，并拷贝到“隔离”的 Uint8Array
+      // AWS Encryption SDK 要求 unencryptedMasterKey 必须是 isolated buffer（不与其他视图共享底层内存）
       const keyBuffer = Buffer.from(dataKey, 'base64')
+      const isolatedKeyBytes = new Uint8Array(keyBuffer) // 拷贝一份，确保是独立的 ArrayBuffer
 
       // 创建Raw AES Keyring
       const keyring = new RawAesKeyringNode({
         keyName: `user-${userId}`,
         keyNamespace: 'chaterm-encryption',
-        unencryptedMasterKey: keyBuffer,
+        unencryptedMasterKey: isolatedKeyBytes,
         wrappingSuite: RawAesWrappingSuiteIdentifier.AES256_GCM_IV12_TAG16_NO_PADDING
       })
 
@@ -81,9 +83,6 @@ class CryptoUtils {
       const { result } = await client.encrypt(keyring, dataToEncrypt, {
         encryptionContext
       })
-
-      console.log('AWS Encryption SDK 加密完成')
-      console.log('📏 加密后长度:', result.length)
 
       return {
         encrypted: result.toString('base64'),
@@ -106,16 +105,16 @@ class CryptoUtils {
   static async decryptDataWithAwsSdk(encryptedData: any, dataKey: string): Promise<string> {
     try {
       console.log('开始 AWS Encryption SDK 客户端本地解密...')
-      console.log('📏 加密数据长度:', encryptedData.encrypted?.length || 0)
 
-      // 将Base64编码的数据密钥转换为Buffer
+      // 将Base64编码的数据密钥转换为Buffer，并拷贝到“隔离”的 Uint8Array
       const keyBuffer = Buffer.from(dataKey, 'base64')
+      const isolatedKeyBytes = new Uint8Array(keyBuffer)
 
       // 创建Raw AES Keyring
       const keyring = new RawAesKeyringNode({
         keyName: `user-${encryptedData.userId || 'unknown'}`,
         keyNamespace: 'chaterm-encryption',
-        unencryptedMasterKey: keyBuffer,
+        unencryptedMasterKey: isolatedKeyBytes,
         wrappingSuite: RawAesWrappingSuiteIdentifier.AES256_GCM_IV12_TAG16_NO_PADDING
       })
 

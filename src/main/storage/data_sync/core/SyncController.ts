@@ -97,20 +97,26 @@ export class SyncController {
     logger.info(`备份初始化: ${res.message}`, res.table_mappings)
   }
 
-  async fullSyncAll(): Promise<void> {
+  async fullSyncAll(): Promise<{ success: boolean; message: string; synced_count?: number; failed_count?: number }> {
     const lastSeq = this.db.getLastSequenceId()
     if (lastSeq > 0) {
       logger.info('检测到已初始化(last_sequence_id>0)，跳过全量同步')
-      return
+      return { success: true, message: '已初始化，跳过全量同步', synced_count: 0, failed_count: 0 }
     }
 
     logger.info('开始智能首次同步...')
 
-    // 智能全量同步 - 根据数据量自动选择最优模式
-    await this.smartFullSync('t_assets_sync')
-    await this.smartFullSync('t_asset_chains_sync')
+    try {
+      // 智能全量同步 - 根据数据量自动选择最优模式
+      await this.smartFullSync('t_assets_sync')
+      await this.smartFullSync('t_asset_chains_sync')
 
-    logger.info('智能首次同步完成')
+      logger.info('智能首次同步完成')
+      return { success: true, message: '智能首次同步完成', synced_count: 2, failed_count: 0 }
+    } catch (error: any) {
+      logger.error('智能首次同步失败:', error)
+      return { success: false, message: `智能首次同步失败: ${error?.message || error}`, synced_count: 0, failed_count: 1 }
+    }
   }
 
   /**
@@ -131,14 +137,22 @@ export class SyncController {
     }
   }
 
-  async incrementalSyncAll(): Promise<void> {
-    // 服务端分配的表名是 sync 表，如 t_assets_sync / t_asset_chains_sync
-    // 使用智能同步，自动根据数据量选择最优方案
-    await this.engine.incrementalSyncSmart('t_assets_sync')
-    await this.engine.incrementalSyncSmart('t_asset_chains_sync')
+  async incrementalSyncAll(): Promise<{ success: boolean; message: string; synced_count?: number; failed_count?: number }> {
+    try {
+      // 服务端分配的表名是 sync 表，如 t_assets_sync / t_asset_chains_sync
+      // 使用智能同步，自动根据数据量选择最优方案
+      await this.engine.incrementalSyncSmart('t_assets_sync')
+      await this.engine.incrementalSyncSmart('t_asset_chains_sync')
 
-    // 下载并应用云端变更
-    await this.engine.downloadAndApplyCloudChanges()
+      // 下载并应用云端变更
+      await this.engine.downloadAndApplyCloudChanges()
+
+      logger.info('增量同步完成')
+      return { success: true, message: '增量同步完成', synced_count: 2, failed_count: 0 }
+    } catch (error: any) {
+      logger.error('增量同步失败:', error)
+      return { success: false, message: `增量同步失败: ${error?.message || error}`, synced_count: 0, failed_count: 1 }
+    }
   }
 
   /**
@@ -326,6 +340,35 @@ export class SyncController {
     } catch (error) {
       logger.error('停止同步操作时出错:', error)
       return false
+    }
+  }
+
+  /**
+   * 获取系统状态
+   */
+  getSystemStatus() {
+    return {
+      polling: this.pollingManager.getStatus(),
+      fullSyncTimer: this.fullSyncTimer.getStatus(),
+      encryption: this.encryptionService.getStatus(),
+      auth: this.api.getAuthStatus(),
+      database: {
+        path: 'database',
+        lastSequenceId: this.db.getLastSequenceId()
+      }
+    }
+  }
+
+  /**
+   * 获取同步统计信息
+   */
+  getSyncStats() {
+    return {
+      lastSequenceId: this.db.getLastSequenceId(),
+      pendingChanges: this.db.getPendingChanges?.()?.length || 0,
+      pollingStatus: this.pollingManager.getStatus(),
+      fullSyncStatus: this.fullSyncTimer.getStatus(),
+      encryptionStatus: this.encryptionService.getStatus()
     }
   }
 }

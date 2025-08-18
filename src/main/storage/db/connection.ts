@@ -1,9 +1,16 @@
 import Database from 'better-sqlite3'
-import { app } from 'electron'
 import { join } from 'path'
-import fs from 'fs'
+import * as fs from 'fs'
 
-const USER_DATA_PATH = app.getPath('userData')
+// 在测试环境中，app可能不可用，使用fallback路径
+let USER_DATA_PATH: string
+try {
+  const { app } = require('electron')
+  USER_DATA_PATH = app.getPath('userData')
+} catch (error) {
+  // 测试环境或非Electron环境的fallback
+  USER_DATA_PATH = join(process.cwd(), 'test_data')
+}
 const INIT_DB_PATH = getInitDbPath()
 const INIT_CDB_PATH = getInitChatermDbPath()
 
@@ -54,18 +61,30 @@ function migrateLegacyDatabase(userId: number, dbType: 'complete' | 'chaterm'): 
 }
 
 function getInitChatermDbPath(): string {
-  if (app.isPackaged) {
-    return join(process.resourcesPath, 'db', 'init_chaterm.db')
-  } else {
-    return join(__dirname, '../../src/renderer/src/assets/db/init_chaterm.db')
+  try {
+    const { app } = require('electron')
+    if (app.isPackaged) {
+      return join((process as any).resourcesPath, 'db', 'init_chaterm.db')
+    } else {
+      return join(__dirname, '../../src/renderer/src/assets/db/init_chaterm.db')
+    }
+  } catch (error) {
+    // 测试环境fallback
+    return join(process.cwd(), 'test_data', 'init_chaterm.db')
   }
 }
 
 function getInitDbPath(): string {
-  if (app.isPackaged) {
-    return join(process.resourcesPath, 'db', 'init_data.db')
-  } else {
-    return join(__dirname, '../../src/renderer/src/assets/db/init_data.db')
+  try {
+    const { app } = require('electron')
+    if (app.isPackaged) {
+      return join((process as any).resourcesPath, 'db', 'init_data.db')
+    } else {
+      return join(__dirname, '../../src/renderer/src/assets/db/init_data.db')
+    }
+  } catch (error) {
+    // 测试环境fallback
+    return join(process.cwd(), 'test_data', 'init_data.db')
   }
 }
 

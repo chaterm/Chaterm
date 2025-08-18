@@ -40,6 +40,9 @@ export async function decryptPayload(encString: string, service: EnvelopeEncrypt
   return JSON.parse(plaintext)
 }
 
+// ❌ 已移除：decryptPayloadWithCache 函数
+// 优化后的架构中，缓存机制已内置在 ClientSideCrypto 中，无需单独的缓存解密函数
+
 export async function encryptFieldValue(value: any, service: EnvelopeEncryptionService): Promise<string> {
   return encryptPayload({ value }, service)
 }

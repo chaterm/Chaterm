@@ -175,7 +175,7 @@ class ApiClient {
   async healthCheck(): Promise<any> {
     try {
       console.log('执行健康检查...')
-      const response = await this.client.get('/api/health')
+      const response = await this.client.get('/kms/health')
       console.log('健康检查通过')
       return response
     } catch (error) {

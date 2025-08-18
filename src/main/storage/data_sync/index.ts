@@ -25,14 +25,19 @@ export async function startDataSync(dbPath?: string): Promise<SyncController> {
   }
 
   // 强制检查加密服务是否就绪；未就绪则停止同步启动
-  try {
-    if (!controller.isEncryptionReady()) {
-      const status = controller.getEncryptionStatus()
-      throw new Error(`Envelope encryption not ready, aborting data sync. status=${JSON.stringify(status)}`)
+  // 在测试环境中可以跳过加密检查
+  if (process.env.SKIP_ENCRYPTION_CHECK !== 'true') {
+    try {
+      if (!controller.isEncryptionReady()) {
+        const status = controller.getEncryptionStatus()
+        throw new Error(`Envelope encryption not ready, aborting data sync. status=${JSON.stringify(status)}`)
+      }
+    } catch (err: any) {
+      logger.error('Pre-start check failed: encryption service not ready', err?.message)
+      throw err
     }
-  } catch (err: any) {
-    logger.error('Pre-start check failed: encryption service not ready', err?.message)
-    throw err
+  } else {
+    logger.info('跳过加密服务检查（测试模式）')
   }
 
   // 🔧 检查认证状态

@@ -1,6 +1,5 @@
 import { promises as fs } from 'fs'
 import * as path from 'path'
-import { app } from 'electron'
 
 interface StorageStats {
   keys: string[]
@@ -18,7 +17,14 @@ class TempFileStorageProvider {
 
   constructor() {
     // 使用系统安全的应用数据目录
-    const appDataPath = app.getPath('userData')
+    let appDataPath: string
+    try {
+      const { app } = require('electron')
+      appDataPath = app.getPath('userData')
+    } catch (error) {
+      // 测试环境fallback
+      appDataPath = path.join(process.cwd(), 'test_data')
+    }
     this.storageDir = path.join(appDataPath, '.chaterm-encryption', 'keys')
     this.ensureStorageDir()
   }

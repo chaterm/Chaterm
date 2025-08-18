@@ -3,6 +3,8 @@
  * 提供统一的加密/解密接口，在主进程中注册使用
  */
 
+import type { EncryptionResult } from './clientSideCrypto'
+
 // 在运行时动态加载模块
 let ClientSideCrypto: any
 let chatermAuthAdapter: any
@@ -25,15 +27,6 @@ async function loadModules() {
   }
 }
 
-export interface EncryptionResult {
-  encrypted: string
-  algorithm: string
-  keyFingerprint: string
-  userId: string
-  iv?: string
-  tag?: string
-}
-
 export interface EncryptionServiceStatus {
   initialized: boolean
   userId: string | null
@@ -43,7 +36,7 @@ export interface EncryptionServiceStatus {
 }
 
 export class EnvelopeEncryptionService {
-  private clientCrypto: any = null
+  private _clientCrypto: any = null
   private isInitialized: boolean = false
   private currentUserId: string | null = null
   private initializationFailed: boolean = false
@@ -75,7 +68,7 @@ export class EnvelopeEncryptionService {
         return
       }
 
-      this.clientCrypto = new ClientSideCrypto(kmsServerUrl)
+      this._clientCrypto = new ClientSideCrypto(kmsServerUrl)
       this.modulesLoaded = true
     } catch (error) {
       console.error('加密服务模块初始化失败:', error)
@@ -118,7 +111,7 @@ export class EnvelopeEncryptionService {
       await this.waitForModules()
 
       // 检查客户端加密是否可用
-      if (!this.clientCrypto) {
+      if (!this._clientCrypto) {
         throw new Error('加密客户端不可用，请检查 KMS 服务器配置')
       }
 
@@ -135,7 +128,7 @@ export class EnvelopeEncryptionService {
       await this.clearStoredKeys(targetUserId)
 
       // 初始化客户端加密
-      await this.clientCrypto.initialize(targetUserId, authToken)
+      await this._clientCrypto.initialize(targetUserId, authToken)
 
       // 初始化成功
       this.isInitialized = true
@@ -194,7 +187,7 @@ export class EnvelopeEncryptionService {
 
       // 如果还是未初始化，尝试快速重新初始化
       if (!this.isInitialized && this.currentUserId) {
-        console.log('🔄 尝试快速重新初始化加密服务...')
+        console.log(' 尝试快速重新初始化加密服务...')
         try {
           const result = await this.initialize(this.currentUserId, true)
           if (!result.success) {
@@ -208,7 +201,7 @@ export class EnvelopeEncryptionService {
       }
     }
 
-    const result = await this.clientCrypto.encryptData(plaintext)
+    const result = await this._clientCrypto.encryptData(plaintext)
     return result as EncryptionResult
   }
 
@@ -227,7 +220,7 @@ export class EnvelopeEncryptionService {
     if (!this.isInitialized) {
       // 如果正在后台初始化，等待一下
       if (this.isInitializing) {
-        console.log('⏳ 等待后台初始化完成...')
+        console.log('等待后台初始化完成...')
         const waitResult = await this.waitForBackgroundInit(3000) // 最多等3秒
         if (!waitResult) {
           console.warn('等待后台初始化超时，尝试快速重新初始化')
@@ -236,7 +229,7 @@ export class EnvelopeEncryptionService {
 
       // 如果还是未初始化，尝试快速重新初始化
       if (!this.isInitialized && this.currentUserId) {
-        console.log('🔄 尝试快速重新初始化加密服务...')
+        console.log('尝试快速重新初始化加密服务...')
         try {
           const result = await this.initialize(this.currentUserId, true)
           if (!result.success) {
@@ -250,7 +243,7 @@ export class EnvelopeEncryptionService {
       }
     }
 
-    return await this.clientCrypto.decryptData(encryptedData)
+    return await this._clientCrypto.decryptData(encryptedData)
   }
 
   /**
@@ -262,7 +255,7 @@ export class EnvelopeEncryptionService {
     }
 
     try {
-      await this.clientCrypto.rotateDataKey()
+      await this._clientCrypto.rotateDataKey()
       return { success: true, message: '密钥轮换成功' }
     } catch (error) {
       console.error('密钥轮换失败:', error)
@@ -275,7 +268,7 @@ export class EnvelopeEncryptionService {
    */
   async healthCheck(): Promise<any> {
     try {
-      const health = await this.clientCrypto.healthCheck()
+      const health = await this._clientCrypto.healthCheck()
       const authStatus = chatermAuthAdapter.getAuthStatus()
 
       return {
@@ -303,7 +296,7 @@ export class EnvelopeEncryptionService {
    * 获取服务状态
    */
   getStatus(): EncryptionServiceStatus {
-    const clientStatus = this.clientCrypto?.getStatus() || {}
+    const clientStatus = this._clientCrypto?.getStatus() || {}
     const authStatus = chatermAuthAdapter.getAuthStatus()
 
     return {
@@ -316,13 +309,42 @@ export class EnvelopeEncryptionService {
   }
 
   /**
+   * 获取客户端加密实例（用于访问缓存等高级功能）
+   * @returns 客户端加密实例
+   */
+  get clientCrypto(): any {
+    return this._clientCrypto
+  }
+
+  /**
+   * 获取缓存统计信息
+   * @returns 缓存统计信息，如果客户端未初始化则返回null
+   */
+  getCacheStats(): any {
+    if (this._clientCrypto && typeof this._clientCrypto.getCacheStats === 'function') {
+      return this._clientCrypto.getCacheStats()
+    }
+    return null
+  }
+
+  /**
+   * 清理缓存
+   * @param clearStats - 是否同时清理统计信息
+   */
+  clearCache(clearStats: boolean = false): void {
+    if (this._clientCrypto && typeof this._clientCrypto.clearCache === 'function') {
+      this._clientCrypto.clearCache(clearStats)
+    }
+  }
+
+  /**
    * 清理服务
    * @param clearStorage 是否清理存储
    */
   cleanup(clearStorage: boolean = false): { success: boolean; message: string } {
     try {
-      if (this.clientCrypto) {
-        this.clientCrypto.cleanup(clearStorage)
+      if (this._clientCrypto) {
+        this._clientCrypto.cleanup(clearStorage)
       }
 
       this.isInitialized = false

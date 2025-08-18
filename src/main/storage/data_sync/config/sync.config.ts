@@ -1,5 +1,6 @@
 import * as dotenv from 'dotenv'
 import { getDeviceId } from './devideId'
+import { getChatermDbPathForUser, getCurrentUserId } from '../../db/connection'
 dotenv.config()
 
 export interface SyncConfig {
@@ -19,10 +20,20 @@ export interface SyncConfig {
   logRetentionDays?: number // 日志保留天数
 }
 
+// 获取当前用户的数据库路径
+function getCurrentUserDbPath(): string {
+  const currentUserId = getCurrentUserId()
+  if (currentUserId) {
+    return getChatermDbPathForUser(currentUserId)
+  }
+  // 如果没有当前用户ID，使用环境变量或默认路径
+  return process.env.DB_PATH || './sqliteDB/chaterm_data.db'
+}
+
 export const syncConfig: SyncConfig = {
-  serverUrl: process.env.SERVER_URL || 'http://localhost:8080',
+  serverUrl: process.env.SERVER_URL || 'http://localhost:8001',
   apiVersion: process.env.API_VERSION || 'v1',
-  dbPath: process.env.DB_PATH || './sqliteDB/chaterm_data.db',
+  dbPath: getCurrentUserDbPath(),
   deviceId: getDeviceId(), // 使用主板id
   username: process.env.USERNAME,
   password: process.env.PASSWORD,

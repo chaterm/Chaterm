@@ -266,12 +266,13 @@ export function getLocalAssetRouteLogic(db: Database.Database, searchType: strin
 
 export function updateLocalAssetLabelLogic(db: Database.Database, uuid: string, label: string): any {
   try {
+    const now = new Date().toISOString()
     const stmt = db.prepare(`
         UPDATE t_assets
-        SET label = ?
+        SET label = ?, updated_at = ?
         WHERE uuid = ?
       `)
-    const result = stmt.run(label, uuid)
+    const result = stmt.run(label, now, uuid)
     return {
       data: {
         message: result.changes > 0 ? 'success' : 'failed'
@@ -285,12 +286,13 @@ export function updateLocalAssetLabelLogic(db: Database.Database, uuid: string, 
 
 export function updateLocalAsseFavoriteLogic(db: Database.Database, uuid: string, status: number): any {
   try {
+    const now = new Date().toISOString()
     const stmt = db.prepare(`
         UPDATE t_assets
-        SET favorite = ?
+        SET favorite = ?, updated_at = ?
         WHERE uuid = ?
       `)
-    const result = stmt.run(status, uuid)
+    const result = stmt.run(status, now, uuid)
     return {
       data: {
         message: result.changes > 0 ? 'success' : 'failed'
@@ -331,6 +333,7 @@ export function createAssetLogic(db: Database.Database, params: any): any {
     }
 
     const uuid = uuidv4()
+    const now = new Date().toISOString()
 
     const insertStmt = db.prepare(`
         INSERT INTO t_assets (
@@ -344,8 +347,11 @@ export function createAssetLogic(db: Database.Database, params: any): any {
           key_chain_id,
           group_name,
           favorite,
-          asset_type
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          asset_type,
+          created_at,
+          updated_at,
+          version
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `)
 
     const result = insertStmt.run(
@@ -359,7 +365,10 @@ export function createAssetLogic(db: Database.Database, params: any): any {
       form.keyChain,
       form.group_name,
       2,
-      form.asset_type || 'person'
+      form.asset_type || 'person',
+      now,
+      now,
+      1 // 初始版本号
     )
 
     return {
@@ -415,6 +424,8 @@ export function updateAssetLogic(db: Database.Database, params: any): any {
       throw new Error('No asset data or UUID provided')
     }
 
+    const now = new Date().toISOString()
+
     const stmt = db.prepare(`
         UPDATE t_assets
         SET label = ?,
@@ -424,7 +435,8 @@ export function updateAssetLogic(db: Database.Database, params: any): any {
             username = ?,
             password = ?,
             key_chain_id = ?,
-            group_name = ?
+            group_name = ?,
+            updated_at = ?
         WHERE uuid = ?
       `)
 
@@ -437,6 +449,7 @@ export function updateAssetLogic(db: Database.Database, params: any): any {
       form.password,
       form.keyChain,
       form.group_name,
+      now,
       form.uuid
     )
 
