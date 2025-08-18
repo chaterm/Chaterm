@@ -443,7 +443,14 @@ export default {
     importFormatKeyChain: 'Keychain ID (optional, used for key-based auth)',
     importFormatPort: 'Port (optional, defaults to 22)',
     importFormatAssetType: 'Asset type (optional, "person" or "organization")',
-    importFormatExample: 'Example:'
+    importFormatExample: 'Example:',
+    comment: 'Comment',
+    addComment: 'Add Comment',
+    editComment: 'Edit Comment',
+    commentPlaceholder: 'Please enter comment information',
+    commentSaved: 'Comment saved successfully',
+    commentSaveFailed: 'Comment save failed',
+    commentSaveError: 'Comment save error'
   },
   ai: {
     welcome: 'What can I do for you in the terminal?',

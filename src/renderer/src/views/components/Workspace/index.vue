@@ -73,11 +73,39 @@
                   >
                     <laptop-outlined class="computer-icon" />
                     <span
-                      v-if="editingNode !== dataRef.key"
+                      v-if="editingNode !== dataRef.key && commentNode !== dataRef.key"
                       @click="handleClick(dataRef)"
                       @dblclick="handleDblClick(dataRef)"
                       >{{ title }}</span
                     >
+
+                    <div
+                      v-if="commentNode === dataRef.key"
+                      class="comment-edit-container"
+                    >
+                      <a-input
+                        v-model:value="editingComment"
+                        :placeholder="t('personal.commentPlaceholder')"
+                        size="small"
+                        @keyup.enter="saveComment(dataRef)"
+                        @keyup.esc="cancelComment"
+                      />
+                      <CheckOutlined
+                        class="confirm-icon"
+                        @click="saveComment(dataRef)"
+                      />
+                      <CloseOutlined
+                        class="cancel-icon"
+                        @click="cancelComment"
+                      />
+                    </div>
+                    <span
+                      v-if="dataRef.comment && editingNode !== dataRef.key && commentNode !== dataRef.key"
+                      class="comment-text"
+                      :title="dataRef.comment"
+                    >
+                      ({{ dataRef.comment }})
+                    </span>
                   </span>
                   <span
                     v-if="
@@ -135,11 +163,56 @@
                   >
                     <laptop-outlined class="computer-icon" />
                     <span
-                      v-if="editingNode !== dataRef.key"
+                      v-if="editingNode !== dataRef.key && commentNode !== dataRef.key"
                       @click="handleClick(dataRef)"
                       @dblclick="handleDblClick(dataRef)"
                       >{{ title }}</span
                     >
+                    <!-- 备注编辑输入框 -->
+                    <div
+                      v-if="commentNode === dataRef.key"
+                      class="comment-edit-container"
+                    >
+                      <a-input
+                        v-model:value="editingComment"
+                        :placeholder="t('personal.commentPlaceholder')"
+                        size="small"
+                        @keyup.enter="saveComment(dataRef)"
+                        @keyup.esc="cancelComment"
+                      />
+                      <CheckOutlined
+                        class="confirm-icon"
+                        @click="saveComment(dataRef)"
+                      />
+                      <CloseOutlined
+                        class="cancel-icon"
+                        @click="cancelComment"
+                      />
+                    </div>
+                    <!-- 备注显示 -->
+                    <span
+                      v-if="dataRef.comment && editingNode !== dataRef.key && commentNode !== dataRef.key"
+                      class="comment-text"
+                      :title="dataRef.comment"
+                    >
+                      ({{ dataRef.comment }})
+                    </span>
+                  </span>
+                  <!-- 备注编辑图标 -->
+                  <span
+                    v-if="
+                      isSecondLevel(dataRef) &&
+                      dataRef.asset_type === 'organization' &&
+                      editingNode !== dataRef.key &&
+                      commentNode !== dataRef.key &&
+                      !dataRef.key.startsWith('common_')
+                    "
+                    class="comment-icon"
+                    @click.stop="handleCommentClick(dataRef)"
+                  >
+                    <a-tooltip :title="dataRef.comment ? t('personal.editComment') : t('personal.addComment')">
+                      <EditOutlined />
+                    </a-tooltip>
                   </span>
                   <div
                     v-if="
@@ -197,7 +270,16 @@
 <script setup lang="ts">
 import { deepClone } from '@/utils/util'
 import { ref, computed, onMounted, onUnmounted } from 'vue'
-import { StarFilled, StarOutlined, LaptopOutlined, SearchOutlined, RedoOutlined } from '@ant-design/icons-vue'
+import {
+  StarFilled,
+  StarOutlined,
+  LaptopOutlined,
+  SearchOutlined,
+  RedoOutlined,
+  EditOutlined,
+  CheckOutlined,
+  CloseOutlined
+} from '@ant-design/icons-vue'
 import eventBus from '@/utils/eventBus'
 import i18n from '@/locales'
 import { refreshOrganizationAssetFromWorkspace } from '../LeftTab/components/refreshOrganizationAssets'
@@ -212,6 +294,8 @@ const searchValue = ref('')
 const editingNode = ref(null)
 const editingTitle = ref('')
 const refreshingNode = ref(null)
+const editingComment = ref('')
+const commentNode = ref(null)
 
 interface WorkspaceItem {
   key: string
@@ -338,8 +422,9 @@ const filterTreeNodes = (inputValue: string): AssetNode[] => {
       .map((node) => {
         const titleMatch = node.title.toLowerCase().includes(lowerCaseInput)
         const ipMatch = node.ip && node.ip.toLowerCase().includes(lowerCaseInput)
+        const commentMatch = node.comment && node.comment.toLowerCase().includes(lowerCaseInput)
 
-        if (titleMatch || ipMatch) {
+        if (titleMatch || ipMatch || commentMatch) {
           return { ...node }
         }
 
@@ -529,6 +614,43 @@ const handleRefresh = async (dataRef: any) => {
   }
 }
 
+const handleCommentClick = (dataRef: any) => {
+  commentNode.value = dataRef.key
+  editingComment.value = dataRef.comment || ''
+}
+
+const saveComment = async (dataRef: any) => {
+  try {
+    if (!window.api.updateOrganizationAssetComment) {
+      console.error('window.api.updateOrganizationAssetComment 方法不存在!')
+      return
+    }
+
+    const result = await window.api.updateOrganizationAssetComment({
+      organizationUuid: dataRef.organizationId,
+      host: dataRef.ip,
+      comment: editingComment.value
+    })
+
+    if (result && result.data && result.data.message === 'success') {
+      dataRef.comment = editingComment.value
+      commentNode.value = null
+      editingComment.value = ''
+      // 刷新菜单以显示更新
+      getUserAssetMenu()
+    } else {
+      console.error('备注保存失败:', result)
+    }
+  } catch (error) {
+    console.error('保存备注错误:', error)
+  }
+}
+
+const cancelComment = () => {
+  commentNode.value = null
+  editingComment.value = ''
+}
+
 getLocalAssetMenu()
 
 const getSSHAgentStatus = async () => {
@@ -536,7 +658,7 @@ const getSSHAgentStatus = async () => {
   if (savedConfig && savedConfig.sshAgentsStatus == 1) {
     window.api.agentEnableAndConfigure({ enabled: true }).then((res) => {
       if (res.success) {
-        const sshAgentMaps = JSON.parse(savedConfig.sshAgentsMap)
+        const sshAgentMaps = savedConfig.sshAgentsMap ? JSON.parse(savedConfig.sshAgentsMap) : {}
         for (const keyId in sshAgentMaps) {
           loadKey(sshAgentMaps[keyId])
         }
@@ -771,6 +893,81 @@ onUnmounted(() => {
 
   .refresh-icon {
     margin-right: 3px;
+  }
+
+  .comment-icon {
+    display: flex;
+    align-items: center;
+    margin-right: 8px;
+    cursor: pointer;
+    color: var(--text-color-tertiary);
+    flex-shrink: 0;
+    transition: all 0.2s ease;
+
+    &:hover {
+      transform: translateY(-0.5px);
+      color: var(--text-color);
+    }
+  }
+
+  .comment-text {
+    color: var(--text-color-tertiary);
+    font-size: 12px;
+    margin-left: 4px;
+    opacity: 0.8;
+    max-width: 100px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .comment-edit-container {
+    display: flex;
+    align-items: center;
+    flex-grow: 1;
+    width: 100%;
+    margin-left: 6px;
+
+    .ant-input {
+      background-color: var(--bg-color-secondary);
+      border-color: var(--border-color);
+      color: var(--text-color);
+      flex: 1;
+      min-width: 80px;
+      height: 24px;
+      padding: 0 4px;
+      font-size: 12px;
+    }
+
+    .confirm-icon {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      margin-left: 4px;
+      cursor: pointer;
+      color: #52c41a;
+      min-width: 16px;
+      height: 24px;
+      flex-shrink: 0;
+      &:hover {
+        color: #73d13d;
+      }
+    }
+
+    .cancel-icon {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      margin-left: 4px;
+      cursor: pointer;
+      color: #ff4d4f;
+      min-width: 16px;
+      height: 24px;
+      flex-shrink: 0;
+      &:hover {
+        color: #ff7875;
+      }
+    }
   }
 }
 

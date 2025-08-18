@@ -364,6 +364,21 @@ const updateOrganizationAssetFavorite = async (data: { organizationUuid: string;
     return Promise.reject(error)
   }
 }
+
+const updateOrganizationAssetComment = async (data: { organizationUuid: string; host: string; comment: string }) => {
+  console.log('=== preload updateOrganizationAssetComment 开始 ===')
+  console.log('传入参数:', data)
+
+  try {
+    console.log('调用 IPC: organization-asset-comment')
+    const result = await ipcRenderer.invoke('organization-asset-comment', data)
+    console.log('IPC 返回结果:', result)
+    return result
+  } catch (error) {
+    console.error('preload updateOrganizationAssetComment 错误:', error)
+    return Promise.reject(error)
+  }
+}
 const getSystemInfo = async (id: string) => {
   try {
     const result = await ipcRenderer.invoke('ssh:get-system-info', { id })
@@ -409,6 +424,7 @@ const api = {
   userSnippetOperation,
   refreshOrganizationAssets,
   updateOrganizationAssetFavorite,
+  updateOrganizationAssetComment,
   setDataSyncEnabled: (enabled: boolean) => ipcRenderer.invoke('data-sync:set-enabled', enabled),
   maximizeWindow: () => ipcRenderer.invoke('window:maximize'),
   unmaximizeWindow: () => ipcRenderer.invoke('window:unmaximize'),
