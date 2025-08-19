@@ -635,21 +635,19 @@ watch(isRightSectionVisible, (val) => {
 }
 
 .search-input {
-  background-color: var(--bg-color-secondary);
-  border-color: var(--border-color);
-  color: var(--text-color);
-  :deep(.ant-input) {
-    background-color: var(--bg-color-secondary);
-    color: var(--text-color);
+  background-color: var(--bg-color-secondary) !important;
+  border: 1px solid var(--border-color) !important;
 
+  :deep(.ant-input) {
+    background-color: var(--bg-color-secondary) !important;
+    color: var(--text-color) !important;
     &::placeholder {
-      color: var(--text-color-tertiary);
+      color: var(--text-color-tertiary) !important;
     }
   }
 
-  :deep(.ant-input-prefix) {
-    color: var(--text-color-secondary);
-    margin-right: 8px;
+  :deep(.ant-input-suffix) {
+    color: var(--text-color-tertiary) !important;
   }
 }
 

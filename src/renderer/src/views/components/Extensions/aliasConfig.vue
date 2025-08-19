@@ -399,17 +399,19 @@ const aliasConfigRefresh = async () => {
 }
 
 .search-input {
-  background-color: var(--bg-color-secondary);
-  border-color: var(--border-color);
-  color: var(--text-color);
-  :deep(.ant-input) {
-    color: var(--text-color-secondary);
-    background-color: transparent !important;
-    border-color: var(--border-color) !important;
+  background-color: var(--bg-color-secondary) !important;
+  border: 1px solid var(--border-color) !important;
 
+  :deep(.ant-input) {
+    background-color: var(--bg-color-secondary) !important;
+    color: var(--text-color) !important;
     &::placeholder {
-      color: var(--text-color-tertiary);
+      color: var(--text-color-tertiary) !important;
     }
+  }
+
+  :deep(.ant-input-suffix) {
+    color: var(--text-color-tertiary) !important;
   }
 }
 
