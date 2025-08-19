@@ -125,7 +125,7 @@ export default {
     searchHost: '搜索主机'
   },
   header: {
-    title: '智能堡垒机管理系统'
+    title: 'Chaterm智能终端'
   },
   user: {
     autoCompleteStatus: '自动补全',

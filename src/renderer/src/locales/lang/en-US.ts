@@ -125,7 +125,7 @@ export default {
     searchHost: 'Search host'
   },
   header: {
-    title: 'Smart Bastion Host Management System'
+    title: 'Chaterm Intelligent Terminal'
   },
   user: {
     autoCompleteStatus: 'Auto completion',
