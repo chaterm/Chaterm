@@ -31,6 +31,15 @@
             </template>
           </a-input>
           <a-button
+            v-if="!isPersonalWorkspace"
+            type="primary"
+            size="small"
+            class="workspace-button"
+            @click="showCreateFolderModal = true"
+          >
+            <template #icon><folder-outlined /></template>{{ t('personal.folder') }}
+          </a-button>
+          <a-button
             type="primary"
             size="small"
             class="workspace-button"
@@ -214,13 +223,84 @@
                       <EditOutlined />
                     </a-tooltip>
                   </span>
+                  <!-- 移动资产到文件夹按钮 -->
+                  <span
+                    v-if="
+                      isSecondLevel(dataRef) &&
+                      dataRef.asset_type === 'organization' &&
+                      editingNode !== dataRef.key &&
+                      commentNode !== dataRef.key &&
+                      !dataRef.key.startsWith('common_') &&
+                      !dataRef.key.startsWith('folder_')
+                    "
+                    class="move-icon"
+                    @click.stop="handleMoveToFolder(dataRef)"
+                  >
+                    <a-tooltip :title="t('personal.moveToFolder')">
+                      <FolderOutlined />
+                    </a-tooltip>
+                  </span>
+                  <span
+                    v-if="
+                      isSecondLevel(dataRef) &&
+                      dataRef.asset_type === 'organization' &&
+                      editingNode !== dataRef.key &&
+                      commentNode !== dataRef.key &&
+                      dataRef.key.startsWith('folder_') &&
+                      dataRef.folderUuid
+                    "
+                    class="remove-icon"
+                    @click.stop="handleRemoveFromFolder(dataRef)"
+                  >
+                    <a-tooltip :title="t('personal.removeFromFolder')">
+                      <DeleteOutlined />
+                    </a-tooltip>
+                  </span>
                   <div
                     v-if="
                       !isSecondLevel(dataRef) &&
                       !dataRef.key.startsWith('common_') &&
                       editingNode !== dataRef.key &&
                       company !== 'personal_user_id' &&
-                      dataRef.title !== '收藏栏'
+                      dataRef.title !== '收藏栏' &&
+                      dataRef.asset_type === 'custom_folder'
+                    "
+                    class="folder-actions"
+                  >
+                    <a-tooltip :title="t('personal.editFolder')">
+                      <a-button
+                        type="primary"
+                        size="small"
+                        ghost
+                        @click="handleEditFolder(dataRef)"
+                      >
+                        <template #icon>
+                          <EditOutlined />
+                        </template>
+                      </a-button>
+                    </a-tooltip>
+                    <a-tooltip :title="t('personal.deleteFolder')">
+                      <a-button
+                        type="primary"
+                        size="small"
+                        ghost
+                        danger
+                        @click="handleDeleteFolder(dataRef)"
+                      >
+                        <template #icon>
+                          <DeleteOutlined />
+                        </template>
+                      </a-button>
+                    </a-tooltip>
+                  </div>
+                  <div
+                    v-if="
+                      !isSecondLevel(dataRef) &&
+                      !dataRef.key.startsWith('common_') &&
+                      editingNode !== dataRef.key &&
+                      company !== 'personal_user_id' &&
+                      dataRef.title !== '收藏栏' &&
+                      dataRef.asset_type !== 'custom_folder'
                     "
                     class="refresh-icon"
                   >
@@ -265,6 +345,98 @@
       </div>
     </div>
   </div>
+
+  <!-- 创建文件夹模态框 -->
+  <Modal
+    v-model:open="showCreateFolderModal"
+    :title="t('personal.createFolder')"
+    @ok="handleCreateFolder"
+    @cancel="showCreateFolderModal = false"
+  >
+    <div style="margin-bottom: 16px">
+      <label>{{ t('personal.folderName') }} *</label>
+      <Input
+        v-model:value="createFolderForm.name"
+        :placeholder="t('personal.pleaseInputFolderName')"
+        style="margin-top: 8px"
+      />
+    </div>
+    <div>
+      <label>{{ t('personal.folderDescription') }}</label>
+      <Input.TextArea
+        v-model:value="createFolderForm.description"
+        :placeholder="t('personal.pleaseInputFolderDescription')"
+        :rows="3"
+        style="margin-top: 8px"
+      />
+    </div>
+  </Modal>
+
+  <Modal
+    v-model:open="showEditFolderModal"
+    :title="t('personal.editFolder')"
+    @ok="handleUpdateFolder"
+    @cancel="showEditFolderModal = false"
+  >
+    <div style="margin-bottom: 16px">
+      <label>{{ t('personal.folderName') }} *</label>
+      <Input
+        v-model:value="editFolderForm.name"
+        :placeholder="t('personal.pleaseInputFolderName')"
+        style="margin-top: 8px"
+      />
+    </div>
+    <div>
+      <label>{{ t('personal.folderDescription') }}</label>
+      <Input.TextArea
+        v-model:value="editFolderForm.description"
+        :placeholder="t('personal.pleaseInputFolderDescription')"
+        :rows="3"
+        style="margin-top: 8px"
+      />
+    </div>
+  </Modal>
+
+  <Modal
+    v-model:open="showMoveToFolderModal"
+    :title="t('personal.moveToFolder')"
+    @cancel="showMoveToFolderModal = false"
+    :footer="null"
+  >
+    <div
+      v-if="customFolders.length === 0"
+      style="text-align: center; padding: 20px"
+    >
+      <p>{{ t('personal.noFolders') }}</p>
+      <Button
+        type="primary"
+        @click="handleCreateFolderFromMoveModal"
+      >
+        {{ t('personal.createFolder') }}
+      </Button>
+    </div>
+    <div v-else>
+      <p style="margin-bottom: 16px">{{ t('personal.selectFolder') }}:</p>
+      <div style="max-height: 300px; overflow-y: auto">
+        <div
+          v-for="folder in customFolders"
+          :key="folder.uuid"
+          style="padding: 12px; border: 1px solid #d9d9d9; border-radius: 6px; margin-bottom: 8px; cursor: pointer; transition: all 0.2s"
+          @click="handleMoveAssetToFolder(folder.uuid)"
+          @mouseenter="handleFolderMouseEnter"
+          @mouseleave="handleFolderMouseLeave"
+        >
+          <div style="font-weight: 500; margin-bottom: 4px">{{ folder.name }}</div>
+          <div
+            v-if="folder.description"
+            style="color: #666; font-size: 12px"
+          >
+            {{ folder.description }}
+          </div>
+        </div>
+      </div>
+    </div>
+  </Modal>
 </template>
 
 <script setup lang="ts">
@@ -278,12 +450,15 @@ import {
   RedoOutlined,
   EditOutlined,
   CheckOutlined,
-  CloseOutlined
+  CloseOutlined,
+  FolderOutlined,
+  DeleteOutlined
 } from '@ant-design/icons-vue'
 import eventBus from '@/utils/eventBus'
 import i18n from '@/locales'
 import { refreshOrganizationAssetFromWorkspace } from '../LeftTab/components/refreshOrganizationAssets'
 import { userConfigStore } from '@/services/userConfigStoreService'
+import { message, Modal, Input, Button } from 'ant-design-vue'
 
 const { t } = i18n.global
 const emit = defineEmits(['currentClickServer', 'change-company', 'open-user-tab'])
@@ -296,6 +471,20 @@ const editingTitle = ref('')
 const refreshingNode = ref(null)
 const editingComment = ref('')
 const commentNode = ref(null)
+const showCreateFolderModal = ref(false)
+const showEditFolderModal = ref(false)
+const showMoveToFolderModal = ref(false)
+const createFolderForm = ref({
+  name: '',
+  description: ''
+})
+const editFolderForm = ref({
+  uuid: '',
+  name: '',
+  description: ''
+})
+const customFolders = ref<any[]>([])
+const selectedAssetForMove = ref<any>(null)
 
 interface WorkspaceItem {
   key: string
@@ -343,6 +532,7 @@ const companyChange = (item) => {
   if (isPersonalWorkspace.value) {
     getLocalAssetMenu()
   } else {
+    loadCustomFolders()
     getUserAssetMenu()
   }
 }
@@ -651,6 +841,176 @@ const cancelComment = () => {
   editingComment.value = ''
 }
 
+const loadCustomFolders = async () => {
+  try {
+    const result = await window.api.getCustomFolders()
+    if (result && result.data && result.data.message === 'success') {
+      customFolders.value = result.data.folders || []
+    }
+  } catch (error) {
+    console.error('加载自定义文件夹失败:', error)
+  }
+}
+
+const handleCreateFolder = async () => {
+  try {
+    if (!createFolderForm.value.name.trim()) {
+      message.error(t('personal.pleaseInputFolderName'))
+      return
+    }
+
+    const result = await window.api.createCustomFolder({
+      name: createFolderForm.value.name.trim(),
+      description: createFolderForm.value.description.trim()
+    })
+
+    if (result && result.data && result.data.message === 'success') {
+      message.success(t('personal.folderCreated'))
+      showCreateFolderModal.value = false
+      createFolderForm.value = { name: '', description: '' }
+      await loadCustomFolders()
+      getUserAssetMenu()
+    } else {
+      message.error(t('personal.folderCreateFailed'))
+    }
+  } catch (error) {
+    console.error('创建文件夹失败:', error)
+    message.error(t('personal.folderCreateFailed'))
+  }
+}
+
+const handleEditFolder = (dataRef: any) => {
+  editFolderForm.value = {
+    uuid: dataRef.folderUuid,
+    name: dataRef.title,
+    description: dataRef.description || ''
+  }
+  showEditFolderModal.value = true
+}
+
+const handleUpdateFolder = async () => {
+  try {
+    if (!editFolderForm.value.name.trim()) {
+      message.error(t('personal.pleaseInputFolderName'))
+      return
+    }
+
+    const result = await window.api.updateCustomFolder({
+      folderUuid: editFolderForm.value.uuid,
+      name: editFolderForm.value.name.trim(),
+      description: editFolderForm.value.description.trim()
+    })
+
+    if (result && result.data && result.data.message === 'success') {
+      message.success(t('personal.folderUpdated'))
+      showEditFolderModal.value = false
+      editFolderForm.value = { uuid: '', name: '', description: '' }
+      await loadCustomFolders()
+      getUserAssetMenu()
+    } else {
+      message.error(t('personal.folderUpdateFailed'))
+    }
+  } catch (error) {
+    console.error('更新文件夹失败:', error)
+    message.error(t('personal.folderUpdateFailed'))
+  }
+}
+
+const handleDeleteFolder = (dataRef: any) => {
+  const assetCount = dataRef.children ? dataRef.children.length : 0
+  const confirmContent =
+    assetCount > 0
+      ? t('personal.folderDeleteConfirmWithAssets', { name: dataRef.title, count: assetCount })
+      : t('personal.folderDeleteConfirmContent', { name: dataRef.title })
+
+  Modal.confirm({
+    title: t('personal.folderDeleteConfirm'),
+    content: confirmContent,
+    onOk: async () => {
+      try {
+        const result = await window.api.deleteCustomFolder({
+          folderUuid: dataRef.folderUuid
+        })
+
+        if (result && result.data && result.data.message === 'success') {
+          message.success(t('personal.folderDeleted'))
+          await loadCustomFolders()
+          getUserAssetMenu()
+        } else {
+          message.error(t('personal.folderDeleteFailed'))
+        }
+      } catch (error) {
+        console.error('删除文件夹失败:', error)
+        message.error(t('personal.folderDeleteFailed'))
+      }
+    }
+  })
+}
+
+const handleMoveToFolder = (dataRef: any) => {
+  selectedAssetForMove.value = dataRef
+  showMoveToFolderModal.value = true
+}
+
+const handleMoveAssetToFolder = async (folderUuid: string) => {
+  try {
+    if (!selectedAssetForMove.value) return
+
+    const result = await window.api.moveAssetToFolder({
+      folderUuid: folderUuid,
+      organizationUuid: selectedAssetForMove.value.organizationId,
+      assetHost: selectedAssetForMove.value.ip
+    })
+
+    if (result && result.data && result.data.message === 'success') {
+      message.success(t('personal.assetMoved'))
+      showMoveToFolderModal.value = false
+      selectedAssetForMove.value = null
+      getUserAssetMenu()
+    } else {
+      message.error(t('personal.assetMoveFailed'))
+    }
+  } catch (error) {
+    console.error('移动资产失败:', error)
+    message.error(t('personal.assetMoveFailed'))
+  }
+}
+
+const handleRemoveFromFolder = async (dataRef: any) => {
+  try {
+    const result = await window.api.removeAssetFromFolder({
+      folderUuid: dataRef.folderUuid,
+      organizationUuid: dataRef.organizationId,
+      assetHost: dataRef.ip
+    })
+
+    if (result && result.data && result.data.message === 'success') {
+      message.success(t('personal.assetRemoved'))
+      getUserAssetMenu()
+    } else {
+      message.error(t('personal.assetRemoveFailed'))
+    }
+  } catch (error) {
+    console.error('从文件夹移除资产失败:', error)
+    message.error(t('personal.assetRemoveFailed'))
+  }
+}
+
+const handleCreateFolderFromMoveModal = () => {
+  showCreateFolderModal.value = true
+  showMoveToFolderModal.value = false
+}
+
+const handleFolderMouseEnter = (e: Event) => {
+  const target = e.target as HTMLElement
+  if (target) target.style.backgroundColor = '#f5f5f5'
+}
+
+const handleFolderMouseLeave = (e: Event) => {
+  const target = e.target as HTMLElement
+  if (target) target.style.backgroundColor = 'transparent'
+}
+
 getLocalAssetMenu()
 
 const getSSHAgentStatus = async () => {
@@ -689,6 +1049,7 @@ const refreshAssetMenu = () => {
 
 onMounted(() => {
   eventBus.on('LocalAssetMenu', refreshAssetMenu)
+  loadCustomFolders()
 })
 onUnmounted(() => {
   eventBus.off('LocalAssetMenu', refreshAssetMenu)
@@ -709,6 +1070,7 @@ onUnmounted(() => {
   .term_host_header {
     width: 100%;
     height: auto;
+    min-width: 320px;
   }
 
   .active-text {
@@ -802,6 +1164,7 @@ onUnmounted(() => {
 
   .ant-tree-node-content-wrapper {
     width: 100%;
+    min-width: 280px;
   }
 
   .ant-tree-switcher {
@@ -829,6 +1192,7 @@ onUnmounted(() => {
   justify-content: space-between;
   align-items: center;
   width: 100%;
+  min-width: 280px;
   position: relative;
   padding-right: 4px;
 
@@ -908,6 +1272,43 @@ onUnmounted(() => {
       transform: translateY(-0.5px);
       color: var(--text-color);
     }
+  }
+
+  .move-icon {
+    display: flex;
+    align-items: center;
+    margin-right: 8px;
+    cursor: pointer;
+    color: var(--text-color-tertiary);
+    flex-shrink: 0;
+    transition: all 0.2s ease;
+
+    &:hover {
+      transform: translateY(-0.5px);
+      color: #1890ff;
+    }
+  }
+
+  .remove-icon {
+    display: flex;
+    align-items: center;
+    margin-right: 8px;
+    cursor: pointer;
+    color: var(--text-color-tertiary);
+    flex-shrink: 0;
+    transition: all 0.2s ease;
+
+    &:hover {
+      transform: translateY(-0.5px);
+      color: #ff4d4f;
+    }
+  }
+
+  .folder-actions {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    margin-right: 8px;
   }
 
   .comment-text {
