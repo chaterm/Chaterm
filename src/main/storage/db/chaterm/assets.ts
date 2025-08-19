@@ -3,8 +3,76 @@ import { v4 as uuidv4 } from 'uuid'
 import { QueryResult } from '../types'
 import JumpServerClient from '../../../ssh/jumpserver/asset'
 
+// 数据库迁移函数：检查并添加comment字段和自定义文件夹表
+function migrateDatabaseIfNeeded(db: Database.Database) {
+  try {
+    // 检查comment字段是否存在
+    const pragmaStmt = db.prepare('PRAGMA table_info(t_organization_assets)')
+    const columns = pragmaStmt.all()
+    const hasCommentColumn = columns.some((col: any) => col.name === 'comment')
+
+    if (!hasCommentColumn) {
+      console.log('正在添加comment字段到t_organization_assets表...')
+      // 添加comment字段
+      const alterStmt = db.prepare('ALTER TABLE t_organization_assets ADD COLUMN comment TEXT')
+      alterStmt.run()
+      console.log('comment字段添加成功')
+    }
+
+    // 检查并创建自定义文件夹表
+    const checkCustomFoldersTable = db.prepare(`
+      SELECT name FROM sqlite_master 
+      WHERE type='table' AND name='t_custom_folders'
+    `)
+    const customFoldersTable = checkCustomFoldersTable.get()
+
+    if (!customFoldersTable) {
+      console.log('正在创建自定义文件夹表...')
+      const createCustomFoldersTable = db.prepare(`
+        CREATE TABLE IF NOT EXISTS t_custom_folders (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          uuid TEXT UNIQUE,
+          name TEXT NOT NULL,
+          description TEXT,
+          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )
+      `)
+      createCustomFoldersTable.run()
+      console.log('自定义文件夹表创建成功')
+    }
+
+    // 检查并创建资产文件夹映射表
+    const checkAssetFolderMappingTable = db.prepare(`
+      SELECT name FROM sqlite_master 
+      WHERE type='table' AND name='t_asset_folder_mapping'
+    `)
+    const assetFolderMappingTable = checkAssetFolderMappingTable.get()
+
+    if (!assetFolderMappingTable) {
+      console.log('正在创建资产文件夹映射表...')
+      const createAssetFolderMappingTable = db.prepare(`
+        CREATE TABLE IF NOT EXISTS t_asset_folder_mapping (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          folder_uuid TEXT NOT NULL,
+          organization_uuid TEXT NOT NULL,
+          asset_host TEXT NOT NULL,
+          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          UNIQUE(folder_uuid, organization_uuid, asset_host)
+        )
+      `)
+      createAssetFolderMappingTable.run()
+      console.log('资产文件夹映射表创建成功')
+    }
+  } catch (error) {
+    console.error('数据库迁移失败:', error)
+  }
+}
+
 export function getLocalAssetRouteLogic(db: Database.Database, searchType: string, params: any[] = []): any {
   try {
+    // 执行数据库迁移
+    migrateDatabaseIfNeeded(db)
     const result: QueryResult = {
       code: 200,
       data: {
@@ -145,7 +213,7 @@ export function getLocalAssetRouteLogic(db: Database.Database, searchType: strin
       // 1. 首先添加收藏栏（如果不是 assetConfig 页面）
       if (searchType !== 'assetConfig') {
         // 查询所有收藏的企业资产（包括组织本身和组织下的子资产）
-        const favoriteAssets = []
+        const favoriteAssets: any[] = []
 
         // 查询收藏的组织本身
         const favoriteOrgsStmt = db.prepare(`
@@ -176,7 +244,7 @@ export function getLocalAssetRouteLogic(db: Database.Database, searchType: strin
 
         // 查询收藏的组织子资产
         const favoriteSubAssetsStmt = db.prepare(`
-          SELECT oa.hostname as asset_name, oa.host as asset_ip, oa.organization_uuid, oa.uuid, oa.favorite,
+          SELECT oa.hostname as asset_name, oa.host as asset_ip, oa.organization_uuid, oa.uuid, oa.favorite, oa.comment,
                  a.label as org_label, a.asset_ip as org_ip
           FROM t_organization_assets oa
           JOIN t_assets a ON oa.organization_uuid = a.uuid
@@ -193,6 +261,7 @@ export function getLocalAssetRouteLogic(db: Database.Database, searchType: strin
             favorite: true,
             ip: subAsset.asset_ip,
             uuid: subAsset.uuid,
+            comment: subAsset.comment,
             asset_type: 'organization',
             organizationId: subAsset.organization_uuid
           })
@@ -201,14 +270,65 @@ export function getLocalAssetRouteLogic(db: Database.Database, searchType: strin
         // 如果有收藏的资产，添加收藏栏
         if (favoriteAssets.length > 0) {
           result.data.routers.push({
-            key: 'favorite',
+            key: 'favorites',
             title: '收藏栏',
+            asset_type: 'favorites',
             children: favoriteAssets
+          })
+        }
+
+        // 2. 添加自定义文件夹
+        const customFoldersStmt = db.prepare(`
+          SELECT uuid, name, description
+          FROM t_custom_folders
+          ORDER BY created_at DESC
+        `)
+        const customFolders = customFoldersStmt.all() || []
+
+        for (const folder of customFolders) {
+          // 查询文件夹中的资产
+          const folderAssetsStmt = db.prepare(`
+            SELECT 
+              afm.folder_uuid,
+              afm.organization_uuid,
+              afm.asset_host,
+              oa.hostname,
+              oa.favorite,
+              oa.comment,
+              oa.uuid as asset_uuid,
+              a.label as org_label
+            FROM t_asset_folder_mapping afm
+            JOIN t_organization_assets oa ON afm.organization_uuid = oa.organization_uuid AND afm.asset_host = oa.host
+            JOIN t_assets a ON afm.organization_uuid = a.uuid
+            WHERE afm.folder_uuid = ?
+            ORDER BY oa.hostname
+          `)
+          const folderAssets = folderAssetsStmt.all(folder.uuid) || []
+
+          const children = folderAssets.map((asset: any) => ({
+            key: `folder_${folder.uuid}_${asset.organization_uuid}_${asset.asset_host}`,
+            title: asset.hostname || asset.asset_host,
+            favorite: asset.favorite === 1,
+            ip: asset.asset_host,
+            uuid: asset.asset_uuid,
+            comment: asset.comment,
+            asset_type: 'organization',
+            organizationId: asset.organization_uuid,
+            folderUuid: folder.uuid
+          }))
+
+          result.data.routers.push({
+            key: `folder_${folder.uuid}`,
+            title: folder.name,
+            description: folder.description,
+            asset_type: 'custom_folder',
+            folderUuid: folder.uuid,
+            children: children
           })
         }
       }
 
-      // 2. 然后显示所有组织及其子资产
+      // 3. 添加企业组织资产
       const organizationAssetsStmt = db.prepare(`
         SELECT uuid, label, asset_ip, port, username, password, key_chain_id, auth_type, favorite
         FROM t_assets
@@ -219,7 +339,7 @@ export function getLocalAssetRouteLogic(db: Database.Database, searchType: strin
 
       for (const orgAsset of organizationAssets) {
         const nodesStmt = db.prepare(`
-          SELECT hostname as asset_name, host as asset_ip, organization_uuid, uuid, created_at, favorite
+          SELECT hostname as asset_name, host as asset_ip, organization_uuid, uuid, created_at, favorite, comment
           FROM t_organization_assets
           WHERE organization_uuid = ?
           ORDER BY hostname
@@ -233,6 +353,7 @@ export function getLocalAssetRouteLogic(db: Database.Database, searchType: strin
             favorite: node.favorite === 1,
             ip: node.asset_ip,
             uuid: node.uuid,
+            comment: node.comment,
             asset_type: 'organization',
             organizationId: orgAsset.uuid
           }
@@ -243,15 +364,7 @@ export function getLocalAssetRouteLogic(db: Database.Database, searchType: strin
           key: orgAsset.uuid,
           title: orgAsset.label || orgAsset.asset_ip,
           favorite: orgAsset.favorite === 1,
-          ip: orgAsset.asset_ip,
-          uuid: orgAsset.uuid,
-          port: orgAsset.port || 22,
-          username: orgAsset.username,
-          password: orgAsset.password,
-          key_chain_id: orgAsset.key_chain_id || 0,
-          auth_type: orgAsset.auth_type,
           asset_type: 'organization',
-          organizationId: orgAsset.uuid,
           children: children
         })
       }
@@ -706,6 +819,243 @@ export function updateOrganizationAssetFavoriteLogic(db: Database.Database, orga
     }
   } catch (error) {
     console.error('updateOrganizationAssetFavoriteLogic 错误:', error)
+    throw error
+  }
+}
+
+export function updateOrganizationAssetCommentLogic(db: Database.Database, organizationUuid: string, host: string, comment: string): any {
+  try {
+    // 先查询当前记录
+    const selectStmt = db.prepare(`
+      SELECT * FROM t_organization_assets 
+      WHERE organization_uuid = ? AND host = ?
+    `)
+    const currentRecord = selectStmt.get(organizationUuid, host)
+
+    if (!currentRecord) {
+      return {
+        data: {
+          message: 'failed',
+          error: '未找到匹配的记录'
+        }
+      }
+    }
+
+    // 执行更新
+    const updateStmt = db.prepare(`
+      UPDATE t_organization_assets
+      SET comment = ?, updated_at = CURRENT_TIMESTAMP
+      WHERE organization_uuid = ? AND host = ?
+    `)
+    const result = updateStmt.run(comment, organizationUuid, host)
+
+    return {
+      data: {
+        message: result.changes > 0 ? 'success' : 'failed',
+        changes: result.changes
+      }
+    }
+  } catch (error) {
+    console.error('updateOrganizationAssetCommentLogic 错误:', error)
+    throw error
+  }
+}
+
+// 自定义文件夹管理相关函数
+export function createCustomFolderLogic(db: Database.Database, name: string, description?: string): any {
+  try {
+    const { v4: uuidv4 } = require('uuid')
+    const folderUuid = uuidv4()
+
+    const insertStmt = db.prepare(`
+      INSERT INTO t_custom_folders (uuid, name, description)
+      VALUES (?, ?, ?)
+    `)
+    const result = insertStmt.run(folderUuid, name, description || '')
+
+    return {
+      data: {
+        message: result.changes > 0 ? 'success' : 'failed',
+        folderUuid: folderUuid,
+        changes: result.changes
+      }
+    }
+  } catch (error) {
+    console.error('createCustomFolderLogic 错误:', error)
+    throw error
+  }
+}
+
+export function getCustomFoldersLogic(db: Database.Database): any {
+  try {
+    const selectStmt = db.prepare(`
+      SELECT uuid, name, description, created_at, updated_at
+      FROM t_custom_folders
+      ORDER BY created_at DESC
+    `)
+    const folders = selectStmt.all()
+
+    return {
+      data: {
+        message: 'success',
+        folders: folders
+      }
+    }
+  } catch (error) {
+    console.error('getCustomFoldersLogic 错误:', error)
+    throw error
+  }
+}
+
+export function updateCustomFolderLogic(db: Database.Database, folderUuid: string, name: string, description?: string): any {
+  try {
+    const updateStmt = db.prepare(`
+      UPDATE t_custom_folders
+      SET name = ?, description = ?, updated_at = CURRENT_TIMESTAMP
+      WHERE uuid = ?
+    `)
+    const result = updateStmt.run(name, description || '', folderUuid)
+
+    return {
+      data: {
+        message: result.changes > 0 ? 'success' : 'failed',
+        changes: result.changes
+      }
+    }
+  } catch (error) {
+    console.error('updateCustomFolderLogic 错误:', error)
+    throw error
+  }
+}
+
+export function deleteCustomFolderLogic(db: Database.Database, folderUuid: string): any {
+  try {
+    // 先删除关联的资产映射
+    const deleteMappingStmt = db.prepare(`
+      DELETE FROM t_asset_folder_mapping
+      WHERE folder_uuid = ?
+    `)
+    deleteMappingStmt.run(folderUuid)
+
+    // 再删除文件夹
+    const deleteFolderStmt = db.prepare(`
+      DELETE FROM t_custom_folders
+      WHERE uuid = ?
+    `)
+    const result = deleteFolderStmt.run(folderUuid)
+
+    return {
+      data: {
+        message: result.changes > 0 ? 'success' : 'failed',
+        changes: result.changes
+      }
+    }
+  } catch (error) {
+    console.error('deleteCustomFolderLogic 错误:', error)
+    throw error
+  }
+}
+
+export function moveAssetToFolderLogic(db: Database.Database, folderUuid: string, organizationUuid: string, assetHost: string): any {
+  try {
+    // 先检查资产是否存在
+    const assetStmt = db.prepare(`
+      SELECT * FROM t_organization_assets
+      WHERE organization_uuid = ? AND host = ?
+    `)
+    const asset = assetStmt.get(organizationUuid, assetHost)
+
+    if (!asset) {
+      return {
+        data: {
+          message: 'failed',
+          error: '未找到指定的资产'
+        }
+      }
+    }
+
+    // 检查文件夹是否存在
+    const folderStmt = db.prepare(`
+      SELECT * FROM t_custom_folders
+      WHERE uuid = ?
+    `)
+    const folder = folderStmt.get(folderUuid)
+
+    if (!folder) {
+      return {
+        data: {
+          message: 'failed',
+          error: '未找到指定的文件夹'
+        }
+      }
+    }
+
+    // 插入或更新映射关系
+    const insertStmt = db.prepare(`
+      INSERT OR REPLACE INTO t_asset_folder_mapping (folder_uuid, organization_uuid, asset_host)
+      VALUES (?, ?, ?)
+    `)
+    const result = insertStmt.run(folderUuid, organizationUuid, assetHost)
+
+    return {
+      data: {
+        message: 'success',
+        changes: result.changes
+      }
+    }
+  } catch (error) {
+    console.error('moveAssetToFolderLogic 错误:', error)
+    throw error
+  }
+}
+
+export function removeAssetFromFolderLogic(db: Database.Database, folderUuid: string, organizationUuid: string, assetHost: string): any {
+  try {
+    const deleteStmt = db.prepare(`
+      DELETE FROM t_asset_folder_mapping
+      WHERE folder_uuid = ? AND organization_uuid = ? AND asset_host = ?
+    `)
+    const result = deleteStmt.run(folderUuid, organizationUuid, assetHost)
+
+    return {
+      data: {
+        message: result.changes > 0 ? 'success' : 'failed',
+        changes: result.changes
+      }
+    }
+  } catch (error) {
+    console.error('removeAssetFromFolderLogic 错误:', error)
+    throw error
+  }
+}
+
+export function getAssetsInFolderLogic(db: Database.Database, folderUuid: string): any {
+  try {
+    const selectStmt = db.prepare(`
+      SELECT 
+        afm.folder_uuid,
+        afm.organization_uuid,
+        afm.asset_host,
+        oa.hostname,
+        oa.favorite,
+        oa.comment,
+        a.label as org_label
+      FROM t_asset_folder_mapping afm
+      JOIN t_organization_assets oa ON afm.organization_uuid = oa.organization_uuid AND afm.asset_host = oa.host
+      JOIN t_assets a ON afm.organization_uuid = a.uuid
+      WHERE afm.folder_uuid = ?
+      ORDER BY oa.hostname
+    `)
+    const assets = selectStmt.all(folderUuid)
+
+    return {
+      data: {
+        message: 'success',
+        assets: assets
+      }
+    }
+  } catch (error) {
+    console.error('getAssetsInFolderLogic 错误:', error)
     throw error
   }
 }

@@ -364,6 +364,126 @@ const updateOrganizationAssetFavorite = async (data: { organizationUuid: string;
     return Promise.reject(error)
   }
 }
+
+const updateOrganizationAssetComment = async (data: { organizationUuid: string; host: string; comment: string }) => {
+  console.log('=== preload updateOrganizationAssetComment 开始 ===')
+  console.log('传入参数:', data)
+
+  try {
+    console.log('调用 IPC: organization-asset-comment')
+    const result = await ipcRenderer.invoke('organization-asset-comment', data)
+    console.log('IPC 返回结果:', result)
+    return result
+  } catch (error) {
+    console.error('preload updateOrganizationAssetComment 错误:', error)
+    return Promise.reject(error)
+  }
+}
+
+// 自定义文件夹管理API
+const createCustomFolder = async (data: { name: string; description?: string }) => {
+  console.log('=== preload createCustomFolder 开始 ===')
+  console.log('传入参数:', data)
+
+  try {
+    console.log('调用 IPC: create-custom-folder')
+    const result = await ipcRenderer.invoke('create-custom-folder', data)
+    console.log('IPC 返回结果:', result)
+    return result
+  } catch (error) {
+    console.error('preload createCustomFolder 错误:', error)
+    return Promise.reject(error)
+  }
+}
+
+const getCustomFolders = async () => {
+  console.log('=== preload getCustomFolders 开始 ===')
+
+  try {
+    console.log('调用 IPC: get-custom-folders')
+    const result = await ipcRenderer.invoke('get-custom-folders')
+    console.log('IPC 返回结果:', result)
+    return result
+  } catch (error) {
+    console.error('preload getCustomFolders 错误:', error)
+    return Promise.reject(error)
+  }
+}
+
+const updateCustomFolder = async (data: { folderUuid: string; name: string; description?: string }) => {
+  console.log('=== preload updateCustomFolder 开始 ===')
+  console.log('传入参数:', data)
+
+  try {
+    console.log('调用 IPC: update-custom-folder')
+    const result = await ipcRenderer.invoke('update-custom-folder', data)
+    console.log('IPC 返回结果:', result)
+    return result
+  } catch (error) {
+    console.error('preload updateCustomFolder 错误:', error)
+    return Promise.reject(error)
+  }
+}
+
+const deleteCustomFolder = async (data: { folderUuid: string }) => {
+  console.log('=== preload deleteCustomFolder 开始 ===')
+  console.log('传入参数:', data)
+
+  try {
+    console.log('调用 IPC: delete-custom-folder')
+    const result = await ipcRenderer.invoke('delete-custom-folder', data)
+    console.log('IPC 返回结果:', result)
+    return result
+  } catch (error) {
+    console.error('preload deleteCustomFolder 错误:', error)
+    return Promise.reject(error)
+  }
+}
+
+const moveAssetToFolder = async (data: { folderUuid: string; organizationUuid: string; assetHost: string }) => {
+  console.log('=== preload moveAssetToFolder 开始 ===')
+  console.log('传入参数:', data)
+
+  try {
+    console.log('调用 IPC: move-asset-to-folder')
+    const result = await ipcRenderer.invoke('move-asset-to-folder', data)
+    console.log('IPC 返回结果:', result)
+    return result
+  } catch (error) {
+    console.error('preload moveAssetToFolder 错误:', error)
+    return Promise.reject(error)
+  }
+}
+
+const removeAssetFromFolder = async (data: { folderUuid: string; organizationUuid: string; assetHost: string }) => {
+  console.log('=== preload removeAssetFromFolder 开始 ===')
+  console.log('传入参数:', data)
+
+  try {
+    console.log('调用 IPC: remove-asset-from-folder')
+    const result = await ipcRenderer.invoke('remove-asset-from-folder', data)
+    console.log('IPC 返回结果:', result)
+    return result
+  } catch (error) {
+    console.error('preload removeAssetFromFolder 错误:', error)
+    return Promise.reject(error)
+  }
+}
+
+const getAssetsInFolder = async (data: { folderUuid: string }) => {
+  console.log('=== preload getAssetsInFolder 开始 ===')
+  console.log('传入参数:', data)
+
+  try {
+    console.log('调用 IPC: get-assets-in-folder')
+    const result = await ipcRenderer.invoke('get-assets-in-folder', data)
+    console.log('IPC 返回结果:', result)
+    return result
+  } catch (error) {
+    console.error('preload getAssetsInFolder 错误:', error)
+    return Promise.reject(error)
+  }
+}
 const getSystemInfo = async (id: string) => {
   try {
     const result = await ipcRenderer.invoke('ssh:get-system-info', { id })
@@ -409,6 +529,14 @@ const api = {
   userSnippetOperation,
   refreshOrganizationAssets,
   updateOrganizationAssetFavorite,
+  updateOrganizationAssetComment,
+  createCustomFolder,
+  getCustomFolders,
+  updateCustomFolder,
+  deleteCustomFolder,
+  moveAssetToFolder,
+  removeAssetFromFolder,
+  getAssetsInFolder,
   setDataSyncEnabled: (enabled: boolean) => ipcRenderer.invoke('data-sync:set-enabled', enabled),
   maximizeWindow: () => ipcRenderer.invoke('window:maximize'),
   unmaximizeWindow: () => ipcRenderer.invoke('window:unmaximize'),

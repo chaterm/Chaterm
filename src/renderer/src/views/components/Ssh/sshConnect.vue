@@ -256,6 +256,8 @@ const userInputFlag = ref(false)
 const currentCwdStore = useCurrentCwdStore()
 let termOndata: IDisposable | null = null
 let handleInput
+let textareaCompositionListener: ((e: CompositionEvent) => void) | null = null
+let textareaPasteListener: (() => void) | null = null
 const pasteFlag = ref(false)
 let dbConfigStash: {
   aliasStatus?: number
@@ -330,7 +332,7 @@ onMounted(async () => {
   })
   const textarea = termInstance?.element?.querySelector('.xterm-helper-textarea') as HTMLTextAreaElement | null
   if (textarea) {
-    textarea.addEventListener('compositionend', (e) => {
+    textareaCompositionListener = (e) => {
       handleKeyInput({
         domEvent: {
           keyCode: encoder.encode(e.data),
@@ -342,12 +344,13 @@ onMounted(async () => {
         },
         key: e.data
       })
-    })
-    textarea.addEventListener('paste', () => {
+    }
+    textareaPasteListener = () => {
       pasteFlag.value = true
-    })
+    }
+    textarea.addEventListener('compositionend', textareaCompositionListener)
+    textarea.addEventListener('paste', textareaPasteListener)
   }
-  // MFA 监听器已移至全局 App.vue
   const core = (termInstance as any)._core
   const renderService = core._renderService
   const originalWrite = termInstance.write.bind(termInstance)
@@ -556,7 +559,21 @@ onBeforeUnmount(() => {
   }
   cleanupListeners.value.forEach((cleanup) => cleanup())
   cleanupListeners.value = []
-  // MFA 监听器清理已移至全局 App.vue
+
+  if (terminal.value) {
+    const textarea = terminal.value.element?.querySelector('.xterm-helper-textarea') as HTMLTextAreaElement | null
+    if (textarea) {
+      if (textareaCompositionListener) {
+        textarea.removeEventListener('compositionend', textareaCompositionListener)
+        textareaCompositionListener = null
+      }
+      if (textareaPasteListener) {
+        textarea.removeEventListener('paste', textareaPasteListener)
+        textareaPasteListener = null
+      }
+    }
+  }
+
   if (isConnected.value) {
     disconnectSSH()
   }
@@ -802,6 +819,25 @@ const handleResize = debounce(() => {
 const emit = defineEmits(['connectSSH', 'disconnectSSH', 'closeTabInTerm', 'createNewTerm'])
 
 const connectSSH = async () => {
+  if (termOndata) {
+    termOndata.dispose()
+    termOndata = null
+  }
+
+  if (terminal.value) {
+    const textarea = terminal.value.element?.querySelector('.xterm-helper-textarea') as HTMLTextAreaElement | null
+    if (textarea) {
+      if (textareaCompositionListener) {
+        textarea.removeEventListener('compositionend', textareaCompositionListener)
+        textareaCompositionListener = null
+      }
+      if (textareaPasteListener) {
+        textarea.removeEventListener('paste', textareaPasteListener)
+        textareaPasteListener = null
+      }
+    }
+  }
+
   try {
     const assetInfo = await api.connectAssetInfo({ uuid: props.connectData.uuid })
     const password = ref('')
@@ -821,7 +857,6 @@ const connectSSH = async () => {
     const name = userInfoStore().userInfo.name
     connectionId.value = `${props.connectData.username}@${props.connectData.ip}:local:${uuidv4()}`
 
-    // 设置 JumpServer 状态监听
     if (assetInfo.sshType === 'jumpserver' && terminal.value) {
       jumpServerStatusHandler = createJumpServerStatusHandler(terminal.value, connectionId.value)
       jumpServerStatusHandler.setupStatusListener(api)
@@ -841,7 +876,6 @@ const connectSSH = async () => {
       agentForward: config.sshAgentsStatus === 1
     })
 
-    // 清理 JumpServer 状态监听器
     if (jumpServerStatusHandler) {
       jumpServerStatusHandler.cleanup()
       jumpServerStatusHandler = null
@@ -859,7 +893,7 @@ const connectSSH = async () => {
       })
 
     if (result.status === 'connected') {
-      let welcome = '\x1b[38;2;22;119;255m' + name + ', 欢迎您使用智能堡垒机Chaterm \x1b[m\r\n'
+      let welcome = '\x1b[38;2;22;119;255m' + name + ', 欢迎您使用Chaterm智能终端 \x1b[m\r\n'
       if (configStore.getUserConfig.language == 'en-US') {
         welcome = '\x1b[38;2;22;119;255m' + email.split('@')[0] + ', Welcome to use Chaterm \x1b[m\r\n'
       }
@@ -877,7 +911,6 @@ const connectSSH = async () => {
       terminal.value?.writeln(errorMsg)
     }
   } catch (error: any) {
-    // 清理 JumpServer 状态监听器
     if (jumpServerStatusHandler) {
       jumpServerStatusHandler.cleanup()
       jumpServerStatusHandler = null
@@ -912,9 +945,9 @@ const startShell = async () => {
       // contextFetcher = createContextFetcher({
       //   connectionId: connectionId.value,
       //   api: api,
-      //   enableOutput: false, // 禁用终端输出，避免干扰前台
+      //   enableOutput: false,
       //   outputCallback: (message) => {
-      //     console.log('[ContextFetcher] 上下文信息:', message)
+      //     console.log('[ContextFetcher] Context information:', message)
       //   }
       // })
     } else {
@@ -948,9 +981,6 @@ const resizeSSH = async (cols, rows) => {
     console.error('Failed to resize terminal:', error)
   }
 }
-
-// MFA相关状态已移至全局组件
-// MFA处理函数已移至全局组件
 
 const terminalState = ref({
   content: '',
@@ -1248,6 +1278,12 @@ function handleExternalInput(data) {
 
 const setupTerminalInput = () => {
   if (!terminal.value) return
+
+  if (termOndata) {
+    termOndata.dispose()
+    termOndata = null
+  }
+
   handleInput = async (data, isInputManagerCall = true) => {
     if (isInputManagerCall && isSyncInput.value) {
       inputManager.sendToOthers(connectionId.value, data)

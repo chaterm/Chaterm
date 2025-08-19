@@ -60,8 +60,15 @@ export const findOrganizationAssetByKey = async (nodeKey: string): Promise<any |
         for (const group of groups) {
           if (group.children) {
             for (const asset of group.children) {
-              if (asset.key === nodeKey && asset.asset_type === 'organization') {
-                return asset
+              if (asset.asset_type === 'organization') {
+                if (asset.uuid === nodeKey) {
+                  console.log('通过 uuid 找到匹配的企业资产配置:', asset)
+                  return asset
+                }
+                if (asset.key === nodeKey) {
+                  console.log('通过 key 找到匹配的企业资产配置:', asset)
+                  return asset
+                }
               }
             }
           }
@@ -69,7 +76,24 @@ export const findOrganizationAssetByKey = async (nodeKey: string): Promise<any |
         return null
       }
 
-      return findAssetInGroups(res.data.routers)
+      let result = findAssetInGroups(res.data.routers)
+      if (!result && nodeKey.includes('_')) {
+        const parts = nodeKey.split('_')
+        if (parts.length >= 2) {
+          const organizationUuid = parts[0]
+          for (const group of res.data.routers) {
+            if (group.children) {
+              for (const asset of group.children) {
+                if (asset.uuid === organizationUuid && asset.asset_type === 'organization') {
+                  return asset
+                }
+              }
+            }
+          }
+        }
+      }
+
+      return result
     }
   } catch (error) {
     console.error('查找企业资产失败:', error)
@@ -85,9 +109,10 @@ export const refreshOrganizationAssetFromWorkspace = async (dataRef: any, onSucc
   // 尝试从节点信息中获取企业资产配置
   let organizationAsset = null
 
-  // 如果节点本身就是企业资产配置
-  if (dataRef.asset_type === 'organization' && dataRef.uuid) {
-    organizationAsset = dataRef
+  // 如果节点本身就是企业资产配置（有 children 属性，说明是企业资产配置）
+  if (dataRef.asset_type === 'organization' && dataRef.children) {
+    // 即使有 children 属性，我们也需要从 assetConfig 获取完整配置信息
+    organizationAsset = await findOrganizationAssetByKey(dataRef.key)
   } else {
     // 否则根据 key 查找对应的企业资产配置
     organizationAsset = await findOrganizationAssetByKey(dataRef.key)
