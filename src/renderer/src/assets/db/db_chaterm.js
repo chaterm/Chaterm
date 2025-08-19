@@ -121,6 +121,26 @@ CREATE TABLE IF NOT EXISTS t_organization_assets (
   updated_at DATETIME DEFAULT CURRENT_TIMESTAMP     -- 更新时间
 );
 
+-- 自定义文件夹表
+CREATE TABLE IF NOT EXISTS t_custom_folders (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,             -- 文件夹ID
+  uuid TEXT UNIQUE,                                 -- 文件夹UUID
+  name TEXT NOT NULL,                               -- 文件夹名称
+  description TEXT,                                 -- 文件夹描述
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,    -- 创建时间
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP     -- 更新时间
+);
+
+-- 资产文件夹关联表
+CREATE TABLE IF NOT EXISTS t_asset_folder_mapping (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,             -- 关联ID
+  folder_uuid TEXT NOT NULL,                        -- 文件夹UUID
+  organization_uuid TEXT NOT NULL,                  -- 组织UUID
+  asset_host TEXT NOT NULL,                         -- 资产主机IP
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,    -- 创建时间
+  UNIQUE(folder_uuid, organization_uuid, asset_host) -- 唯一约束
+);
+
 CREATE TABLE IF NOT EXISTS change_log (
         id TEXT PRIMARY KEY,
         table_name TEXT NOT NULL,

@@ -12,7 +12,14 @@ import {
   getUserHostsLogic,
   refreshOrganizationAssetsLogic,
   updateOrganizationAssetFavoriteLogic,
-  updateOrganizationAssetCommentLogic
+  updateOrganizationAssetCommentLogic,
+  createCustomFolderLogic,
+  getCustomFoldersLogic,
+  updateCustomFolderLogic,
+  deleteCustomFolderLogic,
+  moveAssetToFolderLogic,
+  removeAssetFromFolderLogic,
+  getAssetsInFolderLogic
 } from './chaterm/assets'
 import {
   deleteChatermHistoryByTaskIdLogic,
@@ -200,6 +207,77 @@ export class ChatermDatabaseService {
       return result
     } catch (error) {
       console.error('ChatermDatabaseService.updateOrganizationAssetComment 错误:', error)
+      throw error
+    }
+  }
+
+  // 自定义文件夹管理方法
+  createCustomFolder(name: string, description?: string): any {
+    try {
+      const result = createCustomFolderLogic(this.db, name, description)
+      return result
+    } catch (error) {
+      console.error('ChatermDatabaseService.createCustomFolder 错误:', error)
+      throw error
+    }
+  }
+
+  getCustomFolders(): any {
+    try {
+      const result = getCustomFoldersLogic(this.db)
+      return result
+    } catch (error) {
+      console.error('ChatermDatabaseService.getCustomFolders 错误:', error)
+      throw error
+    }
+  }
+
+  updateCustomFolder(folderUuid: string, name: string, description?: string): any {
+    try {
+      const result = updateCustomFolderLogic(this.db, folderUuid, name, description)
+      return result
+    } catch (error) {
+      console.error('ChatermDatabaseService.updateCustomFolder 错误:', error)
+      throw error
+    }
+  }
+
+  deleteCustomFolder(folderUuid: string): any {
+    try {
+      const result = deleteCustomFolderLogic(this.db, folderUuid)
+      return result
+    } catch (error) {
+      console.error('ChatermDatabaseService.deleteCustomFolder 错误:', error)
+      throw error
+    }
+  }
+
+  moveAssetToFolder(folderUuid: string, organizationUuid: string, assetHost: string): any {
+    try {
+      const result = moveAssetToFolderLogic(this.db, folderUuid, organizationUuid, assetHost)
+      return result
+    } catch (error) {
+      console.error('ChatermDatabaseService.moveAssetToFolder 错误:', error)
+      throw error
+    }
+  }
+
+  removeAssetFromFolder(folderUuid: string, organizationUuid: string, assetHost: string): any {
+    try {
+      const result = removeAssetFromFolderLogic(this.db, folderUuid, organizationUuid, assetHost)
+      return result
+    } catch (error) {
+      console.error('ChatermDatabaseService.removeAssetFromFolder 错误:', error)
+      throw error
+    }
+  }
+
+  getAssetsInFolder(folderUuid: string): any {
+    try {
+      const result = getAssetsInFolderLogic(this.db, folderUuid)
+      return result
+    } catch (error) {
+      console.error('ChatermDatabaseService.getAssetsInFolder 错误:', error)
       throw error
     }
   }

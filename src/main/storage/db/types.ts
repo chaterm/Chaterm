@@ -24,6 +24,8 @@ export interface RouterNode {
   comment?: string
   children?: AssetNode[]
   asset_type?: string
+  description?: string
+  folderUuid?: string
 }
 
 export interface QueryResult {
