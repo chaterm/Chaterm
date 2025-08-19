@@ -144,6 +144,27 @@ CREATE TABLE IF NOT EXISTS sync_meta (
         value TEXT
       );
 
+CREATE TABLE IF NOT EXISTS sync_metadata (
+          table_name TEXT PRIMARY KEY,
+          last_sync_time TEXT,
+          last_sync_version INTEGER,
+          server_last_modified TEXT,
+          local_last_modified TEXT,
+          sync_status TEXT,
+          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      );
+CREATE TABLE IF NOT EXISTS sync_conflicts (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                table_name TEXT,
+                record_uuid TEXT,
+                conflict_reason TEXT,
+                local_data TEXT,
+                server_data TEXT,
+                status TEXT DEFAULT 'pending',
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            );
+
 -- 创建同步相关表的性能优化索引
 CREATE INDEX IF NOT EXISTS idx_change_log_sync_status ON change_log(sync_status);
 CREATE INDEX IF NOT EXISTS idx_change_log_table_name ON change_log(table_name);

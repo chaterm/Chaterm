@@ -81,12 +81,10 @@ export class SyncEngine {
 
     // 小数据量：使用现有批量方法
     if (totalChanges <= 1000) {
-      logger.info(`数据量较小 (${totalChanges}条)，使用批量同步`)
       return await this.incrementalSync(tableName)
     }
 
     // 大数据量：使用分页处理
-    logger.info(`数据量较大 (${totalChanges}条)，使用分页同步`)
     return await this.incrementalSyncPaged(tableName)
   }
 
@@ -103,21 +101,15 @@ export class SyncEngine {
     const totalChanges = this.db.getTotalPendingChangesCount(tableName)
     const totalPages = Math.ceil(totalChanges / pageSize)
 
-    logger.info(`开始分页增量同步: ${totalChanges} 条变更，分 ${totalPages} 页处理`)
-
     while (offset < totalChanges) {
       const pageChanges = this.db.getPendingChangesPage(tableName, pageSize, offset)
       if (pageChanges.length === 0) break
-
-      logger.info(`处理第 ${currentPage}/${totalPages} 页: ${pageChanges.length} 条变更`)
 
       try {
         // 使用现有的批处理逻辑
         const result = await this.processBatchChanges(tableName, pageChanges)
         totalSynced += result.synced_count || 0
         totalFailed += result.failed_count || 0
-
-        logger.info(`第 ${currentPage} 页完成: 成功 ${result.synced_count}, 失败 ${result.failed_count}`)
       } catch (error) {
         logger.error(`第 ${currentPage} 页处理失败:`, error)
         totalFailed += pageChanges.length
@@ -131,7 +123,6 @@ export class SyncEngine {
     }
 
     const message = `分页增量同步完成: ${totalPages} 页，成功 ${totalSynced}，失败 ${totalFailed}`
-    logger.info(message)
 
     return {
       success: totalFailed === 0,
@@ -285,30 +276,148 @@ export class SyncEngine {
   private async maybeDecryptChange(tableName: string, data: any): Promise<any> {
     if (!data) return data
 
+    // 🔍 添加解密前的详细日志
+    logger.info('==== 解密调试信息 ====')
+    logger.info('表名:', tableName)
+    logger.info('原始数据类型:', typeof data)
+    logger.info('原始数据键:', Object.keys(data))
+    logger.info('data_cipher_text 存在:', 'data_cipher_text' in data)
+    logger.info('data_cipher_text 类型:', typeof data.data_cipher_text)
+    logger.info('data_cipher_text 值:', data.data_cipher_text)
+    logger.info('完整原始数据:', JSON.stringify(data, null, 2))
+
     try {
       const service = getEncryptionService()
+      logger.info('加密服务状态:', service ? '已获取' : '未获取')
+
       if (tableName === 't_assets_sync') {
         const cipher: string | undefined = typeof data.data_cipher_text === 'string' ? data.data_cipher_text : undefined
-        if (cipher) {
-          const sensitive = await decryptPayload(cipher, service)
+        logger.info('t_assets_sync 解密检查:')
+        logger.info('  cipher 存在:', !!cipher)
+        logger.info('  cipher 长度:', cipher?.length || 0)
+        logger.info('  cipher 前50字符:', cipher?.substring(0, 50))
 
-          if (sensitive && sensitive.password !== undefined) data.password = sensitive.password
-          if (sensitive && sensitive.username !== undefined) data.username = sensitive.username
+        if (cipher) {
+          logger.info('开始解密 t_assets_sync 数据...')
+          const sensitive = await decryptPayload(cipher, service)
+          logger.info('解密结果:', sensitive)
+          logger.info('解密结果类型:', typeof sensitive)
+          logger.info('解密结果键:', sensitive ? Object.keys(sensitive) : 'null')
+
+          if (sensitive && sensitive.password !== undefined) {
+            data.password = sensitive.password
+            logger.info('已设置 password 字段')
+          }
+          if (sensitive && sensitive.username !== undefined) {
+            data.username = sensitive.username
+            logger.info('已设置 username 字段')
+          }
         }
       } else if (tableName === 't_asset_chains_sync') {
         const cipher: string | undefined = typeof data.data_cipher_text === 'string' ? data.data_cipher_text : undefined
-        if (cipher) {
-          const sensitive = await decryptPayload(cipher, service)
+        logger.info('t_asset_chains_sync 解密检查:')
+        logger.info('  cipher 存在:', !!cipher)
+        logger.info('  cipher 长度:', cipher?.length || 0)
+        logger.info('  cipher 前50字符:', cipher?.substring(0, 50))
 
-          if (sensitive.chain_private_key !== undefined) data.chain_private_key = sensitive.chain_private_key
-          if (sensitive.passphrase !== undefined) data.passphrase = sensitive.passphrase
+        if (cipher) {
+          logger.info('开始解密 t_asset_chains_sync 数据...')
+          const sensitive = await decryptPayload(cipher, service)
+          logger.info('解密结果:', sensitive)
+          logger.info('解密结果类型:', typeof sensitive)
+          logger.info('解密结果键:', sensitive ? Object.keys(sensitive) : 'null')
+
+          if (sensitive.chain_private_key !== undefined) {
+            data.chain_private_key = sensitive.chain_private_key
+            logger.info('已设置 chain_private_key 字段')
+          }
+          if (sensitive.passphrase !== undefined) {
+            data.passphrase = sensitive.passphrase
+            logger.info('已设置 passphrase 字段')
+          }
         }
       }
+      if ('data_cipher_text' in data) {
+        delete data.data_cipher_text
+      }
+
+      // 修复：根据表名过滤字段，只保留对应表的字段
+      data = this.filterFieldsByTable(tableName, data)
+
+      logger.info('解密后的最终数据:', JSON.stringify(data, null, 2))
+      logger.info('==== 解密调试信息结束 ====')
     } catch (e) {
       logger.warn('新格式密文解密失败，按原样应用', e)
+      logger.error('解密异常详情:', {
+        error: e,
+        message: e instanceof Error ? e.message : String(e),
+        stack: e instanceof Error ? e.stack : undefined
+      })
     }
 
     return data
+  }
+
+  /**
+   * 根据表名过滤字段，只保留对应表的字段
+   * @param tableName 表名
+   * @param data 数据对象
+   * @returns 过滤后的数据对象
+   */
+  private filterFieldsByTable(tableName: string, data: any): any {
+    if (!data || typeof data !== 'object') return data
+
+    // 定义各表的有效字段
+    const tableFields = {
+      t_assets_sync: [
+        'uuid',
+        'label',
+        'asset_ip',
+        'group_name',
+        'auth_type',
+        'port',
+        'username',
+        'password',
+        'key_chain_id',
+        'favorite',
+        'asset_type',
+        'created_at',
+        'updated_at',
+        'version'
+      ],
+      t_asset_chains_sync: [
+        'key_chain_id',
+        'uuid',
+        'chain_name',
+        'chain_type',
+        'chain_public_key',
+        'chain_private_key',
+        'passphrase',
+        'created_at',
+        'updated_at',
+        'version'
+      ]
+    }
+
+    const validFields = tableFields[tableName as keyof typeof tableFields]
+    if (!validFields) {
+      logger.warn(`未知的表名: ${tableName}，返回原始数据`)
+      return data
+    }
+
+    // 只保留有效字段
+    const filteredData: any = {}
+    validFields.forEach((field) => {
+      if (field in data) {
+        filteredData[field] = data[field]
+      }
+    })
+
+    logger.info(`字段过滤完成 (${tableName}):`)
+    logger.info(`  原始字段: [${Object.keys(data).join(', ')}]`)
+    logger.info(`  保留字段: [${Object.keys(filteredData).join(', ')}]`)
+
+    return filteredData
   }
 
   private async prepareRecordForUpload(tableName: string, record: any): Promise<any> {
@@ -347,7 +456,7 @@ export class SyncEngine {
       // 加密或服务获取失败都应该中断同步，防止明文外泄
       throw e instanceof Error ? e : new Error(String(e))
     }
-    // 🔧 后端已支持原始数据格式，无需标准化
+    // 后端已支持原始数据格式，无需标准化
     return record
   }
 

@@ -178,7 +178,7 @@ export class EnvelopeEncryptionService {
     if (!this.isInitialized) {
       // 如果正在后台初始化，等待一下
       if (this.isInitializing) {
-        console.log('⏳ 等待后台初始化完成...')
+        console.log('等待后台初始化完成...')
         const waitResult = await this.waitForBackgroundInit(3000) // 最多等3秒
         if (!waitResult) {
           console.warn('等待后台初始化超时，尝试快速重新初始化')
@@ -211,13 +211,24 @@ export class EnvelopeEncryptionService {
    * @returns 解密后的明文
    */
   async decrypt(encryptedData: any): Promise<string> {
+    console.log('🔍 ===== EnvelopeEncryptionService.decrypt 开始 =====')
+    console.log('🔍 接收到的加密数据对象:')
+    console.log('  - 数据类型:', typeof encryptedData)
+    console.log('  - 数据键:', Object.keys(encryptedData || {}))
+    console.log('  - encrypted 长度:', encryptedData?.encrypted?.length || 0)
+    console.log('  - algorithm:', encryptedData?.algorithm)
+    console.log('  - originalCombinedString 存在:', !!encryptedData?.originalCombinedString)
+    console.log('  - parsedMeta 存在:', !!encryptedData?.parsedMeta)
+
     // 检查数据有效性
     if (!encryptedData || typeof encryptedData !== 'object') {
+      console.error(' 无效的加密数据')
       throw new Error('无效的加密数据')
     }
 
     // 检查服务是否已初始化
     if (!this.isInitialized) {
+      console.log('⚠️ 服务未初始化，尝试初始化...')
       // 如果正在后台初始化，等待一下
       if (this.isInitializing) {
         console.log('等待后台初始化完成...')
@@ -243,7 +254,11 @@ export class EnvelopeEncryptionService {
       }
     }
 
-    return await this._clientCrypto.decryptData(encryptedData)
+    console.log('🔍 调用 ClientSideCrypto.decryptData...')
+    const result = await this._clientCrypto.decryptData(encryptedData)
+    console.log('ClientSideCrypto.decryptData 返回结果长度:', result.length)
+    console.log('🔍 ===== EnvelopeEncryptionService.decrypt 结束 =====')
+    return result
   }
 
   /**

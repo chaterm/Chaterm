@@ -1,12 +1,17 @@
 import * as crypto from 'crypto'
-import { buildClient, CommitmentPolicy, RawAesKeyringNode, RawAesWrappingSuiteIdentifier } from '@aws-crypto/client-node'
+import { buildClient, CommitmentPolicy, RawAesKeyringNode, RawAesWrappingSuiteIdentifier, KmsKeyringNode } from '@aws-crypto/client-node'
 import config from '../config'
 
 interface EncryptionResult {
   encrypted: string
   algorithm: string
-  iv?: string
-  tag?: string
+  timestamp?: number
+  encryptionContext?: any
+  keyName?: string
+  keyNamespace?: string
+  iv?: string | null
+  tag?: string | null
+  userId?: string
 }
 
 /**
@@ -23,7 +28,7 @@ class CryptoUtils {
   private static _awsClient: any
 
   /**
-   * 🔧 获取 AWS Encryption SDK 客户端
+   * 获取 AWS Encryption SDK 客户端
    * @returns AWS Encryption SDK 客户端
    * @private
    */
@@ -61,10 +66,13 @@ class CryptoUtils {
       const keyBuffer = Buffer.from(dataKey, 'base64')
       const isolatedKeyBytes = new Uint8Array(keyBuffer) // 拷贝一份，确保是独立的 ArrayBuffer
 
+      const keyName = `user-${userId}-key`
+      const keyNamespace = 'client-side-encryption'
+
       // 创建Raw AES Keyring
       const keyring = new RawAesKeyringNode({
-        keyName: `user-${userId}`,
-        keyNamespace: 'chaterm-encryption',
+        keyName,
+        keyNamespace,
         unencryptedMasterKey: isolatedKeyBytes,
         wrappingSuite: RawAesWrappingSuiteIdentifier.AES256_GCM_IV12_TAG16_NO_PADDING
       })
@@ -84,9 +92,18 @@ class CryptoUtils {
         encryptionContext
       })
 
+      console.log('AWS Encryption SDK 加密完成')
+
       return {
         encrypted: result.toString('base64'),
-        algorithm: config.encryption.algorithm
+        algorithm: 'aws-encryption-sdk',
+        timestamp: Date.now(),
+        encryptionContext: encryptionContext,
+        keyName: keyName,
+        keyNamespace: keyNamespace,
+        // 保持与现有格式的兼容性
+        iv: undefined,
+        tag: undefined
       }
     } catch (error) {
       // 简化错误日志输出
@@ -102,18 +119,20 @@ class CryptoUtils {
    * @param dataKey - Base64编码的数据密钥
    * @returns 解密后的明文
    */
-  static async decryptDataWithAwsSdk(encryptedData: any, dataKey: string): Promise<string> {
+  static async decryptDataWithAwsSdk(encryptedData: any, dataKey: string, userId?: string): Promise<string> {
     try {
       console.log('开始 AWS Encryption SDK 客户端本地解密...')
-
       // 将Base64编码的数据密钥转换为Buffer，并拷贝到“隔离”的 Uint8Array
       const keyBuffer = Buffer.from(dataKey, 'base64')
       const isolatedKeyBytes = new Uint8Array(keyBuffer)
 
+      // 关键修复：完全按照原项目的逻辑，优先使用 encryptionContext 中的 userId
+      const keyName = encryptedData.keyName || `user-${encryptedData.encryptionContext?.userId || userId || 'unknown'}-key`
+      const keyNamespace = encryptedData.keyNamespace || 'client-side-encryption'
       // 创建Raw AES Keyring
       const keyring = new RawAesKeyringNode({
-        keyName: `user-${encryptedData.userId || 'unknown'}`,
-        keyNamespace: 'chaterm-encryption',
+        keyName: keyName,
+        keyNamespace: keyNamespace,
         unencryptedMasterKey: isolatedKeyBytes,
         wrappingSuite: RawAesWrappingSuiteIdentifier.AES256_GCM_IV12_TAG16_NO_PADDING
       })
@@ -121,8 +140,20 @@ class CryptoUtils {
       // 获取AWS Encryption SDK客户端
       const client = this._getAwsClient()
 
-      // 将Base64编码的加密数据转换为Buffer
+      // 关键修复：AWS Encryption SDK 的密文应该是完整的二进制数据
+      // encryptedData.encrypted 是 Base64 编码的 AWS SDK 密文
       const encryptedBuffer = Buffer.from(encryptedData.encrypted, 'base64')
+
+      // 🔍 尝试解析 AWS Encryption SDK 密文头部
+      try {
+        // 尝试读取加密上下文长度
+        if (encryptedBuffer.length > 10) {
+          const contextLength = encryptedBuffer.readUInt16BE(8)
+          console.log('  加密上下文长度:', contextLength)
+        }
+      } catch (e) {
+        console.log('  密文结构分析失败:', (e as Error).message)
+      }
 
       // 使用AWS Encryption SDK解密
       const { plaintext } = await client.decrypt(keyring, encryptedBuffer)
@@ -138,6 +169,11 @@ class CryptoUtils {
       // 简化错误日志输出
       const errorMessage = (error as Error).message
       console.warn('AWS Encryption SDK 解密失败:', errorMessage)
+      console.error('解密异常详情:', {
+        error,
+        message: errorMessage,
+        stack: (error as Error).stack
+      })
       throw new Error(`AWS Encryption SDK 解密失败: ${errorMessage}`)
     }
   }
@@ -160,16 +196,54 @@ class CryptoUtils {
    * @param dataKey - 数据密钥Buffer
    * @returns 解密后的明文
    */
-  static async decryptData(encryptedData: any, dataKey: Buffer): Promise<string> {
+  static async decryptData(encryptedData: any, dataKey: Buffer, userId?: string): Promise<string> {
     const dataKeyBase64 = dataKey.toString('base64')
-    return await this.decryptDataWithAwsSdk(encryptedData, dataKeyBase64)
+    return await this.decryptDataWithAwsSdk(encryptedData, dataKeyBase64, userId)
   }
 
   /**
-   * 生成会话ID
+   * 自动解析数据密钥的解密方法
+   * @param encryptedData - 加密的数据对象
+   * @param encryptionContext - 加密上下文
+   * @param apiClient - API客户端
+   * @param authToken - 认证令牌
+   * @returns 解密后的明文
+   */
+  static async decryptDataWithAutoKeyResolution(
+    encryptedData: any,
+    encryptionContext: any,
+    apiClient: any,
+    authToken: string | null
+  ): Promise<string> {
+    try {
+      console.log('开始自动解析数据密钥解密...')
+
+      // AWS Encryption SDK 的密文包含了加密的数据密钥
+      // 我们需要让 SDK 自动解密数据密钥，但这需要正确的 Keyring 配置
+
+      // 临时方案：尝试使用一个通用的数据密钥
+      // 在实际场景中，应该从密文中提取加密的数据密钥，然后调用 KMS 解密
+
+      console.log('⚠️ 自动密钥解析功能尚未完全实现，回退到错误处理')
+      throw new Error('无法自动解析数据密钥，请确保客户端加密已正确初始化')
+    } catch (error) {
+      console.error('自动密钥解析失败:', (error as Error).message)
+      throw error
+    }
+  }
+
+  /**
+   * 生成会话ID（基于用户ID的固定值）
+   * @param userId - 用户ID
    * @returns 会话ID
    */
-  static generateSessionId(): string {
+  static generateSessionId(userId?: string): string {
+    if (userId) {
+      // 修复：使用用户ID的最后两位数作为 sessionId，确保加密和解密时一致
+      const lastTwoDigits = userId.slice(-2).padStart(2, '0')
+      return lastTwoDigits
+    }
+    // 回退到随机生成（用于兼容性）
     return crypto.randomBytes(16).toString('hex')
   }
 

@@ -500,16 +500,20 @@ function setupIPC(): void {
 
           // 后台初始化，10秒超时，不阻塞主线程
           await envelopeEncryptionService.initializeInBackground(targetUserId.toString(), 10000)
+
+          // 在加密服务初始化完成后，再启动数据同步服务
+          if (isUserSwitch) {
+            console.log(`检测到用户切换: ${previousUserId} -> ${targetUserId}，加密服务初始化完成后启动数据同步`)
+            await restartDataSyncIfEnabled(targetUserId, event)
+          }
         } catch (encryptionError) {
           console.warn('后台加密服务初始化异常:', encryptionError)
+          if (isUserSwitch) {
+            console.log(`加密服务初始化失败，但仍尝试启动数据同步: ${previousUserId} -> ${targetUserId}`)
+            await restartDataSyncIfEnabled(targetUserId, event)
+          }
         }
       })
-
-      // 如果是用户切换，重启数据同步服务
-      if (isUserSwitch) {
-        console.log(`检测到用户切换: ${previousUserId} -> ${targetUserId}`)
-        setImmediate(() => restartDataSyncIfEnabled(targetUserId, event))
-      }
 
       return { success: true }
     } catch (error) {

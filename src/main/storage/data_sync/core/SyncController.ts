@@ -19,6 +19,9 @@ export class SyncController {
   private fullSyncTimer: FullSyncTimerManager
   private encryptionService: EnvelopeEncryptionService
 
+  // 简化的实时同步
+  private static instance: SyncController | null = null
+
   constructor(dbPathOverride?: string) {
     this.api = new ApiClient()
     const dbPath = dbPathOverride || syncConfig.dbPath
@@ -50,6 +53,9 @@ export class SyncController {
     // Initialize envelope encryption service and place in registry for data_sync usage
     this.encryptionService = new EnvelopeEncryptionService()
     setEncryptionService(this.encryptionService)
+
+    // 设置全局实例，用于静态方法调用
+    SyncController.instance = this
   }
 
   async initializeEncryption(userId?: string): Promise<void> {
@@ -84,6 +90,15 @@ export class SyncController {
     const currentToken = await this.api.getAuthToken()
     const currentUserId = await this.api.getCurrentUserId()
 
+    // 添加调试信息
+    logger.info(`认证初始化调试信息:`, {
+      hasToken: !!currentToken,
+      tokenLength: currentToken?.length || 0,
+      tokenPrefix: currentToken?.substring(0, 20) + '...',
+      userId: currentUserId,
+      authStatus: this.api.getAuthStatus()
+    })
+
     if (!currentToken || !currentUserId) {
       throw new Error('未找到有效的认证令牌。请确保已通过主应用登录')
     }
@@ -99,40 +114,85 @@ export class SyncController {
 
   async fullSyncAll(): Promise<{ success: boolean; message: string; synced_count?: number; failed_count?: number }> {
     const lastSeq = this.db.getLastSequenceId()
-    if (lastSeq > 0) {
-      logger.info('检测到已初始化(last_sequence_id>0)，跳过全量同步')
-      return { success: true, message: '已初始化，跳过全量同步', synced_count: 0, failed_count: 0 }
-    }
 
-    logger.info('开始智能首次同步...')
+    // 检查是否有历史数据需要同步
+    const hasHistoricalData = await this.checkForHistoricalData()
+
+    // //临时修改：强制执行全量同步用于测试
+    // 🔍 调试日志：跟踪同步流程
+    logger.info('🔍 SyncController.smartFullSync - 开始智能全量同步')
+    logger.info(`🔍 参数: lastSeq=${lastSeq}, hasHistoricalData=${hasHistoricalData}`)
+
+    // if (lastSeq > 0 && !hasHistoricalData) {
+    //   logger.info('检测到已初始化(last_sequence_id>0)且无历史数据，跳过全量同步')
+    //   return { success: true, message: '已初始化，跳过全量同步', synced_count: 0, failed_count: 0 }
+    // }
+
+    logger.info(`临时测试模式：强制执行全量同步 (lastSeq=${lastSeq}, hasHistoricalData=${hasHistoricalData})`)
+
+    if (hasHistoricalData) {
+      logger.info('检测到历史数据需要同步，执行全量同步...')
+    } else {
+      logger.info('开始强制全量同步（测试模式）...')
+    }
 
     try {
       // 智能全量同步 - 根据数据量自动选择最优模式
       await this.smartFullSync('t_assets_sync')
       await this.smartFullSync('t_asset_chains_sync')
 
-      logger.info('智能首次同步完成')
-      return { success: true, message: '智能首次同步完成', synced_count: 2, failed_count: 0 }
+      const message = hasHistoricalData ? '历史数据同步完成（测试模式）' : '强制全量同步完成（测试模式）'
+      logger.info(message)
+      return { success: true, message, synced_count: 2, failed_count: 0 }
     } catch (error: any) {
-      logger.error('智能首次同步失败:', error)
-      return { success: false, message: `智能首次同步失败: ${error?.message || error}`, synced_count: 0, failed_count: 1 }
+      const errorMessage = hasHistoricalData ? '历史数据同步失败（测试模式）' : '强制全量同步失败（测试模式）'
+      logger.error(`${errorMessage}:`, error)
+      return { success: false, message: `${errorMessage}: ${error?.message || error}`, synced_count: 0, failed_count: 1 }
     }
   }
 
   /**
-   * 统一安全同步 - 使用SafeBatchSyncManager统一处理所有场景
+   * 检查是否有历史数据需要同步
+   * 历史数据指：存在于本地数据表中但不在change_log中的数据
+   */
+  private async checkForHistoricalData(): Promise<boolean> {
+    try {
+      logger.info('🔍 开始检查历史数据...')
+
+      // 检查 t_assets 表
+      const assetsCount = this.db.getHistoricalDataCount('t_assets')
+      // 检查 t_asset_chains 表
+      const chainsCount = this.db.getHistoricalDataCount('t_asset_chains')
+
+      const hasHistoricalData = assetsCount > 0 || chainsCount > 0
+
+      logger.info(`📊 历史数据检测结果: t_assets=${assetsCount}条, t_asset_chains=${chainsCount}条, 需要同步=${hasHistoricalData}`)
+
+      return hasHistoricalData
+    } catch (error) {
+      logger.warn('⚠️ 检查历史数据失败，默认执行全量同步:', error)
+      return true // 出错时保守处理，执行全量同步
+    }
+  }
+
+  /**
+   * 智能全量同步 - 真正的全量同步，包含上传和下载
    */
   private async smartFullSync(tableName: string): Promise<void> {
     try {
-      logger.info(`开始统一安全同步: ${tableName}`)
+      logger.info(`开始智能全量同步: ${tableName}`)
 
-      // 使用统一的安全分批同步管理器
-      // 内部会根据数据量和本地修改情况自动选择最优策略
+      // 第1步：上传本地历史数据（如果有的话）
       await this.safeBatchSync.performSafeBatchSync(tableName, 500, (current: number, total: number, percentage: number) => {
-        logger.info(`${tableName} 同步进度: ${current}/${total} (${percentage}%)`)
+        logger.info(`${tableName} 上传进度: ${current}/${total} (${percentage}%)`)
       })
+
+      // 第2步：从服务端全量下载数据
+      logger.info(`开始从服务端全量下载: ${tableName}`)
+      const downloadedCount = await this.engine.fullSyncAndApply(tableName)
+      logger.info(`${tableName} 全量下载完成: ${downloadedCount} 条`)
     } catch (error) {
-      logger.error(`${tableName} 统一安全同步失败:`, error)
+      logger.error(`${tableName} 智能全量同步失败:`, error)
       throw error
     }
   }
@@ -311,21 +371,21 @@ export class SyncController {
   }
 
   /**
-   * 🔧 检查认证状态
+   * 检查认证状态
    */
   async isAuthenticated(): Promise<boolean> {
     return await this.api.isAuthenticated()
   }
 
   /**
-   * 🔧 获取认证状态详情
+   * 获取认证状态详情
    */
   getAuthStatus() {
     return this.api.getAuthStatus()
   }
 
   /**
-   * 🔧 处理认证失败的情况
+   * 处理认证失败的情况
    * 当API调用返回401时，直接停止同步操作
    */
   async handleAuthFailure(): Promise<boolean> {
@@ -369,6 +429,48 @@ export class SyncController {
       pollingStatus: this.pollingManager.getStatus(),
       fullSyncStatus: this.fullSyncTimer.getStatus(),
       encryptionStatus: this.encryptionService.getStatus()
+    }
+  }
+
+  /**
+   * 静态方法：触发增量同步
+   * 可以从任何地方调用，用于数据变更后立即触发同步
+   */
+  static async triggerIncrementalSync(): Promise<void> {
+    try {
+      if (!SyncController.instance) {
+        logger.warn('⚠️ SyncController 实例未初始化，跳过增量同步触发')
+        return
+      }
+
+      const instance = SyncController.instance
+
+      // 检查是否有正在进行的同步操作
+      const pollingStatus = instance.pollingManager.getStatus()
+      if (pollingStatus.isPerforming) {
+        logger.debug('⏸️ 增量同步正在进行中，跳过触发')
+        return
+      }
+
+      // 检查认证状态
+      if (!(await instance.isAuthenticated())) {
+        logger.debug('⚠️ 认证失效，跳过增量同步触发')
+        return
+      }
+
+      logger.info('🚀 数据变更触发增量同步')
+
+      // 执行增量同步
+      const result = await instance.incrementalSyncAll()
+
+      if (result.success) {
+        logger.info(`触发的增量同步完成: 同步${result.synced_count}个表`)
+      } else {
+        logger.warn(`⚠️ 触发的增量同步失败: ${result.message}`)
+      }
+    } catch (error) {
+      logger.error('💥 触发增量同步异常:', error)
+      // 不抛出异常，避免影响数据库操作
     }
   }
 }

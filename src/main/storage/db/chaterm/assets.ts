@@ -3,6 +3,23 @@ import { v4 as uuidv4 } from 'uuid'
 import { QueryResult } from '../types'
 import JumpServerClient from '../../../ssh/jumpserver/asset'
 
+/**
+ * 触发增量同步
+ * 数据变更后调用，触发立即同步
+ */
+function triggerIncrementalSync(): void {
+  // 使用动态导入避免循环依赖
+  setImmediate(async () => {
+    try {
+      const { SyncController } = await import('../../data_sync/core/SyncController')
+      await SyncController.triggerIncrementalSync()
+    } catch (error) {
+      console.warn('触发增量同步失败:', error)
+      // 不抛出异常，避免影响数据库操作
+    }
+  })
+}
+
 export function getLocalAssetRouteLogic(db: Database.Database, searchType: string, params: any[] = []): any {
   try {
     const result: QueryResult = {
@@ -273,6 +290,12 @@ export function updateLocalAssetLabelLogic(db: Database.Database, uuid: string, 
         WHERE uuid = ?
       `)
     const result = stmt.run(label, now, uuid)
+
+    // 数据更新成功后，触发增量同步
+    if (result.changes > 0) {
+      triggerIncrementalSync()
+    }
+
     return {
       data: {
         message: result.changes > 0 ? 'success' : 'failed'
@@ -371,6 +394,11 @@ export function createAssetLogic(db: Database.Database, params: any): any {
       1 // 初始版本号
     )
 
+    // 数据插入成功后，触发增量同步
+    if (result.changes > 0) {
+      triggerIncrementalSync()
+    }
+
     return {
       data: {
         message: result.changes > 0 ? 'success' : 'failed',
@@ -406,6 +434,12 @@ export function deleteAssetLogic(db: Database.Database, uuid: string): any {
         WHERE uuid = ?
       `)
     const result = stmt.run(uuid)
+
+    // 数据删除成功后，触发增量同步
+    if (result.changes > 0) {
+      triggerIncrementalSync()
+    }
+
     return {
       data: {
         message: result.changes > 0 ? 'success' : 'failed'
@@ -452,6 +486,11 @@ export function updateAssetLogic(db: Database.Database, params: any): any {
       now,
       form.uuid
     )
+
+    // 数据更新成功后，触发增量同步
+    if (result.changes > 0) {
+      triggerIncrementalSync()
+    }
 
     return {
       data: {

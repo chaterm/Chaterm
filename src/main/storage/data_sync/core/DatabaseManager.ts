@@ -1,5 +1,6 @@
 import Database from 'better-sqlite3'
 import { Asset, AssetChain, ChangeRecord } from '../models/SyncTypes'
+import { logger } from '../utils/logger'
 
 export class DatabaseManager {
   private db: Database.Database
@@ -68,6 +69,9 @@ export class DatabaseManager {
                 'updated_at', NEW.updated_at,
                 'version', NEW.version
               ));
+        -- 设置同步信号标记
+        INSERT INTO sync_meta(key, value) VALUES('sync_signal', datetime('now'))
+        ON CONFLICT(key) DO UPDATE SET value=datetime('now');
       END;
     `)
 
@@ -109,6 +113,9 @@ export class DatabaseManager {
                   'updated_at', OLD.updated_at,
                   'version', OLD.version
                 ));
+        -- 设置同步信号标记
+        INSERT INTO sync_meta(key, value) VALUES('sync_signal', datetime('now'))
+        ON CONFLICT(key) DO UPDATE SET value=datetime('now');
       END;
     `)
 
@@ -120,6 +127,9 @@ export class DatabaseManager {
         INSERT INTO change_log (id, table_name, record_uuid, operation_type, change_data, before_data)
         VALUES (hex(randomblob(8)) || '-' || hex(randomblob(4)) || '-' || hex(randomblob(4)) || '-' || hex(randomblob(4)) || '-' || hex(randomblob(12)),
                 't_assets_sync', OLD.uuid, 'DELETE', json_object('uuid', OLD.uuid, 'version', OLD.version), json_object('uuid', OLD.uuid, 'version', OLD.version));
+        -- 设置同步信号标记
+        INSERT INTO sync_meta(key, value) VALUES('sync_signal', datetime('now'))
+        ON CONFLICT(key) DO UPDATE SET value=datetime('now');
       END;
     `)
 
@@ -143,6 +153,9 @@ export class DatabaseManager {
                   'updated_at', NEW.updated_at,
                   'version', NEW.version
                 ));
+        -- 设置同步信号标记
+        INSERT INTO sync_meta(key, value) VALUES('sync_signal', datetime('now'))
+        ON CONFLICT(key) DO UPDATE SET value=datetime('now');
       END;
     `)
 
@@ -176,6 +189,9 @@ export class DatabaseManager {
                   'updated_at', OLD.updated_at,
                   'version', OLD.version
                 ));
+        -- 设置同步信号标记
+        INSERT INTO sync_meta(key, value) VALUES('sync_signal', datetime('now'))
+        ON CONFLICT(key) DO UPDATE SET value=datetime('now');
       END;
     `)
 
@@ -187,6 +203,9 @@ export class DatabaseManager {
         INSERT INTO change_log (id, table_name, record_uuid, operation_type, change_data, before_data)
         VALUES (hex(randomblob(8)) || '-' || hex(randomblob(4)) || '-' || hex(randomblob(4)) || '-' || hex(randomblob(4)) || '-' || hex(randomblob(12)),
                 't_asset_chains_sync', OLD.uuid, 'DELETE', json_object('uuid', OLD.uuid, 'version', OLD.version), json_object('uuid', OLD.uuid, 'version', OLD.version));
+        -- 设置同步信号标记
+        INSERT INTO sync_meta(key, value) VALUES('sync_signal', datetime('now'))
+        ON CONFLICT(key) DO UPDATE SET value=datetime('now');
       END;
     `)
   }
@@ -256,13 +275,68 @@ export class DatabaseManager {
     const result = this.db
       .prepare(
         `
-      SELECT COUNT(*) as count 
-      FROM change_log 
+      SELECT COUNT(*) as count
+      FROM change_log
       WHERE sync_status = 'pending' AND table_name = ?
     `
       )
       .get(tableName) as { count: number } | undefined
     return result?.count || 0
+  }
+
+  /**
+   * 获取历史数据数量
+   * 历史数据指：存在于数据表中但不在change_log中的数据
+   */
+  getHistoricalDataCount(tableName: string): number {
+    try {
+      // 检查表是否存在
+      const tableExists = this.db
+        .prepare(
+          `
+        SELECT name FROM sqlite_master
+        WHERE type='table' AND name=?
+      `
+        )
+        .get(tableName)
+
+      if (!tableExists) {
+        console.log(`表 ${tableName} 不存在`)
+        return 0
+      }
+
+      // 获取表中的总记录数
+      const totalStmt = this.db.prepare(`SELECT COUNT(*) as count FROM ${tableName}`)
+      const totalResult = totalStmt.get() as { count: number }
+      const totalCount = totalResult.count
+
+      if (totalCount === 0) {
+        console.log(`表 ${tableName} 为空`)
+        return 0
+      }
+
+      // 查询在change_log中已记录的数据数量
+      // 需要同时检查本地表名和同步表名
+      const syncTableName = tableName + '_sync'
+      const loggedStmt = this.db.prepare(`
+        SELECT COUNT(DISTINCT record_uuid) as count
+        FROM change_log
+        WHERE (table_name = ? OR table_name = ?)
+        AND record_uuid IS NOT NULL
+        AND record_uuid IN (SELECT uuid FROM ${tableName})
+      `)
+      const loggedResult = loggedStmt.get(tableName, syncTableName) as { count: number }
+      const loggedCount = loggedResult.count
+
+      const historicalCount = totalCount - loggedCount
+
+      console.log(`表 ${tableName} 历史数据检测: 总数=${totalCount}, 已记录=${loggedCount}, 历史数据=${historicalCount}`)
+
+      return Math.max(0, historicalCount)
+    } catch (error) {
+      console.warn(`检查历史数据失败 (${tableName}):`, error)
+      return 0
+    }
   }
 
   /**
@@ -323,14 +397,52 @@ export class DatabaseManager {
       'version'
     ]
     const placeholders = columns.map(() => '?').join(',')
-    const values = columns.map((c) => (asset as any)[c])
+
+    // 修复：确保所有值都是 SQLite 支持的类型
+    const values = columns.map((c) => {
+      const value = (asset as any)[c]
+      // 将 undefined 转换为 null
+      if (value === undefined) return null
+      // 确保数字类型正确
+      if (typeof value === 'number') return value
+      // 确保字符串类型正确
+      if (typeof value === 'string') return value
+      // 确保布尔值转换为数字
+      if (typeof value === 'boolean') return value ? 1 : 0
+      // 其他类型转换为字符串
+      if (value !== null && typeof value === 'object') {
+        return JSON.stringify(value)
+      }
+      return value
+    })
+
+    // 添加调试信息，检查每个字段的数据类型
+    console.log('🔍 upsertAsset 调试信息:')
+    console.log('  asset 对象:', JSON.stringify(asset, null, 2))
+    console.log('  values 数组:')
+    values.forEach((value, index) => {
+      const column = columns[index]
+      console.log(`    ${column}: ${typeof value} = ${JSON.stringify(value)}`)
+    })
+
     const sql = `INSERT INTO t_assets (${columns.join(',')}) VALUES (${placeholders})
-      ON CONFLICT(uuid) DO UPDATE SET 
+      ON CONFLICT(uuid) DO UPDATE SET
       label=excluded.label, asset_ip=excluded.asset_ip, group_name=excluded.group_name,
       auth_type=excluded.auth_type, port=excluded.port, username=excluded.username,
       password=excluded.password, key_chain_id=excluded.key_chain_id, favorite=excluded.favorite,
       asset_type=excluded.asset_type, updated_at=excluded.updated_at, version=excluded.version`
-    this.db.prepare(sql).run(...values)
+
+    try {
+      this.db.prepare(sql).run(...values)
+    } catch (error) {
+      console.error(' SQLite 执行失败:', error)
+      console.error(' SQL:', sql)
+      console.error(' Values:', values)
+      throw error
+    }
+
+    // 直接触发增量同步
+    this.triggerIncrementalSync()
   }
 
   upsertAssetChain(chain: AssetChain) {
@@ -347,21 +459,79 @@ export class DatabaseManager {
       'version'
     ]
     const placeholders = columns.map(() => '?').join(',')
-    const values = columns.map((c) => (chain as any)[c])
-    const sql = `INSERT INTO t_asset_chains (${columns.join(',')}) VALUES (${placeholders})
-      ON CONFLICT(uuid) DO UPDATE SET 
-      chain_name=excluded.chain_name, chain_type=excluded.chain_type,
-      chain_private_key=excluded.chain_private_key, chain_public_key=excluded.chain_public_key,
-      passphrase=excluded.passphrase, updated_at=excluded.updated_at, version=excluded.version`
-    this.db.prepare(sql).run(...values)
+
+    // 修复：确保所有值都是 SQLite 支持的类型
+    const values = columns.map((c) => {
+      const value = (chain as any)[c]
+      // 将 undefined 转换为 null
+      if (value === undefined) return null
+      // 确保数字类型正确
+      if (typeof value === 'number') return value
+      // 确保字符串类型正确
+      if (typeof value === 'string') return value
+      // 确保布尔值转换为数字
+      if (typeof value === 'boolean') return value ? 1 : 0
+      // 其他类型转换为字符串
+      if (value !== null && typeof value === 'object') {
+        return JSON.stringify(value)
+      }
+      return value
+    })
+
+    // 修复：使用 INSERT OR REPLACE 替代 ON CONFLICT，避免约束问题
+    const sql = `INSERT OR REPLACE INTO t_asset_chains (${columns.join(',')}) VALUES (${placeholders})`
+
+    // 添加调试信息
+    console.log('🔍 upsertAssetChain 调试信息:')
+    console.log('  chain 对象:', JSON.stringify(chain, null, 2))
+    console.log('  values 数组:')
+    values.forEach((value, index) => {
+      const column = columns[index]
+      console.log(`    ${column}: ${typeof value} = ${JSON.stringify(value)}`)
+    })
+
+    try {
+      this.db.prepare(sql).run(...values)
+    } catch (error) {
+      console.error(' SQLite 执行失败:', error)
+      console.error(' SQL:', sql)
+      console.error(' Values:', values)
+      throw error
+    }
+
+    // 直接触发增量同步
+    this.triggerIncrementalSync()
   }
 
   deleteAssetByUUID(uuid: string) {
     this.db.prepare(`DELETE FROM t_assets WHERE uuid = ?`).run(uuid)
+
+    // 直接触发增量同步
+    this.triggerIncrementalSync()
   }
 
   deleteAssetChainByUUID(uuid: string) {
     this.db.prepare(`DELETE FROM t_asset_chains WHERE uuid = ?`).run(uuid)
+
+    // 直接触发增量同步
+    this.triggerIncrementalSync()
+  }
+
+  /**
+   * 触发增量同步
+   * 数据变更后调用，触发立即同步
+   */
+  private triggerIncrementalSync(): void {
+    // 使用动态导入避免循环依赖
+    setImmediate(async () => {
+      try {
+        const { SyncController } = await import('./SyncController')
+        await SyncController.triggerIncrementalSync()
+      } catch (error) {
+        logger.warn('触发增量同步失败:', error)
+        // 不抛出异常，避免影响数据库操作
+      }
+    })
   }
 
   getLastSyncTime(tableName: string): Date | null {
@@ -399,15 +569,27 @@ class DatabaseTransaction {
   constructor(private db: Database.Database) {}
 
   async get(sql: string, params?: any[]): Promise<any> {
-    return this.db.prepare(sql).get(params)
+    if (params && params.length > 0) {
+      return this.db.prepare(sql).get(params)
+    } else {
+      return this.db.prepare(sql).get()
+    }
   }
 
   async all(sql: string, params?: any[]): Promise<any[]> {
-    return this.db.prepare(sql).all(params)
+    if (params && params.length > 0) {
+      return this.db.prepare(sql).all(params)
+    } else {
+      return this.db.prepare(sql).all()
+    }
   }
 
   async run(sql: string, params?: any[]): Promise<void> {
-    this.db.prepare(sql).run(params)
+    if (params && params.length > 0) {
+      this.db.prepare(sql).run(params)
+    } else {
+      this.db.prepare(sql).run()
+    }
   }
 
   async exec(sql: string): Promise<void> {
@@ -415,9 +597,16 @@ class DatabaseTransaction {
   }
 
   async transaction<T>(callback: (tx: DatabaseTransaction) => Promise<T>): Promise<T> {
-    const transaction = this.db.transaction(() => {
-      return callback(this)
-    })
-    return transaction()
+    // better-sqlite3 事务必须是同步的，所以我们需要特殊处理
+    // 对于异步操作，我们不使用 better-sqlite3 的事务，而是手动管理
+    try {
+      await this.run('BEGIN TRANSACTION')
+      const result = await callback(this)
+      await this.run('COMMIT')
+      return result
+    } catch (error) {
+      await this.run('ROLLBACK')
+      throw error
+    }
   }
 }

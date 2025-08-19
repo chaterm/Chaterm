@@ -66,7 +66,7 @@ class ApiClient {
     // 请求拦截器：自动附加Authorization头
     this.client.interceptors.request.use(
       async (config: InternalAxiosRequestConfig) => {
-        // 🔧 使用统一的认证适配器获取token
+        // 使用统一的认证适配器获取token
         const token = await chatermAuthAdapter.getAuthToken()
         if (token) {
           if (!config.headers) {
@@ -91,7 +91,7 @@ class ApiClient {
       async (error) => {
         if (error.response && error.response.status === 401) {
           console.warn('KMS认证失败 (401)，清除认证信息')
-          // 🔧 使用统一的认证适配器清除认证信息
+          // 使用统一的认证适配器清除认证信息
           chatermAuthAdapter.clearAuthInfo()
         }
         const errorMessage = error.response?.data?.error || error.message
@@ -116,9 +116,26 @@ class ApiClient {
         headers['Authorization'] = request.authToken.startsWith('Bearer ') ? request.authToken : `Bearer ${request.authToken}`
       }
 
+      console.log(
+        '🔑 KMS生成数据密钥 - 完整请求信息:',
+        JSON.stringify(
+          {
+            url: '/kms/generate-data-key',
+            method: 'POST',
+            baseURL: this.client.defaults.baseURL,
+            headers: headers,
+            requestData: requestData
+          },
+          null,
+          2
+        )
+      )
+
       const response = await this.client.post('/kms/generate-data-key', requestData, {
         headers: Object.keys(headers).length > 0 ? headers : undefined
       })
+
+      console.log('🔑 KMS生成数据密钥 - 响应数据:', JSON.stringify(response, null, 2))
       return response as unknown as GenerateDataKeyResponse
     } catch (error) {
       // 只输出基础错误信息，避免详细堆栈
@@ -138,8 +155,6 @@ class ApiClient {
    */
   async decryptDataKey(request: DecryptDataKeyRequest): Promise<DecryptDataKeyResponse> {
     try {
-      console.log('请求解密数据密钥...')
-
       const requestData = {
         encryptedDataKey: request.encryptedDataKey,
         encryptionContext: request.encryptionContext
@@ -151,11 +166,26 @@ class ApiClient {
         headers['Authorization'] = request.authToken.startsWith('Bearer ') ? request.authToken : `Bearer ${request.authToken}`
       }
 
+      console.log(
+        '🔓 KMS解密数据密钥 - 完整请求信息:',
+        JSON.stringify(
+          {
+            url: '/kms/decrypt-data-key',
+            method: 'POST',
+            baseURL: this.client.defaults.baseURL,
+            headers: headers,
+            requestData: requestData
+          },
+          null,
+          2
+        )
+      )
+
       const response = await this.client.post('/kms/decrypt-data-key', requestData, {
         headers: Object.keys(headers).length > 0 ? headers : undefined
       })
 
-      console.log('数据密钥解密成功')
+      console.log('🔓 KMS解密数据密钥 - 响应数据:', JSON.stringify(response, null, 2))
       return response as unknown as DecryptDataKeyResponse
     } catch (error) {
       // 简化错误日志输出
@@ -278,13 +308,13 @@ class ApiClient {
   }
 
   /**
-   * 🔧 更新服务器URL
+   * 更新服务器URL
    * @param newUrl - 新的服务器URL
    */
   updateServerUrl(newUrl: string): void {
     this.serverUrl = newUrl
     this.client.defaults.baseURL = newUrl
-    console.log(`🔧 API服务器URL已更新为: ${newUrl}`)
+    console.log(`API服务器URL已更新为: ${newUrl}`)
   }
 
   /**

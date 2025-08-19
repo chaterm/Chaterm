@@ -2,14 +2,7 @@ import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse } from 'axios'
 import { Agent as HttpAgent } from 'http'
 import { Agent as HttpsAgent } from 'https'
 import { syncConfig } from '../config/sync.config'
-import {
-  BackupInitResponse,
-  GetChangesResponse,
-  SyncRequest,
-  SyncResponse,
-  FullSyncSessionResponse,
-  FullSyncBatchResponse
-} from '../models/SyncTypes'
+import { BackupInitResponse, GetChangesResponse, SyncResponse, FullSyncSessionResponse, FullSyncBatchResponse } from '../models/SyncTypes'
 import { logger } from '../utils/logger'
 import { gzipSync } from 'zlib'
 import { chatermAuthAdapter } from '../envelope_encryption/services/auth'
@@ -55,7 +48,7 @@ export class ApiClient {
         // 直接就地修改，避免整体覆盖 headers
         if (!config.headers) config.headers = {} as any
 
-        // 🔧 使用统一的认证适配器获取token
+        // 使用统一的认证适配器获取token
         const token = await chatermAuthAdapter.getAuthToken()
         if (token) {
           try {
@@ -68,6 +61,7 @@ export class ApiClient {
           ;(config.headers as any).set?.('X-Device-ID', syncConfig.deviceId)
         } catch {}
         ;(config.headers as any)['X-Device-ID'] = syncConfig.deviceId
+
         return config
       },
       (error) => {
@@ -140,34 +134,15 @@ export class ApiClient {
       device_id: syncConfig.deviceId
     }
 
-    // 🔍 添加详细的上传数据日志
-    logger.info('==== 增量同步上传数据详情 ====')
-    logger.info('表名:', tableName)
-    logger.info('数据条数:', data.length)
-    logger.info('设备ID:', syncConfig.deviceId)
-    logger.info('📝 原始数据样本 (前3条) - 后端已支持原始格式:')
-    data.slice(0, 3).forEach((item, index) => {
-      logger.info(`  [${index}] 关键字段检查:`)
-      logger.info(`    uuid: "${item.uuid}" (${typeof item.uuid})`)
-      logger.info(`    favorite: ${item.favorite} (${typeof item.favorite}) - 后端支持int32`)
-      logger.info(`    key_chain_id: ${item.key_chain_id} (${typeof item.key_chain_id}) - 后端支持null→int32`)
-      logger.info(`    asset_type: "${item.asset_type}" (${typeof item.asset_type}) - 后端新增支持`)
-      logger.info(`    port: ${item.port} (${typeof item.port})`)
-      logger.info(`  完整数据:`, JSON.stringify(item, null, 2))
-    })
-    logger.info('==== 数据日志结束 ====')
-
     const json = JSON.stringify(payload)
     // 当请求体较大且启用压缩时启用 gzip，简单阈值 1KB
     if (syncConfig.compressionEnabled && Buffer.byteLength(json, 'utf8') > 1024) {
       const gz = gzipSync(Buffer.from(json, 'utf8'))
-      logger.info('使用gzip压缩发送, 原始大小:', Buffer.byteLength(json, 'utf8'), '压缩后大小:', gz.length)
       const res = await this.client.post('/sync/incremental-sync', gz, {
         headers: { 'Content-Encoding': 'gzip', 'Content-Type': 'application/json' }
       })
       return res.data as SyncResponse
     }
-    logger.info('未压缩JSON发送, 大小:', Buffer.byteLength(json, 'utf8'), '字节')
     const res = await this.client.post('/sync/incremental-sync', payload)
     return res.data as SyncResponse
   }
@@ -226,7 +201,6 @@ export class ApiClient {
     if (this.httpsAgent) {
       this.httpsAgent.destroy()
     }
-    logger.info('API客户端资源已清理')
   }
 
   /**
@@ -282,7 +256,6 @@ export class ApiClient {
 
   clearAuthInfo(): void {
     chatermAuthAdapter.clearAuthInfo()
-    logger.info('已清除认证信息')
   }
 
   getAuthStatus() {
@@ -290,7 +263,7 @@ export class ApiClient {
   }
 
   /**
-   * 🔧 获取当前认证令牌
+   * 获取当前认证令牌
    */
   async getAuthToken(): Promise<string | null> {
     return await chatermAuthAdapter.getAuthToken()

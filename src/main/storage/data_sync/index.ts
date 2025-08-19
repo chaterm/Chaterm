@@ -8,7 +8,7 @@ export async function startDataSync(dbPath?: string): Promise<SyncController> {
 
   const controller = new SyncController(dbPath)
 
-  // 🔧 统一认证检查和初始化
+  // 统一认证检查和初始化
   try {
     await controller.initializeAuth()
     logger.info('认证检查成功，已同步到加密服务')
@@ -40,7 +40,7 @@ export async function startDataSync(dbPath?: string): Promise<SyncController> {
     logger.info('跳过加密服务检查（测试模式）')
   }
 
-  // 🔧 检查认证状态
+  // 检查认证状态
   try {
     const isAuthenticated = await controller.isAuthenticated()
     if (!isAuthenticated) {

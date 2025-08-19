@@ -74,13 +74,9 @@ class ClientSideCrypto {
       this.userId = userId
       this.authToken = authToken // 保存认证令牌
 
-      // 首先尝试恢复会话ID
-      const storedSessionId = await this.storage.getSession(userId)
-      if (storedSessionId) {
-        this.sessionId = storedSessionId
-      } else {
-        this.sessionId = CryptoUtils.generateSessionId()
-      }
+      // 修复：使用基于用户ID的固定 sessionId，确保加密和解密时一致
+      this.sessionId = CryptoUtils.generateSessionId(userId)
+      console.log(`🔑 为用户 ${userId} 设置固定 sessionId: ${this.sessionId}`)
 
       // 直接生成新的数据密钥，不再依赖本地存储
       await this.generateNewDataKey()
@@ -104,39 +100,33 @@ class ClientSideCrypto {
    */
   private async decryptDataKey(encryptedDataKey: string, encryptionContext: any): Promise<Buffer> {
     try {
-      console.log('开始解密数据密钥...')
-
       // 尝试从内存缓存获取数据密钥
       const cachedKey = await this.getDataKeyFromCache(encryptedDataKey, encryptionContext)
       if (cachedKey) {
-        console.log('从内存缓存获取数据密钥成功')
         return cachedKey
       }
 
-      // 缓存未命中，直接调用KMS服务解密数据密钥
-      console.log(' 缓存未命中，调用KMS解密数据密钥...')
       const response = await this.apiClient.decryptDataKey({
         encryptedDataKey,
         encryptionContext,
         authToken: this.authToken
       })
-
       if (response.success) {
         // 将Base64编码的密钥转换为Buffer
         const plaintextDataKey = Buffer.from(response.plaintextDataKey, 'base64')
-
         // 将解密结果添加到内存缓存
         await this.addDataKeyToCache(encryptedDataKey, encryptionContext, plaintextDataKey)
 
-        console.log(' 数据密钥解密成功并已缓存')
         return plaintextDataKey
       } else {
+        console.error(' KMS 解密失败:')
+        console.error('  - 错误信息:', response.error)
         throw new Error(`解密数据密钥失败: ${response.error}`)
       }
     } catch (error) {
-      // 简化错误日志输出
+      console.error(' 数据密钥解密失败:', (error as Error).message)
+      console.error(' 错误堆栈:', (error as Error).stack)
       const errorMessage = (error as Error).message
-      console.warn('数据密钥解密失败:', errorMessage)
       throw new Error(errorMessage.includes('解密数据密钥失败') ? errorMessage : `解密数据密钥失败: ${errorMessage}`)
     }
   }
@@ -170,7 +160,7 @@ class ClientSideCrypto {
           await this.addDataKeyToCache(this.encryptedDataKey, encryptionContext, this.dataKey)
         }
 
-        console.log('✅ 新数据密钥生成成功并已缓存')
+        console.log('新数据密钥生成成功并已缓存')
       } else {
         throw new Error(`生成数据密钥失败: ${response.error}`)
       }
@@ -206,16 +196,140 @@ class ClientSideCrypto {
    * @param encryptedData - 加密的数据对象
    * @returns 解密后的明文
    */
-  async decryptData(encryptedData: EncryptionResult): Promise<string> {
-    if (!this.dataKey || !this.userId) {
+  async decryptData(encryptedData: any): Promise<string> {
+    if (!this.userId) {
+      console.error(' 客户端加密未初始化')
       throw new Error('客户端加密未初始化')
     }
 
-    console.log('开始解密数据...')
+    console.log('🔍 当前用户ID:', this.userId)
+
+    // 修复：检查是否是信封加密的解密请求
+    if (encryptedData.encryptedDataKey) {
+      console.log('🔍 检测到信封加密解密请求，使用 KMS 解密数据密钥')
+      return await this.decryptWithKmsDataKey(encryptedData)
+    }
+
+    // 关键修复：检测密文格式，决定使用哪种解密方式
+    const encryptedBase64 = encryptedData.encrypted
+    let shouldTryKmsResolution = false
+
+    if (encryptedBase64) {
+      try {
+        const encryptedBuffer = Buffer.from(encryptedBase64, 'base64')
+        // 检查 AWS Encryption SDK 密文格式特征
+        if (encryptedBuffer.length > 4) {
+          const version = encryptedBuffer.readUInt8(0)
+          const type = encryptedBuffer.readUInt8(1)
+          // AWS Encryption SDK 的典型版本和类型
+          if (version === 0x02 && type === 0x05) {
+            shouldTryKmsResolution = true
+            console.log('🔍 检测到 AWS Encryption SDK 密文格式 (版本:0x02, 类型:0x05)')
+          }
+        }
+      } catch (e) {
+        console.log('密文格式检查失败，继续使用当前会话密钥')
+      }
+    }
+
+    if (shouldTryKmsResolution) {
+      try {
+        const result = await this.decryptWithKmsResolution(encryptedData)
+        return result
+      } catch (error) {
+        console.warn(' KMS 解密失败，尝试使用当前会话密钥:', (error as Error).message)
+      }
+    }
+
+    // 回退到使用当前会话密钥解密
+    if (!this.dataKey) {
+      console.error(' 当前会话密钥未初始化，且 KMS 解密失败')
+      throw new Error('当前会话密钥未初始化，且 KMS 解密失败')
+    }
 
     const dataKeyBase64 = this.dataKey.toString('base64')
+    const result = await CryptoUtils.decryptDataWithAwsSdk(encryptedData, dataKeyBase64, this.userId)
+    return result
+  }
 
-    return await CryptoUtils.decryptDataWithAwsSdk(encryptedData, dataKeyBase64)
+  /**
+   * 使用 KMS 解密数据密钥的方式解密数据（信封加密的正确实现）
+   * @param encryptedData - 包含加密数据密钥的加密数据对象
+   * @returns 解密后的明文
+   */
+  private async decryptWithKmsDataKey(encryptedData: any): Promise<string> {
+    try {
+      // 步骤1: 使用 KMS 解密数据密钥
+      const plaintextDataKey = await this.decryptDataKey(encryptedData.encryptedDataKey, encryptedData.encryptionContext || {})
+
+      // 步骤2: 使用明文数据密钥解密实际数据
+      const dataKeyBase64 = plaintextDataKey.toString('base64')
+      const result = await CryptoUtils.decryptDataWithAwsSdk(encryptedData, dataKeyBase64, this.userId || undefined)
+      return result
+    } catch (error) {
+      console.error(' 信封解密失败:', (error as Error).message)
+      throw new Error(`信封解密失败: ${(error as Error).message}`)
+    }
+  }
+
+  /**
+   * 使用 KMS 解析方式解密数据（适用于包含 KMS 加密数据密钥的密文）
+   * @param encryptedData - 加密的数据对象
+   * @returns 解密后的明文
+   */
+  private async decryptWithKmsResolution(encryptedData: any): Promise<string> {
+    try {
+      // 关键修复：检查是否有完整的 ENC1 格式数据
+      if (encryptedData.originalCombinedString && encryptedData.parsedMeta) {
+        console.log(' 解析的元数据:', JSON.stringify(encryptedData.parsedMeta, null, 2))
+
+        // 从元数据中获取加密上下文
+        const encryptionContext = encryptedData.parsedMeta.encryptionContext || {}
+
+        try {
+          let sessionId = encryptionContext.sessionId
+          if (!sessionId && this.userId) {
+            sessionId = this.userId.slice(-2).padStart(2, '0')
+          }
+          const correctEncryptionContext = {
+            userId: this.userId || encryptionContext.userId,
+            sessionId: sessionId,
+            purpose: 'client-side-encryption'
+          }
+
+          // 修复：使用现有的解密方法
+          if (!this.dataKey) {
+            throw new Error('当前会话密钥未初始化')
+          }
+
+          const dataKeyBase64 = this.dataKey.toString('base64')
+          const result = await CryptoUtils.decryptDataWithAwsSdk(
+            {
+              ...encryptedData,
+              encryptionContext: correctEncryptionContext
+            },
+            dataKeyBase64,
+            this.userId || undefined
+          )
+
+          console.log('数据解密成功')
+          console.log('🔍 ===== decryptWithKmsResolution 结束 =====')
+          return result
+        } catch (decryptError) {
+          console.log('  解密失败:', (decryptError as Error).message)
+          throw new Error(`解密失败: ${(decryptError as Error).message}`)
+        }
+      } else {
+        console.error(' 没有完整的 ENC1 格式数据，无法进行 KMS 解析')
+        console.log('  - originalCombinedString:', !!encryptedData.originalCombinedString)
+        console.log('  - parsedMeta:', !!encryptedData.parsedMeta)
+        throw new Error('缺少完整的 ENC1 格式数据')
+      }
+    } catch (error) {
+      console.error(' KMS 解析解密失败:', (error as Error).message)
+      console.error(' 错误堆栈:', (error as Error).stack)
+      throw new Error(`KMS 解析解密失败: ${(error as Error).message}`)
+    }
   }
 
   /**
@@ -232,8 +346,8 @@ class ClientSideCrypto {
       // 清理当前密钥
       this.clearDataKey()
 
-      // 生成新的会话ID
-      this.sessionId = CryptoUtils.generateSessionId()
+      // 修复：使用基于用户ID的固定 sessionId
+      this.sessionId = CryptoUtils.generateSessionId(this.userId || undefined)
 
       // 生成新的数据密钥
       await this.generateNewDataKey()
@@ -290,6 +404,22 @@ class ClientSideCrypto {
       sessionId: this.sessionId,
       hasValidKey: !!this.dataKey
     }
+  }
+
+  /**
+   * 获取当前的加密数据密钥（用于信封加密）
+   * @returns 加密的数据密钥，如果未初始化则返回null
+   */
+  getEncryptedDataKey(): string | null {
+    return this.encryptedDataKey
+  }
+
+  /**
+   * 获取当前用户ID
+   * @returns 用户ID，如果未初始化则返回null
+   */
+  getUserId(): string | null {
+    return this.userId
   }
 
   /**
