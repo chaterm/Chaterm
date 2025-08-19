@@ -497,7 +497,7 @@ const connectWebsocket = () => {
   socket.value = new WebSocket(wsUrl)
   heartbeatId = `ws-${Date.now()}`
   socket.value.onopen = () => {
-    let welcome = '\x1b[38;2;22;119;255m' + name + ', 欢迎您使用智能堡垒机Chaterm \x1b[m\r\n'
+    let welcome = '\x1b[38;2;22;119;255m' + name + ', 欢迎您使用Chaterm智能终端 \x1b[m\r\n'
     if (configStore.getUserConfig.language == 'en-US') {
       welcome = '\x1b[38;2;22;119;255m' + email.split('@')[0] + ', Welcome to use Chaterm \x1b[m\r\n'
     }
