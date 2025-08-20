@@ -370,8 +370,6 @@ import {
   LinkOutlined,
   FileFilled
 } from '@ant-design/icons-vue'
-import { termFileLs } from '@/api/term/term'
-import { encrypt } from '@/utils/util.js'
 import { message, Modal } from 'ant-design-vue'
 import { defineEmits } from 'vue'
 import { ColumnsType } from 'ant-design-vue/es/table'
@@ -545,105 +543,49 @@ const loadFiles = async (uuid: string, filePath: string): Promise<void> => {
   loading.value = true
   showErr.value = false
   errTips.value = ''
-  if (props.connectType === 'remote') {
-    const authData = {
-      uuid: uuid,
-      filePath: filePath || '/'
+  const data = await api.sshSftpList({
+    path: filePath || '/',
+    id: uuid
+  })
+  loading.value = false
+  if (data.length > 0) {
+    if (typeof data[0] === 'string') {
+      errTips.value = data[0]
+      showErr.value = true
     }
-    const auth = decodeURIComponent(encrypt(authData))
-    termFileLs({ uuid: auth })
-      .then((res: any) => {
-        if (res.message === 'error') {
-          loading.value = false
-          message.error(res.error)
-        } else {
-          loading.value = false
-          const data = res.data as ApiFileRecord[]
-
-          // 优先文件夹
-          const items = data.map((item: ApiFileRecord) => {
-            return {
-              ...item,
-              key: item.path
-            } as FileRecord
-          })
-
-          const dirs = items.filter((item: FileRecord) => item.isDir === true)
-          dirs.sort(sortByName)
-
-          const fileItems = items.filter((item: FileRecord) => item.isDir === false)
-          fileItems.sort(sortByName)
-
-          dirs.push(...fileItems)
-
-          if (filePath !== '/') {
-            dirs.splice(0, 0, {
-              filePath: '..',
-              name: '..',
-              path: '..',
-              isDir: true,
-              disabled: true,
-              mode: '',
-              isLink: false,
-              modTime: '',
-              size: 0,
-              key: '..'
-            })
-          }
-
-          files.value = dirs
-          localCurrentDirectory.value = filePath
-          localCurrentDirectoryInput.value = filePath
-        }
-      })
-      .catch(() => {
-        loading.value = false
-      })
-  } else {
-    const data = await api.sshSftpList({
-      path: filePath || '/',
-      id: uuid
-    })
-    loading.value = false
-    if (data.length > 0) {
-      if (typeof data[0] === 'string') {
-        errTips.value = data[0]
-        showErr.value = true
-      }
-    }
-
-    const items = data.map((item: ApiFileRecord) => {
-      return {
-        ...item,
-        key: item.path
-      } as FileRecord
-    })
-    const dirs = items.filter((item: FileRecord) => item.isDir === true)
-    dirs.sort(sortByName)
-
-    const fileItems = items.filter((item: FileRecord) => item.isDir === false)
-    fileItems.sort(sortByName)
-    dirs.push(...fileItems)
-
-    if (filePath !== '/') {
-      dirs.splice(0, 0, {
-        filePath: '..',
-        name: '..',
-        path: '..',
-        isDir: true,
-        disabled: true,
-        mode: '',
-        isLink: false,
-        modTime: '',
-        size: 0,
-        key: '..'
-      })
-    }
-
-    files.value = dirs
-    localCurrentDirectory.value = filePath
-    localCurrentDirectoryInput.value = filePath
   }
+
+  const items = data.map((item: ApiFileRecord) => {
+    return {
+      ...item,
+      key: item.path
+    } as FileRecord
+  })
+  const dirs = items.filter((item: FileRecord) => item.isDir === true)
+  dirs.sort(sortByName)
+
+  const fileItems = items.filter((item: FileRecord) => item.isDir === false)
+  fileItems.sort(sortByName)
+  dirs.push(...fileItems)
+
+  if (filePath !== '/') {
+    dirs.splice(0, 0, {
+      filePath: '..',
+      name: '..',
+      path: '..',
+      isDir: true,
+      disabled: true,
+      mode: '',
+      isLink: false,
+      modTime: '',
+      size: 0,
+      key: '..'
+    })
+  }
+
+  files.value = dirs
+  localCurrentDirectory.value = filePath
+  localCurrentDirectoryInput.value = filePath
 }
 
 const rowClick = (record: FileRecord): void => {
@@ -1036,7 +978,7 @@ watch(
 
 const downloadFile = async (record: FileRecord) => {
   const key = props.uuid
-  const remotePath = record.path // 假设你已选中一个远程文件路径
+  const remotePath = record.path
   const savePath = await api.openSaveDialog({ fileName: record.name })
   if (!savePath) return
 
