@@ -1,6 +1,7 @@
 import axios, { AxiosInstance, InternalAxiosRequestConfig, AxiosResponse } from 'axios'
 import config from '../config'
 import { chatermAuthAdapter } from './auth'
+import { RetryManager } from '../../services/RetryManager'
 
 interface GenerateDataKeyRequest {
   encryptionContext: any
@@ -46,6 +47,7 @@ interface DecryptDataKeyResponse {
 class ApiClient {
   private client: AxiosInstance
   private serverUrl?: string
+  private retryManager: RetryManager
 
   constructor(serverUrl?: string) {
     this.serverUrl = serverUrl || config.serverUrl
@@ -54,6 +56,16 @@ class ApiClient {
     this.client = axios.create({
       baseURL: this.serverUrl,
       timeout: config.timeout.apiRequest
+    })
+
+    // 初始化重试管理器，针对KMS服务的特殊配置
+    this.retryManager = new RetryManager({
+      maxAttempts: 3,
+      baseDelay: 1000,
+      maxDelay: 10000,
+      backoffMultiplier: 2,
+      jitter: true,
+      retryableErrors: ['ECONNRESET', 'ECONNREFUSED', 'ETIMEDOUT', 'ENOTFOUND', 'EAI_AGAIN', 'NETWORK_ERROR', 'TIMEOUT_ERROR', 'socket hang up']
     })
 
     this.setupInterceptors()
@@ -107,36 +119,32 @@ class ApiClient {
    */
   async generateDataKey(request: GenerateDataKeyRequest): Promise<GenerateDataKeyResponse> {
     try {
-      const requestData = {
-        encryptionContext: request.encryptionContext
+      const result = await this.retryManager.executeWithRetry(async () => {
+        const requestData = {
+          encryptionContext: request.encryptionContext
+        }
+        // 如果提供了authToken，使用它覆盖默认的token
+        const headers: any = {}
+        if (request.authToken) {
+          headers['Authorization'] = request.authToken.startsWith('Bearer ') ? request.authToken : `Bearer ${request.authToken}`
+        }
+
+        const response = await this.client.post('/kms/generate-data-key', requestData, {
+          headers: Object.keys(headers).length > 0 ? headers : undefined
+        })
+
+        console.log('🔑 KMS生成数据密钥 - 响应数据:', JSON.stringify(response, null, 2))
+        return response as unknown as GenerateDataKeyResponse
+      }, 'generateDataKey')
+
+      if (result.success) {
+        return result.result!
+      } else {
+        return {
+          success: false,
+          error: result.error?.message || 'Unknown error'
+        }
       }
-      // 如果提供了authToken，使用它覆盖默认的token
-      const headers: any = {}
-      if (request.authToken) {
-        headers['Authorization'] = request.authToken.startsWith('Bearer ') ? request.authToken : `Bearer ${request.authToken}`
-      }
-
-      console.log(
-        '🔑 KMS生成数据密钥 - 完整请求信息:',
-        JSON.stringify(
-          {
-            url: '/kms/generate-data-key',
-            method: 'POST',
-            baseURL: this.client.defaults.baseURL,
-            headers: headers,
-            requestData: requestData
-          },
-          null,
-          2
-        )
-      )
-
-      const response = await this.client.post('/kms/generate-data-key', requestData, {
-        headers: Object.keys(headers).length > 0 ? headers : undefined
-      })
-
-      console.log('🔑 KMS生成数据密钥 - 响应数据:', JSON.stringify(response, null, 2))
-      return response as unknown as GenerateDataKeyResponse
     } catch (error) {
       // 只输出基础错误信息，避免详细堆栈
       const errorMessage = (error as Error).message
@@ -155,38 +163,34 @@ class ApiClient {
    */
   async decryptDataKey(request: DecryptDataKeyRequest): Promise<DecryptDataKeyResponse> {
     try {
-      const requestData = {
-        encryptedDataKey: request.encryptedDataKey,
-        encryptionContext: request.encryptionContext
+      const result = await this.retryManager.executeWithRetry(async () => {
+        const requestData = {
+          encryptedDataKey: request.encryptedDataKey,
+          encryptionContext: request.encryptionContext
+        }
+
+        // 如果提供了authToken，使用它覆盖默认的token
+        const headers: any = {}
+        if (request.authToken) {
+          headers['Authorization'] = request.authToken.startsWith('Bearer ') ? request.authToken : `Bearer ${request.authToken}`
+        }
+
+        const response = await this.client.post('/kms/decrypt-data-key', requestData, {
+          headers: Object.keys(headers).length > 0 ? headers : undefined
+        })
+
+        console.log('🔓 KMS解密数据密钥 - 响应数据:', JSON.stringify(response, null, 2))
+        return response as unknown as DecryptDataKeyResponse
+      }, 'decryptDataKey')
+
+      if (result.success) {
+        return result.result!
+      } else {
+        return {
+          success: false,
+          error: result.error?.message || 'Unknown error'
+        }
       }
-
-      // 如果提供了authToken，使用它覆盖默认的token
-      const headers: any = {}
-      if (request.authToken) {
-        headers['Authorization'] = request.authToken.startsWith('Bearer ') ? request.authToken : `Bearer ${request.authToken}`
-      }
-
-      console.log(
-        '🔓 KMS解密数据密钥 - 完整请求信息:',
-        JSON.stringify(
-          {
-            url: '/kms/decrypt-data-key',
-            method: 'POST',
-            baseURL: this.client.defaults.baseURL,
-            headers: headers,
-            requestData: requestData
-          },
-          null,
-          2
-        )
-      )
-
-      const response = await this.client.post('/kms/decrypt-data-key', requestData, {
-        headers: Object.keys(headers).length > 0 ? headers : undefined
-      })
-
-      console.log('🔓 KMS解密数据密钥 - 响应数据:', JSON.stringify(response, null, 2))
-      return response as unknown as DecryptDataKeyResponse
     } catch (error) {
       // 简化错误日志输出
       const errorMessage = (error as Error).message
@@ -205,9 +209,16 @@ class ApiClient {
   async healthCheck(): Promise<any> {
     try {
       console.log('执行健康检查...')
-      const response = await this.client.get('/kms/health')
-      console.log('健康检查通过')
-      return response
+      const result = await this.retryManager.executeWithRetry(async () => {
+        return await this.client.get('/kms/health')
+      }, 'healthCheck')
+
+      if (result.success) {
+        console.log('健康检查通过')
+        return result.result
+      } else {
+        throw result.error
+      }
     } catch (error) {
       console.error('健康检查失败:', error)
       throw error
@@ -325,7 +336,26 @@ class ApiClient {
     return {
       serverUrl: this.serverUrl,
       timeout: config.timeout.apiRequest,
+      retryConfig: this.retryManager.getConfig(),
       connected: true // 这里可以添加连接状态检查
+    }
+  }
+
+  /**
+   * 检查连接状态
+   * @returns 连接状态
+   */
+  async checkConnection(): Promise<{ connected: boolean; latency?: number; error?: string }> {
+    const startTime = Date.now()
+    try {
+      await this.healthCheck()
+      const latency = Date.now() - startTime
+      return { connected: true, latency }
+    } catch (error) {
+      return {
+        connected: false,
+        error: (error as Error).message
+      }
     }
   }
 }

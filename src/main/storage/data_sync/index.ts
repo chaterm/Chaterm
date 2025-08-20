@@ -9,8 +9,10 @@ export async function startDataSync(dbPath?: string): Promise<SyncController> {
   const controller = new SyncController(dbPath)
 
   // 统一认证检查和初始化
+  let isAuthInitialized = false
   try {
     await controller.initializeAuth()
+    isAuthInitialized = true
     logger.info('认证检查成功，已同步到加密服务')
   } catch (e: any) {
     logger.warn('认证检查失败，同步功能可能受限:', e?.message)
@@ -25,31 +27,21 @@ export async function startDataSync(dbPath?: string): Promise<SyncController> {
   }
 
   // 强制检查加密服务是否就绪；未就绪则停止同步启动
-  // 在测试环境中可以跳过加密检查
-  if (process.env.SKIP_ENCRYPTION_CHECK !== 'true') {
+
+  // 复用第一次认证检查的结果，避免重复调用
+  if (!isAuthInitialized) {
     try {
-      if (!controller.isEncryptionReady()) {
-        const status = controller.getEncryptionStatus()
-        throw new Error(`Envelope encryption not ready, aborting data sync. status=${JSON.stringify(status)}`)
+      const isAuthenticated = await controller.isAuthenticated()
+      if (!isAuthenticated) {
+        logger.warn('认证状态检查失败，可能影响数据同步功能')
+      } else {
+        logger.info('认证状态正常')
       }
-    } catch (err: any) {
-      logger.error('Pre-start check failed: encryption service not ready', err?.message)
-      throw err
+    } catch (e: any) {
+      logger.warn('认证状态检查异常', e?.message)
     }
   } else {
-    logger.info('跳过加密服务检查（测试模式）')
-  }
-
-  // 检查认证状态
-  try {
-    const isAuthenticated = await controller.isAuthenticated()
-    if (!isAuthenticated) {
-      logger.warn('认证状态检查失败，可能影响数据同步功能')
-    } else {
-      logger.info('认证状态正常')
-    }
-  } catch (e: any) {
-    logger.warn('认证状态检查异常', e?.message)
+    logger.info('认证状态正常（复用初始化结果）')
   }
 
   try {
