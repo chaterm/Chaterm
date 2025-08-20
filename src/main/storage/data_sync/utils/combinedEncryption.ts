@@ -41,8 +41,6 @@ export async function encryptPayload(payload: Record<string, any>, service: Enve
 }
 
 export async function decryptPayload(encString: string, service: EnvelopeEncryptionService): Promise<Record<string, any>> {
-  console.log('🔍 ===== 开始信封解密流程 =====')
-
   const parsed = parseCombinedString(encString)
   if (!parsed) {
     throw new Error('Invalid combined string')

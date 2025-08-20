@@ -85,7 +85,6 @@ class ApiClient {
             config.headers = {} as any
           }
           config.headers['Authorization'] = `Bearer ${token}`
-          console.log('KMS请求已附带Token')
         }
         return config
       },
@@ -133,7 +132,6 @@ class ApiClient {
           headers: Object.keys(headers).length > 0 ? headers : undefined
         })
 
-        console.log('🔑 KMS生成数据密钥 - 响应数据:', JSON.stringify(response, null, 2))
         return response as unknown as GenerateDataKeyResponse
       }, 'generateDataKey')
 

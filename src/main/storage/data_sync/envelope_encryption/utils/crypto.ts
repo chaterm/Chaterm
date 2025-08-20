@@ -48,10 +48,6 @@ class CryptoUtils {
    */
   static async encryptDataWithAwsSdk(plaintext: string, dataKey: string, userId: string): Promise<EncryptionResult> {
     try {
-      console.log('开始 AWS Encryption SDK 客户端本地加密...')
-      console.log('原始数据长度:', plaintext.length)
-      console.log(' 用户ID:', userId)
-
       // 创建包含用户ID的数据包
       const dataPacket = {
         data: plaintext,
@@ -91,8 +87,6 @@ class CryptoUtils {
       const { result } = await client.encrypt(keyring, dataToEncrypt, {
         encryptionContext
       })
-
-      console.log('AWS Encryption SDK 加密完成')
 
       return {
         encrypted: result.toString('base64'),

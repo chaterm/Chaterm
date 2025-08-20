@@ -74,7 +74,7 @@ export function createKeyChainLogic(db: Database.Database, params: any): any {
 
 export function deleteKeyChainLogic(db: Database.Database, id: number): any {
   try {
-    // First, get the UUID for the keychain
+    // 删除资产链记录
     const stmt = db.prepare(`
         DELETE FROM t_asset_chains
         WHERE key_chain_id = ?
@@ -123,7 +123,8 @@ export function updateKeyChainLogic(db: Database.Database, params: any): any {
             chain_private_key = ?,
             chain_public_key = ?,
             chain_type = ?,
-            passphrase = ?
+            passphrase = ?,
+            updated_at = datetime('now')
         WHERE key_chain_id = ?
       `)
     const result = stmt.run(form.chain_name, form.private_key, form.public_key, form.chain_type, form.passphrase, form.key_chain_id)

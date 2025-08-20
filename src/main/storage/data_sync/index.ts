@@ -8,8 +8,10 @@ export async function startDataSync(dbPath?: string): Promise<SyncController> {
 
   const controller = new SyncController(dbPath)
 
-  // 统一认证检查和初始化
+  // 统一认证检查和加密服务初始化（只在数据同步启动时进行）
   let isAuthInitialized = false
+  let isEncryptionInitialized = false
+
   try {
     await controller.initializeAuth()
     isAuthInitialized = true
@@ -19,11 +21,17 @@ export async function startDataSync(dbPath?: string): Promise<SyncController> {
     logger.info('提示：请确保主应用已完成登录认证')
   }
 
-  try {
-    await controller.initializeEncryption()
-    logger.info('加密服务初始化完成')
-  } catch (e: any) {
-    logger.warn('加密初始化失败', e?.message)
+  // 只有在认证成功后才进行加密初始化
+  if (isAuthInitialized) {
+    try {
+      await controller.initializeEncryption()
+      isEncryptionInitialized = true
+      logger.info('加密服务初始化完成')
+    } catch (e: any) {
+      logger.warn('加密初始化失败', e?.message)
+    }
+  } else {
+    logger.warn('跳过加密服务初始化，因为认证未成功')
   }
 
   // 强制检查加密服务是否就绪；未就绪则停止同步启动
@@ -76,9 +84,11 @@ export async function startDataSync(dbPath?: string): Promise<SyncController> {
 
   const systemStatus = controller.getSystemStatus()
   logger.info('数据同步系统启动完成', {
-    authenticated: systemStatus.auth.isValid,
-    encryptionReady: systemStatus.encryption.initialized,
-    pollingActive: systemStatus.polling.isRunning
+    authenticated: isAuthInitialized,
+    encryptionReady: isEncryptionInitialized,
+    pollingActive: systemStatus.polling.isRunning,
+    systemAuth: systemStatus.auth.isValid,
+    systemEncryption: systemStatus.encryption.initialized
   })
 
   return controller

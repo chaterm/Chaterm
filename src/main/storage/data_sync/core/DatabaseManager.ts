@@ -365,18 +365,34 @@ export class DatabaseManager {
   }
 
   /**
-   * 更新记录版本号
+   * 设置记录版本号
+   * @param tableName 表名
+   * @param uuid 记录UUID
+   * @param newVersion 新版本号
+   */
+  setVersion(tableName: string, uuid: string, newVersion: number) {
+    if (!uuid || !newVersion) {
+      console.log(`❌ setVersion 跳过: uuid=${uuid}, newVersion=${newVersion}`)
+      return
+    }
+
+    if (tableName === 't_assets_sync') {
+      this.updateVersionStmt.run(newVersion, uuid)
+    } else if (tableName === 't_asset_chains_sync') {
+      this.updateChainVersionStmt.run(newVersion, uuid)
+    } else {
+      console.log(`⚠️ 未知表名: ${tableName}`)
+    }
+  }
+
+  /**
+   * 递增记录版本号（保留向后兼容）
    * @param tableName 表名
    * @param uuid 记录UUID
    * @param currentVersion 当前版本号
    */
   bumpVersion(tableName: string, uuid: string, currentVersion: number) {
-    if (!uuid || !currentVersion) return
-    if (tableName === 't_assets_sync') {
-      this.updateVersionStmt.run(currentVersion + 1, uuid)
-    } else if (tableName === 't_asset_chains_sync') {
-      this.updateChainVersionStmt.run(currentVersion + 1, uuid)
-    }
+    this.setVersion(tableName, uuid, currentVersion + 1)
   }
 
   upsertAsset(asset: Asset) {
@@ -416,10 +432,6 @@ export class DatabaseManager {
       return value
     })
 
-    // 添加调试信息，检查每个字段的数据类型
-    console.log('🔍 upsertAsset 调试信息:')
-    console.log('  asset 对象:', JSON.stringify(asset, null, 2))
-    console.log('  values 数组:')
     values.forEach((value, index) => {
       const column = columns[index]
       console.log(`    ${column}: ${typeof value} = ${JSON.stringify(value)}`)

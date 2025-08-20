@@ -1,6 +1,7 @@
 /**
  * 同步状态管理器
  * 负责全量同步和增量同步的互斥控制，确保数据一致性
+ * 支持同步开关管理和用户切换处理
  */
 
 import { logger } from '../utils/logger'
@@ -12,6 +13,7 @@ export enum SyncType {
 }
 
 export enum SyncState {
+  DISABLED = 'disabled', // 同步已禁用
   IDLE = 'idle', // 空闲状态
   RUNNING = 'running', // 同步进行中
   PAUSED = 'paused', // 暂停状态
@@ -21,10 +23,13 @@ export enum SyncState {
 export interface SyncStatus {
   type: SyncType
   state: SyncState
+  enabled: boolean // 同步是否启用
+  currentUserId?: number // 当前用户ID
   startTime?: Date
   progress?: number // 0-100
   message?: string
   error?: Error
+  lastSyncTime?: Date // 最后同步时间
 }
 
 /**
@@ -34,7 +39,8 @@ export interface SyncStatus {
 export class SyncStateManager {
   private currentStatus: SyncStatus = {
     type: SyncType.NONE,
-    state: SyncState.IDLE
+    state: SyncState.DISABLED,
+    enabled: false
   }
 
   private pendingOperations: Array<{
@@ -54,9 +60,77 @@ export class SyncStateManager {
   }
 
   /**
+   * 启用同步
+   */
+  enableSync(userId?: number): void {
+    this.updateStatus({
+      enabled: true,
+      currentUserId: userId,
+      state: SyncState.IDLE,
+      message: '同步已启用'
+    })
+    logger.info(`同步已启用${userId ? ` (用户: ${userId})` : ''}`)
+  }
+
+  /**
+   * 禁用同步
+   */
+  disableSync(): void {
+    // 如果有正在进行的同步，先停止
+    if (this.currentStatus.state === SyncState.RUNNING) {
+      this.forceStop()
+    }
+
+    this.updateStatus({
+      enabled: false,
+      state: SyncState.DISABLED,
+      type: SyncType.NONE,
+      message: '同步已禁用'
+    })
+    logger.info('同步已禁用')
+  }
+
+  /**
+   * 检查同步是否启用
+   */
+  isSyncEnabled(): boolean {
+    return this.currentStatus.enabled
+  }
+
+  /**
+   * 用户切换处理
+   */
+  async switchUser(newUserId: number): Promise<void> {
+    const previousUserId = this.currentStatus.currentUserId
+
+    if (previousUserId === newUserId) {
+      logger.info(`用户未变化 (${newUserId})，无需切换`)
+      return
+    }
+
+    logger.info(`用户切换: ${previousUserId} -> ${newUserId}`)
+
+    // 停止当前所有同步操作
+    await this.forceStop()
+
+    // 更新用户ID，保持同步启用状态
+    this.updateStatus({
+      currentUserId: newUserId,
+      state: this.currentStatus.enabled ? SyncState.IDLE : SyncState.DISABLED,
+      type: SyncType.NONE,
+      message: `已切换到用户 ${newUserId}`
+    })
+  }
+
+  /**
    * 检查是否可以开始指定类型的同步
    */
   canStartSync(type: SyncType): boolean {
+    // 如果同步未启用，不能开始同步
+    if (!this.currentStatus.enabled) {
+      return false
+    }
+
     // 空闲状态可以开始任何同步
     if (this.currentStatus.state === SyncState.IDLE) {
       return true
@@ -147,6 +221,7 @@ export class SyncStateManager {
       type: SyncType.NONE,
       state: SyncState.IDLE,
       progress: 100,
+      lastSyncTime: new Date(),
       message: `${syncType === SyncType.FULL ? '全量' : '增量'}同步完成`
     })
 
@@ -171,13 +246,15 @@ export class SyncStateManager {
 
     logger.error(`${syncType === SyncType.FULL ? '全量' : '增量'}同步失败:`, error)
 
-    // 短暂等待后恢复空闲状态
+    // 短暂等待后恢复空闲状态（仅在同步启用时）
     setTimeout(async () => {
-      this.updateStatus({
-        type: SyncType.NONE,
-        state: SyncState.IDLE
-      })
-      await this.processNextInQueue()
+      if (this.currentStatus.enabled) {
+        this.updateStatus({
+          type: SyncType.NONE,
+          state: SyncState.IDLE
+        })
+        await this.processNextInQueue()
+      }
     }, 5000) // 5秒后恢复
   }
 
@@ -257,10 +334,10 @@ export class SyncStateManager {
     })
     this.pendingOperations = []
 
-    // 重置状态
+    // 重置状态，保持启用状态
     this.updateStatus({
       type: SyncType.NONE,
-      state: SyncState.IDLE,
+      state: this.currentStatus.enabled ? SyncState.IDLE : SyncState.DISABLED,
       message: '同步已停止'
     })
 

@@ -74,9 +74,7 @@ class ClientSideCrypto {
       this.userId = userId
       this.authToken = authToken // 保存认证令牌
 
-      // 修复：使用基于用户ID的固定 sessionId，确保加密和解密时一致
       this.sessionId = CryptoUtils.generateSessionId(userId)
-      console.log(`🔑 为用户 ${userId} 设置固定 sessionId: ${this.sessionId}`)
 
       // 直接生成新的数据密钥，不再依赖本地存储
       await this.generateNewDataKey()
@@ -182,8 +180,6 @@ class ClientSideCrypto {
       throw new Error('客户端加密未初始化')
     }
 
-    console.log('开始加密数据...')
-
     const dataKeyBase64 = this.dataKey.toString('base64')
 
     const result: EncryptionResult = await CryptoUtils.encryptDataWithAwsSdk(plaintext, dataKeyBase64, this.userId!)
@@ -202,11 +198,8 @@ class ClientSideCrypto {
       throw new Error('客户端加密未初始化')
     }
 
-    console.log('🔍 当前用户ID:', this.userId)
-
     // 修复：检查是否是信封加密的解密请求
     if (encryptedData.encryptedDataKey) {
-      console.log('🔍 检测到信封加密解密请求，使用 KMS 解密数据密钥')
       return await this.decryptWithKmsDataKey(encryptedData)
     }
 
@@ -494,8 +487,6 @@ class ClientSideCrypto {
     }
 
     this.cacheStats.cacheHits++
-    console.log(`📊 缓存命中率: ${((this.cacheStats.cacheHits / this.cacheStats.totalRequests) * 100).toFixed(2)}%`)
-
     return cached.plaintextDataKey
   }
 
@@ -526,7 +517,6 @@ class ClientSideCrypto {
       }
 
       this.dataKeyCache.set(cacheKey, cacheEntry)
-      console.log(`💾 数据密钥已添加到缓存，当前缓存大小: ${this.dataKeyCache.size}`)
     } catch (error) {
       console.warn('添加缓存失败:', (error as Error).message)
       // 缓存失败不应该影响主要功能

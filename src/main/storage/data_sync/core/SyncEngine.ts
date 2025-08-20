@@ -49,12 +49,16 @@ export class SyncEngine {
             this.db.markChangesConflict(conflictIds, reason)
           }
 
-          // 对成功的 UPDATE 记录，本地自增 version（减少再次冲突窗口）
+          // 对成功的 UPDATE 记录，更新本地版本号为服务器版本号
           for (const b of batch) {
             if (!conflictUUIDs.has(b.record_uuid) && b.operation_type === 'UPDATE') {
               const current = b.change_data?.version
               if (typeof current === 'number' && current > 0) {
-                this.db.bumpVersion(tableName, b.record_uuid, current)
+                const newVersion = current + 1
+                // 服务器更新成功后版本号会递增，所以本地也要同步到服务器的版本号
+                this.db.setVersion(tableName, b.record_uuid, newVersion)
+              } else {
+                console.log(` 跳过版本号更新: UUID=${b.record_uuid}, 版本=${current} (类型=${typeof current})`)
               }
             }
           }
@@ -62,8 +66,14 @@ export class SyncEngine {
           totalSynced += successIds.length
           totalFailed += conflictIds.length
         } catch (e: any) {
-          logger.error('批次上传失败', e?.message)
-          totalFailed += batch.length
+          // 检查是否是网络连接错误
+          if (e?.message === 'NETWORK_UNAVAILABLE' || e?.isNetworkError) {
+            logger.warn('服务器不可用，跳过批次上传')
+            // 网络错误不计入失败次数
+          } else {
+            logger.error('批次上传失败', e?.message)
+            totalFailed += batch.length
+          }
         } finally {
           release()
         }
@@ -169,8 +179,14 @@ export class SyncEngine {
           batchSynced += successIds.length
           batchFailed += conflictIds.length
         } catch (e: any) {
-          logger.error('批次上传失败', e?.message)
-          batchFailed += batch.length
+          // 检查是否是网络连接错误
+          if (e?.message === 'NETWORK_UNAVAILABLE' || e?.isNetworkError) {
+            logger.warn('服务器不可用，跳过批次上传')
+            // 网络错误不计入失败次数
+          } else {
+            logger.error('批次上传失败', e?.message)
+            batchFailed += batch.length
+          }
         } finally {
           release()
         }
@@ -275,17 +291,6 @@ export class SyncEngine {
 
   private async maybeDecryptChange(tableName: string, data: any): Promise<any> {
     if (!data) return data
-
-    // 🔍 添加解密前的详细日志
-    logger.info('==== 解密调试信息 ====')
-    logger.info('表名:', tableName)
-    logger.info('原始数据类型:', typeof data)
-    logger.info('原始数据键:', Object.keys(data))
-    logger.info('data_cipher_text 存在:', 'data_cipher_text' in data)
-    logger.info('data_cipher_text 类型:', typeof data.data_cipher_text)
-    logger.info('data_cipher_text 值:', data.data_cipher_text)
-    logger.info('完整原始数据:', JSON.stringify(data, null, 2))
-
     try {
       const service = getEncryptionService()
       logger.info('加密服务状态:', service ? '已获取' : '未获取')

@@ -94,6 +94,15 @@ export class ApiClient {
           // 可以在这里触发重新登录逻辑或通知上层
         }
 
+        // 检查是否是网络连接错误
+        if (this.isNetworkError(error)) {
+          // 创建一个特殊的网络错误，包含标识信息
+          const networkError = new Error('NETWORK_UNAVAILABLE')
+          ;(networkError as any).isNetworkError = true
+          ;(networkError as any).originalError = error
+          return Promise.reject(networkError)
+        }
+
         // 适配新的错误响应格式
         let errorMessage = error.message
         if (error.response?.data) {
@@ -110,6 +119,42 @@ export class ApiClient {
         return Promise.reject(new Error(errorMessage))
       }
     )
+  }
+
+  /**
+   * 检查是否是网络连接错误
+   */
+  private isNetworkError(error: any): boolean {
+    // 检查常见的网络连接错误
+    if (error.code) {
+      const networkErrorCodes = [
+        'ECONNREFUSED', // 连接被拒绝
+        'ENOTFOUND', // 域名解析失败
+        'ECONNRESET', // 连接重置
+        'ETIMEDOUT', // 连接超时
+        'ECONNABORTED', // 连接中止
+        'ENETUNREACH', // 网络不可达
+        'EHOSTUNREACH' // 主机不可达
+      ]
+      if (networkErrorCodes.includes(error.code)) {
+        return true
+      }
+    }
+
+    // 检查 axios 特定的网络错误
+    if (error.message) {
+      const networkMessages = ['Network Error', 'connect ECONNREFUSED', 'getaddrinfo ENOTFOUND', 'timeout', 'Request failed']
+      if (networkMessages.some((msg) => error.message.includes(msg))) {
+        return true
+      }
+    }
+
+    // 检查是否没有响应（通常表示网络问题）
+    if (!error.response && error.request) {
+      return true
+    }
+
+    return false
   }
 
   async backupInit(): Promise<BackupInitResponse> {

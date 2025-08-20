@@ -92,7 +92,17 @@ export class SafeBatchSyncManager {
 
       // 第1步：检查同步必要性和准备环境
       const syncMetadata = await this.getSyncMetadata(tableName)
-      const needsSync = await this.checkSyncNecessity(tableName, syncMetadata)
+      let needsSync: boolean
+
+      try {
+        needsSync = await this.checkSyncNecessity(tableName, syncMetadata)
+      } catch (error: any) {
+        if (error.message === 'SERVER_UNAVAILABLE') {
+          logger.warn(`服务器不可用，停止 ${tableName} 的同步操作`)
+          return
+        }
+        throw error
+      }
 
       // 检查是否有历史数据需要上传
       const localTableName = tableName.replace('_sync', '')
@@ -106,15 +116,31 @@ export class SafeBatchSyncManager {
       if (!needsSync && hasHistoricalData) {
         logger.info(`${tableName} 服务端无更新，但检测到历史数据，仅上传历史数据`)
         // 直接上传历史数据，不需要下载服务端数据
-        await this.uploadHistoricalDataIfNeeded(tableName)
+        try {
+          await this.uploadHistoricalDataIfNeeded(tableName)
+        } catch (error: any) {
+          if (error.message === 'NETWORK_UNAVAILABLE' || error.isNetworkError) {
+            logger.warn(`服务器不可用，跳过 ${tableName} 历史数据上传`)
+            return
+          }
+          throw error
+        }
         return
       }
 
       await this.prepareSyncEnvironment(tableName)
 
       // 第2步：启动分批同步会话
-      session = await this.startFullSync(tableName, pageSize)
-      logger.info(`同步会话启动: ${session.session_id}, 总数据量: ${session.total_count}`)
+      try {
+        session = await this.startFullSync(tableName, pageSize)
+        logger.info(`同步会话启动: ${session.session_id}, 总数据量: ${session.total_count}`)
+      } catch (error: any) {
+        if (error.message === 'NETWORK_UNAVAILABLE' || error.isNetworkError) {
+          logger.warn(`服务器不可用，无法启动 ${tableName} 同步会话`)
+          return
+        }
+        throw error
+      }
 
       // 第3步：根据数据量选择处理策略
       const recordCount = session.total_count
@@ -542,7 +568,12 @@ export class SafeBatchSyncManager {
         }
       }
       return true
-    } catch (error) {
+    } catch (error: any) {
+      // 检查是否是网络连接错误
+      if (error.message === 'NETWORK_UNAVAILABLE' || error.isNetworkError) {
+        logger.warn('服务器不可用，跳过同步检查')
+        throw new Error('SERVER_UNAVAILABLE')
+      }
       logger.warn('检查同步必要性失败，默认执行同步:', error)
       return true
     }
