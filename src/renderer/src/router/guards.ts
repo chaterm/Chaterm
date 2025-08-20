@@ -1,4 +1,5 @@
 import { getUserInfo } from '@/utils/permission'
+import { dataSyncService } from '@/services/dataSyncService'
 
 export const beforeEach = async (to, from, next) => {
   const token = localStorage.getItem('ctm-token')
@@ -51,6 +52,12 @@ export const beforeEach = async (to, from, next) => {
         const dbResult = await api.initUserDatabase({ uid: userInfo.uid })
 
         if (dbResult.success) {
+          // 数据库初始化成功后，初始化数据同步服务
+          try {
+            await dataSyncService.initialize()
+          } catch (error) {
+            console.error('数据同步服务初始化失败:', error)
+          }
           next()
         } else {
           console.error('数据库初始化失败，重定向到登录页')

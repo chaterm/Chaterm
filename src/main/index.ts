@@ -38,66 +38,6 @@ let chatermDbService: ChatermDatabaseService
 let controller: Controller
 let dataSyncController: DataSyncController | null = null
 
-// 数据同步服务重启辅助函数
-async function restartDataSyncIfEnabled(userId: number, event?: Electron.IpcMainInvokeEvent): Promise<void> {
-  try {
-    // 先关闭现有的同步控制器（如果存在）
-    if (dataSyncController) {
-      console.log('关闭现有数据同步控制器...')
-      await dataSyncController.destroy()
-      dataSyncController = null
-    }
-
-    // 检查新用户的数据同步开关状态
-    let shouldEnableSync = false
-
-    // 从渲染进程获取同步设置
-    if (event && mainWindow && !mainWindow.isDestroyed()) {
-      try {
-        const dataSyncEnabled = await event.sender.executeJavaScript("localStorage.getItem('data-sync-enabled') === 'true'")
-        shouldEnableSync = dataSyncEnabled
-        console.log(`从渲染进程获取用户 ${userId} 的数据同步开关状态: ${shouldEnableSync ? '启用' : '禁用'}`)
-      } catch (error) {
-        console.warn('无法获取用户数据同步开关状态，默认不启用:', error)
-        shouldEnableSync = false
-      }
-    } else {
-      // 如果没有event参数，尝试从主窗口获取设置
-      try {
-        if (mainWindow && !mainWindow.isDestroyed()) {
-          const dataSyncEnabled = await mainWindow.webContents.executeJavaScript("localStorage.getItem('data-sync-enabled') === 'true'")
-          shouldEnableSync = dataSyncEnabled
-          console.log(`从主窗口获取用户 ${userId} 的数据同步设置: ${shouldEnableSync ? '启用' : '禁用'}`)
-        }
-      } catch (error) {
-        console.warn('无法从主窗口获取数据同步设置:', error)
-      }
-    }
-
-    // 根据用户设置决定是否启动数据同步
-    if (shouldEnableSync) {
-      console.log(`为用户 ${userId} 启动数据同步服务...`)
-
-      const dbPath = getChatermDbPathForUser(userId)
-      const instance = await startDataSync(dbPath)
-      dataSyncController = instance
-
-      // 处理用户切换和启用同步
-      const syncStateManager = instance.getSyncStateManager()
-      if (syncStateManager) {
-        await syncStateManager.switchUser(userId)
-        syncStateManager.enableSync(userId)
-      }
-
-      console.log('数据同步服务已为新用户启动')
-    } else {
-      console.log(`用户 ${userId} 的数据同步已禁用，不启动同步服务`)
-    }
-  } catch (error) {
-    console.error('重启数据同步服务失败:', error)
-  }
-}
-
 let winReadyResolve
 let winReady = new Promise((resolve) => (winReadyResolve = resolve))
 async function createWindow(): Promise<void> {
@@ -456,16 +396,14 @@ function setupIPC(): void {
             envelopeEncryptionService.setAuthInfo(ctmToken, targetUserId.toString())
           }
 
-          // 如果是用户切换，启动数据同步服务（加密初始化将在同步服务启动时进行）
+          // 用户切换完成，数据同步将由渲染进程重新初始化
           if (isUserSwitch) {
-            console.log(`检测到用户切换: ${previousUserId} -> ${targetUserId}，准备启动数据同步`)
-            await restartDataSyncIfEnabled(targetUserId, event)
+            console.log(`检测到用户切换: ${previousUserId} -> ${targetUserId}，数据同步将由渲染进程处理`)
           }
         } catch (error) {
           console.warn('设置认证信息异常:', error)
           if (isUserSwitch) {
-            console.log(`认证信息设置失败，但仍尝试启动数据同步: ${previousUserId} -> ${targetUserId}`)
-            await restartDataSyncIfEnabled(targetUserId, event)
+            console.log(`认证信息设置失败，用户切换: ${previousUserId} -> ${targetUserId}`)
           }
         }
       })

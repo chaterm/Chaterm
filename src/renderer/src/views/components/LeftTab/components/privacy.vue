@@ -125,6 +125,7 @@
 import { ref, onMounted, watch, computed } from 'vue'
 import { notification } from 'ant-design-vue'
 import { userConfigStore } from '@/services/userConfigStoreService'
+import { dataSyncService } from '@/services/dataSyncService'
 import { useI18n } from 'vue-i18n'
 
 const { t } = useI18n()
@@ -284,12 +285,29 @@ const changeSecretRedaction = async () => {
 
 const changeDataSync = async () => {
   await saveConfig()
+
+  const isEnabled = userConfig.value.dataSync === 'enabled'
+
   try {
-    await window.api.setDataSyncEnabled(userConfig.value.dataSync === 'enabled')
-    notification.success({
-      message: '数据同步设置已更新',
-      description: userConfig.value.dataSync === 'enabled' ? '已开启数据同步' : '已关闭数据同步'
-    })
+    let success = false
+
+    if (isEnabled) {
+      success = await dataSyncService.enableDataSync()
+    } else {
+      success = await dataSyncService.disableDataSync()
+    }
+
+    if (success) {
+      notification.success({
+        message: '数据同步设置已更新',
+        description: isEnabled ? '已开启数据同步' : '已关闭数据同步'
+      })
+    } else {
+      notification.error({
+        message: '数据同步设置更新失败',
+        description: '请稍后重试'
+      })
+    }
   } catch (error) {
     console.error('Failed to change data sync setting:', error)
     notification.error({
