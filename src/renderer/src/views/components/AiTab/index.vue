@@ -2909,12 +2909,12 @@ defineExpose({
     display: flex;
     align-items: center;
     gap: 6px;
-    margin-left: 8px;
+    margin-left: 4px;
     flex-shrink: 0;
 
     @media (max-width: 480px) {
-      gap: 4px;
-      margin-left: 4px;
+      gap: 6px;
+      margin-left: 2px;
     }
   }
 
