@@ -62,10 +62,6 @@ import { ref, onMounted, reactive, UnwrapRef } from 'vue'
 import type { TreeProps } from 'ant-design-vue/es/tree'
 import TermFileSystem from './files.vue'
 import { useI18n } from 'vue-i18n'
-import { getUserSessionList } from '@/api/term/term'
-import { userInfoStore } from '@/store'
-import { encrypt } from '@/utils/util.js'
-import { termFileContent, termFileContentSave } from '@/api/term/term'
 import EditorCode from '../Term/Editor/dragEditor.vue'
 import { editorData } from '../Term/Editor/dragEditor.vue'
 import { message, Modal, notification } from 'ant-design-vue'
@@ -90,12 +86,7 @@ const listUserSessions = async () => {
     return acc
   }, {})
 
-  const authData = { uid: userInfoStore()?.userInfo.uid }
-  const auth = decodeURIComponent(encrypt(authData))
-  const apiResp = await getUserSessionList({ data: auth })
-  const apiResult = (apiResp && apiResp.message) || {}
-
-  updateTreeData({ ...sessionResult, ...apiResult })
+  updateTreeData({ ...sessionResult })
 }
 
 function objectToTreeData(obj: object): any[] {
@@ -133,82 +124,42 @@ const getFileExt = (filePath: string) => {
 }
 const openFile = async (data) => {
   const { filePath, terminalId, connectType } = data
-  if (connectType === 'remote') {
-    const authData = {
-      uuid: terminalId,
-      filePath: filePath
-    }
-    const auth = decodeURIComponent(encrypt(authData))
-    try {
-      const response = await termFileContent({ uuid: auth })
-      if (response.error && response.error !== '') {
-        console.log('!ERR', response.error)
-      } else {
-        const existingEditor = openEditors.find((editor) => editor?.filePath === filePath)
-        if (!existingEditor) {
-          openEditors.push({
-            filePath: filePath,
-            visible: true,
-            vimText: response.content,
-            originVimText: response.content,
-            action: response.action,
-            vimEditorX: Math.round(window.innerWidth * 0.5) - Math.round(window.innerWidth * 0.7 * 0.5),
-            vimEditorY: Math.round(window.innerHeight * 0.5) - Math.round(window.innerHeight * 0.7 * 0.5),
-            contentType: response.contentType,
-            vimEditorHeight: Math.round(window.innerHeight * 0.7),
-            vimEditorWidth: Math.round(window.innerWidth * 0.7),
-            loading: false,
-            fileChange: false,
-            saved: false,
-            key: terminalId + '-' + filePath,
-            terminalId: terminalId,
-            editorType: connectType
-          } as UnwrapRef<editorData>)
-        } else {
-          existingEditor.visible = true
-          existingEditor.vimText = response.content
-        }
-      }
-    } catch (error) {
-      console.error('打开文件失败', error)
-    }
+
+  const { stdout, stderr } = await api.sshConnExec({
+    cmd: `cat ${filePath}`,
+    id: terminalId
+  })
+  let action = '编辑'
+  if (stderr.indexOf('No such file or directory') !== '-1') {
+    action = '创建'
+  }
+  if (stderr.indexOf('Permission denied') !== -1) {
+    message.error('Permission denied')
   } else {
-    const { stdout, stderr } = await api.sshConnExec({
-      cmd: `cat ${filePath}`,
-      id: terminalId
-    })
-    let action = '编辑'
-    if (stderr.indexOf('No such file or directory') !== '-1') {
-      action = '创建'
-    }
-    if (stderr.indexOf('Permission denied') !== -1) {
-      message.error('Permission denied')
+    const contentType = getFileExt(filePath) ? getFileExt(filePath) : '.python'
+    const existingEditor = openEditors.find((editor) => editor?.filePath === filePath)
+    if (!existingEditor) {
+      openEditors.push({
+        filePath: filePath,
+        visible: true,
+        vimText: stdout,
+        originVimText: stdout,
+        action: action,
+        vimEditorX: Math.round(window.innerWidth * 0.5) - Math.round(window.innerWidth * 0.7 * 0.5),
+        vimEditorY: Math.round(window.innerHeight * 0.5) - Math.round(window.innerHeight * 0.7 * 0.5),
+        contentType: LanguageMap[contentType] ? LanguageMap[contentType] : 'python',
+        vimEditorHeight: Math.round(window.innerHeight * 0.7),
+        vimEditorWidth: Math.round(window.innerWidth * 0.7),
+        loading: false,
+        fileChange: false,
+        saved: false,
+        key: terminalId + '-' + filePath,
+        terminalId: terminalId,
+        editorType: contentType
+      } as UnwrapRef<editorData>)
     } else {
-      const contentType = getFileExt(filePath) ? getFileExt(filePath) : '.python'
-      const existingEditor = openEditors.find((editor) => editor?.filePath === filePath)
-      if (!existingEditor) {
-        openEditors.push({
-          filePath: filePath,
-          visible: true,
-          vimText: stdout,
-          originVimText: stdout,
-          action: action,
-          vimEditorX: Math.round(window.innerWidth * 0.5) - Math.round(window.innerWidth * 0.7 * 0.5),
-          vimEditorY: Math.round(window.innerHeight * 0.5) - Math.round(window.innerHeight * 0.7 * 0.5),
-          contentType: LanguageMap[contentType] ? LanguageMap[contentType] : 'python',
-          vimEditorHeight: Math.round(window.innerHeight * 0.7),
-          vimEditorWidth: Math.round(window.innerWidth * 0.7),
-          loading: false,
-          fileChange: false,
-          saved: false,
-          key: terminalId + '-' + filePath,
-          terminalId: terminalId,
-          editorType: contentType
-        } as UnwrapRef<editorData>)
-      } else {
-        existingEditor.visible = true
-        existingEditor.vimText = data
-      }
+      existingEditor.visible = true
+      existingEditor.vimText = data
     }
   }
 }
@@ -246,67 +197,32 @@ const handleSave = async (data) => {
   const { key, needClose, editorType } = data
   const editor = openEditors.find((editor) => editor?.key === key)
   if (!editor) return
-  if (editorType === 'remote') {
-    const authData = {
-      uuid: editor.key,
-      filePath: editor.filePath,
-      content: editor.vimText
-    }
-    const auth = decodeURIComponent(encrypt(authData))
-    try {
-      if (editor?.fileChange) {
-        editor.loading = true
-        const response = await termFileContentSave({ data: auth })
-        if (response.error !== '') {
-          message.error(`${t('common.saveFailed')}: ${response.error}`)
+  let errMsg = ''
+
+  if (editor?.fileChange) {
+    editor.loading = true
+    const { stderr } = await api.sshConnExec({
+      cmd: `cat <<'EOFChaterm:save' > ${editor.filePath}\n${editor?.vimText}\nEOFChaterm:save\n`,
+      id: editor?.terminalId
+    })
+    errMsg = stderr
+
+    if (errMsg !== '') {
+      message.error(`${t('common.saveFailed')}: ${errMsg}`)
+      editor.loading = false
+    } else {
+      message.success(t('common.saveSuccess'))
+      // 关闭
+      if (editor) {
+        if (needClose) {
+          const index = openEditors.indexOf(editor)
+          if (index !== -1) {
+            openEditors.splice(index, 1)
+          }
         } else {
-          message.success(t('common.saveSuccess'))
-          // 关闭
-          if (needClose) {
-            const index = openEditors.indexOf(editor)
-            if (index !== -1) {
-              openEditors.splice(index, 1)
-            }
-          } else {
-            editor.loading = false
-            editor.saved = true
-            editor.fileChange = false
-          }
-        }
-      } else {
-        message.success(t('common.saveSuccess'))
-      }
-    } catch (error) {
-      message.error(`${t('common.saveFailed')}: ${error}`)
-    }
-  } else {
-    let errMsg = ''
-
-    if (editor?.fileChange) {
-      editor.loading = true
-      const { stderr } = await api.sshConnExec({
-        cmd: `cat <<'EOFChaterm:save' > ${editor.filePath}\n${editor?.vimText}\nEOFChaterm:save\n`,
-        id: editor?.terminalId
-      })
-      errMsg = stderr
-
-      if (errMsg !== '') {
-        message.error(`${t('common.saveFailed')}: ${errMsg}`)
-        editor.loading = false
-      } else {
-        message.success(t('common.saveSuccess'))
-        // 关闭
-        if (editor) {
-          if (needClose) {
-            const index = openEditors.indexOf(editor)
-            if (index !== -1) {
-              openEditors.splice(index, 1)
-            }
-          } else {
-            editor.loading = false
-            editor.saved = true
-            editor.fileChange = false
-          }
+          editor.loading = false
+          editor.saved = true
+          editor.fileChange = false
         }
       }
     }
@@ -332,23 +248,29 @@ defineExpose({
     width: 100%;
     height: auto;
   }
+
   .term_com_list {
     display: inline-block;
     float: right;
   }
+
   .term_com_list .ant-select-selection-item {
     color: var(--text-color) !important;
   }
+
   .term_com_list .ant-select-selector {
     color: var(--text-color) !important;
   }
+
   .term_com_list .ant-select-single {
     color: var(--text-color) !important;
   }
+
   :deep(.term_com_list .ant-select-selector) {
     color: var(--text-color) !important;
   }
 }
+
 .tree-container {
   margin-top: 8px;
   overflow-y: auto;
@@ -424,17 +346,20 @@ defineExpose({
   .favorite-outlined {
     color: var(--text-color-tertiary);
   }
+
   .edit-icon {
     display: none;
     cursor: pointer;
     color: var(--text-color-tertiary);
     font-size: 14px;
     margin-left: 6px;
+
     &:hover {
       color: var(--text-color-tertiary);
     }
   }
 }
+
 :deep(.ant-tree-node-content-wrapper:hover) {
   .edit-icon {
     display: inline-block;
@@ -467,6 +392,7 @@ defineExpose({
     min-width: 10px;
     height: 24px;
     flex-shrink: 0;
+
     &:hover {
       color: var(--text-color-tertiary);
     }
