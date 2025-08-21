@@ -388,25 +388,28 @@ function setupIPC(): void {
       chatermDbService = await ChatermDatabaseService.getInstance(targetUserId)
       autoCompleteService = await autoCompleteDatabaseService.getInstance(targetUserId)
 
-      setImmediate(async () => {
-        try {
-          // 获取用户认证信息并设置到加密服务
-          const ctmToken = await event.sender.executeJavaScript("localStorage.getItem('ctm-token')")
-          if (ctmToken && ctmToken !== 'guest_token') {
-            envelopeEncryptionService.setAuthInfo(ctmToken, targetUserId.toString())
-          }
-
-          // 用户切换完成，数据同步将由渲染进程重新初始化
-          if (isUserSwitch) {
-            console.log(`检测到用户切换: ${previousUserId} -> ${targetUserId}，数据同步将由渲染进程处理`)
-          }
-        } catch (error) {
-          console.warn('设置认证信息异常:', error)
-          if (isUserSwitch) {
-            console.log(`认证信息设置失败，用户切换: ${previousUserId} -> ${targetUserId}`)
-          }
+      // 同步设置认证信息，确保在数据同步启动前完成
+      try {
+        // 获取用户认证信息并设置到加密服务
+        const ctmToken = await event.sender.executeJavaScript("localStorage.getItem('ctm-token')")
+        if (ctmToken && ctmToken !== 'guest_token') {
+          console.log(`为用户 ${targetUserId} 设置认证信息...`)
+          envelopeEncryptionService.setAuthInfo(ctmToken, targetUserId.toString())
+          console.log(`用户 ${targetUserId} 认证信息设置完成`)
+        } else {
+          console.warn(`用户 ${targetUserId} 未找到有效的认证token`)
         }
-      })
+
+        // 用户切换完成，数据同步将由渲染进程重新初始化
+        if (isUserSwitch) {
+          console.log(`检测到用户切换: ${previousUserId} -> ${targetUserId}，数据同步将由渲染进程处理`)
+        }
+      } catch (error) {
+        console.warn('设置认证信息异常:', error)
+        if (isUserSwitch) {
+          console.log(`认证信息设置失败，用户切换: ${previousUserId} -> ${targetUserId}`)
+        }
+      }
 
       return { success: true }
     } catch (error) {
