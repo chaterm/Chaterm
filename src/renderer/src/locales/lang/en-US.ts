@@ -36,6 +36,7 @@ export default {
     newTerminal: 'New Terminal',
     splitRight: 'Split Right',
     splitDown: 'Split Down',
+    clone: 'Clone',
     clearTerm: 'Clear Screen',
     shrotenName: 'Shorten The Host Name',
     fontsize: 'Fontsize',

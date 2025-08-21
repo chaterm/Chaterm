@@ -57,6 +57,12 @@
         </div>
         <div
           class="context-menu-item"
+          @click="cloneTab"
+        >
+          <span>{{ $t('common.clone') }}</span>
+        </div>
+        <div
+          class="context-menu-item"
           @click="splitRight"
         >
           <span>{{ $t('common.splitRight') }}</span>
@@ -257,7 +263,7 @@ const contextMenu = ref({
 const showContextMenu = (event: MouseEvent, tab: TabItem) => {
   event.preventDefault()
   const menuWidth = 120
-  const menuHeight = 160
+  const menuHeight = 200
   const screenWidth = window.innerWidth
   const screenHeight = window.innerHeight
 
@@ -342,6 +348,26 @@ const splitDown = () => {
   }
 
   eventBus.emit('createVerticalSplitTab', newTabInfo)
+  hideContextMenu()
+}
+
+const cloneTab = () => {
+  const currentTab = contextMenu.value.targetTab
+  if (!currentTab) {
+    hideContextMenu()
+    return
+  }
+
+  const newTabInfo = {
+    title: `${currentTab.title}`,
+    content: currentTab.content,
+    type: currentTab.type,
+    organizationId: currentTab.organizationId,
+    ip: currentTab.ip,
+    data: currentTab.data
+  }
+
+  emit('create-tab', newTabInfo)
   hideContextMenu()
 }
 
