@@ -202,8 +202,6 @@ export class ApiClient {
     return res.data as GetChangesResponse
   }
 
-  // ==================== 新增分批同步接口 ====================
-
   /**
    * 开始全量同步会话
    */

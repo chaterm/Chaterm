@@ -38,20 +38,20 @@ function getCurrentUserDbPath(): string {
 }
 
 export const syncConfig: SyncConfig = {
-  serverUrl: process.env.SERVER_URL || 'http://localhost:8001',
-  apiVersion: process.env.API_VERSION || 'v1',
+  serverUrl: 'http://localhost:8001',
+  apiVersion: 'v1',
   dbPath: getCurrentUserDbPath(),
   deviceId: getDeviceId(), // 使用主板id
   username: process.env.USERNAME,
   password: process.env.PASSWORD,
-  syncIntervalMs: Number(process.env.SYNC_INTERVAL_MS || 120000), // 2 minutes
-  batchSize: Number(process.env.BATCH_SIZE || 100),
-  maxConcurrentBatches: Number(process.env.MAX_CONCURRENT_BATCHES || 3),
+  syncIntervalMs: 120000, // 2 minutes
+  batchSize: 100,
+  maxConcurrentBatches: 3,
   compressionEnabled: true, // 启用数据智能压缩
-  logLevel: (process.env.LOG_LEVEL as SyncConfig['logLevel']) || 'info',
+  logLevel: 'info',
   encryptionKey: process.env.ENCRYPTION_KEY,
   fileLoggingEnabled: process.env.ENABLE_FILE_LOGGING !== 'false', // 默认启用文件日志
-  logRetentionDays: Number(process.env.LOG_RETENTION_DAYS || 7), // 默认保留7天日志
+  logRetentionDays: 7, // 默认保留7天日志
 
   // 大数据量处理配置
   largeDataThreshold: 5000, // 5000条以上为大数据量
