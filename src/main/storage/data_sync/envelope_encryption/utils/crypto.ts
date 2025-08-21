@@ -115,7 +115,6 @@ class CryptoUtils {
    */
   static async decryptDataWithAwsSdk(encryptedData: any, dataKey: string, userId?: string): Promise<string> {
     try {
-      console.log('开始 AWS Encryption SDK 客户端本地解密...')
       // 将Base64编码的数据密钥转换为Buffer，并拷贝到“隔离”的 Uint8Array
       const keyBuffer = Buffer.from(dataKey, 'base64')
       const isolatedKeyBytes = new Uint8Array(keyBuffer)
@@ -143,7 +142,6 @@ class CryptoUtils {
         // 尝试读取加密上下文长度
         if (encryptedBuffer.length > 10) {
           const contextLength = encryptedBuffer.readUInt16BE(8)
-          console.log('  加密上下文长度:', contextLength)
         }
       } catch (e) {
         console.log('  密文结构分析失败:', (e as Error).message)
@@ -154,10 +152,6 @@ class CryptoUtils {
 
       // 解析数据包
       const dataPacket = JSON.parse(plaintext.toString())
-
-      console.log('AWS Encryption SDK 解密完成')
-      console.log('解密后长度:', dataPacket.data.length)
-
       return dataPacket.data
     } catch (error) {
       // 简化错误日志输出

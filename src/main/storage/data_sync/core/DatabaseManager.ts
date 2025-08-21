@@ -372,7 +372,6 @@ export class DatabaseManager {
    */
   setVersion(tableName: string, uuid: string, newVersion: number) {
     if (!uuid || !newVersion) {
-      console.log(`❌ setVersion 跳过: uuid=${uuid}, newVersion=${newVersion}`)
       return
     }
 
@@ -439,11 +438,6 @@ export class DatabaseManager {
       return value
     })
 
-    values.forEach((value, index) => {
-      const column = columns[index]
-      console.log(`    ${column}: ${typeof value} = ${JSON.stringify(value)}`)
-    })
-
     const sql = `INSERT INTO t_assets (${columns.join(',')}) VALUES (${placeholders})
       ON CONFLICT(uuid) DO UPDATE SET
       label=excluded.label, asset_ip=excluded.asset_ip, group_name=excluded.group_name,
@@ -500,10 +494,6 @@ export class DatabaseManager {
     // 修复：使用 INSERT OR REPLACE 替代 ON CONFLICT，避免约束问题
     const sql = `INSERT OR REPLACE INTO t_asset_chains (${columns.join(',')}) VALUES (${placeholders})`
 
-    // 添加调试信息
-    console.log('🔍 upsertAssetChain 调试信息:')
-    console.log('  chain 对象:', JSON.stringify(chain, null, 2))
-    console.log('  values 数组:')
     values.forEach((value, index) => {
       const column = columns[index]
       console.log(`    ${column}: ${typeof value} = ${JSON.stringify(value)}`)
@@ -541,6 +531,14 @@ export class DatabaseManager {
    * 数据变更后调用，触发立即同步
    */
   private triggerIncrementalSync(): void {
+    // 检查是否处于远程应用保护状态，如果是则跳过触发
+    try {
+      const guardResult = this.db.prepare(`SELECT value FROM sync_meta WHERE key = 'apply_remote_guard'`).get()
+      if (guardResult) return
+    } catch (error) {
+      // 查询失败时继续执行同步
+    }
+
     // 使用动态导入避免循环依赖
     setImmediate(async () => {
       try {

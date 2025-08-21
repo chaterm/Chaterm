@@ -20,7 +20,7 @@ export class DataSyncService {
   }
 
   /**
-   * 初始化数据同步服务
+   * 初始化数据同步服务（同步版本，会阻塞调用者）
    * 在用户登录后调用，检查用户配置并决定是否启动数据同步
    * 只有正常登录的用户才会启用数据同步，guest用户跳过
    */
@@ -83,7 +83,7 @@ export class DataSyncService {
       const result = await window.api.setDataSyncEnabled(true)
 
       if (result?.success) {
-        console.log('数据同步已成功启用')
+        console.log('数据同步已成功启用，后台同步任务正在进行中...')
         return true
       } else {
         console.error('启用数据同步失败:', result?.error)

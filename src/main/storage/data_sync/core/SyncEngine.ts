@@ -99,12 +99,9 @@ export class SyncEngine {
 
     // 根据配置的阈值动态选择策略
     if (totalChanges <= syncConfig.largeDataThreshold) {
-      logger.info(`使用批量模式处理 ${totalChanges} 条变更`)
       return await this.incrementalSync(tableName)
     }
-
     // 大数据量：使用增强的分页处理
-    logger.info(`使用大数据量分页模式处理 ${totalChanges} 条变更`)
     return await this.incrementalSyncLargeData(tableName)
   }
 
@@ -342,48 +339,26 @@ export class SyncEngine {
 
       if (tableName === 't_assets_sync') {
         const cipher: string | undefined = typeof data.data_cipher_text === 'string' ? data.data_cipher_text : undefined
-        logger.info('t_assets_sync 解密检查:')
-        logger.info('  cipher 存在:', !!cipher)
-        logger.info('  cipher 长度:', cipher?.length || 0)
-        logger.info('  cipher 前50字符:', cipher?.substring(0, 50))
-
         if (cipher) {
           logger.info('开始解密 t_assets_sync 数据...')
           const sensitive = await decryptPayload(cipher, service)
-          logger.info('解密结果:', sensitive)
-          logger.info('解密结果类型:', typeof sensitive)
-          logger.info('解密结果键:', sensitive ? Object.keys(sensitive) : 'null')
-
           if (sensitive && sensitive.password !== undefined) {
             data.password = sensitive.password
-            logger.info('已设置 password 字段')
           }
           if (sensitive && sensitive.username !== undefined) {
             data.username = sensitive.username
-            logger.info('已设置 username 字段')
           }
         }
       } else if (tableName === 't_asset_chains_sync') {
         const cipher: string | undefined = typeof data.data_cipher_text === 'string' ? data.data_cipher_text : undefined
-        logger.info('t_asset_chains_sync 解密检查:')
-        logger.info('  cipher 存在:', !!cipher)
-        logger.info('  cipher 长度:', cipher?.length || 0)
-        logger.info('  cipher 前50字符:', cipher?.substring(0, 50))
-
         if (cipher) {
           logger.info('开始解密 t_asset_chains_sync 数据...')
           const sensitive = await decryptPayload(cipher, service)
-          logger.info('解密结果:', sensitive)
-          logger.info('解密结果类型:', typeof sensitive)
-          logger.info('解密结果键:', sensitive ? Object.keys(sensitive) : 'null')
-
           if (sensitive.chain_private_key !== undefined) {
             data.chain_private_key = sensitive.chain_private_key
-            logger.info('已设置 chain_private_key 字段')
           }
           if (sensitive.passphrase !== undefined) {
             data.passphrase = sensitive.passphrase
-            logger.info('已设置 passphrase 字段')
           }
         }
       }
@@ -393,9 +368,6 @@ export class SyncEngine {
 
       // 修复：根据表名过滤字段，只保留对应表的字段
       data = this.filterFieldsByTable(tableName, data)
-
-      logger.info('解密后的最终数据:', JSON.stringify(data, null, 2))
-      logger.info('==== 解密调试信息结束 ====')
     } catch (e) {
       logger.warn('新格式密文解密失败，按原样应用', e)
       logger.error('解密异常详情:', {
@@ -462,11 +434,6 @@ export class SyncEngine {
         filteredData[field] = data[field]
       }
     })
-
-    logger.info(`字段过滤完成 (${tableName}):`)
-    logger.info(`  原始字段: [${Object.keys(data).join(', ')}]`)
-    logger.info(`  保留字段: [${Object.keys(filteredData).join(', ')}]`)
-
     return filteredData
   }
 
