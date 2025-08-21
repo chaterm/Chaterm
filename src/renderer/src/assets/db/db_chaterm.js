@@ -28,7 +28,7 @@ CREATE TABLE IF NOT EXISTS t_assets (
   username TEXT,                                    -- 用户名
   password TEXT,                                    -- 密码
   key_chain_id INTEGER,                             -- 密钥链ID
-  favorite  INTEGER,                                -- 是否收藏
+  favorite  INTEGER DEFAULT 2,                     -- 是否收藏，默认值2表示未收藏
   version INTEGER NOT NULL DEFAULT 1                -- 版本号
 );
 
