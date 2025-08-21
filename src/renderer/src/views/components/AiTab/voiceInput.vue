@@ -79,7 +79,7 @@ const voiceButton = ref<HTMLElement | null>(null)
 
 // 获取最佳音频格式
 const getBestAudioFormat = () => {
-  const preferredFormats = ['audio/wav', 'audio/mp3', 'audio/m4a', 'audio/aac', 'audio/ogg;codecs=opus', 'audio/webm;codecs=opus', 'audio/webm']
+  const preferredFormats = ['audio/webm', 'audio/ogg;codecs=opus', 'audio/webm;codecs=opus', 'audio/mp3', 'audio/m4a', 'audio/aac', 'audio/wav']
 
   for (const format of preferredFormats) {
     if (MediaRecorder.isTypeSupported(format)) {
