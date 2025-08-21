@@ -18,6 +18,13 @@ export interface SyncConfig {
   encryptionKey?: string // passphrase to derive AES key
   fileLoggingEnabled?: boolean // 是否启用文件日志
   logRetentionDays?: number // 日志保留天数
+
+  // 大数据量处理配置
+  largeDataThreshold: number // 大数据量阈值
+  pageSize: number // 分页大小
+  maxConcurrentPages: number // 最大并发页面数
+  adaptivePageSize: boolean // 自适应页面大小
+  memoryOptimization: boolean // 内存优化模式
 }
 
 // 获取当前用户的数据库路径
@@ -40,9 +47,16 @@ export const syncConfig: SyncConfig = {
   syncIntervalMs: Number(process.env.SYNC_INTERVAL_MS || 120000), // 2 minutes
   batchSize: Number(process.env.BATCH_SIZE || 100),
   maxConcurrentBatches: Number(process.env.MAX_CONCURRENT_BATCHES || 3),
-  compressionEnabled: (process.env.COMPRESSION_ENABLED || 'true') === 'true',
+  compressionEnabled: true, // 启用数据智能压缩
   logLevel: (process.env.LOG_LEVEL as SyncConfig['logLevel']) || 'info',
   encryptionKey: process.env.ENCRYPTION_KEY,
   fileLoggingEnabled: process.env.ENABLE_FILE_LOGGING !== 'false', // 默认启用文件日志
-  logRetentionDays: Number(process.env.LOG_RETENTION_DAYS || 7) // 默认保留7天日志
+  logRetentionDays: Number(process.env.LOG_RETENTION_DAYS || 7), // 默认保留7天日志
+
+  // 大数据量处理配置
+  largeDataThreshold: 5000, // 5000条以上为大数据量
+  pageSize: 1000, // 分页大小1000条
+  maxConcurrentPages: 2, // 最多2个页面并发
+  adaptivePageSize: true, // 自适应页面大小
+  memoryOptimization: true // 内存优化模式
 }
