@@ -316,6 +316,12 @@ export function updateLocalAsseFavoriteLogic(db: Database.Database, uuid: string
         WHERE uuid = ?
       `)
     const result = stmt.run(status, now, uuid)
+
+    // 数据更新成功后，触发增量同步
+    if (result.changes > 0) {
+      triggerIncrementalSync()
+    }
+
     return {
       data: {
         message: result.changes > 0 ? 'success' : 'failed'

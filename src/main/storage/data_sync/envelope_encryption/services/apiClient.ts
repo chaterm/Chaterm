@@ -177,7 +177,6 @@ class ApiClient {
           headers: Object.keys(headers).length > 0 ? headers : undefined
         })
 
-        console.log('🔓 KMS解密数据密钥 - 响应数据:', JSON.stringify(response, null, 2))
         return response as unknown as DecryptDataKeyResponse
       }, 'decryptDataKey')
 

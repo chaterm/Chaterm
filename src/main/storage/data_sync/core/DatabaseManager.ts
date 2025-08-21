@@ -376,12 +376,19 @@ export class DatabaseManager {
       return
     }
 
-    if (tableName === 't_assets_sync') {
-      this.updateVersionStmt.run(newVersion, uuid)
-    } else if (tableName === 't_asset_chains_sync') {
-      this.updateChainVersionStmt.run(newVersion, uuid)
-    } else {
-      console.log(`⚠️ 未知表名: ${tableName}`)
+    // 启用远程应用保护，避免版本号更新触发变更记录
+    this.setRemoteApplyGuard(true)
+    try {
+      if (tableName === 't_assets_sync') {
+        this.updateVersionStmt.run(newVersion, uuid)
+      } else if (tableName === 't_asset_chains_sync') {
+        this.updateChainVersionStmt.run(newVersion, uuid)
+      } else {
+        console.log(`⚠️ 未知表名: ${tableName}`)
+      }
+    } finally {
+      // 确保在任何情况下都会关闭远程应用保护
+      this.setRemoteApplyGuard(false)
     }
   }
 
