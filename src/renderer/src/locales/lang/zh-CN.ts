@@ -31,6 +31,8 @@ export default {
     closeAll: '全部关闭',
     copy: '复制',
     paste: '粘贴',
+    copyWithShortcut: '复制',
+    pasteWithShortcut: '粘贴',
     disconnect: '断开连接',
     reconnect: '重新连接',
     newTerminal: '新终端',

@@ -31,6 +31,8 @@ export default {
     closeAll: 'Close All',
     copy: 'Copy',
     paste: 'Paste',
+    copyWithShortcut: 'Copy',
+    pasteWithShortcut: 'Paste',
     disconnect: 'Disconnect',
     reconnect: 'Reconnect',
     newTerminal: 'New Terminal',
