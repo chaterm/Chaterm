@@ -59,3 +59,17 @@ export const getShortcutDisplay = async (action: 'copy' | 'paste'): Promise<stri
       return ''
   }
 }
+
+// Get close shortcut
+export const getCloseShortcut = async (): Promise<string> => {
+  const currentPlatform = await initPlatform()
+
+  switch (currentPlatform) {
+    case 'darwin':
+      return '⌘D'
+    case 'win32':
+    case 'linux':
+    default:
+      return 'Ctrl+D'
+  }
+}

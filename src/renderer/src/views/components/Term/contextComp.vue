@@ -30,7 +30,10 @@
 
     <!-- Terminal Control Group -->
     <v-contextmenu-item @click="onContextMenuAction('newTerminal')">{{ $t('common.newTerminal') }}</v-contextmenu-item>
-    <v-contextmenu-item @click="onContextMenuAction('close')">{{ $t('common.close') }}</v-contextmenu-item>
+    <v-contextmenu-item @click="onContextMenuAction('close')">
+      {{ $t('common.closeTerminal') }}
+      <span class="shortcut-key">{{ closeShortcut }}</span>
+    </v-contextmenu-item>
     <v-contextmenu-item @click="onContextMenuAction('clearTerm')">{{ $t('common.clearTerm') }}</v-contextmenu-item>
 
     <!-- Divider -->
@@ -68,11 +71,12 @@
 <script setup lang="ts">
 import { defineProps, ref, onMounted } from 'vue'
 import { isGlobalInput, isShowQuickCommand } from '../Ssh/termInputManager'
-import { getCopyShortcut, getPasteShortcut } from '@/utils/shortcuts'
+import { getCopyShortcut, getPasteShortcut, getCloseShortcut } from '@/utils/shortcuts'
 
 // Reactive variables
 const copyShortcut = ref('')
 const pasteShortcut = ref('')
+const closeShortcut = ref('')
 
 const emit = defineEmits(['contextAct'])
 const props = defineProps({
@@ -150,13 +154,16 @@ const onContextMenuAction = (action) => {
 // Initialize shortcuts
 onMounted(async () => {
   try {
+    // Initialize shortcuts
     copyShortcut.value = await getCopyShortcut()
     pasteShortcut.value = await getPasteShortcut()
+    closeShortcut.value = await getCloseShortcut()
   } catch (error) {
     console.error('Failed to load shortcuts:', error)
     // Fallback display
     copyShortcut.value = 'Ctrl+C'
     pasteShortcut.value = 'Ctrl+V'
+    closeShortcut.value = 'Ctrl+D'
   }
 })
 </script>
