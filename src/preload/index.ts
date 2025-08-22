@@ -734,6 +734,7 @@ const api = {
   uploadDirectory: (opts: { id: string; remoteDir: string; localDir: string }) => ipcRenderer.invoke('ssh:sftp:upload-dir', opts),
   renameFile: (opts: { id: string; oldPath: string; newPath: string }) => ipcRenderer.invoke('ssh:sftp:rename-move', opts),
   deleteFile: (opts: { id: string; remotePath: string }) => ipcRenderer.invoke('ssh:sftp:delete-file', opts),
+  chmodFile: (opts: { id: string; remotePath: string; mode: number; recursive: boolean }) => ipcRenderer.invoke('ssh:sftp:chmod', opts),
   openFileDialog: () => ipcRenderer.invoke('dialog:open-file'),
   openDirectoryDialog: () => ipcRenderer.invoke('dialog:open-directory'),
   openSaveDialog: (opts: { fileName: string }) => ipcRenderer.invoke('dialog:save-file', opts),

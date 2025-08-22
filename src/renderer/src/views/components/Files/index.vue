@@ -16,21 +16,8 @@
                 <div v-if="dataRef.expanded || expandedKeys.includes(dataRef.key)">
                   <TermFileSystem
                     :uuid="dataRef.value"
-                    :current-directory="
-                      dataRef.value.includes('@')
-                        ? dataRef.value.split('@')[0] === 'root'
-                          ? '/root'
-                          : `/home/${dataRef.value.split('@')[0]}`
-                        : dataRef.value
-                    "
-                    :current-directory-input="
-                      dataRef.value.includes('@')
-                        ? dataRef.value.split('@')[0] === 'root'
-                          ? '/root'
-                          : `/home/${dataRef.value.split('@')[0]}`
-                        : dataRef.value
-                    "
-                    :connect-type="dataRef.value.indexOf('local') !== -1 ? 'local' : 'remote'"
+                    :current-directory-input="resolvePaths(dataRef.value)"
+                    :current-directory="resolvePaths(dataRef.value)"
                     @open-file="openFile"
                   />
                 </div>
@@ -66,6 +53,7 @@ import EditorCode from '../Term/Editor/dragEditor.vue'
 import { editorData } from '../Term/Editor/dragEditor.vue'
 import { message, Modal, notification } from 'ant-design-vue'
 import { LanguageMap } from '../Term/Editor/languageMap'
+import { Base64Util } from '@/utils/base64'
 
 const { t } = useI18n()
 onMounted(() => {
@@ -113,6 +101,18 @@ function updateTreeData(newData: object) {
   treeData.value = objectToTreeData(newData)
 }
 
+const resolvePaths = (value: string) => {
+  const [username, rest] = value.split('@')
+  const parts = rest.split(':')
+
+  if (value.includes('local-team')) {
+    const hostnameBase64 = parts[2] || ''
+    let hostname = ''
+    hostname = Base64Util.decode(hostnameBase64)
+    return `/Default/${hostname}/home/${username}`
+  }
+  return username === 'root' ? '/root' : `/home/${username}`
+}
 // 定义编辑器接口
 // 使用接口类型化响应式数组
 const openEditors = reactive<editorData[]>([])
