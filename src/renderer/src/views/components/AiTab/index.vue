@@ -1066,6 +1066,19 @@ const handleClose = () => {
 }
 
 const handleKeyDown = (e: KeyboardEvent) => {
+  // 如果正在语音识别过程中，任何键盘输入都立即停止语音录制
+  if (tempVoiceDisplay.value) {
+    console.log('Keyboard input detected during voice recognition, immediately stopping recording...')
+
+    // 立即停止语音录制
+    if (tencentVoiceInputRef.value) {
+      tencentVoiceInputRef.value.stopRecording()
+    }
+
+    // 清空临时语音显示
+    tempVoiceDisplay.value = ''
+  }
+
   // Check if it's an input method confirmation key
   if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) {
     e.preventDefault()
@@ -2071,11 +2084,16 @@ const handleInputChange = async (e: Event) => {
     showHostSelect.value = false
   }
 
-  // 如果正在语音识别过程中出现手动输入，则停止语音识别
+  // 如果正在语音识别过程中出现手动输入，则立即停止语音识别
   if (tempVoiceDisplay.value && value !== tempVoiceDisplay.value) {
-    console.log('Manual input detected during voice recognition, stopping recording...')
+    console.log('Manual input detected during voice recognition, immediately stopping recording...')
 
-    // 在停止录制前，将非稳态的语音识别数据加入到 chatInputValue
+    // 立即停止语音录制
+    if (tencentVoiceInputRef.value) {
+      tencentVoiceInputRef.value.stopRecording()
+    }
+
+    // 在停止录制后，将非稳态的语音识别数据加入到 chatInputValue
     if (tempVoiceDisplay.value.trim()) {
       // 提取临时语音显示中的新内容（排除 chatInputValue 已有的部分）
       const currentInput = chatInputValue.value.trim()
@@ -2098,10 +2116,6 @@ const handleInputChange = async (e: Event) => {
 
     // 清空临时语音显示
     tempVoiceDisplay.value = ''
-    // 停止语音识别
-    if (tencentVoiceInputRef.value) {
-      tencentVoiceInputRef.value.stopRecording()
-    }
   }
 }
 
