@@ -1125,11 +1125,21 @@ const focus = () => {
 
 const handleGlobalKeyDown = (e) => {
   const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0
+
+  // Search functionality
   if ((isMac ? e.metaKey : e.ctrlKey) && e.key === 'f') {
     e.preventDefault()
     e.stopPropagation()
     openSearch()
   }
+
+  // Close tab functionality
+  if ((isMac ? e.metaKey : e.ctrlKey) && e.key === 'd') {
+    e.preventDefault()
+    e.stopPropagation()
+    contextAct('close')
+  }
+
   if (e.key === 'Escape' && showSearch.value) {
     e.preventDefault()
     e.stopPropagation()

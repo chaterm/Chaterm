@@ -36,6 +36,7 @@ export default {
     disconnect: 'Disconnect',
     reconnect: 'Reconnect',
     newTerminal: 'New Terminal',
+    closeTerminal: 'Close Terminal',
     splitRight: 'Split Right',
     splitDown: 'Split Down',
     clone: 'Clone',
