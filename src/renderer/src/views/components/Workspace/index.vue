@@ -268,29 +268,16 @@
                     class="folder-actions"
                   >
                     <a-tooltip :title="t('personal.editFolder')">
-                      <a-button
-                        type="primary"
-                        size="small"
-                        ghost
+                      <EditOutlined
+                        class="folder-action-icon"
                         @click="handleEditFolder(dataRef)"
-                      >
-                        <template #icon>
-                          <EditOutlined />
-                        </template>
-                      </a-button>
+                      />
                     </a-tooltip>
                     <a-tooltip :title="t('personal.deleteFolder')">
-                      <a-button
-                        type="primary"
-                        size="small"
-                        ghost
-                        danger
+                      <DeleteOutlined
+                        class="folder-action-icon"
                         @click="handleDeleteFolder(dataRef)"
-                      >
-                        <template #icon>
-                          <DeleteOutlined />
-                        </template>
-                      </a-button>
+                      />
                     </a-tooltip>
                   </div>
                   <div
@@ -1309,6 +1296,18 @@ onUnmounted(() => {
     align-items: center;
     gap: 4px;
     margin-right: 8px;
+
+    .folder-action-icon {
+      font-size: 12px;
+      color: var(--text-color-tertiary);
+      cursor: pointer;
+      transition: all 0.2s ease;
+
+      &:hover {
+        color: var(--text-color);
+        transform: translateY(-0.5px);
+      }
+    }
   }
 
   .comment-text {
