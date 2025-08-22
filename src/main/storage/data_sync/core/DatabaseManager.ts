@@ -494,11 +494,6 @@ export class DatabaseManager {
     // 修复：使用 INSERT OR REPLACE 替代 ON CONFLICT，避免约束问题
     const sql = `INSERT OR REPLACE INTO t_asset_chains (${columns.join(',')}) VALUES (${placeholders})`
 
-    values.forEach((value, index) => {
-      const column = columns[index]
-      console.log(`    ${column}: ${typeof value} = ${JSON.stringify(value)}`)
-    })
-
     try {
       this.db.prepare(sql).run(...values)
     } catch (error) {

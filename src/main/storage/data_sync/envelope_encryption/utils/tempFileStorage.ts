@@ -102,7 +102,7 @@ class TempFileStorageProvider {
       const filePath = this.getFilePath(key)
       const obfuscatedData = await fs.readFile(filePath, 'utf8')
       const data = this.deobfuscateContent(obfuscatedData)
-      console.log(`📖 从文件读取数据: ${key}`)
+      console.log(`从文件读取数据: ${key}`)
       return data
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
@@ -268,7 +268,7 @@ class TempFileStorageProvider {
         }
       }
 
-      console.log(`📦 存储目录已备份到: ${backupDir}`)
+      console.log(` 存储目录已备份到: ${backupDir}`)
     } catch (error) {
       console.error('备份存储目录失败:', error)
       throw error
@@ -291,7 +291,7 @@ class TempFileStorageProvider {
         }
       }
 
-      console.log(`📦 已从备份恢复存储目录: ${backupDir}`)
+      console.log(` 已从备份恢复存储目录: ${backupDir}`)
     } catch (error) {
       console.error('从备份恢复失败:', error)
       throw error
@@ -322,7 +322,7 @@ class TempFileStorageProvider {
       }
 
       if (cleanedCount > 0) {
-        console.log(`🧹 已清理 ${cleanedCount} 个过期文件`)
+        console.log(` 已清理 ${cleanedCount} 个过期文件`)
       }
     } catch (error) {
       console.error('清理过期文件失败:', error)

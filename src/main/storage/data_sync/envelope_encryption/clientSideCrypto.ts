@@ -217,7 +217,6 @@ class ClientSideCrypto {
           // AWS Encryption SDK 的典型版本和类型
           if (version === 0x02 && type === 0x05) {
             shouldTryKmsResolution = true
-            console.log('🔍 检测到 AWS Encryption SDK 密文格式 (版本:0x02, 类型:0x05)')
           }
         }
       } catch (e) {
@@ -274,8 +273,6 @@ class ClientSideCrypto {
     try {
       // 关键修复：检查是否有完整的 ENC1 格式数据
       if (encryptedData.originalCombinedString && encryptedData.parsedMeta) {
-        console.log(' 解析的元数据:', JSON.stringify(encryptedData.parsedMeta, null, 2))
-
         // 从元数据中获取加密上下文
         const encryptionContext = encryptedData.parsedMeta.encryptionContext || {}
 
@@ -304,9 +301,6 @@ class ClientSideCrypto {
             dataKeyBase64,
             this.userId || undefined
           )
-
-          console.log('数据解密成功')
-          console.log('🔍 ===== decryptWithKmsResolution 结束 =====')
           return result
         } catch (decryptError) {
           console.log('  解密失败:', (decryptError as Error).message)
@@ -577,7 +571,7 @@ class ClientSideCrypto {
         entry.plaintextDataKey.fill(0)
       }
       this.dataKeyCache.delete(oldestKey)
-      console.log('🗑️ 已清除最旧的缓存条目')
+      console.log('已清除最旧的缓存条目')
     }
   }
 
@@ -618,7 +612,7 @@ class ClientSideCrypto {
       }
     }
 
-    console.log('🧹 数据密钥缓存已清理')
+    console.log('数据密钥缓存已清理')
   }
 }
 

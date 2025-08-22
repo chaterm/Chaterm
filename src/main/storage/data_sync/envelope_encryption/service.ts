@@ -219,7 +219,7 @@ export class EnvelopeEncryptionService {
 
     // 检查服务是否已初始化
     if (!this.isInitialized) {
-      console.log('⚠️ 服务未初始化，尝试初始化...')
+      console.log(' 服务未初始化，尝试初始化...')
       // 如果正在后台初始化，等待一下
       if (this.isInitializing) {
         console.log('等待后台初始化完成...')
