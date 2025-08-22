@@ -1,4 +1,3 @@
-import { ref } from 'vue'
 import type { Terminal } from 'xterm'
 
 export interface JumpServerStatusData {
