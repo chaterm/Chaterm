@@ -300,19 +300,75 @@ body {
 /*右键菜单样式*/
 .v-contextmenu {
   background-color: var(--bg-color) !important;
-  padding: 0 4px;
-  border: 1px solid var(--text-color-tertiary) !important;
-  border-radius: 3px;
-  box-shadow: none !important;
+  border: 1px solid var(--border-color) !important;
+  border-radius: 8px !important;
+  box-shadow:
+    0 4px 20px rgba(0, 0, 0, 0.15),
+    0 2px 8px rgba(0, 0, 0, 0.1) !important;
+  padding: 6px !important;
+  min-width: 180px;
+  backdrop-filter: blur(10px);
 }
 
 .v-contextmenu .v-contextmenu-item {
-  height: 24px;
+  height: auto !important;
+  min-height: 32px;
+  padding: 8px 12px !important;
+  margin: 2px 0;
   color: var(--text-color) !important;
+  border-radius: 6px !important;
+  font-size: 13px;
+  font-weight: 500;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
+  position: relative;
+  user-select: none;
 }
+
 .v-contextmenu .v-contextmenu-item:hover {
-  color: var(--text-color);
-  border-radius: 3px;
+  background-color: var(--hover-bg-color) !important;
+  color: var(--text-color) !important;
+  transform: translateX(2px);
+}
+
+.v-contextmenu .v-contextmenu-item:active {
+  background-color: var(--active-bg-color) !important;
+  transform: translateX(2px) scale(0.98);
+}
+
+.v-contextmenu .v-contextmenu-submenu .v-contextmenu-submenu-title {
+  height: auto !important;
+  min-height: 32px;
+  padding: 8px 12px !important;
+  margin: 2px 0;
+  color: var(--text-color) !important;
+  border-radius: 6px !important;
+  font-size: 13px;
+  font-weight: 500;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
+  position: relative;
+  user-select: none;
+}
+
+.v-contextmenu .v-contextmenu-submenu .v-contextmenu-submenu-title:hover {
+  background-color: var(--hover-bg-color) !important;
+  color: var(--text-color) !important;
+  transform: translateX(2px);
+}
+
+.v-contextmenu .v-contextmenu-submenu .v-contextmenu-submenu-title:active {
+  background-color: var(--active-bg-color) !important;
+  transform: translateX(2px) scale(0.98);
+}
+
+.v-contextmenu .v-contextmenu-submenu-content {
+  background-color: var(--bg-color) !important;
+  border: 1px solid var(--border-color) !important;
+  border-radius: 8px !important;
+  box-shadow:
+    0 4px 20px rgba(0, 0, 0, 0.15),
+    0 2px 8px rgba(0, 0, 0, 0.1) !important;
+  padding: 6px !important;
+  backdrop-filter: blur(10px);
 }
 //
 .commandDialog {

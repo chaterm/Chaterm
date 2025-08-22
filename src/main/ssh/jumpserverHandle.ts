@@ -1,5 +1,6 @@
 import { ipcMain } from 'electron'
 import { Client } from 'ssh2'
+import { attemptSecondaryConnection } from './sshHandle'
 
 // JumpServer专用的MFA处理函数
 const handleJumpServerKeyboardInteractive = (event, id, prompts, finish) => {
@@ -147,7 +148,7 @@ export const handleJumpServerConnection = async (
     conn.on('ready', () => {
       console.log('JumpServer 连接建立，开始创建 shell')
       sendStatusUpdate('已成功连接到服务器，请稍等...', 'success')
-
+      attemptSecondaryConnection(event, connectionInfo)
       // 发送MFA验证成功事件到前端
       if (event) {
         console.log('发送MFA验证成功事件:', { connectionId, status: 'success' })

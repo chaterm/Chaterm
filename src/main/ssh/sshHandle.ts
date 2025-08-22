@@ -107,7 +107,7 @@ export const handleRequestKeyboardInteractive = (event, id, prompts, finish) => 
   })
 }
 
-const attemptSecondaryConnection = (event, connectionInfo) => {
+export const attemptSecondaryConnection = (event, connectionInfo) => {
   const { id, host, port, username, password, privateKey, passphrase } = connectionInfo
   const conn = new Client()
   const connectConfig: any = {
@@ -336,14 +336,6 @@ const handleAttemptConnection = (event, connectionInfo, resolve, reject, retryCo
   }
 }
 
-const getSftp = (conn: Client): Promise<SFTPWrapper> => {
-  return new Promise((resolve, reject) => {
-    conn.sftp((err, sftp) => {
-      err ? reject(err) : resolve(sftp)
-    })
-  })
-}
-
 const getUniqueRemoteName = async (sftp: SFTPWrapper, remoteDir: string, originalName: string, isDir: boolean): Promise<string> => {
   const list = await new Promise<{ filename: string; longname: string; attrs: any }[]>((resolve, reject) => {
     sftp.readdir(remoteDir, (err, list) => (err ? reject(err) : resolve(list as any)))
@@ -368,17 +360,18 @@ const getUniqueRemoteName = async (sftp: SFTPWrapper, remoteDir: string, origina
 
 // Upload file
 const handleUploadFile = (_event, id, remotePath, localPath, resolve, reject) => {
-  const conn = sshConnections.get(id)
-  if (!conn) return reject('Not connected')
+  const sftp = sftpConnections.get(id)
+  if (!sftp) {
+    return reject('Sftp Not connected')
+  }
 
-  getSftp(conn)
-    .then((sftp) => {
-      // Make sure the local file exists
-      return fs.promises.access(localPath).then(() => sftp)
-    })
-    .then(async (sftp) => {
+  fs.promises
+    .access(localPath)
+    .then(() => {
       const fileName = path.basename(localPath)
-      const finalName = await getUniqueRemoteName(sftp, remotePath, fileName, false)
+      return getUniqueRemoteName(sftp, remotePath, fileName, false)
+    })
+    .then((finalName) => {
       const remoteFilePath = path.posix.join(remotePath, finalName)
 
       return new Promise((res, rej) => {
@@ -387,33 +380,33 @@ const handleUploadFile = (_event, id, remotePath, localPath, resolve, reject) =>
           res(remoteFilePath)
         })
       })
-        .then((remoteFilePath) => {
-          resolve({ status: 'success', remoteFilePath })
-        })
-        .catch((err) => {
-          reject(`Upload failed: ${err.message || err}`)
-        })
+    })
+    .then((remoteFilePath) => {
+      resolve({ status: 'success', remoteFilePath })
     })
     .catch((err) => {
-      reject(`Upload failed: ${err.message || err}`)
+      const errorMessage = err instanceof Error ? err.message : String(err)
+      reject(`Upload failed: ${errorMessage}`)
     })
 }
 
 // Delete file
 const handleDeleteFile = (_event, id, remotePath, resolve, reject) => {
-  const conn = sshConnections.get(id)
-  if (!conn) return reject('Not connected')
+  const sftp = sftpConnections.get(id)
+  if (!sftp) {
+    return reject('Sftp Not connected')
+  }
 
-  getSftp(conn)
-    .then((sftp) => {
-      if (!remotePath || remotePath.trim() === '' || remotePath.trim() === '*' || remotePath === '/') {
-        return Promise.reject('Illegal path, cannot be deleted')
-      }
+  if (!remotePath || remotePath.trim() === '' || remotePath.trim() === '*' || remotePath === '/') {
+    return reject('Illegal path, cannot be deleted')
+  }
 
-      return new Promise<void>((res, rej) => {
-        sftp.unlink(remotePath, (err) => (err ? rej(err) : res()))
-      })
+  new Promise<void>((res, rej) => {
+    sftp.unlink(remotePath, (err) => {
+      if (err) return rej(err)
+      res()
     })
+  })
     .then(() => {
       resolve({
         status: 'success',
@@ -422,46 +415,52 @@ const handleDeleteFile = (_event, id, remotePath, resolve, reject) => {
       })
     })
     .catch((err) => {
-      reject(err?.message || String(err))
+      const errorMessage = err instanceof Error ? err.message : String(err)
+      reject(`Delete failed: ${errorMessage}`)
     })
 }
-
 // download file
 const handleDownloadFile = (_event, id, remotePath, localPath, resolve, reject) => {
-  const conn = sshConnections.get(id)
-  if (!conn) return reject('Not connected')
+  const sftp = sftpConnections.get(id)
+  if (!sftp) {
+    return reject('Sftp Not connected')
+  }
 
-  getSftp(conn)
-    .then((sftp) => {
-      return new Promise<void>((res, rej) => {
-        sftp.fastGet(remotePath, localPath, {}, (err) => (err ? rej(err) : res()))
-      })
+  // 使用链式 Promise 替代 async/await
+  new Promise<void>((res, rej) => {
+    sftp.fastGet(remotePath, localPath, {}, (err) => {
+      if (err) return rej(err)
+      res()
     })
+  })
     .then(() => {
       resolve({ status: 'success', localPath })
     })
     .catch((err) => {
-      reject(err?.message || String(err))
+      const errorMessage = err instanceof Error ? err.message : String(err)
+      reject(`Download failed: ${errorMessage}`)
     })
 }
 
 // upload Directory
 const uploadDirectory = (_event, id, localDir, remoteDir, resolve, reject) => {
-  const conn = sshConnections.get(id)
-  if (!conn) return reject('Not connected')
+  const sftp = sftpConnections.get(id)
+  if (!sftp) {
+    return reject('Sftp Not connected')
+  }
 
-  let sftp: any
-  getSftp(conn)
-    .then((_sftp) => {
-      sftp = _sftp
-      const dirName = path.basename(localDir)
-      return getUniqueRemoteName(sftp, remoteDir, dirName, true).then((finalName) => {
-        const finalDir = path.posix.join(remoteDir, finalName)
-        return new Promise<string>((res, rej) => {
-          sftp.mkdir(finalDir, { mode: 0o755 }, (err) => {
-            if (err && (err as any).code !== 4) rej(err)
-            else res(finalDir)
-          })
+  const dirName = path.basename(localDir)
+
+  getUniqueRemoteName(sftp, remoteDir, dirName, true)
+    .then((finalName) => {
+      const finalDir = path.posix.join(remoteDir, finalName)
+      return new Promise<string>((res, rej) => {
+        sftp.mkdir(finalDir, { mode: 0o755 }, (err) => {
+          if (err && err.code !== 4) {
+            return rej(err)
+          } else {
+            res(finalDir)
+          }
         })
       })
     })
@@ -1016,17 +1015,67 @@ export const registerSSHHandlers = () => {
   })
 
   ipcMain.handle('ssh:sftp:rename-move', async (_e, { id, oldPath, newPath }) => {
-    const conn = sshConnections.get(id)
-    if (!conn) return { status: 'error', message: 'Not connected' }
+    const sftp = sftpConnections.get(id)
+    if (!sftp) return { status: 'error', message: 'Sftp Not connected' }
 
     try {
       if (oldPath === newPath) {
         return { status: 'success' }
       }
-      const sftp = await getSftp(conn)
       await new Promise<void>((res, rej) => {
         sftp.rename(oldPath, newPath, (err) => (err ? rej(err) : res()))
       })
+      return { status: 'success' }
+    } catch (err) {
+      return { status: 'error', message: (err as Error).message }
+    }
+  })
+
+  ipcMain.handle('ssh:sftp:chmod', async (_e, { id, remotePath, mode, recursive }) => {
+    const sftp = sftpConnections.get(id)
+    if (!sftp) return { status: 'error', message: 'Sftp Not connected' }
+
+    try {
+      const parsedMode = parseInt(String(mode), 8)
+      console.log('remotePath:', remotePath)
+      console.log('parsedMode:', parsedMode)
+      console.log('recursive:', recursive)
+
+      if (recursive) {
+        const chmodRecursive = async (path: string): Promise<void> => {
+          // Modify the permissions of the current path first
+          await new Promise<void>((res, rej) => {
+            sftp.chmod(path, parsedMode, (err) => (err ? rej(err) : res()))
+          })
+
+          // Retrieve directory contents
+          const items = await new Promise<any[]>((res, rej) => {
+            sftp.readdir(path, (err, list) => (err ? rej(err) : res(list || [])))
+          })
+
+          // Recursive processing of subdirectories and files
+          for (const item of items) {
+            if (item.filename === '.' || item.filename === '..') continue
+
+            const itemPath = `${path}/${item.filename}`
+
+            await new Promise<void>((res, rej) => {
+              sftp.chmod(itemPath, parsedMode, (err) => (err ? rej(err) : res()))
+            })
+
+            if (item.attrs && item.attrs.isDirectory && item.attrs.isDirectory()) {
+              await chmodRecursive(itemPath)
+            }
+          }
+        }
+
+        await chmodRecursive(remotePath)
+      } else {
+        await new Promise<void>((res, rej) => {
+          sftp.chmod(remotePath, parsedMode, (err) => (err ? rej(err) : res()))
+        })
+      }
+
       return { status: 'success' }
     } catch (err) {
       return { status: 'error', message: (err as Error).message }

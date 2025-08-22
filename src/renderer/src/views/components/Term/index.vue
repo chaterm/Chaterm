@@ -1098,6 +1098,9 @@ const contextAct = (action) => {
         term.value.options.fontSize = (term.value.options.fontSize ?? 12) - 1
       }
       break
+    case 'fileManager':
+      eventBus.emit('openUserTab', 'files')
+      break
     // Unknown operation
   }
 }
