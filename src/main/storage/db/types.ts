@@ -20,7 +20,12 @@ export interface AssetNode {
 export interface RouterNode {
   key: string
   title: string
-  children: AssetNode[]
+  favorite?: boolean
+  comment?: string
+  children?: AssetNode[]
+  asset_type?: string
+  description?: string
+  folderUuid?: string
 }
 
 export interface QueryResult {

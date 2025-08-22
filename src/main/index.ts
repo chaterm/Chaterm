@@ -1015,6 +1015,136 @@ ipcMain.handle('organization-asset-favorite', async (_, data) => {
   }
 })
 
+ipcMain.handle('organization-asset-comment', async (_, data) => {
+  try {
+    const { organizationUuid, host, comment } = data
+
+    if (!organizationUuid || !host) {
+      console.error('参数不完整:', { organizationUuid, host, comment })
+      return { data: { message: 'failed', error: '参数不完整' } }
+    }
+
+    const result = chatermDbService.updateOrganizationAssetComment(organizationUuid, host, comment || '')
+    return result
+  } catch (error) {
+    console.error('主进程 organization-asset-comment 错误:', error)
+    return { data: { message: 'failed', error: error instanceof Error ? error.message : String(error) } }
+  }
+})
+
+// 自定义文件夹管理IPC处理器
+ipcMain.handle('create-custom-folder', async (_, data) => {
+  try {
+    const { name, description } = data
+
+    if (!name) {
+      console.error('参数不完整:', { name, description })
+      return { data: { message: 'failed', error: '文件夹名称不能为空' } }
+    }
+
+    const result = chatermDbService.createCustomFolder(name, description)
+    return result
+  } catch (error) {
+    console.error('主进程 create-custom-folder 错误:', error)
+    return { data: { message: 'failed', error: error instanceof Error ? error.message : String(error) } }
+  }
+})
+
+ipcMain.handle('get-custom-folders', async () => {
+  try {
+    const result = chatermDbService.getCustomFolders()
+    return result
+  } catch (error) {
+    console.error('主进程 get-custom-folders 错误:', error)
+    return { data: { message: 'failed', error: error instanceof Error ? error.message : String(error) } }
+  }
+})
+
+ipcMain.handle('update-custom-folder', async (_, data) => {
+  try {
+    const { folderUuid, name, description } = data
+
+    if (!folderUuid || !name) {
+      console.error('参数不完整:', { folderUuid, name, description })
+      return { data: { message: 'failed', error: '文件夹UUID和名称不能为空' } }
+    }
+
+    const result = chatermDbService.updateCustomFolder(folderUuid, name, description)
+    return result
+  } catch (error) {
+    console.error('主进程 update-custom-folder 错误:', error)
+    return { data: { message: 'failed', error: error instanceof Error ? error.message : String(error) } }
+  }
+})
+
+ipcMain.handle('delete-custom-folder', async (_, data) => {
+  try {
+    const { folderUuid } = data
+
+    if (!folderUuid) {
+      console.error('参数不完整:', { folderUuid })
+      return { data: { message: 'failed', error: '文件夹UUID不能为空' } }
+    }
+
+    const result = chatermDbService.deleteCustomFolder(folderUuid)
+    return result
+  } catch (error) {
+    console.error('主进程 delete-custom-folder 错误:', error)
+    return { data: { message: 'failed', error: error instanceof Error ? error.message : String(error) } }
+  }
+})
+
+ipcMain.handle('move-asset-to-folder', async (_, data) => {
+  try {
+    const { folderUuid, organizationUuid, assetHost } = data
+
+    if (!folderUuid || !organizationUuid || !assetHost) {
+      console.error('参数不完整:', { folderUuid, organizationUuid, assetHost })
+      return { data: { message: 'failed', error: '参数不完整' } }
+    }
+
+    const result = chatermDbService.moveAssetToFolder(folderUuid, organizationUuid, assetHost)
+    return result
+  } catch (error) {
+    console.error('主进程 move-asset-to-folder 错误:', error)
+    return { data: { message: 'failed', error: error instanceof Error ? error.message : String(error) } }
+  }
+})
+
+ipcMain.handle('remove-asset-from-folder', async (_, data) => {
+  try {
+    const { folderUuid, organizationUuid, assetHost } = data
+
+    if (!folderUuid || !organizationUuid || !assetHost) {
+      console.error('参数不完整:', { folderUuid, organizationUuid, assetHost })
+      return { data: { message: 'failed', error: '参数不完整' } }
+    }
+
+    const result = chatermDbService.removeAssetFromFolder(folderUuid, organizationUuid, assetHost)
+    return result
+  } catch (error) {
+    console.error('主进程 remove-asset-from-folder 错误:', error)
+    return { data: { message: 'failed', error: error instanceof Error ? error.message : String(error) } }
+  }
+})
+
+ipcMain.handle('get-assets-in-folder', async (_, data) => {
+  try {
+    const { folderUuid } = data
+
+    if (!folderUuid) {
+      console.error('参数不完整:', { folderUuid })
+      return { data: { message: 'failed', error: '文件夹UUID不能为空' } }
+    }
+
+    const result = chatermDbService.getAssetsInFolder(folderUuid)
+    return result
+  } catch (error) {
+    console.error('主进程 get-assets-in-folder 错误:', error)
+    return { data: { message: 'failed', error: error instanceof Error ? error.message : String(error) } }
+  }
+})
+
 ipcMain.handle('capture-telemetry-event', async (_, { eventType, data }) => {
   try {
     switch (eventType) {

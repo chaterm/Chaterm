@@ -382,19 +382,26 @@
                   </span>
                 </a-select-option>
               </a-select>
-              <a-button
-                :disabled="!showSendButton"
-                size="small"
-                class="custom-round-button compact-button"
-                style="margin-left: 8px"
-                @click="sendMessage('send')"
-              >
-                <img
-                  :src="sendIcon"
-                  alt="send"
-                  style="width: 18px; height: 18px"
+              <div class="action-buttons-container">
+                <VoiceInput
+                  :disabled="responseLoading"
+                  :auto-send-after-voice="autoSendAfterVoice"
+                  @transcription-complete="handleTranscriptionComplete"
+                  @transcription-error="handleTranscriptionError"
                 />
-              </a-button>
+                <a-button
+                  :disabled="!showSendButton"
+                  size="small"
+                  class="custom-round-button compact-button"
+                  @click="sendMessage('send')"
+                >
+                  <img
+                    :src="sendIcon"
+                    alt="send"
+                    style="width: 18px; height: 18px"
+                  />
+                </a-button>
+              </div>
             </div>
           </div>
         </div>
@@ -596,12 +603,14 @@ import { notification } from 'ant-design-vue'
 import { v4 as uuidv4 } from 'uuid'
 import eventBus from '@/utils/eventBus'
 import { getGlobalState, updateGlobalState, getSecret, storeSecret } from '@renderer/agent/storage/state'
+
 import type { HistoryItem, TaskHistoryItem, Host, ChatMessage, MessageContent, AssetInfo } from './types'
 import { createNewMessage, parseMessageContent, truncateText, formatHosts } from './utils'
 import foldIcon from '@/assets/icons/fold.svg'
 import historyIcon from '@/assets/icons/history.svg'
 import plusIcon from '@/assets/icons/plus.svg'
 import sendIcon from '@/assets/icons/send.svg'
+import VoiceInput from './voiceInput.vue'
 import { useCurrentCwdStore } from '@/store/currentCwdStore'
 import debounce from 'lodash/debounce'
 import i18n from '@/locales'
@@ -851,6 +860,28 @@ const checkModelConfig = async () => {
       break
   }
   return true
+}
+
+// 语音转录完成事件处理
+const handleTranscriptionComplete = (transcribedText: string) => {
+  // 将转录的文本添加到输入框
+  if (chatInputValue.value.trim()) {
+    chatInputValue.value = chatInputValue.value + ' ' + transcribedText
+  } else {
+    chatInputValue.value = transcribedText
+  }
+  console.log('handleTranscriptionComplete', autoSendAfterVoice.value)
+  // 自动发送消息（可选，可以通过设置开关控制）
+  if (autoSendAfterVoice.value) {
+    nextTick(() => {
+      sendMessage('send')
+    })
+  }
+}
+
+// 语音转录错误事件处理
+const handleTranscriptionError = (error: string) => {
+  console.error('语音转录错误:', error)
 }
 
 const sendMessage = async (sendType: string) => {
@@ -1968,6 +1999,8 @@ watch(
 
 const currentEditingId = ref(null)
 
+// 语音识别后自动发送消息的开关
+const autoSendAfterVoice = ref(false)
 const editHistory = async (history) => {
   // If there are other items being edited, restore them first
   if (currentEditingId.value && currentEditingId.value !== history.id) {
@@ -2835,6 +2868,13 @@ defineExpose({
   justify-content: space-between;
   gap: 4px;
   padding: 8px 8px;
+  flex-wrap: nowrap;
+  min-height: 32px;
+
+  // 确保按钮组不会被压缩
+  .action-buttons-container {
+    flex-shrink: 0;
+  }
 
   .ant-select {
     width: 120px;
@@ -2865,15 +2905,28 @@ defineExpose({
     }
   }
 
+  .action-buttons-container {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-left: 4px;
+    flex-shrink: 0;
+
+    @media (max-width: 480px) {
+      gap: 6px;
+      margin-left: 2px;
+    }
+  }
+
   .custom-round-button {
     height: 18px;
     width: 18px;
     padding: 0;
     border-radius: 50%;
     font-size: 10px;
-    background-color: #1656b1;
-    border: 1px solid #2d6fcd;
-    color: white;
+    background-color: transparent;
+    border: 1px solid var(--border-color);
+    color: var(--text-color);
     transition: all 0.2s ease;
     display: flex;
     align-items: center;
@@ -2882,13 +2935,12 @@ defineExpose({
 
     &:hover {
       transform: scale(1.15);
-      border-color: #40a9ff;
+      background-color: var(--hover-bg-color);
     }
 
     &:active {
       transform: scale(0.95);
       box-shadow: none;
-      border-color: #1890ff;
     }
 
     &[disabled] {

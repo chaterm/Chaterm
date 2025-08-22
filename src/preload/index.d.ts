@@ -71,6 +71,17 @@ interface ApiType {
     message?: string
     data?: any
   }>
+  updateOrganizationAssetFavorite: (data: { organizationUuid: string; host: string; status: number }) => Promise<any>
+  updateOrganizationAssetComment: (data: { organizationUuid: string; host: string; comment: string }) => Promise<any>
+  // 自定义文件夹管理API
+  createCustomFolder: (data: { name: string; description?: string }) => Promise<any>
+  getCustomFolders: () => Promise<any>
+  updateCustomFolder: (data: { folderUuid: string; name: string; description?: string }) => Promise<any>
+  deleteCustomFolder: (data: { folderUuid: string }) => Promise<any>
+  moveAssetToFolder: (data: { folderUuid: string; organizationUuid: string; assetHost: string }) => Promise<any>
+  removeAssetFromFolder: (data: { folderUuid: string; organizationUuid: string; assetHost: string }) => Promise<any>
+  getAssetsInFolder: (data: { folderUuid: string }) => Promise<any>
+  refreshOrganizationAssets: (data: { organizationUuid: string; jumpServerConfig: any }) => Promise<any>
 }
 
 declare global {
