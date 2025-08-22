@@ -42,6 +42,8 @@ declare global {
       updateLocalAsseFavorite: (data: { uuid: string; status: number }) => Promise<any>
       // Terminal state methods
       recordTerminalState: (data: { id: string; state: any }) => Promise<void>
+      // SFTP related methods
+      sftpConnList: () => Promise<string[]>
     }
   }
 }

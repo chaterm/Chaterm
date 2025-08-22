@@ -2107,6 +2107,9 @@ const contextAct = (action) => {
         isSyncInput.value = true
       }
       break
+    case 'fileManager':
+      eventBus.emit('openUserTab', 'files')
+      break
     default:
       break
   }
