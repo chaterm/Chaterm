@@ -360,6 +360,9 @@ export class SyncEngine {
           if (sensitive.passphrase !== undefined) {
             data.passphrase = sensitive.passphrase
           }
+          if (sensitive.chain_public_key !== undefined) {
+            data.chain_public_key = sensitive.chain_public_key
+          }
         }
       }
       if ('data_cipher_text' in data) {
@@ -412,7 +415,6 @@ export class SyncEngine {
         'uuid',
         'chain_name',
         'chain_type',
-        'chain_public_key',
         'chain_private_key',
         'passphrase',
         'created_at',
@@ -458,10 +460,11 @@ export class SyncEngine {
         const sensitive: any = {}
         if (record.chain_private_key !== undefined && record.chain_private_key !== null) sensitive.chain_private_key = record.chain_private_key
         if (record.passphrase !== undefined && record.passphrase !== null) sensitive.passphrase = record.passphrase
+        if (record.chain_public_key !== undefined && record.chain_public_key !== null) sensitive.chain_public_key = record.chain_public_key
         if (Object.keys(sensitive).length > 0) {
           try {
             const combined = await encryptPayload(sensitive, service)
-            const { chain_private_key, passphrase, ...rest } = record
+            const { chain_private_key, passphrase, chain_public_key, ...rest } = record
             return { ...rest, data_cipher_text: combined }
           } catch {
             // 如果敏感字段存在但加密失败，抛出错误以防止明文上行
