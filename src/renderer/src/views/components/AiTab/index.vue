@@ -344,12 +344,13 @@
               </span>
             </div>
             <a-textarea
-              v-model:value="chatInputValue"
-              :placeholder="chatTypeValue === 'agent' ? $t('ai.agentMessage') : chatTypeValue === 'chat' ? $t('ai.chatMessage') : $t('ai.cmdMessage')"
+              :value="displayInputValue"
+              :placeholder="chatTypeValue === 'agent' ? $t('ai.agentMessage') : chatTypeValue === 'chat' ? $t('ai.cmdMessage') : $t('ai.cmdMessage')"
               class="chat-textarea"
               :auto-size="{ minRows: 2, maxRows: 5 }"
               @keydown="handleKeyDown"
               @input="handleInputChange"
+              @update:value="(val) => (chatInputValue = val)"
             />
             <div class="input-controls">
               <a-select
@@ -383,12 +384,21 @@
                 </a-select-option>
               </a-select>
               <div class="action-buttons-container">
-                <VoiceInput
+                <VoiceInputRealTime
+                  ref="tencentVoiceInputRef"
                   :disabled="responseLoading"
                   :auto-send-after-voice="autoSendAfterVoice"
                   @transcription-complete="handleTranscriptionComplete"
+                  @transcription-update="handleTranscriptionUpdate"
                   @transcription-error="handleTranscriptionError"
+                  @recording-stop="handleVoiceRecordingStop"
                 />
+                <!--                <VoiceInput-->
+                <!--                  :disabled="responseLoading"-->
+                <!--                  :auto-send-after-voice="autoSendAfterVoice"-->
+                <!--                  @transcription-complete="handleTranscriptionComplete"-->
+                <!--                  @transcription-error="handleTranscriptionError"-->
+                <!--                />-->
                 <a-button
                   :disabled="!showSendButton"
                   size="small"
@@ -610,7 +620,8 @@ import foldIcon from '@/assets/icons/fold.svg'
 import historyIcon from '@/assets/icons/history.svg'
 import plusIcon from '@/assets/icons/plus.svg'
 import sendIcon from '@/assets/icons/send.svg'
-import VoiceInput from './voiceInput.vue'
+// import VoiceInput from './voiceInput.vue'
+import VoiceInputRealTime from './voiceInputRealTime.vue'
 import { useCurrentCwdStore } from '@/store/currentCwdStore'
 import debounce from 'lodash/debounce'
 import i18n from '@/locales'
@@ -675,7 +686,23 @@ const autoUpdateHost = ref(true)
 const chatInputValue = ref('')
 const chatAiModelValue = ref('')
 const chatTypeValue = ref('')
+// 临时显示语音识别结果的变量，不影响 chatInputValue
+const tempVoiceDisplay = ref('')
+// 保存上一次录音的非稳态数据，防止被新录音覆盖
+const lastVoiceSessionData = ref('')
 const activeKey = ref('chat')
+
+// 语音组件的引用
+const tencentVoiceInputRef = ref<InstanceType<typeof TencentVoiceInput> | null>(null)
+
+// 计算输入框的显示值：chatInputValue + tempVoiceDisplay
+const displayInputValue = computed(() => {
+  if (tempVoiceDisplay.value) {
+    // 如果有临时语音显示，优先显示临时内容
+    return tempVoiceDisplay.value
+  }
+  return chatInputValue.value
+})
 const showSendButton = ref(true)
 const responseLoading = ref(false)
 const shouldShowSendButton = computed(() => {
@@ -862,15 +889,34 @@ const checkModelConfig = async () => {
   return true
 }
 
-// 语音转录完成事件处理
+// 添加一个变量来跟踪上一次的识别内容，用于去重
+const lastTranscription = ref('')
+
+// 语音转录完成事件处理（稳态结果，追加到 chatInputValue 中）
 const handleTranscriptionComplete = (transcribedText: string) => {
-  // 将转录的文本添加到输入框
+  // 检查是否与上一次识别内容完全相同（完全重复才跳过）
+  if (lastTranscription.value === transcribedText) {
+    console.log('Exact duplicate final transcription, skipping:', transcribedText)
+    return
+  }
+
+  // 更新上一次识别内容
+  lastTranscription.value = transcribedText
+
+  // 稳态结果追加到 chatInputValue 中，而不是替换
+  // 这样可以累积多次语音输入的结果
   if (chatInputValue.value.trim()) {
     chatInputValue.value = chatInputValue.value + ' ' + transcribedText
   } else {
     chatInputValue.value = transcribedText
   }
-  console.log('handleTranscriptionComplete', autoSendAfterVoice.value)
+
+  // 清空临时显示，因为稳态结果已经添加到 chatInputValue 中
+  tempVoiceDisplay.value = ''
+
+  console.log('Stable transcription completed and appended to chatInputValue:', transcribedText)
+  console.log('Final chatInputValue:', chatInputValue.value)
+
   // 自动发送消息（可选，可以通过设置开关控制）
   if (autoSendAfterVoice.value) {
     nextTick(() => {
@@ -879,9 +925,87 @@ const handleTranscriptionComplete = (transcribedText: string) => {
   }
 }
 
+// 语音转录实时更新事件处理（非稳态结果，显示在临时变量中）
+const handleTranscriptionUpdate = (transcribedText: string) => {
+  // 检查是否与上一次识别内容完全相同（完全重复才跳过）
+  if (lastTranscription.value === transcribedText) {
+    console.log('Exact duplicate transcription, skipping:', transcribedText)
+    return
+  }
+
+  // 更新上一次识别内容
+  lastTranscription.value = transcribedText
+
+  // 非稳态结果显示在临时变量中，基于当前的 chatInputValue 构建
+  // 这样可以实时显示识别进度，用户可以看到识别过程
+  // 临时显示 = 当前 chatInputValue + 新的非稳态结果
+  // 不再包含 lastVoiceSessionData，避免重复
+  tempVoiceDisplay.value = chatInputValue.value + ' ' + transcribedText
+
+  console.log('=== Real-time transcription update ===')
+  console.log('transcribedText:', transcribedText)
+  console.log('chatInputValue.value:', chatInputValue.value)
+  console.log('lastVoiceSessionData.value:', lastVoiceSessionData.value)
+  console.log('tempVoiceDisplay.value:', tempVoiceDisplay.value)
+}
+
 // 语音转录错误事件处理
 const handleTranscriptionError = (error: string) => {
   console.error('语音转录错误:', error)
+}
+
+// 语音录制停止事件处理
+const handleVoiceRecordingStop = () => {
+  console.log('=== Voice recording stopped ===')
+  console.log('tempVoiceDisplay.value:', tempVoiceDisplay.value)
+  console.log('chatInputValue.value:', chatInputValue.value)
+  console.log('lastVoiceSessionData.value:', lastVoiceSessionData.value)
+
+  // 录制停止时，将非稳态的语音识别数据加入到 chatInputValue
+  if (tempVoiceDisplay.value && tempVoiceDisplay.value.trim()) {
+    const currentInput = chatInputValue.value.trim()
+    const tempDisplay = tempVoiceDisplay.value.trim()
+
+    console.log('currentInput:', currentInput)
+    console.log('tempDisplay:', tempDisplay)
+
+    if (tempDisplay.startsWith(currentInput) && tempDisplay.length > currentInput.length) {
+      // 提取新增的语音识别内容
+      const newVoiceContent = tempDisplay.substring(currentInput.length).trim()
+      console.log('newVoiceContent:', newVoiceContent)
+
+      if (newVoiceContent) {
+        // 将新的语音内容追加到 chatInputValue
+        if (currentInput) {
+          chatInputValue.value = currentInput + ' ' + newVoiceContent
+        } else {
+          chatInputValue.value = newVoiceContent
+        }
+        console.log('Voice recording stopped - non-stable content added to chatInputValue:', newVoiceContent)
+        console.log('Updated chatInputValue:', chatInputValue.value)
+
+        // 不再保存到 lastVoiceSessionData，避免重复
+        // lastVoiceSessionData.value = newVoiceContent
+        console.log('Skipped updating lastVoiceSessionData to avoid duplication')
+      }
+    } else {
+      console.log('tempDisplay does not start with currentInput or length is not greater')
+    }
+  } else {
+    console.log('No tempVoiceDisplay value to process')
+  }
+
+  // 清空临时语音显示
+  tempVoiceDisplay.value = ''
+  console.log('Cleared tempVoiceDisplay')
+}
+
+// 语音识别开始事件处理
+const handleTranscriptionStart = () => {
+  // 重置上一次识别内容，开始新的识别会话
+  lastTranscription.value = ''
+  // 不清空 lastVoiceSessionData，保留上一次录音的非稳态数据
+  console.log('Transcription started, reset lastTranscription, keep lastVoiceSessionData:', lastVoiceSessionData.value)
 }
 
 const sendMessage = async (sendType: string) => {
@@ -1945,6 +2069,39 @@ const handleInputChange = async (e: Event) => {
     })
   } else {
     showHostSelect.value = false
+  }
+
+  // 如果正在语音识别过程中出现手动输入，则停止语音识别
+  if (tempVoiceDisplay.value && value !== tempVoiceDisplay.value) {
+    console.log('Manual input detected during voice recognition, stopping recording...')
+
+    // 在停止录制前，将非稳态的语音识别数据加入到 chatInputValue
+    if (tempVoiceDisplay.value.trim()) {
+      // 提取临时语音显示中的新内容（排除 chatInputValue 已有的部分）
+      const currentInput = chatInputValue.value.trim()
+      const tempDisplay = tempVoiceDisplay.value.trim()
+
+      if (tempDisplay.startsWith(currentInput) && tempDisplay.length > currentInput.length) {
+        // 提取新增的语音识别内容
+        const newVoiceContent = tempDisplay.substring(currentInput.length).trim()
+        if (newVoiceContent) {
+          // 将新的语音内容追加到 chatInputValue
+          if (currentInput) {
+            chatInputValue.value = currentInput + ' ' + newVoiceContent
+          } else {
+            chatInputValue.value = newVoiceContent
+          }
+          console.log('Non-stable voice content added to chatInputValue:', newVoiceContent)
+        }
+      }
+    }
+
+    // 清空临时语音显示
+    tempVoiceDisplay.value = ''
+    // 停止语音识别
+    if (tencentVoiceInputRef.value) {
+      tencentVoiceInputRef.value.stopRecording()
+    }
   }
 }
 
