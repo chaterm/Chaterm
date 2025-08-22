@@ -138,6 +138,7 @@ export default {
     aliasStatus: '全局Alias',
     highlightStatus: '全局高亮',
     fontSize: '字体大小(px)',
+    fontFamily: '字体',
     cursorStyle: '光标样式',
     scrollBack: '终端回滚量',
     terminalType: '终端类型',

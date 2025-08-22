@@ -278,7 +278,7 @@ onMounted(async () => {
       cursorBlink: true,
       cursorStyle: config.cursorStyle,
       fontSize: config.fontSize || 12,
-      fontFamily: 'Menlo, Monaco, "Courier New", Consolas, Courier, monospace',
+      fontFamily: config.fontFamily || 'Menlo, Monaco, "Courier New", Consolas, Courier, monospace',
       theme:
         config.theme === 'light'
           ? {
@@ -521,6 +521,14 @@ onMounted(async () => {
   eventBus.on('sendOrToggleAiFromTerminalForTab', handleSendOrToggleAiForTab)
   eventBus.on('requestUpdateCwdForHost', handleRequestUpdateCwdForHost)
   eventBus.on('updateTheme', handleUpdateTheme)
+
+  // Listen for font update events
+  const handleUpdateFont = (newFontFamily) => {
+    if (terminal.value) {
+      terminal.value.options.fontFamily = newFontFamily
+    }
+  }
+  eventBus.on('updateTerminalFont', handleUpdateFont)
   cleanupListeners.value.push(() => {
     eventBus.off('updateTheme', handleUpdateTheme)
     eventBus.off('executeTerminalCommand', handleExecuteCommand)
@@ -528,6 +536,7 @@ onMounted(async () => {
     eventBus.off('getCursorPosition', handleGetCursorPosition)
     eventBus.off('sendOrToggleAiFromTerminalForTab', handleSendOrToggleAiForTab)
     eventBus.off('requestUpdateCwdForHost', handleRequestUpdateCwdForHost)
+    eventBus.off('updateTerminalFont', handleUpdateFont)
     window.removeEventListener('keydown', handleGlobalKeyDown)
   })
 

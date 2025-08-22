@@ -138,6 +138,7 @@ export default {
     aliasStatus: 'Global alias',
     highlightStatus: 'Highlight',
     fontSize: 'Font size',
+    fontFamily: 'Font family',
     cursorStyle: 'Cursor type',
     scrollBack: 'Number of scroll rollback lines',
     terminalType: 'Specify terminal type',
