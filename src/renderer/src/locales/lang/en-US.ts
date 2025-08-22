@@ -55,6 +55,7 @@ export default {
     ok: 'OK',
     quickCommandOn: 'Quick Command (On) ',
     quickCommand: 'Quick Command',
+    fileManager: 'File Manager',
     add: 'Add',
     all: 'All',
     refresh: 'Refresh',

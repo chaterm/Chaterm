@@ -55,6 +55,7 @@ export default {
     ok: '确定',
     quickCommandOn: '快捷命令(已开)',
     quickCommand: '快捷命令',
+    fileManager: '文件管理',
     add: '添加',
     all: '全部',
     refresh: '刷新',

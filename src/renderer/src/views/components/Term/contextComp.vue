@@ -26,6 +26,7 @@
     <v-contextmenu-item @click="onContextMenuAction('quickCommand')">{{
       isShowQuickCommand ? $t('common.quickCommandOn') : $t('common.quickCommand')
     }}</v-contextmenu-item>
+    <v-contextmenu-item @click="onContextMenuAction('fileManager')">{{ $t('common.fileManager') }}</v-contextmenu-item>
     <v-contextmenu-item
       v-if="props.isConnect"
       @click="onContextMenuAction('disconnect')"
@@ -138,6 +139,9 @@ const onContextMenuAction = (action) => {
       break
     case 'quickCommand':
       isShowQuickCommand.value = !isShowQuickCommand.value
+      break
+    case 'fileManager':
+      emit('contextAct', 'fileManager')
       break
     default:
       break

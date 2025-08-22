@@ -45,21 +45,74 @@
 </template>
 
 <script lang="ts" setup>
-import { ref, onMounted, reactive, UnwrapRef } from 'vue'
+import { ref, onMounted, reactive, UnwrapRef, onBeforeUnmount } from 'vue'
 import type { TreeProps } from 'ant-design-vue/es/tree'
 import TermFileSystem from './files.vue'
 import { useI18n } from 'vue-i18n'
 import EditorCode from '../Term/Editor/dragEditor.vue'
 import { editorData } from '../Term/Editor/dragEditor.vue'
-import { message, Modal, notification } from 'ant-design-vue'
+import { message, Modal } from 'ant-design-vue'
 import { LanguageMap } from '../Term/Editor/languageMap'
-import { Base64Util } from '@/utils/base64'
+import { Base64Util } from '../../../utils/base64'
+import eventBus from '../../../utils/eventBus'
 
 const { t } = useI18n()
-onMounted(() => {
+
+const getCurrentActiveTerminalInfo = async () => {
+  try {
+    const assetInfo = await new Promise((resolve, reject) => {
+      const timeout = setTimeout(() => {
+        eventBus.off('assetInfoResult', handleResult)
+        reject(new Error('Timeout getting asset information'))
+      }, 5000)
+
+      const handleResult = (result) => {
+        clearTimeout(timeout)
+        eventBus.off('assetInfoResult', handleResult)
+        resolve(result)
+      }
+      eventBus.on('assetInfoResult', handleResult)
+      eventBus.emit('getActiveTabAssetInfo')
+    })
+    return assetInfo
+  } catch (error) {
+    console.error('Error getting asset information:', error)
+    return null
+  }
+}
+
+interface ActiveTerminalInfo {
+  uuid?: string
+  title?: string
+  ip?: string
+  organizationId?: string
+  type?: string
+  outputContext?: string
+  tabSessionId?: string
+}
+
+const currentActiveTerminal = ref<ActiveTerminalInfo | null>(null)
+
+const handleActiveTabChanged = async (tabInfo: ActiveTerminalInfo) => {
+  if (tabInfo && tabInfo.ip) {
+    currentActiveTerminal.value = tabInfo
+    await listUserSessions()
+  }
+}
+
+onMounted(async () => {
+  const activeTerminal = await getCurrentActiveTerminalInfo()
+  if (activeTerminal) {
+    currentActiveTerminal.value = activeTerminal
+  }
   listUserSessions()
+  eventBus.on('activeTabChanged', handleActiveTabChanged)
 })
-const api = window.api as any
+
+onBeforeUnmount(() => {
+  eventBus.off('activeTabChanged', handleActiveTabChanged)
+})
+const api = (window as any).api
 const expandedKeys = ref<string[]>([])
 // editor绑定
 const activeEditorKey = ref(null)
@@ -80,12 +133,14 @@ const listUserSessions = async () => {
 function objectToTreeData(obj: object): any[] {
   return Object.entries(obj).map(([key, value]) => {
     const keys: string[] = []
+    const isActive = currentActiveTerminal.value && currentActiveTerminal.value.ip === key
     const node = {
       title: key,
       key: key,
       draggable: true,
       value: String(value),
-      isLeaf: false
+      isLeaf: false,
+      class: isActive ? 'active-terminal' : ''
     }
     if (keys.length < 1) {
       keys.push(key)
@@ -397,5 +452,19 @@ defineExpose({
       color: var(--text-color-tertiary);
     }
   }
+}
+
+/* 高亮显示当前活跃的终端 */
+:deep(.active-terminal) {
+  background-color: var(--primary-color) !important;
+  color: white !important;
+
+  .ant-tree-title {
+    color: white !important;
+  }
+}
+
+:deep(.active-terminal:hover) {
+  background-color: var(--primary-color) !important;
 }
 </style>
