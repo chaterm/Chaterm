@@ -38,7 +38,7 @@ function getCurrentUserDbPath(): string {
 }
 
 export const syncConfig: SyncConfig = {
-  serverUrl: 'http://localhost:8001',
+  serverUrl: 'http://demo.chaterm.ai/v1', //http://localhost:8001
   apiVersion: 'v1',
   dbPath: getCurrentUserDbPath(),
   deviceId: getDeviceId(), // 使用主板id
