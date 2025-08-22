@@ -1,12 +1,6 @@
 import config from '../config'
 import TempFileStorageProvider from './tempFileStorage'
 
-interface EncryptedKeyData {
-  encryptedDataKey: string
-  encryptionContext: any
-  timestamp: number
-}
-
 /**
  * 💾 客户端存储管理器
  *
@@ -48,47 +42,6 @@ class StorageManager {
     console.log(' 认证Token已清除')
   }
 
-  async storeEncryptedDataKey(userId: string, encryptedDataKey: string, encryptionContext: any): Promise<void> {
-    const key = `${config.storage.keyPrefix}${userId}`
-    const data: EncryptedKeyData = {
-      encryptedDataKey,
-      encryptionContext,
-      timestamp: Date.now()
-    }
-
-    await this.provider.setItem(key, JSON.stringify(data))
-  }
-
-  async getEncryptedDataKey(userId: string): Promise<EncryptedKeyData | null> {
-    const key = `${config.storage.keyPrefix}${userId}`
-    const data = await this.provider.getItem(key)
-
-    if (!data) {
-      return null
-    }
-
-    try {
-      const parsedData = JSON.parse(data)
-
-      // 检查是否过期
-      if (this.isExpired(parsedData.timestamp)) {
-        await this.clearEncryptedDataKey(userId)
-        return null
-      }
-
-      return parsedData
-    } catch (error) {
-      // 简化错误日志输出
-      console.warn('解析存储的数据密钥失败:', (error as Error).message)
-      return null
-    }
-  }
-
-  async clearEncryptedDataKey(userId: string): Promise<void> {
-    const key = `${config.storage.keyPrefix}${userId}`
-    await this.provider.removeItem(key)
-  }
-
   async storeSession(userId: string, sessionId: string): Promise<void> {
     const key = `${config.storage.sessionPrefix}${userId}`
     await this.provider.setItem(key, sessionId)
@@ -112,59 +65,17 @@ class StorageManager {
     return await this.provider.getStats()
   }
 
-  async cleanupExpired(): Promise<void> {
-    try {
-      const stats = await this.getStats()
-      const keys = stats.keys || []
-
-      for (const key of keys) {
-        if (key.startsWith(config.storage.keyPrefix)) {
-          const data = await this.provider.getItem(key)
-          if (data) {
-            try {
-              const parsedData = JSON.parse(data)
-              if (this.isExpired(parsedData.timestamp)) {
-                await this.provider.removeItem(key)
-                console.log(`🧹 清理过期数据: ${key}`)
-              }
-            } catch (error) {
-              // 忽略解析错误，可能是其他格式的数据
-            }
-          }
-        }
-      }
-    } catch (error) {
-      console.error(' 清理过期数据失败:', error)
-    }
-  }
-
-  /**
-   * ⏰ 检查数据是否过期
-   * @param timestamp - 时间戳
-   * @returns 是否过期
-   */
-  private isExpired(timestamp: number): boolean {
-    const now = Date.now()
-    const keyExpiry = config.timeout?.keyExpiry || 24 * 60 * 60 * 1000 // 默认24小时
-    const expiry = timestamp + keyExpiry
-    return now > expiry
-  }
-
-  async hasEncryptedDataKey(userId: string): Promise<boolean> {
-    const data = await this.getEncryptedDataKey(userId)
-    return data !== null
-  }
-
   async listUsers(): Promise<string[]> {
     try {
       const stats = await this.getStats()
       const keys = stats.keys || []
       const users: string[] = []
 
+      //  简化逻辑：只从会话信息中列出用户
       for (const key of keys) {
-        if (key.startsWith(config.storage.keyPrefix)) {
-          const userId = key.replace(config.storage.keyPrefix, '')
-          if (userId && !userId.includes('auth_token')) {
+        if (key.startsWith(config.storage.sessionPrefix)) {
+          const userId = key.replace(config.storage.sessionPrefix, '')
+          if (userId) {
             users.push(userId)
           }
         }
@@ -179,10 +90,8 @@ class StorageManager {
 
   async cleanup(userId: string): Promise<void> {
     try {
-      // 清理加密的数据密钥
-      await this.clearEncryptedDataKey(userId)
-
-      // 清理会话信息
+      //  简化清理逻辑：只清理会话信息
+      // 数据密钥现在只存在于内存中，由ClientSideCrypto管理
       await this.clearSession(userId)
     } catch (error) {
       console.error(` 清理用户 ${userId} 的存储数据失败:`, error)
@@ -209,4 +118,3 @@ async function clearAuthToken(): Promise<void> {
 
 export default StorageManager
 export { StorageManager, storeAuthToken, getAuthToken, clearAuthToken }
-export type { EncryptedKeyData }

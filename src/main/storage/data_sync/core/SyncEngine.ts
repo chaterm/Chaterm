@@ -19,10 +19,16 @@ export class SyncEngine {
       return { success: true, message: '无待同步变更', synced_count: 0, failed_count: 0 }
     }
 
+    // 智能压缩变更记录（如果启用）
+    const compressedChanges = syncConfig.compressionEnabled ? this.compressChanges(pending) : pending
+    if (syncConfig.compressionEnabled) {
+      this.logCompressionStats(pending, compressedChanges, '批量增量')
+    }
+
     // 分批
     const batches: ChangeRecord[][] = []
-    for (let i = 0; i < pending.length; i += syncConfig.batchSize) {
-      batches.push(pending.slice(i, i + syncConfig.batchSize))
+    for (let i = 0; i < compressedChanges.length; i += syncConfig.batchSize) {
+      batches.push(compressedChanges.slice(i, i + syncConfig.batchSize))
     }
 
     const semaphore = new Semaphore(syncConfig.maxConcurrentBatches)
@@ -49,12 +55,16 @@ export class SyncEngine {
             this.db.markChangesConflict(conflictIds, reason)
           }
 
-          // 对成功的 UPDATE 记录，本地自增 version（减少再次冲突窗口）
+          // 对成功的 UPDATE 记录，更新本地版本号为服务器版本号
           for (const b of batch) {
             if (!conflictUUIDs.has(b.record_uuid) && b.operation_type === 'UPDATE') {
               const current = b.change_data?.version
               if (typeof current === 'number' && current > 0) {
-                this.db.bumpVersion(tableName, b.record_uuid, current)
+                const newVersion = current + 1
+                // 服务器更新成功后版本号会递增，所以本地也要同步到服务器的版本号
+                this.db.setVersion(tableName, b.record_uuid, newVersion)
+              } else {
+                console.log(` 跳过版本号更新: UUID=${b.record_uuid}, 版本=${current} (类型=${typeof current})`)
               }
             }
           }
@@ -62,8 +72,14 @@ export class SyncEngine {
           totalSynced += successIds.length
           totalFailed += conflictIds.length
         } catch (e: any) {
-          logger.error('批次上传失败', e?.message)
-          totalFailed += batch.length
+          // 检查是否是网络连接错误
+          if (e?.message === 'NETWORK_UNAVAILABLE' || e?.isNetworkError) {
+            logger.warn('服务器不可用，跳过批次上传')
+            // 网络错误不计入失败次数
+          } else {
+            logger.error('批次上传失败', e?.message)
+            totalFailed += batch.length
+          }
         } finally {
           release()
         }
@@ -74,64 +90,85 @@ export class SyncEngine {
   }
 
   /**
-   * 智能增量同步 - 根据数据量自动选择分页或批量模式
+   * 智能增量同步 - 根据数据量自动选择最优处理策略
    */
   async incrementalSyncSmart(tableName: string): Promise<SyncResponse> {
     const totalChanges = this.db.getTotalPendingChangesCount(tableName)
 
-    // 小数据量：使用现有批量方法
-    if (totalChanges <= 1000) {
-      logger.info(`数据量较小 (${totalChanges}条)，使用批量同步`)
+    logger.info(`智能同步分析: ${tableName} 有 ${totalChanges} 条待同步变更`)
+
+    // 根据配置的阈值动态选择策略
+    if (totalChanges <= syncConfig.largeDataThreshold) {
       return await this.incrementalSync(tableName)
     }
-
-    // 大数据量：使用分页处理
-    logger.info(`数据量较大 (${totalChanges}条)，使用分页同步`)
-    return await this.incrementalSyncPaged(tableName)
+    // 大数据量：使用增强的分页处理
+    return await this.incrementalSyncLargeData(tableName)
   }
 
   /**
-   * 分页增量同步 - 处理大数据量场景
+   * 大数据量增量同步 - 增强版分页处理
+   * 集成 PagedIncrementalSyncManager 的核心优势
    */
-  private async incrementalSyncPaged(tableName: string): Promise<SyncResponse> {
-    const pageSize = 500
-    let offset = 0
+  private async incrementalSyncLargeData(tableName: string): Promise<SyncResponse> {
+    const startTime = Date.now()
+    const totalChanges = this.db.getTotalPendingChangesCount(tableName)
+
+    if (totalChanges === 0) {
+      return { success: true, message: '无待同步变更', synced_count: 0, failed_count: 0 }
+    }
+
+    // 自适应页面大小
+    const adaptivePageSize = this.calculateOptimalPageSize(totalChanges)
+    const totalPages = Math.ceil(totalChanges / adaptivePageSize)
+
+    logger.info(`大数据量同步开始: ${tableName}, 总计 ${totalChanges} 条, 分 ${totalPages} 页, 页大小 ${adaptivePageSize}`)
+
     let totalSynced = 0
     let totalFailed = 0
     let currentPage = 1
+    let offset = 0
 
-    const totalChanges = this.db.getTotalPendingChangesCount(tableName)
-    const totalPages = Math.ceil(totalChanges / pageSize)
-
-    logger.info(`开始分页增量同步: ${totalChanges} 条变更，分 ${totalPages} 页处理`)
+    // 并发控制
+    const semaphore = new Semaphore(syncConfig.maxConcurrentPages)
+    const pagePromises: Promise<void>[] = []
 
     while (offset < totalChanges) {
-      const pageChanges = this.db.getPendingChangesPage(tableName, pageSize, offset)
-      if (pageChanges.length === 0) break
+      const pageOffset = offset
+      const pageNumber = currentPage
 
-      logger.info(`处理第 ${currentPage}/${totalPages} 页: ${pageChanges.length} 条变更`)
+      // 创建页面处理任务
+      const pagePromise = semaphore.acquire().then(async (release) => {
+        try {
+          const pageResult = await this.processLargeDataPage(tableName, adaptivePageSize, pageOffset, pageNumber, totalPages)
 
-      try {
-        // 使用现有的批处理逻辑
-        const result = await this.processBatchChanges(tableName, pageChanges)
-        totalSynced += result.synced_count || 0
-        totalFailed += result.failed_count || 0
+          totalSynced += pageResult.synced
+          totalFailed += pageResult.failed
+        } catch (error) {
+          logger.error(`页面 ${pageNumber} 处理失败:`, error)
+          totalFailed += adaptivePageSize // 估算失败数量
+        } finally {
+          release()
+        }
+      })
 
-        logger.info(`第 ${currentPage} 页完成: 成功 ${result.synced_count}, 失败 ${result.failed_count}`)
-      } catch (error) {
-        logger.error(`第 ${currentPage} 页处理失败:`, error)
-        totalFailed += pageChanges.length
-      }
+      pagePromises.push(pagePromise)
 
-      offset += pageSize
+      offset += adaptivePageSize
       currentPage++
 
-      // 小延迟，避免过度占用资源
-      await new Promise((resolve) => setTimeout(resolve, 100))
+      // 控制并发数量，避免创建过多Promise
+      if (pagePromises.length >= syncConfig.maxConcurrentPages * 2) {
+        await Promise.all(pagePromises.splice(0, syncConfig.maxConcurrentPages))
+      }
     }
 
-    const message = `分页增量同步完成: ${totalPages} 页，成功 ${totalSynced}，失败 ${totalFailed}`
-    logger.info(message)
+    // 等待所有页面处理完成
+    await Promise.all(pagePromises)
+
+    const duration = Date.now() - startTime
+    const throughput = Math.round(totalSynced / (duration / 1000))
+
+    const message = `大数据量同步完成: ${totalPages} 页, 成功 ${totalSynced}, 失败 ${totalFailed}, 耗时 ${duration}ms, 吞吐量 ${throughput} 条/秒`
 
     return {
       success: totalFailed === 0,
@@ -149,10 +186,16 @@ export class SyncEngine {
     let batchSynced = 0
     let batchFailed = 0
 
+    // 智能压缩当前页的变更记录（如果启用）
+    const compressedChanges = syncConfig.compressionEnabled ? this.compressChanges(changes) : changes
+    if (syncConfig.compressionEnabled) {
+      this.logCompressionStats(changes, compressedChanges, '分页')
+    }
+
     // 将页面数据再分成小批次
     const batches: ChangeRecord[][] = []
-    for (let i = 0; i < changes.length; i += syncConfig.batchSize) {
-      batches.push(changes.slice(i, i + syncConfig.batchSize))
+    for (let i = 0; i < compressedChanges.length; i += syncConfig.batchSize) {
+      batches.push(compressedChanges.slice(i, i + syncConfig.batchSize))
     }
 
     await Promise.all(
@@ -178,8 +221,14 @@ export class SyncEngine {
           batchSynced += successIds.length
           batchFailed += conflictIds.length
         } catch (e: any) {
-          logger.error('批次上传失败', e?.message)
-          batchFailed += batch.length
+          // 检查是否是网络连接错误
+          if (e?.message === 'NETWORK_UNAVAILABLE' || e?.isNetworkError) {
+            logger.warn('服务器不可用，跳过批次上传')
+            // 网络错误不计入失败次数
+          } else {
+            logger.error('批次上传失败', e?.message)
+            batchFailed += batch.length
+          }
         } finally {
           release()
         }
@@ -284,29 +333,108 @@ export class SyncEngine {
 
   private async maybeDecryptChange(tableName: string, data: any): Promise<any> {
     if (!data) return data
-
     try {
       const service = getEncryptionService()
+      logger.info('加密服务状态:', service ? '已获取' : '未获取')
+
       if (tableName === 't_assets_sync') {
         const cipher: string | undefined = typeof data.data_cipher_text === 'string' ? data.data_cipher_text : undefined
         if (cipher) {
+          logger.info('开始解密 t_assets_sync 数据...')
           const sensitive = await decryptPayload(cipher, service)
-          if (sensitive && sensitive.password !== undefined) data.password = sensitive.password
-          if (sensitive && sensitive.username !== undefined) data.username = sensitive.username
+          if (sensitive && sensitive.password !== undefined) {
+            data.password = sensitive.password
+          }
+          if (sensitive && sensitive.username !== undefined) {
+            data.username = sensitive.username
+          }
         }
       } else if (tableName === 't_asset_chains_sync') {
         const cipher: string | undefined = typeof data.data_cipher_text === 'string' ? data.data_cipher_text : undefined
         if (cipher) {
+          logger.info('开始解密 t_asset_chains_sync 数据...')
           const sensitive = await decryptPayload(cipher, service)
-          if (sensitive.chain_private_key !== undefined) data.chain_private_key = sensitive.chain_private_key
-          if (sensitive.passphrase !== undefined) data.passphrase = sensitive.passphrase
+          if (sensitive.chain_private_key !== undefined) {
+            data.chain_private_key = sensitive.chain_private_key
+          }
+          if (sensitive.passphrase !== undefined) {
+            data.passphrase = sensitive.passphrase
+          }
         }
       }
+      if ('data_cipher_text' in data) {
+        delete data.data_cipher_text
+      }
+
+      // 修复：根据表名过滤字段，只保留对应表的字段
+      data = this.filterFieldsByTable(tableName, data)
     } catch (e) {
       logger.warn('新格式密文解密失败，按原样应用', e)
+      logger.error('解密异常详情:', {
+        error: e,
+        message: e instanceof Error ? e.message : String(e),
+        stack: e instanceof Error ? e.stack : undefined
+      })
     }
 
     return data
+  }
+
+  /**
+   * 根据表名过滤字段，只保留对应表的字段
+   * @param tableName 表名
+   * @param data 数据对象
+   * @returns 过滤后的数据对象
+   */
+  private filterFieldsByTable(tableName: string, data: any): any {
+    if (!data || typeof data !== 'object') return data
+
+    // 定义各表的有效字段
+    const tableFields = {
+      t_assets_sync: [
+        'uuid',
+        'label',
+        'asset_ip',
+        'group_name',
+        'auth_type',
+        'port',
+        'username',
+        'password',
+        'key_chain_id',
+        'favorite',
+        'asset_type',
+        'created_at',
+        'updated_at',
+        'version'
+      ],
+      t_asset_chains_sync: [
+        'key_chain_id',
+        'uuid',
+        'chain_name',
+        'chain_type',
+        'chain_public_key',
+        'chain_private_key',
+        'passphrase',
+        'created_at',
+        'updated_at',
+        'version'
+      ]
+    }
+
+    const validFields = tableFields[tableName as keyof typeof tableFields]
+    if (!validFields) {
+      logger.warn(`未知的表名: ${tableName}，返回原始数据`)
+      return data
+    }
+
+    // 只保留有效字段
+    const filteredData: any = {}
+    validFields.forEach((field) => {
+      if (field in data) {
+        filteredData[field] = data[field]
+      }
+    })
+    return filteredData
   }
 
   private async prepareRecordForUpload(tableName: string, record: any): Promise<any> {
@@ -345,6 +473,7 @@ export class SyncEngine {
       // 加密或服务获取失败都应该中断同步，防止明文外泄
       throw e instanceof Error ? e : new Error(String(e))
     }
+    // 后端已支持原始数据格式，无需标准化
     return record
   }
 
@@ -363,7 +492,7 @@ export class SyncEngine {
           username: data.username,
           password: data.password,
           key_chain_id: data.key_chain_id ?? undefined,
-          favorite: !!data.favorite,
+          favorite: data.favorite ?? 2, // 保持原始整数值，默认为2（未收藏）
           asset_type: data.asset_type,
           created_at: data.created_at ?? new Date().toISOString(),
           updated_at: data.updated_at ?? new Date().toISOString(),
@@ -398,5 +527,208 @@ export class SyncEngine {
         if (data?.uuid) this.db.deleteAssetChainByUUID(data.uuid)
         break
     }
+  }
+
+  /**
+   * 智能压缩变更记录
+   * 将同一记录的多次变更合并为最终状态，减少同步工作量
+   *
+   * 压缩规则：
+   * 1. DELETE 操作覆盖之前的所有操作
+   * 2. INSERT + UPDATE = INSERT（使用最新数据）
+   * 3. 多个 UPDATE 合并为最后一个 UPDATE
+   * 4. 已删除的记录忽略后续操作
+   * 5. INSERT + DELETE = 无操作（记录从未存在过）
+   *
+   * @param changes 原始变更记录数组
+   * @returns 压缩后的变更记录数组
+   */
+  private compressChanges(changes: ChangeRecord[]): ChangeRecord[] {
+    if (changes.length <= 1) {
+      return changes // 无需压缩
+    }
+
+    const recordMap = new Map<string, ChangeRecord>()
+    const deletedRecords = new Set<string>() // 跟踪被删除的记录
+
+    for (const change of changes) {
+      const key = `${change.table_name}-${change.record_uuid}`
+      const existing = recordMap.get(key)
+
+      if (!existing) {
+        recordMap.set(key, change)
+        if (change.operation_type === 'DELETE') {
+          deletedRecords.add(key)
+        }
+        continue
+      }
+
+      // 合并变更逻辑
+      if (change.operation_type === 'DELETE') {
+        if (existing.operation_type === 'INSERT') {
+          // INSERT + DELETE = 无操作（记录从未真正存在过）
+          recordMap.delete(key)
+          deletedRecords.add(key)
+        } else {
+          // UPDATE + DELETE = DELETE
+          recordMap.set(key, change)
+          deletedRecords.add(key)
+        }
+      } else if (deletedRecords.has(key)) {
+        // 如果记录已被删除，忽略后续的 INSERT/UPDATE 操作
+        // 这种情况在实际应用中很少见，但为了数据一致性需要处理
+        continue
+      } else if (existing.operation_type === 'INSERT' && change.operation_type === 'UPDATE') {
+        // INSERT + UPDATE = INSERT（使用最新数据）
+        recordMap.set(key, {
+          ...change,
+          operation_type: 'INSERT',
+          change_data: change.change_data,
+          // 保留原始 INSERT 的 ID 以维持顺序
+          id: existing.id
+        })
+      } else if (existing.operation_type === 'UPDATE' && change.operation_type === 'UPDATE') {
+        // UPDATE + UPDATE = UPDATE（使用最新数据）
+        recordMap.set(key, {
+          ...change,
+          // 保留第一个 UPDATE 的 ID 以维持顺序
+          id: existing.id
+        })
+      } else {
+        // 其他情况使用最新的变更
+        recordMap.set(key, change)
+      }
+    }
+
+    const compressed = Array.from(recordMap.values())
+
+    // 按原始 ID 排序，保持操作顺序的一致性
+    compressed.sort((a, b) => {
+      // 使用数字 ID 排序，如果 ID 不是数字则按字符串排序
+      const aId = typeof a.id === 'number' ? a.id : parseInt(a.id as string, 10)
+      const bId = typeof b.id === 'number' ? b.id : parseInt(b.id as string, 10)
+
+      if (!isNaN(aId) && !isNaN(bId)) {
+        return aId - bId
+      }
+
+      // 如果无法转换为数字，则按字符串排序
+      return String(a.id).localeCompare(String(b.id))
+    })
+
+    return compressed
+  }
+
+  /**
+   * 计算最优页面大小
+   * 根据数据量和系统配置自适应调整
+   */
+  private calculateOptimalPageSize(totalChanges: number): number {
+    if (!syncConfig.adaptivePageSize) {
+      return syncConfig.pageSize
+    }
+
+    // 基于总数据量的自适应算法
+    if (totalChanges <= 10000) {
+      return Math.min(syncConfig.pageSize, 1000) // 小数据量用较小页面
+    } else if (totalChanges <= 50000) {
+      return Math.min(syncConfig.pageSize * 1.5, 1500) // 中等数据量
+    } else {
+      return Math.min(syncConfig.pageSize * 2, 2000) // 大数据量用较大页面
+    }
+  }
+
+  /**
+   * 处理大数据量的单个页面
+   * 集成智能压缩和内存优化
+   */
+  private async processLargeDataPage(
+    tableName: string,
+    pageSize: number,
+    offset: number,
+    pageNumber: number,
+    totalPages: number
+  ): Promise<{ synced: number; failed: number }> {
+    try {
+      // 分页获取数据（内存优化）
+      const pageChanges = this.db.getPendingChangesPage(tableName, pageSize, offset)
+
+      if (pageChanges.length === 0) {
+        return { synced: 0, failed: 0 }
+      }
+
+      logger.debug(`处理页面 ${pageNumber}/${totalPages}: ${pageChanges.length} 条变更`)
+
+      // 应用智能压缩
+      const compressedChanges = syncConfig.compressionEnabled ? this.compressChanges(pageChanges) : pageChanges
+
+      if (syncConfig.compressionEnabled && compressedChanges.length < pageChanges.length) {
+        logger.debug(`页面 ${pageNumber} 压缩: ${pageChanges.length} -> ${compressedChanges.length}`)
+      }
+
+      // 处理压缩后的变更
+      const result = await this.processBatchChanges(tableName, compressedChanges)
+
+      // 内存优化：及时清理大对象
+      if (syncConfig.memoryOptimization) {
+        // 强制垃圾回收提示（在支持的环境中）
+        if (global.gc && pageNumber % 10 === 0) {
+          global.gc()
+        }
+      }
+
+      return {
+        synced: result.synced_count || 0,
+        failed: result.failed_count || 0
+      }
+    } catch (error) {
+      logger.error(`页面 ${pageNumber} 处理异常:`, error)
+      return { synced: 0, failed: pageSize }
+    }
+  }
+
+  /**
+   * 分析压缩效果并记录详细统计信息
+   * @param original 原始变更记录
+   * @param compressed 压缩后的变更记录
+   * @param context 上下文信息（如 "批量同步" 或 "页面同步"）
+   */
+  private logCompressionStats(original: ChangeRecord[], compressed: ChangeRecord[], context: string = '同步'): void {
+    if (original.length === compressed.length) {
+      return // 无压缩效果，不记录
+    }
+
+    const reduction = original.length - compressed.length
+    const reductionPercentage = Math.round((reduction / original.length) * 100)
+
+    // 统计操作类型分布
+    const originalStats = this.getOperationStats(original)
+    const compressedStats = this.getOperationStats(compressed)
+
+    logger.info(`${context}压缩统计:`, {
+      原始记录数: original.length,
+      压缩后记录数: compressed.length,
+      减少数量: reduction,
+      压缩率: `${reductionPercentage}%`,
+      原始分布: originalStats,
+      压缩后分布: compressedStats
+    })
+  }
+
+  /**
+   * 统计操作类型分布
+   * @param changes 变更记录数组
+   * @returns 操作类型统计对象
+   */
+  private getOperationStats(changes: ChangeRecord[]): Record<string, number> {
+    const stats: Record<string, number> = { INSERT: 0, UPDATE: 0, DELETE: 0 }
+
+    for (const change of changes) {
+      if (change.operation_type in stats) {
+        stats[change.operation_type]++
+      }
+    }
+
+    return stats
   }
 }

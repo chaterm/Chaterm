@@ -123,6 +123,7 @@ import { userInfoStore } from '@/store/index'
 import { pinia } from '@/main'
 import eventBus from '@/utils/eventBus'
 import { shortcutService } from '@/services/shortcutService'
+import { dataSyncService } from '@/services/dataSyncService'
 
 // 声明存储事件处理函数的变量
 let storageEventHandler: ((e: StorageEvent) => void) | null = null
@@ -200,8 +201,20 @@ const files = () => {
   emit('open-user-tab', 'files')
   showUserMenu.value = false
 }
-const logout = () => {
+const logout = async () => {
   const isSkippedLogin = localStorage.getItem('login-skipped') === 'true'
+
+  // 检查数据同步状态，如果开启则停止
+  try {
+    if (dataSyncService.getInitializationStatus()) {
+      console.log('登出时检测到数据同步已启用，正在停止...')
+      await dataSyncService.disableDataSync()
+      dataSyncService.reset() // 重置初始化状态
+      console.log('数据同步已停止')
+    }
+  } catch (error) {
+    console.error('登出时停止数据同步失败:', error)
+  }
 
   if (isSkippedLogin) {
     // 如果是跳过登录的用户，直接清除状态并跳转

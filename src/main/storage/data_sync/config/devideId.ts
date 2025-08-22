@@ -1,4 +1,4 @@
-import os from 'os'
+import * as os from 'os'
 import { execSync } from 'child_process'
 
 const getSystemUUID = (): string => {

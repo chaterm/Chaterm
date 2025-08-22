@@ -1,4 +1,22 @@
 import Database from 'better-sqlite3'
+import { randomUUID } from 'crypto'
+
+/**
+ * 触发增量同步
+ * 数据变更后调用，触发立即同步
+ */
+function triggerIncrementalSync(): void {
+  // 使用动态导入避免循环依赖
+  setImmediate(async () => {
+    try {
+      const { SyncController } = await import('../../data_sync/core/SyncController')
+      await SyncController.triggerIncrementalSync()
+    } catch (error) {
+      console.warn('触发增量同步失败:', error)
+      // 不抛出异常，避免影响数据库操作
+    }
+  })
+}
 
 // Get keychain options
 export function getKeyChainSelectLogic(db: Database.Database): any {
@@ -30,10 +48,19 @@ export function createKeyChainLogic(db: Database.Database, params: any): any {
     if (!form) {
       throw new Error('No keychain data provided')
     }
+
+    // Generate UUID for the keychain
+    const uuid = randomUUID()
+
     const insertStmt = db.prepare(`
-        INSERT INTO t_asset_chains (chain_name, chain_private_key, chain_public_key, chain_type, passphrase) VALUES (?, ?, ?, ?, ?)
+        INSERT INTO t_asset_chains (chain_name, chain_private_key, chain_public_key, chain_type, passphrase, uuid) VALUES (?, ?, ?, ?, ?, ?)
       `)
-    const result = insertStmt.run(form.chain_name, form.private_key, form.public_key, form.chain_type, form.passphrase)
+    const result = insertStmt.run(form.chain_name, form.private_key, form.public_key, form.chain_type, form.passphrase, uuid)
+
+    if (result.changes > 0) {
+      triggerIncrementalSync()
+    }
+
     return {
       data: {
         message: result.changes > 0 ? 'success' : 'failed'
@@ -47,11 +74,17 @@ export function createKeyChainLogic(db: Database.Database, params: any): any {
 
 export function deleteKeyChainLogic(db: Database.Database, id: number): any {
   try {
+    // 删除资产链记录
     const stmt = db.prepare(`
         DELETE FROM t_asset_chains
         WHERE key_chain_id = ?
       `)
     const result = stmt.run(id)
+
+    if (result.changes > 0) {
+      triggerIncrementalSync()
+    }
+
     return {
       data: {
         message: result.changes > 0 ? 'success' : 'failed'
@@ -90,10 +123,17 @@ export function updateKeyChainLogic(db: Database.Database, params: any): any {
             chain_private_key = ?,
             chain_public_key = ?,
             chain_type = ?,
-            passphrase = ?
+            passphrase = ?,
+            updated_at = datetime('now')
         WHERE key_chain_id = ?
       `)
     const result = stmt.run(form.chain_name, form.private_key, form.public_key, form.chain_type, form.passphrase, form.key_chain_id)
+
+    //  数据更新成功后，触发增量同步
+    if (result.changes > 0) {
+      triggerIncrementalSync()
+    }
+
     return {
       data: {
         message: result.changes > 0 ? 'success' : 'failed'

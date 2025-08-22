@@ -400,8 +400,8 @@
   <Modal
     v-model:open="showMoveToFolderModal"
     :title="t('personal.moveToFolder')"
-    @cancel="showMoveToFolderModal = false"
     :footer="null"
+    @cancel="showMoveToFolderModal = false"
   >
     <div
       v-if="customFolders.length === 0"

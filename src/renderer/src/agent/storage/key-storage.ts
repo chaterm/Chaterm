@@ -100,7 +100,7 @@ async function migrateOldDatabase(userId: number): Promise<void> {
           writeTransaction.oncomplete = () => {
             newDb.close()
             indexedDB.deleteDatabase(oldDbName).onsuccess = () => {
-              console.log('✅ Old database migrated and deleted successfully.')
+              console.log('Old database migrated and deleted successfully.')
               resolve()
             }
           }
@@ -160,14 +160,14 @@ async function openDB(): Promise<IDBDatabase> {
         const database = target.result as IDBDatabase
         userDatabases.set(userId, database)
         setCurrentUser(userId)
-        console.log(`✅ IndexedDB connection established for user ${userId}`)
+        console.log(`IndexedDB connection established for user ${userId}`)
         resolve(database)
       }
     }
 
     request.onerror = (event: Event) => {
       const target = event.target as DBRequest | null
-      console.error(`❌ IndexedDB error for user ${userId}:`, target?.error)
+      console.error(` IndexedDB error for user ${userId}:`, target?.error)
       reject(target?.error)
     }
   })

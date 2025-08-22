@@ -2,14 +2,7 @@ import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse } from 'axios'
 import { Agent as HttpAgent } from 'http'
 import { Agent as HttpsAgent } from 'https'
 import { syncConfig } from '../config/sync.config'
-import {
-  BackupInitResponse,
-  GetChangesResponse,
-  SyncRequest,
-  SyncResponse,
-  FullSyncSessionResponse,
-  FullSyncBatchResponse
-} from '../models/SyncTypes'
+import { BackupInitResponse, GetChangesResponse, SyncResponse, FullSyncSessionResponse, FullSyncBatchResponse } from '../models/SyncTypes'
 import { logger } from '../utils/logger'
 import { gzipSync } from 'zlib'
 import { chatermAuthAdapter } from '../envelope_encryption/services/auth'
@@ -55,7 +48,7 @@ export class ApiClient {
         // 直接就地修改，避免整体覆盖 headers
         if (!config.headers) config.headers = {} as any
 
-        // 🔧 使用统一的认证适配器获取token
+        // 使用统一的认证适配器获取token
         const token = await chatermAuthAdapter.getAuthToken()
         if (token) {
           try {
@@ -68,6 +61,7 @@ export class ApiClient {
           ;(config.headers as any).set?.('X-Device-ID', syncConfig.deviceId)
         } catch {}
         ;(config.headers as any)['X-Device-ID'] = syncConfig.deviceId
+
         return config
       },
       (error) => {
@@ -100,6 +94,15 @@ export class ApiClient {
           // 可以在这里触发重新登录逻辑或通知上层
         }
 
+        // 检查是否是网络连接错误
+        if (this.isNetworkError(error)) {
+          // 创建一个特殊的网络错误，包含标识信息
+          const networkError = new Error('NETWORK_UNAVAILABLE')
+          ;(networkError as any).isNetworkError = true
+          ;(networkError as any).originalError = error
+          return Promise.reject(networkError)
+        }
+
         // 适配新的错误响应格式
         let errorMessage = error.message
         if (error.response?.data) {
@@ -116,6 +119,42 @@ export class ApiClient {
         return Promise.reject(new Error(errorMessage))
       }
     )
+  }
+
+  /**
+   * 检查是否是网络连接错误
+   */
+  private isNetworkError(error: any): boolean {
+    // 检查常见的网络连接错误
+    if (error.code) {
+      const networkErrorCodes = [
+        'ECONNREFUSED', // 连接被拒绝
+        'ENOTFOUND', // 域名解析失败
+        'ECONNRESET', // 连接重置
+        'ETIMEDOUT', // 连接超时
+        'ECONNABORTED', // 连接中止
+        'ENETUNREACH', // 网络不可达
+        'EHOSTUNREACH' // 主机不可达
+      ]
+      if (networkErrorCodes.includes(error.code)) {
+        return true
+      }
+    }
+
+    // 检查 axios 特定的网络错误
+    if (error.message) {
+      const networkMessages = ['Network Error', 'connect ECONNREFUSED', 'getaddrinfo ENOTFOUND', 'timeout', 'Request failed']
+      if (networkMessages.some((msg) => error.message.includes(msg))) {
+        return true
+      }
+    }
+
+    // 检查是否没有响应（通常表示网络问题）
+    if (!error.response && error.request) {
+      return true
+    }
+
+    return false
   }
 
   async backupInit(): Promise<BackupInitResponse> {
@@ -139,6 +178,7 @@ export class ApiClient {
       data,
       device_id: syncConfig.deviceId
     }
+
     const json = JSON.stringify(payload)
     // 当请求体较大且启用压缩时启用 gzip，简单阈值 1KB
     if (syncConfig.compressionEnabled && Buffer.byteLength(json, 'utf8') > 1024) {
@@ -161,8 +201,6 @@ export class ApiClient {
     const res = await this.client.get('/sync/changes', { params })
     return res.data as GetChangesResponse
   }
-
-  // ==================== 新增分批同步接口 ====================
 
   /**
    * 开始全量同步会话
@@ -206,7 +244,6 @@ export class ApiClient {
     if (this.httpsAgent) {
       this.httpsAgent.destroy()
     }
-    logger.info('API客户端资源已清理')
   }
 
   /**
@@ -262,7 +299,6 @@ export class ApiClient {
 
   clearAuthInfo(): void {
     chatermAuthAdapter.clearAuthInfo()
-    logger.info('已清除认证信息')
   }
 
   getAuthStatus() {
@@ -270,7 +306,7 @@ export class ApiClient {
   }
 
   /**
-   * 🔧 获取当前认证令牌
+   * 获取当前认证令牌
    */
   async getAuthToken(): Promise<string | null> {
     return await chatermAuthAdapter.getAuthToken()
