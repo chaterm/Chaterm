@@ -95,6 +95,7 @@ import { aliasConfigStore } from '@/store/aliasConfigStore'
 import { userConfigStore } from '../../../store/userConfigStore'
 import { userConfigStore as serviceUserConfig } from '@/services/userConfigStoreService'
 import { v4 as uuidv4 } from 'uuid'
+import { Base64Util } from '@/utils/base64'
 import { userInfoStore } from '@/store/index'
 import stripAnsi from 'strip-ansi'
 import { inputManager, commandBarHeight } from './termInputManager'
@@ -855,7 +856,12 @@ const connectSSH = async () => {
 
     const email = userInfoStore().userInfo.email
     const name = userInfoStore().userInfo.name
-    connectionId.value = `${props.connectData.username}@${props.connectData.ip}:local:${uuidv4()}`
+    console.log(7777, props)
+    console.log(8888, assetInfo)
+    const orgType = props.serverInfo.organizationId === 'personal' ? 'local' : 'local-team'
+    const hostnameBase64 =
+      props.serverInfo.organizationId === 'personal' ? Base64Util.encode(assetInfo.asset_ip) : Base64Util.encode(assetInfo.hostname)
+    connectionId.value = `${assetInfo.username}@${props.connectData.ip}:${orgType}:${hostnameBase64}:${uuidv4()}`
 
     if (assetInfo.sshType === 'jumpserver' && terminal.value) {
       jumpServerStatusHandler = createJumpServerStatusHandler(terminal.value, connectionId.value)
