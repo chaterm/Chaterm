@@ -1,6 +1,7 @@
 import CryptoUtils from './utils/crypto'
 import { StorageManager } from './utils/storage'
 import ApiClient from './services/apiClient'
+import config from './config'
 
 interface EncryptionResult {
   encrypted: string
@@ -56,8 +57,8 @@ class ClientSideCrypto {
     cacheHits: 0,
     cacheMisses: 0
   }
-  private readonly CACHE_EXPIRY_MS = 24 * 60 * 60 * 1000 // 24小时过期
-  private readonly MAX_CACHE_SIZE = 100 // 最大缓存条目数
+  private readonly CACHE_EXPIRY_MS = config?.timeout?.keyExpiry
+  private readonly MAX_CACHE_SIZE = 1000 // 最大缓存条目数
 
   constructor(serverUrl: string) {
     this.apiClient = new ApiClient(serverUrl)
