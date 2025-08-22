@@ -259,16 +259,6 @@ export function getLocalAssetRouteLogic(db: Database.Database, searchType: strin
         result.data.routers.push({
           key: orgAsset.uuid,
           title: orgAsset.label || orgAsset.asset_ip,
-          favorite: orgAsset.favorite === 1,
-          ip: orgAsset.asset_ip,
-          uuid: orgAsset.uuid,
-          port: orgAsset.port || 22,
-          username: orgAsset.username,
-          password: orgAsset.password,
-          key_chain_id: orgAsset.key_chain_id || 0,
-          auth_type: orgAsset.auth_type,
-          asset_type: 'organization',
-          organizationId: orgAsset.uuid,
           children: children
         })
       }

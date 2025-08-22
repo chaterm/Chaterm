@@ -5,7 +5,7 @@ export interface CommandResult {
 export interface AssetNode {
   key: string
   title: string
-  favorite: boolean
+  favorite: number
   ip: string
   uuid: string
   group_name?: string
