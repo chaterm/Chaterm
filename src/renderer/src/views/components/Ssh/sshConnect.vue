@@ -521,6 +521,7 @@ onMounted(async () => {
   eventBus.on('sendOrToggleAiFromTerminalForTab', handleSendOrToggleAiForTab)
   eventBus.on('requestUpdateCwdForHost', handleRequestUpdateCwdForHost)
   eventBus.on('updateTheme', handleUpdateTheme)
+  eventBus.on('openSearch', openSearch)
 
   // Listen for font update events
   const handleUpdateFont = (newFontFamily) => {
@@ -537,6 +538,7 @@ onMounted(async () => {
     eventBus.off('sendOrToggleAiFromTerminalForTab', handleSendOrToggleAiForTab)
     eventBus.off('requestUpdateCwdForHost', handleRequestUpdateCwdForHost)
     eventBus.off('updateTerminalFont', handleUpdateFont)
+    eventBus.off('openSearch', openSearch)
     window.removeEventListener('keydown', handleGlobalKeyDown)
   })
 

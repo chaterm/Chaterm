@@ -270,6 +270,9 @@ onMounted(() => {
       term.value.options.fontFamily = newFontFamily
     }
   })
+
+  // Listen for openSearch event
+  eventBus.on('openSearch', openSearch)
 })
 
 onBeforeUnmount(() => {
@@ -289,6 +292,7 @@ onBeforeUnmount(() => {
   eventBus.off('executeTerminalCommand')
   eventBus.off('sendOrToggleAiFromTerminalForTab')
   eventBus.off('updateTerminalFont')
+  eventBus.off('openSearch')
   document.removeEventListener('mouseup', hideSelectionButton)
 })
 // Get all commands for current machine

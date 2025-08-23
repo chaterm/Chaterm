@@ -9,6 +9,10 @@
       {{ $t('common.paste') }}
       <span class="shortcut-key">{{ pasteShortcut }}</span>
     </v-contextmenu-item>
+    <v-contextmenu-item @click="onContextMenuAction('search')">
+      {{ $t('common.search') }}
+      <span class="shortcut-key">{{ searchShortcut }}</span>
+    </v-contextmenu-item>
 
     <!-- Divider -->
     <div class="context-menu-divider"></div>
@@ -71,12 +75,14 @@
 <script setup lang="ts">
 import { defineProps, ref, onMounted } from 'vue'
 import { isGlobalInput, isShowQuickCommand } from '../Ssh/termInputManager'
-import { getCopyShortcut, getPasteShortcut, getCloseShortcut } from '@/utils/shortcuts'
+import { getCopyShortcut, getPasteShortcut, getCloseShortcut, getSearchShortcut } from '@/utils/shortcuts'
+import eventBus from '@/utils/eventBus'
 
 // Reactive variables
 const copyShortcut = ref('')
 const pasteShortcut = ref('')
 const closeShortcut = ref('')
+const searchShortcut = ref('')
 
 const emit = defineEmits(['contextAct'])
 const props = defineProps({
@@ -146,6 +152,10 @@ const onContextMenuAction = (action) => {
     case 'fileManager':
       emit('contextAct', 'fileManager')
       break
+    case 'search':
+      // Trigger search through event bus to open search interface
+      eventBus.emit('openSearch')
+      break
     default:
       break
   }
@@ -158,12 +168,14 @@ onMounted(async () => {
     copyShortcut.value = await getCopyShortcut()
     pasteShortcut.value = await getPasteShortcut()
     closeShortcut.value = await getCloseShortcut()
+    searchShortcut.value = await getSearchShortcut()
   } catch (error) {
     console.error('Failed to load shortcuts:', error)
     // Fallback display
     copyShortcut.value = 'Ctrl+C'
     pasteShortcut.value = 'Ctrl+V'
     closeShortcut.value = 'Ctrl+D'
+    searchShortcut.value = 'Ctrl+F'
   }
 })
 </script>
