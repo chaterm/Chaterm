@@ -365,7 +365,8 @@ export default {
       switchToNextTab: 'Next Tab',
       switchToPrevTab: 'Previous Tab',
       switchToSpecificTab: 'Switch to specific Tab[1...9]',
-      openCommandDialog: 'Open AI Command Generator'
+      openCommandDialog: 'Open AI Command Generator',
+      newTab: 'New Tab'
     }
   },
   personal: {

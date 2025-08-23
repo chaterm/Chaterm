@@ -110,5 +110,16 @@ export const shortcutActions: Omit<ShortcutAction, 'name'>[] = [
     handler: () => {
       eventBus.emit('openCommandDialog')
     }
+  },
+  {
+    id: 'newTab',
+    nameKey: 'shortcuts.actions.newTab',
+    defaultKey: {
+      mac: 'Command+N',
+      other: 'Ctrl+N'
+    },
+    handler: () => {
+      eventBus.emit('createNewTerminal')
+    }
   }
 ]

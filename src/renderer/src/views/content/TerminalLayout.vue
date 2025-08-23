@@ -472,6 +472,10 @@ onMounted(async () => {
   })
   window.addEventListener('resize', updatePaneSize)
   aliasConfig.initialize()
+
+  // Initialize shortcut service
+  shortcutService.init()
+
   eventBus.on('currentClickServer', currentClickServer)
   eventBus.on('getActiveTabAssetInfo', handleGetActiveTabAssetInfo)
   eventBus.on('toggleSideBar', toggleSideBar)
@@ -482,6 +486,7 @@ onMounted(async () => {
   eventBus.on('switchToNextTab', switchToNextTab)
   eventBus.on('switchToPrevTab', switchToPrevTab)
   eventBus.on('switchToSpecificTab', switchToSpecificTab)
+  eventBus.on('createNewTerminal', handleCreateNewTerminal)
 
   nextTick(() => {
     let theme = localStorage.getItem('theme') || 'dark'
@@ -908,6 +913,38 @@ const handleCreateVerticalSplitTab = (tabInfo) => {
   checkActiveTab(tabInfo.type)
 }
 
+const handleCreateNewTerminal = () => {
+  // Get current active tab info to create new terminal with same configuration
+  const activeTab = openedTabs.value.find((tab) => tab.id === activeTabId.value)
+
+  if (activeTab) {
+    // Create new terminal with same configuration as current active tab
+    const newTerminalInfo = {
+      title: activeTab.title,
+      content: activeTab.content,
+      type: activeTab.type,
+      organizationId: activeTab.organizationId,
+      ip: activeTab.ip,
+      data: activeTab.data
+    }
+
+    // Create new tab in main terminal area
+    createTab(newTerminalInfo)
+  } else {
+    // If no active tab, create a default terminal
+    const defaultTerminalInfo = {
+      title: 'Terminal',
+      content: 'term',
+      type: 'term',
+      organizationId: '',
+      ip: '',
+      data: {}
+    }
+
+    createTab(defaultTerminalInfo)
+  }
+}
+
 const switchTab = (tabId) => {
   activeTabId.value = tabId
   allTabs.value?.resizeTerm(tabId)
@@ -933,6 +970,7 @@ onUnmounted(() => {
   eventBus.off('switchToNextTab', switchToNextTab)
   eventBus.off('switchToPrevTab', switchToPrevTab)
   eventBus.off('switchToSpecificTab', switchToSpecificTab)
+  eventBus.off('createNewTerminal', handleCreateNewTerminal)
 })
 const openUserTab = function (value) {
   if (value === 'assetConfig' || value === 'keyChainConfig' || value === 'userInfo' || value === 'userConfig') {

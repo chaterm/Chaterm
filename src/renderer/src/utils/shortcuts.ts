@@ -87,3 +87,17 @@ export const getSearchShortcut = async (): Promise<string> => {
       return 'Ctrl+F'
   }
 }
+
+// Get new tab shortcut
+export const getNewTabShortcut = async (): Promise<string> => {
+  const currentPlatform = await initPlatform()
+
+  switch (currentPlatform) {
+    case 'darwin':
+      return '⌘N'
+    case 'win32':
+    case 'linux':
+    default:
+      return 'Ctrl+N'
+  }
+}

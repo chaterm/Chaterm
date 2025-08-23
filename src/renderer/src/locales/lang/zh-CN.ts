@@ -366,7 +366,8 @@ export default {
       switchToNextTab: '切换到下一个标签页',
       switchToPrevTab: '切换到上一个标签页',
       switchToSpecificTab: '切换到指定标签页[1...9]',
-      openCommandDialog: '打开AI命令生成对话框'
+      openCommandDialog: '打开AI命令生成对话框',
+      newTab: '新Tab页'
     }
   },
   personal: {
