@@ -73,3 +73,17 @@ export const getCloseShortcut = async (): Promise<string> => {
       return 'Ctrl+D'
   }
 }
+
+// Get search shortcut
+export const getSearchShortcut = async (): Promise<string> => {
+  const currentPlatform = await initPlatform()
+
+  switch (currentPlatform) {
+    case 'darwin':
+      return '⌘F'
+    case 'win32':
+    case 'linux':
+    default:
+      return 'Ctrl+F'
+  }
+}
