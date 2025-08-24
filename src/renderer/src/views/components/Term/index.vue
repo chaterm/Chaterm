@@ -273,6 +273,10 @@ onMounted(() => {
 
   // Listen for openSearch event
   eventBus.on('openSearch', openSearch)
+
+  eventBus.on('clearCurrentTerminal', () => {
+    contextAct('clearTerm')
+  })
 })
 
 onBeforeUnmount(() => {
@@ -293,6 +297,7 @@ onBeforeUnmount(() => {
   eventBus.off('sendOrToggleAiFromTerminalForTab')
   eventBus.off('updateTerminalFont')
   eventBus.off('openSearch')
+  eventBus.off('clearCurrentTerminal')
   document.removeEventListener('mouseup', hideSelectionButton)
 })
 // Get all commands for current machine

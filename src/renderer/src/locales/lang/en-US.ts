@@ -366,7 +366,9 @@ export default {
       switchToPrevTab: 'Previous Tab',
       switchToSpecificTab: 'Switch to specific Tab[1...9]',
       openCommandDialog: 'Open AI Command Generator',
-      newTab: 'New Tab'
+      newTab: 'New Tab',
+      openFileManager: 'Open File Manager',
+      clearTerminal: 'Clear Terminal'
     }
   },
   personal: {

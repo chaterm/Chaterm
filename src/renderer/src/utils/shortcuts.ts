@@ -101,3 +101,31 @@ export const getNewTabShortcut = async (): Promise<string> => {
       return 'Ctrl+N'
   }
 }
+
+// Get clear terminal shortcut
+export const getClearTermShortcut = async (): Promise<string> => {
+  const currentPlatform = await initPlatform()
+
+  switch (currentPlatform) {
+    case 'darwin':
+      return '⌘P'
+    case 'win32':
+    case 'linux':
+    default:
+      return 'Ctrl+P'
+  }
+}
+
+// Get file manager shortcut
+export const getFileManagerShortcut = async (): Promise<string> => {
+  const currentPlatform = await initPlatform()
+
+  switch (currentPlatform) {
+    case 'darwin':
+      return '⌘M'
+    case 'win32':
+    case 'linux':
+    default:
+      return 'Ctrl+M'
+  }
+}
