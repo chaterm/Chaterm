@@ -523,6 +523,10 @@ onMounted(async () => {
   eventBus.on('updateTheme', handleUpdateTheme)
   eventBus.on('openSearch', openSearch)
 
+  eventBus.on('clearCurrentTerminal', () => {
+    contextAct('clearTerm')
+  })
+
   // Listen for font update events
   const handleUpdateFont = (newFontFamily) => {
     if (terminal.value) {
@@ -539,6 +543,7 @@ onMounted(async () => {
     eventBus.off('requestUpdateCwdForHost', handleRequestUpdateCwdForHost)
     eventBus.off('updateTerminalFont', handleUpdateFont)
     eventBus.off('openSearch', openSearch)
+    eventBus.off('clearCurrentTerminal')
     window.removeEventListener('keydown', handleGlobalKeyDown)
   })
 
