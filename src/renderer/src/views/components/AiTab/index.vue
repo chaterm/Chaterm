@@ -343,14 +343,22 @@
                 {{ $t('ai.processing') }}
               </span>
             </div>
+            <!--            <a-textarea-->
+            <!--              :value="displayInputValue"-->
+            <!--              :placeholder="chatTypeValue === 'agent' ? $t('ai.agentMessage') : chatTypeValue === 'chat' ? $t('ai.chatMessage') : $t('ai.cmdMessage')"-->
+            <!--              class="chat-textarea"-->
+            <!--              :auto-size="{ minRows: 2, maxRows: 5 }"-->
+            <!--              @keydown="handleKeyDown"-->
+            <!--              @input="handleInputChange"-->
+            <!--              @update:value="(val) => (chatInputValue = val)"-->
+            <!--            />-->
             <a-textarea
-              :value="displayInputValue"
-              :placeholder="chatTypeValue === 'agent' ? $t('ai.agentMessage') : chatTypeValue === 'chat' ? $t('ai.cmdMessage') : $t('ai.cmdMessage')"
+              v-model:value="chatInputValue"
+              :placeholder="chatTypeValue === 'agent' ? $t('ai.agentMessage') : chatTypeValue === 'chat' ? $t('ai.chatMessage') : $t('ai.cmdMessage')"
               class="chat-textarea"
               :auto-size="{ minRows: 2, maxRows: 5 }"
               @keydown="handleKeyDown"
               @input="handleInputChange"
-              @update:value="(val) => (chatInputValue = val)"
             />
             <div class="input-controls">
               <a-select
@@ -621,7 +629,7 @@ import historyIcon from '@/assets/icons/history.svg'
 import plusIcon from '@/assets/icons/plus.svg'
 import sendIcon from '@/assets/icons/send.svg'
 import VoiceInput from './voiceInput.vue'
-// import VoiceInputRealTime from './voiceInputRealTime.vue'
+import VoiceInputRealTime from './voiceInputRealTime.vue'
 import { useCurrentCwdStore } from '@/store/currentCwdStore'
 import debounce from 'lodash/debounce'
 import i18n from '@/locales'
@@ -693,7 +701,7 @@ const lastVoiceSessionData = ref('')
 const activeKey = ref('chat')
 
 // 语音组件的引用
-const tencentVoiceInputRef = ref<InstanceType<typeof TencentVoiceInput> | null>(null)
+const tencentVoiceInputRef = ref<InstanceType<typeof VoiceInputRealTime> | null>(null)
 
 // 计算输入框的显示值：chatInputValue + tempVoiceDisplay
 const displayInputValue = computed(() => {
