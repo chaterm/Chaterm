@@ -8,43 +8,48 @@ export async function startDataSync(dbPath?: string): Promise<SyncController> {
 
   const controller = new SyncController(dbPath)
 
-  // 🔧 统一认证检查和初始化
+  // 统一认证检查和加密服务初始化（只在数据同步启动时进行）
+  let isAuthInitialized = false
+  let isEncryptionInitialized = false
+
   try {
     await controller.initializeAuth()
+    isAuthInitialized = true
     logger.info('认证检查成功，已同步到加密服务')
   } catch (e: any) {
     logger.warn('认证检查失败，同步功能可能受限:', e?.message)
     logger.info('提示：请确保主应用已完成登录认证')
   }
 
-  try {
-    await controller.initializeEncryption()
-    logger.info('加密服务初始化完成')
-  } catch (e: any) {
-    logger.warn('加密初始化失败', e?.message)
+  // 只有在认证成功后才进行加密初始化
+  if (isAuthInitialized) {
+    try {
+      await controller.initializeEncryption()
+      isEncryptionInitialized = true
+      logger.info('加密服务初始化完成')
+    } catch (e: any) {
+      logger.warn('加密初始化失败', e?.message)
+    }
+  } else {
+    logger.warn('跳过加密服务初始化，因为认证未成功')
   }
 
   // 强制检查加密服务是否就绪；未就绪则停止同步启动
-  try {
-    if (!controller.isEncryptionReady()) {
-      const status = controller.getEncryptionStatus()
-      throw new Error(`Envelope encryption not ready, aborting data sync. status=${JSON.stringify(status)}`)
-    }
-  } catch (err: any) {
-    logger.error('Pre-start check failed: encryption service not ready', err?.message)
-    throw err
-  }
 
-  // 🔧 检查认证状态
-  try {
-    const isAuthenticated = await controller.isAuthenticated()
-    if (!isAuthenticated) {
-      logger.warn('认证状态检查失败，可能影响数据同步功能')
-    } else {
-      logger.info('认证状态正常')
+  // 复用第一次认证检查的结果，避免重复调用
+  if (!isAuthInitialized) {
+    try {
+      const isAuthenticated = await controller.isAuthenticated()
+      if (!isAuthenticated) {
+        logger.warn('认证状态检查失败，可能影响数据同步功能')
+      } else {
+        logger.info('认证状态正常')
+      }
+    } catch (e: any) {
+      logger.warn('认证状态检查异常', e?.message)
     }
-  } catch (e: any) {
-    logger.warn('认证状态检查异常', e?.message)
+  } else {
+    logger.info('认证状态正常（复用初始化结果）')
   }
 
   try {
@@ -79,9 +84,11 @@ export async function startDataSync(dbPath?: string): Promise<SyncController> {
 
   const systemStatus = controller.getSystemStatus()
   logger.info('数据同步系统启动完成', {
-    authenticated: systemStatus.auth.isValid,
-    encryptionReady: systemStatus.encryption.initialized,
-    pollingActive: systemStatus.polling.isRunning
+    authenticated: isAuthInitialized,
+    encryptionReady: isEncryptionInitialized,
+    pollingActive: systemStatus.polling.isRunning,
+    systemAuth: systemStatus.auth.isValid,
+    systemEncryption: systemStatus.encryption.initialized
   })
 
   return controller

@@ -183,6 +183,14 @@ export class PollingManager {
 
       return true
     } catch (error: any) {
+      // 检查是否是网络连接错误
+      if (error.message === 'NETWORK_UNAVAILABLE' || error.isNetworkError) {
+        // 网络错误时，不记录为失败，只记录警告
+        logger.debug('服务器不可用，本次轮询跳过')
+        this.handlePollError(error)
+        return true // 返回 true 表示轮询正常完成，只是服务器不可用
+      }
+
       this.handlePollError(error)
       return false
     } finally {
@@ -209,17 +217,38 @@ export class PollingManager {
       let totalUploaded = 0
 
       if (assetChanges.length > 0) {
-        const result = await this.syncEngine.incrementalSync('t_assets_sync')
-        totalUploaded += result.synced_count || 0
+        try {
+          const result = await this.syncEngine.incrementalSync('t_assets_sync')
+          totalUploaded += result.synced_count || 0
+        } catch (error: any) {
+          if (error.message === 'NETWORK_UNAVAILABLE' || error.isNetworkError) {
+            logger.warn('服务器不可用，跳过 t_assets_sync 上传')
+          } else {
+            throw error
+          }
+        }
       }
 
       if (chainChanges.length > 0) {
-        const result = await this.syncEngine.incrementalSync('t_asset_chains_sync')
-        totalUploaded += result.synced_count || 0
+        try {
+          const result = await this.syncEngine.incrementalSync('t_asset_chains_sync')
+          totalUploaded += result.synced_count || 0
+        } catch (error: any) {
+          if (error.message === 'NETWORK_UNAVAILABLE' || error.isNetworkError) {
+            logger.warn('服务器不可用，跳过 t_asset_chains_sync 上传')
+          } else {
+            throw error
+          }
+        }
       }
 
       return { hasChanges: totalUploaded > 0, count: totalUploaded }
-    } catch (error) {
+    } catch (error: any) {
+      // 检查是否是网络连接错误
+      if (error.message === 'NETWORK_UNAVAILABLE' || error.isNetworkError) {
+        logger.warn('服务器不可用，跳过本地变更上传')
+        return { hasChanges: false, count: 0 }
+      }
       logger.error('上传本地变更失败', error)
       throw error
     }
@@ -232,7 +261,12 @@ export class PollingManager {
     try {
       const result = await this.syncEngine.downloadAndApplyCloudChanges()
       return { hasChanges: result.applied > 0, count: result.applied }
-    } catch (error) {
+    } catch (error: any) {
+      // 检查是否是网络连接错误
+      if (error.message === 'NETWORK_UNAVAILABLE' || error.isNetworkError) {
+        logger.warn('服务器不可用，跳过云端变更下载')
+        return { hasChanges: false, count: 0 }
+      }
       logger.error('下载云端变更失败', error)
       throw error
     }
@@ -254,6 +288,13 @@ export class PollingManager {
    * 处理轮询错误
    */
   private handlePollError(error: any): void {
+    // 检查是否是网络连接错误
+    if (error.message === 'NETWORK_UNAVAILABLE' || error.isNetworkError) {
+      // 网络错误不计入连续错误次数，但记录警告
+      logger.warn('服务器不可用，轮询将继续尝试')
+      return
+    }
+
     this.status.consecutiveErrors++
     logger.error(`轮询失败 (连续${this.status.consecutiveErrors}次)`, error?.message)
 

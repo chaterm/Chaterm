@@ -28,7 +28,8 @@ CREATE TABLE IF NOT EXISTS t_assets (
   username TEXT,                                    -- 用户名
   password TEXT,                                    -- 密码
   key_chain_id INTEGER,                             -- 密钥链ID
-  favorite  INTEGER,                                -- 是否收藏
+  favorite  INTEGER DEFAULT 2,                     -- 是否收藏，默认值2表示未收藏
+  asset_type TEXT,                                  -- 类型
   version INTEGER NOT NULL DEFAULT 1                -- 版本号
 );
 
@@ -164,6 +165,27 @@ CREATE TABLE IF NOT EXISTS sync_meta (
         key TEXT PRIMARY KEY,
         value TEXT
       );
+
+CREATE TABLE IF NOT EXISTS sync_metadata (
+          table_name TEXT PRIMARY KEY,
+          last_sync_time TEXT,
+          last_sync_version INTEGER,
+          server_last_modified TEXT,
+          local_last_modified TEXT,
+          sync_status TEXT,
+          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      );
+CREATE TABLE IF NOT EXISTS sync_conflicts (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                table_name TEXT,
+                record_uuid TEXT,
+                conflict_reason TEXT,
+                local_data TEXT,
+                server_data TEXT,
+                status TEXT DEFAULT 'pending',
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            );
 
 -- 创建同步相关表的性能优化索引
 CREATE INDEX IF NOT EXISTS idx_change_log_sync_status ON change_log(sync_status);

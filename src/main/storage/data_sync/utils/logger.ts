@@ -1,7 +1,6 @@
 import { syncConfig } from '../config/sync.config'
 import * as fs from 'fs'
 import * as path from 'path'
-import { app } from 'electron'
 
 type Level = 'debug' | 'info' | 'warn' | 'error'
 
@@ -36,7 +35,14 @@ class StructuredLogger {
 
   constructor() {
     // 使用与数据库相同的用户数据目录
-    const userDataPath = app.getPath('userData')
+    let userDataPath: string
+    try {
+      const { app } = require('electron')
+      userDataPath = app.getPath('userData')
+    } catch (error) {
+      // 测试环境fallback
+      userDataPath = path.join(process.cwd(), 'test_data')
+    }
     this.logDir = path.join(userDataPath, 'logs', 'sync')
     this.currentDate = new Date().toISOString().split('T')[0] // YYYY-MM-DD format
     this.logFile = path.join(this.logDir, `sync-${this.currentDate}.log`)

@@ -12,7 +12,7 @@ export interface Asset {
   username: string
   password: string
   key_chain_id: number // 改为必填，匹配后端 uint32
-  favorite: boolean
+  favorite: number // 1=收藏, 2=未收藏
   asset_type?: string
   created_at: string | Date
   updated_at: string | Date

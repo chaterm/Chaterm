@@ -46,8 +46,6 @@ export class FullSyncTimerManager {
 
     this.fullSyncCallback = fullSyncCallback || null
     this.conflictCheckCallback = conflictCheckCallback || null
-
-    logger.info(`全量同步定时器初始化完成，间隔: ${this.config.intervalHours}小时`)
   }
 
   /**

@@ -50,6 +50,16 @@
           />
         </a-form-item>
         <a-form-item
+          :label="$t('user.fontFamily')"
+          class="user_my-ant-form-item"
+        >
+          <a-select
+            v-model:value="userConfig.fontFamily"
+            class="font-family-select"
+            :options="fontFamilyOptions"
+          />
+        </a-form-item>
+        <a-form-item
           :label="$t('user.scrollBack')"
           class="user_my-ant-form-item"
         >
@@ -184,9 +194,11 @@ import { ref, onMounted, watch } from 'vue'
 import { notification } from 'ant-design-vue'
 import { userConfigStore } from '@/services/userConfigStoreService'
 import { useI18n } from 'vue-i18n'
+import eventBus from '@/utils/eventBus'
 const { t } = useI18n()
 const userConfig = ref({
   fontSize: 12,
+  fontFamily: 'Menlo, Monaco, "Courier New", Consolas, Courier, monospace',
   scrollBack: 1000,
   cursorStyle: 'block',
   middleMouseEvent: 'paste',
@@ -195,6 +207,24 @@ const userConfig = ref({
   sshAgentsStatus: 2,
   sshAgentsMap: '[]'
 })
+
+const fontFamilyOptions = [
+  { value: 'Menlo, Monaco, "Courier New", Consolas, Courier, monospace', label: 'Menlo (默认)' },
+  { value: 'Monaco, "Courier New", Consolas, Courier, monospace', label: 'Monaco' },
+  { value: '"Courier New", Courier, monospace', label: 'Courier New' },
+  { value: 'Consolas, "Courier New", Courier, monospace', label: 'Consolas' },
+  { value: 'Courier, monospace', label: 'Courier' },
+  { value: '"DejaVu Sans Mono", "Bitstream Vera Sans Mono", Monaco, "Courier New", Courier, monospace', label: 'DejaVu Sans Mono' },
+  { value: '"Fira Code", "Courier New", Courier, monospace', label: 'Fira Code' },
+  { value: '"JetBrains Mono", "Courier New", Courier, monospace', label: 'JetBrains Mono' },
+  { value: '"Source Code Pro", "Courier New", Courier, monospace', label: 'Source Code Pro' },
+  { value: '"Ubuntu Mono", "Courier New", Courier, monospace', label: 'Ubuntu Mono' },
+  { value: '"Liberation Mono", "Courier New", Courier, monospace', label: 'Liberation Mono' },
+  { value: '"SF Mono", Monaco, "Courier New", Courier, monospace', label: 'SF Mono' },
+  { value: '"Hack", "Courier New", Courier, monospace', label: 'Hack' },
+  { value: '"Inconsolata", "Courier New", Courier, monospace', label: 'Inconsolata' },
+  { value: '"Roboto Mono", "Courier New", Courier, monospace', label: 'Roboto Mono' }
+]
 
 const columns = [
   {
@@ -334,6 +364,7 @@ const saveConfig = async () => {
   try {
     const configToStore = {
       fontSize: userConfig.value.fontSize,
+      fontFamily: userConfig.value.fontFamily,
       scrollBack: userConfig.value.scrollBack,
       cursorStyle: userConfig.value.cursorStyle,
       middleMouseEvent: userConfig.value.middleMouseEvent,
@@ -359,6 +390,13 @@ watch(
     await saveConfig()
   },
   { deep: true }
+)
+
+watch(
+  () => userConfig.value.fontFamily,
+  (newFontFamily) => {
+    eventBus.emit('updateTerminalFont', newFontFamily)
+  }
 )
 
 onMounted(async () => {
@@ -487,6 +525,65 @@ onMounted(async () => {
 .terminal-type-select {
   width: 150px !important;
   text-align: left;
+}
+
+.font-family-select {
+  width: 200px !important;
+  text-align: left;
+}
+
+.font-family-select :deep(.ant-select-selector) {
+  background-color: var(--bg-color-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  color: var(--text-color);
+  transition: all 0.3s;
+  height: 32px;
+}
+
+.font-family-select :deep(.ant-select-selector:hover) {
+  border-color: #1890ff;
+  background-color: var(--hover-bg-color);
+}
+
+.font-family-select :deep(.ant-select-focused .ant-select-selector),
+.font-family-select :deep(.ant-select-selector:focus) {
+  border-color: #1890ff;
+  box-shadow: 0 0 0 2px rgba(24, 144, 255, 0.2);
+  background-color: var(--hover-bg-color);
+}
+
+.font-family-select :deep(.ant-select-selection-item) {
+  color: var(--text-color);
+  font-size: 14px;
+  line-height: 32px;
+}
+
+.font-family-select :deep(.ant-select-arrow) {
+  color: var(--text-color);
+  opacity: 0.7;
+}
+
+[data-theme='light'] .font-family-select :deep(.ant-select-selector) {
+  background-color: #f5f5f5;
+  border-color: #d9d9d9;
+}
+
+[data-theme='light'] .font-family-select :deep(.ant-select-selector:hover),
+[data-theme='light'] .font-family-select :deep(.ant-select-focused .ant-select-selector) {
+  background-color: #fafafa;
+  border-color: #1890ff;
+}
+
+[data-theme='dark'] .font-family-select :deep(.ant-select-selector) {
+  background-color: #2a2a2a;
+  border-color: #404040;
+}
+
+[data-theme='dark'] .font-family-select :deep(.ant-select-selector:hover),
+[data-theme='dark'] .font-family-select :deep(.ant-select-focused .ant-select-selector) {
+  background-color: #363636;
+  border-color: #1890ff;
 }
 
 .divider-container {

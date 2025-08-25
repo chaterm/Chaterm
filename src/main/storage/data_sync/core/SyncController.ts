@@ -4,6 +4,7 @@ import { SyncEngine } from './SyncEngine'
 import { PollingManager } from '../services/PollingManager'
 import { SafeBatchSyncManager } from './SafeBatchSyncManager'
 import { FullSyncTimerManager } from '../services/FullSyncTimerManager'
+import { SyncStateManager, SyncType, SyncState, type SyncStatus } from './SyncStateManager'
 import { syncConfig } from '../config/sync.config'
 import { logger } from '../utils/logger'
 import { EnvelopeEncryptionService } from '../envelope_encryption/service'
@@ -17,7 +18,11 @@ export class SyncController {
   private pollingManager: PollingManager
   private safeBatchSync: SafeBatchSyncManager
   private fullSyncTimer: FullSyncTimerManager
+  private syncStateManager: SyncStateManager
   private encryptionService: EnvelopeEncryptionService
+
+  // 简化的实时同步
+  private static instance: SyncController | null = null
 
   constructor(dbPathOverride?: string) {
     this.api = new ApiClient()
@@ -30,6 +35,19 @@ export class SyncController {
     })
     this.safeBatchSync = new SafeBatchSyncManager(this.api, this.db)
 
+    // 初始化同步状态管理器
+    this.syncStateManager = new SyncStateManager()
+
+    // 添加状态监听器
+    this.syncStateManager.addStatusListener((status: SyncStatus) => {
+      logger.info(`同步状态变化: ${status.type} - ${status.state}`, {
+        progress: status.progress,
+        message: status.message,
+        startTime: status.startTime,
+        error: status.error?.message
+      })
+    })
+
     // 初始化全量同步定时器
     this.fullSyncTimer = new FullSyncTimerManager(
       {
@@ -38,18 +56,21 @@ export class SyncController {
       },
       // 全量同步回调函数
       async () => {
-        await this.performScheduledFullSync()
+        await this.performScheduledFullSyncWithStateManagement()
       },
-      // 冲突检查回调函数：检查增量同步是否正在进行
+      // 冲突检查回调函数：检查是否有同步正在进行
       async () => {
-        const pollingStatus = this.pollingManager.getStatus()
-        return pollingStatus.isPerforming // 返回true表示增量同步正在进行，需要跳过全量同步
+        const currentStatus = this.syncStateManager.getCurrentStatus()
+        return currentStatus.state === SyncState.RUNNING // 返回true表示有同步正在进行，需要跳过
       }
     )
 
     // Initialize envelope encryption service and place in registry for data_sync usage
     this.encryptionService = new EnvelopeEncryptionService()
     setEncryptionService(this.encryptionService)
+
+    // 设置全局实例，用于静态方法调用
+    SyncController.instance = this
   }
 
   async initializeEncryption(userId?: string): Promise<void> {
@@ -89,7 +110,6 @@ export class SyncController {
     }
 
     this.encryptionService.setAuthInfo(currentToken, currentUserId)
-    logger.info(`已使用现有认证信息，用户 ${currentUserId}，已同步到加密服务`)
   }
 
   async backupInit(): Promise<void> {
@@ -97,48 +117,195 @@ export class SyncController {
     logger.info(`备份初始化: ${res.message}`, res.table_mappings)
   }
 
-  async fullSyncAll(): Promise<void> {
+  async fullSyncAll(): Promise<{ success: boolean; message: string; synced_count?: number; failed_count?: number }> {
     const lastSeq = this.db.getLastSequenceId()
-    if (lastSeq > 0) {
-      logger.info('检测到已初始化(last_sequence_id>0)，跳过全量同步')
-      return
+
+    // 检查是否有历史数据需要同步
+    const hasHistoricalData = await this.checkForHistoricalData()
+
+    if (lastSeq > 0 && !hasHistoricalData) {
+      logger.info('检测到已初始化(last_sequence_id>0)且无历史数据，跳过全量同步')
+      return { success: true, message: '已初始化，跳过全量同步', synced_count: 0, failed_count: 0 }
     }
 
-    logger.info('开始智能首次同步...')
+    if (hasHistoricalData) {
+      logger.info('检测到历史数据需要同步，执行全量同步...')
+    } else {
+      logger.info('开始强制全量同步（测试模式）...')
+    }
 
-    // 智能全量同步 - 根据数据量自动选择最优模式
-    await this.smartFullSync('t_assets_sync')
-    await this.smartFullSync('t_asset_chains_sync')
+    try {
+      // 智能全量同步 - 根据数据量自动选择最优模式
+      let syncedCount = 0
+      let failedCount = 0
 
-    logger.info('智能首次同步完成')
+      try {
+        await this.smartFullSync('t_assets_sync')
+        syncedCount++
+      } catch (error: any) {
+        if (error.message === 'NETWORK_UNAVAILABLE' || error.isNetworkError) {
+          logger.warn('服务器不可用，跳过 t_assets_sync 同步')
+        } else {
+          failedCount++
+          throw error
+        }
+      }
+
+      try {
+        await this.smartFullSync('t_asset_chains_sync')
+        syncedCount++
+      } catch (error: any) {
+        if (error.message === 'NETWORK_UNAVAILABLE' || error.isNetworkError) {
+          logger.warn('服务器不可用，跳过 t_asset_chains_sync 同步')
+        } else {
+          failedCount++
+          throw error
+        }
+      }
+
+      // 如果所有同步都因为服务器不可用而跳过
+      if (syncedCount === 0 && failedCount === 0) {
+        const message = '服务器不可用，同步操作已跳过'
+        logger.warn(message)
+        return { success: true, message, synced_count: 0, failed_count: 0 }
+      }
+
+      const message = hasHistoricalData ? '历史数据同步完成（测试模式）' : '强制全量同步完成（测试模式）'
+      logger.info(message)
+      return { success: true, message, synced_count: syncedCount, failed_count: failedCount }
+    } catch (error: any) {
+      const errorMessage = hasHistoricalData ? '历史数据同步失败（测试模式）' : '强制全量同步失败（测试模式）'
+      logger.error(`${errorMessage}:`, error)
+      return { success: false, message: `${errorMessage}: ${error?.message || error}`, synced_count: 0, failed_count: 1 }
+    }
   }
 
   /**
-   * 统一安全同步 - 使用SafeBatchSyncManager统一处理所有场景
+   * 检查是否有历史数据需要同步
+   * 历史数据指：存在于本地数据表中但不在change_log中的数据
+   */
+  private async checkForHistoricalData(): Promise<boolean> {
+    try {
+      // 检查 t_assets 表
+      const assetsCount = this.db.getHistoricalDataCount('t_assets')
+      // 检查 t_asset_chains 表
+      const chainsCount = this.db.getHistoricalDataCount('t_asset_chains')
+
+      const hasHistoricalData = assetsCount > 0 || chainsCount > 0
+
+      logger.info(`📊 历史数据检测结果: t_assets=${assetsCount}条, t_asset_chains=${chainsCount}条, 需要同步=${hasHistoricalData}`)
+
+      return hasHistoricalData
+    } catch (error) {
+      logger.warn('⚠️ 检查历史数据失败，默认执行全量同步:', error)
+      return true // 出错时保守处理，执行全量同步
+    }
+  }
+
+  /**
+   * 智能全量同步 - 真正的全量同步，包含上传和下载
    */
   private async smartFullSync(tableName: string): Promise<void> {
     try {
-      logger.info(`开始统一安全同步: ${tableName}`)
+      logger.info(`开始智能全量同步: ${tableName}`)
 
-      // 使用统一的安全分批同步管理器
-      // 内部会根据数据量和本地修改情况自动选择最优策略
-      await this.safeBatchSync.performSafeBatchSync(tableName, 500, (current: number, total: number, percentage: number) => {
-        logger.info(`${tableName} 同步进度: ${current}/${total} (${percentage}%)`)
-      })
-    } catch (error) {
-      logger.error(`${tableName} 统一安全同步失败:`, error)
+      // 第1步：上传本地历史数据（如果有的话）
+      try {
+        await this.safeBatchSync.performSafeBatchSync(tableName, 500, (current: number, total: number, percentage: number) => {
+          logger.info(`${tableName} 上传进度: ${current}/${total} (${percentage}%)`)
+        })
+      } catch (error: any) {
+        if (error.message === 'NETWORK_UNAVAILABLE' || error.isNetworkError) {
+          logger.warn(`服务器不可用，跳过 ${tableName} 的上传操作`)
+          return
+        }
+        throw error
+      }
+
+      // 第2步：从服务端全量下载数据
+      try {
+        logger.info(`开始从服务端全量下载: ${tableName}`)
+        const downloadedCount = await this.engine.fullSyncAndApply(tableName)
+        logger.info(`${tableName} 全量下载完成: ${downloadedCount} 条`)
+      } catch (error: any) {
+        if (error.message === 'NETWORK_UNAVAILABLE' || error.isNetworkError) {
+          logger.warn(`服务器不可用，跳过 ${tableName} 的下载操作`)
+          return
+        }
+        throw error
+      }
+    } catch (error: any) {
+      // 如果是网络错误，不要抛出异常，只记录警告
+      if (error.message === 'NETWORK_UNAVAILABLE' || error.isNetworkError) {
+        logger.warn(`服务器不可用，${tableName} 智能全量同步已跳过`)
+        return
+      }
+      logger.error(`${tableName} 智能全量同步失败:`, error)
       throw error
     }
   }
 
-  async incrementalSyncAll(): Promise<void> {
-    // 服务端分配的表名是 sync 表，如 t_assets_sync / t_asset_chains_sync
-    // 使用智能同步，自动根据数据量选择最优方案
-    await this.engine.incrementalSyncSmart('t_assets_sync')
-    await this.engine.incrementalSyncSmart('t_asset_chains_sync')
+  async incrementalSyncAll(): Promise<{ success: boolean; message: string; synced_count?: number; failed_count?: number }> {
+    try {
+      let syncedCount = 0
+      let failedCount = 0
 
-    // 下载并应用云端变更
-    await this.engine.downloadAndApplyCloudChanges()
+      // 服务端分配的表名是 sync 表，如 t_assets_sync / t_asset_chains_sync
+      // 使用智能同步，自动根据数据量选择最优方案
+      try {
+        await this.engine.incrementalSyncSmart('t_assets_sync')
+        syncedCount++
+      } catch (error: any) {
+        if (error.message === 'NETWORK_UNAVAILABLE' || error.isNetworkError) {
+          logger.warn('服务器不可用，跳过 t_assets_sync 增量同步')
+        } else {
+          failedCount++
+          throw error
+        }
+      }
+
+      try {
+        await this.engine.incrementalSyncSmart('t_asset_chains_sync')
+        syncedCount++
+      } catch (error: any) {
+        if (error.message === 'NETWORK_UNAVAILABLE' || error.isNetworkError) {
+          logger.warn('服务器不可用，跳过 t_asset_chains_sync 增量同步')
+        } else {
+          failedCount++
+          throw error
+        }
+      }
+
+      // 下载并应用云端变更
+      try {
+        await this.engine.downloadAndApplyCloudChanges()
+      } catch (error: any) {
+        if (error.message === 'NETWORK_UNAVAILABLE' || error.isNetworkError) {
+          logger.warn('服务器不可用，跳过云端变更下载')
+        } else {
+          throw error
+        }
+      }
+
+      // 如果所有同步都因为服务器不可用而跳过
+      if (syncedCount === 0 && failedCount === 0) {
+        const message = '服务器不可用，增量同步已跳过'
+        logger.warn(message)
+        return { success: true, message, synced_count: 0, failed_count: 0 }
+      }
+
+      logger.info('增量同步完成')
+      return { success: true, message: '增量同步完成', synced_count: syncedCount, failed_count: failedCount }
+    } catch (error: any) {
+      // 如果是网络错误，返回成功但记录警告
+      if (error.message === 'NETWORK_UNAVAILABLE' || error.isNetworkError) {
+        const message = '服务器不可用，增量同步已跳过'
+        logger.warn(message)
+        return { success: true, message, synced_count: 0, failed_count: 0 }
+      }
+      logger.error('增量同步失败:', error)
+      return { success: false, message: `增量同步失败: ${error?.message || error}`, synced_count: 0, failed_count: 1 }
+    }
   }
 
   /**
@@ -158,7 +325,7 @@ export class SyncController {
   }
 
   /**
-   * 执行定时全量同步（由FullSyncTimerManager调用）
+   * 执行定时全量同步（由FullSyncTimerManager调用）- 原始版本，保持兼容性
    */
   private async performScheduledFullSync(): Promise<void> {
     const wasRunning = this.pollingManager.getStatus().isRunning
@@ -178,6 +345,60 @@ export class SyncController {
     } catch (error) {
       logger.error('定时全量同步失败:', error)
       throw error // 让FullSyncTimerManager记录失败
+    } finally {
+      // 恢复增量同步轮询
+      if (wasRunning) {
+        await this.pollingManager.startPolling()
+      }
+    }
+  }
+
+  /**
+   * 带状态管理的定时全量同步（新版本）
+   */
+  private async performScheduledFullSyncWithStateManagement(): Promise<void> {
+    try {
+      // 通过状态管理器请求全量同步
+      await this.syncStateManager.requestSync(SyncType.FULL)
+
+      // 执行实际的全量同步逻辑
+      await this.executeFullSyncLogic()
+
+      // 标记同步完成
+      await this.syncStateManager.finishSync()
+    } catch (error) {
+      // 标记同步失败
+      await this.syncStateManager.failSync(error as Error)
+      throw error
+    }
+  }
+
+  /**
+   * 实际的全量同步执行逻辑
+   */
+  private async executeFullSyncLogic(): Promise<void> {
+    const wasRunning = this.pollingManager.getStatus().isRunning
+
+    try {
+      // 更新进度：开始阶段
+      this.syncStateManager.updateProgress(10, '准备全量同步...')
+
+      // 暂停增量同步轮询，避免冲突
+      if (wasRunning) {
+        await this.pollingManager.stopPolling()
+        this.syncStateManager.updateProgress(20, '已暂停增量同步轮询')
+      }
+
+      // 执行全量同步 - 资产表
+      this.syncStateManager.updateProgress(30, '同步资产数据...')
+      await this.smartFullSync('t_assets_sync')
+
+      // 执行全量同步 - 资产链表
+      this.syncStateManager.updateProgress(70, '同步资产链数据...')
+      await this.smartFullSync('t_asset_chains_sync')
+
+      this.syncStateManager.updateProgress(100, '全量同步完成')
+      logger.info('定时全量同步完成')
     } finally {
       // 恢复增量同步轮询
       if (wasRunning) {
@@ -212,17 +433,67 @@ export class SyncController {
   }
 
   /**
-   * 立即执行一次增量同步
+   * 立即执行一次增量同步（带状态管理）
    */
   async syncNow(): Promise<boolean> {
-    return await this.pollingManager.pollNow()
+    try {
+      // 检查是否可以开始增量同步
+      if (!this.syncStateManager.canStartSync(SyncType.INCREMENTAL)) {
+        const currentStatus = this.syncStateManager.getCurrentStatus()
+        logger.warn(`无法开始增量同步，当前状态: ${currentStatus.type} - ${currentStatus.state}`)
+        return false
+      }
+
+      // 通过状态管理器请求增量同步
+      await this.syncStateManager.requestSync(SyncType.INCREMENTAL)
+
+      // 执行实际的增量同步
+      const result = await this.pollingManager.pollNow()
+
+      // 标记同步完成
+      await this.syncStateManager.finishSync()
+
+      return result
+    } catch (error) {
+      // 标记同步失败
+      await this.syncStateManager.failSync(error as Error)
+      return false
+    }
   }
 
   /**
-   * 立即执行一次全量同步
+   * 立即执行一次全量同步（带状态管理）
    */
   async fullSyncNow(): Promise<boolean> {
-    return await this.fullSyncTimer.syncNow()
+    try {
+      // 检查是否可以开始全量同步
+      if (!this.syncStateManager.canStartSync(SyncType.FULL)) {
+        const currentStatus = this.syncStateManager.getCurrentStatus()
+        logger.warn(`无法开始全量同步，当前状态: ${currentStatus.type} - ${currentStatus.state}`)
+
+        // 如果当前是增量同步，全量同步可以中断它
+        if (currentStatus.type === SyncType.INCREMENTAL && currentStatus.state === SyncState.RUNNING) {
+          logger.info('全量同步将中断当前增量同步')
+        } else {
+          return false
+        }
+      }
+
+      // 通过状态管理器请求全量同步
+      await this.syncStateManager.requestSync(SyncType.FULL)
+
+      // 执行实际的全量同步逻辑
+      await this.executeFullSyncLogic()
+
+      // 标记同步完成
+      await this.syncStateManager.finishSync()
+
+      return true
+    } catch (error) {
+      // 标记同步失败
+      await this.syncStateManager.failSync(error as Error)
+      return false
+    }
   }
 
   /**
@@ -287,9 +558,17 @@ export class SyncController {
   }
 
   /**
-   * 检查是否有正在进行的同步操作
+   * 检查是否有正在进行的同步操作（使用状态管理器）
    */
   private isSyncInProgress(): boolean {
+    const currentStatus = this.syncStateManager.getCurrentStatus()
+    return currentStatus.state === SyncState.RUNNING
+  }
+
+  /**
+   * 检查是否有正在进行的同步操作（原始版本，保持兼容性）
+   */
+  private isSyncInProgressLegacy(): boolean {
     // 检查轮询状态和全量同步状态
     const pollingStatus = this.pollingManager.getStatus()
     const fullSyncStatus = this.fullSyncTimer.getStatus()
@@ -297,21 +576,21 @@ export class SyncController {
   }
 
   /**
-   * 🔧 检查认证状态
+   * 检查认证状态
    */
   async isAuthenticated(): Promise<boolean> {
     return await this.api.isAuthenticated()
   }
 
   /**
-   * 🔧 获取认证状态详情
+   * 获取认证状态详情
    */
   getAuthStatus() {
     return this.api.getAuthStatus()
   }
 
   /**
-   * 🔧 处理认证失败的情况
+   * 处理认证失败的情况
    * 当API调用返回401时，直接停止同步操作
    */
   async handleAuthFailure(): Promise<boolean> {
@@ -326,6 +605,150 @@ export class SyncController {
     } catch (error) {
       logger.error('停止同步操作时出错:', error)
       return false
+    }
+  }
+
+  /**
+   * 获取系统状态（增强版本，包含状态管理器信息）
+   */
+  getSystemStatus() {
+    const syncStatus = this.syncStateManager.getCurrentStatus()
+    return {
+      // 新增：统一的同步状态
+      sync: {
+        type: syncStatus.type,
+        state: syncStatus.state,
+        progress: syncStatus.progress,
+        message: syncStatus.message,
+        startTime: syncStatus.startTime,
+        error: syncStatus.error,
+        canStartIncremental: this.syncStateManager.canStartSync(SyncType.INCREMENTAL),
+        canStartFull: this.syncStateManager.canStartSync(SyncType.FULL)
+      },
+      // 原有的详细状态信息
+      polling: this.pollingManager.getStatus(),
+      fullSyncTimer: this.fullSyncTimer.getStatus(),
+      encryption: this.encryptionService.getStatus(),
+      auth: this.api.getAuthStatus(),
+      database: {
+        path: 'database',
+        lastSequenceId: this.db.getLastSequenceId()
+      }
+    }
+  }
+
+  /**
+   * 获取简化的同步状态（用于UI显示）
+   */
+  getSyncStatus(): SyncStatus {
+    return this.syncStateManager.getCurrentStatus()
+  }
+
+  /**
+   * 获取同步状态管理器实例
+   */
+  getSyncStateManager(): SyncStateManager {
+    return this.syncStateManager
+  }
+
+  /**
+   * 添加同步状态监听器
+   */
+  addSyncStatusListener(listener: (status: SyncStatus) => void): void {
+    this.syncStateManager.addStatusListener(listener)
+  }
+
+  /**
+   * 移除同步状态监听器
+   */
+  removeSyncStatusListener(listener: (status: SyncStatus) => void): void {
+    this.syncStateManager.removeStatusListener(listener)
+  }
+
+  /**
+   * 取消当前同步操作
+   */
+  async cancelCurrentSync(): Promise<boolean> {
+    try {
+      const currentStatus = this.syncStateManager.getCurrentStatus()
+
+      if (currentStatus.state !== SyncState.RUNNING) {
+        logger.warn('没有正在进行的同步操作可以取消')
+        return false
+      }
+
+      logger.info(`取消当前同步操作: ${currentStatus.type}`)
+
+      // 根据同步类型执行相应的取消操作
+      if (currentStatus.type === SyncType.INCREMENTAL) {
+        await this.pollingManager.stopPolling()
+      } else if (currentStatus.type === SyncType.FULL) {
+        // 全量同步的取消逻辑（如果需要的话）
+        // 这里可能需要更复杂的逻辑来安全地中断全量同步
+      }
+
+      // 强制停止同步
+      await this.syncStateManager.forceStop()
+
+      return true
+    } catch (error) {
+      logger.error('取消同步操作失败:', error)
+      return false
+    }
+  }
+
+  /**
+   * 获取同步统计信息
+   */
+  getSyncStats() {
+    return {
+      lastSequenceId: this.db.getLastSequenceId(),
+      pendingChanges: this.db.getPendingChanges?.()?.length || 0,
+      pollingStatus: this.pollingManager.getStatus(),
+      fullSyncStatus: this.fullSyncTimer.getStatus(),
+      encryptionStatus: this.encryptionService.getStatus()
+    }
+  }
+
+  /**
+   * 静态方法：触发增量同步
+   * 可以从任何地方调用，用于数据变更后立即触发同步
+   */
+  static async triggerIncrementalSync(): Promise<void> {
+    try {
+      if (!SyncController.instance) {
+        logger.warn('⚠️ SyncController 实例未初始化，跳过增量同步触发')
+        return
+      }
+
+      const instance = SyncController.instance
+
+      // 检查是否有正在进行的同步操作
+      const pollingStatus = instance.pollingManager.getStatus()
+      if (pollingStatus.isPerforming) {
+        logger.debug('⏸️ 增量同步正在进行中，跳过触发')
+        return
+      }
+
+      // 检查认证状态
+      if (!(await instance.isAuthenticated())) {
+        logger.debug('⚠️ 认证失效，跳过增量同步触发')
+        return
+      }
+
+      logger.info(' 数据变更触发增量同步')
+
+      // 执行增量同步
+      const result = await instance.incrementalSyncAll()
+
+      if (result.success) {
+        logger.info(`触发的增量同步完成: 同步${result.synced_count}个表`)
+      } else {
+        logger.warn(`触发的增量同步失败: ${result.message}`)
+      }
+    } catch (error) {
+      logger.error('触发增量同步异常:', error)
+      // 不抛出异常，避免影响数据库操作
     }
   }
 }

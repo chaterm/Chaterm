@@ -244,11 +244,17 @@
                       @mouseleave="handleDropdownMenuLeave(record.name)"
                       @click="handleMenuClick"
                     >
-                      <a-menu-item @click="copyFile(record)">
+                      <a-menu-item
+                        v-if="!isTeam"
+                        @click="copyFile(record)"
+                      >
                         <CopyOutlined />
                         {{ $t('files.copy') }}
                       </a-menu-item>
-                      <a-menu-item @click="moveFile(record)">
+                      <a-menu-item
+                        v-if="!isTeam"
+                        @click="moveFile(record)"
+                      >
                         <ScissorOutlined />
                         {{ $t('files.move') }}
                       </a-menu-item>
@@ -539,22 +545,32 @@ const sortByName = (a: FileRecord, b: FileRecord): number => {
   return 0
 }
 
+let isFirstLoad = ref(true)
+
 const loadFiles = async (uuid: string, filePath: string): Promise<void> => {
   loading.value = true
   showErr.value = false
   errTips.value = ''
-  const data = await api.sshSftpList({
-    path: filePath || '/',
-    id: uuid
-  })
-  loading.value = false
-  if (data.length > 0) {
-    if (typeof data[0] === 'string') {
+  const fetchList = async (path: string) => {
+    return await api.sshSftpList({ path, id: uuid })
+  }
+  let data = await fetchList(filePath || '/')
+  if (data.length > 0 && typeof data[0] === 'string') {
+    if (isFirstLoad.value) {
+      filePath = '/'
+      data = await fetchList(filePath)
+      isFirstLoad.value = false
+    }
+    if (data.length > 0 && typeof data[0] === 'string') {
       errTips.value = data[0]
       showErr.value = true
     }
   }
+  if (isFirstLoad.value) {
+    isFirstLoad.value = false
+  }
 
+  loading.value = false
   const items = data.map((item: ApiFileRecord) => {
     return {
       ...item,
@@ -640,6 +656,7 @@ const handleRefresh = (): void => {
 }
 
 onMounted(() => {
+  isTeamCheck(props.uuid)
   loadFiles(props.uuid, localCurrentDirectory.value)
 })
 
@@ -901,22 +918,20 @@ const chmodFile = (record: FileRecord) => {
 }
 const chmodOk = async () => {
   try {
-    const cmd = permissions.recursive
-      ? `chmod -R ${permissions.code} "${currentRecord.value.path}"`
-      : `chmod ${permissions.code} "${currentRecord.value.path}"`
-
-    const { stderr } = await api.sshConnExec({
-      cmd: cmd,
-      id: props.uuid
+    const filePath = getDirname(currentRecord.value.path)
+    const res = await api.chmodFile({
+      id: props.uuid,
+      remotePath: joinPath(filePath, currentRecord.value.name),
+      mode: permissions.code,
+      recursive: permissions.recursive
     })
     chmodFileDialog.value = false
     currentRecord.value = null
 
-    if (stderr !== '') {
-      message.error(`${t('files.modifyFilePermissionsFailed')}：${stderr}`)
-    } else {
-      message.success(t('files.modifyFilePermissionsSuccess'))
+    if (res.status === 'success') {
       refresh()
+    } else {
+      message.error(`${t('files.modifyFilePermissionsFailed')}：${res.message}`)
     }
   } catch (error) {
     message.error(`${t('files.modifyFilePermissionsError')}：${error}`)
@@ -1062,6 +1077,16 @@ const deleteFile = (record: FileRecord) => {
       deleteFileDialog.value = false
     }
   })
+}
+
+const isTeam = ref(false)
+const isTeamCheck = (uuid: string) => {
+  const parts = uuid.split('@')
+  if (parts.length < 2) return false
+
+  const rest = parts[1]
+  const orgType = rest.split(':')[1]
+  isTeam.value = orgType === 'local-team'
 }
 
 const confirmDeleteFile = async (record: FileRecord) => {
@@ -1378,6 +1403,7 @@ defineExpose({
   font-weight: 500;
   color: #262626;
 }
+
 .files-table :deep(.ant-table-tbody > tr.file-table-row-hover > td) {
   background-color: var(--bg-color-secondary) !important;
 }

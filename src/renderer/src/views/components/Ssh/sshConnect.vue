@@ -95,6 +95,7 @@ import { aliasConfigStore } from '@/store/aliasConfigStore'
 import { userConfigStore } from '../../../store/userConfigStore'
 import { userConfigStore as serviceUserConfig } from '@/services/userConfigStoreService'
 import { v4 as uuidv4 } from 'uuid'
+import { Base64Util } from '@/utils/base64'
 import { userInfoStore } from '@/store/index'
 import stripAnsi from 'strip-ansi'
 import { inputManager, commandBarHeight } from './termInputManager'
@@ -277,7 +278,7 @@ onMounted(async () => {
       cursorBlink: true,
       cursorStyle: config.cursorStyle,
       fontSize: config.fontSize || 12,
-      fontFamily: 'Menlo, Monaco, "Courier New", Consolas, Courier, monospace',
+      fontFamily: config.fontFamily || 'Menlo, Monaco, "Courier New", Consolas, Courier, monospace',
       theme:
         config.theme === 'light'
           ? {
@@ -520,6 +521,19 @@ onMounted(async () => {
   eventBus.on('sendOrToggleAiFromTerminalForTab', handleSendOrToggleAiForTab)
   eventBus.on('requestUpdateCwdForHost', handleRequestUpdateCwdForHost)
   eventBus.on('updateTheme', handleUpdateTheme)
+  eventBus.on('openSearch', openSearch)
+
+  eventBus.on('clearCurrentTerminal', () => {
+    contextAct('clearTerm')
+  })
+
+  // Listen for font update events
+  const handleUpdateFont = (newFontFamily) => {
+    if (terminal.value) {
+      terminal.value.options.fontFamily = newFontFamily
+    }
+  }
+  eventBus.on('updateTerminalFont', handleUpdateFont)
   cleanupListeners.value.push(() => {
     eventBus.off('updateTheme', handleUpdateTheme)
     eventBus.off('executeTerminalCommand', handleExecuteCommand)
@@ -527,6 +541,9 @@ onMounted(async () => {
     eventBus.off('getCursorPosition', handleGetCursorPosition)
     eventBus.off('sendOrToggleAiFromTerminalForTab', handleSendOrToggleAiForTab)
     eventBus.off('requestUpdateCwdForHost', handleRequestUpdateCwdForHost)
+    eventBus.off('updateTerminalFont', handleUpdateFont)
+    eventBus.off('openSearch', openSearch)
+    eventBus.off('clearCurrentTerminal')
     window.removeEventListener('keydown', handleGlobalKeyDown)
   })
 
@@ -855,7 +872,12 @@ const connectSSH = async () => {
 
     const email = userInfoStore().userInfo.email
     const name = userInfoStore().userInfo.name
-    connectionId.value = `${props.connectData.username}@${props.connectData.ip}:local:${uuidv4()}`
+    console.log(7777, props)
+    console.log(8888, assetInfo)
+    const orgType = props.serverInfo.organizationId === 'personal' ? 'local' : 'local-team'
+    const hostnameBase64 =
+      props.serverInfo.organizationId === 'personal' ? Base64Util.encode(assetInfo.asset_ip) : Base64Util.encode(assetInfo.hostname)
+    connectionId.value = `${assetInfo.username}@${props.connectData.ip}:${orgType}:${hostnameBase64}:${uuidv4()}`
 
     if (assetInfo.sshType === 'jumpserver' && terminal.value) {
       jumpServerStatusHandler = createJumpServerStatusHandler(terminal.value, connectionId.value)
@@ -2101,6 +2123,9 @@ const contextAct = (action) => {
         isSyncInput.value = true
       }
       break
+    case 'fileManager':
+      eventBus.emit('openUserTab', 'files')
+      break
     default:
       break
   }
@@ -2124,10 +2149,19 @@ const handleGlobalKeyDown = (e: KeyboardEvent) => {
   if (props.activeTabId !== props.currentConnectionId) return
 
   const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0
+
+  // Search functionality
   if ((isMac ? e.metaKey : e.ctrlKey) && e.key === 'f') {
     e.preventDefault()
     e.stopPropagation()
     openSearch()
+  }
+
+  // Close tab functionality
+  if ((isMac ? e.metaKey : e.ctrlKey) && e.key === 'd') {
+    e.preventDefault()
+    e.stopPropagation()
+    contextAct('close')
   }
 
   if (e.key === 'Escape' && showSearch.value) {

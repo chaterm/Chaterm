@@ -1,9 +1,17 @@
 import Database from 'better-sqlite3'
-import { app } from 'electron'
 import { join } from 'path'
-import fs from 'fs'
+import * as fs from 'fs'
+import { v4 as uuidv4 } from 'uuid'
 
-const USER_DATA_PATH = app.getPath('userData')
+// 在测试环境中，app可能不可用，使用fallback路径
+let USER_DATA_PATH: string
+try {
+  const { app } = require('electron')
+  USER_DATA_PATH = app.getPath('userData')
+} catch (error) {
+  // 测试环境或非Electron环境的fallback
+  USER_DATA_PATH = join(process.cwd(), 'test_data')
+}
 const INIT_DB_PATH = getInitDbPath()
 const INIT_CDB_PATH = getInitChatermDbPath()
 
@@ -54,18 +62,30 @@ function migrateLegacyDatabase(userId: number, dbType: 'complete' | 'chaterm'): 
 }
 
 function getInitChatermDbPath(): string {
-  if (app.isPackaged) {
-    return join(process.resourcesPath, 'db', 'init_chaterm.db')
-  } else {
-    return join(__dirname, '../../src/renderer/src/assets/db/init_chaterm.db')
+  try {
+    const { app } = require('electron')
+    if (app.isPackaged) {
+      return join((process as any).resourcesPath, 'db', 'init_chaterm.db')
+    } else {
+      return join(__dirname, '../../src/renderer/src/assets/db/init_chaterm.db')
+    }
+  } catch (error) {
+    // 测试环境fallback
+    return join(process.cwd(), 'test_data', 'init_chaterm.db')
   }
 }
 
 function getInitDbPath(): string {
-  if (app.isPackaged) {
-    return join(process.resourcesPath, 'db', 'init_data.db')
-  } else {
-    return join(__dirname, '../../src/renderer/src/assets/db/init_data.db')
+  try {
+    const { app } = require('electron')
+    if (app.isPackaged) {
+      return join((process as any).resourcesPath, 'db', 'init_data.db')
+    } else {
+      return join(__dirname, '../../src/renderer/src/assets/db/init_data.db')
+    }
+  } catch (error) {
+    // 测试环境fallback
+    return join(process.cwd(), 'test_data', 'init_data.db')
   }
 }
 
@@ -136,18 +156,37 @@ function upgradeTAssetsTable(db: Database.Database): void {
       console.log('Added version column to t_assets')
     }
 
-    // 追加列升级：t_asset_chains.uuid/version
+    // 追加列升级：t_asset_chains.uuid
     try {
       db.prepare('SELECT uuid FROM t_asset_chains LIMIT 1').get()
     } catch (e) {
-      db.exec('ALTER TABLE t_asset_chains ADD COLUMN uuid TEXT')
-      console.log('Added uuid column to t_asset_chains')
+      // uuid 列不存在，需要添加
+      db.transaction(() => {
+        try {
+          db.exec('ALTER TABLE t_asset_chains ADD COLUMN uuid TEXT')
+          console.log('Added uuid column to t_asset_chains')
+        } catch (transactionError) {
+          console.error('Error adding uuid column to t_asset_chains:', transactionError)
+          throw transactionError
+        }
+      })()
     }
+
+    // 检查并填充缺失的 UUID
     try {
-      db.prepare('SELECT version FROM t_asset_chains LIMIT 1').get()
-    } catch (e) {
-      db.exec('ALTER TABLE t_asset_chains ADD COLUMN version INTEGER NOT NULL DEFAULT 1')
-      console.log('Added version column to t_asset_chains')
+      const existingRecords = db.prepare("SELECT key_chain_id FROM t_asset_chains WHERE uuid IS NULL OR uuid = ''").all()
+
+      if (existingRecords.length > 0) {
+        db.transaction(() => {
+          const updateUuidStmt = db.prepare('UPDATE t_asset_chains SET uuid = ? WHERE key_chain_id = ?')
+          existingRecords.forEach((record: { key_chain_id: string | number }) => {
+            updateUuidStmt.run(uuidv4(), record.key_chain_id)
+          })
+        })()
+        console.log(`Auto-filled uuid for ${existingRecords.length} existing t_asset_chains records`)
+      }
+    } catch (fillError) {
+      console.error('Error filling uuid for t_asset_chains:', fillError)
     }
   } catch (error) {
     console.error('Failed to upgrade t_assets table:', error)

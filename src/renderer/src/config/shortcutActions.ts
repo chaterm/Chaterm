@@ -13,6 +13,14 @@ export const shortcutHints = {
   openSettings: {
     zh: '打开设置',
     en: 'Open Settings'
+  },
+  openFileManager: {
+    zh: '打开文件管理',
+    en: 'Open File Manager'
+  },
+  clearTerminal: {
+    zh: '清屏',
+    en: 'Clear Terminal'
   }
 }
 
@@ -109,6 +117,39 @@ export const shortcutActions: Omit<ShortcutAction, 'name'>[] = [
     },
     handler: () => {
       eventBus.emit('openCommandDialog')
+    }
+  },
+  {
+    id: 'newTab',
+    nameKey: 'shortcuts.actions.newTab',
+    defaultKey: {
+      mac: 'Command+N',
+      other: 'Ctrl+N'
+    },
+    handler: () => {
+      eventBus.emit('createNewTerminal')
+    }
+  },
+  {
+    id: 'openFileManager',
+    nameKey: 'shortcuts.actions.openFileManager',
+    defaultKey: {
+      mac: 'Command+M',
+      other: 'Ctrl+M'
+    },
+    handler: () => {
+      eventBus.emit('openUserTab', 'files')
+    }
+  },
+  {
+    id: 'clearTerminal',
+    nameKey: 'shortcuts.actions.clearTerminal',
+    defaultKey: {
+      mac: 'Command+P',
+      other: 'Ctrl+P'
+    },
+    handler: () => {
+      eventBus.emit('clearCurrentTerminal')
     }
   }
 ]

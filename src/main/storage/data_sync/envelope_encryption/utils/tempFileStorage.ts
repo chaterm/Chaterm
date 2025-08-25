@@ -1,6 +1,5 @@
 import { promises as fs } from 'fs'
 import * as path from 'path'
-import { app } from 'electron'
 
 interface StorageStats {
   keys: string[]
@@ -18,7 +17,14 @@ class TempFileStorageProvider {
 
   constructor() {
     // 使用系统安全的应用数据目录
-    const appDataPath = app.getPath('userData')
+    let appDataPath: string
+    try {
+      const { app } = require('electron')
+      appDataPath = app.getPath('userData')
+    } catch (error) {
+      // 测试环境fallback
+      appDataPath = path.join(process.cwd(), 'test_data')
+    }
     this.storageDir = path.join(appDataPath, '.chaterm-encryption', 'keys')
     this.ensureStorageDir()
   }
@@ -96,7 +102,7 @@ class TempFileStorageProvider {
       const filePath = this.getFilePath(key)
       const obfuscatedData = await fs.readFile(filePath, 'utf8')
       const data = this.deobfuscateContent(obfuscatedData)
-      console.log(`📖 从文件读取数据: ${key}`)
+      console.log(`从文件读取数据: ${key}`)
       return data
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
@@ -262,7 +268,7 @@ class TempFileStorageProvider {
         }
       }
 
-      console.log(`📦 存储目录已备份到: ${backupDir}`)
+      console.log(` 存储目录已备份到: ${backupDir}`)
     } catch (error) {
       console.error('备份存储目录失败:', error)
       throw error
@@ -285,7 +291,7 @@ class TempFileStorageProvider {
         }
       }
 
-      console.log(`📦 已从备份恢复存储目录: ${backupDir}`)
+      console.log(` 已从备份恢复存储目录: ${backupDir}`)
     } catch (error) {
       console.error('从备份恢复失败:', error)
       throw error
@@ -316,7 +322,7 @@ class TempFileStorageProvider {
       }
 
       if (cleanedCount > 0) {
-        console.log(`🧹 已清理 ${cleanedCount} 个过期文件`)
+        console.log(` 已清理 ${cleanedCount} 个过期文件`)
       }
     } catch (error) {
       console.error('清理过期文件失败:', error)
