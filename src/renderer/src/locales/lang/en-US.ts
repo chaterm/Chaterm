@@ -31,6 +31,7 @@ export default {
     closeAll: 'Close All',
     copy: 'Copy',
     paste: 'Paste',
+    clear: 'Clear',
     copyWithShortcut: 'Copy',
     pasteWithShortcut: 'Paste',
     disconnect: 'Disconnect',
@@ -75,7 +76,10 @@ export default {
     pleaseInputPrivateKey: 'Please input private key'
   },
   term: {
-    welcome: 'Welcome to use Chaterm'
+    welcome: 'Welcome to use Chaterm',
+    searchPlaceholder: 'Search terminal content...',
+    searchPrevious: 'Previous (Shift+Enter)',
+    searchNext: 'Next (Enter)'
   },
   login: {
     enterprise: 'Enterprise',

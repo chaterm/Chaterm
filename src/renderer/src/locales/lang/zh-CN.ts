@@ -31,6 +31,7 @@ export default {
     closeAll: '全部关闭',
     copy: '复制',
     paste: '粘贴',
+    clear: '清除',
     copyWithShortcut: '复制',
     pasteWithShortcut: '粘贴',
     disconnect: '断开连接',
@@ -75,7 +76,10 @@ export default {
     pleaseInputPrivateKey: '请输入私钥'
   },
   term: {
-    welcome: '欢迎使用 Chaterm'
+    welcome: '欢迎使用 Chaterm',
+    searchPlaceholder: '搜索终端内容...',
+    searchPrevious: '上一个 (Shift+Enter)',
+    searchNext: '下一个 (Enter)'
   },
   login: {
     enterprise: '企业版',
