@@ -703,14 +703,14 @@ const activeKey = ref('chat')
 // 语音组件的引用
 const tencentVoiceInputRef = ref<InstanceType<typeof VoiceInputRealTime> | null>(null)
 
-// 计算输入框的显示值：chatInputValue + tempVoiceDisplay
-const displayInputValue = computed(() => {
-  if (tempVoiceDisplay.value) {
-    // 如果有临时语音显示，优先显示临时内容
-    return tempVoiceDisplay.value
-  }
-  return chatInputValue.value
-})
+// // 计算输入框的显示值：chatInputValue + tempVoiceDisplay
+// const displayInputValue = computed(() => {
+//   if (tempVoiceDisplay.value) {
+//     // 如果有临时语音显示，优先显示临时内容
+//     return tempVoiceDisplay.value
+//   }
+//   return chatInputValue.value
+// })
 const showSendButton = ref(true)
 const responseLoading = ref(false)
 const shouldShowSendButton = computed(() => {
