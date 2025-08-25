@@ -19,7 +19,7 @@
         <img
           src="@/assets/icons/voice.svg"
           alt="voice"
-          style="width: 18px; height: 18px"
+          style="width: 14px; height: 14px"
         />
       </template>
     </a-button>
