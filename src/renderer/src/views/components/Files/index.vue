@@ -12,7 +12,13 @@
           >
             <template #title="{ dataRef }">
               <div>
-                <span>{{ dataRef.title }}</span>
+                <span style="font-weight: bold">{{ dataRef.title }}</span>
+                <span
+                  v-if="dataRef.errorMsg"
+                  style="color: red; margin-left: 10px; font-weight: bold"
+                >
+                  {{ t('files.sftpConnectFailed') }}：{{ dataRef.errorMsg }}
+                </span>
                 <div v-if="dataRef.expanded || expandedKeys.includes(dataRef.key)">
                   <TermFileSystem
                     :uuid="dataRef.value"
@@ -105,7 +111,7 @@ onMounted(async () => {
   if (activeTerminal) {
     currentActiveTerminal.value = activeTerminal
   }
-  listUserSessions()
+  await listUserSessions()
   eventBus.on('activeTabChanged', handleActiveTabChanged)
 })
 
@@ -119,26 +125,45 @@ const activeEditorKey = ref(null)
 const handleFocusEditor = (key) => {
   activeEditorKey.value = key
 }
+
+interface SftpConnectionInfo {
+  id: string
+  isSuccess: boolean
+  sftp?: any
+  error?: string
+}
+
 const listUserSessions = async () => {
-  const sessionData: string[] = await api.sftpConnList()
-  const sessionResult = sessionData.reduce<Record<string, string>>((acc, uuid) => {
-    const ip = uuid.split(':')[0].split('@')[1]
-    if (!(ip in acc)) acc[ip] = uuid
+  const sessionData: SftpConnectionInfo[] = await api.sftpConnList()
+  const sessionResult = sessionData.reduce<Record<string, SftpConnectionInfo>>((acc, item) => {
+    const [, rest] = item.id.split('@')
+    const parts = rest.split(':')
+    let ip = parts[0] || 'Unknown'
+    if (item.id.includes('local-team')) {
+      const hostnameBase64 = parts[2] || 'Unknown'
+      ip = Base64Util.decode(hostnameBase64)
+    }
+
+    if (!(ip in acc)) {
+      acc[ip] = item
+    }
     return acc
   }, {})
 
   updateTreeData({ ...sessionResult })
 }
 
-function objectToTreeData(obj: object): any[] {
+const objectToTreeData = (obj: object): any[] => {
   return Object.entries(obj).map(([key, value]) => {
     const keys: string[] = []
     const isActive = currentActiveTerminal.value && currentActiveTerminal.value.ip === key
+
     const node = {
       title: key,
+      errorMsg: value.isSuccess ? null : (value.error ?? ''),
       key: key,
       draggable: true,
-      value: String(value),
+      value: String(value.id),
       isLeaf: false,
       class: isActive ? 'active-terminal' : ''
     }
@@ -152,7 +177,7 @@ function objectToTreeData(obj: object): any[] {
 
 const treeData = ref<TreeProps['treeData']>([])
 
-function updateTreeData(newData: object) {
+const updateTreeData = (newData: object) => {
   treeData.value = objectToTreeData(newData)
 }
 

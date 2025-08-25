@@ -679,7 +679,8 @@ export default {
     copy: '复制',
     more: '更多',
     download: '下载',
-    doubleClickToOpen: '双击打开'
+    doubleClickToOpen: '双击打开',
+    sftpConnectFailed: 'SFTP连接失败'
   },
   about: {
     version: '版本',

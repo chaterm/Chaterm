@@ -2,6 +2,11 @@ import { BrowserWindow, dialog, ipcMain } from 'electron'
 import { Client } from 'ssh2'
 import type { SFTPWrapper } from 'ssh2'
 
+const { app } = require('electron')
+const appPath = app.getAppPath()
+const packagePath = path.join(appPath, 'package.json')
+const packageInfo = JSON.parse(fs.readFileSync(packagePath, 'utf8'))
+
 import {
   jumpserverConnections,
   handleJumpServerConnection,
@@ -16,7 +21,13 @@ import { SSHAgentManager } from './ssh-agent/ChatermSSHAgent'
 
 // Store SSH connections
 export const sshConnections = new Map()
-export const sftpConnections = new Map()
+
+interface SftpConnectionInfo {
+  isSuccess: boolean
+  sftp?: any
+  error?: string
+}
+export const sftpConnections = new Map<string, SftpConnectionInfo>()
 
 // Execute command result
 export interface ExecResult {
@@ -40,6 +51,10 @@ const MaxKeyboardInteractiveAttempts = 5 // Max KeyboardInteractive attempts
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const EventEmitter = require('events')
 const connectionEvents = new EventEmitter()
+
+// 缓存
+export const keyboardInteractiveOpts = new Map<string, string[]>()
+
 export const handleRequestKeyboardInteractive = (event, id, prompts, finish) => {
   return new Promise((_resolve, reject) => {
     const RequestKeyboardInteractive = () => {
@@ -87,6 +102,8 @@ export const handleRequestKeyboardInteractive = (event, id, prompts, finish) => 
               // finish([])
             }
           } else {
+            // 适用于非一次性mfa的情况
+            keyboardInteractiveOpts.set(id, responses)
             KeyboardInteractiveAttempts.delete(id)
             event.sender.send('ssh:keyboard-interactive-result', { id, status: 'success' })
             // finish(responses)
@@ -108,14 +125,15 @@ export const handleRequestKeyboardInteractive = (event, id, prompts, finish) => 
 }
 
 export const attemptSecondaryConnection = (event, connectionInfo) => {
-  const { id, host, port, username, password, privateKey, passphrase } = connectionInfo
+  const { id, host, port, username, password, privateKey, passphrase, isOfficeDevice } = connectionInfo
   const conn = new Client()
   const connectConfig: any = {
     host,
     port: port || 22,
     username,
     keepaliveInterval: 10000,
-    readyTimeout: KeyboardInteractiveTimeout
+    readyTimeout: KeyboardInteractiveTimeout,
+    ident: `${packageInfo.name}_${packageInfo.version}-isOfficeDevice_${isOfficeDevice}`
   }
 
   if (privateKey) {
@@ -133,12 +151,23 @@ export const attemptSecondaryConnection = (event, connectionInfo) => {
 
   let execCount = 0
   const totalCounts = 2
-
+  const hasOpt = keyboardInteractiveOpts.has(id)
   const sendReadyData = (stopCount) => {
     execCount++
     if (execCount === totalCounts || stopCount) {
       event.sender.send(`ssh:connect:data:${id}`, readyResult)
+      if (hasOpt) {
+        keyboardInteractiveOpts.delete(id)
+      }
     }
+  }
+
+  if (hasOpt) {
+    connectConfig.tryKeyboard = true
+    conn.on('keyboard-interactive', (_name, _instructions, _instructionsLang, _prompts, finish) => {
+      const cached = keyboardInteractiveOpts.get(id)
+      finish(cached || [])
+    })
   }
 
   const sftpAsync = (conn) => {
@@ -150,6 +179,7 @@ export const attemptSecondaryConnection = (event, connectionInfo) => {
             sftpAvailable: false,
             sftpError: err?.message || 'SFTP object is empty'
           })
+          sftpConnections.set(id, { isSuccess: false, error: `sftp init error: "${err?.message || 'SFTP object is empty'}"` })
           resolve()
         } else {
           console.log(`startSftp [${id}]`)
@@ -163,7 +193,7 @@ export const attemptSecondaryConnection = (event, connectionInfo) => {
               sftp.end()
             } else {
               console.log(`SFTPCheckSuccess [${id}]`)
-              sftpConnections.set(id, sftp)
+              sftpConnections.set(id, { isSuccess: true, sftp: sftp })
               connectionStatus.set(id, { sftpAvailable: true })
             }
             resolve()
@@ -242,6 +272,7 @@ export const attemptSecondaryConnection = (event, connectionInfo) => {
       }
     })
     .on('error', (err) => {
+      sftpConnections.set(id, { isSuccess: false, error: `sftp connection error: "${err.message}"` })
       readyResult.hasSudo = false
       readyResult.commandList = []
       sendReadyData(true)
@@ -358,9 +389,25 @@ const getUniqueRemoteName = async (sftp: SFTPWrapper, remoteDir: string, origina
   return finalName
 }
 
+export const getSftpConnection = (id: string): any => {
+  const sftpConnectionInfo = sftpConnections.get(id)
+
+  if (!sftpConnectionInfo) {
+    console.log('Sftp connection not found')
+    return null
+  }
+
+  if (!sftpConnectionInfo.isSuccess || !sftpConnectionInfo.sftp) {
+    console.log(`SFTP not available: ${sftpConnectionInfo.error || 'Unknown error'}`)
+    return null
+  }
+
+  return sftpConnectionInfo.sftp
+}
+
 // Upload file
 const handleUploadFile = (_event, id, remotePath, localPath, resolve, reject) => {
-  const sftp = sftpConnections.get(id)
+  const sftp = getSftpConnection(id)
   if (!sftp) {
     return reject('Sftp Not connected')
   }
@@ -392,7 +439,7 @@ const handleUploadFile = (_event, id, remotePath, localPath, resolve, reject) =>
 
 // Delete file
 const handleDeleteFile = (_event, id, remotePath, resolve, reject) => {
-  const sftp = sftpConnections.get(id)
+  const sftp = getSftpConnection(id)
   if (!sftp) {
     return reject('Sftp Not connected')
   }
@@ -421,7 +468,7 @@ const handleDeleteFile = (_event, id, remotePath, resolve, reject) => {
 }
 // download file
 const handleDownloadFile = (_event, id, remotePath, localPath, resolve, reject) => {
-  const sftp = sftpConnections.get(id)
+  const sftp = getSftpConnection(id)
   if (!sftp) {
     return reject('Sftp Not connected')
   }
@@ -444,7 +491,7 @@ const handleDownloadFile = (_event, id, remotePath, localPath, resolve, reject) 
 
 // upload Directory
 const uploadDirectory = (_event, id, localDir, remoteDir, resolve, reject) => {
-  const sftp = sftpConnections.get(id)
+  const sftp = getSftpConnection(id)
   if (!sftp) {
     return reject('Sftp Not connected')
   }
@@ -543,7 +590,11 @@ export const registerSSHHandlers = () => {
   })
 
   ipcMain.handle('ssh:sftp:conn:list', async () => {
-    return [...sftpConnections.keys()]
+    return Array.from(sftpConnections.entries()).map(([key, sftpConn]) => ({
+      id: key,
+      isSuccess: sftpConn.isSuccess,
+      error: sftpConn.error
+    }))
   })
 
   ipcMain.handle('ssh:shell', async (_event, { id, terminalType }) => {
@@ -882,11 +933,10 @@ export const registerSSHHandlers = () => {
   })
 
   ipcMain.handle('ssh:sftp:list', async (_e, { path, id }) => {
-    if (!sftpConnections.has(id)) {
-      return Promise.reject(new Error(`no sftp conn for ${id}`))
-    }
-    const sftp = sftpConnections.get(id)
     return new Promise<unknown[]>((resolve) => {
+      const sftp = getSftpConnection(id)
+      if (!sftp) return resolve([''])
+
       sftp!.readdir(path, (err, list) => {
         if (err) {
           const errorCode = (err as { code?: number }).code
@@ -948,6 +998,13 @@ export const registerSSHHandlers = () => {
       }
 
       return { status: 'warning', message: '没有活动的 JumpServer 连接' }
+    }
+
+    // 清理sftp
+    if (sftpConnections.get(id)) {
+      const sftp = getSftpConnection(id)
+      sftp.end()
+      sftpConnections.delete(id)
     }
 
     // 默认 SSH 处理
@@ -1015,7 +1072,7 @@ export const registerSSHHandlers = () => {
   })
 
   ipcMain.handle('ssh:sftp:rename-move', async (_e, { id, oldPath, newPath }) => {
-    const sftp = sftpConnections.get(id)
+    const sftp = getSftpConnection(id)
     if (!sftp) return { status: 'error', message: 'Sftp Not connected' }
 
     try {
@@ -1032,7 +1089,7 @@ export const registerSSHHandlers = () => {
   })
 
   ipcMain.handle('ssh:sftp:chmod', async (_e, { id, remotePath, mode, recursive }) => {
-    const sftp = sftpConnections.get(id)
+    const sftp = getSftpConnection(id)
     if (!sftp) return { status: 'error', message: 'Sftp Not connected' }
 
     try {

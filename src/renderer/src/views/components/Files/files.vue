@@ -83,7 +83,7 @@
       </div>
       <p
         v-show="showErr"
-        style="font-weight: 700; color: #d30000"
+        style="font-weight: bold; color: red"
         >{{ errTips }}</p
       >
       <a-table
@@ -655,9 +655,9 @@ const handleRefresh = (): void => {
   refresh()
 }
 
-onMounted(() => {
+onMounted(async () => {
   isTeamCheck(props.uuid)
-  loadFiles(props.uuid, localCurrentDirectory.value)
+  await loadFiles(props.uuid, localCurrentDirectory.value)
 })
 
 const uploadFile = async (): Promise<void> => {

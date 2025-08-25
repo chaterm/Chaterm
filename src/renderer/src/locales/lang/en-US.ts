@@ -679,7 +679,8 @@ export default {
     copy: 'Copy',
     more: 'More',
     download: 'Download',
-    doubleClickToOpen: 'Double Click to Open'
+    doubleClickToOpen: 'Double Click to Open',
+    sftpConnectFailed: 'SFTP connection failed'
   },
   about: {
     version: 'Version',
