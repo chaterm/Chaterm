@@ -31,7 +31,7 @@ export class ApiClient {
     })
 
     this.client = axios.create({
-      baseURL: `${syncConfig.serverUrl}/api/${syncConfig.apiVersion}`,
+      baseURL: `${syncConfig.serverUrl}/${syncConfig.apiVersion}`,
       timeout: 15000,
       httpAgent: this.httpAgent,
       httpsAgent: this.httpsAgent,
