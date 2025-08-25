@@ -384,21 +384,21 @@
                 </a-select-option>
               </a-select>
               <div class="action-buttons-container">
-                <VoiceInputRealTime
-                  ref="tencentVoiceInputRef"
-                  :disabled="responseLoading"
-                  :auto-send-after-voice="autoSendAfterVoice"
-                  @transcription-complete="handleTranscriptionComplete"
-                  @transcription-update="handleTranscriptionUpdate"
-                  @transcription-error="handleTranscriptionError"
-                  @recording-stop="handleVoiceRecordingStop"
-                />
-                <!--                <VoiceInput-->
+                <!--                <VoiceInputRealTime-->
+                <!--                  ref="tencentVoiceInputRef"-->
                 <!--                  :disabled="responseLoading"-->
                 <!--                  :auto-send-after-voice="autoSendAfterVoice"-->
                 <!--                  @transcription-complete="handleTranscriptionComplete"-->
+                <!--                  @transcription-update="handleTranscriptionUpdate"-->
                 <!--                  @transcription-error="handleTranscriptionError"-->
+                <!--                  @recording-stop="handleVoiceRecordingStop"-->
                 <!--                />-->
+                <VoiceInput
+                  :disabled="responseLoading"
+                  :auto-send-after-voice="autoSendAfterVoice"
+                  @transcription-complete="handleTranscriptionComplete"
+                  @transcription-error="handleTranscriptionError"
+                />
                 <a-button
                   :disabled="!showSendButton"
                   size="small"
@@ -620,8 +620,8 @@ import foldIcon from '@/assets/icons/fold.svg'
 import historyIcon from '@/assets/icons/history.svg'
 import plusIcon from '@/assets/icons/plus.svg'
 import sendIcon from '@/assets/icons/send.svg'
-// import VoiceInput from './voiceInput.vue'
-import VoiceInputRealTime from './voiceInputRealTime.vue'
+import VoiceInput from './voiceInput.vue'
+// import VoiceInputRealTime from './voiceInputRealTime.vue'
 import { useCurrentCwdStore } from '@/store/currentCwdStore'
 import debounce from 'lodash/debounce'
 import i18n from '@/locales'
@@ -998,14 +998,6 @@ const handleVoiceRecordingStop = () => {
   // 清空临时语音显示
   tempVoiceDisplay.value = ''
   console.log('Cleared tempVoiceDisplay')
-}
-
-// 语音识别开始事件处理
-const handleTranscriptionStart = () => {
-  // 重置上一次识别内容，开始新的识别会话
-  lastTranscription.value = ''
-  // 不清空 lastVoiceSessionData，保留上一次录音的非稳态数据
-  console.log('Transcription started, reset lastTranscription, keep lastVoiceSessionData:', lastVoiceSessionData.value)
 }
 
 const sendMessage = async (sendType: string) => {
