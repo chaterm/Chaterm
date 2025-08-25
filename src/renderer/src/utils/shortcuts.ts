@@ -59,3 +59,73 @@ export const getShortcutDisplay = async (action: 'copy' | 'paste'): Promise<stri
       return ''
   }
 }
+
+// Get close shortcut
+export const getCloseShortcut = async (): Promise<string> => {
+  const currentPlatform = await initPlatform()
+
+  switch (currentPlatform) {
+    case 'darwin':
+      return '⌘D'
+    case 'win32':
+    case 'linux':
+    default:
+      return 'Ctrl+D'
+  }
+}
+
+// Get search shortcut
+export const getSearchShortcut = async (): Promise<string> => {
+  const currentPlatform = await initPlatform()
+
+  switch (currentPlatform) {
+    case 'darwin':
+      return '⌘F'
+    case 'win32':
+    case 'linux':
+    default:
+      return 'Ctrl+F'
+  }
+}
+
+// Get new tab shortcut
+export const getNewTabShortcut = async (): Promise<string> => {
+  const currentPlatform = await initPlatform()
+
+  switch (currentPlatform) {
+    case 'darwin':
+      return '⌘N'
+    case 'win32':
+    case 'linux':
+    default:
+      return 'Ctrl+N'
+  }
+}
+
+// Get clear terminal shortcut
+export const getClearTermShortcut = async (): Promise<string> => {
+  const currentPlatform = await initPlatform()
+
+  switch (currentPlatform) {
+    case 'darwin':
+      return '⌘P'
+    case 'win32':
+    case 'linux':
+    default:
+      return 'Ctrl+P'
+  }
+}
+
+// Get file manager shortcut
+export const getFileManagerShortcut = async (): Promise<string> => {
+  const currentPlatform = await initPlatform()
+
+  switch (currentPlatform) {
+    case 'darwin':
+      return '⌘M'
+    case 'win32':
+    case 'linux':
+    default:
+      return 'Ctrl+M'
+  }
+}

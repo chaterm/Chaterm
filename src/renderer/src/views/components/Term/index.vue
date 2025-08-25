@@ -263,6 +263,20 @@ onMounted(() => {
     // If no selected text or focus is not in terminal, toggle sidebar state
     eventBus.emit('toggleSideBar', 'right')
   })
+
+  // Listen for font update events
+  eventBus.on('updateTerminalFont', (newFontFamily) => {
+    if (term.value) {
+      term.value.options.fontFamily = newFontFamily
+    }
+  })
+
+  // Listen for openSearch event
+  eventBus.on('openSearch', openSearch)
+
+  eventBus.on('clearCurrentTerminal', () => {
+    contextAct('clearTerm')
+  })
 })
 
 onBeforeUnmount(() => {
@@ -281,6 +295,9 @@ onBeforeUnmount(() => {
   // Remove event listeners
   eventBus.off('executeTerminalCommand')
   eventBus.off('sendOrToggleAiFromTerminalForTab')
+  eventBus.off('updateTerminalFont')
+  eventBus.off('openSearch')
+  eventBus.off('clearCurrentTerminal')
   document.removeEventListener('mouseup', hideSelectionButton)
 })
 // Get all commands for current machine
@@ -303,7 +320,7 @@ const initTerminal = async () => {
       scrollback: config.scrollBack,
       cursorStyle: config.cursorStyle || 'bar',
       fontSize: config.fontSize,
-      fontFamily: 'Menlo, Monaco, "Courier New", Courier, monospace',
+      fontFamily: config.fontFamily || 'Menlo, Monaco, "Courier New", Courier, monospace',
       theme: {
         background: '#141414',
         foreground: '#f0f0f0'
@@ -1117,11 +1134,21 @@ const focus = () => {
 
 const handleGlobalKeyDown = (e) => {
   const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0
+
+  // Search functionality
   if ((isMac ? e.metaKey : e.ctrlKey) && e.key === 'f') {
     e.preventDefault()
     e.stopPropagation()
     openSearch()
   }
+
+  // Close tab functionality
+  if ((isMac ? e.metaKey : e.ctrlKey) && e.key === 'd') {
+    e.preventDefault()
+    e.stopPropagation()
+    contextAct('close')
+  }
+
   if (e.key === 'Escape' && showSearch.value) {
     e.preventDefault()
     e.stopPropagation()

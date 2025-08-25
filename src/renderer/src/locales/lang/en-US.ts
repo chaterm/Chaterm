@@ -31,11 +31,13 @@ export default {
     closeAll: 'Close All',
     copy: 'Copy',
     paste: 'Paste',
+    clear: 'Clear',
     copyWithShortcut: 'Copy',
     pasteWithShortcut: 'Paste',
     disconnect: 'Disconnect',
     reconnect: 'Reconnect',
     newTerminal: 'New Terminal',
+    closeTerminal: 'Close Terminal',
     splitRight: 'Split Right',
     splitDown: 'Split Down',
     clone: 'Clone',
@@ -74,7 +76,10 @@ export default {
     pleaseInputPrivateKey: 'Please input private key'
   },
   term: {
-    welcome: 'Welcome to use Chaterm'
+    welcome: 'Welcome to use Chaterm',
+    searchPlaceholder: 'Search terminal content...',
+    searchPrevious: 'Previous (Shift+Enter)',
+    searchNext: 'Next (Enter)'
   },
   login: {
     enterprise: 'Enterprise',
@@ -138,6 +143,7 @@ export default {
     aliasStatus: 'Global alias',
     highlightStatus: 'Highlight',
     fontSize: 'Font size',
+    fontFamily: 'Font family',
     cursorStyle: 'Cursor type',
     scrollBack: 'Number of scroll rollback lines',
     terminalType: 'Specify terminal type',
@@ -363,7 +369,10 @@ export default {
       switchToNextTab: 'Next Tab',
       switchToPrevTab: 'Previous Tab',
       switchToSpecificTab: 'Switch to specific Tab[1...9]',
-      openCommandDialog: 'Open AI Command Generator'
+      openCommandDialog: 'Open AI Command Generator',
+      newTab: 'New Tab',
+      openFileManager: 'Open File Manager',
+      clearTerminal: 'Clear Terminal'
     }
   },
   personal: {

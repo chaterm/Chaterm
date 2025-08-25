@@ -31,11 +31,13 @@ export default {
     closeAll: '全部关闭',
     copy: '复制',
     paste: '粘贴',
+    clear: '清除',
     copyWithShortcut: '复制',
     pasteWithShortcut: '粘贴',
     disconnect: '断开连接',
     reconnect: '重新连接',
     newTerminal: '新终端',
+    closeTerminal: '关闭终端',
     splitRight: '向右分屏',
     splitDown: '向下分屏',
     clone: '克隆',
@@ -74,7 +76,10 @@ export default {
     pleaseInputPrivateKey: '请输入私钥'
   },
   term: {
-    welcome: '欢迎使用 Chaterm'
+    welcome: '欢迎使用 Chaterm',
+    searchPlaceholder: '搜索终端内容...',
+    searchPrevious: '上一个 (Shift+Enter)',
+    searchNext: '下一个 (Enter)'
   },
   login: {
     enterprise: '企业版',
@@ -138,6 +143,7 @@ export default {
     aliasStatus: '全局Alias',
     highlightStatus: '全局高亮',
     fontSize: '字体大小(px)',
+    fontFamily: '字体',
     cursorStyle: '光标样式',
     scrollBack: '终端回滚量',
     terminalType: '终端类型',
@@ -364,7 +370,10 @@ export default {
       switchToNextTab: '切换到下一个标签页',
       switchToPrevTab: '切换到上一个标签页',
       switchToSpecificTab: '切换到指定标签页[1...9]',
-      openCommandDialog: '打开AI命令生成对话框'
+      openCommandDialog: '打开AI命令生成对话框',
+      newTab: '新Tab页',
+      openFileManager: '打开文件管理',
+      clearTerminal: '清屏'
     }
   },
   personal: {
