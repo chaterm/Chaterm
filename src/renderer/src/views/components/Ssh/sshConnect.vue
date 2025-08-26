@@ -832,6 +832,7 @@ const debounce = (func, wait, immediate = false) => {
   }
 }
 const autoExecuteCode = (command) => {
+  if (props.activeTabId !== props.currentConnectionId) return
   sendData(command)
 }
 const handleResize = debounce(() => {
@@ -2204,14 +2205,15 @@ const tryOpenLocalCommandDialog = () => {
   terminal.value?.focus()
   isCommandDialogVisible.value = true
 }
+const handleOpenCommandDialog = () => {
+  tryOpenLocalCommandDialog()
+}
 
 // Listen to global openCommandDialog and restrict to this terminal/tab
-eventBus.on('openCommandDialog', () => {
-  tryOpenLocalCommandDialog()
-})
+eventBus.on('openCommandDialog', handleOpenCommandDialog)
 
 cleanupListeners.value.push(() => {
-  eventBus.off('openCommandDialog')
+  eventBus.off('openCommandDialog', handleOpenCommandDialog)
 })
 
 // Hide dialog when tab deactivates; restore when re-activates
