@@ -1141,7 +1141,7 @@ const handleGlobalKeyDown = (e) => {
   }
 
   // Close tab functionality
-  if ((isMac ? e.metaKey : e.ctrlKey) && e.key === 'd') {
+  if ((isMac ? e.metaKey : e.ctrlKey) && e.key === 'u') {
     e.preventDefault()
     e.stopPropagation()
     contextAct('close')

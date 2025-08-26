@@ -21,13 +21,15 @@
     <v-contextmenu-item
       v-if="props.isConnect"
       @click="onContextMenuAction('disconnect')"
-      >{{ $t('common.disconnect') }}</v-contextmenu-item
-    >
+      >{{ $t('common.disconnect') }}
+      <span class="shortcut-key">{{ disconnectShortcut }}</span>
+    </v-contextmenu-item>
     <v-contextmenu-item
       v-if="!props.isConnect"
       @click="onContextMenuAction('reconnect')"
-      >{{ $t('common.reconnect') }}</v-contextmenu-item
-    >
+      >{{ $t('common.reconnect') }}
+      <span class="shortcut-key">{{ reconnectShortcut }}</span>
+    </v-contextmenu-item>
 
     <!-- Divider -->
     <div class="context-menu-divider"></div>
@@ -103,6 +105,8 @@ const searchShortcut = ref('')
 const newTerminalShortcut = ref('')
 const clearTermShortcut = ref('')
 const fileManagerShortcut = ref('')
+const disconnectShortcut = ref('Ctrl+D')
+const reconnectShortcut = ref('Enter')
 
 const emit = defineEmits(['contextAct'])
 const props = defineProps({
@@ -197,7 +201,7 @@ onMounted(async () => {
     // Fallback display
     copyShortcut.value = 'Ctrl+C'
     pasteShortcut.value = 'Ctrl+V'
-    closeShortcut.value = 'Ctrl+D'
+    closeShortcut.value = 'Ctrl+U'
     searchShortcut.value = 'Ctrl+F'
     newTerminalShortcut.value = 'Ctrl+N'
     clearTermShortcut.value = 'Ctrl+P'
