@@ -571,6 +571,7 @@ const handleCommandGenerationResponse = (response: { command?: string; error?: s
   } else if (response.command) {
     const delData = String.fromCharCode(127)
     const payload = delData.repeat(lastInjectedLength.value) + response.command
+    console.log('Injecting command:', payload)
     eventBus.emit('autoExecuteCode', payload)
 
     lastInjectedLength.value = response.command.length
