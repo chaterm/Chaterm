@@ -276,7 +276,7 @@ const isOfficeDevice = ref(false)
 
 const getUserInfo = async () => {
   try {
-    const res = await checkUserDevice({ ip: deviceStore.getDeviceIp, macAddress: deviceStore.getMacAddress })
+    const res = (await checkUserDevice({ ip: deviceStore.getDeviceIp, macAddress: deviceStore.getMacAddress })) as any
     if (res && res.code === 200) {
       isOfficeDevice.value = res.data.isOfficeDevice
     }
@@ -935,13 +935,11 @@ const connectSSH = async () => {
       })
 
     if (result.status === 'connected') {
-      let welcome = '\x1b[38;2;22;119;255m' + name + ', 欢迎您使用Chaterm智能终端 \x1b[m\r\n'
-      if (configStore.getUserConfig.language == 'en-US') {
-        welcome = '\x1b[38;2;22;119;255m' + email.split('@')[0] + ', Welcome to use Chaterm \x1b[m\r\n'
-      }
+      const welcomeName = email.split('@')[0]
+      const welcome = '\x1b[38;2;22;119;255m' + t('ssh.welcomeMessage', { username: welcomeName }) + ' \x1b[m\r\n'
       terminal.value?.writeln('') // 添加空行分隔
       terminal.value?.writeln(welcome)
-      terminal.value?.writeln(`Connecting to ${props.connectData.ip}`)
+      terminal.value?.writeln(t('ssh.connectingTo', { ip: props.connectData.ip }))
       await startShell()
       setupTerminalInput()
       handleResize()
@@ -949,7 +947,7 @@ const connectSSH = async () => {
         handleResize()
       }, 200)
     } else {
-      const errorMsg = formatStatusMessage(`连接失败: ${result.message}`, 'error')
+      const errorMsg = formatStatusMessage(t('ssh.connectionFailed', { message: result.message }), 'error')
       terminal.value?.writeln(errorMsg)
     }
   } catch (error: any) {
@@ -958,7 +956,7 @@ const connectSSH = async () => {
       jumpServerStatusHandler = null
     }
 
-    const errorMsg = formatStatusMessage(`连接错误: ${error.message || '未知错误'}`, 'error')
+    const errorMsg = formatStatusMessage(t('ssh.connectionError', { message: error.message || t('ssh.unknownError') }), 'error')
     terminal.value?.writeln(errorMsg)
   }
   emit('connectSSH', { isConnected: isConnected })
@@ -978,8 +976,9 @@ const startShell = async () => {
       })
       const removeCloseListener = api.onShellClose(connectionId.value, () => {
         isConnected.value = false
-        cusWrite?.('\r\nConnection closed.\r\n\r\n')
-        cusWrite?.(`Disconnected from remote host(${props.serverInfo.title}) at ${new Date().toDateString()}\r\n`)
+        cusWrite?.('\r\n' + t('ssh.connectionClosed') + '\r\n\r\n')
+        cusWrite?.(t('ssh.disconnectedFromHost', { host: props.serverInfo.title, date: new Date().toDateString() }) + '\r\n')
+        cusWrite?.('\r\n' + t('ssh.pressEnterToReconnect') + '\r\n', { isUserCall: true })
       })
 
       cleanupListeners.value.push(removeDataListener, removeErrorListener, removeCloseListener)
@@ -995,7 +994,7 @@ const startShell = async () => {
     } else {
       terminal.value?.writeln(
         JSON.stringify({
-          cmd: `启动Shell失败: ${result.message}`,
+          cmd: t('ssh.shellStartFailed', { message: result.message }),
           isUserCall: true
         })
       )
@@ -1003,7 +1002,7 @@ const startShell = async () => {
   } catch (error: any) {
     terminal.value?.writeln(
       JSON.stringify({
-        cmd: `Shell错误: ${error.message || '未知错误'}`,
+        cmd: t('ssh.shellError', { message: error.message || t('ssh.unknownError') }),
         isUserCall: true
       })
     )
@@ -1393,6 +1392,12 @@ const setupTerminalInput = () => {
         })
         .catch(() => {})
     } else if (data == '\r') {
+      if (!isConnected.value) {
+        cusWrite?.('\r\n' + t('ssh.reconnecting') + '\r\n', { isUserCall: true })
+        connectSSH()
+        return
+      }
+
       const command = terminalState.value.content
       if (suggestions.value.length && activeSuggestion.value >= 0) {
         selectSuggestion(suggestions.value[activeSuggestion.value])
@@ -2080,12 +2085,13 @@ const disconnectSSH = async () => {
       cleanupListeners.value.forEach((cleanup) => cleanup())
       cleanupListeners.value = []
       isConnected.value = false
-      cusWrite?.('\r\n已断开连接。', { isUserCall: true })
+      cusWrite?.('\r\n' + t('ssh.disconnected'), { isUserCall: true })
+      cusWrite?.('\r\n' + t('ssh.pressEnterToReconnect') + '\r\n', { isUserCall: true })
     } else {
-      cusWrite?.(`\r\n断开连接错误: ${result.message}`, { isUserCall: true })
+      cusWrite?.('\r\n' + t('ssh.disconnectError', { message: result.message }), { isUserCall: true })
     }
   } catch (error: any) {
-    cusWrite?.(`\r\n断开连接错误: ${error.message || '未知错误'}`, {
+    cusWrite?.('\r\n' + t('ssh.disconnectError', { message: error.message || t('ssh.unknownError') }), {
       isUserCall: true
     })
   }

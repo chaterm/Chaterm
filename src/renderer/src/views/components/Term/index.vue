@@ -514,10 +514,8 @@ const connectWebsocket = () => {
   socket.value = new WebSocket(wsUrl)
   heartbeatId = `ws-${Date.now()}`
   socket.value.onopen = () => {
-    let welcome = '\x1b[38;2;22;119;255m' + name + ', 欢迎您使用Chaterm智能终端 \x1b[m\r\n'
-    if (configStore.getUserConfig.language == 'en-US') {
-      welcome = '\x1b[38;2;22;119;255m' + email.split('@')[0] + ', Welcome to use Chaterm \x1b[m\r\n'
-    }
+    const welcomeName = email.split('@')[0]
+    const welcome = '\x1b[38;2;22;119;255m' + t('ssh.welcomeMessage', { username: welcomeName }) + ' \x1b[m\r\n'
     term.value.writeln(welcome)
     api.openHeartbeatWindow(heartbeatId, 5000)
     api.heartBeatTick(listenerHeartbeat)
@@ -601,7 +599,7 @@ const connectWebsocket = () => {
   }
 
   socket.value.onerror = () => {
-    term.value.writeln('\r\n连接错误。请检查终端服务器是否运行。')
+    term.value.writeln('\r\n' + t('ssh.terminalConnectionError'))
   }
 }
 const listenerHeartbeat = (tackId) => {
