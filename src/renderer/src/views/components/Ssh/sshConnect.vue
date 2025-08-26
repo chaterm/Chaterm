@@ -101,6 +101,8 @@ import stripAnsi from 'strip-ansi'
 import { inputManager, commandBarHeight } from './termInputManager'
 import { shellCommands } from './shellCmd'
 import { createJumpServerStatusHandler, formatStatusMessage } from './jumpServerStatusHandler'
+import { useDeviceStore } from '@/store/useDeviceStore'
+import { checkUserDevice } from '@api/user/user'
 // import { createContextFetcher, type ContextFetcher } from './autocomplete/contextFetcher'
 const { t } = useI18n()
 const selectFlag = ref(false)
@@ -268,7 +270,23 @@ let dbConfigStash: {
   [key: string]: any
 } = {}
 let config
+
+const deviceStore = useDeviceStore()
+const isOfficeDevice = ref(false)
+
+const getUserInfo = async () => {
+  try {
+    const res = await checkUserDevice({ ip: deviceStore.getDeviceIp, macAddress: deviceStore.getMacAddress })
+    if (res && res.code === 200) {
+      isOfficeDevice.value = res.data.isOfficeDevice
+    }
+  } catch (error) {
+    console.error('获取用户信息失败:', error)
+  }
+}
+
 onMounted(async () => {
+  await getUserInfo()
   config = await serviceUserConfig.getConfig()
   dbConfigStash = config
   queryCommandFlag.value = config.autoCompleteStatus == 1
@@ -895,7 +913,8 @@ const connectSSH = async () => {
       targetIp: assetInfo.host,
       sshType: assetInfo.sshType,
       terminalType: config.terminalType,
-      agentForward: config.sshAgentsStatus === 1
+      agentForward: config.sshAgentsStatus === 1,
+      isOfficeDevice: isOfficeDevice.value
     })
 
     if (jumpServerStatusHandler) {

@@ -15,6 +15,13 @@ interface FileRecord {
   size: number
 }
 
+interface SftpConnectionInfo {
+  id: string
+  isSuccess: boolean
+  sftp?: any
+  error?: string
+}
+
 const envPath = path.resolve(__dirname, '../../../build/.env')
 
 // Ensure path exists
@@ -606,7 +613,7 @@ const api = {
   shell: (params) => ipcRenderer.invoke('ssh:shell', params),
   resizeShell: (id, cols, rows) => ipcRenderer.invoke('ssh:shell:resize', { id, cols, rows }),
   sshSftpList: (opts: { id: string; remotePath: string }) => ipcRenderer.invoke('ssh:sftp:list', opts) as Promise<FileRecord[] | string[]>,
-  sftpConnList: () => ipcRenderer.invoke('ssh:sftp:conn:list') as Promise<string[]>,
+  sftpConnList: () => ipcRenderer.invoke('ssh:sftp:conn:list') as Promise<SftpConnectionInfo[]>,
   sshConnExec: (args: { id: string; cmd: string }) => ipcRenderer.invoke('ssh:conn:exec', args) as Promise<ExecResult>,
   writeToShell: (params) => ipcRenderer.send('ssh:shell:write', params),
   disconnect: (params) => ipcRenderer.invoke('ssh:disconnect', params),

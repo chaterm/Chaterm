@@ -1,6 +1,6 @@
 import { ipcMain } from 'electron'
 import { Client } from 'ssh2'
-import { attemptSecondaryConnection } from './sshHandle'
+import { keyboardInteractiveOpts, attemptSecondaryConnection, sftpConnections, getSftpConnection } from './sshHandle'
 
 // JumpServer专用的MFA处理函数
 const handleJumpServerKeyboardInteractive = (event, id, prompts, finish) => {
@@ -24,6 +24,7 @@ const handleJumpServerKeyboardInteractive = (event, id, prompts, finish) => {
     ipcMain.once(`ssh:keyboard-interactive-response:${id}`, (_evt, responses) => {
       clearTimeout(timeoutId)
       finish(responses)
+      keyboardInteractiveOpts.set(id, responses)
       // 不等待验证结果，让SSH连接的ready/error事件处理验证结果
       resolve()
     })
@@ -366,6 +367,13 @@ export const registerJumpServerHandlers = () => {
     const conn = jumpserverConnections.get(id)
     if (conn) {
       conn.end()
+    }
+
+    // 清理sftp
+    if (sftpConnections.get(id)) {
+      const sftp = getSftpConnection(id)
+      sftp.end()
+      sftpConnections.delete(id)
     }
 
     // 在流和连接关闭后，相关映射会自动在 'close' 事件中清理
