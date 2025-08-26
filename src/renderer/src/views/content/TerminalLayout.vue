@@ -931,17 +931,8 @@ const handleCreateNewTerminal = () => {
     // Create new tab in main terminal area
     createTab(newTerminalInfo)
   } else {
-    // If no active tab, create a default terminal
-    const defaultTerminalInfo = {
-      title: 'Terminal',
-      content: 'term',
-      type: 'term',
-      organizationId: '',
-      ip: '',
-      data: {}
-    }
-
-    createTab(defaultTerminalInfo)
+    // If no active tab, open settings page instead of creating default terminal
+    openUserTab('userConfig')
   }
 }
 
