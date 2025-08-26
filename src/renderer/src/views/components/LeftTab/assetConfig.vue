@@ -238,7 +238,7 @@ const handleAssetRemove = (asset: AssetNode) => {
           message.error(t('personal.deleteFailure'))
         }
       } catch (err: any) {
-        message.error(t('personal.deleteError', { error: err.message || '未知错误' }))
+        message.error(t('personal.deleteError', { error: err.message || t('ssh.unknownError') }))
       }
     }
   })
@@ -428,7 +428,7 @@ const handleCreateAsset = async (data: AssetFormData) => {
 
 const handleSaveAsset = async (data: AssetFormData) => {
   if (!editingAssetUUID.value) {
-    message.error('缺少资产 ID')
+    message.error(t('personal.missingAssetId'))
     return
   }
 

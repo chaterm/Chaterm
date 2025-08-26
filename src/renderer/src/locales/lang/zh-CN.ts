@@ -491,7 +491,8 @@ export default {
     createFolderFirst: '请先创建文件夹',
     folderDeleteConfirm: '删除文件夹确认',
     folderDeleteConfirmContent: '确定要删除文件夹 "{name}" 吗？删除后文件夹中的资产将回到原位置。',
-    folderDeleteConfirmWithAssets: '确定要删除文件夹 "{name}" 吗？该文件夹包含 {count} 个资产，删除后资产将回到原位置。'
+    folderDeleteConfirmWithAssets: '确定要删除文件夹 "{name}" 吗？该文件夹包含 {count} 个资产，删除后资产将回到原位置。',
+    missingAssetId: '缺少资产 ID'
   },
   ai: {
     welcome: '您好，请问需要在终端做什么操作？',
@@ -547,7 +548,8 @@ export default {
     startRecordingDesc: '请开始说话，录制最长60秒。后端支持格式：{formats}',
     recordingFormat: '使用的格式',
     stopAudioTracks: '停止所有音频轨道',
-    startRecordingNote: '开始录制，每100ms收集一次数据'
+    startRecordingNote: '开始录制，每100ms收集一次数据',
+    websocketConnectionFailed: 'WebSocket连接失败，请检查后端服务'
   },
   keyChain: {
     newKey: '添加密钥',
@@ -570,7 +572,12 @@ export default {
     deleteError: '删除出错: {error}',
     createSuccess: '创建密钥成功',
     saveSuccess: '保存成功',
-    saveError: '保存出错'
+    saveError: '保存出错',
+    getKeyListFailed: '获取秘钥列表失败',
+    createError: '创建出错',
+    missingKeyId: '缺少密钥 ID',
+    keyFileImported: '密钥文件已导入',
+    readFileFailed: '读取文件失败'
   },
   userInfo: {
     enterprise: '企业用户',
@@ -680,7 +687,8 @@ export default {
     more: '更多',
     download: '下载',
     doubleClickToOpen: '双击打开',
-    sftpConnectFailed: 'SFTP连接失败'
+    sftpConnectFailed: 'SFTP连接失败',
+    pleaseInputNewFileName: '请输入新文件名'
   },
   about: {
     version: '版本',
@@ -701,5 +709,22 @@ export default {
     confirm: '确认',
     cancel: '取消',
     setupGlobalListeners: '设置全局 MFA 监听器'
+  },
+  ssh: {
+    disconnected: '已断开连接。',
+    pressEnterToReconnect: '按 Enter 键重新连接...',
+    disconnectError: '断开连接错误: {message}',
+    unknownError: '未知错误',
+    connectionFailed: '连接失败: {message}',
+    connectionError: '连接错误: {message}',
+    shellStartFailed: '启动Shell失败: {message}',
+    shellError: 'Shell错误: {message}',
+    connectionClosed: 'Connection closed.',
+    disconnectedFromHost: 'Disconnected from remote host({host}) at {date}',
+    pressEnterToReconnectEn: 'Press Enter to reconnect...',
+    connectingTo: 'Connecting to {ip}',
+    welcomeMessage: '{username}, 欢迎您使用Chaterm智能终端',
+    reconnecting: '正在重新连接...',
+    terminalConnectionError: '连接错误。请检查终端服务器是否运行。'
   }
 }

@@ -179,7 +179,7 @@ const startRecording = async () => {
     } catch (error) {
       notification.error({
         message: t('ai.voiceInputFailed'),
-        description: 'WebSocket连接失败，请检查后端服务',
+        description: t('ai.websocketConnectionFailed'),
         duration: 5
       })
       return
