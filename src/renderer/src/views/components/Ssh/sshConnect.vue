@@ -47,7 +47,10 @@
   </div>
 
   <!-- Per-terminal Command Dialog -->
-  <CommandDialog v-model:visible="isCommandDialogVisible" />
+  <CommandDialog
+    v-model:visible="isCommandDialogVisible"
+    :connection-id="currentConnectionId"
+  />
 
   <div
     v-for="editor in openEditors"

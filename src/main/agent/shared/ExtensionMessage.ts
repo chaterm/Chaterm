@@ -72,6 +72,7 @@ export interface ExtensionMessage {
   }
   // For command generation response
   command?: string
+  tabId?: string
 }
 
 export type Invoke = 'sendMessage' | 'primaryButtonClick' | 'secondaryButtonClick'

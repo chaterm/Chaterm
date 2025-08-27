@@ -96,6 +96,7 @@ export interface WebviewMessage {
   input?: string
   // For command generation
   instruction?: string
+  tabId?: string
   context?: {
     cwd: string
     platform: string

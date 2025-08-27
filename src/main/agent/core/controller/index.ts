@@ -189,7 +189,7 @@ export class Controller {
         break
       case 'commandGeneration':
         if (message.instruction) {
-          await this.handleCommandGeneration(message.instruction, message.context)
+          await this.handleCommandGeneration(message.instruction, message.context, message.tabId)
         }
         break
       case 'invoke': {
@@ -616,7 +616,7 @@ export class Controller {
    * Handle command generation request from webview
    * Converts natural language instruction to executable terminal command
    */
-  async handleCommandGeneration(instruction: string, context?: { cwd: string; platform: string; shell: string }) {
+  async handleCommandGeneration(instruction: string, context?: { cwd: string; platform: string; shell: string }, tabId?: string) {
     try {
       // Get API configuration
       const { apiConfiguration } = await getAllExtensionState()
@@ -658,10 +658,11 @@ export class Controller {
         // Clean up the generated command (remove markdown formatting if present)
         const cleanedCommand = this.extractCommandFromResponse(generatedCommand)
 
-        // Send response back to webview
+        // Send response back to webview with tabId for proper routing
         await this.postMessageToWebview({
           type: 'commandGenerationResponse',
-          command: cleanedCommand
+          command: cleanedCommand,
+          tabId: tabId
         })
       } catch (streamError) {
         console.error('Error processing AI stream:', streamError)
@@ -670,10 +671,11 @@ export class Controller {
     } catch (error) {
       console.error('Command generation failed:', error)
 
-      // Send error response back to webview
+      // Send error response back to webview with tabId for proper routing
       await this.postMessageToWebview({
         type: 'commandGenerationResponse',
-        error: error instanceof Error ? error.message : 'Command generation failed'
+        error: error instanceof Error ? error.message : 'Command generation failed',
+        tabId: tabId
       })
     }
   }

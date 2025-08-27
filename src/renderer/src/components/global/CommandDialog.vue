@@ -67,6 +67,7 @@ import eventBus from '@/utils/eventBus'
 
 interface Props {
   visible: boolean
+  connectionId?: string
 }
 
 interface Emits {
@@ -267,6 +268,7 @@ const handleSubmit = async () => {
   try {
     await window.api.sendToMain({
       type: 'commandGeneration',
+      tabId: props.connectionId,
       instruction: instruction,
       context: await getCurrentContext()
     })
@@ -280,11 +282,16 @@ const handleSubmit = async () => {
 
 const getCurrentContext = async () => {
   try {
-    const activeTerminalContainer = getActiveTerminalContainer()
-    const sshConnectId = activeTerminalContainer?.getAttribute('data-ssh-connect-id')
+    let sshConnectId = props.connectionId
+
+    // If no connectionId is provided, try to get the currently active terminal container
+    if (!sshConnectId) {
+      const activeTerminalContainer = getActiveTerminalContainer()
+      sshConnectId = activeTerminalContainer?.getAttribute('data-ssh-connect-id') || undefined
+    }
 
     if (!sshConnectId) {
-      console.warn('No active SSH connection found, using fallback context')
+      console.warn('No SSH connection ID found, using fallback context')
       return {
         platform: 'linux',
         shell: 'bash',
@@ -563,7 +570,12 @@ onUnmounted(() => {
   stopFocusEnforcer()
 })
 
-const handleCommandGenerationResponse = (response: { command?: string; error?: string }) => {
+const handleCommandGenerationResponse = (response: { tabId?: string; command?: string; error?: string }) => {
+  const currentTabId = props.connectionId
+  if (response.tabId && response.tabId !== currentTabId) {
+    return
+  }
+
   isLoading.value = false
 
   if (response.error) {

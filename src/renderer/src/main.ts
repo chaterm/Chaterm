@@ -59,7 +59,8 @@ if (window.api && window.api.onMainMessage) {
     if (message.type === 'commandGenerationResponse') {
       eventBus.emit('commandGenerationResponse', {
         command: message.command,
-        error: message.error
+        error: message.error,
+        tabId: message.tabId
       })
     }
   })
