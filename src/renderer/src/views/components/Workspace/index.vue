@@ -545,11 +545,13 @@ const handleFavoriteClick = (dataRef: any) => {
 const getLocalAssetMenu = () => {
   window.api
     .getLocalAssetRoute({ searchType: 'tree', params: ['person'] })
-    .then((res) => {
+    .then(async (res) => {
       if (res && res.data) {
         const data = res.data.routers || []
         originalTreeData.value = deepClone(data) as AssetNode[]
         assetTreeData.value = deepClone(data) as AssetNode[]
+        const localShell = await window.api.getShellsLocal()
+        assetTreeData.value.push(localShell)
         setTimeout(() => {
           expandDefaultNodes(assetTreeData.value)
         }, 200)

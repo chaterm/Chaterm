@@ -748,7 +748,34 @@ const api = {
   agentEnableAndConfigure: (opts: { enabled: boolean }) => ipcRenderer.invoke('ssh:agent:enable-and-configure', opts),
   addKey: (opts: { keyData: string; passphrase?: string; comment?: string }) => ipcRenderer.invoke('ssh:agent:add-key', opts),
   removeKey: (opts: { keyId: string }) => ipcRenderer.invoke('ssh:agent:remove-key', opts),
-  listKeys: () => ipcRenderer.invoke('ssh:agent:list-key') as Promise<[]>
+  listKeys: () => ipcRenderer.invoke('ssh:agent:list-key') as Promise<[]>,
+
+  connectLocal: (config: { id: string; shell?: string; cwd?: string; env?: Record<string, string>; cols?: number; rows?: number }) =>
+    ipcRenderer.invoke('local:connect', config),
+  sendDataLocal: (terminalId: string, data: string) => ipcRenderer.invoke('local:send:data', terminalId, data),
+  resizeLocal: (terminalId: string, cols: number, rows: number) => ipcRenderer.invoke('local:resize', terminalId, cols, rows),
+  closeLocal: (terminalId: string) => ipcRenderer.invoke('local:close', terminalId),
+  getShellsLocal: () => ipcRenderer.invoke('local:get:shells'),
+  onDataLocal: (id: string, callback: (data: string) => void) => {
+    const channel = `local:data:${id}`
+    const listener = (_event: any, data: string) => callback(data)
+    ipcRenderer.on(channel, listener)
+    return () => ipcRenderer.removeListener(channel, listener)
+  },
+
+  onErrorLocal: (id: string, callback: (error: any) => void) => {
+    const channel = `local:error:${id}`
+    const listener = (_event: any, error: any) => callback(error)
+    ipcRenderer.on(channel, listener)
+    return () => ipcRenderer.removeListener(channel, listener)
+  },
+
+  onExitLocal: (id: string, callback: (exitCode: any) => void) => {
+    const channel = `local:exit:${id}`
+    const listener = (_event: any, code: any) => callback(code)
+    ipcRenderer.on(channel, listener)
+    return () => ipcRenderer.removeListener(channel, listener)
+  }
 }
 // 自定义 API 用于浏览器控制
 
