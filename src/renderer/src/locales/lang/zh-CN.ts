@@ -177,6 +177,7 @@ export default {
     theme: '主题',
     themeDark: '暗色',
     themeLight: '亮色',
+    themeAuto: '自动',
     telemetry: '遥测',
     telemetryEnabled: '开启',
     telemetryDisabled: '关闭',
