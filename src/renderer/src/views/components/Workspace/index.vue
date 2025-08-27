@@ -296,6 +296,7 @@
                         type="primary"
                         size="small"
                         ghost
+                        :loading="refreshingNode === dataRef.key"
                         @click="handleRefresh(dataRef)"
                       >
                         <template #icon>
