@@ -58,6 +58,7 @@
     "globby": "^14.1.0",
     "ignore": "^7.0.3",
     "monaco-editor": "^0.52.2",
+    "node-pty": "^1.0.0",
     "openai": "^4.100.0",
     "p-wait-for": "^3.2.0",
     "pinia": "^3.0.1",

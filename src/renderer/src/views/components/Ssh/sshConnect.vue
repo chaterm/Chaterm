@@ -276,6 +276,7 @@ let config
 
 const deviceStore = useDeviceStore()
 const isOfficeDevice = ref(false)
+const isLocalConnect = ref(false)
 
 const getUserInfo = async () => {
   try {
@@ -468,7 +469,15 @@ onMounted(async () => {
     terminalContainerResize()
   })
 
-  connectSSH()
+  if (props.connectData.asset_type === 'shell') {
+    // TODO 本地连接后续兼容
+    config.highlightStatus = 2
+    config.autoCompleteStatus = 2
+    isLocalConnect.value = true
+    await connectLocalSSH()
+  } else {
+    await connectSSH()
+  }
 
   const handleExecuteCommand = (command) => {
     if (props.activeTabId !== props.currentConnectionId) return
@@ -852,7 +861,9 @@ const handleResize = debounce(() => {
       if (rect.width > 0 && rect.height > 0) {
         fitAddon.value.fit()
         const { cols, rows } = terminal.value
-        if (isConnected.value) {
+        if (isLocalConnect.value) {
+          resizeLocalSSH(cols, rows)
+        } else {
           resizeSSH(cols, rows)
         }
       }
@@ -901,8 +912,7 @@ const connectSSH = async () => {
 
     const email = userInfoStore().userInfo.email
     const name = userInfoStore().userInfo.name
-    console.log(7777, props)
-    console.log(8888, assetInfo)
+
     const orgType = props.serverInfo.organizationId === 'personal' ? 'local' : 'local-team'
     const hostnameBase64 =
       props.serverInfo.organizationId === 'personal' ? Base64Util.encode(assetInfo.asset_ip) : Base64Util.encode(assetInfo.hostname)
@@ -1036,6 +1046,109 @@ const resizeSSH = async (cols, rows) => {
   }
 }
 
+const connectLocalSSH = async () => {
+  if (termOndata) {
+    termOndata.dispose()
+    termOndata = null
+  }
+
+  if (terminal.value) {
+    const textarea = terminal.value.element?.querySelector('.xterm-helper-textarea') as HTMLTextAreaElement | null
+    if (textarea) {
+      if (textareaCompositionListener) {
+        textarea.removeEventListener('compositionend', textareaCompositionListener)
+        textareaCompositionListener = null
+      }
+      if (textareaPasteListener) {
+        textarea.removeEventListener('paste', textareaPasteListener)
+        textareaPasteListener = null
+      }
+    }
+  }
+
+  connectionId.value = `localhost@127.0.0.1:local:${Base64Util.encode(props.serverInfo.data.key)}:${uuidv4()}`
+
+  try {
+    const email = userInfoStore().userInfo.email
+    const name = userInfoStore().userInfo.name
+
+    const localConfig = {
+      id: connectionId.value,
+      shell: props.serverInfo.data.uuid,
+      termType: config.terminalType
+    }
+
+    const result = await api.connectLocal(localConfig)
+    if (result.success) {
+      let welcome = '\x1b[38;2;22;119;255m' + name + ', 欢迎您使用Chaterm智能终端 \x1b[m\r\n'
+      if (configStore.getUserConfig.language == 'en-US') {
+        welcome = '\x1b[38;2;22;119;255m' + email.split('@')[0] + ', Welcome to use Chaterm \x1b[m\r\n'
+      }
+      terminal.value?.writeln('') // 添加空行分隔
+      terminal.value?.writeln(welcome)
+
+      await startLocalShell()
+
+      // 处理输入
+      terminal.value.onData((data) => {
+        api.sendDataLocal(connectionId.value, data)
+      })
+
+      handleResize()
+      setTimeout(() => {
+        handleResize()
+      }, 200)
+    } else {
+      const errorMsg = formatStatusMessage(`连接失败: ${result.message}`, 'error')
+      terminal.value?.writeln(errorMsg)
+    }
+  } catch (error: any) {
+    const errorMsg = formatStatusMessage(`连接错误: ${error.message || '未知错误'}`, 'error')
+    terminal.value?.writeln(errorMsg)
+  }
+  emit('connectSSH', { isConnected: isConnected })
+}
+
+const startLocalShell = async () => {
+  isConnected.value = true
+  const removeDataListener = api.onDataLocal(connectionId.value, (data: string) => {
+    if (terminal.value) {
+      terminal.value.write(data)
+    }
+  })
+  const removeErrorListener = api.onErrorLocal?.(connectionId.value, (error: any) => {
+    if (terminal.value) {
+      terminal.value.write(`\r\n[错误]: ${error.message || error}\r\n`)
+    }
+  })
+
+  const removeCloseListener = api.onExitLocal(connectionId.value, (exitCode: any) => {
+    isConnected.value = false
+    if (terminal.value) {
+      terminal.value.write('\r\nConnection closed.\r\n\r\n')
+      terminal.value.write(`Disconnected from local shell at ${new Date().toDateString()}\r\n`)
+      terminal.value.write(`Exit code: ${exitCode?.code || 'unknown'}\r\n`)
+    }
+  })
+
+  if (removeErrorListener) {
+    cleanupListeners.value.push(removeDataListener, removeErrorListener, removeCloseListener)
+  } else {
+    cleanupListeners.value.push(removeDataListener, removeCloseListener)
+  }
+}
+
+const resizeLocalSSH = async (cols, rows) => {
+  try {
+    const result = await api.resizeLocal(connectionId.value, cols, rows)
+    if (result.status === 'error') {
+      console.error('Resize failed:', result.message)
+    } else {
+    }
+  } catch (error) {
+    console.error('Failed to resize terminal:', error)
+  }
+}
 const terminalState = ref({
   content: '',
   cursorPosition: {

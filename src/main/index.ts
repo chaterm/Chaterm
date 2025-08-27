@@ -11,6 +11,7 @@ import { getChatermDbPathForUser, getCurrentUserId } from './storage/db/connecti
 process.env.IS_DEV = is.dev ? 'true' : 'false'
 
 import { registerSSHHandlers } from './ssh/sshHandle'
+import { registerLocalSSHHandlers } from './ssh/localSSHHandle'
 import { registerRemoteTerminalHandlers } from './ssh/agentHandle'
 import { autoCompleteDatabaseService, ChatermDatabaseService, setCurrentUserId } from './storage/database'
 import { getGuestUserId } from './storage/db/connection'
@@ -108,6 +109,7 @@ app.whenReady().then(async () => {
 
   // Register SSH components
   registerSSHHandlers()
+  registerLocalSSHHandlers()
   registerRemoteTerminalHandlers()
   registerUpdater(mainWindow)
   app.on('activate', function () {
