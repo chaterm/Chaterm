@@ -426,9 +426,20 @@ onMounted(async () => {
   eventBus.on('updateWatermark', (watermark) => {
     showWatermark.value = watermark !== 'close'
   })
+  // Helper function to get actual theme based on time for auto mode
+  const getActualTheme = (theme) => {
+    if (theme === 'auto') {
+      const hour = new Date().getHours()
+      // Use light theme from 7:00 AM to 7:00 PM (19:00), dark theme otherwise
+      return hour >= 7 && hour < 19 ? 'light' : 'dark'
+    }
+    return theme
+  }
+
   eventBus.on('updateTheme', (theme) => {
-    currentTheme.value = theme
-    document.documentElement.className = `theme-${theme}`
+    const actualTheme = getActualTheme(theme)
+    currentTheme.value = actualTheme
+    document.documentElement.className = `theme-${actualTheme}`
   })
   try {
     let config = await userConfigStore.getConfig()
@@ -489,7 +500,7 @@ onMounted(async () => {
   eventBus.on('createNewTerminal', handleCreateNewTerminal)
 
   nextTick(() => {
-    let theme = localStorage.getItem('theme') || 'dark'
+    let theme = localStorage.getItem('theme') || 'auto'
     api.mainWindowInit(theme)
     api.mainWindowShow()
   })

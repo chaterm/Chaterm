@@ -645,18 +645,29 @@ function setupIPC(): void {
     }
   })
 
+  // Helper function to get actual theme based on time for auto mode
+  const getActualTheme = (theme: string) => {
+    if (theme === 'auto') {
+      const hour = new Date().getHours()
+      // Use light theme from 7:00 AM to 7:00 PM (19:00), dark theme otherwise
+      return hour >= 7 && hour < 19 ? 'light' : 'dark'
+    }
+    return theme
+  }
+
   ipcMain.handle('update-theme', (_, theme) => {
     if (mainWindow && !mainWindow.isDestroyed()) {
+      const actualTheme = getActualTheme(theme)
       // Update title bar color
       if (process.platform !== 'darwin') {
         mainWindow.setTitleBarOverlay({
-          color: theme === 'dark' ? '#141414' : '#ffffff',
-          symbolColor: theme === 'dark' ? '#ffffff' : '#141414',
+          color: actualTheme === 'dark' ? '#141414' : '#ffffff',
+          symbolColor: actualTheme === 'dark' ? '#ffffff' : '#141414',
           height: 27
         })
       }
       // Notify renderer process that theme has been updated
-      mainWindow.webContents.send('theme-updated', theme)
+      mainWindow.webContents.send('theme-updated', actualTheme)
       return true
     }
     return false
@@ -665,9 +676,10 @@ function setupIPC(): void {
   ipcMain.handle('main-window-init', async (_, theme) => {
     await winReady
     if (process.platform !== 'darwin') {
+      const actualTheme = getActualTheme(theme)
       mainWindow.setTitleBarOverlay({
-        color: theme === 'dark' ? '#141414' : '#ffffff',
-        symbolColor: theme === 'dark' ? '#ffffff' : '#141414',
+        color: actualTheme === 'dark' ? '#141414' : '#ffffff',
+        symbolColor: actualTheme === 'dark' ? '#ffffff' : '#141414',
         height: 27
       })
     }

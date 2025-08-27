@@ -177,6 +177,7 @@ export default {
     theme: 'Theme',
     themeDark: 'Dark',
     themeLight: 'Light',
+    themeAuto: 'Auto',
     telemetry: 'Telemetry',
     telemetryEnabled: 'Enabled',
     telemetryDisabled: 'Disabled',

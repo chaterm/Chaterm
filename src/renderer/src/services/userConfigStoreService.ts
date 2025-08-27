@@ -23,7 +23,7 @@ export interface UserConfig {
   watermark: 'open' | 'close' | undefined
   secretRedaction: 'enabled' | 'disabled' | undefined
   dataSync: 'enabled' | 'disabled' | undefined
-  theme: 'dark' | 'light' | undefined
+  theme: 'dark' | 'light' | 'auto' | undefined
   feature?: number
   quickComand?: boolean
   shortcuts?: ShortcutConfig
@@ -87,7 +87,7 @@ export class UserConfigStoreService {
       watermark: 'open' as 'open' | 'close',
       secretRedaction: 'disabled' as 'enabled' | 'disabled',
       dataSync: 'disabled' as 'enabled' | 'disabled',
-      theme: 'dark' as 'dark' | 'light',
+      theme: 'auto' as 'dark' | 'light' | 'auto',
       feature: 0.0,
       quickComand: false,
       shortcuts: defaultShortcuts,
@@ -156,7 +156,7 @@ export class UserConfigStoreService {
           const transaction = this.db.transaction(this.storeName, 'readwrite')
           const store = transaction.objectStore(this.storeName)
           const request = store.put(sanitizedConfig)
-          localStorage.setItem('theme', sanitizedConfig.theme || 'dark')
+          localStorage.setItem('theme', sanitizedConfig.theme || 'auto')
 
           request.onsuccess = () => {
             console.log('Config saved successfully')

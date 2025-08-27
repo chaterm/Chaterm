@@ -82,6 +82,7 @@ import DraggableResizable from './dragResize.vue'
 import { FullscreenOutlined, FullscreenExitOutlined, CloseOutlined, SaveOutlined } from '@ant-design/icons-vue'
 import { useI18n } from 'vue-i18n'
 import { PropType, defineEmits, shallowRef, onBeforeUnmount, watch, computed } from 'vue'
+import { getMonacoTheme } from '@/utils/themeUtils'
 
 export interface editorData {
   filePath: string
@@ -161,7 +162,7 @@ const showVimFullScreenExitEditor = shallowRef(false)
 
 // 根据当前主题设置编辑器主题
 const currentTheme = computed(() => {
-  return document.documentElement.classList.contains('theme-dark') ? 'vs-dark' : 'vs'
+  return getMonacoTheme()
 })
 
 const handleTextChange = (editor, newValue) => {
