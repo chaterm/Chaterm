@@ -343,6 +343,7 @@ onMounted(async () => {
   fitAddon?.value.fit()
   searchAddon.value = new SearchAddon()
   termInstance.loadAddon(searchAddon.value)
+  termInstance.scrollToBottom()
   termInstance.focus()
   const webgl = new WebglAddon()
   termInstance.loadAddon(webgl)
@@ -416,6 +417,12 @@ onMounted(async () => {
     originalWrite(data, () => {
       if (!currentIsUserCall) {
         debouncedUpdateTerminalState(data, currentIsUserCall)
+      }
+      // Ensure scroll to bottom after write completion
+      if (!currentIsUserCall) {
+        nextTick(() => {
+          terminal.value?.scrollToBottom()
+        })
       }
     })
 
@@ -945,6 +952,9 @@ const connectSSH = async () => {
       handleResize()
       setTimeout(() => {
         handleResize()
+        // Ensure scroll to bottom after successful connection
+        terminal.value?.scrollToBottom()
+        terminal.value?.focus()
       }, 200)
     } else {
       const errorMsg = formatStatusMessage(t('ssh.connectionFailed', { message: result.message }), 'error')
@@ -1174,6 +1184,13 @@ const updateTerminalState = (quickInit: boolean, enterPress, tagPress: boolean) 
     }
     updateTerminalStateObject(cursorX, cursorY, isCrossRow)
     sendTerminalStateToServer()
+
+    // Ensure terminal scrolls to bottom, keeping cursor in visible area
+    if (!userInputFlag.value) {
+      nextTick(() => {
+        terminal.value?.scrollToBottom()
+      })
+    }
   } catch (error) {
     console.error('更新终端状态时出错:', error)
   }
@@ -1389,6 +1406,11 @@ const setupTerminalInput = () => {
         .readText()
         .then((text) => {
           sendData(text)
+          // Ensure scroll to bottom after paste
+          nextTick(() => {
+            terminal.value?.scrollToBottom()
+            terminal.value?.focus()
+          })
         })
         .catch(() => {})
     } else if (data == '\r') {
@@ -1406,6 +1428,11 @@ const setupTerminalInput = () => {
         suggestions.value = []
         activeSuggestion.value = -1
         suggestionSelectionMode.value = false
+        // Ensure scroll to bottom
+        nextTick(() => {
+          terminal.value?.scrollToBottom()
+          terminal.value?.focus()
+        })
         return
       } else {
         const delData = String.fromCharCode(127)
@@ -1417,12 +1444,13 @@ const setupTerminalInput = () => {
           connectionSftpAvailable.value = await api.checkSftpConnAvailable(connectionId.value)
           const vimMatch = command.match(/^\s*vim\s+(.+)$/i)
           if (vimMatch && connectionSftpAvailable.value) {
+            let vimData = data
             if (vimMatch[1].startsWith('/')) {
-              data = delData.repeat(command.length) + 'echo "' + vimMatch[1] + '"  #Chaterm:vim  \r'
+              vimData = delData.repeat(command.length) + 'echo "' + vimMatch[1] + '"  #Chaterm:vim  \r'
             } else {
-              data = delData.repeat(command.length) + 'echo "$(pwd)/' + vimMatch[1] + '"  #Chaterm:vim  \r'
+              vimData = delData.repeat(command.length) + 'echo "$(pwd)/' + vimMatch[1] + '"  #Chaterm:vim  \r'
             }
-            sendMarkedData(data, 'Chaterm:vim')
+            sendMarkedData(vimData, 'Chaterm:vim')
           } else {
             sendData(data)
           }
@@ -1432,12 +1460,16 @@ const setupTerminalInput = () => {
       }
       if (command && command.trim()) {
         insertCommand(command)
-        // 触发后台上下文获取
-        // contextFetcher?.fetchContext()
       }
       suggestions.value = []
       activeSuggestion.value = -1
       suggestionSelectionMode.value = false
+
+      // Ensure scroll to bottom and maintain focus
+      nextTick(() => {
+        terminal.value?.scrollToBottom()
+        terminal.value?.focus()
+      })
     } else if (JSON.stringify(data) === '"\\u001b[A"' && terminalMode.value === 'none') {
       if (suggestions.value.length && suggestionSelectionMode.value) {
         if (data == '\u001b[A') {
@@ -2059,6 +2091,12 @@ const handleKeyInput = (e) => {
     terminalState.value.contentCrossRowStatus = false
     terminalState.value.contentCrossStartLine = 0
     terminalState.value.contentCrossRowLines = 0
+
+    // 确保滚动到底部并保持焦点
+    nextTick(() => {
+      terminal.value?.scrollToBottom()
+      terminal.value?.focus()
+    })
   } else if (ev.keyCode === 8) {
     index = cursorX.value - 1 - cursorStartX.value
     currentLine.value = currentLine.value.slice(0, index) + currentLine.value.slice(index + 1)
@@ -2159,6 +2197,8 @@ const contextAct = (action) => {
 
 const focus = () => {
   if (terminal.value) {
+    // Ensure terminal scrolls to bottom, keeping cursor in visible area
+    terminal.value.scrollToBottom()
     terminal.value.focus()
     inputManager.setActiveTerm(connectionId.value)
   }
@@ -2264,7 +2304,10 @@ const terminalContainerResize = () => {
     terminalContainer.value?.style.setProperty('height', `calc(100% - ${currentHeight}px)`)
   } else {
     terminalContainer.value?.style.setProperty('height', '100%')
-    if (terminal.value) terminal.value.scrollToBottom()
+    if (terminal.value) {
+      terminal.value.scrollToBottom()
+      terminal.value.focus()
+    }
   }
 }
 
