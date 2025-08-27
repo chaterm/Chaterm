@@ -131,7 +131,7 @@ export class SyncController {
     if (hasHistoricalData) {
       logger.info('检测到历史数据需要同步，执行全量同步...')
     } else {
-      logger.info('开始强制全量同步（测试模式）...')
+      logger.info('开始强制全量同步...')
     }
 
     try {
@@ -170,11 +170,11 @@ export class SyncController {
         return { success: true, message, synced_count: 0, failed_count: 0 }
       }
 
-      const message = hasHistoricalData ? '历史数据同步完成（测试模式）' : '强制全量同步完成（测试模式）'
+      const message = hasHistoricalData ? '历史数据同步完成' : '强制全量同步完成'
       logger.info(message)
       return { success: true, message, synced_count: syncedCount, failed_count: failedCount }
     } catch (error: any) {
-      const errorMessage = hasHistoricalData ? '历史数据同步失败（测试模式）' : '强制全量同步失败（测试模式）'
+      const errorMessage = hasHistoricalData ? '历史数据同步失败' : '强制全量同步失败'
       logger.error(`${errorMessage}:`, error)
       return { success: false, message: `${errorMessage}: ${error?.message || error}`, synced_count: 0, failed_count: 1 }
     }
