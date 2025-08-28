@@ -356,28 +356,6 @@ export const registerJumpServerHandlers = () => {
     })
   })
 
-  // 处理断开连接
-  ipcMain.handle('jumpserver:disconnect', async (_event, { id }) => {
-    const stream = jumpserverShellStreams.get(id)
-    if (stream) {
-      stream.end()
-    }
-
-    const conn = jumpserverConnections.get(id)
-    if (conn) {
-      conn.end()
-    }
-
-    // 在流和连接关闭后，相关映射会自动在 'close' 事件中清理
-    // 这里检查是否存在任一对象，以判断是否发起了断开操作
-    if (stream || conn) {
-      console.log(`JumpServer disconnect initiated for id: ${id}`)
-      return { status: 'success', message: 'JumpServer 连接已断开' }
-    }
-
-    return { status: 'warning', message: '没有活动的 JumpServer 连接' }
-  })
-
   // 处理窗口大小调整
   ipcMain.handle('jumpserver:shell:resize', async (_event, { id, cols, rows }) => {
     const stream = jumpserverShellStreams.get(id)
