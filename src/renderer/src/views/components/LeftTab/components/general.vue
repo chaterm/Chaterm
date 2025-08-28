@@ -67,6 +67,7 @@ import { notification } from 'ant-design-vue'
 import { userConfigStore } from '@/services/userConfigStoreService'
 import { userConfigStore as configStore } from '@/store/userConfigStore'
 import eventBus from '@/utils/eventBus'
+import { getActualTheme } from '@/utils/themeUtils'
 import { useI18n } from 'vue-i18n'
 
 const api = window.api
@@ -177,16 +178,6 @@ const startThemeCheckTimer = () => {
       }
     }
   }, 60000) // Check every minute
-}
-
-// Helper function to get actual theme based on time for auto mode
-const getActualTheme = (theme) => {
-  if (theme === 'auto') {
-    const hour = new Date().getHours()
-    // Use light theme from 6:00 AM to 6:00 PM (18:00), dark theme otherwise
-    return hour >= 6 && hour < 18 ? 'light' : 'dark'
-  }
-  return theme
 }
 
 const changeTheme = async () => {

@@ -80,6 +80,7 @@ import { aliasConfigStore } from '@/store/aliasConfigStore'
 const { t } = useI18n()
 const emit = defineEmits(['closeTabInTerm', 'createNewTerm'])
 import eventBus from '@/utils/eventBus'
+import { getActualTheme } from '@/utils/themeUtils'
 import { shortcutService } from '@/services/shortcutService'
 const isConnect = ref(true)
 const props = defineProps({
@@ -277,6 +278,29 @@ onMounted(() => {
   eventBus.on('clearCurrentTerminal', () => {
     contextAct('clearTerm')
   })
+
+  // Listen for theme update events
+  eventBus.on('updateTheme', (theme) => {
+    if (term.value) {
+      const actualTheme = getActualTheme(theme)
+      term.value.options.theme =
+        actualTheme === 'light'
+          ? {
+              background: '#ffffff',
+              foreground: '#000000',
+              cursor: '#000000',
+              cursorAccent: '#000000',
+              selectionBackground: 'rgba(0, 0, 0, 0.3)'
+            }
+          : {
+              background: '#141414',
+              foreground: '#f0f0f0',
+              cursor: '#f0f0f0',
+              cursorAccent: '#f0f0f0',
+              selectionBackground: 'rgba(255, 255, 255, 0.3)'
+            }
+    }
+  })
 })
 
 onBeforeUnmount(() => {
@@ -315,16 +339,29 @@ const initTerminal = async () => {
   try {
     const config = await serviceUserConfig.getConfig()
     stashConfig = config
+    const actualTheme = getActualTheme(config.theme)
     term.value = new Terminal({
       cursorBlink: true,
       scrollback: config.scrollBack,
       cursorStyle: config.cursorStyle || 'bar',
       fontSize: config.fontSize,
       fontFamily: config.fontFamily || 'Menlo, Monaco, "Courier New", Courier, monospace',
-      theme: {
-        background: '#141414',
-        foreground: '#f0f0f0'
-      }
+      theme:
+        actualTheme === 'light'
+          ? {
+              background: '#ffffff',
+              foreground: '#000000',
+              cursor: '#000000',
+              cursorAccent: '#000000',
+              selectionBackground: 'rgba(0, 0, 0, 0.3)'
+            }
+          : {
+              background: '#141414',
+              foreground: '#f0f0f0',
+              cursor: '#f0f0f0',
+              cursorAccent: '#f0f0f0',
+              selectionBackground: 'rgba(255, 255, 255, 0.3)'
+            }
     })
 
     fitAddon = new FitAddon()

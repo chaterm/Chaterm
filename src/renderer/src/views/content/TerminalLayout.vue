@@ -231,6 +231,7 @@ import { v4 as uuidv4 } from 'uuid'
 import { userInfoStore } from '@/store'
 import { aliasConfigStore } from '@/store/aliasConfigStore'
 import eventBus from '@/utils/eventBus'
+import { getActualTheme } from '@/utils/themeUtils'
 import { Notice } from '../components/Notice'
 import { isGlobalInput, isShowCommandBar, isShowQuickCommand } from '@renderer/views/components/Ssh/termInputManager'
 import { inputManager } from '../components/Ssh/termInputManager'
@@ -426,16 +427,6 @@ onMounted(async () => {
   eventBus.on('updateWatermark', (watermark) => {
     showWatermark.value = watermark !== 'close'
   })
-  // Helper function to get actual theme based on time for auto mode
-  const getActualTheme = (theme) => {
-    if (theme === 'auto') {
-      const hour = new Date().getHours()
-      // Use light theme from 7:00 AM to 7:00 PM (19:00), dark theme otherwise
-      return hour >= 7 && hour < 19 ? 'light' : 'dark'
-    }
-    return theme
-  }
-
   eventBus.on('updateTheme', (theme) => {
     const actualTheme = getActualTheme(theme)
     currentTheme.value = actualTheme
