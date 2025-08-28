@@ -29,8 +29,22 @@ import { HistoryItem } from '@shared/HistoryItem'
 import { DEFAULT_LANGUAGE_SETTINGS } from '@shared/Languages'
 import { ChatermAskResponse } from '@shared/WebviewMessage'
 import { calculateApiCostAnthropic } from '@utils/cost'
+
+interface StreamMetrics {
+  didReceiveUsageChunk?: boolean
+  inputTokens: number
+  outputTokens: number
+  cacheWriteTokens: number
+  cacheReadTokens: number
+  totalCost?: number
+}
+
+interface MessageUpdater {
+  updateApiReqMsg: (cancelReason?: ChatermApiReqCancelReason, streamingFailedMessage?: string) => void
+}
 import { AssistantMessageContent, parseAssistantMessageV2, ToolParamName, ToolUseName, TextContent, ToolUse } from '@core/assistant-message'
-import { RemoteTerminalManager, ConnectionInfo, RemoteTerminalInfo } from '../../integrations/remote-terminal'
+import { RemoteTerminalManager, ConnectionInfo, RemoteTerminalInfo, RemoteTerminalProcessResultPromise } from '../../integrations/remote-terminal'
+import { LocalTerminalManager, LocalCommandProcess } from '../../integrations/local-terminal'
 import { formatResponse } from '@core/prompts/responses'
 import { addUserInstructions, SYSTEM_PROMPT, SYSTEM_PROMPT_CHAT, SYSTEM_PROMPT_CN, SYSTEM_PROMPT_CHAT_CN } from '@core/prompts/system'
 import { getContextWindowInfo } from '@core/context/context-management/context-window-utils'
@@ -62,6 +76,7 @@ export class Task {
   api: ApiHandler
   contextManager: ContextManager
   private remoteTerminalManager: RemoteTerminalManager
+  private localTerminalManager: LocalTerminalManager
   customInstructions?: string
   autoApprovalSettings: AutoApprovalSettings
   apiConversationHistory: Anthropic.MessageParam[] = []
@@ -100,7 +115,10 @@ export class Task {
   private lastConnectionHost: string | null = null
 
   // Interactive command input handling
-  private currentRunningProcess: any = null
+  private currentRunningProcess:
+    | (LocalCommandProcess & { sendInput?: (input: string) => Promise<boolean> })
+    | RemoteTerminalProcessResultPromise
+    | null = null
 
   // streaming
   isWaitingForFirstChunk = false
@@ -138,6 +156,7 @@ export class Task {
     this.postMessageToWebview = postMessageToWebview
     this.reinitExistingTaskFromId = reinitExistingTaskFromId
     this.remoteTerminalManager = new RemoteTerminalManager()
+    this.localTerminalManager = LocalTerminalManager.getInstance()
     this.contextManager = new ContextManager()
     this.customInstructions = customInstructions
     this.autoApprovalSettings = autoApprovalSettings
@@ -196,7 +215,42 @@ export class Task {
     }
   }
 
+  /**
+   * 判断是否为本地主机
+   */
+  private isLocalHost(ip?: string): boolean {
+    if (!ip) return false
+    return ip === '127.0.0.1' || ip === 'localhost' || ip === '::1'
+  }
+
+  /**
+   * 在本地主机执行命令
+   */
+  private async executeCommandInLocalHost(command: string, cwd?: string): Promise<string> {
+    try {
+      const result = await this.localTerminalManager.executeCommand(command, cwd)
+      if (result.success) {
+        return result.output || ''
+      } else {
+        throw new Error(result.error || 'Local command execution failed')
+      }
+    } catch (err) {
+      // Check if we're in chat or cmd mode, if so return empty string
+      const chatSettings = await getGlobalState('chatSettings')
+      if (chatSettings?.mode === 'chat' || chatSettings?.mode === 'cmd') {
+        return ''
+      }
+      await this.ask('ssh_con_failed', err instanceof Error ? err.message : String(err), false)
+      await this.abortTask()
+      throw err
+    }
+  }
+
   private async executeCommandInRemoteServer(command: string, ip?: string, cwd?: string): Promise<string> {
+    // 如果是本地主机，使用本地执行
+    if (this.isLocalHost(ip)) {
+      return this.executeCommandInLocalHost(command, cwd)
+    }
     try {
       const terminalInfo = await this.connectTerminal(ip)
       if (!terminalInfo) {
@@ -918,7 +972,130 @@ export class Task {
     return `${headPart}\n\n${formatMessage(this.messages.outputTruncatedLines, { count: truncatedLines })}\n\n${tailPart}`
   }
 
+  /**
+   * 在本地主机执行命令工具
+   */
+  async executeLocalCommandTool(command: string): Promise<ToolResponse> {
+    let result = ''
+    let chunkTimer: NodeJS.Timeout | null = null
+
+    try {
+      const terminal = await this.localTerminalManager.createTerminal()
+      const process = this.localTerminalManager.runCommand(terminal, command, this.cwd.get('127.0.0.1') || undefined)
+
+      // Store the current running process so it can receive interactive input
+      this.currentRunningProcess = process
+
+      // Chunked terminal output buffering
+      const CHUNK_LINE_COUNT = 20
+      const CHUNK_BYTE_SIZE = 2048 // 2KB
+      const CHUNK_DEBOUNCE_MS = 100
+
+      let outputBuffer: string[] = []
+      let outputBufferSize: number = 0
+      let chunkEnroute = false
+
+      const flushBuffer = async (force = false) => {
+        if (!force && (chunkEnroute || outputBuffer.length === 0)) {
+          return
+        }
+        outputBuffer = []
+        outputBufferSize = 0
+        chunkEnroute = true
+        try {
+          // Send the complete output up to now, for the frontend to replace entirely
+          await this.say('command_output', result, true)
+        } catch (error) {
+          console.error('Error while saying for command output:', error) // Log error
+        } finally {
+          chunkEnroute = false
+          // If more output accumulated while chunkEnroute, flush again
+          if (outputBuffer.length > 0) {
+            await flushBuffer()
+          }
+        }
+      }
+
+      const scheduleFlush = () => {
+        if (chunkTimer) {
+          clearTimeout(chunkTimer)
+        }
+        chunkTimer = setTimeout(async () => await flushBuffer(), CHUNK_DEBOUNCE_MS)
+      }
+
+      process.on('line', async (line) => {
+        result += line
+        outputBuffer.push(line)
+        outputBufferSize += Buffer.byteLength(line, 'utf8')
+
+        // Flush if buffer is large enough
+        if (outputBuffer.length >= CHUNK_LINE_COUNT || outputBufferSize >= CHUNK_BYTE_SIZE) {
+          await flushBuffer()
+        } else {
+          scheduleFlush()
+        }
+      })
+
+      let completed = false
+      process.once('completed', async () => {
+        completed = true
+        this.currentRunningProcess = null
+
+        // Clear the timer and flush any remaining buffer
+        if (chunkTimer) {
+          clearTimeout(chunkTimer)
+          chunkTimer = null
+        }
+        await flushBuffer(true)
+      })
+
+      process.on('error', async (error) => {
+        completed = true
+        this.currentRunningProcess = null
+        result += `\nError: ${error.message}`
+
+        // Clear the timer and flush any remaining buffer
+        if (chunkTimer) {
+          clearTimeout(chunkTimer)
+          chunkTimer = null
+        }
+        await flushBuffer(true)
+      })
+
+      // Wait for completion
+      await new Promise<void>((resolve) => {
+        const checkCompletion = () => {
+          if (completed) {
+            resolve()
+          } else {
+            setTimeout(checkCompletion, 100)
+          }
+        }
+        checkCompletion()
+      })
+
+      const truncatedResult = this.truncateCommandOutput(result)
+
+      if (completed) {
+        return `${this.messages.commandExecutedOutput}${truncatedResult.length > 0 ? `\nOutput:\n${truncatedResult}` : ''}`
+      } else {
+        return `${this.messages.commandStillRunning}${
+          truncatedResult.length > 0 ? `${this.messages.commandHereIsOutput}${truncatedResult}` : ''
+        }${this.messages.commandUpdateFuture}`
+      }
+    } catch (error) {
+      console.error('Error executing local command:', error)
+      this.currentRunningProcess = null
+      return `Local command execution failed: ${error instanceof Error ? error.message : String(error)}`
+    }
+  }
+
   async executeCommandTool(command: string, ip: string): Promise<ToolResponse> {
+    // 如果是本地主机，使用本地执行
+    if (this.isLocalHost(ip)) {
+      return this.executeLocalCommandTool(command)
+    }
+
     let result = ''
     let chunkTimer: NodeJS.Timeout | null = null
 
@@ -1067,9 +1244,10 @@ export class Task {
     return false
   }
 
-  private formatErrorWithStatusCode(error: any): string {
-    const statusCode = error.status || error.statusCode || (error.response && error.response.status)
-    const message = error.message ?? JSON.stringify(serializeError(error), null, 2)
+  private formatErrorWithStatusCode(error: unknown): string {
+    const errorObj = error as any // Safe cast since we're checking properties defensively
+    const statusCode = errorObj?.status || errorObj?.statusCode || (errorObj?.response && errorObj.response.status)
+    const message = errorObj?.message ?? JSON.stringify(serializeError(error), null, 2)
 
     // Only prepend the statusCode if it's not already part of the message
     return statusCode && !message.includes(statusCode.toString()) ? `${statusCode} - ${message}` : message
@@ -1328,7 +1506,7 @@ export class Task {
     }
   }
 
-  private createMessageUpdater(streamMetrics: any) {
+  private createMessageUpdater(streamMetrics: StreamMetrics): MessageUpdater {
     const lastApiReqIndex = findLastIndex(this.chatermMessages, (m) => m.say === 'api_req_started')
 
     return {
@@ -1369,7 +1547,7 @@ export class Task {
     this.isInsideThinkingBlock = false
   }
 
-  private async processStream(stream: any, streamMetrics: any, messageUpdater: any): Promise<string> {
+  private async processStream(stream: any, streamMetrics: StreamMetrics, messageUpdater: MessageUpdater): Promise<string> {
     let assistantMessage = ''
     let reasoningMessage = ''
     this.isStreaming = true
@@ -1409,7 +1587,7 @@ export class Task {
     return assistantMessage
   }
 
-  private handleUsageChunk(chunk: any, streamMetrics: any): void {
+  private handleUsageChunk(chunk: any, streamMetrics: StreamMetrics): void {
     streamMetrics.didReceiveUsageChunk = true
     streamMetrics.inputTokens += chunk.inputTokens
     streamMetrics.outputTokens += chunk.outputTokens
@@ -1472,7 +1650,7 @@ export class Task {
     assistantMessage: string,
     cancelReason: ChatermApiReqCancelReason,
     streamingFailedMessage: string | undefined,
-    messageUpdater: any
+    messageUpdater: MessageUpdater
   ): Promise<void> {
     const lastMessage = this.chatermMessages.at(-1)
     if (lastMessage && lastMessage.partial) {
@@ -1501,7 +1679,7 @@ export class Task {
   }
 
   private async handleStreamError(
-    error: any,
+    error: unknown,
     abortStream: (cancelReason: ChatermApiReqCancelReason, streamingFailedMessage?: string) => Promise<void>
   ): Promise<void> {
     this.abortTask()
@@ -1510,7 +1688,7 @@ export class Task {
     await this.reinitExistingTaskFromId(this.taskId)
   }
 
-  private async handleStreamUsageUpdate(streamMetrics: any, messageUpdater: any): Promise<void> {
+  private async handleStreamUsageUpdate(streamMetrics: StreamMetrics, messageUpdater: MessageUpdater): Promise<void> {
     if (!streamMetrics.didReceiveUsageChunk) {
       // Asynchronously get usage statistics
       this.api.getApiStreamUsage?.().then(async (apiStreamUsage) => {
@@ -2108,7 +2286,7 @@ export class Task {
         return
       }
 
-      const requiredCheck = async (val: any, name: string): Promise<boolean> => {
+      const requiredCheck = async (val: unknown, name: string): Promise<boolean> => {
         if (!val) {
           this.consecutiveMistakeCount++
           this.pushToolResult(toolDescription, await this.sayAndCreateMissingParamError('report_bug', name))
@@ -2363,11 +2541,24 @@ export class Task {
           if (!hostInfo) {
             console.log(`Fetching system information for host: ${host.host}`)
 
-            // Optimization: Get all system information at once to avoid multiple network requests
-            // Simplified script to avoid complex quoting issues in JumpServer environment
-            const systemInfoScript = `uname -a | sed 's/^/OS_VERSION:/' && echo "DEFAULT_SHELL:$SHELL" && echo "HOME_DIR:$HOME" && hostname | sed 's/^/HOSTNAME:/' && whoami | sed 's/^/USERNAME:/' && (sudo -n true 2>/dev/null && echo "SUDO_CHECK:has sudo permission" || echo "SUDO_CHECK:no sudo permission")`
+            let systemInfoOutput: string
 
-            let systemInfoOutput = await this.executeCommandInRemoteServer(systemInfoScript, host.host)
+            // 如果是本地主机，直接获取系统信息
+            if (this.isLocalHost(host.host)) {
+              const localSystemInfo = await this.localTerminalManager.getSystemInfo()
+              systemInfoOutput = `OS_VERSION:${localSystemInfo.osVersion}
+DEFAULT_SHELL:${localSystemInfo.defaultShell}
+HOME_DIR:${localSystemInfo.homeDir}
+HOSTNAME:${localSystemInfo.hostName}
+USERNAME:${localSystemInfo.userName}
+SUDO_CHECK:${localSystemInfo.sudoCheck}`
+            } else {
+              // Optimization: Get all system information at once to avoid multiple network requests
+              // Simplified script to avoid complex quoting issues in JumpServer environment
+              const systemInfoScript = `uname -a | sed 's/^/OS_VERSION:/' && echo "DEFAULT_SHELL:$SHELL" && echo "HOME_DIR:$HOME" && hostname | sed 's/^/HOSTNAME:/' && whoami | sed 's/^/USERNAME:/' && (sudo -n true 2>/dev/null && echo "SUDO_CHECK:has sudo permission" || echo "SUDO_CHECK:no sudo permission")`
+              systemInfoOutput = await this.executeCommandInRemoteServer(systemInfoScript, host.host)
+            }
+
             console.log(`System info output for ${host.host}:`, systemInfoOutput)
 
             if (!systemInfoOutput || systemInfoOutput.trim() === '') {

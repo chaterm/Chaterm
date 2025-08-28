@@ -510,6 +510,7 @@ export default {
     agentMessage: '到任意主机执行命令查询，排查错误和任务处理等任何事情',
     cmdMessage: '到当前活跃终端执行任务，请先连接目标主机',
     chatMessage: '与AI对话，学习，头脑风暴（无法操作服务器）',
+    localhost: '本地主机',
     newChat: '新建对话',
     showChatHistory: '显示历史记录',
     closeAiSidebar: '关闭AI侧边栏',

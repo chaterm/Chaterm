@@ -71,7 +71,7 @@ interface LocalShellsResult {
 
 const terminals: Map<string, LocalTerminal> = new Map()
 
-const sendToRenderer = (channel: string, data: any) => {
+const sendToRenderer = (channel: string, data: unknown) => {
   const windows = BrowserWindow.getAllWindows()
   windows.forEach((window) => {
     window.webContents.send(channel, data)
@@ -136,7 +136,7 @@ const closeTerminal = (terminalId: string) => {
       terminal.isAlive = false
       terminals.delete(terminalId)
       return { success: true }
-    } catch (error: any) {
+    } catch (error: unknown) {
       return { success: false, message: error.message }
     }
   }
@@ -272,7 +272,7 @@ export const registerLocalSSHHandlers = () => {
     try {
       await createTerminal(config)
       return { success: true, message: 'Local terminal connected successfully' }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Local terminal connection failed:', error)
       return { success: false, message: error.message }
     }
@@ -302,5 +302,32 @@ export const registerLocalSSHHandlers = () => {
 
   ipcMain.handle('local:get:shells', async () => {
     return getAvailableShells()
+  })
+
+  ipcMain.handle('local:get-working-directory', async () => {
+    try {
+      const cwd = process.cwd()
+      return { success: true, cwd }
+    } catch (error: unknown) {
+      return { success: false, error: error.message }
+    }
+  })
+
+  ipcMain.handle('local:execute-command', async (_event, command: string) => {
+    try {
+      const { execSync } = require('child_process')
+      const output = execSync(command, {
+        encoding: 'utf8',
+        timeout: 30000, // 30秒超时
+        maxBuffer: 1024 * 1024 // 1MB最大输出
+      })
+      return { success: true, output: output.toString() }
+    } catch (error: unknown) {
+      return {
+        success: false,
+        error: error.message,
+        output: error.stdout ? error.stdout.toString() : ''
+      }
+    }
   })
 }
