@@ -1073,7 +1073,6 @@ const connectLocalSSH = async () => {
 
   try {
     const email = userInfoStore().userInfo.email
-    const name = userInfoStore().userInfo.name
 
     const localConfig = {
       id: connectionId.value,
@@ -1083,8 +1082,8 @@ const connectLocalSSH = async () => {
 
     const result = await api.connectLocal(localConfig)
     if (result.success) {
-      const username = configStore.getUserConfig.language === 'en-US' ? email.split('@')[0] : name
-      const welcome = '\x1b[38;2;22;119;255m' + t('ssh.welcomeMessage', { username }) + ' \x1b[m\r\n'
+      const welcomeName = email.split('@')[0]
+      const welcome = '\x1b[38;2;22;119;255m' + t('ssh.welcomeMessage', { username: welcomeName }) + ' \x1b[m\r\n'
       terminal.value?.writeln('') // 添加空行分隔
       terminal.value?.writeln(welcome)
 
