@@ -720,7 +720,7 @@ ipcMain.handle('insert-command', async (_, data) => {
 ipcMain.handle('asset-route-local-get', async (_, data) => {
   try {
     const { searchType, params } = data
-    const result = chatermDbService.getLocalAssetRoute(searchType, params || [])
+    const result = await chatermDbService.getLocalAssetRoute(searchType, params || [])
     return result
   } catch (error) {
     console.error('Chaterm query failed:', error)

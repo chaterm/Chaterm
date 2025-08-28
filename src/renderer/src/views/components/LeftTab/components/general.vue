@@ -157,6 +157,9 @@ const changeLanguage = async () => {
   locale.value = userConfig.value.language
   localStorage.setItem('lang', userConfig.value.language)
   configStore().updateLanguage(userConfig.value.language)
+
+  // 通知其他组件语言已更改，需要刷新数据
+  eventBus.emit('languageChanged', userConfig.value.language)
 }
 
 // Start theme check timer for auto mode

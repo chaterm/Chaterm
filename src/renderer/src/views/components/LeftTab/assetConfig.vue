@@ -488,10 +488,17 @@ onMounted(() => {
   eventBus.on('keyChainUpdated', () => {
     getkeyChainData()
   })
+  // 监听语言变更事件，重新加载资产数据
+  eventBus.on('languageChanged', () => {
+    console.log('Language changed in asset config, refreshing asset list...')
+    getAssetList()
+    eventBus.emit('LocalAssetMenu') // 通知工作空间组件也刷新
+  })
 })
 
 onBeforeUnmount(() => {
   eventBus.off('keyChainUpdated')
+  eventBus.off('languageChanged')
 })
 
 watch(isRightSectionVisible, (val) => {

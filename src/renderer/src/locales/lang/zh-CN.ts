@@ -73,7 +73,9 @@ export default {
     saveConfirmTitle: '保存更改',
     saveConfirmContent: '您想将更改保存到 {filePath} 吗？',
     pleaseInputLabel: '请输入标签名称',
-    pleaseInputPrivateKey: '请输入私钥'
+    pleaseInputPrivateKey: '请输入私钥',
+    localhost: '本地主机',
+    favoriteBar: '收藏栏'
   },
   term: {
     welcome: '欢迎使用 Chaterm',
@@ -399,7 +401,7 @@ export default {
     pleaseSelectKeychain: '请选择密钥',
     pleaseInputAlias: '请输入别名或主机名',
     pleaseSelectGroup: '请选择分组',
-    personal: '本地连接',
+    personal: '个人资源',
     enterprise: '企业资源',
     editHost: '编辑主机',
     saveAsset: '保存',

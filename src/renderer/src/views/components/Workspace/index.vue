@@ -262,7 +262,7 @@
                       !dataRef.key.startsWith('common_') &&
                       editingNode !== dataRef.key &&
                       company !== 'personal_user_id' &&
-                      dataRef.title !== '收藏栏' &&
+                      dataRef.title !== t('common.favoriteBar') &&
                       dataRef.asset_type === 'custom_folder'
                     "
                     class="folder-actions"
@@ -286,7 +286,7 @@
                       !dataRef.key.startsWith('common_') &&
                       editingNode !== dataRef.key &&
                       company !== 'personal_user_id' &&
-                      dataRef.title !== '收藏栏' &&
+                      dataRef.title !== t('common.favoriteBar') &&
                       dataRef.asset_type !== 'custom_folder'
                     "
                     class="refresh-icon"
@@ -1039,10 +1039,16 @@ const refreshAssetMenu = () => {
 
 onMounted(() => {
   eventBus.on('LocalAssetMenu', refreshAssetMenu)
+  // 监听语言变更事件，重新加载资产数据
+  eventBus.on('languageChanged', () => {
+    console.log('Language changed, refreshing asset menu...')
+    refreshAssetMenu()
+  })
   loadCustomFolders()
 })
 onUnmounted(() => {
   eventBus.off('LocalAssetMenu', refreshAssetMenu)
+  eventBus.off('languageChanged')
 })
 </script>
 

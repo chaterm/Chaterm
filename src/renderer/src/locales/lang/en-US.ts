@@ -73,7 +73,9 @@ export default {
     saveConfirmTitle: 'Save Changes',
     saveConfirmContent: 'Do you want to save changes to {filePath}?',
     pleaseInputLabel: 'Please input label name',
-    pleaseInputPrivateKey: 'Please input private key'
+    pleaseInputPrivateKey: 'Please input private key',
+    localhost: 'Localhost',
+    favoriteBar: 'Favorites'
   },
   term: {
     welcome: 'Welcome to use Chaterm',

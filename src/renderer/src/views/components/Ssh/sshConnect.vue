@@ -1080,10 +1080,8 @@ const connectLocalSSH = async () => {
 
     const result = await api.connectLocal(localConfig)
     if (result.success) {
-      let welcome = '\x1b[38;2;22;119;255m' + name + ', 欢迎您使用Chaterm智能终端 \x1b[m\r\n'
-      if (configStore.getUserConfig.language == 'en-US') {
-        welcome = '\x1b[38;2;22;119;255m' + email.split('@')[0] + ', Welcome to use Chaterm \x1b[m\r\n'
-      }
+      const username = configStore.getUserConfig.language === 'en-US' ? email.split('@')[0] : name
+      const welcome = '\x1b[38;2;22;119;255m' + t('ssh.welcomeMessage', { username }) + ' \x1b[m\r\n'
       terminal.value?.writeln('') // 添加空行分隔
       terminal.value?.writeln(welcome)
 
