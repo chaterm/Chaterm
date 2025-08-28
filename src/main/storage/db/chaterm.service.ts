@@ -71,8 +71,8 @@ export class ChatermDatabaseService {
     return this.userId
   }
 
-  getLocalAssetRoute(searchType: string, params: any[] = []): any {
-    return getLocalAssetRouteLogic(this.db, searchType, params)
+  async getLocalAssetRoute(searchType: string, params: any[] = []): Promise<any> {
+    return await getLocalAssetRouteLogic(this.db, searchType, params)
   }
 
   updateLocalAssetLabel(uuid: string, label: string): any {

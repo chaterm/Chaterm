@@ -3,6 +3,33 @@ import * as pty from 'node-pty'
 import * as os from 'os'
 import * as path from 'path'
 import * as fs from 'fs'
+import { getUserConfig } from '../agent/core/storage/state'
+
+// Import language translations
+const translations = {
+  'zh-CN': {
+    localhost: '本地主机'
+  },
+  'en-US': {
+    localhost: 'Localhost'
+  }
+}
+
+// Function to get user's language preference
+const getUserLanguage = async (): Promise<string> => {
+  try {
+    const userConfig = await getUserConfig()
+    return userConfig?.language || 'zh-CN'
+  } catch {
+    return 'zh-CN'
+  }
+}
+
+// Function to get translated text
+const getTranslation = async (key: string, lang?: string): Promise<string> => {
+  const language = lang || (await getUserLanguage())
+  return translations[language]?.[key] || translations['zh-CN'][key] || key
+}
 
 interface LocalTerminalConfig {
   id: string
@@ -116,7 +143,7 @@ const closeTerminal = (terminalId: string) => {
   return { success: false, message: 'Terminal not found' }
 }
 
-const getAvailableShells = (): LocalShellsResult => {
+const getAvailableShells = async (): Promise<LocalShellsResult> => {
   const platform = os.platform()
   const shells: ShellItem[] = []
 
@@ -149,8 +176,8 @@ const getAvailableShells = (): LocalShellsResult => {
         title: candidate.name,
         ip: '127.0.0.1',
         uuid: actualPath, // 使用shell路径作为uuid
-        group_name: '本地连接',
-        label: '本地连接',
+        group_name: await getTranslation('localhost'),
+        label: await getTranslation('localhost'),
         authType: '',
         port: 0,
         username: '',
@@ -164,7 +191,7 @@ const getAvailableShells = (): LocalShellsResult => {
 
   return {
     key: 'localTerm',
-    title: '本地连接',
+    title: await getTranslation('localhost'),
     children: shells
   }
 }
@@ -273,7 +300,7 @@ export const registerLocalSSHHandlers = () => {
     return closeTerminal(terminalId)
   })
 
-  ipcMain.handle('local:get:shells', () => {
+  ipcMain.handle('local:get:shells', async () => {
     return getAvailableShells()
   })
 }
