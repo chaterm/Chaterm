@@ -67,7 +67,7 @@ import { notification } from 'ant-design-vue'
 import { userConfigStore } from '@/services/userConfigStoreService'
 import { userConfigStore as configStore } from '@/store/userConfigStore'
 import eventBus from '@/utils/eventBus'
-import { getActualTheme } from '@/utils/themeUtils'
+import { getActualTheme, addSystemThemeListener } from '@/utils/themeUtils'
 import { useI18n } from 'vue-i18n'
 
 const api = window.api
@@ -131,22 +131,22 @@ watch(
   { deep: true }
 )
 
-let themeCheckTimer = null
+let systemThemeListener = null
 
 onMounted(async () => {
   await loadSavedConfig()
 
-  // Start theme check timer for auto mode
-  startThemeCheckTimer()
+  // Add system theme change listener
+  setupSystemThemeListener()
 })
 
 onBeforeUnmount(() => {
   eventBus.off('updateTheme')
 
-  // Clear theme check timer
-  if (themeCheckTimer) {
-    clearInterval(themeCheckTimer)
-    themeCheckTimer = null
+  // Remove system theme listener
+  if (systemThemeListener) {
+    systemThemeListener()
+    systemThemeListener = null
   }
 })
 
@@ -163,21 +163,22 @@ const changeLanguage = async () => {
   eventBus.emit('languageChanged', userConfig.value.language)
 }
 
-// Start theme check timer for auto mode
-const startThemeCheckTimer = () => {
-  // Check theme every minute
-  themeCheckTimer = setInterval(() => {
+// Setup system theme change listener
+const setupSystemThemeListener = () => {
+  systemThemeListener = addSystemThemeListener((newSystemTheme) => {
+    // Only update theme if user has selected 'auto' mode
     if (userConfig.value.theme === 'auto') {
       const actualTheme = getActualTheme(userConfig.value.theme)
       const currentTheme = document.documentElement.className.replace('theme-', '')
 
       if (currentTheme !== actualTheme) {
-        // Theme should change, update it
+        // System theme changed, update application theme
         document.documentElement.className = `theme-${actualTheme}`
         eventBus.emit('updateTheme', actualTheme)
+        console.log(`System theme changed to ${newSystemTheme}, updating application theme to ${actualTheme}`)
       }
     }
-  }, 60000) // Check every minute
+  })
 }
 
 const changeTheme = async () => {

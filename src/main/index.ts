@@ -645,12 +645,13 @@ function setupIPC(): void {
     }
   })
 
-  // Helper function to get actual theme based on time for auto mode
+  // Helper function to get actual theme based on system preference for auto mode
   const getActualTheme = (theme: string) => {
     if (theme === 'auto') {
-      const hour = new Date().getHours()
-      // Use light theme from 7:00 AM to 7:00 PM (19:00), dark theme otherwise
-      return hour >= 7 && hour < 19 ? 'light' : 'dark'
+      // Note: In main process, we can't access window.matchMedia directly
+      // So we'll default to light theme for main process
+      // The renderer process will handle system theme detection
+      return 'light'
     }
     return theme
   }
