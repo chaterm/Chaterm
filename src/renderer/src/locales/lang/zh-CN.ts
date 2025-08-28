@@ -399,7 +399,7 @@ export default {
     pleaseSelectKeychain: '请选择密钥',
     pleaseInputAlias: '请输入别名或主机名',
     pleaseSelectGroup: '请选择分组',
-    personal: '本地连接',
+    personal: '个人资源',
     enterprise: '企业资源',
     editHost: '编辑主机',
     saveAsset: '保存',
