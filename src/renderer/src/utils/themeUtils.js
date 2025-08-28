@@ -1,6 +1,20 @@
 // Theme utility functions for consistent theme detection across components
 
 /**
+ * Helper function to get actual theme based on time for auto mode
+ * @param {string} theme - The theme setting ('auto', 'light', 'dark')
+ * @returns {string} 'dark' or 'light'
+ */
+export function getActualTheme(theme) {
+  if (theme === 'auto') {
+    const hour = new Date().getHours()
+    // Use light theme from 7:00 AM to 7:00 PM (19:00), dark theme otherwise
+    return hour >= 7 && hour < 19 ? 'light' : 'dark'
+  }
+  return theme
+}
+
+/**
  * Get the current actual theme, considering auto theme mode
  * @returns {string} 'dark' or 'light'
  */
@@ -14,13 +28,7 @@ export function getCurrentTheme() {
 
   // Fallback: check localStorage and determine actual theme
   const savedTheme = localStorage.getItem('theme') || 'auto'
-  if (savedTheme === 'auto') {
-    const hour = new Date().getHours()
-    // Use light theme from 7:00 AM to 7:00 PM (19:00), dark theme otherwise
-    return hour >= 7 && hour < 19 ? 'light' : 'dark'
-  }
-
-  return savedTheme
+  return getActualTheme(savedTheme)
 }
 
 /**

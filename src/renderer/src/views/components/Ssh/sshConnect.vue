@@ -75,6 +75,7 @@ import SearchComp from '../Term/searchComp.vue'
 import Context from '../Term/contextComp.vue'
 import SuggComp from '../Term/suggestion.vue'
 import eventBus from '@/utils/eventBus'
+import { getActualTheme } from '@/utils/themeUtils'
 import { useCurrentCwdStore } from '@/store/currentCwdStore'
 import { markRaw, onBeforeUnmount, onMounted, PropType, nextTick, reactive, ref, watch, computed } from 'vue'
 import { shortcutService } from '@/services/shortcutService'
@@ -295,6 +296,7 @@ onMounted(async () => {
   config = await serviceUserConfig.getConfig()
   dbConfigStash = config
   queryCommandFlag.value = config.autoCompleteStatus == 1
+  const actualTheme = getActualTheme(config.theme)
   const termInstance = markRaw(
     new Terminal({
       scrollback: config.scrollBack,
@@ -303,7 +305,7 @@ onMounted(async () => {
       fontSize: config.fontSize || 12,
       fontFamily: config.fontFamily || 'Menlo, Monaco, "Courier New", Consolas, Courier, monospace',
       theme:
-        config.theme === 'light'
+        actualTheme === 'light'
           ? {
               background: '#ffffff',
               foreground: '#000000',
@@ -528,8 +530,9 @@ onMounted(async () => {
   }
   const handleUpdateTheme = (theme) => {
     if (terminal.value) {
+      const actualTheme = getActualTheme(theme)
       terminal.value.options.theme =
-        theme === 'light'
+        actualTheme === 'light'
           ? {
               background: '#ffffff',
               foreground: '#000000',
