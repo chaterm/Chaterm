@@ -12,12 +12,17 @@
       ;(function () {
         const theme = localStorage.getItem('theme') || 'auto'
 
-        // Helper function to get actual theme based on time for auto mode
+        // Helper function to get actual theme based on system preference for auto mode
         const getActualTheme = (theme) => {
           if (theme === 'auto') {
-            const hour = new Date().getHours()
-            // Use light theme from 7:00 AM to 7:00 PM (19:00), dark theme otherwise
-            return hour >= 7 && hour < 19 ? 'light' : 'dark'
+            // Check system preference first
+            if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+              return 'dark'
+            } else if (window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches) {
+              return 'light'
+            }
+            // Default to light theme if no system preference is detected
+            return 'light'
           }
           return theme
         }
