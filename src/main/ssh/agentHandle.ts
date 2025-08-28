@@ -7,6 +7,32 @@ const remoteConnections = new Map<string, Client>()
 // Store shell session streams
 const remoteShellStreams = new Map()
 
+// Helper function to determine if an exit code represents a real system error
+// We only treat very specific exit codes as actual errors that should interrupt the flow
+function isSystemError(_command: string, exitCode: number | null): boolean {
+  if (exitCode === null || exitCode === 0) {
+    return false // null or 0 is always success
+  }
+
+  // Only treat command not found (127) and permission/system errors (126, 128-255) as real errors
+  // Most command-specific exit codes (1-125) represent status/state, not errors
+  if (exitCode === 126) {
+    return true // Command found but not executable (permission error)
+  }
+
+  if (exitCode === 127) {
+    return true // Command not found - this is a real error
+  }
+
+  if (exitCode >= 128) {
+    return true // Signal-terminated commands or system errors
+  }
+
+  // For exit codes 1-125, we consider them as status codes, not errors
+  // Let the AI model interpret the command output and exit code
+  return false
+}
+
 export async function remoteSshConnect(connectionInfo: ConnectionInfo): Promise<{ id?: string; error?: string }> {
   const { host, port, username, password, privateKey, passphrase } = connectionInfo
   const connectionId = `ssh_${Date.now()}_${Math.random().toString(36).substr(2, 12)}`
@@ -123,10 +149,23 @@ export async function remoteSshExec(
       })
 
       stream.on('close', (code: number | null) => {
+        const isError = isSystemError(command, code)
+        let finalOutput = output
+
+        // Add exit code information to output for AI model to interpret
+        if (code !== null && code !== 0) {
+          finalOutput += `\n[Exit Code: ${code}]`
+        }
+
+        // Add command not found message for exit code 127
+        if (code === 127) {
+          finalOutput += "\nCommand not found. Please check if the command exists in the remote server's PATH."
+        }
+
         safeResolve({
-          success: code === 0 || code === 127,
-          output: code === 127 ? output + "\nCommand not found. Please check if the command exists in the remote server's PATH." : output,
-          error: code !== 0 && code !== 127 ? `Command failed with exit code: ${code}` : undefined
+          success: !isError,
+          output: finalOutput,
+          error: isError ? `Command failed with exit code: ${code}` : undefined
         })
       })
 
@@ -205,6 +244,15 @@ export async function remoteSshExecStream(
         // Clean up the stored stream when it closes
         remoteShellStreams.delete(sessionId)
 
+        // Add exit code information for AI model to interpret
+        if (code !== null && code !== 0) {
+          try {
+            onData(`\n[Exit Code: ${code}]`)
+          } catch (cbErr) {
+            console.error('remoteSshExecStream onData callback error:', cbErr)
+          }
+        }
+
         if (code === 127) {
           try {
             onData("\nCommand not found. Please check if the command exists in the remote server's PATH.")
@@ -213,9 +261,10 @@ export async function remoteSshExecStream(
           }
         }
 
+        const isError = isSystemError(command, code)
         safeResolve({
-          success: code === 0 || code === 127,
-          error: code !== 0 && code !== 127 ? `Command failed with exit code: ${code}` : undefined
+          success: !isError,
+          error: isError ? `Command failed with exit code: ${code}` : undefined
         })
       })
 
