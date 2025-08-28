@@ -13,6 +13,9 @@ export const useCurrentCwdStore = defineStore('currentCwd', {
     },
     removeKey(key: string) {
       delete this.keyValueMap[key]
+    },
+    updateCwd(host: string, cwd: string) {
+      this.keyValueMap[host] = cwd
     }
   }
 })

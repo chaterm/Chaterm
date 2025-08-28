@@ -125,8 +125,8 @@
                 <template v-if="typeof message.content === 'object' && 'options' in message.content">
                   <div class="options-container">
                     <a-button
-                      v-for="(option, index) in (message.content as MessageContent).options"
-                      :key="index"
+                      v-for="(option, optionIndex) in (message.content as MessageContent).options"
+                      :key="optionIndex"
                       size="small"
                       :class="['action-btn', 'option-btn', { selected: message.selectedOption === option }]"
                       @click="handleOptionChoose(message, option)"
@@ -963,6 +963,13 @@ const handlePlusClick = async () => {
       uuid: assetInfo.uuid,
       connection: assetInfo.connection ? assetInfo.connection : 'personal'
     })
+  } else {
+    // 如果没有检测到远程主机连接，默认添加本地主机
+    hosts.value.push({
+      host: '127.0.0.1',
+      uuid: 'localhost',
+      connection: 'localhost'
+    })
   }
 
   chatHistory.length = 0
@@ -1001,7 +1008,7 @@ const restoreHistoryTab = async (history: HistoryItem) => {
     try {
       const metadataResult = await window.api.getTaskMetadata(history.id)
       if (metadataResult.success && metadataResult.data && Array.isArray(metadataResult.data.hosts)) {
-        hosts.value = metadataResult.data.hosts.map((item: any) => ({
+        hosts.value = metadataResult.data.hosts.map((item: Host) => ({
           host: item.host,
           uuid: item.uuid || '',
           connection: item.connection
@@ -1134,8 +1141,50 @@ const handleMessageOperation = async (operation: 'copy' | 'apply') => {
 
   // In the command mode, check whether the current window matches the target server.
   if (chatTypeValue.value === 'cmd' && hosts.value.length > 0) {
-    const currentAssetInfo = await getCurentTabAssetInfo()
     const targetHost = hosts.value[0] // The command mode only supports a single host.
+
+    // 如果目标是本地主机，直接执行命令，无需检查窗口匹配
+    if (isLocalHost(targetHost.host)) {
+      // 对于本地主机，直接执行命令
+      if (operation === 'copy') {
+        navigator.clipboard.writeText(content)
+        notification.success({
+          message: '命令已复制',
+          description: '命令已复制到剪贴板',
+          duration: 2,
+          placement: 'topRight'
+        })
+      } else if (operation === 'apply') {
+        // 对于本地主机，通过AI Agent执行命令而不是终端
+        try {
+          responseLoading.value = true
+          const result = await window.api.executeLocalCommand?.(content)
+          if (result?.success) {
+            const output = result.output || '执行完成'
+            const formattedOutput = `Command executed on localhost:\n\`\`\`\n${output}\n\`\`\``
+            eventBus.emit('chatToAi', formattedOutput)
+            setTimeout(() => {
+              eventBus.emit('triggerAiSend')
+            }, 100)
+          } else {
+            throw new Error(result?.error || 'Command execution failed')
+          }
+        } catch (error: unknown) {
+          notification.error({
+            message: '命令执行失败',
+            description: (error as Error)?.message || '本地命令执行出错',
+            duration: 3,
+            placement: 'topRight'
+          })
+        } finally {
+          responseLoading.value = false
+        }
+      }
+      lastChatMessageId.value = ''
+      return
+    }
+
+    const currentAssetInfo = await getCurentTabAssetInfo()
 
     // Check whether the current window matches the target server
     if (!currentAssetInfo || currentAssetInfo.ip !== targetHost.host) {
@@ -1690,11 +1739,33 @@ onUnmounted(() => {
   eventBus.off('chatToAi')
 })
 
+// 判断是否为本地主机
+const isLocalHost = (ip: string): boolean => {
+  return ip === '127.0.0.1' || ip === 'localhost' || ip === '::1'
+}
+
 // Update cwd for all hosts with timeout protection
 const updateCwdForAllHosts = async () => {
   if (hosts.value.length > 0) {
     const updatePromises = hosts.value.map((host) => {
-      return new Promise<void>((resolve, reject) => {
+      // 如果是本地主机，直接获取当前工作目录
+      if (isLocalHost(host.host)) {
+        return (async () => {
+          try {
+            // 通过API获取本地主机当前工作目录
+            const result = await window.api.getLocalWorkingDirectory?.()
+            if (result && result.success) {
+              currentCwdStore.updateCwd(host.host, result.cwd)
+            }
+          } catch (error) {
+            console.error('Failed to get local working directory:', error)
+            // 即使失败也继续
+          }
+        })()
+      }
+
+      // 对于远程主机，使用原有的事件总线机制
+      return new Promise<void>((resolve) => {
         // Add timeout mechanism to prevent infinite waiting
         const timeout = setTimeout(() => {
           eventBus.off('cwdUpdatedForHost', handleCwdUpdated)
@@ -1825,7 +1896,7 @@ const onHostClick = (item: any) => {
   const newHost = {
     host: item.label,
     uuid: item.uuid,
-    connection: item.connection
+    connection: item.isLocalHost ? 'localhost' : item.connection || item.connect
   }
 
   if (chatTypeValue.value === 'cmd') {
@@ -1847,7 +1918,7 @@ const onHostClick = (item: any) => {
 }
 
 // Remove specified host
-const removeHost = (hostToRemove: any) => {
+const removeHost = (hostToRemove: Host) => {
   const index = hosts.value.findIndex((h) => h.uuid === hostToRemove.uuid)
   if (index > -1) {
     hosts.value.splice(index, 1)
@@ -1960,6 +2031,25 @@ watch(hostSearchValue, (newVal) => {
 const fetchHostOptions = async (search: string) => {
   const hostsList = await window.api.getUserHosts(search)
   let formatted = formatHosts(hostsList || [])
+
+  // 添加本地主机选项到列表开头
+  const localHostOption = {
+    label: '127.0.0.1',
+    value: 'localhost',
+    uuid: 'localhost',
+    connect: 'localhost',
+    title: t('ai.localhost') || '本地主机',
+    isLocalHost: true
+  }
+
+  // 如果搜索词为空或者本地主机匹配搜索条件，则显示本地主机选项
+  const shouldShowLocalHost =
+    !search || 'localhost'.includes(search.toLowerCase()) || '127.0.0.1'.includes(search) || (t('ai.localhost') || '本地主机').includes(search)
+
+  if (shouldShowLocalHost) {
+    formatted.unshift(localHostOption)
+  }
+
   hostOptions.value.splice(0, hostOptions.value.length, ...formatted)
 }
 
@@ -2347,7 +2437,7 @@ interface DefaultModel {
   name?: string
   provider?: string
 
-  [key: string]: any
+  [key: string]: unknown
 }
 
 // Define interface for model options
