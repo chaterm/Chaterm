@@ -1897,6 +1897,27 @@ const tagPress = ref(false)
 const beginStr = ref<string>('')
 const startStr = ref<string>('')
 
+// Helper function to calculate display width position
+const calculateDisplayPosition = (str: string, charIndex: number): number => {
+  let displayPos = 0
+  for (let i = 0; i < charIndex && i < str.length; i++) {
+    const code = str.codePointAt(i) || 0
+    const charWidth =
+      (code >= 0x3000 && code <= 0x9fff) ||
+      (code >= 0xac00 && code <= 0xd7af) ||
+      (code >= 0xf900 && code <= 0xfaff) ||
+      (code >= 0xff00 && code <= 0xffef) ||
+      (code >= 0x20000 && code <= 0x2fa1f)
+        ? 2
+        : 1
+    displayPos += charWidth
+    if (code > 0xffff) {
+      i++
+    }
+  }
+  return displayPos
+}
+
 const highlightSyntax = (allData) => {
   const { content, beforeCursor, cursorPosition } = allData
   let command = ''
@@ -1958,14 +1979,20 @@ const highlightSyntax = (allData) => {
     if (!unMatchFlag) {
       for (let i = 0; i < afterCommandArr.length; i++) {
         if (afterCommandArr[i].content == ' ') {
-          cusWrite?.(`\x1b[${startY + 1};${cursorStartX.value + command.length + 1 + afterCommandArr[i].startIndex}H`, {
+          // Calculate correct display position for Chinese characters
+          const displayPos = calculateDisplayPosition(arg, afterCommandArr[i].startIndex)
+          const commandDisplayWidth = calculateDisplayPosition(command, command.length)
+          cusWrite?.(`\x1b[${startY + 1};${cursorStartX.value + commandDisplayWidth + 1 + displayPos}H`, {
             isUserCall: true
           })
           cusWrite?.(`${afterCommandArr[i].content}\x1b[0m`, {
             isUserCall: true
           })
         } else {
-          cusWrite?.(`\x1b[${startY + 1};${cursorStartX.value + command.length + 1 + afterCommandArr[i].startIndex}H`, {
+          // Calculate correct display position for Chinese characters
+          const displayPos = calculateDisplayPosition(arg, afterCommandArr[i].startIndex)
+          const commandDisplayWidth = calculateDisplayPosition(command, command.length)
+          cusWrite?.(`\x1b[${startY + 1};${cursorStartX.value + commandDisplayWidth + 1 + displayPos}H`, {
             isUserCall: true
           })
           const colorCode = afterCommandArr[i].type == 'matched' ? '38;2;250;173;20' : '38;2;126;193;255'
@@ -1976,16 +2003,17 @@ const highlightSyntax = (allData) => {
       }
     }
   } else {
-    if (index == -1 && currentCursorX >= cursorStartX.value + command.length) {
-      cusWrite?.(`\x1b[${startY + 1};${cursorStartX.value + command.length + 1}H`, {
+    const commandDisplayWidth = calculateDisplayPosition(command, command.length)
+    if (index == -1 && currentCursorX >= cursorStartX.value + commandDisplayWidth) {
+      cusWrite?.(`\x1b[${startY + 1};${cursorStartX.value + commandDisplayWidth + 1}H`, {
         isUserCall: true
       })
       cusWrite?.(`\x1b[38;2;126;193;255m${arg}\x1b[0m`, { isUserCall: true })
       cusWrite?.(`\x1b[${cursorPosition.row + 1};${cursorPosition.col + 1}H`, {
         isUserCall: true
       })
-    } else if (currentCursorX < cursorStartX.value + command.length) {
-      cusWrite?.(`\x1b[${startY + 1};${cursorStartX.value + command.length + 1}H`, {
+    } else if (currentCursorX < cursorStartX.value + commandDisplayWidth) {
+      cusWrite?.(`\x1b[${startY + 1};${cursorStartX.value + commandDisplayWidth + 1}H`, {
         isUserCall: true
       })
       cusWrite?.(`\x1b[38;2;126;193;255m${arg}\x1b[0m`, { isUserCall: true })
@@ -1993,7 +2021,7 @@ const highlightSyntax = (allData) => {
         isUserCall: true
       })
     } else {
-      cusWrite?.(`\x1b[${startY + 1};${cursorStartX.value + command.length + 1}H`, {
+      cusWrite?.(`\x1b[${startY + 1};${cursorStartX.value + commandDisplayWidth + 1}H`, {
         isUserCall: true
       })
       cusWrite?.(`\x1b[38;2;126;193;255m${arg}\x1b[0m`, { isUserCall: true })
