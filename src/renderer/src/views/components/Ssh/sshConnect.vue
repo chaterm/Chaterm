@@ -141,6 +141,7 @@ export interface sshConnectData {
   privateKey: string
   authType: string
   passphrase: string
+  asset_type?: string
 }
 
 const handleRightClick = (event) => {
@@ -584,7 +585,7 @@ onMounted(async () => {
     window.removeEventListener('keydown', handleGlobalKeyDown)
   })
 
-  if (terminal.value.textarea) {
+  if (terminal.value?.textarea) {
     terminal.value.textarea.addEventListener('focus', () => {
       inputManager.setActiveTerm(connectionId.value)
     })
@@ -1088,7 +1089,7 @@ const connectLocalSSH = async () => {
       await startLocalShell()
 
       // 处理输入
-      terminal.value.onData((data) => {
+      terminal.value?.onData((data) => {
         api.sendDataLocal(connectionId.value, data)
       })
 
@@ -1642,7 +1643,7 @@ const setupTerminalInput = () => {
       queryCommand()
     }
   }
-  termOndata = terminal.value.onData(handleInput)
+  termOndata = terminal.value?.onData(handleInput)
 }
 
 const sendData = (data) => {
