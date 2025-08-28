@@ -833,7 +833,7 @@ const processString = (str) => {
           result.push({
             type: 'afterMatched',
             content: str.slice(lastIndex + 1, i),
-            startIndex: i + 1
+            startIndex: lastIndex + 1
           })
         }
         result.push({ type: 'unmatched', index: i, content: c })
@@ -848,7 +848,7 @@ const processString = (str) => {
           result.push({
             type: 'afterMatched',
             content: str.slice(lastIndex + 1, startIndex),
-            startIndex: i + 1
+            startIndex: lastIndex + 1
           })
         }
         result.push({
