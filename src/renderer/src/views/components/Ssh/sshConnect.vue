@@ -915,7 +915,6 @@ const connectSSH = async () => {
     }
 
     const email = userInfoStore().userInfo.email
-    const name = userInfoStore().userInfo.name
 
     const orgType = props.serverInfo.organizationId === 'personal' ? 'local' : 'local-team'
     const hostnameBase64 =
