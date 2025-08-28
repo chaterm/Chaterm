@@ -28,6 +28,7 @@
           >
             <a-radio value="dark">{{ $t('user.themeDark') }}</a-radio>
             <a-radio value="light">{{ $t('user.themeLight') }}</a-radio>
+            <a-radio value="auto">{{ $t('user.themeAuto') }}</a-radio>
           </a-radio-group>
         </a-form-item>
         <a-form-item
@@ -66,6 +67,7 @@ import { notification } from 'ant-design-vue'
 import { userConfigStore } from '@/services/userConfigStoreService'
 import { userConfigStore as configStore } from '@/store/userConfigStore'
 import eventBus from '@/utils/eventBus'
+import { getActualTheme } from '@/utils/themeUtils'
 import { useI18n } from 'vue-i18n'
 
 const api = window.api
@@ -74,7 +76,7 @@ const { locale, t } = useI18n()
 const userConfig = ref({
   language: 'zh-CN',
   watermark: 'open',
-  theme: 'dark'
+  theme: 'auto'
 })
 
 const loadSavedConfig = async () => {
@@ -85,8 +87,9 @@ const loadSavedConfig = async () => {
         ...userConfig.value,
         ...savedConfig
       }
-      document.documentElement.className = `theme-${userConfig.value.theme}`
-      eventBus.emit('updateTheme', userConfig.value.theme)
+      const actualTheme = getActualTheme(userConfig.value.theme)
+      document.documentElement.className = `theme-${actualTheme}`
+      eventBus.emit('updateTheme', actualTheme)
       api.updateTheme(userConfig.value.theme)
     }
   } catch (error) {
@@ -95,8 +98,9 @@ const loadSavedConfig = async () => {
       message: t('user.loadConfigFailed'),
       description: t('user.loadConfigFailedDescription')
     })
-    document.documentElement.className = 'theme-dark'
-    userConfig.value.theme = 'dark'
+    const actualTheme = getActualTheme('auto')
+    document.documentElement.className = `theme-${actualTheme}`
+    userConfig.value.theme = 'auto'
   }
 }
 
@@ -127,8 +131,23 @@ watch(
   { deep: true }
 )
 
+let themeCheckTimer = null
+
 onMounted(async () => {
   await loadSavedConfig()
+
+  // Start theme check timer for auto mode
+  startThemeCheckTimer()
+})
+
+onBeforeUnmount(() => {
+  eventBus.off('updateTheme')
+
+  // Clear theme check timer
+  if (themeCheckTimer) {
+    clearInterval(themeCheckTimer)
+    themeCheckTimer = null
+  }
 })
 
 onBeforeUnmount(() => {
@@ -139,12 +158,33 @@ const changeLanguage = async () => {
   locale.value = userConfig.value.language
   localStorage.setItem('lang', userConfig.value.language)
   configStore().updateLanguage(userConfig.value.language)
+
+  // 通知其他组件语言已更改，需要刷新数据
+  eventBus.emit('languageChanged', userConfig.value.language)
+}
+
+// Start theme check timer for auto mode
+const startThemeCheckTimer = () => {
+  // Check theme every minute
+  themeCheckTimer = setInterval(() => {
+    if (userConfig.value.theme === 'auto') {
+      const actualTheme = getActualTheme(userConfig.value.theme)
+      const currentTheme = document.documentElement.className.replace('theme-', '')
+
+      if (currentTheme !== actualTheme) {
+        // Theme should change, update it
+        document.documentElement.className = `theme-${actualTheme}`
+        eventBus.emit('updateTheme', actualTheme)
+      }
+    }
+  }, 60000) // Check every minute
 }
 
 const changeTheme = async () => {
   try {
-    document.documentElement.className = `theme-${userConfig.value.theme}`
-    eventBus.emit('updateTheme', userConfig.value.theme)
+    const actualTheme = getActualTheme(userConfig.value.theme)
+    document.documentElement.className = `theme-${actualTheme}`
+    eventBus.emit('updateTheme', actualTheme)
     setTimeout(() => {
       api.updateTheme(userConfig.value.theme)
     }, 80)

@@ -258,6 +258,7 @@ import { message } from 'ant-design-vue'
 import i18n from '@/locales'
 import { extractFinalOutput, cleanAnsiEscapeSequences } from '@/utils/terminalOutputExtractor'
 import { userConfigStore as userConfigStoreService } from '@/services/userConfigStoreService'
+import { getCustomTheme, isDarkTheme } from '@/utils/themeUtils'
 
 const { t } = i18n.global
 
@@ -463,7 +464,7 @@ const initEditor = (content: string) => {
     const options: monaco.editor.IStandaloneEditorConstructionOptions = {
       value: editorContent,
       language: detectLanguage(editorContent),
-      theme: document.documentElement.classList.contains('theme-dark') ? 'custom-dark' : 'custom-light',
+      theme: getCustomTheme(),
       readOnly: true,
       minimap: { enabled: false },
       lineNumbers: lines > 1 ? 'on' : 'off',
@@ -684,7 +685,7 @@ const initCodeBlockEditors = () => {
       const editor = monaco.editor.create(container, {
         value: block.content,
         language: detectLanguage(block.content),
-        theme: document.documentElement.classList.contains('theme-dark') ? 'custom-dark' : 'custom-light',
+        theme: getCustomTheme(),
         readOnly: true,
         minimap: { enabled: false },
         lineNumbers: block.lines > 1 ? 'on' : 'off',
@@ -802,7 +803,7 @@ watch(
 const themeObserver = new MutationObserver((mutations) => {
   mutations.forEach((mutation) => {
     if (mutation.target === document.documentElement && mutation.attributeName === 'class') {
-      const isDark = document.documentElement.classList.contains('theme-dark')
+      const isDark = isDarkTheme()
       if (editor) {
         monaco.editor.setTheme(isDark ? 'custom-dark' : 'custom-light')
       }

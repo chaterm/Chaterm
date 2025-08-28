@@ -1,5 +1,35 @@
 import Database from 'better-sqlite3'
-import { QueryResult } from '../types'
+import { getUserConfig } from '../../../agent/core/storage/state'
+
+// Import language translations
+const translations = {
+  'zh-CN': {
+    favoriteBar: '收藏栏'
+  },
+  'en-US': {
+    favoriteBar: 'Favorites'
+  }
+}
+
+// Function to get user's language preference
+const getUserLanguage = async (): Promise<string> => {
+  try {
+    const userConfig = await getUserConfig()
+    return userConfig?.language || 'zh-CN'
+  } catch {
+    return 'zh-CN'
+  }
+}
+
+// Function to get translated text
+const getTranslation = async (key: string, lang?: string): Promise<string> => {
+  const language = lang || (await getUserLanguage())
+  return translations[language]?.[key] || translations['zh-CN'][key] || key
+}
+
+interface IRouter {
+  handle: (req: any, res: any) => any
+}
 
 /**
  * 数据库迁移函数：检查并添加comment字段和自定义文件夹表
@@ -69,11 +99,11 @@ function migrateDatabaseIfNeeded(db: Database.Database) {
   }
 }
 
-export function getLocalAssetRouteLogic(db: Database.Database, searchType: string, params: any[] = []): any {
+export async function getLocalAssetRouteLogic(db: Database, searchType: string, params: any[] = []): Promise<any> {
   try {
     // 执行数据库迁移
     migrateDatabaseIfNeeded(db)
-    const result: QueryResult = {
+    const result: any = {
       code: 200,
       data: {
         routers: []
@@ -144,7 +174,7 @@ export function getLocalAssetRouteLogic(db: Database.Database, searchType: strin
         if (favorites && favorites.length > 0) {
           result.data.routers.push({
             key: 'favorite',
-            title: '收藏栏',
+            title: await getTranslation('favoriteBar'),
             children: favorites.map((item: any) => ({
               key: `favorite_${item.asset_ip || ''}`,
               title: item.label || item.asset_ip || '',
@@ -263,7 +293,7 @@ export function getLocalAssetRouteLogic(db: Database.Database, searchType: strin
         if (favoriteAssets.length > 0) {
           result.data.routers.push({
             key: 'favorites',
-            title: '收藏栏',
+            title: await getTranslation('favoriteBar'),
             asset_type: 'favorites',
             children: favoriteAssets
           })

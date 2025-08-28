@@ -80,6 +80,7 @@ import { aliasConfigStore } from '@/store/aliasConfigStore'
 const { t } = useI18n()
 const emit = defineEmits(['closeTabInTerm', 'createNewTerm'])
 import eventBus from '@/utils/eventBus'
+import { getActualTheme } from '@/utils/themeUtils'
 import { shortcutService } from '@/services/shortcutService'
 const isConnect = ref(true)
 const props = defineProps({
@@ -263,6 +264,43 @@ onMounted(() => {
     // If no selected text or focus is not in terminal, toggle sidebar state
     eventBus.emit('toggleSideBar', 'right')
   })
+
+  // Listen for font update events
+  eventBus.on('updateTerminalFont', (newFontFamily) => {
+    if (term.value) {
+      term.value.options.fontFamily = newFontFamily
+    }
+  })
+
+  // Listen for openSearch event
+  eventBus.on('openSearch', openSearch)
+
+  eventBus.on('clearCurrentTerminal', () => {
+    contextAct('clearTerm')
+  })
+
+  // Listen for theme update events
+  eventBus.on('updateTheme', (theme) => {
+    if (term.value) {
+      const actualTheme = getActualTheme(theme)
+      term.value.options.theme =
+        actualTheme === 'light'
+          ? {
+              background: '#ffffff',
+              foreground: '#000000',
+              cursor: '#000000',
+              cursorAccent: '#000000',
+              selectionBackground: 'rgba(0, 0, 0, 0.3)'
+            }
+          : {
+              background: '#141414',
+              foreground: '#f0f0f0',
+              cursor: '#f0f0f0',
+              cursorAccent: '#f0f0f0',
+              selectionBackground: 'rgba(255, 255, 255, 0.3)'
+            }
+    }
+  })
 })
 
 onBeforeUnmount(() => {
@@ -281,6 +319,9 @@ onBeforeUnmount(() => {
   // Remove event listeners
   eventBus.off('executeTerminalCommand')
   eventBus.off('sendOrToggleAiFromTerminalForTab')
+  eventBus.off('updateTerminalFont')
+  eventBus.off('openSearch')
+  eventBus.off('clearCurrentTerminal')
   document.removeEventListener('mouseup', hideSelectionButton)
 })
 // Get all commands for current machine
@@ -298,16 +339,29 @@ const initTerminal = async () => {
   try {
     const config = await serviceUserConfig.getConfig()
     stashConfig = config
+    const actualTheme = getActualTheme(config.theme)
     term.value = new Terminal({
       cursorBlink: true,
       scrollback: config.scrollBack,
       cursorStyle: config.cursorStyle || 'bar',
       fontSize: config.fontSize,
-      fontFamily: 'Menlo, Monaco, "Courier New", Courier, monospace',
-      theme: {
-        background: '#141414',
-        foreground: '#f0f0f0'
-      }
+      fontFamily: config.fontFamily || 'Menlo, Monaco, "Courier New", Courier, monospace',
+      theme:
+        actualTheme === 'light'
+          ? {
+              background: '#ffffff',
+              foreground: '#000000',
+              cursor: '#000000',
+              cursorAccent: '#000000',
+              selectionBackground: 'rgba(0, 0, 0, 0.3)'
+            }
+          : {
+              background: '#141414',
+              foreground: '#f0f0f0',
+              cursor: '#f0f0f0',
+              cursorAccent: '#f0f0f0',
+              selectionBackground: 'rgba(255, 255, 255, 0.3)'
+            }
     })
 
     fitAddon = new FitAddon()
@@ -497,10 +551,8 @@ const connectWebsocket = () => {
   socket.value = new WebSocket(wsUrl)
   heartbeatId = `ws-${Date.now()}`
   socket.value.onopen = () => {
-    let welcome = '\x1b[38;2;22;119;255m' + name + ', 欢迎您使用Chaterm智能终端 \x1b[m\r\n'
-    if (configStore.getUserConfig.language == 'en-US') {
-      welcome = '\x1b[38;2;22;119;255m' + email.split('@')[0] + ', Welcome to use Chaterm \x1b[m\r\n'
-    }
+    const welcomeName = email.split('@')[0]
+    const welcome = '\x1b[38;2;22;119;255m' + t('ssh.welcomeMessage', { username: welcomeName }) + ' \x1b[m\r\n'
     term.value.writeln(welcome)
     api.openHeartbeatWindow(heartbeatId, 5000)
     api.heartBeatTick(listenerHeartbeat)
@@ -584,7 +636,7 @@ const connectWebsocket = () => {
   }
 
   socket.value.onerror = () => {
-    term.value.writeln('\r\n连接错误。请检查终端服务器是否运行。')
+    term.value.writeln('\r\n' + t('ssh.terminalConnectionError'))
   }
 }
 const listenerHeartbeat = (tackId) => {
@@ -781,7 +833,7 @@ const processString = (str) => {
           result.push({
             type: 'afterMatched',
             content: str.slice(lastIndex + 1, i),
-            startIndex: i + 1
+            startIndex: lastIndex + 1
           })
         }
         result.push({ type: 'unmatched', index: i, content: c })
@@ -796,7 +848,7 @@ const processString = (str) => {
           result.push({
             type: 'afterMatched',
             content: str.slice(lastIndex + 1, startIndex),
-            startIndex: i + 1
+            startIndex: lastIndex + 1
           })
         }
         result.push({
@@ -1117,11 +1169,21 @@ const focus = () => {
 
 const handleGlobalKeyDown = (e) => {
   const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0
+
+  // Search functionality
   if ((isMac ? e.metaKey : e.ctrlKey) && e.key === 'f') {
     e.preventDefault()
     e.stopPropagation()
     openSearch()
   }
+
+  // Close tab functionality
+  if ((isMac ? e.metaKey : e.ctrlKey) && e.key === 'u') {
+    e.preventDefault()
+    e.stopPropagation()
+    contextAct('close')
+  }
+
   if (e.key === 'Escape' && showSearch.value) {
     e.preventDefault()
     e.stopPropagation()

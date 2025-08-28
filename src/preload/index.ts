@@ -15,6 +15,13 @@ interface FileRecord {
   size: number
 }
 
+interface SftpConnectionInfo {
+  id: string
+  isSuccess: boolean
+  sftp?: import('ssh2').SFTPWrapper
+  error?: string
+}
+
 const envPath = path.resolve(__dirname, '../../../build/.env')
 
 // Ensure path exists
@@ -149,7 +156,7 @@ const insertCommand = async (data: { command: string; ip: string }) => {
 }
 
 // Chaterm database related IPC handlers
-const getLocalAssetRoute = async (data: { searchType: string; params?: any[] }) => {
+const getLocalAssetRoute = async (data: { searchType: string; params?: unknown[] }) => {
   try {
     const result = await ipcRenderer.invoke('asset-route-local-get', data)
     return result
@@ -194,7 +201,7 @@ const getAssetGroup = async () => {
   }
 }
 
-const chatermInsert = async (data: { sql: string; params?: any[] }) => {
+const chatermInsert = async (data: { sql: string; params?: unknown[] }) => {
   try {
     const result = await ipcRenderer.invoke('chaterm-insert', data)
     return result
@@ -203,7 +210,7 @@ const chatermInsert = async (data: { sql: string; params?: any[] }) => {
   }
 }
 
-const chatermUpdate = async (data: { sql: string; params?: any[] }) => {
+const chatermUpdate = async (data: { sql: string; params?: unknown[] }) => {
   try {
     const result = await ipcRenderer.invoke('chaterm-update', data)
     return result
@@ -221,7 +228,7 @@ const deleteAsset = async (data: { uuid: string }) => {
   }
 }
 
-const createAsset = async (data: { form: any }) => {
+const createAsset = async (data: { form: Record<string, unknown> }) => {
   try {
     const result = await ipcRenderer.invoke('asset-create', data)
     return result
@@ -230,7 +237,7 @@ const createAsset = async (data: { form: any }) => {
   }
 }
 
-const updateAsset = async (data: { form: any }) => {
+const updateAsset = async (data: { form: Record<string, unknown> }) => {
   try {
     const result = await ipcRenderer.invoke('asset-update', data)
     return result
@@ -248,7 +255,7 @@ const getKeyChainList = async () => {
   }
 }
 
-const createKeyChain = async (data: { form: any }) => {
+const createKeyChain = async (data: { form: Record<string, unknown> }) => {
   try {
     const result = await ipcRenderer.invoke('key-chain-local-create', data)
     return result
@@ -275,7 +282,7 @@ const getKeyChainInfo = async (data: { id: number }) => {
   }
 }
 
-const updateKeyChain = async (data: { form: any }) => {
+const updateKeyChain = async (data: { form: Record<string, unknown> }) => {
   try {
     const result = await ipcRenderer.invoke('key-chain-local-update', data)
     return result
@@ -332,7 +339,7 @@ const initUserDatabase = async (data: { uid: number }) => {
 }
 
 // User snippet operations
-const userSnippetOperation = async (data: { operation: 'list' | 'create' | 'delete' | 'update' | 'swap'; params?: any }) => {
+const userSnippetOperation = async (data: { operation: 'list' | 'create' | 'delete' | 'update' | 'swap'; params?: unknown }) => {
   try {
     const result = await ipcRenderer.invoke('user-snippet-operation', data)
     return result
@@ -341,7 +348,7 @@ const userSnippetOperation = async (data: { operation: 'list' | 'create' | 'dele
   }
 }
 
-const refreshOrganizationAssets = async (data: { organizationUuid: string; jumpServerConfig: any }) => {
+const refreshOrganizationAssets = async (data: { organizationUuid: string; jumpServerConfig: Record<string, unknown> }) => {
   try {
     const result = await ipcRenderer.invoke('refresh-organization-assets', data)
     return result
@@ -592,6 +599,10 @@ const api = {
     ipcRenderer.on('ssh:keyboard-interactive-result', listener)
     return () => ipcRenderer.removeListener('ssh:keyboard-interactive-result', listener)
   },
+  // 本地主机API
+  getLocalWorkingDirectory: () => ipcRenderer.invoke('local:get-working-directory'),
+  executeLocalCommand: (command: string) => ipcRenderer.invoke('local:execute-command', command),
+
   // sshAPI
   connect: (connectionInfo) => ipcRenderer.invoke('ssh:connect', connectionInfo),
   connectReadyData: (id) => {
@@ -606,7 +617,7 @@ const api = {
   shell: (params) => ipcRenderer.invoke('ssh:shell', params),
   resizeShell: (id, cols, rows) => ipcRenderer.invoke('ssh:shell:resize', { id, cols, rows }),
   sshSftpList: (opts: { id: string; remotePath: string }) => ipcRenderer.invoke('ssh:sftp:list', opts) as Promise<FileRecord[] | string[]>,
-  sftpConnList: () => ipcRenderer.invoke('ssh:sftp:conn:list') as Promise<string[]>,
+  sftpConnList: () => ipcRenderer.invoke('ssh:sftp:conn:list') as Promise<SftpConnectionInfo[]>,
   sshConnExec: (args: { id: string; cmd: string }) => ipcRenderer.invoke('ssh:conn:exec', args) as Promise<ExecResult>,
   writeToShell: (params) => ipcRenderer.send('ssh:shell:write', params),
   disconnect: (params) => ipcRenderer.invoke('ssh:disconnect', params),
@@ -650,7 +661,7 @@ const api = {
       return Promise.reject(error)
     }
   },
-  sendToMain: (message: any) => ipcRenderer.invoke('webview-to-main', message),
+  sendToMain: (message: unknown) => ipcRenderer.invoke('webview-to-main', message),
   onMainMessage: (callback) => {
     const handler = (_event, message) => callback(message)
     ipcRenderer.on('main-to-webview', handler)
@@ -688,7 +699,7 @@ const api = {
       callback(heartbeatId)
     })
   },
-  validateApiKey: async (configuration?: any) => {
+  validateApiKey: async (configuration?: Record<string, unknown>) => {
     try {
       const result = await ipcRenderer.invoke('validate-api-key', configuration)
       return result
@@ -741,7 +752,34 @@ const api = {
   agentEnableAndConfigure: (opts: { enabled: boolean }) => ipcRenderer.invoke('ssh:agent:enable-and-configure', opts),
   addKey: (opts: { keyData: string; passphrase?: string; comment?: string }) => ipcRenderer.invoke('ssh:agent:add-key', opts),
   removeKey: (opts: { keyId: string }) => ipcRenderer.invoke('ssh:agent:remove-key', opts),
-  listKeys: () => ipcRenderer.invoke('ssh:agent:list-key') as Promise<[]>
+  listKeys: () => ipcRenderer.invoke('ssh:agent:list-key') as Promise<[]>,
+
+  connectLocal: (config: { id: string; shell?: string; cwd?: string; env?: Record<string, string>; cols?: number; rows?: number }) =>
+    ipcRenderer.invoke('local:connect', config),
+  sendDataLocal: (terminalId: string, data: string) => ipcRenderer.invoke('local:send:data', terminalId, data),
+  resizeLocal: (terminalId: string, cols: number, rows: number) => ipcRenderer.invoke('local:resize', terminalId, cols, rows),
+  closeLocal: (terminalId: string) => ipcRenderer.invoke('local:close', terminalId),
+  getShellsLocal: () => ipcRenderer.invoke('local:get:shells'),
+  onDataLocal: (id: string, callback: (data: string) => void) => {
+    const channel = `local:data:${id}`
+    const listener = (_event: unknown, data: string) => callback(data)
+    ipcRenderer.on(channel, listener)
+    return () => ipcRenderer.removeListener(channel, listener)
+  },
+
+  onErrorLocal: (id: string, callback: (error: unknown) => void) => {
+    const channel = `local:error:${id}`
+    const listener = (_event: unknown, error: unknown) => callback(error)
+    ipcRenderer.on(channel, listener)
+    return () => ipcRenderer.removeListener(channel, listener)
+  },
+
+  onExitLocal: (id: string, callback: (exitCode: unknown) => void) => {
+    const channel = `local:exit:${id}`
+    const listener = (_event: unknown, code: unknown) => callback(code)
+    ipcRenderer.on(channel, listener)
+    return () => ipcRenderer.removeListener(channel, listener)
+  }
 }
 // 自定义 API 用于浏览器控制
 

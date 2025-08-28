@@ -262,35 +262,22 @@
                       !dataRef.key.startsWith('common_') &&
                       editingNode !== dataRef.key &&
                       company !== 'personal_user_id' &&
-                      dataRef.title !== '收藏栏' &&
+                      dataRef.title !== t('common.favoriteBar') &&
                       dataRef.asset_type === 'custom_folder'
                     "
                     class="folder-actions"
                   >
                     <a-tooltip :title="t('personal.editFolder')">
-                      <a-button
-                        type="primary"
-                        size="small"
-                        ghost
+                      <EditOutlined
+                        class="folder-action-icon"
                         @click="handleEditFolder(dataRef)"
-                      >
-                        <template #icon>
-                          <EditOutlined />
-                        </template>
-                      </a-button>
+                      />
                     </a-tooltip>
                     <a-tooltip :title="t('personal.deleteFolder')">
-                      <a-button
-                        type="primary"
-                        size="small"
-                        ghost
-                        danger
+                      <DeleteOutlined
+                        class="folder-action-icon"
                         @click="handleDeleteFolder(dataRef)"
-                      >
-                        <template #icon>
-                          <DeleteOutlined />
-                        </template>
-                      </a-button>
+                      />
                     </a-tooltip>
                   </div>
                   <div
@@ -299,7 +286,7 @@
                       !dataRef.key.startsWith('common_') &&
                       editingNode !== dataRef.key &&
                       company !== 'personal_user_id' &&
-                      dataRef.title !== '收藏栏' &&
+                      dataRef.title !== t('common.favoriteBar') &&
                       dataRef.asset_type !== 'custom_folder'
                     "
                     class="refresh-icon"
@@ -309,6 +296,7 @@
                         type="primary"
                         size="small"
                         ghost
+                        :loading="refreshingNode === dataRef.key"
                         @click="handleRefresh(dataRef)"
                       >
                         <template #icon>
@@ -558,11 +546,13 @@ const handleFavoriteClick = (dataRef: any) => {
 const getLocalAssetMenu = () => {
   window.api
     .getLocalAssetRoute({ searchType: 'tree', params: ['person'] })
-    .then((res) => {
+    .then(async (res) => {
       if (res && res.data) {
         const data = res.data.routers || []
         originalTreeData.value = deepClone(data) as AssetNode[]
         assetTreeData.value = deepClone(data) as AssetNode[]
+        const localShell = await window.api.getShellsLocal()
+        assetTreeData.value.push(localShell)
         setTimeout(() => {
           expandDefaultNodes(assetTreeData.value)
         }, 200)
@@ -1049,10 +1039,16 @@ const refreshAssetMenu = () => {
 
 onMounted(() => {
   eventBus.on('LocalAssetMenu', refreshAssetMenu)
+  // 监听语言变更事件，重新加载资产数据
+  eventBus.on('languageChanged', () => {
+    console.log('Language changed, refreshing asset menu...')
+    refreshAssetMenu()
+  })
   loadCustomFolders()
 })
 onUnmounted(() => {
   eventBus.off('LocalAssetMenu', refreshAssetMenu)
+  eventBus.off('languageChanged')
 })
 </script>
 
@@ -1309,6 +1305,18 @@ onUnmounted(() => {
     align-items: center;
     gap: 4px;
     margin-right: 8px;
+
+    .folder-action-icon {
+      font-size: 12px;
+      color: var(--text-color-tertiary);
+      cursor: pointer;
+      transition: all 0.2s ease;
+
+      &:hover {
+        color: var(--text-color);
+        transform: translateY(-0.5px);
+      }
+    }
   }
 
   .comment-text {

@@ -234,7 +234,7 @@ const handleConflictAction = (action: 'cancel' | 'overwrite' | 'rename') => {
     emit('confirm', currentPath.value + '/' + originFileName.value)
   } else if (action === 'rename') {
     if (!newFileName.value.trim()) {
-      message.error('请输入新文件名')
+      message.error($t('files.pleaseInputNewFileName'))
       return
     }
     showConflictModal.value = false

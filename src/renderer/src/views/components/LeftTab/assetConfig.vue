@@ -238,7 +238,7 @@ const handleAssetRemove = (asset: AssetNode) => {
           message.error(t('personal.deleteFailure'))
         }
       } catch (err: any) {
-        message.error(t('personal.deleteError', { error: err.message || '未知错误' }))
+        message.error(t('personal.deleteError', { error: err.message || t('ssh.unknownError') }))
       }
     }
   })
@@ -428,7 +428,7 @@ const handleCreateAsset = async (data: AssetFormData) => {
 
 const handleSaveAsset = async (data: AssetFormData) => {
   if (!editingAssetUUID.value) {
-    message.error('缺少资产 ID')
+    message.error(t('personal.missingAssetId'))
     return
   }
 
@@ -488,10 +488,17 @@ onMounted(() => {
   eventBus.on('keyChainUpdated', () => {
     getkeyChainData()
   })
+  // 监听语言变更事件，重新加载资产数据
+  eventBus.on('languageChanged', () => {
+    console.log('Language changed in asset config, refreshing asset list...')
+    getAssetList()
+    eventBus.emit('LocalAssetMenu') // 通知工作空间组件也刷新
+  })
 })
 
 onBeforeUnmount(() => {
   eventBus.off('keyChainUpdated')
+  eventBus.off('languageChanged')
 })
 
 watch(isRightSectionVisible, (val) => {

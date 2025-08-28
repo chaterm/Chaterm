@@ -9,6 +9,10 @@
       {{ $t('common.paste') }}
       <span class="shortcut-key">{{ pasteShortcut }}</span>
     </v-contextmenu-item>
+    <v-contextmenu-item @click="onContextMenuAction('search')">
+      {{ $t('common.search') }}
+      <span class="shortcut-key">{{ searchShortcut }}</span>
+    </v-contextmenu-item>
 
     <!-- Divider -->
     <div class="context-menu-divider"></div>
@@ -17,21 +21,32 @@
     <v-contextmenu-item
       v-if="props.isConnect"
       @click="onContextMenuAction('disconnect')"
-      >{{ $t('common.disconnect') }}</v-contextmenu-item
-    >
+      >{{ $t('common.disconnect') }}
+      <span class="shortcut-key">{{ disconnectShortcut }}</span>
+    </v-contextmenu-item>
     <v-contextmenu-item
       v-if="!props.isConnect"
       @click="onContextMenuAction('reconnect')"
-      >{{ $t('common.reconnect') }}</v-contextmenu-item
-    >
+      >{{ $t('common.reconnect') }}
+      <span class="shortcut-key">{{ reconnectShortcut }}</span>
+    </v-contextmenu-item>
 
     <!-- Divider -->
     <div class="context-menu-divider"></div>
 
     <!-- Terminal Control Group -->
-    <v-contextmenu-item @click="onContextMenuAction('newTerminal')">{{ $t('common.newTerminal') }}</v-contextmenu-item>
-    <v-contextmenu-item @click="onContextMenuAction('close')">{{ $t('common.close') }}</v-contextmenu-item>
-    <v-contextmenu-item @click="onContextMenuAction('clearTerm')">{{ $t('common.clearTerm') }}</v-contextmenu-item>
+    <v-contextmenu-item @click="onContextMenuAction('newTerminal')">
+      {{ $t('common.newTerminal') }}
+      <span class="shortcut-key">{{ newTerminalShortcut }}</span>
+    </v-contextmenu-item>
+    <v-contextmenu-item @click="onContextMenuAction('close')">
+      {{ $t('common.closeTerminal') }}
+      <span class="shortcut-key">{{ closeShortcut }}</span>
+    </v-contextmenu-item>
+    <v-contextmenu-item @click="onContextMenuAction('clearTerm')">
+      {{ $t('common.clearTerm') }}
+      <span class="shortcut-key">{{ clearTermShortcut }}</span>
+    </v-contextmenu-item>
 
     <!-- Divider -->
     <div class="context-menu-divider"></div>
@@ -51,7 +66,10 @@
     <div class="context-menu-divider"></div>
 
     <!-- Tools Group -->
-    <v-contextmenu-item @click="onContextMenuAction('fileManager')">{{ $t('common.fileManager') }}</v-contextmenu-item>
+    <v-contextmenu-item @click="onContextMenuAction('fileManager')">
+      {{ $t('common.fileManager') }}
+      <span class="shortcut-key">{{ fileManagerShortcut }}</span>
+    </v-contextmenu-item>
     <v-contextmenu-item @click="onContextMenuAction('shrotenName')">{{ $t('common.shrotenName') }}</v-contextmenu-item>
 
     <!-- Divider -->
@@ -68,11 +86,27 @@
 <script setup lang="ts">
 import { defineProps, ref, onMounted } from 'vue'
 import { isGlobalInput, isShowQuickCommand } from '../Ssh/termInputManager'
-import { getCopyShortcut, getPasteShortcut } from '@/utils/shortcuts'
+import {
+  getCopyShortcut,
+  getPasteShortcut,
+  getCloseShortcut,
+  getSearchShortcut,
+  getClearTermShortcut,
+  getFileManagerShortcut
+} from '@/utils/shortcuts'
+import eventBus from '@/utils/eventBus'
+import { getNewTabShortcut } from '@/utils/shortcuts'
 
 // Reactive variables
 const copyShortcut = ref('')
 const pasteShortcut = ref('')
+const closeShortcut = ref('')
+const searchShortcut = ref('')
+const newTerminalShortcut = ref('')
+const clearTermShortcut = ref('')
+const fileManagerShortcut = ref('')
+const disconnectShortcut = ref('Ctrl+D')
+const reconnectShortcut = ref('Enter')
 
 const emit = defineEmits(['contextAct'])
 const props = defineProps({
@@ -142,6 +176,10 @@ const onContextMenuAction = (action) => {
     case 'fileManager':
       emit('contextAct', 'fileManager')
       break
+    case 'search':
+      // Trigger search through event bus to open search interface
+      eventBus.emit('openSearch')
+      break
     default:
       break
   }
@@ -150,13 +188,24 @@ const onContextMenuAction = (action) => {
 // Initialize shortcuts
 onMounted(async () => {
   try {
+    // Initialize shortcuts
     copyShortcut.value = await getCopyShortcut()
     pasteShortcut.value = await getPasteShortcut()
+    closeShortcut.value = await getCloseShortcut()
+    searchShortcut.value = await getSearchShortcut()
+    newTerminalShortcut.value = await getNewTabShortcut()
+    clearTermShortcut.value = await getClearTermShortcut()
+    fileManagerShortcut.value = await getFileManagerShortcut()
   } catch (error) {
     console.error('Failed to load shortcuts:', error)
     // Fallback display
     copyShortcut.value = 'Ctrl+C'
     pasteShortcut.value = 'Ctrl+V'
+    closeShortcut.value = 'Ctrl+U'
+    searchShortcut.value = 'Ctrl+F'
+    newTerminalShortcut.value = 'Ctrl+N'
+    clearTermShortcut.value = 'Ctrl+P'
+    fileManagerShortcut.value = 'Ctrl+M'
   }
 })
 </script>

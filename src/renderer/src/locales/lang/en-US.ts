@@ -31,11 +31,13 @@ export default {
     closeAll: 'Close All',
     copy: 'Copy',
     paste: 'Paste',
+    clear: 'Clear',
     copyWithShortcut: 'Copy',
     pasteWithShortcut: 'Paste',
     disconnect: 'Disconnect',
     reconnect: 'Reconnect',
     newTerminal: 'New Terminal',
+    closeTerminal: 'Close Terminal',
     splitRight: 'Split Right',
     splitDown: 'Split Down',
     clone: 'Clone',
@@ -71,10 +73,15 @@ export default {
     saveConfirmTitle: 'Save Changes',
     saveConfirmContent: 'Do you want to save changes to {filePath}?',
     pleaseInputLabel: 'Please input label name',
-    pleaseInputPrivateKey: 'Please input private key'
+    pleaseInputPrivateKey: 'Please input private key',
+    localhost: 'Localhost',
+    favoriteBar: 'Favorites'
   },
   term: {
-    welcome: 'Welcome to use Chaterm'
+    welcome: 'Welcome to use Chaterm',
+    searchPlaceholder: 'Search terminal content...',
+    searchPrevious: 'Previous (Shift+Enter)',
+    searchNext: 'Next (Enter)'
   },
   login: {
     enterprise: 'Enterprise',
@@ -138,6 +145,7 @@ export default {
     aliasStatus: 'Global alias',
     highlightStatus: 'Highlight',
     fontSize: 'Font size',
+    fontFamily: 'Font family',
     cursorStyle: 'Cursor type',
     scrollBack: 'Number of scroll rollback lines',
     terminalType: 'Specify terminal type',
@@ -171,6 +179,7 @@ export default {
     theme: 'Theme',
     themeDark: 'Dark',
     themeLight: 'Light',
+    themeAuto: 'Auto',
     telemetry: 'Telemetry',
     telemetryEnabled: 'Enabled',
     telemetryDisabled: 'Disabled',
@@ -363,7 +372,10 @@ export default {
       switchToNextTab: 'Next Tab',
       switchToPrevTab: 'Previous Tab',
       switchToSpecificTab: 'Switch to specific Tab[1...9]',
-      openCommandDialog: 'Open AI Command Generator'
+      openCommandDialog: 'Open AI Command Generator',
+      newTab: 'New Tab',
+      openFileManager: 'Open File Manager',
+      clearTerminal: 'Clear Terminal'
     }
   },
   personal: {
@@ -482,7 +494,8 @@ export default {
     folderDeleteConfirm: 'Delete folder confirmation',
     folderDeleteConfirmContent: 'Are you sure you want to delete folder "{name}"?',
     folderDeleteConfirmWithAssets:
-      'Are you sure you want to delete folder "{name}"? This folder contains {count} assets, and after deletion, the assets will return to their original position.'
+      'Are you sure you want to delete folder "{name}"? This folder contains {count} assets, and after deletion, the assets will return to their original position.',
+    missingAssetId: 'Missing asset ID'
   },
   ai: {
     welcome: 'What can I do for you in the terminal?',
@@ -497,6 +510,7 @@ export default {
     agentMessage: 'Command query,troubleshoot errors,handle tasks,anything',
     cmdMessage: 'Work on explicitly opened terminal',
     chatMessage: 'Ask, learn, brainstorm ',
+    localhost: 'Localhost',
     newChat: 'New Chat',
     showChatHistory: 'Show History',
     closeAiSidebar: 'Close AI Sidebar',
@@ -538,7 +552,8 @@ export default {
     startRecordingDesc: 'Please start speaking, recording up to 60 seconds',
     recordingFormat: 'Format used',
     stopAudioTracks: 'Stop all audio tracks',
-    startRecordingNote: 'Start recording, collect data every 100ms'
+    startRecordingNote: 'Start recording, collect data every 100ms',
+    websocketConnectionFailed: 'WebSocket connection failed, please check backend service'
   },
   keyChain: {
     newKey: 'New Key',
@@ -561,7 +576,12 @@ export default {
     deleteError: 'Delete error: {error}',
     createSuccess: 'Key created successfully',
     saveSuccess: 'Save successful',
-    saveError: 'Save error'
+    saveError: 'Save error',
+    getKeyListFailed: 'Failed to get key list',
+    createError: 'Creation error',
+    missingKeyId: 'Missing key ID',
+    keyFileImported: 'Key file imported',
+    readFileFailed: 'Failed to read file'
   },
   userInfo: {
     enterprise: 'Enterprise User',
@@ -670,7 +690,9 @@ export default {
     copy: 'Copy',
     more: 'More',
     download: 'Download',
-    doubleClickToOpen: 'Double Click to Open'
+    doubleClickToOpen: 'Double Click to Open',
+    sftpConnectFailed: 'SFTP connection failed',
+    pleaseInputNewFileName: 'Please input new file name'
   },
   about: {
     version: 'Version',
@@ -691,5 +713,22 @@ export default {
     confirm: 'Confirm',
     cancel: 'Cancel',
     setupGlobalListeners: 'Setting up global MFA listeners'
+  },
+  ssh: {
+    disconnected: 'Disconnected.',
+    pressEnterToReconnect: 'Press Enter to reconnect...',
+    disconnectError: 'Disconnect error: {message}',
+    unknownError: 'Unknown error',
+    connectionFailed: 'Connection failed: {message}',
+    connectionError: 'Connection error: {message}',
+    shellStartFailed: 'Shell start failed: {message}',
+    shellError: 'Shell error: {message}',
+    connectionClosed: 'Connection closed.',
+    disconnectedFromHost: 'Disconnected from remote host({host}) at {date}',
+    pressEnterToReconnectEn: 'Press Enter to reconnect...',
+    connectingTo: 'Connecting to {ip}',
+    welcomeMessage: '{username}, Welcome to use Chaterm',
+    reconnecting: 'Reconnecting...',
+    terminalConnectionError: 'Connection error. Please check if the terminal server is running.'
   }
 }

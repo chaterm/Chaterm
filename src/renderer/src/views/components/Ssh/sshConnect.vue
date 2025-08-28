@@ -47,7 +47,10 @@
   </div>
 
   <!-- Per-terminal Command Dialog -->
-  <CommandDialog v-model:visible="isCommandDialogVisible" />
+  <CommandDialog
+    v-model:visible="isCommandDialogVisible"
+    :connection-id="currentConnectionId"
+  />
 
   <div
     v-for="editor in openEditors"
@@ -72,6 +75,7 @@ import SearchComp from '../Term/searchComp.vue'
 import Context from '../Term/contextComp.vue'
 import SuggComp from '../Term/suggestion.vue'
 import eventBus from '@/utils/eventBus'
+import { getActualTheme } from '@/utils/themeUtils'
 import { useCurrentCwdStore } from '@/store/currentCwdStore'
 import { markRaw, onBeforeUnmount, onMounted, PropType, nextTick, reactive, ref, watch, computed } from 'vue'
 import { shortcutService } from '@/services/shortcutService'
@@ -101,6 +105,8 @@ import stripAnsi from 'strip-ansi'
 import { inputManager, commandBarHeight } from './termInputManager'
 import { shellCommands } from './shellCmd'
 import { createJumpServerStatusHandler, formatStatusMessage } from './jumpServerStatusHandler'
+import { useDeviceStore } from '@/store/useDeviceStore'
+import { checkUserDevice } from '@api/user/user'
 // import { createContextFetcher, type ContextFetcher } from './autocomplete/contextFetcher'
 const { t } = useI18n()
 const selectFlag = ref(false)
@@ -136,6 +142,7 @@ export interface sshConnectData {
   privateKey: string
   authType: string
   passphrase: string
+  asset_type?: string
 }
 
 const handleRightClick = (event) => {
@@ -268,19 +275,37 @@ let dbConfigStash: {
   [key: string]: any
 } = {}
 let config
+
+const deviceStore = useDeviceStore()
+const isOfficeDevice = ref(false)
+const isLocalConnect = ref(false)
+
+const getUserInfo = async () => {
+  try {
+    const res = (await checkUserDevice({ ip: deviceStore.getDeviceIp, macAddress: deviceStore.getMacAddress })) as any
+    if (res && res.code === 200) {
+      isOfficeDevice.value = res.data.isOfficeDevice
+    }
+  } catch (error) {
+    console.error('获取用户信息失败:', error)
+  }
+}
+
 onMounted(async () => {
+  await getUserInfo()
   config = await serviceUserConfig.getConfig()
   dbConfigStash = config
   queryCommandFlag.value = config.autoCompleteStatus == 1
+  const actualTheme = getActualTheme(config.theme)
   const termInstance = markRaw(
     new Terminal({
       scrollback: config.scrollBack,
       cursorBlink: true,
       cursorStyle: config.cursorStyle,
       fontSize: config.fontSize || 12,
-      fontFamily: 'Menlo, Monaco, "Courier New", Consolas, Courier, monospace',
+      fontFamily: config.fontFamily || 'Menlo, Monaco, "Courier New", Consolas, Courier, monospace',
       theme:
-        config.theme === 'light'
+        actualTheme === 'light'
           ? {
               background: '#ffffff',
               foreground: '#000000',
@@ -325,6 +350,7 @@ onMounted(async () => {
   fitAddon?.value.fit()
   searchAddon.value = new SearchAddon()
   termInstance.loadAddon(searchAddon.value)
+  termInstance.scrollToBottom()
   termInstance.focus()
   const webgl = new WebglAddon()
   termInstance.loadAddon(webgl)
@@ -399,6 +425,12 @@ onMounted(async () => {
       if (!currentIsUserCall) {
         debouncedUpdateTerminalState(data, currentIsUserCall)
       }
+      // Ensure scroll to bottom after write completion
+      if (!currentIsUserCall) {
+        nextTick(() => {
+          terminal.value?.scrollToBottom()
+        })
+      }
     })
 
     renderService.refreshRows = originalRequestRefresh
@@ -440,7 +472,15 @@ onMounted(async () => {
     terminalContainerResize()
   })
 
-  connectSSH()
+  if (props.connectData.asset_type === 'shell') {
+    // TODO 本地连接后续兼容
+    config.highlightStatus = 2
+    config.autoCompleteStatus = 2
+    isLocalConnect.value = true
+    await connectLocalSSH()
+  } else {
+    await connectSSH()
+  }
 
   const handleExecuteCommand = (command) => {
     if (props.activeTabId !== props.currentConnectionId) return
@@ -490,8 +530,9 @@ onMounted(async () => {
   }
   const handleUpdateTheme = (theme) => {
     if (terminal.value) {
+      const actualTheme = getActualTheme(theme)
       terminal.value.options.theme =
-        theme === 'light'
+        actualTheme === 'light'
           ? {
               background: '#ffffff',
               foreground: '#000000',
@@ -521,6 +562,19 @@ onMounted(async () => {
   eventBus.on('sendOrToggleAiFromTerminalForTab', handleSendOrToggleAiForTab)
   eventBus.on('requestUpdateCwdForHost', handleRequestUpdateCwdForHost)
   eventBus.on('updateTheme', handleUpdateTheme)
+  eventBus.on('openSearch', openSearch)
+
+  eventBus.on('clearCurrentTerminal', () => {
+    contextAct('clearTerm')
+  })
+
+  // Listen for font update events
+  const handleUpdateFont = (newFontFamily) => {
+    if (terminal.value) {
+      terminal.value.options.fontFamily = newFontFamily
+    }
+  }
+  eventBus.on('updateTerminalFont', handleUpdateFont)
   cleanupListeners.value.push(() => {
     eventBus.off('updateTheme', handleUpdateTheme)
     eventBus.off('executeTerminalCommand', handleExecuteCommand)
@@ -528,10 +582,13 @@ onMounted(async () => {
     eventBus.off('getCursorPosition', handleGetCursorPosition)
     eventBus.off('sendOrToggleAiFromTerminalForTab', handleSendOrToggleAiForTab)
     eventBus.off('requestUpdateCwdForHost', handleRequestUpdateCwdForHost)
+    eventBus.off('updateTerminalFont', handleUpdateFont)
+    eventBus.off('openSearch', openSearch)
+    eventBus.off('clearCurrentTerminal')
     window.removeEventListener('keydown', handleGlobalKeyDown)
   })
 
-  if (terminal.value.textarea) {
+  if (terminal.value?.textarea) {
     terminal.value.textarea.addEventListener('focus', () => {
       inputManager.setActiveTerm(connectionId.value)
     })
@@ -798,6 +855,7 @@ const debounce = (func, wait, immediate = false) => {
   }
 }
 const autoExecuteCode = (command) => {
+  if (props.activeTabId !== props.currentConnectionId) return
   sendData(command)
 }
 const handleResize = debounce(() => {
@@ -807,7 +865,9 @@ const handleResize = debounce(() => {
       if (rect.width > 0 && rect.height > 0) {
         fitAddon.value.fit()
         const { cols, rows } = terminal.value
-        if (isConnected.value) {
+        if (isLocalConnect.value) {
+          resizeLocalSSH(cols, rows)
+        } else {
           resizeSSH(cols, rows)
         }
       }
@@ -855,9 +915,7 @@ const connectSSH = async () => {
     }
 
     const email = userInfoStore().userInfo.email
-    const name = userInfoStore().userInfo.name
-    console.log(7777, props)
-    console.log(8888, assetInfo)
+
     const orgType = props.serverInfo.organizationId === 'personal' ? 'local' : 'local-team'
     const hostnameBase64 =
       props.serverInfo.organizationId === 'personal' ? Base64Util.encode(assetInfo.asset_ip) : Base64Util.encode(assetInfo.hostname)
@@ -879,7 +937,8 @@ const connectSSH = async () => {
       targetIp: assetInfo.host,
       sshType: assetInfo.sshType,
       terminalType: config.terminalType,
-      agentForward: config.sshAgentsStatus === 1
+      agentForward: config.sshAgentsStatus === 1,
+      isOfficeDevice: isOfficeDevice.value
     })
 
     if (jumpServerStatusHandler) {
@@ -899,21 +958,22 @@ const connectSSH = async () => {
       })
 
     if (result.status === 'connected') {
-      let welcome = '\x1b[38;2;22;119;255m' + name + ', 欢迎您使用Chaterm智能终端 \x1b[m\r\n'
-      if (configStore.getUserConfig.language == 'en-US') {
-        welcome = '\x1b[38;2;22;119;255m' + email.split('@')[0] + ', Welcome to use Chaterm \x1b[m\r\n'
-      }
+      const welcomeName = email.split('@')[0]
+      const welcome = '\x1b[38;2;22;119;255m' + t('ssh.welcomeMessage', { username: welcomeName }) + ' \x1b[m\r\n'
       terminal.value?.writeln('') // 添加空行分隔
       terminal.value?.writeln(welcome)
-      terminal.value?.writeln(`Connecting to ${props.connectData.ip}`)
+      terminal.value?.writeln(t('ssh.connectingTo', { ip: props.connectData.ip }))
       await startShell()
       setupTerminalInput()
       handleResize()
       setTimeout(() => {
         handleResize()
+        // Ensure scroll to bottom after successful connection
+        terminal.value?.scrollToBottom()
+        terminal.value?.focus()
       }, 200)
     } else {
-      const errorMsg = formatStatusMessage(`连接失败: ${result.message}`, 'error')
+      const errorMsg = formatStatusMessage(t('ssh.connectionFailed', { message: result.message }), 'error')
       terminal.value?.writeln(errorMsg)
     }
   } catch (error: any) {
@@ -922,7 +982,7 @@ const connectSSH = async () => {
       jumpServerStatusHandler = null
     }
 
-    const errorMsg = formatStatusMessage(`连接错误: ${error.message || '未知错误'}`, 'error')
+    const errorMsg = formatStatusMessage(t('ssh.connectionError', { message: error.message || t('ssh.unknownError') }), 'error')
     terminal.value?.writeln(errorMsg)
   }
   emit('connectSSH', { isConnected: isConnected })
@@ -942,8 +1002,9 @@ const startShell = async () => {
       })
       const removeCloseListener = api.onShellClose(connectionId.value, () => {
         isConnected.value = false
-        cusWrite?.('\r\nConnection closed.\r\n\r\n')
-        cusWrite?.(`Disconnected from remote host(${props.serverInfo.title}) at ${new Date().toDateString()}\r\n`)
+        cusWrite?.('\r\n' + t('ssh.connectionClosed') + '\r\n\r\n')
+        cusWrite?.(t('ssh.disconnectedFromHost', { host: props.serverInfo.title, date: new Date().toDateString() }) + '\r\n')
+        cusWrite?.('\r\n' + t('ssh.pressEnterToReconnect') + '\r\n', { isUserCall: true })
       })
 
       cleanupListeners.value.push(removeDataListener, removeErrorListener, removeCloseListener)
@@ -959,7 +1020,7 @@ const startShell = async () => {
     } else {
       terminal.value?.writeln(
         JSON.stringify({
-          cmd: `启动Shell失败: ${result.message}`,
+          cmd: t('ssh.shellStartFailed', { message: result.message }),
           isUserCall: true
         })
       )
@@ -967,7 +1028,7 @@ const startShell = async () => {
   } catch (error: any) {
     terminal.value?.writeln(
       JSON.stringify({
-        cmd: `Shell错误: ${error.message || '未知错误'}`,
+        cmd: t('ssh.shellError', { message: error.message || t('ssh.unknownError') }),
         isUserCall: true
       })
     )
@@ -988,6 +1049,107 @@ const resizeSSH = async (cols, rows) => {
   }
 }
 
+const connectLocalSSH = async () => {
+  if (termOndata) {
+    termOndata.dispose()
+    termOndata = null
+  }
+
+  if (terminal.value) {
+    const textarea = terminal.value.element?.querySelector('.xterm-helper-textarea') as HTMLTextAreaElement | null
+    if (textarea) {
+      if (textareaCompositionListener) {
+        textarea.removeEventListener('compositionend', textareaCompositionListener)
+        textareaCompositionListener = null
+      }
+      if (textareaPasteListener) {
+        textarea.removeEventListener('paste', textareaPasteListener)
+        textareaPasteListener = null
+      }
+    }
+  }
+
+  connectionId.value = `localhost@127.0.0.1:local:${Base64Util.encode(props.serverInfo.data.key)}:${uuidv4()}`
+
+  try {
+    const email = userInfoStore().userInfo.email
+    const name = userInfoStore().userInfo.name
+
+    const localConfig = {
+      id: connectionId.value,
+      shell: props.serverInfo.data.uuid,
+      termType: config.terminalType
+    }
+
+    const result = await api.connectLocal(localConfig)
+    if (result.success) {
+      const username = configStore.getUserConfig.language === 'en-US' ? email.split('@')[0] : name
+      const welcome = '\x1b[38;2;22;119;255m' + t('ssh.welcomeMessage', { username }) + ' \x1b[m\r\n'
+      terminal.value?.writeln('') // 添加空行分隔
+      terminal.value?.writeln(welcome)
+
+      await startLocalShell()
+
+      // 处理输入
+      terminal.value?.onData((data) => {
+        api.sendDataLocal(connectionId.value, data)
+      })
+
+      handleResize()
+      setTimeout(() => {
+        handleResize()
+      }, 200)
+    } else {
+      const errorMsg = formatStatusMessage(`连接失败: ${result.message}`, 'error')
+      terminal.value?.writeln(errorMsg)
+    }
+  } catch (error: any) {
+    const errorMsg = formatStatusMessage(`连接错误: ${error.message || '未知错误'}`, 'error')
+    terminal.value?.writeln(errorMsg)
+  }
+  emit('connectSSH', { isConnected: isConnected })
+}
+
+const startLocalShell = async () => {
+  isConnected.value = true
+  const removeDataListener = api.onDataLocal(connectionId.value, (data: string) => {
+    if (terminal.value) {
+      terminal.value.write(data)
+    }
+  })
+  const removeErrorListener = api.onErrorLocal?.(connectionId.value, (error: any) => {
+    if (terminal.value) {
+      terminal.value.write(`\r\n[错误]: ${error.message || error}\r\n`)
+    }
+  })
+
+  const removeCloseListener = api.onExitLocal(connectionId.value, (exitCode: any) => {
+    isConnected.value = false
+    if (terminal.value) {
+      terminal.value.write('\r\nConnection closed.\r\n\r\n')
+      terminal.value.write(`Disconnected from local shell at ${new Date().toDateString()}\r\n`)
+      terminal.value.write(`Exit code: ${exitCode?.code || 'unknown'}\r\n`)
+    }
+  })
+
+  if (removeErrorListener) {
+    cleanupListeners.value.push(removeDataListener, removeErrorListener, removeCloseListener)
+  } else {
+    cleanupListeners.value.push(removeDataListener, removeCloseListener)
+  }
+}
+
+const resizeLocalSSH = async (cols, rows) => {
+  try {
+    const result = await api.resizeLocal(connectionId.value, cols, rows)
+    if (result.status === 'error') {
+      console.error('Resize failed:', result.message)
+    } else {
+    }
+  } catch (error) {
+    console.error('Failed to resize terminal:', error)
+  }
+}
 const terminalState = ref({
   content: '',
   cursorPosition: {
@@ -1139,6 +1301,13 @@ const updateTerminalState = (quickInit: boolean, enterPress, tagPress: boolean) 
     }
     updateTerminalStateObject(cursorX, cursorY, isCrossRow)
     sendTerminalStateToServer()
+
+    // Ensure terminal scrolls to bottom, keeping cursor in visible area
+    if (!userInputFlag.value) {
+      nextTick(() => {
+        terminal.value?.scrollToBottom()
+      })
+    }
   } catch (error) {
     console.error('更新终端状态时出错:', error)
   }
@@ -1354,9 +1523,20 @@ const setupTerminalInput = () => {
         .readText()
         .then((text) => {
           sendData(text)
+          // Ensure scroll to bottom after paste
+          nextTick(() => {
+            terminal.value?.scrollToBottom()
+            terminal.value?.focus()
+          })
         })
         .catch(() => {})
     } else if (data == '\r') {
+      if (!isConnected.value) {
+        cusWrite?.('\r\n' + t('ssh.reconnecting') + '\r\n', { isUserCall: true })
+        connectSSH()
+        return
+      }
+
       const command = terminalState.value.content
       if (suggestions.value.length && activeSuggestion.value >= 0) {
         selectSuggestion(suggestions.value[activeSuggestion.value])
@@ -1365,6 +1545,11 @@ const setupTerminalInput = () => {
         suggestions.value = []
         activeSuggestion.value = -1
         suggestionSelectionMode.value = false
+        // Ensure scroll to bottom
+        nextTick(() => {
+          terminal.value?.scrollToBottom()
+          terminal.value?.focus()
+        })
         return
       } else {
         const delData = String.fromCharCode(127)
@@ -1376,12 +1561,13 @@ const setupTerminalInput = () => {
           connectionSftpAvailable.value = await api.checkSftpConnAvailable(connectionId.value)
           const vimMatch = command.match(/^\s*vim\s+(.+)$/i)
           if (vimMatch && connectionSftpAvailable.value) {
+            let vimData = data
             if (vimMatch[1].startsWith('/')) {
-              data = delData.repeat(command.length) + 'echo "' + vimMatch[1] + '"  #Chaterm:vim  \r'
+              vimData = delData.repeat(command.length) + 'echo "' + vimMatch[1] + '"  #Chaterm:vim  \r'
             } else {
-              data = delData.repeat(command.length) + 'echo "$(pwd)/' + vimMatch[1] + '"  #Chaterm:vim  \r'
+              vimData = delData.repeat(command.length) + 'echo "$(pwd)/' + vimMatch[1] + '"  #Chaterm:vim  \r'
             }
-            sendMarkedData(data, 'Chaterm:vim')
+            sendMarkedData(vimData, 'Chaterm:vim')
           } else {
             sendData(data)
           }
@@ -1391,12 +1577,16 @@ const setupTerminalInput = () => {
       }
       if (command && command.trim()) {
         insertCommand(command)
-        // 触发后台上下文获取
-        // contextFetcher?.fetchContext()
       }
       suggestions.value = []
       activeSuggestion.value = -1
       suggestionSelectionMode.value = false
+
+      // Ensure scroll to bottom and maintain focus
+      nextTick(() => {
+        terminal.value?.scrollToBottom()
+        terminal.value?.focus()
+      })
     } else if (JSON.stringify(data) === '"\\u001b[A"' && terminalMode.value === 'none') {
       if (suggestions.value.length && suggestionSelectionMode.value) {
         if (data == '\u001b[A') {
@@ -1455,7 +1645,7 @@ const setupTerminalInput = () => {
       queryCommand()
     }
   }
-  termOndata = terminal.value.onData(handleInput)
+  termOndata = terminal.value?.onData(handleInput)
 }
 
 const sendData = (data) => {
@@ -1707,6 +1897,27 @@ const tagPress = ref(false)
 const beginStr = ref<string>('')
 const startStr = ref<string>('')
 
+// Helper function to calculate display width position
+const calculateDisplayPosition = (str: string, charIndex: number): number => {
+  let displayPos = 0
+  for (let i = 0; i < charIndex && i < str.length; i++) {
+    const code = str.codePointAt(i) || 0
+    const charWidth =
+      (code >= 0x3000 && code <= 0x9fff) ||
+      (code >= 0xac00 && code <= 0xd7af) ||
+      (code >= 0xf900 && code <= 0xfaff) ||
+      (code >= 0xff00 && code <= 0xffef) ||
+      (code >= 0x20000 && code <= 0x2fa1f)
+        ? 2
+        : 1
+    displayPos += charWidth
+    if (code > 0xffff) {
+      i++
+    }
+  }
+  return displayPos
+}
+
 const highlightSyntax = (allData) => {
   const { content, beforeCursor, cursorPosition } = allData
   let command = ''
@@ -1768,13 +1979,22 @@ const highlightSyntax = (allData) => {
     if (!unMatchFlag) {
       for (let i = 0; i < afterCommandArr.length; i++) {
         if (afterCommandArr[i].content == ' ') {
-          cusWrite?.(`\x1b[${startY + 1};${cursorStartX.value + command.length + 1 + afterCommandArr[i].startIndex}H`, {
+          // Calculate correct display position for Chinese characters
+          const displayPos = calculateDisplayPosition(arg, afterCommandArr[i].startIndex)
+          const commandDisplayWidth = calculateDisplayPosition(command, command.length)
+          cusWrite?.(`\x1b[${startY + 1};${cursorStartX.value + commandDisplayWidth + 1 + displayPos}H`, {
             isUserCall: true
           })
           cusWrite?.(`${afterCommandArr[i].content}\x1b[0m`, {
             isUserCall: true
           })
         } else {
+          // Calculate correct display position for Chinese characters
+          const displayPos = calculateDisplayPosition(arg, afterCommandArr[i].startIndex)
+          const commandDisplayWidth = calculateDisplayPosition(command, command.length)
+          cusWrite?.(`\x1b[${startY + 1};${cursorStartX.value + commandDisplayWidth + 1 + displayPos}H`, {
+            isUserCall: true
+          })
           const colorCode = afterCommandArr[i].type == 'matched' ? '38;2;250;173;20' : '38;2;126;193;255'
           cusWrite?.(`\x1b[${colorCode}m${afterCommandArr[i].content}\x1b[0m`, {
             isUserCall: true
@@ -1783,16 +2003,17 @@ const highlightSyntax = (allData) => {
       }
     }
   } else {
-    if (index == -1 && currentCursorX >= cursorStartX.value + command.length) {
-      cusWrite?.(`\x1b[${startY + 1};${cursorStartX.value + command.length + 1}H`, {
+    const commandDisplayWidth = calculateDisplayPosition(command, command.length)
+    if (index == -1 && currentCursorX >= cursorStartX.value + commandDisplayWidth) {
+      cusWrite?.(`\x1b[${startY + 1};${cursorStartX.value + commandDisplayWidth + 1}H`, {
         isUserCall: true
       })
       cusWrite?.(`\x1b[38;2;126;193;255m${arg}\x1b[0m`, { isUserCall: true })
       cusWrite?.(`\x1b[${cursorPosition.row + 1};${cursorPosition.col + 1}H`, {
         isUserCall: true
       })
-    } else if (currentCursorX < cursorStartX.value + command.length) {
-      cusWrite?.(`\x1b[${startY + 1};${cursorStartX.value + command.length + 1}H`, {
+    } else if (currentCursorX < cursorStartX.value + commandDisplayWidth) {
+      cusWrite?.(`\x1b[${startY + 1};${cursorStartX.value + commandDisplayWidth + 1}H`, {
         isUserCall: true
       })
       cusWrite?.(`\x1b[38;2;126;193;255m${arg}\x1b[0m`, { isUserCall: true })
@@ -1800,7 +2021,7 @@ const highlightSyntax = (allData) => {
         isUserCall: true
       })
     } else {
-      cusWrite?.(`\x1b[${startY + 1};${cursorStartX.value + command.length + 1}H`, {
+      cusWrite?.(`\x1b[${startY + 1};${cursorStartX.value + commandDisplayWidth + 1}H`, {
         isUserCall: true
       })
       cusWrite?.(`\x1b[38;2;126;193;255m${arg}\x1b[0m`, { isUserCall: true })
@@ -2018,6 +2239,12 @@ const handleKeyInput = (e) => {
     terminalState.value.contentCrossRowStatus = false
     terminalState.value.contentCrossStartLine = 0
     terminalState.value.contentCrossRowLines = 0
+
+    // 确保滚动到底部并保持焦点
+    nextTick(() => {
+      terminal.value?.scrollToBottom()
+      terminal.value?.focus()
+    })
   } else if (ev.keyCode === 8) {
     index = cursorX.value - 1 - cursorStartX.value
     currentLine.value = currentLine.value.slice(0, index) + currentLine.value.slice(index + 1)
@@ -2044,12 +2271,13 @@ const disconnectSSH = async () => {
       cleanupListeners.value.forEach((cleanup) => cleanup())
       cleanupListeners.value = []
       isConnected.value = false
-      cusWrite?.('\r\n已断开连接。', { isUserCall: true })
+      cusWrite?.('\r\n' + t('ssh.disconnected'), { isUserCall: true })
+      cusWrite?.('\r\n' + t('ssh.pressEnterToReconnect') + '\r\n', { isUserCall: true })
     } else {
-      cusWrite?.(`\r\n断开连接错误: ${result.message}`, { isUserCall: true })
+      cusWrite?.('\r\n' + t('ssh.disconnectError', { message: result.message }), { isUserCall: true })
     }
   } catch (error: any) {
-    cusWrite?.(`\r\n断开连接错误: ${error.message || '未知错误'}`, {
+    cusWrite?.('\r\n' + t('ssh.disconnectError', { message: error.message || t('ssh.unknownError') }), {
       isUserCall: true
     })
   }
@@ -2117,6 +2345,8 @@ const contextAct = (action) => {
 
 const focus = () => {
   if (terminal.value) {
+    // Ensure terminal scrolls to bottom, keeping cursor in visible area
+    terminal.value.scrollToBottom()
     terminal.value.focus()
     inputManager.setActiveTerm(connectionId.value)
   }
@@ -2133,10 +2363,19 @@ const handleGlobalKeyDown = (e: KeyboardEvent) => {
   if (props.activeTabId !== props.currentConnectionId) return
 
   const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0
+
+  // Search functionality
   if ((isMac ? e.metaKey : e.ctrlKey) && e.key === 'f') {
     e.preventDefault()
     e.stopPropagation()
     openSearch()
+  }
+
+  // Close tab functionality
+  if ((isMac ? e.metaKey : e.ctrlKey) && e.key === 'u') {
+    e.preventDefault()
+    e.stopPropagation()
+    contextAct('close')
   }
 
   if (e.key === 'Escape' && showSearch.value) {
@@ -2160,14 +2399,15 @@ const tryOpenLocalCommandDialog = () => {
   terminal.value?.focus()
   isCommandDialogVisible.value = true
 }
+const handleOpenCommandDialog = () => {
+  tryOpenLocalCommandDialog()
+}
 
 // Listen to global openCommandDialog and restrict to this terminal/tab
-eventBus.on('openCommandDialog', () => {
-  tryOpenLocalCommandDialog()
-})
+eventBus.on('openCommandDialog', handleOpenCommandDialog)
 
 cleanupListeners.value.push(() => {
-  eventBus.off('openCommandDialog')
+  eventBus.off('openCommandDialog', handleOpenCommandDialog)
 })
 
 // Hide dialog when tab deactivates; restore when re-activates
@@ -2212,7 +2452,10 @@ const terminalContainerResize = () => {
     terminalContainer.value?.style.setProperty('height', `calc(100% - ${currentHeight}px)`)
   } else {
     terminalContainer.value?.style.setProperty('height', '100%')
-    if (terminal.value) terminal.value.scrollToBottom()
+    if (terminal.value) {
+      terminal.value.scrollToBottom()
+      terminal.value.focus()
+    }
   }
 }
 

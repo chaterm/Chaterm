@@ -11,6 +11,7 @@ import { getChatermDbPathForUser, getCurrentUserId } from './storage/db/connecti
 process.env.IS_DEV = is.dev ? 'true' : 'false'
 
 import { registerSSHHandlers } from './ssh/sshHandle'
+import { registerLocalSSHHandlers } from './ssh/localSSHHandle'
 import { registerRemoteTerminalHandlers } from './ssh/agentHandle'
 import { autoCompleteDatabaseService, ChatermDatabaseService, setCurrentUserId } from './storage/database'
 import { getGuestUserId } from './storage/db/connection'
@@ -108,6 +109,7 @@ app.whenReady().then(async () => {
 
   // Register SSH components
   registerSSHHandlers()
+  registerLocalSSHHandlers()
   registerRemoteTerminalHandlers()
   registerUpdater(mainWindow)
   app.on('activate', function () {
@@ -643,18 +645,29 @@ function setupIPC(): void {
     }
   })
 
+  // Helper function to get actual theme based on time for auto mode
+  const getActualTheme = (theme: string) => {
+    if (theme === 'auto') {
+      const hour = new Date().getHours()
+      // Use light theme from 7:00 AM to 7:00 PM (19:00), dark theme otherwise
+      return hour >= 7 && hour < 19 ? 'light' : 'dark'
+    }
+    return theme
+  }
+
   ipcMain.handle('update-theme', (_, theme) => {
     if (mainWindow && !mainWindow.isDestroyed()) {
+      const actualTheme = getActualTheme(theme)
       // Update title bar color
       if (process.platform !== 'darwin') {
         mainWindow.setTitleBarOverlay({
-          color: theme === 'dark' ? '#141414' : '#ffffff',
-          symbolColor: theme === 'dark' ? '#ffffff' : '#141414',
+          color: actualTheme === 'dark' ? '#141414' : '#ffffff',
+          symbolColor: actualTheme === 'dark' ? '#ffffff' : '#141414',
           height: 27
         })
       }
       // Notify renderer process that theme has been updated
-      mainWindow.webContents.send('theme-updated', theme)
+      mainWindow.webContents.send('theme-updated', actualTheme)
       return true
     }
     return false
@@ -663,9 +676,10 @@ function setupIPC(): void {
   ipcMain.handle('main-window-init', async (_, theme) => {
     await winReady
     if (process.platform !== 'darwin') {
+      const actualTheme = getActualTheme(theme)
       mainWindow.setTitleBarOverlay({
-        color: theme === 'dark' ? '#141414' : '#ffffff',
-        symbolColor: theme === 'dark' ? '#ffffff' : '#141414',
+        color: actualTheme === 'dark' ? '#141414' : '#ffffff',
+        symbolColor: actualTheme === 'dark' ? '#ffffff' : '#141414',
         height: 27
       })
     }
@@ -706,7 +720,7 @@ ipcMain.handle('insert-command', async (_, data) => {
 ipcMain.handle('asset-route-local-get', async (_, data) => {
   try {
     const { searchType, params } = data
-    const result = chatermDbService.getLocalAssetRoute(searchType, params || [])
+    const result = await chatermDbService.getLocalAssetRoute(searchType, params || [])
     return result
   } catch (error) {
     console.error('Chaterm query failed:', error)

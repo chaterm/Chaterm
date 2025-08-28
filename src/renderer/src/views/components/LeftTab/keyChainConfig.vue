@@ -306,7 +306,7 @@ const fetchKeyChainList = async () => {
     }
   } catch (error) {
     console.error('获取秘钥列表失败:', error)
-    message.error('获取秘钥列表失败')
+    message.error(t('keyChain.getKeyListFailed'))
   }
 }
 
@@ -402,7 +402,7 @@ const handleRemove = (keyChain: KeyChainItem | null) => {
           message.error(t('keyChain.deleteError'))
         }
       } catch (err: any) {
-        message.error(t('keyChain.deleteError', { error: err.message || '未知错误' }))
+        message.error(t('keyChain.deleteError', { error: err.message || t('ssh.unknownError') }))
       }
     }
   })
@@ -429,7 +429,7 @@ const handleCreateKeyChain = async () => {
 
       const res = await api.createKeyChain({ form: cleanForm })
       if (res?.data?.message === 'success') {
-        message.success('创建成功')
+        message.success(t('keyChain.createSuccess'))
         isRightSectionVisible.value = false
         fetchKeyChainList()
         eventBus.emit('keyChainUpdated')
@@ -438,12 +438,12 @@ const handleCreateKeyChain = async () => {
       }
     }
   } catch (e: any) {
-    message.error(e.message || '创建出错')
+    message.error(e.message || t('keyChain.createError'))
   }
 }
 
 const handleUpdateKeyChain = async () => {
-  if (!editingKeyChainId.value) return message.error('缺少密钥 ID')
+  if (!editingKeyChainId.value) return message.error(t('keyChain.missingKeyId'))
 
   try {
     if (!createForm.label) {
