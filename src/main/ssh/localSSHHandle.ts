@@ -123,21 +123,21 @@ const getAvailableShells = (): LocalShellsResult => {
   const candidates =
     platform === 'win32'
       ? [
-          { name: 'CMD', path: 'cmd.exe' },
-          { name: 'PowerShell 7+', path: 'pwsh.exe' },
-          { name: 'PowerShell', path: 'powershell.exe' },
-          { name: 'Git Bash', path: 'bash.exe' }
+          { name: 'Command Prompt (CMD)', path: 'cmd.exe' },
+          { name: 'PowerShell Core 7+', path: 'pwsh.exe' },
+          { name: 'Windows PowerShell', path: 'powershell.exe' },
+          { name: 'Git Bash Terminal', path: 'bash.exe' }
         ]
       : platform === 'darwin'
         ? [
-            { name: 'Zsh', path: '/bin/zsh' },
-            { name: 'Bash', path: '/bin/bash' },
-            { name: 'Fish', path: '/usr/local/bin/fish' }
+            { name: 'Zsh Shell (Default)', path: '/bin/zsh' },
+            { name: 'Bash Shell', path: '/bin/bash' },
+            { name: 'Fish Shell', path: '/usr/local/bin/fish' }
           ]
         : [
-            { name: 'Bash', path: '/bin/bash' },
-            { name: 'Zsh', path: '/bin/zsh' },
-            { name: 'Fish', path: '/usr/bin/fish' }
+            { name: 'Bash Shell (Default)', path: '/bin/bash' },
+            { name: 'Zsh Shell', path: '/bin/zsh' },
+            { name: 'Fish Shell', path: '/usr/bin/fish' }
           ]
 
   for (const candidate of candidates) {
