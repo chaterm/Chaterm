@@ -1,15 +1,43 @@
 // Theme utility functions for consistent theme detection across components
 
 /**
- * Helper function to get actual theme based on time for auto mode
+ * Check if system prefers dark mode
+ * @returns {boolean} true if system prefers dark mode
+ */
+export function prefersDarkMode() {
+  return window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches
+}
+
+/**
+ * Check if system prefers light mode
+ * @returns {boolean} true if system prefers light mode
+ */
+export function prefersLightMode() {
+  return window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches
+}
+
+/**
+ * Get system theme preference
+ * @returns {string} 'dark' or 'light' based on system preference
+ */
+export function getSystemTheme() {
+  if (prefersDarkMode()) {
+    return 'dark'
+  } else if (prefersLightMode()) {
+    return 'light'
+  }
+  // Default to light theme if no system preference is detected
+  return 'light'
+}
+
+/**
+ * Helper function to get actual theme based on system preference for auto mode
  * @param {string} theme - The theme setting ('auto', 'light', 'dark')
  * @returns {string} 'dark' or 'light'
  */
 export function getActualTheme(theme) {
   if (theme === 'auto') {
-    const hour = new Date().getHours()
-    // Use light theme from 7:00 AM to 7:00 PM (19:00), dark theme otherwise
-    return hour >= 7 && hour < 19 ? 'light' : 'dark'
+    return getSystemTheme()
   }
   return theme
 }
@@ -61,4 +89,35 @@ export function getMonacoTheme() {
  */
 export function getCustomTheme() {
   return isDarkTheme() ? 'custom-dark' : 'custom-light'
+}
+
+/**
+ * Add system theme change listener
+ * @param {Function} callback - Callback function to execute when system theme changes
+ * @returns {Function} Function to remove the listener
+ */
+export function addSystemThemeListener(callback) {
+  if (!window.matchMedia) {
+    return () => {} // Return empty function if matchMedia is not supported
+  }
+
+  const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)')
+
+  const handleChange = (e) => {
+    const newTheme = e.matches ? 'dark' : 'light'
+    callback(newTheme)
+  }
+
+  // Add listener for modern browsers
+  if (mediaQuery.addEventListener) {
+    mediaQuery.addEventListener('change', handleChange)
+    return () => mediaQuery.removeEventListener('change', handleChange)
+  }
+  // Fallback for older browsers
+  else if (mediaQuery.addListener) {
+    mediaQuery.addListener(handleChange)
+    return () => mediaQuery.removeListener(handleChange)
+  }
+
+  return () => {}
 }

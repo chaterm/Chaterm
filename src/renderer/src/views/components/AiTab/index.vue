@@ -383,12 +383,51 @@
                 </a-select-option>
               </a-select>
               <div class="action-buttons-container">
-                <VoiceInput
-                  :disabled="responseLoading"
-                  :auto-send-after-voice="autoSendAfterVoice"
-                  @transcription-complete="handleTranscriptionComplete"
-                  @transcription-error="handleTranscriptionError"
+                <a-tooltip :title="$t('ai.uploadFile')">
+                  <a-button
+                    :disabled="responseLoading"
+                    size="small"
+                    class="custom-round-button compact-button"
+                    @click="handleFileUpload"
+                  >
+                    <img
+                      :src="uploadIcon"
+                      alt="upload"
+                      style="width: 14px; height: 14px"
+                    />
+                  </a-button>
+                </a-tooltip>
+                <a-tooltip :title="$t('ai.startVoiceInput')">
+                  <a-button
+                    :disabled="responseLoading"
+                    size="small"
+                    class="custom-round-button compact-button"
+                    @click="handleVoiceClick"
+                  >
+                    <img
+                      src="@/assets/icons/voice.svg"
+                      alt="voice"
+                      style="width: 14px; height: 14px"
+                    />
+                  </a-button>
+                </a-tooltip>
+                <input
+                  ref="fileInputRef"
+                  type="file"
+                  accept=".txt,.md,.js,.ts,.py,.java,.cpp,.c,.html,.css,.json,.xml,.yaml,.yml,.sql,.sh,.bat,.ps1,.log,.csv,.tsv"
+                  style="display: none"
+                  @change="handleFileSelected"
                 />
+                <!-- Hidden VoiceInput component for functionality -->
+                <div style="display: none">
+                  <VoiceInput
+                    ref="voiceInputRef"
+                    :disabled="responseLoading"
+                    :auto-send-after-voice="autoSendAfterVoice"
+                    @transcription-complete="handleTranscriptionComplete"
+                    @transcription-error="handleTranscriptionError"
+                  />
+                </div>
                 <a-button
                   :disabled="!showSendButton"
                   size="small"
@@ -610,6 +649,7 @@ import foldIcon from '@/assets/icons/fold.svg'
 import historyIcon from '@/assets/icons/history.svg'
 import plusIcon from '@/assets/icons/plus.svg'
 import sendIcon from '@/assets/icons/send.svg'
+import uploadIcon from '@/assets/icons/upload.svg'
 import VoiceInput from './voiceInput.vue'
 import { useCurrentCwdStore } from '@/store/currentCwdStore'
 import debounce from 'lodash/debounce'
@@ -663,6 +703,8 @@ const isMessageFeedbackSubmitted = (messageId: string): boolean => {
 }
 
 const hostSearchInputRef = ref()
+const fileInputRef = ref<HTMLInputElement>()
+const voiceInputRef = ref()
 const showHostSelect = ref(false)
 const hostOptions = ref<{ label: string; value: string; uuid: string; connect: string }[]>([])
 const hostSearchValue = ref('')
@@ -750,7 +792,7 @@ const getCurentTabAssetInfo = async (): Promise<AssetInfo | null> => {
       // Set timeout
       const timeout = setTimeout(() => {
         eventBus.off('assetInfoResult', handleResult)
-        reject(new Error('Timeout getting asset information'))
+        reject(new Error(t('ai.timeoutGettingAssetInfo')))
       }, 5000) // 5 second timeout
 
       // Listen for result event
@@ -881,7 +923,106 @@ const handleTranscriptionComplete = (transcribedText: string) => {
 
 // 语音转录错误事件处理
 const handleTranscriptionError = (error: string) => {
-  console.error('语音转录错误:', error)
+  console.error('Voice transcription error:', error)
+}
+
+// File upload handling methods
+const handleFileUpload = () => {
+  fileInputRef.value?.click()
+}
+
+// Voice input handling methods
+const handleVoiceClick = () => {
+  // Trigger the hidden VoiceInput component's toggle method
+  if (voiceInputRef.value && voiceInputRef.value.toggleVoiceInput) {
+    voiceInputRef.value.toggleVoiceInput()
+  }
+}
+
+const handleFileSelected = async (event: Event) => {
+  const target = event.target as HTMLInputElement
+  const file = target.files?.[0]
+
+  if (!file) return
+
+  try {
+    // Check file size (limit to 1MB)
+    if (file.size > 1024 * 1024) {
+      notification.warning({
+        message: t('ai.fileTooLarge'),
+        description: t('ai.fileTooLargeDesc'),
+        duration: 3
+      })
+      return
+    }
+
+    // Read file content
+    const content = await readFileContent(file)
+
+    // Add file content to chat input
+    const fileName = file.name
+    const fileExtension = fileName.split('.').pop()?.toLowerCase()
+
+    // Format the content based on file type
+    let formattedContent = ''
+    if (fileExtension === 'json') {
+      try {
+        const jsonContent = JSON.parse(content)
+        formattedContent = `${t('ai.fileContent', { fileName })}:\n\`\`\`json\n${JSON.stringify(jsonContent, null, 2)}\n\`\`\``
+      } catch {
+        formattedContent = `${t('ai.fileContent', { fileName })}:\n\`\`\`\n${content}\n\`\`\``
+      }
+    } else if (['md', 'markdown'].includes(fileExtension || '')) {
+      formattedContent = `${t('ai.fileContent', { fileName })}:\n\`\`\`markdown\n${content}\n\`\`\``
+    } else if (['js', 'ts', 'py', 'java', 'cpp', 'c', 'html', 'css', 'sh', 'bat', 'ps1'].includes(fileExtension || '')) {
+      formattedContent = `${t('ai.fileContent', { fileName })}:\n\`\`\`${fileExtension}\n${content}\n\`\`\``
+    } else {
+      formattedContent = `${t('ai.fileContent', { fileName })}:\n\`\`\`\n${content}\n\`\`\``
+    }
+
+    // Add to existing input or replace if empty
+    if (chatInputValue.value.trim()) {
+      chatInputValue.value = chatInputValue.value + '\n\n' + formattedContent
+    } else {
+      chatInputValue.value = formattedContent
+    }
+
+    // Show success notification
+    notification.success({
+      message: t('ai.fileUploadSuccess'),
+      description: t('ai.fileUploadSuccessDesc', { fileName }),
+      duration: 2
+    })
+  } catch (error) {
+    console.error('File read error:', error)
+    notification.error({
+      message: t('ai.fileReadFailed'),
+      description: t('ai.fileReadErrorDesc'),
+      duration: 3
+    })
+  } finally {
+    // Reset file input
+    if (target) {
+      target.value = ''
+    }
+  }
+}
+
+const readFileContent = (file: File): Promise<string> => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+
+    reader.onload = (e) => {
+      const content = e.target?.result as string
+      resolve(content)
+    }
+
+    reader.onerror = () => {
+      reject(new Error(t('ai.fileReadFailed')))
+    }
+
+    reader.readAsText(file, 'utf-8')
+  })
 }
 
 const sendMessage = async (sendType: string) => {
@@ -896,8 +1037,8 @@ const sendMessage = async (sendType: string) => {
   }
   if (chatInputValue.value.trim() === '') {
     notification.error({
-      message: '发送内容错误',
-      description: '发送内容为空，请输入内容',
+      message: t('ai.sendContentError'),
+      description: t('ai.sendContentEmpty'),
       duration: 3
     })
     return 'SEND_ERROR'
@@ -907,8 +1048,8 @@ const sendMessage = async (sendType: string) => {
   // Check if current active host exists
   if (hosts.value.length === 0 && chatTypeValue.value !== 'chat') {
     notification.error({
-      message: '获取当前资产连接信息失败',
-      description: '请先建立资产连接',
+      message: t('ai.getAssetInfoFailed'),
+      description: t('ai.pleaseConnectAsset'),
       duration: 3
     })
     return 'ASSET_ERROR'
@@ -1123,8 +1264,8 @@ const handleMessageOperation = async (operation: 'copy' | 'apply') => {
   const lastMessage = chatHistory.at(-1)
   if (!lastMessage) {
     notification.error({
-      message: '操作失败',
-      description: '没有可操作的消息',
+      message: t('ai.operationFailed'),
+      description: t('ai.noOperableMessage'),
       duration: 2,
       placement: 'topRight'
     })
@@ -1149,19 +1290,19 @@ const handleMessageOperation = async (operation: 'copy' | 'apply') => {
       if (operation === 'copy') {
         navigator.clipboard.writeText(content)
         notification.success({
-          message: '命令已复制',
-          description: '命令已复制到剪贴板',
+          message: t('ai.commandCopied'),
+          description: t('ai.commandCopiedToClipboard'),
           duration: 2,
           placement: 'topRight'
         })
       } else if (operation === 'apply') {
-        // 对于本地主机，通过AI Agent执行命令而不是终端
+        // For the local host, commands are executed by the AI Agent instead of the terminal.
         try {
           responseLoading.value = true
           const result = await window.api.executeLocalCommand?.(content)
           if (result?.success) {
-            const output = result.output || '执行完成'
-            const formattedOutput = `Command executed on localhost:\n\`\`\`\n${output}\n\`\`\``
+            const output = result.output || t('ai.executionCompleted')
+            const formattedOutput = `${t('ai.commandExecutedOnLocalhost')}:\n\`\`\`\n${output}\n\`\`\``
             eventBus.emit('chatToAi', formattedOutput)
             setTimeout(() => {
               eventBus.emit('triggerAiSend')
@@ -1171,8 +1312,8 @@ const handleMessageOperation = async (operation: 'copy' | 'apply') => {
           }
         } catch (error: unknown) {
           notification.error({
-            message: '命令执行失败',
-            description: (error as Error)?.message || '本地命令执行出错',
+            message: t('ai.commandExecutionFailed'),
+            description: (error as Error)?.message || t('ai.localCommandExecutionError'),
             duration: 3,
             placement: 'topRight'
           })
@@ -1189,8 +1330,11 @@ const handleMessageOperation = async (operation: 'copy' | 'apply') => {
     // Check whether the current window matches the target server
     if (!currentAssetInfo || currentAssetInfo.ip !== targetHost.host) {
       notification.warning({
-        message: '无法执行命令',
-        description: `当前窗口不是执行命令的服务器窗口。\n目标服务器: ${targetHost.host}\n当前窗口: ${currentAssetInfo?.ip || '非终端窗口'}\n\n请切换到正确的服务器窗口后再执行命令。`,
+        message: t('ai.cannotExecuteCommand'),
+        description: t('ai.wrongServerWindow', {
+          targetServer: targetHost.host,
+          currentWindow: currentAssetInfo?.ip || t('ai.nonTerminalWindow')
+        }),
         duration: 5,
         placement: 'topRight'
       })
@@ -2038,13 +2182,13 @@ const fetchHostOptions = async (search: string) => {
     value: 'localhost',
     uuid: 'localhost',
     connect: 'localhost',
-    title: t('ai.localhost') || '本地主机',
+    title: t('ai.localhost'),
     isLocalHost: true
   }
 
   // 如果搜索词为空或者本地主机匹配搜索条件，则显示本地主机选项
   const shouldShowLocalHost =
-    !search || 'localhost'.includes(search.toLowerCase()) || '127.0.0.1'.includes(search) || (t('ai.localhost') || '本地主机').includes(search)
+    !search || 'localhost'.includes(search.toLowerCase()) || '127.0.0.1'.includes(search) || t('ai.localhost').includes(search)
 
   if (shouldShowLocalHost) {
     formatted.unshift(localHostOption)
