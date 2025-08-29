@@ -95,7 +95,11 @@ export class RemoteTerminalProcess extends BrownEventEmitter<RemoteTerminalProce
 
   private async runSshCommand(sessionId: string, command: string, cwd?: string): Promise<void> {
     const cleanCwd = cwd ? cwd.replace(/\x1B\[[^m]*m/g, '').replace(/\x1B\[[?][0-9]*[hl]/g, '') : undefined
-    const commandToExecute = cleanCwd ? `cd ${cleanCwd} && ${command}` : command
+    // Handle permission issues by using sudo when cd fails
+    let commandToExecute = command
+    if (cleanCwd) {
+      commandToExecute = `if cd "${cleanCwd}" 2>/dev/null; then ${command}; else sudo sh -c "cd '${cleanCwd}' && ${command.replace(/'/g, "'\\''")}"; fi`
+    }
 
     let lineBuffer = ''
 
@@ -137,11 +141,12 @@ export class RemoteTerminalProcess extends BrownEventEmitter<RemoteTerminalProce
         lineBuffer = lines.pop() || ''
 
         for (const line of lines) {
-          if (line.trim()) this.emit('line', line)
+          // Emit all lines including empty ones to preserve file format
+          this.emit('line', line)
         }
 
         // Apply delay mechanism to remaining lineBuffer as well
-        if (lineBuffer.trim()) {
+        if (lineBuffer) {
           scheduleDelayedOutput(lineBuffer)
         }
       }
@@ -153,7 +158,7 @@ export class RemoteTerminalProcess extends BrownEventEmitter<RemoteTerminalProce
       this.pendingOutputTimer = null
     }
 
-    if (lineBuffer && this.isListening && lineBuffer.trim()) {
+    if (lineBuffer && this.isListening) {
       this.emit('line', lineBuffer)
     }
 
@@ -204,8 +209,12 @@ export class RemoteTerminalProcess extends BrownEventEmitter<RemoteTerminalProce
       }
     }
 
-    // For JumpServer, use different command construction method
-    const commandToExecute = cleanCwd ? `cd "${cleanCwd}" && ${command}` : command
+    // For JumpServer, use different command construction method with permission handling
+    let commandToExecute = command
+    if (cleanCwd) {
+      // Handle permission issues by using sudo when cd fails
+      commandToExecute = `if cd "${cleanCwd}" 2>/dev/null; then ${command}; else sudo sh -c "cd '${cleanCwd}' && ${command.replace(/'/g, "'\\''")}"; fi`
+    }
 
     // Create unique command marker with more distinctive format
     const timestamp = Date.now()
@@ -303,7 +312,7 @@ export class RemoteTerminalProcess extends BrownEventEmitter<RemoteTerminalProce
         .replace(/\u001b\[107m/g, '<span class="ansi-bg-bright-white">') // Bright White background
 
       // Handle complex sequences with multiple parameters (e.g., \u001b[1;31m for bold red)
-      result = result.replace(/\u001b\[(\d+);(\d+)m/g, (match, p1, p2) => {
+      result = result.replace(/\u001b\[(\d+);(\d+)m/g, (_, p1, p2) => {
         let replacement = ''
 
         // Process first parameter
@@ -351,26 +360,35 @@ export class RemoteTerminalProcess extends BrownEventEmitter<RemoteTerminalProce
       const cleanLine = processAnsiCodes(line)
         .replace(/<[^>]*>/g, '')
         .trim()
-      // Detect wrapped command echo
-      if (
-        cleanLine.includes('bash -c') ||
-        cleanLine.includes(`echo "${startMarker}"`) ||
-        cleanLine.includes(commandToExecute) ||
-        cleanLine.includes(`echo "${endMarker}:$EXIT_CODE"`) ||
-        cleanLine === wrappedCommand.trim()
-      ) {
-        return true
+
+      // More precise command echo detection to avoid filtering legitimate output
+      const isEcho =
+        cleanLine.startsWith('bash -l -c') ||
+        (cleanLine.includes(`echo "${startMarker}"`) && cleanLine.length > startMarker.length + 10) ||
+        (cleanLine.includes(`echo "${endMarker}:$EXIT_CODE"`) && cleanLine.length > endMarker.length + 20) ||
+        cleanLine === wrappedCommand.trim() ||
+        // Only filter exact command matches that appear at the beginning (command echo)
+        (cleanLine === commandToExecute && !commandStarted)
+
+      // Log filtered echo for debugging
+      if (isEcho) {
+        console.log(`[JumpServer ${sessionId}] Filtering command echo: ${cleanLine.substring(0, 100)}...`)
       }
-      return false
+
+      return isEcho
     }
 
     const processLine = (line: string) => {
       const processedLine = processAnsiCodes(line)
       const cleanLine = processedLine.replace(/<[^>]*>/g, '').trim()
 
+      // Enhanced debugging
+      console.log(
+        `[JumpServer ${sessionId}] Processing line: "${cleanLine.substring(0, 80)}..." (started: ${commandStarted}, completed: ${commandCompleted})`
+      )
+
       // Detect and filter command echo
       if (!commandStarted && !commandEchoFiltered && isCommandEcho(line)) {
-        console.log(`[JumpServer ${sessionId}] Filtering command echo: ${cleanLine.substring(0, 50)}...`)
         return
       }
 
@@ -416,8 +434,9 @@ export class RemoteTerminalProcess extends BrownEventEmitter<RemoteTerminalProce
 
       // Only send output lines after command start marker and before completion
       if (commandStarted && !commandCompleted) {
-        if (cleanLine && !cleanLine.includes(startMarker) && !cleanLine.includes(endMarker)) {
-          this.emit('line', processedLine)
+        // Allow empty lines (preserving file format) but exclude marker lines
+        if (!cleanLine.includes(startMarker) && !cleanLine.includes(endMarker)) {
+          this.emit('line', processedLine || '\n')
         }
       }
     }
