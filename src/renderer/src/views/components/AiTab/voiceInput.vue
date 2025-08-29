@@ -342,6 +342,11 @@ onUnmounted(() => {
     clearTimeout(recordingTimeout.value)
   }
 })
+
+// 暴露方法给父组件
+defineExpose({
+  toggleVoiceInput
+})
 </script>
 
 <style>
