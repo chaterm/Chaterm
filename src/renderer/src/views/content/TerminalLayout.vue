@@ -534,7 +534,7 @@ const commandBarStyle = computed(() => {
   return { width, left }
 })
 const DEFAULT_WIDTH_PX = 320
-const DEFAULT_WIDTH_RIGHT_PX = 400
+const DEFAULT_WIDTH_RIGHT_PX = 500
 const currentMenu = ref('workspace')
 const updatePaneSize = () => {
   const container = document.querySelector('.splitpanes') as HTMLElement

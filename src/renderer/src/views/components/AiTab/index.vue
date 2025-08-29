@@ -383,52 +383,34 @@
                 </a-select-option>
               </a-select>
               <div class="action-buttons-container">
-                <a-dropdown
-                  :trigger="['click']"
-                  placement="bottomRight"
-                >
+                <a-tooltip :title="$t('ai.uploadFile')">
                   <a-button
                     :disabled="responseLoading"
                     size="small"
                     class="custom-round-button compact-button"
+                    @click="handleFileUpload"
                   >
                     <img
-                      src="@/assets/icons/more.svg"
-                      alt="more"
+                      :src="uploadIcon"
+                      alt="upload"
                       style="width: 14px; height: 14px"
                     />
                   </a-button>
-                  <template #overlay>
-                    <a-menu class="action-dropdown-menu">
-                      <a-menu-item
-                        key="upload"
-                        @click="handleFileUpload"
-                      >
-                        <div class="menu-item-content">
-                          <img
-                            :src="uploadIcon"
-                            alt="upload"
-                            style="width: 14px; height: 14px"
-                          />
-                          <span>{{ $t('ai.uploadFile') }}</span>
-                        </div>
-                      </a-menu-item>
-                      <a-menu-item
-                        key="voice"
-                        @click="handleVoiceClick"
-                      >
-                        <div class="menu-item-content">
-                          <img
-                            src="@/assets/icons/voice.svg"
-                            alt="voice"
-                            style="width: 14px; height: 14px"
-                          />
-                          <span>{{ $t('ai.startVoiceInput') }}</span>
-                        </div>
-                      </a-menu-item>
-                    </a-menu>
-                  </template>
-                </a-dropdown>
+                </a-tooltip>
+                <a-tooltip :title="$t('ai.startVoiceInput')">
+                  <a-button
+                    :disabled="responseLoading"
+                    size="small"
+                    class="custom-round-button compact-button"
+                    @click="handleVoiceClick"
+                  >
+                    <img
+                      src="@/assets/icons/voice.svg"
+                      alt="voice"
+                      style="width: 14px; height: 14px"
+                    />
+                  </a-button>
+                </a-tooltip>
                 <input
                   ref="fileInputRef"
                   type="file"
@@ -3547,45 +3529,6 @@ defineExpose({
     &:hover {
       background-color: var(--bg-color-quaternary);
     }
-  }
-}
-
-.action-dropdown-menu {
-  background-color: var(--bg-color-secondary) !important;
-  border: 1px solid var(--border-color) !important;
-  border-radius: 6px !important;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15) !important;
-  padding: 4px !important;
-
-  :deep(.ant-menu-item) {
-    padding: 8px 12px !important;
-    margin: 2px 0 !important;
-    border-radius: 4px !important;
-    transition: all 0.2s ease !important;
-    color: var(--text-color) !important;
-    background-color: transparent !important;
-    border: none !important;
-
-    &:hover {
-      background-color: var(--hover-bg-color) !important;
-      color: var(--text-color) !important;
-    }
-
-    &:active {
-      background-color: var(--bg-color-tertiary) !important;
-    }
-  }
-}
-
-.menu-item-content {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  width: 100%;
-
-  span {
-    font-size: 13px;
-    color: var(--text-color);
   }
 }
 
