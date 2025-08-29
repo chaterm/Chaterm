@@ -1500,4 +1500,12 @@ onUnmounted(() => {
 :deep(.css-dev-only-do-not-override-1p3hq3p.ant-btn-primary.ant-btn-background-ghost) {
   border-color: transparent !important;
 }
+
+/* Override Ant Design primary button styles for workspace buttons */
+:deep(.workspace-button.ant-btn-primary) {
+  background-color: rgba(255, 255, 255, 0.08) !important;
+  border-color: rgba(255, 255, 255, 0.08) !important;
+  color: var(--text-color) !important;
+  box-shadow: none !important;
+}
 </style>
