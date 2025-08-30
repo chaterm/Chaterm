@@ -5,7 +5,6 @@ export default {
     files: 'Files',
     keychain: 'Keychain',
     extensions: 'Extensions',
-    monitor: 'Monitor',
     ai: 'AI',
     user: 'User',
     setting: 'Setting',
