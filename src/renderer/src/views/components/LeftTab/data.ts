@@ -20,11 +20,6 @@ const menuTabsData = [
     icon: new URL('@/assets/menu/extensions.svg', import.meta.url).href
   },
   {
-    name: 'Monitor',
-    key: 'monitor',
-    icon: new URL('@/assets/menu/monitor.svg', import.meta.url).href
-  },
-  {
     name: 'AI',
     key: 'ai',
     icon: new URL('@/assets/menu/ai.svg', import.meta.url).href

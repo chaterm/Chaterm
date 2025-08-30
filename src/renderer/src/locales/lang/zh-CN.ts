@@ -5,7 +5,6 @@ export default {
     files: '文件管理',
     keychain: '秘钥',
     extensions: '扩展',
-    monitor: '监控',
     ai: 'AI',
     user: '用户',
     setting: '设置',
