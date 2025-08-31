@@ -77,8 +77,14 @@
 
     <!-- Display Settings Group -->
     <v-contextmenu-submenu :title="$t('common.fontsize')">
-      <v-contextmenu-item @click="onContextMenuAction('fontsizeLargen')">{{ $t('common.largen') }}</v-contextmenu-item>
-      <v-contextmenu-item @click="onContextMenuAction('fontsizeSmaller')">{{ $t('common.smaller') }}</v-contextmenu-item>
+      <v-contextmenu-item @click="onContextMenuAction('fontsizeLargen')">
+        {{ $t('common.largen') }}
+        <span class="shortcut-key">{{ fontsizeLargenShortcut }}</span>
+      </v-contextmenu-item>
+      <v-contextmenu-item @click="onContextMenuAction('fontsizeSmaller')">
+        {{ $t('common.smaller') }}
+        <span class="shortcut-key">{{ fontsizeSmallerShortcut }}</span>
+      </v-contextmenu-item>
     </v-contextmenu-submenu>
   </div>
 </template>
@@ -107,6 +113,8 @@ const clearTermShortcut = ref('')
 const fileManagerShortcut = ref('')
 const disconnectShortcut = ref('Ctrl+D')
 const reconnectShortcut = ref('Enter')
+const fontsizeLargenShortcut = ref('Ctrl+滚轮')
+const fontsizeSmallerShortcut = ref('Ctrl+滚轮')
 
 const emit = defineEmits(['contextAct'])
 const props = defineProps({

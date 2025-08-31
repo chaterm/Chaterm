@@ -451,6 +451,7 @@ onMounted(async () => {
     resizeObserver.observe(terminalContainer.value)
   }
   window.addEventListener('resize', handleResize)
+  window.addEventListener('wheel', handleWheel)
   window.addEventListener('keydown', handleGlobalKeyDown)
   window.addEventListener('click', () => {
     if (contextmenu.value && typeof contextmenu.value.hide === 'function') {
@@ -575,6 +576,15 @@ onMounted(async () => {
     }
   }
   eventBus.on('updateTerminalFont', handleUpdateFont)
+  eventBus.on('updateTerminalFontSize', (newFontSize) => {
+    if (terminal.value) {
+      terminal.value.options.fontSize = newFontSize
+      // Trigger resize to adjust terminal layout
+      setTimeout(() => {
+        handleResize()
+      }, 50)
+    }
+  })
   cleanupListeners.value.push(() => {
     eventBus.off('updateTheme', handleUpdateTheme)
     eventBus.off('executeTerminalCommand', handleExecuteCommand)
@@ -583,6 +593,7 @@ onMounted(async () => {
     eventBus.off('sendOrToggleAiFromTerminalForTab', handleSendOrToggleAiForTab)
     eventBus.off('requestUpdateCwdForHost', handleRequestUpdateCwdForHost)
     eventBus.off('updateTerminalFont', handleUpdateFont)
+    eventBus.off('updateTerminalFontSize')
     eventBus.off('openSearch', openSearch)
     eventBus.off('clearCurrentTerminal')
     window.removeEventListener('keydown', handleGlobalKeyDown)
@@ -610,6 +621,7 @@ const getCmdList = async (systemCommands) => {
 
 onBeforeUnmount(() => {
   window.removeEventListener('resize', handleResize)
+  window.removeEventListener('wheel', handleWheel)
   inputManager.unregisterInstances(connectionId.value)
   if (resizeObserver) {
     resizeObserver.disconnect()
@@ -2316,14 +2328,10 @@ const contextAct = (action) => {
       sendData('\r')
       break
     case 'fontsizeLargen':
-      if (terminal.value?.options) {
-        terminal.value.options.fontSize = (terminal.value.options.fontSize ?? 12) + 1
-      }
+      adjustFontSize(1)
       break
     case 'fontsizeSmaller':
-      if (terminal.value?.options) {
-        terminal.value.options.fontSize = (terminal.value.options.fontSize ?? 12) - 1
-      }
+      adjustFontSize(-1)
       break
     case 'registerSyncInput':
       if (isSyncInput.value) {
@@ -2353,6 +2361,52 @@ const focus = () => {
 
 const hideSelectionButton = () => {
   showAiButton.value = false
+}
+
+// Adjust font size function
+const adjustFontSize = async (delta: number) => {
+  if (!terminal.value) return
+
+  const currentFontSize = terminal.value.options.fontSize || 12
+  const newFontSize = Math.max(8, Math.min(32, currentFontSize + delta))
+
+  if (newFontSize !== currentFontSize) {
+    // Update current terminal font size
+    terminal.value.options.fontSize = newFontSize
+
+    // Save to user config
+    try {
+      const config = await serviceUserConfig.getConfig()
+      await serviceUserConfig.saveConfig({
+        ...config,
+        fontSize: newFontSize
+      })
+    } catch (error) {
+      console.error('Failed to save font size:', error)
+    }
+
+    // Notify other terminals to update font size
+    eventBus.emit('updateTerminalFontSize', newFontSize)
+
+    // Trigger resize to adjust terminal layout
+    setTimeout(() => {
+      handleResize()
+    }, 50)
+  }
+}
+
+// Handle wheel event for font size adjustment
+const handleWheel = (e: WheelEvent) => {
+  if (e.ctrlKey && terminal.value) {
+    e.preventDefault()
+    if (e.deltaY < 0) {
+      // Wheel up - increase font size
+      adjustFontSize(1)
+    } else {
+      // Wheel down - decrease font size
+      adjustFontSize(-1)
+    }
+  }
 }
 
 const handleGlobalKeyDown = (e: KeyboardEvent) => {
