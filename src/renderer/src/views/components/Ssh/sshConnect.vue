@@ -2363,6 +2363,50 @@ const handleGlobalKeyDown = (e: KeyboardEvent) => {
 
   const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0
 
+  // Check if we're in vim mode to avoid shortcut conflicts
+  if (terminalMode.value === 'alternate') {
+    // In vim mode, block most shortcuts that could conflict with vim operations
+    const blockedInVim = [
+      // Block Ctrl+V (vim visual block mode) - this is the main issue
+      { ctrlKey: true, key: 'v' },
+      // Block other common vim conflicts
+      { ctrlKey: true, key: 'c' }, // vim visual mode
+      { ctrlKey: true, key: 'z' }, // vim undo
+      { ctrlKey: true, key: 'a' }, // vim increment
+      { ctrlKey: true, key: 'e' }, // vim scroll down
+      { ctrlKey: true, key: 'y' }, // vim scroll up
+      { ctrlKey: true, key: 'd' }, // vim half page down
+      { ctrlKey: true, key: 'u' }, // vim half page up
+      { ctrlKey: true, key: 'f' }, // vim page down
+      { ctrlKey: true, key: 'b' }, // vim page up
+      { ctrlKey: true, key: 'g' }, // vim status
+      { ctrlKey: true, key: 'o' }, // vim open line
+      { ctrlKey: true, key: 'p' }, // vim previous
+      { ctrlKey: true, key: 'n' }, // vim next
+      { ctrlKey: true, key: 'x' }, // vim cut
+      { ctrlKey: true, key: 's' }, // vim save
+      { ctrlKey: true, key: 'w' }, // vim window
+      { ctrlKey: true, key: 'h' }, // vim backspace
+      { ctrlKey: true, key: 'j' }, // vim join
+      { ctrlKey: true, key: 'k' }, // vim kill
+      { ctrlKey: true, key: 'l' }, // vim redraw
+      { ctrlKey: true, key: 'm' }, // vim newline
+      { ctrlKey: true, key: 'q' }, // vim quit
+      { ctrlKey: true, key: 'r' }, // vim redo
+      { ctrlKey: true, key: 't' } // vim tag
+    ]
+
+    // Check if current key combination should be blocked in vim mode
+    const shouldBlock = blockedInVim.some((blocked) => blocked.key === e.key && blocked.ctrlKey === e.ctrlKey)
+
+    if (shouldBlock) {
+      // Block the shortcut in vim mode to avoid conflicts
+      e.preventDefault()
+      e.stopPropagation()
+      return
+    }
+  }
+
   // Search functionality
   if ((isMac ? e.metaKey : e.ctrlKey) && e.key === 'f') {
     e.preventDefault()
