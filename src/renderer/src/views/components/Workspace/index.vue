@@ -701,7 +701,7 @@ const toggleFavorite = (dataRef: any): void => {
           getLocalAssetMenu()
         }
       })
-      .catch((err) => console.error('个人资产收藏错误:', err))
+      .catch((err) => console.error(t('common.personalAssetFavoriteError'), err))
   } else {
     console.log('执行企业资产收藏逻辑')
     if (dataRef.asset_type === 'organization' && !dataRef.organizationId) {
@@ -715,7 +715,7 @@ const toggleFavorite = (dataRef: any): void => {
             getUserAssetMenu()
           }
         })
-        .catch((err) => console.error('组织本身收藏错误:', err))
+        .catch((err) => console.error(t('common.organizationAssetFavoriteError'), err))
     } else {
       console.log('更新组织子资产收藏状态:', {
         organizationUuid: dataRef.organizationId,
@@ -724,7 +724,7 @@ const toggleFavorite = (dataRef: any): void => {
       })
 
       if (!window.api.updateOrganizationAssetFavorite) {
-        console.error('window.api.updateOrganizationAssetFavorite 方法不存在!')
+        console.error(t('common.updateOrganizationAssetFavoriteMethodNotFound'))
         return
       }
 
@@ -741,11 +741,11 @@ const toggleFavorite = (dataRef: any): void => {
             dataRef.favorite = !dataRef.favorite
             getUserAssetMenu()
           } else {
-            console.error('收藏状态更新失败:', res)
+            console.error(t('common.favoriteStatusUpdateFailed'), res)
           }
         })
         .catch((err) => {
-          console.error('updateOrganizationAssetFavorite 错误:', err)
+          console.error(t('common.updateOrganizationAssetFavoriteError'), err)
         })
     }
   }
@@ -785,7 +785,7 @@ const handleRefresh = async (dataRef: any) => {
       getUserAssetMenu()
     })
   } catch (error) {
-    console.error('刷新失败:', error)
+    console.error(t('common.refreshFailed'), error)
     getUserAssetMenu()
   } finally {
     setTimeout(() => {

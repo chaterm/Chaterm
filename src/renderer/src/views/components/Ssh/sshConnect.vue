@@ -161,7 +161,7 @@ const handleRightClick = (event) => {
           terminal.value?.focus()
         })
         .catch(() => {
-          console.warn('无法读取剪贴板内容')
+          console.warn(t('common.clipboardReadFailed'))
         })
       break
     case 'contextMenu':
@@ -190,7 +190,7 @@ const handleMouseDown = (event) => {
             terminal.value?.focus()
           })
           .catch(() => {
-            console.warn('无法读取剪贴板内容')
+            console.warn(t('common.clipboardReadFailed'))
           })
         break
       case 'contextMenu':
@@ -287,7 +287,7 @@ const getUserInfo = async () => {
       isOfficeDevice.value = res.data.isOfficeDevice
     }
   } catch (error) {
-    console.error('获取用户信息失败:', error)
+    console.error(t('common.getUserInfoFailed'), error)
   }
 }
 
@@ -1331,7 +1331,7 @@ const updateTerminalState = (quickInit: boolean, enterPress, tagPress: boolean) 
       })
     }
   } catch (error) {
-    console.error('更新终端状态时出错:', error)
+    console.error(t('common.updateTerminalStatusError'), error)
   }
 }
 
@@ -1466,7 +1466,7 @@ const sendTerminalStateToServer = async (): Promise<void> => {
       }
     })
   } catch (err) {
-    console.error('发送终端状态时出错:', err)
+    console.error(t('common.sendTerminalStatusError'), err)
   }
 }
 function handleExternalInput(data) {
@@ -2653,7 +2653,7 @@ const getCursorLinePosition = () => {
       isCrossRow: cursorEndY.value !== cursorY
     }
   } catch (error) {
-    console.error('获取光标位置失败:', error)
+    console.error(t('common.getCursorPositionFailed'), error)
     return null
   }
 }
