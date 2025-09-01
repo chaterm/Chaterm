@@ -569,6 +569,15 @@ onMounted(async () => {
     contextAct('clearTerm')
   })
 
+  // Listen for font size change events
+  eventBus.on('fontSizeIncrease', () => {
+    contextAct('fontsizeLargen')
+  })
+
+  eventBus.on('fontSizeDecrease', () => {
+    contextAct('fontsizeSmaller')
+  })
+
   // Listen for font update events
   const handleUpdateFont = (newFontFamily) => {
     if (terminal.value) {
@@ -596,6 +605,8 @@ onMounted(async () => {
     eventBus.off('updateTerminalFontSize')
     eventBus.off('openSearch', openSearch)
     eventBus.off('clearCurrentTerminal')
+    eventBus.off('fontSizeIncrease')
+    eventBus.off('fontSizeDecrease')
     window.removeEventListener('keydown', handleGlobalKeyDown)
   })
 
@@ -2473,6 +2484,20 @@ const handleGlobalKeyDown = (e: KeyboardEvent) => {
     e.preventDefault()
     e.stopPropagation()
     contextAct('close')
+  }
+
+  // Font size increase (Ctrl+)
+  if (e.ctrlKey && e.key === '=') {
+    e.preventDefault()
+    e.stopPropagation()
+    contextAct('fontsizeLargen')
+  }
+
+  // Font size decrease (Ctrl-)
+  if (e.ctrlKey && e.key === '-') {
+    e.preventDefault()
+    e.stopPropagation()
+    contextAct('fontsizeSmaller')
   }
 
   if (e.key === 'Escape' && showSearch.value) {

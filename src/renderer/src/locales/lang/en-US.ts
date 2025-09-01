@@ -374,7 +374,9 @@ export default {
       openCommandDialog: 'Open AI Command Generator',
       newTab: 'New Tab',
       openFileManager: 'Open File Manager',
-      clearTerminal: 'Clear Terminal'
+      clearTerminal: 'Clear Terminal',
+      fontSizeIncrease: 'Font Size Increase',
+      fontSizeDecrease: 'Font Size Decrease'
     }
   },
   personal: {
