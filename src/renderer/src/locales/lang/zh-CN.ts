@@ -375,7 +375,9 @@ export default {
       openCommandDialog: '打开AI命令生成对话框',
       newTab: '新Tab页',
       openFileManager: '打开文件管理',
-      clearTerminal: '清屏'
+      clearTerminal: '清屏',
+      fontSizeIncrease: '字体放大',
+      fontSizeDecrease: '字体缩小'
     }
   },
   personal: {
