@@ -78,7 +78,7 @@ const getErrorMessage = () => {
 }
 
 .timer-text {
-  color: #8c8c8c;
+  color: var(--text-color-secondary-light);
   font-size: 13px;
   font-weight: normal;
 }
@@ -93,5 +93,33 @@ const getErrorMessage = () => {
   .timer-text {
     font-size: 12px;
   }
+}
+</style>
+
+<style>
+/* Use global style so it works with teleported AntD modal */
+.mfa-modal .ant-modal-content {
+  background-color: var(--bg-color-secondary) !important;
+  color: var(--text-color) !important;
+  border: 1px solid var(--border-color-light) !important;
+}
+
+.mfa-modal .ant-modal-header {
+  background-color: var(--bg-color-secondary) !important;
+  border-bottom: 1px solid var(--border-color-light) !important;
+}
+
+.mfa-modal .ant-modal-title {
+  color: var(--text-color) !important;
+}
+
+.mfa-modal .ant-modal-close,
+.mfa-modal .ant-modal-close-x,
+.mfa-modal .ant-modal-close .ant-modal-close-icon {
+  color: var(--text-color-secondary-light) !important;
+}
+
+.mfa-modal .ant-modal-body {
+  background-color: var(--bg-color-secondary) !important;
 }
 </style>

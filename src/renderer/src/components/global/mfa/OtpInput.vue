@@ -246,10 +246,10 @@ defineExpose({
 .otp-digit-input {
   width: 40px;
   height: 40px;
-  border: 1px solid #d9d9d9;
+  border: 1px solid var(--border-color-light);
   border-radius: 6px;
-  background-color: #ffffff;
-  color: rgba(0, 0, 0, 0.88);
+  background-color: var(--bg-color);
+  color: var(--text-color);
   font-size: 16px;
   font-weight: 400;
   text-align: center;
@@ -259,7 +259,7 @@ defineExpose({
 
 .otp-digit-input:focus {
   border-color: #4096ff;
-  box-shadow: 0 0 0 2px rgba(5, 145, 255, 0.1);
+  box-shadow: 0 0 0 2px rgba(5, 145, 255, 0.2);
 }
 
 .otp-digit-input:hover:not(:focus) {
@@ -268,17 +268,17 @@ defineExpose({
 
 .otp-digit-input.filled {
   border-color: #4096ff;
-  background-color: #ffffff;
+  background-color: var(--bg-color);
 }
 
 .otp-digit-input.error {
   border-color: #ff4d4f;
-  background-color: #ffffff;
+  background-color: var(--bg-color);
 }
 
 .otp-digit-input.error:focus {
   border-color: #ff4d4f;
-  box-shadow: 0 0 0 2px rgba(255, 77, 79, 0.1);
+  box-shadow: 0 0 0 2px rgba(255, 77, 79, 0.2);
 }
 
 .error-message {
