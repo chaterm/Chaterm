@@ -279,6 +279,15 @@ onMounted(() => {
     contextAct('clearTerm')
   })
 
+  // Listen for font size change events
+  eventBus.on('fontSizeIncrease', () => {
+    contextAct('fontsizeLargen')
+  })
+
+  eventBus.on('fontSizeDecrease', () => {
+    contextAct('fontsizeSmaller')
+  })
+
   // Listen for theme update events
   eventBus.on('updateTheme', (theme) => {
     if (term.value) {
@@ -322,6 +331,8 @@ onBeforeUnmount(() => {
   eventBus.off('updateTerminalFont')
   eventBus.off('openSearch')
   eventBus.off('clearCurrentTerminal')
+  eventBus.off('fontSizeIncrease')
+  eventBus.off('fontSizeDecrease')
   document.removeEventListener('mouseup', hideSelectionButton)
 })
 // Get all commands for current machine
@@ -1182,6 +1193,20 @@ const handleGlobalKeyDown = (e) => {
     e.preventDefault()
     e.stopPropagation()
     contextAct('close')
+  }
+
+  // Font size increase (Ctrl+)
+  if (e.ctrlKey && e.key === '=') {
+    e.preventDefault()
+    e.stopPropagation()
+    contextAct('fontsizeLargen')
+  }
+
+  // Font size decrease (Ctrl-)
+  if (e.ctrlKey && e.key === '-') {
+    e.preventDefault()
+    e.stopPropagation()
+    contextAct('fontsizeSmaller')
   }
 
   if (e.key === 'Escape' && showSearch.value) {

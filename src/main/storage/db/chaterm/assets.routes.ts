@@ -51,7 +51,7 @@ function migrateDatabaseIfNeeded(db: Database.Database) {
 
     // 检查并创建自定义文件夹表
     const checkCustomFoldersTable = db.prepare(`
-      SELECT name FROM sqlite_master 
+      SELECT name FROM sqlite_master
       WHERE type='table' AND name='t_custom_folders'
     `)
     const customFoldersTable = checkCustomFoldersTable.get()
@@ -74,7 +74,7 @@ function migrateDatabaseIfNeeded(db: Database.Database) {
 
     // 检查并创建资产文件夹映射表
     const checkAssetFolderMappingTable = db.prepare(`
-      SELECT name FROM sqlite_master 
+      SELECT name FROM sqlite_master
       WHERE type='table' AND name='t_asset_folder_mapping'
     `)
     const assetFolderMappingTable = checkAssetFolderMappingTable.get()
@@ -124,7 +124,7 @@ export async function getLocalAssetRouteLogic(db: Database, searchType: string, 
 
       for (const group of groups) {
         const assetsStmt = db.prepare(`
-          SELECT label, asset_ip, uuid, group_name, auth_type, port, username, password, key_chain_id, asset_type, favorite
+          SELECT label, asset_ip, uuid, group_name, auth_type, port, username, password, key_chain_id, asset_type, favorite, need_proxy, proxy_name
           FROM t_assets
           WHERE group_name = ?
           ORDER BY created_at
@@ -149,7 +149,9 @@ export async function getLocalAssetRouteLogic(db: Database, searchType: string, 
               password: item.password || '',
               key_chain_id: item.key_chain_id || 0,
               asset_type: item.asset_type || 'person',
-              organizationId: item.asset_type === 'organization' ? item.uuid : 'personal'
+              organizationId: item.asset_type === 'organization' ? item.uuid : 'personal',
+              needProxy: item.need_proxy === 1,
+              proxyName: item.proxy_name
             }))
           })
         }
@@ -189,7 +191,9 @@ export async function getLocalAssetRouteLogic(db: Database, searchType: string, 
               password: item.password || '',
               key_chain_id: item.key_chain_id || 0,
               asset_type: item.asset_type || 'person',
-              organizationId: 'personal'
+              organizationId: 'personal',
+              needProxy: item.need_proxy === 1,
+              proxyName: item.proxy_name
             }))
           })
         }
@@ -230,7 +234,9 @@ export async function getLocalAssetRouteLogic(db: Database, searchType: string, 
               password: item.password || '',
               key_chain_id: item.key_chain_id || 0,
               asset_type: item.asset_type || 'person',
-              organizationId: 'personal'
+              organizationId: 'personal',
+              needProxy: item.need_proxy === 1,
+              proxyName: item.proxy_name
             }))
           })
         }
@@ -309,7 +315,7 @@ export async function getLocalAssetRouteLogic(db: Database, searchType: string, 
 
         for (const folder of customFolders) {
           const folderAssetsStmt = db.prepare(`
-            SELECT 
+            SELECT
               afm.folder_uuid,
               afm.organization_uuid,
               afm.asset_host,

@@ -28,6 +28,8 @@ export interface ConnectionInfo {
   asset_ip?: string
   targetIp?: string
   sshType?: string
+  needProxy: boolean
+  proxyName?: string
 }
 
 export interface RemoteTerminalInfo {
@@ -554,7 +556,9 @@ export class RemoteTerminalManager {
           password: this.connectionInfo.password,
           privateKey: this.connectionInfo.privateKey,
           passphrase: this.connectionInfo.passphrase,
-          targetIp: this.connectionInfo.host!
+          targetIp: this.connectionInfo.host!,
+          needProxy: this.connectionInfo.needProxy || false,
+          proxyName: this.connectionInfo.proxyName || ''
         }
 
         connectResult = await handleJumpServerConnection(jumpServerConnectionInfo)

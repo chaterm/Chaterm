@@ -47,23 +47,23 @@
     >
       <a-input
         v-model:value="newCommandLabel"
-        placeholder="脚本名称"
+        :placeholder="$t('quickCommand.scriptName')"
         style="margin-bottom: 8px"
       />
       <a-textarea
         v-model:value="newCommandValue"
-        placeholder="请输入脚本内容..."
+        :placeholder="$t('quickCommand.scriptContent')"
         :auto-size="{ minRows: 6, maxRows: 10 }"
         style="margin-bottom: 12px"
       />
 
-      <!-- 脚本语法说明 -->
+      <!-- Script syntax help -->
       <div class="script-help">
         <div
           class="help-header"
           @click="toggleHelp"
         >
-          <span class="help-title">📖 脚本语法说明</span>
+          <span class="help-title">{{ $t('quickCommand.scriptSyntaxHelp') }}</span>
           <span class="toggle-icon">{{ showHelp ? '▼' : '▶' }}</span>
         </div>
 
@@ -72,21 +72,21 @@
           class="help-content"
         >
           <div class="help-layout">
-            <!-- 左侧：命令说明 -->
+            <!-- Left: Command descriptions -->
             <div class="help-left">
               <div class="help-item">
-                <strong>⚡ 基本命令：</strong>
-                <span>每行一个命令，按顺序执行</span>
+                <strong>{{ $t('quickCommand.basicCommands') }}</strong>
+                <span>{{ $t('quickCommand.basicCommandsDesc') }}</span>
               </div>
 
               <div class="help-item">
-                <strong>⏰ 延时命令：</strong>
-                <code>sleep==秒数</code>
-                <span>如：<code>sleep==3</code></span>
+                <strong>{{ $t('quickCommand.delayCommand') }}</strong>
+                <code>sleep=={{ $t('quickCommand.seconds') }}</code>
+                <span>{{ $t('quickCommand.delayCommandDesc') }}<code>sleep==3</code></span>
               </div>
 
               <div class="help-item">
-                <strong>⌨️ 特殊按键：</strong>
+                <strong>{{ $t('quickCommand.specialKeys') }}</strong>
                 <div class="key-list">
                   <code>esc</code>
                   <code>tab</code>
@@ -96,16 +96,16 @@
               </div>
             </div>
 
-            <!-- 右侧：示例代码 -->
+            <!-- Right: Example code -->
             <div class="help-right">
               <div class="example-header">
-                <span>💡 示例脚本</span>
+                <span>{{ $t('quickCommand.exampleScript') }}</span>
                 <button
                   class="copy-btn"
                   :class="{ copied: copySuccess }"
                   @click="copyExample"
                 >
-                  {{ copySuccess ? '已复制' : '复制' }}
+                  {{ copySuccess ? $t('quickCommand.copied') : $t('quickCommand.copy') }}
                 </button>
               </div>
               <pre class="example-code">
@@ -132,12 +132,13 @@ sudo systemctl status nginx</pre
 </template>
 
 <script setup lang="ts">
-import { ref, defineEmits, onMounted, onBeforeUnmount, nextTick } from 'vue'
+import { ref, onMounted, onBeforeUnmount, nextTick } from 'vue'
+import { useI18n } from 'vue-i18n'
 import Sortable from 'sortablejs'
 import { PlusOutlined } from '@ant-design/icons-vue'
 import { executeScript } from '../Ssh/commandScript'
 import { inputManager } from '../Ssh/termInputManager'
-const emit = defineEmits(['send'])
+const { t } = useI18n()
 
 interface QuickCommand {
   id: number
@@ -270,7 +271,7 @@ sudo systemctl status nginx`
       copySuccess.value = false
     }, 2000)
   } catch (err) {
-    console.error('复制失败:', err)
+    console.error(t('quickCommand.copyFailed'), err)
   }
 }
 
@@ -280,7 +281,7 @@ const refresh = async () => {
   quickCommands.value = data.snippets || []
 }
 
-// 新增
+// Add new command
 const addCommand = async (params) => {
   await api.userSnippetOperation({
     operation: 'create',
@@ -289,7 +290,7 @@ const addCommand = async (params) => {
   await refresh()
 }
 
-// 编辑
+// Edit command
 const editCommand = async (params: QuickCommand) => {
   await api.userSnippetOperation({
     operation: 'update',
@@ -298,7 +299,7 @@ const editCommand = async (params: QuickCommand) => {
   await refresh()
 }
 
-// 删除
+// Delete command
 const removeCommand = async (id: number) => {
   await api.userSnippetOperation({
     operation: 'delete',
@@ -307,7 +308,7 @@ const removeCommand = async (id: number) => {
   await refresh()
 }
 
-// 交换顺序
+// Swap command order
 const swapCommand = async (id1: number, id2: number) => {
   await api.userSnippetOperation({
     operation: 'swap',
@@ -524,7 +525,7 @@ const swapCommand = async (id1: number, id2: number) => {
 
   .example-code {
     background: var(--bg-color-quaternary, #2d3748);
-    color: var(--text-color-inverse, #e2e8f0);
+    color: var(--text-color, #333);
     padding: 12px;
     border-radius: 4px;
     font-family: 'Consolas', 'Monaco', monospace;

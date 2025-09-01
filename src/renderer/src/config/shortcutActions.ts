@@ -151,5 +151,27 @@ export const shortcutActions: Omit<ShortcutAction, 'name'>[] = [
     handler: () => {
       eventBus.emit('clearCurrentTerminal')
     }
+  },
+  {
+    id: 'fontSizeIncrease',
+    nameKey: 'shortcuts.actions.fontSizeIncrease',
+    defaultKey: {
+      mac: 'Command+=',
+      other: 'Ctrl+='
+    },
+    handler: () => {
+      eventBus.emit('fontSizeIncrease')
+    }
+  },
+  {
+    id: 'fontSizeDecrease',
+    nameKey: 'shortcuts.actions.fontSizeDecrease',
+    defaultKey: {
+      mac: 'Command+-',
+      other: 'Ctrl+-'
+    },
+    handler: () => {
+      eventBus.emit('fontSizeDecrease')
+    }
   }
 ]

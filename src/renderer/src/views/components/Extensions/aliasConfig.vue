@@ -318,7 +318,7 @@ onMounted(() => {
     handleTableChange()
       .then(() => {})
       .catch((err) => {
-        console.error('重新加载别名数据失败:', err)
+        console.error(t('common.reloadAliasDataFailed'), err)
       })
   })
 })
