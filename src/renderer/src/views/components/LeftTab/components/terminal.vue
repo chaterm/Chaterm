@@ -99,13 +99,21 @@
           :label="$t('user.sshAgentSettings')"
           class="user_my-ant-form-item"
         >
-          <a-button @click="openAgentConfig">{{ $t('common.setting') }}</a-button>
+          <a-button
+            class="setting-button"
+            @click="openAgentConfig"
+            >{{ $t('common.setting') }}</a-button
+          >
         </a-form-item>
         <a-form-item
           :label="$t('user.proxySettings')"
           class="user_my-ant-form-item"
         >
-          <a-button @click="openProxyConfig">{{ $t('common.setting') }}</a-button>
+          <a-button
+            class="setting-button"
+            @click="openProxyConfig"
+            >{{ $t('common.setting') }}</a-button
+          >
         </a-form-item>
         <a-form-item
           :label="$t('user.mouseEvent')"
@@ -991,5 +999,58 @@ onMounted(async () => {
 
 .proxy-form :deep(:where(.ant-form-item)) {
   margin-bottom: 12px !important;
+}
+
+/* Setting button styles - consistent with host management import button */
+.setting-button {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  height: 32px;
+  padding: 0 12px;
+  border-radius: 4px;
+  background: var(--bg-color);
+  border: 1px solid var(--border-color);
+  color: var(--text-color);
+  transition: all 0.3s ease;
+  /* Ensure button inherits right alignment from parent */
+  margin-left: auto;
+  margin-right: 0;
+}
+
+.setting-button:hover {
+  background: var(--hover-bg-color);
+  border-color: #1890ff;
+  color: #1890ff;
+}
+
+.setting-button:active {
+  background: var(--active-bg-color);
+}
+
+/* Override Ant Design default button styles for setting buttons */
+.setting-button:deep(.ant-btn) {
+  background: var(--bg-color) !important;
+  border-color: var(--border-color) !important;
+  color: var(--text-color) !important;
+}
+
+/* Ensure setting button form items inherit right alignment */
+.user_my-ant-form-item:has(.setting-button) {
+  text-align: right;
+}
+
+.user_my-ant-form-item:has(.setting-button) :deep(.ant-form-item-control) {
+  text-align: right;
+}
+
+.setting-button:deep(.ant-btn:hover) {
+  background: var(--hover-bg-color) !important;
+  border-color: #1890ff !important;
+  color: #1890ff !important;
+}
+
+.setting-button:deep(.ant-btn:active) {
+  background: var(--active-bg-color) !important;
 }
 </style>
