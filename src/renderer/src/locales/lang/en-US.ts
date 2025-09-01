@@ -756,5 +756,20 @@ export default {
     welcomeMessage: '{username}, Welcome to use Chaterm',
     reconnecting: 'Reconnecting...',
     terminalConnectionError: 'Connection error. Please check if the terminal server is running.'
+  },
+  quickCommand: {
+    scriptName: 'Script Name',
+    scriptContent: 'Please enter script content...',
+    scriptSyntaxHelp: '📖 Script Syntax Help',
+    basicCommands: '⚡ Basic Commands:',
+    basicCommandsDesc: 'One command per line, executed in sequence',
+    delayCommand: '⏰ Delay Command:',
+    delayCommandDesc: 'e.g.:',
+    specialKeys: '⌨️ Special Keys:',
+    exampleScript: '💡 Example Script',
+    copy: 'Copy',
+    copied: 'Copied',
+    copyFailed: 'Copy failed',
+    seconds: 'seconds'
   }
 }
