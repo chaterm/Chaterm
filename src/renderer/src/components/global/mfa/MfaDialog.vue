@@ -2,46 +2,124 @@
   <a-modal
     v-model:visible="showOtpDialog"
     :title="$t('mfa.title')"
-    width="30%"
+    width="400px"
     :mask-closable="false"
     :keyboard="false"
+    :footer="null"
+    class="mfa-modal"
+    @cancel="cancelOtp"
   >
-    <div style="margin-bottom: 16px">
-      <p style="margin-bottom: 8px">{{ otpPrompt }}</p>
-      <a-input-password
-        v-model:value="otpCode"
-        :placeholder="$t('mfa.verificationCode')"
-        :visibility-toggle="false"
-        @press-enter="submitOtpCode"
-      />
-      <span
-        v-show="showOtpDialogErr"
-        style="color: red"
-        >{{ $t('mfa.verificationCodeError') }}</span
-      >
-      <span
-        v-show="showOtpDialogCheckErr"
-        style="color: red"
-        >{{ $t('mfa.pleaseInputVerificationCode') }}</span
-      >
-    </div>
-    <template #footer>
-      <div style="display: flex; justify-content: space-between; align-items: center">
-        <span style="color: #666; font-size: 12px"> {{ $t('mfa.remainingTime') }}: {{ Math.ceil(otpTimeRemaining / 1000) }}s </span>
-        <div>
-          <a-button @click="cancelOtp">{{ $t('mfa.cancel') }}</a-button>
-          <a-button
-            type="primary"
-            style="margin-left: 8px"
-            @click="submitOtpCode"
-            >{{ $t('mfa.confirm') }}</a-button
-          >
-        </div>
+    <div class="mfa-content">
+      <div class="otp-section">
+        <OtpInput
+          v-model="otpCode"
+          :has-error="showOtpDialogErr || showOtpDialogCheckErr"
+          :error-message="getErrorMessage()"
+          @complete="handleOtpComplete"
+          @change="handleOtpChange"
+        />
       </div>
-    </template>
+      <div class="timer-section">
+        <span class="timer-text"> {{ $t('mfa.remainingTime') }}: {{ Math.ceil(otpTimeRemaining / 1000) }}s </span>
+      </div>
+    </div>
   </a-modal>
 </template>
 
 <script setup lang="ts">
-import { showOtpDialog, showOtpDialogErr, showOtpDialogCheckErr, otpPrompt, otpCode, otpTimeRemaining, submitOtpCode, cancelOtp } from './mfaState'
+import { useI18n } from 'vue-i18n'
+import OtpInput from './OtpInput.vue'
+import {
+  showOtpDialog,
+  showOtpDialogErr,
+  showOtpDialogCheckErr,
+  otpCode,
+  otpTimeRemaining,
+  cancelOtp,
+  handleOtpChange,
+  handleOtpComplete
+} from './mfaState'
+
+const { t } = useI18n()
+
+// Error message helper
+const getErrorMessage = () => {
+  if (showOtpDialogCheckErr.value) {
+    return t('mfa.pleaseInputVerificationCode')
+  }
+  if (showOtpDialogErr.value) {
+    return t('mfa.verificationCodeError')
+  }
+  return ''
+}
 </script>
+
+<style scoped>
+.mfa-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 20px 0 32px 0;
+  gap: 24px;
+}
+
+.otp-section {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+}
+
+.timer-section {
+  display: flex;
+  justify-content: center;
+  width: 100%;
+}
+
+.timer-text {
+  color: var(--text-color-secondary-light);
+  font-size: 13px;
+  font-weight: normal;
+}
+
+/* Mobile responsive */
+@media (max-width: 480px) {
+  .mfa-content {
+    padding: 16px 0 24px 0;
+    gap: 20px;
+  }
+
+  .timer-text {
+    font-size: 12px;
+  }
+}
+</style>
+
+<style>
+/* Use global style so it works with teleported AntD modal */
+.mfa-modal .ant-modal-content {
+  background-color: var(--bg-color-secondary) !important;
+  color: var(--text-color) !important;
+  border: 1px solid var(--border-color-light) !important;
+}
+
+.mfa-modal .ant-modal-header {
+  background-color: var(--bg-color-secondary) !important;
+  border-bottom: 1px solid var(--border-color-light) !important;
+}
+
+.mfa-modal .ant-modal-title {
+  color: var(--text-color) !important;
+}
+
+.mfa-modal .ant-modal-close,
+.mfa-modal .ant-modal-close-x,
+.mfa-modal .ant-modal-close .ant-modal-close-icon {
+  color: var(--text-color-secondary-light) !important;
+}
+
+.mfa-modal .ant-modal-body {
+  background-color: var(--bg-color-secondary) !important;
+}
+</style>

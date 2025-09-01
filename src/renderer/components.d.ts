@@ -50,6 +50,7 @@ declare module 'vue' {
     AWatermark: typeof import('ant-design-vue/es')['Watermark']
     CommandDialog: typeof import('./src/components/global/CommandDialog.vue')['default']
     MfaDialog: typeof import('./src/components/global/mfa/MfaDialog.vue')['default']
+    OtpInput: typeof import('./src/components/global/mfa/OtpInput.vue')['default']
     RouterLink: typeof import('vue-router')['RouterLink']
     RouterView: typeof import('vue-router')['RouterView']
   }
