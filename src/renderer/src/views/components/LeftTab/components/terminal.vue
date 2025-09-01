@@ -37,6 +37,16 @@
           </a-select>
         </a-form-item>
         <a-form-item
+          :label="$t('user.fontFamily')"
+          class="user_my-ant-form-item"
+        >
+          <a-select
+            v-model:value="userConfig.fontFamily"
+            class="font-family-select"
+            :options="fontFamilyOptions"
+          />
+        </a-form-item>
+        <a-form-item
           :label="$t('user.fontSize')"
           class="user_my-ant-form-item"
         >
@@ -47,16 +57,6 @@
             :min="8"
             :max="64"
             class="user_my-ant-form-item-content"
-          />
-        </a-form-item>
-        <a-form-item
-          :label="$t('user.fontFamily')"
-          class="user_my-ant-form-item"
-        >
-          <a-select
-            v-model:value="userConfig.fontFamily"
-            class="font-family-select"
-            :options="fontFamilyOptions"
           />
         </a-form-item>
         <a-form-item
@@ -209,7 +209,7 @@ const userConfig = ref({
 })
 
 const fontFamilyOptions = [
-  { value: 'Menlo, Monaco, "Courier New", Consolas, Courier, monospace', label: 'Menlo (默认)' },
+  { value: 'Menlo, Monaco, "Courier New", Consolas, Courier, monospace', label: 'Menlo' },
   { value: 'Monaco, "Courier New", Consolas, Courier, monospace', label: 'Monaco' },
   { value: '"Courier New", Courier, monospace', label: 'Courier New' },
   { value: 'Consolas, "Courier New", Courier, monospace', label: 'Consolas' },
@@ -523,12 +523,12 @@ onMounted(async () => {
 }
 
 .terminal-type-select {
-  width: 150px !important;
+  width: 180px !important;
   text-align: left;
 }
 
 .font-family-select {
-  width: 200px !important;
+  width: 180px !important;
   text-align: left;
 }
 
