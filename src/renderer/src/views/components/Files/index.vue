@@ -69,7 +69,7 @@ const getCurrentActiveTerminalInfo = async () => {
     const assetInfo = await new Promise((resolve, reject) => {
       const timeout = setTimeout(() => {
         eventBus.off('assetInfoResult', handleResult)
-        reject(new Error('Timeout getting asset information'))
+        reject(new Error(t('common.timeoutGettingAssetInfo')))
       }, 5000)
 
       const handleResult = (result) => {
@@ -82,7 +82,7 @@ const getCurrentActiveTerminalInfo = async () => {
     })
     return assetInfo
   } catch (error) {
-    console.error('Error getting asset information:', error)
+    console.error(t('common.errorGettingAssetInfo'), error)
     return null
   }
 }
@@ -214,7 +214,7 @@ const openFile = async (data) => {
     action = '创建'
   }
   if (stderr.indexOf('Permission denied') !== -1) {
-    message.error('Permission denied')
+    message.error(t('common.permissionDenied'))
   } else {
     const contentType = getFileExt(filePath) ? getFileExt(filePath) : '.python'
     const existingEditor = openEditors.find((editor) => editor?.filePath === filePath)

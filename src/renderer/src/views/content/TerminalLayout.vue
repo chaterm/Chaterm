@@ -195,7 +195,7 @@
                 v-model:value="globalInput"
                 size="small"
                 class="command-input"
-                placeholder="执行命令到全部窗口"
+                :placeholder="t('common.executeCommandToAllWindows')"
                 allow-clear
                 @press-enter="sendGlobalCommand"
               >
