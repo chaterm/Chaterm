@@ -165,7 +165,7 @@ const changeLanguage = async () => {
 
 // Setup system theme change listener
 const setupSystemThemeListener = () => {
-  systemThemeListener = addSystemThemeListener((newSystemTheme) => {
+  systemThemeListener = addSystemThemeListener(async (newSystemTheme) => {
     // Only update theme if user has selected 'auto' mode
     if (userConfig.value.theme === 'auto') {
       const actualTheme = getActualTheme(userConfig.value.theme)
@@ -175,10 +175,26 @@ const setupSystemThemeListener = () => {
         // System theme changed, update application theme
         document.documentElement.className = `theme-${actualTheme}`
         eventBus.emit('updateTheme', actualTheme)
+        // Update main process window controls
+        await api.updateTheme(userConfig.value.theme)
         console.log(`System theme changed to ${newSystemTheme}, updating application theme to ${actualTheme}`)
       }
     }
   })
+
+  // Listen for system theme changes from main process (Windows)
+  if (window.api && window.api.onSystemThemeChanged) {
+    window.api.onSystemThemeChanged((newSystemTheme) => {
+      if (userConfig.value.theme === 'auto') {
+        const currentTheme = document.documentElement.className.replace('theme-', '')
+        if (currentTheme !== newSystemTheme) {
+          document.documentElement.className = `theme-${newSystemTheme}`
+          eventBus.emit('updateTheme', newSystemTheme)
+          console.log(`System theme changed to ${newSystemTheme} (from main process)`)
+        }
+      }
+    })
+  }
 }
 
 const changeTheme = async () => {
@@ -186,9 +202,8 @@ const changeTheme = async () => {
     const actualTheme = getActualTheme(userConfig.value.theme)
     document.documentElement.className = `theme-${actualTheme}`
     eventBus.emit('updateTheme', actualTheme)
-    setTimeout(() => {
-      api.updateTheme(userConfig.value.theme)
-    }, 80)
+    // Update main process window controls immediately
+    await api.updateTheme(userConfig.value.theme)
     await saveConfig()
   } catch (error) {
     console.error('Failed to change theme:', error)

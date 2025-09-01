@@ -728,6 +728,11 @@ const api = {
   updateTheme: (params) => ipcRenderer.invoke('update-theme', params),
   mainWindowInit: (params) => ipcRenderer.invoke('main-window-init', params),
   mainWindowShow: () => ipcRenderer.invoke('main-window-show'),
+  onSystemThemeChanged: (callback: (theme: string) => void) => {
+    const listener = (_event: unknown, theme: string) => callback(theme)
+    ipcRenderer.on('system-theme-changed', listener)
+    return () => ipcRenderer.removeListener('system-theme-changed', listener)
+  },
   // 添加 JumpServer 状态更新监听
   onJumpServerStatusUpdate: (callback) => {
     const listener = (_event, data) => {

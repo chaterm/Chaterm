@@ -648,9 +648,15 @@ function setupIPC(): void {
   // Helper function to get actual theme based on system preference for auto mode
   const getActualTheme = (theme: string) => {
     if (theme === 'auto') {
-      // Note: In main process, we can't access window.matchMedia directly
-      // So we'll default to light theme for main process
-      // The renderer process will handle system theme detection
+      // For auto theme, we need to get the actual theme from the renderer process
+      // since main process can't access window.matchMedia directly
+      // We'll use a more sophisticated approach for Windows
+      if (process.platform === 'win32') {
+        // On Windows, we can use the nativeTheme API to detect system theme
+        const { nativeTheme } = require('electron')
+        return nativeTheme.shouldUseDarkColors ? 'dark' : 'light'
+      }
+      // For other platforms, default to light theme
       return 'light'
     }
     return theme
@@ -673,6 +679,18 @@ function setupIPC(): void {
     }
     return false
   })
+
+  // Add system theme change listener for Windows
+  if (process.platform === 'win32') {
+    const { nativeTheme } = require('electron')
+    nativeTheme.on('updated', () => {
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        // Check if current theme is auto mode
+        // We'll get this from the renderer process
+        mainWindow.webContents.send('system-theme-changed', nativeTheme.shouldUseDarkColors ? 'dark' : 'light')
+      }
+    })
+  }
 
   ipcMain.handle('main-window-init', async (_, theme) => {
     await winReady
