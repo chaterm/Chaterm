@@ -113,8 +113,8 @@ const clearTermShortcut = ref('')
 const fileManagerShortcut = ref('')
 const disconnectShortcut = ref('Ctrl+D')
 const reconnectShortcut = ref('Enter')
-const fontsizeLargenShortcut = ref('Ctrl+滚轮')
-const fontsizeSmallerShortcut = ref('Ctrl+滚轮')
+const fontsizeLargenShortcut = ref('Ctrl+=')
+const fontsizeSmallerShortcut = ref('Ctrl+-')
 
 const emit = defineEmits(['contextAct'])
 const props = defineProps({
