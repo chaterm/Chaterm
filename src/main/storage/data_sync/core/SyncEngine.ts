@@ -406,6 +406,8 @@ export class SyncEngine {
         'key_chain_id',
         'favorite',
         'asset_type',
+        'needProxy',
+        'proxyName',
         'created_at',
         'updated_at',
         'version'
@@ -497,6 +499,8 @@ export class SyncEngine {
           key_chain_id: data.key_chain_id ?? undefined,
           favorite: data.favorite ?? 2, // 保持原始整数值，默认为2（未收藏）
           asset_type: data.asset_type,
+          needProxy: data.needProxy,
+          proxyName: data.proxyName,
           created_at: data.created_at ?? new Date().toISOString(),
           updated_at: data.updated_at ?? new Date().toISOString(),
           version: typeof data.version === 'number' ? data.version : 1

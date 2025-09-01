@@ -102,6 +102,12 @@
           <a-button @click="openAgentConfig">{{ $t('common.setting') }}</a-button>
         </a-form-item>
         <a-form-item
+          :label="$t('user.proxySettings')"
+          class="user_my-ant-form-item"
+        >
+          <a-button @click="openProxyConfig">{{ $t('common.setting') }}</a-button>
+        </a-form-item>
+        <a-form-item
           :label="$t('user.mouseEvent')"
           class="user_my-ant-form-item"
         >
@@ -186,6 +192,142 @@
         <a-button @click="handleAgentConfigClose">{{ $t('common.close') }}</a-button>
       </template>
     </a-modal>
+
+    <a-modal
+      v-model:visible="sshProxyConfigShowModalVisible"
+      :title="$t('user.proxySettings')"
+      width="700px"
+    >
+      <a-table
+        :row-key="(record) => record.name"
+        :columns="proxyConfigColumns"
+        :data-source="userConfig.sshProxyConfigs"
+        size="small"
+        :pagination="false"
+        :locale="{ emptyText: $t('user.noProxyAdd') }"
+        class="agent-table"
+      >
+        <template #bodyCell="{ column, record }">
+          <template v-if="column.key === 'action'">
+            <a-button
+              type="link"
+              @click="removeProxyConfig(record.name)"
+              >{{ $t('user.remove') }}
+            </a-button>
+          </template>
+        </template>
+      </a-table>
+
+      <template #footer>
+        <a-button
+          type="primary"
+          @click="handleProxyConfigAdd"
+          >{{ $t('common.add') }}</a-button
+        >
+        <a-button @click="handleProxyConfigClose">{{ $t('common.close') }}</a-button>
+      </template>
+    </a-modal>
+
+    <a-modal
+      v-model:open="sshProxyConfigAddModalVisible"
+      :title="$t('user.proxySettings')"
+      :ok-text="$t('common.confirm')"
+      :cancel-text="$t('common.cancel')"
+      @ok="handleAddSshProxyConfigConfirm"
+      @cancel="handleAddSshProxyConfigClose"
+    >
+      <a-form
+        ref="proxyForm"
+        class="proxy-form"
+        :model="proxyConfig"
+        :rules="proxyConfigRules"
+        :label-col="{ span: 5 }"
+        :wrapper-col="{ span: 16 }"
+      >
+        <a-form-item
+          name="name"
+          :label="$t('user.proxyName')"
+          style="margin-bottom: 12px"
+        >
+          <a-input
+            v-model:value="proxyConfig.name"
+            :placeholder="$t('user.proxyHost')"
+          />
+        </a-form-item>
+        <a-form-item
+          name="proxyType"
+          :label="$t('user.proxyType')"
+          style="margin-bottom: 12px"
+        >
+          <a-select
+            v-model:value="proxyConfig.type"
+            class="proxy-form-select"
+            :placeholder="$t('user.proxyType')"
+          >
+            <a-select-option value="HTTP">HTTP</a-select-option>
+            <a-select-option value="HTTPS">HTTPS</a-select-option>
+            <a-select-option value="SOCKS4">SOCKS4</a-select-option>
+            <a-select-option value="SOCKS5">SOCKS5</a-select-option>
+          </a-select>
+        </a-form-item>
+        <a-form-item
+          name="host"
+          :label="$t('user.proxyHost')"
+          style="margin-bottom: 12px"
+        >
+          <a-input
+            v-model:value="proxyConfig.host"
+            :placeholder="$t('user.proxyHost')"
+          />
+        </a-form-item>
+        <a-form-item
+          name="port"
+          :label="$t('user.proxyPort')"
+          style="margin-bottom: 12px"
+        >
+          <a-input-number
+            v-model:value="proxyConfig.port"
+            :min="1"
+            :max="65535"
+            :placeholder="$t('user.proxyPort')"
+            style="width: 100%"
+          />
+        </a-form-item>
+        <a-form-item
+          name="enableProxyIdentity"
+          :label="$t('user.enableProxyIdentity')"
+          style="margin-bottom: 12px"
+        >
+          <a-switch
+            :checked="proxyConfig.enableProxyIdentity"
+            class="user_my-ant-form-item-content"
+            @click="handleSshProxyIdentityChange"
+          />
+        </a-form-item>
+        <a-form-item
+          v-if="proxyConfig.enableProxyIdentity"
+          name="proxyUsername"
+          :label="$t('user.proxyUsername')"
+          style="margin-bottom: 12px"
+        >
+          <a-input
+            v-model:value="proxyConfig.username"
+            :placeholder="$t('user.proxyUsername')"
+          />
+        </a-form-item>
+        <a-form-item
+          v-if="proxyConfig.enableProxyIdentity"
+          name="proxyPassword"
+          :label="$t('user.proxyPassword')"
+          style="margin-bottom: 12px"
+        >
+          <a-input-password
+            v-model:value="proxyConfig.password"
+            :placeholder="$t('user.proxyPassword')"
+          />
+        </a-form-item>
+      </a-form>
+    </a-modal>
   </div>
 </template>
 
@@ -196,6 +338,21 @@ import { userConfigStore } from '@/services/userConfigStoreService'
 import { useI18n } from 'vue-i18n'
 import eventBus from '@/utils/eventBus'
 const { t } = useI18n()
+
+const defaultProxyConfig = {
+  name: '',
+  type: 'SOCKS5',
+  host: '127.0.0.1',
+  port: 22,
+  enableProxyIdentity: false,
+  username: '',
+  password: ''
+}
+
+// const proxyConfigs: Array<DefaultProxyConfig> = []
+
+const proxyConfig = ref(defaultProxyConfig)
+
 const userConfig = ref({
   fontSize: 12,
   fontFamily: 'Menlo, Monaco, "Courier New", Consolas, Courier, monospace',
@@ -205,7 +362,9 @@ const userConfig = ref({
   rightMouseEvent: 'contextMenu',
   terminalType: 'vt100',
   sshAgentsStatus: 2,
-  sshAgentsMap: '[]'
+  sshAgentsMap: '[]',
+  sshProxyStatus: false,
+  sshProxyConfigs: []
 })
 
 const fontFamilyOptions = [
@@ -249,6 +408,39 @@ const columns = [
   }
 ]
 
+const proxyConfigColumns = [
+  {
+    title: t('user.proxyName'),
+    dataIndex: 'name',
+    key: 'name'
+  },
+  {
+    title: t('user.proxyType'),
+    dataIndex: 'type',
+    key: 'type'
+  },
+  {
+    title: t('user.proxyHost'),
+    dataIndex: 'host',
+    key: 'host'
+  },
+  {
+    title: t('user.proxyPort'),
+    dataIndex: 'port',
+    key: 'port'
+  },
+  {
+    title: t('user.proxyUsername'),
+    dataIndex: 'username',
+    key: 'username'
+  },
+  {
+    title: t('extensions.action'),
+    dataIndex: 'action',
+    key: 'action'
+  }
+]
+
 // Load saved configuration
 const loadSavedConfig = async () => {
   try {
@@ -278,6 +470,69 @@ const handleSshAgentsStatusChange = async (checked) => {
       }
     }
   })
+}
+
+// ssh代理
+const sshProxyConfigAddModalVisible = ref(false)
+const sshProxyConfigShowModalVisible = ref(false)
+const openProxyConfig = async () => {
+  sshProxyConfigShowModalVisible.value = true
+}
+
+const handleProxyConfigClose = async () => {
+  sshProxyConfigShowModalVisible.value = false
+}
+//
+const proxyConfigRules = {
+  name: [
+    { required: true, message: t('user.pleaseInputProxyName'), trigger: 'blur' },
+    {
+      validator: (rule, value) => {
+        if (!value) return Promise.resolve()
+
+        const nameExists = userConfig.value.sshProxyConfigs.some((config) => config.name === value)
+
+        if (nameExists) {
+          return Promise.reject(new Error(t('user.pleaseInputOtherProxyName')))
+        }
+        return Promise.resolve()
+      },
+      trigger: 'blur'
+    }
+  ],
+  host: [{ required: true, message: t('user.pleaseInputProxyHost'), trigger: 'blur' }],
+  port: [{ type: 'number', min: 1, max: 65535, message: t('user.errorProxyPort'), trigger: 'blur' }]
+}
+
+const handleProxyConfigAdd = async () => {
+  sshProxyConfigAddModalVisible.value = true
+}
+
+const handleSshProxyIdentityChange = async (checked) => {
+  proxyConfig.value.enableProxyIdentity = checked
+}
+
+const proxyForm = ref()
+const handleAddSshProxyConfigConfirm = async () => {
+  await proxyForm.value.validateFields()
+  userConfig.value.sshProxyConfigs.push(proxyConfig.value)
+  sshProxyConfigAddModalVisible.value = false
+  proxyConfig.value = defaultProxyConfig
+}
+
+const removeProxyConfig = (proxyName) => {
+  const index = userConfig.value.sshProxyConfigs.findIndex((config) => config.name === proxyName)
+
+  if (index !== -1) {
+    userConfig.value.sshProxyConfigs.splice(index, 1)
+    return true
+  } else {
+    return false
+  }
+}
+
+const handleAddSshProxyConfigClose = async () => {
+  sshProxyConfigAddModalVisible.value = false
 }
 
 const agentConfigModalVisible = ref(false)
@@ -371,7 +626,8 @@ const saveConfig = async () => {
       rightMouseEvent: userConfig.value.rightMouseEvent,
       terminalType: userConfig.value.terminalType,
       sshAgentsStatus: userConfig.value.sshAgentsStatus,
-      sshAgentsMap: userConfig.value.sshAgentsMap
+      sshAgentsMap: userConfig.value.sshAgentsMap,
+      sshProxyConfigs: userConfig.value.sshProxyConfigs
     }
 
     await userConfigStore.saveConfig(configToStore)
@@ -731,5 +987,9 @@ onMounted(async () => {
 }
 .agent-table .ant-table-tbody > tr {
   height: 28px !important;
+}
+
+.proxy-form :deep(:where(.ant-form-item)) {
+  margin-bottom: 12px !important;
 }
 </style>

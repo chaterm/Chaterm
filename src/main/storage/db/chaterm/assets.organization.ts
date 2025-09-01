@@ -5,7 +5,7 @@ import { v4 as uuidv4 } from 'uuid'
 export function connectAssetInfoLogic(db: Database.Database, uuid: string): any {
   try {
     const stmt = db.prepare(`
-        SELECT asset_ip, auth_type, port, username, password, key_chain_id
+        SELECT asset_ip, auth_type, port, username, password, key_chain_id, need_proxy, proxy_name
         FROM t_assets
         WHERE uuid = ?
       `)
@@ -15,7 +15,7 @@ export function connectAssetInfoLogic(db: Database.Database, uuid: string): any 
     if (!result) {
       const orgAssetStmt = db.prepare(`
         SELECT oa.hostname, oa.host, a.asset_ip, oa.organization_uuid, oa.uuid, oa.jump_server_type,
-              a.auth_type, a.port, a.username, a.password, a.key_chain_id
+              a.auth_type, a.port, a.username, a.password, a.key_chain_id, a.need_proxy, a.proxy_name
         FROM t_organization_assets oa
         JOIN t_assets a ON oa.organization_uuid = a.uuid
         WHERE oa.uuid = ?
@@ -45,6 +45,8 @@ export function connectAssetInfoLogic(db: Database.Database, uuid: string): any 
       }
     }
     ;(result as any).sshType = sshType
+    ;(result as any).needProxy = !!(result as any).need_proxy
+    ;(result as any).proxyName = (result as any).proxy_name
     return result
   } catch (error) {
     console.error('Chaterm database get asset error:', error)
@@ -151,7 +153,7 @@ export async function refreshOrganizationAssetsLogic(
     const existingAssetsByHost = new Map(existingAssets.map((asset) => [asset.host, asset]))
 
     const updateStmt = db.prepare(`
-      UPDATE t_organization_assets 
+      UPDATE t_organization_assets
       SET hostname = ?, updated_at = CURRENT_TIMESTAMP
       WHERE organization_uuid = ? AND host = ?
     `)
@@ -178,7 +180,7 @@ export async function refreshOrganizationAssetsLogic(
     console.log('资产处理完成')
 
     const deleteStmt = db.prepare(`
-      DELETE FROM t_organization_assets 
+      DELETE FROM t_organization_assets
       WHERE organization_uuid = ? AND host = ?
     `)
 
@@ -213,7 +215,7 @@ export async function refreshOrganizationAssetsLogic(
 export function updateOrganizationAssetFavoriteLogic(db: Database.Database, organizationUuid: string, host: string, status: number): any {
   try {
     const selectStmt = db.prepare(`
-      SELECT * FROM t_organization_assets 
+      SELECT * FROM t_organization_assets
       WHERE organization_uuid = ? AND host = ?
     `)
     const currentRecord = selectStmt.get(organizationUuid, host)
@@ -249,7 +251,7 @@ export function updateOrganizationAssetFavoriteLogic(db: Database.Database, orga
 export function updateOrganizationAssetCommentLogic(db: Database.Database, organizationUuid: string, host: string, comment: string): any {
   try {
     const selectStmt = db.prepare(`
-      SELECT * FROM t_organization_assets 
+      SELECT * FROM t_organization_assets
       WHERE organization_uuid = ? AND host = ?
     `)
     const currentRecord = selectStmt.get(organizationUuid, host)
@@ -446,7 +448,7 @@ export function removeAssetFromFolderLogic(db: Database.Database, folderUuid: st
 export function getAssetsInFolderLogic(db: Database.Database, folderUuid: string): any {
   try {
     const selectStmt = db.prepare(`
-      SELECT 
+      SELECT
         afm.folder_uuid,
         afm.organization_uuid,
         afm.asset_host,

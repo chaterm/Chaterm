@@ -1,6 +1,10 @@
 import { ipcMain } from 'electron'
 import { Client, ConnectConfig } from 'ssh2'
 import { ConnectionInfo } from '../agent/integrations/remote-terminal'
+import { createProxySocket } from './proxy'
+import net from 'net'
+import tls from 'tls'
+import { getUserConfigFromRenderer } from '../index'
 
 // Store SSH connections
 const remoteConnections = new Map<string, Client>()
@@ -36,6 +40,15 @@ function isSystemError(_command: string, exitCode: number | null): boolean {
 export async function remoteSshConnect(connectionInfo: ConnectionInfo): Promise<{ id?: string; error?: string }> {
   const { host, port, username, password, privateKey, passphrase } = connectionInfo
   const connectionId = `ssh_${Date.now()}_${Math.random().toString(36).substr(2, 12)}`
+
+  let sock: net.Socket | tls.TLSSocket
+  if (connectionInfo.needProxy) {
+    const cfg = await getUserConfigFromRenderer()
+    if (connectionInfo.proxyName) {
+      const proxyConfig = cfg.sshProxyConfigs.find((item) => item.name === connectionInfo.proxyName)
+      sock = await createProxySocket(proxyConfig, connectionInfo.host || '', connectionInfo.port || 22)
+    }
+  }
 
   return new Promise((resolve) => {
     const conn = new Client()
@@ -82,6 +95,10 @@ export async function remoteSshConnect(connectionInfo: ConnectionInfo): Promise<
       username,
       keepaliveInterval: 10000, // Keep connection alive
       tryKeyboard: true // Disable keyboard-interactive
+    }
+
+    if (connectionInfo.needProxy) {
+      connectConfig.sock = sock
     }
 
     try {

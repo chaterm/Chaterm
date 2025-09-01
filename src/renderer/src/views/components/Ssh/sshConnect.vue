@@ -949,7 +949,7 @@ const connectSSH = async () => {
       jumpServerStatusHandler.setupStatusListener(api)
     }
 
-    const result = await api.connect({
+    const connData = {
       id: connectionId.value,
       host: assetInfo.asset_ip,
       port: assetInfo.port,
@@ -962,7 +962,13 @@ const connectSSH = async () => {
       terminalType: config.terminalType,
       agentForward: config.sshAgentsStatus === 1,
       isOfficeDevice: isOfficeDevice.value
-    })
+    }
+    connData.needProxy = assetInfo.need_proxy === 1 || false
+    if (connData.needProxy) {
+      connData.proxyConfig = config.sshProxyConfigs.find((item) => item.name === assetInfo.proxy_name)
+    }
+
+    const result = await api.connect(connData)
 
     if (jumpServerStatusHandler) {
       jumpServerStatusHandler.cleanup()

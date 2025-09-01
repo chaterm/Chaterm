@@ -6,6 +6,7 @@ const { app } = require('electron')
 const appPath = app.getAppPath()
 const packagePath = path.join(appPath, 'package.json')
 const packageInfo = JSON.parse(fs.readFileSync(packagePath, 'utf8'))
+import { createProxySocket } from './proxy'
 
 import {
   jumpserverConnections,
@@ -124,8 +125,8 @@ export const handleRequestKeyboardInteractive = (event, id, prompts, finish) => 
   })
 }
 
-export const attemptSecondaryConnection = (event, connectionInfo) => {
-  const { id, host, port, username, password, privateKey, passphrase, isOfficeDevice } = connectionInfo
+export const attemptSecondaryConnection = async (event, connectionInfo) => {
+  const { id, host, port, username, password, privateKey, passphrase, isOfficeDevice, needProxy, proxyConfig } = connectionInfo
   const conn = new Client()
   const connectConfig: any = {
     host,
@@ -141,6 +142,11 @@ export const attemptSecondaryConnection = (event, connectionInfo) => {
     if (passphrase) connectConfig.passphrase = passphrase
   } else if (password) {
     connectConfig.password = password
+  }
+
+  if (needProxy) {
+    console.log('proxyConfig:', proxyConfig)
+    connectConfig.sock = await createProxySocket(proxyConfig, host, port)
   }
 
   // Send initialization command result
@@ -285,8 +291,8 @@ export const attemptSecondaryConnection = (event, connectionInfo) => {
   conn.connect(connectConfig)
 }
 
-const handleAttemptConnection = (event, connectionInfo, resolve, reject, retryCount) => {
-  const { id, host, port, username, password, privateKey, passphrase, agentForward } = connectionInfo
+const handleAttemptConnection = async (event, connectionInfo, resolve, reject, retryCount) => {
+  const { id, host, port, username, password, privateKey, passphrase, agentForward, needProxy, proxyConfig } = connectionInfo
   retryCount++
 
   connectionStatus.set(id, { isVerified: false }) // Update connection status
@@ -327,6 +333,9 @@ const handleAttemptConnection = (event, connectionInfo, resolve, reject, retryCo
     keepaliveInterval: 10000, // Keep connection alive
     tryKeyboard: true, // Enable keyboard interactive authentication
     readyTimeout: KeyboardInteractiveTimeout // Connection timeout, 30 seconds
+  }
+  if (needProxy) {
+    connectConfig.sock = await createProxySocket(proxyConfig, host, port)
   }
 
   if (agentForward) {

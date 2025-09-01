@@ -27,8 +27,23 @@ export interface AssetFormData {
   keyChain?: number
   port: number
   asset_type: string
+  needProxy: boolean
+  proxyName: string
 }
 
+export interface sshProxyConfig {
+  type?: 'HTTP' | 'HTTPS' | 'SOCKS4' | 'SOCKS5'
+  host?: string
+  port?: number
+  enableProxyIdentity?: boolean
+  username?: string
+  password?: string
+}
+
+export interface SshProxyConfigItem {
+  key: number
+  label: string
+}
 export interface KeyChainItem {
   key: number
   label: string
