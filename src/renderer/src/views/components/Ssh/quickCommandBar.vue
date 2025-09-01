@@ -132,14 +132,13 @@ sudo systemctl status nginx</pre
 </template>
 
 <script setup lang="ts">
-import { ref, defineEmits, onMounted, onBeforeUnmount, nextTick } from 'vue'
+import { ref, onMounted, onBeforeUnmount, nextTick } from 'vue'
 import { useI18n } from 'vue-i18n'
 import Sortable from 'sortablejs'
 import { PlusOutlined } from '@ant-design/icons-vue'
 import { executeScript } from '../Ssh/commandScript'
 import { inputManager } from '../Ssh/termInputManager'
 const { t } = useI18n()
-const emit = defineEmits(['send'])
 
 interface QuickCommand {
   id: number
