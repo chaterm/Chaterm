@@ -1,5 +1,9 @@
 import { Client } from 'ssh2'
 import { ipcMain } from 'electron'
+import net from 'net'
+import tls from 'tls'
+import { getUserConfigFromRenderer } from '../../../index'
+import { createProxySocket } from '../../../ssh/proxy'
 
 // 存储 JumpServer 连接
 export const jumpserverConnections = new Map()
@@ -30,6 +34,8 @@ export const handleJumpServerConnection = async (connectionInfo: {
   privateKey?: string
   passphrase?: string
   targetIp: string
+  needProxy: boolean
+  proxyName: string
 }): Promise<{ status: string; message: string }> => {
   const connectionId = connectionInfo.id
 
@@ -37,6 +43,15 @@ export const handleJumpServerConnection = async (connectionInfo: {
   console.log(`[JumpServer ${connectionId}] 用户名: ${connectionInfo.username}`)
   console.log(`[JumpServer ${connectionId}] 目标IP: ${connectionInfo.targetIp}`)
   console.log(`[JumpServer ${connectionId}] 认证方式: ${connectionInfo.privateKey ? '私钥' : '密码'}`)
+
+  let sock: net.Socket | tls.TLSSocket
+  if (connectionInfo.needProxy) {
+    const cfg = await getUserConfigFromRenderer()
+    if (connectionInfo.proxyName) {
+      const proxyConfig = cfg.sshProxyConfigs.find((item) => item.name === connectionInfo.proxyName)
+      sock = await createProxySocket(proxyConfig, connectionInfo.host || '', connectionInfo.port || 22)
+    }
+  }
 
   return new Promise((resolve, reject) => {
     if (jumpserverConnections.has(connectionId)) {
@@ -69,6 +84,7 @@ export const handleJumpServerConnection = async (connectionInfo: {
       privateKey?: Buffer
       passphrase?: string
       password?: string
+      sock?: net.Socket | tls.TLSSocket
     } = {
       host: connectionInfo.host,
       port: connectionInfo.port || 22,
@@ -76,6 +92,10 @@ export const handleJumpServerConnection = async (connectionInfo: {
       keepaliveInterval: 10000,
       readyTimeout: 30000,
       tryKeyboard: true // Enable keyboard interactive authentication for 2FA
+    }
+
+    if (connectionInfo.needProxy) {
+      connectConfig.sock = sock
     }
 
     // 处理私钥认证

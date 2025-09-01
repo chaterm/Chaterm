@@ -40,6 +40,7 @@
           :is-edit-mode="isEditMode"
           :initial-data="formData"
           :key-chain-options="keyChainOptions"
+          :ssh-proxy-configs="sshProxyConfigs"
           :default-groups="defaultGroups"
           @close="closeForm"
           @submit="handleFormSubmit"
@@ -52,7 +53,7 @@
 </template>
 
 <script setup lang="ts">
-import { Modal, message } from 'ant-design-vue'
+import { Modal, message, notification } from 'ant-design-vue'
 import { ref, onMounted, onBeforeUnmount, reactive, watch } from 'vue'
 import AssetSearch from './components/AssetSearch.vue'
 import AssetList from './components/AssetList.vue'
@@ -61,7 +62,7 @@ import AssetContextMenu from './components/AssetContextMenu.vue'
 import eventBus from '@/utils/eventBus'
 import i18n from '@/locales'
 import { handleRefreshOrganizationAssets } from './components/refreshOrganizationAssets'
-import type { AssetNode, AssetFormData, KeyChainItem } from './types'
+import type { AssetNode, AssetFormData, KeyChainItem, SshProxyConfigItem } from './types'
 
 const { t } = i18n.global
 
@@ -71,10 +72,12 @@ const isRightSectionVisible = ref(false)
 const searchValue = ref('')
 const assetGroups = ref<AssetNode[]>([])
 const keyChainOptions = ref<KeyChainItem[]>([])
+const sshProxyConfigs = ref<SshProxyConfigItem[]>([])
 const defaultGroups = ref(['development', 'production', 'staging', 'testing', 'database'])
 const contextMenuVisible = ref(false)
 const contextMenuPosition = reactive({ x: 0, y: 0 })
 const selectedAsset = ref<AssetNode | null>(null)
+import { userConfigStore } from '@/services/userConfigStoreService'
 
 const formData = reactive<AssetFormData>({
   username: '',
@@ -85,7 +88,9 @@ const formData = reactive<AssetFormData>({
   auth_type: 'password',
   keyChain: undefined,
   port: 22,
-  asset_type: 'person'
+  asset_type: 'person',
+  needProxy: false,
+  proxyName: ''
 })
 
 const resetForm = () => {
@@ -98,7 +103,9 @@ const resetForm = () => {
     auth_type: 'password',
     keyChain: undefined,
     port: 22,
-    asset_type: 'person'
+    asset_type: 'person',
+    needProxy: false,
+    proxyName: ''
   })
 }
 
@@ -150,7 +157,9 @@ const handleAssetEdit = (asset: AssetNode) => {
     auth_type: asset.auth_type || 'password',
     keyChain: keyChain,
     port: asset.port || 22,
-    asset_type: asset.asset_type || 'person'
+    asset_type: asset.asset_type || 'person',
+    needProxy: asset.needProxy || false,
+    proxyName: asset.proxyName || ''
   })
 
   getAssetGroup()
@@ -271,7 +280,9 @@ const handleImportAssets = async (assets: any[]) => {
           auth_type: asset.auth_type || 'password',
           keyChain: asset.keyChain,
           port: asset.port || 22,
-          asset_type: asset.asset_type || 'person'
+          asset_type: asset.asset_type || 'person',
+          needProxy: asset.needProxy || false,
+          proxyName: asset.proxyName || ''
         }
 
         const result = await api.createAsset({ form: cleanForm })
@@ -320,7 +331,9 @@ const handleExportAssets = () => {
               auth_type: node.auth_type || 'password',
               keyChain: node.key_chain_id,
               port: node.port || 22,
-              asset_type: node.asset_type || 'person'
+              asset_type: node.asset_type || 'person',
+              needProxy: node.needProxy || false,
+              proxyName: node.proxyName || ''
             })
           }
         }
@@ -365,6 +378,24 @@ const getkeyChainData = () => {
     keyChainOptions.value = res.data.keyChain
   })
 }
+const getProxyConfigData = async () => {
+  try {
+    const savedConfig = await userConfigStore.getConfig()
+    if (savedConfig) {
+      const savedConfigProxyConfig = savedConfig.sshProxyConfigs || []
+      sshProxyConfigs.value = savedConfigProxyConfig.map((config) => ({
+        key: config.name,
+        label: config.name
+      }))
+    }
+  } catch (error) {
+    console.error('Failed to load config:', error)
+    notification.error({
+      message: t('user.loadConfigFailed'),
+      description: t('user.loadConfigFailedDescription')
+    })
+  }
+}
 
 const getAssetGroup = () => {
   const api = window.api as any
@@ -405,7 +436,9 @@ const handleCreateAsset = async (data: AssetFormData) => {
       auth_type: data.auth_type,
       keyChain: data.keyChain,
       port: data.port,
-      asset_type: data.asset_type
+      asset_type: data.asset_type,
+      needProxy: data.needProxy,
+      proxyName: data.proxyName
     }
 
     const api = window.api as any
@@ -448,7 +481,9 @@ const handleSaveAsset = async (data: AssetFormData) => {
       auth_type: data.auth_type,
       keyChain: data.keyChain,
       port: data.port,
-      asset_type: data.asset_type
+      asset_type: data.asset_type,
+      needProxy: data.needProxy,
+      proxyName: data.proxyName
     }
 
     const api = window.api as any
@@ -485,6 +520,7 @@ const getAssetList = () => {
 onMounted(() => {
   getAssetList()
   getkeyChainData()
+  getProxyConfigData()
   eventBus.on('keyChainUpdated', () => {
     getkeyChainData()
   })

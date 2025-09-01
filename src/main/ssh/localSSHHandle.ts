@@ -137,7 +137,8 @@ const closeTerminal = (terminalId: string) => {
       terminals.delete(terminalId)
       return { success: true }
     } catch (error: unknown) {
-      return { success: false, message: error.message }
+      const e = error as Error
+      return { success: false, message: e.message }
     }
   }
   return { success: false, message: 'Terminal not found' }
@@ -274,7 +275,8 @@ export const registerLocalSSHHandlers = () => {
       return { success: true, message: 'Local terminal connected successfully' }
     } catch (error: unknown) {
       console.error('Local terminal connection failed:', error)
-      return { success: false, message: error.message }
+      const e = error as Error
+      return { success: false, message: e.message }
     }
   })
 
@@ -309,7 +311,8 @@ export const registerLocalSSHHandlers = () => {
       const cwd = process.cwd()
       return { success: true, cwd }
     } catch (error: unknown) {
-      return { success: false, error: error.message }
+      const e = error as Error
+      return { success: false, error: e.message }
     }
   })
 
@@ -318,15 +321,43 @@ export const registerLocalSSHHandlers = () => {
       const { execSync } = require('child_process')
       const output = execSync(command, {
         encoding: 'utf8',
-        timeout: 30000, // 30秒超时
-        maxBuffer: 1024 * 1024 // 1MB最大输出
+        timeout: 30000,
+        maxBuffer: 1024 * 1024
       })
-      return { success: true, output: output.toString() }
+      return {
+        success: true,
+        output: output.toString()
+      }
     } catch (error: unknown) {
+      let errorMessage = '未知错误'
+      let outputMessage = ''
+      if (error instanceof Error) {
+        errorMessage = error.message
+        const execError = error as Error & {
+          stdout?: Buffer | string
+          stderr?: Buffer | string
+          status?: number
+          signal?: string
+        }
+
+        if (execError.stdout) {
+          outputMessage = execError.stdout.toString()
+        }
+      } else if (typeof error === 'string') {
+        errorMessage = error
+      } else if (error && typeof error === 'object') {
+        errorMessage = (error as any).message || '命令执行失败'
+
+        if ('stdout' in error) {
+          const stdout = (error as any).stdout
+          outputMessage = stdout ? stdout.toString() : ''
+        }
+      }
+
       return {
         success: false,
-        error: error.message,
-        output: error.stdout ? error.stdout.toString() : ''
+        error: errorMessage,
+        output: outputMessage
       }
     }
   })

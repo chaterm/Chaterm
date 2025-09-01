@@ -1,6 +1,20 @@
 import { ipcMain } from 'electron'
 import { Client } from 'ssh2'
-import { keyboardInteractiveOpts, attemptSecondaryConnection, sftpConnections, getSftpConnection } from './sshHandle'
+import { keyboardInteractiveOpts, attemptSecondaryConnection } from './sshHandle'
+import { createProxySocket } from './proxy'
+import { Readable } from 'stream'
+import net from 'net'
+import tls from 'tls'
+
+export interface ProxyConfig {
+  type?: 'HTTP' | 'HTTPS' | 'SOCKS4' | 'SOCKS5'
+  host?: string
+  port?: number
+  enableProxyIdentity?: boolean
+  username?: string
+  password?: string
+  timeout?: number
+}
 
 // JumpServer专用的MFA处理函数
 const handleJumpServerKeyboardInteractive = (event, id, prompts, finish) => {
@@ -69,6 +83,8 @@ export const handleJumpServerConnection = async (
     passphrase?: string
     targetIp: string
     terminalType?: string
+    needProxy: boolean
+    proxyConfig?: ProxyConfig
   },
   event?: Electron.IpcMainInvokeEvent
 ): Promise<{ status: string; message: string }> => {
@@ -83,6 +99,12 @@ export const handleJumpServerConnection = async (
         type,
         timestamp: new Date().toLocaleTimeString()
       })
+    }
+  }
+  let sock: net.Socket | tls.TLSSocket
+  if (connectionInfo.needProxy) {
+    if (connectionInfo.proxyConfig) {
+      sock = await createProxySocket(connectionInfo.proxyConfig, connectionInfo.host, connectionInfo.port || 22)
     }
   }
 
@@ -108,6 +130,7 @@ export const handleJumpServerConnection = async (
       privateKey?: Buffer
       passphrase?: string
       password?: string
+      sock?: Readable
     } = {
       host: connectionInfo.host,
       port: connectionInfo.port || 22,
@@ -115,6 +138,9 @@ export const handleJumpServerConnection = async (
       keepaliveInterval: 10000,
       readyTimeout: 30000,
       tryKeyboard: true // Enable keyboard interactive authentication for 2FA
+    }
+    if (connectionInfo.proxyConfig) {
+      connectConfig.sock = sock
     }
 
     // 处理私钥认证

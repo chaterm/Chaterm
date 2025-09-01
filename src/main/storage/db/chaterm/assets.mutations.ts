@@ -107,6 +107,8 @@ export function createAssetLogic(db: Database.Database, params: any): any {
           group_name,
           favorite,
           asset_type,
+          need_proxy,
+          proxy_name,
           created_at,
           updated_at,
           version
@@ -125,6 +127,8 @@ export function createAssetLogic(db: Database.Database, params: any): any {
       form.group_name,
       2,
       form.asset_type || 'person',
+      form.needProxy ? 1 : 0,
+      form.proxyName,
       now,
       now,
       1
@@ -155,7 +159,7 @@ export function deleteAssetLogic(db: Database.Database, uuid: string): any {
 
     if (asset && asset.asset_type === 'organization') {
       const deleteOrgAssetsStmt = db.prepare(`
-        DELETE FROM t_organization_assets 
+        DELETE FROM t_organization_assets
         WHERE organization_uuid = ?
       `)
       deleteOrgAssetsStmt.run(uuid)
@@ -201,6 +205,8 @@ export function updateAssetLogic(db: Database.Database, params: any): any {
             password = ?,
             key_chain_id = ?,
             group_name = ?,
+            need_proxy = ?,
+            proxy_name = ?,
             updated_at = ?
         WHERE uuid = ?
       `)
@@ -214,6 +220,8 @@ export function updateAssetLogic(db: Database.Database, params: any): any {
       form.password,
       form.keyChain,
       form.group_name,
+      form.needProxy ? 1 : 0,
+      form.proxyName || '',
       now,
       form.uuid
     )

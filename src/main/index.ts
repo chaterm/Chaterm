@@ -50,6 +50,40 @@ async function createWindow(): Promise<void> {
   )
 }
 
+// 发送请求给渲染进程，等待它回消息
+export async function getUserConfigFromRenderer(): Promise<any> {
+  if (!mainWindow) throw new Error('mainWindow not ready')
+
+  const wc = mainWindow.webContents
+
+  // 等待渲染进程加载完成
+  if (wc.isLoadingMainFrame()) {
+    await new Promise<void>((resolve) => wc.once('did-finish-load', () => resolve()))
+  }
+
+  return new Promise((resolve, reject) => {
+    const responseHandler = (_event: Electron.IpcMainEvent, config: any) => {
+      cleanup()
+      resolve(config)
+    }
+
+    const errorHandler = (_event: Electron.IpcMainEvent, errMsg: string) => {
+      cleanup()
+      reject(new Error(errMsg))
+    }
+
+    const cleanup = () => {
+      ipcMain.removeListener('userConfig:get-response', responseHandler)
+      ipcMain.removeListener('userConfig:get-error', errorHandler)
+    }
+
+    ipcMain.on('userConfig:get-response', responseHandler)
+    ipcMain.on('userConfig:get-error', errorHandler)
+
+    console.log('主进程发送 userConfig:get 给渲染进程')
+    wc.send('userConfig:get')
+  })
+}
 app.whenReady().then(async () => {
   electronApp.setAppUserModelId('com.electron')
 

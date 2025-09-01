@@ -128,6 +128,37 @@
               />
             </a-form-item>
           </template>
+
+          <div>
+            <a-form-item
+              :label="t('personal.proxyConfig')"
+              class="user_my-ant-form-item"
+            >
+              <a-switch
+                :checked="formData.needProxy"
+                class="user_my-ant-form-item-content"
+                @change="handleSshProxyStatusChange"
+              />
+            </a-form-item>
+
+            <a-form-item
+              v-if="formData.needProxy"
+              :label="t('personal.pleaseSelectSshProxy')"
+            >
+              <a-select
+                v-model:value="formData.proxyName"
+                :placeholder="t('personal.pleaseSelectSshProxy')"
+                style="width: 100%"
+                show-search
+                :max-tag-count="4"
+                :options="sshProxyConfigs"
+                :option-filter-prop="'label'"
+                :field-names="{ value: 'key', label: 'label' }"
+                :allow-clear="true"
+              >
+              </a-select>
+            </a-form-item>
+          </div>
         </div>
 
         <!-- 通用信息 -->
@@ -186,7 +217,8 @@ import { reactive, watch } from 'vue'
 import { ToTopOutlined } from '@ant-design/icons-vue'
 import { message } from 'ant-design-vue'
 import i18n from '@/locales'
-import type { AssetFormData, KeyChainItem } from '../types'
+import type { AssetFormData, KeyChainItem, sshProxyConfig } from '../types'
+import { SshProxyConfigItem } from '../types'
 
 const { t } = i18n.global
 
@@ -195,6 +227,7 @@ interface Props {
   isEditMode?: boolean
   initialData?: Partial<AssetFormData>
   keyChainOptions?: KeyChainItem[]
+  sshProxyConfigs?: SshProxyConfigItem[]
   defaultGroups?: string[]
 }
 
@@ -202,6 +235,7 @@ const props = withDefaults(defineProps<Props>(), {
   isEditMode: false,
   initialData: () => ({}),
   keyChainOptions: () => [],
+  sshProxyConfigs: () => [],
   defaultGroups: () => ['development', 'production', 'staging', 'testing', 'database']
 })
 
@@ -224,6 +258,8 @@ const formData = reactive<AssetFormData>({
   keyChain: undefined,
   port: 22,
   asset_type: 'person',
+  needProxy: false,
+  proxyName: '',
   ...props.initialData
 })
 
@@ -319,6 +355,10 @@ const handleSubmit = () => {
   emit('submit', { ...formData })
 }
 
+const handleSshProxyStatusChange = async (checked) => {
+  formData.needProxy = checked
+}
+
 // Reset form data when initialData changes
 watch(
   () => props.initialData,
@@ -334,6 +374,8 @@ watch(
       keyChain: undefined,
       port: 22,
       asset_type: 'person',
+      needProxy: false,
+      proxyName: '',
       ...newData
     })
   },

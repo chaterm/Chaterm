@@ -66,4 +66,26 @@ if (window.api && window.api.onMainMessage) {
   })
 }
 
+import { userConfigStore } from '@/services/userConfigStoreService'
+
+// 渲染进程启动时注册 IPC 处理器
+function setupIPCHandlers() {
+  const electronAPI = (window as any).electron
+
+  if (!electronAPI?.ipcRenderer) return
+  const { ipcRenderer } = electronAPI
+
+  ipcRenderer.on('userConfig:get', async () => {
+    try {
+      const config = await userConfigStore.getConfig()
+      ipcRenderer.send('userConfig:get-response', config)
+    } catch (error) {
+      const e = error as Error
+      ipcRenderer.send('userConfig:get-error', e.message)
+    }
+  })
+}
+
+setupIPCHandlers()
+
 export { pinia }
