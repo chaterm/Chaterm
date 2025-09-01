@@ -756,5 +756,20 @@ export default {
     welcomeMessage: '{username}, 欢迎您使用Chaterm智能终端',
     reconnecting: '正在重新连接...',
     terminalConnectionError: '连接错误。请检查终端服务器是否运行。'
+  },
+  quickCommand: {
+    scriptName: '脚本名称',
+    scriptContent: '请输入脚本内容...',
+    scriptSyntaxHelp: '📖 脚本语法说明',
+    basicCommands: '⚡ 基本命令：',
+    basicCommandsDesc: '每行一个命令，按顺序执行',
+    delayCommand: '⏰ 延时命令：',
+    delayCommandDesc: '如：',
+    specialKeys: '⌨️ 特殊按键：',
+    exampleScript: '💡 示例脚本',
+    copy: '复制',
+    copied: '已复制',
+    copyFailed: '复制失败',
+    seconds: '秒数'
   }
 }
