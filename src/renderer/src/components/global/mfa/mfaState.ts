@@ -9,6 +9,7 @@ export const otpCode = ref('')
 export const currentOtpId = ref<string | null>(null)
 export const otpTimeRemaining = ref(0)
 export const otpAttempts = ref(0)
+export const isSubmitting = ref(false)
 
 // 常量
 const OTP_TIMEOUT = 30000 // 30秒
@@ -38,6 +39,17 @@ const startOtpTimer = (durationMs = OTP_TIMEOUT) => {
   }, 1000)
 }
 
+// 验证OTP代码格式
+const validateOtpCode = (code: string): boolean => {
+  return /^\d{6}$/.test(code)
+}
+
+// 重置错误状态
+const resetErrors = () => {
+  showOtpDialogErr.value = false
+  showOtpDialogCheckErr.value = false
+}
+
 // 重置 MFA 弹框状态
 export const resetOtpDialog = () => {
   console.log('重置MFA弹框状态')
@@ -48,6 +60,7 @@ export const resetOtpDialog = () => {
   otpCode.value = ''
   currentOtpId.value = null
   otpAttempts.value = 0
+  isSubmitting.value = false
   // 清理定时器
   if (otpTimerInterval) {
     clearInterval(otpTimerInterval)
@@ -78,7 +91,11 @@ export const handleOtpTimeout = (data: any) => {
 // 处理二次验证结果
 export const handleOtpError = (data: any) => {
   console.log('收到MFA验证结果:', data, '当前OTP ID:', currentOtpId.value)
+
   if (data.id === currentOtpId.value) {
+    // 重置提交状态
+    isSubmitting.value = false
+
     if (data.status === 'success') {
       console.log('MFA验证成功，关闭弹窗')
       resetOtpDialog()
@@ -86,8 +103,11 @@ export const handleOtpError = (data: any) => {
       console.log('MFA验证失败，显示错误')
       showOtpDialogErr.value = true
       otpAttempts.value += 1
-      otpCode.value = ''
+      // 不立即清空输入，让用户可以基于现有输入进行修改
+      // otpCode.value = ''
+
       if (otpAttempts.value >= MAX_OTP_ATTEMPTS) {
+        console.log('超过最大尝试次数，关闭弹窗')
         showOtpDialog.value = false
         cancelOtp()
       }
@@ -97,17 +117,74 @@ export const handleOtpError = (data: any) => {
   }
 }
 
-// 提交二次验证码
-export const submitOtpCode = () => {
-  showOtpDialogCheckErr.value = false
-  showOtpDialogErr.value = false
+// OTP输入变化处理
+export const handleOtpChange = (value: string) => {
+  otpCode.value = value
+  // 当用户输入3个字符以上时清除错误状态，表示用户正在认真重新输入
+  if (value.length >= 3) {
+    resetErrors()
+  }
+  // 或者当用户完全清空输入时也清除错误状态
+  if (value.length === 0) {
+    resetErrors()
+  }
+}
 
-  if (otpCode.value && currentOtpId.value) {
-    console.log('提交验证码:', currentOtpId.value)
-    const api = (window as any).api
-    api.submitKeyboardInteractiveResponse(currentOtpId.value, otpCode.value)
-  } else {
+// OTP输入完成处理
+export const handleOtpComplete = (value: string) => {
+  otpCode.value = value
+  resetErrors()
+
+  // 如果验证码有效，可以自动提交（可选）
+  if (validateOtpCode(value) && currentOtpId.value && !isSubmitting.value) {
+    console.log('Auto-submitting complete OTP code')
+    submitOtpCode()
+  }
+}
+
+// 提交二次验证码
+export const submitOtpCode = async () => {
+  console.log('Attempting to submit OTP code:', otpCode.value)
+
+  // 重置错误状态
+  resetErrors()
+
+  // 验证输入
+  if (!otpCode.value) {
+    console.log('OTP code is empty')
     showOtpDialogCheckErr.value = true
+    return
+  }
+
+  if (!validateOtpCode(otpCode.value)) {
+    console.log('OTP code format invalid:', otpCode.value)
+    showOtpDialogCheckErr.value = true
+    return
+  }
+
+  if (!currentOtpId.value) {
+    console.log('No current OTP ID')
+    showOtpDialogCheckErr.value = true
+    return
+  }
+
+  if (isSubmitting.value) {
+    console.log('Already submitting, ignoring duplicate request')
+    return
+  }
+
+  try {
+    isSubmitting.value = true
+    console.log('Submitting OTP code:', currentOtpId.value, otpCode.value)
+
+    const api = (window as any).api
+    await api.submitKeyboardInteractiveResponse(currentOtpId.value, otpCode.value)
+
+    console.log('OTP code submitted successfully')
+  } catch (error) {
+    console.error('Failed to submit OTP code:', error)
+    showOtpDialogErr.value = true
+    isSubmitting.value = false
   }
 }
 
