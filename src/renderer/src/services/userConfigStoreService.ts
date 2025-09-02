@@ -1,5 +1,6 @@
 import { indexedDBService, DB_CONFIG } from './indexedDBService'
 import { shortcutActions } from '@/config/shortcutActions'
+import { toRaw } from 'vue'
 
 export interface ShortcutConfig {
   [key: string]: string
@@ -29,6 +30,15 @@ export interface UserConfig {
   shortcuts?: ShortcutConfig
   sshAgentsStatus: number
   sshAgentsMap?: string
+  sshProxyConfigs?: Array<{
+    name: string
+    type?: 'HTTP' | 'HTTPS' | 'SOCKS4' | 'SOCKS5'
+    host?: string
+    port?: number
+    enableProxyIdentity?: boolean
+    username?: string
+    password?: string
+  }>
 }
 
 export class UserConfigStoreService {
@@ -92,7 +102,8 @@ export class UserConfigStoreService {
       quickComand: false,
       shortcuts: defaultShortcuts,
       sshAgentsStatus: 2,
-      sshAgentsMap: '[]'
+      sshAgentsMap: '[]',
+      sshProxyConfigs: []
     }
   }
 
@@ -149,6 +160,7 @@ export class UserConfigStoreService {
           const sanitizedConfig: UserConfig = {
             ...defaultConfig,
             ...config,
+            sshProxyConfigs: config.sshProxyConfigs ? toRaw(config.sshProxyConfigs) : defaultConfig.sshProxyConfigs,
             id: 'userConfig',
             updatedAt: Date.now()
           }

@@ -82,6 +82,10 @@ interface ApiType {
   removeAssetFromFolder: (data: { folderUuid: string; organizationUuid: string; assetHost: string }) => Promise<any>
   getAssetsInFolder: (data: { folderUuid: string }) => Promise<any>
   refreshOrganizationAssets: (data: { organizationUuid: string; jumpServerConfig: any }) => Promise<any>
+  updateTheme: (params: any) => Promise<boolean>
+  mainWindowInit: (params: any) => Promise<void>
+  mainWindowShow: () => Promise<void>
+  onSystemThemeChanged: (callback: (theme: string) => void) => () => void
 }
 
 declare global {

@@ -1,8 +1,25 @@
 import { ipcMain } from 'electron'
 import { Client } from 'ssh2'
-import { keyboardInteractiveOpts, attemptSecondaryConnection, sftpConnections, getSftpConnection } from './sshHandle'
+import { keyboardInteractiveOpts, attemptSecondaryConnection } from './sshHandle'
+import { createProxySocket } from './proxy'
+import { Readable } from 'stream'
+import net from 'net'
+import tls from 'tls'
 
-// JumpServer专用的MFA处理函数
+export interface ProxyConfig {
+  type?: 'HTTP' | 'HTTPS' | 'SOCKS4' | 'SOCKS5'
+  host?: string
+  port?: number
+  enableProxyIdentity?: boolean
+  username?: string
+  password?: string
+  timeout?: number
+}
+
+// JumpServer MFA最大重试次数
+const MAX_JUMPSERVER_MFA_ATTEMPTS = 3
+
+// JumpServer专用的MFA处理函数 - 简化版本
 const handleJumpServerKeyboardInteractive = (event, id, prompts, finish) => {
   return new Promise<void>((resolve, reject) => {
     // 发送MFA请求到前端
@@ -20,12 +37,12 @@ const handleJumpServerKeyboardInteractive = (event, id, prompts, finish) => {
       reject(new Error('二次验证超时'))
     }, 30000) // 30秒超时
 
-    // 监听用户响应，验证结果通过ready/error事件处理
+    // 监听用户响应
     ipcMain.once(`ssh:keyboard-interactive-response:${id}`, (_evt, responses) => {
       clearTimeout(timeoutId)
       finish(responses)
       keyboardInteractiveOpts.set(id, responses)
-      // 不等待验证结果，让SSH连接的ready/error事件处理验证结果
+      // 让SSH连接处理验证结果
       resolve()
     })
 
@@ -57,8 +74,8 @@ const jumpserverInputBuffer = new Map() // 为每个会话创建输入缓冲区
 
 export const jumpserverConnectionStatus = new Map()
 
-// JumpServer 连接处理 - 导出供 sshHandle 使用
-export const handleJumpServerConnection = async (
+// JumpServer连接尝试函数 - 内部使用
+const attemptJumpServerConnection = async (
   connectionInfo: {
     id: string
     host: string
@@ -69,8 +86,11 @@ export const handleJumpServerConnection = async (
     passphrase?: string
     targetIp: string
     terminalType?: string
+    needProxy: boolean
+    proxyConfig?: ProxyConfig
   },
-  event?: Electron.IpcMainInvokeEvent
+  event?: Electron.IpcMainInvokeEvent,
+  attemptCount: number = 0
 ): Promise<{ status: string; message: string }> => {
   const connectionId = connectionInfo.id
 
@@ -83,6 +103,12 @@ export const handleJumpServerConnection = async (
         type,
         timestamp: new Date().toLocaleTimeString()
       })
+    }
+  }
+  let sock: net.Socket | tls.TLSSocket
+  if (connectionInfo.needProxy) {
+    if (connectionInfo.proxyConfig) {
+      sock = await createProxySocket(connectionInfo.proxyConfig, connectionInfo.host, connectionInfo.port || 22)
     }
   }
 
@@ -108,6 +134,7 @@ export const handleJumpServerConnection = async (
       privateKey?: Buffer
       passphrase?: string
       password?: string
+      sock?: Readable
     } = {
       host: connectionInfo.host,
       port: connectionInfo.port || 22,
@@ -115,6 +142,9 @@ export const handleJumpServerConnection = async (
       keepaliveInterval: 10000,
       readyTimeout: 30000,
       tryKeyboard: true // Enable keyboard interactive authentication for 2FA
+    }
+    if (connectionInfo.proxyConfig) {
+      connectConfig.sock = sock
     }
 
     // 处理私钥认证
@@ -136,12 +166,17 @@ export const handleJumpServerConnection = async (
     // Handle keyboard-interactive authentication for 2FA
     conn.on('keyboard-interactive', async (_name, _instructions, _instructionsLang, prompts, finish) => {
       try {
-        sendStatusUpdate('需要二次验证，请输入验证码...', 'info')
-        // JumpServer specific MFA handling
+        if (attemptCount === 0) {
+          sendStatusUpdate('需要二次验证，请输入验证码...', 'info')
+        } else {
+          sendStatusUpdate(`验证失败，请重新输入验证码 (${attemptCount + 1}/${MAX_JUMPSERVER_MFA_ATTEMPTS})...`, 'warning')
+        }
+
+        // JumpServer specific MFA handling - 简化版本
         await handleJumpServerKeyboardInteractive(event, connectionId, prompts, finish)
       } catch (err) {
         sendStatusUpdate('二次验证失败', 'error')
-        conn.end() // Close connection
+        conn.end() // 关闭连接
         reject(err)
       }
     })
@@ -150,8 +185,9 @@ export const handleJumpServerConnection = async (
       console.log('JumpServer 连接建立，开始创建 shell')
       sendStatusUpdate('已成功连接到服务器，请稍等...', 'success')
       attemptSecondaryConnection(event, connectionInfo)
-      // 发送MFA验证成功事件到前端
-      if (event) {
+
+      // 如果有MFA验证流程（需要二次验证），发送成功事件到前端
+      if (event && keyboardInteractiveOpts.has(connectionId)) {
         console.log('发送MFA验证成功事件:', { connectionId, status: 'success' })
         event.sender.send('ssh:keyboard-interactive-result', {
           id: connectionId,
@@ -245,9 +281,37 @@ export const handleJumpServerConnection = async (
     conn.on('error', (err) => {
       console.error('JumpServer connection error:', err)
 
-      // 发送MFA验证失败事件到前端
+      // 如果是认证失败，发送错误事件到前端
+      if (err.level === 'client-authentication') {
+        console.log(`JumpServer MFA认证失败，尝试次数: ${attemptCount + 1}/${MAX_JUMPSERVER_MFA_ATTEMPTS}`)
+
+        // 发送MFA验证失败事件到前端
+        if (event) {
+          event.sender.send('ssh:keyboard-interactive-result', {
+            id: connectionId,
+            attempts: attemptCount + 1,
+            status: 'failed'
+          })
+        }
+
+        // 检查是否可以重试
+        if (attemptCount < MAX_JUMPSERVER_MFA_ATTEMPTS - 1) {
+          // 创建特殊错误，标记需要重试
+          const retryError = new Error(`JumpServer MFA认证失败`)
+          ;(retryError as any).shouldRetry = true
+          ;(retryError as any).attemptCount = attemptCount
+          reject(retryError)
+          return
+        }
+      }
+
+      // 其他错误或超过重试次数，发送最终失败事件
       if (event) {
-        event.sender.send('ssh:keyboard-interactive-result', { id: connectionId, status: 'failed' })
+        event.sender.send('ssh:keyboard-interactive-result', {
+          id: connectionId,
+          status: 'failed',
+          final: true
+        })
       }
 
       reject(new Error(`JumpServer 连接失败: ${err.message}`))
@@ -255,6 +319,57 @@ export const handleJumpServerConnection = async (
 
     conn.connect(connectConfig)
   })
+}
+
+// JumpServer 连接处理 - 导出供 sshHandle 使用，包含重试逻辑
+export const handleJumpServerConnection = async (
+  connectionInfo: {
+    id: string
+    host: string
+    port?: number
+    username: string
+    password?: string
+    privateKey?: string
+    passphrase?: string
+    targetIp: string
+    terminalType?: string
+  },
+  event?: Electron.IpcMainInvokeEvent
+): Promise<{ status: string; message: string }> => {
+  let lastError: Error | null = null
+
+  for (let attempt = 0; attempt < MAX_JUMPSERVER_MFA_ATTEMPTS; attempt++) {
+    try {
+      console.log(`JumpServer连接尝试 ${attempt + 1}/${MAX_JUMPSERVER_MFA_ATTEMPTS}`)
+      const result = await attemptJumpServerConnection(connectionInfo, event, attempt)
+      return result
+    } catch (error) {
+      lastError = error as Error
+      console.log(`JumpServer连接尝试 ${attempt + 1} 失败:`, lastError.message)
+
+      // 检查是否是可重试的MFA错误
+      if ((lastError as any).shouldRetry && attempt < MAX_JUMPSERVER_MFA_ATTEMPTS - 1) {
+        console.log(`将进行第 ${attempt + 2} 次重试...`)
+        // 短暂延迟后重试
+        await new Promise((resolve) => setTimeout(resolve, 1000))
+        continue
+      } else {
+        // 不可重试的错误或已达最大重试次数
+        break
+      }
+    }
+  }
+
+  // 所有重试都失败了，发送最终失败事件
+  if (event) {
+    event.sender.send('ssh:keyboard-interactive-result', {
+      id: connectionInfo.id,
+      status: 'failed',
+      final: true
+    })
+  }
+
+  throw lastError || new Error('JumpServer连接失败')
 }
 
 export const registerJumpServerHandlers = () => {

@@ -188,6 +188,22 @@ function upgradeTAssetsTable(db: Database.Database): void {
     } catch (fillError) {
       console.error('Error filling uuid for t_asset_chains:', fillError)
     }
+
+    // 追加列：t_assets.need_proxy
+    try {
+      db.prepare('SELECT need_proxy FROM t_assets LIMIT 1').get()
+    } catch (e) {
+      db.exec('ALTER TABLE t_assets ADD COLUMN need_proxy INTEGER DEFAULT 0')
+      console.log('Added need_proxy column to t_assets')
+    }
+
+    // 追加列升级：t_assets.proxy_name
+    try {
+      db.prepare('SELECT proxy_name FROM t_assets LIMIT 1').get()
+    } catch (e) {
+      db.exec('ALTER TABLE t_assets ADD COLUMN proxy_name TEXT DEFAULT ""')
+      console.log('Added proxy_name column to t_assets')
+    }
   } catch (error) {
     console.error('Failed to upgrade t_assets table:', error)
   }

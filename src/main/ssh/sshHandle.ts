@@ -6,6 +6,7 @@ const { app } = require('electron')
 const appPath = app.getAppPath()
 const packagePath = path.join(appPath, 'package.json')
 const packageInfo = JSON.parse(fs.readFileSync(packagePath, 'utf8'))
+import { createProxySocket } from './proxy'
 
 import {
   jumpserverConnections,
@@ -57,75 +58,88 @@ export const keyboardInteractiveOpts = new Map<string, string[]>()
 
 export const handleRequestKeyboardInteractive = (event, id, prompts, finish) => {
   return new Promise((_resolve, reject) => {
-    const RequestKeyboardInteractive = () => {
-      event.sender.send('ssh:keyboard-interactive-request', {
+    // 获取当前重试次数
+    const attemptCount = KeyboardInteractiveAttempts.get(id) || 0
+
+    // 检查是否超过最大重试次数
+    if (attemptCount >= MaxKeyboardInteractiveAttempts) {
+      KeyboardInteractiveAttempts.delete(id)
+      // 发送最终失败事件
+      event.sender.send('ssh:keyboard-interactive-result', {
         id,
-        prompts: prompts.map((p) => p.prompt)
+        attempts: attemptCount,
+        status: 'failed',
+        final: true
       })
-      KeyboardInteractiveAttempts.set(id, 0)
-      const timeoutId = setTimeout(() => {
-        // Remove listener
-        ipcMain.removeAllListeners(`ssh:keyboard-interactive-response:${id}`)
-        ipcMain.removeAllListeners(`ssh:keyboard-interactive-cancel:${id}`)
-
-        // Cancel authentication
-        finish([])
-
-        event.sender.send('ssh:keyboard-interactive-timeout', { id })
-        reject(new Error('Authentication timed out, please try connecting again'))
-      }, KeyboardInteractiveTimeout)
-      ipcMain.once(`ssh:keyboard-interactive-response:${id}`, (_evt, responses) => {
-        clearTimeout(timeoutId) // Clear timeout timer
-        finish(responses)
-
-        const attemptCount = KeyboardInteractiveAttempts.get(id)
-        let isVerified = null
-
-        const statusHandler = (status) => {
-          isVerified = status.isVerified
-
-          if (!isVerified) {
-            // Increment attempt count
-            const newAttemptCount = attemptCount + 1
-            KeyboardInteractiveAttempts.set(id, newAttemptCount)
-
-            event.sender.send('ssh:keyboard-interactive-result', {
-              id,
-              attempts: newAttemptCount,
-              status: 'failed'
-            })
-            // If attempts are less than max attempts, re-request
-            if (newAttemptCount < MaxKeyboardInteractiveAttempts) {
-              RequestKeyboardInteractive()
-            } else {
-              KeyboardInteractiveAttempts.set(id, 0)
-              // finish([])
-            }
-          } else {
-            // 适用于非一次性mfa的情况
-            keyboardInteractiveOpts.set(id, responses)
-            KeyboardInteractiveAttempts.delete(id)
-            event.sender.send('ssh:keyboard-interactive-result', { id, status: 'success' })
-            // finish(responses)
-          }
-          connectionEvents.removeListener(`connection-status-changed:${id}`, statusHandler)
-        }
-
-        connectionEvents.once(`connection-status-changed:${id}`, statusHandler)
-      })
-      ipcMain.once(`ssh:keyboard-interactive-cancel:${id}`, () => {
-        KeyboardInteractiveAttempts.delete(id)
-        clearTimeout(timeoutId)
-        finish([])
-        reject(new Error('Authentication cancelled'))
-      })
+      reject(new Error('Maximum authentication attempts reached'))
+      return
     }
-    RequestKeyboardInteractive()
+
+    // 设置重试计数
+    KeyboardInteractiveAttempts.set(id, attemptCount + 1)
+
+    // 发送MFA请求到前端
+    event.sender.send('ssh:keyboard-interactive-request', {
+      id,
+      prompts: prompts.map((p) => p.prompt)
+    })
+
+    // 设置超时
+    const timeoutId = setTimeout(() => {
+      // Remove listener
+      ipcMain.removeAllListeners(`ssh:keyboard-interactive-response:${id}`)
+      ipcMain.removeAllListeners(`ssh:keyboard-interactive-cancel:${id}`)
+
+      // Cancel authentication
+      finish([])
+      KeyboardInteractiveAttempts.delete(id)
+      event.sender.send('ssh:keyboard-interactive-timeout', { id })
+      reject(new Error('Authentication timed out, please try connecting again'))
+    }, KeyboardInteractiveTimeout)
+
+    // 监听用户响应
+    ipcMain.once(`ssh:keyboard-interactive-response:${id}`, (_evt, responses) => {
+      clearTimeout(timeoutId) // Clear timeout timer
+      finish(responses)
+
+      // 监听连接状态变化来判断验证结果
+      const statusHandler = (status) => {
+        if (status.isVerified) {
+          // 验证成功
+          keyboardInteractiveOpts.set(id, responses)
+          KeyboardInteractiveAttempts.delete(id)
+          event.sender.send('ssh:keyboard-interactive-result', {
+            id,
+            status: 'success'
+          })
+        } else {
+          // 验证失败
+          const currentAttempts = KeyboardInteractiveAttempts.get(id) || 0
+          event.sender.send('ssh:keyboard-interactive-result', {
+            id,
+            attempts: currentAttempts,
+            status: 'failed'
+          })
+          // SSH连接会自动重新触发keyboard-interactive事件进行重试
+        }
+        connectionEvents.removeListener(`connection-status-changed:${id}`, statusHandler)
+      }
+
+      connectionEvents.once(`connection-status-changed:${id}`, statusHandler)
+    })
+
+    // 监听用户取消
+    ipcMain.once(`ssh:keyboard-interactive-cancel:${id}`, () => {
+      KeyboardInteractiveAttempts.delete(id)
+      clearTimeout(timeoutId)
+      finish([])
+      reject(new Error('Authentication cancelled'))
+    })
   })
 }
 
-export const attemptSecondaryConnection = (event, connectionInfo) => {
-  const { id, host, port, username, password, privateKey, passphrase, isOfficeDevice } = connectionInfo
+export const attemptSecondaryConnection = async (event, connectionInfo) => {
+  const { id, host, port, username, password, privateKey, passphrase, isOfficeDevice, needProxy, proxyConfig } = connectionInfo
   const conn = new Client()
   const connectConfig: any = {
     host,
@@ -141,6 +155,11 @@ export const attemptSecondaryConnection = (event, connectionInfo) => {
     if (passphrase) connectConfig.passphrase = passphrase
   } else if (password) {
     connectConfig.password = password
+  }
+
+  if (needProxy) {
+    console.log('proxyConfig:', proxyConfig)
+    connectConfig.sock = await createProxySocket(proxyConfig, host, port)
   }
 
   // Send initialization command result
@@ -285,8 +304,8 @@ export const attemptSecondaryConnection = (event, connectionInfo) => {
   conn.connect(connectConfig)
 }
 
-const handleAttemptConnection = (event, connectionInfo, resolve, reject, retryCount) => {
-  const { id, host, port, username, password, privateKey, passphrase, agentForward } = connectionInfo
+const handleAttemptConnection = async (event, connectionInfo, resolve, reject, retryCount) => {
+  const { id, host, port, username, password, privateKey, passphrase, agentForward, needProxy, proxyConfig } = connectionInfo
   retryCount++
 
   connectionStatus.set(id, { isVerified: false }) // Update connection status
@@ -328,6 +347,9 @@ const handleAttemptConnection = (event, connectionInfo, resolve, reject, retryCo
     tryKeyboard: true, // Enable keyboard interactive authentication
     readyTimeout: KeyboardInteractiveTimeout // Connection timeout, 30 seconds
   }
+  if (needProxy) {
+    connectConfig.sock = await createProxySocket(proxyConfig, host, port)
+  }
 
   if (agentForward) {
     const manager = SSHAgentManager.getInstance()
@@ -341,8 +363,15 @@ const handleAttemptConnection = (event, connectionInfo, resolve, reject, retryCo
       // Wait for user response
       await handleRequestKeyboardInteractive(event, id, prompts, finish)
     } catch (err) {
-      conn.end() // Close connection
-      reject(err)
+      const errorMessage = err instanceof Error ? err.message : String(err)
+      console.log('SSH keyboard-interactive error:', errorMessage)
+
+      // 只有在超过最大重试次数、用户取消或超时时才关闭连接
+      if (errorMessage.includes('Maximum authentication attempts') || errorMessage.includes('cancelled') || errorMessage.includes('timed out')) {
+        conn.end() // Close connection
+        reject(err)
+      }
+      // 对于其他错误，让SSH连接自然处理，可能会重新触发keyboard-interactive
     }
   })
 

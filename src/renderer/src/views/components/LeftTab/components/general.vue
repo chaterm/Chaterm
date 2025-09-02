@@ -165,7 +165,7 @@ const changeLanguage = async () => {
 
 // Setup system theme change listener
 const setupSystemThemeListener = () => {
-  systemThemeListener = addSystemThemeListener((newSystemTheme) => {
+  systemThemeListener = addSystemThemeListener(async (newSystemTheme) => {
     // Only update theme if user has selected 'auto' mode
     if (userConfig.value.theme === 'auto') {
       const actualTheme = getActualTheme(userConfig.value.theme)
@@ -175,10 +175,26 @@ const setupSystemThemeListener = () => {
         // System theme changed, update application theme
         document.documentElement.className = `theme-${actualTheme}`
         eventBus.emit('updateTheme', actualTheme)
+        // Update main process window controls
+        await api.updateTheme(userConfig.value.theme)
         console.log(`System theme changed to ${newSystemTheme}, updating application theme to ${actualTheme}`)
       }
     }
   })
+
+  // Listen for system theme changes from main process (Windows)
+  if (window.api && window.api.onSystemThemeChanged) {
+    window.api.onSystemThemeChanged((newSystemTheme) => {
+      if (userConfig.value.theme === 'auto') {
+        const currentTheme = document.documentElement.className.replace('theme-', '')
+        if (currentTheme !== newSystemTheme) {
+          document.documentElement.className = `theme-${newSystemTheme}`
+          eventBus.emit('updateTheme', newSystemTheme)
+          console.log(`System theme changed to ${newSystemTheme} (from main process)`)
+        }
+      }
+    })
+  }
 }
 
 const changeTheme = async () => {
@@ -186,9 +202,8 @@ const changeTheme = async () => {
     const actualTheme = getActualTheme(userConfig.value.theme)
     document.documentElement.className = `theme-${actualTheme}`
     eventBus.emit('updateTheme', actualTheme)
-    setTimeout(() => {
-      api.updateTheme(userConfig.value.theme)
-    }, 80)
+    // Update main process window controls immediately
+    await api.updateTheme(userConfig.value.theme)
     await saveConfig()
   } catch (error) {
     console.error('Failed to change theme:', error)
@@ -249,23 +264,19 @@ const changeTheme = async () => {
 }
 
 .custom-form :deep(.ant-input-number) {
-  background-color: var(--bg-color-secondary);
+  background-color: var(--input-number-bg);
   border: 1px solid var(--border-color);
   border-radius: 6px;
   transition: all 0.3s;
   width: 100px !important;
 }
 
-.custom-form :deep(.ant-input-number:hover) {
-  border-color: #1890ff;
-  background-color: var(--hover-bg-color);
-}
-
+.custom-form :deep(.ant-input-number:hover),
 .custom-form :deep(.ant-input-number:focus),
 .custom-form :deep(.ant-input-number-focused) {
+  background-color: var(--input-number-hover-bg);
   border-color: #1890ff;
   box-shadow: 0 0 0 2px rgba(24, 144, 255, 0.2);
-  background-color: var(--hover-bg-color);
 }
 
 .custom-form :deep(.ant-input-number-input) {
@@ -273,26 +284,6 @@ const changeTheme = async () => {
   padding: 4px 8px;
   background-color: transparent;
   color: var(--text-color);
-}
-
-[data-theme='light'] .custom-form :deep(.ant-input-number) {
-  background-color: #f5f5f5;
-}
-
-[data-theme='light'] .custom-form :deep(.ant-input-number:hover),
-[data-theme='light'] .custom-form :deep(.ant-input-number:focus),
-[data-theme='light'] .custom-form :deep(.ant-input-number-focused) {
-  background-color: #fafafa;
-}
-
-[data-theme='dark'] .custom-form :deep(.ant-input-number) {
-  background-color: #2a2a2a;
-}
-
-[data-theme='dark'] .custom-form :deep(.ant-input-number:hover),
-[data-theme='dark'] .custom-form :deep(.ant-input-number:focus),
-[data-theme='dark'] .custom-form :deep(.ant-input-number-focused) {
-  background-color: #363636;
 }
 
 .label-text {

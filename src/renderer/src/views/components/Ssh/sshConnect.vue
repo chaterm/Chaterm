@@ -161,7 +161,7 @@ const handleRightClick = (event) => {
           terminal.value?.focus()
         })
         .catch(() => {
-          console.warn('无法读取剪贴板内容')
+          console.warn(t('common.clipboardReadFailed'))
         })
       break
     case 'contextMenu':
@@ -190,7 +190,7 @@ const handleMouseDown = (event) => {
             terminal.value?.focus()
           })
           .catch(() => {
-            console.warn('无法读取剪贴板内容')
+            console.warn(t('common.clipboardReadFailed'))
           })
         break
       case 'contextMenu':
@@ -287,7 +287,7 @@ const getUserInfo = async () => {
       isOfficeDevice.value = res.data.isOfficeDevice
     }
   } catch (error) {
-    console.error('获取用户信息失败:', error)
+    console.error(t('common.getUserInfoFailed'), error)
   }
 }
 
@@ -314,7 +314,7 @@ onMounted(async () => {
               selectionBackground: 'rgba(0, 0, 0, 0.3)'
             }
           : {
-              background: '#141414',
+              background: 'var(--bg-color-secondary)',
               foreground: '#f0f0f0',
               cursor: '#f0f0f0',
               cursorAccent: '#f0f0f0',
@@ -451,6 +451,7 @@ onMounted(async () => {
     resizeObserver.observe(terminalContainer.value)
   }
   window.addEventListener('resize', handleResize)
+  window.addEventListener('wheel', handleWheel)
   window.addEventListener('keydown', handleGlobalKeyDown)
   window.addEventListener('click', () => {
     if (contextmenu.value && typeof contextmenu.value.hide === 'function') {
@@ -541,7 +542,7 @@ onMounted(async () => {
               selectionBackground: 'rgba(0, 0, 0, 0.3)'
             }
           : {
-              background: '#141414',
+              background: 'var(--bg-color-secondary)',
               foreground: '#f0f0f0',
               cursor: '#f0f0f0',
               cursorAccent: '#f0f0f0',
@@ -568,6 +569,15 @@ onMounted(async () => {
     contextAct('clearTerm')
   })
 
+  // Listen for font size change events
+  eventBus.on('fontSizeIncrease', () => {
+    contextAct('fontsizeLargen')
+  })
+
+  eventBus.on('fontSizeDecrease', () => {
+    contextAct('fontsizeSmaller')
+  })
+
   // Listen for font update events
   const handleUpdateFont = (newFontFamily) => {
     if (terminal.value) {
@@ -575,6 +585,15 @@ onMounted(async () => {
     }
   }
   eventBus.on('updateTerminalFont', handleUpdateFont)
+  eventBus.on('updateTerminalFontSize', (newFontSize) => {
+    if (terminal.value) {
+      terminal.value.options.fontSize = newFontSize
+      // Trigger resize to adjust terminal layout
+      setTimeout(() => {
+        handleResize()
+      }, 50)
+    }
+  })
   cleanupListeners.value.push(() => {
     eventBus.off('updateTheme', handleUpdateTheme)
     eventBus.off('executeTerminalCommand', handleExecuteCommand)
@@ -583,8 +602,11 @@ onMounted(async () => {
     eventBus.off('sendOrToggleAiFromTerminalForTab', handleSendOrToggleAiForTab)
     eventBus.off('requestUpdateCwdForHost', handleRequestUpdateCwdForHost)
     eventBus.off('updateTerminalFont', handleUpdateFont)
+    eventBus.off('updateTerminalFontSize')
     eventBus.off('openSearch', openSearch)
     eventBus.off('clearCurrentTerminal')
+    eventBus.off('fontSizeIncrease')
+    eventBus.off('fontSizeDecrease')
     window.removeEventListener('keydown', handleGlobalKeyDown)
   })
 
@@ -610,6 +632,7 @@ const getCmdList = async (systemCommands) => {
 
 onBeforeUnmount(() => {
   window.removeEventListener('resize', handleResize)
+  window.removeEventListener('wheel', handleWheel)
   inputManager.unregisterInstances(connectionId.value)
   if (resizeObserver) {
     resizeObserver.disconnect()
@@ -926,7 +949,7 @@ const connectSSH = async () => {
       jumpServerStatusHandler.setupStatusListener(api)
     }
 
-    const result = await api.connect({
+    const connData = {
       id: connectionId.value,
       host: assetInfo.asset_ip,
       port: assetInfo.port,
@@ -939,7 +962,13 @@ const connectSSH = async () => {
       terminalType: config.terminalType,
       agentForward: config.sshAgentsStatus === 1,
       isOfficeDevice: isOfficeDevice.value
-    })
+    }
+    connData.needProxy = assetInfo.need_proxy === 1 || false
+    if (connData.needProxy) {
+      connData.proxyConfig = config.sshProxyConfigs.find((item) => item.name === assetInfo.proxy_name)
+    }
+
+    const result = await api.connect(connData)
 
     if (jumpServerStatusHandler) {
       jumpServerStatusHandler.cleanup()
@@ -1308,7 +1337,7 @@ const updateTerminalState = (quickInit: boolean, enterPress, tagPress: boolean) 
       })
     }
   } catch (error) {
-    console.error('更新终端状态时出错:', error)
+    console.error(t('common.updateTerminalStatusError'), error)
   }
 }
 
@@ -1443,7 +1472,7 @@ const sendTerminalStateToServer = async (): Promise<void> => {
       }
     })
   } catch (err) {
-    console.error('发送终端状态时出错:', err)
+    console.error(t('common.sendTerminalStatusError'), err)
   }
 }
 function handleExternalInput(data) {
@@ -2316,14 +2345,10 @@ const contextAct = (action) => {
       sendData('\r')
       break
     case 'fontsizeLargen':
-      if (terminal.value?.options) {
-        terminal.value.options.fontSize = (terminal.value.options.fontSize ?? 12) + 1
-      }
+      adjustFontSize(1)
       break
     case 'fontsizeSmaller':
-      if (terminal.value?.options) {
-        terminal.value.options.fontSize = (terminal.value.options.fontSize ?? 12) - 1
-      }
+      adjustFontSize(-1)
       break
     case 'registerSyncInput':
       if (isSyncInput.value) {
@@ -2355,6 +2380,52 @@ const hideSelectionButton = () => {
   showAiButton.value = false
 }
 
+// Adjust font size function
+const adjustFontSize = async (delta: number) => {
+  if (!terminal.value) return
+
+  const currentFontSize = terminal.value.options.fontSize || 12
+  const newFontSize = Math.max(8, Math.min(32, currentFontSize + delta))
+
+  if (newFontSize !== currentFontSize) {
+    // Update current terminal font size
+    terminal.value.options.fontSize = newFontSize
+
+    // Save to user config
+    try {
+      const config = await serviceUserConfig.getConfig()
+      await serviceUserConfig.saveConfig({
+        ...config,
+        fontSize: newFontSize
+      })
+    } catch (error) {
+      console.error('Failed to save font size:', error)
+    }
+
+    // Notify other terminals to update font size
+    eventBus.emit('updateTerminalFontSize', newFontSize)
+
+    // Trigger resize to adjust terminal layout
+    setTimeout(() => {
+      handleResize()
+    }, 50)
+  }
+}
+
+// Handle wheel event for font size adjustment
+const handleWheel = (e: WheelEvent) => {
+  if (e.ctrlKey && terminal.value) {
+    e.preventDefault()
+    if (e.deltaY < 0) {
+      // Wheel up - increase font size
+      adjustFontSize(1)
+    } else {
+      // Wheel down - decrease font size
+      adjustFontSize(-1)
+    }
+  }
+}
+
 const handleGlobalKeyDown = (e: KeyboardEvent) => {
   if (contextmenu.value && typeof contextmenu.value.hide === 'function') {
     contextmenu.value.hide()
@@ -2362,6 +2433,50 @@ const handleGlobalKeyDown = (e: KeyboardEvent) => {
   if (props.activeTabId !== props.currentConnectionId) return
 
   const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0
+
+  // Check if we're in vim mode to avoid shortcut conflicts
+  if (terminalMode.value === 'alternate') {
+    // In vim mode, block most shortcuts that could conflict with vim operations
+    const blockedInVim = [
+      // Block Ctrl+V (vim visual block mode) - this is the main issue
+      { ctrlKey: true, key: 'v' },
+      // Block other common vim conflicts
+      { ctrlKey: true, key: 'c' }, // vim visual mode
+      { ctrlKey: true, key: 'z' }, // vim undo
+      { ctrlKey: true, key: 'a' }, // vim increment
+      { ctrlKey: true, key: 'e' }, // vim scroll down
+      { ctrlKey: true, key: 'y' }, // vim scroll up
+      { ctrlKey: true, key: 'd' }, // vim half page down
+      { ctrlKey: true, key: 'u' }, // vim half page up
+      { ctrlKey: true, key: 'f' }, // vim page down
+      { ctrlKey: true, key: 'b' }, // vim page up
+      { ctrlKey: true, key: 'g' }, // vim status
+      { ctrlKey: true, key: 'o' }, // vim open line
+      { ctrlKey: true, key: 'p' }, // vim previous
+      { ctrlKey: true, key: 'n' }, // vim next
+      { ctrlKey: true, key: 'x' }, // vim cut
+      { ctrlKey: true, key: 's' }, // vim save
+      { ctrlKey: true, key: 'w' }, // vim window
+      { ctrlKey: true, key: 'h' }, // vim backspace
+      { ctrlKey: true, key: 'j' }, // vim join
+      { ctrlKey: true, key: 'k' }, // vim kill
+      { ctrlKey: true, key: 'l' }, // vim redraw
+      { ctrlKey: true, key: 'm' }, // vim newline
+      { ctrlKey: true, key: 'q' }, // vim quit
+      { ctrlKey: true, key: 'r' }, // vim redo
+      { ctrlKey: true, key: 't' } // vim tag
+    ]
+
+    // Check if current key combination should be blocked in vim mode
+    const shouldBlock = blockedInVim.some((blocked) => blocked.key === e.key && blocked.ctrlKey === e.ctrlKey)
+
+    if (shouldBlock) {
+      // Block the shortcut in vim mode to avoid conflicts
+      e.preventDefault()
+      e.stopPropagation()
+      return
+    }
+  }
 
   // Search functionality
   if ((isMac ? e.metaKey : e.ctrlKey) && e.key === 'f') {
@@ -2375,6 +2490,20 @@ const handleGlobalKeyDown = (e: KeyboardEvent) => {
     e.preventDefault()
     e.stopPropagation()
     contextAct('close')
+  }
+
+  // Font size increase (Ctrl+)
+  if (e.ctrlKey && e.key === '=') {
+    e.preventDefault()
+    e.stopPropagation()
+    contextAct('fontsizeLargen')
+  }
+
+  // Font size decrease (Ctrl-)
+  if (e.ctrlKey && e.key === '-') {
+    e.preventDefault()
+    e.stopPropagation()
+    contextAct('fontsizeSmaller')
   }
 
   if (e.key === 'Escape' && showSearch.value) {
@@ -2530,7 +2659,7 @@ const getCursorLinePosition = () => {
       isCrossRow: cursorEndY.value !== cursorY
     }
   } catch (error) {
-    console.error('获取光标位置失败:', error)
+    console.error(t('common.getCursorPositionFailed'), error)
     return null
   }
 }

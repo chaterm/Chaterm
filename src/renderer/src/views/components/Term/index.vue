@@ -279,6 +279,15 @@ onMounted(() => {
     contextAct('clearTerm')
   })
 
+  // Listen for font size change events
+  eventBus.on('fontSizeIncrease', () => {
+    contextAct('fontsizeLargen')
+  })
+
+  eventBus.on('fontSizeDecrease', () => {
+    contextAct('fontsizeSmaller')
+  })
+
   // Listen for theme update events
   eventBus.on('updateTheme', (theme) => {
     if (term.value) {
@@ -293,7 +302,7 @@ onMounted(() => {
               selectionBackground: 'rgba(0, 0, 0, 0.3)'
             }
           : {
-              background: '#141414',
+              background: 'var(--bg-color-secondary)',
               foreground: '#f0f0f0',
               cursor: '#f0f0f0',
               cursorAccent: '#f0f0f0',
@@ -322,6 +331,8 @@ onBeforeUnmount(() => {
   eventBus.off('updateTerminalFont')
   eventBus.off('openSearch')
   eventBus.off('clearCurrentTerminal')
+  eventBus.off('fontSizeIncrease')
+  eventBus.off('fontSizeDecrease')
   document.removeEventListener('mouseup', hideSelectionButton)
 })
 // Get all commands for current machine
@@ -356,7 +367,7 @@ const initTerminal = async () => {
               selectionBackground: 'rgba(0, 0, 0, 0.3)'
             }
           : {
-              background: '#141414',
+              background: 'var(--bg-color-secondary)',
               foreground: '#f0f0f0',
               cursor: '#f0f0f0',
               cursorAccent: '#f0f0f0',
@@ -1184,6 +1195,20 @@ const handleGlobalKeyDown = (e) => {
     contextAct('close')
   }
 
+  // Font size increase (Ctrl+)
+  if (e.ctrlKey && e.key === '=') {
+    e.preventDefault()
+    e.stopPropagation()
+    contextAct('fontsizeLargen')
+  }
+
+  // Font size decrease (Ctrl-)
+  if (e.ctrlKey && e.key === '-') {
+    e.preventDefault()
+    e.stopPropagation()
+    contextAct('fontsizeSmaller')
+  }
+
   if (e.key === 'Escape' && showSearch.value) {
     e.preventDefault()
     e.stopPropagation()
@@ -1217,7 +1242,7 @@ defineExpose({
 .terminal-container {
   width: 100%;
   height: 100%;
-  background-color: #141414;
+  background-color: var(--bg-color-secondary);
   border-radius: 6px;
   overflow: hidden;
   padding: 4px;

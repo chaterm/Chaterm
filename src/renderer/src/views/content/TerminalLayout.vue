@@ -33,7 +33,6 @@
                 :toggle-sidebar="toggleSideBar"
                 @open-user-tab="openUserTab"
               />
-              <div v-if="currentMenu == 'monitor'">{{ $t('common.monitor') }}</div>
             </pane>
             <pane :size="100 - leftPaneSize">
               <splitpanes @resize="onMainSplitResize">
@@ -196,7 +195,7 @@
                 v-model:value="globalInput"
                 size="small"
                 class="command-input"
-                placeholder="执行命令到全部窗口"
+                :placeholder="t('common.executeCommandToAllWindows')"
                 allow-clear
                 @press-enter="sendGlobalCommand"
               >
@@ -745,7 +744,7 @@ const currentClickServer = async (item) => {
 
 const needsAuth = (item) => {
   return false
-  // const authRequiredTypes = ['extensions', 'monitor']
+  // const authRequiredTypes = ['extensions']
   // if (item.type === 'term' && item.data?.type === 'ssh') {
   //   return false
   // }
