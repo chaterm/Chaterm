@@ -112,7 +112,7 @@ export function createAssetLogic(db: Database.Database, params: any): any {
           created_at,
           updated_at,
           version
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `)
 
     const result = insertStmt.run(
