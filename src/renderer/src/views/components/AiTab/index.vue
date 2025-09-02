@@ -398,18 +398,13 @@
                   </a-button>
                 </a-tooltip>
                 <a-tooltip :title="$t('ai.startVoiceInput')">
-                  <a-button
+                  <VoiceInput
+                    ref="voiceInputRef"
                     :disabled="responseLoading"
-                    size="small"
-                    class="custom-round-button compact-button"
-                    @click="handleVoiceClick"
-                  >
-                    <img
-                      src="@/assets/icons/voice.svg"
-                      alt="voice"
-                      style="width: 14px; height: 14px"
-                    />
-                  </a-button>
+                    :auto-send-after-voice="autoSendAfterVoice"
+                    @transcription-complete="handleTranscriptionComplete"
+                    @transcription-error="handleTranscriptionError"
+                  />
                 </a-tooltip>
                 <input
                   ref="fileInputRef"
@@ -418,16 +413,6 @@
                   style="display: none"
                   @change="handleFileSelected"
                 />
-                <!-- Hidden VoiceInput component for functionality -->
-                <div style="display: none">
-                  <VoiceInput
-                    ref="voiceInputRef"
-                    :disabled="responseLoading"
-                    :auto-send-after-voice="autoSendAfterVoice"
-                    @transcription-complete="handleTranscriptionComplete"
-                    @transcription-error="handleTranscriptionError"
-                  />
-                </div>
                 <a-button
                   :disabled="!showSendButton"
                   size="small"

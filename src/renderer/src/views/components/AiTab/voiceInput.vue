@@ -437,4 +437,15 @@ defineExpose({
   filter: brightness(1) contrast(1);
   opacity: 1;
 }
+
+/* 确保按钮在容器中正确对齐 */
+.voice-button {
+  box-sizing: border-box;
+  line-height: 1;
+  vertical-align: middle;
+  min-height: 18px;
+  max-height: 18px;
+  align-self: center;
+  flex-shrink: 0;
+}
 </style>
