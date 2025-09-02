@@ -557,6 +557,8 @@ export default {
     taskCompleted: '任务已完成',
     newTask: '开始新任务',
     codePreview: '代码预览 ({lines}行)',
+    enterCustomOption: '请输入您的答案...',
+    submit: '提交',
     // 语音输入相关
     startVoiceInput: '开始语音输入',
     stopRecording: '停止语音录制',
