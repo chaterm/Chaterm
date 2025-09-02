@@ -302,7 +302,7 @@ onMounted(() => {
               selectionBackground: 'rgba(0, 0, 0, 0.3)'
             }
           : {
-              background: '#141414',
+              background: 'var(--bg-color-secondary)',
               foreground: '#f0f0f0',
               cursor: '#f0f0f0',
               cursorAccent: '#f0f0f0',
@@ -367,7 +367,7 @@ const initTerminal = async () => {
               selectionBackground: 'rgba(0, 0, 0, 0.3)'
             }
           : {
-              background: '#141414',
+              background: 'var(--bg-color-secondary)',
               foreground: '#f0f0f0',
               cursor: '#f0f0f0',
               cursorAccent: '#f0f0f0',
@@ -1242,7 +1242,7 @@ defineExpose({
 .terminal-container {
   width: 100%;
   height: 100%;
-  background-color: #141414;
+  background-color: var(--bg-color-secondary);
   border-radius: 6px;
   overflow: hidden;
   padding: 4px;
