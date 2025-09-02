@@ -30,6 +30,8 @@ CREATE TABLE IF NOT EXISTS t_assets (
   key_chain_id INTEGER,                             -- 密钥链ID
   favorite  INTEGER DEFAULT 2,                     -- 是否收藏，默认值2表示未收藏
   asset_type TEXT,                                  -- 类型
+  need_proxy INTEGER DEFAULT 0,                     -- 是否需要代理，默认值0表示不需要
+  proxy_name TEXT,                                  -- 代理名称
   version INTEGER NOT NULL DEFAULT 1                -- 版本号
 );
 

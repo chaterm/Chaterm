@@ -348,6 +348,12 @@ export class SyncEngine {
           if (sensitive && sensitive.username !== undefined) {
             data.username = sensitive.username
           }
+          if (sensitive && sensitive.need_proxy !== undefined) {
+            data.need_proxy = sensitive.need_proxy
+          }
+          if (sensitive && sensitive.proxy_name !== undefined) {
+            data.proxy_name = sensitive.proxy_name
+          }
         }
       } else if (tableName === 't_asset_chains_sync') {
         const cipher: string | undefined = typeof data.data_cipher_text === 'string' ? data.data_cipher_text : undefined
@@ -406,8 +412,8 @@ export class SyncEngine {
         'key_chain_id',
         'favorite',
         'asset_type',
-        'needProxy',
-        'proxyName',
+        'need_proxy',
+        'proxy_name',
         'created_at',
         'updated_at',
         'version'
@@ -448,10 +454,12 @@ export class SyncEngine {
         const sensitive: any = {}
         if (record.password !== undefined && record.password !== null) sensitive.password = record.password
         if (record.username !== undefined && record.username !== null) sensitive.username = record.username
+        if (record.need_proxy !== undefined && record.need_proxy !== null) sensitive.need_proxy = record.need_proxy
+        if (record.proxy_name !== undefined && record.proxy_name !== null) sensitive.proxy_name = record.proxy_name
         if (Object.keys(sensitive).length > 0) {
           try {
             const combined = await encryptPayload(sensitive, service)
-            const { password, username, ...rest } = record
+            const { password, username, need_proxy, proxy_name, ...rest } = record
             return { ...rest, data_cipher_text: combined }
           } catch {
             // 如果敏感字段存在但加密失败，抛出错误以防止明文上行
