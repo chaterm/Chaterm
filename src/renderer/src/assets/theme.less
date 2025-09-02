@@ -30,6 +30,13 @@
   --box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
   --button-default-bg-color: #3d3d3d;
   --bg-color-default: #3b3b3b;
+
+  // New variables for form components
+  --input-number-bg: #2a2a2a;
+  --input-number-hover-bg: #363636;
+  --select-bg: #2a2a2a;
+  --select-hover-bg: #363636;
+  --select-border: #404040;
 }
 
 // Light theme variables
@@ -64,6 +71,13 @@
   --box-shadow: 0 2px 4px rgba(255, 255, 255, 0.8);
   --button-default-bg-color: #ffffff;
   --bg-color-default: #d9d9d9;
+
+  // New variables for form components
+  --input-number-bg: #f5f5f5;
+  --input-number-hover-bg: #fafafa;
+  --select-bg: #f5f5f5;
+  --select-hover-bg: #fafafa;
+  --select-border: #d9d9d9;
 }
 
 // Apply theme variables to components
@@ -439,3 +453,41 @@ body {
   -webkit-app-region: no-drag;
 }
 // Add more component theme styles as needed
+
+// Form components theme styles using CSS variables
+.custom-form :deep(.ant-input-number) {
+  background-color: var(--input-number-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  transition: all 0.3s;
+
+  &:hover,
+  &:focus,
+  &.ant-input-number-focused {
+    background-color: var(--input-number-hover-bg);
+    border-color: #1890ff;
+  }
+}
+
+.font-family-select :deep(.ant-select-selector),
+.mouse-event-select :deep(.ant-select-selector) {
+  background-color: var(--select-bg);
+  border: 1px solid var(--select-border);
+  border-radius: 6px;
+  color: var(--text-color);
+  transition: all 0.3s;
+  height: 32px;
+
+  &:hover,
+  &:focus {
+    background-color: var(--select-hover-bg);
+    border-color: #1890ff;
+  }
+}
+
+.font-family-select :deep(.ant-select-focused .ant-select-selector),
+.mouse-event-select :deep(.ant-select-focused .ant-select-selector) {
+  border-color: #1890ff;
+  box-shadow: 0 0 0 2px rgba(24, 144, 255, 0.2);
+  background-color: var(--select-hover-bg);
+}
