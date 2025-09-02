@@ -626,7 +626,7 @@ export const registerSSHHandlers = () => {
     }))
   })
 
-  ipcMain.handle('ssh:shell', async (_event, { id, terminalType }) => {
+  ipcMain.handle('ssh:shell', async (event, { id, terminalType }) => {
     // 检查是否为 JumpServer 连接
     if (jumpserverConnections.has(id)) {
       // 使用 JumpServer 的 shell 处理
@@ -635,45 +635,54 @@ export const registerSSHHandlers = () => {
         return { status: 'error', message: '未找到 JumpServer 连接' }
       }
 
-      // 设置 shell 数据流监听器
+      // 清除旧监听器
       stream.removeAllListeners('data')
+
+      let buffer = ''
+      let sending = false
+
+      const flushBuffer = () => {
+        if (!buffer) return
+        const chunk = buffer
+        buffer = ''
+        sending = true
+        event.sender.send(`ssh:shell:data:${id}`, { data: chunk, marker: '' })
+        sending = false
+      }
+
+      const scheduleFlush = () => {
+        if (!sending) {
+          setTimeout(flushBuffer, 50)
+        }
+      }
+
       stream.on('data', (data) => {
         const dataStr = data.toString()
-        // 添加 JumpServer 退出检测逻辑
         const lastCommand = jumpserverLastCommand.get(id)
         const exitCommands = ['exit', 'logout', '\x04']
 
-        // 检测 JumpServer 菜单返回并自动退出
+        // JumpServer 菜单退出检测
         if (dataStr.includes('[Host]>') && lastCommand && exitCommands.includes(lastCommand)) {
-          jumpserverLastCommand.delete(id) // 使用后清除命令
-          // 发送 'q' 命令退出 JumpServer 会话
+          jumpserverLastCommand.delete(id)
           stream.write('q\r', (err) => {
-            if (err) {
-              console.error(`[JumpServer ${id}] 发送 "q" 命令失败:`, err)
-            } else {
-              console.log(`[JumpServer ${id}] 已发送 "q" 命令以终止会话。`)
-            }
-            // 结束流和连接
+            if (err) console.error(`[JumpServer ${id}] 发送 "q" 失败:`, err)
+            else console.log(`[JumpServer ${id}] 已发送 "q" 终止会话。`)
             stream.end()
             const conn = jumpserverConnections.get(id)
-            if (conn) {
-              conn.end()
-            }
+            conn?.end()
           })
-          return // 不再继续处理数据
+          return
         }
 
         const markedCmd = jumpserverMarkedCommands.get(id)
         if (markedCmd !== undefined) {
           markedCmd.output += dataStr
           markedCmd.lastActivity = Date.now()
-          if (markedCmd.idleTimer) {
-            clearTimeout(markedCmd.idleTimer)
-          }
+          if (markedCmd.idleTimer) clearTimeout(markedCmd.idleTimer)
           markedCmd.idleTimer = setTimeout(() => {
             if (markedCmd && !markedCmd.completed) {
               markedCmd.completed = true
-              _event.sender.send(`ssh:shell:data:${id}`, {
+              event.sender.send(`ssh:shell:data:${id}`, {
                 data: markedCmd.output,
                 marker: markedCmd.marker
               })
@@ -681,20 +690,19 @@ export const registerSSHHandlers = () => {
             }
           }, 200)
         } else {
-          _event.sender.send(`ssh:shell:data:${id}`, {
-            data: dataStr,
-            marker: ''
-          })
+          buffer += dataStr
+          scheduleFlush()
         }
       })
 
       stream.stderr.on('data', (data) => {
-        _event.sender.send(`ssh:shell:stderr:${id}`, data.toString())
+        event.sender.send(`ssh:shell:stderr:${id}`, data.toString())
       })
 
       stream.on('close', () => {
+        flushBuffer()
         console.log(`JumpServer shell stream closed for id=${id}`)
-        _event.sender.send(`ssh:shell:close:${id}`)
+        event.sender.send(`ssh:shell:close:${id}`)
         jumpserverShellStreams.delete(id)
       })
 
@@ -716,18 +724,34 @@ export const registerSSHHandlers = () => {
     const handleStream = (stream, method: 'shell' | 'exec') => {
       shellStreams.set(id, stream)
 
+      let buffer = ''
+      let sending = false
+
+      const flushBuffer = () => {
+        if (!buffer) return
+        const chunk = buffer
+        buffer = ''
+        sending = true
+        event.sender.send(`ssh:shell:data:${id}`, { data: chunk, marker: '' })
+        sending = false
+      }
+
+      const scheduleFlush = () => {
+        if (!sending) setTimeout(flushBuffer, 50)
+      }
+
       stream.on('data', (data) => {
         const markedCmd = markedCommands.get(id)
+        const chunk = data.toString()
+
         if (markedCmd !== undefined) {
-          markedCmd.output += data.toString()
+          markedCmd.output += chunk
           markedCmd.lastActivity = Date.now()
-          if (markedCmd.idleTimer) {
-            clearTimeout(markedCmd.idleTimer)
-          }
+          if (markedCmd.idleTimer) clearTimeout(markedCmd.idleTimer)
           markedCmd.idleTimer = setTimeout(() => {
             if (markedCmd && !markedCmd.completed) {
               markedCmd.completed = true
-              _event.sender.send(`ssh:shell:data:${id}`, {
+              event.sender.send(`ssh:shell:data:${id}`, {
                 data: markedCmd.output,
                 marker: markedCmd.marker
               })
@@ -735,20 +759,19 @@ export const registerSSHHandlers = () => {
             }
           }, 200)
         } else {
-          _event.sender.send(`ssh:shell:data:${id}`, {
-            data: data.toString(),
-            marker: ''
-          })
+          buffer += chunk
+          scheduleFlush()
         }
       })
 
       stream.stderr?.on('data', (data) => {
-        _event.sender.send(`ssh:shell:stderr:${id}`, data.toString())
+        event.sender.send(`ssh:shell:stderr:${id}`, data.toString())
       })
 
       stream.on('close', () => {
+        flushBuffer()
         console.log(`Shell stream closed for id=${id} (${method})`)
-        _event.sender.send(`ssh:shell:close:${id}`)
+        event.sender.send(`ssh:shell:close:${id}`)
         shellStreams.delete(id)
       })
     }
@@ -772,14 +795,10 @@ export const registerSSHHandlers = () => {
     }
 
     return new Promise((resolve, reject) => {
-      if (!isConnected()) {
-        return reject(new Error('Connection disconnected, unable to start terminal'))
-      }
+      if (!isConnected()) return reject(new Error('Connection disconnected, unable to start terminal'))
 
       setTimeout(() => {
-        if (!isConnected()) {
-          return reject(new Error('The connection has been disconnected after a delay'))
-        }
+        if (!isConnected()) return reject(new Error('The connection has been disconnected after a delay'))
 
         conn.shell({ term: termType }, (err, stream) => {
           if (err) {
