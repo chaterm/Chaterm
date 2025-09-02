@@ -411,7 +411,7 @@ export default {
     }
   },
   personal: {
-    host: '主机',
+    host: '资产管理',
     newHost: '添加主机',
     keyChain: '密钥',
     address: '连接信息',
