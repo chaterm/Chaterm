@@ -1,83 +1,126 @@
 // Dark theme variables
 .theme-dark {
-  --bg-color: #141414;
-  --bg-color-secondary: #1e1e1e;
-  --bg-color-tertiary: #252525;
+  // Background colors
+  --bg-color: #0a0a0a;
+  --bg-color-secondary: #1a1a1a;
+  --bg-color-tertiary: #2a2a2a;
   --bg-color-quaternary: #3a3a3a;
-  --bg-color-quinary: #2a2a2a;
-  --bg-color-senary: #1a1a1a;
-  --bg-color-septenary: #282c34;
-  --bg-color-octonary: #4a4a4a;
-  --bg-color-novenary: #5a5a5a;
-  --bg-color-suggestion: #4a6b8a;
-  --bg-color-vim-editor: #2c2c2c;
-  --text-color: #e0e0e0;
-  --text-color-secondary: rgba(255, 255, 255, 0.85);
-  --text-color-secondary-light: rgba(255, 255, 255, 0.65);
-  --text-color-tertiary: rgba(255, 255, 255, 0.45);
-  --text-color-quaternary: rgba(255, 255, 255, 0.25);
-  --text-color-quinary: rgba(255, 255, 255, 0.15);
-  --text-color-senary: rgba(255, 255, 255, 0.1);
-  --text-color-septenary: rgba(255, 255, 255, 0.05);
-  --border-color: #1e1e1e;
-  --border-color-light: rgb(65, 65, 65);
-  --hover-bg-color: rgba(255, 255, 255, 0.1);
-  --active-bg-color: rgba(255, 255, 255, 0.15);
-  --watermark-color: rgba(255, 255, 255, 0.05);
+  --bg-color-quinary: #1f1f1f;
+  --bg-color-senary: #151515;
+  --bg-color-septenary: #1e3a8a;
+  --bg-color-octonary: #2d2d2d;
+  --bg-color-novenary: #404040;
+  --bg-color-suggestion: #1e3a8a;
+  --bg-color-vim-editor: #1a1a1a;
+
+  // Text colors
+  --text-color: #f8fafc;
+  --text-color-secondary: #e2e8f0;
+  --text-color-secondary-light: #cbd5e1;
+  --text-color-tertiary: #94a3b8;
+  --text-color-quaternary: #64748b;
+  --text-color-quinary: #475569;
+  --text-color-senary: #334155;
+  --text-color-septenary: #1e293b;
+
+  // Border colors
+  --border-color: #1a1a1a;
+  --border-color-light: #2a2a2a;
+
+  // Interactive states
+  --hover-bg-color: rgba(255, 255, 255, 0.08);
+  --active-bg-color: rgba(255, 255, 255, 0.12);
+  --watermark-color: rgba(255, 255, 255, 0.03);
+
+  // Icon and button colors
   --icon-filter: brightness(0) invert(1);
   --globalInput-bg-color: #1f1f1f;
-  --button-bg-color: #1890ff;
-  --box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
-  --button-default-bg-color: #3d3d3d;
-  --bg-color-default: #3b3b3b;
+  --button-bg-color: #3b82f6;
+  --box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3), 0 2px 4px rgba(0, 0, 0, 0.2);
+  --button-default-bg-color: #374151;
+  --bg-color-default: #4b5563;
 
-  // New variables for form components
-  --input-number-bg: #2a2a2a;
-  --input-number-hover-bg: #363636;
-  --select-bg: #2a2a2a;
-  --select-hover-bg: #363636;
-  --select-border: #404040;
+  // Form components - 优化表单组件的颜色
+  --input-number-bg: #1f1f1f;
+  --input-number-hover-bg: #2a2a2a;
+  --select-bg: #1f1f1f;
+  --select-hover-bg: #2a2a2a;
+  --select-border: #4b5563;
+
+  // Enhanced component colors
+  --card-bg: #1a1a1a;
+  --card-border: #374151;
+  --card-shadow: 0 4px 6px rgba(0, 0, 0, 0.3), 0 2px 4px rgba(0, 0, 0, 0.2);
+  --input-focus-border: #60a5fa;
+  --input-focus-shadow: 0 0 0 3px rgba(96, 165, 250, 0.2);
+  --button-hover-bg: #60a5fa;
+  --button-active-bg: #2563eb;
+  --success-color: #10b981;
+  --warning-color: #f59e0b;
+  --error-color: #ef4444;
+  --info-color: #3b82f6;
 }
 
 // Light theme variables
 .theme-light {
   --bg-color: #ffffff;
-  --bg-color-secondary: #f5f5f5;
-  --bg-color-tertiary: #fafafa;
-  --bg-color-quaternary: #f4f4f4;
-  --bg-color-quinary: #f6f6f6;
-  --bg-color-senary: #f0f0f0;
-  --bg-color-septenary: #d9e1ff;
-  --bg-color-octonary: #f4f4f4;
-  --bg-color-novenary: #f5f5f5;
-  --bg-color-suggestion: #cdeff3;
-  --bg-color-vim-editor: #f5f5f5;
-  --text-color: #000000;
-  --text-color-secondary: rgba(0, 0, 0, 0.85);
-  --text-color-secondary-light: rgba(0, 0, 0, 0.65);
-  --text-color-tertiary: rgba(0, 0, 0, 0.45);
-  --text-color-quaternary: rgba(0, 0, 0, 0.25);
-  --text-color-quinary: rgba(0, 0, 0, 0.15);
-  --text-color-senary: rgba(0, 0, 0, 0.1);
-  --text-color-septenary: rgba(0, 0, 0, 0.05);
-  --border-color: #f5f5f5;
-  --border-color-light: #e8e8e8;
-  --hover-bg-color: rgba(0, 0, 0, 0.08);
-  --active-bg-color: rgba(0, 0, 0, 0.12);
-  --watermark-color: rgba(0, 0, 0, 0.05);
-  --icon-filter: brightness(0);
-  --globalInput-bg-color: #f0f0f0;
-  --button-bg-color: #acd1f2;
-  --box-shadow: 0 2px 4px rgba(255, 255, 255, 0.8);
-  --button-default-bg-color: #ffffff;
-  --bg-color-default: #d9d9d9;
+  --bg-color-secondary: #f8fafc;
+  --bg-color-tertiary: #f1f5f9;
+  --bg-color-quaternary: #e2e8f0;
+  --bg-color-quinary: #f8fafc;
+  --bg-color-senary: #f1f5f9;
+  --bg-color-septenary: #e0f2fe;
+  --bg-color-octonary: #f8fafc;
+  --bg-color-novenary: #f1f5f9;
+  --bg-color-suggestion: #ecfdf5;
+  --bg-color-vim-editor: #f8fafc;
 
-  // New variables for form components
-  --input-number-bg: #f5f5f5;
-  --input-number-hover-bg: #fafafa;
-  --select-bg: #f5f5f5;
-  --select-hover-bg: #fafafa;
-  --select-border: #d9d9d9;
+  // Text colors
+  --text-color: #0f172a;
+  --text-color-secondary: #334155;
+  --text-color-secondary-light: #64748b;
+  --text-color-tertiary: #94a3b8;
+  --text-color-quaternary: #cbd5e1;
+  --text-color-quinary: #e2e8f0;
+  --text-color-senary: #f1f5f9;
+  --text-color-septenary: #f8fafc;
+
+  // Border colors
+  --border-color: #f8fafc;
+  --border-color-light: #f1f5f9;
+
+  // Interactive states
+  --hover-bg-color: rgba(15, 23, 42, 0.06);
+  --active-bg-color: rgba(15, 23, 42, 0.1);
+  --watermark-color: rgba(15, 23, 42, 0.03);
+
+  // Icon and button colors
+  --icon-filter: brightness(0) saturate(100%);
+  --globalInput-bg-color: #f1f5f9;
+  --button-bg-color: #3b82f6;
+  --box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1), 0 1px 2px rgba(0, 0, 0, 0.06);
+  --button-default-bg-color: #ffffff;
+  --bg-color-default: #e2e8f0;
+
+  // Form components
+  --input-number-bg: #f8fafc;
+  --input-number-hover-bg: #f1f5f9;
+  --select-bg: #f8fafc;
+  --select-hover-bg: #f1f5f9;
+  --select-border: #cbd5e1;
+
+  // Enhanced component colors
+  --card-bg: #ffffff;
+  --card-border: #e2e8f0;
+  --card-shadow: 0 1px 3px rgba(0, 0, 0, 0.1), 0 1px 2px rgba(0, 0, 0, 0.06);
+  --input-focus-border: #3b82f6;
+  --input-focus-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+  --button-hover-bg: #2563eb;
+  --button-active-bg: #1d4ed8;
+  --success-color: #10b981;
+  --warning-color: #f59e0b;
+  --error-color: #ef4444;
+  --info-color: #3b82f6;
 }
 
 // Apply theme variables to components
@@ -89,7 +132,7 @@ body {
     color 0.3s ease;
 }
 
-// 确保所有使用主题变量的元素都有过渡效果
+// Ensure all elements using theme variables have transition effects
 * {
   transition:
     background-color 0.3s ease,
@@ -120,7 +163,7 @@ body {
   color: var(--text-color) !important;
 }
 
-// Ant Design 组件主题适配
+// Ant Design component theme adaptation
 :deep(.ant-radio-wrapper),
 :deep(.ant-checkbox-wrapper),
 :deep(.ant-form-item-label label),
@@ -183,7 +226,7 @@ body {
   background-color: var(--hover-bg-color) !important;
 }
 
-// 菜单和标签页样式
+// Menu and tab page styles
 :deep(.ant-tabs-tab),
 :deep(.ant-menu-item) {
   color: var(--text-color-secondary) !important;
@@ -202,13 +245,13 @@ body {
   border-bottom-color: var(--border-color) !important;
 }
 
-// 卡片样式
+// Card styles
 :deep(.ant-card) {
   background-color: var(--bg-color) !important;
   border-color: var(--border-color) !important;
 }
 
-// 按钮样式
+// Button styles
 :deep(.ant-btn) {
   color: var(--text-color-secondary) !important;
   border-color: var(--border-color) !important;
@@ -231,7 +274,7 @@ body {
   }
 }
 
-// 下拉菜单样式
+// Dropdown menu styles
 :deep(.ant-dropdown-menu) {
   background-color: var(--bg-color) !important;
   border: 1px solid var(--border-color) !important;
@@ -244,7 +287,7 @@ body {
     background-color: var(--hover-bg-color) !important;
   }
 }
-// 输入框清除图标样式
+// Input box clear icon styles
 .ant-input-clear-icon {
   color: var(--text-color-tertiary) !important;
   &:hover {
@@ -279,7 +322,7 @@ body {
   background-color: var(--hover-bg-color) !important;
 }
 
-/* 更高优先级的悬浮样式 */
+/* Higher priority hover styles */
 .ant-select-dropdown .ant-select-item-option.ant-select-item-option-active {
   background-color: var(--hover-bg-color) !important;
 }
@@ -288,7 +331,7 @@ body {
   background-color: var(--hover-bg-color) !important;
 }
 
-/* 亮色主题专用悬浮样式 */
+/* Light theme专用悬浮样式 */
 .theme-light .ant-select-dropdown .ant-select-item-option:hover {
   background-color: rgba(0, 0, 0, 0.12) !important;
 }
@@ -311,7 +354,7 @@ body {
   color: var(--text-color) !important;
 }
 
-/*右键菜单样式*/
+/*Right click menu styles*/
 .v-contextmenu {
   background-color: var(--bg-color) !important;
   border: 1px solid var(--border-color) !important;
@@ -384,7 +427,7 @@ body {
   padding: 6px !important;
   backdrop-filter: blur(10px);
 }
-//
+// Command dialog styles
 .commandDialog {
   .ant-modal-content {
     background-color: var(--bg-color) !important;
@@ -415,7 +458,7 @@ body {
   }
 }
 
-// shortcut modal style
+// Shortcut modal style
 .shortcut-modal {
   .ant-modal-content {
     background-color: var(--bg-color) !important;
@@ -490,4 +533,357 @@ body {
   border-color: #1890ff;
   box-shadow: 0 0 0 2px rgba(24, 144, 255, 0.2);
   background-color: var(--select-hover-bg);
+}
+
+@keyframes scaleIn {
+  from {
+    transform: scale(0.95);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+// Enhanced tabs
+.theme-light {
+  :deep(.ant-tabs-tab) {
+    border-radius: 6px 6px 0 0 !important;
+    transition: all 0.3s ease !important;
+
+    &:hover {
+      color: var(--button-hover-bg) !important;
+      background-color: var(--hover-bg-color) !important;
+    }
+  }
+
+  :deep(.ant-tabs-tab.ant-tabs-tab-active) {
+    color: var(--button-bg-color) !important;
+    font-weight: 600 !important;
+  }
+
+  :deep(.ant-tabs-ink-bar) {
+    background: var(--button-bg-color) !important;
+    height: 3px !important;
+    border-radius: 2px !important;
+  }
+}
+
+// Enhanced menu
+.theme-light {
+  :deep(.ant-menu-item) {
+    border-radius: 6px !important;
+    margin: 2px 8px !important;
+    transition: all 0.3s ease !important;
+
+    &:hover {
+      background-color: var(--hover-bg-color) !important;
+      transform: translateX(4px) !important;
+    }
+
+    &.ant-menu-item-selected {
+      background-color: var(--button-bg-color) !important;
+      color: white !important;
+      font-weight: 600 !important;
+
+      &:hover {
+        background-color: var(--button-hover-bg) !important;
+      }
+    }
+  }
+}
+
+// Enhanced modal
+.theme-light {
+  :deep(.ant-modal-content) {
+    border-radius: 12px !important;
+    box-shadow:
+      0 20px 25px -5px rgba(0, 0, 0, 0.1),
+      0 10px 10px -5px rgba(0, 0, 0, 0.04) !important;
+    border: 1px solid var(--border-color) !important;
+  }
+
+  :deep(.ant-modal-header) {
+    border-bottom-color: var(--border-color) !important;
+    border-radius: 12px 12px 0 0 !important;
+  }
+
+  :deep(.ant-modal-footer) {
+    border-top-color: var(--border-color) !important;
+    border-radius: 0 0 12px 12px !important;
+  }
+}
+
+// Enhanced table
+.theme-light {
+  :deep(.ant-table) {
+    border-radius: 8px !important;
+    overflow: hidden !important;
+
+    .ant-table-thead > tr > th {
+      background-color: var(--bg-color-secondary) !important;
+      border-bottom-color: var(--border-color) !important;
+      font-weight: 600 !important;
+    }
+
+    .ant-table-tbody > tr {
+      transition: all 0.2s ease !important;
+
+      &:hover > td {
+        background-color: var(--hover-bg-color) !important;
+      }
+    }
+  }
+}
+
+// Enhanced badge
+.theme-light {
+  :deep(.ant-badge) {
+    .ant-badge-count {
+      background: var(--button-bg-color) !important;
+      box-shadow: 0 2px 4px rgba(59, 130, 246, 0.3) !important;
+    }
+  }
+}
+
+// Enhanced progress
+.theme-light {
+  :deep(.ant-progress) {
+    .ant-progress-bg {
+      background: linear-gradient(90deg, var(--button-bg-color), var(--button-hover-bg)) !important;
+    }
+
+    .ant-progress-text {
+      color: var(--text-color-secondary) !important;
+      font-weight: 600 !important;
+    }
+  }
+}
+
+// Enhanced switch
+.theme-light {
+  :deep(.ant-switch) {
+    background-color: var(--border-color) !important;
+
+    &.ant-switch-checked {
+      background-color: var(--success-color) !important;
+    }
+
+    .ant-switch-handle {
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1) !important;
+    }
+  }
+}
+
+// Dark theme specific enhancements
+.theme-dark {
+  // Enhanced status colors
+  .status-success {
+    color: var(--success-color);
+    background-color: rgba(16, 185, 129, 0.15);
+    border-color: rgba(16, 185, 129, 0.3);
+  }
+
+  .status-warning {
+    color: var(--warning-color);
+    background-color: rgba(245, 158, 11, 0.15);
+    border-color: rgba(245, 158, 11, 0.3);
+  }
+
+  .status-error {
+    color: var(--error-color);
+    background-color: rgba(239, 68, 68, 0.15);
+    border-color: rgba(239, 68, 68, 0.3);
+  }
+
+  .status-info {
+    color: var(--info-color);
+    background-color: rgba(59, 130, 246, 0.15);
+    border-color: rgba(59, 130, 246, 0.3);
+  }
+
+  // Enhanced tooltips
+  :deep(.ant-tooltip) {
+    .ant-tooltip-inner {
+      background-color: #1f2937 !important;
+      color: #f9fafb !important;
+      border-radius: 6px !important;
+      font-size: 12px !important;
+      padding: 6px 10px !important;
+      border: 1px solid #374151 !important;
+    }
+
+    .ant-tooltip-arrow::before {
+      background-color: #1f2937 !important;
+      border: 1px solid #374151 !important;
+    }
+  }
+
+  // Enhanced scrollbars
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: var(--bg-color-secondary);
+    border-radius: 5px;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: var(--border-color);
+    border-radius: 5px;
+    border: 2px solid var(--bg-color-secondary);
+
+    &:hover {
+      background: var(--border-color-light);
+    }
+  }
+
+  ::-webkit-scrollbar-corner {
+    background: var(--bg-color-secondary);
+  }
+
+  // Enhanced focus states
+  *:focus {
+    outline: none;
+  }
+
+  .focus-visible {
+    box-shadow: var(--input-focus-shadow) !important;
+  }
+
+  // Enhanced animations
+  .fade-in {
+    animation: fadeInDark 0.3s ease-in-out;
+  }
+
+  .slide-up {
+    animation: slideUpDark 0.3s ease-out;
+  }
+
+  .scale-in {
+    animation: scaleInDark 0.2s ease-out;
+  }
+
+  // Enhanced glow effects
+  .glow-effect {
+    box-shadow: 0 0 20px rgba(59, 130, 246, 0.3) !important;
+  }
+
+  .glow-effect-success {
+    box-shadow: 0 0 20px rgba(16, 185, 129, 0.3) !important;
+  }
+
+  .glow-effect-warning {
+    box-shadow: 0 0 20px rgba(245, 158, 11, 0.3) !important;
+  }
+
+  .glow-effect-error {
+    box-shadow: 0 0 20px rgba(239, 68, 68, 0.3) !important;
+  }
+
+  // Enhanced glass morphism
+  .glass-effect {
+    background: rgba(26, 26, 26, 0.8) !important;
+    backdrop-filter: blur(20px) !important;
+    border: 1px solid rgba(255, 255, 255, 0.1) !important;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3) !important;
+  }
+
+  // Enhanced gradients
+  .gradient-bg {
+    background: linear-gradient(135deg, var(--bg-color), var(--bg-color-secondary)) !important;
+  }
+
+  .gradient-border {
+    border: 1px solid transparent !important;
+    background:
+      linear-gradient(var(--bg-color), var(--bg-color)) padding-box,
+      linear-gradient(135deg, var(--button-bg-color), var(--button-hover-bg)) border-box !important;
+  }
+}
+
+// Dark theme specific keyframes
+@keyframes fadeInDark {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slideUpDark {
+  from {
+    transform: translateY(20px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@keyframes scaleInDark {
+  from {
+    transform: scale(0.9);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+// Dark theme specific component overrides
+.theme-dark {
+  // Enhanced card shadows
+  :deep(.ant-card) {
+    box-shadow: var(--card-shadow) !important;
+
+    &:hover {
+      box-shadow: 0 8px 25px rgba(0, 0, 0, 0.4) !important;
+      transform: translateY(-2px) !important;
+    }
+  }
+
+  // Enhanced button effects
+  :deep(.ant-btn) {
+    &:hover {
+      transform: translateY(-1px) !important;
+      box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3) !important;
+    }
+  }
+
+  // Enhanced input focus
+  :deep(.ant-input),
+  :deep(.ant-select-selector) {
+    &:focus {
+      box-shadow: var(--input-focus-shadow) !important;
+      border-color: var(--input-focus-border) !important;
+    }
+  }
+
+  // Enhanced table styling
+  :deep(.ant-table) {
+    .ant-table-thead > tr > th {
+      background: linear-gradient(135deg, var(--bg-color-secondary), var(--bg-color-tertiary)) !important;
+      border-bottom: 2px solid var(--border-color) !important;
+    }
+
+    .ant-table-tbody > tr:hover > td {
+      background: linear-gradient(135deg, var(--hover-bg-color), rgba(255, 255, 255, 0.05)) !important;
+    }
+  }
+
+  // Enhanced modal styling
+  :deep(.ant-modal-content) {
+    background: linear-gradient(135deg, var(--card-bg), var(--bg-color-secondary)) !important;
+    border: 1px solid var(--border-color) !important;
+    box-shadow: 0 25px 50px rgba(0, 0, 0, 0.5) !important;
+  }
 }

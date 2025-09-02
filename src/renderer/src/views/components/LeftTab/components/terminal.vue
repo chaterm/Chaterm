@@ -378,6 +378,7 @@ const userConfig = ref({
 const fontFamilyOptions = [
   { value: 'Menlo, Monaco, "Courier New", Consolas, Courier, monospace', label: 'Menlo' },
   { value: 'Monaco, "Courier New", Consolas, Courier, monospace', label: 'Monaco' },
+  { value: '"MesloLGS NF", "MesloLGS NF", "Courier New", Courier, monospace', label: 'Meslo Nerd Font' },
   { value: '"Courier New", Courier, monospace', label: 'Courier New' },
   { value: 'Consolas, "Courier New", Courier, monospace', label: 'Consolas' },
   { value: 'Courier, monospace', label: 'Courier' },

@@ -314,7 +314,7 @@ onMounted(async () => {
               selectionBackground: 'rgba(0, 0, 0, 0.3)'
             }
           : {
-              background: '#141414',
+              background: 'var(--bg-color-secondary)',
               foreground: '#f0f0f0',
               cursor: '#f0f0f0',
               cursorAccent: '#f0f0f0',
@@ -542,7 +542,7 @@ onMounted(async () => {
               selectionBackground: 'rgba(0, 0, 0, 0.3)'
             }
           : {
-              background: '#141414',
+              background: 'var(--bg-color-secondary)',
               foreground: '#f0f0f0',
               cursor: '#f0f0f0',
               cursorAccent: '#f0f0f0',
@@ -1736,49 +1736,38 @@ const checkHeavyUiStyle = (data: string) => {
   return moveCount >= 5 && clearCount >= 5 && hasTable
 }
 
-const checkEditorMode = (response: MarkedResponse): void => {
+const BUFFER_SIZE = 1024
+const checkEditorMode = (response: MarkedResponse) => {
   let bytes: number[] = []
+
   if (response.data) {
-    if (typeof response.data === 'string') {
-      const encoder = new TextEncoder()
-      bytes = Array.from(encoder.encode(response.data))
-    } else if (response.data && typeof response.data === 'object' && 'byteLength' in response.data) {
-      bytes = Array.from(response.data as Uint8Array)
-    } else if (Array.isArray(response.data)) {
-      bytes = response.data
-    }
+    if (typeof response.data === 'string') bytes = Array.from(new TextEncoder().encode(response.data))
+    else if (response.data instanceof ArrayBuffer) bytes = Array.from(new Uint8Array(response.data))
+    else if (response.data instanceof Uint8Array) bytes = Array.from(response.data)
+    else if (Array.isArray(response.data)) bytes = response.data
   }
 
   if (bytes.length === 0) return
-  dataBuffer.value.push(...bytes)
-  if (dataBuffer.value.length > 4000) {
-    dataBuffer.value = dataBuffer.value.slice(-2000)
-  }
 
-  const buffer = dataBuffer.value
-  const text = new TextDecoder().decode(new Uint8Array(buffer))
+  // 只保留最近 1024字节
+  dataBuffer.value = bytes.length > BUFFER_SIZE ? bytes.slice(-BUFFER_SIZE) : bytes
+
+  const text = new TextDecoder().decode(new Uint8Array(dataBuffer.value))
 
   if (terminalMode.value === 'none') {
-    for (const seq of EDITOR_SEQUENCES.enter) {
-      if (matchPattern(dataBuffer.value, seq.pattern)) {
-        terminalMode.value = 'alternate'
-        nextTick(() => {
-          handleResize()
-        })
-        return
-      }
+    if (EDITOR_SEQUENCES.enter.some((seq) => matchPattern(dataBuffer.value, seq.pattern))) {
+      terminalMode.value = 'alternate'
+      nextTick(handleResize)
+      return
     }
   }
+
   if (terminalMode.value === 'alternate') {
-    for (const seq of EDITOR_SEQUENCES.exit) {
-      if (matchPattern(dataBuffer.value, seq.pattern)) {
-        terminalMode.value = 'none'
-        dataBuffer.value = []
-        nextTick(() => {
-          handleResize()
-        })
-        return
-      }
+    if (EDITOR_SEQUENCES.exit.some((seq) => matchPattern(dataBuffer.value, seq.pattern))) {
+      terminalMode.value = 'none'
+      dataBuffer.value = []
+      nextTick(handleResize)
+      return
     }
   }
 
