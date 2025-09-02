@@ -63,11 +63,13 @@ export class DatabaseManager {
                   'username', NEW.username,
                   'password', NEW.password,
                   'key_chain_id', NEW.key_chain_id,
-                                  'favorite', NEW.favorite,
-                'asset_type', NEW.asset_type,
-                'created_at', NEW.created_at,
-                'updated_at', NEW.updated_at,
-                'version', NEW.version
+                  'favorite', NEW.favorite,
+                  'asset_type', NEW.asset_type,
+                  'need_proxy', NEW.need_proxy,
+                  'proxy_name', NEW.proxy_name,
+                  'created_at', NEW.created_at,
+                  'updated_at', NEW.updated_at,
+                  'version', NEW.version
               ));
         -- 设置同步信号标记
         INSERT INTO sync_meta(key, value) VALUES('sync_signal', datetime('now'))
@@ -94,6 +96,8 @@ export class DatabaseManager {
                   'key_chain_id', NEW.key_chain_id,
                   'favorite', NEW.favorite,
                   'asset_type', NEW.asset_type,
+                  'need_proxy', NEW.need_proxy,
+                  'proxy_name', NEW.proxy_name,
                   'created_at', NEW.created_at,
                   'updated_at', NEW.updated_at,
                   'version', NEW.version
@@ -109,6 +113,8 @@ export class DatabaseManager {
                   'key_chain_id', OLD.key_chain_id,
                   'favorite', OLD.favorite,
                   'asset_type', OLD.asset_type,
+                  'need_proxy', OLD.need_proxy,
+                  'proxy_name', OLD.proxy_name,
                   'created_at', OLD.created_at,
                   'updated_at', OLD.updated_at,
                   'version', OLD.version

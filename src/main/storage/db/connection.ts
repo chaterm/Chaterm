@@ -193,7 +193,7 @@ function upgradeTAssetsTable(db: Database.Database): void {
     try {
       db.prepare('SELECT need_proxy FROM t_assets LIMIT 1').get()
     } catch (e) {
-      db.exec('ALTER TABLE t_assets ADD COLUMN need_proxy BOOLEAN DEFAULT FALSE')
+      db.exec('ALTER TABLE t_assets ADD COLUMN need_proxy INTEGER DEFAULT 0')
       console.log('Added need_proxy column to t_assets')
     }
 

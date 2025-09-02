@@ -1076,10 +1076,12 @@ export class SafeBatchSyncManager {
         const sensitive: any = {}
         if (record.password !== undefined && record.password !== null) sensitive.password = record.password
         if (record.username !== undefined && record.username !== null) sensitive.username = record.username
+        if (record.need_proxy !== undefined && record.need_proxy !== null) sensitive.need_proxy = record.need_proxy
+        if (record.proxy_name !== undefined && record.proxy_name !== null) sensitive.proxy_name = record.proxy_name
         if (Object.keys(sensitive).length > 0) {
           try {
             const combined = await encryptPayload(sensitive, service)
-            const { password, username, ...rest } = record
+            const { password, username, need_proxy, proxy_name, ...rest } = record
             return { ...rest, data_cipher_text: combined }
           } catch {
             // 如果敏感字段存在但加密失败，抛出错误以防止明文上行
