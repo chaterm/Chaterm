@@ -328,7 +328,7 @@ if (monaco.editor) {
       { token: 'operator', foreground: 'd4d4d4' }
     ],
     colors: {
-      'editor.background': '#282c34',
+      'editor.background': '#1a1a1a',
       'editor.foreground': '#d4d4d4',
       'editorLineNumber.foreground': '#636d83',
       'editorLineNumber.activeForeground': '#9da5b4',
@@ -350,7 +350,7 @@ if (monaco.editor) {
       { token: 'operator', foreground: '000000' }
     ],
     colors: {
-      'editor.background': '#ffffff',
+      'editor.background': '#f8fafc',
       'editor.foreground': '#000000',
       'editorLineNumber.foreground': '#666666',
       'editorLineNumber.activeForeground': '#000000',
@@ -1223,7 +1223,7 @@ code {
   margin: 4px 0;
   border-radius: 6px;
   overflow: hidden;
-  background-color: var(--bg-color-septenary);
+  background-color: var(--command-output-bg);
   min-height: 30px;
   height: auto;
 }
@@ -1403,7 +1403,7 @@ code {
 }
 
 .markdown-content code {
-  background-color: var(--bg-color-quinary);
+  background-color: var(--bg-color-secondary);
   padding: 2px 4px;
   border-radius: 3px;
   font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
@@ -1469,6 +1469,7 @@ code {
 
 .code-collapse .ant-collapse-content-box {
   padding: 2px 5px 2px 5px !important;
+  background-color: var(--bg-color-secondary) !important;
 }
 
 .code-collapse .ant-typography {
@@ -1514,10 +1515,9 @@ code {
   margin: 4px 0;
   border-radius: 6px;
   overflow: hidden;
-  background-color: var(--bg-color-septenary);
   min-height: 30px;
   position: relative;
-  padding: 2px 0 8px 0;
+  padding: 2px 0 4px 0;
 }
 
 .monaco-container.collapsed .copy-button {
@@ -1592,7 +1592,7 @@ code {
 }
 
 .markdown-content pre {
-  background-color: var(--bg-color-quinary);
+  background-color: var(--bg-color-secondary);
   border-radius: 8px;
   padding: 8px;
   overflow-x: hidden;
@@ -1618,7 +1618,7 @@ code {
 
 .command-output {
   font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
-  background-color: var(--bg-color-quinary);
+  background-color: var(--bg-color-secondary);
   color: var(--text-color);
   padding: 28px 12px 12px;
   border-radius: 8px;
@@ -1643,7 +1643,7 @@ code {
   left: 0;
   right: 0;
   height: 18px;
-  background: var(--bg-color-quinary);
+  background: var(--bg-color-secondary);
   border-bottom: 1px solid var(--bg-color-quaternary);
 }
 
@@ -1775,7 +1775,7 @@ code {
 
 .command-output .progress-bar {
   height: 4px;
-  background-color: var(--bg-color-quinary);
+  background-color: var(--bg-color-secondary);
   border-radius: 2px;
   margin: 8px 0;
   overflow: hidden;
