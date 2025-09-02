@@ -66,7 +66,7 @@
               v-model:expanded-keys="expandedKeys"
               :tree-data="assetTreeData"
               :field-names="{ children: 'children', title: 'title', key: 'key' }"
-              :default-expand-all="true"
+              :default-expand-all="false"
               class="dark-tree"
               @select="handleSelect"
             >
@@ -153,7 +153,7 @@
               v-model:expanded-keys="expandedKeys"
               :tree-data="enterpriseData"
               :field-names="{ children: 'children', title: 'title', key: 'key' }"
-              :default-expand-all="true"
+              :default-expand-all="false"
               class="dark-tree"
               @select="handleSelect"
             >
@@ -557,9 +557,9 @@ const getLocalAssetMenu = () => {
         assetTreeData.value = deepClone(data) as AssetNode[]
         const localShell = await window.api.getShellsLocal()
         assetTreeData.value.push(localShell)
-        setTimeout(() => {
-          expandDefaultNodes(assetTreeData.value)
-        }, 200)
+        // setTimeout(() => {
+        //   expandDefaultNodes(assetTreeData.value)
+        // }, 200)
       }
     })
     .catch((err) => console.error(err))
@@ -573,9 +573,9 @@ const getUserAssetMenu = () => {
         const data = res.data.routers || []
         originalTreeData.value = deepClone(data) as AssetNode[]
         enterpriseData.value = deepClone(data) as AssetNode[]
-        setTimeout(() => {
-          expandDefaultNodes(enterpriseData.value)
-        }, 200)
+        // setTimeout(() => {
+        //   expandDefaultNodes(enterpriseData.value)
+        // }, 200)
       }
     })
     .catch((err) => console.error(err))
@@ -633,10 +633,10 @@ const filterTreeNodes = (inputValue: string): AssetNode[] => {
 const onSearchInput = () => {
   if (isPersonalWorkspace.value) {
     assetTreeData.value = filterTreeNodes(searchValue.value)
-    expandedKeys.value = getAllKeys(assetTreeData.value)
+    // expandedKeys.value = getAllKeys(assetTreeData.value) // Comment out to prevent auto-expand on search
   } else {
     enterpriseData.value = filterTreeNodes(searchValue.value)
-    expandedKeys.value = getAllKeys(enterpriseData.value)
+    // expandedKeys.value = getAllKeys(enterpriseData.value) // Comment out to prevent auto-expand on search
   }
 }
 
