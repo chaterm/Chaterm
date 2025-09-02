@@ -17,7 +17,7 @@
         </div>
       </div>
 
-      <div style="width: 100%; margin-top: 10px">
+      <div style="width: 100%; margin-top: 4px">
         <div class="manage">
           <a-input
             v-model:value="searchValue"
@@ -30,23 +30,33 @@
               <search-outlined />
             </template>
           </a-input>
-          <a-button
-            v-if="!isPersonalWorkspace"
-            type="primary"
-            size="small"
-            class="workspace-button"
-            @click="showCreateFolderModal = true"
+          <a-tooltip
+            :title="t('personal.customFolders')"
+            placement="top"
           >
-            <template #icon><folder-outlined /></template>{{ t('personal.folder') }}
-          </a-button>
-          <a-button
-            type="primary"
-            size="small"
-            class="workspace-button"
-            @click="assetManagement"
+            <a-button
+              v-if="!isPersonalWorkspace"
+              type="primary"
+              size="small"
+              class="workspace-button"
+              @click="showCreateFolderModal = true"
+            >
+              <folder-outlined />
+            </a-button>
+          </a-tooltip>
+          <a-tooltip
+            :title="t('personal.host')"
+            placement="top"
           >
-            <template #icon><laptop-outlined /></template>{{ t('personal.host') }}
-          </a-button>
+            <a-button
+              type="primary"
+              size="small"
+              class="workspace-button"
+              @click="assetManagement"
+            >
+              <laptop-outlined />
+            </a-button>
+          </a-tooltip>
         </div>
 
         <div class="tree-container">
@@ -77,16 +87,13 @@
                     </span>
                   </span>
                   <span
-                    v-else
+                    v-else-if="editingNode !== dataRef.key && commentNode !== dataRef.key"
                     class="title-with-icon"
+                    @click="handleClick(dataRef)"
+                    @dblclick="handleDblClick(dataRef)"
                   >
                     <laptop-outlined class="computer-icon" />
-                    <span
-                      v-if="editingNode !== dataRef.key && commentNode !== dataRef.key"
-                      @click="handleClick(dataRef)"
-                      @dblclick="handleDblClick(dataRef)"
-                      >{{ title }}</span
-                    >
+                    <span>{{ title }}</span>
 
                     <div
                       v-if="commentNode === dataRef.key"
@@ -167,16 +174,13 @@
                     </span>
                   </span>
                   <span
-                    v-else
+                    v-else-if="editingNode !== dataRef.key && commentNode !== dataRef.key"
                     class="title-with-icon"
+                    @click="handleClick(dataRef)"
+                    @dblclick="handleDblClick(dataRef)"
                   >
                     <laptop-outlined class="computer-icon" />
-                    <span
-                      v-if="editingNode !== dataRef.key && commentNode !== dataRef.key"
-                      @click="handleClick(dataRef)"
-                      @dblclick="handleDblClick(dataRef)"
-                      >{{ title }}</span
-                    >
+                    <span>{{ title }}</span>
                     <!-- 备注编辑输入框 -->
                     <div
                       v-if="commentNode === dataRef.key"
@@ -1066,7 +1070,6 @@ onUnmounted(() => {
   .term_host_header {
     width: 100%;
     height: auto;
-    min-width: 320px;
   }
 
   .active-text {
@@ -1085,7 +1088,7 @@ onUnmounted(() => {
   .manage {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 4px;
     padding: 4px;
 
     .transparent-Input {
@@ -1160,7 +1163,6 @@ onUnmounted(() => {
 
   .ant-tree-node-content-wrapper {
     width: 100%;
-    min-width: 280px;
   }
 
   .ant-tree-switcher {
@@ -1188,7 +1190,6 @@ onUnmounted(() => {
   justify-content: space-between;
   align-items: center;
   width: 100%;
-  min-width: 280px;
   position: relative;
   padding-right: 4px;
 

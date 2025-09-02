@@ -209,7 +209,7 @@ onMounted(async () => {
     // Fallback display
     copyShortcut.value = 'Ctrl+C'
     pasteShortcut.value = 'Ctrl+V'
-    closeShortcut.value = 'Ctrl+U'
+    closeShortcut.value = 'Ctrl+W'
     searchShortcut.value = 'Ctrl+F'
     newTerminalShortcut.value = 'Ctrl+N'
     clearTermShortcut.value = 'Ctrl+P'

@@ -367,23 +367,19 @@ const changeDataSync = async () => {
 }
 
 .custom-form :deep(.ant-input-number) {
-  background-color: var(--bg-color-secondary);
+  background-color: var(--input-number-bg);
   border: 1px solid var(--border-color);
   border-radius: 6px;
   transition: all 0.3s;
   width: 100px !important;
 }
 
-.custom-form :deep(.ant-input-number:hover) {
-  border-color: #1890ff;
-  background-color: var(--hover-bg-color);
-}
-
+.custom-form :deep(.ant-input-number:hover),
 .custom-form :deep(.ant-input-number:focus),
 .custom-form :deep(.ant-input-number-focused) {
+  background-color: var(--input-number-hover-bg);
   border-color: #1890ff;
   box-shadow: 0 0 0 2px rgba(24, 144, 255, 0.2);
-  background-color: var(--hover-bg-color);
 }
 
 .custom-form :deep(.ant-input-number-input) {
@@ -391,26 +387,6 @@ const changeDataSync = async () => {
   padding: 4px 8px;
   background-color: transparent;
   color: var(--text-color);
-}
-
-[data-theme='light'] .custom-form :deep(.ant-input-number) {
-  background-color: #f5f5f5;
-}
-
-[data-theme='light'] .custom-form :deep(.ant-input-number:hover),
-[data-theme='light'] .custom-form :deep(.ant-input-number:focus),
-[data-theme='light'] .custom-form :deep(.ant-input-number-focused) {
-  background-color: #fafafa;
-}
-
-[data-theme='dark'] .custom-form :deep(.ant-input-number) {
-  background-color: #2a2a2a;
-}
-
-[data-theme='dark'] .custom-form :deep(.ant-input-number:hover),
-[data-theme='dark'] .custom-form :deep(.ant-input-number:focus),
-[data-theme='dark'] .custom-form :deep(.ant-input-number-focused) {
-  background-color: #363636;
 }
 
 .label-text {

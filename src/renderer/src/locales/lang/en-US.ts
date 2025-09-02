@@ -410,7 +410,7 @@ export default {
     }
   },
   personal: {
-    host: 'Host',
+    host: 'Asset Management',
     newHost: 'New Host',
     keyChain: 'KeyChain',
     address: 'Connection Address',

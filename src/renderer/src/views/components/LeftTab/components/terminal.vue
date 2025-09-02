@@ -697,6 +697,10 @@ onMounted(async () => {
   background-color: var(--bg-color);
 }
 
+.proxy-form :deep(.ant-form-item-label > label) {
+  color: #000000 !important;
+}
+
 .custom-form {
   color: var(--text-color);
   align-content: center;
@@ -717,23 +721,19 @@ onMounted(async () => {
 }
 
 .custom-form :deep(.ant-input-number) {
-  background-color: var(--bg-color-secondary);
+  background-color: var(--input-number-bg);
   border: 1px solid var(--border-color);
   border-radius: 6px;
   transition: all 0.3s;
   width: 100px !important;
 }
 
-.custom-form :deep(.ant-input-number:hover) {
-  border-color: #1890ff;
-  background-color: var(--hover-bg-color);
-}
-
+.custom-form :deep(.ant-input-number:hover),
 .custom-form :deep(.ant-input-number:focus),
 .custom-form :deep(.ant-input-number-focused) {
+  background-color: var(--input-number-hover-bg);
   border-color: #1890ff;
   box-shadow: 0 0 0 2px rgba(24, 144, 255, 0.2);
-  background-color: var(--hover-bg-color);
 }
 
 .custom-form :deep(.ant-input-number-input) {
@@ -741,26 +741,6 @@ onMounted(async () => {
   padding: 4px 8px;
   background-color: transparent;
   color: var(--text-color);
-}
-
-[data-theme='light'] .custom-form :deep(.ant-input-number) {
-  background-color: #f5f5f5;
-}
-
-[data-theme='light'] .custom-form :deep(.ant-input-number:hover),
-[data-theme='light'] .custom-form :deep(.ant-input-number:focus),
-[data-theme='light'] .custom-form :deep(.ant-input-number-focused) {
-  background-color: #fafafa;
-}
-
-[data-theme='dark'] .custom-form :deep(.ant-input-number) {
-  background-color: #2a2a2a;
-}
-
-[data-theme='dark'] .custom-form :deep(.ant-input-number:hover),
-[data-theme='dark'] .custom-form :deep(.ant-input-number:focus),
-[data-theme='dark'] .custom-form :deep(.ant-input-number-focused) {
-  background-color: #363636;
 }
 
 .label-text {
@@ -797,8 +777,8 @@ onMounted(async () => {
 }
 
 .font-family-select :deep(.ant-select-selector) {
-  background-color: var(--bg-color-secondary);
-  border: 1px solid var(--border-color);
+  background-color: var(--select-bg);
+  border: 1px solid var(--select-border);
   border-radius: 6px;
   color: var(--text-color);
   transition: all 0.3s;
@@ -807,14 +787,14 @@ onMounted(async () => {
 
 .font-family-select :deep(.ant-select-selector:hover) {
   border-color: #1890ff;
-  background-color: var(--hover-bg-color);
+  background-color: var(--select-hover-bg);
 }
 
 .font-family-select :deep(.ant-select-focused .ant-select-selector),
 .font-family-select :deep(.ant-select-selector:focus) {
   border-color: #1890ff;
   box-shadow: 0 0 0 2px rgba(24, 144, 255, 0.2);
-  background-color: var(--hover-bg-color);
+  background-color: var(--select-hover-bg);
 }
 
 .font-family-select :deep(.ant-select-selection-item) {
@@ -826,28 +806,6 @@ onMounted(async () => {
 .font-family-select :deep(.ant-select-arrow) {
   color: var(--text-color);
   opacity: 0.7;
-}
-
-[data-theme='light'] .font-family-select :deep(.ant-select-selector) {
-  background-color: #f5f5f5;
-  border-color: #d9d9d9;
-}
-
-[data-theme='light'] .font-family-select :deep(.ant-select-selector:hover),
-[data-theme='light'] .font-family-select :deep(.ant-select-focused .ant-select-selector) {
-  background-color: #fafafa;
-  border-color: #1890ff;
-}
-
-[data-theme='dark'] .font-family-select :deep(.ant-select-selector) {
-  background-color: #2a2a2a;
-  border-color: #404040;
-}
-
-[data-theme='dark'] .font-family-select :deep(.ant-select-selector:hover),
-[data-theme='dark'] .font-family-select :deep(.ant-select-focused .ant-select-selector) {
-  background-color: #363636;
-  border-color: #1890ff;
 }
 
 .divider-container {
@@ -917,26 +875,18 @@ onMounted(async () => {
 }
 
 .mouse-event-select :deep(.ant-select-selector) {
-  background-color: var(--bg-color-secondary);
-  border: 1px solid var(--border-color);
+  background-color: var(--select-bg);
+  border: 1px solid var(--select-border);
   border-radius: 6px;
   color: var(--text-color);
   transition: all 0.3s;
   height: 32px;
 }
 
-.mouse-event-select :deep(.ant-select-selector:hover) {
+.mouse-event-select :deep(.ant-select-selector:hover),
+.mouse-event-select :deep(.ant-select-focused .ant-select-selector) {
+  background-color: var(--select-hover-bg);
   border-color: #1890ff;
-  background-color: var(--hover-bg-color);
-  background-color: var(--bg-color-secondary);
-}
-
-.mouse-event-select :deep(.ant-select-focused .ant-select-selector),
-.mouse-event-select :deep(.ant-select-selector:focus) {
-  border-color: #1890ff;
-  box-shadow: 0 0 0 2px rgba(24, 144, 255, 0.2);
-  background-color: var(--hover-bg-color);
-  background-color: var(--bg-color-secondary);
 }
 
 .mouse-event-select :deep(.ant-select-selection-item) {
@@ -948,28 +898,6 @@ onMounted(async () => {
 .mouse-event-select :deep(.ant-select-arrow) {
   color: var(--text-color);
   opacity: 0.7;
-}
-
-[data-theme='light'] .mouse-event-select :deep(.ant-select-selector) {
-  background-color: #f5f5f5;
-  border-color: #d9d9d9;
-}
-
-[data-theme='light'] .mouse-event-select :deep(.ant-select-selector:hover),
-[data-theme='light'] .mouse-event-select :deep(.ant-select-focused .ant-select-selector) {
-  background-color: #fafafa;
-  border-color: #1890ff;
-}
-
-[data-theme='dark'] .mouse-event-select :deep(.ant-select-selector) {
-  background-color: #2a2a2a;
-  border-color: #404040;
-}
-
-[data-theme='dark'] .mouse-event-select :deep(.ant-select-selector:hover),
-[data-theme='dark'] .mouse-event-select :deep(.ant-select-focused .ant-select-selector) {
-  background-color: #363636;
-  border-color: #1890ff;
 }
 
 :deep(.ant-select) {

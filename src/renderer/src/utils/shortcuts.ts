@@ -66,11 +66,11 @@ export const getCloseShortcut = async (): Promise<string> => {
 
   switch (currentPlatform) {
     case 'darwin':
-      return '⌘U'
+      return '⌘W'
     case 'win32':
     case 'linux':
     default:
-      return 'Ctrl+U'
+      return 'Ctrl+W'
   }
 }
 
