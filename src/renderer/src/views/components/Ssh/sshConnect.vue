@@ -482,22 +482,6 @@ onMounted(async () => {
     terminalContainerResize()
   })
 
-  if (props.connectData.asset_type === 'shell') {
-    // TODO 本地连接后续兼容
-    config.highlightStatus = 2
-    config.autoCompleteStatus = 2
-    isLocalConnect.value = true
-    await connectLocalSSH()
-  } else {
-    await connectSSH()
-  }
-
-  const handleExecuteCommand = (command) => {
-    if (props.activeTabId !== props.currentConnectionId) return
-    sendMarkedData(command, 'Chaterm:command')
-    termInstance.focus()
-  }
-
   const handleSendOrToggleAi = () => {
     if (props.activeTabId !== props.currentConnectionId) {
       console.log('Not active tab, ignoring event')
@@ -531,6 +515,24 @@ onMounted(async () => {
     }
 
     handleSendOrToggleAi()
+  }
+  // Move the event listener before async operations for better initialization order
+  eventBus.on('sendOrToggleAiFromTerminalForTab', handleSendOrToggleAiForTab)
+
+  if (props.connectData.asset_type === 'shell') {
+    // TODO 本地连接后续兼容
+    config.highlightStatus = 2
+    config.autoCompleteStatus = 2
+    isLocalConnect.value = true
+    await connectLocalSSH()
+  } else {
+    await connectSSH()
+  }
+
+  const handleExecuteCommand = (command) => {
+    if (props.activeTabId !== props.currentConnectionId) return
+    sendMarkedData(command, 'Chaterm:command')
+    termInstance.focus()
   }
 
   const handleRequestUpdateCwdForHost = (hostIp: string) => {
