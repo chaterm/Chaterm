@@ -45,19 +45,19 @@
           {{ $t('user.autoApprovalDescribe') }}
         </p>
       </div>
-      <div class="setting-item">
-        <a-form-item
-          :label="$t('user.customInstructions')"
-          :label-col="{ span: 24 }"
-          :wrapper-col="{ span: 24 }"
-        >
-          <a-textarea
-            v-model:value="customInstructions"
-            :rows="2"
-            :placeholder="$t('user.customInstructionsPh')"
-          />
-        </a-form-item>
-      </div>
+      <!--      <div class="setting-item">-->
+      <!--        <a-form-item-->
+      <!--          :label="$t('user.customInstructions')"-->
+      <!--          :label-col="{ span: 24 }"-->
+      <!--          :wrapper-col="{ span: 24 }"-->
+      <!--        >-->
+      <!--          <a-textarea-->
+      <!--            v-model:value="customInstructions"-->
+      <!--            :rows="2"-->
+      <!--            :placeholder="$t('user.customInstructionsPh')"-->
+      <!--          />-->
+      <!--        </a-form-item>-->
+      <!--      </div>-->
     </a-card>
 
     <div class="section-header">

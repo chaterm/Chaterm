@@ -565,6 +565,22 @@ onMounted(async () => {
   eventBus.on('updateTheme', handleUpdateTheme)
   eventBus.on('openSearch', openSearch)
 
+  // 监听来自preload的搜索和关闭触发事件（Windows系统专用）
+  const handlePostMessage = (event: MessageEvent) => {
+    if (event.data?.type === 'TRIGGER_SEARCH') {
+      // 只有当前活跃的终端才响应搜索事件
+      if (props.activeTabId === props.currentConnectionId) {
+        openSearch()
+      }
+    } else if (event.data?.type === 'TRIGGER_CLOSE') {
+      // 只有当前活跃的终端才响应关闭事件
+      if (props.activeTabId === props.currentConnectionId) {
+        contextAct('close')
+      }
+    }
+  }
+  window.addEventListener('message', handlePostMessage)
+
   eventBus.on('clearCurrentTerminal', () => {
     contextAct('clearTerm')
   })
@@ -608,6 +624,7 @@ onMounted(async () => {
     eventBus.off('fontSizeIncrease')
     eventBus.off('fontSizeDecrease')
     window.removeEventListener('keydown', handleGlobalKeyDown)
+    window.removeEventListener('message', handlePostMessage)
   })
 
   if (terminal.value?.textarea) {
@@ -2468,6 +2485,7 @@ const handleGlobalKeyDown = (e: KeyboardEvent) => {
   }
 
   // Search functionality
+  // Windows uses the method of listening for key messages, window.addEventListener('message', handlePostMessage)
   if ((isMac ? e.metaKey : e.ctrlKey) && e.key === 'f') {
     e.preventDefault()
     e.stopPropagation()

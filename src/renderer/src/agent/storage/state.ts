@@ -9,7 +9,8 @@ import {
   type AutoApprovalSettings,
   type ChatSettings,
   type TelemetrySetting,
-  type UserInfo
+  type UserInfo,
+  type Rule
 } from './shared'
 import { GlobalStateKey, SecretKey } from './state-keys'
 import { storageContext } from './storage-context'
@@ -98,6 +99,7 @@ export async function getAllExtensionState() {
     //openRouterProviderSorting,
     //lastShownAnnouncementId,
     customInstructions,
+    userRules,
     taskHistory,
     autoApprovalSettings,
     //browserSettings,
@@ -184,6 +186,7 @@ export async function getAllExtensionState() {
     //getGlobalState('openRouterProviderSorting') as Promise<string | undefined>,
     //getGlobalState('lastShownAnnouncementId') as Promise<string | undefined>,
     getGlobalState('customInstructions') as Promise<string | undefined>,
+    getGlobalState('userRules') as Promise<Array<Rule> | undefined>,
     getGlobalState('taskHistory') as Promise<HistoryItem[] | undefined>,
     getGlobalState('autoApprovalSettings') as Promise<AutoApprovalSettings | undefined>,
     //getGlobalState('browserSettings') as Promise<BrowserSettings | undefined>,
@@ -336,6 +339,7 @@ export async function getAllExtensionState() {
     },
     //lastShownAnnouncementId,
     customInstructions,
+    userRules,
     taskHistory,
     autoApprovalSettings: autoApprovalSettings || DEFAULT_AUTO_APPROVAL_SETTINGS, // default value can be 0 or empty string
     //browserSettings: { ...DEFAULT_BROWSER_SETTINGS, ...browserSettings }, // this will ensure that older versions of browserSettings (e.g. before remoteBrowserEnabled was added) are merged with the default values (false for remoteBrowserEnabled)

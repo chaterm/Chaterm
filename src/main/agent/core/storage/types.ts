@@ -12,6 +12,7 @@ export type GlobalStateKey =
   | 'awsBedrockCustomSelected'
   | 'awsBedrockCustomModelBaseId'
   | 'customInstructions'
+  | 'userRules'
   | 'taskHistory'
   | 'autoApprovalSettings'
   | 'chatSettings'
