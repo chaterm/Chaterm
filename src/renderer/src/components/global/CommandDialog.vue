@@ -137,6 +137,13 @@ watch(
       // Clean up ResizeObserver when dialog closes
       teardownContentResizeObserver()
       stopFocusEnforcer()
+
+      // Reset all states when dialog closes
+      isLoading.value = false
+      error.value = ''
+      generatedCommand.value = ''
+      inputValue.value = ''
+      lastInjectedLength.value = 0
     }
   }
 )
@@ -169,6 +176,13 @@ const handleKeyDown = (e: KeyboardEvent) => {
 }
 
 const handleClose = () => {
+  // Reset loading state when closing dialog
+  isLoading.value = false
+  error.value = ''
+  generatedCommand.value = ''
+  inputValue.value = ''
+  lastInjectedLength.value = 0
+
   emit('update:visible', false)
   eventBus.emit('focusActiveTerminal')
 }
