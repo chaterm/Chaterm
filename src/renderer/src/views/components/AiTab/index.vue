@@ -122,17 +122,58 @@
               />
 
               <div class="message-actions">
-                <template v-if="typeof message.content === 'object' && 'options' in message.content">
+                <template v-if="typeof message.content === 'object' && 'options' in message.content && index === filteredChatHistory.length - 1">
                   <div class="options-container">
-                    <a-button
-                      v-for="(option, optionIndex) in (message.content as MessageContent).options"
-                      :key="optionIndex"
-                      size="small"
-                      :class="['action-btn', 'option-btn', { selected: message.selectedOption === option }]"
-                      @click="handleOptionChoose(message, option)"
+                    <!-- 显示原有选项作为单选按钮 -->
+                    <div class="options-radio-group">
+                      <a-radio-group
+                        :value="getSelectedOption(message)"
+                        @change="(e) => handleOptionSelect(message, e.target.value)"
+                      >
+                        <a-radio
+                          v-for="(option, optionIndex) in (message.content as MessageContent).options"
+                          :key="optionIndex"
+                          :value="option"
+                          class="option-radio"
+                        >
+                          {{ option }}
+                        </a-radio>
+                        <!-- 当选项数量大于1时，添加自定义输入选项 -->
+                        <div
+                          v-if="(message.content as MessageContent).options && (message.content as MessageContent).options!.length > 1"
+                          class="option-radio custom-option"
+                        >
+                          <a-radio
+                            value="__custom__"
+                            class="custom-radio"
+                          />
+                          <a-textarea
+                            :value="getCustomInput(message)"
+                            :placeholder="$t('ai.enterCustomOption')"
+                            :auto-size="{ minRows: 1, maxRows: 4 }"
+                            class="custom-input"
+                            @input="(e) => handleCustomInputChange(message, e.target.value)"
+                            @focus="() => handleOptionSelect(message, '__custom__')"
+                          />
+                        </div>
+                      </a-radio-group>
+                    </div>
+
+                    <!-- 提交按钮 - 选择任何选项后显示 -->
+                    <div
+                      v-if="(message.content as MessageContent).options && !message.selectedOption && getSelectedOption(message)"
+                      class="submit-button-container"
                     >
-                      {{ option }}
-                    </a-button>
+                      <a-button
+                        type="primary"
+                        size="small"
+                        :disabled="!canSubmitOption(message)"
+                        class="submit-option-btn"
+                        @click="handleOptionSubmit(message)"
+                      >
+                        {{ $t('ai.submit') }}
+                      </a-button>
+                    </div>
                   </div>
                 </template>
               </div>
@@ -705,6 +746,10 @@ const chatTypeValue = ref('')
 const activeKey = ref('chat')
 const showSendButton = ref(true)
 const responseLoading = ref(false)
+
+// 选项相关的响应式数据
+const messageOptionSelections = ref<Record<string, string>>({}) // 存储每个消息的选项选择
+const messageCustomInputs = ref<Record<string, string>>({}) // 存储每个消息的自定义输入内容
 const shouldShowSendButton = computed(() => {
   const trimmedValue = chatInputValue.value.trim()
   return trimmedValue.length >= 1 && !/^\s*$/.test(trimmedValue)
@@ -1402,6 +1447,47 @@ const handleOptionChoose = async (message: ChatMessage, option?: string) => {
   } catch (error) {
     console.error('Failed to send message to main process:', error)
   }
+}
+
+// 新的选项处理方法
+const getSelectedOption = (message: ChatMessage): string => {
+  return messageOptionSelections.value[message.id] || ''
+}
+
+const handleOptionSelect = (message: ChatMessage, value: string) => {
+  messageOptionSelections.value[message.id] = value
+}
+
+const getCustomInput = (message: ChatMessage): string => {
+  return messageCustomInputs.value[message.id] || ''
+}
+
+const handleCustomInputChange = (message: ChatMessage, value: string) => {
+  messageCustomInputs.value[message.id] = value
+}
+
+const canSubmitOption = (message: ChatMessage): boolean => {
+  const selectedOption = getSelectedOption(message)
+  if (!selectedOption) return false
+
+  if (selectedOption === '__custom__') {
+    const customInput = getCustomInput(message)
+    return customInput.trim().length > 0
+  }
+
+  return true
+}
+
+const handleOptionSubmit = async (message: ChatMessage) => {
+  const selectedOption = getSelectedOption(message)
+  let finalOption = selectedOption
+
+  if (selectedOption === '__custom__') {
+    finalOption = getCustomInput(message)
+  }
+
+  // 调用原有的选项处理逻辑
+  await handleOptionChoose(message, finalOption)
 }
 
 const handleApproveCommand = async () => {
@@ -3317,6 +3403,120 @@ defineExpose({
             background-color: #1656b1;
             border-color: #2d6fcd;
             transform: none;
+          }
+        }
+      }
+
+      .options-radio-group {
+        width: 100%;
+
+        .ant-radio-group {
+          width: 100%;
+          display: flex;
+          flex-direction: column;
+          gap: 8px;
+        }
+
+        .option-radio {
+          width: 100%;
+          padding: 8px 12px;
+          margin: 0;
+          background-color: #2a2a2a;
+          border: 1px solid #3a3a3a;
+          border-radius: 6px;
+          color: #e0e0e0;
+          transition: all 0.2s ease;
+
+          &:hover {
+            background-color: #3a3a3a;
+            border-color: #4a4a4a;
+          }
+
+          .ant-radio {
+            margin-right: 8px;
+          }
+
+          .ant-radio-checked .ant-radio-inner {
+            background-color: #1656b1;
+            border-color: #1656b1;
+          }
+
+          &.custom-option {
+            border-style: dashed;
+            border-color: #4a4a4a;
+            display: flex;
+            align-items: flex-start;
+            gap: 8px;
+            padding: 8px 12px;
+
+            .custom-radio {
+              margin: 0;
+              margin-top: 2px; // 微调对齐到输入框的第一行文本
+              flex-shrink: 0; // 防止单选按钮被压缩
+            }
+
+            .custom-input {
+              flex: 1;
+              background-color: transparent;
+              border: none;
+              color: #e0e0e0;
+              padding: 0;
+              min-height: 20px; // 设置最小高度与其他选项一致
+
+              &:focus {
+                border: none;
+                box-shadow: none;
+                background-color: rgba(255, 255, 255, 0.05);
+              }
+
+              &::placeholder {
+                color: #888;
+              }
+
+              :deep(.ant-input) {
+                background-color: transparent !important;
+                border: none !important;
+                box-shadow: none !important;
+                padding: 2px 0 !important;
+                color: #e0e0e0 !important;
+                line-height: 1.4 !important;
+                min-height: 20px !important;
+                resize: none !important;
+              }
+
+              // 确保单行时的高度一致
+              :deep(textarea) {
+                line-height: 1.4 !important;
+                min-height: 20px !important;
+              }
+            }
+          }
+        }
+      }
+
+      .submit-button-container {
+        margin-top: 12px;
+        display: flex;
+        justify-content: flex-end;
+
+        .submit-option-btn {
+          background-color: #1656b1;
+          border-color: #1656b1;
+          color: white;
+          border-radius: 6px;
+          font-size: 12px;
+          height: 32px;
+          padding: 0 16px;
+
+          &:hover:not(:disabled) {
+            background-color: #2d6fcd;
+            border-color: #2d6fcd;
+          }
+
+          &:disabled {
+            background-color: #3a3a3a;
+            border-color: #3a3a3a;
+            color: #888;
           }
         }
       }

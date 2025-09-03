@@ -565,6 +565,8 @@ export default {
     taskCompleted: 'Task Completed',
     newTask: 'Start New Task',
     codePreview: 'Code Preview ({lines} lines)',
+    enterCustomOption: 'Enter your answer...',
+    submit: 'Submit',
     // Voice input related
     startVoiceInput: 'Start Voice Input',
     stopRecording: 'Stop Voice Recording',
