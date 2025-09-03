@@ -723,7 +723,7 @@ const editUserRule = (index: number) => {
 
 // 强制覆盖开关样式
 :deep(.ant-switch) {
-  background-color: var(--bg-color-septenary) !important;
+  background-color: var(--bg-color-quaternary) !important;
 }
 
 :deep(.ant-switch.ant-switch-checked) {

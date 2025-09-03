@@ -565,6 +565,14 @@ onMounted(async () => {
   eventBus.on('updateTheme', handleUpdateTheme)
   eventBus.on('openSearch', openSearch)
 
+  // 监听来自preload的搜索触发事件（Windows系统专用）
+  const handlePostMessage = (event: MessageEvent) => {
+    if (event.data?.type === 'TRIGGER_SEARCH') {
+      openSearch()
+    }
+  }
+  window.addEventListener('message', handlePostMessage)
+
   eventBus.on('clearCurrentTerminal', () => {
     contextAct('clearTerm')
   })
@@ -608,6 +616,7 @@ onMounted(async () => {
     eventBus.off('fontSizeIncrease')
     eventBus.off('fontSizeDecrease')
     window.removeEventListener('keydown', handleGlobalKeyDown)
+    window.removeEventListener('message', handlePostMessage)
   })
 
   if (terminal.value?.textarea) {
@@ -2468,6 +2477,7 @@ const handleGlobalKeyDown = (e: KeyboardEvent) => {
   }
 
   // Search functionality
+  // Windows uses the method of listening for key messages, window.addEventListener('message', handlePostMessage)
   if ((isMac ? e.metaKey : e.ctrlKey) && e.key === 'f') {
     e.preventDefault()
     e.stopPropagation()
