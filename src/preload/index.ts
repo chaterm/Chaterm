@@ -33,16 +33,23 @@ if (!fs.existsSync(envPath)) {
 // Load environment variables
 dotenv.config({ path: envPath })
 
-// 拦截 Ctrl+F 快捷键，阻止浏览器默认行为并触发应用内搜索（仅Windows）
+// 拦截 Ctrl+F 和 Ctrl+W 快捷键，阻止浏览器默认行为并触发应用内功能（仅Windows）
 window.addEventListener(
   'keydown',
   (e) => {
-    // 只在Windows系统上拦截Ctrl+F，Mac系统保持默认行为
-    if (process.platform === 'win32' && e.ctrlKey && e.key === 'f') {
-      e.preventDefault()
-      e.stopPropagation()
-      // 通过 postMessage 发送给渲染进程
-      window.postMessage({ type: 'TRIGGER_SEARCH' }, '*')
+    // 只在Windows系统上拦截快捷键，Mac系统保持默认行为
+    if (process.platform === 'win32' && e.ctrlKey) {
+      if (e.key === 'f') {
+        e.preventDefault()
+        e.stopPropagation()
+        // 通过 postMessage 发送给渲染进程
+        window.postMessage({ type: 'TRIGGER_SEARCH' }, '*')
+      } else if (e.key === 'w') {
+        e.preventDefault()
+        e.stopPropagation()
+        // 通过 postMessage 发送给渲染进程
+        window.postMessage({ type: 'TRIGGER_CLOSE' }, '*')
+      }
     }
   },
   true

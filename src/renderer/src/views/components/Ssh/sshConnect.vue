@@ -565,10 +565,18 @@ onMounted(async () => {
   eventBus.on('updateTheme', handleUpdateTheme)
   eventBus.on('openSearch', openSearch)
 
-  // 监听来自preload的搜索触发事件（Windows系统专用）
+  // 监听来自preload的搜索和关闭触发事件（Windows系统专用）
   const handlePostMessage = (event: MessageEvent) => {
     if (event.data?.type === 'TRIGGER_SEARCH') {
-      openSearch()
+      // 只有当前活跃的终端才响应搜索事件
+      if (props.activeTabId === props.currentConnectionId) {
+        openSearch()
+      }
+    } else if (event.data?.type === 'TRIGGER_CLOSE') {
+      // 只有当前活跃的终端才响应关闭事件
+      if (props.activeTabId === props.currentConnectionId) {
+        contextAct('close')
+      }
     }
   }
   window.addEventListener('message', handlePostMessage)
