@@ -33,12 +33,23 @@ if (!fs.existsSync(envPath)) {
 // Load environment variables
 dotenv.config({ path: envPath })
 
+// 全局变量跟踪vim模式状态
+let isVimMode = false
+
+// 监听来自渲染进程的vim模式状态更新
+window.addEventListener('message', (event) => {
+  if (event.data && event.data.type === 'VIM_MODE_UPDATE') {
+    isVimMode = event.data.isVimMode
+  }
+})
+
 // 拦截 Ctrl+F 和 Ctrl+W 快捷键，阻止浏览器默认行为并触发应用内功能（仅Windows）
 window.addEventListener(
   'keydown',
   (e) => {
     // 只在Windows系统上拦截快捷键，Mac系统保持默认行为
-    if (process.platform === 'win32' && e.ctrlKey) {
+    // 在vim模式下不拦截快捷键，让vim保持默认行为
+    if (process.platform === 'win32' && e.ctrlKey && !isVimMode) {
       if (e.key === 'f') {
         e.preventDefault()
         e.stopPropagation()
@@ -47,8 +58,31 @@ window.addEventListener(
       } else if (e.key === 'w') {
         e.preventDefault()
         e.stopPropagation()
-        // 通过 postMessage 发送给渲染进程
-        window.postMessage({ type: 'TRIGGER_CLOSE' }, '*')
+        // 通过 postMessage 发送给渲染进程，添加时间戳避免重复处理
+        // 只向当前活跃的窗口发送消息
+        const activeElement = document.activeElement
+
+        if (activeElement && activeElement.closest('.terminal-container')) {
+          const terminalContainer = activeElement.closest('.terminal-container')
+          const connectionId = terminalContainer?.getAttribute('data-ssh-connect-id')
+
+          if (connectionId) {
+            const message = {
+              type: 'TRIGGER_CLOSE',
+              timestamp: Date.now(),
+              targetConnectionId: connectionId
+            }
+            window.postMessage(message, '*')
+          } else {
+            window.postMessage(
+              {
+                type: 'TRIGGER_CLOSE',
+                timestamp: Date.now()
+              },
+              '*'
+            )
+          }
+        }
       }
     }
   },

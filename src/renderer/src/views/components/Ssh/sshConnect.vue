@@ -2,7 +2,7 @@
   <div
     ref="terminalContainer"
     class="terminal-container"
-    :data-ssh-connect-id="connectionId"
+    :data-ssh-connect-id="currentConnectionId"
   >
     <SearchComp
       v-if="showSearch"
@@ -252,16 +252,25 @@ const EDITOR_SEQUENCES = {
   enter: [
     { pattern: [0x1b, 0x5b, 0x3f, 0x31, 0x30, 0x34, 0x39, 0x68], editor: 'vim' },
     { pattern: [0x1b, 0x5b, 0x3f, 0x34, 0x37, 0x68], editor: 'vim' },
-    { pattern: [0x1b, 0x5b, 0x3f, 0x31, 0x68, 0x1b, 0x3d], editor: 'nano' }
+    { pattern: [0x1b, 0x5b, 0x3f, 0x31, 0x68, 0x1b, 0x3d], editor: 'nano' },
+    // 添加更多vim检测模式
+    { pattern: [0x1b, 0x5b, 0x3f, 0x32, 0x35, 0x68], editor: 'vim' }, // \x1b[?25h
+    { pattern: [0x1b, 0x5b, 0x3f, 0x32, 0x35, 0x6c], editor: 'vim' }, // \x1b[?25l
+    { pattern: [0x1b, 0x5b, 0x3f, 0x31, 0x30, 0x34, 0x39, 0x6c], editor: 'vim' },
+    { pattern: [0x1b, 0x5b, 0x3f, 0x34, 0x37, 0x6c], editor: 'vim' }
   ],
   exit: [
     { pattern: [0x1b, 0x5b, 0x3f, 0x31, 0x30, 0x34, 0x39, 0x6c], editor: 'vim' },
     { pattern: [0x1b, 0x5b, 0x3f, 0x34, 0x37, 0x6c], editor: 'vim' },
-    { pattern: [0x1b, 0x5b, 0x3f, 0x31, 0x6c, 0x1b, 0x3e], editor: 'nano' }
+    { pattern: [0x1b, 0x5b, 0x3f, 0x31, 0x6c, 0x1b, 0x3e], editor: 'nano' },
+    // 添加更多vim退出检测模式
+    { pattern: [0x1b, 0x5b, 0x3f, 0x32, 0x35, 0x68], editor: 'vim' }, // \x1b[?25h
+    { pattern: [0x1b, 0x5b, 0x3f, 0x32, 0x35, 0x6c], editor: 'vim' } // \x1b[?25l
   ]
 }
 const userInputFlag = ref(false)
 const currentCwdStore = useCurrentCwdStore()
+const lastCloseTimestamp = ref<number | null>(null)
 let termOndata: IDisposable | null = null
 let handleInput
 let textareaCompositionListener: ((e: CompositionEvent) => void) | null = null
@@ -573,9 +582,26 @@ onMounted(async () => {
         openSearch()
       }
     } else if (event.data?.type === 'TRIGGER_CLOSE') {
-      // 只有当前活跃的终端才响应关闭事件
-      if (props.activeTabId === props.currentConnectionId) {
-        contextAct('close')
+      // 只在Windows系统下处理 TRIGGER_CLOSE 消息
+      const isWindows = navigator.platform.toLowerCase().includes('win')
+      if (isWindows) {
+        // 检查时间戳，避免重复处理
+        const messageTimestamp = event.data?.timestamp
+        if (messageTimestamp && lastCloseTimestamp.value === messageTimestamp) {
+          return
+        }
+        lastCloseTimestamp.value = messageTimestamp
+
+        // 检查消息是否发送给当前连接
+        const targetConnectionId = event.data?.targetConnectionId
+        if (targetConnectionId && targetConnectionId !== props.currentConnectionId) {
+          return
+        }
+
+        // 只有当前活跃的终端才响应关闭事件
+        if (props.activeTabId === props.currentConnectionId) {
+          contextAct('close')
+        }
       }
     }
   }
@@ -1622,6 +1648,15 @@ const setupTerminalInput = () => {
       }
       if (command && command.trim()) {
         insertCommand(command)
+
+        // 检测vim命令，设置vim模式
+        const trimmedCommand = command.trim()
+        if (trimmedCommand.startsWith('vim ') || trimmedCommand === 'vim') {
+          // 延迟设置vim模式，等待vim启动
+          setTimeout(() => {
+            terminalMode.value = 'alternate'
+          }, 500)
+        }
       }
       suggestions.value = []
       activeSuggestion.value = -1
@@ -1731,6 +1766,22 @@ const matchPattern = (data: number[], pattern: number[]): boolean => {
 type TerminalMode = 'none' | 'alternate' | 'ui'
 const terminalMode = ref<TerminalMode>('none')
 
+// 监听terminalMode变化，通知preload更新vim模式状态
+watch(
+  terminalMode,
+  (newMode) => {
+    const isVimMode = newMode === 'alternate'
+    window.postMessage(
+      {
+        type: 'VIM_MODE_UPDATE',
+        isVimMode
+      },
+      '*'
+    )
+  },
+  { immediate: true }
+)
+
 const checkFullScreenClear = (data: string) => {
   const isSimpleCtrlL = data.includes('\x1b[H\x1b[2J')
   if (isSimpleCtrlL) return false
@@ -1777,10 +1828,35 @@ const checkEditorMode = (response: MarkedResponse) => {
       nextTick(handleResize)
       return
     }
+
+    // 更宽松的vim检测：检查是否包含常见的vim进入序列
+    const text = new TextDecoder().decode(new Uint8Array(dataBuffer.value))
+    if (
+      text.includes('\x1b[?1049h') ||
+      text.includes('\x1b[?47h') ||
+      text.includes('\x1b[?1047h') ||
+      text.includes('\x1b[?25h') ||
+      text.includes('\x1b[?25l') ||
+      text.includes('\x1b[?1h') ||
+      text.includes('\x1b[?1l')
+    ) {
+      terminalMode.value = 'alternate'
+      nextTick(handleResize)
+      return
+    }
+
+    // 检测vim特有的序列组合
+    if (text.includes('\x1b[?25h') && (text.includes('All') || text.includes('H'))) {
+      terminalMode.value = 'alternate'
+      nextTick(handleResize)
+      return
+    }
   }
 
   if (terminalMode.value === 'alternate') {
-    if (EDITOR_SEQUENCES.exit.some((seq) => matchPattern(dataBuffer.value, seq.pattern))) {
+    // 只有在明确检测到shell提示符时才退出vim模式
+    const text = new TextDecoder().decode(new Uint8Array(dataBuffer.value))
+    if (text.includes('$ ') || text.includes('# ') || text.includes('~$')) {
       terminalMode.value = 'none'
       dataBuffer.value = []
       nextTick(handleResize)
