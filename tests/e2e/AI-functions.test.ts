@@ -57,7 +57,7 @@ test.describe('AI完整工作流程E2E测试', () => {
 
   /**
    * Select AI model from the model dropdown
-   * @param modelName - The name of the model to select (e.g., 'Qwen-Plus', 'Qwen-Turbo', 'Deepseek-V3', 'Deepseek-R1')
+   * @param modelName - The name of the model to select (e.g., 'Qwen-Plus', 'Qwen-Turbo', 'Deepseek-V3.1', 'Deepseek-R1')
    * @param timeout - Optional timeout in milliseconds (default: 10000)
    */
   const selectAiModel = async (modelName: string, timeout: number = 10000) => {
@@ -293,6 +293,8 @@ test.describe('AI完整工作流程E2E测试', () => {
     // Click on the first available host
     await firstHostText?.click()
     console.log('Successfully clicked on first host')
+    await electronHelper.window?.waitForTimeout(1000)
+
     await electronHelper.window?.getByRole('textbox', { name: 'Terminal input' }).press('ControlOrMeta+l')
   }
 
@@ -305,7 +307,7 @@ test.describe('AI完整工作流程E2E测试', () => {
     // Default models for each mode
     const defaultModels = {
       Chat: 'Qwen-Plus',
-      Command: 'Deepseek-V3',
+      Command: 'Deepseek-V3.1',
       Agent: 'Deepseek-R1'
     }
 
@@ -374,9 +376,9 @@ test.describe('AI完整工作流程E2E测试', () => {
    * Run a complete Command mode test
    * @param input - The command or task to execute
    * @param timeout - Test timeout in milliseconds (default: 300000)
-   * @param model - AI model to use (default: 'Deepseek-V3')
+   * @param model - AI model to use (default: 'Deepseek-V3.1')
    */
-  const runCommandTest = async (input: string, timeout: number = 300000, model: string = 'Deepseek-V3') => {
+  const runCommandTest = async (input: string, timeout: number = 300000, model: string = 'Deepseek-V3.1') => {
     await runTest('Command', input, timeout, model)
   }
 
@@ -664,13 +666,13 @@ test.describe('AI完整工作流程E2E测试', () => {
       await electronHelper.window?.waitForTimeout(1000)
     })
 
-    test('选择Deepseek-V3模型', async () => {
+    test('选择Deepseek-V3.1模型', async () => {
       test.setTimeout(60000) // 1 minute
       await selectFirstHost()
       await electronHelper.window?.getByRole('textbox', { name: 'Terminal input' }).press('ControlOrMeta+l')
 
-      // Select Deepseek-V3 model
-      await selectAiModel('Deepseek-V3')
+      // Select Deepseek-V3.1 model
+      await selectAiModel('Deepseek-V3.1')
 
       await electronHelper.window?.waitForTimeout(1000)
     })
@@ -692,7 +694,7 @@ test.describe('AI完整工作流程E2E测试', () => {
       await electronHelper.window?.getByRole('textbox', { name: 'Terminal input' }).press('ControlOrMeta+l')
 
       // Test selecting multiple models in sequence
-      const modelsToTest = ['Qwen-Plus', 'Qwen-Turbo', 'Deepseek-V3']
+      const modelsToTest = ['Qwen-Plus', 'Qwen-Turbo', 'Deepseek-V3.1']
 
       for (const modelName of modelsToTest) {
         console.log(`Testing model: ${modelName}`)
