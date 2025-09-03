@@ -207,6 +207,14 @@ app.whenReady().then(async () => {
   } else {
     console.warn('[Main Index] mainWindow or webContents not available when trying to schedule testRendererStorageFromMain.')
   }
+
+  mainWindow.webContents.on('will-navigate', (event, url) => {
+    if (url !== mainWindow.webContents.getURL()) {
+      event.preventDefault()
+      shell.openExternal(url)
+    }
+  })
+
   setTimeout(initializeTelemetrySetting, 1000)
 })
 
