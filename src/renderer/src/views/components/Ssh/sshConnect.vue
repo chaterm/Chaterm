@@ -1808,6 +1808,9 @@ const checkHeavyUiStyle = (data: string) => {
 
 const BUFFER_SIZE = 1024
 const checkEditorMode = (response: MarkedResponse) => {
+  if (response.marker === 'Chaterm:command') {
+    return
+  }
   let bytes: number[] = []
 
   if (response.data) {
@@ -1932,69 +1935,54 @@ const handleServerOutput = (response: MarkedResponse) => {
     eventBus.emit('cwdUpdatedForHost', props.connectData.ip)
   } else if (response.marker === 'Chaterm:command') {
     isCollectingOutput.value = true
-    const cleanOutput = stripAnsi(data).trim()
-    commandOutput.value += cleanOutput + '\n'
-    const promptRegex = /(?:\[([^@]+)@([^\]]+)\][#$]|([^@]+)@([^:]+):(?:[^$]*|\s*~)\s*[$#]|\[([^@]+)@([^\]]+)\s+[^\]]*\][#$])\s*$/
-    if (promptRegex.test(cleanOutput)) {
-      isCollectingOutput.value = false
-      const lines = commandOutput.value
-        .replace(/\r\n|\r/g, '\n')
-        .split('\n')
-        .filter((line) => line.trim())
-      const outputLines = lines.slice(1, -1)
-      const finalOutput = outputLines.join('\n').trim()
-      if (finalOutput) {
-        nextTick(() => {
-          const formattedOutput = `Terminal output:\n\`\`\`\n${finalOutput}\n\`\`\``
-          eventBus.emit('chatToAi', formattedOutput)
-          setTimeout(() => {
-            eventBus.emit('triggerAiSend')
-          }, 100)
-        })
-      } else {
-        const output = configStore.getUserConfig.language == 'en-US' ? 'Command executed successfully, no output returned' : '执行完成，没有输出返回'
-        const formattedOutput = `Terminal output:\n\`\`\`\n${output}\n\`\`\``
+    handleCommandOutput(data, true)
+  } else if (isCollectingOutput.value) {
+    handleCommandOutput(data, false)
+  } else {
+    cusWrite?.(data)
+  }
+}
+
+// Helper function to handle command output processing
+const handleCommandOutput = (data: string, isInitialCommand: boolean) => {
+  const cleanOutput = stripAnsi(data).trim()
+  commandOutput.value += cleanOutput + '\n'
+
+  const promptRegex = /(?:\[([^@]+)@([^\]]+)\][#$]|([^@]+)@([^:]+):(?:[^$]*|\s*~)\s*[$#]|\[([^@]+)@([^\]]+)\s+[^\]]*\][#$])\s*$/
+
+  if (promptRegex.test(cleanOutput)) {
+    isCollectingOutput.value = false
+    const lines = commandOutput.value
+      .replace(/\r\n|\r/g, '\n')
+      .split('\n')
+      .filter((line) => line.trim())
+
+    const outputLines = lines.slice(1, -1)
+    const finalOutput = outputLines.join('\n').trim()
+
+    if (finalOutput) {
+      nextTick(() => {
+        const formattedOutput = `Terminal output:\n\`\`\`\n${finalOutput}\n\`\`\``
         eventBus.emit('chatToAi', formattedOutput)
         setTimeout(() => {
           eventBus.emit('triggerAiSend')
         }, 100)
-      }
-      commandOutput.value = ''
+      })
+    } else {
+      const output = configStore.getUserConfig.language == 'en-US' ? 'Command executed successfully, no output returned' : '执行完成，没有输出返回'
+      // For initial command, use formatted output; for ongoing collection, use plain output
+      const messageToSend = isInitialCommand ? `Terminal output:\n\`\`\`\n${output}\n\`\`\`` : output
+
+      eventBus.emit('chatToAi', messageToSend)
+      setTimeout(() => {
+        eventBus.emit('triggerAiSend')
+      }, 100)
     }
-    cusWrite?.(data)
-  } else if (isCollectingOutput.value) {
-    const cleanOutput = stripAnsi(data).trim()
-    commandOutput.value += cleanOutput + '\n'
-    const promptRegex = /(?:\[([^@]+)@([^\]]+)\][#$]|([^@]+)@([^:]+):(?:[^$]*|\s*~)\s*[$#]|\[([^@]+)@([^\]]+)\s+[^\]]*\][#$])\s*$/
-    if (promptRegex.test(cleanOutput)) {
-      isCollectingOutput.value = false
-      const lines = commandOutput.value
-        .replace(/\r\n|\r/g, '\n')
-        .split('\n')
-        .filter((line) => line.trim())
-      const outputLines = lines.slice(1, -1)
-      const finalOutput = outputLines.join('\n').trim()
-      if (finalOutput) {
-        nextTick(() => {
-          const formattedOutput = `Terminal output:\n\`\`\`\n${finalOutput}\n\`\`\``
-          eventBus.emit('chatToAi', formattedOutput)
-          setTimeout(() => {
-            eventBus.emit('triggerAiSend')
-          }, 100)
-        })
-      } else {
-        const output = configStore.getUserConfig.language == 'en-US' ? 'Command executed successfully, no output returned' : '执行完成，没有输出返回'
-        eventBus.emit('chatToAi', output)
-        setTimeout(() => {
-          eventBus.emit('triggerAiSend')
-        }, 100)
-      }
-      commandOutput.value = ''
-    }
-    cusWrite?.(data)
-  } else {
-    cusWrite?.(data)
+
+    commandOutput.value = ''
   }
+
+  cusWrite?.(data)
 }
 
 const specialCode = ref(false)

@@ -690,6 +690,13 @@ export const registerSSHHandlers = () => {
 
         const markedCmd = jumpserverMarkedCommands.get(id)
         if (markedCmd !== undefined) {
+          if (markedCmd.marker === 'Chaterm:command') {
+            event.sender.send(`ssh:shell:data:${id}`, {
+              data: dataStr,
+              marker: markedCmd.marker
+            })
+            return
+          }
           markedCmd.output += dataStr
           markedCmd.lastActivity = Date.now()
           if (markedCmd.idleTimer) clearTimeout(markedCmd.idleTimer)
