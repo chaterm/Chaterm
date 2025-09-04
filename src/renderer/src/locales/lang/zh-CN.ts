@@ -376,7 +376,14 @@ export default {
     saveBedrockConfigFailed: '保存Bedrock配置失败',
     saveLiteLlmConfigFailed: '保存LiteLLM配置失败',
     saveDeepSeekConfigFailed: '保存DeepSeek配置失败',
-    saveOpenAiConfigFailed: '保存OpenAI配置失败'
+    saveOpenAiConfigFailed: '保存OpenAI配置失败',
+    // 安全配置相关
+    securityConfig: '安全配置',
+    openSecurityConfig: '打开配置',
+    securityConfigDescribe: '点击按钮直接打开安全配置文件，管理命令执行的安全策略和白名单/黑名单设置。修改配置后需要重启应用才能生效。',
+    securityConfigOpened: '安全配置文件正在打开...',
+    openSecurityConfigFailed: '打开安全配置失败',
+    success: '成功'
   },
   extensions: {
     extensions: '扩展',

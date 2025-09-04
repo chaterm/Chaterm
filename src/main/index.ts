@@ -171,6 +171,19 @@ app.whenReady().then(async () => {
     console.error('Failed to initialize Controller:', error)
   }
 
+  // Initialize security configuration on startup
+  try {
+    const SecurityConfigModule = await import('./agent/core/security/SecurityConfig')
+    const { SecurityConfigManager } = SecurityConfigModule
+    const securityManager = new SecurityConfigManager()
+
+    // Ensure security config file exists on startup
+    await securityManager.loadConfig()
+    console.log('Security configuration initialized successfully')
+  } catch (error) {
+    console.error('Failed to initialize security configuration:', error)
+  }
+
   // Function to initialize telemetry setting
   const initializeTelemetrySetting = async () => {
     let telemetrySetting
@@ -742,6 +755,24 @@ function setupIPC(): void {
     await winReady
     if (mainWindow && !mainWindow.isDestroyed() && !mainWindow.isVisible()) {
       mainWindow.show()
+    }
+  })
+
+  // Security configuration handler
+  ipcMain.handle('security-open-config', async () => {
+    try {
+      // 使用动态import而不是require来避免路径问题
+      const SecurityConfigModule = await import('./agent/core/security/SecurityConfig')
+      const { SecurityConfigManager } = SecurityConfigModule
+      const securityManager = new SecurityConfigManager()
+
+      // Directly open config file (file already ensured to exist on startup)
+      await securityManager.openConfigFile()
+
+      return { success: true }
+    } catch (error) {
+      console.error('Failed to open security config:', error)
+      return { success: false, error: error instanceof Error ? error.message : String(error) }
     }
   })
 }
