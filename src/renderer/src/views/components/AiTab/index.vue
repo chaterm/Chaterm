@@ -871,6 +871,27 @@ const updateHosts = (hostInfo: { ip: string; uuid: string; connection: string } 
   }
 }
 
+// Update hosts for command mode - only show current terminal tab IP
+const updateHostsForCommandMode = async () => {
+  try {
+    const assetInfo = await getCurentTabAssetInfo()
+    if (assetInfo && assetInfo.ip) {
+      // Only show host if current tab is a terminal (has IP)
+      updateHosts({
+        ip: assetInfo.ip,
+        uuid: assetInfo.uuid,
+        connection: assetInfo.connection || 'personal'
+      })
+    } else {
+      // If current tab is not a terminal, clear hosts
+      hosts.value = []
+    }
+  } catch (error) {
+    console.error('Failed to update hosts for command mode:', error)
+    hosts.value = []
+  }
+}
+
 // Initialize asset information
 const initAssetInfo = async () => {
   if (!autoUpdateHost.value || chatHistory.length > 0) {
@@ -1603,6 +1624,12 @@ watch(
       await updateGlobalState('chatSettings', {
         mode: newValue
       })
+
+      // When switching to command mode, update hosts to show only current terminal tab IP
+      if (newValue === 'cmd') {
+        await updateHostsForCommandMode()
+      }
+
       // Emit state change event
       emitStateChange()
     } catch (error) {
@@ -1716,9 +1743,25 @@ const handleGlobalEscKey = (e: KeyboardEvent) => {
   }
 }
 
+// Global click outside listener to close host select popup
+const handleGlobalClick = (e: MouseEvent) => {
+  if (!showHostSelect.value) return
+
+  const target = e.target as HTMLElement
+  const hostSelectPopup = document.querySelector('.host-select-popup')
+  const hostTag = document.querySelector('.hosts-display-container-host-tag')
+
+  // Check if click is outside the host select popup and host tag
+  if (hostSelectPopup && !hostSelectPopup.contains(target) && hostTag && !hostTag.contains(target)) {
+    closeHostSelect()
+  }
+}
+
 onMounted(async () => {
   // Add global ESC key listener
   document.addEventListener('keydown', handleGlobalEscKey)
+  // Add global click listener to close host select popup when clicking outside
+  document.addEventListener('click', handleGlobalClick)
 
   eventBus.on('triggerAiSend', () => {
     if (chatInputValue.value.trim()) {
@@ -1968,6 +2011,7 @@ onUnmounted(() => {
     removeListener = null
   }
   document.removeEventListener('keydown', handleGlobalEscKey)
+  document.removeEventListener('click', handleGlobalClick)
   eventBus.off('apiProviderChanged')
   eventBus.off('activeTabChanged')
   eventBus.off('chatToAi')
@@ -2121,7 +2165,15 @@ const showBottomButton = computed(() => {
   )
 })
 
-const filteredHostOptions = computed(() => hostOptions.value.filter((item) => item.label.includes(hostSearchValue.value)))
+const filteredHostOptions = computed(() => {
+  if (chatTypeValue.value === 'cmd') {
+    // In command mode, host options are already filtered by fetchHostOptionsForCommandMode
+    return hostOptions.value
+  } else {
+    // In agent mode, filter by search value
+    return hostOptions.value.filter((item) => item.label.includes(hostSearchValue.value))
+  }
+})
 
 const isHostSelected = (hostOption: any) => {
   return hosts.value.some((h) => h.host === hostOption.label)
@@ -2237,14 +2289,19 @@ const handleMouseOver = (value: string, index: number) => {
 
 // 2. Listen for input box content changes
 const handleInputChange = async (e: Event) => {
-  if (chatTypeValue.value === 'cmd') {
-    return
-  }
   const value = (e.target as HTMLTextAreaElement).value
   if (value === '@') {
     showHostSelect.value = true
     hostSearchValue.value = '' // Clear search box
-    await fetchHostOptions('') // Call here to get all hosts
+
+    if (chatTypeValue.value === 'cmd') {
+      // In command mode, only show current terminal tab IP
+      await fetchHostOptionsForCommandMode('')
+    } else {
+      // In agent mode, show all hosts
+      await fetchHostOptions('')
+    }
+
     nextTick(() => {
       hostSearchInputRef.value?.focus?.()
     })
@@ -2255,7 +2312,11 @@ const handleInputChange = async (e: Event) => {
 
 // 3. Get host list
 const debouncedFetchHostOptions = debounce((search: string) => {
-  fetchHostOptions(search)
+  if (chatTypeValue.value === 'cmd') {
+    fetchHostOptionsForCommandMode(search)
+  } else {
+    fetchHostOptions(search)
+  }
 }, 300)
 
 watch(hostSearchValue, (newVal) => {
@@ -2285,6 +2346,37 @@ const fetchHostOptions = async (search: string) => {
   }
 
   hostOptions.value.splice(0, hostOptions.value.length, ...formatted)
+}
+
+// Fetch host options for command mode - only show current terminal tab IP
+const fetchHostOptionsForCommandMode = async (search: string) => {
+  try {
+    const assetInfo = await getCurentTabAssetInfo()
+    if (assetInfo && assetInfo.ip) {
+      // Only show current terminal tab IP
+      const currentHostOption = {
+        label: assetInfo.ip,
+        value: assetInfo.ip,
+        uuid: assetInfo.uuid,
+        connect: assetInfo.connection || 'personal',
+        title: assetInfo.title || assetInfo.ip,
+        isLocalHost: assetInfo.ip === '127.0.0.1' || assetInfo.ip === 'localhost'
+      }
+
+      // Filter by search if provided
+      if (!search || currentHostOption.label.includes(search) || currentHostOption.title.includes(search)) {
+        hostOptions.value.splice(0, hostOptions.value.length, currentHostOption)
+      } else {
+        hostOptions.value.splice(0, hostOptions.value.length)
+      }
+    } else {
+      // If current tab is not a terminal, show no options
+      hostOptions.value.splice(0, hostOptions.value.length)
+    }
+  } catch (error) {
+    console.error('Failed to fetch host options for command mode:', error)
+    hostOptions.value.splice(0, hostOptions.value.length)
+  }
 }
 
 const showResumeButton = computed(() => {

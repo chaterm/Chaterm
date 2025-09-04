@@ -323,10 +323,10 @@ onMounted(async () => {
               selectionBackground: 'rgba(0, 0, 0, 0.3)'
             }
           : {
-              background: 'var(--bg-color-secondary)',
-              foreground: '#f0f0f0',
-              cursor: '#f0f0f0',
-              cursorAccent: '#f0f0f0',
+              background: '#0a0a0a',
+              foreground: '#e2e8f0',
+              cursor: '#e2e8f0',
+              cursorAccent: '#e2e8f0',
               selectionBackground: 'rgba(255, 255, 255, 0.3)'
             }
     })
@@ -482,22 +482,6 @@ onMounted(async () => {
     terminalContainerResize()
   })
 
-  if (props.connectData.asset_type === 'shell') {
-    // TODO 本地连接后续兼容
-    config.highlightStatus = 2
-    config.autoCompleteStatus = 2
-    isLocalConnect.value = true
-    await connectLocalSSH()
-  } else {
-    await connectSSH()
-  }
-
-  const handleExecuteCommand = (command) => {
-    if (props.activeTabId !== props.currentConnectionId) return
-    sendMarkedData(command, 'Chaterm:command')
-    termInstance.focus()
-  }
-
   const handleSendOrToggleAi = () => {
     if (props.activeTabId !== props.currentConnectionId) {
       console.log('Not active tab, ignoring event')
@@ -531,6 +515,21 @@ onMounted(async () => {
     }
 
     handleSendOrToggleAi()
+  }
+
+  if (props.connectData.asset_type === 'shell') {
+    config.highlightStatus = 2
+    config.autoCompleteStatus = 2
+    isLocalConnect.value = true
+    connectLocalSSH()
+  } else {
+    connectSSH()
+  }
+
+  const handleExecuteCommand = (command) => {
+    if (props.activeTabId !== props.currentConnectionId) return
+    sendMarkedData(command, 'Chaterm:command')
+    termInstance.focus()
   }
 
   const handleRequestUpdateCwdForHost = (hostIp: string) => {
@@ -992,7 +991,7 @@ const connectSSH = async () => {
       jumpServerStatusHandler.setupStatusListener(api)
     }
 
-    const connData = {
+    const connData: any = {
       id: connectionId.value,
       host: assetInfo.asset_ip,
       port: assetInfo.port,
@@ -1590,17 +1589,24 @@ const setupTerminalInput = () => {
         sendData(data)
       }
     } else if (data === '\x16') {
-      navigator.clipboard
-        .readText()
-        .then((text) => {
-          sendData(text)
-          // Ensure scroll to bottom after paste
-          nextTick(() => {
-            terminal.value?.scrollToBottom()
-            terminal.value?.focus()
+      // Check if we're in vim mode (alternate mode)
+      if (terminalMode.value === 'alternate') {
+        // In vim mode, pass Ctrl+V to remote terminal for visual block mode
+        sendData(data)
+      } else {
+        // In normal mode, perform paste operation
+        navigator.clipboard
+          .readText()
+          .then((text) => {
+            sendData(text)
+            // Ensure scroll to bottom after paste
+            nextTick(() => {
+              terminal.value?.scrollToBottom()
+              terminal.value?.focus()
+            })
           })
-        })
-        .catch(() => {})
+          .catch(() => {})
+      }
     } else if (data == '\r') {
       if (!isConnected.value) {
         cusWrite?.('\r\n' + t('ssh.reconnecting') + '\r\n', { isUserCall: true })
@@ -1806,12 +1812,15 @@ const checkHeavyUiStyle = (data: string) => {
 
 const BUFFER_SIZE = 1024
 const checkEditorMode = (response: MarkedResponse) => {
+  if (response.marker === 'Chaterm:command') {
+    return
+  }
   let bytes: number[] = []
 
   if (response.data) {
     if (typeof response.data === 'string') bytes = Array.from(new TextEncoder().encode(response.data))
-    else if (response.data instanceof ArrayBuffer) bytes = Array.from(new Uint8Array(response.data))
-    else if (response.data instanceof Uint8Array) bytes = Array.from(response.data)
+    else if ((response.data as any) instanceof ArrayBuffer) bytes = Array.from(new Uint8Array(response.data as any))
+    else if ((response.data as any) instanceof Uint8Array) bytes = Array.from(response.data as any)
     else if (Array.isArray(response.data)) bytes = response.data
   }
 
@@ -1930,69 +1939,54 @@ const handleServerOutput = (response: MarkedResponse) => {
     eventBus.emit('cwdUpdatedForHost', props.connectData.ip)
   } else if (response.marker === 'Chaterm:command') {
     isCollectingOutput.value = true
-    const cleanOutput = stripAnsi(data).trim()
-    commandOutput.value += cleanOutput + '\n'
-    const promptRegex = /(?:\[([^@]+)@([^\]]+)\][#$]|([^@]+)@([^:]+):(?:[^$]*|\s*~)\s*[$#]|\[([^@]+)@([^\]]+)\s+[^\]]*\][#$])\s*$/
-    if (promptRegex.test(cleanOutput)) {
-      isCollectingOutput.value = false
-      const lines = commandOutput.value
-        .replace(/\r\n|\r/g, '\n')
-        .split('\n')
-        .filter((line) => line.trim())
-      const outputLines = lines.slice(1, -1)
-      const finalOutput = outputLines.join('\n').trim()
-      if (finalOutput) {
-        nextTick(() => {
-          const formattedOutput = `Terminal output:\n\`\`\`\n${finalOutput}\n\`\`\``
-          eventBus.emit('chatToAi', formattedOutput)
-          setTimeout(() => {
-            eventBus.emit('triggerAiSend')
-          }, 100)
-        })
-      } else {
-        const output = configStore.getUserConfig.language == 'en-US' ? 'Command executed successfully, no output returned' : '执行完成，没有输出返回'
-        const formattedOutput = `Terminal output:\n\`\`\`\n${output}\n\`\`\``
+    handleCommandOutput(data, true)
+  } else if (isCollectingOutput.value) {
+    handleCommandOutput(data, false)
+  } else {
+    cusWrite?.(data)
+  }
+}
+
+// Helper function to handle command output processing
+const handleCommandOutput = (data: string, isInitialCommand: boolean) => {
+  const cleanOutput = stripAnsi(data).trim()
+  commandOutput.value += cleanOutput + '\n'
+
+  const promptRegex = /(?:\[([^@]+)@([^\]]+)\][#$]|([^@]+)@([^:]+):(?:[^$]*|\s*~)\s*[$#]|\[([^@]+)@([^\]]+)\s+[^\]]*\][#$])\s*$/
+
+  if (promptRegex.test(cleanOutput)) {
+    isCollectingOutput.value = false
+    const lines = commandOutput.value
+      .replace(/\r\n|\r/g, '\n')
+      .split('\n')
+      .filter((line) => line.trim())
+
+    const outputLines = lines.slice(1, -1)
+    const finalOutput = outputLines.join('\n').trim()
+
+    if (finalOutput) {
+      nextTick(() => {
+        const formattedOutput = `Terminal output:\n\`\`\`\n${finalOutput}\n\`\`\``
         eventBus.emit('chatToAi', formattedOutput)
         setTimeout(() => {
           eventBus.emit('triggerAiSend')
         }, 100)
-      }
-      commandOutput.value = ''
+      })
+    } else {
+      const output = configStore.getUserConfig.language == 'en-US' ? 'Command executed successfully, no output returned' : '执行完成，没有输出返回'
+      // For initial command, use formatted output; for ongoing collection, use plain output
+      const messageToSend = isInitialCommand ? `Terminal output:\n\`\`\`\n${output}\n\`\`\`` : output
+
+      eventBus.emit('chatToAi', messageToSend)
+      setTimeout(() => {
+        eventBus.emit('triggerAiSend')
+      }, 100)
     }
-    cusWrite?.(data)
-  } else if (isCollectingOutput.value) {
-    const cleanOutput = stripAnsi(data).trim()
-    commandOutput.value += cleanOutput + '\n'
-    const promptRegex = /(?:\[([^@]+)@([^\]]+)\][#$]|([^@]+)@([^:]+):(?:[^$]*|\s*~)\s*[$#]|\[([^@]+)@([^\]]+)\s+[^\]]*\][#$])\s*$/
-    if (promptRegex.test(cleanOutput)) {
-      isCollectingOutput.value = false
-      const lines = commandOutput.value
-        .replace(/\r\n|\r/g, '\n')
-        .split('\n')
-        .filter((line) => line.trim())
-      const outputLines = lines.slice(1, -1)
-      const finalOutput = outputLines.join('\n').trim()
-      if (finalOutput) {
-        nextTick(() => {
-          const formattedOutput = `Terminal output:\n\`\`\`\n${finalOutput}\n\`\`\``
-          eventBus.emit('chatToAi', formattedOutput)
-          setTimeout(() => {
-            eventBus.emit('triggerAiSend')
-          }, 100)
-        })
-      } else {
-        const output = configStore.getUserConfig.language == 'en-US' ? 'Command executed successfully, no output returned' : '执行完成，没有输出返回'
-        eventBus.emit('chatToAi', output)
-        setTimeout(() => {
-          eventBus.emit('triggerAiSend')
-        }, 100)
-      }
-      commandOutput.value = ''
-    }
-    cusWrite?.(data)
-  } else {
-    cusWrite?.(data)
+
+    commandOutput.value = ''
   }
+
+  cusWrite?.(data)
 }
 
 const specialCode = ref(false)
@@ -2516,77 +2510,12 @@ const handleGlobalKeyDown = (e: KeyboardEvent) => {
 
   const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0
 
-  // Check if we're in vim mode to avoid shortcut conflicts
-  if (terminalMode.value === 'alternate') {
-    // In vim mode, block most shortcuts that could conflict with vim operations
-    const blockedInVim = [
-      // Block Ctrl+V (vim visual block mode) - this is the main issue
-      { ctrlKey: true, key: 'v' },
-      // Block other common vim conflicts
-      { ctrlKey: true, key: 'c' }, // vim visual mode
-      { ctrlKey: true, key: 'z' }, // vim undo
-      { ctrlKey: true, key: 'a' }, // vim increment
-      { ctrlKey: true, key: 'e' }, // vim scroll down
-      { ctrlKey: true, key: 'y' }, // vim scroll up
-      { ctrlKey: true, key: 'd' }, // vim half page down
-      { ctrlKey: true, key: 'u' }, // vim half page up
-      { ctrlKey: true, key: 'f' }, // vim page down
-      { ctrlKey: true, key: 'b' }, // vim page up
-      { ctrlKey: true, key: 'g' }, // vim status
-      { ctrlKey: true, key: 'o' }, // vim open line
-      { ctrlKey: true, key: 'p' }, // vim previous
-      { ctrlKey: true, key: 'n' }, // vim next
-      { ctrlKey: true, key: 'x' }, // vim cut
-      { ctrlKey: true, key: 's' }, // vim save
-      { ctrlKey: true, key: 'w' }, // vim window
-      { ctrlKey: true, key: 'h' }, // vim backspace
-      { ctrlKey: true, key: 'j' }, // vim join
-      { ctrlKey: true, key: 'k' }, // vim kill
-      { ctrlKey: true, key: 'l' }, // vim redraw
-      { ctrlKey: true, key: 'm' }, // vim newline
-      { ctrlKey: true, key: 'q' }, // vim quit
-      { ctrlKey: true, key: 'r' }, // vim redo
-      { ctrlKey: true, key: 't' } // vim tag
-    ]
-
-    // Check if current key combination should be blocked in vim mode
-    const shouldBlock = blockedInVim.some((blocked) => blocked.key === e.key && blocked.ctrlKey === e.ctrlKey)
-
-    if (shouldBlock) {
-      // Block the shortcut in vim mode to avoid conflicts
-      e.preventDefault()
-      e.stopPropagation()
-      return
-    }
-  }
-
   // Search functionality
   // Windows uses the method of listening for key messages, window.addEventListener('message', handlePostMessage)
   if ((isMac ? e.metaKey : e.ctrlKey) && e.key === 'f') {
     e.preventDefault()
     e.stopPropagation()
     openSearch()
-  }
-
-  // Close tab functionality
-  if ((isMac ? e.metaKey : e.ctrlKey) && e.key === 'u') {
-    e.preventDefault()
-    e.stopPropagation()
-    contextAct('close')
-  }
-
-  // Font size increase (Ctrl+)
-  if (e.ctrlKey && e.key === '=') {
-    e.preventDefault()
-    e.stopPropagation()
-    contextAct('fontsizeLargen')
-  }
-
-  // Font size decrease (Ctrl-)
-  if (e.ctrlKey && e.key === '-') {
-    e.preventDefault()
-    e.stopPropagation()
-    contextAct('fontsizeSmaller')
   }
 
   if (e.key === 'Escape' && showSearch.value) {
