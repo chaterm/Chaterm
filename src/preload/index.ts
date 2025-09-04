@@ -840,7 +840,10 @@ const api = {
     const listener = (_event: unknown, code: unknown) => callback(code)
     ipcRenderer.on(channel, listener)
     return () => ipcRenderer.removeListener(channel, listener)
-  }
+  },
+
+  // Security configuration
+  openSecurityConfig: () => ipcRenderer.invoke('security-open-config')
 }
 // 自定义 API 用于浏览器控制
 

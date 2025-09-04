@@ -42,6 +42,7 @@ export type ChatermSay =
   | 'api_req_retried'
   | 'command'
   | 'command_output'
+  | 'command_blocked'
   | 'tool'
   | 'shell_integration_warning'
   | 'diff_error'

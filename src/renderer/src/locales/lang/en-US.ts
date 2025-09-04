@@ -377,7 +377,15 @@ export default {
     saveBedrockConfigFailed: 'Failed to save Bedrock configuration',
     saveLiteLlmConfigFailed: 'Failed to save LiteLLM configuration',
     saveDeepSeekConfigFailed: 'Failed to save DeepSeek configuration',
-    saveOpenAiConfigFailed: 'Failed to save OpenAI configuration'
+    saveOpenAiConfigFailed: 'Failed to save OpenAI configuration',
+    // Security configuration
+    securityConfig: 'Security Configuration',
+    openSecurityConfig: 'Open Config',
+    securityConfigDescribe:
+      'Click the button to directly open the security configuration file and manage command execution security policies and whitelist/blacklist settings. Application restart is required for changes to take effect.',
+    securityConfigOpened: 'Opening security configuration file...',
+    openSecurityConfigFailed: 'Failed to open security configuration',
+    success: 'Success'
   },
   extensions: {
     extensions: 'Extensions',

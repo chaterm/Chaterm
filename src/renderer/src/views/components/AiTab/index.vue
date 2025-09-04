@@ -1911,6 +1911,8 @@ onMounted(async () => {
         }
 
         lastChatMessageId.value = newAssistantMessage.id
+        // 在添加新消息前，清理partial command消息
+        cleanupPartialCommandMessages()
         chatHistory.push(newAssistantMessage)
       } else if (lastMessageInChat && lastMessageInChat.role === 'assistant') {
         lastMessageInChat.content = message.partialMessage.text
@@ -1962,6 +1964,8 @@ const handleModelApiReqFailed = (message: any) => {
     message.partialMessage.ts,
     false
   )
+  // 在添加新消息前，清理partial command消息
+  cleanupPartialCommandMessages()
   chatHistory.push(newAssistantMessage)
   console.log('showRetryButton.value', showRetryButton.value)
   showRetryButton.value = true
@@ -1981,9 +1985,24 @@ const handleInteractiveCommandNotification = (message: any) => {
     false
   )
 
+  // 在添加新消息前，清理partial command消息
+  cleanupPartialCommandMessages()
   chatHistory.push(notificationMessage)
 
   console.log('Interactive command notification processed and added to chat history')
+}
+
+// 清理partial command消息：在新增消息时主动删除上一个partial=true的command消息
+const cleanupPartialCommandMessages = () => {
+  // 倒序查找并删除partial=true且ask='command'的消息
+  for (let i = chatHistory.length - 1; i >= 0; i--) {
+    const message = chatHistory[i]
+    if (message.role === 'assistant' && message.partial === true && message.type === 'ask' && message.ask === 'command') {
+      console.log('🗑️ Removing partial command message:', message.id, 'with timestamp:', message.ts)
+      chatHistory.splice(i, 1)
+      break // 只删除最后一个partial command消息
+    }
+  }
 }
 
 onUnmounted(() => {

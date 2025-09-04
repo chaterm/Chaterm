@@ -45,6 +45,24 @@
           {{ $t('user.autoApprovalDescribe') }}
         </p>
       </div>
+
+      <!-- Security Configuration -->
+      <div class="setting-item">
+        <div class="security-config-container">
+          <span class="security-config-label">{{ $t('user.securityConfig') }}</span>
+          <a-button
+            size="small"
+            class="security-config-btn"
+            :loading="securityConfigLoading"
+            @click="openSecurityConfig"
+          >
+            {{ $t('user.openSecurityConfig') }}
+          </a-button>
+        </div>
+        <p class="setting-description-no-padding">
+          {{ $t('user.securityConfigDescribe') }}
+        </p>
+      </div>
       <!--      <div class="setting-item">-->
       <!--        <a-form-item-->
       <!--          :label="$t('user.customInstructions')"-->
@@ -223,6 +241,7 @@ const chatSettings = ref<ChatSettings>(DEFAULT_CHAT_SETTINGS)
 const customInstructions = ref('')
 const inputError = ref('')
 const needProxy = ref(false)
+const securityConfigLoading = ref(false) // 安全配置按钮loading状态
 const defaultProxyConfig: ProxyConfig = {
   type: 'SOCKS5',
   host: '',
@@ -452,6 +471,34 @@ const handleEnableExtendedThinking = (checked: boolean) => {
     thinkingBudgetTokens.value = 0
   } else if (thinkingBudgetTokens.value === 0) {
     thinkingBudgetTokens.value = 1024 // Default value
+  }
+}
+
+// Handle opening security configuration file
+const openSecurityConfig = async () => {
+  try {
+    securityConfigLoading.value = true
+
+    // Call main process to open security config directory
+    const result = await window.api.openSecurityConfig()
+
+    if (result.success) {
+      // 文件打开成功，不需要显示通知，用户看到文件打开就知道成功了
+      console.log('Security config file opened successfully')
+    } else {
+      throw new Error(result.error || 'Unknown error')
+    }
+  } catch (error) {
+    console.error('Failed to open security config:', error)
+    notification.error({
+      message: t('user.error'),
+      description: t('user.openSecurityConfigFailed')
+    })
+  } finally {
+    // 延迟关闭loading，确保用户能看到loading状态
+    setTimeout(() => {
+      securityConfigLoading.value = false
+    }, 2000)
   }
 }
 </script>
@@ -726,5 +773,34 @@ const handleEnableExtendedThinking = (checked: boolean) => {
   background-color: var(--hover-bg-color) !important;
   color: var(--text-color) !important;
   border-color: #1890ff !important;
+}
+
+// Security configuration styles
+.security-config-container {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 4px;
+}
+
+.security-config-label {
+  color: var(--text-color);
+  font-weight: 500;
+}
+
+.security-config-btn {
+  margin-right: 10px;
+  width: 130px;
+  background-color: var(--bg-color-octonary) !important;
+  color: var(--text-color) !important;
+  border: none !important;
+  box-shadow: none !important;
+  transition: background 0.2s;
+
+  &:hover,
+  &:focus {
+    background-color: var(--bg-color-novenary) !important;
+    color: var(--text-color) !important;
+  }
 }
 </style>
