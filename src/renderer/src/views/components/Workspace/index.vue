@@ -181,11 +181,23 @@
                   >
                     <laptop-outlined class="computer-icon" />
                     <span>{{ title }}</span>
-                    <!-- 备注编辑输入框 -->
-                    <div
-                      v-if="commentNode === dataRef.key"
-                      class="comment-edit-container"
+                    <!-- 备注显示 -->
+                    <span
+                      v-if="dataRef.comment"
+                      class="comment-text"
+                      :title="dataRef.comment"
                     >
+                      ({{ dataRef.comment }})
+                    </span>
+                  </span>
+                  <!-- 备注编辑输入框 -->
+                  <span
+                    v-else-if="commentNode === dataRef.key"
+                    class="title-with-icon"
+                  >
+                    <laptop-outlined class="computer-icon" />
+                    <span>{{ title }}</span>
+                    <div class="comment-edit-container">
                       <a-input
                         v-model:value="editingComment"
                         :placeholder="t('personal.commentPlaceholder')"
@@ -202,14 +214,6 @@
                         @click="cancelComment"
                       />
                     </div>
-                    <!-- 备注显示 -->
-                    <span
-                      v-if="dataRef.comment && editingNode !== dataRef.key && commentNode !== dataRef.key"
-                      class="comment-text"
-                      :title="dataRef.comment"
-                    >
-                      ({{ dataRef.comment }})
-                    </span>
                   </span>
                   <!-- 备注编辑图标 -->
                   <span
