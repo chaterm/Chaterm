@@ -123,7 +123,7 @@ export class SecurityConfigManager {
       ],
       dangerousCommands: [
         'rm',
-        'del',
+        // 'del',
         'format',
         'shutdown',
         'reboot',
@@ -164,6 +164,22 @@ export class SecurityConfigManager {
   }
 
   /**
+   * 移除JSON中的注释
+   */
+  private removeComments(jsonString: string): string {
+    // 移除单行注释 //
+    let cleaned = jsonString.replace(/\/\/.*$/gm, '')
+
+    // 移除多行注释 /* */
+    cleaned = cleaned.replace(/\/\*[\s\S]*?\*\//g, '')
+
+    // 移除空行
+    cleaned = cleaned.replace(/^\s*[\r\n]/gm, '')
+
+    return cleaned.trim()
+  }
+
+  /**
    * 加载配置文件
    */
   async loadConfig(): Promise<void> {
@@ -178,7 +194,9 @@ export class SecurityConfigManager {
         return
       }
 
-      const externalConfig = JSON.parse(configData)
+      // 移除注释后解析JSON
+      const cleanedData = this.removeComments(configData)
+      const externalConfig = JSON.parse(cleanedData)
 
       if (externalConfig.security) {
         // 安全地合并配置，确保默认配置的完整性和安全性
@@ -338,17 +356,17 @@ export class SecurityConfigManager {
 
     // 黑名单：完全匹配这些模式的命令将被阻止
     "blacklistPatterns": [
-${config.blacklistPatterns.map((pattern) => `      "${pattern}"`).join(',\n')}
+${config.blacklistPatterns.map((pattern) => `      "${pattern.replace(/\\/g, '\\\\')}"`).join(',\n')}
     ],
 
     // 白名单：这些命令被认为是安全的，不会被阻止
     "whitelistPatterns": [
-${config.whitelistPatterns.map((pattern) => `      "${pattern}"`).join(',\n')}
+${config.whitelistPatterns.map((pattern) => `      "${pattern.replace(/\\/g, '\\\\')}"`).join(',\n')}
     ],
 
     // 危险命令关键词：包含这些关键词的命令需要用户确认
     "dangerousCommands": [
-${config.dangerousCommands.map((cmd) => `      "${cmd}"`).join(',\n')}
+${config.dangerousCommands.map((cmd) => `      "${cmd.replace(/\\/g, '\\\\')}"`).join(',\n')}
     ],
 
     // 命令最大长度限制
