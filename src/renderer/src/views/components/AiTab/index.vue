@@ -1716,9 +1716,25 @@ const handleGlobalEscKey = (e: KeyboardEvent) => {
   }
 }
 
+// Global click outside listener to close host select popup
+const handleGlobalClick = (e: MouseEvent) => {
+  if (!showHostSelect.value) return
+
+  const target = e.target as HTMLElement
+  const hostSelectPopup = document.querySelector('.host-select-popup')
+  const hostTag = document.querySelector('.hosts-display-container-host-tag')
+
+  // Check if click is outside the host select popup and host tag
+  if (hostSelectPopup && !hostSelectPopup.contains(target) && hostTag && !hostTag.contains(target)) {
+    closeHostSelect()
+  }
+}
+
 onMounted(async () => {
   // Add global ESC key listener
   document.addEventListener('keydown', handleGlobalEscKey)
+  // Add global click listener to close host select popup when clicking outside
+  document.addEventListener('click', handleGlobalClick)
 
   eventBus.on('triggerAiSend', () => {
     if (chatInputValue.value.trim()) {
@@ -1949,6 +1965,7 @@ onUnmounted(() => {
     removeListener = null
   }
   document.removeEventListener('keydown', handleGlobalEscKey)
+  document.removeEventListener('click', handleGlobalClick)
   eventBus.off('apiProviderChanged')
   eventBus.off('activeTabChanged')
   eventBus.off('chatToAi')
