@@ -1264,6 +1264,7 @@ onUnmounted(() => {
     color: var(--text-color-tertiary);
     flex-shrink: 0;
     transition: all 0.2s ease;
+    font-size: 12px;
 
     &:hover {
       transform: translateY(-0.5px);
@@ -1279,6 +1280,7 @@ onUnmounted(() => {
     color: var(--text-color-tertiary);
     flex-shrink: 0;
     transition: all 0.2s ease;
+    font-size: 12px;
 
     &:hover {
       transform: translateY(-0.5px);
@@ -1294,6 +1296,7 @@ onUnmounted(() => {
     color: var(--text-color-tertiary);
     flex-shrink: 0;
     transition: all 0.2s ease;
+    font-size: 12px;
 
     &:hover {
       transform: translateY(-0.5px);
