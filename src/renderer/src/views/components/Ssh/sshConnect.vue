@@ -516,17 +516,14 @@ onMounted(async () => {
 
     handleSendOrToggleAi()
   }
-  // Move the event listener before async operations for better initialization order
-  eventBus.on('sendOrToggleAiFromTerminalForTab', handleSendOrToggleAiForTab)
 
   if (props.connectData.asset_type === 'shell') {
-    // TODO 本地连接后续兼容
     config.highlightStatus = 2
     config.autoCompleteStatus = 2
     isLocalConnect.value = true
-    await connectLocalSSH()
+    connectLocalSSH()
   } else {
-    await connectSSH()
+    connectSSH()
   }
 
   const handleExecuteCommand = (command) => {
@@ -994,7 +991,7 @@ const connectSSH = async () => {
       jumpServerStatusHandler.setupStatusListener(api)
     }
 
-    const connData = {
+    const connData: any = {
       id: connectionId.value,
       host: assetInfo.asset_ip,
       port: assetInfo.port,
@@ -1815,8 +1812,8 @@ const checkEditorMode = (response: MarkedResponse) => {
 
   if (response.data) {
     if (typeof response.data === 'string') bytes = Array.from(new TextEncoder().encode(response.data))
-    else if (response.data instanceof ArrayBuffer) bytes = Array.from(new Uint8Array(response.data))
-    else if (response.data instanceof Uint8Array) bytes = Array.from(response.data)
+    else if ((response.data as any) instanceof ArrayBuffer) bytes = Array.from(new Uint8Array(response.data as any))
+    else if ((response.data as any) instanceof Uint8Array) bytes = Array.from(response.data as any)
     else if (Array.isArray(response.data)) bytes = response.data
   }
 
@@ -2556,27 +2553,6 @@ const handleGlobalKeyDown = (e: KeyboardEvent) => {
     e.preventDefault()
     e.stopPropagation()
     openSearch()
-  }
-
-  // Close tab functionality
-  if ((isMac ? e.metaKey : e.ctrlKey) && e.key === 'u') {
-    e.preventDefault()
-    e.stopPropagation()
-    contextAct('close')
-  }
-
-  // Font size increase (Ctrl+)
-  if (e.ctrlKey && e.key === '=') {
-    e.preventDefault()
-    e.stopPropagation()
-    contextAct('fontsizeLargen')
-  }
-
-  // Font size decrease (Ctrl-)
-  if (e.ctrlKey && e.key === '-') {
-    e.preventDefault()
-    e.stopPropagation()
-    contextAct('fontsizeSmaller')
   }
 
   if (e.key === 'Escape' && showSearch.value) {
