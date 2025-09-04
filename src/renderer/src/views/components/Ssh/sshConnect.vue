@@ -520,13 +520,12 @@ onMounted(async () => {
   eventBus.on('sendOrToggleAiFromTerminalForTab', handleSendOrToggleAiForTab)
 
   if (props.connectData.asset_type === 'shell') {
-    // TODO 本地连接后续兼容
     config.highlightStatus = 2
     config.autoCompleteStatus = 2
     isLocalConnect.value = true
-    await connectLocalSSH()
+    connectLocalSSH()
   } else {
-    await connectSSH()
+    connectSSH()
   }
 
   const handleExecuteCommand = (command) => {
