@@ -209,7 +209,9 @@ app.whenReady().then(async () => {
   }
 
   mainWindow.webContents.on('will-navigate', (event, url) => {
-    if (url !== mainWindow.webContents.getURL()) {
+    const isExternal = !url.startsWith('http://localhost') && !url.startsWith('file://') && !url.startsWith('chaterm://')
+
+    if (isExternal) {
       event.preventDefault()
       shell.openExternal(url)
     }
