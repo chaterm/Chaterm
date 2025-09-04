@@ -516,8 +516,6 @@ onMounted(async () => {
 
     handleSendOrToggleAi()
   }
-  // Move the event listener before async operations for better initialization order
-  eventBus.on('sendOrToggleAiFromTerminalForTab', handleSendOrToggleAiForTab)
 
   if (props.connectData.asset_type === 'shell') {
     config.highlightStatus = 2
@@ -2555,27 +2553,6 @@ const handleGlobalKeyDown = (e: KeyboardEvent) => {
     e.preventDefault()
     e.stopPropagation()
     openSearch()
-  }
-
-  // Close tab functionality
-  if ((isMac ? e.metaKey : e.ctrlKey) && e.key === 'u') {
-    e.preventDefault()
-    e.stopPropagation()
-    contextAct('close')
-  }
-
-  // Font size increase (Ctrl+)
-  if (e.ctrlKey && e.key === '=') {
-    e.preventDefault()
-    e.stopPropagation()
-    contextAct('fontsizeLargen')
-  }
-
-  // Font size decrease (Ctrl-)
-  if (e.ctrlKey && e.key === '-') {
-    e.preventDefault()
-    e.stopPropagation()
-    contextAct('fontsizeSmaller')
   }
 
   if (e.key === 'Escape' && showSearch.value) {
