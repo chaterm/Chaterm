@@ -993,7 +993,7 @@ const connectSSH = async () => {
       jumpServerStatusHandler.setupStatusListener(api)
     }
 
-    const connData = {
+    const connData: any = {
       id: connectionId.value,
       host: assetInfo.asset_ip,
       port: assetInfo.port,
@@ -1814,8 +1814,8 @@ const checkEditorMode = (response: MarkedResponse) => {
 
   if (response.data) {
     if (typeof response.data === 'string') bytes = Array.from(new TextEncoder().encode(response.data))
-    else if (response.data instanceof ArrayBuffer) bytes = Array.from(new Uint8Array(response.data))
-    else if (response.data instanceof Uint8Array) bytes = Array.from(response.data)
+    else if ((response.data as any) instanceof ArrayBuffer) bytes = Array.from(new Uint8Array(response.data as any))
+    else if ((response.data as any) instanceof Uint8Array) bytes = Array.from(response.data as any)
     else if (Array.isArray(response.data)) bytes = response.data
   }
 
