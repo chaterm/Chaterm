@@ -34,6 +34,15 @@ code {
   margin-bottom: 80px;
 }
 
+/* 禁止所有图片元素拖拽 */
+img {
+  -webkit-user-drag: none;
+  -khtml-user-drag: none;
+  -moz-user-drag: none;
+  -o-user-drag: none;
+  user-drag: none;
+}
+
 .logo {
   margin-bottom: 20px;
   -webkit-user-drag: none;
