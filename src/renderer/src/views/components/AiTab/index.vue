@@ -749,7 +749,7 @@ const getMessageFeedback = (messageId: string): 'like' | 'dislike' | undefined =
 }
 
 // Todo 功能
-const { currentTodos, displayPreference, setDisplayPreference, shouldShowTodoAfterMessage, getTodosForMessage } = useTodo()
+const { displayPreference, setDisplayPreference, shouldShowTodoAfterMessage, getTodosForMessage } = useTodo()
 
 // Check if message feedback has been submitted
 const isMessageFeedbackSubmitted = (messageId: string): boolean => {

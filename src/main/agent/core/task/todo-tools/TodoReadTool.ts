@@ -29,20 +29,9 @@ export class TodoReadTool {
         return `## 运维任务列表\n\n暂无任务。\n\n对于复杂的服务端运维操作，建议使用 todo_write 工具创建任务列表来确保所有步骤都被正确执行。${reminder ? '\n\n' + reminder : ''}`
       }
 
-      return TodoReadTool.formatTodosOutput(todos)
+      return TodoWriteTool.generateOutput(todos)
     } catch (error) {
       throw new Error(`Todo 读取失败: ${error instanceof Error ? error.message : String(error)}`)
     }
-  }
-
-  private static formatTodosOutput(todos: Todo[]): string {
-    // 复用 TodoWriteTool 的输出格式
-    return TodoWriteTool.generateOutput(todos, {
-      previousTodos: [],
-      currentTodos: todos,
-      added: [],
-      removed: [],
-      statusChanged: []
-    })
   }
 }
