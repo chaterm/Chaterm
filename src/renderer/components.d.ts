@@ -53,5 +53,7 @@ declare module 'vue' {
     OtpInput: typeof import('./src/components/global/mfa/OtpInput.vue')['default']
     RouterLink: typeof import('vue-router')['RouterLink']
     RouterView: typeof import('vue-router')['RouterView']
+    TodoCompactList: typeof import('./src/components/todo/TodoCompactList.vue')['default']
+    TodoInlineDisplay: typeof import('./src/components/todo/TodoInlineDisplay.vue')['default']
   }
 }

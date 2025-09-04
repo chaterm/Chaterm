@@ -184,6 +184,15 @@
             >
               {{ message.content }}
             </div>
+
+            <!-- 动态插入 Todo 显示 -->
+            <TodoInlineDisplay
+              v-if="shouldShowTodoAfterMessage(message)"
+              :todos="getTodosForMessage(message)"
+              :show-trigger="message.role === 'assistant' && message.hasTodoUpdate"
+              class="todo-inline"
+              @toggle-visibility="handleTodoToggle"
+            />
           </template>
         </div>
       </div>
@@ -660,6 +669,8 @@
 <script setup lang="ts">
 import { ref, reactive, onMounted, defineAsyncComponent, onUnmounted, watch, computed, nextTick, onBeforeUnmount } from 'vue'
 import { useRouter } from 'vue-router'
+const TodoInlineDisplay = defineAsyncComponent(() => import('../../../components/todo/TodoInlineDisplay.vue'))
+import { useTodo } from '../../../composables/useTodo'
 import {
   CloseOutlined,
   LaptopOutlined,
@@ -736,6 +747,9 @@ const messageFeedbacks = ref<Record<string, 'like' | 'dislike'>>({})
 const getMessageFeedback = (messageId: string): 'like' | 'dislike' | undefined => {
   return messageFeedbacks.value[messageId]
 }
+
+// Todo 功能
+const { currentTodos, displayPreference, setDisplayPreference, shouldShowTodoAfterMessage, getTodosForMessage } = useTodo()
 
 // Check if message feedback has been submitted
 const isMessageFeedbackSubmitted = (messageId: string): boolean => {
@@ -1398,6 +1412,13 @@ const handleMessageOperation = async (operation: 'copy' | 'apply') => {
 
 const handleApplyCommand = () => handleMessageOperation('apply')
 const handleCopyContent = () => handleMessageOperation('copy')
+
+// Todo 相关处理方法
+const handleTodoToggle = (visible: boolean) => {
+  if (!visible && displayPreference.value === 'inline') {
+    setDisplayPreference('hidden')
+  }
+}
 
 const handleRejectContent = async () => {
   let message = chatHistory.at(-1)
@@ -4323,5 +4344,15 @@ defineExpose({
   margin-right: 6px;
   filter: var(--icon-filter);
   transition: filter 0.2s ease;
+}
+
+// Todo 相关样式
+.ai-tab-container {
+  position: relative;
+  height: 100%;
+}
+
+.todo-inline {
+  margin: 8px 0;
 }
 </style>

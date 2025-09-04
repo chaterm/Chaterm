@@ -19,6 +19,9 @@ export interface ChatMessage {
   selectedOption?: string
   partial?: boolean
   actioned?: boolean
+  // Todo 相关属性
+  hasTodoUpdate?: boolean
+  relatedTodos?: any[]
 }
 
 export interface AssetInfo {
