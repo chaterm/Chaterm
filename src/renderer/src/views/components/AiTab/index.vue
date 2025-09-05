@@ -191,7 +191,6 @@
               :todos="getTodosForMessage(message)"
               :show-trigger="message.role === 'assistant' && message.hasTodoUpdate"
               class="todo-inline"
-              @toggle-visibility="handleTodoToggle"
             />
           </template>
         </div>
@@ -749,7 +748,12 @@ const getMessageFeedback = (messageId: string): 'like' | 'dislike' | undefined =
 }
 
 // Todo 功能
-const { displayPreference, setDisplayPreference, shouldShowTodoAfterMessage, getTodosForMessage } = useTodo()
+const { displayPreference, shouldShowTodoAfterMessage, getTodosForMessage } = useTodo()
+
+// 添加调试日志监听
+watch(displayPreference, (newPref) => {
+  console.log('AiTab - displayPreference changed:', newPref)
+})
 
 // Check if message feedback has been submitted
 const isMessageFeedbackSubmitted = (messageId: string): boolean => {
@@ -799,6 +803,21 @@ const currentChatId = ref<string | null>(null)
 const authTokenInCookie = ref<string | null>(null)
 
 const chatHistory = reactive<ChatMessage[]>([])
+
+// 监听消息变化，检查todo显示逻辑
+watch(
+  chatHistory,
+  (newHistory) => {
+    console.log('AiTab - chatHistory changed, length:', newHistory.length)
+    if (newHistory.length > 0) {
+      const lastMessage = newHistory[newHistory.length - 1]
+      console.log('AiTab - last message:', lastMessage)
+      console.log('AiTab - shouldShowTodoAfterMessage for last message:', shouldShowTodoAfterMessage(lastMessage))
+      console.log('AiTab - getTodosForMessage for last message:', getTodosForMessage(lastMessage))
+    }
+  },
+  { deep: true }
+)
 
 // 过滤SSH连接消息：Agent回复后隐藏sshInfo消息
 const filteredChatHistory = computed(() => {
@@ -1413,12 +1432,7 @@ const handleMessageOperation = async (operation: 'copy' | 'apply') => {
 const handleApplyCommand = () => handleMessageOperation('apply')
 const handleCopyContent = () => handleMessageOperation('copy')
 
-// Todo 相关处理方法
-const handleTodoToggle = (visible: boolean) => {
-  if (!visible && displayPreference.value === 'inline') {
-    setDisplayPreference('hidden')
-  }
-}
+// Todo 相关处理方法已移除 - 不再支持关闭功能
 
 const handleRejectContent = async () => {
   let message = chatHistory.at(-1)

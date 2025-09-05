@@ -22,14 +22,6 @@
           <UpOutlined v-if="expanded" />
           <DownOutlined v-else />
         </a-button>
-        <a-button
-          type="text"
-          size="small"
-          class="control-btn"
-          @click="$emit('toggle-visibility', false)"
-        >
-          <CloseOutlined />
-        </a-button>
       </div>
     </div>
 
@@ -54,8 +46,8 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, defineAsyncComponent } from 'vue'
-import { UnorderedListOutlined, UpOutlined, DownOutlined, CloseOutlined } from '@ant-design/icons-vue'
+import { ref, computed, defineAsyncComponent, watch } from 'vue'
+import { UnorderedListOutlined, UpOutlined, DownOutlined } from '@ant-design/icons-vue'
 const TodoCompactList = defineAsyncComponent(() => import('./TodoCompactList.vue'))
 import type { Todo } from '../../types/todo'
 
@@ -74,17 +66,40 @@ const props = withDefaults(defineProps<Props>(), {
   maxItems: 20
 })
 
-const emit = defineEmits<{
-  'toggle-visibility': [visible: boolean]
-}>()
+// 移除toggle-visibility事件，不再支持关闭功能
+// const emit = defineEmits<{
+//   'toggle-visibility': [visible: boolean]
+// }>()
 
 const visible = ref(true)
 const expanded = ref(props.showTrigger)
 const activeKey = ref(props.showTrigger ? ['todos'] : [])
 
+// 添加调试日志
+watch(
+  () => props.todos,
+  (newTodos) => {
+    console.log('TodoInlineDisplay - todos prop changed:', newTodos)
+    console.log('TodoInlineDisplay - todos length:', newTodos?.length || 0)
+    console.log('TodoInlineDisplay - visible:', visible.value)
+    console.log('TodoInlineDisplay - expanded:', expanded.value)
+  },
+  { immediate: true, deep: true }
+)
+
+watch(visible, (newVisible) => {
+  console.log('TodoInlineDisplay - visible changed:', newVisible)
+})
+
+watch(expanded, (newExpanded) => {
+  console.log('TodoInlineDisplay - expanded changed:', newExpanded)
+})
+
 const toggleExpanded = () => {
+  console.log('TodoInlineDisplay - toggleExpanded called, current expanded:', expanded.value)
   expanded.value = !expanded.value
   activeKey.value = expanded.value ? ['todos'] : []
+  console.log('TodoInlineDisplay - toggleExpanded new expanded:', expanded.value)
 }
 </script>
 

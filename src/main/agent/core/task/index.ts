@@ -32,6 +32,7 @@ import { calculateApiCostAnthropic } from '@utils/cost'
 import { TodoWriteTool, TodoWriteParams } from './todo-tools/TodoWriteTool'
 import { TodoReadTool, TodoReadParams } from './todo-tools/TodoReadTool'
 import { TodoPauseTool, TodoPauseParams } from './todo-tools/TodoPauseTool'
+import { Todo } from '../../shared/todo/TodoSchemas'
 import { ServerTaskDetector } from './intelligence/ServerTaskDetector'
 import { TodoToolCallTracker } from '../services/TodoToolCallTracker'
 import { TODO_SYSTEM_MESSAGES } from './intelligence/todo-prompts'
@@ -2794,25 +2795,25 @@ SUDO_CHECK:${localSystemInfo.sudoCheck}`
         return
       }
 
-      let todos: unknown
+      let todos: Todo[]
       // 支持字符串(JSON文本)和已结构化的数组/对象两种形式
       if (typeof todosParam === 'string') {
         try {
-          todos = JSON.parse(todosParam)
+          todos = JSON.parse(todosParam) as Todo[]
         } catch (parseError) {
           this.pushToolResult(this.getToolDescription(block), `Todo 写入失败: JSON 解析错误 - ${parseError}`)
           return
         }
       } else if (Array.isArray(todosParam)) {
-        todos = todosParam
+        todos = todosParam as Todo[]
       } else if (typeof todosParam === 'object') {
         // 某些模型/解析器可能直接传对象（例如 { todos: [...] }），这里做兼容
         // 若对象本身看起来就是 todos 数组的包装，则尝试提取
         if (Array.isArray((todosParam as { todos?: unknown[] }).todos)) {
-          todos = (todosParam as { todos: unknown[] }).todos
+          todos = (todosParam as { todos: Todo[] }).todos
         } else {
           // 也可能直接是单个 todo 对象，统一包裹为数组
-          todos = [todosParam]
+          todos = [todosParam as Todo]
         }
       } else {
         this.pushToolResult(this.getToolDescription(block), 'Todo 写入失败: todos 参数类型不受支持')
@@ -2937,7 +2938,7 @@ SUDO_CHECK:${localSystemInfo.sudoCheck}`
       }
 
       // 查找需要更新的任务
-      let targetTodo = null
+      let targetTodo: Todo | undefined = undefined
 
       if (action === 'start') {
         // 查找第一个pending状态的任务
@@ -2967,7 +2968,7 @@ SUDO_CHECK:${localSystemInfo.sudoCheck}`
           sessionId: this.taskId,
           taskId: this.taskId,
           changeType: 'updated',
-          triggerReason: 'auto_update'
+          triggerReason: 'auto_progress'
         })
       }
     } catch (error) {

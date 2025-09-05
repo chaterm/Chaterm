@@ -25,6 +25,7 @@ export interface ExtensionMessage {
     | 'grpc_response'
     | 'requestyModels'
     | 'commandGenerationResponse'
+    | 'todoUpdated'
 
   text?: string
   action?:
@@ -73,6 +74,12 @@ export interface ExtensionMessage {
   // For command generation response
   command?: string
   tabId?: string
+  // For todo updates
+  todos?: unknown[]
+  sessionId?: string
+  taskId?: string
+  changeType?: 'created' | 'updated' | 'completed' | 'progress'
+  triggerReason?: 'agent_update' | 'user_request' | 'auto_progress'
 }
 
 export type Invoke = 'sendMessage' | 'primaryButtonClick' | 'secondaryButtonClick'

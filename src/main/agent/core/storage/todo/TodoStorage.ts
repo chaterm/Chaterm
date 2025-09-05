@@ -1,4 +1,4 @@
-import { Todo, TodoArraySchema } from '../../../shared/todo/TodoSchemas'
+import { Todo, TodoArraySchema, TodoSerializer } from '../../../shared/todo/TodoSchemas'
 import { ChatermDatabaseService } from '../../../../storage/database'
 import { TaskMetadataHelper } from '../../context/context-tracking/ContextTrackerTypes'
 
@@ -18,8 +18,28 @@ export class TodoStorage {
         return []
       }
 
+      // 处理日期字段转换
+      const processedTodos = Array.isArray(metadata.todos)
+        ? metadata.todos.map((todo: any) => ({
+            ...todo,
+            createdAt: typeof todo.createdAt === 'string' ? new Date(todo.createdAt) : todo.createdAt,
+            updatedAt: typeof todo.updatedAt === 'string' ? new Date(todo.updatedAt) : todo.updatedAt,
+            toolCalls: todo.toolCalls?.map((call: any) => ({
+              ...call,
+              timestamp: typeof call.timestamp === 'string' ? new Date(call.timestamp) : call.timestamp
+            })),
+            subtasks: todo.subtasks?.map((subtask: any) => ({
+              ...subtask,
+              toolCalls: subtask.toolCalls?.map((call: any) => ({
+                ...call,
+                timestamp: typeof call.timestamp === 'string' ? new Date(call.timestamp) : call.timestamp
+              }))
+            }))
+          }))
+        : []
+
       // 验证数据格式
-      const result = TodoArraySchema.safeParse(metadata.todos)
+      const result = TodoArraySchema.safeParse(processedTodos)
       if (!result.success) {
         console.warn(`Invalid todo data format for task ${this.taskId}:`, result.error)
         return []
