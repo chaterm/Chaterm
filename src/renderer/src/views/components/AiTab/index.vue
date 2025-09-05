@@ -3532,15 +3532,15 @@ defineExpose({
           width: 100%;
           padding: 8px 12px;
           margin: 0;
-          background-color: #2a2a2a;
-          border: 1px solid #3a3a3a;
+          background-color: var(--bg-color-tertiary);
+          border: 1px solid var(--bg-color-quaternary);
           border-radius: 6px;
-          color: #e0e0e0;
+          color: var(--text-color);
           transition: all 0.2s ease;
 
           &:hover {
-            background-color: #3a3a3a;
-            border-color: #4a4a4a;
+            background-color: var(--bg-color-quaternary);
+            border-color: var(--bg-color-novenary);
           }
 
           .ant-radio {
@@ -3548,13 +3548,13 @@ defineExpose({
           }
 
           .ant-radio-checked .ant-radio-inner {
-            background-color: #1656b1;
-            border-color: #1656b1;
+            background-color: var(--button-bg-color);
+            border-color: var(--button-bg-color);
           }
 
           &.custom-option {
             border-style: dashed;
-            border-color: #4a4a4a;
+            border-color: var(--bg-color-novenary);
             display: flex;
             align-items: flex-start;
             gap: 8px;
@@ -3570,18 +3570,18 @@ defineExpose({
               flex: 1;
               background-color: transparent;
               border: none;
-              color: #e0e0e0;
+              color: var(--text-color);
               padding: 0;
               min-height: 20px; // 设置最小高度与其他选项一致
 
               &:focus {
                 border: none;
                 box-shadow: none;
-                background-color: rgba(255, 255, 255, 0.05);
+                background-color: var(--hover-bg-color);
               }
 
               &::placeholder {
-                color: #888;
+                color: var(--text-color-tertiary);
               }
 
               :deep(.ant-input) {
@@ -3589,7 +3589,7 @@ defineExpose({
                 border: none !important;
                 box-shadow: none !important;
                 padding: 2px 0 !important;
-                color: #e0e0e0 !important;
+                color: var(--text-color) !important;
                 line-height: 1.4 !important;
                 min-height: 20px !important;
                 resize: none !important;
@@ -3611,8 +3611,8 @@ defineExpose({
         justify-content: flex-end;
 
         .submit-option-btn {
-          background-color: #1656b1;
-          border-color: #1656b1;
+          background-color: var(--button-bg-color);
+          border-color: var(--button-bg-color);
           color: white;
           border-radius: 6px;
           font-size: 12px;
@@ -3620,14 +3620,14 @@ defineExpose({
           padding: 0 16px;
 
           &:hover:not(:disabled) {
-            background-color: #2d6fcd;
-            border-color: #2d6fcd;
+            background-color: var(--button-hover-bg);
+            border-color: var(--button-hover-bg);
           }
 
           &:disabled {
-            background-color: #3a3a3a;
-            border-color: #3a3a3a;
-            color: #888;
+            background-color: var(--bg-color-quaternary);
+            border-color: var(--bg-color-quaternary);
+            color: var(--text-color-tertiary);
           }
         }
       }
