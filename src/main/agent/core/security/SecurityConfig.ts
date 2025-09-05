@@ -358,7 +358,7 @@ export class SecurityConfigManager {
     // 是否启用严格模式
     "enableStrictMode": ${config.enableStrictMode},
 
-    // 黑名单：完全匹配这些模式的命令将被阻止
+    // 黑名单：匹配这些模式的命令将被阻止
     "blacklistPatterns": [
 ${config.blacklistPatterns.map((pattern) => `      "${pattern.replace(/\\/g, '\\\\')}"`).join(',\n')}
     ],
