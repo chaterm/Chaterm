@@ -37,10 +37,8 @@ export class SecurityConfigManager {
       enableStrictMode: false, // 默认关闭严格模式
       blacklistPatterns: [
         // 系统级危险命令
-        'rm -rf /',
-        'rm -rf /*',
         'format c:',
-        'del /s /q c:\\*',
+        'del /s /q c:\\ ',
         // 'shutdown',
         // 'reboot',
         'halt',
@@ -58,15 +56,18 @@ export class SecurityConfigManager {
         'iptables -F',
         'ufw --force reset',
         'firewall-cmd --reload',
-        // 权限提升相关
-        'sudo rm -rf',
+        // 权限提升相关 - 只阻止删除根目录
+        'sudo rm -rf /',
+        'sudo rm -rf / ',
+        'rm -rf /',
+        'rm -rf / ',
         // 'sudo format',
         // 'sudo shutdown',
         // 'sudo reboot',
         // 文件系统操作
-        'chmod 777 /',
-        'chown -R root:root /',
-        'mount -o remount,rw /',
+        'chmod 777 / ',
+        'chown -R root:root / ',
+        'mount -o remount,rw / ',
         // 进程管理
         'kill -9 -1',
         'killall -9',
