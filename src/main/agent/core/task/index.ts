@@ -2005,6 +2005,7 @@ export class Task {
         }
 
         // 自动更新todo状态：开始执行任务
+        console.log(`[Execute Command] About to start todo update for command: ${command}`)
         await this.autoUpdateTodoStatus('start', command)
 
         const ipList = ip!.split(',')
@@ -2018,6 +2019,7 @@ export class Task {
         }
 
         // 自动更新todo状态：完成任务
+        console.log(`[Execute Command] About to complete todo update for command: ${command}`)
         await this.autoUpdateTodoStatus('complete', command)
 
         this.workspaceTracker.populateFilePaths()

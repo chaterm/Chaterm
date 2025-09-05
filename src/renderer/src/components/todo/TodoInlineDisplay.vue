@@ -3,7 +3,10 @@
     v-if="visible"
     class="todo-inline-display"
   >
-    <div class="todo-inline-header">
+    <div
+      class="todo-inline-header"
+      @click="toggleExpanded"
+    >
       <div class="todo-title">
         <UnorderedListOutlined />
         <span>运维任务进度</span>
@@ -13,15 +16,14 @@
         />
       </div>
       <div class="todo-controls">
-        <a-button
-          type="text"
-          size="small"
-          class="control-btn"
-          @click="toggleExpanded"
-        >
-          <UpOutlined v-if="expanded" />
-          <DownOutlined v-else />
-        </a-button>
+        <UpOutlined
+          v-if="expanded"
+          class="expand-icon"
+        />
+        <DownOutlined
+          v-else
+          class="expand-icon"
+        />
       </div>
     </div>
 
@@ -119,6 +121,13 @@ const toggleExpanded = () => {
   padding: 8px 12px;
   background: #ffffff;
   border-bottom: 1px solid #e9ecef;
+  cursor: pointer;
+  transition: background-color 0.2s;
+  user-select: none;
+}
+
+.todo-inline-header:hover {
+  background: #f8f9fa;
 }
 
 .todo-title {
@@ -132,17 +141,18 @@ const toggleExpanded = () => {
 
 .todo-controls {
   display: flex;
-  gap: 4px;
+  align-items: center;
 }
 
-.control-btn {
-  padding: 2px 4px;
-  height: auto;
-  min-width: auto;
+.expand-icon {
+  color: #6c757d;
+  font-size: 12px;
+  transition: color 0.2s;
+  pointer-events: none; /* 防止图标本身阻止点击事件 */
+}
 
-  &:hover {
-    background-color: #f0f0f0;
-  }
+.todo-inline-header:hover .expand-icon {
+  color: #495057;
 }
 
 .todo-count {

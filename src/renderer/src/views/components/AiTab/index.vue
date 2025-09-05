@@ -748,7 +748,7 @@ const getMessageFeedback = (messageId: string): 'like' | 'dislike' | undefined =
 }
 
 // Todo 功能
-const { displayPreference, shouldShowTodoAfterMessage, getTodosForMessage } = useTodo()
+const { displayPreference, shouldShowTodoAfterMessage, getTodosForMessage, markLatestMessageWithTodoUpdate } = useTodo()
 
 // 添加调试日志监听
 watch(displayPreference, (newPref) => {
@@ -1953,6 +1953,14 @@ onMounted(async () => {
         responseLoading.value
       ) {
         responseLoading.value = false
+      }
+    } else if (message?.type === 'todoUpdated') {
+      // 处理 todo 更新事件
+      console.log('AiTab: Received todoUpdated message', message)
+
+      // 标记最新的 assistant 消息包含 todo 更新
+      if (message.todos && message.todos.length > 0) {
+        markLatestMessageWithTodoUpdate(chatHistory, message.todos)
       }
     }
     lastMessage = message

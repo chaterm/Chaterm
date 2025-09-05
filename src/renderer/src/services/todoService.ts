@@ -6,6 +6,9 @@ class TodoService {
   public currentTodos = ref<Todo[]>([])
   public displayPreference = ref<TodoDisplayPreference>('inline')
 
+  // 跟踪最后一次 todo 更新的时间戳，确保只显示最新的
+  private lastTodoUpdateTimestamp = ref<number>(0)
+
   // 事件监听器
   private messageHandler: ((message: any) => void) | null = null
   private unsubscribeFromMain: (() => void) | null = null
@@ -41,7 +44,19 @@ class TodoService {
    * 处理 todo 更新事件
    */
   private handleTodoUpdate(message: TodoWebviewMessage) {
+    const timestamp = Date.now()
+
+    // 更新当前 todos
     this.currentTodos.value = message.todos || []
+
+    // 记录最新的更新时间戳，用于判断哪个消息应该显示 todo
+    this.lastTodoUpdateTimestamp.value = timestamp
+
+    console.log('TodoService: Updated todos', {
+      todosCount: this.currentTodos.value.length,
+      timestamp,
+      sessionId: message.sessionId || message.taskId
+    })
   }
 
   /**
@@ -76,19 +91,37 @@ class TodoService {
     if (this.displayPreference.value === 'hidden') return false
     if (this.currentTodos.value.length === 0) return false
 
-    // 显示条件：
-    // 1. Agent 消息包含 todo 更新
-    // 2. 用户询问进度相关问题后的回复
-    // 3. 重要任务状态变更
-    return (
-      message.role === 'assistant' &&
-      (message.hasTodoUpdate ||
-        message.content?.includes('任务列表') ||
-        message.content?.includes('进度') ||
-        message.content?.includes('下一步') ||
-        message.content?.includes('todo') ||
-        message.content?.includes('运维任务'))
-    )
+    // 只有明确标记了 hasTodoUpdate 的消息才显示 todo
+    // 这样可以避免多个消息都显示 todo 的问题
+    return message.role === 'assistant' && message.hasTodoUpdate === true
+  }
+
+  /**
+   * 标记消息包含 todo 更新
+   * 这个方法应该在收到 todoUpdated 事件时调用，标记最新的 assistant 消息
+   */
+  public markLatestMessageWithTodoUpdate(messages: any[], todos: Todo[]) {
+    // 找到最新的 assistant 消息
+    const latestAssistantMessage = messages.filter((m) => m.role === 'assistant').pop()
+
+    if (latestAssistantMessage) {
+      // 清除之前所有消息的 todo 标记，确保只有最新的消息显示 todo
+      messages.forEach((msg) => {
+        if (msg.hasTodoUpdate) {
+          msg.hasTodoUpdate = false
+          delete msg.relatedTodos
+        }
+      })
+
+      // 标记最新的消息
+      latestAssistantMessage.hasTodoUpdate = true
+      latestAssistantMessage.relatedTodos = todos
+
+      console.log('TodoService: Marked latest message with todo update', {
+        messageId: latestAssistantMessage.id,
+        todosCount: todos.length
+      })
+    }
   }
 
   /**
@@ -104,6 +137,13 @@ class TodoService {
   public async initializeTodos() {
     // Todo 数据将通过 todoUpdated 消息自动更新
     // 这里不需要主动请求
+  }
+
+  /**
+   * 获取标记消息的方法，供外部组件调用
+   */
+  public getMarkLatestMessageWithTodoUpdate() {
+    return this.markLatestMessageWithTodoUpdate.bind(this)
   }
 
   /**

@@ -23,6 +23,8 @@ export function useTodo() {
     return todoService.getTodosForMessage(message)
   }
 
+  const markLatestMessageWithTodoUpdate = todoService.getMarkLatestMessageWithTodoUpdate()
+
   // 生命周期
   onMounted(async () => {
     await todoService.initializeTodos()
@@ -40,7 +42,8 @@ export function useTodo() {
     // 方法
     setDisplayPreference,
     shouldShowTodoAfterMessage,
-    getTodosForMessage
+    getTodosForMessage,
+    markLatestMessageWithTodoUpdate
   }
 }
 
