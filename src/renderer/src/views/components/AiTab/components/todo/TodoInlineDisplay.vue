@@ -108,10 +108,13 @@ const toggleExpanded = () => {
 <style scoped lang="less">
 .todo-inline-display {
   margin: 12px 0;
-  background: #f8f9fa;
-  border: 1px solid #e9ecef;
+  background: var(--bg-color-secondary);
+  border: 1px solid var(--border-color-light);
   border-radius: 8px;
   overflow: hidden;
+  transition:
+    background-color 0.3s ease,
+    border-color 0.3s ease;
 }
 
 .todo-inline-header {
@@ -119,15 +122,15 @@ const toggleExpanded = () => {
   justify-content: space-between;
   align-items: center;
   padding: 8px 12px;
-  background: #ffffff;
-  border-bottom: 1px solid #e9ecef;
+  background: var(--bg-color);
+  border-bottom: 1px solid var(--border-color-light);
   cursor: pointer;
   transition: background-color 0.2s;
   user-select: none;
 }
 
 .todo-inline-header:hover {
-  background: #f8f9fa;
+  background: var(--hover-bg-color);
 }
 
 .todo-title {
@@ -136,7 +139,7 @@ const toggleExpanded = () => {
   gap: 6px;
   font-size: 13px;
   font-weight: 500;
-  color: #495057;
+  color: var(--text-color);
 }
 
 .todo-controls {
@@ -145,19 +148,20 @@ const toggleExpanded = () => {
 }
 
 .expand-icon {
-  color: #6c757d;
+  color: var(--text-color-tertiary);
   font-size: 12px;
   transition: color 0.2s;
   pointer-events: none; /* 防止图标本身阻止点击事件 */
 }
 
 .todo-inline-header:hover .expand-icon {
-  color: #495057;
+  color: var(--text-color-secondary);
 }
 
 .todo-count {
   :deep(.ant-badge-count) {
-    background: #6c757d;
+    background: var(--text-color-tertiary);
+    color: var(--bg-color);
     font-size: 10px;
     min-width: 16px;
     height: 16px;
@@ -180,6 +184,25 @@ const toggleExpanded = () => {
 }
 
 :deep(.ant-collapse-content-box) {
-  padding: 8px 12px;
+  padding: 6px 12px 8px 12px !important;
+}
+
+// 额外的强制样式，确保生效
+.todo-inline-display :deep(.ant-collapse .ant-collapse-content > .ant-collapse-content-box) {
+  padding: 6px 12px 8px 12px !important;
+}
+
+// 暗色主题下的特殊处理
+.theme-dark & {
+  .todo-inline-header:hover {
+    background: var(--hover-bg-color);
+  }
+
+  .todo-count {
+    :deep(.ant-badge-count) {
+      background: var(--text-color-tertiary);
+      color: var(--bg-color);
+    }
+  }
 }
 </style>
