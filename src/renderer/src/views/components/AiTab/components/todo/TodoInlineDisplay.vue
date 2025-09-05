@@ -51,7 +51,7 @@
 import { ref, computed, defineAsyncComponent, watch } from 'vue'
 import { UnorderedListOutlined, UpOutlined, DownOutlined } from '@ant-design/icons-vue'
 const TodoCompactList = defineAsyncComponent(() => import('./TodoCompactList.vue'))
-import type { Todo } from '../../types/todo'
+import type { Todo } from '../../../../../types/todo'
 
 interface Props {
   todos: Todo[]

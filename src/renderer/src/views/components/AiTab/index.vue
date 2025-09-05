@@ -668,8 +668,8 @@
 <script setup lang="ts">
 import { ref, reactive, onMounted, defineAsyncComponent, onUnmounted, watch, computed, nextTick, onBeforeUnmount } from 'vue'
 import { useRouter } from 'vue-router'
-const TodoInlineDisplay = defineAsyncComponent(() => import('../../../components/todo/TodoInlineDisplay.vue'))
-import { useTodo } from '../../../composables/useTodo'
+const TodoInlineDisplay = defineAsyncComponent(() => import('./components/todo/TodoInlineDisplay.vue'))
+import { useTodo } from './composables/useTodo'
 import {
   CloseOutlined,
   LaptopOutlined,

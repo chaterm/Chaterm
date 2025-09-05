@@ -1,6 +1,6 @@
 import { computed, onMounted, onUnmounted } from 'vue'
-import { todoService } from '../services/todoService'
-import type { Todo, TodoDisplayPreference } from '../types/todo'
+import { todoService } from '../../../../services/todoService'
+import type { Todo, TodoDisplayPreference } from '../../../../types/todo'
 
 /**
  * Todo 功能的 composable

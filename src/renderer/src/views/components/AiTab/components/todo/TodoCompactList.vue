@@ -172,7 +172,7 @@ import {
   MinusOutlined,
   BarChartOutlined
 } from '@ant-design/icons-vue'
-import type { Todo } from '../../types/todo'
+import type { Todo } from '../../../../../types/todo'
 
 interface Props {
   todos: Todo[]
