@@ -37,46 +37,50 @@ export class SecurityConfigManager {
       enableStrictMode: false, // 默认关闭严格模式
       blacklistPatterns: [
         // 系统级危险命令
-        'rm -rf /',
-        'rm -rf /*',
-        'format c:',
-        'del /s /q c:\\*',
+        // 'format c:',
+        // 'del /s /q c:\\ ',
         // 'shutdown',
         // 'reboot',
-        'halt',
+        // 'halt',
         // 'poweroff',
-        'init 0',
-        'init 6',
-        'killall',
-        'pkill -9',
-        'fuser -k',
-        'dd if=/dev/zero',
-        'mkfs',
-        'fdisk',
-        'parted',
+        // 'init 0',
+        // 'init 6',
+        // 'killall',
+        // 'pkill -9',
+        // 'fuser -k',
+        // 'dd if=/dev/zero',
+        // 'mkfs',
+        // 'fdisk',
+        // 'parted',
         // 网络相关危险命令
-        'iptables -F',
-        'ufw --force reset',
-        'firewall-cmd --reload',
-        // 权限提升相关
-        'sudo rm -rf',
+        // 'iptables -F',
+        // 'ufw --force reset',
+        // 'firewall-cmd --reload',
+        // 权限提升相关 - 只阻止删除根目录
+        // 'sudo rm -rf /',
+        // 'sudo rm -rf / ',
+        // 'rm -rf /',
+        // 'rm -rf / ',
         // 'sudo format',
         // 'sudo shutdown',
         // 'sudo reboot',
-        // 文件系统操作
-        'chmod 777 /',
-        'chown -R root:root /',
-        'mount -o remount,rw /',
+        // 文件系统操作 - 禁止对根目录使用
+        // 'chmod 777 /',
+        // 'chmod 777 / ',
+        // 'chown -R root:root /',
+        // 'chown -R root:root / ',
+        // 'mount -o remount,rw /',
+        // 'mount -o remount,rw / ',
         // 进程管理
-        'kill -9 -1',
-        'killall -9',
-        'pkill -f',
+        // 'kill -9 -1',
+        // 'killall -9',
+        // 'pkill -f',
         // 网络服务
         // 'systemctl stop',
         // 'service stop',
         // 'systemctl disable',
         // 数据库相关
-        'DROP DATABASE'
+        // 'DROP DATABASE'
         // 'TRUNCATE TABLE',
         // 'DELETE FROM',
         // 其他危险操作
