@@ -64,9 +64,12 @@ export class SecurityConfigManager {
         // 'sudo format',
         // 'sudo shutdown',
         // 'sudo reboot',
-        // 文件系统操作
+        // 文件系统操作 - 禁止对根目录使用
+        'chmod 777 /',
         'chmod 777 / ',
+        'chown -R root:root /',
         'chown -R root:root / ',
+        'mount -o remount,rw /',
         'mount -o remount,rw / ',
         // 进程管理
         'kill -9 -1',
