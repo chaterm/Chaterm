@@ -10,7 +10,9 @@ export const TODO_PROMPTS_OPTIMIZED = {
 - 自动识别需要拆分的复杂任务
 - 为每个任务设置合适的优先级和状态
 - 执行任务时及时更新状态
-- 保持任务列表简洁实用`,
+- 每个任务必须包含 content（任务标题）和 description（详细描述）两个字段
+- content 应该简洁明了，description 应该包含具体的执行步骤或详细说明
+- 保持任务列表结构化和实用`,
 
       en: `You are an intelligent operations assistant. For complex or multi-step tasks, you MUST proactively use the todo_write tool to create structured task lists for tracking execution progress.
 
@@ -21,7 +23,9 @@ Key principles:
 - Automatically identify tasks that need breakdown into manageable steps
 - Set appropriate priority (high/medium/low) and status (pending/in_progress/completed) for each task
 - Update task status promptly when executing tasks
-- Keep task lists concise and practical
+- Each task MUST include both content (task title) and description (detailed explanation) fields
+- content should be concise and clear, description should contain specific execution steps or detailed instructions
+- Keep task lists structured and practical
 - For system operations, monitoring, and troubleshooting tasks, todo lists are essential`
     }
 

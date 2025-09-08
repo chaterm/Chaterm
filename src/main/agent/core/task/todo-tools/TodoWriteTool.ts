@@ -8,7 +8,8 @@ export interface TodoWriteParams {
 
 export class TodoWriteTool {
   static readonly name = 'todo_write'
-  static readonly description = '创建和管理结构化任务列表，更新整个 todo 列表'
+  static readonly description =
+    '创建和管理结构化任务列表，更新整个 todo 列表。每个任务必须包含 content（任务标题）和 description（详细描述）字段。content 应简洁明了，description 应包含具体执行步骤或详细说明。'
 
   static async execute(params: TodoWriteParams, taskId: string): Promise<string> {
     try {
