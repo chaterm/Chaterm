@@ -156,7 +156,7 @@ export class SecurityConfigManager {
         'TRUNCATE',
         'DELETE'
       ],
-      maxCommandLength: 1000,
+      maxCommandLength: 10000,
       // 安全策略配置
       securityPolicy: {
         blockCritical: true, // 严重危险命令直接阻止
