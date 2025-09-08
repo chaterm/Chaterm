@@ -512,6 +512,8 @@ export default {
     comment: 'Comment',
     addComment: 'Add Comment',
     editComment: 'Edit Comment',
+    addToFavorites: 'Add to Favorites',
+    removeFromFavorites: 'Remove from Favorites',
     commentPlaceholder: 'Please enter comment information',
     commentSaved: 'Comment saved successfully',
     commentSaveFailed: 'Comment save failed',

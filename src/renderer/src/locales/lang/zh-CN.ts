@@ -512,6 +512,8 @@ export default {
     comment: '备注',
     addComment: '添加备注',
     editComment: '编辑备注',
+    addToFavorites: '添加到收藏',
+    removeFromFavorites: '从收藏中移除',
     commentPlaceholder: '请输入备注信息',
     commentSaved: '备注保存成功',
     commentSaveFailed: '备注保存失败',
