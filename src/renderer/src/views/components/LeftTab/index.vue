@@ -31,6 +31,27 @@
           />
         </p>
         <p
+          v-else-if="i.key === 'kubernetes'"
+          class="term_menu"
+          :class="{ active: activeKey === i.key }"
+        >
+          <img
+            :src="i.icon"
+            alt=""
+          />
+        </p>
+        <p
+          v-else-if="i.key === 'doc'"
+          class="term_menu"
+          :class="{ active: activeKey === i.key }"
+          @click="openDocumentation"
+        >
+          <img
+            :src="i.icon"
+            alt=""
+          />
+        </p>
+        <p
           v-else
           class="term_menu"
           :class="{ active: activeKey === i.key }"
@@ -126,12 +147,24 @@ import { pinia } from '@/main'
 import eventBus from '@/utils/eventBus'
 import { shortcutService } from '@/services/shortcutService'
 import { dataSyncService } from '@/services/dataSyncService'
+import { useI18n } from 'vue-i18n'
 
 // 声明存储事件处理函数的变量
 let storageEventHandler: ((e: StorageEvent) => void) | null = null
 
+const { locale } = useI18n()
+
 const keychainConfigClick = () => {
   emit('open-user-tab', 'keyChainConfig')
+}
+
+// Open documentation based on current language
+const openDocumentation = () => {
+  const currentLang = locale.value
+  const docUrl = currentLang === 'zh-CN' ? 'https://chaterm.ai/cn/docs/' : 'https://chaterm.ai/docs/'
+
+  // Open documentation in external browser
+  window.open(docUrl, '_blank')
 }
 const userStore = userInfoStore(pinia)
 const activeKey = ref('workspace')
