@@ -91,6 +91,7 @@
                     class="title-with-icon"
                     @click="handleClick(dataRef)"
                     @dblclick="handleDblClick(dataRef)"
+                    @contextmenu="handleContextMenu($event, dataRef)"
                   >
                     <laptop-outlined class="computer-icon" />
                     <span>{{ title }}</span>
@@ -123,26 +124,6 @@
                       ({{ dataRef.comment }})
                     </span>
                   </span>
-                  <span
-                    v-if="
-                      dataRef &&
-                      dataRef.favorite !== undefined &&
-                      !dataRef.key.startsWith('common_') &&
-                      editingNode !== dataRef.key &&
-                      !(dataRef.asset_type === 'organization' && dataRef.children)
-                    "
-                    class="favorite-icon"
-                    @click.stop="handleFavoriteClick(dataRef)"
-                  >
-                    <star-filled
-                      v-if="dataRef.favorite"
-                      class="favorite-filled"
-                    />
-                    <star-outlined
-                      v-else
-                      class="favorite-outlined"
-                    />
-                  </span>
                 </div>
               </template>
             </a-tree>
@@ -162,6 +143,7 @@
                   <span
                     v-if="!isSecondLevel(dataRef)"
                     class="title-with-icon"
+                    @contextmenu="handleContextMenu($event, dataRef)"
                   >
                     <span v-if="editingNode !== dataRef.key">
                       {{ title }}
@@ -178,6 +160,7 @@
                     class="title-with-icon"
                     @click="handleClick(dataRef)"
                     @dblclick="handleDblClick(dataRef)"
+                    @contextmenu="handleContextMenu($event, dataRef)"
                   >
                     <laptop-outlined class="computer-icon" />
                     <span>{{ title }}</span>
@@ -215,79 +198,6 @@
                       />
                     </div>
                   </span>
-                  <!-- 备注编辑图标 -->
-                  <span
-                    v-if="
-                      isSecondLevel(dataRef) &&
-                      dataRef.asset_type === 'organization' &&
-                      editingNode !== dataRef.key &&
-                      commentNode !== dataRef.key &&
-                      !dataRef.key.startsWith('common_')
-                    "
-                    class="comment-icon"
-                    @click.stop="handleCommentClick(dataRef)"
-                  >
-                    <a-tooltip :title="dataRef.comment ? t('personal.editComment') : t('personal.addComment')">
-                      <EditOutlined />
-                    </a-tooltip>
-                  </span>
-                  <!-- 移动资产到文件夹按钮 -->
-                  <span
-                    v-if="
-                      isSecondLevel(dataRef) &&
-                      dataRef.asset_type === 'organization' &&
-                      editingNode !== dataRef.key &&
-                      commentNode !== dataRef.key &&
-                      !dataRef.key.startsWith('common_') &&
-                      !dataRef.key.startsWith('folder_')
-                    "
-                    class="move-icon"
-                    @click.stop="handleMoveToFolder(dataRef)"
-                  >
-                    <a-tooltip :title="t('personal.moveToFolder')">
-                      <FolderOutlined />
-                    </a-tooltip>
-                  </span>
-                  <span
-                    v-if="
-                      isSecondLevel(dataRef) &&
-                      dataRef.asset_type === 'organization' &&
-                      editingNode !== dataRef.key &&
-                      commentNode !== dataRef.key &&
-                      dataRef.key.startsWith('folder_') &&
-                      dataRef.folderUuid
-                    "
-                    class="remove-icon"
-                    @click.stop="handleRemoveFromFolder(dataRef)"
-                  >
-                    <a-tooltip :title="t('personal.removeFromFolder')">
-                      <DeleteOutlined />
-                    </a-tooltip>
-                  </span>
-                  <div
-                    v-if="
-                      !isSecondLevel(dataRef) &&
-                      !dataRef.key.startsWith('common_') &&
-                      editingNode !== dataRef.key &&
-                      company !== 'personal_user_id' &&
-                      dataRef.title !== t('common.favoriteBar') &&
-                      dataRef.asset_type === 'custom_folder'
-                    "
-                    class="folder-actions"
-                  >
-                    <a-tooltip :title="t('personal.editFolder')">
-                      <EditOutlined
-                        class="folder-action-icon"
-                        @click="handleEditFolder(dataRef)"
-                      />
-                    </a-tooltip>
-                    <a-tooltip :title="t('personal.deleteFolder')">
-                      <DeleteOutlined
-                        class="folder-action-icon"
-                        @click="handleDeleteFolder(dataRef)"
-                      />
-                    </a-tooltip>
-                  </div>
                   <div
                     v-if="
                       !isSecondLevel(dataRef) &&
@@ -313,26 +223,6 @@
                       </a-button>
                     </a-tooltip>
                   </div>
-                  <span
-                    v-if="
-                      dataRef &&
-                      dataRef.favorite !== undefined &&
-                      !dataRef.key.startsWith('common_') &&
-                      editingNode !== dataRef.key &&
-                      !(dataRef.asset_type === 'organization' && dataRef.children)
-                    "
-                    class="favorite-icon"
-                    @click.stop="handleFavoriteClick(dataRef)"
-                  >
-                    <star-filled
-                      v-if="dataRef.favorite"
-                      class="favorite-filled"
-                    />
-                    <star-outlined
-                      v-else
-                      class="favorite-outlined"
-                    />
-                  </span>
                 </div>
               </template>
             </a-tree>
@@ -433,6 +323,70 @@
       </div>
     </div>
   </Modal>
+
+  <!-- 右键菜单 -->
+  <div
+    v-if="contextMenuVisible && contextMenuData"
+    class="context-menu"
+    :style="contextMenuStyle"
+    @click.stop
+  >
+    <div
+      v-if="contextMenuData.favorite !== undefined"
+      class="context-menu-item"
+      @click="handleContextMenuAction('favorite')"
+    >
+      <star-filled
+        v-if="contextMenuData.favorite"
+        class="menu-icon"
+      />
+      <star-outlined
+        v-else
+        class="menu-icon"
+      />
+      {{ contextMenuData.favorite ? t('personal.removeFromFavorites') : t('personal.addToFavorites') }}
+    </div>
+    <div
+      v-if="contextMenuData.asset_type === 'organization' && !contextMenuData.key.startsWith('common_')"
+      class="context-menu-item"
+      @click="handleContextMenuAction('comment')"
+    >
+      <EditOutlined class="menu-icon" />
+      {{ contextMenuData.comment ? t('personal.editComment') : t('personal.addComment') }}
+    </div>
+    <div
+      v-if="contextMenuData.asset_type === 'organization' && !contextMenuData.key.startsWith('common_') && !contextMenuData.key.startsWith('folder_')"
+      class="context-menu-item"
+      @click="handleContextMenuAction('move')"
+    >
+      <FolderOutlined class="menu-icon" />
+      {{ t('personal.moveToFolder') }}
+    </div>
+    <div
+      v-if="contextMenuData.asset_type === 'organization' && contextMenuData.key.startsWith('folder_') && contextMenuData.folderUuid"
+      class="context-menu-item"
+      @click="handleContextMenuAction('remove')"
+    >
+      <DeleteOutlined class="menu-icon" />
+      {{ t('personal.removeFromFolder') }}
+    </div>
+    <div
+      v-if="contextMenuData.asset_type === 'custom_folder' && !contextMenuData.key.startsWith('common_')"
+      class="context-menu-item"
+      @click="handleContextMenuAction('editFolder')"
+    >
+      <EditOutlined class="menu-icon" />
+      {{ t('personal.editFolder') }}
+    </div>
+    <div
+      v-if="contextMenuData.asset_type === 'custom_folder' && !contextMenuData.key.startsWith('common_')"
+      class="context-menu-item"
+      @click="handleContextMenuAction('deleteFolder')"
+    >
+      <DeleteOutlined class="menu-icon" />
+      {{ t('personal.deleteFolder') }}
+    </div>
+  </div>
 </template>
 
 <script setup lang="ts">
@@ -481,6 +435,9 @@ const editFolderForm = ref({
 })
 const customFolders = ref<any[]>([])
 const selectedAssetForMove = ref<any>(null)
+const contextMenuVisible = ref(false)
+const contextMenuData = ref<any>(null)
+const contextMenuStyle = ref({})
 
 interface WorkspaceItem {
   key: string
@@ -525,6 +482,9 @@ const companyChange = (item) => {
   searchValue.value = ''
   editingNode.value = null
   editingTitle.value = ''
+  // Close context menu when changing workspace
+  contextMenuVisible.value = false
+  contextMenuData.value = null
   if (isPersonalWorkspace.value) {
     getLocalAssetMenu()
   } else {
@@ -534,6 +494,10 @@ const companyChange = (item) => {
 }
 
 const handleTabChange = (activeKey: string | number) => {
+  // Close context menu when switching tabs
+  contextMenuVisible.value = false
+  contextMenuData.value = null
+
   const item = workspaceData.value.find((item) => item.key === activeKey)
   if (item) {
     companyChange(item)
@@ -642,6 +606,10 @@ const filterTreeNodes = (inputValue: string): AssetNode[] => {
 }
 
 const onSearchInput = () => {
+  // Close context menu when searching
+  contextMenuVisible.value = false
+  contextMenuData.value = null
+
   if (isPersonalWorkspace.value) {
     assetTreeData.value = filterTreeNodes(searchValue.value)
     expandedKeys.value = getAllKeys(assetTreeData.value)
@@ -1016,6 +984,56 @@ const handleFolderMouseLeave = (e: Event) => {
   if (target) target.style.backgroundColor = 'transparent'
 }
 
+const handleContextMenu = (event: MouseEvent, dataRef: any) => {
+  event.preventDefault()
+  event.stopPropagation()
+
+  // Show context menu for machine nodes (second level) and custom folders (first level)
+  const isMachineNode = isSecondLevel(dataRef)
+  const isCustomFolder = !isSecondLevel(dataRef) && dataRef.asset_type === 'custom_folder' && !dataRef.key.startsWith('common_')
+
+  if (!isMachineNode && !isCustomFolder) {
+    return
+  }
+
+  contextMenuData.value = dataRef
+  contextMenuStyle.value = {
+    position: 'fixed',
+    left: event.clientX + 'px',
+    top: event.clientY + 'px',
+    zIndex: 9999
+  }
+  contextMenuVisible.value = true
+}
+
+const handleContextMenuAction = (action: string) => {
+  if (!contextMenuData.value) return
+
+  switch (action) {
+    case 'favorite':
+      handleFavoriteClick(contextMenuData.value)
+      break
+    case 'comment':
+      handleCommentClick(contextMenuData.value)
+      break
+    case 'move':
+      handleMoveToFolder(contextMenuData.value)
+      break
+    case 'remove':
+      handleRemoveFromFolder(contextMenuData.value)
+      break
+    case 'editFolder':
+      handleEditFolder(contextMenuData.value)
+      break
+    case 'deleteFolder':
+      handleDeleteFolder(contextMenuData.value)
+      break
+  }
+
+  contextMenuVisible.value = false
+  contextMenuData.value = null
+}
+
 getLocalAssetMenu()
 
 const getSSHAgentStatus = async () => {
@@ -1060,6 +1078,12 @@ onMounted(() => {
     refreshAssetMenu()
   })
   loadCustomFolders()
+
+  // Add click outside listener to close context menu
+  document.addEventListener('click', () => {
+    contextMenuVisible.value = false
+    contextMenuData.value = null
+  })
 })
 onUnmounted(() => {
   eventBus.off('LocalAssetMenu', refreshAssetMenu)
@@ -1214,32 +1238,6 @@ onUnmounted(() => {
     flex-shrink: 0;
   }
 
-  .favorite-icon {
-    display: flex;
-    align-items: center;
-    margin-right: 8px;
-    cursor: pointer;
-    color: var(--text-color-tertiary);
-    flex-shrink: 0;
-    transition: all 0.2s ease;
-
-    &:hover {
-      transform: translateY(-0.5px);
-      color: var(--text-color);
-    }
-  }
-
-  .favorite-filled {
-    color: #e6b800;
-    opacity: 0.9;
-    filter: drop-shadow(0 0 3px rgba(230, 184, 0, 0.4));
-  }
-
-  .favorite-outlined {
-    color: var(--text-color-tertiary);
-    opacity: 0.6;
-  }
-
   .edit-icon {
     display: none;
     cursor: pointer;
@@ -1252,73 +1250,6 @@ onUnmounted(() => {
 
   .refresh-icon {
     margin-right: 3px;
-  }
-
-  .comment-icon {
-    display: flex;
-    align-items: center;
-    margin-right: 8px;
-    cursor: pointer;
-    color: var(--text-color-tertiary);
-    flex-shrink: 0;
-    transition: all 0.2s ease;
-    font-size: 12px;
-
-    &:hover {
-      transform: translateY(-0.5px);
-      color: var(--text-color);
-    }
-  }
-
-  .move-icon {
-    display: flex;
-    align-items: center;
-    margin-right: 8px;
-    cursor: pointer;
-    color: var(--text-color-tertiary);
-    flex-shrink: 0;
-    transition: all 0.2s ease;
-    font-size: 12px;
-
-    &:hover {
-      transform: translateY(-0.5px);
-      color: #1890ff;
-    }
-  }
-
-  .remove-icon {
-    display: flex;
-    align-items: center;
-    margin-right: 8px;
-    cursor: pointer;
-    color: var(--text-color-tertiary);
-    flex-shrink: 0;
-    transition: all 0.2s ease;
-    font-size: 12px;
-
-    &:hover {
-      transform: translateY(-0.5px);
-      color: #ff4d4f;
-    }
-  }
-
-  .folder-actions {
-    display: flex;
-    align-items: center;
-    gap: 4px;
-    margin-right: 8px;
-
-    .folder-action-icon {
-      font-size: 12px;
-      color: var(--text-color-tertiary);
-      cursor: pointer;
-      transition: all 0.2s ease;
-
-      &:hover {
-        color: var(--text-color);
-        transform: translateY(-0.5px);
-      }
-    }
   }
 
   .comment-text {
@@ -1348,6 +1279,10 @@ onUnmounted(() => {
       height: 24px;
       padding: 0 4px;
       font-size: 12px;
+
+      &::placeholder {
+        color: var(--text-color-tertiary) !important;
+      }
     }
 
     .confirm-icon {
@@ -1403,6 +1338,10 @@ onUnmounted(() => {
     min-width: 50px;
     height: 24px;
     padding: 0 4px;
+
+    &::placeholder {
+      color: var(--text-color-tertiary) !important;
+    }
   }
 
   .confirm-icon {
@@ -1583,6 +1522,40 @@ onUnmounted(() => {
   :deep(.ant-tabs-tab-btn) {
     width: 100%;
     text-align: center;
+  }
+}
+
+/* Context menu styles */
+.context-menu {
+  background: var(--bg-color-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+  padding: 2px 0;
+  min-width: 140px;
+  z-index: 9999;
+
+  .context-menu-item {
+    display: flex;
+    align-items: center;
+    padding: 4px 8px;
+    cursor: pointer;
+    color: var(--text-color);
+    font-size: 12px;
+    transition: background-color 0.15s;
+    line-height: 1.4;
+
+    &:hover {
+      background-color: var(--hover-bg-color);
+    }
+
+    .menu-icon {
+      margin-right: 6px;
+      font-size: 12px;
+      width: 14px;
+      text-align: center;
+      flex-shrink: 0;
+    }
   }
 }
 </style>
