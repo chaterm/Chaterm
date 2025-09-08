@@ -6,6 +6,7 @@
         :key="i.key"
         :title="i.name"
         placement="right"
+        :mouse-enter-delay="3"
       >
         <p
           v-if="i.key === 'files'"
@@ -47,6 +48,7 @@
         v-for="i in menuTabsData.slice(-3)"
         :key="i.key"
         :title="i.name"
+        :mouse-enter-delay="3"
       >
         <div v-if="i.key === 'user'">
           <p
