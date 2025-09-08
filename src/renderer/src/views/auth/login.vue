@@ -433,8 +433,27 @@ onBeforeUnmount(() => {
     top: 5px;
     height: 20px;
     color: #dddddd;
-    font-size: 12px;
+    font-size: 16px;
     -webkit-app-region: no-drag;
+
+    .ant-dropdown-link {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 100%;
+      height: 100%;
+
+      .anticon {
+        font-size: 18px;
+        color: #dddddd;
+        transition: all 0.3s ease;
+
+        &:hover {
+          color: #ffffff;
+          transform: scale(1.1);
+        }
+      }
+    }
   }
 
   .term_login_type {
