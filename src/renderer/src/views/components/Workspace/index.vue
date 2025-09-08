@@ -1,20 +1,20 @@
 <template>
   <div class="term_host_list">
     <div class="term_host_header">
-      <div style="display: flex; align-items: center; justify-content: space-around; width: 100%">
-        <div
-          v-for="(item, index) in workspaceData"
-          :key="index"
-          style="display: flex; align-items: center; gap: 10px"
+      <div class="workspace-tabs-container">
+        <a-tabs
+          v-model:active-key="company"
+          type="card"
+          size="small"
+          class="workspace-tabs"
+          @change="handleTabChange"
         >
-          <p
-            style="display: inline-block; font-size: 14px; margin: 0"
-            :class="item.key == company ? 'active-text' : 'no-active-text'"
-            @click="companyChange(item)"
-          >
-            {{ t(item.label) }}
-          </p>
-        </div>
+          <a-tab-pane
+            v-for="item in workspaceData"
+            :key="item.key"
+            :tab="t(item.label)"
+          />
+        </a-tabs>
       </div>
 
       <div style="width: 100%; margin-top: 4px">
@@ -530,6 +530,13 @@ const companyChange = (item) => {
   } else {
     loadCustomFolders()
     getUserAssetMenu()
+  }
+}
+
+const handleTabChange = (activeKey: string | number) => {
+  const item = workspaceData.value.find((item) => item.key === activeKey)
+  if (item) {
+    companyChange(item)
   }
 }
 
@@ -1076,19 +1083,6 @@ onUnmounted(() => {
     height: auto;
   }
 
-  .active-text {
-    color: #1890ff;
-    cursor: pointer;
-  }
-
-  .no-active-text {
-    color: var(--text-color-secondary);
-    cursor: pointer;
-    &:hover {
-      color: #1890ff;
-    }
-  }
-
   .manage {
     display: flex;
     align-items: center;
@@ -1486,12 +1480,6 @@ onUnmounted(() => {
     box-shadow: none;
   }
 }
-.active-text {
-  border-bottom: 1px solid var(--text-color);
-}
-.no-active-text {
-  border-bottom: 1px solid transparent;
-}
 .transparent-Input {
   background-color: transparent;
   color: var(--text-color);
@@ -1515,5 +1503,86 @@ onUnmounted(() => {
   border-color: rgba(255, 255, 255, 0.08) !important;
   color: var(--text-color) !important;
   box-shadow: none !important;
+}
+
+/* Workspace tabs container */
+.workspace-tabs-container {
+  width: 100%;
+  margin-bottom: 12px;
+}
+
+/* Workspace tabs styling */
+.workspace-tabs {
+  width: 100%;
+
+  :deep(.ant-tabs-nav) {
+    margin-bottom: 0;
+    background-color: transparent;
+    width: 100%;
+  }
+
+  :deep(.ant-tabs-nav-wrap) {
+    width: 100%;
+  }
+
+  :deep(.ant-tabs-nav-list) {
+    width: 100%;
+    display: flex;
+    justify-content: space-between;
+  }
+
+  :deep(.ant-tabs-tab) {
+    flex: 1;
+    background-color: var(--bg-color);
+    border: none;
+    border-radius: 6px;
+    margin: 0 2px;
+    padding: 6px 16px;
+    color: var(--text-color-secondary);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    text-align: center;
+    font-size: 13px;
+    font-weight: 400;
+    position: relative;
+    overflow: hidden;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    &:hover {
+      color: var(--text-color);
+      background-color: var(--hover-bg-color);
+    }
+
+    &:active {
+      transform: translateY(0);
+    }
+  }
+
+  :deep(.ant-tabs-tab-active) {
+    background-color: rgba(24, 144, 255, 0.1);
+    border: none;
+    color: #1890ff;
+    font-weight: 500;
+
+    &:hover {
+      background-color: rgba(24, 144, 255, 0.15);
+      color: #1890ff;
+    }
+  }
+
+  :deep(.ant-tabs-content-holder) {
+    display: none;
+  }
+
+  :deep(.ant-tabs-ink-bar) {
+    display: none;
+  }
+
+  :deep(.ant-tabs-tab-btn) {
+    width: 100%;
+    text-align: center;
+  }
 }
 </style>
