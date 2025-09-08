@@ -1096,6 +1096,7 @@ const sendMessage = async (sendType: string) => {
   }
   const userContent = chatInputValue.value.trim()
   if (!userContent) return
+  chatInputValue.value = ''
   // Check if current active host exists
   if (hosts.value.length === 0 && chatTypeValue.value !== 'chat') {
     notification.error({
@@ -1121,7 +1122,6 @@ const sendMessage = async (sendType: string) => {
     userMessage.say = 'command_output'
   }
   chatHistory.push(userMessage)
-  chatInputValue.value = ''
   responseLoading.value = true
   showRetryButton.value = false
   showNewTaskButton.value = false
@@ -1137,6 +1137,11 @@ const handleKeyDown = (e: KeyboardEvent) => {
   // Check if it's an input method confirmation key
   if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) {
     e.preventDefault()
+    // 检查输入内容是否为空
+    if (!chatInputValue.value.trim()) {
+      return
+    }
+
     sendMessage('send')
   }
 }

@@ -45,19 +45,10 @@ export class CommandSecurityManager {
 
     const lowerCommand = trimmedCommand.toLowerCase()
 
-    // 检查黑名单模式
-    for (const pattern of this.config.blacklistPatterns) {
-      if (this.matchesPattern(lowerCommand, pattern.toLowerCase())) {
-        const shouldAsk = this.config.securityPolicy.askForBlacklist
-        return {
-          isAllowed: shouldAsk, // 如果询问则暂时允许，等待用户确认
-          reason: `Command matching blacklist mode: ${pattern}`,
-          category: 'blacklist',
-          severity: 'high',
-          action: shouldAsk ? 'ask' : 'block',
-          requiresApproval: shouldAsk
-        }
-      }
+    // 检查黑名单模式（包括复合命令）
+    const blacklistResult = this.checkBlacklistWithCompounds(lowerCommand)
+    if (blacklistResult) {
+      return blacklistResult
     }
     // 检查危险命令
     for (const dangerousCmd of this.config.dangerousCommands) {
@@ -94,6 +85,47 @@ export class CommandSecurityManager {
   }
 
   /**
+   * 检查黑名单模式（包括复合命令）
+   */
+  private checkBlacklistWithCompounds(command: string): any {
+    // 检查单个命令的黑名单模式
+    for (const pattern of this.config.blacklistPatterns) {
+      if (this.matchesPattern(command, pattern.toLowerCase())) {
+        const shouldAsk = this.config.securityPolicy.askForBlacklist
+        return {
+          isAllowed: shouldAsk,
+          reason: `Command matching blacklist mode: ${pattern}`,
+          category: 'blacklist',
+          severity: 'high',
+          action: shouldAsk ? 'ask' : 'block',
+          requiresApproval: shouldAsk
+        }
+      }
+    }
+
+    // 检查复合命令（&&连接）
+    if (command.includes('&&')) {
+      const subCommands = command.split('&&').map((cmd) => cmd.trim())
+
+      for (const subCommand of subCommands) {
+        for (const pattern of this.config.blacklistPatterns) {
+          if (this.matchesPattern(subCommand, pattern.toLowerCase())) {
+            return {
+              isAllowed: false,
+              reason: `Compound command contains dangerous operations: ${pattern} in "${subCommand}"`,
+              category: 'blacklist',
+              severity: 'critical',
+              action: 'block'
+            }
+          }
+        }
+      }
+    }
+
+    return null
+  }
+
+  /**
    * 检查命令是否匹配模式
    */
   private matchesPattern(command: string, pattern: string): boolean {
@@ -103,9 +135,24 @@ export class CommandSecurityManager {
       const regex = new RegExp(`^${regexPattern}$`, 'i')
       return regex.test(command)
     } else {
-      // 精确匹配或包含匹配
+      // 对于根目录危险操作，使用精确匹配
+      if (this.isRootDirectoryPattern(pattern)) {
+        // 使用正则表达式确保只匹配根目录操作，不匹配具体目录
+        const escapedPattern = pattern.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+        const regex = new RegExp(`^${escapedPattern}(\\s|$)`, 'i')
+        return regex.test(command)
+      }
+      // 其他情况使用包含匹配
       return command.includes(pattern) || command === pattern
     }
+  }
+
+  /**
+   * 检查是否为根目录危险操作模式
+   */
+  private isRootDirectoryPattern(pattern: string): boolean {
+    // 检查是否以 / 或 /  结尾的根目录操作
+    return pattern.endsWith(' /') || pattern.endsWith(' / ')
   }
 
   /**

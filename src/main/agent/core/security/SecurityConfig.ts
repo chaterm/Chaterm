@@ -156,7 +156,7 @@ export class SecurityConfigManager {
         'TRUNCATE',
         'DELETE'
       ],
-      maxCommandLength: 1000,
+      maxCommandLength: 10000,
       // 安全策略配置
       securityPolicy: {
         blockCritical: true, // 严重危险命令直接阻止
@@ -358,7 +358,7 @@ export class SecurityConfigManager {
     // 是否启用严格模式
     "enableStrictMode": ${config.enableStrictMode},
 
-    // 黑名单：完全匹配这些模式的命令将被阻止
+    // 黑名单：匹配这些模式的命令将被阻止
     "blacklistPatterns": [
 ${config.blacklistPatterns.map((pattern) => `      "${pattern.replace(/\\/g, '\\\\')}"`).join(',\n')}
     ],
