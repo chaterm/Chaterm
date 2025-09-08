@@ -33,9 +33,8 @@ import { TodoWriteTool, TodoWriteParams } from './todo-tools/TodoWriteTool'
 import { TodoReadTool, TodoReadParams } from './todo-tools/TodoReadTool'
 import { TodoPauseTool, TodoPauseParams } from './todo-tools/TodoPauseTool'
 import { Todo } from '../../shared/todo/TodoSchemas'
-import { ServerTaskDetector } from './intelligence/ServerTaskDetector'
+import { SmartTaskDetector, TODO_SYSTEM_MESSAGES } from './intelligence/todo-prompts'
 import { TodoToolCallTracker } from '../services/TodoToolCallTracker'
-import { TODO_SYSTEM_MESSAGES } from './intelligence/todo-prompts'
 
 interface StreamMetrics {
   didReceiveUsageChunk?: boolean
@@ -762,11 +761,6 @@ export class Task {
 
     this.isInitialized = true
 
-    // 智能检测：检查是否需要创建 todo（在任务开始前）
-    if (task) {
-      await this.checkAndCreateTodoIfNeeded(task)
-    }
-
     // 构建初始用户内容
     let initialUserContent: UserContent = [
       {
@@ -774,13 +768,23 @@ export class Task {
         text: `<task>\n${task}\n</task>`
       }
     ]
+    // 智能检测：检查是否需要创建 todo
+    if (task) {
+      await this.checkAndCreateTodoIfNeeded(task)
+      // 将智能检测添加的系统消息包含到初始用户内容中
+      if (this.userMessageContent.length > 0) {
+        initialUserContent.push(...this.userMessageContent)
+      }
+    }
 
     // 检查是否有系统提醒需要包含在初始请求中
     if (this.apiConversationHistory.length > 0) {
       const lastMessage = this.apiConversationHistory[this.apiConversationHistory.length - 1]
       if (lastMessage.role === 'user') {
         const lastContent = Array.isArray(lastMessage.content) ? lastMessage.content : [{ type: 'text', text: lastMessage.content }]
-        const hasSystemCommand = lastContent.some((content) => content.type === 'text' && content.text.includes('<system-command>'))
+        const hasSystemCommand = lastContent.some(
+          (content) => content.type === 'text' && (content.text.includes('<system-command>') || content.text.includes('<system-reminder>'))
+        )
 
         if (hasSystemCommand) {
           // 将系统提醒添加到初始用户内容中
@@ -2862,70 +2866,49 @@ SUDO_CHECK:${localSystemInfo.sudoCheck}`
     }
   }
 
-  // 智能检测相关方法
+  // 智能检测相关方法 - 使用优化后的检测逻辑
   private async checkAndCreateTodoIfNeeded(userMessage: string): Promise<void> {
     try {
-      console.log(`[Todo Detection] Checking message: "${userMessage}"`)
+      console.log(`[Smart Todo] Analyzing message: "${userMessage}"`)
 
-      const shouldCreate = ServerTaskDetector.shouldCreateTodoForServerTask(userMessage)
-      console.log(`[Todo Detection] Should create todo: ${shouldCreate}`)
+      const shouldCreate = SmartTaskDetector.shouldCreateTodo(userMessage)
+      console.log(`[Smart Todo] Should create todo: ${shouldCreate}`)
 
       if (shouldCreate) {
         // 检查是否已有 todo 列表
         const storage = new (await import('../storage/todo/TodoStorage')).TodoStorage(this.taskId)
         const existingTodos = await storage.readTodos()
 
-        console.log(`[Todo Detection] Existing todos count: ${existingTodos.length}`)
+        console.log(`[Smart Todo] Existing todos count: ${existingTodos.length}`)
 
         if (existingTodos.length === 0) {
-          // 分析任务复杂度
-          const complexity = ServerTaskDetector.analyzeTaskComplexity(userMessage)
-          console.log(`[Todo Detection] Task complexity: ${complexity}`)
-
-          // 生成任务建议
-          const suggestion = ServerTaskDetector.generateTaskSuggestion(userMessage)
-          console.log(`[Todo Detection] Generated suggestion: ${suggestion}`)
-
-          if (suggestion) {
-            // 获取用户语言设置
-            let isChineseMode = false
-            try {
-              const userConfig = await getUserConfig()
-              isChineseMode = userConfig?.language === 'zh-CN'
-            } catch (error) {
-              // 使用默认语言
-            }
-
-            // 发送系统提醒给 Agent
-            const reminder = TODO_SYSTEM_MESSAGES.complexTaskSystemMessage(suggestion, isChineseMode, userMessage)
-            console.log(`[Todo Detection] System reminder: ${reminder}`)
-
-            // 将提醒添加到对话历史中
-            this.apiConversationHistory.push({
-              role: 'user',
-              content: [{ type: 'text', text: reminder }]
-            })
-
-            console.log(`[Todo Detection] Complex task detected, suggestion sent to agent`)
+          // 获取用户语言设置
+          let isChineseMode = false
+          try {
+            const userConfig = await getUserConfig()
+            isChineseMode = userConfig?.language === 'zh-CN'
+          } catch (error) {
+            // 使用默认语言
           }
+
+          // 发送简化的核心系统消息给 Agent
+          const coreMessage = TODO_SYSTEM_MESSAGES.complexTaskSystemMessage('', isChineseMode, userMessage)
+          console.log(`[Smart Todo] Sending core system message to agent`)
+
+          // 将提醒添加到用户消息内容中，而不是作为单独的消息
+          this.userMessageContent.push({
+            type: 'text',
+            text: coreMessage
+          })
         } else {
-          console.log(`[Todo Detection] Skipping - todos already exist`)
+          console.log(`[Smart Todo] Skipping - todos already exist`)
         }
       } else {
-        console.log(`[Todo Detection] Task not complex enough for todo creation`)
+        console.log(`[Smart Todo] Task not complex enough for todo creation`)
       }
     } catch (error) {
-      console.error('[Todo Detection] Failed to check and create todo if needed:', error)
+      console.error('[Smart Todo] Failed to check and create todo if needed:', error)
       // 不影响主要功能，只记录错误
-    }
-  }
-
-  private async isChineseMode(): Promise<boolean> {
-    try {
-      const userConfig = await getUserConfig()
-      return userConfig?.language === 'zh-CN'
-    } catch (error) {
-      return false
     }
   }
 

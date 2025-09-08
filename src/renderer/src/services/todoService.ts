@@ -9,6 +9,10 @@ class TodoService {
   // 跟踪最后一次 todo 更新的时间戳，确保只显示最新的
   private lastTodoUpdateTimestamp = ref<number>(0)
 
+  // 待处理的 todos（当 assistant 消息还未出现时）
+  private pendingTodos: Todo[] | null = null
+  private pendingTodoTimestamp: number = 0
+
   // 事件监听器
   private messageHandler: ((message: any) => void) | null = null
   private unsubscribeFromMain: (() => void) | null = null
@@ -33,17 +37,19 @@ class TodoService {
    * 处理来自主进程的消息
    */
   private handleMainMessage(message: any) {
-    console.log('TodoService received message:', message.type, message)
+    const serviceId = `SERVICE_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
 
     if (message.type === 'todoUpdated') {
-      this.handleTodoUpdate(message as TodoWebviewMessage)
+      this.handleTodoUpdate(message as TodoWebviewMessage, serviceId)
+    } else {
+      console.log(`[Todo Debug ${serviceId}] Ignoring non-todoUpdated message:`, message.type)
     }
   }
 
   /**
    * 处理 todo 更新事件
    */
-  private handleTodoUpdate(message: TodoWebviewMessage) {
+  private handleTodoUpdate(message: TodoWebviewMessage, serviceId: string) {
     const timestamp = Date.now()
 
     // 更新当前 todos
@@ -52,10 +58,11 @@ class TodoService {
     // 记录最新的更新时间戳，用于判断哪个消息应该显示 todo
     this.lastTodoUpdateTimestamp.value = timestamp
 
-    console.log('TodoService: Updated todos', {
+    console.log(`[Todo Debug ${serviceId}] TodoService: Updated todos`, {
       todosCount: this.currentTodos.value.length,
       timestamp,
-      sessionId: message.sessionId || message.taskId
+      sessionId: message.sessionId || message.taskId,
+      currentTodos: this.currentTodos.value
     })
   }
 
@@ -88,12 +95,23 @@ class TodoService {
    * 判断是否应该在消息后显示 todo
    */
   public shouldShowTodoAfterMessage(message: any): boolean {
-    if (this.displayPreference.value === 'hidden') return false
-    if (this.currentTodos.value.length === 0) return false
+    const displayHidden = this.displayPreference.value === 'hidden'
+    const noTodos = this.currentTodos.value.length === 0
+    const isAssistant = message.role === 'assistant'
+    const hasTodoUpdate = message.hasTodoUpdate === true
+    if (displayHidden) {
+      console.log('[Todo Debug] Not showing todo: display preference is hidden')
+      return false
+    }
+    if (noTodos) {
+      console.log('[Todo Debug] Not showing todo: no todos available')
+      return false
+    }
 
     // 只有明确标记了 hasTodoUpdate 的消息才显示 todo
     // 这样可以避免多个消息都显示 todo 的问题
-    return message.role === 'assistant' && message.hasTodoUpdate === true
+    const shouldShow = isAssistant && hasTodoUpdate
+    return shouldShow
   }
 
   /**
@@ -102,7 +120,8 @@ class TodoService {
    */
   public markLatestMessageWithTodoUpdate(messages: any[], todos: Todo[]) {
     // 找到最新的 assistant 消息
-    const latestAssistantMessage = messages.filter((m) => m.role === 'assistant').pop()
+    const assistantMessages = messages.filter((m) => m.role === 'assistant')
+    const latestAssistantMessage = assistantMessages.pop()
 
     if (latestAssistantMessage) {
       // 清除之前所有消息的 todo 标记，确保只有最新的消息显示 todo
@@ -116,11 +135,10 @@ class TodoService {
       // 标记最新的消息
       latestAssistantMessage.hasTodoUpdate = true
       latestAssistantMessage.relatedTodos = todos
-
-      console.log('TodoService: Marked latest message with todo update', {
-        messageId: latestAssistantMessage.id,
-        todosCount: todos.length
-      })
+    } else {
+      // 如果没有找到 assistant 消息，存储 todos 等待下一个 assistant 消息
+      this.pendingTodos = todos
+      this.pendingTodoTimestamp = Date.now()
     }
   }
 

@@ -9,7 +9,7 @@
     >
       <div class="todo-title">
         <UnorderedListOutlined />
-        <span>运维任务进度</span>
+        <span>{{ todoTitle }}</span>
         <a-badge
           :count="todos.length"
           class="todo-count"
@@ -76,6 +76,15 @@ const props = withDefaults(defineProps<Props>(), {
 const visible = ref(true)
 const expanded = ref(props.showTrigger)
 const activeKey = ref(props.showTrigger ? ['todos'] : [])
+// 动态标题 - 根据内容语言自动选择
+const todoTitle = computed(() => {
+  // 检查 todos 内容是否包含中文字符
+  const hasChineseContent = props.todos.some(
+    (todo) => /[\u4e00-\u9fff]/.test(todo.content) || (todo.description && /[\u4e00-\u9fff]/.test(todo.description))
+  )
+
+  return hasChineseContent ? '运维任务进度' : 'Task Progress'
+})
 
 // 添加调试日志
 watch(

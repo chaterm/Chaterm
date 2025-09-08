@@ -47,7 +47,38 @@ export class TodoWriteTool {
   }
 
   static generateOutput(todos: Todo[]): string {
-    let output = `## 运维任务列表 (${todos.length} 个任务)\n\n`
+    // 检测是否包含中文内容来决定使用哪种语言
+    const hasChineseContent = todos.some(
+      (todo) => /[\u4e00-\u9fff]/.test(todo.content) || (todo.description && /[\u4e00-\u9fff]/.test(todo.description))
+    )
+
+    const labels = hasChineseContent
+      ? {
+          title: `## 运维任务列表 (${todos.length} 个任务)\n\n`,
+          inProgress: '### 🔄 正在执行\n',
+          pending: '### ⏳ 待执行\n',
+          completed: '### ✅ 已完成\n',
+          statistics: '### 📊 执行统计\n',
+          total: `- 总计: ${todos.length} 个运维任务\n`,
+          inProgressCount: `- 正在执行: `,
+          pendingCount: `- 待执行: `,
+          completedCount: `- 已完成: `,
+          completionRate: `- 完成率: `
+        }
+      : {
+          title: `## Task List (${todos.length} tasks)\n\n`,
+          inProgress: '### 🔄 In Progress\n',
+          pending: '### ⏳ Pending\n',
+          completed: '### ✅ Completed\n',
+          statistics: '### 📊 Statistics\n',
+          total: `- Total: ${todos.length} tasks\n`,
+          inProgressCount: `- In Progress: `,
+          pendingCount: `- Pending: `,
+          completedCount: `- Completed: `,
+          completionRate: `- Completion Rate: `
+        }
+
+    let output = labels.title
 
     // 按状态分组显示
     const inProgress = todos.filter((t) => t.status === 'in_progress')
@@ -55,7 +86,7 @@ export class TodoWriteTool {
     const completed = todos.filter((t) => t.status === 'completed')
 
     if (inProgress.length > 0) {
-      output += '### 🔄 正在执行\n'
+      output += labels.inProgress
       inProgress.forEach((todo) => {
         output += `- [→] **${todo.content}** [${todo.priority.toUpperCase()}]\n`
         if (todo.description) {
@@ -74,7 +105,7 @@ export class TodoWriteTool {
     }
 
     if (pending.length > 0) {
-      output += '### ⏳ 待执行\n'
+      output += labels.pending
       pending.forEach((todo) => {
         output += `- [ ] **${todo.content}** [${todo.priority.toUpperCase()}]\n`
         if (todo.description) {
@@ -85,7 +116,7 @@ export class TodoWriteTool {
     }
 
     if (completed.length > 0) {
-      output += '### ✅ 已完成\n'
+      output += labels.completed
       completed.forEach((todo) => {
         output += `- [x] **${todo.content}** [${todo.priority.toUpperCase()}]\n`
         if (todo.description) {
@@ -96,14 +127,14 @@ export class TodoWriteTool {
     }
 
     // 添加统计信息
-    output += '### 📊 执行统计\n'
-    output += `- 总计: ${todos.length} 个运维任务\n`
-    output += `- 正在执行: ${inProgress.length}\n`
-    output += `- 待执行: ${pending.length}\n`
-    output += `- 已完成: ${completed.length}\n`
+    output += labels.statistics
+    output += labels.total
+    output += labels.inProgressCount + `${inProgress.length}\n`
+    output += labels.pendingCount + `${pending.length}\n`
+    output += labels.completedCount + `${completed.length}\n`
 
     const completionRate = todos.length > 0 ? Math.round((completed.length / todos.length) * 100) : 0
-    output += `- 完成率: ${completionRate}%\n\n`
+    output += labels.completionRate + `${completionRate}%\n\n`
 
     return output
   }

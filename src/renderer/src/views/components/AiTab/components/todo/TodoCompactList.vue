@@ -7,7 +7,7 @@
     >
       <div class="section-header">
         <LoadingOutlined spin />
-        <span>正在执行 ({{ inProgressTodos.length }})</span>
+        <span>{{ labels.inProgress }} ({{ inProgressTodos.length }})</span>
       </div>
       <div class="todo-items">
         <div
@@ -62,7 +62,7 @@
     >
       <div class="section-header">
         <ClockCircleOutlined />
-        <span>待执行 ({{ pendingTodos.length }})</span>
+        <span>{{ labels.pending }} ({{ pendingTodos.length }})</span>
       </div>
       <div class="todo-items">
         <div
@@ -96,7 +96,7 @@
     >
       <div class="section-header">
         <CheckCircleOutlined />
-        <span>已完成 ({{ completedTodos.length }})</span>
+        <span>{{ labels.completed }} ({{ completedTodos.length }})</span>
       </div>
       <div class="todo-items">
         <div
@@ -172,6 +172,26 @@ const props = withDefaults(defineProps<Props>(), {
   maxItems: 50
 })
 
+// 动态标签 - 根据内容语言自动选择
+const labels = computed(() => {
+  // 检查 todos 内容是否包含中文字符
+  const hasChineseContent = props.todos.some(
+    (todo) => /[\u4e00-\u9fff]/.test(todo.content) || (todo.description && /[\u4e00-\u9fff]/.test(todo.description))
+  )
+
+  return hasChineseContent
+    ? {
+        inProgress: '正在执行',
+        pending: '待执行',
+        completed: '已完成'
+      }
+    : {
+        inProgress: 'In Progress',
+        pending: 'Pending',
+        completed: 'Completed'
+      }
+})
+
 // 按状态分组
 const inProgressTodos = computed(() => props.todos.filter((t) => t.status === 'in_progress').slice(0, props.maxItems))
 const pendingTodos = computed(() => props.todos.filter((t) => t.status === 'pending').slice(0, props.maxItems))
@@ -185,11 +205,23 @@ const completionRate = computed(() => {
 
 // 优先级文本
 const getPriorityText = (priority: string): string => {
-  const texts = {
-    high: '高',
-    medium: '中',
-    low: '低'
-  }
+  // 检查是否有中文内容来决定使用哪种语言
+  const hasChineseContent = props.todos.some(
+    (todo) => /[\u4e00-\u9fff]/.test(todo.content) || (todo.description && /[\u4e00-\u9fff]/.test(todo.description))
+  )
+
+  const texts = hasChineseContent
+    ? {
+        high: '高',
+        medium: '中',
+        low: '低'
+      }
+    : {
+        high: 'HIGH',
+        medium: 'MED',
+        low: 'LOW'
+      }
+
   return texts[priority as keyof typeof texts] || priority.toUpperCase()
 }
 

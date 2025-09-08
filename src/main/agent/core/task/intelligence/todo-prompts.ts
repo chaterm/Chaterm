@@ -1,131 +1,140 @@
-// Todo 功能的系统消息模板
+// 优化后的Todo提示词系统 - 精简高效版
 
-export const TODO_REMINDER_TEMPLATES = {
-  // 检测到复杂任务时的提醒
-  complexTaskDetected: {
-    en: '🔍 **Complex Operation Detected**: This appears to be a multi-step server operation. Consider using `todo_write` to create a structured task list for better tracking and execution.',
-    cn: '🔍 **检测到复杂操作**：这似乎是一个多步骤的服务器操作。建议使用 `todo_write` 创建结构化任务列表，以便更好地跟踪和执行。'
+export const TODO_PROMPTS_OPTIMIZED = {
+  // 核心系统消息 - 统一模板，支持多语言
+  coreSystemMessage: (isChineseMode: boolean = false) => {
+    const templates = {
+      zh: `你是一个智能运维助手。当检测到复杂或多步骤任务时，主动使用 todo_write 工具创建任务列表来跟踪执行进度。
+
+关键原则：
+- 自动识别需要拆分的复杂任务
+- 为每个任务设置合适的优先级和状态
+- 执行任务时及时更新状态
+- 保持任务列表简洁实用`,
+
+      en: `You are an intelligent operations assistant. For complex or multi-step tasks, you MUST proactively use the todo_write tool to create structured task lists for tracking execution progress.
+
+IMPORTANT: When you detect system monitoring, analysis, troubleshooting, or multi-step operations, immediately create a todo list using the todo_write tool.
+
+Key principles:
+- ALWAYS use todo_write for complex tasks that involve multiple steps
+- Automatically identify tasks that need breakdown into manageable steps
+- Set appropriate priority (high/medium/low) and status (pending/in_progress/completed) for each task
+- Update task status promptly when executing tasks
+- Keep task lists concise and practical
+- For system operations, monitoring, and troubleshooting tasks, todo lists are essential`
+    }
+
+    return `<system-reminder>\n${templates[isChineseMode ? 'zh' : 'en']}\n</system-reminder>`
   },
 
-  // 建议创建任务列表
-  suggestTodoCreation: {
-    en: '💡 **Suggestion**: For systematic execution of this operation, I recommend creating a todo list. This will help ensure all steps are completed correctly and nothing is missed.',
-    cn: '💡 **建议**：为了系统化地执行此操作，我建议创建一个任务列表。这将有助于确保所有步骤都正确完成，不会遗漏任何内容。'
-  },
+  // 智能提醒 - 简化版
+  smartReminder: (taskType: string, isChineseMode: boolean = false) => {
+    const hints = {
+      zh: {
+        complex: '💡 检测到复杂任务，建议创建任务列表跟踪进度',
+        network: '🔗 网络相关操作，建议分步执行',
+        system: '⚙️ 系统运维任务，建议使用任务管理',
+        troubleshoot: '🔧 问题排查任务，建议创建检查清单',
+        default: '📋 多步骤任务，建议创建待办列表'
+      },
+      en: {
+        complex: '💡 Complex task detected, suggest creating task list',
+        network: '🔗 Network operation, suggest step-by-step execution',
+        system: '⚙️ System maintenance task, suggest using task management',
+        troubleshoot: '🔧 Troubleshooting task, suggest creating checklist',
+        default: '📋 Multi-step task, suggest creating todo list'
+      }
+    }
 
-  // 任务列表为空时的提醒
-  emptyTodoReminder: {
-    en: '📝 **No active todos**: For complex server operations, consider using `todo_write` to create a structured task list.',
-    cn: '📝 **暂无活跃任务**：对于复杂的服务器操作，建议使用 `todo_write` 创建结构化任务列表。'
-  },
-
-  // 任务进行中的状态提醒
-  activeTaskReminder: {
-    en: '⚡ **Active Task**: Currently working on todo items. Use `todo_read` to check progress or `todo_write` to update status.',
-    cn: '⚡ **任务进行中**：当前正在处理任务项。使用 `todo_read` 检查进度或 `todo_write` 更新状态。'
+    const lang = isChineseMode ? 'zh' : 'en'
+    return hints[lang][taskType] || hints[lang].default
   }
 }
 
+// 简化的检测器
+export class SmartTaskDetector {
+  static shouldCreateTodo(message: string): boolean {
+    console.log('[Todo Debug] SmartTaskDetector analyzing message:', message)
+
+    if (message.length <= 10) {
+      console.log('[Todo Debug] Message too short, skipping todo creation')
+      return false // 调整阈值，中文表达更简洁
+    }
+
+    const lowerMessage = message.toLowerCase()
+    console.log('[Todo Debug] Lowercase message:', lowerMessage)
+
+    const patterns = [
+      // 中文检测模式
+      /[第一二三四五六七八九十]\s*[步阶段项]/, // 步骤模式
+      /(首先|然后|接下来|最后|依次)/, // 序列词
+      /[1-9]\.|[一二三四五六七八九十]、/, // 列表格式
+      /(排查|优化|部署|升级|迁移|维护|分析|监控).*(问题|故障|性能|异常|日志)/, // 扩展运维+问题
+      /(批量|全部|所有).*(服务器|应用|数据库|系统|配置)/, // 批量操作
+      /(查看|检查|分析|监控).*(分析|检查|查看)/, // 多动作任务
+      /(系统|应用|服务).*(监控|分析|日志|资源|异常)/, // 系统诊断任务
+
+      // 英文检测模式 - 增强版
+      /(first|then|next|finally|step\s*[1-9]|step\s*one)/i, // 序列词
+      /[1-9]\.\s/, // 列表格式
+      /(check|analyze|examine|monitor|troubleshoot|deploy|optimize|migrate).*(and|then|\s+\w+\s+(and|then))/i, // 多动作任务
+      /(system|application|server|database|service).*(monitor|analyze|log|resource|error|issue|anomaly)/i, // 系统诊断
+      /(batch|all|multiple).*(server|application|database|system|config)/i, // 批量操作
+      /(troubleshoot|diagnose|investigate).*(problem|issue|error|failure|performance)/i, // 故障排查
+      /(deploy|migrate|backup|restore|upgrade).*(server|application|database|system|production)/i, // 部署和维护任务
+
+      // 新增：更宽泛的英文检测模式
+      /(check|analyze|examine|monitor).*(system|application|server|database|log|resource)/i, // 基础系统检查
+      /(which|what).*(application|process|service).*(consume|using|占用)/i, // 资源占用查询
+      /(examine|analyze|check).*(log|file|error|anomaly)/i // 日志分析
+    ]
+
+    console.log('[Todo Debug] Testing patterns against message...')
+
+    for (let i = 0; i < patterns.length; i++) {
+      const pattern = patterns[i]
+      const matches = pattern.test(lowerMessage)
+      console.log(`[Todo Debug] Pattern ${i + 1} (${pattern.source}): ${matches}`)
+      if (matches) {
+        console.log('[Todo Debug] Pattern matched! Should create todo: true')
+        return true
+      }
+    }
+
+    console.log('[Todo Debug] No patterns matched, should create todo: false')
+    return false
+  }
+
+  // 简化的任务类型识别
+  static getTaskType(message: string): string {
+    console.log('[Todo Debug] Identifying task type for message:', message)
+    const msg = message.toLowerCase()
+
+    let taskType = 'complex'
+    if (/(mac|ip|网络|连接|network|connection)/.test(msg)) taskType = 'network'
+    else if (/(cpu|内存|磁盘|性能|memory|disk|performance|resource)/.test(msg)) taskType = 'system'
+    else if (/(排查|故障|异常|troubleshoot|error|issue|problem)/.test(msg)) taskType = 'troubleshoot'
+
+    console.log('[Todo Debug] Task type identified:', taskType)
+    return taskType
+  }
+}
+
+// 使用示例 - 集成到现有系统
+export function getOptimizedTodoReminder(userMessage: string, isChineseMode: boolean = false): string | null {
+  if (!SmartTaskDetector.shouldCreateTodo(userMessage)) {
+    return null
+  }
+
+  const taskType = SmartTaskDetector.getTaskType(userMessage)
+  return TODO_PROMPTS_OPTIMIZED.smartReminder(taskType, isChineseMode)
+}
+
+// 为了向后兼容，保持原有的导出接口
 export const TODO_SYSTEM_MESSAGES = {
-  // 系统检测到复杂任务时发送给 Agent 的消息
+  // 使用新的优化逻辑替代原有的complexTaskSystemMessage
   complexTaskSystemMessage: (suggestion: string, isChineseMode: boolean = false, userMessage: string = '') => {
-    // 动态生成具体的任务建议
-    let specificTasks = []
-    const message = userMessage.toLowerCase()
-
-    // MAC 地址查询相关
-    if (/(mac|地址)/.test(message) && /(查看|获取|显示)/.test(message)) {
-      specificTasks = [
-        { id: 'mac-1', content: '连接到目标服务器', description: '建立SSH连接到目标服务器，确保网络连通性', status: 'pending', priority: 'medium' },
-        {
-          id: 'mac-2',
-          content: '执行网络接口查询命令',
-          description: '使用ip link或ifconfig命令获取所有网络接口的详细信息',
-          status: 'pending',
-          priority: 'high'
-        },
-        {
-          id: 'mac-3',
-          content: '获取并显示 MAC 地址信息',
-          description: '从网络接口信息中提取并格式化显示MAC地址',
-          status: 'pending',
-          priority: 'high'
-        }
-      ]
-    }
-    // 系统资源检查
-    else if (/(资源|性能|cpu|内存|磁盘)/.test(message)) {
-      specificTasks = [
-        { id: 'sys-1', content: '检查 CPU 使用率', status: 'pending', priority: 'high' },
-        { id: 'sys-2', content: '检查内存使用情况', status: 'pending', priority: 'high' },
-        { id: 'sys-3', content: '检查磁盘空间', status: 'pending', priority: 'medium' }
-      ]
-    }
-    // 服务状态检查
-    else if (/(服务|进程|状态)/.test(message)) {
-      specificTasks = [
-        { id: 'svc-1', content: '连接到服务器', status: 'pending', priority: 'medium' },
-        { id: 'svc-2', content: '检查服务运行状态', status: 'pending', priority: 'high' },
-        { id: 'svc-3', content: '分析服务健康状况', status: 'pending', priority: 'medium' }
-      ]
-    }
-    // 通用服务器操作
-    else {
-      specificTasks = [
-        { id: 'task-1', content: '连接到目标服务器', description: '建立SSH连接到目标服务器，确保网络连通性', status: 'pending', priority: 'medium' },
-        { id: 'task-2', content: '执行相关操作命令', description: '根据用户需求执行相应的系统命令或操作', status: 'pending', priority: 'high' },
-        { id: 'task-3', content: '验证操作结果', description: '检查操作是否成功完成，确认结果符合预期', status: 'pending', priority: 'medium' }
-      ]
-    }
-
-    // 简化的任务列表，避免复杂的 JSON 转义
-    const taskList = specificTasks
-      .map((task, index) => `${index + 1}. ${task.content} (优先级: ${task.priority})${task.description ? '\n   描述: ' + task.description : ''}`)
-      .join('\n')
-
-    const template = isChineseMode
-      ? `<system-reminder>
-🚨 检测到复杂服务器任务：${suggestion}
-
-根据用户请求"${userMessage}"，建议的任务分解：
-${taskList}
-
-请立即使用 todo_write 工具创建任务列表。使用简单的 JSON 格式，例如：
-[{"id":"task1","content":"连接服务器","status":"pending","priority":"medium"}]
-
-创建后，记住：
-- 执行每个任务前，使用 todo_write 将状态更新为 'in_progress'
-- 完成每个任务后，使用 todo_write 将状态更新为 'completed'
-- 这是强制性的，不得跳过状态更新
-
-这将帮助确保所有步骤都被正确执行和跟踪。
-</system-reminder>`
-      : `<system-reminder>
-🚨 Complex server task detected: ${suggestion}
-
-Based on user request "${userMessage}", suggested task breakdown:
-${taskList}
-
-Please use todo_write tool immediately to create a task list. Use simple JSON format, for example:
-[{"id":"task1","content":"Connect to server","description":"Establish SSH connection to target server","status":"pending","priority":"medium"}]
-
-After creation, remember:
-- Before executing each task, use todo_write to update status to 'in_progress'
-- After completing each task, use todo_write to update status to 'completed'
-- This is mandatory and status updates must not be skipped
-
-This will help ensure all steps are properly executed and tracked.
-</system-reminder>`
-
-    return template
-  },
-
-  // 工具调用关联提醒
-  toolCallAssociation: (toolName: string, todoContent: string, isChineseMode: boolean = false) => {
-    const template = isChineseMode
-      ? `<tool-association>\n工具调用 "${toolName}" 已关联到任务: ${todoContent}\n</tool-association>`
-      : `<tool-association>\nTool call "${toolName}" associated with todo: ${todoContent}\n</tool-association>`
-
-    return template
+    return TODO_PROMPTS_OPTIMIZED.coreSystemMessage(isChineseMode)
   }
 }
