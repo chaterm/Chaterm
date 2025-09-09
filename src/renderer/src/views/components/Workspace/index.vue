@@ -1255,7 +1255,7 @@ onUnmounted(() => {
     transition: background-color 0.2s ease;
 
     &:hover {
-      background-color: var(--hover-bg-color);
+      background-color: transparent;
     }
 
     .computer-icon {
