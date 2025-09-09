@@ -543,7 +543,7 @@ const updatePaneSize = () => {
   }
 }
 
-// Handle left pane resize and auto-hide when width is less than 200px
+// Handle left pane resize and auto-hide when width is less than 160px
 const handleLeftPaneResize = (params: ResizeParams) => {
   // Always update the size first
   leftPaneSize.value = params.prevPane.size
@@ -566,8 +566,8 @@ const debouncedResizeCheck = () => {
       const currentLeftPaneSize = leftPaneSize.value
       const leftPaneWidthPx = (currentLeftPaneSize / 100) * containerWidth
 
-      // Auto-hide if width is less than 200px
-      if (leftPaneWidthPx < 200 && currentLeftPaneSize > 0) {
+      // Auto-hide if width is less than 160px
+      if (leftPaneWidthPx < 160 && currentLeftPaneSize > 0) {
         leftPaneSize.value = 0
         headerRef.value?.switchIcon('left', false)
       }
