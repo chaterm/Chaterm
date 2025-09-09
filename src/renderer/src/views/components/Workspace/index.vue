@@ -75,6 +75,7 @@
                   <span
                     v-if="!isSecondLevel(dataRef)"
                     class="title-with-icon"
+                    @click="handleFolderRowClick($event, dataRef)"
                   >
                     <span v-if="editingNode !== dataRef.key">
                       {{ title }}
@@ -143,6 +144,7 @@
                   <span
                     v-if="!isSecondLevel(dataRef)"
                     class="title-with-icon"
+                    @click="handleFolderRowClick($event, dataRef)"
                     @contextmenu="handleContextMenu($event, dataRef)"
                   >
                     <span v-if="editingNode !== dataRef.key">
@@ -1039,6 +1041,26 @@ const handleContextMenuAction = (action: string) => {
   contextMenuData.value = null
 }
 
+// Handle folder row click for expand/collapse
+const handleFolderRowClick = (event: MouseEvent, dataRef: any) => {
+  // Check if the click is on the refresh button or its children
+  const target = event.target as HTMLElement
+  if (target.closest('.refresh-icon') || target.closest('.ant-btn')) {
+    return // Don't handle expand/collapse if clicking on refresh button
+  }
+  // Only handle expand/collapse for folder nodes (not leaf nodes)
+  if (dataRef.children && dataRef.children.length > 0) {
+    const isExpanded = expandedKeys.value.includes(dataRef.key)
+    if (isExpanded) {
+      // Collapse the folder
+      expandedKeys.value = expandedKeys.value.filter((key) => key !== dataRef.key)
+    } else {
+      // Expand the folder
+      expandedKeys.value = [...expandedKeys.value, dataRef.key]
+    }
+  }
+}
+
 getLocalAssetMenu()
 
 const getSSHAgentStatus = async () => {
@@ -1227,6 +1249,14 @@ onUnmounted(() => {
     flex: 1;
     min-width: 0;
     overflow: hidden;
+    cursor: pointer;
+    border-radius: 4px;
+    padding: 2px 4px;
+    transition: background-color 0.2s ease;
+
+    &:hover {
+      background-color: var(--hover-bg-color);
+    }
 
     .computer-icon {
       margin-right: 6px;
