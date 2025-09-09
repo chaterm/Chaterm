@@ -95,7 +95,7 @@
                     @contextmenu="handleContextMenu($event, dataRef)"
                   >
                     <laptop-outlined class="computer-icon" />
-                    <span>{{ title }}</span>
+                    <span class="hostname-text">{{ title }}</span>
 
                     <div
                       v-if="commentNode === dataRef.key"
@@ -165,7 +165,7 @@
                     @contextmenu="handleContextMenu($event, dataRef)"
                   >
                     <laptop-outlined class="computer-icon" />
-                    <span>{{ title }}</span>
+                    <span class="hostname-text">{{ title }}</span>
                     <!-- 备注显示 -->
                     <span
                       v-if="dataRef.comment"
@@ -181,7 +181,7 @@
                     class="title-with-icon"
                   >
                     <laptop-outlined class="computer-icon" />
-                    <span>{{ title }}</span>
+                    <span class="hostname-text">{{ title }}</span>
                     <div class="comment-edit-container">
                       <a-input
                         v-model:value="editingComment"
@@ -1241,6 +1241,8 @@ onUnmounted(() => {
   width: 100%;
   position: relative;
   padding-right: 4px;
+  min-width: 0;
+  overflow: hidden;
 
   .title-with-icon {
     display: flex;
@@ -1263,6 +1265,16 @@ onUnmounted(() => {
       font-size: 14px;
       color: var(--text-color);
       flex-shrink: 0;
+    }
+
+    // Host name text style - Display in one line, ellipsis displayed when exceeding the limit
+    .hostname-text {
+      flex: 1;
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      word-break: break-all;
     }
   }
 
@@ -1290,12 +1302,12 @@ onUnmounted(() => {
   .comment-text {
     color: var(--text-color-tertiary);
     font-size: 12px;
-    margin-left: 4px;
     opacity: 0.8;
-    max-width: 100px;
+    max-width: 120px;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+    flex-shrink: 0;
   }
 
   .comment-edit-container {
@@ -1304,13 +1316,15 @@ onUnmounted(() => {
     flex-grow: 1;
     width: 100%;
     margin-left: 6px;
+    max-width: 200px;
 
     .ant-input {
       background-color: var(--bg-color-secondary);
       border-color: var(--border-color);
       color: var(--text-color);
       flex: 1;
-      min-width: 80px;
+      min-width: 60px;
+      max-width: 120px;
       height: 24px;
       padding: 0 4px;
       font-size: 12px;
@@ -1324,10 +1338,10 @@ onUnmounted(() => {
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      margin-left: 4px;
+      margin-left: 2px;
       cursor: pointer;
       color: #52c41a;
-      min-width: 16px;
+      min-width: 14px;
       height: 24px;
       flex-shrink: 0;
       &:hover {
@@ -1339,10 +1353,10 @@ onUnmounted(() => {
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      margin-left: 4px;
+      margin-left: 2px;
       cursor: pointer;
       color: #ff4d4f;
-      min-width: 16px;
+      min-width: 14px;
       height: 24px;
       flex-shrink: 0;
       &:hover {
