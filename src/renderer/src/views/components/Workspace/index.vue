@@ -988,11 +988,16 @@ const handleContextMenu = (event: MouseEvent, dataRef: any) => {
   event.preventDefault()
   event.stopPropagation()
 
-  // Show context menu for machine nodes (second level) and custom folders (first level)
-  const isMachineNode = isSecondLevel(dataRef)
-  const isCustomFolder = !isSecondLevel(dataRef) && dataRef.asset_type === 'custom_folder' && !dataRef.key.startsWith('common_')
+  // Check if the node has any available menu options
+  const hasFavoriteOption = dataRef.favorite !== undefined
+  const hasCommentOption = dataRef.asset_type === 'organization' && !dataRef.key.startsWith('common_')
+  const hasMoveOption = dataRef.asset_type === 'organization' && !dataRef.key.startsWith('common_') && !dataRef.key.startsWith('folder_')
+  const hasRemoveOption = dataRef.asset_type === 'organization' && dataRef.key.startsWith('folder_') && dataRef.folderUuid
+  const hasEditFolderOption = dataRef.asset_type === 'custom_folder' && !dataRef.key.startsWith('common_')
+  const hasDeleteFolderOption = dataRef.asset_type === 'custom_folder' && !dataRef.key.startsWith('common_')
 
-  if (!isMachineNode && !isCustomFolder) {
+  // If no menu options are available, don't show the context menu
+  if (!hasFavoriteOption && !hasCommentOption && !hasMoveOption && !hasRemoveOption && !hasEditFolderOption && !hasDeleteFolderOption) {
     return
   }
 
