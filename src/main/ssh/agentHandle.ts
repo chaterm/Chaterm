@@ -25,7 +25,7 @@ function isSystemError(_command: string, exitCode: number | null): boolean {
   }
 
   if (exitCode === 127) {
-    return true // Command not found - this is a real error
+    return false // Command not found - this is a real error
   }
 
   if (exitCode >= 128) {

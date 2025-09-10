@@ -94,19 +94,14 @@ export class SmartTaskDetector {
       /(examine|analyze|check).*(log|file|error|anomaly)/i // 日志分析
     ]
 
-    console.log('[Todo Debug] Testing patterns against message...')
-
     for (let i = 0; i < patterns.length; i++) {
       const pattern = patterns[i]
       const matches = pattern.test(lowerMessage)
-      console.log(`[Todo Debug] Pattern ${i + 1} (${pattern.source}): ${matches}`)
       if (matches) {
-        console.log('[Todo Debug] Pattern matched! Should create todo: true')
         return true
       }
     }
 
-    console.log('[Todo Debug] No patterns matched, should create todo: false')
     return false
   }
 

@@ -1406,6 +1406,9 @@ export class Task {
       throw new Error('Chaterm instance aborted')
     }
 
+    // 检查用户输入是否需要创建 todo（用于后续对话）
+    await this.checkUserContentForTodo(userContent)
+
     await this.recordModelUsage()
     await this.handleConsecutiveMistakes(userContent)
     await this.handleAutoApprovalLimits()
@@ -2008,10 +2011,6 @@ export class Task {
           }, 30_000)
         }
 
-        // 自动更新todo状态：开始执行任务
-        console.log(`[Execute Command] About to start todo update for command: ${command}`)
-        await this.autoUpdateTodoStatus('start', command)
-
         const ipList = ip!.split(',')
         let result = ''
         for (const ip of ipList) {
@@ -2021,10 +2020,6 @@ export class Task {
         if (timeoutId) {
           clearTimeout(timeoutId)
         }
-
-        // 自动更新todo状态：完成任务
-        console.log(`[Execute Command] About to complete todo update for command: ${command}`)
-        await this.autoUpdateTodoStatus('complete', command)
 
         this.workspaceTracker.populateFilePaths()
 
@@ -2040,6 +2035,9 @@ export class Task {
           console.error('Failed to track tool call:', error)
           // 不影响主要功能，只记录错误
         }
+
+        // 添加 todo 状态更新提醒
+        await this.addTodoStatusUpdateReminder(result)
 
         await this.saveCheckpoint()
       }
@@ -2495,6 +2493,11 @@ export class Task {
       case 'todo_pause':
         await this.handleTodoPauseToolUse(block)
         break
+      default:
+        console.error(`[Task] 未知的工具名称: ${block.name}`)
+    }
+    if (!block.name.startsWith('todo_') && block.name !== 'ask_followup_question' && block.name !== 'attempt_completion') {
+      await this.addTodoStatusUpdateReminder('')
     }
   }
 
@@ -2615,7 +2618,7 @@ export class Task {
     } catch (error) {}
 
     // Select system prompt based on language and mode
-    let systemPrompt
+    let systemPrompt: string
 
     if (userLanguage === 'zh-CN') {
       if (chatSettings?.mode === 'chat') {
@@ -2822,6 +2825,7 @@ SUDO_CHECK:${localSystemInfo.sudoCheck}`
           todos = [todosParam as Todo]
         }
       } else {
+        console.error(`[Task] 不支持的 todos 参数类型: ${typeof todosParam}`)
         this.pushToolResult(this.getToolDescription(block), 'Todo 写入失败: todos 参数类型不受支持')
         return
       }
@@ -2841,6 +2845,7 @@ SUDO_CHECK:${localSystemInfo.sudoCheck}`
         triggerReason: 'agent_update'
       })
     } catch (error) {
+      console.error(`[Task] todo_write 工具调用处理失败:`, error)
       this.pushToolResult(this.getToolDescription(block), `Todo 写入失败: ${error instanceof Error ? error.message : String(error)}`)
     }
   }
@@ -2866,6 +2871,25 @@ SUDO_CHECK:${localSystemInfo.sudoCheck}`
     }
   }
 
+  // 检查用户内容是否需要创建 todo（用于后续对话）
+  private async checkUserContentForTodo(userContent: UserContent): Promise<void> {
+    try {
+      // 提取用户消息文本
+      const userMessage = userContent
+        .filter((content) => content.type === 'text')
+        .map((content) => (content as { text: string }).text)
+        .join(' ')
+        .trim()
+
+      if (userMessage && !userMessage.includes('<system-reminder>') && !userMessage.includes('<feedback>')) {
+        console.log(`[Smart Todo] Checking user content for todo creation: "${userMessage}"`)
+        await this.checkAndCreateTodoIfNeeded(userMessage)
+      }
+    } catch (error) {
+      console.error('[Smart Todo] Failed to check user content for todo:', error)
+    }
+  }
+
   // 智能检测相关方法 - 使用优化后的检测逻辑
   private async checkAndCreateTodoIfNeeded(userMessage: string): Promise<void> {
     try {
@@ -2881,28 +2905,32 @@ SUDO_CHECK:${localSystemInfo.sudoCheck}`
 
         console.log(`[Smart Todo] Existing todos count: ${existingTodos.length}`)
 
+        // 简化逻辑：如果检测到需要创建 todo，就创建或更新
+        // 情况1：没有现有 todos - 直接创建
+        // 情况2：有现有 todos - 允许创建新的或更新现有的
         if (existingTodos.length === 0) {
-          // 获取用户语言设置
-          let isChineseMode = false
-          try {
-            const userConfig = await getUserConfig()
-            isChineseMode = userConfig?.language === 'zh-CN'
-          } catch (error) {
-            // 使用默认语言
-          }
-
-          // 发送简化的核心系统消息给 Agent
-          const coreMessage = TODO_SYSTEM_MESSAGES.complexTaskSystemMessage('', isChineseMode, userMessage)
-          console.log(`[Smart Todo] Sending core system message to agent`)
-
-          // 将提醒添加到用户消息内容中，而不是作为单独的消息
-          this.userMessageContent.push({
-            type: 'text',
-            text: coreMessage
-          })
+          console.log(`[Smart Todo] No existing todos, creating new todo list`)
         } else {
-          console.log(`[Smart Todo] Skipping - todos already exist`)
+          console.log(`[Smart Todo] Existing todos found, but user request suggests new todo creation/update`)
         }
+
+        // 获取用户语言设置
+        let isChineseMode = false
+        try {
+          const userConfig = await getUserConfig()
+          isChineseMode = userConfig?.language === 'zh-CN'
+        } catch (error) {
+          console.log(`[Smart Todo] 获取用户语言设置失败，使用默认语言`)
+        }
+
+        // 发送简化的核心系统消息给 Agent
+        const coreMessage = TODO_SYSTEM_MESSAGES.complexTaskSystemMessage('', isChineseMode, userMessage)
+
+        // 将提醒添加到用户消息内容中，而不是作为单独的消息
+        this.userMessageContent.push({
+          type: 'text',
+          text: coreMessage
+        })
       } else {
         console.log(`[Smart Todo] Task not complex enough for todo creation`)
       }
@@ -2912,53 +2940,42 @@ SUDO_CHECK:${localSystemInfo.sudoCheck}`
     }
   }
 
-  // 自动状态更新辅助方法
-  private async autoUpdateTodoStatus(action: 'start' | 'complete', _taskHint?: string): Promise<void> {
+  // 添加 todo 状态更新提醒
+  private async addTodoStatusUpdateReminder(_commandResult: string): Promise<void> {
     try {
-      const storage = new (await import('../storage/todo/TodoStorage')).TodoStorage(this.taskId)
+      const { TodoStorage } = await import('../storage/todo/TodoStorage')
+      const storage = new TodoStorage(this.taskId)
       const todos = await storage.readTodos()
 
       if (todos.length === 0) {
-        return // 没有todo列表，跳过
+        return
       }
 
-      // 查找需要更新的任务
-      let targetTodo: Todo | undefined = undefined
+      // 检查是否有活跃的 todo 任务
+      const activeTodos = todos.filter((todo) => todo.status === 'in_progress')
+      const pendingTodos = todos.filter((todo) => todo.status === 'pending')
 
-      if (action === 'start') {
-        // 查找第一个pending状态的任务
-        targetTodo = todos.find((todo) => todo.status === 'pending')
-        if (targetTodo) {
-          targetTodo.status = 'in_progress'
-          console.log(`[Auto Todo Update] Starting task: ${targetTodo.content}`)
-        }
-      } else if (action === 'complete') {
-        // 查找第一个in_progress状态的任务
-        targetTodo = todos.find((todo) => todo.status === 'in_progress')
-        if (targetTodo) {
-          targetTodo.status = 'completed'
-          console.log(`[Auto Todo Update] Completing task: ${targetTodo.content}`)
-        }
+      let reminderMessage = ''
+
+      if (activeTodos.length > 0) {
+        // 有进行中的任务，提醒完成
+        const activeTodo = activeTodos[0]
+        reminderMessage = `\n\n<todo-status-reminder>\n⚠️ 重要提醒：命令执行完成。如果任务 "${activeTodo.content}" 已完成，你必须立即使用 todo_write 工具将其状态更新为 "completed"。这是强制性的任务跟踪要求。\n\n如果任务尚未完成，请继续执行相关命令，完成后再更新状态。\n</todo-status-reminder>`
+      } else if (pendingTodos.length > 0) {
+        // 有待处理的任务，提醒开始
+        const nextTodo = pendingTodos[0]
+        reminderMessage = `\n\n<todo-status-reminder>\n⚠️ 重要提醒：准备开始任务 "${nextTodo.content}"。在执行任何相关命令之前，你必须先使用 todo_write 工具将其状态更新为 "in_progress"。这是强制性的任务跟踪要求。\n</todo-status-reminder>`
       }
 
-      if (targetTodo) {
-        // 更新todo列表
-        const TodoWriteTool = (await import('./todo-tools/TodoWriteTool')).TodoWriteTool
-        await TodoWriteTool.execute({ todos: todos }, this.taskId)
-
-        // 发送更新事件到渲染进程
-        await this.postMessageToWebview({
-          type: 'todoUpdated',
-          todos: todos,
-          sessionId: this.taskId,
-          taskId: this.taskId,
-          changeType: 'updated',
-          triggerReason: 'auto_progress'
+      if (reminderMessage) {
+        // 将提醒添加到用户消息内容中
+        this.userMessageContent.push({
+          type: 'text',
+          text: reminderMessage
         })
       }
     } catch (error) {
-      console.error('[Auto Todo Update] Failed to update todo status:', error)
-      // 不影响主要功能，只记录错误
+      console.error('[Task] 添加 todo 状态更新提醒失败:', error)
     }
   }
 }

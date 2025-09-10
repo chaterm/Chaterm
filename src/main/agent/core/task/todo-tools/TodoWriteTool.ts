@@ -24,6 +24,7 @@ export class TodoWriteTool {
       // 2. 验证参数
       const result = TodoArraySchema.safeParse(processedTodos)
       if (!result.success) {
+        console.error(`[TodoWriteTool] 参数验证失败:`, result.error)
         throw new Error(`参数验证失败: ${result.error.message}`)
       }
 
@@ -40,9 +41,20 @@ export class TodoWriteTool {
       contextTracker.setActiveTodo(inProgressTodo?.id || null)
 
       // 5. 生成返回消息
-      const output = TodoWriteTool.generateOutput(params.todos)
+      let output = TodoWriteTool.generateOutput(params.todos)
+
+      // 6. 检查是否是新创建的 todo 列表，添加开始提醒
+      const allPending = params.todos.every((todo) => todo.status === 'pending')
+      const hasMultipleTasks = params.todos.length > 1
+
+      if (allPending && hasMultipleTasks) {
+        // 新创建的多任务 todo 列表，添加开始提醒
+        const firstTask = params.todos[0]
+        output += `\n\n⚠️ **重要提醒**：Todo 列表已创建完成。现在你必须立即使用 todo_write 工具将第一个任务 "${firstTask.content}" 的状态从 "pending" 更新为 "in_progress"，然后开始执行该任务。这是强制性的工作流程要求。`
+      }
       return output
     } catch (error) {
+      console.error(`[TodoWriteTool] todo_write 工具执行失败:`, error)
       throw new Error(`Todo 写入失败: ${error instanceof Error ? error.message : String(error)}`)
     }
   }

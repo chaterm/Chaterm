@@ -57,6 +57,7 @@ export class TodoStorage {
       // 验证数据格式
       const result = TodoArraySchema.safeParse(todos)
       if (!result.success) {
+        console.error(`[TodoStorage] 数据验证失败:`, result.error)
         throw new Error(`Invalid todo data: ${result.error.message}`)
       }
 
@@ -70,10 +71,9 @@ export class TodoStorage {
 
       // 保存回数据库
       await dbService.saveTaskMetadata(this.taskId, updatedMetadata)
-
-      console.log(`Saved ${todos.length} todos for task ${this.taskId}`)
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : String(error)
+      console.error(`[TodoStorage] 写入 todos 失败，taskId: ${this.taskId}:`, error)
       throw new Error(`Failed to write todos for task ${this.taskId}: ${errorMessage}`)
     }
   }
