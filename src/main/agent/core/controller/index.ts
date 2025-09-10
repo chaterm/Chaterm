@@ -93,7 +93,9 @@ export class Controller {
   async initTask(hosts: Host[], task?: string, historyItem?: HistoryItem, cwd?: Map<string, string>) {
     console.log('initTask', task, historyItem)
     await this.clearTask() // ensures that an existing task doesn't exist before starting a new one, although this shouldn't be possible since user must clear task before starting a new one
-    const { apiConfiguration, customInstructions, autoApprovalSettings } = await getAllExtensionState()
+    const { apiConfiguration, userRules, autoApprovalSettings } = await getAllExtensionState()
+    const customInstructions = this.formatUserRulesToInstructions(userRules)
+
     this.task = new Task(
       this.workspaceTracker,
       (historyItem) => this.updateTaskHistory(historyItem),
@@ -210,9 +212,6 @@ export class Controller {
           }
         }
 
-        // custom instructions
-        await this.updateCustomInstructions(message.customInstructionsSetting)
-
         // telemetry setting
         if (message.telemetrySetting) {
           await this.updateTelemetrySetting(message.telemetrySetting)
@@ -281,14 +280,6 @@ export class Controller {
       } catch (error) {
         console.error('Failed to gracefully abort task', error)
       }
-    }
-  }
-
-  async updateCustomInstructions(instructions?: string) {
-    // User may be clearing the field
-    await updateGlobalState('customInstructions', instructions || undefined)
-    if (this.task) {
-      this.task.customInstructions = instructions || undefined
     }
   }
 
@@ -744,6 +735,26 @@ Now, convert the following instruction to a command:`
     command = command.replace(/^["']|["']$/g, '')
 
     return command
+  }
+
+  private formatUserRulesToInstructions(
+    userRules?: Array<{
+      id: string
+      content: string
+      enabled: boolean
+    }>
+  ): string | undefined {
+    if (!userRules || userRules.length === 0) {
+      return undefined
+    }
+
+    // Filter enabled rules and format them as numbered list
+    const enabledRules = userRules.filter((rule) => rule.enabled && rule.content.trim())
+    if (enabledRules.length === 0) {
+      return undefined
+    }
+
+    return enabledRules.map((rule, index) => `${index + 1}. ${rule.content.trim()}`).join('\n\n')
   }
 }
 

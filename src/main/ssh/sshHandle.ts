@@ -5,7 +5,21 @@ import type { SFTPWrapper } from 'ssh2'
 const { app } = require('electron')
 const appPath = app.getAppPath()
 const packagePath = path.join(appPath, 'package.json')
-const packageInfo = JSON.parse(fs.readFileSync(packagePath, 'utf8'))
+
+// Try to read package.json from appPath first, fallback to __dirname if not exists
+let packageInfo
+try {
+  if (fs.existsSync(packagePath)) {
+    packageInfo = JSON.parse(fs.readFileSync(packagePath, 'utf8'))
+  } else {
+    const fallbackPath = path.join(__dirname, '../../package.json')
+    packageInfo = JSON.parse(fs.readFileSync(fallbackPath, 'utf8'))
+  }
+} catch (error) {
+  console.error('Failed to read package.json:', error)
+  // Provide a default packageInfo object if both paths fail
+  packageInfo = { name: 'chaterm', version: 'unknown' }
+}
 import { createProxySocket } from './proxy'
 
 import {
@@ -676,6 +690,13 @@ export const registerSSHHandlers = () => {
 
         const markedCmd = jumpserverMarkedCommands.get(id)
         if (markedCmd !== undefined) {
+          if (markedCmd.marker === 'Chaterm:command') {
+            event.sender.send(`ssh:shell:data:${id}`, {
+              data: dataStr,
+              marker: markedCmd.marker
+            })
+            return
+          }
           markedCmd.output += dataStr
           markedCmd.lastActivity = Date.now()
           if (markedCmd.idleTimer) clearTimeout(markedCmd.idleTimer)

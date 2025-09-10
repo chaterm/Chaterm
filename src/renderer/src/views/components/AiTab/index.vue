@@ -447,18 +447,13 @@
                   </a-button>
                 </a-tooltip>
                 <a-tooltip :title="$t('ai.startVoiceInput')">
-                  <a-button
+                  <VoiceInput
+                    ref="voiceInputRef"
                     :disabled="responseLoading"
-                    size="small"
-                    class="custom-round-button compact-button"
-                    @click="handleVoiceClick"
-                  >
-                    <img
-                      src="@/assets/icons/voice.svg"
-                      alt="voice"
-                      style="width: 14px; height: 14px"
-                    />
-                  </a-button>
+                    :auto-send-after-voice="autoSendAfterVoice"
+                    @transcription-complete="handleTranscriptionComplete"
+                    @transcription-error="handleTranscriptionError"
+                  />
                 </a-tooltip>
                 <input
                   ref="fileInputRef"
@@ -467,16 +462,6 @@
                   style="display: none"
                   @change="handleFileSelected"
                 />
-                <!-- Hidden VoiceInput component for functionality -->
-                <div style="display: none">
-                  <VoiceInput
-                    ref="voiceInputRef"
-                    :disabled="responseLoading"
-                    :auto-send-after-voice="autoSendAfterVoice"
-                    @transcription-complete="handleTranscriptionComplete"
-                    @transcription-error="handleTranscriptionError"
-                  />
-                </div>
                 <a-button
                   :disabled="!showSendButton"
                   size="small"
@@ -919,6 +904,27 @@ const updateHosts = (hostInfo: { ip: string; uuid: string; connection: string } 
   }
 }
 
+// Update hosts for command mode - only show current terminal tab IP
+const updateHostsForCommandMode = async () => {
+  try {
+    const assetInfo = await getCurentTabAssetInfo()
+    if (assetInfo && assetInfo.ip) {
+      // Only show host if current tab is a terminal (has IP)
+      updateHosts({
+        ip: assetInfo.ip,
+        uuid: assetInfo.uuid,
+        connection: assetInfo.connection || 'personal'
+      })
+    } else {
+      // If current tab is not a terminal, clear hosts
+      hosts.value = []
+    }
+  } catch (error) {
+    console.error('Failed to update hosts for command mode:', error)
+    hosts.value = []
+  }
+}
+
 // Initialize asset information
 const initAssetInfo = async () => {
   if (!autoUpdateHost.value || chatHistory.length > 0) {
@@ -1123,6 +1129,7 @@ const sendMessage = async (sendType: string) => {
   }
   const userContent = chatInputValue.value.trim()
   if (!userContent) return
+  chatInputValue.value = ''
   // Check if current active host exists
   if (hosts.value.length === 0 && chatTypeValue.value !== 'chat') {
     notification.error({
@@ -1148,7 +1155,6 @@ const sendMessage = async (sendType: string) => {
     userMessage.say = 'command_output'
   }
   chatHistory.push(userMessage)
-  chatInputValue.value = ''
   responseLoading.value = true
   showRetryButton.value = false
   showNewTaskButton.value = false
@@ -1164,6 +1170,11 @@ const handleKeyDown = (e: KeyboardEvent) => {
   // Check if it's an input method confirmation key
   if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) {
     e.preventDefault()
+    // 检查输入内容是否为空
+    if (!chatInputValue.value.trim()) {
+      return
+    }
+
     sendMessage('send')
   }
 }
@@ -1653,6 +1664,12 @@ watch(
       await updateGlobalState('chatSettings', {
         mode: newValue
       })
+
+      // When switching to command mode, update hosts to show only current terminal tab IP
+      if (newValue === 'cmd') {
+        await updateHostsForCommandMode()
+      }
+
       // Emit state change event
       emitStateChange()
     } catch (error) {
@@ -1766,9 +1783,25 @@ const handleGlobalEscKey = (e: KeyboardEvent) => {
   }
 }
 
+// Global click outside listener to close host select popup
+const handleGlobalClick = (e: MouseEvent) => {
+  if (!showHostSelect.value) return
+
+  const target = e.target as HTMLElement
+  const hostSelectPopup = document.querySelector('.host-select-popup')
+  const hostTag = document.querySelector('.hosts-display-container-host-tag')
+
+  // Check if click is outside the host select popup and host tag
+  if (hostSelectPopup && !hostSelectPopup.contains(target) && hostTag && !hostTag.contains(target)) {
+    closeHostSelect()
+  }
+}
+
 onMounted(async () => {
   // Add global ESC key listener
   document.addEventListener('keydown', handleGlobalEscKey)
+  // Add global click listener to close host select popup when clicking outside
+  document.addEventListener('click', handleGlobalClick)
 
   eventBus.on('triggerAiSend', () => {
     if (chatInputValue.value.trim()) {
@@ -1918,6 +1951,8 @@ onMounted(async () => {
         }
 
         lastChatMessageId.value = newAssistantMessage.id
+        // 在添加新消息前，清理partial command消息
+        cleanupPartialCommandMessages()
         chatHistory.push(newAssistantMessage)
       } else if (lastMessageInChat && lastMessageInChat.role === 'assistant') {
         lastMessageInChat.content = message.partialMessage.text
@@ -1977,6 +2012,8 @@ const handleModelApiReqFailed = (message: any) => {
     message.partialMessage.ts,
     false
   )
+  // 在添加新消息前，清理partial command消息
+  cleanupPartialCommandMessages()
   chatHistory.push(newAssistantMessage)
   console.log('showRetryButton.value', showRetryButton.value)
   showRetryButton.value = true
@@ -1996,9 +2033,24 @@ const handleInteractiveCommandNotification = (message: any) => {
     false
   )
 
+  // 在添加新消息前，清理partial command消息
+  cleanupPartialCommandMessages()
   chatHistory.push(notificationMessage)
 
   console.log('Interactive command notification processed and added to chat history')
+}
+
+// 清理partial command消息：在新增消息时主动删除上一个partial=true的command消息
+const cleanupPartialCommandMessages = () => {
+  // 倒序查找并删除partial=true且ask='command'的消息
+  for (let i = chatHistory.length - 1; i >= 0; i--) {
+    const message = chatHistory[i]
+    if (message.role === 'assistant' && message.partial === true && message.type === 'ask' && message.ask === 'command') {
+      console.log('🗑️ Removing partial command message:', message.id, 'with timestamp:', message.ts)
+      chatHistory.splice(i, 1)
+      break // 只删除最后一个partial command消息
+    }
+  }
 }
 
 onUnmounted(() => {
@@ -2007,6 +2059,7 @@ onUnmounted(() => {
     removeListener = null
   }
   document.removeEventListener('keydown', handleGlobalEscKey)
+  document.removeEventListener('click', handleGlobalClick)
   eventBus.off('apiProviderChanged')
   eventBus.off('activeTabChanged')
   eventBus.off('chatToAi')
@@ -2160,7 +2213,15 @@ const showBottomButton = computed(() => {
   )
 })
 
-const filteredHostOptions = computed(() => hostOptions.value.filter((item) => item.label.includes(hostSearchValue.value)))
+const filteredHostOptions = computed(() => {
+  if (chatTypeValue.value === 'cmd') {
+    // In command mode, host options are already filtered by fetchHostOptionsForCommandMode
+    return hostOptions.value
+  } else {
+    // In agent mode, filter by search value
+    return hostOptions.value.filter((item) => item.label.includes(hostSearchValue.value))
+  }
+})
 
 const isHostSelected = (hostOption: any) => {
   return hosts.value.some((h) => h.host === hostOption.label)
@@ -2276,14 +2337,19 @@ const handleMouseOver = (value: string, index: number) => {
 
 // 2. Listen for input box content changes
 const handleInputChange = async (e: Event) => {
-  if (chatTypeValue.value === 'cmd') {
-    return
-  }
   const value = (e.target as HTMLTextAreaElement).value
   if (value === '@') {
     showHostSelect.value = true
     hostSearchValue.value = '' // Clear search box
-    await fetchHostOptions('') // Call here to get all hosts
+
+    if (chatTypeValue.value === 'cmd') {
+      // In command mode, only show current terminal tab IP
+      await fetchHostOptionsForCommandMode('')
+    } else {
+      // In agent mode, show all hosts
+      await fetchHostOptions('')
+    }
+
     nextTick(() => {
       hostSearchInputRef.value?.focus?.()
     })
@@ -2294,7 +2360,11 @@ const handleInputChange = async (e: Event) => {
 
 // 3. Get host list
 const debouncedFetchHostOptions = debounce((search: string) => {
-  fetchHostOptions(search)
+  if (chatTypeValue.value === 'cmd') {
+    fetchHostOptionsForCommandMode(search)
+  } else {
+    fetchHostOptions(search)
+  }
 }, 300)
 
 watch(hostSearchValue, (newVal) => {
@@ -2324,6 +2394,37 @@ const fetchHostOptions = async (search: string) => {
   }
 
   hostOptions.value.splice(0, hostOptions.value.length, ...formatted)
+}
+
+// Fetch host options for command mode - only show current terminal tab IP
+const fetchHostOptionsForCommandMode = async (search: string) => {
+  try {
+    const assetInfo = await getCurentTabAssetInfo()
+    if (assetInfo && assetInfo.ip) {
+      // Only show current terminal tab IP
+      const currentHostOption = {
+        label: assetInfo.ip,
+        value: assetInfo.ip,
+        uuid: assetInfo.uuid,
+        connect: assetInfo.connection || 'personal',
+        title: assetInfo.title || assetInfo.ip,
+        isLocalHost: assetInfo.ip === '127.0.0.1' || assetInfo.ip === 'localhost'
+      }
+
+      // Filter by search if provided
+      if (!search || currentHostOption.label.includes(search) || currentHostOption.title.includes(search)) {
+        hostOptions.value.splice(0, hostOptions.value.length, currentHostOption)
+      } else {
+        hostOptions.value.splice(0, hostOptions.value.length)
+      }
+    } else {
+      // If current tab is not a terminal, show no options
+      hostOptions.value.splice(0, hostOptions.value.length)
+    }
+  } catch (error) {
+    console.error('Failed to fetch host options for command mode:', error)
+    hostOptions.value.splice(0, hostOptions.value.length)
+  }
 }
 
 const showResumeButton = computed(() => {
@@ -3479,15 +3580,15 @@ defineExpose({
           width: 100%;
           padding: 8px 12px;
           margin: 0;
-          background-color: #2a2a2a;
-          border: 1px solid #3a3a3a;
+          background-color: var(--bg-color-tertiary);
+          border: 1px solid var(--bg-color-quaternary);
           border-radius: 6px;
-          color: #e0e0e0;
+          color: var(--text-color);
           transition: all 0.2s ease;
 
           &:hover {
-            background-color: #3a3a3a;
-            border-color: #4a4a4a;
+            background-color: var(--bg-color-quaternary);
+            border-color: var(--bg-color-novenary);
           }
 
           .ant-radio {
@@ -3495,13 +3596,13 @@ defineExpose({
           }
 
           .ant-radio-checked .ant-radio-inner {
-            background-color: #1656b1;
-            border-color: #1656b1;
+            background-color: var(--button-bg-color);
+            border-color: var(--button-bg-color);
           }
 
           &.custom-option {
             border-style: dashed;
-            border-color: #4a4a4a;
+            border-color: var(--bg-color-novenary);
             display: flex;
             align-items: flex-start;
             gap: 8px;
@@ -3517,18 +3618,18 @@ defineExpose({
               flex: 1;
               background-color: transparent;
               border: none;
-              color: #e0e0e0;
+              color: var(--text-color);
               padding: 0;
               min-height: 20px; // 设置最小高度与其他选项一致
 
               &:focus {
                 border: none;
                 box-shadow: none;
-                background-color: rgba(255, 255, 255, 0.05);
+                background-color: var(--hover-bg-color);
               }
 
               &::placeholder {
-                color: #888;
+                color: var(--text-color-tertiary);
               }
 
               :deep(.ant-input) {
@@ -3536,7 +3637,7 @@ defineExpose({
                 border: none !important;
                 box-shadow: none !important;
                 padding: 2px 0 !important;
-                color: #e0e0e0 !important;
+                color: var(--text-color) !important;
                 line-height: 1.4 !important;
                 min-height: 20px !important;
                 resize: none !important;
@@ -3558,8 +3659,8 @@ defineExpose({
         justify-content: flex-end;
 
         .submit-option-btn {
-          background-color: #1656b1;
-          border-color: #1656b1;
+          background-color: var(--button-bg-color);
+          border-color: var(--button-bg-color);
           color: white;
           border-radius: 6px;
           font-size: 12px;
@@ -3567,14 +3668,14 @@ defineExpose({
           padding: 0 16px;
 
           &:hover:not(:disabled) {
-            background-color: #2d6fcd;
-            border-color: #2d6fcd;
+            background-color: var(--button-hover-bg);
+            border-color: var(--button-hover-bg);
           }
 
           &:disabled {
-            background-color: #3a3a3a;
-            border-color: #3a3a3a;
-            color: #888;
+            background-color: var(--bg-color-quaternary);
+            border-color: var(--bg-color-quaternary);
+            color: var(--text-color-tertiary);
           }
         }
       }

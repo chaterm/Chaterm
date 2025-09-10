@@ -70,7 +70,7 @@
       {{ $t('common.fileManager') }}
       <span class="shortcut-key">{{ fileManagerShortcut }}</span>
     </v-contextmenu-item>
-    <v-contextmenu-item @click="onContextMenuAction('shrotenName')">{{ $t('common.shrotenName') }}</v-contextmenu-item>
+    <!-- <v-contextmenu-item @click="onContextMenuAction('shrotenName')">{{ $t('common.shrotenName') }}</v-contextmenu-item> -->
 
     <!-- Divider -->
     <div class="context-menu-divider"></div>

@@ -71,6 +71,13 @@
         </a-tab-pane>
         <a-tab-pane
           key="8"
+          :tab="$t('user.rules')"
+          type="card"
+        >
+          <Rules />
+        </a-tab-pane>
+        <a-tab-pane
+          key="9"
           :tab="$t('user.about')"
           type="card"
         >
@@ -91,6 +98,7 @@ import Billing from '@/views/components/LeftTab/components/billing.vue'
 import Model from '@/views/components/LeftTab/components/model.vue'
 import Shortcuts from '@/views/components/LeftTab/components/shortcuts.vue'
 import Privacy from '@/views/components/LeftTab/components/privacy.vue'
+import Rules from '@/views/components/LeftTab/components/rules.vue'
 import About from '@/views/components/LeftTab/components/about.vue'
 const isSkippedLogin = ref(localStorage.getItem('login-skipped') === 'true')
 </script>

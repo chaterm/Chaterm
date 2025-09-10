@@ -290,3 +290,9 @@ export interface UserInfo {
   email: string | null
   photoURL: string | null
 }
+
+export interface Rule {
+  id: string
+  content: string
+  enabled?: boolean
+}

@@ -48,11 +48,13 @@ interface StreamMetrics {
 interface MessageUpdater {
   updateApiReqMsg: (cancelReason?: ChatermApiReqCancelReason, streamingFailedMessage?: string) => void
 }
+
 import { AssistantMessageContent, parseAssistantMessageV2, ToolParamName, ToolUseName, TextContent, ToolUse } from '@core/assistant-message'
 import { RemoteTerminalManager, ConnectionInfo, RemoteTerminalInfo, RemoteTerminalProcessResultPromise } from '../../integrations/remote-terminal'
 import { LocalTerminalManager, LocalCommandProcess } from '../../integrations/local-terminal'
 import { formatResponse } from '@core/prompts/responses'
 import { addUserInstructions, SYSTEM_PROMPT, SYSTEM_PROMPT_CHAT, SYSTEM_PROMPT_CN, SYSTEM_PROMPT_CHAT_CN } from '@core/prompts/system'
+import { CommandSecurityManager } from '../security/CommandSecurityManager'
 import { getContextWindowInfo } from '@core/context/context-management/context-window-utils'
 import { ModelContextTracker } from '@core/context/context-tracking/ModelContextTracker'
 import { ContextManager } from '@core/context/context-management/ContextManager'
@@ -87,7 +89,7 @@ export class Task {
   autoApprovalSettings: AutoApprovalSettings
   apiConversationHistory: Anthropic.MessageParam[] = []
   chatermMessages: ChatermMessage[] = []
-  // private chatermIgnoreController: ChatermIgnoreController
+  private commandSecurityManager: CommandSecurityManager
   private askResponse?: ChatermAskResponse
   private askResponseText?: string
   private lastMessageTs?: number
@@ -193,6 +195,10 @@ export class Task {
       ...apiConfiguration,
       taskId: this.taskId
     })
+
+    // Initialize CommandSecurityManager for security
+    this.commandSecurityManager = new CommandSecurityManager()
+    this.commandSecurityManager.initialize()
 
     // Continue with task initialization
     if (historyItem) {
@@ -545,7 +551,14 @@ export class Task {
     this.askResponseText = undefined
   }
 
-  private async handleAskPartialMessage(type: ChatermAsk, askTsRef: { value: number }, text?: string, isPartial?: boolean): Promise<void> {
+  private async handleAskPartialMessage(
+    type: ChatermAsk,
+    askTsRef: {
+      value: number
+    },
+    text?: string,
+    isPartial?: boolean
+  ): Promise<void> {
     const lastMessage = this.chatermMessages.at(-1)
     const isUpdatingPreviousPartial = lastMessage && lastMessage.partial && lastMessage.type === 'ask' && lastMessage.ask === type
 
@@ -640,7 +653,7 @@ export class Task {
       throw new Error('Chaterm instance aborted')
     }
     if (text === undefined || text === '') {
-      console.warn('Chaterm say called with empty text, ignoring')
+      // console.warn('Chaterm say called with empty text, ignoring')
       return
     }
 
@@ -1953,14 +1966,40 @@ export class Task {
         if (!command) return this.handleMissingParam('command', toolDescription)
         if (!ip) return this.handleMissingParam('ip', toolDescription)
         if (!requiresApprovalRaw) return this.handleMissingParam('requires_approval', toolDescription)
+        // 执行安全检查
+        const securityCheck = await this.performCommandSecurityCheck(command, toolDescription)
+        if (securityCheck.shouldReturn) {
+          return
+        }
+        const { needsSecurityApproval, securityMessage } = securityCheck
 
         this.consecutiveMistakeCount = 0
         let didAutoApprove = false
         const chatSettings = await getGlobalState('chatSettings')
 
-        if (chatSettings?.mode === 'cmd') {
-          await this.askApproval(toolDescription, 'command', command) // Wait for frontend to execute command and return result
-          return
+        if (chatSettings?.mode === 'cmd' || needsSecurityApproval) {
+          // 如果需要安全确认，先显示安全警告
+          if (needsSecurityApproval) {
+            this.removeLastPartialMessageIfExistsWithType('ask', 'command')
+            await this.say('error', securityMessage, false)
+          }
+
+          // 统一进行用户确认（包括安全确认和命令执行确认）
+          const didApprove = await this.askApproval(toolDescription, 'command', command)
+          if (!didApprove) {
+            if (needsSecurityApproval) {
+              await this.say('error', `🚫 The user rejected the dangerous command: ${command}`, false)
+            }
+            await this.saveCheckpoint()
+            return
+          }
+
+          // 只有cmd模式才直接返回，等待前端执行命令
+          if (chatSettings?.mode === 'cmd') {
+            // Wait for frontend to execute command and return result
+            return
+          }
+          // agent模式下继续执行后续逻辑
         }
 
         const autoApproveResult = this.shouldAutoApproveTool(block.name)
@@ -1977,21 +2016,17 @@ export class Task {
         if (isInteractive && chatSettings?.mode === 'agent') {
           await this.say('interactive_command_notification', `${this.messages.interactiveCommandNotification}`, false)
         }
-
-        const shouldAutoApprove = (!requiresApprovalPerLLM && autoApproveSafe) || (requiresApprovalPerLLM && autoApproveSafe && autoApproveAll)
-        console.log(`[Command Execution] Should auto approve: ${shouldAutoApprove}`)
-        console.log(
-          `[Command Execution] Logic: (!${requiresApprovalPerLLM} && ${autoApproveSafe}) || (${requiresApprovalPerLLM} && ${autoApproveSafe} && ${autoApproveAll}) = ${shouldAutoApprove}`
-        )
-
-        if (shouldAutoApprove) {
-          console.log(`[Command Execution] AUTO-APPROVING command: ${command}`)
+        // 如果已经通过安全确认，跳过自动批准逻辑
+        if (
+          !needsSecurityApproval &&
+          ((!requiresApprovalPerLLM && autoApproveSafe) || (requiresApprovalPerLLM && autoApproveSafe && autoApproveAll))
+        ) {
+          // 自动批准模式下，无安全风险的命令直接执行
           this.removeLastPartialMessageIfExistsWithType('ask', 'command')
           await this.say('command', command, false)
           this.consecutiveAutoApprovedRequestsCount++
           didAutoApprove = true
-        } else {
-          console.log(`[Command Execution] ASKING FOR APPROVAL for command: ${command}`)
+        } else if (!needsSecurityApproval) {
           this.showNotificationIfNeeded(`Chaterm wants to execute a command: ${command}`)
           const didApprove = await this.askApproval(toolDescription, 'command', command)
           console.log(`[Command Execution] User approval result: ${didApprove}`)
@@ -2046,13 +2081,58 @@ export class Task {
       await this.saveCheckpoint()
     }
   }
+
   private async handleMissingParam(paramName: string, toolDescription: string): Promise<void> {
     this.consecutiveMistakeCount++
     this.pushToolResult(toolDescription, await this.sayAndCreateMissingParamError('execute_command', paramName))
     return this.saveCheckpoint()
   }
+  /**
+   * 执行命令安全检查
+   * @param command 要检查的命令
+   * @param toolDescription 工具描述，用于错误报告
+   * @returns 安全检查结果
+   */
+  private async performCommandSecurityCheck(
+    command: string,
+    toolDescription: string
+  ): Promise<{
+    needsSecurityApproval: boolean
+    securityMessage: string
+    shouldReturn: boolean
+  }> {
+    console.log('this.commandSecurityManager.getSecurityConfig()', this.commandSecurityManager.getSecurityConfig())
 
-  private getToolDescription(block: { name: string; params: Record<string, unknown> }): string {
+    // 安全检查：验证命令是否在黑名单中
+    const securityResult = this.commandSecurityManager.validateCommandSecurity(command)
+    console.log('securityResult', securityResult)
+
+    // 标识是否需要安全确认
+    let needsSecurityApproval = false
+    let securityMessage = ''
+
+    if (!securityResult.isAllowed) {
+      if (securityResult.requiresApproval) {
+        // 需要用户确认的危险命令
+        needsSecurityApproval = true
+        securityMessage = `⚠️ Dangerous command detected\nReason: ${securityResult.reason}\nDegree: ${securityResult.severity}\nPlease confirm whether to execute the command\n\nTo modify security settings, go to: Settings -> AI Preferences -> Security Configuration`
+      } else {
+        // 直接阻止的命令
+        await this.say('command_blocked', `🚫 The command is blocked by the security mechanism: ${command}\nReason: ${securityResult.reason}`, false)
+        // 向LLM返回工具执行被阻止的结果，使用关键词触发安全停止机制
+        this.pushToolResult(toolDescription, `🚫 The command is blocked by the security mechanism: ${command}\nReason: ${securityResult.reason}`)
+        await this.saveCheckpoint()
+        return { needsSecurityApproval: false, securityMessage: '', shouldReturn: true }
+      }
+    } else if (securityResult.requiresApproval) {
+      // 命令被允许但需要用户确认
+      needsSecurityApproval = true
+      securityMessage = `⚠️ Dangerous command detected\nReason: ${securityResult.reason}\nDegree: ${securityResult.severity}\nPlease confirm whether to execute the command\n\nTo modify security settings, go to: Settings -> AI Preferences -> Security Configuration`
+    }
+
+    return { needsSecurityApproval, securityMessage, shouldReturn: false }
+  }
+  private getToolDescription(block: any): string {
     switch (block.name) {
       case 'execute_command':
         return `[${block.name} for '${block.params.command}']`

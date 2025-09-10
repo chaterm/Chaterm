@@ -372,7 +372,9 @@ const cloneTab = () => {
 }
 
 const handleKeyDown = (event: KeyboardEvent) => {
-  if ((event.metaKey || event.ctrlKey) && event.key === 'w') {
+  // 只在非Windows系统上处理 ctrl+w，Windows系统由preload脚本处理
+  const isWindows = navigator.platform.toLowerCase().includes('win')
+  if (!isWindows && (event.metaKey || event.ctrlKey) && event.key === 'w') {
     if (!props.tabs || props.tabs.length === 0) {
       return
     }
