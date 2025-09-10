@@ -33,7 +33,7 @@ import { TodoWriteTool, TodoWriteParams } from './todo-tools/TodoWriteTool'
 import { TodoReadTool, TodoReadParams } from './todo-tools/TodoReadTool'
 import { TodoPauseTool, TodoPauseParams } from './todo-tools/TodoPauseTool'
 import { Todo } from '../../shared/todo/TodoSchemas'
-import { SmartTaskDetector, TODO_SYSTEM_MESSAGES } from './intelligence/todo-prompts'
+import { SmartTaskDetector, TODO_SYSTEM_MESSAGES } from './todo-tools/todo-prompts'
 import { TodoToolCallTracker } from '../services/TodoToolCallTracker'
 
 interface StreamMetrics {

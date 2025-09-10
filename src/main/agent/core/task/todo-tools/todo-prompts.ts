@@ -1,7 +1,4 @@
-// 优化后的Todo提示词系统 - 精简高效版
-
 export const TODO_PROMPTS_OPTIMIZED = {
-  // 核心系统消息 - 统一模板，支持多语言
   coreSystemMessage: (isChineseMode: boolean = false) => {
     const templates = {
       zh: `你是一个智能运维助手。当检测到复杂或多步骤任务时，主动使用 todo_write 工具创建任务列表来跟踪执行进度。
