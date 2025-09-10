@@ -1281,19 +1281,10 @@ export class Task {
   // Check if the tool should be auto-approved based on the settings
   // Returns bool for most tools, and tuple for tools with nested settings
   shouldAutoApproveTool(toolName: ToolUseName): boolean | [boolean, boolean] {
-    console.log(`[AutoApproval] Checking tool: ${toolName}`)
-    console.log(`[AutoApproval] Settings enabled: ${this.autoApprovalSettings.enabled}`)
-    console.log(`[AutoApproval] Full settings:`, JSON.stringify(this.autoApprovalSettings, null, 2))
-
     if (this.autoApprovalSettings.enabled) {
       switch (toolName) {
         case 'execute_command':
-          const result = [
-            this.autoApprovalSettings.actions.executeSafeCommands ?? false,
-            this.autoApprovalSettings.actions.executeAllCommands ?? false
-          ]
-          console.log(`[AutoApproval] execute_command result: [${result[0]}, ${result[1]}]`)
-          return result
+          return [this.autoApprovalSettings.actions.executeSafeCommands ?? false, this.autoApprovalSettings.actions.executeAllCommands ?? false]
         default:
           console.log(`[AutoApproval] Tool ${toolName} not in auto-approval list, returning false`)
           break
@@ -2972,21 +2963,6 @@ SUDO_CHECK:${localSystemInfo.sudoCheck}`
       console.log(`[Smart Todo] Should create todo: ${shouldCreate}`)
 
       if (shouldCreate) {
-        // 检查是否已有 todo 列表
-        const storage = new (await import('../storage/todo/TodoStorage')).TodoStorage(this.taskId)
-        const existingTodos = await storage.readTodos()
-
-        console.log(`[Smart Todo] Existing todos count: ${existingTodos.length}`)
-
-        // 简化逻辑：如果检测到需要创建 todo，就创建或更新
-        // 情况1：没有现有 todos - 直接创建
-        // 情况2：有现有 todos - 允许创建新的或更新现有的
-        if (existingTodos.length === 0) {
-          console.log(`[Smart Todo] No existing todos, creating new todo list`)
-        } else {
-          console.log(`[Smart Todo] Existing todos found, but user request suggests new todo creation/update`)
-        }
-
         // 获取用户语言设置
         let isChineseMode = false
         try {
