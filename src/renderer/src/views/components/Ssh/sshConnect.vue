@@ -1737,7 +1737,7 @@ const setupTerminalInput = () => {
 const sendData = (data) => {
   api.writeToShell({
     id: connectionId.value,
-    data: data,
+    data: data.replace(/\r\n/g, '\n'),
     lineCommand: terminalState.value.content
   })
 }
