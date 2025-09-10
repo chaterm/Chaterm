@@ -426,7 +426,7 @@ export default {
     }
   },
   personal: {
-    host: 'Asset Management',
+    host: 'Asset Config',
     newHost: 'New Host',
     keyChain: 'KeyChain',
     address: 'Connection Address',
