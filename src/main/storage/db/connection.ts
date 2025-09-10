@@ -2,6 +2,7 @@ import Database from 'better-sqlite3'
 import { join } from 'path'
 import * as fs from 'fs'
 import { v4 as uuidv4 } from 'uuid'
+import { upgradeAgentTaskMetadataSupport } from './migrations/add-todos-support'
 
 // 在测试环境中，app可能不可用，使用fallback路径
 let USER_DATA_PATH: string
@@ -303,6 +304,7 @@ export async function initChatermDatabase(userId?: number): Promise<Database.Dat
         // 进行必要的升级
         upgradeTAssetsTable(mainDb)
         upgradeUserSnippetTable(mainDb)
+        upgradeAgentTaskMetadataSupport(mainDb)
       } finally {
         if (mainDb) mainDb.close()
         if (initDb) initDb.close()

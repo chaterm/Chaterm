@@ -1,5 +1,6 @@
 // Type definitions for FileContextTracker
 import type { Host } from '@shared/WebviewMessage'
+import { Todo } from '../../../shared/todo/TodoSchemas'
 export interface FileMetadataEntry {
   path: string
   record_state: 'active' | 'stale'
@@ -20,4 +21,28 @@ export interface TaskMetadata {
   hosts: Host[]
   files_in_context: FileMetadataEntry[]
   model_usage: ModelMetadataEntry[]
+  todos?: Todo[] // 新增字段，可选以保持向后兼容
+}
+
+// 辅助方法
+export class TaskMetadataHelper {
+  static createEmptyMetadata(): TaskMetadata {
+    return {
+      hosts: [],
+      files_in_context: [],
+      model_usage: [],
+      todos: []
+    }
+  }
+
+  static updateTodos(metadata: TaskMetadata, todos: Todo[]): TaskMetadata {
+    return {
+      ...metadata,
+      todos: todos
+    }
+  }
+
+  static getTodos(metadata: TaskMetadata): Todo[] {
+    return metadata.todos || []
+  }
 }

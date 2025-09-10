@@ -38,7 +38,7 @@ export interface WebviewMessage {
     | 'taskFeedback'
     | 'interactiveCommandInput'
     | 'commandGeneration'
-
+    | 'todoUpdated'
   text?: string
   disabled?: boolean
   apiConfiguration?: ApiConfiguration
@@ -71,7 +71,7 @@ export interface WebviewMessage {
   grpc_request?: {
     service: string
     method: string
-    message: any // JSON serialized protobuf message
+    message: unknown // JSON serialized protobuf message
     request_id: string // For correlating requests and responses
     is_streaming?: boolean // Whether this is a streaming request
   }
@@ -102,6 +102,12 @@ export interface WebviewMessage {
     platform: string
     shell: string
   }
+  // For todo updates
+  todos?: unknown[]
+  sessionId?: string
+  taskId?: string
+  changeType?: 'created' | 'updated' | 'completed' | 'progress'
+  triggerReason?: 'agent_update' | 'user_request' | 'auto_progress'
 }
 
 export type ChatermAskResponse = 'yesButtonClicked' | 'noButtonClicked' | 'messageResponse'
