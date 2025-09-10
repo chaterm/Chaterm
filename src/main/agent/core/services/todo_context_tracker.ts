@@ -31,9 +31,4 @@ export class TodoContextTracker {
   static clearSession(sessionId: string): void {
     this.instances.delete(sessionId)
   }
-
-  // 获取所有活跃会话（用于调试）
-  static getActiveSessions(): string[] {
-    return Array.from(this.instances.keys())
-  }
 }

@@ -29,12 +29,12 @@ import { HistoryItem } from '@shared/HistoryItem'
 import { DEFAULT_LANGUAGE_SETTINGS } from '@shared/Languages'
 import { ChatermAskResponse } from '@shared/WebviewMessage'
 import { calculateApiCostAnthropic } from '@utils/cost'
-import { TodoWriteTool, TodoWriteParams } from './todo-tools/TodoWriteTool'
-import { TodoReadTool, TodoReadParams } from './todo-tools/TodoReadTool'
-import { TodoPauseTool, TodoPauseParams } from './todo-tools/TodoPauseTool'
+import { TodoWriteTool, TodoWriteParams } from './todo-tools/todo_write_tool'
+import { TodoReadTool, TodoReadParams } from './todo-tools/todo_read_tool'
+import { TodoPauseTool, TodoPauseParams } from './todo-tools/todo_pause_tool'
 import { Todo } from '../../shared/todo/TodoSchemas'
 import { SmartTaskDetector, TODO_SYSTEM_MESSAGES } from './todo-tools/todo-prompts'
-import { TodoToolCallTracker } from '../services/TodoToolCallTracker'
+import { TodoToolCallTracker } from '../services/todo_tool_call_tracker'
 
 interface StreamMetrics {
   didReceiveUsageChunk?: boolean
