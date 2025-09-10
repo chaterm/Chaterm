@@ -2005,13 +2005,6 @@ export class Task {
         const autoApproveResult = this.shouldAutoApproveTool(block.name)
         let [autoApproveSafe, autoApproveAll] = Array.isArray(autoApproveResult) ? autoApproveResult : [autoApproveResult, false]
 
-        console.log(`[Command Execution] Tool: ${block.name}`)
-        console.log(`[Command Execution] Command: ${command}`)
-        console.log(`[Command Execution] requiresApprovalPerLLM: ${requiresApprovalPerLLM}`)
-        console.log(`[Command Execution] autoApproveSafe: ${autoApproveSafe}`)
-        console.log(`[Command Execution] autoApproveAll: ${autoApproveAll}`)
-        console.log(`[Command Execution] Chat mode: ${chatSettings?.mode}`)
-
         // If it's interactive command in agent mode, send notification to frontend after command message
         if (isInteractive && chatSettings?.mode === 'agent') {
           await this.say('interactive_command_notification', `${this.messages.interactiveCommandNotification}`, false)
