@@ -3180,8 +3180,7 @@ defineExpose({
   padding: 0px 4px 4px 4px;
   margin-top: 2px;
   scrollbar-width: thin;
-  // scrollbar-color: #2a2a2a #1a1a1a;
-  scrollbar-color: var(--bg-color-quinary) var(--bg-color-senary);
+  scrollbar-color: var(--border-color-light) transparent;
   width: 100%;
   min-height: 0;
 
@@ -3190,16 +3189,16 @@ defineExpose({
   }
 
   &::-webkit-scrollbar-track {
-    background: var(--bg-color-senary);
+    background: transparent;
     border-radius: 3px;
   }
 
   &::-webkit-scrollbar-thumb {
-    background-color: var(--bg-color-quinary);
+    background-color: var(--border-color-light);
     border-radius: 3px;
 
     &:hover {
-      background-color: var(--bg-color-quaternary);
+      background-color: var(--text-color-tertiary);
     }
   }
 }
