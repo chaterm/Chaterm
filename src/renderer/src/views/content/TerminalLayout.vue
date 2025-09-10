@@ -1712,8 +1712,10 @@ defineExpose({
 </style>
 <style lang="less">
 .splitpanes__splitter {
-  background-color: #202020;
+  background-color: var(--border-color);
   position: relative;
+  border-left: 1px solid var(--border-color);
+  border-right: 1px solid var(--border-color);
 }
 
 .splitpanes__splitter:before {
