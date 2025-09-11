@@ -982,4 +982,65 @@ onMounted(async () => {
 .setting-button:deep(.ant-btn:active) {
   background: var(--active-bg-color) !important;
 }
+
+/* Proxy form select styles - white background for dark theme */
+.proxy-form-select {
+  width: 100% !important;
+}
+
+.proxy-form-select :deep(.ant-select-selector) {
+  background-color: #ffffff !important;
+  border: 1px solid #d9d9d9 !important;
+  border-radius: 6px;
+  color: #000000 !important;
+  transition: all 0.3s;
+  height: 32px;
+}
+
+.proxy-form-select :deep(.ant-select-selector:hover) {
+  border-color: #1890ff !important;
+  background-color: #ffffff !important;
+}
+
+.proxy-form-select :deep(.ant-select-focused .ant-select-selector),
+.proxy-form-select :deep(.ant-select-selector:focus) {
+  border-color: #1890ff !important;
+  box-shadow: 0 0 0 2px rgba(24, 144, 255, 0.2) !important;
+  background-color: #ffffff !important;
+}
+
+.proxy-form-select :deep(.ant-select-selection-item) {
+  color: #000000 !important;
+  font-size: 14px;
+  line-height: 32px;
+}
+
+.proxy-form-select :deep(.ant-select-arrow) {
+  color: #000000 !important;
+  opacity: 0.7;
+}
+
+/* Proxy form select dropdown styles - white background */
+.proxy-form-select :deep(.ant-select-dropdown) {
+  background-color: #ffffff !important;
+  border: 1px solid #d9d9d9 !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15) !important;
+}
+
+.proxy-form-select :deep(.ant-select-item) {
+  color: #000000 !important;
+  background-color: #ffffff !important;
+  font-size: 14px;
+}
+
+.proxy-form-select :deep(.ant-select-item-option-active),
+.proxy-form-select :deep(.ant-select-item-option-selected) {
+  color: #000000 !important;
+  background-color: #f5f5f5 !important;
+}
+
+.proxy-form-select :deep(.ant-select-item-option:hover) {
+  color: #000000 !important;
+  background-color: #f5f5f5 !important;
+}
 </style>
