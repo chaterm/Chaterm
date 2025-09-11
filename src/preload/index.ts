@@ -55,34 +55,6 @@ window.addEventListener(
         e.stopPropagation()
         // 通过 postMessage 发送给渲染进程
         window.postMessage({ type: 'TRIGGER_SEARCH' }, '*')
-      } else if (e.key === 'w') {
-        e.preventDefault()
-        e.stopPropagation()
-        // 通过 postMessage 发送给渲染进程，添加时间戳避免重复处理
-        // 只向当前活跃的窗口发送消息
-        const activeElement = document.activeElement
-
-        if (activeElement && activeElement.closest('.terminal-container')) {
-          const terminalContainer = activeElement.closest('.terminal-container')
-          const connectionId = terminalContainer?.getAttribute('data-ssh-connect-id')
-
-          if (connectionId) {
-            const message = {
-              type: 'TRIGGER_CLOSE',
-              timestamp: Date.now(),
-              targetConnectionId: connectionId
-            }
-            window.postMessage(message, '*')
-          } else {
-            window.postMessage(
-              {
-                type: 'TRIGGER_CLOSE',
-                timestamp: Date.now()
-              },
-              '*'
-            )
-          }
-        }
       }
     }
   },
