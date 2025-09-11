@@ -70,7 +70,7 @@
       {{ $t('common.fileManager') }}
       <span class="shortcut-key">{{ fileManagerShortcut }}</span>
     </v-contextmenu-item>
-    <v-contextmenu-item @click="onContextMenuAction('shrotenName')">{{ $t('common.shrotenName') }}</v-contextmenu-item>
+    <!-- <v-contextmenu-item @click="onContextMenuAction('shrotenName')">{{ $t('common.shrotenName') }}</v-contextmenu-item> -->
 
     <!-- Divider -->
     <div class="context-menu-divider"></div>
@@ -102,6 +102,7 @@ import {
 } from '@/utils/shortcuts'
 import eventBus from '@/utils/eventBus'
 import { getNewTabShortcut } from '@/utils/shortcuts'
+import { shortcutService } from '@/services/shortcutService'
 
 // Reactive variables
 const copyShortcut = ref('')
@@ -113,8 +114,8 @@ const clearTermShortcut = ref('')
 const fileManagerShortcut = ref('')
 const disconnectShortcut = ref('Ctrl+D')
 const reconnectShortcut = ref('Enter')
-const fontsizeLargenShortcut = ref('Ctrl+=')
-const fontsizeSmallerShortcut = ref('Ctrl+-')
+const fontsizeLargenShortcut = ref('')
+const fontsizeSmallerShortcut = ref('')
 
 const emit = defineEmits(['contextAct'])
 const props = defineProps({
@@ -204,6 +205,36 @@ onMounted(async () => {
     newTerminalShortcut.value = await getNewTabShortcut()
     clearTermShortcut.value = await getClearTermShortcut()
     fileManagerShortcut.value = await getFileManagerShortcut()
+
+    // Get shortcuts from shortcutService to ensure consistency with settings
+    const shortcuts = shortcutService.getShortcuts()
+    if (shortcuts) {
+      // Update font size shortcuts
+      const fontSizeIncreaseShortcut = shortcuts.fontSizeIncrease
+      const fontSizeDecreaseShortcut = shortcuts.fontSizeDecrease
+
+      if (fontSizeIncreaseShortcut) {
+        fontsizeLargenShortcut.value = shortcutService.formatShortcut(fontSizeIncreaseShortcut, 'fontSizeIncrease')
+      }
+      if (fontSizeDecreaseShortcut) {
+        fontsizeSmallerShortcut.value = shortcutService.formatShortcut(fontSizeDecreaseShortcut, 'fontSizeDecrease')
+      }
+
+      // Update other shortcuts to ensure consistency
+      const newTabShortcut = shortcuts.newTab
+      const clearTerminalShortcut = shortcuts.clearTerminal
+      const openFileManagerShortcut = shortcuts.openFileManager
+
+      if (newTabShortcut) {
+        newTerminalShortcut.value = shortcutService.formatShortcut(newTabShortcut, 'newTab')
+      }
+      if (clearTerminalShortcut) {
+        clearTermShortcut.value = shortcutService.formatShortcut(clearTerminalShortcut, 'clearTerminal')
+      }
+      if (openFileManagerShortcut) {
+        fileManagerShortcut.value = shortcutService.formatShortcut(openFileManagerShortcut, 'openFileManager')
+      }
+    }
   } catch (error) {
     console.error('Failed to load shortcuts:', error)
     // Fallback display
@@ -214,6 +245,8 @@ onMounted(async () => {
     newTerminalShortcut.value = 'Ctrl+N'
     clearTermShortcut.value = 'Ctrl+P'
     fileManagerShortcut.value = 'Ctrl+M'
+    fontsizeLargenShortcut.value = 'Ctrl+='
+    fontsizeSmallerShortcut.value = 'Ctrl+-'
   }
 })
 </script>

@@ -90,7 +90,8 @@ CREATE TABLE IF NOT EXISTS agent_task_metadata_v1 (
   updated_at INTEGER DEFAULT (strftime('%s', 'now')), -- 更新时间戳
   files_in_context TEXT,                             -- 文件上下文元数据 (JSON格式)
   model_usage TEXT,                                  -- 模型使用记录 (JSON格式)
-  hosts TEXT                                         -- 主机信息 (JSON格式)
+  hosts TEXT,                                        -- 主机信息 (JSON格式)
+  todos TEXT                                         -- 待办事项 (JSON格式)
 );
 CREATE INDEX IF NOT EXISTS idx_created_at_meta ON agent_task_metadata_v1(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_updated_at_meta ON agent_task_metadata_v1(updated_at DESC);

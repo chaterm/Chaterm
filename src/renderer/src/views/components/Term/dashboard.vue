@@ -31,11 +31,16 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref, onMounted, onUnmounted } from 'vue'
 import { shortcutActions, shortcutHints } from '@/config/shortcutActions'
+import { shortcutService } from '@/services/shortcutService'
+import type { ShortcutConfig } from '@/services/userConfigStoreService'
 import { useI18n } from 'vue-i18n'
 
 const { locale } = useI18n()
+
+// Store current shortcuts configuration
+const currentShortcuts = ref<ShortcutConfig | null>(null)
 
 // Detect current language
 const getCurrentLanguage = () => {
@@ -47,26 +52,18 @@ const isMac = computed(() => {
   return navigator.platform.toUpperCase().indexOf('MAC') >= 0
 })
 
-// Format shortcut key display
-const formatShortcutKey = (key: string) => {
-  return key.split('+').map((k) => {
-    switch (k) {
-      case 'Command':
-        return '⌘'
-      case 'Control':
-        return '⌃'
-      case 'Option':
-        return '⌥'
-      case 'Shift':
-        return '⇧'
-      case 'Ctrl':
-        return 'Ctrl'
-      case 'Alt':
-        return 'Alt'
-      default:
-        return k
-    }
-  })
+// Load shortcuts configuration
+const loadShortcuts = async () => {
+  try {
+    currentShortcuts.value = shortcutService.getShortcuts()
+  } catch (error) {
+    console.error('Failed to load shortcuts:', error)
+  }
+}
+
+// Get current shortcut for an action
+const getCurrentShortcut = (actionId: string): string => {
+  return currentShortcuts.value?.[actionId] || ''
 }
 
 // Get shortcuts to display
@@ -77,8 +74,13 @@ const shortcuts = computed(() => {
       const action = shortcutActions.find((a) => a.id === id)
       if (!action) return null
 
-      const key = isMac.value ? action.defaultKey.mac : action.defaultKey.other
-      const keys = formatShortcutKey(key)
+      // Get user-configured shortcut or fallback to default
+      const userShortcut = getCurrentShortcut(id)
+      const shortcutKey = userShortcut || (isMac.value ? action.defaultKey.mac : action.defaultKey.other)
+
+      // Use shortcutService to format the shortcut consistently with settings page
+      const formattedShortcut = shortcutService.formatShortcut(shortcutKey, id)
+      const keys = formattedShortcut.split('+').map((k) => k.trim())
       const description = shortcutHints[id as keyof typeof shortcutHints]
 
       return {
@@ -88,6 +90,23 @@ const shortcuts = computed(() => {
       }
     })
     .filter((item): item is NonNullable<typeof item> => item !== null)
+})
+
+// Load shortcuts on component mount
+onMounted(() => {
+  loadShortcuts()
+
+  // Listen for window focus to refresh shortcuts when user returns from settings
+  const handleWindowFocus = () => {
+    loadShortcuts()
+  }
+
+  window.addEventListener('focus', handleWindowFocus)
+
+  // Cleanup listener on unmount
+  onUnmounted(() => {
+    window.removeEventListener('focus', handleWindowFocus)
+  })
 })
 </script>
 
@@ -125,6 +144,7 @@ const shortcuts = computed(() => {
   font-size: 20px;
   font-weight: bold;
   background: linear-gradient(90deg, #00eaff 0%, #1677ff 100%);
+  background-clip: text;
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   margin: 0;

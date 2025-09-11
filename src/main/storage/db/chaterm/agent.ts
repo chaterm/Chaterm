@@ -191,40 +191,48 @@ export async function saveChatermMessagesLogic(db: Database.Database, taskId: st
 export async function getTaskMetadataLogic(db: Database.Database, taskId: string): Promise<any> {
   try {
     const stmt = db.prepare(`
-        SELECT files_in_context, model_usage, hosts
-        FROM agent_task_metadata_v1 
+        SELECT files_in_context, model_usage, hosts, todos
+        FROM agent_task_metadata_v1
         WHERE task_id = ?
       `)
     const row = stmt.get(taskId)
 
     if (row) {
       return {
-        files_in_context: JSON.parse(row.files_in_context),
-        model_usage: JSON.parse(row.model_usage),
-        hosts: JSON.parse(row.hosts)
+        files_in_context: JSON.parse(row.files_in_context || '[]'),
+        model_usage: JSON.parse(row.model_usage || '[]'),
+        hosts: JSON.parse(row.hosts || '[]'),
+        todos: row.todos ? JSON.parse(row.todos) : []
       }
     }
 
-    return { files_in_context: [], model_usage: [], hosts: [] }
+    return { files_in_context: [], model_usage: [], hosts: [], todos: [] }
   } catch (error) {
     console.error('Failed to get task metadata:', error)
-    return { files_in_context: [], model_usage: [], hosts: [] }
+    return { files_in_context: [], model_usage: [], hosts: [], todos: [] }
   }
 }
 
 export async function saveTaskMetadataLogic(db: Database.Database, taskId: string, metadata: any): Promise<void> {
   try {
     const upsertStmt = db.prepare(`
-        INSERT INTO agent_task_metadata_v1 (task_id, files_in_context, model_usage, hosts, updated_at)
-        VALUES (?, ?, ?, ?, strftime('%s', 'now'))
+        INSERT INTO agent_task_metadata_v1 (task_id, files_in_context, model_usage, hosts, todos, updated_at)
+        VALUES (?, ?, ?, ?, ?, strftime('%s', 'now'))
         ON CONFLICT(task_id) DO UPDATE SET
           files_in_context = excluded.files_in_context,
           model_usage = excluded.model_usage,
           hosts = excluded.hosts,
+          todos = excluded.todos,
           updated_at = strftime('%s', 'now')
       `)
 
-    upsertStmt.run(taskId, JSON.stringify(metadata.files_in_context), JSON.stringify(metadata.model_usage), JSON.stringify(metadata.hosts))
+    upsertStmt.run(
+      taskId,
+      JSON.stringify(metadata.files_in_context || []),
+      JSON.stringify(metadata.model_usage || []),
+      JSON.stringify(metadata.hosts || []),
+      JSON.stringify(metadata.todos || [])
+    )
   } catch (error) {
     console.error('Failed to save task metadata:', error)
   }

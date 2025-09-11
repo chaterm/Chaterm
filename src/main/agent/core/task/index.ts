@@ -29,6 +29,12 @@ import { HistoryItem } from '@shared/HistoryItem'
 import { DEFAULT_LANGUAGE_SETTINGS } from '@shared/Languages'
 import { ChatermAskResponse } from '@shared/WebviewMessage'
 import { calculateApiCostAnthropic } from '@utils/cost'
+import { TodoWriteTool, TodoWriteParams } from './todo-tools/todo_write_tool'
+import { TodoReadTool, TodoReadParams } from './todo-tools/todo_read_tool'
+import { TodoPauseTool, TodoPauseParams } from './todo-tools/todo_pause_tool'
+import { Todo } from '../../shared/todo/TodoSchemas'
+import { SmartTaskDetector, TODO_SYSTEM_MESSAGES } from './todo-tools/todo-prompts'
+import { TodoToolCallTracker } from '../services/todo_tool_call_tracker'
 
 interface StreamMetrics {
   didReceiveUsageChunk?: boolean
@@ -162,6 +168,7 @@ export class Task {
     this.contextManager = new ContextManager()
     this.customInstructions = customInstructions
     this.autoApprovalSettings = autoApprovalSettings
+    console.log(`[Task Init] AutoApprovalSettings initialized:`, JSON.stringify(autoApprovalSettings, null, 2))
     this.hosts = hosts
     if (hosts) {
       for (const host of hosts) {
@@ -767,14 +774,42 @@ export class Task {
 
     this.isInitialized = true
 
-    // let imageBlocks: Anthropic.ImageBlockParam[] = formatResponse.imageBlocks(images)
-    await this.initiateTaskLoop([
+    // 构建初始用户内容
+    let initialUserContent: UserContent = [
       {
         type: 'text',
         text: `<task>\n${task}\n</task>`
       }
-      // ...imageBlocks,
-    ])
+    ]
+    // 智能检测：检查是否需要创建 todo
+    if (task) {
+      await this.checkAndCreateTodoIfNeeded(task)
+      // 将智能检测添加的系统消息包含到初始用户内容中
+      if (this.userMessageContent.length > 0) {
+        initialUserContent.push(...this.userMessageContent)
+      }
+    }
+
+    // 检查是否有系统提醒需要包含在初始请求中
+    if (this.apiConversationHistory.length > 0) {
+      const lastMessage = this.apiConversationHistory[this.apiConversationHistory.length - 1]
+      if (lastMessage.role === 'user') {
+        const lastContent = Array.isArray(lastMessage.content) ? lastMessage.content : [{ type: 'text', text: lastMessage.content }]
+        const hasSystemCommand = lastContent.some(
+          (content) => content.type === 'text' && (content.text.includes('<system-command>') || content.text.includes('<system-reminder>'))
+        )
+
+        if (hasSystemCommand) {
+          // 将系统提醒添加到初始用户内容中
+          initialUserContent.push(...lastContent)
+          // 从对话历史中移除，避免重复
+          this.apiConversationHistory.pop()
+        }
+      }
+    }
+
+    // let imageBlocks: Anthropic.ImageBlockParam[] = formatResponse.imageBlocks(images)
+    await this.initiateTaskLoop(initialUserContent)
   }
 
   private async resumeTaskFromHistory() {
@@ -1251,14 +1286,17 @@ export class Task {
         case 'execute_command':
           return [this.autoApprovalSettings.actions.executeSafeCommands ?? false, this.autoApprovalSettings.actions.executeAllCommands ?? false]
         default:
+          console.log(`[AutoApproval] Tool ${toolName} not in auto-approval list, returning false`)
           break
       }
+    } else {
+      console.log(`[AutoApproval] Auto-approval disabled, returning false`)
     }
     return false
   }
 
   private formatErrorWithStatusCode(error: unknown): string {
-    const errorObj = error as any // Safe cast since we're checking properties defensively
+    const errorObj = error as { status?: number; statusCode?: number; response?: { status?: number }; message?: string }
     const statusCode = errorObj?.status || errorObj?.statusCode || (errorObj?.response && errorObj.response.status)
     const message = errorObj?.message ?? JSON.stringify(serializeError(error), null, 2)
 
@@ -1371,6 +1409,9 @@ export class Task {
     if (this.abort) {
       throw new Error('Chaterm instance aborted')
     }
+
+    // 检查用户输入是否需要创建 todo（用于后续对话）
+    await this.checkUserContentForTodo(userContent)
 
     await this.recordModelUsage()
     await this.handleConsecutiveMistakes(userContent)
@@ -1560,7 +1601,7 @@ export class Task {
     this.isInsideThinkingBlock = false
   }
 
-  private async processStream(stream: any, streamMetrics: StreamMetrics, messageUpdater: MessageUpdater): Promise<string> {
+  private async processStream(stream: AsyncIterable<unknown>, streamMetrics: StreamMetrics, messageUpdater: MessageUpdater): Promise<string> {
     let assistantMessage = ''
     let reasoningMessage = ''
     this.isStreaming = true
@@ -1609,7 +1650,7 @@ export class Task {
     streamMetrics.totalCost = chunk.totalCost
   }
 
-  private async handleReasoningChunk(chunk: any, reasoningMessage: string): Promise<string> {
+  private async handleReasoningChunk(chunk: { reasoning: string }, reasoningMessage: string): Promise<string> {
     reasoningMessage += chunk.reasoning
     if (!this.abort) {
       await this.say('reasoning', reasoningMessage, true)
@@ -1617,13 +1658,14 @@ export class Task {
     return reasoningMessage
   }
 
-  private async handleTextChunk(chunk: any, assistantMessage: string, reasoningMessage: string): Promise<string> {
+  private async handleTextChunk(chunk: { text: string }, assistantMessage: string, reasoningMessage: string): Promise<string> {
     if (reasoningMessage && assistantMessage.length === 0) {
       await this.say('reasoning', reasoningMessage, false)
     }
 
     assistantMessage += chunk.text
     const prevLength = this.assistantMessageContent.length
+
     this.assistantMessageContent = parseAssistantMessageV2(assistantMessage)
 
     if (this.assistantMessageContent.length > prevLength) {
@@ -1902,8 +1944,13 @@ export class Task {
 
     try {
       if (block.partial) {
-        if (!this.shouldAutoApproveTool(block.name)) {
+        const shouldAutoApprove = this.shouldAutoApproveTool(block.name)
+        console.log(`[Command Execution] Partial command, shouldAutoApprove: ${shouldAutoApprove}`)
+        if (!shouldAutoApprove) {
+          console.log(`[Command Execution] Asking for partial command approval`)
           await this.ask('command', this.removeClosingTag(block.partial, 'command', command), block.partial).catch(() => {})
+        } else {
+          console.log(`[Command Execution] Auto-approving partial command`)
         }
         return
       } else {
@@ -1948,6 +1995,7 @@ export class Task {
 
         const autoApproveResult = this.shouldAutoApproveTool(block.name)
         let [autoApproveSafe, autoApproveAll] = Array.isArray(autoApproveResult) ? autoApproveResult : [autoApproveResult, false]
+
         // If it's interactive command in agent mode, send notification to frontend after command message
         if (isInteractive && chatSettings?.mode === 'agent') {
           await this.say('interactive_command_notification', `${this.messages.interactiveCommandNotification}`, false)
@@ -1965,6 +2013,7 @@ export class Task {
         } else if (!needsSecurityApproval) {
           this.showNotificationIfNeeded(`Chaterm wants to execute a command: ${command}`)
           const didApprove = await this.askApproval(toolDescription, 'command', command)
+          console.log(`[Command Execution] User approval result: ${didApprove}`)
           if (!didApprove) {
             await this.saveCheckpoint()
             return
@@ -1980,6 +2029,7 @@ export class Task {
             })
           }, 30_000)
         }
+
         const ipList = ip!.split(',')
         let result = ''
         for (const ip of ipList) {
@@ -1994,6 +2044,20 @@ export class Task {
 
         this.pushToolResult(toolDescription, result)
 
+        // 记录工具调用到活跃的 todo
+        try {
+          await TodoToolCallTracker.recordToolCall(this.taskId, 'execute_command', {
+            command: command!,
+            ip: ip!
+          })
+        } catch (error) {
+          console.error('Failed to track tool call:', error)
+          // 不影响主要功能，只记录错误
+        }
+
+        // 添加 todo 状态更新提醒
+        await this.addTodoStatusUpdateReminder(result)
+
         await this.saveCheckpoint()
       }
     } catch (error) {
@@ -2007,7 +2071,6 @@ export class Task {
     this.pushToolResult(toolDescription, await this.sayAndCreateMissingParamError('execute_command', paramName))
     return this.saveCheckpoint()
   }
-
   /**
    * 执行命令安全检查
    * @param command 要检查的命令
@@ -2053,7 +2116,6 @@ export class Task {
 
     return { needsSecurityApproval, securityMessage, shouldReturn: false }
   }
-
   private getToolDescription(block: any): string {
     switch (block.name) {
       case 'execute_command':
@@ -2464,6 +2526,12 @@ export class Task {
       return
     }
 
+    // 处理不完整的工具调用
+    if (block.partial) {
+      // 对于不完整的工具调用，我们不执行，等待完整的调用
+      return
+    }
+
     switch (block.name) {
       case 'execute_command':
         await this.handleExecuteCommandToolUse(block)
@@ -2480,6 +2548,20 @@ export class Task {
       case 'attempt_completion':
         await this.handleAttemptCompletionToolUse(block)
         break
+      case 'todo_write':
+        await this.handleTodoWriteToolUse(block)
+        break
+      case 'todo_read':
+        await this.handleTodoReadToolUse(block)
+        break
+      case 'todo_pause':
+        await this.handleTodoPauseToolUse(block)
+        break
+      default:
+        console.error(`[Task] 未知的工具名称: ${block.name}`)
+    }
+    if (!block.name.startsWith('todo_') && block.name !== 'ask_followup_question' && block.name !== 'attempt_completion') {
+      await this.addTodoStatusUpdateReminder('')
     }
   }
 
@@ -2600,7 +2682,8 @@ export class Task {
     } catch (error) {}
 
     // Select system prompt based on language and mode
-    let systemPrompt
+    let systemPrompt: string
+
     if (userLanguage === 'zh-CN') {
       if (chatSettings?.mode === 'chat') {
         systemPrompt = SYSTEM_PROMPT_CHAT_CN
@@ -2773,5 +2856,175 @@ SUDO_CHECK:${localSystemInfo.sudoCheck}`
     }
 
     return systemPrompt
+  }
+
+  // Todo 工具处理方法
+  private async handleTodoWriteToolUse(block: ToolUse): Promise<void> {
+    try {
+      const todosParam = (block as { params?: { todos?: unknown } }).params?.todos
+
+      if (todosParam === undefined || todosParam === null) {
+        this.pushToolResult(this.getToolDescription(block), 'Todo 写入失败: 缺少 todos 参数')
+        return
+      }
+
+      let todos: Todo[]
+      // 支持字符串(JSON文本)和已结构化的数组/对象两种形式
+      if (typeof todosParam === 'string') {
+        try {
+          todos = JSON.parse(todosParam) as Todo[]
+        } catch (parseError) {
+          this.pushToolResult(this.getToolDescription(block), `Todo 写入失败: JSON 解析错误 - ${parseError}`)
+          return
+        }
+      } else if (Array.isArray(todosParam)) {
+        todos = todosParam as Todo[]
+      } else if (typeof todosParam === 'object') {
+        // 某些模型/解析器可能直接传对象（例如 { todos: [...] }），这里做兼容
+        // 若对象本身看起来就是 todos 数组的包装，则尝试提取
+        if (Array.isArray((todosParam as { todos?: unknown[] }).todos)) {
+          todos = (todosParam as { todos: Todo[] }).todos
+        } else {
+          // 也可能直接是单个 todo 对象，统一包裹为数组
+          todos = [todosParam as Todo]
+        }
+      } else {
+        console.error(`[Task] 不支持的 todos 参数类型: ${typeof todosParam}`)
+        this.pushToolResult(this.getToolDescription(block), 'Todo 写入失败: todos 参数类型不受支持')
+        return
+      }
+
+      const params: TodoWriteParams = { todos }
+      const result = await TodoWriteTool.execute(params, this.taskId)
+
+      this.pushToolResult(this.getToolDescription(block), result)
+
+      // 发送 todo 更新事件到渲染进程
+      await this.postMessageToWebview({
+        type: 'todoUpdated',
+        todos: todos,
+        sessionId: this.taskId,
+        taskId: this.taskId,
+        changeType: 'updated',
+        triggerReason: 'agent_update'
+      })
+    } catch (error) {
+      console.error(`[Task] todo_write 工具调用处理失败:`, error)
+      this.pushToolResult(this.getToolDescription(block), `Todo 写入失败: ${error instanceof Error ? error.message : String(error)}`)
+    }
+  }
+
+  private async handleTodoReadToolUse(block: ToolUse): Promise<void> {
+    try {
+      const params: TodoReadParams = {} // TodoRead 不需要参数
+      const result = await TodoReadTool.execute(params, this.taskId)
+      this.pushToolResult(this.getToolDescription(block), result)
+    } catch (error) {
+      this.pushToolResult(this.getToolDescription(block), `Todo 读取失败: ${error instanceof Error ? error.message : String(error)}`)
+    }
+  }
+
+  private async handleTodoPauseToolUse(block: ToolUse): Promise<void> {
+    try {
+      const reason = block.params.reason
+      const params: TodoPauseParams = { reason }
+      const result = await TodoPauseTool.execute(params, this.taskId)
+      this.pushToolResult(this.getToolDescription(block), result)
+    } catch (error) {
+      this.pushToolResult(this.getToolDescription(block), `Todo 暂停失败: ${error instanceof Error ? error.message : String(error)}`)
+    }
+  }
+
+  // 检查用户内容是否需要创建 todo（用于后续对话）
+  private async checkUserContentForTodo(userContent: UserContent): Promise<void> {
+    try {
+      // 提取用户消息文本
+      const userMessage = userContent
+        .filter((content) => content.type === 'text')
+        .map((content) => (content as { text: string }).text)
+        .join(' ')
+        .trim()
+
+      if (userMessage && !userMessage.includes('<system-reminder>') && !userMessage.includes('<feedback>')) {
+        console.log(`[Smart Todo] Checking user content for todo creation: "${userMessage}"`)
+        await this.checkAndCreateTodoIfNeeded(userMessage)
+      }
+    } catch (error) {
+      console.error('[Smart Todo] Failed to check user content for todo:', error)
+    }
+  }
+
+  // 智能检测相关方法 - 使用优化后的检测逻辑
+  private async checkAndCreateTodoIfNeeded(userMessage: string): Promise<void> {
+    try {
+      console.log(`[Smart Todo] Analyzing message: "${userMessage}"`)
+
+      const shouldCreate = SmartTaskDetector.shouldCreateTodo(userMessage)
+      console.log(`[Smart Todo] Should create todo: ${shouldCreate}`)
+
+      if (shouldCreate) {
+        // 获取用户语言设置
+        let isChineseMode = false
+        try {
+          const userConfig = await getUserConfig()
+          isChineseMode = userConfig?.language === 'zh-CN'
+        } catch (error) {
+          console.log(`[Smart Todo] 获取用户语言设置失败，使用默认语言`)
+        }
+
+        // 发送简化的核心系统消息给 Agent
+        const coreMessage = TODO_SYSTEM_MESSAGES.complexTaskSystemMessage('', isChineseMode, userMessage)
+
+        // 将提醒添加到用户消息内容中，而不是作为单独的消息
+        this.userMessageContent.push({
+          type: 'text',
+          text: coreMessage
+        })
+      } else {
+        console.log(`[Smart Todo] Task not complex enough for todo creation`)
+      }
+    } catch (error) {
+      console.error('[Smart Todo] Failed to check and create todo if needed:', error)
+      // 不影响主要功能，只记录错误
+    }
+  }
+
+  // 添加 todo 状态更新提醒
+  private async addTodoStatusUpdateReminder(_commandResult: string): Promise<void> {
+    try {
+      const { TodoStorage } = await import('../storage/todo/TodoStorage')
+      const storage = new TodoStorage(this.taskId)
+      const todos = await storage.readTodos()
+
+      if (todos.length === 0) {
+        return
+      }
+
+      // 检查是否有活跃的 todo 任务
+      const activeTodos = todos.filter((todo) => todo.status === 'in_progress')
+      const pendingTodos = todos.filter((todo) => todo.status === 'pending')
+
+      let reminderMessage = ''
+
+      if (activeTodos.length > 0) {
+        // 有进行中的任务，提醒完成
+        const activeTodo = activeTodos[0]
+        reminderMessage = `\n\n<todo-status-reminder>\n⚠️ 重要提醒：命令执行完成。如果任务 "${activeTodo.content}" 已完成，你必须立即使用 todo_write 工具将其状态更新为 "completed"。这是强制性的任务跟踪要求。\n\n如果任务尚未完成，请继续执行相关命令，完成后再更新状态。\n</todo-status-reminder>`
+      } else if (pendingTodos.length > 0) {
+        // 有待处理的任务，提醒开始
+        const nextTodo = pendingTodos[0]
+        reminderMessage = `\n\n<todo-status-reminder>\n⚠️ 重要提醒：准备开始任务 "${nextTodo.content}"。在执行任何相关命令之前，你必须先使用 todo_write 工具将其状态更新为 "in_progress"。这是强制性的任务跟踪要求。\n</todo-status-reminder>`
+      }
+
+      if (reminderMessage) {
+        // 将提醒添加到用户消息内容中
+        this.userMessageContent.push({
+          type: 'text',
+          text: reminderMessage
+        })
+      }
+    } catch (error) {
+      console.error('[Task] 添加 todo 状态更新提醒失败:', error)
+    }
   }
 }

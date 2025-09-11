@@ -426,7 +426,7 @@ export default {
     }
   },
   personal: {
-    host: 'Asset Management',
+    host: 'Asset Config',
     newHost: 'New Host',
     keyChain: 'KeyChain',
     address: 'Connection Address',
@@ -449,8 +449,8 @@ export default {
     pleaseSelectGroup: 'Please select group',
     pleaseSelectSshProxy: 'Please Select SSH Proxy',
     proxyConfig: 'SSH Proxy',
-    personal: 'Personal',
-    enterprise: 'Enterprise',
+    personal: 'Direct Connected',
+    enterprise: 'Bastion Server',
     editHost: 'Edit Host',
     saveAsset: 'Save',
     createAsset: 'Create',
@@ -512,6 +512,8 @@ export default {
     comment: 'Comment',
     addComment: 'Add Comment',
     editComment: 'Edit Comment',
+    addToFavorites: 'Add to Favorites',
+    removeFromFavorites: 'Remove from Favorites',
     commentPlaceholder: 'Please enter comment information',
     commentSaved: 'Comment saved successfully',
     commentSaveFailed: 'Comment save failed',

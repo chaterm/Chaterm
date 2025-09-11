@@ -15,7 +15,7 @@
           ></LeftTab>
         </div>
         <div class="term_content">
-          <splitpanes @resize="(params: ResizeParams) => (leftPaneSize = params.prevPane.size)">
+          <splitpanes @resize="(params: ResizeParams) => handleLeftPaneResize(params)">
             <pane
               class="term_content_left"
               :size="leftPaneSize"
@@ -541,6 +541,39 @@ const updatePaneSize = () => {
     const containerWidth = container.offsetWidth
     leftPaneSize.value = (DEFAULT_WIDTH_PX / containerWidth) * 100
   }
+}
+
+// Handle left pane resize and auto-hide when width is less than 160px
+const handleLeftPaneResize = (params: ResizeParams) => {
+  // Always update the size first
+  leftPaneSize.value = params.prevPane.size
+
+  // Then check if we need to auto-hide with debouncing
+  debouncedResizeCheck()
+}
+
+// Add debounced monitoring for smooth resize
+let resizeTimeout: number | null = null
+const debouncedResizeCheck = () => {
+  if (resizeTimeout) {
+    clearTimeout(resizeTimeout)
+  }
+
+  resizeTimeout = window.setTimeout(() => {
+    const container = document.querySelector('.splitpanes') as HTMLElement
+    if (container) {
+      const containerWidth = container.offsetWidth
+      const currentLeftPaneSize = leftPaneSize.value
+      const leftPaneWidthPx = (currentLeftPaneSize / 100) * containerWidth
+
+      // Auto-hide if width is less than 160px
+      if (leftPaneWidthPx < 160 && currentLeftPaneSize > 0) {
+        leftPaneSize.value = 0
+        headerRef.value?.switchIcon('left', false)
+      }
+    }
+    resizeTimeout = null
+  }, 50) // Debounce for 50ms to avoid flickering
 }
 
 const toggleSideBar = (value: string) => {
@@ -1679,8 +1712,10 @@ defineExpose({
 </style>
 <style lang="less">
 .splitpanes__splitter {
-  background-color: #202020;
+  background-color: var(--border-color);
   position: relative;
+  border-left: 1px solid var(--border-color);
+  border-right: 1px solid var(--border-color);
 }
 
 .splitpanes__splitter:before {

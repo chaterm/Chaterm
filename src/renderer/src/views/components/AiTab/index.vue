@@ -184,6 +184,14 @@
             >
               {{ message.content }}
             </div>
+
+            <!-- 动态插入 Todo 显示 -->
+            <TodoInlineDisplay
+              v-if="shouldShowTodoAfterMessage(message)"
+              :todos="getTodosForMessage(message)"
+              :show-trigger="message.role === 'assistant' && message.hasTodoUpdate"
+              class="todo-inline"
+            />
           </template>
         </div>
       </div>
@@ -645,6 +653,8 @@
 <script setup lang="ts">
 import { ref, reactive, onMounted, defineAsyncComponent, onUnmounted, watch, computed, nextTick, onBeforeUnmount } from 'vue'
 import { useRouter } from 'vue-router'
+const TodoInlineDisplay = defineAsyncComponent(() => import('./components/todo/TodoInlineDisplay.vue'))
+import { useTodo } from './composables/useTodo'
 import {
   CloseOutlined,
   LaptopOutlined,
@@ -722,6 +732,14 @@ const getMessageFeedback = (messageId: string): 'like' | 'dislike' | undefined =
   return messageFeedbacks.value[messageId]
 }
 
+// Todo 功能
+const { displayPreference, shouldShowTodoAfterMessage, getTodosForMessage, markLatestMessageWithTodoUpdate } = useTodo()
+
+// 添加调试日志监听
+watch(displayPreference, (newPref) => {
+  console.log('AiTab - displayPreference changed:', newPref)
+})
+
 // Check if message feedback has been submitted
 const isMessageFeedbackSubmitted = (messageId: string): boolean => {
   // Check if there are feedback records and they have been submitted
@@ -770,6 +788,21 @@ const currentChatId = ref<string | null>(null)
 const authTokenInCookie = ref<string | null>(null)
 
 const chatHistory = reactive<ChatMessage[]>([])
+
+// 监听消息变化，检查todo显示逻辑
+watch(
+  chatHistory,
+  (newHistory) => {
+    console.log('AiTab - chatHistory changed, length:', newHistory.length)
+    if (newHistory.length > 0) {
+      const lastMessage = newHistory[newHistory.length - 1]
+      console.log('AiTab - last message:', lastMessage)
+      console.log('AiTab - shouldShowTodoAfterMessage for last message:', shouldShowTodoAfterMessage(lastMessage))
+      console.log('AiTab - getTodosForMessage for last message:', getTodosForMessage(lastMessage))
+    }
+  },
+  { deep: true }
+)
 
 // 过滤SSH连接消息：Agent回复后隐藏sshInfo消息
 const filteredChatHistory = computed(() => {
@@ -1410,6 +1443,8 @@ const handleMessageOperation = async (operation: 'copy' | 'apply') => {
 const handleApplyCommand = () => handleMessageOperation('apply')
 const handleCopyContent = () => handleMessageOperation('copy')
 
+// Todo 相关处理方法已移除 - 不再支持关闭功能
+
 const handleRejectContent = async () => {
   let message = chatHistory.at(-1)
   if (!message) {
@@ -1953,6 +1988,14 @@ onMounted(async () => {
         responseLoading.value
       ) {
         responseLoading.value = false
+      }
+    } else if (message?.type === 'todoUpdated') {
+      // 处理 todo 更新事件
+      console.log('AiTab: Received todoUpdated message', message)
+
+      // 标记最新的 assistant 消息包含 todo 更新
+      if (message.todos && message.todos.length > 0) {
+        markLatestMessageWithTodoUpdate(chatHistory, message.todos)
       }
     }
     lastMessage = message
@@ -3137,8 +3180,7 @@ defineExpose({
   padding: 0px 4px 4px 4px;
   margin-top: 2px;
   scrollbar-width: thin;
-  // scrollbar-color: #2a2a2a #1a1a1a;
-  scrollbar-color: var(--bg-color-quinary) var(--bg-color-senary);
+  scrollbar-color: var(--border-color-light) transparent;
   width: 100%;
   min-height: 0;
 
@@ -3147,16 +3189,16 @@ defineExpose({
   }
 
   &::-webkit-scrollbar-track {
-    background: var(--bg-color-senary);
+    background: transparent;
     border-radius: 3px;
   }
 
   &::-webkit-scrollbar-thumb {
-    background-color: var(--bg-color-quinary);
+    background-color: var(--border-color-light);
     border-radius: 3px;
 
     &:hover {
-      background-color: var(--bg-color-quaternary);
+      background-color: var(--text-color-tertiary);
     }
   }
 }
@@ -3537,15 +3579,15 @@ defineExpose({
           width: 100%;
           padding: 8px 12px;
           margin: 0;
-          background-color: #2a2a2a;
-          border: 1px solid #3a3a3a;
+          background-color: var(--bg-color-tertiary);
+          border: 1px solid var(--bg-color-quaternary);
           border-radius: 6px;
-          color: #e0e0e0;
+          color: var(--text-color);
           transition: all 0.2s ease;
 
           &:hover {
-            background-color: #3a3a3a;
-            border-color: #4a4a4a;
+            background-color: var(--bg-color-quaternary);
+            border-color: var(--bg-color-novenary);
           }
 
           .ant-radio {
@@ -3553,13 +3595,13 @@ defineExpose({
           }
 
           .ant-radio-checked .ant-radio-inner {
-            background-color: #1656b1;
-            border-color: #1656b1;
+            background-color: var(--button-bg-color);
+            border-color: var(--button-bg-color);
           }
 
           &.custom-option {
             border-style: dashed;
-            border-color: #4a4a4a;
+            border-color: var(--bg-color-novenary);
             display: flex;
             align-items: flex-start;
             gap: 8px;
@@ -3575,18 +3617,18 @@ defineExpose({
               flex: 1;
               background-color: transparent;
               border: none;
-              color: #e0e0e0;
+              color: var(--text-color);
               padding: 0;
               min-height: 20px; // 设置最小高度与其他选项一致
 
               &:focus {
                 border: none;
                 box-shadow: none;
-                background-color: rgba(255, 255, 255, 0.05);
+                background-color: var(--hover-bg-color);
               }
 
               &::placeholder {
-                color: #888;
+                color: var(--text-color-tertiary);
               }
 
               :deep(.ant-input) {
@@ -3594,7 +3636,7 @@ defineExpose({
                 border: none !important;
                 box-shadow: none !important;
                 padding: 2px 0 !important;
-                color: #e0e0e0 !important;
+                color: var(--text-color) !important;
                 line-height: 1.4 !important;
                 min-height: 20px !important;
                 resize: none !important;
@@ -3616,8 +3658,8 @@ defineExpose({
         justify-content: flex-end;
 
         .submit-option-btn {
-          background-color: #1656b1;
-          border-color: #1656b1;
+          background-color: var(--button-bg-color);
+          border-color: var(--button-bg-color);
           color: white;
           border-radius: 6px;
           font-size: 12px;
@@ -3625,14 +3667,14 @@ defineExpose({
           padding: 0 16px;
 
           &:hover:not(:disabled) {
-            background-color: #2d6fcd;
-            border-color: #2d6fcd;
+            background-color: var(--button-hover-bg);
+            border-color: var(--button-hover-bg);
           }
 
           &:disabled {
-            background-color: #3a3a3a;
-            border-color: #3a3a3a;
-            color: #888;
+            background-color: var(--bg-color-quaternary);
+            border-color: var(--bg-color-quaternary);
+            color: var(--text-color-tertiary);
           }
         }
       }
@@ -4424,5 +4466,15 @@ defineExpose({
   margin-right: 6px;
   filter: var(--icon-filter);
   transition: filter 0.2s ease;
+}
+
+// Todo 相关样式
+.ai-tab-container {
+  position: relative;
+  height: 100%;
+}
+
+.todo-inline {
+  margin: 8px 0;
 }
 </style>
