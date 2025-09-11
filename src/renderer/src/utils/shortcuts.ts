@@ -70,7 +70,7 @@ export const getCloseShortcut = async (): Promise<string> => {
     case 'win32':
     case 'linux':
     default:
-      return 'Ctrl+W'
+      return 'Ctrl+Shift+W'
   }
 }
 
