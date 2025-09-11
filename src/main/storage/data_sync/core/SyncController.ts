@@ -140,8 +140,12 @@ export class SyncController {
       let failedCount = 0
 
       try {
-        await this.smartFullSync('t_assets_sync')
-        syncedCount++
+        if (this.isEncryptionReady()) {
+          await this.smartFullSync('t_assets_sync')
+          syncedCount++
+        } else {
+          logger.warn('加密服务未就绪，跳过 t_assets_sync 的全量同步（上传/下载）')
+        }
       } catch (error: any) {
         if (error.message === 'NETWORK_UNAVAILABLE' || error.isNetworkError) {
           logger.warn('服务器不可用，跳过 t_assets_sync 同步')
@@ -152,8 +156,12 @@ export class SyncController {
       }
 
       try {
-        await this.smartFullSync('t_asset_chains_sync')
-        syncedCount++
+        if (this.isEncryptionReady()) {
+          await this.smartFullSync('t_asset_chains_sync')
+          syncedCount++
+        } else {
+          logger.warn('加密服务未就绪，跳过 t_asset_chains_sync 的全量同步（上传/下载）')
+        }
       } catch (error: any) {
         if (error.message === 'NETWORK_UNAVAILABLE' || error.isNetworkError) {
           logger.warn('服务器不可用，跳过 t_asset_chains_sync 同步')
@@ -253,8 +261,12 @@ export class SyncController {
       // 服务端分配的表名是 sync 表，如 t_assets_sync / t_asset_chains_sync
       // 使用智能同步，自动根据数据量选择最优方案
       try {
-        await this.engine.incrementalSyncSmart('t_assets_sync')
-        syncedCount++
+        if (this.isEncryptionReady()) {
+          await this.engine.incrementalSyncSmart('t_assets_sync')
+          syncedCount++
+        } else {
+          logger.warn('加密服务未就绪，跳过 t_assets_sync 增量同步')
+        }
       } catch (error: any) {
         if (error.message === 'NETWORK_UNAVAILABLE' || error.isNetworkError) {
           logger.warn('服务器不可用，跳过 t_assets_sync 增量同步')
@@ -265,8 +277,12 @@ export class SyncController {
       }
 
       try {
-        await this.engine.incrementalSyncSmart('t_asset_chains_sync')
-        syncedCount++
+        if (this.isEncryptionReady()) {
+          await this.engine.incrementalSyncSmart('t_asset_chains_sync')
+          syncedCount++
+        } else {
+          logger.warn('加密服务未就绪，跳过 t_asset_chains_sync 增量同步')
+        }
       } catch (error: any) {
         if (error.message === 'NETWORK_UNAVAILABLE' || error.isNetworkError) {
           logger.warn('服务器不可用，跳过 t_asset_chains_sync 增量同步')
@@ -278,7 +294,11 @@ export class SyncController {
 
       // 下载并应用云端变更
       try {
-        await this.engine.downloadAndApplyCloudChanges()
+        if (this.isEncryptionReady()) {
+          await this.engine.downloadAndApplyCloudChanges()
+        } else {
+          logger.warn('加密服务未就绪，跳过云端变更下载与应用')
+        }
       } catch (error: any) {
         if (error.message === 'NETWORK_UNAVAILABLE' || error.isNetworkError) {
           logger.warn('服务器不可用，跳过云端变更下载')
