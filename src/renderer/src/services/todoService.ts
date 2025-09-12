@@ -97,6 +97,7 @@ class TodoService {
   public shouldShowTodoAfterMessage(message: any): boolean {
     const displayHidden = this.displayPreference.value === 'hidden'
     const noTodos = this.currentTodos.value.length === 0
+    const tooFewTodos = this.currentTodos.value.length > 0 && this.currentTodos.value.length < 3
     const isAssistant = message.role === 'assistant'
     const hasTodoUpdate = message.hasTodoUpdate === true
     if (displayHidden) {
@@ -105,6 +106,10 @@ class TodoService {
     }
     if (noTodos) {
       console.log('[Todo Debug] Not showing todo: no todos available')
+      return false
+    }
+    if (tooFewTodos) {
+      console.log('[Todo Debug] Not showing todo: fewer than 3 todos — not a complex checklist')
       return false
     }
 

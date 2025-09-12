@@ -1,3 +1,34 @@
+// Detection thresholds (centralized for easy tuning)
+const MIN_MESSAGE_LENGTH = 10 // messages shorter than this are ignored
+const MIN_STEPS_FOR_TODO = 3 // require at least this many concrete steps to create todos
+const MIN_SIGNALS_FOR_COMPLEX = 2 // number of heuristic signals to consider task complex
+
+// Domain-intent heuristics: single-sentence but inherently multi-step ops
+const COMPLEX_ACTIONS = [
+  /(部署|安装|搭建|配置|上线|发布|迁移|备份|恢复|初始化|扩容|缩容|集群|加固|监控)/, // zh verbs
+  /(deploy|install|setup|configure|provision|migrate|backup|restore|initialize|bootstrap|scale|harden|monitor)/i // en verbs
+]
+
+const COMPLEX_RESOURCES = [
+  /(mysql|postgres|postgresql|redis|mongodb|kafka|zookeeper|nginx|elasticsearch|rabbitmq|consul|etcd|vault|istio|traefik|haproxy|keepalived)/i,
+  /(docker|compose|kubernetes|k8s|helm|jenkins|gitlab|harbor|prometheus|grafana)/i,
+  /(ssl|tls|证书|防火墙|iptables|vpn|wireguard|openvpn|域名|dns|负载均衡|lb)/i,
+  /(数据库|消息队列|缓存|搜索|网关|代理|服务发现)/ // zh generic resources
+]
+
+const COMPLEX_CONTEXT_HINTS = [
+  /(生产|线上|环境|集群|多节点|高可用|容灾|灾备|灰度|回滚)/, // zh
+  /(production|cluster|multi-?node|high\s*availability|dr|disaster\s*recovery|canary|rollback)/i // en
+]
+
+function isHighComplexityIntent(text: string): boolean {
+  // Action + Resource within one sentence or strong context hint
+  const actionHit = COMPLEX_ACTIONS.some((re) => re.test(text))
+  const resourceHit = COMPLEX_RESOURCES.some((re) => re.test(text))
+  const contextHit = COMPLEX_CONTEXT_HINTS.some((re) => re.test(text))
+  return (actionHit && resourceHit) || (resourceHit && contextHit) || (actionHit && contextHit)
+}
+
 export const TODO_PROMPTS_OPTIMIZED = {
   coreSystemMessage: (isChineseMode: boolean = false) => {
     const templates = {
@@ -9,7 +40,8 @@ export const TODO_PROMPTS_OPTIMIZED = {
 - 执行任务时及时更新状态
 - 每个任务必须包含 content（任务标题）和 description（详细描述）两个字段
 - content 应该简洁明了，description 应该包含具体的执行步骤或详细说明
-- 保持任务列表结构化和实用`,
+- 保持任务列表结构化和实用
+- 仅当至少包含三个明确步骤时才使用 todo_write。若只有 1-2 个明确步骤，切勿创建清单；请直接执行并报告结果。`,
 
       en: `You are an intelligent operations assistant. For complex or multi-step tasks, you MUST proactively use the todo_write tool to create structured task lists for tracking execution progress.
 
@@ -23,6 +55,7 @@ Key principles:
 - Each task MUST include both content (task title) and description (detailed explanation) fields
 - content should be concise and clear, description should contain specific execution steps or detailed instructions
 - Keep task lists structured and practical
+- Use todo_write only when there are at least three concrete steps. If there are only 1–2 steps, do not create a list; act directly and report the outcome.
 - For system operations, monitoring, and troubleshooting tasks, todo lists are essential`
     }
 
@@ -58,13 +91,19 @@ export class SmartTaskDetector {
   static shouldCreateTodo(message: string): boolean {
     console.log('[Todo Debug] SmartTaskDetector analyzing message:', message)
 
-    if (message.length <= 10) {
+    if (message.length <= MIN_MESSAGE_LENGTH) {
       console.log('[Todo Debug] Message too short, skipping todo creation')
       return false // 调整阈值，中文表达更简洁
     }
 
     const lowerMessage = message.toLowerCase()
     console.log('[Todo Debug] Lowercase message:', lowerMessage)
+
+    // Early exit: single-sentence but clearly multi-step ops (e.g., "部署一个 MySQL 数据库")
+    if (isHighComplexityIntent(lowerMessage)) {
+      console.log('[Todo Debug] High-complexity intent detected by domain heuristics')
+      return true
+    }
 
     const patterns = [
       // 中文检测模式
@@ -91,40 +130,32 @@ export class SmartTaskDetector {
       /(examine|analyze|check).*(log|file|error|anomaly)/i // 日志分析
     ]
 
-    for (let i = 0; i < patterns.length; i++) {
-      const pattern = patterns[i]
-      const matches = pattern.test(lowerMessage)
-      if (matches) {
-        return true
-      }
+    // 规则：
+    // 1) 明确列出编号/序列项达到3个及以上 ⇒ 直接判定需要todo
+    // 2) 否则统计命中信号数量（不同模式的匹配），达到2个以上才认为是复杂任务
+    const countMatches = (regex: RegExp, text: string): number => (text.match(regex) || []).length
+
+    const numberedListCount = countMatches(/(?:^|\s)(?:[1-9])[\.]\s/g, lowerMessage)
+    const cnEnumerateCount = countMatches(/[一二三四五六七八九十]、/g, lowerMessage)
+    const cnSeqCount = countMatches(/(首先|然后|接下来|最后|依次)/g, lowerMessage)
+    const enSeqCount = countMatches(/\b(first|then|next|finally)\b/g, lowerMessage)
+
+    if (
+      numberedListCount >= MIN_STEPS_FOR_TODO ||
+      cnEnumerateCount >= MIN_STEPS_FOR_TODO ||
+      cnSeqCount >= MIN_STEPS_FOR_TODO ||
+      enSeqCount >= MIN_STEPS_FOR_TODO
+    ) {
+      return true
     }
 
-    return false
+    let signals = 0
+    for (let i = 0; i < patterns.length; i++) {
+      const pattern = patterns[i]
+      if (pattern.test(lowerMessage)) signals++
+    }
+    return signals >= MIN_SIGNALS_FOR_COMPLEX
   }
-
-  // 简化的任务类型识别
-  static getTaskType(message: string): string {
-    console.log('[Todo Debug] Identifying task type for message:', message)
-    const msg = message.toLowerCase()
-
-    let taskType = 'complex'
-    if (/(mac|ip|网络|连接|network|connection)/.test(msg)) taskType = 'network'
-    else if (/(cpu|内存|磁盘|性能|memory|disk|performance|resource)/.test(msg)) taskType = 'system'
-    else if (/(排查|故障|异常|troubleshoot|error|issue|problem)/.test(msg)) taskType = 'troubleshoot'
-
-    console.log('[Todo Debug] Task type identified:', taskType)
-    return taskType
-  }
-}
-
-// 使用示例 - 集成到现有系统
-export function getOptimizedTodoReminder(userMessage: string, isChineseMode: boolean = false): string | null {
-  if (!SmartTaskDetector.shouldCreateTodo(userMessage)) {
-    return null
-  }
-
-  const taskType = SmartTaskDetector.getTaskType(userMessage)
-  return TODO_PROMPTS_OPTIMIZED.smartReminder(taskType, isChineseMode)
 }
 
 // 为了向后兼容，保持原有的导出接口
