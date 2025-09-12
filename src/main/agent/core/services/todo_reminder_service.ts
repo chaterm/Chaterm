@@ -9,7 +9,7 @@ export interface TodoStateChange {
 }
 
 export class TodoReminderService {
-  private static readonly EMPTY_TODO_REMINDER = `这是一个提醒：当前 todo 列表为空。如果您正在处理需要多个步骤的运维任务，请考虑使用 TodoWrite 工具创建任务列表。`
+  private static readonly EMPTY_TODO_REMINDER = `提醒：当前 todo 列表为空。仅当任务包含 3 个或以上明确步骤时，才需要使用 TodoWrite 创建清单；简单任务请直接执行。`
 
   getReminderForEmptyTodos(isComplexTask: boolean = false): string | null {
     if (!isComplexTask) {
