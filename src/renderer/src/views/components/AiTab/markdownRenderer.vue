@@ -396,6 +396,7 @@ const renderedContent = ref('')
 const thinkingContent = ref('')
 const normalContent = ref('')
 const thinkingLoading = ref(false)
+const isCancelled = ref(false)
 const activeKey = ref<string[]>(['1'])
 const contentRef = ref<HTMLElement | null>(null)
 const editorContainer = ref<HTMLElement | null>(null)
@@ -678,7 +679,9 @@ const processContent = async (content: string) => {
     } else {
       thinkingContent.value = processedContent.trim()
       processedContent = ''
-      thinkingLoading.value = true
+      if (!isCancelled.value) {
+        thinkingLoading.value = true
+      }
     }
   } else {
     thinkingContent.value = ''
@@ -793,7 +796,7 @@ const processReasoningContent = (content: string) => {
     return
   }
   thinkingContent.value = content.trim()
-  if (props.partial) {
+  if (props.partial && !isCancelled.value) {
     thinkingLoading.value = true
   } else {
     thinkingLoading.value = false
@@ -824,7 +827,7 @@ const checkContentHeight = async () => {
 watch(
   () => thinkingContent.value,
   async (newVal) => {
-    if (newVal) {
+    if (newVal && !isCancelled.value) {
       thinkingLoading.value = true
     } else {
       activeKey.value = ['1']
@@ -1106,7 +1109,7 @@ const processAnsiCodes = (str: string): string => {
     .replace(/\u001b\[106m/g, '<span class="ansi-bg-bright-cyan">') // Bright Cyan background
     .replace(/\u001b\[107m/g, '<span class="ansi-bg-bright-white">') // Bright White background
 
-  result = result.replace(/\u001b\[(\d+);(\d+)m/g, (match, p1, p2) => {
+  result = result.replace(/\u001b\[(\d+);(\d+)m/g, (_, p1, p2) => {
     let replacement = ''
 
     if (p1 === '0') replacement += '</span><span>'
@@ -1267,6 +1270,19 @@ const toggleCommandOutput = () => {
 }
 
 const emit = defineEmits(['collapse-change'])
+
+// 暴露方法给父组件调用
+const setThinkingLoading = (loading: boolean) => {
+  thinkingLoading.value = loading
+  if (!loading) {
+    isCancelled.value = true
+  }
+}
+
+// 暴露方法给父组件
+defineExpose({
+  setThinkingLoading
+})
 </script>
 
 <style>
