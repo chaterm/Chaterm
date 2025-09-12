@@ -24,7 +24,7 @@ export const getCopyShortcut = async (): Promise<string> => {
 
   switch (currentPlatform) {
     case 'darwin':
-      return '⌘C'
+      return '⌘+C'
     case 'win32':
     case 'linux':
     default:
@@ -38,7 +38,7 @@ export const getPasteShortcut = async (): Promise<string> => {
 
   switch (currentPlatform) {
     case 'darwin':
-      return '⌘V'
+      return '⌘+V'
     case 'win32':
     case 'linux':
     default:
@@ -52,9 +52,9 @@ export const getShortcutDisplay = async (action: 'copy' | 'paste'): Promise<stri
 
   switch (action) {
     case 'copy':
-      return currentPlatform === 'darwin' ? '⌘C' : 'Ctrl+C'
+      return currentPlatform === 'darwin' ? '⌘+C' : 'Ctrl+C'
     case 'paste':
-      return currentPlatform === 'darwin' ? '⌘V' : 'Ctrl+V'
+      return currentPlatform === 'darwin' ? '⌘+V' : 'Ctrl+V'
     default:
       return ''
   }
@@ -66,11 +66,11 @@ export const getCloseShortcut = async (): Promise<string> => {
 
   switch (currentPlatform) {
     case 'darwin':
-      return '⌘W'
+      return '⌘+W'
     case 'win32':
     case 'linux':
     default:
-      return 'Ctrl+W'
+      return 'Ctrl+Shift+W'
   }
 }
 
@@ -80,7 +80,7 @@ export const getSearchShortcut = async (): Promise<string> => {
 
   switch (currentPlatform) {
     case 'darwin':
-      return '⌘F'
+      return '⌘+F'
     case 'win32':
     case 'linux':
     default:
@@ -94,7 +94,7 @@ export const getNewTabShortcut = async (): Promise<string> => {
 
   switch (currentPlatform) {
     case 'darwin':
-      return '⌘N'
+      return '⌘+N'
     case 'win32':
     case 'linux':
     default:
@@ -108,7 +108,7 @@ export const getClearTermShortcut = async (): Promise<string> => {
 
   switch (currentPlatform) {
     case 'darwin':
-      return '⌘P'
+      return '⌘+P'
     case 'win32':
     case 'linux':
     default:
@@ -122,7 +122,7 @@ export const getFileManagerShortcut = async (): Promise<string> => {
 
   switch (currentPlatform) {
     case 'darwin':
-      return '⌘M'
+      return '⌘+M'
     case 'win32':
     case 'linux':
     default:

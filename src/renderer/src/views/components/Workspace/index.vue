@@ -30,21 +30,33 @@
               <search-outlined />
             </template>
           </a-input>
-          <a-tooltip
-            :title="t('personal.customFolders')"
-            placement="top"
+          <a-dropdown
+            v-if="!isPersonalWorkspace"
+            :trigger="['click']"
+            placement="bottomRight"
           >
             <a-button
-              v-if="!isPersonalWorkspace"
               type="primary"
               size="small"
               class="workspace-button"
-              @click="showCreateFolderModal = true"
             >
-              <folder-outlined />
+              <appstore-add-outlined />
             </a-button>
-          </a-tooltip>
+            <template #overlay>
+              <a-menu @click="handleMenuClick">
+                <a-menu-item key="customFolders">
+                  <folder-outlined />
+                  {{ t('personal.customFolders') }}
+                </a-menu-item>
+                <a-menu-item key="host">
+                  <laptop-outlined />
+                  {{ t('personal.host') }}
+                </a-menu-item>
+              </a-menu>
+            </template>
+          </a-dropdown>
           <a-tooltip
+            v-else
             :title="t('personal.host')"
             placement="top"
           >
@@ -404,7 +416,8 @@ import {
   CheckOutlined,
   CloseOutlined,
   FolderOutlined,
-  DeleteOutlined
+  DeleteOutlined,
+  AppstoreAddOutlined
 } from '@ant-design/icons-vue'
 import eventBus from '@/utils/eventBus'
 import i18n from '@/locales'
@@ -743,6 +756,17 @@ const clickServer = (item) => {
 
 const assetManagement = () => {
   emit('open-user-tab', 'assetConfig')
+}
+
+const handleMenuClick = ({ key }) => {
+  switch (key) {
+    case 'customFolders':
+      showCreateFolderModal.value = true
+      break
+    case 'host':
+      assetManagement()
+      break
+  }
 }
 
 let clickTimer: any = null
@@ -1427,8 +1451,9 @@ onUnmounted(() => {
   }
 }
 
+/* Enhanced dropdown menu styles for better theme adaptation */
 .ant-dropdown-menu {
-  width: 100px !important;
+  width: 160px !important;
 }
 
 :deep(.ant-form-item-label > label) {

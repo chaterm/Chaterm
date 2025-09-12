@@ -65,38 +65,70 @@
     <div v-else>
       <div
         v-if="props.say === 'command_output'"
-        class="command-output"
+        class="command-output-container"
       >
-        <div
-          v-for="(line, index) in contentLines"
-          :key="index"
-          class="output-line"
-        >
-          <template v-if="line.type === 'prompt'">
-            <span class="prompt">{{ line.prompt }}</span>
-            <span class="command">{{ line.command }}</span>
-          </template>
-          <template v-else-if="line.type === 'ls'">
-            <span class="permissions">{{ line.permissions }}</span>
-            <span class="links">{{ line.links }}</span>
-            <span class="user">{{ line.user }}</span>
-            <span class="group">{{ line.group }}</span>
-            <span class="size">{{ line.size }}</span>
-            <span class="date">{{ line.date }}</span>
-            <span :class="line.fileType">{{ line.name }}</span>
-          </template>
-          <template v-else>
-            <span
-              v-if="line.html"
-              class="content"
-              v-html="line.html"
-            ></span>
-            <span
-              v-else
-              class="content"
-              >{{ line.content }}</span
+        <div class="command-output-header">
+          <span class="output-title">OUTPUT</span>
+          <div class="output-controls">
+            <span class="output-lines">{{ commandOutputLines.length }} lines</span>
+            <a-button
+              class="copy-button-header"
+              type="text"
+              size="small"
+              @click="copyCommandOutput"
             >
-          </template>
+              <img
+                :src="copySvg"
+                alt="copy"
+                class="copy-icon"
+              />
+            </a-button>
+            <a-button
+              class="toggle-button"
+              type="text"
+              size="small"
+              @click="toggleCommandOutput"
+            >
+              <CaretDownOutlined v-if="commandOutputActiveKey.includes('1')" />
+              <CaretRightOutlined v-else />
+            </a-button>
+          </div>
+        </div>
+        <div
+          v-show="commandOutputActiveKey.includes('1')"
+          class="command-output"
+        >
+          <div
+            v-for="(line, index) in contentLines"
+            :key="index"
+            class="output-line"
+          >
+            <template v-if="line.type === 'prompt'">
+              <span class="prompt">{{ line.prompt }}</span>
+              <span class="command">{{ line.command }}</span>
+            </template>
+            <template v-else-if="line.type === 'ls'">
+              <span class="permissions">{{ line.permissions }}</span>
+              <span class="links">{{ line.links }}</span>
+              <span class="user">{{ line.user }}</span>
+              <span class="group">{{ line.group }}</span>
+              <span class="size">{{ line.size }}</span>
+              <span class="date">{{ line.date }}</span>
+              <span :class="line.fileType">{{ line.name }}</span>
+            </template>
+            <template v-else>
+              <span
+                v-if="line.html"
+                class="content"
+                v-html="line.html"
+              ></span>
+              <span
+                v-else
+                class="content"
+                >{{ line.content }}</span
+              >
+            </template>
+          </div>
         </div>
       </div>
 
@@ -251,7 +283,7 @@ import 'monaco-editor/esm/vs/basic-languages/ruby/ruby.contribution'
 import 'monaco-editor/esm/vs/basic-languages/php/php.contribution'
 import 'monaco-editor/esm/vs/basic-languages/rust/rust.contribution'
 import 'monaco-editor/esm/vs/basic-languages/sql/sql.contribution'
-import { LoadingOutlined, CopyOutlined } from '@ant-design/icons-vue'
+import { LoadingOutlined, CaretDownOutlined, CaretRightOutlined } from '@ant-design/icons-vue'
 import thinkingSvg from '@/assets/icons/thinking.svg'
 import copySvg from '@/assets/icons/copy.svg'
 import { message } from 'ant-design-vue'
@@ -368,6 +400,7 @@ const activeKey = ref<string[]>(['1'])
 const contentRef = ref<HTMLElement | null>(null)
 const editorContainer = ref<HTMLElement | null>(null)
 const codeActiveKey = ref<string[]>(['1'])
+const commandOutputActiveKey = ref<string[]>(['1'])
 const monacoContainer = ref<HTMLElement | null>(null)
 const totalLines = ref(0)
 let editor: monaco.editor.IStandaloneCodeEditor | null = null
@@ -1180,6 +1213,11 @@ const contentLines = computed(() => {
   return processedContentLines.value
 })
 
+// Computed property for command output lines count
+const commandOutputLines = computed(() => {
+  return contentLines.value
+})
+
 const copyEditorContent = () => {
   if (editor) {
     const content = editor.getValue()
@@ -1199,6 +1237,32 @@ const copyBlockContent = (blockIndex: number) => {
         message.success(t('ai.copyToClipboard'))
       })
     }
+  }
+}
+
+const copyCommandOutput = () => {
+  const outputText = contentLines.value
+    .map((line) => {
+      if (line.type === 'prompt') {
+        return `${line.prompt} ${line.command}`
+      } else if (line.type === 'ls') {
+        return `${line.permissions} ${line.links} ${line.user} ${line.group} ${line.size} ${line.date} ${line.name}`
+      } else {
+        return line.content || ''
+      }
+    })
+    .join('\n')
+
+  navigator.clipboard.writeText(outputText).then(() => {
+    message.success(t('ai.copyToClipboard'))
+  })
+}
+
+const toggleCommandOutput = () => {
+  if (commandOutputActiveKey.value.includes('1')) {
+    commandOutputActiveKey.value = []
+  } else {
+    commandOutputActiveKey.value = ['1']
   }
 }
 
@@ -1543,6 +1607,21 @@ code {
   background: rgba(255, 255, 255, 0.1);
 }
 
+.copy-button-small {
+  position: absolute;
+  top: 2px;
+  right: 8px;
+  z-index: 100;
+  color: var(--text-color);
+  opacity: 0.6;
+  transition: opacity 0.3s;
+}
+
+.copy-button-small:hover {
+  opacity: 1;
+  background: rgba(255, 255, 255, 0.1);
+}
+
 .hidden-header {
   display: none !important;
 }
@@ -1616,17 +1695,92 @@ code {
   opacity: 0.7;
 }
 
+.command-output-container {
+  margin: 4px 0;
+  border-radius: 6px;
+  overflow: hidden;
+  background-color: var(--command-output-bg);
+  min-height: 30px;
+  height: auto;
+}
+
+.command-output-header {
+  position: relative;
+  height: 18px;
+  background: var(--bg-color-secondary);
+  border-bottom: 1px solid var(--bg-color-quaternary);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 8px;
+  font-size: 10px;
+  color: #7e8ba3;
+}
+
+.output-title {
+  font-weight: 500;
+  color: #7e8ba3;
+}
+
+.output-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.output-lines {
+  font-size: 10px;
+  color: #7e8ba3;
+}
+
+.copy-button-header {
+  color: var(--text-color);
+  opacity: 0.6;
+  transition: opacity 0.3s;
+  padding: 0;
+  height: 16px;
+  width: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.copy-button-header:hover {
+  opacity: 1;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.toggle-button {
+  color: var(--text-color);
+  opacity: 0.6;
+  transition: opacity 0.3s;
+  padding: 0;
+  height: 16px;
+  width: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  font-weight: bold;
+}
+
+.toggle-button:hover {
+  opacity: 1;
+  background: rgba(255, 255, 255, 0.1);
+}
+
 .command-output {
   font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
   background-color: var(--bg-color-secondary);
   color: var(--text-color);
-  padding: 28px 12px 12px;
-  border-radius: 8px;
+  padding: 12px;
+  border-radius: 0 0 8px 8px;
   white-space: pre-wrap;
   word-wrap: break-word;
   font-size: 12px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
   border: 1px solid var(--border-color);
+  border-top: none;
   overflow: hidden;
   overflow-x: auto;
   position: relative;
@@ -1634,28 +1788,6 @@ code {
   min-width: 0;
   display: flex;
   flex-direction: column;
-}
-
-.command-output::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 18px;
-  background: var(--bg-color-secondary);
-  border-bottom: 1px solid var(--bg-color-quaternary);
-}
-
-.command-output::after {
-  content: 'OUTPUT';
-  position: absolute;
-  top: 0;
-  left: 8px;
-  height: 18px;
-  line-height: 18px;
-  font-size: 10px;
-  color: #7e8ba3;
 }
 
 .command-output .error {

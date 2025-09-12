@@ -87,7 +87,7 @@
 
   // Border colors
   --border-color: #f8fafc;
-  --border-color-light: #f1f5f9;
+  --border-color-light: #e8e8e8;
 
   // Interactive states
   --hover-bg-color: rgba(15, 23, 42, 0.06);
@@ -274,17 +274,69 @@ body {
   }
 }
 
-// Dropdown menu styles
+// Dropdown menu styles - Global base styles
 :deep(.ant-dropdown-menu) {
-  background-color: var(--bg-color) !important;
-  border: 1px solid var(--border-color) !important;
+  border-radius: 8px !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15) !important;
+  backdrop-filter: blur(10px) !important;
+  padding: 4px !important;
 }
 
 :deep(.ant-dropdown-menu-item) {
-  color: var(--text-color-secondary) !important;
+  border-radius: 6px !important;
+  margin: 2px 0 !important;
+  padding: 8px 12px !important;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  line-height: 1.4 !important;
+  font-size: 13px !important;
+  font-weight: 500 !important;
+  min-height: 32px !important;
+  height: auto !important;
+  display: flex !important;
+  align-items: center !important;
 
-  &:hover {
-    background-color: var(--hover-bg-color) !important;
+  .anticon {
+    margin-right: 8px !important;
+    font-size: 14px !important;
+    width: 16px !important;
+    text-align: center !important;
+    flex-shrink: 0 !important;
+  }
+}
+
+// Dark theme specific dropdown menu styles
+.theme-dark {
+  :deep(.ant-dropdown-menu) {
+    background-color: #1a1a1a !important;
+    border: 1px solid #2a2a2a !important;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4) !important;
+  }
+
+  :deep(.ant-dropdown-menu-item) {
+    color: #ffffff !important;
+    background-color: transparent !important;
+
+    &:hover {
+      background-color: rgba(255, 255, 255, 0.08) !important;
+      color: #ffffff !important;
+      transform: translateX(2px) !important;
+    }
+
+    &:active {
+      background-color: rgba(255, 255, 255, 0.12) !important;
+      transform: translateX(2px) scale(0.98) !important;
+    }
+
+    .anticon {
+      color: #ffffff !important;
+    }
+
+    &:hover .anticon {
+      color: #ffffff !important;
+    }
   }
 }
 // Input box clear icon styles
@@ -590,6 +642,35 @@ body {
       &:hover {
         background-color: var(--button-hover-bg) !important;
       }
+    }
+  }
+
+  // Light theme dropdown menu styles
+  :deep(.ant-dropdown-menu) {
+    background-color: var(--bg-color-secondary) !important;
+    border: 1px solid var(--border-color-light) !important;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1) !important;
+  }
+
+  :deep(.ant-dropdown-menu-item) {
+    color: var(--text-color-secondary) !important;
+    background-color: transparent !important;
+
+    &:hover {
+      background-color: rgba(0, 0, 0, 0.08) !important;
+      color: var(--text-color) !important;
+    }
+
+    &:active {
+      background-color: rgba(0, 0, 0, 0.12) !important;
+    }
+
+    .anticon {
+      color: var(--text-color-tertiary) !important;
+    }
+
+    &:hover .anticon {
+      color: var(--text-color) !important;
     }
   }
 }

@@ -111,10 +111,12 @@ import { checkUserDevice } from '@api/user/user'
 const { t } = useI18n()
 const selectFlag = ref(false)
 const configStore = userConfigStore()
+
 interface CommandSuggestion {
   command: string
   source: 'base' | 'history'
 }
+
 const suggestions = ref<CommandSuggestion[]>([])
 const activeSuggestion = ref(-1)
 const suggestionSelectionMode = ref(false) // Whether suggestion box is in selection mode
@@ -133,6 +135,7 @@ const props = defineProps({
   currentConnectionId: { type: String, required: true }
 })
 const queryCommandFlag = ref(false)
+
 export interface sshConnectData {
   uuid: string
   ip: string
@@ -270,7 +273,14 @@ const EDITOR_SEQUENCES = {
 }
 const userInputFlag = ref(false)
 const currentCwdStore = useCurrentCwdStore()
-const lastCloseTimestamp = ref<number | null>(null)
+
+// 全局防抖状态，防止快速连续关闭多个窗口
+const CLOSE_DEBOUNCE_TIME = 100 // 100ms 防抖时间
+
+// 使用 window 对象存储全局防抖状态
+if (!(window as any).lastCloseTime) {
+  ;(window as any).lastCloseTime = 0
+}
 let termOndata: IDisposable | null = null
 let handleInput
 let textareaCompositionListener: ((e: CompositionEvent) => void) | null = null
@@ -573,34 +583,12 @@ onMounted(async () => {
   eventBus.on('updateTheme', handleUpdateTheme)
   eventBus.on('openSearch', openSearch)
 
-  // 监听来自preload的搜索和关闭触发事件（Windows系统专用）
+  // 监听来自preload的搜索触发事件（Windows系统专用）
   const handlePostMessage = (event: MessageEvent) => {
     if (event.data?.type === 'TRIGGER_SEARCH') {
       // 只有当前活跃的终端才响应搜索事件
       if (props.activeTabId === props.currentConnectionId) {
         openSearch()
-      }
-    } else if (event.data?.type === 'TRIGGER_CLOSE') {
-      // 只在Windows系统下处理 TRIGGER_CLOSE 消息
-      const isWindows = navigator.platform.toLowerCase().includes('win')
-      if (isWindows) {
-        // 检查时间戳，避免重复处理
-        const messageTimestamp = event.data?.timestamp
-        if (messageTimestamp && lastCloseTimestamp.value === messageTimestamp) {
-          return
-        }
-        lastCloseTimestamp.value = messageTimestamp
-
-        // 检查消息是否发送给当前连接
-        const targetConnectionId = event.data?.targetConnectionId
-        if (targetConnectionId && targetConnectionId !== props.currentConnectionId) {
-          return
-        }
-
-        // 只有当前活跃的终端才响应关闭事件
-        if (props.activeTabId === props.currentConnectionId) {
-          contextAct('close')
-        }
       }
     }
   }
@@ -1074,7 +1062,12 @@ const startShell = async () => {
       const removeCloseListener = api.onShellClose(connectionId.value, () => {
         isConnected.value = false
         cusWrite?.('\r\n' + t('ssh.connectionClosed') + '\r\n\r\n')
-        cusWrite?.(t('ssh.disconnectedFromHost', { host: props.serverInfo.title, date: new Date().toDateString() }) + '\r\n')
+        cusWrite?.(
+          t('ssh.disconnectedFromHost', {
+            host: props.serverInfo.title,
+            date: new Date().toDateString()
+          }) + '\r\n'
+        )
         cusWrite?.('\r\n' + t('ssh.pressEnterToReconnect') + '\r\n', { isUserCall: true })
       })
 
@@ -1517,6 +1510,7 @@ const sendTerminalStateToServer = async (): Promise<void> => {
     console.error(t('common.sendTerminalStatusError'), err)
   }
 }
+
 function handleExternalInput(data) {
   handleInput && handleInput(data, false)
 }
@@ -1737,7 +1731,7 @@ const setupTerminalInput = () => {
 const sendData = (data) => {
   api.writeToShell({
     id: connectionId.value,
-    data: data,
+    data: data.replace(/\r\n/g, '\n'),
     lineCommand: terminalState.value.content
   })
 }
@@ -1749,6 +1743,7 @@ const sendMarkedData = (data, marker) => {
     lineCommand: terminalState.value.content
   })
 }
+
 export interface MarkedResponse {
   data: string
   marker?: string
@@ -2518,6 +2513,26 @@ const handleGlobalKeyDown = (e: KeyboardEvent) => {
     openSearch()
   }
 
+  // Close current window with Ctrl+Shift+W (Windows)
+  if (!isMac && e.ctrlKey && e.shiftKey && e.key === 'W') {
+    const currentTime = Date.now()
+
+    // 防抖检查：如果在短时间内已经处理过关闭操作，则忽略
+    if (currentTime - (window as any).lastCloseTime < CLOSE_DEBOUNCE_TIME) {
+      e.preventDefault()
+      e.stopPropagation()
+      return
+    }
+
+    // 只有当前活跃的终端才响应关闭事件
+    ;(window as any).lastCloseTime = currentTime
+    e.preventDefault()
+    e.stopPropagation()
+    contextAct('close')
+    // 对于非活跃的终端，直接返回，不执行任何操作
+    return
+  }
+
   if (e.key === 'Escape' && showSearch.value) {
     e.preventDefault()
     e.stopPropagation()
@@ -2738,9 +2753,32 @@ const isDeleteKeyData = (d: string) => d === '\x7f' || d === '\b' || d === '\x1b
   width: 100%;
   height: 100%;
   border-radius: 6px;
-  overflow: hidden;
+  overflow: auto;
   padding: 4px 4px 0px 12px;
   position: relative;
+
+  /* Enable scrollbar for terminal container */
+  &::-webkit-scrollbar {
+    width: 6px;
+  }
+
+  &::-webkit-scrollbar-track {
+    background: transparent;
+    border-radius: 3px;
+  }
+
+  &::-webkit-scrollbar-thumb {
+    background-color: var(--border-color-light);
+    border-radius: 3px;
+  }
+
+  &::-webkit-scrollbar-thumb:hover {
+    background-color: var(--text-color-tertiary);
+  }
+
+  /* Firefox scrollbar styles */
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-color-light) transparent;
 }
 
 .terminal {
@@ -2756,9 +2794,31 @@ const isDeleteKeyData = (d: string) => d === '\x7f' || d === '\b' || d === '\x1b
 .terminal .xterm-viewport {
   background-color: transparent;
 }
+
 .terminal ::-webkit-scrollbar {
-  width: 0px !important;
+  width: 6px;
 }
+
+.terminal ::-webkit-scrollbar-track {
+  background: transparent;
+  border-radius: 3px;
+}
+
+.terminal ::-webkit-scrollbar-thumb {
+  background-color: var(--border-color-light);
+  border-radius: 3px;
+}
+
+.terminal ::-webkit-scrollbar-thumb:hover {
+  background-color: var(--text-color-tertiary);
+}
+
+/* Firefox scrollbar styles */
+.terminal {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-color-light) transparent;
+}
+
 .select-button {
   position: absolute;
   z-index: 10;
