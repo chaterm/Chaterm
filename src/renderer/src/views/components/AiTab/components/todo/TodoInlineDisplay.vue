@@ -181,24 +181,34 @@ const toggleExpanded = () => {
 :deep(.ant-collapse) {
   background: transparent;
   border: none;
+  margin: 0 !important;
 }
 
 :deep(.ant-collapse-item) {
   border: none;
+  margin: 0 !important;
+}
+
+:deep(.ant-collapse-item > .ant-collapse-header) {
+  display: none !important; // 移除空的 Panel 头部占位
+  height: 0 !important;
+  padding: 0 !important;
+  margin: 0 !important;
 }
 
 :deep(.ant-collapse-content) {
   border: none;
   background: transparent;
+  padding: 0 !important;
 }
 
 :deep(.ant-collapse-content-box) {
-  padding: 6px 12px 8px 12px !important;
+  padding: 4px 8px 8px 8px !important;
 }
 
 // 额外的强制样式，确保生效
 .todo-inline-display :deep(.ant-collapse .ant-collapse-content > .ant-collapse-content-box) {
-  padding: 6px 12px 8px 12px !important;
+  padding: 4px 8px 8px 8px !important;
 }
 
 // 暗色主题下的特殊处理
