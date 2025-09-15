@@ -170,20 +170,18 @@ export class CommandSecurityManager {
       const regexPattern = pattern.replace(/\*/g, '.*')
       const regex = new RegExp(`^${regexPattern}$`, 'i')
       return regex.test(command)
-    } else {
-      // 对于根目录危险操作，使用精确匹配
-      if (this.isRootDirectoryPattern(pattern)) {
-        // 使用正则表达式确保只匹配根目录操作，不匹配具体目录
-        const escapedPattern = pattern.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-        const regex = new RegExp(`^${escapedPattern}(\\s|$)`, 'i')
-        return regex.test(command)
-      }
-
-      // 将模式视为命令前缀，确保只匹配完整的命令或参数
-      const escapedPattern = pattern.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-      const regex = new RegExp(`(^|\\s)${escapedPattern}(\\s|$)`, 'i')
-      return regex.test(command)
     }
+
+    // 将模式转换为安全的正则表达式
+    const escapedPattern = pattern.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+
+    // 对于根目录危险操作，使用精确匹配
+    if (this.isRootDirectoryPattern(pattern)) {
+      return new RegExp(`^${escapedPattern}(\\s|$)`, 'i').test(command)
+    }
+
+    // 其他情况下，确保只匹配完整的命令或参数
+    return new RegExp(`(^|\\s)${escapedPattern}(\\s|$)`, 'i').test(command)
   }
 
   /**
