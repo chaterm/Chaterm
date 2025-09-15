@@ -62,10 +62,11 @@ test.describe('AI完整工作流程E2E测试', () => {
    */
   const selectAiModel = async (modelName: string, timeout: number = 10000) => {
     try {
-      // Wait for and click the AI model selector dropdown
-      const modelSelector = electronHelper.window?.locator(
-        '#rc-tabs-0-panel-chat > div.bottom-container > div > div > div.input-controls > div:nth-child(2) > div > span.ant-select-selection-item'
-      )
+      // Wait for the input-controls container to be visible first
+      await electronHelper.window?.locator('.input-controls').waitFor({ timeout: 5000 })
+
+      // Wait for and click the AI model selector dropdown (second select in input-controls)
+      const modelSelector = electronHelper.window?.locator('.input-controls .ant-select:nth-child(2) .ant-select-selection-item')
 
       await modelSelector?.waitFor({ timeout })
       await modelSelector?.click()
@@ -74,49 +75,58 @@ test.describe('AI完整工作流程E2E测试', () => {
       await electronHelper.window?.waitForTimeout(500)
 
       // Try different ways to locate and click the model option
+      // First try: look for ant-select-option with model name
       const modelOption = electronHelper.window
-        ?.locator(`a-select-option`)
+        ?.locator('.ant-select-dropdown .ant-select-item-option')
         .filter({
           hasText: modelName
         })
         .first()
 
-      // Alternative approach: look for span with the model name
+      // Second try: look for span with the model name in dropdown
       const modelSpan = electronHelper.window
-        ?.locator('span.model-label')
+        ?.locator('.ant-select-dropdown span.model-label')
         .filter({
           hasText: modelName
         })
         .first()
 
-      // Alternative approach: look for text content directly
-      const modelText = electronHelper.window?.getByText(modelName, { exact: true })
+      // Third try: look for text content directly in dropdown
+      const modelText = electronHelper.window?.locator('.ant-select-dropdown').getByText(modelName, { exact: true })
 
-      // Try each approach in order
-      if (modelOption && (await modelOption.isVisible())) {
+      // Try each approach in order with proper waiting
+      let modelSelected = false
+
+      if (modelOption && (await modelOption.isVisible({ timeout: 2000 }))) {
         await modelOption.click()
         console.log(`Successfully selected model: ${modelName} via option selector`)
-      } else if (modelSpan && (await modelSpan.isVisible())) {
+        modelSelected = true
+      } else if (modelSpan && (await modelSpan.isVisible({ timeout: 2000 }))) {
         await modelSpan.click()
         console.log(`Successfully selected model: ${modelName} via span selector`)
-      } else if (modelText && (await modelText.isVisible())) {
+        modelSelected = true
+      } else if (modelText && (await modelText.isVisible({ timeout: 2000 }))) {
         await modelText.click()
         console.log(`Successfully selected model: ${modelName} via text selector`)
+        modelSelected = true
       } else {
-        // Fallback: try to find by partial text match
+        // Fallback: try to find by partial text match in dropdown
         const partialMatch = electronHelper.window
-          ?.locator('span')
+          ?.locator('.ant-select-dropdown span')
           .filter({
             hasText: modelName
           })
           .first()
 
-        if (partialMatch && (await partialMatch.isVisible())) {
+        if (partialMatch && (await partialMatch.isVisible({ timeout: 2000 }))) {
           await partialMatch.click()
-          console.log(`Successfully selected model: ${modelName} via partial text match`)
-        } else {
-          throw new Error(`Model "${modelName}" not found in dropdown options`)
+          console.log(`Successfully selected model: ${modelName} via partial match`)
+          modelSelected = true
         }
+      }
+
+      if (!modelSelected) {
+        throw new Error(`Could not find model option: ${modelName} in dropdown`)
       }
 
       // Wait for dropdown to close
@@ -245,8 +255,8 @@ test.describe('AI完整工作流程E2E测试', () => {
         // Wait for dropdown options to appear
         await electronHelper.window?.waitForTimeout(500)
 
-        // Click on the target mode
-        const modeOption = electronHelper.window?.getByText(mode, { exact: true })
+        // Click on the target mode - use more specific selector to avoid strict mode violation
+        const modeOption = electronHelper.window?.locator('.ant-select-dropdown .ant-select-item-option').filter({ hasText: mode }).first()
         await modeOption?.waitFor({ timeout: 5000 })
         await modeOption?.click()
 
