@@ -1979,7 +1979,7 @@ export class Task {
           const didApprove = await this.askApproval(toolDescription, 'command', command)
           if (!didApprove) {
             if (needsSecurityApproval) {
-              await this.say('error', `🚫 The user rejected the dangerous command: ${command}`, false)
+              await this.say('error', formatMessage(this.messages.userRejectedCommand, { command }), false)
             }
             await this.saveCheckpoint()
             return
@@ -2099,19 +2099,24 @@ export class Task {
       if (securityResult.requiresApproval) {
         // 需要用户确认的危险命令
         needsSecurityApproval = true
-        securityMessage = `⚠️ Dangerous command detected\nReason: ${securityResult.reason}\nDegree: ${securityResult.severity}\nPlease confirm whether to execute the command\n\nTo modify security settings, go to: Settings -> AI Preferences -> Security Configuration`
+        securityMessage = `${this.messages.dangerousCommandDetected}\n${formatMessage(this.messages.securityReason, { reason: securityResult.reason })}\n${formatMessage(this.messages.securityDegree, { severity: securityResult.severity })}\n${this.messages.securityConfirmationRequired}\n\n${this.messages.securitySettingsLink}`
       } else {
         // 直接阻止的命令
-        await this.say('command_blocked', `🚫 The command is blocked by the security mechanism: ${command}\nReason: ${securityResult.reason}`, false)
+        const blockedMessage = formatMessage(this.messages.commandBlocked, {
+          command: command,
+          reason: securityResult.reason
+        })
+        const fullBlockedMessage = `${blockedMessage}\n\n${this.messages.securitySettingsLink}`
+        await this.say('command_blocked', fullBlockedMessage, false)
         // 向LLM返回工具执行被阻止的结果，使用关键词触发安全停止机制
-        this.pushToolResult(toolDescription, `🚫 The command is blocked by the security mechanism: ${command}\nReason: ${securityResult.reason}`)
+        this.pushToolResult(toolDescription, `command_blocked! ${blockedMessage}`)
         await this.saveCheckpoint()
         return { needsSecurityApproval: false, securityMessage: '', shouldReturn: true }
       }
     } else if (securityResult.requiresApproval) {
       // 命令被允许但需要用户确认
       needsSecurityApproval = true
-      securityMessage = `⚠️ Dangerous command detected\nReason: ${securityResult.reason}\nDegree: ${securityResult.severity}\nPlease confirm whether to execute the command\n\nTo modify security settings, go to: Settings -> AI Preferences -> Security Configuration`
+      securityMessage = `${this.messages.dangerousCommandDetected}\n${formatMessage(this.messages.securityReason, { reason: securityResult.reason })}\n${formatMessage(this.messages.securityDegree, { severity: securityResult.severity })}\n${this.messages.securityConfirmationRequired}\n\n${this.messages.securitySettingsLink}`
     }
 
     return { needsSecurityApproval, securityMessage, shouldReturn: false }

@@ -104,6 +104,7 @@
               </div>
               <MarkdownRenderer
                 v-if="typeof message.content === 'object' && 'question' in message.content"
+                :ref="(el) => setMarkdownRendererRef(el, index)"
                 :content="(message.content as MessageContent).question"
                 :class="`message ${message.role} ${message.say === 'completion_result' ? 'completion-result' : ''} ${message.say === 'interactive_command_notification' ? 'interactive-notification' : ''}`"
                 :ask="message.ask"
@@ -113,6 +114,7 @@
               />
               <MarkdownRenderer
                 v-else
+                :ref="(el) => setMarkdownRendererRef(el, index)"
                 :content="typeof message.content === 'string' ? message.content : ''"
                 :class="`message ${message.role} ${message.say === 'completion_result' ? 'completion-result' : ''} ${message.say === 'interactive_command_notification' ? 'interactive-notification' : ''}`"
                 :ask="message.ask"
@@ -152,7 +154,7 @@
                             :placeholder="$t('ai.enterCustomOption')"
                             :auto-size="{ minRows: 1, maxRows: 4 }"
                             class="custom-input"
-                            @input="(e) => handleCustomInputChange(message, e.target.value)"
+                            @input="(e) => handleCustomInputChange(message, (e.target as HTMLInputElement).value || '')"
                             @focus="() => handleOptionSelect(message, '__custom__')"
                           />
                         </div>
@@ -749,6 +751,7 @@ const isMessageFeedbackSubmitted = (messageId: string): boolean => {
 const hostSearchInputRef = ref()
 const fileInputRef = ref<HTMLInputElement>()
 const voiceInputRef = ref()
+const markdownRendererRefs = ref<Array<{ setThinkingLoading: (loading: boolean) => void }>>([])
 const showHostSelect = ref(false)
 const hostOptions = ref<{ label: string; value: string; uuid: string; connect: string }[]>([])
 const hostSearchValue = ref('')
@@ -1107,6 +1110,13 @@ const readFileContent = (file: File): Promise<string> => {
 
     reader.readAsText(file, 'utf-8')
   })
+}
+
+// 设置 MarkdownRenderer 组件的 ref
+const setMarkdownRendererRef = (el: any, index: number) => {
+  if (el) {
+    markdownRendererRefs.value[index] = el
+  }
 }
 
 const sendMessage = async (sendType: string) => {
@@ -1599,6 +1609,12 @@ const handleApproveCommand = async () => {
 const handleCancel = async () => {
   console.log('handleCancel: cancel')
 
+  // 停止最后一个消息的 thinking loading 状态
+  const lastMessageIndex = filteredChatHistory.value.length - 1
+  if (lastMessageIndex >= 0 && markdownRendererRefs.value[lastMessageIndex]) {
+    markdownRendererRefs.value[lastMessageIndex].setThinkingLoading(false)
+  }
+
   if (isExecutingCommand.value) {
     const response = await window.api.gracefulCancelTask()
     console.log('Main process graceful cancel response:', response)
@@ -1975,7 +1991,10 @@ onMounted(async () => {
         showSendButton.value = true
         showCancelButton.value = false
 
-        if (message.partialMessage?.type === 'ask' && message.partialMessage?.ask === 'command') {
+        if (
+          (message.partialMessage?.type === 'ask' && message.partialMessage?.ask === 'command') ||
+          message.partialMessage?.say === 'command_blocked'
+        ) {
           responseLoading.value = false
         }
       }
