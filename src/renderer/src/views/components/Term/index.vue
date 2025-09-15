@@ -59,7 +59,7 @@ const contextmenu = ref()
 import Context from './contextComp.vue'
 import SuggComp from './suggestion.vue'
 import SearchComp from './searchComp.vue'
-import { ref, onMounted, nextTick, onBeforeUnmount, defineProps, reactive, computed } from 'vue'
+import { ref, onMounted, nextTick, onBeforeUnmount, reactive, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { Terminal } from 'xterm'
 import { FitAddon } from 'xterm-addon-fit'

@@ -55,7 +55,7 @@
   </div>
 </template>
 <script setup lang="ts">
-import { ref, onMounted, defineEmits, getCurrentInstance } from 'vue'
+import { ref, onMounted, getCurrentInstance } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { ArrowDownOutlined, RightOutlined } from '@ant-design/icons-vue'
 import { useDeviceStore } from '@/store/useDeviceStore'

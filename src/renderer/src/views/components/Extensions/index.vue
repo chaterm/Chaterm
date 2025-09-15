@@ -51,7 +51,6 @@ import { computed, ref, watch, onMounted, onBeforeUnmount } from 'vue'
 import i18n from '@/locales'
 import iconAlias from '@/assets/img/alias.svg'
 import { userConfigStore } from '@/services/userConfigStoreService'
-import { defineExpose } from 'vue'
 import eventBus from '@/utils/eventBus'
 
 const emit = defineEmits(['open-user-tab'])
