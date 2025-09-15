@@ -56,6 +56,12 @@ export interface Messages {
   securitySettingsLink: string
   userRejectedCommand: string
 
+  // Security error descriptions
+  securityErrorCommandTooLong: string
+  securityErrorNotInWhitelist: string
+  securityErrorDangerousOperation: string
+  securityErrorBlacklistPattern: string
+
   // Task related
   taskInterrupted: string
 
@@ -176,6 +182,12 @@ export const messagesEN: Messages = {
   securityConfirmationRequired: 'Please confirm whether to execute the command',
   securitySettingsLink: 'To modify security settings, go to: Settings -> AI Preferences -> Security Configuration',
   userRejectedCommand: '🚫 The user rejected the dangerous command: {{command}}',
+
+  // Security error descriptions
+  securityErrorCommandTooLong: 'The command length exceeds the limit ({{limit}} characters)',
+  securityErrorNotInWhitelist: 'The command is not in the whitelist (strict mode)',
+  securityErrorDangerousOperation: 'The command contains dangerous operations: {{command}}',
+  securityErrorBlacklistPattern: 'Command matching blacklist pattern: {{pattern}}',
 
   // Task related
   taskInterrupted: 'The task was interrupted {{ago}}. {{details}}',
@@ -299,6 +311,12 @@ export const messagesCN: Messages = {
   securityConfirmationRequired: '请确认是否执行该命令',
   securitySettingsLink: '要修改安全设置，请前往: 设置 -> AI偏好 -> 安全配置',
   userRejectedCommand: '🚫 用户拒绝了危险命令: {{command}}',
+
+  // 安全错误描述
+  securityErrorCommandTooLong: '命令长度超过限制 ({{limit}} 字符)',
+  securityErrorNotInWhitelist: '该命令不在白名单中（严格模式）',
+  securityErrorDangerousOperation: '该命令包含危险操作: {{command}}',
+  securityErrorBlacklistPattern: '命令匹配黑名单模式: {{pattern}}',
 
   // 任务相关
   taskInterrupted: '任务在{{ago}}被中断。{{details}}',
