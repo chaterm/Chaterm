@@ -107,7 +107,7 @@
   </div>
 </template>
 <script setup lang="ts">
-import { computed, ref, defineExpose, ComponentPublicInstance, PropType, watch, nextTick, onMounted, onUnmounted } from 'vue'
+import { computed, ref, ComponentPublicInstance, PropType, watch, nextTick, onMounted, onUnmounted } from 'vue'
 import draggable from 'vuedraggable'
 import Dashboard from '@views/components/Term/dashboard.vue'
 import UserInfo from '@views/components/LeftTab/userInfo.vue'

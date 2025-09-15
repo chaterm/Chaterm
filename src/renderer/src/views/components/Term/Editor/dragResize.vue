@@ -12,7 +12,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, onUnmounted, defineEmits, shallowRef, watch, CSSProperties } from 'vue'
+import { ref, reactive, computed, onUnmounted, shallowRef, watch, CSSProperties } from 'vue'
 
 interface Props {
   width?: number

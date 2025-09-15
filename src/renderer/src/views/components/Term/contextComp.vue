@@ -90,7 +90,7 @@
 </template>
 
 <script setup lang="ts">
-import { defineProps, ref, onMounted } from 'vue'
+import { ref, onMounted } from 'vue'
 import { isGlobalInput, isShowQuickCommand } from '../Ssh/termInputManager'
 import {
   getCopyShortcut,
