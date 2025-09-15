@@ -1549,7 +1549,7 @@ code {
 
 .code-collapse .ant-collapse-content-box {
   padding: 2px 5px 2px 5px !important;
-  background-color: var(--bg-color-secondary) !important;
+  background-color: var(--bg-color) !important;
 }
 
 .code-collapse .ant-typography {

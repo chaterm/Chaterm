@@ -332,7 +332,7 @@ onMounted(async () => {
               selectionBackground: 'rgba(0, 0, 0, 0.3)'
             }
           : {
-              background: '#0a0a0a',
+              background: '#1e1e1e',
               foreground: '#e2e8f0',
               cursor: '#e2e8f0',
               cursorAccent: '#e2e8f0',
