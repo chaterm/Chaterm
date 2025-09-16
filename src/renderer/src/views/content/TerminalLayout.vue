@@ -1577,7 +1577,7 @@ defineExpose({
 
   .term_body {
     width: 100%;
-    height: calc(100% - 34px);
+    height: calc(100% - 29px);
     display: flex;
 
     .term_left_menu {
