@@ -78,10 +78,6 @@ Usage: <todo_write><todos>[{"id":"t1","content":"Check resources","status":"pend
 Description: Show the list and progress (only when the list has ≥3 items).
 Usage: <todo_read></todo_read>
 
-## todo_pause
-Description: Pause todos (optional <reason>).
-Usage: <todo_pause><reason>Switching to handle urgent issue</reason></todo_pause>
-
 ## Todo Management Principles
 
 - Use todo_write ONLY when there are ≥3 concrete steps; for 1–2 steps, act directly and report.
@@ -319,10 +315,6 @@ export const SYSTEM_PROMPT_CN = `你是 Chaterm，一位拥有 20 年经验的�
 ## todo_read
 描述：查看清单与进度（仅当清单≥3 项时展示）。
 用法：<todo_read></todo_read>
-
-## todo_pause
-描述：暂停待办（可选 <reason>）。
-用法：<todo_pause><reason>切换处理紧急问题</reason></todo_pause>
 
 ## TODO 规则
 - 仅当包含 ≥3 个明确步骤时使用 todo_write；1–2 步直接执行并报告。

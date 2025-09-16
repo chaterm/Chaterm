@@ -17,8 +17,7 @@ export const toolUseNames = [
   'condense',
   'report_bug',
   'todo_write',
-  'todo_read',
-  'todo_pause'
+  'todo_read'
 ] as const
 
 // Converts array of tool call names into a union type ("execute_command" | "read_file" | ...)
@@ -53,8 +52,7 @@ export const toolParamNames = [
   'steps_to_reproduce',
   'api_request_output',
   'additional_context',
-  'todos',
-  'reason'
+  'todos'
 ] as const
 
 export type ToolParamName = (typeof toolParamNames)[number]

@@ -31,7 +31,6 @@ import { ChatermAskResponse } from '@shared/WebviewMessage'
 import { calculateApiCostAnthropic } from '@utils/cost'
 import { TodoWriteTool, TodoWriteParams } from './todo-tools/todo_write_tool'
 import { TodoReadTool, TodoReadParams } from './todo-tools/todo_read_tool'
-import { TodoPauseTool, TodoPauseParams } from './todo-tools/todo_pause_tool'
 import { Todo } from '../../shared/todo/TodoSchemas'
 import { SmartTaskDetector, TODO_SYSTEM_MESSAGES } from './todo-tools/todo-prompts'
 import { TodoToolCallTracker } from '../services/todo_tool_call_tracker'
@@ -2554,9 +2553,6 @@ export class Task {
       case 'todo_read':
         await this.handleTodoReadToolUse(block)
         break
-      case 'todo_pause':
-        await this.handleTodoPauseToolUse(block)
-        break
       default:
         console.error(`[Task] 未知的工具名称: ${block.name}`)
     }
@@ -2921,17 +2917,6 @@ SUDO_CHECK:${localSystemInfo.sudoCheck}`
       this.pushToolResult(this.getToolDescription(block), result)
     } catch (error) {
       this.pushToolResult(this.getToolDescription(block), `Todo 读取失败: ${error instanceof Error ? error.message : String(error)}`)
-    }
-  }
-
-  private async handleTodoPauseToolUse(block: ToolUse): Promise<void> {
-    try {
-      const reason = block.params.reason
-      const params: TodoPauseParams = { reason }
-      const result = await TodoPauseTool.execute(params, this.taskId)
-      this.pushToolResult(this.getToolDescription(block), result)
-    } catch (error) {
-      this.pushToolResult(this.getToolDescription(block), `Todo 暂停失败: ${error instanceof Error ? error.message : String(error)}`)
     }
   }
 
