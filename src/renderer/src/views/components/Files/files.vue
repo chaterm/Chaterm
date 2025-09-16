@@ -355,7 +355,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, h, onMounted, watch, defineProps, reactive } from 'vue'
+import { ref, h, onMounted, watch, reactive } from 'vue'
 import copyOrMoveModal from './moveModal.vue'
 import {
   CloseOutlined,
@@ -377,7 +377,6 @@ import {
   FileFilled
 } from '@ant-design/icons-vue'
 import { message, Modal } from 'ant-design-vue'
-import { defineEmits } from 'vue'
 import { ColumnsType } from 'ant-design-vue/es/table'
 import { useI18n } from 'vue-i18n'
 import { CheckboxValueType } from 'ant-design-vue/es/checkbox/interface'

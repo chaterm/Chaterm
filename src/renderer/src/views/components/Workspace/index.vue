@@ -102,6 +102,7 @@
                   <span
                     v-else-if="editingNode !== dataRef.key && commentNode !== dataRef.key"
                     class="title-with-icon"
+                    :class="{ selected: selectedKeys.includes(dataRef.key) }"
                     @click="handleClick(dataRef)"
                     @dblclick="handleDblClick(dataRef)"
                     @contextmenu="handleContextMenu($event, dataRef)"
@@ -172,6 +173,7 @@
                   <span
                     v-else-if="editingNode !== dataRef.key && commentNode !== dataRef.key"
                     class="title-with-icon"
+                    :class="{ selected: selectedKeys.includes(dataRef.key) }"
                     @click="handleClick(dataRef)"
                     @dblclick="handleDblClick(dataRef)"
                     @contextmenu="handleContextMenu($event, dataRef)"
@@ -1027,6 +1029,16 @@ const handleContextMenu = (event: MouseEvent, dataRef: any) => {
     return
   }
 
+  // Select the host when right-clicking to show selection state
+  if (isSecondLevel(dataRef)) {
+    selectedKeys.value = [dataRef.key]
+    // Update machines value to reflect the selection
+    machines.value = {
+      value: dataRef.key,
+      label: dataRef.title
+    }
+  }
+
   contextMenuData.value = dataRef
   contextMenuStyle.value = {
     position: 'fixed',
@@ -1246,6 +1258,14 @@ onUnmounted(() => {
     background-color: transparent;
   }
 
+  // Enhanced selection state for right-clicked hosts
+  .ant-tree-node-selected .title-with-icon {
+    background-color: rgba(24, 144, 255, 0.15) !important;
+    border: 1px solid #1890ff !important;
+    border-radius: 4px !important;
+    box-shadow: 0 0 0 2px rgba(24, 144, 255, 0.2) !important;
+  }
+
   .ant-tree-treenode {
     width: 100%;
     &:hover {
@@ -1278,10 +1298,19 @@ onUnmounted(() => {
     cursor: pointer;
     border-radius: 4px;
     padding: 2px 4px;
-    transition: background-color 0.2s ease;
+    transition: all 0.2s ease;
+    border: 1px solid transparent;
 
     &:hover {
       background-color: transparent;
+    }
+
+    // Selection state for right-clicked hosts
+    &.selected {
+      background-color: rgba(24, 144, 255, 0.15) !important;
+      border: 1px solid #1890ff !important;
+      box-shadow: 0 0 0 2px rgba(24, 144, 255, 0.2) !important;
+      color: #1890ff !important;
     }
 
     .computer-icon {

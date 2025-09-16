@@ -8,7 +8,7 @@ import { getUserConfig } from '../agent/core/storage/state'
 // Import language translations
 const translations = {
   'zh-CN': {
-    localhost: '本地主机'
+    localhost: '本地连接'
   },
   'en-US': {
     localhost: 'Localhost'
@@ -158,9 +158,9 @@ const getAvailableShells = async (): Promise<LocalShellsResult> => {
         ]
       : platform === 'darwin'
         ? [
-            { name: 'Zsh Shell (Default)', path: '/bin/zsh' },
-            { name: 'Bash Shell', path: '/bin/bash' },
-            { name: 'Fish Shell', path: '/usr/local/bin/fish' }
+            { name: 'Zsh Shell (Default)', path: '/bin/zsh' }
+            // { name: 'Bash Shell', path: '/bin/bash' },
+            // { name: 'Fish Shell', path: '/usr/local/bin/fish' }
           ]
         : [
             { name: 'Bash Shell (Default)', path: '/bin/bash' },

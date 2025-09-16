@@ -81,7 +81,7 @@ import EditorCode from './monacoEditor.vue'
 import DraggableResizable from './dragResize.vue'
 import { FullscreenOutlined, FullscreenExitOutlined, CloseOutlined, SaveOutlined } from '@ant-design/icons-vue'
 import { useI18n } from 'vue-i18n'
-import { PropType, defineEmits, shallowRef, onBeforeUnmount, watch, computed } from 'vue'
+import { PropType, shallowRef, onBeforeUnmount, watch, computed } from 'vue'
 import { getMonacoTheme } from '@/utils/themeUtils'
 
 export interface editorData {

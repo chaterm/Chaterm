@@ -61,8 +61,6 @@
 </template>
 
 <script setup lang="ts">
-import { defineProps } from 'vue'
-
 interface CommandSuggestion {
   command: string
   source: 'base' | 'history'

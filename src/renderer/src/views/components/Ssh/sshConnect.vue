@@ -90,7 +90,6 @@ import { SearchAddon } from 'xterm-addon-search'
 import { WebglAddon } from 'xterm-addon-webgl'
 import { IDisposable } from 'xterm'
 import 'xterm/css/xterm.css'
-import { defineEmits } from 'vue'
 import { editorData } from '@/views/components/Term/Editor/dragEditor.vue'
 import { LanguageMap } from '@/views/components/Term/Editor/languageMap'
 import EditorCode from '@/views/components/Term/Editor/dragEditor.vue'
@@ -333,10 +332,10 @@ onMounted(async () => {
               selectionBackground: 'rgba(0, 0, 0, 0.3)'
             }
           : {
-              background: '#0a0a0a',
-              foreground: '#e2e8f0',
-              cursor: '#e2e8f0',
-              cursorAccent: '#e2e8f0',
+              background: '#141414',
+              foreground: '#e0e0e0',
+              cursor: '#e0e0e0',
+              cursorAccent: '#e0e0e0',
               selectionBackground: 'rgba(255, 255, 255, 0.3)'
             }
     })
@@ -560,10 +559,10 @@ onMounted(async () => {
               selectionBackground: 'rgba(0, 0, 0, 0.3)'
             }
           : {
-              background: 'var(--bg-color-secondary)',
-              foreground: '#f0f0f0',
-              cursor: '#f0f0f0',
-              cursorAccent: '#f0f0f0',
+              background: '#141414',
+              foreground: '#e0e0e0',
+              cursor: '#e0e0e0',
+              cursorAccent: '#e0e0e0',
               selectionBackground: 'rgba(255, 255, 255, 0.3)'
             }
     }
