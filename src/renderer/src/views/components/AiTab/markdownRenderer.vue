@@ -38,6 +38,16 @@
                   class="copy-icon"
                 />
               </a-button>
+              <a-button
+                v-if="totalLines >= 10 && canRollback && rollbackCommand"
+                class="rollback-button"
+                type="text"
+                size="small"
+                :title="t('ai.rollback')"
+                @click.stop="handleRollback"
+              >
+                <RollbackOutlined class="rollback-icon" />
+              </a-button>
             </a-space>
           </template>
           <div
@@ -57,6 +67,16 @@
                 alt="copy"
                 class="copy-icon"
               />
+            </a-button>
+            <a-button
+              v-if="totalLines < 10 && canRollback && rollbackCommand"
+              class="rollback-button"
+              type="text"
+              size="small"
+              :title="t('ai.rollback')"
+              @click="handleRollback"
+            >
+              <RollbackOutlined class="rollback-icon" />
             </a-button>
           </div>
         </a-collapse-panel>
@@ -230,6 +250,16 @@
                         class="copy-icon"
                       />
                     </a-button>
+                    <a-button
+                      v-if="part.block.lines >= 10 && canRollback && rollbackCommand"
+                      class="rollback-button"
+                      type="text"
+                      size="small"
+                      :title="t('ai.rollback')"
+                      @click.stop="handleRollback"
+                    >
+                      <RollbackOutlined class="rollback-icon" />
+                    </a-button>
                   </a-space>
                 </template>
                 <div
@@ -254,6 +284,16 @@
                       alt="copy"
                       class="copy-icon"
                     />
+                  </a-button>
+                  <a-button
+                    v-if="part.block.lines < 10 && canRollback && rollbackCommand"
+                    class="rollback-button"
+                    type="text"
+                    size="small"
+                    :title="t('ai.rollback')"
+                    @click="handleRollback"
+                  >
+                    <RollbackOutlined class="rollback-icon" />
                   </a-button>
                 </div>
               </a-collapse-panel>
@@ -283,7 +323,7 @@ import 'monaco-editor/esm/vs/basic-languages/ruby/ruby.contribution'
 import 'monaco-editor/esm/vs/basic-languages/php/php.contribution'
 import 'monaco-editor/esm/vs/basic-languages/rust/rust.contribution'
 import 'monaco-editor/esm/vs/basic-languages/sql/sql.contribution'
-import { LoadingOutlined, CaretDownOutlined, CaretRightOutlined } from '@ant-design/icons-vue'
+import { LoadingOutlined, CaretDownOutlined, CaretRightOutlined, RollbackOutlined } from '@ant-design/icons-vue'
 import thinkingSvg from '@/assets/icons/thinking.svg'
 import copySvg from '@/assets/icons/copy.svg'
 import { message } from 'ant-design-vue'
@@ -411,6 +451,9 @@ const props = defineProps<{
   ask?: string
   say?: string
   partial?: boolean
+  executedCommand?: string
+  rollbackCommand?: string
+  canRollback?: boolean
 }>()
 
 const codeBlocks = ref<Array<{ content: string; activeKey: string[]; lines: number }>>([])
@@ -1243,6 +1286,13 @@ const copyBlockContent = (blockIndex: number) => {
   }
 }
 
+// Rollback functionality
+const handleRollback = () => {
+  if (props.rollbackCommand) {
+    emit('rollback-command', props.rollbackCommand)
+  }
+}
+
 const copyCommandOutput = () => {
   const outputText = contentLines.value
     .map((line) => {
@@ -1269,7 +1319,7 @@ const toggleCommandOutput = () => {
   }
 }
 
-const emit = defineEmits(['collapse-change'])
+const emit = defineEmits(['collapse-change', 'rollback-command'])
 
 // 暴露方法给父组件调用
 const setThinkingLoading = (loading: boolean) => {
@@ -1591,6 +1641,16 @@ code {
   line-height: 24px !important;
 }
 
+.code-collapse .ant-collapse-header .rollback-button {
+  position: absolute;
+  right: 60px;
+  top: 40%;
+  transform: translateY(-50%);
+  z-index: 1;
+  height: 24px !important;
+  line-height: 24px !important;
+}
+
 .monaco-container {
   margin: 4px 0;
   border-radius: 6px;
@@ -1605,10 +1665,15 @@ code {
   right: 30px;
 }
 
+.monaco-container.collapsed .rollback-button {
+  top: -30px;
+  right: 60px;
+}
+
 .copy-button {
   color: var(--text-color);
   opacity: 0.6;
-  transition: opacity 0.3s;
+  transition: all 0.3s;
 }
 
 .monaco-container .copy-button {
@@ -1618,9 +1683,32 @@ code {
   z-index: 100;
 }
 
+.monaco-container .rollback-button {
+  position: absolute;
+  top: -1px;
+  right: 20px;
+  z-index: 100;
+}
+
 .copy-button:hover {
   opacity: 1;
   background: rgba(255, 255, 255, 0.1);
+}
+
+.rollback-button {
+  color: var(--text-color);
+  opacity: 0.6;
+  transition: all 0.3s;
+  margin-left: 4px;
+}
+
+.rollback-button:hover {
+  opacity: 1;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.rollback-icon {
+  font-size: 12px;
 }
 
 .copy-button-small {

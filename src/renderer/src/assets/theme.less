@@ -965,4 +965,22 @@ body {
     border: 1px solid var(--border-color) !important;
     box-shadow: 0 25px 50px rgba(0, 0, 0, 0.5) !important;
   }
+
+  // Copy and rollback button hover effects for dark theme
+  .copy-button:hover,
+  .rollback-button:hover {
+    color: #ffffff !important;
+    background: rgba(255, 255, 255, 0.2) !important;
+    box-shadow: 0 0 8px rgba(255, 255, 255, 0.3);
+  }
+}
+
+// Light theme specific enhancements
+.theme-light {
+  // Copy and rollback button hover effects for light theme
+  .copy-button:hover,
+  .rollback-button:hover {
+    color: #1890ff;
+    background: rgba(24, 144, 255, 0.1);
+  }
 }
