@@ -22,6 +22,10 @@ export interface ChatMessage {
   // Todo 相关属性
   hasTodoUpdate?: boolean
   relatedTodos?: any[]
+  // Rollback 相关属性
+  executedCommand?: string
+  rollbackCommand?: string
+  canRollback?: boolean
 }
 
 export interface AssetInfo {
