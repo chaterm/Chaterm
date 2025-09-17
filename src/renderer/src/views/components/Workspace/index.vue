@@ -230,6 +230,7 @@
                         type="primary"
                         size="small"
                         ghost
+                        class="refresh-button"
                         :loading="refreshingNode === dataRef.key"
                         @click="handleRefresh(dataRef)"
                       >
@@ -1350,6 +1351,31 @@ onUnmounted(() => {
 
   .refresh-icon {
     margin-right: 3px;
+  }
+
+  .refresh-button {
+    background-color: var(--bg-color) !important;
+    border-color: var(--bg-color) !important;
+    color: var(--text-color) !important;
+    transition: all 0.3s ease !important;
+
+    &:hover {
+      background-color: #1890ff !important;
+      border-color: #1890ff !important;
+      color: #ffffff !important;
+    }
+
+    &:focus {
+      background-color: #1890ff !important;
+      border-color: #1890ff !important;
+      color: #ffffff !important;
+    }
+
+    &:active {
+      background-color: #096dd9 !important;
+      border-color: #096dd9 !important;
+      color: #ffffff !important;
+    }
   }
 
   .comment-text {
