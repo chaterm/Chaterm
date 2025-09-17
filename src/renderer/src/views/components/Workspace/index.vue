@@ -1378,8 +1378,8 @@ onUnmounted(() => {
   .refresh-button {
     background-color: var(--bg-color) !important;
     border-color: var(--bg-color) !important;
-    color: var(--text-color) !important;
-    transition: all 0.3s ease !important;
+    color: var(--text-color-tertiary) !important;
+    transition: all 0.2s ease !important;
 
     &:hover {
       background-color: #1890ff !important;
