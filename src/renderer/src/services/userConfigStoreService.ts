@@ -39,6 +39,7 @@ export interface UserConfig {
     username?: string
     password?: string
   }>
+  workspaceExpandedKeys?: string[]
 }
 
 export class UserConfigStoreService {
@@ -103,7 +104,8 @@ export class UserConfigStoreService {
       shortcuts: defaultShortcuts,
       sshAgentsStatus: 2,
       sshAgentsMap: '[]',
-      sshProxyConfigs: []
+      sshProxyConfigs: [],
+      workspaceExpandedKeys: []
     }
   }
 
