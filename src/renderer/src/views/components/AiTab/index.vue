@@ -3565,10 +3565,10 @@ defineExpose({
     height: 18px;
     width: 18px;
     padding: 0;
-    border-radius: 50%;
+    border-radius: 4px;
     font-size: 10px;
     background-color: transparent;
-    border: 1px solid var(--border-color);
+    border: none;
     color: var(--text-color);
     transition: all 0.2s ease;
     display: flex;
