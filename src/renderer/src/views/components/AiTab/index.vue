@@ -1368,7 +1368,7 @@ const handleHistoryClick = async () => {
   }
 }
 // Generate rollback command based on the executed command
-const generateRollbackCommand = (command: string): string => {
+const generateRollbackCommand = (command: string): { command: string; isWarning: boolean } => {
   const trimmedCommand = command.trim()
 
   // Common rollback patterns
@@ -1401,12 +1401,15 @@ const generateRollbackCommand = (command: string): string => {
   for (const { pattern, rollback } of rollbackPatterns) {
     const match = trimmedCommand.match(pattern)
     if (match) {
-      return rollback(match)
+      return { command: rollback(match), isWarning: false }
     }
   }
 
   // Default rollback - show warning
-  return `# Warning: No specific rollback command available for: ${trimmedCommand}\n# Please manually undo the changes`
+  return {
+    command: `# Warning: No specific rollback command available for: ${trimmedCommand}\n# Please manually undo the changes`,
+    isWarning: true
+  }
 }
 
 const handleMessageOperation = async (operation: 'copy' | 'apply') => {
@@ -1432,8 +1435,10 @@ const handleMessageOperation = async (operation: 'copy' | 'apply') => {
   // Record executed command and generate rollback command for command execution
   if (operation === 'apply' && content) {
     lastMessage.executedCommand = content
-    lastMessage.rollbackCommand = generateRollbackCommand(content)
-    lastMessage.canRollback = true
+    const rollbackResult = generateRollbackCommand(content)
+    lastMessage.rollbackCommand = rollbackResult.command
+    // Only show rollback button if it's not a warning message
+    lastMessage.canRollback = !rollbackResult.isWarning
   }
 
   // In the command mode, check whether the current window matches the target server.
