@@ -655,6 +655,7 @@
 <script setup lang="ts">
 import { ref, reactive, onMounted, defineAsyncComponent, onUnmounted, watch, computed, nextTick, onBeforeUnmount } from 'vue'
 import { useRouter } from 'vue-router'
+
 const TodoInlineDisplay = defineAsyncComponent(() => import('./components/todo/TodoInlineDisplay.vue'))
 import { useTodo } from './composables/useTodo'
 import {
@@ -791,21 +792,6 @@ const currentChatId = ref<string | null>(null)
 const authTokenInCookie = ref<string | null>(null)
 
 const chatHistory = reactive<ChatMessage[]>([])
-
-// 监听消息变化，检查todo显示逻辑
-watch(
-  chatHistory,
-  (newHistory) => {
-    console.log('AiTab - chatHistory changed, length:', newHistory.length)
-    if (newHistory.length > 0) {
-      const lastMessage = newHistory[newHistory.length - 1]
-      console.log('AiTab - last message:', lastMessage)
-      console.log('AiTab - shouldShowTodoAfterMessage for last message:', shouldShowTodoAfterMessage(lastMessage))
-      console.log('AiTab - getTodosForMessage for last message:', getTodosForMessage(lastMessage))
-    }
-  },
-  { deep: true }
-)
 
 // 过滤SSH连接消息：Agent回复后隐藏sshInfo消息
 const filteredChatHistory = computed(() => {
@@ -1168,6 +1154,7 @@ const sendMessage = async (sendType: string) => {
   responseLoading.value = true
   showRetryButton.value = false
   showNewTaskButton.value = false
+  resetScrollFlags()
   return
 }
 
@@ -1490,6 +1477,7 @@ const handleRejectContent = async () => {
     buttonsDisabled.value = true
     console.log('Main process response:', response)
     responseLoading.value = true
+    resetScrollFlags()
   } catch (error) {
     console.error('Failed to send message to main process:', error)
   }
@@ -1601,6 +1589,7 @@ const handleApproveCommand = async () => {
     buttonsDisabled.value = true
     console.log('Main process response:', response)
     responseLoading.value = true
+    resetScrollFlags()
   } catch (error) {
     console.error('Failed to send message to main process:', error)
   }
@@ -1629,6 +1618,7 @@ const handleCancel = async () => {
   showSendButton.value = true
   lastChatMessageId.value = ''
   isExecutingCommand.value = false
+  resetScrollFlags()
 }
 
 const handleResume = async () => {
@@ -1646,6 +1636,7 @@ const handleResume = async () => {
   console.log('Main process response:', response)
   resumeDisabled.value = true
   responseLoading.value = true
+  resetScrollFlags()
 }
 
 const handleRetry = async () => {
@@ -1913,6 +1904,9 @@ onMounted(async () => {
         showNewTaskButton.value = true
         responseLoading.value = false
         showCancelButton.value = false
+        nextTick(() => {
+          scrollToBottom(true)
+        })
         return
       } else {
         showNewTaskButton.value = false
@@ -2034,6 +2028,7 @@ const handleModelApiReqFailed = (message: any) => {
   // 在添加新消息前，清理partial command消息
   cleanupPartialCommandMessages()
   chatHistory.push(newAssistantMessage)
+  // 让 chatHistory watch 处理滚动，避免强制打断用户操作
   console.log('showRetryButton.value', showRetryButton.value)
   showRetryButton.value = true
   responseLoading.value = false
@@ -2078,6 +2073,18 @@ onUnmounted(() => {
     removeListener = null
   }
   document.removeEventListener('keydown', handleGlobalEscKey)
+
+  // Clean up scroll listeners and timeouts
+  if (cleanupScrollListeners) {
+    cleanupScrollListeners()
+    cleanupScrollListeners = null
+  }
+  if (userScrollTimeout.value) {
+    clearTimeout(userScrollTimeout.value)
+    userScrollTimeout.value = null
+  }
+  // Stop auto scroll check
+  stopAutoScrollCheck()
   document.removeEventListener('click', handleGlobalClick)
   eventBus.off('apiProviderChanged')
   eventBus.off('activeTabChanged')
@@ -2200,7 +2207,28 @@ const sendMessageToMain = async (userContent: string, sendType: string) => {
 watch(
   chatHistory,
   () => {
-    scrollToBottom()
+    // Setup scroll listener when chat history changes and container is available
+    nextTick(() => {
+      if (chatContainer.value && !chatContainer.value.hasAttribute('data-listeners-setup')) {
+        // Clean up existing listeners if any
+        if (cleanupScrollListeners) {
+          cleanupScrollListeners()
+        }
+        // Setup new listeners and store cleanup function
+        cleanupScrollListeners = setupScrollListener()
+        chatContainer.value.setAttribute('data-listeners-setup', 'true')
+        // Start periodic auto scroll check
+        startAutoScrollCheck()
+      }
+    })
+
+    // Only scroll to bottom if not handling collapse operations
+    if (!isHandlingCollapse.value) {
+      // Direct scroll to bottom for new messages
+      scrollToBottom()
+    } else {
+      console.log('Skipping scrollToBottom in chatHistory watch - collapse operation in progress')
+    }
   },
   { deep: true }
 )
@@ -2650,9 +2678,344 @@ const chatContainer = ref<HTMLElement | null>(null)
 const chatResponse = ref<HTMLElement | null>(null)
 // Add a flag to track if collapse operation is being processed
 const isHandlingCollapse = ref(false)
+// Add flags to track user scroll behavior
+const isUserScrolling = ref(false)
+const userScrollTimeout = ref<NodeJS.Timeout | null>(null)
+const lastScrollTop = ref(0)
+const lastScrollHeight = ref(0)
+const isAutoScrollEnabled = ref(true)
+const isContentUpdating = ref(false)
+const lastUserScrollTime = ref(0)
+const autoScrollInterval = ref<NodeJS.Timeout | null>(null)
+const lastScrollToBottomTime = ref(0)
+let cleanupScrollListeners: (() => void) | null = null
+
+// Watch chatContainer changes to setup scroll listeners
+watch(
+  chatContainer,
+  (newContainer) => {
+    if (newContainer) {
+      nextTick(() => {
+        if (!newContainer.hasAttribute('data-listeners-setup')) {
+          // Clean up existing listeners if any
+          if (cleanupScrollListeners) {
+            cleanupScrollListeners()
+          }
+          // Setup new listeners and store cleanup function
+          cleanupScrollListeners = setupScrollListener()
+          newContainer.setAttribute('data-listeners-setup', 'true')
+        }
+      })
+    }
+  },
+  { immediate: true }
+)
+
+// Check if the last message is visible in the viewport bottom
+const checkIfLastMessageVisible = () => {
+  if (!chatContainer.value) return false
+
+  // Find the last message element
+  const messages = Array.from(chatContainer.value.querySelectorAll('.message.assistant, .message.user'))
+  if (messages.length === 0) return false
+
+  const lastMessage = messages[messages.length - 1] as HTMLElement
+  const lastMessageRect = lastMessage.getBoundingClientRect()
+  const containerRect = chatContainer.value.getBoundingClientRect()
+
+  // The key insight: "bottom" should be defined by the last message's actual visible content,
+  // not the scroll container's physical bottom
+
+  // Check if the last message's bottom is visible in the viewport
+  // Use a small buffer (30px) to account for slight scrolling variations
+  const isLastMessageBottomVisible = lastMessageRect.bottom <= containerRect.bottom + 30
+
+  // Check if the last message is at least partially in the viewport
+  const isLastMessageInViewport = lastMessageRect.bottom > containerRect.top && lastMessageRect.top < containerRect.bottom
+
+  // The user is considered "at bottom" if:
+  // 1. The last message is in viewport AND its bottom is visible
+  // 2. OR if the last message's bottom is very close to being visible (within 50px)
+  const isAtLastMessageBottom = isLastMessageInViewport && (isLastMessageBottomVisible || lastMessageRect.bottom - containerRect.bottom <= 50)
+
+  // console.log('checkIfLastMessageVisible:', {
+  //   isLastMessageBottomVisible,
+  //   isLastMessageInViewport,
+  //   isAtLastMessageBottom,
+  //   lastMessageBottom: lastMessageRect.bottom,
+  //   containerBottom: containerRect.bottom,
+  //   distanceFromBottom: lastMessageRect.bottom - containerRect.bottom
+  // })
+
+  return isAtLastMessageBottom
+}
+
+// Add user scroll detection function
+const handleUserScroll = () => {
+  if (!chatContainer.value) return
+
+  // Skip scroll detection during collapse operations
+  // Collapse operations trigger programmatic scrolling, not user scrolling
+  if (isHandlingCollapse.value) {
+    console.log('Skipping scroll detection - collapse operation in progress')
+    return
+  }
+
+  const currentScrollTop = chatContainer.value.scrollTop
+  const currentTime = Date.now()
+
+  // Simplified detection: only disable auto scroll if user scrolls significantly up and away from bottom
+  const timeSinceLastScroll = currentTime - lastUserScrollTime.value
+  const scrollDirection = currentScrollTop - lastScrollTop.value
+
+  // Check if user is near bottom or last message is visible
+  const isNearBottom = checkIfLastMessageVisible()
+
+  // console.log('handleUserScroll:', {
+  //   scrollDirection,
+  //   timeSinceLastScroll,
+  //   isNearBottom,
+  //   isUserScrolling: isUserScrolling.value,
+  //   isAutoScrollEnabled: isAutoScrollEnabled.value
+  // })
+
+  // Only disable auto scroll if:
+  // 1. User scrolls up significantly (more than 150px to avoid DOM adjustment noise)
+  // 2. It's been more than 300ms since last scroll (avoid rapid adjustments)
+  // 3. User is not near the bottom
+  // 4. Auto scroll is currently enabled (don't change state if already disabled)
+  if (scrollDirection < -150 && timeSinceLastScroll > 300 && !isNearBottom && isAutoScrollEnabled.value) {
+    console.log('Disabling auto scroll - user scrolled up away from bottom', {
+      scrollDirection,
+      timeSinceLastScroll,
+      isNearBottom,
+      currentScrollTop,
+      lastScrollTop: lastScrollTop.value,
+      scrollChange: currentScrollTop - lastScrollTop.value
+    })
+    isUserScrolling.value = true
+    isAutoScrollEnabled.value = false
+    lastUserScrollTime.value = currentTime
+  }
+
+  // Immediately re-enable auto scroll if user scrolls to bottom area
+  if (isNearBottom) {
+    if (isUserScrolling.value || !isAutoScrollEnabled.value) {
+      console.log('Re-enabling auto scroll - user is near bottom', {
+        wasUserScrolling: isUserScrolling.value,
+        wasAutoScrollEnabled: isAutoScrollEnabled.value
+      })
+      isUserScrolling.value = false
+      isAutoScrollEnabled.value = true
+      // Update last scroll time to prevent immediate re-triggering
+      lastUserScrollTime.value = currentTime
+    }
+  }
+
+  lastScrollTop.value = currentScrollTop
+  lastScrollHeight.value = chatContainer.value.scrollHeight
+
+  // Clear existing timeout
+  if (userScrollTimeout.value) {
+    clearTimeout(userScrollTimeout.value)
+  }
+
+  // Set timeout to reset user scrolling flag after 1.5 seconds of inactivity (reduced from 2s)
+  userScrollTimeout.value = setTimeout(() => {
+    // console.log('Scroll timeout - checking if should re-enable auto scroll')
+    // Only re-enable auto scroll if user is near bottom
+    if (chatContainer.value) {
+      const isLastMessageVisible = checkIfLastMessageVisible()
+      if (isLastMessageVisible) {
+        console.log('Re-enabling auto scroll after timeout - user is near bottom', {
+          wasUserScrolling: isUserScrolling.value,
+          wasAutoScrollEnabled: isAutoScrollEnabled.value
+        })
+        isUserScrolling.value = false
+        isAutoScrollEnabled.value = true
+      }
+    }
+  }, 1500) // Reduced timeout for faster response
+}
+
+// Add scroll event listener setup - returns cleanup function
+const setupScrollListener = () => {
+  if (!chatContainer.value) return () => {}
+
+  const element = chatContainer.value
+
+  // Create event handler functions
+  const handleWheel = () => {
+    // Skip during collapse operations
+    if (isHandlingCollapse.value) {
+      console.log('Skipping wheel event - collapse operation in progress')
+      return
+    }
+    isUserScrolling.value = true
+    isAutoScrollEnabled.value = false
+    handleUserScroll()
+  }
+
+  const handleTouchStart = () => {
+    // Skip during collapse operations
+    if (isHandlingCollapse.value) {
+      console.log('Skipping touchstart event - collapse operation in progress')
+      return
+    }
+    isUserScrolling.value = true
+    isAutoScrollEnabled.value = false
+  }
+
+  const handleTouchMove = () => {
+    // Skip during collapse operations
+    if (isHandlingCollapse.value) {
+      console.log('Skipping touchmove event - collapse operation in progress')
+      return
+    }
+    isUserScrolling.value = true
+    isAutoScrollEnabled.value = false
+  }
+
+  const handleKeyDown = (e: KeyboardEvent) => {
+    const scrollKeys = ['ArrowUp', 'ArrowDown', 'PageUp', 'PageDown', 'Home', 'End', ' ']
+    if (scrollKeys.includes(e.key)) {
+      // Skip during collapse operations
+      if (isHandlingCollapse.value) {
+        console.log('Skipping keydown event - collapse operation in progress')
+        return
+      }
+      isUserScrolling.value = true
+      isAutoScrollEnabled.value = false
+      setTimeout(() => handleUserScroll(), 10)
+    }
+  }
+
+  const handleMouseDown = () => {
+    // Skip during collapse operations
+    if (isHandlingCollapse.value) {
+      console.log('Skipping mousedown event - collapse operation in progress')
+      return
+    }
+    isUserScrolling.value = true
+    isAutoScrollEnabled.value = false
+  }
+
+  // Add all event listeners
+  element.addEventListener('scroll', handleUserScroll, { passive: true })
+  element.addEventListener('wheel', handleWheel, { passive: true })
+  element.addEventListener('touchstart', handleTouchStart, { passive: true })
+  element.addEventListener('touchmove', handleTouchMove, { passive: true })
+  element.addEventListener('keydown', handleKeyDown)
+  element.addEventListener('mousedown', handleMouseDown)
+
+  // Return cleanup function
+  return () => {
+    element.removeEventListener('scroll', handleUserScroll)
+    element.removeEventListener('wheel', handleWheel)
+    element.removeEventListener('touchstart', handleTouchStart)
+    element.removeEventListener('touchmove', handleTouchMove)
+    element.removeEventListener('keydown', handleKeyDown)
+    element.removeEventListener('mousedown', handleMouseDown)
+  }
+}
+
+// Handle content updates that might cause scroll position changes
+const handleContentUpdate = () => {
+  // Set content updating flag
+  isContentUpdating.value = true
+
+  // Always try to maintain scroll position if user is not actively scrolling
+  if (!isUserScrolling.value) {
+    // Check if we're near bottom before the update using improved detection
+    if (chatContainer.value) {
+      const isNearBottom = checkIfLastMessageVisible()
+
+      if (isNearBottom) {
+        // If we were near bottom, maintain auto scroll
+        // But skip if handling collapse operations
+        if (!isHandlingCollapse.value) {
+          nextTick(() => {
+            scrollToBottom()
+          })
+        } else {
+          console.log('Skipping scrollToBottom in handleContentUpdate - collapse operation in progress')
+        }
+      }
+    }
+  }
+
+  // Reset content updating flag after a short delay
+  setTimeout(() => {
+    isContentUpdating.value = false
+  }, 200)
+}
+
+// Reset scroll flags and enable auto scroll for user interactions
+const resetScrollFlags = () => {
+  isUserScrolling.value = false
+  isAutoScrollEnabled.value = true
+  // Don't reset lastUserScrollTime to avoid interfering with scroll detection
+
+  // Immediately scroll to bottom
+  nextTick(() => {
+    scrollToBottom(true)
+  })
+}
+
+// Periodic check to ensure auto scroll continues working
+const startAutoScrollCheck = () => {
+  if (autoScrollInterval.value) {
+    clearInterval(autoScrollInterval.value)
+  }
+
+  autoScrollInterval.value = setInterval(() => {
+    if (!chatContainer.value || isUserScrolling.value) return
+
+    const isLastMessageVisible = checkIfLastMessageVisible()
+
+    // If last message is visible and auto scroll is enabled, ensure we stay at bottom
+    if (isLastMessageVisible && isAutoScrollEnabled.value) {
+      const currentTime = Date.now()
+      // Only force scroll if it's been more than 500ms since last user scroll
+      if (currentTime - lastUserScrollTime.value > 500) {
+        scrollToBottom(true)
+      }
+    }
+  }, 1000) // Check every second
+}
+
+// Stop auto scroll check
+const stopAutoScrollCheck = () => {
+  if (autoScrollInterval.value) {
+    clearInterval(autoScrollInterval.value)
+    autoScrollInterval.value = null
+  }
+}
 
 // Add auto scroll function
-const scrollToBottom = () => {
+const scrollToBottom = (force = false) => {
+  const currentTime = Date.now()
+
+  console.log('scrollToBottom called with force:', force, 'flags:', {
+    isUserScrolling: isUserScrolling.value,
+    isAutoScrollEnabled: isAutoScrollEnabled.value,
+    timeSinceLastScroll: currentTime - lastScrollToBottomTime.value
+  })
+
+  // If user is actively scrolling and not forced, don't execute auto scroll
+  if (!force && (isUserScrolling.value || !isAutoScrollEnabled.value)) {
+    console.log('scrollToBottom: skipping due to user scroll or disabled auto scroll')
+    return
+  }
+
+  // Prevent rapid successive scroll calls (debounce with 50ms - shorter to allow normal updates)
+  if (!force && currentTime - lastScrollToBottomTime.value < 50) {
+    console.log('scrollToBottom: skipping due to recent scroll call')
+    return
+  }
+
+  lastScrollToBottomTime.value = currentTime
+
   // If collapse operation is being processed, don't execute scrolling
   if (isHandlingCollapse.value) {
     // console.log('Processing collapse operation, skip auto scroll')
@@ -2661,11 +3024,9 @@ const scrollToBottom = () => {
     return
   }
 
-  // Check if scrollbar is near bottom (threshold 20px)
-  if (chatContainer.value) {
-    const scrollPosition = chatContainer.value.scrollTop + chatContainer.value.clientHeight
-    const scrollHeight = chatContainer.value.scrollHeight
-    const isNearBottom = scrollHeight - scrollPosition < 20
+  // Check if user is near bottom using our improved detection (skip for forced scroll)
+  if (!force && chatContainer.value) {
+    const isNearBottom = checkIfLastMessageVisible()
 
     // If not near bottom, don't execute scrolling
     if (!isNearBottom) {
@@ -2675,96 +3036,281 @@ const scrollToBottom = () => {
     }
   }
 
-  // Record current container bottom position
-  const prevBottom = chatResponse.value?.getBoundingClientRect().bottom
-
+  // Instead of scrolling to physical bottom, scroll to make last message visible
   nextTick(() => {
-    if (chatResponse.value && chatContainer.value && prevBottom) {
-      // Get updated container bottom position
-      const currentBottom = chatResponse.value.getBoundingClientRect().bottom
-      // console.log('Container height changed, scroll to bottom directly', prevBottom, currentBottom)
-      // If container bottom position changed, scroll to bottom directly
-      if (prevBottom !== currentBottom && prevBottom > 0 && currentBottom > 0) {
-        chatContainer.value.scrollTop = chatContainer.value.scrollHeight
+    // Skip auto scroll if collapse operation is being handled (unless forced)
+    if (!force && isHandlingCollapse.value) {
+      return
+    }
+
+    if (chatContainer.value) {
+      // Find the last message and scroll to show it completely
+      const messages = Array.from(chatContainer.value.querySelectorAll('.message.assistant, .message.user'))
+      if (messages.length > 0) {
+        const lastMessage = messages[messages.length - 1] as HTMLElement
+        // Scroll to show the last message's bottom with some padding
+        console.log('scrollToBottom: executing scroll to last message', {
+          force,
+          scrollTop: chatContainer.value.scrollTop,
+          scrollHeight: chatContainer.value.scrollHeight,
+          messageCount: messages.length
+        })
+        lastMessage.scrollIntoView({ behavior: force ? 'auto' : 'smooth', block: 'end' })
+      } else {
+        // Fallback: scroll to container bottom if no messages found
+        console.log('scrollToBottom: executing fallback scroll to bottom', {
+          force,
+          scrollTop: chatContainer.value.scrollTop,
+          scrollHeight: chatContainer.value.scrollHeight
+        })
+        chatContainer.value.scrollTo({
+          top: chatContainer.value.scrollHeight,
+          behavior: force ? 'auto' : 'smooth'
+        })
       }
     }
   })
 }
 
-// Modify handleCollapseChange function
-const handleCollapseChange = (collapseType = '') => {
-  // console.log('3.handleCollapseChange begin', collapseType)
-  if (collapseType === 'code' || collapseType === 'thinking') {
-    // Set flag to indicate collapse operation is being processed
-    isHandlingCollapse.value = true
+// Check if the chat window is blank after collapse
+const isWindowBlankAfterCollapse = () => {
+  if (!chatContainer.value) return false
+
+  // Get visible messages in the viewport
+  const messages = Array.from(chatContainer.value.querySelectorAll('.message.assistant, .message.user'))
+  const containerRect = chatContainer.value.getBoundingClientRect()
+
+  // Check if any message is visible in the current viewport
+  let hasVisibleContent = false
+
+  for (const message of messages) {
+    const messageRect = message.getBoundingClientRect()
+
+    // Check if message overlaps with the container viewport
+    const isVisible = !(messageRect.bottom < containerRect.top || messageRect.top > containerRect.bottom)
+
+    if (isVisible) {
+      // Check if the message has actual visible content (not just collapsed headers)
+      const visibleText = message.textContent?.trim()
+      if (visibleText && visibleText.length > 0) {
+        hasVisibleContent = true
+        break
+      }
+    }
   }
 
-  // After collapse completes, directly call adjustScrollPosition to ensure content is visible
-  nextTick(() => {
-    if (chatContainer.value) {
-      // First check if there are Monaco editor collapse blocks
-      const codeCollapses = chatContainer.value.querySelectorAll('.code-collapse')
-      if (collapseType === 'code' && codeCollapses.length > 0) {
-        const lastCodeCollapse = codeCollapses[codeCollapses.length - 1]
-        const collapseHeader = lastCodeCollapse.querySelector('.ant-collapse-header')
-
-        // Check if expanded or collapsed state
-        const isCollapsed = lastCodeCollapse.querySelector('.ant-collapse-content-inactive')
-
-        if (collapseHeader) {
-          if (isCollapsed) {
-            // If collapsed state, scroll Monaco editor top to center of window with smooth scrolling
-            // console.log('4.handleCollapseChange collapseHeader isCollapsed center', isCollapsed)
-            collapseHeader.scrollIntoView({ behavior: 'smooth', block: 'start' })
-            return
-          } else {
-            // console.log('5.handleCollapseChange collapseHeader normal adjustScrollPosition', isCollapsed)
-            adjustScrollPosition()
-            return
-          }
-        }
-      }
-
-      // Check if there are thinking collapse blocks
-      const thinkingCollapses = chatContainer.value.querySelectorAll('.thinking-collapse')
-      if (collapseType === 'thinking' && thinkingCollapses.length > 0) {
-        const lastThinkingCollapse = thinkingCollapses[thinkingCollapses.length - 1]
-        const thinkingHeader = lastThinkingCollapse.querySelector('.ant-collapse-header')
-
-        // Check if expanded or collapsed state
-        const isCollapsed = lastThinkingCollapse.querySelector('.ant-collapse-content-inactive')
-
-        if (thinkingHeader) {
-          if (isCollapsed) {
-            // If collapsed state, scroll thinking top to center of window with smooth scrolling
-            // console.log('6.handleCollapseChange thinkingHeader isCollapsed center', isCollapsed)
-            thinkingHeader.scrollIntoView({ behavior: 'smooth', block: 'start' })
-            return
-          } else {
-            // console.log('7.handleCollapseChange thinkingHeader normal adjustScrollPosition', isCollapsed)
-            adjustScrollPosition()
-            return
-          }
-        }
-      }
-      // If no special collapse blocks exist, use normal scroll logic
-      adjustScrollPosition()
-      // console.log('8.handleCollapseChange normal adjustScrollPosition')
-    }
+  console.log('Blank window check:', {
+    hasVisibleContent,
+    totalMessages: messages.length,
+    containerHeight: containerRect.height,
+    scrollTop: chatContainer.value.scrollTop
   })
-  if (collapseType === 'code' || collapseType === 'thinking') {
-    // Delay reset flag to ensure processing is complete
+
+  return !hasVisibleContent
+}
+
+// Modify handleCollapseChange function
+const handleCollapseChange = (collapseType = '') => {
+  console.log('handleCollapseChange called with:', collapseType, 'isHandlingCollapse:', isHandlingCollapse.value)
+
+  // Set flag immediately to prevent any auto scroll interference
+  // Set the flag for any collapse operation to prevent interference
+  isHandlingCollapse.value = true
+  console.log('Set isHandlingCollapse to true for', collapseType)
+
+  // Skip collapse scroll handling if user is actively scrolling
+  // But still allow the collapse DOM changes to happen
+  if (isUserScrolling.value) {
+    console.log('Skipping collapse scroll handling - user is actively scrolling', {
+      isUserScrolling: isUserScrolling.value,
+      isAutoScrollEnabled: isAutoScrollEnabled.value,
+      collapseType: collapseType
+    })
+    // For auto-collapse operations, still proceed with DOM updates but skip scroll behavior
+    if (collapseType === 'code' || collapseType === 'thinking') {
+      console.log('Auto-collapse: allowing DOM updates but skipping scroll behavior')
+      // Reset the flag after a short delay to allow DOM updates, then check for blank window
+      setTimeout(() => {
+        console.log('Resetting isHandlingCollapse flag - auto-collapse DOM updates complete')
+        isHandlingCollapse.value = false
+
+        // Check if window is blank after collapse
+        nextTick(() => {
+          if (isWindowBlankAfterCollapse()) {
+            console.log('Window is blank after collapse, force scrolling to show content')
+            scrollToBottom(true)
+          }
+        })
+      }, 200)
+    } else {
+      // For manual operations, skip everything
+      setTimeout(() => {
+        console.log('Resetting isHandlingCollapse flag - skipped manual collapse operations')
+        isHandlingCollapse.value = false
+
+        // Also check for blank window after manual collapse
+        nextTick(() => {
+          if (isWindowBlankAfterCollapse()) {
+            console.log('Window is blank after manual collapse, force scrolling to show content')
+            scrollToBottom(true)
+          }
+        })
+      }, 100)
+    }
+    return
+  }
+
+  // Wait for DOM to update before checking collapse state
+  // Use a longer delay for auto-collapse scenarios
+  const delay = collapseType === 'code' || collapseType === 'thinking' ? 100 : 0
+
+  setTimeout(() => {
+    nextTick(() => {
+      if (chatContainer.value) {
+        // First check if there are Monaco editor collapse blocks
+        const codeCollapses = chatContainer.value.querySelectorAll('.code-collapse')
+        console.log('Found code collapses:', codeCollapses.length, 'collapseType:', collapseType)
+
+        if (collapseType === 'code' && codeCollapses.length > 0) {
+          const lastCodeCollapse = codeCollapses[codeCollapses.length - 1]
+          const collapseHeader = lastCodeCollapse.querySelector('.ant-collapse-header')
+
+          // Check if expanded or collapsed state
+          const isCollapsed = lastCodeCollapse.querySelector('.ant-collapse-content-inactive')
+
+          console.log('Code collapse details:', {
+            lastCodeCollapse,
+            collapseHeader,
+            isCollapsed: !!isCollapsed
+          })
+
+          if (collapseHeader) {
+            if (isCollapsed) {
+              // If collapsed state, scroll Monaco editor top to center of window with smooth scrolling
+              // But only if auto scroll is enabled (user is in auto-scroll mode)
+              if (isAutoScrollEnabled.value) {
+                console.log('4.handleCollapseChange collapseHeader isCollapsed center - executing scrollIntoView', {
+                  isUserScrolling: isUserScrolling.value,
+                  isAutoScrollEnabled: isAutoScrollEnabled.value
+                })
+                collapseHeader.scrollIntoView({ behavior: 'smooth', block: 'center' })
+
+                // Reset collapse handling flag after scroll animation completes
+                setTimeout(() => {
+                  console.log('Code collapse: resetting isHandlingCollapse flag')
+                  isHandlingCollapse.value = false
+                }, 500) // Wait for smooth scroll to complete
+              } else {
+                console.log('4.handleCollapseChange collapseHeader isCollapsed - skip scroll (auto scroll disabled)')
+                // Reset flag immediately since no scroll operation
+                setTimeout(() => {
+                  console.log('Code collapse: resetting isHandlingCollapse flag (no scroll)')
+                  isHandlingCollapse.value = false
+                }, 100)
+              }
+
+              // 早期返回，阻止后续的通用重置逻辑
+              return
+            } else {
+              console.log('5.handleCollapseChange collapseHeader normal adjustScrollPosition', isCollapsed)
+              // If user is not actively scrolling, maintain auto scroll after collapse
+              if (!isUserScrolling.value && isAutoScrollEnabled.value) {
+                adjustScrollPosition()
+              }
+              // 早期返回，阻止后续的通用重置逻辑
+              return
+            }
+          } else {
+            console.log('No collapse header found for code collapse')
+          }
+        }
+
+        // Check if there are thinking collapse blocks
+        const thinkingCollapses = chatContainer.value.querySelectorAll('.thinking-collapse')
+        console.log('Found thinking collapses:', thinkingCollapses.length, 'collapseType:', collapseType)
+
+        if (collapseType === 'thinking' && thinkingCollapses.length > 0) {
+          const lastThinkingCollapse = thinkingCollapses[thinkingCollapses.length - 1]
+          const thinkingHeader = lastThinkingCollapse.querySelector('.ant-collapse-header')
+
+          // Check if expanded or collapsed state
+          const isCollapsed = lastThinkingCollapse.querySelector('.ant-collapse-content-inactive')
+
+          console.log('Thinking collapse details:', {
+            lastThinkingCollapse,
+            thinkingHeader,
+            isCollapsed: !!isCollapsed
+          })
+
+          if (thinkingHeader) {
+            if (isCollapsed) {
+              // If collapsed state, scroll thinking top to center of window with smooth scrolling
+              // But only if auto scroll is enabled (user is in auto-scroll mode)
+              if (isAutoScrollEnabled.value) {
+                console.log('6.handleCollapseChange thinkingHeader isCollapsed center - executing scrollIntoView')
+                thinkingHeader.scrollIntoView({ behavior: 'smooth', block: 'start' })
+
+                // Reset collapse handling flag after scroll animation completes
+                setTimeout(() => {
+                  console.log('Thinking collapse: resetting isHandlingCollapse flag')
+                  isHandlingCollapse.value = false
+                }, 500) // Wait for smooth scroll to complete
+              } else {
+                console.log('6.handleCollapseChange thinkingHeader isCollapsed - skip scroll (auto scroll disabled)')
+                // Reset flag immediately since no scroll operation
+                setTimeout(() => {
+                  console.log('Thinking collapse: resetting isHandlingCollapse flag (no scroll)')
+                  isHandlingCollapse.value = false
+                }, 100)
+              }
+
+              // 早期返回，阻止后续的通用重置逻辑
+              return
+            } else {
+              console.log('7.handleCollapseChange thinkingHeader normal adjustScrollPosition', isCollapsed)
+              // If user is not actively scrolling, maintain auto scroll after collapse
+              if (!isUserScrolling.value && isAutoScrollEnabled.value) {
+                adjustScrollPosition()
+              }
+              // 早期返回，阻止后续的通用重置逻辑
+              return
+            }
+          } else {
+            console.log('No thinking header found for thinking collapse')
+          }
+        }
+        // If no special collapse blocks exist, use normal scroll logic
+        // If user is not actively scrolling, maintain auto scroll after collapse
+        if (!isUserScrolling.value && isAutoScrollEnabled.value) {
+          adjustScrollPosition()
+        }
+        // console.log('8.handleCollapseChange normal adjustScrollPosition')
+      }
+    })
+  }, delay)
+
+  // Only reset the flag for non-specific collapse types or as a fallback
+  // Specific collapse types (code/thinking) handle their own flag reset
+  if (collapseType !== 'code' && collapseType !== 'thinking') {
     setTimeout(() => {
+      console.log('General collapse: resetting isHandlingCollapse flag for', collapseType)
       isHandlingCollapse.value = false
-      // console.log('10 adjustScrollPosition collapseType', collapseType)
-    }, 200)
-    adjustScrollPosition()
+    }, 200) // Shorter delay for general cases
   }
 }
 
 // Add a function specifically for adjusting scroll position after collapse
 const adjustScrollPosition = () => {
   if (!chatContainer.value) return
+
+  // If user is actively scrolling, don't execute auto scroll
+  if (isUserScrolling.value || !isAutoScrollEnabled.value) {
+    // console.log('User is scrolling or auto scroll disabled, skip adjustScrollPosition')
+    return
+  }
+
+  // console.log('adjustScrollPosition: executing scroll adjustment')
+
   // if (isHandlingCollapse.value) return
   // Try to find the last visible message
   const messages = Array.from(chatContainer.value.querySelectorAll('.message.assistant, .message.user'))

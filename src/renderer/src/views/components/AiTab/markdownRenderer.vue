@@ -589,6 +589,17 @@ const initEditor = (content: string) => {
         editor!.layout()
       })
     })
+
+    // 设置新的定时器等待内容稳定
+    contentStableTimeout.value = setTimeout(() => {
+      if (editor) {
+        const model = editor.getModel()
+        if (model && model.getLineCount() > 10) {
+          codeActiveKey.value = []
+          emit('collapse-change', 'code')
+        }
+      }
+    }, 2000)
   } catch (error) {
     console.error('Error in initEditor:', error)
   }
