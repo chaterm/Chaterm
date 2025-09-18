@@ -154,8 +154,9 @@
 
       <template v-else-if="thinkingContent">
         <div
+          v-if="showThinkingMeasurement"
           ref="contentRef"
-          style="position: absolute; visibility: hidden; height: auto"
+          class="thinking-measurement"
         >
           <div
             class="thinking-content markdown-content"
@@ -436,6 +437,8 @@ const renderedContent = ref('')
 const thinkingContent = ref('')
 const normalContent = ref('')
 const thinkingLoading = ref(false)
+const showThinkingMeasurement = ref(false)
+let thinkingMeasurementToken = 0
 const isCancelled = ref(false)
 const activeKey = ref<string[]>(['1'])
 const contentRef = ref<HTMLElement | null>(null)
@@ -678,6 +681,8 @@ const extractCodeBlocks = (content: string) => {
 const processContent = async (content: string) => {
   if (!content) {
     thinkingContent.value = ''
+    showThinkingMeasurement.value = false
+    thinkingMeasurementToken++
     normalContent.value = ''
     codeBlocks.value = []
     thinkingLoading.value = false
@@ -714,6 +719,7 @@ const processContent = async (content: string) => {
     const endIndex = processedContent.indexOf(endTag)
     if (endIndex !== -1) {
       thinkingContent.value = processedContent.substring(0, endIndex).trim()
+      showThinkingMeasurement.value = true
       processedContent = processedContent.substring(endIndex + endTag.length).trim()
       thinkingLoading.value = false
       if (activeKey.value.length !== 0) {
@@ -721,6 +727,7 @@ const processContent = async (content: string) => {
       }
     } else {
       thinkingContent.value = processedContent.trim()
+      showThinkingMeasurement.value = true
       processedContent = ''
       if (!isCancelled.value) {
         thinkingLoading.value = true
@@ -728,6 +735,8 @@ const processContent = async (content: string) => {
     }
   } else {
     thinkingContent.value = ''
+    showThinkingMeasurement.value = false
+    thinkingMeasurementToken++
   }
 
   if (processedContent) {
@@ -836,9 +845,12 @@ const processReasoningContent = (content: string) => {
     normalContent.value = ''
     codeBlocks.value = []
     thinkingLoading.value = false
+    showThinkingMeasurement.value = false
+    thinkingMeasurementToken++
     return
   }
   thinkingContent.value = content.trim()
+  showThinkingMeasurement.value = true
   if (props.partial && !isCancelled.value) {
     thinkingLoading.value = true
   } else {
@@ -859,10 +871,15 @@ const checkContentHeight = async () => {
     const lineHeight = 19.2
     const maxHeight = lineHeight
     const shouldCollapse = contentRef.value.scrollHeight > maxHeight
+    const currentToken = ++thinkingMeasurementToken
     setTimeout(() => {
+      if (currentToken !== thinkingMeasurementToken) {
+        return
+      }
       activeKey.value = shouldCollapse ? [] : ['1']
       thinkingLoading.value = false
       emit('collapse-change', 'thinking')
+      showThinkingMeasurement.value = false
     }, 1000)
   }
 }
@@ -930,6 +947,8 @@ watch(
     if (!newContent) {
       renderedContent.value = ''
       thinkingContent.value = ''
+      showThinkingMeasurement.value = false
+      thinkingMeasurementToken++
       normalContent.value = ''
       codeBlocks.value = []
       processedContentLines.value = []
@@ -1356,6 +1375,17 @@ code {
   background-color: var(--command-output-bg);
   min-height: 30px;
   height: auto;
+}
+
+.thinking-measurement {
+  position: absolute;
+  visibility: hidden;
+  pointer-events: none;
+  height: auto;
+  left: -9999px;
+  top: -9999px;
+  width: calc(100% - 10px);
+  overflow: visible;
 }
 
 .thinking-collapse {
