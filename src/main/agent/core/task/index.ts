@@ -33,6 +33,7 @@ import { TodoWriteTool, TodoWriteParams } from './todo-tools/todo_write_tool'
 import { TodoReadTool, TodoReadParams } from './todo-tools/todo_read_tool'
 import { Todo } from '../../shared/todo/TodoSchemas'
 import { SmartTaskDetector, TODO_SYSTEM_MESSAGES } from './todo-tools/todo-prompts'
+import { TodoContextTracker } from '../services/todo_context_tracker'
 import { TodoToolCallTracker } from '../services/todo_tool_call_tracker'
 
 interface StreamMetrics {
@@ -2922,6 +2923,35 @@ SUDO_CHECK:${localSystemInfo.sudoCheck}`
       this.pushToolResult(this.getToolDescription(block), result)
     } catch (error) {
       this.pushToolResult(this.getToolDescription(block), `Todo 读取失败: ${error instanceof Error ? error.message : String(error)}`)
+    }
+  }
+
+  async clearTodos(trigger: 'user_cancelled' | 'new_user_input'): Promise<void> {
+    try {
+      const { TodoStorage } = await import('../storage/todo/TodoStorage')
+      const storage = new TodoStorage(this.taskId)
+      const existingTodos = await storage.readTodos()
+
+      if (existingTodos.length === 0) {
+        TodoContextTracker.forSession(this.taskId).clearActiveTodo()
+        return
+      }
+
+      await storage.deleteTodos()
+      TodoContextTracker.forSession(this.taskId).clearActiveTodo()
+
+      await this.postMessageToWebview({
+        type: 'todoUpdated',
+        todos: [],
+        sessionId: this.taskId,
+        taskId: this.taskId,
+        changeType: 'updated',
+        triggerReason: 'user_request'
+      })
+
+      console.log(`[Task] Cleared todos due to ${trigger} for task ${this.taskId}`)
+    } catch (error) {
+      console.error(`[Task] Failed to clear todos (${trigger}) for task ${this.taskId}:`, error)
     }
   }
 
