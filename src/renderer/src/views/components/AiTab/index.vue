@@ -1377,6 +1377,7 @@ const generateRollbackCommand = (command: string): { command: string; isWarning:
     { pattern: /^rm\s+(-rf\s+)?(.+)$/, rollback: (match: RegExpMatchArray) => `# Restore deleted file: ${match[2]}` },
     { pattern: /^mv\s+(.+)\s+(.+)$/, rollback: (match: RegExpMatchArray) => `mv ${match[2]} ${match[1]}` },
     { pattern: /^cp\s+(.+)\s+(.+)$/, rollback: (match: RegExpMatchArray) => `rm ${match[2]}` },
+    { pattern: /^touch\s+(.+)$/, rollback: (match: RegExpMatchArray) => `rm ${match[1]}` },
 
     // Directory operations
     { pattern: /^mkdir\s+(.+)$/, rollback: (match: RegExpMatchArray) => `rmdir ${match[1]}` },
@@ -1386,15 +1387,23 @@ const generateRollbackCommand = (command: string): { command: string; isWarning:
     { pattern: /^git\s+add\s+(.+)$/, rollback: (match: RegExpMatchArray) => `git reset HEAD ${match[1]}` },
     { pattern: /^git\s+commit\s+(-m\s+".*")?$/, rollback: () => `git reset --soft HEAD~1` },
     { pattern: /^git\s+push\s+(.+)$/, rollback: (match: RegExpMatchArray) => `git push --force-with-lease ${match[1]}` },
+    { pattern: /^git\s+merge\s+(.+)$/, rollback: () => `git merge --abort` },
+    { pattern: /^git\s+checkout\s+(.+)$/, rollback: () => `git checkout -` },
 
     // Package management
     { pattern: /^npm\s+install\s+(.+)$/, rollback: (match: RegExpMatchArray) => `npm uninstall ${match[1]}` },
     { pattern: /^yarn\s+add\s+(.+)$/, rollback: (match: RegExpMatchArray) => `yarn remove ${match[1]}` },
     { pattern: /^pip\s+install\s+(.+)$/, rollback: (match: RegExpMatchArray) => `pip uninstall ${match[1]}` },
+    { pattern: /^apt\s+install\s+(.+)$/, rollback: (match: RegExpMatchArray) => `apt remove ${match[1]}` },
+    { pattern: /^brew\s+install\s+(.+)$/, rollback: (match: RegExpMatchArray) => `brew uninstall ${match[1]}` },
 
     // System operations
     { pattern: /^chmod\s+(\d+)\s+(.+)$/, rollback: (match: RegExpMatchArray) => `chmod 644 ${match[2]}` },
-    { pattern: /^chown\s+(.+)\s+(.+)$/, rollback: (match: RegExpMatchArray) => `chown root:root ${match[2]}` }
+    { pattern: /^chown\s+(.+)\s+(.+)$/, rollback: (match: RegExpMatchArray) => `chown root:root ${match[2]}` },
+    { pattern: /^ln\s+-s\s+(.+)\s+(.+)$/, rollback: (match: RegExpMatchArray) => `rm ${match[2]}` },
+
+    // Environment variables
+    { pattern: /^export\s+([^=]+)=(.+)$/, rollback: (match: RegExpMatchArray) => `unset ${match[1]}` }
   ]
 
   // Try to match patterns
@@ -1517,6 +1526,33 @@ const handleCopyContent = () => handleMessageOperation('copy')
 
 // Handle rollback command
 const handleRollbackCommand = (rollbackCommand: string) => {
+  // Security check: prevent dangerous rollback commands
+  const dangerousPatterns = [
+    /rm\s+-rf\s+\//, // Prevent rm -rf /
+    /rm\s+-rf\s+\*/, // Prevent rm -rf *
+    /rm\s+-rf\s+~/, // Prevent rm -rf ~
+    /rm\s+-rf\s+\./, // Prevent rm -rf .
+    /rm\s+-rf\s+\.\./, // Prevent rm -rf ..
+    /format\s+/, // Prevent format commands
+    /mkfs\s+/, // Prevent filesystem creation
+    /dd\s+/, // Prevent dd commands
+    /shutdown\s+/, // Prevent shutdown commands
+    /reboot\s+/, // Prevent reboot commands
+    /halt\s+/, // Prevent halt commands
+    /poweroff\s+/ // Prevent poweroff commands
+  ]
+
+  const isDangerous = dangerousPatterns.some((pattern) => pattern.test(rollbackCommand))
+
+  if (isDangerous) {
+    notification.error({
+      message: t('ai.rollbackBlocked'),
+      description: t('ai.rollbackDangerousCommand'),
+      placement: 'topRight'
+    })
+    return
+  }
+
   // Create rollback confirmation message
   const rollbackMessage = createNewMessage(
     'assistant',
