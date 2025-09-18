@@ -10,10 +10,9 @@
       <div class="todo-title">
         <UnorderedListOutlined />
         <span>{{ todoTitle }}</span>
-        <a-badge
-          :count="todos.length"
-          class="todo-count"
-        />
+        <div class="todo-progress-chip">
+          <span class="todo-progress-ratio">{{ progressRatio }}</span>
+        </div>
       </div>
       <div class="todo-controls">
         <UpOutlined
@@ -76,14 +75,37 @@ const props = withDefaults(defineProps<Props>(), {
 const visible = ref(true)
 const expanded = ref(props.showTrigger)
 const activeKey = ref(props.showTrigger ? ['todos'] : [])
-// 动态标题 - 根据内容语言自动选择
-const todoTitle = computed(() => {
-  // 检查 todos 内容是否包含中文字符
-  const hasChineseContent = props.todos.some(
-    (todo) => /[\u4e00-\u9fff]/.test(todo.content) || (todo.description && /[\u4e00-\u9fff]/.test(todo.description))
-  )
 
-  return hasChineseContent ? '运维任务进度' : 'Task Progress'
+// 语言与统计信息
+const isChineseContent = computed(() =>
+  props.todos.some((todo) => /[\u4e00-\u9fff]/.test(todo.content) || (todo.description && /[\u4e00-\u9fff]/.test(todo.description)))
+)
+
+const progressCounts = computed(() => {
+  const total = props.todos.length
+  let completed = 0
+  let inProgress = 0
+
+  props.todos.forEach((todo) => {
+    if (todo.status === 'completed') {
+      completed++
+    } else if (todo.status === 'in_progress') {
+      inProgress++
+    }
+  })
+
+  return { total, completed, inProgress }
+})
+
+// 动态标题 - 根据内容语言自动选择
+const todoTitle = computed(() => (isChineseContent.value ? '运维任务进度' : 'Task Progress'))
+
+const progressRatio = computed(() => {
+  const { total, completed } = progressCounts.value
+  if (total === 0) {
+    return '0/0'
+  }
+  return `${completed}/${total}`
 })
 
 // 添加调试日志
@@ -130,7 +152,7 @@ const toggleExpanded = () => {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 8px 12px;
+  padding: 4px 12px;
   background: var(--bg-color);
   border-bottom: 1px solid var(--border-color-light);
   cursor: pointer;
@@ -167,15 +189,25 @@ const toggleExpanded = () => {
   color: var(--text-color-secondary);
 }
 
-.todo-count {
-  :deep(.ant-badge-count) {
-    background: var(--text-color-tertiary);
-    color: var(--bg-color);
-    font-size: 10px;
-    min-width: 16px;
-    height: 16px;
-    line-height: 16px;
-  }
+.todo-progress-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 8px;
+  min-height: 20px;
+  border-radius: 10px;
+  background: var(--bg-color-secondary);
+  border: 1px solid var(--border-color-light);
+  font-size: 12px;
+  color: var(--text-color-secondary);
+  transition:
+    background-color 0.2s ease,
+    border-color 0.2s ease;
+}
+
+.todo-progress-ratio {
+  color: var(--primary-color);
+  font-variant-numeric: tabular-nums;
 }
 
 :deep(.ant-collapse) {
@@ -217,11 +249,14 @@ const toggleExpanded = () => {
     background: var(--hover-bg-color);
   }
 
-  .todo-count {
-    :deep(.ant-badge-count) {
-      background: var(--text-color-tertiary);
-      color: var(--bg-color);
-    }
+  .todo-progress-chip {
+    background: rgba(255, 255, 255, 0.06);
+    border-color: rgba(255, 255, 255, 0.12);
+    color: var(--text-color-tertiary);
+  }
+
+  .todo-progress-ratio {
+    color: var(--primary-color);
   }
 }
 </style>
