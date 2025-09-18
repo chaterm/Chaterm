@@ -607,6 +607,8 @@ export default {
     rollbackCommandSent: 'Rollback command sent to terminal',
     rollbackCommandExecuted: 'Rollback command executed:',
     rollbackOperationCancelled: 'Rollback operation cancelled',
+    rollbackBlocked: 'Rollback Blocked',
+    rollbackDangerousCommand: 'Dangerous command detected, rollback operation has been blocked for system safety',
     recognitionEmptyDesc: 'Please re-record or check voice content',
     voiceRecognitionFailed: 'Voice Transcription Failed',
     voiceRecognitionServiceUnavailable: 'Voice transcription service temporarily unavailable',
