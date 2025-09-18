@@ -743,7 +743,7 @@ const getMessageFeedback = (messageId: string): 'like' | 'dislike' | undefined =
 }
 
 // Todo 功能
-const { displayPreference, shouldShowTodoAfterMessage, getTodosForMessage, markLatestMessageWithTodoUpdate } = useTodo()
+const { currentTodos, displayPreference, shouldShowTodoAfterMessage, getTodosForMessage, markLatestMessageWithTodoUpdate, clearTodoState } = useTodo()
 
 // 添加调试日志监听
 watch(displayPreference, (newPref) => {
@@ -1157,6 +1157,9 @@ const sendMessage = async (sendType: string) => {
     })
     return 'ASSET_ERROR'
   }
+  if (sendType === 'send' && currentTodos.value.length > 0) {
+    clearTodoState(chatHistory)
+  }
   await sendMessageToMain(userContent, sendType)
 
   const userMessage: ChatMessage = {
@@ -1237,6 +1240,9 @@ const handlePlusClick = async () => {
   responseLoading.value = false
   showRetryButton.value = false
   showNewTaskButton.value = false
+  if (currentTodos.value.length > 0) {
+    clearTodoState(chatHistory)
+  }
 }
 
 const containerKey = ref(0)
@@ -1826,6 +1832,9 @@ const handleCancel = async () => {
   showSendButton.value = true
   lastChatMessageId.value = ''
   isExecutingCommand.value = false
+  if (currentTodos.value.length > 0) {
+    clearTodoState(chatHistory)
+  }
 }
 
 const handleResume = async () => {
@@ -2212,6 +2221,8 @@ onMounted(async () => {
       // 标记最新的 assistant 消息包含 todo 更新
       if (message.todos && message.todos.length > 0) {
         markLatestMessageWithTodoUpdate(chatHistory, message.todos)
+      } else {
+        clearTodoState(chatHistory)
       }
     }
     lastMessage = message

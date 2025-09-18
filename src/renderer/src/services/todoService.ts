@@ -170,6 +170,25 @@ class TodoService {
   }
 
   /**
+   * 重置 todo 状态，并可选清除消息上的 todo 标记
+   */
+  public clearTodoState(messages?: any[]) {
+    this.currentTodos.value = []
+    this.lastTodoUpdateTimestamp.value = Date.now()
+    if (Array.isArray(messages)) {
+      messages.forEach((msg) => {
+        if (msg.hasTodoUpdate) {
+          msg.hasTodoUpdate = false
+          delete msg.relatedTodos
+        }
+      })
+    }
+    this.pendingTodos = null
+    this.pendingTodoTimestamp = 0
+    console.log('[Todo Debug] Todo state cleared')
+  }
+
+  /**
    * 清理资源
    */
   public destroy() {

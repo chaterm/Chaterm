@@ -24,6 +24,9 @@ export function useTodo() {
   }
 
   const markLatestMessageWithTodoUpdate = todoService.getMarkLatestMessageWithTodoUpdate()
+  const clearTodoState = (messages?: any[]) => {
+    todoService.clearTodoState(messages)
+  }
 
   // 生命周期
   onMounted(async () => {
@@ -43,6 +46,7 @@ export function useTodo() {
     setDisplayPreference,
     shouldShowTodoAfterMessage,
     getTodosForMessage,
-    markLatestMessageWithTodoUpdate
+    markLatestMessageWithTodoUpdate,
+    clearTodoState
   }
 }

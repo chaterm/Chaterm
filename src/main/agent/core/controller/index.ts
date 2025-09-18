@@ -167,7 +167,12 @@ export class Controller {
         break
       case 'askResponse':
         console.log('askResponse', message)
-        this.task?.handleWebviewAskResponse(message.askResponse!, message.text, message.cwd)
+        if (this.task) {
+          if (message.askResponse === 'messageResponse') {
+            await this.task.clearTodos('new_user_input')
+          }
+          await this.task.handleWebviewAskResponse(message.askResponse!, message.text, message.cwd)
+        }
         break
       case 'showTaskWithId':
         this.showTaskWithId(message.text!, message.hosts || [], message.cwd)
@@ -250,9 +255,10 @@ export class Controller {
 
   async cancelTask() {
     if (this.task) {
-      const { historyItem } = await this.getTaskWithId(this.task.taskId)
+      const currentTask = this.task
+      const { historyItem } = await this.getTaskWithId(currentTask.taskId)
       try {
-        await this.task.abortTask()
+        await currentTask.abortTask()
       } catch (error) {
         console.error('Failed to abort task', error)
       }
@@ -264,11 +270,14 @@ export class Controller {
       ).catch(() => {
         console.error('Failed to abort task')
       })
-      if (this.task) {
-        // 'abandoned' will prevent this cline instance from affecting future cline instance gui. this may happen if its hanging on a streaming request
-        this.task.abandoned = true
+      try {
+        await currentTask.clearTodos('user_cancelled')
+      } catch (error) {
+        console.error('Failed to clear todos during cancelTask', error)
       }
-      await this.initTask(this.task.hosts, undefined, historyItem) // clears task again, so we need to abortTask manually above
+      // 'abandoned' will prevent this cline instance from affecting future cline instance gui. this may happen if its hanging on a streaming request
+      currentTask.abandoned = true
+      await this.initTask(currentTask.hosts, undefined, historyItem) // clears task again, so we need to abortTask manually above
       // await this.postStateToWebview() // new Cline instance will post state when it's ready. having this here sent an empty messages array to webview leading to virtuoso having to reload the entire list
     }
   }
@@ -279,6 +288,11 @@ export class Controller {
         await this.task.gracefulAbortTask()
       } catch (error) {
         console.error('Failed to gracefully abort task', error)
+      }
+      try {
+        await this.task.clearTodos('user_cancelled')
+      } catch (error) {
+        console.error('Failed to clear todos during gracefulCancelTask', error)
       }
     }
   }
