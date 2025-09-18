@@ -606,6 +606,8 @@ export default {
     rollbackCommandSent: '回滚命令已发送到终端',
     rollbackCommandExecuted: '回滚命令已执行：',
     rollbackOperationCancelled: '回滚操作已取消',
+    rollbackBlocked: '回滚被阻止',
+    rollbackDangerousCommand: '检测到危险命令，回滚操作已被阻止以确保系统安全',
     recognitionEmptyDesc: '请重新录制或检查语音内容',
     voiceRecognitionFailed: '语音转录失败',
     voiceRecognitionServiceUnavailable: '语音转录服务暂时不可用',
