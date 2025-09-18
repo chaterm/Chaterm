@@ -802,7 +802,22 @@ export class SafeBatchSyncManager {
     }
 
     // 使用本地表结构创建临时表
-    const tempTableSql = tableSchema.sql.replace(new RegExp(`CREATE TABLE ${localTableName}`, 'i'), `CREATE TABLE ${tempTableName}`)
+    const escapedLocalTableName = localTableName.replace(/([.*+?^${}()|\[\]\\])/g, '\\$1')
+    const createTablePattern = new RegExp(`(CREATE TABLE\\s+(?:IF NOT EXISTS\\s+)?)(["']?)${escapedLocalTableName}\\2`, 'i')
+
+    let tempTableSql: string
+    if (createTablePattern.test(tableSchema.sql)) {
+      tempTableSql = tableSchema.sql.replace(createTablePattern, (_match, prefix: string, quote: string) => {
+        const identifierQuote = quote ?? ''
+        return `${prefix}${identifierQuote}${tempTableName}${identifierQuote}`
+      })
+    } else {
+      const firstOccurrence = tableSchema.sql.indexOf(localTableName)
+      if (firstOccurrence === -1) {
+        throw new Error(`无法在表结构中定位表名: ${localTableName} (对应远程表: ${remoteTableName})`)
+      }
+      tempTableSql = tableSchema.sql.slice(0, firstOccurrence) + tempTableName + tableSchema.sql.slice(firstOccurrence + localTableName.length)
+    }
 
     await db.exec(tempTableSql)
     logger.info(`临时表创建成功: ${tempTableName} (基于本地表: ${localTableName})`)
