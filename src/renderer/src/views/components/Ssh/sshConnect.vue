@@ -41,6 +41,7 @@
         :term-instance="terminal as any"
         :copy-text="copyText"
         :terminal-id="connectionId"
+        :tab-info="props.serverInfo"
         @context-act="contextAct"
       />
     </v-contextmenu>
