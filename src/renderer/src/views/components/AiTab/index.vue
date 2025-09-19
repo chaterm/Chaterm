@@ -2006,6 +2006,9 @@ onMounted(async () => {
       // 处理 todo 更新事件
       console.log('AiTab: Received todoUpdated message', message)
 
+      // 记录Todo更新时间
+      lastTodoUpdateTime.value = Date.now()
+
       // 标记最新的 assistant 消息包含 todo 更新
       if (message.todos && message.todos.length > 0) {
         markLatestMessageWithTodoUpdate(chatHistory, message.todos)
@@ -2083,8 +2086,6 @@ onUnmounted(() => {
     clearTimeout(userScrollTimeout.value)
     userScrollTimeout.value = null
   }
-  // Stop auto scroll check
-  stopAutoScrollCheck()
   document.removeEventListener('click', handleGlobalClick)
   eventBus.off('apiProviderChanged')
   eventBus.off('activeTabChanged')
@@ -2217,8 +2218,6 @@ watch(
         // Setup new listeners and store cleanup function
         cleanupScrollListeners = setupScrollListener()
         chatContainer.value.setAttribute('data-listeners-setup', 'true')
-        // Start periodic auto scroll check
-        startAutoScrollCheck()
       }
     })
 
@@ -2684,10 +2683,10 @@ const userScrollTimeout = ref<NodeJS.Timeout | null>(null)
 const lastScrollTop = ref(0)
 const lastScrollHeight = ref(0)
 const isAutoScrollEnabled = ref(true)
-const isContentUpdating = ref(false)
 const lastUserScrollTime = ref(0)
-const autoScrollInterval = ref<NodeJS.Timeout | null>(null)
 const lastScrollToBottomTime = ref(0)
+const lastCollapseCompleteTime = ref(0)
+const lastTodoUpdateTime = ref(0)
 let cleanupScrollListeners: (() => void) | null = null
 
 // Watch chatContainer changes to setup scroll listeners
@@ -2711,43 +2710,47 @@ watch(
   { immediate: true }
 )
 
-// Check if the last message is visible in the viewport bottom
+// Check if the user is near the bottom - prioritize user experience over technical precision
 const checkIfLastMessageVisible = () => {
   if (!chatContainer.value) return false
 
-  // Find the last message element
+  // Method 1: Check distance from actual scroll bottom (simple and reliable)
+  const scrollTop = chatContainer.value.scrollTop
+  const scrollHeight = chatContainer.value.scrollHeight
+  const clientHeight = chatContainer.value.clientHeight
+  const distanceFromBottom = scrollHeight - scrollTop - clientHeight
+  const isNearScrollBottom = distanceFromBottom <= 150
+
+  // Method 2: Check if the last content (message or todo) is visible (more precise for user experience)
   const messages = Array.from(chatContainer.value.querySelectorAll('.message.assistant, .message.user'))
-  if (messages.length === 0) return false
+  const todoComponents = Array.from(chatContainer.value.querySelectorAll('.todo-inline'))
 
-  const lastMessage = messages[messages.length - 1] as HTMLElement
-  const lastMessageRect = lastMessage.getBoundingClientRect()
-  const containerRect = chatContainer.value.getBoundingClientRect()
+  let isLastContentVisible = false
 
-  // The key insight: "bottom" should be defined by the last message's actual visible content,
-  // not the scroll container's physical bottom
+  // Determine the last element to check
+  let lastElement: HTMLElement | null = null
 
-  // Check if the last message's bottom is visible in the viewport
-  // Use a small buffer (30px) to account for slight scrolling variations
-  const isLastMessageBottomVisible = lastMessageRect.bottom <= containerRect.bottom + 30
+  if (todoComponents.length > 0) {
+    // If there are todo components, check the last one
+    lastElement = todoComponents[todoComponents.length - 1] as HTMLElement
+  } else if (messages.length > 0) {
+    // Otherwise check the last message
+    lastElement = messages[messages.length - 1] as HTMLElement
+  }
 
-  // Check if the last message is at least partially in the viewport
-  const isLastMessageInViewport = lastMessageRect.bottom > containerRect.top && lastMessageRect.top < containerRect.bottom
+  if (lastElement) {
+    const lastElementRect = lastElement.getBoundingClientRect()
+    const containerRect = chatContainer.value.getBoundingClientRect()
 
-  // The user is considered "at bottom" if:
-  // 1. The last message is in viewport AND its bottom is visible
-  // 2. OR if the last message's bottom is very close to being visible (within 50px)
-  const isAtLastMessageBottom = isLastMessageInViewport && (isLastMessageBottomVisible || lastMessageRect.bottom - containerRect.bottom <= 50)
+    const isLastElementBottomVisible = lastElementRect.bottom <= containerRect.bottom + 50
+    const isLastElementInViewport = lastElementRect.bottom > containerRect.top && lastElementRect.top < containerRect.bottom
 
-  // console.log('checkIfLastMessageVisible:', {
-  //   isLastMessageBottomVisible,
-  //   isLastMessageInViewport,
-  //   isAtLastMessageBottom,
-  //   lastMessageBottom: lastMessageRect.bottom,
-  //   containerBottom: containerRect.bottom,
-  //   distanceFromBottom: lastMessageRect.bottom - containerRect.bottom
-  // })
+    isLastContentVisible = isLastElementInViewport && (isLastElementBottomVisible || lastElementRect.bottom - containerRect.bottom <= 100)
+  }
 
-  return isAtLastMessageBottom
+  // User is considered "near bottom" if either condition is true
+  // This provides better user experience while maintaining precision for both messages and todos
+  return isNearScrollBottom || isLastContentVisible
 }
 
 // Add user scroll detection function
@@ -2761,8 +2764,16 @@ const handleUserScroll = () => {
     return
   }
 
-  const currentScrollTop = chatContainer.value.scrollTop
   const currentTime = Date.now()
+
+  // Skip scroll detection for a short time after collapse operations complete
+  // This prevents false user scroll detection from programmatic scrolling
+  if (currentTime - lastCollapseCompleteTime.value < 300) {
+    console.log('Skipping scroll detection - recent collapse operation completed')
+    return
+  }
+
+  const currentScrollTop = chatContainer.value.scrollTop
 
   // Simplified detection: only disable auto scroll if user scrolls significantly up and away from bottom
   const timeSinceLastScroll = currentTime - lastUserScrollTime.value
@@ -2779,12 +2790,13 @@ const handleUserScroll = () => {
   //   isAutoScrollEnabled: isAutoScrollEnabled.value
   // })
 
+  // PRIORITY 1: Respect user's scroll intent
   // Only disable auto scroll if:
-  // 1. User scrolls up significantly (more than 150px to avoid DOM adjustment noise)
-  // 2. It's been more than 300ms since last scroll (avoid rapid adjustments)
+  // 1. User scrolls up significantly (more than 100px - reduced threshold for better responsiveness)
+  // 2. It's been more than 200ms since last scroll (reduced for faster response)
   // 3. User is not near the bottom
-  // 4. Auto scroll is currently enabled (don't change state if already disabled)
-  if (scrollDirection < -150 && timeSinceLastScroll > 300 && !isNearBottom && isAutoScrollEnabled.value) {
+  // 4. Auto scroll is currently enabled
+  if (scrollDirection < -100 && timeSinceLastScroll > 200 && !isNearBottom && isAutoScrollEnabled.value) {
     console.log('Disabling auto scroll - user scrolled up away from bottom', {
       scrollDirection,
       timeSinceLastScroll,
@@ -2820,22 +2832,23 @@ const handleUserScroll = () => {
     clearTimeout(userScrollTimeout.value)
   }
 
-  // Set timeout to reset user scrolling flag after 1.5 seconds of inactivity (reduced from 2s)
+  // Set timeout to reset user scrolling flag after 1 second of inactivity
   userScrollTimeout.value = setTimeout(() => {
-    // console.log('Scroll timeout - checking if should re-enable auto scroll')
-    // Only re-enable auto scroll if user is near bottom
+    // PRIORITY 1: Always respect user's current position
     if (chatContainer.value) {
-      const isLastMessageVisible = checkIfLastMessageVisible()
-      if (isLastMessageVisible) {
+      const isNearBottom = checkIfLastMessageVisible()
+      if (isNearBottom) {
         console.log('Re-enabling auto scroll after timeout - user is near bottom', {
           wasUserScrolling: isUserScrolling.value,
           wasAutoScrollEnabled: isAutoScrollEnabled.value
         })
         isUserScrolling.value = false
         isAutoScrollEnabled.value = true
+      } else {
+        console.log('User not near bottom after timeout - keeping auto scroll disabled')
       }
     }
-  }, 1500) // Reduced timeout for faster response
+  }, 1000) // Faster timeout for better responsiveness
 }
 
 // Add scroll event listener setup - returns cleanup function
@@ -2919,37 +2932,6 @@ const setupScrollListener = () => {
   }
 }
 
-// Handle content updates that might cause scroll position changes
-const handleContentUpdate = () => {
-  // Set content updating flag
-  isContentUpdating.value = true
-
-  // Always try to maintain scroll position if user is not actively scrolling
-  if (!isUserScrolling.value) {
-    // Check if we're near bottom before the update using improved detection
-    if (chatContainer.value) {
-      const isNearBottom = checkIfLastMessageVisible()
-
-      if (isNearBottom) {
-        // If we were near bottom, maintain auto scroll
-        // But skip if handling collapse operations
-        if (!isHandlingCollapse.value) {
-          nextTick(() => {
-            scrollToBottom()
-          })
-        } else {
-          console.log('Skipping scrollToBottom in handleContentUpdate - collapse operation in progress')
-        }
-      }
-    }
-  }
-
-  // Reset content updating flag after a short delay
-  setTimeout(() => {
-    isContentUpdating.value = false
-  }, 200)
-}
-
 // Reset scroll flags and enable auto scroll for user interactions
 const resetScrollFlags = () => {
   isUserScrolling.value = false
@@ -2960,36 +2942,6 @@ const resetScrollFlags = () => {
   nextTick(() => {
     scrollToBottom(true)
   })
-}
-
-// Periodic check to ensure auto scroll continues working
-const startAutoScrollCheck = () => {
-  if (autoScrollInterval.value) {
-    clearInterval(autoScrollInterval.value)
-  }
-
-  autoScrollInterval.value = setInterval(() => {
-    if (!chatContainer.value || isUserScrolling.value) return
-
-    const isLastMessageVisible = checkIfLastMessageVisible()
-
-    // If last message is visible and auto scroll is enabled, ensure we stay at bottom
-    if (isLastMessageVisible && isAutoScrollEnabled.value) {
-      const currentTime = Date.now()
-      // Only force scroll if it's been more than 500ms since last user scroll
-      if (currentTime - lastUserScrollTime.value > 500) {
-        scrollToBottom(true)
-      }
-    }
-  }, 1000) // Check every second
-}
-
-// Stop auto scroll check
-const stopAutoScrollCheck = () => {
-  if (autoScrollInterval.value) {
-    clearInterval(autoScrollInterval.value)
-    autoScrollInterval.value = null
-  }
 }
 
 // Add auto scroll function
@@ -3024,17 +2976,17 @@ const scrollToBottom = (force = false) => {
     return
   }
 
-  // Check if user is near bottom using our improved detection (skip for forced scroll)
-  if (!force && chatContainer.value) {
-    const isNearBottom = checkIfLastMessageVisible()
+  // // Check if user is near bottom using our improved detection (skip for forced scroll)
+  // if (!force && chatContainer.value) {
+  //   const isNearBottom = checkIfLastMessageVisible()
 
-    // If not near bottom, don't execute scrolling
-    if (!isNearBottom) {
-      // console.log('2.scrollToBottom not isNearBottom')
-      handleCollapseChange()
-      return
-    }
-  }
+  //   // If not near bottom, don't execute scrolling
+  //   if (!isNearBottom) {
+  //     // console.log('2.scrollToBottom not isNearBottom')
+  //     handleCollapseChange()
+  //     return
+  //   }
+  // }
 
   // Instead of scrolling to physical bottom, scroll to make last message visible
   nextTick(() => {
@@ -3043,31 +2995,78 @@ const scrollToBottom = (force = false) => {
       return
     }
 
-    if (chatContainer.value) {
-      // Find the last message and scroll to show it completely
-      const messages = Array.from(chatContainer.value.querySelectorAll('.message.assistant, .message.user'))
-      if (messages.length > 0) {
-        const lastMessage = messages[messages.length - 1] as HTMLElement
-        // Scroll to show the last message's bottom with some padding
-        console.log('scrollToBottom: executing scroll to last message', {
-          force,
-          scrollTop: chatContainer.value.scrollTop,
-          scrollHeight: chatContainer.value.scrollHeight,
-          messageCount: messages.length
-        })
-        lastMessage.scrollIntoView({ behavior: force ? 'auto' : 'smooth', block: 'end' })
-      } else {
-        // Fallback: scroll to container bottom if no messages found
-        console.log('scrollToBottom: executing fallback scroll to bottom', {
-          force,
-          scrollTop: chatContainer.value.scrollTop,
-          scrollHeight: chatContainer.value.scrollHeight
-        })
-        chatContainer.value.scrollTo({
-          top: chatContainer.value.scrollHeight,
-          behavior: force ? 'auto' : 'smooth'
-        })
+    const performScroll = () => {
+      if (chatContainer.value) {
+        // Find all content elements including messages and todo components
+        const messages = Array.from(chatContainer.value.querySelectorAll('.message.assistant, .message.user'))
+        const todoComponents = Array.from(chatContainer.value.querySelectorAll('.todo-inline'))
+
+        // Determine the last element to scroll to
+        let lastElement: HTMLElement | null = null
+        let scrollToTodo = false
+
+        // Only scroll to todo if it was recently updated (within 1 second)
+        const timeSinceTodoUpdate = Date.now() - lastTodoUpdateTime.value
+        const shouldScrollToTodo = todoComponents.length > 0 && timeSinceTodoUpdate < 1000
+
+        if (shouldScrollToTodo) {
+          // If todo was recently updated, scroll to the todo component
+          lastElement = todoComponents[todoComponents.length - 1] as HTMLElement
+          scrollToTodo = true
+          console.log('scrollToBottom: executing scroll to last todo component', {
+            force,
+            scrollTop: chatContainer.value.scrollTop,
+            scrollHeight: chatContainer.value.scrollHeight,
+            messageCount: messages.length,
+            todoCount: todoComponents.length,
+            timeSinceTodoUpdate
+          })
+        } else if (messages.length > 0) {
+          // Otherwise scroll to the last message
+          lastElement = messages[messages.length - 1] as HTMLElement
+          console.log('scrollToBottom: executing scroll to last message', {
+            force,
+            scrollTop: chatContainer.value.scrollTop,
+            scrollHeight: chatContainer.value.scrollHeight,
+            messageCount: messages.length,
+            todoCount: todoComponents.length
+          })
+        }
+
+        if (lastElement) {
+          // Use 'center' for todo components, 'end' for messages
+          const scrollBlock = scrollToTodo ? 'center' : 'end'
+          lastElement.scrollIntoView({ behavior: force ? 'auto' : 'smooth', block: scrollBlock })
+        } else {
+          // Fallback: scroll to container bottom if no content found
+          console.log('scrollToBottom: executing fallback scroll to bottom', {
+            force,
+            scrollTop: chatContainer.value.scrollTop,
+            scrollHeight: chatContainer.value.scrollHeight
+          })
+          chatContainer.value.scrollTo({
+            top: chatContainer.value.scrollHeight,
+            behavior: force ? 'auto' : 'smooth'
+          })
+        }
       }
+    }
+
+    // Check if we have todo components, if not, wait a bit for them to render
+    const todoComponents = Array.from(chatContainer.value?.querySelectorAll('.todo-inline') || [])
+
+    if (todoComponents.length === 0) {
+      // Wait a bit for todo components to render, then try again
+      setTimeout(() => {
+        const todoComponentsAfterDelay = Array.from(chatContainer.value?.querySelectorAll('.todo-inline') || [])
+        if (todoComponentsAfterDelay.length > 0) {
+          console.log('scrollToBottom: todo components found after delay, retrying scroll')
+        }
+        performScroll()
+      }, 50) // Short delay to allow todo components to render
+    } else {
+      // Todo components already exist, scroll immediately
+      performScroll()
     }
   })
 }
@@ -3133,6 +3132,7 @@ const handleCollapseChange = (collapseType = '') => {
       setTimeout(() => {
         console.log('Resetting isHandlingCollapse flag - auto-collapse DOM updates complete')
         isHandlingCollapse.value = false
+        lastCollapseCompleteTime.value = Date.now()
 
         // Check if window is blank after collapse
         nextTick(() => {
@@ -3142,21 +3142,8 @@ const handleCollapseChange = (collapseType = '') => {
           }
         })
       }, 200)
-    } else {
-      // For manual operations, skip everything
-      setTimeout(() => {
-        console.log('Resetting isHandlingCollapse flag - skipped manual collapse operations')
-        isHandlingCollapse.value = false
-
-        // Also check for blank window after manual collapse
-        nextTick(() => {
-          if (isWindowBlankAfterCollapse()) {
-            console.log('Window is blank after manual collapse, force scrolling to show content')
-            scrollToBottom(true)
-          }
-        })
-      }, 100)
     }
+    // For manual operations, do nothing - let user handle scrolling themselves
     return
   }
 
@@ -3193,12 +3180,13 @@ const handleCollapseChange = (collapseType = '') => {
                   isUserScrolling: isUserScrolling.value,
                   isAutoScrollEnabled: isAutoScrollEnabled.value
                 })
-                collapseHeader.scrollIntoView({ behavior: 'smooth', block: 'center' })
+                collapseHeader.scrollIntoView({ behavior: 'smooth', block: 'end' })
 
                 // Reset collapse handling flag after scroll animation completes
                 setTimeout(() => {
                   console.log('Code collapse: resetting isHandlingCollapse flag')
                   isHandlingCollapse.value = false
+                  lastCollapseCompleteTime.value = Date.now()
                 }, 500) // Wait for smooth scroll to complete
               } else {
                 console.log('4.handleCollapseChange collapseHeader isCollapsed - skip scroll (auto scroll disabled)')
@@ -3206,6 +3194,7 @@ const handleCollapseChange = (collapseType = '') => {
                 setTimeout(() => {
                   console.log('Code collapse: resetting isHandlingCollapse flag (no scroll)')
                   isHandlingCollapse.value = false
+                  lastCollapseCompleteTime.value = Date.now()
                 }, 100)
               }
 
@@ -3254,6 +3243,7 @@ const handleCollapseChange = (collapseType = '') => {
                 setTimeout(() => {
                   console.log('Thinking collapse: resetting isHandlingCollapse flag')
                   isHandlingCollapse.value = false
+                  lastCollapseCompleteTime.value = Date.now()
                 }, 500) // Wait for smooth scroll to complete
               } else {
                 console.log('6.handleCollapseChange thinkingHeader isCollapsed - skip scroll (auto scroll disabled)')
@@ -3261,6 +3251,7 @@ const handleCollapseChange = (collapseType = '') => {
                 setTimeout(() => {
                   console.log('Thinking collapse: resetting isHandlingCollapse flag (no scroll)')
                   isHandlingCollapse.value = false
+                  lastCollapseCompleteTime.value = Date.now()
                 }, 100)
               }
 
@@ -3295,6 +3286,7 @@ const handleCollapseChange = (collapseType = '') => {
     setTimeout(() => {
       console.log('General collapse: resetting isHandlingCollapse flag for', collapseType)
       isHandlingCollapse.value = false
+      lastCollapseCompleteTime.value = Date.now()
     }, 200) // Shorter delay for general cases
   }
 }
