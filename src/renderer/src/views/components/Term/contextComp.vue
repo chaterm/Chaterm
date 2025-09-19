@@ -51,6 +51,17 @@
     <!-- Divider -->
     <div class="context-menu-divider"></div>
 
+    <!-- Split Screen Group -->
+    <v-contextmenu-item @click="onContextMenuAction('splitRight')">
+      {{ $t('common.splitRight') }}
+    </v-contextmenu-item>
+    <v-contextmenu-item @click="onContextMenuAction('splitDown')">
+      {{ $t('common.splitDown') }}
+    </v-contextmenu-item>
+
+    <!-- Divider -->
+    <div class="context-menu-divider"></div>
+
     <!-- Feature Toggle Group -->
     <v-contextmenu-item @click="onContextMenuAction('openAllExecuted')">{{
       isGlobalInput ? $t('common.globalExecOn') : $t('common.globalExec')
@@ -129,6 +140,10 @@ const props = defineProps({
   isSyncInput: {
     type: Boolean,
     default: false
+  },
+  tabInfo: {
+    type: Object,
+    default: () => ({})
   }
 })
 const onContextMenuAction = (action) => {
@@ -188,6 +203,32 @@ const onContextMenuAction = (action) => {
     case 'search':
       // Trigger search through event bus to open search interface
       eventBus.emit('openSearch')
+      break
+    case 'splitRight':
+      // Use the complete tabInfo object as the base, ensuring it has all required fields
+      const currentTabInfoRight = {
+        ...props.tabInfo,
+        title: props.tabInfo.title || 'Terminal',
+        content: props.tabInfo.content || props.terminalId,
+        type: props.tabInfo.type || 'term',
+        organizationId: props.tabInfo.organizationId || '',
+        ip: props.tabInfo.ip || '',
+        data: props.tabInfo.data || props.tabInfo
+      }
+      eventBus.emit('createSplitTab', currentTabInfoRight)
+      break
+    case 'splitDown':
+      // Use the complete tabInfo object as the base, ensuring it has all required fields
+      const currentTabInfoDown = {
+        ...props.tabInfo,
+        title: props.tabInfo.title || 'Terminal',
+        content: props.tabInfo.content || props.terminalId,
+        type: props.tabInfo.type || 'term',
+        organizationId: props.tabInfo.organizationId || '',
+        ip: props.tabInfo.ip || '',
+        data: props.tabInfo.data || props.tabInfo
+      }
+      eventBus.emit('createVerticalSplitTab', currentTabInfoDown)
       break
     default:
       break
