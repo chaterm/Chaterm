@@ -2140,7 +2140,7 @@ export class Task {
     }
   }
 
-  private pushToolResult(toolDescription: string, content: ToolResponse): void {
+  private pushToolResult(toolDescription: string, content: ToolResponse, options?: { dontLock?: boolean }): void {
     this.userMessageContent.push({
       type: 'text',
       text: `${toolDescription} Result:`
@@ -2153,7 +2153,11 @@ export class Task {
     } else {
       this.userMessageContent.push(...content)
     }
-    this.didAlreadyUseTool = true
+    // For todo tools, we allow combining with one additional tool in the same message.
+    // When options.dontLock is true, do not mark that a tool has been used yet.
+    if (!options?.dontLock) {
+      this.didAlreadyUseTool = true
+    }
   }
 
   private pushAdditionalToolFeedback(feedback?: string): void {
@@ -2524,11 +2528,14 @@ export class Task {
     }
 
     if (this.didAlreadyUseTool) {
-      this.userMessageContent.push({
-        type: 'text',
-        text: formatResponse.toolAlreadyUsed(block.name)
-      })
-      return
+      // Allow todo tools to run even after another tool has been used
+      if (block.name !== 'todo_write' && block.name !== 'todo_read') {
+        this.userMessageContent.push({
+          type: 'text',
+          text: formatResponse.toolAlreadyUsed(block.name)
+        })
+        return
+      }
     }
 
     // 处理不完整的工具调用
@@ -2866,7 +2873,7 @@ SUDO_CHECK:${localSystemInfo.sudoCheck}`
       const todosParam = (block as { params?: { todos?: unknown } }).params?.todos
 
       if (todosParam === undefined || todosParam === null) {
-        this.pushToolResult(this.getToolDescription(block), 'Todo 写入失败: 缺少 todos 参数')
+        this.pushToolResult(this.getToolDescription(block), 'Todo 写入失败: 缺少 todos 参数', { dontLock: true })
         return
       }
 
@@ -2876,7 +2883,7 @@ SUDO_CHECK:${localSystemInfo.sudoCheck}`
         try {
           todos = JSON.parse(todosParam) as Todo[]
         } catch (parseError) {
-          this.pushToolResult(this.getToolDescription(block), `Todo 写入失败: JSON 解析错误 - ${parseError}`)
+          this.pushToolResult(this.getToolDescription(block), `Todo 写入失败: JSON 解析错误 - ${parseError}`, { dontLock: true })
           return
         }
       } else if (Array.isArray(todosParam)) {
@@ -2892,14 +2899,15 @@ SUDO_CHECK:${localSystemInfo.sudoCheck}`
         }
       } else {
         console.error(`[Task] 不支持的 todos 参数类型: ${typeof todosParam}`)
-        this.pushToolResult(this.getToolDescription(block), 'Todo 写入失败: todos 参数类型不受支持')
+        this.pushToolResult(this.getToolDescription(block), 'Todo 写入失败: todos 参数类型不受支持', { dontLock: true })
         return
       }
 
       const params: TodoWriteParams = { todos }
       const result = await TodoWriteTool.execute(params, this.taskId)
 
-      this.pushToolResult(this.getToolDescription(block), result)
+      // Allow todo_write to be combined with another tool in the same message
+      this.pushToolResult(this.getToolDescription(block), result, { dontLock: true })
 
       // 发送 todo 更新事件到渲染进程
       await this.postMessageToWebview({
@@ -2912,7 +2920,9 @@ SUDO_CHECK:${localSystemInfo.sudoCheck}`
       })
     } catch (error) {
       console.error(`[Task] todo_write 工具调用处理失败:`, error)
-      this.pushToolResult(this.getToolDescription(block), `Todo 写入失败: ${error instanceof Error ? error.message : String(error)}`)
+      this.pushToolResult(this.getToolDescription(block), `Todo 写入失败: ${error instanceof Error ? error.message : String(error)}`, {
+        dontLock: true
+      })
     }
   }
 
@@ -2920,9 +2930,12 @@ SUDO_CHECK:${localSystemInfo.sudoCheck}`
     try {
       const params: TodoReadParams = {} // TodoRead 不需要参数
       const result = await TodoReadTool.execute(params, this.taskId)
-      this.pushToolResult(this.getToolDescription(block), result)
+      // Allow todo_read to be combined with another tool in the same message
+      this.pushToolResult(this.getToolDescription(block), result, { dontLock: true })
     } catch (error) {
-      this.pushToolResult(this.getToolDescription(block), `Todo 读取失败: ${error instanceof Error ? error.message : String(error)}`)
+      this.pushToolResult(this.getToolDescription(block), `Todo 读取失败: ${error instanceof Error ? error.message : String(error)}`, {
+        dontLock: true
+      })
     }
   }
 
