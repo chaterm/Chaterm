@@ -186,6 +186,74 @@
                     </div>
                   </div>
                 </template>
+                <!-- Inline approval buttons for Agent mode: attach to the pending command message -->
+                <template
+                  v-if="
+                    chatTypeValue === 'agent' &&
+                    index === filteredChatHistory.length - 1 &&
+                    lastChatMessageId === message.id &&
+                    message.ask === 'command' &&
+                    !showCancelButton
+                  "
+                >
+                  <div class="bottom-buttons">
+                    <a-button
+                      size="small"
+                      class="reject-btn"
+                      :disabled="buttonsDisabled"
+                      @click="handleRejectContent"
+                    >
+                      <template #icon>
+                        <CloseOutlined />
+                      </template>
+                      {{ $t('ai.reject') }}
+                    </a-button>
+                    <a-button
+                      size="small"
+                      class="approve-btn"
+                      :disabled="buttonsDisabled"
+                      @click="handleApproveCommand"
+                    >
+                      <template #icon>
+                        <PlayCircleOutlined />
+                      </template>
+                      {{ $t('ai.run') }}
+                    </a-button>
+                  </div>
+                </template>
+                <!-- Inline copy/run buttons for Command mode -->
+                <template
+                  v-if="
+                    chatTypeValue === 'cmd' &&
+                    index === filteredChatHistory.length - 1 &&
+                    lastChatMessageId === message.id &&
+                    message.ask === 'command' &&
+                    !showCancelButton
+                  "
+                >
+                  <div class="bottom-buttons">
+                    <a-button
+                      size="small"
+                      class="reject-btn"
+                      @click="handleCopyContent"
+                    >
+                      <template #icon>
+                        <CopyOutlined />
+                      </template>
+                      {{ $t('ai.copy') }}
+                    </a-button>
+                    <a-button
+                      size="small"
+                      class="approve-btn"
+                      @click="handleApplyCommand"
+                    >
+                      <template #icon>
+                        <PlayCircleOutlined />
+                      </template>
+                      {{ $t('ai.run') }}
+                    </a-button>
+                  </div>
+                </template>
               </div>
             </div>
             <div
@@ -206,58 +274,6 @@
         </div>
       </div>
       <div class="bottom-container">
-        <div
-          v-if="showBottomButton && chatTypeValue == 'agent'"
-          class="bottom-buttons"
-        >
-          <a-button
-            size="small"
-            class="reject-btn"
-            :disabled="buttonsDisabled"
-            @click="handleRejectContent"
-          >
-            <template #icon>
-              <CloseOutlined />
-            </template>
-            {{ $t('ai.reject') }}
-          </a-button>
-          <a-button
-            size="small"
-            class="approve-btn"
-            :disabled="buttonsDisabled"
-            @click="handleApproveCommand"
-          >
-            <template #icon>
-              <PlayCircleOutlined />
-            </template>
-            {{ $t('ai.run') }}
-          </a-button>
-        </div>
-        <div
-          v-if="showBottomButton && chatTypeValue == 'cmd'"
-          class="bottom-buttons"
-        >
-          <a-button
-            size="small"
-            class="reject-btn"
-            @click="handleCopyContent"
-          >
-            <template #icon>
-              <CopyOutlined />
-            </template>
-            {{ $t('ai.copy') }}
-          </a-button>
-          <a-button
-            size="small"
-            class="approve-btn"
-            @click="handleApplyCommand"
-          >
-            <template #icon>
-              <PlayCircleOutlined />
-            </template>
-            {{ $t('ai.run') }}
-          </a-button>
-        </div>
         <div
           v-if="showCancelButton"
           class="bottom-buttons cancel-row"
