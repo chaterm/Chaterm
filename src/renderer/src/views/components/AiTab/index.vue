@@ -1578,12 +1578,9 @@ const handleRollbackCommand = (rollbackCommand: string) => {
   // Add rollback confirmation message to chat history
   chatHistory.push(rollbackMessage)
 
-  // Scroll to bottom
+  // Scroll to bottom (respect sticky behavior)
   nextTick(() => {
-    const chatResponse = document.querySelector('.chat-response')
-    if (chatResponse) {
-      chatResponse.scrollTop = chatResponse.scrollHeight
-    }
+    scrollToBottom()
   })
 }
 
@@ -1749,12 +1746,9 @@ const handleOptionSubmit = async (message: ChatMessage) => {
     // Mark the rollback confirmation message as processed
     message.selectedOption = finalOption
 
-    // Scroll to bottom
+    // Scroll to bottom (respect sticky behavior)
     nextTick(() => {
-      const chatResponse = document.querySelector('.chat-response')
-      if (chatResponse) {
-        chatResponse.scrollTop = chatResponse.scrollHeight
-      }
+      scrollToBottom()
     })
 
     return
@@ -2107,6 +2101,17 @@ onMounted(async () => {
 
   currentChatId.value = chatId
 
+  // Attach scroll listener to maintain sticky-to-bottom state
+  nextTick(() => {
+    if (chatContainer.value) {
+      chatContainer.value.addEventListener('scroll', handleContainerScroll, { passive: true })
+      // Initialize sticky flag based on current position
+      shouldStickToBottom.value = isAtBottom(chatContainer.value)
+    }
+    // Start observing DOM changes of chat content
+    startObservingDom()
+  })
+
   let lastMessage: any = null
   let lastPartialMessage: any = null
   removeListener = window.api.onMainMessage((message: any) => {
@@ -2290,6 +2295,15 @@ onUnmounted(() => {
   eventBus.off('apiProviderChanged')
   eventBus.off('activeTabChanged')
   eventBus.off('chatToAi')
+  if (chatContainer.value) {
+    chatContainer.value.removeEventListener('scroll', handleContainerScroll)
+  }
+  if (domObserver.value) {
+    try {
+      domObserver.value.disconnect()
+    } catch {}
+    domObserver.value = null
+  }
 })
 
 // 判断是否为本地主机
@@ -2858,43 +2872,61 @@ const chatContainer = ref<HTMLElement | null>(null)
 const chatResponse = ref<HTMLElement | null>(null)
 // Add a flag to track if collapse operation is being processed
 const isHandlingCollapse = ref(false)
+// Track whether we should stick to bottom (auto-scroll only when user is already at bottom)
+const shouldStickToBottom = ref(true)
+const STICKY_THRESHOLD = 24 // px
+
+const isAtBottom = (el: HTMLElement) => {
+  return el.scrollHeight - (el.scrollTop + el.clientHeight) <= STICKY_THRESHOLD
+}
+
+const handleContainerScroll = () => {
+  if (!chatContainer.value) return
+  // Update sticky flag based on user's current position
+  shouldStickToBottom.value = isAtBottom(chatContainer.value)
+}
+
+// Observe DOM mutations within chat content to keep bottom anchored
+const domObserver = ref<MutationObserver | null>(null)
+const startObservingDom = () => {
+  // Clean up any previous observer
+  if (domObserver.value) {
+    try {
+      domObserver.value.disconnect()
+    } catch {}
+  }
+  if (!chatResponse.value) return
+  domObserver.value = new MutationObserver(() => {
+    // If user was at bottom, keep pinned during multi-line or batched updates
+    if (shouldStickToBottom.value) {
+      if (chatContainer.value) {
+        chatContainer.value.scrollTop = chatContainer.value.scrollHeight
+      }
+    }
+  })
+  domObserver.value.observe(chatResponse.value, {
+    childList: true,
+    subtree: true,
+    characterData: true
+  })
+}
 
 // Add auto scroll function
 const scrollToBottom = () => {
-  // If collapse operation is being processed, don't execute scrolling
+  // If collapse operation is being processed, allow collapse handler to manage scroll
   if (isHandlingCollapse.value) {
-    // console.log('Processing collapse operation, skip auto scroll')
-    // console.log('1.scrollToBottom isHandlingCollapse')
     handleCollapseChange()
     return
   }
 
-  // Check if scrollbar is near bottom (threshold 20px)
-  if (chatContainer.value) {
-    const scrollPosition = chatContainer.value.scrollTop + chatContainer.value.clientHeight
-    const scrollHeight = chatContainer.value.scrollHeight
-    const isNearBottom = scrollHeight - scrollPosition < 20
-
-    // If not near bottom, don't execute scrolling
-    if (!isNearBottom) {
-      // console.log('2.scrollToBottom not isNearBottom')
-      handleCollapseChange()
-      return
-    }
+  // Only auto-scroll if we were already at the bottom
+  if (!shouldStickToBottom.value) {
+    return
   }
 
-  // Record current container bottom position
-  const prevBottom = chatResponse.value?.getBoundingClientRect().bottom
-
   nextTick(() => {
-    if (chatResponse.value && chatContainer.value && prevBottom) {
-      // Get updated container bottom position
-      const currentBottom = chatResponse.value.getBoundingClientRect().bottom
-      // console.log('Container height changed, scroll to bottom directly', prevBottom, currentBottom)
-      // If container bottom position changed, scroll to bottom directly
-      if (prevBottom !== currentBottom && prevBottom > 0 && currentBottom > 0) {
-        chatContainer.value.scrollTop = chatContainer.value.scrollHeight
-      }
+    if (chatContainer.value) {
+      chatContainer.value.scrollTop = chatContainer.value.scrollHeight
     }
   })
 }
@@ -3001,6 +3033,26 @@ const adjustScrollPosition = () => {
     })
   }
 }
+
+// Re-attach scroll listener when container ref changes
+watch(
+  () => chatContainer.value,
+  (el, prev) => {
+    if (prev) prev.removeEventListener('scroll', handleContainerScroll)
+    if (el) {
+      el.addEventListener('scroll', handleContainerScroll, { passive: true })
+      shouldStickToBottom.value = isAtBottom(el)
+    }
+  }
+)
+
+// Re-attach DOM observer when content root ref changes
+watch(
+  () => chatResponse.value,
+  () => {
+    startObservingDom()
+  }
+)
 
 const toggleFavorite = async (history) => {
   history.isFavorite = !history.isFavorite
