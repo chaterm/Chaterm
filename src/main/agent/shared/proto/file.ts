@@ -135,9 +135,7 @@ export const RelativePathsRequest: MessageFns<RelativePathsRequest> = {
   fromJSON(object: any): RelativePathsRequest {
     return {
       metadata: isSet(object.metadata) ? Metadata.fromJSON(object.metadata) : undefined,
-      uris: globalThis.Array.isArray(object?.uris)
-        ? object.uris.map((e: any) => globalThis.String(e))
-        : []
+      uris: globalThis.Array.isArray(object?.uris) ? object.uris.map((e: any) => globalThis.String(e)) : []
     }
   },
 
@@ -155,14 +153,9 @@ export const RelativePathsRequest: MessageFns<RelativePathsRequest> = {
   create<I extends Exact<DeepPartial<RelativePathsRequest>, I>>(base?: I): RelativePathsRequest {
     return RelativePathsRequest.fromPartial(base ?? ({} as any))
   },
-  fromPartial<I extends Exact<DeepPartial<RelativePathsRequest>, I>>(
-    object: I
-  ): RelativePathsRequest {
+  fromPartial<I extends Exact<DeepPartial<RelativePathsRequest>, I>>(object: I): RelativePathsRequest {
     const message = createBaseRelativePathsRequest()
-    message.metadata =
-      object.metadata !== undefined && object.metadata !== null
-        ? Metadata.fromPartial(object.metadata)
-        : undefined
+    message.metadata = object.metadata !== undefined && object.metadata !== null ? Metadata.fromPartial(object.metadata) : undefined
     message.uris = object.uris?.map((e) => e) || []
     return message
   }
@@ -206,9 +199,7 @@ export const RelativePaths: MessageFns<RelativePaths> = {
 
   fromJSON(object: any): RelativePaths {
     return {
-      paths: globalThis.Array.isArray(object?.paths)
-        ? object.paths.map((e: any) => globalThis.String(e))
-        : []
+      paths: globalThis.Array.isArray(object?.paths) ? object.paths.map((e: any) => globalThis.String(e)) : []
     }
   },
 
@@ -303,9 +294,7 @@ export const FileSearchRequest: MessageFns<FileSearchRequest> = {
     return {
       metadata: isSet(object.metadata) ? Metadata.fromJSON(object.metadata) : undefined,
       query: isSet(object.query) ? globalThis.String(object.query) : '',
-      mentionsRequestId: isSet(object.mentionsRequestId)
-        ? globalThis.String(object.mentionsRequestId)
-        : undefined,
+      mentionsRequestId: isSet(object.mentionsRequestId) ? globalThis.String(object.mentionsRequestId) : undefined,
       limit: isSet(object.limit) ? globalThis.Number(object.limit) : undefined
     }
   },
@@ -332,10 +321,7 @@ export const FileSearchRequest: MessageFns<FileSearchRequest> = {
   },
   fromPartial<I extends Exact<DeepPartial<FileSearchRequest>, I>>(object: I): FileSearchRequest {
     const message = createBaseFileSearchRequest()
-    message.metadata =
-      object.metadata !== undefined && object.metadata !== null
-        ? Metadata.fromPartial(object.metadata)
-        : undefined
+    message.metadata = object.metadata !== undefined && object.metadata !== null ? Metadata.fromPartial(object.metadata) : undefined
     message.query = object.query ?? ''
     message.mentionsRequestId = object.mentionsRequestId ?? undefined
     message.limit = object.limit ?? undefined
@@ -392,12 +378,8 @@ export const FileSearchResults: MessageFns<FileSearchResults> = {
 
   fromJSON(object: any): FileSearchResults {
     return {
-      results: globalThis.Array.isArray(object?.results)
-        ? object.results.map((e: any) => FileInfo.fromJSON(e))
-        : [],
-      mentionsRequestId: isSet(object.mentionsRequestId)
-        ? globalThis.String(object.mentionsRequestId)
-        : undefined
+      results: globalThis.Array.isArray(object?.results) ? object.results.map((e: any) => FileInfo.fromJSON(e)) : [],
+      mentionsRequestId: isSet(object.mentionsRequestId) ? globalThis.String(object.mentionsRequestId) : undefined
     }
   },
 
@@ -553,9 +535,7 @@ export const GitCommits: MessageFns<GitCommits> = {
 
   fromJSON(object: any): GitCommits {
     return {
-      commits: globalThis.Array.isArray(object?.commits)
-        ? object.commits.map((e: any) => GitCommit.fromJSON(e))
-        : []
+      commits: globalThis.Array.isArray(object?.commits) ? object.commits.map((e: any) => GitCommit.fromJSON(e)) : []
     }
   },
 
@@ -801,10 +781,7 @@ export const RuleFileRequest: MessageFns<RuleFileRequest> = {
   },
   fromPartial<I extends Exact<DeepPartial<RuleFileRequest>, I>>(object: I): RuleFileRequest {
     const message = createBaseRuleFileRequest()
-    message.metadata =
-      object.metadata !== undefined && object.metadata !== null
-        ? Metadata.fromPartial(object.metadata)
-        : undefined
+    message.metadata = object.metadata !== undefined && object.metadata !== null ? Metadata.fromPartial(object.metadata) : undefined
     message.isGlobal = object.isGlobal ?? false
     message.rulePath = object.rulePath ?? undefined
     message.filename = object.filename ?? undefined

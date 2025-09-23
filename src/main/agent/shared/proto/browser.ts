@@ -132,9 +132,7 @@ export const BrowserConnectionInfo: MessageFns<BrowserConnectionInfo> = {
   create<I extends Exact<DeepPartial<BrowserConnectionInfo>, I>>(base?: I): BrowserConnectionInfo {
     return BrowserConnectionInfo.fromPartial(base ?? ({} as any))
   },
-  fromPartial<I extends Exact<DeepPartial<BrowserConnectionInfo>, I>>(
-    object: I
-  ): BrowserConnectionInfo {
+  fromPartial<I extends Exact<DeepPartial<BrowserConnectionInfo>, I>>(object: I): BrowserConnectionInfo {
     const message = createBaseBrowserConnectionInfo()
     message.isConnected = object.isConnected ?? false
     message.isRemote = object.isRemote ?? false
@@ -476,18 +474,10 @@ export const BrowserSettings: MessageFns<BrowserSettings> = {
   fromJSON(object: any): BrowserSettings {
     return {
       viewport: isSet(object.viewport) ? Viewport.fromJSON(object.viewport) : undefined,
-      remoteBrowserHost: isSet(object.remoteBrowserHost)
-        ? globalThis.String(object.remoteBrowserHost)
-        : undefined,
-      remoteBrowserEnabled: isSet(object.remoteBrowserEnabled)
-        ? globalThis.Boolean(object.remoteBrowserEnabled)
-        : undefined,
-      chromeExecutablePath: isSet(object.chromeExecutablePath)
-        ? globalThis.String(object.chromeExecutablePath)
-        : undefined,
-      disableToolUse: isSet(object.disableToolUse)
-        ? globalThis.Boolean(object.disableToolUse)
-        : undefined
+      remoteBrowserHost: isSet(object.remoteBrowserHost) ? globalThis.String(object.remoteBrowserHost) : undefined,
+      remoteBrowserEnabled: isSet(object.remoteBrowserEnabled) ? globalThis.Boolean(object.remoteBrowserEnabled) : undefined,
+      chromeExecutablePath: isSet(object.chromeExecutablePath) ? globalThis.String(object.chromeExecutablePath) : undefined,
+      disableToolUse: isSet(object.disableToolUse) ? globalThis.Boolean(object.disableToolUse) : undefined
     }
   },
 
@@ -516,10 +506,7 @@ export const BrowserSettings: MessageFns<BrowserSettings> = {
   },
   fromPartial<I extends Exact<DeepPartial<BrowserSettings>, I>>(object: I): BrowserSettings {
     const message = createBaseBrowserSettings()
-    message.viewport =
-      object.viewport !== undefined && object.viewport !== null
-        ? Viewport.fromPartial(object.viewport)
-        : undefined
+    message.viewport = object.viewport !== undefined && object.viewport !== null ? Viewport.fromPartial(object.viewport) : undefined
     message.remoteBrowserHost = object.remoteBrowserHost ?? undefined
     message.remoteBrowserEnabled = object.remoteBrowserEnabled ?? undefined
     message.chromeExecutablePath = object.chromeExecutablePath ?? undefined
@@ -540,10 +527,7 @@ function createBaseUpdateBrowserSettingsRequest(): UpdateBrowserSettingsRequest 
 }
 
 export const UpdateBrowserSettingsRequest: MessageFns<UpdateBrowserSettingsRequest> = {
-  encode(
-    message: UpdateBrowserSettingsRequest,
-    writer: BinaryWriter = new BinaryWriter()
-  ): BinaryWriter {
+  encode(message: UpdateBrowserSettingsRequest, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
     if (message.metadata !== undefined) {
       Metadata.encode(message.metadata, writer.uint32(10).fork()).join()
     }
@@ -633,18 +617,10 @@ export const UpdateBrowserSettingsRequest: MessageFns<UpdateBrowserSettingsReque
     return {
       metadata: isSet(object.metadata) ? Metadata.fromJSON(object.metadata) : undefined,
       viewport: isSet(object.viewport) ? Viewport.fromJSON(object.viewport) : undefined,
-      remoteBrowserHost: isSet(object.remoteBrowserHost)
-        ? globalThis.String(object.remoteBrowserHost)
-        : undefined,
-      remoteBrowserEnabled: isSet(object.remoteBrowserEnabled)
-        ? globalThis.Boolean(object.remoteBrowserEnabled)
-        : undefined,
-      chromeExecutablePath: isSet(object.chromeExecutablePath)
-        ? globalThis.String(object.chromeExecutablePath)
-        : undefined,
-      disableToolUse: isSet(object.disableToolUse)
-        ? globalThis.Boolean(object.disableToolUse)
-        : undefined
+      remoteBrowserHost: isSet(object.remoteBrowserHost) ? globalThis.String(object.remoteBrowserHost) : undefined,
+      remoteBrowserEnabled: isSet(object.remoteBrowserEnabled) ? globalThis.Boolean(object.remoteBrowserEnabled) : undefined,
+      chromeExecutablePath: isSet(object.chromeExecutablePath) ? globalThis.String(object.chromeExecutablePath) : undefined,
+      disableToolUse: isSet(object.disableToolUse) ? globalThis.Boolean(object.disableToolUse) : undefined
     }
   },
 
@@ -671,23 +647,13 @@ export const UpdateBrowserSettingsRequest: MessageFns<UpdateBrowserSettingsReque
     return obj
   },
 
-  create<I extends Exact<DeepPartial<UpdateBrowserSettingsRequest>, I>>(
-    base?: I
-  ): UpdateBrowserSettingsRequest {
+  create<I extends Exact<DeepPartial<UpdateBrowserSettingsRequest>, I>>(base?: I): UpdateBrowserSettingsRequest {
     return UpdateBrowserSettingsRequest.fromPartial(base ?? ({} as any))
   },
-  fromPartial<I extends Exact<DeepPartial<UpdateBrowserSettingsRequest>, I>>(
-    object: I
-  ): UpdateBrowserSettingsRequest {
+  fromPartial<I extends Exact<DeepPartial<UpdateBrowserSettingsRequest>, I>>(object: I): UpdateBrowserSettingsRequest {
     const message = createBaseUpdateBrowserSettingsRequest()
-    message.metadata =
-      object.metadata !== undefined && object.metadata !== null
-        ? Metadata.fromPartial(object.metadata)
-        : undefined
-    message.viewport =
-      object.viewport !== undefined && object.viewport !== null
-        ? Viewport.fromPartial(object.viewport)
-        : undefined
+    message.metadata = object.metadata !== undefined && object.metadata !== null ? Metadata.fromPartial(object.metadata) : undefined
+    message.viewport = object.viewport !== undefined && object.viewport !== null ? Viewport.fromPartial(object.viewport) : undefined
     message.remoteBrowserHost = object.remoteBrowserHost ?? undefined
     message.remoteBrowserEnabled = object.remoteBrowserEnabled ?? undefined
     message.chromeExecutablePath = object.chromeExecutablePath ?? undefined
