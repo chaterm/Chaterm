@@ -152,6 +152,66 @@
         </div>
       </div>
 
+      <div
+        v-else-if="props.say === 'search_result'"
+        class="command-output-container search-result"
+      >
+        <div
+          class="command-output-header"
+          @click="toggleCommandOutput"
+        >
+          <span class="output-title">
+            <CodeOutlined class="output-icon" />
+            Search Result
+          </span>
+          <div class="output-controls">
+            <span class="output-lines">{{ commandOutputLines.length }} lines</span>
+            <a-button
+              class="copy-button-header"
+              type="text"
+              size="small"
+              @click.stop="copyCommandOutput"
+            >
+              <img
+                :src="copySvg"
+                alt="copy"
+                class="copy-icon"
+              />
+            </a-button>
+            <a-button
+              class="toggle-button"
+              type="text"
+              size="small"
+              @click.stop="toggleCommandOutput"
+            >
+              <CaretDownOutlined v-if="commandOutputActiveKey.includes('1')" />
+              <CaretRightOutlined v-else />
+            </a-button>
+          </div>
+        </div>
+        <div
+          v-show="commandOutputActiveKey.includes('1')"
+          class="command-output"
+        >
+          <div
+            v-for="(line, index) in contentLines"
+            :key="index"
+            class="output-line"
+          >
+            <span
+              v-if="line.html"
+              class="content"
+              v-html="line.html"
+            ></span>
+            <span
+              v-else
+              class="content"
+              >{{ line.content }}</span
+            >
+          </div>
+        </div>
+      </div>
+
       <template v-else-if="thinkingContent">
         <div
           v-if="showThinkingMeasurement"
@@ -324,7 +384,7 @@ import 'monaco-editor/esm/vs/basic-languages/ruby/ruby.contribution'
 import 'monaco-editor/esm/vs/basic-languages/php/php.contribution'
 import 'monaco-editor/esm/vs/basic-languages/rust/rust.contribution'
 import 'monaco-editor/esm/vs/basic-languages/sql/sql.contribution'
-import { LoadingOutlined, CaretDownOutlined, CaretRightOutlined, RollbackOutlined } from '@ant-design/icons-vue'
+import { LoadingOutlined, CaretDownOutlined, CaretRightOutlined, RollbackOutlined, CodeOutlined } from '@ant-design/icons-vue'
 import thinkingSvg from '@/assets/icons/thinking.svg'
 import copySvg from '@/assets/icons/copy.svg'
 import { message } from 'ant-design-vue'
@@ -932,7 +992,7 @@ onMounted(async () => {
   if (props.content) {
     if (props.ask === 'command' || props.say === 'command') {
       initEditor(props.content)
-    } else if (props.say === 'command_output') {
+    } else if (props.say === 'command_output' || props.say === 'search_result') {
       await processContentLines(props.content)
     } else {
       await processContent(props.content)
@@ -975,7 +1035,7 @@ watch(
           }
         }
       }, 2000)
-    } else if (props.say === 'command_output') {
+    } else if (props.say === 'command_output' || props.say === 'search_result') {
       // Process content lines with secret redaction for command output
       nextTick(async () => {
         await processContentLines(newContent)
@@ -1005,7 +1065,7 @@ watch(
         editor = null
       }
       if (props.content) {
-        if (props.say === 'command_output') {
+        if (props.say === 'command_output' || props.say === 'search_result') {
           nextTick(async () => {
             await processContentLines(props.content)
           })
@@ -1023,7 +1083,7 @@ watch(
   () => props.say,
   (newSay) => {
     if (props.content) {
-      if (newSay === 'command_output') {
+      if (newSay === 'command_output' || newSay === 'search_result') {
         nextTick(async () => {
           await processContentLines(props.content)
         })
@@ -1856,6 +1916,12 @@ code {
   color: #7e8ba3;
 }
 
+.output-title .output-icon {
+  margin-right: 6px;
+  font-size: 12px;
+  vertical-align: -1px;
+}
+
 .output-controls {
   display: flex;
   align-items: center;
@@ -1922,6 +1988,17 @@ code {
   min-width: 0;
   display: flex;
   flex-direction: column;
+}
+
+/* Constrain search_result block height and enable vertical scrolling */
+.search-result .command-output {
+  max-height: 220px;
+  overflow-y: auto;
+  font-size: 11px;
+}
+
+.search-result .command-output-header {
+  cursor: pointer;
 }
 
 .command-output .error {
