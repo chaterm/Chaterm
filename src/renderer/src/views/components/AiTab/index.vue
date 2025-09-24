@@ -111,10 +111,7 @@
                 :say="message.say"
                 :partial="message.partial"
                 :executed-command="message.executedCommand"
-                :rollback-command="message.rollbackCommand"
-                :can-rollback="message.canRollback"
                 @collapse-change="handleCollapseChange"
-                @rollback-command="handleRollbackCommand"
               />
               <MarkdownRenderer
                 v-else
@@ -125,10 +122,7 @@
                 :say="message.say"
                 :partial="message.partial"
                 :executed-command="message.executedCommand"
-                :rollback-command="message.rollbackCommand"
-                :can-rollback="message.canRollback"
                 @collapse-change="handleCollapseChange"
-                @rollback-command="handleRollbackCommand"
               />
 
               <div class="message-actions">
@@ -1390,59 +1384,6 @@ const handleHistoryClick = async () => {
     console.error('Failed to get conversation list:', err)
   }
 }
-// Generate rollback command based on the executed command
-const generateRollbackCommand = (command: string): { command: string; isWarning: boolean } => {
-  const trimmedCommand = command.trim()
-
-  // Common rollback patterns
-  const rollbackPatterns = [
-    // File operations
-    { pattern: /^rm\s+(-rf\s+)?(.+)$/, rollback: (match: RegExpMatchArray) => `# Restore deleted file: ${match[2]}` },
-    { pattern: /^mv\s+(.+)\s+(.+)$/, rollback: (match: RegExpMatchArray) => `mv ${match[2]} ${match[1]}` },
-    { pattern: /^cp\s+(.+)\s+(.+)$/, rollback: (match: RegExpMatchArray) => `rm ${match[2]}` },
-    { pattern: /^touch\s+(.+)$/, rollback: (match: RegExpMatchArray) => `rm ${match[1]}` },
-
-    // Directory operations
-    { pattern: /^mkdir\s+(.+)$/, rollback: (match: RegExpMatchArray) => `rmdir ${match[1]}` },
-    { pattern: /^rmdir\s+(.+)$/, rollback: (match: RegExpMatchArray) => `mkdir ${match[1]}` },
-
-    // Git operations
-    { pattern: /^git\s+add\s+(.+)$/, rollback: (match: RegExpMatchArray) => `git reset HEAD ${match[1]}` },
-    { pattern: /^git\s+commit\s+(-m\s+".*")?$/, rollback: () => `git reset --soft HEAD~1` },
-    { pattern: /^git\s+push\s+(.+)$/, rollback: (match: RegExpMatchArray) => `git push --force-with-lease ${match[1]}` },
-    { pattern: /^git\s+merge\s+(.+)$/, rollback: () => `git merge --abort` },
-    { pattern: /^git\s+checkout\s+(.+)$/, rollback: () => `git checkout -` },
-
-    // Package management
-    { pattern: /^npm\s+install\s+(.+)$/, rollback: (match: RegExpMatchArray) => `npm uninstall ${match[1]}` },
-    { pattern: /^yarn\s+add\s+(.+)$/, rollback: (match: RegExpMatchArray) => `yarn remove ${match[1]}` },
-    { pattern: /^pip\s+install\s+(.+)$/, rollback: (match: RegExpMatchArray) => `pip uninstall ${match[1]}` },
-    { pattern: /^apt\s+install\s+(.+)$/, rollback: (match: RegExpMatchArray) => `apt remove ${match[1]}` },
-    { pattern: /^brew\s+install\s+(.+)$/, rollback: (match: RegExpMatchArray) => `brew uninstall ${match[1]}` },
-
-    // System operations
-    { pattern: /^chmod\s+(\d+)\s+(.+)$/, rollback: (match: RegExpMatchArray) => `chmod 644 ${match[2]}` },
-    { pattern: /^chown\s+(.+)\s+(.+)$/, rollback: (match: RegExpMatchArray) => `chown root:root ${match[2]}` },
-    { pattern: /^ln\s+-s\s+(.+)\s+(.+)$/, rollback: (match: RegExpMatchArray) => `rm ${match[2]}` },
-
-    // Environment variables
-    { pattern: /^export\s+([^=]+)=(.+)$/, rollback: (match: RegExpMatchArray) => `unset ${match[1]}` }
-  ]
-
-  // Try to match patterns
-  for (const { pattern, rollback } of rollbackPatterns) {
-    const match = trimmedCommand.match(pattern)
-    if (match) {
-      return { command: rollback(match), isWarning: false }
-    }
-  }
-
-  // Default rollback - show warning
-  return {
-    command: `# Warning: No specific rollback command available for: ${trimmedCommand}\n# Please manually undo the changes`,
-    isWarning: true
-  }
-}
 
 const handleMessageOperation = async (operation: 'copy' | 'apply') => {
   const lastMessage = chatHistory.at(-1)
@@ -1464,13 +1405,9 @@ const handleMessageOperation = async (operation: 'copy' | 'apply') => {
   }
   lastMessage.actioned = true
 
-  // Record executed command and generate rollback command for command execution
+  // Record executed command for command execution
   if (operation === 'apply' && content) {
     lastMessage.executedCommand = content
-    const rollbackResult = generateRollbackCommand(content)
-    lastMessage.rollbackCommand = rollbackResult.command
-    // Only show rollback button if it's not a warning message
-    lastMessage.canRollback = !rollbackResult.isWarning
   }
 
   // In the command mode, check whether the current window matches the target server.
@@ -1546,60 +1483,6 @@ const handleMessageOperation = async (operation: 'copy' | 'apply') => {
 
 const handleApplyCommand = () => handleMessageOperation('apply')
 const handleCopyContent = () => handleMessageOperation('copy')
-
-// Handle rollback command
-const handleRollbackCommand = (rollbackCommand: string) => {
-  // Security check: prevent dangerous rollback commands
-  const dangerousPatterns = [
-    /rm\s+-rf\s+\//, // Prevent rm -rf /
-    /rm\s+-rf\s+\*/, // Prevent rm -rf *
-    /rm\s+-rf\s+~/, // Prevent rm -rf ~
-    /rm\s+-rf\s+\./, // Prevent rm -rf .
-    /rm\s+-rf\s+\.\./, // Prevent rm -rf ..
-    /format\s+/, // Prevent format commands
-    /mkfs\s+/, // Prevent filesystem creation
-    /dd\s+/, // Prevent dd commands
-    /shutdown\s+/, // Prevent shutdown commands
-    /reboot\s+/, // Prevent reboot commands
-    /halt\s+/, // Prevent halt commands
-    /poweroff\s+/ // Prevent poweroff commands
-  ]
-
-  const isDangerous = dangerousPatterns.some((pattern) => pattern.test(rollbackCommand))
-
-  if (isDangerous) {
-    notification.error({
-      message: t('ai.rollbackBlocked'),
-      description: t('ai.rollbackDangerousCommand'),
-      placement: 'topRight'
-    })
-    return
-  }
-
-  // Create rollback confirmation message
-  const rollbackMessage = createNewMessage(
-    'assistant',
-    {
-      question: `${t('ai.rollbackConfirmation')}\n\n${t('ai.rollbackWarning')}\n\n\`\`\`\n${rollbackCommand}\n\`\`\``,
-      options: [t('ai.executeRollback'), t('ai.cancel')],
-      type: 'rollback_confirmation',
-      content: rollbackCommand
-    },
-    'ask',
-    'rollback_confirmation',
-    '',
-    Date.now(),
-    false
-  )
-
-  // Add rollback confirmation message to chat history
-  chatHistory.push(rollbackMessage)
-
-  // Scroll to bottom (respect sticky behavior)
-  nextTick(() => {
-    scrollToBottom()
-  })
-}
 
 // Todo 相关处理方法已移除 - 不再支持关闭功能
 
@@ -1703,72 +1586,6 @@ const handleOptionSubmit = async (message: ChatMessage) => {
 
   if (selectedOption === '__custom__') {
     finalOption = getCustomInput(message)
-  }
-
-  // Handle rollback confirmation
-  if (message.ask === 'rollback_confirmation') {
-    if (finalOption === t('ai.executeRollback')) {
-      // Execute the rollback command
-      const rollbackCommand = (message.content as MessageContent).content || ''
-      eventBus.emit('executeTerminalCommand', rollbackCommand + '\n')
-      responseLoading.value = true
-
-      // Add execution confirmation message
-      const executionMessage = createNewMessage(
-        'assistant',
-        `${t('ai.rollbackCommandExecuted')}\n\`\`\`\n${rollbackCommand}\n\`\`\``,
-        'say',
-        '',
-        'rollback_executed',
-        Date.now(),
-        false
-      )
-      chatHistory.push(executionMessage)
-
-      // Find and update the original command message to hide rollback button
-      // We need to find the message that has this rollbackCommand as its rollbackCommand
-      const originalMessageIndex = chatHistory.findIndex((msg) => msg.rollbackCommand === rollbackCommand && msg.canRollback === true)
-      if (originalMessageIndex !== -1) {
-        chatHistory[originalMessageIndex].canRollback = false
-        console.log('Rollback button hidden for message:', originalMessageIndex)
-        // Force reactivity update
-        chatHistory.splice(0, chatHistory.length, ...chatHistory)
-      } else {
-        // Try alternative search - look for messages with executedCommand matching the rollback command
-        const alternativeIndex = chatHistory.findIndex((msg) => msg.executedCommand === rollbackCommand && msg.canRollback === true)
-        if (alternativeIndex !== -1) {
-          chatHistory[alternativeIndex].canRollback = false
-          console.log('Rollback button hidden for message (alternative search):', alternativeIndex)
-          // Force reactivity update
-          chatHistory.splice(0, chatHistory.length, ...chatHistory)
-        } else {
-          console.log('Original message not found for rollback command:', rollbackCommand)
-          console.log(
-            'Available messages:',
-            chatHistory.map((msg, index) => ({
-              index,
-              executedCommand: msg.executedCommand,
-              rollbackCommand: msg.rollbackCommand,
-              canRollback: msg.canRollback
-            }))
-          )
-        }
-      }
-    } else if (finalOption === t('ai.cancel')) {
-      // Add cancellation message
-      const cancelMessage = createNewMessage('assistant', t('ai.rollbackOperationCancelled'), 'say', '', 'rollback_cancelled', Date.now(), false)
-      chatHistory.push(cancelMessage)
-    }
-
-    // Mark the rollback confirmation message as processed
-    message.selectedOption = finalOption
-
-    // Scroll to bottom (respect sticky behavior)
-    nextTick(() => {
-      scrollToBottom()
-    })
-
-    return
   }
 
   // 调用原有的选项处理逻辑
