@@ -269,7 +269,7 @@ import i18n from '@/locales'
 import { extractFinalOutput, cleanAnsiEscapeSequences } from '@/utils/terminalOutputExtractor'
 import { userConfigStore as userConfigStoreService } from '@/services/userConfigStoreService'
 import { getCustomTheme, isDarkTheme } from '@/utils/themeUtils'
-import TerminalOutputRenderer from './TerminalOutputRenderer.vue'
+import TerminalOutputRenderer from './terminalOutputRenderer.vue'
 
 const { t } = i18n.global
 
