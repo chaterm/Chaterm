@@ -83,74 +83,11 @@
       </a-collapse>
     </div>
     <div v-else>
-      <div
+      <TerminalOutputRenderer
         v-if="props.say === 'command_output'"
-        class="command-output-container"
-      >
-        <div class="command-output-header">
-          <span class="output-title">OUTPUT</span>
-          <div class="output-controls">
-            <span class="output-lines">{{ commandOutputLines.length }} lines</span>
-            <a-button
-              class="copy-button-header"
-              type="text"
-              size="small"
-              @click="copyCommandOutput"
-            >
-              <img
-                :src="copySvg"
-                alt="copy"
-                class="copy-icon"
-              />
-            </a-button>
-            <a-button
-              class="toggle-button"
-              type="text"
-              size="small"
-              @click="toggleCommandOutput"
-            >
-              <CaretDownOutlined v-if="commandOutputActiveKey.includes('1')" />
-              <CaretRightOutlined v-else />
-            </a-button>
-          </div>
-        </div>
-        <div
-          v-show="commandOutputActiveKey.includes('1')"
-          class="command-output"
-        >
-          <div
-            v-for="(line, index) in contentLines"
-            :key="index"
-            class="output-line"
-          >
-            <template v-if="line.type === 'prompt'">
-              <span class="prompt">{{ line.prompt }}</span>
-              <span class="command">{{ line.command }}</span>
-            </template>
-            <template v-else-if="line.type === 'ls'">
-              <span class="permissions">{{ line.permissions }}</span>
-              <span class="links">{{ line.links }}</span>
-              <span class="user">{{ line.user }}</span>
-              <span class="group">{{ line.group }}</span>
-              <span class="size">{{ line.size }}</span>
-              <span class="date">{{ line.date }}</span>
-              <span :class="line.fileType">{{ line.name }}</span>
-            </template>
-            <template v-else>
-              <span
-                v-if="line.html"
-                class="content"
-                v-html="line.html"
-              ></span>
-              <span
-                v-else
-                class="content"
-                >{{ line.content }}</span
-              >
-            </template>
-          </div>
-        </div>
-      </div>
+        :content="props.content"
+        @mounted="() => console.log('TerminalOutputRenderer: 在 markdownRenderer 中被渲染')"
+      />
 
       <template v-else-if="thinkingContent">
         <div
@@ -324,7 +261,7 @@ import 'monaco-editor/esm/vs/basic-languages/ruby/ruby.contribution'
 import 'monaco-editor/esm/vs/basic-languages/php/php.contribution'
 import 'monaco-editor/esm/vs/basic-languages/rust/rust.contribution'
 import 'monaco-editor/esm/vs/basic-languages/sql/sql.contribution'
-import { LoadingOutlined, CaretDownOutlined, CaretRightOutlined, RollbackOutlined } from '@ant-design/icons-vue'
+import { LoadingOutlined, RollbackOutlined } from '@ant-design/icons-vue'
 import thinkingSvg from '@/assets/icons/thinking.svg'
 import copySvg from '@/assets/icons/copy.svg'
 import { message } from 'ant-design-vue'
@@ -332,6 +269,7 @@ import i18n from '@/locales'
 import { extractFinalOutput, cleanAnsiEscapeSequences } from '@/utils/terminalOutputExtractor'
 import { userConfigStore as userConfigStoreService } from '@/services/userConfigStoreService'
 import { getCustomTheme, isDarkTheme } from '@/utils/themeUtils'
+import TerminalOutputRenderer from './TerminalOutputRenderer.vue'
 
 const { t } = i18n.global
 
@@ -444,7 +382,6 @@ const activeKey = ref<string[]>(['1'])
 const contentRef = ref<HTMLElement | null>(null)
 const editorContainer = ref<HTMLElement | null>(null)
 const codeActiveKey = ref<string[]>(['1'])
-const commandOutputActiveKey = ref<string[]>(['1'])
 const monacoContainer = ref<HTMLElement | null>(null)
 const totalLines = ref(0)
 let editor: monaco.editor.IStandaloneCodeEditor | null = null
@@ -709,7 +646,8 @@ const processContent = async (content: string) => {
     return
   }
   if (props.say === 'command_output') {
-    normalContent.value = processedContent
+    // 对于 command_output，不需要处理内容，直接返回
+    // 内容会由 TerminalOutputRenderer 组件处理
     return
   }
 
@@ -944,7 +882,7 @@ onMounted(async () => {
     if (props.ask === 'command' || props.say === 'command') {
       initEditor(props.content)
     } else if (props.say === 'command_output') {
-      await processContentLines(props.content)
+      // command_output 由 TerminalOutputRenderer 组件处理，不需要额外处理
     } else {
       await processContent(props.content)
       initCodeBlockEditors()
@@ -962,7 +900,6 @@ watch(
       thinkingMeasurementToken++
       normalContent.value = ''
       codeBlocks.value = []
-      processedContentLines.value = []
       if (editor) {
         editor.setValue('')
       }
@@ -987,10 +924,7 @@ watch(
         }
       }, 2000)
     } else if (props.say === 'command_output') {
-      // Process content lines with secret redaction for command output
-      nextTick(async () => {
-        await processContentLines(newContent)
-      })
+      // command_output 由 TerminalOutputRenderer 组件处理，不需要额外处理
     } else {
       nextTick(async () => {
         await processContent(newContent)
@@ -1017,9 +951,7 @@ watch(
       }
       if (props.content) {
         if (props.say === 'command_output') {
-          nextTick(async () => {
-            await processContentLines(props.content)
-          })
+          // command_output 由 TerminalOutputRenderer 组件处理，不需要额外处理
         } else {
           nextTick(async () => {
             await processContent(props.content)
@@ -1035,9 +967,7 @@ watch(
   (newSay) => {
     if (props.content) {
       if (newSay === 'command_output') {
-        nextTick(async () => {
-          await processContentLines(props.content)
-        })
+        // command_output 由 TerminalOutputRenderer 组件处理，不需要额外处理
       } else if (newSay === 'command') {
         if (!editor) {
           initEditor(props.content)
@@ -1225,75 +1155,6 @@ const getColorName = (index: number): string => {
   return colors[index] || 'white'
 }
 
-// Reactive ref to store processed content lines with redaction applied
-const processedContentLines = ref<Array<any>>([])
-
-// Function to process content lines with secret redaction
-const processContentLines = async (content: string) => {
-  if (!content) {
-    processedContentLines.value = []
-    return
-  }
-
-  const redactionEnabled = await isMarkdownSecretRedactionEnabled()
-  const formattedOutput = extractFinalOutput(content)
-
-  // Apply secret redaction to the entire output if enabled
-  const processedOutput = redactionEnabled ? applySecretRedactionToMarkdown(formattedOutput, true) : formattedOutput
-
-  const lines = processedOutput.split('\n')
-
-  processedContentLines.value = lines.map((line) => {
-    const processedLine = stripAnsiCodes(line)
-
-    if (processedLine.startsWith('$ ') || processedLine.startsWith('# ')) {
-      return {
-        type: 'prompt',
-        prompt: processedLine.charAt(0),
-        command: processedLine.substring(2)
-      }
-    }
-
-    const lsMatch = processedLine.match(/^([drwx-]+)\s+(\d+)\s+(\w+)\s+(\w+)\s+(\d+)\s+([A-Za-z]+\s+\d+\s+(?:\d{2}:\d{2}|\d{4}))\s+(.+)$/)
-    if (lsMatch) {
-      const [, permissions, links, user, group, size, date, name] = lsMatch
-      return {
-        type: 'ls',
-        permissions,
-        links,
-        user,
-        group,
-        size,
-        date,
-        name,
-        fileType: permissions.startsWith('d') ? 'directory' : permissions.includes('x') ? 'executable' : 'file'
-      }
-    }
-
-    // Convert markdown strikethrough to HTML for command output
-    let htmlContent = processAnsiCodes(line)
-    if (redactionEnabled && htmlContent.includes('~~')) {
-      htmlContent = htmlContent.replace(/~~([^~]+)~~/g, '<del>$1</del>')
-    }
-
-    return {
-      type: 'content',
-      content: processedLine,
-      html: htmlContent
-    }
-  })
-}
-
-// Computed property that returns the processed content lines
-const contentLines = computed(() => {
-  return processedContentLines.value
-})
-
-// Computed property for command output lines count
-const commandOutputLines = computed(() => {
-  return contentLines.value
-})
-
 const copyEditorContent = () => {
   if (editor) {
     const content = editor.getValue()
@@ -1320,32 +1181,6 @@ const copyBlockContent = (blockIndex: number) => {
 const handleRollback = () => {
   if (props.rollbackCommand) {
     emit('rollback-command', props.rollbackCommand)
-  }
-}
-
-const copyCommandOutput = () => {
-  const outputText = contentLines.value
-    .map((line) => {
-      if (line.type === 'prompt') {
-        return `${line.prompt} ${line.command}`
-      } else if (line.type === 'ls') {
-        return `${line.permissions} ${line.links} ${line.user} ${line.group} ${line.size} ${line.date} ${line.name}`
-      } else {
-        return line.content || ''
-      }
-    })
-    .join('\n')
-
-  navigator.clipboard.writeText(outputText).then(() => {
-    message.success(t('ai.copyToClipboard'))
-  })
-}
-
-const toggleCommandOutput = () => {
-  if (commandOutputActiveKey.value.includes('1')) {
-    commandOutputActiveKey.value = []
-  } else {
-    commandOutputActiveKey.value = ['1']
   }
 }
 
