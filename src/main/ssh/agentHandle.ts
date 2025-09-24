@@ -5,6 +5,7 @@ import { createProxySocket } from './proxy'
 import net from 'net'
 import tls from 'tls'
 import { getUserConfigFromRenderer } from '../index'
+import { sshConnections } from './sshHandle'
 
 // Store SSH connections
 const remoteConnections = new Map<string, Client>()
@@ -127,9 +128,17 @@ export async function remoteSshExec(
   command: string,
   timeoutMs: number = 30 * 60 * 1000
 ): Promise<{ success?: boolean; output?: string; error?: string }> {
-  const conn = remoteConnections.get(sessionId)
+  // Try to find connection in both pools
+  let conn = remoteConnections.get(sessionId)
   if (!conn) {
-    console.error(`SSH connection does not exist: ${sessionId}`)
+    // Fallback to main SSH connections pool
+    conn = sshConnections.get(sessionId) as Client
+  }
+
+  if (!conn) {
+    console.error(`SSH connection does not exist in either pool: ${sessionId}`)
+    console.error(`Available remoteConnections:`, Array.from(remoteConnections.keys()))
+    console.error(`Available sshConnections:`, Array.from(sshConnections.keys()))
     return { success: false, error: 'Not connected to remote server' }
   }
   console.log(`Starting SSH command: ${command} (Session: ${sessionId})`)
@@ -209,9 +218,15 @@ export async function remoteSshExecStream(
   onData: (chunk: string) => void,
   timeoutMs: number = 30 * 60 * 1000
 ): Promise<{ success?: boolean; error?: string; stream?: any }> {
-  const conn = remoteConnections.get(sessionId)
+  // Try to find connection in both pools
+  let conn = remoteConnections.get(sessionId)
   if (!conn) {
-    console.error(`SSH connection does not exist: ${sessionId}`)
+    // Fallback to main SSH connections pool
+    conn = sshConnections.get(sessionId) as Client
+  }
+
+  if (!conn) {
+    console.error(`SSH connection does not exist in either pool: ${sessionId}`)
     return { success: false, error: 'Not connected to remote server' }
   }
 
