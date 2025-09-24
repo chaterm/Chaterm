@@ -110,6 +110,7 @@ Your final result description here
 Description: Manage todos for complex ops (use ONLY for tasks with ≥3 concrete steps).
 Parameters: Each item requires id, content, status∈{pending,in_progress,completed}, priority∈{high,medium,low}; optional description, subtasks[{id,content,description?}]; do NOT include createdAt/updatedAt; IDs must be unique and stable.
 Usage: <todo_write><todos>[{"id":"t1","content":"Check resources","status":"pending","priority":"high"},{"id":"t2","content":"Analyze logs","status":"pending","priority":"medium"},{"id":"t3","content":"Verify fix","status":"pending","priority":"low"}]</todos></todo_write>
+- In <thinking>, simply note that a todo list is needed; do not draft the JSON there. Provide the JSON only inside the <todo_write> tool call.
 
 ## todo_read
 Description: Show the list and progress (only when the list has ≥3 items).
@@ -384,6 +385,7 @@ export const SYSTEM_PROMPT_CN = `你是 Chaterm，一位拥有 20 年经验的�
 描述：管理多步骤运维待办（仅用于≥3 步骤的复杂任务）。
 参数：每项需 id、content、status∈{pending,in_progress,completed}、priority∈{high,medium,low}；可选 description、subtasks[{id,content,description?}]；不要包含 createdAt/updatedAt。
 用法：<todo_write><todos>[{"id":"t1","content":"检查资源","status":"pending","priority":"high"},{"id":"t2","content":"分析日志","status":"pending","priority":"medium"},{"id":"t3","content":"验证修复","status":"pending","priority":"low"}]</todos></todo_write>
+- 在<thinking>中仅提及需要创建待办，而不要在那里撰写 JSON；待办 JSON 只在实际的 <todo_write> 调用中提供。
 
 ## todo_read
 描述：查看清单与进度（仅当清单≥3 项时展示）。
