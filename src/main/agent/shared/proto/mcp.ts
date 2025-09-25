@@ -188,19 +188,12 @@ export const ToggleMcpServerRequest: MessageFns<ToggleMcpServerRequest> = {
     return obj
   },
 
-  create<I extends Exact<DeepPartial<ToggleMcpServerRequest>, I>>(
-    base?: I
-  ): ToggleMcpServerRequest {
+  create<I extends Exact<DeepPartial<ToggleMcpServerRequest>, I>>(base?: I): ToggleMcpServerRequest {
     return ToggleMcpServerRequest.fromPartial(base ?? ({} as any))
   },
-  fromPartial<I extends Exact<DeepPartial<ToggleMcpServerRequest>, I>>(
-    object: I
-  ): ToggleMcpServerRequest {
+  fromPartial<I extends Exact<DeepPartial<ToggleMcpServerRequest>, I>>(object: I): ToggleMcpServerRequest {
     const message = createBaseToggleMcpServerRequest()
-    message.metadata =
-      object.metadata !== undefined && object.metadata !== null
-        ? Metadata.fromPartial(object.metadata)
-        : undefined
+    message.metadata = object.metadata !== undefined && object.metadata !== null ? Metadata.fromPartial(object.metadata) : undefined
     message.serverName = object.serverName ?? ''
     message.disabled = object.disabled ?? false
     return message
@@ -212,10 +205,7 @@ function createBaseUpdateMcpTimeoutRequest(): UpdateMcpTimeoutRequest {
 }
 
 export const UpdateMcpTimeoutRequest: MessageFns<UpdateMcpTimeoutRequest> = {
-  encode(
-    message: UpdateMcpTimeoutRequest,
-    writer: BinaryWriter = new BinaryWriter()
-  ): BinaryWriter {
+  encode(message: UpdateMcpTimeoutRequest, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
     if (message.metadata !== undefined) {
       Metadata.encode(message.metadata, writer.uint32(10).fork()).join()
     }
@@ -290,19 +280,12 @@ export const UpdateMcpTimeoutRequest: MessageFns<UpdateMcpTimeoutRequest> = {
     return obj
   },
 
-  create<I extends Exact<DeepPartial<UpdateMcpTimeoutRequest>, I>>(
-    base?: I
-  ): UpdateMcpTimeoutRequest {
+  create<I extends Exact<DeepPartial<UpdateMcpTimeoutRequest>, I>>(base?: I): UpdateMcpTimeoutRequest {
     return UpdateMcpTimeoutRequest.fromPartial(base ?? ({} as any))
   },
-  fromPartial<I extends Exact<DeepPartial<UpdateMcpTimeoutRequest>, I>>(
-    object: I
-  ): UpdateMcpTimeoutRequest {
+  fromPartial<I extends Exact<DeepPartial<UpdateMcpTimeoutRequest>, I>>(object: I): UpdateMcpTimeoutRequest {
     const message = createBaseUpdateMcpTimeoutRequest()
-    message.metadata =
-      object.metadata !== undefined && object.metadata !== null
-        ? Metadata.fromPartial(object.metadata)
-        : undefined
+    message.metadata = object.metadata !== undefined && object.metadata !== null ? Metadata.fromPartial(object.metadata) : undefined
     message.serverName = object.serverName ?? ''
     message.timeout = object.timeout ?? 0
     return message
@@ -314,10 +297,7 @@ function createBaseAddRemoteMcpServerRequest(): AddRemoteMcpServerRequest {
 }
 
 export const AddRemoteMcpServerRequest: MessageFns<AddRemoteMcpServerRequest> = {
-  encode(
-    message: AddRemoteMcpServerRequest,
-    writer: BinaryWriter = new BinaryWriter()
-  ): BinaryWriter {
+  encode(message: AddRemoteMcpServerRequest, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
     if (message.metadata !== undefined) {
       Metadata.encode(message.metadata, writer.uint32(10).fork()).join()
     }
@@ -392,19 +372,12 @@ export const AddRemoteMcpServerRequest: MessageFns<AddRemoteMcpServerRequest> = 
     return obj
   },
 
-  create<I extends Exact<DeepPartial<AddRemoteMcpServerRequest>, I>>(
-    base?: I
-  ): AddRemoteMcpServerRequest {
+  create<I extends Exact<DeepPartial<AddRemoteMcpServerRequest>, I>>(base?: I): AddRemoteMcpServerRequest {
     return AddRemoteMcpServerRequest.fromPartial(base ?? ({} as any))
   },
-  fromPartial<I extends Exact<DeepPartial<AddRemoteMcpServerRequest>, I>>(
-    object: I
-  ): AddRemoteMcpServerRequest {
+  fromPartial<I extends Exact<DeepPartial<AddRemoteMcpServerRequest>, I>>(object: I): AddRemoteMcpServerRequest {
     const message = createBaseAddRemoteMcpServerRequest()
-    message.metadata =
-      object.metadata !== undefined && object.metadata !== null
-        ? Metadata.fromPartial(object.metadata)
-        : undefined
+    message.metadata = object.metadata !== undefined && object.metadata !== null ? Metadata.fromPartial(object.metadata) : undefined
     message.serverName = object.serverName ?? ''
     message.serverUrl = object.serverUrl ?? ''
     return message
@@ -725,9 +698,7 @@ export const McpResourceTemplate: MessageFns<McpResourceTemplate> = {
   create<I extends Exact<DeepPartial<McpResourceTemplate>, I>>(base?: I): McpResourceTemplate {
     return McpResourceTemplate.fromPartial(base ?? ({} as any))
   },
-  fromPartial<I extends Exact<DeepPartial<McpResourceTemplate>, I>>(
-    object: I
-  ): McpResourceTemplate {
+  fromPartial<I extends Exact<DeepPartial<McpResourceTemplate>, I>>(object: I): McpResourceTemplate {
     const message = createBaseMcpResourceTemplate()
     message.uriTemplate = object.uriTemplate ?? ''
     message.name = object.name ?? ''
@@ -877,12 +848,8 @@ export const McpServer: MessageFns<McpServer> = {
       config: isSet(object.config) ? globalThis.String(object.config) : '',
       status: isSet(object.status) ? mcpServerStatusFromJSON(object.status) : 0,
       error: isSet(object.error) ? globalThis.String(object.error) : undefined,
-      tools: globalThis.Array.isArray(object?.tools)
-        ? object.tools.map((e: any) => McpTool.fromJSON(e))
-        : [],
-      resources: globalThis.Array.isArray(object?.resources)
-        ? object.resources.map((e: any) => McpResource.fromJSON(e))
-        : [],
+      tools: globalThis.Array.isArray(object?.tools) ? object.tools.map((e: any) => McpTool.fromJSON(e)) : [],
+      resources: globalThis.Array.isArray(object?.resources) ? object.resources.map((e: any) => McpResource.fromJSON(e)) : [],
       resourceTemplates: globalThis.Array.isArray(object?.resourceTemplates)
         ? object.resourceTemplates.map((e: any) => McpResourceTemplate.fromJSON(e))
         : [],
@@ -934,8 +901,7 @@ export const McpServer: MessageFns<McpServer> = {
     message.error = object.error ?? undefined
     message.tools = object.tools?.map((e) => McpTool.fromPartial(e)) || []
     message.resources = object.resources?.map((e) => McpResource.fromPartial(e)) || []
-    message.resourceTemplates =
-      object.resourceTemplates?.map((e) => McpResourceTemplate.fromPartial(e)) || []
+    message.resourceTemplates = object.resourceTemplates?.map((e) => McpResourceTemplate.fromPartial(e)) || []
     message.disabled = object.disabled ?? undefined
     message.timeout = object.timeout ?? undefined
     return message
@@ -980,9 +946,7 @@ export const McpServers: MessageFns<McpServers> = {
 
   fromJSON(object: any): McpServers {
     return {
-      mcpServers: globalThis.Array.isArray(object?.mcpServers)
-        ? object.mcpServers.map((e: any) => McpServer.fromJSON(e))
-        : []
+      mcpServers: globalThis.Array.isArray(object?.mcpServers) ? object.mcpServers.map((e: any) => McpServer.fromJSON(e)) : []
     }
   },
 

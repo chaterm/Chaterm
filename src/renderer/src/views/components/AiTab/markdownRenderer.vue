@@ -38,16 +38,6 @@
                   class="copy-icon"
                 />
               </a-button>
-              <a-button
-                v-if="totalLines >= 10 && canRollback && rollbackCommand"
-                class="rollback-button"
-                type="text"
-                size="small"
-                :title="t('ai.rollback')"
-                @click.stop="handleRollback"
-              >
-                <RollbackOutlined class="rollback-icon" />
-              </a-button>
             </a-space>
           </template>
           <div
@@ -68,16 +58,6 @@
                 class="copy-icon"
               />
             </a-button>
-            <a-button
-              v-if="totalLines < 10 && canRollback && rollbackCommand"
-              class="rollback-button"
-              type="text"
-              size="small"
-              :title="t('ai.rollback')"
-              @click="handleRollback"
-            >
-              <RollbackOutlined class="rollback-icon" />
-            </a-button>
           </div>
         </a-collapse-panel>
       </a-collapse>
@@ -88,6 +68,65 @@
         :content="props.content"
         @mounted="() => console.log('TerminalOutputRenderer: 在 markdownRenderer 中被渲染')"
       />
+      <div
+        v-else-if="props.say === 'search_result'"
+        class="command-output-container search-result"
+      >
+        <div
+          class="command-output-header"
+          @click="toggleCommandOutput"
+        >
+          <span class="output-title">
+            <CodeOutlined class="output-icon" />
+            Search Result
+          </span>
+          <div class="output-controls">
+            <span class="output-lines">{{ contentLines.length }} lines</span>
+            <a-button
+              class="copy-button-header"
+              type="text"
+              size="small"
+              @click.stop="copyCommandOutput"
+            >
+              <img
+                :src="copySvg"
+                alt="copy"
+                class="copy-icon"
+              />
+            </a-button>
+            <a-button
+              class="toggle-button"
+              type="text"
+              size="small"
+              @click.stop="toggleCommandOutput"
+            >
+              <CaretDownOutlined v-if="commandOutputActiveKey.includes('1')" />
+              <CaretRightOutlined v-else />
+            </a-button>
+          </div>
+        </div>
+        <div
+          v-show="commandOutputActiveKey.includes('1')"
+          class="command-output"
+        >
+          <div
+            v-for="(line, index) in contentLines"
+            :key="index"
+            class="output-line"
+          >
+            <span
+              v-if="line.html"
+              class="content"
+              v-html="line.html"
+            ></span>
+            <span
+              v-else
+              class="content"
+              >{{ line.content }}</span
+            >
+          </div>
+        </div>
+      </div>
 
       <template v-else-if="thinkingContent">
         <div
@@ -188,16 +227,6 @@
                         class="copy-icon"
                       />
                     </a-button>
-                    <a-button
-                      v-if="part.block.lines >= 10 && canRollback && rollbackCommand"
-                      class="rollback-button"
-                      type="text"
-                      size="small"
-                      :title="t('ai.rollback')"
-                      @click.stop="handleRollback"
-                    >
-                      <RollbackOutlined class="rollback-icon" />
-                    </a-button>
                   </a-space>
                 </template>
                 <div
@@ -222,16 +251,6 @@
                       alt="copy"
                       class="copy-icon"
                     />
-                  </a-button>
-                  <a-button
-                    v-if="part.block.lines < 10 && canRollback && rollbackCommand"
-                    class="rollback-button"
-                    type="text"
-                    size="small"
-                    :title="t('ai.rollback')"
-                    @click="handleRollback"
-                  >
-                    <RollbackOutlined class="rollback-icon" />
                   </a-button>
                 </div>
               </a-collapse-panel>
@@ -261,7 +280,7 @@ import 'monaco-editor/esm/vs/basic-languages/ruby/ruby.contribution'
 import 'monaco-editor/esm/vs/basic-languages/php/php.contribution'
 import 'monaco-editor/esm/vs/basic-languages/rust/rust.contribution'
 import 'monaco-editor/esm/vs/basic-languages/sql/sql.contribution'
-import { LoadingOutlined, RollbackOutlined } from '@ant-design/icons-vue'
+import { LoadingOutlined, CaretDownOutlined, CaretRightOutlined } from '@ant-design/icons-vue'
 import thinkingSvg from '@/assets/icons/thinking.svg'
 import copySvg from '@/assets/icons/copy.svg'
 import { message } from 'ant-design-vue'
@@ -371,13 +390,13 @@ if (monaco.editor) {
   })
 }
 
-const renderedContent = ref('')
 const thinkingContent = ref('')
 const normalContent = ref('')
 const thinkingLoading = ref(false)
 const showThinkingMeasurement = ref(false)
 let thinkingMeasurementToken = 0
 const isCancelled = ref(false)
+const commandOutputActiveKey = ref<string[]>(['1'])
 const activeKey = ref<string[]>(['1'])
 const contentRef = ref<HTMLElement | null>(null)
 const editorContainer = ref<HTMLElement | null>(null)
@@ -392,8 +411,6 @@ const props = defineProps<{
   say?: string
   partial?: boolean
   executedCommand?: string
-  rollbackCommand?: string
-  canRollback?: boolean
 }>()
 
 const codeBlocks = ref<Array<{ content: string; activeKey: string[]; lines: number }>>([])
@@ -881,6 +898,8 @@ onMounted(async () => {
       initEditor(props.content)
     } else if (props.say === 'command_output') {
       // command_output 由 TerminalOutputRenderer 组件处理，不需要额外处理
+    } else if (props.say === 'search_result') {
+      await processContentLines(props.content)
     } else {
       await processContent(props.content)
       initCodeBlockEditors()
@@ -892,7 +911,6 @@ watch(
   () => props.content,
   (newContent) => {
     if (!newContent) {
-      renderedContent.value = ''
       thinkingContent.value = ''
       showThinkingMeasurement.value = false
       thinkingMeasurementToken++
@@ -922,6 +940,11 @@ watch(
       }, 2000)
     } else if (props.say === 'command_output') {
       // command_output 由 TerminalOutputRenderer 组件处理，不需要额外处理
+    } else if (props.say === 'search_result') {
+      // Process content lines with secret redaction for command output
+      nextTick(async () => {
+        await processContentLines(newContent)
+      })
     } else {
       nextTick(async () => {
         await processContent(newContent)
@@ -949,6 +972,10 @@ watch(
       if (props.content) {
         if (props.say === 'command_output') {
           // command_output 由 TerminalOutputRenderer 组件处理，不需要额外处理
+        } else if (props.say === 'search_result') {
+          nextTick(async () => {
+            await processContentLines(props.content)
+          })
         } else {
           nextTick(async () => {
             await processContent(props.content)
@@ -965,6 +992,10 @@ watch(
     if (props.content) {
       if (newSay === 'command_output') {
         // command_output 由 TerminalOutputRenderer 组件处理，不需要额外处理
+      } else if (newSay === 'search_result') {
+        nextTick(async () => {
+          await processContentLines(props.content)
+        })
       } else if (newSay === 'command') {
         if (!editor) {
           initEditor(props.content)
@@ -1152,6 +1183,70 @@ const getColorName = (index: number): string => {
   return colors[index] || 'white'
 }
 
+// Reactive ref to store processed content lines with redaction applied
+const processedContentLines = ref<Array<any>>([])
+
+// Function to process content lines with secret redaction
+const processContentLines = async (content: string) => {
+  if (!content) {
+    processedContentLines.value = []
+    return
+  }
+
+  const redactionEnabled = await isMarkdownSecretRedactionEnabled()
+  const formattedOutput = extractFinalOutput(content)
+
+  // Apply secret redaction to the entire output if enabled
+  const processedOutput = redactionEnabled ? applySecretRedactionToMarkdown(formattedOutput, true) : formattedOutput
+
+  const lines = processedOutput.split('\n')
+
+  processedContentLines.value = lines.map((line) => {
+    const processedLine = stripAnsiCodes(line)
+
+    if (processedLine.startsWith('$ ') || processedLine.startsWith('# ')) {
+      return {
+        type: 'prompt',
+        prompt: processedLine.charAt(0),
+        command: processedLine.substring(2)
+      }
+    }
+
+    const lsMatch = processedLine.match(/^([drwx-]+)\s+(\d+)\s+(\w+)\s+(\w+)\s+(\d+)\s+([A-Za-z]+\s+\d+\s+(?:\d{2}:\d{2}|\d{4}))\s+(.+)$/)
+    if (lsMatch) {
+      const [, permissions, links, user, group, size, date, name] = lsMatch
+      return {
+        type: 'ls',
+        permissions,
+        links,
+        user,
+        group,
+        size,
+        date,
+        name,
+        fileType: permissions.startsWith('d') ? 'directory' : permissions.includes('x') ? 'executable' : 'file'
+      }
+    }
+
+    // Convert markdown strikethrough to HTML for command output
+    let htmlContent = processAnsiCodes(line)
+    if (redactionEnabled && htmlContent.includes('~~')) {
+      htmlContent = htmlContent.replace(/~~([^~]+)~~/g, '<del>$1</del>')
+    }
+
+    return {
+      type: 'content',
+      content: processedLine,
+      html: htmlContent
+    }
+  })
+}
+
+// Computed property that returns the processed content lines
+const contentLines = computed(() => {
+  return processedContentLines.value
+})
+
 const copyEditorContent = () => {
   if (editor) {
     const content = editor.getValue()
@@ -1174,14 +1269,33 @@ const copyBlockContent = (blockIndex: number) => {
   }
 }
 
-// Rollback functionality
-const handleRollback = () => {
-  if (props.rollbackCommand) {
-    emit('rollback-command', props.rollbackCommand)
+const copyCommandOutput = () => {
+  const outputText = contentLines.value
+    .map((line) => {
+      if (line.type === 'prompt') {
+        return `${line.prompt} ${line.command}`
+      } else if (line.type === 'ls') {
+        return `${line.permissions} ${line.links} ${line.user} ${line.group} ${line.size} ${line.date} ${line.name}`
+      } else {
+        return line.content || ''
+      }
+    })
+    .join('\n')
+
+  navigator.clipboard.writeText(outputText).then(() => {
+    message.success(t('ai.copyToClipboard'))
+  })
+}
+
+const toggleCommandOutput = () => {
+  if (commandOutputActiveKey.value.includes('1')) {
+    commandOutputActiveKey.value = []
+  } else {
+    commandOutputActiveKey.value = ['1']
   }
 }
 
-const emit = defineEmits(['rollback-command'])
+const emit = defineEmits(['collapse-change'])
 
 // 暴露方法给父组件调用
 const setThinkingLoading = (loading: boolean) => {
@@ -1417,27 +1531,6 @@ code {
   margin: 8px 0;
 }
 
-.thinking-collapse.no-collapse {
-  background: #3a3a3a;
-  border: none;
-  margin-bottom: 10px;
-  border-radius: 4px !important;
-}
-
-.thinking-collapse.no-collapse .thinking-header {
-  padding: 8px 12px !important;
-  border-radius: 4px 4px 0 0 !important;
-  color: var(--text-color) !important;
-  background-color: var(--bg-color-quaternary);
-  font-size: 12px !important;
-}
-
-.thinking-collapse.no-collapse .thinking-content {
-  padding: 0px 5px 5px 5px;
-  background-color: var(--bg-color-quaternary);
-  border-radius: 0 0 4px 4px;
-}
-
 .code-collapse {
   border: none !important;
   margin-bottom: 2px;
@@ -1514,16 +1607,6 @@ code {
   line-height: 24px !important;
 }
 
-.code-collapse .ant-collapse-header .rollback-button {
-  position: absolute;
-  right: 60px;
-  top: 40%;
-  transform: translateY(-50%);
-  z-index: 1;
-  height: 24px !important;
-  line-height: 24px !important;
-}
-
 .monaco-container {
   margin: 4px 0;
   border-radius: 6px;
@@ -1536,11 +1619,6 @@ code {
 .monaco-container.collapsed .copy-button {
   top: -30px;
   right: 30px;
-}
-
-.monaco-container.collapsed .rollback-button {
-  top: -30px;
-  right: 60px;
 }
 
 .copy-button {
@@ -1556,45 +1634,7 @@ code {
   z-index: 100;
 }
 
-.monaco-container .rollback-button {
-  position: absolute;
-  top: -1px;
-  right: 20px;
-  z-index: 100;
-}
-
 .copy-button:hover {
-  opacity: 1;
-  background: rgba(255, 255, 255, 0.1);
-}
-
-.rollback-button {
-  color: var(--text-color);
-  opacity: 0.6;
-  transition: all 0.3s;
-  margin-left: 4px;
-}
-
-.rollback-button:hover {
-  opacity: 1;
-  background: rgba(255, 255, 255, 0.1);
-}
-
-.rollback-icon {
-  font-size: 12px;
-}
-
-.copy-button-small {
-  position: absolute;
-  top: 2px;
-  right: 8px;
-  z-index: 100;
-  color: var(--text-color);
-  opacity: 0.6;
-  transition: opacity 0.3s;
-}
-
-.copy-button-small:hover {
   opacity: 1;
   background: rgba(255, 255, 255, 0.1);
 }
@@ -1699,6 +1739,12 @@ code {
   color: #7e8ba3;
 }
 
+.output-title .output-icon {
+  margin-right: 6px;
+  font-size: 12px;
+  vertical-align: -1px;
+}
+
 .output-controls {
   display: flex;
   align-items: center;
@@ -1765,6 +1811,17 @@ code {
   min-width: 0;
   display: flex;
   flex-direction: column;
+}
+
+/* Constrain search_result block height and enable vertical scrolling */
+.search-result .command-output {
+  max-height: 220px;
+  overflow-y: auto;
+  font-size: 11px;
+}
+
+.search-result .command-output-header {
+  cursor: pointer;
 }
 
 .command-output .error {

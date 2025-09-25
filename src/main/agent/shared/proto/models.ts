@@ -91,9 +91,7 @@ export const VsCodeLmModelsArray: MessageFns<VsCodeLmModelsArray> = {
 
   fromJSON(object: any): VsCodeLmModelsArray {
     return {
-      models: globalThis.Array.isArray(object?.models)
-        ? object.models.map((e: any) => VsCodeLmModel.fromJSON(e))
-        : []
+      models: globalThis.Array.isArray(object?.models) ? object.models.map((e: any) => VsCodeLmModel.fromJSON(e)) : []
     }
   },
 
@@ -108,9 +106,7 @@ export const VsCodeLmModelsArray: MessageFns<VsCodeLmModelsArray> = {
   create<I extends Exact<DeepPartial<VsCodeLmModelsArray>, I>>(base?: I): VsCodeLmModelsArray {
     return VsCodeLmModelsArray.fromPartial(base ?? ({} as any))
   },
-  fromPartial<I extends Exact<DeepPartial<VsCodeLmModelsArray>, I>>(
-    object: I
-  ): VsCodeLmModelsArray {
+  fromPartial<I extends Exact<DeepPartial<VsCodeLmModelsArray>, I>>(object: I): VsCodeLmModelsArray {
     const message = createBaseVsCodeLmModelsArray()
     message.models = object.models?.map((e) => VsCodeLmModel.fromPartial(e)) || []
     return message
@@ -363,20 +359,12 @@ export const OpenRouterModelInfo: MessageFns<OpenRouterModelInfo> = {
     return {
       maxTokens: isSet(object.maxTokens) ? globalThis.Number(object.maxTokens) : 0,
       contextWindow: isSet(object.contextWindow) ? globalThis.Number(object.contextWindow) : 0,
-      supportsImages: isSet(object.supportsImages)
-        ? globalThis.Boolean(object.supportsImages)
-        : false,
-      supportsPromptCache: isSet(object.supportsPromptCache)
-        ? globalThis.Boolean(object.supportsPromptCache)
-        : false,
+      supportsImages: isSet(object.supportsImages) ? globalThis.Boolean(object.supportsImages) : false,
+      supportsPromptCache: isSet(object.supportsPromptCache) ? globalThis.Boolean(object.supportsPromptCache) : false,
       inputPrice: isSet(object.inputPrice) ? globalThis.Number(object.inputPrice) : 0,
       outputPrice: isSet(object.outputPrice) ? globalThis.Number(object.outputPrice) : 0,
-      cacheWritesPrice: isSet(object.cacheWritesPrice)
-        ? globalThis.Number(object.cacheWritesPrice)
-        : 0,
-      cacheReadsPrice: isSet(object.cacheReadsPrice)
-        ? globalThis.Number(object.cacheReadsPrice)
-        : 0,
+      cacheWritesPrice: isSet(object.cacheWritesPrice) ? globalThis.Number(object.cacheWritesPrice) : 0,
+      cacheReadsPrice: isSet(object.cacheReadsPrice) ? globalThis.Number(object.cacheReadsPrice) : 0,
       description: isSet(object.description) ? globalThis.String(object.description) : ''
     }
   },
@@ -416,9 +404,7 @@ export const OpenRouterModelInfo: MessageFns<OpenRouterModelInfo> = {
   create<I extends Exact<DeepPartial<OpenRouterModelInfo>, I>>(base?: I): OpenRouterModelInfo {
     return OpenRouterModelInfo.fromPartial(base ?? ({} as any))
   },
-  fromPartial<I extends Exact<DeepPartial<OpenRouterModelInfo>, I>>(
-    object: I
-  ): OpenRouterModelInfo {
+  fromPartial<I extends Exact<DeepPartial<OpenRouterModelInfo>, I>>(object: I): OpenRouterModelInfo {
     const message = createBaseOpenRouterModelInfo()
     message.maxTokens = object.maxTokens ?? 0
     message.contextWindow = object.contextWindow ?? 0
@@ -438,15 +424,9 @@ function createBaseOpenRouterCompatibleModelInfo(): OpenRouterCompatibleModelInf
 }
 
 export const OpenRouterCompatibleModelInfo: MessageFns<OpenRouterCompatibleModelInfo> = {
-  encode(
-    message: OpenRouterCompatibleModelInfo,
-    writer: BinaryWriter = new BinaryWriter()
-  ): BinaryWriter {
+  encode(message: OpenRouterCompatibleModelInfo, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
     Object.entries(message.models).forEach(([key, value]) => {
-      OpenRouterCompatibleModelInfo_ModelsEntry.encode(
-        { key: key as any, value },
-        writer.uint32(10).fork()
-      ).join()
+      OpenRouterCompatibleModelInfo_ModelsEntry.encode({ key: key as any, value }, writer.uint32(10).fork()).join()
     })
     return writer
   },
@@ -481,13 +461,10 @@ export const OpenRouterCompatibleModelInfo: MessageFns<OpenRouterCompatibleModel
   fromJSON(object: any): OpenRouterCompatibleModelInfo {
     return {
       models: isObject(object.models)
-        ? Object.entries(object.models).reduce<{ [key: string]: OpenRouterModelInfo }>(
-            (acc, [key, value]) => {
-              acc[key] = OpenRouterModelInfo.fromJSON(value)
-              return acc
-            },
-            {}
-          )
+        ? Object.entries(object.models).reduce<{ [key: string]: OpenRouterModelInfo }>((acc, [key, value]) => {
+            acc[key] = OpenRouterModelInfo.fromJSON(value)
+            return acc
+          }, {})
         : {}
     }
   },
@@ -506,14 +483,10 @@ export const OpenRouterCompatibleModelInfo: MessageFns<OpenRouterCompatibleModel
     return obj
   },
 
-  create<I extends Exact<DeepPartial<OpenRouterCompatibleModelInfo>, I>>(
-    base?: I
-  ): OpenRouterCompatibleModelInfo {
+  create<I extends Exact<DeepPartial<OpenRouterCompatibleModelInfo>, I>>(base?: I): OpenRouterCompatibleModelInfo {
     return OpenRouterCompatibleModelInfo.fromPartial(base ?? ({} as any))
   },
-  fromPartial<I extends Exact<DeepPartial<OpenRouterCompatibleModelInfo>, I>>(
-    object: I
-  ): OpenRouterCompatibleModelInfo {
+  fromPartial<I extends Exact<DeepPartial<OpenRouterCompatibleModelInfo>, I>>(object: I): OpenRouterCompatibleModelInfo {
     const message = createBaseOpenRouterCompatibleModelInfo()
     message.models = Object.entries(object.models ?? {}).reduce<{
       [key: string]: OpenRouterModelInfo
@@ -531,91 +504,77 @@ function createBaseOpenRouterCompatibleModelInfo_ModelsEntry(): OpenRouterCompat
   return { key: '', value: undefined }
 }
 
-export const OpenRouterCompatibleModelInfo_ModelsEntry: MessageFns<OpenRouterCompatibleModelInfo_ModelsEntry> =
-  {
-    encode(
-      message: OpenRouterCompatibleModelInfo_ModelsEntry,
-      writer: BinaryWriter = new BinaryWriter()
-    ): BinaryWriter {
-      if (message.key !== '') {
-        writer.uint32(10).string(message.key)
-      }
-      if (message.value !== undefined) {
-        OpenRouterModelInfo.encode(message.value, writer.uint32(18).fork()).join()
-      }
-      return writer
-    },
-
-    decode(
-      input: BinaryReader | Uint8Array,
-      length?: number
-    ): OpenRouterCompatibleModelInfo_ModelsEntry {
-      const reader = input instanceof BinaryReader ? input : new BinaryReader(input)
-      let end = length === undefined ? reader.len : reader.pos + length
-      const message = createBaseOpenRouterCompatibleModelInfo_ModelsEntry()
-      while (reader.pos < end) {
-        const tag = reader.uint32()
-        switch (tag >>> 3) {
-          case 1: {
-            if (tag !== 10) {
-              break
-            }
-
-            message.key = reader.string()
-            continue
-          }
-          case 2: {
-            if (tag !== 18) {
-              break
-            }
-
-            message.value = OpenRouterModelInfo.decode(reader, reader.uint32())
-            continue
-          }
-        }
-        if ((tag & 7) === 4 || tag === 0) {
-          break
-        }
-        reader.skip(tag & 7)
-      }
-      return message
-    },
-
-    fromJSON(object: any): OpenRouterCompatibleModelInfo_ModelsEntry {
-      return {
-        key: isSet(object.key) ? globalThis.String(object.key) : '',
-        value: isSet(object.value) ? OpenRouterModelInfo.fromJSON(object.value) : undefined
-      }
-    },
-
-    toJSON(message: OpenRouterCompatibleModelInfo_ModelsEntry): unknown {
-      const obj: any = {}
-      if (message.key !== '') {
-        obj.key = message.key
-      }
-      if (message.value !== undefined) {
-        obj.value = OpenRouterModelInfo.toJSON(message.value)
-      }
-      return obj
-    },
-
-    create<I extends Exact<DeepPartial<OpenRouterCompatibleModelInfo_ModelsEntry>, I>>(
-      base?: I
-    ): OpenRouterCompatibleModelInfo_ModelsEntry {
-      return OpenRouterCompatibleModelInfo_ModelsEntry.fromPartial(base ?? ({} as any))
-    },
-    fromPartial<I extends Exact<DeepPartial<OpenRouterCompatibleModelInfo_ModelsEntry>, I>>(
-      object: I
-    ): OpenRouterCompatibleModelInfo_ModelsEntry {
-      const message = createBaseOpenRouterCompatibleModelInfo_ModelsEntry()
-      message.key = object.key ?? ''
-      message.value =
-        object.value !== undefined && object.value !== null
-          ? OpenRouterModelInfo.fromPartial(object.value)
-          : undefined
-      return message
+export const OpenRouterCompatibleModelInfo_ModelsEntry: MessageFns<OpenRouterCompatibleModelInfo_ModelsEntry> = {
+  encode(message: OpenRouterCompatibleModelInfo_ModelsEntry, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.key !== '') {
+      writer.uint32(10).string(message.key)
     }
+    if (message.value !== undefined) {
+      OpenRouterModelInfo.encode(message.value, writer.uint32(18).fork()).join()
+    }
+    return writer
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): OpenRouterCompatibleModelInfo_ModelsEntry {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input)
+    let end = length === undefined ? reader.len : reader.pos + length
+    const message = createBaseOpenRouterCompatibleModelInfo_ModelsEntry()
+    while (reader.pos < end) {
+      const tag = reader.uint32()
+      switch (tag >>> 3) {
+        case 1: {
+          if (tag !== 10) {
+            break
+          }
+
+          message.key = reader.string()
+          continue
+        }
+        case 2: {
+          if (tag !== 18) {
+            break
+          }
+
+          message.value = OpenRouterModelInfo.decode(reader, reader.uint32())
+          continue
+        }
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break
+      }
+      reader.skip(tag & 7)
+    }
+    return message
+  },
+
+  fromJSON(object: any): OpenRouterCompatibleModelInfo_ModelsEntry {
+    return {
+      key: isSet(object.key) ? globalThis.String(object.key) : '',
+      value: isSet(object.value) ? OpenRouterModelInfo.fromJSON(object.value) : undefined
+    }
+  },
+
+  toJSON(message: OpenRouterCompatibleModelInfo_ModelsEntry): unknown {
+    const obj: any = {}
+    if (message.key !== '') {
+      obj.key = message.key
+    }
+    if (message.value !== undefined) {
+      obj.value = OpenRouterModelInfo.toJSON(message.value)
+    }
+    return obj
+  },
+
+  create<I extends Exact<DeepPartial<OpenRouterCompatibleModelInfo_ModelsEntry>, I>>(base?: I): OpenRouterCompatibleModelInfo_ModelsEntry {
+    return OpenRouterCompatibleModelInfo_ModelsEntry.fromPartial(base ?? ({} as any))
+  },
+  fromPartial<I extends Exact<DeepPartial<OpenRouterCompatibleModelInfo_ModelsEntry>, I>>(object: I): OpenRouterCompatibleModelInfo_ModelsEntry {
+    const message = createBaseOpenRouterCompatibleModelInfo_ModelsEntry()
+    message.key = object.key ?? ''
+    message.value = object.value !== undefined && object.value !== null ? OpenRouterModelInfo.fromPartial(object.value) : undefined
+    return message
   }
+}
 
 function createBaseOpenAiModelsRequest(): OpenAiModelsRequest {
   return { metadata: undefined, baseUrl: '', apiKey: '' }
@@ -700,14 +659,9 @@ export const OpenAiModelsRequest: MessageFns<OpenAiModelsRequest> = {
   create<I extends Exact<DeepPartial<OpenAiModelsRequest>, I>>(base?: I): OpenAiModelsRequest {
     return OpenAiModelsRequest.fromPartial(base ?? ({} as any))
   },
-  fromPartial<I extends Exact<DeepPartial<OpenAiModelsRequest>, I>>(
-    object: I
-  ): OpenAiModelsRequest {
+  fromPartial<I extends Exact<DeepPartial<OpenAiModelsRequest>, I>>(object: I): OpenAiModelsRequest {
     const message = createBaseOpenAiModelsRequest()
-    message.metadata =
-      object.metadata !== undefined && object.metadata !== null
-        ? Metadata.fromPartial(object.metadata)
-        : undefined
+    message.metadata = object.metadata !== undefined && object.metadata !== null ? Metadata.fromPartial(object.metadata) : undefined
     message.baseUrl = object.baseUrl ?? ''
     message.apiKey = object.apiKey ?? ''
     return message

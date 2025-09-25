@@ -35,6 +35,10 @@ import { Todo } from '../../shared/todo/TodoSchemas'
 import { SmartTaskDetector, TODO_SYSTEM_MESSAGES } from './todo-tools/todo-prompts'
 import { TodoContextTracker } from '../services/todo_context_tracker'
 import { TodoToolCallTracker } from '../services/todo_tool_call_tracker'
+import { globSearch } from '../../services/glob/list-files'
+import { regexSearchMatches as localGrepSearch } from '../../services/grep/index'
+import { buildRemoteGlobCommand, parseRemoteGlobOutput, buildRemoteGrepCommand, parseRemoteGrepOutput } from '../../services/search/remote'
+import { AgentLogManager } from '../../services/remote-logging'
 
 interface StreamMetrics {
   didReceiveUsageChunk?: boolean
@@ -64,6 +68,7 @@ import { getGlobalState, getUserConfig } from '@core/storage/state'
 import WorkspaceTracker from '@integrations/workspace/WorkspaceTracker'
 import { connectAssetInfo } from '../../../storage/database'
 import { getMessages, formatMessage, Messages } from './messages'
+import { decodeHtmlEntities } from '@utils/decodeHtmlEntities'
 
 import type { Host } from '@shared/WebviewMessage'
 
@@ -131,6 +136,9 @@ export class Task {
   // streaming
   isWaitingForFirstChunk = false
   isStreaming = false
+
+  // Remote logging
+  private logManager: AgentLogManager
   private currentStreamingContentIndex = 0
   private assistantMessageContent: AssistantMessageContent[] = []
   private presentAssistantMessageLocked = false
@@ -200,6 +208,11 @@ export class Task {
     this.commandSecurityManager = new CommandSecurityManager()
     this.commandSecurityManager.initialize()
 
+    // Initialize remote logging
+    this.logManager = new AgentLogManager()
+    console.log(`[TASK CONSTRUCTOR] Task ${this.taskId} created, initializing logging...`)
+    this.initializeLogging()
+
     // Continue with task initialization
     if (historyItem) {
       this.resumeTaskFromHistory()
@@ -225,6 +238,38 @@ export class Task {
     } catch (error) {
       // If error, use default language
       this.messages = getMessages(DEFAULT_LANGUAGE_SETTINGS)
+    }
+  }
+
+  /**
+   * Initialize remote logging for this task
+   */
+  private async initializeLogging(): Promise<void> {
+    try {
+      console.log(`[TASK] Scheduling logging initialization for task ${this.taskId}`)
+      // Delay initialization to allow SSH connections to be established
+      setTimeout(async () => {
+        console.log(`[TASK] Attempting to initialize logging for task ${this.taskId}`)
+        const success = await this.logManager.initializeTaskLogging(this.taskId, this.hosts)
+        console.log(`[TASK] Logging initialization result: ${success}`)
+      }, 2000) // 2 second delay to allow connections to establish
+    } catch (error) {
+      console.error('Failed to initialize remote logging:', error)
+    }
+  }
+
+  /**
+   * Ensure logging is initialized for the given IP
+   */
+  private async ensureLoggingInitialized(ip: string): Promise<void> {
+    if (!this.logManager.isTaskInitialized(this.taskId)) {
+      console.log(`[TASK] Logging not initialized for task ${this.taskId}, initializing now`)
+
+      // Find the host for this IP
+      const host = this.hosts.find((h) => h.host === ip) || this.hosts[0]
+      if (host) {
+        await this.logManager.initializeTaskLogging(this.taskId, [host])
+      }
     }
   }
 
@@ -421,6 +466,13 @@ export class Task {
     message.conversationHistoryDeletedRange = this.conversationHistoryDeletedRange
     this.chatermMessages.push(message)
     await this.saveChatermMessagesAndUpdateHistory()
+
+    // Log the message to remote server
+    try {
+      await this.logManager.logChatermMessage(this.taskId, message)
+    } catch (error) {
+      console.error('Failed to log Chaterm message:', error)
+    }
   }
 
   private async overwriteChatermMessages(newMessages: ChatermMessage[]) {
@@ -952,6 +1004,13 @@ export class Task {
   async abortTask() {
     this.abort = true // will stop any autonomously running promises
     this.remoteTerminalManager.disposeAll()
+
+    // Finalize logging session
+    try {
+      await this.logManager.finalizeTaskLogging(this.taskId)
+    } catch (error) {
+      console.error('Failed to finalize logging session:', error)
+    }
   }
 
   async gracefulAbortTask() {
@@ -1139,6 +1198,30 @@ export class Task {
   }
 
   async executeCommandTool(command: string, ip: string): Promise<ToolResponse> {
+    // Log command execution for debugging
+    console.log(`[EXECUTE COMMAND] Command: "${command}", IP: "${ip}", TaskID: "${this.taskId}"`)
+
+    // Ensure logging is initialized if it hasn't been already
+    try {
+      await this.ensureLoggingInitialized(ip)
+    } catch (error) {
+      console.error('Failed to ensure logging initialization:', error)
+    }
+
+    // Check for file modification and backup if needed
+    try {
+      await this.logManager.handleFileModificationCommand(this.taskId, command, ip)
+    } catch (error) {
+      console.error('Failed to handle file modification:', error)
+    }
+
+    // Log command execution
+    try {
+      await this.logManager.logCommand(this.taskId, command, ip)
+    } catch (error) {
+      console.error('Failed to log command:', error)
+    }
+
     // 如果是本地主机，使用本地执行
     if (this.isLocalHost(ip)) {
       return this.executeLocalCommandTool(command)
@@ -1248,6 +1331,16 @@ export class Task {
 
       const truncatedResult = this.truncateCommandOutput(result)
 
+      // Log command output
+      try {
+        await this.logManager.logCommandOutput(this.taskId, result, ip, {
+          exitCode: completed ? 0 : undefined,
+          truncated: result !== truncatedResult
+        })
+      } catch (error) {
+        console.error('Failed to log command output:', error)
+      }
+
       if (completed) {
         return `${this.messages.commandExecutedOutput}${truncatedResult.length > 0 ? `\nOutput:\n${truncatedResult}` : ''}`
       } else {
@@ -1269,6 +1362,16 @@ export class Task {
       if (this.gracefulCancel && result && result.trim()) {
         const truncatedResult = this.truncateCommandOutput(result)
         return `Command was gracefully cancelled with partial output.${truncatedResult.length > 0 ? `\nPartial Output:\n${truncatedResult}` : ''}`
+      }
+
+      // Log error
+      try {
+        await this.logManager.logError(this.taskId, err, ip, {
+          command: command,
+          partialOutput: result
+        })
+      } catch (logError) {
+        console.error('Failed to log error:', logError)
       }
 
       // Original error handling logic
@@ -1957,6 +2060,7 @@ export class Task {
         if (!command) return this.handleMissingParam('command', toolDescription)
         if (!ip) return this.handleMissingParam('ip', toolDescription)
         if (!requiresApprovalRaw) return this.handleMissingParam('requires_approval', toolDescription)
+        command = decodeHtmlEntities(command)
         // 执行安全检查
         const securityCheck = await this.performCommandSecurityCheck(command, toolDescription)
         if (securityCheck.shouldReturn) {
@@ -2566,11 +2670,135 @@ export class Task {
       case 'todo_read':
         await this.handleTodoReadToolUse(block)
         break
+      case 'glob_search':
+        await this.handleGlobSearchToolUse(block)
+        break
+      case 'grep_search':
+        await this.handleGrepSearchToolUse(block)
+        break
       default:
         console.error(`[Task] 未知的工具名称: ${block.name}`)
     }
     if (!block.name.startsWith('todo_') && block.name !== 'ask_followup_question' && block.name !== 'attempt_completion') {
       await this.addTodoStatusUpdateReminder('')
+    }
+  }
+
+  private async handleGlobSearchToolUse(block: ToolUse): Promise<void> {
+    const toolDescription = this.getToolDescription(block)
+    try {
+      const pattern = block.params.pattern || block.params.file_pattern
+      const relPath = block.params.path || '.'
+      const ip = block.params.ip
+      const limitStr = block.params.limit
+      const sort = (block.params.sort as 'path' | 'none') || 'path'
+      if (!pattern) {
+        await this.handleMissingParam('pattern', toolDescription)
+        return
+      }
+
+      const limit = limitStr ? Number.parseInt(limitStr, 10) : 2000
+
+      let summary = ''
+      if (ip && !this.isLocalHost(ip)) {
+        // Remote: build command, execute, parse
+        const cmd = buildRemoteGlobCommand({ pattern, path: relPath, limit, sort })
+        const output = await this.executeCommandInRemoteServer(cmd, ip, undefined)
+        const parsed = parseRemoteGlobOutput(output, sort, limit)
+        const count = parsed.total
+        summary += `Found ${count} files matching "${pattern}" in ${relPath} (sorted by ${sort}).\n`
+        const list = parsed.files
+          .map((f) => f.path)
+          .slice(0, Math.min(count, 200))
+          .join('\n')
+        if (list) summary += list
+      } else {
+        // Local
+        const res = await globSearch(process.cwd(), { pattern, path: relPath, limit, sort })
+        const count = res.total
+        summary += `Found ${count} files matching "${pattern}" in ${relPath} (sorted by ${sort}).\n`
+        const list = res.files
+          .map((f) => f.path)
+          .slice(0, Math.min(count, 200))
+          .join('\n')
+        if (list) summary += list
+      }
+
+      // Show search results in UI immediately
+      await this.say('search_result', summary.trim(), false)
+      // Also push to LLM as tool result for context
+      this.pushToolResult(toolDescription, summary.trim())
+      await this.saveCheckpoint()
+    } catch (error) {
+      await this.handleToolError(toolDescription, 'glob search', error as Error)
+      await this.saveCheckpoint()
+    }
+  }
+
+  private async handleGrepSearchToolUse(block: ToolUse): Promise<void> {
+    const toolDescription = this.getToolDescription(block)
+    try {
+      const pattern = block.params.pattern || block.params.regex
+      const relPath = block.params.path || '.'
+      const ip = block.params.ip
+      const include = block.params.include || block.params.file_pattern
+      const csRaw = block.params.case_sensitive
+      const caseSensitive = csRaw ? csRaw.toLowerCase() === 'true' : false
+      const ctx = block.params.context_lines ? Number.parseInt(block.params.context_lines, 10) : 0
+      const max = block.params.max_matches ? Number.parseInt(block.params.max_matches, 10) : 500
+      if (!pattern) {
+        await this.handleMissingParam('pattern', toolDescription)
+        return
+      }
+
+      let matchesCount = 0
+      let summary = ''
+      if (ip && !this.isLocalHost(ip)) {
+        const cmd = buildRemoteGrepCommand({ pattern, path: relPath, include, case_sensitive: caseSensitive, context_lines: ctx, max_matches: max })
+        const output = await this.executeCommandInRemoteServer(cmd, ip, undefined)
+        const matches = parseRemoteGrepOutput(output, relPath)
+        matchesCount = matches.length
+        summary += `Found ${matchesCount} match(es) for /${pattern}/ in ${relPath}${include ? ` (filter: "${include}")` : ''}.\n---\n`
+        const grouped: Record<string, { line: number; text: string }[]> = {}
+        for (const m of matches.slice(0, Math.min(matches.length, max))) {
+          ;(grouped[m.file] ||= []).push({ line: m.line, text: m.text })
+        }
+        for (const file of Object.keys(grouped)) {
+          summary += `File: ${file}\n`
+          grouped[file]
+            .sort((a, b) => a.line - b.line)
+            .forEach((m) => {
+              summary += `L${m.line}: ${m.text.trim()}\n`
+            })
+          summary += '---\n'
+        }
+      } else {
+        const res = await localGrepSearch(process.cwd(), relPath, pattern, include, max, ctx, caseSensitive)
+        matchesCount = res.total
+        summary += `Found ${matchesCount} match(es) for /${pattern}/ in ${relPath}${include ? ` (filter: "${include}")` : ''}.\n---\n`
+        const grouped: Record<string, { line: number; text: string }[]> = {}
+        for (const m of res.matches.slice(0, Math.min(res.matches.length, max))) {
+          ;(grouped[m.file] ||= []).push({ line: m.line, text: m.text })
+        }
+        for (const file of Object.keys(grouped)) {
+          summary += `File: ${file}\n`
+          grouped[file]
+            .sort((a, b) => a.line - b.line)
+            .forEach((m) => {
+              summary += `L${m.line}: ${m.text.trim()}\n`
+            })
+          summary += '---\n'
+        }
+      }
+
+      // Show search results in UI immediately
+      await this.say('search_result', summary.trim(), false)
+      // Also push to LLM as tool result for context
+      this.pushToolResult(toolDescription, summary.trim())
+      await this.saveCheckpoint()
+    } catch (error) {
+      await this.handleToolError(toolDescription, 'grep search', error as Error)
+      await this.saveCheckpoint()
     }
   }
 

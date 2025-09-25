@@ -158,10 +158,7 @@ export const EmptyRequest: MessageFns<EmptyRequest> = {
   },
   fromPartial<I extends Exact<DeepPartial<EmptyRequest>, I>>(object: I): EmptyRequest {
     const message = createBaseEmptyRequest()
-    message.metadata =
-      object.metadata !== undefined && object.metadata !== null
-        ? Metadata.fromPartial(object.metadata)
-        : undefined
+    message.metadata = object.metadata !== undefined && object.metadata !== null ? Metadata.fromPartial(object.metadata) : undefined
     return message
   }
 }
@@ -279,10 +276,7 @@ export const StringRequest: MessageFns<StringRequest> = {
   },
   fromPartial<I extends Exact<DeepPartial<StringRequest>, I>>(object: I): StringRequest {
     const message = createBaseStringRequest()
-    message.metadata =
-      object.metadata !== undefined && object.metadata !== null
-        ? Metadata.fromPartial(object.metadata)
-        : undefined
+    message.metadata = object.metadata !== undefined && object.metadata !== null ? Metadata.fromPartial(object.metadata) : undefined
     message.value = object.value ?? ''
     return message
   }
@@ -338,9 +332,7 @@ export const StringArrayRequest: MessageFns<StringArrayRequest> = {
   fromJSON(object: any): StringArrayRequest {
     return {
       metadata: isSet(object.metadata) ? Metadata.fromJSON(object.metadata) : undefined,
-      value: globalThis.Array.isArray(object?.value)
-        ? object.value.map((e: any) => globalThis.String(e))
-        : []
+      value: globalThis.Array.isArray(object?.value) ? object.value.map((e: any) => globalThis.String(e)) : []
     }
   },
 
@@ -360,10 +352,7 @@ export const StringArrayRequest: MessageFns<StringArrayRequest> = {
   },
   fromPartial<I extends Exact<DeepPartial<StringArrayRequest>, I>>(object: I): StringArrayRequest {
     const message = createBaseStringArrayRequest()
-    message.metadata =
-      object.metadata !== undefined && object.metadata !== null
-        ? Metadata.fromPartial(object.metadata)
-        : undefined
+    message.metadata = object.metadata !== undefined && object.metadata !== null ? Metadata.fromPartial(object.metadata) : undefined
     message.value = object.value?.map((e) => e) || []
     return message
   }
@@ -497,10 +486,7 @@ export const Int64Request: MessageFns<Int64Request> = {
   },
   fromPartial<I extends Exact<DeepPartial<Int64Request>, I>>(object: I): Int64Request {
     const message = createBaseInt64Request()
-    message.metadata =
-      object.metadata !== undefined && object.metadata !== null
-        ? Metadata.fromPartial(object.metadata)
-        : undefined
+    message.metadata = object.metadata !== undefined && object.metadata !== null ? Metadata.fromPartial(object.metadata) : undefined
     message.value = object.value ?? 0
     return message
   }
@@ -634,10 +620,7 @@ export const BytesRequest: MessageFns<BytesRequest> = {
   },
   fromPartial<I extends Exact<DeepPartial<BytesRequest>, I>>(object: I): BytesRequest {
     const message = createBaseBytesRequest()
-    message.metadata =
-      object.metadata !== undefined && object.metadata !== null
-        ? Metadata.fromPartial(object.metadata)
-        : undefined
+    message.metadata = object.metadata !== undefined && object.metadata !== null ? Metadata.fromPartial(object.metadata) : undefined
     message.value = object.value ?? Buffer.alloc(0)
     return message
   }
@@ -773,10 +756,7 @@ export const BooleanRequest: MessageFns<BooleanRequest> = {
   },
   fromPartial<I extends Exact<DeepPartial<BooleanRequest>, I>>(object: I): BooleanRequest {
     const message = createBaseBooleanRequest()
-    message.metadata =
-      object.metadata !== undefined && object.metadata !== null
-        ? Metadata.fromPartial(object.metadata)
-        : undefined
+    message.metadata = object.metadata !== undefined && object.metadata !== null ? Metadata.fromPartial(object.metadata) : undefined
     message.value = object.value ?? false
     return message
   }
@@ -878,9 +858,7 @@ export const StringArray: MessageFns<StringArray> = {
 
   fromJSON(object: any): StringArray {
     return {
-      values: globalThis.Array.isArray(object?.values)
-        ? object.values.map((e: any) => globalThis.String(e))
-        : []
+      values: globalThis.Array.isArray(object?.values) ? object.values.map((e: any) => globalThis.String(e)) : []
     }
   },
 
