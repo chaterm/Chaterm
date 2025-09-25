@@ -1298,6 +1298,7 @@ const restoreHistoryTab = async (history: HistoryItem) => {
           item.say === 'command' ||
           item.say === 'command_output' ||
           item.say === 'completion_result' ||
+          item.say === 'search_result' ||
           item.say === 'text' ||
           item.say === 'reasoning' ||
           item.ask === 'resume_task' ||

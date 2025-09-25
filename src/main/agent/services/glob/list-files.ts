@@ -2,6 +2,84 @@ import { globby, Options } from 'globby'
 import os from 'os'
 import * as path from 'path'
 import { arePathsEqual } from '@utils/path'
+import * as fs from 'fs'
+
+// Lightweight types aligned with tool.md
+export interface GlobSearchParams {
+  pattern: string
+  path?: string
+  ip?: string
+  limit?: number
+  sort?: 'path' | 'none'
+}
+
+export interface GlobMatch {
+  path: string
+  mtimeMs?: number
+  size?: number
+}
+export interface GlobSearchResult {
+  files: GlobMatch[]
+  total: number
+  truncated: boolean
+}
+
+/**
+ * High-level glob search for local filesystem.
+ * - Respects `.clineignore` via an optional validator (caller can pass ChatermIgnoreController)
+ * - Does not apply .gitignore by default (can be added by callers by changing options)
+ * - Sorting: default by path; 'none' preserves globby's order
+ */
+export async function globSearch(
+  cwd: string,
+  params: GlobSearchParams,
+  accessValidator?: { validateAccess: (p: string) => boolean }
+): Promise<GlobSearchResult> {
+  const { pattern, path: relPath, limit = 2000, sort = 'path' } = params
+  const searchRoot = path.resolve(cwd, relPath ?? '.')
+
+  const options: Options = {
+    cwd: searchRoot,
+    dot: true,
+    absolute: true,
+    onlyFiles: true,
+    gitignore: false,
+    suppressErrors: true
+  }
+
+  let files = await globby(pattern, options)
+
+  // Optional .clineignore filter via validator
+  if (accessValidator) {
+    files = files.filter((abs) => {
+      try {
+        const rel = path.relative(searchRoot, abs).toPosix()
+        return accessValidator.validateAccess(rel)
+      } catch {
+        return true
+      }
+    })
+  }
+
+  const total = files.length
+  if (sort === 'path') {
+    files.sort((a, b) => a.localeCompare(b))
+  }
+
+  const limited = files.slice(0, limit)
+
+  // Optionally enrich with mtime for a small slice
+  const matches: GlobMatch[] = limited.map((p) => {
+    try {
+      const st = fs.statSync(p)
+      return { path: p, mtimeMs: st.mtimeMs, size: st.size }
+    } catch {
+      return { path: p }
+    }
+  })
+
+  return { files: matches, total, truncated: total > matches.length }
+}
 
 export async function listFiles(dirPath: string, recursive: boolean, limit: number): Promise<[string[], boolean]> {
   // First resolve the path normally - path.resolve doesn't care about glob special characters

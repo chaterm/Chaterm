@@ -35,6 +35,9 @@ import { Todo } from '../../shared/todo/TodoSchemas'
 import { SmartTaskDetector, TODO_SYSTEM_MESSAGES } from './todo-tools/todo-prompts'
 import { TodoContextTracker } from '../services/todo_context_tracker'
 import { TodoToolCallTracker } from '../services/todo_tool_call_tracker'
+import { globSearch } from '../../services/glob/list-files'
+import { regexSearchMatches as localGrepSearch } from '../../services/grep/index'
+import { buildRemoteGlobCommand, parseRemoteGlobOutput, buildRemoteGrepCommand, parseRemoteGrepOutput } from '../../services/search/remote'
 import { AgentLogManager } from '../../services/remote-logging'
 
 interface StreamMetrics {
@@ -2665,11 +2668,135 @@ export class Task {
       case 'todo_read':
         await this.handleTodoReadToolUse(block)
         break
+      case 'glob_search':
+        await this.handleGlobSearchToolUse(block)
+        break
+      case 'grep_search':
+        await this.handleGrepSearchToolUse(block)
+        break
       default:
         console.error(`[Task] 未知的工具名称: ${block.name}`)
     }
     if (!block.name.startsWith('todo_') && block.name !== 'ask_followup_question' && block.name !== 'attempt_completion') {
       await this.addTodoStatusUpdateReminder('')
+    }
+  }
+
+  private async handleGlobSearchToolUse(block: ToolUse): Promise<void> {
+    const toolDescription = this.getToolDescription(block)
+    try {
+      const pattern = block.params.pattern || block.params.file_pattern
+      const relPath = block.params.path || '.'
+      const ip = block.params.ip
+      const limitStr = block.params.limit
+      const sort = (block.params.sort as 'path' | 'none') || 'path'
+      if (!pattern) {
+        await this.handleMissingParam('pattern', toolDescription)
+        return
+      }
+
+      const limit = limitStr ? Number.parseInt(limitStr, 10) : 2000
+
+      let summary = ''
+      if (ip && !this.isLocalHost(ip)) {
+        // Remote: build command, execute, parse
+        const cmd = buildRemoteGlobCommand({ pattern, path: relPath, limit, sort })
+        const output = await this.executeCommandInRemoteServer(cmd, ip, undefined)
+        const parsed = parseRemoteGlobOutput(output, sort, limit)
+        const count = parsed.total
+        summary += `Found ${count} files matching "${pattern}" in ${relPath} (sorted by ${sort}).\n`
+        const list = parsed.files
+          .map((f) => f.path)
+          .slice(0, Math.min(count, 200))
+          .join('\n')
+        if (list) summary += list
+      } else {
+        // Local
+        const res = await globSearch(process.cwd(), { pattern, path: relPath, limit, sort })
+        const count = res.total
+        summary += `Found ${count} files matching "${pattern}" in ${relPath} (sorted by ${sort}).\n`
+        const list = res.files
+          .map((f) => f.path)
+          .slice(0, Math.min(count, 200))
+          .join('\n')
+        if (list) summary += list
+      }
+
+      // Show search results in UI immediately
+      await this.say('search_result', summary.trim(), false)
+      // Also push to LLM as tool result for context
+      this.pushToolResult(toolDescription, summary.trim())
+      await this.saveCheckpoint()
+    } catch (error) {
+      await this.handleToolError(toolDescription, 'glob search', error as Error)
+      await this.saveCheckpoint()
+    }
+  }
+
+  private async handleGrepSearchToolUse(block: ToolUse): Promise<void> {
+    const toolDescription = this.getToolDescription(block)
+    try {
+      const pattern = block.params.pattern || block.params.regex
+      const relPath = block.params.path || '.'
+      const ip = block.params.ip
+      const include = block.params.include || block.params.file_pattern
+      const csRaw = block.params.case_sensitive
+      const caseSensitive = csRaw ? csRaw.toLowerCase() === 'true' : false
+      const ctx = block.params.context_lines ? Number.parseInt(block.params.context_lines, 10) : 0
+      const max = block.params.max_matches ? Number.parseInt(block.params.max_matches, 10) : 500
+      if (!pattern) {
+        await this.handleMissingParam('pattern', toolDescription)
+        return
+      }
+
+      let matchesCount = 0
+      let summary = ''
+      if (ip && !this.isLocalHost(ip)) {
+        const cmd = buildRemoteGrepCommand({ pattern, path: relPath, include, case_sensitive: caseSensitive, context_lines: ctx, max_matches: max })
+        const output = await this.executeCommandInRemoteServer(cmd, ip, undefined)
+        const matches = parseRemoteGrepOutput(output, relPath)
+        matchesCount = matches.length
+        summary += `Found ${matchesCount} match(es) for /${pattern}/ in ${relPath}${include ? ` (filter: "${include}")` : ''}.\n---\n`
+        const grouped: Record<string, { line: number; text: string }[]> = {}
+        for (const m of matches.slice(0, Math.min(matches.length, max))) {
+          ;(grouped[m.file] ||= []).push({ line: m.line, text: m.text })
+        }
+        for (const file of Object.keys(grouped)) {
+          summary += `File: ${file}\n`
+          grouped[file]
+            .sort((a, b) => a.line - b.line)
+            .forEach((m) => {
+              summary += `L${m.line}: ${m.text.trim()}\n`
+            })
+          summary += '---\n'
+        }
+      } else {
+        const res = await localGrepSearch(process.cwd(), relPath, pattern, include, max, ctx, caseSensitive)
+        matchesCount = res.total
+        summary += `Found ${matchesCount} match(es) for /${pattern}/ in ${relPath}${include ? ` (filter: "${include}")` : ''}.\n---\n`
+        const grouped: Record<string, { line: number; text: string }[]> = {}
+        for (const m of res.matches.slice(0, Math.min(res.matches.length, max))) {
+          ;(grouped[m.file] ||= []).push({ line: m.line, text: m.text })
+        }
+        for (const file of Object.keys(grouped)) {
+          summary += `File: ${file}\n`
+          grouped[file]
+            .sort((a, b) => a.line - b.line)
+            .forEach((m) => {
+              summary += `L${m.line}: ${m.text.trim()}\n`
+            })
+          summary += '---\n'
+        }
+      }
+
+      // Show search results in UI immediately
+      await this.say('search_result', summary.trim(), false)
+      // Also push to LLM as tool result for context
+      this.pushToolResult(toolDescription, summary.trim())
+      await this.saveCheckpoint()
+    } catch (error) {
+      await this.handleToolError(toolDescription, 'grep search', error as Error)
+      await this.saveCheckpoint()
     }
   }
 

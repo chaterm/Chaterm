@@ -17,7 +17,9 @@ export const toolUseNames = [
   'condense',
   'report_bug',
   'todo_write',
-  'todo_read'
+  'todo_read',
+  'glob_search',
+  'grep_search'
 ] as const
 
 // Converts array of tool call names into a union type ("execute_command" | "read_file" | ...)
@@ -34,6 +36,13 @@ export const toolParamNames = [
   'regex',
   'file_pattern',
   'recursive',
+  'pattern',
+  'include',
+  'limit',
+  'sort',
+  'case_sensitive',
+  'context_lines',
+  'max_matches',
   'action',
   'url',
   'coordinate',
