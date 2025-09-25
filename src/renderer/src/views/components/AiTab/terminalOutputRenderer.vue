@@ -327,10 +327,53 @@ const highlightTimestamped = (line: string): string => {
   const { reset, cyan, white } = COLORS
 
   // 高亮时间戳部分
-  return line
-    .replace(/(\d{4}-\d{2}-\d{2}[T\s]\d{2}:\d{2}:\d{2})/g, `${cyan}$1${reset}`)
-    .replace(/(\d{2}:\d{2}:\d{2})/g, `${cyan}$1${reset}`)
-    .replace(/(\w{3}\s+\d{1,2}\s+\d{2}:\d{2})/g, `${cyan}$1${reset}`)
+  let highlighted = line
+
+  // 保存已经高亮的位置，避免重复高亮
+  const highlightedPositions: Array<[number, number]> = []
+
+  // 按照从长到短的顺序匹配时间戳格式
+  const patterns = [
+    // 完整日期时间格式 (2025/9/1 11:35:16)
+    /(\d{4}\/\d{1,2}\/\d{1,2}\s+\d{1,2}:\d{2}:\d{2})/g,
+    // ISO格式日期时间
+    /(\d{4}-\d{2}-\d{2}[T\s]\d{2}:\d{2}:\d{2})/g,
+    // 月日时间格式 (Sep 1 11:35)
+    /(\w{3}\s+\d{1,2}\s+\d{2}:\d{2})/g,
+    // 纯时间格式 (11:35:16)
+    /(\d{2}:\d{2}:\d{2})/g,
+    // 简单时间格式 (11:35)
+    /(\d{2}:\d{2})/g
+  ]
+
+  for (const pattern of patterns) {
+    let match
+    while ((match = pattern.exec(highlighted)) !== null) {
+      const start = match.index
+      const end = start + match[0].length
+
+      // 检查这个位置是否已经被高亮过
+      let isOverlap = false
+      for (const [existingStart, existingEnd] of highlightedPositions) {
+        if ((start >= existingStart && start < existingEnd) || (end > existingStart && end <= existingEnd)) {
+          isOverlap = true
+          break
+        }
+      }
+
+      if (!isOverlap) {
+        highlightedPositions.push([start, end])
+        const before = highlighted.slice(0, start)
+        const after = highlighted.slice(end)
+        highlighted = before + `${cyan}${match[0]}${reset}` + after
+
+        // 更新正则表达式的lastIndex，因为我们修改了字符串
+        pattern.lastIndex += cyan.length + reset.length
+      }
+    }
+  }
+
+  return highlighted
 }
 
 // 键值对高亮
@@ -675,6 +718,11 @@ const addTerminalSyntaxHighlighting = (content: string): string => {
     // 8.1 处理 iptables 命令输出
     if (REGEX_PATTERNS.iptables.test(line)) {
       return highlightIptablesOutput(line)
+    }
+
+    // 8.2 处理 free 命令输出
+    if (line.match(/^Mem:|^Swap:/) || line.match(/^\s*total\s+used\s+free\s+shared\s+buff\/cache\s+available/)) {
+      return highlightFreeOutput(line)
     }
 
     // 8. 处理 df 命令（优化检测逻辑）
@@ -2123,6 +2171,64 @@ const highlightIptablesOutput = (line: string): string => {
     highlighted = highlighted.replace(/(\s+)(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}(?:\/\d+)?)(\s+)/g, (_, spaces, ip, afterSpaces) => {
       return `${spaces}${white}${ip}${reset}${afterSpaces}`
     })
+  }
+
+  return highlighted
+}
+
+// free 命令输出高亮
+const highlightFreeOutput = (line: string): string => {
+  const { reset, header, success, warning, error, info, number, cyan, white } = COLORS
+  let highlighted = line
+
+  // 首先清理可能存在的 ANSI 转义序列
+  highlighted = highlighted.replace(/\x1b\[[0-9;]*m/g, '')
+
+  // 1. 高亮表头行
+  if (highlighted.match(/^\s*total\s+used\s+free\s+shared\s+buff\/cache\s+available/)) {
+    highlighted = highlighted.replace(/(total|used|free|shared|buff\/cache|available)/g, (match) => {
+      return `${header}${match}${reset}`
+    })
+    return highlighted
+  }
+
+  // 2. 高亮 Mem: 和 Swap: 行
+  if (highlighted.match(/^(Mem|Swap):/)) {
+    // 解析数值并高亮
+    const parts = highlighted.trim().split(/\s+/)
+    if (parts.length >= 4) {
+      const [label, ...values] = parts
+
+      // 高亮标签
+      const coloredLabel = `${header}${label}${reset}`
+
+      // 为每个数值分配颜色
+      const coloredValues = values.map((value, index) => {
+        // 解析数值（支持 Gi, Mi, KiB 等单位）
+        const numericValue = parseFloat(value.replace(/[^\d.]/g, ''))
+        const unit = value.replace(/[\d.]/g, '')
+
+        let color = number // 默认蓝色
+
+        // 根据数值大小和位置分配颜色
+        if (unit.includes('Gi') && numericValue > 0) {
+          color = success // 绿色 - 有内存
+        } else if (unit.includes('Mi') && numericValue > 100) {
+          color = warning // 黄色 - 中等使用
+        } else if (unit.includes('Mi') && numericValue > 0) {
+          color = info // 蓝色 - 低使用
+        } else if (numericValue === 0) {
+          color = white // 白色 - 零值
+        } else {
+          color = number // 默认蓝色
+        }
+
+        return `${color}${value}${reset}`
+      })
+
+      // 重新组合行
+      return `${coloredLabel} ${coloredValues.join(' ')}`
+    }
   }
 
   return highlighted

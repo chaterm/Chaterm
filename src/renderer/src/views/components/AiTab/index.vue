@@ -113,7 +113,6 @@
                 :executed-command="message.executedCommand"
                 :rollback-command="message.rollbackCommand"
                 :can-rollback="message.canRollback"
-                @collapse-change="handleCollapseChange"
                 @rollback-command="handleRollbackCommand"
               />
               <MarkdownRenderer
@@ -127,7 +126,6 @@
                 :executed-command="message.executedCommand"
                 :rollback-command="message.rollbackCommand"
                 :can-rollback="message.canRollback"
-                @collapse-change="handleCollapseChange"
                 @rollback-command="handleRollbackCommand"
               />
 
@@ -1323,6 +1321,10 @@ const restoreHistoryTab = async (history: HistoryItem) => {
           ask: item.ask,
           say: item.say,
           ts: item.ts
+        }
+        if (userMessage.say === 'user_feedback' && userMessage.content.startsWith('Terminal output:')) {
+          userMessage.say = 'command_output'
+          userMessage.role = 'assistant'
         }
         if (!item.partial && item.type === 'ask' && item.text) {
           try {
@@ -2929,12 +2931,6 @@ const startObservingDom = () => {
 
 // Add auto scroll function
 const scrollToBottom = () => {
-  // If collapse operation is being processed, allow collapse handler to manage scroll
-  if (isHandlingCollapse.value) {
-    handleCollapseChange()
-    return
-  }
-
   // Only auto-scroll if we were already at the bottom
   if (!shouldStickToBottom.value) {
     return
@@ -2945,109 +2941,6 @@ const scrollToBottom = () => {
       chatContainer.value.scrollTop = chatContainer.value.scrollHeight
     }
   })
-}
-
-// Modify handleCollapseChange function
-const handleCollapseChange = (collapseType = '') => {
-  // console.log('3.handleCollapseChange begin', collapseType)
-  if (collapseType === 'code' || collapseType === 'thinking') {
-    // Set flag to indicate collapse operation is being processed
-    isHandlingCollapse.value = true
-  }
-
-  // After collapse completes, directly call adjustScrollPosition to ensure content is visible
-  nextTick(() => {
-    if (chatContainer.value) {
-      // First check if there are Monaco editor collapse blocks
-      const codeCollapses = chatContainer.value.querySelectorAll('.code-collapse')
-      if (collapseType === 'code' && codeCollapses.length > 0) {
-        const lastCodeCollapse = codeCollapses[codeCollapses.length - 1]
-        const collapseHeader = lastCodeCollapse.querySelector('.ant-collapse-header')
-
-        // Check if expanded or collapsed state
-        const isCollapsed = lastCodeCollapse.querySelector('.ant-collapse-content-inactive')
-
-        if (collapseHeader) {
-          if (isCollapsed) {
-            // If collapsed state, scroll Monaco editor top to center of window with smooth scrolling
-            // console.log('4.handleCollapseChange collapseHeader isCollapsed center', isCollapsed)
-            collapseHeader.scrollIntoView({ behavior: 'smooth', block: 'start' })
-            return
-          } else {
-            // console.log('5.handleCollapseChange collapseHeader normal adjustScrollPosition', isCollapsed)
-            adjustScrollPosition()
-            return
-          }
-        }
-      }
-
-      // Check if there are thinking collapse blocks
-      const thinkingCollapses = chatContainer.value.querySelectorAll('.thinking-collapse')
-      if (collapseType === 'thinking' && thinkingCollapses.length > 0) {
-        const lastThinkingCollapse = thinkingCollapses[thinkingCollapses.length - 1]
-        const thinkingHeader = lastThinkingCollapse.querySelector('.ant-collapse-header')
-
-        // Check if expanded or collapsed state
-        const isCollapsed = lastThinkingCollapse.querySelector('.ant-collapse-content-inactive')
-
-        if (thinkingHeader) {
-          if (isCollapsed) {
-            // If collapsed state, scroll thinking top to center of window with smooth scrolling
-            // console.log('6.handleCollapseChange thinkingHeader isCollapsed center', isCollapsed)
-            thinkingHeader.scrollIntoView({ behavior: 'smooth', block: 'start' })
-            return
-          } else {
-            // console.log('7.handleCollapseChange thinkingHeader normal adjustScrollPosition', isCollapsed)
-            adjustScrollPosition()
-            return
-          }
-        }
-      }
-      // If no special collapse blocks exist, use normal scroll logic
-      adjustScrollPosition()
-      // console.log('8.handleCollapseChange normal adjustScrollPosition')
-    }
-  })
-  if (collapseType === 'code' || collapseType === 'thinking') {
-    // Delay reset flag to ensure processing is complete
-    setTimeout(() => {
-      isHandlingCollapse.value = false
-      // console.log('10 adjustScrollPosition collapseType', collapseType)
-    }, 200)
-    adjustScrollPosition()
-  }
-}
-
-// Add a function specifically for adjusting scroll position after collapse
-const adjustScrollPosition = () => {
-  if (!chatContainer.value) return
-  // if (isHandlingCollapse.value) return
-  // Try to find the last visible message
-  const messages = Array.from(chatContainer.value.querySelectorAll('.message.assistant, .message.user'))
-
-  if (messages.length > 0) {
-    // Get the last message
-    const lastMessage = messages[messages.length - 1]
-
-    // Check if the last message is within the viewport
-    const rect = lastMessage.getBoundingClientRect()
-    const containerRect = chatContainer.value.getBoundingClientRect()
-
-    if (rect.bottom > containerRect.bottom || rect.top < containerRect.top) {
-      // If the last message is not within the viewport, scroll it to the bottom of the viewport with smooth scrolling
-      // console.log('9.adjustScrollPosition scroll last message to bottom of window')
-      lastMessage.scrollIntoView({ behavior: 'smooth', block: 'end' })
-      // console.log('Scroll last message to bottom of viewport')
-    } else {
-      // console.log('Last message is already within viewport, no adjustment needed')
-    }
-  } else {
-    // If no messages, scroll to bottom with smooth scrolling
-    chatContainer.value.scrollTo({
-      top: chatContainer.value.scrollHeight,
-      behavior: 'smooth'
-    })
-  }
 }
 
 // Re-attach scroll listener when container ref changes

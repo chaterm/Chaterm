@@ -579,7 +579,6 @@ const initEditor = (content: string) => {
         const model = editor.getModel()
         if (model && model.getLineCount() > 10) {
           codeActiveKey.value = []
-          emit('collapse-change', 'code')
         }
       }
     }, 2000)
@@ -827,7 +826,6 @@ const checkContentHeight = async () => {
       }
       activeKey.value = shouldCollapse ? [] : ['1']
       thinkingLoading.value = false
-      emit('collapse-change', 'thinking')
       showThinkingMeasurement.value = false
     }, 1000)
   }
@@ -919,7 +917,6 @@ watch(
           const model = editor.getModel()
           if (model && model.getLineCount() > 10) {
             codeActiveKey.value = []
-            emit('collapse-change', 'code')
           }
         }
       }, 2000)
@@ -1184,7 +1181,7 @@ const handleRollback = () => {
   }
 }
 
-const emit = defineEmits(['collapse-change', 'rollback-command'])
+const emit = defineEmits(['rollback-command'])
 
 // 暴露方法给父组件调用
 const setThinkingLoading = (loading: boolean) => {
