@@ -254,8 +254,6 @@ const detectFormat = (line: string): FormatDetectionResult | null => {
 
 // 智能高亮函数
 const applySmartHighlight = (line: string, detection: FormatDetectionResult): string => {
-  const { reset } = COLORS
-
   switch (detection.type) {
     case 'table_data':
       return highlightTableData(line, detection.metadata)
@@ -324,7 +322,7 @@ const highlightTableData = (line: string, metadata: any): string => {
 
 // 时间戳高亮
 const highlightTimestamped = (line: string): string => {
-  const { reset, cyan, white } = COLORS
+  const { reset, cyan } = COLORS
 
   // 高亮时间戳部分
   let highlighted = line
@@ -1343,7 +1341,7 @@ function highlightPsAuxHeaderPreserveSpacing(line: string): string {
 
 // ps aux 命令输出高亮（保留原始空格）
 function highlightPsAuxOutputPreserveSpacing(line: string): string {
-  const { reset, key, number, info, warning, header, white, gray, command, error } = COLORS
+  const { reset, key, number, info, warning, white, gray, command, error } = COLORS
 
   // 使用正则表达式匹配各个字段，但保留原始空格
   let highlighted = line
@@ -2178,7 +2176,7 @@ const highlightIptablesOutput = (line: string): string => {
 
 // free 命令输出高亮
 const highlightFreeOutput = (line: string): string => {
-  const { reset, header, success, warning, error, info, number, cyan, white } = COLORS
+  const { reset, header, success, warning, info, number, white } = COLORS
   let highlighted = line
 
   // 首先清理可能存在的 ANSI 转义序列
@@ -2203,7 +2201,7 @@ const highlightFreeOutput = (line: string): string => {
       const coloredLabel = `${header}${label}${reset}`
 
       // 为每个数值分配颜色
-      const coloredValues = values.map((value, index) => {
+      const coloredValues = values.map((value) => {
         // 解析数值（支持 Gi, Mi, KiB 等单位）
         const numericValue = parseFloat(value.replace(/[^\d.]/g, ''))
         const unit = value.replace(/[\d.]/g, '')
@@ -2827,7 +2825,7 @@ const highlightSimpleLsColumnsPreserveSpacing = (line: string): string => {
   }
 
   // 逐个非空白片段着色，空白原样保留
-  return line.replace(/([^\s]+)|(\s+)/g, (m, word, spaces) => {
+  return line.replace(/([^\s]+)|(\s+)/g, (_, word, spaces) => {
     if (spaces) return spaces
     return colorToken(word)
   })
