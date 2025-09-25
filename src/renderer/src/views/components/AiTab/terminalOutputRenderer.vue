@@ -120,7 +120,7 @@ const REGEX_PATTERNS = {
   tail: /==>.*<==/,
   codeFiles: /\.(js|ts|vue|py|java|cpp|c|h)$/,
   imageFiles: /\.(jpg|jpeg|png|gif|svg|ico)$/,
-  archiveFiles: /\.(zip|tar|gz|rar|7z)$/,
+  archiveFiles: /\.(zip|tar|gz|rar|7z|deb|rpm|pkg)$|\.(?:tar\.(?:gz|xz|bz2|zst)|tgz|tbz2|txz)$/,
   httpStatus: /\b(\d{3})\b/,
   cpuUsage: /(\d+\.\d+)%/,
   memoryUsage: /(\d+\.\d+)M/,
@@ -144,7 +144,15 @@ const REGEX_PATTERNS = {
   dockerCommand: /\b(docker|container|image|volume|network)\b/,
   httpCommand: /\b(curl|wget|http)\b/,
   tailFile: /==>\s*(.+?)\s*<==/,
-  tailLine: /^\s*(\d+)\s+/gm
+  tailLine: /^\s*(\d+)\s+/gm,
+  iptables: /^iptables|^Chain\s+\w+|^pkts\s+bytes\s+target\s+prot\s+opt\s+in\s+out\s+source\s+destination|^\s*\d+\s+\d+[KM]?\s+\w+/,
+  iptablesChain: /^Chain\s+([\w-]+)\s*\((\d+)\s+references?\)/,
+  iptablesPolicy: /^target\s+prot\s+opt\s+source\s+destination\s+$/,
+  iptablesRule: /^\s*(\d+)\s+(\d+[KM]?)\s+(\w+)\s+(\w+)\s+(\S+)\s+(\S+)\s+(\S+)\s+(\S+)\s+(\S+)/,
+  iptablesTarget: /\b(ACCEPT|DROP|REJECT|RETURN|LOG|DNAT|SNAT|MASQUERADE|DOCKER|DOCKER-USER|DOCKER-ISOLATION|FORWARD|INPUT|OUTPUT)\b/,
+  iptablesProtocol: /\b(all|tcp|udp|icmp|esp|ah)\b/,
+  iptablesInterface: /\b(\*|docker0|br-\w+|eth\d+|lo|wlan\d+)\b/,
+  iptablesIP: /\b(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}(?:\/\d+)?)\b/
 }
 
 // 缓存高亮结果
@@ -160,11 +168,212 @@ const clearCache = () => {
   }
 }
 
+// 通用格式检测器
+interface FormatDetectionResult {
+  type: string
+  confidence: number
+  metadata?: any
+}
+
+const detectFormat = (line: string): FormatDetectionResult | null => {
+  const trimmedLine = line.trim()
+  if (!trimmedLine) return null
+
+  // 检测表格格式（列对齐的数据）
+  const tablePattern = /^[\w\-+.]+\s+[\w\-+.]+\s+[\w\-+.]+/
+  if (tablePattern.test(trimmedLine)) {
+    const parts = trimmedLine.split(/\s+/)
+    if (parts.length >= 3) {
+      // 检测是否是数字主导的行（可能是数据行）
+      const numericParts = parts.filter((part) => /^\d+(\.\d+)?%?$/.test(part))
+      const confidence = numericParts.length / parts.length
+
+      return {
+        type: 'table_data',
+        confidence: confidence * 0.8, // 降低一些置信度，避免误判
+        metadata: {
+          columns: parts.length,
+          numericColumns: numericParts.length,
+          parts: parts
+        }
+      }
+    }
+  }
+
+  // 检测时间戳格式
+  const timestampPatterns = [/\d{4}-\d{2}-\d{2}[T\s]\d{2}:\d{2}:\d{2}/, /\d{2}:\d{2}:\d{2}/, /\w{3}\s+\d{1,2}\s+\d{2}:\d{2}/]
+
+  for (let pattern of timestampPatterns) {
+    if (pattern.test(trimmedLine)) {
+      return {
+        type: 'timestamped',
+        confidence: 0.7,
+        metadata: { pattern: pattern.source }
+      }
+    }
+  }
+
+  // 检测键值对格式（仅当明确包含 ':' 或 '='，避免把"文件名 列表"误判为键值对）
+  if (/^[^\s]+\s*:\s*.+$/.test(trimmedLine) || /^[^\s]+\s*=\s*.+$/.test(trimmedLine)) {
+    return {
+      type: 'key_value',
+      confidence: 0.6,
+      metadata: {
+        separator: trimmedLine.includes(':') ? ':' : '='
+      }
+    }
+  }
+
+  // 检测路径格式
+  if (/^[\/~][\w\/\-\.]*/.test(trimmedLine) || /^[A-Z]:\\/.test(trimmedLine)) {
+    return {
+      type: 'path',
+      confidence: 0.8
+    }
+  }
+
+  // 检测网络地址格式
+  if (/\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}/.test(trimmedLine) || /:[0-9]+/.test(trimmedLine)) {
+    return {
+      type: 'network',
+      confidence: 0.7
+    }
+  }
+
+  // 检测状态信息格式
+  const statusWords = ['running', 'stopped', 'active', 'inactive', 'enabled', 'disabled', 'ok', 'failed', 'error']
+  if (statusWords.some((word) => new RegExp(`\\b${word}\\b`, 'i').test(trimmedLine))) {
+    return {
+      type: 'status',
+      confidence: 0.5
+    }
+  }
+
+  return null
+}
+
+// 智能高亮函数
+const applySmartHighlight = (line: string, detection: FormatDetectionResult): string => {
+  const { reset } = COLORS
+
+  switch (detection.type) {
+    case 'table_data':
+      return highlightTableData(line, detection.metadata)
+
+    case 'timestamped':
+      return highlightTimestamped(line)
+
+    case 'key_value':
+      return highlightKeyValue(line, detection.metadata.separator)
+
+    case 'path':
+      return highlightPath(line)
+
+    case 'network':
+      return highlightNetwork(line)
+
+    case 'status':
+      return highlightStatus(line)
+
+    default:
+      return line
+  }
+}
+
+// 表格数据高亮
+const highlightTableData = (line: string, metadata: any): string => {
+  const { reset, number, info, success, warning } = COLORS
+  const parts = metadata.parts
+
+  let result = ''
+  let currentPos = 0
+
+  for (let i = 0; i < parts.length; i++) {
+    const part = parts[i]
+    const partStart = line.indexOf(part, currentPos)
+
+    // 添加之前的空格
+    if (partStart > currentPos) {
+      result += line.substring(currentPos, partStart)
+    }
+
+    // 为不同类型的数据选择颜色
+    let color = info // 默认颜色
+    if (/^\d+$/.test(part)) {
+      color = number // 纯数字
+    } else if (/^\d+\.\d+$/.test(part)) {
+      color = success // 小数
+    } else if (/^\d+%$/.test(part)) {
+      const percent = parseInt(part)
+      color = percent > 80 ? warning : percent > 50 ? info : success // 百分比
+    } else if (i === 0) {
+      color = COLORS.header // 第一列通常是标识符
+    }
+
+    result += `${color}${part}${reset}`
+    currentPos = partStart + part.length
+  }
+
+  // 添加剩余的内容
+  if (currentPos < line.length) {
+    result += line.substring(currentPos)
+  }
+
+  return result
+}
+
+// 时间戳高亮
+const highlightTimestamped = (line: string): string => {
+  const { reset, cyan, white } = COLORS
+
+  // 高亮时间戳部分
+  return line
+    .replace(/(\d{4}-\d{2}-\d{2}[T\s]\d{2}:\d{2}:\d{2})/g, `${cyan}$1${reset}`)
+    .replace(/(\d{2}:\d{2}:\d{2})/g, `${cyan}$1${reset}`)
+    .replace(/(\w{3}\s+\d{1,2}\s+\d{2}:\d{2})/g, `${cyan}$1${reset}`)
+}
+
+// 键值对高亮
+const highlightKeyValue = (line: string, separator: string): string => {
+  const { reset, key, white } = COLORS
+
+  const escSeparator = separator.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  const regex = new RegExp(`^(\\w+)\\s*${escSeparator}\\s*(.*)$`)
+
+  return line.replace(regex, (_, k, v) => {
+    return `${key}${k}${reset}${separator} ${white}${v}${reset}`
+  })
+}
+
+// 路径高亮
+const highlightPath = (line: string): string => {
+  const { reset, cyan } = COLORS
+
+  return line.replace(/(\/[\w\/\-\.]*|[A-Z]:\$$\w\\\-\.]*)/g, `${cyan}$1${reset}`)
+}
+
+// 网络地址高亮
+const highlightNetwork = (line: string): string => {
+  const { reset, blue, yellow } = COLORS
+
+  return line.replace(/(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})/g, `${blue}$1${reset}`).replace(/:(\d+)/g, `:${yellow}$1${reset}`)
+}
+
+// 状态信息高亮
+const highlightStatus = (line: string): string => {
+  const { reset, success, error, warning, info } = COLORS
+
+  return line
+    .replace(/\b(running|active|enabled|ok|success)\b/gi, `${success}$1${reset}`)
+    .replace(/\b(stopped|inactive|disabled|failed|error)\b/gi, `${error}$1${reset}`)
+    .replace(/\b(pending|warning|caution)\b/gi, `${warning}$1${reset}`)
+    .replace(/\b(info|status|state)\b/gi, `${info}$1${reset}`)
+}
+
 // 根据内容动态调整终端高度（纵向自适应，无纵向滚动；横向不足时出现滚动条）
 const adjustTerminalHeight = () => {
   if (!terminal) return
 
-  // 获取实际有内容的行数与最长行长度
   let actualContentLines = 0
   let maxLineLength = 0
   for (let i = 0; i < terminal.buffer.active.length; i++) {
@@ -177,23 +386,17 @@ const adjustTerminalHeight = () => {
   }
 
   const minRows = 2
-  // 不限制最大行数，全部展示
   const actualRows = Math.max(minRows, actualContentLines)
 
-  // 设置列数，确保不自动换行
   if (fitAddon) {
-    // 先拟合一次，保证字符尺寸计算正确
     fitAddon.fit()
-    // 使用一个很大的列数来避免自动换行，让内容保持在一行内
-    const cols = Math.max(maxLineLength + 50, 120) // 给一些额外的空间
+    const cols = Math.max(maxLineLength + 50, 120)
     terminal.resize(cols, actualRows)
   } else {
-    // 使用一个很大的列数来避免自动换行
     const cols = Math.max(maxLineLength + 50, 120)
     terminal.resize(cols, actualRows)
   }
 
-  // 调整容器高度，完全容纳所有行
   if (terminalContainer.value) {
     const rowEl = terminalContainer.value.querySelector('.xterm-rows > div') as HTMLElement | null
     let rowHeight = rowEl ? rowEl.getBoundingClientRect().height : 18
@@ -201,7 +404,7 @@ const adjustTerminalHeight = () => {
     const styles = window.getComputedStyle(terminalContainer.value)
     const paddingTop = parseFloat(styles.paddingTop) || 0
     const paddingBottom = parseFloat(styles.paddingBottom) || 0
-    const newHeight = actualRows * rowHeight + paddingTop + paddingBottom + 1
+    const newHeight = actualRows * rowHeight + paddingTop + paddingBottom + 8
     terminalContainer.value.style.height = `${newHeight}px`
   }
 }
@@ -210,17 +413,16 @@ const adjustTerminalHeight = () => {
 const initTerminal = async () => {
   if (!terminalContainer.value) return
 
-  // 创建终端实例
   terminal = new Terminal({
     cursorBlink: false,
     cursorStyle: 'block',
     scrollback: 1000,
-    fontSize: 11, // 稍微减小字体大小
+    fontSize: 11,
     fontFamily: 'SFMono-Regular, Consolas, "Liberation Mono", Menlo, monospace',
     theme: {
       background: '#1e1e1e',
       foreground: '#d4d4d4',
-      cursor: 'transparent', // 隐藏光标
+      cursor: 'transparent',
       cursorAccent: 'transparent',
       black: '#000000',
       red: '#e06c75',
@@ -243,29 +445,22 @@ const initTerminal = async () => {
     allowProposedApi: true,
     convertEol: true,
     disableStdin: true,
-    rows: 30 // 设置最大高度为30行
-    // 移除固定的cols设置，让xterm根据容器宽度自动调整
+    rows: 30
   })
 
-  // 添加 fit addon
   fitAddon = new FitAddon()
   terminal.loadAddon(fitAddon)
 
-  // 挂载终端
   terminal.open(terminalContainer.value)
 
-  // 隐藏光标
   terminal.options.cursorBlink = false
   terminal.options.cursorStyle = 'block'
 
-  // 调整大小
   nextTick(() => {
     fitAddon?.fit()
-    // 根据内容动态调整终端高度
     adjustTerminalHeight()
   })
 }
-
 // 增强的终端输出语法高亮（带缓存优化）
 const addTerminalSyntaxHighlighting = (content: string): string => {
   if (!content || typeof content !== 'string') {
@@ -440,7 +635,7 @@ const addTerminalSyntaxHighlighting = (content: string): string => {
     }
 
     // 匹配unix域套接字（允许State字段为空）
-    if (line.match(/^unix\s+\d+\s+\[[^\]]*\]\s+\w+\s+.*$/)) {
+    if (line.match(/^unix\s+\d+\s+\[[^$$]*\]\s+\w+\s+.*$/)) {
       return highlightNetstatUnixOutputPreserveSpacing(line)
     }
 
@@ -475,6 +670,11 @@ const addTerminalSyntaxHighlighting = (content: string): string => {
     // 8. 处理 curl/wget 命令输出
     if (line.match(/^curl\s+/) || line.match(/^wget\s+/) || line.match(/^HTTP\/\d\.\d\s+\d+/)) {
       return highlightHttpOutput(line)
+    }
+
+    // 8.1 处理 iptables 命令输出
+    if (REGEX_PATTERNS.iptables.test(line)) {
+      return highlightIptablesOutput(line)
     }
 
     // 8. 处理 df 命令（优化检测逻辑）
@@ -513,7 +713,7 @@ const addTerminalSyntaxHighlighting = (content: string): string => {
     if (
       line.match(/^top\s+-/) ||
       line.match(/^Tasks:/) ||
-      line.match(/^%Cpu\(s\):/) ||
+      line.match(/^%Cpu$s$:/) ||
       line.match(/^MiB\s+Mem\s*:/) ||
       line.match(/^MiB\s+Swap:/) ||
       line.match(/^KiB\s+Mem\s*:/) ||
@@ -559,7 +759,7 @@ const addTerminalSyntaxHighlighting = (content: string): string => {
 
     // 9.5 处理已经高亮过的top数据行（包含ANSI颜色代码）
     // 检查是否包含ANSI颜色代码且以PID开头
-    if (line.includes('\x1b[') && line.match(/^\s*\x1b\[32m\d+\x1b\[0m/)) {
+    if (line.includes('\x1b[') && line.match(/^\s*\x1b$$32m\d+\x1b\[0m/)) {
       return line // 已经高亮过，直接返回
     }
 
@@ -590,8 +790,32 @@ const addTerminalSyntaxHighlighting = (content: string): string => {
       return highlightSuccessOutput(line)
     }
 
-    // 13. 处理简单的 ls 输出（只有文件名）
+    // =============================================================================
+    // 通用格式检测 + 智能高亮（在没有匹配到特定格式时使用）
+    // =============================================================================
+
+    // 在进入通用检测前，优先尝试"简单 ls 列表"高亮，避免被 table_data 误判
+    // 触发条件：行中存在常见文件扩展名（含多段 tar.*），且不含 ':' 或 '='（避免键值对）
+    if (/(\.(?:[A-Za-z0-9]{1,4})\b|(?:tar\.(?:gz|xz|bz2|zst)|tgz|tbz2|txz)\b)/i.test(line) && !line.includes(':') && !line.includes('=')) {
+      // 若是列对齐（两个以上 token 之间包含至少两个空格），用列对齐高亮保留空格
+      if (/\S+\s{2,}\S+/.test(line)) {
+        return highlightSimpleLsColumnsPreserveSpacing(line)
+      }
+      return highlightSimpleLsOutput(line)
+    }
+
+    // 尝试使用通用格式检测
+    const detection = detectFormat(line)
+    if (detection && detection.confidence > 0.4) {
+      // 只在置信度较高时应用
+      return applySmartHighlight(line, detection)
+    }
+
+    // 13. 处理简单的 ls 输出（只有文件名）- 最后的兜底处理
     if (line.trim() && !line.includes('total') && !line.includes('drwx') && !line.includes('-rw') && !line.includes('PID')) {
+      if (/\S+\s{2,}\S+/.test(line)) {
+        return highlightSimpleLsColumnsPreserveSpacing(line)
+      }
       return highlightSimpleLsOutput(line)
     }
 
@@ -620,7 +844,7 @@ const processAnsiCodes = (str: string): string => {
     .replace(/\u001b\([AB01]/g, '')
     .replace(/\u001b[=>]/g, '')
     .replace(/\u001b[NO]/g, '')
-    .replace(/\u001b\]0;[^\x07]*\x07/g, '')
+    .replace(/\u001b$$0;[^\x07]*\x07/g, '')
     .replace(/\u001b\[K/g, '')
     .replace(/\u001b\[J/g, '')
     .replace(/\u001b\[2J/g, '')
@@ -794,7 +1018,7 @@ const highlightLsOutputPreserveSpacing = (line: string): string => {
       nameColor = COLORS.info // 代码文件 - 蓝色
     } else if (name.match(/\.(jpg|jpeg|png|gif|svg|ico)$/)) {
       nameColor = COLORS.magenta // 图片文件 - 洋红色
-    } else if (name.match(/\.(zip|tar|gz|rar|7z)$/)) {
+    } else if (name.match(/\.(?:zip|rar|7z|gz|xz|bz2|zst|deb|rpm|pkg)$/) || name.match(/(?:tar\.(?:gz|xz|bz2|zst)|tgz|tbz2|txz)$/)) {
       nameColor = COLORS.warning // 压缩文件 - 黄色
     }
     return `${beforeSpaces}${nameColor}${name}${reset}`
@@ -834,7 +1058,7 @@ const highlightLsOutput = (match: RegExpMatchArray): string => {
     nameColor = '\x1b[36m' // 代码文件 - 青色
   } else if (name.match(/\.(jpg|jpeg|png|gif|svg|ico)$/)) {
     nameColor = '\x1b[35m' // 图片文件 - 紫色
-  } else if (name.match(/\.(zip|tar|gz|rar|7z)$/)) {
+  } else if (name.match(/\.(?:zip|rar|7z|gz|xz|bz2|zst|deb|rpm|pkg)$/) || name.match(/(?:tar\.(?:gz|xz|bz2|zst)|tgz|tbz2|txz)$/)) {
     nameColor = '\x1b[33m' // 压缩文件 - 黄色
   }
 
@@ -1133,25 +1357,42 @@ function highlightPsAuxOutputPreserveSpacing(line: string): string {
     return `${beforeSpaces}${white}${tty}${reset}${afterSpaces}`
   })
 
-  // 匹配 STAT（第八个字段）
-  highlighted = highlighted.replace(/(\s+)(\w+)(\s+)/, (_, beforeSpaces, stat, afterSpaces) => {
+  // 匹配 STAT（第八个字段）- 使用更精确的方法
+  // 先分析字段，然后精确替换
+  const parts = line.trim().split(/\s+/)
+  if (parts.length >= 8) {
+    const stat = parts[7] // STAT 字段
     let statColor = warning // 默认黄色
     if (stat.includes('R')) {
       statColor = COLORS.success // 运行状态 - 绿色
     } else if (stat.includes('S')) {
-      statColor = info // 睡眠状态 - 蓝色
+      statColor = COLORS.info // 睡眠状态 - 蓝色
     } else if (stat.includes('Z')) {
       statColor = error // 僵尸状态 - 红色
     } else if (stat.includes('T')) {
       statColor = warning // 停止状态 - 黄色
+    } else if (stat.includes('I')) {
+      statColor = COLORS.gray // 空闲状态 - 灰色
     }
-    return `${beforeSpaces}${statColor}${stat}${reset}${afterSpaces}`
-  })
 
-  // 匹配 START（第九个字段）
-  highlighted = highlighted.replace(/(\s+)(\S+)(\s+)/, (_, beforeSpaces, start, afterSpaces) => {
-    return `${beforeSpaces}${header}${start}${reset}${afterSpaces}`
-  })
+    // 精确替换 STAT 字段
+    const statPattern = new RegExp(`(\\s+)${stat.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(\\s+)`)
+    highlighted = highlighted.replace(statPattern, (_, beforeSpaces, afterSpaces) => {
+      return `${beforeSpaces}${statColor}${stat}${reset}${afterSpaces}`
+    })
+  }
+
+  // 匹配 START（第九个字段）- 使用更精确的方法
+  if (parts.length >= 9) {
+    const start = parts[8] // START 字段
+    const startColor = COLORS.header // 青色
+
+    // 精确替换 START 字段
+    const startPattern = new RegExp(`(\\s+)${start.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(\\s+)`)
+    highlighted = highlighted.replace(startPattern, (_, beforeSpaces, afterSpaces) => {
+      return `${beforeSpaces}${startColor}${start}${reset}${afterSpaces}`
+    })
+  }
 
   // 匹配 TIME（第十个字段）
   highlighted = highlighted.replace(/(\s+)(\d+:\d+\.\d+)(\s+)/, (_, beforeSpaces, time, afterSpaces) => {
@@ -1789,6 +2030,104 @@ const highlightHttpOutput = (line: string): string => {
   return highlighted
 }
 
+// iptables 命令输出高亮 - 保持对齐版本
+const highlightIptablesOutput = (line: string): string => {
+  const { reset, header, success, error, info, number, cyan, white } = COLORS
+  let highlighted = line
+
+  // 首先清理可能存在的 ANSI 转义序列
+  highlighted = highlighted.replace(/\x1b\[[0-9;]*m/g, '')
+
+  // 1. 高亮 Chain 名称 - 使用更简单的匹配
+  if (highlighted.match(/^Chain\s+([\w-]+)/)) {
+    highlighted = highlighted.replace(/^Chain\s+([\w-]+)/, (_, chainName) => {
+      return `Chain ${cyan}${chainName}${reset}`
+    })
+  }
+
+  // 2. 高亮策略信息
+  if (highlighted.match(/\(policy\s+(\w+)/)) {
+    highlighted = highlighted.replace(/\(policy\s+(\w+)/, (_, policy) => {
+      let policyColor = white
+      if (policy === 'ACCEPT') {
+        policyColor = success
+      } else if (policy === 'DROP') {
+        policyColor = error
+      }
+      return `(policy ${policyColor}${policy}${reset}`
+    })
+  }
+
+  // 3. 高亮引用数
+  if (highlighted.match(/\((\d+)\s+references?\)/)) {
+    highlighted = highlighted.replace(/\((\d+)\s+references?\)/, (_, refCount) => {
+      return `(${number}${refCount}${reset} references)`
+    })
+  }
+
+  // 4. 高亮表头行
+  if (highlighted.match(/^pkts\s+bytes\s+target\s+prot\s+opt\s+in\s+out\s+source\s+destination/)) {
+    highlighted = highlighted.replace(/(pkts|bytes|target|prot|opt|in|out|source|destination)/g, (match) => {
+      return `${header}${match}${reset}`
+    })
+  }
+
+  // 5. 高亮规则行 - 保持原有空格对齐，只替换特定字段
+  if (highlighted.match(/^\s*\d+\s+\d+[KM]?\s+\w+/)) {
+    // 数据包数 - 有流量用绿色，无流量用蓝色（修复第一个数据包数）
+    highlighted = highlighted.replace(/^(\s*)(\d+)(\s+)/, (_, spaces, pkts, afterSpaces) => {
+      const pktsColor = parseInt(pkts) > 0 ? success : number
+      return `${spaces}${pktsColor}${pkts}${reset}${afterSpaces}`
+    })
+
+    // 字节数 - 有流量用绿色，无流量用蓝色
+    highlighted = highlighted.replace(/(\s+)(\d+[KM]?)(\s+)/, (_, spaces, bytes, afterSpaces) => {
+      const bytesColor = parseInt(bytes.replace(/[KM]/, '')) > 0 ? success : number
+      return `${spaces}${bytesColor}${bytes}${reset}${afterSpaces}`
+    })
+
+    // 目标 - 保持空格对齐，包含更多目标类型
+    highlighted = highlighted.replace(
+      /(\s+)(ACCEPT|DROP|REJECT|RETURN|DOCKER-USER|DOCKER-ISOLATION|DOCKER|YJ-FIREWALL-INPUT)(\s+)/g,
+      (_, spaces, target, afterSpaces) => {
+        let targetColor = white
+        if (target === 'ACCEPT') {
+          targetColor = success
+        } else if (target === 'DROP' || target === 'REJECT') {
+          targetColor = error
+        } else if (target.includes('DOCKER') || target.includes('FIREWALL')) {
+          targetColor = cyan
+        } else if (target === 'RETURN') {
+          targetColor = info
+        }
+        return `${spaces}${targetColor}${target}${reset}${afterSpaces}`
+      }
+    )
+
+    // 协议 - 保持空格对齐
+    highlighted = highlighted.replace(/(\s+)(all|tcp|udp|icmp)(\s+)/g, (_, spaces, prot, afterSpaces) => {
+      return `${spaces}${info}${prot}${reset}${afterSpaces}`
+    })
+
+    // 接口 - 保持空格对齐
+    highlighted = highlighted.replace(/(\s+)(\*|docker0|br-\w+|eth\d+|lo|wlan\d+)(\s+)/g, (_, spaces, iface, afterSpaces) => {
+      return `${spaces}${cyan}${iface}${reset}${afterSpaces}`
+    })
+
+    // 否定接口 - 保持空格对齐
+    highlighted = highlighted.replace(/(\s+)(!)(\w+)(\s+)/g, (_, spaces, neg, iface, afterSpaces) => {
+      return `${spaces}${error}${neg}${reset}${cyan}${iface}${reset}${afterSpaces}`
+    })
+
+    // IP 地址 - 保持空格对齐
+    highlighted = highlighted.replace(/(\s+)(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}(?:\/\d+)?)(\s+)/g, (_, spaces, ip, afterSpaces) => {
+      return `${spaces}${white}${ip}${reset}${afterSpaces}`
+    })
+  }
+
+  return highlighted
+}
+
 // df 命令颜色常量 - 提取到函数外部，避免重复创建
 const DF_COLORS = {
   reset: '\x1b[0m',
@@ -2197,22 +2536,18 @@ const highlightSimpleLsOutput = (line: string): string => {
   return highlightedParts.join(' ')
 }
 
-// 提取终端输出内容（保留ANSI转义序列）
+// 提取终端输出内容
 const extractTerminalOutput = (content: string): string => {
   if (!content || typeof content !== 'string') {
     return content
   }
 
-  // 尝试匹配各种可能的终端输出格式
   const patterns = [
     /Terminal output:\n```\n([\s\S]*?)\n```/,
     /```\n([\s\S]*?)\n```/,
     /```([\s\S]*?)```/,
-    // 匹配 agent 模式的格式
     /# Executing result on .*?:命令已执行。\nOutput:\n([\s\S]*?)(?:\n\[Exit Code:|$)/,
-    // 匹配 netstat 命令输出
     /Active Internet connections[^\n]*\n([\s\S]*?)(?:\n\[Exit Code:|$)/,
-    // 匹配 command 模式的格式（直接是终端输出）
     /^[^\n]*\n(.*)$/s
   ]
 
@@ -2220,18 +2555,13 @@ const extractTerminalOutput = (content: string): string => {
     const pattern = patterns[i]
     const match = content.match(pattern)
     if (match && match[1]) {
-      const extracted = match[1] // 不进行 trim()，保留原始空格
-
-      // 保留所有内容，不进行去重处理（网络连接可能有重复）
+      const extracted = match[1]
       const uniqueContent = extracted
-
-      // 添加语法高亮
       const highlighted = addTerminalSyntaxHighlighting(uniqueContent)
       return highlighted
     }
   }
 
-  // 如果没有匹配到代码块，直接返回原内容并添加高亮
   return addTerminalSyntaxHighlighting(content)
 }
 
@@ -2241,50 +2571,38 @@ const writeToTerminal = (content: string) => {
     return
   }
 
-  // 提取终端输出（保留ANSI转义序列）
   const terminalContent = extractTerminalOutput(content)
 
-  // 防止重复写入相同内容
   if (lastContent === terminalContent) {
     return
   }
 
-  // 清空终端并重置光标位置
   terminal.clear()
   terminal.reset()
 
-  // 只去除末尾的完全空行，保留包含空格的行的原始格式
   const cleanContent = terminalContent.replace(/\n+$/, '')
 
-  // 写入内容（保留ANSI转义序列）
   terminal.write(cleanContent)
 
-  // 调整终端大小以适应容器
   nextTick(() => {
     if (fitAddon) {
       fitAddon.fit()
     }
   })
 
-  // 更新最后写入的内容
   lastContent = terminalContent
-
-  // 计算行数
   outputLines.value = cleanContent.split('\n').length
 
-  // 根据内容调整终端高度
   nextTick(() => {
-    // 直接使用内容行数来调整高度
     const contentLines = cleanContent.split('\n').length
     const minRows = 2
     const maxRows = 30
     const actualRows = Math.max(minRows, Math.min(maxRows, contentLines))
 
     if (terminal) {
-      // 计算最长行长度，设置足够的列数避免自动换行
       const lines = cleanContent.split('\n')
       const maxLineLength = Math.max(...lines.map((line) => line.length))
-      const cols = Math.max(maxLineLength + 50, 120) // 给一些额外的空间
+      const cols = Math.max(maxLineLength + 50, 120)
 
       if (fitAddon) {
         fitAddon.fit()
@@ -2295,17 +2613,13 @@ const writeToTerminal = (content: string) => {
     }
 
     if (terminalContainer.value) {
-      // 动态测量单行高度，避免末尾出现多余空白，并包含容器上下内边距
       const rowEl = terminalContainer.value.querySelector('.xterm-rows > div') as HTMLElement | null
       let rowHeight = rowEl ? rowEl.getBoundingClientRect().height : 18
-      // 一些缩放/渲染环境下会出现小数像素，向上取整避免裁切
       rowHeight = Math.ceil(rowHeight)
-      // 读取容器的上下 padding，以保证首/尾行与容器有间距
       const styles = window.getComputedStyle(terminalContainer.value)
       const paddingTop = parseFloat(styles.paddingTop) || 0
       const paddingBottom = parseFloat(styles.paddingBottom) || 0
-      // 加一个 1px 缓冲，避免尾行被遮挡
-      const newHeight = actualRows * rowHeight + paddingTop + paddingBottom + 1
+      const newHeight = actualRows * rowHeight + paddingTop + paddingBottom + 16
       terminalContainer.value.style.height = `${newHeight}px`
     }
   })
@@ -2329,7 +2643,6 @@ const toggleOutput = () => {
   isExpanded.value = !isExpanded.value
   if (isExpanded.value) {
     nextTick(() => {
-      // 展开后根据内容重新计算行高与列宽，避免纵向滚动
       adjustTerminalHeight()
     })
   }
@@ -2349,14 +2662,12 @@ watch(
 // 监听窗口大小变化
 const handleResize = () => {
   if (isExpanded.value) {
-    // 窗口变化时根据内容重算高度与列数，保持纵向无滚动
     adjustTerminalHeight()
   }
 }
 
 onMounted(async () => {
   await initTerminal()
-  // 终端初始化完成后，如果有内容就写入
   if (props.content && terminal) {
     writeToTerminal(props.content)
   }
@@ -2369,15 +2680,43 @@ onBeforeUnmount(() => {
   }
   window.removeEventListener('resize', handleResize)
 })
+
+// 简单 ls 列表（列对齐）高亮，保留空格
+const highlightSimpleLsColumnsPreserveSpacing = (line: string): string => {
+  const reset = '\x1b[0m'
+
+  const colorToken = (token: string): string => {
+    // 目录猜测：无点且为普通单词
+    if (!token.includes('.')) {
+      if (/^[A-Za-z0-9_-]+$/.test(token)) {
+        return `\x1b[34m${token}${reset}` // 蓝色
+      }
+      return `\x1b[37m${token}${reset}`
+    }
+
+    // 具体类型
+    if (REGEX_PATTERNS.codeFiles.test(token)) return `\x1b[36m${token}${reset}`
+    if (REGEX_PATTERNS.imageFiles.test(token)) return `\x1b[35m${token}${reset}`
+    if (REGEX_PATTERNS.archiveFiles.test(token)) return `\x1b[33m${token}${reset}`
+    return `\x1b[32m${token}${reset}` // 其他文件
+  }
+
+  // 逐个非空白片段着色，空白原样保留
+  return line.replace(/([^\s]+)|(\s+)/g, (m, word, spaces) => {
+    if (spaces) return spaces
+    return colorToken(word)
+  })
+}
 </script>
 
 <style scoped>
+/* 保持原有样式 */
 .terminal-output-container {
-  margin: 10px 0; /* 上下间距 10px */
+  margin: 10px 0;
   border-radius: 6px;
   overflow: hidden;
   background-color: var(--command-output-bg);
-  min-height: 40px; /* 设置最小高度以适应2行内容 */
+  min-height: 40px;
   height: auto;
   width: 100%;
   max-width: 100%;
@@ -2456,75 +2795,38 @@ onBeforeUnmount(() => {
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
   border: 1px solid var(--border-color);
   border-top: none;
-  /* 仅横向滚动，纵向不滚动 */
   overflow-x: auto;
   overflow-y: hidden;
   position: relative;
   width: 100%;
   max-width: 100%;
   height: auto;
-  /* 去掉最大高度限制，全部纵向展示 */
-  padding: 8px 8px; /* 增加上下内边距，让首/尾行与容器有一点间距（略宽松） */
+  padding: 8px 8px 8px 8px;
+  box-sizing: border-box;
+  scrollbar-gutter: stable both-edges;
 }
 
-/* 移除 xterm 默认内边距，避免视觉上"多一行" */
 :deep(.xterm-viewport) {
   padding: 0 !important;
-  /* 仅横向滚动 */
   overflow-x: auto !important;
   overflow-y: hidden !important;
+  scrollbar-gutter: stable both-edges !important;
 }
 
 :deep(.xterm-screen) {
-  padding: 0 !important;
+  padding: 0 0 12px 0 !important;
 }
 
-/* 确保 xterm 正常显示 */
 :deep(.xterm) {
-  /* 仅横向滚动，不允许纵向滚动 */
   overflow-x: auto !important;
   overflow-y: hidden !important;
-  white-space: pre !important; /* 保持等宽与原始空格，不强制换行 */
-}
-
-/* xterm-rows 保持默认行为，让 xterm.js 正常处理空格 */
-
-.terminal-container {
-  background-color: #1e1e1e;
-  padding: 4px 8px; /* 减少上下内边距 */
-  border-radius: 0 0 8px 8px;
-  font-size: 11px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
-  border: 1px solid var(--border-color);
-  border-top: none;
-  overflow: visible; /* 由子元素控制滚动 */
-  position: relative;
-  width: 100%;
-  max-width: 100%;
-  min-width: 0;
-  height: auto;
-  min-height: 40px; /* 设置最小高度为2行 */
-}
-
-.terminal-container .xterm {
-  width: 100% !important;
-  height: auto !important;
-  min-height: 40px !important; /* 2行最小高度 */
-  max-height: 600px !important; /* 设置最大高度，超出部分显示滚动条 */
-}
-
-.terminal-container .xterm .xterm-viewport {
-  /* 仅横向滚动 */
-  overflow-x: auto;
-  overflow-y: hidden;
-  min-height: 40px; /* 2行最小高度 */
+  white-space: pre !important;
 }
 
 :deep(.xterm .xterm-cursor) {
-  display: none !important; /* 隐藏光标（DOM 渲染器）*/
+  display: none !important;
 }
 
-/* 隐藏所有可能的光标相关元素（Canvas/WebGL 渲染器）*/
 :deep(.xterm .xterm-cursor-layer),
 :deep(.xterm .xterm-cursor-blink),
 :deep(.xterm .xterm-cursor-block),
@@ -2540,7 +2842,6 @@ onBeforeUnmount(() => {
   filter: invert(0.25);
 }
 
-/* 确保终端样式正确 */
 :deep(.xterm) {
   height: 100%;
 }
@@ -2551,5 +2852,9 @@ onBeforeUnmount(() => {
 
 :deep(.xterm-screen) {
   background-color: var(--bg-color-secondary) !important;
+}
+
+::deep(.xterm-rows) {
+  padding-bottom: 12px !important;
 }
 </style>
