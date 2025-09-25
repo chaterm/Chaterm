@@ -459,7 +459,7 @@ const initTerminal = async () => {
   terminal = new Terminal({
     cursorBlink: false,
     cursorStyle: 'block',
-    scrollback: 1000,
+    scrollback: Number.MAX_SAFE_INTEGER,
     fontSize: 11,
     fontFamily: 'SFMono-Regular, Consolas, "Liberation Mono", Menlo, monospace',
     theme: {
@@ -488,7 +488,7 @@ const initTerminal = async () => {
     allowProposedApi: true,
     convertEol: true,
     disableStdin: true,
-    rows: 30
+    scrollOnUserInput: false
   })
 
   fitAddon = new FitAddon()
@@ -2699,11 +2699,10 @@ const writeToTerminal = (content: string) => {
   lastContent = terminalContent
   outputLines.value = cleanContent.split('\n').length
 
-  nextTick(() => {
+  const adjustHeight = () => {
     const contentLines = cleanContent.split('\n').length
     const minRows = 2
-    const maxRows = 30
-    const actualRows = Math.max(minRows, Math.min(maxRows, contentLines))
+    const actualRows = Math.max(minRows, contentLines)
 
     if (terminal) {
       const lines = cleanContent.split('\n')
@@ -2719,15 +2718,35 @@ const writeToTerminal = (content: string) => {
     }
 
     if (terminalContainer.value) {
-      const rowEl = terminalContainer.value.querySelector('.xterm-rows > div') as HTMLElement | null
-      let rowHeight = rowEl ? rowEl.getBoundingClientRect().height : 18
-      rowHeight = Math.ceil(rowHeight)
-      const styles = window.getComputedStyle(terminalContainer.value)
-      const paddingTop = parseFloat(styles.paddingTop) || 0
-      const paddingBottom = parseFloat(styles.paddingBottom) || 0
-      const newHeight = actualRows * rowHeight + paddingTop + paddingBottom + 16
-      terminalContainer.value.style.height = `${newHeight}px`
+      // 等待一帧以确保DOM更新
+      requestAnimationFrame(() => {
+        const rowEl = terminalContainer.value?.querySelector('.xterm-rows > div') as HTMLElement | null
+        if (!rowEl) return
+
+        let rowHeight = rowEl.getBoundingClientRect().height
+        rowHeight = Math.ceil(rowHeight)
+
+        // 获取实际内容高度
+        const xtermRows = terminalContainer.value?.querySelector('.xterm-rows') as HTMLElement | null
+        if (!xtermRows || !terminalContainer.value) return
+
+        const actualHeight = xtermRows.getBoundingClientRect().height
+        const styles = window.getComputedStyle(terminalContainer.value)
+        const paddingTop = parseFloat(styles.paddingTop) || 0
+        const paddingBottom = parseFloat(styles.paddingBottom) || 0
+
+        // 使用实际内容高度而不是计算高度
+        const newHeight = actualHeight + paddingTop + paddingBottom
+        terminalContainer.value.style.height = `${newHeight}px`
+      })
     }
+  }
+
+  // 调用两次以确保正确计算高度
+  nextTick(() => {
+    adjustHeight()
+    // 再次调用以处理可能的延迟渲染
+    setTimeout(adjustHeight, 100)
   })
 }
 
@@ -2820,7 +2839,8 @@ const highlightSimpleLsColumnsPreserveSpacing = (line: string): string => {
 .terminal-output-container {
   margin: 10px 0;
   border-radius: 6px;
-  overflow: hidden;
+  overflow-x: auto;
+  overflow-y: visible;
   background-color: var(--command-output-bg);
   min-height: 40px;
   height: auto;
@@ -2902,31 +2922,48 @@ const highlightSimpleLsColumnsPreserveSpacing = (line: string): string => {
   border: 1px solid var(--border-color);
   border-top: none;
   overflow-x: auto;
-  overflow-y: hidden;
+  overflow-y: visible;
   position: relative;
   width: 100%;
   max-width: 100%;
   height: auto;
-  padding: 8px 8px 8px 8px;
+  padding: 8px;
   box-sizing: border-box;
-  scrollbar-gutter: stable both-edges;
+  scrollbar-gutter: stable;
 }
 
 :deep(.xterm-viewport) {
   padding: 0 !important;
-  overflow-x: auto !important;
-  overflow-y: hidden !important;
-  scrollbar-gutter: stable both-edges !important;
+  overflow: hidden !important;
+  scrollbar-gutter: stable !important;
 }
 
 :deep(.xterm-screen) {
-  padding: 0 0 12px 0 !important;
+  padding: 0 !important;
+  overflow-x: auto !important;
+  overflow-y: visible !important;
 }
 
 :deep(.xterm) {
   overflow-x: auto !important;
   overflow-y: hidden !important;
   white-space: pre !important;
+}
+
+/* 隐藏纵向滚动条 */
+:deep(.xterm-viewport::-webkit-scrollbar) {
+  width: 0 !important;
+  height: 0 !important;
+}
+
+:deep(.xterm-viewport) {
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
+  overflow-y: hidden !important;
+}
+
+:deep(.xterm-screen) {
+  overflow-y: hidden !important;
 }
 
 :deep(.xterm .xterm-cursor) {
@@ -2962,5 +2999,7 @@ const highlightSimpleLsColumnsPreserveSpacing = (line: string): string => {
 
 ::deep(.xterm-rows) {
   padding-bottom: 12px !important;
+  overflow-x: auto !important;
+  overflow-y: visible !important;
 }
 </style>
