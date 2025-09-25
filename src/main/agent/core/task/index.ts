@@ -68,6 +68,7 @@ import { getGlobalState, getUserConfig } from '@core/storage/state'
 import WorkspaceTracker from '@integrations/workspace/WorkspaceTracker'
 import { connectAssetInfo } from '../../../storage/database'
 import { getMessages, formatMessage, Messages } from './messages'
+import { decodeHtmlEntities } from '@utils/decodeHtmlEntities'
 
 import type { Host } from '@shared/WebviewMessage'
 
@@ -2059,6 +2060,7 @@ export class Task {
         if (!command) return this.handleMissingParam('command', toolDescription)
         if (!ip) return this.handleMissingParam('ip', toolDescription)
         if (!requiresApprovalRaw) return this.handleMissingParam('requires_approval', toolDescription)
+        command = decodeHtmlEntities(command)
         // 执行安全检查
         const securityCheck = await this.performCommandSecurityCheck(command, toolDescription)
         if (securityCheck.shouldReturn) {
