@@ -66,7 +66,6 @@
       <TerminalOutputRenderer
         v-if="props.say === 'command_output'"
         :content="props.content"
-        @mounted="() => console.log('TerminalOutputRenderer: 在 markdownRenderer 中被渲染')"
       />
       <div
         v-else-if="props.say === 'search_result'"

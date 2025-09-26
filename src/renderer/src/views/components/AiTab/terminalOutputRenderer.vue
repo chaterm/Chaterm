@@ -4,7 +4,7 @@
       v-show="true"
       class="terminal-output-header"
     >
-      <span class="output-title">OUTPUT (xterm.js)</span>
+      <span class="output-title">OUTPUT</span>
       <div class="output-controls">
         <span class="output-lines">{{ outputLines }} lines</span>
         <a-button
@@ -155,7 +155,8 @@ const REGEX_PATTERNS = {
   iptablesTarget: /\b(ACCEPT|DROP|REJECT|RETURN|LOG|DNAT|SNAT|MASQUERADE|DOCKER|DOCKER-USER|DOCKER-ISOLATION|FORWARD|INPUT|OUTPUT)\b/,
   iptablesProtocol: /\b(all|tcp|udp|icmp|esp|ah)\b/,
   iptablesInterface: /\b(\*|docker0|br-\w+|eth\d+|lo|wlan\d+)\b/,
-  iptablesIP: /\b(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}(?:\/\d+)?)\b/
+  iptablesIP: /\b(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}(?:\/\d+)?)\b/,
+  macAddress: /\b([0-9a-fA-F]{2}:[0-9a-fA-F]{2}:[0-9a-fA-F]{2}:[0-9a-fA-F]{2}:[0-9a-fA-F]{2}:[0-9a-fA-F]{2})\b/
 }
 
 // 缓存高亮结果
@@ -400,7 +401,32 @@ const highlightPath = (line: string): string => {
 const highlightNetwork = (line: string): string => {
   const { reset, blue, yellow } = COLORS
 
-  return line.replace(/(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})/g, `${blue}$1${reset}`).replace(/:(\d+)/g, `:${yellow}$1${reset}`)
+  // 先高亮 IPv4 地址
+  let highlighted = line.replace(/(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})/g, `${blue}$1${reset}`)
+
+  // 高亮 IPv6 地址（避免与端口号冲突）
+  highlighted = highlighted.replace(/([0-9a-fA-F]{1,4}:[0-9a-fA-F:]+)/g, `${blue}$1${reset}`)
+
+  // 只高亮端口号（冒号后跟纯数字，且不在 IPv6 地址中）
+  highlighted = highlighted.replace(/(?<![0-9a-fA-F]):(\d+)(?![0-9a-fA-F:])/g, `:${yellow}$1${reset}`)
+
+  return highlighted
+}
+
+// MAC地址高亮
+const highlightMacAddress = (line: string): string => {
+  const { reset, cyan, yellow } = COLORS
+
+  return line.replace(REGEX_PATTERNS.macAddress, (match) => {
+    // 根据MAC地址前缀确定颜色
+    if (match.startsWith('52:54:00')) {
+      return `${cyan}${match}${reset}` // 虚拟机默认MAC - 青色
+    } else if (match.startsWith('02:42')) {
+      return `${yellow}${match}${reset}` // Docker MAC - 黄色
+    } else {
+      return `${cyan}${match}${reset}` // 其他MAC - 青色
+    }
+  })
 }
 
 // 状态信息高亮
@@ -420,17 +446,23 @@ const adjustTerminalHeight = () => {
 
   let actualContentLines = 0
   let maxLineLength = 0
+  let totalLines = 0
+
+  // 计算总行数（包括空行）
   for (let i = 0; i < terminal.buffer.active.length; i++) {
     const line = terminal.buffer.active.getLine(i)
     if (line) {
       const text = line.translateToString()
+      totalLines = i + 1
       if (text.trim()) actualContentLines = i + 1
       if (text.length > maxLineLength) maxLineLength = text.length
     }
   }
 
   const minRows = 2
-  const actualRows = Math.max(minRows, actualContentLines)
+  // 使用总行数而不是非空行数，确保所有内容都能显示
+  // 如果总行数为0，使用实际内容行数
+  const actualRows = Math.max(minRows, totalLines || actualContentLines)
 
   if (fitAddon) {
     fitAddon.fit()
@@ -843,6 +875,11 @@ const addTerminalSyntaxHighlighting = (content: string): string => {
     // 12. 处理成功信息
     if (REGEX_PATTERNS.success.test(line)) {
       return highlightSuccessOutput(line)
+    }
+
+    // 13. 处理 MAC 地址（优先于网络地址检测）
+    if (REGEX_PATTERNS.macAddress.test(line)) {
+      return highlightMacAddress(line)
     }
 
     // =============================================================================
@@ -2746,20 +2783,50 @@ const writeToTerminal = (content: string) => {
 
   const cleanContent = terminalContent.replace(/\n+$/, '')
 
+  // 先计算内容行数和尺寸
+  const contentLines = cleanContent.split('\n').length
+  const minRows = 2
+  const actualRows = Math.max(minRows, contentLines)
+  const lines = cleanContent.split('\n')
+  const maxLineLength = Math.max(...lines.map((line) => line.length))
+  const cols = Math.max(maxLineLength + 50, 120)
+
+  // 先调整终端尺寸
+  if (terminal) {
+    terminal.resize(cols, actualRows)
+  }
+
+  // 然后写入内容
   terminal.write(cleanContent)
 
+  // 立即调整高度，确保所有内容都能显示
   nextTick(() => {
     if (fitAddon) {
       fitAddon.fit()
     }
+
+    // 强制调整高度
+    adjustTerminalHeight()
+
+    // 延迟再次调整，确保内容完全渲染
+    setTimeout(() => {
+      adjustTerminalHeight()
+      // 强制刷新终端显示
+      if (terminal) {
+        terminal.refresh(0, terminal.rows - 1)
+      }
+    }, 50)
   })
 
   lastContent = terminalContent
-  outputLines.value = cleanContent.split('\n').length
+  // 正确计算行数：过滤掉空行
+  const nonEmptyLines = lines.filter((line) => line.trim() !== '')
+  outputLines.value = nonEmptyLines.length
 
   const adjustHeight = () => {
     const contentLines = cleanContent.split('\n').length
     const minRows = 2
+    // 确保有足够的行数显示所有内容
     const actualRows = Math.max(minRows, contentLines)
 
     if (terminal) {
@@ -2779,22 +2846,17 @@ const writeToTerminal = (content: string) => {
       // 等待一帧以确保DOM更新
       requestAnimationFrame(() => {
         const rowEl = terminalContainer.value?.querySelector('.xterm-rows > div') as HTMLElement | null
-        if (!rowEl) return
+        if (!rowEl || !terminalContainer.value) return
 
         let rowHeight = rowEl.getBoundingClientRect().height
         rowHeight = Math.ceil(rowHeight)
 
-        // 获取实际内容高度
-        const xtermRows = terminalContainer.value?.querySelector('.xterm-rows') as HTMLElement | null
-        if (!xtermRows || !terminalContainer.value) return
-
-        const actualHeight = xtermRows.getBoundingClientRect().height
         const styles = window.getComputedStyle(terminalContainer.value)
         const paddingTop = parseFloat(styles.paddingTop) || 0
         const paddingBottom = parseFloat(styles.paddingBottom) || 0
 
-        // 使用实际内容高度而不是计算高度
-        const newHeight = actualHeight + paddingTop + paddingBottom
+        // 直接基于行数计算高度，确保所有内容都能显示
+        const newHeight = actualRows * rowHeight + paddingTop + paddingBottom + 8
         terminalContainer.value.style.height = `${newHeight}px`
       })
     }
@@ -2803,8 +2865,12 @@ const writeToTerminal = (content: string) => {
   // 调用两次以确保正确计算高度
   nextTick(() => {
     adjustHeight()
+    adjustTerminalHeight()
     // 再次调用以处理可能的延迟渲染
-    setTimeout(adjustHeight, 100)
+    setTimeout(() => {
+      adjustHeight()
+      adjustTerminalHeight()
+    }, 100)
   })
 }
 
@@ -2853,6 +2919,14 @@ onMounted(async () => {
   await initTerminal()
   if (props.content && terminal) {
     writeToTerminal(props.content)
+    // 确保初始渲染后正确调整高度
+    nextTick(() => {
+      adjustTerminalHeight()
+      // 延迟再次调整，确保内容完全渲染
+      setTimeout(() => {
+        adjustTerminalHeight()
+      }, 100)
+    })
   }
   window.addEventListener('resize', handleResize)
 })
