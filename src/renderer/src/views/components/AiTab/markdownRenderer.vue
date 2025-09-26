@@ -63,75 +63,11 @@
       </a-collapse>
     </div>
     <div v-else>
-      <div
+      <TerminalOutputRenderer
         v-if="props.say === 'command_output'"
-        class="command-output-container"
-      >
-        <div class="command-output-header">
-          <span class="output-title">OUTPUT</span>
-          <div class="output-controls">
-            <span class="output-lines">{{ commandOutputLines.length }} lines</span>
-            <a-button
-              class="copy-button-header"
-              type="text"
-              size="small"
-              @click="copyCommandOutput"
-            >
-              <img
-                :src="copySvg"
-                alt="copy"
-                class="copy-icon"
-              />
-            </a-button>
-            <a-button
-              class="toggle-button"
-              type="text"
-              size="small"
-              @click="toggleCommandOutput"
-            >
-              <CaretDownOutlined v-if="commandOutputActiveKey.includes('1')" />
-              <CaretRightOutlined v-else />
-            </a-button>
-          </div>
-        </div>
-        <div
-          v-show="commandOutputActiveKey.includes('1')"
-          class="command-output"
-        >
-          <div
-            v-for="(line, index) in contentLines"
-            :key="index"
-            class="output-line"
-          >
-            <template v-if="line.type === 'prompt'">
-              <span class="prompt">{{ line.prompt }}</span>
-              <span class="command">{{ line.command }}</span>
-            </template>
-            <template v-else-if="line.type === 'ls'">
-              <span class="permissions">{{ line.permissions }}</span>
-              <span class="links">{{ line.links }}</span>
-              <span class="user">{{ line.user }}</span>
-              <span class="group">{{ line.group }}</span>
-              <span class="size">{{ line.size }}</span>
-              <span class="date">{{ line.date }}</span>
-              <span :class="line.fileType">{{ line.name }}</span>
-            </template>
-            <template v-else>
-              <span
-                v-if="line.html"
-                class="content"
-                v-html="line.html"
-              ></span>
-              <span
-                v-else
-                class="content"
-                >{{ line.content }}</span
-              >
-            </template>
-          </div>
-        </div>
-      </div>
-
+        :content="props.content"
+        @mounted="() => console.log('TerminalOutputRenderer: 在 markdownRenderer 中被渲染')"
+      />
       <div
         v-else-if="props.say === 'search_result'"
         class="command-output-container search-result"
@@ -145,7 +81,7 @@
             Search Result
           </span>
           <div class="output-controls">
-            <span class="output-lines">{{ commandOutputLines.length }} lines</span>
+            <span class="output-lines">{{ contentLines.length }} lines</span>
             <a-button
               class="copy-button-header"
               type="text"
@@ -352,6 +288,7 @@ import i18n from '@/locales'
 import { extractFinalOutput, cleanAnsiEscapeSequences } from '@/utils/terminalOutputExtractor'
 import { userConfigStore as userConfigStoreService } from '@/services/userConfigStoreService'
 import { getCustomTheme, isDarkTheme } from '@/utils/themeUtils'
+import TerminalOutputRenderer from './terminalOutputRenderer.vue'
 
 const { t } = i18n.global
 
@@ -453,18 +390,17 @@ if (monaco.editor) {
   })
 }
 
-const renderedContent = ref('')
 const thinkingContent = ref('')
 const normalContent = ref('')
 const thinkingLoading = ref(false)
 const showThinkingMeasurement = ref(false)
 let thinkingMeasurementToken = 0
 const isCancelled = ref(false)
+const commandOutputActiveKey = ref<string[]>(['1'])
 const activeKey = ref<string[]>(['1'])
 const contentRef = ref<HTMLElement | null>(null)
 const editorContainer = ref<HTMLElement | null>(null)
 const codeActiveKey = ref<string[]>(['1'])
-const commandOutputActiveKey = ref<string[]>(['1'])
 const monacoContainer = ref<HTMLElement | null>(null)
 const totalLines = ref(0)
 let editor: monaco.editor.IStandaloneCodeEditor | null = null
@@ -660,7 +596,6 @@ const initEditor = (content: string) => {
         const model = editor.getModel()
         if (model && model.getLineCount() > 10) {
           codeActiveKey.value = []
-          emit('collapse-change', 'code')
         }
       }
     }, 2000)
@@ -727,7 +662,8 @@ const processContent = async (content: string) => {
     return
   }
   if (props.say === 'command_output') {
-    normalContent.value = processedContent
+    // 对于 command_output，不需要处理内容，直接返回
+    // 内容会由 TerminalOutputRenderer 组件处理
     return
   }
 
@@ -907,7 +843,6 @@ const checkContentHeight = async () => {
       }
       activeKey.value = shouldCollapse ? [] : ['1']
       thinkingLoading.value = false
-      emit('collapse-change', 'thinking')
       showThinkingMeasurement.value = false
     }, 1000)
   }
@@ -961,7 +896,9 @@ onMounted(async () => {
   if (props.content) {
     if (props.ask === 'command' || props.say === 'command') {
       initEditor(props.content)
-    } else if (props.say === 'command_output' || props.say === 'search_result') {
+    } else if (props.say === 'command_output') {
+      // command_output 由 TerminalOutputRenderer 组件处理，不需要额外处理
+    } else if (props.say === 'search_result') {
       await processContentLines(props.content)
     } else {
       await processContent(props.content)
@@ -974,13 +911,11 @@ watch(
   () => props.content,
   (newContent) => {
     if (!newContent) {
-      renderedContent.value = ''
       thinkingContent.value = ''
       showThinkingMeasurement.value = false
       thinkingMeasurementToken++
       normalContent.value = ''
       codeBlocks.value = []
-      processedContentLines.value = []
       if (editor) {
         editor.setValue('')
       }
@@ -1000,11 +935,12 @@ watch(
           const model = editor.getModel()
           if (model && model.getLineCount() > 10) {
             codeActiveKey.value = []
-            emit('collapse-change', 'code')
           }
         }
       }, 2000)
-    } else if (props.say === 'command_output' || props.say === 'search_result') {
+    } else if (props.say === 'command_output') {
+      // command_output 由 TerminalOutputRenderer 组件处理，不需要额外处理
+    } else if (props.say === 'search_result') {
       // Process content lines with secret redaction for command output
       nextTick(async () => {
         await processContentLines(newContent)
@@ -1034,7 +970,9 @@ watch(
         editor = null
       }
       if (props.content) {
-        if (props.say === 'command_output' || props.say === 'search_result') {
+        if (props.say === 'command_output') {
+          // command_output 由 TerminalOutputRenderer 组件处理，不需要额外处理
+        } else if (props.say === 'search_result') {
           nextTick(async () => {
             await processContentLines(props.content)
           })
@@ -1052,7 +990,9 @@ watch(
   () => props.say,
   (newSay) => {
     if (props.content) {
-      if (newSay === 'command_output' || newSay === 'search_result') {
+      if (newSay === 'command_output') {
+        // command_output 由 TerminalOutputRenderer 组件处理，不需要额外处理
+      } else if (newSay === 'search_result') {
         nextTick(async () => {
           await processContentLines(props.content)
         })
@@ -1305,11 +1245,6 @@ const processContentLines = async (content: string) => {
 // Computed property that returns the processed content lines
 const contentLines = computed(() => {
   return processedContentLines.value
-})
-
-// Computed property for command output lines count
-const commandOutputLines = computed(() => {
-  return contentLines.value
 })
 
 const copyEditorContent = () => {
@@ -1596,27 +1531,6 @@ code {
   margin: 8px 0;
 }
 
-.thinking-collapse.no-collapse {
-  background: #3a3a3a;
-  border: none;
-  margin-bottom: 10px;
-  border-radius: 4px !important;
-}
-
-.thinking-collapse.no-collapse .thinking-header {
-  padding: 8px 12px !important;
-  border-radius: 4px 4px 0 0 !important;
-  color: var(--text-color) !important;
-  background-color: var(--bg-color-quaternary);
-  font-size: 12px !important;
-}
-
-.thinking-collapse.no-collapse .thinking-content {
-  padding: 0px 5px 5px 5px;
-  background-color: var(--bg-color-quaternary);
-  border-radius: 0 0 4px 4px;
-}
-
 .code-collapse {
   border: none !important;
   margin-bottom: 2px;
@@ -1721,21 +1635,6 @@ code {
 }
 
 .copy-button:hover {
-  opacity: 1;
-  background: rgba(255, 255, 255, 0.1);
-}
-
-.copy-button-small {
-  position: absolute;
-  top: 2px;
-  right: 8px;
-  z-index: 100;
-  color: var(--text-color);
-  opacity: 0.6;
-  transition: opacity 0.3s;
-}
-
-.copy-button-small:hover {
   opacity: 1;
   background: rgba(255, 255, 255, 0.1);
 }
