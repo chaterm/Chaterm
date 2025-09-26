@@ -63,8 +63,50 @@
       </a-collapse>
     </div>
     <div v-else>
+      <!-- command_output 的代码内容使用 markdown 渲染 -->
+      <div
+        v-if="props.say === 'command_output' && codeDetection.isCode"
+        class="terminal-output-container"
+      >
+        <div
+          v-show="true"
+          class="terminal-output-header"
+        >
+          <span class="output-title">OUTPUT</span>
+          <div class="output-controls">
+            <span class="output-lines">{{ props.content.split('\n').length }} lines</span>
+            <a-button
+              class="copy-button-header"
+              type="text"
+              size="small"
+              @click="copyCodeContent"
+            >
+              <img
+                :src="copySvg"
+                alt="copy"
+                class="copy-icon"
+              />
+            </a-button>
+            <a-button
+              class="toggle-button"
+              type="text"
+              size="small"
+              @click="toggleCodeOutput"
+            >
+              <CaretDownOutlined v-if="isCodeExpanded" />
+              <CaretRightOutlined v-else />
+            </a-button>
+          </div>
+        </div>
+        <div
+          v-show="isCodeExpanded"
+          class="code-content-body"
+          v-html="marked('```' + (codeDetection.language || '') + '\n' + props.content + '\n```')"
+        ></div>
+      </div>
+      <!-- command_output 的终端内容使用 TerminalOutputRenderer -->
       <TerminalOutputRenderer
-        v-if="props.say === 'command_output'"
+        v-else-if="props.say === 'command_output'"
         :content="props.content"
       />
       <div
@@ -412,8 +454,40 @@ const props = defineProps<{
   executedCommand?: string
 }>()
 
+// 检测是否是代码内容 - 复用现有的 detectLanguage 方法
+const isCodeContent = (content: string): { isCode: boolean; language?: string } => {
+  if (!content || typeof content !== 'string') {
+    return { isCode: false }
+  }
+
+  const lines = content.split('\n')
+  const nonEmptyLines = lines.filter((line) => line.trim())
+
+  // 如果内容太少，不认为是代码
+  if (nonEmptyLines.length < 3) return { isCode: false }
+
+  // 使用现有的 detectLanguage 方法检测语言
+  const detectedLanguage = detectLanguage(content)
+
+  // 如果检测到的语言不是 'shell'，认为是代码
+  if (detectedLanguage && detectedLanguage !== 'shell') {
+    return { isCode: true, language: detectedLanguage }
+  }
+
+  return { isCode: false }
+}
+
+// 计算属性：检测当前内容是否是代码
+const codeDetection = computed(() => {
+  if (props.say === 'command_output' && props.content) {
+    return isCodeContent(props.content)
+  }
+  return { isCode: false }
+})
+
 const codeBlocks = ref<Array<{ content: string; activeKey: string[]; lines: number }>>([])
 const codeEditors = ref<Array<HTMLElement | null>>([])
+const isCodeExpanded = ref(true) // 代码内容默认展开
 
 const contentStableTimeout = ref<NodeJS.Timeout | null>(null)
 
@@ -1255,6 +1329,18 @@ const copyEditorContent = () => {
   }
 }
 
+const copyCodeContent = () => {
+  if (props.content) {
+    navigator.clipboard.writeText(props.content).then(() => {
+      message.success(t('ai.copyToClipboard'))
+    })
+  }
+}
+
+const toggleCodeOutput = () => {
+  isCodeExpanded.value = !isCodeExpanded.value
+}
+
 const copyBlockContent = (blockIndex: number) => {
   const container = codeEditors.value[blockIndex]
   if (container) {
@@ -1733,6 +1819,32 @@ code {
   color: #7e8ba3;
 }
 
+.terminal-output-container {
+  margin: 10px 0;
+  border-radius: 6px;
+  overflow-x: auto;
+  overflow-y: visible;
+  background-color: var(--command-output-bg);
+  min-height: 40px;
+  height: auto;
+  width: 100%;
+  max-width: 100%;
+}
+
+.terminal-output-header {
+  position: relative;
+  height: 18px;
+  background: var(--bg-color-secondary);
+  border-bottom: 1px solid var(--bg-color-quaternary);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 8px;
+  font-size: 10px;
+  color: #7e8ba3;
+  border-radius: 6px 6px 0 0;
+}
+
 .output-title {
   font-weight: 500;
   color: #7e8ba3;
@@ -2189,6 +2301,50 @@ code {
 
 .ansi-underline {
   text-decoration: underline;
+}
+
+/* 代码内容样式 - 使用和终端输出相同的样式 */
+.code-content-body {
+  padding: 12px;
+  background: #1e1e1e;
+  color: #d4d4d4;
+  font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+  font-size: 13px;
+  line-height: 1.5;
+  overflow-x: auto;
+  border-radius: 0 0 8px 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  border: 1px solid var(--border-color);
+  border-top: none;
+}
+
+.code-content-body pre {
+  margin: 0;
+  padding: 0;
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  color: inherit;
+  font-family: inherit;
+  font-size: inherit;
+  line-height: inherit;
+}
+
+.code-content-body code {
+  background: transparent;
+  padding: 0;
+  border: none;
+  border-radius: 0;
+  color: inherit;
+  font-family: inherit;
+  font-size: inherit;
+  line-height: inherit;
+}
+
+/* 暗色主题适配 */
+.dark .code-content-body {
+  background: #1e1e1e;
+  color: #d4d4d4;
 }
 
 .command-output::-webkit-scrollbar {

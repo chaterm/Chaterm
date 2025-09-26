@@ -121,7 +121,7 @@ const REGEX_PATTERNS = {
   top: /PID.*CPU.*MEM/,
   topHeader: /^\s*PID\s+USER\s+PR\s+NI\s+VIRT\s+RES\s+SHR\s+S\s+%CPU\s+%MEM\s+TIME\+\s+COMMAND\s*$/,
   tail: /==>.*<==/,
-  codeFiles: /\.(js|ts|vue|py|java|cpp|c|h)$/,
+  codeFiles: /\.(js|ts|vue|py|java|cpp|c|h|go)$/,
   imageFiles: /\.(jpg|jpeg|png|gif|svg|ico)$/,
   archiveFiles: /\.(zip|tar|gz|rar|7z|deb|rpm|pkg)$|\.(?:tar\.(?:gz|xz|bz2|zst)|tgz|tbz2|txz)$/,
   httpStatus: /\b(\d{3})\b/,
