@@ -1,6 +1,9 @@
 <template>
   <div class="terminal-output-container">
-    <div class="terminal-output-header">
+    <div
+      v-show="true"
+      class="terminal-output-header"
+    >
       <span class="output-title">OUTPUT (xterm.js)</span>
       <div class="output-controls">
         <span class="output-lines">{{ outputLines }} lines</span>
@@ -664,7 +667,13 @@ const addTerminalSyntaxHighlighting = (content: string): string => {
       return highlightNetstatUnixHeaderPreserveSpacing(line)
     }
 
-    // 3.1 处理 netstat 命令输出（保留原始空格）
+    // 3.1 处理 ss 命令输出（保留原始空格）
+    // 匹配 ss 命令格式：tcp   LISTEN 0      511                          0.0.0.0:8080       0.0.0.0:*
+    if (line.match(/^(tcp|udp|tcp6|udp6)\s+[A-Z_]+\s+\d+\s+\d+\s+[^\s]+\:[^\s]+\s+[^\s]+\:[^\s]*/)) {
+      return highlightSsOutputPreserveSpacing(line)
+    }
+
+    // 3.2 处理 netstat 命令输出（保留原始空格）
     // 匹配TCP连接（有状态字段）
     if (line.match(/^(tcp|tcp6)\s+\d+\s+\d+\s+[^\s]+\:[^\s]+\s+[^\s]+\:[^\s]+\s+[A-Z_]+/)) {
       return highlightNetstatOutputPreserveSpacing(line)
@@ -1555,6 +1564,57 @@ const highlightPsSimpleOutputPreserveSpacing = (line: string): string => {
 
   // 如果格式不匹配，回退到原始行
   return line
+}
+
+// ss 命令输出高亮（保留原始空格）
+const highlightSsOutputPreserveSpacing = (line: string): string => {
+  const { reset, success, number, url, key, warning, header, error, cyan, yellow } = COLORS
+
+  // 使用简单的方法：只高亮关键部分，不破坏原始格式
+  let highlighted = line
+
+  // 1. 高亮协议字段
+  highlighted = highlighted.replace(/^(tcp|udp|tcp6|udp6)/, (match) => {
+    return `${success}${match}${reset}`
+  })
+
+  // 2. 高亮状态字段（LISTEN, ESTABLISHED等）
+  highlighted = highlighted.replace(
+    /\b(LISTEN|ESTABLISHED|TIME_WAIT|CLOSED|SYN_SENT|SYN_RECV|FIN_WAIT1|FIN_WAIT2|CLOSE_WAIT|LAST_ACK|CLOSING|CONNECTED|DGRAM|STREAM|SEQPACKET)\b/g,
+    (match) => {
+      let stateColor = COLORS.magenta // 默认洋红色
+      if (match === 'ESTABLISHED' || match === 'CONNECTED') {
+        stateColor = success // 已建立/已连接 - 绿色
+      } else if (match === 'TIME_WAIT') {
+        stateColor = warning // 等待 - 黄色
+      } else if (match === 'LISTEN') {
+        stateColor = header // 监听 - 青色
+      } else if (match === 'CLOSED') {
+        stateColor = error // 关闭 - 红色
+      } else if (match === 'DGRAM' || match === 'STREAM' || match === 'SEQPACKET') {
+        stateColor = cyan // 套接字类型 - 青色
+      }
+      return `${stateColor}${match}${reset}`
+    }
+  )
+
+  // 3. 高亮数字字段（Recv-Q, Send-Q等）
+  highlighted = highlighted.replace(/\b(\d+)\b/g, (match) => {
+    return `${number}${match}${reset}`
+  })
+
+  // 4. 高亮IP地址和端口
+  highlighted = highlighted.replace(/([0-9a-fA-F:.]+):([0-9*]+)/g, (_, addr, port) => {
+    // 检查是否是IPv6地址
+    const isIPv6 = addr.includes(':')
+    const addrColor = isIPv6 ? cyan : url // IPv6用青色，IPv4用蓝色
+    return `${addrColor}${addr}${reset}:${key}${port}${reset}`
+  })
+
+  // 5. 高亮通配符
+  highlighted = highlighted.replace(/\*/g, `${yellow}*${reset}`)
+
+  return highlighted
 }
 
 // netstat 命令输出高亮（保留原始空格）
@@ -2652,7 +2712,7 @@ const extractTerminalOutput = (content: string): string => {
     /```([\s\S]*?)```/,
     /# Executing result on .*?:命令已执行。\nOutput:\n([\s\S]*?)(?:\n\[Exit Code:|$)/,
     /Active Internet connections[^\n]*\n([\s\S]*?)(?:\n\[Exit Code:|$)/,
-    /^[^\n]*\n(.*)$/s
+    /^(.+)$/s
   ]
 
   for (let i = 0; i < patterns.length; i++) {

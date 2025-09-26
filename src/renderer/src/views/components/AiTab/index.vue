@@ -1990,7 +1990,16 @@ onMounted(async () => {
         !lastMessage ||
         lastPartialMessage.partialMessage.ts !== message.partialMessage.ts
 
-      if (lastMessage && JSON.stringify(lastMessage) === JSON.stringify(message)) {
+      // 检查是否为重复消息 - 比较关键字段而不是整个对象
+      if (
+        lastMessage &&
+        lastMessage.type === message.type &&
+        lastMessage.partialMessage?.text === message.partialMessage?.text &&
+        lastMessage.partialMessage?.ask === message.partialMessage?.ask &&
+        lastMessage.partialMessage?.say === message.partialMessage?.say &&
+        lastMessage.partialMessage?.ts === message.partialMessage?.ts
+      ) {
+        console.log('AiTab - Duplicate message detected, skipping:', message)
         return
       }
       isCurrentChatMessage.value = true
