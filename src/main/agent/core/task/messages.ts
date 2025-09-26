@@ -55,6 +55,7 @@ export interface Messages {
   securityConfirmationRequired: string
   securitySettingsLink: string
   userRejectedCommand: string
+  userRejectedNormalCommand: string
 
   // Security error descriptions
   securityErrorCommandTooLong: string
@@ -182,6 +183,8 @@ export const messagesEN: Messages = {
   securityConfirmationRequired: 'Please confirm whether to execute the command',
   securitySettingsLink: 'To modify security settings, go to: Settings -> AI Preferences -> Security Configuration',
   userRejectedCommand: '🚫 The user rejected the dangerous command: {{command}}',
+  userRejectedNormalCommand:
+    "❌ The user rejected the command: {{command}}\n\nI understand you don't want to execute this command. Let me suggest some alternatives:\n\n1. **Modify the command**: I can adjust the command parameters or approach\n2. **Use a different method**: I can try a different approach to achieve the same goal\n3. **Break it down**: I can break this into smaller, safer steps\n4. **Explain the command**: I can explain what this command does before proceeding\n\nPlease let me know how you'd like to proceed, or if you have a specific approach in mind.",
 
   // Security error descriptions
   securityErrorCommandTooLong: 'The command length exceeds the limit ({{limit}} characters)',
@@ -311,6 +314,8 @@ export const messagesCN: Messages = {
   securityConfirmationRequired: '请确认是否执行该命令',
   securitySettingsLink: '要修改安全设置，请前往: 设置 -> AI偏好 -> 安全配置',
   userRejectedCommand: '🚫 用户拒绝了危险命令: {{command}}',
+  userRejectedNormalCommand:
+    '❌ 用户拒绝了命令: {{command}}\n\n我理解您不想执行这个命令。让我为您提供一些替代方案：\n\n1. **修改命令**：我可以调整命令参数或方法\n2. **使用不同方法**：我可以尝试不同的方法来实现相同目标\n3. **分解步骤**：我可以将其分解为更小、更安全的步骤\n4. **解释命令**：我可以先解释这个命令的作用再继续\n\n请告诉我您希望如何继续，或者如果您有特定的方法。',
 
   // 安全错误描述
   securityErrorCommandTooLong: '命令长度超过限制 ({{limit}} 字符)',

@@ -1187,6 +1187,7 @@ const sendMessage = async (sendType: string) => {
   responseLoading.value = true
   showRetryButton.value = false
   showNewTaskButton.value = false
+  scrollToBottom(true)
   return
 }
 
@@ -1990,7 +1991,7 @@ onMounted(async () => {
         !lastMessage ||
         lastPartialMessage.partialMessage.ts !== message.partialMessage.ts
 
-      if (lastMessage && JSON.stringify(lastMessage) === JSON.stringify(message)) {
+      if (lastPartialMessage && JSON.stringify(lastPartialMessage) === JSON.stringify(message)) {
         return
       }
       isCurrentChatMessage.value = true
@@ -2748,9 +2749,9 @@ const startObservingDom = () => {
 }
 
 // Add auto scroll function
-const scrollToBottom = () => {
+const scrollToBottom = (force = false) => {
   // Only auto-scroll if we were already at the bottom
-  if (!shouldStickToBottom.value) {
+  if (!force && !shouldStickToBottom.value) {
     return
   }
 
