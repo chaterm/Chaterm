@@ -11,6 +11,12 @@
   >
     <div class="mfa-content">
       <div class="otp-section">
+        <div
+          v-if="otpPrompt"
+          class="prompt-section"
+        >
+          <span class="prompt-text">{{ otpPrompt }}</span>
+        </div>
         <OtpInput
           v-model="otpCode"
           :has-error="showOtpDialogErr || showOtpDialogCheckErr"
@@ -33,6 +39,7 @@ import {
   showOtpDialog,
   showOtpDialogErr,
   showOtpDialogCheckErr,
+  otpPrompt,
   otpCode,
   otpTimeRemaining,
   cancelOtp,
@@ -69,6 +76,20 @@ const getErrorMessage = () => {
   flex-direction: column;
   align-items: center;
   width: 100%;
+  gap: 16px;
+}
+
+.prompt-section {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+}
+
+.prompt-text {
+  color: var(--text-color-secondary-light);
+  font-size: 14px;
+  text-align: center;
+  white-space: pre-wrap;
 }
 
 .timer-section {
@@ -88,6 +109,10 @@ const getErrorMessage = () => {
   .mfa-content {
     padding: 16px 0 24px 0;
     gap: 20px;
+  }
+
+  .prompt-text {
+    font-size: 13px;
   }
 
   .timer-text {
