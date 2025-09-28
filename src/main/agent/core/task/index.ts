@@ -2084,6 +2084,8 @@ export class Task {
           if (!didApprove) {
             if (needsSecurityApproval) {
               await this.say('error', formatMessage(this.messages.userRejectedCommand, { command }), false)
+            } else {
+              await this.say('error', formatMessage(this.messages.userRejectedNormalCommand, { command }), false)
             }
             await this.saveCheckpoint()
             return
@@ -2119,6 +2121,7 @@ export class Task {
           const didApprove = await this.askApproval(toolDescription, 'command', command)
           console.log(`[Command Execution] User approval result: ${didApprove}`)
           if (!didApprove) {
+            await this.say('error', formatMessage(this.messages.userRejectedNormalCommand, { command }), false)
             await this.saveCheckpoint()
             return
           }
@@ -2439,6 +2442,7 @@ export class Task {
 
         const didApprove = await this.askApproval(toolDescription, 'command', command)
         if (!didApprove) {
+          await this.say('error', formatMessage(this.messages.userRejectedNormalCommand, { command }), false)
           await this.saveCheckpoint()
           return
         }
