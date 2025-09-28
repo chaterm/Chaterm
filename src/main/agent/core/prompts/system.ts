@@ -47,7 +47,7 @@ Usage:
 ## glob_search
 Description: Find files matching a glob pattern on the current host (local or remote). Prefer this over running \`find\` manually. Returns a structured list of file paths.
 Parameters:
-- pattern: (required) Glob pattern (e.g., src/**/*.ts, **/*.log)
+- pattern: (required) Glob pattern with full support for **, ?, [], {} (e.g., src/**/*.ts, **/*.log, config.{yaml,json})
 - path: (optional) Base path to search within; defaults to workspace root or remote home.
 - ip: (required for remote) Target host. If omitted, the search runs on the LOCAL host. To search a remote machine, you MUST provide a valid IP/hostname.
 - limit: (optional) Max results (default 2000)
@@ -60,16 +60,22 @@ Usage:
 <limit>500</limit>
 <sort>path</sort>
 </glob_search>
+Best practices:
+- Start broad (e.g., src/**/*) then narrow (src/**/config*.json) to control result volume.
+- Use grouping or character classes for variants (config.{ts,js}, nginx*/site-[0-9]*).
+- Combine with \`grep_search\`: use glob_search to target files, then pass the same scope via grep_search's \`include\`.
+- Reuse identical patterns when re-running searches so the cache avoids redundant scans.
+Workflow tip: When file locations are unknown, call glob_search first; rely on execute_command only after the target files are identified.
 
 ## grep_search
-Description: Search file contents for a regular expression on the current host. Prefer this over running \`grep\` manually. Returns structured matches grouped by file.
+Description: Search file contents with an extended regular expression on the current host. Prefer this over running \`grep\` manually. Returns structured matches grouped by file and reuses cached results for identical queries.
 Parameters:
-- pattern: (required) Regex pattern (extended ERE)
-- path: (optional) Base directory
+- pattern: (required) Regex pattern (extended ERE). Anchor or scope the pattern when possible (e.g., ^ERROR).
+- path: (optional) Base directory.
 - ip: (required for remote) Target host. If omitted, the search runs on the LOCAL host. To search a remote machine, you MUST provide a valid IP/hostname.
-- include: (optional) Glob to filter files (e.g., *.{log,conf}, src/**)
-- case_sensitive: (optional) Default false; when false adds grep -i (ignore case)
-- context_lines: (optional) Lines of context (default 0 or 1)
+- include: (optional) Glob filter that honors the same syntax as glob_search (e.g., *.{log,conf}, src/**, config.{yaml,json}).
+- case_sensitive: (optional) Default false; set true to enforce case-sensitive matches.
+- context_lines: (optional) Lines of context around each hit (default 0).
 - max_matches: (optional) Max matches (default 500)
 Usage:
 <grep_search>
@@ -80,6 +86,12 @@ Usage:
 <max_matches>300</max_matches>
 <ip>192.168.0.1</ip>
 </grep_search>
+Best practices:
+- Narrow the search space with \`path\` or \`include\` from a prior glob_search to minimize scan time.
+- Keep regexes focused and anchored when possible to avoid excessive matches.
+- Request small \`context_lines\` (1-3) when you need surrounding detail without flooding output.
+- Repeat exact patterns to benefit from caching instead of issuing near-duplicate searches.
+Workflow tip: Default flow is glob_search → grep_search; skip directly to grep_search only when the target files are already certain.
 
 ## ask_followup_question
 Description: Ask the user a question to gather additional information needed to complete the task. This tool should be used when you encounter ambiguities, need clarification, or require more details to proceed effectively. It allows for interactive problem-solving by enabling direct communication with the user. Use this tool judiciously to maintain a balance between gathering necessary information and avoiding excessive back-and-forth.
@@ -320,13 +332,13 @@ export const SYSTEM_PROMPT_CN = `你是 Chaterm，一位拥有 20 年经验的�
 </execute_command>
 
 ## glob_search
-描述：按 glob 模式查找当前主机（本地或远程）上的文件。优先替代手动运行 \`find\`。返回结构化的文件路径列表。
+描述：使用 POSIX Glob 模式在当前主机（本地或远程）定位文件，优先替代手动运行 \`find\`。返回去重后的结构化路径列表，对重复查询启用缓存以加速后续搜索。
 参数：
-- pattern：（必需）Glob 模式（如 src/**/*.ts、**/*.log）
-- path：（可选）检索起始目录；默认工作区根或远程主机家目录
-- ip：（远程必填）目标主机。省略则在“本机”执行。要在远程机器执行，必须提供有效的 IP/主机名。
-- limit：（可选）最大结果数（默认 2000）
-- sort：（可选）'path' | 'none'（默认 'path'）
+- pattern：（必需）完整支持 **、?、[]、{} 等语法的 Glob 模式（如 src/**/*.ts、**/*.log、config.{yaml,json}）。
+- path：（可选）起始目录，默认工作区根目录或远程主机家目录。
+- ip：（远程必填）目标主机。省略则在“本机”执行；远程搜索必须提供有效 IP/主机名。
+- limit：（可选）最大结果数（默认 2000）。
+- sort：（可选）'path' | 'none'（默认 'path'）。
 用法：
 <glob_search>
 <pattern>src/**/*.ts</pattern>
@@ -335,17 +347,23 @@ export const SYSTEM_PROMPT_CN = `你是 Chaterm，一位拥有 20 年经验的�
 <limit>500</limit>
 <sort>path</sort>
 </glob_search>
+最佳实践：
+- 先用较宽模式（如 src/**/*）勾勒范围，再用精确模式（src/**/config*.json）收敛结果。
+- 借助 {}、[] 等语法覆盖多种变体（config.{ts,js}、nginx*/site-[0-9]*）。
+- 与 \`grep_search\` 搭配：先用 glob_search 确定文件集合，再把同样的范围传给 grep_search 的 \`include\`。
+- 重复使用相同 pattern，可命中缓存避免重复扫描。
+流程提示：不确定文件位置时优先调用 glob_search；确认目标文件后再考虑 execute_command。
 
 ## grep_search
-描述：在当前主机上按正则搜索文件内容。优先替代手动运行 \`grep\`。返回按文件分组的结构化匹配结果。
+描述：在当前主机上使用扩展正则表达式搜索文件内容，优先替代手动运行 \`grep\`。结果按文件分组，对相同查询复用缓存。
 参数：
-- pattern：（必需）正则表达式（扩展 ERE）
-- path：（可选）检索起始目录
-- ip：（远程必填）目标主机。省略则在“本机”执行。要在远程机器执行，必须提供有效的 IP/主机名。
-- include：（可选）文件过滤 glob（如 *.{log,conf}、src/**）
-- case_sensitive：（可选）默认 false；false 时等价于添加 grep -i（忽略大小写）
-- context_lines：（可选）上下文行数（默认 0 或 1）
-- max_matches：（可选）最大匹配数（默认 500）
+- pattern：（必需）正则表达式（扩展 ERE），建议尽量锚定或限定范围（如 ^ERROR）。
+- path：（可选）检索起始目录。
+- ip：（远程必填）目标主机。省略则在“本机”执行；远程搜索必须提供有效 IP/主机名。
+- include：（可选）文件过滤 glob，语法与 glob_search 一致（如 *.{log,conf}、src/**、config.{yaml,json}）。
+- case_sensitive：（可选）默认 false；设为 true 可开启区分大小写。
+- context_lines：（可选）命中项的上下文行数（默认 0）。
+- max_matches：（可选）最大匹配数（默认 500）。
 用法：
 <grep_search>
 <pattern>ERROR|WARN</pattern>
@@ -355,6 +373,12 @@ export const SYSTEM_PROMPT_CN = `你是 Chaterm，一位拥有 20 年经验的�
 <max_matches>300</max_matches>
 <ip>192.168.0.1</ip>
 </grep_search>
+最佳实践：
+- 结合 glob_search 的 \`path\` 或 \`include\` 缩小扫描范围，减少不必要的遍历。
+- 保持正则精简并尽量锚定，避免产生过多匹配。
+- 需要上下文时把 \`context_lines\` 控制在 1-3 行，既能确认命中又不淹没输出。
+- 重复查询时使用相同 pattern，以充分利用缓存机制。
+流程提示：默认流程是“glob_search → grep_search”；只有在目标文件已确定时，才直接执行 grep_search。
 
 ## ask_followup_question
 描述：向用户提问以收集完成任务所需的附加信息。当遇到歧义、需要澄清或需要更多详细信息才能有效进行时，应使用此工具。它通过启用与用户的直接交流来支持交互式问题解决。明智地使用此工具，在收集必要信息和避免过度来回之间保持平衡。
