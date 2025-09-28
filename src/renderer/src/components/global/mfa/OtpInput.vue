@@ -244,14 +244,14 @@ defineExpose({
 }
 
 .otp-digit-input {
-  width: 40px;
-  height: 40px;
+  width: 48px;
+  height: 48px;
   border: 1px solid var(--border-color-light);
   border-radius: 6px;
   background-color: var(--bg-color);
   color: var(--text-color);
-  font-size: 16px;
-  font-weight: 400;
+  font-size: 20px;
+  font-weight: 600;
   text-align: center;
   transition: all 0.2s;
   outline: none;
@@ -291,9 +291,9 @@ defineExpose({
 /* Mobile responsive */
 @media (max-width: 480px) {
   .otp-digit-input {
-    width: 36px;
-    height: 36px;
-    font-size: 14px;
+    width: 42px;
+    height: 42px;
+    font-size: 18px;
   }
 
   .otp-inputs {
