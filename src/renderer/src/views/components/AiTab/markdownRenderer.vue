@@ -2186,7 +2186,7 @@ code {
 }
 
 .ansi-cyan {
-  color: #56b6c2;
+  color: #4a9ba8;
 }
 
 .ansi-white {
@@ -2218,7 +2218,7 @@ code {
 }
 
 .ansi-bright-cyan {
-  color: #7ce8ff;
+  color: #6bb6c7;
 }
 
 .ansi-bright-white {
@@ -2306,8 +2306,8 @@ code {
 /* 代码内容样式 - 使用和终端输出相同的样式 */
 .code-content-body {
   padding: 12px;
-  background: #1e1e1e;
-  color: #d4d4d4;
+  background: var(--command-output-bg);
+  color: var(--text-color);
   font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
   font-size: 13px;
   line-height: 1.5;
@@ -2339,12 +2339,6 @@ code {
   font-family: inherit;
   font-size: inherit;
   line-height: inherit;
-}
-
-/* 暗色主题适配 */
-.dark .code-content-body {
-  background: #1e1e1e;
-  color: #d4d4d4;
 }
 
 .command-output::-webkit-scrollbar {
