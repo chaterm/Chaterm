@@ -153,8 +153,8 @@ function handleKeydown(index: number, event: KeyboardEvent) {
     focusInput(props.length - 1)
   } else if (/^[0-9]$/.test(key)) {
     // Allow digit input (will be handled by input event)
-  } else if (key.length === 1) {
-    // Prevent non-digit characters
+  } else if (key.length === 1 && !event.ctrlKey && !event.metaKey) {
+    // Prevent non-digit characters while still allowing paste shortcuts
     event.preventDefault()
   }
 }
