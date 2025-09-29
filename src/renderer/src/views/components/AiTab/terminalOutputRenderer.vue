@@ -2474,7 +2474,7 @@ const highlightTopSystemInfo = (line: string): string => {
   })
 
   // 高亮状态词
-  highlighted = highlighted.replace(/(running|sleeping|stopped|zombie|us|sy|ni|id|wa|hi|si|st)/g, (match) => {
+  highlighted = highlighted.replace(/\b(running|sleeping|stopped|zombie|us|sy|ni|id|wa|hi|si|st)\b/g, (match) => {
     let color = info
     if (match === 'running') {
       color = success
