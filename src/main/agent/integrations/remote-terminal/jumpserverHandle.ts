@@ -192,6 +192,62 @@ export const handleJumpServerConnection = async (connectionInfo: {
 
         console.log(`[JumpServer ${connectionId}] Shell创建成功，等待JumpServer菜单`)
 
+        let connectionEstablished = false
+
+        const handleConnectionSuccess = (reason: string) => {
+          if (connectionEstablished) {
+            return
+          }
+          connectionEstablished = true
+          const totalElapsed = Date.now() - startTime
+          console.log(`[JumpServer ${connectionId}] 连接成功（${reason}），到达目标服务器，总耗时 ${totalElapsed}ms`)
+          clearTimeout(connectionTimeout)
+          connectionPhase = 'connected'
+          outputBuffer = ''
+
+          jumpserverConnections.set(connectionId, conn)
+          jumpserverShellStreams.set(connectionId, stream)
+          jumpserverConnectionStatus.set(connectionId, { isVerified: true })
+
+          resolve({ status: 'connected', message: '连接成功' })
+        }
+
+        const hasPasswordPrompt = (text: string): boolean => {
+          return text.includes('Password:') || text.includes('password:')
+        }
+
+        const hasPasswordError = (text: string): boolean => {
+          return text.includes('password auth error') || text.includes('[Host]>')
+        }
+
+        const detectDirectConnectionReason = (text: string): string | null => {
+          if (!text) return null
+
+          const indicators = ['Connecting to', '连接到', 'Last login:', 'Last failed login:']
+          for (const indicator of indicators) {
+            if (text.includes(indicator)) {
+              console.log(`[JumpServer ${connectionId}] 检测到成功指示关键字: "${indicator.trim()}"`)
+              return `指示器 ${indicator.trim()}`
+            }
+          }
+
+          const lines = text.split(/\r?\n/)
+          for (const line of lines) {
+            const trimmed = line.trim()
+            if (!trimmed) continue
+            if (trimmed === '[Host]>' || trimmed.endsWith('Opt>')) continue
+            const isPrompt =
+              (trimmed.endsWith('$') || trimmed.endsWith('#') || trimmed.endsWith(']$') || trimmed.endsWith(']#') || trimmed.endsWith('>$')) &&
+              (trimmed.includes('@') || trimmed.includes(':~') || trimmed.startsWith('['))
+            if (isPrompt) {
+              console.log(`[JumpServer ${connectionId}] 检测到疑似 shell 提示符: "${trimmed}"`)
+              return `提示符 ${trimmed}`
+            }
+          }
+
+          return null
+        }
+
         // 处理数据输出
         stream.on('data', (data: Buffer) => {
           const ansiRegex = /[\u001b\u009b][[()#;?]*.{0,2}(?:[0-9]{1,4}(?:;[0-9]{0,4})*)?[0-9A-ORZcf-nry=><]/g
@@ -206,17 +262,28 @@ export const handleJumpServerConnection = async (connectionInfo: {
             connectionPhase = 'inputIp'
             outputBuffer = ''
             stream.write(connectionInfo.targetIp + '\r')
-          } else if (connectionPhase === 'inputIp' && (outputBuffer.includes('Password:') || outputBuffer.includes('password:'))) {
-            console.log(`[JumpServer ${connectionId}] 检测到密码提示，准备输入密码`)
-            connectionPhase = 'inputPassword'
-            outputBuffer = ''
-            setTimeout(() => {
-              console.log(`[JumpServer ${connectionId}] 发送目标服务器密码`)
-              stream.write(connectionInfo.password + '\r')
-            }, 100)
+          } else if (connectionPhase === 'inputIp') {
+            if (hasPasswordPrompt(outputBuffer)) {
+              console.log(`[JumpServer ${connectionId}] 检测到密码提示，准备输入密码`)
+              connectionPhase = 'inputPassword'
+              outputBuffer = ''
+              setTimeout(() => {
+                console.log(`[JumpServer ${connectionId}] 发送目标服务器密码`)
+                stream.write(connectionInfo.password + '\r')
+              }, 100)
+            } else {
+              const reason = detectDirectConnectionReason(outputBuffer)
+              if (reason) {
+                console.log(`[JumpServer ${connectionId}] 目标资产无需密码直接进入目标主机，原因: ${reason}`)
+                handleConnectionSuccess(`无需密码 - ${reason}`)
+              } else {
+                const preview = outputBuffer.slice(-200).replace(/\r?\n/g, '\\n')
+                console.log(`[JumpServer ${connectionId}] inputIp 阶段缓冲区预览: "${preview}"`)
+              }
+            }
           } else if (connectionPhase === 'inputPassword') {
             // 检测密码认证错误
-            if (outputBuffer.includes('password auth error') || outputBuffer.includes('[Host]>')) {
+            if (hasPasswordError(outputBuffer)) {
               console.error(`[JumpServer ${connectionId}] 目标服务器密码认证失败`)
 
               // 发送MFA验证失败事件到前端
@@ -234,19 +301,10 @@ export const handleJumpServerConnection = async (connectionInfo: {
               return reject(new Error('JumpServer 密码认证失败，请检查密码是否正确'))
             }
             // 检测连接成功
-            if (outputBuffer.includes('$') || outputBuffer.includes('#') || outputBuffer.includes('~')) {
-              const totalElapsed = Date.now() - startTime
-              console.log(`[JumpServer ${connectionId}] 连接成功，到达目标服务器，总耗时 ${totalElapsed}ms`)
-              clearTimeout(connectionTimeout)
-              connectionPhase = 'connected'
-              outputBuffer = ''
-
-              // 保存连接对象和流对象
-              jumpserverConnections.set(connectionId, conn)
-              jumpserverShellStreams.set(connectionId, stream)
-              jumpserverConnectionStatus.set(connectionId, { isVerified: true })
-
-              resolve({ status: 'connected', message: '连接成功' })
+            const reason = detectDirectConnectionReason(outputBuffer)
+            if (reason) {
+              console.log(`[JumpServer ${connectionId}] 密码验证完成后进入目标主机，原因: ${reason}`)
+              handleConnectionSuccess(`密码验证后 - ${reason}`)
             }
           }
         })
