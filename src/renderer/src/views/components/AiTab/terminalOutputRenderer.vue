@@ -46,6 +46,7 @@ import { CaretDownOutlined, CaretRightOutlined } from '@ant-design/icons-vue'
 import copySvg from '@/assets/icons/copy.svg'
 import { message } from 'ant-design-vue'
 import i18n from '@/locales'
+import { isDarkTheme } from '@/utils/themeUtils'
 import 'xterm/css/xterm.css'
 
 const { t } = i18n.global
@@ -485,6 +486,33 @@ const adjustTerminalHeight = () => {
   }
 }
 
+// 获取主题相关的颜色
+const getThemeColors = () => {
+  const isDark = isDarkTheme()
+  return {
+    background: isDark ? '#1e1e1e' : '#f8fafc',
+    foreground: isDark ? '#d4d4d4' : '#0f172a',
+    cursor: 'transparent',
+    cursorAccent: 'transparent',
+    black: '#000000',
+    red: '#e06c75',
+    green: '#98c379',
+    yellow: '#e5c07b',
+    blue: '#61afef',
+    magenta: '#c678dd',
+    cyan: '#4a9ba8',
+    white: '#abb2bf',
+    brightBlack: '#5c6370',
+    brightRed: '#ff7b86',
+    brightGreen: '#b5e890',
+    brightYellow: '#ffd68a',
+    brightBlue: '#79c0ff',
+    brightMagenta: '#d8a6ff',
+    brightCyan: '#6bb6c7',
+    brightWhite: '#ffffff'
+  }
+}
+
 // 初始化终端
 const initTerminal = async () => {
   if (!terminalContainer.value) return
@@ -495,28 +523,7 @@ const initTerminal = async () => {
     scrollback: Number.MAX_SAFE_INTEGER,
     fontSize: 11,
     fontFamily: 'SFMono-Regular, Consolas, "Liberation Mono", Menlo, monospace',
-    theme: {
-      background: '#1e1e1e',
-      foreground: '#d4d4d4',
-      cursor: 'transparent',
-      cursorAccent: 'transparent',
-      black: '#000000',
-      red: '#e06c75',
-      green: '#98c379',
-      yellow: '#e5c07b',
-      blue: '#61afef',
-      magenta: '#c678dd',
-      cyan: '#56b6c2',
-      white: '#abb2bf',
-      brightBlack: '#5c6370',
-      brightRed: '#ff7b86',
-      brightGreen: '#b5e890',
-      brightYellow: '#ffd68a',
-      brightBlue: '#79c0ff',
-      brightMagenta: '#d8a6ff',
-      brightCyan: '#7ce8ff',
-      brightWhite: '#ffffff'
-    },
+    theme: getThemeColors(),
     allowTransparency: false,
     allowProposedApi: true,
     convertEol: true,
@@ -2467,7 +2474,7 @@ const highlightTopSystemInfo = (line: string): string => {
   })
 
   // 高亮状态词
-  highlighted = highlighted.replace(/(running|sleeping|stopped|zombie|us|sy|ni|id|wa|hi|si|st)/g, (match) => {
+  highlighted = highlighted.replace(/\b(running|sleeping|stopped|zombie|us|sy|ni|id|wa|hi|si|st)\b/g, (match) => {
     let color = info
     if (match === 'running') {
       color = success
@@ -2929,6 +2936,26 @@ onMounted(async () => {
     })
   }
   window.addEventListener('resize', handleResize)
+
+  // 监听主题变化
+  const themeObserver = new MutationObserver((mutations) => {
+    mutations.forEach((mutation) => {
+      if (mutation.type === 'attributes' && mutation.attributeName === 'class') {
+        if (terminal) {
+          terminal.options.theme = getThemeColors()
+        }
+      }
+    })
+  })
+  themeObserver.observe(document.documentElement, {
+    attributes: true,
+    attributeFilter: ['class']
+  })
+
+  // 在组件卸载时清理观察器
+  onBeforeUnmount(() => {
+    themeObserver.disconnect()
+  })
 })
 
 onBeforeUnmount(() => {
@@ -3047,8 +3074,8 @@ const highlightSimpleLsColumnsPreserveSpacing = (line: string): string => {
 
 .terminal-output {
   font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
-  background-color: #1e1e1e !important;
-  color: #d4d4d4 !important;
+  background-color: var(--command-output-bg) !important;
+  color: var(--text-color) !important;
   border-radius: 0 0 8px 8px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
   border: 1px solid var(--border-color);
