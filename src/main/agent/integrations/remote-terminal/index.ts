@@ -57,6 +57,29 @@ export class RemoteTerminalProcess extends BrownEventEmitter<RemoteTerminalProce
     super()
   }
 
+  /**
+   * Compose a command that first tries to change into the provided directory and falls back to sudo if it fails.
+   * Uses line breaks instead of always appending a semicolon so background commands (ending with `&`) stay valid.
+   * Special character endings are no longer added. Affect command execution
+   */
+  private buildCommandWithWorkingDirectory(command: string, cleanCwd?: string): string {
+    if (!cleanCwd) return command
+
+    const trimmedCommand = command.trimEnd()
+    const requiresTerminator = trimmedCommand.length > 0 && !/[;&]$/.test(trimmedCommand)
+    const commandForThen = `${trimmedCommand}${requiresTerminator ? ';' : ''}`
+    const escapedCwdForSudo = cleanCwd.replace(/'/g, "'\\''")
+    const commandForSudo = trimmedCommand.replace(/'/g, "'\\''")
+
+    return [
+      `if cd "${cleanCwd}" 2>/dev/null; then`,
+      `  ${commandForThen}`,
+      'else',
+      `  sudo sh -c "cd '${escapedCwdForSudo}' && ${commandForSudo}"`,
+      'fi'
+    ].join('\n')
+  }
+
   async run(sessionId: string, command: string, cwd?: string, sshType?: string): Promise<void> {
     this.sessionId = sessionId
     this.sshType = sshType || 'ssh'
@@ -98,10 +121,7 @@ export class RemoteTerminalProcess extends BrownEventEmitter<RemoteTerminalProce
   private async runSshCommand(sessionId: string, command: string, cwd?: string): Promise<void> {
     const cleanCwd = cwd ? cwd.replace(/\x1B\[[^m]*m/g, '').replace(/\x1B\[[?][0-9]*[hl]/g, '') : undefined
     // Handle permission issues by using sudo when cd fails
-    let commandToExecute = command
-    if (cleanCwd) {
-      commandToExecute = `if cd "${cleanCwd}" 2>/dev/null; then ${command}; else sudo sh -c "cd '${cleanCwd}' && ${command.replace(/'/g, "'\\''")}"; fi`
-    }
+    const commandToExecute = this.buildCommandWithWorkingDirectory(command, cleanCwd)
 
     let lineBuffer = ''
 
@@ -212,11 +232,7 @@ export class RemoteTerminalProcess extends BrownEventEmitter<RemoteTerminalProce
     }
 
     // For JumpServer, use different command construction method with permission handling
-    let commandToExecute = command
-    if (cleanCwd) {
-      // Handle permission issues by using sudo when cd fails
-      commandToExecute = `if cd "${cleanCwd}" 2>/dev/null; then ${command}; else sudo sh -c "cd '${cleanCwd}' && ${command.replace(/'/g, "'\\''")}"; fi`
-    }
+    const commandToExecute = this.buildCommandWithWorkingDirectory(command, cleanCwd)
 
     // Create unique command marker with more distinctive format
     const timestamp = Date.now()
