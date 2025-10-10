@@ -18,23 +18,6 @@ function isSystemError(_command: string, exitCode: number | null): boolean {
   if (exitCode === null || exitCode === 0) {
     return false // null or 0 is always success
   }
-
-  // Only treat command not found (127) and permission/system errors (126, 128-255) as real errors
-  // Most command-specific exit codes (1-125) represent status/state, not errors
-  if (exitCode === 126) {
-    return true // Command found but not executable (permission error)
-  }
-
-  if (exitCode === 127) {
-    return false // Command not found - this is a real error
-  }
-
-  if (exitCode >= 128) {
-    return true // Signal-terminated commands or system errors
-  }
-
-  // For exit codes 1-125, we consider them as status codes, not errors
-  // Let the AI model interpret the command output and exit code
   return false
 }
 
