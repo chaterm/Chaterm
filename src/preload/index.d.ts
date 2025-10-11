@@ -86,6 +86,17 @@ interface ApiType {
   mainWindowInit: (params: any) => Promise<void>
   mainWindowShow: () => Promise<void>
   onSystemThemeChanged: (callback: (theme: string) => void) => () => void
+  // Keyboard-interactive authentication
+  onKeyboardInteractiveRequest: (callback: (data: any) => void) => () => void
+  onKeyboardInteractiveTimeout: (callback: (data: any) => void) => () => void
+  onKeyboardInteractiveResult: (callback: (data: any) => void) => () => void
+  submitKeyboardInteractiveResponse: (id: string, code: string) => void
+  cancelKeyboardInteractive: (id: string) => void
+  // JumpServer user selection
+  onUserSelectionRequest: (callback: (data: any) => void) => () => void
+  onUserSelectionTimeout: (callback: (data: any) => void) => () => void
+  sendUserSelectionResponse: (id: string, userId: number) => void
+  sendUserSelectionCancel: (id: string) => void
 }
 
 declare global {

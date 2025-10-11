@@ -627,6 +627,29 @@ const api = {
     ipcRenderer.on('ssh:keyboard-interactive-result', listener)
     return () => ipcRenderer.removeListener('ssh:keyboard-interactive-result', listener)
   },
+
+  // JumpServer user selection
+  onUserSelectionRequest: (callback) => {
+    const listener = (_event, data) => {
+      callback(data)
+    }
+    ipcRenderer.on('jumpserver:user-selection-request', listener)
+    return () => ipcRenderer.removeListener('jumpserver:user-selection-request', listener)
+  },
+  onUserSelectionTimeout: (callback) => {
+    const listener = (_event, data) => {
+      callback(data)
+    }
+    ipcRenderer.on('jumpserver:user-selection-timeout', listener)
+    return () => ipcRenderer.removeListener('jumpserver:user-selection-timeout', listener)
+  },
+  sendUserSelectionResponse: (id, userId) => {
+    ipcRenderer.send(`jumpserver:user-selection-response:${id}`, userId)
+  },
+  sendUserSelectionCancel: (id) => {
+    ipcRenderer.send(`jumpserver:user-selection-cancel:${id}`)
+  },
+
   // 本地主机API
   getLocalWorkingDirectory: () => ipcRenderer.invoke('local:get-working-directory'),
   executeLocalCommand: (command: string) => ipcRenderer.invoke('local:execute-command', command),

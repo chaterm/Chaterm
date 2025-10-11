@@ -802,6 +802,18 @@ export default {
     cancel: 'Cancel',
     setupGlobalListeners: 'Setting up global MFA listeners'
   },
+  userSelection: {
+    title: 'Select User Account',
+    pleaseSelectUser: 'Please select a user account',
+    remainingTime: 'Remaining time',
+    confirm: 'Confirm',
+    cancel: 'Cancel',
+    tableHeaders: {
+      id: 'ID',
+      name: 'Name',
+      username: 'Username'
+    }
+  },
   ssh: {
     disconnected: 'Disconnected.',
     pressEnterToReconnect: 'Press Enter to reconnect...',
