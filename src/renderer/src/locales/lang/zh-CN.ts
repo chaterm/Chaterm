@@ -801,6 +801,18 @@ export default {
     cancel: '取消',
     setupGlobalListeners: '设置全局 MFA 监听器'
   },
+  userSelection: {
+    title: '选择用户账号',
+    pleaseSelectUser: '请选择一个用户账号',
+    remainingTime: '剩余时间',
+    confirm: '确认',
+    cancel: '取消',
+    tableHeaders: {
+      id: 'ID',
+      name: '名称',
+      username: '用户名'
+    }
+  },
   ssh: {
     disconnected: '已断开连接。',
     pressEnterToReconnect: '按 Enter 键重新连接...',

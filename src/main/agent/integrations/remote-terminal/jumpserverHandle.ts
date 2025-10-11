@@ -4,6 +4,8 @@ import net from 'net'
 import tls from 'tls'
 import { getUserConfigFromRenderer } from '../../../index'
 import { createProxySocket } from '../../../ssh/proxy'
+import { parseJumpServerUsers, hasUserSelectionPrompt, JumpServerUser } from '../../../ssh/jumpserver/parser'
+import { handleJumpServerUserSelectionWithWindow } from '../../../ssh/jumpserver/userSelection'
 
 // 存储 JumpServer 连接
 export const jumpserverConnections = new Map()
@@ -263,7 +265,36 @@ export const handleJumpServerConnection = async (connectionInfo: {
             outputBuffer = ''
             stream.write(connectionInfo.targetIp + '\r')
           } else if (connectionPhase === 'inputIp') {
-            if (hasPasswordPrompt(outputBuffer)) {
+            // Check if user selection is required
+            if (hasUserSelectionPrompt(outputBuffer)) {
+              console.log(`[JumpServer ${connectionId}] 检测到多用户提示，需要用户选择账号`)
+              connectionPhase = 'selectUser'
+              const users = parseJumpServerUsers(outputBuffer)
+              console.log(`[JumpServer ${connectionId}] 解析到的用户列表:`, users)
+
+              if (users.length === 0) {
+                console.error(`[JumpServer ${connectionId}] 解析用户列表失败，缓冲区内容:`, outputBuffer)
+                clearTimeout(connectionTimeout)
+                conn.end()
+                return reject(new Error('Failed to parse user list'))
+              }
+
+              outputBuffer = ''
+
+              // Request user selection from frontend
+              handleJumpServerUserSelectionWithWindow(connectionId, users)
+                .then((selectedUserId) => {
+                  console.log(`[JumpServer ${connectionId}] 用户选择了账号 ID:`, selectedUserId)
+                  connectionPhase = 'inputPassword'
+                  stream.write(selectedUserId.toString() + '\r')
+                })
+                .catch((err) => {
+                  console.error(`[JumpServer ${connectionId}] 用户选择失败:`, err)
+                  clearTimeout(connectionTimeout)
+                  conn.end()
+                  reject(err)
+                })
+            } else if (hasPasswordPrompt(outputBuffer)) {
               console.log(`[JumpServer ${connectionId}] 检测到密码提示，准备输入密码`)
               connectionPhase = 'inputPassword'
               outputBuffer = ''
@@ -279,6 +310,23 @@ export const handleJumpServerConnection = async (connectionInfo: {
               } else {
                 const preview = outputBuffer.slice(-200).replace(/\r?\n/g, '\\n')
                 console.log(`[JumpServer ${connectionId}] inputIp 阶段缓冲区预览: "${preview}"`)
+              }
+            }
+          } else if (connectionPhase === 'selectUser') {
+            // After user selection, check for password prompt or direct connection
+            if (hasPasswordPrompt(outputBuffer)) {
+              console.log(`[JumpServer ${connectionId}] 用户选择后检测到密码提示，准备输入密码`)
+              connectionPhase = 'inputPassword'
+              outputBuffer = ''
+              setTimeout(() => {
+                console.log(`[JumpServer ${connectionId}] 发送目标服务器密码`)
+                stream.write(connectionInfo.password + '\r')
+              }, 100)
+            } else {
+              const reason = detectDirectConnectionReason(outputBuffer)
+              if (reason) {
+                console.log(`[JumpServer ${connectionId}] 用户选择后直接建立连接，原因: ${reason}`)
+                handleConnectionSuccess(`用户选择 - ${reason}`)
               }
             }
           } else if (connectionPhase === 'inputPassword') {

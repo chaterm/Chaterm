@@ -5,6 +5,8 @@ import { createProxySocket } from './proxy'
 import { Readable } from 'stream'
 import net from 'net'
 import tls from 'tls'
+import { parseJumpServerUsers, hasUserSelectionPrompt, JumpServerUser } from './jumpserver/parser'
+import { handleJumpServerUserSelectionWithEvent } from './jumpserver/userSelection'
 
 export interface ProxyConfig {
   type?: 'HTTP' | 'HTTPS' | 'SOCKS4' | 'SOCKS5'
@@ -272,7 +274,37 @@ const attemptJumpServerConnection = async (
             outputBuffer = ''
             stream.write(connectionInfo.targetIp + '\r')
           } else if (connectionPhase === 'inputIp') {
-            if (hasPasswordPrompt(outputBuffer)) {
+            // Check if user selection is required
+            if (hasUserSelectionPrompt(outputBuffer)) {
+              console.log('检测到多用户提示，需要用户选择账号')
+              sendStatusUpdate('检测到多个用户账号，请选择...', 'info')
+              connectionPhase = 'selectUser'
+              const users = parseJumpServerUsers(outputBuffer)
+              console.log('解析到的用户列表:', users)
+
+              if (users.length === 0) {
+                console.error('解析用户列表失败，缓冲区内容:', outputBuffer)
+                conn.end()
+                return reject(new Error('Failed to parse user list'))
+              }
+
+              outputBuffer = ''
+
+              // Request user selection from frontend
+              handleJumpServerUserSelectionWithEvent(event, connectionId, users)
+                .then((selectedUserId) => {
+                  console.log('用户选择了账号 ID:', selectedUserId)
+                  sendStatusUpdate('正在使用选择的账号连接...', 'info')
+                  connectionPhase = 'inputPassword'
+                  stream.write(selectedUserId.toString() + '\r')
+                })
+                .catch((err) => {
+                  console.error('用户选择失败:', err)
+                  sendStatusUpdate('用户选择已取消', 'error')
+                  conn.end()
+                  reject(err)
+                })
+            } else if (hasPasswordPrompt(outputBuffer)) {
               console.log('检测到密码提示，输入密码')
               sendStatusUpdate('正在进行身份验证...', 'info')
               connectionPhase = 'inputPassword'
@@ -289,6 +321,24 @@ const attemptJumpServerConnection = async (
               } else {
                 const preview = outputBuffer.slice(-200).replace(/\r?\n/g, '\\n')
                 console.log(`JumpServer inputIp 阶段输出预览: "${preview}"`)
+              }
+            }
+          } else if (connectionPhase === 'selectUser') {
+            // After user selection, check for password prompt or direct connection
+            if (hasPasswordPrompt(outputBuffer)) {
+              console.log('用户选择后检测到密码提示，输入密码')
+              sendStatusUpdate('正在进行身份验证...', 'info')
+              connectionPhase = 'inputPassword'
+              outputBuffer = ''
+              setTimeout(() => {
+                console.log('JumpServer 发送目标服务器密码')
+                stream.write((connectionInfo.password || '') + '\r')
+              }, 100)
+            } else {
+              const reason = detectDirectConnectionReason(outputBuffer)
+              if (reason) {
+                console.log(`JumpServer 用户选择后直接建立连接（${reason}）`)
+                handleConnectionSuccess(`用户选择 - ${reason}`)
               }
             }
           } else if (connectionPhase === 'inputPassword') {
@@ -394,6 +444,8 @@ export const handleJumpServerConnection = async (
     passphrase?: string
     targetIp: string
     terminalType?: string
+    needProxy: boolean
+    proxyConfig?: ProxyConfig
   },
   event?: Electron.IpcMainInvokeEvent
 ): Promise<{ status: string; message: string }> => {
