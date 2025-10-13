@@ -2751,7 +2751,25 @@ const startObservingDom = () => {
     } catch {}
   }
   if (!chatResponse.value) return
-  domObserver.value = new MutationObserver(() => {
+  domObserver.value = new MutationObserver((mutations) => {
+    // 检查是否是由展开/收起 terminal output 导致的变化
+    const isTerminalToggle = mutations.some((mutation) => {
+      // 检查目标元素或其父元素是否包含 terminal-output 相关类名
+      let target = mutation.target as HTMLElement
+      while (target && target !== chatResponse.value) {
+        if (target.classList?.contains('terminal-output-container') || target.classList?.contains('terminal-output')) {
+          return true
+        }
+        target = target.parentElement as HTMLElement
+      }
+      return false
+    })
+
+    // 如果是 terminal output 的展开/收起操作，不触发自动滚动
+    if (isTerminalToggle) {
+      return
+    }
+
     // If user was at bottom, keep pinned during multi-line or batched updates
     if (shouldStickToBottom.value) {
       if (chatContainer.value) {
