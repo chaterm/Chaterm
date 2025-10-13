@@ -1035,12 +1035,12 @@ const handleFileUpload = () => {
 }
 
 // Voice input handling methods
-const handleVoiceClick = () => {
-  // Trigger the hidden VoiceInput component's toggle method
-  if (voiceInputRef.value && voiceInputRef.value.toggleVoiceInput) {
-    voiceInputRef.value.toggleVoiceInput()
-  }
-}
+// const handleVoiceClick = () => {
+//   // Trigger the hidden VoiceInput component's toggle method
+//   if (voiceInputRef.value && voiceInputRef.value.toggleVoiceInput) {
+//     voiceInputRef.value.toggleVoiceInput()
+//   }
+// }
 
 const handleFileSelected = async (event: Event) => {
   const target = event.target as HTMLInputElement
@@ -2276,22 +2276,22 @@ watch(
   }
 )
 
-const showBottomButton = computed(() => {
-  if (chatHistory.length === 0) {
-    return false
-  }
-  let message = chatHistory.at(-1)
-  if (!message) {
-    return false
-  }
-  return (
-    (chatTypeValue.value === 'agent' || chatTypeValue.value === 'cmd') &&
-    lastChatMessageId.value !== '' &&
-    lastChatMessageId.value == message.id &&
-    message.ask === 'command' &&
-    !showCancelButton.value
-  )
-})
+// const showBottomButton = computed(() => {
+//   if (chatHistory.length === 0) {
+//     return false
+//   }
+//   let message = chatHistory.at(-1)
+//   if (!message) {
+//     return false
+//   }
+//   return (
+//     (chatTypeValue.value === 'agent' || chatTypeValue.value === 'cmd') &&
+//     lastChatMessageId.value !== '' &&
+//     lastChatMessageId.value == message.id &&
+//     message.ask === 'command' &&
+//     !showCancelButton.value
+//   )
+// })
 
 const filteredHostOptions = computed(() => {
   if (chatTypeValue.value === 'cmd') {
@@ -2710,7 +2710,7 @@ const cancelEdit = async (history) => {
 const chatContainer = ref<HTMLElement | null>(null)
 const chatResponse = ref<HTMLElement | null>(null)
 // Add a flag to track if collapse operation is being processed
-const isHandlingCollapse = ref(false)
+// const isHandlingCollapse = ref(false)
 // Track whether we should stick to bottom (auto-scroll only when user is already at bottom)
 const shouldStickToBottom = ref(true)
 const STICKY_THRESHOLD = 24 // px
