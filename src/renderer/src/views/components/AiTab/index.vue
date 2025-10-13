@@ -1245,13 +1245,15 @@ const handlePlusClick = async () => {
   buttonsDisabled.value = false
   resumeDisabled.value = false
   showCancelButton.value = false
-  showSendButton.value = true
   responseLoading.value = false
   showRetryButton.value = false
   showNewTaskButton.value = false
   if (currentTodos.value.length > 0) {
     clearTodoState(chatHistory)
   }
+
+  // Clear input and ensure send button is disabled for new chat
+  chatInputValue.value = ''
 }
 
 const containerKey = ref(0)
