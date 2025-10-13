@@ -698,7 +698,7 @@ import eventBus from '@/utils/eventBus'
 import { getGlobalState, updateGlobalState, getSecret, storeSecret } from '@renderer/agent/storage/state'
 
 import type { HistoryItem, TaskHistoryItem, Host, ChatMessage, MessageContent, AssetInfo } from './types'
-import { createNewMessage, parseMessageContent, truncateText, formatHosts } from './utils'
+import { createNewMessage, parseMessageContent, truncateText, formatHosts, isStringContent } from './utils'
 import foldIcon from '@/assets/icons/fold.svg'
 import historyIcon from '@/assets/icons/history.svg'
 import plusIcon from '@/assets/icons/plus.svg'
@@ -1320,7 +1320,7 @@ const restoreHistoryTab = async (history: HistoryItem) => {
           say: item.say,
           ts: item.ts
         }
-        if (userMessage.say === 'user_feedback' && userMessage.content.startsWith('Terminal output:')) {
+        if (userMessage.say === 'user_feedback' && isStringContent(userMessage.content) && userMessage.content.startsWith('Terminal output:')) {
           userMessage.say = 'command_output'
           userMessage.role = 'assistant'
         }

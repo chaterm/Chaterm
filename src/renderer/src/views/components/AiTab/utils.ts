@@ -40,3 +40,8 @@ export const formatHosts = (hosts: any[]): any[] => {
     connection: item.asset_type
   }))
 }
+
+// Type guard to check if content is a string
+export const isStringContent = (content: string | MessageContent): content is string => {
+  return typeof content === 'string'
+}
