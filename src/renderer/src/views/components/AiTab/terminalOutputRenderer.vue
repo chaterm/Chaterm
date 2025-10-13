@@ -4,7 +4,20 @@
       v-show="true"
       class="terminal-output-header"
     >
-      <span class="output-title">OUTPUT</span>
+      <div
+        class="output-title-section"
+        @click="toggleOutput"
+      >
+        <a-button
+          class="toggle-button"
+          type="text"
+          size="small"
+        >
+          <CaretDownOutlined v-if="isExpanded" />
+          <CaretRightOutlined v-else />
+        </a-button>
+        <span class="output-title">OUTPUT</span>
+      </div>
       <div class="output-controls">
         <span class="output-lines">{{ outputLines }} lines</span>
         <a-button
@@ -18,15 +31,6 @@
             alt="copy"
             class="copy-icon"
           />
-        </a-button>
-        <a-button
-          class="toggle-button"
-          type="text"
-          size="small"
-          @click="toggleOutput"
-        >
-          <CaretDownOutlined v-if="isExpanded" />
-          <CaretRightOutlined v-else />
         </a-button>
       </div>
     </div>
@@ -56,7 +60,7 @@ const props = defineProps<{
 }>()
 
 const terminalContainer = ref<HTMLElement | null>(null)
-const isExpanded = ref(true)
+const isExpanded = ref(false) // 终端输出默认折叠
 const outputLines = ref(0)
 
 let terminal: Terminal | null = null
@@ -3018,6 +3022,13 @@ const highlightSimpleLsColumnsPreserveSpacing = (line: string): string => {
   padding: 0 8px;
   font-size: 10px;
   color: #7e8ba3;
+}
+.output-title-section {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+  flex: 1;
 }
 
 .output-title {
