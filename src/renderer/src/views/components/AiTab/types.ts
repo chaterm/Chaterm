@@ -49,7 +49,8 @@ export interface HistoryItem {
 
 export interface TaskHistoryItem {
   id: string
-  task?: string
+  task?: string // Original full task description
+  chatTitle?: string // Optional LLM-generated short title
   ts: number
   isFavorite?: boolean
 }

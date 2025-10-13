@@ -6,7 +6,7 @@
   >
     <a-tab-pane
       key="chat"
-      :tab="currentChatId ? historyList.find((item) => item.id === currentChatId)?.chatTitle || 'New chat' : 'New chat'"
+      :tab="currentChatTitle"
     >
       <div
         v-if="filteredChatHistory.length === 0"
@@ -804,6 +804,7 @@ const isExecutingCommand = ref(false)
 
 // Current active conversation ID
 const currentChatId = ref<string | null>(null)
+const currentChatTitle = ref<string>('New chat') // Store current chat title for tab display
 const authTokenInCookie = ref<string | null>(null)
 
 const chatHistory = reactive<ChatMessage[]>([])
@@ -1211,6 +1212,7 @@ const handleKeyDown = (e: KeyboardEvent) => {
 const handlePlusClick = async () => {
   const newChatId = uuidv4()
   currentChatId.value = newChatId
+  currentChatTitle.value = 'New chat' // Reset title for new chat
   const chatSetting = (await getGlobalState('chatSettings')) as { mode?: string }
   chatTypeValue.value = chatSetting?.mode || 'agent'
   hosts.value = []
@@ -1265,6 +1267,7 @@ const restoreHistoryTab = async (history: HistoryItem) => {
   containerKey.value++
 
   currentChatId.value = history.id
+  currentChatTitle.value = history.chatTitle // Restore title from history
   chatTypeValue.value = history.chatType
   lastChatMessageId.value = ''
   autoUpdateHost.value = false
@@ -1377,7 +1380,7 @@ const handleHistoryClick = async () => {
       .sort((a, b) => b.ts - a.ts)
       .map((task) => ({
         id: task.id,
-        chatTitle: truncateText(task?.task || `${chatTypeValue.value} Chat`),
+        chatTitle: truncateText(task?.chatTitle || task?.task || `${chatTypeValue.value} Chat`),
         chatType: chatTypeValue.value,
         chatContent: [],
         isFavorite: favorites.includes(task.id)
@@ -2068,6 +2071,17 @@ onMounted(async () => {
       } else {
         clearTodoState(chatHistory)
       }
+    } else if (message?.type === 'chatTitleGenerated') {
+      // 处理聊天标题生成消息
+      console.log('AiTab: Received chatTitleGenerated message', message)
+
+      if (message.chatTitle && message.taskId) {
+        // Update current chat title for tab-pane display only
+        if (currentChatId.value === message.taskId) {
+          currentChatTitle.value = message.chatTitle
+          console.log('Updated current chat title to:', message.chatTitle)
+        }
+      }
     }
     lastMessage = message
   })
@@ -2232,7 +2246,8 @@ const sendMessageToMain = async (userContent: string, sendType: string) => {
         text: userContent,
         terminalOutput: '',
         hosts: hostsArray,
-        cwd: filteredCwd
+        cwd: filteredCwd,
+        taskId: currentChatId.value
       }
     } else if (sendType === 'commandSend') {
       message = {
@@ -2585,7 +2600,8 @@ const saveHistoryTitle = async (history) => {
     // Update corresponding record title
     const targetHistory = taskHistory.find((item) => item.id === history.id)
     if (targetHistory) {
-      targetHistory.task = history.chatTitle
+      // Update chatTitle field (for display), keep original task field intact
+      targetHistory.chatTitle = history.chatTitle
       // Save updated history records
       await updateGlobalState('taskHistory', taskHistory)
     }
@@ -2691,8 +2707,8 @@ const cancelEdit = async (history) => {
     // Find corresponding record
     const targetHistory = taskHistory.find((item) => item.id === history.id)
     if (targetHistory) {
-      // Reset to title in database
-      history.chatTitle = truncateText(targetHistory?.task || 'Agent Chat')
+      // Reset to title in database, prefer chatTitle if available
+      history.chatTitle = truncateText(targetHistory?.chatTitle || targetHistory?.task || 'Agent Chat')
     }
     // Reset editing state
     history.isEditing = false
