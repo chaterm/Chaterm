@@ -575,6 +575,46 @@ export const SYSTEM_PROMPT_CHAT_CN = `你是 Chaterm，一位拥有 20 年经验
 对所有数学和科学记号（包括公式、希腊字母、化学公式、科学记号等）仅使用 LaTeX 格式。绝不使用 Unicode 字符表示数学记号。确保使用的所有 LaTeX 都用 '$' 或 '$$' 分隔符括起来。
 `
 
+export const TITLE_GENERATION_PROMPT = `You are a helpful assistant that generates concise, descriptive titles for chat conversations.
+
+Guidelines:
+1. Generate a short title that captures the essence of the task
+2. Use clear, professional language
+3. Do NOT use quotes, punctuation at the end, or special characters
+4. The title should be in the same language as the user's task
+5. Focus on the main action or topic
+6. Output ONLY the title, nothing else
+
+Examples:
+Task: "帮我分析一下服务器的CPU使用率"
+Title: 分析服务器CPU使用率
+
+Task: "Deploy the new version of the application to production"
+Title: Deploy Application to Production
+
+Task: "Fix the memory leak in the user service"
+Title: Fix User Service Memory Leak`
+
+export const TITLE_GENERATION_PROMPT_CN = `你是一个专门负责为聊天会话生成标题的助手。
+
+指导原则：
+1. 生成一个简短的标题，捕捉任务的本质
+2. 使用清晰、专业的语言
+3. 不要使用引号、末尾标点符号或特殊字符
+4. 标题应该与用户任务使用相同的语言
+5. 专注于主要动作或主题
+6. 只输出标题，不要包含其他内容
+
+示例：
+任务："帮我分析一下服务器的CPU使用率"
+标题：分析服务器CPU使用率
+
+任务："Deploy the new version of the application to production"
+标题：Deploy Application to Production
+
+任务："修复用户服务中的内存泄漏"
+标题：修复用户服务内存泄漏`
+
 import { getMessages } from '../task/messages'
 
 export function addUserInstructions(

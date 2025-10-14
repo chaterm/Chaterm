@@ -21,9 +21,19 @@ import { fileExistsAtPath } from '@utils/fs'
 import { getTotalTasksSize } from '@utils/storage'
 import type { Host } from '@shared/WebviewMessage'
 import { ensureTaskExists, getSavedApiConversationHistory, deleteChatermHistoryByTaskId, getTaskMetadata, saveTaskMetadata } from '../storage/disk'
-import { getAllExtensionState, getGlobalState, resetExtensionState, storeSecret, updateApiConfiguration, updateGlobalState } from '../storage/state'
+import {
+  getAllExtensionState,
+  getGlobalState,
+  resetExtensionState,
+  storeSecret,
+  updateApiConfiguration,
+  updateGlobalState,
+  getUserConfig
+} from '../storage/state'
 import { Task } from '../task'
 import { ApiConfiguration } from '@shared/api'
+import { TITLE_GENERATION_PROMPT, TITLE_GENERATION_PROMPT_CN } from '../prompts/system'
+import { DEFAULT_LANGUAGE_SETTINGS } from '@shared/Languages'
 
 export class Controller {
   private postMessage: (message: ExtensionMessage) => Promise<boolean> | undefined
@@ -90,11 +100,22 @@ export class Controller {
     await updateGlobalState('userInfo', info)
   }
 
-  async initTask(hosts: Host[], task?: string, historyItem?: HistoryItem, cwd?: Map<string, string>) {
-    console.log('initTask', task, historyItem)
+  async initTask(hosts: Host[], task?: string, historyItem?: HistoryItem, cwd?: Map<string, string>, taskId?: string) {
+    console.log('initTask', task, historyItem, 'taskId:', taskId)
     await this.clearTask() // ensures that an existing task doesn't exist before starting a new one, although this shouldn't be possible since user must clear task before starting a new one
     const { apiConfiguration, userRules, autoApprovalSettings } = await getAllExtensionState()
     const customInstructions = this.formatUserRulesToInstructions(userRules)
+
+    // Generate chat title before creating task for new tasks
+    let generatedTitle: string | undefined
+    if (task && taskId && !historyItem) {
+      try {
+        generatedTitle = await this.generateChatTitle(task, taskId)
+      } catch (error) {
+        console.error('Failed to generate chat title:', error)
+        // Continue with task creation even if title generation fails
+      }
+    }
 
     this.task = new Task(
       this.workspaceTracker,
@@ -108,7 +129,9 @@ export class Controller {
       customInstructions,
       task,
       historyItem,
-      cwd
+      cwd,
+      generatedTitle,
+      taskId
     )
   }
 
@@ -141,7 +164,7 @@ export class Controller {
         break
 
       case 'newTask':
-        await this.initTask(message.hosts!, message.text, undefined, message.cwd)
+        await this.initTask(message.hosts!, message.text, undefined, message.cwd, message.taskId)
         if (this.task?.taskId && message.hosts) {
           await updateTaskHosts(this.task.taskId, message.hosts)
         }
@@ -591,10 +614,13 @@ export class Controller {
     const idx = history.findIndex((h) => h.id === item.id)
     if (idx !== -1) {
       const existing = history[idx]
-      if (existing.task && existing.task !== item.task) {
-        item.task = existing.task
+      history[idx] = {
+        ...existing,
+        ...item,
+        task: existing.task || item.task,
+        // chatTitle: item.chatTitle !== undefined ? item.chatTitle : existing.chatTitle
+        chatTitle: existing.chatTitle
       }
-      history[idx] = { ...existing, ...item, task: item.task }
     } else {
       history.push(item)
     }
@@ -682,6 +708,86 @@ export class Controller {
         error: error instanceof Error ? error.message : 'Command generation failed',
         tabId: tabId
       })
+    }
+  }
+
+  /**
+   * Generate chat title using LLM
+   * Creates a concise, descriptive title for the chat session based on the user's task
+   * @returns The generated title or empty string if generation fails
+   */
+  async generateChatTitle(userTask: string, taskId: string): Promise<string> {
+    try {
+      const { apiConfiguration } = await getAllExtensionState()
+      if (!apiConfiguration) {
+        console.warn('API configuration not found, skipping title generation')
+        return ''
+      }
+
+      const api = buildApiHandler(apiConfiguration)
+
+      let userLanguage = DEFAULT_LANGUAGE_SETTINGS
+      try {
+        const userConfig = await getUserConfig()
+        if (userConfig && userConfig.language) {
+          userLanguage = userConfig.language
+        }
+      } catch (error) {
+        // If we can't get user config, use default language
+      }
+
+      // Select system prompt based on language
+      const systemPrompt = userLanguage === 'zh-CN' ? TITLE_GENERATION_PROMPT_CN : TITLE_GENERATION_PROMPT
+
+      // Create conversation with user task
+      const conversation: Anthropic.MessageParam[] = [
+        {
+          role: 'user' as const,
+          content: `Generate a title for this task: ${userTask}`
+        }
+      ]
+
+      // Call AI API to generate title
+      const stream = api.createMessage(systemPrompt, conversation)
+      let generatedTitle = ''
+
+      try {
+        for await (const chunk of stream) {
+          if (chunk.type === 'text') {
+            generatedTitle += chunk.text
+          }
+        }
+
+        // Clean up the generated title (remove any extra whitespace, quotes, or newlines)
+        const cleanedTitle = generatedTitle
+          .trim()
+          .replace(/^["']|["']$/g, '') // Remove leading/trailing quotes
+          .replace(/\n/g, ' ') // Replace newlines with spaces
+          .replace(/\s+/g, ' ') // Normalize multiple spaces
+          .substring(0, 100) // Limit to 100 characters
+
+        if (cleanedTitle) {
+          console.log('Generated chat title:', cleanedTitle)
+
+          // Send the generated title to webview for immediate UI update
+          await this.postMessageToWebview({
+            type: 'chatTitleGenerated',
+            chatTitle: cleanedTitle,
+            taskId: taskId
+          })
+
+          return cleanedTitle
+        }
+
+        return ''
+      } catch (streamError) {
+        console.error('Error processing title generation stream:', streamError)
+        return ''
+      }
+    } catch (error) {
+      console.error('Chat title generation failed:', error)
+      // Don't throw error to avoid disrupting task initialization
+      return ''
     }
   }
 

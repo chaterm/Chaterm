@@ -4,7 +4,20 @@
       v-show="true"
       class="terminal-output-header"
     >
-      <span class="output-title">OUTPUT</span>
+      <div
+        class="output-title-section"
+        @click="toggleOutput"
+      >
+        <a-button
+          class="toggle-button"
+          type="text"
+          size="small"
+        >
+          <CaretDownOutlined v-if="isExpanded" />
+          <CaretRightOutlined v-else />
+        </a-button>
+        <span class="output-title">OUTPUT</span>
+      </div>
       <div class="output-controls">
         <span class="output-lines">{{ outputLines }} lines</span>
         <a-button
@@ -18,15 +31,6 @@
             alt="copy"
             class="copy-icon"
           />
-        </a-button>
-        <a-button
-          class="toggle-button"
-          type="text"
-          size="small"
-          @click="toggleOutput"
-        >
-          <CaretDownOutlined v-if="isExpanded" />
-          <CaretRightOutlined v-else />
         </a-button>
       </div>
     </div>
@@ -56,7 +60,7 @@ const props = defineProps<{
 }>()
 
 const terminalContainer = ref<HTMLElement | null>(null)
-const isExpanded = ref(true)
+const isExpanded = ref(false) // 终端输出默认折叠
 const outputLines = ref(0)
 
 let terminal: Terminal | null = null
@@ -158,6 +162,44 @@ const REGEX_PATTERNS = {
   iptablesInterface: /\b(\*|docker0|br-\w+|eth\d+|lo|wlan\d+)\b/,
   iptablesIP: /\b(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}(?:\/\d+)?)\b/,
   macAddress: /\b([0-9a-fA-F]{2}:[0-9a-fA-F]{2}:[0-9a-fA-F]{2}:[0-9a-fA-F]{2}:[0-9a-fA-F]{2}:[0-9a-fA-F]{2})\b/
+}
+
+/**
+ * 计算字符串的显示宽度（考虑中文等宽字符）
+ * 中文、日文、韩文等字符在终端中占用2列宽度
+ */
+function getStringDisplayWidth(str: string): number {
+  let width = 0
+  for (let i = 0; i < str.length; i++) {
+    const code = str.charCodeAt(i)
+    // 判断是否为宽字符（CJK字符、全角字符等）
+    // Unicode范围：
+    // - 0x1100-0x115F: 韩文
+    // - 0x2E80-0x9FFF: CJK统一汉字、符号
+    // - 0xA960-0xA97F: 韩文扩展
+    // - 0xAC00-0xD7AF: 韩文音节
+    // - 0xF900-0xFAFF: CJK兼容汉字
+    // - 0xFE10-0xFE19: 竖排标点
+    // - 0xFE30-0xFE6F: CJK兼容形式
+    // - 0xFF00-0xFF60: 全角ASCII、全角标点
+    // - 0xFFE0-0xFFE6: 全角符号
+    if (
+      (code >= 0x1100 && code <= 0x115f) ||
+      (code >= 0x2e80 && code <= 0x9fff) ||
+      (code >= 0xa960 && code <= 0xa97f) ||
+      (code >= 0xac00 && code <= 0xd7af) ||
+      (code >= 0xf900 && code <= 0xfaff) ||
+      (code >= 0xfe10 && code <= 0xfe19) ||
+      (code >= 0xfe30 && code <= 0xfe6f) ||
+      (code >= 0xff00 && code <= 0xff60) ||
+      (code >= 0xffe0 && code <= 0xffe6)
+    ) {
+      width += 2
+    } else {
+      width += 1
+    }
+  }
+  return width
 }
 
 // 缓存高亮结果
@@ -456,21 +498,22 @@ const adjustTerminalHeight = () => {
       const text = line.translateToString()
       totalLines = i + 1
       if (text.trim()) actualContentLines = i + 1
-      if (text.length > maxLineLength) maxLineLength = text.length
+      const lineWidth = getStringDisplayWidth(text)
+      if (lineWidth > maxLineLength) maxLineLength = lineWidth
     }
   }
 
-  const minRows = 2
+  const minRows = 1
   // 使用总行数而不是非空行数，确保所有内容都能显示
   // 如果总行数为0，使用实际内容行数
   const actualRows = Math.max(minRows, totalLines || actualContentLines)
 
   if (fitAddon) {
     fitAddon.fit()
-    const cols = Math.max(maxLineLength + 50, 120)
+    const cols = maxLineLength + 1
     terminal.resize(cols, actualRows)
   } else {
-    const cols = Math.max(maxLineLength + 50, 120)
+    const cols = maxLineLength + 1
     terminal.resize(cols, actualRows)
   }
 
@@ -481,7 +524,7 @@ const adjustTerminalHeight = () => {
     const styles = window.getComputedStyle(terminalContainer.value)
     const paddingTop = parseFloat(styles.paddingTop) || 0
     const paddingBottom = parseFloat(styles.paddingBottom) || 0
-    const newHeight = actualRows * rowHeight + paddingTop + paddingBottom + 8
+    const newHeight = actualRows * rowHeight + paddingTop + paddingBottom + 14
     terminalContainer.value.style.height = `${newHeight}px`
   }
 }
@@ -2792,11 +2835,12 @@ const writeToTerminal = (content: string) => {
 
   // 先计算内容行数和尺寸
   const contentLines = cleanContent.split('\n').length
-  const minRows = 2
+  const minRows = 1
   const actualRows = Math.max(minRows, contentLines)
   const lines = cleanContent.split('\n')
-  const maxLineLength = Math.max(...lines.map((line) => line.length))
-  const cols = Math.max(maxLineLength + 50, 120)
+  // 移除ANSI颜色代码后计算实际显示长度（考虑中文等宽字符）
+  const maxLineLength = Math.max(...lines.map((line) => getStringDisplayWidth(line.replace(/\x1b\[[0-9;]*m/g, ''))))
+  const cols = maxLineLength
 
   // 先调整终端尺寸
   if (terminal) {
@@ -2832,14 +2876,15 @@ const writeToTerminal = (content: string) => {
 
   const adjustHeight = () => {
     const contentLines = cleanContent.split('\n').length
-    const minRows = 2
+    const minRows = 1
     // 确保有足够的行数显示所有内容
     const actualRows = Math.max(minRows, contentLines)
 
     if (terminal) {
       const lines = cleanContent.split('\n')
-      const maxLineLength = Math.max(...lines.map((line) => line.length))
-      const cols = Math.max(maxLineLength + 50, 120)
+      // 移除ANSI颜色代码后计算实际显示长度（考虑中文等宽字符）
+      const maxLineLength = Math.max(...lines.map((line) => getStringDisplayWidth(line.replace(/\x1b\[[0-9;]*m/g, ''))))
+      const cols = maxLineLength
 
       if (fitAddon) {
         fitAddon.fit()
@@ -2863,7 +2908,7 @@ const writeToTerminal = (content: string) => {
         const paddingBottom = parseFloat(styles.paddingBottom) || 0
 
         // 直接基于行数计算高度，确保所有内容都能显示
-        const newHeight = actualRows * rowHeight + paddingTop + paddingBottom + 8
+        const newHeight = actualRows * rowHeight + paddingTop + paddingBottom + 20
         terminalContainer.value.style.height = `${newHeight}px`
       })
     }
@@ -3019,6 +3064,13 @@ const highlightSimpleLsColumnsPreserveSpacing = (line: string): string => {
   font-size: 10px;
   color: #7e8ba3;
 }
+.output-title-section {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+  flex: 1;
+}
 
 .output-title {
   font-weight: 500;
@@ -3053,7 +3105,7 @@ const highlightSimpleLsColumnsPreserveSpacing = (line: string): string => {
   background: rgba(255, 255, 255, 0.1);
 }
 
-.toggle-button {
+.tnoggle-butto {
   color: var(--text-color);
   opacity: 0.6;
   transition: opacity 0.3s;
@@ -3067,11 +3119,6 @@ const highlightSimpleLsColumnsPreserveSpacing = (line: string): string => {
   font-weight: bold;
 }
 
-.toggle-button:hover {
-  opacity: 1;
-  background: rgba(255, 255, 255, 0.1);
-}
-
 .terminal-output {
   font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
   background-color: var(--command-output-bg) !important;
@@ -3080,33 +3127,31 @@ const highlightSimpleLsColumnsPreserveSpacing = (line: string): string => {
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
   border: 1px solid var(--border-color);
   border-top: none;
-  overflow-x: auto;
+  overflow-x: hidden;
   overflow-y: visible;
   position: relative;
   width: 100%;
   max-width: 100%;
   height: auto;
-  padding: 8px;
+  padding: 12px 0px 0px 12px;
   box-sizing: border-box;
   scrollbar-gutter: stable;
 }
 
-:deep(.xterm-viewport) {
-  padding: 0 !important;
-  overflow: hidden !important;
-  scrollbar-gutter: stable !important;
-}
-
-:deep(.xterm-screen) {
-  padding: 0 !important;
-  overflow-x: auto !important;
-  overflow-y: visible !important;
-}
-
 :deep(.xterm) {
+  height: 100%;
   overflow-x: auto !important;
   overflow-y: hidden !important;
   white-space: pre !important;
+}
+
+:deep(.xterm-viewport) {
+  overflow: hidden !important;
+  overflow-y: hidden !important;
+  scrollbar-gutter: stable !important;
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
+  background-color: var(--bg-color-secondary) !important;
 }
 
 /* 隐藏纵向滚动条 */
@@ -3115,14 +3160,10 @@ const highlightSimpleLsColumnsPreserveSpacing = (line: string): string => {
   height: 0 !important;
 }
 
-:deep(.xterm-viewport) {
-  scrollbar-width: none !important;
-  -ms-overflow-style: none !important;
-  overflow-y: hidden !important;
-}
-
 :deep(.xterm-screen) {
+  overflow-x: hidden !important;
   overflow-y: hidden !important;
+  background-color: var(--bg-color-secondary) !important;
 }
 
 :deep(.xterm .xterm-cursor) {
@@ -3142,18 +3183,6 @@ const highlightSimpleLsColumnsPreserveSpacing = (line: string): string => {
   height: 11px;
   vertical-align: middle;
   filter: invert(0.25);
-}
-
-:deep(.xterm) {
-  height: 100%;
-}
-
-:deep(.xterm-viewport) {
-  background-color: var(--bg-color-secondary) !important;
-}
-
-:deep(.xterm-screen) {
-  background-color: var(--bg-color-secondary) !important;
 }
 
 ::deep(.xterm-rows) {
