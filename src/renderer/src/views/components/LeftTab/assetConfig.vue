@@ -615,6 +615,8 @@ watch(isRightSectionVisible, (val) => {
   overflow-y: auto;
   background-color: var(--bg-color);
   width: 100%;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-color-light) transparent;
 }
 
 .right-section {

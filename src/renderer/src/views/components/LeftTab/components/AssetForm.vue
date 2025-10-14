@@ -411,6 +411,8 @@ watch(
   padding: 12px 16px 0 16px;
   overflow: auto;
   color: var(--text-color);
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-color-light) transparent;
 }
 
 .form-footer {

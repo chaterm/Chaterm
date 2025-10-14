@@ -631,7 +631,9 @@ watch(isRightSectionVisible, (val) => {
   padding: 10px;
   overflow-y: auto;
   background-color: var(--bg-color);
-  width: 100%; /* 确保左侧部分占满可用空间 */
+  width: 100%;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-color-light) transparent;
 }
 
 .search-input {
