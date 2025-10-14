@@ -1380,7 +1380,7 @@ const handleHistoryClick = async () => {
       .sort((a, b) => b.ts - a.ts)
       .map((task) => ({
         id: task.id,
-        chatTitle: truncateText(task?.chatTitle || task?.task || `${chatTypeValue.value} Chat`),
+        chatTitle: task?.chatTitle || task?.task || `${chatTypeValue.value} Chat`,
         chatType: chatTypeValue.value,
         chatContent: [],
         isFavorite: favorites.includes(task.id)
@@ -2604,6 +2604,10 @@ const saveHistoryTitle = async (history) => {
       targetHistory.chatTitle = history.chatTitle
       // Save updated history records
       await updateGlobalState('taskHistory', taskHistory)
+
+      if (currentChatId.value === history.id) {
+        currentChatTitle.value = history.chatTitle
+      }
     }
   } catch (err) {
     console.error('Failed to update history title:', err)
@@ -2621,14 +2625,11 @@ const deleteHistory = async (history) => {
   await updateGlobalState('taskHistory', filteredHistory)
 
   // Update display list
-  historyList.value = filteredHistory
-    .sort((a, b) => b.ts - a.ts)
-    .map((messages) => ({
-      id: messages.id,
-      chatTitle: truncateText(messages?.task || 'Agent Chat'),
-      chatType: 'agent',
-      chatContent: []
-    }))
+  const index = historyList.value.findIndex((item) => item.id === history.id)
+  if (index !== -1) {
+    historyList.value.splice(index, 1)
+  }
+
   const message = {
     type: 'deleteTaskWithId',
     text: history.id,
@@ -2708,7 +2709,7 @@ const cancelEdit = async (history) => {
     const targetHistory = taskHistory.find((item) => item.id === history.id)
     if (targetHistory) {
       // Reset to title in database, prefer chatTitle if available
-      history.chatTitle = truncateText(targetHistory?.chatTitle || targetHistory?.task || 'Agent Chat')
+      history.chatTitle = targetHistory?.chatTitle || targetHistory?.task || 'Agent Chat'
     }
     // Reset editing state
     history.isEditing = false
