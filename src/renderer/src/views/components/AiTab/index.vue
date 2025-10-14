@@ -557,87 +557,93 @@
                   </a-button>
                 </div>
                 <div class="history-virtual-list-container">
-                  <a-menu-item
-                    v-for="history in paginatedHistoryList"
-                    :key="history.id"
-                    class="history-menu-item"
-                    :class="{ 'favorite-item': history.isFavorite }"
-                    @click="!history.isEditing && restoreHistoryTab(history)"
+                  <template
+                    v-for="group in groupedPaginatedHistory"
+                    :key="group.dateLabel"
                   >
-                    <div class="history-item-content">
-                      <div
-                        v-if="!history.isEditing"
-                        class="history-title"
-                      >
-                        {{ history.chatTitle }}
-                      </div>
-                      <a-input
-                        v-else
-                        v-model:value="history.editingTitle"
-                        size="small"
-                        class="history-title-input"
-                        @press-enter="saveHistoryTitle(history)"
-                        @blur.stop="() => {}"
-                        @click.stop
-                      />
-                      <div class="menu-action-buttons">
-                        <template v-if="!history.isEditing">
-                          <a-button
-                            size="small"
-                            class="menu-action-btn favorite-btn"
-                            @click.stop="toggleFavorite(history)"
-                          >
-                            <template #icon>
-                              <template v-if="history.isFavorite">
-                                <StarFilled style="color: #faad14" />
+                    <div class="history-date-header">{{ group.dateLabel }}</div>
+                    <a-menu-item
+                      v-for="history in group.items"
+                      :key="history.id"
+                      class="history-menu-item"
+                      :class="{ 'favorite-item': history.isFavorite }"
+                      @click="!history.isEditing && restoreHistoryTab(history)"
+                    >
+                      <div class="history-item-content">
+                        <div
+                          v-if="!history.isEditing"
+                          class="history-title"
+                        >
+                          {{ history.chatTitle }}
+                        </div>
+                        <a-input
+                          v-else
+                          v-model:value="history.editingTitle"
+                          size="small"
+                          class="history-title-input"
+                          @press-enter="saveHistoryTitle(history)"
+                          @blur.stop="() => {}"
+                          @click.stop
+                        />
+                        <div class="menu-action-buttons">
+                          <template v-if="!history.isEditing">
+                            <a-button
+                              size="small"
+                              class="menu-action-btn favorite-btn"
+                              @click.stop="toggleFavorite(history)"
+                            >
+                              <template #icon>
+                                <template v-if="history.isFavorite">
+                                  <StarFilled style="color: #faad14" />
+                                </template>
+                                <template v-else>
+                                  <StarOutlined style="color: #999999" />
+                                </template>
                               </template>
-                              <template v-else>
-                                <StarOutlined style="color: #999999" />
+                            </a-button>
+                            <a-button
+                              size="small"
+                              class="menu-action-btn"
+                              @click.stop="editHistory(history)"
+                            >
+                              <template #icon>
+                                <EditOutlined style="color: #999999" />
                               </template>
-                            </template>
-                          </a-button>
-                          <a-button
-                            size="small"
-                            class="menu-action-btn"
-                            @click.stop="editHistory(history)"
-                          >
-                            <template #icon>
-                              <EditOutlined style="color: #999999" />
-                            </template>
-                          </a-button>
-                          <a-button
-                            size="small"
-                            class="menu-action-btn"
-                            @click.stop="deleteHistory(history)"
-                          >
-                            <template #icon>
-                              <DeleteOutlined style="color: #999999" />
-                            </template>
-                          </a-button>
-                        </template>
-                        <template v-else>
-                          <a-button
-                            size="small"
-                            class="menu-action-btn save-btn"
-                            @click.stop="saveHistoryTitle(history)"
-                          >
-                            <template #icon>
-                              <CheckOutlined style="color: #999999" />
-                            </template>
-                          </a-button>
-                          <a-button
-                            size="small"
-                            class="menu-action-btn cancel-btn"
-                            @click.stop.prevent="cancelEdit(history)"
-                          >
-                            <template #icon>
-                              <CloseOutlined style="color: #999999" />
-                            </template>
-                          </a-button>
-                        </template>
+                            </a-button>
+                            <a-button
+                              size="small"
+                              class="menu-action-btn"
+                              @click.stop="deleteHistory(history)"
+                            >
+                              <template #icon>
+                                <DeleteOutlined style="color: #999999" />
+                              </template>
+                            </a-button>
+                          </template>
+                          <template v-else>
+                            <a-button
+                              size="small"
+                              class="menu-action-btn save-btn"
+                              @click.stop="saveHistoryTitle(history)"
+                            >
+                              <template #icon>
+                                <CheckOutlined style="color: #999999" />
+                              </template>
+                            </a-button>
+                            <a-button
+                              size="small"
+                              class="menu-action-btn cancel-btn"
+                              @click.stop.prevent="cancelEdit(history)"
+                            >
+                              <template #icon>
+                                <CloseOutlined style="color: #999999" />
+                              </template>
+                            </a-button>
+                          </template>
+                        </div>
                       </div>
-                    </div>
-                  </a-menu-item>
+                    </a-menu-item>
+                  </template>
                   <div
                     v-if="hasMoreHistory"
                     class="history-load-more"
@@ -698,7 +704,7 @@ import eventBus from '@/utils/eventBus'
 import { getGlobalState, updateGlobalState, getSecret, storeSecret } from '@renderer/agent/storage/state'
 
 import type { HistoryItem, TaskHistoryItem, Host, ChatMessage, MessageContent, AssetInfo } from './types'
-import { createNewMessage, parseMessageContent, truncateText, formatHosts, isStringContent } from './utils'
+import { createNewMessage, parseMessageContent, formatHosts, isStringContent, getDateLabel } from './utils'
 import foldIcon from '@/assets/icons/fold.svg'
 import historyIcon from '@/assets/icons/history.svg'
 import plusIcon from '@/assets/icons/plus.svg'
@@ -1383,7 +1389,8 @@ const handleHistoryClick = async () => {
         chatTitle: task?.chatTitle || task?.task || `${chatTypeValue.value} Chat`,
         chatType: chatTypeValue.value,
         chatContent: [],
-        isFavorite: favorites.includes(task.id)
+        isFavorite: favorites.includes(task.id),
+        ts: task.ts
       }))
 
     // Batch update history list
@@ -2671,6 +2678,29 @@ const paginatedHistoryList = computed(() => {
   const filtered = filteredHistoryList.value
   const end = currentPage.value * PAGE_SIZE
   return filtered.slice(0, end)
+})
+
+// 将分页后的历史记录按日期分组
+const groupedPaginatedHistory = computed(() => {
+  const result: Array<{ dateLabel: string; items: HistoryItem[] }> = []
+  const groups = new Map<string, HistoryItem[]>()
+
+  paginatedHistoryList.value.forEach((item) => {
+    const ts = item.ts || Date.now()
+    const dateLabel = getDateLabel(ts, t)
+
+    if (!groups.has(dateLabel)) {
+      groups.set(dateLabel, [])
+    }
+    groups.get(dateLabel)!.push(item)
+  })
+
+  // 转换为数组格式并保持顺序
+  groups.forEach((items, dateLabel) => {
+    result.push({ dateLabel, items })
+  })
+
+  return result
 })
 
 const hasMoreHistory = computed(() => {

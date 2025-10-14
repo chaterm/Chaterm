@@ -852,8 +852,6 @@
 
   :deep(.ant-dropdown-menu-item) {
     padding: 0 4px 0 4px !important;
-    line-height: 30px !important;
-    height: 30px !important;
   }
 
   .history-search-container {
@@ -909,8 +907,22 @@
   }
 }
 
+.history-date-header {
+  padding: 8px 0px 0px 4px;
+  font-size: 12px;
+  font-weight: 400;
+  color: #888;
+  background-color: transparent;
+  margin: 0;
+  border-top: 1px solid #444;
+
+  &:first-child {
+    border-top: none;
+  }
+}
+
 .history-virtual-list-container {
-  max-height: 360px;
+  max-height: 400px;
   overflow-y: auto;
   overflow-x: hidden;
   scrollbar-width: thin;
@@ -1450,7 +1462,7 @@
   color: var(--text-color) !important;
   padding: 0;
   min-width: 0;
-  height: 16px;
+  height: 24px !important;
   line-height: 20px;
   font-size: 12px;
   margin-left: 0;

@@ -45,6 +45,7 @@ export interface HistoryItem {
   isEditing?: boolean
   editingTitle?: string
   isFavorite?: boolean
+  ts?: number
 }
 
 export interface TaskHistoryItem {
