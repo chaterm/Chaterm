@@ -36,8 +36,76 @@
       </div>
       <div class="term_login_input">
         <template v-if="isDev">
+          <!-- 登录方式切换 -->
+          <div class="login-tabs">
+            <div
+              class="tab-item"
+              :class="{ active: activeTab === 'account' }"
+              @click="activeTab = 'account'"
+            >
+              {{ $t('login.accountLogin') }}
+            </div>
+            <div
+              class="tab-item"
+              :class="{ active: activeTab === 'email' }"
+              @click="activeTab = 'email'"
+            >
+              {{ $t('login.emailLogin') }}
+            </div>
+          </div>
+
+          <!-- 登录表单 -->
           <div class="login-form">
-            <div class="form-content">
+            <!-- 账号密码登录 -->
+            <div
+              v-if="activeTab === 'account'"
+              class="form-content"
+            >
+              <div class="input-group">
+                <div class="input-field">
+                  <span class="input-icon">
+                    <UserOutlined />
+                  </span>
+                  <input
+                    v-model="accountForm.username"
+                    type="text"
+                    :placeholder="$t('login.pleaseInputUsername')"
+                    class="form-input"
+                  />
+                </div>
+                <div class="input-divider"></div>
+                <div class="input-field">
+                  <span class="input-icon">
+                    <LockOutlined />
+                  </span>
+                  <input
+                    v-model="accountForm.password"
+                    type="password"
+                    :placeholder="$t('login.pleaseInputPassword')"
+                    class="form-input"
+                  />
+                </div>
+                <div class="input-divider"></div>
+              </div>
+
+              <button
+                class="login-btn primary"
+                :disabled="loading"
+                @click="onAccountLogin"
+              >
+                <span
+                  v-if="loading"
+                  class="loading-spinner"
+                ></span>
+                {{ loading ? $t('login.loggingIn') : $t('login.login') }}
+              </button>
+            </div>
+
+            <!-- 邮箱验证码登录 -->
+            <div
+              v-if="activeTab === 'email'"
+              class="form-content"
+            >
               <div class="input-group">
                 <div class="input-field">
                   <span class="input-icon">
@@ -71,6 +139,7 @@
                 </div>
                 <div class="input-divider"></div>
               </div>
+
               <button
                 class="login-btn primary"
                 :disabled="loading"
@@ -82,14 +151,15 @@
                 ></span>
                 {{ loading ? $t('login.loggingIn') : $t('login.login') }}
               </button>
-              <div class="skip-login">
-                {{ $t('login.skip') }}
-                <a
-                  class="skip-link"
-                  @click="skipLogin"
-                  >{{ $t('login.skipLogin') }}</a
-                >
-              </div>
+            </div>
+
+            <div class="skip-login">
+              {{ $t('login.skip') }}
+              <a
+                class="skip-link"
+                @click="skipLogin"
+                >{{ $t('login.skipLogin') }}</a
+              >
             </div>
           </div>
         </template>
@@ -130,14 +200,14 @@
 import { removeToken } from '@/utils/permission'
 import { useRouter } from 'vue-router'
 import { ref, onMounted, nextTick, onBeforeUnmount, reactive } from 'vue'
-import { GlobalOutlined, MailOutlined, SafetyOutlined } from '@ant-design/icons-vue'
+import { GlobalOutlined, MailOutlined, SafetyOutlined, UserOutlined, LockOutlined } from '@ant-design/icons-vue'
 import type { MenuProps } from 'ant-design-vue'
 import { setUserInfo } from '@/utils/permission'
 import { message } from 'ant-design-vue'
 import { captureButtonClick, LoginFunnelEvents, LoginMethods, LoginFailureReasons } from '@/utils/telemetry'
 import { shortcutService } from '@/services/shortcutService'
 import config from '@renderer/config'
-import { sendEmailCode, emailLogin } from '@/api/user/user'
+import { sendEmailCode, emailLogin, userLogin } from '@/api/user/user'
 import { useI18n } from 'vue-i18n'
 
 const { t, locale } = useI18n()
@@ -147,9 +217,14 @@ const loading = ref(false)
 const externalLoginLoading = ref(false)
 const codeSending = ref(false)
 const countdown = ref(0)
+const activeTab = ref('account') // default
 const emailForm = reactive({
   email: '',
   code: ''
+})
+const accountForm = reactive({
+  username: '',
+  password: ''
 })
 
 const checkUrlForAuthCallback = () => {
@@ -199,6 +274,40 @@ const sendCode = async () => {
     message.error(t('login.codeSendFailed'))
   } finally {
     codeSending.value = false
+  }
+}
+
+const onAccountLogin = async () => {
+  if (!accountForm.username || !accountForm.password) {
+    message.error(t('login.pleaseInputUsernameAndPassword'))
+    return
+  }
+  try {
+    loading.value = true
+    const res = await userLogin({
+      username: accountForm.username,
+      password: accountForm.password
+    })
+    if (res && (res as any).code === 200 && (res as any).data && (res as any).data.token) {
+      localStorage.setItem('ctm-token', (res as any).data.token)
+      setUserInfo((res as any).data)
+      const api = window.api as any
+      const dbResult = await api.initUserDatabase({ uid: (res as any).data.uid })
+      if (!dbResult.success) {
+        message.error(t('login.databaseInitFailed'))
+        return
+      }
+
+      shortcutService.init()
+      await nextTick()
+      await router.replace({ path: '/', replace: true })
+    } else {
+      message.error(res && (res as any).Message ? (res as any).Message : t('login.loginFailed'))
+    }
+  } catch (err: any) {
+    message.error(err?.response?.data?.message || err?.message || t('login.loginFailed'))
+  } finally {
+    loading.value = false
   }
 }
 
@@ -335,6 +444,7 @@ onMounted(async () => {
           router.push('/')
           return true
         }
+        return false
       } catch (error) {
         console.error(t('login.loginHandleFailed'), error)
         message.error(t('login.loginProcessFailed'))
@@ -466,6 +576,7 @@ onBeforeUnmount(() => {
     letter-spacing: 1px;
     background: linear-gradient(135deg, #00eaff 0%, #1677ff 50%, #2a82e4 100%);
     -webkit-background-clip: text;
+    background-clip: text;
     -webkit-text-fill-color: transparent;
   }
 
@@ -865,5 +976,40 @@ onBeforeUnmount(() => {
   display: flex;
   align-items: center;
   justify-content: center;
+}
+
+// Tab切换样式 - 参考设计图样式
+.login-tabs {
+  display: flex;
+  width: 320px;
+  margin: 0 auto 20px auto;
+  background: transparent;
+  border-radius: 0;
+  padding: 0;
+  position: relative;
+}
+
+.tab-item {
+  flex: 1;
+  text-align: center;
+  padding: 12px 20px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 16px;
+  font-weight: 400;
+  user-select: none;
+  position: relative;
+  border-bottom: 2px solid transparent;
+
+  &:hover {
+    color: rgba(255, 255, 255, 0.8);
+  }
+
+  &.active {
+    color: #409cff;
+    font-weight: 500;
+    border-bottom-color: #409cff;
+  }
 }
 </style>
