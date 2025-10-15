@@ -3261,8 +3261,9 @@ const writeToTerminal = (content: string) => {
     terminal.resize(cols, actualRows)
   }
 
-  // 然后写入内容
   terminal.write(cleanContent)
+  // 隐藏光标，避免产生额外的空行
+  terminal.write('\x1b[?25l')
 
   // 立即调整高度，确保所有内容都能显示
   nextTick(() => {
