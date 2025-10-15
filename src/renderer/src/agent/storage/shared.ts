@@ -55,7 +55,7 @@ export const DEFAULT_AUTO_APPROVAL_SETTINGS: AutoApprovalSettings = {
   favorites: ['enableAutoApprove', 'readFiles']
 }
 
-export type ApiProvider = 'bedrock' | 'litellm' | 'deepseek' | 'openai' | 'default'
+export type ApiProvider = 'bedrock' | 'litellm' | 'deepseek' | 'openai' | 'ollama' | 'default'
 
 export interface ApiHandlerOptions {
   apiModelId?: string
@@ -80,6 +80,9 @@ export interface ApiHandlerOptions {
   openAiBaseUrl?: string
   openAiApiKey?: string
   openAiModelId?: string
+  ollamaModelId?: string
+  ollamaBaseUrl?: string
+  ollamaApiOptionsCtxNum?: string
   needProxy?: boolean
   proxyConfig?: ProxyConfig
   defaultBaseUrl?: string

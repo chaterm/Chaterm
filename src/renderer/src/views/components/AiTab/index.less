@@ -63,6 +63,20 @@
       text-shadow 0.2s;
   }
 
+  // 控制标签页标题的宽度和文字省略
+  :deep(.ant-tabs-tab-btn) {
+    max-width: 300px; // 设置最大宽度
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    display: inline-block;
+  }
+
+  // 隐藏标签页操作容器（包括更多按钮等）
+  :deep(.ant-tabs-nav-operations) {
+    display: none !important;
+  }
+
   :deep(.ant-tabs-nav) {
     height: 26px;
     margin-bottom: 2px;
@@ -838,8 +852,6 @@
 
   :deep(.ant-dropdown-menu-item) {
     padding: 0 4px 0 4px !important;
-    line-height: 30px !important;
-    height: 30px !important;
   }
 
   .history-search-container {
@@ -895,11 +907,27 @@
   }
 }
 
+.history-date-header {
+  padding: 8px 0px 0px 4px;
+  font-size: 12px;
+  font-weight: 400;
+  color: #888;
+  background-color: transparent;
+  margin: 0;
+  border-top: 1px solid #444;
+
+  &:first-child {
+    border-top: none;
+  }
+}
+
 .history-virtual-list-container {
-  max-height: 360px;
+  max-height: 400px;
   overflow-y: auto;
+  overflow-x: hidden;
   scrollbar-width: thin;
   scrollbar-color: var(--bg-color-quinary) transparent;
+  width: 100%;
 
   &::-webkit-scrollbar {
     width: 4px;
@@ -926,10 +954,12 @@
   border-radius: 4px !important;
   transition: all 0.2s ease !important;
   min-height: unset !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  overflow: hidden !important;
 
   .menu-action-buttons {
     opacity: 0;
-    transition: opacity 0.2s ease;
   }
 
   &:hover {
@@ -939,6 +969,10 @@
 
     .menu-action-buttons {
       opacity: 1;
+    }
+
+    .history-title {
+      max-width: 190px;
     }
   }
 
@@ -958,6 +992,7 @@
 
 .history-item-content {
   display: flex;
+  justify-content: space-between;
   flex-direction: row;
   align-items: center;
   gap: 4px;
@@ -983,6 +1018,7 @@
     display: flex;
     gap: 0px;
     margin-left: 0px;
+    flex-shrink: 0;
 
     > .menu-action-btn {
       margin-left: -3px;
@@ -996,8 +1032,9 @@
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    flex: 1;
+    flex: 0 1 auto;
     min-width: 0;
+    max-width: 240px;
   }
 
   .history-title-input {
@@ -1425,7 +1462,7 @@
   color: var(--text-color) !important;
   padding: 0;
   min-width: 0;
-  height: 16px;
+  height: 24px !important;
   line-height: 20px;
   font-size: 12px;
   margin-left: 0;
