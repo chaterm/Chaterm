@@ -286,6 +286,9 @@ const detectFormat = (line: string): FormatDetectionResult | null => {
 
   // 检测时间戳格式（优先级次之）
   const timestampPatterns = [
+    // Nginx 访问日志格式：[15/Oct/2025:14:17:39 +0800]
+    /\[\d{1,2}\/\w{3}\/\d{4}:\d{2}:\d{2}:\d{2}\s+[+-]\d{4}\]/,
+    // 标准日期时间格式
     /\d{4}-\d{2}-\d{2}[T\s]\d{2}:\d{2}:\d{2}/,
     /\d{2}:\d{2}:\d{2}/,
     /\w{3}\s+\d{1,2}\s+\d{2}:\d{2}/,
@@ -300,6 +303,17 @@ const detectFormat = (line: string): FormatDetectionResult | null => {
         confidence: 0.9, // 提高置信度，确保优先于表格头检测
         metadata: { pattern: pattern.source }
       }
+    }
+  }
+
+  // 检测 Nginx 访问日志格式（包含二进制数据的特殊情况）
+  // 格式：IP - - [时间戳] "请求" 状态码 大小 "来源" "用户代理"
+  const nginxLogPattern = /^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\s+-\s+-\s+\[[\d\/\w\s:+-]+\]\s+".*"\s+\d{3}\s+\d+/
+  if (nginxLogPattern.test(trimmedLine)) {
+    return {
+      type: 'timestamped',
+      confidence: 0.95, // 高置信度，确保 Nginx 日志被正确识别
+      metadata: { pattern: 'nginx_access_log' }
     }
   }
 
@@ -519,7 +533,43 @@ const highlightTableData = (line: string, metadata: any): string => {
 
 // 时间戳高亮
 const highlightTimestamped = (line: string): string => {
-  const { reset, cyan } = COLORS
+  const { reset, cyan, yellow, green, red, blue } = COLORS
+
+  // 检查是否是 Nginx 访问日志格式
+  const nginxLogPattern = /^(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})\s+-\s+-\s+(\[[\d\/\w\s:+-]+\])\s+(".*")\s+(\d{3})\s+(\d+)(?:\s+(".*")\s+(".*"))?/
+  const nginxMatch = line.match(nginxLogPattern)
+
+  if (nginxMatch) {
+    // 专门处理 Nginx 访问日志格式
+    const [, ip, timestamp, request, status, size, referer, userAgent] = nginxMatch
+
+    let highlighted = line
+    // 高亮 IP 地址
+    highlighted = highlighted.replace(ip, `${blue}${ip}${reset}`)
+    // 高亮时间戳
+    highlighted = highlighted.replace(timestamp, `${cyan}${timestamp}${reset}`)
+    // 高亮请求（包括二进制数据）
+    highlighted = highlighted.replace(request, `${yellow}${request}${reset}`)
+    // 高亮状态码
+    const statusCode = parseInt(status)
+    let statusColor = green
+    if (statusCode >= 400 && statusCode < 500) {
+      statusColor = yellow
+    } else if (statusCode >= 500) {
+      statusColor = red
+    }
+    highlighted = highlighted.replace(status, `${statusColor}${status}${reset}`)
+    // 高亮大小
+    highlighted = highlighted.replace(size, `${cyan}${size}${reset}`)
+
+    if (referer && userAgent) {
+      // 高亮来源和用户代理
+      highlighted = highlighted.replace(referer, `${blue}${referer}${reset}`)
+      highlighted = highlighted.replace(userAgent, `${blue}${userAgent}${reset}`)
+    }
+
+    return highlighted
+  }
 
   // 高亮时间戳部分
   let highlighted = line
@@ -529,6 +579,8 @@ const highlightTimestamped = (line: string): string => {
 
   // 按照从长到短的顺序匹配时间戳格式
   const patterns = [
+    // Nginx 访问日志格式：[15/Oct/2025:14:17:39 +0800]
+    /(\[\d{1,2}\/\w{3}\/\d{4}:\d{2}:\d{2}:\d{2}\s+[+-]\d{4}\])/g,
     // 完整日期时间格式 (2025/9/1 11:35:16)
     /(\d{4}\/\d{1,2}\/\d{1,2}\s+\d{1,2}:\d{2}:\d{2})/g,
     // ISO格式日期时间
@@ -2911,21 +2963,6 @@ const highlightTopSystemInfo = (line: string): string => {
   // 1. 先匹配完整的时间格式：13:19:49
   highlighted = highlighted.replace(/(\d{2}:\d{2}:\d{2})/g, (match) => {
     return `${COLORS.cyan}${match}${reset}`
-  })
-
-  // 2. 匹配运行时间格式：49 days, 22:41
-  highlighted = highlighted.replace(/(\d+\s+days?,\s*\d{2}:\d{2})/g, (match) => {
-    return `${COLORS.cyan}${match}${reset}`
-  })
-
-  // 3. 匹配独立的时间格式：22:41（只在特定上下文中匹配）
-  // 只匹配在逗号、空格或行首/行尾的时间格式
-  highlighted = highlighted.replace(/(?:^|\s|,)(\d{2}:\d{2})(?:\s|,|$)/g, (match, timePart) => {
-    // 检查是否已经被高亮过
-    if (highlighted.includes(`${COLORS.cyan}${timePart}${reset}`)) {
-      return match
-    }
-    return match.replace(timePart, `${COLORS.cyan}${timePart}${reset}`)
   })
 
   return highlighted
