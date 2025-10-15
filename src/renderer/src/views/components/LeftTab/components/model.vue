@@ -682,6 +682,7 @@ const handleCheck = async (provider: string): Promise<void> => {
         apiModelId: awsModelId.value,
         awsAccessKey: awsAccessKey.value,
         awsSecretKey: awsSecretKey.value,
+        awsSessionToken: awsSessionToken.value,
         awsRegion: awsRegion.value
       }
       break
