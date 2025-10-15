@@ -338,6 +338,9 @@ export default {
     openAiApiKey: 'OpenAI API Key',
     openAiApiKeyPh: '请输入API Key',
     openAiApiKeyDescribe: '此密钥存储在本地，仅用于从此客户端发出API请求',
+    ollamaBaseUrl: 'Ollama URL地址',
+    ollamaBaseUrlPh: '请输入URL地址',
+    ollamaBaseUrlDescribe: 'Ollama 服务的基础URL地址，默认为 http://localhost:11434',
     checkModelConfigFailMessage: '缺少必要的模型配置',
     checkModelConfigFailDescription: '请填写必要的模型配置，设置->模型->添加模型->API 配置',
     checkSuccessMessage: '连接成功',
@@ -377,6 +380,7 @@ export default {
     saveLiteLlmConfigFailed: '保存LiteLLM配置失败',
     saveDeepSeekConfigFailed: '保存DeepSeek配置失败',
     saveOpenAiConfigFailed: '保存OpenAI配置失败',
+    saveOllamaConfigFailed: '保存Ollama配置失败',
     // 安全配置相关
     securityConfig: '安全配置',
     openSecurityConfig: '打开配置',

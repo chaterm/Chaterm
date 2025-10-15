@@ -339,6 +339,9 @@ export default {
     openAiApiKey: 'OpenAI API Key',
     openAiApiKeyPh: 'Enter API Key',
     openAiApiKeyDescribe: 'This key is stored locally and only used to make API requests from this client.',
+    ollamaBaseUrl: 'Ollama Base URL',
+    ollamaBaseUrlPh: 'Enter Base URL',
+    ollamaBaseUrlDescribe: 'Base URL for Ollama service, defaults to http://localhost:11434',
     checkModelConfigFailMessage: 'Missing configuration parameters',
     checkModelConfigFailDescription: 'Please fill in the necessary model configuration, Setting -> Models -> Add Model -> API Configuration',
     checkSuccessMessage: 'Connection successful',
@@ -378,6 +381,7 @@ export default {
     saveLiteLlmConfigFailed: 'Failed to save LiteLLM configuration',
     saveDeepSeekConfigFailed: 'Failed to save DeepSeek configuration',
     saveOpenAiConfigFailed: 'Failed to save OpenAI configuration',
+    saveOllamaConfigFailed: 'Failed to save Ollama configuration',
     // Security configuration
     securityConfig: 'Security Configuration',
     openSecurityConfig: 'Open Config',

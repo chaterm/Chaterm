@@ -59,6 +59,7 @@
     "ignore": "^7.0.3",
     "monaco-editor": "^0.52.2",
     "node-pty": "^1.0.0",
+    "ollama": "^0.6.0",
     "openai": "^4.100.0",
     "p-wait-for": "^3.2.0",
     "pinia": "^3.0.1",
