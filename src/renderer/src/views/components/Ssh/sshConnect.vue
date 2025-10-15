@@ -1631,7 +1631,9 @@ const setupTerminalInput = () => {
         } else if (config.quickVimStatus === 1 && !isSyncInput.value) {
           connectionSftpAvailable.value = await api.checkSftpConnAvailable(connectionId.value)
           const vimMatch = command.match(/^\s*vim\s+(.+)$/i)
-          if (vimMatch && connectionSftpAvailable.value) {
+          // Trigger condition: Applies to non-local connections.
+          // SFTP check reserved — vim editing will be implemented via SFTP.
+          if (vimMatch && connectionSftpAvailable.value && !connectionId.value.includes('local-team')) {
             let vimData = data
             if (vimMatch[1].startsWith('/')) {
               vimData = delData.repeat(command.length) + 'echo "' + vimMatch[1] + '"  #Chaterm:vim  \r'

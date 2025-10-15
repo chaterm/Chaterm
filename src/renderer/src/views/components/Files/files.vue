@@ -159,6 +159,14 @@
                   {{ record.name }}
                 </span>
                 <span
+                  v-else-if="uuid.includes('local-team')"
+                  class="no-select"
+                  style="cursor: pointer"
+                >
+                  <FileFilled style="color: var(--text-color-quaternary); margin-right: -1px" />
+                  {{ record.name }}
+                </span>
+                <span
                   v-else
                   class="no-select"
                   style="cursor: pointer"
