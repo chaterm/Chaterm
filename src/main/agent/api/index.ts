@@ -4,6 +4,7 @@ import { AwsBedrockHandler } from './providers/bedrock'
 import { LiteLlmHandler } from './providers/litellm'
 import { DeepSeekHandler } from './providers/deepseek'
 import { OpenAiHandler } from './providers/openai'
+import { OllamaHandler } from './providers/ollama'
 import { ApiStream, ApiStreamUsageChunk } from './transform/stream'
 
 export interface ApiHandler {
@@ -28,6 +29,8 @@ export function buildApiHandler(configuration: ApiConfiguration): ApiHandler {
       return new DeepSeekHandler(options)
     case 'openai':
       return new OpenAiHandler(options)
+    case 'ollama':
+      return new OllamaHandler(options)
     case 'default':
       return new LiteLlmHandler({
         ...options,

@@ -1,4 +1,4 @@
-export type ApiProvider = 'bedrock' | 'litellm' | 'deepseek' | 'default' | 'openai'
+export type ApiProvider = 'bedrock' | 'litellm' | 'deepseek' | 'default' | 'openai' | 'ollama'
 
 export type GlobalStateKey =
   | 'apiProvider'
