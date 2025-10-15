@@ -549,6 +549,8 @@ export default {
     missingAssetId: 'Missing asset ID'
   },
   ai: {
+    today: 'Today',
+    yesterday: 'Yesterday',
     welcome: 'What can I do for you in the terminal?',
     loginPrompt: 'Login to use AI features, new users can use for free for two weeks',
     searchHost: 'Search by IP',
