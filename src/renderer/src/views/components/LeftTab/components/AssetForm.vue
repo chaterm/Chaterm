@@ -18,7 +18,7 @@
         layout="vertical"
         class="custom-form"
       >
-        <!-- 资产类型选择 -->
+        <!-- Asset type selection -->
         <a-form-item v-if="!isEditMode">
           <a-radio-group
             v-model:value="formData.asset_type"
@@ -34,7 +34,7 @@
           </a-radio-group>
         </a-form-item>
 
-        <!-- 地址信息 -->
+        <!-- Address information -->
         <div class="form-section">
           <div class="section-title">
             <div class="title-indicator"></div>
@@ -63,7 +63,7 @@
           </a-form-item>
         </div>
 
-        <!-- 认证信息 -->
+        <!-- Authentication information -->
         <div class="form-section">
           <a-form-item
             v-if="formData.asset_type === 'person'"
@@ -171,7 +171,7 @@
           </div>
         </div>
 
-        <!-- 通用信息 -->
+        <!-- General information -->
         <div class="form-section">
           <div class="section-title">
             <div class="title-indicator"></div>
@@ -263,7 +263,7 @@ const formData = reactive<AssetFormData>({
   password: '',
   ip: '',
   label: '',
-  group_name: 'Hosts', // 使用默认值，避免在reactive中使用t()
+  group_name: 'Hosts', // Use default value to avoid using t() in reactive
   auth_type: 'password',
   keyChain: undefined,
   port: 22,
@@ -273,7 +273,7 @@ const formData = reactive<AssetFormData>({
   ...props.initialData
 })
 
-// 空格验证状态
+// Space validation state
 const spaceValidationState = reactive({
   ip: false,
   port: false,
@@ -281,7 +281,7 @@ const spaceValidationState = reactive({
   password: false
 })
 
-// 在组件挂载后设置默认组名
+// Set default group name after component mount
 watch(
   () => props.initialData,
   (newData) => {
@@ -347,12 +347,12 @@ const handleGroupChange = (val: any) => {
   }
 }
 
-// 检查输入是否包含空格
+// Check if input contains spaces
 const hasSpaces = (value: string): boolean => {
   return Boolean(value && value.includes(' '))
 }
 
-// 检查并显示空格错误
+// Check and show space errors
 const checkSpacesAndShowError = (value: string, errorKey: string): boolean => {
   if (hasSpaces(value)) {
     message.error(t(errorKey))
@@ -362,7 +362,7 @@ const checkSpacesAndShowError = (value: string, errorKey: string): boolean => {
 }
 
 const validateForm = (): boolean => {
-  // 企业资产校验
+  // Enterprise asset validation
   if (formData.asset_type === 'organization') {
     if (!formData.ip || !formData.ip.trim()) {
       message.error(t('personal.validationRemoteHostRequired'))
@@ -382,7 +382,7 @@ const validateForm = (): boolean => {
     }
   }
 
-  // 空格校验
+  // Space validation
   if (formData.ip && !checkSpacesAndShowError(formData.ip, 'personal.validationIpNoSpaces')) {
     return false
   }
@@ -408,7 +408,7 @@ const handleSshProxyStatusChange = async (checked) => {
   formData.needProxy = checked
 }
 
-// 输入处理函数 - 实时空格检测
+// Input handler functions - real-time space detection
 const handleIpInput = (event: Event) => {
   const target = event.target as HTMLInputElement
   const value = target.value
@@ -464,7 +464,7 @@ watch(
       proxyName: '',
       ...newData
     })
-    // 重置空格验证状态
+    // Reset space validation state
     Object.assign(spaceValidationState, {
       ip: false,
       port: false,
@@ -614,7 +614,7 @@ watch(
   background-color: var(--hover-bg-color);
 }
 
-/* 空格验证错误样式 */
+/* Space validation error styles */
 .space-validation-error {
   border-color: #ff4d4f !important;
   box-shadow: 0 0 0 2px rgba(255, 77, 79, 0.2) !important;
@@ -625,7 +625,7 @@ watch(
   box-shadow: 0 0 0 2px rgba(255, 77, 79, 0.2) !important;
 }
 
-/* 为密码输入框的特殊处理 */
+/* Special handling for password input fields */
 :deep(.ant-input-password.space-validation-error .ant-input) {
   border-color: #ff4d4f !important;
   box-shadow: 0 0 0 2px rgba(255, 77, 79, 0.2) !important;
