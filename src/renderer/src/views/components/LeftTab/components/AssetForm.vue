@@ -45,6 +45,7 @@
             <a-input
               v-model:value="formData.ip"
               :placeholder="t('personal.pleaseInputRemoteHost')"
+              :class="{ 'space-validation-error': spaceValidationState.ip }"
               @input="handleIpInput"
             />
           </a-form-item>
@@ -55,6 +56,7 @@
               :min="20"
               :max="65536"
               :placeholder="t('personal.pleaseInputPort')"
+              :class="{ 'space-validation-error': spaceValidationState.port }"
               style="width: 100%"
               @input="handlePortInput"
             />
@@ -82,6 +84,7 @@
             <a-input
               v-model:value="formData.username"
               :placeholder="t('personal.pleaseInputUsername')"
+              :class="{ 'space-validation-error': spaceValidationState.username }"
               @input="handleUsernameInput"
             />
           </a-form-item>
@@ -93,6 +96,7 @@
             <a-input-password
               v-model:value="formData.password"
               :placeholder="t('personal.pleaseInputPassword')"
+              :class="{ 'space-validation-error': spaceValidationState.password }"
               @input="handlePasswordInput"
             />
           </a-form-item>
@@ -129,6 +133,7 @@
               <a-input-password
                 v-model:value="formData.password"
                 :placeholder="t('personal.pleaseInputPassword')"
+                :class="{ 'space-validation-error': spaceValidationState.password }"
                 @input="handlePasswordInput"
               />
             </a-form-item>
@@ -268,6 +273,14 @@ const formData = reactive<AssetFormData>({
   ...props.initialData
 })
 
+// 空格验证状态
+const spaceValidationState = reactive({
+  ip: false,
+  port: false,
+  username: false,
+  password: false
+})
+
 // 在组件挂载后设置默认组名
 watch(
   () => props.initialData,
@@ -399,6 +412,7 @@ const handleSshProxyStatusChange = async (checked) => {
 const handleIpInput = (event: Event) => {
   const target = event.target as HTMLInputElement
   const value = target.value
+  spaceValidationState.ip = hasSpaces(value)
   if (hasSpaces(value)) {
     message.warning(t('personal.validationIpNoSpaces'))
   }
@@ -407,6 +421,7 @@ const handleIpInput = (event: Event) => {
 const handlePortInput = (event: Event) => {
   const target = event.target as HTMLInputElement
   const value = target.value
+  spaceValidationState.port = hasSpaces(value)
   if (hasSpaces(value)) {
     message.warning(t('personal.validationPortNoSpaces'))
   }
@@ -415,6 +430,7 @@ const handlePortInput = (event: Event) => {
 const handleUsernameInput = (event: Event) => {
   const target = event.target as HTMLInputElement
   const value = target.value
+  spaceValidationState.username = hasSpaces(value)
   if (hasSpaces(value)) {
     message.warning(t('personal.validationUsernameNoSpaces'))
   }
@@ -423,6 +439,7 @@ const handleUsernameInput = (event: Event) => {
 const handlePasswordInput = (event: Event) => {
   const target = event.target as HTMLInputElement
   const value = target.value
+  spaceValidationState.password = hasSpaces(value)
   if (hasSpaces(value)) {
     message.warning(t('personal.validationPasswordNoSpaces'))
   }
@@ -446,6 +463,13 @@ watch(
       needProxy: false,
       proxyName: '',
       ...newData
+    })
+    // 重置空格验证状态
+    Object.assign(spaceValidationState, {
+      ip: false,
+      port: false,
+      username: false,
+      password: false
     })
   },
   { deep: true }
@@ -588,5 +612,27 @@ watch(
 
 .general-group :deep(.ant-select-selection-item) {
   background-color: var(--hover-bg-color);
+}
+
+/* 空格验证错误样式 */
+.space-validation-error {
+  border-color: #ff4d4f !important;
+  box-shadow: 0 0 0 2px rgba(255, 77, 79, 0.2) !important;
+}
+
+.space-validation-error:focus {
+  border-color: #ff4d4f !important;
+  box-shadow: 0 0 0 2px rgba(255, 77, 79, 0.2) !important;
+}
+
+/* 为密码输入框的特殊处理 */
+:deep(.ant-input-password.space-validation-error .ant-input) {
+  border-color: #ff4d4f !important;
+  box-shadow: 0 0 0 2px rgba(255, 77, 79, 0.2) !important;
+}
+
+:deep(.ant-input-password.space-validation-error .ant-input:focus) {
+  border-color: #ff4d4f !important;
+  box-shadow: 0 0 0 2px rgba(255, 77, 79, 0.2) !important;
 }
 </style>
