@@ -683,7 +683,11 @@ export default {
     createError: '创建出错',
     missingKeyId: '缺少密钥 ID',
     keyFileImported: '密钥文件已导入',
-    readFileFailed: '读取文件失败'
+    readFileFailed: '读取文件失败',
+    nameContainsSpace: '密钥名称不能包含空格',
+    privateKeyContainsSpace: '私钥不能包含空格',
+    publicKeyContainsSpace: '公钥不能包含空格',
+    passphraseContainsSpace: '私钥密码不能包含空格'
   },
   userInfo: {
     enterprise: '企业用户',

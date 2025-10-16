@@ -41,22 +41,30 @@
             {{ t('personal.address') }}
           </div>
 
-          <a-form-item :label="t('personal.remoteHost')">
+          <a-form-item
+            :label="t('personal.remoteHost')"
+            :validate-status="validationErrors.ip ? 'error' : ''"
+            :help="validationErrors.ip"
+          >
             <a-input
               v-model:value="formData.ip"
               :placeholder="t('personal.pleaseInputRemoteHost')"
-              :class="{ 'space-validation-error': spaceValidationState.ip }"
+              :class="{ 'error-input': validationErrors.ip }"
               @input="handleIpInput"
             />
           </a-form-item>
 
-          <a-form-item :label="t('personal.port')">
+          <a-form-item
+            :label="t('personal.port')"
+            :validate-status="validationErrors.port ? 'error' : ''"
+            :help="validationErrors.port"
+          >
             <a-input
               v-model:value="formData.port"
               :min="20"
               :max="65536"
               :placeholder="t('personal.pleaseInputPort')"
-              :class="{ 'space-validation-error': spaceValidationState.port }"
+              :class="{ 'error-input': validationErrors.port }"
               style="width: 100%"
               @input="handlePortInput"
             />
@@ -80,11 +88,15 @@
             </a-radio-group>
           </a-form-item>
 
-          <a-form-item :label="t('personal.username')">
+          <a-form-item
+            :label="t('personal.username')"
+            :validate-status="validationErrors.username ? 'error' : ''"
+            :help="validationErrors.username"
+          >
             <a-input
               v-model:value="formData.username"
               :placeholder="t('personal.pleaseInputUsername')"
-              :class="{ 'space-validation-error': spaceValidationState.username }"
+              :class="{ 'error-input': validationErrors.username }"
               @input="handleUsernameInput"
             />
           </a-form-item>
@@ -92,11 +104,13 @@
           <a-form-item
             v-if="formData.auth_type == 'password'"
             :label="t('personal.password')"
+            :validate-status="validationErrors.password ? 'error' : ''"
+            :help="validationErrors.password"
           >
             <a-input-password
               v-model:value="formData.password"
               :placeholder="t('personal.pleaseInputPassword')"
-              :class="{ 'space-validation-error': spaceValidationState.password }"
+              :class="{ 'error-input': validationErrors.password }"
               @input="handlePasswordInput"
             />
           </a-form-item>
@@ -129,11 +143,13 @@
             <a-form-item
               v-if="formData.asset_type === 'organization'"
               :label="t('personal.password')"
+              :validate-status="validationErrors.password ? 'error' : ''"
+              :help="validationErrors.password"
             >
               <a-input-password
                 v-model:value="formData.password"
                 :placeholder="t('personal.pleaseInputPassword')"
-                :class="{ 'space-validation-error': spaceValidationState.password }"
+                :class="{ 'error-input': validationErrors.password }"
                 @input="handlePasswordInput"
               />
             </a-form-item>
@@ -273,12 +289,12 @@ const formData = reactive<AssetFormData>({
   ...props.initialData
 })
 
-// Space validation state
-const spaceValidationState = reactive({
-  ip: false,
-  port: false,
-  username: false,
-  password: false
+// Validation errors state
+const validationErrors = reactive({
+  ip: '',
+  port: '',
+  username: '',
+  password: ''
 })
 
 // Set default group name after component mount
@@ -352,13 +368,26 @@ const hasSpaces = (value: string): boolean => {
   return Boolean(value && value.includes(' '))
 }
 
-// Check and show space errors
-const checkSpacesAndShowError = (value: string, errorKey: string): boolean => {
+// Validate field for spaces
+const validateField = (field: keyof typeof validationErrors, value: string) => {
   if (hasSpaces(value)) {
-    message.error(t(errorKey))
-    return false
+    switch (field) {
+      case 'ip':
+        validationErrors.ip = t('personal.validationIpNoSpaces')
+        break
+      case 'port':
+        validationErrors.port = t('personal.validationPortNoSpaces')
+        break
+      case 'username':
+        validationErrors.username = t('personal.validationUsernameNoSpaces')
+        break
+      case 'password':
+        validationErrors.password = t('personal.validationPasswordNoSpaces')
+        break
+    }
+  } else {
+    validationErrors[field] = ''
   }
-  return true
 }
 
 const validateForm = (): boolean => {
@@ -383,16 +412,13 @@ const validateForm = (): boolean => {
   }
 
   // Space validation
-  if (formData.ip && !checkSpacesAndShowError(formData.ip, 'personal.validationIpNoSpaces')) {
-    return false
-  }
-  if (formData.port && !checkSpacesAndShowError(String(formData.port), 'personal.validationPortNoSpaces')) {
-    return false
-  }
-  if (formData.username && !checkSpacesAndShowError(formData.username, 'personal.validationUsernameNoSpaces')) {
-    return false
-  }
-  if (formData.password && !checkSpacesAndShowError(formData.password, 'personal.validationPasswordNoSpaces')) {
+  validateField('ip', formData.ip)
+  validateField('port', String(formData.port))
+  validateField('username', formData.username)
+  validateField('password', formData.password)
+
+  // Check if any validation errors exist
+  if (Object.values(validationErrors).some((error) => error !== '')) {
     return false
   }
 
@@ -412,37 +438,25 @@ const handleSshProxyStatusChange = async (checked) => {
 const handleIpInput = (event: Event) => {
   const target = event.target as HTMLInputElement
   const value = target.value
-  spaceValidationState.ip = hasSpaces(value)
-  if (hasSpaces(value)) {
-    message.warning(t('personal.validationIpNoSpaces'))
-  }
+  validateField('ip', value)
 }
 
 const handlePortInput = (event: Event) => {
   const target = event.target as HTMLInputElement
   const value = target.value
-  spaceValidationState.port = hasSpaces(value)
-  if (hasSpaces(value)) {
-    message.warning(t('personal.validationPortNoSpaces'))
-  }
+  validateField('port', value)
 }
 
 const handleUsernameInput = (event: Event) => {
   const target = event.target as HTMLInputElement
   const value = target.value
-  spaceValidationState.username = hasSpaces(value)
-  if (hasSpaces(value)) {
-    message.warning(t('personal.validationUsernameNoSpaces'))
-  }
+  validateField('username', value)
 }
 
 const handlePasswordInput = (event: Event) => {
   const target = event.target as HTMLInputElement
   const value = target.value
-  spaceValidationState.password = hasSpaces(value)
-  if (hasSpaces(value)) {
-    message.warning(t('personal.validationPasswordNoSpaces'))
-  }
+  validateField('password', value)
 }
 
 // Reset form data when initialData changes
@@ -464,12 +478,12 @@ watch(
       proxyName: '',
       ...newData
     })
-    // Reset space validation state
-    Object.assign(spaceValidationState, {
-      ip: false,
-      port: false,
-      username: false,
-      password: false
+    // Reset validation errors
+    Object.assign(validationErrors, {
+      ip: '',
+      port: '',
+      username: '',
+      password: ''
     })
   },
   { deep: true }
@@ -614,25 +628,33 @@ watch(
   background-color: var(--hover-bg-color);
 }
 
-/* Space validation error styles */
-.space-validation-error {
+/* Error input styles */
+.error-input {
   border-color: #ff4d4f !important;
   box-shadow: 0 0 0 2px rgba(255, 77, 79, 0.2) !important;
 }
 
-.space-validation-error:focus {
+.error-input:focus {
   border-color: #ff4d4f !important;
   box-shadow: 0 0 0 2px rgba(255, 77, 79, 0.2) !important;
+}
+
+.error-input:hover {
+  border-color: #ff4d4f !important;
 }
 
 /* Special handling for password input fields */
-:deep(.ant-input-password.space-validation-error .ant-input) {
+:deep(.ant-input-password.error-input .ant-input) {
   border-color: #ff4d4f !important;
   box-shadow: 0 0 0 2px rgba(255, 77, 79, 0.2) !important;
 }
 
-:deep(.ant-input-password.space-validation-error .ant-input:focus) {
+:deep(.ant-input-password.error-input .ant-input:focus) {
   border-color: #ff4d4f !important;
   box-shadow: 0 0 0 2px rgba(255, 77, 79, 0.2) !important;
+}
+
+:deep(.ant-input-password.error-input .ant-input:hover) {
+  border-color: #ff4d4f !important;
 }
 </style>
