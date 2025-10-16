@@ -1887,14 +1887,16 @@ const checkEditorMode = (response: MarkedResponse) => {
   if (terminalMode.value === 'alternate') {
     // Only exit vim mode when shell prompt is clearly detected
     const text = new TextDecoder().decode(new Uint8Array(dataBuffer.value))
-    // More precise shell prompt detection - look for patterns at the end of lines
+    // More precise shell prompt detection - look for actual shell prompt patterns
     const lines = text.split('\n')
     const lastLine = lines[lines.length - 1] || ''
-    const secondLastLine = lines[lines.length - 2] || ''
 
-    // Check for shell prompt patterns at the end of the last line or second last line
+    // Check for typical shell prompt patterns (username@hostname, path, etc.)
+    // These patterns indicate we're back to a shell prompt, not just content with $ symbols
     const hasShellPrompt =
-      lastLine.match(/\s*[$#]\s*$/) || secondLastLine.match(/\s*[$#]\s*$/) || lastLine.match(/\s*~[$#]\s*$/) || secondLastLine.match(/\s*~[$#]\s*$/)
+      lastLine.match(/^[^@]*@[^:]*:.*[$#]\s*$/) || // user@host:path$
+      lastLine.match(/^\[[^@]*@[^\]]*\][$#]\s*$/) || // [user@host]$
+      lastLine.match(/^[^@]*@[^:]*:.*~[$#]\s*$/) // user@host:~$
 
     if (hasShellPrompt) {
       terminalMode.value = 'none'
@@ -2805,6 +2807,7 @@ const isDeleteKeyData = (d: string) => d === '\x7f' || d === '\b' || d === '\x1b
   position: relative;
 
   /* Enable scrollbar for terminal container */
+
   &::-webkit-scrollbar {
     width: 6px;
   }
