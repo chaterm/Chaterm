@@ -45,6 +45,7 @@
             <a-input
               v-model:value="formData.ip"
               :placeholder="t('personal.pleaseInputRemoteHost')"
+              @input="handleIpInput"
             />
           </a-form-item>
 
@@ -55,6 +56,7 @@
               :max="65536"
               :placeholder="t('personal.pleaseInputPort')"
               style="width: 100%"
+              @input="handlePortInput"
             />
           </a-form-item>
         </div>
@@ -80,6 +82,7 @@
             <a-input
               v-model:value="formData.username"
               :placeholder="t('personal.pleaseInputUsername')"
+              @input="handleUsernameInput"
             />
           </a-form-item>
 
@@ -90,6 +93,7 @@
             <a-input-password
               v-model:value="formData.password"
               :placeholder="t('personal.pleaseInputPassword')"
+              @input="handlePasswordInput"
             />
           </a-form-item>
 
@@ -125,6 +129,7 @@
               <a-input-password
                 v-model:value="formData.password"
                 :placeholder="t('personal.pleaseInputPassword')"
+                @input="handlePasswordInput"
               />
             </a-form-item>
           </template>
@@ -217,7 +222,7 @@ import { reactive, watch } from 'vue'
 import { ToTopOutlined } from '@ant-design/icons-vue'
 import { message } from 'ant-design-vue'
 import i18n from '@/locales'
-import type { AssetFormData, KeyChainItem, sshProxyConfig } from '../types'
+import type { AssetFormData, KeyChainItem } from '../types'
 import { SshProxyConfigItem } from '../types'
 
 const { t } = i18n.global
@@ -322,9 +327,25 @@ const handleGroupChange = (val: any) => {
     formData.group_name = String(val[val.length - 1])
   } else if (typeof val === 'string') {
     formData.group_name = val
+  } else if (typeof val === 'number') {
+    formData.group_name = String(val)
   } else {
     formData.group_name = ''
   }
+}
+
+// 检查输入是否包含空格
+const hasSpaces = (value: string): boolean => {
+  return Boolean(value && value.includes(' '))
+}
+
+// 检查并显示空格错误
+const checkSpacesAndShowError = (value: string, errorKey: string): boolean => {
+  if (hasSpaces(value)) {
+    message.error(t(errorKey))
+    return false
+  }
+  return true
 }
 
 const validateForm = (): boolean => {
@@ -347,6 +368,21 @@ const validateForm = (): boolean => {
       return false
     }
   }
+
+  // 空格校验
+  if (formData.ip && !checkSpacesAndShowError(formData.ip, 'personal.validationIpNoSpaces')) {
+    return false
+  }
+  if (formData.port && !checkSpacesAndShowError(String(formData.port), 'personal.validationPortNoSpaces')) {
+    return false
+  }
+  if (formData.username && !checkSpacesAndShowError(formData.username, 'personal.validationUsernameNoSpaces')) {
+    return false
+  }
+  if (formData.password && !checkSpacesAndShowError(formData.password, 'personal.validationPasswordNoSpaces')) {
+    return false
+  }
+
   return true
 }
 
@@ -357,6 +393,39 @@ const handleSubmit = () => {
 
 const handleSshProxyStatusChange = async (checked) => {
   formData.needProxy = checked
+}
+
+// 输入处理函数 - 实时空格检测
+const handleIpInput = (event: Event) => {
+  const target = event.target as HTMLInputElement
+  const value = target.value
+  if (hasSpaces(value)) {
+    message.warning(t('personal.validationIpNoSpaces'))
+  }
+}
+
+const handlePortInput = (event: Event) => {
+  const target = event.target as HTMLInputElement
+  const value = target.value
+  if (hasSpaces(value)) {
+    message.warning(t('personal.validationPortNoSpaces'))
+  }
+}
+
+const handleUsernameInput = (event: Event) => {
+  const target = event.target as HTMLInputElement
+  const value = target.value
+  if (hasSpaces(value)) {
+    message.warning(t('personal.validationUsernameNoSpaces'))
+  }
+}
+
+const handlePasswordInput = (event: Event) => {
+  const target = event.target as HTMLInputElement
+  const value = target.value
+  if (hasSpaces(value)) {
+    message.warning(t('personal.validationPasswordNoSpaces'))
+  }
 }
 
 // Reset form data when initialData changes
