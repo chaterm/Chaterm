@@ -684,7 +684,11 @@ export default {
     createError: 'Creation error',
     missingKeyId: 'Missing key ID',
     keyFileImported: 'Key file imported',
-    readFileFailed: 'Failed to read file'
+    readFileFailed: 'Failed to read file',
+    nameContainsSpace: 'Key name cannot contain spaces',
+    privateKeyContainsSpace: 'Private key cannot contain spaces',
+    publicKeyContainsSpace: 'Public key cannot contain spaces',
+    passphraseContainsSpace: 'Passphrase cannot contain spaces'
   },
   userInfo: {
     enterprise: 'Enterprise User',
