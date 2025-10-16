@@ -1657,6 +1657,10 @@ const setupTerminalInput = () => {
           // 延迟设置vim模式，等待vim启动
           setTimeout(() => {
             terminalMode.value = 'alternate'
+            // Clear the auto-completion box immediately when entering the vim mode.
+            suggestions.value = []
+            activeSuggestion.value = -1
+            suggestionSelectionMode.value = false
           }, 500)
         }
       }
@@ -1831,6 +1835,10 @@ const checkEditorMode = (response: MarkedResponse) => {
   if (terminalMode.value === 'none') {
     if (EDITOR_SEQUENCES.enter.some((seq) => matchPattern(dataBuffer.value, seq.pattern))) {
       terminalMode.value = 'alternate'
+      // Clear the auto-completion box immediately when entering the vim mode.
+      suggestions.value = []
+      activeSuggestion.value = -1
+      suggestionSelectionMode.value = false
       nextTick(handleResize)
       return
     }
@@ -1847,6 +1855,10 @@ const checkEditorMode = (response: MarkedResponse) => {
       text.includes('\x1b[?1l')
     ) {
       terminalMode.value = 'alternate'
+      // Clear the auto-completion box immediately when entering the vim mode.
+      suggestions.value = []
+      activeSuggestion.value = -1
+      suggestionSelectionMode.value = false
       nextTick(handleResize)
       return
     }
@@ -1854,6 +1866,10 @@ const checkEditorMode = (response: MarkedResponse) => {
     // 检测vim特有的序列组合
     if (text.includes('\x1b[?25h') && (text.includes('All') || text.includes('H'))) {
       terminalMode.value = 'alternate'
+      // Clear the auto-completion box immediately when entering the vim mode.
+      suggestions.value = []
+      activeSuggestion.value = -1
+      suggestionSelectionMode.value = false
       nextTick(handleResize)
       return
     }
@@ -2276,6 +2292,14 @@ const selectSuggestion = (suggestion: CommandSuggestion) => {
 }
 const queryCommand = async (cmd = '') => {
   if (!queryCommandFlag.value || isSyncInput.value) return
+
+  // Check if it is in the Vim editing mode. If so, do not trigger the automatic completion.
+  if (terminalMode.value === 'alternate') {
+    suggestions.value = []
+    suggestionSelectionMode.value = false
+    return
+  }
+
   const isAtEndOfLine = terminalState.value.beforeCursor.length === terminalState.value.content.length
   if (!isAtEndOfLine) {
     suggestions.value = []
