@@ -137,14 +137,9 @@
                 @input="validateField('label', createForm.label)"
               />
             </a-form-item>
-            <a-form-item
-              :label="`${t('keyChain.privateKey')}*`"
-              :validate-status="validationErrors.privateKey ? 'error' : ''"
-              :help="validationErrors.privateKey"
-            >
+            <a-form-item :label="`${t('keyChain.privateKey')}*`">
               <a-textarea
                 v-model:value="createForm.privateKey"
-                :class="{ 'error-input': validationErrors.privateKey }"
                 :rows="4"
                 :auto-size="{ minRows: 5, maxRows: 8 }"
                 spellcheck="false"
@@ -152,7 +147,6 @@
                 autocapitalize="off"
                 autocomplete="off"
                 :placeholder="t('keyChain.pleaseInput')"
-                @input="validateField('privateKey', createForm.privateKey)"
               />
             </a-form-item>
             <a-form-item
@@ -305,7 +299,6 @@ const createForm = reactive<CreateFormType>({
 // Validation states
 const validationErrors = reactive({
   label: '',
-  privateKey: '',
   publicKey: '',
   passphrase: ''
 })
@@ -321,7 +314,6 @@ const resetForm = () => {
   // Clear validation errors
   Object.assign(validationErrors, {
     label: '',
-    privateKey: '',
     publicKey: '',
     passphrase: ''
   })
@@ -333,9 +325,6 @@ const validateField = (field: keyof typeof validationErrors, value: string) => {
     switch (field) {
       case 'label':
         validationErrors.label = t('keyChain.nameContainsSpace')
-        break
-      case 'privateKey':
-        validationErrors.privateKey = t('keyChain.privateKeyContainsSpace')
         break
       case 'publicKey':
         validationErrors.publicKey = t('keyChain.publicKeyContainsSpace')
@@ -351,7 +340,6 @@ const validateField = (field: keyof typeof validationErrors, value: string) => {
 
 const validateAllFields = () => {
   validateField('label', createForm.label)
-  validateField('privateKey', createForm.privateKey)
   validateField('publicKey', createForm.publicKey)
   validateField('passphrase', createForm.passphrase)
 
