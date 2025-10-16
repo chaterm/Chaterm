@@ -1583,24 +1583,18 @@ const setupTerminalInput = () => {
         sendData(data)
       }
     } else if (data === '\x16') {
-      // Check if we're in vim mode (alternate mode)
-      if (terminalMode.value === 'alternate') {
-        // In vim mode, pass Ctrl+V to remote terminal for visual block mode
-        sendData(data)
-      } else {
-        // In normal mode, perform paste operation
-        navigator.clipboard
-          .readText()
-          .then((text) => {
-            sendData(text)
-            // Ensure scroll to bottom after paste
-            nextTick(() => {
-              terminal.value?.scrollToBottom()
-              terminal.value?.focus()
-            })
+      // Always perform paste operation, regardless of terminal mode
+      navigator.clipboard
+        .readText()
+        .then((text) => {
+          sendData(text)
+          // Ensure scroll to bottom after paste
+          nextTick(() => {
+            terminal.value?.scrollToBottom()
+            terminal.value?.focus()
           })
-          .catch(() => {})
-      }
+        })
+        .catch(() => {})
     } else if (data == '\r') {
       if (!isConnected.value) {
         cusWrite?.('\r\n' + t('ssh.reconnecting') + '\r\n', { isUserCall: true })
@@ -1844,15 +1838,24 @@ const checkEditorMode = (response: MarkedResponse) => {
     }
 
     // More lenient vim detection: check if it contains common vim entry sequences
+    // But exclude systemctl and other system commands that might use similar sequences
     const text = new TextDecoder().decode(new Uint8Array(dataBuffer.value))
+
+    // Don't enter alternate mode if we detect shell prompt or exit sequences
+    // These are typically from system commands returning to shell
     if (
-      text.includes('\x1b[?1049h') ||
-      text.includes('\x1b[?47h') ||
-      text.includes('\x1b[?1047h') ||
-      text.includes('\x1b[?25h') ||
-      text.includes('\x1b[?25l') ||
-      text.includes('\x1b[?1h') ||
-      text.includes('\x1b[?1l')
+      !text.includes('$ ') &&
+      !text.includes('# ') &&
+      !text.includes('~$') &&
+      !text.includes('\x1b[?1l') &&
+      !text.includes('\x1b[?2004h') &&
+      (text.includes('\x1b[?1049h') ||
+        text.includes('\x1b[?47h') ||
+        text.includes('\x1b[?1047h') ||
+        text.includes('\x1b[?25h') ||
+        text.includes('\x1b[?25l') ||
+        text.includes('\x1b[?1h') ||
+        text.includes('\x1b[?1l'))
     ) {
       terminalMode.value = 'alternate'
       // Clear the auto-completion box immediately when entering the vim mode.
@@ -1878,7 +1881,25 @@ const checkEditorMode = (response: MarkedResponse) => {
   if (terminalMode.value === 'alternate') {
     // Only exit vim mode when shell prompt is clearly detected
     const text = new TextDecoder().decode(new Uint8Array(dataBuffer.value))
-    if (text.includes('$ ') || text.includes('# ') || text.includes('~$')) {
+    const lines = text.split('\n')
+    const lastLine = lines[lines.length - 1] || ''
+    const secondLastLine = lines[lines.length - 2] || ''
+
+    // Check for typical shell prompt patterns (username@hostname, path, etc.)
+    // These patterns indicate we're back to a shell prompt, not just content with $ symbols
+    const hasShellPrompt =
+      lastLine.match(/^[^@]*@[^:]*:.*[$#]\s*$/) || // user@host:path$
+      lastLine.match(/^\[[^@]*@[^\]]*\][$#]\s*$/) || // [user@host]$
+      lastLine.match(/^[^@]*@[^:]*:.*~[$#]\s*$/) || // user@host:~$
+      lastLine.match(/^.*:\s*[$#]\s*$/) || // path:$
+      lastLine.match(/^\s*[$#]\s*$/) || // simple $ or # prompt
+      secondLastLine.match(/^[^@]*@[^:]*:.*[$#]\s*$/) || // check second last line too
+      secondLastLine.match(/^\[[^@]*@[^\]]*\][$#]\s*$/) ||
+      secondLastLine.match(/^[^@]*@[^:]*:.*~[$#]\s*$/) ||
+      secondLastLine.match(/^.*:\s*[$#]\s*$/) ||
+      secondLastLine.match(/^\s*[$#]\s*$/)
+
+    if (hasShellPrompt) {
       terminalMode.value = 'none'
       dataBuffer.value = []
       nextTick(handleResize)
@@ -2787,6 +2808,7 @@ const isDeleteKeyData = (d: string) => d === '\x7f' || d === '\b' || d === '\x1b
   position: relative;
 
   /* Enable scrollbar for terminal container */
+
   &::-webkit-scrollbar {
     width: 6px;
   }
