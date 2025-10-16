@@ -683,6 +683,8 @@ const handleCheck = async (provider: string): Promise<void> => {
         awsAccessKey: awsAccessKey.value,
         awsSecretKey: awsSecretKey.value,
         awsSessionToken: awsSessionToken.value,
+        awsUseCrossRegionInference: awsUseCrossRegionInference.value,
+        awsBedrockEndpoint: awsBedrockEndpoint.value,
         awsRegion: awsRegion.value
       }
       break
