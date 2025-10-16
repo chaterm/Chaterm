@@ -45,6 +45,8 @@
             <a-input
               v-model:value="formData.ip"
               :placeholder="t('personal.pleaseInputRemoteHost')"
+              :class="{ 'space-validation-error': spaceValidationState.ip }"
+              @input="handleIpInput"
             />
           </a-form-item>
 
@@ -54,7 +56,9 @@
               :min="20"
               :max="65536"
               :placeholder="t('personal.pleaseInputPort')"
+              :class="{ 'space-validation-error': spaceValidationState.port }"
               style="width: 100%"
+              @input="handlePortInput"
             />
           </a-form-item>
         </div>
@@ -80,6 +84,8 @@
             <a-input
               v-model:value="formData.username"
               :placeholder="t('personal.pleaseInputUsername')"
+              :class="{ 'space-validation-error': spaceValidationState.username }"
+              @input="handleUsernameInput"
             />
           </a-form-item>
 
@@ -90,6 +96,8 @@
             <a-input-password
               v-model:value="formData.password"
               :placeholder="t('personal.pleaseInputPassword')"
+              :class="{ 'space-validation-error': spaceValidationState.password }"
+              @input="handlePasswordInput"
             />
           </a-form-item>
 
@@ -125,6 +133,8 @@
               <a-input-password
                 v-model:value="formData.password"
                 :placeholder="t('personal.pleaseInputPassword')"
+                :class="{ 'space-validation-error': spaceValidationState.password }"
+                @input="handlePasswordInput"
               />
             </a-form-item>
           </template>
@@ -217,7 +227,7 @@ import { reactive, watch } from 'vue'
 import { ToTopOutlined } from '@ant-design/icons-vue'
 import { message } from 'ant-design-vue'
 import i18n from '@/locales'
-import type { AssetFormData, KeyChainItem, sshProxyConfig } from '../types'
+import type { AssetFormData, KeyChainItem } from '../types'
 import { SshProxyConfigItem } from '../types'
 
 const { t } = i18n.global
@@ -261,6 +271,14 @@ const formData = reactive<AssetFormData>({
   needProxy: false,
   proxyName: '',
   ...props.initialData
+})
+
+// 空格验证状态
+const spaceValidationState = reactive({
+  ip: false,
+  port: false,
+  username: false,
+  password: false
 })
 
 // 在组件挂载后设置默认组名
@@ -322,9 +340,25 @@ const handleGroupChange = (val: any) => {
     formData.group_name = String(val[val.length - 1])
   } else if (typeof val === 'string') {
     formData.group_name = val
+  } else if (typeof val === 'number') {
+    formData.group_name = String(val)
   } else {
     formData.group_name = ''
   }
+}
+
+// 检查输入是否包含空格
+const hasSpaces = (value: string): boolean => {
+  return Boolean(value && value.includes(' '))
+}
+
+// 检查并显示空格错误
+const checkSpacesAndShowError = (value: string, errorKey: string): boolean => {
+  if (hasSpaces(value)) {
+    message.error(t(errorKey))
+    return false
+  }
+  return true
 }
 
 const validateForm = (): boolean => {
@@ -347,6 +381,21 @@ const validateForm = (): boolean => {
       return false
     }
   }
+
+  // 空格校验
+  if (formData.ip && !checkSpacesAndShowError(formData.ip, 'personal.validationIpNoSpaces')) {
+    return false
+  }
+  if (formData.port && !checkSpacesAndShowError(String(formData.port), 'personal.validationPortNoSpaces')) {
+    return false
+  }
+  if (formData.username && !checkSpacesAndShowError(formData.username, 'personal.validationUsernameNoSpaces')) {
+    return false
+  }
+  if (formData.password && !checkSpacesAndShowError(formData.password, 'personal.validationPasswordNoSpaces')) {
+    return false
+  }
+
   return true
 }
 
@@ -357,6 +406,43 @@ const handleSubmit = () => {
 
 const handleSshProxyStatusChange = async (checked) => {
   formData.needProxy = checked
+}
+
+// 输入处理函数 - 实时空格检测
+const handleIpInput = (event: Event) => {
+  const target = event.target as HTMLInputElement
+  const value = target.value
+  spaceValidationState.ip = hasSpaces(value)
+  if (hasSpaces(value)) {
+    message.warning(t('personal.validationIpNoSpaces'))
+  }
+}
+
+const handlePortInput = (event: Event) => {
+  const target = event.target as HTMLInputElement
+  const value = target.value
+  spaceValidationState.port = hasSpaces(value)
+  if (hasSpaces(value)) {
+    message.warning(t('personal.validationPortNoSpaces'))
+  }
+}
+
+const handleUsernameInput = (event: Event) => {
+  const target = event.target as HTMLInputElement
+  const value = target.value
+  spaceValidationState.username = hasSpaces(value)
+  if (hasSpaces(value)) {
+    message.warning(t('personal.validationUsernameNoSpaces'))
+  }
+}
+
+const handlePasswordInput = (event: Event) => {
+  const target = event.target as HTMLInputElement
+  const value = target.value
+  spaceValidationState.password = hasSpaces(value)
+  if (hasSpaces(value)) {
+    message.warning(t('personal.validationPasswordNoSpaces'))
+  }
 }
 
 // Reset form data when initialData changes
@@ -377,6 +463,13 @@ watch(
       needProxy: false,
       proxyName: '',
       ...newData
+    })
+    // 重置空格验证状态
+    Object.assign(spaceValidationState, {
+      ip: false,
+      port: false,
+      username: false,
+      password: false
     })
   },
   { deep: true }
@@ -519,5 +612,27 @@ watch(
 
 .general-group :deep(.ant-select-selection-item) {
   background-color: var(--hover-bg-color);
+}
+
+/* 空格验证错误样式 */
+.space-validation-error {
+  border-color: #ff4d4f !important;
+  box-shadow: 0 0 0 2px rgba(255, 77, 79, 0.2) !important;
+}
+
+.space-validation-error:focus {
+  border-color: #ff4d4f !important;
+  box-shadow: 0 0 0 2px rgba(255, 77, 79, 0.2) !important;
+}
+
+/* 为密码输入框的特殊处理 */
+:deep(.ant-input-password.space-validation-error .ant-input) {
+  border-color: #ff4d4f !important;
+  box-shadow: 0 0 0 2px rgba(255, 77, 79, 0.2) !important;
+}
+
+:deep(.ant-input-password.space-validation-error .ant-input:focus) {
+  border-color: #ff4d4f !important;
+  box-shadow: 0 0 0 2px rgba(255, 77, 79, 0.2) !important;
 }
 </style>
