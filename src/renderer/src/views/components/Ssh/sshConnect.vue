@@ -1844,15 +1844,24 @@ const checkEditorMode = (response: MarkedResponse) => {
     }
 
     // More lenient vim detection: check if it contains common vim entry sequences
+    // But exclude systemctl and other system commands that might use similar sequences
     const text = new TextDecoder().decode(new Uint8Array(dataBuffer.value))
+
+    // Don't enter alternate mode if we detect shell prompt or exit sequences
+    // These are typically from system commands returning to shell
     if (
-      text.includes('\x1b[?1049h') ||
-      text.includes('\x1b[?47h') ||
-      text.includes('\x1b[?1047h') ||
-      text.includes('\x1b[?25h') ||
-      text.includes('\x1b[?25l') ||
-      text.includes('\x1b[?1h') ||
-      text.includes('\x1b[?1l')
+      !text.includes('$ ') &&
+      !text.includes('# ') &&
+      !text.includes('~$') &&
+      !text.includes('\x1b[?1l') &&
+      !text.includes('\x1b[?2004h') &&
+      (text.includes('\x1b[?1049h') ||
+        text.includes('\x1b[?47h') ||
+        text.includes('\x1b[?1047h') ||
+        text.includes('\x1b[?25h') ||
+        text.includes('\x1b[?25l') ||
+        text.includes('\x1b[?1h') ||
+        text.includes('\x1b[?1l'))
     ) {
       terminalMode.value = 'alternate'
       // Clear the auto-completion box immediately when entering the vim mode.
@@ -1878,7 +1887,16 @@ const checkEditorMode = (response: MarkedResponse) => {
   if (terminalMode.value === 'alternate') {
     // Only exit vim mode when shell prompt is clearly detected
     const text = new TextDecoder().decode(new Uint8Array(dataBuffer.value))
-    if (text.includes('$ ') || text.includes('# ') || text.includes('~$')) {
+    // More precise shell prompt detection - look for patterns at the end of lines
+    const lines = text.split('\n')
+    const lastLine = lines[lines.length - 1] || ''
+    const secondLastLine = lines[lines.length - 2] || ''
+
+    // Check for shell prompt patterns at the end of the last line or second last line
+    const hasShellPrompt =
+      lastLine.match(/\s*[$#]\s*$/) || secondLastLine.match(/\s*[$#]\s*$/) || lastLine.match(/\s*~[$#]\s*$/) || secondLastLine.match(/\s*~[$#]\s*$/)
+
+    if (hasShellPrompt) {
       terminalMode.value = 'none'
       dataBuffer.value = []
       nextTick(handleResize)
