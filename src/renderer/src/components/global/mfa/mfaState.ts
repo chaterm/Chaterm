@@ -41,7 +41,7 @@ const startOtpTimer = (durationMs = OTP_TIMEOUT) => {
 
 // 验证OTP代码格式
 const validateOtpCode = (code: string): boolean => {
-  return /^\d{6}$/.test(code)
+  return code.trim().length > 0
 }
 
 // 重置错误状态
