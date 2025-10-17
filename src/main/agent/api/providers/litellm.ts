@@ -115,15 +115,25 @@ export class LiteLlmHandler implements ApiHandler {
     const stream = await this.client.chat.completions.create(params)
 
     let usageInfo: OpenAI.CompletionUsage | undefined | null = undefined
+    const isGlmModel = modelId.toLowerCase().includes('glm')
+    // GLM streams wrap reasoning inside <thinking>...</thinking>; parse and emit as dedicated events while streaming
+    const glmThinkingParser = isGlmModel ? createGlmThinkingParser() : null
 
     for await (const chunk of stream) {
       const delta = chunk.choices[0]?.delta
 
       // Handle normal text content
       if (delta?.content) {
-        yield {
-          type: 'text',
-          text: delta.content
+        if (glmThinkingParser) {
+          const events = glmThinkingParser.process(delta.content)
+          for (const event of events) {
+            yield event
+          }
+        } else {
+          yield {
+            type: 'text',
+            text: delta.content
+          }
         }
       }
 
@@ -152,6 +162,13 @@ export class LiteLlmHandler implements ApiHandler {
       // Handle token usage information
       if (chunk.usage) {
         usageInfo = chunk.usage
+      }
+    }
+
+    if (glmThinkingParser) {
+      const remainingEvents = glmThinkingParser.flush()
+      for (const event of remainingEvents) {
+        yield event
       }
     }
 
@@ -212,4 +229,112 @@ export class LiteLlmHandler implements ApiHandler {
       }
     }
   }
+}
+
+type LiteLlmStreamEvent =
+  | {
+      type: 'text'
+      text: string
+    }
+  | {
+      type: 'reasoning'
+      reasoning: string
+    }
+
+// Streaming helper that splits GLM's inline <thinking> blocks into incremental reasoning/text events
+function createGlmThinkingParser() {
+  const START_TAG = '<thinking>'
+  const END_TAG = '</thinking>'
+  const START_TAG_LENGTH = START_TAG.length
+  const END_TAG_LENGTH = END_TAG.length
+  let buffer = ''
+  let insideThinking = false
+
+  const process = (content: string): LiteLlmStreamEvent[] => {
+    buffer += content
+    const events: LiteLlmStreamEvent[] = []
+    let cursor = 0
+
+    while (cursor < buffer.length) {
+      if (!insideThinking) {
+        const startIdx = buffer.indexOf(START_TAG, cursor)
+        if (startIdx === -1) {
+          const remaining = buffer.slice(cursor)
+          const partialTagLength = getPartialTagSuffixLength(remaining, START_TAG)
+          const safeEnd = Math.max(cursor, buffer.length - partialTagLength)
+          if (safeEnd <= cursor) {
+            break
+          }
+          const textSegment = buffer.slice(cursor, safeEnd)
+          if (textSegment) {
+            events.push({ type: 'text', text: textSegment })
+          }
+          cursor = safeEnd
+        } else {
+          if (startIdx > cursor) {
+            const textSegment = buffer.slice(cursor, startIdx)
+            if (textSegment) {
+              events.push({ type: 'text', text: textSegment })
+            }
+          }
+          cursor = startIdx + START_TAG_LENGTH
+          insideThinking = true
+        }
+      } else {
+        const endIdx = buffer.indexOf(END_TAG, cursor)
+        if (endIdx === -1) {
+          const remaining = buffer.slice(cursor)
+          const partialTagLength = getPartialTagSuffixLength(remaining, END_TAG)
+          const safeEnd = Math.max(cursor, buffer.length - partialTagLength)
+          if (safeEnd <= cursor) {
+            break
+          }
+          const reasoningSegment = buffer.slice(cursor, safeEnd)
+          if (reasoningSegment) {
+            events.push({ type: 'reasoning', reasoning: reasoningSegment })
+          }
+          cursor = safeEnd
+        } else {
+          const reasoningSegment = buffer.slice(cursor, endIdx)
+          if (reasoningSegment) {
+            events.push({ type: 'reasoning', reasoning: reasoningSegment })
+          }
+          cursor = endIdx + END_TAG_LENGTH
+          insideThinking = false
+        }
+      }
+    }
+
+    buffer = buffer.slice(cursor)
+    return events
+  }
+
+  const flush = (): LiteLlmStreamEvent[] => {
+    if (!buffer) {
+      return []
+    }
+    const events: LiteLlmStreamEvent[] = []
+    if (insideThinking) {
+      events.push({ type: 'reasoning', reasoning: buffer })
+    } else {
+      events.push({ type: 'text', text: buffer })
+    }
+    buffer = ''
+    return events
+  }
+
+  return {
+    process,
+    flush
+  }
+}
+
+function getPartialTagSuffixLength(segment: string, tag: string): number {
+  const maxLength = Math.min(segment.length, tag.length - 1)
+  for (let length = maxLength; length > 0; length--) {
+    if (segment.endsWith(tag.slice(0, length))) {
+      return length
+    }
+  }
+  return 0
 }
