@@ -4,7 +4,20 @@
       v-show="true"
       class="terminal-output-header"
     >
-      <span class="output-title">OUTPUT</span>
+      <div
+        class="output-title-section"
+        @click="toggleOutput"
+      >
+        <a-button
+          class="toggle-button"
+          type="text"
+          size="small"
+        >
+          <CaretDownOutlined v-if="isExpanded" />
+          <CaretRightOutlined v-else />
+        </a-button>
+        <span class="output-title">OUTPUT</span>
+      </div>
       <div class="output-controls">
         <span class="output-lines">{{ outputLines }} lines</span>
         <a-button
@@ -19,15 +32,6 @@
             class="copy-icon"
           />
         </a-button>
-        <a-button
-          class="toggle-button"
-          type="text"
-          size="small"
-          @click="toggleOutput"
-        >
-          <CaretDownOutlined v-if="isExpanded" />
-          <CaretRightOutlined v-else />
-        </a-button>
       </div>
     </div>
     <div
@@ -41,7 +45,6 @@
 <script setup lang="ts">
 import { ref, onMounted, onBeforeUnmount, watch, nextTick } from 'vue'
 import { Terminal } from 'xterm'
-import { FitAddon } from 'xterm-addon-fit'
 import { CaretDownOutlined, CaretRightOutlined } from '@ant-design/icons-vue'
 import copySvg from '@/assets/icons/copy.svg'
 import { message } from 'ant-design-vue'
@@ -56,11 +59,10 @@ const props = defineProps<{
 }>()
 
 const terminalContainer = ref<HTMLElement | null>(null)
-const isExpanded = ref(true)
+const isExpanded = ref(false) // 终端输出默认折叠
 const outputLines = ref(0)
 
 let terminal: Terminal | null = null
-let fitAddon: FitAddon | null = null
 let lastContent: string = ''
 
 // 性能优化：预编译正则表达式
@@ -160,6 +162,85 @@ const REGEX_PATTERNS = {
   macAddress: /\b([0-9a-fA-F]{2}:[0-9a-fA-F]{2}:[0-9a-fA-F]{2}:[0-9a-fA-F]{2}:[0-9a-fA-F]{2}:[0-9a-fA-F]{2})\b/
 }
 
+/**
+ * 计算字符串的显示宽度（考虑中文等宽字符）
+ * 中文、日文、韩文等字符在终端中占用2列宽度
+ */
+function getStringDisplayWidth(str: string): number {
+  let width = 0
+  for (let i = 0; i < str.length; i++) {
+    const code = str.charCodeAt(i)
+    // 判断是否为宽字符（CJK字符、全角字符等）
+    // Unicode范围：
+    // - 0x1100-0x115F: 韩文
+    // - 0x2E80-0x9FFF: CJK统一汉字、符号
+    // - 0xA960-0xA97F: 韩文扩展
+    // - 0xAC00-0xD7AF: 韩文音节
+    // - 0xF900-0xFAFF: CJK兼容汉字
+    // - 0xFE10-0xFE19: 竖排标点
+    // - 0xFE30-0xFE6F: CJK兼容形式
+    // - 0xFF00-0xFF60: 全角ASCII、全角标点
+    // - 0xFFE0-0xFFE6: 全角符号
+    if (
+      (code >= 0x1100 && code <= 0x115f) ||
+      (code >= 0x2e80 && code <= 0x9fff) ||
+      (code >= 0xa960 && code <= 0xa97f) ||
+      (code >= 0xac00 && code <= 0xd7af) ||
+      (code >= 0xf900 && code <= 0xfaff) ||
+      (code >= 0xfe10 && code <= 0xfe19) ||
+      (code >= 0xfe30 && code <= 0xfe6f) ||
+      (code >= 0xff00 && code <= 0xff60) ||
+      (code >= 0xffe0 && code <= 0xffe6)
+    ) {
+      width += 2
+    } else {
+      width += 1
+    }
+  }
+  return width
+}
+
+/**
+ * 智能格式化字段，根据内容实际宽度动态调整
+ * @param text 要格式化的文本
+ * @param maxWidth 最大宽度限制
+ * @param color 颜色代码
+ * @param minWidth 最小宽度（可选）
+ */
+function smartFormatField(text: string, maxWidth: number, color: string, minWidth: number = 1): string {
+  const actualWidth = getStringDisplayWidth(text)
+  // 使用实际内容宽度，但不超过最大宽度，不少于最小宽度
+  const targetWidth = Math.max(minWidth, Math.min(maxWidth, actualWidth))
+
+  // 如果文本宽度超过目标宽度，截断文本
+  if (actualWidth > targetWidth) {
+    let truncated = ''
+    let currentWidth = 0
+    for (let i = 0; i < text.length; i++) {
+      const char = text[i]
+      const charWidth = getStringDisplayWidth(char)
+      if (currentWidth + charWidth > targetWidth) {
+        break
+      }
+      truncated += char
+      currentWidth += charWidth
+    }
+    return `${color}${truncated.padEnd(targetWidth)}${COLORS.reset}`
+  } else {
+    return `${color}${text.padEnd(targetWidth)}${COLORS.reset}`
+  }
+}
+
+/**
+ * 简单格式化字段，确保基本对齐
+ * @param text 要格式化的文本
+ * @param width 固定宽度
+ * @param color 颜色代码
+ */
+function simpleFormatField(text: string, width: number, color: string): string {
+  return `${color}${text.padEnd(width)}${COLORS.reset}`
+}
+
 // 缓存高亮结果
 const highlightCache = new Map<string, string>()
 const CACHE_SIZE_LIMIT = 1000
@@ -184,47 +265,135 @@ const detectFormat = (line: string): FormatDetectionResult | null => {
   const trimmedLine = line.trim()
   if (!trimmedLine) return null
 
-  // 检测表格格式（列对齐的数据）
+  // 检测 top 命令系统信息行（优先级最高）
+  if (
+    trimmedLine.match(/^top\s+-/) ||
+    trimmedLine.match(/^Tasks:/) ||
+    trimmedLine.match(/^%Cpu\(s\):/) ||
+    trimmedLine.match(/^MiB\s+Mem\s*:/) ||
+    trimmedLine.match(/^MiB\s+Swap:/) ||
+    trimmedLine.match(/^KiB\s+Mem\s*:/) ||
+    trimmedLine.match(/^KiB\s+Swap:/) ||
+    trimmedLine.match(/^Mem:/) ||
+    trimmedLine.match(/^Swap:/)
+  ) {
+    return {
+      type: 'top_system_info',
+      confidence: 0.95,
+      metadata: { command: 'top' }
+    }
+  }
+
+  // 检测时间戳格式（优先级次之）
+  const timestampPatterns = [
+    // Nginx 访问日志格式：[15/Oct/2025:14:17:39 +0800]
+    /\[\d{1,2}\/\w{3}\/\d{4}:\d{2}:\d{2}:\d{2}\s+[+-]\d{4}\]/,
+    // 标准日期时间格式
+    /\d{4}-\d{2}-\d{2}[T\s]\d{2}:\d{2}:\d{2}/,
+    /\d{2}:\d{2}:\d{2}/,
+    /\w{3}\s+\d{1,2}\s+\d{2}:\d{2}/,
+    /^[A-Z][a-z]{2}\s+\d{1,2}\s+\d{2}:\d{2}:\d{2}/ // 新增：Aug 26 14:38:31 格式
+  ]
+
+  // 时间戳检测：即使包含冒号也要检测，因为系统日志经常包含冒号
+  for (let pattern of timestampPatterns) {
+    if (pattern.test(trimmedLine)) {
+      return {
+        type: 'timestamped',
+        confidence: 0.9, // 提高置信度，确保优先于表格头检测
+        metadata: { pattern: pattern.source }
+      }
+    }
+  }
+
+  // 检测 Nginx 访问日志格式（包含二进制数据的特殊情况）
+  // 格式：IP - - [时间戳] "请求" 状态码 大小 "来源" "用户代理"
+  const nginxLogPattern = /^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\s+-\s+-\s+\[[\d\/\w\s:+-]+\]\s+".*"\s+\d{3}\s+\d+/
+  if (nginxLogPattern.test(trimmedLine)) {
+    return {
+      type: 'timestamped',
+      confidence: 0.95, // 高置信度，确保 Nginx 日志被正确识别
+      metadata: { pattern: 'nginx_access_log' }
+    }
+  }
+
+  // 检测表格格式（列对齐的数据）- 更严格的检测，避免误判续行内容
   const tablePattern = /^[\w\-+.]+\s+[\w\-+.]+\s+[\w\-+.]+/
-  if (tablePattern.test(trimmedLine)) {
+
+  // 基于特征判断是否是续行内容（通用方法）
+  // 续行特征：1. 以空格开头 2. 以小写字母开头 3. 键值对格式 4. 行长度较短且词汇较少
+  const startsWithSpace = trimmedLine.startsWith(' ')
+  const startsWithLowercase = !!trimmedLine.match(/^[a-z]/)
+  const isKeyValuePair = trimmedLine.includes(':') && !!trimmedLine.match(/^[^:]+:\s+.+$/)
+
+  const isContinuationLine = startsWithSpace || startsWithLowercase || isKeyValuePair
+
+  if (tablePattern.test(trimmedLine) && !isContinuationLine) {
     const parts = trimmedLine.split(/\s+/)
     if (parts.length >= 3) {
       // 检测是否是数字主导的行（可能是数据行）
       const numericParts = parts.filter((part) => /^\d+(\.\d+)?%?$/.test(part))
       const confidence = numericParts.length / parts.length
 
-      return {
-        type: 'table_data',
-        confidence: confidence * 0.8, // 降低一些置信度，避免误判
-        metadata: {
-          columns: parts.length,
-          numericColumns: numericParts.length,
-          parts: parts
+      // 检查是否是表格头（基于统计特征的通用检测）
+      // 表格头特征：列数适中、词汇长度适中、不包含冒号、不以空格开头
+      const startsWithSpace = trimmedLine.startsWith(' ')
+      const startsWithLowercase = trimmedLine.match(/^[a-z]/)
+
+      // 基于统计特征的表格头检测
+      // 表格头中的冒号不能是结尾字符，必须紧跟其它字符（如 Address:Port）
+      const hasColonAtEnd = trimmedLine.includes(':') && trimmedLine.match(/:\s*$/)
+
+      // 检查是否有数值列（表格头通常对应有数值的数据行）
+      const hasNumericColumns = numericParts.length > 0
+
+      const isTableHeader =
+        !startsWithSpace && // 不以空格开头（续行特征）
+        !startsWithLowercase && // 不以小写字母开头（续行特征）
+        !hasColonAtEnd && // 冒号不能是结尾字符（键值对特征）
+        hasNumericColumns // 必须有对应的数值列
+
+      if (isTableHeader) {
+        return {
+          type: 'table_header',
+          confidence: 0.9,
+          metadata: {
+            columns: parts.length,
+            parts: parts
+          }
+        }
+      }
+
+      // 避免误判非表格数据：如果行包含冒号但不是表格头，优先检测为键值对
+      const hasColonAtEndForTable = trimmedLine.includes(':') && trimmedLine.match(/:\s*$/)
+      if (hasColonAtEndForTable) {
+        // 不返回任何检测结果，让键值对检测处理
+      } else {
+        return {
+          type: 'table_data',
+          confidence: confidence * 0.8, // 降低一些置信度，避免误判
+          metadata: {
+            columns: parts.length,
+            numericColumns: numericParts.length,
+            parts: parts
+          }
         }
       }
     }
   }
 
-  // 检测时间戳格式
-  const timestampPatterns = [/\d{4}-\d{2}-\d{2}[T\s]\d{2}:\d{2}:\d{2}/, /\d{2}:\d{2}:\d{2}/, /\w{3}\s+\d{1,2}\s+\d{2}:\d{2}/]
-
-  for (let pattern of timestampPatterns) {
-    if (pattern.test(trimmedLine)) {
-      return {
-        type: 'timestamped',
-        confidence: 0.7,
-        metadata: { pattern: pattern.source }
-      }
+  // 检测键值对格式（支持包含空格和特殊字符的键名）
+  // 匹配模式：任意非空字符 + 冒号 + 空格 + 任意字符
+  // 排除PID/程序名格式：数字 + 空格 + "程序名"
+  if ((/^[^:]+:\s*.+$/.test(trimmedLine) || /^[^=]+=\s*.+$/.test(trimmedLine)) && !/^\d+\s+".*"$/.test(trimmedLine)) {
+    const separator = trimmedLine.includes(':') ? ':' : '='
+    if (trimmedLine.includes('Vulnerabilities') || trimmedLine.includes('Mitigation') || trimmedLine.includes('Vulnerable')) {
     }
-  }
-
-  // 检测键值对格式（仅当明确包含 ':' 或 '='，避免把"文件名 列表"误判为键值对）
-  if (/^[^\s]+\s*:\s*.+$/.test(trimmedLine) || /^[^\s]+\s*=\s*.+$/.test(trimmedLine)) {
     return {
       type: 'key_value',
-      confidence: 0.6,
+      confidence: 0.7, // 提高优先级，确保键值对优先于状态检测
       metadata: {
-        separator: trimmedLine.includes(':') ? ':' : '='
+        separator: separator
       }
     }
   }
@@ -245,12 +414,13 @@ const detectFormat = (line: string): FormatDetectionResult | null => {
     }
   }
 
-  // 检测状态信息格式
+  // 检测状态信息格式（降低优先级，避免与键值对冲突）
   const statusWords = ['running', 'stopped', 'active', 'inactive', 'enabled', 'disabled', 'ok', 'failed', 'error']
-  if (statusWords.some((word) => new RegExp(`\\b${word}\\b`, 'i').test(trimmedLine))) {
+  // 只有当行不包含冒号时才进行状态检测，避免与键值对冲突
+  if (!trimmedLine.includes(':') && statusWords.some((word) => new RegExp(`\\b${word}\\b`, 'i').test(trimmedLine))) {
     return {
       type: 'status',
-      confidence: 0.5
+      confidence: 0.4 // 降低优先级
     }
   }
 
@@ -263,8 +433,14 @@ const applySmartHighlight = (line: string, detection: FormatDetectionResult): st
     case 'table_data':
       return highlightTableData(line, detection.metadata)
 
+    case 'table_header':
+      return highlightTableHeader(line, detection.metadata)
+
     case 'timestamped':
       return highlightTimestamped(line)
+
+    case 'top_system_info':
+      return highlightTopSystemInfo(line)
 
     case 'key_value':
       return highlightKeyValue(line, detection.metadata.separator)
@@ -281,6 +457,36 @@ const applySmartHighlight = (line: string, detection: FormatDetectionResult): st
     default:
       return line
   }
+}
+
+// 表格头高亮
+const highlightTableHeader = (line: string, metadata: any): string => {
+  const { reset, header } = COLORS
+  const parts = metadata.parts
+
+  let result = ''
+  let currentPos = 0
+
+  for (let i = 0; i < parts.length; i++) {
+    const part = parts[i]
+    const partStart = line.indexOf(part, currentPos)
+
+    // 添加之前的空格
+    if (partStart > currentPos) {
+      result += line.substring(currentPos, partStart)
+    }
+
+    // 表格头使用统一的头部颜色
+    result += `${header}${part}${reset}`
+    currentPos = partStart + part.length
+  }
+
+  // 添加剩余的内容
+  if (currentPos < line.length) {
+    result += line.substring(currentPos)
+  }
+
+  return result
 }
 
 // 表格数据高亮
@@ -327,7 +533,43 @@ const highlightTableData = (line: string, metadata: any): string => {
 
 // 时间戳高亮
 const highlightTimestamped = (line: string): string => {
-  const { reset, cyan } = COLORS
+  const { reset, cyan, yellow, green, red, blue } = COLORS
+
+  // 检查是否是 Nginx 访问日志格式
+  const nginxLogPattern = /^(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})\s+-\s+-\s+(\[[\d\/\w\s:+-]+\])\s+(".*")\s+(\d{3})\s+(\d+)(?:\s+(".*")\s+(".*"))?/
+  const nginxMatch = line.match(nginxLogPattern)
+
+  if (nginxMatch) {
+    // 专门处理 Nginx 访问日志格式
+    const [, ip, timestamp, request, status, size, referer, userAgent] = nginxMatch
+
+    let highlighted = line
+    // 高亮 IP 地址
+    highlighted = highlighted.replace(ip, `${blue}${ip}${reset}`)
+    // 高亮时间戳
+    highlighted = highlighted.replace(timestamp, `${cyan}${timestamp}${reset}`)
+    // 高亮请求（包括二进制数据）
+    highlighted = highlighted.replace(request, `${yellow}${request}${reset}`)
+    // 高亮状态码
+    const statusCode = parseInt(status)
+    let statusColor = green
+    if (statusCode >= 400 && statusCode < 500) {
+      statusColor = yellow
+    } else if (statusCode >= 500) {
+      statusColor = red
+    }
+    highlighted = highlighted.replace(status, `${statusColor}${status}${reset}`)
+    // 高亮大小
+    highlighted = highlighted.replace(size, `${cyan}${size}${reset}`)
+
+    if (referer && userAgent) {
+      // 高亮来源和用户代理
+      highlighted = highlighted.replace(referer, `${blue}${referer}${reset}`)
+      highlighted = highlighted.replace(userAgent, `${blue}${userAgent}${reset}`)
+    }
+
+    return highlighted
+  }
 
   // 高亮时间戳部分
   let highlighted = line
@@ -337,11 +579,15 @@ const highlightTimestamped = (line: string): string => {
 
   // 按照从长到短的顺序匹配时间戳格式
   const patterns = [
+    // Nginx 访问日志格式：[15/Oct/2025:14:17:39 +0800]
+    /(\[\d{1,2}\/\w{3}\/\d{4}:\d{2}:\d{2}:\d{2}\s+[+-]\d{4}\])/g,
     // 完整日期时间格式 (2025/9/1 11:35:16)
     /(\d{4}\/\d{1,2}\/\d{1,2}\s+\d{1,2}:\d{2}:\d{2})/g,
     // ISO格式日期时间
     /(\d{4}-\d{2}-\d{2}[T\s]\d{2}:\d{2}:\d{2})/g,
-    // 月日时间格式 (Sep 1 11:35)
+    // 月日时间格式 (Aug 26 14:38:31) - 包含秒数
+    /(\w{3}\s+\d{1,2}\s+\d{2}:\d{2}:\d{2})/g,
+    // 月日时间格式 (Sep 1 11:35) - 不包含秒数
     /(\w{3}\s+\d{1,2}\s+\d{2}:\d{2})/g,
     // 纯时间格式 (11:35:16)
     /(\d{2}:\d{2}:\d{2})/g,
@@ -372,6 +618,7 @@ const highlightTimestamped = (line: string): string => {
 
         // 更新正则表达式的lastIndex，因为我们修改了字符串
         pattern.lastIndex += cyan.length + reset.length
+      } else {
       }
     }
   }
@@ -379,15 +626,19 @@ const highlightTimestamped = (line: string): string => {
   return highlighted
 }
 
-// 键值对高亮
+// 键值对高亮（保持原始对齐）
 const highlightKeyValue = (line: string, separator: string): string => {
-  const { reset, key, white } = COLORS
+  const { reset, white } = COLORS
 
   const escSeparator = separator.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-  const regex = new RegExp(`^(\\w+)\\s*${escSeparator}\\s*(.*)$`)
+  // 改进正则表达式：支持包含空格和特殊字符的键名，并保持原始空格
+  const regex = new RegExp(`^([^${escSeparator}]+)(\\s*${escSeparator}\\s*)(.*)$`)
 
-  return line.replace(regex, (_, k, v) => {
-    return `${key}${k}${reset}${separator} ${white}${v}${reset}`
+  return line.replace(regex, (_, k, separatorPart, v) => {
+    // 保持原始的前导空格，键和值都设置为白色
+    const leadingSpaces = k.match(/^(\s*)/)?.[1] || ''
+    const keyName = k.trim()
+    return `${leadingSpaces}${white}${keyName}${reset}${separatorPart}${white}${v}${reset}`
   })
 }
 
@@ -441,6 +692,73 @@ const highlightStatus = (line: string): string => {
     .replace(/\b(info|status|state)\b/gi, `${info}$1${reset}`)
 }
 
+// TCP 连接表格高亮
+const highlightTcpConnectionTable = (line: string): string => {
+  const { reset, header, number, cyan, yellow, green, blue, magenta } = COLORS
+
+  // 检查是否是表头 - 支持多种网络连接表格格式
+  if ((line.includes('State') && line.includes('Recv-Q') && line.includes('Send-Q')) || (line.includes('Netid') && line.includes('State'))) {
+    // 使用更灵活的正则表达式来匹配表格头，处理可能的空格变化
+    return line.replace(/(Netid|State|Recv-Q|Send-Q|Local\s+Address:Port|Peer\s+Address:Port|Process)/g, `${header}$1${reset}`)
+  }
+
+  // 处理数据行
+  let highlighted = line
+
+  // 高亮状态字段
+  highlighted = highlighted.replace(/\b(LISTEN|ESTAB|SYN-RECV|CLOSE_WAIT|TIME_WAIT|FIN_WAIT|CLOSING|LAST_ACK|CLOSED|UNCONN)\b/g, (match) => {
+    let color = cyan // 默认青色
+    if (match === 'LISTEN') {
+      color = green // 监听状态 - 绿色
+    } else if (match === 'ESTAB') {
+      color = blue // 已建立 - 蓝色
+    } else if (match === 'SYN-RECV') {
+      color = yellow // 半开连接 - 黄色
+    } else if (match === 'UNCONN') {
+      color = magenta // 未连接 - 洋红色
+    } else if (match.includes('WAIT') || match.includes('CLOSING')) {
+      color = magenta // 等待状态 - 洋红色
+    }
+    return `${color}${match}${reset}`
+  })
+
+  // 先处理 IP 地址和端口（在数字高亮之前）
+
+  // 处理 IPv6 地址（包含接口名称）
+  highlighted = highlighted.replace(/\[([0-9a-fA-F:]*[0-9a-fA-F:]+[0-9a-fA-F:]*|::)](%[a-zA-Z0-9]+)?:([0-9*]+)/g, (_, ipv6, iface, port) => {
+    const interfacePart = iface ? `${yellow}${iface}${reset}` : ''
+    return `${cyan}[${ipv6}]${reset}${interfacePart}:${yellow}${port}${reset}`
+  })
+
+  // 处理 IPv4 地址（包含接口名称）
+  highlighted = highlighted.replace(/([0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3})(%[a-zA-Z0-9]+)?:([0-9*]+)/g, (_, ipv4, iface, port) => {
+    const interfacePart = iface ? `${yellow}${iface}${reset}` : ''
+    return `${blue}${ipv4}${reset}${interfacePart}:${yellow}${port}${reset}`
+  })
+
+  // 处理通配符地址
+  highlighted = highlighted.replace(/\*:([0-9*]+)/g, (_, port) => {
+    return `${yellow}*${reset}:${yellow}${port}${reset}`
+  })
+
+  // 高亮独立的端口号（没有冒号前缀的）
+  highlighted = highlighted.replace(/(?<![:\w]):([0-9*]+)/g, (_, port) => {
+    return `:${yellow}${port}${reset}`
+  })
+
+  // 高亮通配符
+  highlighted = highlighted.replace(/\*/g, (_) => {
+    return `${yellow}*${reset}`
+  })
+
+  // 最后处理数字字段（Recv-Q, Send-Q），但排除已经被高亮的 IPv6 地址
+  highlighted = highlighted.replace(/(?<!\[[^\]]*)\b(\d+)\b(?![^\]]*\])/g, (match) => {
+    return `${number}${match}${reset}`
+  })
+
+  return highlighted
+}
+
 // 根据内容动态调整终端高度（纵向自适应，无纵向滚动；横向不足时出现滚动条）
 const adjustTerminalHeight = () => {
   if (!terminal) return
@@ -456,23 +774,19 @@ const adjustTerminalHeight = () => {
       const text = line.translateToString()
       totalLines = i + 1
       if (text.trim()) actualContentLines = i + 1
-      if (text.length > maxLineLength) maxLineLength = text.length
+      const lineWidth = getStringDisplayWidth(text)
+      if (lineWidth > maxLineLength) maxLineLength = lineWidth
     }
   }
 
-  const minRows = 2
+  const minRows = 1
   // 使用总行数而不是非空行数，确保所有内容都能显示
   // 如果总行数为0，使用实际内容行数
   const actualRows = Math.max(minRows, totalLines || actualContentLines)
 
-  if (fitAddon) {
-    fitAddon.fit()
-    const cols = Math.max(maxLineLength + 50, 120)
-    terminal.resize(cols, actualRows)
-  } else {
-    const cols = Math.max(maxLineLength + 50, 120)
-    terminal.resize(cols, actualRows)
-  }
+  // 根据内容宽度调整终端尺寸
+  const cols = maxLineLength
+  terminal.resize(cols, actualRows)
 
   if (terminalContainer.value) {
     const rowEl = terminalContainer.value.querySelector('.xterm-rows > div') as HTMLElement | null
@@ -481,7 +795,7 @@ const adjustTerminalHeight = () => {
     const styles = window.getComputedStyle(terminalContainer.value)
     const paddingTop = parseFloat(styles.paddingTop) || 0
     const paddingBottom = parseFloat(styles.paddingBottom) || 0
-    const newHeight = actualRows * rowHeight + paddingTop + paddingBottom + 8
+    const newHeight = actualRows * rowHeight + paddingTop + paddingBottom + 14
     terminalContainer.value.style.height = `${newHeight}px`
   }
 }
@@ -531,16 +845,12 @@ const initTerminal = async () => {
     scrollOnUserInput: false
   })
 
-  fitAddon = new FitAddon()
-  terminal.loadAddon(fitAddon)
-
   terminal.open(terminalContainer.value)
 
   terminal.options.cursorBlink = false
   terminal.options.cursorStyle = 'block'
 
   nextTick(() => {
-    fitAddon?.fit()
     adjustTerminalHeight()
   })
 }
@@ -617,9 +927,28 @@ const addTerminalSyntaxHighlighting = (content: string): string => {
     }
 
     // 2.1.2 处理 ps aux 命令表头（手动检测）
-    if (line.includes('USER') && line.includes('PID') && line.includes('%CPU') && line.includes('%MEM') && line.includes('COMMAND')) {
-      console.log('Matched ps aux header:', line)
+    // 检查是否是 ps aux 格式（USER 在 PID 前面）
+    if (
+      line.includes('USER') &&
+      line.includes('PID') &&
+      line.includes('%CPU') &&
+      line.includes('%MEM') &&
+      line.includes('COMMAND') &&
+      line.indexOf('USER') < line.indexOf('PID')
+    ) {
       return highlightPsAuxHeaderPreserveSpacing(line)
+    }
+
+    // 2.1.2.1 处理 top 命令表头（PID 在 USER 前面）
+    if (
+      line.includes('USER') &&
+      line.includes('PID') &&
+      line.includes('%CPU') &&
+      line.includes('%MEM') &&
+      line.includes('COMMAND') &&
+      line.indexOf('PID') < line.indexOf('USER')
+    ) {
+      return highlightTopHeaderPreserveSpacing(line)
     }
 
     // 2.1.3 处理简化ps命令表头（PID TTY TIME CMD）
@@ -706,10 +1035,38 @@ const addTerminalSyntaxHighlighting = (content: string): string => {
       return highlightNetstatUnixHeaderPreserveSpacing(line)
     }
 
-    // 3.1 处理 ss 命令输出（保留原始空格）
-    // 匹配 ss 命令格式：tcp   LISTEN 0      511                          0.0.0.0:8080       0.0.0.0:*
+    // 3.1 处理 ss 命令和输出（保留原始空格）
+    // 匹配 ss 命令本身：ss -tan state established
+    // 匹配 ss 命令表格头：Recv-Q Send-Q Local Address:Port Peer Address:Port Process
+    // 更宽松的匹配，允许不同的空格数量
+    if (line.match(/^Recv-Q\s+Send-Q\s+Local\s+Address:Port\s+Peer\s+Address:Port\s+Process\s*$/)) {
+      return highlightSsTableHeader(line)
+    }
+
+    // 匹配 ss 命令表格数据行：数字 数字 IP:端口 IP:端口 (空)
+    if (line.match(/^\d+\s+\d+\s+[^\s]+\:[^\s]+\s+[^\s]+\:[^\s]*\s*$/)) {
+      return highlightSsTableData(line)
+    }
+
+    // 匹配 ss 命令输出格式：tcp   LISTEN 0      511                          0.0.0.0:8080       0.0.0.0:*
     if (line.match(/^(tcp|udp|tcp6|udp6)\s+[A-Z_]+\s+\d+\s+\d+\s+[^\s]+\:[^\s]+\s+[^\s]+\:[^\s]*/)) {
       return highlightSsOutputPreserveSpacing(line)
+    }
+
+    // 3.2 处理自定义 TCP 连接表格格式
+    // 匹配格式：State    Recv-Q   Send-Q   Local Address:Port   Peer Address:Port   Process
+    if (
+      line.match(
+        /^(State|LISTEN|ESTAB|SYN-RECV|CLOSE_WAIT|TIME_WAIT|FIN_WAIT|CLOSING|LAST_ACK|CLOSED|UNCONN)\s+\d+\s+\d+\s+[^\s]+\:[^\s]+\s+[^\s]+\:[^\s]*/
+      )
+    ) {
+      return highlightTcpConnectionTable(line)
+    }
+
+    // 3.3 处理包含 Netid 字段的网络连接表格格式
+    // 匹配格式：Netid State Recv-Q Send-Q Local Address:Port Peer Address:PortProcess
+    if (line.match(/^(Netid|State|Recv-Q|Send-Q|Local\s+Address:Port|Peer\s+Address:Port|Process)/)) {
+      return highlightTcpConnectionTable(line)
     }
 
     // 3.2 处理 netstat 命令输出（保留原始空格）
@@ -799,7 +1156,6 @@ const addTerminalSyntaxHighlighting = (content: string): string => {
     // 2.3.1 处理 ps aux 命令数据行 - 检查格式：USER PID %CPU %MEM VSZ RSS TTY STAT START TIME COMMAND
     // 更宽松的匹配：以用户名开头（可能包含+等特殊字符），包含PID、CPU和内存百分比
     if (line.match(/^\s*[\w+-]+\s+\d+\s+\d+\.\d+\s+\d+\.\d+\s+\d+\s+\d+\s+\S+\s+\S+\s+\S+\s+\S+\s+.+$/)) {
-      console.log('Matched ps aux data line:', line)
       return highlightPsAuxOutputPreserveSpacing(line)
     }
 
@@ -818,7 +1174,13 @@ const addTerminalSyntaxHighlighting = (content: string): string => {
       return highlightTopSystemInfo(line)
     }
 
-    // 9.1 处理 top/htop 命令表头（更宽松的匹配）
+    // 9.1 处理 top/htop 命令表头（精确匹配）
+    // 匹配标准表头格式：PID USER PR NI VIRT RES SHR S %CPU %MEM TIME+ COMMAND
+    if (line.match(/^\s*PID\s+USER\s+PR\s+NI\s+VIRT\s+RES\s+SHR\s+S\s+%CPU\s+%MEM\s+TIME\+\s+COMMAND\s*$/)) {
+      return highlightTopHeaderPreserveSpacing(line)
+    }
+
+    // 9.1.1 处理 top/htop 命令表头（更宽松的匹配，作为备选）
     if (line.includes('PID') && line.includes('USER') && line.includes('%CPU') && line.includes('%MEM') && line.includes('COMMAND')) {
       return highlightTopHeaderPreserveSpacing(line)
     }
@@ -865,7 +1227,14 @@ const addTerminalSyntaxHighlighting = (content: string): string => {
 
     // 9.7 处理top命令的通用检测（兜底匹配）
     // 检查是否包含top命令的特征：以USER开头，包含数字字段，有CPU和MEM字段
-    if (line.match(/^\s*\w+\s+[\d-]+\s+\d+\s+/) && (line.includes('%CPU') || line.includes('CPU') || line.includes('MEM') || line.includes('TIME'))) {
+    // 但排除表头行（不包含PID、USER等表头关键词）
+    if (
+      line.match(/^\s*\w+\s+[\d-]+\s+\d+\s+/) &&
+      (line.includes('%CPU') || line.includes('CPU') || line.includes('MEM') || line.includes('TIME')) &&
+      !line.includes('PID') &&
+      !line.includes('USER') &&
+      !line.includes('COMMAND')
+    ) {
       return highlightTopOutputAlternativeFormat(line)
     }
 
@@ -1154,7 +1523,7 @@ const highlightLsOutput = (match: RegExpMatchArray): string => {
   } else if (name.startsWith('.')) {
     nameColor = '\x1b[90m' // 隐藏文件 - 灰色
   } else if (name.match(/\.(js|ts|vue|py|java|cpp|c|h)$/)) {
-    nameColor = '\x1b[36m' // 代码文件 - 青色
+    nameColor = '\x1b[96m' // 代码文件 - 青色（使用统一的青色）
   } else if (name.match(/\.(jpg|jpeg|png|gif|svg|ico)$/)) {
     nameColor = '\x1b[35m' // 图片文件 - 紫色
   } else if (name.match(/\.(?:zip|rar|7z|gz|xz|bz2|zst|deb|rpm|pkg)$/) || name.match(/(?:tar\.(?:gz|xz|bz2|zst)|tgz|tbz2|txz)$/)) {
@@ -1164,10 +1533,10 @@ const highlightLsOutput = (match: RegExpMatchArray): string => {
   // 构建带颜色的行
   const reset = '\x1b[0m'
   const permColor = '\x1b[33m' // 权限 - 黄色
-  const linkColor = '\x1b[36m' // 链接数 - 青色
+  const linkColor = '\x1b[96m' // 链接数 - 青色
   const userColor = '\x1b[31m' // 用户 - 红色
   const groupColor = '\x1b[35m' // 组 - 紫色
-  const sizeColor = '\x1b[36m' // 大小 - 青色
+  const sizeColor = '\x1b[96m' // 大小 - 青色
   const dateColor = '\x1b[33m' // 日期 - 黄色
 
   return `${permColor}${permissions}${reset} ${linkColor}${links}${reset} ${userColor}${user}${reset} ${groupColor}${group}${reset} ${sizeColor}${size}${reset} ${dateColor}${date}${reset} ${nameColor}${name}${reset}`
@@ -1218,21 +1587,15 @@ const highlightPsOutputPreserveSpacing = (line: string): string => {
       cmdColor = COLORS.info // 应用进程 - 蓝色
     }
 
-    // 格式化每个字段，使用固定宽度
-    const formatField = (text: string, width: number, color: string) => {
-      const padded = text.padEnd(width)
-      return `${color}${padded}${reset}`
-    }
-
-    // 重新构建行，使用固定宽度对齐
+    // 重新构建行，使用智能宽度对齐
     return [
-      formatField(uid, columnWidths.uid, uidColor),
-      formatField(pid, columnWidths.pid, pidColor),
-      formatField(ppid, columnWidths.ppid, ppidColor),
-      formatField(c, columnWidths.c, cColor),
-      formatField(stime, columnWidths.stime, stimeColor),
-      formatField(tty, columnWidths.tty, ttyColor),
-      formatField(time, columnWidths.time, timeColor),
+      smartFormatField(uid, columnWidths.uid, uidColor),
+      smartFormatField(pid, columnWidths.pid, pidColor),
+      smartFormatField(ppid, columnWidths.ppid, ppidColor),
+      smartFormatField(c, columnWidths.c, cColor),
+      smartFormatField(stime, columnWidths.stime, stimeColor),
+      smartFormatField(tty, columnWidths.tty, ttyColor),
+      smartFormatField(time, columnWidths.time, timeColor),
       `${cmdColor}${cmd}${reset}`
     ].join('')
   }
@@ -1264,7 +1627,7 @@ const highlightPsOutput = (match: RegExpMatchArray): string => {
   } else if (cmd.includes('bash') || cmd.includes('sh')) {
     cmdColor = '\x1b[32m' // Shell - 绿色
   } else if (cmd.includes('node') || cmd.includes('python') || cmd.includes('java')) {
-    cmdColor = '\x1b[36m' // 应用进程 - 青色
+    cmdColor = '\x1b[96m' // 应用进程 - 青色
   }
 
   const pidColor = '\x1b[92m' // PID - 亮绿色
@@ -1310,21 +1673,15 @@ const highlightPsHeaderPreserveSpacing = (line: string): string => {
       cmd: 0 // CMD列（不限制宽度）
     }
 
-    // 格式化每个字段，使用固定宽度
-    const formatField = (text: string, width: number, color: string) => {
-      const padded = text.padEnd(width)
-      return `${color}${padded}${reset}`
-    }
-
-    // 重新构建表头，使用固定宽度对齐
+    // 重新构建表头，使用智能宽度对齐
     return [
-      formatField(uid, columnWidths.uid, header),
-      formatField(pid, columnWidths.pid, header),
-      formatField(ppid, columnWidths.ppid, header),
-      formatField(c, columnWidths.c, header),
-      formatField(stime, columnWidths.stime, header),
-      formatField(tty, columnWidths.tty, header),
-      formatField(time, columnWidths.time, header),
+      smartFormatField(uid, columnWidths.uid, header),
+      smartFormatField(pid, columnWidths.pid, header),
+      smartFormatField(ppid, columnWidths.ppid, header),
+      smartFormatField(c, columnWidths.c, header),
+      smartFormatField(stime, columnWidths.stime, header),
+      smartFormatField(tty, columnWidths.tty, header),
+      smartFormatField(time, columnWidths.time, header),
       `${header}${cmd}${reset}`
     ].join('')
   }
@@ -1535,17 +1892,11 @@ const highlightPsSimpleHeaderPreserveSpacing = (line: string): string => {
       cmd: 0 // CMD列（不限制宽度）
     }
 
-    // 格式化每个字段，使用固定宽度
-    const formatField = (text: string, width: number, color: string) => {
-      const padded = text.padEnd(width)
-      return `${color}${padded}${reset}`
-    }
-
-    // 重新构建表头，使用固定宽度对齐
+    // 重新构建表头，使用智能宽度对齐
     return [
-      formatField(pid, columnWidths.pid, header),
-      formatField(tty, columnWidths.tty, header),
-      formatField(time, columnWidths.time, header),
+      smartFormatField(pid, columnWidths.pid, header),
+      smartFormatField(tty, columnWidths.tty, header),
+      smartFormatField(time, columnWidths.time, header),
       `${header}${cmd}${reset}`
     ].join('')
   }
@@ -1566,7 +1917,7 @@ const highlightPsSimpleOutputPreserveSpacing = (line: string): string => {
     const [pid, tty, time, ...cmdParts] = parts
     const cmd = cmdParts.join(' ')
 
-    // 定义固定列宽度（与表头保持一致）
+    // 定义最大列宽度（与表头保持一致）
     const columnWidths = {
       pid: 8, // PID列
       tty: 8, // TTY列
@@ -1591,23 +1942,80 @@ const highlightPsSimpleOutputPreserveSpacing = (line: string): string => {
       cmdColor = info // 应用进程 - 蓝色
     }
 
-    // 格式化每个字段，使用固定宽度
-    const formatField = (text: string, width: number, color: string) => {
-      const padded = text.padEnd(width)
-      return `${color}${padded}${reset}`
-    }
-
-    // 重新构建行，使用固定宽度对齐
+    // 重新构建行，使用智能宽度对齐
     return [
-      formatField(pid, columnWidths.pid, pidColor),
-      formatField(tty, columnWidths.tty, ttyColor),
-      formatField(time, columnWidths.time, timeColor),
+      smartFormatField(pid, columnWidths.pid, pidColor),
+      smartFormatField(tty, columnWidths.tty, ttyColor),
+      smartFormatField(time, columnWidths.time, timeColor),
       `${cmdColor}${cmd}${reset}`
     ].join('')
   }
 
   // 如果格式不匹配，回退到原始行
   return line
+}
+
+// ss 命令表格头高亮（保留原始空格）
+const highlightSsTableHeader = (line: string): string => {
+  const { reset, header } = COLORS
+
+  // 高亮表格头，保持原始空格格式
+  let highlighted = line
+
+  // 高亮每个字段，保持原始空格
+  highlighted = highlighted.replace(/^(Recv-Q)/, (match) => {
+    return `${header}${match}${reset}`
+  })
+
+  highlighted = highlighted.replace(/(\s+)(Send-Q)/, (_, spaces, match) => {
+    return `${spaces}${header}${match}${reset}`
+  })
+
+  highlighted = highlighted.replace(/(\s+)(Local\s+Address:Port)/, (_, spaces, match) => {
+    return `${spaces}${header}${match}${reset}`
+  })
+
+  highlighted = highlighted.replace(/(\s+)(Peer\s+Address:Port)/, (_, spaces, match) => {
+    return `${spaces}${header}${match}${reset}`
+  })
+
+  highlighted = highlighted.replace(/(\s+)(Process)/, (_, spaces, match) => {
+    return `${spaces}${header}${match}${reset}`
+  })
+
+  return highlighted
+}
+
+// ss 命令表格数据行高亮（保留原始空格）
+const highlightSsTableData = (line: string): string => {
+  const { reset, number, url, key, warning, cyan } = COLORS
+
+  let highlighted = line
+
+  // 高亮数字字段（Recv-Q, Send-Q），保持原始空格
+  highlighted = highlighted.replace(/^(\d+)(\s+)(\d+)/, (_, recvQ, spaces, sendQ) => {
+    const recvColor = recvQ === '0' ? number : warning // 非零值用警告色
+    const sendColor = sendQ === '0' ? number : warning // 非零值用警告色
+    return `${recvColor}${recvQ}${reset}${spaces}${sendColor}${sendQ}${reset}`
+  })
+
+  // 高亮 IP 地址和端口，保持原始空格
+  highlighted = highlighted.replace(/(\s+)([^\s]+):([0-9*]+)/g, (_, spaces, addr, port) => {
+    // 判断地址类型并应用相应的颜色
+    let addrColor = url // 默认蓝色
+    if (addr === '*') {
+      addrColor = warning
+    } else if (addr.match(/^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/)) {
+      // IPv4地址
+      addrColor = url
+    } else {
+      // IPv6地址
+      addrColor = cyan
+    }
+    return `${spaces}${addrColor}${addr}${reset}:${key}${port}${reset}`
+  })
+
+  return highlighted
 }
 
 // ss 命令输出高亮（保留原始空格）
@@ -1624,7 +2032,7 @@ const highlightSsOutputPreserveSpacing = (line: string): string => {
 
   // 2. 高亮状态字段（LISTEN, ESTABLISHED等）
   highlighted = highlighted.replace(
-    /\b(LISTEN|ESTABLISHED|TIME_WAIT|CLOSED|SYN_SENT|SYN_RECV|FIN_WAIT1|FIN_WAIT2|CLOSE_WAIT|LAST_ACK|CLOSING|CONNECTED|DGRAM|STREAM|SEQPACKET)\b/g,
+    /\b(LISTEN|ESTABLISHED|TIME_WAIT|CLOSED|SYN_SENT|SYN_RECV|FIN_WAIT1|FIN_WAIT2|CLOSE_WAIT|LAST_ACK|CLOSING|CONNECTED|UNCONN|DGRAM|STREAM|SEQPACKET)\b/g,
     (match) => {
       let stateColor = COLORS.magenta // 默认洋红色
       if (match === 'ESTABLISHED' || match === 'CONNECTED') {
@@ -1635,6 +2043,8 @@ const highlightSsOutputPreserveSpacing = (line: string): string => {
         stateColor = header // 监听 - 青色
       } else if (match === 'CLOSED') {
         stateColor = error // 关闭 - 红色
+      } else if (match === 'UNCONN') {
+        stateColor = COLORS.magenta // 未连接 - 洋红色
       } else if (match === 'DGRAM' || match === 'STREAM' || match === 'SEQPACKET') {
         stateColor = cyan // 套接字类型 - 青色
       }
@@ -1642,21 +2052,39 @@ const highlightSsOutputPreserveSpacing = (line: string): string => {
     }
   )
 
-  // 3. 高亮数字字段（Recv-Q, Send-Q等）
-  highlighted = highlighted.replace(/\b(\d+)\b/g, (match) => {
+  // 先处理 IP 地址和端口（在数字高亮之前）
+
+  // 处理 IPv6 地址（包含接口名称）
+  highlighted = highlighted.replace(/\[([0-9a-fA-F:]*[0-9a-fA-F:]+[0-9a-fA-F:]*|::)](%[a-zA-Z0-9]+)?:([0-9*]+)/g, (_, ipv6, iface, port) => {
+    const interfacePart = iface ? `${yellow}${iface}${reset}` : ''
+    return `${cyan}[${ipv6}]${reset}${interfacePart}:${key}${port}${reset}`
+  })
+
+  // 处理 IPv4 地址（包含接口名称）
+  highlighted = highlighted.replace(/([0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3})(%[a-zA-Z0-9]+)?:([0-9*]+)/g, (_, ipv4, iface, port) => {
+    const interfacePart = iface ? `${yellow}${iface}${reset}` : ''
+    return `${url}${ipv4}${reset}${interfacePart}:${key}${port}${reset}`
+  })
+
+  // 处理通配符地址
+  highlighted = highlighted.replace(/\*:([0-9*]+)/g, (_, port) => {
+    return `${yellow}*${reset}:${key}${port}${reset}`
+  })
+
+  // 高亮独立的端口号（没有冒号前缀的）
+  highlighted = highlighted.replace(/(?<![:\w]):([0-9*]+)/g, (_, port) => {
+    return `:${key}${port}${reset}`
+  })
+
+  // 高亮通配符
+  highlighted = highlighted.replace(/\*/g, (_) => {
+    return `${yellow}*${reset}`
+  })
+
+  // 最后处理数字字段（Recv-Q, Send-Q等），但排除已经被高亮的 IPv6 地址
+  highlighted = highlighted.replace(/(?<!\[[^\]]*)\b(\d+)\b(?![^\]]*\])/g, (match) => {
     return `${number}${match}${reset}`
   })
-
-  // 4. 高亮IP地址和端口
-  highlighted = highlighted.replace(/([0-9a-fA-F:.]+):([0-9*]+)/g, (_, addr, port) => {
-    // 检查是否是IPv6地址
-    const isIPv6 = addr.includes(':')
-    const addrColor = isIPv6 ? cyan : url // IPv6用青色，IPv4用蓝色
-    return `${addrColor}${addr}${reset}:${key}${port}${reset}`
-  })
-
-  // 5. 高亮通配符
-  highlighted = highlighted.replace(/\*/g, `${yellow}*${reset}`)
 
   return highlighted
 }
@@ -1668,22 +2096,32 @@ const highlightNetstatOutputPreserveSpacing = (line: string): string => {
   // 使用简单的方法：只高亮关键部分，不破坏原始格式
   let highlighted = line
 
-  // 1. 高亮协议字段
-  highlighted = highlighted.replace(/^(tcp|udp|tcp6|udp6|unix)/, (match) => {
+  // 1. 高亮协议字段 - 确保完整匹配 tcp6, udp6
+  highlighted = highlighted.replace(/^(tcp6|udp6|tcp|udp|unix)/, (match) => {
     return `${success}${match}${reset}`
   })
 
-  // 2. 高亮数字字段（Recv-Q, Send-Q, RefCnt）
-  highlighted = highlighted.replace(/\b(\d+)\b/g, (match) => {
-    return `${number}${match}${reset}`
+  // 2. 高亮IP地址和端口 - 使用通用的地址匹配逻辑
+  // 先匹配所有可能的地址:端口格式，然后根据地址特征判断类型
+  highlighted = highlighted.replace(/([^\s]+):([0-9*]+)/g, (_, addr, port) => {
+    // 判断地址类型并应用相应的颜色
+    if (addr === '*') {
+      // 通配符地址
+      return `${yellow}${addr}${reset}:${key}${port}${reset}`
+    } else if (addr.match(/^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/)) {
+      // IPv4地址（精确匹配IPv4格式）
+      return `${url}${addr}${reset}:${key}${port}${reset}`
+    } else {
+      // 其他情况都视为IPv6地址（包括 ::1, :::, fe80:: 等格式）
+      // 这是最安全的方法，因为netstat输出中的非IPv4地址基本都是IPv6
+      return `${cyan}${addr}${reset}:${key}${port}${reset}`
+    }
   })
 
-  // 3. 高亮IP地址和端口
-  highlighted = highlighted.replace(/([0-9a-fA-F:.]+):([0-9*]+)/g, (_, addr, port) => {
-    // 检查是否是IPv6地址
-    const isIPv6 = addr.includes(':')
-    const addrColor = isIPv6 ? cyan : url // IPv6用青色，IPv4用蓝色
-    return `${addrColor}${addr}${reset}:${key}${port}${reset}`
+  // 3. 最后高亮数字字段（Recv-Q, Send-Q, RefCnt）- 只高亮独立的数字
+  // 使用更精确的正则，只匹配不在地址中的数字
+  highlighted = highlighted.replace(/(?<![0-9a-fA-F:.])[\s]+(\d+)[\s]+(?![0-9a-fA-F:.])/g, (match, num) => {
+    return match.replace(num, `${number}${num}${reset}`)
   })
 
   // 4. 高亮状态字段
@@ -2017,7 +2455,7 @@ const highlightDockerOutputPreserveSpacing = (line: string): string => {
 
   // 匹配 COMMAND 字段（第三个字段，用引号包围）
   highlighted = highlighted.replace(/(\s+)(".*?")(\s+)/, (_, beforeSpaces, command, afterSpaces) => {
-    const commandColor = '\x1b[36m' // COMMAND - 青色
+    const commandColor = '\x1b[96m' // COMMAND - 青色（使用统一的青色）
     return `${beforeSpaces}${commandColor}${command}${reset}${afterSpaces}`
   })
 
@@ -2037,7 +2475,7 @@ const highlightDockerOutputPreserveSpacing = (line: string): string => {
     } else if (status.includes('created')) {
       statusColor = '\x1b[33m' // created - 黄色
     } else if (status.includes('restarting')) {
-      statusColor = '\x1b[36m' // restarting - 青色
+      statusColor = '\x1b[96m' // restarting - 青色（使用统一的青色）
     }
     return `${beforeSpaces}${statusColor}${status}${reset}${afterSpaces}`
   })
@@ -2072,7 +2510,7 @@ const highlightDockerOutput = (line: string): string => {
   highlighted = highlighted.replace(REGEX_PATTERNS.containerStatus, `\x1b[35m$1${reset}`)
 
   // 高亮 docker 命令
-  highlighted = highlighted.replace(REGEX_PATTERNS.dockerCommand, `\x1b[36m$1${reset}`)
+  highlighted = highlighted.replace(REGEX_PATTERNS.dockerCommand, `\x1b[96m$1${reset}`)
 
   return highlighted
 }
@@ -2104,7 +2542,7 @@ const highlightNpmOutput = (line: string): string => {
   highlighted = highlighted.replace(REGEX_PATTERNS.npmStatus, `\x1b[35m$1${reset}`)
 
   // 高亮命令
-  highlighted = highlighted.replace(REGEX_PATTERNS.npmCommand, `\x1b[36m$1${reset}`)
+  highlighted = highlighted.replace(REGEX_PATTERNS.npmCommand, `\x1b[96m$1${reset}`)
 
   // 高亮警告和错误
   highlighted = highlighted.replace(REGEX_PATTERNS.npmWarn, `\x1b[91m$1${reset}`)
@@ -2286,33 +2724,83 @@ const highlightFreeOutput = (line: string): string => {
   // 首先清理可能存在的 ANSI 转义序列
   highlighted = highlighted.replace(/\x1b\[[0-9;]*m/g, '')
 
-  // 1. 高亮表头行
+  // 1. 高亮表头行，使用固定宽度对齐
   if (highlighted.match(/^\s*total\s+used\s+free\s+shared\s+buff\/cache\s+available/)) {
-    highlighted = highlighted.replace(/(total|used|free|shared|buff\/cache|available)/g, (match) => {
-      return `${header}${match}${reset}`
+    // 定义表头字段
+    const headers = ['total', 'used', 'free', 'shared', 'buff/cache', 'available']
+
+    // 定义固定列宽度（与数据行标签列对齐）
+    const columnWidths = {
+      label: 6, // Mem: 或 Swap: 的宽度
+      total: 8, // total
+      used: 8, // used
+      free: 8, // free
+      shared: 8, // shared
+      buffCache: 10, // buff/cache
+      available: 10 // available
+    }
+
+    // 格式化表头：先留出标签列的空间，然后格式化各列
+    const labelSpace = simpleFormatField('', columnWidths.label, header)
+    const formattedHeaders = headers.map((headerText, index) => {
+      if (index === 0) {
+        return simpleFormatField(headerText, columnWidths.total, header)
+      } else if (index === 1) {
+        return simpleFormatField(headerText, columnWidths.used, header)
+      } else if (index === 2) {
+        return simpleFormatField(headerText, columnWidths.free, header)
+      } else if (index === 3) {
+        return simpleFormatField(headerText, columnWidths.shared, header)
+      } else if (index === 4) {
+        return simpleFormatField(headerText, columnWidths.buffCache, header)
+      } else if (index === 5) {
+        return simpleFormatField(headerText, columnWidths.available, header)
+      }
+      return `${header}${headerText}${reset}`
     })
-    return highlighted
+
+    return `${labelSpace}${formattedHeaders.join('')}`
   }
 
-  // 2. 高亮 Mem: 和 Swap: 行
+  // 2. 高亮 Mem: 和 Swap: 行，使用固定宽度对齐
   if (highlighted.match(/^(Mem|Swap):/)) {
     // 解析数值并高亮
     const parts = highlighted.trim().split(/\s+/)
     if (parts.length >= 4) {
-      const [label, ...values] = parts
+      const label = parts[0] // Mem: 或 Swap:
+      const values = parts.slice(1) // 所有数值
+
+      // 定义固定列宽度（与表头保持一致）
+      const columnWidths = {
+        label: 6, // Mem: 或 Swap:
+        total: 8, // total
+        used: 8, // used
+        free: 8, // free
+        shared: 8, // shared
+        buffCache: 10, // buff/cache
+        available: 10 // available
+      }
 
       // 高亮标签
-      const coloredLabel = `${header}${label}${reset}`
+      const coloredLabel = simpleFormatField(label, columnWidths.label, header)
 
-      // 为每个数值分配颜色
-      const coloredValues = values.map((value) => {
-        // 解析数值（支持 Gi, Mi, KiB 等单位）
+      // 为每个数值分配颜色并格式化，使用对应的列宽
+      const coloredValues = values.map((value, index) => {
+        let color = number // 默认蓝色
+        let width = columnWidths.total // 默认宽度
+
+        // 根据位置确定列宽
+        if (index === 0) width = columnWidths.total
+        else if (index === 1) width = columnWidths.used
+        else if (index === 2) width = columnWidths.free
+        else if (index === 3) width = columnWidths.shared
+        else if (index === 4) width = columnWidths.buffCache
+        else if (index === 5) width = columnWidths.available
+
+        // 根据数值大小分配颜色
         const numericValue = parseFloat(value.replace(/[^\d.]/g, ''))
         const unit = value.replace(/[\d.]/g, '')
 
-        let color = number // 默认蓝色
-
-        // 根据数值大小和位置分配颜色
         if (unit.includes('Gi') && numericValue > 0) {
           color = success // 绿色 - 有内存
         } else if (unit.includes('Mi') && numericValue > 100) {
@@ -2325,11 +2813,11 @@ const highlightFreeOutput = (line: string): string => {
           color = number // 默认蓝色
         }
 
-        return `${color}${value}${reset}`
+        return simpleFormatField(value, width, color)
       })
 
       // 重新组合行
-      return `${coloredLabel} ${coloredValues.join(' ')}`
+      return `${coloredLabel}${coloredValues.join('')}`
     }
   }
 
@@ -2344,8 +2832,8 @@ const DF_COLORS = {
   used: '\x1b[31m', // 已用 - 红色
   avail: '\x1b[32m', // 可用 - 绿色
   percent: '\x1b[35m', // 百分比 - 紫色
-  mounted: '\x1b[36m', // 挂载点 - 青色
-  header: '\x1b[36m' // 表头 - 青色
+  mounted: '\x1b[96m', // 挂载点 - 青色（使用统一的青色）
+  header: '\x1b[96m' // 表头 - 青色（使用统一的青色）
 }
 
 // df 命令输出高亮（固定宽度列对齐）
@@ -2368,19 +2856,13 @@ const highlightDfOutputPreserveSpacing = (line: string): string => {
       mounted: 0 // 挂载点列（不限制宽度）
     }
 
-    // 格式化每个字段，使用固定宽度
-    const formatField = (text: string, width: number, color: string) => {
-      const padded = text.padEnd(width)
-      return `${color}${padded}${DF_COLORS.reset}`
-    }
-
-    // 构建固定宽度的行
+    // 构建固定宽度的行，使用简单格式化
     return [
-      formatField(filesystem, columnWidths.filesystem, DF_COLORS.filesystem),
-      formatField(size, columnWidths.size, DF_COLORS.size),
-      formatField(used, columnWidths.used, DF_COLORS.used),
-      formatField(avail, columnWidths.avail, DF_COLORS.avail),
-      formatField(usePercent, columnWidths.percent, DF_COLORS.percent),
+      simpleFormatField(filesystem, columnWidths.filesystem, DF_COLORS.filesystem),
+      simpleFormatField(size, columnWidths.size, DF_COLORS.size),
+      simpleFormatField(used, columnWidths.used, DF_COLORS.used),
+      simpleFormatField(avail, columnWidths.avail, DF_COLORS.avail),
+      simpleFormatField(usePercent, columnWidths.percent, DF_COLORS.percent),
       `${DF_COLORS.mounted}${mounted}${DF_COLORS.reset}`
     ].join('')
   }
@@ -2409,19 +2891,13 @@ const highlightDfHeaderPreserveSpacing = (line: string): string => {
       mounted: 0 // 挂载点列（不限制宽度）
     }
 
-    // 格式化每个字段，使用固定宽度
-    const formatField = (text: string, width: number, color: string) => {
-      const padded = text.padEnd(width)
-      return `${color}${padded}${DF_COLORS.reset}`
-    }
-
-    // 构建固定宽度的表头
+    // 构建固定宽度的表头，使用简单格式化
     return [
-      formatField(filesystem, columnWidths.filesystem, DF_COLORS.header),
-      formatField(size, columnWidths.size, DF_COLORS.header),
-      formatField(used, columnWidths.used, DF_COLORS.header),
-      formatField(avail, columnWidths.avail, DF_COLORS.header),
-      formatField(usePercent, columnWidths.percent, DF_COLORS.header),
+      simpleFormatField(filesystem, columnWidths.filesystem, DF_COLORS.header),
+      simpleFormatField(size, columnWidths.size, DF_COLORS.header),
+      simpleFormatField(used, columnWidths.used, DF_COLORS.header),
+      simpleFormatField(avail, columnWidths.avail, DF_COLORS.header),
+      simpleFormatField(usePercent, columnWidths.percent, DF_COLORS.header),
       `${DF_COLORS.header}${mounted}${DF_COLORS.reset}`
     ].join('')
   }
@@ -2432,13 +2908,8 @@ const highlightDfHeaderPreserveSpacing = (line: string): string => {
 
 // top/htop 命令系统信息高亮
 const highlightTopSystemInfo = (line: string): string => {
-  const { reset, header, success, warning, error, info, key } = COLORS
+  const { reset, header, success, warning, error, info } = COLORS
   let highlighted = line
-
-  // 高亮时间信息
-  highlighted = highlighted.replace(/(\d{2}:\d{2}:\d{2})/g, (match) => {
-    return `${key}${match}${reset}`
-  })
 
   // 高亮数字（负载、内存、CPU等）
   highlighted = highlighted.replace(/(\d+\.\d+)/g, (match) => {
@@ -2486,63 +2957,40 @@ const highlightTopSystemInfo = (line: string): string => {
     return `${color}${match}${reset}`
   })
 
+  // 高亮时间信息（放在最后，确保不被其他高亮覆盖）
+  // 使用更精确的匹配，避免重复高亮
+
+  // 1. 先匹配完整的时间格式：13:19:49
+  highlighted = highlighted.replace(/(\d{2}:\d{2}:\d{2})/g, (match) => {
+    return `${COLORS.cyan}${match}${reset}`
+  })
+
   return highlighted
 }
 
-// top/htop 命令表头高亮（固定宽度列对齐）
+// top/htop 命令表头高亮（保持原始格式，为每个字段添加颜色）
 const highlightTopHeaderPreserveSpacing = (line: string): string => {
   const reset = '\x1b[0m'
-  const headerColor = '\x1b[36m' // 表头 - 青色
+  const headerColor = '\x1b[1;36m' // 亮青色，表头专用颜色
 
-  // 使用split分割字段
-  const parts = line.trim().split(/\s+/)
+  // 使用更简单的方法：直接替换每个字段名
+  let highlighted = line
 
-  // 检查是否是top表头格式
-  if (parts.length >= 12) {
-    const [pid, user, pr, ni, virt, res, shr, s, cpu, mem, time, ...commandParts] = parts
-    const command = commandParts.join(' ')
+  // 按顺序替换每个字段，保持原始间距
+  highlighted = highlighted.replace(/\bPID\b/g, `${headerColor}PID${reset}`)
+  highlighted = highlighted.replace(/\bUSER\b/g, `${headerColor}USER${reset}`)
+  highlighted = highlighted.replace(/\bPR\b/g, `${headerColor}PR${reset}`)
+  highlighted = highlighted.replace(/\bNI\b/g, `${headerColor}NI${reset}`)
+  highlighted = highlighted.replace(/\bVIRT\b/g, `${headerColor}VIRT${reset}`)
+  highlighted = highlighted.replace(/\bRES\b/g, `${headerColor}RES${reset}`)
+  highlighted = highlighted.replace(/\bSHR\b/g, `${headerColor}SHR${reset}`)
+  highlighted = highlighted.replace(/\bS\b/g, `${headerColor}S${reset}`)
+  highlighted = highlighted.replace(/%CPU/g, `${headerColor}%CPU${reset}`)
+  highlighted = highlighted.replace(/%MEM/g, `${headerColor}%MEM${reset}`)
+  highlighted = highlighted.replace(/TIME\+/g, `${headerColor}TIME+${reset}`)
+  highlighted = highlighted.replace(/\bCOMMAND\b/g, `${headerColor}COMMAND${reset}`)
 
-    // 定义固定列宽度（与数据行保持一致）
-    const columnWidths = {
-      pid: 10, // PID列 - 增加宽度
-      user: 8, // USER列
-      pr: 5, // PR列 - 增加宽度
-      ni: 5, // NI列 - 增加宽度
-      virt: 10, // VIRT列 - 增加宽度
-      res: 8, // RES列 - 增加宽度
-      shr: 8, // SHR列 - 增加宽度
-      s: 3, // S列 - 增加宽度
-      cpu: 6, // %CPU列
-      mem: 6, // %MEM列
-      time: 8, // TIME+列
-      command: 0 // COMMAND列（不限制宽度）
-    }
-
-    // 格式化每个字段，使用固定宽度
-    const formatField = (text: string, width: number, color: string) => {
-      const padded = text.padEnd(width)
-      return `${color}${padded}${reset}`
-    }
-
-    // 重新构建表头，使用固定宽度对齐
-    return [
-      formatField(pid, columnWidths.pid, headerColor),
-      formatField(user, columnWidths.user, headerColor),
-      formatField(pr, columnWidths.pr, headerColor),
-      formatField(ni, columnWidths.ni, headerColor),
-      formatField(virt, columnWidths.virt, headerColor),
-      formatField(res, columnWidths.res, headerColor),
-      formatField(shr, columnWidths.shr, headerColor),
-      formatField(s, columnWidths.s, headerColor),
-      formatField(cpu, columnWidths.cpu, headerColor),
-      formatField(mem, columnWidths.mem, headerColor),
-      formatField(time, columnWidths.time, headerColor),
-      `${headerColor}${command}${reset}`
-    ].join('')
-  }
-
-  // 如果格式不匹配，回退到原始行
-  return line
+  return highlighted
 }
 
 // top/htop 命令输出高亮（另一种格式：USER PR PID VIRT RES SHR S %CPU %MEM TIME COMMAND）
@@ -2557,18 +3005,18 @@ const highlightTopOutputAlternativeFormat = (line: string): string => {
     const [user, pr, pid, virt, res, shr, s, cpu, mem, time, ...commandParts] = parts
     const command = commandParts.join(' ')
 
-    // 定义固定列宽度（与主函数保持一致）
+    // 定义固定列宽度（与主函数保持一致，确保对齐）
     const columnWidths = {
-      user: 8, // USER列
-      pr: 5, // PR列 - 与主函数保持一致
-      pid: 10, // PID列 - 与主函数保持一致
+      user: 10, // USER列 - 与主函数保持一致
+      pr: 6, // PR列 - 与主函数保持一致
+      pid: 8, // PID列 - 与主函数保持一致
       virt: 10, // VIRT列 - 与主函数保持一致
       res: 8, // RES列 - 与主函数保持一致
       shr: 8, // SHR列 - 与主函数保持一致
-      s: 3, // S列 - 与主函数保持一致
-      cpu: 6, // %CPU列
-      mem: 6, // %MEM列
-      time: 8, // TIME列
+      s: 4, // S列 - 与主函数保持一致
+      cpu: 7, // %CPU列 - 与主函数保持一致
+      mem: 7, // %MEM列 - 与主函数保持一致
+      time: 9, // TIME列 - 与主函数保持一致
       command: 0 // COMMAND列（不限制宽度）
     }
 
@@ -2576,9 +3024,9 @@ const highlightTopOutputAlternativeFormat = (line: string): string => {
     const userColor = '\x1b[31m' // USER - 红色
     const prColor = '\x1b[33m' // PR - 黄色
     const pidColor = '\x1b[32m' // PID - 绿色
-    const memoryColor = '\x1b[36m' // 内存相关 - 青色
+    const memoryColor = '\x1b[96m' // 内存相关 - 青色
     const statusColor = '\x1b[33m' // 状态 - 黄色
-    const timeColor = '\x1b[35m' // 时间 - 紫色
+    const timeColor = '\x1b[96m' // 时间 - 青色
     const commandColor = '\x1b[34m' // 命令 - 蓝色
 
     // 根据数值确定CPU和内存颜色
@@ -2628,39 +3076,44 @@ const highlightTopOutputAlternativeFormat = (line: string): string => {
 const highlightTopOutputPreserveSpacing = (line: string): string => {
   const reset = '\x1b[0m'
 
-  // 使用split分割字段，避免复杂正则匹配
-  const parts = line.trim().split(/\s+/)
+  // 使用正则表达式匹配各个字段，保持原始格式和间距
+  let highlighted = line
 
-  // 检查是否是top数据行格式（至少12个字段）
-  if (parts.length >= 12) {
-    const [pid, user, pr, ni, virt, res, shr, s, cpu, mem, time, ...commandParts] = parts
-    const command = commandParts.join(' ')
+  // 定义颜色
+  const pidColor = '\x1b[32m' // PID - 绿色
+  const userColor = '\x1b[31m' // USER - 红色
+  const memoryColor = '\x1b[96m' // 内存相关 - 青色
+  const statusColor = '\x1b[33m' // 状态 - 黄色
+  const timeColor = '\x1b[96m' // 时间 - 紫色
+  const commandColor = '\x1b[34m' // 命令 - 蓝色
 
-    // 定义固定列宽度（基于top命令的典型输出）
-    const columnWidths = {
-      pid: 10, // PID列 - 增加宽度
-      user: 8, // USER列
-      pr: 5, // PR列 - 增加宽度
-      ni: 5, // NI列 - 增加宽度
-      virt: 10, // VIRT列 - 增加宽度
-      res: 8, // RES列 - 增加宽度
-      shr: 8, // SHR列 - 增加宽度
-      s: 3, // S列 - 增加宽度
-      cpu: 6, // %CPU列
-      mem: 6, // %MEM列
-      time: 8, // TIME+列
-      command: 0 // COMMAND列（不限制宽度）
-    }
+  // 使用正则表达式匹配并高亮各个字段，保持原始间距
+  // PID (数字开头，后面跟空格)
+  highlighted = highlighted.replace(/^(\s*)(\d+)(\s+)/, `$1${pidColor}$2${reset}$3`)
 
-    // 定义颜色
-    const pidColor = '\x1b[32m' // PID - 绿色
-    const userColor = '\x1b[31m' // USER - 红色
-    const memoryColor = '\x1b[36m' // 内存相关 - 青色
-    const statusColor = '\x1b[33m' // 状态 - 黄色
-    const timeColor = '\x1b[35m' // 时间 - 紫色
-    const commandColor = '\x1b[34m' // 命令 - 蓝色
+  // USER (字母数字下划线，后面跟空格)
+  highlighted = highlighted.replace(/^(\s*\d+\s+)([\w+-]+)(\s+)/, `$1${userColor}$2${reset}$3`)
 
-    // 根据数值确定CPU和内存颜色
+  // PR (数字，可能带负号)
+  highlighted = highlighted.replace(/^(\s*\d+\s+[\w+-]+\s+)([\d-]+)(\s+)/, `$1$2$3`)
+
+  // NI (数字，可能带负号)
+  highlighted = highlighted.replace(/^(\s*\d+\s+[\w+-]+\s+[\d-]+\s+)([\d-]+)(\s+)/, `$1$2$3`)
+
+  // VIRT (数字)
+  highlighted = highlighted.replace(/^(\s*\d+\s+[\w+-]+\s+[\d-]+\s+[\d-]+\s+)(\d+)(\s+)/, `$1${memoryColor}$2${reset}$3`)
+
+  // RES (数字)
+  highlighted = highlighted.replace(/^(\s*\d+\s+[\w+-]+\s+[\d-]+\s+[\d-]+\s+\d+\s+)(\d+)(\s+)/, `$1${memoryColor}$2${reset}$3`)
+
+  // SHR (数字)
+  highlighted = highlighted.replace(/^(\s*\d+\s+[\w+-]+\s+[\d-]+\s+[\d-]+\s+\d+\s+\d+\s+)(\d+)(\s+)/, `$1${memoryColor}$2${reset}$3`)
+
+  // S (状态字符)
+  highlighted = highlighted.replace(/^(\s*\d+\s+[\w+-]+\s+[\d-]+\s+[\d-]+\s+\d+\s+\d+\s+\d+\s+)(\w)(\s+)/, `$1${statusColor}$2${reset}$3`)
+
+  // %CPU (浮点数)
+  highlighted = highlighted.replace(/^(\s*\d+\s+[\w+-]+\s+[\d-]+\s+[\d-]+\s+\d+\s+\d+\s+\d+\s+\w\s+)(\d+\.\d+)(\s+)/, (_, prefix, cpu, suffix) => {
     const cpuPercent = parseFloat(cpu)
     let cpuColor = '\x1b[32m' // 默认绿色
     if (cpuPercent > 80) {
@@ -2668,40 +3121,44 @@ const highlightTopOutputPreserveSpacing = (line: string): string => {
     } else if (cpuPercent > 50) {
       cpuColor = '\x1b[33m' // 中等使用率 - 黄色
     }
+    return `${prefix}${cpuColor}${cpu}${reset}${suffix}`
+  })
 
-    const memPercent = parseFloat(mem)
-    let memColor = '\x1b[32m' // 默认绿色
-    if (memPercent > 80) {
-      memColor = '\x1b[91m' // 高使用率 - 亮红色
-    } else if (memPercent > 50) {
-      memColor = '\x1b[33m' // 中等使用率 - 黄色
+  // %MEM (浮点数)
+  highlighted = highlighted.replace(
+    /^(\s*\d+\s+[\w+-]+\s+[\d-]+\s+[\d-]+\s+\d+\s+\d+\s+\d+\s+\w\s+\d+\.\d+\s+)(\d+\.\d+)(\s+)/,
+    (_, prefix, mem, suffix) => {
+      const memPercent = parseFloat(mem)
+      let memColor = '\x1b[32m' // 默认绿色
+      if (memPercent > 80) {
+        memColor = '\x1b[91m' // 高使用率 - 亮红色
+      } else if (memPercent > 50) {
+        memColor = '\x1b[33m' // 中等使用率 - 黄色
+      }
+      return `${prefix}${memColor}${mem}${reset}${suffix}`
     }
+  )
 
-    // 格式化每个字段，使用固定宽度
-    const formatField = (text: string, width: number, color: string) => {
-      const padded = text.padEnd(width)
-      return `${color}${padded}${reset}`
+  // TIME+ (时间格式) - 使用更简单的方法匹配时间格式
+  // 匹配格式：数字:数字.数字（如 0:59.03, 0:00.38, 0:00.00）
+  highlighted = highlighted.replace(/(\d+:\d+\.\d+)/g, (match) => {
+    // 检查是否在正确的位置（TIME+ 列，第11个字段）
+    const parts = highlighted.split(/\s+/)
+    const timeIndex = parts.findIndex((part) => part === match)
+    if (timeIndex >= 10) {
+      // TIME+ 是第11个字段（索引10）
+      return `${timeColor}${match}${reset}`
     }
+    return match
+  })
 
-    // 重新构建行，使用固定宽度对齐
-    return [
-      formatField(pid, columnWidths.pid, pidColor),
-      formatField(user, columnWidths.user, userColor),
-      formatField(pr, columnWidths.pr, reset),
-      formatField(ni, columnWidths.ni, reset),
-      formatField(virt, columnWidths.virt, memoryColor),
-      formatField(res, columnWidths.res, memoryColor),
-      formatField(shr, columnWidths.shr, memoryColor),
-      formatField(s, columnWidths.s, statusColor),
-      formatField(cpu, columnWidths.cpu, cpuColor),
-      formatField(mem, columnWidths.mem, memColor),
-      formatField(time, columnWidths.time, timeColor),
-      `${commandColor}${command}${reset}`
-    ].join('')
-  }
+  // COMMAND (剩余部分)
+  highlighted = highlighted.replace(
+    /^(\s*\d+\s+[\w+-]+\s+[\d-]+\s+[\d-]+\s+\d+\s+\d+\s+\d+\s+\w\s+\d+\.\d+\s+\d+\.\d+\s+\d+:\d+\.\d+\s+)(.+)$/,
+    `$1${commandColor}$2${reset}`
+  )
 
-  // 如果格式不匹配，回退到原始行
-  return line
+  return highlighted
 }
 
 // top/htop 命令输出高亮
@@ -2729,7 +3186,7 @@ const highlightSimpleLsOutput = (line: string): string => {
     } else if (part.includes('.')) {
       // 根据文件扩展名设置不同颜色
       if (REGEX_PATTERNS.codeFiles.test(part)) {
-        return `\x1b[36m${part}\x1b[0m` // 代码文件 - 青色
+        return `\x1b[96m${part}\x1b[0m` // 代码文件 - 青色
       } else if (REGEX_PATTERNS.imageFiles.test(part)) {
         return `\x1b[35m${part}\x1b[0m` // 图片文件 - 紫色
       } else if (REGEX_PATTERNS.archiveFiles.test(part)) {
@@ -2792,26 +3249,24 @@ const writeToTerminal = (content: string) => {
 
   // 先计算内容行数和尺寸
   const contentLines = cleanContent.split('\n').length
-  const minRows = 2
+  const minRows = 1
   const actualRows = Math.max(minRows, contentLines)
   const lines = cleanContent.split('\n')
-  const maxLineLength = Math.max(...lines.map((line) => line.length))
-  const cols = Math.max(maxLineLength + 50, 120)
+  // 移除ANSI颜色代码后计算实际显示长度（考虑中文等宽字符）
+  const maxLineLength = Math.max(...lines.map((line) => getStringDisplayWidth(line.replace(/\x1b\[[0-9;]*m/g, ''))))
+  const cols = maxLineLength
 
   // 先调整终端尺寸
   if (terminal) {
     terminal.resize(cols, actualRows)
   }
 
-  // 然后写入内容
   terminal.write(cleanContent)
+  // 隐藏光标，避免产生额外的空行
+  terminal.write('\x1b[?25l')
 
   // 立即调整高度，确保所有内容都能显示
   nextTick(() => {
-    if (fitAddon) {
-      fitAddon.fit()
-    }
-
     // 强制调整高度
     adjustTerminalHeight()
 
@@ -2832,21 +3287,17 @@ const writeToTerminal = (content: string) => {
 
   const adjustHeight = () => {
     const contentLines = cleanContent.split('\n').length
-    const minRows = 2
+    const minRows = 1
     // 确保有足够的行数显示所有内容
     const actualRows = Math.max(minRows, contentLines)
 
     if (terminal) {
       const lines = cleanContent.split('\n')
-      const maxLineLength = Math.max(...lines.map((line) => line.length))
-      const cols = Math.max(maxLineLength + 50, 120)
+      // 移除ANSI颜色代码后计算实际显示长度（考虑中文等宽字符）
+      const maxLineLength = Math.max(...lines.map((line) => getStringDisplayWidth(line.replace(/\x1b\[[0-9;]*m/g, ''))))
+      const cols = maxLineLength
 
-      if (fitAddon) {
-        fitAddon.fit()
-        terminal.resize(cols, actualRows)
-      } else {
-        terminal.resize(cols, actualRows)
-      }
+      terminal.resize(cols, actualRows)
     }
 
     if (terminalContainer.value) {
@@ -2863,7 +3314,7 @@ const writeToTerminal = (content: string) => {
         const paddingBottom = parseFloat(styles.paddingBottom) || 0
 
         // 直接基于行数计算高度，确保所有内容都能显示
-        const newHeight = actualRows * rowHeight + paddingTop + paddingBottom + 8
+        const newHeight = actualRows * rowHeight + paddingTop + paddingBottom + 20
         terminalContainer.value.style.height = `${newHeight}px`
       })
     }
@@ -2979,7 +3430,7 @@ const highlightSimpleLsColumnsPreserveSpacing = (line: string): string => {
     }
 
     // 具体类型
-    if (REGEX_PATTERNS.codeFiles.test(token)) return `\x1b[36m${token}${reset}`
+    if (REGEX_PATTERNS.codeFiles.test(token)) return `\x1b[96m${token}${reset}`
     if (REGEX_PATTERNS.imageFiles.test(token)) return `\x1b[35m${token}${reset}`
     if (REGEX_PATTERNS.archiveFiles.test(token)) return `\x1b[33m${token}${reset}`
     return `\x1b[32m${token}${reset}` // 其他文件
@@ -3020,6 +3471,14 @@ const highlightSimpleLsColumnsPreserveSpacing = (line: string): string => {
   color: #7e8ba3;
 }
 
+.output-title-section {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+  flex: 1;
+}
+
 .output-title {
   font-weight: 500;
   color: #7e8ba3;
@@ -3053,7 +3512,7 @@ const highlightSimpleLsColumnsPreserveSpacing = (line: string): string => {
   background: rgba(255, 255, 255, 0.1);
 }
 
-.toggle-button {
+.tnoggle-butto {
   color: var(--text-color);
   opacity: 0.6;
   transition: opacity 0.3s;
@@ -3067,11 +3526,6 @@ const highlightSimpleLsColumnsPreserveSpacing = (line: string): string => {
   font-weight: bold;
 }
 
-.toggle-button:hover {
-  opacity: 1;
-  background: rgba(255, 255, 255, 0.1);
-}
-
 .terminal-output {
   font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
   background-color: var(--command-output-bg) !important;
@@ -3080,33 +3534,31 @@ const highlightSimpleLsColumnsPreserveSpacing = (line: string): string => {
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
   border: 1px solid var(--border-color);
   border-top: none;
-  overflow-x: auto;
+  overflow-x: hidden;
   overflow-y: visible;
   position: relative;
   width: 100%;
   max-width: 100%;
   height: auto;
-  padding: 8px;
+  padding: 12px 0px 0px 12px;
   box-sizing: border-box;
   scrollbar-gutter: stable;
 }
 
-:deep(.xterm-viewport) {
-  padding: 0 !important;
-  overflow: hidden !important;
-  scrollbar-gutter: stable !important;
-}
-
-:deep(.xterm-screen) {
-  padding: 0 !important;
-  overflow-x: auto !important;
-  overflow-y: visible !important;
-}
-
 :deep(.xterm) {
+  height: 100%;
   overflow-x: auto !important;
   overflow-y: hidden !important;
   white-space: pre !important;
+}
+
+:deep(.xterm-viewport) {
+  overflow: hidden !important;
+  overflow-y: hidden !important;
+  scrollbar-gutter: stable !important;
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
+  background-color: var(--bg-color-secondary) !important;
 }
 
 /* 隐藏纵向滚动条 */
@@ -3115,14 +3567,10 @@ const highlightSimpleLsColumnsPreserveSpacing = (line: string): string => {
   height: 0 !important;
 }
 
-:deep(.xterm-viewport) {
-  scrollbar-width: none !important;
-  -ms-overflow-style: none !important;
-  overflow-y: hidden !important;
-}
-
 :deep(.xterm-screen) {
+  overflow-x: hidden !important;
   overflow-y: hidden !important;
+  background-color: var(--bg-color-secondary) !important;
 }
 
 :deep(.xterm .xterm-cursor) {
@@ -3142,18 +3590,6 @@ const highlightSimpleLsColumnsPreserveSpacing = (line: string): string => {
   height: 11px;
   vertical-align: middle;
   filter: invert(0.25);
-}
-
-:deep(.xterm) {
-  height: 100%;
-}
-
-:deep(.xterm-viewport) {
-  background-color: var(--bg-color-secondary) !important;
-}
-
-:deep(.xterm-screen) {
-  background-color: var(--bg-color-secondary) !important;
 }
 
 ::deep(.xterm-rows) {

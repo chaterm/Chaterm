@@ -75,9 +75,9 @@ export async function getAllExtensionState() {
     openAiModelId,
     //openAiModelInfo,
     //openAiHeaders,
-    //ollamaModelId,
-    //ollamaBaseUrl,
-    //ollamaApiOptionsCtxNum,
+    ollamaModelId,
+    ollamaBaseUrl,
+    ollamaApiOptionsCtxNum,
     //lmStudioModelId,
     //lmStudioBaseUrl,
     //anthropicBaseUrl,
@@ -162,9 +162,9 @@ export async function getAllExtensionState() {
     getGlobalState('openAiModelId') as Promise<string | undefined>,
     //getGlobalState('openAiModelInfo') as Promise<ModelInfo | undefined>,
     //getGlobalState('openAiHeaders') as Promise<Record<string, string> | undefined>,
-    //getGlobalState('ollamaModelId') as Promise<string | undefined>,
-    //getGlobalState('ollamaBaseUrl') as Promise<string | undefined>,
-    //getGlobalState('ollamaApiOptionsCtxNum') as Promise<string | undefined>,
+    getGlobalState('ollamaModelId') as Promise<string | undefined>,
+    getGlobalState('ollamaBaseUrl') as Promise<string | undefined>,
+    getGlobalState('ollamaApiOptionsCtxNum') as Promise<string | undefined>,
     //getGlobalState('lmStudioModelId') as Promise<string | undefined>,
     //getGlobalState('lmStudioBaseUrl') as Promise<string | undefined>,
     //getGlobalState('anthropicBaseUrl') as Promise<string | undefined>,
@@ -290,9 +290,9 @@ export async function getAllExtensionState() {
       openAiModelId,
       //openAiModelInfo,
       //openAiHeaders: openAiHeaders || {},
-      //ollamaModelId,
-      //ollamaBaseUrl,
-      //ollamaApiOptionsCtxNum,
+      ollamaModelId,
+      ollamaBaseUrl,
+      ollamaApiOptionsCtxNum,
       //lmStudioModelId,
       //lmStudioBaseUrl,
       //anthropicBaseUrl,
@@ -386,6 +386,9 @@ export async function updateApiConfiguration(apiConfiguration: ApiConfiguration)
     openAiBaseUrl,
     openAiApiKey,
     openAiModelId,
+    ollamaModelId,
+    ollamaBaseUrl,
+    ollamaApiOptionsCtxNum,
     defaultBaseUrl,
     defaultModelId,
     defaultApiKey
@@ -412,9 +415,9 @@ export async function updateApiConfiguration(apiConfiguration: ApiConfiguration)
   await updateGlobalState('openAiModelId', openAiModelId)
   //await updateGlobalState('openAiModelInfo', openAiModelInfo)
   //await updateGlobalState('openAiHeaders', openAiHeaders || {})
-  //await updateGlobalState('ollamaModelId', ollamaModelId)
-  //await updateGlobalState('ollamaBaseUrl', ollamaBaseUrl)
-  //await updateGlobalState('ollamaApiOptionsCtxNum', ollamaApiOptionsCtxNum)
+  await updateGlobalState('ollamaModelId', ollamaModelId)
+  await updateGlobalState('ollamaBaseUrl', ollamaBaseUrl)
+  await updateGlobalState('ollamaApiOptionsCtxNum', ollamaApiOptionsCtxNum)
   //await updateGlobalState('lmStudioModelId', lmStudioModelId)
   //await updateGlobalState('lmStudioBaseUrl', lmStudioBaseUrl)
   //await updateGlobalState('anthropicBaseUrl', anthropicBaseUrl)

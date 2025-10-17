@@ -23,6 +23,15 @@
     </div>
 
     <div
+      v-if="asset?.asset_type !== 'organization'"
+      class="context-menu-item"
+      @click.stop="handleClone"
+    >
+      <div class="context-menu-icon"><CopyOutlined /></div>
+      <div>{{ t('common.clone') }}</div>
+    </div>
+
+    <div
       v-if="asset?.asset_type === 'organization'"
       class="context-menu-item"
       @click.stop="handleRefresh"
@@ -42,7 +51,7 @@
 </template>
 
 <script setup lang="ts">
-import { ApiOutlined, EditOutlined, ReloadOutlined, DeleteOutlined } from '@ant-design/icons-vue'
+import { ApiOutlined, EditOutlined, ReloadOutlined, DeleteOutlined, CopyOutlined } from '@ant-design/icons-vue'
 import i18n from '@/locales'
 import type { AssetNode, Position } from '../types'
 
@@ -55,13 +64,14 @@ interface Props {
   asset: AssetNode | null
 }
 
-const props = defineProps<Props>()
+defineProps<Props>()
 
 // Emits
 const emit = defineEmits<{
   close: []
   connect: []
   edit: []
+  clone: []
   refresh: []
   remove: []
 }>()
@@ -77,6 +87,10 @@ const handleConnect = () => {
 
 const handleEdit = () => {
   emit('edit')
+}
+
+const handleClone = () => {
+  emit('clone')
 }
 
 const handleRefresh = () => {

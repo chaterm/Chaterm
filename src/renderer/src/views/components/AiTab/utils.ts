@@ -40,3 +40,38 @@ export const formatHosts = (hosts: any[]): any[] => {
     connection: item.asset_type
   }))
 }
+
+// Type guard to check if content is a string
+export const isStringContent = (content: string | MessageContent): content is string => {
+  return typeof content === 'string'
+}
+
+// Format timestamp to date string (YYYY.MM.DD)
+export const formatDateFromTimestamp = (ts: number): string => {
+  const date = new Date(ts)
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${year}.${month}.${day}`
+}
+
+// Get date label (today, yesterday, or formatted date)
+export const getDateLabel = (ts: number, t: (key: string) => string): string => {
+  const today = new Date()
+  const date = new Date(ts)
+
+  // Reset time to compare only dates
+  today.setHours(0, 0, 0, 0)
+  date.setHours(0, 0, 0, 0)
+
+  const diffTime = today.getTime() - date.getTime()
+  const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24))
+
+  if (diffDays === 0) {
+    return t('ai.today')
+  } else if (diffDays === 1) {
+    return t('ai.yesterday')
+  } else {
+    return formatDateFromTimestamp(ts)
+  }
+}

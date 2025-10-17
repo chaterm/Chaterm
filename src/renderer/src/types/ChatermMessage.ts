@@ -50,6 +50,7 @@ export type ChatermSay =
   | 'checkpoint_created'
   | 'sshInfo'
   | 'interactive_command_notification'
+  | 'search_result'
 
 export interface ChatermSayTool {
   tool: 'readFile' | 'listFilesTopLevel' | 'listFilesRecursive' | 'searchFiles'

@@ -72,7 +72,20 @@
           v-show="true"
           class="terminal-output-header"
         >
-          <span class="output-title">OUTPUT</span>
+          <div
+            class="output-title-section"
+            @click="toggleCodeOutput"
+          >
+            <a-button
+              class="toggle-button"
+              type="text"
+              size="small"
+            >
+              <CaretDownOutlined v-if="isCodeExpanded" />
+              <CaretRightOutlined v-else />
+            </a-button>
+            <span class="output-title">OUTPUT</span>
+          </div>
           <div class="output-controls">
             <span class="output-lines">{{ props.content.split('\n').length }} lines</span>
             <a-button
@@ -86,15 +99,6 @@
                 alt="copy"
                 class="copy-icon"
               />
-            </a-button>
-            <a-button
-              class="toggle-button"
-              type="text"
-              size="small"
-              @click="toggleCodeOutput"
-            >
-              <CaretDownOutlined v-if="isCodeExpanded" />
-              <CaretRightOutlined v-else />
             </a-button>
           </div>
         </div>
@@ -487,7 +491,7 @@ const codeDetection = computed(() => {
 
 const codeBlocks = ref<Array<{ content: string; activeKey: string[]; lines: number }>>([])
 const codeEditors = ref<Array<HTMLElement | null>>([])
-const isCodeExpanded = ref(true) // 代码内容默认展开
+const isCodeExpanded = ref(false) // 代码内容默认折叠
 
 const contentStableTimeout = ref<NodeJS.Timeout | null>(null)
 
@@ -1843,6 +1847,14 @@ code {
   font-size: 10px;
   color: #7e8ba3;
   border-radius: 6px 6px 0 0;
+}
+
+.output-title-section {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+  flex: 1;
 }
 
 .output-title {

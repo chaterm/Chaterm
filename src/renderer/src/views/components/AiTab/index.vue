@@ -6,7 +6,7 @@
   >
     <a-tab-pane
       key="chat"
-      :tab="currentChatId ? historyList.find((item) => item.id === currentChatId)?.chatTitle || 'New chat' : 'New chat'"
+      :tab="currentChatTitle"
     >
       <div
         v-if="filteredChatHistory.length === 0"
@@ -557,87 +557,93 @@
                   </a-button>
                 </div>
                 <div class="history-virtual-list-container">
-                  <a-menu-item
-                    v-for="history in paginatedHistoryList"
-                    :key="history.id"
-                    class="history-menu-item"
-                    :class="{ 'favorite-item': history.isFavorite }"
-                    @click="!history.isEditing && restoreHistoryTab(history)"
+                  <template
+                    v-for="group in groupedPaginatedHistory"
+                    :key="group.dateLabel"
                   >
-                    <div class="history-item-content">
-                      <div
-                        v-if="!history.isEditing"
-                        class="history-title"
-                      >
-                        {{ history.chatTitle }}
-                      </div>
-                      <a-input
-                        v-else
-                        v-model:value="history.editingTitle"
-                        size="small"
-                        class="history-title-input"
-                        @press-enter="saveHistoryTitle(history)"
-                        @blur.stop="() => {}"
-                        @click.stop
-                      />
-                      <div class="menu-action-buttons">
-                        <template v-if="!history.isEditing">
-                          <a-button
-                            size="small"
-                            class="menu-action-btn favorite-btn"
-                            @click.stop="toggleFavorite(history)"
-                          >
-                            <template #icon>
-                              <template v-if="history.isFavorite">
-                                <StarFilled style="color: #faad14" />
+                    <div class="history-date-header">{{ group.dateLabel }}</div>
+                    <a-menu-item
+                      v-for="history in group.items"
+                      :key="history.id"
+                      class="history-menu-item"
+                      :class="{ 'favorite-item': history.isFavorite }"
+                      @click="!history.isEditing && restoreHistoryTab(history)"
+                    >
+                      <div class="history-item-content">
+                        <div
+                          v-if="!history.isEditing"
+                          class="history-title"
+                        >
+                          {{ history.chatTitle }}
+                        </div>
+                        <a-input
+                          v-else
+                          v-model:value="history.editingTitle"
+                          size="small"
+                          class="history-title-input"
+                          @press-enter="saveHistoryTitle(history)"
+                          @blur.stop="() => {}"
+                          @click.stop
+                        />
+                        <div class="menu-action-buttons">
+                          <template v-if="!history.isEditing">
+                            <a-button
+                              size="small"
+                              class="menu-action-btn favorite-btn"
+                              @click.stop="toggleFavorite(history)"
+                            >
+                              <template #icon>
+                                <template v-if="history.isFavorite">
+                                  <StarFilled style="color: #faad14" />
+                                </template>
+                                <template v-else>
+                                  <StarOutlined style="color: #999999" />
+                                </template>
                               </template>
-                              <template v-else>
-                                <StarOutlined style="color: #999999" />
+                            </a-button>
+                            <a-button
+                              size="small"
+                              class="menu-action-btn"
+                              @click.stop="editHistory(history)"
+                            >
+                              <template #icon>
+                                <EditOutlined style="color: #999999" />
                               </template>
-                            </template>
-                          </a-button>
-                          <a-button
-                            size="small"
-                            class="menu-action-btn"
-                            @click.stop="editHistory(history)"
-                          >
-                            <template #icon>
-                              <EditOutlined style="color: #999999" />
-                            </template>
-                          </a-button>
-                          <a-button
-                            size="small"
-                            class="menu-action-btn"
-                            @click.stop="deleteHistory(history)"
-                          >
-                            <template #icon>
-                              <DeleteOutlined style="color: #999999" />
-                            </template>
-                          </a-button>
-                        </template>
-                        <template v-else>
-                          <a-button
-                            size="small"
-                            class="menu-action-btn save-btn"
-                            @click.stop="saveHistoryTitle(history)"
-                          >
-                            <template #icon>
-                              <CheckOutlined style="color: #999999" />
-                            </template>
-                          </a-button>
-                          <a-button
-                            size="small"
-                            class="menu-action-btn cancel-btn"
-                            @click.stop.prevent="cancelEdit(history)"
-                          >
-                            <template #icon>
-                              <CloseOutlined style="color: #999999" />
-                            </template>
-                          </a-button>
-                        </template>
+                            </a-button>
+                            <a-button
+                              size="small"
+                              class="menu-action-btn"
+                              @click.stop="deleteHistory(history)"
+                            >
+                              <template #icon>
+                                <DeleteOutlined style="color: #999999" />
+                              </template>
+                            </a-button>
+                          </template>
+                          <template v-else>
+                            <a-button
+                              size="small"
+                              class="menu-action-btn save-btn"
+                              @click.stop="saveHistoryTitle(history)"
+                            >
+                              <template #icon>
+                                <CheckOutlined style="color: #999999" />
+                              </template>
+                            </a-button>
+                            <a-button
+                              size="small"
+                              class="menu-action-btn cancel-btn"
+                              @click.stop.prevent="cancelEdit(history)"
+                            >
+                              <template #icon>
+                                <CloseOutlined style="color: #999999" />
+                              </template>
+                            </a-button>
+                          </template>
+                        </div>
                       </div>
-                    </div>
-                  </a-menu-item>
+                    </a-menu-item>
+                  </template>
                   <div
                     v-if="hasMoreHistory"
                     class="history-load-more"
@@ -698,7 +704,7 @@ import eventBus from '@/utils/eventBus'
 import { getGlobalState, updateGlobalState, getSecret, storeSecret } from '@renderer/agent/storage/state'
 
 import type { HistoryItem, TaskHistoryItem, Host, ChatMessage, MessageContent, AssetInfo } from './types'
-import { createNewMessage, parseMessageContent, truncateText, formatHosts } from './utils'
+import { createNewMessage, parseMessageContent, formatHosts, isStringContent, getDateLabel } from './utils'
 import foldIcon from '@/assets/icons/fold.svg'
 import historyIcon from '@/assets/icons/history.svg'
 import plusIcon from '@/assets/icons/plus.svg'
@@ -804,6 +810,7 @@ const isExecutingCommand = ref(false)
 
 // Current active conversation ID
 const currentChatId = ref<string | null>(null)
+const currentChatTitle = ref<string>('New chat') // Store current chat title for tab display
 const authTokenInCookie = ref<string | null>(null)
 
 const chatHistory = reactive<ChatMessage[]>([])
@@ -1035,12 +1042,12 @@ const handleFileUpload = () => {
 }
 
 // Voice input handling methods
-const handleVoiceClick = () => {
-  // Trigger the hidden VoiceInput component's toggle method
-  if (voiceInputRef.value && voiceInputRef.value.toggleVoiceInput) {
-    voiceInputRef.value.toggleVoiceInput()
-  }
-}
+// const handleVoiceClick = () => {
+//   // Trigger the hidden VoiceInput component's toggle method
+//   if (voiceInputRef.value && voiceInputRef.value.toggleVoiceInput) {
+//     voiceInputRef.value.toggleVoiceInput()
+//   }
+// }
 
 const handleFileSelected = async (event: Event) => {
   const target = event.target as HTMLInputElement
@@ -1211,6 +1218,7 @@ const handleKeyDown = (e: KeyboardEvent) => {
 const handlePlusClick = async () => {
   const newChatId = uuidv4()
   currentChatId.value = newChatId
+  currentChatTitle.value = 'New chat' // Reset title for new chat
   const chatSetting = (await getGlobalState('chatSettings')) as { mode?: string }
   chatTypeValue.value = chatSetting?.mode || 'agent'
   hosts.value = []
@@ -1245,13 +1253,15 @@ const handlePlusClick = async () => {
   buttonsDisabled.value = false
   resumeDisabled.value = false
   showCancelButton.value = false
-  showSendButton.value = true
   responseLoading.value = false
   showRetryButton.value = false
   showNewTaskButton.value = false
   if (currentTodos.value.length > 0) {
     clearTodoState(chatHistory)
   }
+
+  // Clear input and ensure send button is disabled for new chat
+  chatInputValue.value = ''
 }
 
 const containerKey = ref(0)
@@ -1263,6 +1273,7 @@ const restoreHistoryTab = async (history: HistoryItem) => {
   containerKey.value++
 
   currentChatId.value = history.id
+  currentChatTitle.value = history.chatTitle // Restore title from history
   chatTypeValue.value = history.chatType
   lastChatMessageId.value = ''
   autoUpdateHost.value = false
@@ -1318,7 +1329,7 @@ const restoreHistoryTab = async (history: HistoryItem) => {
           say: item.say,
           ts: item.ts
         }
-        if (userMessage.say === 'user_feedback' && userMessage.content.startsWith('Terminal output:')) {
+        if (userMessage.say === 'user_feedback' && isStringContent(userMessage.content) && userMessage.content.startsWith('Terminal output:')) {
           userMessage.say = 'command_output'
           userMessage.role = 'assistant'
         }
@@ -1375,10 +1386,11 @@ const handleHistoryClick = async () => {
       .sort((a, b) => b.ts - a.ts)
       .map((task) => ({
         id: task.id,
-        chatTitle: truncateText(task?.task || `${chatTypeValue.value} Chat`),
+        chatTitle: task?.chatTitle || task?.task || `${chatTypeValue.value} Chat`,
         chatType: chatTypeValue.value,
         chatContent: [],
-        isFavorite: favorites.includes(task.id)
+        isFavorite: favorites.includes(task.id),
+        ts: task.ts
       }))
 
     // Batch update history list
@@ -2066,6 +2078,17 @@ onMounted(async () => {
       } else {
         clearTodoState(chatHistory)
       }
+    } else if (message?.type === 'chatTitleGenerated') {
+      // 处理聊天标题生成消息
+      console.log('AiTab: Received chatTitleGenerated message', message)
+
+      if (message.chatTitle && message.taskId) {
+        // Update current chat title for tab-pane display only
+        if (currentChatId.value === message.taskId) {
+          currentChatTitle.value = message.chatTitle
+          console.log('Updated current chat title to:', message.chatTitle)
+        }
+      }
     }
     lastMessage = message
   })
@@ -2230,7 +2253,8 @@ const sendMessageToMain = async (userContent: string, sendType: string) => {
         text: userContent,
         terminalOutput: '',
         hosts: hostsArray,
-        cwd: filteredCwd
+        cwd: filteredCwd,
+        taskId: currentChatId.value
       }
     } else if (sendType === 'commandSend') {
       message = {
@@ -2274,22 +2298,22 @@ watch(
   }
 )
 
-const showBottomButton = computed(() => {
-  if (chatHistory.length === 0) {
-    return false
-  }
-  let message = chatHistory.at(-1)
-  if (!message) {
-    return false
-  }
-  return (
-    (chatTypeValue.value === 'agent' || chatTypeValue.value === 'cmd') &&
-    lastChatMessageId.value !== '' &&
-    lastChatMessageId.value == message.id &&
-    message.ask === 'command' &&
-    !showCancelButton.value
-  )
-})
+// const showBottomButton = computed(() => {
+//   if (chatHistory.length === 0) {
+//     return false
+//   }
+//   let message = chatHistory.at(-1)
+//   if (!message) {
+//     return false
+//   }
+//   return (
+//     (chatTypeValue.value === 'agent' || chatTypeValue.value === 'cmd') &&
+//     lastChatMessageId.value !== '' &&
+//     lastChatMessageId.value == message.id &&
+//     message.ask === 'command' &&
+//     !showCancelButton.value
+//   )
+// })
 
 const filteredHostOptions = computed(() => {
   if (chatTypeValue.value === 'cmd') {
@@ -2583,9 +2607,14 @@ const saveHistoryTitle = async (history) => {
     // Update corresponding record title
     const targetHistory = taskHistory.find((item) => item.id === history.id)
     if (targetHistory) {
-      targetHistory.task = history.chatTitle
+      // Update chatTitle field (for display), keep original task field intact
+      targetHistory.chatTitle = history.chatTitle
       // Save updated history records
       await updateGlobalState('taskHistory', taskHistory)
+
+      if (currentChatId.value === history.id) {
+        currentChatTitle.value = history.chatTitle
+      }
     }
   } catch (err) {
     console.error('Failed to update history title:', err)
@@ -2603,14 +2632,11 @@ const deleteHistory = async (history) => {
   await updateGlobalState('taskHistory', filteredHistory)
 
   // Update display list
-  historyList.value = filteredHistory
-    .sort((a, b) => b.ts - a.ts)
-    .map((messages) => ({
-      id: messages.id,
-      chatTitle: truncateText(messages?.task || 'Agent Chat'),
-      chatType: 'agent',
-      chatContent: []
-    }))
+  const index = historyList.value.findIndex((item) => item.id === history.id)
+  if (index !== -1) {
+    historyList.value.splice(index, 1)
+  }
+
   const message = {
     type: 'deleteTaskWithId',
     text: history.id,
@@ -2654,6 +2680,29 @@ const paginatedHistoryList = computed(() => {
   return filtered.slice(0, end)
 })
 
+// 将分页后的历史记录按日期分组
+const groupedPaginatedHistory = computed(() => {
+  const result: Array<{ dateLabel: string; items: HistoryItem[] }> = []
+  const groups = new Map<string, HistoryItem[]>()
+
+  paginatedHistoryList.value.forEach((item) => {
+    const ts = item.ts || Date.now()
+    const dateLabel = getDateLabel(ts, t)
+
+    if (!groups.has(dateLabel)) {
+      groups.set(dateLabel, [])
+    }
+    groups.get(dateLabel)!.push(item)
+  })
+
+  // 转换为数组格式并保持顺序
+  groups.forEach((items, dateLabel) => {
+    result.push({ dateLabel, items })
+  })
+
+  return result
+})
+
 const hasMoreHistory = computed(() => {
   return paginatedHistoryList.value.length < filteredHistoryList.value.length
 })
@@ -2689,8 +2738,8 @@ const cancelEdit = async (history) => {
     // Find corresponding record
     const targetHistory = taskHistory.find((item) => item.id === history.id)
     if (targetHistory) {
-      // Reset to title in database
-      history.chatTitle = truncateText(targetHistory?.task || 'Agent Chat')
+      // Reset to title in database, prefer chatTitle if available
+      history.chatTitle = targetHistory?.chatTitle || targetHistory?.task || 'Agent Chat'
     }
     // Reset editing state
     history.isEditing = false
@@ -2708,7 +2757,7 @@ const cancelEdit = async (history) => {
 const chatContainer = ref<HTMLElement | null>(null)
 const chatResponse = ref<HTMLElement | null>(null)
 // Add a flag to track if collapse operation is being processed
-const isHandlingCollapse = ref(false)
+// const isHandlingCollapse = ref(false)
 // Track whether we should stick to bottom (auto-scroll only when user is already at bottom)
 const shouldStickToBottom = ref(true)
 const STICKY_THRESHOLD = 24 // px
@@ -2733,7 +2782,25 @@ const startObservingDom = () => {
     } catch {}
   }
   if (!chatResponse.value) return
-  domObserver.value = new MutationObserver(() => {
+  domObserver.value = new MutationObserver((mutations) => {
+    // 检查是否是由展开/收起 terminal output 导致的变化
+    const isTerminalToggle = mutations.some((mutation) => {
+      // 检查目标元素或其父元素是否包含 terminal-output 相关类名
+      let target = mutation.target as HTMLElement
+      while (target && target !== chatResponse.value) {
+        if (target.classList?.contains('terminal-output-container') || target.classList?.contains('terminal-output')) {
+          return true
+        }
+        target = target.parentElement as HTMLElement
+      }
+      return false
+    })
+
+    // 如果是 terminal output 的展开/收起操作，不触发自动滚动
+    if (isTerminalToggle) {
+      return
+    }
+
     // If user was at bottom, keep pinned during multi-line or batched updates
     if (shouldStickToBottom.value) {
       if (chatContainer.value) {

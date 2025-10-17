@@ -125,10 +125,16 @@
             layout="vertical"
             class="custom-form"
           >
-            <a-form-item :label="`${t('keyChain.name')}*`">
+            <a-form-item
+              :label="`${t('keyChain.name')}*`"
+              :validate-status="validationErrors.label ? 'error' : ''"
+              :help="validationErrors.label"
+            >
               <a-input
                 v-model:value="createForm.label"
+                :class="{ 'error-input': validationErrors.label }"
                 :placeholder="t('keyChain.pleaseInput')"
+                @input="validateField('label', createForm.label)"
               />
             </a-form-item>
             <a-form-item :label="`${t('keyChain.privateKey')}*`">
@@ -143,9 +149,14 @@
                 :placeholder="t('keyChain.pleaseInput')"
               />
             </a-form-item>
-            <a-form-item :label="t('keyChain.publicKey')">
+            <a-form-item
+              :label="t('keyChain.publicKey')"
+              :validate-status="validationErrors.publicKey ? 'error' : ''"
+              :help="validationErrors.publicKey"
+            >
               <a-textarea
                 v-model:value="createForm.publicKey"
+                :class="{ 'error-input': validationErrors.publicKey }"
                 :rows="4"
                 :auto-size="{ minRows: 3, maxRows: 8 }"
                 spellcheck="false"
@@ -153,12 +164,19 @@
                 autocapitalize="off"
                 autocomplete="off"
                 :placeholder="t('keyChain.pleaseInput')"
+                @input="validateField('publicKey', createForm.publicKey)"
               />
             </a-form-item>
-            <a-form-item :label="t('keyChain.passphrase')">
+            <a-form-item
+              :label="t('keyChain.passphrase')"
+              :validate-status="validationErrors.passphrase ? 'error' : ''"
+              :help="validationErrors.passphrase"
+            >
               <a-input-password
                 v-model:value="createForm.passphrase"
+                :class="{ 'error-input': validationErrors.passphrase }"
                 :placeholder="t('keyChain.pleaseInput')"
+                @input="validateField('passphrase', createForm.passphrase)"
               />
             </a-form-item>
             <div
@@ -278,6 +296,13 @@ const createForm = reactive<CreateFormType>({
   passphrase: ''
 })
 
+// Validation states
+const validationErrors = reactive({
+  label: '',
+  publicKey: '',
+  passphrase: ''
+})
+
 const resetForm = () => {
   Object.assign(createForm, {
     label: '',
@@ -286,6 +311,39 @@ const resetForm = () => {
     type: 'RSA',
     passphrase: ''
   })
+  // Clear validation errors
+  Object.assign(validationErrors, {
+    label: '',
+    publicKey: '',
+    passphrase: ''
+  })
+}
+
+// Validation functions
+const validateField = (field: keyof typeof validationErrors, value: string) => {
+  if (value.includes(' ')) {
+    switch (field) {
+      case 'label':
+        validationErrors.label = t('keyChain.nameContainsSpace')
+        break
+      case 'publicKey':
+        validationErrors.publicKey = t('keyChain.publicKeyContainsSpace')
+        break
+      case 'passphrase':
+        validationErrors.passphrase = t('keyChain.passphraseContainsSpace')
+        break
+    }
+  } else {
+    validationErrors[field] = ''
+  }
+}
+
+const validateAllFields = () => {
+  validateField('label', createForm.label)
+  validateField('publicKey', createForm.publicKey)
+  validateField('passphrase', createForm.passphrase)
+
+  return !Object.values(validationErrors).some((error) => error !== '')
 }
 
 const filteredKeyChainList = computed(() => {
@@ -410,6 +468,11 @@ const handleRemove = (keyChain: KeyChainItem | null) => {
 
 const handleCreateKeyChain = async () => {
   try {
+    // Validate all fields first
+    if (!validateAllFields()) {
+      return message.error(t('keyChain.nameContainsSpace'))
+    }
+
     if (!createForm.label) {
       return message.error(t('common.pleaseInputLabel'))
     }
@@ -446,6 +509,11 @@ const handleUpdateKeyChain = async () => {
   if (!editingKeyChainId.value) return message.error(t('keyChain.missingKeyId'))
 
   try {
+    // Validate all fields first
+    if (!validateAllFields()) {
+      return message.error(t('keyChain.nameContainsSpace'))
+    }
+
     if (!createForm.label) {
       return message.error(t('common.pleaseInputLabel'))
     }
@@ -525,6 +593,7 @@ function handleDrop(e: DragEvent) {
     reader.onload = (event) => {
       const text = event.target?.result as string
       createForm.privateKey = text
+      validateField('privateKey', text)
       message.success('密钥文件已导入')
     }
     reader.onerror = () => {
@@ -549,6 +618,7 @@ function handleFileChange(e: Event) {
     reader.onload = (event) => {
       const text = event.target?.result as string
       createForm.privateKey = text
+      validateField('privateKey', text)
       message.success('密钥文件已导入')
     }
     reader.onerror = () => {
@@ -631,7 +701,9 @@ watch(isRightSectionVisible, (val) => {
   padding: 10px;
   overflow-y: auto;
   background-color: var(--bg-color);
-  width: 100%; /* 确保左侧部分占满可用空间 */
+  width: 100%;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-color-light) transparent;
 }
 
 .search-input {
@@ -1005,5 +1077,20 @@ watch(isRightSectionVisible, (val) => {
 .drag-drop-area.drag-over {
   border-color: #1890ff;
   background: #e6f7ff;
+}
+
+/* Error input styles */
+.error-input {
+  border-color: #ff4d4f !important;
+  box-shadow: 0 0 0 2px rgba(255, 77, 79, 0.2) !important;
+}
+
+.error-input:focus {
+  border-color: #ff4d4f !important;
+  box-shadow: 0 0 0 2px rgba(255, 77, 79, 0.2) !important;
+}
+
+.error-input:hover {
+  border-color: #ff4d4f !important;
 }
 </style>

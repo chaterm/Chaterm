@@ -6,7 +6,7 @@ import { telemetryService } from '@services/telemetry/TelemetryService'
 import pWaitFor from 'p-wait-for'
 import { serializeError } from 'serialize-error'
 import { ApiHandler, buildApiHandler } from '@api/index'
-import { ApiStream } from '@api/transform/stream'
+import { ApiStream, ApiStreamUsageChunk, ApiStreamReasoningChunk, ApiStreamTextChunk } from '@api/transform/stream'
 import { formatContentBlockToMarkdown } from '@integrations/misc/export-markdown'
 import { showSystemNotification } from '@integrations/notifications'
 import { ApiConfiguration } from '@shared/api'
@@ -86,6 +86,7 @@ export class Task {
   hosts: Host[]
   cwd: Map<string, string> = new Map()
   private taskIsFavorited?: boolean
+  chatTitle?: string // Store the LLM-generated chat title
   api: ApiHandler
   contextManager: ContextManager
   private remoteTerminalManager: RemoteTerminalManager
@@ -164,7 +165,9 @@ export class Task {
     customInstructions?: string,
     task?: string,
     historyItem?: HistoryItem,
-    cwd?: Map<string, string>
+    cwd?: Map<string, string>,
+    chatTitle?: string,
+    taskId?: string
   ) {
     this.workspaceTracker = workspaceTracker
     this.updateTaskHistory = updateTaskHistory
@@ -178,6 +181,7 @@ export class Task {
     this.autoApprovalSettings = autoApprovalSettings
     console.log(`[Task Init] AutoApprovalSettings initialized:`, JSON.stringify(autoApprovalSettings, null, 2))
     this.hosts = hosts
+    this.chatTitle = chatTitle
     if (hosts) {
       for (const host of hosts) {
         this.cwd.set(host.host, cwd?.get(host.host) || '')
@@ -190,8 +194,9 @@ export class Task {
       this.taskId = historyItem.id
       this.taskIsFavorited = historyItem.isFavorited
       this.conversationHistoryDeletedRange = historyItem.conversationHistoryDeletedRange
-    } else if (task) {
-      this.taskId = Date.now().toString()
+    } else if (task && taskId) {
+      this.taskId = taskId
+      console.log(`[Task Init] New task created with ID: ${this.taskId}`)
     } else {
       throw new Error('Either historyItem or task/images must be provided')
     }
@@ -494,6 +499,7 @@ export class Task {
         id: this.taskId,
         ts: lastRelevantMessage.ts,
         task: taskMessage.text ?? '',
+        chatTitle: this.chatTitle,
         tokensIn: apiMetrics.totalTokensIn,
         tokensOut: apiMetrics.totalTokensOut,
         cacheWrites: apiMetrics.totalCacheWrites,
@@ -1704,7 +1710,7 @@ export class Task {
     this.isInsideThinkingBlock = false
   }
 
-  private async processStream(stream: AsyncIterable<unknown>, streamMetrics: StreamMetrics, messageUpdater: MessageUpdater): Promise<string> {
+  private async processStream(stream: ApiStream, streamMetrics: StreamMetrics, messageUpdater: MessageUpdater): Promise<string> {
     let assistantMessage = ''
     let reasoningMessage = ''
     this.isStreaming = true
@@ -1744,7 +1750,7 @@ export class Task {
     return assistantMessage
   }
 
-  private handleUsageChunk(chunk: any, streamMetrics: StreamMetrics): void {
+  private handleUsageChunk(chunk: ApiStreamUsageChunk, streamMetrics: StreamMetrics): void {
     streamMetrics.didReceiveUsageChunk = true
     streamMetrics.inputTokens += chunk.inputTokens
     streamMetrics.outputTokens += chunk.outputTokens
@@ -1753,7 +1759,7 @@ export class Task {
     streamMetrics.totalCost = chunk.totalCost
   }
 
-  private async handleReasoningChunk(chunk: { reasoning: string }, reasoningMessage: string): Promise<string> {
+  private async handleReasoningChunk(chunk: ApiStreamReasoningChunk, reasoningMessage: string): Promise<string> {
     reasoningMessage += chunk.reasoning
     if (!this.abort) {
       await this.say('reasoning', reasoningMessage, true)
@@ -1761,7 +1767,7 @@ export class Task {
     return reasoningMessage
   }
 
-  private async handleTextChunk(chunk: { text: string }, assistantMessage: string, reasoningMessage: string): Promise<string> {
+  private async handleTextChunk(chunk: ApiStreamTextChunk, assistantMessage: string, reasoningMessage: string): Promise<string> {
     if (reasoningMessage && assistantMessage.length === 0) {
       await this.say('reasoning', reasoningMessage, false)
     }
@@ -2084,8 +2090,6 @@ export class Task {
           if (!didApprove) {
             if (needsSecurityApproval) {
               await this.say('error', formatMessage(this.messages.userRejectedCommand, { command }), false)
-            } else {
-              await this.say('error', formatMessage(this.messages.userRejectedNormalCommand, { command }), false)
             }
             await this.saveCheckpoint()
             return
@@ -2121,7 +2125,6 @@ export class Task {
           const didApprove = await this.askApproval(toolDescription, 'command', command)
           console.log(`[Command Execution] User approval result: ${didApprove}`)
           if (!didApprove) {
-            await this.say('error', formatMessage(this.messages.userRejectedNormalCommand, { command }), false)
             await this.saveCheckpoint()
             return
           }
@@ -2442,7 +2445,6 @@ export class Task {
 
         const didApprove = await this.askApproval(toolDescription, 'command', command)
         if (!didApprove) {
-          await this.say('error', formatMessage(this.messages.userRejectedNormalCommand, { command }), false)
           await this.saveCheckpoint()
           return
         }

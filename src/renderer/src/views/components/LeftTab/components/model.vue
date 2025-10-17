@@ -375,6 +375,65 @@
             </a-form-item>
           </div>
         </a-card>
+
+        <!-- Ollama Configuration -->
+        <a-card
+          class="settings-section"
+          :bordered="false"
+        >
+          <div class="api-provider-header">
+            <h4>Ollama</h4>
+          </div>
+
+          <div class="setting-item">
+            <a-form-item
+              :label="$t('user.ollamaBaseUrl')"
+              :label-col="{ span: 24 }"
+              :wrapper-col="{ span: 24 }"
+            >
+              <a-input
+                v-model:value="ollamaBaseUrl"
+                :placeholder="$t('user.ollamaBaseUrlPh')"
+              />
+              <p class="setting-description-no-padding">
+                {{ $t('user.ollamaBaseUrlDescribe') }}
+              </p>
+            </a-form-item>
+          </div>
+
+          <div class="setting-item">
+            <a-form-item
+              :label="$t('user.model')"
+              :label-col="{ span: 24 }"
+              :wrapper-col="{ span: 24 }"
+            >
+              <div class="model-input-container">
+                <a-input
+                  v-model:value="ollamaModelId"
+                  size="small"
+                  class="model-input"
+                />
+                <div class="button-group">
+                  <a-button
+                    class="check-btn"
+                    size="small"
+                    :loading="checkLoadingOllama"
+                    @click="() => handleCheck('ollama')"
+                  >
+                    Check
+                  </a-button>
+                  <a-button
+                    class="save-btn"
+                    size="small"
+                    @click="() => handleSave('ollama')"
+                  >
+                    Save
+                  </a-button>
+                </div>
+              </div>
+            </a-form-item>
+          </div>
+        </a-card>
       </div>
     </div>
   </div>
@@ -403,7 +462,7 @@ interface DefaultModel {
   name?: string
   provider?: string
 
-  [key: string]: any
+  [key: string]: unknown
 }
 
 const { t } = i18n.global
@@ -447,10 +506,13 @@ const deepSeekApiKey = ref('')
 const openAiBaseUrl = ref('https://api.openai.com/v1')
 const openAiApiKey = ref('')
 const openAiModelId = ref('')
+const ollamaBaseUrl = ref('http://localhost:11434')
+const ollamaModelId = ref('')
 const checkLoadingLiteLLM = ref(false)
 const checkLoadingBedrock = ref(false)
 const checkLoadingDeepSeek = ref(false)
 const checkLoadingOpenAI = ref(false)
+const checkLoadingOllama = ref(false)
 const addModelSwitch = ref(false)
 
 // Load saved configuration
@@ -473,6 +535,8 @@ const loadSavedConfig = async () => {
     openAiBaseUrl.value = ((await getGlobalState('openAiBaseUrl')) as string) || 'https://api.openai.com/v1'
     openAiApiKey.value = (await getSecret('openAiApiKey')) || ''
     awsEndpointSelected.value = ((await getGlobalState('awsEndpointSelected')) as boolean) || false
+    // Ollama information
+    ollamaBaseUrl.value = ((await getGlobalState('ollamaBaseUrl')) as string) || 'http://localhost:11434'
   } catch (error) {
     console.error('Failed to load config:', error)
     notification.error({
@@ -539,6 +603,18 @@ const saveOpenAiConfig = async () => {
   }
 }
 
+const saveOllamaConfig = async () => {
+  try {
+    await updateGlobalState('ollamaBaseUrl', ollamaBaseUrl.value)
+  } catch (error) {
+    console.error('Failed to save Ollama config:', error)
+    notification.error({
+      message: t('user.error'),
+      description: t('user.saveOllamaConfigFailed')
+    })
+  }
+}
+
 // Load saved configuration when component is mounted
 onMounted(async () => {
   await loadSavedConfig()
@@ -548,9 +624,9 @@ onMounted(async () => {
 // Save configuration before component unmounts
 onBeforeUnmount(async () => {})
 
-const isEmptyValue = (value) => value === undefined || value === ''
+const isEmptyValue = (value: unknown) => value === undefined || value === ''
 
-const checkModelConfig = async (provider) => {
+const checkModelConfig = async (provider: string) => {
   switch (provider) {
     case 'bedrock':
       if (isEmptyValue(awsModelId.value) || isEmptyValue(awsAccessKey.value) || isEmptyValue(awsSecretKey.value) || isEmptyValue(awsRegion.value)) {
@@ -572,11 +648,16 @@ const checkModelConfig = async (provider) => {
         return false
       }
       break
+    case 'ollama':
+      if (isEmptyValue(ollamaBaseUrl.value) || isEmptyValue(ollamaModelId.value)) {
+        return false
+      }
+      break
   }
   return true
 }
 
-const handleCheck = async (provider) => {
+const handleCheck = async (provider: string): Promise<void> => {
   const checkModelConfigResult = await checkModelConfig(provider)
   if (!checkModelConfigResult) {
     notification.error({
@@ -584,7 +665,7 @@ const handleCheck = async (provider) => {
       description: t('user.checkModelConfigFailDescription'),
       duration: 3
     })
-    return 'SEND_ERROR'
+    return
   }
 
   // Set corresponding loading state, check parameters
@@ -601,6 +682,9 @@ const handleCheck = async (provider) => {
         apiModelId: awsModelId.value,
         awsAccessKey: awsAccessKey.value,
         awsSecretKey: awsSecretKey.value,
+        awsSessionToken: awsSessionToken.value,
+        awsUseCrossRegionInference: awsUseCrossRegionInference.value,
+        awsBedrockEndpoint: awsBedrockEndpoint.value,
         awsRegion: awsRegion.value
       }
       break
@@ -630,6 +714,14 @@ const handleCheck = async (provider) => {
         openAiModelId: openAiModelId.value
       }
       break
+    case 'ollama':
+      checkLoadingOllama.value = true
+      checkOptions = {
+        apiProvider: provider,
+        ollamaBaseUrl: ollamaBaseUrl.value,
+        ollamaModelId: ollamaModelId.value
+      }
+      break
   }
 
   // Override checkApiConfiguration content
@@ -637,7 +729,14 @@ const handleCheck = async (provider) => {
   try {
     console.log('[validateApiKey] checkApiConfiguration', checkApiConfiguration)
     // Ensure correct parameter format is passed
-    const result = await (window.api as any).validateApiKey(checkApiConfiguration)
+    const result = await (
+      window.api as {
+        validateApiKey: (config: unknown) => Promise<{
+          isValid: boolean
+          error?: string
+        }>
+      }
+    ).validateApiKey(checkApiConfiguration)
     if (result.isValid) {
       notification.success({
         message: t('user.checkSuccessMessage'),
@@ -663,6 +762,7 @@ const handleCheck = async (provider) => {
     checkLoadingLiteLLM.value = false
     checkLoadingDeepSeek.value = false
     checkLoadingOpenAI.value = false
+    checkLoadingOllama.value = false
   }
 }
 
@@ -796,6 +896,10 @@ const handleSave = async (provider) => {
       modelId = openAiModelId.value
       modelName = openAiModelId.value
       break
+    case 'ollama':
+      modelId = ollamaModelId.value
+      modelName = ollamaModelId.value
+      break
   }
 
   // Check if model ID or name is empty
@@ -831,6 +935,9 @@ const handleSave = async (provider) => {
       break
     case 'openai':
       await saveOpenAiConfig()
+      break
+    case 'ollama':
+      await saveOllamaConfig()
       break
   }
 

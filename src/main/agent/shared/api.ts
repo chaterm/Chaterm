@@ -1,6 +1,6 @@
 import { ProxyConfig } from './Proxy'
 
-export type ApiProvider = 'bedrock' | 'litellm' | 'deepseek' | 'default' | 'openai'
+export type ApiProvider = 'bedrock' | 'litellm' | 'deepseek' | 'default' | 'openai' | 'ollama'
 
 export interface ApiHandlerOptions {
   apiModelId?: string
@@ -33,6 +33,9 @@ export interface ApiHandlerOptions {
   openAiApiKey?: string
   openAiModelId?: string
   openAiModelInfo?: OpenAiCompatibleModelInfo
+  ollamaBaseUrl?: string
+  ollamaModelId?: string
+  ollamaApiOptionsCtxNum?: string
   azureApiVersion?: string
   o3MiniReasoningEffort?: string
 }

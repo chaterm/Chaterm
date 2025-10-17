@@ -1,7 +1,8 @@
 export type HistoryItem = {
   id: string
   ts: number
-  task: string
+  task: string // Original full task description
+  chatTitle?: string // Optional LLM-generated short title for display
   tokensIn: number
   tokensOut: number
   cacheWrites?: number

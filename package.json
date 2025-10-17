@@ -1,6 +1,6 @@
 {
   "name": "chaterm",
-  "version": "0.4.3",
+  "version": "0.5.2",
   "description": "A terminal tool with AI Agent, makes you no need to learn complicated regular expressions, Perl and Python, switches and Linux commands, SQL syntax can easily manage thousands of devices!",
   "main": "./out/main/index.js",
   "author": "chaterm.ai",
@@ -59,6 +59,7 @@
     "ignore": "^7.0.3",
     "monaco-editor": "^0.52.2",
     "node-pty": "^1.0.0",
+    "ollama": "^0.6.0",
     "openai": "^4.100.0",
     "p-wait-for": "^3.2.0",
     "pinia": "^3.0.1",

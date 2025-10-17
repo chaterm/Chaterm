@@ -26,6 +26,7 @@
           @close="closeContextMenu"
           @connect="handleContextMenuConnect"
           @edit="handleContextMenuEdit"
+          @clone="handleContextMenuClone"
           @refresh="handleContextMenuRefresh"
           @remove="handleContextMenuRemove"
         />
@@ -169,6 +170,40 @@ const handleAssetEdit = (asset: AssetNode) => {
   isRightSectionVisible.value = true
 }
 
+const handleAssetClone = (asset: AssetNode) => {
+  if (!asset) return
+
+  // Set to create mode (not edit mode)
+  isEditMode.value = false
+  editingAssetUUID.value = null
+
+  let keyChain = asset.key_chain_id
+  if (keyChain === 0) {
+    keyChain = undefined
+  }
+
+  // Copy asset data but modify label to indicate it's a clone
+  Object.assign(formData, {
+    username: asset.username || '',
+    password: asset.password || '',
+    ip: asset.ip || '',
+    label: (asset.title || '') + '_Clone',
+    group_name: asset.group_name || 'Hosts',
+    auth_type: asset.auth_type || 'password',
+    keyChain: keyChain,
+    port: asset.port || 22,
+    asset_type: asset.asset_type || 'person',
+    needProxy: asset.needProxy || false,
+    proxyName: asset.proxyName || ''
+  })
+
+  getAssetGroup()
+  if (formData.auth_type === 'keyBased') {
+    getkeyChainData()
+  }
+  isRightSectionVisible.value = true
+}
+
 const handleAssetRefresh = async (asset: AssetNode) => {
   if (!asset || asset.asset_type !== 'organization') return
 
@@ -209,6 +244,13 @@ const handleContextMenuConnect = () => {
 const handleContextMenuEdit = () => {
   if (selectedAsset.value) {
     handleAssetEdit(selectedAsset.value)
+  }
+  closeContextMenu()
+}
+
+const handleContextMenuClone = () => {
+  if (selectedAsset.value) {
+    handleAssetClone(selectedAsset.value)
   }
   closeContextMenu()
 }
@@ -573,6 +615,8 @@ watch(isRightSectionVisible, (val) => {
   overflow-y: auto;
   background-color: var(--bg-color);
   width: 100%;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-color-light) transparent;
 }
 
 .right-section {
