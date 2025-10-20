@@ -81,38 +81,58 @@ const onCheckUpdate = async () => {
 const handleCheckUpdate = async () => {
   if (updateStatus.value === 0 || updateStatus.value === 2) {
     btnText.value = t('about.checking')
-    const info = await api.checkUpdate()
-    return info.versionInfo
+    try {
+      const info = await api.checkUpdate()
+      console.log('Update check result:', info)
+
+      // Handle different response structures
+      if (info && info.versionInfo) {
+        return info.versionInfo
+      } else if (info && info.updateInfo) {
+        return info.updateInfo
+      } else {
+        console.log('No update info found in response')
+        return null
+      }
+    } catch (error) {
+      console.error('Update check failed:', error)
+      throw error
+    }
   } else {
-    api.download()
-    api.autoUpdate((params) => {
-      if (params?.progress > 0) {
-        isUpdate.value = true
-        progress.value = params.progress
-      }
-      if (params.status == 4) {
-        Notice.open({
-          id: 'update-download-complete',
-          type: 'success',
-          duration: 1800,
-          description: t('update.complete'),
-          btns: [
-            {
-              text: t('update.install'),
-              action: () => {
-                api.quitAndInstall()
-                Notice.close('update-download-complete')
-              }
-            },
-            { text: t('update.later'), class: 'notice-btn-withe', action: () => Notice.close('update-download-complete') }
-          ]
-        })
-        updateStatus.value = 1
-        btnText.value = t('about.install')
-        isUpdate.value = false
-        progress.value = 0
-      }
-    })
+    try {
+      api.download()
+      api.autoUpdate((params) => {
+        console.log('Update progress:', params)
+        if (params?.progress > 0) {
+          isUpdate.value = true
+          progress.value = params.progress
+        }
+        if (params.status == 4) {
+          Notice.open({
+            id: 'update-download-complete',
+            type: 'success',
+            duration: 1800,
+            description: t('update.complete'),
+            btns: [
+              {
+                text: t('update.install'),
+                action: () => {
+                  api.quitAndInstall()
+                  Notice.close('update-download-complete')
+                }
+              },
+              { text: t('update.later'), class: 'notice-btn-withe', action: () => Notice.close('update-download-complete') }
+            ]
+          })
+          updateStatus.value = 1
+          btnText.value = t('about.install')
+          isUpdate.value = false
+        }
+      })
+    } catch (error) {
+      console.error('Download failed:', error)
+      btnText.value = t('about.downloadError')
+    }
   }
 }
 </script>
