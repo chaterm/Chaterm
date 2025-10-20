@@ -14,18 +14,40 @@ export const registerUpdater = (targetWindow) => {
   autoUpdater.autoDownload = false
   autoUpdater.autoInstallOnAppQuit = false
 
+  // Configure update server for Mac
+  if (process.platform === 'darwin') {
+    autoUpdater.setFeedURL({
+      provider: 'generic',
+      url: 'https://chaterm-static.intsig.net/download/'
+    })
+  }
+
   /**
    * Check for updates (connect to GitHub Releases)
    */
   ipcMain.handle('update:checkUpdate', async () => {
-    return await autoUpdater.checkForUpdates()
+    try {
+      const result = await autoUpdater.checkForUpdates()
+      console.log('Update check result:', result)
+      return result
+    } catch (error) {
+      console.error('Update check failed:', error)
+      throw error
+    }
   })
 
   /**
    * Download update
    */
   ipcMain.handle('update:download', async () => {
-    return await autoUpdater.downloadUpdate()
+    try {
+      const result = await autoUpdater.downloadUpdate()
+      console.log('Download started:', result)
+      return result
+    } catch (error) {
+      console.error('Download failed:', error)
+      throw error
+    }
   })
 
   ipcMain.handle('update:quitAndInstall', async () => {
@@ -52,10 +74,11 @@ export const registerUpdater = (targetWindow) => {
   })
 
   autoUpdater.on('error', (err) => {
+    console.error('AutoUpdater error:', err)
     sendStatusToWindow({
       type: 'error',
       status: status.error,
-      desc: err
+      desc: err.message || err.toString()
     })
   })
 
