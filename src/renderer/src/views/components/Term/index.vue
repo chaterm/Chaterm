@@ -110,7 +110,6 @@ const setRef = (el, key) => {
   }
 }
 const email = userInfoStore().userInfo.email
-const name = userInfoStore().userInfo.name
 const terminalElement = ref(null)
 const terminalContainer = ref(null)
 const terminalId = `${email.split('@')[0]}@${props.serverInfo.ip}:remote:${uuidv4()}`
