@@ -5,8 +5,9 @@ import { createProxySocket } from './proxy'
 import { Readable } from 'stream'
 import net from 'net'
 import tls from 'tls'
-import { parseJumpServerUsers, hasUserSelectionPrompt, JumpServerUser } from './jumpserver/parser'
+import { parseJumpServerUsers, hasUserSelectionPrompt } from './jumpserver/parser'
 import { handleJumpServerUserSelectionWithEvent } from './jumpserver/userSelection'
+import { mfaCacheManager } from './mfaCache'
 
 export interface ProxyConfig {
   type?: 'HTTP' | 'HTTPS' | 'SOCKS4' | 'SOCKS5'
@@ -21,9 +22,26 @@ export interface ProxyConfig {
 // JumpServer MFA最大重试次数
 const MAX_JUMPSERVER_MFA_ATTEMPTS = 3
 
-// JumpServer专用的MFA处理函数 - 简化版本
-const handleJumpServerKeyboardInteractive = (event, id, prompts, finish) => {
+// JumpServer专用的MFA处理函数 - 支持缓存版本
+const handleJumpServerKeyboardInteractive = (event, id, prompts, finish, connectionInfo, attemptCount = 0) => {
   return new Promise<void>((resolve, reject) => {
+    // 只有在第一次尝试时才使用缓存，重试时不使用缓存
+    if (attemptCount === 0) {
+      const cachedResponses = mfaCacheManager.getMFAResponses(connectionInfo.host, connectionInfo.port || 22, connectionInfo.username)
+
+      if (cachedResponses && cachedResponses.length > 0) {
+        console.log(`[JumpServer ${id}] 使用缓存的MFA验证结果`)
+        finish(cachedResponses)
+        keyboardInteractiveOpts.set(id, cachedResponses)
+        resolve()
+        return
+      }
+    } else {
+      // 重试时清除缓存，强制用户重新输入
+      console.log(`[JumpServer ${id}] 验证失败，清除缓存并重新请求用户输入`)
+      mfaCacheManager.clearMFACache(connectionInfo.host, connectionInfo.port || 22, connectionInfo.username)
+    }
+
     // 发送MFA请求到前端
     event.sender.send('ssh:keyboard-interactive-request', {
       id,
@@ -44,6 +62,10 @@ const handleJumpServerKeyboardInteractive = (event, id, prompts, finish) => {
       clearTimeout(timeoutId)
       finish(responses)
       keyboardInteractiveOpts.set(id, responses)
+
+      // 保存MFA验证结果到缓存
+      mfaCacheManager.saveMFAResults(id, connectionInfo.host, connectionInfo.port || 22, connectionInfo.username, responses, true)
+
       // 让SSH连接处理验证结果
       resolve()
     })
@@ -115,9 +137,17 @@ const attemptJumpServerConnection = async (
   }
 
   return new Promise((resolve, reject) => {
+    // 检查是否有有效的MFA缓存
+    const hasValidMFA = mfaCacheManager.hasValidMFACache(connectionInfo.host, connectionInfo.port || 22, connectionInfo.username)
+
     if (jumpserverConnections.has(connectionId)) {
       console.log('复用现有JumpServer连接')
       return resolve({ status: 'connected', message: '复用现有JumpServer连接' })
+    }
+
+    // 如果有有效的MFA缓存，可以尝试快速连接
+    if (hasValidMFA) {
+      console.log(`[JumpServer ${connectionId}] 检测到有效的MFA缓存，将使用缓存进行连接`)
     }
 
     sendStatusUpdate('正在连接到远程堡垒机...', 'info')
@@ -174,8 +204,8 @@ const attemptJumpServerConnection = async (
           sendStatusUpdate(`验证失败，请重新输入验证码 (${attemptCount + 1}/${MAX_JUMPSERVER_MFA_ATTEMPTS})...`, 'warning')
         }
 
-        // JumpServer specific MFA handling - 简化版本
-        await handleJumpServerKeyboardInteractive(event, connectionId, prompts, finish)
+        // JumpServer specific MFA handling - 支持缓存版本
+        await handleJumpServerKeyboardInteractive(event, connectionId, prompts, finish, connectionInfo, attemptCount)
       } catch (err) {
         sendStatusUpdate('二次验证失败', 'error')
         conn.end() // 关闭连接
@@ -186,7 +216,9 @@ const attemptJumpServerConnection = async (
     conn.on('ready', () => {
       console.log('JumpServer 连接建立，开始创建 shell')
       sendStatusUpdate('已成功连接到堡垒机，请稍等...', 'success')
-      attemptSecondaryConnection(event, connectionInfo)
+      if (event) {
+        attemptSecondaryConnection(event, connectionInfo)
+      }
 
       // 如果有MFA验证流程（需要二次验证），发送成功事件到前端
       if (event && keyboardInteractiveOpts.has(connectionId)) {
@@ -291,19 +323,21 @@ const attemptJumpServerConnection = async (
               outputBuffer = ''
 
               // Request user selection from frontend
-              handleJumpServerUserSelectionWithEvent(event, connectionId, users)
-                .then((selectedUserId) => {
-                  console.log('用户选择了账号 ID:', selectedUserId)
-                  sendStatusUpdate('正在使用选择的账号连接...', 'info')
-                  connectionPhase = 'inputPassword'
-                  stream.write(selectedUserId.toString() + '\r')
-                })
-                .catch((err) => {
-                  console.error('用户选择失败:', err)
-                  sendStatusUpdate('用户选择已取消', 'error')
-                  conn.end()
-                  reject(err)
-                })
+              if (event) {
+                handleJumpServerUserSelectionWithEvent(event, connectionId, users)
+                  .then((selectedUserId) => {
+                    console.log('用户选择了账号 ID:', selectedUserId)
+                    sendStatusUpdate('正在使用选择的账号连接...', 'info')
+                    connectionPhase = 'inputPassword'
+                    stream.write(selectedUserId.toString() + '\r')
+                  })
+                  .catch((err) => {
+                    console.error('用户选择失败:', err)
+                    sendStatusUpdate('用户选择已取消', 'error')
+                    conn.end()
+                    reject(err)
+                  })
+              }
             } else if (hasPasswordPrompt(outputBuffer)) {
               console.log('检测到密码提示，输入密码')
               sendStatusUpdate('正在进行身份验证...', 'info')
@@ -392,9 +426,12 @@ const attemptJumpServerConnection = async (
     conn.on('error', (err) => {
       console.error('JumpServer connection error:', err)
 
-      // 如果是认证失败，发送错误事件到前端
+      // 如果是认证失败，记录失败并清除缓存
       if (err.level === 'client-authentication') {
         console.log(`JumpServer MFA认证失败，尝试次数: ${attemptCount + 1}/${MAX_JUMPSERVER_MFA_ATTEMPTS}`)
+
+        // 记录MFA验证失败
+        mfaCacheManager.recordMFAFailure(connectionInfo.host, connectionInfo.port || 22, connectionInfo.username)
 
         // 发送MFA验证失败事件到前端
         if (event) {
@@ -408,9 +445,9 @@ const attemptJumpServerConnection = async (
         // 检查是否可以重试
         if (attemptCount < MAX_JUMPSERVER_MFA_ATTEMPTS - 1) {
           // 创建特殊错误，标记需要重试
-          const retryError = new Error(`JumpServer MFA认证失败`)
-          ;(retryError as any).shouldRetry = true
-          ;(retryError as any).attemptCount = attemptCount
+          const retryError = new Error(`JumpServer MFA认证失败`) as Error & { shouldRetry: boolean; attemptCount: number }
+          retryError.shouldRetry = true
+          retryError.attemptCount = attemptCount
           reject(retryError)
           return
         }
@@ -461,7 +498,7 @@ export const handleJumpServerConnection = async (
       console.log(`JumpServer连接尝试 ${attempt + 1} 失败:`, lastError.message)
 
       // 检查是否是可重试的MFA错误
-      if ((lastError as any).shouldRetry && attempt < MAX_JUMPSERVER_MFA_ATTEMPTS - 1) {
+      if ((lastError as Error & { shouldRetry?: boolean }).shouldRetry && attempt < MAX_JUMPSERVER_MFA_ATTEMPTS - 1) {
         console.log(`将进行第 ${attempt + 2} 次重试...`)
         // 短暂延迟后重试
         await new Promise((resolve) => setTimeout(resolve, 1000))
@@ -507,7 +544,7 @@ export const registerJumpServerHandlers = () => {
   })
 
   // 处理 shell 写入
-  ipcMain.on('jumpserver:shell:write', (_event, { id, data, marker }) => {
+  ipcMain.on('jumpserver:shell:write', (_event, { id, data, marker }: { id: string; data: string; marker?: string }) => {
     const stream = jumpserverShellStreams.get(id)
     if (stream) {
       if (!jumpserverInputBuffer.has(id)) {
@@ -595,6 +632,26 @@ export const registerJumpServerHandlers = () => {
     try {
       stream.setWindow(rows, cols, 0, 0)
       return { status: 'success', message: `JumpServer 窗口大小已设置为 ${cols}x${rows}` }
+    } catch (error: unknown) {
+      return { status: 'error', message: error instanceof Error ? error.message : String(error) }
+    }
+  })
+
+  // 处理MFA缓存管理
+  ipcMain.handle('jumpserver:mfa-cache:clear', async (_event, { host, port, username }) => {
+    try {
+      mfaCacheManager.clearMFACache(host, port, username)
+      return { status: 'success', message: 'MFA缓存已清除' }
+    } catch (error: unknown) {
+      return { status: 'error', message: error instanceof Error ? error.message : String(error) }
+    }
+  })
+
+  // 处理MFA缓存统计
+  ipcMain.handle('jumpserver:mfa-cache:stats', async () => {
+    try {
+      const stats = mfaCacheManager.getCacheStats()
+      return { status: 'success', stats }
     } catch (error: unknown) {
       return { status: 'error', message: error instanceof Error ? error.message : String(error) }
     }
