@@ -11,7 +11,6 @@ import 'ant-design-vue/dist/reset.css'
 import piniaPluginPersistedstate from 'pinia-plugin-persistedstate'
 import { notification } from 'ant-design-vue'
 import { shortcutService } from './services/shortcutService'
-import eventBus from './utils/eventBus'
 
 // Set global notification top position
 notification.config({
@@ -47,22 +46,6 @@ app.mount('#app')
 if (import.meta.hot) {
   import.meta.hot.on('vite:afterUpdate', () => {
     shortcutService.init()
-  })
-}
-
-// Setup global message listener for main process communications
-if (window.api && window.api.onMainMessage) {
-  window.api.onMainMessage((message: any) => {
-    console.log('Global main process message received:', message.type, message)
-
-    // Handle command generation responses
-    if (message.type === 'commandGenerationResponse') {
-      eventBus.emit('commandGenerationResponse', {
-        command: message.command,
-        error: message.error,
-        tabId: message.tabId
-      })
-    }
   })
 }
 
