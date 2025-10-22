@@ -5,7 +5,7 @@ import { createProxySocket } from './proxy'
 import { Readable } from 'stream'
 import net from 'net'
 import tls from 'tls'
-import { parseJumpServerUsers, hasUserSelectionPrompt, JumpServerUser } from './jumpserver/parser'
+import { parseJumpServerUsers, hasUserSelectionPrompt } from './jumpserver/parser'
 import { handleJumpServerUserSelectionWithEvent } from './jumpserver/userSelection'
 
 export interface ProxyConfig {
