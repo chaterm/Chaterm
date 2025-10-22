@@ -1655,28 +1655,49 @@ const handleApproveCommand = async () => {
 const handleCancel = async () => {
   console.log('handleCancel: cancel')
 
+  // 立即更新UI状态，实现即时响应
+  responseLoading.value = false
+  showCancelButton.value = false
+  showSendButton.value = true
+  lastChatMessageId.value = ''
+  isExecutingCommand.value = false
+
   // 停止最后一个消息的 thinking loading 状态
   const lastMessageIndex = filteredChatHistory.value.length - 1
   if (lastMessageIndex >= 0 && markdownRendererRefs.value[lastMessageIndex]) {
     markdownRendererRefs.value[lastMessageIndex].setThinkingLoading(false)
   }
 
-  if (isExecutingCommand.value) {
-    const response = await window.api.gracefulCancelTask()
-    console.log('Main process graceful cancel response:', response)
-  } else {
-    // Use regular cancel for non-command operations
-    const response = await window.api.cancelTask()
-    console.log('Main process cancel response:', response)
-    responseLoading.value = false
-  }
-
-  showCancelButton.value = false
-  showSendButton.value = true
-  lastChatMessageId.value = ''
-  isExecutingCommand.value = false
+  // 清理Todo状态
   if (currentTodos.value.length > 0) {
     clearTodoState(chatHistory)
+  }
+
+  // 异步发送取消请求到主进程，不等待响应
+  try {
+    if (isExecutingCommand.value) {
+      // 对于执行中的命令，使用优雅取消
+      window.api
+        .gracefulCancelTask()
+        .then((response) => {
+          console.log('Main process graceful cancel response:', response)
+        })
+        .catch((error) => {
+          console.error('Graceful cancel failed:', error)
+        })
+    } else {
+      // 对于非命令操作，使用常规取消
+      window.api
+        .cancelTask()
+        .then((response) => {
+          console.log('Main process cancel response:', response)
+        })
+        .catch((error) => {
+          console.error('Cancel task failed:', error)
+        })
+    }
+  } catch (error) {
+    console.error('Failed to send cancel request:', error)
   }
 }
 
