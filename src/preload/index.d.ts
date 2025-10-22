@@ -62,6 +62,7 @@ interface ApiType {
   sshConnExec: (args: { id: string; cmd: string }) => Promise<any>
   sendToMain: (message: any) => Promise<any>
   onMainMessage: (callback: (message: any) => void) => () => void
+  onCommandGenerationResponse: (callback: (response: { command?: string; error?: string; tabId: string }) => void) => () => void
   cancelTask: () => Promise<any>
   openHeartbeatWindow: (heartbeatId: string, interval: number) => Promise<any>
   closeHeartbeatWindow: (heartbeatId: string) => Promise<any>

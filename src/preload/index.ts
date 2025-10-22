@@ -720,6 +720,14 @@ const api = {
       ipcRenderer.removeListener('main-to-webview', handler)
     }
   },
+  // Dedicated IPC channel for command generation responses
+  onCommandGenerationResponse: (callback) => {
+    const handler = (_event, response) => callback(response)
+    ipcRenderer.on('command-generation-response', handler)
+    return () => {
+      ipcRenderer.removeListener('command-generation-response', handler)
+    }
+  },
   // New method to call executeRemoteCommand in the main process
   executeRemoteCommandViaPreload: async () => {
     try {
