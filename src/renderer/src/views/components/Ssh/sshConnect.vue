@@ -972,7 +972,11 @@ const connectSSH = async () => {
     const orgType = props.serverInfo.organizationId === 'personal' ? 'local' : 'local-team'
     const hostnameBase64 =
       props.serverInfo.organizationId === 'personal' ? Base64Util.encode(assetInfo.asset_ip) : Base64Util.encode(assetInfo.hostname)
-    connectionId.value = `${assetInfo.username}@${props.connectData.ip}:${orgType}:${hostnameBase64}:${uuidv4()}`
+
+    const sessionId = uuidv4() // 每个标签页不同
+    const jumpserverUuid = assetInfo.organization_uuid || props.connectData.uuid
+
+    connectionId.value = `${assetInfo.username}@${props.connectData.ip}:${orgType}:${hostnameBase64}:${sessionId}`
 
     if (assetInfo.sshType === 'jumpserver' && terminal.value) {
       jumpServerStatusHandler = createJumpServerStatusHandler(terminal.value, connectionId.value)
@@ -980,7 +984,8 @@ const connectSSH = async () => {
     }
 
     const connData: any = {
-      id: connectionId.value,
+      id: connectionId.value, // 会话 ID (每个标签页唯一)
+      assetUuid: jumpserverUuid, // JumpServer UUID (用于连接池复用)
       host: assetInfo.asset_ip,
       port: assetInfo.port,
       username: assetInfo.username,
@@ -1133,7 +1138,7 @@ const connectLocalSSH = async () => {
     }
   }
 
-  connectionId.value = `localhost@127.0.0.1:local:${Base64Util.encode(props.serverInfo.data.key)}:${uuidv4()}`
+  connectionId.value = `localhost@127.0.0.1:local:${Base64Util.encode(props.serverInfo.data.key)}`
 
   try {
     const email = userInfoStore().userInfo.email

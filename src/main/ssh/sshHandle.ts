@@ -682,8 +682,8 @@ export const registerSSHHandlers = () => {
             if (err) console.error(`[JumpServer ${id}] 发送 "q" 失败:`, err)
             else console.log(`[JumpServer ${id}] 已发送 "q" 终止会话。`)
             stream.end()
-            const conn = jumpserverConnections.get(id)
-            conn?.end()
+            const connData = jumpserverConnections.get(id)
+            connData?.conn?.end()
           })
           return
         }
@@ -1058,9 +1058,9 @@ export const registerSSHHandlers = () => {
         jumpserverShellStreams.delete(id)
       }
 
-      const conn = jumpserverConnections.get(id)
-      if (conn) {
-        conn.end()
+      const connData = jumpserverConnections.get(id)
+      if (connData) {
+        // 只删除当前会话,不关闭连接(供其他会话复用)
         jumpserverConnections.delete(id)
         jumpserverConnectionStatus.delete(id)
         return { status: 'success', message: 'JumpServer 连接已断开' }
@@ -1302,7 +1302,11 @@ const getSystemInfo = async (
   username: string
   sudoPermission: boolean
 }> => {
-  const conn = sshConnections.get(id) || jumpserverConnections.get(id)
+  let conn = sshConnections.get(id)
+  if (!conn) {
+    const connData = jumpserverConnections.get(id)
+    conn = connData?.conn
+  }
   if (!conn) {
     throw new Error('No active SSH connection found')
   }
