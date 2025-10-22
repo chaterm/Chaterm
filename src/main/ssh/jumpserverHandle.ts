@@ -18,6 +18,211 @@ export interface ProxyConfig {
   timeout?: number
 }
 
+// JumpServer 交互流程处理器
+// 处理 JumpServer 堡垒机的菜单导航、用户选择、密码输入等交互
+const setupJumpServerInteraction = (
+  stream: any,
+  connectionInfo: any,
+  connectionId: string,
+  jumpserverUuid: string, // JumpServer 堡垒机的 UUID (用于连接池复用)
+  conn: any,
+  event: Electron.IpcMainInvokeEvent | undefined,
+  sendStatusUpdate: (message: string, type: 'info' | 'success' | 'warning' | 'error') => void,
+  resolve: (value: { status: string; message: string }) => void,
+  reject: (reason: Error) => void
+) => {
+  let outputBuffer = ''
+  let connectionPhase = 'connecting'
+  let connectionEstablished = false
+
+  const handleConnectionSuccess = (reason: string) => {
+    if (connectionEstablished) {
+      console.log(`JumpServer 连接成功已处理，忽略重复回调 (${reason})`)
+      return
+    }
+    connectionEstablished = true
+    sendStatusUpdate('已成功连接到目标服务器，请开始操作', 'success')
+    connectionPhase = 'connected'
+    outputBuffer = ''
+
+    // 保存连接对象和流对象
+    jumpserverConnections.set(connectionId, {
+      conn: conn,
+      stream: stream,
+      jumpserverUuid: jumpserverUuid // JumpServer UUID (用于复用判断)
+    })
+    jumpserverShellStreams.set(connectionId, stream)
+    jumpserverConnectionStatus.set(connectionId, { isVerified: true })
+
+    resolve({ status: 'connected', message: '连接成功' })
+  }
+
+  const hasPasswordPrompt = (text: string): boolean => {
+    return text.includes('Password:') || text.includes('password:')
+  }
+
+  const hasPasswordError = (text: string): boolean => {
+    return text.includes('password auth error') || text.includes('[Host]>')
+  }
+
+  const detectDirectConnectionReason = (text: string): string | null => {
+    if (!text) return null
+
+    const indicators = ['Connecting to', '连接到', 'Last login:', 'Last failed login:']
+
+    for (const indicator of indicators) {
+      if (text.includes(indicator)) {
+        console.log(`JumpServer 连接检测：命中关键字 "${indicator.trim()}"`)
+        return `关键字 ${indicator.trim()}`
+      }
+    }
+
+    const lines = text.split(/\r?\n/)
+    for (const line of lines) {
+      const trimmed = line.trim()
+      if (!trimmed) continue
+      if (trimmed === '[Host]>' || trimmed.endsWith('Opt>')) continue
+      const isPrompt =
+        (trimmed.endsWith('$') || trimmed.endsWith('#') || trimmed.endsWith(']$') || trimmed.endsWith(']#') || trimmed.endsWith('>$')) &&
+        (trimmed.includes('@') || trimmed.includes(':~') || trimmed.startsWith('['))
+      if (isPrompt) {
+        console.log(`JumpServer 连接检测：疑似 shell 提示符 "${trimmed}"`)
+        return `提示符 ${trimmed}`
+      }
+    }
+
+    return null
+  }
+
+  // 处理数据输出
+  stream.on('data', (data: Buffer) => {
+    const ansiRegex = /[\u001b\u009b][[()#;?]*.{0,2}(?:[0-9]{1,4}(?:;[0-9]{0,4})*)?[0-9A-ORZcf-nry=><]/g
+    const chunk = data.toString().replace(ansiRegex, '')
+    outputBuffer += chunk
+
+    // 根据连接阶段处理不同的响应
+    if (connectionPhase === 'connecting' && outputBuffer.includes('Opt>')) {
+      console.log('检测到 JumpServer 菜单，输入目标 IP')
+      sendStatusUpdate(`正在连接到目标服务器...`, 'info')
+      connectionPhase = 'inputIp'
+      outputBuffer = ''
+      stream.write(connectionInfo.targetIp + '\r')
+    } else if (connectionPhase === 'inputIp') {
+      // Check if user selection is required
+      if (hasUserSelectionPrompt(outputBuffer)) {
+        console.log('检测到多用户提示，需要用户选择账号')
+        sendStatusUpdate('检测到多个用户账号，请选择...', 'info')
+        connectionPhase = 'selectUser'
+        const users = parseJumpServerUsers(outputBuffer)
+        console.log('解析到的用户列表:', users)
+
+        if (users.length === 0) {
+          console.error('解析用户列表失败，缓冲区内容:', outputBuffer)
+          conn.end()
+          return reject(new Error('Failed to parse user list'))
+        }
+
+        outputBuffer = ''
+
+        // Request user selection from frontend
+        handleJumpServerUserSelectionWithEvent(event, connectionId, users)
+          .then((selectedUserId) => {
+            console.log('用户选择了账号 ID:', selectedUserId)
+            sendStatusUpdate('正在使用选择的账号连接...', 'info')
+            connectionPhase = 'inputPassword'
+            stream.write(selectedUserId.toString() + '\r')
+          })
+          .catch((err) => {
+            console.error('用户选择失败:', err)
+            sendStatusUpdate('用户选择已取消', 'error')
+            conn.end()
+            reject(err)
+          })
+      } else if (hasPasswordPrompt(outputBuffer)) {
+        console.log('检测到密码提示，输入密码')
+        sendStatusUpdate('正在进行身份验证...', 'info')
+        connectionPhase = 'inputPassword'
+        outputBuffer = ''
+        setTimeout(() => {
+          console.log('JumpServer 发送目标服务器密码')
+          stream.write((connectionInfo.password || '') + '\r')
+        }, 100)
+      } else {
+        const reason = detectDirectConnectionReason(outputBuffer)
+        if (reason) {
+          console.log(`JumpServer 目标资产无需密码，直接建立连接（${reason}）`)
+          handleConnectionSuccess(`无需密码 - ${reason}`)
+        } else {
+          const preview = outputBuffer.slice(-200).replace(/\r?\n/g, '\\n')
+          console.log(`JumpServer inputIp 阶段输出预览: "${preview}"`)
+        }
+      }
+    } else if (connectionPhase === 'selectUser') {
+      // After user selection, check for password prompt or direct connection
+      if (hasPasswordPrompt(outputBuffer)) {
+        console.log('用户选择后检测到密码提示，输入密码')
+        sendStatusUpdate('正在进行身份验证...', 'info')
+        connectionPhase = 'inputPassword'
+        outputBuffer = ''
+        setTimeout(() => {
+          console.log('JumpServer 发送目标服务器密码')
+          stream.write((connectionInfo.password || '') + '\r')
+        }, 100)
+      } else {
+        const reason = detectDirectConnectionReason(outputBuffer)
+        if (reason) {
+          console.log(`JumpServer 用户选择后直接建立连接（${reason}）`)
+          handleConnectionSuccess(`用户选择 - ${reason}`)
+        }
+      }
+    } else if (connectionPhase === 'inputPassword') {
+      // 检测密码认证错误
+      if (hasPasswordError(outputBuffer)) {
+        console.log('JumpServer 密码认证失败')
+
+        // 发送MFA验证失败事件到前端
+        if (event) {
+          event.sender.send('ssh:keyboard-interactive-result', {
+            id: connectionId,
+            status: 'failed'
+          })
+        }
+
+        conn.end()
+        return reject(new Error('JumpServer 密码认证失败，请检查密码是否正确'))
+      }
+      // 检测连接成功
+      const reason = detectDirectConnectionReason(outputBuffer)
+      if (reason) {
+        console.log(`JumpServer 密码验证后成功进入目标服务器（${reason}）`)
+        handleConnectionSuccess(`密码验证后 - ${reason}`)
+      }
+    }
+  })
+
+  stream.stderr.on('data', (data: Buffer) => {
+    console.error('JumpServer stderr:', data.toString())
+  })
+
+  stream.on('close', () => {
+    console.log(`JumpServer stream closed for connection ${connectionId}`)
+    jumpserverShellStreams.delete(connectionId)
+    jumpserverConnections.delete(connectionId)
+    jumpserverConnectionStatus.delete(connectionId)
+    jumpserverLastCommand.delete(connectionId)
+    jumpserverInputBuffer.delete(connectionId)
+
+    if (connectionPhase !== 'connected') {
+      reject(new Error('连接在完成前被关闭'))
+    }
+  })
+
+  stream.on('error', (error: Error) => {
+    console.error('JumpServer stream error:', error)
+    reject(error)
+  })
+}
+
 // JumpServer MFA最大重试次数
 const MAX_JUMPSERVER_MFA_ATTEMPTS = 3
 
@@ -80,6 +285,7 @@ export const jumpserverConnectionStatus = new Map()
 const attemptJumpServerConnection = async (
   connectionInfo: {
     id: string
+    assetUuid?: string // JumpServer 堡垒机的 UUID (用于连接池复用, MFA 是堡垒机层级)
     host: string
     port?: number
     username: string
@@ -94,7 +300,7 @@ const attemptJumpServerConnection = async (
   event?: Electron.IpcMainInvokeEvent,
   attemptCount: number = 0
 ): Promise<{ status: string; message: string }> => {
-  const connectionId = connectionInfo.id
+  const connectionId = connectionInfo.id // 会话 ID (前端标签页唯一)
 
   // 发送状态更新的辅助函数
   const sendStatusUpdate = (message: string, type: 'info' | 'success' | 'warning' | 'error' = 'info') => {
@@ -115,11 +321,34 @@ const attemptJumpServerConnection = async (
   }
 
   return new Promise((resolve, reject) => {
-    if (jumpserverConnections.has(connectionId)) {
-      console.log('复用现有JumpServer连接')
-      return resolve({ status: 'connected', message: '复用现有JumpServer连接' })
+    const connectionId = connectionInfo.id // 会话 ID (每个标签页唯一)
+    const jumpserverUuid = connectionInfo.assetUuid || connectionId // JumpServer UUID (回退到 connectionId)
+
+    // 连接复用: 遍历查找相同 JumpServer 的现有连接
+    // MFA 认证是堡垒机层级的,同一 JumpServer 下的所有资产可共享连接
+    if (connectionInfo.assetUuid) {
+      for (const [existingId, existingData] of jumpserverConnections.entries()) {
+        if (existingData.jumpserverUuid === jumpserverUuid) {
+          sendStatusUpdate('复用现有连接，正在创建新的Shell会话...', 'info')
+
+          const conn = existingData.conn
+          // 为当前会话创建新的 shell
+          conn.shell({ term: connectionInfo.terminalType || 'vt100' }, (err, newStream) => {
+            if (err) {
+              console.error('复用连接创建 shell 失败:', err)
+              return reject(new Error(`复用连接创建 shell 失败: ${err.message}`))
+            }
+
+            // 复用连接后,使用公共函数处理 JumpServer 交互流程
+            setupJumpServerInteraction(newStream, connectionInfo, connectionId, jumpserverUuid, conn, event, sendStatusUpdate, resolve, reject)
+          })
+
+          return // 找到匹配的连接，直接返回
+        }
+      }
     }
 
+    // 未找到可复用的连接，建立新连接
     sendStatusUpdate('正在连接到远程堡垒机...', 'info')
 
     const conn = new Client()
@@ -174,11 +403,11 @@ const attemptJumpServerConnection = async (
           sendStatusUpdate(`验证失败，请重新输入验证码 (${attemptCount + 1}/${MAX_JUMPSERVER_MFA_ATTEMPTS})...`, 'warning')
         }
 
-        // JumpServer specific MFA handling - 简化版本
+        // JumpServer specific MFA handling
         await handleJumpServerKeyboardInteractive(event, connectionId, prompts, finish)
       } catch (err) {
         sendStatusUpdate('二次验证失败', 'error')
-        conn.end() // 关闭连接
+        conn.end()
         reject(err)
       }
     })
@@ -202,190 +431,8 @@ const attemptJumpServerConnection = async (
           return reject(new Error(`创建 shell 失败: ${err.message}`))
         }
 
-        let connectionEstablished = false
-
-        const handleConnectionSuccess = (reason: string) => {
-          if (connectionEstablished) {
-            console.log(`JumpServer 连接成功已处理，忽略重复回调 (${reason})`)
-            return
-          }
-          connectionEstablished = true
-          sendStatusUpdate('已成功连接到目标服务器，请开始操作', 'success')
-          connectionPhase = 'connected'
-          outputBuffer = ''
-
-          // 保存连接对象和流对象
-          jumpserverConnections.set(connectionId, conn)
-          jumpserverShellStreams.set(connectionId, stream)
-          jumpserverConnectionStatus.set(connectionId, { isVerified: true })
-
-          resolve({ status: 'connected', message: '连接成功' })
-        }
-
-        const hasPasswordPrompt = (text: string): boolean => {
-          return text.includes('Password:') || text.includes('password:')
-        }
-
-        const hasPasswordError = (text: string): boolean => {
-          return text.includes('password auth error') || text.includes('[Host]>')
-        }
-
-        const detectDirectConnectionReason = (text: string): string | null => {
-          if (!text) return null
-
-          const indicators = ['Connecting to', '连接到', 'Last login:', 'Last failed login:']
-
-          for (const indicator of indicators) {
-            if (text.includes(indicator)) {
-              console.log(`JumpServer 连接检测：命中关键字 "${indicator.trim()}"`)
-              return `关键字 ${indicator.trim()}`
-            }
-          }
-
-          const lines = text.split(/\r?\n/)
-          for (const line of lines) {
-            const trimmed = line.trim()
-            if (!trimmed) continue
-            if (trimmed === '[Host]>' || trimmed.endsWith('Opt>')) continue
-            const isPrompt =
-              (trimmed.endsWith('$') || trimmed.endsWith('#') || trimmed.endsWith(']$') || trimmed.endsWith(']#') || trimmed.endsWith('>$')) &&
-              (trimmed.includes('@') || trimmed.includes(':~') || trimmed.startsWith('['))
-            if (isPrompt) {
-              console.log(`JumpServer 连接检测：疑似 shell 提示符 "${trimmed}"`)
-              return `提示符 ${trimmed}`
-            }
-          }
-
-          return null
-        }
-
-        // 处理数据输出
-        stream.on('data', (data: Buffer) => {
-          const ansiRegex = /[\u001b\u009b][[()#;?]*.{0,2}(?:[0-9]{1,4}(?:;[0-9]{0,4})*)?[0-9A-ORZcf-nry=><]/g
-          const chunk = data.toString().replace(ansiRegex, '')
-          outputBuffer += chunk
-          // console.log(`Phase: ${connectionPhase}, Buffer: ${outputBuffer}`)
-
-          // 根据连接阶段处理不同的响应
-          if (connectionPhase === 'connecting' && outputBuffer.includes('Opt>')) {
-            console.log('检测到 JumpServer 菜单，输入目标 IP')
-            sendStatusUpdate(`正在连接到目标服务器...`, 'info')
-            connectionPhase = 'inputIp'
-            outputBuffer = ''
-            stream.write(connectionInfo.targetIp + '\r')
-          } else if (connectionPhase === 'inputIp') {
-            // Check if user selection is required
-            if (hasUserSelectionPrompt(outputBuffer)) {
-              console.log('检测到多用户提示，需要用户选择账号')
-              sendStatusUpdate('检测到多个用户账号，请选择...', 'info')
-              connectionPhase = 'selectUser'
-              const users = parseJumpServerUsers(outputBuffer)
-              console.log('解析到的用户列表:', users)
-
-              if (users.length === 0) {
-                console.error('解析用户列表失败，缓冲区内容:', outputBuffer)
-                conn.end()
-                return reject(new Error('Failed to parse user list'))
-              }
-
-              outputBuffer = ''
-
-              // Request user selection from frontend
-              handleJumpServerUserSelectionWithEvent(event, connectionId, users)
-                .then((selectedUserId) => {
-                  console.log('用户选择了账号 ID:', selectedUserId)
-                  sendStatusUpdate('正在使用选择的账号连接...', 'info')
-                  connectionPhase = 'inputPassword'
-                  stream.write(selectedUserId.toString() + '\r')
-                })
-                .catch((err) => {
-                  console.error('用户选择失败:', err)
-                  sendStatusUpdate('用户选择已取消', 'error')
-                  conn.end()
-                  reject(err)
-                })
-            } else if (hasPasswordPrompt(outputBuffer)) {
-              console.log('检测到密码提示，输入密码')
-              sendStatusUpdate('正在进行身份验证...', 'info')
-              connectionPhase = 'inputPassword'
-              outputBuffer = ''
-              setTimeout(() => {
-                console.log('JumpServer 发送目标服务器密码')
-                stream.write((connectionInfo.password || '') + '\r')
-              }, 100)
-            } else {
-              const reason = detectDirectConnectionReason(outputBuffer)
-              if (reason) {
-                console.log(`JumpServer 目标资产无需密码，直接建立连接（${reason}）`)
-                handleConnectionSuccess(`无需密码 - ${reason}`)
-              } else {
-                const preview = outputBuffer.slice(-200).replace(/\r?\n/g, '\\n')
-                console.log(`JumpServer inputIp 阶段输出预览: "${preview}"`)
-              }
-            }
-          } else if (connectionPhase === 'selectUser') {
-            // After user selection, check for password prompt or direct connection
-            if (hasPasswordPrompt(outputBuffer)) {
-              console.log('用户选择后检测到密码提示，输入密码')
-              sendStatusUpdate('正在进行身份验证...', 'info')
-              connectionPhase = 'inputPassword'
-              outputBuffer = ''
-              setTimeout(() => {
-                console.log('JumpServer 发送目标服务器密码')
-                stream.write((connectionInfo.password || '') + '\r')
-              }, 100)
-            } else {
-              const reason = detectDirectConnectionReason(outputBuffer)
-              if (reason) {
-                console.log(`JumpServer 用户选择后直接建立连接（${reason}）`)
-                handleConnectionSuccess(`用户选择 - ${reason}`)
-              }
-            }
-          } else if (connectionPhase === 'inputPassword') {
-            // 检测密码认证错误
-            if (hasPasswordError(outputBuffer)) {
-              console.log('JumpServer 密码认证失败')
-
-              // 发送MFA验证失败事件到前端
-              if (event) {
-                event.sender.send('ssh:keyboard-interactive-result', {
-                  id: connectionId,
-                  status: 'failed'
-                })
-              }
-
-              conn.end()
-              return reject(new Error('JumpServer 密码认证失败，请检查密码是否正确'))
-            }
-            // 检测连接成功
-            const reason = detectDirectConnectionReason(outputBuffer)
-            if (reason) {
-              console.log(`JumpServer 密码验证后成功进入目标服务器（${reason}）`)
-              handleConnectionSuccess(`密码验证后 - ${reason}`)
-            }
-          }
-        })
-
-        stream.stderr.on('data', (data: Buffer) => {
-          console.error('JumpServer stderr:', data.toString())
-        })
-
-        stream.on('close', () => {
-          console.log(`JumpServer stream closed for connection ${connectionId}`)
-          jumpserverShellStreams.delete(connectionId)
-          jumpserverConnections.delete(connectionId)
-          jumpserverConnectionStatus.delete(connectionId)
-          jumpserverLastCommand.delete(connectionId) // 确保关闭时也清理
-          jumpserverInputBuffer.delete(connectionId) // 清理缓冲区
-          if (connectionPhase !== 'connected') {
-            reject(new Error('连接在完成前被关闭'))
-          }
-        })
-
-        stream.on('error', (error: Error) => {
-          console.error('JumpServer stream error:', error)
-          reject(error)
-        })
+        // 使用公共函数处理 JumpServer 交互流程
+        setupJumpServerInteraction(stream, connectionInfo, connectionId, jumpserverUuid, conn, event, sendStatusUpdate, resolve, reject)
       })
     })
 
