@@ -160,13 +160,27 @@ app.whenReady().then(async () => {
     const context = createExtensionContext()
     const outputChannel = new ElectronOutputChannel()
 
-    controller = new Controller(context, outputChannel, (message) => {
+    // Create a message sender that routes messages to dedicated IPC channels
+    const messageSender = (message) => {
       if (mainWindow && !mainWindow.isDestroyed()) {
+        // Route commandGenerationResponse to its dedicated channel
+        if (message.type === 'commandGenerationResponse') {
+          mainWindow.webContents.send('command-generation-response', {
+            command: message.command,
+            error: message.error,
+            tabId: message.tabId
+          })
+          return Promise.resolve(true)
+        }
+
+        // Default: send to the general channel for other message types
         mainWindow.webContents.send('main-to-webview', message)
         return Promise.resolve(true)
       }
       return Promise.resolve(false)
-    })
+    }
+
+    controller = new Controller(context, outputChannel, messageSender)
   } catch (error) {
     console.error('Failed to initialize Controller:', error)
   }
@@ -663,12 +677,6 @@ function setupIPC(): void {
     }
   })
 
-  // Add message handler from main process to renderer process
-  ipcMain.on('main-to-webview', (_, message) => {
-    if (mainWindow && !mainWindow.isDestroyed()) {
-      mainWindow.webContents.send('main-to-webview', message)
-    }
-  })
   // Open browser window
   ipcMain.on('open-browser-window', (_, url) => {
     createBrowserWindow(url)
