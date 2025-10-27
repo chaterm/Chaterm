@@ -525,7 +525,7 @@ const handleExpandChange = async (expandedKeys: any[]) => {
 }
 
 // Wrapper function for Ant Design Vue tree expand event
-const onTreeExpand = async (expandedKeys: any[], _info: any) => {
+const onTreeExpand = async (expandedKeys: any[]) => {
   await handleExpandChange(expandedKeys)
 }
 
