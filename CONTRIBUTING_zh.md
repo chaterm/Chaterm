@@ -26,11 +26,11 @@
 
 1. 克隆仓库：
 
-```bash
-# 在 GitHub 上 Fork 仓库，然后克隆您的 Fork
-git clone https://github.com/YOUR_USERNAME/Chaterm.git
-cd Chaterm
-```
+   ```bash
+   # 在 GitHub 上 Fork 仓库，然后克隆您的 Fork
+   git clone https://github.com/YOUR_USERNAME/Chaterm.git
+   cd Chaterm
+   ```
 
 2. 安装必要的开发工具:
    - 安装 [Node.js](https://nodejs.org/) (推荐使用最新的 LTS 版本)
@@ -63,9 +63,9 @@ cd Chaterm
 
 5. 启动开发服务器：
 
-```bash
-npm run dev
-```
+   ```bash
+   npm run dev
+   ```
 
 ## 项目结构
 

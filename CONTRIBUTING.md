@@ -26,11 +26,11 @@ We use GitHub to host code, track issues and feature requests, and accept Pull R
 
 1. Clone the repository:
 
-```bash
-# Fork the repository on GitHub, then clone your fork
-git clone https://github.com/YOUR_USERNAME/Chaterm.git
-cd Chaterm
-```
+   ```bash
+   # Fork the repository on GitHub, then clone your fork
+   git clone https://github.com/YOUR_USERNAME/Chaterm.git
+   cd Chaterm
+   ```
 
 2. Install necessary development tools:
    - Install [Node.js](https://nodejs.org/) (recommended to use the latest LTS version)
@@ -50,9 +50,9 @@ cd Chaterm
 
 5. Start the development server:
 
-```bash
-npm run dev
-```
+   ```bash
+   npm run dev
+   ```
 
 ## Project Structure
 
