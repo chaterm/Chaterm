@@ -106,17 +106,7 @@ export class Controller {
     const { apiConfiguration, userRules, autoApprovalSettings } = await getAllExtensionState()
     const customInstructions = this.formatUserRulesToInstructions(userRules)
 
-    // Generate chat title before creating task for new tasks
-    let generatedTitle: string | undefined
-    if (task && taskId && !historyItem) {
-      try {
-        generatedTitle = await this.generateChatTitle(task, taskId)
-      } catch (error) {
-        console.error('Failed to generate chat title:', error)
-        // Continue with task creation even if title generation fails
-      }
-    }
-
+    // Create task immediately without waiting for title generation
     this.task = new Task(
       this.workspaceTracker,
       (historyItem) => this.updateTaskHistory(historyItem),
@@ -130,9 +120,18 @@ export class Controller {
       task,
       historyItem,
       cwd,
-      generatedTitle,
+      undefined, // Don't pass generated title initially
       taskId
     )
+
+    // Generate chat title asynchronously for new tasks (non-blocking)
+    if (task && taskId && !historyItem) {
+      // Start title generation in background without awaiting
+      this.generateChatTitle(task, taskId).catch((error) => {
+        console.error('Failed to generate chat title:', error)
+        // Title generation failure doesn't affect task execution
+      })
+    }
   }
 
   async reinitExistingTaskFromId(taskId: string) {
@@ -718,75 +717,89 @@ export class Controller {
    */
   async generateChatTitle(userTask: string, taskId: string): Promise<string> {
     try {
-      const { apiConfiguration } = await getAllExtensionState()
-      if (!apiConfiguration) {
-        console.warn('API configuration not found, skipping title generation')
-        return ''
-      }
+      // Add timeout to prevent hanging (10 seconds)
+      const timeoutPromise = new Promise<string>((_, reject) => {
+        setTimeout(() => reject(new Error('Title generation timeout')), 10000)
+      })
 
-      const api = buildApiHandler(apiConfiguration)
+      const titleGenerationPromise = this._performTitleGeneration(userTask, taskId)
 
-      let userLanguage = DEFAULT_LANGUAGE_SETTINGS
-      try {
-        const userConfig = await getUserConfig()
-        if (userConfig && userConfig.language) {
-          userLanguage = userConfig.language
-        }
-      } catch (error) {
-        // If we can't get user config, use default language
-      }
-
-      // Select system prompt based on language
-      const systemPrompt = userLanguage === 'zh-CN' ? TITLE_GENERATION_PROMPT_CN : TITLE_GENERATION_PROMPT
-
-      // Create conversation with user task
-      const conversation: Anthropic.MessageParam[] = [
-        {
-          role: 'user' as const,
-          content: `Generate a title for this task: ${userTask}`
-        }
-      ]
-
-      // Call AI API to generate title
-      const stream = api.createMessage(systemPrompt, conversation)
-      let generatedTitle = ''
-
-      try {
-        for await (const chunk of stream) {
-          if (chunk.type === 'text') {
-            generatedTitle += chunk.text
-          }
-        }
-
-        // Clean up the generated title (remove any extra whitespace, quotes, or newlines)
-        const cleanedTitle = generatedTitle
-          .trim()
-          .replace(/^["']|["']$/g, '') // Remove leading/trailing quotes
-          .replace(/\n/g, ' ') // Replace newlines with spaces
-          .replace(/\s+/g, ' ') // Normalize multiple spaces
-          .substring(0, 100) // Limit to 100 characters
-
-        if (cleanedTitle) {
-          console.log('Generated chat title:', cleanedTitle)
-
-          // Send the generated title to webview for immediate UI update
-          await this.postMessageToWebview({
-            type: 'chatTitleGenerated',
-            chatTitle: cleanedTitle,
-            taskId: taskId
-          })
-
-          return cleanedTitle
-        }
-
-        return ''
-      } catch (streamError) {
-        console.error('Error processing title generation stream:', streamError)
-        return ''
-      }
+      return await Promise.race([titleGenerationPromise, timeoutPromise])
     } catch (error) {
       console.error('Chat title generation failed:', error)
-      // Don't throw error to avoid disrupting task initialization
+      // Always return empty string to avoid disrupting task execution
+      return ''
+    }
+  }
+
+  /**
+   * Internal method to perform the actual title generation
+   */
+  private async _performTitleGeneration(userTask: string, taskId: string): Promise<string> {
+    const { apiConfiguration } = await getAllExtensionState()
+    if (!apiConfiguration) {
+      console.warn('API configuration not found, skipping title generation')
+      return ''
+    }
+
+    const api = buildApiHandler(apiConfiguration)
+
+    let userLanguage = DEFAULT_LANGUAGE_SETTINGS
+    try {
+      const userConfig = await getUserConfig()
+      if (userConfig && userConfig.language) {
+        userLanguage = userConfig.language
+      }
+    } catch (error) {
+      // If we can't get user config, use default language
+    }
+
+    // Select system prompt based on language
+    const systemPrompt = userLanguage === 'zh-CN' ? TITLE_GENERATION_PROMPT_CN : TITLE_GENERATION_PROMPT
+
+    // Create conversation with user task
+    const conversation: Anthropic.MessageParam[] = [
+      {
+        role: 'user' as const,
+        content: `Generate a title for this task: ${userTask}`
+      }
+    ]
+
+    // Call AI API to generate title
+    const stream = api.createMessage(systemPrompt, conversation)
+    let generatedTitle = ''
+
+    try {
+      for await (const chunk of stream) {
+        if (chunk.type === 'text') {
+          generatedTitle += chunk.text
+        }
+      }
+
+      // Clean up the generated title (remove any extra whitespace, quotes, or newlines)
+      const cleanedTitle = generatedTitle
+        .trim()
+        .replace(/^["']|["']$/g, '') // Remove leading/trailing quotes
+        .replace(/\n/g, ' ') // Replace newlines with spaces
+        .replace(/\s+/g, ' ') // Normalize multiple spaces
+        .substring(0, 100) // Limit to 100 characters
+
+      if (cleanedTitle) {
+        console.log('Generated chat title:', cleanedTitle)
+
+        // Send the generated title to webview for immediate UI update
+        await this.postMessageToWebview({
+          type: 'chatTitleGenerated',
+          chatTitle: cleanedTitle,
+          taskId: taskId
+        })
+
+        return cleanedTitle
+      }
+
+      return ''
+    } catch (streamError) {
+      console.error('Error processing title generation stream:', streamError)
       return ''
     }
   }
