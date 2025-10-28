@@ -1,7 +1,6 @@
 import { BrownEventEmitter } from './event'
 import { remoteSshConnect, remoteSshExecStream, remoteSshDisconnect } from '../../../ssh/agentHandle'
 import { handleJumpServerConnection, jumpserverShellStreams, jumpserverMarkedCommands } from './jumpserverHandle'
-import { mfaCacheManager } from '../../../ssh/mfaCache'
 
 export interface RemoteTerminalProcessEvents extends Record<string, any[]> {
   line: [line: string]
@@ -558,19 +557,6 @@ export class RemoteTerminalManager {
 
     if (existingTerminal) {
       return existingTerminal
-    }
-
-    // 检查是否有有效的MFA缓存
-    if (this.connectionInfo?.sshType === 'jumpserver') {
-      const hasValidMFA = mfaCacheManager.hasValidMFACache(
-        this.connectionInfo.asset_ip!,
-        this.connectionInfo.port || 22,
-        this.connectionInfo.username!
-      )
-
-      if (hasValidMFA) {
-        console.log(`[RemoteTerminal] 检测到有效的MFA缓存，将使用缓存进行连接`)
-      }
     }
 
     try {

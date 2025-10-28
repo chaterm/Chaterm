@@ -6,7 +6,6 @@ import { getUserConfigFromRenderer } from '../../../index'
 import { createProxySocket } from '../../../ssh/proxy'
 import { parseJumpServerUsers, hasUserSelectionPrompt } from '../../../ssh/jumpserver/parser'
 import { handleJumpServerUserSelectionWithWindow } from '../../../ssh/jumpserver/userSelection'
-import { mfaCacheManager } from '../../../ssh/mfaCache'
 
 // 存储 JumpServer 连接
 export const jumpserverConnections = new Map()
@@ -132,15 +131,6 @@ export const handleJumpServerConnection = async (
     // Handle keyboard-interactive authentication for 2FA
     conn.on('keyboard-interactive', async (_name, _instructions, _instructionsLang, prompts, finish) => {
       try {
-        // 检查是否有有效的MFA缓存
-        const cachedResponses = mfaCacheManager.getMFAResponses(connectionInfo.host, connectionInfo.port || 22, connectionInfo.username)
-
-        if (cachedResponses && cachedResponses.length > 0) {
-          console.log(`[JumpServer ${connectionId}] 使用缓存的MFA验证结果`)
-          finish(cachedResponses)
-          return
-        }
-
         console.log(`[JumpServer ${connectionId}] 需要二次验证，请输入验证码...`)
 
         // 直接使用简化的 MFA 处理
@@ -161,8 +151,6 @@ export const handleJumpServerConnection = async (
           ipcMain.removeAllListeners(`ssh:keyboard-interactive-response:${connectionId}`)
           ipcMain.removeAllListeners(`ssh:keyboard-interactive-cancel:${connectionId}`)
           finish([])
-          // 超时时清除缓存
-          mfaCacheManager.clearMFACache(connectionInfo.host, connectionInfo.port || 22, connectionInfo.username)
           if (mainWindow) {
             mainWindow.webContents.send('ssh:keyboard-interactive-timeout', { id: connectionId })
           }
@@ -173,17 +161,12 @@ export const handleJumpServerConnection = async (
         ipcMain.once(`ssh:keyboard-interactive-response:${connectionId}`, (_evt: any, responses: string[]) => {
           clearTimeout(timeoutId)
           finish(responses)
-
-          // 保存MFA验证结果到缓存
-          mfaCacheManager.saveMFAResults(connectionId, connectionInfo.host, connectionInfo.port || 22, connectionInfo.username, responses, true)
         })
 
         // 监听用户取消
         ipcMain.once(`ssh:keyboard-interactive-cancel:${connectionId}`, () => {
           clearTimeout(timeoutId)
           finish([])
-          // 用户取消时清除缓存
-          mfaCacheManager.clearMFACache(connectionInfo.host, connectionInfo.port || 22, connectionInfo.username)
           reject(new Error('用户取消了二次验证'))
         })
       } catch (err) {
@@ -411,10 +394,9 @@ export const handleJumpServerConnection = async (
       console.error(`[JumpServer ${connectionId}] 连接错误，耗时 ${elapsed}ms:`, err)
       console.error(`[JumpServer ${connectionId}] 错误详情 - 代码: ${err.code}, 级别: ${err.level}`)
 
-      // 如果是MFA认证失败，记录失败并清除缓存
+      // 如果是MFA认证失败，记录失败
       if (err.level === 'client-authentication') {
         console.log(`[JumpServer ${connectionId}] MFA认证失败，尝试次数: ${attemptCount + 1}/${MAX_JUMPSERVER_MFA_ATTEMPTS}`)
-        mfaCacheManager.recordMFAFailure(connectionInfo.host, connectionInfo.port || 22, connectionInfo.username)
 
         // 发送MFA验证失败事件到前端
         const { BrowserWindow } = require('electron')
@@ -429,9 +411,7 @@ export const handleJumpServerConnection = async (
 
         // 检查是否可以重试
         if (attemptCount < MAX_JUMPSERVER_MFA_ATTEMPTS - 1) {
-          console.log(`[JumpServer ${connectionId}] 准备重试连接，清除缓存后重新尝试`)
-          // 清除缓存并重试
-          mfaCacheManager.clearMFACache(connectionInfo.host, connectionInfo.port || 22, connectionInfo.username)
+          console.log(`[JumpServer ${connectionId}] 准备重试连接`)
           // 异步重试
           handleJumpServerConnection(connectionInfo, attemptCount + 1)
             .then((result) => {
