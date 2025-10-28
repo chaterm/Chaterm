@@ -78,6 +78,7 @@ npm run build:linux
 ```
 
 ## Contributors
-Thank you for your contribution! 
+
+Thank you for your contribution!
 Please refer to the <a href="./CONTRIBUTING.md">Contribution Guide</a> for more information.
 ![Preview image](resources/contributors.png)
