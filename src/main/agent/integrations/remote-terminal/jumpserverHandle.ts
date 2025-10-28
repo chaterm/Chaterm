@@ -26,25 +26,19 @@ const jumpserverInputBuffer = new Map() // 为每个会话创建输入缓冲区
 
 export const jumpserverConnectionStatus = new Map()
 
-// JumpServer MFA最大重试次数
-const MAX_JUMPSERVER_MFA_ATTEMPTS = 3
-
 // JumpServer 连接处理 - 导出供其他模块使用
-export const handleJumpServerConnection = async (
-  connectionInfo: {
-    id: string
-    host: string
-    port?: number
-    username: string
-    password?: string
-    privateKey?: string
-    passphrase?: string
-    targetIp: string
-    needProxy: boolean
-    proxyName: string
-  },
-  attemptCount: number = 0
-): Promise<{ status: string; message: string }> => {
+export const handleJumpServerConnection = async (connectionInfo: {
+  id: string
+  host: string
+  port?: number
+  username: string
+  password?: string
+  privateKey?: string
+  passphrase?: string
+  targetIp: string
+  needProxy: boolean
+  proxyName: string
+}): Promise<{ status: string; message: string }> => {
   const connectionId = connectionInfo.id
 
   console.log(`[JumpServer ${connectionId}] 开始连接到 ${connectionInfo.host}:${connectionInfo.port || 22}`)
@@ -394,34 +388,15 @@ export const handleJumpServerConnection = async (
       console.error(`[JumpServer ${connectionId}] 连接错误，耗时 ${elapsed}ms:`, err)
       console.error(`[JumpServer ${connectionId}] 错误详情 - 代码: ${err.code}, 级别: ${err.level}`)
 
-      // 如果是MFA认证失败，记录失败
-      if (err.level === 'client-authentication') {
-        console.log(`[JumpServer ${connectionId}] MFA认证失败，尝试次数: ${attemptCount + 1}/${MAX_JUMPSERVER_MFA_ATTEMPTS}`)
-
-        // 发送MFA验证失败事件到前端
-        const { BrowserWindow } = require('electron')
-        const mainWindow = BrowserWindow.getAllWindows()[0]
-        if (mainWindow) {
-          mainWindow.webContents.send('ssh:keyboard-interactive-result', {
-            id: connectionId,
-            status: 'failed',
-            message: 'MFA验证失败，请重新输入验证码'
-          })
-        }
-
-        // 检查是否可以重试
-        if (attemptCount < MAX_JUMPSERVER_MFA_ATTEMPTS - 1) {
-          console.log(`[JumpServer ${connectionId}] 准备重试连接`)
-          // 异步重试
-          handleJumpServerConnection(connectionInfo, attemptCount + 1)
-            .then((result) => {
-              resolve(result)
-            })
-            .catch((retryError) => {
-              reject(retryError)
-            })
-          return
-        }
+      // 发送MFA验证失败事件到前端
+      const { BrowserWindow } = require('electron')
+      const mainWindow = BrowserWindow.getAllWindows()[0]
+      if (mainWindow) {
+        mainWindow.webContents.send('ssh:keyboard-interactive-result', {
+          id: connectionId,
+          status: 'failed',
+          message: 'MFA验证失败，请重新输入验证码'
+        })
       }
 
       clearTimeout(connectionTimeout)
