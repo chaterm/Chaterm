@@ -33,7 +33,7 @@ cd Chaterm
 ```
 
 2. Install necessary development tools:
-   - Install [Node.js](https://nodejs.org/) (recommended to use the latest LTS version)
+   - Install [Node.js](https://nodejs.org/) (Latest LTS version recommended)
 
 3. Install Electron:
 
