@@ -45,8 +45,6 @@ Chaterm是一款类似Cursor的终端上工具，无需再学习复杂的正则�
 
 ## 开发指南
 
-请阅读[贡献指南](./CONTRIBUTING_zh.md)
-
 ### Install Electron
 
 ```sh
@@ -92,6 +90,5 @@ npm run build:linux
 ```
 
 ## Contributors
-
-在这个充满无限机遇和挑战时代，一群不同背景的DevOps小伙伴，怀揣梦想汇聚于此。利用业余时间打造了这款匠心独运的工具。
-希望它成为您提升效率、改善生活品质的可靠伙伴。同时也期待更多志同道合的朋友加入我们，携手共创美好未来！
+感谢您为Chaterm做出贡献！请参阅<a href="./CONTRIBUTING_zh.md">贡献指南</a>获取更多信息。
+![Preview image](resources/contributors.png)
