@@ -85,73 +85,8 @@ npm run format
 # Check for code issues
 npm run lint
 
-# Type checking
-npm run typecheck
-
-# Run tests
-npm test
-
 # Build verification
 npm run build
-```
-
-## PR Guidelines
-
-### What Makes a Good PR
-
-✅ **Clear Purpose**
-
-- Single, focused change
-- Clear title and description
-- Reference related issues
-
-✅ **High-Quality Code**
-
-- Follow project coding standards
-- Include appropriate tests
-- Well-commented code
-- No breaking changes (unless intentional)
-
-✅ **Documentation**
-
-- Update relevant documentation
-- Include usage examples
-- Document new features
-
-✅ **Testing**
-
-- Write unit tests for new features
-- Write integration tests for complex features
-- Manual testing verification
-
-### PR Template
-
-When creating a PR, please include:
-
-```markdown
-## Description
-
-Brief description of changes
-
-## Type of Change
-
-- [ ] Bug fix
-- [ ] New feature
-- [ ] Breaking change
-- [ ] Documentation update
-
-## Testing
-
-- [ ] Local tests pass
-- [ ] Manual testing completed
-- [ ] Screenshots (for UI changes)
-
-## Checklist
-
-- [ ] Code follows style guide
-- [ ] Self-review completed
-- [ ] Documentation updated
-- [ ] No breaking changes
 ```
 
 ### Commit Messages
