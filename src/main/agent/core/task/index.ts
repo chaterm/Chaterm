@@ -38,7 +38,6 @@ import { TodoToolCallTracker } from '../services/todo_tool_call_tracker'
 import { globSearch } from '../../services/glob/list-files'
 import { regexSearchMatches as localGrepSearch } from '../../services/grep/index'
 import { buildRemoteGlobCommand, parseRemoteGlobOutput, buildRemoteGrepCommand, parseRemoteGrepOutput } from '../../services/search/remote'
-import { AgentLogManager } from '../../services/remote-logging'
 
 interface StreamMetrics {
   didReceiveUsageChunk?: boolean
@@ -138,8 +137,6 @@ export class Task {
   isWaitingForFirstChunk = false
   isStreaming = false
 
-  // Remote logging
-  private logManager: AgentLogManager
   private currentStreamingContentIndex = 0
   private assistantMessageContent: AssistantMessageContent[] = []
   private presentAssistantMessageLocked = false
@@ -213,11 +210,6 @@ export class Task {
     this.commandSecurityManager = new CommandSecurityManager()
     this.commandSecurityManager.initialize()
 
-    // Initialize remote logging
-    this.logManager = new AgentLogManager()
-    console.log(`[TASK CONSTRUCTOR] Task ${this.taskId} created, initializing logging...`)
-    this.initializeLogging()
-
     // Continue with task initialization
     if (historyItem) {
       this.resumeTaskFromHistory()
@@ -243,38 +235,6 @@ export class Task {
     } catch (error) {
       // If error, use default language
       this.messages = getMessages(DEFAULT_LANGUAGE_SETTINGS)
-    }
-  }
-
-  /**
-   * Initialize remote logging for this task
-   */
-  private async initializeLogging(): Promise<void> {
-    try {
-      console.log(`[TASK] Scheduling logging initialization for task ${this.taskId}`)
-      // Delay initialization to allow SSH connections to be established
-      setTimeout(async () => {
-        console.log(`[TASK] Attempting to initialize logging for task ${this.taskId}`)
-        const success = await this.logManager.initializeTaskLogging(this.taskId, this.hosts)
-        console.log(`[TASK] Logging initialization result: ${success}`)
-      }, 2000) // 2 second delay to allow connections to establish
-    } catch (error) {
-      console.error('Failed to initialize remote logging:', error)
-    }
-  }
-
-  /**
-   * Ensure logging is initialized for the given IP
-   */
-  private async ensureLoggingInitialized(ip: string): Promise<void> {
-    if (!this.logManager.isTaskInitialized(this.taskId)) {
-      console.log(`[TASK] Logging not initialized for task ${this.taskId}, initializing now`)
-
-      // Find the host for this IP
-      const host = this.hosts.find((h) => h.host === ip) || this.hosts[0]
-      if (host) {
-        await this.logManager.initializeTaskLogging(this.taskId, [host])
-      }
     }
   }
 
@@ -471,13 +431,6 @@ export class Task {
     message.conversationHistoryDeletedRange = this.conversationHistoryDeletedRange
     this.chatermMessages.push(message)
     await this.saveChatermMessagesAndUpdateHistory()
-
-    // Log the message to remote server
-    try {
-      await this.logManager.logChatermMessage(this.taskId, message)
-    } catch (error) {
-      console.error('Failed to log Chaterm message:', error)
-    }
   }
 
   private async overwriteChatermMessages(newMessages: ChatermMessage[]) {
@@ -1010,13 +963,6 @@ export class Task {
   async abortTask() {
     this.abort = true // will stop any autonomously running promises
     this.remoteTerminalManager.disposeAll()
-
-    // Finalize logging session
-    try {
-      await this.logManager.finalizeTaskLogging(this.taskId)
-    } catch (error) {
-      console.error('Failed to finalize logging session:', error)
-    }
   }
 
   async gracefulAbortTask() {
@@ -1204,30 +1150,6 @@ export class Task {
   }
 
   async executeCommandTool(command: string, ip: string): Promise<ToolResponse> {
-    // Log command execution for debugging
-    console.log(`[EXECUTE COMMAND] Command: "${command}", IP: "${ip}", TaskID: "${this.taskId}"`)
-
-    // Ensure logging is initialized if it hasn't been already
-    try {
-      await this.ensureLoggingInitialized(ip)
-    } catch (error) {
-      console.error('Failed to ensure logging initialization:', error)
-    }
-
-    // Check for file modification and backup if needed
-    try {
-      await this.logManager.handleFileModificationCommand(this.taskId, command, ip)
-    } catch (error) {
-      console.error('Failed to handle file modification:', error)
-    }
-
-    // Log command execution
-    try {
-      await this.logManager.logCommand(this.taskId, command, ip)
-    } catch (error) {
-      console.error('Failed to log command:', error)
-    }
-
     // 如果是本地主机，使用本地执行
     if (this.isLocalHost(ip)) {
       return this.executeLocalCommandTool(command)
@@ -1337,16 +1259,6 @@ export class Task {
 
       const truncatedResult = this.truncateCommandOutput(result)
 
-      // Log command output
-      try {
-        await this.logManager.logCommandOutput(this.taskId, result, ip, {
-          exitCode: completed ? 0 : undefined,
-          truncated: result !== truncatedResult
-        })
-      } catch (error) {
-        console.error('Failed to log command output:', error)
-      }
-
       if (completed) {
         return `${this.messages.commandExecutedOutput}${truncatedResult.length > 0 ? `\nOutput:\n${truncatedResult}` : ''}`
       } else {
@@ -1368,16 +1280,6 @@ export class Task {
       if (this.gracefulCancel && result && result.trim()) {
         const truncatedResult = this.truncateCommandOutput(result)
         return `Command was gracefully cancelled with partial output.${truncatedResult.length > 0 ? `\nPartial Output:\n${truncatedResult}` : ''}`
-      }
-
-      // Log error
-      try {
-        await this.logManager.logError(this.taskId, err, ip, {
-          command: command,
-          partialOutput: result
-        })
-      } catch (logError) {
-        console.error('Failed to log error:', logError)
       }
 
       // Original error handling logic
