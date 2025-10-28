@@ -43,7 +43,9 @@ Want syntax highlighting and smart completion, but don't have root privileges, a
 - 🔏 Privacy watermark：screen recording, Clipboard and data transmission control.
 - 🔎 Behavior Audits：Advanced pattern recognition and anomaly detection in user operations.
 
-## Project Setup
+## Development Guide
+
+Please read the [Contribution Guidelines](./CONTRIBUTING.md)
 
 ### Install Electron
 
