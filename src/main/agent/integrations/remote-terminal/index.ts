@@ -15,6 +15,7 @@ export interface ConnectionInfo {
   host?: string
   port?: number
   username?: string
+  assetUuid?: string
   /**
    * Password for authentication. If both password and privateKey are provided,
    * privateKey takes precedence over password.
@@ -420,6 +421,10 @@ export class RemoteTerminalProcess extends BrownEventEmitter<RemoteTerminalProce
 
       // Detect command end marker
       if (cleanLine.includes(endMarker)) {
+        if (!commandStarted) {
+          console.log(`[JumpServer ${sessionId}] Detected end marker before start marker (likely command echo), skipping`)
+          return
+        }
         console.log(`[JumpServer ${sessionId}] Detected command end marker: ${cleanLine}`)
         const match = cleanLine.match(new RegExp(`${endMarker.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}:(\\d+)`))
         if (match && match[1]) {
@@ -539,7 +544,15 @@ export class RemoteTerminalManager {
 
   // Set SSH connection information
   setConnectionInfo(info: ConnectionInfo): void {
-    this.connectionInfo = info
+    const rawInfo = info as Record<string, unknown>
+    const assetUuid =
+      info.assetUuid ??
+      (typeof rawInfo.organization_uuid === 'string' ? (rawInfo.organization_uuid as string) : undefined) ??
+      (typeof rawInfo.uuid === 'string' ? (rawInfo.uuid as string) : undefined)
+    this.connectionInfo = {
+      ...info,
+      assetUuid
+    }
   }
 
   // Create new remote terminal
@@ -564,8 +577,10 @@ export class RemoteTerminalManager {
       // Choose connection method based on sshType
       if (this.connectionInfo.sshType === 'jumpserver') {
         // Use JumpServer connection
+        const jumpServerSessionId = `jumpserver_${Date.now()}_${Math.random().toString(36).substring(2, 14)}`
+        const assetUuid = this.connectionInfo.assetUuid || this.connectionInfo.id || jumpServerSessionId
         const jumpServerConnectionInfo = {
-          id: `jumpserver_${Date.now()}_${Math.random().toString(36).substring(2, 14)}`,
+          id: jumpServerSessionId,
           host: this.connectionInfo.asset_ip!,
           port: this.connectionInfo.port,
           username: this.connectionInfo.username!,
@@ -574,7 +589,8 @@ export class RemoteTerminalManager {
           passphrase: this.connectionInfo.passphrase,
           targetIp: this.connectionInfo.host!,
           needProxy: this.connectionInfo.needProxy || false,
-          proxyName: this.connectionInfo.proxyName || ''
+          proxyName: this.connectionInfo.proxyName || '',
+          assetUuid
         }
 
         connectResult = await handleJumpServerConnection(jumpServerConnectionInfo)
@@ -682,20 +698,8 @@ export class RemoteTerminalManager {
       this.terminals.delete(terminalId)
       try {
         if (terminalInfo.connectionInfo.sshType === 'jumpserver') {
-          const { jumpserverConnections, jumpserverShellStreams } = await import('./jumpserverHandle')
-
-          const stream = jumpserverShellStreams.get(terminalInfo.sessionId)
-          if (stream) {
-            stream.end()
-            jumpserverShellStreams.delete(terminalInfo.sessionId)
-          }
-
-          const conn = jumpserverConnections.get(terminalInfo.sessionId)
-          if (conn) {
-            conn.end()
-            jumpserverConnections.delete(terminalInfo.sessionId)
-          }
-
+          const { jumpServerDisconnect } = await import('./jumpserverHandle')
+          await jumpServerDisconnect(terminalInfo.sessionId)
           console.log(`JumpServer terminal ${terminalId} (Session: ${terminalInfo.sessionId}) disconnected.`)
         } else {
           await remoteSshDisconnect(terminalInfo.sessionId)

@@ -86,6 +86,39 @@ const connectionEvents = new EventEmitter()
 // 缓存
 export const keyboardInteractiveOpts = new Map<string, string[]>()
 
+export const getReusableSshConnection = (host: string, port: number, username: string) => {
+  const poolKey = getConnectionPoolKey(host, port, username)
+  const reusableConn = sshConnectionPool.get(poolKey)
+  if (!reusableConn || !reusableConn.hasMfaAuth) {
+    return null
+  }
+
+  const client = reusableConn.conn as Client | undefined
+  if (!client || (client as any)?._sock?.destroyed) {
+    sshConnectionPool.delete(poolKey)
+    return null
+  }
+
+  return {
+    poolKey,
+    conn: client
+  }
+}
+
+export const registerReusableSshSession = (poolKey: string, sessionId: string) => {
+  const reusableConn = sshConnectionPool.get(poolKey)
+  if (reusableConn) {
+    reusableConn.sessions.add(sessionId)
+  }
+}
+
+export const releaseReusableSshSession = (poolKey: string, sessionId: string) => {
+  const reusableConn = sshConnectionPool.get(poolKey)
+  if (reusableConn) {
+    reusableConn.sessions.delete(sessionId)
+  }
+}
+
 export const handleRequestKeyboardInteractive = (event, id, prompts, finish) => {
   return new Promise((_resolve, reject) => {
     // 获取当前重试次数
