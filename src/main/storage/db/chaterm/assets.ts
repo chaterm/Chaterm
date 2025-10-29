@@ -5,6 +5,7 @@ export {
   updateLocalAsseFavoriteLogic,
   getAssetGroupLogic,
   createAssetLogic,
+  createOrUpdateAssetLogic,
   deleteAssetLogic,
   updateAssetLogic
 } from './assets.mutations'

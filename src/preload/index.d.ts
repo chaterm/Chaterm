@@ -39,6 +39,7 @@ interface ApiType {
   getKeyChainSelect: () => Promise<any>
   getAssetGroup: () => Promise<any>
   createAsset: (data: { form: any }) => Promise<any>
+  createOrUpdateAsset: (data: { form: any }) => Promise<any>
   updateAsset: (data: { form: any }) => Promise<any>
   getKeyChainList: () => Promise<any>
   createKeyChain: (data: { form: any }) => Promise<any>

@@ -894,6 +894,17 @@ ipcMain.handle('asset-create', async (_, data) => {
   }
 })
 
+ipcMain.handle('asset-create-or-update', async (_, data) => {
+  try {
+    const { form } = data
+    const result = chatermDbService.createOrUpdateAsset(form)
+    return result
+  } catch (error) {
+    console.error('Chaterm create or update asset failed:', error)
+    return null
+  }
+})
+
 ipcMain.handle('asset-update', async (_, data) => {
   try {
     const { form } = data
