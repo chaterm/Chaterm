@@ -205,6 +205,39 @@ function upgradeTAssetsTable(db: Database.Database): void {
       db.exec('ALTER TABLE t_assets ADD COLUMN proxy_name TEXT DEFAULT ""')
       console.log('Added proxy_name column to t_assets')
     }
+
+    // 添加复合唯一约束：asset_ip + username + port + label（别名）
+    try {
+      // 若存在旧索引则删除
+      const oldIdx = db.prepare("SELECT name FROM sqlite_master WHERE type='index' AND name='idx_assets_unique_ip_user_port'").get()
+      if (oldIdx) {
+        db.exec('DROP INDEX IF EXISTS idx_assets_unique_ip_user_port')
+      }
+
+      // 检查新索引是否已存在
+      const newIdx = db.prepare("SELECT name FROM sqlite_master WHERE type='index' AND name='idx_assets_unique_ip_user_port_label'").get()
+
+      if (!newIdx) {
+        // 先清理可能的重复数据（在四元组维度上），保留最新的记录
+        db.exec(`
+          DELETE FROM t_assets 
+          WHERE id NOT IN (
+            SELECT MAX(id)
+            FROM t_assets
+            GROUP BY asset_ip, username, port, label
+          )
+        `)
+
+        // 创建新的复合唯一索引
+        db.exec(`
+          CREATE UNIQUE INDEX idx_assets_unique_ip_user_port_label 
+          ON t_assets(asset_ip, username, port, label)
+        `)
+        console.log('Added unique constraint for asset_ip + username + port + label')
+      }
+    } catch (constraintError) {
+      console.error('Failed to add unique constraint:', constraintError)
+    }
   } catch (error) {
     console.error('Failed to upgrade t_assets table:', error)
   }
