@@ -1,6 +1,6 @@
 import { app, shell, BrowserWindow, ipcMain, session } from 'electron'
 import { join } from 'path'
-import { electronApp, optimizer } from '@electron-toolkit/utils'
+import { electronApp } from '@electron-toolkit/utils'
 import { is } from '@electron-toolkit/utils'
 import axios from 'axios'
 import { startDataSync } from './storage/data_sync/index'
