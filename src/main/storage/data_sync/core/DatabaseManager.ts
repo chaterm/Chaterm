@@ -420,6 +420,8 @@ export class DatabaseManager {
       'key_chain_id',
       'favorite',
       'asset_type',
+      'need_proxy',
+      'proxy_name',
       'created_at',
       'updated_at',
       'version'
@@ -449,7 +451,8 @@ export class DatabaseManager {
       label=excluded.label, asset_ip=excluded.asset_ip, group_name=excluded.group_name,
       auth_type=excluded.auth_type, port=excluded.port, username=excluded.username,
       password=excluded.password, key_chain_id=excluded.key_chain_id, favorite=excluded.favorite,
-      asset_type=excluded.asset_type, updated_at=excluded.updated_at, version=excluded.version`
+      asset_type=excluded.asset_type, need_proxy=excluded.need_proxy, proxy_name=excluded.proxy_name,
+      updated_at=excluded.updated_at, version=excluded.version`
 
     try {
       this.db.prepare(sql).run(...values)
