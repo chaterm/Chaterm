@@ -334,11 +334,12 @@ export class Task {
       return
     }
     let terminalInfo: RemoteTerminalInfo | null = null
-    let terminalUuid = ip ? this.hosts.find((host) => host.host === ip)?.uuid : this.hosts[0].uuid
-    if (!terminalUuid) {
+    const targetHost = ip ? this.hosts.find((host) => host.host === ip) : this.hosts[0]
+    if (!targetHost || !targetHost.uuid) {
       console.log('Terminal UUID is not set')
       return
     }
+    const terminalUuid = targetHost.uuid
 
     try {
       const connectionInfo = await connectAssetInfo(terminalUuid)
@@ -350,7 +351,8 @@ export class Task {
 
       // Check if this is an agent mode + local connection scenario that will fail
       const chatSettings = await getGlobalState('chatSettings')
-      const isLocalConnection = connectionInfo?.sshType === 'ssh'
+      const isLocalConnection =
+        targetHost.connection?.toLowerCase?.() === 'localhost' || targetHost.uuid === 'localhost' || this.isLocalHost(targetHost.host)
       const shouldSkipConnectionMessages = chatSettings?.mode === 'agent' && isLocalConnection
 
       if (isNewConnection && !shouldSkipConnectionMessages) {
@@ -2957,16 +2959,7 @@ SUDO_CHECK:${localSystemInfo.sudoCheck}`
         } catch (error) {
           console.error(`Failed to get system information for host ${host.host}:`, error)
           const chatSettings = await getGlobalState('chatSettings')
-          const isLocalConnection = await Promise.all(
-            this.hosts.map(async (h) => {
-              try {
-                const connectionInfo = await connectAssetInfo(h.uuid)
-                return connectionInfo?.sshType === 'ssh'
-              } catch {
-                return false
-              }
-            })
-          ).then((results) => results.some((isLocal) => isLocal))
+          const isLocalConnection = host.connection?.toLowerCase?.() === 'localhost' || this.isLocalHost(host.host) || host.uuid === 'localhost'
 
           if (chatSettings?.mode === 'agent' && isLocalConnection) {
             const errorMessage = 'Error: Agent模式下连不上本地连接的目标机器，请新建任务选择Command模式操作。'
