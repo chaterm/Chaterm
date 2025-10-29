@@ -1,6 +1,6 @@
 import { app, shell, BrowserWindow, ipcMain, session } from 'electron'
 import { join } from 'path'
-import { electronApp, optimizer } from '@electron-toolkit/utils'
+import { electronApp } from '@electron-toolkit/utils'
 import { is } from '@electron-toolkit/utils'
 import axios from 'axios'
 import { startDataSync } from './storage/data_sync/index'
@@ -890,6 +890,17 @@ ipcMain.handle('asset-create', async (_, data) => {
     return result
   } catch (error) {
     console.error('Chaterm create asset failed:', error)
+    return null
+  }
+})
+
+ipcMain.handle('asset-create-or-update', async (_, data) => {
+  try {
+    const { form } = data
+    const result = chatermDbService.createOrUpdateAsset(form)
+    return result
+  } catch (error) {
+    console.error('Chaterm create or update asset failed:', error)
     return null
   }
 })

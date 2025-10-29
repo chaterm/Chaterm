@@ -55,7 +55,7 @@
 
 <script setup lang="ts">
 import { Modal, message, notification } from 'ant-design-vue'
-import { ref, onMounted, onBeforeUnmount, reactive, watch } from 'vue'
+import { ref, onMounted, onBeforeUnmount, reactive, watch, h } from 'vue'
 import AssetSearch from './components/AssetSearch.vue'
 import AssetList from './components/AssetList.vue'
 import AssetForm from './components/AssetForm.vue'
@@ -295,6 +295,41 @@ const handleAssetRemove = (asset: AssetNode) => {
   })
 }
 
+// 显示重复数据确认对话框
+const showDuplicateConfirmDialog = async (duplicateAssets: any[]): Promise<boolean> => {
+  return new Promise((resolve) => {
+    Modal.confirm({
+      title: t('personal.importDuplicateTitle'),
+      content: h('div', [
+        h('p', t('personal.importDuplicateMessage', { count: duplicateAssets.length })),
+        h('div', { style: 'max-height: 200px; overflow-y: auto; margin-top: 10px;' }, [
+          h(
+            'ul',
+            duplicateAssets.map((asset) =>
+              h('li', { key: asset.ip + asset.username, style: 'margin: 5px 0;' }, [
+                h('strong', `${asset.label || asset.ip}`),
+                h('span', ` (${asset.ip}:${asset.port}) - `),
+                h(
+                  'span',
+                  { style: 'color: #666;' },
+                  t('personal.existingAsset', {
+                    label: asset.existingLabel,
+                    date: new Date(asset.existingCreatedAt).toLocaleString()
+                  })
+                )
+              ])
+            )
+          )
+        ])
+      ]),
+      okText: t('personal.importOverwrite'),
+      cancelText: t('personal.importSkip'),
+      onOk: () => resolve(true),
+      onCancel: () => resolve(false)
+    })
+  })
+}
+
 const handleImportAssets = async (assets: any[]) => {
   if (!assets || assets.length === 0) {
     message.warning(t('personal.importNoData'))
@@ -305,7 +340,10 @@ const handleImportAssets = async (assets: any[]) => {
     const api = window.api as any
     let successCount = 0
     let errorCount = 0
+    let duplicateCount = 0
+    const duplicateAssets: any[] = []
 
+    // 第一轮：检查重复数据
     for (const asset of assets) {
       try {
         if (!asset.ip || !asset.username) {
@@ -328,8 +366,20 @@ const handleImportAssets = async (assets: any[]) => {
         }
 
         const result = await api.createAsset({ form: cleanForm })
-        if (result && result.data && result.data.message === 'success') {
-          successCount++
+        if (result && result.data) {
+          if (result.data.message === 'success') {
+            successCount++
+          } else if (result.data.message === 'duplicate') {
+            duplicateCount++
+            duplicateAssets.push({
+              ...cleanForm,
+              existingLabel: result.data.existingLabel,
+              existingCreatedAt: result.data.existingCreatedAt,
+              existingUuid: result.data.uuid
+            })
+          } else {
+            errorCount++
+          }
         } else {
           errorCount++
         }
@@ -339,10 +389,37 @@ const handleImportAssets = async (assets: any[]) => {
       }
     }
 
+    // 如果有重复数据，询问用户是否要覆盖
+    if (duplicateAssets.length > 0) {
+      const shouldOverwrite = await showDuplicateConfirmDialog(duplicateAssets)
+      if (shouldOverwrite) {
+        // 用户选择覆盖，使用 createOrUpdateAsset
+        for (const asset of duplicateAssets) {
+          try {
+            const result = await api.createOrUpdateAsset({ form: asset })
+            if (result && result.data && (result.data.message === 'success' || result.data.message === 'updated')) {
+              successCount++
+              duplicateCount--
+            } else {
+              errorCount++
+            }
+          } catch (error) {
+            console.error('Update duplicate asset error:', error)
+            errorCount++
+          }
+        }
+      }
+    }
+
+    // 显示导入结果
     if (successCount > 0) {
       message.success(t('personal.importSuccessCount', { count: successCount }))
       getAssetList()
       eventBus.emit('LocalAssetMenu')
+    }
+
+    if (duplicateCount > 0) {
+      message.warning(t('personal.importDuplicateCount', { count: duplicateCount }))
     }
 
     if (errorCount > 0) {

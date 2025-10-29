@@ -14,6 +14,8 @@ export interface Asset {
   key_chain_id: number // 改为必填，匹配后端 uint32
   favorite: number // 1=收藏, 2=未收藏
   asset_type?: string
+  need_proxy?: number // 是否需要代理，0=不需要，1=需要
+  proxy_name?: string // 代理名称
   created_at: string | Date
   updated_at: string | Date
   version: number // 改为必填，匹配后端 int32

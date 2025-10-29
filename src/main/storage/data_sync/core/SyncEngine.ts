@@ -507,8 +507,8 @@ export class SyncEngine {
           key_chain_id: data.key_chain_id ?? undefined,
           favorite: data.favorite ?? 2, // 保持原始整数值，默认为2（未收藏）
           asset_type: data.asset_type,
-          needProxy: data.needProxy,
-          proxyName: data.proxyName,
+          need_proxy: data.need_proxy ?? 0, // 修复：使用下划线命名，默认为0（不需要代理）
+          proxy_name: data.proxy_name ?? '', // 修复：使用下划线命名，默认为空字符串
           created_at: data.created_at ?? new Date().toISOString(),
           updated_at: data.updated_at ?? new Date().toISOString(),
           version: typeof data.version === 'number' ? data.version : 1

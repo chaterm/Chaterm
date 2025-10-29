@@ -265,6 +265,15 @@ const createAsset = async (data: { form: Record<string, unknown> }) => {
   }
 }
 
+const createOrUpdateAsset = async (data: { form: Record<string, unknown> }) => {
+  try {
+    const result = await ipcRenderer.invoke('asset-create-or-update', data)
+    return result
+  } catch (error) {
+    return Promise.reject(error)
+  }
+}
+
 const updateAsset = async (data: { form: Record<string, unknown> }) => {
   try {
     const result = await ipcRenderer.invoke('asset-update', data)
@@ -551,6 +560,7 @@ const api = {
   chatermUpdate,
   deleteAsset,
   createAsset,
+  createOrUpdateAsset,
   updateAsset,
   createKeyChain,
   deleteKeyChain,
