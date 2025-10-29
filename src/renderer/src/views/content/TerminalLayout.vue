@@ -488,6 +488,7 @@ onMounted(async () => {
   eventBus.on('switchToPrevTab', switchToPrevTab)
   eventBus.on('switchToSpecificTab', switchToSpecificTab)
   eventBus.on('createNewTerminal', handleCreateNewTerminal)
+  eventBus.on('open-user-tab', openUserTab)
 
   nextTick(() => {
     let theme = localStorage.getItem('theme') || 'auto'
@@ -996,9 +997,10 @@ onUnmounted(() => {
   eventBus.off('switchToPrevTab', switchToPrevTab)
   eventBus.off('switchToSpecificTab', switchToSpecificTab)
   eventBus.off('createNewTerminal', handleCreateNewTerminal)
+  eventBus.off('open-user-tab', openUserTab)
 })
 const openUserTab = function (value) {
-  if (value === 'assetConfig' || value === 'keyChainConfig' || value === 'userInfo' || value === 'userConfig') {
+  if (value === 'assetConfig' || value === 'keyChainConfig' || value === 'userInfo' || value === 'userConfig' || value === 'mcpConfigEditor') {
     const existTab = openedTabs.value.find((tab) => tab.content === value)
     if (existTab) {
       activeTabId.value = existTab.id

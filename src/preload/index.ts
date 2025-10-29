@@ -660,6 +660,39 @@ const api = {
     ipcRenderer.send(`jumpserver:user-selection-cancel:${id}`)
   },
 
+  // MCP configuration management
+  getMcpConfigPath: () => ipcRenderer.invoke('mcp:get-config-path'),
+  readMcpConfig: async () => {
+    const configPath = await ipcRenderer.invoke('mcp:get-config-path')
+    const content = await fs.promises.readFile(configPath, 'utf-8')
+    return content
+  },
+  writeMcpConfig: async (content: string) => {
+    const configPath = await ipcRenderer.invoke('mcp:get-config-path')
+    await fs.promises.writeFile(configPath, content, 'utf-8')
+  },
+  getMcpServers: () => ipcRenderer.invoke('mcp:get-servers'),
+  toggleMcpServer: (serverName: string, disabled: boolean) => ipcRenderer.invoke('toggle-mcp-server', serverName, disabled),
+  getMcpToolState: (serverName: string, toolName: string) => ipcRenderer.invoke('mcp:get-tool-state', serverName, toolName),
+  setMcpToolState: (serverName: string, toolName: string, enabled: boolean) =>
+    ipcRenderer.invoke('mcp:set-tool-state', serverName, toolName, enabled),
+  getAllMcpToolStates: () => ipcRenderer.invoke('mcp:get-all-tool-states'),
+  onMcpStatusUpdate: (callback: (servers: any[]) => void) => {
+    const listener = (_event, servers) => callback(servers)
+    ipcRenderer.on('mcp:status-update', listener)
+    return () => ipcRenderer.removeListener('mcp:status-update', listener)
+  },
+  onMcpServerUpdate: (callback: (server: any) => void) => {
+    const listener = (_event, server) => callback(server)
+    ipcRenderer.on('mcp:server-update', listener)
+    return () => ipcRenderer.removeListener('mcp:server-update', listener)
+  },
+  onMcpConfigFileChanged: (callback: (content: string) => void) => {
+    const listener = (_event, content) => callback(content)
+    ipcRenderer.on('mcp:config-file-changed', listener)
+    return () => ipcRenderer.removeListener('mcp:config-file-changed', listener)
+  },
+
   // 本地主机API
   getLocalWorkingDirectory: () => ipcRenderer.invoke('local:get-working-directory'),
   executeLocalCommand: (command: string) => ipcRenderer.invoke('local:execute-command', command),
@@ -777,7 +810,7 @@ const api = {
     }
   },
   // Telemetry events
-  captureButtonClick: async (button: string, properties?: Record<string, any>) => {
+  captureButtonClick: async (button: string, properties?: Record<string, unknown>) => {
     try {
       const result = await ipcRenderer.invoke('capture-telemetry-event', {
         eventType: 'button_click',

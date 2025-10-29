@@ -7,6 +7,10 @@
 import { onMounted } from 'vue'
 import { MfaDialog, setupGlobalMfaListeners } from './components/global/mfa'
 import { UserSelectionDialog, setupGlobalUserSelectionListeners } from './components/global/user-selection'
+import { useNotificationListener } from './composables/useNotificationListener'
+
+// Setup notification listener
+useNotificationListener()
 
 onMounted(() => {
   setupGlobalMfaListeners()

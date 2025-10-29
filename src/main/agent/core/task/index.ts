@@ -68,6 +68,7 @@ import WorkspaceTracker from '@integrations/workspace/WorkspaceTracker'
 import { connectAssetInfo } from '../../../storage/database'
 import { getMessages, formatMessage, Messages } from './messages'
 import { decodeHtmlEntities } from '@utils/decodeHtmlEntities'
+import { McpHub } from '@services/mcp/McpHub'
 
 import type { Host } from '@shared/WebviewMessage'
 
@@ -80,6 +81,7 @@ export class Task {
   private postStateToWebview: () => Promise<void>
   private postMessageToWebview: (message: ExtensionMessage) => Promise<void>
   private reinitExistingTaskFromId: (taskId: string) => Promise<void>
+  mcpHub: McpHub
 
   readonly taskId: string
   hosts: Host[]
@@ -159,6 +161,7 @@ export class Task {
     apiConfiguration: ApiConfiguration,
     autoApprovalSettings: AutoApprovalSettings,
     hosts: Host[],
+    mcpHub: McpHub,
     customInstructions?: string,
     task?: string,
     historyItem?: HistoryItem,
@@ -171,6 +174,7 @@ export class Task {
     this.postStateToWebview = postStateToWebview
     this.postMessageToWebview = postMessageToWebview
     this.reinitExistingTaskFromId = reinitExistingTaskFromId
+    this.mcpHub = mcpHub
     this.remoteTerminalManager = new RemoteTerminalManager()
     this.localTerminalManager = LocalTerminalManager.getInstance()
     this.contextManager = new ContextManager()
@@ -185,6 +189,12 @@ export class Task {
       }
     }
     this.updateMessagesLanguage()
+
+    // Set up MCP notification callback for real-time notifications
+    // this.mcpHub.setNotificationCallback(async (serverName: string, _level: string, message: string) => {
+    //   // Display notification in chat immediately
+    //   await this.say('mcp_notification', `[${serverName}] ${message}`)
+    // })
 
     // Initialize taskId first
     if (historyItem) {

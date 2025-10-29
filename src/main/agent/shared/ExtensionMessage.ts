@@ -27,6 +27,8 @@ export interface ExtensionMessage {
     | 'commandGenerationResponse'
     | 'todoUpdated'
     | 'chatTitleGenerated'
+    | 'mcpServersUpdate'
+    | 'notification'
 
   text?: string
   action?:
@@ -83,6 +85,15 @@ export interface ExtensionMessage {
   triggerReason?: 'agent_update' | 'user_request' | 'auto_progress'
   // For chat title generation
   chatTitle?: string
+  // For MCP servers update
+  mcpServers?: any[]
+  // For notifications
+  notification?: {
+    type: 'info' | 'success' | 'warning' | 'error'
+    title?: string
+    description: string
+    duration?: number
+  }
 }
 
 export type Invoke = 'sendMessage' | 'primaryButtonClick' | 'secondaryButtonClick'
