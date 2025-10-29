@@ -1,8 +1,9 @@
 <template>
   <div
     v-if="visible"
+    ref="contextMenuRef"
     class="context-menu"
-    :style="{ top: position.y + 'px', left: position.x + 'px' }"
+    :style="menuStyle"
     @click="handleClose"
   >
     <div
@@ -51,6 +52,7 @@
 </template>
 
 <script setup lang="ts">
+import { ref, computed, nextTick, watch } from 'vue'
 import { ApiOutlined, EditOutlined, ReloadOutlined, DeleteOutlined, CopyOutlined } from '@ant-design/icons-vue'
 import i18n from '@/locales'
 import type { AssetNode, Position } from '../types'
@@ -64,7 +66,51 @@ interface Props {
   asset: AssetNode | null
 }
 
-defineProps<Props>()
+const props = defineProps<Props>()
+
+// Refs
+const contextMenuRef = ref<HTMLElement | null>(null)
+
+// State
+const actualMenuSize = ref({ width: 150, height: 200 })
+
+// Computed
+const menuStyle = computed(() => {
+  if (!props.visible) return {}
+
+  const { x, y } = props.position
+  const { width: menuWidth, height: menuHeight } = actualMenuSize.value
+  const padding = 10 // margin
+
+  // Get window dimensions
+  const windowWidth = window.innerWidth
+  const windowHeight = window.innerHeight
+
+  // Calculate adjusted position
+  let adjustedX = x
+  let adjustedY = y
+
+  // Horizontal position adjustment
+  if (x + menuWidth + padding > windowWidth) {
+    adjustedX = windowWidth - menuWidth - padding
+  }
+  if (adjustedX < padding) {
+    adjustedX = padding
+  }
+
+  // Vertical position adjustment
+  if (y + menuHeight + padding > windowHeight) {
+    adjustedY = windowHeight - menuHeight - padding
+  }
+  if (adjustedY < padding) {
+    adjustedY = padding
+  }
+
+  return {
+    top: `${adjustedY}px`,
+    left: `${adjustedX}px`
+  }
+})
 
 // Emits
 const emit = defineEmits<{
@@ -100,6 +146,29 @@ const handleRefresh = () => {
 const handleRemove = () => {
   emit('remove')
 }
+
+// Update actual menu size
+const updateMenuSize = () => {
+  if (contextMenuRef.value) {
+    const rect = contextMenuRef.value.getBoundingClientRect()
+    actualMenuSize.value = {
+      width: rect.width,
+      height: rect.height
+    }
+  }
+}
+
+// Watch menu visibility state and update size
+watch(
+  () => props.visible,
+  (visible) => {
+    if (visible) {
+      nextTick(() => {
+        updateMenuSize()
+      })
+    }
+  }
+)
 </script>
 
 <style lang="less" scoped>
