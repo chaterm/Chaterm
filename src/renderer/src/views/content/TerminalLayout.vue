@@ -532,7 +532,7 @@ const commandBarStyle = computed(() => {
   const left = (leftPaneSize.value * containerWidth) / 100 + 45
   return { width, left }
 })
-const DEFAULT_WIDTH_PX = 320
+const DEFAULT_WIDTH_PX = 250
 const DEFAULT_WIDTH_RIGHT_PX = 500
 const currentMenu = ref('workspace')
 const updatePaneSize = () => {
