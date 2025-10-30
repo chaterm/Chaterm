@@ -457,7 +457,7 @@ export default {
     pleaseSelectGroup: 'Please select group',
     pleaseSelectSshProxy: 'Please Select SSH Proxy',
     proxyConfig: 'SSH Proxy',
-    personal: 'Direct Connected',
+    personal: 'Connect ',
     enterprise: 'Bastion Server',
     editHost: 'Edit Host',
     saveAsset: 'Save',
