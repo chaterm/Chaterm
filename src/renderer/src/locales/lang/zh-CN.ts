@@ -578,6 +578,8 @@ export default {
     copy: '复制',
     run: '执行',
     reject: '拒绝',
+    approve: '批准',
+    addAutoApprove: '添加为自动批准',
     cancel: '取消',
     resume: '恢复',
     agentMessage: '到任意主机执行命令查询，排查错误和任务处理等任何事情',

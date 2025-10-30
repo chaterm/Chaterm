@@ -372,8 +372,6 @@ onMounted(async () => {
       }
 
       optimisticUpdates.value.delete(updatedServer.name)
-
-      // loadingServers.value.delete(updatedServer.name)
     })
   }
 

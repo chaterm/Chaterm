@@ -77,10 +77,13 @@ export class McpHub {
   //   this.mainWindow = mainWindow
   // }
 
-  getServers(): McpServer[] {
+  getActiveServers(): McpServer[] {
     // Only return enabled servers
-
     return this.connections.filter((conn) => !conn.server.disabled).map((conn) => conn.server)
+  }
+
+  getAllServers(): McpServer[] {
+    return this.connections.map((conn) => conn.server)
   }
 
   private async readAndValidateMcpSettingsFile(): Promise<z.infer<typeof McpSettingsSchema> | undefined> {

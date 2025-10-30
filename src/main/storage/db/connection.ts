@@ -4,6 +4,7 @@ import * as fs from 'fs'
 import { v4 as uuidv4 } from 'uuid'
 import { upgradeAgentTaskMetadataSupport } from './migrations/add-todos-support'
 import { upgradeMcpToolStateSupport } from './migrations/add-mcp-tool-state-support'
+import { upgradeMcpToolCallSupport } from './migrations/add-mcp-tool-call-support'
 
 // 在测试环境中，app可能不可用，使用fallback路径
 let USER_DATA_PATH: string
@@ -340,6 +341,7 @@ export async function initChatermDatabase(userId?: number): Promise<Database.Dat
         upgradeUserSnippetTable(mainDb)
         upgradeAgentTaskMetadataSupport(mainDb)
         upgradeMcpToolStateSupport(mainDb)
+        upgradeMcpToolCallSupport(mainDb)
       } finally {
         if (mainDb) mainDb.close()
         if (initDb) initDb.close()

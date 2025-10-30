@@ -368,7 +368,7 @@ ipcMain.handle('mcp:get-config-path', async () => {
 ipcMain.handle('mcp:get-servers', async () => {
   try {
     if (controller && controller.mcpHub) {
-      return controller.mcpHub.connections.map((conn) => conn.server)
+      return controller.mcpHub.getAllServers()
     }
     return []
   } catch (error) {
@@ -408,6 +408,19 @@ ipcMain.handle('mcp:set-tool-state', async (_event, serverName: string, toolName
     dbService.setMcpToolState(serverName, toolName, enabled)
   } catch (error) {
     console.error('Failed to set MCP tool state:', error)
+    throw error
+  }
+})
+
+ipcMain.handle('mcp:set-tool-auto-approve', async (_event, serverName: string, toolName: string, autoApprove: boolean) => {
+  try {
+    if (controller && controller.mcpHub) {
+      await controller.mcpHub.toggleToolAutoApprove(serverName, [toolName], autoApprove)
+    } else {
+      throw new Error('Controller or McpHub not initialized')
+    }
+  } catch (error) {
+    console.error('Failed to set MCP tool auto-approve:', error)
     throw error
   }
 })

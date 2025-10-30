@@ -140,6 +140,7 @@ export interface ChatermMessage {
   isOperationOutsideWorkspace?: boolean
   conversationHistoryIndex?: number
   conversationHistoryDeletedRange?: [number, number]
+  mcpToolCall?: ChatermAskMcpToolCall
 }
 
 export type ChatermAsk =
@@ -156,6 +157,7 @@ export type ChatermAsk =
   | 'auto_approval_max_req_reached'
   | 'condense'
   | 'report_bug'
+  | 'mcp_tool_call'
 
 export type ChatermSay =
   | 'task'
@@ -172,6 +174,7 @@ export type ChatermSay =
   | 'command_output'
   | 'command_blocked'
   | 'tool'
+  | 'mcp_tool_call'
   | 'shell_integration_warning'
   | 'diff_error'
   | 'deleted_api_reqs'
@@ -194,6 +197,12 @@ export interface ChatermAskQuestion {
   question: string
   options?: string[]
   selected?: string
+}
+
+export interface ChatermAskMcpToolCall {
+  serverName: string
+  toolName: string
+  arguments: Record<string, unknown>
 }
 
 export interface ChatermAskNewTask {

@@ -579,6 +579,8 @@ export default {
     copy: 'Copy',
     run: 'Run',
     reject: 'Reject',
+    approve: 'Approve',
+    addAutoApprove: 'add Auto-Approve',
     cancel: 'Cancel',
     resume: 'Resume',
     agentMessage: 'Command query,troubleshoot errors,handle tasks,anything',

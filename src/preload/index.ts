@@ -677,6 +677,8 @@ const api = {
   setMcpToolState: (serverName: string, toolName: string, enabled: boolean) =>
     ipcRenderer.invoke('mcp:set-tool-state', serverName, toolName, enabled),
   getAllMcpToolStates: () => ipcRenderer.invoke('mcp:get-all-tool-states'),
+  setMcpToolAutoApprove: (serverName: string, toolName: string, autoApprove: boolean) =>
+    ipcRenderer.invoke('mcp:set-tool-auto-approve', serverName, toolName, autoApprove),
   onMcpStatusUpdate: (callback: (servers: any[]) => void) => {
     const listener = (_event, servers) => callback(servers)
     ipcRenderer.on('mcp:status-update', listener)

@@ -108,6 +108,7 @@ interface ApiType {
   getMcpToolState: (serverName: string, toolName: string) => Promise<any>
   setMcpToolState: (serverName: string, toolName: string, enabled: boolean) => Promise<void>
   getAllMcpToolStates: () => Promise<Record<string, boolean>>
+  setMcpToolAutoApprove: (serverName: string, toolName: string, autoApprove: boolean) => Promise<void>
   onMcpStatusUpdate: (callback: (servers: any[]) => void) => () => void
   onMcpServerUpdate: (callback: (server: any) => void) => () => void
   onMcpConfigFileChanged: (callback: (content: string) => void) => () => void
