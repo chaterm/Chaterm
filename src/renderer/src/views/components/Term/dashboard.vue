@@ -3,7 +3,7 @@
     <div class="shortcuts-content">
       <img
         class="logo"
-        src="@/assets/logo.svg"
+        :src="logoSrc"
         alt="logo"
       />
       <div class="shortcuts-list">
@@ -36,6 +36,11 @@ import { shortcutActions, shortcutHints } from '@/config/shortcutActions'
 import { shortcutService } from '@/services/shortcutService'
 import type { ShortcutConfig } from '@/services/userConfigStoreService'
 import { useI18n } from 'vue-i18n'
+import { isDarkTheme } from '@/utils/themeUtils'
+import logoDark from '@/assets/img/logo-dark.svg'
+import logoLight from '@/assets/img/logo-light.svg'
+
+const logoSrc = computed(() => (isDarkTheme() ? logoDark : logoLight))
 
 const { locale } = useI18n()
 
@@ -68,7 +73,7 @@ const getCurrentShortcut = (actionId: string): string => {
 
 // Get shortcuts to display
 const shortcuts = computed(() => {
-  const targetIds = ['sendOrToggleAi', 'openCommandDialog', 'openSettings']
+  const targetIds = ['sendOrToggleAi', 'toggleLeftSidebar', 'openSettings', 'openCommandDialog']
   return targetIds
     .map((id) => {
       const action = shortcutActions.find((a) => a.id === id)
@@ -132,8 +137,8 @@ onMounted(() => {
 }
 
 .logo {
-  width: 60px;
-  height: 60px;
+  width: 100px;
+  height: 100px;
   margin-bottom: 8px;
   &:hover {
     transform: scale(1.05);
