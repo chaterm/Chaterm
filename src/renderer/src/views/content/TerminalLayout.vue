@@ -1714,8 +1714,6 @@ defineExpose({
 .splitpanes__splitter {
   background-color: var(--border-color);
   position: relative;
-  border-left: 1px solid var(--border-color);
-  border-right: 1px solid var(--border-color);
 }
 
 .splitpanes__splitter:before {
