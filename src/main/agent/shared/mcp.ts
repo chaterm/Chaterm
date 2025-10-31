@@ -12,7 +12,7 @@ export type McpServer = {
   resourceTemplates?: McpResourceTemplate[]
   disabled?: boolean
   timeout?: number
-  type?: 'stdio' | 'sse' | 'streamableHttp'
+  type?: 'stdio' | 'http'
   autoApprove?: string[]
 }
 
