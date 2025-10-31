@@ -36,31 +36,9 @@ const createServerTypeSchema = () => {
         }
       })
       .refine((data) => data.type === 'stdio', { message: TYPE_ERROR_MESSAGE }),
-    // SSE config (has url field)
-    BaseConfigSchema.extend({
-      type: z.literal('sse').optional(),
-      transportType: z.string().optional(), // Support legacy field
-      url: z.string().url('URL must be a valid URL format'),
-      headers: z.record(z.string()).optional(),
-      // Allow other fields for backward compatibility
-      command: z.string().optional(),
-      args: z.array(z.string()).optional(),
-      env: z.record(z.string()).optional()
-    })
-      .transform((data) => {
-        // Support both type and transportType fields
-        const finalType = data.type || (data.transportType === 'sse' ? 'sse' : undefined) || 'sse'
-        return {
-          ...data,
-          type: finalType as 'sse',
-          // Remove the legacy field after transformation
-          transportType: undefined
-        }
-      })
-      .refine((data) => data.type === 'sse', { message: TYPE_ERROR_MESSAGE }),
     // Streamable HTTP config (has url field)
     BaseConfigSchema.extend({
-      type: z.literal('streamableHttp').optional(),
+      type: z.literal('http').optional(),
       transportType: z.string().optional(), // Support legacy field
       url: z.string().url('URL must be a valid URL format'),
       headers: z.record(z.string()).optional(),
@@ -71,16 +49,16 @@ const createServerTypeSchema = () => {
     })
       .transform((data) => {
         // Support both type and transportType fields
-        // Note: legacy transportType was "http" not "streamableHttp"
-        const finalType = data.type || (data.transportType === 'http' ? 'streamableHttp' : undefined) || 'streamableHttp'
+        // Note: legacy transportType was "http" not "http"
+        const finalType = data.type || (data.transportType === 'http' ? 'http' : undefined) || 'http'
         return {
           ...data,
-          type: finalType as 'streamableHttp',
+          type: finalType as 'http',
           // Remove the legacy field after transformation
           transportType: undefined
         }
       })
-      .refine((data) => data.type === 'streamableHttp', {
+      .refine((data) => data.type === 'http', {
         message: TYPE_ERROR_MESSAGE
       })
   ])

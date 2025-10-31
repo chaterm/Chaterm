@@ -231,17 +231,6 @@
                       {{ $t('ai.reject') }}
                     </a-button>
                     <a-button
-                      size="small"
-                      class="approve-btn"
-                      :disabled="buttonsDisabled"
-                      @click="handleApproveCommand"
-                    >
-                      <template #icon>
-                        <PlayCircleOutlined />
-                      </template>
-                      {{ message.ask === 'mcp_tool_call' ? $t('ai.approve') : $t('ai.run') }}
-                    </a-button>
-                    <a-button
                       v-if="message.ask === 'mcp_tool_call'"
                       size="small"
                       class="approve-auto-btn"
@@ -252,6 +241,17 @@
                         <CheckCircleOutlined />
                       </template>
                       {{ $t('ai.addAutoApprove') }}
+                    </a-button>
+                    <a-button
+                      size="small"
+                      class="approve-btn"
+                      :disabled="buttonsDisabled"
+                      @click="handleApproveCommand"
+                    >
+                      <template #icon>
+                        <PlayCircleOutlined />
+                      </template>
+                      {{ message.ask === 'mcp_tool_call' ? $t('ai.approve') : $t('ai.run') }}
                     </a-button>
                   </div>
                 </template>
@@ -312,17 +312,6 @@
                     </a-button>
                     <a-button
                       size="small"
-                      class="approve-btn"
-                      :disabled="buttonsDisabled"
-                      @click="handleApproveCommand"
-                    >
-                      <template #icon>
-                        <PlayCircleOutlined />
-                      </template>
-                      {{ $t('ai.approve') }}
-                    </a-button>
-                    <a-button
-                      size="small"
                       class="approve-auto-btn"
                       :disabled="buttonsDisabled"
                       @click="handleApproveAndAutoApprove"
@@ -331,6 +320,17 @@
                         <CheckCircleOutlined />
                       </template>
                       {{ $t('ai.addAutoApprove') }}
+                    </a-button>
+                    <a-button
+                      size="small"
+                      class="approve-btn"
+                      :disabled="buttonsDisabled"
+                      @click="handleApproveCommand"
+                    >
+                      <template #icon>
+                        <PlayCircleOutlined />
+                      </template>
+                      {{ $t('ai.approve') }}
                     </a-button>
                   </div>
                 </template>

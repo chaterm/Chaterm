@@ -303,39 +303,14 @@ export class McpHub {
           transport.start = async () => {}
           break
         }
-        case 'sse': {
-          const sseOptions = {
-            requestInit: {
-              headers: config.headers
-            }
-          }
-          const reconnectingEventSourceOptions = {
-            max_retry_time: 5000,
-            withCredentials: !!config.headers?.['Authorization']
-          }
-          global.EventSource = ReconnectingEventSource
-          transport = new SSEClientTransport(new URL(config.url), {
-            ...sseOptions,
-            eventSourceInit: reconnectingEventSourceOptions
-          })
-
-          transport.onerror = async (error) => {
-            console.error(`Transport error for "${name}":`, error)
-            const connection = this.findConnection(name, source)
-            if (connection) {
-              connection.server.status = 'disconnected'
-              this.appendErrorMessage(connection, error instanceof Error ? error.message : `${error}`)
-            }
-            await this.notifyWebviewOfServerChanges()
-          }
-          break
-        }
-        case 'streamableHttp': {
+        case 'http': {
+          // Try StreamableHTTP first, fallback to SSE if connection fails
           transport = new StreamableHTTPClientTransport(new URL(config.url), {
             requestInit: {
               headers: config.headers
             }
           })
+
           transport.onerror = async (error) => {
             console.error(`Transport error for "${name}":`, error)
             const connection = this.findConnection(name, source)
@@ -365,16 +340,10 @@ export class McpHub {
       }
       this.connections.push(connection)
 
-      // Connect
       await client.connect(transport)
 
       connection.server.status = 'connected'
       connection.server.error = ''
-
-      // Register notification handler for real-time messages
-      //console.log(`[MCP Debug] Setting up notification handlers for server: ${name}`)
-      //console.log(`[MCP Debug] Client instance:`, connection.client)
-      //console.log(`[MCP Debug] Transport type:`, config.type)
 
       // Try to set notification handler using the client's method
       try {

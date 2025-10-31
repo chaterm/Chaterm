@@ -120,6 +120,10 @@ const createEditor = (): void => {
       verticalScrollbarSize: 5,
       horizontalScrollbarSize: 5
     },
+    padding: {
+      top: 0,
+      bottom: 400 // 在底部留出约200px的空白区域，类似VSCode的效果
+    },
     lineHeight: 0,
     tabSize: 4,
     insertSpaces: true,

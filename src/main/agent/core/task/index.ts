@@ -2871,7 +2871,6 @@ export class Task {
       } else {
         // 自动批准 - 移除可能存在的 partial mcp_tool_call 消息
         this.removeLastPartialMessageIfExistsWithType('ask', 'mcp_tool_call')
-        await this.say('mcp_tool_call', `MCP Tool: ${serverName}/${toolName}`, false)
       }
 
       const ulid = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
