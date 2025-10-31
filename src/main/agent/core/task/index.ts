@@ -68,6 +68,9 @@ import WorkspaceTracker from '@integrations/workspace/WorkspaceTracker'
 import { connectAssetInfo } from '../../../storage/database'
 import { getMessages, formatMessage, Messages } from './messages'
 import { decodeHtmlEntities } from '@utils/decodeHtmlEntities'
+import { McpHub } from '@services/mcp/McpHub'
+import { ChatermDatabaseService } from '../../../storage/db/chaterm.service'
+import type { McpTool } from '@shared/mcp'
 
 import type { Host } from '@shared/WebviewMessage'
 
@@ -80,6 +83,7 @@ export class Task {
   private postStateToWebview: () => Promise<void>
   private postMessageToWebview: (message: ExtensionMessage) => Promise<void>
   private reinitExistingTaskFromId: (taskId: string) => Promise<void>
+  mcpHub: McpHub
 
   readonly taskId: string
   hosts: Host[]
@@ -159,6 +163,7 @@ export class Task {
     apiConfiguration: ApiConfiguration,
     autoApprovalSettings: AutoApprovalSettings,
     hosts: Host[],
+    mcpHub: McpHub,
     customInstructions?: string,
     task?: string,
     historyItem?: HistoryItem,
@@ -171,6 +176,7 @@ export class Task {
     this.postStateToWebview = postStateToWebview
     this.postMessageToWebview = postMessageToWebview
     this.reinitExistingTaskFromId = reinitExistingTaskFromId
+    this.mcpHub = mcpHub
     this.remoteTerminalManager = new RemoteTerminalManager()
     this.localTerminalManager = LocalTerminalManager.getInstance()
     this.contextManager = new ContextManager()
@@ -185,6 +191,12 @@ export class Task {
       }
     }
     this.updateMessagesLanguage()
+
+    // Set up MCP notification callback for real-time notifications
+    // this.mcpHub.setNotificationCallback(async (serverName: string, _level: string, message: string) => {
+    //   // Display notification in chat immediately
+    //   await this.say('mcp_notification', `[${serverName}] ${message}`)
+    // })
 
     // Initialize taskId first
     if (historyItem) {
@@ -515,7 +527,8 @@ export class Task {
   async ask(
     type: ChatermAsk,
     text?: string,
-    partial?: boolean
+    partial?: boolean,
+    mcpToolCall?: { serverName: string; toolName: string; arguments: Record<string, unknown> }
   ): Promise<{
     response: ChatermAskResponse
     text?: string
@@ -528,7 +541,7 @@ export class Task {
     this.lastMessageTs = askTsRef.value
 
     if (partial !== undefined) {
-      await this.handleAskPartialMessage(type, askTsRef, text, partial)
+      await this.handleAskPartialMessage(type, askTsRef, text, partial, mcpToolCall)
       if (partial) {
         throw new Error('Current ask promise was ignored')
       }
@@ -538,7 +551,8 @@ export class Task {
         ts: askTsRef.value,
         type: 'ask',
         ask: type,
-        text
+        text,
+        mcpToolCall
       })
       await this.postStateToWebview()
     }
@@ -570,7 +584,8 @@ export class Task {
       value: number
     },
     text?: string,
-    isPartial?: boolean
+    isPartial?: boolean,
+    mcpToolCall?: { serverName: string; toolName: string; arguments: Record<string, unknown> }
   ): Promise<void> {
     const lastMessage = this.chatermMessages.at(-1)
     const isUpdatingPreviousPartial = lastMessage && lastMessage.partial && lastMessage.type === 'ask' && lastMessage.ask === type
@@ -581,6 +596,9 @@ export class Task {
         this.lastMessageTs = lastMessage.ts
         lastMessage.text = text
         lastMessage.partial = isPartial
+        if (mcpToolCall) {
+          lastMessage.mcpToolCall = mcpToolCall
+        }
         await this.postMessageToWebview({
           type: 'partialMessage',
           partialMessage: lastMessage
@@ -594,7 +612,8 @@ export class Task {
           type: 'ask',
           ask: type,
           text,
-          partial: isPartial
+          partial: isPartial,
+          mcpToolCall
         })
         await this.postStateToWebview()
       }
@@ -608,6 +627,9 @@ export class Task {
         this.lastMessageTs = lastMessage.ts
         lastMessage.text = text
         lastMessage.partial = false
+        if (mcpToolCall) {
+          lastMessage.mcpToolCall = mcpToolCall
+        }
         await this.saveChatermMessagesAndUpdateHistory()
         await this.postMessageToWebview({
           type: 'partialMessage',
@@ -621,7 +643,8 @@ export class Task {
           ts: askTsRef.value,
           type: 'ask',
           ask: type,
-          text
+          text,
+          mcpToolCall
         }
         await this.addToChatermMessages(newMessage)
         await this.postMessageToWebview({
@@ -807,7 +830,9 @@ export class Task {
     if (this.apiConversationHistory.length > 0) {
       const lastMessage = this.apiConversationHistory[this.apiConversationHistory.length - 1]
       if (lastMessage.role === 'user') {
-        const lastContent = Array.isArray(lastMessage.content) ? lastMessage.content : [{ type: 'text', text: lastMessage.content }]
+        const lastContent: Anthropic.ContentBlockParam[] = Array.isArray(lastMessage.content)
+          ? lastMessage.content
+          : [{ type: 'text' as const, text: lastMessage.content }]
         const hasSystemCommand = lastContent.some(
           (content) => content.type === 'text' && (content.text.includes('<system-command>') || content.text.includes('<system-reminder>'))
         )
@@ -2149,6 +2174,10 @@ export class Task {
         return `[${block.name}]`
       case 'report_bug':
         return `[${block.name}]`
+      case 'use_mcp_tool':
+        return `[${block.name} - ${block.params.server_name}/${block.params.tool_name}]`
+      case 'access_mcp_resource':
+        return `[${block.name} - ${block.params.server_name}:${block.params.uri}]`
       default:
         return `[${block.name}]`
     }
@@ -2586,6 +2615,12 @@ export class Task {
       case 'grep_search':
         await this.handleGrepSearchToolUse(block)
         break
+      case 'use_mcp_tool':
+        await this.handleUseMcpToolUse(block)
+        break
+      case 'access_mcp_resource':
+        await this.handleAccessMcpResourceUse(block)
+        break
       default:
         console.error(`[Task] 未知的工具名称: ${block.name}`)
     }
@@ -2710,6 +2745,245 @@ export class Task {
       await this.handleToolError(toolDescription, 'grep search', error as Error)
       await this.saveCheckpoint()
     }
+  }
+
+  private async handleUseMcpToolUse(block: ToolUse): Promise<void> {
+    const toolDescription = this.getToolDescription(block)
+    try {
+      const serverName: string | undefined = block.params.server_name
+      const toolName: string | undefined = block.params.tool_name
+      const argumentsStr: string | undefined = block.params.arguments
+
+      if (block.partial) {
+        const partialServerName = serverName || ''
+        const partialToolName = toolName || ''
+
+        let partialArgumentsObj: Record<string, unknown> = {}
+        if (argumentsStr) {
+          try {
+            partialArgumentsObj = JSON.parse(argumentsStr)
+          } catch {
+            partialArgumentsObj = {}
+          }
+        }
+
+        // 检查是否需要显示（非自动批准的工具才显示）
+        const autoApproveResult = this.shouldAutoApproveMcpTool(partialServerName, partialToolName)
+        if (!autoApproveResult) {
+          await this.ask('mcp_tool_call', '', block.partial, {
+            serverName: partialServerName,
+            toolName: partialToolName,
+            arguments: partialArgumentsObj
+          }).catch(() => {})
+        }
+        return
+      }
+
+      if (!serverName) return this.handleMissingParam('server_name', toolDescription)
+      if (!toolName) return this.handleMissingParam('tool_name', toolDescription)
+      if (!argumentsStr) return this.handleMissingParam('arguments', toolDescription)
+
+      let argumentsObj: Record<string, unknown>
+      try {
+        argumentsObj = JSON.parse(argumentsStr)
+      } catch (parseError) {
+        this.consecutiveMistakeCount++
+        await this.say('error', this.messages.mcpInvalidArguments || `Invalid MCP tool arguments format: ${parseError}`)
+        this.pushToolResult(
+          toolDescription,
+          formatResponse.toolError(`Invalid JSON format for arguments: ${parseError instanceof Error ? parseError.message : String(parseError)}`)
+        )
+        await this.saveCheckpoint()
+        return
+      }
+
+      const mcpServers = this.mcpHub.getAllServers()
+      const server = mcpServers.find((s) => s.name === serverName)
+
+      if (!server || server.disabled || server.status !== 'connected') {
+        let errorMsg: string
+        if (!server) {
+          errorMsg = formatMessage(this.messages.mcpServerNotFound || `MCP server "${serverName}" not found`, { server: serverName })
+        } else if (server.disabled) {
+          errorMsg = formatMessage(this.messages.mcpServerDisabled || `MCP server "${serverName}" is disabled`, { server: serverName })
+        } else {
+          errorMsg = `MCP server "${serverName}" is not connected (status: ${server.status})`
+        }
+        await this.say('error', errorMsg)
+        this.pushToolResult(toolDescription, formatResponse.toolError(errorMsg))
+        await this.saveCheckpoint()
+        return
+      }
+
+      const tool = server.tools?.find((t) => t.name === toolName)
+      if (!tool) {
+        const errorMsg = formatMessage(this.messages.mcpToolNotFound || `MCP tool "${toolName}" not found in server "${serverName}"`, {
+          tool: toolName
+        })
+        await this.say('error', errorMsg)
+        this.pushToolResult(toolDescription, formatResponse.toolError(errorMsg))
+        await this.saveCheckpoint()
+        return
+      }
+
+      const dbService = await ChatermDatabaseService.getInstance()
+      const allToolStates = dbService.getAllMcpToolStates()
+      const toolKey = `${serverName}:${toolName}`
+      // 如果数据库中有记录，使用记录的值；否则默认为启用
+      const isToolEnabled = allToolStates[toolKey] !== undefined ? allToolStates[toolKey] : true
+
+      if (!isToolEnabled) {
+        const errorMsg = formatMessage(this.messages.mcpToolDisabled || `MCP tool "${toolName}" in server "${serverName}" is disabled`, {
+          tool: toolName
+        })
+        await this.say('error', errorMsg)
+        this.pushToolResult(toolDescription, formatResponse.toolError(errorMsg))
+        await this.saveCheckpoint()
+        return
+      }
+
+      this.consecutiveMistakeCount = 0
+      const autoApprove = (server.autoApprove || []).includes(toolName)
+
+      if (!autoApprove) {
+        // 需要用户批准
+        const { response, text } = await this.ask('mcp_tool_call', '', false, {
+          serverName,
+          toolName,
+          arguments: argumentsObj
+        })
+        const approved = response === 'yesButtonClicked'
+        if (!approved) {
+          this.pushToolResult(toolDescription, formatResponse.toolDenied())
+          if (text) {
+            this.pushAdditionalToolFeedback(text)
+            await this.say('user_feedback', text)
+            await this.saveCheckpoint()
+          }
+          this.didRejectTool = true
+          await this.saveCheckpoint()
+          return
+        } else if (text) {
+          this.pushAdditionalToolFeedback(text)
+          await this.say('user_feedback', text)
+          await this.saveCheckpoint()
+        }
+      } else {
+        // 自动批准 - 移除可能存在的 partial mcp_tool_call 消息
+        this.removeLastPartialMessageIfExistsWithType('ask', 'mcp_tool_call')
+        await this.say('mcp_tool_call', `MCP Tool: ${serverName}/${toolName}`, false)
+      }
+
+      const ulid = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+      const result = await this.mcpHub.callTool(serverName, toolName, argumentsObj, ulid)
+
+      const resultText = this.formatMcpToolCallResponse(result)
+      this.pushToolResult(toolDescription, resultText)
+
+      // 发送工具执行结果到前端
+      await this.say('command_output', resultText, false)
+
+      await this.saveCheckpoint()
+    } catch (error) {
+      await this.handleToolError(toolDescription, 'calling MCP tool', error as Error)
+      await this.saveCheckpoint()
+    }
+  }
+
+  // TODO：robustness Check
+  private async handleAccessMcpResourceUse(block: ToolUse): Promise<void> {
+    const toolDescription = this.getToolDescription(block)
+    try {
+      const serverName: string | undefined = block.params.server_name
+      const uri: string | undefined = block.params.uri
+
+      if (!serverName) return this.handleMissingParam('server_name', toolDescription)
+      if (!uri) return this.handleMissingParam('uri', toolDescription)
+
+      const mcpServers = this.mcpHub.getAllServers()
+      const server = mcpServers.find((s) => s.name === serverName)
+
+      if (!server || server.disabled || server.status !== 'connected') {
+        let errorMsg: string
+        if (!server) {
+          errorMsg = formatMessage(this.messages.mcpServerNotFound || `MCP server "${serverName}" not found`, { server: serverName })
+        } else if (server.disabled) {
+          errorMsg = formatMessage(this.messages.mcpServerDisabled || `MCP server "${serverName}" is disabled`, { server: serverName })
+        } else {
+          errorMsg = `MCP server "${serverName}" is not connected (status: ${server.status})`
+        }
+        await this.say('error', errorMsg)
+        this.pushToolResult(toolDescription, formatResponse.toolError(errorMsg))
+        await this.saveCheckpoint()
+        return
+      }
+
+      const resourceResponse = await this.mcpHub.readResource(serverName, uri)
+
+      // 6. 处理返回结果
+      const resultText = this.formatMcpResourceResponse(resourceResponse)
+      this.pushToolResult(toolDescription, resultText)
+
+      // 发送资源访问结果到前端
+      await this.say('command_output', resultText, false)
+
+      await this.saveCheckpoint()
+    } catch (error) {
+      await this.handleToolError(toolDescription, 'accessing MCP resource', error as Error)
+      await this.saveCheckpoint()
+    }
+  }
+
+  /**
+   * 检查 MCP 工具是否应该自动批准
+   */
+  private shouldAutoApproveMcpTool(serverName: string, toolName: string): boolean {
+    const mcpServers = this.mcpHub.getActiveServers()
+    const server = mcpServers.find((s) => s.name === serverName)
+    if (!server || server.disabled || server.status !== 'connected') {
+      return false
+    }
+    return (server.autoApprove || []).includes(toolName)
+  }
+
+  /**
+   * 格式化 MCP 工具调用响应
+   */
+  private formatMcpToolCallResponse(response: import('@shared/mcp').McpToolCallResponse): string {
+    if (response.isError) {
+      return `Error: ${JSON.stringify(response.content)}`
+    }
+
+    const parts: string[] = []
+    for (const item of response.content) {
+      if (item.type === 'text') {
+        parts.push(item.text)
+      } else if (item.type === 'image') {
+        parts.push(`[Image: ${item.mimeType}]`)
+      } else if (item.type === 'audio') {
+        parts.push(`[Audio: ${item.mimeType}]`)
+      } else if (item.type === 'resource') {
+        parts.push(`[Resource: ${item.resource.uri}]\n${item.resource.text || ''}`)
+      }
+    }
+
+    return parts.join('\n\n') || '(No output)'
+  }
+
+  /**
+   * 格式化 MCP 资源响应
+   */
+  private formatMcpResourceResponse(response: import('@shared/mcp').McpResourceResponse): string {
+    const parts: string[] = []
+    for (const content of response.contents) {
+      if (content.text) {
+        parts.push(content.text)
+      } else if (content.blob) {
+        parts.push(`[Binary data: ${content.mimeType || 'unknown'}]`)
+      }
+    }
+
+    return parts.join('\n\n') || '(No content)'
   }
 
   private async handleTextBlock(block: TextContent): Promise<void> {
@@ -2985,6 +3259,12 @@ SUDO_CHECK:${localSystemInfo.sudoCheck}`
     console.log('Final system information section:', systemInformation)
     systemPrompt += systemInformation
 
+    // Build MCP Tools and Resources section
+    const mcpSection = await this.buildMcpToolsSection(userLanguage)
+    if (mcpSection) {
+      systemPrompt += '\n\n' + mcpSection
+    }
+
     const settingsCustomInstructions = this.customInstructions?.trim()
 
     const preferredLanguageInstructions = `# ${this.messages.languageSettingsTitle}:\n\n${formatMessage(this.messages.defaultLanguage, { language: userLanguage })}\n\n${this.messages.languageRules}`
@@ -2994,6 +3274,111 @@ SUDO_CHECK:${localSystemInfo.sudoCheck}`
     }
 
     return systemPrompt
+  }
+
+  /**
+   * 构建 MCP 工具和资源的系统提示词部分
+   */
+  private async buildMcpToolsSection(userLanguage: string): Promise<string | null> {
+    try {
+      const mcpServers = this.mcpHub.getActiveServers()
+
+      const enabledServers = mcpServers.filter((server) => !server.disabled && server.status === 'connected')
+
+      if (enabledServers.length === 0) {
+        return null
+      }
+
+      const dbService = await ChatermDatabaseService.getInstance()
+      const allToolStates = dbService.getAllMcpToolStates() // Record<string, boolean>
+      // Key 格式: "serverName:toolName", Value: true/false
+
+      const isToolEnabled = (serverName: string, toolName: string): boolean => {
+        const key = `${serverName}:${toolName}`
+        // 如果数据库中有记录，使用记录的值；否则默认为启用
+        return allToolStates[key] !== undefined ? allToolStates[key] : true
+      }
+
+      const formatToolParameters = (tool: McpTool): string => {
+        if (!tool.inputSchema || !tool.inputSchema.properties) {
+          return 'No parameters required'
+        }
+
+        const params: string[] = []
+        const requiredParams = tool.inputSchema.required || []
+
+        for (const [paramName, paramSchema] of Object.entries(tool.inputSchema.properties)) {
+          const isRequired = requiredParams.includes(paramName)
+          const paramType = paramSchema.type || 'unknown'
+          const paramDesc = paramSchema.description || ''
+          const requiredMark = isRequired ? 'required' : 'optional'
+          params.push(`       - ${paramName} (${paramType}, ${requiredMark}): ${paramDesc}`.trim())
+        }
+
+        return params.length > 0 ? params.join('\n') : 'No parameters required'
+      }
+
+      const serverDescriptions: string[] = []
+      const isChinese = userLanguage === 'zh-CN'
+
+      for (const server of enabledServers) {
+        const enabledTools = (server.tools || []).filter((tool) => isToolEnabled(server.name, tool.name))
+        const resources = server.resources || []
+        const resourceTemplates = server.resourceTemplates || []
+
+        if (enabledTools.length === 0 && resources.length === 0 && resourceTemplates.length === 0) {
+          continue
+        }
+
+        let serverDesc = `### Server: ${server.name}\n`
+
+        // 添加工具列表
+        if (enabledTools.length > 0) {
+          const toolsLabel = isChinese ? '工具' : 'Tools'
+          serverDesc += `- **${toolsLabel}** (${enabledTools.length} available):\n`
+          enabledTools.forEach((tool, index) => {
+            serverDesc += `  ${index + 1}. ${tool.name}\n`
+            if (tool.description) {
+              serverDesc += `     ${isChinese ? '描述' : 'Description'}: ${tool.description}\n`
+            }
+            const paramsDesc = formatToolParameters(tool)
+            if (paramsDesc !== 'No parameters required') {
+              serverDesc += `     ${isChinese ? '参数' : 'Parameters'}:\n${paramsDesc}\n`
+            }
+          })
+        }
+
+        // 添加资源列表
+        if (resources.length > 0 || resourceTemplates.length > 0) {
+          const resourcesLabel = isChinese ? '资源' : 'Resources'
+          serverDesc += `- **${resourcesLabel}** (${resources.length + resourceTemplates.length} available):\n`
+          resources.forEach((resource) => {
+            const resourceDesc = resource.description ? ` - ${resource.description}` : ''
+            serverDesc += `  - ${resource.uri}${resourceDesc}\n`
+          })
+          resourceTemplates.forEach((template) => {
+            const templateDesc = template.description ? ` - ${template.description}` : ''
+            serverDesc += `  - ${template.uriTemplate}${templateDesc}\n`
+          })
+        }
+
+        serverDescriptions.push(serverDesc)
+      }
+
+      if (serverDescriptions.length === 0) {
+        return null
+      }
+
+      const sectionTitle = isChinese ? '# MCP 工具和资源' : '# MCP Tools and Resources'
+      const sectionHeader = isChinese
+        ? '## 可用 MCP 服务器\n\n您可以使用以下 MCP 服务器及其工具：'
+        : '## Available MCP Servers\n\nYou have access to the following MCP servers and their tools:'
+
+      return `${sectionTitle}\n\n${sectionHeader}\n\n${serverDescriptions.join('\n')}`
+    } catch (error) {
+      console.error('Failed to build MCP tools section:', error)
+      return null
+    }
   }
 
   // Todo 工具处理方法

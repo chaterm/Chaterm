@@ -19,7 +19,9 @@ export const toolUseNames = [
   'todo_write',
   'todo_read',
   'glob_search',
-  'grep_search'
+  'grep_search',
+  'use_mcp_tool',
+  'access_mcp_resource'
 ] as const
 
 // Converts array of tool call names into a union type ("execute_command" | "read_file" | ...)

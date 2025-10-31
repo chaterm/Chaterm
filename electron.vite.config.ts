@@ -28,7 +28,14 @@ export default defineConfig({
       }
     },
     build: {
-      sourcemap: true
+      sourcemap: true,
+      rollupOptions: {
+        external: [
+          // Force externalize native modules to prevent bundling issues
+          'chokidar',
+          'fsevents'
+        ]
+      }
     }
   },
   preload: {
@@ -50,7 +57,8 @@ export default defineConfig({
         '@utils': resolve('src/renderer/src/utils'),
         '@api': resolve('src/renderer/src/api'),
         '@config': resolve('src/renderer/src/config'),
-        '@': resolve('src/renderer/src')
+        '@': resolve('src/renderer/src'),
+        '@shared': resolve('src/main/agent/shared')
       }
     },
     server: {

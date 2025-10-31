@@ -8,7 +8,8 @@ import pWaitFor from 'p-wait-for'
 import * as path from 'path'
 import * as vscode from 'vscode'
 import { buildApiHandler } from '@api/index'
-
+import { McpHub } from '@services/mcp/McpHub'
+import { version as extensionVersion } from '../../../../../package.json'
 import { cleanupLegacyCheckpoints } from '@integrations/checkpoints/CheckpointMigration'
 import { downloadTask } from '@integrations/misc/export-markdown'
 import WorkspaceTracker from '@integrations/workspace/WorkspaceTracker'
@@ -20,7 +21,14 @@ import { WebviewMessage } from '@shared/WebviewMessage'
 import { fileExistsAtPath } from '@utils/fs'
 import { getTotalTasksSize } from '@utils/storage'
 import type { Host } from '@shared/WebviewMessage'
-import { ensureTaskExists, getSavedApiConversationHistory, deleteChatermHistoryByTaskId, getTaskMetadata, saveTaskMetadata } from '../storage/disk'
+import {
+  ensureTaskExists,
+  getSavedApiConversationHistory,
+  deleteChatermHistoryByTaskId,
+  getTaskMetadata,
+  saveTaskMetadata,
+  ensureMcpServersDirectoryExists
+} from '../storage/disk'
 import {
   getAllExtensionState,
   getGlobalState,
@@ -40,18 +48,28 @@ export class Controller {
 
   private disposables: vscode.Disposable[] = []
   task?: Task
+  mcpHub: McpHub
   workspaceTracker: WorkspaceTracker
 
   constructor(
     readonly context: vscode.ExtensionContext,
     private readonly outputChannel: vscode.OutputChannel,
-    postMessage: (message: ExtensionMessage) => Promise<boolean> | undefined
+    postMessage: (message: ExtensionMessage) => Promise<boolean> | undefined,
+    getMcpSettingsFilePath: () => Promise<string>
   ) {
     console.log('Controller instantiated')
     this.outputChannel.appendLine('ClineProvider instantiated')
     this.postMessage = postMessage
 
     this.workspaceTracker = new WorkspaceTracker((msg) => this.postMessageToWebview(msg))
+
+    this.mcpHub = new McpHub(
+      () => ensureMcpServersDirectoryExists(),
+      getMcpSettingsFilePath,
+      extensionVersion,
+      (msg) => this.postMessageToWebview(msg)
+      // telemetryService
+    )
 
     // Clean up legacy checkpoints
     cleanupLegacyCheckpoints(this.context.globalStorageUri.fsPath, this.outputChannel).catch((error) => {
@@ -72,6 +90,7 @@ export class Controller {
     }
 
     await this.clearTask()
+    this.mcpHub.dispose()
     this.outputChannel.appendLine('Cleared task')
     while (this.disposables.length) {
       const x = this.disposables.pop()
@@ -116,6 +135,7 @@ export class Controller {
       apiConfiguration,
       autoApprovalSettings,
       hosts,
+      this.mcpHub,
       customInstructions,
       task,
       historyItem,
