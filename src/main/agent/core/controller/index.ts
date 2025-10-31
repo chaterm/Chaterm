@@ -21,9 +21,19 @@ import { fileExistsAtPath } from '@utils/fs'
 import { getTotalTasksSize } from '@utils/storage'
 import type { Host } from '@shared/WebviewMessage'
 import { ensureTaskExists, getSavedApiConversationHistory, deleteChatermHistoryByTaskId, getTaskMetadata, saveTaskMetadata } from '../storage/disk'
-import { getAllExtensionState, getGlobalState, resetExtensionState, storeSecret, updateApiConfiguration, updateGlobalState } from '../storage/state'
+import {
+  getAllExtensionState,
+  getGlobalState,
+  resetExtensionState,
+  storeSecret,
+  updateApiConfiguration,
+  updateGlobalState,
+  getUserConfig
+} from '../storage/state'
 import { Task } from '../task'
 import { ApiConfiguration } from '@shared/api'
+import { TITLE_GENERATION_PROMPT, TITLE_GENERATION_PROMPT_CN } from '../prompts/system'
+import { DEFAULT_LANGUAGE_SETTINGS } from '@shared/Languages'
 
 export class Controller {
   private postMessage: (message: ExtensionMessage) => Promise<boolean> | undefined
@@ -90,12 +100,13 @@ export class Controller {
     await updateGlobalState('userInfo', info)
   }
 
-  async initTask(hosts: Host[], task?: string, historyItem?: HistoryItem, cwd?: Map<string, string>) {
-    console.log('initTask', task, historyItem)
+  async initTask(hosts: Host[], task?: string, historyItem?: HistoryItem, cwd?: Map<string, string>, taskId?: string) {
+    console.log('initTask', task, historyItem, 'taskId:', taskId)
     await this.clearTask() // ensures that an existing task doesn't exist before starting a new one, although this shouldn't be possible since user must clear task before starting a new one
     const { apiConfiguration, userRules, autoApprovalSettings } = await getAllExtensionState()
     const customInstructions = this.formatUserRulesToInstructions(userRules)
 
+    // Create task immediately without waiting for title generation
     this.task = new Task(
       this.workspaceTracker,
       (historyItem) => this.updateTaskHistory(historyItem),
@@ -108,8 +119,19 @@ export class Controller {
       customInstructions,
       task,
       historyItem,
-      cwd
+      cwd,
+      undefined, // Don't pass generated title initially
+      taskId
     )
+
+    // Generate chat title asynchronously for new tasks (non-blocking)
+    if (task && taskId && !historyItem) {
+      // Start title generation in background without awaiting
+      this.generateChatTitle(task, taskId).catch((error) => {
+        console.error('Failed to generate chat title:', error)
+        // Title generation failure doesn't affect task execution
+      })
+    }
   }
 
   async reinitExistingTaskFromId(taskId: string) {
@@ -141,7 +163,7 @@ export class Controller {
         break
 
       case 'newTask':
-        await this.initTask(message.hosts!, message.text, undefined, message.cwd)
+        await this.initTask(message.hosts!, message.text, undefined, message.cwd, message.taskId)
         if (this.task?.taskId && message.hosts) {
           await updateTaskHosts(this.task.taskId, message.hosts)
         }
@@ -167,7 +189,12 @@ export class Controller {
         break
       case 'askResponse':
         console.log('askResponse', message)
-        this.task?.handleWebviewAskResponse(message.askResponse!, message.text, message.cwd)
+        if (this.task) {
+          if (message.askResponse === 'messageResponse') {
+            await this.task.clearTodos('new_user_input')
+          }
+          await this.task.handleWebviewAskResponse(message.askResponse!, message.text, message.cwd)
+        }
         break
       case 'showTaskWithId':
         this.showTaskWithId(message.text!, message.hosts || [], message.cwd)
@@ -250,9 +277,10 @@ export class Controller {
 
   async cancelTask() {
     if (this.task) {
-      const { historyItem } = await this.getTaskWithId(this.task.taskId)
+      const currentTask = this.task
+      const { historyItem } = await this.getTaskWithId(currentTask.taskId)
       try {
-        await this.task.abortTask()
+        await currentTask.abortTask()
       } catch (error) {
         console.error('Failed to abort task', error)
       }
@@ -264,11 +292,14 @@ export class Controller {
       ).catch(() => {
         console.error('Failed to abort task')
       })
-      if (this.task) {
-        // 'abandoned' will prevent this cline instance from affecting future cline instance gui. this may happen if its hanging on a streaming request
-        this.task.abandoned = true
+      try {
+        await currentTask.clearTodos('user_cancelled')
+      } catch (error) {
+        console.error('Failed to clear todos during cancelTask', error)
       }
-      await this.initTask(this.task.hosts, undefined, historyItem) // clears task again, so we need to abortTask manually above
+      // 'abandoned' will prevent this cline instance from affecting future cline instance gui. this may happen if its hanging on a streaming request
+      currentTask.abandoned = true
+      await this.initTask(currentTask.hosts, undefined, historyItem) // clears task again, so we need to abortTask manually above
       // await this.postStateToWebview() // new Cline instance will post state when it's ready. having this here sent an empty messages array to webview leading to virtuoso having to reload the entire list
     }
   }
@@ -279,6 +310,11 @@ export class Controller {
         await this.task.gracefulAbortTask()
       } catch (error) {
         console.error('Failed to gracefully abort task', error)
+      }
+      try {
+        await this.task.clearTodos('user_cancelled')
+      } catch (error) {
+        console.error('Failed to clear todos during gracefulCancelTask', error)
       }
     }
   }
@@ -577,10 +613,13 @@ export class Controller {
     const idx = history.findIndex((h) => h.id === item.id)
     if (idx !== -1) {
       const existing = history[idx]
-      if (existing.task && existing.task !== item.task) {
-        item.task = existing.task
+      history[idx] = {
+        ...existing,
+        ...item,
+        task: existing.task || item.task,
+        // chatTitle: item.chatTitle !== undefined ? item.chatTitle : existing.chatTitle
+        chatTitle: existing.chatTitle
       }
-      history[idx] = { ...existing, ...item, task: item.task }
     } else {
       history.push(item)
     }
@@ -668,6 +707,100 @@ export class Controller {
         error: error instanceof Error ? error.message : 'Command generation failed',
         tabId: tabId
       })
+    }
+  }
+
+  /**
+   * Generate chat title using LLM
+   * Creates a concise, descriptive title for the chat session based on the user's task
+   * @returns The generated title or empty string if generation fails
+   */
+  async generateChatTitle(userTask: string, taskId: string): Promise<string> {
+    try {
+      // Add timeout to prevent hanging (10 seconds)
+      const timeoutPromise = new Promise<string>((_, reject) => {
+        setTimeout(() => reject(new Error('Title generation timeout')), 10000)
+      })
+
+      const titleGenerationPromise = this._performTitleGeneration(userTask, taskId)
+
+      return await Promise.race([titleGenerationPromise, timeoutPromise])
+    } catch (error) {
+      console.error('Chat title generation failed:', error)
+      // Always return empty string to avoid disrupting task execution
+      return ''
+    }
+  }
+
+  /**
+   * Internal method to perform the actual title generation
+   */
+  private async _performTitleGeneration(userTask: string, taskId: string): Promise<string> {
+    const { apiConfiguration } = await getAllExtensionState()
+    if (!apiConfiguration) {
+      console.warn('API configuration not found, skipping title generation')
+      return ''
+    }
+
+    const api = buildApiHandler(apiConfiguration)
+
+    let userLanguage = DEFAULT_LANGUAGE_SETTINGS
+    try {
+      const userConfig = await getUserConfig()
+      if (userConfig && userConfig.language) {
+        userLanguage = userConfig.language
+      }
+    } catch (error) {
+      // If we can't get user config, use default language
+    }
+
+    // Select system prompt based on language
+    const systemPrompt = userLanguage === 'zh-CN' ? TITLE_GENERATION_PROMPT_CN : TITLE_GENERATION_PROMPT
+
+    // Create conversation with user task
+    const conversation: Anthropic.MessageParam[] = [
+      {
+        role: 'user' as const,
+        content: `Generate a title for this task: ${userTask}`
+      }
+    ]
+
+    // Call AI API to generate title
+    const stream = api.createMessage(systemPrompt, conversation)
+    let generatedTitle = ''
+
+    try {
+      for await (const chunk of stream) {
+        if (chunk.type === 'text') {
+          generatedTitle += chunk.text
+        }
+      }
+
+      // Clean up the generated title (remove any extra whitespace, quotes, or newlines)
+      const cleanedTitle = generatedTitle
+        .trim()
+        .replace(/^["']|["']$/g, '') // Remove leading/trailing quotes
+        .replace(/\n/g, ' ') // Replace newlines with spaces
+        .replace(/\s+/g, ' ') // Normalize multiple spaces
+        .substring(0, 100) // Limit to 100 characters
+
+      if (cleanedTitle) {
+        console.log('Generated chat title:', cleanedTitle)
+
+        // Send the generated title to webview for immediate UI update
+        await this.postMessageToWebview({
+          type: 'chatTitleGenerated',
+          chatTitle: cleanedTitle,
+          taskId: taskId
+        })
+
+        return cleanedTitle
+      }
+
+      return ''
+    } catch (streamError) {
+      console.error('Error processing title generation stream:', streamError)
+      return ''
     }
   }
 

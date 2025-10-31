@@ -148,25 +148,44 @@ const getAvailableShells = async (): Promise<LocalShellsResult> => {
   const platform = os.platform()
   const shells: ShellItem[] = []
 
-  const candidates =
-    platform === 'win32'
-      ? [
-          { name: 'Command Prompt (CMD)', path: 'cmd.exe' },
-          { name: 'PowerShell Core 7+', path: 'pwsh.exe' },
-          { name: 'Windows PowerShell', path: 'powershell.exe' },
-          { name: 'Git Bash Terminal', path: 'bash.exe' }
-        ]
-      : platform === 'darwin'
-        ? [
-            { name: 'Zsh Shell (Default)', path: '/bin/zsh' }
-            // { name: 'Bash Shell', path: '/bin/bash' },
-            // { name: 'Fish Shell', path: '/usr/local/bin/fish' }
-          ]
-        : [
-            { name: 'Bash Shell (Default)', path: '/bin/bash' },
-            { name: 'Zsh Shell', path: '/bin/zsh' },
-            { name: 'Fish Shell', path: '/usr/bin/fish' }
-          ]
+  // Get system default shell
+  const defaultShell = getDefaultShell()
+  console.log('System default shell:', defaultShell)
+
+  // Define shell candidates based on platform
+  let candidates: { name: string; path: string }[] = []
+
+  if (platform === 'win32') {
+    candidates = [
+      { name: 'Command Prompt (CMD)', path: 'cmd.exe' },
+      { name: 'PowerShell Core 7+', path: 'pwsh.exe' },
+      { name: 'Windows PowerShell', path: 'powershell.exe' },
+      { name: 'Git Bash Terminal', path: 'bash.exe' }
+    ]
+  } else if (platform === 'darwin') {
+    // macOS: only show default shell
+    const shellName = path.basename(defaultShell)
+    candidates = [{ name: `${shellName} Shell (Default)`, path: defaultShell }]
+  } else {
+    // Linux: prioritize default shell, then add other common shells
+    const commonShells = [
+      { name: 'Bash Shell', path: '/bin/bash' },
+      { name: 'Zsh Shell', path: '/bin/zsh' },
+      { name: 'Fish Shell', path: '/usr/bin/fish' },
+      { name: 'Dash Shell', path: '/bin/dash' }
+    ]
+
+    // Find default shell and mark it as default
+    const defaultShellInfo = commonShells.find((shell) => shell.path === defaultShell)
+    if (defaultShellInfo) {
+      defaultShellInfo.name += ' (Default)'
+      candidates = [defaultShellInfo, ...commonShells.filter((shell) => shell.path !== defaultShell)]
+    } else {
+      // If default shell not in common list, add it first
+      const shellName = path.basename(defaultShell)
+      candidates = [{ name: `${shellName} Shell (Default)`, path: defaultShell }, ...commonShells]
+    }
+  }
 
   for (const candidate of candidates) {
     const actualPath = platform === 'win32' ? findExecutable([candidate.path]) || candidate.path : candidate.path
@@ -346,10 +365,10 @@ export const registerLocalSSHHandlers = () => {
       } else if (typeof error === 'string') {
         errorMessage = error
       } else if (error && typeof error === 'object') {
-        errorMessage = (error as any).message || '命令执行失败'
+        errorMessage = (error as Record<string, unknown>).message?.toString() || '命令执行失败'
 
         if ('stdout' in error) {
-          const stdout = (error as any).stdout
+          const stdout = (error as Record<string, unknown>).stdout
           outputMessage = stdout ? stdout.toString() : ''
         }
       }

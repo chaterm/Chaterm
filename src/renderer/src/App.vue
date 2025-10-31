@@ -1,13 +1,16 @@
 <template>
   <router-view></router-view>
   <MfaDialog />
+  <UserSelectionDialog />
 </template>
 <script setup lang="ts">
 import { onMounted } from 'vue'
 import { MfaDialog, setupGlobalMfaListeners } from './components/global/mfa'
+import { UserSelectionDialog, setupGlobalUserSelectionListeners } from './components/global/user-selection'
 
 onMounted(() => {
   setupGlobalMfaListeners()
+  setupGlobalUserSelectionListeners()
 })
 </script>
 <style>

@@ -134,9 +134,7 @@ export const NewTaskRequest: MessageFns<NewTaskRequest> = {
     return {
       metadata: isSet(object.metadata) ? Metadata.fromJSON(object.metadata) : undefined,
       text: isSet(object.text) ? globalThis.String(object.text) : '',
-      images: globalThis.Array.isArray(object?.images)
-        ? object.images.map((e: any) => globalThis.String(e))
-        : []
+      images: globalThis.Array.isArray(object?.images) ? object.images.map((e: any) => globalThis.String(e)) : []
     }
   },
 
@@ -159,10 +157,7 @@ export const NewTaskRequest: MessageFns<NewTaskRequest> = {
   },
   fromPartial<I extends Exact<DeepPartial<NewTaskRequest>, I>>(object: I): NewTaskRequest {
     const message = createBaseNewTaskRequest()
-    message.metadata =
-      object.metadata !== undefined && object.metadata !== null
-        ? Metadata.fromPartial(object.metadata)
-        : undefined
+    message.metadata = object.metadata !== undefined && object.metadata !== null ? Metadata.fromPartial(object.metadata) : undefined
     message.text = object.text ?? ''
     message.images = object.images?.map((e) => e) || []
     return message
@@ -252,14 +247,9 @@ export const TaskFavoriteRequest: MessageFns<TaskFavoriteRequest> = {
   create<I extends Exact<DeepPartial<TaskFavoriteRequest>, I>>(base?: I): TaskFavoriteRequest {
     return TaskFavoriteRequest.fromPartial(base ?? ({} as any))
   },
-  fromPartial<I extends Exact<DeepPartial<TaskFavoriteRequest>, I>>(
-    object: I
-  ): TaskFavoriteRequest {
+  fromPartial<I extends Exact<DeepPartial<TaskFavoriteRequest>, I>>(object: I): TaskFavoriteRequest {
     const message = createBaseTaskFavoriteRequest()
-    message.metadata =
-      object.metadata !== undefined && object.metadata !== null
-        ? Metadata.fromPartial(object.metadata)
-        : undefined
+    message.metadata = object.metadata !== undefined && object.metadata !== null ? Metadata.fromPartial(object.metadata) : undefined
     message.taskId = object.taskId ?? ''
     message.isFavorited = object.isFavorited ?? false
     return message
@@ -486,10 +476,7 @@ function createBaseDeleteNonFavoritedTasksResults(): DeleteNonFavoritedTasksResu
 }
 
 export const DeleteNonFavoritedTasksResults: MessageFns<DeleteNonFavoritedTasksResults> = {
-  encode(
-    message: DeleteNonFavoritedTasksResults,
-    writer: BinaryWriter = new BinaryWriter()
-  ): BinaryWriter {
+  encode(message: DeleteNonFavoritedTasksResults, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
     if (message.tasksPreserved !== 0) {
       writer.uint32(8).int32(message.tasksPreserved)
     }
@@ -549,14 +536,10 @@ export const DeleteNonFavoritedTasksResults: MessageFns<DeleteNonFavoritedTasksR
     return obj
   },
 
-  create<I extends Exact<DeepPartial<DeleteNonFavoritedTasksResults>, I>>(
-    base?: I
-  ): DeleteNonFavoritedTasksResults {
+  create<I extends Exact<DeepPartial<DeleteNonFavoritedTasksResults>, I>>(base?: I): DeleteNonFavoritedTasksResults {
     return DeleteNonFavoritedTasksResults.fromPartial(base ?? ({} as any))
   },
-  fromPartial<I extends Exact<DeepPartial<DeleteNonFavoritedTasksResults>, I>>(
-    object: I
-  ): DeleteNonFavoritedTasksResults {
+  fromPartial<I extends Exact<DeepPartial<DeleteNonFavoritedTasksResults>, I>>(object: I): DeleteNonFavoritedTasksResults {
     const message = createBaseDeleteNonFavoritedTasksResults()
     message.tasksPreserved = object.tasksPreserved ?? 0
     message.tasksDeleted = object.tasksDeleted ?? 0
@@ -662,14 +645,9 @@ export const GetTaskHistoryRequest: MessageFns<GetTaskHistoryRequest> = {
   create<I extends Exact<DeepPartial<GetTaskHistoryRequest>, I>>(base?: I): GetTaskHistoryRequest {
     return GetTaskHistoryRequest.fromPartial(base ?? ({} as any))
   },
-  fromPartial<I extends Exact<DeepPartial<GetTaskHistoryRequest>, I>>(
-    object: I
-  ): GetTaskHistoryRequest {
+  fromPartial<I extends Exact<DeepPartial<GetTaskHistoryRequest>, I>>(object: I): GetTaskHistoryRequest {
     const message = createBaseGetTaskHistoryRequest()
-    message.metadata =
-      object.metadata !== undefined && object.metadata !== null
-        ? Metadata.fromPartial(object.metadata)
-        : undefined
+    message.metadata = object.metadata !== undefined && object.metadata !== null ? Metadata.fromPartial(object.metadata) : undefined
     message.favoritesOnly = object.favoritesOnly ?? false
     message.searchQuery = object.searchQuery ?? ''
     message.sortBy = object.sortBy ?? ''
@@ -726,9 +704,7 @@ export const TaskHistoryArray: MessageFns<TaskHistoryArray> = {
 
   fromJSON(object: any): TaskHistoryArray {
     return {
-      tasks: globalThis.Array.isArray(object?.tasks)
-        ? object.tasks.map((e: any) => TaskItem.fromJSON(e))
-        : [],
+      tasks: globalThis.Array.isArray(object?.tasks) ? object.tasks.map((e: any) => TaskItem.fromJSON(e)) : [],
       totalCount: isSet(object.totalCount) ? globalThis.Number(object.totalCount) : 0
     }
   },

@@ -26,6 +26,7 @@ export interface ExtensionMessage {
     | 'requestyModels'
     | 'commandGenerationResponse'
     | 'todoUpdated'
+    | 'chatTitleGenerated'
 
   text?: string
   action?:
@@ -80,6 +81,8 @@ export interface ExtensionMessage {
   taskId?: string
   changeType?: 'created' | 'updated' | 'completed' | 'progress'
   triggerReason?: 'agent_update' | 'user_request' | 'auto_progress'
+  // For chat title generation
+  chatTitle?: string
 }
 
 export type Invoke = 'sendMessage' | 'primaryButtonClick' | 'secondaryButtonClick'
@@ -164,6 +167,7 @@ export type ChatermSay =
   | 'checkpoint_created'
   | 'sshInfo'
   | 'interactive_command_notification'
+  | 'search_result'
 
 export interface ChatermSayTool {
   tool: 'readFile' | 'listFilesTopLevel' | 'listFilesRecursive' | 'searchFiles'

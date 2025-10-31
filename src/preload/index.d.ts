@@ -39,6 +39,7 @@ interface ApiType {
   getKeyChainSelect: () => Promise<any>
   getAssetGroup: () => Promise<any>
   createAsset: (data: { form: any }) => Promise<any>
+  createOrUpdateAsset: (data: { form: any }) => Promise<any>
   updateAsset: (data: { form: any }) => Promise<any>
   getKeyChainList: () => Promise<any>
   createKeyChain: (data: { form: any }) => Promise<any>
@@ -62,6 +63,7 @@ interface ApiType {
   sshConnExec: (args: { id: string; cmd: string }) => Promise<any>
   sendToMain: (message: any) => Promise<any>
   onMainMessage: (callback: (message: any) => void) => () => void
+  onCommandGenerationResponse: (callback: (response: { command?: string; error?: string; tabId: string }) => void) => () => void
   cancelTask: () => Promise<any>
   openHeartbeatWindow: (heartbeatId: string, interval: number) => Promise<any>
   closeHeartbeatWindow: (heartbeatId: string) => Promise<any>
@@ -86,6 +88,17 @@ interface ApiType {
   mainWindowInit: (params: any) => Promise<void>
   mainWindowShow: () => Promise<void>
   onSystemThemeChanged: (callback: (theme: string) => void) => () => void
+  // Keyboard-interactive authentication
+  onKeyboardInteractiveRequest: (callback: (data: any) => void) => () => void
+  onKeyboardInteractiveTimeout: (callback: (data: any) => void) => () => void
+  onKeyboardInteractiveResult: (callback: (data: any) => void) => () => void
+  submitKeyboardInteractiveResponse: (id: string, code: string) => void
+  cancelKeyboardInteractive: (id: string) => void
+  // JumpServer user selection
+  onUserSelectionRequest: (callback: (data: any) => void) => () => void
+  onUserSelectionTimeout: (callback: (data: any) => void) => () => void
+  sendUserSelectionResponse: (id: string, userId: number) => void
+  sendUserSelectionCancel: (id: string) => void
 }
 
 declare global {

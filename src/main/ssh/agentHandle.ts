@@ -2,6 +2,7 @@ import { ipcMain } from 'electron'
 import { Client, ConnectConfig } from 'ssh2'
 import { ConnectionInfo } from '../agent/integrations/remote-terminal'
 import { createProxySocket } from './proxy'
+import { getReusableSshConnection, registerReusableSshSession, releaseReusableSshSession } from './sshHandle'
 import net from 'net'
 import tls from 'tls'
 import { getUserConfigFromRenderer } from '../index'
@@ -10,6 +11,7 @@ import { getUserConfigFromRenderer } from '../index'
 const remoteConnections = new Map<string, Client>()
 // Store shell session streams
 const remoteShellStreams = new Map()
+const reusedRemoteSessions = new Map<string, { poolKey: string }>()
 
 // Helper function to determine if an exit code represents a real system error
 // We only treat very specific exit codes as actual errors that should interrupt the flow
@@ -17,29 +19,26 @@ function isSystemError(_command: string, exitCode: number | null): boolean {
   if (exitCode === null || exitCode === 0) {
     return false // null or 0 is always success
   }
-
-  // Only treat command not found (127) and permission/system errors (126, 128-255) as real errors
-  // Most command-specific exit codes (1-125) represent status/state, not errors
-  if (exitCode === 126) {
-    return true // Command found but not executable (permission error)
-  }
-
-  if (exitCode === 127) {
-    return false // Command not found - this is a real error
-  }
-
-  if (exitCode >= 128) {
-    return true // Signal-terminated commands or system errors
-  }
-
-  // For exit codes 1-125, we consider them as status codes, not errors
-  // Let the AI model interpret the command output and exit code
   return false
 }
 
 export async function remoteSshConnect(connectionInfo: ConnectionInfo): Promise<{ id?: string; error?: string }> {
   const { host, port, username, password, privateKey, passphrase } = connectionInfo
   const connectionId = `ssh_${Date.now()}_${Math.random().toString(36).substr(2, 12)}`
+  const normalizedHost = host ?? ''
+  const normalizedUsername = username ?? ''
+  const normalizedPort = port || 22
+
+  if (normalizedHost && normalizedUsername) {
+    const reusable = getReusableSshConnection(normalizedHost, normalizedPort, normalizedUsername)
+    if (reusable) {
+      remoteConnections.set(connectionId, reusable.conn)
+      reusedRemoteSessions.set(connectionId, { poolKey: reusable.poolKey })
+      registerReusableSshSession(reusable.poolKey, connectionId)
+      console.log(`SSH connection re-used via MFA pool: ${normalizedUsername}@${normalizedHost} (session: ${connectionId})`)
+      return Promise.resolve({ id: connectionId })
+    }
+  }
 
   let sock: net.Socket | tls.TLSSocket
   if (connectionInfo.needProxy) {
@@ -91,7 +90,7 @@ export async function remoteSshConnect(connectionInfo: ConnectionInfo): Promise<
 
     const connectConfig: ConnectConfig = {
       host,
-      port: port || 22,
+      port: normalizedPort,
       username,
       keepaliveInterval: 10000, // Keep connection alive
       tryKeyboard: true // Disable keyboard-interactive
@@ -128,6 +127,7 @@ export async function remoteSshExec(
   timeoutMs: number = 30 * 60 * 1000
 ): Promise<{ success?: boolean; output?: string; error?: string }> {
   const conn = remoteConnections.get(sessionId)
+
   if (!conn) {
     console.error(`SSH connection does not exist: ${sessionId}`)
     return { success: false, error: 'Not connected to remote server' }
@@ -306,6 +306,15 @@ export async function remoteSshDisconnect(sessionId: string): Promise<{ success?
   if (stream) {
     stream.end()
     remoteShellStreams.delete(sessionId)
+  }
+
+  const reuseInfo = reusedRemoteSessions.get(sessionId)
+  if (reuseInfo) {
+    remoteConnections.delete(sessionId)
+    reusedRemoteSessions.delete(sessionId)
+    releaseReusableSshSession(reuseInfo.poolKey, sessionId)
+    console.log(`SSH reused connection session released: ${sessionId}`)
+    return { success: true }
   }
 
   const conn = remoteConnections.get(sessionId)

@@ -43,7 +43,7 @@ Want syntax highlighting and smart completion, but don't have root privileges, a
 - 🔏 Privacy watermark：screen recording, Clipboard and data transmission control.
 - 🔎 Behavior Audits：Advanced pattern recognition and anomaly detection in user operations.
 
-## Project Setup
+## Development Guide
 
 ### Install Electron
 
@@ -79,6 +79,6 @@ npm run build:linux
 
 ## Contributors
 
-In this era full of unlimited opportunities and challenges, a group of DevOps partners from different backgrounds gathered here with their dreams. They used their spare time to create this ingenious tool.
-
-We hope it will become a reliable partner for you to improve efficiency and quality of life. At the same time, we also look forward to more like-minded friends joining us to create a better future together!
+Thank you for your contribution!
+Please refer to the <a href="./CONTRIBUTING.md">Contribution Guide</a> for more information.
+![Preview image](resources/contributors.png)

@@ -41,6 +41,7 @@
         :term-instance="terminal as any"
         :copy-text="copyText"
         :terminal-id="connectionId"
+        :tab-info="props.serverInfo"
         @context-act="contextAct"
       />
     </v-contextmenu>
@@ -66,7 +67,7 @@
     />
   </div>
 
-  <!-- MFA弹窗已移至全局组件 -->
+  <!-- MFA dialog has been moved to global component -->
 </template>
 
 <script lang="ts" setup>
@@ -81,8 +82,8 @@ import { markRaw, onBeforeUnmount, onMounted, PropType, nextTick, reactive, ref,
 import { shortcutService } from '@/services/shortcutService'
 import { useI18n } from 'vue-i18n'
 import CommandDialog from '@/components/global/CommandDialog.vue'
-// 引入全局MFA状态（已移除本地MFA实现）
-// MFA功能现在由全局组件处理
+// Import global MFA state (local MFA implementation removed)
+// MFA functionality is now handled by global component
 
 import { Terminal } from 'xterm'
 import { FitAddon } from 'xterm-addon-fit'
@@ -236,7 +237,7 @@ const wasDialogVisibleBeforeDeactivation = ref(false)
 
 // let contextFetcher: ContextFetcher | null = null
 
-// 计算快捷键显示文本
+// Calculate shortcut key display text
 const shortcutKey = computed(() => {
   const shortcuts = shortcutService.getShortcuts()
   if (shortcuts && shortcuts['sendOrToggleAi']) {
@@ -255,7 +256,7 @@ const EDITOR_SEQUENCES = {
     { pattern: [0x1b, 0x5b, 0x3f, 0x31, 0x30, 0x34, 0x39, 0x68], editor: 'vim' },
     { pattern: [0x1b, 0x5b, 0x3f, 0x34, 0x37, 0x68], editor: 'vim' },
     { pattern: [0x1b, 0x5b, 0x3f, 0x31, 0x68, 0x1b, 0x3d], editor: 'nano' },
-    // 添加更多vim检测模式
+    // Add more vim detection patterns
     { pattern: [0x1b, 0x5b, 0x3f, 0x32, 0x35, 0x68], editor: 'vim' }, // \x1b[?25h
     { pattern: [0x1b, 0x5b, 0x3f, 0x32, 0x35, 0x6c], editor: 'vim' }, // \x1b[?25l
     { pattern: [0x1b, 0x5b, 0x3f, 0x31, 0x30, 0x34, 0x39, 0x6c], editor: 'vim' },
@@ -265,7 +266,7 @@ const EDITOR_SEQUENCES = {
     { pattern: [0x1b, 0x5b, 0x3f, 0x31, 0x30, 0x34, 0x39, 0x6c], editor: 'vim' },
     { pattern: [0x1b, 0x5b, 0x3f, 0x34, 0x37, 0x6c], editor: 'vim' },
     { pattern: [0x1b, 0x5b, 0x3f, 0x31, 0x6c, 0x1b, 0x3e], editor: 'nano' },
-    // 添加更多vim退出检测模式
+    // Add more vim exit detection patterns
     { pattern: [0x1b, 0x5b, 0x3f, 0x32, 0x35, 0x68], editor: 'vim' }, // \x1b[?25h
     { pattern: [0x1b, 0x5b, 0x3f, 0x32, 0x35, 0x6c], editor: 'vim' } // \x1b[?25l
   ]
@@ -273,10 +274,10 @@ const EDITOR_SEQUENCES = {
 const userInputFlag = ref(false)
 const currentCwdStore = useCurrentCwdStore()
 
-// 全局防抖状态，防止快速连续关闭多个窗口
-const CLOSE_DEBOUNCE_TIME = 100 // 100ms 防抖时间
+// Global debounce state to prevent rapid consecutive closing of multiple windows
+const CLOSE_DEBOUNCE_TIME = 100 // 100ms debounce time
 
-// 使用 window 对象存储全局防抖状态
+// Use window object to store global debounce state
 if (!(window as any).lastCloseTime) {
   ;(window as any).lastCloseTime = 0
 }
@@ -582,10 +583,10 @@ onMounted(async () => {
   eventBus.on('updateTheme', handleUpdateTheme)
   eventBus.on('openSearch', openSearch)
 
-  // 监听来自preload的搜索触发事件（Windows系统专用）
+  // Listen for search trigger events from preload (Windows system specific)
   const handlePostMessage = (event: MessageEvent) => {
     if (event.data?.type === 'TRIGGER_SEARCH') {
-      // 只有当前活跃的终端才响应搜索事件
+      // Only the currently active terminal responds to search events
       if (props.activeTabId === props.currentConnectionId) {
         openSearch()
       }
@@ -971,7 +972,11 @@ const connectSSH = async () => {
     const orgType = props.serverInfo.organizationId === 'personal' ? 'local' : 'local-team'
     const hostnameBase64 =
       props.serverInfo.organizationId === 'personal' ? Base64Util.encode(assetInfo.asset_ip) : Base64Util.encode(assetInfo.hostname)
-    connectionId.value = `${assetInfo.username}@${props.connectData.ip}:${orgType}:${hostnameBase64}:${uuidv4()}`
+
+    const sessionId = uuidv4() // 每个标签页不同
+    const jumpserverUuid = assetInfo.organization_uuid || props.connectData.uuid
+
+    connectionId.value = `${assetInfo.username}@${props.connectData.ip}:${orgType}:${hostnameBase64}:${sessionId}`
 
     if (assetInfo.sshType === 'jumpserver' && terminal.value) {
       jumpServerStatusHandler = createJumpServerStatusHandler(terminal.value, connectionId.value)
@@ -979,7 +984,8 @@ const connectSSH = async () => {
     }
 
     const connData: any = {
-      id: connectionId.value,
+      id: connectionId.value, // 会话 ID (每个标签页唯一)
+      assetUuid: jumpserverUuid, // JumpServer UUID (用于连接池复用)
       host: assetInfo.asset_ip,
       port: assetInfo.port,
       username: assetInfo.username,
@@ -1018,7 +1024,7 @@ const connectSSH = async () => {
     if (result.status === 'connected') {
       const welcomeName = email.split('@')[0]
       const welcome = '\x1b[38;2;22;119;255m' + t('ssh.welcomeMessage', { username: welcomeName }) + ' \x1b[m\r\n'
-      terminal.value?.writeln('') // 添加空行分隔
+      terminal.value?.writeln('') // Add empty line separator
       terminal.value?.writeln(welcome)
       terminal.value?.writeln(t('ssh.connectingTo', { ip: props.connectData.ip }))
       await startShell()
@@ -1132,7 +1138,7 @@ const connectLocalSSH = async () => {
     }
   }
 
-  connectionId.value = `localhost@127.0.0.1:local:${Base64Util.encode(props.serverInfo.data.key)}:${uuidv4()}`
+  connectionId.value = `localhost@127.0.0.1:local:${Base64Util.encode(props.serverInfo.data.key)}`
 
   try {
     const email = userInfoStore().userInfo.email
@@ -1147,12 +1153,12 @@ const connectLocalSSH = async () => {
     if (result.success) {
       const welcomeName = email.split('@')[0]
       const welcome = '\x1b[38;2;22;119;255m' + t('ssh.welcomeMessage', { username: welcomeName }) + ' \x1b[m\r\n'
-      terminal.value?.writeln('') // 添加空行分隔
+      terminal.value?.writeln('') // Add empty line separator
       terminal.value?.writeln(welcome)
 
       await startLocalShell()
 
-      // 处理输入
+      // Handle input
       terminal.value?.onData((data) => {
         api.sendDataLocal(connectionId.value, data)
       })
@@ -1162,11 +1168,11 @@ const connectLocalSSH = async () => {
         handleResize()
       }, 200)
     } else {
-      const errorMsg = formatStatusMessage(`连接失败: ${result.message}`, 'error')
+      const errorMsg = formatStatusMessage(`Connection failed: ${result.message}`, 'error')
       terminal.value?.writeln(errorMsg)
     }
   } catch (error: any) {
-    const errorMsg = formatStatusMessage(`连接错误: ${error.message || '未知错误'}`, 'error')
+    const errorMsg = formatStatusMessage(`Connection error: ${error.message || 'Unknown error'}`, 'error')
     terminal.value?.writeln(errorMsg)
   }
   emit('connectSSH', { isConnected: isConnected })
@@ -1181,7 +1187,7 @@ const startLocalShell = async () => {
   })
   const removeErrorListener = api.onErrorLocal?.(connectionId.value, (error: any) => {
     if (terminal.value) {
-      terminal.value.write(`\r\n[错误]: ${error.message || error}\r\n`)
+      terminal.value.write(`\r\n[Error]: ${error.message || error}\r\n`)
     }
   })
 
@@ -1582,24 +1588,18 @@ const setupTerminalInput = () => {
         sendData(data)
       }
     } else if (data === '\x16') {
-      // Check if we're in vim mode (alternate mode)
-      if (terminalMode.value === 'alternate') {
-        // In vim mode, pass Ctrl+V to remote terminal for visual block mode
-        sendData(data)
-      } else {
-        // In normal mode, perform paste operation
-        navigator.clipboard
-          .readText()
-          .then((text) => {
-            sendData(text)
-            // Ensure scroll to bottom after paste
-            nextTick(() => {
-              terminal.value?.scrollToBottom()
-              terminal.value?.focus()
-            })
+      // Always perform paste operation, regardless of terminal mode
+      navigator.clipboard
+        .readText()
+        .then((text) => {
+          sendData(text)
+          // Ensure scroll to bottom after paste
+          nextTick(() => {
+            terminal.value?.scrollToBottom()
+            terminal.value?.focus()
           })
-          .catch(() => {})
-      }
+        })
+        .catch(() => {})
     } else if (data == '\r') {
       if (!isConnected.value) {
         cusWrite?.('\r\n' + t('ssh.reconnecting') + '\r\n', { isUserCall: true })
@@ -1630,7 +1630,9 @@ const setupTerminalInput = () => {
         } else if (config.quickVimStatus === 1 && !isSyncInput.value) {
           connectionSftpAvailable.value = await api.checkSftpConnAvailable(connectionId.value)
           const vimMatch = command.match(/^\s*vim\s+(.+)$/i)
-          if (vimMatch && connectionSftpAvailable.value) {
+          // Trigger condition: Applies to non-local connections.
+          // SFTP check reserved — vim editing will be implemented via SFTP.
+          if (vimMatch && connectionSftpAvailable.value && !connectionId.value.includes('local-team')) {
             let vimData = data
             if (vimMatch[1].startsWith('/')) {
               vimData = delData.repeat(command.length) + 'echo "' + vimMatch[1] + '"  #Chaterm:vim  \r'
@@ -1648,12 +1650,16 @@ const setupTerminalInput = () => {
       if (command && command.trim()) {
         insertCommand(command)
 
-        // 检测vim命令，设置vim模式
+        // Detect vim command and set vim mode
         const trimmedCommand = command.trim()
         if (trimmedCommand.startsWith('vim ') || trimmedCommand === 'vim') {
-          // 延迟设置vim模式，等待vim启动
+          // Delay setting vim mode, wait for vim to start
           setTimeout(() => {
             terminalMode.value = 'alternate'
+            // Clear the auto-completion box immediately when entering the vim mode.
+            suggestions.value = []
+            activeSuggestion.value = -1
+            suggestionSelectionMode.value = false
           }, 500)
         }
       }
@@ -1669,7 +1675,7 @@ const setupTerminalInput = () => {
     } else if (JSON.stringify(data) === '"\\u001b[A"' && terminalMode.value === 'none') {
       if (suggestions.value.length && suggestionSelectionMode.value) {
         if (data == '\u001b[A') {
-          // 上方向键：循环向上导航 - only when in selection mode
+          // Up arrow key: cycle up navigation - only when in selection mode
           if (activeSuggestion.value <= 0) {
             activeSuggestion.value = suggestions.value.length - 1
           } else {
@@ -1682,7 +1688,7 @@ const setupTerminalInput = () => {
     } else if (JSON.stringify(data) === '"\\u001b[B"' && terminalMode.value === 'none') {
       if (suggestions.value.length && suggestionSelectionMode.value) {
         if (data == '\u001b[B') {
-          // 下方向键：循环向下导航 - only when in selection mode
+          // Down arrow key: cycle down navigation - only when in selection mode
           if (activeSuggestion.value >= suggestions.value.length - 1) {
             activeSuggestion.value = 0
           } else {
@@ -1766,7 +1772,7 @@ const matchPattern = (data: number[], pattern: number[]): boolean => {
 type TerminalMode = 'none' | 'alternate' | 'ui'
 const terminalMode = ref<TerminalMode>('none')
 
-// 监听terminalMode变化，通知preload更新vim模式状态
+// Listen for terminalMode changes and notify preload to update vim mode state
 watch(
   terminalMode,
   (newMode) => {
@@ -1820,7 +1826,7 @@ const checkEditorMode = (response: MarkedResponse) => {
 
   if (bytes.length === 0) return
 
-  // 只保留最近 1024字节
+  // Keep only the most recent 1024 bytes
   dataBuffer.value = bytes.length > BUFFER_SIZE ? bytes.slice(-BUFFER_SIZE) : bytes
 
   const text = new TextDecoder().decode(new Uint8Array(dataBuffer.value))
@@ -1828,38 +1834,77 @@ const checkEditorMode = (response: MarkedResponse) => {
   if (terminalMode.value === 'none') {
     if (EDITOR_SEQUENCES.enter.some((seq) => matchPattern(dataBuffer.value, seq.pattern))) {
       terminalMode.value = 'alternate'
+      // Clear the auto-completion box immediately when entering the vim mode.
+      suggestions.value = []
+      activeSuggestion.value = -1
+      suggestionSelectionMode.value = false
       nextTick(handleResize)
       return
     }
 
-    // 更宽松的vim检测：检查是否包含常见的vim进入序列
+    // More lenient vim detection: check if it contains common vim entry sequences
+    // But exclude systemctl and other system commands that might use similar sequences
     const text = new TextDecoder().decode(new Uint8Array(dataBuffer.value))
+
+    // Don't enter alternate mode if we detect shell prompt or exit sequences
+    // These are typically from system commands returning to shell
     if (
-      text.includes('\x1b[?1049h') ||
-      text.includes('\x1b[?47h') ||
-      text.includes('\x1b[?1047h') ||
-      text.includes('\x1b[?25h') ||
-      text.includes('\x1b[?25l') ||
-      text.includes('\x1b[?1h') ||
-      text.includes('\x1b[?1l')
+      !text.includes('$ ') &&
+      !text.includes('# ') &&
+      !text.includes('~$') &&
+      !text.includes('\x1b[?1l') &&
+      !text.includes('\x1b[?2004h') &&
+      (text.includes('\x1b[?1049h') ||
+        text.includes('\x1b[?47h') ||
+        text.includes('\x1b[?1047h') ||
+        text.includes('\x1b[?25h') ||
+        text.includes('\x1b[?25l') ||
+        text.includes('\x1b[?1h') ||
+        text.includes('\x1b[?1l'))
     ) {
       terminalMode.value = 'alternate'
+      // Clear the auto-completion box immediately when entering the vim mode.
+      suggestions.value = []
+      activeSuggestion.value = -1
+      suggestionSelectionMode.value = false
       nextTick(handleResize)
       return
     }
 
-    // 检测vim特有的序列组合
+    // Detect vim-specific sequence combinations
     if (text.includes('\x1b[?25h') && (text.includes('All') || text.includes('H'))) {
       terminalMode.value = 'alternate'
+      // Clear the auto-completion box immediately when entering the vim mode.
+      suggestions.value = []
+      activeSuggestion.value = -1
+      suggestionSelectionMode.value = false
       nextTick(handleResize)
       return
     }
   }
 
   if (terminalMode.value === 'alternate') {
-    // 只有在明确检测到shell提示符时才退出vim模式
+    // Only exit vim mode when shell prompt is clearly detected
     const text = new TextDecoder().decode(new Uint8Array(dataBuffer.value))
-    if (text.includes('$ ') || text.includes('# ') || text.includes('~$')) {
+    const lines = text.split('\n')
+    const lastLine = lines[lines.length - 1] || ''
+    const secondLastLine = lines[lines.length - 2] || ''
+
+    // Check for typical shell prompt patterns (username@hostname, path, etc.)
+    // These patterns indicate we're back to a shell prompt, not just content with $ symbols
+    const hasShellPrompt =
+      lastLine.match(/^[^@]*@[^:]*:.*[$#]\s*$/) || // user@host:path$
+      lastLine.match(/^\[[^@]*@[^\]]*\][$#]\s*$/) || // [user@host]$
+      lastLine.match(/^[^@]*@[^:]*:.*~[$#]\s*$/) || // user@host:~$
+      lastLine.match(/^.*:\s*[$#]\s*$/) || // path:$
+      lastLine.match(/^\s*[$#]\s*$/) || // simple $ or # prompt
+      secondLastLine.match(/^[^@]*@[^:]*:.*[$#]\s*$/) || // check second last line too
+      secondLastLine.match(/^\[[^@]*@[^\]]*\][$#]\s*$/) ||
+      secondLastLine.match(/^[^@]*@[^:]*:.*~[$#]\s*$/) ||
+      secondLastLine.match(/^.*:\s*[$#]\s*$/) ||
+      secondLastLine.match(/^\s*[$#]\s*$/)
+
+    if (hasShellPrompt) {
       terminalMode.value = 'none'
       dataBuffer.value = []
       nextTick(handleResize)
@@ -1967,7 +2012,10 @@ const handleCommandOutput = (data: string, isInitialCommand: boolean) => {
         }, 100)
       })
     } else {
-      const output = configStore.getUserConfig.language == 'en-US' ? 'Command executed successfully, no output returned' : '执行完成，没有输出返回'
+      const output =
+        configStore.getUserConfig.language == 'en-US'
+          ? 'Command executed successfully, no output returned'
+          : 'Command executed successfully, no output returned'
       // For initial command, use formatted output; for ongoing collection, use plain output
       const messageToSend = isInitialCommand ? `Terminal output:\n\`\`\`\n${output}\n\`\`\`` : output
 
@@ -2273,6 +2321,14 @@ const selectSuggestion = (suggestion: CommandSuggestion) => {
 }
 const queryCommand = async (cmd = '') => {
   if (!queryCommandFlag.value || isSyncInput.value) return
+
+  // Check if it is in the Vim editing mode. If so, do not trigger the automatic completion.
+  if (terminalMode.value === 'alternate') {
+    suggestions.value = []
+    suggestionSelectionMode.value = false
+    return
+  }
+
   const isAtEndOfLine = terminalState.value.beforeCursor.length === terminalState.value.content.length
   if (!isAtEndOfLine) {
     suggestions.value = []
@@ -2296,7 +2352,7 @@ const queryCommand = async (cmd = '') => {
       }, 1)
     }
   } catch (error) {
-    console.log('查询失败' + error)
+    console.log('Query failed: ' + error)
   }
 }
 const insertCommand = async (cmd) => {
@@ -2338,7 +2394,7 @@ const handleKeyInput = (e) => {
     terminalState.value.contentCrossStartLine = 0
     terminalState.value.contentCrossRowLines = 0
 
-    // 确保滚动到底部并保持焦点
+    // Ensure scroll to bottom and maintain focus
     nextTick(() => {
       terminal.value?.scrollToBottom()
       terminal.value?.focus()
@@ -2516,19 +2572,19 @@ const handleGlobalKeyDown = (e: KeyboardEvent) => {
   if (!isMac && e.ctrlKey && e.shiftKey && e.key === 'W') {
     const currentTime = Date.now()
 
-    // 防抖检查：如果在短时间内已经处理过关闭操作，则忽略
+    // Debounce check: ignore if close operation has been processed recently
     if (currentTime - (window as any).lastCloseTime < CLOSE_DEBOUNCE_TIME) {
       e.preventDefault()
       e.stopPropagation()
       return
     }
 
-    // 只有当前活跃的终端才响应关闭事件
+    // Only the currently active terminal responds to close events
     ;(window as any).lastCloseTime = currentTime
     e.preventDefault()
     e.stopPropagation()
     contextAct('close')
-    // 对于非活跃的终端，直接返回，不执行任何操作
+    // For inactive terminals, return directly without performing any operations
     return
   }
 
@@ -2757,6 +2813,7 @@ const isDeleteKeyData = (d: string) => d === '\x7f' || d === '\b' || d === '\x1b
   position: relative;
 
   /* Enable scrollbar for terminal container */
+
   &::-webkit-scrollbar {
     width: 6px;
   }

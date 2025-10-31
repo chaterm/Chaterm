@@ -6,7 +6,7 @@
   >
     <a-tab-pane
       key="chat"
-      :tab="currentChatId ? historyList.find((item) => item.id === currentChatId)?.chatTitle || 'New chat' : 'New chat'"
+      :tab="currentChatTitle"
     >
       <div
         v-if="filteredChatHistory.length === 0"
@@ -110,7 +110,7 @@
                 :ask="message.ask"
                 :say="message.say"
                 :partial="message.partial"
-                @collapse-change="handleCollapseChange"
+                :executed-command="message.executedCommand"
               />
               <MarkdownRenderer
                 v-else
@@ -120,7 +120,7 @@
                 :ask="message.ask"
                 :say="message.say"
                 :partial="message.partial"
-                @collapse-change="handleCollapseChange"
+                :executed-command="message.executedCommand"
               />
 
               <div class="message-actions">
@@ -178,6 +178,74 @@
                     </div>
                   </div>
                 </template>
+                <!-- Inline approval buttons for Agent mode: attach to the pending command message -->
+                <template
+                  v-if="
+                    chatTypeValue === 'agent' &&
+                    index === filteredChatHistory.length - 1 &&
+                    lastChatMessageId === message.id &&
+                    message.ask === 'command' &&
+                    !showCancelButton
+                  "
+                >
+                  <div class="bottom-buttons">
+                    <a-button
+                      size="small"
+                      class="reject-btn"
+                      :disabled="buttonsDisabled"
+                      @click="handleRejectContent"
+                    >
+                      <template #icon>
+                        <CloseOutlined />
+                      </template>
+                      {{ $t('ai.reject') }}
+                    </a-button>
+                    <a-button
+                      size="small"
+                      class="approve-btn"
+                      :disabled="buttonsDisabled"
+                      @click="handleApproveCommand"
+                    >
+                      <template #icon>
+                        <PlayCircleOutlined />
+                      </template>
+                      {{ $t('ai.run') }}
+                    </a-button>
+                  </div>
+                </template>
+                <!-- Inline copy/run buttons for Command mode -->
+                <template
+                  v-if="
+                    chatTypeValue === 'cmd' &&
+                    index === filteredChatHistory.length - 1 &&
+                    lastChatMessageId === message.id &&
+                    message.ask === 'command' &&
+                    !showCancelButton
+                  "
+                >
+                  <div class="bottom-buttons">
+                    <a-button
+                      size="small"
+                      class="reject-btn"
+                      @click="handleCopyContent"
+                    >
+                      <template #icon>
+                        <CopyOutlined />
+                      </template>
+                      {{ $t('ai.copy') }}
+                    </a-button>
+                    <a-button
+                      size="small"
+                      class="approve-btn"
+                      @click="handleApplyCommand"
+                    >
+                      <template #icon>
+                        <PlayCircleOutlined />
+                      </template>
+                      {{ $t('ai.run') }}
+                    </a-button>
+                  </div>
+                </template>
               </div>
             </div>
             <div
@@ -198,58 +266,6 @@
         </div>
       </div>
       <div class="bottom-container">
-        <div
-          v-if="showBottomButton && chatTypeValue == 'agent'"
-          class="bottom-buttons"
-        >
-          <a-button
-            size="small"
-            class="reject-btn"
-            :disabled="buttonsDisabled"
-            @click="handleRejectContent"
-          >
-            <template #icon>
-              <CloseOutlined />
-            </template>
-            {{ $t('ai.reject') }}
-          </a-button>
-          <a-button
-            size="small"
-            class="approve-btn"
-            :disabled="buttonsDisabled"
-            @click="handleApproveCommand"
-          >
-            <template #icon>
-              <PlayCircleOutlined />
-            </template>
-            {{ $t('ai.run') }}
-          </a-button>
-        </div>
-        <div
-          v-if="showBottomButton && chatTypeValue == 'cmd'"
-          class="bottom-buttons"
-        >
-          <a-button
-            size="small"
-            class="reject-btn"
-            @click="handleCopyContent"
-          >
-            <template #icon>
-              <CopyOutlined />
-            </template>
-            {{ $t('ai.copy') }}
-          </a-button>
-          <a-button
-            size="small"
-            class="approve-btn"
-            @click="handleApplyCommand"
-          >
-            <template #icon>
-              <PlayCircleOutlined />
-            </template>
-            {{ $t('ai.run') }}
-          </a-button>
-        </div>
         <div
           v-if="showCancelButton"
           class="bottom-buttons cancel-row"
@@ -541,87 +557,93 @@
                   </a-button>
                 </div>
                 <div class="history-virtual-list-container">
-                  <a-menu-item
-                    v-for="history in paginatedHistoryList"
-                    :key="history.id"
-                    class="history-menu-item"
-                    :class="{ 'favorite-item': history.isFavorite }"
-                    @click="!history.isEditing && restoreHistoryTab(history)"
+                  <template
+                    v-for="group in groupedPaginatedHistory"
+                    :key="group.dateLabel"
                   >
-                    <div class="history-item-content">
-                      <div
-                        v-if="!history.isEditing"
-                        class="history-title"
-                      >
-                        {{ history.chatTitle }}
-                      </div>
-                      <a-input
-                        v-else
-                        v-model:value="history.editingTitle"
-                        size="small"
-                        class="history-title-input"
-                        @press-enter="saveHistoryTitle(history)"
-                        @blur.stop="() => {}"
-                        @click.stop
-                      />
-                      <div class="menu-action-buttons">
-                        <template v-if="!history.isEditing">
-                          <a-button
-                            size="small"
-                            class="menu-action-btn favorite-btn"
-                            @click.stop="toggleFavorite(history)"
-                          >
-                            <template #icon>
-                              <template v-if="history.isFavorite">
-                                <StarFilled style="color: #faad14" />
+                    <div class="history-date-header">{{ group.dateLabel }}</div>
+                    <a-menu-item
+                      v-for="history in group.items"
+                      :key="history.id"
+                      class="history-menu-item"
+                      :class="{ 'favorite-item': history.isFavorite }"
+                      @click="!history.isEditing && restoreHistoryTab(history)"
+                    >
+                      <div class="history-item-content">
+                        <div
+                          v-if="!history.isEditing"
+                          class="history-title"
+                        >
+                          {{ history.chatTitle }}
+                        </div>
+                        <a-input
+                          v-else
+                          v-model:value="history.editingTitle"
+                          size="small"
+                          class="history-title-input"
+                          @press-enter="saveHistoryTitle(history)"
+                          @blur.stop="() => {}"
+                          @click.stop
+                        />
+                        <div class="menu-action-buttons">
+                          <template v-if="!history.isEditing">
+                            <a-button
+                              size="small"
+                              class="menu-action-btn favorite-btn"
+                              @click.stop="toggleFavorite(history)"
+                            >
+                              <template #icon>
+                                <template v-if="history.isFavorite">
+                                  <StarFilled style="color: #faad14" />
+                                </template>
+                                <template v-else>
+                                  <StarOutlined style="color: #999999" />
+                                </template>
                               </template>
-                              <template v-else>
-                                <StarOutlined style="color: #999999" />
+                            </a-button>
+                            <a-button
+                              size="small"
+                              class="menu-action-btn"
+                              @click.stop="editHistory(history)"
+                            >
+                              <template #icon>
+                                <EditOutlined style="color: #999999" />
                               </template>
-                            </template>
-                          </a-button>
-                          <a-button
-                            size="small"
-                            class="menu-action-btn"
-                            @click.stop="editHistory(history)"
-                          >
-                            <template #icon>
-                              <EditOutlined style="color: #999999" />
-                            </template>
-                          </a-button>
-                          <a-button
-                            size="small"
-                            class="menu-action-btn"
-                            @click.stop="deleteHistory(history)"
-                          >
-                            <template #icon>
-                              <DeleteOutlined style="color: #999999" />
-                            </template>
-                          </a-button>
-                        </template>
-                        <template v-else>
-                          <a-button
-                            size="small"
-                            class="menu-action-btn save-btn"
-                            @click.stop="saveHistoryTitle(history)"
-                          >
-                            <template #icon>
-                              <CheckOutlined style="color: #999999" />
-                            </template>
-                          </a-button>
-                          <a-button
-                            size="small"
-                            class="menu-action-btn cancel-btn"
-                            @click.stop.prevent="cancelEdit(history)"
-                          >
-                            <template #icon>
-                              <CloseOutlined style="color: #999999" />
-                            </template>
-                          </a-button>
-                        </template>
+                            </a-button>
+                            <a-button
+                              size="small"
+                              class="menu-action-btn"
+                              @click.stop="deleteHistory(history)"
+                            >
+                              <template #icon>
+                                <DeleteOutlined style="color: #999999" />
+                              </template>
+                            </a-button>
+                          </template>
+                          <template v-else>
+                            <a-button
+                              size="small"
+                              class="menu-action-btn save-btn"
+                              @click.stop="saveHistoryTitle(history)"
+                            >
+                              <template #icon>
+                                <CheckOutlined style="color: #999999" />
+                              </template>
+                            </a-button>
+                            <a-button
+                              size="small"
+                              class="menu-action-btn cancel-btn"
+                              @click.stop.prevent="cancelEdit(history)"
+                            >
+                              <template #icon>
+                                <CloseOutlined style="color: #999999" />
+                              </template>
+                            </a-button>
+                          </template>
+                        </div>
                       </div>
-                    </div>
-                  </a-menu-item>
+                    </a-menu-item>
+                  </template>
                   <div
                     v-if="hasMoreHistory"
                     class="history-load-more"
@@ -655,7 +677,6 @@
 <script setup lang="ts">
 import { ref, reactive, onMounted, defineAsyncComponent, onUnmounted, watch, computed, nextTick, onBeforeUnmount } from 'vue'
 import { useRouter } from 'vue-router'
-
 const TodoInlineDisplay = defineAsyncComponent(() => import('./components/todo/TodoInlineDisplay.vue'))
 import { useTodo } from './composables/useTodo'
 import {
@@ -683,7 +704,7 @@ import eventBus from '@/utils/eventBus'
 import { getGlobalState, updateGlobalState, getSecret, storeSecret } from '@renderer/agent/storage/state'
 
 import type { HistoryItem, TaskHistoryItem, Host, ChatMessage, MessageContent, AssetInfo } from './types'
-import { createNewMessage, parseMessageContent, truncateText, formatHosts } from './utils'
+import { createNewMessage, parseMessageContent, formatHosts, isStringContent, getDateLabel } from './utils'
 import foldIcon from '@/assets/icons/fold.svg'
 import historyIcon from '@/assets/icons/history.svg'
 import plusIcon from '@/assets/icons/plus.svg'
@@ -736,7 +757,7 @@ const getMessageFeedback = (messageId: string): 'like' | 'dislike' | undefined =
 }
 
 // Todo 功能
-const { displayPreference, shouldShowTodoAfterMessage, getTodosForMessage, markLatestMessageWithTodoUpdate } = useTodo()
+const { currentTodos, displayPreference, shouldShowTodoAfterMessage, getTodosForMessage, markLatestMessageWithTodoUpdate, clearTodoState } = useTodo()
 
 // 添加调试日志监听
 watch(displayPreference, (newPref) => {
@@ -789,9 +810,25 @@ const isExecutingCommand = ref(false)
 
 // Current active conversation ID
 const currentChatId = ref<string | null>(null)
+const currentChatTitle = ref<string>('New chat') // Store current chat title for tab display
 const authTokenInCookie = ref<string | null>(null)
 
 const chatHistory = reactive<ChatMessage[]>([])
+
+// 监听消息变化，检查todo显示逻辑
+watch(
+  chatHistory,
+  (newHistory) => {
+    console.log('AiTab - chatHistory changed, length:', newHistory.length)
+    if (newHistory.length > 0) {
+      const lastMessage = newHistory[newHistory.length - 1]
+      console.log('AiTab - last message:', lastMessage)
+      console.log('AiTab - shouldShowTodoAfterMessage for last message:', shouldShowTodoAfterMessage(lastMessage))
+      console.log('AiTab - getTodosForMessage for last message:', getTodosForMessage(lastMessage))
+    }
+  },
+  { deep: true }
+)
 
 // 过滤SSH连接消息：Agent回复后隐藏sshInfo消息
 const filteredChatHistory = computed(() => {
@@ -1005,12 +1042,12 @@ const handleFileUpload = () => {
 }
 
 // Voice input handling methods
-const handleVoiceClick = () => {
-  // Trigger the hidden VoiceInput component's toggle method
-  if (voiceInputRef.value && voiceInputRef.value.toggleVoiceInput) {
-    voiceInputRef.value.toggleVoiceInput()
-  }
-}
+// const handleVoiceClick = () => {
+//   // Trigger the hidden VoiceInput component's toggle method
+//   if (voiceInputRef.value && voiceInputRef.value.toggleVoiceInput) {
+//     voiceInputRef.value.toggleVoiceInput()
+//   }
+// }
 
 const handleFileSelected = async (event: Event) => {
   const target = event.target as HTMLInputElement
@@ -1135,6 +1172,9 @@ const sendMessage = async (sendType: string) => {
     })
     return 'ASSET_ERROR'
   }
+  if (sendType === 'send' && currentTodos.value.length > 0) {
+    clearTodoState(chatHistory)
+  }
   await sendMessageToMain(userContent, sendType)
 
   const userMessage: ChatMessage = {
@@ -1154,7 +1194,7 @@ const sendMessage = async (sendType: string) => {
   responseLoading.value = true
   showRetryButton.value = false
   showNewTaskButton.value = false
-  resetScrollFlags()
+  scrollToBottom(true)
   return
 }
 
@@ -1178,6 +1218,7 @@ const handleKeyDown = (e: KeyboardEvent) => {
 const handlePlusClick = async () => {
   const newChatId = uuidv4()
   currentChatId.value = newChatId
+  currentChatTitle.value = 'New chat' // Reset title for new chat
   const chatSetting = (await getGlobalState('chatSettings')) as { mode?: string }
   chatTypeValue.value = chatSetting?.mode || 'agent'
   hosts.value = []
@@ -1212,10 +1253,15 @@ const handlePlusClick = async () => {
   buttonsDisabled.value = false
   resumeDisabled.value = false
   showCancelButton.value = false
-  showSendButton.value = true
   responseLoading.value = false
   showRetryButton.value = false
   showNewTaskButton.value = false
+  if (currentTodos.value.length > 0) {
+    clearTodoState(chatHistory)
+  }
+
+  // Clear input and ensure send button is disabled for new chat
+  chatInputValue.value = ''
 }
 
 const containerKey = ref(0)
@@ -1227,6 +1273,7 @@ const restoreHistoryTab = async (history: HistoryItem) => {
   containerKey.value++
 
   currentChatId.value = history.id
+  currentChatTitle.value = history.chatTitle // Restore title from history
   chatTypeValue.value = history.chatType
   lastChatMessageId.value = ''
   autoUpdateHost.value = false
@@ -1261,6 +1308,7 @@ const restoreHistoryTab = async (history: HistoryItem) => {
           item.say === 'command' ||
           item.say === 'command_output' ||
           item.say === 'completion_result' ||
+          item.say === 'search_result' ||
           item.say === 'text' ||
           item.say === 'reasoning' ||
           item.ask === 'resume_task' ||
@@ -1280,6 +1328,10 @@ const restoreHistoryTab = async (history: HistoryItem) => {
           ask: item.ask,
           say: item.say,
           ts: item.ts
+        }
+        if (userMessage.say === 'user_feedback' && isStringContent(userMessage.content) && userMessage.content.startsWith('Terminal output:')) {
+          userMessage.say = 'command_output'
+          userMessage.role = 'assistant'
         }
         if (!item.partial && item.type === 'ask' && item.text) {
           try {
@@ -1334,10 +1386,11 @@ const handleHistoryClick = async () => {
       .sort((a, b) => b.ts - a.ts)
       .map((task) => ({
         id: task.id,
-        chatTitle: truncateText(task?.task || `${chatTypeValue.value} Chat`),
+        chatTitle: task?.chatTitle || task?.task || `${chatTypeValue.value} Chat`,
         chatType: chatTypeValue.value,
         chatContent: [],
-        isFavorite: favorites.includes(task.id)
+        isFavorite: favorites.includes(task.id),
+        ts: task.ts
       }))
 
     // Batch update history list
@@ -1346,6 +1399,7 @@ const handleHistoryClick = async () => {
     console.error('Failed to get conversation list:', err)
   }
 }
+
 const handleMessageOperation = async (operation: 'copy' | 'apply') => {
   const lastMessage = chatHistory.at(-1)
   if (!lastMessage) {
@@ -1365,6 +1419,11 @@ const handleMessageOperation = async (operation: 'copy' | 'apply') => {
     content = (lastMessage.content as MessageContent).question || ''
   }
   lastMessage.actioned = true
+
+  // Record executed command for command execution
+  if (operation === 'apply' && content) {
+    lastMessage.executedCommand = content
+  }
 
   // In the command mode, check whether the current window matches the target server.
   if (chatTypeValue.value === 'cmd' && hosts.value.length > 0) {
@@ -1477,7 +1536,6 @@ const handleRejectContent = async () => {
     buttonsDisabled.value = true
     console.log('Main process response:', response)
     responseLoading.value = true
-    resetScrollFlags()
   } catch (error) {
     console.error('Failed to send message to main process:', error)
   }
@@ -1589,7 +1647,6 @@ const handleApproveCommand = async () => {
     buttonsDisabled.value = true
     console.log('Main process response:', response)
     responseLoading.value = true
-    resetScrollFlags()
   } catch (error) {
     console.error('Failed to send message to main process:', error)
   }
@@ -1598,27 +1655,50 @@ const handleApproveCommand = async () => {
 const handleCancel = async () => {
   console.log('handleCancel: cancel')
 
+  // 立即更新UI状态，实现即时响应
+  responseLoading.value = false
+  showCancelButton.value = false
+  showSendButton.value = true
+  lastChatMessageId.value = ''
+  isExecutingCommand.value = false
+
   // 停止最后一个消息的 thinking loading 状态
   const lastMessageIndex = filteredChatHistory.value.length - 1
   if (lastMessageIndex >= 0 && markdownRendererRefs.value[lastMessageIndex]) {
     markdownRendererRefs.value[lastMessageIndex].setThinkingLoading(false)
   }
 
-  if (isExecutingCommand.value) {
-    const response = await window.api.gracefulCancelTask()
-    console.log('Main process graceful cancel response:', response)
-  } else {
-    // Use regular cancel for non-command operations
-    const response = await window.api.cancelTask()
-    console.log('Main process cancel response:', response)
-    responseLoading.value = false
+  // 清理Todo状态
+  if (currentTodos.value.length > 0) {
+    clearTodoState(chatHistory)
   }
 
-  showCancelButton.value = false
-  showSendButton.value = true
-  lastChatMessageId.value = ''
-  isExecutingCommand.value = false
-  resetScrollFlags()
+  // 异步发送取消请求到主进程，不等待响应
+  try {
+    if (isExecutingCommand.value) {
+      // 对于执行中的命令，使用优雅取消
+      window.api
+        .gracefulCancelTask()
+        .then((response) => {
+          console.log('Main process graceful cancel response:', response)
+        })
+        .catch((error) => {
+          console.error('Graceful cancel failed:', error)
+        })
+    } else {
+      // 对于非命令操作，使用常规取消
+      window.api
+        .cancelTask()
+        .then((response) => {
+          console.log('Main process cancel response:', response)
+        })
+        .catch((error) => {
+          console.error('Cancel task failed:', error)
+        })
+    }
+  } catch (error) {
+    console.error('Failed to send cancel request:', error)
+  }
 }
 
 const handleResume = async () => {
@@ -1636,7 +1716,6 @@ const handleResume = async () => {
   console.log('Main process response:', response)
   resumeDisabled.value = true
   responseLoading.value = true
-  resetScrollFlags()
 }
 
 const handleRetry = async () => {
@@ -1892,6 +1971,17 @@ onMounted(async () => {
 
   currentChatId.value = chatId
 
+  // Attach scroll listener to maintain sticky-to-bottom state
+  nextTick(() => {
+    if (chatContainer.value) {
+      chatContainer.value.addEventListener('scroll', handleContainerScroll, { passive: true })
+      // Initialize sticky flag based on current position
+      shouldStickToBottom.value = isAtBottom(chatContainer.value)
+    }
+    // Start observing DOM changes of chat content
+    startObservingDom()
+  })
+
   let lastMessage: any = null
   let lastPartialMessage: any = null
   removeListener = window.api.onMainMessage((message: any) => {
@@ -1904,9 +1994,6 @@ onMounted(async () => {
         showNewTaskButton.value = true
         responseLoading.value = false
         showCancelButton.value = false
-        nextTick(() => {
-          scrollToBottom(true)
-        })
         return
       } else {
         showNewTaskButton.value = false
@@ -1937,7 +2024,7 @@ onMounted(async () => {
         !lastMessage ||
         lastPartialMessage.partialMessage.ts !== message.partialMessage.ts
 
-      if (lastMessage && JSON.stringify(lastMessage) === JSON.stringify(message)) {
+      if (lastPartialMessage && JSON.stringify(lastPartialMessage) === JSON.stringify(message)) {
         return
       }
       isCurrentChatMessage.value = true
@@ -2006,12 +2093,22 @@ onMounted(async () => {
       // 处理 todo 更新事件
       console.log('AiTab: Received todoUpdated message', message)
 
-      // 记录Todo更新时间
-      lastTodoUpdateTime.value = Date.now()
-
       // 标记最新的 assistant 消息包含 todo 更新
       if (message.todos && message.todos.length > 0) {
         markLatestMessageWithTodoUpdate(chatHistory, message.todos)
+      } else {
+        clearTodoState(chatHistory)
+      }
+    } else if (message?.type === 'chatTitleGenerated') {
+      // 处理聊天标题生成消息
+      console.log('AiTab: Received chatTitleGenerated message', message)
+
+      if (message.chatTitle && message.taskId) {
+        // Update current chat title for tab-pane display only
+        if (currentChatId.value === message.taskId) {
+          currentChatTitle.value = message.chatTitle
+          console.log('Updated current chat title to:', message.chatTitle)
+        }
       }
     }
     lastMessage = message
@@ -2031,7 +2128,6 @@ const handleModelApiReqFailed = (message: any) => {
   // 在添加新消息前，清理partial command消息
   cleanupPartialCommandMessages()
   chatHistory.push(newAssistantMessage)
-  // 让 chatHistory watch 处理滚动，避免强制打断用户操作
   console.log('showRetryButton.value', showRetryButton.value)
   showRetryButton.value = true
   responseLoading.value = false
@@ -2076,20 +2172,19 @@ onUnmounted(() => {
     removeListener = null
   }
   document.removeEventListener('keydown', handleGlobalEscKey)
-
-  // Clean up scroll listeners and timeouts
-  if (cleanupScrollListeners) {
-    cleanupScrollListeners()
-    cleanupScrollListeners = null
-  }
-  if (userScrollTimeout.value) {
-    clearTimeout(userScrollTimeout.value)
-    userScrollTimeout.value = null
-  }
   document.removeEventListener('click', handleGlobalClick)
   eventBus.off('apiProviderChanged')
   eventBus.off('activeTabChanged')
   eventBus.off('chatToAi')
+  if (chatContainer.value) {
+    chatContainer.value.removeEventListener('scroll', handleContainerScroll)
+  }
+  if (domObserver.value) {
+    try {
+      domObserver.value.disconnect()
+    } catch {}
+    domObserver.value = null
+  }
 })
 
 // 判断是否为本地主机
@@ -2179,7 +2274,8 @@ const sendMessageToMain = async (userContent: string, sendType: string) => {
         text: userContent,
         terminalOutput: '',
         hosts: hostsArray,
-        cwd: filteredCwd
+        cwd: filteredCwd,
+        taskId: currentChatId.value
       }
     } else if (sendType === 'commandSend') {
       message = {
@@ -2208,26 +2304,7 @@ const sendMessageToMain = async (userContent: string, sendType: string) => {
 watch(
   chatHistory,
   () => {
-    // Setup scroll listener when chat history changes and container is available
-    nextTick(() => {
-      if (chatContainer.value && !chatContainer.value.hasAttribute('data-listeners-setup')) {
-        // Clean up existing listeners if any
-        if (cleanupScrollListeners) {
-          cleanupScrollListeners()
-        }
-        // Setup new listeners and store cleanup function
-        cleanupScrollListeners = setupScrollListener()
-        chatContainer.value.setAttribute('data-listeners-setup', 'true')
-      }
-    })
-
-    // Only scroll to bottom if not handling collapse operations
-    if (!isHandlingCollapse.value) {
-      // Direct scroll to bottom for new messages
-      scrollToBottom()
-    } else {
-      console.log('Skipping scrollToBottom in chatHistory watch - collapse operation in progress')
-    }
+    scrollToBottom()
   },
   { deep: true }
 )
@@ -2242,22 +2319,22 @@ watch(
   }
 )
 
-const showBottomButton = computed(() => {
-  if (chatHistory.length === 0) {
-    return false
-  }
-  let message = chatHistory.at(-1)
-  if (!message) {
-    return false
-  }
-  return (
-    (chatTypeValue.value === 'agent' || chatTypeValue.value === 'cmd') &&
-    lastChatMessageId.value !== '' &&
-    lastChatMessageId.value == message.id &&
-    message.ask === 'command' &&
-    !showCancelButton.value
-  )
-})
+// const showBottomButton = computed(() => {
+//   if (chatHistory.length === 0) {
+//     return false
+//   }
+//   let message = chatHistory.at(-1)
+//   if (!message) {
+//     return false
+//   }
+//   return (
+//     (chatTypeValue.value === 'agent' || chatTypeValue.value === 'cmd') &&
+//     lastChatMessageId.value !== '' &&
+//     lastChatMessageId.value == message.id &&
+//     message.ask === 'command' &&
+//     !showCancelButton.value
+//   )
+// })
 
 const filteredHostOptions = computed(() => {
   if (chatTypeValue.value === 'cmd') {
@@ -2551,9 +2628,14 @@ const saveHistoryTitle = async (history) => {
     // Update corresponding record title
     const targetHistory = taskHistory.find((item) => item.id === history.id)
     if (targetHistory) {
-      targetHistory.task = history.chatTitle
+      // Update chatTitle field (for display), keep original task field intact
+      targetHistory.chatTitle = history.chatTitle
       // Save updated history records
       await updateGlobalState('taskHistory', taskHistory)
+
+      if (currentChatId.value === history.id) {
+        currentChatTitle.value = history.chatTitle
+      }
     }
   } catch (err) {
     console.error('Failed to update history title:', err)
@@ -2571,14 +2653,11 @@ const deleteHistory = async (history) => {
   await updateGlobalState('taskHistory', filteredHistory)
 
   // Update display list
-  historyList.value = filteredHistory
-    .sort((a, b) => b.ts - a.ts)
-    .map((messages) => ({
-      id: messages.id,
-      chatTitle: truncateText(messages?.task || 'Agent Chat'),
-      chatType: 'agent',
-      chatContent: []
-    }))
+  const index = historyList.value.findIndex((item) => item.id === history.id)
+  if (index !== -1) {
+    historyList.value.splice(index, 1)
+  }
+
   const message = {
     type: 'deleteTaskWithId',
     text: history.id,
@@ -2622,6 +2701,29 @@ const paginatedHistoryList = computed(() => {
   return filtered.slice(0, end)
 })
 
+// 将分页后的历史记录按日期分组
+const groupedPaginatedHistory = computed(() => {
+  const result: Array<{ dateLabel: string; items: HistoryItem[] }> = []
+  const groups = new Map<string, HistoryItem[]>()
+
+  paginatedHistoryList.value.forEach((item) => {
+    const ts = item.ts || Date.now()
+    const dateLabel = getDateLabel(ts, t)
+
+    if (!groups.has(dateLabel)) {
+      groups.set(dateLabel, [])
+    }
+    groups.get(dateLabel)!.push(item)
+  })
+
+  // 转换为数组格式并保持顺序
+  groups.forEach((items, dateLabel) => {
+    result.push({ dateLabel, items })
+  })
+
+  return result
+})
+
 const hasMoreHistory = computed(() => {
   return paginatedHistoryList.value.length < filteredHistoryList.value.length
 })
@@ -2657,8 +2759,8 @@ const cancelEdit = async (history) => {
     // Find corresponding record
     const targetHistory = taskHistory.find((item) => item.id === history.id)
     if (targetHistory) {
-      // Reset to title in database
-      history.chatTitle = truncateText(targetHistory?.task || 'Agent Chat')
+      // Reset to title in database, prefer chatTitle if available
+      history.chatTitle = targetHistory?.chatTitle || targetHistory?.task || 'Agent Chat'
     }
     // Reset editing state
     history.isEditing = false
@@ -2676,661 +2778,97 @@ const cancelEdit = async (history) => {
 const chatContainer = ref<HTMLElement | null>(null)
 const chatResponse = ref<HTMLElement | null>(null)
 // Add a flag to track if collapse operation is being processed
-const isHandlingCollapse = ref(false)
-// Add flags to track user scroll behavior
-const isUserScrolling = ref(false)
-const userScrollTimeout = ref<NodeJS.Timeout | null>(null)
-const lastScrollTop = ref(0)
-const lastScrollHeight = ref(0)
-const isAutoScrollEnabled = ref(true)
-const lastUserScrollTime = ref(0)
-const lastScrollToBottomTime = ref(0)
-const lastCollapseCompleteTime = ref(0)
-const lastTodoUpdateTime = ref(0)
-let cleanupScrollListeners: (() => void) | null = null
+// const isHandlingCollapse = ref(false)
+// Track whether we should stick to bottom (auto-scroll only when user is already at bottom)
+const shouldStickToBottom = ref(true)
+const STICKY_THRESHOLD = 24 // px
 
-// Watch chatContainer changes to setup scroll listeners
-watch(
-  chatContainer,
-  (newContainer) => {
-    if (newContainer) {
-      nextTick(() => {
-        if (!newContainer.hasAttribute('data-listeners-setup')) {
-          // Clean up existing listeners if any
-          if (cleanupScrollListeners) {
-            cleanupScrollListeners()
-          }
-          // Setup new listeners and store cleanup function
-          cleanupScrollListeners = setupScrollListener()
-          newContainer.setAttribute('data-listeners-setup', 'true')
-        }
-      })
-    }
-  },
-  { immediate: true }
-)
-
-// Check if the user is near the bottom - prioritize user experience over technical precision
-const checkIfLastMessageVisible = () => {
-  if (!chatContainer.value) return false
-
-  // Method 1: Check distance from actual scroll bottom (simple and reliable)
-  const scrollTop = chatContainer.value.scrollTop
-  const scrollHeight = chatContainer.value.scrollHeight
-  const clientHeight = chatContainer.value.clientHeight
-  const distanceFromBottom = scrollHeight - scrollTop - clientHeight
-  const isNearScrollBottom = distanceFromBottom <= 150
-
-  // Method 2: Check if the last content (message or todo) is visible (more precise for user experience)
-  const messages = Array.from(chatContainer.value.querySelectorAll('.message.assistant, .message.user'))
-  const todoComponents = Array.from(chatContainer.value.querySelectorAll('.todo-inline'))
-
-  let isLastContentVisible = false
-
-  // Determine the last element to check
-  let lastElement: HTMLElement | null = null
-
-  if (todoComponents.length > 0) {
-    // If there are todo components, check the last one
-    lastElement = todoComponents[todoComponents.length - 1] as HTMLElement
-  } else if (messages.length > 0) {
-    // Otherwise check the last message
-    lastElement = messages[messages.length - 1] as HTMLElement
-  }
-
-  if (lastElement) {
-    const lastElementRect = lastElement.getBoundingClientRect()
-    const containerRect = chatContainer.value.getBoundingClientRect()
-
-    const isLastElementBottomVisible = lastElementRect.bottom <= containerRect.bottom + 50
-    const isLastElementInViewport = lastElementRect.bottom > containerRect.top && lastElementRect.top < containerRect.bottom
-
-    isLastContentVisible = isLastElementInViewport && (isLastElementBottomVisible || lastElementRect.bottom - containerRect.bottom <= 100)
-  }
-
-  // User is considered "near bottom" if either condition is true
-  // This provides better user experience while maintaining precision for both messages and todos
-  return isNearScrollBottom || isLastContentVisible
+const isAtBottom = (el: HTMLElement) => {
+  return el.scrollHeight - (el.scrollTop + el.clientHeight) <= STICKY_THRESHOLD
 }
 
-// Add user scroll detection function
-const handleUserScroll = () => {
+const handleContainerScroll = () => {
   if (!chatContainer.value) return
+  // Update sticky flag based on user's current position
+  shouldStickToBottom.value = isAtBottom(chatContainer.value)
+}
 
-  // Skip scroll detection during collapse operations
-  // Collapse operations trigger programmatic scrolling, not user scrolling
-  if (isHandlingCollapse.value) {
-    console.log('Skipping scroll detection - collapse operation in progress')
-    return
+// Observe DOM mutations within chat content to keep bottom anchored
+const domObserver = ref<MutationObserver | null>(null)
+const startObservingDom = () => {
+  // Clean up any previous observer
+  if (domObserver.value) {
+    try {
+      domObserver.value.disconnect()
+    } catch {}
   }
-
-  const currentTime = Date.now()
-
-  // Skip scroll detection for a short time after collapse operations complete
-  // This prevents false user scroll detection from programmatic scrolling
-  if (currentTime - lastCollapseCompleteTime.value < 300) {
-    console.log('Skipping scroll detection - recent collapse operation completed')
-    return
-  }
-
-  const currentScrollTop = chatContainer.value.scrollTop
-
-  // Simplified detection: only disable auto scroll if user scrolls significantly up and away from bottom
-  const timeSinceLastScroll = currentTime - lastUserScrollTime.value
-  const scrollDirection = currentScrollTop - lastScrollTop.value
-
-  // Check if user is near bottom or last message is visible
-  const isNearBottom = checkIfLastMessageVisible()
-
-  // console.log('handleUserScroll:', {
-  //   scrollDirection,
-  //   timeSinceLastScroll,
-  //   isNearBottom,
-  //   isUserScrolling: isUserScrolling.value,
-  //   isAutoScrollEnabled: isAutoScrollEnabled.value
-  // })
-
-  // PRIORITY 1: Respect user's scroll intent
-  // Only disable auto scroll if:
-  // 1. User scrolls up significantly (more than 100px - reduced threshold for better responsiveness)
-  // 2. It's been more than 200ms since last scroll (reduced for faster response)
-  // 3. User is not near the bottom
-  // 4. Auto scroll is currently enabled
-  if (scrollDirection < -100 && timeSinceLastScroll > 200 && !isNearBottom && isAutoScrollEnabled.value) {
-    console.log('Disabling auto scroll - user scrolled up away from bottom', {
-      scrollDirection,
-      timeSinceLastScroll,
-      isNearBottom,
-      currentScrollTop,
-      lastScrollTop: lastScrollTop.value,
-      scrollChange: currentScrollTop - lastScrollTop.value
+  if (!chatResponse.value) return
+  domObserver.value = new MutationObserver((mutations) => {
+    // 检查是否是由展开/收起 terminal output 导致的变化
+    const isTerminalToggle = mutations.some((mutation) => {
+      // 检查目标元素或其父元素是否包含 terminal-output 相关类名
+      let target = mutation.target as HTMLElement
+      while (target && target !== chatResponse.value) {
+        if (target.classList?.contains('terminal-output-container') || target.classList?.contains('terminal-output')) {
+          return true
+        }
+        target = target.parentElement as HTMLElement
+      }
+      return false
     })
-    isUserScrolling.value = true
-    isAutoScrollEnabled.value = false
-    lastUserScrollTime.value = currentTime
-  }
 
-  // Immediately re-enable auto scroll if user scrolls to bottom area
-  if (isNearBottom) {
-    if (isUserScrolling.value || !isAutoScrollEnabled.value) {
-      console.log('Re-enabling auto scroll - user is near bottom', {
-        wasUserScrolling: isUserScrolling.value,
-        wasAutoScrollEnabled: isAutoScrollEnabled.value
-      })
-      isUserScrolling.value = false
-      isAutoScrollEnabled.value = true
-      // Update last scroll time to prevent immediate re-triggering
-      lastUserScrollTime.value = currentTime
+    // 如果是 terminal output 的展开/收起操作，不触发自动滚动
+    if (isTerminalToggle) {
+      return
     }
-  }
 
-  lastScrollTop.value = currentScrollTop
-  lastScrollHeight.value = chatContainer.value.scrollHeight
-
-  // Clear existing timeout
-  if (userScrollTimeout.value) {
-    clearTimeout(userScrollTimeout.value)
-  }
-
-  // Set timeout to reset user scrolling flag after 1 second of inactivity
-  userScrollTimeout.value = setTimeout(() => {
-    // PRIORITY 1: Always respect user's current position
-    if (chatContainer.value) {
-      const isNearBottom = checkIfLastMessageVisible()
-      if (isNearBottom) {
-        console.log('Re-enabling auto scroll after timeout - user is near bottom', {
-          wasUserScrolling: isUserScrolling.value,
-          wasAutoScrollEnabled: isAutoScrollEnabled.value
-        })
-        isUserScrolling.value = false
-        isAutoScrollEnabled.value = true
-      } else {
-        console.log('User not near bottom after timeout - keeping auto scroll disabled')
+    // If user was at bottom, keep pinned during multi-line or batched updates
+    if (shouldStickToBottom.value) {
+      if (chatContainer.value) {
+        chatContainer.value.scrollTop = chatContainer.value.scrollHeight
       }
     }
-  }, 1000) // Faster timeout for better responsiveness
-}
-
-// Add scroll event listener setup - returns cleanup function
-const setupScrollListener = () => {
-  if (!chatContainer.value) return () => {}
-
-  const element = chatContainer.value
-
-  // Create event handler functions
-  const handleWheel = () => {
-    // Skip during collapse operations
-    if (isHandlingCollapse.value) {
-      console.log('Skipping wheel event - collapse operation in progress')
-      return
-    }
-    isUserScrolling.value = true
-    isAutoScrollEnabled.value = false
-    handleUserScroll()
-  }
-
-  const handleTouchStart = () => {
-    // Skip during collapse operations
-    if (isHandlingCollapse.value) {
-      console.log('Skipping touchstart event - collapse operation in progress')
-      return
-    }
-    isUserScrolling.value = true
-    isAutoScrollEnabled.value = false
-  }
-
-  const handleTouchMove = () => {
-    // Skip during collapse operations
-    if (isHandlingCollapse.value) {
-      console.log('Skipping touchmove event - collapse operation in progress')
-      return
-    }
-    isUserScrolling.value = true
-    isAutoScrollEnabled.value = false
-  }
-
-  const handleKeyDown = (e: KeyboardEvent) => {
-    const scrollKeys = ['ArrowUp', 'ArrowDown', 'PageUp', 'PageDown', 'Home', 'End', ' ']
-    if (scrollKeys.includes(e.key)) {
-      // Skip during collapse operations
-      if (isHandlingCollapse.value) {
-        console.log('Skipping keydown event - collapse operation in progress')
-        return
-      }
-      isUserScrolling.value = true
-      isAutoScrollEnabled.value = false
-      setTimeout(() => handleUserScroll(), 10)
-    }
-  }
-
-  const handleMouseDown = () => {
-    // Skip during collapse operations
-    if (isHandlingCollapse.value) {
-      console.log('Skipping mousedown event - collapse operation in progress')
-      return
-    }
-    isUserScrolling.value = true
-    isAutoScrollEnabled.value = false
-  }
-
-  // Add all event listeners
-  element.addEventListener('scroll', handleUserScroll, { passive: true })
-  element.addEventListener('wheel', handleWheel, { passive: true })
-  element.addEventListener('touchstart', handleTouchStart, { passive: true })
-  element.addEventListener('touchmove', handleTouchMove, { passive: true })
-  element.addEventListener('keydown', handleKeyDown)
-  element.addEventListener('mousedown', handleMouseDown)
-
-  // Return cleanup function
-  return () => {
-    element.removeEventListener('scroll', handleUserScroll)
-    element.removeEventListener('wheel', handleWheel)
-    element.removeEventListener('touchstart', handleTouchStart)
-    element.removeEventListener('touchmove', handleTouchMove)
-    element.removeEventListener('keydown', handleKeyDown)
-    element.removeEventListener('mousedown', handleMouseDown)
-  }
-}
-
-// Reset scroll flags and enable auto scroll for user interactions
-const resetScrollFlags = () => {
-  isUserScrolling.value = false
-  isAutoScrollEnabled.value = true
-  // Don't reset lastUserScrollTime to avoid interfering with scroll detection
-
-  // Immediately scroll to bottom
-  nextTick(() => {
-    scrollToBottom(true)
+  })
+  domObserver.value.observe(chatResponse.value, {
+    childList: true,
+    subtree: true,
+    characterData: true
   })
 }
 
 // Add auto scroll function
 const scrollToBottom = (force = false) => {
-  const currentTime = Date.now()
-
-  console.log('scrollToBottom called with force:', force, 'flags:', {
-    isUserScrolling: isUserScrolling.value,
-    isAutoScrollEnabled: isAutoScrollEnabled.value,
-    timeSinceLastScroll: currentTime - lastScrollToBottomTime.value
-  })
-
-  // If user is actively scrolling and not forced, don't execute auto scroll
-  if (!force && (isUserScrolling.value || !isAutoScrollEnabled.value)) {
-    console.log('scrollToBottom: skipping due to user scroll or disabled auto scroll')
+  // Only auto-scroll if we were already at the bottom
+  if (!force && !shouldStickToBottom.value) {
     return
   }
 
-  // Prevent rapid successive scroll calls (debounce with 50ms - shorter to allow normal updates)
-  if (!force && currentTime - lastScrollToBottomTime.value < 50) {
-    console.log('scrollToBottom: skipping due to recent scroll call')
-    return
-  }
-
-  lastScrollToBottomTime.value = currentTime
-
-  // If collapse operation is being processed, don't execute scrolling
-  if (isHandlingCollapse.value) {
-    // console.log('Processing collapse operation, skip auto scroll')
-    // console.log('1.scrollToBottom isHandlingCollapse')
-    handleCollapseChange()
-    return
-  }
-
-  // // Check if user is near bottom using our improved detection (skip for forced scroll)
-  // if (!force && chatContainer.value) {
-  //   const isNearBottom = checkIfLastMessageVisible()
-
-  //   // If not near bottom, don't execute scrolling
-  //   if (!isNearBottom) {
-  //     // console.log('2.scrollToBottom not isNearBottom')
-  //     handleCollapseChange()
-  //     return
-  //   }
-  // }
-
-  // Instead of scrolling to physical bottom, scroll to make last message visible
   nextTick(() => {
-    // Skip auto scroll if collapse operation is being handled (unless forced)
-    if (!force && isHandlingCollapse.value) {
-      return
-    }
-
-    const performScroll = () => {
-      if (chatContainer.value) {
-        // Find all content elements including messages and todo components
-        const messages = Array.from(chatContainer.value.querySelectorAll('.message.assistant, .message.user'))
-        const todoComponents = Array.from(chatContainer.value.querySelectorAll('.todo-inline'))
-
-        // Determine the last element to scroll to
-        let lastElement: HTMLElement | null = null
-        let scrollToTodo = false
-
-        // Only scroll to todo if it was recently updated (within 1 second)
-        const timeSinceTodoUpdate = Date.now() - lastTodoUpdateTime.value
-        const shouldScrollToTodo = todoComponents.length > 0 && timeSinceTodoUpdate < 1000
-
-        if (shouldScrollToTodo) {
-          // If todo was recently updated, scroll to the todo component
-          lastElement = todoComponents[todoComponents.length - 1] as HTMLElement
-          scrollToTodo = true
-          console.log('scrollToBottom: executing scroll to last todo component', {
-            force,
-            scrollTop: chatContainer.value.scrollTop,
-            scrollHeight: chatContainer.value.scrollHeight,
-            messageCount: messages.length,
-            todoCount: todoComponents.length,
-            timeSinceTodoUpdate
-          })
-        } else if (messages.length > 0) {
-          // Otherwise scroll to the last message
-          lastElement = messages[messages.length - 1] as HTMLElement
-          console.log('scrollToBottom: executing scroll to last message', {
-            force,
-            scrollTop: chatContainer.value.scrollTop,
-            scrollHeight: chatContainer.value.scrollHeight,
-            messageCount: messages.length,
-            todoCount: todoComponents.length
-          })
-        }
-
-        if (lastElement) {
-          // Use 'center' for todo components, 'end' for messages
-          const scrollBlock = scrollToTodo ? 'center' : 'end'
-          lastElement.scrollIntoView({ behavior: force ? 'auto' : 'smooth', block: scrollBlock })
-        } else {
-          // Fallback: scroll to container bottom if no content found
-          console.log('scrollToBottom: executing fallback scroll to bottom', {
-            force,
-            scrollTop: chatContainer.value.scrollTop,
-            scrollHeight: chatContainer.value.scrollHeight
-          })
-          chatContainer.value.scrollTo({
-            top: chatContainer.value.scrollHeight,
-            behavior: force ? 'auto' : 'smooth'
-          })
-        }
-      }
-    }
-
-    // Check if we have todo components, if not, wait a bit for them to render
-    const todoComponents = Array.from(chatContainer.value?.querySelectorAll('.todo-inline') || [])
-
-    if (todoComponents.length === 0) {
-      // Wait a bit for todo components to render, then try again
-      setTimeout(() => {
-        const todoComponentsAfterDelay = Array.from(chatContainer.value?.querySelectorAll('.todo-inline') || [])
-        if (todoComponentsAfterDelay.length > 0) {
-          console.log('scrollToBottom: todo components found after delay, retrying scroll')
-        }
-        performScroll()
-      }, 50) // Short delay to allow todo components to render
-    } else {
-      // Todo components already exist, scroll immediately
-      performScroll()
+    if (chatContainer.value) {
+      chatContainer.value.scrollTop = chatContainer.value.scrollHeight
     }
   })
 }
 
-// Check if the chat window is blank after collapse
-const isWindowBlankAfterCollapse = () => {
-  if (!chatContainer.value) return false
-
-  // Get visible messages in the viewport
-  const messages = Array.from(chatContainer.value.querySelectorAll('.message.assistant, .message.user'))
-  const containerRect = chatContainer.value.getBoundingClientRect()
-
-  // Check if any message is visible in the current viewport
-  let hasVisibleContent = false
-
-  for (const message of messages) {
-    const messageRect = message.getBoundingClientRect()
-
-    // Check if message overlaps with the container viewport
-    const isVisible = !(messageRect.bottom < containerRect.top || messageRect.top > containerRect.bottom)
-
-    if (isVisible) {
-      // Check if the message has actual visible content (not just collapsed headers)
-      const visibleText = message.textContent?.trim()
-      if (visibleText && visibleText.length > 0) {
-        hasVisibleContent = true
-        break
-      }
+// Re-attach scroll listener when container ref changes
+watch(
+  () => chatContainer.value,
+  (el, prev) => {
+    if (prev) prev.removeEventListener('scroll', handleContainerScroll)
+    if (el) {
+      el.addEventListener('scroll', handleContainerScroll, { passive: true })
+      shouldStickToBottom.value = isAtBottom(el)
     }
   }
+)
 
-  console.log('Blank window check:', {
-    hasVisibleContent,
-    totalMessages: messages.length,
-    containerHeight: containerRect.height,
-    scrollTop: chatContainer.value.scrollTop
-  })
-
-  return !hasVisibleContent
-}
-
-// Modify handleCollapseChange function
-const handleCollapseChange = (collapseType = '') => {
-  console.log('handleCollapseChange called with:', collapseType, 'isHandlingCollapse:', isHandlingCollapse.value)
-
-  // Set flag immediately to prevent any auto scroll interference
-  // Set the flag for any collapse operation to prevent interference
-  isHandlingCollapse.value = true
-  console.log('Set isHandlingCollapse to true for', collapseType)
-
-  // Skip collapse scroll handling if user is actively scrolling
-  // But still allow the collapse DOM changes to happen
-  if (isUserScrolling.value) {
-    console.log('Skipping collapse scroll handling - user is actively scrolling', {
-      isUserScrolling: isUserScrolling.value,
-      isAutoScrollEnabled: isAutoScrollEnabled.value,
-      collapseType: collapseType
-    })
-    // For auto-collapse operations, still proceed with DOM updates but skip scroll behavior
-    if (collapseType === 'code' || collapseType === 'thinking') {
-      console.log('Auto-collapse: allowing DOM updates but skipping scroll behavior')
-      // Reset the flag after a short delay to allow DOM updates, then check for blank window
-      setTimeout(() => {
-        console.log('Resetting isHandlingCollapse flag - auto-collapse DOM updates complete')
-        isHandlingCollapse.value = false
-        lastCollapseCompleteTime.value = Date.now()
-
-        // Check if window is blank after collapse
-        nextTick(() => {
-          if (isWindowBlankAfterCollapse()) {
-            console.log('Window is blank after collapse, force scrolling to show content')
-            scrollToBottom(true)
-          }
-        })
-      }, 200)
-    }
-    // For manual operations, do nothing - let user handle scrolling themselves
-    return
+// Re-attach DOM observer when content root ref changes
+watch(
+  () => chatResponse.value,
+  () => {
+    startObservingDom()
   }
-
-  // Wait for DOM to update before checking collapse state
-  // Use a longer delay for auto-collapse scenarios
-  const delay = collapseType === 'code' || collapseType === 'thinking' ? 100 : 0
-
-  setTimeout(() => {
-    nextTick(() => {
-      if (chatContainer.value) {
-        // First check if there are Monaco editor collapse blocks
-        const codeCollapses = chatContainer.value.querySelectorAll('.code-collapse')
-        console.log('Found code collapses:', codeCollapses.length, 'collapseType:', collapseType)
-
-        if (collapseType === 'code' && codeCollapses.length > 0) {
-          const lastCodeCollapse = codeCollapses[codeCollapses.length - 1]
-          const collapseHeader = lastCodeCollapse.querySelector('.ant-collapse-header')
-
-          // Check if expanded or collapsed state
-          const isCollapsed = lastCodeCollapse.querySelector('.ant-collapse-content-inactive')
-
-          console.log('Code collapse details:', {
-            lastCodeCollapse,
-            collapseHeader,
-            isCollapsed: !!isCollapsed
-          })
-
-          if (collapseHeader) {
-            if (isCollapsed) {
-              // If collapsed state, scroll Monaco editor top to center of window with smooth scrolling
-              // But only if auto scroll is enabled (user is in auto-scroll mode)
-              if (isAutoScrollEnabled.value) {
-                console.log('4.handleCollapseChange collapseHeader isCollapsed center - executing scrollIntoView', {
-                  isUserScrolling: isUserScrolling.value,
-                  isAutoScrollEnabled: isAutoScrollEnabled.value
-                })
-                collapseHeader.scrollIntoView({ behavior: 'smooth', block: 'end' })
-
-                // Reset collapse handling flag after scroll animation completes
-                setTimeout(() => {
-                  console.log('Code collapse: resetting isHandlingCollapse flag')
-                  isHandlingCollapse.value = false
-                  lastCollapseCompleteTime.value = Date.now()
-                }, 500) // Wait for smooth scroll to complete
-              } else {
-                console.log('4.handleCollapseChange collapseHeader isCollapsed - skip scroll (auto scroll disabled)')
-                // Reset flag immediately since no scroll operation
-                setTimeout(() => {
-                  console.log('Code collapse: resetting isHandlingCollapse flag (no scroll)')
-                  isHandlingCollapse.value = false
-                  lastCollapseCompleteTime.value = Date.now()
-                }, 100)
-              }
-
-              // 早期返回，阻止后续的通用重置逻辑
-              return
-            } else {
-              console.log('5.handleCollapseChange collapseHeader normal adjustScrollPosition', isCollapsed)
-              // If user is not actively scrolling, maintain auto scroll after collapse
-              if (!isUserScrolling.value && isAutoScrollEnabled.value) {
-                adjustScrollPosition()
-              }
-              // 早期返回，阻止后续的通用重置逻辑
-              return
-            }
-          } else {
-            console.log('No collapse header found for code collapse')
-          }
-        }
-
-        // Check if there are thinking collapse blocks
-        const thinkingCollapses = chatContainer.value.querySelectorAll('.thinking-collapse')
-        console.log('Found thinking collapses:', thinkingCollapses.length, 'collapseType:', collapseType)
-
-        if (collapseType === 'thinking' && thinkingCollapses.length > 0) {
-          const lastThinkingCollapse = thinkingCollapses[thinkingCollapses.length - 1]
-          const thinkingHeader = lastThinkingCollapse.querySelector('.ant-collapse-header')
-
-          // Check if expanded or collapsed state
-          const isCollapsed = lastThinkingCollapse.querySelector('.ant-collapse-content-inactive')
-
-          console.log('Thinking collapse details:', {
-            lastThinkingCollapse,
-            thinkingHeader,
-            isCollapsed: !!isCollapsed
-          })
-
-          if (thinkingHeader) {
-            if (isCollapsed) {
-              // If collapsed state, scroll thinking top to center of window with smooth scrolling
-              // But only if auto scroll is enabled (user is in auto-scroll mode)
-              if (isAutoScrollEnabled.value) {
-                console.log('6.handleCollapseChange thinkingHeader isCollapsed center - executing scrollIntoView')
-                thinkingHeader.scrollIntoView({ behavior: 'smooth', block: 'start' })
-
-                // Reset collapse handling flag after scroll animation completes
-                setTimeout(() => {
-                  console.log('Thinking collapse: resetting isHandlingCollapse flag')
-                  isHandlingCollapse.value = false
-                  lastCollapseCompleteTime.value = Date.now()
-                }, 500) // Wait for smooth scroll to complete
-              } else {
-                console.log('6.handleCollapseChange thinkingHeader isCollapsed - skip scroll (auto scroll disabled)')
-                // Reset flag immediately since no scroll operation
-                setTimeout(() => {
-                  console.log('Thinking collapse: resetting isHandlingCollapse flag (no scroll)')
-                  isHandlingCollapse.value = false
-                  lastCollapseCompleteTime.value = Date.now()
-                }, 100)
-              }
-
-              // 早期返回，阻止后续的通用重置逻辑
-              return
-            } else {
-              console.log('7.handleCollapseChange thinkingHeader normal adjustScrollPosition', isCollapsed)
-              // If user is not actively scrolling, maintain auto scroll after collapse
-              if (!isUserScrolling.value && isAutoScrollEnabled.value) {
-                adjustScrollPosition()
-              }
-              // 早期返回，阻止后续的通用重置逻辑
-              return
-            }
-          } else {
-            console.log('No thinking header found for thinking collapse')
-          }
-        }
-        // If no special collapse blocks exist, use normal scroll logic
-        // If user is not actively scrolling, maintain auto scroll after collapse
-        if (!isUserScrolling.value && isAutoScrollEnabled.value) {
-          adjustScrollPosition()
-        }
-        // console.log('8.handleCollapseChange normal adjustScrollPosition')
-      }
-    })
-  }, delay)
-
-  // Only reset the flag for non-specific collapse types or as a fallback
-  // Specific collapse types (code/thinking) handle their own flag reset
-  if (collapseType !== 'code' && collapseType !== 'thinking') {
-    setTimeout(() => {
-      console.log('General collapse: resetting isHandlingCollapse flag for', collapseType)
-      isHandlingCollapse.value = false
-      lastCollapseCompleteTime.value = Date.now()
-    }, 200) // Shorter delay for general cases
-  }
-}
-
-// Add a function specifically for adjusting scroll position after collapse
-const adjustScrollPosition = () => {
-  if (!chatContainer.value) return
-
-  // If user is actively scrolling, don't execute auto scroll
-  if (isUserScrolling.value || !isAutoScrollEnabled.value) {
-    // console.log('User is scrolling or auto scroll disabled, skip adjustScrollPosition')
-    return
-  }
-
-  // console.log('adjustScrollPosition: executing scroll adjustment')
-
-  // if (isHandlingCollapse.value) return
-  // Try to find the last visible message
-  const messages = Array.from(chatContainer.value.querySelectorAll('.message.assistant, .message.user'))
-
-  if (messages.length > 0) {
-    // Get the last message
-    const lastMessage = messages[messages.length - 1]
-
-    // Check if the last message is within the viewport
-    const rect = lastMessage.getBoundingClientRect()
-    const containerRect = chatContainer.value.getBoundingClientRect()
-
-    if (rect.bottom > containerRect.bottom || rect.top < containerRect.top) {
-      // If the last message is not within the viewport, scroll it to the bottom of the viewport with smooth scrolling
-      // console.log('9.adjustScrollPosition scroll last message to bottom of window')
-      lastMessage.scrollIntoView({ behavior: 'smooth', block: 'end' })
-      // console.log('Scroll last message to bottom of viewport')
-    } else {
-      // console.log('Last message is already within viewport, no adjustment needed')
-    }
-  } else {
-    // If no messages, scroll to bottom with smooth scrolling
-    chatContainer.value.scrollTo({
-      top: chatContainer.value.scrollHeight,
-      behavior: 'smooth'
-    })
-  }
-}
+)
 
 const toggleFavorite = async (history) => {
   history.isFavorite = !history.isFavorite
@@ -3508,1530 +3046,6 @@ defineExpose({
 })
 </script>
 
-<style lang="less">
-.history-dropdown-menu {
-  .ant-input {
-    background-color: var(--bg-color) !important;
-    border: 1px solid var(--border-color) !important;
-    color: var(--text-color) !important;
-    font-size: 12px !important;
-    padding: 0 4px !important;
-    height: 16px !important;
-    line-height: 16px !important;
-
-    &:focus {
-      border-color: #1890ff !important;
-      box-shadow: 0 0 0 2px rgba(24, 144, 255, 0.2) !important;
-    }
-  }
-}
-</style>
-
 <style lang="less" scoped>
-:root {
-  // Dark theme variables
-  .theme-dark {
-    --bg-color: #141414;
-    --bg-color-secondary: #1f1f1f;
-    --bg-color-quaternary: #3a3a3a;
-    --bg-color-quinary: #2a2a2a;
-    --text-color: #ffffff;
-    --text-color-secondary: #e0e0e0;
-    --text-color-tertiary: #666666;
-    --border-color: #333333;
-    --border-color-light: #3a3a3a;
-    --hover-bg-color: #2a2a2a;
-    --scrollbar-thumb: #2a2a2a;
-    --scrollbar-track: #1a1a1a;
-    --scrollbar-thumb-hover: #3a3a3a;
-    --icon-filter: invert(0.25);
-    --icon-filter-hover: invert(0.1);
-  }
-
-  // Light theme variables
-  .theme-light {
-    --bg-color: #ffffff;
-    --bg-color-secondary: #f5f5f5;
-    --bg-color-quaternary: #d9d9d9;
-    --bg-color-quinary: #e8e8e8;
-    --text-color: #000000;
-    --text-color-secondary: #333333;
-    --text-color-tertiary: #666666;
-    --border-color: #d9d9d9;
-    --border-color-light: #e8e8e8;
-    --hover-bg-color: #f0f0f0;
-    --scrollbar-thumb: #e8e8e8;
-    --scrollbar-track: #f5f5f5;
-    --scrollbar-thumb-hover: #d9d9d9;
-    --icon-filter: invert(0.75);
-    --icon-filter-hover: invert(0.9);
-  }
-}
-
-.ai-chat-custom-tabs {
-  :deep(.ant-tabs-tab:not(.ant-tabs-tab-active) .ant-tabs-tab-btn) {
-    color: var(--text-color-secondary);
-    transition:
-      color 0.2s,
-      text-shadow 0.2s;
-  }
-
-  :deep(.ant-tabs-nav) {
-    height: 26px;
-    margin-bottom: 2px;
-  }
-
-  :deep(.ant-tabs-tab) {
-    padding: 0 4px;
-    height: 22px;
-    line-height: 22px;
-    font-size: 12px;
-  }
-
-  :deep(.ant-tabs-content-holder) {
-    display: flex;
-    flex: 1;
-    min-height: 0;
-    max-height: 100%;
-  }
-
-  :deep(.ant-tabs-content) {
-    height: 100%;
-    width: 100%;
-  }
-
-  :deep(.ant-tabs-tabpane) {
-    display: flex;
-    flex-direction: column;
-    height: 100%;
-  }
-}
-
-.ai-chat-flex-container {
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-  background-color: var(--bg-color);
-  overflow: hidden;
-}
-
-.hosts-display-container {
-  position: relative;
-  background-color: var(--bg-color);
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
-  justify-content: flex-start;
-  user-select: text;
-  padding: 4px 8px;
-  border-radius: 8px 8px 0 0;
-  max-height: 100px;
-  overflow-y: auto;
-  scrollbar-width: thin;
-  scrollbar-color: var(--border-color) var(--bg-color-secondary);
-
-  &::-webkit-scrollbar {
-    width: 6px;
-  }
-
-  &::-webkit-scrollbar-track {
-    background: var(--bg-color-secondary);
-    border-radius: 3px;
-  }
-
-  &::-webkit-scrollbar-thumb {
-    background-color: var(--border-color);
-    border-radius: 3px;
-
-    &:hover {
-      background-color: var(--border-color-light);
-    }
-  }
-
-  :deep(.ant-tag) {
-    font-size: 10px;
-    padding: 0 6px;
-    height: 16px;
-    line-height: 16px;
-    display: flex;
-    align-items: center;
-    margin-left: 2px;
-    margin-bottom: 2px;
-    background-color: var(--bg-color-secondary) !important;
-    border: 1px solid var(--border-color) !important;
-    color: var(--text-color) !important;
-
-    .anticon-laptop {
-      color: #1890ff !important;
-      margin-right: 0cap;
-    }
-  }
-
-  .host-tag-with-delete {
-    position: relative;
-    padding-right: 20px !important;
-    height: 20px !important;
-    line-height: 20px !important;
-    padding-top: 2px !important;
-    padding-bottom: 2px !important;
-
-    .host-delete-btn {
-      position: absolute;
-      right: 4px;
-      top: 50%;
-      transform: translateY(-50%);
-      font-size: 8px;
-      color: var(--text-color-tertiary);
-      cursor: pointer;
-      padding: 1px;
-      border-radius: 2px;
-      transition: all 0.2s ease;
-
-      &:hover {
-        color: #ff4d4f;
-        background-color: rgba(255, 77, 79, 0.1);
-      }
-    }
-  }
-}
-
-.other-hosts-display-container {
-  background: var(--bg-color-secondary);
-  color: var(--text-color);
-  padding: 0 6px;
-  border-radius: 4px;
-  border: 1px solid var(--border-color);
-  font-weight: 400;
-  display: inline-flex;
-  align-items: center;
-  height: 16px;
-  line-height: 16px;
-  margin-left: 2px;
-  margin-top: 4px;
-}
-
-.hosts-display-container-host-tag {
-  background-color: var(--bg-color-secondary) !important;
-  border: 1px solid var(--border-color) !important;
-  color: var(--text-color) !important;
-  cursor: pointer;
-  font-size: 12px;
-  padding: 2px 6px;
-  border-radius: 4px;
-  transition: all 0.2s ease;
-  height: 20px;
-  line-height: 20px;
-  display: inline-flex;
-  align-items: center;
-  border: 1px solid #3a3a3a;
-
-  &:hover {
-    background-color: var(--hover-bg-color) !important;
-    border-color: var(--border-color-light) !important;
-  }
-}
-
-.chat-response-container {
-  flex-grow: 1;
-  overflow-y: auto;
-  padding: 0px 4px 4px 4px;
-  margin-top: 2px;
-  scrollbar-width: thin;
-  scrollbar-color: var(--border-color-light) transparent;
-  width: 100%;
-  min-height: 0;
-
-  &::-webkit-scrollbar {
-    width: 6px;
-  }
-
-  &::-webkit-scrollbar-track {
-    background: transparent;
-    border-radius: 3px;
-  }
-
-  &::-webkit-scrollbar-thumb {
-    background-color: var(--border-color-light);
-    border-radius: 3px;
-
-    &:hover {
-      background-color: var(--text-color-tertiary);
-    }
-  }
-}
-
-.chat-response {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  width: 100%;
-  min-width: 0;
-
-  .message {
-    display: inline-block;
-    padding: 8px 12px;
-    border-radius: 2px;
-    font-size: 12px;
-    line-height: 1.5;
-    box-sizing: border-box;
-    user-select: text;
-
-    &.user {
-      align-self: flex-end;
-      background-color: var(--bg-color-secondary);
-      color: var(--text-color);
-      border-radius: 4px;
-      border: none;
-      margin-left: auto;
-      float: right;
-      clear: both;
-    }
-
-    &.assistant {
-      color: var(--text-color);
-      width: 100%;
-      padding: 0;
-
-      &.completion-result {
-        background-color: var(--bg-color-secondary);
-        border-radius: 0 0 4px 4px;
-        padding: 0 8px 2px 8px;
-        margin-top: 0;
-      }
-
-      &.interactive-notification {
-        background-color: var(--bg-color-quaternary) !important;
-        border: none !important;
-        border-radius: 4px !important;
-        margin: 8px 0 !important;
-        padding: 8px 12px !important;
-        font-size: 12px !important;
-        line-height: 1.5715 !important;
-        position: relative;
-        overflow: hidden;
-
-        &:before {
-          content: '💡';
-          position: absolute;
-          left: 12px;
-          top: 8px;
-          font-size: 14px;
-          line-height: 1;
-        }
-
-        :deep(.markdown-content) {
-          color: var(--text-color) !important;
-          margin-left: 24px !important;
-          padding: 0 !important;
-          margin-top: 0 !important;
-          margin-bottom: 0 !important;
-          font-size: 12px !important;
-          line-height: 1.5715 !important;
-
-          p,
-          div,
-          span {
-            color: var(--text-color) !important;
-            font-size: 12px !important;
-            line-height: 1.5715 !important;
-            margin: 0 !important;
-          }
-
-          p:first-child {
-            margin-top: 0 !important;
-          }
-
-          p:last-child {
-            margin-bottom: 0 !important;
-          }
-        }
-      }
-    }
-  }
-}
-
-.input-send-container {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  background-color: var(--bg-color);
-  border-radius: 8px;
-  border: 1px solid var(--border-color);
-  width: 100%;
-
-  .chat-textarea {
-    background-color: var(--bg-color) !important;
-    color: var(--text-color) !important;
-    border: none !important;
-    box-shadow: none !important;
-    font-size: 12px !important;
-  }
-
-  :deep(.ant-input::placeholder) {
-    color: var(--text-color-tertiary) !important;
-  }
-
-  .ant-textarea {
-    background-color: var(--bg-color) !important;
-    border: none !important;
-    border-radius: 8px !important;
-    color: var(--text-color) !important;
-    padding: 8px 12px !important;
-    font-size: 12px !important;
-  }
-}
-
-.input-controls {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 4px;
-  padding: 8px 8px;
-  flex-wrap: nowrap;
-  min-height: 32px;
-
-  // 确保按钮组不会被压缩
-  .action-buttons-container {
-    flex-shrink: 0;
-  }
-
-  .ant-select {
-    width: 120px;
-
-    :deep(.ant-select-selector) {
-      background-color: transparent !important;
-      border: none !important;
-      border-radius: 4px !important;
-      color: var(--text-color) !important;
-      height: 24px !important;
-      line-height: 24px !important;
-    }
-
-    :deep(.ant-select-selection-item) {
-      font-size: 12px !important;
-      line-height: 24px !important;
-      color: var(--text-color) !important;
-    }
-
-    :deep(.ant-select-arrow) {
-      color: var(--text-color-tertiary) !important;
-    }
-
-    &:hover {
-      :deep(.ant-select-selector) {
-        background-color: var(--hover-bg-color) !important;
-      }
-    }
-  }
-
-  .action-buttons-container {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    margin-left: 4px;
-    flex-shrink: 0;
-
-    @media (max-width: 480px) {
-      gap: 6px;
-      margin-left: 2px;
-    }
-  }
-
-  .custom-round-button {
-    height: 18px;
-    width: 18px;
-    padding: 0;
-    border-radius: 50%;
-    font-size: 10px;
-    background-color: transparent;
-    border: 1px solid var(--border-color);
-    color: var(--text-color);
-    transition: all 0.2s ease;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 3px;
-
-    &:hover {
-      transform: scale(1.15);
-      background-color: var(--hover-bg-color);
-    }
-
-    &:active {
-      transform: scale(0.95);
-      box-shadow: none;
-    }
-
-    &[disabled] {
-      cursor: not-allowed;
-      opacity: 0.2;
-      pointer-events: none;
-
-      &:hover {
-        transform: none;
-      }
-    }
-  }
-}
-
-.assistant-message-container {
-  display: flex;
-  flex-direction: column;
-  gap: 0;
-  width: 100%;
-  position: relative;
-
-  &.last-message {
-    border-radius: 4px;
-    overflow: hidden;
-    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
-
-    .message-header {
-      background-color: var(--bg-color-secondary);
-      border-radius: 4px 4px 0 0;
-      padding: 4px 8px 0 8px;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      border-bottom: none;
-      margin-bottom: 0;
-      z-index: 2;
-      position: relative;
-    }
-
-    .message-title {
-      font-size: 12px;
-      font-weight: 500;
-      color: var(--text-color);
-    }
-
-    .message-feedback {
-      display: flex;
-      gap: 6px;
-
-      .feedback-btn {
-        height: 16px;
-        width: 16px;
-        padding: 0;
-        margin: 0;
-        border: none;
-        background: transparent;
-
-        &:hover {
-          background: var(--hover-bg-color);
-        }
-
-        &[disabled] {
-          cursor: not-allowed;
-
-          .anticon:not([style*='opacity: 1']) {
-            opacity: 0.5;
-          }
-
-          &:hover {
-            background: transparent;
-          }
-        }
-
-        .anticon {
-          font-size: 12px;
-        }
-      }
-
-      .like-btn {
-        .anticon {
-          color: var(--text-color-tertiary);
-
-          &:hover {
-            color: #52c41a;
-          }
-        }
-
-        &[disabled] .anticon[style*='color: #52c41a'] {
-          opacity: 1;
-          color: #52c41a !important;
-        }
-      }
-
-      .dislike-btn {
-        .anticon {
-          color: var(--text-color-tertiary);
-
-          &:hover {
-            color: #ff4d4f;
-          }
-        }
-
-        &[disabled] .anticon[style*='color: #ff4d4f'] {
-          opacity: 1;
-          color: #ff4d4f !important;
-        }
-      }
-    }
-  }
-
-  .message-actions {
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-    margin-top: 0px;
-    width: 100%;
-
-    .options-container {
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-      width: 100%;
-
-      .option-btn {
-        width: 100%;
-        height: auto;
-        white-space: normal;
-        text-align: left;
-        padding: 8px 12px;
-        line-height: 1.4;
-        font-size: 12px;
-        background-color: #2a2a2a;
-        border: 1px solid #3a3a3a;
-        color: #e0e0e0;
-        transition: all 0.2s ease;
-
-        &:hover {
-          background-color: #3a3a3a;
-          border-color: #4a4a4a;
-          transform: translateX(4px);
-        }
-
-        &:active {
-          background-color: #4a4a4a;
-          transform: translateX(2px);
-        }
-
-        &.selected {
-          background-color: #1656b1;
-          border-color: #2d6fcd;
-          color: white;
-          transform: none;
-
-          &:hover {
-            background-color: #1656b1;
-            border-color: #2d6fcd;
-            transform: none;
-          }
-        }
-      }
-
-      .options-radio-group {
-        width: 100%;
-
-        .ant-radio-group {
-          width: 100%;
-          display: flex;
-          flex-direction: column;
-          gap: 8px;
-        }
-
-        .option-radio {
-          width: 100%;
-          padding: 8px 12px;
-          margin: 0;
-          background-color: var(--bg-color-tertiary);
-          border: 1px solid var(--bg-color-quaternary);
-          border-radius: 6px;
-          color: var(--text-color);
-          transition: all 0.2s ease;
-
-          &:hover {
-            background-color: var(--bg-color-quaternary);
-            border-color: var(--bg-color-novenary);
-          }
-
-          .ant-radio {
-            margin-right: 8px;
-          }
-
-          .ant-radio-checked .ant-radio-inner {
-            background-color: var(--button-bg-color);
-            border-color: var(--button-bg-color);
-          }
-
-          &.custom-option {
-            border-style: dashed;
-            border-color: var(--bg-color-novenary);
-            display: flex;
-            align-items: flex-start;
-            gap: 8px;
-            padding: 8px 12px;
-
-            .custom-radio {
-              margin: 0;
-              margin-top: 2px; // 微调对齐到输入框的第一行文本
-              flex-shrink: 0; // 防止单选按钮被压缩
-            }
-
-            .custom-input {
-              flex: 1;
-              background-color: transparent;
-              border: none;
-              color: var(--text-color);
-              padding: 0;
-              min-height: 20px; // 设置最小高度与其他选项一致
-
-              &:focus {
-                border: none;
-                box-shadow: none;
-                background-color: var(--hover-bg-color);
-              }
-
-              &::placeholder {
-                color: var(--text-color-tertiary);
-              }
-
-              :deep(.ant-input) {
-                background-color: transparent !important;
-                border: none !important;
-                box-shadow: none !important;
-                padding: 2px 0 !important;
-                color: var(--text-color) !important;
-                line-height: 1.4 !important;
-                min-height: 20px !important;
-                resize: none !important;
-              }
-
-              // 确保单行时的高度一致
-              :deep(textarea) {
-                line-height: 1.4 !important;
-                min-height: 20px !important;
-              }
-            }
-          }
-        }
-      }
-
-      .submit-button-container {
-        margin-top: 12px;
-        display: flex;
-        justify-content: flex-end;
-
-        .submit-option-btn {
-          background-color: var(--button-bg-color);
-          border-color: var(--button-bg-color);
-          color: white;
-          border-radius: 6px;
-          font-size: 12px;
-          height: 32px;
-          padding: 0 16px;
-
-          &:hover:not(:disabled) {
-            background-color: var(--button-hover-bg);
-            border-color: var(--button-hover-bg);
-          }
-
-          &:disabled {
-            background-color: var(--bg-color-quaternary);
-            border-color: var(--bg-color-quaternary);
-            color: var(--text-color-tertiary);
-          }
-        }
-      }
-    }
-
-    .action-buttons {
-      width: 100%;
-      margin: 0;
-      padding: 0;
-
-      .button-row {
-        display: flex;
-        gap: 4px;
-        width: 100%;
-
-        &:has(.options-container) {
-          flex-direction: column;
-        }
-      }
-    }
-
-    .action-btn {
-      height: 18px;
-      padding: 0 6px;
-      border-radius: 4px;
-      font-size: 10px;
-      display: flex;
-      align-items: center;
-      gap: 3px;
-      transition: all 0.3s ease;
-      border: none;
-
-      &.copy-btn {
-        background-color: #2a2a2a;
-        color: #e0e0e0;
-
-        &:hover {
-          background-color: #3a3a3a;
-          transform: translateY(-1px);
-          box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
-        }
-
-        &:active {
-          transform: translateY(0);
-        }
-      }
-
-      &.apply-btn {
-        background-color: #4caf50;
-        color: white;
-
-        &:hover {
-          background-color: #45a049;
-          transform: translateY(-1px);
-          box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
-        }
-
-        &:active {
-          transform: translateY(0);
-        }
-      }
-
-      .anticon {
-        font-size: 12px;
-      }
-    }
-  }
-}
-
-.right-extra-buttons {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  padding: 0 4px;
-
-  .action-icon-btn {
-    width: 20px;
-    height: 20px;
-    padding: 0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: var(--text-color);
-    border-radius: 4px;
-    transition: all 0.3s ease;
-    filter: var(--icon-filter);
-
-    &:hover {
-      background-color: rgba(0, 0, 0, 0.06);
-      color: var(--text-color);
-      filter: var(--icon-filter-hover);
-    }
-
-    &:active {
-      background-color: rgba(0, 0, 0, 0.1);
-    }
-
-    .anticon,
-    img {
-      width: 14px;
-      height: 14px;
-      opacity: 0.65;
-    }
-  }
-}
-
-.history-dropdown-menu {
-  max-height: none;
-  overflow: visible;
-  padding: 4px 0 4px 4px;
-  background-color: var(--bg-color);
-  border: 1px solid var(--border-color);
-  border-radius: 8px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-  width: 280px !important;
-
-  :deep(.ant-dropdown-menu-item) {
-    padding: 0 4px 0 4px !important;
-    line-height: 30px !important;
-    height: 30px !important;
-  }
-
-  .history-search-container {
-    display: flex;
-    gap: 10px;
-    align-items: center;
-
-    :deep(.ant-input-affix-wrapper) {
-      border-color: var(--border-color);
-      box-shadow: none;
-    }
-
-    .favorites-button {
-      flex-shrink: 0;
-      border: none;
-      background-color: transparent;
-      margin-right: 6px;
-      padding: 0 6px;
-      height: 22px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-
-      &.ant-btn-primary {
-        background-color: transparent;
-        border: none;
-      }
-    }
-  }
-
-  .history-search-input {
-    width: 100%;
-    background-color: var(--bg-color) !important;
-
-    :deep(.ant-input) {
-      background-color: var(--bg-color) !important;
-      border: none !important;
-      color: var(--text-color) !important;
-      height: 20px !important;
-
-      &::placeholder {
-        color: var(--text-color-tertiary) !important;
-      }
-    }
-
-    :deep(.ant-input-clear-icon) {
-      color: var(--text-color-tertiary);
-
-      &:hover {
-        color: var(--text-color-secondary);
-      }
-    }
-  }
-}
-
-.history-virtual-list-container {
-  max-height: 360px;
-  overflow-y: auto;
-  scrollbar-width: thin;
-  scrollbar-color: var(--bg-color-quinary) transparent;
-
-  &::-webkit-scrollbar {
-    width: 4px;
-  }
-
-  &::-webkit-scrollbar-track {
-    background: transparent;
-    border-radius: 2px;
-  }
-
-  &::-webkit-scrollbar-thumb {
-    background-color: var(--bg-color-quinary);
-    border-radius: 2px;
-
-    &:hover {
-      background-color: var(--bg-color-quaternary);
-    }
-  }
-}
-
-.history-menu-item {
-  padding: 6px 8px !important;
-  margin: 2px 0 !important;
-  border-radius: 4px !important;
-  transition: all 0.2s ease !important;
-  min-height: unset !important;
-
-  .menu-action-buttons {
-    opacity: 0;
-    transition: opacity 0.2s ease;
-  }
-
-  &:hover {
-    background-color: var(--hover-bg-color) !important;
-    transform: translateX(2px);
-    border-color: var(--border-color-light);
-
-    .menu-action-buttons {
-      opacity: 1;
-    }
-  }
-
-  &:active {
-    background-color: var(--bg-color-secondary) !important;
-  }
-
-  &.favorite-item {
-    background-color: var(--bg-color) !important;
-    border-left: 2px solid #faad14 !important;
-
-    &:hover {
-      background-color: var(--bg-color-secondary) !important;
-    }
-  }
-}
-
-.history-item-content {
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  gap: 4px;
-  width: 100%;
-  min-width: 0;
-
-  :deep(.ant-input) {
-    background-color: var(--bg-color-secondary) !important;
-    border: 1px solid var(--border-color) !important;
-    color: var(--text-color) !important;
-    font-size: 13px !important;
-    padding: 0 4px !important;
-    height: 20px !important;
-    line-height: 20px !important;
-
-    &:focus {
-      border-color: var(--border-color) !important;
-      box-shadow: 0 0 0 2px rgba(58, 58, 58, 0.2) !important;
-    }
-  }
-
-  .menu-action-buttons {
-    display: flex;
-    gap: 0px;
-    margin-left: 0px;
-
-    > .menu-action-btn {
-      margin-left: -3px;
-    }
-  }
-
-  .history-title {
-    color: var(--text-color);
-    font-size: 12px;
-    font-weight: 500;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    flex: 1;
-    min-width: 0;
-  }
-
-  .history-title-input {
-    flex: 1;
-    margin-right: 8px;
-  }
-
-  .history-type {
-    color: #888;
-    font-size: 10px;
-    padding: 1px 4px;
-    background-color: #333;
-    border-radius: 3px;
-    display: inline-block;
-    width: fit-content;
-    flex-shrink: 0;
-  }
-
-  :deep(.ant-input::placeholder) {
-    color: #666 !important;
-  }
-
-  .action-status {
-    padding: 4px 8px;
-    border-radius: 4px;
-    font-size: 12px;
-
-    &.approved {
-      background-color: #52c41a20;
-      color: #52c41a;
-    }
-
-    &.rejected {
-      background-color: #ff4d4f20;
-      color: #ff4d4f;
-    }
-  }
-
-  .action-buttons {
-    margin: 0;
-    padding: 0;
-    width: 100%;
-
-    .button-row {
-      display: flex;
-      gap: 4px;
-      justify-content: flex-end;
-      margin-top: 2px;
-
-      .options-container {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 4px;
-        width: 100%;
-        justify-content: flex-end;
-
-        &.vertical-layout {
-          flex-direction: column;
-          align-items: stretch;
-
-          .action-btn {
-            width: 100%;
-            justify-content: flex-start;
-            text-align: left;
-          }
-        }
-      }
-    }
-  }
-}
-
-.bottom-container {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  position: relative;
-  flex-shrink: 0;
-}
-
-.bottom-buttons {
-  display: flex;
-  gap: 8px;
-  width: 100%;
-  padding: 4px 8px;
-
-  &.cancel-row {
-    padding-top: 0;
-  }
-
-  .reject-btn,
-  .approve-btn,
-  .cancel-btn,
-  .retry-btn,
-  .resume-btn {
-    flex: 1;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 4px;
-    font-size: 10px;
-    border-radius: 4px;
-    transition: all 0.3s ease;
-  }
-
-  .reject-btn {
-    .theme-dark & {
-      background-color: #2a2a2a;
-      border-color: #3a3a3a;
-      color: #e0e0e0;
-
-      &:hover {
-        background-color: #ff4d4f20;
-        border-color: #ff4d4f;
-        color: #ff4d4f;
-      }
-
-      &[disabled] {
-        background-color: #141414 !important;
-        border-color: #2a2a2a !important;
-        color: #666666 !important;
-        cursor: not-allowed;
-
-        &:hover {
-          background-color: #141414 !important;
-          border-color: #2a2a2a !important;
-          color: #666666 !important;
-        }
-      }
-    }
-
-    .theme-light & {
-      background-color: #fff;
-      border: 1px solid #d9d9d9;
-      color: #666;
-
-      &:hover {
-        color: #ff4d4f;
-        border-color: #ff4d4f;
-        background-color: #fff1f0;
-      }
-
-      &[disabled] {
-        background-color: #f5f5f5 !important;
-        border-color: #d9d9d9 !important;
-        color: #d9d9d9 !important;
-        cursor: not-allowed;
-      }
-    }
-  }
-
-  .approve-btn {
-    .theme-dark & {
-      color: #e0e0e0;
-      background-color: #1656b1;
-      border-color: #2d6fcd;
-
-      &:hover {
-        background-color: #52c41a20;
-        border-color: #52c41a;
-        color: #52c41a;
-      }
-
-      &[disabled] {
-        background-color: #141414 !important;
-        border-color: #2a2a2a !important;
-        color: #666666 !important;
-        cursor: not-allowed;
-
-        &:hover {
-          background-color: #141414 !important;
-          border-color: #2a2a2a !important;
-          color: #666666 !important;
-        }
-      }
-    }
-
-    .theme-light & {
-      background-color: #1890ff;
-      border-color: #1890ff;
-      color: #fff;
-
-      &:hover {
-        background-color: #40a9ff;
-        border-color: #40a9ff;
-      }
-
-      &[disabled] {
-        background-color: #f5f5f5 !important;
-        border-color: #d9d9d9 !important;
-        color: #d9d9d9 !important;
-        cursor: not-allowed;
-      }
-    }
-  }
-
-  .cancel-btn {
-    .theme-dark & {
-      background-color: #2a2a2a;
-      border-color: #3a3a3a;
-      color: #666666;
-
-      &:hover {
-        background-color: #3a3a3a;
-        border-color: #4a4a4a;
-        color: #888888;
-      }
-
-      &[disabled] {
-        background-color: #141414 !important;
-        border-color: #2a2a2a !important;
-        color: #666666 !important;
-        cursor: not-allowed;
-
-        &:hover {
-          background-color: #141414 !important;
-          border-color: #2a2a2a !important;
-          color: #666666 !important;
-        }
-      }
-    }
-
-    .theme-light & {
-      background-color: #fff;
-      border: 1px solid #d9d9d9;
-      color: #666;
-
-      &:hover {
-        color: #40a9ff;
-        border-color: #40a9ff;
-      }
-
-      &[disabled] {
-        background-color: #f5f5f5 !important;
-        border-color: #d9d9d9 !important;
-        color: #d9d9d9 !important;
-        cursor: not-allowed;
-      }
-    }
-  }
-
-  .resume-btn {
-    .theme-dark & {
-      background-color: #1656b1;
-      border-color: #2d6fcd;
-      color: #cccccc;
-      opacity: 0.65;
-
-      &:hover {
-        opacity: 1;
-        background-color: #1656b1;
-        border-color: #2d6fcd;
-        color: #ffffff;
-      }
-
-      &[disabled] {
-        background-color: #141414 !important;
-        border-color: #2a2a2a !important;
-        color: #666666 !important;
-        cursor: not-allowed;
-
-        &:hover {
-          background-color: #141414 !important;
-          border-color: #2a2a2a !important;
-          color: #666666 !important;
-        }
-      }
-    }
-
-    .theme-light & {
-      background-color: #1890ff;
-      border-color: #1890ff;
-      color: #fff;
-      opacity: 0.65;
-
-      &:hover {
-        opacity: 1;
-        background-color: #40a9ff;
-        border-color: #40a9ff;
-      }
-
-      &[disabled] {
-        background-color: #f5f5f5 !important;
-        border-color: #d9d9d9 !important;
-        color: #d9d9d9 !important;
-        cursor: not-allowed;
-      }
-    }
-  }
-}
-
-.mini-host-search-input {
-  background-color: var(--bg-color-secondary) !important;
-  border: 1px solid var(--border-color) !important;
-
-  :deep(.ant-input) {
-    height: 22px !important;
-    font-size: 12px !important;
-    background-color: var(--bg-color-secondary) !important;
-    color: var(--text-color-secondary) !important;
-
-    &::placeholder {
-      color: var(--text-color-tertiary) !important;
-    }
-
-    padding: 0px 0px 2px 2px !important;
-    line-height: 22px !important;
-  }
-}
-
-.host-select-popup {
-  position: absolute;
-  bottom: 100%;
-  left: 0;
-  width: 229px;
-  background: var(--bg-color);
-  border-radius: 4px;
-  box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.15);
-  border: 1px solid var(--border-color);
-  margin-bottom: 4px;
-  margin-left: 8px;
-  max-height: 240px;
-  // overflow: hidden;
-}
-
-.host-select-list {
-  max-height: 200px;
-  overflow-y: auto;
-  padding: 2px 0px 2px 0px;
-  scrollbar-width: thin;
-  scrollbar-color: var(--bg-color-quinary) var(--bg-color-senary);
-
-  &::-webkit-scrollbar {
-    width: 6px;
-  }
-
-  &::-webkit-scrollbar-track {
-    background: var(--scrollbar-track);
-    border-radius: 3px;
-  }
-
-  &::-webkit-scrollbar-thumb {
-    background-color: var(--scrollbar-thumb);
-    border-radius: 3px;
-
-    &:hover {
-      background-color: var(--scrollbar-thumb-hover);
-    }
-  }
-}
-
-.host-select-item {
-  padding: 2px 6px;
-  cursor: pointer;
-  bottom: 100%;
-  border-radius: 3px;
-  margin-bottom: 2px;
-  background: var(--bg-color);
-  color: var(--text-color);
-  font-size: 12px;
-  line-height: 16px;
-  transition: all 0.2s;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-
-  .host-label {
-    flex: 1;
-  }
-
-  .host-selected-icon {
-    font-size: 10px;
-    color: #52c41a;
-    margin-left: 4px;
-  }
-
-  &.hovered {
-    background: var(--hover-bg-color);
-  }
-
-  &.keyboard-selected {
-    background: var(--hover-bg-color);
-    outline: 2px solid rgba(24, 144, 255, 0.5);
-    outline-offset: -2px;
-  }
-}
-
-.host-select-empty {
-  color: var(--text-color-tertiary);
-  text-align: center;
-  padding: 8px 0;
-}
-
-.ai-welcome-container {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-
-  .ai-welcome-icon {
-    margin-bottom: 12px;
-
-    img {
-      width: 28px;
-      height: 28px;
-      opacity: 0.65;
-      filter: var(--icon-filter);
-      transition: filter 0.2s ease;
-    }
-  }
-
-  .ai-welcome-text {
-    color: var(--text-color);
-    font-size: 14px;
-    text-align: center;
-    font-weight: 400;
-    opacity: 0.65;
-  }
-}
-
-.menu-action-btn {
-  background: none !important;
-  border: none !important;
-  box-shadow: none !important;
-  color: var(--text-color) !important;
-  padding: 0;
-  min-width: 0;
-  height: 16px;
-  line-height: 20px;
-  font-size: 12px;
-  margin-left: 0;
-  margin-right: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 16px;
-
-  :deep(.anticon) {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 100%;
-  }
-
-  &:hover,
-  &:focus {
-    background: none !important;
-  }
-
-  &:hover :deep(.anticon) {
-    color: #1890ff !important;
-  }
-
-  &.save-btn:hover :deep(.anticon) {
-    color: #52c41a !important;
-  }
-
-  &.cancel-btn:hover :deep(.anticon) {
-    color: #ff4d4f !important;
-  }
-
-  &.favorite-btn:hover :deep(.anticon) {
-    color: #faad14 !important;
-  }
-}
-
-.history-load-more {
-  text-align: center;
-  padding: 8px;
-  color: var(--text-color-tertiary);
-  font-size: 12px;
-  cursor: pointer;
-  transition: color 0.2s;
-
-  &:hover {
-    color: #1890ff;
-    background-color: var(--hover-bg-color);
-  }
-}
-
-.processing-text {
-  font-size: 10px;
-  color: var(--text-color);
-}
-
-.ai-login-prompt {
-  text-align: center;
-  margin-top: 20px;
-
-  p {
-    color: var(--text-color);
-    font-size: 12px;
-    margin-bottom: 20px;
-  }
-
-  .login-button {
-    min-width: 150px;
-    height: 32px;
-    font-size: 14px;
-  }
-}
-
-.model-label {
-  display: inline-flex;
-  align-items: center;
-}
-
-.thinking-icon {
-  width: 16px;
-  height: 16px;
-  margin-right: 6px;
-  filter: var(--icon-filter);
-  transition: filter 0.2s ease;
-}
-
-// Todo 相关样式
-.ai-tab-container {
-  position: relative;
-  height: 100%;
-}
-
-.todo-inline {
-  margin: 8px 0;
-}
+@import './index.less';
 </style>

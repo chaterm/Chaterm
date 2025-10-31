@@ -84,6 +84,124 @@ export function getAssetGroupLogic(db: Database.Database): any {
   }
 }
 
+export function createOrUpdateAssetLogic(db: Database.Database, params: any): any {
+  try {
+    const form = params
+    if (!form) {
+      throw new Error('No asset data provided')
+    }
+
+    const now = new Date().toISOString()
+
+    // 首先检查是否存在重复的资产（基于 IP + 用户名 + 端口 + 别名）
+    const checkDuplicateStmt = db.prepare(`
+      SELECT uuid, label, created_at FROM t_assets 
+      WHERE asset_ip = ? AND username = ? AND port = ? AND label = ?
+    `)
+    const existingAsset = checkDuplicateStmt.get(form.ip, form.username, form.port, form.label || form.ip)
+
+    if (existingAsset) {
+      // 如果存在重复资产，更新现有记录
+      const updateStmt = db.prepare(`
+        UPDATE t_assets SET
+          label = ?,
+          auth_type = ?,
+          password = ?,
+          key_chain_id = ?,
+          group_name = ?,
+          asset_type = ?,
+          need_proxy = ?,
+          proxy_name = ?,
+          updated_at = ?,
+          version = version + 1
+        WHERE uuid = ?
+      `)
+
+      const result = updateStmt.run(
+        form.label || form.ip,
+        form.auth_type,
+        form.password,
+        form.keyChain,
+        form.group_name,
+        form.asset_type || 'person',
+        form.needProxy ? 1 : 0,
+        form.proxyName,
+        now,
+        existingAsset.uuid
+      )
+
+      if (result.changes > 0) {
+        triggerIncrementalSync()
+      }
+
+      return {
+        data: {
+          message: result.changes > 0 ? 'updated' : 'failed',
+          uuid: existingAsset.uuid,
+          action: 'updated'
+        }
+      }
+    }
+
+    // 如果不存在重复，创建新资产
+    const uuid = uuidv4()
+    const insertStmt = db.prepare(`
+        INSERT INTO t_assets (
+          label,
+          asset_ip,
+          uuid,
+          auth_type,
+          port,
+          username,
+          password,
+          key_chain_id,
+          group_name,
+          favorite,
+          asset_type,
+          need_proxy,
+          proxy_name,
+          created_at,
+          updated_at,
+          version
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `)
+
+    const result = insertStmt.run(
+      form.label || form.ip,
+      form.ip,
+      uuid,
+      form.auth_type,
+      form.port,
+      form.username,
+      form.password,
+      form.keyChain,
+      form.group_name,
+      2,
+      form.asset_type || 'person',
+      form.needProxy ? 1 : 0,
+      form.proxyName,
+      now,
+      now,
+      1
+    )
+
+    if (result.changes > 0) {
+      triggerIncrementalSync()
+    }
+
+    return {
+      data: {
+        message: result.changes > 0 ? 'success' : 'failed',
+        uuid: uuid,
+        action: 'created'
+      }
+    }
+  } catch (error) {
+    console.error('Chaterm database create or update asset error:', error)
+    throw error
+  }
+}
+
 export function createAssetLogic(db: Database.Database, params: any): any {
   try {
     const form = params
@@ -91,9 +209,29 @@ export function createAssetLogic(db: Database.Database, params: any): any {
       throw new Error('No asset data provided')
     }
 
-    const uuid = uuidv4()
     const now = new Date().toISOString()
 
+    // 首先检查是否存在重复的资产（基于 IP + 用户名 + 端口 + 别名）
+    const checkDuplicateStmt = db.prepare(`
+      SELECT uuid, label, created_at FROM t_assets 
+      WHERE asset_ip = ? AND username = ? AND port = ? AND label = ?
+    `)
+    const existingAsset = checkDuplicateStmt.get(form.ip, form.username, form.port, form.label || form.ip)
+
+    if (existingAsset) {
+      // 如果存在重复资产，返回重复信息而不是创建新记录
+      return {
+        data: {
+          message: 'duplicate',
+          uuid: existingAsset.uuid,
+          existingLabel: existingAsset.label,
+          existingCreatedAt: existingAsset.created_at
+        }
+      }
+    }
+
+    // 如果不存在重复，创建新资产
+    const uuid = uuidv4()
     const insertStmt = db.prepare(`
         INSERT INTO t_assets (
           label,

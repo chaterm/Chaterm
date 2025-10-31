@@ -6,6 +6,7 @@ import {
   updateLocalAsseFavoriteLogic,
   getAssetGroupLogic,
   createAssetLogic,
+  createOrUpdateAssetLogic,
   deleteAssetLogic,
   updateAssetLogic,
   connectAssetInfoLogic,
@@ -107,6 +108,10 @@ export class ChatermDatabaseService {
 
   createAsset(params: any): any {
     return createAssetLogic(this.db, params)
+  }
+
+  createOrUpdateAsset(params: any): any {
+    return createOrUpdateAssetLogic(this.db, params)
   }
 
   deleteAsset(uuid: string): any {

@@ -400,7 +400,7 @@ defineExpose({
   height: 18px;
   width: 18px;
   padding: 0;
-  border-radius: 50%;
+  border-radius: 4px;
   font-size: 10px;
   background-color: transparent;
   border: none;

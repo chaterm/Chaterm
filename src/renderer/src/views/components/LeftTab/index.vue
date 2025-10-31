@@ -308,7 +308,6 @@ onUnmounted(() => {
 .term_left_tab {
   width: 100%;
   height: 100%;
-  border-right: 1px solid var(--border-color-light);
   padding: 10px 0;
   display: flex;
   flex-direction: column;

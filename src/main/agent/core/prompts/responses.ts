@@ -203,28 +203,7 @@ Otherwise, if you have not completed the task and do not need additional informa
     `Now that you have the latest state of the file, try the operation again with fewer, more precise SEARCH blocks. For large files especially, it may be prudent to try to limit yourself to <5 SEARCH/REPLACE blocks at a time, then wait for the user to respond with the result of the operation before following up with another replace_in_file call to make additional edits.\n(If you run into this error 3 times in a row, you may use the write_to_file tool as a fallback.)`,
 
   toolAlreadyUsed: (toolName: string) =>
-    `Tool [${toolName}] was not executed because a tool has already been used in this message. Only one tool may be used per message. You must assess the first tool's result before proceeding to use the next tool.`,
-
-  // clineIgnoreInstructions: (content: string) =>
-  // 	`# .clineignore\n\n(The following is provided by a root-level .clineignore file where the user has specified files and directories that should not be accessed. When using list_files, you'll notice a ${LOCK_TEXT_SYMBOL} next to files that are blocked. Attempting to access the file's contents e.g. through read_file will result in an error.)\n\n${content}\n.clineignore`,
-
-  clineRulesGlobalDirectoryInstructions: (globalClineRulesFilePath: string, content: string) =>
-    `# .clinerules/\n\nThe following is provided by a global .clinerules/ directory, located at ${globalClineRulesFilePath.toPosix()}, where the user has specified instructions for all working directories:\n\n${content}`,
-
-  clineRulesLocalDirectoryInstructions: (cwd: string, content: string) =>
-    `# .clinerules/\n\nThe following is provided by a root-level .clinerules/ directory where the user has specified instructions for this working directory (${cwd.toPosix()})\n\n${content}`,
-
-  clineRulesLocalFileInstructions: (cwd: string, content: string) =>
-    `# .clinerules\n\nThe following is provided by a root-level .clinerules file where the user has specified instructions for this working directory (${cwd.toPosix()})\n\n${content}`,
-
-  windsurfRulesLocalFileInstructions: (cwd: string, content: string) =>
-    `# .windsurfrules\n\nThe following is provided by a root-level .windsurfrules file where the user has specified instructions for this working directory (${cwd.toPosix()})\n\n${content}`,
-
-  cursorRulesLocalFileInstructions: (cwd: string, content: string) =>
-    `# .cursorrules\n\nThe following is provided by a root-level .cursorrules file where the user has specified instructions for this working directory (${cwd.toPosix()})\n\n${content}`,
-
-  cursorRulesLocalDirectoryInstructions: (cwd: string, content: string) =>
-    `# .cursor/rules\n\nThe following is provided by a root-level .cursor/rules directory where the user has specified instructions for this working directory (${cwd.toPosix()})\n\n${content}`
+    `Tool [${toolName}] was not executed because a tool has already been used in this message. Only one tool may be used per message. You must assess the first tool's result before proceeding to use the next tool.`
 }
 
 // to avoid circular dependency

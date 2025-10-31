@@ -265,6 +265,15 @@ const createAsset = async (data: { form: Record<string, unknown> }) => {
   }
 }
 
+const createOrUpdateAsset = async (data: { form: Record<string, unknown> }) => {
+  try {
+    const result = await ipcRenderer.invoke('asset-create-or-update', data)
+    return result
+  } catch (error) {
+    return Promise.reject(error)
+  }
+}
+
 const updateAsset = async (data: { form: Record<string, unknown> }) => {
   try {
     const result = await ipcRenderer.invoke('asset-update', data)
@@ -551,6 +560,7 @@ const api = {
   chatermUpdate,
   deleteAsset,
   createAsset,
+  createOrUpdateAsset,
   updateAsset,
   createKeyChain,
   deleteKeyChain,
@@ -627,6 +637,29 @@ const api = {
     ipcRenderer.on('ssh:keyboard-interactive-result', listener)
     return () => ipcRenderer.removeListener('ssh:keyboard-interactive-result', listener)
   },
+
+  // JumpServer user selection
+  onUserSelectionRequest: (callback) => {
+    const listener = (_event, data) => {
+      callback(data)
+    }
+    ipcRenderer.on('jumpserver:user-selection-request', listener)
+    return () => ipcRenderer.removeListener('jumpserver:user-selection-request', listener)
+  },
+  onUserSelectionTimeout: (callback) => {
+    const listener = (_event, data) => {
+      callback(data)
+    }
+    ipcRenderer.on('jumpserver:user-selection-timeout', listener)
+    return () => ipcRenderer.removeListener('jumpserver:user-selection-timeout', listener)
+  },
+  sendUserSelectionResponse: (id, userId) => {
+    ipcRenderer.send(`jumpserver:user-selection-response:${id}`, userId)
+  },
+  sendUserSelectionCancel: (id) => {
+    ipcRenderer.send(`jumpserver:user-selection-cancel:${id}`)
+  },
+
   // 本地主机API
   getLocalWorkingDirectory: () => ipcRenderer.invoke('local:get-working-directory'),
   executeLocalCommand: (command: string) => ipcRenderer.invoke('local:execute-command', command),
@@ -695,6 +728,14 @@ const api = {
     ipcRenderer.on('main-to-webview', handler)
     return () => {
       ipcRenderer.removeListener('main-to-webview', handler)
+    }
+  },
+  // Dedicated IPC channel for command generation responses
+  onCommandGenerationResponse: (callback) => {
+    const handler = (_event, response) => callback(response)
+    ipcRenderer.on('command-generation-response', handler)
+    return () => {
+      ipcRenderer.removeListener('command-generation-response', handler)
     }
   },
   // New method to call executeRemoteCommand in the main process

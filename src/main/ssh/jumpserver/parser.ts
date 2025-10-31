@@ -19,6 +19,12 @@ export interface ParsedOutput {
   pagination: PaginationInfo
 }
 
+export interface JumpServerUser {
+  id: number
+  name: string
+  username: string
+}
+
 /**
  * 解析资产信息
  */
@@ -81,4 +87,63 @@ export function parseJumpserverOutput(output: string): ParsedOutput {
   const assets = parseAssets(output)
   const pagination = parsePagination(output)
   return { assets, pagination }
+}
+
+/**
+ * Parse JumpServer user list from output
+ * @param output JumpServer shell output containing user table
+ * @returns Array of parsed users
+ */
+export function parseJumpServerUsers(output: string): JumpServerUser[] {
+  const users: JumpServerUser[] = []
+  const lines = output.split('\n')
+  // Match pattern: ID | NAME | USERNAME
+  const userRegex = /^\s*(\d+)\s*\|\s*([^|]+?)\s*\|\s*([^|]+?)\s*$/
+
+  let foundUserHeader = false
+
+  for (const line of lines) {
+    // Detect user table header (ID | NAME | USERNAME)
+    if (line.includes('ID') && line.includes('NAME') && line.includes('USERNAME')) {
+      foundUserHeader = true
+      continue
+    }
+
+    // Skip separator lines
+    if (line.includes('---+---')) {
+      continue
+    }
+
+    if (foundUserHeader) {
+      // Stop parsing when we hit Tips or other non-table content
+      if (line.includes('Tips:') || line.includes('Back:') || line.includes('ID>')) {
+        break
+      }
+
+      const match = line.match(userRegex)
+      if (match) {
+        try {
+          const user: JumpServerUser = {
+            id: parseInt(match[1].trim()),
+            name: match[2].trim(),
+            username: match[3].trim()
+          }
+          users.push(user)
+        } catch (e) {
+          console.error('Failed to parse user line:', line, e)
+        }
+      }
+    }
+  }
+
+  return users
+}
+
+/**
+ * Detect if output contains user selection prompt
+ * @param output JumpServer shell output
+ * @returns true if user selection is required
+ */
+export function hasUserSelectionPrompt(output: string): boolean {
+  return output.includes('account ID') && output.includes('ID') && output.includes('NAME') && output.includes('USERNAME')
 }

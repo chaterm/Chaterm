@@ -6,7 +6,7 @@ import { telemetryService } from '@services/telemetry/TelemetryService'
 import pWaitFor from 'p-wait-for'
 import { serializeError } from 'serialize-error'
 import { ApiHandler, buildApiHandler } from '@api/index'
-import { ApiStream } from '@api/transform/stream'
+import { ApiStream, ApiStreamUsageChunk, ApiStreamReasoningChunk, ApiStreamTextChunk } from '@api/transform/stream'
 import { formatContentBlockToMarkdown } from '@integrations/misc/export-markdown'
 import { showSystemNotification } from '@integrations/notifications'
 import { ApiConfiguration } from '@shared/api'
@@ -33,7 +33,11 @@ import { TodoWriteTool, TodoWriteParams } from './todo-tools/todo_write_tool'
 import { TodoReadTool, TodoReadParams } from './todo-tools/todo_read_tool'
 import { Todo } from '../../shared/todo/TodoSchemas'
 import { SmartTaskDetector, TODO_SYSTEM_MESSAGES } from './todo-tools/todo-prompts'
+import { TodoContextTracker } from '../services/todo_context_tracker'
 import { TodoToolCallTracker } from '../services/todo_tool_call_tracker'
+import { globSearch } from '../../services/glob/list-files'
+import { regexSearchMatches as localGrepSearch } from '../../services/grep/index'
+import { buildRemoteGlobCommand, parseRemoteGlobOutput, buildRemoteGrepCommand, parseRemoteGrepOutput } from '../../services/search/remote'
 
 interface StreamMetrics {
   didReceiveUsageChunk?: boolean
@@ -63,6 +67,7 @@ import { getGlobalState, getUserConfig } from '@core/storage/state'
 import WorkspaceTracker from '@integrations/workspace/WorkspaceTracker'
 import { connectAssetInfo } from '../../../storage/database'
 import { getMessages, formatMessage, Messages } from './messages'
+import { decodeHtmlEntities } from '@utils/decodeHtmlEntities'
 
 import type { Host } from '@shared/WebviewMessage'
 
@@ -80,6 +85,7 @@ export class Task {
   hosts: Host[]
   cwd: Map<string, string> = new Map()
   private taskIsFavorited?: boolean
+  chatTitle?: string // Store the LLM-generated chat title
   api: ApiHandler
   contextManager: ContextManager
   private remoteTerminalManager: RemoteTerminalManager
@@ -130,6 +136,7 @@ export class Task {
   // streaming
   isWaitingForFirstChunk = false
   isStreaming = false
+
   private currentStreamingContentIndex = 0
   private assistantMessageContent: AssistantMessageContent[] = []
   private presentAssistantMessageLocked = false
@@ -155,7 +162,9 @@ export class Task {
     customInstructions?: string,
     task?: string,
     historyItem?: HistoryItem,
-    cwd?: Map<string, string>
+    cwd?: Map<string, string>,
+    chatTitle?: string,
+    taskId?: string
   ) {
     this.workspaceTracker = workspaceTracker
     this.updateTaskHistory = updateTaskHistory
@@ -169,6 +178,7 @@ export class Task {
     this.autoApprovalSettings = autoApprovalSettings
     console.log(`[Task Init] AutoApprovalSettings initialized:`, JSON.stringify(autoApprovalSettings, null, 2))
     this.hosts = hosts
+    this.chatTitle = chatTitle
     if (hosts) {
       for (const host of hosts) {
         this.cwd.set(host.host, cwd?.get(host.host) || '')
@@ -181,8 +191,9 @@ export class Task {
       this.taskId = historyItem.id
       this.taskIsFavorited = historyItem.isFavorited
       this.conversationHistoryDeletedRange = historyItem.conversationHistoryDeletedRange
-    } else if (task) {
-      this.taskId = Date.now().toString()
+    } else if (task && taskId) {
+      this.taskId = taskId
+      console.log(`[Task Init] New task created with ID: ${this.taskId}`)
     } else {
       throw new Error('Either historyItem or task/images must be provided')
     }
@@ -323,11 +334,12 @@ export class Task {
       return
     }
     let terminalInfo: RemoteTerminalInfo | null = null
-    let terminalUuid = ip ? this.hosts.find((host) => host.host === ip)?.uuid : this.hosts[0].uuid
-    if (!terminalUuid) {
+    const targetHost = ip ? this.hosts.find((host) => host.host === ip) : this.hosts[0]
+    if (!targetHost || !targetHost.uuid) {
       console.log('Terminal UUID is not set')
       return
     }
+    const terminalUuid = targetHost.uuid
 
     try {
       const connectionInfo = await connectAssetInfo(terminalUuid)
@@ -339,7 +351,8 @@ export class Task {
 
       // Check if this is an agent mode + local connection scenario that will fail
       const chatSettings = await getGlobalState('chatSettings')
-      const isLocalConnection = connectionInfo?.sshType === 'ssh'
+      const isLocalConnection =
+        targetHost.connection?.toLowerCase?.() === 'localhost' || targetHost.uuid === 'localhost' || this.isLocalHost(targetHost.host)
       const shouldSkipConnectionMessages = chatSettings?.mode === 'agent' && isLocalConnection
 
       if (isNewConnection && !shouldSkipConnectionMessages) {
@@ -441,6 +454,7 @@ export class Task {
         id: this.taskId,
         ts: lastRelevantMessage.ts,
         task: taskMessage.text ?? '',
+        chatTitle: this.chatTitle,
         tokensIn: apiMetrics.totalTokensIn,
         tokensOut: apiMetrics.totalTokensOut,
         cacheWrites: apiMetrics.totalCacheWrites,
@@ -1600,7 +1614,7 @@ export class Task {
     this.isInsideThinkingBlock = false
   }
 
-  private async processStream(stream: AsyncIterable<unknown>, streamMetrics: StreamMetrics, messageUpdater: MessageUpdater): Promise<string> {
+  private async processStream(stream: ApiStream, streamMetrics: StreamMetrics, messageUpdater: MessageUpdater): Promise<string> {
     let assistantMessage = ''
     let reasoningMessage = ''
     this.isStreaming = true
@@ -1640,7 +1654,7 @@ export class Task {
     return assistantMessage
   }
 
-  private handleUsageChunk(chunk: any, streamMetrics: StreamMetrics): void {
+  private handleUsageChunk(chunk: ApiStreamUsageChunk, streamMetrics: StreamMetrics): void {
     streamMetrics.didReceiveUsageChunk = true
     streamMetrics.inputTokens += chunk.inputTokens
     streamMetrics.outputTokens += chunk.outputTokens
@@ -1649,7 +1663,7 @@ export class Task {
     streamMetrics.totalCost = chunk.totalCost
   }
 
-  private async handleReasoningChunk(chunk: { reasoning: string }, reasoningMessage: string): Promise<string> {
+  private async handleReasoningChunk(chunk: ApiStreamReasoningChunk, reasoningMessage: string): Promise<string> {
     reasoningMessage += chunk.reasoning
     if (!this.abort) {
       await this.say('reasoning', reasoningMessage, true)
@@ -1657,7 +1671,7 @@ export class Task {
     return reasoningMessage
   }
 
-  private async handleTextChunk(chunk: { text: string }, assistantMessage: string, reasoningMessage: string): Promise<string> {
+  private async handleTextChunk(chunk: ApiStreamTextChunk, assistantMessage: string, reasoningMessage: string): Promise<string> {
     if (reasoningMessage && assistantMessage.length === 0) {
       await this.say('reasoning', reasoningMessage, false)
     }
@@ -1956,6 +1970,7 @@ export class Task {
         if (!command) return this.handleMissingParam('command', toolDescription)
         if (!ip) return this.handleMissingParam('ip', toolDescription)
         if (!requiresApprovalRaw) return this.handleMissingParam('requires_approval', toolDescription)
+        command = decodeHtmlEntities(command)
         // 执行安全检查
         const securityCheck = await this.performCommandSecurityCheck(command, toolDescription)
         if (securityCheck.shouldReturn) {
@@ -2139,7 +2154,7 @@ export class Task {
     }
   }
 
-  private pushToolResult(toolDescription: string, content: ToolResponse): void {
+  private pushToolResult(toolDescription: string, content: ToolResponse, options?: { dontLock?: boolean }): void {
     this.userMessageContent.push({
       type: 'text',
       text: `${toolDescription} Result:`
@@ -2152,7 +2167,11 @@ export class Task {
     } else {
       this.userMessageContent.push(...content)
     }
-    this.didAlreadyUseTool = true
+    // For todo tools, we allow combining with one additional tool in the same message.
+    // When options.dontLock is true, do not mark that a tool has been used yet.
+    if (!options?.dontLock) {
+      this.didAlreadyUseTool = true
+    }
   }
 
   private pushAdditionalToolFeedback(feedback?: string): void {
@@ -2523,11 +2542,14 @@ export class Task {
     }
 
     if (this.didAlreadyUseTool) {
-      this.userMessageContent.push({
-        type: 'text',
-        text: formatResponse.toolAlreadyUsed(block.name)
-      })
-      return
+      // Allow todo tools to run even after another tool has been used
+      if (block.name !== 'todo_write' && block.name !== 'todo_read') {
+        this.userMessageContent.push({
+          type: 'text',
+          text: formatResponse.toolAlreadyUsed(block.name)
+        })
+        return
+      }
     }
 
     // 处理不完整的工具调用
@@ -2558,11 +2580,135 @@ export class Task {
       case 'todo_read':
         await this.handleTodoReadToolUse(block)
         break
+      case 'glob_search':
+        await this.handleGlobSearchToolUse(block)
+        break
+      case 'grep_search':
+        await this.handleGrepSearchToolUse(block)
+        break
       default:
         console.error(`[Task] 未知的工具名称: ${block.name}`)
     }
     if (!block.name.startsWith('todo_') && block.name !== 'ask_followup_question' && block.name !== 'attempt_completion') {
       await this.addTodoStatusUpdateReminder('')
+    }
+  }
+
+  private async handleGlobSearchToolUse(block: ToolUse): Promise<void> {
+    const toolDescription = this.getToolDescription(block)
+    try {
+      const pattern = block.params.pattern || block.params.file_pattern
+      const relPath = block.params.path || '.'
+      const ip = block.params.ip
+      const limitStr = block.params.limit
+      const sort = (block.params.sort as 'path' | 'none') || 'path'
+      if (!pattern) {
+        await this.handleMissingParam('pattern', toolDescription)
+        return
+      }
+
+      const limit = limitStr ? Number.parseInt(limitStr, 10) : 2000
+
+      let summary = ''
+      if (ip && !this.isLocalHost(ip)) {
+        // Remote: build command, execute, parse
+        const cmd = buildRemoteGlobCommand({ pattern, path: relPath, limit, sort })
+        const output = await this.executeCommandInRemoteServer(cmd, ip, undefined)
+        const parsed = parseRemoteGlobOutput(output, sort, limit)
+        const count = parsed.total
+        summary += `Found ${count} files matching "${pattern}" in ${relPath} (sorted by ${sort}).\n`
+        const list = parsed.files
+          .map((f) => f.path)
+          .slice(0, Math.min(count, 200))
+          .join('\n')
+        if (list) summary += list
+      } else {
+        // Local
+        const res = await globSearch(process.cwd(), { pattern, path: relPath, limit, sort })
+        const count = res.total
+        summary += `Found ${count} files matching "${pattern}" in ${relPath} (sorted by ${sort}).\n`
+        const list = res.files
+          .map((f) => f.path)
+          .slice(0, Math.min(count, 200))
+          .join('\n')
+        if (list) summary += list
+      }
+
+      // Show search results in UI immediately
+      await this.say('search_result', summary.trim(), false)
+      // Also push to LLM as tool result for context
+      this.pushToolResult(toolDescription, summary.trim())
+      await this.saveCheckpoint()
+    } catch (error) {
+      await this.handleToolError(toolDescription, 'glob search', error as Error)
+      await this.saveCheckpoint()
+    }
+  }
+
+  private async handleGrepSearchToolUse(block: ToolUse): Promise<void> {
+    const toolDescription = this.getToolDescription(block)
+    try {
+      const pattern = block.params.pattern || block.params.regex
+      const relPath = block.params.path || '.'
+      const ip = block.params.ip
+      const include = block.params.include || block.params.file_pattern
+      const csRaw = block.params.case_sensitive
+      const caseSensitive = csRaw ? csRaw.toLowerCase() === 'true' : false
+      const ctx = block.params.context_lines ? Number.parseInt(block.params.context_lines, 10) : 0
+      const max = block.params.max_matches ? Number.parseInt(block.params.max_matches, 10) : 500
+      if (!pattern) {
+        await this.handleMissingParam('pattern', toolDescription)
+        return
+      }
+
+      let matchesCount = 0
+      let summary = ''
+      if (ip && !this.isLocalHost(ip)) {
+        const cmd = buildRemoteGrepCommand({ pattern, path: relPath, include, case_sensitive: caseSensitive, context_lines: ctx, max_matches: max })
+        const output = await this.executeCommandInRemoteServer(cmd, ip, undefined)
+        const matches = parseRemoteGrepOutput(output, relPath)
+        matchesCount = matches.length
+        summary += `Found ${matchesCount} match(es) for /${pattern}/ in ${relPath}${include ? ` (filter: "${include}")` : ''}.\n---\n`
+        const grouped: Record<string, { line: number; text: string }[]> = {}
+        for (const m of matches.slice(0, Math.min(matches.length, max))) {
+          ;(grouped[m.file] ||= []).push({ line: m.line, text: m.text })
+        }
+        for (const file of Object.keys(grouped)) {
+          summary += `File: ${file}\n`
+          grouped[file]
+            .sort((a, b) => a.line - b.line)
+            .forEach((m) => {
+              summary += `L${m.line}: ${m.text.trim()}\n`
+            })
+          summary += '---\n'
+        }
+      } else {
+        const res = await localGrepSearch(process.cwd(), relPath, pattern, include, max, ctx, caseSensitive)
+        matchesCount = res.total
+        summary += `Found ${matchesCount} match(es) for /${pattern}/ in ${relPath}${include ? ` (filter: "${include}")` : ''}.\n---\n`
+        const grouped: Record<string, { line: number; text: string }[]> = {}
+        for (const m of res.matches.slice(0, Math.min(res.matches.length, max))) {
+          ;(grouped[m.file] ||= []).push({ line: m.line, text: m.text })
+        }
+        for (const file of Object.keys(grouped)) {
+          summary += `File: ${file}\n`
+          grouped[file]
+            .sort((a, b) => a.line - b.line)
+            .forEach((m) => {
+              summary += `L${m.line}: ${m.text.trim()}\n`
+            })
+          summary += '---\n'
+        }
+      }
+
+      // Show search results in UI immediately
+      await this.say('search_result', summary.trim(), false)
+      // Also push to LLM as tool result for context
+      this.pushToolResult(toolDescription, summary.trim())
+      await this.saveCheckpoint()
+    } catch (error) {
+      await this.handleToolError(toolDescription, 'grep search', error as Error)
+      await this.saveCheckpoint()
     }
   }
 
@@ -2813,16 +2959,7 @@ SUDO_CHECK:${localSystemInfo.sudoCheck}`
         } catch (error) {
           console.error(`Failed to get system information for host ${host.host}:`, error)
           const chatSettings = await getGlobalState('chatSettings')
-          const isLocalConnection = await Promise.all(
-            this.hosts.map(async (h) => {
-              try {
-                const connectionInfo = await connectAssetInfo(h.uuid)
-                return connectionInfo?.sshType === 'ssh'
-              } catch {
-                return false
-              }
-            })
-          ).then((results) => results.some((isLocal) => isLocal))
+          const isLocalConnection = host.connection?.toLowerCase?.() === 'localhost' || this.isLocalHost(host.host) || host.uuid === 'localhost'
 
           if (chatSettings?.mode === 'agent' && isLocalConnection) {
             const errorMessage = 'Error: Agent模式下连不上本地连接的目标机器，请新建任务选择Command模式操作。'
@@ -2865,7 +3002,7 @@ SUDO_CHECK:${localSystemInfo.sudoCheck}`
       const todosParam = (block as { params?: { todos?: unknown } }).params?.todos
 
       if (todosParam === undefined || todosParam === null) {
-        this.pushToolResult(this.getToolDescription(block), 'Todo 写入失败: 缺少 todos 参数')
+        this.pushToolResult(this.getToolDescription(block), 'Todo 写入失败: 缺少 todos 参数', { dontLock: true })
         return
       }
 
@@ -2875,7 +3012,7 @@ SUDO_CHECK:${localSystemInfo.sudoCheck}`
         try {
           todos = JSON.parse(todosParam) as Todo[]
         } catch (parseError) {
-          this.pushToolResult(this.getToolDescription(block), `Todo 写入失败: JSON 解析错误 - ${parseError}`)
+          this.pushToolResult(this.getToolDescription(block), `Todo 写入失败: JSON 解析错误 - ${parseError}`, { dontLock: true })
           return
         }
       } else if (Array.isArray(todosParam)) {
@@ -2891,14 +3028,15 @@ SUDO_CHECK:${localSystemInfo.sudoCheck}`
         }
       } else {
         console.error(`[Task] 不支持的 todos 参数类型: ${typeof todosParam}`)
-        this.pushToolResult(this.getToolDescription(block), 'Todo 写入失败: todos 参数类型不受支持')
+        this.pushToolResult(this.getToolDescription(block), 'Todo 写入失败: todos 参数类型不受支持', { dontLock: true })
         return
       }
 
       const params: TodoWriteParams = { todos }
       const result = await TodoWriteTool.execute(params, this.taskId)
 
-      this.pushToolResult(this.getToolDescription(block), result)
+      // Allow todo_write to be combined with another tool in the same message
+      this.pushToolResult(this.getToolDescription(block), result, { dontLock: true })
 
       // 发送 todo 更新事件到渲染进程
       await this.postMessageToWebview({
@@ -2911,7 +3049,9 @@ SUDO_CHECK:${localSystemInfo.sudoCheck}`
       })
     } catch (error) {
       console.error(`[Task] todo_write 工具调用处理失败:`, error)
-      this.pushToolResult(this.getToolDescription(block), `Todo 写入失败: ${error instanceof Error ? error.message : String(error)}`)
+      this.pushToolResult(this.getToolDescription(block), `Todo 写入失败: ${error instanceof Error ? error.message : String(error)}`, {
+        dontLock: true
+      })
     }
   }
 
@@ -2919,9 +3059,41 @@ SUDO_CHECK:${localSystemInfo.sudoCheck}`
     try {
       const params: TodoReadParams = {} // TodoRead 不需要参数
       const result = await TodoReadTool.execute(params, this.taskId)
-      this.pushToolResult(this.getToolDescription(block), result)
+      // Allow todo_read to be combined with another tool in the same message
+      this.pushToolResult(this.getToolDescription(block), result, { dontLock: true })
     } catch (error) {
-      this.pushToolResult(this.getToolDescription(block), `Todo 读取失败: ${error instanceof Error ? error.message : String(error)}`)
+      this.pushToolResult(this.getToolDescription(block), `Todo 读取失败: ${error instanceof Error ? error.message : String(error)}`, {
+        dontLock: true
+      })
+    }
+  }
+
+  async clearTodos(trigger: 'user_cancelled' | 'new_user_input'): Promise<void> {
+    try {
+      const { TodoStorage } = await import('../storage/todo/TodoStorage')
+      const storage = new TodoStorage(this.taskId)
+      const existingTodos = await storage.readTodos()
+
+      if (existingTodos.length === 0) {
+        TodoContextTracker.forSession(this.taskId).clearActiveTodo()
+        return
+      }
+
+      await storage.deleteTodos()
+      TodoContextTracker.forSession(this.taskId).clearActiveTodo()
+
+      await this.postMessageToWebview({
+        type: 'todoUpdated',
+        todos: [],
+        sessionId: this.taskId,
+        taskId: this.taskId,
+        changeType: 'updated',
+        triggerReason: 'user_request'
+      })
+
+      console.log(`[Task] Cleared todos due to ${trigger} for task ${this.taskId}`)
+    } catch (error) {
+      console.error(`[Task] Failed to clear todos (${trigger}) for task ${this.taskId}:`, error)
     }
   }
 

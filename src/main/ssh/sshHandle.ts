@@ -37,6 +37,22 @@ import { SSHAgentManager } from './ssh-agent/ChatermSSHAgent'
 // Store SSH connections
 export const sshConnections = new Map()
 
+// SSH 连接复用池：存储已通过 MFA 认证的连接
+interface ReusableConnection {
+  conn: any // SSH Client
+  sessions: Set<string> // 使用此连接的会话 ID 集合
+  host: string
+  port: number
+  username: string
+  hasMfaAuth: boolean // 标记是否经过 MFA 认证
+}
+const sshConnectionPool = new Map<string, ReusableConnection>()
+
+// 生成连接池的唯一 key
+const getConnectionPoolKey = (host: string, port: number, username: string): string => {
+  return `${host}:${port}:${username}`
+}
+
 interface SftpConnectionInfo {
   isSuccess: boolean
   sftp?: any
@@ -69,6 +85,39 @@ const connectionEvents = new EventEmitter()
 
 // 缓存
 export const keyboardInteractiveOpts = new Map<string, string[]>()
+
+export const getReusableSshConnection = (host: string, port: number, username: string) => {
+  const poolKey = getConnectionPoolKey(host, port, username)
+  const reusableConn = sshConnectionPool.get(poolKey)
+  if (!reusableConn || !reusableConn.hasMfaAuth) {
+    return null
+  }
+
+  const client = reusableConn.conn as Client | undefined
+  if (!client || (client as any)?._sock?.destroyed) {
+    sshConnectionPool.delete(poolKey)
+    return null
+  }
+
+  return {
+    poolKey,
+    conn: client
+  }
+}
+
+export const registerReusableSshSession = (poolKey: string, sessionId: string) => {
+  const reusableConn = sshConnectionPool.get(poolKey)
+  if (reusableConn) {
+    reusableConn.sessions.add(sessionId)
+  }
+}
+
+export const releaseReusableSshSession = (poolKey: string, sessionId: string) => {
+  const reusableConn = sshConnectionPool.get(poolKey)
+  if (reusableConn) {
+    reusableConn.sessions.delete(sessionId)
+  }
+}
 
 export const handleRequestKeyboardInteractive = (event, id, prompts, finish) => {
   return new Promise((_resolve, reject) => {
@@ -324,13 +373,72 @@ const handleAttemptConnection = async (event, connectionInfo, resolve, reject, r
 
   connectionStatus.set(id, { isVerified: false }) // Update connection status
 
+  // 检查连接复用池：仅当使用 keyboard-interactive 认证时才尝试复用
+  const poolKey = getConnectionPoolKey(host, port || 22, username)
+  const reusableConn = sshConnectionPool.get(poolKey)
+
+  if (reusableConn && reusableConn.hasMfaAuth) {
+    console.log(`[SSH复用] 检测到可复用的 MFA 连接: ${poolKey}`)
+
+    // 使用现有连接
+    const conn = reusableConn.conn
+
+    // 将当前会话标记为已连接
+    sshConnections.set(id, conn)
+    connectionStatus.set(id, { isVerified: true })
+    reusableConn.sessions.add(id)
+
+    // 触发连接成功事件
+    connectionEvents.emit(`connection-status-changed:${id}`, { isVerified: true })
+
+    // 执行辅助连接（sudo检查、SFTP等）
+    attemptSecondaryConnection(event, connectionInfo)
+
+    console.log(`[SSH复用] 成功复用连接，跳过 MFA 认证`)
+    resolve({ status: 'connected', message: 'Connection successful (reused)' })
+    return
+  }
+
   const conn = new Client()
 
   conn.on('ready', () => {
     sshConnections.set(id, conn) // Save connection object
     connectionStatus.set(id, { isVerified: true })
     connectionEvents.emit(`connection-status-changed:${id}`, { isVerified: true })
+
+    // 检查是否使用了 keyboard-interactive 认证
+    // 必须在 attemptSecondaryConnection 之前检查，因为它会清理 keyboardInteractiveOpts
+    const hasKeyboardInteractive = keyboardInteractiveOpts.has(id)
+
+    // 如果使用了 keyboard-interactive 认证，立即保存到连接池供后续复用
+    if (hasKeyboardInteractive) {
+      const poolKey = getConnectionPoolKey(host, port || 22, username)
+      console.log(`[SSH连接池] 保存 MFA 认证连接: ${poolKey}`)
+
+      sshConnectionPool.set(poolKey, {
+        conn: conn,
+        sessions: new Set([id]),
+        host: host,
+        port: port || 22,
+        username: username,
+        hasMfaAuth: true
+      })
+
+      // 监听连接关闭事件，清理连接池
+      conn.on('close', () => {
+        console.log(`[SSH连接池] 连接关闭，清理复用池: ${poolKey}`)
+        sshConnectionPool.delete(poolKey)
+      })
+
+      conn.on('error', (err) => {
+        console.error(`[SSH连接池] 连接错误，清理复用池: ${poolKey}`, err.message)
+        sshConnectionPool.delete(poolKey)
+      })
+    }
+
+    // 执行辅助连接（这会清理 keyboardInteractiveOpts，所以必须放在检查之后）
     attemptSecondaryConnection(event, connectionInfo)
+
     resolve({ status: 'connected', message: 'Connection successful' })
   })
 
@@ -682,8 +790,8 @@ export const registerSSHHandlers = () => {
             if (err) console.error(`[JumpServer ${id}] 发送 "q" 失败:`, err)
             else console.log(`[JumpServer ${id}] 已发送 "q" 终止会话。`)
             stream.end()
-            const conn = jumpserverConnections.get(id)
-            conn?.end()
+            const connData = jumpserverConnections.get(id)
+            connData?.conn?.end()
           })
           return
         }
@@ -1058,9 +1166,9 @@ export const registerSSHHandlers = () => {
         jumpserverShellStreams.delete(id)
       }
 
-      const conn = jumpserverConnections.get(id)
-      if (conn) {
-        conn.end()
+      const connData = jumpserverConnections.get(id)
+      if (connData) {
+        // 只删除当前会话,不关闭连接(供其他会话复用)
         jumpserverConnections.delete(id)
         jumpserverConnectionStatus.delete(id)
         return { status: 'success', message: 'JumpServer 连接已断开' }
@@ -1082,9 +1190,36 @@ export const registerSSHHandlers = () => {
       stream.end()
       shellStreams.delete(id)
     }
+
     const conn = sshConnections.get(id)
     if (conn) {
-      conn.end()
+      // 检查此连接是否在复用池中
+      let poolKey: string | null = null
+      let reusableConn: ReusableConnection | null = null
+
+      // 遍历连接池查找匹配的连接
+      sshConnectionPool.forEach((value, key) => {
+        if (value.conn === conn) {
+          poolKey = key
+          reusableConn = value
+        }
+      })
+
+      if (poolKey && reusableConn) {
+        // 从会话集合中移除当前会话
+        reusableConn.sessions.delete(id)
+
+        // 如果没有其他会话使用此连接，则关闭连接并清理连接池
+        if (reusableConn.sessions.size === 0) {
+          console.log(`[SSH连接池] 所有会话已关闭，释放连接: ${poolKey}`)
+          conn.end()
+          sshConnectionPool.delete(poolKey)
+        }
+      } else {
+        // 不在复用池中的普通连接，直接关闭
+        conn.end()
+      }
+
       sshConnections.delete(id)
       sftpConnections.delete(id)
       return { status: 'success', message: 'Disconnected' }
@@ -1302,7 +1437,11 @@ const getSystemInfo = async (
   username: string
   sudoPermission: boolean
 }> => {
-  const conn = sshConnections.get(id) || jumpserverConnections.get(id)
+  let conn = sshConnections.get(id)
+  if (!conn) {
+    const connData = jumpserverConnections.get(id)
+    conn = connData?.conn
+  }
   if (!conn) {
     throw new Error('No active SSH connection found')
   }

@@ -22,7 +22,7 @@
   --text-color-senary: #334155;
   --text-color-septenary: #1e293b;
 
-  --border-color: #3c3c3c;
+  --border-color: #1d1d1d;
   --border-color-light: #464647;
 
   // Interactive states - Slightly increased opacity for better visibility
@@ -49,6 +49,7 @@
   --card-bg: #252526;
   --card-border: #3c3c3c;
   --card-shadow: 0 4px 6px rgba(0, 0, 0, 0.3), 0 2px 4px rgba(0, 0, 0, 0.2);
+  --command-output-bg: #1e1e1e;
   --input-focus-border: #60a5fa;
   --input-focus-shadow: 0 0 0 3px rgba(96, 165, 250, 0.2);
   --button-hover-bg: #60a5fa;
@@ -111,6 +112,7 @@
   --card-bg: #ffffff;
   --card-border: #e2e8f0;
   --card-shadow: 0 1px 3px rgba(0, 0, 0, 0.1), 0 1px 2px rgba(0, 0, 0, 0.06);
+  --command-output-bg: #f8fafc;
   --input-focus-border: #3b82f6;
   --input-focus-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
   --button-hover-bg: #2563eb;
@@ -964,5 +966,23 @@ body {
     background: linear-gradient(135deg, var(--card-bg), var(--bg-color-secondary)) !important;
     border: 1px solid var(--border-color) !important;
     box-shadow: 0 25px 50px rgba(0, 0, 0, 0.5) !important;
+  }
+
+  // Copy and rollback button hover effects for dark theme
+  .copy-button:hover,
+  .rollback-button:hover {
+    color: #ffffff !important;
+    background: rgba(255, 255, 255, 0.2) !important;
+    box-shadow: 0 0 8px rgba(255, 255, 255, 0.3);
+  }
+}
+
+// Light theme specific enhancements
+.theme-light {
+  // Copy and rollback button hover effects for light theme
+  .copy-button:hover,
+  .rollback-button:hover {
+    color: #1890ff;
+    background: rgba(24, 144, 255, 0.1);
   }
 }

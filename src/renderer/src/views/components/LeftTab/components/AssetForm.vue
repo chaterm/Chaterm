@@ -18,7 +18,7 @@
         layout="vertical"
         class="custom-form"
       >
-        <!-- 资产类型选择 -->
+        <!-- Asset type selection -->
         <a-form-item v-if="!isEditMode">
           <a-radio-group
             v-model:value="formData.asset_type"
@@ -34,32 +34,44 @@
           </a-radio-group>
         </a-form-item>
 
-        <!-- 地址信息 -->
+        <!-- Address information -->
         <div class="form-section">
           <div class="section-title">
             <div class="title-indicator"></div>
             {{ t('personal.address') }}
           </div>
 
-          <a-form-item :label="t('personal.remoteHost')">
+          <a-form-item
+            :label="t('personal.remoteHost')"
+            :validate-status="validationErrors.ip ? 'error' : ''"
+            :help="validationErrors.ip"
+          >
             <a-input
               v-model:value="formData.ip"
               :placeholder="t('personal.pleaseInputRemoteHost')"
+              :class="{ 'error-input': validationErrors.ip }"
+              @input="handleIpInput"
             />
           </a-form-item>
 
-          <a-form-item :label="t('personal.port')">
+          <a-form-item
+            :label="t('personal.port')"
+            :validate-status="validationErrors.port ? 'error' : ''"
+            :help="validationErrors.port"
+          >
             <a-input
               v-model:value="formData.port"
               :min="20"
               :max="65536"
               :placeholder="t('personal.pleaseInputPort')"
+              :class="{ 'error-input': validationErrors.port }"
               style="width: 100%"
+              @input="handlePortInput"
             />
           </a-form-item>
         </div>
 
-        <!-- 认证信息 -->
+        <!-- Authentication information -->
         <div class="form-section">
           <a-form-item
             v-if="formData.asset_type === 'person'"
@@ -76,20 +88,30 @@
             </a-radio-group>
           </a-form-item>
 
-          <a-form-item :label="t('personal.username')">
+          <a-form-item
+            :label="t('personal.username')"
+            :validate-status="validationErrors.username ? 'error' : ''"
+            :help="validationErrors.username"
+          >
             <a-input
               v-model:value="formData.username"
               :placeholder="t('personal.pleaseInputUsername')"
+              :class="{ 'error-input': validationErrors.username }"
+              @input="handleUsernameInput"
             />
           </a-form-item>
 
           <a-form-item
             v-if="formData.auth_type == 'password'"
             :label="t('personal.password')"
+            :validate-status="validationErrors.password ? 'error' : ''"
+            :help="validationErrors.password"
           >
             <a-input-password
               v-model:value="formData.password"
               :placeholder="t('personal.pleaseInputPassword')"
+              :class="{ 'error-input': validationErrors.password }"
+              @input="handlePasswordInput"
             />
           </a-form-item>
 
@@ -121,10 +143,14 @@
             <a-form-item
               v-if="formData.asset_type === 'organization'"
               :label="t('personal.password')"
+              :validate-status="validationErrors.password ? 'error' : ''"
+              :help="validationErrors.password"
             >
               <a-input-password
                 v-model:value="formData.password"
                 :placeholder="t('personal.pleaseInputPassword')"
+                :class="{ 'error-input': validationErrors.password }"
+                @input="handlePasswordInput"
               />
             </a-form-item>
           </template>
@@ -161,7 +187,7 @@
           </div>
         </div>
 
-        <!-- 通用信息 -->
+        <!-- General information -->
         <div class="form-section">
           <div class="section-title">
             <div class="title-indicator"></div>
@@ -217,7 +243,7 @@ import { reactive, watch } from 'vue'
 import { ToTopOutlined } from '@ant-design/icons-vue'
 import { message } from 'ant-design-vue'
 import i18n from '@/locales'
-import type { AssetFormData, KeyChainItem, sshProxyConfig } from '../types'
+import type { AssetFormData, KeyChainItem } from '../types'
 import { SshProxyConfigItem } from '../types'
 
 const { t } = i18n.global
@@ -253,7 +279,7 @@ const formData = reactive<AssetFormData>({
   password: '',
   ip: '',
   label: '',
-  group_name: 'Hosts', // 使用默认值，避免在reactive中使用t()
+  group_name: 'Hosts', // Use default value to avoid using t() in reactive
   auth_type: 'password',
   keyChain: undefined,
   port: 22,
@@ -263,7 +289,15 @@ const formData = reactive<AssetFormData>({
   ...props.initialData
 })
 
-// 在组件挂载后设置默认组名
+// Validation errors state
+const validationErrors = reactive({
+  ip: '',
+  port: '',
+  username: '',
+  password: ''
+})
+
+// Set default group name after component mount
 watch(
   () => props.initialData,
   (newData) => {
@@ -322,13 +356,42 @@ const handleGroupChange = (val: any) => {
     formData.group_name = String(val[val.length - 1])
   } else if (typeof val === 'string') {
     formData.group_name = val
+  } else if (typeof val === 'number') {
+    formData.group_name = String(val)
   } else {
     formData.group_name = ''
   }
 }
 
+// Check if input contains spaces
+const hasSpaces = (value: string): boolean => {
+  return Boolean(value && value.includes(' '))
+}
+
+// Validate field for spaces
+const validateField = (field: keyof typeof validationErrors, value: string) => {
+  if (hasSpaces(value)) {
+    switch (field) {
+      case 'ip':
+        validationErrors.ip = t('personal.validationIpNoSpaces')
+        break
+      case 'port':
+        validationErrors.port = t('personal.validationPortNoSpaces')
+        break
+      case 'username':
+        validationErrors.username = t('personal.validationUsernameNoSpaces')
+        break
+      case 'password':
+        validationErrors.password = t('personal.validationPasswordNoSpaces')
+        break
+    }
+  } else {
+    validationErrors[field] = ''
+  }
+}
+
 const validateForm = (): boolean => {
-  // 企业资产校验
+  // Enterprise asset validation
   if (formData.asset_type === 'organization') {
     if (!formData.ip || !formData.ip.trim()) {
       message.error(t('personal.validationRemoteHostRequired'))
@@ -347,6 +410,18 @@ const validateForm = (): boolean => {
       return false
     }
   }
+
+  // Space validation
+  validateField('ip', formData.ip)
+  validateField('port', String(formData.port))
+  validateField('username', formData.username)
+  validateField('password', formData.password)
+
+  // Check if any validation errors exist
+  if (Object.values(validationErrors).some((error) => error !== '')) {
+    return false
+  }
+
   return true
 }
 
@@ -357,6 +432,31 @@ const handleSubmit = () => {
 
 const handleSshProxyStatusChange = async (checked) => {
   formData.needProxy = checked
+}
+
+// Input handler functions - real-time space detection
+const handleIpInput = (event: Event) => {
+  const target = event.target as HTMLInputElement
+  const value = target.value
+  validateField('ip', value)
+}
+
+const handlePortInput = (event: Event) => {
+  const target = event.target as HTMLInputElement
+  const value = target.value
+  validateField('port', value)
+}
+
+const handleUsernameInput = (event: Event) => {
+  const target = event.target as HTMLInputElement
+  const value = target.value
+  validateField('username', value)
+}
+
+const handlePasswordInput = (event: Event) => {
+  const target = event.target as HTMLInputElement
+  const value = target.value
+  validateField('password', value)
 }
 
 // Reset form data when initialData changes
@@ -377,6 +477,13 @@ watch(
       needProxy: false,
       proxyName: '',
       ...newData
+    })
+    // Reset validation errors
+    Object.assign(validationErrors, {
+      ip: '',
+      port: '',
+      username: '',
+      password: ''
     })
   },
   { deep: true }
@@ -411,6 +518,8 @@ watch(
   padding: 12px 16px 0 16px;
   overflow: auto;
   color: var(--text-color);
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-color-light) transparent;
 }
 
 .form-footer {
@@ -517,5 +626,35 @@ watch(
 
 .general-group :deep(.ant-select-selection-item) {
   background-color: var(--hover-bg-color);
+}
+
+/* Error input styles */
+.error-input {
+  border-color: #ff4d4f !important;
+  box-shadow: 0 0 0 2px rgba(255, 77, 79, 0.2) !important;
+}
+
+.error-input:focus {
+  border-color: #ff4d4f !important;
+  box-shadow: 0 0 0 2px rgba(255, 77, 79, 0.2) !important;
+}
+
+.error-input:hover {
+  border-color: #ff4d4f !important;
+}
+
+/* Special handling for password input fields */
+:deep(.ant-input-password.error-input .ant-input) {
+  border-color: #ff4d4f !important;
+  box-shadow: 0 0 0 2px rgba(255, 77, 79, 0.2) !important;
+}
+
+:deep(.ant-input-password.error-input .ant-input:focus) {
+  border-color: #ff4d4f !important;
+  box-shadow: 0 0 0 2px rgba(255, 77, 79, 0.2) !important;
+}
+
+:deep(.ant-input-password.error-input .ant-input:hover) {
+  border-color: #ff4d4f !important;
 }
 </style>

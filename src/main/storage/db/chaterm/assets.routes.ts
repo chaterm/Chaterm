@@ -221,7 +221,7 @@ export async function getLocalAssetRouteLogic(db: Database, searchType: string, 
             key: group.group_name,
             title: group.group_name,
             children: assets.map((item: any) => ({
-              key: `${group.group_name}_${item.asset_ip || ''}`,
+              key: `${group.group_name}_${item.asset_ip || ''}_${item.username || 'no_user'}_${item.label || 'no_label'}`,
               title: item.label || item.asset_ip || '',
               favorite: item.favorite === 1,
               ip: item.asset_ip || '',
@@ -333,7 +333,7 @@ export async function getLocalAssetRouteLogic(db: Database, searchType: string, 
           const folderAssets = folderAssetsStmt.all(folder.uuid) || []
 
           const children = folderAssets.map((asset: any) => ({
-            key: `folder_${folder.uuid}_${asset.organization_uuid}_${asset.asset_host}`,
+            key: `folder_${folder.uuid}_${asset.organization_uuid}_${asset.asset_host}_${asset.hostname || 'no_name'}`,
             title: asset.hostname || asset.asset_host,
             favorite: asset.favorite === 1,
             ip: asset.asset_host,
@@ -374,7 +374,7 @@ export async function getLocalAssetRouteLogic(db: Database, searchType: string, 
         const nodes = nodesStmt.all(orgAsset.uuid) || []
 
         const children = nodes.map((node: any) => ({
-          key: `${orgAsset.uuid}_${node.asset_ip}`,
+          key: `${orgAsset.uuid}_${node.asset_ip}_${node.asset_name || 'no_name'}`,
           title: node.asset_name || node.asset_ip,
           favorite: node.favorite === 1,
           ip: node.asset_ip,

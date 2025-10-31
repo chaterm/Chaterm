@@ -568,8 +568,14 @@ const handleGlobalKeyDown = (e: KeyboardEvent) => {
   }
 }
 
+// Store unsubscribe function for IPC listener
+let unsubscribeCommandGeneration: (() => void) | undefined
+
 onMounted(() => {
-  eventBus.on('commandGenerationResponse', handleCommandGenerationResponse)
+  // Directly subscribe to IPC channel instead of using eventBus
+  if (window.api && window.api.onCommandGenerationResponse) {
+    unsubscribeCommandGeneration = window.api.onCommandGenerationResponse(handleCommandGenerationResponse)
+  }
   window.addEventListener('resize', updateDialogPosition)
 
   // Add global keyboard event listener
@@ -577,7 +583,10 @@ onMounted(() => {
 })
 
 onUnmounted(() => {
-  eventBus.off('commandGenerationResponse')
+  // Unsubscribe from IPC channel
+  if (unsubscribeCommandGeneration) {
+    unsubscribeCommandGeneration()
+  }
   window.removeEventListener('resize', updateDialogPosition)
   document.removeEventListener('keydown', handleGlobalKeyDown, true)
   teardownContentResizeObserver()

@@ -6,13 +6,17 @@ export const shortcutHints = {
     zh: '与AI对话',
     en: 'Chat With AI'
   },
-  openCommandDialog: {
-    zh: '内联命令生成',
-    en: 'Inline Command Generator'
+  toggleLeftSidebar: {
+    zh: '资产列表',
+    en: 'Asset List'
   },
   openSettings: {
     zh: '打开设置',
     en: 'Open Settings'
+  },
+  openCommandDialog: {
+    zh: '内联命令生成',
+    en: 'Inline Command Generator'
   },
   openFileManager: {
     zh: '打开文件管理',

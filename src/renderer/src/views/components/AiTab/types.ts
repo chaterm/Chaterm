@@ -22,6 +22,8 @@ export interface ChatMessage {
   // Todo 相关属性
   hasTodoUpdate?: boolean
   relatedTodos?: any[]
+  // Command execution tracking
+  executedCommand?: string
 }
 
 export interface AssetInfo {
@@ -43,11 +45,13 @@ export interface HistoryItem {
   isEditing?: boolean
   editingTitle?: string
   isFavorite?: boolean
+  ts?: number
 }
 
 export interface TaskHistoryItem {
   id: string
-  task?: string
+  task?: string // Original full task description
+  chatTitle?: string // Optional LLM-generated short title
   ts: number
   isFavorite?: boolean
 }

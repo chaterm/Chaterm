@@ -29,6 +29,14 @@
         :term-instance="term"
         :copy-text="copyText"
         :terminal-id="terminalId"
+        :tab-info="{
+          title: props.serverInfo.title || 'Terminal',
+          content: props.serverInfo.content || terminalId,
+          type: props.serverInfo.type || 'term',
+          organizationId: props.serverInfo.organizationId || authData.organizationId,
+          ip: props.serverInfo.ip || authData.ip,
+          data: props.serverInfo.data || props.serverInfo
+        }"
         @context-act="contextAct"
       />
     </v-contextmenu>
@@ -102,7 +110,6 @@ const setRef = (el, key) => {
   }
 }
 const email = userInfoStore().userInfo.email
-const name = userInfoStore().userInfo.name
 const terminalElement = ref(null)
 const terminalContainer = ref(null)
 const terminalId = `${email.split('@')[0]}@${props.serverInfo.ip}:remote:${uuidv4()}`
@@ -1164,7 +1171,28 @@ const contextAct = (action) => {
     case 'fileManager':
       eventBus.emit('openUserTab', 'files')
       break
-    // Unknown operation
+    case 'splitRight':
+      const newTabInfoRight = {
+        title: `${infos.value.title || props.serverInfo.title}`,
+        content: infos.value.content || props.serverInfo.content,
+        type: infos.value.type || props.serverInfo.type,
+        organizationId: infos.value.organizationId || props.serverInfo.organizationId,
+        ip: infos.value.ip || props.serverInfo.ip,
+        data: infos.value.data || props.serverInfo.data
+      }
+      eventBus.emit('createSplitTab', newTabInfoRight)
+      break
+    case 'splitDown':
+      const newTabInfoDown = {
+        title: `${infos.value.title || props.serverInfo.title}`,
+        content: infos.value.content || props.serverInfo.content,
+        type: infos.value.type || props.serverInfo.type,
+        organizationId: infos.value.organizationId || props.serverInfo.organizationId,
+        ip: infos.value.ip || props.serverInfo.ip,
+        data: infos.value.data || props.serverInfo.data
+      }
+      eventBus.emit('createVerticalSplitTab', newTabInfoDown)
+      break
   }
 }
 const hideSelectionButton = () => {

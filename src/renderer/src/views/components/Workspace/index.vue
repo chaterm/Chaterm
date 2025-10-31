@@ -78,9 +78,9 @@
               v-model:expanded-keys="expandedKeys"
               :tree-data="assetTreeData"
               :field-names="{ children: 'children', title: 'title', key: 'key' }"
-              :default-expand-all="true"
               class="dark-tree"
               @select="handleSelect"
+              @expand="onTreeExpand"
             >
               <template #title="{ title, dataRef }">
                 <div class="custom-tree-node">
@@ -148,9 +148,9 @@
               v-model:expanded-keys="expandedKeys"
               :tree-data="enterpriseData"
               :field-names="{ children: 'children', title: 'title', key: 'key' }"
-              :default-expand-all="true"
               class="dark-tree"
               @select="handleSelect"
+              @expand="onTreeExpand"
             >
               <template #title="{ title, dataRef }">
                 <div class="custom-tree-node">
@@ -230,6 +230,7 @@
                         type="primary"
                         size="small"
                         ghost
+                        class="refresh-button"
                         :loading="refreshingNode === dataRef.key"
                         @click="handleRefresh(dataRef)"
                       >
@@ -510,6 +511,36 @@ const companyChange = (item) => {
   }
 }
 
+// Handle expand/collapse state changes and save to user config
+const handleExpandChange = async (expandedKeys: any[]) => {
+  try {
+    const currentConfig = await userConfigStore.getConfig()
+    await userConfigStore.saveConfig({
+      ...currentConfig,
+      workspaceExpandedKeys: expandedKeys.map((key) => String(key))
+    })
+  } catch (error) {
+    console.error('Failed to save workspace expanded keys:', error)
+  }
+}
+
+// Wrapper function for Ant Design Vue tree expand event
+const onTreeExpand = async (expandedKeys: any[]) => {
+  await handleExpandChange(expandedKeys)
+}
+
+// Load saved expand state from user config
+const loadSavedExpandState = async () => {
+  try {
+    const config = await userConfigStore.getConfig()
+    if (config.workspaceExpandedKeys && config.workspaceExpandedKeys.length > 0) {
+      expandedKeys.value = config.workspaceExpandedKeys
+    }
+  } catch (error) {
+    console.error('Failed to load saved expand state:', error)
+  }
+}
+
 const handleTabChange = (activeKey: string | number) => {
   // Close context menu when switching tabs
   contextMenuVisible.value = false
@@ -549,8 +580,8 @@ const getLocalAssetMenu = () => {
         assetTreeData.value = deepClone(data) as AssetNode[]
         const localShell = await window.api.getShellsLocal()
         assetTreeData.value.push(localShell)
-        setTimeout(() => {
-          expandDefaultNodes(assetTreeData.value)
+        setTimeout(async () => {
+          await expandDefaultNodes()
         }, 200)
       }
     })
@@ -565,27 +596,17 @@ const getUserAssetMenu = () => {
         const data = res.data.routers || []
         originalTreeData.value = deepClone(data) as AssetNode[]
         enterpriseData.value = deepClone(data) as AssetNode[]
-        setTimeout(() => {
-          expandDefaultNodes(enterpriseData.value)
+        setTimeout(async () => {
+          await expandDefaultNodes()
         }, 200)
       }
     })
     .catch((err) => console.error(err))
 }
 
-const expandDefaultNodes = (data) => {
-  const keys: string[] = []
-  const traverseTree = (nodes: AssetNode[]) => {
-    if (!nodes) return
-    nodes.forEach((node) => {
-      if (node.children && node.children.length > 0) {
-        keys.push(node.key)
-        traverseTree(node.children)
-      }
-    })
-  }
-  traverseTree(data)
-  expandedKeys.value = keys
+const expandDefaultNodes = async () => {
+  // Load saved expand state instead of expanding all nodes
+  await loadSavedExpandState()
 }
 
 const filterTreeNodes = (inputValue: string): AssetNode[] => {
@@ -1078,7 +1099,7 @@ const handleContextMenuAction = (action: string) => {
 }
 
 // Handle folder row click for expand/collapse
-const handleFolderRowClick = (event: MouseEvent, dataRef: any) => {
+const handleFolderRowClick = async (event: MouseEvent, dataRef: any) => {
   // Check if the click is on the refresh button or its children
   const target = event.target as HTMLElement
   if (target.closest('.refresh-icon') || target.closest('.ant-btn')) {
@@ -1094,6 +1115,8 @@ const handleFolderRowClick = (event: MouseEvent, dataRef: any) => {
       // Expand the folder
       expandedKeys.value = [...expandedKeys.value, dataRef.key]
     }
+    // Save the new expand state
+    await handleExpandChange(expandedKeys.value)
   }
 }
 
@@ -1260,10 +1283,9 @@ onUnmounted(() => {
 
   // Enhanced selection state for right-clicked hosts
   .ant-tree-node-selected .title-with-icon {
-    background-color: rgba(24, 144, 255, 0.15) !important;
     border: 1px solid #1890ff !important;
-    border-radius: 4px !important;
-    box-shadow: 0 0 0 2px rgba(24, 144, 255, 0.2) !important;
+    // border-radius: 4px !important;
+    // box-shadow: 0 0 0 2px rgba(24, 144, 255, 0.2) !important;
   }
 
   .ant-tree-treenode {
@@ -1307,9 +1329,8 @@ onUnmounted(() => {
 
     // Selection state for right-clicked hosts
     &.selected {
-      background-color: rgba(24, 144, 255, 0.15) !important;
-      border: 1px solid #1890ff !important;
-      box-shadow: 0 0 0 2px rgba(24, 144, 255, 0.2) !important;
+      // border: 1px solid #1890ff !important;
+      // box-shadow: 0 0 0 2px rgba(24, 144, 255, 0.2) !important;
       color: #1890ff !important;
     }
 
@@ -1350,6 +1371,31 @@ onUnmounted(() => {
 
   .refresh-icon {
     margin-right: 3px;
+  }
+
+  .refresh-button {
+    background-color: var(--bg-color) !important;
+    border-color: var(--bg-color) !important;
+    color: var(--text-color-tertiary) !important;
+    transition: all 0.2s ease !important;
+
+    &:hover {
+      background-color: #1890ff !important;
+      border-color: #1890ff !important;
+      color: #ffffff !important;
+    }
+
+    &:focus {
+      background-color: #1890ff !important;
+      border-color: #1890ff !important;
+      color: #ffffff !important;
+    }
+
+    &:active {
+      background-color: #096dd9 !important;
+      border-color: #096dd9 !important;
+      color: #ffffff !important;
+    }
   }
 
   .comment-text {

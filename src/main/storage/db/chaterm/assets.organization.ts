@@ -5,7 +5,7 @@ import { v4 as uuidv4 } from 'uuid'
 export function connectAssetInfoLogic(db: Database.Database, uuid: string): any {
   try {
     const stmt = db.prepare(`
-        SELECT asset_ip, auth_type, port, username, password, key_chain_id, need_proxy, proxy_name
+        SELECT uuid, asset_ip, auth_type, port, username, password, key_chain_id, need_proxy, proxy_name
         FROM t_assets
         WHERE uuid = ?
       `)
@@ -47,6 +47,8 @@ export function connectAssetInfoLogic(db: Database.Database, uuid: string): any 
     ;(result as any).sshType = sshType
     ;(result as any).needProxy = !!(result as any).need_proxy
     ;(result as any).proxyName = (result as any).proxy_name
+    const organizationUuid = (result as any).organization_uuid
+    ;(result as any).assetUuid = organizationUuid || (result as any).uuid
     return result
   } catch (error) {
     console.error('Chaterm database get asset error:', error)

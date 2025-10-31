@@ -22,10 +22,7 @@ function createBaseCheckpointRestoreRequest(): CheckpointRestoreRequest {
 }
 
 export const CheckpointRestoreRequest: MessageFns<CheckpointRestoreRequest> = {
-  encode(
-    message: CheckpointRestoreRequest,
-    writer: BinaryWriter = new BinaryWriter()
-  ): BinaryWriter {
+  encode(message: CheckpointRestoreRequest, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
     if (message.metadata !== undefined) {
       Metadata.encode(message.metadata, writer.uint32(10).fork()).join()
     }
@@ -115,19 +112,12 @@ export const CheckpointRestoreRequest: MessageFns<CheckpointRestoreRequest> = {
     return obj
   },
 
-  create<I extends Exact<DeepPartial<CheckpointRestoreRequest>, I>>(
-    base?: I
-  ): CheckpointRestoreRequest {
+  create<I extends Exact<DeepPartial<CheckpointRestoreRequest>, I>>(base?: I): CheckpointRestoreRequest {
     return CheckpointRestoreRequest.fromPartial(base ?? ({} as any))
   },
-  fromPartial<I extends Exact<DeepPartial<CheckpointRestoreRequest>, I>>(
-    object: I
-  ): CheckpointRestoreRequest {
+  fromPartial<I extends Exact<DeepPartial<CheckpointRestoreRequest>, I>>(object: I): CheckpointRestoreRequest {
     const message = createBaseCheckpointRestoreRequest()
-    message.metadata =
-      object.metadata !== undefined && object.metadata !== null
-        ? Metadata.fromPartial(object.metadata)
-        : undefined
+    message.metadata = object.metadata !== undefined && object.metadata !== null ? Metadata.fromPartial(object.metadata) : undefined
     message.number = object.number ?? 0
     message.restoreType = object.restoreType ?? ''
     message.offset = object.offset ?? undefined

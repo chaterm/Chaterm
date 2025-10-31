@@ -532,7 +532,7 @@ const commandBarStyle = computed(() => {
   const left = (leftPaneSize.value * containerWidth) / 100 + 45
   return { width, left }
 })
-const DEFAULT_WIDTH_PX = 320
+const DEFAULT_WIDTH_PX = 250
 const DEFAULT_WIDTH_RIGHT_PX = 500
 const currentMenu = ref('workspace')
 const updatePaneSize = () => {
@@ -1577,7 +1577,7 @@ defineExpose({
 
   .term_body {
     width: 100%;
-    height: calc(100% - 34px);
+    height: calc(100% - 29px);
     display: flex;
 
     .term_left_menu {
@@ -1714,8 +1714,6 @@ defineExpose({
 .splitpanes__splitter {
   background-color: var(--border-color);
   position: relative;
-  border-left: 1px solid var(--border-color);
-  border-right: 1px solid var(--border-color);
 }
 
 .splitpanes__splitter:before {
