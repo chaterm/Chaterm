@@ -117,11 +117,11 @@ export async function saveApiConversationHistoryLogic(db: Database.Database, tas
 export async function getSavedChatermMessagesLogic(db: Database.Database, taskId: string): Promise<any[]> {
   try {
     const stmt = db.prepare(`
-        SELECT ts, type, ask_type, say_type, text, reasoning, images, partial, 
+        SELECT ts, type, ask_type, say_type, text, reasoning, images, partial,
                last_checkpoint_hash, is_checkpoint_checked_out, is_operation_outside_workspace,
-               conversation_history_index, conversation_history_deleted_range
-        FROM agent_ui_messages_v1 
-        WHERE task_id = ? 
+               conversation_history_index, conversation_history_deleted_range, mcp_tool_call_data
+        FROM agent_ui_messages_v1
+        WHERE task_id = ?
         ORDER BY ts ASC
       `)
     const rows = stmt.all(taskId)
@@ -139,7 +139,8 @@ export async function getSavedChatermMessagesLogic(db: Database.Database, taskId
       isCheckpointCheckedOut: row.is_checkpoint_checked_out === 1,
       isOperationOutsideWorkspace: row.is_operation_outside_workspace === 1,
       conversationHistoryIndex: row.conversation_history_index,
-      conversationHistoryDeletedRange: row.conversation_history_deleted_range ? JSON.parse(row.conversation_history_deleted_range) : undefined
+      conversationHistoryDeletedRange: row.conversation_history_deleted_range ? JSON.parse(row.conversation_history_deleted_range) : undefined,
+      mcpToolCall: row.mcp_tool_call_data ? JSON.parse(row.mcp_tool_call_data) : undefined
     }))
   } catch (error) {
     console.error('Failed to get Cline messages:', error)
@@ -156,11 +157,11 @@ export async function saveChatermMessagesLogic(db: Database.Database, taskId: st
 
       // Insert new records
       const insertStmt = db.prepare(`
-          INSERT INTO agent_ui_messages_v1 
+          INSERT INTO agent_ui_messages_v1
           (task_id, ts, type, ask_type, say_type, text, reasoning, images, partial,
            last_checkpoint_hash, is_checkpoint_checked_out, is_operation_outside_workspace,
-           conversation_history_index, conversation_history_deleted_range)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+           conversation_history_index, conversation_history_deleted_range, mcp_tool_call_data)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `)
 
       for (const message of uiMessages) {
@@ -178,7 +179,8 @@ export async function saveChatermMessagesLogic(db: Database.Database, taskId: st
           message.isCheckpointCheckedOut ? 1 : 0,
           message.isOperationOutsideWorkspace ? 1 : 0,
           message.conversationHistoryIndex || null,
-          message.conversationHistoryDeletedRange ? JSON.stringify(message.conversationHistoryDeletedRange) : null
+          message.conversationHistoryDeletedRange ? JSON.stringify(message.conversationHistoryDeletedRange) : null,
+          message.mcpToolCall ? JSON.stringify(message.mcpToolCall) : null
         )
       }
     })()

@@ -12,12 +12,29 @@ export type McpServer = {
   resourceTemplates?: McpResourceTemplate[]
   disabled?: boolean
   timeout?: number
+  type?: 'stdio' | 'sse' | 'streamableHttp'
+  autoApprove?: string[]
+}
+
+export type McpToolInputSchema = {
+  properties?: Record<
+    string,
+    {
+      description?: string
+      type?: string
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      [key: string]: any
+    }
+  >
+  required?: string[]
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  [key: string]: any
 }
 
 export type McpTool = {
   name: string
   description?: string
-  inputSchema?: object
+  inputSchema?: McpToolInputSchema
   autoApprove?: boolean
 }
 
@@ -36,6 +53,7 @@ export type McpResourceTemplate = {
 }
 
 export type McpResourceResponse = {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   _meta?: Record<string, any>
   contents: Array<{
     uri: string
@@ -46,6 +64,7 @@ export type McpResourceResponse = {
 }
 
 export type McpToolCallResponse = {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   _meta?: Record<string, any>
   content: Array<
     | {

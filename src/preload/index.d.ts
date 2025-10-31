@@ -99,6 +99,19 @@ interface ApiType {
   onUserSelectionTimeout: (callback: (data: any) => void) => () => void
   sendUserSelectionResponse: (id: string, userId: number) => void
   sendUserSelectionCancel: (id: string) => void
+  // MCP configuration management
+  getMcpConfigPath: () => Promise<string>
+  readMcpConfig: () => Promise<string>
+  writeMcpConfig: (content: string) => Promise<void>
+  getMcpServers: () => Promise<any[]>
+  toggleMcpServer: (serverName: string, disabled: boolean) => Promise<void>
+  getMcpToolState: (serverName: string, toolName: string) => Promise<any>
+  setMcpToolState: (serverName: string, toolName: string, enabled: boolean) => Promise<void>
+  getAllMcpToolStates: () => Promise<Record<string, boolean>>
+  setMcpToolAutoApprove: (serverName: string, toolName: string, autoApprove: boolean) => Promise<void>
+  onMcpStatusUpdate: (callback: (servers: any[]) => void) => () => void
+  onMcpServerUpdate: (callback: (server: any) => void) => () => void
+  onMcpConfigFileChanged: (callback: (content: string) => void) => () => void
 }
 
 declare global {

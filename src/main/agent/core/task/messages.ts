@@ -98,6 +98,17 @@ export interface Messages {
   // Auto approval
   autoApprovalMaxRequestsMessage: string
 
+  // MCP related
+  mcpToolApprovalPrompt?: string
+  mcpToolCallFailed?: string
+  mcpResourceAccessRequest?: string
+  mcpResourceAccessFailed?: string
+  mcpServerNotFound?: string
+  mcpServerDisabled?: string
+  mcpToolNotFound?: string
+  mcpToolDisabled?: string
+  mcpInvalidArguments?: string
+
   // Response interruption
   responseInterruptedUserFeedback: string
   responseInterruptedToolUse: string
@@ -254,7 +265,18 @@ export const messagesEN: Messages = {
   // User custom instructions
   userCustomInstructionsTitle: "USER'S CUSTOM INSTRUCTIONS",
   userCustomInstructionsDescription:
-    'The following additional instructions are provided by the user, and should be followed to the best of your ability without interfering with the TOOL USE guidelines.'
+    'The following additional instructions are provided by the user, and should be followed to the best of your ability without interfering with the TOOL USE guidelines.',
+
+  // MCP related
+  mcpToolApprovalPrompt: 'Allow MCP tool call?',
+  mcpToolCallFailed: 'MCP tool call failed',
+  mcpResourceAccessRequest: 'MCP Resource Access Request',
+  mcpResourceAccessFailed: 'MCP resource access failed',
+  mcpServerNotFound: 'MCP server "{{server}}" not found',
+  mcpServerDisabled: 'MCP server "{{server}}" is disabled',
+  mcpToolNotFound: 'MCP tool "{{tool}}" not found',
+  mcpToolDisabled: 'MCP tool "{{tool}}" is disabled',
+  mcpInvalidArguments: 'Invalid MCP tool arguments format'
 }
 
 export const messagesCN: Messages = {
@@ -381,7 +403,18 @@ export const messagesCN: Messages = {
 
   // 用户自定义指令
   userCustomInstructionsTitle: '用户自定义指令',
-  userCustomInstructionsDescription: '以下是用户提供的附加指令，应尽力遵循，但不得干扰工具使用指南。'
+  userCustomInstructionsDescription: '以下是用户提供的附加指令，应尽力遵循，但不得干扰工具使用指南。',
+
+  // MCP related
+  mcpToolApprovalPrompt: '是否允许调用 MCP 工具？',
+  mcpToolCallFailed: 'MCP 工具调用失败',
+  mcpResourceAccessRequest: 'MCP 资源访问请求',
+  mcpResourceAccessFailed: 'MCP 资源访问失败',
+  mcpServerNotFound: 'MCP 服务器 "{{server}}" 未找到',
+  mcpServerDisabled: 'MCP 服务器 "{{server}}" 已禁用',
+  mcpToolNotFound: 'MCP 工具 "{{tool}}" 未找到',
+  mcpToolDisabled: 'MCP 工具 "{{tool}}" 已禁用',
+  mcpInvalidArguments: 'MCP 工具参数格式无效'
 }
 
 export function formatMessage(template: string, params: Record<string, any>): string {

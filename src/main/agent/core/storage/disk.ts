@@ -2,12 +2,17 @@ import { Anthropic } from '@anthropic-ai/sdk'
 import { ChatermMessage } from '../../shared/ExtensionMessage'
 import { TaskMetadata } from '../context/context-tracking/ContextTrackerTypes'
 import { ChatermDatabaseService } from '../../../storage/database'
+import { execa } from 'execa'
+import * as path from 'path'
+import fs from 'fs/promises'
+import os from 'os'
 
 export const GlobalFileNames = {
   apiConversationHistory: 'api_conversation_history.json',
   contextHistory: 'context_history.json',
   uiMessages: 'ui_messages.json',
-  taskMetadata: 'task_metadata.json'
+  taskMetadata: 'task_metadata.json',
+  mcpSettings: 'mcp_settings.json'
 }
 
 export async function ensureTaskExists(taskId: string): Promise<string> {
@@ -120,4 +125,51 @@ export async function saveContextHistoryStorage(taskId: string, contextHistory: 
   } catch (error) {
     console.error('Failed to save context history to DB:', error)
   }
+}
+
+export async function ensureMcpServersDirectoryExists(): Promise<string> {
+  const userDocumentsPath = await getDocumentsPath()
+  const mcpServersDir = path.join(userDocumentsPath, 'MCP')
+  try {
+    await fs.mkdir(mcpServersDir, { recursive: true })
+  } catch (_error) {
+    return path.join(os.homedir(), 'Documents', 'Chaterm', 'MCP') // in case creating a directory in documents fails for whatever reason (e.g. permissions) - this is fine since this path is only ever used in the system prompt
+  }
+  return mcpServersDir
+}
+
+export async function getDocumentsPath(): Promise<string> {
+  if (process.platform === 'win32') {
+    try {
+      const { stdout: docsPath } = await execa('powershell', [
+        '-NoProfile', // Ignore user's PowerShell profile(s)
+        '-Command',
+        '[System.Environment]::GetFolderPath([System.Environment+SpecialFolder]::MyDocuments)'
+      ])
+      const trimmedPath = docsPath.trim()
+      if (trimmedPath) {
+        return trimmedPath
+      }
+    } catch (_err) {
+      console.error('Failed to retrieve Windows Documents path. Falling back to homedir/Documents.')
+    }
+  } else if (process.platform === 'linux') {
+    try {
+      // First check if xdg-user-dir exists
+      await execa('which', ['xdg-user-dir'])
+
+      // If it exists, try to get XDG documents path
+      const { stdout } = await execa('xdg-user-dir', ['DOCUMENTS'])
+      const trimmedPath = stdout.trim()
+      if (trimmedPath) {
+        return trimmedPath
+      }
+    } catch {
+      // Log error but continue to fallback
+      console.error('Failed to retrieve XDG Documents path. Falling back to homedir/Documents.')
+    }
+  }
+
+  // Default fallback for all platforms
+  return path.join(os.homedir(), 'Documents')
 }

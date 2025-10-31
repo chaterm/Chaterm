@@ -1126,6 +1126,7 @@
 
   .reject-btn,
   .approve-btn,
+  .approve-auto-btn,
   .cancel-btn,
   .retry-btn,
   .resume-btn {
@@ -1219,6 +1220,51 @@
       &:hover {
         background-color: #40a9ff;
         border-color: #40a9ff;
+      }
+
+      &[disabled] {
+        background-color: #f5f5f5 !important;
+        border-color: #d9d9d9 !important;
+        color: #d9d9d9 !important;
+        cursor: not-allowed;
+      }
+    }
+  }
+
+  .approve-auto-btn {
+    .theme-dark & {
+      color: #e0e0e0;
+      background-color: #237804;
+      border-color: #389e0d;
+
+      &:hover {
+        background-color: #52c41a30;
+        border-color: #73d13d;
+        color: #73d13d;
+      }
+
+      &[disabled] {
+        background-color: #141414 !important;
+        border-color: #2a2a2a !important;
+        color: #666666 !important;
+        cursor: not-allowed;
+
+        &:hover {
+          background-color: #141414 !important;
+          border-color: #2a2a2a !important;
+          color: #666666 !important;
+        }
+      }
+    }
+
+    .theme-light & {
+      background-color: #52c41a;
+      border-color: #52c41a;
+      color: #fff;
+
+      &:hover {
+        background-color: #73d13d;
+        border-color: #73d13d;
       }
 
       &[disabled] {
@@ -1558,4 +1604,72 @@
 
 .todo-inline {
   margin: 8px 0;
+}
+
+// MCP Tool Call Info Styles
+.mcp-tool-call-info {
+  margin: 12px 0;
+  padding: 12px;
+  background-color: var(--bg-color-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  font-size: 13px;
+
+  .mcp-info-section {
+    margin-bottom: 8px;
+
+    &:last-child {
+      margin-bottom: 0;
+    }
+
+    .mcp-info-label {
+      font-weight: 600;
+      color: var(--text-color);
+      margin-bottom: 4px;
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .mcp-info-value {
+      color: var(--text-color-secondary);
+      padding: 4px 8px;
+      background-color: var(--bg-color-quinary);
+      border-radius: 4px;
+      font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+      font-size: 13px;
+    }
+
+    .mcp-info-params {
+      padding: 8px;
+      background-color: var(--bg-color-quinary);
+      border-radius: 4px;
+
+      .mcp-param-item {
+        display: flex;
+        gap: 8px;
+        margin-bottom: 6px;
+        font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+        font-size: 12px;
+
+        &:last-child {
+          margin-bottom: 0;
+        }
+
+        .mcp-param-key {
+          color: #1890ff;
+          font-weight: 500;
+          min-width: 100px;
+          flex-shrink: 0;
+        }
+
+        .mcp-param-value {
+          color: var(--text-color-secondary);
+          word-break: break-word;
+          white-space: pre-wrap;
+          flex: 1;
+        }
+      }
+    }
+  }
 }

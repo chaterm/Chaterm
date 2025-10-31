@@ -83,6 +83,13 @@
         >
           <About />
         </a-tab-pane>
+        <a-tab-pane
+          key="10"
+          :tab="$t('mcp.title')"
+          type="card"
+        >
+          <Mcp />
+        </a-tab-pane>
       </a-tabs>
     </div>
   </div>
@@ -100,6 +107,7 @@ import Shortcuts from '@/views/components/LeftTab/components/shortcuts.vue'
 import Privacy from '@/views/components/LeftTab/components/privacy.vue'
 import Rules from '@/views/components/LeftTab/components/rules.vue'
 import About from '@/views/components/LeftTab/components/about.vue'
+import Mcp from '@/views/components/LeftTab/components/mcp.vue'
 const isSkippedLogin = ref(localStorage.getItem('login-skipped') === 'true')
 </script>
 

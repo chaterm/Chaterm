@@ -42,6 +42,13 @@ import {
   getKeyChainListLogic
 } from './chaterm/keychains'
 import { userSnippetOperationLogic } from './chaterm/snippets'
+import {
+  getToolStateLogic,
+  setToolStateLogic,
+  getServerToolStatesLogic,
+  getAllToolStatesLogic,
+  deleteServerToolStatesLogic
+} from './chaterm/mcp-tool-state'
 
 export class ChatermDatabaseService {
   private static instances: Map<number, ChatermDatabaseService> = new Map()
@@ -283,6 +290,55 @@ export class ChatermDatabaseService {
       return result
     } catch (error) {
       console.error('ChatermDatabaseService.getAssetsInFolder 错误:', error)
+      throw error
+    }
+  }
+
+  // MCP工具状态管理方法
+  getMcpToolState(serverName: string, toolName: string): any {
+    try {
+      const result = getToolStateLogic(this.db, serverName, toolName)
+      return result
+    } catch (error) {
+      console.error('ChatermDatabaseService.getMcpToolState 错误:', error)
+      throw error
+    }
+  }
+
+  setMcpToolState(serverName: string, toolName: string, enabled: boolean): void {
+    try {
+      setToolStateLogic(this.db, serverName, toolName, enabled)
+    } catch (error) {
+      console.error('ChatermDatabaseService.setMcpToolState 错误:', error)
+      throw error
+    }
+  }
+
+  getServerMcpToolStates(serverName: string): any {
+    try {
+      const result = getServerToolStatesLogic(this.db, serverName)
+      return result
+    } catch (error) {
+      console.error('ChatermDatabaseService.getServerMcpToolStates 错误:', error)
+      throw error
+    }
+  }
+
+  getAllMcpToolStates(): Record<string, boolean> {
+    try {
+      const result = getAllToolStatesLogic(this.db)
+      return result
+    } catch (error) {
+      console.error('ChatermDatabaseService.getAllMcpToolStates 错误:', error)
+      throw error
+    }
+  }
+
+  deleteServerMcpToolStates(serverName: string): void {
+    try {
+      deleteServerToolStatesLogic(this.db, serverName)
+    } catch (error) {
+      console.error('ChatermDatabaseService.deleteServerMcpToolStates 错误:', error)
       throw error
     }
   }

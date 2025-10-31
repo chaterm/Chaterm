@@ -123,6 +123,36 @@
                 :executed-command="message.executedCommand"
               />
 
+              <div
+                v-if="message.ask === 'mcp_tool_call' && message.mcpToolCall"
+                class="mcp-tool-call-info"
+              >
+                <div class="mcp-info-section">
+                  <div class="mcp-info-label">MCP Server:</div>
+                  <div class="mcp-info-value">{{ message.mcpToolCall.serverName }}</div>
+                </div>
+                <div class="mcp-info-section">
+                  <div class="mcp-info-label">Tool:</div>
+                  <div class="mcp-info-value">{{ message.mcpToolCall.toolName }}</div>
+                </div>
+                <div
+                  v-if="message.mcpToolCall.arguments && Object.keys(message.mcpToolCall.arguments).length > 0"
+                  class="mcp-info-section"
+                >
+                  <div class="mcp-info-label">Parameters:</div>
+                  <div class="mcp-info-params">
+                    <div
+                      v-for="(value, key) in message.mcpToolCall.arguments"
+                      :key="key"
+                      class="mcp-param-item"
+                    >
+                      <span class="mcp-param-key">{{ key }}:</span>
+                      <span class="mcp-param-value">{{ formatParamValue(value) }}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
               <div class="message-actions">
                 <template v-if="typeof message.content === 'object' && 'options' in message.content && index === filteredChatHistory.length - 1">
                   <div class="options-container">
@@ -184,7 +214,7 @@
                     chatTypeValue === 'agent' &&
                     index === filteredChatHistory.length - 1 &&
                     lastChatMessageId === message.id &&
-                    message.ask === 'command' &&
+                    (message.ask === 'command' || message.ask === 'mcp_tool_call') &&
                     !showCancelButton
                   "
                 >
@@ -209,11 +239,23 @@
                       <template #icon>
                         <PlayCircleOutlined />
                       </template>
-                      {{ $t('ai.run') }}
+                      {{ message.ask === 'mcp_tool_call' ? $t('ai.approve') : $t('ai.run') }}
+                    </a-button>
+                    <a-button
+                      v-if="message.ask === 'mcp_tool_call'"
+                      size="small"
+                      class="approve-auto-btn"
+                      :disabled="buttonsDisabled"
+                      @click="handleApproveAndAutoApprove"
+                    >
+                      <template #icon>
+                        <CheckCircleOutlined />
+                      </template>
+                      {{ $t('ai.addAutoApprove') }}
                     </a-button>
                   </div>
                 </template>
-                <!-- Inline copy/run buttons for Command mode -->
+                <!-- Inline copy/run buttons for Command mode - command type -->
                 <template
                   v-if="
                     chatTypeValue === 'cmd' &&
@@ -243,6 +285,52 @@
                         <PlayCircleOutlined />
                       </template>
                       {{ $t('ai.run') }}
+                    </a-button>
+                  </div>
+                </template>
+                <!-- Inline approval buttons for Command mode - mcp_tool_call type -->
+                <template
+                  v-if="
+                    chatTypeValue === 'cmd' &&
+                    index === filteredChatHistory.length - 1 &&
+                    lastChatMessageId === message.id &&
+                    message.ask === 'mcp_tool_call' &&
+                    !showCancelButton
+                  "
+                >
+                  <div class="bottom-buttons">
+                    <a-button
+                      size="small"
+                      class="reject-btn"
+                      :disabled="buttonsDisabled"
+                      @click="handleRejectContent"
+                    >
+                      <template #icon>
+                        <CloseOutlined />
+                      </template>
+                      {{ $t('ai.reject') }}
+                    </a-button>
+                    <a-button
+                      size="small"
+                      class="approve-btn"
+                      :disabled="buttonsDisabled"
+                      @click="handleApproveCommand"
+                    >
+                      <template #icon>
+                        <PlayCircleOutlined />
+                      </template>
+                      {{ $t('ai.approve') }}
+                    </a-button>
+                    <a-button
+                      size="small"
+                      class="approve-auto-btn"
+                      :disabled="buttonsDisabled"
+                      @click="handleApproveAndAutoApprove"
+                    >
+                      <template #icon>
+                        <CheckCircleOutlined />
+                      </template>
+                      {{ $t('ai.addAutoApprove') }}
                     </a-button>
                   </div>
                 </template>
@@ -690,6 +778,7 @@ import {
   DeleteOutlined,
   SearchOutlined,
   CheckOutlined,
+  CheckCircleOutlined,
   ReloadOutlined,
   StarOutlined,
   StarFilled,
@@ -863,6 +952,22 @@ const AiTypeOptions = [
   { label: 'Command', value: 'cmd' },
   { label: 'Agent', value: 'agent' }
 ]
+
+// 格式化 MCP 工具参数值
+const formatParamValue = (value: unknown): string => {
+  if (value === null) return 'null'
+  if (value === undefined) return 'undefined'
+  if (typeof value === 'string') return value
+  if (typeof value === 'number' || typeof value === 'boolean') return String(value)
+  if (typeof value === 'object') {
+    try {
+      return JSON.stringify(value, null, 2)
+    } catch {
+      return String(value)
+    }
+  }
+  return String(value)
+}
 
 const getChatermMessages = async () => {
   const result = await window.api.chatermGetChatermMessages({
@@ -1305,6 +1410,7 @@ const restoreHistoryTab = async (history: HistoryItem) => {
         !isDuplicate &&
         (item.ask === 'followup' ||
           item.ask === 'command' ||
+          item.ask === 'mcp_tool_call' ||
           item.say === 'command' ||
           item.say === 'command_output' ||
           item.say === 'completion_result' ||
@@ -1328,6 +1434,10 @@ const restoreHistoryTab = async (history: HistoryItem) => {
           ask: item.ask,
           say: item.say,
           ts: item.ts
+        }
+        // 添加 MCP 工具调用信息
+        if (item.mcpToolCall) {
+          userMessage.mcpToolCall = item.mcpToolCall
         }
         if (userMessage.say === 'user_feedback' && isStringContent(userMessage.content) && userMessage.content.startsWith('Terminal output:')) {
           userMessage.say = 'command_output'
@@ -1529,6 +1639,9 @@ const handleRejectContent = async () => {
       case 'auto_approval_max_req_reached':
         messageRsp.askResponse = 'noButtonClicked'
         break
+      case 'mcp_tool_call':
+        messageRsp.askResponse = 'noButtonClicked'
+        break
     }
     message.action = 'rejected'
     console.log('Send message to main process:', messageRsp)
@@ -1635,6 +1748,9 @@ const handleApproveCommand = async () => {
       case 'auto_approval_max_req_reached':
         messageRsp.askResponse = 'yesButtonClicked'
         break
+      case 'mcp_tool_call':
+        messageRsp.askResponse = 'yesButtonClicked'
+        break
     }
     message.action = 'approved'
 
@@ -1649,6 +1765,42 @@ const handleApproveCommand = async () => {
     responseLoading.value = true
   } catch (error) {
     console.error('Failed to send message to main process:', error)
+  }
+}
+
+const handleApproveAndAutoApprove = async () => {
+  let message = chatHistory.at(-1)
+  if (!message) {
+    return false
+  }
+
+  // 只有 mcp_tool_call 类型的消息才能使用此功能
+  if (message.ask !== 'mcp_tool_call' || !message.mcpToolCall) {
+    return false
+  }
+
+  try {
+    const { serverName, toolName } = message.mcpToolCall
+
+    // 1. 首先设置工具为自动批准
+    await window.api.setMcpToolAutoApprove(serverName, toolName, true)
+    console.log(`Set auto-approve for ${serverName}/${toolName}`)
+
+    // 2. 然后批准当前调用
+    let messageRsp = {
+      type: 'askResponse',
+      askResponse: 'yesButtonClicked',
+      text: ''
+    }
+    message.action = 'approved'
+
+    console.log('Send message to main process:', messageRsp)
+    const response = await window.api.sendToMain(messageRsp)
+    buttonsDisabled.value = true
+    console.log('Main process response:', response)
+    responseLoading.value = true
+  } catch (error) {
+    console.error('Failed to approve and set auto-approve:', error)
   }
 }
 
@@ -2043,6 +2195,10 @@ onMounted(async () => {
           newAssistantMessage.content = parseMessageContent(message.partialMessage.text)
         }
 
+        if (message.partialMessage.mcpToolCall) {
+          newAssistantMessage.mcpToolCall = message.partialMessage.mcpToolCall
+        }
+
         if (message.partialMessage.type === 'say' && message.partialMessage.say === 'command') {
           isExecutingCommand.value = true
         }
@@ -2057,6 +2213,10 @@ onMounted(async () => {
         lastMessageInChat.ask = message.partialMessage.type === 'ask' ? message.partialMessage.ask : ''
         lastMessageInChat.say = message.partialMessage.type === 'say' ? message.partialMessage.say : ''
         lastMessageInChat.partial = message.partialMessage.partial
+
+        if (message.partialMessage.mcpToolCall) {
+          lastMessageInChat.mcpToolCall = message.partialMessage.mcpToolCall
+        }
 
         if (!message.partialMessage.partial && message.partialMessage.type === 'ask') {
           lastMessageInChat.content = parseMessageContent(message.partialMessage.text)
