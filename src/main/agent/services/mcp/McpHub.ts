@@ -17,7 +17,8 @@ import {
   McpResourceTemplate,
   McpServer,
   McpTool,
-  McpToolCallResponse
+  McpToolCallResponse,
+  McpToolInputSchema
 } from '@shared/mcp'
 import { secondsToMs } from '@utils/time'
 import chokidar, { FSWatcher } from 'chokidar'
@@ -553,8 +554,10 @@ export class McpHub {
       const autoApproveConfig = config.mcpServers[serverName]?.autoApprove || []
 
       // Mark tools as always allowed based on settings
-      const tools = (response?.tools || []).map((tool) => ({
-        ...tool,
+      const tools: McpTool[] = (response?.tools || []).map((tool) => ({
+        name: tool.name,
+        description: tool.description,
+        inputSchema: tool.inputSchema as McpToolInputSchema | undefined,
         autoApprove: autoApproveConfig.includes(tool.name)
       }))
 
