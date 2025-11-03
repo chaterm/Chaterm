@@ -425,6 +425,15 @@ export class Task {
   }
 
   // Get terminal manager (public method)
+  /**
+   * 重新加载安全配置（用于配置文件更新后立即生效）
+   */
+  async reloadSecurityConfig(): Promise<void> {
+    if (this.commandSecurityManager) {
+      await this.commandSecurityManager.reloadConfig()
+    }
+  }
+
   getTerminalManager() {
     return this.remoteTerminalManager
   }

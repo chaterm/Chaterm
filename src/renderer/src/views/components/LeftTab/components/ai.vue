@@ -229,6 +229,7 @@ import { updateGlobalState, getGlobalState } from '@renderer/agent/storage/state
 import { AutoApprovalSettings, DEFAULT_AUTO_APPROVAL_SETTINGS } from '@/agent/storage/shared'
 import { ChatSettings, DEFAULT_CHAT_SETTINGS, ProxyConfig } from '@/agent/storage/shared'
 import i18n from '@/locales'
+import eventBus from '@/utils/eventBus'
 
 const { t } = i18n.global
 
@@ -478,27 +479,16 @@ const handleEnableExtendedThinking = (checked: boolean) => {
 const openSecurityConfig = async () => {
   try {
     securityConfigLoading.value = true
-
-    // Call main process to open security config directory
-    const result = await window.api.openSecurityConfig()
-
-    if (result.success) {
-      // 文件打开成功，不需要显示通知，用户看到文件打开就知道成功了
-      console.log('Security config file opened successfully')
-    } else {
-      throw new Error(result.error || 'Unknown error')
-    }
+    // 通过 eventBus 打开标签页
+    eventBus.emit('open-user-tab', 'securityConfigEditor')
   } catch (error) {
-    console.error('Failed to open security config:', error)
+    console.error('Failed to open security config editor:', error)
     notification.error({
       message: t('user.error'),
       description: t('user.openSecurityConfigFailed')
     })
   } finally {
-    // 延迟关闭loading，确保用户能看到loading状态
-    setTimeout(() => {
-      securityConfigLoading.value = false
-    }, 2000)
+    securityConfigLoading.value = false
   }
 }
 </script>

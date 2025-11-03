@@ -101,6 +101,7 @@ if (fs.existsSync(envSpecificPath)) {
 // Custom APIs for renderer
 import os from 'os'
 import { ExecResult } from '../main/ssh/sshHandle'
+
 const getLocalIP = (): string => {
   const interfaces = os.networkInterfaces()
   for (const name of Object.keys(interfaces)) {
@@ -891,7 +892,15 @@ const api = {
   },
 
   // Security configuration
-  openSecurityConfig: () => ipcRenderer.invoke('security-open-config')
+  openSecurityConfig: () => ipcRenderer.invoke('security-open-config'),
+  getSecurityConfigPath: () => ipcRenderer.invoke('security-get-config-path'),
+  readSecurityConfig: () => ipcRenderer.invoke('security-read-config'),
+  writeSecurityConfig: (content: string) => ipcRenderer.invoke('security-write-config', content),
+  onSecurityConfigFileChanged: (callback: (content: string) => void) => {
+    const listener = (_event, content) => callback(content)
+    ipcRenderer.on('security-config-file-changed', listener)
+    return () => ipcRenderer.removeListener('security-config-file-changed', listener)
+  }
 }
 // 自定义 API 用于浏览器控制
 

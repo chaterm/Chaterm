@@ -1001,8 +1001,15 @@ onUnmounted(() => {
   eventBus.off('createNewTerminal', handleCreateNewTerminal)
   eventBus.off('open-user-tab', openUserTab)
 })
-const openUserTab = function (value) {
-  if (value === 'assetConfig' || value === 'keyChainConfig' || value === 'userInfo' || value === 'userConfig' || value === 'mcpConfigEditor') {
+const openUserTab = async function (value) {
+  if (
+    value === 'assetConfig' ||
+    value === 'keyChainConfig' ||
+    value === 'userInfo' ||
+    value === 'userConfig' ||
+    value === 'mcpConfigEditor' ||
+    value === 'securityConfigEditor'
+  ) {
     const existTab = openedTabs.value.find((tab) => tab.content === value)
     if (existTab) {
       activeTabId.value = existTab.id
@@ -1019,6 +1026,20 @@ const openUserTab = function (value) {
       p.title = 'alias'
       p.type = 'extensions'
       break
+    case 'securityConfigEditor': {
+      // 获取配置文件路径并提取文件名
+      try {
+        const { securityConfigService } = await import('@/services/securityConfigService')
+        const configPath = await securityConfigService.getConfigPath()
+        // 提取文件名（兼容 Windows 和 Unix 路径）
+        const fileName = configPath.split(/[/\\]/).pop() || 'chaterm-security.json'
+        p.title = fileName
+      } catch (error) {
+        console.error('Failed to get security config path:', error)
+        p.title = 'chaterm-security.json' // 默认文件名
+      }
+      break
+    }
   }
   currentClickServer(p)
 }

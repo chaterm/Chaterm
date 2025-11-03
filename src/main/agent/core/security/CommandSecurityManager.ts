@@ -30,6 +30,15 @@ export class CommandSecurityManager {
   }
 
   /**
+   * 重新加载配置（用于配置文件更新后立即生效）
+   */
+  async reloadConfig(): Promise<void> {
+    await this.configManager.loadConfig()
+    this.config = this.configManager.getConfig()
+    console.log('[SecurityConfig] Configuration reloaded successfully')
+  }
+
+  /**
    * 验证命令是否安全
    */
   validateCommandSecurity(command: string): CommandSecurityResult {
