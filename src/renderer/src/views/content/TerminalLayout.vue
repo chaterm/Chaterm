@@ -539,8 +539,10 @@ const currentMenu = ref('workspace')
 const updatePaneSize = () => {
   const container = document.querySelector('.splitpanes') as HTMLElement
   if (container) {
-    const containerWidth = container.offsetWidth
-    leftPaneSize.value = (DEFAULT_WIDTH_PX / containerWidth) * 100
+    if (leftPaneSize.value > 0) {
+      const containerWidth = container.offsetWidth
+      leftPaneSize.value = (DEFAULT_WIDTH_PX / containerWidth) * 100
+    }
   }
 }
 
