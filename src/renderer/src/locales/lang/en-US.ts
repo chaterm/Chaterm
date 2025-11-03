@@ -392,7 +392,7 @@ export default {
     securityConfig: 'Security Configuration',
     openSecurityConfig: 'Open Config',
     securityConfigDescribe:
-      'Click the button to directly open the security configuration file and manage command execution security policies and whitelist/blacklist settings. Application restart is required for changes to take effect.',
+      'Click the button to directly open the security configuration file and manage command execution security policies and whitelist/blacklist settings.',
     securityConfigOpened: 'Opening security configuration file...',
     openSecurityConfigFailed: 'Failed to open security configuration',
     success: 'Success'
