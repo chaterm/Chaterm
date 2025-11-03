@@ -17,20 +17,18 @@ import {
   McpResourceTemplate,
   McpServer,
   McpTool,
-  McpToolCallResponse,
-  MIN_MCP_TIMEOUT_SECONDS
+  McpToolCallResponse
 } from '@shared/mcp'
 import { secondsToMs } from '@utils/time'
 import chokidar, { FSWatcher } from 'chokidar'
 import deepEqual from 'fast-deep-equal'
 import * as fs from 'fs/promises'
-import ReconnectingEventSource from 'reconnecting-eventsource'
 import { z } from 'zod'
 // import { TelemetryService } from '../telemetry/TelemetryService'
 // import { BrowserWindow } from 'electron'
 
 import { DEFAULT_REQUEST_TIMEOUT_MS } from './constants'
-import { BaseConfigSchema, McpSettingsSchema, ServerConfigSchema } from './schemas'
+import { McpSettingsSchema, ServerConfigSchema } from './schemas'
 import { McpConnection, McpServerConfig, Transport } from './types'
 
 /**
@@ -228,22 +226,20 @@ export class McpHub {
     })
 
     this.settingsWatcher.on('change', async () => {
-      // Notify renderer process about config file content change
-      try {
-        const content = await fs.readFile(settingsPath, 'utf-8')
-        if (this.postMessageToWebview) {
-          await this.postMessageToWebview({
-            type: 'mcpConfigFileChanged',
-            content
-          })
-        }
-      } catch (error) {
-        console.error('Failed to read MCP config file for change notification:', error)
-      }
-
-      // Skip if this was an internal toggle operation
       if (this.skipNextFileWatcherChange) {
         this.skipNextFileWatcherChange = false
+
+        try {
+          const content = await fs.readFile(settingsPath, 'utf-8')
+          if (this.postMessageToWebview) {
+            await this.postMessageToWebview({
+              type: 'mcpConfigFileChanged',
+              content
+            })
+          }
+        } catch (error) {
+          console.error('Failed to read MCP config file for change notification:', error)
+        }
         return
       }
 
@@ -902,48 +898,6 @@ export class McpHub {
 
   // Public methods for server management
 
-  public async toggleServerDisabledRPC(serverName: string, disabled: boolean): Promise<McpServer[]> {
-    try {
-      const config = await this.readAndValidateMcpSettingsFile()
-      if (!config) {
-        throw new Error('Failed to read or validate MCP settings')
-      }
-
-      if (config.mcpServers[serverName]) {
-        config.mcpServers[serverName].disabled = disabled
-
-        const settingsPath = await this.getMcpSettingsFilePath()
-        await fs.writeFile(settingsPath, JSON.stringify(config, null, 2))
-
-        const connection = this.connections.find((conn) => conn.server.name === serverName)
-        if (connection) {
-          connection.server.disabled = disabled
-        }
-
-        const serverOrder = Object.keys(config.mcpServers || {})
-        return this.getSortedMcpServers(serverOrder)
-      }
-      console.error(`Server "${serverName}" not found in MCP configuration`)
-      throw new Error(`Server "${serverName}" not found in MCP configuration`)
-    } catch (error) {
-      console.error('Failed to update server disabled state:', error)
-      if (error instanceof Error) {
-        console.error('Error details:', error.message, error.stack)
-      }
-      if (this.postMessageToWebview) {
-        await this.postMessageToWebview({
-          type: 'notification',
-          notification: {
-            type: 'error',
-            title: 'MCP Server Error',
-            description: `Failed to update server state: ${error instanceof Error ? error.message : String(error)}`
-          }
-        })
-      }
-      throw error
-    }
-  }
-
   /**
    * Toggle server disabled state with optimized updates (only target server, no full reconciliation)
    * @param serverName The name of the server to toggle
@@ -1137,58 +1091,6 @@ export class McpHub {
     }
   }
 
-  /**
-   * RPC variant of toggleToolAutoApprove that returns the updated servers instead of notifying the webview
-   * @param serverName The name of the MCP server
-   * @param toolNames Array of tool names to toggle auto-approve for
-   * @param shouldAllow Whether to enable or disable auto-approve
-   * @returns Array of updated MCP servers
-   */
-  async toggleToolAutoApproveRPC(serverName: string, toolNames: string[], shouldAllow: boolean): Promise<McpServer[]> {
-    try {
-      const settingsPath = await this.getMcpSettingsFilePath()
-      const content = await fs.readFile(settingsPath, 'utf-8')
-      const config = JSON.parse(content)
-
-      // Initialize autoApprove if it doesn't exist
-      if (!config.mcpServers[serverName].autoApprove) {
-        config.mcpServers[serverName].autoApprove = []
-      }
-
-      const autoApprove = config.mcpServers[serverName].autoApprove
-      for (const toolName of toolNames) {
-        const toolIndex = autoApprove.indexOf(toolName)
-
-        if (shouldAllow && toolIndex === -1) {
-          // Add tool to autoApprove list
-          autoApprove.push(toolName)
-        } else if (!shouldAllow && toolIndex !== -1) {
-          // Remove tool from autoApprove list
-          autoApprove.splice(toolIndex, 1)
-        }
-      }
-
-      await fs.writeFile(settingsPath, JSON.stringify(config, null, 2))
-
-      // Update the tools list to reflect the change
-      const connection = this.connections.find((conn) => conn.server.name === serverName)
-      if (connection && connection.server.tools) {
-        // Update the autoApprove property of each tool in the in-memory server object
-        connection.server.tools = connection.server.tools.map((tool) => ({
-          ...tool,
-          autoApprove: autoApprove.includes(tool.name)
-        }))
-      }
-
-      // Return sorted servers without notifying webview
-      const serverOrder = Object.keys(config.mcpServers || {})
-      return this.getSortedMcpServers(serverOrder)
-    } catch (error) {
-      console.error('Failed to update autoApprove settings:', error)
-      throw error // Re-throw to ensure the error is properly handled
-    }
-  }
-
   async toggleToolAutoApprove(serverName: string, toolNames: string[], shouldAllow: boolean): Promise<void> {
     try {
       const settingsPath = await this.getMcpSettingsFilePath()
@@ -1213,6 +1115,7 @@ export class McpHub {
         }
       }
 
+      this.skipNextFileWatcherChange = true
       await fs.writeFile(settingsPath, JSON.stringify(config, null, 2))
 
       // Update the tools list to reflect the change
@@ -1240,131 +1143,6 @@ export class McpHub {
       throw error // Re-throw to ensure the error is properly handled
     }
   }
-
-  public async addRemoteServer(serverName: string, serverUrl: string): Promise<McpServer[]> {
-    try {
-      const settings = await this.readAndValidateMcpSettingsFile()
-      if (!settings) {
-        throw new Error('Failed to read MCP settings')
-      }
-
-      if (settings.mcpServers[serverName]) {
-        throw new Error(`An MCP server with the name "${serverName}" already exists`)
-      }
-
-      const urlValidation = z.string().url().safeParse(serverUrl)
-      if (!urlValidation.success) {
-        throw new Error(`Invalid server URL: ${serverUrl}. Please provide a valid URL.`)
-      }
-
-      const serverConfig = {
-        url: serverUrl,
-        disabled: false,
-        autoApprove: []
-      }
-
-      const parsedConfig = ServerConfigSchema.parse(serverConfig)
-
-      settings.mcpServers[serverName] = parsedConfig
-      const settingsPath = await this.getMcpSettingsFilePath()
-
-      // We don't write the zod-transformed version to the file.
-      // The above parse() call adds the transportType field to the server config
-      // It would be fine if this was written, but we don't want to clutter up the file with internal details
-
-      // ToDo: We could benefit from input / output types reflecting the non-transformed / transformed versions
-      await fs.writeFile(settingsPath, JSON.stringify({ mcpServers: { ...settings.mcpServers, [serverName]: serverConfig } }, null, 2))
-
-      await this.updateServerConnectionsRPC(settings.mcpServers)
-
-      const serverOrder = Object.keys(settings.mcpServers || {})
-      return this.getSortedMcpServers(serverOrder)
-    } catch (error) {
-      console.error('Failed to add remote MCP server:', error)
-      throw error
-    }
-  }
-
-  /**
-   * RPC variant of deleteServer that returns the updated server list directly
-   * @param serverName The name of the server to delete
-   * @returns Array of remaining MCP servers
-   */
-  public async deleteServerRPC(serverName: string): Promise<McpServer[]> {
-    try {
-      const settingsPath = await this.getMcpSettingsFilePath()
-      const content = await fs.readFile(settingsPath, 'utf-8')
-      const config = JSON.parse(content)
-      if (!config.mcpServers || typeof config.mcpServers !== 'object') {
-        config.mcpServers = {}
-      }
-
-      if (config.mcpServers[serverName]) {
-        delete config.mcpServers[serverName]
-        const updatedConfig = {
-          mcpServers: config.mcpServers
-        }
-        await fs.writeFile(settingsPath, JSON.stringify(updatedConfig, null, 2))
-        await this.updateServerConnectionsRPC(config.mcpServers)
-
-        // Get the servers in their correct order from settings
-        const serverOrder = Object.keys(config.mcpServers || {})
-        return this.getSortedMcpServers(serverOrder)
-      } else {
-        throw new Error(`${serverName} not found in MCP configuration`)
-      }
-    } catch (error) {
-      console.error(`Failed to delete MCP server: ${error instanceof Error ? error.message : String(error)}`)
-      throw error
-    }
-  }
-
-  public async updateServerTimeoutRPC(serverName: string, timeout: number): Promise<McpServer[]> {
-    try {
-      // Validate timeout against schema
-      const setConfigResult = BaseConfigSchema.shape.timeout.safeParse(timeout)
-      if (!setConfigResult.success) {
-        throw new Error(`Invalid timeout value: ${timeout}. Must be at minimum ${MIN_MCP_TIMEOUT_SECONDS} seconds.`)
-      }
-
-      const settingsPath = await this.getMcpSettingsFilePath()
-      const content = await fs.readFile(settingsPath, 'utf-8')
-      const config = JSON.parse(content)
-
-      if (!config.mcpServers?.[serverName]) {
-        throw new Error(`Server "${serverName}" not found in settings`)
-      }
-
-      config.mcpServers[serverName] = {
-        ...config.mcpServers[serverName],
-        timeout
-      }
-
-      await fs.writeFile(settingsPath, JSON.stringify(config, null, 2))
-
-      await this.updateServerConnectionsRPC(config.mcpServers)
-
-      const serverOrder = Object.keys(config.mcpServers || {})
-      return this.getSortedMcpServers(serverOrder)
-    } catch (error) {
-      console.error('Failed to update server timeout:', error)
-      if (error instanceof Error) {
-        console.error('Error details:', error.message, error.stack)
-      }
-      if (this.postMessageToWebview) {
-        await this.postMessageToWebview({
-          type: 'notification',
-          notification: {
-            type: 'error',
-            title: 'MCP Settings Error',
-            description: `Failed to update server timeout: ${error instanceof Error ? error.message : String(error)}`
-          }
-        })
-      }
-      throw error
-    }
-  }
-
   /**
    * Get and clear pending notifications
    * @returns Array of pending notifications
