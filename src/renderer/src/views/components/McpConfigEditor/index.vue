@@ -18,13 +18,6 @@
         @update:model-value="handleContentChange"
       />
     </div>
-    <div
-      v-if="error"
-      class="editor-error"
-    >
-      <ExclamationCircleOutlined />
-      {{ error }}
-    </div>
   </div>
 </template>
 
@@ -33,12 +26,10 @@ import { ref, onMounted, onBeforeUnmount, computed } from 'vue'
 import { notification } from 'ant-design-vue'
 import { mcpConfigService } from '@/services/mcpService'
 import { useI18n } from 'vue-i18n'
-import { ExclamationCircleOutlined } from '@ant-design/icons-vue'
 import MonacoEditor from '@views/components/Term/Editor/monacoEditor.vue'
 import { getMonacoTheme } from '@/utils/themeUtils'
 
 const { t } = useI18n()
-
 const configContent = ref('')
 const error = ref('')
 const isSaving = ref(false)
@@ -108,13 +99,13 @@ const handleContentChange = (newValue: string) => {
     JSON.parse(newValue)
     error.value = ''
 
-    // Auto-save after 1 second of no typing
+    // Auto-save after 2 seconds of no typing
     if (saveTimer) {
       clearTimeout(saveTimer)
     }
     saveTimer = setTimeout(() => {
       saveConfig()
-    }, 1000)
+    }, 2000)
   } catch (err: unknown) {
     const errorMessage = err instanceof Error ? err.message : String(err)
     error.value = t('mcp.invalidJson') + ': ' + errorMessage
@@ -136,7 +127,6 @@ const saveConfig = async () => {
     isSaving.value = false
     lastSaved.value = true
 
-    // 3秒后隐藏保存成功提示
     if (statusTimer) {
       clearTimeout(statusTimer)
     }
@@ -209,20 +199,6 @@ const saveConfig = async () => {
     flex: 1;
     overflow: hidden;
     position: relative;
-  }
-
-  .editor-error {
-    margin: 12px 16px;
-    padding: 8px 12px;
-    background-color: #fff2f0;
-    border: 1px solid #ffccc7;
-    border-radius: 4px;
-    color: #ff4d4f;
-    font-size: 12px;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    flex-shrink: 0;
   }
 }
 </style>
