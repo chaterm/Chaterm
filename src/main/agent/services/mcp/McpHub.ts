@@ -32,6 +32,84 @@ import { z } from 'zod'
 import { DEFAULT_REQUEST_TIMEOUT_MS } from './constants'
 import { BaseConfigSchema, McpSettingsSchema, ServerConfigSchema } from './schemas'
 import { McpConnection, McpServerConfig, Transport } from './types'
+
+/**
+ * Parse a command string that may contain arguments into separate command and args
+ * Supports quoted arguments (both single and double quotes)
+ *
+ * Examples:
+ * - "uvx package@latest" -> { command: "uvx", args: ["package@latest"] }
+ * - "npx -y package" -> { command: "npx", args: ["-y", "package"] }
+ * - 'python -m "my module"' -> { command: "python", args: ["-m", "my module"] }
+ * - "  uvx  package  " -> { command: "uvx", args: ["package"] }
+ */
+function parseCommand(commandString: string): { command: string; args: string[] } {
+  // Trim the input to handle leading/trailing whitespace
+  const trimmed = commandString.trim()
+
+  if (trimmed.length === 0) {
+    throw new Error('Empty command string')
+  }
+
+  const parts: string[] = []
+  let current = ''
+  let inQuote: string | null = null
+  let escaped = false
+
+  for (let i = 0; i < trimmed.length; i++) {
+    const char = trimmed[i]
+
+    if (escaped) {
+      current += char
+      escaped = false
+      continue
+    }
+
+    if (char === '\\') {
+      escaped = true
+      continue
+    }
+
+    if (char === '"' || char === "'") {
+      if (inQuote === char) {
+        // End of quoted section
+        inQuote = null
+      } else if (inQuote === null) {
+        // Start of quoted section
+        inQuote = char
+      } else {
+        // Different quote while already in quotes - treat as literal
+        current += char
+      }
+      continue
+    }
+
+    if (char === ' ' && inQuote === null) {
+      // Space outside quotes - separator
+      if (current.length > 0) {
+        parts.push(current)
+        current = ''
+      }
+      continue
+    }
+
+    current += char
+  }
+
+  // Add remaining part
+  if (current.length > 0) {
+    parts.push(current)
+  }
+
+  if (parts.length === 0) {
+    throw new Error('Empty command string after parsing')
+  }
+
+  return {
+    command: parts[0],
+    args: parts.slice(1)
+  }
+}
 export class McpHub {
   getMcpServersPath: () => Promise<string>
   getMcpSettingsFilePath: () => Promise<string>
@@ -247,9 +325,29 @@ export class McpHub {
 
       switch (config.type) {
         case 'stdio': {
+          // Parse command to support both formats:
+          // 1. Standard format: command="uvx", args=["package@latest"]
+          // 2. Cursor-compatible format: command="uvx package@latest", args=[]
+          let actualCommand: string
+          let actualArgs: string[]
+
+          const hasExplicitArgs = config.args && config.args.length > 0
+          // Check if command contains multiple parts by splitting on whitespace
+          const commandParts = config.command.trim().split(/\s+/)
+          const hasMultipleParts = commandParts.length > 1
+
+          if (!hasExplicitArgs && hasMultipleParts) {
+            const parsed = parseCommand(config.command)
+            actualCommand = parsed.command
+            actualArgs = parsed.args
+          } else {
+            actualCommand = config.command.trim()
+            actualArgs = config.args || []
+          }
+
           transport = new StdioClientTransport({
-            command: config.command,
-            args: config.args,
+            command: actualCommand,
+            args: actualArgs,
             cwd: config.cwd,
             env: {
               // ...(config.env ? await injectEnv(config.env) : {}), // Commented out as injectEnv is not found
@@ -623,7 +721,27 @@ export class McpHub {
   }
 
   private setupFileWatcher(name: string, config: Extract<McpServerConfig, { type: 'stdio' }>) {
-    const filePath = config.args?.find((arg: string) => arg.includes('build/index.js'))
+    // Get the actual args to search for file paths
+    // Handle both standard format (args array) and Cursor format (command with spaces)
+    let argsToSearch: string[] = []
+
+    if (config.args && config.args.length > 0) {
+      argsToSearch = config.args
+    } else {
+      // Check if command contains multiple parts
+      const commandParts = config.command.trim().split(/\s+/)
+      if (commandParts.length > 1) {
+        // Parse command to extract args
+        try {
+          const parsed = parseCommand(config.command)
+          argsToSearch = parsed.args
+        } catch (error) {
+          console.error(`Failed to parse command for file watcher: ${error}`)
+        }
+      }
+    }
+
+    const filePath = argsToSearch.find((arg: string) => arg.includes('build/index.js'))
     if (filePath) {
       // we use chokidar instead of onDidSaveTextDocument because it doesn't require the file to be open in the editor. The settings config is better suited for onDidSave since that will be manually updated by the user or Chaterm (and we want to detect save events, not every file change)
       const watcher = chokidar.watch(filePath, {
