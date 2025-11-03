@@ -263,7 +263,7 @@ const watermarkContent = reactive({
   gap: [150, 100] as [number, number]
 })
 
-const leftPaneSize = ref(30)
+const leftPaneSize = ref(21.097)
 const mainTerminalSize = ref(100)
 const showWatermark = ref(true)
 const currentTheme = ref('dark')
@@ -1621,7 +1621,7 @@ defineExpose({
       }
 
       .term_content_left {
-        width: 190px;
+        width: 250px;
       }
     }
   }
