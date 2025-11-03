@@ -42,6 +42,7 @@ let dataSyncController: DataSyncController | null = null
 
 let winReadyResolve
 let winReady = new Promise((resolve) => (winReadyResolve = resolve))
+
 async function createWindow(): Promise<void> {
   mainWindow = await createMainWindow(
     (url: string) => {
@@ -85,6 +86,7 @@ export async function getUserConfigFromRenderer(): Promise<any> {
     wc.send('userConfig:get')
   })
 }
+
 app.whenReady().then(async () => {
   electronApp.setAppUserModelId('com.electron')
 
@@ -921,6 +923,77 @@ function setupIPC(): void {
     } catch (error) {
       console.error('Failed to open security config:', error)
       return { success: false, error: error instanceof Error ? error.message : String(error) }
+    }
+  })
+
+  // Get security configuration file path
+  ipcMain.handle('security-get-config-path', async () => {
+    try {
+      const SecurityConfigModule = await import('./agent/core/security/SecurityConfig')
+      const { SecurityConfigManager } = SecurityConfigModule
+      const securityManager = new SecurityConfigManager()
+      return securityManager.getConfigPath()
+    } catch (error) {
+      console.error('Failed to get security config path:', error)
+      throw new Error(`Failed to get security config path: ${error instanceof Error ? error.message : String(error)}`)
+    }
+  })
+
+  // Read security configuration file
+  ipcMain.handle('security-read-config', async () => {
+    try {
+      const SecurityConfigModule = await import('./agent/core/security/SecurityConfig')
+      const { SecurityConfigManager } = SecurityConfigModule
+      const securityManager = new SecurityConfigManager()
+      const fs = await import('fs/promises')
+      const configPath = securityManager.getConfigPath()
+
+      // 确保文件存在，如果不存在则生成默认配置
+      try {
+        await fs.access(configPath)
+      } catch {
+        // 文件不存在，生成默认配置
+        await securityManager.loadConfig() // 这会自动生成默认配置文件
+      }
+
+      const content = await fs.readFile(configPath, 'utf-8')
+      console.log(`Security config file read from: ${configPath}, length: ${content.length}`)
+      return content
+    } catch (error) {
+      console.error('Failed to read security config:', error)
+      throw new Error(`Failed to read security config: ${error instanceof Error ? error.message : String(error)}`)
+    }
+  })
+
+  // Write security configuration file
+  ipcMain.handle('security-write-config', async (_, content: string) => {
+    try {
+      const SecurityConfigModule = await import('./agent/core/security/SecurityConfig')
+      const { SecurityConfigManager } = SecurityConfigModule
+      const securityManager = new SecurityConfigManager()
+      const fs = await import('fs/promises')
+      const configPath = securityManager.getConfigPath()
+      await fs.writeFile(configPath, content, 'utf-8')
+
+      // Reload configuration to apply changes
+      await securityManager.loadConfig()
+
+      // Notify CommandSecurityManager instance to reload config (hot reload)
+      // This allows configuration changes to take effect immediately without restart
+      if (controller && controller.task) {
+        try {
+          await controller.task.reloadSecurityConfig()
+          console.log('[SecurityConfig] Hot reloaded configuration in active Task')
+        } catch (error) {
+          console.warn('[SecurityConfig] Failed to hot reload configuration in Task:', error)
+          // This is not critical - config will be loaded on next task creation
+        }
+      }
+
+      return { success: true }
+    } catch (error) {
+      console.error('Failed to write security config:', error)
+      throw new Error(`Failed to write security config: ${error instanceof Error ? error.message : String(error)}`)
     }
   })
 }

@@ -19,7 +19,7 @@
             <span
               class="tab-title"
               @click="$emit('change-tab', tab.id)"
-              >{{ tab.ip ? tab.title : tab.title === 'mcpConfigEditor' ? $t('mcp.configEditor') : $t(`common.${tab.title}`) }}</span
+              >{{ tab.ip ? tab.title : tab.title === 'mcpConfigEditor' ? $t('mcp.configEditor') : $t(`common.${tab.title}`, tab.title) }}</span
             >
             <button
               class="close-btn"
@@ -99,6 +99,7 @@
           <assetConfig v-if="tab.content === 'assetConfig'" />
           <keyChainConfig v-if="tab.content === 'keyChainConfig'" />
           <McpConfigEditor v-if="tab.content === 'mcpConfigEditor'" />
+          <SecurityConfigEditor v-if="tab.content === 'securityConfigEditor'" />
         </div>
       </div>
     </template>
@@ -119,6 +120,7 @@ import keyChainConfig from '@views/components/LeftTab/keyChainConfig.vue'
 import sshConnect from '@views/components/Ssh/sshConnect.vue'
 import Files from '@views/components/Files/index.vue'
 import McpConfigEditor from '@views/components/McpConfigEditor/index.vue'
+import SecurityConfigEditor from '@views/components/SecurityConfigEditor/index.vue'
 import eventBus from '@/utils/eventBus'
 
 interface TabItem {
