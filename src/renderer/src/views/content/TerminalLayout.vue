@@ -539,8 +539,10 @@ const currentMenu = ref('workspace')
 const updatePaneSize = () => {
   const container = document.querySelector('.splitpanes') as HTMLElement
   if (container) {
-    const containerWidth = container.offsetWidth
-    leftPaneSize.value = (DEFAULT_WIDTH_PX / containerWidth) * 100
+    if (leftPaneSize.value > 0) {
+      const containerWidth = container.offsetWidth
+      leftPaneSize.value = (DEFAULT_WIDTH_PX / containerWidth) * 100
+    }
   }
 }
 
@@ -567,8 +569,8 @@ const debouncedResizeCheck = () => {
       const currentLeftPaneSize = leftPaneSize.value
       const leftPaneWidthPx = (currentLeftPaneSize / 100) * containerWidth
 
-      // Auto-hide if width is less than 160px
-      if (leftPaneWidthPx < 160 && currentLeftPaneSize > 0) {
+      // Auto-hide if width is less than 120px
+      if (leftPaneWidthPx < 120 && currentLeftPaneSize > 0) {
         leftPaneSize.value = 0
         headerRef.value?.switchIcon('left', false)
       }
