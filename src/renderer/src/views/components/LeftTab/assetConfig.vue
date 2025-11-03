@@ -643,6 +643,9 @@ onMounted(() => {
   eventBus.on('keyChainUpdated', () => {
     getkeyChainData()
   })
+  eventBus.on('sshProxyConfigsUpdated', () => {
+    getProxyConfigData()
+  })
   // 监听语言变更事件，重新加载资产数据
   eventBus.on('languageChanged', () => {
     console.log('Language changed in asset config, refreshing asset list...')
@@ -653,6 +656,7 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
   eventBus.off('keyChainUpdated')
+  eventBus.off('sshProxyConfigsUpdated')
   eventBus.off('languageChanged')
 })
 

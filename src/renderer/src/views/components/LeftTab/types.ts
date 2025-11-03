@@ -41,7 +41,7 @@ export interface sshProxyConfig {
 }
 
 export interface SshProxyConfigItem {
-  key: number
+  key: string
   label: string
 }
 export interface KeyChainItem {
