@@ -517,6 +517,8 @@ const proxyConfigRules = {
 }
 
 const handleProxyConfigAdd = async () => {
+  proxyConfig.value = { ...defaultProxyConfig }
+  proxyForm.value?.resetFields()
   sshProxyConfigAddModalVisible.value = true
 }
 
@@ -527,9 +529,10 @@ const handleSshProxyIdentityChange = async (checked) => {
 const proxyForm = ref()
 const handleAddSshProxyConfigConfirm = async () => {
   await proxyForm.value.validateFields()
-  userConfig.value.sshProxyConfigs.push(proxyConfig.value)
+  userConfig.value.sshProxyConfigs.push({ ...proxyConfig.value })
   sshProxyConfigAddModalVisible.value = false
-  proxyConfig.value = defaultProxyConfig
+  proxyConfig.value = { ...defaultProxyConfig }
+  proxyForm.value?.resetFields()
 }
 
 const removeProxyConfig = (proxyName) => {
@@ -545,6 +548,8 @@ const removeProxyConfig = (proxyName) => {
 
 const handleAddSshProxyConfigClose = async () => {
   sshProxyConfigAddModalVisible.value = false
+  proxyConfig.value = { ...defaultProxyConfig }
+  proxyForm.value?.resetFields()
 }
 
 const agentConfigModalVisible = ref(false)
