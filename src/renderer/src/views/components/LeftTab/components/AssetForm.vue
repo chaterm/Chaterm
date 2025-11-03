@@ -172,6 +172,7 @@
               :label="t('personal.pleaseSelectSshProxy')"
             >
               <a-select
+                v-if="sshProxyConfigs && sshProxyConfigs.length > 0"
                 v-model:value="formData.proxyName"
                 :placeholder="t('personal.pleaseSelectSshProxy')"
                 style="width: 100%"
@@ -183,6 +184,27 @@
                 :allow-clear="true"
               >
               </a-select>
+              <div
+                v-else
+                style="
+                  width: 100%;
+                  padding: 12px;
+                  border: 1px solid var(--border-color);
+                  border-radius: 4px;
+                  text-align: center;
+                  background-color: var(--bg-color);
+                "
+              >
+                <div style="margin-bottom: 8px; color: var(--text-color-secondary)">
+                  {{ t('personal.noProxyConfigFound') }}
+                </div>
+                <a-button
+                  type="link"
+                  size="small"
+                  @click="handleAddProxyConfig"
+                  >{{ t('personal.goToProxyConfig') }}</a-button
+                >
+              </div>
             </a-form-item>
           </div>
         </div>
@@ -243,6 +265,7 @@ import { reactive, watch } from 'vue'
 import { ToTopOutlined } from '@ant-design/icons-vue'
 import { message } from 'ant-design-vue'
 import i18n from '@/locales'
+import eventBus from '@/utils/eventBus'
 import type { AssetFormData, KeyChainItem } from '../types'
 import { SshProxyConfigItem } from '../types'
 
@@ -432,6 +455,16 @@ const handleSubmit = () => {
 
 const handleSshProxyStatusChange = async (checked) => {
   formData.needProxy = checked
+}
+
+const handleAddProxyConfig = () => {
+  eventBus.emit('openUserTab', 'userConfig')
+  setTimeout(() => {
+    eventBus.emit('switchToTerminalTab')
+    setTimeout(() => {
+      eventBus.emit('openAddProxyConfigModal')
+    }, 200)
+  }, 100)
 }
 
 // Input handler functions - real-time space detection
