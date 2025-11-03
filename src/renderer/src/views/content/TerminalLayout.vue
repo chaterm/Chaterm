@@ -15,7 +15,10 @@
           ></LeftTab>
         </div>
         <div class="term_content">
-          <splitpanes @resize="(params: ResizeParams) => handleLeftPaneResize(params)">
+          <splitpanes
+            class="left-sidebar-container"
+            @resize="(params: ResizeParams) => handleLeftPaneResize(params)"
+          >
             <pane
               class="term_content_left"
               :size="leftPaneSize"
@@ -263,7 +266,7 @@ const watermarkContent = reactive({
   gap: [150, 100] as [number, number]
 })
 
-const leftPaneSize = ref(30)
+const leftPaneSize = ref(21.097)
 const mainTerminalSize = ref(100)
 const showWatermark = ref(true)
 const currentTheme = ref('dark')
@@ -1621,7 +1624,7 @@ defineExpose({
       }
 
       .term_content_left {
-        width: 190px;
+        width: 250px;
       }
     }
   }
@@ -1766,5 +1769,11 @@ defineExpose({
   left: -8px;
   right: -8px;
   height: 100%;
+}
+
+// Ensure left sidebar container and all its panes have no transitions
+.left-sidebar-container .splitpanes__pane {
+  transition: none !important;
+  animation: none !important;
 }
 </style>
