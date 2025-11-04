@@ -658,6 +658,14 @@ onMounted(async () => {
 const getCmdList = async (systemCommands) => {
   const allCommands = [...systemCommands, ...shellCommands]
   commands.value = [...new Set(allCommands)].sort()
+
+  if (config.highlightStatus !== 1) {
+    console.warn('[Vue] 高亮功能已禁用')
+  }
+
+  if (!queryCommandFlag.value) {
+    console.warn('[Vue] 自动补全功能已禁用')
+  }
 }
 
 onBeforeUnmount(() => {
@@ -1016,7 +1024,8 @@ const connectSSH = async () => {
         connectionHasSudo.value = connectReadyData?.hasSudo
         getCmdList(connectReadyData?.commandList)
       })
-      .catch(() => {
+      .catch((error) => {
+        console.error('[Vue] 命令列表接收失败:', error)
         connectionHasSudo.value = false
         getCmdList([])
       })
