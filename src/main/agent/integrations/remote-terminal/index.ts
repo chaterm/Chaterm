@@ -81,28 +81,6 @@ export class RemoteTerminalProcess extends BrownEventEmitter<RemoteTerminalProce
     ].join('\n')
   }
 
-  private buildJumpServerCommandWithWorkingDirectory(command: string, cleanCwd?: string): string {
-    if (!cleanCwd) return command
-
-    const trimmedCommand = command.trimEnd()
-    const requiresTerminator = trimmedCommand.length > 0 && !/[;&]$/.test(trimmedCommand)
-    const commandForThen = `${trimmedCommand}${requiresTerminator ? ';' : ''}`
-
-    const cwdBase64 = Buffer.from(cleanCwd, 'utf-8').toString('base64')
-    const cmdBase64 = Buffer.from(trimmedCommand, 'utf-8').toString('base64')
-
-    const sudoCmdBase64 = Buffer.from(`cd "$(echo ${cwdBase64} | base64 -d)" && eval "$(echo ${cmdBase64} | base64 -d)"`, 'utf-8').toString('base64')
-
-    return [
-      `CD_B64="${cwdBase64}"; CMD_B64="${cmdBase64}"; SUDO_CMD_B64="${sudoCmdBase64}";`,
-      `if cd "$(echo $CD_B64 | base64 -d)" 2>/dev/null; then`,
-      `  ${commandForThen}`,
-      'else',
-      `  sudo bash -c "$(echo $SUDO_CMD_B64 | base64 -d)"`,
-      'fi'
-    ].join('\n')
-  }
-
   async run(sessionId: string, command: string, cwd?: string, sshType?: string): Promise<void> {
     this.sessionId = sessionId
     this.sshType = sshType || 'ssh'
@@ -254,15 +232,17 @@ export class RemoteTerminalProcess extends BrownEventEmitter<RemoteTerminalProce
       }
     }
 
-    const commandToExecute = this.buildJumpServerCommandWithWorkingDirectory(command, cleanCwd)
+    // For JumpServer, use different command construction method with permission handling
+    const commandToExecute = this.buildCommandWithWorkingDirectory(command, cleanCwd)
 
+    // Create unique command marker with more distinctive format
     const timestamp = Date.now()
     const randomId = Math.random().toString(36).substring(2, 14)
     const startMarker = `===CHATERM_START_${timestamp}_${randomId}===`
     const endMarker = `===CHATERM_END_${timestamp}_${randomId}===`
 
-    const base64Command = Buffer.from(commandToExecute, 'utf-8').toString('base64')
-    const wrappedCommand = `bash -l -c 'CHATERM_CMD_B64="${base64Command}"; echo "${startMarker}"; eval "$(echo $CHATERM_CMD_B64 | base64 -d)"; EXIT_CODE=$?; echo "${endMarker}:$EXIT_CODE"'`
+    // Improved command wrapping: use bash for reliability and better error handling
+    const wrappedCommand = `bash -l -c 'echo "${startMarker}"; ${commandToExecute}; EXIT_CODE=$?; echo "${endMarker}:$EXIT_CODE"'`
 
     jumpserverMarkedCommands.set(sessionId, {
       marker: startMarker,
