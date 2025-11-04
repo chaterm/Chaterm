@@ -1647,21 +1647,14 @@ ipcMain.handle('open-external-login', async () => {
     // Store status values for subsequent verification
     global.authState = state
 
-    // 检测IP地址并选择合适的登录URL
-    const isMainlandChinaIpAddress = global.ipDetectionCache?.isMainlandChina ?? true
+    // // 检测IP地址并选择合适的登录URL
+    // const isMainlandChinaIpAddress = global.ipDetectionCache?.isMainlandChina ?? true
 
     // 获取MAC地址
     const macAddress = getMacAddress()
 
     // 根据IP地址选择不同的登录URL
-    let externalLoginUrl
-    if (isMainlandChinaIpAddress) {
-      // 中国大陆IP使用国内服务器
-      externalLoginUrl = `https://chaterm.intsig.net/login?client_id=chaterm&state=${state}&redirect_uri=chaterm://auth/callback&mac_address=${encodeURIComponent(macAddress)}`
-    } else {
-      // 非中国大陆IP使用国际服务器
-      externalLoginUrl = `https://login.chaterm.ai/login?client_id=chaterm&state=${state}&redirect_uri=chaterm://auth/callback&mac_address=${encodeURIComponent(macAddress)}`
-    }
+    const externalLoginUrl = `https://login.chaterm.ai/login?client_id=chaterm&state=${state}&redirect_uri=chaterm://auth/callback&mac_address=${encodeURIComponent(macAddress)}`
     // externalLoginUrl = `http://127.0.0.1:5174/login?client_id=chaterm&state=${state}&redirect_uri=chaterm://auth/callback&mac_address=${encodeURIComponent(macAddress)}`
 
     // 在 Linux 平台上，将状态保存到本地存储，以便新实例可以访问
