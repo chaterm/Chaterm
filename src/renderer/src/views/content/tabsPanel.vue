@@ -430,21 +430,26 @@ defineExpose({
   border-bottom: 1px solid var(--border-color);
   overflow-x: auto;
   user-select: none;
-  height: 26px;
+  height: 36px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-color-light) transparent;
 }
 
 .tabs-bar::-webkit-scrollbar {
   height: 3px;
+}
+
+.tabs-bar::-webkit-scrollbar-track {
   background: transparent;
 }
 
 .tabs-bar::-webkit-scrollbar-thumb {
-  background: var(--border-color);
-  border-radius: 2px;
+  background-color: var(--border-color-light);
+  border-radius: 3px;
 }
 
 .tabs-bar::-webkit-scrollbar-thumb:hover {
-  background: var(--border-color-light);
+  background-color: var(--text-color-tertiary);
 }
 
 .tab-item {
