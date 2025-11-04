@@ -619,7 +619,13 @@ const toggleSideBar = (value: string) => {
       break
     case 'left':
       {
-        leftPaneSize.value ? (leftPaneSize.value = 0) : (leftPaneSize.value = (DEFAULT_WIDTH_PX / containerWidth) * 100)
+        if (leftPaneSize.value) {
+          leftPaneSize.value = 0
+          headerRef.value?.switchIcon('left', false)
+        } else {
+          leftPaneSize.value = (DEFAULT_WIDTH_PX / containerWidth) * 100
+          headerRef.value?.switchIcon('left', true)
+        }
       }
       break
   }
