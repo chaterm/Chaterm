@@ -2808,33 +2808,9 @@ const isDeleteKeyData = (d: string) => d === '\x7f' || d === '\b' || d === '\x1b
   width: 100%;
   height: 100%;
   border-radius: 6px;
-  overflow: auto;
+  overflow: hidden;
   padding: 4px 4px 0px 12px;
   position: relative;
-
-  /* Enable scrollbar for terminal container */
-
-  &::-webkit-scrollbar {
-    width: 6px;
-  }
-
-  &::-webkit-scrollbar-track {
-    background: transparent;
-    border-radius: 3px;
-  }
-
-  &::-webkit-scrollbar-thumb {
-    background-color: var(--border-color-light);
-    border-radius: 3px;
-  }
-
-  &::-webkit-scrollbar-thumb:hover {
-    background-color: var(--text-color-tertiary);
-  }
-
-  /* Firefox scrollbar styles */
-  scrollbar-width: thin;
-  scrollbar-color: var(--border-color-light) transparent;
 }
 
 .terminal {
