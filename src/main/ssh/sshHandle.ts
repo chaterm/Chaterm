@@ -26,9 +26,11 @@ import {
   jumpserverConnections,
   handleJumpServerConnection,
   jumpserverShellStreams,
+  jumpserverExecStreams,
   jumpserverMarkedCommands,
   jumpserverConnectionStatus,
-  jumpserverLastCommand
+  jumpserverLastCommand,
+  createJumpServerExecStream
 } from './jumpserverHandle'
 import path from 'path'
 import fs from 'fs'
@@ -707,18 +709,6 @@ export const registerSSHHandlers = () => {
       // 路由到 JumpServer 连接
       try {
         const result = await handleJumpServerConnection(connectionInfo, _event)
-
-        // 连接成功后，发送初始化数据（模拟 attemptSecondaryConnection 的行为）
-        if (result.status === 'connected') {
-          const readyResult = {
-            hasSudo: false,
-            commandList: []
-          }
-
-          // 发送连接数据事件
-          _event.sender.send(`ssh:connect:data:${connectionInfo.id}`, readyResult)
-        }
-
         return result
       } catch (error: unknown) {
         return { status: 'error', message: error instanceof Error ? error.message : String(error) }
@@ -1030,7 +1020,140 @@ export const registerSSHHandlers = () => {
     }
   })
 
+  /**
+   * 在 JumpServer 资产上执行命令（通过 shell 流模拟 exec）
+   * @param id - 连接 ID
+   * @param cmd - 要执行的命令
+   * @returns 执行结果（兼容标准 exec 格式）
+   */
+  async function executeCommandOnJumpServerAsset(
+    id: string,
+    cmd: string
+  ): Promise<{
+    success: boolean
+    stdout?: string
+    stderr?: string
+    exitCode?: number
+    exitSignal?: string
+    error?: string
+  }> {
+    // 获取或创建专用 exec 流（而非用户交互流）
+    let execStream: any
+    try {
+      execStream = await createJumpServerExecStream(id)
+    } catch (error) {
+      return {
+        success: false,
+        error: `Failed to create exec stream: ${error instanceof Error ? error.message : String(error)}`,
+        stdout: '',
+        stderr: '',
+        exitCode: undefined,
+        exitSignal: undefined
+      }
+    }
+
+    if (!execStream) {
+      return {
+        success: false,
+        error: 'JumpServer exec stream not available',
+        stdout: '',
+        stderr: '',
+        exitCode: undefined,
+        exitSignal: undefined
+      }
+    }
+
+    return new Promise((resolve) => {
+      const timestamp = Date.now()
+      const marker = `__CHATERM_EXEC_END_${timestamp}__`
+      const exitCodeMarker = `__CHATERM_EXIT_CODE_${timestamp}__`
+      let outputBuffer = ''
+      let timeoutHandle: NodeJS.Timeout
+
+      // 输出监听器
+      const dataHandler = (data: Buffer) => {
+        outputBuffer += data.toString()
+
+        // 检测到结束标记
+        if (outputBuffer.includes(marker)) {
+          cleanup()
+
+          try {
+            // 提取输出内容（移除命令回显和标记）
+            const lines = outputBuffer.split('\n')
+
+            // 找到命令行的位置（命令回显）
+            const commandIndex = lines.findIndex((line) => line.trim().includes(cmd.trim()))
+
+            // 找到结束标记的位置
+            const markerIndex = lines.findIndex((line) => line.includes(marker))
+
+            // 提取命令输出（在命令行和标记之间）
+            const outputLines = lines.slice(commandIndex + 1, markerIndex)
+            const stdout = outputLines.join('\n').trim()
+
+            // 提取退出码（从 exitCodeMarker 后的内容）
+            const exitCodePattern = new RegExp(`${exitCodeMarker}(\\d+)`)
+            const exitCodeMatch = outputBuffer.match(exitCodePattern)
+            const exitCode = exitCodeMatch ? parseInt(exitCodeMatch[1], 10) : 0
+
+            resolve({
+              success: exitCode === 0,
+              stdout,
+              stderr: '',
+              exitCode,
+              exitSignal: undefined
+            })
+          } catch (parseError) {
+            // 解析失败时返回原始输出
+            resolve({
+              success: false,
+              error: `Failed to parse command output: ${parseError}`,
+              stdout: outputBuffer,
+              stderr: '',
+              exitCode: undefined,
+              exitSignal: undefined
+            })
+          }
+        }
+      }
+
+      // 清理函数
+      const cleanup = () => {
+        execStream.removeListener('data', dataHandler)
+        clearTimeout(timeoutHandle)
+      }
+
+      // 超时保护（30秒）
+      timeoutHandle = setTimeout(() => {
+        cleanup()
+        resolve({
+          success: false,
+          error: 'Command execution timeout (30s)',
+          stdout: outputBuffer,
+          stderr: '',
+          exitCode: undefined,
+          exitSignal: undefined
+        })
+      }, 30000)
+
+      // 注册监听器
+      execStream.on('data', dataHandler)
+
+      // 发送命令（捕获退出码）
+      // 使用 bash 技巧：命令; echo marker; echo exitcode_marker$?
+      const fullCommand = `${cmd}; echo "${marker}"; echo "${exitCodeMarker}$?"\r`
+      execStream.write(fullCommand)
+    })
+  }
+
   ipcMain.handle('ssh:conn:exec', async (_event, { id, cmd }) => {
+    // 检测是否为 JumpServer 连接，优先处理
+    if (jumpserverShellStreams.has(id)) {
+      return executeCommandOnJumpServerAsset(id, cmd)
+    }
+
+    // 标准 SSH 连接处理
     const conn = sshConnections.get(id)
     if (!conn) {
       return {
@@ -1164,6 +1287,14 @@ export const registerSSHHandlers = () => {
       if (stream) {
         stream.end()
         jumpserverShellStreams.delete(id)
+      }
+
+      // 清理 exec 流
+      const execStream = jumpserverExecStreams.get(id)
+      if (execStream) {
+        console.log(`清理 JumpServer exec 流: ${id}`)
+        execStream.end()
+        jumpserverExecStreams.delete(id)
       }
 
       const connData = jumpserverConnections.get(id)
