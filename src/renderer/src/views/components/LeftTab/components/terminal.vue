@@ -241,7 +241,7 @@
 
     <a-modal
       v-model:open="sshProxyConfigAddModalVisible"
-      :title="$t('user.proxySettings')"
+      :title="$t('user.addProxy')"
       :ok-text="$t('common.confirm')"
       :cancel-text="$t('common.cancel')"
       @ok="handleAddSshProxyConfigConfirm"
@@ -343,7 +343,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, watch } from 'vue'
+import { ref, onMounted, onBeforeUnmount, watch, nextTick } from 'vue'
 import { notification } from 'ant-design-vue'
 import { userConfigStore } from '@/services/userConfigStoreService'
 import { useI18n } from 'vue-i18n'
@@ -517,6 +517,8 @@ const proxyConfigRules = {
 }
 
 const handleProxyConfigAdd = async () => {
+  proxyConfig.value = { ...defaultProxyConfig }
+  proxyForm.value?.resetFields()
   sshProxyConfigAddModalVisible.value = true
 }
 
@@ -527,16 +529,23 @@ const handleSshProxyIdentityChange = async (checked) => {
 const proxyForm = ref()
 const handleAddSshProxyConfigConfirm = async () => {
   await proxyForm.value.validateFields()
-  userConfig.value.sshProxyConfigs.push(proxyConfig.value)
+  userConfig.value.sshProxyConfigs.push({ ...proxyConfig.value })
   sshProxyConfigAddModalVisible.value = false
-  proxyConfig.value = defaultProxyConfig
+  proxyConfig.value = { ...defaultProxyConfig }
+  proxyForm.value?.resetFields()
+  await nextTick()
+  await new Promise((resolve) => setTimeout(resolve, 100))
+  eventBus.emit('sshProxyConfigsUpdated')
 }
 
-const removeProxyConfig = (proxyName) => {
+const removeProxyConfig = async (proxyName) => {
   const index = userConfig.value.sshProxyConfigs.findIndex((config) => config.name === proxyName)
 
   if (index !== -1) {
     userConfig.value.sshProxyConfigs.splice(index, 1)
+    await nextTick()
+    await new Promise((resolve) => setTimeout(resolve, 100))
+    eventBus.emit('sshProxyConfigsUpdated')
     return true
   } else {
     return false
@@ -545,6 +554,8 @@ const removeProxyConfig = (proxyName) => {
 
 const handleAddSshProxyConfigClose = async () => {
   sshProxyConfigAddModalVisible.value = false
+  proxyConfig.value = { ...defaultProxyConfig }
+  proxyForm.value?.resetFields()
 }
 
 const agentConfigModalVisible = ref(false)
@@ -667,8 +678,17 @@ watch(
   }
 )
 
+const handleOpenAddProxyConfigModal = () => {
+  handleProxyConfigAdd()
+}
+
 onMounted(async () => {
   await loadSavedConfig()
+  eventBus.on('openAddProxyConfigModal', handleOpenAddProxyConfigModal)
+})
+
+onBeforeUnmount(() => {
+  eventBus.off('openAddProxyConfigModal', handleOpenAddProxyConfigModal)
 })
 </script>
 
