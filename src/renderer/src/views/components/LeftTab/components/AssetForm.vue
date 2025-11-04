@@ -377,11 +377,12 @@ const handleAddKeychain = () => {
 const handleGroupChange = (val: any) => {
   if (Array.isArray(val) && val.length > 0) {
     formData.group_name = String(val[val.length - 1])
-  } else if (typeof val === 'string') {
+  } else if (typeof val === 'string' && val.trim()) {
     formData.group_name = val
   } else if (typeof val === 'number') {
     formData.group_name = String(val)
   } else {
+    // When cleared, set to empty string (will be set to default on submit)
     formData.group_name = ''
   }
 }
@@ -450,7 +451,14 @@ const validateForm = (): boolean => {
 
 const handleSubmit = () => {
   if (!validateForm()) return
-  emit('submit', { ...formData })
+
+  // If group_name is empty or undefined, set it to the default group
+  const submitData = { ...formData }
+  if (!submitData.group_name || submitData.group_name.trim() === '') {
+    submitData.group_name = t('personal.defaultGroup')
+  }
+
+  emit('submit', submitData)
 }
 
 const handleSshProxyStatusChange = async (checked) => {
