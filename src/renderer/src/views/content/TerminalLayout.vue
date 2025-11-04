@@ -15,7 +15,10 @@
           ></LeftTab>
         </div>
         <div class="term_content">
-          <splitpanes @resize="(params: ResizeParams) => handleLeftPaneResize(params)">
+          <splitpanes
+            class="left-sidebar-container"
+            @resize="(params: ResizeParams) => handleLeftPaneResize(params)"
+          >
             <pane
               class="term_content_left"
               :size="leftPaneSize"
@@ -263,7 +266,7 @@ const watermarkContent = reactive({
   gap: [150, 100] as [number, number]
 })
 
-const leftPaneSize = ref(30)
+const leftPaneSize = ref(21.097)
 const mainTerminalSize = ref(100)
 const showWatermark = ref(true)
 const currentTheme = ref('dark')
@@ -488,6 +491,7 @@ onMounted(async () => {
   eventBus.on('switchToPrevTab', switchToPrevTab)
   eventBus.on('switchToSpecificTab', switchToSpecificTab)
   eventBus.on('createNewTerminal', handleCreateNewTerminal)
+  eventBus.on('open-user-tab', openUserTab)
 
   nextTick(() => {
     let theme = localStorage.getItem('theme') || 'auto'
@@ -532,14 +536,16 @@ const commandBarStyle = computed(() => {
   const left = (leftPaneSize.value * containerWidth) / 100 + 45
   return { width, left }
 })
-const DEFAULT_WIDTH_PX = 320
+const DEFAULT_WIDTH_PX = 250
 const DEFAULT_WIDTH_RIGHT_PX = 500
 const currentMenu = ref('workspace')
 const updatePaneSize = () => {
   const container = document.querySelector('.splitpanes') as HTMLElement
   if (container) {
-    const containerWidth = container.offsetWidth
-    leftPaneSize.value = (DEFAULT_WIDTH_PX / containerWidth) * 100
+    if (leftPaneSize.value > 0) {
+      const containerWidth = container.offsetWidth
+      leftPaneSize.value = (DEFAULT_WIDTH_PX / containerWidth) * 100
+    }
   }
 }
 
@@ -566,8 +572,8 @@ const debouncedResizeCheck = () => {
       const currentLeftPaneSize = leftPaneSize.value
       const leftPaneWidthPx = (currentLeftPaneSize / 100) * containerWidth
 
-      // Auto-hide if width is less than 160px
-      if (leftPaneWidthPx < 160 && currentLeftPaneSize > 0) {
+      // Auto-hide if width is less than 120px
+      if (leftPaneWidthPx < 120 && currentLeftPaneSize > 0) {
         leftPaneSize.value = 0
         headerRef.value?.switchIcon('left', false)
       }
@@ -613,7 +619,13 @@ const toggleSideBar = (value: string) => {
       break
     case 'left':
       {
-        leftPaneSize.value ? (leftPaneSize.value = 0) : (leftPaneSize.value = (DEFAULT_WIDTH_PX / containerWidth) * 100)
+        if (leftPaneSize.value) {
+          leftPaneSize.value = 0
+          headerRef.value?.switchIcon('left', false)
+        } else {
+          leftPaneSize.value = (DEFAULT_WIDTH_PX / containerWidth) * 100
+          headerRef.value?.switchIcon('left', true)
+        }
       }
       break
   }
@@ -996,9 +1008,17 @@ onUnmounted(() => {
   eventBus.off('switchToPrevTab', switchToPrevTab)
   eventBus.off('switchToSpecificTab', switchToSpecificTab)
   eventBus.off('createNewTerminal', handleCreateNewTerminal)
+  eventBus.off('open-user-tab', openUserTab)
 })
-const openUserTab = function (value) {
-  if (value === 'assetConfig' || value === 'keyChainConfig' || value === 'userInfo' || value === 'userConfig') {
+const openUserTab = async function (value) {
+  if (
+    value === 'assetConfig' ||
+    value === 'keyChainConfig' ||
+    value === 'userInfo' ||
+    value === 'userConfig' ||
+    value === 'mcpConfigEditor' ||
+    value === 'securityConfigEditor'
+  ) {
     const existTab = openedTabs.value.find((tab) => tab.content === value)
     if (existTab) {
       activeTabId.value = existTab.id
@@ -1015,6 +1035,20 @@ const openUserTab = function (value) {
       p.title = 'alias'
       p.type = 'extensions'
       break
+    case 'securityConfigEditor': {
+      // 获取配置文件路径并提取文件名
+      try {
+        const { securityConfigService } = await import('@/services/securityConfigService')
+        const configPath = await securityConfigService.getConfigPath()
+        // 提取文件名（兼容 Windows 和 Unix 路径）
+        const fileName = configPath.split(/[/\\]/).pop() || 'chaterm-security.json'
+        p.title = fileName
+      } catch (error) {
+        console.error('Failed to get security config path:', error)
+        p.title = 'chaterm-security.json' // 默认文件名
+      }
+      break
+    }
   }
   currentClickServer(p)
 }
@@ -1596,7 +1630,7 @@ defineExpose({
       }
 
       .term_content_left {
-        width: 190px;
+        width: 250px;
       }
     }
   }
@@ -1714,8 +1748,6 @@ defineExpose({
 .splitpanes__splitter {
   background-color: var(--border-color);
   position: relative;
-  border-left: 1px solid var(--border-color);
-  border-right: 1px solid var(--border-color);
 }
 
 .splitpanes__splitter:before {
@@ -1743,5 +1775,11 @@ defineExpose({
   left: -8px;
   right: -8px;
   height: 100%;
+}
+
+// Ensure left sidebar container and all its panes have no transitions
+.left-sidebar-container .splitpanes__pane {
+  transition: none !important;
+  animation: none !important;
 }
 </style>

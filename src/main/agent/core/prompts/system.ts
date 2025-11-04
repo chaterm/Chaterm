@@ -150,6 +150,35 @@ Usage:
 <context>context to preload new task with</context>
 </new_task>
 
+## use_mcp_tool
+Description: Request to use a tool provided by a connected MCP server. Each MCP server can provide multiple tools with different capabilities. Tools have defined input schemas that specify required and optional parameters. You will see the available MCP servers and their tools listed above in the "Available MCP Servers" section. Only tools from enabled servers that are listed there can be used.
+Parameters:
+- server_name: (required) The name of the MCP server providing the tool, as shown in the "Available MCP Servers" section above.
+- tool_name: (required) The name of the tool to execute, as listed under the server's tools.
+- arguments: (required) A JSON object containing the tool's input parameters, following the tool's input schema. The schema for each tool is described in the "Available MCP Servers" section above.
+Usage:
+<use_mcp_tool>
+<server_name>server name here</server_name>
+<tool_name>tool name here</tool_name>
+<arguments>
+{
+  "param1": "value1",
+  "param2": "value2"
+}
+</arguments>
+</use_mcp_tool>
+
+## access_mcp_resource
+Description: Request to access a resource provided by a connected MCP server. Resources represent data sources that can be used as context, such as files, API responses, or system information. Available resources are listed in the "Available MCP Servers" section above.
+Parameters:
+- server_name: (required) The name of the MCP server providing the resource, as shown in the "Available MCP Servers" section above.
+- uri: (required) The URI identifying the specific resource to access, as listed under the server's resources.
+Usage:
+<access_mcp_resource>
+<server_name>server name here</server_name>
+<uri>resource URI here</uri>
+</access_mcp_resource>
+
 # Tool Use Examples
 
 ## Example 1: Requesting to execute a non-interactive command
@@ -437,6 +466,35 @@ export const SYSTEM_PROMPT_CN = `你是 Chaterm，一位拥有 20 年经验的�
 <new_task>
 <context>新任务要预加载的上下文</context>
 </new_task>
+
+## use_mcp_tool
+描述：请求使用由已连接的 MCP 服务器提供的工具。每个 MCP 服务器可以提供多个具有不同功能的工具。工具定义了输入架构，指定了必需和可选参数。您将在上方的"可用 MCP 服务器"部分中看到可用的 MCP 服务器及其工具列表。只能使用那里列出的已启用服务器的工具。
+参数：
+- server_name: (必需) 提供工具的 MCP 服务器名称，如上方的"可用 MCP 服务器"部分所示。
+- tool_name: (必需) 要执行的工具名称，如服务器工具列表中列出的。
+- arguments: (必需) 包含工具输入参数的 JSON 对象，遵循工具的输入架构。每个工具的架构在上方的"可用 MCP 服务器"部分中描述。
+用法：
+<use_mcp_tool>
+<server_name>服务器名称</server_name>
+<tool_name>工具名称</tool_name>
+<arguments>
+{
+  "param1": "value1",
+  "param2": "value2"
+}
+</arguments>
+</use_mcp_tool>
+
+## access_mcp_resource
+描述：请求访问由已连接的 MCP 服务器提供的资源。资源代表可用作上下文的数据源，如文件、API 响应或系统信息。可用资源在上方的"可用 MCP 服务器"部分中列出。
+参数：
+- server_name: (必需) 提供资源的 MCP 服务器名称，如上方的"可用 MCP 服务器"部分所示。
+- uri: (必需) 标识要访问的特定资源的 URI，如服务器资源列表中列出的。
+用法：
+<access_mcp_resource>
+<server_name>服务器名称</server_name>
+<uri>资源 URI</uri>
+</access_mcp_resource>
 
 # 工具使用示例
 

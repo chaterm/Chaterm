@@ -25,7 +25,8 @@
       "@utils/*": ["src/renderer/src/utils/*"],
       "@api/*": ["src/renderer/src/api/*"],
       "@config/*": ["src/renderer/src/config/*"],
-      "@/*": ["src/renderer/src/*"]
+      "@/*": ["src/renderer/src/*"],
+      "@shared/*": ["src/main/agent/shared/*"]
     }
   }
 }

@@ -7,6 +7,12 @@ export interface MessageContent {
   partial?: boolean
 }
 
+export interface McpToolCallInfo {
+  serverName: string
+  toolName: string
+  arguments: Record<string, unknown>
+}
+
 export interface ChatMessage {
   id: string
   role: 'user' | 'assistant'
@@ -24,6 +30,8 @@ export interface ChatMessage {
   relatedTodos?: any[]
   // Command execution tracking
   executedCommand?: string
+  // MCP tool call info
+  mcpToolCall?: McpToolCallInfo
 }
 
 export interface AssetInfo {

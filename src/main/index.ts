@@ -3,6 +3,7 @@ import { join } from 'path'
 import { electronApp } from '@electron-toolkit/utils'
 import { is } from '@electron-toolkit/utils'
 import axios from 'axios'
+import * as fs from 'fs/promises'
 import { startDataSync } from './storage/data_sync/index'
 import type { SyncController as DataSyncController } from './storage/data_sync/core/SyncController'
 import { getChatermDbPathForUser, getCurrentUserId } from './storage/db/connection'
@@ -41,6 +42,7 @@ let dataSyncController: DataSyncController | null = null
 
 let winReadyResolve
 let winReady = new Promise((resolve) => (winReadyResolve = resolve))
+
 async function createWindow(): Promise<void> {
   mainWindow = await createMainWindow(
     (url: string) => {
@@ -84,6 +86,7 @@ export async function getUserConfigFromRenderer(): Promise<any> {
     wc.send('userConfig:get')
   })
 }
+
 app.whenReady().then(async () => {
   electronApp.setAppUserModelId('com.electron')
 
@@ -173,6 +176,24 @@ app.whenReady().then(async () => {
           return Promise.resolve(true)
         }
 
+        // Route mcpServersUpdate to its dedicated channel for backward compatibility
+        if (message.type === 'mcpServersUpdate') {
+          mainWindow.webContents.send('mcp:status-update', message.mcpServers)
+          return Promise.resolve(true)
+        }
+
+        // Route mcpServerUpdate (singular) to its dedicated channel for granular updates
+        if (message.type === 'mcpServerUpdate') {
+          mainWindow.webContents.send('mcp:server-update', message.mcpServer)
+          return Promise.resolve(true)
+        }
+
+        // Route mcpConfigFileChanged to its dedicated channel
+        if (message.type === 'mcpConfigFileChanged') {
+          mainWindow.webContents.send('mcp:config-file-changed', message.content)
+          return Promise.resolve(true)
+        }
+
         // Default: send to the general channel for other message types
         mainWindow.webContents.send('main-to-webview', message)
         return Promise.resolve(true)
@@ -180,7 +201,7 @@ app.whenReady().then(async () => {
       return Promise.resolve(false)
     }
 
-    controller = new Controller(context, outputChannel, messageSender)
+    controller = new Controller(context, outputChannel, messageSender, ensureMcpConfigFileExists)
   } catch (error) {
     console.error('Failed to initialize Controller:', error)
   }
@@ -303,6 +324,117 @@ const getCookieByName = async (name) => {
 }
 ipcMain.handle('get-platform', () => {
   return process.platform
+})
+
+/**
+ * Ensure MCP configuration file exists, create with default config if not
+ * @returns Promise<string> - The absolute path to the MCP configuration file
+ */
+export async function ensureMcpConfigFileExists(): Promise<string> {
+  const configPath = join(app.getPath('userData'), 'setting', 'mcp_settings.json')
+  const configDir = join(app.getPath('userData'), 'setting')
+
+  try {
+    // Ensure directory exists
+    await fs.mkdir(configDir, { recursive: true })
+
+    // Check if file exists
+    try {
+      await fs.access(configPath)
+    } catch (error: any) {
+      // File doesn't exist, create with default configuration
+      if (error.code === 'ENOENT') {
+        const defaultConfig = {
+          mcpServers: {}
+        }
+        await fs.writeFile(configPath, JSON.stringify(defaultConfig, null, 2), 'utf-8')
+        console.log('[MCP] Created default configuration file at:', configPath)
+      } else {
+        throw error
+      }
+    }
+
+    return configPath
+  } catch (error) {
+    console.error('[MCP] Failed to ensure config file exists:', error)
+    throw error
+  }
+}
+
+// MCP configuration file path
+ipcMain.handle('mcp:get-config-path', async () => {
+  return await ensureMcpConfigFileExists()
+})
+
+// Get initial MCP server list
+ipcMain.handle('mcp:get-servers', async () => {
+  try {
+    if (controller && controller.mcpHub) {
+      return controller.mcpHub.getAllServers()
+    }
+    return []
+  } catch (error) {
+    console.error('Failed to get MCP servers:', error)
+    return []
+  }
+})
+
+// Toggle MCP server disabled state
+ipcMain.handle('toggle-mcp-server', async (_event, serverName: string, disabled: boolean) => {
+  try {
+    if (controller && controller.mcpHub) {
+      await controller.mcpHub.toggleServerDisabled(serverName, disabled)
+    } else {
+      throw new Error('Controller or McpHub not initialized')
+    }
+  } catch (error) {
+    console.error('Failed to toggle MCP server:', error)
+    throw error
+  }
+})
+
+// MCP工具状态管理
+ipcMain.handle('mcp:get-tool-state', async (_event, serverName: string, toolName: string) => {
+  try {
+    const dbService = await ChatermDatabaseService.getInstance()
+    return dbService.getMcpToolState(serverName, toolName)
+  } catch (error) {
+    console.error('Failed to get MCP tool state:', error)
+    throw error
+  }
+})
+
+ipcMain.handle('mcp:set-tool-state', async (_event, serverName: string, toolName: string, enabled: boolean) => {
+  try {
+    const dbService = await ChatermDatabaseService.getInstance()
+    dbService.setMcpToolState(serverName, toolName, enabled)
+  } catch (error) {
+    console.error('Failed to set MCP tool state:', error)
+    throw error
+  }
+})
+
+ipcMain.handle('mcp:set-tool-auto-approve', async (_event, serverName: string, toolName: string, autoApprove: boolean) => {
+  try {
+    if (controller && controller.mcpHub) {
+      await controller.mcpHub.toggleToolAutoApprove(serverName, [toolName], autoApprove)
+    } else {
+      throw new Error('Controller or McpHub not initialized')
+    }
+  } catch (error) {
+    console.error('Failed to set MCP tool auto-approve:', error)
+    throw error
+  }
+})
+
+ipcMain.handle('mcp:get-all-tool-states', async () => {
+  try {
+    const dbService = await ChatermDatabaseService.getInstance()
+    return dbService.getAllMcpToolStates()
+  } catch (error) {
+    console.error('Failed to get all MCP tool states:', error)
+    throw error
+  }
 })
 
 // 异步执行IP检测
@@ -791,6 +923,77 @@ function setupIPC(): void {
     } catch (error) {
       console.error('Failed to open security config:', error)
       return { success: false, error: error instanceof Error ? error.message : String(error) }
+    }
+  })
+
+  // Get security configuration file path
+  ipcMain.handle('security-get-config-path', async () => {
+    try {
+      const SecurityConfigModule = await import('./agent/core/security/SecurityConfig')
+      const { SecurityConfigManager } = SecurityConfigModule
+      const securityManager = new SecurityConfigManager()
+      return securityManager.getConfigPath()
+    } catch (error) {
+      console.error('Failed to get security config path:', error)
+      throw new Error(`Failed to get security config path: ${error instanceof Error ? error.message : String(error)}`)
+    }
+  })
+
+  // Read security configuration file
+  ipcMain.handle('security-read-config', async () => {
+    try {
+      const SecurityConfigModule = await import('./agent/core/security/SecurityConfig')
+      const { SecurityConfigManager } = SecurityConfigModule
+      const securityManager = new SecurityConfigManager()
+      const fs = await import('fs/promises')
+      const configPath = securityManager.getConfigPath()
+
+      // 确保文件存在，如果不存在则生成默认配置
+      try {
+        await fs.access(configPath)
+      } catch {
+        // 文件不存在，生成默认配置
+        await securityManager.loadConfig() // 这会自动生成默认配置文件
+      }
+
+      const content = await fs.readFile(configPath, 'utf-8')
+      console.log(`Security config file read from: ${configPath}, length: ${content.length}`)
+      return content
+    } catch (error) {
+      console.error('Failed to read security config:', error)
+      throw new Error(`Failed to read security config: ${error instanceof Error ? error.message : String(error)}`)
+    }
+  })
+
+  // Write security configuration file
+  ipcMain.handle('security-write-config', async (_, content: string) => {
+    try {
+      const SecurityConfigModule = await import('./agent/core/security/SecurityConfig')
+      const { SecurityConfigManager } = SecurityConfigModule
+      const securityManager = new SecurityConfigManager()
+      const fs = await import('fs/promises')
+      const configPath = securityManager.getConfigPath()
+      await fs.writeFile(configPath, content, 'utf-8')
+
+      // Reload configuration to apply changes
+      await securityManager.loadConfig()
+
+      // Notify CommandSecurityManager instance to reload config (hot reload)
+      // This allows configuration changes to take effect immediately without restart
+      if (controller && controller.task) {
+        try {
+          await controller.task.reloadSecurityConfig()
+          console.log('[SecurityConfig] Hot reloaded configuration in active Task')
+        } catch (error) {
+          console.warn('[SecurityConfig] Failed to hot reload configuration in Task:', error)
+          // This is not critical - config will be loaded on next task creation
+        }
+      }
+
+      return { success: true }
+    } catch (error) {
+      console.error('Failed to write security config:', error)
+      throw new Error(`Failed to write security config: ${error instanceof Error ? error.message : String(error)}`)
     }
   })
 }
@@ -1444,21 +1647,14 @@ ipcMain.handle('open-external-login', async () => {
     // Store status values for subsequent verification
     global.authState = state
 
-    // 检测IP地址并选择合适的登录URL
-    const isMainlandChinaIpAddress = global.ipDetectionCache?.isMainlandChina ?? true
+    // // 检测IP地址并选择合适的登录URL
+    // const isMainlandChinaIpAddress = global.ipDetectionCache?.isMainlandChina ?? true
 
     // 获取MAC地址
     const macAddress = getMacAddress()
 
     // 根据IP地址选择不同的登录URL
-    let externalLoginUrl
-    if (isMainlandChinaIpAddress) {
-      // 中国大陆IP使用国内服务器
-      externalLoginUrl = `https://chaterm.intsig.net/login?client_id=chaterm&state=${state}&redirect_uri=chaterm://auth/callback&mac_address=${encodeURIComponent(macAddress)}`
-    } else {
-      // 非中国大陆IP使用国际服务器
-      externalLoginUrl = `https://login.chaterm.ai/login?client_id=chaterm&state=${state}&redirect_uri=chaterm://auth/callback&mac_address=${encodeURIComponent(macAddress)}`
-    }
+    const externalLoginUrl = `https://login.chaterm.ai/login?client_id=chaterm&state=${state}&redirect_uri=chaterm://auth/callback&mac_address=${encodeURIComponent(macAddress)}`
     // externalLoginUrl = `http://127.0.0.1:5174/login?client_id=chaterm&state=${state}&redirect_uri=chaterm://auth/callback&mac_address=${encodeURIComponent(macAddress)}`
 
     // 在 Linux 平台上，将状态保存到本地存储，以便新实例可以访问

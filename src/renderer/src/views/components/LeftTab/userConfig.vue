@@ -4,7 +4,7 @@
     <a-divider style="border-color: var(--border-color); margin: 0 0 0 0" />
     <div class="tabs-container">
       <a-tabs
-        default-active-key="0"
+        v-model:active-key="activeKey"
         tab-position="left"
         class="user-config-tab"
       >
@@ -83,13 +83,20 @@
         >
           <About />
         </a-tab-pane>
+        <a-tab-pane
+          key="10"
+          :tab="$t('mcp.title')"
+          type="card"
+        >
+          <Mcp />
+        </a-tab-pane>
       </a-tabs>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, onMounted, onBeforeUnmount } from 'vue'
 import General from '@/views/components/LeftTab/components/general.vue'
 import Terminal from '@/views/components/LeftTab/components/terminal.vue'
 import Extensions from '@/views/components/LeftTab/components/extensions.vue'
@@ -100,7 +107,23 @@ import Shortcuts from '@/views/components/LeftTab/components/shortcuts.vue'
 import Privacy from '@/views/components/LeftTab/components/privacy.vue'
 import Rules from '@/views/components/LeftTab/components/rules.vue'
 import About from '@/views/components/LeftTab/components/about.vue'
+import Mcp from '@/views/components/LeftTab/components/mcp.vue'
+import eventBus from '@/utils/eventBus'
+
 const isSkippedLogin = ref(localStorage.getItem('login-skipped') === 'true')
+const activeKey = ref('0')
+
+const switchToTerminalTab = () => {
+  activeKey.value = '1'
+}
+
+onMounted(() => {
+  eventBus.on('switchToTerminalTab', switchToTerminalTab)
+})
+
+onBeforeUnmount(() => {
+  eventBus.off('switchToTerminalTab', switchToTerminalTab)
+})
 </script>
 
 <style lang="less" scoped>

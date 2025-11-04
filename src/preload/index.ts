@@ -104,6 +104,7 @@ if (fs.existsSync(envSpecificPath)) {
 // Custom APIs for renderer
 import os from 'os'
 import { ExecResult } from '../main/ssh/sshHandle'
+
 const getLocalIP = (): string => {
   const interfaces = os.networkInterfaces()
   for (const name of Object.keys(interfaces)) {
@@ -610,6 +611,41 @@ const api = {
     ipcRenderer.send(`jumpserver:user-selection-cancel:${id}`)
   },
 
+  // MCP configuration management
+  getMcpConfigPath: () => ipcRenderer.invoke('mcp:get-config-path'),
+  readMcpConfig: async () => {
+    const configPath = await ipcRenderer.invoke('mcp:get-config-path')
+    const content = await fs.promises.readFile(configPath, 'utf-8')
+    return content
+  },
+  writeMcpConfig: async (content: string) => {
+    const configPath = await ipcRenderer.invoke('mcp:get-config-path')
+    await fs.promises.writeFile(configPath, content, 'utf-8')
+  },
+  getMcpServers: () => ipcRenderer.invoke('mcp:get-servers'),
+  toggleMcpServer: (serverName: string, disabled: boolean) => ipcRenderer.invoke('toggle-mcp-server', serverName, disabled),
+  getMcpToolState: (serverName: string, toolName: string) => ipcRenderer.invoke('mcp:get-tool-state', serverName, toolName),
+  setMcpToolState: (serverName: string, toolName: string, enabled: boolean) =>
+    ipcRenderer.invoke('mcp:set-tool-state', serverName, toolName, enabled),
+  getAllMcpToolStates: () => ipcRenderer.invoke('mcp:get-all-tool-states'),
+  setMcpToolAutoApprove: (serverName: string, toolName: string, autoApprove: boolean) =>
+    ipcRenderer.invoke('mcp:set-tool-auto-approve', serverName, toolName, autoApprove),
+  onMcpStatusUpdate: (callback: (servers: any[]) => void) => {
+    const listener = (_event, servers) => callback(servers)
+    ipcRenderer.on('mcp:status-update', listener)
+    return () => ipcRenderer.removeListener('mcp:status-update', listener)
+  },
+  onMcpServerUpdate: (callback: (server: any) => void) => {
+    const listener = (_event, server) => callback(server)
+    ipcRenderer.on('mcp:server-update', listener)
+    return () => ipcRenderer.removeListener('mcp:server-update', listener)
+  },
+  onMcpConfigFileChanged: (callback: (content: string) => void) => {
+    const listener = (_event, content) => callback(content)
+    ipcRenderer.on('mcp:config-file-changed', listener)
+    return () => ipcRenderer.removeListener('mcp:config-file-changed', listener)
+  },
+
   // 本地主机API
   getLocalWorkingDirectory: () => ipcRenderer.invoke('local:get-working-directory'),
   executeLocalCommand: (command: string) => ipcRenderer.invoke('local:execute-command', command),
@@ -745,7 +781,7 @@ const api = {
     }
   },
   // Telemetry events
-  captureButtonClick: async (button: string, properties?: Record<string, any>) => {
+  captureButtonClick: async (button: string, properties?: Record<string, unknown>) => {
     try {
       const result = await ipcRenderer.invoke('capture-telemetry-event', {
         eventType: 'button_click',
@@ -824,7 +860,15 @@ const api = {
   },
 
   // Security configuration
-  openSecurityConfig: () => ipcRenderer.invoke('security-open-config')
+  openSecurityConfig: () => ipcRenderer.invoke('security-open-config'),
+  getSecurityConfigPath: () => ipcRenderer.invoke('security-get-config-path'),
+  readSecurityConfig: () => ipcRenderer.invoke('security-read-config'),
+  writeSecurityConfig: (content: string) => ipcRenderer.invoke('security-write-config', content),
+  onSecurityConfigFileChanged: (callback: (content: string) => void) => {
+    const listener = (_event, content) => callback(content)
+    ipcRenderer.on('security-config-file-changed', listener)
+    return () => ipcRenderer.removeListener('security-config-file-changed', listener)
+  }
 }
 // 自定义 API 用于浏览器控制
 

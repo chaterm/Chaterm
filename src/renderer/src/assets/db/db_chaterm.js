@@ -78,7 +78,8 @@ CREATE TABLE IF NOT EXISTS agent_ui_messages_v1 (
   is_checkpoint_checked_out INTEGER DEFAULT 0,
   is_operation_outside_workspace INTEGER DEFAULT 0,
   conversation_history_index INTEGER,
-  conversation_history_deleted_range TEXT
+  conversation_history_deleted_range TEXT,
+  mcp_tool_call_data TEXT                              -- MCP工具调用信息(JSON格式)
 );
 CREATE INDEX IF NOT EXISTS idx_task_ts ON agent_ui_messages_v1(task_id, ts ASC);
 CREATE INDEX IF NOT EXISTS idx_ts_desc ON agent_ui_messages_v1(ts DESC);

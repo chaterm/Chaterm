@@ -35,7 +35,7 @@
       </div>
     </div>
     <div
-      v-show="isExpanded"
+      v-show="true"
       ref="terminalContainer"
       class="terminal-output"
     ></div>
@@ -43,7 +43,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onBeforeUnmount, watch, nextTick } from 'vue'
+import { ref, onMounted, onBeforeUnmount, watch, nextTick, computed } from 'vue'
 import { Terminal } from 'xterm'
 import { CaretDownOutlined, CaretRightOutlined } from '@ant-design/icons-vue'
 import copySvg from '@/assets/icons/copy.svg'
@@ -59,8 +59,9 @@ const props = defineProps<{
 }>()
 
 const terminalContainer = ref<HTMLElement | null>(null)
-const isExpanded = ref(false) // 终端输出默认折叠
+const isExpanded = ref(true) // 终端输出默认展开
 const outputLines = ref(0)
+const isCollapsible = computed(() => outputLines.value > 10)
 
 let terminal: Terminal | null = null
 let lastContent: string = ''
@@ -783,10 +784,11 @@ const adjustTerminalHeight = () => {
   // 使用总行数而不是非空行数，确保所有内容都能显示
   // 如果总行数为0，使用实际内容行数
   const actualRows = Math.max(minRows, totalLines || actualContentLines)
+  const rowsToShow = !isExpanded.value && isCollapsible.value ? 10 : actualRows
 
   // 根据内容宽度调整终端尺寸
   const cols = maxLineLength
-  terminal.resize(cols, actualRows)
+  terminal.resize(cols, rowsToShow)
 
   if (terminalContainer.value) {
     const rowEl = terminalContainer.value.querySelector('.xterm-rows > div') as HTMLElement | null
@@ -795,7 +797,7 @@ const adjustTerminalHeight = () => {
     const styles = window.getComputedStyle(terminalContainer.value)
     const paddingTop = parseFloat(styles.paddingTop) || 0
     const paddingBottom = parseFloat(styles.paddingBottom) || 0
-    const newHeight = actualRows * rowHeight + paddingTop + paddingBottom + 14
+    const newHeight = rowsToShow * rowHeight + paddingTop + paddingBottom + 14
     terminalContainer.value.style.height = `${newHeight}px`
   }
 }
@@ -3251,6 +3253,7 @@ const writeToTerminal = (content: string) => {
   const contentLines = cleanContent.split('\n').length
   const minRows = 1
   const actualRows = Math.max(minRows, contentLines)
+  const rowsToShow = !isExpanded.value && isCollapsible.value ? 10 : actualRows
   const lines = cleanContent.split('\n')
   // 移除ANSI颜色代码后计算实际显示长度（考虑中文等宽字符）
   const maxLineLength = Math.max(...lines.map((line) => getStringDisplayWidth(line.replace(/\x1b\[[0-9;]*m/g, ''))))
@@ -3258,7 +3261,7 @@ const writeToTerminal = (content: string) => {
 
   // 先调整终端尺寸
   if (terminal) {
-    terminal.resize(cols, actualRows)
+    terminal.resize(cols, rowsToShow)
   }
 
   terminal.write(cleanContent)
@@ -3285,11 +3288,24 @@ const writeToTerminal = (content: string) => {
   const nonEmptyLines = lines.filter((line) => line.trim() !== '')
   outputLines.value = nonEmptyLines.length
 
+  // 超过10行默认折叠，否则展开
+  if (isCollapsible.value) {
+    isExpanded.value = false
+  } else {
+    isExpanded.value = true
+  }
+
+  // 状态变化后立即调整高度
+  nextTick(() => {
+    adjustTerminalHeight()
+  })
+
   const adjustHeight = () => {
     const contentLines = cleanContent.split('\n').length
     const minRows = 1
     // 确保有足够的行数显示所有内容
     const actualRows = Math.max(minRows, contentLines)
+    const rowsToShow = !isExpanded.value && isCollapsible.value ? 10 : actualRows
 
     if (terminal) {
       const lines = cleanContent.split('\n')
@@ -3297,7 +3313,7 @@ const writeToTerminal = (content: string) => {
       const maxLineLength = Math.max(...lines.map((line) => getStringDisplayWidth(line.replace(/\x1b\[[0-9;]*m/g, ''))))
       const cols = maxLineLength
 
-      terminal.resize(cols, actualRows)
+      terminal.resize(cols, rowsToShow)
     }
 
     if (terminalContainer.value) {
@@ -3314,7 +3330,7 @@ const writeToTerminal = (content: string) => {
         const paddingBottom = parseFloat(styles.paddingBottom) || 0
 
         // 直接基于行数计算高度，确保所有内容都能显示
-        const newHeight = actualRows * rowHeight + paddingTop + paddingBottom + 20
+        const newHeight = rowsToShow * rowHeight + paddingTop + paddingBottom + 20
         terminalContainer.value.style.height = `${newHeight}px`
       })
     }
@@ -3347,12 +3363,14 @@ const copyOutput = () => {
 
 // 切换展开/收起
 const toggleOutput = () => {
-  isExpanded.value = !isExpanded.value
-  if (isExpanded.value) {
-    nextTick(() => {
-      adjustTerminalHeight()
-    })
+  if (!isCollapsible.value) {
+    isExpanded.value = true
+    return
   }
+  isExpanded.value = !isExpanded.value
+  nextTick(() => {
+    adjustTerminalHeight()
+  })
 }
 
 // 监听内容变化
