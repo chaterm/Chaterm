@@ -613,6 +613,8 @@ export class McpHub {
       try {
         // Only close transport and client if they exist (disabled servers don't have them)
         if (connection.transport) {
+          connection.transport.onerror = undefined
+          connection.transport.onclose = undefined
           await connection.transport.close()
         }
         if (connection.client) {
@@ -653,7 +655,7 @@ export class McpHub {
         } catch (error) {
           console.error(`Failed to connect to new MCP server ${name}:`, error)
         }
-      } else if (!deepEqual(JSON.parse(currentConnection.server.config), config)) {
+      } else if (!deepEqual(JSON.parse(currentConnection.server.config), JSON.parse(JSON.stringify(config)))) {
         // Existing server with changed config
         try {
           if (config.type === 'stdio') {
@@ -700,7 +702,7 @@ export class McpHub {
         } catch (error) {
           console.error(`Failed to connect to new MCP server ${name}:`, error)
         }
-      } else if (!deepEqual(JSON.parse(currentConnection.server.config), config)) {
+      } else if (!deepEqual(JSON.parse(currentConnection.server.config), JSON.parse(JSON.stringify(config)))) {
         // Existing server with changed config
         try {
           if (config.type === 'stdio') {
