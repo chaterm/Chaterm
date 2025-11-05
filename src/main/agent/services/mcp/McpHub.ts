@@ -710,35 +710,46 @@ export class McpHub {
       }
     }
 
-    // Update or add servers
+    // Update or add servers (parallel execution)
+    const connectPromises: Promise<void>[] = []
     for (const [name, config] of Object.entries(newServers)) {
       const currentConnection = this.connections.find((conn) => conn.server.name === name)
 
       if (!currentConnection) {
         // New server
-        try {
-          if (config.type === 'stdio') {
-            this.setupFileWatcher(name, config)
-          }
-          await this.connectToServer(name, config, 'internal')
-        } catch (error) {
-          console.error(`Failed to connect to new MCP server ${name}:`, error)
-        }
+        connectPromises.push(
+          (async () => {
+            try {
+              if (config.type === 'stdio') {
+                this.setupFileWatcher(name, config)
+              }
+              await this.connectToServer(name, config, 'internal')
+            } catch (error) {
+              console.error(`Failed to connect to new MCP server ${name}:`, error)
+            }
+          })()
+        )
       } else if (!deepEqual(JSON.parse(currentConnection.server.config), JSON.parse(JSON.stringify(config)))) {
         // Existing server with changed config
-        try {
-          if (config.type === 'stdio') {
-            this.setupFileWatcher(name, config)
-          }
-          await this.deleteConnection(name)
-          await this.connectToServer(name, config, 'internal')
-          console.log(`Reconnected MCP server with updated config: ${name}`)
-        } catch (error) {
-          console.error(`Failed to reconnect MCP server ${name}:`, error)
-        }
+        connectPromises.push(
+          (async () => {
+            try {
+              if (config.type === 'stdio') {
+                this.setupFileWatcher(name, config)
+              }
+              await this.deleteConnection(name)
+              await this.connectToServer(name, config, 'internal')
+              console.log(`Reconnected MCP server with updated config: ${name}`)
+            } catch (error) {
+              console.error(`Failed to reconnect MCP server ${name}:`, error)
+            }
+          })()
+        )
       }
       // If server exists with same config, do nothing
     }
+    await Promise.allSettled(connectPromises)
+
     await this.notifyWebviewOfServerChanges()
     this.isConnecting = false
   }
