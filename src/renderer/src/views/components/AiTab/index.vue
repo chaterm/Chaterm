@@ -649,7 +649,18 @@
                     v-for="group in groupedPaginatedHistory"
                     :key="group.dateLabel"
                   >
-                    <div class="history-date-header">{{ group.dateLabel }}</div>
+                    <div
+                      class="history-date-header"
+                      :class="{ 'favorite-header': group.dateLabel === '收藏' }"
+                    >
+                      <template v-if="group.dateLabel === '收藏'">
+                        <StarFilled style="color: #faad14; font-size: 12px" />
+                        <span>收藏</span>
+                      </template>
+                      <template v-else>
+                        {{ group.dateLabel }}
+                      </template>
+                    </div>
                     <a-menu-item
                       v-for="history in group.items"
                       :key="history.id"
@@ -2833,40 +2844,60 @@ const showOnlyFavorites = ref(false)
 
 const filteredHistoryList = computed(() => {
   // Implement filtering logic
-  return historyList.value
-    .filter((history) => {
-      // Filter by search term
-      const matchesSearch = history.chatTitle.toLowerCase().includes(historySearchValue.value.toLowerCase())
+  return historyList.value.filter((history) => {
+    // Filter by search term
+    const matchesSearch = history.chatTitle.toLowerCase().includes(historySearchValue.value.toLowerCase())
 
-      // Filter by favorites if the toggle is on
-      const matchesFavorite = !showOnlyFavorites.value || history.isFavorite
+    // Filter by favorites if the toggle is on
+    const matchesFavorite = !showOnlyFavorites.value || history.isFavorite
 
-      return matchesSearch && matchesFavorite
-    })
-    .sort((a, b) => {
-      // Sort favorites to the top
-      if (a.isFavorite && !b.isFavorite) return -1
-      if (!a.isFavorite && b.isFavorite) return 1
-      return 0
-    })
+    return matchesSearch && matchesFavorite
+  })
 })
 
 const PAGE_SIZE = 20
 const currentPage = ref(1)
 const isLoadingMore = ref(false)
 
+const favoritesList = computed(() => {
+  return filteredHistoryList.value.filter((item) => item.isFavorite)
+})
+
+const nonFavoritesList = computed(() => {
+  return filteredHistoryList.value.filter((item) => !item.isFavorite)
+})
+
+const paginatedNonFavorites = computed(() => {
+  const nonFavorites = nonFavoritesList.value
+  const favoritesCount = favoritesList.value.length
+
+  if (currentPage.value === 1) {
+    const nonFavoritesToShow = Math.max(0, PAGE_SIZE - favoritesCount)
+    return nonFavorites.slice(0, nonFavoritesToShow)
+  } else {
+    const firstPageNonFavorites = Math.max(0, PAGE_SIZE - favoritesCount)
+    const start = firstPageNonFavorites + (currentPage.value - 2) * PAGE_SIZE
+    const end = start + PAGE_SIZE
+    return nonFavorites.slice(start, end)
+  }
+})
+
 const paginatedHistoryList = computed(() => {
-  const filtered = filteredHistoryList.value
-  const end = currentPage.value * PAGE_SIZE
-  return filtered.slice(0, end)
+  return [...favoritesList.value, ...paginatedNonFavorites.value]
 })
 
 // 将分页后的历史记录按日期分组
 const groupedPaginatedHistory = computed(() => {
   const result: Array<{ dateLabel: string; items: HistoryItem[] }> = []
-  const groups = new Map<string, HistoryItem[]>()
 
-  paginatedHistoryList.value.forEach((item) => {
+  const favorites = [...favoritesList.value]
+  if (favorites.length > 0) {
+    favorites.sort((a, b) => (b.ts || 0) - (a.ts || 0))
+    result.push({ dateLabel: '收藏', items: favorites })
+  }
+
+  const groups = new Map<string, HistoryItem[]>()
+  paginatedNonFavorites.value.forEach((item) => {
     const ts = item.ts || Date.now()
     const dateLabel = getDateLabel(ts, t)
 
@@ -2885,7 +2916,17 @@ const groupedPaginatedHistory = computed(() => {
 })
 
 const hasMoreHistory = computed(() => {
-  return paginatedHistoryList.value.length < filteredHistoryList.value.length
+  const favoritesCount = favoritesList.value.length
+
+  if (currentPage.value === 1) {
+    const firstPageNonFavorites = Math.max(0, PAGE_SIZE - favoritesCount)
+    return firstPageNonFavorites < nonFavoritesList.value.length
+  } else {
+    const firstPageNonFavorites = Math.max(0, PAGE_SIZE - favoritesCount)
+    const start = firstPageNonFavorites + (currentPage.value - 2) * PAGE_SIZE
+    const end = start + PAGE_SIZE
+    return end < nonFavoritesList.value.length
+  }
 })
 
 const loadMoreHistory = async () => {
