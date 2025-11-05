@@ -28,7 +28,13 @@ import { z } from 'zod'
 // import { TelemetryService } from '../telemetry/TelemetryService'
 // import { BrowserWindow } from 'electron'
 
-import { DEFAULT_REQUEST_TIMEOUT_MS, DEFAULT_HTTP_CONNECT_TIMEOUT_MS } from './constants'
+import {
+  DEFAULT_REQUEST_TIMEOUT_MS,
+  DEFAULT_HTTP_CONNECT_TIMEOUT_MS,
+  MAX_RECONNECT_ATTEMPTS,
+  INITIAL_RECONNECT_DELAY_MS,
+  MAX_RECONNECT_DELAY_MS
+} from './constants'
 import { McpSettingsSchema, ServerConfigSchema } from './schemas'
 import { McpConnection, McpServerConfig, Transport } from './types'
 
@@ -416,13 +422,37 @@ export class McpHub {
 
           transport.onerror = async (error) => {
             clearTimeout(timeoutId) // Clear timeout when error occurs
-            console.error(`Transport error for "${name}":`, error)
+
             const connection = this.findConnection(name, source)
-            if (connection) {
-              connection.server.status = 'disconnected'
-              this.appendErrorMessage(connection, error instanceof Error ? error.message : `${error}`)
+            if (!connection || connection.reconnectState?.isReconnecting) {
+              return
             }
+
+            const errorMessage = error instanceof Error ? error.message : `${error}`
+            console.error(`Transport error for "${name}":`, error)
+            connection.server.status = 'disconnected'
+            this.appendErrorMessage(connection, errorMessage)
+
             await this.notifyWebviewOfServerChanges()
+
+            await this.scheduleReconnect(name, config, source)
+          }
+
+          transport.onclose = async () => {
+            clearTimeout(timeoutId) // Clear timeout when connection closes
+
+            const connection = this.findConnection(name, source)
+            if (!connection || connection.reconnectState?.isReconnecting) {
+              return
+            }
+
+            console.log(`Transport connection closed for "${name}"`)
+            connection.server.status = 'disconnected'
+            await this.notifyWebviewOfServerChanges()
+
+            // Schedule automatic reconnection for HTTP servers
+            // This handles cases where connection is closed cleanly without an error event
+            await this.scheduleReconnect(name, config, source)
           }
           break
         }
@@ -441,7 +471,13 @@ export class McpHub {
           timeout: config.timeout
         },
         client,
-        transport
+        transport,
+        ...(config.type === 'http' && {
+          reconnectState: {
+            attempts: 0,
+            isReconnecting: false
+          }
+        })
       }
       this.connections.push(connection)
 
@@ -449,6 +485,11 @@ export class McpHub {
 
       connection.server.status = 'connected'
       connection.server.error = ''
+
+      // Reset reconnection state on successful connection (for HTTP servers)
+      if (config.type === 'http') {
+        this.resetReconnectState(connection)
+      }
 
       // Try to set notification handler using the client's method
       try {
@@ -629,10 +670,127 @@ export class McpHub {
     }
   }
 
+  /**
+   * Clear any pending reconnection timeout for a connection.
+   */
+  private clearReconnectTimeout(connection: McpConnection): void {
+    if (connection.reconnectState?.timeoutId) {
+      clearTimeout(connection.reconnectState.timeoutId)
+      connection.reconnectState.timeoutId = undefined
+    }
+  }
+
+  /**
+   * Reset reconnection state for a connection after successful connection.
+   * Also schedules a timer to clear the attempt counter after the connection has been stable.
+   */
+  private resetReconnectState(connection: McpConnection): void {
+    this.clearReconnectTimeout(connection)
+    if (connection.reconnectState) {
+      connection.reconnectState.attempts = 0
+      connection.reconnectState.isReconnecting = false
+      connection.reconnectState.lastSuccessfulConnection = Date.now()
+    }
+  }
+
+  /**
+   * Calculate reconnection delay using exponential backoff strategy.
+   */
+  private calculateReconnectDelay(attempts: number): number {
+    const delay = INITIAL_RECONNECT_DELAY_MS * Math.pow(2, attempts)
+    return Math.min(delay, MAX_RECONNECT_DELAY_MS)
+  }
+
+  /**
+   * Schedule a reconnection attempt for an HTTP-based MCP server.
+   */
+  private async scheduleReconnect(name: string, config: McpServerConfig, source: 'rpc' | 'internal'): Promise<void> {
+    const connection = this.connections.find((conn) => conn.server.name === name)
+    if (!connection || connection.server.disabled) {
+      return
+    }
+
+    // Initialize reconnect state if it doesn't exist
+    if (!connection.reconnectState) {
+      connection.reconnectState = {
+        attempts: 0,
+        isReconnecting: false
+      }
+    }
+
+    // Check if we've exceeded max reconnection attempts
+    if (connection.reconnectState.attempts >= MAX_RECONNECT_ATTEMPTS) {
+      console.warn(`MCP server "${name}" has exceeded maximum reconnection attempts (${MAX_RECONNECT_ATTEMPTS}). ` + `Manual reconnection required.`)
+      connection.server.status = 'disconnected'
+      await this.notifyWebviewOfServerChanges()
+      return
+    }
+
+    // Clear any existing timeout
+    this.clearReconnectTimeout(connection)
+
+    // Mark as reconnecting
+    connection.reconnectState.isReconnecting = true
+
+    // Calculate delay with exponential backoff
+    connection.reconnectState.attempts++
+    const delay = this.calculateReconnectDelay(connection.reconnectState.attempts)
+
+    console.log(`MCP server "${name}" will attempt reconnection #${connection.reconnectState.attempts} in ${delay}ms...`)
+
+    // Schedule reconnection
+    connection.reconnectState.timeoutId = setTimeout(async () => {
+      await this.attemptReconnect(name, config, source)
+    }, delay)
+  }
+
+  /**
+   * Attempt to reconnect to an HTTP-based MCP server.
+   */
+  private async attemptReconnect(name: string, config: McpServerConfig, source: 'rpc' | 'internal'): Promise<void> {
+    const connection = this.connections.find((conn) => conn.server.name === name)
+    if (!connection || connection.server.disabled) {
+      return
+    }
+
+    console.log(`Attempting to reconnect MCP server "${name}"...`)
+
+    try {
+      // Close existing transport and client
+      if (connection.transport) {
+        connection.transport.onerror = undefined
+        connection.transport.onclose = undefined
+        await connection.transport.close().catch(() => {}) // Ignore errors on close
+      }
+      if (connection.client) {
+        await connection.client.close().catch(() => {}) // Ignore errors on close
+      }
+
+      // Remove the connection temporarily
+      this.connections = this.connections.filter((conn) => conn.server.name !== name)
+
+      // Try to reconnect
+      await this.connectToServer(name, config, source)
+
+      console.log(`Successfully reconnected MCP server "${name}"`)
+
+      // Notify frontend of successful reconnection
+      await this.notifyWebviewOfServerChanges()
+    } catch (error) {
+      console.warn(`Reconnection attempt failed for MCP server "${name}":`, error)
+
+      const reconnConnection = this.connections.find((conn) => conn.server.name === name)
+      if (reconnConnection) {
+        await this.scheduleReconnect(name, config, source)
+      }
+    }
+  }
+
   async deleteConnection(name: string): Promise<void> {
     const connection = this.connections.find((conn) => conn.server.name === name)
     if (connection) {
       try {
+        this.clearReconnectTimeout(connection)
         // Only close transport and client if they exist (disabled servers don't have them)
         if (connection.transport) {
           connection.transport.onerror = undefined
