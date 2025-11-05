@@ -37,6 +37,7 @@ import {
 } from './constants'
 import { McpSettingsSchema, ServerConfigSchema } from './schemas'
 import { McpConnection, McpServerConfig, Transport } from './types'
+import { ChatermDatabaseService } from '../../../storage/db/chaterm.service'
 
 /**
  * Parse a command string that may contain arguments into separate command and args
@@ -274,7 +275,7 @@ export class McpHub {
     }
   }
 
-  private findConnection(name: string, _source: 'rpc' | 'internal'): McpConnection | undefined {
+  private findConnection(name: string): McpConnection | undefined {
     return this.connections.find((conn) => conn.server.name === name)
   }
 
@@ -363,7 +364,7 @@ export class McpHub {
 
           transport.onerror = async (error) => {
             console.error(`Transport error for "${name}":`, error)
-            const connection = this.findConnection(name, source)
+            const connection = this.findConnection(name)
             if (connection) {
               connection.server.status = 'disconnected'
               this.appendErrorMessage(connection, error instanceof Error ? error.message : `${error}`)
@@ -372,7 +373,7 @@ export class McpHub {
           }
 
           transport.onclose = async () => {
-            const connection = this.findConnection(name, source)
+            const connection = this.findConnection(name)
             if (connection) {
               connection.server.status = 'disconnected'
             }
@@ -390,7 +391,7 @@ export class McpHub {
                 console.log(`Server "${name}" info:`, output)
               } else {
                 console.error(`Server "${name}" stderr:`, output)
-                const connection = this.findConnection(name, source)
+                const connection = this.findConnection(name)
                 if (connection) {
                   this.appendErrorMessage(connection, output)
                   if (connection.server.status === 'disconnected') {
@@ -423,7 +424,7 @@ export class McpHub {
           transport.onerror = async (error) => {
             clearTimeout(timeoutId) // Clear timeout when error occurs
 
-            const connection = this.findConnection(name, source)
+            const connection = this.findConnection(name)
             if (!connection || connection.reconnectState?.isReconnecting) {
               return
             }
@@ -441,7 +442,7 @@ export class McpHub {
           transport.onclose = async () => {
             clearTimeout(timeoutId) // Clear timeout when connection closes
 
-            const connection = this.findConnection(name, source)
+            const connection = this.findConnection(name)
             if (!connection || connection.reconnectState?.isReconnecting) {
               return
             }
@@ -567,7 +568,7 @@ export class McpHub {
       connection.server.resourceTemplates = await this.fetchResourceTemplatesList(name)
     } catch (error) {
       // Update status with error
-      const connection = this.findConnection(name, source)
+      const connection = this.findConnection(name)
       if (connection) {
         connection.server.status = 'disconnected'
         this.appendErrorMessage(connection, error instanceof Error ? error.message : String(error))
@@ -1132,6 +1133,39 @@ export class McpHub {
   }
 
   /**
+   * Delete a server completely (connection + config)
+   * @param serverName The name of the server to delete
+   */
+  public async deleteServer(serverName: string): Promise<void> {
+    const connection = this.connections.find((conn) => conn.server.name === serverName)
+
+    if (!connection) {
+      throw new Error(`Server "${serverName}" not found`)
+    }
+
+    try {
+      // Delete the connection first
+      await this.deleteConnection(serverName)
+
+      // Skip next file watcher change since we're modifying the config
+      this.skipNextFileWatcherChange = true
+
+      // Remove from config file
+      await this.removeServerFromConfigFile(serverName)
+
+      // Clean up database records for this server
+      const dbService = await ChatermDatabaseService.getInstance()
+      dbService.deleteServerMcpToolStates(serverName)
+
+      // Notify webview with updated server list
+      await this.notifyWebviewOfServerChanges()
+    } catch (error) {
+      console.error(`Failed to delete server ${serverName}:`, error)
+      throw error
+    }
+  }
+
+  /**
    * Helper method to update only the disabled flag in the config file
    * @param serverName The name of the server to update
    * @param disabled The new disabled state
@@ -1143,6 +1177,23 @@ export class McpHub {
 
     if (config.mcpServers && config.mcpServers[serverName]) {
       config.mcpServers[serverName].disabled = disabled
+      await fs.writeFile(settingsPath, JSON.stringify(config, null, 2))
+    } else {
+      throw new Error(`Server "${serverName}" not found in configuration`)
+    }
+  }
+
+  /**
+   * Helper method to remove a server from the config file
+   * @param serverName The name of the server to remove
+   */
+  private async removeServerFromConfigFile(serverName: string): Promise<void> {
+    const settingsPath = await this.getMcpSettingsFilePath()
+    const content = await fs.readFile(settingsPath, 'utf-8')
+    const config = JSON.parse(content)
+
+    if (config.mcpServers && config.mcpServers[serverName]) {
+      delete config.mcpServers[serverName]
       await fs.writeFile(settingsPath, JSON.stringify(config, null, 2))
     } else {
       throw new Error(`Server "${serverName}" not found in configuration`)

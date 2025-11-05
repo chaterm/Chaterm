@@ -393,6 +393,20 @@ ipcMain.handle('toggle-mcp-server', async (_event, serverName: string, disabled:
   }
 })
 
+// Delete MCP server
+ipcMain.handle('delete-mcp-server', async (_event, serverName: string) => {
+  try {
+    if (controller && controller.mcpHub) {
+      await controller.mcpHub.deleteServer(serverName)
+    } else {
+      throw new Error('Controller or McpHub not initialized')
+    }
+  } catch (error) {
+    console.error('Failed to delete MCP server:', error)
+    throw error
+  }
+})
+
 // MCP工具状态管理
 ipcMain.handle('mcp:get-tool-state', async (_event, serverName: string, toolName: string) => {
   try {
