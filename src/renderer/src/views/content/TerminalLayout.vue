@@ -69,6 +69,7 @@
                           @update-tabs="updateTabs"
                           @close-all-tabs="closeAllTabs"
                           @tab-moved-from-other-pane="handleTabMovedToMainPane"
+                          @rename-tab="renameTab"
                         />
                       </div>
                     </pane>
@@ -94,6 +95,7 @@
                           @update-tabs="(tabs) => updateVerticalTabs(tabs, vIndex)"
                           @close-all-tabs="() => closeAllVerticalTabs(vIndex)"
                           @tab-moved-from-other-pane="(evt) => handleTabMovedToVerticalSplitPane(evt, vIndex)"
+                          @rename-tab="(payload) => renameVerticalTab(payload, vIndex)"
                         />
                       </div>
                     </pane>
@@ -131,6 +133,7 @@
                           @update-tabs="(tabs) => updateRightTabs(tabs, index)"
                           @close-all-tabs="() => closeAllRightTabs(index)"
                           @tab-moved-from-other-pane="(evt) => handleTabMovedToSplitPane(evt, index)"
+                          @rename-tab="(payload) => renameRightTab(payload, index)"
                         />
                       </div>
                     </pane>
@@ -156,6 +159,7 @@
                           @update-tabs="(tabs) => updateRightVerticalTabs(tabs, index, vIndex)"
                           @close-all-tabs="() => closeAllRightVerticalTabs(index, vIndex)"
                           @tab-moved-from-other-pane="(evt) => handleTabMovedToRightVerticalSplitPane(evt, index, vIndex)"
+                          @rename-tab="(payload) => renameRightVerticalTab(payload, index, vIndex)"
                         />
                       </div>
                     </pane>
@@ -994,6 +998,46 @@ const switchTab = (tabId) => {
 
 const updateTabs = (newTabs) => {
   openedTabs.value = newTabs
+}
+
+const renameTab = (payload: { id: string; title: string }) => {
+  const tab = openedTabs.value.find((t) => t.id === payload.id)
+  if (tab) {
+    tab.title = payload.title
+  }
+}
+
+const renameVerticalTab = (payload: { id: string; title: string }, vIndex: number) => {
+  const pane = verticalSplitPanes.value[vIndex]
+  if (pane) {
+    const tab = pane.tabs.find((t) => t.id === payload.id)
+    if (tab) {
+      tab.title = payload.title
+    }
+  }
+}
+
+const renameRightTab = (payload: { id: string; title: string }, index: number) => {
+  const pane = splitPanes.value[index]
+  if (pane) {
+    const tab = pane.tabs.find((t) => t.id === payload.id)
+    if (tab) {
+      tab.title = payload.title
+    }
+  }
+}
+
+const renameRightVerticalTab = (payload: { id: string; title: string }, index: number, vIndex: number) => {
+  const pane = splitPanes.value[index]
+  if (pane && pane.verticalSplitPanes) {
+    const vPane = pane.verticalSplitPanes[vIndex]
+    if (vPane) {
+      const tab = vPane.tabs.find((t) => t.id === payload.id)
+      if (tab) {
+        tab.title = payload.title
+      }
+    }
+  }
 }
 onUnmounted(() => {
   shortcutService.destroy()
