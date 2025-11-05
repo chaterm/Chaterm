@@ -31,6 +31,7 @@ export default {
     close: 'Close',
     closeOther: 'Close Others',
     closeAll: 'Close All',
+    rename: 'Rename',
     copy: 'Copy',
     paste: 'Paste',
     clear: 'Clear',
