@@ -28,7 +28,7 @@ import { z } from 'zod'
 // import { TelemetryService } from '../telemetry/TelemetryService'
 // import { BrowserWindow } from 'electron'
 
-import { DEFAULT_REQUEST_TIMEOUT_MS } from './constants'
+import { DEFAULT_REQUEST_TIMEOUT_MS, DEFAULT_HTTP_CONNECT_TIMEOUT_MS } from './constants'
 import { McpSettingsSchema, ServerConfigSchema } from './schemas'
 import { McpConnection, McpServerConfig, Transport } from './types'
 
@@ -297,7 +297,8 @@ export class McpHub {
           status: 'disconnected',
           disabled: true,
           type: config.type,
-          autoApprove
+          autoApprove,
+          timeout: config.timeout
         },
         client: null as unknown as Client,
         transport: null as unknown as Transport
@@ -400,13 +401,21 @@ export class McpHub {
         }
         case 'http': {
           // Try StreamableHTTP first, fallback to SSE if connection fails
+          // Create AbortController for connection timeout
+          const abortController = new AbortController()
+          const timeoutId = setTimeout(() => {
+            abortController.abort()
+          }, DEFAULT_HTTP_CONNECT_TIMEOUT_MS)
+
           transport = new StreamableHTTPClientTransport(new URL(config.url), {
             requestInit: {
-              headers: config.headers
+              headers: config.headers,
+              signal: abortController.signal
             }
           })
 
           transport.onerror = async (error) => {
+            clearTimeout(timeoutId) // Clear timeout when error occurs
             console.error(`Transport error for "${name}":`, error)
             const connection = this.findConnection(name, source)
             if (connection) {
@@ -428,7 +437,8 @@ export class McpHub {
           status: 'connecting',
           disabled: config.disabled,
           type: config.type,
-          autoApprove
+          autoApprove,
+          timeout: config.timeout
         },
         client,
         transport
@@ -543,8 +553,12 @@ export class McpHub {
         return []
       }
 
+      // Use connection timeout if available, otherwise use default
+      const timeoutMs =
+        connection.server.timeout && connection.server.timeout > 0 ? secondsToMs(connection.server.timeout) : DEFAULT_REQUEST_TIMEOUT_MS
+
       const response = await connection.client.request({ method: 'tools/list' }, ListToolsResultSchema, {
-        timeout: DEFAULT_REQUEST_TIMEOUT_MS
+        timeout: timeoutMs
       })
 
       // Get autoApprove settings
@@ -577,8 +591,12 @@ export class McpHub {
         return []
       }
 
+      // Use connection timeout if available, otherwise use default
+      const timeoutMs =
+        connection.server.timeout && connection.server.timeout > 0 ? secondsToMs(connection.server.timeout) : DEFAULT_REQUEST_TIMEOUT_MS
+
       const response = await connection.client.request({ method: 'resources/list' }, ListResourcesResultSchema, {
-        timeout: DEFAULT_REQUEST_TIMEOUT_MS
+        timeout: timeoutMs
       })
       return response?.resources || []
     } catch (_error) {
@@ -596,8 +614,12 @@ export class McpHub {
         return []
       }
 
+      // Use connection timeout if available, otherwise use default
+      const timeoutMs =
+        connection.server.timeout && connection.server.timeout > 0 ? secondsToMs(connection.server.timeout) : DEFAULT_REQUEST_TIMEOUT_MS
+
       const response = await connection.client.request({ method: 'resources/templates/list' }, ListResourceTemplatesResultSchema, {
-        timeout: DEFAULT_REQUEST_TIMEOUT_MS
+        timeout: timeoutMs
       })
 
       return response?.resourceTemplates || []
