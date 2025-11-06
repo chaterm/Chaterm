@@ -3,6 +3,7 @@
 .vscode
 .spec-workflow
 /dist
+/docs
 /node_modules
 /out
 /out/*
