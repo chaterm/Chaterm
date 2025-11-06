@@ -3,6 +3,8 @@ import { Client, ConnectConfig } from 'ssh2'
 import * as fs from 'fs'
 import { Asset, parseJumpserverOutput } from './parser'
 
+import { getPackageInfo } from './connectionManager'
+
 interface ServerInfo {
   name: string
   address: string
@@ -15,6 +17,7 @@ interface JumpServerConfig {
   privateKey?: string // 改为直接传入私钥内容
   password?: string
   passphrase?: string
+  connIdentToken?: string
 }
 
 interface KeyboardInteractiveHandler {
@@ -55,6 +58,10 @@ class JumpServerClient {
         readyTimeout: 30000,
         tryKeyboard: true // Enable keyboard interactive authentication for 2FA
       }
+
+      const identToken = this.config.connIdentToken ? `_t=${this.config.connIdentToken}` : ''
+      const packageInfo = getPackageInfo()
+      connectConfig.ident = `${packageInfo.name}_${packageInfo.version}` + identToken
 
       // 根据配置选择认证方式
       if (this.config.privateKey) {

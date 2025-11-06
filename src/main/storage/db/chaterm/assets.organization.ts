@@ -106,7 +106,8 @@ export async function refreshOrganizationAssetsLogic(
       username: jumpServerConfig.username,
       privateKey: '',
       passphrase: '',
-      password: ''
+      password: '',
+      connIdentToken: jumpServerConfig.connIdentToken
     }
 
     if (jumpServerConfig.keyChain && jumpServerConfig.keyChain > 0) {

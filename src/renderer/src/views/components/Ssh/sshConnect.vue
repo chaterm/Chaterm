@@ -991,6 +991,8 @@ const connectSSH = async () => {
       jumpServerStatusHandler.setupStatusListener(api)
     }
 
+    const jmsToken = ref(localStorage.getItem('jms-token'))
+
     const connData: any = {
       id: connectionId.value, // 会话 ID (每个标签页唯一)
       assetUuid: jumpserverUuid, // JumpServer UUID (用于连接池复用)
@@ -1004,7 +1006,8 @@ const connectSSH = async () => {
       sshType: assetInfo.sshType,
       terminalType: config.terminalType,
       agentForward: config.sshAgentsStatus === 1,
-      isOfficeDevice: isOfficeDevice.value
+      isOfficeDevice: isOfficeDevice.value,
+      connIdentToken: jmsToken.value || ''
     }
     connData.needProxy = assetInfo.need_proxy === 1 || false
     if (connData.needProxy) {

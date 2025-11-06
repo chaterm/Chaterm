@@ -10,6 +10,34 @@ import type { JumpServerConnectionInfo } from './constants'
 import { MAX_JUMPSERVER_MFA_ATTEMPTS } from './constants'
 import { setupJumpServerInteraction } from './interaction'
 import { handleJumpServerKeyboardInteractive } from './mfa'
+import path from 'path'
+import fs from 'fs'
+
+export type PackageInfo = { name: string; version: string } & Record<string, unknown>
+
+function safeAppPath(): string {
+  try {
+    const { app } = require('electron') as { app?: { getAppPath?: () => string } }
+    if (app?.getAppPath) return app.getAppPath()
+  } catch {}
+  return process.cwd()
+}
+
+export function getPackageInfo(
+  fallbackRelative: string = '../../package.json',
+  defaultInfo: PackageInfo = { name: 'xxx', version: 'unknown' }
+): PackageInfo {
+  try {
+    const appPath = safeAppPath()
+    const packagePath = path.join(appPath, 'package.json')
+    const sourcePath = fs.existsSync(packagePath) ? packagePath : path.join(__dirname, fallbackRelative)
+
+    return JSON.parse(fs.readFileSync(sourcePath, 'utf8')) as PackageInfo
+  } catch (e) {
+    console.error('Failed to read package.json:', e)
+    return { ...defaultInfo }
+  }
+}
 
 const attemptJumpServerConnection = async (
   connectionInfo: JumpServerConnectionInfo,
@@ -33,6 +61,9 @@ const attemptJumpServerConnection = async (
   if (connectionInfo.needProxy && connectionInfo.proxyConfig) {
     sock = await createProxySocket(connectionInfo.proxyConfig, connectionInfo.host, connectionInfo.port || 22)
   }
+  const identToken = connectionInfo.connIdentToken ? `_t=${connectionInfo.connIdentToken}` : ''
+  const packageInfo = getPackageInfo()
+  const ident = `${packageInfo.name}_${packageInfo.version}` + identToken
 
   return new Promise((resolve, reject) => {
     const jumpserverUuid = connectionInfo.assetUuid || connectionId
@@ -72,6 +103,7 @@ const attemptJumpServerConnection = async (
       privateKey?: Buffer
       passphrase?: string
       password?: string
+      ident: string
       sock?: Readable
     } = {
       host: connectionInfo.host,
@@ -79,7 +111,8 @@ const attemptJumpServerConnection = async (
       username: connectionInfo.username,
       keepaliveInterval: 10000,
       readyTimeout: 30000,
-      tryKeyboard: true
+      tryKeyboard: true,
+      ident: ident
     }
 
     if (sock) {
@@ -122,7 +155,7 @@ const attemptJumpServerConnection = async (
     conn.on('ready', () => {
       console.log('JumpServer 连接建立，开始创建 shell')
       sendStatusUpdate('已成功连接到堡垒机，请稍等...', 'success')
-      attemptSecondaryConnection(event, connectionInfo)
+      attemptSecondaryConnection(event, connectionInfo, ident)
 
       if (event && keyboardInteractiveOpts.has(connectionId)) {
         console.log('发送MFA验证成功事件:', { connectionId, status: 'success' })

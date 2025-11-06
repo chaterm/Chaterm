@@ -203,8 +203,8 @@ export const handleRequestKeyboardInteractive = (event, id, prompts, finish) => 
   })
 }
 
-export const attemptSecondaryConnection = async (event, connectionInfo) => {
-  const { id, host, port, username, password, privateKey, passphrase, isOfficeDevice, needProxy, proxyConfig } = connectionInfo
+export const attemptSecondaryConnection = async (event, connectionInfo, ident) => {
+  const { id, host, port, username, password, privateKey, passphrase, needProxy, proxyConfig } = connectionInfo
   const conn = new Client()
   const connectConfig: any = {
     host,
@@ -212,7 +212,7 @@ export const attemptSecondaryConnection = async (event, connectionInfo) => {
     username,
     keepaliveInterval: 10000,
     readyTimeout: KeyboardInteractiveTimeout,
-    ident: `${packageInfo.name}_${packageInfo.version}-isOfficeDevice_${isOfficeDevice}`
+    ident: ident
   }
 
   if (privateKey) {
@@ -370,10 +370,12 @@ export const attemptSecondaryConnection = async (event, connectionInfo) => {
 }
 
 const handleAttemptConnection = async (event, connectionInfo, resolve, reject, retryCount) => {
-  const { id, host, port, username, password, privateKey, passphrase, agentForward, needProxy, proxyConfig } = connectionInfo
+  const { id, host, port, username, password, privateKey, passphrase, agentForward, needProxy, proxyConfig, connIdentToken } = connectionInfo
   retryCount++
 
   connectionStatus.set(id, { isVerified: false }) // Update connection status
+  const identToken = connIdentToken ? `_t=${connIdentToken}` : ''
+  const ident = `${packageInfo.name}_${packageInfo.version}` + identToken
 
   // 检查连接复用池：仅当使用 keyboard-interactive 认证时才尝试复用
   const poolKey = getConnectionPoolKey(host, port || 22, username)
@@ -394,7 +396,7 @@ const handleAttemptConnection = async (event, connectionInfo, resolve, reject, r
     connectionEvents.emit(`connection-status-changed:${id}`, { isVerified: true })
 
     // 执行辅助连接（sudo检查、SFTP等）
-    attemptSecondaryConnection(event, connectionInfo)
+    attemptSecondaryConnection(event, connectionInfo, ident)
 
     console.log(`[SSH复用] 成功复用连接，跳过 MFA 认证`)
     resolve({ status: 'connected', message: 'Connection successful (reused)' })
@@ -439,7 +441,7 @@ const handleAttemptConnection = async (event, connectionInfo, resolve, reject, r
     }
 
     // 执行辅助连接（这会清理 keyboardInteractiveOpts，所以必须放在检查之后）
-    attemptSecondaryConnection(event, connectionInfo)
+    attemptSecondaryConnection(event, connectionInfo, ident)
 
     resolve({ status: 'connected', message: 'Connection successful' })
   })
@@ -474,6 +476,8 @@ const handleAttemptConnection = async (event, connectionInfo, resolve, reject, r
   if (needProxy) {
     connectConfig.sock = await createProxySocket(proxyConfig, host, port)
   }
+
+  connectConfig.ident = ident
 
   if (agentForward) {
     const manager = SSHAgentManager.getInstance()

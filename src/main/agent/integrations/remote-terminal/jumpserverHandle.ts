@@ -308,6 +308,7 @@ export const handleJumpServerConnection = async (connectionInfo: {
   needProxy: boolean
   proxyName: string
   assetUuid?: string
+  ident?: string
 }): Promise<{ status: string; message: string }> => {
   const connectionId = connectionInfo.id
   const jumpserverUuid = connectionInfo.assetUuid || connectionId
@@ -392,6 +393,7 @@ export const handleJumpServerConnection = async (connectionInfo: {
       privateKey?: Buffer
       passphrase?: string
       password?: string
+      ident?: string
       sock?: net.Socket | tls.TLSSocket
     } = {
       host: connectionInfo.host,
@@ -399,6 +401,7 @@ export const handleJumpServerConnection = async (connectionInfo: {
       username: connectionInfo.username,
       keepaliveInterval: 10000,
       readyTimeout: 30000,
+      ident: connectionInfo.ident,
       tryKeyboard: true // Enable keyboard interactive authentication for 2FA
     }
 
