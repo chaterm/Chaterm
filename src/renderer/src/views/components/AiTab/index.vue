@@ -2859,38 +2859,21 @@ const PAGE_SIZE = 20
 const currentPage = ref(1)
 const isLoadingMore = ref(false)
 
-const favoritesList = computed(() => {
-  return filteredHistoryList.value.filter((item) => item.isFavorite)
-})
-
-const nonFavoritesList = computed(() => {
-  return filteredHistoryList.value.filter((item) => !item.isFavorite)
-})
-
-const paginatedNonFavorites = computed(() => {
-  const nonFavorites = nonFavoritesList.value
-  const favoritesCount = favoritesList.value.length
-  const totalItemsToShow = currentPage.value * PAGE_SIZE
-  const nonFavoritesToShow = Math.max(0, totalItemsToShow - favoritesCount)
-  return nonFavorites.slice(0, nonFavoritesToShow)
+const sortedHistoryList = computed(() => {
+  return [...filteredHistoryList.value].sort((a, b) => (b.ts || 0) - (a.ts || 0))
 })
 
 const paginatedHistoryList = computed(() => {
-  return [...favoritesList.value, ...paginatedNonFavorites.value]
+  const totalToShow = currentPage.value * PAGE_SIZE
+  return sortedHistoryList.value.slice(0, totalToShow)
 })
 
 // 将分页后的历史记录按日期分组
 const groupedPaginatedHistory = computed(() => {
   const result: Array<{ dateLabel: string; items: HistoryItem[] }> = []
 
-  const favorites = [...favoritesList.value]
-  if (favorites.length > 0) {
-    favorites.sort((a, b) => (b.ts || 0) - (a.ts || 0))
-    result.push({ dateLabel: '收藏', items: favorites })
-  }
-
   const groups = new Map<string, HistoryItem[]>()
-  paginatedNonFavorites.value.forEach((item) => {
+  paginatedHistoryList.value.forEach((item) => {
     const ts = item.ts || Date.now()
     const dateLabel = getDateLabel(ts, t)
 
@@ -2900,8 +2883,8 @@ const groupedPaginatedHistory = computed(() => {
     groups.get(dateLabel)!.push(item)
   })
 
-  // 转换为数组格式并保持顺序
   groups.forEach((items, dateLabel) => {
+    items.sort((a, b) => (b.ts || 0) - (a.ts || 0))
     result.push({ dateLabel, items })
   })
 
@@ -2909,7 +2892,8 @@ const groupedPaginatedHistory = computed(() => {
 })
 
 const hasMoreHistory = computed(() => {
-  return paginatedNonFavorites.value.length < nonFavoritesList.value.length
+  const displayedCount = currentPage.value * PAGE_SIZE
+  return displayedCount < sortedHistoryList.value.length
 })
 
 const loadMoreHistory = async () => {
