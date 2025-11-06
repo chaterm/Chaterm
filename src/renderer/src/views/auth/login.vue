@@ -290,6 +290,7 @@ const onAccountLogin = async () => {
     })
     if (res && (res as any).code === 200 && (res as any).data && (res as any).data.token) {
       localStorage.setItem('ctm-token', (res as any).data.token)
+      localStorage.setItem('jms-token', (res as any).data.jmsToken)
       setUserInfo((res as any).data)
       const api = window.api as any
       const dbResult = await api.initUserDatabase({ uid: (res as any).data.uid })
@@ -321,6 +322,7 @@ const onEmailLogin = async () => {
     const res = await emailLogin({ email: emailForm.email, code: emailForm.code })
     if (res && (res as any).code === 200 && (res as any).data && (res as any).data.token) {
       localStorage.setItem('ctm-token', (res as any).data.token)
+      localStorage.setItem('jms-token', (res as any).data.jmsToken)
       setUserInfo((res as any).data)
       const api = window.api as any
       const dbResult = await api.initUserDatabase({ uid: (res as any).data.uid })
@@ -348,6 +350,7 @@ const skipLogin = async () => {
       method: LoginMethods.GUEST
     })
     localStorage.removeItem('ctm-token')
+    localStorage.removeItem('jms-token')
     localStorage.removeItem('userInfo')
     localStorage.removeItem('login-skipped')
     removeToken()
@@ -368,6 +371,7 @@ const skipLogin = async () => {
       message.error(t('login.initializationFailed'))
       localStorage.removeItem('login-skipped')
       localStorage.removeItem('ctm-token')
+      localStorage.removeItem('jms-token')
       localStorage.removeItem('userInfo')
       return
     }
@@ -384,6 +388,7 @@ const skipLogin = async () => {
     message.error(t('login.operationFailed'))
     localStorage.removeItem('login-skipped')
     localStorage.removeItem('ctm-token')
+    localStorage.removeItem('jms-token')
     localStorage.removeItem('userInfo')
   }
 }
@@ -425,6 +430,7 @@ onMounted(async () => {
       try {
         if (userInfo) {
           localStorage.setItem('ctm-token', userInfo?.token)
+          localStorage.setItem('jms-token', userInfo?.jmsToken)
           setUserInfo(userInfo)
 
           const api = window.api as any
