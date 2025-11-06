@@ -270,6 +270,7 @@ ${t('personal.importFormatExample')}
     font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
     font-size: 12px;
     line-height: 1.5;
+    max-height: 80vh;
     overflow-y: auto;
     overflow-x: hidden;
   }
