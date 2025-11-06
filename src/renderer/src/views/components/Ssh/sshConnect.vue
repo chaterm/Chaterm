@@ -658,6 +658,14 @@ onMounted(async () => {
 const getCmdList = async (systemCommands) => {
   const allCommands = [...systemCommands, ...shellCommands]
   commands.value = [...new Set(allCommands)].sort()
+
+  if (config.highlightStatus !== 1) {
+    console.warn('[Vue] 高亮功能已禁用')
+  }
+
+  if (!queryCommandFlag.value) {
+    console.warn('[Vue] 自动补全功能已禁用')
+  }
 }
 
 onBeforeUnmount(() => {
@@ -1016,7 +1024,8 @@ const connectSSH = async () => {
         connectionHasSudo.value = connectReadyData?.hasSudo
         getCmdList(connectReadyData?.commandList)
       })
-      .catch(() => {
+      .catch((error) => {
+        console.error('[Vue] 命令列表接收失败:', error)
         connectionHasSudo.value = false
         getCmdList([])
       })
@@ -1588,18 +1597,24 @@ const setupTerminalInput = () => {
         sendData(data)
       }
     } else if (data === '\x16') {
-      // Always perform paste operation, regardless of terminal mode
-      navigator.clipboard
-        .readText()
-        .then((text) => {
-          sendData(text)
-          // Ensure scroll to bottom after paste
-          nextTick(() => {
-            terminal.value?.scrollToBottom()
-            terminal.value?.focus()
+      // Check if we're in vim mode (alternate mode)
+      if (terminalMode.value === 'alternate') {
+        // In vim mode, pass Ctrl+V to remote terminal for visual block mode
+        sendData(data)
+      } else {
+        // In normal mode, perform paste operation
+        navigator.clipboard
+          .readText()
+          .then((text) => {
+            sendData(text)
+            // Ensure scroll to bottom after paste
+            nextTick(() => {
+              terminal.value?.scrollToBottom()
+              terminal.value?.focus()
+            })
           })
-        })
-        .catch(() => {})
+          .catch(() => {})
+      }
     } else if (data == '\r') {
       if (!isConnected.value) {
         cusWrite?.('\r\n' + t('ssh.reconnecting') + '\r\n', { isUserCall: true })

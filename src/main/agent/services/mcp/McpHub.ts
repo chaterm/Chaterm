@@ -28,9 +28,16 @@ import { z } from 'zod'
 // import { TelemetryService } from '../telemetry/TelemetryService'
 // import { BrowserWindow } from 'electron'
 
-import { DEFAULT_REQUEST_TIMEOUT_MS } from './constants'
+import {
+  DEFAULT_REQUEST_TIMEOUT_MS,
+  DEFAULT_HTTP_CONNECT_TIMEOUT_MS,
+  MAX_RECONNECT_ATTEMPTS,
+  INITIAL_RECONNECT_DELAY_MS,
+  MAX_RECONNECT_DELAY_MS
+} from './constants'
 import { McpSettingsSchema, ServerConfigSchema } from './schemas'
 import { McpConnection, McpServerConfig, Transport } from './types'
+import { ChatermDatabaseService } from '../../../storage/db/chaterm.service'
 
 /**
  * Parse a command string that may contain arguments into separate command and args
@@ -268,7 +275,7 @@ export class McpHub {
     }
   }
 
-  private findConnection(name: string, _source: 'rpc' | 'internal'): McpConnection | undefined {
+  private findConnection(name: string): McpConnection | undefined {
     return this.connections.find((conn) => conn.server.name === name)
   }
 
@@ -297,7 +304,8 @@ export class McpHub {
           status: 'disconnected',
           disabled: true,
           type: config.type,
-          autoApprove
+          autoApprove,
+          timeout: config.timeout
         },
         client: null as unknown as Client,
         transport: null as unknown as Transport
@@ -356,7 +364,7 @@ export class McpHub {
 
           transport.onerror = async (error) => {
             console.error(`Transport error for "${name}":`, error)
-            const connection = this.findConnection(name, source)
+            const connection = this.findConnection(name)
             if (connection) {
               connection.server.status = 'disconnected'
               this.appendErrorMessage(connection, error instanceof Error ? error.message : `${error}`)
@@ -365,7 +373,7 @@ export class McpHub {
           }
 
           transport.onclose = async () => {
-            const connection = this.findConnection(name, source)
+            const connection = this.findConnection(name)
             if (connection) {
               connection.server.status = 'disconnected'
             }
@@ -383,7 +391,7 @@ export class McpHub {
                 console.log(`Server "${name}" info:`, output)
               } else {
                 console.error(`Server "${name}" stderr:`, output)
-                const connection = this.findConnection(name, source)
+                const connection = this.findConnection(name)
                 if (connection) {
                   this.appendErrorMessage(connection, output)
                   if (connection.server.status === 'disconnected') {
@@ -400,20 +408,52 @@ export class McpHub {
         }
         case 'http': {
           // Try StreamableHTTP first, fallback to SSE if connection fails
+          // Create AbortController for connection timeout
+          const abortController = new AbortController()
+          const timeoutId = setTimeout(() => {
+            abortController.abort()
+          }, DEFAULT_HTTP_CONNECT_TIMEOUT_MS)
+
           transport = new StreamableHTTPClientTransport(new URL(config.url), {
             requestInit: {
-              headers: config.headers
+              headers: config.headers,
+              signal: abortController.signal
             }
           })
 
           transport.onerror = async (error) => {
-            console.error(`Transport error for "${name}":`, error)
-            const connection = this.findConnection(name, source)
-            if (connection) {
-              connection.server.status = 'disconnected'
-              this.appendErrorMessage(connection, error instanceof Error ? error.message : `${error}`)
+            clearTimeout(timeoutId) // Clear timeout when error occurs
+
+            const connection = this.findConnection(name)
+            if (!connection || connection.reconnectState?.isReconnecting) {
+              return
             }
+
+            const errorMessage = error instanceof Error ? error.message : `${error}`
+            console.error(`Transport error for "${name}":`, error)
+            connection.server.status = 'disconnected'
+            this.appendErrorMessage(connection, errorMessage)
+
             await this.notifyWebviewOfServerChanges()
+
+            await this.scheduleReconnect(name, config, source)
+          }
+
+          transport.onclose = async () => {
+            clearTimeout(timeoutId) // Clear timeout when connection closes
+
+            const connection = this.findConnection(name)
+            if (!connection || connection.reconnectState?.isReconnecting) {
+              return
+            }
+
+            console.log(`Transport connection closed for "${name}"`)
+            connection.server.status = 'disconnected'
+            await this.notifyWebviewOfServerChanges()
+
+            // Schedule automatic reconnection for HTTP servers
+            // This handles cases where connection is closed cleanly without an error event
+            await this.scheduleReconnect(name, config, source)
           }
           break
         }
@@ -428,10 +468,17 @@ export class McpHub {
           status: 'connecting',
           disabled: config.disabled,
           type: config.type,
-          autoApprove
+          autoApprove,
+          timeout: config.timeout
         },
         client,
-        transport
+        transport,
+        ...(config.type === 'http' && {
+          reconnectState: {
+            attempts: 0,
+            isReconnecting: false
+          }
+        })
       }
       this.connections.push(connection)
 
@@ -439,6 +486,11 @@ export class McpHub {
 
       connection.server.status = 'connected'
       connection.server.error = ''
+
+      // Reset reconnection state on successful connection (for HTTP servers)
+      if (config.type === 'http') {
+        this.resetReconnectState(connection)
+      }
 
       // Try to set notification handler using the client's method
       try {
@@ -516,7 +568,7 @@ export class McpHub {
       connection.server.resourceTemplates = await this.fetchResourceTemplatesList(name)
     } catch (error) {
       // Update status with error
-      const connection = this.findConnection(name, source)
+      const connection = this.findConnection(name)
       if (connection) {
         connection.server.status = 'disconnected'
         this.appendErrorMessage(connection, error instanceof Error ? error.message : String(error))
@@ -543,8 +595,12 @@ export class McpHub {
         return []
       }
 
+      // Use connection timeout if available, otherwise use default
+      const timeoutMs =
+        connection.server.timeout && connection.server.timeout > 0 ? secondsToMs(connection.server.timeout) : DEFAULT_REQUEST_TIMEOUT_MS
+
       const response = await connection.client.request({ method: 'tools/list' }, ListToolsResultSchema, {
-        timeout: DEFAULT_REQUEST_TIMEOUT_MS
+        timeout: timeoutMs
       })
 
       // Get autoApprove settings
@@ -577,8 +633,12 @@ export class McpHub {
         return []
       }
 
+      // Use connection timeout if available, otherwise use default
+      const timeoutMs =
+        connection.server.timeout && connection.server.timeout > 0 ? secondsToMs(connection.server.timeout) : DEFAULT_REQUEST_TIMEOUT_MS
+
       const response = await connection.client.request({ method: 'resources/list' }, ListResourcesResultSchema, {
-        timeout: DEFAULT_REQUEST_TIMEOUT_MS
+        timeout: timeoutMs
       })
       return response?.resources || []
     } catch (_error) {
@@ -596,8 +656,12 @@ export class McpHub {
         return []
       }
 
+      // Use connection timeout if available, otherwise use default
+      const timeoutMs =
+        connection.server.timeout && connection.server.timeout > 0 ? secondsToMs(connection.server.timeout) : DEFAULT_REQUEST_TIMEOUT_MS
+
       const response = await connection.client.request({ method: 'resources/templates/list' }, ListResourceTemplatesResultSchema, {
-        timeout: DEFAULT_REQUEST_TIMEOUT_MS
+        timeout: timeoutMs
       })
 
       return response?.resourceTemplates || []
@@ -607,12 +671,131 @@ export class McpHub {
     }
   }
 
+  /**
+   * Clear any pending reconnection timeout for a connection.
+   */
+  private clearReconnectTimeout(connection: McpConnection): void {
+    if (connection.reconnectState?.timeoutId) {
+      clearTimeout(connection.reconnectState.timeoutId)
+      connection.reconnectState.timeoutId = undefined
+    }
+  }
+
+  /**
+   * Reset reconnection state for a connection after successful connection.
+   * Also schedules a timer to clear the attempt counter after the connection has been stable.
+   */
+  private resetReconnectState(connection: McpConnection): void {
+    this.clearReconnectTimeout(connection)
+    if (connection.reconnectState) {
+      connection.reconnectState.attempts = 0
+      connection.reconnectState.isReconnecting = false
+      connection.reconnectState.lastSuccessfulConnection = Date.now()
+    }
+  }
+
+  /**
+   * Calculate reconnection delay using exponential backoff strategy.
+   */
+  private calculateReconnectDelay(attempts: number): number {
+    const delay = INITIAL_RECONNECT_DELAY_MS * Math.pow(2, attempts)
+    return Math.min(delay, MAX_RECONNECT_DELAY_MS)
+  }
+
+  /**
+   * Schedule a reconnection attempt for an HTTP-based MCP server.
+   */
+  private async scheduleReconnect(name: string, config: McpServerConfig, source: 'rpc' | 'internal'): Promise<void> {
+    const connection = this.connections.find((conn) => conn.server.name === name)
+    if (!connection || connection.server.disabled) {
+      return
+    }
+
+    // Initialize reconnect state if it doesn't exist
+    if (!connection.reconnectState) {
+      connection.reconnectState = {
+        attempts: 0,
+        isReconnecting: false
+      }
+    }
+
+    // Check if we've exceeded max reconnection attempts
+    if (connection.reconnectState.attempts >= MAX_RECONNECT_ATTEMPTS) {
+      console.warn(`MCP server "${name}" has exceeded maximum reconnection attempts (${MAX_RECONNECT_ATTEMPTS}). ` + `Manual reconnection required.`)
+      connection.server.status = 'disconnected'
+      await this.notifyWebviewOfServerChanges()
+      return
+    }
+
+    // Clear any existing timeout
+    this.clearReconnectTimeout(connection)
+
+    // Mark as reconnecting
+    connection.reconnectState.isReconnecting = true
+
+    // Calculate delay with exponential backoff
+    connection.reconnectState.attempts++
+    const delay = this.calculateReconnectDelay(connection.reconnectState.attempts)
+
+    console.log(`MCP server "${name}" will attempt reconnection #${connection.reconnectState.attempts} in ${delay}ms...`)
+
+    // Schedule reconnection
+    connection.reconnectState.timeoutId = setTimeout(async () => {
+      await this.attemptReconnect(name, config, source)
+    }, delay)
+  }
+
+  /**
+   * Attempt to reconnect to an HTTP-based MCP server.
+   */
+  private async attemptReconnect(name: string, config: McpServerConfig, source: 'rpc' | 'internal'): Promise<void> {
+    const connection = this.connections.find((conn) => conn.server.name === name)
+    if (!connection || connection.server.disabled) {
+      return
+    }
+
+    console.log(`Attempting to reconnect MCP server "${name}"...`)
+
+    try {
+      // Close existing transport and client
+      if (connection.transport) {
+        connection.transport.onerror = undefined
+        connection.transport.onclose = undefined
+        await connection.transport.close().catch(() => {}) // Ignore errors on close
+      }
+      if (connection.client) {
+        await connection.client.close().catch(() => {}) // Ignore errors on close
+      }
+
+      // Remove the connection temporarily
+      this.connections = this.connections.filter((conn) => conn.server.name !== name)
+
+      // Try to reconnect
+      await this.connectToServer(name, config, source)
+
+      console.log(`Successfully reconnected MCP server "${name}"`)
+
+      // Notify frontend of successful reconnection
+      await this.notifyWebviewOfServerChanges()
+    } catch (error) {
+      console.warn(`Reconnection attempt failed for MCP server "${name}":`, error)
+
+      const reconnConnection = this.connections.find((conn) => conn.server.name === name)
+      if (reconnConnection) {
+        await this.scheduleReconnect(name, config, source)
+      }
+    }
+  }
+
   async deleteConnection(name: string): Promise<void> {
     const connection = this.connections.find((conn) => conn.server.name === name)
     if (connection) {
       try {
+        this.clearReconnectTimeout(connection)
         // Only close transport and client if they exist (disabled servers don't have them)
         if (connection.transport) {
+          connection.transport.onerror = undefined
+          connection.transport.onclose = undefined
           await connection.transport.close()
         }
         if (connection.client) {
@@ -653,7 +836,7 @@ export class McpHub {
         } catch (error) {
           console.error(`Failed to connect to new MCP server ${name}:`, error)
         }
-      } else if (!deepEqual(JSON.parse(currentConnection.server.config), config)) {
+      } else if (!deepEqual(JSON.parse(currentConnection.server.config), JSON.parse(JSON.stringify(config)))) {
         // Existing server with changed config
         try {
           if (config.type === 'stdio') {
@@ -686,35 +869,46 @@ export class McpHub {
       }
     }
 
-    // Update or add servers
+    // Update or add servers (parallel execution)
+    const connectPromises: Promise<void>[] = []
     for (const [name, config] of Object.entries(newServers)) {
       const currentConnection = this.connections.find((conn) => conn.server.name === name)
 
       if (!currentConnection) {
         // New server
-        try {
-          if (config.type === 'stdio') {
-            this.setupFileWatcher(name, config)
-          }
-          await this.connectToServer(name, config, 'internal')
-        } catch (error) {
-          console.error(`Failed to connect to new MCP server ${name}:`, error)
-        }
-      } else if (!deepEqual(JSON.parse(currentConnection.server.config), config)) {
+        connectPromises.push(
+          (async () => {
+            try {
+              if (config.type === 'stdio') {
+                this.setupFileWatcher(name, config)
+              }
+              await this.connectToServer(name, config, 'internal')
+            } catch (error) {
+              console.error(`Failed to connect to new MCP server ${name}:`, error)
+            }
+          })()
+        )
+      } else if (!deepEqual(JSON.parse(currentConnection.server.config), JSON.parse(JSON.stringify(config)))) {
         // Existing server with changed config
-        try {
-          if (config.type === 'stdio') {
-            this.setupFileWatcher(name, config)
-          }
-          await this.deleteConnection(name)
-          await this.connectToServer(name, config, 'internal')
-          console.log(`Reconnected MCP server with updated config: ${name}`)
-        } catch (error) {
-          console.error(`Failed to reconnect MCP server ${name}:`, error)
-        }
+        connectPromises.push(
+          (async () => {
+            try {
+              if (config.type === 'stdio') {
+                this.setupFileWatcher(name, config)
+              }
+              await this.deleteConnection(name)
+              await this.connectToServer(name, config, 'internal')
+              console.log(`Reconnected MCP server with updated config: ${name}`)
+            } catch (error) {
+              console.error(`Failed to reconnect MCP server ${name}:`, error)
+            }
+          })()
+        )
       }
       // If server exists with same config, do nothing
     }
+    await Promise.allSettled(connectPromises)
+
     await this.notifyWebviewOfServerChanges()
     this.isConnecting = false
   }
@@ -939,6 +1133,39 @@ export class McpHub {
   }
 
   /**
+   * Delete a server completely (connection + config)
+   * @param serverName The name of the server to delete
+   */
+  public async deleteServer(serverName: string): Promise<void> {
+    const connection = this.connections.find((conn) => conn.server.name === serverName)
+
+    if (!connection) {
+      throw new Error(`Server "${serverName}" not found`)
+    }
+
+    try {
+      // Delete the connection first
+      await this.deleteConnection(serverName)
+
+      // Skip next file watcher change since we're modifying the config
+      this.skipNextFileWatcherChange = true
+
+      // Remove from config file
+      await this.removeServerFromConfigFile(serverName)
+
+      // Clean up database records for this server
+      const dbService = await ChatermDatabaseService.getInstance()
+      dbService.deleteServerMcpToolStates(serverName)
+
+      // Notify webview with updated server list
+      await this.notifyWebviewOfServerChanges()
+    } catch (error) {
+      console.error(`Failed to delete server ${serverName}:`, error)
+      throw error
+    }
+  }
+
+  /**
    * Helper method to update only the disabled flag in the config file
    * @param serverName The name of the server to update
    * @param disabled The new disabled state
@@ -950,6 +1177,23 @@ export class McpHub {
 
     if (config.mcpServers && config.mcpServers[serverName]) {
       config.mcpServers[serverName].disabled = disabled
+      await fs.writeFile(settingsPath, JSON.stringify(config, null, 2))
+    } else {
+      throw new Error(`Server "${serverName}" not found in configuration`)
+    }
+  }
+
+  /**
+   * Helper method to remove a server from the config file
+   * @param serverName The name of the server to remove
+   */
+  private async removeServerFromConfigFile(serverName: string): Promise<void> {
+    const settingsPath = await this.getMcpSettingsFilePath()
+    const content = await fs.readFile(settingsPath, 'utf-8')
+    const config = JSON.parse(content)
+
+    if (config.mcpServers && config.mcpServers[serverName]) {
+      delete config.mcpServers[serverName]
       await fs.writeFile(settingsPath, JSON.stringify(config, null, 2))
     } else {
       throw new Error(`Server "${serverName}" not found in configuration`)

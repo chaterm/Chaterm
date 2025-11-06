@@ -72,9 +72,7 @@ export class McpConfigService {
 
   // Delete server
   async deleteServer(name: string): Promise<void> {
-    const settings = await this.readConfig()
-    delete settings.mcpServers[name]
-    await this.writeConfig(settings)
+    await window.api.deleteMcpServer(name)
   }
 
   // Toggle server enable/disable status

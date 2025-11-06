@@ -105,6 +105,7 @@ interface ApiType {
   writeMcpConfig: (content: string) => Promise<void>
   getMcpServers: () => Promise<any[]>
   toggleMcpServer: (serverName: string, disabled: boolean) => Promise<void>
+  deleteMcpServer: (serverName: string) => Promise<void>
   getMcpToolState: (serverName: string, toolName: string) => Promise<any>
   setMcpToolState: (serverName: string, toolName: string, enabled: boolean) => Promise<void>
   getAllMcpToolStates: () => Promise<Record<string, boolean>>

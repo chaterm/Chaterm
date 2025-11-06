@@ -31,6 +31,7 @@ export default {
     close: '关闭',
     closeOther: '关闭其他',
     closeAll: '全部关闭',
+    rename: '重命名',
     copy: '复制',
     paste: '粘贴',
     clear: '清除',

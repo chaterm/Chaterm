@@ -81,26 +81,45 @@ export class RemoteTerminalProcess extends BrownEventEmitter<RemoteTerminalProce
     ].join('\n')
   }
 
-  private buildJumpServerCommandWithWorkingDirectory(command: string, cleanCwd?: string): string {
-    if (!cleanCwd) return command
+  /**
+   * Build complete JumpServer command with Base64 encoding and execution markers.
+   * Returns the wrapped command ready for stream.write() and the markers for output tracking.
+   */
+  private buildJumpServerWrappedCommand(command: string, cleanCwd?: string): { wrappedCommand: string; startMarker: string; endMarker: string } {
+    // Generate unique markers for output tracking
+    const timestamp = Date.now()
+    const randomId = Math.random().toString(36).substring(2, 14)
+    const startMarker = `===CHATERM_START_${timestamp}_${randomId}===`
+    const endMarker = `===CHATERM_END_${timestamp}_${randomId}===`
 
-    const trimmedCommand = command.trimEnd()
-    const requiresTerminator = trimmedCommand.length > 0 && !/[;&]$/.test(trimmedCommand)
-    const commandForThen = `${trimmedCommand}${requiresTerminator ? ';' : ''}`
+    // Encode original command in Base64 to protect special characters
+    const cmdBase64 = Buffer.from(command, 'utf-8').toString('base64')
+    const evalCmd = `eval "$(echo ${cmdBase64} | base64 -d)"`
 
-    const cwdBase64 = Buffer.from(cleanCwd, 'utf-8').toString('base64')
-    const cmdBase64 = Buffer.from(trimmedCommand, 'utf-8').toString('base64')
+    // Build command with or without working directory
+    let commandToExecute: string
+    if (!cleanCwd) {
+      commandToExecute = evalCmd
+    } else {
+      const sudoCommand = `cd "${cleanCwd}" && ${evalCmd}`
+      const sudoCmdBase64 = Buffer.from(sudoCommand, 'utf-8').toString('base64')
+      commandToExecute = [
+        `if cd "${cleanCwd}" 2>/dev/null; then`,
+        `  ${evalCmd}`,
+        'else',
+        `  sudo -i bash -c "eval \\"\\\$(echo ${sudoCmdBase64} | base64 -d)\\""`,
+        'fi'
+      ].join('\n')
+    }
 
-    const sudoCmdBase64 = Buffer.from(`cd "$(echo ${cwdBase64} | base64 -d)" && eval "$(echo ${cmdBase64} | base64 -d)"`, 'utf-8').toString('base64')
+    // Build complete wrapped command with markers
+    const wrappedCommand = `bash -l -c 'echo "${startMarker}"; ${commandToExecute}; EXIT_CODE=$?; echo "${endMarker}:$EXIT_CODE"'`
 
-    return [
-      `CD_B64="${cwdBase64}"; CMD_B64="${cmdBase64}"; SUDO_CMD_B64="${sudoCmdBase64}";`,
-      `if cd "$(echo $CD_B64 | base64 -d)" 2>/dev/null; then`,
-      `  ${commandForThen}`,
-      'else',
-      `  sudo bash -c "$(echo $SUDO_CMD_B64 | base64 -d)"`,
-      'fi'
-    ].join('\n')
+    return {
+      wrappedCommand,
+      startMarker,
+      endMarker
+    }
   }
 
   async run(sessionId: string, command: string, cwd?: string, sshType?: string): Promise<void> {
@@ -254,15 +273,8 @@ export class RemoteTerminalProcess extends BrownEventEmitter<RemoteTerminalProce
       }
     }
 
-    const commandToExecute = this.buildJumpServerCommandWithWorkingDirectory(command, cleanCwd)
-
-    const timestamp = Date.now()
-    const randomId = Math.random().toString(36).substring(2, 14)
-    const startMarker = `===CHATERM_START_${timestamp}_${randomId}===`
-    const endMarker = `===CHATERM_END_${timestamp}_${randomId}===`
-
-    const base64Command = Buffer.from(commandToExecute, 'utf-8').toString('base64')
-    const wrappedCommand = `bash -l -c 'CHATERM_CMD_B64="${base64Command}"; echo "${startMarker}"; eval "$(echo $CHATERM_CMD_B64 | base64 -d)"; EXIT_CODE=$?; echo "${endMarker}:$EXIT_CODE"'`
+    // Build complete JumpServer command with Base64 encoding and markers
+    const { wrappedCommand, startMarker, endMarker } = this.buildJumpServerWrappedCommand(command, cleanCwd)
 
     jumpserverMarkedCommands.set(sessionId, {
       marker: startMarker,
@@ -405,9 +417,7 @@ export class RemoteTerminalProcess extends BrownEventEmitter<RemoteTerminalProce
         cleanLine.startsWith('bash -l -c') ||
         (cleanLine.includes(`echo "${startMarker}"`) && cleanLine.length > startMarker.length + 10) ||
         (cleanLine.includes(`echo "${endMarker}:$EXIT_CODE"`) && cleanLine.length > endMarker.length + 20) ||
-        cleanLine === wrappedCommand.trim() ||
-        // Only filter exact command matches that appear at the beginning (command echo)
-        (cleanLine === commandToExecute && !commandStarted)
+        cleanLine === wrappedCommand.trim()
 
       // Log filtered echo for debugging
       if (isEcho) {
