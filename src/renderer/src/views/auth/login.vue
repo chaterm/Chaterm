@@ -209,6 +209,7 @@ import { shortcutService } from '@/services/shortcutService'
 import config from '@renderer/config'
 import { sendEmailCode, emailLogin, userLogin } from '@/api/user/user'
 import { useI18n } from 'vue-i18n'
+import { useDeviceStore } from '@/store/useDeviceStore'
 
 const { t, locale } = useI18n()
 const platform = ref<string>('')
@@ -218,6 +219,7 @@ const externalLoginLoading = ref(false)
 const codeSending = ref(false)
 const countdown = ref(0)
 const activeTab = ref('account') // default
+const deviceStore = useDeviceStore()
 const emailForm = reactive({
   email: '',
   code: ''
@@ -286,7 +288,8 @@ const onAccountLogin = async () => {
     loading.value = true
     const res = await userLogin({
       username: accountForm.username,
-      password: accountForm.password
+      password: accountForm.password,
+      macAddress: deviceStore.getMacAddress
     })
     if (res && (res as any).code === 200 && (res as any).data && (res as any).data.token) {
       localStorage.setItem('ctm-token', (res as any).data.token)
@@ -319,7 +322,11 @@ const onEmailLogin = async () => {
   }
   try {
     loading.value = true
-    const res = await emailLogin({ email: emailForm.email, code: emailForm.code })
+    const res = await emailLogin({
+      email: emailForm.email,
+      code: emailForm.code,
+      macAddress: deviceStore.getMacAddress
+    })
     if (res && (res as any).code === 200 && (res as any).data && (res as any).data.token) {
       localStorage.setItem('ctm-token', (res as any).data.token)
       localStorage.setItem('jms-token', (res as any).data.jmsToken)
