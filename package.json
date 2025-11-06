@@ -47,6 +47,7 @@
     "@types/ssh2": "^1.15.5",
     "axios": "^1.8.4",
     "better-sqlite3": "^11.10.0",
+    "chokidar": "^3.6.0",
     "clone-deep": "^4.0.1",
     "crypto-js": "^4.2.0",
     "diff": "^5.2.0",
