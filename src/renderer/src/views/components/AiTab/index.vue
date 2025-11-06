@@ -2870,16 +2870,9 @@ const nonFavoritesList = computed(() => {
 const paginatedNonFavorites = computed(() => {
   const nonFavorites = nonFavoritesList.value
   const favoritesCount = favoritesList.value.length
-
-  if (currentPage.value === 1) {
-    const nonFavoritesToShow = Math.max(0, PAGE_SIZE - favoritesCount)
-    return nonFavorites.slice(0, nonFavoritesToShow)
-  } else {
-    const firstPageNonFavorites = Math.max(0, PAGE_SIZE - favoritesCount)
-    const start = firstPageNonFavorites + (currentPage.value - 2) * PAGE_SIZE
-    const end = start + PAGE_SIZE
-    return nonFavorites.slice(start, end)
-  }
+  const totalItemsToShow = currentPage.value * PAGE_SIZE
+  const nonFavoritesToShow = Math.max(0, totalItemsToShow - favoritesCount)
+  return nonFavorites.slice(0, nonFavoritesToShow)
 })
 
 const paginatedHistoryList = computed(() => {
@@ -2916,17 +2909,7 @@ const groupedPaginatedHistory = computed(() => {
 })
 
 const hasMoreHistory = computed(() => {
-  const favoritesCount = favoritesList.value.length
-
-  if (currentPage.value === 1) {
-    const firstPageNonFavorites = Math.max(0, PAGE_SIZE - favoritesCount)
-    return firstPageNonFavorites < nonFavoritesList.value.length
-  } else {
-    const firstPageNonFavorites = Math.max(0, PAGE_SIZE - favoritesCount)
-    const start = firstPageNonFavorites + (currentPage.value - 2) * PAGE_SIZE
-    const end = start + PAGE_SIZE
-    return end < nonFavoritesList.value.length
-  }
+  return paginatedNonFavorites.value.length < nonFavoritesList.value.length
 })
 
 const loadMoreHistory = async () => {
