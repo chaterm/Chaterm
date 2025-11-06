@@ -9,6 +9,7 @@ export function getLoginUrl() {
 }
 export function removeToken() {
   localStorage.removeItem('ctm-token')
+  localStorage.removeItem('jms-token')
   localStorage.removeItem('bearer-token')
   localStorage.removeItem('userInfo')
   localStorage.removeItem('login-skipped')
