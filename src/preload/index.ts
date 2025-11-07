@@ -624,6 +624,7 @@ const api = {
   },
   getMcpServers: () => ipcRenderer.invoke('mcp:get-servers'),
   toggleMcpServer: (serverName: string, disabled: boolean) => ipcRenderer.invoke('toggle-mcp-server', serverName, disabled),
+  deleteMcpServer: (serverName: string) => ipcRenderer.invoke('delete-mcp-server', serverName),
   getMcpToolState: (serverName: string, toolName: string) => ipcRenderer.invoke('mcp:get-tool-state', serverName, toolName),
   setMcpToolState: (serverName: string, toolName: string, enabled: boolean) =>
     ipcRenderer.invoke('mcp:set-tool-state', serverName, toolName, enabled),

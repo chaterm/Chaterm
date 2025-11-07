@@ -57,38 +57,38 @@
         </a-tab-pane>
         <a-tab-pane
           key="6"
-          :tab="$t('user.shortcuts')"
+          :tab="$t('mcp.title')"
           type="card"
         >
-          <Shortcuts />
+          <Mcp />
         </a-tab-pane>
         <a-tab-pane
           key="7"
-          :tab="$t('user.privacy')"
-          type="card"
-        >
-          <Privacy />
-        </a-tab-pane>
-        <a-tab-pane
-          key="8"
           :tab="$t('user.rules')"
           type="card"
         >
           <Rules />
         </a-tab-pane>
         <a-tab-pane
+          key="8"
+          :tab="$t('user.shortcuts')"
+          type="card"
+        >
+          <Shortcuts />
+        </a-tab-pane>
+        <a-tab-pane
           key="9"
+          :tab="$t('user.privacy')"
+          type="card"
+        >
+          <Privacy />
+        </a-tab-pane>
+        <a-tab-pane
+          key="10"
           :tab="$t('user.about')"
           type="card"
         >
           <About />
-        </a-tab-pane>
-        <a-tab-pane
-          key="10"
-          :tab="$t('mcp.title')"
-          type="card"
-        >
-          <Mcp />
         </a-tab-pane>
       </a-tabs>
     </div>

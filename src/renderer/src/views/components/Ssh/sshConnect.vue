@@ -991,6 +991,8 @@ const connectSSH = async () => {
       jumpServerStatusHandler.setupStatusListener(api)
     }
 
+    const jmsToken = ref(localStorage.getItem('jms-token'))
+
     const connData: any = {
       id: connectionId.value, // 会话 ID (每个标签页唯一)
       assetUuid: jumpserverUuid, // JumpServer UUID (用于连接池复用)
@@ -1004,7 +1006,8 @@ const connectSSH = async () => {
       sshType: assetInfo.sshType,
       terminalType: config.terminalType,
       agentForward: config.sshAgentsStatus === 1,
-      isOfficeDevice: isOfficeDevice.value
+      isOfficeDevice: isOfficeDevice.value,
+      connIdentToken: jmsToken.value || ''
     }
     connData.needProxy = assetInfo.need_proxy === 1 || false
     if (connData.needProxy) {
@@ -1597,18 +1600,24 @@ const setupTerminalInput = () => {
         sendData(data)
       }
     } else if (data === '\x16') {
-      // Always perform paste operation, regardless of terminal mode
-      navigator.clipboard
-        .readText()
-        .then((text) => {
-          sendData(text)
-          // Ensure scroll to bottom after paste
-          nextTick(() => {
-            terminal.value?.scrollToBottom()
-            terminal.value?.focus()
+      // Check if we're in vim mode (alternate mode)
+      if (terminalMode.value === 'alternate') {
+        // In vim mode, pass Ctrl+V to remote terminal for visual block mode
+        sendData(data)
+      } else {
+        // In normal mode, perform paste operation
+        navigator.clipboard
+          .readText()
+          .then((text) => {
+            sendData(text)
+            // Ensure scroll to bottom after paste
+            nextTick(() => {
+              terminal.value?.scrollToBottom()
+              terminal.value?.focus()
+            })
           })
-        })
-        .catch(() => {})
+          .catch(() => {})
+      }
     } else if (data == '\r') {
       if (!isConnected.value) {
         cusWrite?.('\r\n' + t('ssh.reconnecting') + '\r\n', { isUserCall: true })

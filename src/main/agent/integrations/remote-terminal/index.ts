@@ -2,6 +2,29 @@ import { BrownEventEmitter } from './event'
 import { remoteSshConnect, remoteSshExecStream, remoteSshDisconnect } from '../../../ssh/agentHandle'
 import { handleJumpServerConnection, jumpserverShellStreams, jumpserverMarkedCommands } from './jumpserverHandle'
 
+const { app } = require('electron')
+import { webContents } from 'electron'
+import path from 'path'
+import fs from 'fs'
+
+const appPath = app.getAppPath()
+const packagePath = path.join(appPath, 'package.json')
+
+// Try to read package.json from appPath first, fallback to __dirname if not exists
+let packageInfo
+try {
+  if (fs.existsSync(packagePath)) {
+    packageInfo = JSON.parse(fs.readFileSync(packagePath, 'utf8'))
+  } else {
+    const fallbackPath = path.join(__dirname, '../../package.json')
+    packageInfo = JSON.parse(fs.readFileSync(fallbackPath, 'utf8'))
+  }
+} catch (error) {
+  console.error('Failed to read package.json:', error)
+  // Provide a default packageInfo object if both paths fail
+  packageInfo = { name: 'chaterm', version: 'unknown' }
+}
+
 export interface RemoteTerminalProcessEvents extends Record<string, any[]> {
   line: [line: string]
   continue: []
@@ -31,6 +54,7 @@ export interface ConnectionInfo {
   sshType?: string
   needProxy: boolean
   proxyName?: string
+  ident?: string
 }
 
 export interface RemoteTerminalInfo {
@@ -604,6 +628,16 @@ export class RemoteTerminalManager {
 
     try {
       let connectResult: { id?: string; status?: string; message?: string; error?: string } | undefined
+
+      // 添加连接ident
+      let identToken = ''
+      const wc = webContents.getFocusedWebContents()
+      if (wc) {
+        const connIdentToken = await wc.executeJavaScript(`localStorage.getItem('jms-token')`)
+        identToken = connIdentToken ? `_t=${connIdentToken}` : ''
+      }
+      this.connectionInfo.ident = `${packageInfo.name}_${packageInfo.version}` + identToken
+
       // Choose connection method based on sshType
       if (this.connectionInfo.sshType === 'jumpserver') {
         // Use JumpServer connection
@@ -620,6 +654,7 @@ export class RemoteTerminalManager {
           targetIp: this.connectionInfo.host!,
           needProxy: this.connectionInfo.needProxy || false,
           proxyName: this.connectionInfo.proxyName || '',
+          ident: this.connectionInfo.ident,
           assetUuid
         }
 

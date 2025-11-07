@@ -93,12 +93,12 @@ export function createOrUpdateAssetLogic(db: Database.Database, params: any): an
 
     const now = new Date().toISOString()
 
-    // 首先检查是否存在重复的资产（基于 IP + 用户名 + 端口 + 别名）
+    // 首先检查是否存在重复的资产（基于 IP + 用户名 + 端口 + 别名 + asset_type）
     const checkDuplicateStmt = db.prepare(`
       SELECT uuid, label, created_at FROM t_assets 
-      WHERE asset_ip = ? AND username = ? AND port = ? AND label = ?
+      WHERE asset_ip = ? AND username = ? AND port = ? AND label = ? AND asset_type = ?
     `)
-    const existingAsset = checkDuplicateStmt.get(form.ip, form.username, form.port, form.label || form.ip)
+    const existingAsset = checkDuplicateStmt.get(form.ip, form.username, form.port, form.label || form.ip, form.asset_type || 'person')
 
     if (existingAsset) {
       // 如果存在重复资产，更新现有记录
@@ -211,12 +211,12 @@ export function createAssetLogic(db: Database.Database, params: any): any {
 
     const now = new Date().toISOString()
 
-    // 首先检查是否存在重复的资产（基于 IP + 用户名 + 端口 + 别名）
+    // 首先检查是否存在重复的资产（基于 IP + 用户名 + 端口 + 别名 + asset_type）
     const checkDuplicateStmt = db.prepare(`
       SELECT uuid, label, created_at FROM t_assets 
-      WHERE asset_ip = ? AND username = ? AND port = ? AND label = ?
+      WHERE asset_ip = ? AND username = ? AND port = ? AND label = ? AND asset_type = ?
     `)
-    const existingAsset = checkDuplicateStmt.get(form.ip, form.username, form.port, form.label || form.ip)
+    const existingAsset = checkDuplicateStmt.get(form.ip, form.username, form.port, form.label || form.ip, form.asset_type || 'person')
 
     if (existingAsset) {
       // 如果存在重复资产，返回重复信息而不是创建新记录

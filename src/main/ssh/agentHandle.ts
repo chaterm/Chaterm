@@ -96,6 +96,8 @@ export async function remoteSshConnect(connectionInfo: ConnectionInfo): Promise<
       tryKeyboard: true // Disable keyboard-interactive
     }
 
+    connectConfig.ident = connectionInfo.ident
+
     if (connectionInfo.needProxy) {
       connectConfig.sock = sock
     }

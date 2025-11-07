@@ -16,7 +16,18 @@
             :class="{ 'tab-item': true, active: tab.id === activeTab }"
             @contextmenu.prevent="showContextMenu($event, tab)"
           >
+            <input
+              v-if="editingTabId === tab.id"
+              ref="renameInputRef"
+              v-model="editingTabTitle"
+              class="tab-title-input"
+              @blur="finishRename(tab.id)"
+              @keydown.enter="finishRename(tab.id)"
+              @keydown.esc="cancelRename"
+              @click.stop
+            />
             <span
+              v-else
               class="tab-title"
               @click="$emit('change-tab', tab.id)"
               >{{ tab.ip ? tab.title : tab.title === 'mcpConfigEditor' ? $t('mcp.configEditor') : $t(`common.${tab.title}`, tab.title) }}</span
@@ -54,6 +65,12 @@
           @click="closeAllTabs"
         >
           <span>{{ $t('common.closeAll') }}</span>
+        </div>
+        <div
+          class="context-menu-item"
+          @click="renameTab"
+        >
+          <span>{{ $t('common.rename') }}</span>
         </div>
         <div
           class="context-menu-item"
@@ -147,7 +164,7 @@ const props = defineProps({
     default: ''
   }
 })
-const emit = defineEmits(['close-tab', 'change-tab', 'update-tabs', 'create-tab', 'close-all-tabs', 'tab-moved-from-other-pane'])
+const emit = defineEmits(['close-tab', 'change-tab', 'update-tabs', 'create-tab', 'close-all-tabs', 'tab-moved-from-other-pane', 'rename-tab'])
 const localTabs = computed({
   get: () => props.tabs,
   set: (value) => {
@@ -375,6 +392,46 @@ const cloneTab = () => {
   hideContextMenu()
 }
 
+const editingTabId = ref<string | null>(null)
+const editingTabTitle = ref<string>('')
+const renameInputRef = ref<HTMLInputElement | null>(null)
+
+const renameTab = () => {
+  const currentTab = contextMenu.value.targetTab
+  if (!currentTab) {
+    hideContextMenu()
+    return
+  }
+
+  editingTabId.value = currentTab.id
+  editingTabTitle.value = currentTab.title
+  hideContextMenu()
+
+  nextTick(() => {
+    const input = renameInputRef.value
+    if (input) {
+      input.focus()
+      input.select()
+    }
+  })
+}
+
+const finishRename = (tabId: string) => {
+  if (editingTabId.value === tabId && editingTabTitle.value.trim()) {
+    emit('rename-tab', {
+      id: tabId,
+      title: editingTabTitle.value.trim()
+    })
+  }
+  editingTabId.value = null
+  editingTabTitle.value = ''
+}
+
+const cancelRename = () => {
+  editingTabId.value = null
+  editingTabTitle.value = ''
+}
+
 const handleKeyDown = (event: KeyboardEvent) => {
   // 只在非Windows系统上处理 ctrl+w，Windows系统由preload脚本处理
   const isWindows = navigator.platform.toLowerCase().includes('win')
@@ -540,5 +597,22 @@ defineExpose({
 
 .context-menu-item:hover {
   background-color: var(--hover-bg-color);
+}
+
+.tab-title-input {
+  flex: 1;
+  font-size: 12px;
+  border: 1px solid #007acc;
+  border-radius: 2px;
+  padding: 2px 4px;
+  background-color: var(--bg-color);
+  color: var(--text-color);
+  outline: none;
+  min-width: 0;
+}
+
+.tab-title-input:focus {
+  border-color: #007acc;
+  box-shadow: 0 0 0 1px #007acc;
 }
 </style>

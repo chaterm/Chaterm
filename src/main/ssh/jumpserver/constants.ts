@@ -51,6 +51,7 @@ export interface JumpServerConnectionInfo {
   targetIp: string
   terminalType?: string
   needProxy: boolean
+  connIdentToken: string
   proxyConfig?: ProxyConfig
 }
 

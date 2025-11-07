@@ -12,7 +12,7 @@ export const handleRefreshOrganizationAssets = async (host: any, onSuccess?: () 
   }
 
   const hide = message.loading(t('personal.refreshingAssets'), 0)
-
+  const jmsToken = localStorage.getItem('jms-token')
   try {
     const api = window.api as any
     const result = await api.refreshOrganizationAssets({
@@ -22,7 +22,8 @@ export const handleRefreshOrganizationAssets = async (host: any, onSuccess?: () 
         port: host.port || 22,
         username: host.username,
         password: host.password,
-        keyChain: host.key_chain_id
+        keyChain: host.key_chain_id,
+        connIdentToken: jmsToken
       }
     })
 

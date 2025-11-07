@@ -38,6 +38,7 @@ const configPath = ref('')
 let saveTimer: NodeJS.Timeout | null = null
 let statusTimer: NodeJS.Timeout | null = null
 let removeFileChangeListener: (() => void) | undefined
+let isFormatting = ref(false) // 标记是否正在格式化
 
 // 根据当前主题设置编辑器主题
 const currentTheme = computed(() => {
@@ -48,6 +49,20 @@ const currentTheme = computed(() => {
 const displayPath = computed(() => {
   return configPath.value || ''
 })
+
+// 键盘事件处理：Ctrl+S / Cmd+S 快捷键保存
+const handleKeydown = (e: KeyboardEvent) => {
+  if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+    e.preventDefault() // 阻止浏览器默认保存行为
+
+    if (saveTimer) {
+      clearTimeout(saveTimer)
+      saveTimer = null
+    }
+
+    saveConfig(true)
+  }
+}
 
 // Load config on mount
 onMounted(async () => {
@@ -74,6 +89,8 @@ onMounted(async () => {
       description: errorMessage
     })
   }
+
+  window.addEventListener('keydown', handleKeydown)
 })
 
 // Clean up timers and listeners on unmount
@@ -87,10 +104,15 @@ onBeforeUnmount(() => {
   if (removeFileChangeListener) {
     removeFileChangeListener()
   }
+  window.removeEventListener('keydown', handleKeydown)
 })
 
 // Handle content change with auto-save
 const handleContentChange = (newValue: string) => {
+  if (isFormatting.value) {
+    return
+  }
+
   error.value = ''
   lastSaved.value = false
 
@@ -112,11 +134,12 @@ const handleContentChange = (newValue: string) => {
   }
 }
 
-// Save config (called automatically)
-const saveConfig = async () => {
+// @param isManualSave - 是否为手动保存（Ctrl+S），手动保存时会格式化 JSON
+const saveConfig = async (isManualSave = false) => {
   // Validate JSON before saving
+  let parsedJson: Record<string, unknown>
   try {
-    JSON.parse(configContent.value)
+    parsedJson = JSON.parse(configContent.value)
   } catch (err) {
     return // Don't save invalid JSON
   }
@@ -126,6 +149,23 @@ const saveConfig = async () => {
     await mcpConfigService.writeConfigFile(configContent.value)
     isSaving.value = false
     lastSaved.value = true
+
+    // 只有手动保存（Ctrl+S）时才格式化 JSON，让用户直观感受到已保存
+    // 自动保存不格式化，避免打断用户编辑流程
+    if (isManualSave) {
+      isFormatting.value = true
+      try {
+        const formatted = JSON.stringify(parsedJson, null, 2)
+        if (formatted !== configContent.value) {
+          configContent.value = formatted
+        }
+      } finally {
+        // 确保格式化标志被重置
+        setTimeout(() => {
+          isFormatting.value = false
+        }, 100)
+      }
+    }
 
     if (statusTimer) {
       clearTimeout(statusTimer)

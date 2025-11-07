@@ -649,7 +649,18 @@
                     v-for="group in groupedPaginatedHistory"
                     :key="group.dateLabel"
                   >
-                    <div class="history-date-header">{{ group.dateLabel }}</div>
+                    <div
+                      class="history-date-header"
+                      :class="{ 'favorite-header': group.dateLabel === '收藏' }"
+                    >
+                      <template v-if="group.dateLabel === '收藏'">
+                        <StarFilled style="color: #faad14; font-size: 12px" />
+                        <span>收藏</span>
+                      </template>
+                      <template v-else>
+                        {{ group.dateLabel }}
+                      </template>
+                    </div>
                     <a-menu-item
                       v-for="history in group.items"
                       :key="history.id"
@@ -2622,16 +2633,17 @@ const handleMouseOver = (value: string, index: number) => {
 const handleInputChange = async (e: Event) => {
   const value = (e.target as HTMLTextAreaElement).value
   if (value === '@') {
+    // Disable @ host list feature in command mode and chat mode
+    if (chatTypeValue.value === 'cmd' || chatTypeValue.value === 'chat') {
+      showHostSelect.value = false
+      return
+    }
+
     showHostSelect.value = true
     hostSearchValue.value = '' // Clear search box
 
-    if (chatTypeValue.value === 'cmd') {
-      // In command mode, only show current terminal tab IP
-      await fetchHostOptionsForCommandMode('')
-    } else {
-      // In agent mode, show all hosts
-      await fetchHostOptions('')
-    }
+    // In agent mode, show all hosts
+    await fetchHostOptions('')
 
     nextTick(() => {
       hostSearchInputRef.value?.focus?.()
@@ -2833,39 +2845,35 @@ const showOnlyFavorites = ref(false)
 
 const filteredHistoryList = computed(() => {
   // Implement filtering logic
-  return historyList.value
-    .filter((history) => {
-      // Filter by search term
-      const matchesSearch = history.chatTitle.toLowerCase().includes(historySearchValue.value.toLowerCase())
+  return historyList.value.filter((history) => {
+    // Filter by search term
+    const matchesSearch = history.chatTitle.toLowerCase().includes(historySearchValue.value.toLowerCase())
 
-      // Filter by favorites if the toggle is on
-      const matchesFavorite = !showOnlyFavorites.value || history.isFavorite
+    // Filter by favorites if the toggle is on
+    const matchesFavorite = !showOnlyFavorites.value || history.isFavorite
 
-      return matchesSearch && matchesFavorite
-    })
-    .sort((a, b) => {
-      // Sort favorites to the top
-      if (a.isFavorite && !b.isFavorite) return -1
-      if (!a.isFavorite && b.isFavorite) return 1
-      return 0
-    })
+    return matchesSearch && matchesFavorite
+  })
 })
 
 const PAGE_SIZE = 20
 const currentPage = ref(1)
 const isLoadingMore = ref(false)
 
+const sortedHistoryList = computed(() => {
+  return [...filteredHistoryList.value].sort((a, b) => (b.ts || 0) - (a.ts || 0))
+})
+
 const paginatedHistoryList = computed(() => {
-  const filtered = filteredHistoryList.value
-  const end = currentPage.value * PAGE_SIZE
-  return filtered.slice(0, end)
+  const totalToShow = currentPage.value * PAGE_SIZE
+  return sortedHistoryList.value.slice(0, totalToShow)
 })
 
 // 将分页后的历史记录按日期分组
 const groupedPaginatedHistory = computed(() => {
   const result: Array<{ dateLabel: string; items: HistoryItem[] }> = []
-  const groups = new Map<string, HistoryItem[]>()
 
+  const groups = new Map<string, HistoryItem[]>()
   paginatedHistoryList.value.forEach((item) => {
     const ts = item.ts || Date.now()
     const dateLabel = getDateLabel(ts, t)
@@ -2876,8 +2884,8 @@ const groupedPaginatedHistory = computed(() => {
     groups.get(dateLabel)!.push(item)
   })
 
-  // 转换为数组格式并保持顺序
   groups.forEach((items, dateLabel) => {
+    items.sort((a, b) => (b.ts || 0) - (a.ts || 0))
     result.push({ dateLabel, items })
   })
 
@@ -2885,7 +2893,8 @@ const groupedPaginatedHistory = computed(() => {
 })
 
 const hasMoreHistory = computed(() => {
-  return paginatedHistoryList.value.length < filteredHistoryList.value.length
+  const displayedCount = currentPage.value * PAGE_SIZE
+  return displayedCount < sortedHistoryList.value.length
 })
 
 const loadMoreHistory = async () => {

@@ -209,6 +209,7 @@ import { shortcutService } from '@/services/shortcutService'
 import config from '@renderer/config'
 import { sendEmailCode, emailLogin, userLogin } from '@/api/user/user'
 import { useI18n } from 'vue-i18n'
+import { useDeviceStore } from '@/store/useDeviceStore'
 
 const { t, locale } = useI18n()
 const platform = ref<string>('')
@@ -218,6 +219,7 @@ const externalLoginLoading = ref(false)
 const codeSending = ref(false)
 const countdown = ref(0)
 const activeTab = ref('account') // default
+const deviceStore = useDeviceStore()
 const emailForm = reactive({
   email: '',
   code: ''
@@ -286,10 +288,12 @@ const onAccountLogin = async () => {
     loading.value = true
     const res = await userLogin({
       username: accountForm.username,
-      password: accountForm.password
+      password: accountForm.password,
+      macAddress: deviceStore.getMacAddress
     })
     if (res && (res as any).code === 200 && (res as any).data && (res as any).data.token) {
       localStorage.setItem('ctm-token', (res as any).data.token)
+      localStorage.setItem('jms-token', (res as any).data.jmsToken)
       setUserInfo((res as any).data)
       const api = window.api as any
       const dbResult = await api.initUserDatabase({ uid: (res as any).data.uid })
@@ -318,9 +322,14 @@ const onEmailLogin = async () => {
   }
   try {
     loading.value = true
-    const res = await emailLogin({ email: emailForm.email, code: emailForm.code })
+    const res = await emailLogin({
+      email: emailForm.email,
+      code: emailForm.code,
+      macAddress: deviceStore.getMacAddress
+    })
     if (res && (res as any).code === 200 && (res as any).data && (res as any).data.token) {
       localStorage.setItem('ctm-token', (res as any).data.token)
+      localStorage.setItem('jms-token', (res as any).data.jmsToken)
       setUserInfo((res as any).data)
       const api = window.api as any
       const dbResult = await api.initUserDatabase({ uid: (res as any).data.uid })
@@ -348,6 +357,7 @@ const skipLogin = async () => {
       method: LoginMethods.GUEST
     })
     localStorage.removeItem('ctm-token')
+    localStorage.removeItem('jms-token')
     localStorage.removeItem('userInfo')
     localStorage.removeItem('login-skipped')
     removeToken()
@@ -368,6 +378,7 @@ const skipLogin = async () => {
       message.error(t('login.initializationFailed'))
       localStorage.removeItem('login-skipped')
       localStorage.removeItem('ctm-token')
+      localStorage.removeItem('jms-token')
       localStorage.removeItem('userInfo')
       return
     }
@@ -384,6 +395,7 @@ const skipLogin = async () => {
     message.error(t('login.operationFailed'))
     localStorage.removeItem('login-skipped')
     localStorage.removeItem('ctm-token')
+    localStorage.removeItem('jms-token')
     localStorage.removeItem('userInfo')
   }
 }
@@ -425,6 +437,7 @@ onMounted(async () => {
       try {
         if (userInfo) {
           localStorage.setItem('ctm-token', userInfo?.token)
+          localStorage.setItem('jms-token', userInfo?.jmsToken)
           setUserInfo(userInfo)
 
           const api = window.api as any

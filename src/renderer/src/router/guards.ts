@@ -9,6 +9,7 @@ export const beforeEach = async (to, from, next) => {
     if (isSkippedLogin) {
       localStorage.removeItem('login-skipped')
       localStorage.removeItem('ctm-token')
+      localStorage.removeItem('jms-token')
       localStorage.removeItem('userInfo')
     }
     next()
@@ -31,6 +32,7 @@ export const beforeEach = async (to, from, next) => {
         console.error('数据库初始化失败，重定向到登录页')
         localStorage.removeItem('login-skipped')
         localStorage.removeItem('ctm-token')
+        localStorage.removeItem('jms-token')
         localStorage.removeItem('userInfo')
         next('/login')
       }
@@ -38,6 +40,7 @@ export const beforeEach = async (to, from, next) => {
       console.error('数据库初始化失败:', error)
       localStorage.removeItem('login-skipped')
       localStorage.removeItem('ctm-token')
+      localStorage.removeItem('jms-token')
       localStorage.removeItem('userInfo')
       next('/login')
     }
