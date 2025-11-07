@@ -2734,11 +2734,6 @@ const showResumeButton = computed(() => {
 })
 
 const handleAddHostClick = async () => {
-  // Disable @ host list feature in command mode and chat mode
-  if (chatTypeValue.value === 'cmd' || chatTypeValue.value === 'chat') {
-    return
-  }
-
   showHostSelect.value = !showHostSelect.value
   if (showHostSelect.value) {
     hostSearchValue.value = ''
