@@ -318,15 +318,29 @@ export class SyncEngine {
 
   private async applySingleChange(ch: ServerChangeLog) {
     const raw = ch.change_data ? JSON.parse(ch.change_data) : {}
-    const baseTable = ch.target_table.startsWith('t_assets_sync')
-      ? 't_assets_sync'
-      : ch.target_table.startsWith('t_asset_chains_sync')
-        ? 't_asset_chains_sync'
-        : ch.target_table
+
+    // 支持多种表名格式（客户端和服务端命名约定）
+    let baseTable: string
+    let shouldApplyToAssets = false
+    let shouldApplyToChains = false
+
+    if (ch.target_table.startsWith('t_assets_sync') || ch.target_table.startsWith('t_sync_assets')) {
+      baseTable = 't_assets_sync'
+      shouldApplyToAssets = true
+    } else if (ch.target_table.startsWith('t_asset_chains_sync') || ch.target_table.startsWith('t_sync_asset_chains')) {
+      baseTable = 't_asset_chains_sync'
+      shouldApplyToChains = true
+    } else {
+      baseTable = ch.target_table
+      logger.warn(`无法识别的表名: ${ch.target_table}，跳过应用`)
+      return
+    }
+
     const data = await this.maybeDecryptChange(baseTable, raw)
-    if (ch.target_table.startsWith('t_assets_sync')) {
+
+    if (shouldApplyToAssets) {
       this.applyToAssets(ch.operation_type, data)
-    } else if (ch.target_table.startsWith('t_asset_chains_sync')) {
+    } else if (shouldApplyToChains) {
       this.applyToAssetChains(ch.operation_type, data)
     }
   }
