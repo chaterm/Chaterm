@@ -2633,16 +2633,17 @@ const handleMouseOver = (value: string, index: number) => {
 const handleInputChange = async (e: Event) => {
   const value = (e.target as HTMLTextAreaElement).value
   if (value === '@') {
+    // Disable @ host list feature in command mode and chat mode
+    if (chatTypeValue.value === 'cmd' || chatTypeValue.value === 'chat') {
+      showHostSelect.value = false
+      return
+    }
+
     showHostSelect.value = true
     hostSearchValue.value = '' // Clear search box
 
-    if (chatTypeValue.value === 'cmd') {
-      // In command mode, only show current terminal tab IP
-      await fetchHostOptionsForCommandMode('')
-    } else {
-      // In agent mode, show all hosts
-      await fetchHostOptions('')
-    }
+    // In agent mode, show all hosts
+    await fetchHostOptions('')
 
     nextTick(() => {
       hostSearchInputRef.value?.focus?.()
