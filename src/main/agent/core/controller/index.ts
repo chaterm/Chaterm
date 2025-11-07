@@ -628,7 +628,7 @@ export class Controller {
     this.task?.abortTask()
     this.task = undefined // removes reference to it, so once promises end it will be garbage collected
   }
-  async updateTaskHistory(item: HistoryItem): Promise<HistoryItem[]> {
+  async updateTaskHistory(item: Partial<HistoryItem> & { id: string }): Promise<HistoryItem[]> {
     const history = ((await getGlobalState('taskHistory')) as HistoryItem[]) || []
     const idx = history.findIndex((h) => h.id === item.id)
     if (idx !== -1) {
@@ -636,12 +636,16 @@ export class Controller {
       history[idx] = {
         ...existing,
         ...item,
-        task: existing.task || item.task,
-        // chatTitle: item.chatTitle !== undefined ? item.chatTitle : existing.chatTitle
-        chatTitle: existing.chatTitle
+        task: existing.task || item.task || '',
+        // Use new chatTitle if provided and not empty, otherwise keep existing
+        chatTitle: item.chatTitle && item.chatTitle.trim() ? item.chatTitle : existing.chatTitle
       }
     } else {
-      history.push(item)
+      // For new items, ensure required fields are present
+      if (!item.ts || !item.task || item.tokensIn === undefined || item.tokensOut === undefined || item.totalCost === undefined) {
+        throw new Error('New history item must include all required fields: ts, task, tokensIn, tokensOut, totalCost')
+      }
+      history.push(item as HistoryItem)
     }
     await updateGlobalState('taskHistory', history)
     return history
@@ -806,6 +810,16 @@ export class Controller {
 
       if (cleanedTitle) {
         console.log('Generated chat title:', cleanedTitle)
+
+        // Update Task instance's chatTitle property
+        if (this.task && this.task.taskId === taskId) {
+          this.task.chatTitle = cleanedTitle
+          // Update history immediately with the new title
+          await this.updateTaskHistory({
+            id: taskId,
+            chatTitle: cleanedTitle
+          })
+        }
 
         // Send the generated title to webview for immediate UI update
         await this.postMessageToWebview({
