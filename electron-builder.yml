@@ -35,6 +35,7 @@ files:
   - '!node_modules/**/rollup/**'
   - '!node_modules/**/vite/**'
   - '!node_modules/**/@types/**'
+  - '!node_modules/fsevents/**'
   - '!node_modules/monaco-editor/esm/vs/language/!(typescript|javascript|json|css|html)/**'
   - '!node_modules/monaco-editor/min/vs/language/!(typescript|javascript|json|css|html)/**'
 extraResources:
