@@ -893,7 +893,6 @@ test.describe('AI完整工作流程E2E测试', () => {
     test('选择Deepseek-V3.1模型', async () => {
       test.setTimeout(60000) // 1 minute
       await selectTestHost()
-      await openAiDialog()
 
       // Select Deepseek-V3.1 model
       await selectAiModel('Deepseek-V3.1')
