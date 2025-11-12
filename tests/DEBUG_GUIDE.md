@@ -19,6 +19,10 @@ npm run build
 - `tests/helpers/electron-helper.ts`
 - `playwright.config.ts`
 
+### 3. 环境准备
+
+- 已配置好1台主机名为test的可连接的测试服务器
+
 ## 调试方法
 
 ### 方法一：命令行调试（推荐）
@@ -67,7 +71,7 @@ npx playwright test tests/e2e/AI-functions.test.ts --grep "测试 Command 模式
 npx playwright test tests/e2e/AI-functions.test.ts --grep "测试 Agent 模式"
 
 # Debug特定测试用例
-npx playwright test tests/e2e/AI-functions.test.ts --grep "查看系统状态" --debug
+npx playwright test tests/e2e/AI-functions.test.ts --grep "系统资源监控" --debug
 ```
 
 #### 6. 详细日志调试

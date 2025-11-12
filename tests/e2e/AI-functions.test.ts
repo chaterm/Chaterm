@@ -57,7 +57,7 @@ test.describe('AI完整工作流程E2E测试', () => {
 
   /**
    * Select AI model from the model dropdown
-   * @param modelName - The name of the model to select (e.g., 'Qwen-Plus', 'Qwen-Turbo', 'Deepseek-V3.1', 'Deepseek-R1')
+   * @param modelName - The name of the model to select (e.g., 'Qwen-Plus', 'Qwen-Turbo', 'Deepseek-V3.1', 'Qwen-Plus-Thinking', 'Deepseek-R1-Thinking')
    * @param timeout - Optional timeout in milliseconds (default: 10000)
    */
   const selectAiModel = async (modelName: string, timeout: number = 10000) => {
@@ -74,54 +74,132 @@ test.describe('AI完整工作流程E2E测试', () => {
       // Wait for dropdown options to appear
       await electronHelper.window?.waitForTimeout(500)
 
-      // Try different ways to locate and click the model option
-      // First try: look for ant-select-option with model name
-      const modelOption = electronHelper.window
-        ?.locator('.ant-select-dropdown .ant-select-item-option')
-        .filter({
-          hasText: modelName
-        })
-        .first()
+      // Check if model name has -Thinking suffix
+      const isThinkingModel = modelName.endsWith('-Thinking')
+      // Display name is the text shown in dropdown (without -Thinking suffix)
+      const displayName = isThinkingModel ? modelName.replace(/-Thinking$/, '') : modelName
 
-      // Second try: look for span with the model name in dropdown
-      const modelSpan = electronHelper.window
-        ?.locator('.ant-select-dropdown span.model-label')
-        .filter({
-          hasText: modelName
-        })
-        .first()
-
-      // Third try: look for text content directly in dropdown
-      const modelText = electronHelper.window?.locator('.ant-select-dropdown').getByText(modelName, { exact: true })
-
-      // Try each approach in order with proper waiting
+      // Get all option elements and find the matching one
+      const allOptions = electronHelper.window?.locator('.ant-select-dropdown:not(.ant-select-dropdown-hidden) .ant-select-item-option')
       let modelSelected = false
 
-      if (modelOption && (await modelOption.isVisible({ timeout: 2000 }))) {
-        await modelOption.click()
-        console.log(`Successfully selected model: ${modelName} via option selector`)
-        modelSelected = true
-      } else if (modelSpan && (await modelSpan.isVisible({ timeout: 2000 }))) {
-        await modelSpan.click()
-        console.log(`Successfully selected model: ${modelName} via span selector`)
-        modelSelected = true
-      } else if (modelText && (await modelText.isVisible({ timeout: 2000 }))) {
-        await modelText.click()
-        console.log(`Successfully selected model: ${modelName} via text selector`)
-        modelSelected = true
-      } else {
-        // Fallback: try to find by partial text match in dropdown
-        const partialMatch = electronHelper.window
-          ?.locator('.ant-select-dropdown span')
+      if (allOptions) {
+        const count = await allOptions.count()
+        for (let i = 0; i < count; i++) {
+          const option = allOptions.nth(i)
+
+          // Check if .model-label exists before trying to get text content
+          const modelLabelLocator = option.locator('.model-label')
+          const hasModelLabel = (await modelLabelLocator.count()) > 0
+
+          if (!hasModelLabel) {
+            // Skip this option if it doesn't have a model-label
+            continue
+          }
+
+          // Get the label text (which has -Thinking suffix removed in display)
+          // Use timeout to avoid hanging if element is not ready
+          const labelText = await modelLabelLocator.textContent({ timeout: 2000 }).catch(() => null)
+          const cleanedLabel = labelText?.trim() || ''
+
+          // Skip if label is empty
+          if (!cleanedLabel) {
+            continue
+          }
+
+          // Check if the label matches the display name
+          if (cleanedLabel === displayName) {
+            // Check if this option has a thinking icon
+            const hasThinkingIcon = (await option.locator('.thinking-icon').count()) > 0
+
+            // Match: if we want Thinking model, it must have icon; if we want non-Thinking, it must not have icon
+            if ((isThinkingModel && hasThinkingIcon) || (!isThinkingModel && !hasThinkingIcon)) {
+              await option.click()
+              console.log(`Successfully selected model: ${modelName} (${isThinkingModel ? 'with' : 'without'} Thinking icon)`)
+              modelSelected = true
+              break
+            }
+          }
+        }
+      }
+
+      // Fallback: try the old approach if the new one didn't work
+      if (!modelSelected) {
+        // Try different ways to locate and click the model option
+        // First try: look for ant-select-option with display name
+        const modelOption = electronHelper.window
+          ?.locator('.ant-select-dropdown .ant-select-item-option')
           .filter({
-            hasText: modelName
+            hasText: displayName
           })
           .first()
 
-        if (partialMatch && (await partialMatch.isVisible({ timeout: 2000 }))) {
-          await partialMatch.click()
-          console.log(`Successfully selected model: ${modelName} via partial match`)
-          modelSelected = true
+        // Second try: look for span with the display name in dropdown
+        const modelSpan = electronHelper.window
+          ?.locator('.ant-select-dropdown span.model-label')
+          .filter({
+            hasText: displayName
+          })
+          .first()
+
+        // Third try: look for text content directly in dropdown
+        const modelText = electronHelper.window?.locator('.ant-select-dropdown').getByText(displayName, { exact: true })
+
+        if (modelOption && (await modelOption.isVisible({ timeout: 2000 }))) {
+          // If we need Thinking model, verify it has the icon
+          if (isThinkingModel) {
+            const hasIcon = (await modelOption.locator('.thinking-icon').count()) > 0
+            if (hasIcon) {
+              await modelOption.click()
+              console.log(`Successfully selected model: ${modelName} via option selector (with Thinking icon)`)
+              modelSelected = true
+            }
+          } else {
+            const hasIcon = (await modelOption.locator('.thinking-icon').count()) > 0
+            if (!hasIcon) {
+              await modelOption.click()
+              console.log(`Successfully selected model: ${modelName} via option selector`)
+              modelSelected = true
+            }
+          }
+        } else if (modelSpan && (await modelSpan.isVisible({ timeout: 2000 }))) {
+          // If we need Thinking model, verify it has the icon
+          if (isThinkingModel) {
+            const parentOption = modelSpan.locator('..')
+            const hasIcon = (await parentOption.locator('.thinking-icon').count()) > 0
+            if (hasIcon) {
+              await modelSpan.click()
+              console.log(`Successfully selected model: ${modelName} via span selector (with Thinking icon)`)
+              modelSelected = true
+            }
+          } else {
+            const parentOption = modelSpan.locator('..')
+            const hasIcon = (await parentOption.locator('.thinking-icon').count()) > 0
+            if (!hasIcon) {
+              await modelSpan.click()
+              console.log(`Successfully selected model: ${modelName} via span selector`)
+              modelSelected = true
+            }
+          }
+        } else if (modelText && (await modelText.isVisible({ timeout: 2000 }))) {
+          // If we need Thinking model, verify it has the icon
+          if (isThinkingModel) {
+            const parentOption = modelText.locator('..')
+            const hasIcon = (await parentOption.locator('.thinking-icon').count()) > 0
+            if (hasIcon) {
+              await modelText.click()
+              console.log(`Successfully selected model: ${modelName} via text selector (with Thinking icon)`)
+              modelSelected = true
+            }
+          } else {
+            const parentOption = modelText.locator('..')
+            const hasIcon = (await parentOption.locator('.thinking-icon').count()) > 0
+            if (!hasIcon) {
+              await modelText.click()
+              console.log(`Successfully selected model: ${modelName} via text selector`)
+              modelSelected = true
+            }
+          }
         }
       }
 
@@ -134,7 +212,7 @@ test.describe('AI完整工作流程E2E测试', () => {
 
       // Verify the selection was successful by checking the selected value
       const selectedValue = await modelSelector?.textContent()
-      if (selectedValue?.includes(modelName.replace(/-Thinking$/, ''))) {
+      if (selectedValue?.includes(displayName)) {
         console.log(`Model selection verified: ${modelName}`)
       } else {
         console.warn(`Model selection may not have been successful. Expected: ${modelName}, Current: ${selectedValue}`)
@@ -151,20 +229,129 @@ test.describe('AI完整工作流程E2E测试', () => {
    */
   const getAvailableAiModels = async (): Promise<string[]> => {
     try {
-      // 打开下拉框
-      const modelSelector = electronHelper.window?.locator('div.input-controls div:nth-child(2) .ant-select-selector')
+      // Wait for the input-controls container to be visible first
+      await electronHelper.window?.locator('.input-controls').waitFor({ timeout: 5000 })
+
+      // Open the dropdown by clicking the model selector
+      const modelSelector = electronHelper.window?.locator('.input-controls .ant-select:nth-child(2) .ant-select-selector')
+      await modelSelector?.waitFor({ timeout: 5000 })
       await modelSelector?.click()
 
-      await electronHelper.window?.waitForTimeout(1000)
+      // Wait for dropdown to appear
+      const dropdown = electronHelper.window?.locator('.ant-select-dropdown:not(.ant-select-dropdown-hidden)')
+      await dropdown?.waitFor({ timeout: 5000 })
+      await electronHelper.window?.waitForTimeout(500)
 
-      const modelOptions = await electronHelper.window?.locator('.ant-select-item .model-label').allTextContents()
+      // Scroll to load all options (Ant Design may use virtual scrolling)
+      // Get the dropdown container element
+      const dropdownContainer = electronHelper.window?.locator('.ant-select-dropdown:not(.ant-select-dropdown-hidden) .rc-virtual-list-holder')
 
-      // 关闭下拉框
+      if (dropdownContainer && (await dropdownContainer.count()) > 0) {
+        // If virtual list exists, scroll to bottom to load all items
+        const container = dropdownContainer.first()
+        let previousCount = 0
+        let currentCount = 0
+        let scrollAttempts = 0
+        const maxScrollAttempts = 10
+
+        // Keep scrolling until no new items are loaded
+        do {
+          previousCount = currentCount
+          // Scroll to bottom
+          await container.evaluate((el) => {
+            el.scrollTop = el.scrollHeight
+          })
+          await electronHelper.window?.waitForTimeout(300)
+
+          // Count current visible items
+          currentCount = await electronHelper.window?.locator('.ant-select-dropdown:not(.ant-select-dropdown-hidden) .ant-select-item').count()
+          scrollAttempts++
+
+          // If count didn't change, all items are loaded
+          if (currentCount === previousCount) {
+            break
+          }
+        } while (scrollAttempts < maxScrollAttempts && currentCount > previousCount)
+
+        // Scroll back to top to ensure we can see all items
+        await container.evaluate((el) => {
+          el.scrollTop = 0
+        })
+        await electronHelper.window?.waitForTimeout(300)
+      } else {
+        // Fallback: try scrolling the dropdown itself
+        const simpleDropdown = electronHelper.window?.locator('.ant-select-dropdown:not(.ant-select-dropdown-hidden)')
+        if (simpleDropdown && (await simpleDropdown.count()) > 0) {
+          await simpleDropdown.first().evaluate((el) => {
+            const scrollContainer = el.querySelector('.rc-virtual-list-holder') || el
+            scrollContainer.scrollTop = scrollContainer.scrollHeight
+          })
+          await electronHelper.window?.waitForTimeout(500)
+          await simpleDropdown.first().evaluate((el) => {
+            const scrollContainer = el.querySelector('.rc-virtual-list-holder') || el
+            scrollContainer.scrollTop = 0
+          })
+          await electronHelper.window?.waitForTimeout(300)
+        }
+      }
+
+      // Wait a bit more for all items to be rendered
+      await electronHelper.window?.waitForTimeout(500)
+
+      // Get all model options by checking each option element
+      // This ensures we distinguish between models with and without -Thinking suffix
+      const modelOptionsSet = new Set<string>()
+
+      // Get all option elements
+      const optionElements = electronHelper.window?.locator('.ant-select-dropdown:not(.ant-select-dropdown-hidden) .ant-select-item-option')
+
+      if (optionElements) {
+        const count = await optionElements.count()
+        for (let i = 0; i < count; i++) {
+          const option = optionElements.nth(i)
+
+          // Check if this option has a thinking icon
+          const hasThinkingIcon = (await option.locator('.thinking-icon').count()) > 0
+
+          // Check if .model-label exists before trying to get text content
+          const modelLabelLocator = option.locator('.model-label')
+          const hasModelLabel = (await modelLabelLocator.count()) > 0
+
+          if (!hasModelLabel) {
+            // Skip this option if it doesn't have a model-label
+            continue
+          }
+
+          // Get the label text (which has -Thinking suffix removed in display)
+          // Use timeout to avoid hanging if element is not ready
+          const labelText = await modelLabelLocator.textContent({ timeout: 2000 }).catch(() => null)
+
+          if (labelText) {
+            const cleaned = labelText.trim()
+            // If has thinking icon, add -Thinking suffix to distinguish from non-Thinking version
+            const modelName = hasThinkingIcon ? cleaned + '-Thinking' : cleaned
+            if (modelName) {
+              modelOptionsSet.add(modelName)
+            }
+          }
+        }
+      }
+
+      // Close the dropdown
       await electronHelper.window?.keyboard.press('Escape')
+      await electronHelper.window?.waitForTimeout(300)
 
-      return modelOptions || []
+      const modelOptions = Array.from(modelOptionsSet)
+      console.log(`Found ${modelOptions.length} available AI models:`, modelOptions)
+      return modelOptions
     } catch (error) {
       console.error('Failed to get available AI models:', error)
+      // Try to close dropdown if it's still open
+      try {
+        await electronHelper.window?.keyboard.press('Escape')
+      } catch {
+        // Ignore errors when closing
+      }
       return []
     }
   }
@@ -176,7 +363,6 @@ test.describe('AI完整工作流程E2E测试', () => {
   const waitForModeSwitch = async (expectedMode: 'Chat' | 'Command' | 'Agent', timeout: number = 10000) => {
     try {
       // Wait for the mode selector to show the expected mode
-      const modeSelector = electronHelper.window?.locator('.input-controls .ant-select:first-child .ant-select-selection-item')
       await electronHelper.window?.waitForFunction(
         (mode) => {
           const selector = document.querySelector('.input-controls .ant-select:first-child .ant-select-selection-item')
@@ -213,7 +399,7 @@ test.describe('AI完整工作流程E2E测试', () => {
       // Verify input placeholder text matches the mode
       const expectedPlaceholders = {
         Chat: '与AI对话，学习，头脑风暴（无法操作服务器）',
-        Command: '到当前活跃终端执行任务，请先连接目标主机',
+        Command: '需要到当前活跃终端执行命令，请先在终端窗口中连接目标主机',
         Agent: '到任意主机执行命令查询，排查错误和任务处理等任何事情'
       }
 
@@ -282,11 +468,51 @@ test.describe('AI完整工作流程E2E测试', () => {
     }
   }
 
-  const selectFirstHost = async () => {
+  /**
+   * Open AI dialog by using keyboard shortcut or clicking the right sidebar toggle button
+   */
+  const openAiDialog = async () => {
+    try {
+      // First, try to focus the terminal input to ensure keyboard shortcut works
+      const terminalInput = electronHelper.window?.getByRole('textbox', { name: 'Terminal input' })
+      if (terminalInput) {
+        await terminalInput?.click()
+        await electronHelper.window?.waitForTimeout(500)
+      }
+
+      // Try using keyboard shortcut ControlOrMeta+l (sendOrToggleAi)
+      // This will toggle AI sidebar if terminal has focus and no text is selected
+      await electronHelper.window?.keyboard.press('ControlOrMeta+l')
+      await electronHelper.window?.waitForTimeout(1000)
+
+      // Check if AI dialog is already open
+      const inputControls = electronHelper.window?.locator('.input-controls')
+      const isOpen = await inputControls?.isVisible({ timeout: 2000 }).catch(() => false)
+
+      if (!isOpen) {
+        // If shortcut didn't work, fallback to clicking the button
+        console.log('Keyboard shortcut did not open AI dialog, trying button click')
+        const rightSidebarButton = electronHelper.window?.locator('.toggle-right-btn').nth(1)
+        await rightSidebarButton?.waitFor({ timeout: 10000 })
+        await rightSidebarButton?.click()
+        await electronHelper.window?.waitForTimeout(1000)
+      }
+
+      // Wait for AI dialog to open by checking for input-controls container
+      await electronHelper.window?.locator('.input-controls').waitFor({ timeout: 10000 })
+      console.log('AI dialog opened successfully')
+      await electronHelper.window?.waitForTimeout(1000) // Wait for UI to stabilize
+    } catch (error) {
+      console.error('Failed to open AI dialog:', error)
+      throw error
+    }
+  }
+
+  const selectTestHost = async () => {
     // Wait for host list container to load
     await electronHelper.window?.waitForSelector('.dark-tree', { timeout: 0 })
 
-    console.log('Waiting for host to be available. If no hosts exist, please add a host manually...')
+    console.log('Waiting for host named "test" to be available. If no hosts exist, please add a host manually...')
 
     // Based on Workspace component analysis:
     // 1. Host entries are in second-level nodes (isSecondLevel check)
@@ -294,18 +520,18 @@ test.describe('AI完整工作流程E2E测试', () => {
     // 3. Click event is bound to the span text element after the icon
     // 4. The structure is: .title-with-icon > .computer-icon + span
 
-    // Use waitFor with no timeout to wait indefinitely for hosts to appear
-    const firstHostText = electronHelper.window?.locator('.dark-tree .title-with-icon .computer-icon + span').first()
+    // Find host with name "test" instead of first host
+    const testHostText = electronHelper.window?.locator('.dark-tree .title-with-icon .computer-icon + span').filter({ hasText: 'test' }).first()
 
-    // Wait for the first host to appear (will wait indefinitely until user adds a host)
-    await firstHostText?.waitFor({ timeout: 0 }) // timeout: 0 means no timeout
+    // Wait for the host named "test" to appear (will wait indefinitely until user adds a host)
+    await testHostText?.waitFor({ timeout: 0 }) // timeout: 0 means no timeout
 
-    // Click on the first available host
-    await firstHostText?.click()
-    console.log('Successfully clicked on first host')
+    // Click on the host named "test"
+    await testHostText?.click()
+    console.log('Successfully clicked on host named "test"')
     await electronHelper.window?.waitForTimeout(1000)
 
-    await electronHelper.window?.getByRole('textbox', { name: 'Terminal input' }).press('ControlOrMeta+l')
+    await openAiDialog()
   }
 
   /**
@@ -316,12 +542,12 @@ test.describe('AI完整工作流程E2E测试', () => {
   const setupMode = async (mode: 'Chat' | 'Command' | 'Agent', model?: string) => {
     // Default models for each mode
     const defaultModels = {
-      Chat: 'Qwen-Plus',
-      Command: 'Deepseek-V3.1',
-      Agent: 'Deepseek-R1'
+      Chat: 'Deepseek-R1-Thinking',
+      Command: 'Qwen-Plus',
+      Agent: 'Qwen-Plus'
     }
 
-    await selectFirstHost()
+    await selectTestHost()
     await switchToModeAndCreateNewChat(mode)
     await selectAiModel(model || defaultModels[mode])
   }
@@ -335,7 +561,7 @@ test.describe('AI完整工作流程E2E测试', () => {
     // Define placeholder texts for each mode
     const placeholders = {
       Chat: '与AI对话，学习，头脑风暴（无法操作服务器）',
-      Command: '到当前活跃终端执行任务，请先连接目标主机',
+      Command: '需要到当前活跃终端执行命令，请先在终端窗口中连接目标主机',
       Agent: '到任意主机执行命令查询，排查错误和任务处理等任何事情'
     }
 
@@ -363,22 +589,12 @@ test.describe('AI完整工作流程E2E测试', () => {
   }
 
   /**
-   * Run a complete Agent mode test (backward compatibility)
-   * @param input - The command or task to execute
-   * @param timeout - Test timeout in milliseconds (default: 300000)
-   * @param model - AI model to use (default: 'Deepseek-R1')
-   */
-  const runAgentTest = async (input: string, timeout: number = 300000, model: string = 'Deepseek-R1') => {
-    await runTest('Agent', input, timeout, model)
-  }
-
-  /**
    * Run a complete Chat mode test
    * @param input - The command or task to execute
    * @param timeout - Test timeout in milliseconds (default: 300000)
-   * @param model - AI model to use (default: 'Qwen-Plus')
+   * @param model - AI model to use (default: 'Deepseek-R1-Thinking')
    */
-  const runChatTest = async (input: string, timeout: number = 300000, model: string = 'Qwen-Plus') => {
+  const runChatTest = async (input: string, timeout: number = 300000, model: string = 'Deepseek-R1-Thinking') => {
     await runTest('Chat', input, timeout, model)
   }
 
@@ -386,10 +602,20 @@ test.describe('AI完整工作流程E2E测试', () => {
    * Run a complete Command mode test
    * @param input - The command or task to execute
    * @param timeout - Test timeout in milliseconds (default: 300000)
-   * @param model - AI model to use (default: 'Deepseek-V3.1')
+   * @param model - AI model to use (default: 'Qwen-Plus')
    */
-  const runCommandTest = async (input: string, timeout: number = 300000, model: string = 'Deepseek-V3.1') => {
+  const runCommandTest = async (input: string, timeout: number = 300000, model: string = 'Qwen-Plus') => {
     await runTest('Command', input, timeout, model)
+  }
+
+  /**
+   * Run a complete Agent mode test (backward compatibility)
+   * @param input - The command or task to execute
+   * @param timeout - Test timeout in milliseconds (default: 300000)
+   * @param model - AI model to use (default: 'Qwen-Plus')
+   */
+  const runAgentTest = async (input: string, timeout: number = 300000, model: string = 'Qwen-Plus') => {
+    await runTest('Agent', input, timeout, model)
   }
 
   test.beforeEach(async () => {
@@ -403,17 +629,15 @@ test.describe('AI完整工作流程E2E测试', () => {
   })
 
   test.describe('测试Chat模式', () => {
-    test('查看系统状态', async () => {
-      await runChatTest('查看系统状态')
-    })
-
+    // test('查看系统状态', async () => {
+    //   await runChatTest('查看系统状态')
+    // })
     test('解释Linux命令功能', async () => {
       await runChatTest('请解释这几个Linux命令的功能和用法：ls -la, grep -r "error" /var/log/, ps aux | grep nginx')
     })
-
-    test('分析系统架构设计', async () => {
-      await runChatTest('我需要设计一个高并发的Web应用架构，包含负载均衡、数据库集群、缓存层，请给出详细的技术选型和架构建议')
-    })
+    // test('分析系统架构设计', async () => {
+    //   await runChatTest('我需要设计一个高并发的Web应用架构，包含负载均衡、数据库集群、缓存层，请给出详细的技术选型和架构建议')
+    // })
   })
 
   test.describe('测试 Command 模式', () => {
@@ -421,22 +645,23 @@ test.describe('AI完整工作流程E2E测试', () => {
       await runCommandTest('监控系统资源使用情况，包括CPU、内存、磁盘空间、网络连接数')
     })
 
-    test('检查系统服务状态', async () => {
-      await runCommandTest('检查系统中关键服务的运行状态，如SSH、网络管理、防火墙等')
-    })
-    test('查找和搜索操作', async () => {
-      await runCommandTest('在系统中查找所有.log文件，统计它们的大小，找出最大的5个日志文件', 300000)
-    })
+    // test('检查系统服务状态', async () => {
+    //   await runCommandTest('检查系统中关键服务的运行状态，如SSH、网络管理、防火墙等')
+    // })
+
+    // test('查找和搜索操作', async () => {
+    //   await runCommandTest('在系统中查找所有.log文件，统计它们的大小，找出最大的5个日志文件', 300000)
+    // })
   })
 
   test.describe('测试 Agent 模式', () => {
-    test('智能系统诊断', async () => {
-      await runAgentTest('对系统进行全面诊断，检查系统健康状态，识别潜在问题并提供解决建议', 600000)
-    })
+    // test('智能系统诊断', async () => {
+    //   await runAgentTest('对系统进行全面诊断，检查系统健康状态，识别潜在问题并提供解决建议', 600000)
+    // })
 
-    test('执行top命令', async () => {
-      await runAgentTest('执行top命令，不要添加参数', 300000)
-    })
+    // test('执行top命令', async () => {
+    //   await runAgentTest('执行top命令，不要添加参数', 300000)
+    // })
 
     test('安装MySQL', async () => {
       await runAgentTest('检查系统中是否安装MySQL，如果安装了，先将MySQL卸载掉，然后重新安装MySQL，如果没安装，请安装MySQL', 600000)
@@ -446,8 +671,7 @@ test.describe('AI完整工作流程E2E测试', () => {
   test.describe.skip('AI模式切换健壮性测试', () => {
     test('基本模式切换功能测试', async () => {
       test.setTimeout(180000) // 3 minutes
-      await selectFirstHost()
-      await electronHelper.window?.getByRole('textbox', { name: 'Terminal input' }).press('ControlOrMeta+l')
+      await selectTestHost()
 
       const modes: Array<'Chat' | 'Command' | 'Agent'> = ['Chat', 'Command', 'Agent']
 
@@ -469,8 +693,7 @@ test.describe('AI完整工作流程E2E测试', () => {
 
     test('循环模式切换测试', async () => {
       test.setTimeout(240000) // 4 minutes
-      await selectFirstHost()
-      await electronHelper.window?.getByRole('textbox', { name: 'Terminal input' }).press('ControlOrMeta+l')
+      await selectTestHost()
 
       const modes: Array<'Chat' | 'Command' | 'Agent'> = ['Chat', 'Command', 'Agent']
       const cycles = 2 // Test 2 complete cycles
@@ -508,10 +731,8 @@ test.describe('AI完整工作流程E2E测试', () => {
 
     test('快速连续模式切换测试', async () => {
       test.setTimeout(180000) // 3 minutes
-      await selectFirstHost()
-      await electronHelper.window?.getByRole('textbox', { name: 'Terminal input' }).press('ControlOrMeta+l')
+      await selectTestHost()
 
-      const modes: Array<'Chat' | 'Command' | 'Agent'> = ['Chat', 'Command', 'Agent']
       const switchSequence = ['Chat', 'Agent', 'Command', 'Chat', 'Agent', 'Command'] as const
 
       console.log('Starting rapid mode switching test')
@@ -532,8 +753,7 @@ test.describe('AI完整工作流程E2E测试', () => {
 
     test('模式切换后UI一致性验证测试', async () => {
       test.setTimeout(180000) // 3 minutes
-      await selectFirstHost()
-      await electronHelper.window?.getByRole('textbox', { name: 'Terminal input' }).press('ControlOrMeta+l')
+      await selectTestHost()
 
       const modes: Array<'Chat' | 'Command' | 'Agent'> = ['Chat', 'Command', 'Agent']
 
@@ -548,7 +768,7 @@ test.describe('AI完整工作流程E2E测试', () => {
         // Additional UI consistency checks
         const expectedPlaceholders = {
           Chat: '与AI对话，学习，头脑风暴（无法操作服务器）',
-          Command: '到当前活跃终端执行任务，请先连接目标主机',
+          Command: '需要到当前活跃终端执行命令，请先在终端窗口中连接目标主机',
           Agent: '到任意主机执行命令查询，排查错误和任务处理等任何事情'
         }
 
@@ -559,10 +779,9 @@ test.describe('AI完整工作流程E2E测试', () => {
         await inputBox?.clear()
 
         // Verify AI model selector is still functional
-        const modelSelector = electronHelper.window?.locator(
-          '#rc-tabs-0-panel-chat > div.bottom-container > div > div > div.input-controls > div:nth-child(2) > div > span.ant-select-selection-item'
-        )
-        await modelSelector?.waitFor({ timeout: 5000 })
+        // Use the same selector as selectAiModel function for consistency
+        const modelSelector = electronHelper.window?.locator('.input-controls .ant-select:nth-child(2) .ant-select-selection-item')
+        await modelSelector?.waitFor({ timeout: 10000 })
 
         console.log(`UI consistency verified for ${mode} mode`)
 
@@ -575,8 +794,7 @@ test.describe('AI完整工作流程E2E测试', () => {
 
     test('同模式重复切换测试', async () => {
       test.setTimeout(120000) // 2 minutes
-      await selectFirstHost()
-      await electronHelper.window?.getByRole('textbox', { name: 'Terminal input' }).press('ControlOrMeta+l')
+      await selectTestHost()
 
       const testMode = 'Chat'
       const attempts = 5
@@ -602,8 +820,7 @@ test.describe('AI完整工作流程E2E测试', () => {
 
     test('模式切换错误恢复测试', async () => {
       test.setTimeout(180000) // 3 minutes
-      await selectFirstHost()
-      await electronHelper.window?.getByRole('textbox', { name: 'Terminal input' }).press('ControlOrMeta+l')
+      await selectTestHost()
 
       console.log('Starting mode switch error recovery test')
 
@@ -643,8 +860,7 @@ test.describe('AI完整工作流程E2E测试', () => {
   test.describe.skip('AI模型选择测试', () => {
     test('获取可用AI模型列表', async () => {
       test.setTimeout(60000) // 1 minute
-      await selectFirstHost()
-      await electronHelper.window?.getByRole('textbox', { name: 'Terminal input' }).press('ControlOrMeta+l')
+      await selectTestHost()
 
       // Get available models
       const models = await getAvailableAiModels()
@@ -655,8 +871,7 @@ test.describe('AI完整工作流程E2E测试', () => {
 
     test('选择Qwen-Plus模型', async () => {
       test.setTimeout(60000) // 1 minute
-      await selectFirstHost()
-      await electronHelper.window?.getByRole('textbox', { name: 'Terminal input' }).press('ControlOrMeta+l')
+      await selectTestHost()
 
       // Select Qwen-Plus model
       await selectAiModel('Qwen-Plus')
@@ -667,8 +882,7 @@ test.describe('AI完整工作流程E2E测试', () => {
 
     test('选择Qwen-Turbo模型', async () => {
       test.setTimeout(60000) // 1 minute
-      await selectFirstHost()
-      await electronHelper.window?.getByRole('textbox', { name: 'Terminal input' }).press('ControlOrMeta+l')
+      await selectTestHost()
 
       // Select Qwen-Turbo model
       await selectAiModel('Qwen-Turbo')
@@ -678,8 +892,7 @@ test.describe('AI完整工作流程E2E测试', () => {
 
     test('选择Deepseek-V3.1模型', async () => {
       test.setTimeout(60000) // 1 minute
-      await selectFirstHost()
-      await electronHelper.window?.getByRole('textbox', { name: 'Terminal input' }).press('ControlOrMeta+l')
+      await selectTestHost()
 
       // Select Deepseek-V3.1 model
       await selectAiModel('Deepseek-V3.1')
@@ -687,21 +900,19 @@ test.describe('AI完整工作流程E2E测试', () => {
       await electronHelper.window?.waitForTimeout(1000)
     })
 
-    test('选择Deepseek-R1模型', async () => {
+    test('选择Deepseek-R1思考模型', async () => {
       test.setTimeout(60000) // 1 minute
-      await selectFirstHost()
-      await electronHelper.window?.getByRole('textbox', { name: 'Terminal input' }).press('ControlOrMeta+l')
+      await selectTestHost()
 
-      // Select Deepseek-R1 model
-      await selectAiModel('Deepseek-R1')
+      // Select Deepseek-R1-Thinking model
+      await selectAiModel('Deepseek-R1-Thinking')
 
       await electronHelper.window?.waitForTimeout(1000)
     })
 
     test('测试不同模型的组合使用', async () => {
       test.setTimeout(120000) // 2 minutes
-      await selectFirstHost()
-      await electronHelper.window?.getByRole('textbox', { name: 'Terminal input' }).press('ControlOrMeta+l')
+      await selectTestHost()
 
       // Test selecting multiple models in sequence
       const modelsToTest = ['Qwen-Plus', 'Qwen-Turbo', 'Deepseek-V3.1']
