@@ -241,6 +241,31 @@ export const setupJumpServerInteraction = (
 
   stream.on('close', () => {
     console.log(`JumpServer stream closed for connection ${connectionId}`)
+
+    // 检查是否需要关闭底层 SSH 连接
+    const connData = jumpserverConnections.get(connectionId)
+    if (connData) {
+      const connToClose = connData.conn
+
+      // 检查是否还有其他会话在使用同一个连接
+      let isConnStillInUse = false
+      for (const [otherId, otherData] of jumpserverConnections.entries()) {
+        if (otherId !== connectionId && otherData.conn === connToClose) {
+          isConnStillInUse = true
+          break
+        }
+      }
+
+      // 只有没有其他会话使用时才关闭底层连接
+      if (!isConnStillInUse) {
+        console.log(`[堡垒机] 所有会话已关闭，释放底层连接: ${connectionId}`)
+        connToClose.end()
+      } else {
+        console.log(`[堡垒机] 会话已关闭，但底层连接仍被其他会话使用: ${connectionId}`)
+      }
+    }
+
+    // 清理会话数据
     jumpserverShellStreams.delete(connectionId)
     jumpserverConnections.delete(connectionId)
     jumpserverConnectionStatus.delete(connectionId)
