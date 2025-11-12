@@ -672,8 +672,6 @@ test.describe('AI完整工作流程E2E测试', () => {
     test('基本模式切换功能测试', async () => {
       test.setTimeout(180000) // 3 minutes
       await selectTestHost()
-      // await electronHelper.window?.getByRole('textbox', { name: 'Terminal input' }).press('ControlOrMeta+l')
-      await openAiDialog()
 
       const modes: Array<'Chat' | 'Command' | 'Agent'> = ['Chat', 'Command', 'Agent']
 
@@ -696,7 +694,6 @@ test.describe('AI完整工作流程E2E测试', () => {
     test('循环模式切换测试', async () => {
       test.setTimeout(240000) // 4 minutes
       await selectTestHost()
-      await openAiDialog()
 
       const modes: Array<'Chat' | 'Command' | 'Agent'> = ['Chat', 'Command', 'Agent']
       const cycles = 2 // Test 2 complete cycles
@@ -735,7 +732,6 @@ test.describe('AI完整工作流程E2E测试', () => {
     test('快速连续模式切换测试', async () => {
       test.setTimeout(180000) // 3 minutes
       await selectTestHost()
-      await openAiDialog()
 
       const switchSequence = ['Chat', 'Agent', 'Command', 'Chat', 'Agent', 'Command'] as const
 
@@ -758,7 +754,6 @@ test.describe('AI完整工作流程E2E测试', () => {
     test('模式切换后UI一致性验证测试', async () => {
       test.setTimeout(180000) // 3 minutes
       await selectTestHost()
-      await openAiDialog()
 
       const modes: Array<'Chat' | 'Command' | 'Agent'> = ['Chat', 'Command', 'Agent']
 
@@ -800,7 +795,6 @@ test.describe('AI完整工作流程E2E测试', () => {
     test('同模式重复切换测试', async () => {
       test.setTimeout(120000) // 2 minutes
       await selectTestHost()
-      await openAiDialog()
 
       const testMode = 'Chat'
       const attempts = 5
@@ -827,7 +821,6 @@ test.describe('AI完整工作流程E2E测试', () => {
     test('模式切换错误恢复测试', async () => {
       test.setTimeout(180000) // 3 minutes
       await selectTestHost()
-      await openAiDialog()
 
       console.log('Starting mode switch error recovery test')
 
