@@ -286,7 +286,7 @@ test.describe('AI完整工作流程E2E测试', () => {
     // Wait for host list container to load
     await electronHelper.window?.waitForSelector('.dark-tree', { timeout: 0 })
 
-    console.log('Waiting for host to be available. If no hosts exist, please add a host manually...')
+    console.log('Waiting for host named "test" to be available. If no hosts exist, please add a host manually...')
 
     // Based on Workspace component analysis:
     // 1. Host entries are in second-level nodes (isSecondLevel check)
@@ -294,15 +294,15 @@ test.describe('AI完整工作流程E2E测试', () => {
     // 3. Click event is bound to the span text element after the icon
     // 4. The structure is: .title-with-icon > .computer-icon + span
 
-    // Use waitFor with no timeout to wait indefinitely for hosts to appear
-    const firstHostText = electronHelper.window?.locator('.dark-tree .title-with-icon .computer-icon + span').first()
+    // Find host with name "test" instead of first host
+    const testHostText = electronHelper.window?.locator('.dark-tree .title-with-icon .computer-icon + span').filter({ hasText: 'test' }).first()
 
-    // Wait for the first host to appear (will wait indefinitely until user adds a host)
-    await firstHostText?.waitFor({ timeout: 0 }) // timeout: 0 means no timeout
+    // Wait for the host named "test" to appear (will wait indefinitely until user adds a host)
+    await testHostText?.waitFor({ timeout: 0 }) // timeout: 0 means no timeout
 
-    // Click on the first available host
-    await firstHostText?.click()
-    console.log('Successfully clicked on first host')
+    // Click on the host named "test"
+    await testHostText?.click()
+    console.log('Successfully clicked on host named "test"')
     await electronHelper.window?.waitForTimeout(1000)
 
     await electronHelper.window?.getByRole('textbox', { name: 'Terminal input' }).press('ControlOrMeta+l')
