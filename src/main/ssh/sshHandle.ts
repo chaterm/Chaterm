@@ -1303,7 +1303,25 @@ export const registerSSHHandlers = () => {
 
       const connData = jumpserverConnections.get(id)
       if (connData) {
-        // 只删除当前会话,不关闭连接(供其他会话复用)
+        const connToClose = connData.conn
+
+        // 检查是否还有其他会话在使用同一个连接
+        let isConnStillInUse = false
+        for (const [otherId, otherData] of jumpserverConnections.entries()) {
+          if (otherId !== id && otherData.conn === connToClose) {
+            isConnStillInUse = true
+            break
+          }
+        }
+
+        // 只有没有其他会话使用时才关闭底层连接
+        if (!isConnStillInUse) {
+          console.log(`[堡垒机] 所有会话已关闭，释放底层连接: ${id}`)
+          connToClose.end()
+        } else {
+          console.log(`[堡垒机] 会话已断开，但底层连接仍被其他会话使用: ${id}`)
+        }
+
         jumpserverConnections.delete(id)
         jumpserverConnectionStatus.delete(id)
         return { status: 'success', message: 'JumpServer 连接已断开' }
