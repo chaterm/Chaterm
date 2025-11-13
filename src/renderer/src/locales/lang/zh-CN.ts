@@ -43,6 +43,8 @@ export default {
     closeTerminal: '关闭终端',
     splitRight: '向右分屏',
     splitDown: '向下分屏',
+    splitRightInner: '向右内分屏',
+    splitDownInner: '向下内分屏',
     clone: '克隆',
     clearTerm: '清屏',
     shrotenName: '缩短主机名',

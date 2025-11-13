@@ -90,6 +90,18 @@
         >
           <span>{{ $t('common.splitDown') }}</span>
         </div>
+        <div
+          class="context-menu-item"
+          @click="splitRightInner"
+        >
+          <span>{{ $t('common.splitRightInner') }}</span>
+        </div>
+        <div
+          class="context-menu-item"
+          @click="splitDownInner"
+        >
+          <span>{{ $t('common.splitDownInner') }}</span>
+        </div>
       </div>
 
       <div class="tabs-content">
@@ -99,24 +111,71 @@
           :key="tab.id"
           :class="{ 'tab-content': true, active: tab.id === activeTab }"
         >
-          <sshConnect
-            v-if="tab.organizationId !== ''"
-            :ref="(el) => setSshConnectRef(el, tab.id)"
-            :server-info="tab"
-            :connect-data="tab.data"
-            :active-tab-id="activeTabId"
-            :current-connection-id="tab.id"
-            @close-tab-in-term="closeTab"
-            @create-new-term="createNewTerm"
-          />
-          <UserInfo v-if="tab.content === 'userInfo'" />
-          <userConfig v-if="tab.content === 'userConfig'" />
-          <Files v-if="tab.content === 'files'" />
-          <aliasConfig v-if="tab.content === 'aliasConfig'" />
-          <assetConfig v-if="tab.content === 'assetConfig'" />
-          <keyChainConfig v-if="tab.content === 'keyChainConfig'" />
-          <McpConfigEditor v-if="tab.content === 'mcpConfigEditor'" />
-          <SecurityConfigEditor v-if="tab.content === 'securityConfigEditor'" />
+          <!-- Terminal tabs with inner split support -->
+          <template v-if="tab.organizationId !== ''">
+            <!-- Always use splitpanes structure to keep component instance stable -->
+            <!-- This ensures the original terminal component is never destroyed -->
+            <splitpanes
+              :horizontal="getInnerSplitState(tab.id)?.direction === 'vertical' || false"
+              @resize="(params) => handleInnerSplitResize(tab.id, params)"
+            >
+              <!-- Original terminal pane - always present, never destroyed -->
+              <pane :size="getInnerSplitState(tab.id)?.mainSize || 100">
+                <div class="inner-split-pane">
+                  <sshConnect
+                    :key="`main-terminal-${tab.id}`"
+                    :ref="(el) => setSshConnectRef(el, tab.id)"
+                    :server-info="tab"
+                    :connect-data="tab.data"
+                    :active-tab-id="activeTabId"
+                    :current-connection-id="tab.id"
+                    @close-tab-in-term="closeTab"
+                    @create-new-term="createNewTerm"
+                  />
+                </div>
+              </pane>
+              <!-- Inner split panes - only shown when inner split exists -->
+              <template v-if="getInnerSplitState(tab.id) && getInnerSplitState(tab.id)!.panes.length > 0">
+                <pane
+                  v-for="(innerPane, innerIndex) in getInnerSplitState(tab.id)!.panes"
+                  :key="`inner-pane-${innerPane.id}`"
+                  :size="innerPane.size"
+                >
+                  <div class="inner-split-pane">
+                    <!-- Close button for inner split pane -->
+                    <button
+                      class="inner-split-close-btn"
+                      :title="$t('common.close')"
+                      @click.stop="closeInnerSplitPane(tab.id, innerIndex)"
+                    >
+                      &times;
+                    </button>
+                    <sshConnect
+                      :key="`inner-terminal-${innerPane.id}`"
+                      :ref="(el) => setSshConnectRef(el, innerPane.id)"
+                      :server-info="innerPane.tab"
+                      :connect-data="innerPane.tab.data"
+                      :active-tab-id="activeTabId"
+                      :current-connection-id="innerPane.id"
+                      @close-tab-in-term="closeInnerSplitPane(tab.id, innerIndex)"
+                      @create-new-term="createNewTerm"
+                    />
+                  </div>
+                </pane>
+              </template>
+            </splitpanes>
+          </template>
+          <!-- Non-terminal tabs -->
+          <template v-else>
+            <UserInfo v-if="tab.content === 'userInfo'" />
+            <userConfig v-if="tab.content === 'userConfig'" />
+            <Files v-if="tab.content === 'files'" />
+            <aliasConfig v-if="tab.content === 'aliasConfig'" />
+            <assetConfig v-if="tab.content === 'assetConfig'" />
+            <keyChainConfig v-if="tab.content === 'keyChainConfig'" />
+            <McpConfigEditor v-if="tab.content === 'mcpConfigEditor'" />
+            <SecurityConfigEditor v-if="tab.content === 'securityConfigEditor'" />
+          </template>
         </div>
       </div>
     </template>
@@ -128,6 +187,8 @@
 <script setup lang="ts">
 import { computed, ref, ComponentPublicInstance, PropType, watch, nextTick, onMounted, onUnmounted } from 'vue'
 import draggable from 'vuedraggable'
+import { Splitpanes, Pane } from 'splitpanes'
+import 'splitpanes/dist/splitpanes.css'
 import Dashboard from '@views/components/Term/dashboard.vue'
 import UserInfo from '@views/components/LeftTab/userInfo.vue'
 import userConfig from '@views/components/LeftTab/userConfig.vue'
@@ -139,6 +200,7 @@ import Files from '@views/components/Files/index.vue'
 import McpConfigEditor from '@views/components/McpConfigEditor/index.vue'
 import SecurityConfigEditor from '@views/components/SecurityConfigEditor/index.vue'
 import eventBus from '@/utils/eventBus'
+import { v4 as uuidv4 } from 'uuid'
 
 interface TabItem {
   id: string
@@ -197,6 +259,10 @@ const createNewTerm = (infos) => {
   emit('create-tab', infos)
 }
 const closeTab = (id) => {
+  // Clean up inner split state when closing tab
+  if (innerSplitStates.value[id]) {
+    delete innerSplitStates.value[id]
+  }
   emit('close-tab', id)
 }
 
@@ -224,6 +290,21 @@ const onDragAdd = (evt) => {
 
 const termRefMap = ref<Record<string, any>>({})
 const sshConnectRefMap = ref<Record<string, any>>({})
+
+// Inner split state management
+interface InnerSplitPane {
+  id: string
+  tab: TabItem
+  size: number
+}
+
+interface InnerSplitState {
+  direction: 'horizontal' | 'vertical'
+  mainSize: number
+  panes: InnerSplitPane[]
+}
+
+const innerSplitStates = ref<Record<string, InnerSplitState>>({})
 
 const setSshConnectRef = (el: Element | ComponentPublicInstance | null, tabId: string) => {
   if (el && '$props' in el) {
@@ -370,6 +451,177 @@ const splitDown = () => {
 
   eventBus.emit('createVerticalSplitTab', newTabInfo)
   hideContextMenu()
+}
+
+// Inner split functions
+const getInnerSplitState = (tabId: string): InnerSplitState | null => {
+  return innerSplitStates.value[tabId] || null
+}
+
+const splitRightInner = () => {
+  const currentTab = contextMenu.value.targetTab
+  if (!currentTab || !currentTab.organizationId) {
+    hideContextMenu()
+    return
+  }
+
+  const tabId = currentTab.id
+  const newPaneId = uuidv4()
+  const newTabInfo = {
+    ...currentTab,
+    id: newPaneId
+  }
+
+  if (!innerSplitStates.value[tabId]) {
+    innerSplitStates.value[tabId] = {
+      direction: 'horizontal',
+      mainSize: 50,
+      panes: []
+    }
+  }
+
+  const state = innerSplitStates.value[tabId]
+  state.direction = 'horizontal'
+  state.panes.push({
+    id: newPaneId,
+    tab: newTabInfo,
+    size: 50
+  })
+
+  // Adjust sizes
+  const paneCount = state.panes.length + 1
+  const equalSize = 100 / paneCount
+  state.mainSize = equalSize
+  state.panes.forEach((pane) => {
+    pane.size = equalSize
+  })
+
+  // Trigger resize after creating inner split
+  nextTick(() => {
+    if (sshConnectRefMap.value[tabId]) {
+      const instance = sshConnectRefMap.value[tabId]
+      if (instance && typeof instance.resize === 'function') {
+        instance.resize()
+      }
+    }
+  })
+
+  hideContextMenu()
+}
+
+const splitDownInner = () => {
+  const currentTab = contextMenu.value.targetTab
+  if (!currentTab || !currentTab.organizationId) {
+    hideContextMenu()
+    return
+  }
+
+  const tabId = currentTab.id
+  const newPaneId = uuidv4()
+  const newTabInfo = {
+    ...currentTab,
+    id: newPaneId
+  }
+
+  if (!innerSplitStates.value[tabId]) {
+    innerSplitStates.value[tabId] = {
+      direction: 'vertical',
+      mainSize: 50,
+      panes: []
+    }
+  }
+
+  const state = innerSplitStates.value[tabId]
+  state.direction = 'vertical'
+  state.panes.push({
+    id: newPaneId,
+    tab: newTabInfo,
+    size: 50
+  })
+
+  // Adjust sizes
+  const paneCount = state.panes.length + 1
+  const equalSize = 100 / paneCount
+  state.mainSize = equalSize
+  state.panes.forEach((pane) => {
+    pane.size = equalSize
+  })
+
+  // Trigger resize after creating inner split
+  nextTick(() => {
+    if (sshConnectRefMap.value[tabId]) {
+      const instance = sshConnectRefMap.value[tabId]
+      if (instance && typeof instance.resize === 'function') {
+        instance.resize()
+      }
+    }
+  })
+
+  hideContextMenu()
+}
+
+const closeInnerSplitPane = (tabId: string, paneIndex: number) => {
+  const state = innerSplitStates.value[tabId]
+  if (!state) return
+
+  // Clean up the sshConnect ref for the closed pane
+  const closedPane = state.panes[paneIndex]
+  if (closedPane && sshConnectRefMap.value[closedPane.id]) {
+    delete sshConnectRefMap.value[closedPane.id]
+  }
+
+  state.panes.splice(paneIndex, 1)
+
+  if (state.panes.length === 0) {
+    delete innerSplitStates.value[tabId]
+  } else {
+    // Adjust sizes after closing
+    const paneCount = state.panes.length + 1
+    const equalSize = 100 / paneCount
+    state.mainSize = equalSize
+    state.panes.forEach((pane) => {
+      pane.size = equalSize
+    })
+  }
+
+  // Trigger resize for remaining terminals
+  nextTick(() => {
+    if (sshConnectRefMap.value[tabId]) {
+      const mainInstance = sshConnectRefMap.value[tabId]
+      if (mainInstance && typeof mainInstance.resize === 'function') {
+        mainInstance.resize()
+      }
+    }
+    state.panes.forEach((pane) => {
+      if (sshConnectRefMap.value[pane.id]) {
+        const instance = sshConnectRefMap.value[pane.id]
+        if (instance && typeof instance.resize === 'function') {
+          instance.resize()
+        }
+      }
+    })
+  })
+}
+
+interface ResizeParams {
+  prevPane: { size: number }
+  panes: { size: number }[]
+}
+
+const handleInnerSplitResize = (tabId: string, params: ResizeParams) => {
+  const state = innerSplitStates.value[tabId]
+  if (!state) return
+
+  state.mainSize = params.prevPane.size
+  if (state.panes.length > 0) {
+    const startIndex = 1
+    const endIndex = params.panes.length - 1
+    for (let i = startIndex; i <= endIndex; i++) {
+      if (state.panes[i - 1]) {
+        state.panes[i - 1].size = params.panes[i].size
+      }
+    }
+  }
 }
 
 const cloneTab = () => {
@@ -563,6 +815,46 @@ defineExpose({
 
 .tab-content.active {
   display: block;
+}
+
+.inner-split-pane {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  position: relative;
+}
+
+.inner-split-close-btn {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 10;
+  background: var(--bg-color);
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 18px;
+  line-height: 1;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-color-tertiary);
+  transition: all 0.2s ease;
+  padding: 0;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.inner-split-close-btn:hover {
+  background: var(--hover-bg-color);
+  color: var(--text-color);
+  border-color: var(--border-color);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+.inner-split-close-btn:active {
+  transform: scale(0.95);
 }
 
 .sortable-chosen {
