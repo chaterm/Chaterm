@@ -607,22 +607,6 @@ onMounted(async () => {
     contextAct('fontsizeSmaller')
   })
 
-  // Listen for font update events
-  const handleUpdateFont = (newFontFamily) => {
-    if (terminal.value) {
-      terminal.value.options.fontFamily = newFontFamily
-    }
-  }
-  eventBus.on('updateTerminalFont', handleUpdateFont)
-  eventBus.on('updateTerminalFontSize', (newFontSize) => {
-    if (terminal.value) {
-      terminal.value.options.fontSize = newFontSize
-      // Trigger resize to adjust terminal layout
-      setTimeout(() => {
-        handleResize()
-      }, 50)
-    }
-  })
   cleanupListeners.value.push(() => {
     eventBus.off('updateTheme', handleUpdateTheme)
     eventBus.off('executeTerminalCommand', handleExecuteCommand)
@@ -630,8 +614,6 @@ onMounted(async () => {
     eventBus.off('getCursorPosition', handleGetCursorPosition)
     eventBus.off('sendOrToggleAiFromTerminalForTab', handleSendOrToggleAiForTab)
     eventBus.off('requestUpdateCwdForHost', handleRequestUpdateCwdForHost)
-    eventBus.off('updateTerminalFont', handleUpdateFont)
-    eventBus.off('updateTerminalFontSize')
     eventBus.off('openSearch', openSearch)
     eventBus.off('clearCurrentTerminal')
     eventBus.off('fontSizeIncrease')
@@ -2524,7 +2506,7 @@ const hideSelectionButton = () => {
   showAiButton.value = false
 }
 
-// Adjust font size function
+// Adjust font size function (only affects current terminal instance)
 const adjustFontSize = async (delta: number) => {
   if (!terminal.value) return
 
@@ -2535,20 +2517,6 @@ const adjustFontSize = async (delta: number) => {
     // Update current terminal font size
     terminal.value.options.fontSize = newFontSize
 
-    // Save to user config
-    try {
-      const config = await serviceUserConfig.getConfig()
-      await serviceUserConfig.saveConfig({
-        ...config,
-        fontSize: newFontSize
-      })
-    } catch (error) {
-      console.error('Failed to save font size:', error)
-    }
-
-    // Notify other terminals to update font size
-    eventBus.emit('updateTerminalFontSize', newFontSize)
-
     // Trigger resize to adjust terminal layout
     setTimeout(() => {
       handleResize()
@@ -2558,6 +2526,9 @@ const adjustFontSize = async (delta: number) => {
 
 // Handle wheel event for font size adjustment
 const handleWheel = (e: WheelEvent) => {
+  // Only respond if this terminal is the active one
+  if (props.activeTabId !== props.currentConnectionId) return
+
   if (e.ctrlKey && terminal.value) {
     e.preventDefault()
     if (e.deltaY < 0) {
