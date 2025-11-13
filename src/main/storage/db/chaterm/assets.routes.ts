@@ -178,7 +178,7 @@ export async function getLocalAssetRouteLogic(db: Database, searchType: string, 
             key: 'favorite',
             title: await getTranslation('favoriteBar'),
             children: favorites.map((item: any) => ({
-              key: `favorite_${item.asset_ip || ''}`,
+              key: `favorite_${item.asset_ip || ''}_${item.username || 'no_user'}_${item.label || 'no_label'}_${item.uuid || ''}`,
               title: item.label || item.asset_ip || '',
               favorite: true,
               ip: item.asset_ip || '',
