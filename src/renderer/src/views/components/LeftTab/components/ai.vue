@@ -422,6 +422,21 @@ watch(
   }
 )
 
+watch(
+  proxyConfig,
+  async (newValue: ProxyConfig) => {
+    try {
+      const proxyConfigToSave: ProxyConfig = {
+        ...newValue
+      }
+      await updateGlobalState('proxyConfig', proxyConfigToSave)
+    } catch (error) {
+      console.error('Failed to update proxyConfig:', error)
+    }
+  },
+  { deep: true }
+)
+
 // Load saved configuration when component is mounted
 onMounted(async () => {
   await loadSavedConfig()

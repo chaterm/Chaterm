@@ -43,6 +43,8 @@ export default {
     closeTerminal: 'Close Terminal',
     splitRight: 'Split Right',
     splitDown: 'Split Down',
+    splitRightInner: 'Split Right (Inner)',
+    splitDownInner: 'Split Down (Inner)',
     clone: 'Clone',
     clearTerm: 'Clear Screen',
     shrotenName: 'Shorten The Host Name',
