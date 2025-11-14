@@ -24,7 +24,7 @@ export function buildApiHandler(configuration: ApiConfiguration): ApiHandler {
     case 'bedrock':
       return new AwsBedrockHandler(options)
     case 'litellm':
-      return new LiteLlmHandler(options)
+      return LiteLlmHandler.createSync(options)
     case 'deepseek':
       return new DeepSeekHandler(options)
     case 'openai':
@@ -32,7 +32,7 @@ export function buildApiHandler(configuration: ApiConfiguration): ApiHandler {
     case 'ollama':
       return new OllamaHandler(options)
     case 'default':
-      return new LiteLlmHandler({
+      return LiteLlmHandler.createSync({
         ...options,
         liteLlmModelId: options.defaultModelId,
         liteLlmBaseUrl: options.defaultBaseUrl,

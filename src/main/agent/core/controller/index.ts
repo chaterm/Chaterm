@@ -7,7 +7,7 @@ import { setTimeout as setTimeoutPromise } from 'node:timers/promises'
 import pWaitFor from 'p-wait-for'
 import * as path from 'path'
 import * as vscode from 'vscode'
-import { buildApiHandler } from '@api/index'
+import { buildApiHandler, ApiHandler } from '@api/index'
 import { McpHub } from '@services/mcp/McpHub'
 import { version as extensionVersion } from '../../../../../package.json'
 import { cleanupLegacyCheckpoints } from '@integrations/checkpoints/CheckpointMigration'
@@ -663,7 +663,23 @@ export class Controller {
   }
 
   async validateApiKey(configuration: ApiConfiguration): Promise<{ isValid: boolean; error?: string }> {
-    const api = buildApiHandler(configuration)
+    // For LiteLLM, use createSync for synchronous initialization
+    let api: ApiHandler
+    if (configuration.apiProvider === 'litellm' || configuration.apiProvider === 'default') {
+      const { LiteLlmHandler } = await import('@api/providers/litellm')
+      const options =
+        configuration.apiProvider === 'default'
+          ? {
+              ...configuration,
+              liteLlmModelId: configuration.defaultModelId,
+              liteLlmBaseUrl: configuration.defaultBaseUrl,
+              liteLlmApiKey: configuration.defaultApiKey
+            }
+          : configuration
+      api = LiteLlmHandler.createSync(options)
+    } else {
+      api = buildApiHandler(configuration)
+    }
     return await api.validateApiKey()
   }
   /**

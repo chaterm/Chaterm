@@ -8,7 +8,7 @@ import { ApiHandlerOptions, bedrockDefaultModelId, BedrockModelId, bedrockModels
 import { calculateApiCostOpenAI } from '../../utils/cost'
 import { fromNodeProviderChain } from '@aws-sdk/credential-providers'
 import { NodeHttpHandler } from '@aws-sdk/node-http-handler'
-import { checkProxyConnectivity, createProxyAgent } from './proxy'
+import { checkProxyConnectivity, createProxyAgent } from './proxy/index'
 import {
   BedrockRuntimeClient,
   BedrockRuntimeClientConfig,

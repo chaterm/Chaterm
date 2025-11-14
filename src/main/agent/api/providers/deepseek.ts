@@ -7,7 +7,7 @@ import { convertToOpenAiMessages } from '../transform/openai-format'
 import { ApiStream } from '../transform/stream'
 import { convertToR1Format } from '../transform/r1-format'
 import { Agent } from 'http'
-import { checkProxyConnectivity, createProxyAgent } from './proxy'
+import { checkProxyConnectivity, createProxyAgent } from './proxy/index'
 
 export class DeepSeekHandler implements ApiHandler {
   private options: ApiHandlerOptions

@@ -7,7 +7,7 @@ import { convertToOpenAiMessages } from '../transform/openai-format'
 import type { ApiStream } from '../transform/stream'
 import { convertToR1Format } from '../transform/r1-format'
 import type { ChatCompletionReasoningEffort } from 'openai/resources/chat/completions'
-import { checkProxyConnectivity, createProxyAgent } from './proxy'
+import { checkProxyConnectivity, createProxyAgent } from './proxy/index'
 import type { Agent } from 'http'
 
 export class OpenAiHandler implements ApiHandler {
