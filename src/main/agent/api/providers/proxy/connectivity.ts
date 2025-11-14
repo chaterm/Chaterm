@@ -1,33 +1,17 @@
-import { HttpsProxyAgent } from 'https-proxy-agent'
-import { HttpProxyAgent } from 'http-proxy-agent'
-import { SocksProxyAgent } from 'socks-proxy-agent'
-import type { Agent } from 'http'
-import { ProxyConfig } from '@shared/Proxy'
+/**
+ * Proxy connectivity validation
+ */
+
 import net from 'net'
 import tls from 'tls'
 import { SocksClient } from 'socks'
+import { ProxyConfig } from '@shared/Proxy'
 
-// Create proxy
-export function createProxyAgent(config?: ProxyConfig): Agent | undefined {
-  if (!config) return undefined
-  const { type, host, port, enableProxyIdentity, username, password } = config
-  const auth = enableProxyIdentity && username && password ? `${username}:${password}@` : ''
-  const url = `${type!.toLowerCase()}://${auth}${host}:${port}`
-
-  switch (type) {
-    case 'HTTP':
-      return new HttpProxyAgent(url)
-    case 'HTTPS':
-      return new HttpsProxyAgent(url)
-    case 'SOCKS4':
-    case 'SOCKS5':
-      return new SocksProxyAgent(url)
-    default:
-      throw new Error(`Unsupported proxy type: ${type}`)
-  }
-}
-
-// Validate proxy connectivity
+/**
+ * Validate proxy connectivity
+ * @param config - Proxy configuration to validate
+ * @throws Error if proxy connection fails
+ */
 export async function checkProxyConnectivity(config?: ProxyConfig): Promise<void> {
   if (!config) return
 
@@ -49,6 +33,9 @@ export async function checkProxyConnectivity(config?: ProxyConfig): Promise<void
   }
 }
 
+/**
+ * Check TCP connection to proxy
+ */
 function checkTcpConnection(host: string, port: number): Promise<void> {
   return new Promise((resolve, reject) => {
     const socket = net.connect(port, host)
@@ -66,6 +53,9 @@ function checkTcpConnection(host: string, port: number): Promise<void> {
   })
 }
 
+/**
+ * Check TLS connection to proxy
+ */
 function checkTlsConnection(host: string, port: number): Promise<void> {
   return new Promise((resolve, reject) => {
     const socket = tls.connect(port, host, { rejectUnauthorized: false })
@@ -83,6 +73,9 @@ function checkTlsConnection(host: string, port: number): Promise<void> {
   })
 }
 
+/**
+ * Check SOCKS proxy connection
+ */
 async function checkSocksConnection(config: ProxyConfig): Promise<void> {
   const { host, port, type, enableProxyIdentity, username, password } = config
 

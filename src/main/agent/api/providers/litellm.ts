@@ -4,7 +4,7 @@ import { ApiHandlerOptions, liteLlmDefaultModelId, liteLlmModelInfoSaneDefaults 
 import { ApiHandler } from '..'
 import { ApiStream } from '../transform/stream'
 import { convertToOpenAiMessages } from '../transform/openai-format'
-import { createProxyAgent, checkProxyConnectivity } from './proxy'
+import { createProxyAgent, checkProxyConnectivity, resolveSystemProxy, createProxyAgentFromString } from './proxy/index'
 import type { Agent } from 'http'
 
 /**
@@ -28,16 +28,29 @@ import type { Agent } from 'http'
 export class LiteLlmHandler implements ApiHandler {
   private options: ApiHandlerOptions
   private client: OpenAI
+  private currentProxyString: string | null = null // Track current proxy configuration
+  private refreshingProxy: Promise<void> | null = null // Mutex lock for concurrent requests
 
-  constructor(options: ApiHandlerOptions) {
-    this.options = options
-
-    // Determine if a proxy is needed
+  /**
+   * Create LiteLlmHandler synchronously (lazy proxy detection)
+   * Proxy will be detected on first request via refreshProxyAgent()
+   * @param options - API handler options
+   * @returns LiteLlmHandler
+   */
+  static createSync(options: ApiHandlerOptions): LiteLlmHandler {
     let httpAgent: Agent | undefined = undefined
-    if (this.options.needProxy !== false) {
-      const proxyConfig = this.options.proxyConfig
-      httpAgent = createProxyAgent(proxyConfig)
+
+    // Only apply user-configured proxy immediately
+    if (options.needProxy !== false && options.proxyConfig) {
+      httpAgent = createProxyAgent(options.proxyConfig)
     }
+    // System proxy will be detected lazily on first request
+
+    return new LiteLlmHandler(options, httpAgent)
+  }
+
+  private constructor(options: ApiHandlerOptions, httpAgent?: Agent) {
+    this.options = options
 
     // Set timeout, default is 20 seconds, since it will retry 3 times internally, the actual timeout is 60 seconds
     const timeoutMs = this.options.requestTimeoutMs || 20000
@@ -50,7 +63,72 @@ export class LiteLlmHandler implements ApiHandler {
     })
   }
 
+  /**
+   * Refresh proxy agent for dynamic proxy detection
+   * Dynamic refreshing adds approximately 10ms to the network burden for each request
+   */
+  private async refreshProxyAgent(): Promise<void> {
+    // If already refreshing, wait for completion to avoid concurrent issues
+    if (this.refreshingProxy) {
+      return this.refreshingProxy
+    }
+
+    // Only refresh when user hasn't configured proxy
+    if (this.options.needProxy !== false && !this.options.proxyConfig) {
+      this.refreshingProxy = this._doRefreshProxyAgent()
+      try {
+        await this.refreshingProxy
+      } finally {
+        this.refreshingProxy = null
+      }
+    }
+  }
+
+  /**
+   * Internal method to perform proxy refresh
+   * Separated for mutex lock management
+   */
+  private async _doRefreshProxyAgent(): Promise<void> {
+    try {
+      const targetUrl = this.options.liteLlmBaseUrl || 'http://localhost:4000'
+      const proxyString = await resolveSystemProxy(targetUrl)
+
+      // CRITICAL OPTIMIZATION: Only recreate client when proxy configuration changes
+      if (proxyString !== this.currentProxyString) {
+        console.log(`[LiteLLM] System proxy changed: ${this.currentProxyString} -> ${proxyString || 'DIRECT'}`)
+        this.currentProxyString = proxyString ?? null
+
+        // Unified proxy agent creation logic
+        let httpAgent: Agent | undefined = undefined
+        if (proxyString) {
+          httpAgent = createProxyAgentFromString(proxyString)
+          if (!httpAgent) {
+            console.warn(`[LiteLLM] Failed to create proxy agent, falling back to direct connection`)
+          }
+        }
+
+        // Single client creation point
+        const timeoutMs = this.options.requestTimeoutMs || 20000
+        this.client = new OpenAI({
+          baseURL: this.options.liteLlmBaseUrl || 'http://localhost:4000',
+          apiKey: this.options.liteLlmApiKey || 'noop',
+          httpAgent,
+          timeout: timeoutMs
+        })
+
+        console.log(`[LiteLLM] Client recreated with ${httpAgent ? 'system proxy' : 'direct connection'}`)
+      }
+      // If proxy hasn't changed, do nothing (performance optimization)
+    } catch (error) {
+      console.error('[LiteLLM] Failed to refresh proxy agent:', error)
+      // Fallback: continue using existing client
+    }
+  }
+
   async *createMessage(systemPrompt: string, messages: Anthropic.Messages.MessageParam[]): ApiStream {
+    // Refresh proxy agent to detect runtime proxy changes
+    await this.refreshProxyAgent()
+
     const formattedMessages = convertToOpenAiMessages(messages)
     const systemMessage: OpenAI.Chat.ChatCompletionSystemMessageParam = {
       role: 'system',
@@ -209,9 +287,9 @@ export class LiteLlmHandler implements ApiHandler {
 
   async validateApiKey(): Promise<{ isValid: boolean; error?: string }> {
     try {
-      // Validate proxy
-      if (this.options.needProxy) {
-        await checkProxyConnectivity(this.options.proxyConfig!)
+      // Validate proxy if configured
+      if (this.options.needProxy && this.options.proxyConfig) {
+        await checkProxyConnectivity(this.options.proxyConfig)
       }
 
       // Try to create a minimal chat request to validate the API key
@@ -220,12 +298,13 @@ export class LiteLlmHandler implements ApiHandler {
         messages: [{ role: 'user', content: 'test' }],
         max_tokens: 1
       })
+
       return { isValid: true }
     } catch (error) {
-      console.error('OpenAI compatible configuration validation failed:', error)
+      const errorMessage = error instanceof Error ? error.message : String(error)
       return {
         isValid: false,
-        error: `Validation failed:  ${error instanceof Error ? error.message : String(error)}`
+        error: `Validation failed: ${errorMessage}`
       }
     }
   }
