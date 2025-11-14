@@ -328,28 +328,31 @@ export const attemptSecondaryConnection = async (event, connectionInfo, ident) =
       try {
         let stdout = ''
         let stderr = ''
-        conn.exec('ls /usr/bin/ /usr/local/bin/ /usr/sbin/ /usr/local/sbin/ /bin/ | sort | uniq', (err, stream) => {
-          if (err) {
-            readyResult.commandList = []
-            sendReadyData(false)
-          } else {
-            stream
-              .on('data', (data: Buffer) => {
-                stdout += data.toString()
-              })
-              .stderr.on('data', (data: Buffer) => {
-                stderr += data.toString()
-              })
-              .on('close', () => {
-                if (stderr) {
-                  readyResult.commandList = []
-                } else {
-                  readyResult.commandList = stdout.split('\n').filter(Boolean)
-                }
-                sendReadyData(false)
-              })
+        conn.exec(
+          'sh -c \'if command -v bash >/dev/null 2>&1; then bash -lc "compgen -A builtin; compgen -A command"; bash -ic "compgen -A alias" 2>/dev/null; else IFS=:; for d in $PATH; do [ -d "$d" ] || continue; for f in "$d"/*; do [ -x "$f" ] && printf "%s\\n" "${f##*/}"; done; done; fi\' | sort -u',
+          (err, stream) => {
+            if (err) {
+              readyResult.commandList = []
+              sendReadyData(false)
+            } else {
+              stream
+                .on('data', (data: Buffer) => {
+                  stdout += data.toString()
+                })
+                .stderr.on('data', (data: Buffer) => {
+                  stderr += data.toString()
+                })
+                .on('close', () => {
+                  if (stderr) {
+                    readyResult.commandList = []
+                  } else {
+                    readyResult.commandList = stdout.split('\n').filter(Boolean)
+                  }
+                  sendReadyData(false)
+                })
+            }
           }
-        })
+        )
       } catch (e) {
         readyResult.commandList = []
         sendReadyData(false)

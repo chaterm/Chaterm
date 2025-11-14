@@ -66,7 +66,7 @@ export const setupJumpServerInteraction = (
         try {
           const commandListResult = await executeCommandOnJumpServerExec(
             execStream,
-            'ls /usr/bin/ /usr/local/bin/ /usr/sbin/ /usr/local/sbin/ /bin/ | sort | uniq'
+            'sh -c \'if command -v bash >/dev/null 2>&1; then bash -lc "compgen -A builtin; compgen -A command"; bash -ic "compgen -A alias" 2>/dev/null; else IFS=:; for d in $PATH; do [ -d "$d" ] || continue; for f in "$d"/*; do [ -x "$f" ] && printf "%s\\n" "${f##*/}"; done; done; fi\' | sort -u'
           ).then(
             (value) => ({ status: 'fulfilled' as const, value }),
             (reason) => ({ status: 'rejected' as const, reason })

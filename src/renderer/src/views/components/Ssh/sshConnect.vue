@@ -2064,117 +2064,353 @@ const calculateDisplayPosition = (str: string, charIndex: number): number => {
   return displayPos
 }
 
-const highlightSyntax = (allData) => {
+const getRowColByDisplayOffset = (
+  startRow: number, //命令起始所在行
+  cursorStartX: number,
+  displayOffset: number //显示偏移
+) => {
+  const term = terminal.value as any
+  const cols: number = term?.cols ?? 80
+
+  const firstRowCapacity = cols - cursorStartX
+
+  let row: number
+  let col: number
+
+  if (displayOffset < firstRowCapacity) {
+    row = startRow
+    col = cursorStartX + 1 + displayOffset
+  } else {
+    // 换行
+    const rest = displayOffset - firstRowCapacity
+    const extraRows = Math.floor(rest / cols)
+    const offsetInRow = rest % cols
+    row = startRow + 1 + extraRows
+    col = 1 + offsetInRow
+  }
+
+  return { row, col }
+}
+
+const DEFAULT_ZSH_COLORS = {
+  // 命令
+  command: {
+    valid: '32',
+    invalid: '31'
+  },
+
+  // 参数
+  argument: {
+    default: '38;2;135;206;250'
+  },
+
+  // 引号
+  string: {
+    matched: '33',
+    unmatched: '31',
+    other: '38;2;135;206;250'
+  }
+} as const
+
+// TODO 用户自定义
+type SyntaxHighlightConfig = {
+  command?: {
+    valid?: string
+    invalid?: string
+  }
+  argument?: {
+    default?: string
+  }
+  string?: {
+    matched?: string
+    unmatched?: string
+    other?: string
+  }
+}
+
+const mergeColors = (userConfig: SyntaxHighlightConfig = {}) => {
+  return {
+    command: {
+      valid: userConfig.command?.valid || DEFAULT_ZSH_COLORS.command.valid,
+      invalid: userConfig.command?.invalid || DEFAULT_ZSH_COLORS.command.invalid
+    },
+    argument: {
+      default: userConfig.argument?.default || DEFAULT_ZSH_COLORS.argument.default
+    },
+    string: {
+      matched: userConfig.string?.matched || DEFAULT_ZSH_COLORS.string.matched,
+      unmatched: userConfig.string?.unmatched || DEFAULT_ZSH_COLORS.string.unmatched,
+      other: userConfig.string?.other || DEFAULT_ZSH_COLORS.string.other
+    }
+  }
+}
+
+const highlightSyntax = (allData: any, userConfig?: SyntaxHighlightConfig) => {
+  const colors = mergeColors(userConfig)
+
   const { content, beforeCursor, cursorPosition } = allData
   let command = ''
   let arg = ''
-  const currentCursorX = cursorStartX.value + beforeCursor.length
-  const index = content.indexOf(' ')
-  const i = content.indexOf(' ')
-  if (i != -1) {
-    command = content.slice(0, i)
-    arg = content.slice(i)
+  // 解析命令和参数
+  const firstSpaceIndex = content.indexOf(' ')
+  if (firstSpaceIndex !== -1) {
+    command = content.slice(0, firstSpaceIndex)
+    arg = content.slice(firstSpaceIndex)
   } else {
     command = content
     arg = ''
   }
 
-  activeMarkers.value.forEach((marker) => marker.dispose())
-  activeMarkers.value = []
+  // 当前行行号
   let startY = (terminal.value as any)?._core.buffer.y
   if (allData.contentCrossRowStatus) {
     startY = allData.contentCrossStartLine
   }
+
   const isValidCommand = commands.value?.includes(command)
+
+  // 高亮主命令
   if (command) {
-    const commandMarker = terminal.value?.registerMarker(startY)
-    activeMarkers.value.push(commandMarker)
-    cusWrite?.(`\x1b[${startY + 1};${cursorStartX.value + 1}H`, {
-      isUserCall: true
-    })
-    const colorCode = isValidCommand ? '38;2;24;144;255' : '31'
-    cusWrite?.(`\x1b[${colorCode}m${command}\x1b[0m`, {
-      isUserCall: true
-    })
+    const cmdRow = startY + 1
+    const cmdCol = cursorStartX.value + 1
+
+    // 移动到命令起始位置
+    cusWrite?.(`\x1b[${cmdRow};${cmdCol}H`, { isUserCall: true })
+
+    const colorCode = isValidCommand ? colors.command.valid : colors.command.invalid
+
+    // 渲染
+    cusWrite?.(`\x1b[${colorCode}m${command}\x1b[0m`, { isUserCall: true })
+
     setTimeout(() => {
-      cusWrite?.(`\x1b[${cursorPosition.row + 1};${cursorPosition.col + 1}H`, {
-        isUserCall: true
-      })
+      const row = cursorPosition.row + 1
+      const col = cursorPosition.col + 1
+      cusWrite?.(`\x1b[${row};${col}H`, { isUserCall: true })
     })
   }
+
   if (!arg) return
-  if (arg.includes("'") || arg.includes('"') || arg.includes('(') || arg.includes('{') || arg.includes('[')) {
-    const afterCommandArr: any = processString(arg)
-    let unMatchFlag = false
-    for (let i = 0; i < afterCommandArr.length; i++) {
-      if (afterCommandArr[i].type == 'unmatched') {
-        cusWrite?.(`\x1b[${startY + 1};${cursorStartX.value + 1}H`, {
-          isUserCall: true
-        })
 
-        cusWrite?.(`\x1b[31m${content}\x1b[0m`, {
-          isUserCall: true
-        })
+  // 分词
+  type Token = {
+    content: string
+    type: 'matched' | 'unmatched' | 'other' | string
+    startIndex: number
+  }
 
-        cusWrite?.(`\x1b[${cursorPosition.row + 1};${cursorPosition.col + 1}H`, {
-          isUserCall: true
-        })
-        unMatchFlag = true
-      }
-    }
-    if (!unMatchFlag) {
-      for (let i = 0; i < afterCommandArr.length; i++) {
-        if (afterCommandArr[i].content == ' ') {
-          // Calculate correct display position for Chinese characters
-          const displayPos = calculateDisplayPosition(arg, afterCommandArr[i].startIndex)
-          const commandDisplayWidth = calculateDisplayPosition(command, command.length)
-          cusWrite?.(`\x1b[${startY + 1};${cursorStartX.value + commandDisplayWidth + 1 + displayPos}H`, {
-            isUserCall: true
-          })
-          cusWrite?.(`${afterCommandArr[i].content}\x1b[0m`, {
-            isUserCall: true
-          })
-        } else {
-          // Calculate correct display position for Chinese characters
-          const displayPos = calculateDisplayPosition(arg, afterCommandArr[i].startIndex)
-          const commandDisplayWidth = calculateDisplayPosition(command, command.length)
-          cusWrite?.(`\x1b[${startY + 1};${cursorStartX.value + commandDisplayWidth + 1 + displayPos}H`, {
-            isUserCall: true
-          })
-          const colorCode = afterCommandArr[i].type == 'matched' ? '38;2;250;173;20' : '38;2;126;193;255'
-          cusWrite?.(`\x1b[${colorCode}m${afterCommandArr[i].content}\x1b[0m`, {
-            isUserCall: true
+  // 处理管道符
+  const highlightPipeCommands = (argStr: string, tokens?: Token[], unmatchedStartIndex?: number | null) => {
+    if (!argStr.includes('|')) return
+
+    const commandDisplayWidth = calculateDisplayPosition(command, command.length)
+    const pipeColorCode = '38;5;33' // 深蓝色
+
+    // 记录所有字符串区间
+    const stringRanges: { start: number; end: number }[] = []
+    if (tokens) {
+      for (const t of tokens) {
+        if (t.type === 'matched' || t.type === 'unmatched') {
+          stringRanges.push({
+            start: t.startIndex,
+            end: t.startIndex + t.content.length
           })
         }
       }
     }
-  } else {
-    const commandDisplayWidth = calculateDisplayPosition(command, command.length)
-    if (index == -1 && currentCursorX >= cursorStartX.value + commandDisplayWidth) {
-      cusWrite?.(`\x1b[${startY + 1};${cursorStartX.value + commandDisplayWidth + 1}H`, {
-        isUserCall: true
-      })
-      cusWrite?.(`\x1b[38;2;126;193;255m${arg}\x1b[0m`, { isUserCall: true })
-      cusWrite?.(`\x1b[${cursorPosition.row + 1};${cursorPosition.col + 1}H`, {
-        isUserCall: true
-      })
-    } else if (currentCursorX < cursorStartX.value + commandDisplayWidth) {
-      cusWrite?.(`\x1b[${startY + 1};${cursorStartX.value + commandDisplayWidth + 1}H`, {
-        isUserCall: true
-      })
-      cusWrite?.(`\x1b[38;2;126;193;255m${arg}\x1b[0m`, { isUserCall: true })
-      cusWrite?.(`\x1b[${cursorPosition.row + 1};${cursorPosition.col + 1}H`, {
-        isUserCall: true
-      })
-    } else {
-      cusWrite?.(`\x1b[${startY + 1};${cursorStartX.value + commandDisplayWidth + 1}H`, {
-        isUserCall: true
-      })
-      cusWrite?.(`\x1b[38;2;126;193;255m${arg}\x1b[0m`, { isUserCall: true })
-      cusWrite?.(`\x1b[${cursorPosition.row + 1};${cursorPosition.col + 1}H`, {
-        isUserCall: true
+    // 未闭合状态：unmatched 之后的都当成字符串
+    if (typeof unmatchedStartIndex === 'number') {
+      stringRanges.push({
+        start: unmatchedStartIndex,
+        end: argStr.length
       })
     }
+
+    const inStringRange = (idx: number) => stringRanges.some((r) => idx >= r.start && idx < r.end)
+
+    let searchStart = 0
+    while (searchStart < argStr.length) {
+      let pipeIndex = argStr.indexOf('|', searchStart)
+      if (pipeIndex === -1) break
+
+      // 跳过字符串中的 |
+      if (inStringRange(pipeIndex)) {
+        const range = stringRanges.find((r) => pipeIndex >= r.start && pipeIndex < r.end)
+        if (!range) {
+          searchStart = pipeIndex + 1
+        } else {
+          searchStart = range.end
+        }
+        continue
+      }
+
+      const pipeDisplayPos = calculateDisplayPosition(argStr, pipeIndex)
+      const pipeOffset = commandDisplayWidth + pipeDisplayPos
+
+      const { row: pipeRow0, col: pipeCol } = getRowColByDisplayOffset(startY, cursorStartX.value, pipeOffset)
+      const pipeRow = pipeRow0 + 1
+
+      cusWrite?.(`\x1b[${pipeRow};${pipeCol}H`, { isUserCall: true })
+
+      cusWrite?.(`\x1b[${pipeColorCode}m|\x1b[0m`, { isUserCall: true })
+
+      // 处理子命令
+      let k = pipeIndex + 1
+      while (k < argStr.length) {
+        if (inStringRange(k)) {
+          const range = stringRanges.find((r) => k >= r.start && k < r.end)
+          if (!range) break
+          k = range.end
+          continue
+        }
+        const ch = argStr[k]
+        if (ch === ' ' || ch === '\t') {
+          k++
+          continue
+        }
+        break
+      }
+
+      if (k >= argStr.length) {
+        searchStart = pipeIndex + 1
+        continue
+      }
+
+      const subCmdStart = k
+
+      // 记录子命令结束位置
+      let m = subCmdStart
+      while (m < argStr.length && !inStringRange(m)) {
+        const ch = argStr[m]
+        if (ch === ' ' || ch === '\t' || ch === '|') break
+        m++
+      }
+
+      if (m <= subCmdStart) {
+        searchStart = pipeIndex + 1
+        continue
+      }
+
+      const subCommand = argStr.slice(subCmdStart, m)
+      const isValidSub = commands.value?.includes(subCommand)
+      const subColor = isValidSub ? colors.command.valid : colors.command.invalid
+
+      const displayPosFromArgStart = calculateDisplayPosition(argStr, subCmdStart)
+      const subOffset = commandDisplayWidth + displayPosFromArgStart
+
+      const { row: subRow0, col: subCol } = getRowColByDisplayOffset(startY, cursorStartX.value, subOffset)
+      const subRow = subRow0 + 1
+
+      cusWrite?.(`\x1b[${subRow};${subCol}H`, { isUserCall: true })
+
+      cusWrite?.(`\x1b[${subColor}m${subCommand}\x1b[0m`, {
+        isUserCall: true
+      })
+
+      searchStart = pipeIndex + 1
+    }
+  }
+
+  if (arg.includes("'") || arg.includes('"') || arg.includes('(') || arg.includes('{') || arg.includes('[')) {
+    const tokens: Token[] = processString(arg)
+    const commandDisplayWidth = calculateDisplayPosition(command, command.length)
+
+    // 找到第一个unmatched的起始位置
+    let unmatchedStartIndex: number | null = null
+    for (const t of tokens) {
+      if (t.type === 'unmatched') {
+        if (unmatchedStartIndex === null || t.startIndex < unmatchedStartIndex) {
+          unmatchedStartIndex = t.startIndex
+        }
+      }
+    }
+
+    if (unmatchedStartIndex === null) {
+      // 没有unmatched
+      for (const token of tokens) {
+        const displayPos = calculateDisplayPosition(arg, token.startIndex)
+        const totalOffset = commandDisplayWidth + displayPos
+        const { row, col } = getRowColByDisplayOffset(startY, cursorStartX.value, totalOffset)
+
+        cusWrite?.(`\x1b[${row + 1};${col}H`, { isUserCall: true })
+
+        if (token.content === ' ') {
+          cusWrite?.(`${token.content}\x1b[0m`, { isUserCall: true })
+        } else {
+          let colorCode: string
+          if (token.type === 'matched') {
+            colorCode = colors.string.matched
+          } else if (token.type === 'unmatched') {
+            colorCode = colors.string.unmatched
+          } else {
+            colorCode = colors.string.other
+          }
+          cusWrite?.(`\x1b[${colorCode}m${token.content}\x1b[0m`, { isUserCall: true })
+        }
+      }
+
+      highlightPipeCommands(arg, tokens, null)
+
+      // 处理光标
+      const finalRow = cursorPosition.row + 1
+      const finalCol = cursorPosition.col + 1
+      cusWrite?.(`\x1b[${finalRow};${finalCol}H`, { isUserCall: true })
+    } else {
+      // 有unmatched
+      for (const token of tokens) {
+        if (token.startIndex >= unmatchedStartIndex) continue
+
+        const displayPos = calculateDisplayPosition(arg, token.startIndex)
+        const totalOffset = commandDisplayWidth + displayPos
+
+        const { row, col } = getRowColByDisplayOffset(startY, cursorStartX.value, totalOffset)
+
+        const ansiRow = row + 1
+        cusWrite?.(`\x1b[${ansiRow};${col}H`, { isUserCall: true })
+
+        if (token.content === ' ') {
+          cusWrite?.(`${token.content}\x1b[0m`, { isUserCall: true })
+        } else {
+          let colorCode: string
+          if (token.type === 'matched') {
+            colorCode = colors.string.matched
+          } else {
+            colorCode = colors.string.other
+          }
+          cusWrite?.(`\x1b[${colorCode}m${token.content}\x1b[0m`, { isUserCall: true })
+        }
+      }
+      // unmatchedStartIndex后为unmatched
+      const unmatchedContent = arg.slice(unmatchedStartIndex)
+      const unmatchedDisplayPos = calculateDisplayPosition(arg, unmatchedStartIndex)
+      const totalOffset = commandDisplayWidth + unmatchedDisplayPos
+
+      const { row, col } = getRowColByDisplayOffset(startY, cursorStartX.value, totalOffset)
+
+      cusWrite?.(`\x1b[${row + 1};${col}H`, { isUserCall: true })
+
+      cusWrite?.(`\x1b[${colors.string.unmatched}m${unmatchedContent}\x1b[0m`, { isUserCall: true })
+
+      // unmatched之后整个当成字符串，管道不特殊处理
+      highlightPipeCommands(arg, tokens, unmatchedStartIndex)
+
+      const finalRow = cursorPosition.row + 1
+      const finalCol = cursorPosition.col + 1
+      cusWrite?.(`\x1b[${finalRow};${finalCol}H`, { isUserCall: true })
+    }
+  } else {
+    const commandDisplayWidth = calculateDisplayPosition(command, command.length)
+    const row = startY + 1
+    const col = cursorStartX.value + commandDisplayWidth + 1
+
+    cusWrite?.(`\x1b[${row};${col}H`, { isUserCall: true })
+
+    cusWrite?.(`\x1b[${colors.argument.default}m${arg}\x1b[0m`, { isUserCall: true })
+
+    highlightPipeCommands(arg)
+
+    const finalRow = cursorPosition.row + 1
+    const finalCol = cursorPosition.col + 1
+    cusWrite?.(`\x1b[${finalRow};${finalCol}H`, { isUserCall: true })
   }
 }
 
