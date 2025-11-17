@@ -675,18 +675,18 @@ function setupIPC(): void {
     return false
   })
 
-  ipcMain.handle('cancel-task', async () => {
-    console.log('cancel-task')
+  ipcMain.handle('cancel-task', async (_event, payload?: { tabId?: string }) => {
+    console.log('cancel-task', payload)
     if (controller) {
-      return await controller.cancelTask()
+      return await controller.cancelTask(payload?.tabId)
     }
     return null
   })
 
-  ipcMain.handle('graceful-cancel-task', async () => {
-    console.log('graceful-cancel-task')
+  ipcMain.handle('graceful-cancel-task', async (_event, payload?: { tabId?: string }) => {
+    console.log('graceful-cancel-task', payload)
     if (controller) {
-      return await controller.gracefulCancelTask()
+      return await controller.gracefulCancelTask(payload?.tabId)
     }
     return null
   })
@@ -994,12 +994,12 @@ function setupIPC(): void {
 
       // Notify CommandSecurityManager instance to reload config (hot reload)
       // This allows configuration changes to take effect immediately without restart
-      if (controller && controller.task) {
+      if (controller) {
         try {
-          await controller.task.reloadSecurityConfig()
-          console.log('[SecurityConfig] Hot reloaded configuration in active Task')
+          await controller.reloadSecurityConfigForAllTasks()
+          console.log('[SecurityConfig] Hot reloaded configuration in all active Tasks')
         } catch (error) {
-          console.warn('[SecurityConfig] Failed to hot reload configuration in Task:', error)
+          console.warn('[SecurityConfig] Failed to hot reload configuration in Tasks:', error)
           // This is not critical - config will be loaded on next task creation
         }
       }
@@ -1493,7 +1493,8 @@ ipcMain.handle('capture-telemetry-event', async (_, { eventType, data }) => {
   try {
     switch (eventType) {
       case 'button_click':
-        const taskId = controller?.task?.taskId
+        // taskId should be provided in data if needed, otherwise undefined
+        const taskId = data?.taskId
         telemetryService.captureButtonClick(data.button, taskId, data.properties)
         break
       default:

@@ -295,12 +295,29 @@ const lastFocusedElement = ref<HTMLElement | null>(null)
 
 interface AiSidebarState {
   size: number
-  chatInputValue: string
-  chatHistory: any[]
   currentChatId: string | null
-  hosts: any[]
-  chatTypeValue: string
-  chatAiModelValue: string
+  chatTabs: Array<{
+    id: string
+    title: string
+    hosts: any[]
+    chatType: string
+    autoUpdateHost: boolean
+    inputValue: string
+    session: {
+      chatHistory: any[]
+      lastChatMessageId: string
+      responseLoading: boolean
+      showCancelButton: boolean
+      showSendButton: boolean
+      buttonsDisabled: boolean
+      resumeDisabled: boolean
+      isExecutingCommand: boolean
+      showRetryButton: boolean
+      showNewTaskButton: boolean
+      messageFeedbacks: Record<string, 'like' | 'dislike'>
+    }
+  }>
+  chatAiModelValue?: string
 }
 
 const savedAiSidebarState = ref<AiSidebarState | null>(null)
@@ -313,7 +330,7 @@ const handleAiTabStateChanged = (state: AiSidebarState) => {
 const saveAiSidebarState = () => {
   if (aiTabRef.value) {
     try {
-      const currentState = aiTabRef.value.getCurrentState?.() || savedAiSidebarState.value
+      const currentState = aiTabRef.value.getCurrentState?.()
       if (currentState) {
         savedAiSidebarState.value = {
           ...currentState,
@@ -326,31 +343,11 @@ const saveAiSidebarState = () => {
       console.warn('Failed to get AI Tab state:', error)
       if (savedAiSidebarState.value) {
         savedAiSidebarState.value.size = aiSidebarSize.value
-      } else {
-        savedAiSidebarState.value = {
-          size: aiSidebarSize.value,
-          chatInputValue: '',
-          chatHistory: [],
-          currentChatId: null,
-          hosts: [],
-          chatTypeValue: 'agent',
-          chatAiModelValue: ''
-        }
       }
     }
   } else {
     if (savedAiSidebarState.value) {
       savedAiSidebarState.value.size = aiSidebarSize.value
-    } else {
-      savedAiSidebarState.value = {
-        size: aiSidebarSize.value,
-        chatInputValue: '',
-        chatHistory: [],
-        currentChatId: null,
-        hosts: [],
-        chatTypeValue: 'agent',
-        chatAiModelValue: ''
-      }
     }
   }
 }

@@ -19,21 +19,24 @@
 ### 为什么需要特殊的 Exec 实现？
 
 **标准 SSH 连接：**
+
 ```typescript
 // 标准 SSH 可以直接使用 conn.exec()
 conn.exec('ls /usr/bin', (err, stream) => {
-  stream.on('data', data => console.log(data))
+  stream.on('data', (data) => console.log(data))
   stream.on('close', (code) => console.log('Exit code:', code))
 })
 ```
 
 **JumpServer 堡垒机：**
+
 ```
 用户 → SSH 连接 → JumpServer → 选择用户 → 输入密码 → 目标服务器
      (ssh2)      (交互式菜单)                              (shell 流)
 ```
 
 **核心问题：**
+
 1. JumpServer 连接没有直接的 `conn.exec()` 能力
 2. 所有交互必须通过 **交互式 shell 流** 完成
 3. 命令输出混杂回显、提示符、控制字符

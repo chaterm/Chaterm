@@ -536,9 +536,21 @@ onMounted(async () => {
     connectSSH()
   }
 
-  const handleExecuteCommand = (command) => {
+  const handleExecuteCommand = (payload: { command: string; tabId?: string }) => {
     if (props.activeTabId !== props.currentConnectionId) return
-    sendMarkedData(command, 'Chaterm:command')
+
+    if (!payload?.command) {
+      console.warn('handleExecuteCommand: command is empty')
+      return
+    }
+
+    const tabId = typeof payload === 'string' ? undefined : payload?.tabId
+
+    const uniqueMarker = `Chaterm:command:${connectionId.value}:${Date.now()}:${Math.random().toString(36).substr(2, 9)}`
+
+    commandMarkerToTabId.value.set(uniqueMarker, tabId)
+
+    sendMarkedData(payload.command, uniqueMarker)
     termInstance.focus()
   }
 
@@ -658,6 +670,11 @@ onBeforeUnmount(() => {
     resizeObserver.disconnect()
     resizeObserver = null
   }
+
+  commandMarkerToTabId.value.clear()
+  currentCommandMarker.value = null
+  currentCommandTabId.value = undefined
+
   cleanupListeners.value.forEach((cleanup) => cleanup())
   cleanupListeners.value = []
 
@@ -1976,8 +1993,15 @@ const handleServerOutput = (response: MarkedResponse) => {
     currentCwdStore.setKeyValue(props.connectData.ip, currentCwd)
 
     eventBus.emit('cwdUpdatedForHost', props.connectData.ip)
-  } else if (response.marker === 'Chaterm:command') {
+  } else if (response.marker === 'Chaterm:command' || response.marker?.startsWith('Chaterm:command:')) {
     isCollectingOutput.value = true
+
+    const tabId = commandMarkerToTabId.value.get(response.marker) ?? commandMarkerToTabId.value.get('Chaterm:command') ?? undefined
+
+    // 保存当前命令的 marker 和 tabId
+    currentCommandMarker.value = response.marker
+    currentCommandTabId.value = tabId
+
     handleCommandOutput(data, true)
   } else if (isCollectingOutput.value) {
     handleCommandOutput(data, false)
@@ -1995,6 +2019,16 @@ const handleCommandOutput = (data: string, isInitialCommand: boolean) => {
 
   if (promptRegex.test(cleanOutput)) {
     isCollectingOutput.value = false
+
+    const tabId = currentCommandTabId.value
+    const marker = currentCommandMarker.value
+
+    if (marker) {
+      commandMarkerToTabId.value.delete(marker)
+      currentCommandMarker.value = null
+    }
+    currentCommandTabId.value = undefined
+
     const lines = commandOutput.value
       .replace(/\r\n|\r/g, '\n')
       .split('\n')
@@ -2006,23 +2040,16 @@ const handleCommandOutput = (data: string, isInitialCommand: boolean) => {
     if (finalOutput) {
       nextTick(() => {
         const formattedOutput = `Terminal output:\n\`\`\`\n${finalOutput}\n\`\`\``
-        eventBus.emit('chatToAi', formattedOutput)
-        setTimeout(() => {
-          eventBus.emit('triggerAiSend')
-        }, 100)
+        eventBus.emit('sendMessageToAi', { content: formattedOutput, tabId })
       })
     } else {
       const output =
         configStore.getUserConfig.language == 'en-US'
           ? 'Command executed successfully, no output returned'
           : 'Command executed successfully, no output returned'
-      // For initial command, use formatted output; for ongoing collection, use plain output
       const messageToSend = isInitialCommand ? `Terminal output:\n\`\`\`\n${output}\n\`\`\`` : output
 
-      eventBus.emit('chatToAi', messageToSend)
-      setTimeout(() => {
-        eventBus.emit('triggerAiSend')
-      }, 100)
+      eventBus.emit('sendMessageToAi', { content: messageToSend, tabId })
     }
 
     commandOutput.value = ''
@@ -2983,6 +3010,10 @@ defineExpose({
 
 const commandOutput = ref('')
 const isCollectingOutput = ref(false)
+// 命令 marker 到 tabId 的映射关系，用于将命令执行结果回传到对应的 Tab
+const commandMarkerToTabId = ref(new Map<string, string | undefined>())
+const currentCommandMarker = ref<string | null>(null)
+const currentCommandTabId = ref<string | undefined>(undefined)
 
 function updateSelectionButtonPosition() {
   if (!terminal.value) return

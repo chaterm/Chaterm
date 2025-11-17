@@ -235,8 +235,12 @@ onMounted(() => {
   })
 
   // Listen for executeTerminalCommand event
-  eventBus.on('executeTerminalCommand', (command) => {
-    autoExecuteCode(command)
+  eventBus.on('executeTerminalCommand', (payload) => {
+    if (!payload?.command) {
+      return
+    }
+
+    autoExecuteCode(payload.command)
   })
 
   // Listen for specific tab events

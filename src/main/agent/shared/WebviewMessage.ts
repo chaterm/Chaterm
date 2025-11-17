@@ -16,18 +16,12 @@ export interface WebviewMessage {
     // | "openInBrowser"
     | 'showChatView'
     | 'requestVsCodeLmModels'
-    | 'authStateChanged'
     | 'authCallback'
     // | "fetchMcpMarketplace"
     | 'searchCommits'
     // | "fetchLatestMcpServersFromHub"
     | 'telemetrySetting'
-    | 'invoke'
-    | 'updateSettings'
-    | 'clearAllTaskHistory'
     | 'fetchUserCreditsData'
-    | 'optionsResponse'
-    | 'requestTotalTasksSize'
     | 'searchFiles'
     | 'grpc_request'
     | 'grpc_request_cancel'
