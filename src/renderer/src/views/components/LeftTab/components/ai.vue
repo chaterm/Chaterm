@@ -437,6 +437,17 @@ watch(
   { deep: true }
 )
 
+watch(
+  () => needProxy.value,
+  async (newValue: boolean) => {
+    try {
+      await updateGlobalState('needProxy', newValue)
+    } catch (error) {
+      console.error('Failed to update needProxy:', error)
+    }
+  }
+)
+
 // Load saved configuration when component is mounted
 onMounted(async () => {
   await loadSavedConfig()
