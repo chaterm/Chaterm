@@ -75,6 +75,7 @@ export class RemoteTerminalProcess extends BrownEventEmitter<RemoteTerminalProce
   isHot: boolean = false
   private pendingOutputTimer: NodeJS.Timeout | null = null
   private readonly PENDING_OUTPUT_DELAY = 150 // 150ms delay
+  private readonly JUMPSERVER_COMMAND_TIMEOUT = 5 * 60 * 1000 // five-minute safeguard
   private sessionId: string = ''
   private sshType: string = ''
 
@@ -313,6 +314,14 @@ export class RemoteTerminalProcess extends BrownEventEmitter<RemoteTerminalProce
     let commandCompleted = false
     let exitCode = 0
     let commandEchoFiltered = false
+    let commandTimeout: NodeJS.Timeout | null = null
+
+    const clearCommandTimeout = () => {
+      if (commandTimeout) {
+        clearTimeout(commandTimeout)
+        commandTimeout = null
+      }
+    }
 
     // Helper function to get color name by index
     const getColorName = (index: number): string => {
@@ -488,6 +497,7 @@ export class RemoteTerminalProcess extends BrownEventEmitter<RemoteTerminalProce
 
         // Complete command immediately
         if (!commandCompleted) {
+          clearCommandTimeout()
           commandCompleted = true
           console.log(`[JumpServer ${sessionId}] Command execution completed, sending completed event`)
 
@@ -558,15 +568,23 @@ export class RemoteTerminalProcess extends BrownEventEmitter<RemoteTerminalProce
     stream.write(`${wrappedCommand}\r`)
 
     // Keep timeout mechanism as backup
-    setTimeout(() => {
+    commandTimeout = setTimeout(() => {
       if (!commandCompleted) {
-        console.log(`[JumpServer ${sessionId}] Command execution timeout, forcing completion`)
+        clearCommandTimeout()
         commandCompleted = true
+        console.log(`[JumpServer ${sessionId}] Command execution timeout, forcing completion`)
         stream.removeListener('data', dataHandler)
         jumpserverMarkedCommands.delete(sessionId)
-        this.emit('error', new Error('JumpServer command execution timeout'))
+
+        const timeoutMinutes = Math.max(1, Math.round(this.JUMPSERVER_COMMAND_TIMEOUT / 60000))
+        const timeoutMessage = `Command execution timed out after ${timeoutMinutes} minute${timeoutMinutes > 1 ? 's' : ''}.`
+        const timeoutResolution = 'Chaterm stopped waiting for a response from the server.'
+        this.emit('line', timeoutMessage)
+        this.emit('line', timeoutResolution)
+        this.emit('completed')
+        this.emit('continue')
       }
-    }, 30000)
+    }, this.JUMPSERVER_COMMAND_TIMEOUT)
   }
 }
 
