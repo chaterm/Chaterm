@@ -99,7 +99,7 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    font-size: 13px;
+    font-size: 12px;
   }
 
   .tab-close-icon {
@@ -125,9 +125,9 @@
   :deep(.ant-tabs-tab) {
     margin: 0 2px 0 0; // 减小Tab间距
     padding: 0 !important;
-    height: 28px;
-    line-height: 28px;
-    font-size: 13px;
+    height: 32px;
+    line-height: 32px;
+    font-size: 12px;
     border-radius: 6px;
     background-color: transparent;
     border: none;
@@ -150,13 +150,7 @@
     // 激活的Tab
     &.ant-tabs-tab-active {
       background-color: var(--bg-color-secondary);
-      border: 1px solid var(--border-color-light);
       box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
-
-      .ant-tabs-tab-btn {
-        color: var(--text-color);
-        font-weight: 600;
-      }
 
       // 激活的Tab不显示分隔线
       &::after {
@@ -197,11 +191,11 @@
   }
 
   :deep(.ant-tabs-nav) {
-    height: 32px;
+    height: 36px;
     margin-bottom: 4px;
     padding: 2px 4px;
     background-color: var(--bg-color);
-    border-bottom: 1px solid var(--border-color-light);
+    border-bottom: 1px solid var(--border-color);
   }
 
   :deep(.ant-tabs-nav-list) {
