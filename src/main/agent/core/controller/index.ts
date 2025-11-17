@@ -15,7 +15,7 @@ import { downloadTask } from '@integrations/misc/export-markdown'
 import WorkspaceTracker from '@integrations/workspace/WorkspaceTracker'
 import { TelemetrySetting } from '@shared/TelemetrySetting'
 import { telemetryService } from '@services/telemetry/TelemetryService'
-import { ExtensionMessage, ExtensionState, Invoke, Platform } from '@shared/ExtensionMessage'
+import { ExtensionMessage, Platform } from '@shared/ExtensionMessage'
 import { HistoryItem } from '@shared/HistoryItem'
 import { WebviewMessage } from '@shared/WebviewMessage'
 import { fileExistsAtPath } from '@utils/fs'
@@ -47,7 +47,7 @@ export class Controller {
   private postMessage: (message: ExtensionMessage) => Promise<boolean> | undefined
 
   private disposables: vscode.Disposable[] = []
-  task?: Task
+  private tasks: Map<string, Task> = new Map()
   mcpHub: McpHub
   workspaceTracker: WorkspaceTracker
 
@@ -68,7 +68,6 @@ export class Controller {
       getMcpSettingsFilePath,
       extensionVersion,
       (msg) => this.postMessageToWebview(msg)
-      // telemetryService
     )
 
     // Clean up legacy checkpoints
@@ -77,13 +76,40 @@ export class Controller {
     })
   }
 
+  private getTaskFromId(tabId?: string): Task | undefined {
+    if (!tabId) {
+      return undefined
+    }
+    const task = this.tasks.get(tabId)
+    return task
+  }
+
+  getAllTasks(): Task[] {
+    return Array.from(this.tasks.values())
+  }
+
+  /**
+   * Reload security config for all active tasks
+   * Used for hot reloading security configuration
+   */
+  async reloadSecurityConfigForAllTasks(): Promise<void> {
+    const tasks = this.getAllTasks()
+    const promises = tasks.map(async (task) => {
+      try {
+        await task.reloadSecurityConfig()
+      } catch (error) {
+        console.warn(`[SecurityConfig] Failed to hot reload configuration in Task ${task.taskId}:`, error)
+      }
+    })
+    await Promise.allSettled(promises)
+  }
+
   async dispose() {
     this.outputChannel.appendLine('Disposing ClineProvider...')
 
-    // Release terminal resources
-    if (this.task) {
-      const terminalManager = this.task.getTerminalManager()
-
+    // Release terminal resources for all tasks
+    for (const task of this.tasks.values()) {
+      const terminalManager = task.getTerminalManager()
       if (terminalManager) {
         terminalManager.disposeAll()
       }
@@ -121,16 +147,23 @@ export class Controller {
 
   async initTask(hosts: Host[], task?: string, historyItem?: HistoryItem, cwd?: Map<string, string>, taskId?: string) {
     console.log('initTask', task, historyItem, 'taskId:', taskId)
-    await this.clearTask() // ensures that an existing task doesn't exist before starting a new one, although this shouldn't be possible since user must clear task before starting a new one
+    const resolvedTaskId = taskId ?? historyItem?.id
+    if (resolvedTaskId) {
+      await this.clearTask(resolvedTaskId)
+    }
     const { apiConfiguration, userRules, autoApprovalSettings } = await getAllExtensionState()
     const customInstructions = this.formatUserRulesToInstructions(userRules)
 
     // Create task immediately without waiting for title generation
-    this.task = new Task(
+    let newTask: Task
+    const postState = () => this.postStateToWebview(newTask?.taskId ?? resolvedTaskId)
+    const postMessage = (message: ExtensionMessage) => this.postMessageToWebview(message, newTask?.taskId ?? resolvedTaskId)
+
+    newTask = new Task(
       this.workspaceTracker,
       (historyItem) => this.updateTaskHistory(historyItem),
-      () => this.postStateToWebview(),
-      (message) => this.postMessageToWebview(message),
+      postState,
+      postMessage,
       (taskId) => this.reinitExistingTaskFromId(taskId),
       apiConfiguration,
       autoApprovalSettings,
@@ -143,6 +176,8 @@ export class Controller {
       undefined, // Don't pass generated title initially
       taskId
     )
+
+    this.tasks.set(newTask.taskId, newTask)
 
     // Generate chat title asynchronously for new tasks (non-blocking)
     if (task && taskId && !historyItem) {
@@ -157,14 +192,23 @@ export class Controller {
   async reinitExistingTaskFromId(taskId: string) {
     const history = await this.getTaskWithId(taskId)
     if (history) {
-      await this.initTask(this.task?.hosts || [], undefined, history.historyItem)
+      const existingTask = this.getTaskFromId(taskId)
+      const hosts = existingTask?.hosts || []
+      await this.initTask(hosts, undefined, history.historyItem, existingTask?.cwd, taskId)
     }
   }
 
   // Send any JSON serializable data to the react app
-  async postMessageToWebview(message: ExtensionMessage) {
+  async postMessageToWebview(message: ExtensionMessage, taskId?: string) {
     // Send a message to the webview here
-    const safeMessage = removeSensitiveKeys(message)
+    const payload = taskId
+      ? {
+          ...message,
+          tabId: (message as ExtensionMessage & { tabId?: string }).tabId ?? taskId,
+          taskId: (message as ExtensionMessage & { taskId?: string }).taskId ?? taskId
+        }
+      : message
+    const safeMessage = removeSensitiveKeys(payload)
     await this.postMessage(safeMessage)
   }
 
@@ -175,45 +219,37 @@ export class Controller {
    * @param webview A reference to the extension webview
    */
   async handleWebviewMessage(message: WebviewMessage) {
-    switch (message.type) {
-      case 'authStateChanged':
-        // await this.setUserInfo(message.user || undefined)
-        await this.setUserInfo(undefined)
-        await this.postStateToWebview()
-        break
+    const targetTaskId = message.tabId ?? message.taskId
+    const targetTask = targetTaskId ? this.getTaskFromId(targetTaskId) : undefined
 
+    switch (message.type) {
       case 'newTask':
         await this.initTask(message.hosts!, message.text, undefined, message.cwd, message.taskId)
-        if (this.task?.taskId && message.hosts) {
-          await updateTaskHosts(this.task.taskId, message.hosts)
+        if (message.taskId && message.hosts) {
+          await updateTaskHosts(message.taskId, message.hosts)
         }
         break
       case 'condense':
-        this.task?.handleWebviewAskResponse('yesButtonClicked')
+        targetTask?.handleWebviewAskResponse('yesButtonClicked')
         break
       case 'apiConfiguration':
         if (message.apiConfiguration) {
           await updateApiConfiguration(message.apiConfiguration)
-          if (this.task) {
-            this.task.api = buildApiHandler(message.apiConfiguration)
+          // Update API configuration for all tasks
+          for (const task of this.tasks.values()) {
+            task.api = buildApiHandler(message.apiConfiguration)
           }
         }
-        await this.postStateToWebview()
+        await this.postStateToWebview(targetTaskId)
         break
-      case 'optionsResponse':
-        await this.postMessageToWebview({
-          type: 'invoke',
-          invoke: 'sendMessage',
-          text: message.text
-        })
-        break
+
       case 'askResponse':
         console.log('askResponse', message)
-        if (this.task) {
+        if (targetTask) {
           if (message.askResponse === 'messageResponse') {
-            await this.task.clearTodos('new_user_input')
+            await targetTask.clearTodos('new_user_input')
           }
-          await this.task.handleWebviewAskResponse(message.askResponse!, message.text, message.cwd)
+          await targetTask.handleWebviewAskResponse(message.askResponse!, message.text, message.cwd)
         }
         break
       case 'showTaskWithId':
@@ -222,18 +258,14 @@ export class Controller {
       case 'deleteTaskWithId':
         this.deleteTaskWithId(message.text!)
         break
-      case 'requestTotalTasksSize': {
-        this.refreshTotalTasksSize()
-        break
-      }
       case 'taskFeedback':
-        if (message.feedbackType && this.task?.taskId) {
-          telemetryService.captureTaskFeedback(this.task.taskId, message.feedbackType)
+        if (message.feedbackType && targetTaskId) {
+          telemetryService.captureTaskFeedback(targetTaskId, message.feedbackType)
         }
         break
       case 'interactiveCommandInput':
-        if (message.input !== undefined && this.task) {
-          this.task.handleInteractiveCommandInput(message.input)
+        if (message.input !== undefined && targetTask) {
+          targetTask.handleInteractiveCommandInput(message.input)
         }
         break
       case 'commandGeneration':
@@ -241,47 +273,11 @@ export class Controller {
           await this.handleCommandGeneration(message.instruction, message.context, message.tabId)
         }
         break
-      case 'invoke': {
-        if (message.text) {
-          await this.postMessageToWebview({
-            type: 'invoke',
-            invoke: message.text as Invoke
-          })
-        }
-        break
-      }
-      case 'updateSettings': {
-        // api config
-        if (message.apiConfiguration) {
-          await updateApiConfiguration(message.apiConfiguration)
-          if (this.task) {
-            this.task.api = buildApiHandler(message.apiConfiguration)
-          }
-        }
-
-        // telemetry setting
-        if (message.telemetrySetting) {
-          await this.updateTelemetrySetting(message.telemetrySetting)
-        }
-
-        // after settings are updated, post state to webview
-        await this.postStateToWebview()
-
-        await this.postMessageToWebview({ type: 'didUpdateSettings' })
-        break
-      }
-      case 'clearAllTaskHistory': {
-        await this.deleteAllTaskHistory()
-        await this.postStateToWebview()
-        this.refreshTotalTasksSize()
-        this.postMessageToWebview({ type: 'relinquishControl' })
-        break
-      }
       case 'telemetrySetting': {
         if (message.telemetrySetting) {
           await this.updateTelemetrySetting(message.telemetrySetting)
         }
-        await this.postStateToWebview()
+        await this.postStateToWebview(targetTaskId)
         break
       }
     }
@@ -295,47 +291,48 @@ export class Controller {
     telemetryService.updateTelemetryState(isOptedIn)
   }
 
-  async cancelTask() {
-    if (this.task) {
-      const currentTask = this.task
-      const { historyItem } = await this.getTaskWithId(currentTask.taskId)
-      try {
-        await currentTask.abortTask()
-      } catch (error) {
-        console.error('Failed to abort task', error)
-      }
-      await pWaitFor(
-        () => this.task === undefined || this.task.isStreaming === false || this.task.didFinishAbortingStream || this.task.isWaitingForFirstChunk, // if only first chunk is processed, then there's no need to wait for graceful abort (closes edits, browser, etc)
-        {
-          timeout: 3_000
-        }
-      ).catch(() => {
-        console.error('Failed to abort task')
-      })
-      try {
-        await currentTask.clearTodos('user_cancelled')
-      } catch (error) {
-        console.error('Failed to clear todos during cancelTask', error)
-      }
-      // 'abandoned' will prevent this cline instance from affecting future cline instance gui. this may happen if its hanging on a streaming request
-      currentTask.abandoned = true
-      await this.initTask(currentTask.hosts, undefined, historyItem) // clears task again, so we need to abortTask manually above
-      // await this.postStateToWebview() // new Cline instance will post state when it's ready. having this here sent an empty messages array to webview leading to virtuoso having to reload the entire list
+  async cancelTask(tabId?: string) {
+    const currentTask = this.getTaskFromId(tabId)
+    if (!currentTask) {
+      return
     }
+    const { historyItem } = await this.getTaskWithId(currentTask.taskId)
+    try {
+      await currentTask.abortTask()
+    } catch (error) {
+      console.error('Failed to abort task', error)
+    }
+    await pWaitFor(() => currentTask.isStreaming === false || currentTask.didFinishAbortingStream || currentTask.isWaitingForFirstChunk, {
+      timeout: 3_000
+    }).catch(() => {
+      console.error('Failed to abort task')
+    })
+
+    try {
+      await currentTask.clearTodos('user_cancelled')
+    } catch (error) {
+      console.error('Failed to clear todos during cancelTask', error)
+    }
+
+    currentTask.abandoned = true
+    await this.initTask(currentTask.hosts, undefined, historyItem, currentTask.cwd, currentTask.taskId)
   }
 
-  async gracefulCancelTask() {
-    if (this.task) {
-      try {
-        await this.task.gracefulAbortTask()
-      } catch (error) {
-        console.error('Failed to gracefully abort task', error)
-      }
-      try {
-        await this.task.clearTodos('user_cancelled')
-      } catch (error) {
-        console.error('Failed to clear todos during gracefulCancelTask', error)
-      }
+  async gracefulCancelTask(tabId?: string) {
+    const currentTask = this.getTaskFromId(tabId)
+    if (!currentTask) {
+      return
+    }
+
+    try {
+      await currentTask.gracefulAbortTask()
+    } catch (error) {
+      console.error('Failed to gracefully abort task', error)
+    }
+    try {
+      await currentTask.clearTodos('user_cancelled')
+    } catch (error) {
+      console.error('Failed to clear todos during gracefulCancelTask', error)
     }
   }
 
@@ -508,11 +505,14 @@ export class Controller {
   }
 
   async showTaskWithId(id: string, hosts: Host[], cwd?: Map<string, string>) {
-    if (id !== this.task?.taskId) {
-      // non-current task
-      const { historyItem } = await this.getTaskWithId(id)
-      await this.initTask(hosts, undefined, historyItem, cwd) // clears existing task
+    const existingTask = this.tasks.get(id)
+    if (existingTask) {
+      // Task already exists, no need to reinitialize
+      return
     }
+
+    const { historyItem } = await this.getTaskWithId(id)
+    await this.initTask(hosts, undefined, historyItem, cwd, id)
   }
 
   async exportTaskWithId(id: string) {
@@ -558,6 +558,7 @@ export class Controller {
   async deleteTaskWithId(id: string) {
     console.info('deleteTaskWithId: ', id)
     await deleteChatermHistoryByTaskId(id)
+    await this.clearTask(id)
     this.refreshTotalTasksSize()
   }
 
@@ -573,60 +574,59 @@ export class Controller {
     return updatedTaskHistory
   }
 
-  async postStateToWebview() {
-    const state = await this.getStateToPostToWebview()
-    this.postMessageToWebview({ type: 'state', state })
-  }
+  async postStateToWebview(taskId?: string) {
+    const { apiConfiguration, customInstructions, autoApprovalSettings, chatSettings, userInfo, mcpMarketplaceEnabled } = await getAllExtensionState()
 
-  async getStateToPostToWebview(): Promise<ExtensionState> {
-    const {
-      apiConfiguration,
-      // lastShownAnnouncementId,
-      customInstructions,
-      // taskHistory,
-      autoApprovalSettings,
-      // browserSettings,
-      chatSettings,
-      userInfo,
-      mcpMarketplaceEnabled
-      // telemetrySetting,
-      // planActSeparateModelsSetting,
-    } = await getAllExtensionState()
+    const activeTask = this.getTaskFromId(taskId)
 
-    return {
+    const state = {
       version: this.context.extension?.packageJSON?.version ?? '',
       apiConfiguration,
       customInstructions,
       uriScheme: vscode.env.uriScheme,
-      // currentTaskItem: this.task?.taskId
-      //   ? (taskHistory || []).find((item) => item.id === this.task?.taskId)
-      //   : undefined,
-      checkpointTrackerErrorMessage: this.task?.checkpointTrackerErrorMessage,
-      chatermMessages: this.task?.chatermMessages || [],
-      // taskHistory: (taskHistory || [])
-      //   .filter((item) => item.ts && item.task)
-      //   .sort((a, b) => b.ts - a.ts)
-      //   .slice(0, 100), // for now we're only getting the latest 100 tasks, but a better solution here is to only pass in 3 for recent task history, and then get the full task history on demand when going to the task history view (maybe with pagination?)
-      // shouldShowAnnouncement: lastShownAnnouncementId !== this.latestAnnouncementId,
+      checkpointTrackerErrorMessage: activeTask?.checkpointTrackerErrorMessage,
+      chatermMessages: activeTask?.chatermMessages || [],
       shouldShowAnnouncement: false,
-
       platform: process.platform as Platform,
       autoApprovalSettings,
-      // browserSettings,
       chatSettings,
       userInfo,
       mcpMarketplaceEnabled,
-      // telemetrySetting,
-      // planActSeparateModelsSetting,
       vscMachineId: vscode.env.machineId,
       shellIntegrationTimeout: 30,
       isNewUser: true
     }
+
+    this.postMessageToWebview({ type: 'state', state }, taskId)
   }
 
-  async clearTask() {
-    this.task?.abortTask()
-    this.task = undefined // removes reference to it, so once promises end it will be garbage collected
+  async clearTask(tabId?: string) {
+    const disposeTask = async (task: Task) => {
+      try {
+        await task.abortTask()
+      } catch (error) {
+        console.error('Failed to abort task during clearTask', error)
+      }
+
+      const terminalManager = task.getTerminalManager()
+      if (terminalManager) {
+        terminalManager.disposeAll()
+      }
+    }
+
+    if (tabId) {
+      const task = this.tasks.get(tabId)
+      if (task) {
+        await disposeTask(task)
+        this.tasks.delete(tabId)
+      }
+      return
+    }
+
+    for (const task of this.tasks.values()) {
+      await disposeTask(task)
+    }
+    this.tasks.clear()
   }
   async updateTaskHistory(item: Partial<HistoryItem> & { id: string }): Promise<HistoryItem[]> {
     const history = ((await getGlobalState('taskHistory')) as HistoryItem[]) || []
@@ -654,10 +654,7 @@ export class Controller {
   async resetState() {
     vscode.window.showInformationMessage('Resetting state...')
     await resetExtensionState()
-    if (this.task) {
-      this.task.abortTask()
-      this.task = undefined
-    }
+    await this.clearTask()
     vscode.window.showInformationMessage('State reset')
     await this.postStateToWebview()
   }
@@ -828,8 +825,9 @@ export class Controller {
         console.log('Generated chat title:', cleanedTitle)
 
         // Update Task instance's chatTitle property
-        if (this.task && this.task.taskId === taskId) {
-          this.task.chatTitle = cleanedTitle
+        const task = this.getTaskFromId(taskId)
+        if (task) {
+          task.chatTitle = cleanedTitle
           // Update history immediately with the new title
           await this.updateTaskHistory({
             id: taskId,

@@ -7,6 +7,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 Chaterm 是一个基于 Electron 的 AI 驱动终端工具，提供智能命令补全、多设备管理、AI Agent 能力和企业级安全特性。
 
 **技术栈：**
+
 - **前端框架：** Vue 3 + TypeScript + Pinia + Vue Router + Vue I18n
 - **UI 组件：** Ant Design Vue (自动导入) + Monaco Editor + xterm.js
 - **桌面应用：** Electron 30 + electron-vite + electron-builder
@@ -58,6 +59,7 @@ Chaterm 是一个基于 Electron 的 AI 驱动终端工具，提供智能命令�
 ### 关键路径别名 (electron.vite.config.ts)
 
 **主进程别名：**
+
 - `@shared` → `src/main/agent/shared`
 - `@core` → `src/main/agent/core`
 - `@services` → `src/main/agent/services`
@@ -66,6 +68,7 @@ Chaterm 是一个基于 Electron 的 AI 驱动终端工具，提供智能命令�
 - `@api` → `src/main/agent/api`
 
 **渲染进程别名：**
+
 - `@renderer` → `src/renderer/src`
 - `@views` → `src/renderer/src/views`
 - `@router` → `src/renderer/src/router`
@@ -78,6 +81,7 @@ Chaterm 是一个基于 Electron 的 AI 驱动终端工具，提供智能命令�
 ## 常用开发命令
 
 ### 环境准备
+
 ```bash
 # 安装前必须运行此脚本修复 package-lock.json
 node scripts/patch-package-lock.js
@@ -85,6 +89,7 @@ npm install
 ```
 
 ### 开发与调试
+
 ```bash
 npm run dev              # 启动开发服务器 (热重载)
 npm run dev:watch        # 启动开发服务器 (文件监听模式)
@@ -92,6 +97,7 @@ npm run start            # 预览构建结果
 ```
 
 ### 代码质量检查
+
 ```bash
 npm run format           # Prettier 格式化所有文件
 npm run lint             # ESLint 检查并自动修复
@@ -102,6 +108,7 @@ npm run typecheck:web    # 仅检查渲染进程类型
 ```
 
 ### 测试
+
 ```bash
 npm test                 # Vitest 单元测试 (watch 模式)
 npm run test:e2e         # Playwright E2E 测试 (headless)
@@ -110,6 +117,7 @@ npm run test:e2e:ui      # Playwright E2E 测试 (UI 模式)
 ```
 
 ### 构建与打包
+
 ```bash
 npm run build            # 构建所有源码 (不打包应用)
 npm run build:unpack     # 构建并生成解压目录 (用于验证)
@@ -121,6 +129,7 @@ npm run build:linux      # 构建 Linux 包
 ## 开发规范与约束
 
 ### 代码改动原则
+
 1. **最小化变更范围：** 仅修改与当前需求直接相关的文件，避免"顺手"重构无关代码
 2. **类型安全优先：** 严格 TypeScript 类型定义，避免 `any`；新增 IPC 通道必须在 `src/preload/index.d.ts` 中定义类型
 3. **保持契约稳定：** 不破坏现有 IPC 接口、Pinia Store、数据库表结构
@@ -130,17 +139,20 @@ npm run build:linux      # 构建 Linux 包
 ### Electron 特有约束
 
 **主进程 (src/main)：**
+
 - 禁止阻塞事件循环，长时任务使用异步或子进程
 - 与渲染层通信必须走 IPC，保持信道命名唯一且负载可序列化
 - 窗口管理逻辑见 `src/main/windowManager.ts`
 - 入口文件：`src/main/index.ts`
 
 **预加载脚本 (src/preload)：**
+
 - 使用 `contextBridge` 暴露最小 API 集合
 - 所有暴露的 API 必须在 `src/preload/index.d.ts` 中定义类型
 - 不直接暴露 Node.js 能力给渲染层
 
 **渲染进程 (src/renderer)：**
+
 - 使用 Vue 3 Composition API
 - 状态管理使用 Pinia，配置持久化插件
 - 路由配置：`src/renderer/src/router/routes.ts`
@@ -150,6 +162,7 @@ npm run build:linux      # 构建 Linux 包
 ### Agent 子系统开发 (src/main/agent)
 
 **目录结构：**
+
 - `api/` - AI provider 适配层 (Anthropic, OpenAI, AWS Bedrock, Ollama)
 - `core/` - 核心逻辑 (controller, prompts, storage, context)
 - `services/` - 服务层 (telemetry, diff, terminal)
@@ -158,6 +171,7 @@ npm run build:linux      # 构建 Linux 包
 - `utils/` - 工具函数
 
 **扩展 AI Provider：**
+
 1. 在 `api/providers/` 创建新 provider 文件
 2. 在 `api/providers/types.ts` 注册类型
 3. 在 `api/index.ts` 完成注册
@@ -166,6 +180,7 @@ npm run build:linux      # 构建 Linux 包
 ### 数据库与迁移 (src/main/storage/db)
 
 **关键文件：**
+
 - `connection.ts` - 数据库连接与路径管理
 - `chaterm.service.ts` - 数据库服务层
 - `autocomplete.service.ts` - 自动补全数据服务
@@ -173,6 +188,7 @@ npm run build:linux      # 构建 Linux 包
 - `types.ts` - 数据库类型定义
 
 **添加新表或修改表结构：**
+
 1. 在 `migrations/` 创建新迁移文件 (按时间戳命名)
 2. 确保迁移是幂等的且可重放
 3. 在对应 `.service.ts` 添加服务层方法
@@ -181,10 +197,12 @@ npm run build:linux      # 构建 Linux 包
 ### i18n 国际化
 
 **文案位置：**
+
 - 中文：`src/renderer/src/locales/lang/zh-CN.ts`
 - 英文：`src/renderer/src/locales/lang/en-US.ts`
 
 **使用方式：**
+
 ```typescript
 // 在 Vue 组件中
 const { t } = useI18n()
@@ -192,6 +210,7 @@ const text = t('key.subkey')
 ```
 
 ### 环境变量
+
 - 渲染进程仅能访问以 `RENDERER_` 开头的环境变量
 - 配置位置：`build/.env` 文件 (gitignored)
 - 通过 `electron.vite.config.ts` 的 `envPrefix: 'RENDERER_'` 控制

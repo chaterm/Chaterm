@@ -8,7 +8,6 @@ export interface ExtensionMessage {
     | 'selectedImages'
     | 'theme'
     | 'workspaceUpdated'
-    | 'invoke'
     | 'partialMessage'
     | 'relinquishControl'
     | 'authCallback'
@@ -39,7 +38,6 @@ export interface ExtensionMessage {
     | 'accountLogoutClicked'
     | 'accountButtonClicked'
     | 'focusChatInput'
-  invoke?: Invoke
   state?: ExtensionState
   filePaths?: string[]
   partialMessage?: ChatermMessage
@@ -95,8 +93,6 @@ export interface ExtensionMessage {
     duration?: number
   }
 }
-
-export type Invoke = 'sendMessage' | 'primaryButtonClick' | 'secondaryButtonClick'
 
 export type Platform = 'aix' | 'darwin' | 'freebsd' | 'linux' | 'openbsd' | 'sunos' | 'win32' | 'unknown'
 

@@ -128,7 +128,7 @@ export class UserConfigStoreService {
 
           request.onsuccess = () => {
             const result = request.result || this.getDefaultConfig()
-            console.log('Config retrieved:', result)
+            // console.log('Config retrieved:', result)
             resolve(result)
           }
 

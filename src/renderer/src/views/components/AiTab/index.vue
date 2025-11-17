@@ -1,590 +1,600 @@
 <template>
   <a-tabs
-    v-model:active-key="activeKey"
+    v-model:active-key="currentChatId"
+    type="line"
     class="ai-chat-custom-tabs ai-chat-flex-container"
-    @change="handleTabChange"
   >
     <a-tab-pane
-      key="chat"
-      :tab="currentChatTitle"
+      v-for="tab in chatTabs"
+      :key="tab.id"
     >
-      <div
-        v-if="filteredChatHistory.length === 0"
-        class="ai-welcome-container"
-      >
-        <div class="ai-welcome-icon">
-          <img
-            src="@/assets/menu/ai.svg"
-            alt="AI"
-          />
-        </div>
-        <template v-if="isSkippedLogin">
-          <div class="ai-login-prompt">
-            <p>{{ $t('ai.loginPrompt') }}</p>
-            <a-button
-              type="primary"
-              class="login-button"
-              @click="goToLogin"
-            >
-              {{ $t('common.login') }}
-            </a-button>
-          </div>
-        </template>
-        <template v-else>
-          <div class="ai-welcome-text">{{ $t('ai.welcome') }}</div>
-        </template>
-      </div>
-      <div
-        v-if="filteredChatHistory.length > 0"
-        ref="chatContainer"
-        :key="containerKey"
-        class="chat-response-container"
-      >
+      <template #tab>
+        <span class="tab-title">{{ tab.title }}</span>
+        <CloseOutlined
+          class="tab-close-icon"
+          @click.stop="handleTabRemove(tab.id)"
+        />
+      </template>
+      <!-- 只渲染当前激活的 tab 内容，避免重复渲染导致的性能问题 -->
+      <template v-if="tab.id === currentChatId">
         <div
-          ref="chatResponse"
-          class="chat-response"
+          v-if="filteredChatHistory.length === 0"
+          class="ai-welcome-container"
         >
-          <template
-            v-for="(message, index) in filteredChatHistory"
-            :key="message"
-          >
-            <div
-              v-if="message.role === 'assistant'"
-              class="assistant-message-container"
-              :class="{
-                'has-history-copy-btn': chatTypeValue === 'cmd' && message.ask === 'command' && message.actioned,
-                'last-message': message.say === 'completion_result'
-              }"
-            >
-              <div
-                v-if="message.say === 'completion_result'"
-                class="message-header"
-              >
-                <div class="message-title">
-                  <CheckCircleFilled style="color: #52c41a; margin-right: 4px" />
-                  {{ $t('ai.taskCompleted') }}
-                </div>
-                <div
-                  v-if="index === filteredChatHistory.length - 1"
-                  class="message-feedback"
-                >
-                  <a-button
-                    type="text"
-                    class="feedback-btn like-btn"
-                    size="small"
-                    :disabled="isMessageFeedbackSubmitted(message.id)"
-                    @click="handleFeedback(message, 'like')"
-                  >
-                    <template #icon>
-                      <LikeOutlined
-                        :style="{
-                          color: getMessageFeedback(message.id) === 'like' ? '#52c41a' : '',
-                          opacity: getMessageFeedback(message.id) === 'like' ? 1 : ''
-                        }"
-                      />
-                    </template>
-                  </a-button>
-                  <a-button
-                    type="text"
-                    class="feedback-btn dislike-btn"
-                    size="small"
-                    :disabled="isMessageFeedbackSubmitted(message.id)"
-                    @click="handleFeedback(message, 'dislike')"
-                  >
-                    <template #icon>
-                      <DislikeOutlined
-                        :style="{
-                          color: getMessageFeedback(message.id) === 'dislike' ? '#ff4d4f' : '',
-                          opacity: getMessageFeedback(message.id) === 'dislike' ? 1 : ''
-                        }"
-                      />
-                    </template>
-                  </a-button>
-                </div>
-              </div>
-              <MarkdownRenderer
-                v-if="typeof message.content === 'object' && 'question' in message.content"
-                :ref="(el) => setMarkdownRendererRef(el, index)"
-                :content="(message.content as MessageContent).question"
-                :class="`message ${message.role} ${message.say === 'completion_result' ? 'completion-result' : ''} ${message.say === 'interactive_command_notification' ? 'interactive-notification' : ''}`"
-                :ask="message.ask"
-                :say="message.say"
-                :partial="message.partial"
-                :executed-command="message.executedCommand"
-              />
-              <MarkdownRenderer
-                v-else
-                :ref="(el) => setMarkdownRendererRef(el, index)"
-                :content="typeof message.content === 'string' ? message.content : ''"
-                :class="`message ${message.role} ${message.say === 'completion_result' ? 'completion-result' : ''} ${message.say === 'interactive_command_notification' ? 'interactive-notification' : ''}`"
-                :ask="message.ask"
-                :say="message.say"
-                :partial="message.partial"
-                :executed-command="message.executedCommand"
-              />
-
-              <div
-                v-if="message.ask === 'mcp_tool_call' && message.mcpToolCall"
-                class="mcp-tool-call-info"
-              >
-                <div class="mcp-info-section">
-                  <div class="mcp-info-label">MCP Server:</div>
-                  <div class="mcp-info-value">{{ message.mcpToolCall.serverName }}</div>
-                </div>
-                <div class="mcp-info-section">
-                  <div class="mcp-info-label">Tool:</div>
-                  <div class="mcp-info-value">{{ message.mcpToolCall.toolName }}</div>
-                </div>
-                <div
-                  v-if="message.mcpToolCall.arguments && Object.keys(message.mcpToolCall.arguments).length > 0"
-                  class="mcp-info-section"
-                >
-                  <div class="mcp-info-label">Parameters:</div>
-                  <div class="mcp-info-params">
-                    <div
-                      v-for="(value, key) in message.mcpToolCall.arguments"
-                      :key="key"
-                      class="mcp-param-item"
-                    >
-                      <span class="mcp-param-key">{{ key }}:</span>
-                      <span class="mcp-param-value">{{ formatParamValue(value) }}</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div class="message-actions">
-                <template v-if="typeof message.content === 'object' && 'options' in message.content && index === filteredChatHistory.length - 1">
-                  <div class="options-container">
-                    <!-- 显示原有选项作为单选按钮 -->
-                    <div class="options-radio-group">
-                      <a-radio-group
-                        :value="getSelectedOption(message)"
-                        @change="(e) => handleOptionSelect(message, e.target.value)"
-                      >
-                        <a-radio
-                          v-for="(option, optionIndex) in (message.content as MessageContent).options"
-                          :key="optionIndex"
-                          :value="option"
-                          class="option-radio"
-                        >
-                          {{ option }}
-                        </a-radio>
-                        <!-- 当选项数量大于1时，添加自定义输入选项 -->
-                        <div
-                          v-if="(message.content as MessageContent).options && (message.content as MessageContent).options!.length > 1"
-                          class="option-radio custom-option"
-                        >
-                          <a-radio
-                            value="__custom__"
-                            class="custom-radio"
-                          />
-                          <a-textarea
-                            :value="getCustomInput(message)"
-                            :placeholder="$t('ai.enterCustomOption')"
-                            :auto-size="{ minRows: 1, maxRows: 4 }"
-                            class="custom-input"
-                            @input="(e) => handleCustomInputChange(message, (e.target as HTMLInputElement).value || '')"
-                            @focus="() => handleOptionSelect(message, '__custom__')"
-                          />
-                        </div>
-                      </a-radio-group>
-                    </div>
-
-                    <!-- 提交按钮 - 选择任何选项后显示 -->
-                    <div
-                      v-if="(message.content as MessageContent).options && !message.selectedOption && getSelectedOption(message)"
-                      class="submit-button-container"
-                    >
-                      <a-button
-                        type="primary"
-                        size="small"
-                        :disabled="!canSubmitOption(message)"
-                        class="submit-option-btn"
-                        @click="handleOptionSubmit(message)"
-                      >
-                        {{ $t('ai.submit') }}
-                      </a-button>
-                    </div>
-                  </div>
-                </template>
-                <!-- Inline approval buttons for Agent mode: attach to the pending command message -->
-                <template
-                  v-if="
-                    chatTypeValue === 'agent' &&
-                    index === filteredChatHistory.length - 1 &&
-                    lastChatMessageId === message.id &&
-                    (message.ask === 'command' || message.ask === 'mcp_tool_call') &&
-                    !showCancelButton
-                  "
-                >
-                  <div class="bottom-buttons">
-                    <a-button
-                      size="small"
-                      class="reject-btn"
-                      :disabled="buttonsDisabled"
-                      @click="handleRejectContent"
-                    >
-                      <template #icon>
-                        <CloseOutlined />
-                      </template>
-                      {{ $t('ai.reject') }}
-                    </a-button>
-                    <a-button
-                      v-if="message.ask === 'mcp_tool_call'"
-                      size="small"
-                      class="approve-auto-btn"
-                      :disabled="buttonsDisabled"
-                      @click="handleApproveAndAutoApprove"
-                    >
-                      <template #icon>
-                        <CheckCircleOutlined />
-                      </template>
-                      {{ $t('ai.addAutoApprove') }}
-                    </a-button>
-                    <a-button
-                      size="small"
-                      class="approve-btn"
-                      :disabled="buttonsDisabled"
-                      @click="handleApproveCommand"
-                    >
-                      <template #icon>
-                        <PlayCircleOutlined />
-                      </template>
-                      {{ message.ask === 'mcp_tool_call' ? $t('ai.approve') : $t('ai.run') }}
-                    </a-button>
-                  </div>
-                </template>
-                <!-- Inline copy/run buttons for Command mode - command type -->
-                <template
-                  v-if="
-                    chatTypeValue === 'cmd' &&
-                    index === filteredChatHistory.length - 1 &&
-                    lastChatMessageId === message.id &&
-                    message.ask === 'command' &&
-                    !showCancelButton
-                  "
-                >
-                  <div class="bottom-buttons">
-                    <a-button
-                      size="small"
-                      class="reject-btn"
-                      @click="handleCopyContent"
-                    >
-                      <template #icon>
-                        <CopyOutlined />
-                      </template>
-                      {{ $t('ai.copy') }}
-                    </a-button>
-                    <a-button
-                      size="small"
-                      class="approve-btn"
-                      @click="handleApplyCommand"
-                    >
-                      <template #icon>
-                        <PlayCircleOutlined />
-                      </template>
-                      {{ $t('ai.run') }}
-                    </a-button>
-                  </div>
-                </template>
-                <!-- Inline approval buttons for Command mode - mcp_tool_call type -->
-                <template
-                  v-if="
-                    chatTypeValue === 'cmd' &&
-                    index === filteredChatHistory.length - 1 &&
-                    lastChatMessageId === message.id &&
-                    message.ask === 'mcp_tool_call' &&
-                    !showCancelButton
-                  "
-                >
-                  <div class="bottom-buttons">
-                    <a-button
-                      size="small"
-                      class="reject-btn"
-                      :disabled="buttonsDisabled"
-                      @click="handleRejectContent"
-                    >
-                      <template #icon>
-                        <CloseOutlined />
-                      </template>
-                      {{ $t('ai.reject') }}
-                    </a-button>
-                    <a-button
-                      size="small"
-                      class="approve-auto-btn"
-                      :disabled="buttonsDisabled"
-                      @click="handleApproveAndAutoApprove"
-                    >
-                      <template #icon>
-                        <CheckCircleOutlined />
-                      </template>
-                      {{ $t('ai.addAutoApprove') }}
-                    </a-button>
-                    <a-button
-                      size="small"
-                      class="approve-btn"
-                      :disabled="buttonsDisabled"
-                      @click="handleApproveCommand"
-                    >
-                      <template #icon>
-                        <PlayCircleOutlined />
-                      </template>
-                      {{ $t('ai.approve') }}
-                    </a-button>
-                  </div>
-                </template>
-              </div>
-            </div>
-            <div
-              v-else
-              :class="`message ${message.role}`"
-            >
-              {{ message.content }}
-            </div>
-
-            <!-- 动态插入 Todo 显示 -->
-            <TodoInlineDisplay
-              v-if="shouldShowTodoAfterMessage(message)"
-              :todos="getTodosForMessage(message)"
-              :show-trigger="message.role === 'assistant' && message.hasTodoUpdate"
-              class="todo-inline"
+          <div class="ai-welcome-icon">
+            <img
+              src="@/assets/menu/ai.svg"
+              alt="AI"
             />
+          </div>
+          <template v-if="isSkippedLogin">
+            <div class="ai-login-prompt">
+              <p>{{ $t('ai.loginPrompt') }}</p>
+              <a-button
+                type="primary"
+                class="login-button"
+                @click="goToLogin"
+              >
+                {{ $t('common.login') }}
+              </a-button>
+            </div>
+          </template>
+          <template v-else>
+            <div class="ai-welcome-text">{{ $t('ai.welcome') }}</div>
           </template>
         </div>
-      </div>
-      <div class="bottom-container">
         <div
-          v-if="showCancelButton"
-          class="bottom-buttons cancel-row"
+          v-if="filteredChatHistory.length > 0"
+          ref="chatContainer"
+          class="chat-response-container"
         >
-          <a-button
-            size="small"
-            class="cancel-btn"
-            @click="handleCancel"
-          >
-            <template #icon>
-              <CloseOutlined />
-            </template>
-            {{ $t('ai.cancel') }}
-          </a-button>
-        </div>
-        <div
-          v-if="showResumeButton"
-          class="bottom-buttons"
-        >
-          <a-button
-            size="small"
-            type="primary"
-            class="resume-btn"
-            :disabled="resumeDisabled"
-            @click="handleResume"
-          >
-            <template #icon>
-              <RedoOutlined />
-            </template>
-            {{ $t('ai.resume') }}
-          </a-button>
-        </div>
-        <div
-          v-if="showRetryButton"
-          class="bottom-buttons"
-        >
-          <a-button
-            size="small"
-            type="primary"
-            class="retry-btn"
-            @click="handleRetry"
-          >
-            <template #icon>
-              <ReloadOutlined />
-            </template>
-            {{ $t('ai.retry') }}
-          </a-button>
-        </div>
-        <div
-          v-if="showNewTaskButton"
-          class="bottom-buttons"
-        >
-          <a-button
-            size="small"
-            type="primary"
-            class="retry-btn"
-            @click="handlePlusClick"
-          >
-            <template #icon>
-              <PlusOutlined />
-            </template>
-            {{ $t('ai.newTask') }}
-          </a-button>
-        </div>
-        <div class="input-send-container">
           <div
-            v-if="showHostSelect"
-            class="host-select-popup"
+            ref="chatResponse"
+            class="chat-response"
           >
-            <a-input
-              ref="hostSearchInputRef"
-              v-model:value="hostSearchValue"
-              :placeholder="$t('ai.searchHost')"
-              size="small"
-              class="mini-host-search-input"
-              allow-clear
-              @keydown="handleHostSearchKeyDown"
-            />
-            <div class="host-select-list">
+            <template
+              v-for="(message, index) in filteredChatHistory"
+              :key="message"
+            >
               <div
-                v-for="(item, index) in filteredHostOptions"
-                :key="item.value"
-                class="host-select-item"
+                v-if="message.role === 'assistant'"
+                class="assistant-message-container"
                 :class="{
-                  hovered: hovered === item.value,
-                  'keyboard-selected': keyboardSelectedIndex === index
+                  'has-history-copy-btn': chatTypeValue === 'cmd' && message.ask === 'command' && message.actioned,
+                  'last-message': message.say === 'completion_result'
                 }"
-                @mouseover="handleMouseOver(item.value, index)"
-                @mouseleave="hovered = null"
-                @click="onHostClick(item)"
               >
-                <span class="host-label">{{ item.label }}</span>
-                <CheckOutlined
-                  v-if="isHostSelected(item)"
-                  class="host-selected-icon"
+                <div
+                  v-if="message.say === 'completion_result'"
+                  class="message-header"
+                >
+                  <div class="message-title">
+                    <CheckCircleFilled style="color: #52c41a; margin-right: 4px" />
+                    {{ $t('ai.taskCompleted') }}
+                  </div>
+                  <div
+                    v-if="index === filteredChatHistory.length - 1"
+                    class="message-feedback"
+                  >
+                    <a-button
+                      type="text"
+                      class="feedback-btn like-btn"
+                      size="small"
+                      :disabled="isMessageFeedbackSubmitted(message.id)"
+                      @click="handleFeedback(message, 'like')"
+                    >
+                      <template #icon>
+                        <LikeOutlined
+                          :style="{
+                            color: getMessageFeedback(message.id) === 'like' ? '#52c41a' : '',
+                            opacity: getMessageFeedback(message.id) === 'like' ? 1 : ''
+                          }"
+                        />
+                      </template>
+                    </a-button>
+                    <a-button
+                      type="text"
+                      class="feedback-btn dislike-btn"
+                      size="small"
+                      :disabled="isMessageFeedbackSubmitted(message.id)"
+                      @click="handleFeedback(message, 'dislike')"
+                    >
+                      <template #icon>
+                        <DislikeOutlined
+                          :style="{
+                            color: getMessageFeedback(message.id) === 'dislike' ? '#ff4d4f' : '',
+                            opacity: getMessageFeedback(message.id) === 'dislike' ? 1 : ''
+                          }"
+                        />
+                      </template>
+                    </a-button>
+                  </div>
+                </div>
+                <MarkdownRenderer
+                  v-if="typeof message.content === 'object' && 'question' in message.content"
+                  :ref="(el) => setMarkdownRendererRef(el, index)"
+                  :content="(message.content as MessageContent).question"
+                  :class="`message ${message.role} ${message.say === 'completion_result' ? 'completion-result' : ''} ${message.say === 'interactive_command_notification' ? 'interactive-notification' : ''}`"
+                  :ask="message.ask"
+                  :say="message.say"
+                  :partial="message.partial"
+                  :executed-command="message.executedCommand"
                 />
+                <MarkdownRenderer
+                  v-else
+                  :ref="(el) => setMarkdownRendererRef(el, index)"
+                  :content="typeof message.content === 'string' ? message.content : ''"
+                  :class="`message ${message.role} ${message.say === 'completion_result' ? 'completion-result' : ''} ${message.say === 'interactive_command_notification' ? 'interactive-notification' : ''}`"
+                  :ask="message.ask"
+                  :say="message.say"
+                  :partial="message.partial"
+                  :executed-command="message.executedCommand"
+                />
+
+                <div
+                  v-if="message.ask === 'mcp_tool_call' && message.mcpToolCall"
+                  class="mcp-tool-call-info"
+                >
+                  <div class="mcp-info-section">
+                    <div class="mcp-info-label">MCP Server:</div>
+                    <div class="mcp-info-value">{{ message.mcpToolCall.serverName }}</div>
+                  </div>
+                  <div class="mcp-info-section">
+                    <div class="mcp-info-label">Tool:</div>
+                    <div class="mcp-info-value">{{ message.mcpToolCall.toolName }}</div>
+                  </div>
+                  <div
+                    v-if="message.mcpToolCall.arguments && Object.keys(message.mcpToolCall.arguments).length > 0"
+                    class="mcp-info-section"
+                  >
+                    <div class="mcp-info-label">Parameters:</div>
+                    <div class="mcp-info-params">
+                      <div
+                        v-for="(value, key) in message.mcpToolCall.arguments"
+                        :key="key"
+                        class="mcp-param-item"
+                      >
+                        <span class="mcp-param-key">{{ key }}:</span>
+                        <span class="mcp-param-value">{{ formatParamValue(value) }}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="message-actions">
+                  <template v-if="typeof message.content === 'object' && 'options' in message.content && index === filteredChatHistory.length - 1">
+                    <div class="options-container">
+                      <!-- 显示原有选项作为单选按钮 -->
+                      <div class="options-radio-group">
+                        <a-radio-group
+                          :value="getSelectedOption(message)"
+                          @change="(e) => handleOptionSelect(message, e.target.value)"
+                        >
+                          <a-radio
+                            v-for="(option, optionIndex) in (message.content as MessageContent).options"
+                            :key="optionIndex"
+                            :value="option"
+                            class="option-radio"
+                          >
+                            {{ option }}
+                          </a-radio>
+                          <!-- 当选项数量大于1时，添加自定义输入选项 -->
+                          <div
+                            v-if="(message.content as MessageContent).options && (message.content as MessageContent).options!.length > 1"
+                            class="option-radio custom-option"
+                          >
+                            <a-radio
+                              value="__custom__"
+                              class="custom-radio"
+                            />
+                            <a-textarea
+                              :value="getCustomInput(message)"
+                              :placeholder="$t('ai.enterCustomOption')"
+                              :auto-size="{ minRows: 1, maxRows: 4 }"
+                              class="custom-input"
+                              @input="(e) => handleCustomInputChange(message, (e.target as HTMLInputElement).value || '')"
+                              @focus="() => handleOptionSelect(message, '__custom__')"
+                            />
+                          </div>
+                        </a-radio-group>
+                      </div>
+
+                      <!-- 提交按钮 - 选择任何选项后显示 -->
+                      <div
+                        v-if="(message.content as MessageContent).options && !message.selectedOption && getSelectedOption(message)"
+                        class="submit-button-container"
+                      >
+                        <a-button
+                          type="primary"
+                          size="small"
+                          :disabled="!canSubmitOption(message)"
+                          class="submit-option-btn"
+                          @click="handleOptionSubmit(message)"
+                        >
+                          {{ $t('ai.submit') }}
+                        </a-button>
+                      </div>
+                    </div>
+                  </template>
+                  <!-- Inline approval buttons for Agent mode: attach to the pending command message -->
+                  <template
+                    v-if="
+                      chatTypeValue === 'agent' &&
+                      index === filteredChatHistory.length - 1 &&
+                      lastChatMessageId === message.id &&
+                      (message.ask === 'command' || message.ask === 'mcp_tool_call') &&
+                      !showCancelButton
+                    "
+                  >
+                    <div class="bottom-buttons">
+                      <a-button
+                        size="small"
+                        class="reject-btn"
+                        :disabled="buttonsDisabled"
+                        @click="handleRejectContent"
+                      >
+                        <template #icon>
+                          <CloseOutlined />
+                        </template>
+                        {{ $t('ai.reject') }}
+                      </a-button>
+                      <a-button
+                        v-if="message.ask === 'mcp_tool_call'"
+                        size="small"
+                        class="approve-auto-btn"
+                        :disabled="buttonsDisabled"
+                        @click="handleApproveAndAutoApprove"
+                      >
+                        <template #icon>
+                          <CheckCircleOutlined />
+                        </template>
+                        {{ $t('ai.addAutoApprove') }}
+                      </a-button>
+                      <a-button
+                        size="small"
+                        class="approve-btn"
+                        :disabled="buttonsDisabled"
+                        @click="handleApproveCommand"
+                      >
+                        <template #icon>
+                          <PlayCircleOutlined />
+                        </template>
+                        {{ message.ask === 'mcp_tool_call' ? $t('ai.approve') : $t('ai.run') }}
+                      </a-button>
+                    </div>
+                  </template>
+                  <!-- Inline copy/run buttons for Command mode - command type -->
+                  <template
+                    v-if="
+                      chatTypeValue === 'cmd' &&
+                      index === filteredChatHistory.length - 1 &&
+                      lastChatMessageId === message.id &&
+                      message.ask === 'command' &&
+                      !showCancelButton
+                    "
+                  >
+                    <div class="bottom-buttons">
+                      <a-button
+                        size="small"
+                        class="reject-btn"
+                        @click="handleCopyContent"
+                      >
+                        <template #icon>
+                          <CopyOutlined />
+                        </template>
+                        {{ $t('ai.copy') }}
+                      </a-button>
+                      <a-button
+                        size="small"
+                        class="approve-btn"
+                        @click="handleApplyCommand"
+                      >
+                        <template #icon>
+                          <PlayCircleOutlined />
+                        </template>
+                        {{ $t('ai.run') }}
+                      </a-button>
+                    </div>
+                  </template>
+                  <!-- Inline approval buttons for Command mode - mcp_tool_call type -->
+                  <template
+                    v-if="
+                      chatTypeValue === 'cmd' &&
+                      index === filteredChatHistory.length - 1 &&
+                      lastChatMessageId === message.id &&
+                      message.ask === 'mcp_tool_call' &&
+                      !showCancelButton
+                    "
+                  >
+                    <div class="bottom-buttons">
+                      <a-button
+                        size="small"
+                        class="reject-btn"
+                        :disabled="buttonsDisabled"
+                        @click="handleRejectContent"
+                      >
+                        <template #icon>
+                          <CloseOutlined />
+                        </template>
+                        {{ $t('ai.reject') }}
+                      </a-button>
+                      <a-button
+                        size="small"
+                        class="approve-auto-btn"
+                        :disabled="buttonsDisabled"
+                        @click="handleApproveAndAutoApprove"
+                      >
+                        <template #icon>
+                          <CheckCircleOutlined />
+                        </template>
+                        {{ $t('ai.addAutoApprove') }}
+                      </a-button>
+                      <a-button
+                        size="small"
+                        class="approve-btn"
+                        :disabled="buttonsDisabled"
+                        @click="handleApproveCommand"
+                      >
+                        <template #icon>
+                          <PlayCircleOutlined />
+                        </template>
+                        {{ $t('ai.approve') }}
+                      </a-button>
+                    </div>
+                  </template>
+                </div>
               </div>
               <div
-                v-if="filteredHostOptions.length === 0"
-                class="host-select-empty"
-                >{{ $t('ai.noMatchingHosts') }}
+                v-else
+                :class="`message ${message.role}`"
+              >
+                {{ message.content }}
               </div>
-            </div>
+
+              <!-- 动态插入 Todo 显示 -->
+              <TodoInlineDisplay
+                v-if="shouldShowTodoAfterMessage(message)"
+                :todos="getTodosForMessage(message)"
+                :show-trigger="message.role === 'assistant' && message.hasTodoUpdate"
+                class="todo-inline"
+              />
+            </template>
+          </div>
+        </div>
+        <div class="bottom-container">
+          <div
+            v-if="currentTab?.session.showCancelButton"
+            class="bottom-buttons cancel-row"
+          >
+            <a-button
+              size="small"
+              class="cancel-btn"
+              @click="handleCancel"
+            >
+              <template #icon>
+                <CloseOutlined />
+              </template>
+              {{ $t('ai.cancel') }}
+            </a-button>
           </div>
           <div
-            v-if="!isSkippedLogin"
-            class="input-container"
+            v-if="showResumeButton"
+            class="bottom-buttons"
           >
-            <div class="hosts-display-container">
-              <span
-                v-if="chatTypeValue === 'agent' && chatHistory.length === 0"
-                class="hosts-display-container-host-tag"
-                @click="handleAddHostClick"
-              >
-                {{ hosts && hosts.length > 0 ? '@' : `@ ${$t('ai.addHost')}` }}
-              </span>
-              <a-tag
-                v-for="item in hosts"
-                :key="item.uuid"
-                color="blue"
-                class="host-tag-with-delete"
-              >
-                <template #icon>
-                  <laptop-outlined />
-                </template>
-                {{ item.host }}
-                <CloseOutlined
-                  v-if="chatTypeValue === 'agent' && chatHistory.length === 0"
-                  class="host-delete-btn"
-                  @click.stop="removeHost(item)"
-                />
-              </a-tag>
-
-              <span
-                v-if="responseLoading"
-                class="processing-text"
-              >
-                <HourglassOutlined
-                  spin
-                  style="color: #1890ff; margin-right: 2px"
-                />
-                {{ $t('ai.processing') }}
-              </span>
-            </div>
-            <a-textarea
-              v-model:value="chatInputValue"
-              :placeholder="chatTypeValue === 'agent' ? $t('ai.agentMessage') : chatTypeValue === 'chat' ? $t('ai.chatMessage') : $t('ai.cmdMessage')"
-              class="chat-textarea"
-              :auto-size="{ minRows: 2, maxRows: 5 }"
-              @keydown="handleKeyDown"
-              @input="handleInputChange"
-            />
-            <div class="input-controls">
-              <a-select
-                v-model:value="chatTypeValue"
+            <a-button
+              size="small"
+              type="primary"
+              class="resume-btn"
+              :disabled="currentTab?.session.resumeDisabled"
+              @click="handleResume"
+            >
+              <template #icon>
+                <RedoOutlined />
+              </template>
+              {{ $t('ai.resume') }}
+            </a-button>
+          </div>
+          <div
+            v-if="currentTab?.session.showRetryButton"
+            class="bottom-buttons"
+          >
+            <a-button
+              size="small"
+              type="primary"
+              class="retry-btn"
+              @click="handleRetry"
+            >
+              <template #icon>
+                <ReloadOutlined />
+              </template>
+              {{ $t('ai.retry') }}
+            </a-button>
+          </div>
+          <div
+            v-if="currentTab?.session.showNewTaskButton"
+            class="bottom-buttons"
+          >
+            <a-button
+              size="small"
+              type="primary"
+              class="retry-btn"
+              @click="createNewEmptyTab"
+            >
+              <template #icon>
+                <PlusOutlined />
+              </template>
+              {{ $t('ai.newTask') }}
+            </a-button>
+          </div>
+          <div class="input-send-container">
+            <div
+              v-if="showHostSelect"
+              class="host-select-popup"
+            >
+              <a-input
+                ref="hostSearchInputRef"
+                v-model:value="hostSearchValue"
+                :placeholder="$t('ai.searchHost')"
                 size="small"
-                style="width: 100px"
-                :options="AiTypeOptions"
-                show-search
-              ></a-select>
-              <a-select
-                v-model:value="chatAiModelValue"
-                size="small"
-                style="width: 150px"
-                show-search
-                @change="handleChatAiModelChange"
-              >
-                <a-select-option
-                  v-for="model in AgentAiModelsOptions"
-                  :key="model.value"
-                  :value="model.value"
+                class="mini-host-search-input"
+                allow-clear
+                @keydown="handleHostSearchKeyDown"
+              />
+              <div class="host-select-list">
+                <div
+                  v-for="(item, index) in filteredHostOptions"
+                  :key="item.value"
+                  class="host-select-item"
+                  :class="{
+                    hovered: hovered === item.value,
+                    'keyboard-selected': keyboardSelectedIndex === index
+                  }"
+                  @mouseover="handleMouseOver(item.value, index)"
+                  @mouseleave="hovered = null"
+                  @click="onHostClick(item)"
                 >
-                  <span class="model-label">
-                    <img
-                      v-if="model.label.endsWith('-Thinking')"
-                      src="@/assets/icons/thinking.svg"
-                      alt="Thinking"
-                      class="thinking-icon"
+                  <span class="host-label">{{ item.label }}</span>
+                  <CheckOutlined
+                    v-if="isHostSelected(item)"
+                    class="host-selected-icon"
+                  />
+                </div>
+                <div
+                  v-if="filteredHostOptions.length === 0"
+                  class="host-select-empty"
+                  >{{ $t('ai.noMatchingHosts') }}
+                </div>
+              </div>
+            </div>
+            <div
+              v-if="!isSkippedLogin"
+              class="input-container"
+            >
+              <div class="hosts-display-container">
+                <span
+                  v-if="chatTypeValue === 'agent' && chatHistory.length === 0"
+                  class="hosts-display-container-host-tag"
+                  @click="handleAddHostClick"
+                >
+                  {{ hosts && hosts.length > 0 ? '@' : `@ ${$t('ai.addHost')}` }}
+                </span>
+                <a-tag
+                  v-for="item in hosts"
+                  :key="item.uuid"
+                  color="blue"
+                  class="host-tag-with-delete"
+                >
+                  <template #icon>
+                    <laptop-outlined />
+                  </template>
+                  {{ item.host }}
+                  <CloseOutlined
+                    v-if="chatTypeValue === 'agent' && chatHistory.length === 0"
+                    class="host-delete-btn"
+                    @click.stop="removeHost(item)"
+                  />
+                </a-tag>
+                <span
+                  v-if="currentTab?.session.responseLoading"
+                  class="processing-text"
+                >
+                  <HourglassOutlined
+                    spin
+                    style="color: #1890ff; margin-right: 2px"
+                  />
+                  {{ $t('ai.processing') }}
+                </span>
+              </div>
+              <a-textarea
+                v-model:value="chatInputValue"
+                :placeholder="
+                  chatTypeValue === 'agent' ? $t('ai.agentMessage') : chatTypeValue === 'chat' ? $t('ai.chatMessage') : $t('ai.cmdMessage')
+                "
+                class="chat-textarea"
+                :auto-size="{ minRows: 2, maxRows: 5 }"
+                @keydown="handleKeyDown"
+                @input="handleInputChange"
+              />
+              <div class="input-controls">
+                <a-select
+                  v-model:value="chatTypeValue"
+                  size="small"
+                  style="width: 100px"
+                  :options="AiTypeOptions"
+                  show-search
+                ></a-select>
+                <a-select
+                  v-model:value="chatAiModelValue"
+                  size="small"
+                  style="width: 150px"
+                  show-search
+                  @change="handleChatAiModelChange"
+                >
+                  <a-select-option
+                    v-for="model in AgentAiModelsOptions"
+                    :key="model.value"
+                    :value="model.value"
+                  >
+                    <span class="model-label">
+                      <img
+                        v-if="model.label.endsWith('-Thinking')"
+                        src="@/assets/icons/thinking.svg"
+                        alt="Thinking"
+                        class="thinking-icon"
+                      />
+                      {{ model.label.replace(/-Thinking$/, '') }}
+                    </span>
+                  </a-select-option>
+                </a-select>
+                <div class="action-buttons-container">
+                  <a-tooltip :title="$t('ai.uploadFile')">
+                    <a-button
+                      :disabled="responseLoading"
+                      size="small"
+                      class="custom-round-button compact-button"
+                      @click="handleFileUpload"
+                    >
+                      <img
+                        :src="uploadIcon"
+                        alt="upload"
+                        style="width: 14px; height: 14px"
+                      />
+                    </a-button>
+                  </a-tooltip>
+                  <a-tooltip :title="$t('ai.startVoiceInput')">
+                    <VoiceInput
+                      ref="voiceInputRef"
+                      :disabled="responseLoading"
+                      :auto-send-after-voice="autoSendAfterVoice"
+                      @transcription-complete="handleTranscriptionComplete"
+                      @transcription-error="handleTranscriptionError"
                     />
-                    {{ model.label.replace(/-Thinking$/, '') }}
-                  </span>
-                </a-select-option>
-              </a-select>
-              <div class="action-buttons-container">
-                <a-tooltip :title="$t('ai.uploadFile')">
+                  </a-tooltip>
+                  <input
+                    ref="fileInputRef"
+                    type="file"
+                    accept=".txt,.md,.js,.ts,.py,.java,.cpp,.c,.html,.css,.json,.xml,.yaml,.yml,.sql,.sh,.bat,.ps1,.log,.csv,.tsv"
+                    style="display: none"
+                    @change="handleFileSelected"
+                  />
                   <a-button
-                    :disabled="responseLoading"
+                    :disabled="!showSendButton"
                     size="small"
                     class="custom-round-button compact-button"
-                    @click="handleFileUpload"
+                    @click="sendMessage('send')"
                   >
                     <img
-                      :src="uploadIcon"
-                      alt="upload"
-                      style="width: 14px; height: 14px"
+                      :src="sendIcon"
+                      alt="send"
+                      style="width: 18px; height: 18px"
                     />
                   </a-button>
-                </a-tooltip>
-                <a-tooltip :title="$t('ai.startVoiceInput')">
-                  <VoiceInput
-                    ref="voiceInputRef"
-                    :disabled="responseLoading"
-                    :auto-send-after-voice="autoSendAfterVoice"
-                    @transcription-complete="handleTranscriptionComplete"
-                    @transcription-error="handleTranscriptionError"
-                  />
-                </a-tooltip>
-                <input
-                  ref="fileInputRef"
-                  type="file"
-                  accept=".txt,.md,.js,.ts,.py,.java,.cpp,.c,.html,.css,.json,.xml,.yaml,.yml,.sql,.sh,.bat,.ps1,.log,.csv,.tsv"
-                  style="display: none"
-                  @change="handleFileSelected"
-                />
-                <a-button
-                  :disabled="!showSendButton"
-                  size="small"
-                  class="custom-round-button compact-button"
-                  @click="sendMessage('send')"
-                >
-                  <img
-                    :src="sendIcon"
-                    alt="send"
-                    style="width: 18px; height: 18px"
-                  />
-                </a-button>
+                </div>
               </div>
             </div>
           </div>
         </div>
-      </div>
+      </template>
     </a-tab-pane>
     <template #rightExtra>
       <div class="right-extra-buttons">
@@ -592,7 +602,7 @@
           <a-button
             type="text"
             class="action-icon-btn"
-            @click="handlePlusClick"
+            @click="createNewEmptyTab"
           >
             <img
               :src="plusIcon"
@@ -774,7 +784,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted, defineAsyncComponent, onUnmounted, watch, computed, nextTick, onBeforeUnmount } from 'vue'
+import { ref, onMounted, defineAsyncComponent, onUnmounted, watch, computed, nextTick, onBeforeUnmount } from 'vue'
 import { useRouter } from 'vue-router'
 const TodoInlineDisplay = defineAsyncComponent(() => import('./components/todo/TodoInlineDisplay.vue'))
 import { useTodo } from './composables/useTodo'
@@ -804,6 +814,7 @@ import eventBus from '@/utils/eventBus'
 import { getGlobalState, updateGlobalState, getSecret, storeSecret } from '@renderer/agent/storage/state'
 
 import type { HistoryItem, TaskHistoryItem, Host, ChatMessage, MessageContent, AssetInfo } from './types'
+import type { Todo } from '@/types/todo'
 import { createNewMessage, parseMessageContent, formatHosts, isStringContent, getDateLabel } from './utils'
 import foldIcon from '@/assets/icons/fold.svg'
 import historyIcon from '@/assets/icons/history.svg'
@@ -816,6 +827,7 @@ import debounce from 'lodash/debounce'
 import i18n from '@/locales'
 import { ChatermMessage } from '@/types/ChatermMessage'
 import { getUser } from '@api/user/user'
+import { ExtensionMessage } from '@shared/ExtensionMessage'
 
 const { t } = i18n.global
 const MarkdownRenderer = defineAsyncComponent(() => import('@views/components/AiTab/markdownRenderer.vue'))
@@ -848,12 +860,9 @@ declare module '@/utils/eventBus' {
   }
 }
 
-// Add message feedback storage
-const messageFeedbacks = ref<Record<string, 'like' | 'dislike'>>({})
-
 // Get message feedback status
 const getMessageFeedback = (messageId: string): 'like' | 'dislike' | undefined => {
-  return messageFeedbacks.value[messageId]
+  return currentTab.value?.session.messageFeedbacks[messageId]
 }
 
 // Todo 功能
@@ -867,7 +876,7 @@ watch(displayPreference, (newPref) => {
 // Check if message feedback has been submitted
 const isMessageFeedbackSubmitted = (messageId: string): boolean => {
   // Check if there are feedback records and they have been submitted
-  return !!messageFeedbacks.value[messageId]
+  return !!currentTab.value?.session.messageFeedbacks[messageId]
 }
 
 const hostSearchInputRef = ref()
@@ -881,14 +890,7 @@ const hovered = ref<string | null>(null)
 const keyboardSelectedIndex = ref(-1)
 const historyList = ref<HistoryItem[]>([])
 const favoriteTaskList = ref<string[]>([])
-const hosts = ref<Host[]>([])
-const autoUpdateHost = ref(true)
-const chatInputValue = ref('')
 const chatAiModelValue = ref('')
-const chatTypeValue = ref('')
-const activeKey = ref('chat')
-const showSendButton = ref(true)
-const responseLoading = ref(false)
 
 // 选项相关的响应式数据
 const messageOptionSelections = ref<Record<string, string>>({}) // 存储每个消息的选项选择
@@ -897,28 +899,165 @@ const shouldShowSendButton = computed(() => {
   const trimmedValue = chatInputValue.value.trim()
   return trimmedValue.length >= 1 && !/^\s*$/.test(trimmedValue)
 })
-const lastChatMessageId = ref('')
 const isCurrentChatMessage = ref(true)
-const buttonsDisabled = ref(false)
-const resumeDisabled = ref(false)
-const showRetryButton = ref(false)
-const showCancelButton = ref(false)
-const showNewTaskButton = ref(false)
-
-// Track the current state of command execution
-const isExecutingCommand = ref(false)
 
 // Current active conversation ID
-const currentChatId = ref<string | null>(null)
-const currentChatTitle = ref<string>('New chat') // Store current chat title for tab display
+const currentChatId = ref<string | undefined>(undefined)
 const authTokenInCookie = ref<string | null>(null)
 
-const chatHistory = reactive<ChatMessage[]>([])
+// Session 状态接口定义
+interface SessionState {
+  chatHistory: ChatMessage[] // 会话消息历史列表
+  lastChatMessageId: string // 最后一条聊天消息的ID
+  responseLoading: boolean // 当前是否正在加载回复（AI响应中）
+  showCancelButton: boolean // 是否显示"取消"按钮
+  showRetryButton: boolean // 是否显示"重试"按钮
+  showNewTaskButton: boolean // 是否显示"新任务"按钮
+  showSendButton: boolean // 是否显示"发送"按钮
+  buttonsDisabled: boolean // 是否整体禁用交互按钮
+  resumeDisabled: boolean // 是否禁用恢复按钮
+  isExecutingCommand: boolean // 是否正在执行命令
+  messageFeedbacks: Record<string, 'like' | 'dislike'> // 消息反馈记录（消息ID => 反馈类型）
+  lastStreamMessage: ExtensionMessage | null // 最后一条流式消息对象
+  lastPartialMessage: ExtensionMessage | null // 最后一条部分回复的消息对象
+  shouldStickToBottom: boolean // 是否应该粘在底部（自动滚动）
+}
+
+const createEmptySessionState = (): SessionState => ({
+  chatHistory: [],
+  lastChatMessageId: '',
+  responseLoading: false,
+  showCancelButton: false,
+  showRetryButton: false,
+  showNewTaskButton: false,
+  showSendButton: true,
+  buttonsDisabled: false,
+  resumeDisabled: false,
+  isExecutingCommand: false,
+  messageFeedbacks: {},
+  lastStreamMessage: null,
+  lastPartialMessage: null,
+  shouldStickToBottom: true
+})
+
+interface ChatTab {
+  id: string // Tab ID，对应一个会话
+  title: string // Tab 标题
+  hosts: Host[] // 当前会话关联的主机列表
+  chatType: string // 聊天类型，agent/cmd/chat
+  autoUpdateHost: boolean // 是否根据当前资产自动更新主机
+  session: SessionState // 当前会话的消息状态等数据
+  inputValue: string // 输入框内容
+}
+
+const chatTabs = ref<ChatTab[]>([])
+
+// 通过 computed 属性直接引用 chatTabs 中当前 Tab 的数据，避免手动保存/恢复元数据
+const currentTab = computed(() => {
+  return chatTabs.value.find((tab) => tab.id === currentChatId.value)
+})
+
+// 便捷访问当前 tab 的 session
+const currentSession = computed(() => currentTab.value?.session)
+
+// 为模板提供便捷访问当前session状态的computed属性
+const lastChatMessageId = computed(() => currentSession.value?.lastChatMessageId ?? '')
+const responseLoading = computed(() => currentSession.value?.responseLoading ?? false)
+const showCancelButton = computed(() => currentSession.value?.showCancelButton ?? false)
+const chatHistory = computed(() => currentSession.value?.chatHistory ?? [])
+const showSendButton = computed(() => currentSession.value?.showSendButton ?? true)
+const buttonsDisabled = computed(() => currentSession.value?.buttonsDisabled ?? false)
+const resumeDisabled = computed(() => currentSession.value?.resumeDisabled ?? false)
+const isExecutingCommand = computed(() => currentSession.value?.isExecutingCommand ?? false)
+const showRetryButton = computed(() => currentSession.value?.showRetryButton ?? false)
+const showNewTaskButton = computed(() => currentSession.value?.showNewTaskButton ?? false)
+
+// 使用 computed 属性配合 getter/setter 来直接操作 chatTabs 中的数据
+const currentChatTitle = computed({
+  get: () => currentTab.value?.title ?? 'New chat',
+  set: (value: string) => {
+    if (currentTab.value) {
+      currentTab.value.title = value
+    }
+  }
+})
+
+const chatTypeValue = computed({
+  get: () => currentTab.value?.chatType ?? '',
+  set: (value: string) => {
+    if (currentTab.value) {
+      currentTab.value.chatType = value
+    }
+  }
+})
+
+const hosts = computed({
+  get: () => currentTab.value?.hosts ?? [],
+  set: (value: Host[]) => {
+    if (currentTab.value) {
+      currentTab.value.hosts = value
+    }
+  }
+})
+
+const autoUpdateHost = computed({
+  get: () => currentTab.value?.autoUpdateHost ?? true,
+  set: (value: boolean) => {
+    if (currentTab.value) {
+      currentTab.value.autoUpdateHost = value
+    }
+  }
+})
+
+// 每个 tab 独立的输入框内容
+const chatInputValue = computed({
+  get: () => currentTab.value?.inputValue ?? '',
+  set: (value: string) => {
+    if (currentTab.value) {
+      currentTab.value.inputValue = value
+    }
+  }
+})
+
+let suppressStateChange = false
+
+watch(currentChatId, () => {
+  if (!suppressStateChange) {
+    emitStateChange()
+  }
+  // 切换Tab时，重置滚动状态并滚动到底部
+  if (currentSession.value) {
+    currentSession.value.shouldStickToBottom = true
+  }
+
+  // 切换Tab时，需要重新初始化滚动监听器和DOM观察器
+  nextTick(() => {
+    initializeAutoScroll()
+    if (currentSession.value) {
+      currentSession.value.shouldStickToBottom = true
+    }
+    scrollToBottomWithRetry()
+  })
+})
+
+const attachTabContext = <T extends Record<string, any>>(payload: T): T & { tabId?: string; taskId?: string } => {
+  const tabId = currentChatId.value
+  if (!tabId) {
+    return payload
+  }
+
+  return {
+    ...payload,
+    tabId: payload?.tabId ?? tabId,
+    taskId: payload?.taskId ?? tabId
+  }
+}
 
 // 监听消息变化，检查todo显示逻辑
 watch(
-  chatHistory,
+  () => currentSession.value?.chatHistory,
   (newHistory) => {
+    if (!newHistory) return
     console.log('AiTab - chatHistory changed, length:', newHistory.length)
     if (newHistory.length > 0) {
       const lastMessage = newHistory[newHistory.length - 1]
@@ -932,21 +1071,20 @@ watch(
 
 // 过滤SSH连接消息：Agent回复后隐藏sshInfo消息
 const filteredChatHistory = computed(() => {
+  const chatHistory = currentSession.value?.chatHistory ?? []
   const hasAgentReply = chatHistory.some(
     (msg) => msg.role === 'assistant' && msg.say !== 'sshInfo' && (msg.say === 'text' || msg.say === 'completion_result' || msg.ask === 'command')
   )
   return hasAgentReply ? chatHistory.filter((msg) => msg.say !== 'sshInfo') : chatHistory
 })
 
-const props = defineProps({
-  toggleSidebar: {
-    type: Function,
-    required: true
-  },
-  savedState: {
-    type: Object,
-    default: null
-  }
+interface Props {
+  toggleSidebar: () => void
+  savedState?: Record<string, any> | null
+}
+
+const props = withDefaults(defineProps<Props>(), {
+  savedState: null
 })
 
 const emit = defineEmits(['state-changed'])
@@ -980,15 +1118,6 @@ const formatParamValue = (value: unknown): string => {
   return String(value)
 }
 
-const getChatermMessages = async () => {
-  const result = await window.api.chatermGetChatermMessages({
-    taskId: currentChatId.value
-  })
-  const messages = result as ChatermMessage[]
-  console.log('result', messages)
-  return messages
-}
-
 // Get current active tab host information
 const getCurentTabAssetInfo = async (): Promise<AssetInfo | null> => {
   try {
@@ -1001,14 +1130,23 @@ const getCurentTabAssetInfo = async (): Promise<AssetInfo | null> => {
       }, 5000) // 5 second timeout
 
       // Listen for result event
-      const handleResult = (result: AssetInfo | null) => {
+      const handleResult = (payload: { assetInfo: AssetInfo | null; tabId?: string } | AssetInfo | null) => {
+        const { assetInfo, tabId } =
+          payload && typeof payload === 'object' && 'assetInfo' in payload
+            ? { assetInfo: payload.assetInfo as AssetInfo | null, tabId: payload.tabId }
+            : { assetInfo: (payload as AssetInfo | null) ?? null, tabId: undefined }
+
+        if (tabId && tabId !== currentChatId.value) {
+          return
+        }
+
         clearTimeout(timeout)
         eventBus.off('assetInfoResult', handleResult)
-        resolve(result)
+        resolve(assetInfo)
       }
       eventBus.on('assetInfoResult', handleResult)
       // Emit request event
-      eventBus.emit('getActiveTabAssetInfo')
+      eventBus.emit('getActiveTabAssetInfo', { tabId: currentChatId.value ?? undefined })
     })
     // Process result directly here
     if (assetInfo) {
@@ -1069,7 +1207,8 @@ const updateHostsForCommandMode = async () => {
 
 // Initialize asset information
 const initAssetInfo = async () => {
-  if (!autoUpdateHost.value || chatHistory.length > 0) {
+  const session = currentSession.value
+  if (!autoUpdateHost.value || (session && session.chatHistory.length > 0)) {
     return
   }
   const assetInfo = await getCurentTabAssetInfo()
@@ -1084,9 +1223,29 @@ const initAssetInfo = async () => {
   }
 }
 
-// When switching tabs, update current conversation ID to match the chat tag ID
-const handleTabChange = (key: string | number) => {
-  currentChatId.value = historyList.value.find((item) => item.chatType === key)?.id || null
+// 关闭 Tab
+const handleTabRemove = async (tabId: string) => {
+  const tabIndex = chatTabs.value.findIndex((tab) => tab.id === tabId)
+  if (tabIndex === -1) return
+
+  // 取消当前任务
+  console.log('handleTabRemove: cancel task for tab', tabId)
+  await window.api.cancelTask(tabId)
+
+  // 删除 Tab（session 会随着 tab 一起删除）
+  chatTabs.value.splice(tabIndex, 1)
+
+  if (chatTabs.value.length === 0) {
+    currentChatId.value = undefined
+    emitStateChange()
+    handleClose()
+    return
+  }
+
+  const newActiveIndex = Math.min(tabIndex, chatTabs.value.length - 1)
+  const newActiveTab = chatTabs.value[newActiveIndex]
+
+  currentChatId.value = newActiveTab.id
 }
 
 const isEmptyValue = (value) => value === undefined || value === ''
@@ -1289,9 +1448,24 @@ const sendMessage = async (sendType: string) => {
     return 'ASSET_ERROR'
   }
   if (sendType === 'send' && currentTodos.value.length > 0) {
-    clearTodoState(chatHistory)
+    if (currentSession.value) {
+      clearTodoState(currentSession.value.chatHistory)
+    }
   }
-  await sendMessageToMain(userContent, sendType)
+
+  return await sendMessageWithContent(userContent, sendType)
+}
+
+const sendMessageWithContent = async (userContent: string, sendType: string, tabId?: string) => {
+  const targetTab = tabId ? chatTabs.value.find((tab) => tab.id === tabId) : currentTab.value
+
+  if (!targetTab || !targetTab.session) {
+    return
+  }
+
+  const session = targetTab.session
+
+  await sendMessageToMain(userContent, sendType, tabId)
 
   const userMessage: ChatMessage = {
     id: uuidv4(),
@@ -1306,16 +1480,21 @@ const sendMessage = async (sendType: string) => {
     userMessage.role = 'assistant'
     userMessage.say = 'command_output'
   }
-  chatHistory.push(userMessage)
-  responseLoading.value = true
-  showRetryButton.value = false
-  showNewTaskButton.value = false
-  scrollToBottom(true)
+
+  session.chatHistory.push(userMessage)
+  session.responseLoading = true
+  session.showRetryButton = false
+  session.showNewTaskButton = false
+
+  if (!tabId || tabId === currentChatId.value) {
+    scrollToBottom(true)
+  }
+
   return
 }
 
 const handleClose = () => {
-  props.toggleSidebar('right')
+  props.toggleSidebar()
   eventBus.emit('updateRightIcon', false)
 }
 
@@ -1331,74 +1510,60 @@ const handleKeyDown = (e: KeyboardEvent) => {
     sendMessage('send')
   }
 }
-const handlePlusClick = async () => {
+const createNewEmptyTab = async () => {
   const newChatId = uuidv4()
-  currentChatId.value = newChatId
-  currentChatTitle.value = 'New chat' // Reset title for new chat
   const chatSetting = (await getGlobalState('chatSettings')) as { mode?: string }
-  chatTypeValue.value = chatSetting?.mode || 'agent'
-  hosts.value = []
-  autoUpdateHost.value = true
-  // Get the asset information of the current active tab
+  const newChatType = chatSetting?.mode || 'agent'
+
+  // 获取当前资产信息
   const assetInfo = await getCurentTabAssetInfo()
+  const newHosts: Host[] = []
   if (assetInfo && assetInfo.ip) {
-    hosts.value.push({
+    newHosts.push({
       host: assetInfo.ip,
       uuid: assetInfo.uuid,
       connection: assetInfo.connection ? assetInfo.connection : 'personal'
     })
   } else {
     // 如果没有检测到远程主机连接，默认添加本地主机
-    hosts.value.push({
+    newHosts.push({
       host: '127.0.0.1',
       uuid: 'localhost',
       connection: 'localhost'
     })
   }
 
-  chatHistory.length = 0
-  // Clear current feedback data
-  messageFeedbacks.value = {}
-
-  isExecutingCommand.value = false
-
-  // After opening new window, cancel the original agent window
-  console.log('handleCancel: cancel')
-  const response = await window.api.cancelTask()
-  console.log('Main process response:', response)
-  buttonsDisabled.value = false
-  resumeDisabled.value = false
-  showCancelButton.value = false
-  responseLoading.value = false
-  showRetryButton.value = false
-  showNewTaskButton.value = false
-  if (currentTodos.value.length > 0) {
-    clearTodoState(chatHistory)
+  // 添加新 Tab
+  const newTab: ChatTab = {
+    id: newChatId,
+    title: 'New chat',
+    hosts: newHosts,
+    chatType: newChatType,
+    autoUpdateHost: true,
+    session: createEmptySessionState(),
+    inputValue: ''
   }
+  chatTabs.value.push(newTab)
 
-  // Clear input and ensure send button is disabled for new chat
+  currentChatId.value = newChatId
   chatInputValue.value = ''
 }
 
-const containerKey = ref(0)
-
 const restoreHistoryTab = async (history: HistoryItem) => {
-  // Save current input content
-  const currentInput = chatInputValue.value
-
-  containerKey.value++
-
-  currentChatId.value = history.id
-  currentChatTitle.value = history.chatTitle // Restore title from history
-  chatTypeValue.value = history.chatType
-  lastChatMessageId.value = ''
-  autoUpdateHost.value = false
-
   try {
+    // 1. 首先检查 Tab 是否已存在，如果存在则直接切换，无需重新加载
+    const existingTabIndex = chatTabs.value.findIndex((tab) => tab.id === history.id)
+    if (existingTabIndex !== -1) {
+      currentChatId.value = history.id
+      return
+    }
+
+    // 加载元数据（hosts等）
+    let loadedHosts: Host[] = []
     try {
       const metadataResult = await window.api.getTaskMetadata(history.id)
       if (metadataResult.success && metadataResult.data && Array.isArray(metadataResult.data.hosts)) {
-        hosts.value = metadataResult.data.hosts.map((item: Host) => ({
+        loadedHosts = metadataResult.data.hosts.map((item: Host) => ({
           host: item.host,
           uuid: item.uuid || '',
           connection: item.connection
@@ -1407,10 +1572,16 @@ const restoreHistoryTab = async (history: HistoryItem) => {
     } catch (e) {
       console.error('Failed to get metadata:', e)
     }
-    const conversationHistory = await getChatermMessages()
+
+    // 加载历史消息
+    const result = await window.api.chatermGetChatermMessages({
+      taskId: history.id
+    })
+    const conversationHistory = result as ChatermMessage[]
     console.log('[conversationHistory]', conversationHistory)
-    chatHistory.length = 0
-    // Sort by timestamp and filter adjacent duplicates
+
+    // 3. 将历史消息转换为 ChatMessage 格式，存储到临时数组中
+    const historyChatMessages: ChatMessage[] = []
     let lastItem: any = null
     conversationHistory.forEach((item, index) => {
       // Check if duplicate with previous item
@@ -1467,24 +1638,63 @@ const restoreHistoryTab = async (history: HistoryItem) => {
             userMessage.content = item.text
           }
         }
-        chatHistory.push(userMessage)
+        historyChatMessages.push(userMessage)
         lastItem = item
       }
     })
-    isCurrentChatMessage.value = false
-    // Load feedback data for this conversation
+
+    // 4. 创建历史会话状态
+    const historySession: SessionState = {
+      chatHistory: historyChatMessages,
+      lastChatMessageId: '',
+      responseLoading: false,
+      showCancelButton: false,
+      showRetryButton: false,
+      showNewTaskButton: false,
+      showSendButton: true,
+      buttonsDisabled: false,
+      resumeDisabled: false,
+      isExecutingCommand: false,
+      messageFeedbacks: {},
+      lastStreamMessage: null,
+      lastPartialMessage: null,
+      shouldStickToBottom: true
+    }
+
+    // 5. 创建历史 Tab 对象
+    const finalHosts = loadedHosts.length > 0 ? loadedHosts : (currentTab.value?.hosts ?? [])
+    const historyTab: ChatTab = {
+      id: history.id,
+      title: history.chatTitle,
+      hosts: finalHosts,
+      chatType: history.chatType,
+      autoUpdateHost: false,
+      session: historySession,
+      inputValue: ''
+    }
+
+    // 6. 如果当前 Tab 是 new Tab，直接覆盖；否则创建新 Tab
+    const isCurrentNewTab = currentTab.value && currentTab.value.title === 'New chat' && currentTab.value.session.chatHistory.length === 0
+    if (isCurrentNewTab) {
+      const currentTabIndex = chatTabs.value.findIndex((tab) => tab.id === currentTab.value!.id)
+      if (currentTabIndex !== -1) {
+        chatTabs.value[currentTabIndex] = historyTab
+      }
+    } else {
+      chatTabs.value.push(historyTab)
+    }
+    currentChatId.value = history.id
+
+    // 7. 加载反馈数据
     await window.api.sendToMain({
       type: 'showTaskWithId',
       text: history.id,
-      hosts: hosts.value.map((h) => ({
+      hosts: finalHosts.map((h) => ({
         host: h.host,
         uuid: h.uuid,
         connection: h.connection
       }))
     })
-    // Restore saved input content
-    chatInputValue.value = currentInput
-    responseLoading.value = false
   } catch (err) {
     console.error(err)
   }
@@ -1522,7 +1732,10 @@ const handleHistoryClick = async () => {
 }
 
 const handleMessageOperation = async (operation: 'copy' | 'apply') => {
-  const lastMessage = chatHistory.at(-1)
+  const session = currentSession.value
+  if (!session) return
+
+  const lastMessage = session.chatHistory.at(-1)
   if (!lastMessage) {
     notification.error({
       message: t('ai.operationFailed'),
@@ -1550,47 +1763,6 @@ const handleMessageOperation = async (operation: 'copy' | 'apply') => {
   if (chatTypeValue.value === 'cmd' && hosts.value.length > 0) {
     const targetHost = hosts.value[0] // The command mode only supports a single host.
 
-    // 如果目标是本地主机，直接执行命令，无需检查窗口匹配
-    if (isLocalHost(targetHost.host)) {
-      // 对于本地主机，直接执行命令
-      if (operation === 'copy') {
-        navigator.clipboard.writeText(content)
-        notification.success({
-          message: t('ai.commandCopied'),
-          description: t('ai.commandCopiedToClipboard'),
-          duration: 2,
-          placement: 'topRight'
-        })
-      } else if (operation === 'apply') {
-        // For the local host, commands are executed by the AI Agent instead of the terminal.
-        try {
-          responseLoading.value = true
-          const result = await window.api.executeLocalCommand?.(content)
-          if (result?.success) {
-            const output = result.output || t('ai.executionCompleted')
-            const formattedOutput = `${t('ai.commandExecutedOnLocalhost')}:\n\`\`\`\n${output}\n\`\`\``
-            eventBus.emit('chatToAi', formattedOutput)
-            setTimeout(() => {
-              eventBus.emit('triggerAiSend')
-            }, 100)
-          } else {
-            throw new Error(result?.error || 'Command execution failed')
-          }
-        } catch (error: unknown) {
-          notification.error({
-            message: t('ai.commandExecutionFailed'),
-            description: (error as Error)?.message || t('ai.localCommandExecutionError'),
-            duration: 3,
-            placement: 'topRight'
-          })
-        } finally {
-          responseLoading.value = false
-        }
-      }
-      lastChatMessageId.value = ''
-      return
-    }
-
     const currentAssetInfo = await getCurentTabAssetInfo()
 
     // Check whether the current window matches the target server
@@ -1609,21 +1781,23 @@ const handleMessageOperation = async (operation: 'copy' | 'apply') => {
   }
 
   if (operation === 'copy') {
-    eventBus.emit('executeTerminalCommand', content)
+    eventBus.emit('executeTerminalCommand', { command: content, tabId: currentChatId.value ?? undefined })
   } else if (operation === 'apply') {
-    eventBus.emit('executeTerminalCommand', content + '\n')
-    responseLoading.value = true
+    eventBus.emit('executeTerminalCommand', { command: content + '\n', tabId: currentChatId.value ?? undefined })
+    session.responseLoading = true
   }
-  lastChatMessageId.value = ''
+  session.lastChatMessageId = ''
 }
 
 const handleApplyCommand = () => handleMessageOperation('apply')
 const handleCopyContent = () => handleMessageOperation('copy')
 
 // Todo 相关处理方法已移除 - 不再支持关闭功能
-
 const handleRejectContent = async () => {
-  let message = chatHistory.at(-1)
+  const session = currentSession.value
+  if (!session) return false
+
+  let message = session.chatHistory.at(-1)
   if (!message) {
     return false
   }
@@ -1656,16 +1830,19 @@ const handleRejectContent = async () => {
     }
     message.action = 'rejected'
     console.log('Send message to main process:', messageRsp)
-    const response = await window.api.sendToMain(messageRsp)
-    buttonsDisabled.value = true
+    const response = await window.api.sendToMain(attachTabContext(messageRsp))
+    session.buttonsDisabled = true
     console.log('Main process response:', response)
-    responseLoading.value = true
+    session.responseLoading = true
   } catch (error) {
     console.error('Failed to send message to main process:', error)
   }
 }
 
 const handleOptionChoose = async (message: ChatMessage, option?: string) => {
+  const session = currentSession.value
+  if (!session) return
+
   try {
     if (option) {
       message.selectedOption = option
@@ -1682,9 +1859,9 @@ const handleOptionChoose = async (message: ChatMessage, option?: string) => {
         break
     }
     console.log('Send message to main process:', messageRsp)
-    const response = await window.api.sendToMain(messageRsp)
+    const response = await window.api.sendToMain(attachTabContext(messageRsp))
     console.log('Main process response:', response)
-    responseLoading.value = true
+    session.responseLoading = true
   } catch (error) {
     console.error('Failed to send message to main process:', error)
   }
@@ -1732,7 +1909,10 @@ const handleOptionSubmit = async (message: ChatMessage) => {
 }
 
 const handleApproveCommand = async () => {
-  let message = chatHistory.at(-1)
+  const session = currentSession.value
+  if (!session) return false
+
+  let message = session.chatHistory.at(-1)
   if (!message) {
     return false
   }
@@ -1766,21 +1946,24 @@ const handleApproveCommand = async () => {
     message.action = 'approved'
 
     if (message.ask === 'command') {
-      isExecutingCommand.value = true
+      session.isExecutingCommand = true
     }
 
     console.log('Send message to main process:', messageRsp)
-    const response = await window.api.sendToMain(messageRsp)
-    buttonsDisabled.value = true
+    const response = await window.api.sendToMain(attachTabContext(messageRsp))
+    session.buttonsDisabled = true
     console.log('Main process response:', response)
-    responseLoading.value = true
+    session.responseLoading = true
   } catch (error) {
     console.error('Failed to send message to main process:', error)
   }
 }
 
 const handleApproveAndAutoApprove = async () => {
-  let message = chatHistory.at(-1)
+  const session = currentSession.value
+  if (!session) return false
+
+  let message = session.chatHistory.at(-1)
   if (!message) {
     return false
   }
@@ -1806,10 +1989,10 @@ const handleApproveAndAutoApprove = async () => {
     message.action = 'approved'
 
     console.log('Send message to main process:', messageRsp)
-    const response = await window.api.sendToMain(messageRsp)
-    buttonsDisabled.value = true
+    const response = await window.api.sendToMain(attachTabContext(messageRsp))
+    session.buttonsDisabled = true
     console.log('Main process response:', response)
-    responseLoading.value = true
+    session.responseLoading = true
   } catch (error) {
     console.error('Failed to approve and set auto-approve:', error)
   }
@@ -1818,12 +2001,16 @@ const handleApproveAndAutoApprove = async () => {
 const handleCancel = async () => {
   console.log('handleCancel: cancel')
 
+  const session = currentSession.value
+  if (!session) return
+
   // 立即更新UI状态，实现即时响应
-  responseLoading.value = false
-  showCancelButton.value = false
-  showSendButton.value = true
-  lastChatMessageId.value = ''
-  isExecutingCommand.value = false
+  session.responseLoading = false
+  session.showCancelButton = false
+  session.showSendButton = true
+  session.lastChatMessageId = ''
+  const wasExecutingCommand = session.isExecutingCommand
+  session.isExecutingCommand = false
 
   // 停止最后一个消息的 thinking loading 状态
   const lastMessageIndex = filteredChatHistory.value.length - 1
@@ -1833,15 +2020,15 @@ const handleCancel = async () => {
 
   // 清理Todo状态
   if (currentTodos.value.length > 0) {
-    clearTodoState(chatHistory)
+    clearTodoState(session.chatHistory)
   }
 
   // 异步发送取消请求到主进程，不等待响应
   try {
-    if (isExecutingCommand.value) {
+    if (wasExecutingCommand) {
       // 对于执行中的命令，使用优雅取消
       window.api
-        .gracefulCancelTask()
+        .gracefulCancelTask(currentChatId.value ?? undefined)
         .then((response) => {
           console.log('Main process graceful cancel response:', response)
         })
@@ -1851,7 +2038,7 @@ const handleCancel = async () => {
     } else {
       // 对于非命令操作，使用常规取消
       window.api
-        .cancelTask()
+        .cancelTask(currentChatId.value ?? undefined)
         .then((response) => {
           console.log('Main process cancel response:', response)
         })
@@ -1865,7 +2052,10 @@ const handleCancel = async () => {
 }
 
 const handleResume = async () => {
-  let message = chatHistory.at(-1)
+  const session = currentSession.value
+  if (!session) return false
+
+  let message = session.chatHistory.at(-1)
   if (!message) {
     return false
   }
@@ -1875,22 +2065,25 @@ const handleResume = async () => {
     askResponse: 'yesButtonClicked'
   }
   console.log('Send message to main process:', messageRsp)
-  const response = await window.api.sendToMain(messageRsp)
+  const response = await window.api.sendToMain(attachTabContext(messageRsp))
   console.log('Main process response:', response)
-  resumeDisabled.value = true
-  responseLoading.value = true
+  session.resumeDisabled = true
+  session.responseLoading = true
 }
 
 const handleRetry = async () => {
+  const session = currentSession.value
+  if (!session) return
+
   console.log('handleRetry: retry')
   const messageRsp = {
     type: 'askResponse',
     askResponse: 'yesButtonClicked'
   }
   console.log('Send message to main process:', messageRsp)
-  const response = await window.api.sendToMain(messageRsp)
+  const response = await window.api.sendToMain(attachTabContext(messageRsp))
   console.log('Main process response:', response)
-  showRetryButton.value = false
+  session.showRetryButton = false
 }
 
 // Declare removeListener variable
@@ -1920,7 +2113,9 @@ watch(
       }
 
       // Emit state change event
-      emitStateChange()
+      if (!suppressStateChange) {
+        emitStateChange()
+      }
     } catch (error) {
       console.error('Failed to update chatSettings:', error)
     }
@@ -1928,12 +2123,23 @@ watch(
 )
 watch(
   () => hosts.value,
-  () => emitStateChange(),
+  () => {
+    if (!suppressStateChange) {
+      emitStateChange()
+    }
+  },
   { deep: true }
 )
-watch(chatInputValue, () => emitStateChange())
-watch(currentChatId, () => emitStateChange())
-watch(chatAiModelValue, () => emitStateChange())
+watch(chatInputValue, () => {
+  if (!suppressStateChange) {
+    emitStateChange()
+  }
+})
+watch(chatAiModelValue, () => {
+  if (!suppressStateChange) {
+    emitStateChange()
+  }
+})
 
 const handleChatAiModelChange = async () => {
   const modelOptions = (await getGlobalState('modelOptions')) as ModelOption[]
@@ -2052,10 +2258,24 @@ onMounted(async () => {
   // Add global click listener to close host select popup when clicking outside
   document.addEventListener('click', handleGlobalClick)
 
-  eventBus.on('triggerAiSend', () => {
-    if (chatInputValue.value.trim()) {
-      sendMessage('commandSend')
+  eventBus.on('sendMessageToAi', async (payload: { content: string; tabId?: string }) => {
+    const { content, tabId } = payload
+
+    if (!content || content.trim() === '') {
+      return
     }
+
+    if (tabId) {
+      const targetTab = chatTabs.value.find((tab) => tab.id === tabId)
+      if (!targetTab) {
+        console.warn('sendMessageToAi: Tab not found:', tabId)
+        return
+      }
+    }
+
+    await initAssetInfo()
+
+    await sendMessageWithContent(content.trim(), 'commandSend', tabId)
   })
 
   eventBus.on('chatToAi', async (text) => {
@@ -2075,41 +2295,61 @@ onMounted(async () => {
   })
 
   await initModelOptions()
-  await initModel()
   authTokenInCookie.value = localStorage.getItem('ctm-token')
-  const chatId = uuidv4()
 
-  historyList.value = [
-    {
-      id: chatId,
-      chatTitle: 'New chat',
-      chatType: chatTypeValue.value,
-      chatContent: []
+  // Check if there's saved state with multi-tab data
+  if (props.savedState && props.savedState.chatTabs && props.savedState.chatTabs.length > 0) {
+    // Restore all tabs from saved state
+    chatTabs.value = props.savedState.chatTabs.map((savedTab: any) => ({
+      id: savedTab.id,
+      title: savedTab.title,
+      hosts: [...savedTab.hosts],
+      chatType: savedTab.chatType,
+      autoUpdateHost: savedTab.autoUpdateHost,
+      inputValue: savedTab.inputValue,
+      session: {
+        ...createEmptySessionState(),
+        chatHistory: [...savedTab.session.chatHistory],
+        lastChatMessageId: savedTab.session.lastChatMessageId,
+        responseLoading: savedTab.session.responseLoading || false,
+        showCancelButton: savedTab.session.showCancelButton || false,
+        showSendButton: savedTab.session.showSendButton ?? true,
+        buttonsDisabled: savedTab.session.buttonsDisabled || false,
+        resumeDisabled: savedTab.session.resumeDisabled || false,
+        isExecutingCommand: savedTab.session.isExecutingCommand || false,
+        showRetryButton: savedTab.session.showRetryButton || false,
+        showNewTaskButton: savedTab.session.showNewTaskButton || false,
+        messageFeedbacks: savedTab.session.messageFeedbacks || {},
+        shouldStickToBottom: savedTab.session.shouldStickToBottom ?? true
+      }
+    }))
+
+    // Restore current active tab
+    const savedCurrentChatId = props.savedState.currentChatId
+    if (savedCurrentChatId && chatTabs.value.some((tab) => tab.id === savedCurrentChatId)) {
+      currentChatId.value = savedCurrentChatId
+    } else if (chatTabs.value.length > 0) {
+      currentChatId.value = chatTabs.value[0].id
     }
-  ]
+
+    // Restore global AI model setting
+    if (props.savedState.chatAiModelValue) {
+      chatAiModelValue.value = props.savedState.chatAiModelValue
+    }
+  } else {
+    createNewEmptyTab()
+  }
+
+  await initModel()
 
   // Initialize favorites list
   favoriteTaskList.value = ((await getGlobalState('favoriteTaskList')) as string[]) || []
 
-  // Initialize asset information
-  await initAssetInfo()
-
-  // If there's saved state, restore it
-  if (props.savedState) {
-    chatInputValue.value = props.savedState.chatInputValue || ''
-    chatTypeValue.value = props.savedState.chatTypeValue || 'agent'
-    chatAiModelValue.value = props.savedState.chatAiModelValue || ''
-    if (props.savedState.hosts && props.savedState.hosts.length > 0) {
-      hosts.value = props.savedState.hosts
-      autoUpdateHost.value = false
-    }
-    if (props.savedState.currentChatId) {
-      currentChatId.value = props.savedState.currentChatId
-    }
-  }
-
   // Load message feedback
-  messageFeedbacks.value = ((await getGlobalState('messageFeedbacks')) || {}) as Record<string, 'like' | 'dislike'>
+  const messageFeedbacks = ((await getGlobalState('messageFeedbacks')) || {}) as Record<string, 'like' | 'dislike'>
+  if (currentSession.value) {
+    currentSession.value.messageFeedbacks = messageFeedbacks
+  }
 
   // Add event listeners
   eventBus.on('SettingModelOptionsChanged', async () => {
@@ -2118,7 +2358,8 @@ onMounted(async () => {
 
   // Listen for tab changes
   eventBus.on('activeTabChanged', async (tabInfo) => {
-    if (!autoUpdateHost.value || chatHistory.length > 0) {
+    const session = currentSession.value
+    if (!autoUpdateHost.value || (session && session.chatHistory.length > 0)) {
       return
     }
     if (tabInfo && tabInfo.ip) {
@@ -2132,161 +2373,170 @@ onMounted(async () => {
     }
   })
 
-  currentChatId.value = chatId
+  // Initialize auto-scroll functionality
+  initializeAutoScroll()
 
-  // Attach scroll listener to maintain sticky-to-bottom state
-  nextTick(() => {
-    if (chatContainer.value) {
-      chatContainer.value.addEventListener('scroll', handleContainerScroll, { passive: true })
-      // Initialize sticky flag based on current position
-      shouldStickToBottom.value = isAtBottom(chatContainer.value)
+  const processMainMessage = async (message: ExtensionMessage) => {
+    const targetTabId = message?.tabId ?? message?.taskId
+    if (!targetTabId) {
+      console.error('AiTab: Ignoring message for no target tab:', message.type)
+      return
     }
-    // Start observing DOM changes of chat content
-    startObservingDom()
-  })
 
-  let lastMessage: any = null
-  let lastPartialMessage: any = null
-  removeListener = window.api.onMainMessage((message: any) => {
-    // const responseStartTime = new Date().toLocaleString()
-    // console.log(`[AI Request Time Analysis] 2. Renderer AI received main process message time: ${responseStartTime}`)
+    // 获取目标 tab
+    const targetTab = chatTabs.value.find((tab) => tab.id === targetTabId)
+    if (!targetTab) {
+      console.warn('AiTab: Ignoring message for deleted tab:', targetTabId)
+      return
+    }
 
     console.log('Received main process message:', message.type, message)
+
+    const session = targetTab.session
+    const isActiveTab = targetTabId === currentChatId.value
+    const previousMainMessage = session.lastStreamMessage
+    const previousPartialMessage = session.lastPartialMessage
+
     if (message?.type === 'partialMessage') {
-      if (message.partialMessage.type === 'ask' && message.partialMessage.ask === 'completion_result') {
-        showNewTaskButton.value = true
-        responseLoading.value = false
-        showCancelButton.value = false
+      const partial = message.partialMessage
+      if (!partial) {
+        return
+      }
+
+      if (partial.type === 'ask' && partial.ask === 'completion_result') {
+        session.showNewTaskButton = true
+        session.responseLoading = false
+        session.showCancelButton = false
         return
       } else {
-        showNewTaskButton.value = false
+        session.showNewTaskButton = false
       }
 
-      // Handle interactive_command_notification messages
-      if (message.partialMessage.say === 'interactive_command_notification') {
-        handleInteractiveCommandNotification(message)
+      if (partial.say === 'interactive_command_notification') {
+        handleInteractiveCommandNotification(message, targetTab)
         return
       }
 
-      // Handle model error -- api_req_failed or ssh_con_failed
-      if (
-        message.partialMessage.type === 'ask' &&
-        (message.partialMessage.ask === 'api_req_failed' || message.partialMessage.ask === 'ssh_con_failed')
-      ) {
-        handleModelApiReqFailed(message)
+      if (partial.type === 'ask' && (partial.ask === 'api_req_failed' || partial.ask === 'ssh_con_failed')) {
+        handleModelApiReqFailed(message, targetTab)
         return
       }
-      showRetryButton.value = false
-      showSendButton.value = false
-      showCancelButton.value = true
-      let lastMessageInChat = chatHistory.at(-1)
 
-      let openNewMessage =
-        (lastMessage?.type === 'state' && !lastPartialMessage?.partialMessage?.partial) ||
+      session.showRetryButton = false
+      session.showSendButton = false
+      session.showCancelButton = true
+      const lastMessageInChat = session.chatHistory.at(-1)
+
+      const openNewMessage =
+        (previousMainMessage?.type === 'state' && !previousPartialMessage?.partialMessage?.partial) ||
         lastMessageInChat?.role === 'user' ||
-        !lastMessage ||
-        lastPartialMessage.partialMessage.ts !== message.partialMessage.ts
+        !previousMainMessage ||
+        previousPartialMessage?.partialMessage?.ts !== partial.ts
 
-      if (lastPartialMessage && JSON.stringify(lastPartialMessage) === JSON.stringify(message)) {
+      if (previousPartialMessage && JSON.stringify(previousPartialMessage) === JSON.stringify(message)) {
         return
       }
-      isCurrentChatMessage.value = true
+
+      if (isActiveTab) {
+        isCurrentChatMessage.value = true
+      }
+
       if (openNewMessage) {
         const newAssistantMessage = createNewMessage(
           'assistant',
-          message.partialMessage.text,
-          message.partialMessage.type,
-          message.partialMessage.type === 'ask' ? message.partialMessage.ask : '',
-          message.partialMessage.type === 'say' ? message.partialMessage.say : '',
-          message.partialMessage.ts,
-          message.partialMessage.partial
+          partial.text ?? '',
+          partial.type ?? '',
+          partial.type === 'ask' ? (partial.ask ?? '') : '',
+          partial.type === 'say' ? (partial.say ?? '') : '',
+          partial.ts ?? 0,
+          partial.partial
         )
 
-        if (!message.partialMessage.partial && message.partialMessage.type === 'ask') {
-          newAssistantMessage.content = parseMessageContent(message.partialMessage.text)
+        if (!partial.partial && partial.type === 'ask' && partial.text) {
+          newAssistantMessage.content = parseMessageContent(partial.text)
         }
 
-        if (message.partialMessage.mcpToolCall) {
-          newAssistantMessage.mcpToolCall = message.partialMessage.mcpToolCall
+        if (partial.mcpToolCall) {
+          newAssistantMessage.mcpToolCall = partial.mcpToolCall
         }
 
-        if (message.partialMessage.type === 'say' && message.partialMessage.say === 'command') {
-          isExecutingCommand.value = true
+        if (partial.type === 'say' && partial.say === 'command') {
+          session.isExecutingCommand = true
         }
 
-        lastChatMessageId.value = newAssistantMessage.id
-        // 在添加新消息前，清理partial command消息
-        cleanupPartialCommandMessages()
-        chatHistory.push(newAssistantMessage)
+        session.lastChatMessageId = newAssistantMessage.id
+        cleanupPartialCommandMessages(session.chatHistory)
+        session.chatHistory.push(newAssistantMessage)
       } else if (lastMessageInChat && lastMessageInChat.role === 'assistant') {
-        lastMessageInChat.content = message.partialMessage.text
-        lastMessageInChat.type = message.partialMessage.type
-        lastMessageInChat.ask = message.partialMessage.type === 'ask' ? message.partialMessage.ask : ''
-        lastMessageInChat.say = message.partialMessage.type === 'say' ? message.partialMessage.say : ''
-        lastMessageInChat.partial = message.partialMessage.partial
+        lastMessageInChat.content = partial.text ?? ''
+        lastMessageInChat.type = partial.type ?? ''
+        lastMessageInChat.ask = partial.type === 'ask' ? (partial.ask ?? '') : ''
+        lastMessageInChat.say = partial.type === 'say' ? (partial.say ?? '') : ''
+        lastMessageInChat.partial = partial.partial
 
-        if (message.partialMessage.mcpToolCall) {
-          lastMessageInChat.mcpToolCall = message.partialMessage.mcpToolCall
+        if (partial.mcpToolCall) {
+          lastMessageInChat.mcpToolCall = partial.mcpToolCall
         }
 
-        if (!message.partialMessage.partial && message.partialMessage.type === 'ask') {
-          lastMessageInChat.content = parseMessageContent(message.partialMessage.text)
+        if (!partial.partial && partial.type === 'ask' && partial.text) {
+          lastMessageInChat.content = parseMessageContent(partial.text)
         }
 
-        if (message.partialMessage.type === 'say' && message.partialMessage.say === 'command_output' && !message.partialMessage.partial) {
-          isExecutingCommand.value = false
+        if (partial.type === 'say' && partial.say === 'command_output' && !partial.partial) {
+          session.isExecutingCommand = false
         }
       }
 
-      lastPartialMessage = message
-      if (!message.partialMessage?.partial) {
-        showSendButton.value = true
-        showCancelButton.value = false
+      session.lastPartialMessage = message
+      if (!partial.partial) {
+        session.showSendButton = true
+        session.showCancelButton = false
 
-        if (
-          (message.partialMessage?.type === 'ask' && message.partialMessage?.ask === 'command') ||
-          message.partialMessage?.say === 'command_blocked'
-        ) {
-          responseLoading.value = false
+        if ((partial.type === 'ask' && partial.ask === 'command') || partial.say === 'command_blocked') {
+          session.responseLoading = false
         }
       }
     } else if (message?.type === 'state') {
-      let lastStateChatermMessages = message.state?.chatermMessages.at(-1)
+      const chatermMessages = message.state?.chatermMessages ?? []
+      const lastStateChatermMessages = chatermMessages.at(-1)
       if (
-        message.state?.chatermMessages.length > 0 &&
-        lastStateChatermMessages.partial != undefined &&
+        chatermMessages.length > 0 &&
+        lastStateChatermMessages?.partial != undefined &&
         !lastStateChatermMessages.partial &&
-        responseLoading.value
+        session.responseLoading
       ) {
-        responseLoading.value = false
+        session.responseLoading = false
       }
     } else if (message?.type === 'todoUpdated') {
-      // 处理 todo 更新事件
       console.log('AiTab: Received todoUpdated message', message)
 
-      // 标记最新的 assistant 消息包含 todo 更新
-      if (message.todos && message.todos.length > 0) {
-        markLatestMessageWithTodoUpdate(chatHistory, message.todos)
+      if (Array.isArray(message.todos) && message.todos.length > 0) {
+        markLatestMessageWithTodoUpdate(session.chatHistory, message.todos as Todo[])
       } else {
-        clearTodoState(chatHistory)
+        clearTodoState(session.chatHistory)
       }
     } else if (message?.type === 'chatTitleGenerated') {
-      // 处理聊天标题生成消息
       console.log('AiTab: Received chatTitleGenerated message', message)
 
       if (message.chatTitle && message.taskId) {
-        // Update current chat title for tab-pane display only
-        if (currentChatId.value === message.taskId) {
-          currentChatTitle.value = message.chatTitle
-          console.log('Updated current chat title to:', message.chatTitle)
-        }
+        // 直接更新 tab 的标题
+        targetTab.title = message.chatTitle
+        console.log('Updated chat title to:', message.chatTitle)
       }
     }
-    lastMessage = message
+
+    session.lastStreamMessage = message
+  }
+
+  removeListener = window.api.onMainMessage((message: any) => {
+    processMainMessage(message).catch((error) => {
+      console.error('Failed to process main process message:', error)
+    })
   })
 })
 
-const handleModelApiReqFailed = (message: any) => {
+const handleModelApiReqFailed = (message: any, targetTab: ChatTab) => {
+  const session = targetTab.session
   const newAssistantMessage = createNewMessage(
     'assistant',
     message.partialMessage.text,
@@ -2297,16 +2547,17 @@ const handleModelApiReqFailed = (message: any) => {
     false
   )
   // 在添加新消息前，清理partial command消息
-  cleanupPartialCommandMessages()
-  chatHistory.push(newAssistantMessage)
-  console.log('showRetryButton.value', showRetryButton.value)
-  showRetryButton.value = true
-  responseLoading.value = false
+  cleanupPartialCommandMessages(session.chatHistory)
+  session.chatHistory.push(newAssistantMessage)
+  console.log('showRetryButton for tab', targetTab.id)
+  session.showRetryButton = true
+  session.responseLoading = false
 }
 
-const handleInteractiveCommandNotification = (message: any) => {
+const handleInteractiveCommandNotification = (message: any, targetTab: ChatTab) => {
   console.log('Processing interactive_command_notification:', message)
 
+  const session = targetTab.session
   const notificationMessage = createNewMessage(
     'assistant',
     message.partialMessage.text,
@@ -2318,14 +2569,14 @@ const handleInteractiveCommandNotification = (message: any) => {
   )
 
   // 在添加新消息前，清理partial command消息
-  cleanupPartialCommandMessages()
-  chatHistory.push(notificationMessage)
+  cleanupPartialCommandMessages(session.chatHistory)
+  session.chatHistory.push(notificationMessage)
 
   console.log('Interactive command notification processed and added to chat history')
 }
 
 // 清理partial command消息：在新增消息时主动删除上一个partial=true的command消息
-const cleanupPartialCommandMessages = () => {
+const cleanupPartialCommandMessages = (chatHistory: ChatMessage[]) => {
   // 倒序查找并删除partial=true且ask='command'的消息
   for (let i = chatHistory.length - 1; i >= 0; i--) {
     const message = chatHistory[i]
@@ -2347,9 +2598,12 @@ onUnmounted(() => {
   eventBus.off('apiProviderChanged')
   eventBus.off('activeTabChanged')
   eventBus.off('chatToAi')
-  if (chatContainer.value) {
-    chatContainer.value.removeEventListener('scroll', handleContainerScroll)
-  }
+  eventBus.off('sendMessageToAi')
+
+  // Clean up auto-scroll
+  const container = getElement(chatContainer.value)
+  container?.removeEventListener('scroll', handleContainerScroll)
+
   if (domObserver.value) {
     try {
       domObserver.value.disconnect()
@@ -2409,36 +2663,39 @@ const updateCwdForAllHosts = async () => {
 }
 
 // Add method to send message to main process
-const sendMessageToMain = async (userContent: string, sendType: string) => {
+const sendMessageToMain = async (userContent: string, sendType: string, tabId?: string) => {
   try {
-    // // Record AI message send start time, format as yyyy-MM-dd HH:mm:ss
-    // const sendStartTime = new Date().toLocaleString()
-    // console.log(`[AI Request Time Analysis] 1. Renderer AI send message start time: ${sendStartTime}`)
+    const targetTab = tabId ? chatTabs.value.find((tab) => tab.id === tabId) : currentTab.value
 
-    await updateCwdForAllHosts() // TODO:use cache
+    if (!targetTab || !targetTab.session) {
+      return
+    }
 
-    // Update cwd for all hosts with timeout protection
+    const session = targetTab.session
+    const targetHosts = targetTab.hosts
+
+    await updateCwdForAllHosts()
+
     const filteredCwd = new Map()
-    hosts.value.forEach((h) => {
+    targetHosts.forEach((h) => {
       if (h.host && currentCwd.value[h.host]) {
         filteredCwd.set(h.host, currentCwd.value[h.host])
       }
     })
-    const hostsArray = hosts.value.map((h) => ({
+    const hostsArray = targetHosts.map((h) => ({
       host: h.host,
       uuid: h.uuid,
       connection: h.connection
     }))
 
     let message
-    // Check if it is an interactive command input: only when a command is currently executing, the user's message is considered as interactive input
-    if (isExecutingCommand.value && chatHistory.length > 0) {
+    if (session.isExecutingCommand && session.chatHistory.length > 0) {
       message = {
         type: 'interactiveCommandInput',
         input: userContent
       }
       console.log('Sending interactive command input:', userContent)
-    } else if (chatHistory.length === 0) {
+    } else if (session.chatHistory.length === 0) {
       message = {
         type: 'newTask',
         askResponse: 'messageResponse',
@@ -2446,7 +2703,7 @@ const sendMessageToMain = async (userContent: string, sendType: string) => {
         terminalOutput: '',
         hosts: hostsArray,
         cwd: filteredCwd,
-        taskId: currentChatId.value
+        taskId: tabId || currentChatId.value
       }
     } else if (sendType === 'commandSend') {
       message = {
@@ -2463,8 +2720,14 @@ const sendMessageToMain = async (userContent: string, sendType: string) => {
         cwd: filteredCwd
       }
     }
-    console.log('Send message to main process:', message)
-    const response = await window.api.sendToMain(message)
+
+    const messageWithTabId = {
+      ...message,
+      tabId: tabId || currentChatId.value,
+      taskId: tabId || currentChatId.value
+    }
+    console.log('Send message to main process:', messageWithTabId)
+    const response = await window.api.sendToMain(messageWithTabId)
     console.log('Main process response:', response)
   } catch (error) {
     console.error('Failed to send message to main process:', error)
@@ -2472,40 +2735,26 @@ const sendMessageToMain = async (userContent: string, sendType: string) => {
 }
 
 // Watch chatHistory changes
-watch(
-  chatHistory,
-  () => {
-    scrollToBottom()
-  },
-  { deep: true }
-)
+// watch(
+//   () => currentSession.value?.chatHistory,
+//   () => {
+//     scrollToBottom()
+//   },
+//   { deep: true }
+// )
 
 // Watch chatHistory length changes to enable buttons
 watch(
-  () => chatHistory.length,
+  () => currentSession.value?.chatHistory.length,
   () => {
     // console.log('watch  chatHistory.length')
-    buttonsDisabled.value = false
-    resumeDisabled.value = false
+    const session = currentSession.value
+    if (session) {
+      session.buttonsDisabled = false
+      session.resumeDisabled = false
+    }
   }
 )
-
-// const showBottomButton = computed(() => {
-//   if (chatHistory.length === 0) {
-//     return false
-//   }
-//   let message = chatHistory.at(-1)
-//   if (!message) {
-//     return false
-//   }
-//   return (
-//     (chatTypeValue.value === 'agent' || chatTypeValue.value === 'cmd') &&
-//     lastChatMessageId.value !== '' &&
-//     lastChatMessageId.value == message.id &&
-//     message.ask === 'command' &&
-//     !showCancelButton.value
-//   )
-// })
 
 const filteredHostOptions = computed(() => {
   if (chatTypeValue.value === 'cmd') {
@@ -2533,11 +2782,11 @@ const onHostClick = (item: any) => {
     // Check if already selected
     const existingIndex = hosts.value.findIndex((h) => h.host === item.label)
     if (existingIndex > -1) {
-      // If already selected, then deselect
-      hosts.value.splice(existingIndex, 1)
+      // If already selected, then deselect (创建新数组以触发 computed setter)
+      hosts.value = hosts.value.filter((_, i) => i !== existingIndex)
     } else {
-      // If not selected, then add
-      hosts.value.push(newHost)
+      // If not selected, then add (创建新数组以触发 computed setter)
+      hosts.value = [...hosts.value, newHost]
     }
   }
   autoUpdateHost.value = false
@@ -2549,7 +2798,8 @@ const onHostClick = (item: any) => {
 const removeHost = (hostToRemove: Host) => {
   const index = hosts.value.findIndex((h) => h.uuid === hostToRemove.uuid)
   if (index > -1) {
-    hosts.value.splice(index, 1)
+    // 创建新数组以触发 computed setter
+    hosts.value = hosts.value.filter((_, i) => i !== index)
     autoUpdateHost.value = false
   }
 }
@@ -2723,6 +2973,7 @@ const fetchHostOptionsForCommandMode = async (search: string) => {
 }
 
 const showResumeButton = computed(() => {
+  const chatHistory = currentSession.value?.chatHistory ?? []
   if (chatHistory.length === 0) {
     return false
   }
@@ -2751,7 +3002,10 @@ const handleAddHostClick = async () => {
 watch(
   shouldShowSendButton,
   (newValue) => {
-    showSendButton.value = newValue
+    const session = currentSession.value
+    if (session) {
+      session.showSendButton = newValue
+    }
   },
   { immediate: true }
 )
@@ -2808,6 +3062,12 @@ const saveHistoryTitle = async (history) => {
       if (currentChatId.value === history.id) {
         currentChatTitle.value = history.chatTitle
       }
+
+      // 同时更新对应 Tab 的标题
+      const tabIndex = chatTabs.value.findIndex((tab) => tab.id === history.id)
+      if (tabIndex !== -1) {
+        chatTabs.value[tabIndex].title = history.chatTitle
+      }
     }
   } catch (err) {
     console.error('Failed to update history title:', err)
@@ -2830,13 +3090,32 @@ const deleteHistory = async (history) => {
     historyList.value.splice(index, 1)
   }
 
+  // Check if the deleted history has a corresponding open tab, and remove it
+  const tabIndex = chatTabs.value.findIndex((tab) => tab.id === history.id)
+  if (tabIndex !== -1) {
+    // Remove the tab from chatTabs
+    chatTabs.value.splice(tabIndex, 1)
+
+    // If the deleted tab was the active one, switch to another tab
+    if (currentChatId.value === history.id) {
+      if (chatTabs.value.length > 0) {
+        const newActiveIndex = Math.min(tabIndex, chatTabs.value.length - 1)
+        const newActiveTab = chatTabs.value[newActiveIndex]
+        currentChatId.value = newActiveTab.id
+      } else {
+        createNewEmptyTab()
+      }
+    }
+  }
+
   const message = {
     type: 'deleteTaskWithId',
     text: history.id,
+    taskId: history.id,
     cwd: currentCwd.value
   }
   console.log('Send message to main process:', message)
-  const response = await window.api.sendToMain(message)
+  const response = await window.api.sendToMain(attachTabContext(message))
   console.log('Main process response:', response)
 }
 
@@ -2944,100 +3223,158 @@ const cancelEdit = async (history) => {
   }
 }
 
+// ============================================================================
+// Auto-Scroll Management
+// ============================================================================
+// Handles automatic scrolling to bottom when new content arrives.
+// Only scrolls if user was already at the bottom (sticky-to-bottom behavior).
+
+// DOM References
 const chatContainer = ref<HTMLElement | null>(null)
 const chatResponse = ref<HTMLElement | null>(null)
-// Add a flag to track if collapse operation is being processed
-// const isHandlingCollapse = ref(false)
-// Track whether we should stick to bottom (auto-scroll only when user is already at bottom)
-const shouldStickToBottom = ref(true)
-const STICKY_THRESHOLD = 24 // px
 
-const isAtBottom = (el: HTMLElement) => {
+// Helper: Safely get DOM element from ref (Vue may collect refs as arrays)
+const getElement = (ref: any): HTMLElement | null => {
+  if (!ref) return null
+  return Array.isArray(ref) ? ref[0] || null : ref
+}
+
+// State Management - 通过 computed 访问当前 session 的状态
+const shouldStickToBottom = computed({
+  get: () => currentSession.value?.shouldStickToBottom ?? true,
+  set: (value: boolean) => {
+    if (currentSession.value) {
+      currentSession.value.shouldStickToBottom = value
+    }
+  }
+})
+const STICKY_THRESHOLD = 24 // Distance from bottom to consider "at bottom"
+
+const isAtBottom = (el: HTMLElement): boolean => {
   return el.scrollHeight - (el.scrollTop + el.clientHeight) <= STICKY_THRESHOLD
 }
 
-const handleContainerScroll = () => {
-  if (!chatContainer.value) return
-  // Update sticky flag based on user's current position
-  shouldStickToBottom.value = isAtBottom(chatContainer.value)
+// Core Scroll Functions
+const executeScroll = () => {
+  requestAnimationFrame(() => {
+    const el = getElement(chatContainer.value)
+    if (el instanceof HTMLElement) {
+      el.scrollTop = el.scrollHeight
+    }
+  })
 }
 
-// Observe DOM mutations within chat content to keep bottom anchored
+const scrollToBottom = (force = false) => {
+  if (!force && !shouldStickToBottom.value) return
+  nextTick(executeScroll)
+}
+
+const scrollToBottomWithRetry = (maxRetries = 5, delay = 50) => {
+  let retryCount = 0
+  let lastScrollHeight = 0
+
+  const attemptScroll = () => {
+    const el = getElement(chatContainer.value)
+    if (!(el instanceof HTMLElement)) return
+
+    const currentScrollHeight = el.scrollHeight
+    const clientHeight = el.clientHeight
+
+    el.scrollTop = el.scrollHeight
+
+    const newScrollTop = el.scrollTop
+    const distanceFromBottom = currentScrollHeight - (newScrollTop + clientHeight)
+    const isReallyAtBottom = distanceFromBottom <= STICKY_THRESHOLD
+
+    const scrollHeightChanged = currentScrollHeight !== lastScrollHeight
+
+    if (isReallyAtBottom && !scrollHeightChanged && retryCount > 0) {
+      return
+    }
+
+    lastScrollHeight = currentScrollHeight
+    retryCount++
+
+    if (retryCount < maxRetries) {
+      setTimeout(() => {
+        requestAnimationFrame(attemptScroll)
+      }, delay)
+    }
+  }
+
+  requestAnimationFrame(() => {
+    requestAnimationFrame(attemptScroll)
+  })
+}
+
+// Scroll Event Handler
+const handleContainerScroll = () => {
+  const container = getElement(chatContainer.value)
+  if (container && currentSession.value) {
+    currentSession.value.shouldStickToBottom = isAtBottom(container)
+  }
+}
+
+// DOM Mutation Observer (auto-scroll on content changes)
 const domObserver = ref<MutationObserver | null>(null)
+
+const isTerminalToggleMutation = (mutations: MutationRecord[], rootEl: HTMLElement | null): boolean => {
+  return mutations.some((mutation) => {
+    let target = mutation.target as HTMLElement
+    while (target && target !== rootEl) {
+      if (target.classList?.contains('terminal-output-container') || target.classList?.contains('terminal-output')) {
+        return true
+      }
+      target = target.parentElement as HTMLElement
+    }
+    return false
+  })
+}
+
 const startObservingDom = () => {
-  // Clean up any previous observer
   if (domObserver.value) {
     try {
       domObserver.value.disconnect()
     } catch {}
   }
-  if (!chatResponse.value) return
+
+  const responseEl = getElement(chatResponse.value)
+  if (!responseEl || !(responseEl instanceof Node)) return
+
   domObserver.value = new MutationObserver((mutations) => {
-    // 检查是否是由展开/收起 terminal output 导致的变化
-    const isTerminalToggle = mutations.some((mutation) => {
-      // 检查目标元素或其父元素是否包含 terminal-output 相关类名
-      let target = mutation.target as HTMLElement
-      while (target && target !== chatResponse.value) {
-        if (target.classList?.contains('terminal-output-container') || target.classList?.contains('terminal-output')) {
-          return true
-        }
-        target = target.parentElement as HTMLElement
-      }
-      return false
-    })
-
-    // 如果是 terminal output 的展开/收起操作，不触发自动滚动
-    if (isTerminalToggle) {
-      return
-    }
-
-    // If user was at bottom, keep pinned during multi-line or batched updates
+    if (isTerminalToggleMutation(mutations, responseEl)) return
     if (shouldStickToBottom.value) {
-      if (chatContainer.value) {
-        chatContainer.value.scrollTop = chatContainer.value.scrollHeight
-      }
+      executeScroll()
     }
   })
-  domObserver.value.observe(chatResponse.value, {
+
+  domObserver.value.observe(responseEl, {
     childList: true,
     subtree: true,
     characterData: true
   })
 }
 
-// Add auto scroll function
-const scrollToBottom = (force = false) => {
-  // Only auto-scroll if we were already at the bottom
-  if (!force && !shouldStickToBottom.value) {
-    return
-  }
-
+const initializeAutoScroll = () => {
   nextTick(() => {
-    if (chatContainer.value) {
-      chatContainer.value.scrollTop = chatContainer.value.scrollHeight
+    const container = getElement(chatContainer.value)
+    if (container && currentSession.value) {
+      container.removeEventListener('scroll', handleContainerScroll)
+      container.addEventListener('scroll', handleContainerScroll, { passive: true })
+      currentSession.value.shouldStickToBottom = isAtBottom(container)
     }
+    startObservingDom()
   })
 }
 
-// Re-attach scroll listener when container ref changes
-watch(
-  () => chatContainer.value,
-  (el, prev) => {
-    if (prev) prev.removeEventListener('scroll', handleContainerScroll)
-    if (el) {
-      el.addEventListener('scroll', handleContainerScroll, { passive: true })
-      shouldStickToBottom.value = isAtBottom(el)
-    }
-  }
-)
-
-// Re-attach DOM observer when content root ref changes
 watch(
   () => chatResponse.value,
   () => {
-    startObservingDom()
+    nextTick(startObservingDom)
   }
 )
+
+// ============================================================================
 
 const toggleFavorite = async (history) => {
   history.isFavorite = !history.isFavorite
@@ -3131,13 +3468,16 @@ const initModelOptions = async () => {
 
 // Add method to handle feedback
 const handleFeedback = async (message: ChatMessage, type: 'like' | 'dislike') => {
+  const session = currentSession.value
+  if (!session) return
+
   // If feedback has already been submitted, don't allow operation again
   if (isMessageFeedbackSubmitted(message.id)) {
     return
   }
 
   // Update local state
-  messageFeedbacks.value[message.id] = type
+  session.messageFeedbacks[message.id] = type
   // Get current feedback from globalState
   const feedbacks = ((await getGlobalState('messageFeedbacks')) || {}) as Record<string, 'like' | 'dislike'>
   // Add or update feedback for this message
@@ -3147,46 +3487,59 @@ const handleFeedback = async (message: ChatMessage, type: 'like' | 'dislike') =>
   // Send feedback to main process
   let messageRsp = {
     type: 'taskFeedback',
-    feedbackType: type === 'like' ? 'thumbs_up' : 'thumbs_down'
+    feedbackType: type === 'like' ? 'thumbs_up' : 'thumbs_down',
+    taskId: currentChatId.value || undefined
   }
   console.log('Send message to main process:', messageRsp)
-  const response = await window.api.sendToMain(messageRsp)
+  const response = await window.api.sendToMain(attachTabContext(messageRsp))
   console.log('Main process response:', response)
 }
 
 // Restore saved state
 const restoreState = (savedState: any) => {
   if (!savedState) return
-  // Restore input box content
-  if (savedState.chatInputValue !== undefined) {
-    chatInputValue.value = savedState.chatInputValue
+
+  // Restore all tabs
+  if (savedState.chatTabs && savedState.chatTabs.length > 0) {
+    chatTabs.value = savedState.chatTabs.map((savedTab: any) => ({
+      id: savedTab.id,
+      title: savedTab.title,
+      hosts: [...savedTab.hosts],
+      chatType: savedTab.chatType,
+      autoUpdateHost: savedTab.autoUpdateHost,
+      inputValue: savedTab.inputValue,
+      session: {
+        ...createEmptySessionState(),
+        chatHistory: [...savedTab.session.chatHistory],
+        lastChatMessageId: savedTab.session.lastChatMessageId,
+        responseLoading: savedTab.session.responseLoading || false,
+        showCancelButton: savedTab.session.showCancelButton || false,
+        showSendButton: savedTab.session.showSendButton ?? true,
+        buttonsDisabled: savedTab.session.buttonsDisabled || false,
+        resumeDisabled: savedTab.session.resumeDisabled || false,
+        isExecutingCommand: savedTab.session.isExecutingCommand || false,
+        showRetryButton: savedTab.session.showRetryButton || false,
+        showNewTaskButton: savedTab.session.showNewTaskButton || false,
+        messageFeedbacks: savedTab.session.messageFeedbacks || {},
+        shouldStickToBottom: savedTab.session.shouldStickToBottom ?? true
+      }
+    }))
   }
 
-  // Restore chat type and AI model
-  if (savedState.chatTypeValue) {
-    chatTypeValue.value = savedState.chatTypeValue
+  // Restore current active tab (validate ID exists)
+  if (savedState.currentChatId) {
+    const tabExists = chatTabs.value.some((tab) => tab.id === savedState.currentChatId)
+    if (tabExists) {
+      currentChatId.value = savedState.currentChatId
+    } else if (chatTabs.value.length > 0) {
+      // If saved tab ID doesn't exist, use first tab
+      currentChatId.value = chatTabs.value[0].id
+    }
   }
+
+  // Restore global AI model setting
   if (savedState.chatAiModelValue) {
     chatAiModelValue.value = savedState.chatAiModelValue
-  }
-
-  // Restore host list
-  if (savedState.hosts && savedState.hosts.length > 0) {
-    hosts.value = [...savedState.hosts]
-    autoUpdateHost.value = false
-  }
-
-  // Restore chat history
-  if (savedState.chatHistory && savedState.chatHistory.length > 0) {
-    chatHistory.length = 0 // Clear current history
-    savedState.chatHistory.forEach((message: any) => {
-      chatHistory.push(message)
-    })
-  }
-
-  // Restore current conversation ID
-  if (savedState.currentChatId) {
-    currentChatId.value = savedState.currentChatId
   }
 }
 
@@ -3194,12 +3547,30 @@ const restoreState = (savedState: any) => {
 const getCurrentState = () => {
   return {
     size: 0, // This will be set in parent component
-    chatInputValue: chatInputValue.value,
-    chatHistory: [...chatHistory], // Create copy to avoid reference issues
-    currentChatId: currentChatId.value,
-    hosts: [...hosts.value], // Create copy to avoid reference issues
-    chatTypeValue: chatTypeValue.value,
-    chatAiModelValue: chatAiModelValue.value
+    currentChatId: currentChatId.value || null, // Save current active tab ID
+    chatTabs: chatTabs.value.map((tab) => ({
+      id: tab.id,
+      title: tab.title,
+      hosts: [...tab.hosts], // Deep copy
+      chatType: tab.chatType,
+      autoUpdateHost: tab.autoUpdateHost,
+      inputValue: tab.inputValue,
+      session: {
+        chatHistory: [...tab.session.chatHistory], // Deep copy chat history
+        lastChatMessageId: tab.session.lastChatMessageId,
+        responseLoading: tab.session.responseLoading,
+        showCancelButton: tab.session.showCancelButton,
+        showSendButton: tab.session.showSendButton,
+        buttonsDisabled: tab.session.buttonsDisabled,
+        resumeDisabled: tab.session.resumeDisabled,
+        isExecutingCommand: tab.session.isExecutingCommand,
+        showRetryButton: tab.session.showRetryButton,
+        showNewTaskButton: tab.session.showNewTaskButton,
+        messageFeedbacks: { ...tab.session.messageFeedbacks }
+        // Do not save lastStreamMessage and lastPartialMessage (temporary state)
+      }
+    })),
+    chatAiModelValue: chatAiModelValue.value // Global AI model setting
   }
 }
 
@@ -3208,7 +3579,6 @@ const emitStateChange = () => {
   const currentState = getCurrentState()
   emit('state-changed', currentState)
 }
-// Expose getCurrentState and restoreState methods for parent component use
 defineExpose({
   getCurrentState,
   restoreState

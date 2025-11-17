@@ -711,17 +711,19 @@ const api = {
     const result = await ipcRenderer.invoke('chaterm-connect-asset-info', data)
     return result
   },
-  cancelTask: async () => {
+  cancelTask: async (tabContext?: { tabId?: string } | string) => {
     try {
-      const result = await ipcRenderer.invoke('cancel-task')
+      const payload = typeof tabContext === 'string' ? { tabId: tabContext } : tabContext
+      const result = await ipcRenderer.invoke('cancel-task', payload)
       return result
     } catch (error) {
       return Promise.reject(error)
     }
   },
-  gracefulCancelTask: async () => {
+  gracefulCancelTask: async (tabContext?: { tabId?: string } | string) => {
     try {
-      const result = await ipcRenderer.invoke('graceful-cancel-task')
+      const payload = typeof tabContext === 'string' ? { tabId: tabContext } : tabContext
+      const result = await ipcRenderer.invoke('graceful-cancel-task', payload)
       return result
     } catch (error) {
       return Promise.reject(error)

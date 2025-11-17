@@ -16,6 +16,9 @@
     --scrollbar-thumb-hover: #3a3a3a;
     --icon-filter: invert(0.25);
     --icon-filter-hover: invert(0.1);
+    --tab-active-bg: #2a2a2a;
+    --tab-active-border: #404040;
+    --tab-active-shadow: rgba(255, 255, 255, 0.05);
   }
 
   // Light theme variables
@@ -35,6 +38,9 @@
     --scrollbar-thumb-hover: #d9d9d9;
     --icon-filter: invert(0.75);
     --icon-filter-hover: invert(0.9);
+    --tab-active-bg: #ffffff;
+    --tab-active-border: #d0d0d0;
+    --tab-active-shadow: rgba(0, 0, 0, 0.1);
   }
 }
 
@@ -60,16 +66,129 @@
     color: var(--text-color-secondary);
     transition:
       color 0.2s,
-      text-shadow 0.2s;
+      background-color 0.2s;
   }
 
   // 控制标签页标题的宽度和文字省略
   :deep(.ant-tabs-tab-btn) {
-    max-width: 300px; // 设置最大宽度
+    max-width: 200px; // 设置最大宽度
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
     display: inline-block;
+  }
+
+  // 自定义标签页样式：标题和关闭按钮
+  // 使用flex布局确保关闭按钮始终可见
+  :deep(.ant-tabs-tab-btn) {
+    display: flex !important;
+    align-items: center;
+    gap: 4px; // 减小间距
+    padding: 0 8px;
+    border-radius: 4px;
+  }
+
+  // 隐藏下划线指示器，使用背景色代替
+  :deep(.ant-tabs-ink-bar) {
+    display: none !important;
+  }
+
+  .tab-title {
+    flex: 1;
+    min-width: 0; // 允许flex子元素收缩
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 13px;
+  }
+
+  .tab-close-icon {
+    margin: 0;
+    flex-shrink: 0; // 防止关闭按钮被压缩
+    font-size: 12px;
+    cursor: pointer;
+    opacity: 0;
+    color: var(--text-color-tertiary);
+    padding: 2px;
+    border-radius: 3px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    &:hover {
+      color: var(--text-color);
+      background-color: var(--hover-bg-color);
+    }
+  }
+
+  // Tab样式 - Cursor风格
+  :deep(.ant-tabs-tab) {
+    margin: 0 2px 0 0; // 减小Tab间距
+    padding: 0 !important;
+    height: 28px;
+    line-height: 28px;
+    font-size: 13px;
+    border-radius: 6px;
+    background-color: transparent;
+    border: none;
+    position: relative;
+    transition: background-color 0.2s ease-in-out;
+
+    // Tab之间的分隔线
+    &:not(:last-child)::after {
+      content: '';
+      position: absolute;
+      right: -1px;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 1px;
+      height: 16px;
+      background-color: var(--border-color-light);
+      opacity: 0.5;
+    }
+
+    // 激活的Tab
+    &.ant-tabs-tab-active {
+      background-color: var(--bg-color-secondary);
+      border: 1px solid var(--border-color-light);
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+
+      .ant-tabs-tab-btn {
+        color: var(--text-color);
+        font-weight: 600;
+      }
+
+      // 激活的Tab不显示分隔线
+      &::after {
+        display: none;
+      }
+
+      // 激活的Tab的前一个Tab也不显示分隔线
+      & + .ant-tabs-tab::after {
+        display: none;
+      }
+    }
+
+    // Hover效果
+    &:hover {
+      background-color: var(--hover-bg-color);
+
+      .tab-close-icon {
+        opacity: 1;
+      }
+
+      // hover时隐藏分隔线
+      &::after {
+        opacity: 0;
+      }
+    }
+
+    // 选中的Tab - 关闭按钮始终显示
+    &.ant-tabs-tab-active {
+      .tab-close-icon {
+        opacity: 1;
+      }
+    }
   }
 
   // 隐藏标签页操作容器（包括更多按钮等）
@@ -78,15 +197,15 @@
   }
 
   :deep(.ant-tabs-nav) {
-    height: 26px;
-    margin-bottom: 2px;
+    height: 32px;
+    margin-bottom: 4px;
+    padding: 2px 4px;
+    background-color: var(--bg-color);
+    border-bottom: 1px solid var(--border-color-light);
   }
 
-  :deep(.ant-tabs-tab) {
-    padding: 0 4px;
-    height: 22px;
-    line-height: 22px;
-    font-size: 12px;
+  :deep(.ant-tabs-nav-list) {
+    gap: 0; // 移除Tab之间的额外间距
   }
 
   :deep(.ant-tabs-content-holder) {
