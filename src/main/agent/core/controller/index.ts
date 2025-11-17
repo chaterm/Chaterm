@@ -825,8 +825,9 @@ export class Controller {
         console.log('Generated chat title:', cleanedTitle)
 
         // Update Task instance's chatTitle property
-        if (this.task && this.task.taskId === taskId) {
-          this.task.chatTitle = cleanedTitle
+        const task = this.getTaskFromId(taskId)
+        if (task) {
+          task.chatTitle = cleanedTitle
           // Update history immediately with the new title
           await this.updateTaskHistory({
             id: taskId,
