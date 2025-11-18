@@ -2015,7 +2015,13 @@ const handleCommandOutput = (data: string, isInitialCommand: boolean) => {
   const cleanOutput = stripAnsi(data).trim()
   commandOutput.value += cleanOutput + '\n'
 
-  const promptRegex = /(?:\[([^@]+)@([^\]]+)\][#$]|([^@]+)@([^:]+):(?:[^$]*|\s*~)\s*[$#]|\[([^@]+)@([^\]]+)\s+[^\]]*\][#$])\s*$/
+  // 检测 SSH 命令提示符，用于判断命令输出是否结束
+  // 支持四种常见的提示符格式：
+  // 1. [user@host]$ 或 [user@host]# - 带方括号的标准格式
+  // 2. user@host:path$ 或 user@host:path# - 带路径的格式
+  // 3. [user@host path]$ 或 [user@host path]# - 带路径的方括号格式
+  // 4. $ 或 # - 简单提示符格式
+  const promptRegex = /(?:\[([^@]+)@([^\]]+)\][#$]|([^@]+)@([^:]+):(?:[^$]*|\s*~)\s*[$#]|\[([^@]+)@([^\]]+)\s+[^\]]*\][#$]|^[$#]$)\s*$/
 
   if (promptRegex.test(cleanOutput)) {
     isCollectingOutput.value = false
