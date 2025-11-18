@@ -5,6 +5,7 @@
         <Header
           ref="headerRef"
           @toggle-sidebar="toggleSideBar"
+          @mode-change="handleModeChange"
         ></Header>
       </div>
       <div class="term_body">
@@ -473,6 +474,7 @@ onMounted(async () => {
     updatePaneSize()
     if (headerRef.value) {
       headerRef.value.switchIcon('right', showAiSidebar.value)
+      headerRef.value.setMode('terminal')
     }
   })
   window.addEventListener('resize', updatePaneSize)
@@ -493,6 +495,60 @@ onMounted(async () => {
   eventBus.on('switchToSpecificTab', switchToSpecificTab)
   eventBus.on('createNewTerminal', handleCreateNewTerminal)
   eventBus.on('open-user-tab', openUserTab)
+
+  // Restore AI state from agents mode if available
+  const restoreStateFromAgents = async () => {
+    try {
+      const savedStateStr = localStorage.getItem('sharedAiTabState')
+      if (savedStateStr) {
+        const savedState = JSON.parse(savedStateStr)
+        // Update savedAiSidebarState first
+        savedAiSidebarState.value = savedState
+
+        // If there's saved state, open the AI sidebar first (so AiTab component can be rendered)
+        if (!showAiSidebar.value) {
+          const container = document.querySelector('.splitpanes') as HTMLElement
+          if (container) {
+            const containerWidth = container.offsetWidth
+            const restoredSize = savedState.size || (DEFAULT_WIDTH_RIGHT_PX / containerWidth) * 100
+            showAiSidebar.value = true
+            aiSidebarSize.value = restoredSize
+            headerRef.value?.switchIcon('right', true)
+            if (showSplitPane.value) {
+              adjustSplitPaneToEqualWidth()
+            } else {
+              mainTerminalSize.value = 100 - aiSidebarSize.value
+            }
+          }
+        }
+
+        // Wait for AiTab component to be rendered, then restore state
+        await nextTick()
+        if (aiTabRef.value && aiTabRef.value.restoreState) {
+          await aiTabRef.value.restoreState(savedState)
+        }
+
+        // Clear the shared state after restoring to avoid restoring again
+        localStorage.removeItem('sharedAiTabState')
+        return true
+      }
+    } catch (error) {
+      console.warn('Failed to restore AI state from agents mode:', error)
+      // Clear invalid state
+      localStorage.removeItem('sharedAiTabState')
+    }
+    return false
+  }
+
+  // Try to restore immediately, and also wait a bit if needed
+  nextTick(async () => {
+    if (!(await restoreStateFromAgents())) {
+      // If not restored yet, wait a bit more and try again (component might need more time to render)
+      setTimeout(async () => {
+        await restoreStateFromAgents()
+      }, 200)
+    }
+  })
 
   nextTick(() => {
     let theme = localStorage.getItem('theme') || 'auto'
@@ -1573,6 +1629,22 @@ const handleSendOrToggleAiFromTerminal = () => {
   } else {
     toggleSideBar('right')
   }
+}
+
+const handleModeChange = (mode: 'terminal' | 'agents') => {
+  // Save AI state before switching to agents mode
+  if (mode === 'agents' && aiTabRef.value) {
+    try {
+      const currentState = aiTabRef.value.getCurrentState?.()
+      if (currentState) {
+        // Save state to localStorage for persistence across mode switches
+        localStorage.setItem('sharedAiTabState', JSON.stringify(currentState))
+      }
+    } catch (error) {
+      console.warn('Failed to save AI state before mode switch:', error)
+    }
+  }
+  eventBus.emit('switch-mode', mode)
 }
 
 const getCurrentActiveTabId = (): string | null => {

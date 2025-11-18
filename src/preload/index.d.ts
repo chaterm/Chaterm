@@ -114,6 +114,18 @@ interface ApiType {
   onMcpStatusUpdate: (callback: (servers: any[]) => void) => () => void
   onMcpServerUpdate: (callback: (server: any) => void) => () => void
   onMcpConfigFileChanged: (callback: (content: string) => void) => () => void
+  getTaskMetadata: (taskId: string) => Promise<{
+    success: boolean
+    data?: {
+      files_in_context?: any[]
+      model_usage?: any[]
+      hosts?: Array<{ host: string; uuid: string; connection: string }>
+      todos?: any[]
+    }
+    error?: { message: string }
+  }>
+  getUserHosts: (search: string, limit?: number, offset?: number) => Promise<any>
+  initUserDatabase: (data: { uid: number }) => Promise<any>
 }
 
 declare global {
