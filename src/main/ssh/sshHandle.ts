@@ -368,7 +368,7 @@ export const attemptSecondaryConnection = async (event, connectionInfo, ident) =
         sftpError: err.message
       })
     })
-
+  sshConnections.set(id + '-second', conn) // Save connection object
   conn.connect(connectConfig)
 }
 
@@ -563,6 +563,20 @@ export const getSftpConnection = (id: string): any => {
   }
 
   return sftpConnectionInfo.sftp
+}
+
+export const cleanSftpConnection = (id) => {
+  // 清理sftp
+  if (sftpConnections.get(id)) {
+    const sftp = getSftpConnection(id)
+    sftp.end()
+    sftpConnections.delete(id)
+    if (sshConnections.get(id + '-second')) {
+      const connSec = sshConnections.get(id + '-second')
+      connSec.end()
+      sshConnections.delete(id + '-second')
+    }
+  }
 }
 
 // Upload file
@@ -1324,20 +1338,13 @@ export const registerSSHHandlers = () => {
         } else {
           console.log(`[堡垒机] 会话已断开，但底层连接仍被其他会话使用: ${id}`)
         }
-
+        cleanSftpConnection(id)
         jumpserverConnections.delete(id)
         jumpserverConnectionStatus.delete(id)
         return { status: 'success', message: 'JumpServer 连接已断开' }
       }
 
       return { status: 'warning', message: '没有活动的 JumpServer 连接' }
-    }
-
-    // 清理sftp
-    if (sftpConnections.get(id)) {
-      const sftp = getSftpConnection(id)
-      sftp.end()
-      sftpConnections.delete(id)
     }
 
     // 默认 SSH 处理
@@ -1375,7 +1382,7 @@ export const registerSSHHandlers = () => {
         // 不在复用池中的普通连接，直接关闭
         conn.end()
       }
-
+      cleanSftpConnection(id)
       sshConnections.delete(id)
       sftpConnections.delete(id)
       return { status: 'success', message: 'Disconnected' }
