@@ -22,7 +22,7 @@
         </div>
         <div class="fs-header-left">
           <a-input
-            v-model:value="localCurrentDirectoryInput"
+            v-model:value="currentDirectoryInput"
             class="input-search"
             @press-enter="handleRefresh"
             @mousedown.stop
@@ -363,26 +363,26 @@
 </template>
 
 <script setup lang="ts">
-import { ref, h, onMounted, watch, reactive } from 'vue'
+import { h, onMounted, reactive, ref, watch } from 'vue'
 import copyOrMoveModal from './moveModal.vue'
 import {
-  CloseOutlined,
   CheckOutlined,
-  LockOutlined,
-  DeleteOutlined,
-  ExclamationCircleOutlined,
-  ScissorOutlined,
-  CopyOutlined,
-  EditOutlined,
-  DownloadOutlined,
-  EllipsisOutlined,
+  CloseOutlined,
   CloudUploadOutlined,
-  UploadOutlined,
-  RollbackOutlined,
-  RedoOutlined,
+  CopyOutlined,
+  DeleteOutlined,
+  DownloadOutlined,
+  EditOutlined,
+  EllipsisOutlined,
+  ExclamationCircleOutlined,
+  FileFilled,
   FolderFilled,
   LinkOutlined,
-  FileFilled
+  LockOutlined,
+  RedoOutlined,
+  RollbackOutlined,
+  ScissorOutlined,
+  UploadOutlined
 } from '@ant-design/icons-vue'
 import { message, Modal } from 'ant-design-vue'
 import { ColumnsType } from 'ant-design-vue/es/table'
@@ -396,12 +396,6 @@ const { t } = useI18n()
 const { t: $t } = useI18n()
 
 const props = defineProps({
-  currentDirectory: {
-    type: String,
-    default: () => {
-      return '/'
-    }
-  },
   currentDirectoryInput: {
     type: String,
     default: () => {
@@ -409,6 +403,12 @@ const props = defineProps({
     }
   },
   uuid: {
+    type: String,
+    default: () => {
+      return ''
+    }
+  },
+  basePath: {
     type: String,
     default: () => {
       return ''
@@ -445,8 +445,8 @@ export interface FileRecord {
   disabled?: boolean
 }
 
-const localCurrentDirectoryInput = ref(props.currentDirectoryInput)
-const localCurrentDirectory = ref(props.currentDirectory)
+const currentDirectoryInput = ref(props.currentDirectoryInput)
+const basePath = ref(props.basePath)
 const files = ref<FileRecord[]>([])
 const loading = ref(false)
 const showErr = ref(false)
@@ -554,7 +554,28 @@ const sortByName = (a: FileRecord, b: FileRecord): number => {
 
 let isFirstLoad = ref(true)
 
+function removeBasePathInContent(content: string) {
+  const escapedBase = basePath.value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  let result = content.replace(new RegExp(escapedBase, 'g'), '')
+  result = result.replace(/\/{2,}/g, '/')
+  return result
+}
+
+function hasDuplicateSlashes(path: string): boolean {
+  return /\/{2,}/.test(path)
+}
+
+function fixPath(path: string): string {
+  if (path == null || path === '') return path
+
+  if (!hasDuplicateSlashes(path)) {
+    return path
+  }
+  return path.replace(/\/+/g, '/')
+}
+
 const loadFiles = async (uuid: string, filePath: string): Promise<void> => {
+  filePath = fixPath(filePath)
   loading.value = true
   showErr.value = false
   errTips.value = ''
@@ -563,13 +584,13 @@ const loadFiles = async (uuid: string, filePath: string): Promise<void> => {
   }
   let data = await fetchList(filePath || '/')
   if (data.length > 0 && typeof data[0] === 'string') {
-    if (isFirstLoad.value) {
-      filePath = '/'
-      data = await fetchList(filePath)
-      isFirstLoad.value = false
-    }
+    // if (isFirstLoad.value) {
+    //   filePath = '/'
+    //   data = await fetchList(filePath)
+    //   isFirstLoad.value = false
+    // }
     if (data.length > 0 && typeof data[0] === 'string') {
-      errTips.value = data[0]
+      errTips.value = removeBasePathInContent(data[0])
       showErr.value = true
     }
   }
@@ -607,19 +628,29 @@ const loadFiles = async (uuid: string, filePath: string): Promise<void> => {
   }
 
   files.value = dirs
-  localCurrentDirectory.value = filePath
-  localCurrentDirectoryInput.value = filePath
+  currentDirectoryInput.value = getLoadFilePath(filePath)
+}
+
+function getLoadFilePath(filePath: string): string {
+  const trimEndSlash = (p: string) => p.replace(/\/+$/, '')
+
+  const full = trimEndSlash(filePath)
+  const base = trimEndSlash(basePath.value)
+
+  if (!full.startsWith(base)) return full
+
+  const rest = full.slice(base.length)
+  return rest || '/'
 }
 
 const rowClick = (record: FileRecord): void => {
   if (record.isDir || record.isLink) {
     if (record.path === '..') {
       // 获取当前目录的上级目录
-      const currentDirectory = localCurrentDirectory.value
+      const currentDirectory = basePath.value + currentDirectoryInput.value
       let parentDirectory = currentDirectory.substring(0, currentDirectory.lastIndexOf('/'))
       if (parentDirectory === '') {
-        localCurrentDirectoryInput.value = '/'
-        localCurrentDirectory.value = '/'
+        currentDirectoryInput.value = '/'
         parentDirectory = '/'
       }
       loadFiles(props.uuid, parentDirectory)
@@ -638,7 +669,7 @@ const openFile = (record: FileRecord): void => {
 }
 
 const refresh = (): void => {
-  loadFiles(props.uuid, localCurrentDirectoryInput.value)
+  loadFiles(props.uuid, basePath.value + currentDirectoryInput.value)
 }
 
 // instead of path.dirname()
@@ -655,7 +686,7 @@ const joinPath = (...parts: string[]) => {
   return parts.join('/').replace(/\/+/g, '/')
 }
 const rollback = (): void => {
-  loadFiles(props.uuid, getDirname(localCurrentDirectoryInput.value))
+  loadFiles(props.uuid, getDirname(basePath.value + currentDirectoryInput.value))
 }
 
 const handleRefresh = (): void => {
@@ -664,7 +695,7 @@ const handleRefresh = (): void => {
 
 onMounted(async () => {
   isTeamCheck(props.uuid)
-  await loadFiles(props.uuid, localCurrentDirectory.value)
+  await loadFiles(props.uuid, basePath.value + currentDirectoryInput.value)
 })
 
 const uploadFile = async (): Promise<void> => {
@@ -675,7 +706,7 @@ const uploadFile = async (): Promise<void> => {
     message.loading({ content: t('files.uploading'), key, duration: 0 })
     const res = await api.uploadFile({
       id: key,
-      remotePath: localCurrentDirectoryInput.value,
+      remotePath: basePath.value + currentDirectoryInput.value,
       localPath: selected
     })
     refresh()
@@ -698,7 +729,7 @@ const uploadDirectory = async (): Promise<void> => {
     const res = await api.uploadDirectory({
       id: key,
       localDir: selected,
-      remoteDir: localCurrentDirectoryInput.value
+      remoteDir: basePath.value + currentDirectoryInput.value
     })
     refresh()
     message.success({
@@ -1073,7 +1104,7 @@ const deleteFile = (record: FileRecord) => {
   Modal.confirm({
     title: t('files.deleteFileTips'),
     icon: h(ExclamationCircleOutlined),
-    content: h('div', { style: 'color:red;font-weight: bold;' }, record.path),
+    content: h('div', { style: 'color:red;font-weight: bold;' }, removeBasePathInContent(record.path)),
     okText: t('common.ok'),
     okType: 'danger',
     cancelText: t('common.cancel'),
@@ -1141,7 +1172,7 @@ const copyOrMoveModalOk = async (targetPath: string) => {
         message.error(`${t('files.copyFileFailed')}：${stderr}`)
       } else {
         message.success(t('files.copyFileSuccess'))
-        localCurrentDirectoryInput.value = getDirname(dest)
+        currentDirectoryInput.value = getDirname(dest)
         refresh()
       }
     } catch (error) {
@@ -1161,7 +1192,7 @@ const copyOrMoveModalOk = async (targetPath: string) => {
         message.error(`${t('files.moveFileFailed')}：${stderr}`)
       } else {
         message.success(t('files.moveFileSuccess'))
-        localCurrentDirectoryInput.value = getDirname(dest)
+        currentDirectoryInput.value = getDirname(dest)
         refresh()
       }
     } catch (error) {
@@ -1175,25 +1206,6 @@ const moveFile = (record: FileRecord) => {
   copyOrMoveModalType.value = 'move'
   copyOrMoveDialog.value = true
 }
-
-watch(
-  () => props.currentDirectory,
-  (newVal) => {
-    if (newVal !== localCurrentDirectory.value) {
-      localCurrentDirectory.value = newVal
-      loadFiles(props.uuid, newVal)
-    }
-  }
-)
-
-watch(
-  () => props.currentDirectoryInput,
-  (newVal) => {
-    if (newVal !== localCurrentDirectoryInput.value) {
-      localCurrentDirectoryInput.value = newVal
-    }
-  }
-)
 
 defineExpose({
   refresh,
