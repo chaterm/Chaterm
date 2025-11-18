@@ -4,6 +4,7 @@ import { v4 as uuidv4 } from 'uuid'
 
 export function connectAssetInfoLogic(db: Database.Database, uuid: string): any {
   try {
+    // 查询个人资产
     const stmt = db.prepare(`
         SELECT uuid, asset_ip, auth_type, port, username, password, key_chain_id, need_proxy, proxy_name
         FROM t_assets
@@ -13,6 +14,15 @@ export function connectAssetInfoLogic(db: Database.Database, uuid: string): any 
     let sshType = 'ssh'
 
     if (!result) {
+      // 查询组织资产
+      const directOrgAssetStmt = db.prepare(`
+        SELECT oa.uuid, oa.organization_uuid, oa.hostname, oa.host, oa.jump_server_type
+        FROM t_organization_assets oa
+        WHERE oa.uuid = ?
+      `)
+      const directResult = directOrgAssetStmt.get(uuid)
+
+      // JOIN 查询获取完整信息
       const orgAssetStmt = db.prepare(`
         SELECT oa.hostname, oa.host, a.asset_ip, oa.organization_uuid, oa.uuid, oa.jump_server_type,
               a.auth_type, a.port, a.username, a.password, a.key_chain_id, a.need_proxy, a.proxy_name
@@ -21,8 +31,38 @@ export function connectAssetInfoLogic(db: Database.Database, uuid: string): any 
         WHERE oa.uuid = ?
       `)
       result = orgAssetStmt.get(uuid)
+
+      // JOIN 失败时，尝试单独查询堡垒机配置
+      if (!result && directResult) {
+        const orgUuid = (directResult as any).organization_uuid
+        const jumpServerStmt = db.prepare(`
+          SELECT uuid, asset_ip, auth_type, port, username, password, key_chain_id, need_proxy, proxy_name, asset_type
+          FROM t_assets
+          WHERE uuid = ? AND asset_type = 'organization'
+        `)
+        const jumpServerConfig = jumpServerStmt.get(orgUuid)
+
+        if (jumpServerConfig) {
+          result = {
+            uuid: (directResult as any).uuid,
+            organization_uuid: orgUuid,
+            hostname: (directResult as any).hostname,
+            host: (directResult as any).host,
+            jump_server_type: (directResult as any).jump_server_type || 'jumpserver',
+            asset_ip: (jumpServerConfig as any).asset_ip,
+            auth_type: (jumpServerConfig as any).auth_type,
+            port: (jumpServerConfig as any).port || 22,
+            username: (jumpServerConfig as any).username,
+            password: (jumpServerConfig as any).password,
+            key_chain_id: (jumpServerConfig as any).key_chain_id,
+            need_proxy: (jumpServerConfig as any).need_proxy,
+            proxy_name: (jumpServerConfig as any).proxy_name
+          }
+        }
+      }
+
       if (result) {
-        sshType = result.jump_server_type || 'jumpserver'
+        sshType = (result as any).jump_server_type || 'jumpserver'
       }
     } else {
       ;(result as any).host = (result as any).asset_ip
@@ -60,6 +100,19 @@ export function getUserHostsLogic(db: Database.Database, search: string): any {
   try {
     const safeSearch = search ?? ''
 
+    // 自动清理孤立的组织资产
+    const deleteOrphanedStmt = db.prepare(`
+      DELETE FROM t_organization_assets
+      WHERE uuid IN (
+        SELECT oa.uuid
+        FROM t_organization_assets oa
+        LEFT JOIN t_assets a ON oa.organization_uuid = a.uuid AND a.asset_type = 'organization'
+        WHERE a.uuid IS NULL
+      )
+    `)
+    deleteOrphanedStmt.run()
+
+    // 查询个人资产
     const personalStmt = db.prepare(`
         SELECT asset_ip as host, uuid, 'person' as asset_type
         FROM t_assets
