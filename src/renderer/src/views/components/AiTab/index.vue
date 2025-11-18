@@ -1269,6 +1269,21 @@ const handleTabRemove = async (tabId: string) => {
   currentChatId.value = newActiveTab.id
 }
 
+const handleCloseTabKeyDown = (event: KeyboardEvent) => {
+  const isWindows = navigator.platform.toLowerCase().includes('win')
+  if (!isWindows && (event.metaKey || event.ctrlKey) && event.key === 'w') {
+    if (!chatTabs.value || chatTabs.value.length === 0) {
+      return
+    }
+    if (!currentChatId.value) {
+      return
+    }
+    event.preventDefault()
+    event.stopPropagation()
+    handleTabRemove(currentChatId.value)
+  }
+}
+
 const isEmptyValue = (value) => value === undefined || value === ''
 
 const checkModelConfig = async () => {
@@ -2297,6 +2312,8 @@ onMounted(async () => {
   document.addEventListener('keydown', handleGlobalEscKey)
   // Add global click listener to close host select popup when clicking outside
   document.addEventListener('click', handleGlobalClick)
+  // Add keyboard shortcut listener for closing tabs (Command+W / Ctrl+W)
+  window.addEventListener('keydown', handleCloseTabKeyDown)
 
   eventBus.on('sendMessageToAi', async (payload: { content: string; tabId?: string }) => {
     const { content, tabId } = payload
@@ -2635,6 +2652,7 @@ onUnmounted(() => {
   }
   document.removeEventListener('keydown', handleGlobalEscKey)
   document.removeEventListener('click', handleGlobalClick)
+  window.removeEventListener('keydown', handleCloseTabKeyDown)
   eventBus.off('apiProviderChanged')
   eventBus.off('activeTabChanged')
   eventBus.off('chatToAi')
