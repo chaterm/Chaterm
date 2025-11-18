@@ -4,6 +4,7 @@
       <div style="width: 100%; margin-top: 10px">
         <div class="tree-container">
           <a-tree
+            v-if="treeData && treeData.length"
             v-model:expanded-keys="expandedKeys"
             class="dark-tree"
             block-node
@@ -23,13 +24,17 @@
                   <TermFileSystem
                     :uuid="dataRef.value"
                     :current-directory-input="resolvePaths(dataRef.value)"
-                    :current-directory="resolvePaths(dataRef.value)"
+                    :base-path="getBasePath(dataRef.value)"
                     @open-file="openFile"
                   />
                 </div>
               </div>
             </template>
           </a-tree>
+          <a-empty
+            v-else
+            description="暂无数据，请先连接服务器~"
+          />
         </div>
       </div>
       <div
@@ -183,16 +188,21 @@ const updateTreeData = (newData: object) => {
 
 const resolvePaths = (value: string) => {
   const [username, rest] = value.split('@')
+  return username === 'root' ? '/root' : `/home/${username}`
+}
+const getBasePath = (value: string) => {
+  const [username, rest] = value.split('@')
   const parts = rest.split(':')
 
   if (value.includes('local-team')) {
     const hostnameBase64 = parts[2] || ''
     let hostname = ''
     hostname = Base64Util.decode(hostnameBase64)
-    return `/Default/${hostname}/home/${username}`
+    return `/Default/${hostname}`
   }
-  return username === 'root' ? '/root' : `/home/${username}`
+  return ''
 }
+
 // 定义编辑器接口
 // 使用接口类型化响应式数组
 const openEditors = reactive<editorData[]>([])
