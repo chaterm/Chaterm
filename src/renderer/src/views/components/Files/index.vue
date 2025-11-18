@@ -23,7 +23,7 @@
                   <TermFileSystem
                     :uuid="dataRef.value"
                     :current-directory-input="resolvePaths(dataRef.value)"
-                    :current-directory="resolvePaths(dataRef.value)"
+                    :base-path="getBasePath(dataRef.value)"
                     @open-file="openFile"
                   />
                 </div>
@@ -183,16 +183,21 @@ const updateTreeData = (newData: object) => {
 
 const resolvePaths = (value: string) => {
   const [username, rest] = value.split('@')
+  return username === 'root' ? '/root' : `/home/${username}`
+}
+const getBasePath = (value: string) => {
+  const [username, rest] = value.split('@')
   const parts = rest.split(':')
 
   if (value.includes('local-team')) {
     const hostnameBase64 = parts[2] || ''
     let hostname = ''
     hostname = Base64Util.decode(hostnameBase64)
-    return `/Default/${hostname}/home/${username}`
+    return `/Default/${hostname}`
   }
-  return username === 'root' ? '/root' : `/home/${username}`
+  return ''
 }
+
 // 定义编辑器接口
 // 使用接口类型化响应式数组
 const openEditors = reactive<editorData[]>([])

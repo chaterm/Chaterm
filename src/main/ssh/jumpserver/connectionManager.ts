@@ -4,7 +4,7 @@ import net from 'net'
 import tls from 'tls'
 import type { Readable } from 'stream'
 import { createProxySocket } from '../proxy'
-import { attemptSecondaryConnection, keyboardInteractiveOpts } from '../sshHandle'
+import { attemptSecondaryConnection, keyboardInteractiveOpts, sftpConnections, connectionStatus } from '../sshHandle'
 import { jumpserverConnections, jumpserverShellStreams, jumpserverMarkedCommands, jumpserverInputBuffer } from './state'
 import type { JumpServerConnectionInfo } from './constants'
 import { MAX_JUMPSERVER_MFA_ATTEMPTS } from './constants'
@@ -39,6 +39,39 @@ export function getPackageInfo(
   }
 }
 
+// 建立sftp
+const sftpAsync = (conn, connectionId) => {
+  return new Promise<void>((resolve) => {
+    conn.sftp((err, sftp) => {
+      if (err || !sftp) {
+        console.log(`SFTPCheckError [${connectionId}]`, err)
+        connectionStatus.set(connectionId, {
+          sftpAvailable: false,
+          sftpError: err?.message || 'SFTP object is empty'
+        })
+        sftpConnections.set(connectionId, { isSuccess: false, error: `sftp init error: "${err?.message || 'SFTP object is empty'}"` })
+        resolve()
+      } else {
+        console.log(`startSftp [${connectionId}]`)
+        sftp.readdir('.', (readDirErr) => {
+          if (readDirErr) {
+            console.log(`SFTPCheckFailed [${connectionId}]`)
+            connectionStatus.set(connectionId, {
+              sftpAvailable: false,
+              sftpError: readDirErr.message
+            })
+            sftp.end()
+          } else {
+            console.log(`SFTPCheckSuccess [${connectionId}]`)
+            sftpConnections.set(connectionId, { isSuccess: true, sftp: sftp })
+            connectionStatus.set(connectionId, { sftpAvailable: true })
+          }
+          resolve()
+        })
+      }
+    })
+  })
+}
 const attemptJumpServerConnection = async (
   connectionInfo: JumpServerConnectionInfo,
   event?: Electron.IpcMainInvokeEvent,
@@ -80,7 +113,16 @@ const attemptJumpServerConnection = async (
               reject(new Error(`复用连接创建 shell 失败: ${err.message}`))
               return
             }
-
+            // 建立sftp连接
+            // TODO jumpserver下复用conn实现,其他堡垒机可能需要new conn
+            try {
+              sftpAsync(conn, connectionId)
+            } catch (e) {
+              connectionStatus.set(connectionId, {
+                sftpAvailable: false,
+                sftpError: 'SFTP connection failed'
+              })
+            }
             setupJumpServerInteraction(newStream, connectionInfo, connectionId, jumpserverUuid, conn, event, sendStatusUpdate, resolve, reject)
           })
 
