@@ -4,6 +4,7 @@
       <div style="width: 100%; margin-top: 10px">
         <div class="tree-container">
           <a-tree
+            v-if="treeData && treeData.length"
             v-model:expanded-keys="expandedKeys"
             class="dark-tree"
             block-node
@@ -30,6 +31,10 @@
               </div>
             </template>
           </a-tree>
+          <a-empty
+            v-else
+            description="暂无数据，请先连接服务器~"
+          />
         </div>
       </div>
       <div
