@@ -104,7 +104,10 @@ export default {
     notFound: 'Not found',
     internalServerError: 'Internal server error',
     badGateway: 'Bad gateway',
-    serviceUnavailable: 'Service unavailable'
+    serviceUnavailable: 'Service unavailable',
+    terminalMode: 'Terminal',
+    agentsMode: 'Agents',
+    daysAgo: ' days ago'
   },
   term: {
     welcome: 'Welcome to use Chaterm',

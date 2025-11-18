@@ -56,9 +56,10 @@ export function connectAssetInfoLogic(db: Database.Database, uuid: string): any 
   }
 }
 
-export function getUserHostsLogic(db: Database.Database, search: string): any {
+export function getUserHostsLogic(db: Database.Database, search: string, limit: number = 50, offset: number = 0): any {
   try {
     const safeSearch = search ?? ''
+    const searchPattern = safeSearch ? `%${safeSearch}%` : '%'
 
     // 自动清理孤立的组织资产
     const deleteOrphanedStmt = db.prepare(`
@@ -76,27 +77,39 @@ export function getUserHostsLogic(db: Database.Database, search: string): any {
     const personalStmt = db.prepare(`
         SELECT asset_ip as host, uuid, 'person' as asset_type
         FROM t_assets
-        WHERE asset_ip LIKE '%${safeSearch}%' AND asset_type = 'person'
+        WHERE asset_ip LIKE ? AND asset_type = 'person'
         GROUP BY asset_ip
       `)
-    const personalResults = personalStmt.all() || []
+    const personalResults = personalStmt.all(searchPattern) || []
 
+    // Query organization assets (jump server resources) with parameterized query
     const orgStmt = db.prepare(`
         SELECT host, uuid, jump_server_type as asset_type
         FROM t_organization_assets
-        WHERE host LIKE '${safeSearch}%'
+        WHERE host LIKE ?
         GROUP BY host
       `)
-    const orgResults = orgStmt.all() || []
+    const orgResults = orgStmt.all(searchPattern) || []
 
+    // Merge results: prioritize personal assets, but ensure organization assets are also included
     const allResults = [...personalResults, ...orgResults]
-    const uniqueResults = Array.from(new Map(allResults.map((item) => [item.host, item])).values()).slice(0, 10)
 
-    return uniqueResults.map((item: any) => ({
-      host: item.host,
-      uuid: item.uuid,
-      asset_type: item.asset_type
-    }))
+    // Remove duplicates by host (keep first occurrence)
+    const uniqueResults = Array.from(new Map(allResults.map((item) => [item.host, item])).values())
+
+    // Apply pagination
+    const total = uniqueResults.length
+    const paginatedResults = uniqueResults.slice(offset, offset + limit)
+
+    return {
+      data: paginatedResults.map((item: any) => ({
+        host: item.host,
+        uuid: item.uuid,
+        asset_type: item.asset_type
+      })),
+      total,
+      hasMore: offset + limit < total
+    }
   } catch (error) {
     console.error('Chaterm database get user hosts error:', error)
     throw error

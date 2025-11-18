@@ -104,7 +104,10 @@ export default {
     notFound: '资源未找到',
     internalServerError: '服务器内部错误',
     badGateway: '网关错误',
-    serviceUnavailable: '服务不可用'
+    serviceUnavailable: '服务不可用',
+    terminalMode: 'Terminal',
+    agentsMode: 'Agents',
+    daysAgo: '天前'
   },
   term: {
     welcome: '欢迎使用 Chaterm',

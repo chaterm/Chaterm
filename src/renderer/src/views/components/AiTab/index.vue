@@ -440,7 +440,11 @@
                 allow-clear
                 @keydown="handleHostSearchKeyDown"
               />
-              <div class="host-select-list">
+              <div
+                ref="hostSelectListRef"
+                class="host-select-list"
+                @scroll="handleHostListScroll"
+              >
                 <div
                   v-for="(item, index) in filteredHostOptions"
                   :key="item.value"
@@ -460,7 +464,13 @@
                   />
                 </div>
                 <div
-                  v-if="filteredHostOptions.length === 0"
+                  v-if="hostOptionsLoading && filteredHostOptions.length > 0"
+                  class="host-select-loading"
+                >
+                  {{ $t('ai.loading') }}...
+                </div>
+                <div
+                  v-if="filteredHostOptions.length === 0 && !hostOptionsLoading"
                   class="host-select-empty"
                   >{{ $t('ai.noMatchingHosts') }}
                 </div>
@@ -526,7 +536,7 @@
                 <a-select
                   v-model:value="chatAiModelValue"
                   size="small"
-                  style="width: 150px"
+                  style="width: 160px"
                   show-search
                   @change="handleChatAiModelChange"
                 >
@@ -546,6 +556,7 @@
                     </span>
                   </a-select-option>
                 </a-select>
+                <div class="action-buttons-container-separator"></div>
                 <div class="action-buttons-container">
                   <a-tooltip :title="$t('ai.uploadFile')">
                     <a-button
@@ -570,13 +581,6 @@
                       @transcription-error="handleTranscriptionError"
                     />
                   </a-tooltip>
-                  <input
-                    ref="fileInputRef"
-                    type="file"
-                    accept=".txt,.md,.js,.ts,.py,.java,.cpp,.c,.html,.css,.json,.xml,.yaml,.yml,.sql,.sh,.bat,.ps1,.log,.csv,.tsv"
-                    style="display: none"
-                    @change="handleFileSelected"
-                  />
                   <a-button
                     :disabled="!showSendButton"
                     size="small"
@@ -766,7 +770,10 @@
             </template>
           </a-dropdown>
         </a-tooltip>
-        <a-tooltip :title="$t('ai.closeAiSidebar')">
+        <a-tooltip
+          v-if="!props.isAgentMode"
+          :title="$t('ai.closeAiSidebar')"
+        >
           <a-button
             type="text"
             class="action-icon-btn"
@@ -781,6 +788,13 @@
       </div>
     </template>
   </a-tabs>
+  <input
+    ref="fileInputRef"
+    type="file"
+    accept=".txt,.md,.js,.ts,.py,.java,.cpp,.c,.html,.css,.json,.xml,.yaml,.yml,.sql,.sh,.bat,.ps1,.log,.csv,.tsv"
+    style="display: none"
+    @change="handleFileSelected"
+  />
 </template>
 
 <script setup lang="ts">
@@ -880,12 +894,18 @@ const isMessageFeedbackSubmitted = (messageId: string): boolean => {
 }
 
 const hostSearchInputRef = ref()
+const hostSelectListRef = ref<HTMLElement | null>(null)
 const fileInputRef = ref<HTMLInputElement>()
 const voiceInputRef = ref()
 const markdownRendererRefs = ref<Array<{ setThinkingLoading: (loading: boolean) => void }>>([])
 const showHostSelect = ref(false)
 const hostOptions = ref<{ label: string; value: string; uuid: string; connect: string }[]>([])
 const hostSearchValue = ref('')
+// Pagination state for lazy loading
+const hostOptionsOffset = ref(0)
+const hostOptionsHasMore = ref(false)
+const hostOptionsLoading = ref(false)
+const hostOptionsLimit = 30 // Load 30 items per page
 const hovered = ref<string | null>(null)
 const keyboardSelectedIndex = ref(-1)
 const historyList = ref<HistoryItem[]>([])
@@ -1081,6 +1101,7 @@ const filteredChatHistory = computed(() => {
 interface Props {
   toggleSidebar: () => void
   savedState?: Record<string, any> | null
+  isAgentMode?: boolean
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -1512,41 +1533,60 @@ const handleKeyDown = (e: KeyboardEvent) => {
 }
 const createNewEmptyTab = async () => {
   const newChatId = uuidv4()
-  const chatSetting = (await getGlobalState('chatSettings')) as { mode?: string }
-  const newChatType = chatSetting?.mode || 'agent'
 
-  // 获取当前资产信息
-  const assetInfo = await getCurentTabAssetInfo()
-  const newHosts: Host[] = []
-  if (assetInfo && assetInfo.ip) {
-    newHosts.push({
-      host: assetInfo.ip,
-      uuid: assetInfo.uuid,
-      connection: assetInfo.connection ? assetInfo.connection : 'personal'
-    })
-  } else {
-    // 如果没有检测到远程主机连接，默认添加本地主机
-    newHosts.push({
+  // Use default values first for immediate UI response
+  const defaultHosts: Host[] = [
+    {
       host: '127.0.0.1',
       uuid: 'localhost',
       connection: 'localhost'
-    })
-  }
+    }
+  ]
 
-  // 添加新 Tab
+  // Create tab immediately with default values
   const newTab: ChatTab = {
     id: newChatId,
     title: 'New chat',
-    hosts: newHosts,
-    chatType: newChatType,
+    hosts: defaultHosts,
+    chatType: 'agent', // Default to 'agent', will update if needed
     autoUpdateHost: true,
     session: createEmptySessionState(),
     inputValue: ''
   }
   chatTabs.value.push(newTab)
-
   currentChatId.value = newChatId
   chatInputValue.value = ''
+
+  // Update settings and hosts asynchronously after UI is shown
+  Promise.all([getGlobalState('chatSettings').catch(() => ({ mode: 'agent' })), getCurentTabAssetInfo().catch(() => null)])
+    .then(([chatSetting, assetInfo]) => {
+      const newChatType = (chatSetting as { mode?: string })?.mode || 'agent'
+      const newHosts: Host[] = []
+
+      if (assetInfo && assetInfo.ip) {
+        newHosts.push({
+          host: assetInfo.ip,
+          uuid: assetInfo.uuid,
+          connection: assetInfo.connection ? assetInfo.connection : 'personal'
+        })
+      } else {
+        newHosts.push({
+          host: '127.0.0.1',
+          uuid: 'localhost',
+          connection: 'localhost'
+        })
+      }
+
+      // Update the tab with correct values
+      const tabIndex = chatTabs.value.findIndex((tab) => tab.id === newChatId)
+      if (tabIndex !== -1) {
+        chatTabs.value[tabIndex].chatType = newChatType
+        chatTabs.value[tabIndex].hosts = newHosts
+      }
+    })
+    .catch((error) => {
+      console.error('Failed to update new tab settings:', error)
+    })
 }
 
 const restoreHistoryTab = async (history: HistoryItem) => {
@@ -2782,11 +2822,14 @@ const onHostClick = (item: any) => {
     // Check if already selected
     const existingIndex = hosts.value.findIndex((h) => h.host === item.label)
     if (existingIndex > -1) {
-      // If already selected, then deselect (创建新数组以触发 computed setter)
       hosts.value = hosts.value.filter((_, i) => i !== existingIndex)
     } else {
-      // If not selected, then add (创建新数组以触发 computed setter)
-      hosts.value = [...hosts.value, newHost]
+      // In agent mode, if selecting a non-localhost host, remove 127.0.0.1 automatically
+      let updatedHosts = [...hosts.value]
+      if (!item.isLocalHost && item.label !== '127.0.0.1') {
+        updatedHosts = updatedHosts.filter((h) => h.host !== '127.0.0.1')
+      }
+      hosts.value = [...updatedHosts, newHost]
     }
   }
   autoUpdateHost.value = false
@@ -2891,9 +2934,12 @@ const handleInputChange = async (e: Event) => {
 
     showHostSelect.value = true
     hostSearchValue.value = '' // Clear search box
+    // Reset pagination when opening host select
+    hostOptionsOffset.value = 0
+    hostOptionsHasMore.value = false
 
     // In agent mode, show all hosts
-    await fetchHostOptions('')
+    await fetchHostOptions('', true)
 
     nextTick(() => {
       hostSearchInputRef.value?.focus?.()
@@ -2908,37 +2954,96 @@ const debouncedFetchHostOptions = debounce((search: string) => {
   if (chatTypeValue.value === 'cmd') {
     fetchHostOptionsForCommandMode(search)
   } else {
-    fetchHostOptions(search)
+    // Reset pagination when searching
+    hostOptionsOffset.value = 0
+    hostOptionsHasMore.value = false
+    fetchHostOptions(search, true)
   }
 }, 300)
+
+// Handle scroll event for lazy loading
+const handleHostListScroll = (e: Event) => {
+  const target = e.target as HTMLElement
+  if (!target) return
+
+  // Load more when scrolled to within 50px of bottom
+  const scrollBottom = target.scrollHeight - target.scrollTop - target.clientHeight
+  if (scrollBottom < 50 && hostOptionsHasMore.value && !hostOptionsLoading.value) {
+    loadMoreHosts()
+  }
+}
 
 watch(hostSearchValue, (newVal) => {
   keyboardSelectedIndex.value = -1
   debouncedFetchHostOptions(newVal)
 })
-const fetchHostOptions = async (search: string) => {
-  const hostsList = await window.api.getUserHosts(search)
-  let formatted = formatHosts(hostsList || [])
+const fetchHostOptions = async (search: string, reset: boolean = true) => {
+  if (hostOptionsLoading.value) return
 
-  // 添加本地主机选项到列表开头
-  const localHostOption = {
-    label: '127.0.0.1',
-    value: 'localhost',
-    uuid: 'localhost',
-    connect: 'localhost',
-    title: t('ai.localhost'),
-    isLocalHost: true
+  hostOptionsLoading.value = true
+  try {
+    const offset = reset ? 0 : hostOptionsOffset.value
+    const result = await window.api.getUserHosts(search, hostOptionsLimit, offset)
+
+    if (!result || !result.data) {
+      hostOptions.value = []
+      hostOptionsHasMore.value = false
+      return
+    }
+
+    let formatted = formatHosts(result.data || [])
+
+    // Add localhost option at the beginning (only on first load or reset)
+    if (reset || hostOptions.value.length === 0) {
+      const localHostOption = {
+        label: '127.0.0.1',
+        value: 'localhost',
+        uuid: 'localhost',
+        connect: 'localhost',
+        title: t('ai.localhost'),
+        isLocalHost: true
+      }
+
+      // Show localhost if search is empty or matches localhost
+      const shouldShowLocalHost =
+        !search || 'localhost'.includes(search.toLowerCase()) || '127.0.0.1'.includes(search) || t('ai.localhost').includes(search)
+
+      if (shouldShowLocalHost) {
+        formatted.unshift(localHostOption)
+      }
+    }
+
+    if (reset) {
+      hostOptions.value = formatted
+      // Offset should only count backend results, not localhost
+      const backendResultCount = result.data?.length || 0
+      hostOptionsOffset.value = backendResultCount
+    } else {
+      // Append new items, avoiding duplicates
+      const existingHosts = new Set(hostOptions.value.map((h) => h.uuid))
+      const newItems = formatted.filter((h) => !existingHosts.has(h.uuid))
+      hostOptions.value = [...hostOptions.value, ...newItems]
+      // Offset should only count backend results, not localhost
+      const backendResultCount = result.data?.length || 0
+      hostOptionsOffset.value += backendResultCount
+    }
+
+    hostOptionsHasMore.value = result.hasMore || false
+  } catch (error) {
+    console.error('Failed to fetch host options:', error)
+    if (reset) {
+      hostOptions.value = []
+    }
+    hostOptionsHasMore.value = false
+  } finally {
+    hostOptionsLoading.value = false
   }
+}
 
-  // 如果搜索词为空或者本地主机匹配搜索条件，则显示本地主机选项
-  const shouldShowLocalHost =
-    !search || 'localhost'.includes(search.toLowerCase()) || '127.0.0.1'.includes(search) || t('ai.localhost').includes(search)
-
-  if (shouldShowLocalHost) {
-    formatted.unshift(localHostOption)
-  }
-
-  hostOptions.value.splice(0, hostOptions.value.length, ...formatted)
+// Load more hosts when scrolling near bottom
+const loadMoreHosts = async () => {
+  if (hostOptionsLoading.value || !hostOptionsHasMore.value) return
+  await fetchHostOptions(hostSearchValue.value, false)
 }
 
 // Fetch host options for command mode - only show current terminal tab IP
@@ -2989,7 +3094,10 @@ const handleAddHostClick = async () => {
   if (showHostSelect.value) {
     hostSearchValue.value = ''
     keyboardSelectedIndex.value = -1
-    await fetchHostOptions('')
+    // Reset pagination when opening host select
+    hostOptionsOffset.value = 0
+    hostOptionsHasMore.value = false
+    await fetchHostOptions('', true)
     nextTick(() => {
       hostSearchInputRef.value?.focus?.()
     })
@@ -3581,7 +3689,10 @@ const emitStateChange = () => {
 }
 defineExpose({
   getCurrentState,
-  restoreState
+  restoreState,
+  restoreHistoryTab,
+  createNewEmptyTab,
+  handleTabRemove
 })
 </script>
 

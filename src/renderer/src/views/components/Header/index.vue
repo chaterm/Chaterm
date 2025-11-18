@@ -1,5 +1,30 @@
 <template>
   <div class="term_tab">
+    <div class="term_tab_left">
+      <div
+        class="mode-switcher"
+        :class="{ 'mode-switcher-mac': platform.includes('darwin') }"
+      >
+        <a-button-group size="small">
+          <a-button
+            type="text"
+            :class="{ 'mode-button-active': currentMode === 'terminal' }"
+            class="mode-button"
+            @click="handleModeChange('terminal')"
+          >
+            {{ t('common.terminalMode') }}
+          </a-button>
+          <a-button
+            type="text"
+            :class="{ 'mode-button-active': currentMode === 'agents' }"
+            class="mode-button"
+            @click="handleModeChange('agents')"
+          >
+            {{ t('common.agentsMode') }}
+          </a-button>
+        </a-button-group>
+      </div>
+    </div>
     <div
       class="term_tab_Info"
       :style="{ marginRight: platform.includes('darwin') ? '0px' : '140px' }"
@@ -18,6 +43,25 @@
         </div>
       </div>
       <div
+        v-if="currentMode === 'agents'"
+        class="toggle-right-btn"
+        @click="toggleAgentsSidebarLeft('left')"
+      >
+        <img
+          v-if="isAgentsLeftSidebarCollapsed"
+          src="@/assets/menu/left_bar_open.svg"
+          alt=""
+          :class="platform.includes('darwin') ? 'sidebar-toggle-icon_mac' : 'sidebar-toggle-icon'"
+        />
+        <img
+          v-else
+          src="@/assets/menu/left_bar_close.svg"
+          alt=""
+          :class="platform.includes('darwin') ? 'sidebar-toggle-icon_mac' : 'sidebar-toggle-icon'"
+        />
+      </div>
+      <div
+        v-if="currentMode !== 'agents'"
         class="toggle-right-btn"
         @click="toggleSidebarLeft('left')"
       >
@@ -35,6 +79,7 @@
         />
       </div>
       <div
+        v-if="currentMode !== 'agents'"
         class="toggle-right-btn"
         @click="toggleSidebarRight('right')"
       >
@@ -71,8 +116,10 @@ const { appContext } = instance
 
 const isLeftSidebarCollapsed = ref(true)
 const isRightSidebarCollapsed = ref(false)
+const isAgentsLeftSidebarCollapsed = ref(true)
 const isAvailable = ref(false)
-const emit = defineEmits(['toggle-sidebar'])
+const currentMode = ref<'terminal' | 'agents'>('terminal')
+const emit = defineEmits(['toggle-sidebar', 'mode-change'])
 const toggleSidebarRight = (params) => {
   emit('toggle-sidebar', params)
   isRightSidebarCollapsed.value = !isRightSidebarCollapsed.value
@@ -82,9 +129,16 @@ const toggleSidebarLeft = (params: 'left' | 'right') => {
   emit('toggle-sidebar', params)
   isLeftSidebarCollapsed.value = !isLeftSidebarCollapsed.value
 }
+
+const toggleAgentsSidebarLeft = (params: 'left') => {
+  emit('toggle-sidebar', params)
+  isAgentsLeftSidebarCollapsed.value = !isAgentsLeftSidebarCollapsed.value
+}
+
 const switchIcon = (dir, value) => {
   dir == 'left' ? (isLeftSidebarCollapsed.value = value) : ''
   dir == 'right' ? (isRightSidebarCollapsed.value = value) : ''
+  dir == 'agents-left' ? (isAgentsLeftSidebarCollapsed.value = value) : ''
 }
 const checkVersion = async () => {
   try {
@@ -113,8 +167,16 @@ const toInstall = () => {
   api.quitAndInstall()
 }
 
+const handleModeChange = (mode: 'terminal' | 'agents') => {
+  currentMode.value = mode
+  emit('mode-change', mode)
+}
+
 defineExpose({
-  switchIcon
+  switchIcon,
+  setMode: (mode: 'terminal' | 'agents') => {
+    currentMode.value = mode
+  }
 })
 
 onMounted(async () => {
@@ -160,9 +222,63 @@ onMounted(async () => {
   }
 }
 
+.term_tab_left {
+  height: 100%;
+  display: flex;
+  align-items: center;
+  position: relative;
+  flex-shrink: 0;
+
+  .mode-switcher {
+    -webkit-app-region: no-drag;
+    display: flex;
+    align-items: center;
+
+    .ant-btn-group {
+      border-radius: 6px;
+      overflow: hidden;
+      background-color: transparent;
+      border: none;
+
+      .mode-button {
+        font-size: 12px;
+        height: 22px;
+        line-height: 20px;
+        border: none;
+        border-radius: 6px;
+        margin: 0 2px;
+        color: var(--text-color-secondary);
+        background-color: transparent;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        font-weight: 400;
+
+        &:hover {
+          color: var(--text-color);
+          background-color: var(--hover-bg-color);
+        }
+
+        &.mode-button-active {
+          background-color: rgba(24, 144, 255, 0.1);
+          color: #1890ff;
+          font-weight: 500;
+
+          &:hover {
+            background-color: rgba(24, 144, 255, 0.15);
+            color: #1890ff;
+          }
+        }
+      }
+    }
+
+    &.mode-switcher-mac {
+      padding-left: 78px; // Reserve space for macOS window controls (close, minimize, maximize)
+    }
+  }
+}
+
 .term_tab_Info {
   height: 100%;
-  width: 100%;
+  flex: 1;
   display: flex;
   align-items: center;
   position: relative;
