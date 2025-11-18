@@ -489,6 +489,7 @@ const getSystemInfo = async (id: string) => {
 }
 
 const api = {
+  isE2E: () => process.env.CHATERM_E2E === '1',
   getSystemInfo,
   getLocalIP,
   getMacAddress,

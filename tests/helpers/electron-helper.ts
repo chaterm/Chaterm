@@ -28,14 +28,8 @@ export class ElectronHelper {
       env: {
         ...process.env,
         NODE_ENV: 'test',
-        ELECTRON_IS_DEV: '0'
-      },
-      recordVideo: {
-        dir: './tests/videos',
-        size: {
-          width: 3840,
-          height: 2076
-        }
+        ELECTRON_IS_DEV: '0',
+        CHATERM_E2E: '1'
       }
     })
 
