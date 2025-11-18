@@ -1917,7 +1917,24 @@ export class Task {
       for (const host of this.hosts) {
         let currentCwd = this.cwd.get(host.host)
         if (!currentCwd) {
-          currentCwd = (await this.executeCommandInRemoteServer('pwd', host.host))?.trim()
+          const rawCwd = (await this.executeCommandInRemoteServer('pwd', host.host))?.trim()
+          // Clean the pwd output: remove ANSI sequences, prompts, and extract only the path
+          currentCwd = rawCwd
+            // First, split by newlines and take only the first line
+            .split(/[\r\n]/)[0]
+            // Remove OSC (Operating System Command) sequences like ]0;title or ]2;title
+            .replace(/\x1B\][0-9];[^\x07\x1B]*(\x07|\x1B\\)/g, '')
+            .replace(/\][0-9];[^\x07\x1B]*(\x07|\x1B\\)?/g, '')
+            // Remove CSI (Control Sequence Introducer) sequences
+            .replace(/\x1B\[[0-9;]*[a-zA-Z]/g, '')
+            .replace(/\x1B[=>]/g, '')
+            // Remove terminal prompt patterns (like: [user@host dir]$ or user@host:dir$)
+            .replace(/\[[^\]]*\]\$.*$/g, '')
+            .replace(/[^@]*@[^:]*:[^$]*\$.*$/g, '')
+            .replace(/.*\$.*$/g, '')
+            // Remove control characters (but preserve spaces)
+            .replace(/[\x00-\x08\x0B-\x1F\x7F]/g, '')
+            .trim()
           this.cwd.set(host.host, currentCwd)
         }
 

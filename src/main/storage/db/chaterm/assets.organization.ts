@@ -60,6 +60,19 @@ export function getUserHostsLogic(db: Database.Database, search: string): any {
   try {
     const safeSearch = search ?? ''
 
+    // 自动清理孤立的组织资产
+    const deleteOrphanedStmt = db.prepare(`
+      DELETE FROM t_organization_assets
+      WHERE uuid IN (
+        SELECT oa.uuid
+        FROM t_organization_assets oa
+        LEFT JOIN t_assets a ON oa.organization_uuid = a.uuid AND a.asset_type = 'organization'
+        WHERE a.uuid IS NULL
+      )
+    `)
+    deleteOrphanedStmt.run()
+
+    // 查询个人资产
     const personalStmt = db.prepare(`
         SELECT asset_ip as host, uuid, 'person' as asset_type
         FROM t_assets
