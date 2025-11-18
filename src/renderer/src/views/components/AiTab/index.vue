@@ -1561,27 +1561,38 @@ const createNewEmptyTab = async () => {
   Promise.all([getGlobalState('chatSettings').catch(() => ({ mode: 'agent' })), getCurentTabAssetInfo().catch(() => null)])
     .then(([chatSetting, assetInfo]) => {
       const newChatType = (chatSetting as { mode?: string })?.mode || 'agent'
-      const newHosts: Host[] = []
-
-      if (assetInfo && assetInfo.ip) {
-        newHosts.push({
-          host: assetInfo.ip,
-          uuid: assetInfo.uuid,
-          connection: assetInfo.connection ? assetInfo.connection : 'personal'
-        })
-      } else {
-        newHosts.push({
-          host: '127.0.0.1',
-          uuid: 'localhost',
-          connection: 'localhost'
-        })
-      }
 
       // Update the tab with correct values
       const tabIndex = chatTabs.value.findIndex((tab) => tab.id === newChatId)
-      if (tabIndex !== -1) {
-        chatTabs.value[tabIndex].chatType = newChatType
-        chatTabs.value[tabIndex].hosts = newHosts
+      if (tabIndex === -1) {
+        // Tab was removed, skip update
+        return
+      }
+
+      const targetTab = chatTabs.value[tabIndex]
+
+      // Update chatType
+      targetTab.chatType = newChatType
+
+      // Only update hosts if autoUpdateHost is still true (user hasn't manually selected hosts)
+      if (targetTab.autoUpdateHost) {
+        const newHosts: Host[] = []
+
+        if (assetInfo && assetInfo.ip) {
+          newHosts.push({
+            host: assetInfo.ip,
+            uuid: assetInfo.uuid,
+            connection: assetInfo.connection ? assetInfo.connection : 'personal'
+          })
+        } else {
+          newHosts.push({
+            host: '127.0.0.1',
+            uuid: 'localhost',
+            connection: 'localhost'
+          })
+        }
+
+        targetTab.hosts = newHosts
       }
     })
     .catch((error) => {
