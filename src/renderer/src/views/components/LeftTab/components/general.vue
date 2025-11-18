@@ -32,6 +32,19 @@
           </a-radio-group>
         </a-form-item>
         <a-form-item
+          :label="$t('user.defaultLayout')"
+          class="user_my-ant-form-item"
+        >
+          <a-radio-group
+            v-model:value="userConfig.defaultLayout"
+            class="custom-radio-group"
+            @change="changeDefaultLayout"
+          >
+            <a-radio value="terminal">{{ $t('user.defaultLayoutTerminal') }}</a-radio>
+            <a-radio value="agents">{{ $t('user.defaultLayoutAgents') }}</a-radio>
+          </a-radio-group>
+        </a-form-item>
+        <a-form-item
           :label="$t('user.language')"
           class="user_my-ant-form-item"
         >
@@ -76,7 +89,8 @@ const { locale, t } = useI18n()
 const userConfig = ref({
   language: 'zh-CN',
   watermark: 'open',
-  theme: 'auto'
+  theme: 'auto',
+  defaultLayout: 'terminal'
 })
 
 const loadSavedConfig = async () => {
@@ -85,7 +99,8 @@ const loadSavedConfig = async () => {
     if (savedConfig) {
       userConfig.value = {
         ...userConfig.value,
-        ...savedConfig
+        ...savedConfig,
+        defaultLayout: savedConfig.defaultLayout || 'terminal'
       }
       const actualTheme = getActualTheme(userConfig.value.theme)
       document.documentElement.className = `theme-${actualTheme}`
@@ -109,7 +124,8 @@ const saveConfig = async () => {
     const configToStore = {
       language: userConfig.value.language,
       watermark: userConfig.value.watermark,
-      theme: userConfig.value.theme
+      theme: userConfig.value.theme,
+      defaultLayout: userConfig.value.defaultLayout
     }
     await userConfigStore.saveConfig(configToStore)
     eventBus.emit('updateWatermark', configToStore.watermark)
@@ -138,20 +154,24 @@ onMounted(async () => {
 
   // Add system theme change listener
   setupSystemThemeListener()
+
+  // Listen for default layout changes from header
+  eventBus.on('defaultLayoutChanged', (mode) => {
+    if (mode === 'terminal' || mode === 'agents') {
+      userConfig.value.defaultLayout = mode
+    }
+  })
 })
 
 onBeforeUnmount(() => {
   eventBus.off('updateTheme')
+  eventBus.off('defaultLayoutChanged')
 
   // Remove system theme listener
   if (systemThemeListener) {
     systemThemeListener()
     systemThemeListener = null
   }
-})
-
-onBeforeUnmount(() => {
-  eventBus.off('updateTheme')
 })
 
 const changeLanguage = async () => {
@@ -212,6 +232,12 @@ const changeTheme = async () => {
       description: t('user.themeSwitchFailedDescription')
     })
   }
+}
+
+const changeDefaultLayout = async () => {
+  // Switch to the selected layout immediately
+  eventBus.emit('switch-mode', userConfig.value.defaultLayout)
+  await saveConfig()
 }
 </script>
 

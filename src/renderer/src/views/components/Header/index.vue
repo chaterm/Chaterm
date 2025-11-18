@@ -167,9 +167,18 @@ const toInstall = () => {
   api.quitAndInstall()
 }
 
-const handleModeChange = (mode: 'terminal' | 'agents') => {
+const handleModeChange = async (mode: 'terminal' | 'agents') => {
   currentMode.value = mode
   emit('mode-change', mode)
+
+  // Update default layout in user config
+  try {
+    await userConfigStore.saveConfig({ defaultLayout: mode })
+    // Notify settings page to update display
+    eventBus.emit('defaultLayoutChanged', mode)
+  } catch (error) {
+    console.error('Failed to update default layout:', error)
+  }
 }
 
 defineExpose({
