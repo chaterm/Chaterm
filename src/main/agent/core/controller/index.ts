@@ -648,6 +648,11 @@ export class Controller {
       history.push(item as HistoryItem)
     }
     await updateGlobalState('taskHistory', history)
+    // Notify renderer process that taskHistory has been updated
+    await this.postMessageToWebview({
+      type: 'taskHistoryUpdated',
+      taskId: item.id
+    })
     return history
   }
 

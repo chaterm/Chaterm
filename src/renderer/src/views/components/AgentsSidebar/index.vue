@@ -326,6 +326,15 @@ const handleTabRestored = () => {
   }
 }
 
+// Handle taskHistory updated notification from main process
+const handleTaskHistoryUpdated = () => {
+  if (!isLoading) {
+    loadConversations()
+  }
+}
+
+let removeMainMessageListener: (() => void) | undefined
+
 onMounted(() => {
   // Initial load
   loadConversations()
@@ -337,6 +346,15 @@ onMounted(() => {
   // Listen for new chat creation events
   eventBus.on('create-new-empty-tab', handleNewChatCreated)
   eventBus.on('restore-history-tab', handleTabRestored)
+
+  // Listen for taskHistory updates from main process
+  if (window.api && window.api.onMainMessage) {
+    removeMainMessageListener = window.api.onMainMessage((message: any) => {
+      if (message?.type === 'taskHistoryUpdated') {
+        handleTaskHistoryUpdated()
+      }
+    })
+  }
 })
 
 onUnmounted(() => {
@@ -344,6 +362,9 @@ onUnmounted(() => {
   window.removeEventListener('focus', handleVisibilityChange)
   eventBus.off('create-new-empty-tab', handleNewChatCreated)
   eventBus.off('restore-history-tab', handleTabRestored)
+  if (removeMainMessageListener) {
+    removeMainMessageListener()
+  }
 })
 
 defineExpose({
