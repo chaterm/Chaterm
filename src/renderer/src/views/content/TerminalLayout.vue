@@ -246,6 +246,11 @@ import { useRouter } from 'vue-router'
 import { shortcutService } from '@/services/shortcutService'
 import { captureExtensionUsage, ExtensionNames, ExtensionStatus } from '@/utils/telemetry'
 
+// Define props
+const props = defineProps<{
+  currentMode: 'terminal' | 'agents'
+}>()
+
 const router = useRouter()
 const api = window.api as any
 const { t } = useI18n()
@@ -474,9 +479,52 @@ onMounted(async () => {
     updatePaneSize()
     if (headerRef.value) {
       headerRef.value.switchIcon('right', showAiSidebar.value)
-      headerRef.value.setMode('terminal')
+      headerRef.value.setMode(props.currentMode)
     }
   })
+
+  // Restore AI state from agents mode if available
+  const restoreStateFromAgents = async () => {
+    try {
+      const savedStateStr = localStorage.getItem('sharedAiTabState')
+      if (savedStateStr) {
+        const savedState = JSON.parse(savedStateStr)
+        savedAiSidebarState.value = savedState
+
+        if (showAiSidebar.value && aiTabRef.value && aiTabRef.value.restoreState) {
+          await nextTick()
+          await aiTabRef.value.restoreState(savedState)
+        }
+
+        localStorage.removeItem('sharedAiTabState')
+        return true
+      }
+    } catch (error) {
+      console.warn('Failed to restore AI state from agents mode:', error)
+      // Clear invalid state
+      localStorage.removeItem('sharedAiTabState')
+    }
+    return false
+  }
+
+  // Watch currentMode changes and sync to Header, also restore AI state when switching to terminal
+  watch(
+    () => props.currentMode,
+    async (newMode, oldMode) => {
+      if (headerRef.value) {
+        headerRef.value.setMode(newMode)
+      }
+      // When switching from agents to terminal, restore AI state
+      if (newMode === 'terminal' && oldMode === 'agents') {
+        await nextTick()
+        // Wait a bit for aiTabRef to be ready
+        setTimeout(async () => {
+          await restoreStateFromAgents()
+        }, 200)
+      }
+    },
+    { immediate: false }
+  )
   window.addEventListener('resize', updatePaneSize)
   aliasConfig.initialize()
 
@@ -496,51 +544,7 @@ onMounted(async () => {
   eventBus.on('createNewTerminal', handleCreateNewTerminal)
   eventBus.on('open-user-tab', openUserTab)
 
-  // Restore AI state from agents mode if available
-  const restoreStateFromAgents = async () => {
-    try {
-      const savedStateStr = localStorage.getItem('sharedAiTabState')
-      if (savedStateStr) {
-        const savedState = JSON.parse(savedStateStr)
-        // Update savedAiSidebarState first
-        savedAiSidebarState.value = savedState
-
-        // If there's saved state, open the AI sidebar first (so AiTab component can be rendered)
-        if (!showAiSidebar.value) {
-          const container = document.querySelector('.splitpanes') as HTMLElement
-          if (container) {
-            const containerWidth = container.offsetWidth
-            const restoredSize = savedState.size || (DEFAULT_WIDTH_RIGHT_PX / containerWidth) * 100
-            showAiSidebar.value = true
-            aiSidebarSize.value = restoredSize
-            headerRef.value?.switchIcon('right', true)
-            if (showSplitPane.value) {
-              adjustSplitPaneToEqualWidth()
-            } else {
-              mainTerminalSize.value = 100 - aiSidebarSize.value
-            }
-          }
-        }
-
-        // Wait for AiTab component to be rendered, then restore state
-        await nextTick()
-        if (aiTabRef.value && aiTabRef.value.restoreState) {
-          await aiTabRef.value.restoreState(savedState)
-        }
-
-        // Clear the shared state after restoring to avoid restoring again
-        localStorage.removeItem('sharedAiTabState')
-        return true
-      }
-    } catch (error) {
-      console.warn('Failed to restore AI state from agents mode:', error)
-      // Clear invalid state
-      localStorage.removeItem('sharedAiTabState')
-    }
-    return false
-  }
-
-  // Try to restore immediately, and also wait a bit if needed
+  // Try to restore immediately on mount (for initial load)
   nextTick(async () => {
     if (!(await restoreStateFromAgents())) {
       // If not restored yet, wait a bit more and try again (component might need more time to render)

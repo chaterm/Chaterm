@@ -1748,21 +1748,37 @@ const setupTerminalInput = () => {
     }
   }
   termOndata = terminal.value?.onData(handleInput)
+
+  termOndata = terminal.value?.onBinary((data) => {
+    sendBinaryData(data)
+  })
 }
 
 const sendData = (data) => {
   api.writeToShell({
     id: connectionId.value,
     data: data.replace(/\r\n/g, '\n'),
-    lineCommand: terminalState.value.content
+    lineCommand: terminalState.value.content,
+    isBinary: false
   })
 }
+
+const sendBinaryData = (data) => {
+  api.writeToShell({
+    id: connectionId.value,
+    data: data,
+    lineCommand: terminalState.value.content,
+    isBinary: true
+  })
+}
+
 const sendMarkedData = (data, marker) => {
   api.writeToShell({
     id: connectionId.value,
     data: data,
     marker: marker,
-    lineCommand: terminalState.value.content
+    lineCommand: terminalState.value.content,
+    isBinary: false
   })
 }
 

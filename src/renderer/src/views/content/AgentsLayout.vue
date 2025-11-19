@@ -42,7 +42,7 @@
 <script setup lang="ts">
 import { userConfigStore } from '@/services/userConfigStoreService'
 import { userConfigStore as piniaUserConfigStore } from '@/store/userConfigStore'
-import { ref, onMounted, nextTick, onUnmounted, computed, reactive } from 'vue'
+import { ref, onMounted, nextTick, onUnmounted, computed, reactive, watch } from 'vue'
 import { Splitpanes, Pane } from 'splitpanes'
 import 'splitpanes/dist/splitpanes.css'
 import AiTab from '@views/components/AiTab/index.vue'
@@ -57,6 +57,11 @@ interface ResizeParams {
   prevPane: { size: number }
   nextPane: { size: number }
 }
+
+// Define props
+const props = defineProps<{
+  currentMode: 'terminal' | 'agents'
+}>()
 
 const api = window.api as any
 const headerRef = ref<InstanceType<typeof Header> | null>(null)
@@ -98,57 +103,29 @@ const handleAiTabStateChanged = (state: AiTabState) => {
   savedAiTabState.value = state
 }
 
-const DEFAULT_WIDTH_PX = 320
-
 const updatePaneSize = () => {
   const container = document.querySelector('.splitpanes') as HTMLElement
   if (container) {
     if (leftPaneSize.value > 0) {
-      const containerWidth = container.offsetWidth
-      leftPaneSize.value = (DEFAULT_WIDTH_PX / containerWidth) * 100
+      leftPaneSize.value = 27
     }
   }
 }
 
 const handleLeftPaneResize = (params: ResizeParams) => {
   leftPaneSize.value = params.prevPane.size
-  debouncedResizeCheck()
-}
-
-let resizeTimeout: number | null = null
-const debouncedResizeCheck = () => {
-  if (resizeTimeout) {
-    clearTimeout(resizeTimeout)
-  }
-
-  resizeTimeout = window.setTimeout(() => {
-    const container = document.querySelector('.splitpanes') as HTMLElement
-    if (container) {
-      const containerWidth = container.offsetWidth
-      const currentLeftPaneSize = leftPaneSize.value
-      const leftPaneWidthPx = (currentLeftPaneSize / 100) * containerWidth
-
-      if (leftPaneWidthPx < 120 && currentLeftPaneSize > 0) {
-        leftPaneSize.value = 0
-        headerRef.value?.switchIcon('left', false)
-      }
-    }
-    resizeTimeout = null
-  }, 50)
 }
 
 const toggleSideBar = (value: string) => {
-  const container = document.querySelector('.splitpanes') as HTMLElement
-  const containerWidth = container.offsetWidth
   switch (value) {
-    case 'left':
+    case 'agentsLeft':
       {
         if (leftPaneSize.value) {
           leftPaneSize.value = 0
-          headerRef.value?.switchIcon('left', false)
+          headerRef.value?.switchIcon('agentsLeft', false)
         } else {
-          leftPaneSize.value = (DEFAULT_WIDTH_PX / containerWidth) * 100
-          headerRef.value?.switchIcon('left', true)
+          leftPaneSize.value = 27
+          headerRef.value?.switchIcon('agentsLeft', true)
         }
       }
       break
@@ -263,15 +240,11 @@ onMounted(async () => {
   nextTick(() => {
     updatePaneSize()
     if (headerRef.value) {
-      headerRef.value.setMode('agents')
+      headerRef.value.setMode(props.currentMode)
       // Initialize left sidebar icon state (default is expanded, so true means expanded)
-      headerRef.value.switchIcon('left', leftPaneSize.value > 0)
+      headerRef.value.switchIcon('agentsLeft', leftPaneSize.value > 0)
     }
   })
-  window.addEventListener('resize', updatePaneSize)
-
-  eventBus.on('toggleSideBar', toggleSideBar)
-  eventBus.on('open-user-tab', openUserTab)
 
   // Restore AI state from terminal mode if available
   // Use a watcher to ensure aiTabRef is ready before restoring
@@ -296,7 +269,30 @@ onMounted(async () => {
     return false
   }
 
-  // Try to restore immediately, and also watch for aiTabRef to be ready
+  // Watch currentMode changes and sync to Header, also restore AI state when switching to agents
+  watch(
+    () => props.currentMode,
+    async (newMode, oldMode) => {
+      if (headerRef.value) {
+        headerRef.value.setMode(newMode)
+      }
+      // When switching from terminal to agents, restore AI state
+      if (newMode === 'agents' && oldMode === 'terminal') {
+        await nextTick()
+        // Wait a bit for aiTabRef to be ready
+        setTimeout(async () => {
+          await restoreStateFromTerminal()
+        }, 100)
+      }
+    },
+    { immediate: false }
+  )
+  window.addEventListener('resize', updatePaneSize)
+
+  eventBus.on('toggleSideBar', toggleSideBar)
+  eventBus.on('open-user-tab', openUserTab)
+
+  // Try to restore immediately on mount (for initial load)
   nextTick(async () => {
     if (!(await restoreStateFromTerminal())) {
       // If not restored yet, wait a bit more and try again

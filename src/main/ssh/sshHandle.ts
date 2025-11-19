@@ -986,7 +986,7 @@ export const registerSSHHandlers = () => {
     }
   })
 
-  ipcMain.on('ssh:shell:write', (_event, { id, data, marker, lineCommand }) => {
+  ipcMain.on('ssh:shell:write', (_event, { id, data, marker, lineCommand, isBinary }) => {
     // 检查是否为 JumpServer 连接
     if (jumpserverConnections.has(id)) {
       const stream = jumpserverShellStreams.get(id)
@@ -1011,7 +1011,12 @@ export const registerSSHHandlers = () => {
             idleTimer: null
           })
         }
-        stream.write(data)
+        if (isBinary) {
+          const buf = Buffer.from(data, 'binary')
+          stream.write(buf)
+        } else {
+          stream.write(data)
+        }
       } else {
         console.warn('尝试写入不存在的JumpServer stream:', id)
       }
@@ -1035,7 +1040,13 @@ export const registerSSHHandlers = () => {
           idleTimer: null
         })
       }
-      stream.write(data)
+
+      if (isBinary) {
+        const buf = Buffer.from(data, 'binary')
+        stream.write(buf)
+      } else {
+        stream.write(data)
+      }
     } else {
       console.warn('Attempting to write to non-existent stream:', id)
     }
