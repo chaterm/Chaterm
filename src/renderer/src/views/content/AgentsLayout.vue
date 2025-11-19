@@ -114,29 +114,6 @@ const updatePaneSize = () => {
 
 const handleLeftPaneResize = (params: ResizeParams) => {
   leftPaneSize.value = params.prevPane.size
-  debouncedResizeCheck()
-}
-
-let resizeTimeout: number | null = null
-const debouncedResizeCheck = () => {
-  if (resizeTimeout) {
-    clearTimeout(resizeTimeout)
-  }
-
-  resizeTimeout = window.setTimeout(() => {
-    const container = document.querySelector('.splitpanes') as HTMLElement
-    if (container) {
-      const containerWidth = container.offsetWidth
-      const currentLeftPaneSize = leftPaneSize.value
-      const leftPaneWidthPx = (currentLeftPaneSize / 100) * containerWidth
-
-      if (leftPaneWidthPx < 120 && currentLeftPaneSize > 0) {
-        leftPaneSize.value = 0
-        headerRef.value?.switchIcon('agentsLeft', false)
-      }
-    }
-    resizeTimeout = null
-  }, 50)
 }
 
 const toggleSideBar = (value: string) => {
