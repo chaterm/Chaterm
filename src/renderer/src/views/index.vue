@@ -1,6 +1,12 @@
 <template>
-  <TerminalLayout v-if="currentMode === 'terminal'" />
-  <AgentsLayout v-else-if="currentMode === 'agents'" />
+  <TerminalLayout
+    v-show="currentMode === 'terminal'"
+    :current-mode="currentMode"
+  />
+  <AgentsLayout
+    v-show="currentMode === 'agents'"
+    :current-mode="currentMode"
+  />
 </template>
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted } from 'vue'
