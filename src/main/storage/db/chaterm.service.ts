@@ -135,9 +135,9 @@ export class ChatermDatabaseService {
   connectAssetInfo(uuid: string): any {
     return connectAssetInfoLogic(this.db, uuid)
   }
-  // @Get user host list
-  getUserHosts(search: string): any {
-    return getUserHostsLogic(this.db, search)
+  // @Get user host list with pagination
+  getUserHosts(search: string, limit: number = 50, offset: number = 0): any {
+    return getUserHostsLogic(this.db, search, limit, offset)
   }
 
   // Transaction handling

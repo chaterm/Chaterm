@@ -75,7 +75,7 @@ const shellStreams = new Map()
 const markedCommands = new Map()
 
 const KeyboardInteractiveAttempts = new Map()
-const connectionStatus = new Map()
+export const connectionStatus = new Map()
 
 // Set KeyboardInteractive authentication timeout (milliseconds)
 const KeyboardInteractiveTimeout = 300000 // 5 minutes timeout

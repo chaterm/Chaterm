@@ -400,6 +400,9 @@
       margin-left: auto;
       float: right;
       clear: both;
+      max-width: 100%;
+      overflow-wrap: break-word;
+      word-break: break-word;
     }
 
     &.assistant {
@@ -500,11 +503,17 @@
 .input-controls {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-start;
   gap: 4px;
   padding: 8px 8px;
   flex-wrap: nowrap;
   min-height: 32px;
+
+  // 分隔符占据中间空间，实现左右分布
+  .action-buttons-container-separator {
+    flex: 1;
+    min-width: 0;
+  }
 
   // 确保按钮组不会被压缩
   .action-buttons-container {
@@ -544,12 +553,11 @@
     display: flex;
     align-items: center;
     gap: 6px;
-    margin-left: 4px;
     flex-shrink: 0;
+    margin-left: auto;
 
     @media (max-width: 480px) {
       gap: 6px;
-      margin-left: 2px;
     }
   }
 
@@ -1590,6 +1598,13 @@
   color: var(--text-color-tertiary);
   text-align: center;
   padding: 8px 0;
+}
+
+.host-select-loading {
+  color: var(--text-color-tertiary);
+  text-align: center;
+  padding: 8px 0;
+  font-size: 12px;
 }
 
 .ai-welcome-container {

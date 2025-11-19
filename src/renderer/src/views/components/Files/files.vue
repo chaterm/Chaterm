@@ -22,7 +22,7 @@
         </div>
         <div class="fs-header-left">
           <a-input
-            v-model:value="localCurrentDirectoryInput"
+            v-model:value="currentDirectoryInput"
             class="input-search"
             @press-enter="handleRefresh"
             @mousedown.stop
@@ -146,7 +146,7 @@
                 <span
                   v-if="record.isDir"
                   style="cursor: pointer"
-                  @click="rowClick(record)"
+                  @click="rowClick(record as FileRecord)"
                 >
                   <FolderFilled style="color: #1890ff; margin-right: -1px" />
                   {{ record.name }}
@@ -170,7 +170,7 @@
                   v-else
                   class="no-select"
                   style="cursor: pointer"
-                  @dblclick="openFile(record)"
+                  @dblclick="openFile(record as FileRecord)"
                 >
                   <a-tooltip
                     placement="top"
@@ -194,7 +194,7 @@
                     type="text"
                     size="small"
                     :title="t('files.download')"
-                    @click.stop="downloadFile(record)"
+                    @click.stop="downloadFile(record as FileRecord)"
                   >
                     <template #icon>
                       <DownloadOutlined />
@@ -206,7 +206,7 @@
                     type="text"
                     size="small"
                     :title="t('files.rename')"
-                    @click.stop="renameFile(record)"
+                    @click.stop="renameFile(record as FileRecord)"
                   >
                     <template #icon>
                       <EditOutlined />
@@ -218,7 +218,7 @@
                     type="text"
                     size="small"
                     :title="t('files.permissions')"
-                    @click.stop="chmodFile(record)"
+                    @click.stop="chmodFile(record as FileRecord)"
                   >
                     <template #icon>
                       <LockOutlined />
@@ -254,19 +254,19 @@
                     >
                       <a-menu-item
                         v-if="!isTeam"
-                        @click="copyFile(record)"
+                        @click="copyFile(record as FileRecord)"
                       >
                         <CopyOutlined />
                         {{ $t('files.copy') }}
                       </a-menu-item>
                       <a-menu-item
                         v-if="!isTeam"
-                        @click="moveFile(record)"
+                        @click="moveFile(record as FileRecord)"
                       >
                         <ScissorOutlined />
                         {{ $t('files.move') }}
                       </a-menu-item>
-                      <a-menu-item @click="deleteFile(record)">
+                      <a-menu-item @click="deleteFile(record as FileRecord)">
                         <DeleteOutlined />
                         {{ $t('files.delete') }}
                       </a-menu-item>
@@ -354,7 +354,7 @@
     <copyOrMoveModal
       :id="props.uuid"
       v-model:visible="copyOrMoveDialog"
-      :origin-path="currentRecord?.path"
+      :origin-path="currentRecord?.path || ''"
       :type="copyOrMoveModalType"
       @confirm="copyOrMoveModalOk"
       @update:visible="copyOrMoveDialog = $event"
@@ -363,26 +363,26 @@
 </template>
 
 <script setup lang="ts">
-import { ref, h, onMounted, watch, reactive } from 'vue'
+import { h, onMounted, reactive, ref, watch } from 'vue'
 import copyOrMoveModal from './moveModal.vue'
 import {
-  CloseOutlined,
   CheckOutlined,
-  LockOutlined,
-  DeleteOutlined,
-  ExclamationCircleOutlined,
-  ScissorOutlined,
-  CopyOutlined,
-  EditOutlined,
-  DownloadOutlined,
-  EllipsisOutlined,
+  CloseOutlined,
   CloudUploadOutlined,
-  UploadOutlined,
-  RollbackOutlined,
-  RedoOutlined,
+  CopyOutlined,
+  DeleteOutlined,
+  DownloadOutlined,
+  EditOutlined,
+  EllipsisOutlined,
+  ExclamationCircleOutlined,
+  FileFilled,
   FolderFilled,
   LinkOutlined,
-  FileFilled
+  LockOutlined,
+  RedoOutlined,
+  RollbackOutlined,
+  ScissorOutlined,
+  UploadOutlined
 } from '@ant-design/icons-vue'
 import { message, Modal } from 'ant-design-vue'
 import { ColumnsType } from 'ant-design-vue/es/table'
@@ -396,12 +396,6 @@ const { t } = useI18n()
 const { t: $t } = useI18n()
 
 const props = defineProps({
-  currentDirectory: {
-    type: String,
-    default: () => {
-      return '/'
-    }
-  },
   currentDirectoryInput: {
     type: String,
     default: () => {
@@ -409,6 +403,12 @@ const props = defineProps({
     }
   },
   uuid: {
+    type: String,
+    default: () => {
+      return ''
+    }
+  },
+  basePath: {
     type: String,
     default: () => {
       return ''
@@ -445,8 +445,8 @@ export interface FileRecord {
   disabled?: boolean
 }
 
-const localCurrentDirectoryInput = ref(props.currentDirectoryInput)
-const localCurrentDirectory = ref(props.currentDirectory)
+const currentDirectoryInput = ref(props.currentDirectoryInput)
+const basePath = ref(props.basePath)
 const files = ref<FileRecord[]>([])
 const loading = ref(false)
 const showErr = ref(false)
@@ -554,7 +554,28 @@ const sortByName = (a: FileRecord, b: FileRecord): number => {
 
 let isFirstLoad = ref(true)
 
+function removeBasePathInContent(content: string) {
+  const escapedBase = basePath.value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  let result = content.replace(new RegExp(escapedBase, 'g'), '')
+  result = result.replace(/\/{2,}/g, '/')
+  return result
+}
+
+function hasDuplicateSlashes(path: string): boolean {
+  return /\/{2,}/.test(path)
+}
+
+function fixPath(path: string): string {
+  if (path == null || path === '') return path
+
+  if (!hasDuplicateSlashes(path)) {
+    return path
+  }
+  return path.replace(/\/+/g, '/')
+}
+
 const loadFiles = async (uuid: string, filePath: string): Promise<void> => {
+  filePath = fixPath(filePath)
   loading.value = true
   showErr.value = false
   errTips.value = ''
@@ -563,13 +584,13 @@ const loadFiles = async (uuid: string, filePath: string): Promise<void> => {
   }
   let data = await fetchList(filePath || '/')
   if (data.length > 0 && typeof data[0] === 'string') {
-    if (isFirstLoad.value) {
-      filePath = '/'
-      data = await fetchList(filePath)
-      isFirstLoad.value = false
-    }
+    // if (isFirstLoad.value) {
+    //   filePath = '/'
+    //   data = await fetchList(filePath)
+    //   isFirstLoad.value = false
+    // }
     if (data.length > 0 && typeof data[0] === 'string') {
-      errTips.value = data[0]
+      errTips.value = removeBasePathInContent(data[0])
       showErr.value = true
     }
   }
@@ -607,19 +628,29 @@ const loadFiles = async (uuid: string, filePath: string): Promise<void> => {
   }
 
   files.value = dirs
-  localCurrentDirectory.value = filePath
-  localCurrentDirectoryInput.value = filePath
+  currentDirectoryInput.value = getLoadFilePath(filePath)
+}
+
+function getLoadFilePath(filePath: string): string {
+  const trimEndSlash = (p: string) => p.replace(/\/+$/, '')
+
+  const full = trimEndSlash(filePath)
+  const base = trimEndSlash(basePath.value)
+
+  if (!full.startsWith(base)) return full
+
+  const rest = full.slice(base.length)
+  return rest || '/'
 }
 
 const rowClick = (record: FileRecord): void => {
   if (record.isDir || record.isLink) {
     if (record.path === '..') {
       // 获取当前目录的上级目录
-      const currentDirectory = localCurrentDirectory.value
+      const currentDirectory = basePath.value + currentDirectoryInput.value
       let parentDirectory = currentDirectory.substring(0, currentDirectory.lastIndexOf('/'))
       if (parentDirectory === '') {
-        localCurrentDirectoryInput.value = '/'
-        localCurrentDirectory.value = '/'
+        currentDirectoryInput.value = '/'
         parentDirectory = '/'
       }
       loadFiles(props.uuid, parentDirectory)
@@ -638,7 +669,7 @@ const openFile = (record: FileRecord): void => {
 }
 
 const refresh = (): void => {
-  loadFiles(props.uuid, localCurrentDirectoryInput.value)
+  loadFiles(props.uuid, basePath.value + currentDirectoryInput.value)
 }
 
 // instead of path.dirname()
@@ -655,7 +686,7 @@ const joinPath = (...parts: string[]) => {
   return parts.join('/').replace(/\/+/g, '/')
 }
 const rollback = (): void => {
-  loadFiles(props.uuid, getDirname(localCurrentDirectoryInput.value))
+  loadFiles(props.uuid, getDirname(basePath.value + currentDirectoryInput.value))
 }
 
 const handleRefresh = (): void => {
@@ -664,7 +695,7 @@ const handleRefresh = (): void => {
 
 onMounted(async () => {
   isTeamCheck(props.uuid)
-  await loadFiles(props.uuid, localCurrentDirectory.value)
+  await loadFiles(props.uuid, basePath.value + currentDirectoryInput.value)
 })
 
 const uploadFile = async (): Promise<void> => {
@@ -675,7 +706,7 @@ const uploadFile = async (): Promise<void> => {
     message.loading({ content: t('files.uploading'), key, duration: 0 })
     const res = await api.uploadFile({
       id: key,
-      remotePath: localCurrentDirectoryInput.value,
+      remotePath: basePath.value + currentDirectoryInput.value,
       localPath: selected
     })
     refresh()
@@ -698,7 +729,7 @@ const uploadDirectory = async (): Promise<void> => {
     const res = await api.uploadDirectory({
       id: key,
       localDir: selected,
-      remoteDir: localCurrentDirectoryInput.value
+      remoteDir: basePath.value + currentDirectoryInput.value
     })
     refresh()
     message.success({
@@ -840,7 +871,8 @@ const handleMoreButtonEnter = (recordName: string) => {
 }
 
 // Handle "More" button mouse leave
-const handleMoreButtonLeave = (recordName: string) => {
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+const handleMoreButtonLeave = (_recordName: string) => {
   // 按钮离开时不立即清理，让其他事件处理
 }
 
@@ -924,6 +956,9 @@ const chmodFile = (record: FileRecord) => {
   chmodFileDialog.value = true
 }
 const chmodOk = async () => {
+  if (!currentRecord.value) {
+    return
+  }
   try {
     const filePath = getDirname(currentRecord.value.path)
     const res = await api.chmodFile({
@@ -970,7 +1005,7 @@ const calculatePermissionCode = () => {
   return `${ownerCode}${groupCode}${publicCode}`
 }
 const parsePermissions = (mode: string) => {
-  const [mod, ownerCode, groupCode, publicCode] = mode.split('').map(Number)
+  const [ownerCode, groupCode, publicCode] = mode.split('').slice(1).map(Number)
 
   permissions.owner = []
   if (ownerCode & 4) permissions.owner.push('read' as CheckboxValueType)
@@ -1073,7 +1108,7 @@ const deleteFile = (record: FileRecord) => {
   Modal.confirm({
     title: t('files.deleteFileTips'),
     icon: h(ExclamationCircleOutlined),
-    content: h('div', { style: 'color:red;font-weight: bold;' }, record.path),
+    content: h('div', { style: 'color:red;font-weight: bold;' }, removeBasePathInContent(record.path)),
     okText: t('common.ok'),
     okType: 'danger',
     cancelText: t('common.cancel'),
@@ -1087,13 +1122,14 @@ const deleteFile = (record: FileRecord) => {
 }
 
 const isTeam = ref(false)
-const isTeamCheck = (uuid: string) => {
+const isTeamCheck = (uuid: string): boolean => {
   const parts = uuid.split('@')
   if (parts.length < 2) return false
 
   const rest = parts[1]
   const orgType = rest.split(':')[1]
   isTeam.value = orgType === 'local-team'
+  return isTeam.value
 }
 
 const confirmDeleteFile = async (record: FileRecord) => {
@@ -1117,7 +1153,7 @@ const confirmDeleteFile = async (record: FileRecord) => {
 }
 
 const copyOrMoveDialog = ref(false)
-let copyOrMoveModalType = ref('')
+const copyOrMoveModalType = ref<'copy' | 'move'>('copy')
 const copyFile = (record: FileRecord) => {
   currentRecord.value = record
   copyOrMoveModalType.value = 'copy'
@@ -1125,6 +1161,9 @@ const copyFile = (record: FileRecord) => {
 }
 
 const copyOrMoveModalOk = async (targetPath: string) => {
+  if (!currentRecord.value) {
+    return
+  }
   const src = currentRecord.value.path
   const dest = targetPath
   if (copyOrMoveModalType.value == 'copy') {
@@ -1141,7 +1180,7 @@ const copyOrMoveModalOk = async (targetPath: string) => {
         message.error(`${t('files.copyFileFailed')}：${stderr}`)
       } else {
         message.success(t('files.copyFileSuccess'))
-        localCurrentDirectoryInput.value = getDirname(dest)
+        currentDirectoryInput.value = getDirname(dest)
         refresh()
       }
     } catch (error) {
@@ -1161,7 +1200,7 @@ const copyOrMoveModalOk = async (targetPath: string) => {
         message.error(`${t('files.moveFileFailed')}：${stderr}`)
       } else {
         message.success(t('files.moveFileSuccess'))
-        localCurrentDirectoryInput.value = getDirname(dest)
+        currentDirectoryInput.value = getDirname(dest)
         refresh()
       }
     } catch (error) {
@@ -1175,25 +1214,6 @@ const moveFile = (record: FileRecord) => {
   copyOrMoveModalType.value = 'move'
   copyOrMoveDialog.value = true
 }
-
-watch(
-  () => props.currentDirectory,
-  (newVal) => {
-    if (newVal !== localCurrentDirectory.value) {
-      localCurrentDirectory.value = newVal
-      loadFiles(props.uuid, newVal)
-    }
-  }
-)
-
-watch(
-  () => props.currentDirectoryInput,
-  (newVal) => {
-    if (newVal !== localCurrentDirectoryInput.value) {
-      localCurrentDirectoryInput.value = newVal
-    }
-  }
-)
 
 defineExpose({
   refresh,
@@ -1329,7 +1349,7 @@ defineExpose({
   background-color: var(--bg-color-secondary);
   border-radius: 4px;
   padding: 2px;
-  //box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  /* box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1); */
   z-index: 10;
 }
 

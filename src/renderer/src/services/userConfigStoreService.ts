@@ -24,6 +24,7 @@ export interface UserConfig {
   secretRedaction: 'enabled' | 'disabled' | undefined
   dataSync: 'enabled' | 'disabled' | undefined
   theme: 'dark' | 'light' | 'auto' | undefined
+  defaultLayout?: 'terminal' | 'agents'
   feature?: number
   quickComand?: boolean
   shortcuts?: ShortcutConfig
@@ -92,6 +93,7 @@ export class UserConfigStoreService {
       secretRedaction: 'disabled' as 'enabled' | 'disabled',
       dataSync: 'disabled' as 'enabled' | 'disabled',
       theme: 'auto' as 'dark' | 'light' | 'auto',
+      defaultLayout: 'terminal' as 'terminal' | 'agents',
       feature: 0.0,
       quickComand: false,
       shortcuts: defaultShortcuts,

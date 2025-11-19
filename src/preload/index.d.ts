@@ -121,6 +121,18 @@ interface ApiType {
   aliasesMutate: (params: { action: string; data?: any; alias?: string }) => Promise<void>
   kvGet: (params: { key?: string }) => Promise<any>
   kvMutate: (params: { action: string; key: string; value?: string }) => Promise<void>
+  getTaskMetadata: (taskId: string) => Promise<{
+    success: boolean
+    data?: {
+      files_in_context?: any[]
+      model_usage?: any[]
+      hosts?: Array<{ host: string; uuid: string; connection: string }>
+      todos?: any[]
+    }
+    error?: { message: string }
+  }>
+  getUserHosts: (search: string, limit?: number, offset?: number) => Promise<any>
+  initUserDatabase: (data: { uid: number }) => Promise<any>
 }
 
 declare global {

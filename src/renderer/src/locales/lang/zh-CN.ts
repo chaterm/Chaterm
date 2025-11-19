@@ -104,7 +104,10 @@ export default {
     notFound: '资源未找到',
     internalServerError: '服务器内部错误',
     badGateway: '网关错误',
-    serviceUnavailable: '服务不可用'
+    serviceUnavailable: '服务不可用',
+    terminalMode: 'Terminal',
+    agentsMode: 'Agents',
+    daysAgo: '天前'
   },
   term: {
     welcome: '欢迎使用 Chaterm',
@@ -213,6 +216,9 @@ export default {
     themeDark: '暗色',
     themeLight: '亮色',
     themeAuto: '自动',
+    defaultLayout: '默认布局',
+    defaultLayoutTerminal: 'Terminal',
+    defaultLayoutAgents: 'Agents',
     telemetry: '遥测',
     telemetryEnabled: '开启',
     telemetryDisabled: '关闭',

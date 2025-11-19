@@ -1429,8 +1429,8 @@ ipcMain.handle('get-task-metadata', async (_event, { taskId }) => {
 
 ipcMain.handle('get-user-hosts', async (_, data) => {
   try {
-    const { search } = data
-    const result = chatermDbService.getUserHosts(search)
+    const { search, limit = 50, offset = 0 } = data
+    const result = chatermDbService.getUserHosts(search, limit, offset)
     return result
   } catch (error) {
     console.error('Chaterm get user hosts list failed:', error)
