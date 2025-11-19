@@ -45,10 +45,10 @@
       <div
         v-if="currentMode === 'agents'"
         class="toggle-right-btn"
-        @click="toggleAgentsSidebarLeft('left')"
+        @click="toggleAgentsSidebarLeft('agentsLeft')"
       >
         <img
-          v-if="isAgentsLeftSidebarCollapsed"
+          v-if="!isAgentsLeftSidebarCollapsed"
           src="@/assets/menu/left_bar_open.svg"
           alt=""
           :class="platform.includes('darwin') ? 'sidebar-toggle-icon_mac' : 'sidebar-toggle-icon'"
@@ -66,7 +66,7 @@
         @click="toggleSidebarLeft('left')"
       >
         <img
-          v-if="isLeftSidebarCollapsed"
+          v-if="!isLeftSidebarCollapsed"
           src="@/assets/menu/left_bar_open.svg"
           alt=""
           :class="platform.includes('darwin') ? 'sidebar-toggle-icon_mac' : 'sidebar-toggle-icon'"
@@ -114,9 +114,9 @@ const deviceStore = useDeviceStore()
 const instance = getCurrentInstance()!
 const { appContext } = instance
 
-const isLeftSidebarCollapsed = ref(true)
+const isLeftSidebarCollapsed = ref(false)
 const isRightSidebarCollapsed = ref(false)
-const isAgentsLeftSidebarCollapsed = ref(true)
+const isAgentsLeftSidebarCollapsed = ref(false)
 const isAvailable = ref(false)
 const currentMode = ref<'terminal' | 'agents'>('terminal')
 const emit = defineEmits(['toggle-sidebar', 'mode-change'])
@@ -130,7 +130,7 @@ const toggleSidebarLeft = (params: 'left' | 'right') => {
   isLeftSidebarCollapsed.value = !isLeftSidebarCollapsed.value
 }
 
-const toggleAgentsSidebarLeft = (params: 'left') => {
+const toggleAgentsSidebarLeft = (params: 'agentsLeft') => {
   emit('toggle-sidebar', params)
   isAgentsLeftSidebarCollapsed.value = !isAgentsLeftSidebarCollapsed.value
 }
@@ -138,7 +138,7 @@ const toggleAgentsSidebarLeft = (params: 'left') => {
 const switchIcon = (dir, value) => {
   dir == 'left' ? (isLeftSidebarCollapsed.value = value) : ''
   dir == 'right' ? (isRightSidebarCollapsed.value = value) : ''
-  dir == 'agents-left' ? (isAgentsLeftSidebarCollapsed.value = value) : ''
+  dir == 'agentsLeft' ? (isAgentsLeftSidebarCollapsed.value = value) : ''
 }
 const checkVersion = async () => {
   try {

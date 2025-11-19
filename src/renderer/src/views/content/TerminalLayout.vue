@@ -246,6 +246,11 @@ import { useRouter } from 'vue-router'
 import { shortcutService } from '@/services/shortcutService'
 import { captureExtensionUsage, ExtensionNames, ExtensionStatus } from '@/utils/telemetry'
 
+// Define props
+const props = defineProps<{
+  currentMode: 'terminal' | 'agents'
+}>()
+
 const router = useRouter()
 const api = window.api as any
 const { t } = useI18n()
@@ -474,27 +479,9 @@ onMounted(async () => {
     updatePaneSize()
     if (headerRef.value) {
       headerRef.value.switchIcon('right', showAiSidebar.value)
-      headerRef.value.setMode('terminal')
+      headerRef.value.setMode(props.currentMode)
     }
   })
-  window.addEventListener('resize', updatePaneSize)
-  aliasConfig.initialize()
-
-  // Initialize shortcut service
-  shortcutService.init()
-
-  eventBus.on('currentClickServer', currentClickServer)
-  eventBus.on('getActiveTabAssetInfo', handleGetActiveTabAssetInfo)
-  eventBus.on('toggleSideBar', toggleSideBar)
-  eventBus.on('createSplitTab', handleCreateSplitTab)
-  eventBus.on('createVerticalSplitTab', handleCreateVerticalSplitTab)
-  eventBus.on('adjustSplitPaneToEqual', adjustSplitPaneToEqualWidth)
-  eventBus.on('sendOrToggleAiFromTerminal', handleSendOrToggleAiFromTerminal)
-  eventBus.on('switchToNextTab', switchToNextTab)
-  eventBus.on('switchToPrevTab', switchToPrevTab)
-  eventBus.on('switchToSpecificTab', switchToSpecificTab)
-  eventBus.on('createNewTerminal', handleCreateNewTerminal)
-  eventBus.on('open-user-tab', openUserTab)
 
   // Restore AI state from agents mode if available
   const restoreStateFromAgents = async () => {
@@ -540,7 +527,44 @@ onMounted(async () => {
     return false
   }
 
-  // Try to restore immediately, and also wait a bit if needed
+  // Watch currentMode changes and sync to Header, also restore AI state when switching to terminal
+  watch(
+    () => props.currentMode,
+    async (newMode, oldMode) => {
+      if (headerRef.value) {
+        headerRef.value.setMode(newMode)
+      }
+      // When switching from agents to terminal, restore AI state
+      if (newMode === 'terminal' && oldMode === 'agents') {
+        await nextTick()
+        // Wait a bit for aiTabRef to be ready
+        setTimeout(async () => {
+          await restoreStateFromAgents()
+        }, 200)
+      }
+    },
+    { immediate: false }
+  )
+  window.addEventListener('resize', updatePaneSize)
+  aliasConfig.initialize()
+
+  // Initialize shortcut service
+  shortcutService.init()
+
+  eventBus.on('currentClickServer', currentClickServer)
+  eventBus.on('getActiveTabAssetInfo', handleGetActiveTabAssetInfo)
+  eventBus.on('toggleSideBar', toggleSideBar)
+  eventBus.on('createSplitTab', handleCreateSplitTab)
+  eventBus.on('createVerticalSplitTab', handleCreateVerticalSplitTab)
+  eventBus.on('adjustSplitPaneToEqual', adjustSplitPaneToEqualWidth)
+  eventBus.on('sendOrToggleAiFromTerminal', handleSendOrToggleAiFromTerminal)
+  eventBus.on('switchToNextTab', switchToNextTab)
+  eventBus.on('switchToPrevTab', switchToPrevTab)
+  eventBus.on('switchToSpecificTab', switchToSpecificTab)
+  eventBus.on('createNewTerminal', handleCreateNewTerminal)
+  eventBus.on('open-user-tab', openUserTab)
+
+  // Try to restore immediately on mount (for initial load)
   nextTick(async () => {
     if (!(await restoreStateFromAgents())) {
       // If not restored yet, wait a bit more and try again (component might need more time to render)
