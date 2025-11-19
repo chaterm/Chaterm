@@ -1,57 +1,50 @@
 <template>
-  <div class="term_host_list">
-    <div class="term_host_header">
-      <div style="width: 100%; margin-top: 10px">
-        <div class="tree-container">
-          <a-tree
-            v-if="treeData && treeData.length"
-            v-model:expanded-keys="expandedKeys"
-            class="dark-tree"
-            block-node
-            :tree-data="treeData"
-            :default-expand-all="true"
+  <div class="tree-container">
+    <a-tree
+      v-if="treeData && treeData.length"
+      v-model:expanded-keys="expandedKeys"
+      class="dark-tree"
+      block-node
+      :tree-data="treeData"
+      :default-expand-all="true"
+    >
+      <template #title="{ dataRef }">
+        <div>
+          <span style="font-weight: bold; color: var(--text-color)">{{ dataRef.title }}</span>
+          <span
+            v-if="dataRef.errorMsg"
+            style="color: red; margin-left: 10px; font-weight: bold"
           >
-            <template #title="{ dataRef }">
-              <div>
-                <span style="font-weight: bold; color: var(--text-color)">{{ dataRef.title }}</span>
-                <span
-                  v-if="dataRef.errorMsg"
-                  style="color: red; margin-left: 10px; font-weight: bold"
-                >
-                  {{ t('files.sftpConnectFailed') }}：{{ dataRef.errorMsg }}
-                </span>
-                <div v-if="dataRef.expanded || expandedKeys.includes(dataRef.key)">
-                  <TermFileSystem
-                    :uuid="dataRef.value"
-                    :current-directory-input="resolvePaths(dataRef.value)"
-                    :base-path="getBasePath(dataRef.value)"
-                    @open-file="openFile"
-                  />
-                </div>
-              </div>
-            </template>
-          </a-tree>
-          <a-empty
-            v-else
-            description="暂无数据，请先连接服务器~"
-          />
+            {{ t('files.sftpConnectFailed') }}：{{ dataRef.errorMsg }}
+          </span>
+          <div v-if="dataRef.expanded || expandedKeys.includes(dataRef.key)">
+            <TermFileSystem
+              :uuid="dataRef.value"
+              :current-directory-input="resolvePaths(dataRef.value)"
+              :base-path="getBasePath(dataRef.value)"
+              @open-file="openFile"
+            />
+          </div>
         </div>
-      </div>
-      <div
-        v-for="editor in openEditors"
-        v-show="editor?.visible"
-        :key="editor?.filePath"
-      >
-        <EditorCode
-          :editor="editor"
-          :is-active="editor.key === activeEditorKey"
-          @close-vim-editor="closeVimEditor"
-          @handle-save="handleSave"
-          @focus-editor="() => handleFocusEditor(editor.key)"
-        />
-      </div>
-    </div>
-    <div></div>
+      </template>
+    </a-tree>
+    <a-empty
+      v-else
+      description="暂无数据，请先连接服务器~"
+    />
+  </div>
+  <div
+    v-for="editor in openEditors"
+    v-show="editor?.visible"
+    :key="editor?.filePath"
+  >
+    <EditorCode
+      :editor="editor"
+      :is-active="editor.key === activeEditorKey"
+      @close-vim-editor="closeVimEditor"
+      @handle-save="handleSave"
+      @focus-editor="() => handleFocusEditor(editor.key)"
+    />
   </div>
 </template>
 
@@ -324,55 +317,37 @@ defineExpose({
 })
 </script>
 <style lang="less" scoped>
-.term_host_list {
-  width: 100%;
-  height: 100%;
-  padding: 4px;
-  display: flex;
-  justify-content: space-between;
-  flex-wrap: wrap;
-  background-color: var(--bg-color);
-  color: var(--text-color);
-
-  .term_host_header {
-    width: 100%;
-    height: auto;
-  }
-
-  .term_com_list {
-    display: inline-block;
-    float: right;
-  }
-
-  .term_com_list .ant-select-selection-item {
-    color: var(--text-color) !important;
-  }
-
-  .term_com_list .ant-select-selector {
-    color: var(--text-color) !important;
-  }
-
-  .term_com_list .ant-select-single {
-    color: var(--text-color) !important;
-  }
-
-  :deep(.term_com_list .ant-select-selector) {
-    color: var(--text-color) !important;
-  }
-}
-
 .tree-container {
-  margin-top: 8px;
+  height: 100%;
   overflow-y: auto;
-  overflow-x: hidden;
+  overflow-x: auto;
   border-radius: 2px;
   background-color: var(--bg-color);
+  scrollbar-width: auto;
+  scrollbar-color: var(--border-color-light) transparent;
+}
+
+.tabs-content::-webkit-scrollbar {
+  height: 3px;
+}
+
+.tabs-content::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.tabs-content::-webkit-scrollbar-thumb {
+  background-color: var(--border-color-light);
+  border-radius: 3px;
+}
+
+.tabs-content::-webkit-scrollbar-thumb:hover {
+  background-color: var(--text-color-tertiary);
 }
 
 :deep(.dark-tree) {
   background-color: var(--bg-color);
   height: 30% !important;
-
+  padding-top: 8px;
   .ant-tree-node-content-wrapper,
   .ant-tree-title,
   .ant-tree-switcher,
