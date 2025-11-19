@@ -28,6 +28,7 @@ export interface ExtensionMessage {
     | 'chatTitleGenerated'
     | 'mcpServersUpdate'
     | 'notification'
+    | 'taskHistoryUpdated'
 
   text?: string
   action?:
