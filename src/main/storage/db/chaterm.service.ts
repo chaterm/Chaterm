@@ -342,4 +342,180 @@ export class ChatermDatabaseService {
       throw error
     }
   }
+
+  // ==================== IndexedDB 迁移状态查询方法 ====================
+
+  /**
+   * 获取迁移状态
+   */
+  getMigrationStatus(dataSource: string): any {
+    try {
+      const row = this.db.prepare('SELECT * FROM indexdb_migration_status WHERE data_source = ?').get(dataSource)
+      return row || null
+    } catch (error) {
+      console.error('ChatermDatabaseService.getMigrationStatus 错误:', error)
+      throw error
+    }
+  }
+
+  /**
+   * 获取所有迁移状态
+   */
+  getAllMigrationStatus(): any[] {
+    try {
+      const rows = this.db.prepare('SELECT * FROM indexdb_migration_status').all()
+      return rows
+    } catch (error) {
+      console.error('ChatermDatabaseService.getAllMigrationStatus 错误:', error)
+      throw error
+    }
+  }
+
+  // ==================== Aliases CRUD 方法（核心业务逻辑，永久保留）====================
+  // 注意：这些方法不仅用于 IndexedDB 迁移，更重要的是被正常业务逻辑使用
+  // 依赖方：commandStoreService.ts 通过 IPC handler 'db:aliases:query' 和 'db:aliases:mutate' 调用
+  // 迁移完成后这些方法仍需保留，作为 SQLite 数据库的标准 CRUD 接口
+
+  /**
+   * 获取所有别名
+   * 用途：渲染进程通过 window.api.aliasesQuery({ action: 'getAll' }) 调用
+   */
+  getAliases(): any[] {
+    try {
+      const rows = this.db.prepare('SELECT * FROM t_aliases ORDER BY created_at DESC').all()
+      return rows
+    } catch (error) {
+      console.error('ChatermDatabaseService.getAliases 错误:', error)
+      throw error
+    }
+  }
+
+  /**
+   * 根据别名名称获取
+   * 用途：渲染进程通过 window.api.aliasesQuery({ action: 'getByAlias', alias }) 调用
+   */
+  getAliasByName(alias: string): any {
+    try {
+      const row = this.db.prepare('SELECT * FROM t_aliases WHERE alias = ?').get(alias)
+      return row || null
+    } catch (error) {
+      console.error('ChatermDatabaseService.getAliasByName 错误:', error)
+      throw error
+    }
+  }
+
+  /**
+   * 搜索别名
+   * 用途：渲染进程通过 window.api.aliasesQuery({ action: 'search', searchText }) 调用
+   */
+  searchAliases(searchText: string): any[] {
+    try {
+      const rows = this.db
+        .prepare('SELECT * FROM t_aliases WHERE alias LIKE ? OR command LIKE ? ORDER BY created_at DESC')
+        .all(`%${searchText}%`, `%${searchText}%`)
+      return rows
+    } catch (error) {
+      console.error('ChatermDatabaseService.searchAliases 错误:', error)
+      throw error
+    }
+  }
+
+  /**
+   * 保存别名
+   * 用途：渲染进程通过 window.api.aliasesMutate({ action: 'save', data }) 调用
+   */
+  saveAlias(data: any): void {
+    try {
+      this.db
+        .prepare(
+          `
+        INSERT OR REPLACE INTO t_aliases (id, alias, command, created_at)
+        VALUES (?, ?, ?, ?)
+      `
+        )
+        .run(data.id, data.alias, data.command, data.created_at || Date.now())
+    } catch (error) {
+      console.error('ChatermDatabaseService.saveAlias 错误:', error)
+      throw error
+    }
+  }
+
+  /**
+   * 删除别名
+   * 用途：渲染进程通过 window.api.aliasesMutate({ action: 'delete', alias }) 调用
+   */
+  deleteAlias(alias: string): void {
+    try {
+      this.db.prepare('DELETE FROM t_aliases WHERE alias = ?').run(alias)
+    } catch (error) {
+      console.error('ChatermDatabaseService.deleteAlias 错误:', error)
+      throw error
+    }
+  }
+
+  // ==================== Key-Value Store CRUD 方法（核心业务逻辑，永久保留）====================
+  // 注意：这些方法不仅用于 IndexedDB 迁移，更重要的是被正常业务逻辑使用
+  // 依赖方：userConfigStoreService.ts 和 key-storage.ts 通过 IPC handler 'db:kv:get' 和 'db:kv:mutate' 调用
+  // 迁移完成后这些方法仍需保留，作为 SQLite 数据库的标准 CRUD 接口
+
+  /**
+   * 获取键值对
+   * 用途：渲染进程通过 window.api.kvGet({ key }) 调用
+   */
+  getKeyValue(key: string): any {
+    try {
+      const row = this.db.prepare('SELECT * FROM key_value_store WHERE key = ?').get(key)
+      return row || null
+    } catch (error) {
+      console.error('ChatermDatabaseService.getKeyValue 错误:', error)
+      throw error
+    }
+  }
+
+  /**
+   * 获取所有键
+   * 用途：渲染进程通过 window.api.kvGet() (不传 key 参数) 调用
+   */
+  getAllKeys(): string[] {
+    try {
+      const rows = this.db.prepare('SELECT key FROM key_value_store').all() as Array<{ key: string }>
+      return rows.map((row) => row.key)
+    } catch (error) {
+      console.error('ChatermDatabaseService.getAllKeys 错误:', error)
+      throw error
+    }
+  }
+
+  /**
+   * 设置键值对
+   * 用途：渲染进程通过 window.api.kvMutate({ action: 'set', key, value }) 调用
+   */
+  setKeyValue(data: any): void {
+    try {
+      this.db
+        .prepare(
+          `
+        INSERT OR REPLACE INTO key_value_store (key, value, updated_at)
+        VALUES (?, ?, ?)
+      `
+        )
+        .run(data.key, data.value, data.updated_at || Date.now())
+    } catch (error) {
+      console.error('ChatermDatabaseService.setKeyValue 错误:', error)
+      throw error
+    }
+  }
+
+  /**
+   * 删除键值对
+   * 用途：渲染进程通过 window.api.kvMutate({ action: 'delete', key }) 调用
+   */
+  deleteKeyValue(key: string): void {
+    try {
+      this.db.prepare('DELETE FROM key_value_store WHERE key = ?').run(key)
+    } catch (error) {
+      console.error('ChatermDatabaseService.deleteKeyValue 错误:', error)
+      throw error
+    }
+  }
 }
