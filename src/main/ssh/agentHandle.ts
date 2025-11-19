@@ -219,8 +219,7 @@ export async function remoteSshExecStream(
 
   console.log(`Starting SSH command (stream): ${command} (Session: ${sessionId})`)
 
-  const base64Command = Buffer.from(command, 'utf-8').toString('base64')
-  const shellCommand = `CHATERM_COMMAND_B64='${base64Command}' exec bash -l -c 'eval "$(echo $CHATERM_COMMAND_B64 | base64 -d)"'`
+  const shellCommand = `exec bash -l -c '${command.replace(/'/g, "'\\''")}'`
 
   return new Promise((resolve) => {
     let timeoutHandler: NodeJS.Timeout
