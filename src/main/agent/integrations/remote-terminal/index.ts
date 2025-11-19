@@ -92,16 +92,18 @@ export class RemoteTerminalProcess extends BrownEventEmitter<RemoteTerminalProce
     if (!cleanCwd) return command
 
     const trimmedCommand = command.trimEnd()
-    const requiresTerminator = trimmedCommand.length > 0 && !/[;&]$/.test(trimmedCommand)
-    const commandForThen = `${trimmedCommand}${requiresTerminator ? ';' : ''}`
-    const escapedCwdForSudo = cleanCwd.replace(/'/g, "'\\''")
-    const commandForSudo = trimmedCommand.replace(/'/g, "'\\''")
+    const cmdBase64 = Buffer.from(trimmedCommand, 'utf-8').toString('base64')
+    const evalCmd = `eval "$(echo ${cmdBase64} | base64 -d)"`
+
+    // 构建带工作目录切换的命令
+    const sudoCommand = `cd "${cleanCwd}" && ${evalCmd}`
+    const sudoCmdBase64 = Buffer.from(sudoCommand, 'utf-8').toString('base64')
 
     return [
       `if cd "${cleanCwd}" 2>/dev/null; then`,
-      `  ${commandForThen}`,
+      `  ${evalCmd}`,
       'else',
-      `  sudo sh -c "cd '${escapedCwdForSudo}' && ${commandForSudo}"`,
+      `  sudo -i bash -c "eval \\"\\\$(echo ${sudoCmdBase64} | base64 -d)\\""`,
       'fi'
     ].join('\n')
   }
