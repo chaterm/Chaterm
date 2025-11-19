@@ -484,7 +484,7 @@
                 <span
                   v-if="chatTypeValue === 'agent' && chatHistory.length === 0"
                   class="hosts-display-container-host-tag"
-                  @click="handleAddHostClick"
+                  @click.stop="handleAddHostClick"
                 >
                   {{ hosts && hosts.length > 0 ? '@' : `@ ${$t('ai.addHost')}` }}
                 </span>
@@ -3119,6 +3119,11 @@ const showResumeButton = computed(() => {
 })
 
 const handleAddHostClick = async () => {
+  // Only allow host selection in agent mode
+  if (chatTypeValue.value !== 'agent') {
+    return
+  }
+
   showHostSelect.value = !showHostSelect.value
   if (showHostSelect.value) {
     hostSearchValue.value = ''
