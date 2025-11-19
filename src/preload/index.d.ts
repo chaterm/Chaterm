@@ -114,6 +114,13 @@ interface ApiType {
   onMcpStatusUpdate: (callback: (servers: any[]) => void) => () => void
   onMcpServerUpdate: (callback: (server: any) => void) => () => void
   onMcpConfigFileChanged: (callback: (content: string) => void) => () => void
+
+  // IndexedDB 迁移相关 API
+  getMigrationStatus: (params: { dataSource?: string }) => Promise<any>
+  aliasesQuery: (params: { action: string; searchText?: string; alias?: string }) => Promise<any[]>
+  aliasesMutate: (params: { action: string; data?: any; alias?: string }) => Promise<void>
+  kvGet: (params: { key?: string }) => Promise<any>
+  kvMutate: (params: { action: string; key: string; value?: string }) => Promise<void>
   getTaskMetadata: (taskId: string) => Promise<{
     success: boolean
     data?: {

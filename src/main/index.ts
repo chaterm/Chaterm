@@ -6,7 +6,7 @@ import axios from 'axios'
 import * as fs from 'fs/promises'
 import { startDataSync } from './storage/data_sync/index'
 import type { SyncController as DataSyncController } from './storage/data_sync/core/SyncController'
-import { getChatermDbPathForUser, getCurrentUserId } from './storage/db/connection'
+import { getChatermDbPathForUser, getCurrentUserId, setMainWindowWebContents } from './storage/db/connection'
 
 // Set environment variables
 process.env.IS_DEV = is.dev ? 'true' : 'false'
@@ -50,6 +50,7 @@ async function createWindow(): Promise<void> {
     },
     () => !forceQuit
   )
+  setMainWindowWebContents(mainWindow.webContents)
 }
 
 // 发送请求给渲染进程，等待它回消息
@@ -636,6 +637,192 @@ function setupIPC(): void {
       return { success: false, error: error instanceof Error ? error.message : 'Unknown error occurred' }
     }
   })
+
+  // ==================== IndexedDB 迁移相关 IPC Handlers ====================
+
+  // Handler 1: 迁移状态查询
+  ipcMain.handle('db:migration:status', async (_event, params: { dataSource?: string }) => {
+    try {
+      const userId = getCurrentUserId()
+      if (!userId) {
+        throw new Error('User not logged in')
+      }
+
+      const db = await ChatermDatabaseService.getInstance(userId)
+
+      if (params?.dataSource) {
+        return db.getMigrationStatus(params.dataSource)
+      } else {
+        return db.getAllMigrationStatus()
+      }
+    } catch (error) {
+      console.error('db:migration:status error:', error)
+      throw error
+    }
+  })
+
+  // Handler 2: 别名查询
+  ipcMain.handle('db:aliases:query', async (_event, params: { action: string; searchText?: string; alias?: string }) => {
+    try {
+      const userId = getCurrentUserId()
+      if (!userId) {
+        throw new Error('User not logged in')
+      }
+
+      // 参数验证
+      if (!['getAll', 'search', 'getByAlias'].includes(params.action)) {
+        throw new Error('Invalid action type')
+      }
+
+      if (params.action === 'search' && !params.searchText) {
+        throw new Error('search action requires searchText parameter')
+      }
+
+      if (params.action === 'getByAlias' && !params.alias) {
+        throw new Error('getByAlias action requires alias parameter')
+      }
+
+      const db = await ChatermDatabaseService.getInstance(userId)
+
+      switch (params.action) {
+        case 'getAll':
+          return db.getAliases()
+        case 'search':
+          return db.searchAliases(params.searchText!)
+        case 'getByAlias': {
+          const result = db.getAliasByName(params.alias!)
+          return result ? [result] : []
+        }
+        default:
+          throw new Error('Invalid action')
+      }
+    } catch (error) {
+      console.error('db:aliases:query error:', error)
+      throw error
+    }
+  })
+
+  // Handler 3: 别名变更
+  ipcMain.handle('db:aliases:mutate', async (_event, params: { action: string; data?: any; alias?: string }) => {
+    try {
+      const userId = getCurrentUserId()
+      if (!userId) {
+        throw new Error('User not logged in')
+      }
+
+      // 参数验证
+      if (!['save', 'delete'].includes(params.action)) {
+        throw new Error('Invalid action type')
+      }
+
+      if (params.action === 'save' && !params.data) {
+        throw new Error('save action requires data parameter')
+      }
+
+      if (params.action === 'delete' && !params.alias) {
+        throw new Error('delete action requires alias parameter')
+      }
+
+      const db = await ChatermDatabaseService.getInstance(userId)
+
+      switch (params.action) {
+        case 'save':
+          return db.saveAlias(params.data)
+        case 'delete':
+          return db.deleteAlias(params.alias!)
+        default:
+          throw new Error('Invalid action')
+      }
+    } catch (error) {
+      console.error('db:aliases:mutate error:', error)
+      throw error
+    }
+  })
+
+  // Handler 4: KV 读取
+  ipcMain.handle('db:kv:get', async (_event, params: { key?: string }) => {
+    try {
+      let userId = getCurrentUserId()
+
+      if (!userId) {
+        userId = getGuestUserId()
+      }
+
+      const db = await ChatermDatabaseService.getInstance(userId)
+
+      if (params?.key) {
+        const row = db.getKeyValue(params.key)
+        if (row && row.value) {
+          // 使用 safeParse 反序列化 superjson 格式的数据
+          const { safeParse } = await import('./storage/db/json-serializer')
+          const parsedValue = await safeParse(row.value)
+          return { ...row, value: JSON.stringify(parsedValue) }
+        }
+        return row
+      } else {
+        return db.getAllKeys()
+      }
+    } catch (error) {
+      console.error('db:kv:get error:', error)
+      throw error
+    }
+  })
+
+  // Handler 5: KV 变更
+  ipcMain.handle('db:kv:mutate', async (_event, params: { action: string; key: string; value?: string }) => {
+    try {
+      let userId = getCurrentUserId()
+
+      if (!userId) {
+        userId = getGuestUserId()
+      }
+
+      // 参数验证
+      if (!['set', 'delete'].includes(params.action)) {
+        throw new Error('Invalid action type')
+      }
+
+      if (!params.key) {
+        throw new Error('key parameter is required')
+      }
+
+      if (params.action === 'set' && params.value === undefined) {
+        throw new Error('set action requires value parameter')
+      }
+
+      const db = await ChatermDatabaseService.getInstance(userId)
+
+      switch (params.action) {
+        case 'set': {
+          // 先将 JSON 字符串解析为对象
+          const valueObj = JSON.parse(params.value!)
+          // 使用 safeStringify 序列化为 superjson 格式
+          const { safeStringify } = await import('./storage/db/json-serializer')
+          const result = await safeStringify(valueObj)
+          if (!result.success) {
+            throw new Error(`Failed to serialize value: ${result.error}`)
+          }
+          return db.setKeyValue({
+            key: params.key,
+            value: result.data!,
+            updated_at: Date.now()
+          })
+        }
+        case 'delete':
+          return db.deleteKeyValue(params.key)
+        default:
+          throw new Error('Invalid action')
+      }
+    } catch (error) {
+      console.error('db:kv:mutate error:', error)
+      throw error
+    }
+  })
+
+  // Handler 6: IndexedDB 迁移数据读取 (渲染进程响应)
+  // 这个 handler 由渲染进程监听 'indexdb-migration:request-data' 事件并响应
+
+  // ==================== 原有 IPC Handlers ====================
 
   ipcMain.handle('window:maximize', () => {
     if (mainWindow && !mainWindow.isDestroyed()) {

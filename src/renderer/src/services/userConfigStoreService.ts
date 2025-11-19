@@ -1,4 +1,3 @@
-import { indexedDBService, DB_CONFIG } from './indexedDBService'
 import { shortcutActions } from '@/config/shortcutActions'
 import { toRaw } from 'vue'
 
@@ -44,30 +43,24 @@ export interface UserConfig {
 }
 
 export class UserConfigStoreService {
-  private readonly dbName = DB_CONFIG.name
-  private readonly storeName = 'userConfig'
-  private db: IDBDatabase | null = null
-
   constructor() {
     this.initDB()
   }
 
   async initDB(): Promise<void> {
     try {
-      this.db = await indexedDBService.initDatabase(DB_CONFIG)
-
-      const transaction = this.db.transaction(this.storeName, 'readwrite')
-      const store = transaction.objectStore(this.storeName)
-      const getRequest = store.get('userConfig')
-
-      getRequest.onsuccess = () => {
-        if (!getRequest.result) {
-          store.add(this.getDefaultConfig())
-        }
+      // 确保默认配置存在
+      const config = await window.api.kvGet({ key: 'userConfig' })
+      if (!config) {
+        // 不存在则创建默认配置
+        await window.api.kvMutate({
+          action: 'set',
+          key: 'userConfig',
+          value: JSON.stringify(this.getDefaultConfig())
+        })
       }
     } catch (error) {
-      console.error('Error initializing IndexedDB:', error)
-      throw error
+      console.error('Error initializing userConfig in SQLite:', error)
     }
   }
 
@@ -113,83 +106,40 @@ export class UserConfigStoreService {
 
   async getConfig(): Promise<UserConfig> {
     try {
-      await this.ensureDBReady()
-
-      return new Promise((resolve) => {
-        if (!this.db) {
-          console.log('No database connection, returning default config')
-          resolve(this.getDefaultConfig())
-          return
-        }
-
-        try {
-          console.log('Getting config from database')
-          const transaction = this.db.transaction(this.storeName, 'readonly')
-          const store = transaction.objectStore(this.storeName)
-          const request = store.get('userConfig')
-
-          request.onsuccess = () => {
-            const result = request.result || this.getDefaultConfig()
-            // console.log('Config retrieved:', result)
-            resolve(result)
-          }
-
-          request.onerror = (event) => {
-            console.error('Error getting config:', event)
-            resolve(this.getDefaultConfig())
-          }
-        } catch (error) {
-          console.error('Transaction error:', error)
-          resolve(this.getDefaultConfig())
-        }
-      })
+      const result = await window.api.kvGet({ key: 'userConfig' })
+      if (result?.value) {
+        return JSON.parse(result.value)
+      }
+      return this.getDefaultConfig()
     } catch (error) {
-      console.error('GetConfig error:', error)
+      console.error('Error getting config from SQLite:', error)
       return this.getDefaultConfig()
     }
   }
 
   async saveConfig(config: Partial<UserConfig>): Promise<void> {
     try {
-      await this.ensureDBReady()
       const defaultConfig = await this.getConfig()
 
-      return new Promise((resolve, reject) => {
-        if (!this.db) {
-          reject(new Error('Database not initialized'))
-          return
-        }
+      const sanitizedConfig: UserConfig = {
+        ...defaultConfig,
+        ...config,
+        sshProxyConfigs: config.sshProxyConfigs ? toRaw(config.sshProxyConfigs) : defaultConfig.sshProxyConfigs,
+        id: 'userConfig',
+        updatedAt: Date.now()
+      }
 
-        try {
-          const sanitizedConfig: UserConfig = {
-            ...defaultConfig,
-            ...config,
-            sshProxyConfigs: config.sshProxyConfigs ? toRaw(config.sshProxyConfigs) : defaultConfig.sshProxyConfigs,
-            id: 'userConfig',
-            updatedAt: Date.now()
-          }
+      localStorage.setItem('theme', sanitizedConfig.theme || 'auto')
 
-          const transaction = this.db.transaction(this.storeName, 'readwrite')
-          const store = transaction.objectStore(this.storeName)
-          const request = store.put(sanitizedConfig)
-          localStorage.setItem('theme', sanitizedConfig.theme || 'auto')
-
-          request.onsuccess = () => {
-            console.log('Config saved successfully')
-            resolve()
-          }
-
-          request.onerror = (event) => {
-            console.error('Error saving config:', event)
-            reject(new Error('Failed to save config'))
-          }
-        } catch (error) {
-          console.error('Save transaction error:', error)
-          reject(error)
-        }
+      await window.api.kvMutate({
+        action: 'set',
+        key: 'userConfig',
+        value: JSON.stringify(sanitizedConfig)
       })
+
+      console.log('Config saved successfully to SQLite')
     } catch (error) {
-      console.error('SaveConfig error:', error)
+      console.error('Error saving config to SQLite:', error)
       throw error
     }
   }
@@ -198,35 +148,8 @@ export class UserConfigStoreService {
     return this.saveConfig(this.getDefaultConfig())
   }
 
-  private async ensureDBReady(): Promise<void> {
-    if (!this.db) {
-      try {
-        await this.initDB()
-      } catch (error) {
-        console.error('Failed to initialize database:', error)
-        throw error
-      }
-    }
-  }
-
   async deleteDatabase(): Promise<void> {
-    if (this.db) {
-      this.db.close()
-      this.db = null
-    }
-
-    return new Promise((resolve, reject) => {
-      const request = indexedDB.deleteDatabase(this.dbName)
-
-      request.onsuccess = () => {
-        console.log('Database deleted successfully')
-        resolve()
-      }
-
-      request.onerror = () => {
-        reject(new Error('Could not delete database'))
-      }
-    })
+    console.log('deleteDatabase is deprecated when using SQLite')
   }
 }
 
