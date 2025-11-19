@@ -146,7 +146,7 @@
                 <span
                   v-if="record.isDir"
                   style="cursor: pointer"
-                  @click="rowClick(record)"
+                  @click="rowClick(record as FileRecord)"
                 >
                   <FolderFilled style="color: #1890ff; margin-right: -1px" />
                   {{ record.name }}
@@ -170,7 +170,7 @@
                   v-else
                   class="no-select"
                   style="cursor: pointer"
-                  @dblclick="openFile(record)"
+                  @dblclick="openFile(record as FileRecord)"
                 >
                   <a-tooltip
                     placement="top"
@@ -194,7 +194,7 @@
                     type="text"
                     size="small"
                     :title="t('files.download')"
-                    @click.stop="downloadFile(record)"
+                    @click.stop="downloadFile(record as FileRecord)"
                   >
                     <template #icon>
                       <DownloadOutlined />
@@ -206,7 +206,7 @@
                     type="text"
                     size="small"
                     :title="t('files.rename')"
-                    @click.stop="renameFile(record)"
+                    @click.stop="renameFile(record as FileRecord)"
                   >
                     <template #icon>
                       <EditOutlined />
@@ -218,7 +218,7 @@
                     type="text"
                     size="small"
                     :title="t('files.permissions')"
-                    @click.stop="chmodFile(record)"
+                    @click.stop="chmodFile(record as FileRecord)"
                   >
                     <template #icon>
                       <LockOutlined />
@@ -254,19 +254,19 @@
                     >
                       <a-menu-item
                         v-if="!isTeam"
-                        @click="copyFile(record)"
+                        @click="copyFile(record as FileRecord)"
                       >
                         <CopyOutlined />
                         {{ $t('files.copy') }}
                       </a-menu-item>
                       <a-menu-item
                         v-if="!isTeam"
-                        @click="moveFile(record)"
+                        @click="moveFile(record as FileRecord)"
                       >
                         <ScissorOutlined />
                         {{ $t('files.move') }}
                       </a-menu-item>
-                      <a-menu-item @click="deleteFile(record)">
+                      <a-menu-item @click="deleteFile(record as FileRecord)">
                         <DeleteOutlined />
                         {{ $t('files.delete') }}
                       </a-menu-item>
@@ -354,7 +354,7 @@
     <copyOrMoveModal
       :id="props.uuid"
       v-model:visible="copyOrMoveDialog"
-      :origin-path="currentRecord?.path"
+      :origin-path="currentRecord?.path || ''"
       :type="copyOrMoveModalType"
       @confirm="copyOrMoveModalOk"
       @update:visible="copyOrMoveDialog = $event"
@@ -871,7 +871,8 @@ const handleMoreButtonEnter = (recordName: string) => {
 }
 
 // Handle "More" button mouse leave
-const handleMoreButtonLeave = (recordName: string) => {
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+const handleMoreButtonLeave = (_recordName: string) => {
   // 按钮离开时不立即清理，让其他事件处理
 }
 
@@ -955,6 +956,9 @@ const chmodFile = (record: FileRecord) => {
   chmodFileDialog.value = true
 }
 const chmodOk = async () => {
+  if (!currentRecord.value) {
+    return
+  }
   try {
     const filePath = getDirname(currentRecord.value.path)
     const res = await api.chmodFile({
@@ -1001,7 +1005,7 @@ const calculatePermissionCode = () => {
   return `${ownerCode}${groupCode}${publicCode}`
 }
 const parsePermissions = (mode: string) => {
-  const [mod, ownerCode, groupCode, publicCode] = mode.split('').map(Number)
+  const [ownerCode, groupCode, publicCode] = mode.split('').slice(1).map(Number)
 
   permissions.owner = []
   if (ownerCode & 4) permissions.owner.push('read' as CheckboxValueType)
@@ -1118,13 +1122,14 @@ const deleteFile = (record: FileRecord) => {
 }
 
 const isTeam = ref(false)
-const isTeamCheck = (uuid: string) => {
+const isTeamCheck = (uuid: string): boolean => {
   const parts = uuid.split('@')
   if (parts.length < 2) return false
 
   const rest = parts[1]
   const orgType = rest.split(':')[1]
   isTeam.value = orgType === 'local-team'
+  return isTeam.value
 }
 
 const confirmDeleteFile = async (record: FileRecord) => {
@@ -1148,7 +1153,7 @@ const confirmDeleteFile = async (record: FileRecord) => {
 }
 
 const copyOrMoveDialog = ref(false)
-let copyOrMoveModalType = ref('')
+const copyOrMoveModalType = ref<'copy' | 'move'>('copy')
 const copyFile = (record: FileRecord) => {
   currentRecord.value = record
   copyOrMoveModalType.value = 'copy'
@@ -1156,6 +1161,9 @@ const copyFile = (record: FileRecord) => {
 }
 
 const copyOrMoveModalOk = async (targetPath: string) => {
+  if (!currentRecord.value) {
+    return
+  }
   const src = currentRecord.value.path
   const dest = targetPath
   if (copyOrMoveModalType.value == 'copy') {
@@ -1341,7 +1349,7 @@ defineExpose({
   background-color: var(--bg-color-secondary);
   border-radius: 4px;
   padding: 2px;
-  //box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  /* box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1); */
   z-index: 10;
 }
 
