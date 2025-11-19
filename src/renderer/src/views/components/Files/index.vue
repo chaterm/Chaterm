@@ -13,7 +13,7 @@
           >
             <template #title="{ dataRef }">
               <div>
-                <span style="font-weight: bold">{{ dataRef.title }}</span>
+                <span style="font-weight: bold; color: var(--text-color)">{{ dataRef.title }}</span>
                 <span
                   v-if="dataRef.errorMsg"
                   style="color: red; margin-left: 10px; font-weight: bold"
