@@ -75,6 +75,7 @@
     "splitpanes": "^4.0.3",
     "ssh2": "^1.16.0",
     "strip-ansi": "^7.1.0",
+    "superjson": "^2.2.5",
     "v-contextmenu": "^3.2.0",
     "vue-i18n": "^9.14.3",
     "vuedraggable": "^4.1.0",

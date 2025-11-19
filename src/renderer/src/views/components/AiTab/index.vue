@@ -1269,6 +1269,21 @@ const handleTabRemove = async (tabId: string) => {
   currentChatId.value = newActiveTab.id
 }
 
+const handleCloseTabKeyDown = (event: KeyboardEvent) => {
+  const isWindows = navigator.platform.toLowerCase().includes('win')
+  if (!isWindows && (event.metaKey || event.ctrlKey) && event.key === 'w') {
+    if (!chatTabs.value || chatTabs.value.length === 0) {
+      return
+    }
+    if (!currentChatId.value) {
+      return
+    }
+    event.preventDefault()
+    event.stopPropagation()
+    handleTabRemove(currentChatId.value)
+  }
+}
+
 const isEmptyValue = (value) => value === undefined || value === ''
 
 const checkModelConfig = async () => {
@@ -1561,27 +1576,38 @@ const createNewEmptyTab = async () => {
   Promise.all([getGlobalState('chatSettings').catch(() => ({ mode: 'agent' })), getCurentTabAssetInfo().catch(() => null)])
     .then(([chatSetting, assetInfo]) => {
       const newChatType = (chatSetting as { mode?: string })?.mode || 'agent'
-      const newHosts: Host[] = []
-
-      if (assetInfo && assetInfo.ip) {
-        newHosts.push({
-          host: assetInfo.ip,
-          uuid: assetInfo.uuid,
-          connection: assetInfo.connection ? assetInfo.connection : 'personal'
-        })
-      } else {
-        newHosts.push({
-          host: '127.0.0.1',
-          uuid: 'localhost',
-          connection: 'localhost'
-        })
-      }
 
       // Update the tab with correct values
       const tabIndex = chatTabs.value.findIndex((tab) => tab.id === newChatId)
-      if (tabIndex !== -1) {
-        chatTabs.value[tabIndex].chatType = newChatType
-        chatTabs.value[tabIndex].hosts = newHosts
+      if (tabIndex === -1) {
+        // Tab was removed, skip update
+        return
+      }
+
+      const targetTab = chatTabs.value[tabIndex]
+
+      // Update chatType
+      targetTab.chatType = newChatType
+
+      // Only update hosts if autoUpdateHost is still true (user hasn't manually selected hosts)
+      if (targetTab.autoUpdateHost) {
+        const newHosts: Host[] = []
+
+        if (assetInfo && assetInfo.ip) {
+          newHosts.push({
+            host: assetInfo.ip,
+            uuid: assetInfo.uuid,
+            connection: assetInfo.connection ? assetInfo.connection : 'personal'
+          })
+        } else {
+          newHosts.push({
+            host: '127.0.0.1',
+            uuid: 'localhost',
+            connection: 'localhost'
+          })
+        }
+
+        targetTab.hosts = newHosts
       }
     })
     .catch((error) => {
@@ -2297,6 +2323,8 @@ onMounted(async () => {
   document.addEventListener('keydown', handleGlobalEscKey)
   // Add global click listener to close host select popup when clicking outside
   document.addEventListener('click', handleGlobalClick)
+  // Add keyboard shortcut listener for closing tabs (Command+W / Ctrl+W)
+  window.addEventListener('keydown', handleCloseTabKeyDown)
 
   eventBus.on('sendMessageToAi', async (payload: { content: string; tabId?: string }) => {
     const { content, tabId } = payload
@@ -2635,6 +2663,7 @@ onUnmounted(() => {
   }
   document.removeEventListener('keydown', handleGlobalEscKey)
   document.removeEventListener('click', handleGlobalClick)
+  window.removeEventListener('keydown', handleCloseTabKeyDown)
   eventBus.off('apiProviderChanged')
   eventBus.off('activeTabChanged')
   eventBus.off('chatToAi')

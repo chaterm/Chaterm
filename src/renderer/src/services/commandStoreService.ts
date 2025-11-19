@@ -1,5 +1,3 @@
-import { indexedDBService, DB_CONFIG } from './indexedDBService'
-
 interface AliasItem {
   id: string
   alias: string
@@ -12,20 +10,8 @@ interface AliasItemInput extends Partial<AliasItem> {
 }
 
 export class CommandStoreService {
-  private readonly storeName = 'aliases'
-  private db: IDBDatabase | null = null
-
   constructor() {
-    this.initDB()
-  }
-
-  async initDB(): Promise<void> {
-    try {
-      this.db = await indexedDBService.initDatabase(DB_CONFIG)
-    } catch (error) {
-      console.error('Error initializing IndexedDB:', error)
-      throw error
-    }
+    // SQLite 通过主进程初始化，无需在此处初始化
   }
 
   private sanitizeForStorage(item: AliasItemInput): AliasItem {
@@ -38,133 +24,74 @@ export class CommandStoreService {
   }
 
   async getAll(): Promise<AliasItem[]> {
-    await this.ensureDBReady()
-
-    return new Promise((resolve) => {
-      if (!this.db) {
-        resolve([])
-        return
-      }
-
-      try {
-        const transaction = this.db.transaction(this.storeName, 'readonly')
-        const store = transaction.objectStore(this.storeName)
-        const request = store.getAll()
-
-        request.onsuccess = () => {
-          const results = request.result || []
-          results.sort((a: AliasItem, b: AliasItem) => {
-            const timeA = a.createdAt || 0
-            const timeB = b.createdAt || 0
-            return timeB - timeA
-          })
-          resolve(results)
-        }
-
-        request.onerror = (event) => {
-          console.error('Error getting items:', event)
-          resolve([])
-        }
-      } catch (error) {
-        console.error('Error in getAll transaction:', error)
-        resolve([])
-      }
-    })
+    try {
+      const result = await window.api.aliasesQuery({ action: 'getAll' })
+      // 转换字段名: created_at → createdAt
+      return result.map((item: any) => ({
+        id: item.id,
+        alias: item.alias,
+        command: item.command,
+        createdAt: item.created_at
+      }))
+    } catch (error) {
+      console.error('Error getting aliases from SQLite:', error)
+      return []
+    }
   }
 
   async get(id: string): Promise<AliasItem | null> {
-    await this.ensureDBReady()
-
-    return new Promise((resolve) => {
-      if (!this.db) {
-        resolve(null)
-        return
-      }
-
-      try {
-        const transaction = this.db.transaction(this.storeName, 'readonly')
-        const store = transaction.objectStore(this.storeName)
-        const index = store.index('id')
-        const request = index.get(id)
-
-        request.onsuccess = () => {
-          resolve(request.result)
-        }
-
-        request.onerror = (event) => {
-          console.error('Error getting item by id:', event)
-          resolve(null)
-        }
-      } catch (error) {
-        console.error('Error in get transaction:', error)
-        resolve(null)
-      }
-    })
+    try {
+      const allItems = await this.getAll()
+      return allItems.find((item) => item.id === id) || null
+    } catch (error) {
+      console.error('Error getting alias by id:', error)
+      return null
+    }
   }
 
   async getByAlias(aliasName: string): Promise<AliasItem | null> {
-    await this.ensureDBReady()
-
-    return new Promise((resolve) => {
-      if (!this.db) {
-        resolve(null)
-        return
-      }
-
-      try {
-        const transaction = this.db.transaction(this.storeName, 'readonly')
-        const store = transaction.objectStore(this.storeName)
-        const request = store.get(aliasName)
-
-        request.onsuccess = () => {
-          resolve(request.result)
+    try {
+      const result = await window.api.aliasesQuery({
+        action: 'getByAlias',
+        alias: aliasName
+      })
+      if (result && result.length > 0) {
+        const item = result[0]
+        return {
+          id: item.id,
+          alias: item.alias,
+          command: item.command,
+          createdAt: item.created_at
         }
-
-        request.onerror = (event) => {
-          console.error('Error getting item by alias:', event)
-          resolve(null)
-        }
-      } catch (error) {
-        console.error('Error in getByAlias transaction:', error)
-        resolve(null)
       }
-    })
+      return null
+    } catch (error) {
+      console.error('Error getting alias by name:', error)
+      return null
+    }
   }
 
   async add(item: AliasItemInput): Promise<string> {
-    await this.ensureDBReady()
-
     const sanitizedItem = this.sanitizeForStorage(item)
 
-    return new Promise((resolve, reject) => {
-      if (!this.db) {
-        reject(new Error('Database not initialized'))
-        return
-      }
-
-      try {
-        const transaction = this.db.transaction(this.storeName, 'readwrite')
-        const store = transaction.objectStore(this.storeName)
-        const request = store.add(sanitizedItem)
-
-        request.onsuccess = () => {
-          resolve(sanitizedItem.alias)
+    try {
+      await window.api.aliasesMutate({
+        action: 'save',
+        data: {
+          id: sanitizedItem.id,
+          alias: sanitizedItem.alias,
+          command: sanitizedItem.command,
+          created_at: sanitizedItem.createdAt
         }
-
-        request.onerror = (event) => {
-          console.error('Error adding item:', event)
-          reject(new Error('Failed to add item. Alias may already exist.'))
-        }
-      } catch (error) {
-        console.error('Error in add transaction:', error)
-        reject(error)
-      }
-    })
+      })
+      return sanitizedItem.alias
+    } catch (error) {
+      console.error('Error adding alias to SQLite:', error)
+      throw new Error('Failed to add item. Alias may already exist.')
+    }
   }
 
   async update(item: AliasItemInput): Promise<void> {
-    await this.ensureDBReady()
-
     let existingItem: AliasItem | null = null
     try {
       existingItem = await this.getByAlias(item.alias as string)
@@ -177,35 +104,23 @@ export class CommandStoreService {
       createdAt: existingItem?.createdAt || item.createdAt || Date.now()
     }
 
-    return new Promise((resolve, reject) => {
-      if (!this.db) {
-        reject(new Error('Database not initialized'))
-        return
-      }
-
-      try {
-        const transaction = this.db.transaction(this.storeName, 'readwrite')
-        const store = transaction.objectStore(this.storeName)
-        const request = store.put(updatedItem)
-
-        request.onsuccess = () => {
-          resolve()
+    try {
+      await window.api.aliasesMutate({
+        action: 'save',
+        data: {
+          id: updatedItem.id,
+          alias: updatedItem.alias,
+          command: updatedItem.command,
+          created_at: updatedItem.createdAt
         }
-
-        request.onerror = (event) => {
-          console.error('Error updating item:', event)
-          reject(new Error('Failed to update item'))
-        }
-      } catch (error) {
-        console.error('Error in update transaction:', error)
-        reject(error)
-      }
-    })
+      })
+    } catch (error) {
+      console.error('Error updating alias in SQLite:', error)
+      throw new Error('Failed to update item')
+    }
   }
 
   async deleteById(id: string): Promise<void> {
-    await this.ensureDBReady()
-
     const item = await this.get(id)
     if (!item) {
       throw new Error(`Item with id ${id} not found`)
@@ -215,78 +130,49 @@ export class CommandStoreService {
   }
 
   async delete(alias: string): Promise<void> {
-    await this.ensureDBReady()
-
-    return new Promise((resolve, reject) => {
-      if (!this.db) {
-        reject(new Error('Database not initialized'))
-        return
-      }
-
-      try {
-        const transaction = this.db.transaction(this.storeName, 'readwrite')
-        const store = transaction.objectStore(this.storeName)
-        const request = store.delete(alias)
-
-        request.onsuccess = () => {
-          resolve()
-        }
-
-        request.onerror = (event) => {
-          console.error('Error deleting item:', event)
-          reject(new Error('Failed to delete item'))
-        }
-      } catch (error) {
-        console.error('Error in delete transaction:', error)
-        reject(error)
-      }
-    })
+    try {
+      await window.api.aliasesMutate({
+        action: 'delete',
+        alias: alias
+      })
+    } catch (error) {
+      console.error('Error deleting alias from SQLite:', error)
+      throw new Error('Failed to delete item')
+    }
   }
 
   async clear(): Promise<void> {
-    await this.ensureDBReady()
-
-    return new Promise((resolve, reject) => {
-      if (!this.db) {
-        reject(new Error('Database not initialized'))
-        return
+    try {
+      // 获取所有别名并逐个删除
+      const allItems = await this.getAll()
+      for (const item of allItems) {
+        await this.delete(item.alias)
       }
-
-      try {
-        const transaction = this.db.transaction(this.storeName, 'readwrite')
-        const store = transaction.objectStore(this.storeName)
-        const request = store.clear()
-
-        request.onsuccess = () => {
-          resolve()
-        }
-
-        request.onerror = (event) => {
-          console.error('Error clearing store:', event)
-          reject(new Error('Failed to clear store'))
-        }
-      } catch (error) {
-        console.error('Error in clear transaction:', error)
-        reject(error)
-      }
-    })
+    } catch (error) {
+      console.error('Error clearing aliases from SQLite:', error)
+      throw new Error('Failed to clear store')
+    }
   }
 
   async search(searchText: string): Promise<AliasItem[]> {
     try {
-      const allItems = await this.getAll()
       if (!searchText) {
-        return allItems
+        return this.getAll()
       }
 
-      const searchLower = searchText.toLowerCase()
-      return allItems.filter((item) => {
-        const alias = (item.alias || '').toLowerCase()
-        const command = (item.command || '').toLowerCase()
-        return alias.includes(searchLower) || command.includes(searchLower)
+      const result = await window.api.aliasesQuery({
+        action: 'search',
+        searchText: searchText
       })
+
+      return result.map((item: any) => ({
+        id: item.id,
+        alias: item.alias,
+        command: item.command,
+        createdAt: item.created_at
+      }))
     } catch (error) {
-      console.error('Error in search:', error)
+      console.error('Error searching aliases in SQLite:', error)
       return []
     }
   }
@@ -307,17 +193,6 @@ export class CommandStoreService {
     } catch (error) {
       console.error('Error in rename alias:', error)
       return false
-    }
-  }
-
-  private async ensureDBReady(): Promise<void> {
-    if (!this.db) {
-      try {
-        await this.initDB()
-      } catch (error) {
-        console.error('Failed to initialize database:', error)
-        throw error
-      }
     }
   }
 }

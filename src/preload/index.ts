@@ -489,6 +489,7 @@ const getSystemInfo = async (id: string) => {
 }
 
 const api = {
+  isE2E: () => process.env.CHATERM_E2E === '1',
   getSystemInfo,
   getLocalIP,
   getMacAddress,
@@ -871,7 +872,14 @@ const api = {
     const listener = (_event, content) => callback(content)
     ipcRenderer.on('security-config-file-changed', listener)
     return () => ipcRenderer.removeListener('security-config-file-changed', listener)
-  }
+  },
+
+  // IndexedDB 迁移相关 API
+  getMigrationStatus: (params: { dataSource?: string }) => ipcRenderer.invoke('db:migration:status', params),
+  aliasesQuery: (params: { action: string; searchText?: string; alias?: string }) => ipcRenderer.invoke('db:aliases:query', params),
+  aliasesMutate: (params: { action: string; data?: any; alias?: string }) => ipcRenderer.invoke('db:aliases:mutate', params),
+  kvGet: (params: { key?: string }) => ipcRenderer.invoke('db:kv:get', params),
+  kvMutate: (params: { action: string; key: string; value?: string }) => ipcRenderer.invoke('db:kv:mutate', params)
 }
 // 自定义 API 用于浏览器控制
 

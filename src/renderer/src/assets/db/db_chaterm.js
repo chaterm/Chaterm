@@ -196,6 +196,39 @@ CREATE INDEX IF NOT EXISTS idx_change_log_sync_status ON change_log(sync_status)
 CREATE INDEX IF NOT EXISTS idx_change_log_table_name ON change_log(table_name);
 CREATE INDEX IF NOT EXISTS idx_change_log_created_at ON change_log(created_at);
 CREATE INDEX IF NOT EXISTS idx_sync_status_table_name ON sync_status(table_name);
+
+-- IndexedDB 迁移相关表
+-- 说明:
+--   - indexdb_migration_status: 迁移完成后可删除
+--   - t_aliases: 如果持续使用命令别名功能,保留此表
+--   - key_value_store: 如果持续使用键值对存储,保留此表
+-- 表1: t_aliases (命令别名表)
+CREATE TABLE IF NOT EXISTS t_aliases (
+  id TEXT PRIMARY KEY,
+  alias TEXT UNIQUE NOT NULL,
+  command TEXT NOT NULL,
+  created_at INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_t_aliases_created_at ON t_aliases(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_t_aliases_alias ON t_aliases(alias);
+
+-- 表2: key_value_store (通用键值对存储表)
+CREATE TABLE IF NOT EXISTS key_value_store (
+  key TEXT PRIMARY KEY,
+  value TEXT NOT NULL,
+  created_at INTEGER DEFAULT (strftime('%s', 'now')),
+  updated_at INTEGER DEFAULT (strftime('%s', 'now'))
+);
+CREATE INDEX IF NOT EXISTS idx_kv_updated_at ON key_value_store(updated_at DESC);
+
+-- 表3: indexdb_migration_status (迁移状态表)
+CREATE TABLE IF NOT EXISTS indexdb_migration_status (
+  data_source TEXT PRIMARY KEY,
+  migrated INTEGER DEFAULT 0,
+  migrated_at INTEGER,
+  record_count INTEGER,
+  error_message TEXT
+);
 `)
 
 console.log('数据库创建成功，表已创建')

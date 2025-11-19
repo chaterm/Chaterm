@@ -5,6 +5,7 @@ import { v4 as uuidv4 } from 'uuid'
 import { upgradeAgentTaskMetadataSupport } from './migrations/add-todos-support'
 import { upgradeMcpToolStateSupport } from './migrations/add-mcp-tool-state-support'
 import { upgradeMcpToolCallSupport } from './migrations/add-mcp-tool-call-support'
+import { IndexDBMigrator } from './indexdb-migrator'
 
 // 在测试环境中，app可能不可用，使用fallback路径
 let USER_DATA_PATH: string
@@ -19,6 +20,14 @@ const INIT_DB_PATH = getInitDbPath()
 const INIT_CDB_PATH = getInitChatermDbPath()
 
 let currentUserId: number | null = null
+let mainWindowWebContents: Electron.WebContents | null = null
+
+/**
+ * 设置主窗口的 WebContents 引用,用于迁移时的跨进程通信
+ */
+export function setMainWindowWebContents(webContents: Electron.WebContents | null): void {
+  mainWindowWebContents = webContents
+}
 
 function getUserDatabasePath(userId: number, dbType: 'complete' | 'chaterm'): string {
   const userDir = join(USER_DATA_PATH, 'databases', `${userId}`)
@@ -50,7 +59,7 @@ function migrateLegacyDatabase(userId: number, dbType: 'complete' | 'chaterm'): 
   if (fs.existsSync(legacyPath)) {
     try {
       console.log(`Found legacy ${dbType} database at: ${legacyPath}`)
-      console.log(`📦 Migrating to user directory: ${userPath}`)
+      console.log(`[PACKAGE] Migrating to user directory: ${userPath}`)
       ensureUserDatabaseDir(userId)
       fs.renameSync(legacyPath, userPath)
       console.log(`Successfully migrated legacy ${dbType} database for user ${userId}`)
@@ -223,19 +232,19 @@ function upgradeTAssetsTable(db: Database.Database): void {
 
         // 先清理可能的重复数据（在五元组维度上），保留最新的记录
         db.exec(`
-          DELETE FROM t_assets 
-          WHERE id NOT IN (
-            SELECT MAX(id)
-            FROM t_assets
-            GROUP BY asset_ip, username, port, label, asset_type
-          )
-        `)
+ DELETE FROM t_assets 
+ WHERE id NOT IN (
+ SELECT MAX(id)
+ FROM t_assets
+ GROUP BY asset_ip, username, port, label, asset_type
+ )
+ `)
 
         // 创建新的复合唯一索引（包含 asset_type）
         db.exec(`
-          CREATE UNIQUE INDEX idx_assets_unique_ip_user_port_label_type 
-          ON t_assets(asset_ip, username, port, label, asset_type)
-        `)
+ CREATE UNIQUE INDEX idx_assets_unique_ip_user_port_label_type 
+ ON t_assets(asset_ip, username, port, label, asset_type)
+ `)
         console.log('Added unique constraint for asset_ip + username + port + label + asset_type')
       }
     } catch (constraintError) {
@@ -351,6 +360,27 @@ export async function initChatermDatabase(userId?: number): Promise<Database.Dat
 
     const db = new Database(Chaterm_DB_PATH)
     console.log('Chaterm database connection established at:', Chaterm_DB_PATH)
+
+    // ==================== IndexedDB 到 SQLite 数据迁移 ====================
+    if (mainWindowWebContents && !mainWindowWebContents.isDestroyed()) {
+      try {
+        console.log('[Init] Starting IndexedDB migration check for user:', targetUserId)
+        const migrator = new IndexDBMigrator(db, targetUserId, mainWindowWebContents)
+        const migrationSuccess = await migrator.migrateAllDataWithRetry(3)
+
+        if (migrationSuccess) {
+          console.log('[Init] [OK] Migration completed successfully')
+          console.log('[Init] [TIP] Please restart the application manually to complete the migration')
+        } else {
+          console.warn('[Init] [WARNING] Migration failed, will fallback to IndexedDB')
+        }
+      } catch (error) {
+        console.error('[Init] Migration error:', error)
+      }
+    } else {
+      console.log('[Init] Skip migration: mainWindow not available')
+    }
+
     return db
   } catch (error) {
     console.error('Chaterm database initialization failed:', error)

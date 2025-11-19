@@ -423,7 +423,7 @@ onMounted(async () => {
   api.mainWindowShow()
 
   platform.value = await api.getPlatform()
-  isDev.value = import.meta.env.MODE === 'development'
+  isDev.value = import.meta.env.MODE === 'development' || ((window as any).api?.isE2E?.() ?? false)
   await captureButtonClick(LoginFunnelEvents.ENTER_LOGIN_PAGE)
   try {
     await api.detectIpLocation()

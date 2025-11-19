@@ -18,6 +18,11 @@ notification.config({
 })
 // Import storage functions
 import * as storageState from './agent/storage/state'
+// Import IndexedDB migration listener
+import { setupIndexDBMigrationListener } from './services/indexdb-migration-listener'
+
+// Initialize IndexedDB migration listener
+setupIndexDBMigrationListener()
 
 const pinia = createPinia()
 pinia.use(piniaPluginPersistedstate)
