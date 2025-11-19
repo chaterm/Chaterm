@@ -489,33 +489,13 @@ onMounted(async () => {
       const savedStateStr = localStorage.getItem('sharedAiTabState')
       if (savedStateStr) {
         const savedState = JSON.parse(savedStateStr)
-        // Update savedAiSidebarState first
         savedAiSidebarState.value = savedState
 
-        // If there's saved state, open the AI sidebar first (so AiTab component can be rendered)
-        if (!showAiSidebar.value) {
-          const container = document.querySelector('.splitpanes') as HTMLElement
-          if (container) {
-            const containerWidth = container.offsetWidth
-            const restoredSize = savedState.size || (DEFAULT_WIDTH_RIGHT_PX / containerWidth) * 100
-            showAiSidebar.value = true
-            aiSidebarSize.value = restoredSize
-            headerRef.value?.switchIcon('right', true)
-            if (showSplitPane.value) {
-              adjustSplitPaneToEqualWidth()
-            } else {
-              mainTerminalSize.value = 100 - aiSidebarSize.value
-            }
-          }
-        }
-
-        // Wait for AiTab component to be rendered, then restore state
-        await nextTick()
-        if (aiTabRef.value && aiTabRef.value.restoreState) {
+        if (showAiSidebar.value && aiTabRef.value && aiTabRef.value.restoreState) {
+          await nextTick()
           await aiTabRef.value.restoreState(savedState)
         }
 
-        // Clear the shared state after restoring to avoid restoring again
         localStorage.removeItem('sharedAiTabState')
         return true
       }
