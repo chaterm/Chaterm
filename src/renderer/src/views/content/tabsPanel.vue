@@ -201,6 +201,7 @@ import McpConfigEditor from '@views/components/McpConfigEditor/index.vue'
 import SecurityConfigEditor from '@views/components/SecurityConfigEditor/index.vue'
 import eventBus from '@/utils/eventBus'
 import { v4 as uuidv4 } from 'uuid'
+import { isFocusInAiTab } from '@/utils/domUtils'
 
 interface TabItem {
   id: string
@@ -688,6 +689,11 @@ const handleKeyDown = (event: KeyboardEvent) => {
   // 只在非Windows系统上处理 ctrl+w，Windows系统由preload脚本处理
   const isWindows = navigator.platform.toLowerCase().includes('win')
   if (!isWindows && (event.metaKey || event.ctrlKey) && event.key === 'w') {
+    // 检查焦点是否在终端 Tab 区域，避免与 AITab 的快捷键冲突
+    if (isFocusInAiTab(event)) {
+      return
+    }
+
     if (!props.tabs || props.tabs.length === 0) {
       return
     }

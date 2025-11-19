@@ -825,6 +825,7 @@ import {
 import { notification } from 'ant-design-vue'
 import { v4 as uuidv4 } from 'uuid'
 import eventBus from '@/utils/eventBus'
+import { isFocusInAiTab } from '@/utils/domUtils'
 import { getGlobalState, updateGlobalState, getSecret, storeSecret } from '@renderer/agent/storage/state'
 
 import type { HistoryItem, TaskHistoryItem, Host, ChatMessage, MessageContent, AssetInfo } from './types'
@@ -1272,6 +1273,11 @@ const handleTabRemove = async (tabId: string) => {
 const handleCloseTabKeyDown = (event: KeyboardEvent) => {
   const isWindows = navigator.platform.toLowerCase().includes('win')
   if (!isWindows && (event.metaKey || event.ctrlKey) && event.key === 'w') {
+    // 检查焦点是否在 AITab 组件内，避免与终端 Tab 的快捷键冲突
+    if (!isFocusInAiTab(event)) {
+      return
+    }
+
     if (!chatTabs.value || chatTabs.value.length === 0) {
       return
     }
