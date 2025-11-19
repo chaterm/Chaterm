@@ -160,7 +160,7 @@ const handleRightClick = (event) => {
       navigator.clipboard
         .readText()
         .then((text) => {
-          sendData(text)
+          sendDataAutoSwitchTerminal(text)
           terminal.value?.focus()
         })
         .catch(() => {
@@ -189,7 +189,7 @@ const handleMouseDown = (event) => {
         navigator.clipboard
           .readText()
           .then((text) => {
-            sendData(text)
+            sendDataAutoSwitchTerminal(text)
             terminal.value?.focus()
           })
           .catch(() => {
@@ -1754,6 +1754,18 @@ const setupTerminalInput = () => {
   })
 }
 
+const sendDataAutoSwitchTerminal = (data) => {
+  if (props.connectData.asset_type === 'shell') {
+    api.sendDataLocal(connectionId.value, data)
+  } else {
+    api.writeToShell({
+      id: connectionId.value,
+      data: data.replace(/\r\n/g, '\n'),
+      lineCommand: terminalState.value.content,
+      isBinary: false
+    })
+  }
+}
 const sendData = (data) => {
   api.writeToShell({
     id: connectionId.value,
@@ -2730,7 +2742,7 @@ const contextAct = (action) => {
       }
       pasteFlag.value = true
       navigator.clipboard.readText().then((text) => {
-        sendData(text)
+        sendDataAutoSwitchTerminal(text)
         terminal.value?.focus()
       })
       break
