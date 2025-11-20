@@ -514,9 +514,38 @@ onMounted(async () => {
       if (headerRef.value) {
         headerRef.value.setMode(newMode)
       }
-      // When switching from agents to terminal, restore AI state
+      // When switching from agents to terminal, restore AI state and reset layout
       if (newMode === 'terminal' && oldMode === 'agents') {
         await nextTick()
+        // Reset layout state to ensure proper display
+        const container = document.querySelector('.splitpanes') as HTMLElement
+        if (container) {
+          const containerWidth = container.offsetWidth
+          // Preserve left pane collapsed state, only recalculate if expanded
+          const wasCollapsed = leftPaneSize.value === 0
+          if (!wasCollapsed) {
+            // Reset left pane size to default only if it was expanded
+            leftPaneSize.value = (DEFAULT_WIDTH_PX / containerWidth) * 100
+            // Update pane size to ensure correct layout
+            updatePaneSize()
+          }
+          // Update header icon state to match left pane state
+          if (headerRef.value) {
+            headerRef.value.switchIcon('left', !wasCollapsed)
+          }
+          // Reset main terminal size based on split panes and AI sidebar state
+          if (showSplitPane.value) {
+            // If there are split panes, adjust them to equal width
+            adjustSplitPaneToEqualWidth()
+          } else {
+            // Otherwise, set main terminal size based on AI sidebar
+            if (showAiSidebar.value) {
+              mainTerminalSize.value = 100 - aiSidebarSize.value
+            } else {
+              mainTerminalSize.value = 100
+            }
+          }
+        }
         // Wait a bit for aiTabRef to be ready
         setTimeout(async () => {
           await restoreStateFromAgents()
