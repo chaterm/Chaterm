@@ -122,10 +122,10 @@ const toggleSideBar = (value: string) => {
       {
         if (leftPaneSize.value) {
           leftPaneSize.value = 0
-          headerRef.value?.switchIcon('agentsLeft', false)
+          headerRef.value?.switchIcon('agentsLeft', true)
         } else {
           leftPaneSize.value = 27
-          headerRef.value?.switchIcon('agentsLeft', true)
+          headerRef.value?.switchIcon('agentsLeft', false)
         }
       }
       break
