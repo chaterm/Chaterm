@@ -443,7 +443,8 @@ export default {
       clearTerminal: 'Clear Terminal',
       fontSizeIncrease: 'Font Size Increase',
       fontSizeDecrease: 'Font Size Decrease',
-      toggleLayout: 'Toggle Layout (Terminal/Agents)'
+      toggleLayout: 'Toggle Layout (Terminal/Agents)',
+      toggleAgentsLeftSidebar: 'Toggle Agents Left Sidebar'
     }
   },
   personal: {
