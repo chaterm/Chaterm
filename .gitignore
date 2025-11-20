@@ -1,6 +1,6 @@
 .DS_Store
 .idea
-.vscode
+.vscode/settings.json
 .spec-workflow
 /dist
 /docs
