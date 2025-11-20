@@ -107,7 +107,6 @@ import { shellCommands } from './shellCmd'
 import { createJumpServerStatusHandler, formatStatusMessage } from './jumpServerStatusHandler'
 import { useDeviceStore } from '@/store/useDeviceStore'
 import { checkUserDevice } from '@api/user/user'
-// import { createContextFetcher, type ContextFetcher } from './autocomplete/contextFetcher'
 const { t } = useI18n()
 const selectFlag = ref(false)
 const configStore = userConfigStore()
@@ -234,8 +233,6 @@ const showAiButton = ref(false)
 let jumpServerStatusHandler: ReturnType<typeof createJumpServerStatusHandler> | null = null
 const isCommandDialogVisible = ref(false)
 const wasDialogVisibleBeforeDeactivation = ref(false)
-
-// let contextFetcher: ContextFetcher | null = null
 
 // Calculate shortcut key display text
 const shortcutKey = computed(() => {
@@ -1088,15 +1085,6 @@ const startShell = async () => {
       })
 
       cleanupListeners.value.push(removeDataListener, removeErrorListener, removeCloseListener)
-
-      // contextFetcher = createContextFetcher({
-      //   connectionId: connectionId.value,
-      //   api: api,
-      //   enableOutput: false,
-      //   outputCallback: (message) => {
-      //     console.log('[ContextFetcher] Context information:', message)
-      //   }
-      // })
     } else {
       terminal.value?.writeln(
         JSON.stringify({
