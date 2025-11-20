@@ -72,9 +72,9 @@
 
 <script lang="ts" setup>
 const copyText = ref('')
-import SearchComp from '../Term/searchComp.vue'
-import Context from '../Term/contextComp.vue'
-import SuggComp from '../Term/suggestion.vue'
+import SearchComp from './searchComp.vue'
+import Context from './contextComp.vue'
+import SuggComp from './suggestion.vue'
 import eventBus from '@/utils/eventBus'
 import { getActualTheme } from '@/utils/themeUtils'
 import { useCurrentCwdStore } from '@/store/currentCwdStore'
@@ -91,9 +91,9 @@ import { SearchAddon } from 'xterm-addon-search'
 import { WebglAddon } from 'xterm-addon-webgl'
 import { IDisposable } from 'xterm'
 import 'xterm/css/xterm.css'
-import { editorData } from '@/views/components/Term/Editor/dragEditor.vue'
-import { LanguageMap } from '@/views/components/Term/Editor/languageMap'
-import EditorCode from '@/views/components/Term/Editor/dragEditor.vue'
+import { editorData } from './Editor/dragEditor.vue'
+import { LanguageMap } from './Editor/languageMap'
+import EditorCode from './Editor/dragEditor.vue'
 import { message, Modal } from 'ant-design-vue'
 import { aliasConfigStore } from '@/store/aliasConfigStore'
 import { userConfigStore } from '../../../store/userConfigStore'
@@ -107,7 +107,6 @@ import { shellCommands } from './shellCmd'
 import { createJumpServerStatusHandler, formatStatusMessage } from './jumpServerStatusHandler'
 import { useDeviceStore } from '@/store/useDeviceStore'
 import { checkUserDevice } from '@api/user/user'
-// import { createContextFetcher, type ContextFetcher } from './autocomplete/contextFetcher'
 const { t } = useI18n()
 const selectFlag = ref(false)
 const configStore = userConfigStore()
@@ -234,8 +233,6 @@ const showAiButton = ref(false)
 let jumpServerStatusHandler: ReturnType<typeof createJumpServerStatusHandler> | null = null
 const isCommandDialogVisible = ref(false)
 const wasDialogVisibleBeforeDeactivation = ref(false)
-
-// let contextFetcher: ContextFetcher | null = null
 
 // Calculate shortcut key display text
 const shortcutKey = computed(() => {
@@ -1088,15 +1085,6 @@ const startShell = async () => {
       })
 
       cleanupListeners.value.push(removeDataListener, removeErrorListener, removeCloseListener)
-
-      // contextFetcher = createContextFetcher({
-      //   connectionId: connectionId.value,
-      //   api: api,
-      //   enableOutput: false,
-      //   outputCallback: (message) => {
-      //     console.log('[ContextFetcher] Context information:', message)
-      //   }
-      // })
     } else {
       terminal.value?.writeln(
         JSON.stringify({
