@@ -443,7 +443,8 @@ export default {
       clearTerminal: '清屏',
       fontSizeIncrease: '字体放大',
       fontSizeDecrease: '字体缩小',
-      toggleLayout: '切换布局（Terminal/Agents）'
+      toggleLayout: '切换布局（Terminal/Agents）',
+      toggleAgentsLeftSidebar: '切换Agents布局左侧边栏'
     }
   },
   personal: {
