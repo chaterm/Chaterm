@@ -26,7 +26,7 @@ import { ref, onMounted, onBeforeUnmount, computed } from 'vue'
 import { notification } from 'ant-design-vue'
 import { mcpConfigService } from '@/services/mcpService'
 import { useI18n } from 'vue-i18n'
-import MonacoEditor from '@views/components/Term/Editor/monacoEditor.vue'
+import MonacoEditor from '@renderer/views/components/Ssh/Editor/monacoEditor.vue'
 import { getMonacoTheme } from '@/utils/themeUtils'
 
 const { t } = useI18n()
