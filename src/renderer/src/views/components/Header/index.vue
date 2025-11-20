@@ -132,7 +132,6 @@ const toggleSidebarLeft = (params: 'left' | 'right') => {
 
 const toggleAgentsSidebarLeft = (params: 'agentsLeft') => {
   emit('toggle-sidebar', params)
-  isAgentsLeftSidebarCollapsed.value = !isAgentsLeftSidebarCollapsed.value
 }
 
 const switchIcon = (dir, value) => {
