@@ -9,7 +9,7 @@
   />
 </template>
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref, onMounted, onUnmounted, nextTick } from 'vue'
 import TerminalLayout from './content/TerminalLayout.vue'
 import AgentsLayout from './content/AgentsLayout.vue'
 import eventBus from '@/utils/eventBus'
@@ -21,8 +21,14 @@ const handleModeChange = (mode: 'terminal' | 'agents') => {
   currentMode.value = mode
 }
 
-const handleToggleLayout = () => {
-  currentMode.value = currentMode.value === 'terminal' ? 'agents' : 'terminal'
+const handleToggleLayout = async () => {
+  const targetMode = currentMode.value === 'terminal' ? 'agents' : 'terminal'
+  eventBus.emit('save-state-before-switch', {
+    from: currentMode.value,
+    to: targetMode
+  })
+  await nextTick()
+  currentMode.value = targetMode
 }
 
 onMounted(async () => {

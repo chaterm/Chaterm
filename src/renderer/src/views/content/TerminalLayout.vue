@@ -572,11 +572,21 @@ onMounted(async () => {
   eventBus.on('switchToSpecificTab', switchToSpecificTab)
   eventBus.on('createNewTerminal', handleCreateNewTerminal)
   eventBus.on('open-user-tab', openUserTab)
+  eventBus.on('save-state-before-switch', (params: { from: string; to: string }) => {
+    if (params.from === 'terminal' && params.to === 'agents' && aiTabRef.value) {
+      try {
+        const currentState = aiTabRef.value.getCurrentState?.()
+        if (currentState) {
+          localStorage.setItem('sharedAiTabState', JSON.stringify(currentState))
+        }
+      } catch (error) {
+        console.warn('Failed to save AI state before layout switch:', error)
+      }
+    }
+  })
 
-  // Try to restore immediately on mount (for initial load)
   nextTick(async () => {
     if (!(await restoreStateFromAgents())) {
-      // If not restored yet, wait a bit more and try again (component might need more time to render)
       setTimeout(async () => {
         await restoreStateFromAgents()
       }, 200)
@@ -1126,6 +1136,7 @@ const renameRightVerticalTab = (payload: { id: string; title: string }, index: n
   }
 }
 onUnmounted(() => {
+  eventBus.off('save-state-before-switch')
   shortcutService.destroy()
   window.removeEventListener('resize', updatePaneSize)
   eventBus.off('currentClickServer', currentClickServer)
