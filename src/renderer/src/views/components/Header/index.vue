@@ -66,7 +66,7 @@
         @click="toggleSidebarLeft('left')"
       >
         <img
-          v-if="!isLeftSidebarCollapsed"
+          v-if="isLeftSidebarCollapsed"
           src="@/assets/menu/left_bar_open.svg"
           alt=""
           :class="platform.includes('darwin') ? 'sidebar-toggle-icon_mac' : 'sidebar-toggle-icon'"
