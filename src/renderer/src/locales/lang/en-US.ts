@@ -442,7 +442,8 @@ export default {
       openFileManager: 'Open File Manager',
       clearTerminal: 'Clear Terminal',
       fontSizeIncrease: 'Font Size Increase',
-      fontSizeDecrease: 'Font Size Decrease'
+      fontSizeDecrease: 'Font Size Decrease',
+      toggleLayout: 'Toggle Layout (Terminal/Agents)'
     }
   },
   personal: {
