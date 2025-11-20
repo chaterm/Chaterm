@@ -21,8 +21,13 @@ const handleModeChange = (mode: 'terminal' | 'agents') => {
   currentMode.value = mode
 }
 
+const handleToggleLayout = () => {
+  currentMode.value = currentMode.value === 'terminal' ? 'agents' : 'terminal'
+}
+
 onMounted(async () => {
   eventBus.on('switch-mode', handleModeChange)
+  eventBus.on('toggle-layout', handleToggleLayout)
 
   // Load default layout from user config
   try {
@@ -38,6 +43,7 @@ onMounted(async () => {
 
 onUnmounted(() => {
   eventBus.off('switch-mode', handleModeChange)
+  eventBus.off('toggle-layout', handleToggleLayout)
 })
 </script>
 <style>

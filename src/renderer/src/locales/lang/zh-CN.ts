@@ -442,7 +442,8 @@ export default {
       openFileManager: '打开文件管理',
       clearTerminal: '清屏',
       fontSizeIncrease: '字体放大',
-      fontSizeDecrease: '字体缩小'
+      fontSizeDecrease: '字体缩小',
+      toggleLayout: '切换布局（Terminal/Agents）'
     }
   },
   personal: {
