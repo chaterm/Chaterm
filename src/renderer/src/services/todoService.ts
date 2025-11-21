@@ -42,7 +42,7 @@ class TodoService {
     if (message.type === 'todoUpdated') {
       this.handleTodoUpdate(message as TodoWebviewMessage, serviceId)
     } else {
-      console.log(`[Todo Debug ${serviceId}] Ignoring non-todoUpdated message:`, message.type)
+      // console.log(`[Todo Debug ${serviceId}] Ignoring non-todoUpdated message:`, message.type)
     }
   }
 
@@ -58,12 +58,12 @@ class TodoService {
     // 记录最新的更新时间戳，用于判断哪个消息应该显示 todo
     this.lastTodoUpdateTimestamp.value = timestamp
 
-    console.log(`[Todo Debug ${serviceId}] TodoService: Updated todos`, {
-      todosCount: this.currentTodos.value.length,
-      timestamp,
-      sessionId: message.sessionId || message.taskId,
-      currentTodos: this.currentTodos.value
-    })
+    // console.log(`[Todo Debug ${serviceId}] TodoService: Updated todos`, {
+    //   todosCount: this.currentTodos.value.length,
+    //   timestamp,
+    //   sessionId: message.sessionId || message.taskId,
+    //   currentTodos: this.currentTodos.value
+    // })
   }
 
   /**
@@ -101,15 +101,15 @@ class TodoService {
     const isAssistant = message.role === 'assistant'
     const hasTodoUpdate = message.hasTodoUpdate === true
     if (displayHidden) {
-      console.log('[Todo Debug] Not showing todo: display preference is hidden')
+      // console.log('[Todo Debug] Not showing todo: display preference is hidden')
       return false
     }
     if (noTodos) {
-      console.log('[Todo Debug] Not showing todo: no todos available')
+      // console.log('[Todo Debug] Not showing todo: no todos available')
       return false
     }
     if (tooFewTodos) {
-      console.log('[Todo Debug] Not showing todo: fewer than 3 todos — not a complex checklist')
+      // console.log('[Todo Debug] Not showing todo: fewer than 3 todos — not a complex checklist')
       return false
     }
 
@@ -185,7 +185,7 @@ class TodoService {
     }
     this.pendingTodos = null
     this.pendingTodoTimestamp = 0
-    console.log('[Todo Debug] Todo state cleared')
+    // console.log('[Todo Debug] Todo state cleared')
   }
 
   /**

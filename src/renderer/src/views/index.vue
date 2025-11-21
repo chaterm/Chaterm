@@ -1,10 +1,10 @@
 <template>
   <TerminalLayout
-    v-show="currentMode === 'terminal'"
+    v-if="currentMode === 'terminal'"
     :current-mode="currentMode"
   />
   <AgentsLayout
-    v-show="currentMode === 'agents'"
+    v-if="currentMode === 'agents'"
     :current-mode="currentMode"
   />
 </template>
