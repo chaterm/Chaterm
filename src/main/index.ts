@@ -27,6 +27,7 @@ import { createMainWindow } from './windowManager'
 import { registerUpdater } from './updater'
 import { telemetryService, checkIsFirstLaunch, getMacAddress } from './agent/services/telemetry/TelemetryService'
 import { envelopeEncryptionService } from './storage/data_sync/envelope_encryption/service'
+import { versionPromptService } from './version/versionPromptService'
 
 let mainWindow: BrowserWindow
 let COOKIE_URL = 'http://localhost'
@@ -815,6 +816,29 @@ function setupIPC(): void {
       }
     } catch (error) {
       console.error('db:kv:mutate error:', error)
+      throw error
+    }
+  })
+
+  // 统一的版本相关操作 handler
+  ipcMain.handle('version:operation', async (_event, operation: string, payload?: any) => {
+    try {
+      switch (operation) {
+        case 'getPrompt':
+          return await versionPromptService.getVersionPrompt()
+
+        case 'dismissPrompt':
+          await versionPromptService.dismissPrompt()
+          return
+
+        case 'getReleaseNotes':
+          return await versionPromptService.getReleaseNotes(payload?.version)
+
+        default:
+          throw new Error(`Unknown version operation: ${operation}`)
+      }
+    } catch (error) {
+      console.error(`version:operation [${operation}] error:`, error)
       throw error
     }
   })

@@ -1,5 +1,5 @@
+Always respond in Chinese-simplified
 # Chaterm 项目 AGENTS.md
-
 本文面向“AI 编码代理/Agent 工具”（如本仓库自带的 Agent、各类自动化 PR 机器人、IDE 内智能编码助理）。目标是：在不打扰人类协作者的前提下，帮助 Agent 快速、正确地完成改动，并保持仓库风格统一、可维护与可验证。
 
 — 如果你是人类贡献者，也可以参考此文的做事流程与验收清单。

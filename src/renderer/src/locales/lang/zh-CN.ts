@@ -760,6 +760,10 @@ export default {
     install: '安装',
     clickUpdate: '点击重启以更新'
   },
+  versionPrompt: {
+    highlights: '更新亮点',
+    viewReleaseNotes: '查看完整更新日志'
+  },
   files: {
     name: '名称',
     permissions: '权限',
