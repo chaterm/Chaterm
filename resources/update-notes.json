@@ -1,0 +1,21 @@
+{
+  "releaseNotesUrl": "https://github.com/chaterm/Chaterm/releases/tag/v",
+  "versions": [
+    {
+      "version": "0.6.2",
+      "date": "2025-11-13",
+      "highlights": {
+        "zh-CN": ["加强AI模型的选择和测试中的调试过程", "在选项卡菜单中增加了内部分屏显示的选项"],
+        "en-US": ["Enhance AI model selection and debugging process in tests", "Added the option for inner split-screen display within the tab menu"]
+      }
+    },
+    {
+      "version": "0.6.1",
+      "date": "2025-06-08",
+      "highlights": {
+        "zh-CN": ["支持jms令牌", "添加了SSH连接身份"],
+        "en-US": ["Support jms token", "Added SSH connection identity"]
+      }
+    }
+  ]
+}

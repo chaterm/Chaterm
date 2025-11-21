@@ -88,6 +88,20 @@ interface ApiType {
   updateTheme: (params: any) => Promise<boolean>
   mainWindowInit: (params: any) => Promise<void>
   mainWindowShow: () => Promise<void>
+  getVersionPrompt: () => Promise<{
+    shouldShow: boolean
+    version: string
+    releaseDate?: string
+    highlights: string[]
+    releaseNotesUrl?: string
+    isFirstInstall: boolean
+  }>
+  dismissVersionPrompt: () => Promise<void>
+  getReleaseNotes: (version?: string) => Promise<{
+    version: string
+    date?: string
+    highlights?: Record<string, string[]> | string[]
+  } | null>
   onSystemThemeChanged: (callback: (theme: string) => void) => () => void
   // Keyboard-interactive authentication
   onKeyboardInteractiveRequest: (callback: (data: any) => void) => () => void

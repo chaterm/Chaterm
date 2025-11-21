@@ -802,6 +802,9 @@ const api = {
     ipcRenderer.on('update:autoUpdate', (event, params) => update(params))
   },
   quitAndInstall: () => ipcRenderer.invoke('update:quitAndInstall'),
+  getVersionPrompt: () => ipcRenderer.invoke('version:operation', 'getPrompt'),
+  dismissVersionPrompt: () => ipcRenderer.invoke('version:operation', 'dismissPrompt'),
+  getReleaseNotes: (version?: string) => ipcRenderer.invoke('version:operation', 'getReleaseNotes', { version }),
   updateTheme: (params) => ipcRenderer.invoke('update-theme', params),
   mainWindowInit: (params) => ipcRenderer.invoke('main-window-init', params),
   mainWindowShow: () => ipcRenderer.invoke('main-window-show'),

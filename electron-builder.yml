@@ -41,6 +41,8 @@ extraResources:
   - from: 'src/renderer/src/assets/db/'
     to: 'db/'
     filter: '**/*.db'
+  - from: 'resources/update-notes.json'
+    to: 'update-notes.json'
 asarUnpack:
   - resources/**
 icon: resources/icon.ico

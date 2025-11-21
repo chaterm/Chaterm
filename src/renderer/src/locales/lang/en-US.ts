@@ -759,6 +759,10 @@ export default {
     install: 'Install',
     clickUpdate: 'Click Restart to update'
   },
+  versionPrompt: {
+    highlights: "What's new",
+    viewReleaseNotes: 'View full release notes'
+  },
   files: {
     name: 'Name',
     permissions: 'Permissions',
