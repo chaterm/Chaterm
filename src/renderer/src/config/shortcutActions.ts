@@ -25,6 +25,10 @@ export const shortcutHints = {
   clearTerminal: {
     zh: '清屏',
     en: 'Clear Terminal'
+  },
+  toggleLayout: {
+    zh: '切换布局（Terminal/Agents）',
+    en: 'Toggle Layout (Terminal/Agents)'
   }
 }
 
@@ -176,6 +180,28 @@ export const shortcutActions: Omit<ShortcutAction, 'name'>[] = [
     },
     handler: () => {
       eventBus.emit('fontSizeDecrease')
+    }
+  },
+  {
+    id: 'toggleLayout',
+    nameKey: 'shortcuts.actions.toggleLayout',
+    defaultKey: {
+      mac: 'Command+E',
+      other: 'Ctrl+E'
+    },
+    handler: () => {
+      eventBus.emit('toggle-layout')
+    }
+  },
+  {
+    id: 'toggleAgentsLeftSidebar',
+    nameKey: 'shortcuts.actions.toggleAgentsLeftSidebar',
+    defaultKey: {
+      mac: 'Command+Shift+S',
+      other: 'Ctrl+Shift+S'
+    },
+    handler: () => {
+      eventBus.emit('toggleSideBar', 'agentsLeft')
     }
   }
 ]

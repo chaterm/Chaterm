@@ -122,10 +122,10 @@ const toggleSideBar = (value: string) => {
       {
         if (leftPaneSize.value) {
           leftPaneSize.value = 0
-          headerRef.value?.switchIcon('agentsLeft', false)
+          headerRef.value?.switchIcon('agentsLeft', true)
         } else {
           leftPaneSize.value = 27
-          headerRef.value?.switchIcon('agentsLeft', true)
+          headerRef.value?.switchIcon('agentsLeft', false)
         }
       }
       break
@@ -291,6 +291,18 @@ onMounted(async () => {
 
   eventBus.on('toggleSideBar', toggleSideBar)
   eventBus.on('open-user-tab', openUserTab)
+  eventBus.on('save-state-before-switch', (params: { from: string; to: string }) => {
+    if (params.from === 'agents' && params.to === 'terminal' && aiTabRef.value) {
+      try {
+        const currentState = aiTabRef.value.getCurrentState?.()
+        if (currentState) {
+          localStorage.setItem('sharedAiTabState', JSON.stringify(currentState))
+        }
+      } catch (error) {
+        console.warn('Failed to save AI state before layout switch:', error)
+      }
+    }
+  })
 
   // Try to restore immediately on mount (for initial load)
   nextTick(async () => {
@@ -313,6 +325,7 @@ onUnmounted(() => {
   window.removeEventListener('resize', updatePaneSize)
   eventBus.off('toggleSideBar', toggleSideBar)
   eventBus.off('open-user-tab', openUserTab)
+  eventBus.off('save-state-before-switch')
 })
 </script>
 
