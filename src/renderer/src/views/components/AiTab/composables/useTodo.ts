@@ -6,11 +6,9 @@ import type { Todo, TodoDisplayPreference } from '../../../../types/todo'
  * Todo 功能的 composable
  */
 export function useTodo() {
-  // 响应式状态
   const currentTodos = computed(() => todoService.currentTodos.value)
   const displayPreference = computed(() => todoService.displayPreference.value)
 
-  // 方法
   const setDisplayPreference = (preference: TodoDisplayPreference) => {
     todoService.setDisplayPreference(preference)
   }
@@ -28,7 +26,6 @@ export function useTodo() {
     todoService.clearTodoState(messages)
   }
 
-  // 生命周期
   onMounted(async () => {
     await todoService.initializeTodos()
   })
@@ -38,11 +35,8 @@ export function useTodo() {
   })
 
   return {
-    // 状态
     currentTodos,
     displayPreference,
-
-    // 方法
     setDisplayPreference,
     shouldShowTodoAfterMessage,
     getTodosForMessage,

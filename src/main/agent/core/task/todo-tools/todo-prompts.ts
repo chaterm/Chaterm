@@ -89,19 +89,19 @@ Key principles:
 // 简化的检测器
 export class SmartTaskDetector {
   static shouldCreateTodo(message: string): boolean {
-    console.log('[Todo Debug] SmartTaskDetector analyzing message:', message)
+    // console.log('[Todo Debug] SmartTaskDetector analyzing message:', message)
 
     if (message.length <= MIN_MESSAGE_LENGTH) {
-      console.log('[Todo Debug] Message too short, skipping todo creation')
+      // console.log('[Todo Debug] Message too short, skipping todo creation')
       return false // 调整阈值，中文表达更简洁
     }
 
     const lowerMessage = message.toLowerCase()
-    console.log('[Todo Debug] Lowercase message:', lowerMessage)
+    // console.log('[Todo Debug] Lowercase message:', lowerMessage)
 
     // Early exit: single-sentence but clearly multi-step ops (e.g., "部署一个 MySQL 数据库")
     if (isHighComplexityIntent(lowerMessage)) {
-      console.log('[Todo Debug] High-complexity intent detected by domain heuristics')
+      // console.log('[Todo Debug] High-complexity intent detected by domain heuristics')
       return true
     }
 
