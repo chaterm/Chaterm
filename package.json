@@ -54,6 +54,8 @@
     "clone-deep": "^4.0.1",
     "crypto-js": "^4.2.0",
     "diff": "^5.2.0",
+    "dockview-core": "^4.11.0",
+    "dockview-vue": "^4.11.0",
     "dotenv": "^16.5.0",
     "electron-updater": "^6.6.2",
     "execa": "^9.5.2",
