@@ -102,7 +102,7 @@ const COLORS = {
 }
 
 const REGEX_PATTERNS = {
-  ls: /^([drwx-]+)\s+(\d+)\s+(\w+)\s+(\w+)\s+(\d+)\s+([A-Za-z]+\s+\d+\s+(?:\d{1,2}:\d{2}|\d{4}))\s+(.+)$/,
+  ls: /^([dlrwx-]+)\s+(\d+)\s+(\w+)\s+(\w+)\s+(\d+)\s+([A-Za-z]+\s+\d+\s+(?:\d{1,2}:\d{2}|\d{4}))\s+(.+)$/,
   ps: /^\s*(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+([^\s]+)\s+([^\s]+)\s+([^\s]+)\s+([^\s]+)\s+(.+)/,
   psFlexible: /^\s*(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+([^\s]+)\s+([^\s]+)\s+([^\s]+)\s+([^\s]+)\s+(.+)/,
   psStrict: /^\s*(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+([^\s]+)\s+([^\s]+)\s+([^\s]+)\s+([^\s]+)\s+(.+)$/,
@@ -890,7 +890,7 @@ const addTerminalSyntaxHighlighting = (content: string): string => {
     }
 
     // 1.1 处理 ls -la 格式的输出（保留原始空格）
-    if (line.match(/^[drwx-]+\s+\d+\s+\w+\s+\w+\s+\d+\s+[A-Za-z]+\s+\d+\s+(?:\d{1,2}:\d{2}|\d{4})\s+.+$/)) {
+    if (line.match(/^[dlrwx-]+\s+\d+\s+\w+\s+\w+\s+\d+\s+[A-Za-z]+\s+\d+\s+(?:\d{1,2}:\d{2}|\d{4})\s+.+$/)) {
       return highlightLsOutputPreserveSpacing(line)
     }
 
@@ -1446,7 +1446,7 @@ const highlightLsOutputPreserveSpacing = (line: string): string => {
   let highlighted = line
 
   // 匹配权限字段（第一个字段）
-  highlighted = highlighted.replace(/^([drwx-]+)(\s+)/, (_, permissions, afterSpaces) => {
+  highlighted = highlighted.replace(/^([dlrwx-]+)(\s+)/, (_, permissions, afterSpaces) => {
     return `${key}${permissions}${reset}${afterSpaces}`
   })
 
@@ -1481,6 +1481,8 @@ const highlightLsOutputPreserveSpacing = (line: string): string => {
     let nameColor = white // 默认白色
     if (line.startsWith('d')) {
       nameColor = COLORS.info // 目录 - 蓝色
+    } else if (line.startsWith('l')) {
+      nameColor = COLORS.cyan // 符号链接 - 青色
     } else if (line.includes('x')) {
       nameColor = COLORS.success // 可执行文件 - 绿色
     } else if (name.startsWith('.')) {
