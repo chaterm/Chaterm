@@ -139,7 +139,6 @@ class ClientSideCrypto {
       const encryptionContext = {
         userId: this.userId,
         sessionId: this.sessionId,
-        timestamp: Date.now().toString(),
         purpose: 'client-side-encryption'
       }
 
