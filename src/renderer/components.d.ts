@@ -55,5 +55,6 @@ declare module 'vue' {
     RouterLink: typeof import('vue-router')['RouterLink']
     RouterView: typeof import('vue-router')['RouterView']
     UserSelectionDialog: typeof import('./src/components/global/user-selection/UserSelectionDialog.vue')['default']
+    VersionPromptModal: typeof import('./src/components/global/version-prompt/VersionPromptModal.vue')['default']
   }
 }

@@ -102,7 +102,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
-import { isGlobalInput, isShowQuickCommand } from '../Ssh/termInputManager'
+import { isGlobalInput, isShowQuickCommand } from './termInputManager'
 import {
   getCopyShortcut,
   getPasteShortcut,

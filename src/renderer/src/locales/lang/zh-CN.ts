@@ -442,7 +442,9 @@ export default {
       openFileManager: '打开文件管理',
       clearTerminal: '清屏',
       fontSizeIncrease: '字体放大',
-      fontSizeDecrease: '字体缩小'
+      fontSizeDecrease: '字体缩小',
+      toggleLayout: '切换布局（Terminal/Agents）',
+      toggleAgentsLeftSidebar: '切换Agents布局左侧边栏'
     }
   },
   personal: {
@@ -757,6 +759,10 @@ export default {
     complete: '已下载完毕，是否立即安装',
     install: '安装',
     clickUpdate: '点击重启以更新'
+  },
+  versionPrompt: {
+    highlights: '更新亮点',
+    viewReleaseNotes: '查看完整更新日志'
   },
   files: {
     name: '名称',

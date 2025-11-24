@@ -189,7 +189,7 @@ import { computed, ref, ComponentPublicInstance, PropType, watch, nextTick, onMo
 import draggable from 'vuedraggable'
 import { Splitpanes, Pane } from 'splitpanes'
 import 'splitpanes/dist/splitpanes.css'
-import Dashboard from '@views/components/Term/dashboard.vue'
+import Dashboard from '@views/components/Ssh/dashboard.vue'
 import UserInfo from '@views/components/LeftTab/userInfo.vue'
 import userConfig from '@views/components/LeftTab/userConfig.vue'
 import assetConfig from '@views/components/LeftTab/assetConfig.vue'
