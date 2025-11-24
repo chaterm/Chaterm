@@ -976,31 +976,6 @@ const adjustSplitPaneToEqualWidth = () => {
   }
 }
 
-const adjustRightPaneVerticalSplitToEqualHeight = (rightPaneIndex: number) => {
-  const rightPane = splitPanes.value[rightPaneIndex]
-  if (rightPane && rightPane.verticalSplitPanes && rightPane.verticalSplitPanes.length > 0) {
-    const paneCount = rightPane.verticalSplitPanes.length + 1
-    const equalSize = 100 / paneCount
-
-    rightPane.mainVerticalSize = equalSize
-    rightPane.verticalSplitPanes.forEach((pane) => {
-      pane.size = equalSize
-    })
-  }
-}
-
-const adjustVerticalSplitPaneToEqualHeight = () => {
-  if (showVerticalSplitPane.value) {
-    const paneCount = verticalSplitPanes.value.length + 1
-    const equalSize = 100 / paneCount
-
-    mainVerticalSize.value = equalSize
-    verticalSplitPanes.value.forEach((pane) => {
-      pane.size = equalSize
-    })
-  }
-}
-
 const handleCreateSplitTab = (info) => {
   createNewPanel(false, 'right', 'panel_' + info.id)
 }
@@ -1404,17 +1379,25 @@ const setupTabContextMenu = () => {
   })
 }
 
-const findPanelIdFromTab = (tabElement: Element): string | null => {
-  const tabText = tabElement.textContent?.trim()
-
-  const panels = dockApi?.panels || []
-  for (const panel of panels) {
-    if (panel.title === tabText) {
-      return panel.id
+const findPanelIdFromTab = (tabElement: HTMLElement): string | null => {
+  try {
+    if (dockApi) {
+      for (const panel of dockApi.panels) {
+        const panelGroup = panel.api.group
+        if (panelGroup?.element?.contains(tabElement)) {
+          panelGroup.element.querySelectorAll('.dv-tab')
+          const tabTitle = tabElement.textContent?.trim()
+          const panelTitle = panel.api.title
+          if (tabTitle === panelTitle) {
+            return panel.id
+          }
+        }
+      }
     }
+    return null
+  } catch (error) {
+    return null
   }
-
-  return null
 }
 
 const createNewPanel = (isClone: boolean, direction: 'left' | 'right' | 'above' | 'below' | 'within', panelId?: string) => {
@@ -1434,22 +1417,25 @@ const createNewPanel = (isClone: boolean, direction: 'left' | 'right' | 'above' 
   const sourceComponent = sourcePanel.api.component
   const rawParams = (sourcePanel as any).api?.panel?._params ?? (sourcePanel as any).panel?._params
 
-  let newId = 'panel_' + uuidv4()
-
+  const newIdV4 = uuidv4()
+  let newId = 'panel_' + newIdV4
   if (isClone) {
     newId = 'panel_' + rawParams.id + '_clone_' + +Date.now()
   }
 
+  const params = {
+    ...safeCloneParams(rawParams),
+    currentPanelId: newId,
+    closeCurrentPanel: (pid?: string) => closeCurrentPanel(pid || newId),
+    createNewPanel: (isClone: boolean, direction: string, pid?: string) => createNewPanel(isClone, direction as any, pid || newId)
+  }
+
+  params.id = newIdV4
   dockApi.addPanel({
     id: newId,
     component: sourceComponent,
     title: sourceTitle,
-    params: {
-      ...safeCloneParams(rawParams),
-      currentPanelId: newId,
-      closeCurrentPanel: (pid?: string) => closeCurrentPanel(pid || newId),
-      createNewPanel: (isClone: boolean, direction: string, pid?: string) => createNewPanel(isClone, direction as any, pid || newId)
-    },
+    params: params,
     position: {
       referencePanel: sourcePanel,
       direction: direction
