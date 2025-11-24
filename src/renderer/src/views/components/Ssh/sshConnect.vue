@@ -506,10 +506,10 @@ onMounted(async () => {
       const selectedText = termInstance.getSelection().trim()
       if (selectedText) {
         eventBus.emit('openAiRight')
-        nextTick(() => {
+        setTimeout(() => {
           const formattedText = `Terminal output:\n\`\`\`\n${selectedText}\n\`\`\``
           eventBus.emit('chatToAi', formattedText)
-        })
+        }, 100)
         return
       }
     }
@@ -2947,10 +2947,10 @@ const onChatToAiClick = () => {
   if (terminal.value && terminal.value.hasSelection()) {
     const text = terminal.value.getSelection()
     eventBus.emit('openAiRight')
-    nextTick(() => {
+    setTimeout(() => {
       const formattedText = `Terminal output:\n\`\`\`\n${text.trim()}\n\`\`\``
       eventBus.emit('chatToAi', formattedText)
-    })
+    }, 100)
     terminal.value.clearSelection()
   }
 }
