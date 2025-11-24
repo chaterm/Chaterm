@@ -821,6 +821,7 @@ import { useStateSnapshot } from './composables/useStateSnapshot'
 import { useTabManagement } from './composables/useTabManagement'
 import { useTodo } from './composables/useTodo'
 import { useUserInteractions } from './composables/useUserInteractions'
+import { useWatchers } from './composables/useWatchers'
 
 // UI 组件
 import VoiceInput from './voiceInput.vue'
@@ -1132,19 +1133,11 @@ watch(
   }
 )
 
-watch(currentChatId, () => {
-  emitStateChange()
-  handleTabSwitch()
+useWatchers({
+  emitStateChange,
+  handleTabSwitch,
+  updateHostsForCommandMode
 })
-
-watch(
-  () => chatTypeValue.value,
-  async (newValue) => {
-    if (newValue === 'cmd') {
-      await updateHostsForCommandMode()
-    }
-  }
-)
 
 // ============================================================================
 // 生命周期钩子

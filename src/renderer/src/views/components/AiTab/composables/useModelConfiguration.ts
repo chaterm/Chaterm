@@ -3,6 +3,7 @@ import { getGlobalState, updateGlobalState, storeSecret, getSecret } from '@rend
 import { GlobalStateKey } from '@renderer/agent/storage/state-keys'
 import { notification } from 'ant-design-vue'
 import { getUser } from '@api/user/user'
+import { focusChatInput } from './useTabManagement'
 
 interface ModelSelectOption {
   label: string
@@ -54,6 +55,8 @@ export function useModelConfiguration() {
     const apiProvider = selectedModel?.apiProvider
     const key = PROVIDER_MODEL_KEY_MAP[apiProvider || 'default'] || 'defaultModelId'
     await updateGlobalState(key, chatAiModelValue.value)
+
+    focusChatInput()
   }
 
   const initModel = async () => {

@@ -1,5 +1,4 @@
 import { watch, Ref } from 'vue'
-import { updateGlobalState } from '@renderer/agent/storage/state'
 import { useSessionState } from './useSessionState'
 
 /**
@@ -7,7 +6,7 @@ import { useSessionState } from './useSessionState'
  * 负责状态快照的创建、恢复和变更通知
  */
 export function useStateSnapshot(chatAiModelValue: Ref<string>, emit: (event: 'state-changed', ...args: any[]) => void) {
-  const { chatTabs, currentChatId, chatTypeValue, hosts, chatInputValue } = useSessionState()
+  const { chatTabs, currentChatId, hosts, chatInputValue } = useSessionState()
 
   let suppressStateChange = false
 
@@ -96,29 +95,6 @@ export function useStateSnapshot(chatAiModelValue: Ref<string>, emit: (event: 's
       suppressStateChange = false
     }
   }
-
-  watch(() => currentChatId.value, emitStateChange)
-
-  watch(
-    () => chatTypeValue.value,
-    async (newValue) => {
-      if (!newValue || newValue.trim() === '') {
-        return
-      }
-      try {
-        await updateGlobalState('chatSettings', {
-          mode: newValue
-        })
-        console.log('Updated chatSettings:', newValue)
-
-        if (!suppressStateChange) {
-          emitStateChange()
-        }
-      } catch (error) {
-        console.error('Failed to update chatSettings:', error)
-      }
-    }
-  )
 
   watch(
     () => hosts.value,
