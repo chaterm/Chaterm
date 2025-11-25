@@ -805,7 +805,6 @@
 // Vue 核心 API
 import { ref, onMounted, defineAsyncComponent, watch } from 'vue'
 import { useRouter } from 'vue-router'
-import i18n from '@/locales'
 
 // Composables
 import { useAutoScroll } from './composables/useAutoScroll'
@@ -847,12 +846,11 @@ import {
 } from '@ant-design/icons-vue'
 
 // 工具函数
-import eventBus from '@/utils/eventBus'
 import { isFocusInAiTab } from '@/utils/domUtils'
 import { getGlobalState } from '@renderer/agent/storage/state'
 
 // 类型定义
-import type { AssetInfo, MessageContent } from './types'
+import type { MessageContent } from './types'
 
 // 静态资源
 import foldIcon from '@/assets/icons/fold.svg'
@@ -878,15 +876,14 @@ declare module '@/utils/eventBus' {
   }
 }
 
+// ============================================================================
+// Props 和 Emits
+// ============================================================================
 interface Props {
   toggleSidebar: () => void
   savedState?: Record<string, any> | null
   isAgentMode?: boolean
 }
-
-// ============================================================================
-// Props 和 Emits
-// ============================================================================
 
 const props = withDefaults(defineProps<Props>(), {
   savedState: null
@@ -898,7 +895,6 @@ const emit = defineEmits(['state-changed'])
 // 外部依赖初始化
 // ============================================================================
 
-const { t } = i18n.global
 const router = useRouter()
 const MarkdownRenderer = defineAsyncComponent(() => import('@views/components/AiTab/markdownRenderer.vue'))
 const TodoInlineDisplay = defineAsyncComponent(() => import('./components/todo/TodoInlineDisplay.vue'))
@@ -922,7 +918,6 @@ const {
   currentSession,
   chatTypeValue,
   hosts,
-  autoUpdateHost,
   chatInputValue,
   lastChatMessageId,
   responseLoading,
@@ -943,47 +938,6 @@ const { getCurrentState, restoreState, emitStateChange } = useStateSnapshot(chat
 // Todo 功能
 const { currentTodos, shouldShowTodoAfterMessage, getTodosForMessage, markLatestMessageWithTodoUpdate, clearTodoState } = useTodo()
 
-const getCurentTabAssetInfo = async (): Promise<AssetInfo | null> => {
-  try {
-    const assetInfo = await new Promise<AssetInfo | null>((resolve, reject) => {
-      const timeout = setTimeout(() => {
-        eventBus.off('assetInfoResult', handleResult)
-        reject(new Error(t('ai.timeoutGettingAssetInfo')))
-      }, 5000)
-
-      const handleResult = (payload: { assetInfo: AssetInfo | null; tabId?: string } | AssetInfo | null) => {
-        const { assetInfo, tabId } =
-          payload && typeof payload === 'object' && 'assetInfo' in payload
-            ? { assetInfo: payload.assetInfo as AssetInfo | null, tabId: payload.tabId }
-            : { assetInfo: (payload as AssetInfo | null) ?? null, tabId: undefined }
-
-        if (tabId && tabId !== currentChatId.value) {
-          return
-        }
-
-        clearTimeout(timeout)
-        eventBus.off('assetInfoResult', handleResult)
-        resolve(assetInfo)
-      }
-      eventBus.on('assetInfoResult', handleResult)
-      eventBus.emit('getActiveTabAssetInfo', { tabId: currentChatId.value ?? undefined })
-    })
-
-    if (assetInfo) {
-      if (assetInfo.organizationId != 'personal') {
-        assetInfo.connection = 'jumpserver'
-      } else {
-        assetInfo.connection = 'personal'
-      }
-      return assetInfo
-    } else {
-      return null
-    }
-  } catch (error) {
-    console.error('Error getting asset information:', error)
-    return null
-  }
-}
 // 主机管理
 const {
   showHostSelect,
@@ -1002,26 +956,9 @@ const {
   handleAddHostClick,
   updateHosts,
   updateHostsForCommandMode,
-  hostSearchInputRef
-} = useHostManagement(getCurentTabAssetInfo)
-
-// 资产信息初始化
-const initAssetInfo = async () => {
-  const session = currentSession.value
-  if (!autoUpdateHost.value || (session && session.chatHistory.length > 0)) {
-    return
-  }
-  const assetInfo = await getCurentTabAssetInfo()
-  if (assetInfo) {
-    updateHosts({
-      ip: assetInfo.ip,
-      uuid: assetInfo.uuid,
-      connection: assetInfo.connection ? assetInfo.connection : 'personal'
-    })
-  } else {
-    updateHosts(null)
-  }
-}
+  hostSearchInputRef,
+  getCurentTabAssetInfo
+} = useHostManagement()
 
 // 自动滚动
 const { chatContainer, chatResponse, scrollToBottom, initializeAutoScroll, handleTabSwitch } = useAutoScroll()
@@ -1098,9 +1035,9 @@ const {
 
 // 事件总线监听器
 useEventBusListeners({
-  initAssetInfo,
   sendMessageWithContent,
   initModel,
+  getCurentTabAssetInfo,
   updateHosts
 })
 
