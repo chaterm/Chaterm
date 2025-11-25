@@ -320,17 +320,18 @@ onMounted(async () => {
       cursorStyle: config.cursorStyle,
       fontSize: config.fontSize || 12,
       fontFamily: config.fontFamily || 'Menlo, Monaco, "Courier New", Consolas, Courier, monospace',
+      allowTransparency: true,
       theme:
         actualTheme === 'light'
           ? {
-              background: '#ffffff',
+              background: configStore.getUserConfig.background.image ? 'transparent' : '#ffffff',
               foreground: '#000000',
               cursor: '#000000',
               cursorAccent: '#000000',
               selectionBackground: 'rgba(0, 0, 0, 0.3)'
             }
           : {
-              background: '#141414',
+              background: configStore.getUserConfig.background.image ? 'transparent' : '#141414',
               foreground: '#e0e0e0',
               cursor: '#e0e0e0',
               cursorAccent: '#e0e0e0',
@@ -368,8 +369,8 @@ onMounted(async () => {
   termInstance.loadAddon(searchAddon.value)
   termInstance.scrollToBottom()
   termInstance.focus()
-  const webgl = new WebglAddon()
-  termInstance.loadAddon(webgl)
+  // const webgl = new WebglAddon()
+  // termInstance.loadAddon(webgl)
   termInstance.onResize((size) => {
     resizeSSH(size.cols, size.rows)
   })
@@ -565,14 +566,14 @@ onMounted(async () => {
       terminal.value.options.theme =
         actualTheme === 'light'
           ? {
-              background: '#ffffff',
+              background: configStore.getUserConfig.background.image ? 'transparent' : '#ffffff',
               foreground: '#000000',
               cursor: '#000000',
               cursorAccent: '#000000',
               selectionBackground: 'rgba(0, 0, 0, 0.3)'
             }
           : {
-              background: '#141414',
+              background: configStore.getUserConfig.background.image ? 'transparent' : '#141414',
               foreground: '#e0e0e0',
               cursor: '#e0e0e0',
               cursorAccent: '#e0e0e0',
@@ -650,6 +651,17 @@ onMounted(async () => {
       }
     })
   }
+
+  // Watch for background image changes to update terminal transparency
+  watch(
+    () => configStore.getUserConfig.background.image,
+    () => {
+      if (terminal.value) {
+        const actualTheme = getActualTheme(configStore.getUserConfig.theme)
+        handleUpdateTheme(actualTheme)
+      }
+    }
+  )
 })
 const getCmdList = async (systemCommands) => {
   const allCommands = [...systemCommands, ...shellCommands]

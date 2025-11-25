@@ -54,13 +54,13 @@ async function createWindow(): Promise<void> {
   setMainWindowWebContents(mainWindow.webContents)
 }
 
-// 发送请求给渲染进程，等待它回消息
+// Send request to renderer process and wait for response
 export async function getUserConfigFromRenderer(): Promise<any> {
   if (!mainWindow) throw new Error('mainWindow not ready')
 
   const wc = mainWindow.webContents
 
-  // 等待渲染进程加载完成
+  // Wait for renderer process to load
   if (wc.isLoadingMainFrame()) {
     await new Promise<void>((resolve) => wc.once('did-finish-load', () => resolve()))
   }
@@ -84,7 +84,7 @@ export async function getUserConfigFromRenderer(): Promise<any> {
     ipcMain.on('userConfig:get-response', responseHandler)
     ipcMain.on('userConfig:get-error', errorHandler)
 
-    console.log('主进程发送 userConfig:get 给渲染进程')
+    console.log('Main process sending userConfig:get to renderer process')
     wc.send('userConfig:get')
   })
 }
@@ -409,7 +409,7 @@ ipcMain.handle('delete-mcp-server', async (_event, serverName: string) => {
   }
 })
 
-// MCP工具状态管理
+// MCP tool state management
 ipcMain.handle('mcp:get-tool-state', async (_event, serverName: string, toolName: string) => {
   try {
     const dbService = await ChatermDatabaseService.getInstance()
@@ -453,12 +453,12 @@ ipcMain.handle('mcp:get-all-tool-states', async () => {
   }
 })
 
-// 异步执行IP检测
+// Execute IP detection asynchronously
 ipcMain.handle('detect-ip-location', async () => {
   try {
     const isMainlandChina = await detectIPLocation()
 
-    // 缓存检测结果，有效期24小时
+    // Cache detection result, valid for 24 hours
     global.ipDetectionCache = {
       isMainlandChina,
       timestamp: Date.now()
@@ -466,8 +466,8 @@ ipcMain.handle('detect-ip-location', async () => {
 
     return { success: true, isMainlandChina }
   } catch (error) {
-    console.error('[主进程] IP检测失败:', error)
-    // 设置默认值
+    console.error('[Main Process] IP detection failed:', error)
+    // Set default value
     global.ipDetectionCache = {
       isMainlandChina: true,
       timestamp: Date.now()
@@ -527,6 +527,47 @@ ipcMain.handle('get-cookie', async (_, name) => {
 })
 ipcMain.handle('remove-cookie', async (_, { name }) => {
   return await removeCookie(name)
+})
+
+ipcMain.handle('dialog:openFile', async (event, options) => {
+  const { dialog } = require('electron')
+  const result = await dialog.showOpenDialog(BrowserWindow.fromWebContents(event.sender), options)
+  return result
+})
+
+ipcMain.handle('saveCustomBackground', async (_, sourcePath: string) => {
+  try {
+    const fs = require('fs/promises')
+    const path = require('path')
+    const projectRoot = process.cwd()
+    const targetDir = path.join(projectRoot, 'src/renderer/src/assets/backgroup/custom')
+
+    // Ensure directory exists
+    await fs.mkdir(targetDir, { recursive: true })
+
+    const ext = path.extname(sourcePath)
+    const fileName = `custom_bg${ext}`
+    const targetPath = path.join(targetDir, fileName)
+
+    // Remove any existing custom_bg files to avoid conflicts (e.g. different extensions)
+    try {
+      const files = await fs.readdir(targetDir)
+      for (const file of files) {
+        if (file.startsWith('custom_bg')) {
+          await fs.unlink(path.join(targetDir, file))
+        }
+      }
+    } catch (e) {
+      // Ignore error if directory reading fails (though we just created it)
+    }
+
+    await fs.copyFile(sourcePath, targetPath)
+
+    return { success: true, path: targetPath, fileName }
+  } catch (error) {
+    console.error('Failed to save custom background:', error)
+    return { success: false, error: error instanceof Error ? error.message : String(error) }
+  }
 })
 
 function createBrowserWindow(url: string): void {
@@ -601,7 +642,7 @@ function setupIPC(): void {
         throw new Error('User ID is required')
       }
 
-      // 检查是否为用户切换（用户ID发生变化）
+      // Check if user switch occurred (user ID changed)
       const previousUserId = getCurrentUserId()
       const isUserSwitch = previousUserId && previousUserId !== targetUserId
 
@@ -609,26 +650,26 @@ function setupIPC(): void {
       chatermDbService = await ChatermDatabaseService.getInstance(targetUserId)
       autoCompleteService = await autoCompleteDatabaseService.getInstance(targetUserId)
 
-      // 同步设置认证信息，确保在数据同步启动前完成
+      // Sync authentication info, ensure completion before data sync starts
       try {
-        // 获取用户认证信息并设置到加密服务
+        // Get user authentication info and set it to encryption service
         const ctmToken = await event.sender.executeJavaScript("localStorage.getItem('ctm-token')")
         if (ctmToken && ctmToken !== 'guest_token') {
-          console.log(`为用户 ${targetUserId} 设置认证信息...`)
+          console.log(`Setting authentication info for user ${targetUserId}...`)
           envelopeEncryptionService.setAuthInfo(ctmToken, targetUserId.toString())
-          console.log(`用户 ${targetUserId} 认证信息设置完成`)
+          console.log(`Authentication info set completed for user ${targetUserId}`)
         } else {
-          console.warn(`用户 ${targetUserId} 未找到有效的认证token`)
+          console.warn(`No valid authentication token found for user ${targetUserId}`)
         }
 
-        // 用户切换完成，数据同步将由渲染进程重新初始化
+        // User switch completed, data sync will be re-initialized by renderer process
         if (isUserSwitch) {
-          console.log(`检测到用户切换: ${previousUserId} -> ${targetUserId}，数据同步将由渲染进程处理`)
+          console.log(`User switch detected: ${previousUserId} -> ${targetUserId}, data sync will be handled by renderer process`)
         }
       } catch (error) {
-        console.warn('设置认证信息异常:', error)
+        console.warn('Exception setting authentication info:', error)
         if (isUserSwitch) {
-          console.log(`认证信息设置失败，用户切换: ${previousUserId} -> ${targetUserId}`)
+          console.log(`Authentication info setting failed, user switch: ${previousUserId} -> ${targetUserId}`)
         }
       }
 
@@ -639,9 +680,9 @@ function setupIPC(): void {
     }
   })
 
-  // ==================== IndexedDB 迁移相关 IPC Handlers ====================
+  // ==================== IndexedDB Migration Related IPC Handlers ====================
 
-  // Handler 1: 迁移状态查询
+  // Handler 1: Migration status query
   ipcMain.handle('db:migration:status', async (_event, params: { dataSource?: string }) => {
     try {
       const userId = getCurrentUserId()
@@ -662,7 +703,7 @@ function setupIPC(): void {
     }
   })
 
-  // Handler 2: 别名查询
+  // Handler 2: Alias query
   ipcMain.handle('db:aliases:query', async (_event, params: { action: string; searchText?: string; alias?: string }) => {
     try {
       const userId = getCurrentUserId()
@@ -670,7 +711,7 @@ function setupIPC(): void {
         throw new Error('User not logged in')
       }
 
-      // 参数验证
+      // Parameter validation
       if (!['getAll', 'search', 'getByAlias'].includes(params.action)) {
         throw new Error('Invalid action type')
       }
@@ -703,7 +744,7 @@ function setupIPC(): void {
     }
   })
 
-  // Handler 3: 别名变更
+  // Handler 3: Alias mutation
   ipcMain.handle('db:aliases:mutate', async (_event, params: { action: string; data?: any; alias?: string }) => {
     try {
       const userId = getCurrentUserId()
@@ -711,7 +752,7 @@ function setupIPC(): void {
         throw new Error('User not logged in')
       }
 
-      // 参数验证
+      // Parameter validation
       if (!['save', 'delete'].includes(params.action)) {
         throw new Error('Invalid action type')
       }
@@ -740,7 +781,7 @@ function setupIPC(): void {
     }
   })
 
-  // Handler 4: KV 读取
+  // Handler 4: KV read
   ipcMain.handle('db:kv:get', async (_event, params: { key?: string }) => {
     try {
       let userId = getCurrentUserId()
@@ -754,7 +795,7 @@ function setupIPC(): void {
       if (params?.key) {
         const row = db.getKeyValue(params.key)
         if (row && row.value) {
-          // 使用 safeParse 反序列化 superjson 格式的数据
+          // Use safeParse to deserialize superjson formatted data
           const { safeParse } = await import('./storage/db/json-serializer')
           const parsedValue = await safeParse(row.value)
           return { ...row, value: JSON.stringify(parsedValue) }
@@ -769,7 +810,7 @@ function setupIPC(): void {
     }
   })
 
-  // Handler 5: KV 变更
+  // Handler 5: KV mutation
   ipcMain.handle('db:kv:mutate', async (_event, params: { action: string; key: string; value?: string }) => {
     try {
       let userId = getCurrentUserId()
@@ -778,7 +819,7 @@ function setupIPC(): void {
         userId = getGuestUserId()
       }
 
-      // 参数验证
+      // Parameter validation
       if (!['set', 'delete'].includes(params.action)) {
         throw new Error('Invalid action type')
       }
@@ -795,9 +836,9 @@ function setupIPC(): void {
 
       switch (params.action) {
         case 'set': {
-          // 先将 JSON 字符串解析为对象
+          // First parse JSON string into object
           const valueObj = JSON.parse(params.value!)
-          // 使用 safeStringify 序列化为 superjson 格式
+          // Use safeStringify to serialize into superjson format
           const { safeStringify } = await import('./storage/db/json-serializer')
           const result = await safeStringify(valueObj)
           if (!result.success) {
@@ -820,7 +861,7 @@ function setupIPC(): void {
     }
   })
 
-  // 统一的版本相关操作 handler
+  // Unified version related operation handler
   ipcMain.handle('version:operation', async (_event, operation: string, payload?: any) => {
     try {
       switch (operation) {
@@ -843,10 +884,10 @@ function setupIPC(): void {
     }
   })
 
-  // Handler 6: IndexedDB 迁移数据读取 (渲染进程响应)
-  // 这个 handler 由渲染进程监听 'indexdb-migration:request-data' 事件并响应
+  // Handler 6: IndexedDB migration data read (renderer process response)
+  // This handler listens to 'indexdb-migration:request-data' event from renderer process and responds
 
-  // ==================== 原有 IPC Handlers ====================
+  // ==================== Original IPC Handlers ====================
 
   ipcMain.handle('window:maximize', () => {
     if (mainWindow && !mainWindow.isDestroyed()) {
@@ -910,7 +951,7 @@ function setupIPC(): void {
     return null
   })
 
-  // 数据同步启停
+  // Data sync start/stop
   ipcMain.handle('data-sync:set-enabled', async (_evt, enabled: boolean) => {
     try {
       const uid = getCurrentUserId()
@@ -921,38 +962,38 @@ function setupIPC(): void {
       if (enabled) {
         if (!dataSyncController) {
           const dbPath = getChatermDbPathForUser(uid)
-          console.log(`为用户 ${uid} 启动数据同步服务...`)
+          console.log(`Starting data sync service for user ${uid}...`)
           const instance = await startDataSync(dbPath)
           dataSyncController = instance
         }
 
-        // 启用同步
+        // Enable sync
         const syncStateManager = dataSyncController.getSyncStateManager()
         if (syncStateManager) {
           syncStateManager.enableSync(uid)
         }
       } else {
-        // 禁用同步
+        // Disable sync
         if (dataSyncController) {
           const syncStateManager = dataSyncController.getSyncStateManager()
           if (syncStateManager) {
             syncStateManager.disableSync()
           }
 
-          console.log('停止数据同步服务...')
+          console.log('Stopping data sync service...')
           await dataSyncController.destroy()
           dataSyncController = null
-          console.log('数据同步服务已停止')
+          console.log('Data sync service stopped')
         }
       }
       return { success: true }
     } catch (e: any) {
-      console.warn('处理 data-sync:set-enabled 失败:', e?.message || e)
+      console.warn('Failed to handle data-sync:set-enabled:', e?.message || e)
       return { success: false, error: e?.message || String(e) }
     }
   })
 
-  // 获取用户同步状态
+  // Get user sync status
   ipcMain.handle('data-sync:get-user-status', async () => {
     try {
       const uid = getCurrentUserId()
@@ -976,12 +1017,12 @@ function setupIPC(): void {
       const syncStateManager = dataSyncController.getSyncStateManager()
       const syncStatus = syncStateManager ? syncStateManager.getCurrentStatus() : null
 
-      // 获取全量同步定时器状态
+      // Get full sync timer status
       let fullSyncTimerStatus: any = null
       try {
         fullSyncTimerStatus = dataSyncController.getFullSyncTimerStatus()
       } catch (error) {
-        console.warn('获取全量同步定时器状态失败:', error)
+        console.warn('Failed to get full sync timer status:', error)
       }
 
       return {
@@ -995,12 +1036,12 @@ function setupIPC(): void {
         }
       }
     } catch (e: any) {
-      console.warn('获取用户同步状态失败:', e?.message || e)
+      console.warn('Failed to get user sync status:', e?.message || e)
       return { success: false, error: e?.message || String(e) }
     }
   })
 
-  // 立即执行全量同步
+  // Execute full sync immediately
   ipcMain.handle('data-sync:full-sync-now', async () => {
     try {
       if (!dataSyncController) {
@@ -1010,12 +1051,12 @@ function setupIPC(): void {
       const result = await dataSyncController.fullSyncNow()
       return { success: result }
     } catch (e: any) {
-      console.warn('手动全量同步失败:', e?.message || e)
+      console.warn('Failed to execute manual full sync:', e?.message || e)
       return { success: false, error: e?.message || String(e) }
     }
   })
 
-  // 更新全量同步间隔
+  // Update full sync interval
   ipcMain.handle('data-sync:update-full-sync-interval', async (_evt, intervalHours: number) => {
     try {
       if (!dataSyncController) {
@@ -1029,7 +1070,7 @@ function setupIPC(): void {
       dataSyncController.updateFullSyncInterval(intervalHours)
       return { success: true }
     } catch (e: any) {
-      console.warn('更新全量同步间隔失败:', e?.message || e)
+      console.warn('Failed to update full sync interval:', e?.message || e)
       return { success: false, error: e?.message || String(e) }
     }
   })
@@ -1136,7 +1177,7 @@ function setupIPC(): void {
   // Security configuration handler
   ipcMain.handle('security-open-config', async () => {
     try {
-      // 使用动态import而不是require来避免路径问题
+      // Use dynamic import instead of require to avoid path issues
       const SecurityConfigModule = await import('./agent/core/security/SecurityConfig')
       const { SecurityConfigManager } = SecurityConfigModule
       const securityManager = new SecurityConfigManager()
@@ -1173,12 +1214,12 @@ function setupIPC(): void {
       const fs = await import('fs/promises')
       const configPath = securityManager.getConfigPath()
 
-      // 确保文件存在，如果不存在则生成默认配置
+      // Ensure file exists, if not generate default config
       try {
         await fs.access(configPath)
       } catch {
-        // 文件不存在，生成默认配置
-        await securityManager.loadConfig() // 这会自动生成默认配置文件
+        // File doesn't exist, generate default config
+        await securityManager.loadConfig() // This will automatically generate default config file
       }
 
       const content = await fs.readFile(configPath, 'utf-8')

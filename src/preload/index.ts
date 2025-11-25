@@ -798,6 +798,7 @@ const api = {
   },
   checkUpdate: () => ipcRenderer.invoke('update:checkUpdate'),
   download: () => ipcRenderer.invoke('update:download'),
+  showOpenDialog: (options) => ipcRenderer.invoke('dialog:openFile', options),
   autoUpdate: (update) => {
     ipcRenderer.on('update:autoUpdate', (event, params) => update(params))
   },
@@ -882,7 +883,8 @@ const api = {
   aliasesQuery: (params: { action: string; searchText?: string; alias?: string }) => ipcRenderer.invoke('db:aliases:query', params),
   aliasesMutate: (params: { action: string; data?: any; alias?: string }) => ipcRenderer.invoke('db:aliases:mutate', params),
   kvGet: (params: { key?: string }) => ipcRenderer.invoke('db:kv:get', params),
-  kvMutate: (params: { action: string; key: string; value?: string }) => ipcRenderer.invoke('db:kv:mutate', params)
+  kvMutate: (params: { action: string; key: string; value?: string }) => ipcRenderer.invoke('db:kv:mutate', params),
+  saveCustomBackground: (sourcePath: string) => ipcRenderer.invoke('saveCustomBackground', sourcePath)
 }
 // 自定义 API 用于浏览器控制
 
