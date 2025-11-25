@@ -17,6 +17,7 @@ pnpm-lock.yaml
 yarn-error.log
 yarn.lock
 debug.log
+src/renderer/src/assets/backgroup/custom/custom_bg.jpg
 # 加密存储相关文件
 temp-storage/
 .chaterm-encryption/

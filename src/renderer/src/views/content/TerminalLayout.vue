@@ -73,7 +73,10 @@
         @keyup.esc="cancelRename"
       />
     </div>
-    <div class="terminal-layout">
+    <div
+      class="terminal-layout"
+      :class="{ 'transparent-bg': isTransparent }"
+    >
       <div class="term_header">
         <Header
           ref="headerRef"
@@ -245,6 +248,8 @@ const router = useRouter()
 const api = window.api as any
 const { t } = useI18n()
 const aliasConfig = aliasConfigStore()
+const configStore = piniaUserConfigStore()
+const isTransparent = computed(() => !!configStore.getUserConfig.background.image)
 const headerRef = ref<InstanceType<typeof Header> | null>(null)
 const extensionsRef = ref<InstanceType<typeof Extensions> | null>(null)
 const allTabs = ref<InstanceType<typeof TabsPanel> | null>(null)
@@ -1637,6 +1642,21 @@ defineExpose({
   background: var(--bg-color);
   color: var(--text-color);
   margin: 0;
+
+  &.transparent-bg {
+    background: transparent !important;
+
+    .dockview-theme-dark,
+    .dockview-theme-light {
+      --dv-group-view-background-color: transparent !important;
+      --dv-tabs-and-actions-container-background-color: transparent !important;
+      --dv-activegroup-visiblepanel-tab-background-color: rgba(60, 60, 60, 0.3) !important;
+      --dv-activegroup-hiddenpanel-tab-background-color: transparent !important;
+      --dv-inactivegroup-visiblepanel-tab-background-color: transparent !important;
+      --dv-inactivegroup-hiddenpanel-tab-background-color: transparent !important;
+      --dv-paneview-header-border-color: rgba(255, 255, 255, 0.1) !important;
+    }
+  }
 
   ::-webkit-scrollbar {
     width: 2px;
