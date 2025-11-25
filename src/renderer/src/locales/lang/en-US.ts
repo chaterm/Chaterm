@@ -180,6 +180,7 @@ export default {
     commonVimStatus: 'Common vim',
     aliasStatus: 'Global alias',
     highlightStatus: 'Highlight',
+    pinchZoomStatus: 'Pinch to zoom font',
     fontSize: 'Font size',
     fontFamily: 'Font family',
     cursorStyle: 'Cursor type',
