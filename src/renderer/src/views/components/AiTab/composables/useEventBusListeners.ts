@@ -2,11 +2,12 @@ import { onMounted, onUnmounted } from 'vue'
 import eventBus from '@/utils/eventBus'
 import { useSessionState } from './useSessionState'
 import { focusChatInput } from './useTabManagement'
+import type { AssetInfo } from '../types'
 
 interface UseEventBusListenersParams {
-  initAssetInfo: () => Promise<void>
   sendMessageWithContent: (content: string, sendType: string, tabId?: string) => Promise<void>
   initModel: () => Promise<void>
+  getCurentTabAssetInfo: () => Promise<AssetInfo | null>
   updateHosts: (hostInfo: { ip: string; uuid: string; connection: string } | null) => void
 }
 
@@ -23,8 +24,26 @@ interface TabInfo {
  * 集中管理所有 eventBus 相关的监听器注册和清理
  */
 export function useEventBusListeners(params: UseEventBusListenersParams) {
-  const { initAssetInfo, sendMessageWithContent, initModel, updateHosts } = params
+  const { sendMessageWithContent, initModel, getCurentTabAssetInfo, updateHosts } = params
   const { chatTabs, chatInputValue, currentSession, autoUpdateHost } = useSessionState()
+
+  // 资产信息初始化
+  const initAssetInfo = async () => {
+    const session = currentSession.value
+    if (!autoUpdateHost.value || (session && session.chatHistory.length > 0)) {
+      return
+    }
+    const assetInfo = await getCurentTabAssetInfo()
+    if (assetInfo) {
+      updateHosts({
+        ip: assetInfo.ip,
+        uuid: assetInfo.uuid,
+        connection: assetInfo.connection ? assetInfo.connection : 'personal'
+      })
+    } else {
+      updateHosts(null)
+    }
+  }
 
   const handleSendMessageToAi = async (payload: { content: string; tabId?: string }) => {
     const { content, tabId } = payload
