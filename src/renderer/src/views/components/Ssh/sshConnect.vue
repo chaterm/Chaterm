@@ -83,13 +83,9 @@ import { markRaw, onBeforeUnmount, onMounted, PropType, nextTick, reactive, ref,
 import { shortcutService } from '@/services/shortcutService'
 import { useI18n } from 'vue-i18n'
 import CommandDialog from '@/components/global/CommandDialog.vue'
-// Import global MFA state (local MFA implementation removed)
-// MFA functionality is now handled by global component
-
 import { Terminal } from 'xterm'
 import { FitAddon } from 'xterm-addon-fit'
 import { SearchAddon } from 'xterm-addon-search'
-import { WebglAddon } from 'xterm-addon-webgl'
 import { IDisposable } from 'xterm'
 import 'xterm/css/xterm.css'
 import { editorData } from './Editor/dragEditor.vue'
@@ -133,7 +129,8 @@ const props = defineProps({
     }
   },
   activeTabId: { type: String, required: true },
-  currentConnectionId: { type: String, required: true }
+  currentConnectionId: { type: String, required: true },
+  isActive: { type: Boolean, default: false }
 })
 const queryCommandFlag = ref(false)
 
@@ -540,7 +537,7 @@ onMounted(async () => {
   }
 
   const handleExecuteCommand = (payload: { command: string; tabId?: string }) => {
-    if (props.activeTabId !== props.currentConnectionId) return
+    if (props.activeTabId !== props.currentConnectionId || !props.isActive) return
 
     if (!payload?.command) {
       console.warn('handleExecuteCommand: command is empty')

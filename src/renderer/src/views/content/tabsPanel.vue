@@ -43,6 +43,7 @@
             :connect-data="localTab.data"
             :active-tab-id="localTab.id"
             :current-connection-id="localTab.id"
+            :is-active="isActive"
             @close-tab-in-term="closeTab"
             @create-new-term="createNewTerm"
           />
