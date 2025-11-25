@@ -2,6 +2,7 @@
   <div
     ref="terminalContainer"
     class="terminal-container"
+    :class="{ 'transparent-bg': isTransparent }"
     :data-ssh-connect-id="currentConnectionId"
   >
     <SearchComp
@@ -110,6 +111,7 @@ import { checkUserDevice } from '@api/user/user'
 const { t } = useI18n()
 const selectFlag = ref(false)
 const configStore = userConfigStore()
+const isTransparent = computed(() => !!configStore.getUserConfig.background.image)
 
 interface CommandSuggestion {
   command: string
@@ -3120,6 +3122,10 @@ const isDeleteKeyData = (d: string) => d === '\x7f' || d === '\b' || d === '\x1b
   overflow: hidden;
   padding: 4px 4px 0px 12px;
   position: relative;
+
+  &.transparent-bg {
+    background-color: transparent !important;
+  }
 }
 
 .terminal {
