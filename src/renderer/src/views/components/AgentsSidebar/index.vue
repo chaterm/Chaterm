@@ -82,7 +82,7 @@
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { PlusOutlined, SearchOutlined, DeleteOutlined } from '@ant-design/icons-vue'
-import { getGlobalState } from '@/agent/storage/state'
+import { getGlobalState, updateGlobalState } from '@/agent/storage/state'
 import eventBus from '@/utils/eventBus'
 
 interface Host {
@@ -190,9 +190,6 @@ const loadConversations = async () => {
 
     allConversations.value = historyItems
 
-    // Reset pagination when reloading all conversations
-    currentPage.value = 1
-
     // Load IP addresses for displayed conversations asynchronously (only for items without IP)
     const itemsToLoadIp = paginatedConversations.value.filter((item) => !item.ipAddress)
     await Promise.all(
@@ -248,6 +245,29 @@ const handleDeleteConversation = async (conversationId: string) => {
     if (activeConversationId.value === conversationId) {
       activeConversationId.value = null
     }
+
+    // Remove from globalState taskHistory
+    const taskHistory = ((await getGlobalState('taskHistory')) as TaskHistoryItem[]) || []
+    const updatedHistory = taskHistory.filter((item) => item.id !== conversationId)
+    await updateGlobalState('taskHistory', updatedHistory)
+
+    // Remove from favoriteTaskList if exists
+    const favoriteTaskList = ((await getGlobalState('favoriteTaskList')) as string[]) || []
+    const favoriteIndex = favoriteTaskList.indexOf(conversationId)
+    if (favoriteIndex > -1) {
+      favoriteTaskList.splice(favoriteIndex, 1)
+      await updateGlobalState('favoriteTaskList', favoriteTaskList)
+    }
+
+    // Send message to main process to delete task
+    const message = {
+      type: 'deleteTaskWithId',
+      text: conversationId,
+      taskId: conversationId,
+      cwd: ''
+    }
+    await window.api.sendToMain(message)
+
     emit('conversation-delete', conversationId)
   } catch (error) {
     console.error('Failed to delete conversation:', error)
@@ -349,7 +369,7 @@ onMounted(() => {
 
   // Listen for taskHistory updates from main process
   if (window.api && window.api.onMainMessage) {
-    removeMainMessageListener = window.api.onMainMessage((message: any) => {
+    removeMainMessageListener = window.api.onMainMessage((message: { type?: string }) => {
       if (message?.type === 'taskHistoryUpdated') {
         handleTaskHistoryUpdated()
       }

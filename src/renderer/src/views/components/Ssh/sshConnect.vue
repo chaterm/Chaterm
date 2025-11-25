@@ -468,7 +468,10 @@ onMounted(async () => {
     resizeObserver.observe(terminalContainer.value)
   }
   window.addEventListener('resize', handleResize)
-  window.addEventListener('wheel', handleWheel)
+  // Register wheel event only if pinch zoom is enabled
+  if (config.pinchZoomStatus === 1) {
+    window.addEventListener('wheel', handleWheel)
+  }
   window.addEventListener('keydown', handleGlobalKeyDown)
   window.addEventListener('click', () => {
     if (contextmenu.value && typeof contextmenu.value.hide === 'function') {
@@ -507,10 +510,10 @@ onMounted(async () => {
       const selectedText = termInstance.getSelection().trim()
       if (selectedText) {
         eventBus.emit('openAiRight')
-        nextTick(() => {
+        setTimeout(() => {
           const formattedText = `Terminal output:\n\`\`\`\n${selectedText}\n\`\`\``
           eventBus.emit('chatToAi', formattedText)
-        })
+        }, 100)
         return
       }
     }
@@ -592,6 +595,7 @@ onMounted(async () => {
   eventBus.on('requestUpdateCwdForHost', handleRequestUpdateCwdForHost)
   eventBus.on('updateTheme', handleUpdateTheme)
   eventBus.on('openSearch', openSearch)
+  eventBus.on('pinchZoomStatusChanged', handlePinchZoomStatusChanged)
 
   // Listen for search trigger events from preload (Windows system specific)
   const handlePostMessage = (event: MessageEvent) => {
@@ -625,6 +629,7 @@ onMounted(async () => {
     eventBus.off('sendOrToggleAiFromTerminalForTab', handleSendOrToggleAiForTab)
     eventBus.off('requestUpdateCwdForHost', handleRequestUpdateCwdForHost)
     eventBus.off('openSearch', openSearch)
+    eventBus.off('pinchZoomStatusChanged', handlePinchZoomStatusChanged)
     eventBus.off('clearCurrentTerminal')
     eventBus.off('fontSizeIncrease')
     eventBus.off('fontSizeDecrease')
@@ -669,6 +674,17 @@ const getCmdList = async (systemCommands) => {
   if (!queryCommandFlag.value) {
     console.warn('[Vue] 自动补全功能已禁用')
   }
+}
+
+// Handle pinch zoom status change
+const handlePinchZoomStatusChanged = async (enabled: boolean) => {
+  if (enabled) {
+    window.addEventListener('wheel', handleWheel)
+  } else {
+    window.removeEventListener('wheel', handleWheel)
+  }
+  // Update local config
+  config = await serviceUserConfig.getConfig()
 }
 
 onBeforeUnmount(() => {
@@ -2821,10 +2837,13 @@ const adjustFontSize = async (delta: number) => {
   }
 }
 
-// Handle wheel event for font size adjustment
+// Handle wheel event for font size adjustment (pinch zoom)
 const handleWheel = (e: WheelEvent) => {
   // Only respond if this terminal is the active one
   if (props.activeTabId !== props.currentConnectionId) return
+
+  // Check if pinch zoom is enabled in config
+  if (config && config.pinchZoomStatus !== 1) return
 
   if (e.ctrlKey && terminal.value) {
     e.preventDefault()
@@ -2959,10 +2978,10 @@ const onChatToAiClick = () => {
   if (terminal.value && terminal.value.hasSelection()) {
     const text = terminal.value.getSelection()
     eventBus.emit('openAiRight')
-    nextTick(() => {
+    setTimeout(() => {
       const formattedText = `Terminal output:\n\`\`\`\n${text.trim()}\n\`\`\``
       eventBus.emit('chatToAi', formattedText)
-    })
+    }, 100)
     terminal.value.clearSelection()
   }
 }

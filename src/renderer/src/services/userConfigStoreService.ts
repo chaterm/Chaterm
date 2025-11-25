@@ -21,6 +21,7 @@ export interface UserConfig {
   commonVimStatus: number
   aliasStatus: number
   highlightStatus: number
+  pinchZoomStatus: number
   fontSize: number
   scrollBack: number
   language: string
@@ -91,6 +92,7 @@ export class UserConfigStoreService {
       commonVimStatus: 2,
       aliasStatus: 1,
       highlightStatus: 1,
+      pinchZoomStatus: 1,
       fontSize: 12,
       scrollBack: 1000,
       language: 'zh-CN',

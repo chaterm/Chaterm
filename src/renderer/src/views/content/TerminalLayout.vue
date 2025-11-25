@@ -1,5 +1,78 @@
 <template>
   <a-watermark v-bind="watermarkContent">
+    <div
+      v-if="contextMenu.visible"
+      ref="contextMenuRef"
+      class="context-menu"
+      :style="{ left: contextMenu.x + 'px', top: contextMenu.y + 'px' }"
+      @click.stop
+    >
+      <div
+        class="context-menu-item"
+        @click="closeCurrentPanel"
+      >
+        <span>{{ $t('common.close') }}</span>
+      </div>
+      <div
+        class="context-menu-item"
+        @click="closeOtherPanelsAllGroups"
+      >
+        <span>{{ $t('common.closeOther') }}</span>
+      </div>
+      <div
+        class="context-menu-item"
+        @click="closeAllPanels"
+      >
+        <span>{{ $t('common.closeAll') }}</span>
+      </div>
+      <div
+        class="context-menu-item"
+        @click="renamePanelInline"
+      >
+        <span>{{ $t('common.rename') }}</span>
+      </div>
+      <div
+        class="context-menu-item"
+        @click="createNewPanel(true, 'within')"
+      >
+        <span>{{ $t('common.clone') }}</span>
+      </div>
+      <div
+        class="context-menu-item"
+        @click="createNewPanel(false, 'right')"
+      >
+        <span>{{ $t('common.splitRight') }}</span>
+      </div>
+      <div
+        class="context-menu-item"
+        @click="createNewPanel(false, 'below')"
+      >
+        <span>{{ $t('common.splitDown') }}</span>
+      </div>
+    </div>
+    <div
+      v-if="renaming"
+      :style="{
+        position: 'fixed',
+        left: renameRect.x + 'px',
+        top: renameRect.y + 'px',
+        width: renameRect.width + 'px',
+        height: renameRect.height + 'px',
+        zIndex: 9999,
+        display: 'flex',
+        alignItems: 'stretch'
+      }"
+    >
+      <input
+        ref="renameInputRef"
+        v-model="renamingTitle"
+        class="tab-title-input"
+        style="width: 100%; height: 100%; box-sizing: border-box; padding: 0 6px"
+        @blur="finishRename"
+        @keyup.enter="finishRename"
+        @keyup.esc="cancelRename"
+      />
+    </div>
     <div class="terminal-layout">
       <div class="term_header">
         <Header
@@ -59,108 +132,24 @@
                         class="main-terminal-area"
                         @mousedown="handleMainPaneFocus"
                       >
-                        <TabsPanel
-                          ref="allTabs"
-                          :tabs="openedTabs"
-                          :active-tab="activeTabId"
-                          :active-tab-id="activeTabId"
-                          @close-tab="closeTab"
-                          @create-tab="createTab"
-                          @change-tab="switchTab"
-                          @update-tabs="updateTabs"
-                          @close-all-tabs="closeAllTabs"
-                          @tab-moved-from-other-pane="handleTabMovedToMainPane"
-                          @rename-tab="renameTab"
-                        />
-                      </div>
-                    </pane>
-                    <!-- Vertical split terminal -->
-                    <pane
-                      v-for="(vSplitPane, vIndex) in verticalSplitPanes"
-                      :key="`v-${vIndex}`"
-                      :size="vSplitPane.size"
-                      :min-size="30"
-                    >
-                      <div
-                        class="bottom-sidebar"
-                        tabindex="0"
-                        @mousedown.stop="handleVerticalSplitPaneFocus(vIndex)"
-                      >
-                        <TabsPanel
-                          :tabs="vSplitPane.tabs"
-                          :active-tab="vSplitPane.activeTabId"
-                          :active-tab-id="vSplitPane.activeTabId"
-                          @close-tab="(tabId) => closeVerticalTab(tabId, vIndex)"
-                          @create-tab="(info) => createVerticalTab(info, vIndex)"
-                          @change-tab="(tabId) => switchVerticalTab(tabId, vIndex)"
-                          @update-tabs="(tabs) => updateVerticalTabs(tabs, vIndex)"
-                          @close-all-tabs="() => closeAllVerticalTabs(vIndex)"
-                          @tab-moved-from-other-pane="(evt) => handleTabMovedToVerticalSplitPane(evt, vIndex)"
-                          @rename-tab="(payload) => renameVerticalTab(payload, vIndex)"
-                        />
-                      </div>
-                    </pane>
-                  </splitpanes>
-                </pane>
-                <!-- Horizontal split terminal -->
-                <pane
-                  v-for="(splitPane, index) in splitPanes"
-                  :key="index"
-                  :size="splitPane.size"
-                  :min-size="30"
-                >
-                  <!-- Each right pane also supports vertical split -->
-                  <splitpanes
-                    horizontal
-                    @resize="(params) => onRightPaneVerticalSplitResize(params, index)"
-                  >
-                    <!-- Right pane main window -->
-                    <pane
-                      :size="splitPane.mainVerticalSize || 100"
-                      :min-size="30"
-                    >
-                      <div
-                        class="rigth-sidebar"
-                        tabindex="0"
-                        @mousedown.stop="handleSplitPaneFocus(index)"
-                      >
-                        <TabsPanel
-                          :tabs="splitPane.tabs"
-                          :active-tab="splitPane.activeTabId"
-                          :active-tab-id="splitPane.activeTabId"
-                          @close-tab="(tabId) => closeRightTab(tabId, index)"
-                          @create-tab="(info) => createRightTab(info, index)"
-                          @change-tab="(tabId) => switchRightTab(tabId, index)"
-                          @update-tabs="(tabs) => updateRightTabs(tabs, index)"
-                          @close-all-tabs="() => closeAllRightTabs(index)"
-                          @tab-moved-from-other-pane="(evt) => handleTabMovedToSplitPane(evt, index)"
-                          @rename-tab="(payload) => renameRightTab(payload, index)"
-                        />
-                      </div>
-                    </pane>
-                    <!-- Right pane vertical split -->
-                    <pane
-                      v-for="(vSplitPane, vIndex) in splitPane.verticalSplitPanes || []"
-                      :key="`r-v-${index}-${vIndex}`"
-                      :size="vSplitPane.size"
-                      :min-size="30"
-                    >
-                      <div
-                        class="bottom-sidebar"
-                        tabindex="0"
-                        @mousedown.stop="handleRightPaneVerticalSplitFocus(index, vIndex)"
-                      >
-                        <TabsPanel
-                          :tabs="vSplitPane.tabs"
-                          :active-tab="vSplitPane.activeTabId"
-                          :active-tab-id="vSplitPane.activeTabId"
-                          @close-tab="(tabId) => closeRightVerticalTab(tabId, index, vIndex)"
-                          @create-tab="(info) => createRightVerticalTab(info, index, vIndex)"
-                          @change-tab="(tabId) => switchRightVerticalTab(tabId, index, vIndex)"
-                          @update-tabs="(tabs) => updateRightVerticalTabs(tabs, index, vIndex)"
-                          @close-all-tabs="() => closeAllRightVerticalTabs(index, vIndex)"
-                          @tab-moved-from-other-pane="(evt) => handleTabMovedToRightVerticalSplitPane(evt, index, vIndex)"
-                          @rename-tab="(payload) => renameRightVerticalTab(payload, index, vIndex)"
+                        <transition name="fade">
+                          <div
+                            v-if="!hasPanels"
+                            class="dashboard-overlay"
+                          >
+                            <Dashboard />
+                          </div>
+                        </transition>
+                        <DockviewVue
+                          v-if="configLoaded"
+                          ref="dockviewRef"
+                          :class="currentTheme === 'light' ? 'dockview-theme-light' : 'dockview-theme-dark'"
+                          :style="{
+                            width: '100%',
+                            height: '100%',
+                            visibility: hasPanels ? 'visible' : 'hidden'
+                          }"
+                          @ready="onDockReady"
                         />
                       </div>
                     </pane>
@@ -223,7 +212,7 @@ interface ResizeParams {
 import { useI18n } from 'vue-i18n'
 import { userConfigStore } from '@/services/userConfigStoreService'
 import { userConfigStore as piniaUserConfigStore } from '@/store/userConfigStore'
-import { ref, onMounted, nextTick, onUnmounted, watch, computed } from 'vue'
+import { ref, onMounted, nextTick, onUnmounted, watch, computed, onBeforeUnmount } from 'vue'
 import { Splitpanes, Pane } from 'splitpanes'
 import 'splitpanes/dist/splitpanes.css'
 import AiTab from '@views/components/AiTab/index.vue'
@@ -245,6 +234,7 @@ import { inputManager } from '../components/Ssh/termInputManager'
 import { useRouter } from 'vue-router'
 import { shortcutService } from '@/services/shortcutService'
 import { captureExtensionUsage, ExtensionNames, ExtensionStatus } from '@/utils/telemetry'
+import Dashboard from '@views/components/Ssh/dashboard.vue'
 
 // Define props
 const props = defineProps<{
@@ -387,48 +377,106 @@ const focusRightSidebar = () => {
 }
 
 const switchToNextTab = () => {
-  if (openedTabs.value.length <= 1) return
+  if (!dockApi) {
+    return
+  }
 
-  const currentIndex = openedTabs.value.findIndex((tab) => tab.id === activeTabId.value)
-  if (currentIndex !== -1) {
-    const nextIndex = (currentIndex + 1) % openedTabs.value.length
-    const nextTab = openedTabs.value[nextIndex]
-    if (nextTab) {
-      switchTab(nextTab.id)
+  // 获取所有 panels
+  const panels = dockApi.panels
+
+  if (panels.length <= 1) {
+    return
+  }
+
+  // 获取当前活跃的 panel
+  const activePanel = dockApi.activePanel
+
+  if (!activePanel) {
+    if (panels.length > 0) {
+      panels[0].api.setActive()
     }
+    return
+  }
+
+  // 寻找当前活跃 panel 的索引
+  const currentIndex = panels.findIndex((panel) => panel.id === activePanel.id)
+
+  if (currentIndex === -1) {
+    return
+  }
+
+  // 计算下一个索引（循环）
+  const nextIndex = (currentIndex + 1) % panels.length
+  const nextPanel = panels[nextIndex]
+
+  if (nextPanel) {
+    nextPanel.api.setActive()
   }
 }
 
 const switchToPrevTab = () => {
-  if (openedTabs.value.length <= 1) return
+  if (!dockApi) {
+    return
+  }
 
-  const currentIndex = openedTabs.value.findIndex((tab) => tab.id === activeTabId.value)
-  if (currentIndex !== -1) {
-    const prevIndex = (currentIndex - 1 + openedTabs.value.length) % openedTabs.value.length
-    const prevTab = openedTabs.value[prevIndex]
-    if (prevTab) {
-      switchTab(prevTab.id)
+  const panels = dockApi.panels
+
+  if (panels.length <= 1) {
+    return
+  }
+
+  const activePanel = dockApi.activePanel
+
+  if (!activePanel) {
+    if (panels.length > 0) {
+      panels[panels.length - 1].api.setActive()
     }
+    return
+  }
+
+  const currentIndex = panels.findIndex((panel) => panel.id === activePanel.id)
+
+  if (currentIndex === -1) {
+    return
+  }
+
+  const previousIndex = (currentIndex - 1 + panels.length) % panels.length
+  const previousPanel = panels[previousIndex]
+
+  if (previousPanel) {
+    previousPanel.api.setActive()
   }
 }
 
 const switchToSpecificTab = (tabNumber: number) => {
-  if (tabNumber < 1 || tabNumber > 9) return
+  if (!dockApi) {
+    return
+  }
 
-  // Focus the main panel first
+  if (tabNumber < 1 || tabNumber > 9) {
+    return
+  }
+
   if (focusedPane.value.type !== 'main') {
     focusedPane.value = { type: 'main' }
     focusedSplitPaneIndex.value = null
   }
 
-  // Switch to the specified tab (1-based index)
-  if (openedTabs.value.length >= tabNumber) {
-    const targetTab = openedTabs.value[tabNumber - 1]
-    if (targetTab) {
-      switchTab(targetTab.id)
-    }
+  const panels = dockApi.panels
+
+  if (panels.length < tabNumber) {
+    return
+  }
+
+  const targetIndex = tabNumber - 1
+  const targetPanel = panels[targetIndex]
+
+  if (targetPanel) {
+    switchTab(targetPanel.id)
   }
 }
+
+const configLoaded = ref(false)
 
 onMounted(async () => {
   const store = piniaUserConfigStore()
@@ -449,6 +497,7 @@ onMounted(async () => {
       await userConfigStore.saveConfig(config)
     }
     store.setUserConfig(config)
+    configLoaded.value = true
     currentTheme.value = config.theme || 'dark'
 
     // Delay of 2 seconds to wait for the main thread to complete initializeTelemetrySetting
@@ -880,7 +929,8 @@ const currentClickServer = async (item) => {
     targetPane.tabs.push(newTab)
     targetPane.activeTabId = id_
   } else {
-    openedTabs.value.push(newTab)
+    // openedTabs.value.push(newTab)
+    addDockPanel(newTab)
     activeTabId.value = id_
   }
 
@@ -896,38 +946,9 @@ const needsAuth = (item) => {
   // return authRequiredTypes.includes(item.type || 'term')
 }
 
-const closeTab = (tabId) => {
-  const index = openedTabs.value.findIndex((tab) => tab.id === tabId)
-  const closedTab = openedTabs.value[index]
-  let activeTabType = ''
-  if (index !== -1) {
-    openedTabs.value.splice(index, 1)
-    if (activeTabId.value === tabId) {
-      if (openedTabs.value.length > 0) {
-        const newActiveIndex = Math.max(0, index - 1)
-        activeTabId.value = openedTabs.value[newActiveIndex].id
-        activeTabType = openedTabs.value[newActiveIndex].type
-      } else {
-        activeTabId.value = ''
-        eventBus.emit('activeTabChanged', null)
-      }
-      checkActiveTab(activeTabType)
-    }
-    if (closedTab.type === 'extensions' && extensionsRef.value && closedTab.data?.key) {
-      extensionsRef.value.handleExplorerActive(closedTab.data.key)
-    }
-  }
-}
-
-const closeAllTabs = () => {
-  openedTabs.value = []
-  activeTabId.value = ''
-  eventBus.emit('activeTabChanged', null)
-}
-
 const createTab = (infos) => {
   const id_ = uuidv4()
-  openedTabs.value.push({
+  const tab = {
     id: id_,
     title: infos.title,
     content: infos.content,
@@ -935,9 +956,11 @@ const createTab = (infos) => {
     organizationId: infos.organizationId,
     ip: infos.ip,
     data: infos.data
-  })
+  }
+  // openedTabs.value.push(tab)
   activeTabId.value = id_
   checkActiveTab(infos.type)
+  addDockPanel(tab)
 }
 
 const adjustSplitPaneToEqualWidth = () => {
@@ -953,188 +976,59 @@ const adjustSplitPaneToEqualWidth = () => {
   }
 }
 
-const adjustRightPaneVerticalSplitToEqualHeight = (rightPaneIndex: number) => {
-  const rightPane = splitPanes.value[rightPaneIndex]
-  if (rightPane && rightPane.verticalSplitPanes && rightPane.verticalSplitPanes.length > 0) {
-    const paneCount = rightPane.verticalSplitPanes.length + 1
-    const equalSize = 100 / paneCount
-
-    rightPane.mainVerticalSize = equalSize
-    rightPane.verticalSplitPanes.forEach((pane) => {
-      pane.size = equalSize
-    })
-  }
+const handleCreateSplitTab = (info) => {
+  createNewPanel(false, 'right', 'panel_' + info.id)
 }
 
-const adjustVerticalSplitPaneToEqualHeight = () => {
-  if (showVerticalSplitPane.value) {
-    const paneCount = verticalSplitPanes.value.length + 1
-    const equalSize = 100 / paneCount
-
-    mainVerticalSize.value = equalSize
-    verticalSplitPanes.value.forEach((pane) => {
-      pane.size = equalSize
-    })
-  }
-}
-
-const handleCreateSplitTab = (tabInfo) => {
-  const id_ = uuidv4()
-  const newTab = {
-    ...tabInfo,
-    id: id_
-  }
-
-  if (splitPanes.value.length === 0) {
-    splitPanes.value.push({
-      size: 0,
-      tabs: [newTab],
-      activeTabId: id_,
-      mainVerticalSize: 100,
-      verticalSplitPanes: []
-    })
-    showSplitPane.value = true
-    adjustSplitPaneToEqualWidth()
-  } else {
-    splitPanes.value.push({
-      size: 0,
-      tabs: [newTab],
-      activeTabId: id_,
-      mainVerticalSize: 100,
-      verticalSplitPanes: []
-    })
-    adjustSplitPaneToEqualWidth()
-  }
-
-  checkActiveTab(tabInfo.type)
-}
-
-const handleCreateVerticalSplitTab = (tabInfo) => {
-  const id_ = uuidv4()
-  const newTab = {
-    ...tabInfo,
-    id: id_
-  }
-
-  if (focusedPane.value.type === 'horizontal' && focusedPane.value.index !== undefined && focusedPane.value.index < splitPanes.value.length) {
-    const rightPane = splitPanes.value[focusedPane.value.index]
-    if (!rightPane.verticalSplitPanes) {
-      rightPane.verticalSplitPanes = []
-    }
-
-    if (rightPane.verticalSplitPanes.length === 0) {
-      rightPane.verticalSplitPanes.push({
-        size: 0,
-        tabs: [newTab],
-        activeTabId: id_
-      })
-      adjustRightPaneVerticalSplitToEqualHeight(focusedPane.value.index)
-    } else {
-      rightPane.verticalSplitPanes.push({
-        size: 0,
-        tabs: [newTab],
-        activeTabId: id_
-      })
-      adjustRightPaneVerticalSplitToEqualHeight(focusedPane.value.index)
-    }
-  } else {
-    if (verticalSplitPanes.value.length === 0) {
-      verticalSplitPanes.value.push({
-        size: 0,
-        tabs: [newTab],
-        activeTabId: id_
-      })
-      showVerticalSplitPane.value = true
-      adjustVerticalSplitPaneToEqualHeight()
-    } else {
-      verticalSplitPanes.value.push({
-        size: 0,
-        tabs: [newTab],
-        activeTabId: id_
-      })
-      adjustVerticalSplitPaneToEqualHeight()
-    }
-  }
-
-  checkActiveTab(tabInfo.type)
+const handleCreateVerticalSplitTab = (info) => {
+  createNewPanel(false, 'below', 'panel_' + info.id)
 }
 
 const handleCreateNewTerminal = () => {
-  // Get current active tab info to create new terminal with same configuration
-  const activeTab = openedTabs.value.find((tab) => tab.id === activeTabId.value)
+  if (!dockApi) {
+    return
+  }
+  const activePanel = dockApi.activePanel
 
-  if (activeTab) {
-    // Create new terminal with same configuration as current active tab
+  if (activePanel && activePanel.params) {
+    const params = activePanel.params
+    const data = params.data || {}
+
     const newTerminalInfo = {
-      title: activeTab.title,
-      content: activeTab.content,
-      type: activeTab.type,
-      organizationId: activeTab.organizationId,
-      ip: activeTab.ip,
-      data: activeTab.data
+      title: activePanel.api.title || params.title,
+      content: params.content,
+      type: params.type,
+      organizationId: params.organizationId || data.organizationId,
+      ip: params.ip || data.ip,
+      data: data
     }
 
-    // Create new tab in main terminal area
     createTab(newTerminalInfo)
   } else {
-    // If no active tab, open settings page instead of creating default terminal
     openUserTab('userConfig')
   }
 }
 
-const switchTab = (tabId) => {
-  activeTabId.value = tabId
-  allTabs.value?.resizeTerm(tabId)
-  openedTabs.value.forEach((tab) => {
-    if (tab.id === tabId) {
-      checkActiveTab(tab.type)
-    }
-  })
-}
-
-const updateTabs = (newTabs) => {
-  openedTabs.value = newTabs
-}
-
-const renameTab = (payload: { id: string; title: string }) => {
-  const tab = openedTabs.value.find((t) => t.id === payload.id)
-  if (tab) {
-    tab.title = payload.title
+const switchTab = (panelId: string) => {
+  if (!dockApi) {
+    return
   }
+
+  const panel = dockApi.getPanel(panelId)
+  if (!panel) {
+    return
+  }
+  panel.api.setActive()
+  activeTabId.value = panelId
+  const panelParams = panel.params
+  const panelType = panelParams?.type
+  // TODO
+  if (panelType === 'term' || panelType === 'ssh') {
+    nextTick(() => {})
+  }
+  checkActiveTab(panelType)
 }
 
-const renameVerticalTab = (payload: { id: string; title: string }, vIndex: number) => {
-  const pane = verticalSplitPanes.value[vIndex]
-  if (pane) {
-    const tab = pane.tabs.find((t) => t.id === payload.id)
-    if (tab) {
-      tab.title = payload.title
-    }
-  }
-}
-
-const renameRightTab = (payload: { id: string; title: string }, index: number) => {
-  const pane = splitPanes.value[index]
-  if (pane) {
-    const tab = pane.tabs.find((t) => t.id === payload.id)
-    if (tab) {
-      tab.title = payload.title
-    }
-  }
-}
-
-const renameRightVerticalTab = (payload: { id: string; title: string }, index: number, vIndex: number) => {
-  const pane = splitPanes.value[index]
-  if (pane && pane.verticalSplitPanes) {
-    const vPane = pane.verticalSplitPanes[vIndex]
-    if (vPane) {
-      const tab = vPane.tabs.find((t) => t.id === payload.id)
-      if (tab) {
-        tab.title = payload.title
-      }
-    }
-  }
-}
 onUnmounted(() => {
   eventBus.off('save-state-before-switch')
   shortcutService.destroy()
@@ -1160,9 +1054,11 @@ const openUserTab = async function (value) {
     value === 'mcpConfigEditor' ||
     value === 'securityConfigEditor'
   ) {
-    const existTab = openedTabs.value.find((tab) => tab.content === value)
-    if (existTab) {
-      activeTabId.value = existTab.id
+    if (!dockApi) return
+
+    const existingPanel = dockApi.panels.find((panel) => panel.params?.content === value || panel.params?.type === value)
+    if (existingPanel) {
+      existingPanel.api.setActive()
       return
     }
   }
@@ -1199,116 +1095,43 @@ const changeCompany = () => {
 }
 
 const getActiveTabAssetInfo = async () => {
-  if (!activeTabId.value) {
-    return null
-  }
-  const activeTab = openedTabs.value.find((tab) => tab.id === activeTabId.value)
-  if (!activeTab) {
+  if (!dockApi) {
     return null
   }
 
-  const ip = activeTab.data?.ip
+  const activePanel = dockApi.activePanel
+  if (!activePanel) {
+    return null
+  }
+
+  const params = activePanel.params
+  if (!params) {
+    return null
+  }
+
+  const ip = params.data?.ip || params.ip
   if (!ip) {
     return null
   }
 
   let outputContext = 'Output context not applicable for this tab type.'
 
-  const uuid = activeTab.data?.uuid
+  const uuid = params.data?.uuid || params.uuid
+
   return {
     uuid: uuid,
-    title: activeTab.title,
-    ip: activeTab.ip,
-    organizationId: activeTab.organizationId,
-    type: activeTab.type,
+    title: activePanel.api.title || params.title,
+    ip: params.ip || params.data?.ip,
+    organizationId: params.organizationId || params.data?.organizationId,
+    type: params.type || params.data?.type,
     outputContext: outputContext,
-    tabSessionId: activeTabId.value
+    tabSessionId: activePanel.id
   }
 }
 
 const handleGetActiveTabAssetInfo = async () => {
   const assetInfo = await getActiveTabAssetInfo()
   eventBus.emit('assetInfoResult', assetInfo)
-}
-
-const closeRightTab = (tabId, paneIndex) => {
-  const pane = splitPanes.value[paneIndex]
-  if (!pane) return
-
-  const index = pane.tabs.findIndex((tab) => tab.id === tabId)
-  if (index !== -1) {
-    pane.tabs.splice(index, 1)
-    if (pane.activeTabId === tabId) {
-      if (pane.tabs.length > 0) {
-        const newActiveIndex = Math.max(0, index - 1)
-        pane.activeTabId = pane.tabs[newActiveIndex].id
-      } else {
-        pane.activeTabId = ''
-      }
-    }
-    if (pane.tabs.length === 0) {
-      splitPanes.value.splice(paneIndex, 1)
-      if (splitPanes.value.length === 0) {
-        showSplitPane.value = false
-        mainTerminalSize.value = 100 - (showAiSidebar.value ? aiSidebarSize.value : 0)
-      } else {
-        adjustSplitPaneToEqualWidth()
-      }
-    }
-  }
-}
-
-const createRightTab = (infos, paneIndex) => {
-  const id_ = uuidv4()
-  const newTab = {
-    ...infos,
-    id: id_
-  }
-
-  const pane = splitPanes.value[paneIndex]
-  if (pane) {
-    pane.tabs.push(newTab)
-    pane.activeTabId = id_
-  }
-  checkActiveTab(infos.type)
-}
-
-const switchRightTab = (tabId, paneIndex) => {
-  const pane = splitPanes.value[paneIndex]
-  if (pane) {
-    pane.activeTabId = tabId
-    pane.tabs.forEach((tab) => {
-      if (tab.id === tabId) {
-        checkActiveTab(tab.type)
-      }
-    })
-  }
-}
-
-const updateRightTabs = (newTabs, paneIndex) => {
-  const pane = splitPanes.value[paneIndex]
-  if (pane) {
-    pane.tabs = newTabs
-    if (newTabs.length === 0) {
-      splitPanes.value.splice(paneIndex, 1)
-      if (splitPanes.value.length === 0) {
-        showSplitPane.value = false
-        mainTerminalSize.value = 100 - (showAiSidebar.value ? aiSidebarSize.value : 0)
-      } else {
-        adjustSplitPaneToEqualWidth()
-      }
-    }
-  }
-}
-
-const closeAllRightTabs = (paneIndex) => {
-  splitPanes.value.splice(paneIndex, 1)
-  if (splitPanes.value.length === 0) {
-    showSplitPane.value = false
-    mainTerminalSize.value = 100 - (showAiSidebar.value ? aiSidebarSize.value : 0)
-  } else {
-    adjustSplitPaneToEqualWidth()
-  }
 }
 
 const toggleAiSidebar = () => {
@@ -1369,66 +1192,6 @@ const checkActiveTab = (type) => {
   isShowCommandBar.value = type == 'term' ? true : false
 }
 
-const handleTabMovedToMainPane = (evt) => {
-  const { tab, fromElement } = evt
-  let fromPaneIndex = -1
-  const rightSidebars = document.querySelectorAll('.rigth-sidebar')
-  for (let i = 0; i < rightSidebars.length; i++) {
-    if (rightSidebars[i].contains(fromElement)) {
-      fromPaneIndex = i
-      break
-    }
-  }
-  if (fromPaneIndex !== -1) {
-    const fromPane = splitPanes.value[fromPaneIndex]
-    if (fromPane) {
-      if (fromPane.activeTabId === tab.id && fromPane.tabs.length > 0) {
-        fromPane.activeTabId = fromPane.tabs[fromPane.tabs.length - 1].id
-        nextTick(() => {
-          eventBus.emit('resizeTerminal', fromPane.activeTabId)
-        })
-      }
-    }
-  }
-}
-
-const handleTabMovedToSplitPane = (evt, toPaneIndex) => {
-  const { tab, fromElement } = evt
-  const mainTabsElement = allTabs.value?.$el.querySelector('.tabs-bar')
-  if (mainTabsElement && mainTabsElement.contains(fromElement)) {
-    activeTabId.value = openedTabs.value[openedTabs.value.length - 1].id
-  } else {
-    let fromPaneIndex = -1
-    const rightSidebars = document.querySelectorAll('.rigth-sidebar')
-
-    for (let i = 0; i < rightSidebars.length; i++) {
-      if (rightSidebars[i].contains(fromElement)) {
-        fromPaneIndex = i
-        break
-      }
-    }
-
-    if (fromPaneIndex !== -1 && fromPaneIndex !== toPaneIndex) {
-      const fromPane = splitPanes.value[fromPaneIndex]
-      if (fromPane) {
-        const tabIndex = fromPane.tabs.findIndex((t) => t.id === tab.id)
-        if (tabIndex !== -1) {
-          fromPane.tabs.splice(tabIndex, 1)
-          if (fromPane.tabs.length === 0) {
-            splitPanes.value.splice(fromPaneIndex, 1)
-            if (splitPanes.value.length === 0) {
-              showSplitPane.value = false
-              mainTerminalSize.value = 100 - (showAiSidebar.value ? aiSidebarSize.value : 0)
-            } else {
-              adjustSplitPaneToEqualWidth()
-            }
-          }
-        }
-      }
-    }
-  }
-}
-
 const onVerticalSplitResize = (params) => {
   mainVerticalSize.value = params.prevPane.size
   if (verticalSplitPanes.value.length > 0) {
@@ -1442,228 +1205,9 @@ const onVerticalSplitResize = (params) => {
   }
 }
 
-const closeVerticalTab = (tabId, paneIndex) => {
-  const pane = verticalSplitPanes.value[paneIndex]
-  if (!pane) return
-
-  const index = pane.tabs.findIndex((tab) => tab.id === tabId)
-  if (index !== -1) {
-    pane.tabs.splice(index, 1)
-    if (pane.activeTabId === tabId) {
-      if (pane.tabs.length > 0) {
-        const newActiveIndex = Math.max(0, index - 1)
-        pane.activeTabId = pane.tabs[newActiveIndex].id
-      } else {
-        pane.activeTabId = ''
-      }
-    }
-    if (pane.tabs.length === 0) {
-      verticalSplitPanes.value.splice(paneIndex, 1)
-      if (verticalSplitPanes.value.length === 0) {
-        showVerticalSplitPane.value = false
-        mainVerticalSize.value = 100
-      } else {
-        adjustVerticalSplitPaneToEqualHeight()
-      }
-    }
-  }
-}
-
-const createVerticalTab = (infos, paneIndex) => {
-  const id_ = uuidv4()
-  const newTab = {
-    ...infos,
-    id: id_
-  }
-
-  const pane = verticalSplitPanes.value[paneIndex]
-  if (pane) {
-    pane.tabs.push(newTab)
-    pane.activeTabId = id_
-  }
-  checkActiveTab(infos.type)
-}
-
-const switchVerticalTab = (tabId, paneIndex) => {
-  const pane = verticalSplitPanes.value[paneIndex]
-  if (pane) {
-    pane.activeTabId = tabId
-    pane.tabs.forEach((tab) => {
-      if (tab.id === tabId) {
-        checkActiveTab(tab.type)
-      }
-    })
-  }
-}
-
-const updateVerticalTabs = (newTabs, paneIndex) => {
-  const pane = verticalSplitPanes.value[paneIndex]
-  if (pane) {
-    pane.tabs = newTabs
-    if (newTabs.length === 0) {
-      verticalSplitPanes.value.splice(paneIndex, 1)
-      if (verticalSplitPanes.value.length === 0) {
-        showVerticalSplitPane.value = false
-        mainVerticalSize.value = 100
-      } else {
-        adjustVerticalSplitPaneToEqualHeight()
-      }
-    }
-  }
-}
-
-const closeAllVerticalTabs = (paneIndex) => {
-  verticalSplitPanes.value.splice(paneIndex, 1)
-  if (verticalSplitPanes.value.length === 0) {
-    showVerticalSplitPane.value = false
-    mainVerticalSize.value = 100
-  } else {
-    adjustVerticalSplitPaneToEqualHeight()
-  }
-}
-
-const handleVerticalSplitPaneFocus = (paneIndex: number) => {
-  focusedPane.value = { type: 'vertical', index: paneIndex }
-  focusedSplitPaneIndex.value = null
-}
-
-const handleTabMovedToVerticalSplitPane = (evt, toPaneIndex) => {
-  console.log('Tab moved to vertical split pane:', toPaneIndex)
-}
-
-const handleSplitPaneFocus = (paneIndex: number) => {
-  const rightPane = splitPanes.value[paneIndex]
-  if (rightPane && !rightPane.verticalSplitPanes) {
-    rightPane.verticalSplitPanes = []
-    rightPane.mainVerticalSize = 100
-  }
-  focusedPane.value = { type: 'horizontal', index: paneIndex }
-  focusedSplitPaneIndex.value = paneIndex
-}
-
 const handleMainPaneFocus = () => {
   focusedPane.value = { type: 'main' }
   focusedSplitPaneIndex.value = null
-}
-
-const onRightPaneVerticalSplitResize = (params, rightPaneIndex: number) => {
-  const rightPane = splitPanes.value[rightPaneIndex]
-  if (rightPane) {
-    rightPane.mainVerticalSize = params.prevPane.size
-    if (rightPane.verticalSplitPanes && rightPane.verticalSplitPanes.length > 0) {
-      const startIndex = 1
-      const endIndex = params.panes.length - 1
-      for (let i = startIndex; i <= endIndex; i++) {
-        if (rightPane.verticalSplitPanes[i - 1]) {
-          rightPane.verticalSplitPanes[i - 1].size = params.panes[i].size
-        }
-      }
-    }
-  }
-}
-
-const handleRightPaneVerticalSplitFocus = (rightPaneIndex: number, vPaneIndex: number) => {
-  focusedPane.value = { type: 'rightVertical', index: vPaneIndex, rightPaneIndex: rightPaneIndex }
-  focusedSplitPaneIndex.value = rightPaneIndex
-}
-
-const closeRightVerticalTab = (tabId: string, rightPaneIndex: number, vPaneIndex: number) => {
-  const rightPane = splitPanes.value[rightPaneIndex]
-  if (!rightPane || !rightPane.verticalSplitPanes) return
-
-  const vPane = rightPane.verticalSplitPanes[vPaneIndex]
-  if (!vPane) return
-
-  const index = vPane.tabs.findIndex((tab) => tab.id === tabId)
-  if (index !== -1) {
-    vPane.tabs.splice(index, 1)
-    if (vPane.activeTabId === tabId) {
-      if (vPane.tabs.length > 0) {
-        const newActiveIndex = Math.max(0, index - 1)
-        vPane.activeTabId = vPane.tabs[newActiveIndex].id
-      } else {
-        vPane.activeTabId = ''
-      }
-    }
-    if (vPane.tabs.length === 0) {
-      rightPane.verticalSplitPanes.splice(vPaneIndex, 1)
-      if (rightPane.verticalSplitPanes.length === 0) {
-        rightPane.mainVerticalSize = 100
-        rightPane.verticalSplitPanes = undefined
-      } else {
-        adjustRightPaneVerticalSplitToEqualHeight(rightPaneIndex)
-      }
-    }
-  }
-}
-
-const createRightVerticalTab = (infos: any, rightPaneIndex: number, vPaneIndex: number) => {
-  const id_ = uuidv4()
-  const newTab = {
-    ...infos,
-    id: id_
-  }
-
-  const rightPane = splitPanes.value[rightPaneIndex]
-  if (rightPane && rightPane.verticalSplitPanes) {
-    const vPane = rightPane.verticalSplitPanes[vPaneIndex]
-    if (vPane) {
-      vPane.tabs.push(newTab)
-      vPane.activeTabId = id_
-    }
-  }
-  checkActiveTab(infos.type)
-}
-
-const switchRightVerticalTab = (tabId: string, rightPaneIndex: number, vPaneIndex: number) => {
-  const rightPane = splitPanes.value[rightPaneIndex]
-  if (rightPane && rightPane.verticalSplitPanes) {
-    const vPane = rightPane.verticalSplitPanes[vPaneIndex]
-    if (vPane) {
-      vPane.activeTabId = tabId
-      vPane.tabs.forEach((tab) => {
-        if (tab.id === tabId) {
-          checkActiveTab(tab.type)
-        }
-      })
-    }
-  }
-}
-
-const updateRightVerticalTabs = (newTabs: TabItem[], rightPaneIndex: number, vPaneIndex: number) => {
-  const rightPane = splitPanes.value[rightPaneIndex]
-  if (rightPane && rightPane.verticalSplitPanes) {
-    const vPane = rightPane.verticalSplitPanes[vPaneIndex]
-    if (vPane) {
-      vPane.tabs = newTabs
-      if (newTabs.length === 0) {
-        rightPane.verticalSplitPanes.splice(vPaneIndex, 1)
-        if (rightPane.verticalSplitPanes.length === 0) {
-          rightPane.mainVerticalSize = 100
-          rightPane.verticalSplitPanes = undefined
-        } else {
-          adjustRightPaneVerticalSplitToEqualHeight(rightPaneIndex)
-        }
-      }
-    }
-  }
-}
-
-const closeAllRightVerticalTabs = (rightPaneIndex: number, vPaneIndex: number) => {
-  const rightPane = splitPanes.value[rightPaneIndex]
-  if (rightPane && rightPane.verticalSplitPanes) {
-    rightPane.verticalSplitPanes.splice(vPaneIndex, 1)
-    if (rightPane.verticalSplitPanes.length === 0) {
-      rightPane.mainVerticalSize = 100
-      rightPane.verticalSplitPanes = undefined
-    } else {
-      adjustRightPaneVerticalSplitToEqualHeight(rightPaneIndex)
-    }
-  }
-}
-
-const handleTabMovedToRightVerticalSplitPane = (evt: any, rightPaneIndex: number, vPaneIndex: number) => {
-  console.log('Tab moved to right pane vertical split:', rightPaneIndex, vPaneIndex)
 }
 
 const handleSendOrToggleAiFromTerminal = () => {
@@ -1692,37 +1236,388 @@ const handleModeChange = (mode: 'terminal' | 'agents') => {
 }
 
 const getCurrentActiveTabId = (): string | null => {
-  // Active tab in main panel
-  if (activeTabId.value && openedTabs.value.some((tab) => tab.id === activeTabId.value)) {
-    return activeTabId.value
+  if (!dockApi) {
+    return null
   }
+  const activePanel = dockApi.activePanel
+  return activePanel.params.id
+}
 
-  // Check horizontal split panels
-  for (const pane of splitPanes.value) {
-    if (pane.activeTabId && pane.tabs.length > 0) {
-      return pane.activeTabId
+import 'dockview-vue/dist/styles/dockview.css'
+import { DockviewVue, type DockviewReadyEvent } from 'dockview-vue'
+
+import tabsPanel from './tabsPanel.vue'
+const dockviewRef = ref<InstanceType<typeof DockviewVue> | null>(null)
+const panelCount = ref(0)
+const hasPanels = computed(() => panelCount.value > 0)
+let dockApi: any = null
+
+defineOptions({
+  components: {
+    tabsPanel
+  }
+})
+
+const applyTheme = () => {
+  const updateContainerTheme = (container: Element | null) => {
+    if (!container) return
+
+    container.classList.remove('dockview-theme-abyss')
+
+    if (currentTheme.value === 'light') {
+      container.classList.remove('dockview-theme-dark')
+      container.classList.add('dockview-theme-light')
+    } else {
+      container.classList.remove('dockview-theme-light')
+      container.classList.add('dockview-theme-dark')
     }
   }
 
-  // Check vertical split panels
-  for (const pane of verticalSplitPanes.value) {
-    if (pane.activeTabId && pane.tabs.length > 0) {
-      return pane.activeTabId
+  updateContainerTheme(document.querySelector('.dockview-theme-abyss'))
+  updateContainerTheme(document.querySelector('.dockview-theme-light'))
+  updateContainerTheme(document.querySelector('.dockview-theme-dark'))
+}
+watch(currentTheme, () => {
+  if (dockApi) {
+    nextTick(() => {
+      applyTheme()
+    })
+  }
+})
+const onDockReady = (event: DockviewReadyEvent) => {
+  dockApi = event.api
+
+  dockApi.onDidAddPanel(() => {
+    panelCount.value = dockApi.panels.length
+  })
+
+  dockApi.onDidRemovePanel(() => {
+    panelCount.value = dockApi.panels.length
+  })
+  panelCount.value = dockApi.panels.length
+  nextTick(() => {
+    applyTheme()
+    setupTabContextMenu()
+  })
+}
+const addDockPanel = (params) => {
+  if (!dockApi) return
+
+  const id = 'panel_' + params.id
+  let displayTitle
+  if (params.ip) {
+    displayTitle = params.title
+  } else if (params.title === 'mcpConfigEditor') {
+    displayTitle = t('mcp.configEditor')
+  } else {
+    displayTitle = t(`common.${params.title}`)
+  }
+  dockApi.addPanel({
+    id,
+    component: 'tabsPanel',
+    title: displayTitle,
+    params: {
+      ...params,
+      closeCurrentPanel: (panelId?: string) => closeCurrentPanel(panelId || id),
+      createNewPanel: (isClone: boolean, direction: string, panelId?: string) => createNewPanel(isClone, direction as any, panelId || id)
     }
+  })
+}
+
+const contextMenu = ref({
+  visible: false,
+  x: 0,
+  y: 0,
+  panelId: null as string | null,
+  tabEl: null as HTMLElement | null
+})
+const contextMenuRef = ref<HTMLElement | null>(null)
+
+const hideContextMenu = () => {
+  contextMenu.value.visible = false
+}
+const setupTabContextMenu = () => {
+  // 监听dockview 容器
+  const container = dockviewRef.value?.$el
+  if (!container) return
+  container.addEventListener('contextmenu', (e: MouseEvent) => {
+    const target = e.target as HTMLElement
+    const tabElement = target.closest('.dv-tab') as HTMLElement | null
+    if (tabElement) {
+      e.preventDefault()
+
+      const panelId = findPanelIdFromTab(tabElement)
+      contextMenu.value = {
+        visible: true,
+        x: e.clientX,
+        y: e.clientY,
+        panelId,
+        tabEl: tabElement
+      }
+    } else {
+      hideContextMenu()
+    }
+  })
+
+  const handleMouseDown = (e: MouseEvent) => {
+    if (!contextMenu.value.visible) return
+
+    const target = e.target as HTMLElement
+
+    const inMenu = contextMenuRef.value?.contains(target)
+    const inTab = !!target.closest('.dv-tab')
+
+    if (inMenu || inTab) return
+
+    hideContextMenu()
   }
 
-  // Check vertical split panels in right panes
-  for (const rightPane of splitPanes.value) {
-    if (rightPane.verticalSplitPanes) {
-      for (const vPane of rightPane.verticalSplitPanes) {
-        if (vPane.activeTabId && vPane.tabs.length > 0) {
-          return vPane.activeTabId
+  document.addEventListener('mousedown', handleMouseDown)
+
+  onBeforeUnmount(() => {
+    document.removeEventListener('mousedown', handleMouseDown)
+  })
+}
+
+const findPanelIdFromTab = (tabElement: HTMLElement): string | null => {
+  try {
+    if (dockApi) {
+      for (const panel of dockApi.panels) {
+        const panelGroup = panel.api.group
+        if (panelGroup?.element?.contains(tabElement)) {
+          panelGroup.element.querySelectorAll('.dv-tab')
+          const tabTitle = tabElement.textContent?.trim()
+          const panelTitle = panel.api.title
+          if (tabTitle === panelTitle) {
+            return panel.id
+          }
         }
       }
     }
+    return null
+  } catch (error) {
+    return null
+  }
+}
+
+const createNewPanel = (isClone: boolean, direction: 'left' | 'right' | 'above' | 'below' | 'within', panelId?: string) => {
+  const targetPanelId = panelId || contextMenu.value.panelId
+  if (!dockApi || !targetPanelId) {
+    hideContextMenu()
+    return
   }
 
-  return null
+  const sourcePanel = dockApi.getPanel(targetPanelId)
+  if (!sourcePanel) {
+    hideContextMenu()
+    return
+  }
+
+  const sourceTitle = sourcePanel.api.title ?? sourcePanel.id
+  const sourceComponent = sourcePanel.api.component
+  const rawParams = (sourcePanel as any).api?.panel?._params ?? (sourcePanel as any).panel?._params
+
+  const newIdV4 = uuidv4()
+  let newId = 'panel_' + newIdV4
+  if (isClone) {
+    newId = 'panel_' + rawParams.id + '_clone_' + +Date.now()
+  }
+
+  const params = {
+    ...safeCloneParams(rawParams),
+    currentPanelId: newId,
+    closeCurrentPanel: (pid?: string) => closeCurrentPanel(pid || newId),
+    createNewPanel: (isClone: boolean, direction: string, pid?: string) => createNewPanel(isClone, direction as any, pid || newId)
+  }
+
+  params.id = newIdV4
+  dockApi.addPanel({
+    id: newId,
+    component: sourceComponent,
+    title: sourceTitle,
+    params: params,
+    position: {
+      referencePanel: sourcePanel,
+      direction: direction
+    }
+  })
+
+  hideContextMenu()
+}
+
+const closeCurrentPanel = (panelId?: string) => {
+  let targetPanelId = panelId
+  if (targetPanelId || typeof panelId !== 'string') {
+    targetPanelId = contextMenu.value.panelId
+  }
+  if (!dockApi || !targetPanelId) {
+    closeContextMenu()
+    return
+  }
+
+  const panel = dockApi.getPanel(targetPanelId)
+
+  if (panel) {
+    panel.api.close()
+  }
+
+  closeContextMenu()
+}
+
+const renaming = ref(false)
+const renamingPanelId = ref<string | null>(null)
+const renamingTitle = ref('')
+const renameInputRef = ref<HTMLInputElement | null>(null)
+const renameRect = ref({
+  x: 0,
+  y: 0,
+  width: 0,
+  height: 0
+})
+const renamePanelInline = () => {
+  if (!dockApi || !contextMenu.value.panelId || !contextMenu.value.tabEl) {
+    hideContextMenu()
+    return
+  }
+
+  const panelId = contextMenu.value.panelId
+  const tabEl = contextMenu.value.tabEl
+  const panel = dockApi.getPanel(panelId)
+
+  if (!panel) {
+    hideContextMenu()
+    return
+  }
+
+  const currentTitle = panel.api.title ?? panel.id
+
+  const rect = tabEl.getBoundingClientRect()
+  renameRect.value = {
+    x: rect.left,
+    y: rect.top,
+    width: rect.width,
+    height: rect.height
+  }
+
+  renaming.value = true
+  renamingPanelId.value = panelId
+  renamingTitle.value = currentTitle
+
+  hideContextMenu()
+
+  nextTick(() => {
+    const input = renameInputRef.value
+    if (input) {
+      input.focus()
+      input.select()
+    }
+  })
+}
+
+const finishRename = () => {
+  if (!dockApi || !renamingPanelId.value) {
+    cancelRename()
+    return
+  }
+
+  const title = renamingTitle.value.trim()
+  if (!title) {
+    cancelRename()
+    return
+  }
+
+  const panel = dockApi.getPanel(renamingPanelId.value)
+  if (!panel) {
+    cancelRename()
+    return
+  }
+
+  panel.api.setTitle(title)
+
+  const rawParams = panel.params
+
+  if (rawParams && typeof rawParams === 'object') {
+    ;(rawParams as any).title = title
+    panel.api.updateParameters?.({ ...rawParams })
+  }
+
+  renaming.value = false
+  renamingPanelId.value = null
+  renamingTitle.value = ''
+}
+
+const cancelRename = () => {
+  renaming.value = false
+  renamingPanelId.value = null
+  renamingTitle.value = ''
+}
+
+const closeOtherPanelsAllGroups = () => {
+  if (!dockApi || !contextMenu.value.panelId) {
+    hideContextMenu()
+    return
+  }
+
+  const currentId = contextMenu.value.panelId
+  const panels = [...dockApi.panels]
+
+  for (const panel of panels) {
+    if (panel.id !== currentId) {
+      panel.api.close()
+    }
+  }
+
+  hideContextMenu()
+}
+
+const closeContextMenu = () => {
+  contextMenu.value.visible = false
+}
+
+const closeAllPanels = () => {
+  if (!dockApi || !contextMenu.value.panelId) {
+    hideContextMenu()
+    return
+  }
+  const panels = [...dockApi.panels]
+
+  for (const panel of panels) {
+    panel.api.close()
+  }
+
+  hideContextMenu()
+}
+
+function safeCloneParams<T>(value: T): T {
+  if (
+    value === null ||
+    typeof value === 'string' ||
+    typeof value === 'number' ||
+    typeof value === 'boolean' ||
+    typeof value === 'bigint' ||
+    typeof value === 'symbol'
+  ) {
+    return value
+  }
+
+  if (Array.isArray(value)) {
+    return value.map((item) => safeCloneParams(item)) as unknown as T
+  }
+
+  if (typeof value !== 'object') {
+    return value
+  }
+
+  const proto = Object.getPrototypeOf(value)
+  if (proto !== Object.prototype && proto !== null) {
+    return value
+  }
+
+  const result: any = {}
+  for (const [key, val] of Object.entries(value as any)) {
+    result[key] = safeCloneParams(val as any)
+  }
+  return result as T
 }
 
 defineExpose({
@@ -1938,5 +1833,116 @@ defineExpose({
 .left-sidebar-container .splitpanes__pane {
   transition: none !important;
   animation: none !important;
+}
+
+.context-menu {
+  position: fixed;
+  background-color: var(--bg-color);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  padding: 2px 0;
+  z-index: 1000;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  min-width: 120px;
+  font-size: 12px;
+}
+
+.context-menu-item {
+  padding: 6px 12px;
+  cursor: pointer;
+  color: var(--text-color);
+  transition: background-color 0.2s ease;
+  user-select: none;
+}
+
+.context-menu-item:hover {
+  background-color: var(--hover-bg-color);
+}
+
+.tab-title-input {
+  flex: 1;
+  font-size: 13px;
+  border: 1px solid #007acc;
+  border-radius: 2px;
+  background-color: var(--bg-color);
+  color: var(--text-color);
+  outline: none;
+}
+
+.tab-title-input:focus {
+  border-color: #007acc;
+  box-shadow: 0 0 0 1px #007acc;
+}
+.dockview-theme-light {
+  --dv-paneview-active-outline-color: dodgerblue;
+  --dv-tabs-and-actions-container-font-size: 13px;
+  --dv-tabs-and-actions-container-height: 35px;
+  --dv-drag-over-background-color: rgba(83, 89, 93, 0.5);
+  --dv-drag-over-border-color: transparent;
+  --dv-tabs-container-scrollbar-color: #888;
+  --dv-icon-hover-background-color: rgba(90, 93, 94, 0.31);
+  --dv-floating-box-shadow: 8px 8px 8px 0px rgba(83, 89, 93, 0.5);
+  --dv-overlay-z-index: 999;
+  --dv-tab-font-size: inherit;
+  --dv-border-radius: 0px;
+  --dv-tab-margin: 0;
+  --dv-sash-color: var(--bg-color-secondary);
+  --dv-active-sash-color: transparent;
+  --dv-active-sash-transition-duration: 0.1s;
+  --dv-active-sash-transition-delay: 0.5s;
+  --dv-group-view-background-color: white;
+  --dv-tabs-and-actions-container-background-color: var(--bg-color);
+  --dv-activegroup-visiblepanel-tab-background-color: var(--bg-color-tertiary);
+  --dv-activegroup-hiddenpanel-tab-background-color: var(--bg-color);
+  --dv-inactivegroup-visiblepanel-tab-background-color: white;
+  --dv-inactivegroup-hiddenpanel-tab-background-color: var(--bg-color);
+  --dv-tab-divider-color: white;
+  --dv-activegroup-visiblepanel-tab-color: rgb(51, 51, 51);
+  --dv-activegroup-hiddenpanel-tab-color: rgba(51, 51, 51, 0.7);
+  --dv-inactivegroup-visiblepanel-tab-color: rgba(51, 51, 51, 0.7);
+  --dv-inactivegroup-hiddenpanel-tab-color: rgba(51, 51, 51, 0.35);
+  --dv-separator-border: rgba(128, 128, 128, 0.35);
+  --dv-paneview-header-border-color: rgb(51, 51, 51);
+  --dv-scrollbar-background-color: rgba(0, 0, 0, 0.25);
+}
+.dockview-theme-light .dv-drop-target-container .dv-drop-target-anchor.dv-drop-target-anchor-container-changed {
+  opacity: 0;
+  transition: none;
+}
+
+.dockview-theme-dark {
+  --dv-paneview-active-outline-color: dodgerblue;
+  --dv-tabs-and-actions-container-font-size: 13px;
+  --dv-tabs-and-actions-container-height: 35px;
+  --dv-drag-over-background-color: rgba(83, 89, 93, 0.5);
+  --dv-drag-over-border-color: transparent;
+  --dv-tabs-container-scrollbar-color: #888;
+  --dv-icon-hover-background-color: rgba(90, 93, 94, 0.31);
+  --dv-floating-box-shadow: 8px 8px 8px 0px rgba(83, 89, 93, 0.5);
+  --dv-overlay-z-index: 999;
+  --dv-tab-font-size: inherit;
+  --dv-border-radius: 0px;
+  --dv-tab-margin: 0;
+  --dv-sash-color: var(--bg-color-secondary);
+  --dv-active-sash-color: transparent;
+  --dv-active-sash-transition-duration: 0.1s;
+  --dv-active-sash-transition-delay: 0.5s;
+  --dv-group-view-background-color: #1e1e1e;
+  --dv-tabs-and-actions-container-background-color: var(--bg-color);
+  --dv-activegroup-visiblepanel-tab-background-color: var(--bg-color-tertiary);
+  --dv-activegroup-hiddenpanel-tab-background-color: var(--bg-color);
+  --dv-inactivegroup-visiblepanel-tab-background-color: #1e1e1e;
+  --dv-inactivegroup-hiddenpanel-tab-background-color: var(--bg-color);
+  --dv-tab-divider-color: #1e1e1e;
+  --dv-activegroup-visiblepanel-tab-color: white;
+  --dv-activegroup-hiddenpanel-tab-color: #969696;
+  --dv-inactivegroup-visiblepanel-tab-color: #8f8f8f;
+  --dv-inactivegroup-hiddenpanel-tab-color: #626262;
+  --dv-separator-border: rgb(68, 68, 68);
+  --dv-paneview-header-border-color: rgba(204, 204, 204, 0.2);
+}
+.dockview-theme-dark .dv-drop-target-container .dv-drop-target-anchor.dv-drop-target-anchor-container-changed {
+  opacity: 0;
+  transition: none;
 }
 </style>
