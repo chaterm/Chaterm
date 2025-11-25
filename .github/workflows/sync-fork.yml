@@ -1,0 +1,46 @@
+name: Sync Fork with Upstream
+
+on:
+  schedule:
+    # Runs every 30 minutes
+    - cron: '*/30 * * * *'
+  # Allows manual trigger
+  workflow_dispatch:
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout fork repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Get full git history
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Configure Git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Add upstream remote
+        run: |
+          git remote add upstream https://github.com/chaterm/Chaterm.git || true
+          git remote set-url upstream https://github.com/chaterm/Chaterm.git
+
+      - name: Fetch upstream changes
+        run: git fetch upstream
+
+      - name: Sync main branch (fast-forward only)
+        run: |
+          git checkout main
+          if git merge --ff-only upstream/main; then
+            echo "[INFO] Sync successful! Pushing to fork..."
+            git push origin main
+            echo "[SUCCESS] Fork has been successfully synced to latest version!"
+          else
+            echo "[WARNING] Cannot perform fast-forward merge."
+            echo "Your fork may have unique commits that need manual handling."
+            echo "Please visit GitHub repository to sync manually or resolve conflicts."
+            exit 1
+          fi
