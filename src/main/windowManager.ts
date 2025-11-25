@@ -32,6 +32,7 @@ export async function createMainWindow(onCookieUrlChange?: (url: string) => void
       sandbox: false,
       contextIsolation: true,
       nodeIntegration: false,
+      webSecurity: false, // Allow loading local resources (file://)
       defaultFontFamily: {
         standard: '-apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", "Helvetica Neue", Helvetica, Arial, sans-serif',
         serif: 'serif',
