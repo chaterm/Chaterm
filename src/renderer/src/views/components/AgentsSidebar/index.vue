@@ -190,9 +190,6 @@ const loadConversations = async () => {
 
     allConversations.value = historyItems
 
-    // Reset pagination when reloading all conversations
-    currentPage.value = 1
-
     // Load IP addresses for displayed conversations asynchronously (only for items without IP)
     const itemsToLoadIp = paginatedConversations.value.filter((item) => !item.ipAddress)
     await Promise.all(

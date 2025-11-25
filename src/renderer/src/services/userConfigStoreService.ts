@@ -5,6 +5,13 @@ export interface ShortcutConfig {
   [key: string]: string
 }
 
+export interface BackgroundConfig {
+  mode: 'none' | 'image'
+  image: string
+  opacity: number
+  brightness: number
+}
+
 export interface UserConfig {
   id: string
   updatedAt: number
@@ -14,6 +21,7 @@ export interface UserConfig {
   commonVimStatus: number
   aliasStatus: number
   highlightStatus: number
+  pinchZoomStatus: number
   fontSize: number
   scrollBack: number
   language: string
@@ -40,6 +48,7 @@ export interface UserConfig {
     password?: string
   }>
   workspaceExpandedKeys?: string[]
+  background: BackgroundConfig
 }
 
 export class UserConfigStoreService {
@@ -83,6 +92,7 @@ export class UserConfigStoreService {
       commonVimStatus: 2,
       aliasStatus: 1,
       highlightStatus: 1,
+      pinchZoomStatus: 1,
       fontSize: 12,
       scrollBack: 1000,
       language: 'zh-CN',
@@ -100,17 +110,53 @@ export class UserConfigStoreService {
       sshAgentsStatus: 2,
       sshAgentsMap: '[]',
       sshProxyConfigs: [],
-      workspaceExpandedKeys: []
+      workspaceExpandedKeys: [],
+      background: {
+        mode: 'none',
+        image: '',
+        opacity: 0.8,
+        brightness: 1.0
+      }
     }
   }
 
   async getConfig(): Promise<UserConfig> {
     try {
       const result = await window.api.kvGet({ key: 'userConfig' })
+      let savedConfig: any = {}
       if (result?.value) {
-        return JSON.parse(result.value)
+        savedConfig = JSON.parse(result.value)
       }
-      return this.getDefaultConfig()
+
+      const defaultConfig = this.getDefaultConfig()
+
+      // Migration: If background object is missing but old fields exist, migrate them
+      if (!savedConfig.background) {
+        savedConfig.background = { ...defaultConfig.background }
+
+        if (savedConfig.backgroundImage !== undefined) {
+          savedConfig.background.image = savedConfig.backgroundImage
+        }
+        if (savedConfig.backgroundOpacity !== undefined) {
+          savedConfig.background.opacity = savedConfig.backgroundOpacity
+        }
+        if (savedConfig.backgroundBrightness !== undefined) {
+          savedConfig.background.brightness = savedConfig.backgroundBrightness
+        }
+        if (savedConfig.backgroundMode !== undefined) {
+          savedConfig.background.mode = savedConfig.backgroundMode
+        }
+      }
+
+      // Merge with default config to ensure all fields exist
+      return {
+        ...defaultConfig,
+        ...savedConfig,
+        background: {
+          ...defaultConfig.background,
+          ...(savedConfig.background || {})
+        }
+      }
     } catch (error) {
       console.error('Error getting config from SQLite:', error)
       return this.getDefaultConfig()

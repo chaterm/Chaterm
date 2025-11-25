@@ -5,6 +5,7 @@ import { formatHosts } from '../utils'
 import { useSessionState } from './useSessionState'
 import { focusChatInput } from './useTabManagement'
 import i18n from '@/locales'
+import eventBus from '@/utils/eventBus'
 
 interface HostOption {
   label: string
@@ -19,10 +20,52 @@ interface HostOption {
  * 主机管理的 composable
  * 负责主机选择、搜索、分页加载等功能
  */
-export function useHostManagement(getCurentTabAssetInfo: () => Promise<AssetInfo | null>) {
+export function useHostManagement() {
   const { t } = i18n.global
 
-  const { hosts, chatTypeValue, autoUpdateHost, chatInputValue } = useSessionState()
+  const { hosts, chatTypeValue, autoUpdateHost, chatInputValue, currentChatId } = useSessionState()
+
+  const getCurentTabAssetInfo = async (): Promise<AssetInfo | null> => {
+    try {
+      const assetInfo = await new Promise<AssetInfo | null>((resolve, reject) => {
+        const timeout = setTimeout(() => {
+          eventBus.off('assetInfoResult', handleResult)
+          reject(new Error(t('ai.timeoutGettingAssetInfo')))
+        }, 5000)
+
+        const handleResult = (payload: { assetInfo: AssetInfo | null; tabId?: string } | AssetInfo | null) => {
+          const { assetInfo, tabId } =
+            payload && typeof payload === 'object' && 'assetInfo' in payload
+              ? { assetInfo: payload.assetInfo as AssetInfo | null, tabId: payload.tabId }
+              : { assetInfo: (payload as AssetInfo | null) ?? null, tabId: undefined }
+
+          if (tabId && tabId !== currentChatId.value) {
+            return
+          }
+
+          clearTimeout(timeout)
+          eventBus.off('assetInfoResult', handleResult)
+          resolve(assetInfo)
+        }
+        eventBus.on('assetInfoResult', handleResult)
+        eventBus.emit('getActiveTabAssetInfo', { tabId: currentChatId.value ?? undefined })
+      })
+
+      if (assetInfo) {
+        if (assetInfo.organizationId != 'personal') {
+          assetInfo.connection = 'jumpserver'
+        } else {
+          assetInfo.connection = 'personal'
+        }
+        return assetInfo
+      } else {
+        return null
+      }
+    } catch (error) {
+      console.error('Error getting asset information:', error)
+      return null
+    }
+  }
   const hostSearchInputRef = ref()
   const showHostSelect = ref(false)
 
@@ -401,6 +444,7 @@ export function useHostManagement(getCurentTabAssetInfo: () => Promise<AssetInfo
     loadMoreHosts,
     handleAddHostClick,
     updateHosts,
-    updateHostsForCommandMode
+    updateHostsForCommandMode,
+    getCurentTabAssetInfo
   }
 }

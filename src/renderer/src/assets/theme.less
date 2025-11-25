@@ -124,8 +124,94 @@
 }
 
 // Apply theme variables to components
+// Custom background overrides
 body {
   background-color: var(--bg-color);
+
+  &.has-custom-bg {
+    // Use rgba for background colors to allow the image to show through
+    // The opacity is controlled by --custom-opacity variable
+    
+    // Dark theme overrides
+    &.theme-dark, .theme-dark & {
+      --bg-color: rgba(20, 20, 20, var(--custom-opacity, 0.8));
+      --bg-color-secondary: rgba(30, 30, 30, var(--custom-opacity, 0.8));
+      --bg-color-tertiary: rgba(37, 37, 37, var(--custom-opacity, 0.8));
+      
+      // Ensure other components that might have hardcoded backgrounds are also transparent
+      .ant-layout, .ant-layout-sider, .ant-layout-header, .ant-layout-content, .ant-layout-footer {
+        background: transparent !important;
+      }
+      
+      .terminal-layout, .agents-layout {
+        background: transparent !important;
+      }
+  
+      .left-tab {
+         background-color: var(--bg-color-secondary) !important;
+      }
+
+      // Fix right sidebar transparency (AiTab)
+      .rigth-sidebar {
+        background: rgba(37, 37, 37, var(--custom-opacity, 0.8)) !important;
+      }
+
+      // Fix modals transparency
+      .ant-modal-content, .ant-modal-header {
+        background-color: rgba(37, 37, 37, 0.95) !important;
+        backdrop-filter: blur(10px);
+      }
+
+      // Fix terminal area transparency
+      .terminal-container, .terminal, .xterm-viewport, .xterm-screen {
+        background-color: transparent !important;
+      }
+      
+      .tabs-content, .tab-content, .inner-split-pane {
+        background-color: transparent !important;
+      }
+    }
+  
+    // Light theme overrides
+    &.theme-light, .theme-light & {
+      --bg-color: rgba(255, 255, 255, var(--custom-opacity, 0.8));
+      --bg-color-secondary: rgba(248, 250, 252, var(--custom-opacity, 0.8));
+      --bg-color-tertiary: rgba(241, 245, 249, var(--custom-opacity, 0.8));
+  
+      .ant-layout, .ant-layout-sider, .ant-layout-header, .ant-layout-content, .ant-layout-footer {
+        background: transparent !important;
+      }
+  
+      .terminal-layout, .agents-layout {
+        background: transparent !important;
+      }
+  
+      .left-tab {
+         background-color: var(--bg-color-secondary) !important;
+      }
+
+      // Fix right sidebar transparency (AiTab)
+      .rigth-sidebar {
+        background: rgba(241, 245, 249, var(--custom-opacity, 0.8)) !important;
+      }
+
+      // Fix modals transparency
+      .ant-modal-content, .ant-modal-header {
+        background-color: rgba(255, 255, 255, 0.95) !important;
+        backdrop-filter: blur(10px);
+      }
+
+      // Fix terminal area transparency
+      .terminal-container, .terminal, .xterm-viewport, .xterm-screen {
+        background-color: transparent !important;
+      }
+      
+      .tabs-content, .tab-content, .inner-split-pane {
+        background-color: transparent !important;
+      }
+    }
+  }
+
   color: var(--text-color);
   transition:
     background-color 0.3s ease,

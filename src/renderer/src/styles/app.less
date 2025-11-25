@@ -1,0 +1,34 @@
+/**
+ * App.vue 全局样式
+ * 包含全局重置样式和背景容器样式
+ */
+
+/* 全局样式重置 */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+/* 应用根容器 */
+#app {
+  height: 100vh;
+  width: 100%;
+  overflow: hidden;
+  margin: 0;
+  position: relative;
+}
+
+/* 全局背景层 */
+.global-background {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  z-index: -1;
+  pointer-events: none;
+}

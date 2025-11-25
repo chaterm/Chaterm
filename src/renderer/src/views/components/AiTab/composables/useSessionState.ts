@@ -153,15 +153,10 @@ export const useSessionState = createGlobalState(() => {
     const session = currentSession.value
     const lastMessage = session.chatHistory.at(-1)
 
-    if (session.responseLoading || session.isExecutingCommand || session.showNewTaskButton) {
+    if (!lastMessage) {
       return false
     }
-
-    if (lastMessage?.role === 'assistant' && lastMessage?.say === 'completion_result') {
-      return false
-    }
-
-    return session.chatHistory.length > 0 && !session.resumeDisabled
+    return lastMessage.ask === 'resume_task'
   })
 
   const shouldShowSendButton = computed(() => {
