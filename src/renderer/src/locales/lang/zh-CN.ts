@@ -180,6 +180,7 @@ export default {
     commonVimStatus: '常规定制化Vim',
     aliasStatus: '全局Alias',
     highlightStatus: '全局高亮',
+    pinchZoomStatus: '触摸板缩放字体',
     fontSize: '字体大小(px)',
     fontFamily: '字体',
     cursorStyle: '光标样式',

@@ -85,6 +85,16 @@
           </a-radio-group>
         </a-form-item>
         <a-form-item
+          :label="$t('user.pinchZoomStatus')"
+          class="user_my-ant-form-item"
+        >
+          <a-switch
+            :checked="userConfig.pinchZoomStatus === 1"
+            class="user_my-ant-form-item-content"
+            @change="handlePinchZoomStatusChange"
+          />
+        </a-form-item>
+        <a-form-item
           label="SSH Agents"
           class="user_my-ant-form-item"
         >
@@ -372,6 +382,7 @@ const userConfig = ref({
   middleMouseEvent: 'paste',
   rightMouseEvent: 'contextMenu',
   terminalType: 'vt100',
+  pinchZoomStatus: 1,
   sshAgentsStatus: 2,
   sshAgentsMap: '[]',
   sshProxyStatus: false,
@@ -482,6 +493,11 @@ const handleSshAgentsStatusChange = async (checked) => {
       }
     }
   })
+}
+
+const handlePinchZoomStatusChange = async (checked) => {
+  userConfig.value.pinchZoomStatus = checked ? 1 : 2
+  eventBus.emit('pinchZoomStatusChanged', checked)
 }
 
 // ssh代理
@@ -648,6 +664,7 @@ const saveConfig = async () => {
       middleMouseEvent: userConfig.value.middleMouseEvent,
       rightMouseEvent: userConfig.value.rightMouseEvent,
       terminalType: userConfig.value.terminalType,
+      pinchZoomStatus: userConfig.value.pinchZoomStatus,
       sshAgentsStatus: userConfig.value.sshAgentsStatus,
       sshAgentsMap: userConfig.value.sshAgentsMap,
       sshProxyConfigs: userConfig.value.sshProxyConfigs
