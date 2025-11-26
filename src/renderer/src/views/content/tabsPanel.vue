@@ -4,6 +4,7 @@
       <draggable
         v-model="localTab"
         class="tabs-bar"
+        :class="{ 'transparent-bg': isTransparent }"
         :animation="150"
         handle=".tab-title"
         item-key="id"
@@ -27,7 +28,10 @@
           </div>
         </template>
       </draggable>
-      <div class="tabs-content">
+      <div
+        class="tabs-content"
+        :class="{ 'transparent-bg': isTransparent }"
+      >
         <!-- Terminal tabs with inner split support -->
         <template v-if="localTab.organizationId !== ''">
           <!-- Always use splitpanes structure to keep component instance stable -->
@@ -39,6 +43,7 @@
             :connect-data="localTab.data"
             :active-tab-id="localTab.id"
             :current-connection-id="localTab.id"
+            :is-active="isActive"
             @close-tab-in-term="closeTab"
             @create-new-term="createNewTerm"
           />
@@ -60,6 +65,7 @@
 </template>
 <script setup lang="ts">
 import { computed, ref, ComponentPublicInstance, onMounted, onUnmounted } from 'vue'
+import { userConfigStore } from '@/store/userConfigStore'
 import 'splitpanes/dist/splitpanes.css'
 import UserInfo from '@views/components/LeftTab/userInfo.vue'
 import userConfig from '@views/components/LeftTab/userConfig.vue'
@@ -87,6 +93,8 @@ const props = defineProps<{
 }>()
 
 const localTab = computed(() => props.params.params as TabItem)
+const configStore = userConfigStore()
+const isTransparent = computed(() => !!configStore.getUserConfig.background.image)
 
 const closeTab = () => {
   if (localTab.value?.closeCurrentPanel) {
@@ -222,6 +230,35 @@ defineExpose({
   user-select: none;
   scrollbar-width: thin;
   scrollbar-color: var(--border-color-light) transparent;
+
+  &.transparent-bg {
+    background-color: transparent !important;
+    border-bottom-color: rgba(255, 255, 255, 0.1);
+
+    .tab-item {
+      background-color: rgba(0, 0, 0, 0.2);
+      color: rgba(255, 255, 255, 0.8);
+      border-right-color: rgba(255, 255, 255, 0.1);
+
+      &.active {
+        background-color: rgba(255, 255, 255, 0.15);
+        color: #fff;
+        border-top-color: #007acc;
+      }
+
+      .tab-title {
+        color: inherit;
+      }
+
+      .close-btn {
+        color: rgba(255, 255, 255, 0.6);
+        &:hover {
+          color: #fff;
+          background-color: rgba(255, 255, 255, 0.2);
+        }
+      }
+    }
+  }
 }
 
 .tabs-bar::-webkit-scrollbar {
@@ -286,6 +323,10 @@ defineExpose({
   flex: 1;
   overflow: auto;
   background-color: var(--bg-color);
+
+  &.transparent-bg {
+    background-color: transparent !important;
+  }
 }
 
 .context-menu {

@@ -2,6 +2,7 @@
   <div
     ref="terminalContainer"
     class="terminal-container"
+    :class="{ 'transparent-bg': isTransparent }"
     :data-ssh-connect-id="currentConnectionId"
   >
     <SearchComp
@@ -82,13 +83,9 @@ import { markRaw, onBeforeUnmount, onMounted, PropType, nextTick, reactive, ref,
 import { shortcutService } from '@/services/shortcutService'
 import { useI18n } from 'vue-i18n'
 import CommandDialog from '@/components/global/CommandDialog.vue'
-// Import global MFA state (local MFA implementation removed)
-// MFA functionality is now handled by global component
-
 import { Terminal } from 'xterm'
 import { FitAddon } from 'xterm-addon-fit'
 import { SearchAddon } from 'xterm-addon-search'
-import { WebglAddon } from 'xterm-addon-webgl'
 import { IDisposable } from 'xterm'
 import 'xterm/css/xterm.css'
 import { editorData } from './Editor/dragEditor.vue'
@@ -110,6 +107,7 @@ import { checkUserDevice } from '@api/user/user'
 const { t } = useI18n()
 const selectFlag = ref(false)
 const configStore = userConfigStore()
+const isTransparent = computed(() => !!configStore.getUserConfig.background.image)
 
 interface CommandSuggestion {
   command: string
@@ -131,7 +129,8 @@ const props = defineProps({
     }
   },
   activeTabId: { type: String, required: true },
-  currentConnectionId: { type: String, required: true }
+  currentConnectionId: { type: String, required: true },
+  isActive: { type: Boolean, default: false }
 })
 const queryCommandFlag = ref(false)
 
@@ -538,7 +537,7 @@ onMounted(async () => {
   }
 
   const handleExecuteCommand = (payload: { command: string; tabId?: string }) => {
-    if (props.activeTabId !== props.currentConnectionId) return
+    if (props.activeTabId !== props.currentConnectionId || !props.isActive) return
 
     if (!payload?.command) {
       console.warn('handleExecuteCommand: command is empty')
@@ -3120,6 +3119,10 @@ const isDeleteKeyData = (d: string) => d === '\x7f' || d === '\b' || d === '\x1b
   overflow: hidden;
   padding: 4px 4px 0px 12px;
   position: relative;
+
+  &.transparent-bg {
+    background-color: transparent !important;
+  }
 }
 
 .terminal {
