@@ -258,7 +258,6 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
   eventBus.off('aliasStatusChanged')
-  eventBus.off('updateTheme')
   eventBus.off('reloadPlugins', refreshPlugins)
 })
 
