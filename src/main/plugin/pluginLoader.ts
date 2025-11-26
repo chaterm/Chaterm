@@ -1,0 +1,52 @@
+import * as fs from 'fs'
+import path from 'path'
+import { clearVersionProviders, listPlugins, PluginManifest, registerVersionProvider } from './pluginManager'
+
+interface PluginHost {
+  registerVersionProvider: (fn: () => string | null | Promise<string | null>) => void
+}
+
+export function loadAllPlugins() {
+  const plugins = listPlugins()
+
+  clearVersionProviders()
+
+  for (const p of plugins) {
+    if (!p.enabled) continue
+
+    const manifestPath = path.join(p.path, 'plugin.json')
+    if (!fs.existsSync(manifestPath)) continue
+
+    let manifest: PluginManifest
+    try {
+      manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8')) as PluginManifest
+    } catch (e) {
+      console.error('[pluginLoader] invalid manifest for', p.id, e)
+      continue
+    }
+
+    const entry = path.join(p.path, manifest.main)
+    if (!fs.existsSync(entry)) {
+      console.error('[pluginLoader] main entry not found for', p.id)
+      continue
+    }
+
+    const host: PluginHost = {
+      registerVersionProvider(fn) {
+        registerVersionProvider(p.id, fn)
+      }
+    }
+
+    try {
+      const mod = require(entry)
+      if (typeof mod.register === 'function') {
+        mod.register(host)
+        console.log('[pluginLoader] plugin registered:', p.id)
+      } else {
+        console.log('[pluginLoader] plugin has no register():', p.id)
+      }
+    } catch (e) {
+      console.error('[pluginLoader] load error for', p.id, e)
+    }
+  }
+}

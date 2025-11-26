@@ -1057,7 +1057,8 @@ const openUserTab = async function (value) {
     value === 'userInfo' ||
     value === 'userConfig' ||
     value === 'mcpConfigEditor' ||
-    value === 'securityConfigEditor'
+    value === 'securityConfigEditor' ||
+    value.startsWith('plugins:')
   ) {
     if (!dockApi) return
 
@@ -1091,6 +1092,11 @@ const openUserTab = async function (value) {
       }
       break
     }
+  }
+  if (value.startsWith('plugins:')) {
+    p.title = value.split(':')[1]
+    p.type = 'extensions'
+    p.key = value
   }
   currentClickServer(p)
 }
@@ -1310,7 +1316,7 @@ const addDockPanel = (params) => {
 
   const id = 'panel_' + params.id
   let displayTitle
-  if (params.ip) {
+  if (params.ip || params.content.startsWith('plugins:')) {
     displayTitle = params.title
   } else if (params.title === 'mcpConfigEditor') {
     displayTitle = t('mcp.configEditor')
@@ -1452,7 +1458,7 @@ const createNewPanel = (isClone: boolean, direction: 'left' | 'right' | 'above' 
 
 const closeCurrentPanel = (panelId?: string) => {
   let targetPanelId = panelId
-  if (targetPanelId || typeof panelId !== 'string') {
+  if (!targetPanelId || typeof panelId !== 'string') {
     targetPanelId = contextMenu.value.panelId
   }
   if (!dockApi || !targetPanelId) {

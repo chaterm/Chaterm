@@ -884,7 +884,29 @@ const api = {
   aliasesMutate: (params: { action: string; data?: any; alias?: string }) => ipcRenderer.invoke('db:aliases:mutate', params),
   kvGet: (params: { key?: string }) => ipcRenderer.invoke('db:kv:get', params),
   kvMutate: (params: { action: string; key: string; value?: string }) => ipcRenderer.invoke('db:kv:mutate', params),
-  saveCustomBackground: (sourcePath: string) => ipcRenderer.invoke('saveCustomBackground', sourcePath)
+  saveCustomBackground: (sourcePath: string) => ipcRenderer.invoke('saveCustomBackground', sourcePath),
+
+  // 插件
+  installPlugin(filePath: string) {
+    return ipcRenderer.invoke('plugins.install', filePath)
+  },
+
+  // 卸载插件
+  uninstallPlugin(pluginId: string) {
+    return ipcRenderer.invoke('plugins.uninstall', pluginId)
+  },
+
+  listPlugins() {
+    return ipcRenderer.invoke('plugins.listUi')
+  },
+
+  getPluginsVersion(): Promise<string | null> {
+    return ipcRenderer.invoke('plugins.getPluginsVersion')
+  },
+
+  getPluginDetails(pluginName: string) {
+    return ipcRenderer.invoke('plugins.details', pluginName)
+  }
 }
 // 自定义 API 用于浏览器控制
 
