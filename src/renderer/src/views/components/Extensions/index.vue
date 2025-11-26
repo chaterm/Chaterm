@@ -258,7 +258,6 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
   eventBus.off('aliasStatusChanged')
-  eventBus.off('updateTheme')
   eventBus.off('reloadPlugins', refreshPlugins)
 })
 
@@ -453,5 +452,22 @@ const getIconSrc = (item: { iconKey: string; iconUrl: string; isPlugin: boolean 
   justify-content: center;
   border-radius: 4px;
   z-index: 10;
+}
+
+.transparent-Input {
+  background-color: var(--bg-color-secondary) !important;
+  border: 1px solid var(--border-color) !important;
+
+  :deep(.ant-input) {
+    background-color: var(--bg-color-secondary) !important;
+    color: var(--text-color) !important;
+
+    &::placeholder {
+      color: var(--text-color-tertiary) !important;
+    }
+  }
+  :deep(.ant-input-suffix) {
+    color: var(--text-color-tertiary) !important;
+  }
 }
 </style>
