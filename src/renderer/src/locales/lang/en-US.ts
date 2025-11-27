@@ -406,7 +406,8 @@ export default {
       'Click the button to directly open the security configuration file and manage command execution security policies and whitelist/blacklist settings.',
     securityConfigOpened: 'Opening security configuration file...',
     openSecurityConfigFailed: 'Failed to open security configuration',
-    success: 'Success'
+    success: 'Success',
+    background: 'Background'
   },
   extensions: {
     extensions: 'Extensions',

@@ -404,7 +404,8 @@ export default {
     securityConfigDescribe: '点击按钮直接打开安全配置文件，管理命令执行的安全策略和白名单/黑名单设置。',
     securityConfigOpened: '安全配置文件正在打开...',
     openSecurityConfigFailed: '打开安全配置失败',
-    success: '成功'
+    success: '成功',
+    background: '背景'
   },
   extensions: {
     extensions: '扩展',
