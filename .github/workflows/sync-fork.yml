@@ -31,16 +31,16 @@ jobs:
       - name: Fetch upstream changes
         run: git fetch upstream
 
-      - name: Sync main branch (fast-forward only)
+      - name: Sync main branch (Force Sync)
         run: |
           git checkout main
-          if git merge --ff-only upstream/main; then
-            echo "[INFO] Sync successful! Pushing to fork..."
-            git push origin main
-            echo "[SUCCESS] Fork has been successfully synced to latest version!"
-          else
-            echo "[WARNING] Cannot perform fast-forward merge."
-            echo "Your fork may have unique commits that need manual handling."
-            echo "Please visit GitHub repository to sync manually or resolve conflicts."
-            exit 1
-          fi
+          echo "[INFO] Resetting local main to match upstream/main..."
+          
+          # 1. 强制将本地指针重置到上游状态 (丢弃本地所有差异)
+          git reset --hard upstream/main
+          
+          # 2. 强制推送到你的远程仓库
+          echo "[INFO] Force pushing to origin..."
+          git push origin main --force
+          
+          echo "[SUCCESS] Fork has been successfully force-synced to upstream!"
