@@ -1038,7 +1038,8 @@ useEventBusListeners({
   sendMessageWithContent,
   initModel,
   getCurentTabAssetInfo,
-  updateHosts
+  updateHosts,
+  isAgentMode: props.isAgentMode
 })
 
 // ============================================================================

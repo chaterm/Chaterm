@@ -102,7 +102,7 @@ const COLORS = {
 }
 
 const REGEX_PATTERNS = {
-  ls: /^([drwx-]+)\s+(\d+)\s+(\w+)\s+(\w+)\s+(\d+)\s+([A-Za-z]+\s+\d+\s+(?:\d{2}:\d{2}|\d{4}))\s+(.+)$/,
+  ls: /^([dlrwx-]+)\s+(\d+)\s+(\w+)\s+(\w+)\s+(\d+)\s+([A-Za-z]+\s+\d+\s+(?:\d{1,2}:\d{2}|\d{4}))\s+(.+)$/,
   ps: /^\s*(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+([^\s]+)\s+([^\s]+)\s+([^\s]+)\s+([^\s]+)\s+(.+)/,
   psFlexible: /^\s*(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+([^\s]+)\s+([^\s]+)\s+([^\s]+)\s+([^\s]+)\s+(.+)/,
   psStrict: /^\s*(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+([^\s]+)\s+([^\s]+)\s+([^\s]+)\s+([^\s]+)\s+(.+)$/,
@@ -113,7 +113,7 @@ const REGEX_PATTERNS = {
   psHeaderOnly: /^\s*(UID|PID|PPID|C|STIME|TTY|TIME|CMD)\s*$/,
   // 添加简化ps命令格式支持
   psSimpleHeader: /^\s*(PID|TTY|TIME|CMD)\s+(PID|TTY|TIME|CMD)\s+(PID|TTY|TIME|CMD)\s+(PID|TTY|TIME|CMD)\s*$/,
-  psSimpleData: /^\s*(\d+)\s+([^\s]+)\s+(\d{2}:\d{2}:\d{2})\s+(.+)$/,
+  psSimpleData: /^\s*(\d+)\s+([^\s]+)\s+(\d{1,2}:\d{2}:\d{2})\s+(.+)$/,
   netstat: /^(tcp|udp|tcp6|udp6)\s+(\d+)\s+(\d+)\s+([^\s]+):([^\s]+)\s+([^\s]+):([^\s]+)(?:\s+([A-Z_]+))?(?:\s+(.+))?$/,
   df: /^(.+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+%)\s+(.+)$/,
   error: /error|Error|ERROR|warning|Warning|WARNING|fatal|Fatal|FATAL/i,
@@ -160,7 +160,10 @@ const REGEX_PATTERNS = {
   iptablesProtocol: /\b(all|tcp|udp|icmp|esp|ah)\b/,
   iptablesInterface: /\b(\*|docker0|br-\w+|eth\d+|lo|wlan\d+)\b/,
   iptablesIP: /\b(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}(?:\/\d+)?)\b/,
-  macAddress: /\b([0-9a-fA-F]{2}:[0-9a-fA-F]{2}:[0-9a-fA-F]{2}:[0-9a-fA-F]{2}:[0-9a-fA-F]{2}:[0-9a-fA-F]{2})\b/
+  macAddress: /\b([0-9a-fA-F]{2}:[0-9a-fA-F]{2}:[0-9a-fA-F]{2}:[0-9a-fA-F]{2}:[0-9a-fA-F]{2}:[0-9a-fA-F]{2})\b/,
+  systemctlHeader: /^UNIT\s+LOAD\s+ACTIVE\s+SUB\s+DESCRIPTION/,
+  systemctlService: /^[\w\-@.]+\.service\s+loaded\s+\w+\s+\w+/,
+  systemctlUnit: /^[\w\-@.]+\.(service|socket|target|timer|mount|path|slice|scope)\s+loaded\s+\w+/
 }
 
 /**
@@ -209,26 +212,14 @@ function getStringDisplayWidth(str: string): number {
  * @param minWidth 最小宽度（可选）
  */
 function smartFormatField(text: string, maxWidth: number, color: string, minWidth: number = 1): string {
-  const actualWidth = getStringDisplayWidth(text)
-  // 使用实际内容宽度，但不超过最大宽度，不少于最小宽度
-  const targetWidth = Math.max(minWidth, Math.min(maxWidth, actualWidth))
+  const targetWidth = Math.max(minWidth, maxWidth)
 
-  // 如果文本宽度超过目标宽度，截断文本
-  if (actualWidth > targetWidth) {
-    let truncated = ''
-    let currentWidth = 0
-    for (let i = 0; i < text.length; i++) {
-      const char = text[i]
-      const charWidth = getStringDisplayWidth(char)
-      if (currentWidth + charWidth > targetWidth) {
-        break
-      }
-      truncated += char
-      currentWidth += charWidth
-    }
-    return `${color}${truncated.padEnd(targetWidth)}${COLORS.reset}`
+  if (text.length > targetWidth) {
+    const truncated = text.substring(0, targetWidth)
+    return `${color}${truncated}${COLORS.reset}`
   } else {
-    return `${color}${text.padEnd(targetWidth)}${COLORS.reset}`
+    const padded = text.padEnd(targetWidth)
+    return `${color}${padded}${COLORS.reset}`
   }
 }
 
@@ -290,10 +281,10 @@ const detectFormat = (line: string): FormatDetectionResult | null => {
     // Nginx 访问日志格式：[15/Oct/2025:14:17:39 +0800]
     /\[\d{1,2}\/\w{3}\/\d{4}:\d{2}:\d{2}:\d{2}\s+[+-]\d{4}\]/,
     // 标准日期时间格式
-    /\d{4}-\d{2}-\d{2}[T\s]\d{2}:\d{2}:\d{2}/,
-    /\d{2}:\d{2}:\d{2}/,
-    /\w{3}\s+\d{1,2}\s+\d{2}:\d{2}/,
-    /^[A-Z][a-z]{2}\s+\d{1,2}\s+\d{2}:\d{2}:\d{2}/ // 新增：Aug 26 14:38:31 格式
+    /\d{4}-\d{2}-\d{2}[T\s]\d{1,2}:\d{2}:\d{2}/,
+    /\d{1,2}:\d{2}:\d{2}/,
+    /\w{3}\s+\d{1,2}\s+\d{1,2}:\d{2}/,
+    /^[A-Z][a-z]{2}\s+\d{1,2}\s+\d{1,2}:\d{2}:\d{2}/ // 新增：Aug 26 14:38:31 格式
   ]
 
   // 时间戳检测：即使包含冒号也要检测，因为系统日志经常包含冒号
@@ -319,7 +310,7 @@ const detectFormat = (line: string): FormatDetectionResult | null => {
   }
 
   // 检测表格格式（列对齐的数据）- 更严格的检测，避免误判续行内容
-  const tablePattern = /^[\w\-+.]+\s+[\w\-+.]+\s+[\w\-+.]+/
+  const tablePattern = /^[\w\-+.@]+\s+[\w\-+.@]+\s+[\w\-+.@]+/
 
   // 基于特征判断是否是续行内容（通用方法）
   // 续行特征：1. 以空格开头 2. 以小写字母开头 3. 键值对格式 4. 行长度较短且词汇较少
@@ -585,15 +576,15 @@ const highlightTimestamped = (line: string): string => {
     // 完整日期时间格式 (2025/9/1 11:35:16)
     /(\d{4}\/\d{1,2}\/\d{1,2}\s+\d{1,2}:\d{2}:\d{2})/g,
     // ISO格式日期时间
-    /(\d{4}-\d{2}-\d{2}[T\s]\d{2}:\d{2}:\d{2})/g,
+    /(\d{4}-\d{2}-\d{2}[T\s]\d{1,2}:\d{2}:\d{2})/g,
     // 月日时间格式 (Aug 26 14:38:31) - 包含秒数
-    /(\w{3}\s+\d{1,2}\s+\d{2}:\d{2}:\d{2})/g,
+    /(\w{3}\s+\d{1,2}\s+\d{1,2}:\d{2}:\d{2})/g,
     // 月日时间格式 (Sep 1 11:35) - 不包含秒数
-    /(\w{3}\s+\d{1,2}\s+\d{2}:\d{2})/g,
-    // 纯时间格式 (11:35:16)
-    /(\d{2}:\d{2}:\d{2})/g,
-    // 简单时间格式 (11:35)
-    /(\d{2}:\d{2})/g
+    /(\w{3}\s+\d{1,2}\s+\d{1,2}:\d{2})/g,
+    // 纯时间格式 (3:35:16 或 11:35:16)
+    /(\d{1,2}:\d{2}:\d{2})/g,
+    // 简单时间格式 (3:35 或 11:35)
+    /(\d{1,2}:\d{2})/g
   ]
 
   for (const pattern of patterns) {
@@ -885,7 +876,7 @@ const addTerminalSyntaxHighlighting = (content: string): string => {
     if (
       simpleParts.length === 4 &&
       /^\d+$/.test(simpleParts[0]) &&
-      /^\d{2}:\d{2}:\d{2}$/.test(simpleParts[2]) &&
+      /^\d{1,2}:\d{2}:\d{2}$/.test(simpleParts[2]) &&
       !line.includes('UID') &&
       !line.includes('PPID') &&
       !line.includes('USER')
@@ -899,7 +890,7 @@ const addTerminalSyntaxHighlighting = (content: string): string => {
     }
 
     // 1.1 处理 ls -la 格式的输出（保留原始空格）
-    if (line.match(/^[drwx-]+\s+\d+\s+\w+\s+\w+\s+\d+\s+[A-Za-z]+\s+\d+\s+(?:\d{2}:\d{2}|\d{4})\s+.+$/)) {
+    if (line.match(/^[dlrwx-]+\s+\d+\s+\w+\s+\w+\s+\d+\s+[A-Za-z]+\s+\d+\s+(?:\d{1,2}:\d{2}|\d{4})\s+.+$/)) {
       return highlightLsOutputPreserveSpacing(line)
     }
 
@@ -975,7 +966,7 @@ const addTerminalSyntaxHighlighting = (content: string): string => {
     // 2.3 处理简化ps命令数据行（PID TTY TIME CMD）- 优先检测简化格式
     // 检测格式：数字 终端 时间 命令（4个字段，时间格式为 HH:MM:SS）
     if (
-      line.match(/^\s*\d+\s+\S+\s+\d{2}:\d{2}:\d{2}\s+.+$/) &&
+      line.match(/^\s*\d+\s+\S+\s+\d{1,2}:\d{2}:\d{2}\s+.+$/) &&
       !line.match(/^\s*\d+\s+\d+\s+\d+\s+\d+\s+/) &&
       !line.includes('UID') &&
       !line.includes('PPID') &&
@@ -986,7 +977,7 @@ const addTerminalSyntaxHighlighting = (content: string): string => {
 
     // 2.4 处理 ps 命令数据行 - 保留原始空格信息
     // 检查是否看起来像 ps 行（包含时间格式和数字开头）
-    if (line.match(/^\s*\d+\s+\d+\s+\d+\s+\d+\s+/) && line.match(/\d{2}:\d{2}/)) {
+    if (line.match(/^\s*\d+\s+\d+\s+\d+\s+\d+\s+/) && line.match(/\d{1,2}:\d{2}/)) {
       // 直接对原始行进行高亮处理，保留空格信息
       return highlightPsOutputPreserveSpacing(line)
     }
@@ -994,7 +985,7 @@ const addTerminalSyntaxHighlighting = (content: string): string => {
     // 2.4.1 处理 ps -ef 命令数据行（UID可能是用户名）
     // 检查格式：UID PID PPID C STIME TTY TIME CMD（8个字段，第2、3、4个字段是数字）
     if (
-      line.match(/^\s*\S+\s+\d+\s+\d+\s+\d+\s+\S+\s+\S+\s+\d{2}:\d{2}:\d{2}\s+.+$/) &&
+      line.match(/^\s*\S+\s+\d+\s+\d+\s+\d+\s+\S+\s+\S+\s+\d{1,2}:\d{2}:\d{2}\s+.+$/) &&
       !line.includes('USER') &&
       !line.includes('%CPU') &&
       !line.includes('%MEM')
@@ -1125,7 +1116,17 @@ const addTerminalSyntaxHighlighting = (content: string): string => {
       return highlightIptablesOutput(line)
     }
 
-    // 8.2 处理 free 命令输出
+    // 8.2 处理 systemctl 命令输出
+    if (
+      REGEX_PATTERNS.systemctlHeader.test(line) ||
+      REGEX_PATTERNS.systemctlService.test(line) ||
+      REGEX_PATTERNS.systemctlUnit.test(line) ||
+      (line.includes('.service') && line.includes('loaded') && line.includes('active'))
+    ) {
+      return highlightSystemctlOutput(line)
+    }
+
+    // 8.3 处理 free 命令输出
     if (line.match(/^Mem:|^Swap:/) || line.match(/^\s*total\s+used\s+free\s+shared\s+buff\/cache\s+available/)) {
       return highlightFreeOutput(line)
     }
@@ -1445,7 +1446,7 @@ const highlightLsOutputPreserveSpacing = (line: string): string => {
   let highlighted = line
 
   // 匹配权限字段（第一个字段）
-  highlighted = highlighted.replace(/^([drwx-]+)(\s+)/, (_, permissions, afterSpaces) => {
+  highlighted = highlighted.replace(/^([dlrwx-]+)(\s+)/, (_, permissions, afterSpaces) => {
     return `${key}${permissions}${reset}${afterSpaces}`
   })
 
@@ -1470,7 +1471,7 @@ const highlightLsOutputPreserveSpacing = (line: string): string => {
   })
 
   // 匹配日期字段（第六个字段）
-  highlighted = highlighted.replace(/(\s+)([A-Za-z]+\s+\d+\s+(?:\d{2}:\d{2}|\d{4}))(\s+)/, (_, beforeSpaces, date, afterSpaces) => {
+  highlighted = highlighted.replace(/(\s+)([A-Za-z]+\s+\d+\s+(?:\d{1,2}:\d{2}|\d{4}))(\s+)/, (_, beforeSpaces, date, afterSpaces) => {
     return `${beforeSpaces}${header}${date}${reset}${afterSpaces}`
   })
 
@@ -1480,6 +1481,8 @@ const highlightLsOutputPreserveSpacing = (line: string): string => {
     let nameColor = white // 默认白色
     if (line.startsWith('d')) {
       nameColor = COLORS.info // 目录 - 蓝色
+    } else if (line.startsWith('l')) {
+      nameColor = COLORS.cyan // 符号链接 - 青色
     } else if (line.includes('x')) {
       nameColor = COLORS.success // 可执行文件 - 绿色
     } else if (name.startsWith('.')) {
@@ -2826,6 +2829,59 @@ const highlightFreeOutput = (line: string): string => {
   return highlighted
 }
 
+// systemctl 命令输出高亮
+const highlightSystemctlOutput = (line: string): string => {
+  // 1. header：UNIT LOAD ACTIVE SUB DESCRIPTION
+  if (REGEX_PATTERNS.systemctlHeader.test(line) || (line.includes('UNIT') && line.includes('LOAD') && line.includes('ACTIVE'))) {
+    return highlightSystemctlTableHeader(line)
+  }
+
+  // 2. data
+  if (
+    REGEX_PATTERNS.systemctlService.test(line) ||
+    REGEX_PATTERNS.systemctlUnit.test(line) ||
+    (line.includes('.service') && line.includes('loaded') && line.includes('active'))
+  ) {
+    return highlightSystemctlTableData(line)
+  }
+
+  return line
+}
+
+// systemctl header
+const highlightSystemctlTableHeader = (line: string): string => {
+  const { reset, header } = COLORS
+
+  return `${header}${line}${reset}`
+}
+
+// systemctl
+const highlightSystemctlTableData = (line: string): string => {
+  const { reset, success, error, warning, info, cyan } = COLORS
+
+  let highlighted = line
+
+  // .service
+  highlighted = highlighted.replace(/([\w\-@.]+\.service)/g, `${cyan}$1${reset}`)
+
+  // LOAD
+  highlighted = highlighted.replace(/\bloaded\b/g, `${info}loaded${reset}`)
+  highlighted = highlighted.replace(/\berror\b/g, `${error}error${reset}`)
+  highlighted = highlighted.replace(/\bnot-found\b/g, `${error}not-found${reset}`)
+
+  // ACTIVE
+  highlighted = highlighted.replace(/\bactive\b/g, `${success}active${reset}`)
+  highlighted = highlighted.replace(/\binactive\b/g, `${warning}inactive${reset}`)
+  highlighted = highlighted.replace(/\bfailed\b/g, `${error}failed${reset}`)
+
+  // SUB
+  highlighted = highlighted.replace(/\brunning\b/g, `${success}running${reset}`)
+  highlighted = highlighted.replace(/\bdead\b/g, `${warning}dead${reset}`)
+  highlighted = highlighted.replace(/\bexited\b/g, `${warning}exited${reset}`)
+
+  return highlighted
+}
+
 // df 命令颜色常量 - 提取到函数外部，避免重复创建
 const DF_COLORS = {
   reset: '\x1b[0m',
@@ -2963,7 +3019,7 @@ const highlightTopSystemInfo = (line: string): string => {
   // 使用更精确的匹配，避免重复高亮
 
   // 1. 先匹配完整的时间格式：13:19:49
-  highlighted = highlighted.replace(/(\d{2}:\d{2}:\d{2})/g, (match) => {
+  highlighted = highlighted.replace(/(\d{1,2}:\d{2}:\d{2})/g, (match) => {
     return `${COLORS.cyan}${match}${reset}`
   })
 

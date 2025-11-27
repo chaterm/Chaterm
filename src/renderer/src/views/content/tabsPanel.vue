@@ -43,6 +43,7 @@
             :connect-data="localTab.data"
             :active-tab-id="localTab.id"
             :current-connection-id="localTab.id"
+            :is-active="isActive"
             @close-tab-in-term="closeTab"
             @create-new-term="createNewTerm"
           />
@@ -57,6 +58,12 @@
           <keyChainConfig v-if="localTab.content === 'keyChainConfig'" />
           <McpConfigEditor v-if="localTab.content === 'mcpConfigEditor'" />
           <SecurityConfigEditor v-if="localTab.content === 'securityConfigEditor'" />
+          <PluginDetail
+            v-if="localTab.content.startsWith('plugins:')"
+            :plugin-name="localTab.title"
+            :tab-id="localTab.id"
+            @uninstall-plugin="uninstallPlugin"
+          />
         </template>
       </div>
     </template>
@@ -76,6 +83,7 @@ import Files from '@views/components/Files/index.vue'
 import McpConfigEditor from '@views/components/McpConfigEditor/index.vue'
 import SecurityConfigEditor from '@views/components/SecurityConfigEditor/index.vue'
 import type { IDockviewPanelProps } from 'dockview-vue'
+import PluginDetail from '@views/components/Extensions/pluginDetail.vue'
 
 interface TabItem {
   id: string
@@ -95,9 +103,15 @@ const localTab = computed(() => props.params.params as TabItem)
 const configStore = userConfigStore()
 const isTransparent = computed(() => !!configStore.getUserConfig.background.image)
 
-const closeTab = () => {
+const closeTab = (value) => {
   if (localTab.value?.closeCurrentPanel) {
-    localTab.value.closeCurrentPanel()
+    localTab.value.closeCurrentPanel('panel_' + value)
+  }
+}
+
+const uninstallPlugin = (value) => {
+  if (localTab.value?.closeCurrentPanel) {
+    localTab.value.closeCurrentPanel('panel_' + value)
   }
 }
 
