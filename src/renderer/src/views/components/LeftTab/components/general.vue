@@ -33,7 +33,7 @@
         </a-form-item>
 
         <a-form-item
-          label="背景"
+          :label="$t('user.background')"
           class="user_my-ant-form-item"
         >
           <a-radio-group
