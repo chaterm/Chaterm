@@ -581,18 +581,27 @@
                       @transcription-error="handleTranscriptionError"
                     />
                   </a-tooltip>
-                  <a-button
-                    :disabled="!showSendButton"
-                    size="small"
-                    class="custom-round-button compact-button"
-                    @click="sendMessage('send')"
-                  >
-                    <img
-                      :src="sendIcon"
-                      alt="send"
-                      style="width: 18px; height: 18px"
-                    />
-                  </a-button>
+                  <a-tooltip :title="responseLoading ? $t('ai.interruptTask') : ''">
+                    <a-button
+                      size="small"
+                      class="custom-round-button compact-button"
+                      @click="responseLoading ? handleInterrupt() : sendMessage('send')"
+                    >
+                      <img
+                        v-if="responseLoading"
+                        :src="stopIcon"
+                        alt="stop"
+                        class="interrupt-icon"
+                        style="width: 18px; height: 18px"
+                      />
+                      <img
+                        v-else
+                        :src="sendIcon"
+                        alt="send"
+                        style="width: 18px; height: 18px"
+                      />
+                    </a-button>
+                  </a-tooltip>
                 </div>
               </div>
             </div>
@@ -857,6 +866,7 @@ import foldIcon from '@/assets/icons/fold.svg'
 import historyIcon from '@/assets/icons/history.svg'
 import plusIcon from '@/assets/icons/plus.svg'
 import sendIcon from '@/assets/icons/send.svg'
+import stopIcon from '@/assets/icons/stop.svg'
 import uploadIcon from '@/assets/icons/upload.svg'
 
 // ============================================================================
@@ -924,7 +934,6 @@ const {
   showCancelButton,
   chatHistory,
   filteredChatHistory,
-  showSendButton,
   buttonsDisabled,
   showResumeButton
 } = useSessionState()
@@ -1007,6 +1016,10 @@ const {
   currentTodos,
   clearTodoState
 })
+
+const handleInterrupt = () => {
+  handleCancel()
+}
 
 // Tab 管理
 const { createNewEmptyTab, restoreHistoryTab, handleTabRemove } = useTabManagement({
