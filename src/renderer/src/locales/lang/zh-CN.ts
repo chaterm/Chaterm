@@ -728,7 +728,8 @@ export default {
       '当前窗口不是执行命令的服务器窗口。\n目标服务器: {targetServer}\n当前窗口: {currentWindow}\n\n请切换到正确的服务器窗口后再执行命令。',
     nonTerminalWindow: '非终端窗口',
     commandExecutedOnLocalhost: '在本地主机执行的命令',
-    timeoutGettingAssetInfo: '获取资产信息超时'
+    timeoutGettingAssetInfo: '获取资产信息超时',
+    interruptTask: '中断任务'
   },
   keyChain: {
     newKey: '添加密钥',

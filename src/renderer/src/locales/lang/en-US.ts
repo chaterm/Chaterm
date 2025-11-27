@@ -731,7 +731,8 @@ export default {
       'Current window is not the server window for executing commands.\nTarget server: {targetServer}\nCurrent window: {currentWindow}\n\nPlease switch to the correct server window before executing commands.',
     nonTerminalWindow: 'Non-terminal window',
     commandExecutedOnLocalhost: 'Command executed on localhost',
-    timeoutGettingAssetInfo: 'Timeout getting asset information'
+    timeoutGettingAssetInfo: 'Timeout getting asset information',
+    interruptTask: 'Interrupt Task'
   },
   keyChain: {
     newKey: 'New Key',
