@@ -1,5 +1,8 @@
 export default {
   common: {
+    command_group: '命令组',
+    command_add: '新增',
+    command_edit: '编辑',
     language: '简体中文',
     workspace: '工作空间',
     files: '文件管理',
@@ -62,7 +65,8 @@ export default {
     reset: '重置',
     confirm: '确认',
     ok: '确定',
-    quickCommandOn: '快捷命令(已开)',
+    deleteConfirm: '确认删除',
+    deleteConfirmContent: '确定要删除这个快捷命令吗？',
     quickCommand: '快捷命令',
     fileManager: '文件管理',
     add: '添加',
@@ -107,7 +111,8 @@ export default {
     serviceUnavailable: '服务不可用',
     terminalMode: 'Terminal',
     agentsMode: 'Agents',
-    daysAgo: '天前'
+    daysAgo: '天前',
+    run: '执行'
   },
   term: {
     welcome: '欢迎使用 Chaterm',
@@ -624,6 +629,7 @@ export default {
     noMatchingHosts: '无匹配主机',
     copy: '复制',
     run: '执行',
+    paste: '粘贴',
     reject: '拒绝',
     approve: '批准',
     addAutoApprove: '添加为自动批准',
@@ -923,7 +929,8 @@ export default {
     copy: '复制',
     copied: '已复制',
     copyFailed: '复制失败',
-    seconds: '秒数'
+    seconds: '秒数',
+    milliseconds: '毫秒数'
   },
   mcp: {
     title: '工具与 MCP',

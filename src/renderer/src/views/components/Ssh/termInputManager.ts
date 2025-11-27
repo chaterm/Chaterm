@@ -11,30 +11,6 @@ interface ComponentEntry {
 
 export const componentInstances = ref<ComponentEntry[]>([])
 export const isGlobalInput = ref(false)
-export const isShowQuickCommand = ref(false)
-
-const initQuickCommandState = async () => {
-  try {
-    const config = await userConfigStore.getConfig()
-    isShowQuickCommand.value = config.quickComand || false
-  } catch (error) {
-    console.error('Failed to load quick command state:', error)
-  }
-}
-
-const saveQuickCommandState = async (enabled: boolean) => {
-  try {
-    await userConfigStore.saveConfig({ quickComand: enabled })
-  } catch (error) {
-    console.error('Failed to save quick command state:', error)
-  }
-}
-
-initQuickCommandState()
-
-watch(isShowQuickCommand, (newValue) => {
-  saveQuickCommandState(newValue)
-})
 
 export const isShowCommandBar = ref(false)
 export const activeTermId = ref<string>('')
@@ -58,20 +34,14 @@ watch(
   { deep: true }
 )
 
-watch([isGlobalInput, isShowQuickCommand], ([globalInput, quickCommand]) => {
-  updateCommandBarHeight(globalInput, quickCommand)
+watch(isGlobalInput, (globalInput) => {
+  updateCommandBarHeight(globalInput)
 })
 
-const updateCommandBarHeight = (globalInput: boolean, quickCommand: boolean) => {
-  if (globalInput || quickCommand) {
+const updateCommandBarHeight = (globalInput: boolean) => {
+  if (globalInput) {
     commandBarVisible.value = true
-    if (globalInput && quickCommand) {
-      commandBarHeight.value = DEFAULT_COMMAND_BAR_HEIGHT + DEFAULT_GLOBAL_INPUT_HEIGHT
-    } else if (globalInput) {
-      commandBarHeight.value = DEFAULT_GLOBAL_INPUT_HEIGHT
-    } else if (quickCommand) {
-      commandBarHeight.value = DEFAULT_COMMAND_BAR_HEIGHT
-    }
+    commandBarHeight.value = DEFAULT_GLOBAL_INPUT_HEIGHT
   } else {
     commandBarVisible.value = false
     commandBarHeight.value = 0

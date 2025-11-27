@@ -108,10 +108,21 @@ CREATE INDEX IF NOT EXISTS idx_context_updated_at ON agent_context_history_v1(up
 
 CREATE TABLE IF NOT EXISTS user_snippet_v1 (
   id INTEGER PRIMARY KEY AUTOINCREMENT,                -- 新增自增主键
+  uuid TEXT UNIQUE,                                     -- 唯一ID
   created_at INTEGER DEFAULT (strftime('%s', 'now')),  -- 写入时间戳
   updated_at INTEGER DEFAULT (strftime('%s', 'now')),  -- 更新时间戳
   snippet_name TEXT NOT NULL,                           -- 快捷命令名称
-  snippet_content TEXT NOT NULL                        -- 快捷命令内容
+  snippet_content TEXT NOT NULL,                        -- 快捷命令内容
+  group_uuid TEXT,                                      -- 分组UUID
+  sort_order INTEGER DEFAULT 0                          -- 排序字段
+);
+
+CREATE TABLE IF NOT EXISTS user_snippet_groups_v1 (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  uuid TEXT UNIQUE NOT NULL,                            -- 分组UUID
+  group_name TEXT NOT NULL,
+  created_at INTEGER DEFAULT (strftime('%s', 'now')),
+  updated_at INTEGER DEFAULT (strftime('%s', 'now'))
 );
 CREATE TABLE IF NOT EXISTS t_organization_assets (
   id INTEGER PRIMARY KEY AUTOINCREMENT,             -- 资源ID

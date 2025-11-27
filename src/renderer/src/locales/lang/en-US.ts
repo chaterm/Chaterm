@@ -1,5 +1,8 @@
 export default {
   common: {
+    command_group: 'Snippet Group',
+    command_add: 'New Snippet',
+    command_edit: 'Edit Snippet',
     language: 'English',
     workspace: 'WorkSpace',
     files: 'Files',
@@ -62,8 +65,9 @@ export default {
     reset: 'Reset',
     confirm: 'Confirm',
     ok: 'OK',
-    quickCommandOn: 'Quick Command (On) ',
-    quickCommand: 'Quick Command',
+    deleteConfirm: 'Delete Confirmation',
+    deleteConfirmContent: 'Are you sure you want to delete this snippet?',
+    quickCommand: 'Snippets',
     fileManager: 'File Manager',
     add: 'Add',
     all: 'All',
@@ -107,7 +111,8 @@ export default {
     serviceUnavailable: 'Service unavailable',
     terminalMode: 'Terminal',
     agentsMode: 'Agents',
-    daysAgo: ' days ago'
+    daysAgo: ' days ago',
+    run: 'Run'
   },
   term: {
     welcome: 'Welcome to use Chaterm',
@@ -924,7 +929,8 @@ export default {
     copy: 'Copy',
     copied: 'Copied',
     copyFailed: 'Copy failed',
-    seconds: 'seconds'
+    seconds: 'seconds',
+    milliseconds: 'milliseconds'
   },
   mcp: {
     title: 'Tools & MCP',

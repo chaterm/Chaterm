@@ -47,14 +47,27 @@ function parseSshScript(text: string): ParsedCommand[] {
  * @param commands The array of command objects from the parser.
  * @param terminal The terminal instance to write to.
  */
-async function executeParsedCommands(commands: ParsedCommand[], terminal: { write: (data: string) => void }) {
-  for (const cmd of commands) {
+async function executeParsedCommands(commands: ParsedCommand[], terminal: { write: (data: string) => void }, autoExecute: boolean) {
+  // Find the index of the last COMMAND
+  let lastCommandIndex = -1
+  for (let i = commands.length - 1; i >= 0; i--) {
+    if (commands[i].type === 'COMMAND') {
+      lastCommandIndex = i
+      break
+    }
+  }
+
+  for (let i = 0; i < commands.length; i++) {
+    const cmd = commands[i]
     switch (cmd.type) {
-      case 'COMMAND':
-        terminal.write(cmd.payload + '\r') // Send command with a carriage return
+      case 'COMMAND': {
+        const isLast = i === lastCommandIndex
+        const suffix = isLast && !autoExecute ? '' : '\r'
+        terminal.write(cmd.payload + suffix) // Send command with optional carriage return
         break
+      }
       case 'SLEEP':
-        await new Promise((resolve) => setTimeout(resolve, cmd.payload * 1000))
+        await new Promise((resolve) => setTimeout(resolve, cmd.payload))
         break
       case 'KEY':
         terminal.write(keyMap[cmd.payload])
@@ -70,8 +83,9 @@ async function executeParsedCommands(commands: ParsedCommand[], terminal: { writ
  * This is the main function to be called from the UI.
  * @param scriptContent The raw string content of the script.
  * @param terminal The terminal instance to execute the script in.
+ * @param autoExecute Whether to execute the last command (append \r). Default is true.
  */
-export async function executeScript(scriptContent: string, terminal: { write: (data: string) => void }) {
+export async function executeScript(scriptContent: string, terminal: { write: (data: string) => void }, autoExecute: boolean = true) {
   const commands = parseSshScript(scriptContent)
-  await executeParsedCommands(commands, terminal)
+  await executeParsedCommands(commands, terminal, autoExecute)
 }

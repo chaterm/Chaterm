@@ -255,6 +255,40 @@ function upgradeTAssetsTable(db: Database.Database): void {
   }
 }
 
+function upgradeSnippetGroups(db: Database.Database): void {
+  try {
+    // Check if group_uuid column exists in user_snippet_v1
+    try {
+      db.prepare('SELECT group_uuid FROM user_snippet_v1 LIMIT 1').get()
+    } catch (error) {
+      db.exec('ALTER TABLE user_snippet_v1 ADD COLUMN group_uuid TEXT')
+      console.log('Added group_uuid column to user_snippet_v1')
+    }
+
+    // Check if uuid column exists in user_snippet_v1
+    try {
+      db.prepare('SELECT uuid FROM user_snippet_v1 LIMIT 1').get()
+    } catch (error) {
+      db.exec('ALTER TABLE user_snippet_v1 ADD COLUMN uuid TEXT')
+      console.log('Added uuid column to user_snippet_v1')
+
+      // Backfill uuid for existing records
+      const existingRecords = db.prepare("SELECT id FROM user_snippet_v1 WHERE uuid IS NULL OR uuid = ''").all()
+      if (existingRecords.length > 0) {
+        db.transaction(() => {
+          const updateUuidStmt = db.prepare('UPDATE user_snippet_v1 SET uuid = ? WHERE id = ?')
+          existingRecords.forEach((record: any) => {
+            updateUuidStmt.run(uuidv4(), record.id)
+          })
+        })()
+        console.log(`Backfilled uuid for ${existingRecords.length} existing user_snippet_v1 records`)
+      }
+    }
+  } catch (error) {
+    console.error('Failed to upgrade snippet groups:', error)
+  }
+}
+
 export async function initDatabase(userId?: number): Promise<Database.Database> {
   const isSkippedLogin = !userId && localStorage.getItem('login-skipped') === 'true'
   const targetUserId = userId || (isSkippedLogin ? getGuestUserId() : currentUserId)
@@ -351,7 +385,10 @@ export async function initChatermDatabase(userId?: number): Promise<Database.Dat
         upgradeUserSnippetTable(mainDb)
         upgradeAgentTaskMetadataSupport(mainDb)
         upgradeMcpToolStateSupport(mainDb)
+        upgradeMcpToolStateSupport(mainDb)
+        upgradeMcpToolStateSupport(mainDb)
         upgradeMcpToolCallSupport(mainDb)
+        upgradeSnippetGroups(mainDb)
       } finally {
         if (mainDb) mainDb.close()
         if (initDb) initDb.close()

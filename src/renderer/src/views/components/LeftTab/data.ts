@@ -10,6 +10,11 @@ const menuTabsData = [
     icon: new URL('@/assets/menu/key.svg', import.meta.url).href
   },
   {
+    name: 'Snippets',
+    key: 'snippets',
+    icon: new URL('@/assets/menu/extensions.svg', import.meta.url).href
+  },
+  {
     name: 'Files',
     key: 'files',
     icon: new URL('@/assets/menu/files.svg', import.meta.url).href
