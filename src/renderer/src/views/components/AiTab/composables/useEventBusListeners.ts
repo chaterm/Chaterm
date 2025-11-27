@@ -9,6 +9,7 @@ interface UseEventBusListenersParams {
   initModel: () => Promise<void>
   getCurentTabAssetInfo: () => Promise<AssetInfo | null>
   updateHosts: (hostInfo: { ip: string; uuid: string; connection: string } | null) => void
+  isAgentMode?: boolean
 }
 
 interface TabInfo {
@@ -24,7 +25,7 @@ interface TabInfo {
  * 集中管理所有 eventBus 相关的监听器注册和清理
  */
 export function useEventBusListeners(params: UseEventBusListenersParams) {
-  const { sendMessageWithContent, initModel, getCurentTabAssetInfo, updateHosts } = params
+  const { sendMessageWithContent, initModel, getCurentTabAssetInfo, updateHosts, isAgentMode = false } = params
   const { chatTabs, chatInputValue, currentSession, autoUpdateHost } = useSessionState()
 
   // 资产信息初始化
@@ -46,6 +47,11 @@ export function useEventBusListeners(params: UseEventBusListenersParams) {
   }
 
   const handleSendMessageToAi = async (payload: { content: string; tabId?: string }) => {
+    if (isAgentMode) {
+      console.log('Ignoring sendMessageToAi event in agent mode')
+      return
+    }
+
     const { content, tabId } = payload
 
     if (!content || content.trim() === '') {
@@ -65,6 +71,10 @@ export function useEventBusListeners(params: UseEventBusListenersParams) {
   }
 
   const handleChatToAi = async (text: string) => {
+    if (isAgentMode) {
+      console.log('Ignoring chatToAi event in agent mode')
+      return
+    }
     console.log('before handleChatToAi:', text)
     console.log('current chatInputValue:', chatInputValue.value)
     if (chatInputValue.value.trim()) {

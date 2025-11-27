@@ -286,10 +286,12 @@ const onAccountLogin = async () => {
   }
   try {
     loading.value = true
+    const localPlugins = await api.getPluginsVersion()
     const res = await userLogin({
       username: accountForm.username,
       password: accountForm.password,
-      macAddress: deviceStore.getMacAddress
+      macAddress: deviceStore.getMacAddress,
+      localPlugins: localPlugins
     })
     if (res && (res as any).code === 200 && (res as any).data && (res as any).data.token) {
       localStorage.setItem('ctm-token', (res as any).data.token)
@@ -322,10 +324,12 @@ const onEmailLogin = async () => {
   }
   try {
     loading.value = true
+    const localPlugins = await api.getPluginsVersion()
     const res = await emailLogin({
       email: emailForm.email,
       code: emailForm.code,
-      macAddress: deviceStore.getMacAddress
+      macAddress: deviceStore.getMacAddress,
+      localPlugins: localPlugins
     })
     if (res && (res as any).code === 200 && (res as any).data && (res as any).data.token) {
       localStorage.setItem('ctm-token', (res as any).data.token)

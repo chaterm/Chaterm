@@ -1,5 +1,5 @@
-import { app, shell, BrowserWindow, ipcMain, session } from 'electron'
-import { join } from 'path'
+import { app, shell, BrowserWindow, ipcMain, session, net, protocol } from 'electron'
+import path, { join } from 'path'
 import { electronApp } from '@electron-toolkit/utils'
 import { is } from '@electron-toolkit/utils'
 import axios from 'axios'
@@ -28,6 +28,12 @@ import { registerUpdater } from './updater'
 import { telemetryService, checkIsFirstLaunch, getMacAddress } from './agent/services/telemetry/TelemetryService'
 import { envelopeEncryptionService } from './storage/data_sync/envelope_encryption/service'
 import { versionPromptService } from './version/versionPromptService'
+
+import * as fsSync from 'fs'
+import { pathToFileURL } from 'url'
+import { loadAllPlugins } from './plugin/pluginLoader'
+import { installPlugin, listPlugins, PluginManifest, uninstallPlugin, getAllPluginVersions } from './plugin/pluginManager'
+import { getPluginDetailsByName } from './plugin/pluginDetails'
 
 let mainWindow: BrowserWindow
 let COOKIE_URL = 'http://localhost'
@@ -95,6 +101,27 @@ app.whenReady().then(async () => {
   if (process.platform === 'darwin') {
     app.dock.setIcon(join(__dirname, '../../resources/icon.png'))
   }
+
+  protocol.handle('local-resource', (request) => {
+    let filePath = request.url.slice('local-resource://'.length)
+    filePath = decodeURIComponent(filePath)
+
+    if (filePath.length >= 2 && /[A-Z]/.test(filePath[0]) && filePath[1] === '/') {
+      filePath = filePath[0] + ':' + filePath.slice(1)
+    } else if (process.platform !== 'win32' && !filePath.startsWith('/') && !filePath.includes(':')) {
+      if (filePath.startsWith('Users/') || filePath.startsWith('home/') || filePath.startsWith('var/') || filePath.startsWith('opt/')) {
+        filePath = '/' + filePath
+      }
+    }
+
+    try {
+      const fileUrl = pathToFileURL(filePath).toString()
+      return net.fetch(fileUrl)
+    } catch (error) {
+      console.error('Error in local-resource handler:', error)
+      return new Response('File Not Found', { status: 404 })
+    }
+  })
 
   // Register window drag handler (register only once)
   ipcMain.handle('custom-adsorption', (_, res) => {
@@ -1757,6 +1784,58 @@ ipcMain.handle('capture-telemetry-event', async (_, { eventType, data }) => {
     console.error('Failed to capture telemetry event:', error)
     return { success: false, error: error instanceof Error ? error.message : 'Unknown error' }
   }
+})
+
+// 插件
+
+ipcMain.handle('plugins.install', async (_event, pluginFilePath: string) => {
+  const record = installPlugin(pluginFilePath)
+  loadAllPlugins()
+  return record
+})
+
+ipcMain.handle('plugins.uninstall', async (_event, pluginName: string) => {
+  uninstallPlugin(pluginName)
+  loadAllPlugins()
+  return { ok: true }
+})
+
+ipcMain.handle('plugins.listUi', async () => {
+  const registry = listPlugins()
+  const uiItems: any[] = []
+
+  for (const p of registry) {
+    const manifestPath = path.join(p.path, 'plugin.json')
+    if (!fsSync.existsSync(manifestPath)) continue
+
+    const manifest = JSON.parse(fsSync.readFileSync(manifestPath, 'utf8')) as PluginManifest
+
+    let iconUrl: string | null = null
+    if (manifest.icon) {
+      const iconFsPath = path.join(p.path, manifest.icon)
+      if (fsSync.existsSync(iconFsPath)) {
+        iconUrl = pathToFileURL(iconFsPath).toString()
+      }
+    }
+
+    uiItems.push({
+      id: p.id,
+      version: p.version,
+      enabled: p.enabled,
+      name: manifest.displayName ?? manifest.id,
+      description: manifest.description ?? '',
+      iconUrl,
+      tabName: p.id
+    })
+  }
+
+  return uiItems
+})
+ipcMain.handle('plugins.getPluginsVersion', async () => {
+  return await getAllPluginVersions()
+})
+ipcMain.handle('plugins.details', async (_event, pluginName: string) => {
+  return getPluginDetailsByName(pluginName)
 })
 
 // Register the agreement before the app is ready
