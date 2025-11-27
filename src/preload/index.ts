@@ -906,7 +906,10 @@ const api = {
 
   getPluginDetails(pluginName: string) {
     return ipcRenderer.invoke('plugins.details', pluginName)
-  }
+  },
+
+  // XTS 文件解析
+  parseXtsFile: (data: { data: number[]; fileName: string }) => ipcRenderer.invoke('parseXtsFile', data)
 }
 // 自定义 API 用于浏览器控制
 

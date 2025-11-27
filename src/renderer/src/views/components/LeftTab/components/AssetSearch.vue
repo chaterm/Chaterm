@@ -19,17 +19,35 @@
           class="action-button"
           @click="handleNewAsset"
         >
-          <template #icon><DatabaseOutlined /></template>
+          <template #icon>
+            <DatabaseOutlined />
+          </template>
           {{ t('personal.newHost') }}
         </a-button>
-        <a-button
-          size="small"
-          class="action-button"
-          @click="handleImport"
+        <a-tooltip
+          placement="bottom"
+          :mouse-enter-delay="0.5"
         >
-          <template #icon><ImportOutlined /></template>
-          {{ t('personal.import') }}
-        </a-button>
+          <template #title>
+            <div class="import-tooltip">
+              <div class="tooltip-title">{{ t('personal.supportedFormats') }}</div>
+              <div class="format-item">JSON - Chaterm {{ t('personal.standardFormat') }}</div>
+              <div class="format-item">XSH/XTS - XShell {{ t('personal.sessionFiles') }}</div>
+              <div class="format-item">INI/XML - SecureCRT {{ t('personal.configFiles') }}</div>
+              <div class="format-item">MXTSESSIONS - MobaXterm {{ t('personal.sessionFiles') }}</div>
+            </div>
+          </template>
+          <a-button
+            size="small"
+            class="action-button"
+            @click="handleImport"
+          >
+            <template #icon>
+              <ImportOutlined />
+            </template>
+            {{ t('personal.import') }}
+          </a-button>
+        </a-tooltip>
 
         <a-tooltip :title="t('personal.importHelp')">
           <a-button
@@ -37,7 +55,9 @@
             class="action-button help-button"
             @click="showImportHelp"
           >
-            <template #icon><QuestionCircleOutlined /></template>
+            <template #icon>
+              <QuestionCircleOutlined />
+            </template>
           </a-button>
         </a-tooltip>
 
@@ -46,7 +66,9 @@
           class="action-button"
           @click="handleExport"
         >
-          <template #icon><ExportOutlined /></template>
+          <template #icon>
+            <ExportOutlined />
+          </template>
           {{ t('personal.export') }}
         </a-button>
       </div>
@@ -55,7 +77,7 @@
     <input
       ref="fileInputRef"
       type="file"
-      accept=".json"
+      accept=".json,.csv,.xsh,.xts,.ini,.xml,.mxtsessions"
       style="display: none"
       @change="handleFileSelect"
     />
@@ -63,7 +85,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch } from 'vue'
+import { ref, watch, h } from 'vue'
 import { SearchOutlined, DatabaseOutlined, ImportOutlined, ExportOutlined, QuestionCircleOutlined } from '@ant-design/icons-vue'
 import { message, Modal } from 'ant-design-vue'
 import i18n from '@/locales'
@@ -89,6 +111,7 @@ const emit = defineEmits<{
   search: [value: string]
   'new-asset': []
   'import-assets': [assets: any[]]
+  'import-file': [data: { file: File; type: string }]
   'export-assets': []
 }>()
 
@@ -128,28 +151,69 @@ const handleFileSelect = (event: Event) => {
 
   if (!file) return
 
-  const reader = new FileReader()
-  reader.onload = (e) => {
-    try {
-      const content = e.target?.result as string
-      const assets = JSON.parse(content)
+  const fileName = file.name.toLowerCase()
+  const fileExtension = fileName.split('.').pop()
 
-      if (Array.isArray(assets)) {
-        emit('import-assets', assets)
-        message.success(t('personal.importSuccess'))
-      } else {
-        message.error(t('personal.importFormatError'))
-      }
-    } catch (error) {
-      console.error('Import file parsing error:', error)
-      message.error(t('personal.importError'))
-    }
+  //Intelligent recognition of file types
+  let importType = 'unknown'
+
+  if (fileExtension === 'json') {
+    importType = 'json'
+  } else if (['xsh', 'xts'].includes(fileExtension || '') || fileName.includes('xshell')) {
+    importType = 'xshell'
+  } else if (['ini', 'xml'].includes(fileExtension || '') || fileName.includes('securecrt')) {
+    importType = 'securecrt'
+  } else if (fileExtension === 'mxtsessions' || fileName.includes('mobaxterm')) {
+    importType = 'mobaxterm'
   }
 
-  reader.readAsText(file)
+  if (importType === 'unknown') {
+    message.error(t('personal.unsupportedFileFormat'))
+    showSupportedFormatsDialog()
+    return
+  }
 
-  // Clear the file input field to allow selecting the same file again
+  //Process files
+  if (importType === 'json') {
+    //Existing JSON processing logic
+    const reader = new FileReader()
+    reader.onload = (e) => {
+      try {
+        const content = e.target?.result as string
+        const assets = JSON.parse(content)
+        if (Array.isArray(assets)) {
+          emit('import-assets', assets)
+          message.success(t('personal.importSuccess'))
+        } else {
+          message.error(t('personal.importFormatError'))
+        }
+      } catch (error) {
+        console.error('Import file parsing error:', error)
+        message.error(t('personal.importError'))
+      }
+    }
+    reader.readAsText(file)
+  } else {
+    // //XShell, SecureCRT, and MobaXterm file processing
+    emit('import-file', { file, type: importType })
+  }
+
   target.value = ''
+}
+
+const showSupportedFormatsDialog = () => {
+  Modal.info({
+    title: t('personal.unsupportedFileFormat'),
+    content: h('div', [
+      h('p', t('personal.pleaseSelectSupportedFormat')),
+      h('div', { class: 'supported-formats-list' }, [
+        h('div', 'JSON - Chaterm ' + t('personal.standardFormat')),
+        h('div', 'XSH/XTS - XShell ' + t('personal.sessionFiles')),
+        h('div', 'INI/XML - SecureCRT ' + t('personal.configFiles')),
+        h('div', 'MXTSESSIONS - MobaXterm ' + t('personal.sessionFiles'))
+      ])
+    ])
+  })
 }
 
 const showImportHelp = () => {
@@ -181,6 +245,8 @@ ${t('personal.importFormatExample')}
     "asset_type": "person"
   }
 ]
+
+${t('personal.importFormatThirdPartyNote')}
   `.trim()
 
   Modal.info({
@@ -215,6 +281,7 @@ ${t('personal.importFormatExample')}
   :deep(.ant-input) {
     background-color: var(--bg-color-secondary) !important;
     color: var(--text-color) !important;
+
     &::placeholder {
       color: var(--text-color-tertiary) !important;
     }
@@ -257,6 +324,35 @@ ${t('personal.importFormatExample')}
   &.help-button {
     padding: 0 8px;
     min-width: 32px;
+  }
+}
+
+.import-tooltip {
+  max-width: 280px;
+
+  .tooltip-title {
+    font-weight: 500;
+    margin-bottom: 8px;
+    color: #fff;
+  }
+
+  .format-item {
+    margin-bottom: 4px;
+    font-size: 12px;
+    line-height: 1.4;
+    color: rgba(255, 255, 255, 0.85);
+  }
+}
+
+.supported-formats-list {
+  margin-top: 12px;
+
+  div {
+    margin-bottom: 8px;
+    padding: 4px 8px;
+    background-color: #f5f5f5;
+    border-radius: 4px;
+    font-size: 13px;
   }
 }
 
