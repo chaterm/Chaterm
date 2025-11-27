@@ -278,6 +278,7 @@ if (!(window as any).lastCloseTime) {
   ;(window as any).lastCloseTime = 0
 }
 let termOndata: IDisposable | null = null
+let termOnBinary: IDisposable | null = null
 let handleInput
 let textareaCompositionListener: ((e: CompositionEvent) => void) | null = null
 let textareaPasteListener: (() => void) | null = null
@@ -622,6 +623,7 @@ onMounted(async () => {
 
   cleanupListeners.value.push(() => {
     eventBus.off('updateTheme', handleUpdateTheme)
+
     eventBus.off('executeTerminalCommand', handleExecuteCommand)
     eventBus.off('autoExecuteCode', autoExecuteCode)
     eventBus.off('getCursorPosition', handleGetCursorPosition)
@@ -968,6 +970,10 @@ const connectSSH = async () => {
     termOndata.dispose()
     termOndata = null
   }
+  if (termOnBinary) {
+    termOnBinary?.dispose()
+    termOnBinary = null
+  }
 
   if (terminal.value) {
     const textarea = terminal.value.element?.querySelector('.xterm-helper-textarea') as HTMLTextAreaElement | null
@@ -1149,7 +1155,10 @@ const connectLocalSSH = async () => {
     termOndata.dispose()
     termOndata = null
   }
-
+  if (termOnBinary) {
+    termOnBinary?.dispose()
+    termOnBinary = null
+  }
   if (terminal.value) {
     const textarea = terminal.value.element?.querySelector('.xterm-helper-textarea') as HTMLTextAreaElement | null
     if (textarea) {
@@ -1553,6 +1562,10 @@ const setupTerminalInput = () => {
     termOndata.dispose()
     termOndata = null
   }
+  if (termOnBinary) {
+    termOnBinary?.dispose()
+    termOnBinary = null
+  }
 
   handleInput = async (data, isInputManagerCall = true) => {
     if (isInputManagerCall && isSyncInput.value) {
@@ -1764,7 +1777,7 @@ const setupTerminalInput = () => {
   }
   termOndata = terminal.value?.onData(handleInput)
 
-  termOndata = terminal.value?.onBinary((data) => {
+  termOnBinary = terminal.value?.onBinary((data) => {
     sendBinaryData(data)
   })
 }
@@ -2765,6 +2778,8 @@ const contextAct = (action) => {
       disconnectSSH()
       termOndata?.dispose()
       termOndata = null
+      termOnBinary?.dispose()
+      termOnBinary = null
       break
     case 'reconnect':
       connectSSH()

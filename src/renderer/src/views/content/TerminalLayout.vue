@@ -492,6 +492,9 @@ onMounted(async () => {
   eventBus.on('updateTheme', (theme) => {
     const actualTheme = getActualTheme(theme)
     currentTheme.value = actualTheme
+    if (dockApi) {
+      applyTheme()
+    }
     document.documentElement.className = `theme-${actualTheme}`
   })
   try {
@@ -1288,13 +1291,6 @@ const applyTheme = () => {
   updateContainerTheme(document.querySelector('.dockview-theme-light'))
   updateContainerTheme(document.querySelector('.dockview-theme-dark'))
 }
-watch(currentTheme, () => {
-  if (dockApi) {
-    nextTick(() => {
-      applyTheme()
-    })
-  }
-})
 const onDockReady = (event: DockviewReadyEvent) => {
   dockApi = event.api
 

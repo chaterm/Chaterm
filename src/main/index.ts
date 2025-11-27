@@ -108,11 +108,14 @@ app.whenReady().then(async () => {
 
     if (filePath.length >= 2 && /[A-Z]/.test(filePath[0]) && filePath[1] === '/') {
       filePath = filePath[0] + ':' + filePath.slice(1)
+    } else if (process.platform !== 'win32' && !filePath.startsWith('/') && !filePath.includes(':')) {
+      if (filePath.startsWith('Users/') || filePath.startsWith('home/') || filePath.startsWith('var/') || filePath.startsWith('opt/')) {
+        filePath = '/' + filePath
+      }
     }
-    filePath = decodeURIComponent(filePath)
+
     try {
       const fileUrl = pathToFileURL(filePath).toString()
-
       return net.fetch(fileUrl)
     } catch (error) {
       console.error('Error in local-resource handler:', error)
