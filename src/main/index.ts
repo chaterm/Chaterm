@@ -2329,14 +2329,26 @@ ipcMain.handle('open-external-login', async () => {
     // 获取MAC地址
     const macAddress = getMacAddress()
 
+    // 获取本地插件版本信息
+    let localPluginsEncoded = ''
+    try {
+      const localPlugins = await getAllPluginVersions()
+      const localPluginsJson = JSON.stringify(localPlugins)
+      localPluginsEncoded = encodeURIComponent(localPluginsJson)
+    } catch (error) {
+      console.error('Failed to get plugin versions:', error)
+      // 如果获取失败，使用空对象
+      localPluginsEncoded = encodeURIComponent(JSON.stringify({}))
+    }
+
     // 根据IP地址选择不同的登录URL
     let externalLoginUrl
     if (isMainlandChinaIpAddress) {
       // 中国大陆IP使用国内服务器
-      externalLoginUrl = `https://chaterm.intsig.net/login?client_id=chaterm&state=${state}&redirect_uri=chaterm://auth/callback&mac_address=${encodeURIComponent(macAddress)}`
+      externalLoginUrl = `https://chaterm.intsig.net/login?client_id=chaterm&state=${state}&redirect_uri=chaterm://auth/callback&mac_address=${encodeURIComponent(macAddress)}&local_plugins=${localPluginsEncoded}`
     } else {
       // 非中国大陆IP使用国际服务器
-      externalLoginUrl = `https://login.chaterm.ai/login?client_id=chaterm&state=${state}&redirect_uri=chaterm://auth/callback&mac_address=${encodeURIComponent(macAddress)}`
+      externalLoginUrl = `https://login.chaterm.ai/login?client_id=chaterm&state=${state}&redirect_uri=chaterm://auth/callback&mac_address=${encodeURIComponent(macAddress)}&local_plugins=${localPluginsEncoded}`
     }
 
     // 在 Linux 平台上，将状态保存到本地存储，以便新实例可以访问
