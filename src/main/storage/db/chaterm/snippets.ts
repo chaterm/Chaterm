@@ -1,13 +1,18 @@
 import Database from 'better-sqlite3'
+import { v4 as uuidv4 } from 'uuid'
 
 // Shortcut command related methods
-export function userSnippetOperationLogic(db: Database.Database, operation: 'list' | 'create' | 'delete' | 'update' | 'swap', params?: any): any {
+export function userSnippetOperationLogic(
+  db: Database.Database,
+  operation: 'list' | 'create' | 'delete' | 'update' | 'swap' | 'listGroups' | 'createGroup' | 'updateGroup' | 'deleteGroup',
+  params?: any
+): any {
   try {
     switch (operation) {
       case 'list':
         // Query all data in the table, ordered by sort_order
         const listStmt = db.prepare(`
-            SELECT id, snippet_name, snippet_content, created_at, updated_at, sort_order
+            SELECT id, uuid, snippet_name, snippet_content, group_uuid, created_at, updated_at, sort_order
             FROM user_snippet_v1
             ORDER BY sort_order ASC, id ASC
           `)
@@ -33,13 +38,15 @@ export function userSnippetOperationLogic(db: Database.Database, operation: 'lis
           // Get current maximum sort value
           const maxSortResult = db.prepare('SELECT MAX(sort_order) as max_sort FROM user_snippet_v1').get() as { max_sort: number | null }
           const nextSortOrder = (maxSortResult.max_sort || 0) + 10
+          const uuid = uuidv4()
 
           // Insert new record
           const createStmt = db.prepare(`
-              INSERT INTO user_snippet_v1 (snippet_name, snippet_content, sort_order)
-              VALUES (?, ?, ?)
+              INSERT INTO user_snippet_v1 (uuid, snippet_name, snippet_content, group_uuid, sort_order)
+              VALUES (?, ?, ?, ?, ?)
             `)
-          return createStmt.run(params.snippet_name, params.snippet_content, nextSortOrder)
+          const result = createStmt.run(uuid, params.snippet_name, params.snippet_content, params.group_uuid || null, nextSortOrder)
+          return { ...result, uuid }
         })()
 
         return {
@@ -47,7 +54,8 @@ export function userSnippetOperationLogic(db: Database.Database, operation: 'lis
           data: {
             message: createResult.changes > 0 ? 'success' : 'failed',
             insertedId: createResult.lastInsertRowid,
-            insertedCount: createResult.changes
+            insertedCount: createResult.changes,
+            uuid: createResult.uuid
           }
         }
 
@@ -83,10 +91,11 @@ export function userSnippetOperationLogic(db: Database.Database, operation: 'lis
             UPDATE user_snippet_v1 
             SET snippet_name = ?, 
                 snippet_content = ?, 
+                group_uuid = ?,
                 updated_at = strftime('%s', 'now')
             WHERE id = ?
           `)
-        const updateResult = updateStmt.run(params.snippet_name, params.snippet_content, params.id)
+        const updateResult = updateStmt.run(params.snippet_name, params.snippet_content, params.group_uuid || null, params.id)
         return {
           code: 200,
           data: {
@@ -164,10 +173,78 @@ export function userSnippetOperationLogic(db: Database.Database, operation: 'lis
           }
         }
 
+      case 'listGroups':
+        const listGroupsStmt = db.prepare('SELECT * FROM user_snippet_groups_v1 ORDER BY created_at ASC')
+        const groups = listGroupsStmt.all() || []
+        return {
+          code: 200,
+          data: {
+            groups
+          },
+          message: 'success'
+        }
+
+      case 'createGroup':
+        if (!params || !params.group_name) {
+          return {
+            code: 400,
+            message: 'group_name is required for createGroup operation'
+          }
+        }
+        const uuid = uuidv4()
+        const createGroupStmt = db.prepare('INSERT INTO user_snippet_groups_v1 (uuid, group_name) VALUES (?, ?)')
+        const createGroupResult = createGroupStmt.run(uuid, params.group_name)
+        return {
+          code: 200,
+          data: {
+            message: createGroupResult.changes > 0 ? 'success' : 'failed',
+            insertedId: createGroupResult.lastInsertRowid,
+            insertedCount: createGroupResult.changes,
+            uuid
+          }
+        }
+
+      case 'updateGroup':
+        if (!params || !params.uuid || !params.group_name) {
+          return {
+            code: 400,
+            message: 'uuid and group_name are required for updateGroup operation'
+          }
+        }
+        const updateGroupStmt = db.prepare("UPDATE user_snippet_groups_v1 SET group_name = ?, updated_at = strftime('%s', 'now') WHERE uuid = ?")
+        const updateGroupResult = updateGroupStmt.run(params.group_name, params.uuid)
+        return {
+          code: 200,
+          data: {
+            message: updateGroupResult.changes > 0 ? 'success' : 'failed',
+            updatedCount: updateGroupResult.changes
+          }
+        }
+
+      case 'deleteGroup':
+        if (!params || !params.uuid) {
+          return {
+            code: 400,
+            message: 'uuid is required for deleteGroup operation'
+          }
+        }
+        // Transaction to delete group and set group_uuid to null for snippets in this group
+        const deleteGroupResult = db.transaction(() => {
+          db.prepare('UPDATE user_snippet_v1 SET group_uuid = NULL WHERE group_uuid = ?').run(params.uuid)
+          return db.prepare('DELETE FROM user_snippet_groups_v1 WHERE uuid = ?').run(params.uuid)
+        })()
+        return {
+          code: 200,
+          data: {
+            message: deleteGroupResult.changes > 0 ? 'success' : 'failed',
+            deletedCount: deleteGroupResult.changes
+          }
+        }
+
       default:
         return {
           code: 400,
-          message: 'Invalid operation. Supported operations: list, create, delete, update, swap'
+          message: 'Invalid operation. Supported operations: list, create, delete, update, swap, listGroups, createGroup, updateGroup, deleteGroup'
         }
     }
   } catch (error) {

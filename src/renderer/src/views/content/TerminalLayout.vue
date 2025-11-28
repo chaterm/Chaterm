@@ -113,6 +113,7 @@
                 :toggle-sidebar="toggleSideBar"
                 @open-user-tab="openUserTab"
               />
+              <Snippets v-if="currentMenu == 'snippets'" />
             </pane>
             <pane :size="100 - leftPaneSize">
               <splitpanes @resize="onMainSplitResize">
@@ -223,8 +224,9 @@ import Header from '@views/components/Header/index.vue'
 import LeftTab from '@views/components/LeftTab/index.vue'
 import Workspace from '@views/components/Workspace/index.vue'
 import Extensions from '@views/components/Extensions/index.vue'
+import Snippets from '@views/components/LeftTab/components/snippets.vue'
 import TabsPanel from './tabsPanel.vue'
-import QuickCommandBar from '@/views/components/Ssh/quickCommandBar.vue'
+
 import { reactive } from 'vue'
 import { v4 as uuidv4 } from 'uuid'
 import { userInfoStore } from '@/store'
@@ -232,7 +234,7 @@ import { aliasConfigStore } from '@/store/aliasConfigStore'
 import eventBus from '@/utils/eventBus'
 import { getActualTheme } from '@/utils/themeUtils'
 import { Notice } from '../components/Notice'
-import { isGlobalInput, isShowCommandBar, isShowQuickCommand } from '@renderer/views/components/Ssh/termInputManager'
+import { isGlobalInput, isShowCommandBar } from '@renderer/views/components/Ssh/termInputManager'
 import { inputManager } from '../components/Ssh/termInputManager'
 import { useRouter } from 'vue-router'
 import { shortcutService } from '@/services/shortcutService'

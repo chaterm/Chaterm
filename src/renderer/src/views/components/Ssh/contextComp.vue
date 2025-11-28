@@ -69,9 +69,6 @@
     <v-contextmenu-item @click="onContextMenuAction('registerSyncInput')">{{
       props.isSyncInput ? $t('common.syncInputOn') : $t('common.syncInput')
     }}</v-contextmenu-item>
-    <v-contextmenu-item @click="onContextMenuAction('quickCommand')">{{
-      isShowQuickCommand ? $t('common.quickCommandOn') : $t('common.quickCommand')
-    }}</v-contextmenu-item>
 
     <!-- Divider -->
     <div class="context-menu-divider"></div>
@@ -102,7 +99,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
-import { isGlobalInput, isShowQuickCommand } from './termInputManager'
+import { isGlobalInput } from './termInputManager'
 import {
   getCopyShortcut,
   getPasteShortcut,
@@ -194,9 +191,7 @@ const onContextMenuAction = (action) => {
     case 'openAllExecuted':
       isGlobalInput.value = !isGlobalInput.value
       break
-    case 'quickCommand':
-      isShowQuickCommand.value = !isShowQuickCommand.value
-      break
+
     case 'fileManager':
       emit('contextAct', 'fileManager')
       break
