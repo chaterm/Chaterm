@@ -28,8 +28,8 @@ interface DefaultModel {
 const isEmptyValue = (value: unknown): boolean => value === undefined || value === ''
 
 /**
- * AI 模型配置管理的 composable
- * 负责模型选择、配置和初始化
+ * Composable for AI model configuration management
+ * Handles model selection, configuration and initialization
  */
 export function useModelConfiguration() {
   const chatAiModelValue = ref<string>('')

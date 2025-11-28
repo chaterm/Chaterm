@@ -13,8 +13,8 @@ interface CommandInteractionOptions {
 }
 
 /**
- * 命令交互的 composable
- * 负责处理命令的批准、拒绝、应用、复制等操作
+ * Composable for command interaction
+ * Handles command approval, rejection, application, copying and other operations
  */
 export function useCommandInteraction(params: CommandInteractionOptions) {
   const { t } = i18n.global
@@ -191,7 +191,7 @@ export function useCommandInteraction(params: CommandInteractionOptions) {
   }
 
   /**
-   * 批准并设置自动批准（用于 MCP 工具调用）
+   * Approve and set auto-approval (for MCP tool calls)
    */
   const handleApproveAndAutoApprove = async (): Promise<void> => {
     const session = currentSession.value

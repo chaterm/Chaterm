@@ -458,7 +458,7 @@ const props = defineProps<{
   executedCommand?: string
 }>()
 
-// 检测是否是代码内容 - 复用现有的 detectLanguage 方法
+// Detect if content is code - reuse existing detectLanguage method
 const isCodeContent = (content: string): { isCode: boolean; language?: string } => {
   if (!content || typeof content !== 'string') {
     return { isCode: false }
@@ -467,13 +467,13 @@ const isCodeContent = (content: string): { isCode: boolean; language?: string } 
   const lines = content.split('\n')
   const nonEmptyLines = lines.filter((line) => line.trim())
 
-  // 如果内容太少，不认为是代码
+  // If content is too short, it is not considered code
   if (nonEmptyLines.length < 3) return { isCode: false }
 
-  // 使用现有的 detectLanguage 方法检测语言
+  // Use existing detectLanguage method to detect language
   const detectedLanguage = detectLanguage(content)
 
-  // 如果检测到的语言不是 'shell'，认为是代码
+  // If the detected language is not 'shell', it is considered code
   if (detectedLanguage && detectedLanguage !== 'shell') {
     return { isCode: true, language: detectedLanguage }
   }
@@ -481,7 +481,7 @@ const isCodeContent = (content: string): { isCode: boolean; language?: string } 
   return { isCode: false }
 }
 
-// 计算属性：检测当前内容是否是代码
+// Computed property: detect if current content is code
 const codeDetection = computed(() => {
   if (props.say === 'command_output' && props.content) {
     return isCodeContent(props.content)
@@ -491,7 +491,7 @@ const codeDetection = computed(() => {
 
 const codeBlocks = ref<Array<{ content: string; activeKey: string[]; lines: number }>>([])
 const codeEditors = ref<Array<HTMLElement | null>>([])
-const isCodeExpanded = ref(false) // 代码内容默认折叠
+const isCodeExpanded = ref(false) // Code content default folded
 
 const contentStableTimeout = ref<NodeJS.Timeout | null>(null)
 
@@ -667,7 +667,7 @@ const initEditor = (content: string) => {
       })
     })
 
-    // 设置新的定时器等待内容稳定
+    // Set new timer to wait for content stability
     contentStableTimeout.value = setTimeout(() => {
       if (editor) {
         const model = editor.getModel()
@@ -739,8 +739,8 @@ const processContent = async (content: string) => {
     return
   }
   if (props.say === 'command_output') {
-    // 对于 command_output，不需要处理内容，直接返回
-    // 内容会由 TerminalOutputRenderer 组件处理
+    // For command_output, no additional processing needed
+    // Content will be handled by TerminalOutputRenderer component
     return
   }
 
@@ -974,7 +974,7 @@ onMounted(async () => {
     if (props.ask === 'command' || props.say === 'command') {
       initEditor(props.content)
     } else if (props.say === 'command_output') {
-      // command_output 由 TerminalOutputRenderer 组件处理，不需要额外处理
+      // command_output is handled by TerminalOutputRenderer component, no additional processing needed
     } else if (props.say === 'search_result') {
       await processContentLines(props.content)
     } else {
@@ -1016,7 +1016,7 @@ watch(
         }
       }, 2000)
     } else if (props.say === 'command_output') {
-      // command_output 由 TerminalOutputRenderer 组件处理，不需要额外处理
+      // command_output is handled by TerminalOutputRenderer component, no additional processing needed
     } else if (props.say === 'search_result') {
       // Process content lines with secret redaction for command output
       nextTick(async () => {
@@ -1048,7 +1048,7 @@ watch(
       }
       if (props.content) {
         if (props.say === 'command_output') {
-          // command_output 由 TerminalOutputRenderer 组件处理，不需要额外处理
+          // command_output is handled by TerminalOutputRenderer component, no additional processing needed
         } else if (props.say === 'search_result') {
           nextTick(async () => {
             await processContentLines(props.content)
@@ -1068,7 +1068,7 @@ watch(
   (newSay) => {
     if (props.content) {
       if (newSay === 'command_output') {
-        // command_output 由 TerminalOutputRenderer 组件处理，不需要额外处理
+        // command_output is handled by TerminalOutputRenderer component, no additional processing needed
       } else if (newSay === 'search_result') {
         nextTick(async () => {
           await processContentLines(props.content)
@@ -1273,7 +1273,7 @@ const processContentLines = async (content: string) => {
   const redactionEnabled = await isMarkdownSecretRedactionEnabled()
   const formattedOutput = extractFinalOutput(content)
 
-  // Apply secret redaction to the entire output if enabled
+  // Apply secret redaction to the entire output if redaction is enabled
   const processedOutput = redactionEnabled ? applySecretRedactionToMarkdown(formattedOutput, true) : formattedOutput
 
   const lines = processedOutput.split('\n')
@@ -1384,9 +1384,7 @@ const toggleCommandOutput = () => {
   }
 }
 
-const emit = defineEmits(['collapse-change'])
-
-// 暴露方法给父组件调用
+// Expose method to parent component
 const setThinkingLoading = (loading: boolean) => {
   thinkingLoading.value = loading
   if (!loading) {
@@ -1394,7 +1392,7 @@ const setThinkingLoading = (loading: boolean) => {
   }
 }
 
-// 暴露方法给父组件
+// Expose method to parent component
 defineExpose({
   setThinkingLoading
 })
@@ -2315,7 +2313,6 @@ code {
   text-decoration: underline;
 }
 
-/* 代码内容样式 - 使用和终端输出相同的样式 */
 .code-content-body {
   padding: 12px;
   background: var(--command-output-bg);

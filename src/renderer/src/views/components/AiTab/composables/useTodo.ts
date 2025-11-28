@@ -1,9 +1,9 @@
-import { computed, onMounted, onUnmounted } from 'vue'
+import { computed, onMounted } from 'vue'
 import { todoService } from '../../../../services/todoService'
 import type { Todo, TodoDisplayPreference } from '../../../../types/todo'
 
 /**
- * Todo 功能的 composable
+ * Composable for Todo functionality
  */
 export function useTodo() {
   const currentTodos = computed(() => todoService.currentTodos.value)
@@ -28,10 +28,6 @@ export function useTodo() {
 
   onMounted(async () => {
     await todoService.initializeTodos()
-  })
-
-  onUnmounted(() => {
-    // todoService 是单例，不需要在这里销毁
   })
 
   return {

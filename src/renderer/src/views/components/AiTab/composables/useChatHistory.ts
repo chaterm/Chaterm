@@ -14,48 +14,48 @@ interface GroupedHistory {
 const PAGE_SIZE = 20
 
 /**
- * 聊天历史记录管理的 composable
- * 负责历史记录的加载、搜索、分页、收藏等功能
+ * Composable for chat history management
+ * Handles history loading, search, pagination, favorites and other functionalities
  *
- * @param t 国际化翻译函数
- * @param createNewEmptyTab 创建新空白标签的函数
+ * @param t Internationalization translation function
+ * @param createNewEmptyTab Function to create new empty tab
  */
 export function useChatHistory(createNewEmptyTab?: () => Promise<string>) {
-  // 从全局单例状态获取需要的状态
+  // Get required state from global singleton state
   const { chatTabs, currentChatId, attachTabContext } = useSessionState()
 
-  // 从 store 获取 currentCwd
+  // Get currentCwd from store
   const currentCwdStore = useCurrentCwdStore()
   const currentCwd = computed(() => currentCwdStore.keyValueMap)
-  // 历史记录列表
+  // History list
   const historyList = ref<HistoryItem[]>([])
 
-  // 收藏列表
+  // Favorite list
   const favoriteTaskList = ref<string[]>([])
 
-  // 搜索值
+  // Search value
   const historySearchValue = ref('')
 
-  // 是否只显示收藏
+  // Whether to show only favorites
   const showOnlyFavorites = ref(false)
 
-  // 分页相关
+  // Pagination related
   const currentPage = ref(1)
   const isLoadingMore = ref(false)
 
-  // 编辑相关
+  // Edit related
   const currentEditingId = ref<string | null>(null)
 
   /**
-   * 过滤后的历史记录列表
-   * 根据搜索值和收藏状态过滤
+   * Filtered history list
+   * Filtered by search value and favorite status
    */
   const filteredHistoryList = computed(() => {
     return historyList.value.filter((history) => {
-      // 搜索过滤
+      // Search filter
       const matchesSearch = history.chatTitle.toLowerCase().includes(historySearchValue.value.toLowerCase())
 
-      // 收藏过滤
+      // Favorite filter
       const matchesFavorite = !showOnlyFavorites.value || history.isFavorite
 
       return matchesSearch && matchesFavorite
@@ -63,15 +63,15 @@ export function useChatHistory(createNewEmptyTab?: () => Promise<string>) {
   })
 
   /**
-   * 排序后的历史记录列表
-   * 按时间戳降序排序
+   * Sorted history list
+   * Sorted by timestamp in descending order
    */
   const sortedHistoryList = computed(() => {
     return [...filteredHistoryList.value].sort((a, b) => (b.ts || 0) - (a.ts || 0))
   })
 
   /**
-   * 分页后的历史记录列表
+   * Paginated history list
    */
   const paginatedHistoryList = computed(() => {
     const totalToShow = currentPage.value * PAGE_SIZE
@@ -79,7 +79,7 @@ export function useChatHistory(createNewEmptyTab?: () => Promise<string>) {
   })
 
   /**
-   * 按日期分组的历史记录
+   * History grouped by date
    */
   const groupedPaginatedHistory = computed(() => {
     const result: GroupedHistory[] = []
@@ -96,7 +96,7 @@ export function useChatHistory(createNewEmptyTab?: () => Promise<string>) {
     })
 
     groups.forEach((items, dateLabel) => {
-      // 对每个分组内的项目按时间戳降序排序
+      // Sort items within each group by timestamp in descending order
       items.sort((a, b) => (b.ts || 0) - (a.ts || 0))
       result.push({ dateLabel, items })
     })
@@ -105,7 +105,7 @@ export function useChatHistory(createNewEmptyTab?: () => Promise<string>) {
   })
 
   /**
-   * 是否还有更多历史记录
+   * Whether there are more history records
    */
   const hasMoreHistory = computed(() => {
     const displayedCount = currentPage.value * PAGE_SIZE
@@ -113,14 +113,14 @@ export function useChatHistory(createNewEmptyTab?: () => Promise<string>) {
   })
 
   /**
-   * 加载更多历史记录
+   * Load more history records
    */
   const loadMoreHistory = async () => {
     if (isLoadingMore.value || !hasMoreHistory.value) return
 
     isLoadingMore.value = true
     try {
-      // 添加小延迟使加载更平滑
+      // Add small delay to make loading smoother
       await new Promise((resolve) => setTimeout(resolve, 300))
       currentPage.value++
     } finally {
@@ -129,8 +129,8 @@ export function useChatHistory(createNewEmptyTab?: () => Promise<string>) {
   }
 
   /**
-   * Intersection Observer 回调
-   * 用于无限滚动
+   * Intersection Observer callback
+   * Used for infinite scroll
    */
   const handleIntersection = (entries: IntersectionObserverEntry[]) => {
     if (entries[0].isIntersecting) {
@@ -139,7 +139,7 @@ export function useChatHistory(createNewEmptyTab?: () => Promise<string>) {
   }
 
   /**
-   * 历史记录编辑后的回调 - DOM 焦点逻辑
+   * Callback after history edit - DOM focus logic
    */
   const handleHistoryEdit = async () => {
     const input = document.querySelector('.history-title-input input') as HTMLInputElement
@@ -149,12 +149,12 @@ export function useChatHistory(createNewEmptyTab?: () => Promise<string>) {
     }
   }
   /**
-   * 历史记录标题保存后的回调 - 更新 Tab 标题
+   * Callback after history title save - update Tab title
    */
   const handleHistorySave = async (history: HistoryItem) => {
     if (!chatTabs || !currentChatId) return
 
-    // 更新当前 Tab 标题（如果当前 Tab 是被编辑的历史记录）
+    // Update current Tab title (if current Tab is the edited history)
     if (currentChatId.value === history.id) {
       const targetTab = chatTabs.value.find((tab) => tab.id === history.id)
       if (targetTab) {
@@ -162,7 +162,7 @@ export function useChatHistory(createNewEmptyTab?: () => Promise<string>) {
       }
     }
 
-    // 同时更新对应 Tab 的标题
+    // Also update corresponding Tab title
     const tabIndex = chatTabs.value.findIndex((tab) => tab.id === history.id)
     if (tabIndex !== -1) {
       chatTabs.value[tabIndex].title = history.chatTitle
@@ -170,18 +170,18 @@ export function useChatHistory(createNewEmptyTab?: () => Promise<string>) {
   }
 
   /**
-   * 历史记录删除后的回调 - 删除对应 Tab 并发送消息到主进程
+   * Callback after history delete - delete corresponding Tab and send message to main process
    */
   const handleHistoryDelete = async (history: HistoryItem) => {
     if (!chatTabs || !currentChatId) return
 
-    // 检查被删除的历史记录是否有对应的打开 Tab，并移除它
+    // Check if deleted history has corresponding open Tab and remove it
     const tabIndex = chatTabs.value.findIndex((tab) => tab.id === history.id)
     if (tabIndex !== -1) {
-      // 从 chatTabs 中移除该 Tab
+      // Remove this Tab from chatTabs
       chatTabs.value.splice(tabIndex, 1)
 
-      // 如果被删除的 Tab 是当前激活的，切换到另一个 Tab
+      // If deleted Tab is currently active, switch to another Tab
       if (currentChatId.value === history.id) {
         if (chatTabs.value.length > 0) {
           const newActiveIndex = Math.min(tabIndex, chatTabs.value.length - 1)
@@ -193,7 +193,7 @@ export function useChatHistory(createNewEmptyTab?: () => Promise<string>) {
       }
     }
 
-    // 发送消息到主进程
+    // Send message to main process
     const message = {
       type: 'deleteTaskWithId',
       text: history.id,
@@ -207,10 +207,10 @@ export function useChatHistory(createNewEmptyTab?: () => Promise<string>) {
   }
 
   /**
-   * 编辑历史记录标题
+   * Edit history title
    */
   const editHistory = async (history: HistoryItem) => {
-    // 如果已有其他项目正在编辑，先取消
+    // If another item is already being edited, cancel it first
     if (currentEditingId.value && currentEditingId.value !== history.id) {
       const previousEditingHistory = historyList.value.find((item) => item.id === currentEditingId.value)
       if (previousEditingHistory) {
@@ -223,31 +223,31 @@ export function useChatHistory(createNewEmptyTab?: () => Promise<string>) {
     history.editingTitle = history.chatTitle
     currentEditingId.value = history.id
 
-    // 直接调用 DOM 焦点逻辑
+    // Directly call DOM focus logic
     await nextTick()
     await handleHistoryEdit()
   }
 
   /**
-   * 保存历史记录标题
+   * Save history title
    */
   const saveHistoryTitle = async (history: HistoryItem) => {
     const newTitle = history.editingTitle?.trim()
 
     if (!newTitle) {
-      // 如果为空，取消编辑
+      // If empty, cancel edit
       await cancelEdit(history)
       return
     }
 
     try {
-      // 更新本地显示
+      // Update local display
       history.chatTitle = newTitle
       history.isEditing = false
       history.editingTitle = ''
       currentEditingId.value = null
 
-      // 更新 globalState
+      // Update globalState
       const taskHistory = ((await getGlobalState('taskHistory')) as TaskHistoryItem[]) || []
       const targetHistory = taskHistory.find((item) => item.id === history.id)
 
@@ -256,21 +256,21 @@ export function useChatHistory(createNewEmptyTab?: () => Promise<string>) {
         await updateGlobalState('taskHistory', taskHistory)
       }
 
-      // 直接调用更新 Tab 标题的逻辑
+      // Directly call logic to update Tab title
       await handleHistorySave(history)
     } catch (err) {
       console.error('Failed to save history title:', err)
-      // 恢复原标题
+      // Restore original title
       await cancelEdit(history)
     }
   }
 
   /**
-   * 取消编辑历史记录标题
+   * Cancel editing history title
    */
   const cancelEdit = async (history: HistoryItem) => {
     try {
-      // 从 globalState 获取原标题
+      // Get original title from globalState
       const taskHistory = ((await getGlobalState('taskHistory')) as TaskHistoryItem[]) || []
       const targetHistory = taskHistory.find((item) => item.id === history.id)
 
@@ -290,29 +290,29 @@ export function useChatHistory(createNewEmptyTab?: () => Promise<string>) {
   }
 
   /**
-   * 删除历史记录
+   * Delete history record
    */
   const deleteHistory = async (history: HistoryItem) => {
     try {
-      // 从本地列表中移除
+      // Remove from local list
       const index = historyList.value.findIndex((item) => item.id === history.id)
       if (index > -1) {
         historyList.value.splice(index, 1)
       }
 
-      // 从 globalState 中移除
+      // Remove from globalState
       const taskHistory = ((await getGlobalState('taskHistory')) as TaskHistoryItem[]) || []
       const updatedHistory = taskHistory.filter((item) => item.id !== history.id)
       await updateGlobalState('taskHistory', updatedHistory)
 
-      // 从收藏列表中移除（如果存在）
+      // Remove from favorite list (if exists)
       const favoriteIndex = favoriteTaskList.value.indexOf(history.id)
       if (favoriteIndex > -1) {
         favoriteTaskList.value.splice(favoriteIndex, 1)
         await updateGlobalState('favoriteTaskList', favoriteTaskList.value)
       }
 
-      // 直接调用删除 Tab 和主进程通知逻辑
+      // Directly call logic to delete Tab and notify main process
       await handleHistoryDelete(history)
     } catch (err) {
       console.error('Failed to delete history:', err)
@@ -320,42 +320,42 @@ export function useChatHistory(createNewEmptyTab?: () => Promise<string>) {
   }
 
   /**
-   * 切换收藏状态
+   * Toggle favorite status
    */
   const toggleFavorite = async (history: HistoryItem) => {
     history.isFavorite = !history.isFavorite
 
     try {
-      // 加载当前收藏列表
+      // Load current favorite list
       const currentFavorites = ((await getGlobalState('favoriteTaskList')) as string[]) || []
 
       if (history.isFavorite) {
-        // 添加到收藏
+        // Add to favorites
         if (!currentFavorites.includes(history.id)) {
           currentFavorites.push(history.id)
         }
       } else {
-        // 从收藏中移除
+        // Remove from favorites
         const index = currentFavorites.indexOf(history.id)
         if (index !== -1) {
           currentFavorites.splice(index, 1)
         }
       }
 
-      // 更新本地状态
+      // Update local state
       favoriteTaskList.value = currentFavorites
 
-      // 保存到 globalState
+      // Save to globalState
       await updateGlobalState('favoriteTaskList', currentFavorites)
     } catch (err) {
       console.error('Failed to update favorite status:', err)
-      // 回滚本地状态
+      // Rollback local state
       history.isFavorite = !history.isFavorite
     }
   }
 
   /**
-   * 加载历史记录列表
+   * Load history list
    */
   const loadHistoryList = async () => {
     try {
@@ -364,11 +364,11 @@ export function useChatHistory(createNewEmptyTab?: () => Promise<string>) {
 
       favoriteTaskList.value = favorites
 
-      // 转换为 HistoryItem 格式
+      // Convert to HistoryItem format
       historyList.value = taskHistory.map((item) => ({
         id: item.id,
         chatTitle: item.chatTitle || item.task || 'Agent Chat',
-        chatType: 'agent', // 默认类型
+        chatType: 'agent', // Default type
         chatContent: [],
         isEditing: false,
         editingTitle: '',
@@ -381,8 +381,8 @@ export function useChatHistory(createNewEmptyTab?: () => Promise<string>) {
   }
 
   /**
-   * 刷新历史记录列表（重置分页并重新加载）
-   * 通常在点击历史记录按钮时调用
+   * Refresh history list (reset pagination and reload)
+   * Usually called when clicking history button
    */
   const refreshHistoryList = async () => {
     try {
@@ -394,18 +394,18 @@ export function useChatHistory(createNewEmptyTab?: () => Promise<string>) {
     }
   }
 
-  // 监听搜索值变化，重置分页
+  // Watch search value changes, reset pagination
   watch(historySearchValue, () => {
     currentPage.value = 1
   })
 
-  // 监听收藏筛选变化，重置分页
+  // Watch favorite filter changes, reset pagination
   watch(showOnlyFavorites, () => {
     currentPage.value = 1
   })
 
   return {
-    // 状态
+    // State
     historyList,
     historySearchValue,
     showOnlyFavorites,
@@ -413,14 +413,14 @@ export function useChatHistory(createNewEmptyTab?: () => Promise<string>) {
     isLoadingMore,
     currentEditingId,
 
-    // 计算属性
+    // Computed properties
     filteredHistoryList,
     sortedHistoryList,
     paginatedHistoryList,
     groupedPaginatedHistory,
     hasMoreHistory,
 
-    // 方法
+    // Methods
     loadMoreHistory,
     handleIntersection,
     editHistory,
