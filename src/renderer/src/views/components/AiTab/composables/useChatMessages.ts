@@ -351,7 +351,7 @@ export function useChatMessages(
 
       session.showRetryButton = false
       session.showSendButton = false
-      session.showCancelButton = partial.partial === true
+      session.showCancelButton = partial.partial === true && session.responseLoading === true
       const lastMessageInChat = session.chatHistory.at(-1)
 
       const openNewMessage =
