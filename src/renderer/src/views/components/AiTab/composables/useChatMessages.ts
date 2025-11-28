@@ -235,6 +235,7 @@ export function useChatMessages(
     }
 
     const session = targetTab.session
+    session.isCancelled = false
 
     await sendMessageToMain(userContent, sendType, tabId)
 
@@ -323,6 +324,11 @@ export function useChatMessages(
     const isActiveTab = targetTabId === currentChatId.value
     const previousMainMessage = session.lastStreamMessage
     const previousPartialMessage = session.lastPartialMessage
+
+    if (message?.type === 'partialMessage' && session.isCancelled) {
+      console.log('AiTab: Ignoring partial message because task is cancelled')
+      return
+    }
 
     if (message?.type === 'partialMessage') {
       const partial = message.partialMessage

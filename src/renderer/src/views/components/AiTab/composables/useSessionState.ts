@@ -22,6 +22,7 @@ export interface SessionState {
   lastStreamMessage: ExtensionMessage | null // Last stream message
   lastPartialMessage: ExtensionMessage | null // Last partial message
   shouldStickToBottom: boolean // Whether should stick to bottom
+  isCancelled: boolean // Whether the current task has been cancelled/interrupted
 }
 
 /**
@@ -61,7 +62,8 @@ export const useSessionState = createGlobalState(() => {
     messageFeedbacks: {},
     lastStreamMessage: null,
     lastPartialMessage: null,
-    shouldStickToBottom: true
+    shouldStickToBottom: true,
+    isCancelled: false
   })
 
   const currentTab = computed(() => {

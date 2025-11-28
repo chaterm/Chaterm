@@ -245,6 +245,7 @@ export function useCommandInteraction(params: CommandInteractionOptions) {
     session.lastChatMessageId = ''
     const wasExecutingCommand = session.isExecutingCommand
     session.isExecutingCommand = false
+    session.isCancelled = true
 
     const lastMessageIndex = filteredChatHistory.value.length - 1
     if (lastMessageIndex >= 0 && params.markdownRendererRefs.value[lastMessageIndex]) {
@@ -289,6 +290,7 @@ export function useCommandInteraction(params: CommandInteractionOptions) {
       return
     }
     console.log('handleResume: resume')
+    session.isCancelled = false
     const messageRsp = {
       type: 'askResponse',
       askResponse: 'yesButtonClicked'
@@ -305,6 +307,7 @@ export function useCommandInteraction(params: CommandInteractionOptions) {
     if (!session) return
 
     console.log('handleRetry: retry')
+    session.isCancelled = false
     const messageRsp = {
       type: 'askResponse',
       askResponse: 'yesButtonClicked'
