@@ -31,6 +31,17 @@
           />
         </p>
         <p
+          v-else-if="i.key === 'snippets'"
+          class="term_menu"
+          :class="{ active: activeKey === i.key }"
+          @click="menuClick(i.key)"
+        >
+          <img
+            :src="snippetsIcon"
+            alt=""
+          />
+        </p>
+        <p
           v-else-if="i.key === 'kubernetes'"
           class="term_menu"
           :class="{ active: activeKey === i.key }"
@@ -136,6 +147,8 @@
 </template>
 <script setup lang="ts">
 import { removeToken } from '@/utils/permission'
+
+const snippetsIcon = new URL('@/assets/menu/snippet.svg', import.meta.url).href
 
 const emit = defineEmits(['toggle-menu', 'open-user-tab'])
 import { menuTabsData } from './data'
