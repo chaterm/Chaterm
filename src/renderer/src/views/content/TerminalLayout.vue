@@ -9,7 +9,7 @@
     >
       <div
         class="context-menu-item"
-        @click="closeCurrentPanel"
+        @click="() => closeCurrentPanel()"
       >
         <span>{{ $t('common.close') }}</span>
       </div>
@@ -184,10 +184,6 @@
             class="toolbar"
             :style="{ width: commandBarStyle.width + 'px', left: commandBarStyle.left + 'px' }"
           >
-            <QuickCommandBar
-              v-if="isShowQuickCommand"
-              @send="sendQuickCommand"
-            />
             <div
               v-if="isGlobalInput"
               class="globalInput"
@@ -288,7 +284,6 @@ interface SplitPaneItem {
 const splitPanes = ref<SplitPaneItem[]>([])
 const showAiSidebar = ref(false)
 const showSplitPane = ref(false)
-const showVerticalSplitPane = ref(false)
 const verticalSplitPanes = ref<{ size: number; tabs: TabItem[]; activeTabId: string }[]>([])
 const mainVerticalSize = ref(100)
 const globalInput = ref('')
@@ -1194,9 +1189,6 @@ const onMainSplitResize = (params) => {
     }
   }
 }
-const sendQuickCommand = (cmd: string) => {
-  inputManager.sendToActiveTerm(cmd)
-}
 const sendGlobalCommand = () => {
   if (globalInput.value != '') {
     inputManager.globalSend(globalInput.value)
@@ -1457,7 +1449,7 @@ const createNewPanel = (isClone: boolean, direction: 'left' | 'right' | 'above' 
 const closeCurrentPanel = (panelId?: string) => {
   let targetPanelId = panelId
   if (!targetPanelId || typeof panelId !== 'string') {
-    targetPanelId = contextMenu.value.panelId
+    targetPanelId = contextMenu.value.panelId || undefined
   }
   if (!dockApi || !targetPanelId) {
     closeContextMenu()
