@@ -5,8 +5,8 @@ import i18n from '@/locales'
 import eventBus from '@/utils/eventBus'
 
 /**
- * 用户交互事件的 composable
- * 负责处理文件上传、语音输入、键盘事件等用户交互
+ * Composable for user interaction events
+ * Handles file upload, voice input, keyboard events and other user interactions
  */
 export function useUserInteractions(sendMessage: (sendType: string) => Promise<any>, toggleSidebar: () => void) {
   const { t } = i18n.global

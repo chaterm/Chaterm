@@ -2,7 +2,7 @@ import { ref, onMounted, onUnmounted, computed } from 'vue'
 import { v4 as uuidv4 } from 'uuid'
 import { notification } from 'ant-design-vue'
 import eventBus from '@/utils/eventBus'
-import type { ChatMessage, Host } from '../types'
+import type { ChatMessage } from '../types'
 import type { Todo } from '@/types/todo'
 import type { ChatTab } from './useSessionState'
 import type { ExtensionMessage } from '@shared/ExtensionMessage'
@@ -14,8 +14,8 @@ import i18n from '@/locales'
 const { t } = i18n.global
 
 /**
- * 聊天消息核心逻辑的 composable
- * 负责消息的发送、接收、显示等核心功能
+ * Composable for chat message core logic
+ * Handles message sending, receiving, display and other core functionalities
  */
 export function useChatMessages(
   scrollToBottom: (force?: boolean) => void,
@@ -56,8 +56,8 @@ export function useChatMessages(
   }
 
   /**
-   * 清理部分命令消息
-   * 删除 partial=true 且 ask='command' 的消息
+   * Clean up partial command messages
+   * Removes messages with partial=true and ask='command'
    */
   const cleanupPartialCommandMessages = (chatHistory: ChatMessage[]) => {
     for (let i = chatHistory.length - 1; i >= 0; i--) {

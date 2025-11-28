@@ -3,8 +3,8 @@ import type { ChatMessage } from '../types'
 import { useSessionState } from './useSessionState'
 
 /**
- * 消息选项交互功能的 composable
- * 负责处理 AI 提供的选项选择和自定义输入
+ * Composable for message option interaction functionality
+ * Handles AI-provided option selection and custom input
  */
 export function useMessageOptions() {
   const { currentSession, attachTabContext } = useSessionState()
@@ -29,10 +29,10 @@ export function useMessageOptions() {
   }
 
   /**
-   * 判断是否可以提交选项
-   * 规则：
-   * 1. 如果选择了预设选项，直接可提交
-   * 2. 如果选择了自定义选项，需要检查输入内容不为空
+   * Determine if option can be submitted
+   * Rules:
+   * 1. If a preset option is selected, can submit directly
+   * 2. If custom option is selected, need to check input content is not empty
    */
   const canSubmitOption = (message: ChatMessage): boolean => {
     const selected = messageOptionSelections.value[message.id]

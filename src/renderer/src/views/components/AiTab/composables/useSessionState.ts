@@ -4,43 +4,43 @@ import type { ChatMessage, Host } from '../types'
 import type { ExtensionMessage } from '@shared/ExtensionMessage'
 
 /**
- * 会话状态接口
- * 定义每个 Tab 的会话状态结构
+ * Session state interface
+ * Defines the session state structure for each Tab
  */
 export interface SessionState {
-  chatHistory: ChatMessage[] // 消息历史列表
-  lastChatMessageId: string // 最后一条消息的ID
-  responseLoading: boolean // 是否正在加载回复
-  showCancelButton: boolean // 是否显示取消按钮
-  showRetryButton: boolean // 是否显示重试按钮
-  showNewTaskButton: boolean // 是否显示新任务按钮
-  showSendButton: boolean // 是否显示发送按钮
-  buttonsDisabled: boolean // 是否禁用按钮
-  resumeDisabled: boolean // 是否禁用恢复按钮
-  isExecutingCommand: boolean // 是否正在执行命令
-  messageFeedbacks: Record<string, 'like' | 'dislike'> // 消息反馈记录
-  lastStreamMessage: ExtensionMessage | null // 最后一条流式消息
-  lastPartialMessage: ExtensionMessage | null // 最后一条部分消息
-  shouldStickToBottom: boolean // 是否应该粘在底部
+  chatHistory: ChatMessage[] // Chat history list
+  lastChatMessageId: string // ID of the last message
+  responseLoading: boolean // Whether response is loading
+  showCancelButton: boolean // Whether to show cancel button
+  showRetryButton: boolean // Whether to show retry button
+  showNewTaskButton: boolean // Whether to show new task button
+  showSendButton: boolean // Whether to show send button
+  buttonsDisabled: boolean // Whether buttons are disabled
+  resumeDisabled: boolean // Whether resume button is disabled
+  isExecutingCommand: boolean // Whether command is executing
+  messageFeedbacks: Record<string, 'like' | 'dislike'> // Message feedback records
+  lastStreamMessage: ExtensionMessage | null // Last stream message
+  lastPartialMessage: ExtensionMessage | null // Last partial message
+  shouldStickToBottom: boolean // Whether should stick to bottom
 }
 
 /**
- * Tab 信息接口
+ * Tab information interface
  */
 export interface ChatTab {
-  id: string // Tab ID（UUID）
-  title: string // Tab 标题
-  hosts: Host[] // 关联的主机列表
-  chatType: string // 聊天类型（agent/cmd/chat）
-  autoUpdateHost: boolean // 是否自动更新主机
-  session: SessionState // 会话状态
-  inputValue: string // 输入框内容
+  id: string // Tab ID (UUID)
+  title: string // Tab title
+  hosts: Host[] // Associated host list
+  chatType: string // Chat type (agent/cmd/chat)
+  autoUpdateHost: boolean // Whether to auto-update host
+  session: SessionState // Session state
+  inputValue: string // Input value
 }
 
 /**
- * 会话状态管理的 composable（核心 - 全局单例）
- * 负责管理所有 Tab 和会话状态
- * 使用 createGlobalState 确保全局唯一实例
+ * Composable for session state management (core - global singleton)
+ * Manages all Tabs and session states
+ * Uses createGlobalState to ensure global unique instance
  */
 export const useSessionState = createGlobalState(() => {
   const currentChatId = ref<string | undefined>(undefined)
@@ -136,8 +136,8 @@ export const useSessionState = createGlobalState(() => {
   const showNewTaskButton = computed(() => currentSession.value?.showNewTaskButton ?? false)
 
   /**
-   * 过滤后的聊天历史
-   * 在 Agent 回复后隐藏 sshInfo 消息
+   * Filtered chat history
+   * Hides sshInfo messages after Agent reply
    */
   const filteredChatHistory = computed(() => {
     const history = currentSession.value?.chatHistory ?? []
@@ -176,7 +176,7 @@ export const useSessionState = createGlobalState(() => {
   )
 
   /**
-   * 同步发送按钮状态到 session
+   * Sync send button state to session
    */
   watch(
     shouldShowSendButton,

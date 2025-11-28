@@ -17,8 +17,8 @@ interface HostOption {
 }
 
 /**
- * 主机管理的 composable
- * 负责主机选择、搜索、分页加载等功能
+ * Composable for host management
+ * Handles host selection, search, pagination loading and other functionalities
  */
 export function useHostManagement() {
   const { t } = i18n.global
@@ -228,7 +228,7 @@ export function useHostManagement() {
     if (chatTypeValue.value === 'cmd') {
       fetchHostOptionsForCommandMode(search)
     } else {
-      // 重置分页
+      // Reset pagination
       hostOptionsOffset.value = 0
       hostOptionsHasMore.value = false
       fetchHostOptions(search, true)

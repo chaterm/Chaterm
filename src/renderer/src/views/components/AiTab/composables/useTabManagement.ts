@@ -24,8 +24,8 @@ export const focusChatInput = () => {
 }
 
 /**
- * Tab 管理的 composable
- * 负责 Tab 的创建、删除、切换、历史记录恢复等操作
+ * Composable for Tab management
+ * Handles Tab creation, deletion, switching, history restoration and other operations
  */
 export function useTabManagement(options: TabManagementOptions) {
   const { chatTabs, currentChatId, currentTab, createEmptySessionState, chatInputValue } = useSessionState()

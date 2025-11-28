@@ -1,6 +1,6 @@
 <template>
   <div class="todo-compact-list">
-    <!-- 单列表展示：按传入顺序编号展示，不分组 -->
+    <!-- Single list display: show items in order with numbering, no grouping -->
     <div class="todo-items single-list">
       <div
         v-for="(todo, idx) in visibleTodos"
@@ -8,7 +8,7 @@
         :class="['todo-item', statusClass(todo.status), { 'has-description': !!todo.description }]"
       >
         <div class="todo-content">
-          <!-- 左侧：编号 + 状态图标（图标位于编号下方，与描述行对齐） -->
+          <!-- Left side: index number + status icon (icon below index, aligned with description line) -->
           <div class="todo-left">
             <span class="todo-index">{{ idx + 1 }}.</span>
             <component
@@ -71,14 +71,14 @@ const props = withDefaults(defineProps<Props>(), {
   maxItems: 50
 })
 
-// 单列表可见项（维持原顺序）
+// Visible items in single list (maintain original order)
 const visibleTodos = computed(() => props.todos.slice(0, props.maxItems))
 
-// 图标与样式映射
+// Icon and style mapping
 const statusIcon = (status?: Todo['status']) => {
   if (status === 'in_progress') return LoadingOutlined
   if (status === 'completed') return MinusOutlined
-  return BorderOutlined // pending/默认
+  return BorderOutlined // pending/default
 }
 
 const statusClass = (status?: Todo['status']) => {
@@ -86,10 +86,6 @@ const statusClass = (status?: Todo['status']) => {
   if (status === 'completed') return 'completed'
   return 'pending'
 }
-
-// 不显示优先级，仅渲染任务文本
-
-// 保留占位（不再显示进度统计，这里不使用）
 </script>
 
 <style scoped lang="less">
@@ -116,7 +112,7 @@ const statusClass = (status?: Todo['status']) => {
 
 .todo-content {
   display: flex;
-  align-items: flex-start; // 与标题第一行对齐
+  align-items: flex-start; // Align with first line of title
   gap: 6px;
 }
 
@@ -124,7 +120,7 @@ const statusClass = (status?: Todo['status']) => {
   display: flex;
   flex-direction: column;
   align-items: center;
-  width: 20px; // 统一左侧列宽，数字与图标列对齐
+  width: 20px; // Unified left column width, align numbers and icons
 }
 
 .todo-text-container {
@@ -145,18 +141,18 @@ const statusClass = (status?: Todo['status']) => {
 }
 
 .status-icon {
-  font-size: 12px; // 放大图标
+  font-size: 12px; // Enlarge icon
   color: var(--text-color-quaternary);
-  width: 16px; // 固定宽度，保证纵向列对齐
+  width: 16px; // Fixed width to ensure vertical column alignment
   height: 16px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
 }
 
-// 位于编号下方的状态图标，尽量与描述行对齐
+// Status icon below index number, align with description line as much as possible
 .status-icon.under-index {
-  margin-top: 3px; // 更贴近描述首行
+  margin-top: 3px; // Closer to first line of description
 }
 
 .todo-index {
@@ -164,16 +160,16 @@ const statusClass = (status?: Todo['status']) => {
   text-align: center;
   color: var(--text-color-secondary);
   font-variant-numeric: tabular-nums;
-  margin-top: 0; // 取消上偏移，避免低于标题
-  line-height: 1.4; // 与内容容器行高一致
+  margin-top: 0; // Remove top offset to avoid being below title
+  line-height: 1.4; // Match line height of content container
 }
 
-// 无描述时，让状态图标与标题对齐，避免空荡
+// When no description, align status icon with title to avoid empty space
 .todo-item:not(.has-description) .status-icon.under-index {
   margin-top: 0;
 }
 
-// 去除优先级徽章显示
+// Remove priority badge display
 
 .subtasks {
   margin-top: 4px;
@@ -200,7 +196,7 @@ const statusClass = (status?: Todo['status']) => {
   line-height: 1.2;
 }
 
-// 暗色主题下的特殊处理
+// Special handling for dark theme
 .theme-dark & {
   .todo-item {
     &.in-progress {
@@ -222,6 +218,6 @@ const statusClass = (status?: Todo['status']) => {
     }
   }
 
-  // 已移除优先级徽章相关样式
+  // Priority badge related styles have been removed
 }
 </style>

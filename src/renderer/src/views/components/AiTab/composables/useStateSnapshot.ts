@@ -2,8 +2,8 @@ import { watch, Ref } from 'vue'
 import { useSessionState } from './useSessionState'
 
 /**
- * 状态快照的 composable
- * 负责状态快照的创建、恢复和变更通知
+ * Composable for state snapshot
+ * Handles state snapshot creation, restoration and change notifications
  */
 export function useStateSnapshot(chatAiModelValue: Ref<string>, emit: (event: 'state-changed', ...args: any[]) => void) {
   const { chatTabs, currentChatId, hosts, chatInputValue } = useSessionState()

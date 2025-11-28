@@ -67,16 +67,11 @@ const props = withDefaults(defineProps<Props>(), {
   maxItems: 20
 })
 
-// 移除toggle-visibility事件，不再支持关闭功能
-// const emit = defineEmits<{
-//   'toggle-visibility': [visible: boolean]
-// }>()
-
 const visible = ref(true)
 const expanded = ref(props.showTrigger)
 const activeKey = ref(props.showTrigger ? ['todos'] : [])
 
-// 语言与统计信息
+// Language and statistics
 const isChineseContent = computed(() =>
   props.todos.some((todo) => /[\u4e00-\u9fff]/.test(todo.content) || (todo.description && /[\u4e00-\u9fff]/.test(todo.description)))
 )
@@ -97,7 +92,7 @@ const progressCounts = computed(() => {
   return { total, completed, inProgress }
 })
 
-// 动态标题 - 根据内容语言自动选择
+// Dynamic title - automatically select based on content language
 const todoTitle = computed(() => (isChineseContent.value ? '运维任务进度' : 'Task Progress'))
 
 const progressRatio = computed(() => {
@@ -108,7 +103,7 @@ const progressRatio = computed(() => {
   return `${completed}/${total}`
 })
 
-// 添加调试日志
+// Add debug logs
 watch(
   () => props.todos,
   (newTodos) => {
@@ -182,7 +177,7 @@ const toggleExpanded = () => {
   color: var(--text-color-tertiary);
   font-size: 12px;
   transition: color 0.2s;
-  pointer-events: none; /* 防止图标本身阻止点击事件 */
+  pointer-events: none; /* Prevent icon itself from blocking click events */
 }
 
 .todo-inline-header:hover .expand-icon {
@@ -222,7 +217,7 @@ const toggleExpanded = () => {
 }
 
 :deep(.ant-collapse-item > .ant-collapse-header) {
-  display: none !important; // 移除空的 Panel 头部占位
+  display: none !important; // Remove empty Panel header placeholder
   height: 0 !important;
   padding: 0 !important;
   margin: 0 !important;
@@ -238,12 +233,12 @@ const toggleExpanded = () => {
   padding: 4px 8px 8px 8px !important;
 }
 
-// 额外的强制样式，确保生效
+// Additional forced styles to ensure they take effect
 .todo-inline-display :deep(.ant-collapse .ant-collapse-content > .ant-collapse-content-box) {
   padding: 4px 8px 8px 8px !important;
 }
 
-// 暗色主题下的特殊处理
+// Special handling for dark theme
 .theme-dark & {
   .todo-inline-header:hover {
     background: var(--hover-bg-color);
