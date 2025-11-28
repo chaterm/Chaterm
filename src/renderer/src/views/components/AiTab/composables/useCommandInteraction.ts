@@ -10,6 +10,7 @@ interface CommandInteractionOptions {
   markdownRendererRefs: Ref<any[]>
   currentTodos: Ref<any[]>
   clearTodoState: (chatHistory: any[]) => void
+  scrollToBottom: (force?: boolean) => void
 }
 
 /**
@@ -131,6 +132,7 @@ export function useCommandInteraction(params: CommandInteractionOptions) {
       session.buttonsDisabled = true
       console.log('Main process response:', response)
       session.responseLoading = true
+      params.scrollToBottom(true)
     } catch (error) {
       console.error('Failed to send message to main process:', error)
     }
@@ -185,6 +187,7 @@ export function useCommandInteraction(params: CommandInteractionOptions) {
       session.buttonsDisabled = true
       console.log('Main process response:', response)
       session.responseLoading = true
+      params.scrollToBottom(true)
     } catch (error) {
       console.error('Failed to send message to main process:', error)
     }
@@ -224,6 +227,7 @@ export function useCommandInteraction(params: CommandInteractionOptions) {
       session.buttonsDisabled = true
       console.log('Main process response:', response)
       session.responseLoading = true
+      params.scrollToBottom(true)
     } catch (error) {
       console.error('Failed to approve and set auto-approve:', error)
     }

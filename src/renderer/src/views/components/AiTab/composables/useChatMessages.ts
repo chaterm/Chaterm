@@ -415,6 +415,10 @@ export function useChatMessages(
         if (partial.type === 'say' && partial.say === 'command_output' && !partial.partial) {
           session.isExecutingCommand = false
         }
+
+        if (partial.type === 'say' && partial.say === 'command_output' && isActiveTab) {
+          scrollToBottom(true)
+        }
       }
 
       session.lastPartialMessage = message
