@@ -634,6 +634,7 @@ export default {
   ai: {
     today: '今天',
     yesterday: '昨天',
+    favorite: '收藏',
     welcome: '您好，请问需要在终端做什么操作？',
     loginPrompt: '登录后即可使用 AI 功能，新用户注册免费使用两周',
     searchHost: '输入IP搜索',

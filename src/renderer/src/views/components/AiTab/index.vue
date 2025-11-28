@@ -15,7 +15,7 @@
           @click.stop="handleTabRemove(tab.id)"
         />
       </template>
-      <!-- 只渲染当前激活的 tab 内容，避免重复渲染导致的性能问题 -->
+      <!-- Only render the currently active tab content to avoid performance issues from duplicate rendering -->
       <template v-if="tab.id === currentChatId">
         <div
           v-if="filteredChatHistory.length === 0"
@@ -164,7 +164,7 @@
                 <div class="message-actions">
                   <template v-if="typeof message.content === 'object' && 'options' in message.content && index === filteredChatHistory.length - 1">
                     <div class="options-container">
-                      <!-- 显示原有选项作为单选按钮 -->
+                      <!-- Display original options as radio buttons -->
                       <div class="options-radio-group">
                         <a-radio-group
                           :value="getSelectedOption(message)"
@@ -178,7 +178,7 @@
                           >
                             {{ option }}
                           </a-radio>
-                          <!-- 当选项数量大于1时，添加自定义输入选项 -->
+                          <!-- Add custom input option when there are more than 1 options -->
                           <div
                             v-if="(message.content as MessageContent).options && (message.content as MessageContent).options!.length > 1"
                             class="option-radio custom-option"
@@ -199,7 +199,7 @@
                         </a-radio-group>
                       </div>
 
-                      <!-- 提交按钮 - 选择任何选项后显示 -->
+                      <!-- Submit button - shown after selecting any option -->
                       <div
                         v-if="(message.content as MessageContent).options && !message.selectedOption && getSelectedOption(message)"
                         class="submit-button-container"
@@ -351,7 +351,7 @@
                 {{ message.content }}
               </div>
 
-              <!-- 动态插入 Todo 显示 -->
+              <!-- Dynamically insert Todo display -->
               <TodoInlineDisplay
                 v-if="shouldShowTodoAfterMessage(message)"
                 :todos="getTodosForMessage(message)"
@@ -674,11 +674,11 @@
                   >
                     <div
                       class="history-date-header"
-                      :class="{ 'favorite-header': group.dateLabel === '收藏' }"
+                      :class="{ 'favorite-header': group.dateLabel === favoriteLabel }"
                     >
-                      <template v-if="group.dateLabel === '收藏'">
+                      <template v-if="group.dateLabel === favoriteLabel">
                         <StarFilled style="color: #faad14; font-size: 12px" />
-                        <span>收藏</span>
+                        <span>{{ $t('ai.favorite') }}</span>
                       </template>
                       <template v-else>
                         {{ group.dateLabel }}
@@ -807,15 +807,8 @@
 </template>
 
 <script setup lang="ts">
-// ============================================================================
-// 导入语句
-// ============================================================================
-
-// Vue 核心 API
-import { ref, onMounted, defineAsyncComponent, watch } from 'vue'
+import { ref, computed, onMounted, defineAsyncComponent, watch } from 'vue'
 import { useRouter } from 'vue-router'
-
-// Composables
 import { useAutoScroll } from './composables/useAutoScroll'
 import { useChatHistory } from './composables/useChatHistory'
 import { useChatMessages } from './composables/useChatMessages'
@@ -830,8 +823,6 @@ import { useTabManagement } from './composables/useTabManagement'
 import { useTodo } from './composables/useTodo'
 import { useUserInteractions } from './composables/useUserInteractions'
 import { useWatchers } from './composables/useWatchers'
-
-// UI 组件
 import VoiceInput from './voiceInput.vue'
 import {
   CheckCircleFilled,
@@ -853,25 +844,16 @@ import {
   StarFilled,
   StarOutlined
 } from '@ant-design/icons-vue'
-
-// 工具函数
 import { isFocusInAiTab } from '@/utils/domUtils'
 import { getGlobalState } from '@renderer/agent/storage/state'
-
-// 类型定义
 import type { MessageContent } from './types'
-
-// 静态资源
+import i18n from '@/locales'
 import foldIcon from '@/assets/icons/fold.svg'
 import historyIcon from '@/assets/icons/history.svg'
 import plusIcon from '@/assets/icons/plus.svg'
 import sendIcon from '@/assets/icons/send.svg'
 import stopIcon from '@/assets/icons/stop.svg'
 import uploadIcon from '@/assets/icons/upload.svg'
-
-// ============================================================================
-// 类型定义
-// ============================================================================
 
 interface TabInfo {
   id: string
@@ -886,9 +868,6 @@ declare module '@/utils/eventBus' {
   }
 }
 
-// ============================================================================
-// Props 和 Emits
-// ============================================================================
 interface Props {
   toggleSidebar: () => void
   savedState?: Record<string, any> | null
@@ -901,26 +880,13 @@ const props = withDefaults(defineProps<Props>(), {
 
 const emit = defineEmits(['state-changed'])
 
-// ============================================================================
-// 外部依赖初始化
-// ============================================================================
-
 const router = useRouter()
 const MarkdownRenderer = defineAsyncComponent(() => import('@views/components/AiTab/markdownRenderer.vue'))
 const TodoInlineDisplay = defineAsyncComponent(() => import('./components/todo/TodoInlineDisplay.vue'))
 
-// ============================================================================
-// 本地响应式状态
-// ============================================================================
-
 const isSkippedLogin = ref(localStorage.getItem('login-skipped') === 'true')
 const hostSelectListRef = ref<HTMLElement | null>(null)
 
-// ============================================================================
-// Composables 初始化
-// ============================================================================
-
-// 会话状态管理
 const {
   currentChatId,
   chatTabs,
@@ -938,16 +904,16 @@ const {
   showResumeButton
 } = useSessionState()
 
-// 模型配置管理
+// Model configuration management
 const { chatAiModelValue, AgentAiModelsOptions, initModel, handleChatAiModelChange, checkModelConfig, initModelOptions } = useModelConfiguration()
 
-// 状态快照
+// State snapshot
 const { getCurrentState, restoreState, emitStateChange } = useStateSnapshot(chatAiModelValue, emit)
 
-// Todo 功能
+// Todo functionality
 const { currentTodos, shouldShowTodoAfterMessage, getTodosForMessage, markLatestMessageWithTodoUpdate, clearTodoState } = useTodo()
 
-// 主机管理
+// Host management
 const {
   showHostSelect,
   hostSearchValue,
@@ -969,13 +935,13 @@ const {
   getCurentTabAssetInfo
 } = useHostManagement()
 
-// 自动滚动
+// Auto scroll
 const { chatContainer, chatResponse, scrollToBottom, initializeAutoScroll, handleTabSwitch } = useAutoScroll()
 
-// 消息选项管理
+// Message options management
 const { handleOptionSelect, getSelectedOption, handleCustomInputChange, getCustomInput, canSubmitOption, handleOptionSubmit } = useMessageOptions()
 
-// 消息管理
+// Message management
 const {
   markdownRendererRefs,
   sendMessage,
@@ -987,7 +953,7 @@ const {
   isMessageFeedbackSubmitted
 } = useChatMessages(scrollToBottom, clearTodoState, markLatestMessageWithTodoUpdate, currentTodos, checkModelConfig)
 
-// 用户交互
+// User interactions
 const {
   fileInputRef,
   voiceInputRef,
@@ -1000,7 +966,7 @@ const {
   handleClose
 } = useUserInteractions(sendMessage, props.toggleSidebar)
 
-// 命令交互
+// Command interactions
 const {
   handleApplyCommand,
   handleCopyContent,
@@ -1021,7 +987,7 @@ const handleInterrupt = () => {
   handleCancel()
 }
 
-// Tab 管理
+// Tab management
 const { createNewEmptyTab, restoreHistoryTab, handleTabRemove } = useTabManagement({
   getCurentTabAssetInfo,
   emitStateChange,
@@ -1029,7 +995,7 @@ const { createNewEmptyTab, restoreHistoryTab, handleTabRemove } = useTabManageme
   isFocusInAiTab
 })
 
-// 聊天历史
+// Chat history
 const {
   historySearchValue,
   showOnlyFavorites,
@@ -1046,7 +1012,11 @@ const {
   refreshHistoryList
 } = useChatHistory(createNewEmptyTab)
 
-// 事件总线监听器
+// i18n
+const { t } = i18n.global
+const favoriteLabel = computed(() => t('ai.favorite'))
+
+// Event bus listeners
 useEventBusListeners({
   sendMessageWithContent,
   initModel,
@@ -1055,27 +1025,15 @@ useEventBusListeners({
   isAgentMode: props.isAgentMode
 })
 
-// ============================================================================
-// 常量定义
-// ============================================================================
-
 const AiTypeOptions = [
   { label: 'Chat', value: 'chat' },
   { label: 'Command', value: 'cmd' },
   { label: 'Agent', value: 'agent' }
 ]
 
-// ============================================================================
-// 辅助函数
-// ============================================================================
-
 const goToLogin = () => {
   router.push('/login')
 }
-
-// ============================================================================
-// Watchers
-// ============================================================================
 
 watch(
   () => localStorage.getItem('login-skipped'),
@@ -1089,10 +1047,6 @@ useWatchers({
   handleTabSwitch,
   updateHostsForCommandMode
 })
-
-// ============================================================================
-// 生命周期钩子
-// ============================================================================
 
 onMounted(async () => {
   await initModelOptions()
@@ -1113,10 +1067,7 @@ onMounted(async () => {
   initializeAutoScroll()
 })
 
-// ============================================================================
-// 对外暴露
-// ============================================================================
-
+// Expose to parent component
 defineExpose({
   getCurrentState,
   restoreState,
