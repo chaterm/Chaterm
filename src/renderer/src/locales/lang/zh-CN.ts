@@ -409,7 +409,8 @@ export default {
     securityConfigDescribe: '点击按钮直接打开安全配置文件，管理命令执行的安全策略和白名单/黑名单设置。',
     securityConfigOpened: '安全配置文件正在打开...',
     openSecurityConfigFailed: '打开安全配置失败',
-    success: '成功'
+    success: '成功',
+    background: '背景'
   },
   extensions: {
     extensions: '扩展',
@@ -495,6 +496,7 @@ export default {
     accountPassword: '账号密码',
     key: '密钥',
     username: '用户名',
+    name: '名称',
     password: '密码',
     remoteHost: '连接IP或地址',
     port: '端口',
@@ -576,6 +578,7 @@ export default {
     importFormatPort: '端口（可选，默认22）',
     importFormatAssetType: '资产类型（可选，"person"或"organization"）',
     importFormatExample: '示例：',
+    importFormatThirdPartyNote: '注意：支持第三方工具（XShell、SecureCRT、MobaXterm）文件导入，但密码或密钥需要手动配置。',
     importDuplicateTitle: '发现重复资产',
     importDuplicateMessage: '发现 {count} 个重复的资产，是否要覆盖现有资产？',
     importDuplicateCount: '跳过 {count} 个重复资产',
@@ -618,11 +621,25 @@ export default {
     folderDeleteConfirm: '删除分组确认',
     folderDeleteConfirmContent: '确定要删除分组 "{name}" 吗？删除后分组中的资产将回到原位置。',
     folderDeleteConfirmWithAssets: '确定要删除分组 "{name}" 吗？该分组包含 {count} 个资产，删除后资产将回到原位置。',
-    missingAssetId: '缺少资产 ID'
+    missingAssetId: '缺少资产 ID',
+    supportedFormats: '支持的格式',
+    standardFormat: '标准格式',
+    sessionFiles: '会话文件',
+    configFiles: '配置文件',
+    unsupportedFileFormat: '不支持的文件格式',
+    pleaseSelectSupportedFormat: '请选择支持的文件格式：',
+    importParseError: '文件解析失败，请检查文件格式',
+    xtsParseError: 'XTS 文件解析失败，请检查文件格式是否正确',
+    xtsParseSuccess: '成功解析 {count} 个会话',
+    xtsNoSessions: 'XTS 文件中未找到有效的会话配置',
+    importPasswordWarningTitle: '密码无法导入',
+    importPasswordWarningDesc: 'XShell、SecureCRT、MobaXterm 等第三方工具的密码采用专有加密算法，无法解密。导入后需要手动设置密码。',
+    importSuccessNeedPassword: '成功导入 {count} 个会话，请为需要的会话手动设置密码'
   },
   ai: {
     today: '今天',
     yesterday: '昨天',
+    favorite: '收藏',
     welcome: '您好，请问需要在终端做什么操作？',
     loginPrompt: '登录后即可使用 AI 功能，新用户注册免费使用两周',
     searchHost: '输入IP搜索',
@@ -718,7 +735,8 @@ export default {
       '当前窗口不是执行命令的服务器窗口。\n目标服务器: {targetServer}\n当前窗口: {currentWindow}\n\n请切换到正确的服务器窗口后再执行命令。',
     nonTerminalWindow: '非终端窗口',
     commandExecutedOnLocalhost: '在本地主机执行的命令',
-    timeoutGettingAssetInfo: '获取资产信息超时'
+    timeoutGettingAssetInfo: '获取资产信息超时',
+    interruptTask: '中断任务'
   },
   keyChain: {
     newKey: '添加密钥',

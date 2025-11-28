@@ -1412,6 +1412,336 @@ ipcMain.handle('asset-update', async (_, data) => {
   }
 })
 
+//XTS file parsing processor
+ipcMain.handle('parseXtsFile', async (_, data) => {
+  try {
+    const { data: zipData, fileName } = data
+    console.log(`Starting XTS file parsing: ${fileName}`)
+
+    const AdmZip = require('adm-zip')
+    const iconv = require('iconv-lite')
+
+    //Convert the array back to Buffer
+    const buffer = Buffer.from(zipData)
+
+    let zip
+    let zipEntries
+
+    try {
+      zip = new AdmZip(buffer)
+      zipEntries = zip.getEntries()
+    } catch (error) {
+      console.error('Failed to create ZIP object:', error)
+      throw error
+    }
+
+    console.log(`Found ${zipEntries.length} entries in ZIP file`)
+
+    const sessions: any[] = []
+
+    // Iterate through all files in ZIP
+    for (const entry of zipEntries) {
+      if (entry.isDirectory) continue
+
+      // 1. Handle filename encoding
+      // adm-zip defaults to UTF-8 decoding, which may produce garbled text if it fails
+      // We prioritize using rawEntryName (Buffer) for detection
+      let entryName = entry.entryName
+      let rawNameBuffer = entry.rawEntryName
+
+      // If no rawEntryName, try to fall back from entryName to Buffer (not very reliable, but as a fallback)
+      if (!rawNameBuffer) {
+        rawNameBuffer = Buffer.from(entryName, 'binary')
+      }
+
+      // Try to detect encoding: prioritize GBK/GB18030 (common Chinese archive encoding), then UTF-8
+      // If UTF-8 decoding doesn't produce garbled characters, consider it UTF-8, otherwise try GBK
+      const utf8Name = rawNameBuffer.toString('utf8')
+      if (!utf8Name.includes('') && !utf8Name.includes('♦')) {
+        entryName = utf8Name
+      } else {
+        // Try GBK decoding
+        try {
+          const gbkName = iconv.decode(rawNameBuffer, 'gbk')
+          entryName = gbkName
+        } catch (e) {
+          // If GBK fails, keep original or use UTF-8
+          entryName = utf8Name
+        }
+      }
+
+      // 2. Read file content and handle content encoding
+      let content = ''
+      try {
+        const rawContent = entry.getData()
+
+        // Check BOM (Byte Order Mark)
+        if (rawContent.length >= 2 && rawContent[0] === 0xff && rawContent[1] === 0xfe) {
+          // UTF-16 LE
+          content = iconv.decode(rawContent, 'utf-16le')
+          console.log(`Detected UTF-16 LE BOM for ${entryName}`)
+        } else if (rawContent.length >= 2 && rawContent[0] === 0xfe && rawContent[1] === 0xff) {
+          // UTF-16 BE
+          content = iconv.decode(rawContent, 'utf-16be')
+          console.log(`Detected UTF-16 BE BOM for ${entryName}`)
+        } else {
+          // No BOM, try UTF-8
+          const utf8Content = rawContent.toString('utf8')
+          // Check if it contains null bytes (UTF-16 characteristic) or lots of garbled text
+          if (!utf8Content.includes('\0') && !utf8Content.includes('')) {
+            content = utf8Content
+          } else {
+            // Try GBK
+            content = iconv.decode(rawContent, 'gbk')
+          }
+        }
+      } catch (e) {
+        console.warn(`Failed to read content for ${entryName}`)
+        continue
+      }
+
+      // 3. Check if it's a session file
+      let isSessionFile = false
+      const fileNamePart = entryName.split('/').pop() || entryName
+
+      // Case A: Standard .xsh file
+      if (fileNamePart.toLowerCase().endsWith('.xsh')) {
+        isSessionFile = true
+      }
+      // Case B: Other files with extensions (e.g., .zcf) -> strictly ignore
+      else if (fileNamePart.includes('.')) {
+        isSessionFile = false
+        // console.log(`Ignored non-xsh file: ${entryName}`)
+      }
+      // Case C: Files without extension (e.g., "D:\session_xsh") -> check content characteristics
+      else {
+        // Strictly check content characteristics to avoid misidentifying random files
+        if (content.includes('[SessionInfo]') || content.includes('[CONNECTION]') || (content.includes('Host=') && content.includes('Protocol='))) {
+          isSessionFile = true
+          console.log(`Detected session file by content (no extension): ${entryName}`)
+        }
+      }
+
+      if (isSessionFile) {
+        try {
+          const sessionFileName = entryName.split('/').pop() || entryName
+
+          // Parse single XSH file
+          const session = parseXSHContent(content, sessionFileName, entryName)
+
+          if (session.host && session.username) {
+            // Extract group information from path
+            const pathParts = entryName.split('/')
+            let groupName = 'Default'
+
+            if (pathParts.length > 1) {
+              // Use directory name as group
+              groupName = pathParts[pathParts.length - 2] || 'Default'
+            }
+
+            session.groupName = groupName
+            sessions.push(session)
+          }
+        } catch (error) {
+          console.error(`Failed to parse session file ${entryName}:`, error)
+        }
+      }
+    }
+
+    console.log(`Total sessions parsed: ${sessions.length}`)
+
+    return {
+      success: true,
+      sessions: sessions,
+      count: sessions.length
+    }
+  } catch (error) {
+    console.error('XTS file parsing failed:', error)
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : String(error),
+      sessions: []
+    }
+  }
+})
+
+// XSH file content parsing function
+function parseXSHContent(content: string, fileName: string, fullPath?: string): any {
+  console.log(`Parsing XSH content for file: ${fileName}`)
+  console.log(`Full path: ${fullPath || 'N/A'}`)
+
+  const session: any = {}
+  const lines = content.split('\n')
+
+  // Extract session name from filename (remove .xsh extension)
+  session.name = fileName.replace('.xsh', '')
+
+  let foundHost = false
+  let foundUsername = false
+  let currentSection = ''
+
+  console.log(`Total lines in file: ${lines.length}`)
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i]
+    const trimmedLine = line.trim()
+
+    // Skip empty lines
+    if (!trimmedLine) continue
+
+    // console.log(`Line ${i}: "${trimmedLine}"`)
+
+    // Check if it's a section header [SECTION]
+    if (trimmedLine.startsWith('[') && trimmedLine.endsWith(']')) {
+      currentSection = trimmedLine
+      console.log(`  -> Section: ${currentSection}`)
+      continue
+    }
+
+    if (trimmedLine.includes('=')) {
+      const equalIndex = trimmedLine.indexOf('=')
+      const key = trimmedLine.substring(0, equalIndex).trim()
+      const value = trimmedLine.substring(equalIndex + 1).trim()
+
+      // console.log(`  -> Parsed: "${key}" = "${value}" (in section: ${currentSection})`)
+
+      // Match by field name, case-insensitive
+      const lowerKey = key.toLowerCase()
+
+      if (lowerKey === 'host' || lowerKey === 'hostname') {
+        session.host = value
+        foundHost = true
+        console.log(`*** Found host: ${value}`)
+      } else if (lowerKey === 'port') {
+        session.port = parseInt(value) || 22
+        console.log(`*** Found port: ${session.port}`)
+      } else if (lowerKey === 'username' || lowerKey === 'user') {
+        session.username = value
+        foundUsername = true
+        console.log(`*** Found username: ${value}`)
+      } else if (lowerKey === 'password') {
+        // XShell passwords are usually encrypted, only check if it exists
+        if (value && value !== '') {
+          session.password = '' // Don't save encrypted password, user needs to re-enter
+          console.log(`*** Found password (encrypted)`)
+        }
+      } else if (lowerKey === 'userkey') {
+        // Non-empty UserKey field indicates key-based authentication
+        if (value && value !== '') {
+          session.authType = 'keyBased'
+          session.keyFile = value
+          console.log(`*** Found UserKey: ${value} - setting authType to keyBased`)
+        }
+      } else if (lowerKey === 'protocol' || lowerKey === 'protocolname' || lowerKey === 'protocol name') {
+        session.protocol = value
+        console.log(`*** Found protocol: ${value}`)
+      } else if (lowerKey === 'description') {
+        // Description information is only logged, does not update session name
+        if (value && value !== 'Xshell session file') {
+          console.log(`*** Found description: ${value}`)
+        }
+      }
+    }
+  }
+
+  // Improved host information extraction logic
+  if (!foundHost || !foundUsername) {
+    console.log(`Missing required fields (host: ${foundHost}, username: ${foundUsername}), trying to extract from filename and path`)
+
+    // Try to extract host information from filename and path
+    const extractHostFromText = (text: string): string | null => {
+      // Try to extract IP address
+      const ipMatch = text.match(/(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})/)
+      if (ipMatch) {
+        return ipMatch[1]
+      }
+
+      // Try to extract domain name
+      const domainMatch = text.match(/([a-zA-Z0-9]([a-zA-Z0-9\-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]{2,}/g)
+      if (domainMatch && domainMatch.length > 0) {
+        return domainMatch[0]
+      }
+
+      // Try to extract hostname (alphanumeric combination)
+      const hostnameMatch = text.match(/([a-zA-Z][a-zA-Z0-9\-_]{2,})/g)
+      if (hostnameMatch && hostnameMatch.length > 0) {
+        // Filter out common non-hostname words
+        const excludeWords = ['root', 'admin', 'user', 'ubuntu', 'centos', 'server', 'host', 'ssh', 'connection']
+        const validHostnames = hostnameMatch.filter((h) => !excludeWords.includes(h.toLowerCase()) && h.length >= 3)
+        if (validHostnames.length > 0) {
+          return validHostnames[0]
+        }
+      }
+
+      return null
+    }
+
+    // If host not found, try to extract from filename and path
+    if (!foundHost) {
+      let extractedHost = extractHostFromText(fileName)
+
+      // If not found in filename, try to extract from full path
+      if (!extractedHost && fullPath) {
+        extractedHost = extractHostFromText(fullPath)
+      }
+
+      if (extractedHost) {
+        session.host = extractedHost
+        foundHost = true
+        console.log(`*** Extracted host from filename/path: ${session.host}`)
+      } else {
+        // If still not found, use filename as hostname
+        const cleanFileName = fileName.replace('.xsh', '').replace(/[^a-zA-Z0-9\-_.]/g, '')
+        if (cleanFileName.length > 0) {
+          session.host = cleanFileName
+          foundHost = true
+          console.log(`*** Using cleaned filename as host: ${session.host}`)
+        }
+      }
+    }
+
+    // If filename contains common username patterns
+    if (!foundUsername) {
+      const commonUsers = ['root', 'admin', 'user', 'ubuntu', 'centos', 'administrator']
+      const searchText = (fileName + ' ' + (fullPath || '')).toLowerCase()
+
+      for (const user of commonUsers) {
+        if (searchText.includes(user)) {
+          session.username = user
+          foundUsername = true
+          console.log(`*** Extracted username from filename/path: ${session.username}`)
+          break
+        }
+      }
+
+      // If still not found, set default username
+      if (!foundUsername) {
+        session.username = 'root' // Changed to default to root instead of 'undefined'
+        console.log(`*** Setting default username: ${session.username}`)
+      }
+    }
+  }
+
+  // Set default values
+  if (!session.port) session.port = 22
+  if (!session.protocol) session.protocol = 'SSH'
+  if (!session.authType) session.authType = 'password'
+
+  console.log(`Final session data:`, {
+    name: session.name,
+    host: session.host,
+    port: session.port,
+    username: session.username,
+    protocol: session.protocol,
+    foundHost,
+    foundUsername,
+    fileName,
+    fullPath
+  })
+
+  return session
+}
+
 ipcMain.handle('key-chain-local-get-list', async () => {
   try {
     const result = chatermDbService.getKeyChainList()

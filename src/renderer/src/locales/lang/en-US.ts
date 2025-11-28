@@ -411,7 +411,8 @@ export default {
       'Click the button to directly open the security configuration file and manage command execution security policies and whitelist/blacklist settings.',
     securityConfigOpened: 'Opening security configuration file...',
     openSecurityConfigFailed: 'Failed to open security configuration',
-    success: 'Success'
+    success: 'Success',
+    background: 'Background'
   },
   extensions: {
     extensions: 'Extensions',
@@ -495,6 +496,7 @@ export default {
     accountPassword: 'Account Password',
     key: 'Key',
     username: 'Username',
+    name: 'Name',
     password: 'Password',
     remoteHost: 'Remote host',
     port: 'Port',
@@ -576,6 +578,8 @@ export default {
     importFormatPort: 'Port (optional, defaults to 22)',
     importFormatAssetType: 'Asset type (optional, "person" or "organization")',
     importFormatExample: 'Example:',
+    importFormatThirdPartyNote:
+      'Note: Supports third-party tool files (XShell, SecureCRT, MobaXterm) import, but passwords or keys need to be configured manually.',
     importDuplicateTitle: 'Duplicate Assets Found',
     importDuplicateMessage: 'Found {count} duplicate assets. Do you want to overwrite existing assets?',
     importDuplicateCount: 'Skipped {count} duplicate assets',
@@ -619,11 +623,26 @@ export default {
     folderDeleteConfirmContent: 'Are you sure you want to delete folder "{name}"?',
     folderDeleteConfirmWithAssets:
       'Are you sure you want to delete folder "{name}"? This folder contains {count} assets, and after deletion, the assets will return to their original position.',
-    missingAssetId: 'Missing asset ID'
+    missingAssetId: 'Missing asset ID',
+    supportedFormats: 'Supported Formats',
+    standardFormat: 'Standard Format',
+    sessionFiles: 'Session Files',
+    configFiles: 'Config Files',
+    unsupportedFileFormat: 'Unsupported File Format',
+    pleaseSelectSupportedFormat: 'Please select a supported file format:',
+    importParseError: 'File parsing failed, please check the file format',
+    xtsParseError: 'Failed to parse XTS file, please check if the file format is correct',
+    xtsParseSuccess: 'Successfully parsed {count} sessions',
+    xtsNoSessions: 'No valid session configurations found in XTS file',
+    importPasswordWarningTitle: 'Passwords Cannot Be Imported',
+    importPasswordWarningDesc:
+      'Passwords from third-party tools (XShell, SecureCRT, MobaXterm) use proprietary encryption and cannot be decrypted. You will need to manually set passwords after import.',
+    importSuccessNeedPassword: 'Successfully imported {count} sessions, please manually set passwords for sessions as needed'
   },
   ai: {
     today: 'Today',
     yesterday: 'Yesterday',
+    favorite: 'Favorites',
     welcome: 'What can I do for you in the terminal?',
     loginPrompt: 'Login to use AI features, new users can use for free for two weeks',
     searchHost: 'Search by IP',
@@ -718,7 +737,8 @@ export default {
       'Current window is not the server window for executing commands.\nTarget server: {targetServer}\nCurrent window: {currentWindow}\n\nPlease switch to the correct server window before executing commands.',
     nonTerminalWindow: 'Non-terminal window',
     commandExecutedOnLocalhost: 'Command executed on localhost',
-    timeoutGettingAssetInfo: 'Timeout getting asset information'
+    timeoutGettingAssetInfo: 'Timeout getting asset information',
+    interruptTask: 'Interrupt Task'
   },
   keyChain: {
     newKey: 'New Key',
