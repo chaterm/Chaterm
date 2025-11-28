@@ -63,10 +63,10 @@ test.describe('AI完整工作流程E2E测试', () => {
   const selectAiModel = async (modelName: string, timeout: number = 10000) => {
     try {
       // Wait for the input-controls container to be visible first
-      await electronHelper.window?.locator('.input-controls').waitFor({ timeout: 5000 })
+      await electronHelper.window?.locator('.input-controls').first().waitFor({ timeout: 5000 })
 
       // Wait for and click the AI model selector dropdown (second select in input-controls)
-      const modelSelector = electronHelper.window?.locator('.input-controls .ant-select:nth-child(2) .ant-select-selection-item')
+      const modelSelector = electronHelper.window?.locator('.input-controls .ant-select:nth-child(2) .ant-select-selection-item').first()
 
       await modelSelector?.waitFor({ timeout })
       await modelSelector?.click()
@@ -230,10 +230,10 @@ test.describe('AI完整工作流程E2E测试', () => {
   const getAvailableAiModels = async (): Promise<string[]> => {
     try {
       // Wait for the input-controls container to be visible first
-      await electronHelper.window?.locator('.input-controls').waitFor({ timeout: 5000 })
+      await electronHelper.window?.locator('.input-controls').first().waitFor({ timeout: 5000 })
 
       // Open the dropdown by clicking the model selector
-      const modelSelector = electronHelper.window?.locator('.input-controls .ant-select:nth-child(2) .ant-select-selector')
+      const modelSelector = electronHelper.window?.locator('.input-controls .ant-select:nth-child(2) .ant-select-selector').first()
       await modelSelector?.waitFor({ timeout: 5000 })
       await modelSelector?.click()
 
@@ -389,7 +389,8 @@ test.describe('AI完整工作流程E2E测试', () => {
   const verifyModeState = async (expectedMode: 'Chat' | 'Command' | 'Agent') => {
     try {
       // Verify mode selector shows correct mode
-      const modeSelector = electronHelper.window?.locator('.input-controls .ant-select:first-child .ant-select-selection-item')
+      // Use .first() to avoid strict mode violation when multiple .input-controls exist
+      const modeSelector = electronHelper.window?.locator('.input-controls .ant-select:first-child .ant-select-selection-item').first()
       const currentModeText = await modeSelector?.textContent()
 
       if (currentModeText !== expectedMode) {
@@ -422,7 +423,8 @@ test.describe('AI完整工作流程E2E测试', () => {
     for (let attempt = 0; attempt <= retries; attempt++) {
       try {
         // Check current active mode by looking at the selected value in the dropdown
-        const currentModeSelector = electronHelper.window?.locator('.input-controls .ant-select:first-child .ant-select-selection-item')
+        // Use .first() to avoid strict mode violation when multiple .input-controls exist
+        const currentModeSelector = electronHelper.window?.locator('.input-controls .ant-select:first-child .ant-select-selection-item').first()
         const currentMode = await currentModeSelector?.textContent()
 
         // If current mode matches target mode, verify state and return
@@ -435,7 +437,8 @@ test.describe('AI完整工作流程E2E测试', () => {
         console.log(`Switching from ${currentMode} to ${mode} mode (attempt ${attempt + 1}/${retries + 1})`)
 
         // Click on the mode dropdown to open options
-        const modeDropdown = electronHelper.window?.locator('.input-controls .ant-select:first-child')
+        // Use .first() to avoid strict mode violation when multiple .input-controls exist
+        const modeDropdown = electronHelper.window?.locator('.input-controls .ant-select:first-child').first()
         await modeDropdown?.click()
 
         // Wait for dropdown options to appear
@@ -486,7 +489,8 @@ test.describe('AI完整工作流程E2E测试', () => {
       await electronHelper.window?.waitForTimeout(1000)
 
       // Check if AI dialog is already open
-      const inputControls = electronHelper.window?.locator('.input-controls')
+      // Use .first() to avoid strict mode violation when multiple .input-controls exist
+      const inputControls = electronHelper.window?.locator('.input-controls').first()
       const isOpen = await inputControls?.isVisible({ timeout: 2000 }).catch(() => false)
 
       if (!isOpen) {
@@ -499,7 +503,8 @@ test.describe('AI完整工作流程E2E测试', () => {
       }
 
       // Wait for AI dialog to open by checking for input-controls container
-      await electronHelper.window?.locator('.input-controls').waitFor({ timeout: 10000 })
+      // Use .first() to select the first visible element and avoid strict mode violation
+      await electronHelper.window?.locator('.input-controls').first().waitFor({ timeout: 10000 })
       console.log('AI dialog opened successfully')
       await electronHelper.window?.waitForTimeout(1000) // Wait for UI to stabilize
     } catch (error) {
@@ -780,7 +785,7 @@ test.describe('AI完整工作流程E2E测试', () => {
 
         // Verify AI model selector is still functional
         // Use the same selector as selectAiModel function for consistency
-        const modelSelector = electronHelper.window?.locator('.input-controls .ant-select:nth-child(2) .ant-select-selection-item')
+        const modelSelector = electronHelper.window?.locator('.input-controls .ant-select:nth-child(2) .ant-select-selection-item').first()
         await modelSelector?.waitFor({ timeout: 10000 })
 
         console.log(`UI consistency verified for ${mode} mode`)
