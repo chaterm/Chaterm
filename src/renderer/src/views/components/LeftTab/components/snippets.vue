@@ -26,30 +26,31 @@
               type="text"
               size="small"
               class="add-button"
-              @click="openAddCommandDialog"
+              @click="startAddGroup"
             >
               <template #icon>
-                <img
-                  :src="snippetIcon"
-                  class="header-icon"
-                />
+                <FolderAddOutlined />
               </template>
-              {{ $t('common.command_add') }}
+              {{ $t('common.command_group') }}
             </a-button>
           </template>
         </div>
         <div class="header-right">
           <a-tooltip
             v-if="!selectedGroupUuid"
-            :title="$t('common.command_group') || 'Add Group'"
+            :title="$t('common.command_add')"
           >
             <a-button
               type="text"
               size="small"
               class="icon-btn"
-              @click="startAddGroup"
+              @click="openAddCommandDialog"
             >
-              <FolderAddOutlined />
+              <img
+                :src="snippetIcon"
+                class="header-icon"
+                style="width: 18px; height: 18px; filter: var(--icon-filter)"
+              />
             </a-button>
           </a-tooltip>
           <a-tooltip
@@ -65,7 +66,7 @@
               <img
                 :src="snippetIcon"
                 class="header-icon"
-                style="width: 14px; height: 14px; filter: var(--icon-filter)"
+                style="width: 18px; height: 18px; filter: var(--icon-filter)"
               />
             </a-button>
           </a-tooltip>
@@ -177,6 +178,31 @@
                     <code>backspace</code>
                   </div>
                 </div>
+
+                <div class="help-item">
+                  <strong>{{ $t('quickCommand.arrowKeys') }}</strong>
+                  <div class="key-list">
+                    <code>up</code>
+                    <code>down</code>
+                    <code>left</code>
+                    <code>right</code>
+                  </div>
+                </div>
+
+                <div class="help-item">
+                  <strong>{{ $t('quickCommand.ctrlKeys') }}</strong>
+                  <span>{{ $t('quickCommand.ctrlKeysDesc') }}</span>
+                  <div class="key-list">
+                    <code>ctrl+c</code>
+                    <code>ctrl+d</code>
+                    <code>ctrl+z</code>
+                  </div>
+                </div>
+
+                <div class="help-item">
+                  <strong>{{ $t('quickCommand.comments') }}</strong>
+                  <span>{{ $t('quickCommand.commentsDesc') }}</span>
+                </div>
               </div>
 
               <!-- Right: Example code -->
@@ -192,13 +218,18 @@
                   </button>
                 </div>
                 <pre class="example-code">
+# System monitoring
 ls -la
 sleep==2000
-cd /home
+# Navigate to log directory
+cd /var/log
 pwd
 sleep==1000
-sudo systemctl status nginx</pre
-                >
+# Check service status
+sudo systemctl status nginx
+# Interrupt after 3 seconds
+sleep==3000
+ctrl+c</pre
                 >
               </div>
             </div>
@@ -276,6 +307,13 @@ sudo systemctl status nginx</pre
                   {{ group.group_name }}
                 </span>
               </div>
+              <div class="group-count">
+                <img
+                  :src="snippetIcon"
+                  class="count-icon"
+                />
+                {{ getGroupCommandCount(group.uuid) }}
+              </div>
             </div>
           </div>
         </template>
@@ -286,7 +324,6 @@ sudo systemctl status nginx</pre
         >
           <div
             class="snippet-item"
-            :class="{ active: currentContextCommand?.id === cmd.id }"
             @click="handleClick(cmd)"
             @contextmenu.prevent="handleContextMenu($event, cmd)"
           >
@@ -442,6 +479,11 @@ const currentGroupName = computed(() => {
   const g = groups.value.find((g) => g.uuid === selectedGroupUuid.value)
   return g ? g.group_name : ''
 })
+
+// Get command count for a specific group
+const getGroupCommandCount = (groupUuid: string) => {
+  return quickCommands.value.filter((cmd) => cmd.group_uuid === groupUuid).length
+}
 
 const api = (window as any).api
 
@@ -693,12 +735,18 @@ const toggleHelp = () => {
 }
 
 const copyExample = async () => {
-  const exampleText = `ls -la
-sleep==2
-cd /home
+  const exampleText = `# System monitoring
+ls -la
+sleep==2000
+# Navigate to log directory
+cd /var/log
 pwd
-sleep==1
-sudo systemctl status nginx`
+sleep==1000
+# Check service status
+sudo systemctl status nginx
+# Interrupt after 3 seconds
+sleep==3000
+ctrl+c`
 
   try {
     await navigator.clipboard.writeText(exampleText)
@@ -796,6 +844,7 @@ const removeCommand = async (id: number) => {
     .back-button,
     .icon-btn {
       color: var(--text-secondary-color);
+      font-size: 18px;
       &:hover {
         color: var(--text-color);
         background-color: var(--hover-bg-color);
@@ -1008,8 +1057,8 @@ const removeCommand = async (id: number) => {
       }
 
       .folder-icon {
-        font-size: 16px;
-        color: #ffca28;
+        font-size: 20px;
+        color: var(--text-secondary-color);
         margin-right: 6px;
       }
 
@@ -1036,6 +1085,28 @@ const removeCommand = async (id: number) => {
       overflow: hidden;
       text-overflow: ellipsis;
       font-family: monospace;
+    }
+
+    .group-count {
+      font-size: 12px;
+      color: var(--text-secondary-color);
+      padding: 2px 8px;
+      background-color: var(--bg-color);
+      border-radius: 12px;
+      min-width: 24px;
+      text-align: center;
+      align-self: center;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+
+      .count-icon {
+        width: 12px;
+        height: 12px;
+        object-fit: contain;
+        filter: var(--icon-filter);
+        opacity: 0.7;
+      }
     }
 
     .snippet-actions {
@@ -1102,15 +1173,6 @@ const removeCommand = async (id: number) => {
 
     &:hover .snippet-actions {
       opacity: 1;
-    }
-
-    &.active {
-      background-color: var(--hover-bg-color);
-      border-color: var(--border-color);
-
-      .snippet-actions {
-        opacity: 1;
-      }
     }
   }
 
@@ -1360,14 +1422,15 @@ const removeCommand = async (id: number) => {
   .example-code {
     background: var(--bg-color-quaternary, #2d3748);
     color: var(--text-color, #333);
-    padding: 12px;
+    padding: 12px 2px;
     border-radius: 4px;
     font-family: 'Consolas', 'Monaco', monospace;
     font-size: 11px;
-    line-height: 1.5;
+    line-height: 1.6;
     margin: 0;
     overflow-x: auto;
     white-space: pre;
+    border: 1px solid var(--border-color, #e1e1e1);
   }
 
   @keyframes slideDown {

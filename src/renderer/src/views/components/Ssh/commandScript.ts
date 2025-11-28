@@ -1,13 +1,38 @@
 export type ParsedCommand =
   | { type: 'COMMAND'; payload: string }
   | { type: 'SLEEP'; payload: number }
-  | { type: 'KEY'; payload: 'esc' | 'tab' | 'return' | 'backspace' }
+  | { type: 'KEY'; payload: 'esc' | 'tab' | 'return' | 'backspace' | 'up' | 'down' | 'left' | 'right' }
+  | { type: 'CTRL'; payload: string }
 
 const keyMap = {
   esc: '\x1b',
   tab: '\t',
   return: '\r',
-  backspace: '\b'
+  backspace: '\b',
+  up: '\x1b[A',
+  down: '\x1b[B',
+  right: '\x1b[C',
+  left: '\x1b[D'
+}
+
+const ctrlKeyMap: { [key: string]: string } = {
+  'ctrl+a': '\x01',
+  'ctrl+b': '\x02',
+  'ctrl+c': '\x03',
+  'ctrl+d': '\x04',
+  'ctrl+e': '\x05',
+  'ctrl+f': '\x06',
+  'ctrl+g': '\x07',
+  'ctrl+h': '\x08',
+  'ctrl+k': '\x0b',
+  'ctrl+l': '\x0c',
+  'ctrl+n': '\x0e',
+  'ctrl+p': '\x10',
+  'ctrl+r': '\x12',
+  'ctrl+t': '\x14',
+  'ctrl+u': '\x15',
+  'ctrl+w': '\x17',
+  'ctrl+z': '\x1a'
 }
 
 /**
@@ -20,10 +45,18 @@ function parseSshScript(text: string): ParsedCommand[] {
 
   for (const line of lines) {
     const trimmedLine = line.trim()
+
+    // Skip empty lines
     if (trimmedLine === '') {
-      continue // Skip empty lines
+      continue
     }
 
+    // Skip comments (lines starting with # or //)
+    if (trimmedLine.startsWith('#') || trimmedLine.startsWith('//')) {
+      continue
+    }
+
+    // Check for sleep command
     const sleepMatch = trimmedLine.match(/^sleep==(\d+)$/i)
     if (sleepMatch) {
       commands.push({ type: 'SLEEP', payload: parseInt(sleepMatch[1], 10) })
@@ -31,11 +64,26 @@ function parseSshScript(text: string): ParsedCommand[] {
     }
 
     const lowerLine = trimmedLine.toLowerCase()
+
+    // Check for Ctrl key combinations
+    if (lowerLine.startsWith('ctrl+') && ctrlKeyMap[lowerLine]) {
+      commands.push({ type: 'CTRL', payload: lowerLine })
+      continue
+    }
+
+    // Check for special keys
     if (lowerLine === 'esc' || lowerLine === 'tab' || lowerLine === 'return' || lowerLine === 'backspace') {
       commands.push({ type: 'KEY', payload: lowerLine as 'esc' | 'tab' | 'return' | 'backspace' })
       continue
     }
 
+    // Check for arrow keys
+    if (lowerLine === 'up' || lowerLine === 'down' || lowerLine === 'left' || lowerLine === 'right') {
+      commands.push({ type: 'KEY', payload: lowerLine as 'up' | 'down' | 'left' | 'right' })
+      continue
+    }
+
+    // Default to command
     commands.push({ type: 'COMMAND', payload: trimmedLine })
   }
 
@@ -71,6 +119,9 @@ async function executeParsedCommands(commands: ParsedCommand[], terminal: { writ
         break
       case 'KEY':
         terminal.write(keyMap[cmd.payload])
+        break
+      case 'CTRL':
+        terminal.write(ctrlKeyMap[cmd.payload])
         break
     }
     // Add a small delay between commands to ensure the server can keep up
