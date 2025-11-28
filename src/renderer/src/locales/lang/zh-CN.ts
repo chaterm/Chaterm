@@ -1,5 +1,8 @@
 export default {
   common: {
+    command_group: '命令组',
+    command_add: '新增',
+    command_edit: '编辑',
     language: '简体中文',
     workspace: '工作空间',
     files: '文件管理',
@@ -62,7 +65,8 @@ export default {
     reset: '重置',
     confirm: '确认',
     ok: '确定',
-    quickCommandOn: '快捷命令(已开)',
+    deleteConfirm: '确认删除',
+    deleteConfirmContent: '确定要删除这个快捷命令吗？',
     quickCommand: '快捷命令',
     fileManager: '文件管理',
     add: '添加',
@@ -107,7 +111,8 @@ export default {
     serviceUnavailable: '服务不可用',
     terminalMode: 'Terminal',
     agentsMode: 'Agents',
-    daysAgo: '天前'
+    daysAgo: '天前',
+    run: '执行'
   },
   term: {
     welcome: '欢迎使用 Chaterm',
@@ -634,12 +639,14 @@ export default {
   ai: {
     today: '今天',
     yesterday: '昨天',
+    favorite: '收藏',
     welcome: '您好，请问需要在终端做什么操作？',
     loginPrompt: '登录后即可使用 AI 功能，新用户注册免费使用两周',
     searchHost: '输入IP搜索',
     noMatchingHosts: '无匹配主机',
     copy: '复制',
     run: '执行',
+    paste: '粘贴',
     reject: '拒绝',
     approve: '批准',
     addAutoApprove: '添加为自动批准',
@@ -728,7 +735,8 @@ export default {
       '当前窗口不是执行命令的服务器窗口。\n目标服务器: {targetServer}\n当前窗口: {currentWindow}\n\n请切换到正确的服务器窗口后再执行命令。',
     nonTerminalWindow: '非终端窗口',
     commandExecutedOnLocalhost: '在本地主机执行的命令',
-    timeoutGettingAssetInfo: '获取资产信息超时'
+    timeoutGettingAssetInfo: '获取资产信息超时',
+    interruptTask: '中断任务'
   },
   keyChain: {
     newKey: '添加密钥',
@@ -935,11 +943,18 @@ export default {
     delayCommand: '⏰ 延时命令：',
     delayCommandDesc: '如：',
     specialKeys: '⌨️ 特殊按键：',
+    comments: '💬 注释：',
+    commentsDesc: '以 # 或 // 开头的行',
+    ctrlKeys: 'Ctrl组合键：',
+    ctrlKeysDesc: 'ctrl+c, ctrl+d, ctrl+z 等',
+    arrowKeys: '➡️ 方向键：',
+    arrowKeysDesc: 'up, down, left, right',
     exampleScript: '💡 示例脚本',
     copy: '复制',
     copied: '已复制',
     copyFailed: '复制失败',
-    seconds: '秒数'
+    seconds: '秒数',
+    milliseconds: '毫秒数'
   },
   mcp: {
     title: '工具与 MCP',

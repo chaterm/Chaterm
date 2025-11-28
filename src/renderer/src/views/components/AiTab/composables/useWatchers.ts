@@ -9,11 +9,11 @@ interface WatcherDeps {
   updateHostsForCommandMode: () => Promise<void>
 }
 /**
- * 跨 composable watch 编排 → 放在 useWatchers.ts
- * 单个 composable 内部的副作用 → 放在各自的 composable 内部
- * 例如：
- * useStateSnapshot 内部自己监听 currentChatId 并处理 emitStateChange
- * 这样既保持了各 composable 的自治性，又避免了组件层的臃肿。
+ * Cross-composable watch orchestration → placed in useWatchers.ts
+ * Side effects within a single composable → placed inside respective composables
+ * For example:
+ * useStateSnapshot internally watches currentChatId and handles emitStateChange
+ * This maintains autonomy of each composable while avoiding bloating the component layer.
  */
 export function useWatchers(deps: WatcherDeps) {
   const { currentChatId, chatTypeValue } = useSessionState()

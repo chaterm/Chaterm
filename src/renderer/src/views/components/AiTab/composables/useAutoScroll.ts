@@ -3,8 +3,8 @@ import { useSessionState } from './useSessionState'
 import { focusChatInput } from './useTabManagement'
 
 /**
- * 自动滚动管理的 composable
- * 负责处理聊天容器的自动滚动到底部功能（粘性滚动）
+ * Composable for auto-scroll management
+ * Handles automatic scrolling to bottom functionality for chat container (sticky scroll)
  */
 export function useAutoScroll() {
   const { shouldStickToBottom } = useSessionState()
@@ -39,8 +39,8 @@ export function useAutoScroll() {
   }
 
   /**
-   * 带重试机制的滚动到底部
-   * 用于处理内容动态加载的情况，确保滚动到真正的底部
+   * Scroll to bottom with retry mechanism
+   * Used to handle dynamically loaded content, ensuring scroll to actual bottom
    */
   const scrollToBottomWithRetry = (maxRetries = 5, delay = 50) => {
     let retryCount = 0
@@ -88,8 +88,8 @@ export function useAutoScroll() {
   }
 
   /**
-   * 判断是否为终端输出的折叠/展开操作
-   * 终端折叠/展开不应触发自动滚动
+   * Determine if it's a terminal output collapse/expand operation
+   * Terminal collapse/expand should not trigger auto-scroll
    */
   const isTerminalToggleMutation = (mutations: MutationRecord[], rootEl: HTMLElement | null): boolean => {
     return mutations.some((mutation) => {
@@ -109,7 +109,7 @@ export function useAutoScroll() {
       try {
         domObserver.value.disconnect()
       } catch (e) {
-        // 忽略断开失败的错误
+        // Ignore disconnect failure errors
       }
     }
 

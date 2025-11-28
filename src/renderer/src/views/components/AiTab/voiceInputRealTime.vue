@@ -31,7 +31,7 @@ import { ref, onUnmounted } from 'vue'
 import { notification } from 'ant-design-vue'
 import { useI18n } from 'vue-i18n'
 
-// 国际化
+// i18n
 const { t } = useI18n()
 
 // Props
@@ -51,7 +51,7 @@ const emit = defineEmits<{
   'recording-stop': []
 }>()
 
-// 配置
+// Configuration
 const CONFIG = {
   // WS_URL: 'ws://localhost:8801/v1/speech/asr',
   WS_URL: 'ws://demo.chaterm.ai/v1/speech/asr',
@@ -62,7 +62,7 @@ const CONFIG = {
   CHUNK_INTERVAL: 40 // ms
 }
 
-// 状态
+// State
 const isRecording = ref(false)
 const websocket = ref<WebSocket | null>(null)
 const isConnected = ref(false)
@@ -72,7 +72,7 @@ const audioSource = ref<MediaStreamAudioSourceNode | null>(null)
 const audioProcessor = ref<ScriptProcessorNode | null>(null)
 const recordingTimeout = ref<number | null>(null)
 
-// 建立WebSocket连接
+// Establish WebSocket connection
 const connectWebSocket = async (): Promise<boolean> => {
   return new Promise((resolve, reject) => {
     try {
@@ -100,10 +100,10 @@ const connectWebSocket = async (): Promise<boolean> => {
               currentText.value = text
 
               if (sliceType === 2) {
-                // 稳态结果
+                // Stable result
                 emit('transcription-complete', text.trim())
               } else {
-                // 非稳态结果
+                // Unstable result
                 emit('transcription-update', text.trim())
               }
             }
@@ -124,7 +124,7 @@ const connectWebSocket = async (): Promise<boolean> => {
       websocket.value.onerror = (error) => {
         console.error('WebSocket error:', error)
         isConnected.value = false
-        reject(new Error('WebSocket连接错误'))
+        reject(new Error('WebSocket connection error'))
       }
 
       websocket.value.onclose = () => {
@@ -132,11 +132,11 @@ const connectWebSocket = async (): Promise<boolean> => {
         isConnected.value = false
       }
 
-      // 连接超时
+      // Connection timeout
       setTimeout(() => {
         if (!isConnected.value) {
           websocket.value?.close()
-          reject(new Error('连接超时'))
+          reject(new Error('Connection timeout'))
         }
       }, 10000)
     } catch (error) {
@@ -145,21 +145,21 @@ const connectWebSocket = async (): Promise<boolean> => {
   })
 }
 
-// 发送PCM音频数据
+// Send PCM audio data
 const sendPCMAudioData = async (pcmData: Int16Array) => {
   if (!websocket.value || !isConnected.value) {
     return
   }
 
   try {
-    // 直接发送二进制PCM数据
+    // Send binary PCM data directly
     websocket.value.send(pcmData.buffer)
   } catch (error) {
     console.error('Failed to send PCM data:', error)
   }
 }
 
-// 语音录制功能
+// Voice recording functionality
 const toggleVoiceInput = async () => {
   if (isRecording.value) {
     stopRecording()
@@ -170,10 +170,10 @@ const toggleVoiceInput = async () => {
 
 const startRecording = async () => {
   try {
-    // 重置状态
+    // Reset state
     currentText.value = ''
 
-    // 建立WebSocket连接
+    // Establish WebSocket connection
     try {
       await connectWebSocket()
     } catch (error) {
@@ -185,34 +185,34 @@ const startRecording = async () => {
       return
     }
 
-    // 获取音频流
+    // Get audio stream
     const stream = await navigator.mediaDevices.getUserMedia({
       audio: {
-        echoCancellation: true, // 回声消除
-        noiseSuppression: true, // 噪声抑制
-        autoGainControl: true, // 自动增益控制
+        echoCancellation: true, // Echo cancellation
+        noiseSuppression: true, // Noise suppression
+        autoGainControl: true, // Auto gain control
         sampleRate: CONFIG.SAMPLE_RATE,
         channelCount: CONFIG.CHANNELS,
         sampleSize: CONFIG.BITS_PER_SAMPLE
       }
     })
 
-    // 创建AudioContext
+    // Create AudioContext
     audioContext.value = new AudioContext({
       sampleRate: CONFIG.SAMPLE_RATE,
       latencyHint: 'interactive'
     })
 
-    // 创建音频源和处理器
+    // Create audio source and processor
     audioSource.value = audioContext.value.createMediaStreamSource(stream)
     audioProcessor.value = audioContext.value.createScriptProcessor(CONFIG.BUFFER_SIZE, 1, 1)
 
-    // 连接音频节点
+    // Connect audio nodes
     audioSource.value.connect(audioProcessor.value)
     audioProcessor.value.connect(audioContext.value.destination)
 
-    // 处理音频数据
-    // 每当有新的音频数据时，会触发 onaudioprocess 事件
+    // Process audio data
+    // onaudioprocess event is triggered whenever there is new audio data
     audioProcessor.value.onaudioprocess = (event) => {
       if (!isRecording.value || !websocket.value || !isConnected.value) {
         return
@@ -221,24 +221,24 @@ const startRecording = async () => {
       try {
         const inputData = event.inputBuffer.getChannelData(0)
 
-        // 转换为16位PCM数据
+        // Convert to 16-bit PCM data
         const pcmData = new Int16Array(inputData.length)
         for (let i = 0; i < inputData.length; i++) {
           const sample = Math.max(-1, Math.min(1, inputData[i]))
           pcmData[i] = sample < 0 ? sample * 0x8000 : sample * 0x7fff
         }
 
-        // 发送PCM数据
+        // Send PCM data
         sendPCMAudioData(pcmData)
       } catch (error) {
         console.error('Audio ls processing error:', error)
       }
     }
 
-    // 开始录制
+    // Start recording
     isRecording.value = true
 
-    // 60秒自动停止
+    // Auto-stop after 60 seconds
     recordingTimeout.value = window.setTimeout(() => {
       if (isRecording.value) {
         notification.warning({
@@ -275,7 +275,7 @@ const stopRecording = () => {
   if (isRecording.value) {
     console.log('Stopping recording')
 
-    // 发送录制结束信号
+    // Send recording end signal
     if (websocket.value && isConnected.value) {
       try {
         websocket.value.send(JSON.stringify({ type: 'end' }))
@@ -285,7 +285,7 @@ const stopRecording = () => {
       }
     }
 
-    // 清理音频资源
+    // Cleanup audio resources
     if (audioProcessor.value) {
       audioProcessor.value.disconnect()
       audioProcessor.value = null
@@ -299,7 +299,7 @@ const stopRecording = () => {
       audioContext.value = null
     }
 
-    // 重置状态
+    // Reset state
     isRecording.value = false
     currentText.value = ''
 
@@ -308,7 +308,7 @@ const stopRecording = () => {
       recordingTimeout.value = null
     }
 
-    // 关闭WebSocket
+    // Close WebSocket
     if (websocket.value) {
       websocket.value.close()
       websocket.value = null
@@ -320,21 +320,21 @@ const stopRecording = () => {
   }
 }
 
-// 清理资源
+// Cleanup resources
 onUnmounted(() => {
   if (isRecording.value) {
     stopRecording()
   }
 })
 
-// 暴露 stopRecording 函数给父组件调用
+// Expose stopRecording function to parent component
 defineExpose({
   stopRecording
 })
 </script>
 
 <style>
-/* 语音按钮基础样式 */
+/* Voice button base styles */
 .voice-button {
   transition: all 0.3s ease;
 }
@@ -345,7 +345,7 @@ defineExpose({
   color: white;
 }
 
-/* 录制动画样式 */
+/* Recording animation styles */
 .recording-animation {
   position: relative;
   width: 18px;
@@ -379,7 +379,7 @@ defineExpose({
   }
 }
 
-/* 按钮样式 */
+/* Button styles */
 .custom-round-button {
   height: 18px;
   width: 18px;

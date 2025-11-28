@@ -32,7 +32,7 @@ import { notification } from 'ant-design-vue'
 import { useI18n } from 'vue-i18n'
 import { voiceToText } from '@renderer/api/speech/speech'
 
-// 国际化
+// i18n
 const { t } = useI18n()
 
 // Props
@@ -52,32 +52,32 @@ const emit = defineEmits<{
   'transcription-error': [error: string]
 }>()
 
-// 语音识别配置
+// Speech recognition configuration
 const SPEECH_CONFIG = {
-  // 最大音频文件大小 (50MB)
+  // Maximum audio file size (50MB)
   MAX_AUDIO_SIZE: 50 * 1024 * 1024,
-  // 后端支持的音频格式
+  // Audio formats supported by backend
   SUPPORTED_FORMATS: [
-    'wav', // WAV格式，无损音频
-    'pcm', // PCM格式，原始音频数据
-    'ogg-opus', // OGG with Opus编码
-    'speex', // Speex编码格式
-    'silk', // Silk编码格式
-    'mp3', // MP3格式，有损压缩
-    'm4a', // M4A格式，AAC编码
-    'aac', // AAC格式，高质量压缩
-    'amr' // AMR格式，移动设备优化
+    'wav', // WAV format, lossless audio
+    'pcm', // PCM format, raw audio data
+    'ogg-opus', // OGG with Opus encoding
+    'speex', // Speex encoding format
+    'silk', // Silk encoding format
+    'mp3', // MP3 format, lossy compression
+    'm4a', // M4A format, AAC encoding
+    'aac', // AAC format, high quality compression
+    'amr' // AMR format, mobile device optimized
   ]
 }
 
-// 语音录制相关状态
+// Voice recording related state
 const isRecording = ref(false)
 const mediaRecorder = ref<MediaRecorder | null>(null)
 const audioChunks = ref<Blob[]>([])
 const recordingTimeout = ref<NodeJS.Timeout | null>(null)
 const voiceButton = ref<HTMLElement | null>(null)
 
-// 获取最佳音频格式
+// Get best audio format
 const getBestAudioFormat = () => {
   const preferredFormats = ['audio/webm', 'audio/ogg;codecs=opus', 'audio/webm;codecs=opus', 'audio/mp3', 'audio/m4a', 'audio/aac', 'audio/wav']
 
@@ -86,10 +86,10 @@ const getBestAudioFormat = () => {
       return format
     }
   }
-  return '' // 使用默认格式
+  return '' // Use default format
 }
 
-// 语音录制功能
+// Voice recording functionality
 const toggleVoiceInput = async () => {
   if (isRecording.value) {
     stopRecording()
@@ -105,16 +105,16 @@ const startRecording = async () => {
         echoCancellation: true,
         noiseSuppression: true,
         autoGainControl: true,
-        sampleRate: 16000 // 推荐采样率
+        sampleRate: 16000 // Recommended sample rate
       }
     })
 
-    // 获取最佳音频格式
+    // Get best audio format
     const mimeType = getBestAudioFormat()
 
     mediaRecorder.value = new MediaRecorder(stream, {
       mimeType: mimeType,
-      audioBitsPerSecond: 128000 // 适中的音质
+      audioBitsPerSecond: 128000 // Moderate audio quality
     })
 
     audioChunks.value = []
@@ -128,9 +128,9 @@ const startRecording = async () => {
     mediaRecorder.value.onstop = async () => {
       const audioBlob = new Blob(audioChunks.value, { type: mimeType })
 
-      // 检查录制时长，太短的录制可能没有有效内容
+      // Check recording duration, too short recordings may have no valid content
       if (audioBlob.size < 1024) {
-        // 小于1KB
+        // Less than 1KB
         notification.warning({
           message: t('ai.recordingTooShort'),
           description: t('ai.recordingTooShortDesc'),
@@ -141,7 +141,7 @@ const startRecording = async () => {
 
       await transcribeAudio(audioBlob)
 
-      // 停止所有音频轨道
+      // Stop all audio tracks
       stream.getTracks().forEach((track) => track.stop())
     }
 
@@ -154,20 +154,20 @@ const startRecording = async () => {
       })
     }
 
-    // 开始录制，每100ms收集一次数据
+    // Start recording, collect data every 100ms
     mediaRecorder.value.start(100)
     isRecording.value = true
 
-    console.log('开始语音录制，使用的格式:', mimeType)
+    console.log('Started voice recording, format used:', mimeType)
 
-    // // 显示录制开始提示
+    // // Show recording start notification
     // notification.info({
     //   message: t('ai.startRecording'),
     //   description: t('ai.startRecordingDesc', { formats: getSupportedFormatsDescription() }),
     //   duration: 4
     // })
 
-    // 添加60秒自动停止录制的超时
+    // Add 60 second timeout to auto-stop recording
     recordingTimeout.value = setTimeout(() => {
       if (isRecording.value) {
         notification.warning({
@@ -217,7 +217,7 @@ const stopRecording = () => {
       recordingTimeout.value = null
     }
 
-    // // 显示停止录制提示
+    // // Show stop recording notification
     // notification.info({
     //   message: t('ai.recordingStopped'),
     //   description: t('ai.processingVoice'),
@@ -226,21 +226,21 @@ const stopRecording = () => {
   }
 }
 
-// 语音识别功能 - 使用 voiceToText API
+// Speech recognition functionality - using voiceToText API
 const transcribeAudio = async (audioBlob: Blob) => {
   try {
-    // 检查音频大小，使用配置文件中的限制
+    // Check audio size, use limit from config file
     if (audioBlob.size > SPEECH_CONFIG.MAX_AUDIO_SIZE) {
       throw new Error(t('ai.audioFileTooLarge', { maxSize: Math.round(SPEECH_CONFIG.MAX_AUDIO_SIZE / 1024 / 1024) }))
     }
 
-    // 将音频转换为 base64
+    // Convert audio to base64
     const arrayBuffer = await audioBlob.arrayBuffer()
     const base64Audio = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)))
 
-    // 根据MIME类型确定音频格式，映射到后端支持的格式
-    // 后端支持的格式：wav、pcm、ogg-opus、speex、silk、mp3、m4a、aac、amr
-    let audioFormat = 'wav' // 默认格式
+    // Determine audio format based on MIME type, map to backend supported formats
+    // Backend supported formats: wav, pcm, ogg-opus, speex, silk, mp3, m4a, aac, amr
+    let audioFormat = 'wav' // Default format
     if (audioBlob.type) {
       if (audioBlob.type.includes('mp3')) {
         audioFormat = 'mp3'
@@ -251,7 +251,7 @@ const transcribeAudio = async (audioBlob: Blob) => {
       } else if (audioBlob.type.includes('ogg') || audioBlob.type.includes('opus')) {
         audioFormat = 'ogg-opus'
       } else if (audioBlob.type.includes('webm')) {
-        // WebM格式转换为ogg-opus，因为后端支持ogg-opus
+        // Convert WebM format to ogg-opus, as backend supports ogg-opus
         audioFormat = 'ogg-opus'
       } else if (audioBlob.type.includes('wav')) {
         audioFormat = 'wav'
@@ -268,12 +268,12 @@ const transcribeAudio = async (audioBlob: Blob) => {
 
     console.log(t('ai.processingVoice'), { format: audioFormat, size: audioBlob.size })
 
-    // 验证音频格式是否被后端支持
+    // Verify if audio format is supported by backend
     if (!SPEECH_CONFIG.SUPPORTED_FORMATS.includes(audioFormat)) {
       console.warn(t('ai.formatConversionDesc', { format: audioFormat }))
-      audioFormat = 'wav' // 回退到默认格式
+      audioFormat = 'wav' // Fallback to default format
 
-      // 通知用户格式转换
+      // Notify user about format conversion
       notification.info({
         message: t('ai.audioFormatConversion'),
         description: t('ai.formatConversionDesc', { format: audioFormat }),
@@ -281,7 +281,7 @@ const transcribeAudio = async (audioBlob: Blob) => {
       })
     }
 
-    // 使用 voiceToText API 方法
+    // Use voiceToText API method
     const result = await voiceToText({
       audio_data: base64Audio,
       audio_format: audioFormat,
@@ -290,9 +290,9 @@ const transcribeAudio = async (audioBlob: Blob) => {
     })
 
     let transcribedText = ''
-    // 根据后端API响应结构处理结果
+    // Process result based on backend API response structure
     if (result && result.data) {
-      // 后端返回的是 VoiceToTextReply 结构
+      // Backend returns VoiceToTextReply structure
       transcribedText = result.data.text || ''
     } else {
       throw new Error(t('ai.voiceRecognitionFailed') + '：' + t('ai.recognitionEmptyDesc'))
@@ -301,14 +301,14 @@ const transcribeAudio = async (audioBlob: Blob) => {
     if (transcribedText) {
       console.log(t('ai.voiceRecognitionSuccess'), transcribedText)
 
-      // // 显示成功提示
+      // // Show success notification
       // notification.success({
       //   message: t('ai.voiceRecognitionSuccess'),
       //   description: t('ai.recognitionResult', { text: transcribedText }),
       //   duration: 2
       // })
 
-      // 触发转录完成事件
+      // Emit transcription complete event
       emit('transcription-complete', transcribedText)
     } else {
       notification.warning({
@@ -333,7 +333,7 @@ const transcribeAudio = async (audioBlob: Blob) => {
   }
 }
 
-// 清理资源
+// Cleanup resources
 onUnmounted(() => {
   if (isRecording.value) {
     stopRecording()
@@ -343,14 +343,14 @@ onUnmounted(() => {
   }
 })
 
-// 暴露方法给父组件
+// Expose methods to parent component
 defineExpose({
   toggleVoiceInput
 })
 </script>
 
 <style>
-/* 语音按钮基础样式 */
+/* Voice button base styles */
 .voice-button {
   transition: all 0.3s ease;
 }
@@ -361,7 +361,7 @@ defineExpose({
   color: white;
 }
 
-/* 录制动画样式 */
+/* Recording animation styles */
 .recording-animation {
   position: relative;
   width: 18px;
@@ -395,7 +395,7 @@ defineExpose({
   }
 }
 
-/* 从父组件复制过来的按钮样式 */
+/* Button styles copied from parent component */
 .custom-round-button {
   height: 18px;
   width: 18px;
@@ -432,13 +432,13 @@ defineExpose({
   transform: none;
 }
 
-/* 确保图标样式正确 */
+/* Ensure icon styles are correct */
 .custom-round-button img {
   filter: brightness(1) contrast(1);
   opacity: 1;
 }
 
-/* 确保按钮在容器中正确对齐 */
+/* Ensure button is properly aligned in container */
 .voice-button {
   box-sizing: border-box;
   line-height: 1;

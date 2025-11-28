@@ -21,14 +21,14 @@ interface TabInfo {
 }
 
 /**
- * 事件总线监听器管理 composable
- * 集中管理所有 eventBus 相关的监听器注册和清理
+ * Composable for event bus listener management
+ * Centralizes all eventBus-related listener registration and cleanup
  */
 export function useEventBusListeners(params: UseEventBusListenersParams) {
   const { sendMessageWithContent, initModel, getCurentTabAssetInfo, updateHosts, isAgentMode = false } = params
   const { chatTabs, chatInputValue, currentSession, autoUpdateHost } = useSessionState()
 
-  // 资产信息初始化
+  // Initialize asset information
   const initAssetInfo = async () => {
     const session = currentSession.value
     if (!autoUpdateHost.value || (session && session.chatHistory.length > 0)) {
