@@ -17,12 +17,12 @@
           >
             <span
               class="tab-title"
-              @click="$emit('change-tab', tab.id)"
+              @click="emit('change-tab', tab.id)"
               >{{ tab.ip ? tab.title : $t(`common.${tab.title}`) }}</span
             >
             <button
               class="close-btn"
-              @click.stop="$emit('close-tab', tab.id)"
+              @click.stop="emit('close-tab', tab.id)"
               >&times;</button
             >
           </div>
@@ -93,10 +93,17 @@ interface TabItem {
   organizationId?: string
   ip?: string
   data?: any
+  closeCurrentPanel?: (panelId?: string) => void
+  createNewPanel?: (isClone: boolean, direction: string, panelId?: string) => void
 }
 
 const props = defineProps<{
   params: IDockviewPanelProps
+}>()
+
+const emit = defineEmits<{
+  'change-tab': [tabId: string]
+  'close-tab': [tabId: string]
 }>()
 
 const localTab = computed(() => props.params.params as TabItem)
