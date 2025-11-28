@@ -394,6 +394,9 @@ export function useChatMessages(
         session.lastChatMessageId = newAssistantMessage.id
         cleanupPartialCommandMessages(session.chatHistory)
         session.chatHistory.push(newAssistantMessage)
+        if (isActiveTab) {
+          scrollToBottom(true)
+        }
       } else if (lastMessageInChat && lastMessageInChat.role === 'assistant') {
         lastMessageInChat.content = partial.text ?? ''
         lastMessageInChat.type = partial.type ?? ''
@@ -415,12 +418,18 @@ export function useChatMessages(
       }
 
       session.lastPartialMessage = message
+      if (isActiveTab && partial.partial) {
+        scrollToBottom(true)
+      }
+
       if (!partial.partial) {
         session.showSendButton = true
         session.showCancelButton = false
-
         if ((partial.type === 'ask' && partial.ask === 'command') || partial.say === 'command_blocked') {
           session.responseLoading = false
+        }
+        if (isActiveTab) {
+          scrollToBottom(true)
         }
       }
     } else if (message?.type === 'state') {
