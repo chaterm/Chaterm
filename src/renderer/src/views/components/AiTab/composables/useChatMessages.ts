@@ -235,6 +235,7 @@ export function useChatMessages(
     }
 
     const session = targetTab.session
+    session.isCancelled = false
 
     await sendMessageToMain(userContent, sendType, tabId)
 
@@ -324,6 +325,11 @@ export function useChatMessages(
     const previousMainMessage = session.lastStreamMessage
     const previousPartialMessage = session.lastPartialMessage
 
+    if (message?.type === 'partialMessage' && session.isCancelled) {
+      console.log('AiTab: Ignoring partial message because task is cancelled')
+      return
+    }
+
     if (message?.type === 'partialMessage') {
       const partial = message.partialMessage
       if (!partial) {
@@ -351,7 +357,7 @@ export function useChatMessages(
 
       session.showRetryButton = false
       session.showSendButton = false
-      session.showCancelButton = partial.partial === true
+      session.showCancelButton = partial.partial === true && session.responseLoading === true
       const lastMessageInChat = session.chatHistory.at(-1)
 
       const openNewMessage =
@@ -414,6 +420,10 @@ export function useChatMessages(
 
         if (partial.type === 'say' && partial.say === 'command_output' && !partial.partial) {
           session.isExecutingCommand = false
+        }
+
+        if (partial.type === 'say' && partial.say === 'command_output' && isActiveTab) {
+          scrollToBottom(true)
         }
       }
 
