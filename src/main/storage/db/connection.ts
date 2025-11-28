@@ -385,8 +385,6 @@ export async function initChatermDatabase(userId?: number): Promise<Database.Dat
         upgradeUserSnippetTable(mainDb)
         upgradeAgentTaskMetadataSupport(mainDb)
         upgradeMcpToolStateSupport(mainDb)
-        upgradeMcpToolStateSupport(mainDb)
-        upgradeMcpToolStateSupport(mainDb)
         upgradeMcpToolCallSupport(mainDb)
         upgradeSnippetGroups(mainDb)
       } finally {

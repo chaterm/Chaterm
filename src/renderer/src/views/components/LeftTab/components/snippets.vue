@@ -845,6 +845,9 @@ const removeCommand = async (id: number) => {
     .icon-btn {
       color: var(--text-secondary-color);
       font-size: 18px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
       &:hover {
         color: var(--text-color);
         background-color: var(--hover-bg-color);
@@ -857,6 +860,9 @@ const removeCommand = async (id: number) => {
     }
 
     .header-right {
+      display: flex;
+      align-items: center;
+      gap: 4px;
     }
 
     .search-container {
