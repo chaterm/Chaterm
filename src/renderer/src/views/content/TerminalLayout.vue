@@ -1132,7 +1132,7 @@ const getActiveTabAssetInfo = async () => {
   return {
     uuid: uuid,
     title: activePanel.api.title || params.title,
-    ip: params.ip || params.data?.ip,
+    ip: params.data?.ip || params.ip,
     organizationId: params.organizationId || params.data?.organizationId,
     type: params.type || params.data?.type,
     outputContext: outputContext,

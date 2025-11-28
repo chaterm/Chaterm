@@ -107,11 +107,12 @@ export function useEventBusListeners(params: UseEventBusListenersParams) {
     await initModel()
   }
 
-  onMounted(() => {
+  onMounted(async () => {
     eventBus.on('sendMessageToAi', handleSendMessageToAi)
     eventBus.on('chatToAi', handleChatToAi)
     eventBus.on('activeTabChanged', handleActiveTabChanged)
     eventBus.on('SettingModelOptionsChanged', handleSettingModelOptionsChanged)
+    await initAssetInfo()
   })
 
   onUnmounted(() => {
