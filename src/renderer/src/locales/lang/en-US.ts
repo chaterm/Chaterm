@@ -1,5 +1,6 @@
 export default {
   common: {
+    runInAllTabs: 'All in tabs',
     command_group: 'Snippet Group',
     command_add: 'New Snippet',
     command_edit: 'Edit Snippet',

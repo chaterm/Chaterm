@@ -1,5 +1,6 @@
 export default {
   common: {
+    runInAllTabs: '所有标签执行',
     command_group: '命令组',
     command_add: '新增',
     command_edit: '编辑',

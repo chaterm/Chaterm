@@ -364,8 +364,13 @@ ctrl+c</pre
           ref="contextMenu"
           popover-class="snippet-context-menu"
         >
-          <v-contextmenu-item @click="handleEditFromMenu"> <EditOutlined style="margin-right: 8px" /> {{ $t('common.edit') }} </v-contextmenu-item>
-          <v-contextmenu-item @click="handleRemoveFromMenu">
+          <v-contextmenu-item @click="handleRunInAllTabs">
+            <PlayCircleOutlined style="margin-right: 8px" /> {{ $t('common.runInAllTabs') || 'Run in all tabs' }}
+          </v-contextmenu-item>
+          <v-contextmenu-item @click="handleEditCommandFromMenu">
+            <EditOutlined style="margin-right: 8px" /> {{ $t('common.edit') }}
+          </v-contextmenu-item>
+          <v-contextmenu-item @click="handleRemoveCommandFromMenu">
             <DeleteOutlined style="margin-right: 8px" /> {{ $t('common.delete') }}
           </v-contextmenu-item>
         </v-contextmenu>
@@ -566,6 +571,7 @@ const handleContextMenu = (e: MouseEvent, cmd: QuickCommand) => {
   }
 
   currentContextCommand.value = cmd
+  selectedCommandId.value = cmd.id // Set selectedCommandId for menu actions
   contextMenu.value?.show(e)
 
   // Manually add class to the context menu element as a fallback
@@ -580,16 +586,24 @@ const handleContextMenu = (e: MouseEvent, cmd: QuickCommand) => {
   }, 0)
 }
 
-const handleEditFromMenu = () => {
+const handleEditCommandFromMenu = () => {
   if (currentContextCommand.value) {
     handleEditCommand(currentContextCommand.value.id)
   }
 }
 
-const handleRemoveFromMenu = () => {
+const handleRemoveCommandFromMenu = () => {
   if (currentContextCommand.value) {
     handleRemoveCommand(currentContextCommand.value.id)
   }
+  closeContextMenu()
+}
+
+const handleRunInAllTabs = () => {
+  if (currentContextCommand.value) {
+    runScriptInAllTabs(currentContextCommand.value, true)
+  }
+  closeContextMenu()
 }
 
 const addQuickCommand = async () => {
@@ -721,6 +735,15 @@ const runScript = (cmd: QuickCommand, autoExecute: boolean) => {
   const terminal = {
     write: (data: string) => {
       inputManager.sendToActiveTerm(data)
+    }
+  }
+  executeScript(cmd.snippet_content, terminal, autoExecute)
+}
+
+const runScriptInAllTabs = (cmd: QuickCommand, autoExecute: boolean) => {
+  const terminal = {
+    write: (data: string) => {
+      inputManager.globalSend(data)
     }
   }
   executeScript(cmd.snippet_content, terminal, autoExecute)
