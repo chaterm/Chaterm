@@ -45,11 +45,19 @@
         </div>
         <div
           v-if="filteredChatHistory.length > 0"
-          ref="chatContainer"
+          :ref="
+            (el) => {
+              chatContainer = el
+            }
+          "
           class="chat-response-container"
         >
           <div
-            ref="chatResponse"
+            :ref="
+              (el) => {
+                chatResponse = el
+              }
+            "
             class="chat-response"
           >
             <template
