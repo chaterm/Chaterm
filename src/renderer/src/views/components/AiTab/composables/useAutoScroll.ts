@@ -14,6 +14,11 @@ export function useAutoScroll() {
   const STICKY_THRESHOLD = 24
 
   const domObserver = ref<MutationObserver | null>(null)
+  // Track last scrollTop to distinguish user-initiated scroll from content-change-induced scroll
+  const lastScrollTop = ref<number>(0)
+  const lastScrollHeight = ref<number>(0)
+  // Flag to mark programmatic scrolling (to ignore scroll events during auto-scroll)
+  const isProgrammaticScroll = ref<boolean>(false)
 
   const getElement = (refValue: any): HTMLElement | null => {
     if (!refValue) return null
@@ -25,10 +30,17 @@ export function useAutoScroll() {
   }
 
   const executeScroll = () => {
+    isProgrammaticScroll.value = true
     requestAnimationFrame(() => {
       const el = getElement(chatContainer.value)
       if (el instanceof HTMLElement) {
         el.scrollTop = el.scrollHeight
+        // Reset flag after a short delay to allow scroll event to fire
+        requestAnimationFrame(() => {
+          setTimeout(() => {
+            isProgrammaticScroll.value = false
+          }, 100)
+        })
       }
     })
   }
@@ -80,10 +92,88 @@ export function useAutoScroll() {
     })
   }
 
+  /**
+   * Determine if the scroll event is user-initiated
+   * Returns true if it's a user scroll, false if it's programmatic or content-change-induced
+   */
+  const isUserScroll = (container: HTMLElement): boolean => {
+    const currentScrollTop = container.scrollTop
+    const currentScrollHeight = container.scrollHeight
+
+    // 1. Ignore if it's during programmatic scroll
+    if (isProgrammaticScroll.value) {
+      return false
+    }
+
+    // 2. If scrollTop didn't change, it's content height change, not user scroll
+    const scrollTopChanged = Math.abs(currentScrollTop - lastScrollTop.value) > 1
+    if (!scrollTopChanged) {
+      return false
+    }
+
+    // 3. Calculate previous position state
+    const wasAtBottom = lastScrollHeight.value > 0 && lastScrollHeight.value - (lastScrollTop.value + container.clientHeight) <= STICKY_THRESHOLD
+    const isAtBottomNow = isAtBottom(container)
+    const scrollingDown = currentScrollTop > lastScrollTop.value
+    const scrollingUp = currentScrollTop < lastScrollTop.value
+    const scrollHeightChanged = currentScrollHeight !== lastScrollHeight.value
+
+    // 4. If scrolling up (away from bottom), definitely user scroll
+    if (scrollingUp) {
+      return true
+    }
+
+    // 5. If user scrolled from non-bottom to bottom, it's user scroll
+    // This handles the case where user manually scrolls down to bottom
+    if (scrollingDown && !wasAtBottom && isAtBottomNow) {
+      return true
+    }
+
+    // 6. If scrolling down but not at bottom, likely user scroll
+    if (scrollingDown && !isAtBottomNow) {
+      return true
+    }
+
+    // 7. If scrollHeight changed, check if it's content change + programmatic scroll
+    if (scrollHeightChanged) {
+      // If we were at bottom, scrollHeight increased, and we're still at bottom after scrolling down,
+      // it's likely programmatic scroll to maintain bottom position
+      if (wasAtBottom && scrollingDown && isAtBottomNow) {
+        return false
+      }
+    }
+
+    // 8. If scrolling down to bottom and we were already at bottom (no scrollHeight change),
+    // it might be programmatic scroll, but also could be user scroll (e.g., using scrollbar)
+    // To be safe, if scrollTop changed significantly, treat it as user scroll
+    if (scrollingDown && isAtBottomNow && wasAtBottom && !scrollHeightChanged) {
+      const scrollDistance = currentScrollTop - lastScrollTop.value
+      // If scroll distance is significant (> 50px), likely user scroll
+      if (scrollDistance > 50) {
+        return true
+      }
+      // Otherwise, might be programmatic scroll
+      return false
+    }
+
+    // 9. Default: if we reach here and scrollTop changed, it's likely user scroll
+    return true
+  }
+
   const handleContainerScroll = () => {
     const container = getElement(chatContainer.value)
     if (container) {
-      shouldStickToBottom.value = isAtBottom(container)
+      const currentScrollTop = container.scrollTop
+      const currentScrollHeight = container.scrollHeight
+
+      // Only update shouldStickToBottom if it's a user-initiated scroll
+      if (isUserScroll(container)) {
+        shouldStickToBottom.value = isAtBottom(container)
+      }
+
+      // Update tracking values
+      lastScrollTop.value = currentScrollTop
+      lastScrollHeight.value = currentScrollHeight
     }
   }
 
@@ -138,6 +228,8 @@ export function useAutoScroll() {
         container.removeEventListener('scroll', handleContainerScroll)
         container.addEventListener('scroll', handleContainerScroll, { passive: true })
         shouldStickToBottom.value = isAtBottom(container)
+        lastScrollTop.value = container.scrollTop // Initialize lastScrollTop
+        lastScrollHeight.value = container.scrollHeight // Initialize lastScrollHeight
       }
       startObservingDom()
     })
@@ -146,9 +238,9 @@ export function useAutoScroll() {
   const handleTabSwitch = () => {
     shouldStickToBottom.value = true
 
+    // Wait for DOM to update, then scroll to bottom
+    // The watch on chatContainer will handle listener initialization
     nextTick(() => {
-      initializeAutoScroll()
-      shouldStickToBottom.value = true
       scrollToBottomWithRetry()
       focusChatInput()
     })
@@ -158,6 +250,36 @@ export function useAutoScroll() {
     () => chatResponse.value,
     () => {
       nextTick(startObservingDom)
+    }
+  )
+
+  // Watch chatContainer to initialize scroll listener when element becomes available
+  // This is needed because chatContainer is conditionally rendered (v-if="filteredChatHistory.length > 0")
+  // Also handles tab switching by re-initializing listeners when container changes
+  watch(
+    () => chatContainer.value,
+    (newVal, oldVal) => {
+      // Remove listener from old element if it exists
+      if (oldVal) {
+        const oldContainer = getElement(oldVal)
+        if (oldContainer instanceof HTMLElement) {
+          oldContainer.removeEventListener('scroll', handleContainerScroll)
+        }
+      }
+
+      // Add listener to new element if it exists
+      if (newVal) {
+        nextTick(() => {
+          const container = getElement(chatContainer.value)
+          if (container instanceof HTMLElement) {
+            container.removeEventListener('scroll', handleContainerScroll)
+            container.addEventListener('scroll', handleContainerScroll, { passive: true })
+            shouldStickToBottom.value = isAtBottom(container)
+            lastScrollTop.value = container.scrollTop // Initialize lastScrollTop
+            lastScrollHeight.value = container.scrollHeight // Initialize lastScrollHeight
+          }
+        })
+      }
     }
   )
 
