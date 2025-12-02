@@ -1219,12 +1219,20 @@ const handleMainPaneFocus = () => {
 }
 
 const handleSendOrToggleAiFromTerminal = () => {
-  const currentActiveTabId = getCurrentActiveTabId()
-  if (currentActiveTabId) {
-    eventBus.emit('sendOrToggleAiFromTerminalForTab', currentActiveTabId)
-  } else {
+  if (!dockApi || !dockApi.activePanel) {
     toggleSideBar('right')
+    return
   }
+  const activePanel = dockApi.activePanel
+  const params = activePanel.params
+  if (params && params.organizationId && params.organizationId !== '') {
+    const currentActiveTabId = params.id
+    if (currentActiveTabId) {
+      eventBus.emit('sendOrToggleAiFromTerminalForTab', currentActiveTabId)
+      return
+    }
+  }
+  toggleSideBar('right')
 }
 
 const handleModeChange = (mode: 'terminal' | 'agents') => {
