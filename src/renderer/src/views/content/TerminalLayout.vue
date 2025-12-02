@@ -514,7 +514,7 @@ onMounted(async () => {
     }
     store.setUserConfig(config)
     configLoaded.value = true
-    currentTheme.value = config.theme || 'dark'
+    currentTheme.value = getActualTheme(config.theme || 'auto')
 
     // Delay of 2 seconds to wait for the main thread to complete initializeTelemetrySetting
     setTimeout(async () => {
@@ -535,7 +535,7 @@ onMounted(async () => {
       showWatermark.value = config.watermark !== 'close'
     })
   } catch (e) {
-    currentTheme.value = 'dark'
+    currentTheme.value = getActualTheme('auto')
     nextTick(() => {
       showWatermark.value = true
     })
