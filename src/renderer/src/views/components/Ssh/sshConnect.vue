@@ -102,6 +102,7 @@ import { inputManager, commandBarHeight } from './termInputManager'
 import { shellCommands } from './shellCmd'
 import { createJumpServerStatusHandler, formatStatusMessage } from './jumpServerStatusHandler'
 import { useDeviceStore } from '@/store/useDeviceStore'
+import { isFocusInAiTab } from '@/utils/domUtils'
 import { checkUserDevice } from '@api/user/user'
 const { t } = useI18n()
 const selectFlag = ref(false)
@@ -2881,6 +2882,10 @@ const handleGlobalKeyDown = (e: KeyboardEvent) => {
 
   // Close current terminal tab
   if ((isMac && e.metaKey && e.key === 'w') || (!isMac && e.ctrlKey && e.shiftKey && e.key === 'W')) {
+    if (isFocusInAiTab(e)) {
+      return
+    }
+
     const currentTime = Date.now()
 
     // Debounce check: ignore if close operation has been processed recently
