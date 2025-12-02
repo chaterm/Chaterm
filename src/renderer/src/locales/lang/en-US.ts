@@ -57,8 +57,6 @@ export default {
     smaller: 'Smaller',
     globalExecOn: 'Global Execution (On)',
     globalExec: 'Global Execution',
-    syncInputOn: 'Synchronous Input (On)',
-    syncInput: 'Synchronous Input',
     allExecuted: 'All Executed',
     pleaseLoginFirst: 'Please login first',
     select: 'Select',

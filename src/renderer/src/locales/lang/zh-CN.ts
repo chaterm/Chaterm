@@ -57,8 +57,6 @@ export default {
     smaller: '缩小',
     globalExecOn: '全局执行命令(已开)',
     globalExec: '全局执行命令',
-    syncInputOn: '同步输入(已开)',
-    syncInput: '同步输入',
     allExecuted: '全部执行',
     pleaseLoginFirst: '请先登录',
     select: '选择',

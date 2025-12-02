@@ -66,9 +66,6 @@
     <v-contextmenu-item @click="onContextMenuAction('openAllExecuted')">{{
       isGlobalInput ? $t('common.globalExecOn') : $t('common.globalExec')
     }}</v-contextmenu-item>
-    <v-contextmenu-item @click="onContextMenuAction('registerSyncInput')">{{
-      props.isSyncInput ? $t('common.syncInputOn') : $t('common.syncInput')
-    }}</v-contextmenu-item>
 
     <!-- Divider -->
     <div class="context-menu-divider"></div>
@@ -134,10 +131,6 @@ const props = defineProps({
   copyText: { type: String, required: true },
   terminalId: { type: String, required: true },
   isConnect: { type: Boolean, default: true },
-  isSyncInput: {
-    type: Boolean,
-    default: false
-  },
   tabInfo: {
     type: Object,
     default: () => ({})
@@ -184,9 +177,6 @@ const onContextMenuAction = (action) => {
       break
     case 'fontsizeSmaller':
       emit('contextAct', 'fontsizeSmaller')
-      break
-    case 'registerSyncInput':
-      emit('contextAct', 'registerSyncInput')
       break
     case 'openAllExecuted':
       isGlobalInput.value = !isGlobalInput.value

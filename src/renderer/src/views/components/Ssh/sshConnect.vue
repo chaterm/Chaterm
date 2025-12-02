@@ -38,7 +38,6 @@
     <v-contextmenu ref="contextmenu">
       <Context
         :is-connect="isConnected"
-        :is-sync-input="isSyncInput"
         :term-instance="terminal as any"
         :copy-text="copyText"
         :terminal-id="connectionId"
@@ -211,7 +210,6 @@ const setRef = (el, key) => {
   }
 }
 const isConnected = ref(false)
-const isSyncInput = ref(false)
 const terminal = ref<Terminal | null>(null)
 const fitAddon = ref<FitAddon | null>(null)
 const connectionId = ref('')
@@ -484,8 +482,7 @@ onMounted(async () => {
       handleResize()
       inputManager.registerInstances(
         {
-          termOndata: handleExternalInput,
-          syncInput: false
+          termOndata: handleExternalInput
         },
         connectionId.value
       )
@@ -1552,7 +1549,7 @@ const sendTerminalStateToServer = async (): Promise<void> => {
 }
 
 function handleExternalInput(data) {
-  handleInput && handleInput(data, false)
+  handleInput && handleInput(data)
 }
 
 const setupTerminalInput = () => {
@@ -1567,10 +1564,7 @@ const setupTerminalInput = () => {
     termOnBinary = null
   }
 
-  handleInput = async (data, isInputManagerCall = true) => {
-    if (isInputManagerCall && isSyncInput.value) {
-      inputManager.sendToOthers(connectionId.value, data)
-    }
+  handleInput = async (data) => {
     if (startStr.value == '') {
       startStr.value = beginStr.value
     }
@@ -1672,7 +1666,7 @@ const setupTerminalInput = () => {
         const newCommand = aliasStore.getCommand(command)
         if (dbConfigStash.aliasStatus === 1 && newCommand !== null) {
           sendData(delData.repeat(command.length) + newCommand + '\r')
-        } else if (config.quickVimStatus === 1 && !isSyncInput.value) {
+        } else if (config.quickVimStatus === 1) {
           connectionSftpAvailable.value = await api.checkSftpConnAvailable(connectionId.value)
           const vimMatch = command.match(/^\s*vim\s+(.+)$/i)
           // Trigger condition: Applies to non-local connections.
@@ -2645,7 +2639,7 @@ const selectSuggestion = (suggestion: CommandSuggestion) => {
   suggestionSelectionMode.value = false
 }
 const queryCommand = async (cmd = '') => {
-  if (!queryCommandFlag.value || isSyncInput.value) return
+  if (!queryCommandFlag.value) return
 
   // Check if it is in the Vim editing mode. If so, do not trigger the automatic completion.
   if (terminalMode.value === 'alternate') {
@@ -2802,15 +2796,6 @@ const contextAct = (action) => {
       break
     case 'fontsizeSmaller':
       adjustFontSize(-1)
-      break
-    case 'registerSyncInput':
-      if (isSyncInput.value) {
-        inputManager.unregisterSyncInput(connectionId.value)
-        isSyncInput.value = false
-      } else {
-        inputManager.registerSyncInput(connectionId.value)
-        isSyncInput.value = true
-      }
       break
     case 'fileManager':
       eventBus.emit('openUserTab', 'files')
