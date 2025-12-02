@@ -609,21 +609,29 @@ onMounted(async () => {
   window.addEventListener('message', handlePostMessage)
 
   eventBus.on('clearCurrentTerminal', () => {
-    contextAct('clearTerm')
+    const activeTerm = inputManager.getActiveTerm()
+    if (activeTerm.id && connectionId.value && activeTerm.id === connectionId.value) {
+      contextAct('clearTerm')
+    }
   })
 
   // Listen for font size change events
   eventBus.on('fontSizeIncrease', () => {
-    contextAct('fontsizeLargen')
+    const activeTerm = inputManager.getActiveTerm()
+    if (activeTerm.id && connectionId.value && activeTerm.id === connectionId.value) {
+      contextAct('fontsizeLargen')
+    }
   })
 
   eventBus.on('fontSizeDecrease', () => {
-    contextAct('fontsizeSmaller')
+    const activeTerm = inputManager.getActiveTerm()
+    if (activeTerm.id && connectionId.value && activeTerm.id === connectionId.value) {
+      contextAct('fontsizeSmaller')
+    }
   })
 
   cleanupListeners.value.push(() => {
     eventBus.off('updateTheme', handleUpdateTheme)
-
     eventBus.off('executeTerminalCommand', handleExecuteCommand)
     eventBus.off('autoExecuteCode', autoExecuteCode)
     eventBus.off('getCursorPosition', handleGetCursorPosition)
@@ -2123,7 +2131,6 @@ const handleCommandOutput = (data: string, isInitialCommand: boolean) => {
 const specialCode = ref(false)
 const keyCode = ref('')
 const currentLine = ref('')
-const activeMarkers: any = ref([])
 const commands = ref()
 const cursorY = ref(0)
 const cursorX = ref(0)
@@ -2237,7 +2244,7 @@ const mergeColors = (userConfig: SyntaxHighlightConfig = {}) => {
 const highlightSyntax = (allData: any, userConfig?: SyntaxHighlightConfig) => {
   const colors = mergeColors(userConfig)
 
-  const { content, beforeCursor, cursorPosition } = allData
+  const { content, cursorPosition } = allData
   let command = ''
   let arg = ''
   // 解析命令和参数
