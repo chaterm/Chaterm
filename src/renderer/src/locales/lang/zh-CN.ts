@@ -736,7 +736,12 @@ export default {
     nonTerminalWindow: '非终端窗口',
     commandExecutedOnLocalhost: '在本地主机执行的命令',
     timeoutGettingAssetInfo: '获取资产信息超时',
-    interruptTask: '中断任务'
+    interruptTask: '中断任务',
+    exportChat: '导出聊天',
+    exportChatSuccess: '聊天记录已导出',
+    exportChatFailed: '导出失败',
+    exportChatEmpty: '没有可导出的聊天记录',
+    exportedOn: '导出时间'
   },
   keyChain: {
     newKey: '添加密钥',

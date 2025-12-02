@@ -787,21 +787,25 @@
             </template>
           </a-dropdown>
         </a-tooltip>
-        <a-tooltip
-          v-if="!props.isAgentMode"
-          :title="$t('ai.closeAiSidebar')"
-        >
+        <a-dropdown trigger="click">
           <a-button
             type="text"
             class="action-icon-btn"
-            @click="handleClose"
           >
-            <img
-              :src="foldIcon"
-              alt="fold"
-            />
+            <EllipsisOutlined />
           </a-button>
-        </a-tooltip>
+          <template #overlay>
+            <a-menu>
+              <a-menu-item
+                key="export"
+                @click="handleExportChat"
+              >
+                <ExportOutlined style="font-size: 12px" />
+                <span style="margin-left: 8px; font-size: 12px">{{ $t('ai.exportChat') }}</span>
+              </a-menu-item>
+            </a-menu>
+          </template>
+        </a-dropdown>
       </div>
     </template>
   </a-tabs>
@@ -831,6 +835,7 @@ import { useTabManagement } from './composables/useTabManagement'
 import { useTodo } from './composables/useTodo'
 import { useUserInteractions } from './composables/useUserInteractions'
 import { useWatchers } from './composables/useWatchers'
+import { useExportChat } from './composables/useExportChat'
 import VoiceInput from './components/voice/voiceInput.vue'
 import {
   CheckCircleFilled,
@@ -841,6 +846,8 @@ import {
   DeleteOutlined,
   DislikeOutlined,
   EditOutlined,
+  EllipsisOutlined,
+  ExportOutlined,
   HourglassOutlined,
   LaptopOutlined,
   LikeOutlined,
@@ -856,7 +863,6 @@ import { isFocusInAiTab } from '@/utils/domUtils'
 import { getGlobalState } from '@renderer/agent/storage/state'
 import type { MessageContent } from './types'
 import i18n from '@/locales'
-import foldIcon from '@/assets/icons/fold.svg'
 import historyIcon from '@/assets/icons/history.svg'
 import plusIcon from '@/assets/icons/plus.svg'
 import sendIcon from '@/assets/icons/send.svg'
@@ -994,6 +1000,13 @@ const {
 
 const handleInterrupt = () => {
   handleCancel()
+}
+
+// Export chat functionality
+const { exportChat } = useExportChat()
+
+const handleExportChat = () => {
+  exportChat()
 }
 
 // Tab management
