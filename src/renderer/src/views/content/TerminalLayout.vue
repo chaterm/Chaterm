@@ -188,6 +188,10 @@
               v-if="isGlobalInput"
               class="globalInput"
             >
+              <div class="broadcast-indicator">
+                <span class="broadcast-icon">&#128226;</span>
+                <span class="broadcast-text">{{ t('common.broadcastTo', { count: terminalCount }) }}</span>
+              </div>
               <a-input
                 v-model:value="globalInput"
                 size="small"
@@ -197,6 +201,13 @@
                 @press-enter="sendGlobalCommand"
               >
               </a-input>
+              <button
+                class="close-btn"
+                :title="t('common.close')"
+                @click="closeGlobalInput"
+              >
+                &times;
+              </button>
             </div>
           </div>
         </div>
@@ -230,7 +241,7 @@ import { aliasConfigStore } from '@/store/aliasConfigStore'
 import eventBus from '@/utils/eventBus'
 import { getActualTheme } from '@/utils/themeUtils'
 import { Notice } from '../components/Notice'
-import { isGlobalInput, isShowCommandBar } from '@renderer/views/components/Ssh/termInputManager'
+import { isGlobalInput, isShowCommandBar, componentInstances } from '@renderer/views/components/Ssh/termInputManager'
 import { inputManager } from '../components/Ssh/termInputManager'
 import { useRouter } from 'vue-router'
 import { shortcutService } from '@/services/shortcutService'
@@ -690,6 +701,10 @@ const commandBarStyle = computed(() => {
   const left = (leftPaneSize.value * containerWidth) / 100 + 45
   return { width, left }
 })
+const terminalCount = computed(() => componentInstances.value.length)
+const closeGlobalInput = () => {
+  isGlobalInput.value = false
+}
 const DEFAULT_WIDTH_PX = 250
 const DEFAULT_WIDTH_RIGHT_PX = 500
 const currentMenu = ref('workspace')
@@ -1781,6 +1796,7 @@ defineExpose({
   display: flex;
   align-items: center;
   justify-content: center;
+  gap: 8px;
   .ant-input {
     background-color: transparent;
     color: var(--text-color);
@@ -1790,19 +1806,65 @@ defineExpose({
   }
 
   .ant-input-affix-wrapper {
-    border-color: var(--border-color);
+    background-color: var(--globalInput-bg-color);
+    border-color: var(--border-color-light);
     &:hover,
     &:focus,
     &:active {
-      border-color: var(--border-color) !important;
+      border-color: var(--primary-color, #1677ff) !important;
       box-shadow: none !important;
     }
   }
 }
 
+.broadcast-indicator {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  background: var(--primary-color-light, rgba(22, 119, 255, 0.1));
+  border: 1px solid var(--primary-color, #1677ff);
+  border-radius: 4px;
+  white-space: nowrap;
+  font-size: 12px;
+  color: var(--primary-color, #1677ff);
+}
+
+.broadcast-icon {
+  font-size: 10px;
+}
+
+.broadcast-text {
+  font-weight: 500;
+}
+
+.close-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--text-color-secondary);
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+  border-radius: 4px;
+  transition: all 0.2s;
+
+  &:hover {
+    background: var(--hover-bg-color);
+    color: var(--text-color);
+  }
+}
+
 .command-input {
   background: var(--globalInput-bg-color);
+  border: 1px solid var(--border-color-light);
   height: 30px;
+  flex: 1;
 }
 
 .menu-action-btn {

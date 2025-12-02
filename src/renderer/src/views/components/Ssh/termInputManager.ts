@@ -1,8 +1,6 @@
 import { ref, watch } from 'vue'
-import { userConfigStore } from '@/services/userConfigStoreService'
 interface Target {
   termOndata?: any
-  syncInput?: boolean
 }
 interface ComponentEntry {
   key: string
@@ -17,7 +15,6 @@ export const activeTermId = ref<string>('')
 export const activeTermOndata = ref<any>(null)
 export const commandBarHeight = ref<number>(0)
 export const commandBarVisible = ref<boolean>(false)
-const DEFAULT_COMMAND_BAR_HEIGHT = 30
 const DEFAULT_GLOBAL_INPUT_HEIGHT = 30
 
 watch(
@@ -106,16 +103,6 @@ export const inputManager = {
     }
   },
 
-  registerSyncInput(key) {
-    const exists = componentInstances.value.find((item) => item.key === key)
-    if (exists) exists.target.syncInput = true
-  },
-
-  unregisterSyncInput(key) {
-    const exists = componentInstances.value.find((item) => item.key === key)
-    if (exists) exists.target.syncInput = false
-  },
-
   globalSend(data) {
     if (componentInstances.value.length === 0) {
       isGlobalInput.value = false
@@ -123,15 +110,6 @@ export const inputManager = {
     }
     componentInstances.value.forEach(({ target }) => {
       if (typeof target.termOndata === 'function') {
-        target.termOndata(data)
-      }
-    })
-  },
-
-  sendToOthers(excludeKey, data) {
-    componentInstances.value.forEach(({ target, key }) => {
-      if (key === excludeKey) return
-      if (typeof target.termOndata === 'function' && target.syncInput) {
         target.termOndata(data)
       }
     })
