@@ -2,6 +2,32 @@
   "releaseNotesUrl": "https://github.com/chaterm/Chaterm/releases/tag/v",
   "versions": [
     {
+      "version": "0.7.1",
+      "date": "2025-12-02",
+      "highlights": {
+        "zh-CN": [
+          "支持自定义的背景图片和系统默认背景",
+          "重构终端分屏功能",
+          "重构快捷命令功能",
+          "优化全局输入功能",
+          "设置中新增终端触摸板缩放功能",
+          "支持对AI对话的中断操作",
+          "支持XShell，SecureCRT导出的文件数据导入",
+          "Terminal和Agents布局切换相关功能优化"
+        ],
+        "en-US": [
+          "Support custom background images and system default background",
+          "Refactor the split-screen feature",
+          "Refactor the shortcut command feature",
+          "Optimize the global input feature",
+          "Add a new terminal touchpad zoom feature in the settings",
+          "Support interrupt the AI conversation",
+          "Support XShell, SecureCRT exported file data import",
+          "Optimize the Terminal and Agents layout switching related features"
+        ]
+      }
+    },
+    {
       "version": "0.6.2",
       "date": "2025-11-13",
       "highlights": {
