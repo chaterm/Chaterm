@@ -108,7 +108,6 @@
           v-html="marked('```' + (codeDetection.language || '') + '\n' + props.content + '\n```')"
         ></div>
       </div>
-      <!-- command_output 的终端内容使用 TerminalOutputRenderer -->
       <TerminalOutputRenderer
         v-else-if="props.say === 'command_output'"
         :content="props.content"
@@ -333,7 +332,7 @@ import i18n from '@/locales'
 import { extractFinalOutput, cleanAnsiEscapeSequences } from '@/utils/terminalOutputExtractor'
 import { userConfigStore as userConfigStoreService } from '@/services/userConfigStoreService'
 import { getCustomTheme, isDarkTheme } from '@/utils/themeUtils'
-import TerminalOutputRenderer from './terminalOutputRenderer.vue'
+import TerminalOutputRenderer from '../format/terminalOutputRenderer.vue'
 
 const { t } = i18n.global
 
@@ -739,8 +738,6 @@ const processContent = async (content: string) => {
     return
   }
   if (props.say === 'command_output') {
-    // For command_output, no additional processing needed
-    // Content will be handled by TerminalOutputRenderer component
     return
   }
 
@@ -1018,7 +1015,6 @@ watch(
     } else if (props.say === 'command_output') {
       // command_output is handled by TerminalOutputRenderer component, no additional processing needed
     } else if (props.say === 'search_result') {
-      // Process content lines with secret redaction for command output
       nextTick(async () => {
         await processContentLines(newContent)
       })

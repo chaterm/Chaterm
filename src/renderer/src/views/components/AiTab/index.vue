@@ -45,11 +45,19 @@
         </div>
         <div
           v-if="filteredChatHistory.length > 0"
-          ref="chatContainer"
+          :ref="
+            (el) => {
+              chatContainer = el
+            }
+          "
           class="chat-response-container"
         >
           <div
-            ref="chatResponse"
+            :ref="
+              (el) => {
+                chatResponse = el
+              }
+            "
             class="chat-response"
           >
             <template
@@ -823,7 +831,7 @@ import { useTabManagement } from './composables/useTabManagement'
 import { useTodo } from './composables/useTodo'
 import { useUserInteractions } from './composables/useUserInteractions'
 import { useWatchers } from './composables/useWatchers'
-import VoiceInput from './voiceInput.vue'
+import VoiceInput from './components/voice/voiceInput.vue'
 import {
   CheckCircleFilled,
   CheckCircleOutlined,
@@ -881,7 +889,7 @@ const props = withDefaults(defineProps<Props>(), {
 const emit = defineEmits(['state-changed'])
 
 const router = useRouter()
-const MarkdownRenderer = defineAsyncComponent(() => import('@views/components/AiTab/markdownRenderer.vue'))
+const MarkdownRenderer = defineAsyncComponent(() => import('./components/format/markdownRenderer.vue'))
 const TodoInlineDisplay = defineAsyncComponent(() => import('./components/todo/TodoInlineDisplay.vue'))
 
 const isSkippedLogin = ref(localStorage.getItem('login-skipped') === 'true')
@@ -980,7 +988,8 @@ const {
   getCurentTabAssetInfo,
   markdownRendererRefs,
   currentTodos,
-  clearTodoState
+  clearTodoState,
+  scrollToBottom
 })
 
 const handleInterrupt = () => {
@@ -1073,7 +1082,8 @@ defineExpose({
   restoreState,
   restoreHistoryTab,
   createNewEmptyTab,
-  handleTabRemove
+  handleTabRemove,
+  updateHostsForCommandMode
 })
 </script>
 

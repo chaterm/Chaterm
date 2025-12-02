@@ -235,6 +235,7 @@ export function useChatMessages(
     }
 
     const session = targetTab.session
+    session.isCancelled = false
 
     await sendMessageToMain(userContent, sendType, tabId)
 
@@ -324,6 +325,11 @@ export function useChatMessages(
     const previousMainMessage = session.lastStreamMessage
     const previousPartialMessage = session.lastPartialMessage
 
+    if (message?.type === 'partialMessage' && session.isCancelled) {
+      console.log('AiTab: Ignoring partial message because task is cancelled')
+      return
+    }
+
     if (message?.type === 'partialMessage') {
       const partial = message.partialMessage
       if (!partial) {
@@ -334,6 +340,9 @@ export function useChatMessages(
         session.showNewTaskButton = true
         session.responseLoading = false
         session.showCancelButton = false
+        if (isActiveTab) {
+          scrollToBottom()
+        }
         return
       } else {
         session.showNewTaskButton = false
@@ -341,17 +350,23 @@ export function useChatMessages(
 
       if (partial.say === 'interactive_command_notification') {
         handleInteractiveCommandNotification(message, targetTab)
+        if (isActiveTab) {
+          scrollToBottom()
+        }
         return
       }
 
       if (partial.type === 'ask' && (partial.ask === 'api_req_failed' || partial.ask === 'ssh_con_failed')) {
         handleModelApiReqFailed(message, targetTab)
+        if (isActiveTab) {
+          scrollToBottom()
+        }
         return
       }
 
       session.showRetryButton = false
       session.showSendButton = false
-      session.showCancelButton = partial.partial === true
+      session.showCancelButton = partial.partial === true && session.responseLoading === true
       const lastMessageInChat = session.chatHistory.at(-1)
 
       const openNewMessage =
@@ -394,9 +409,6 @@ export function useChatMessages(
         session.lastChatMessageId = newAssistantMessage.id
         cleanupPartialCommandMessages(session.chatHistory)
         session.chatHistory.push(newAssistantMessage)
-        if (isActiveTab) {
-          scrollToBottom(true)
-        }
       } else if (lastMessageInChat && lastMessageInChat.role === 'assistant') {
         lastMessageInChat.content = partial.text ?? ''
         lastMessageInChat.type = partial.type ?? ''
@@ -418,19 +430,15 @@ export function useChatMessages(
       }
 
       session.lastPartialMessage = message
-      if (isActiveTab && partial.partial) {
-        scrollToBottom(true)
-      }
-
       if (!partial.partial) {
         session.showSendButton = true
         session.showCancelButton = false
         if ((partial.type === 'ask' && partial.ask === 'command') || partial.say === 'command_blocked') {
           session.responseLoading = false
         }
-        if (isActiveTab) {
-          scrollToBottom(true)
-        }
+      }
+      if (isActiveTab) {
+        scrollToBottom()
       }
     } else if (message?.type === 'state') {
       const chatermMessages = message.state?.chatermMessages ?? []
@@ -450,6 +458,9 @@ export function useChatMessages(
         markLatestMessageWithTodoUpdate(session.chatHistory, message.todos as Todo[])
       } else {
         clearTodoState(session.chatHistory)
+      }
+      if (isActiveTab) {
+        scrollToBottom()
       }
     } else if (message?.type === 'chatTitleGenerated') {
       console.log('AiTab: Received chatTitleGenerated message', message)
