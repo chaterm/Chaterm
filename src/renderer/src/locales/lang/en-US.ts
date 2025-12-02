@@ -85,6 +85,7 @@ export default {
     localhost: 'Localhost',
     favoriteBar: 'Favorites',
     executeCommandToAllWindows: 'Execute command to all windows',
+    broadcastTo: 'Broadcast to {count} terminals',
     reloadAliasDataFailed: 'Failed to reload alias data',
     personalAssetFavoriteError: 'Personal asset favorite error',
     organizationAssetFavoriteError: 'Organization asset favorite error',

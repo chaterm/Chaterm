@@ -85,6 +85,7 @@ export default {
     localhost: '本地主机',
     favoriteBar: '收藏栏',
     executeCommandToAllWindows: '执行命令到全部窗口',
+    broadcastTo: '广播到 {count} 个终端',
     reloadAliasDataFailed: '重新加载别名数据失败',
     personalAssetFavoriteError: '个人资产收藏错误',
     organizationAssetFavoriteError: '组织本身收藏错误',
