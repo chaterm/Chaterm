@@ -2788,7 +2788,7 @@ const contextAct = (action) => {
       emit('createNewTerm', props.serverInfo)
       break
     case 'close':
-      emit('closeTabInTerm', props.serverInfo.id)
+      emit('closeTabInTerm', props.activeTabId || props.currentConnectionId)
       break
     case 'clearTerm':
       terminal.value?.clear()
@@ -2875,7 +2875,7 @@ const handleGlobalKeyDown = (e: KeyboardEvent) => {
   if (contextmenu.value && typeof contextmenu.value.hide === 'function') {
     contextmenu.value.hide()
   }
-  if (props.activeTabId !== props.currentConnectionId) return
+  if (!props.isActive || props.activeTabId !== props.currentConnectionId) return
 
   const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0
 
@@ -2887,8 +2887,8 @@ const handleGlobalKeyDown = (e: KeyboardEvent) => {
     openSearch()
   }
 
-  // Close current window with Ctrl+Shift+W (Windows)
-  if (!isMac && e.ctrlKey && e.shiftKey && e.key === 'W') {
+  // Close current terminal tab
+  if ((isMac && e.metaKey && e.key === 'w') || (!isMac && e.ctrlKey && e.shiftKey && e.key === 'W')) {
     const currentTime = Date.now()
 
     // Debounce check: ignore if close operation has been processed recently
@@ -2903,7 +2903,6 @@ const handleGlobalKeyDown = (e: KeyboardEvent) => {
     e.preventDefault()
     e.stopPropagation()
     contextAct('close')
-    // For inactive terminals, return directly without performing any operations
     return
   }
 
