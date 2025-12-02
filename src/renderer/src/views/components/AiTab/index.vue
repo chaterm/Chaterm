@@ -1082,7 +1082,8 @@ defineExpose({
   restoreState,
   restoreHistoryTab,
   createNewEmptyTab,
-  handleTabRemove
+  handleTabRemove,
+  updateHostsForCommandMode
 })
 </script>
 

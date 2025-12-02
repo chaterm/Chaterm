@@ -276,12 +276,13 @@ onMounted(async () => {
       if (headerRef.value) {
         headerRef.value.setMode(newMode)
       }
-      // When switching from terminal to agents, restore AI state
       if (newMode === 'agents' && oldMode === 'terminal') {
         await nextTick()
-        // Wait a bit for aiTabRef to be ready
         setTimeout(async () => {
           await restoreStateFromTerminal()
+          if (aiTabRef.value && typeof aiTabRef.value.updateHostsForCommandMode === 'function') {
+            await aiTabRef.value.updateHostsForCommandMode()
+          }
         }, 100)
       }
     },
