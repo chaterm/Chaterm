@@ -738,7 +738,12 @@ export default {
     nonTerminalWindow: 'Non-terminal window',
     commandExecutedOnLocalhost: 'Command executed on localhost',
     timeoutGettingAssetInfo: 'Timeout getting asset information',
-    interruptTask: 'Interrupt Task'
+    interruptTask: 'Interrupt Task',
+    exportChat: 'Export Chat',
+    exportChatSuccess: 'Chat exported successfully',
+    exportChatFailed: 'Export failed',
+    exportChatEmpty: 'No chat messages to export',
+    exportedOn: 'Exported on'
   },
   keyChain: {
     newKey: 'New Key',
