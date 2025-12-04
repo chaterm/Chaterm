@@ -5,7 +5,6 @@
     class="command-input-widget"
     tabindex="-1"
     :style="dialogPositionStyle"
-    @keydown="handleKeyDown"
   >
     <div
       class="widget-container"
@@ -68,6 +67,7 @@ import eventBus from '@/utils/eventBus'
 interface Props {
   visible: boolean
   connectionId?: string
+  terminalContainer?: HTMLElement | null
 }
 
 interface Emits {
@@ -75,24 +75,8 @@ interface Emits {
 }
 
 interface CursorPositionInfo {
-  logicalX: number
-  logicalY: number
-  screenX: number
-  screenY: number
-  pixelX: number
-  pixelY: number
-  absoluteX: number | null
   absoluteY: number | null
   cellHeight: number
-  cellWidth: number
-  terminalRect: {
-    left: number
-    top: number
-    width: number
-    height: number
-  } | null
-  currentLineContent: string
-  isCrossRow: boolean
 }
 
 const props = defineProps<Props>()
@@ -114,19 +98,13 @@ const lastInjectedLength = ref(0)
 // Track IME composition state
 const isComposing = ref(false)
 
-// Store terminal info before dialog opens
-let lastActiveTerminalInfo: { element: HTMLElement; container: HTMLElement } | null = null
-
 // Watch visibility to focus input and reposition dialog scoped to active terminal
 watch(
   () => props.visible,
   (newVisible) => {
     if (newVisible) {
       nextTick(() => {
-        // Capture current active terminal for positioning
-        storeActiveTerminalInfo()
         focusDialog()
-        startFocusEnforcer()
         adjustTextareaHeight()
         updateDialogPosition()
         // Reattach ResizeObserver to current terminal container
@@ -136,7 +114,6 @@ watch(
     } else {
       // Clean up ResizeObserver when dialog closes
       teardownContentResizeObserver()
-      stopFocusEnforcer()
 
       // Reset all states when dialog closes
       isLoading.value = false
@@ -165,16 +142,6 @@ const handleInput = () => {
   nextTick(() => updateDialogPosition())
 }
 
-const handleKeyDown = (e: KeyboardEvent) => {
-  // Ignore ESC during IME composition so it only dismisses candidates
-  const compositionEvent = e as KeyboardEvent & { isComposing?: boolean }
-  if (compositionEvent.isComposing || isComposing.value) return
-  if (e.key === 'Escape') {
-    e.preventDefault()
-    handleClose()
-  }
-}
-
 const handleClose = () => {
   // Reset loading state when closing dialog
   isLoading.value = false
@@ -184,49 +151,18 @@ const handleClose = () => {
   lastInjectedLength.value = 0
 
   emit('update:visible', false)
-  eventBus.emit('focusActiveTerminal')
+  eventBus.emit('focusActiveTerminal', props.connectionId)
 }
 
-// Focus management functions
 const focusDialog = () => {
   nextTick(() => {
-    if (inputRef.value) {
-      // Ensure focus moves to dialog input on open
-      inputRef.value.focus({ preventScroll: true })
-      // Ensure the input is selected and ready for input
-      inputRef.value.select()
-    }
-  })
-}
-
-// Enforce focus briefly after opening to prevent other components from stealing it
-let focusEnforcerTimer: number | null = null
-const stopFocusEnforcer = () => {
-  if (focusEnforcerTimer !== null) {
-    clearTimeout(focusEnforcerTimer)
-    focusEnforcerTimer = null
-  }
-}
-
-const startFocusEnforcer = () => {
-  stopFocusEnforcer()
-  let attempts = 0
-  const enforce = () => {
-    if (!props.visible) return stopFocusEnforcer()
-    if (!isDialogFocused()) {
+    // Use requestAnimationFrame to ensure DOM is fully rendered
+    requestAnimationFrame(() => {
       if (inputRef.value) {
         inputRef.value.focus({ preventScroll: true })
-        inputRef.value.select()
       }
-    }
-    attempts += 1
-    if (attempts < 10) {
-      focusEnforcerTimer = window.setTimeout(enforce, 30)
-    } else {
-      stopFocusEnforcer()
-    }
-  }
-  enforce()
+    })
+  })
 }
 
 // Focus helpers for toggling between dialog and terminal
@@ -235,11 +171,18 @@ const isDialogFocused = () => {
   return activeElement === inputRef.value || (dialogRef.value && dialogRef.value.contains(activeElement as Node))
 }
 
+// Check if focus is in the terminal container associated with this dialog instance
+const isFocusInAssociatedTerminal = () => {
+  if (!props.terminalContainer) return false
+  const activeElement = document.activeElement
+  return props.terminalContainer.contains(activeElement as Node)
+}
+
 const toggleFocus = () => {
   const dialogHasFocus = isDialogFocused()
   if (dialogHasFocus) {
     // Switch to active terminal of current tab
-    eventBus.emit('focusActiveTerminal')
+    eventBus.emit('focusActiveTerminal', props.connectionId)
   } else {
     focusDialog()
   }
@@ -247,7 +190,6 @@ const toggleFocus = () => {
 
 // Check whether there is a focused and visible active terminal
 // Opening is handled by parent component
-
 const handleCompositionStart = () => {
   isComposing.value = true
 }
@@ -256,6 +198,12 @@ const handleCompositionEnd = () => {
   isComposing.value = false
 }
 
+/**
+ * ESC key handler specific for the textarea input.
+ * Trigger scenario: When the textarea has focus and ESC is pressed.
+ * Uses stopPropagation() to prevent the event from bubbling to handlers outside handleGlobalKeyDown.
+ * This handler is invoked after handleGlobalKeyDown (capture phase).
+ */
 const handleTextareaKeydown = (e: KeyboardEvent) => {
   if (e.key === 'Escape') {
     // During composition, let IME handle ESC and prevent closing by stopping propagation only
@@ -298,10 +246,8 @@ const getCurrentContext = async () => {
   try {
     let sshConnectId = props.connectionId
 
-    // If no connectionId is provided, try to get the currently active terminal container
     if (!sshConnectId) {
-      const activeTerminalContainer = getActiveTerminalContainer()
-      sshConnectId = activeTerminalContainer?.getAttribute('data-ssh-connect-id') || undefined
+      sshConnectId = props.terminalContainer?.getAttribute('data-ssh-connect-id') || undefined
     }
 
     if (!sshConnectId) {
@@ -338,109 +284,57 @@ const getCurrentContext = async () => {
   }
 }
 
-const getCurrentTerminalContainer = () => {
-  try {
-    let termContainer: HTMLElement | null = null
-
-    if (lastActiveTerminalInfo) {
-      termContainer = lastActiveTerminalInfo.container
-    }
-
-    if (!termContainer) {
-      const terminalContainers = document.querySelectorAll('.terminal-container')
-      for (const container of terminalContainers) {
-        const containerEl = container as HTMLElement
-        const rect = containerEl.getBoundingClientRect()
-        if (rect.width > 0 && rect.height > 0) {
-          termContainer = containerEl
-          break
-        }
-      }
-    }
-
-    if (!termContainer) {
-      return null
-    }
-
-    return termContainer.getBoundingClientRect()
-  } catch (error) {
-    console.warn('Failed to get terminal container:', error)
-    return null
-  }
-}
-
 const getCursorPosition = (): Promise<CursorPositionInfo | null> => {
   return new Promise((resolve) => {
+    let resolved = false
     try {
-      const activeContainer = getActiveTerminalContainer()
-      if (activeContainer) {
-        // Only emit callback; active instance will decide whether to respond
-        eventBus.emit('getCursorPosition', (position: CursorPositionInfo | null) => {
-          // console.log('Received cursor position:', position)
-          resolve(position)
-        })
-        return
-      }
-
-      console.warn('No active terminal connection found')
-      resolve(null)
+      eventBus.emit('getCursorPosition', {
+        connectionId: props.connectionId,
+        callback: (position: CursorPositionInfo | null) => {
+          if (!resolved) {
+            resolved = true
+            resolve(position)
+          }
+        }
+      })
+      setTimeout(() => {
+        if (!resolved) {
+          resolved = true
+          resolve(null)
+        }
+      }, 100)
     } catch (error) {
       console.warn('Failed to get cursor position from terminal:', error)
-      resolve(null)
+      if (!resolved) {
+        resolved = true
+        resolve(null)
+      }
     }
   })
 }
 
-/**
- * Get the current active terminal container
- * @returns {HTMLElement|null} Active terminal container element
- */
-const getActiveTerminalContainer = (): HTMLElement | null => {
-  // Get from stored active terminal info first
-  if (lastActiveTerminalInfo?.container) {
-    const rect = lastActiveTerminalInfo.container.getBoundingClientRect()
-    if (rect.width > 0 && rect.height > 0) {
-      return lastActiveTerminalInfo.container
-    }
-  }
-
-  // Find all visible terminal containers
-  const terminalContainers = document.querySelectorAll('.terminal-container[data-ssh-connect-id]')
-  for (const container of terminalContainers) {
-    const containerEl = container as HTMLElement
-    const rect = containerEl.getBoundingClientRect()
-    if (rect.width > 0 && rect.height > 0) {
-      return containerEl
-    }
-  }
-
-  return null
-}
-
 let contentResizeObserver: ResizeObserver | null = null
-const getTerminalContentElement = (): HTMLElement | null => {
-  const mainArea = document.querySelector('.main-terminal-area') as HTMLElement | null
-  if (mainArea) return mainArea
-  const termContent = document.querySelector('.term_content') as HTMLElement | null
-  if (termContent) return termContent
-  return null
-}
 
 const updateDialogPosition = async () => {
-  if (!props.visible) return
+  if (!props.visible || !props.terminalContainer) return
 
   const margin = 20
   const maxWidth = 600
   const minWidth = 320
   const preferredWidth = 520
 
-  // Try to get cursor position information
-  const cursorInfo = await getCursorPosition()
-  const terminalRect = getCurrentTerminalContainer()
-  const fallbackRect = getTerminalContentElement()?.getBoundingClientRect() || new DOMRect(0, 0, window.innerWidth, window.innerHeight)
-  const containerRect = terminalRect || fallbackRect
+  // Use offsetWidth/offsetHeight instead of getBoundingClientRect
+  // because we're now positioning absolutely relative to the container
+  const containerWidth = props.terminalContainer.offsetWidth
+  const containerHeight = props.terminalContainer.offsetHeight
 
-  const availableWidth = Math.max(260, containerRect.width - margin * 2)
+  // Check if container is actually invisible (Tab switched, hidden Tab container has 0 width/height)
+  // If invisible, skip position calculation (the dialog will be hidden automatically by container)
+  if (containerWidth === 0 || containerHeight === 0) {
+    return
+  }
+
+  const availableWidth = Math.max(260, containerWidth - margin * 2)
   const targetWidth = Math.min(maxWidth, Math.min(preferredWidth, availableWidth))
   dialogWidth.value = Math.max(minWidth, Math.floor(targetWidth))
 
@@ -448,34 +342,37 @@ const updateDialogPosition = async () => {
   const widgetEl = dialogRef.value?.querySelector('.widget-container') as HTMLElement | undefined
   const dialogHeight = widgetEl?.offsetHeight || 0
 
-  let left: number
+  // Horizontal position: centered within container
+  const left = Math.round((containerWidth - dialogWidth.value) / 2)
+
   let top: number
 
-  // Horizontal position: always keep centered in terminal container
-  left = Math.round(containerRect.left + (containerRect.width - dialogWidth.value) / 2)
+  // Try to get cursor position for vertical placement
+  const cursorInfo = await getCursorPosition()
 
   if (cursorInfo && cursorInfo.absoluteY !== null) {
-    // console.log('Using cursor position to position dialog:', cursorInfo)
+    // Get container's position relative to viewport
+    const containerRect = props.terminalContainer.getBoundingClientRect()
 
-    // Vertical position: below the line where cursor is located
-    const cursorY = cursorInfo.absoluteY
-    const spaceBelowCursor = containerRect.bottom - (cursorY + cursorInfo.cellHeight)
+    // Calculate cursor position relative to container
+    const cursorYRelativeToContainer = cursorInfo.absoluteY - containerRect.top
+    const spaceBelowCursor = containerHeight - (cursorYRelativeToContainer + cursorInfo.cellHeight)
 
     if (spaceBelowCursor >= dialogHeight + margin) {
       // Enough space below cursor, display below cursor
-      top = cursorY + cursorInfo.cellHeight + margin
+      top = cursorYRelativeToContainer + cursorInfo.cellHeight + margin
     } else {
-      // Not enough space below cursor, display at terminal bottom
-      top = containerRect.bottom - dialogHeight - margin
+      // Not enough space below cursor, display at container bottom
+      top = containerHeight - dialogHeight - margin
     }
   } else {
-    // Fall back to original logic: display centered at terminal bottom
-    console.log('Using default position to position dialog')
-    top = Math.round(containerRect.bottom - dialogHeight - margin)
+    // Fall back: display at container bottom
+    top = Math.round(containerHeight - dialogHeight - margin)
   }
 
-  const clampedLeft = Math.max(margin, Math.min(left, window.innerWidth - dialogWidth.value - margin))
-  const clampedTop = Math.max(margin, Math.min(top, window.innerHeight - dialogHeight - margin))
+  // Clamp within container bounds
+  const clampedLeft = Math.max(margin, Math.min(left, containerWidth - dialogWidth.value - margin))
+  const clampedTop = Math.max(margin, Math.min(top, containerHeight - dialogHeight - margin))
 
   dialogPositionStyle.value = { top: clampedTop + 'px', left: clampedLeft + 'px' }
 }
@@ -490,14 +387,8 @@ const setupContentResizeObserver = () => {
   }
 
   // Monitor terminal container if available
-  if (lastActiveTerminalInfo?.container) {
-    contentResizeObserver.observe(lastActiveTerminalInfo.container)
-  }
-
-  // Also monitor main content area as fallback
-  const contentEl = getTerminalContentElement()
-  if (contentEl) {
-    contentResizeObserver.observe(contentEl)
+  if (props.terminalContainer) {
+    contentResizeObserver.observe(props.terminalContainer)
   }
 }
 
@@ -505,45 +396,10 @@ const teardownContentResizeObserver = () => {
   if (contentResizeObserver) {
     try {
       // Unobserve all previously observed elements
-      if (lastActiveTerminalInfo?.container) {
-        contentResizeObserver.unobserve(lastActiveTerminalInfo.container)
-      }
-      const contentEl = getTerminalContentElement()
-      if (contentEl) {
-        contentResizeObserver.unobserve(contentEl)
+      if (props.terminalContainer) {
+        contentResizeObserver.unobserve(props.terminalContainer)
       }
     } catch {}
-  }
-}
-
-const storeActiveTerminalInfo = () => {
-  try {
-    const activeElement = document.activeElement
-    let termContainer = activeElement?.closest('.terminal-container') as HTMLElement | null
-
-    if (!termContainer) {
-      const terminalContainers = document.querySelectorAll('.terminal-container')
-      for (const container of terminalContainers) {
-        const containerEl = container as HTMLElement
-        const rect = containerEl.getBoundingClientRect()
-        if (rect.width > 0 && rect.height > 0) {
-          termContainer = containerEl
-          break
-        }
-      }
-    }
-
-    if (termContainer) {
-      const activeTerminalEl = termContainer.querySelector('.xterm-screen') as HTMLElement | null
-      if (activeTerminalEl) {
-        lastActiveTerminalInfo = {
-          element: activeTerminalEl,
-          container: termContainer
-        }
-      }
-    }
-  } catch (error) {
-    console.warn('Failed to store terminal info:', error)
   }
 }
 
@@ -552,9 +408,13 @@ const handleGlobalKeyDown = (e: KeyboardEvent) => {
   if (e.key === 'Escape' && props.visible) {
     const compositionEvent = e as KeyboardEvent & { isComposing?: boolean }
     if (compositionEvent.isComposing || isComposing.value) return
-    e.preventDefault()
-    e.stopPropagation()
-    handleClose()
+    // Only close when focus is in this dialog or its associated terminal
+    const isFocusInCurrentScope = isDialogFocused() || isFocusInAssociatedTerminal()
+    if (isFocusInCurrentScope) {
+      e.preventDefault()
+      e.stopPropagation()
+      handleClose()
+    }
     return
   }
 
@@ -562,9 +422,14 @@ const handleGlobalKeyDown = (e: KeyboardEvent) => {
   const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0
   const isShortcut = isMac ? e.metaKey && e.key === 'k' : e.ctrlKey && e.key === 'k'
   if (props.visible && isShortcut) {
-    e.preventDefault()
-    e.stopPropagation()
-    nextTick(() => toggleFocus())
+    // Only respond when focus is in this dialog or its associated terminal
+    // This allows other split panes to handle the shortcut independently
+    const isFocusInCurrentScope = isDialogFocused() || isFocusInAssociatedTerminal()
+    if (isFocusInCurrentScope) {
+      e.preventDefault()
+      e.stopPropagation()
+      nextTick(() => toggleFocus())
+    }
   }
 }
 
@@ -590,7 +455,6 @@ onUnmounted(() => {
   window.removeEventListener('resize', updateDialogPosition)
   document.removeEventListener('keydown', handleGlobalKeyDown, true)
   teardownContentResizeObserver()
-  stopFocusEnforcer()
 })
 
 const handleCommandGenerationResponse = (response: { tabId?: string; command?: string; error?: string }) => {
@@ -603,11 +467,11 @@ const handleCommandGenerationResponse = (response: { tabId?: string; command?: s
 
   if (response.error) {
     error.value = response.error
-  } else if (response.command) {
+  } else if (response.command && currentTabId) {
     const delData = String.fromCharCode(127)
     const payload = delData.repeat(lastInjectedLength.value) + response.command
-    console.log('Injecting command:', payload)
-    eventBus.emit('autoExecuteCode', payload)
+    // console.log('Injecting command:', payload, 'to tab:', currentTabId)
+    eventBus.emit('autoExecuteCode', { command: payload, tabId: currentTabId })
 
     lastInjectedLength.value = response.command.length
     error.value = ''
@@ -620,7 +484,7 @@ const handleCommandGenerationResponse = (response: { tabId?: string; command?: s
 
 <style scoped lang="less">
 .command-input-widget {
-  position: fixed;
+  position: absolute;
   z-index: 1000;
   outline: none;
   animation: slideUp 0.2s cubic-bezier(0.16, 1, 0.3, 1);

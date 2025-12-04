@@ -45,13 +45,14 @@
         @context-act="contextAct"
       />
     </v-contextmenu>
-  </div>
 
-  <!-- Per-terminal Command Dialog -->
-  <CommandDialog
-    v-model:visible="isCommandDialogVisible"
-    :connection-id="currentConnectionId"
-  />
+    <!-- Command Dialog: Now positioned absolutely within terminal container -->
+    <CommandDialog
+      v-model:visible="isCommandDialogVisible"
+      :connection-id="currentConnectionId"
+      :terminal-container="terminalContainer"
+    />
+  </div>
 
   <div
     v-for="editor in openEditors"
@@ -579,8 +580,9 @@ onMounted(async () => {
             }
     }
   }
-  const handleGetCursorPosition = (callback: (position: any) => void) => {
-    if (props.activeTabId !== props.currentConnectionId) return
+  const handleGetCursorPosition = (payload: { connectionId?: string; callback: (position: any) => void }) => {
+    const { connectionId: targetId, callback } = payload
+    if (targetId && targetId !== props.currentConnectionId) return
 
     const position = getCursorLinePosition()
     callback(position)
@@ -946,9 +948,9 @@ const debounce = (func, wait, immediate = false) => {
     }
   }
 }
-const autoExecuteCode = (command) => {
-  if (props.activeTabId !== props.currentConnectionId) return
-  sendData(command)
+const autoExecuteCode = (payload: { command: string; tabId: string }) => {
+  if (payload.tabId !== props.currentConnectionId) return
+  sendData(payload.command)
 }
 const handleResize = debounce(() => {
   if (fitAddon.value && terminal.value && terminalElement.value) {
@@ -2909,17 +2911,14 @@ const handleGlobalKeyDown = (e: KeyboardEvent) => {
     closeSearch()
   }
 }
-// Open command dialog only for the active tab and focused terminal
+// Open command dialog only for the terminal that currently has focus
 const tryOpenLocalCommandDialog = () => {
-  if (props.activeTabId !== props.currentConnectionId) return
   const activeElement = document.activeElement
-  const container = terminalElement.value?.closest('.terminal-container')
-  const isTerminalFocused =
-    activeElement === terminal.value?.textarea ||
-    container?.contains(activeElement as Node) ||
-    (activeElement as HTMLElement)?.classList?.contains('xterm-helper-textarea')
+  if (!terminalContainer.value?.contains(activeElement as Node)) return
 
-  if (!isTerminalFocused) return
+  // If dialog is already open, do nothing (let CommandDialog handle focus toggle internally)
+  if (isCommandDialogVisible.value) return
+
   // Ensure terminal is focused for accurate positioning
   terminal.value?.focus()
   isCommandDialogVisible.value = true
@@ -2933,6 +2932,18 @@ eventBus.on('openCommandDialog', handleOpenCommandDialog)
 
 cleanupListeners.value.push(() => {
   eventBus.off('openCommandDialog', handleOpenCommandDialog)
+})
+
+// Listen to focusActiveTerminal event to return focus to terminal
+const handleFocusActiveTerminal = (targetConnectionId?: string) => {
+  if (targetConnectionId && targetConnectionId !== props.currentConnectionId) return
+  terminal.value?.focus()
+}
+
+eventBus.on('focusActiveTerminal', handleFocusActiveTerminal)
+
+cleanupListeners.value.push(() => {
+  eventBus.off('focusActiveTerminal', handleFocusActiveTerminal)
 })
 
 // Hide dialog when tab deactivates; restore when re-activates
