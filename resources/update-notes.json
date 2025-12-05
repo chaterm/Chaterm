@@ -9,21 +9,25 @@
           "支持自定义的背景图片和系统默认背景",
           "重构终端分屏功能",
           "重构快捷命令功能",
-          "优化全局输入功能",
+          "新增版本功能更新提示",
           "设置中新增终端触摸板缩放功能",
           "支持对AI对话的中断操作",
+          "支持对AI对话的任务内容导出分享",
           "支持XShell，SecureCRT导出的文件数据导入",
-          "Terminal和Agents布局切换相关功能优化"
+          "Terminal和Agents布局切换相关功能优化",
+          "优化若干BUG，提升应用稳定性"
         ],
         "en-US": [
           "Support custom background images and system default background",
           "Refactor the split-screen feature",
           "Refactor the shortcut command feature",
-          "Optimize the global input feature",
+          "Add a new version update reminder feature",
           "Add a new terminal touchpad zoom feature in the settings",
           "Support interrupt the AI conversation",
+          "Support export the AI conversation task content and share",
           "Support XShell, SecureCRT exported file data import",
-          "Optimize the Terminal and Agents layout switching related features"
+          "Optimize the Terminal and Agents layout switching related features",
+          "Optimize some bugs and improve the application stability"
         ]
       }
     },
