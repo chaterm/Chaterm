@@ -250,10 +250,32 @@ const checkUrlForAuthCallback = () => {
   }
 }
 
-const configLang: MenuProps['onClick'] = ({ key }) => {
+const configLang: MenuProps['onClick'] = async ({ key }) => {
   const lang = String(key)
   locale.value = lang
+
+  // Save to localStorage for immediate effect on next startup
   localStorage.setItem('lang', lang)
+
+  // Also save to database for potential cloud sync
+  try {
+    const api = window.api as any
+    const result = await api.kvGet({ key: 'userConfig' })
+    let userConfig: any = {}
+    if (result?.value) {
+      userConfig = JSON.parse(result.value)
+    }
+    userConfig.language = lang
+    userConfig.updatedAt = Date.now()
+
+    await api.kvMutate({
+      action: 'set',
+      key: 'userConfig',
+      value: JSON.stringify(userConfig)
+    })
+  } catch (error) {
+    console.error('Failed to save language to database:', error)
+  }
 }
 const router = useRouter()
 const sendCode = async () => {

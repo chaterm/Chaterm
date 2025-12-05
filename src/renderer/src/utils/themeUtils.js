@@ -72,9 +72,8 @@ export function getCurrentTheme() {
     return 'light'
   }
 
-  // Fallback: check localStorage and determine actual theme
-  const savedTheme = localStorage.getItem('theme') || 'auto'
-  return getActualTheme(savedTheme)
+  // Fallback: use system theme preference
+  return getSystemTheme()
 }
 
 /**
