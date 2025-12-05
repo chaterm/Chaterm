@@ -50,7 +50,7 @@ import AgentsSidebar from '@views/components/AgentsSidebar/index.vue'
 import Header from '@views/components/Header/index.vue'
 import { userInfoStore } from '@/store'
 import eventBus from '@/utils/eventBus'
-import { getActualTheme } from '@/utils/themeUtils'
+import { initializeThemeFromDatabase, getActualTheme } from '@/utils/themeUtils'
 import { getGlobalState } from '@/agent/storage/state'
 
 interface ResizeParams {
@@ -315,10 +315,8 @@ onMounted(async () => {
     }
   })
 
-  nextTick(() => {
-    let theme = localStorage.getItem('theme') || 'auto'
-    api.mainWindowInit(theme)
-    api.mainWindowShow()
+  nextTick(async () => {
+    await initializeThemeFromDatabase()
   })
 })
 

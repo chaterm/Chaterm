@@ -9,6 +9,24 @@ export function prefersDarkMode() {
 }
 
 /**
+ * Initialize theme from database and apply to document
+ * @returns {Promise<void>}
+ */
+export async function initializeThemeFromDatabase() {
+  const { userConfigStore } = await import('../services/userConfigStoreService')
+  const config = await userConfigStore.getConfig()
+  const dbTheme = config.theme || 'auto'
+  const actualTheme = getActualTheme(dbTheme)
+
+  // Set document theme class
+  document.documentElement.className = `theme-${actualTheme}`
+
+  // Initialize main window
+  window.api.mainWindowInit(dbTheme)
+  window.api.mainWindowShow()
+}
+
+/**
  * Check if system prefers light mode
  * @returns {boolean} true if system prefers light mode
  */
