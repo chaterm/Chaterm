@@ -537,6 +537,7 @@ const loadSavedConfig = async () => {
     awsEndpointSelected.value = ((await getGlobalState('awsEndpointSelected')) as boolean) || false
     // Ollama information
     ollamaBaseUrl.value = ((await getGlobalState('ollamaBaseUrl')) as string) || 'http://localhost:11434'
+    ollamaModelId.value = ((await getGlobalState('ollamaModelId')) as string) || ''
   } catch (error) {
     console.error('Failed to load config:', error)
     notification.error({
@@ -606,6 +607,7 @@ const saveOpenAiConfig = async () => {
 const saveOllamaConfig = async () => {
   try {
     await updateGlobalState('ollamaBaseUrl', ollamaBaseUrl.value)
+    await updateGlobalState('ollamaModelId', ollamaModelId.value)
   } catch (error) {
     console.error('Failed to save Ollama config:', error)
     notification.error({
