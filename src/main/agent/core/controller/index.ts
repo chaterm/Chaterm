@@ -820,7 +820,8 @@ export class Controller {
 
       // Clean up the generated title (remove any extra whitespace, quotes, or newlines)
       const cleanedTitle = generatedTitle
-        .replace(/<think>[\s\S]*?<\/think>/g, '') // Remove GLM think tags
+        .replace(/<think>/g, '') // Remove GLM think tags
+        .replace(/<\/think>/g, '')
         .trim()
         .replace(/^["']|["']$/g, '') // Remove leading/trailing quotes
         .replace(/\n/g, ' ') // Replace newlines with spaces
