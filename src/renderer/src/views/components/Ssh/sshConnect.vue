@@ -2965,6 +2965,19 @@ watch(
   }
 )
 
+watch(
+  () => props.isActive,
+  (newIsActive) => {
+    if (newIsActive && props.activeTabId === props.currentConnectionId) {
+      nextTick(() => {
+        if (terminal.value) {
+          focus()
+        }
+      })
+    }
+  }
+)
+
 const openSearch = () => {
   showSearch.value = true
 }
