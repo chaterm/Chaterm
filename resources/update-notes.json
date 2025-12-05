@@ -15,7 +15,7 @@
           "支持对AI对话的任务内容导出分享",
           "支持XShell，SecureCRT导出的文件数据导入",
           "Terminal和Agents布局切换相关功能优化",
-          "优化若干BUG，提升应用稳定性"
+          "优化若干问题，提升应用稳定性"
         ],
         "en-US": [
           "Support custom background images and system default background",
@@ -27,7 +27,7 @@
           "Support export the AI conversation task content and share",
           "Support XShell, SecureCRT exported file data import",
           "Optimize the Terminal and Agents layout switching related features",
-          "Optimize some bugs and improve the application stability"
+          "Optimize some issues and improve the application stability"
         ]
       }
     },
