@@ -277,7 +277,6 @@ onMounted(async () => {
 })
 
 onBeforeUnmount(() => {
-  eventBus.off('updateTheme')
   eventBus.off('defaultLayoutChanged')
 
   // Remove system theme listener

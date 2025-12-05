@@ -835,6 +835,9 @@ const api = {
   openFileDialog: () => ipcRenderer.invoke('dialog:open-file'),
   openDirectoryDialog: () => ipcRenderer.invoke('dialog:open-directory'),
   openSaveDialog: (opts: { fileName: string }) => ipcRenderer.invoke('dialog:save-file', opts),
+  writeLocalFile: async (filePath: string, content: string) => {
+    await fs.promises.writeFile(filePath, content, 'utf-8')
+  },
   agentEnableAndConfigure: (opts: { enabled: boolean }) => ipcRenderer.invoke('ssh:agent:enable-and-configure', opts),
   addKey: (opts: { keyData: string; passphrase?: string; comment?: string }) => ipcRenderer.invoke('ssh:agent:add-key', opts),
   removeKey: (opts: { keyId: string }) => ipcRenderer.invoke('ssh:agent:remove-key', opts),

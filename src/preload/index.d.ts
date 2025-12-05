@@ -147,6 +147,9 @@ interface ApiType {
   }>
   getUserHosts: (search: string, limit?: number, offset?: number) => Promise<any>
   initUserDatabase: (data: { uid: number }) => Promise<any>
+  // File dialog and local file operations
+  openSaveDialog: (opts: { fileName: string }) => Promise<string | null>
+  writeLocalFile: (filePath: string, content: string) => Promise<void>
 }
 
 declare global {

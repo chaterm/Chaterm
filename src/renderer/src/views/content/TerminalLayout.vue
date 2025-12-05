@@ -1040,9 +1040,10 @@ const switchTab = (panelId: string) => {
   activeTabId.value = panelId
   const panelParams = panel.params
   const panelType = panelParams?.type
-  // TODO
   if (panelType === 'term' || panelType === 'ssh') {
-    nextTick(() => {})
+    nextTick(() => {
+      handleActivePanelChange()
+    })
   }
   checkActiveTab(panelType)
 }
@@ -1306,6 +1307,44 @@ const applyTheme = () => {
   updateContainerTheme(document.querySelector('.dockview-theme-light'))
   updateContainerTheme(document.querySelector('.dockview-theme-dark'))
 }
+
+const handleActivePanelChange = async () => {
+  if (!dockApi) {
+    return
+  }
+
+  const activePanel = dockApi.activePanel
+  if (!activePanel) {
+    return
+  }
+
+  const params = activePanel.params
+  if (!params) {
+    return
+  }
+
+  const panelType = params.type || params.data?.type
+  if (panelType !== 'term' && panelType !== 'ssh') {
+    return
+  }
+
+  const ip = params.data?.ip || params.ip
+  const uuid = params.data?.uuid || params.uuid
+
+  if (ip && uuid) {
+    eventBus.emit('activeTabChanged', {
+      ip,
+      data: {
+        uuid
+      },
+      connection: params.data?.connection || 'personal',
+      title: activePanel.api.title || params.title,
+      organizationId: params.organizationId || params.data?.organizationId,
+      type: panelType
+    })
+  }
+}
+
 const onDockReady = (event: DockviewReadyEvent) => {
   dockApi = event.api
 
@@ -1316,10 +1355,16 @@ const onDockReady = (event: DockviewReadyEvent) => {
   dockApi.onDidRemovePanel(() => {
     panelCount.value = dockApi.panels.length
   })
+
+  dockApi.onDidActivePanelChange(() => {
+    handleActivePanelChange()
+  })
+
   panelCount.value = dockApi.panels.length
   nextTick(() => {
     applyTheme()
     setupTabContextMenu()
+    handleActivePanelChange()
   })
 }
 const addDockPanel = (params) => {
