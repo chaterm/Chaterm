@@ -324,14 +324,14 @@ onMounted(async () => {
       theme:
         actualTheme === 'light'
           ? {
-              background: configStore.getUserConfig.background.image ? 'transparent' : '#ffffff',
+              background: config.background?.image ? 'transparent' : '#ffffff',
               foreground: '#000000',
               cursor: '#000000',
               cursorAccent: '#000000',
               selectionBackground: 'rgba(0, 0, 0, 0.3)'
             }
           : {
-              background: configStore.getUserConfig.background.image ? 'transparent' : '#141414',
+              background: config.background?.image ? 'transparent' : '#141414',
               foreground: '#e0e0e0',
               cursor: '#e0e0e0',
               cursorAccent: '#e0e0e0',

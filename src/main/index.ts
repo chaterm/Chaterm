@@ -34,6 +34,7 @@ import { pathToFileURL } from 'url'
 import { loadAllPlugins } from './plugin/pluginLoader'
 import { installPlugin, listPlugins, PluginManifest, uninstallPlugin, getAllPluginVersions } from './plugin/pluginManager'
 import { getPluginDetailsByName } from './plugin/pluginDetails'
+import { getActualTheme, applyThemeToTitleBar, loadUserTheme } from './themeManager'
 
 let mainWindow: BrowserWindow
 let COOKIE_URL = 'http://localhost'
@@ -677,6 +678,12 @@ function setupIPC(): void {
       chatermDbService = await ChatermDatabaseService.getInstance(targetUserId)
       autoCompleteService = await autoCompleteDatabaseService.getInstance(targetUserId)
 
+      // Load and apply user theme configuration
+      const dbTheme = await loadUserTheme(chatermDbService)
+      if (dbTheme) {
+        applyThemeToTitleBar(mainWindow, dbTheme)
+      }
+
       // Sync authentication info, ensure completion before data sync starts
       try {
         // Get user authentication info and set it to encryption service
@@ -700,7 +707,7 @@ function setupIPC(): void {
         }
       }
 
-      return { success: true }
+      return { success: true, theme: dbTheme }
     } catch (error) {
       console.error('Database initialization failed:', error)
       return { success: false, error: error instanceof Error ? error.message : 'Unknown error occurred' }
@@ -1135,35 +1142,11 @@ function setupIPC(): void {
     }
   })
 
-  // Helper function to get actual theme based on system preference for auto mode
-  const getActualTheme = (theme: string) => {
-    if (theme === 'auto') {
-      // For auto theme, we need to get the actual theme from the renderer process
-      // since main process can't access window.matchMedia directly
-      // We'll use a more sophisticated approach for Windows
-      if (process.platform === 'win32') {
-        // On Windows, we can use the nativeTheme API to detect system theme
-        const { nativeTheme } = require('electron')
-        return nativeTheme.shouldUseDarkColors ? 'dark' : 'light'
-      }
-      // For other platforms, default to light theme
-      return 'light'
-    }
-    return theme
-  }
-
   ipcMain.handle('update-theme', (_, theme) => {
     if (mainWindow && !mainWindow.isDestroyed()) {
-      const actualTheme = getActualTheme(theme)
-      // Update title bar color
-      if (process.platform !== 'darwin') {
-        mainWindow.setTitleBarOverlay({
-          color: actualTheme === 'dark' ? '#141414' : '#ffffff',
-          symbolColor: actualTheme === 'dark' ? '#ffffff' : '#141414',
-          height: 27
-        })
-      }
+      applyThemeToTitleBar(mainWindow, theme)
       // Notify renderer process that theme has been updated
+      const actualTheme = getActualTheme(theme)
       mainWindow.webContents.send('theme-updated', actualTheme)
       return true
     }
@@ -1184,14 +1167,7 @@ function setupIPC(): void {
 
   ipcMain.handle('main-window-init', async (_, theme) => {
     await winReady
-    if (process.platform !== 'darwin') {
-      const actualTheme = getActualTheme(theme)
-      mainWindow.setTitleBarOverlay({
-        color: actualTheme === 'dark' ? '#141414' : '#ffffff',
-        symbolColor: actualTheme === 'dark' ? '#ffffff' : '#141414',
-        height: 27
-      })
-    }
+    applyThemeToTitleBar(mainWindow, theme)
   })
 
   ipcMain.handle('main-window-show', async () => {

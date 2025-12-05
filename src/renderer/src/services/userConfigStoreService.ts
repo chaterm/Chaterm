@@ -175,8 +175,6 @@ export class UserConfigStoreService {
         updatedAt: Date.now()
       }
 
-      localStorage.setItem('theme', sanitizedConfig.theme || 'auto')
-
       await window.api.kvMutate({
         action: 'set',
         key: 'userConfig',

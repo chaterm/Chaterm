@@ -239,7 +239,7 @@ import { v4 as uuidv4 } from 'uuid'
 import { userInfoStore } from '@/store'
 import { aliasConfigStore } from '@/store/aliasConfigStore'
 import eventBus from '@/utils/eventBus'
-import { getActualTheme } from '@/utils/themeUtils'
+import { initializeThemeFromDatabase, getActualTheme } from '@/utils/themeUtils'
 import { Notice } from '../components/Notice'
 import { isGlobalInput, isShowCommandBar, componentInstances } from '@renderer/views/components/Ssh/termInputManager'
 import { inputManager } from '../components/Ssh/termInputManager'
@@ -514,7 +514,7 @@ onMounted(async () => {
     }
     store.setUserConfig(config)
     configLoaded.value = true
-    currentTheme.value = config.theme || 'dark'
+    currentTheme.value = getActualTheme(config.theme || 'auto')
 
     // Delay of 2 seconds to wait for the main thread to complete initializeTelemetrySetting
     setTimeout(async () => {
@@ -535,7 +535,7 @@ onMounted(async () => {
       showWatermark.value = config.watermark !== 'close'
     })
   } catch (e) {
-    currentTheme.value = 'dark'
+    currentTheme.value = getActualTheme('auto')
     nextTick(() => {
       showWatermark.value = true
     })
@@ -658,10 +658,8 @@ onMounted(async () => {
     }
   })
 
-  nextTick(() => {
-    let theme = localStorage.getItem('theme') || 'auto'
-    api.mainWindowInit(theme)
-    api.mainWindowShow()
+  nextTick(async () => {
+    await initializeThemeFromDatabase()
   })
 })
 const timer = ref<number | null>(null)
