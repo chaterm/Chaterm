@@ -10,17 +10,25 @@
     /> -->
     <script>
       ;(function () {
-        // Initialize with system theme to prevent flash
-        // Actual theme will be loaded from database in main.ts
-        const getSystemTheme = () => {
-          if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
-            return 'dark'
+        const theme = localStorage.getItem('theme') || 'auto'
+
+        // Helper function to get actual theme based on system preference for auto mode
+        const getActualTheme = (theme) => {
+          if (theme === 'auto') {
+            // Check system preference first
+            if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+              return 'dark'
+            } else if (window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches) {
+              return 'light'
+            }
+            // Default to light theme if no system preference is detected
+            return 'light'
           }
-          return 'light'
+          return theme
         }
 
-        const systemTheme = getSystemTheme()
-        document.documentElement.className = `theme-${systemTheme}`
+        const actualTheme = getActualTheme(theme)
+        document.documentElement.className = `theme-${actualTheme}`
       })()
     </script>
   </head>
