@@ -194,9 +194,8 @@ export class LiteLlmHandler implements ApiHandler {
 
     let usageInfo: OpenAI.CompletionUsage | undefined | null = undefined
     const isGlmModel = modelId.toLowerCase().includes('glm')
-    // GLM streams wrap reasoning inside <thinking>...</thinking>; parse and emit as dedicated events while streaming
-    const glmThinkingParser = isGlmModel ? createGlmThinkingParser() : null
-
+    // GLM models with -Thinking suffix output <thinking>...</thinking> tags when thinking mode is enabled
+    const glmThinkingParser = isGlmModel && reasoningOn ? createGlmThinkingParser() : null
     for await (const chunk of stream) {
       const delta = chunk.choices[0]?.delta
 
