@@ -10,21 +10,11 @@
     /> -->
     <script>
       ;(function () {
-        const theme = localStorage.getItem('theme') || 'auto'
-
-        // Helper function to get actual theme based on system preference for auto mode
-        const getActualTheme = (theme) => {
-          if (theme === 'auto') {
-            // Check system preference first
-            if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
-              return 'dark'
-            } else if (window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches) {
-              return 'light'
-            }
-            // Default to light theme if no system preference is detected
-            return 'light'
+        const getSystemTheme = () => {
+          if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+            return 'dark'
           }
-          return theme
+          return 'light'
         }
 
         const actualTheme = getActualTheme(theme)
