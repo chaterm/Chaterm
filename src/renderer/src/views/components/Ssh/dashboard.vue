@@ -36,11 +36,13 @@ import { shortcutActions, shortcutHints } from '@/config/shortcutActions'
 import { shortcutService } from '@/services/shortcutService'
 import type { ShortcutConfig } from '@/services/userConfigStoreService'
 import { useI18n } from 'vue-i18n'
-import { isDarkTheme } from '@/utils/themeUtils'
 import logoDark from '@/assets/img/logo-dark.svg'
 import logoLight from '@/assets/img/logo-light.svg'
 
-const logoSrc = computed(() => (isDarkTheme() ? logoDark : logoLight))
+// Reactive theme tracking
+const isDark = ref(document.documentElement.className.includes('theme-dark'))
+
+const logoSrc = computed(() => (isDark.value ? logoDark : logoLight))
 
 const { locale } = useI18n()
 
@@ -101,6 +103,15 @@ const shortcuts = computed(() => {
 onMounted(() => {
   loadShortcuts()
 
+  // Observe theme changes on document.documentElement
+  const observer = new MutationObserver(() => {
+    isDark.value = document.documentElement.className.includes('theme-dark')
+  })
+  observer.observe(document.documentElement, {
+    attributes: true,
+    attributeFilter: ['class']
+  })
+
   // Listen for window focus to refresh shortcuts when user returns from settings
   const handleWindowFocus = () => {
     loadShortcuts()
@@ -108,8 +119,9 @@ onMounted(() => {
 
   window.addEventListener('focus', handleWindowFocus)
 
-  // Cleanup listener on unmount
+  // Cleanup listeners on unmount
   onUnmounted(() => {
+    observer.disconnect()
     window.removeEventListener('focus', handleWindowFocus)
   })
 })
