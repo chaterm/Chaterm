@@ -2848,11 +2848,21 @@ const adjustFontSize = async (delta: number) => {
 
 // Handle wheel event for font size adjustment (pinch zoom)
 const handleWheel = (e: WheelEvent) => {
-  // Only respond if this terminal is the active one
-  if (props.activeTabId !== props.currentConnectionId) return
-
-  // Check if pinch zoom is enabled in config
   if (config && config.pinchZoomStatus !== 1) return
+
+  if (!props.isActive) return
+
+  const activeTerm = inputManager.getActiveTerm()
+  if (activeTerm.id !== connectionId.value) return
+
+  const activeElement = document.activeElement
+  const terminalContainer = terminalElement.value?.closest('.terminal-container')
+  const isTerminalFocused =
+    activeElement === terminal.value?.textarea ||
+    terminalContainer?.contains(activeElement) ||
+    activeElement?.classList.contains('xterm-helper-textarea')
+
+  if (!isTerminalFocused) return
 
   if (e.ctrlKey && terminal.value) {
     e.preventDefault()
@@ -2961,6 +2971,19 @@ watch(
           isCommandDialogVisible.value = true
         })
       }
+    }
+  }
+)
+
+watch(
+  () => props.isActive,
+  (newIsActive) => {
+    if (newIsActive && props.activeTabId === props.currentConnectionId) {
+      nextTick(() => {
+        if (terminal.value) {
+          focus()
+        }
+      })
     }
   }
 )
