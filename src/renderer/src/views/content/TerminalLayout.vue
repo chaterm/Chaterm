@@ -310,6 +310,7 @@ interface AiSidebarState {
     title: string
     hosts: any[]
     chatType: string
+    modelValue: string
     autoUpdateHost: boolean
     inputValue: string
     session: {
@@ -326,7 +327,6 @@ interface AiSidebarState {
       messageFeedbacks: Record<string, 'like' | 'dislike'>
     }
   }>
-  chatAiModelValue?: string
 }
 
 const savedAiSidebarState = ref<AiSidebarState | null>(null)

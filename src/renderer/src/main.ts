@@ -40,7 +40,6 @@ app.use(contextmenu)
 declare global {
   interface Window {
     storageAPI: typeof storageState
-    api: any
   }
 }
 

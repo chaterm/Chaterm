@@ -1,4 +1,6 @@
 import { ElectronAPI } from '@electron-toolkit/preload'
+import type { TaskMetadata } from '../main/agent/core/context/context-tracking/ContextTrackerTypes'
+
 interface Cookie {
   name: string
   value: string
@@ -135,14 +137,10 @@ interface ApiType {
   aliasesMutate: (params: { action: string; data?: any; alias?: string }) => Promise<void>
   kvGet: (params: { key?: string }) => Promise<any>
   kvMutate: (params: { action: string; key: string; value?: string }) => Promise<void>
+  chatermGetChatermMessages: (data: { taskId: string }) => Promise<any>
   getTaskMetadata: (taskId: string) => Promise<{
     success: boolean
-    data?: {
-      files_in_context?: any[]
-      model_usage?: any[]
-      hosts?: Array<{ host: string; uuid: string; connection: string }>
-      todos?: any[]
-    }
+    data?: TaskMetadata
     error?: { message: string }
   }>
   getUserHosts: (search: string, limit?: number, offset?: number) => Promise<any>

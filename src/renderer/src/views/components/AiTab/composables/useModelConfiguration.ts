@@ -4,6 +4,7 @@ import { GlobalStateKey } from '@renderer/agent/storage/state-keys'
 import { notification } from 'ant-design-vue'
 import { getUser } from '@api/user/user'
 import { focusChatInput } from './useTabManagement'
+import { useSessionState } from './useSessionState'
 
 interface ModelSelectOption {
   label: string
@@ -32,7 +33,7 @@ const isEmptyValue = (value: unknown): boolean => value === undefined || value =
  * Handles model selection, configuration and initialization
  */
 export function useModelConfiguration() {
-  const chatAiModelValue = ref<string>('')
+  const { chatAiModelValue } = useSessionState()
 
   const AgentAiModelsOptions = ref<ModelSelectOption[]>([])
 
@@ -60,11 +61,7 @@ export function useModelConfiguration() {
   }
 
   const initModel = async () => {
-    const apiProvider = (await getGlobalState('apiProvider')) as string
-
-    const key = PROVIDER_MODEL_KEY_MAP[apiProvider || 'default'] || 'defaultModelId'
-    chatAiModelValue.value = (await getGlobalState(key)) as string
-
+    // 先初始化模型选项列表
     const modelOptions = (await getGlobalState('modelOptions')) as ModelOption[]
 
     modelOptions.sort((a, b) => {
@@ -83,6 +80,17 @@ export function useModelConfiguration() {
         label: item.name,
         value: item.name
       }))
+
+    if (chatAiModelValue.value && chatAiModelValue.value !== '') {
+      const isValidModel = AgentAiModelsOptions.value.some((option) => option.value === chatAiModelValue.value)
+      if (isValidModel) {
+        return
+      }
+    }
+
+    const apiProvider = (await getGlobalState('apiProvider')) as string
+    const key = PROVIDER_MODEL_KEY_MAP[apiProvider || 'default'] || 'defaultModelId'
+    chatAiModelValue.value = (await getGlobalState(key)) as string
 
     if ((chatAiModelValue.value === undefined || chatAiModelValue.value === '') && AgentAiModelsOptions.value[0]) {
       chatAiModelValue.value = AgentAiModelsOptions.value[0].label
@@ -188,7 +196,6 @@ export function useModelConfiguration() {
   )
 
   return {
-    chatAiModelValue,
     AgentAiModelsOptions,
     initModel,
     handleChatAiModelChange,
