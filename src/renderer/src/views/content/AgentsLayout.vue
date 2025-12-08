@@ -94,7 +94,6 @@ interface AiTabState {
   size: number
   currentChatId: string | null
   chatTabs: any[]
-  chatAiModelValue?: string
 }
 
 const savedAiTabState = ref<AiTabState | null>(null)

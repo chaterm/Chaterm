@@ -449,7 +449,6 @@
                 @keydown="handleHostSearchKeyDown"
               />
               <div
-                ref="hostSelectListRef"
                 class="host-select-list"
                 @scroll="handleHostListScroll"
               >
@@ -899,7 +898,6 @@ const MarkdownRenderer = defineAsyncComponent(() => import('./components/format/
 const TodoInlineDisplay = defineAsyncComponent(() => import('./components/todo/TodoInlineDisplay.vue'))
 
 const isSkippedLogin = ref(localStorage.getItem('login-skipped') === 'true')
-const hostSelectListRef = ref<HTMLElement | null>(null)
 
 const {
   currentChatId,
@@ -907,6 +905,7 @@ const {
   currentTab,
   currentSession,
   chatTypeValue,
+  chatAiModelValue,
   hosts,
   chatInputValue,
   lastChatMessageId,
@@ -919,10 +918,10 @@ const {
 } = useSessionState()
 
 // Model configuration management
-const { chatAiModelValue, AgentAiModelsOptions, initModel, handleChatAiModelChange, checkModelConfig, initModelOptions } = useModelConfiguration()
+const { AgentAiModelsOptions, initModel, handleChatAiModelChange, checkModelConfig, initModelOptions } = useModelConfiguration()
 
 // State snapshot
-const { getCurrentState, restoreState, emitStateChange } = useStateSnapshot(chatAiModelValue, emit)
+const { getCurrentState, restoreState, emitStateChange } = useStateSnapshot(emit)
 
 // Todo functionality
 const { currentTodos, shouldShowTodoAfterMessage, getTodosForMessage, markLatestMessageWithTodoUpdate, clearTodoState } = useTodo()
