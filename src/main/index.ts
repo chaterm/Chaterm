@@ -567,8 +567,8 @@ ipcMain.handle('saveCustomBackground', async (_, sourcePath: string) => {
   try {
     const fs = require('fs/promises')
     const path = require('path')
-    const projectRoot = process.cwd()
-    const targetDir = path.join(projectRoot, 'src/renderer/src/assets/backgroup/custom')
+    const userDataPath = app.getPath('userData')
+    const targetDir = path.join(userDataPath, 'backgrounds')
 
     // Ensure directory exists
     await fs.mkdir(targetDir, { recursive: true })
