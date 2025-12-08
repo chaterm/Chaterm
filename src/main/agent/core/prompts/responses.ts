@@ -1,8 +1,6 @@
 import { Anthropic } from '@anthropic-ai/sdk'
 import * as diff from 'diff'
 import * as path from 'path'
-// Controls LLM access to files by enforcing ignore patterns.
-// import { ChatermIgnoreController, LOCK_TEXT_SYMBOL } from "../ignore/ChatermIgnoreController"
 
 export const formatResponse = {
   duplicateFileReadNotice: () =>
@@ -57,12 +55,7 @@ Otherwise, if you have not completed the task and do not need additional informa
     return formatImagesIntoBlocks(images)
   },
 
-  formatFilesList: (
-    absolutePath: string,
-    files: string[],
-    didHitLimit: boolean
-    //chatermIgnoreController?: ChatermIgnoreController,
-  ): string => {
+  formatFilesList: (absolutePath: string, files: string[], didHitLimit: boolean): string => {
     const sorted = files
       .map((file) => {
         // convert absolute path to relative path
@@ -93,21 +86,6 @@ Otherwise, if you have not completed the task and do not need additional informa
         // the shorter one comes first
         return aParts.length - bParts.length
       })
-
-    // const clineIgnoreParsed = chatermIgnoreController
-    // 	? sorted.map((filePath) => {
-    // 			// path is relative to absolute path, not cwd
-    // 			// validateAccess expects either path relative to cwd or absolute path
-    // 			// otherwise, for validating against ignore patterns like "assets/icons", we would end up with just "icons", which would result in the path not being ignored.
-    // 			const absoluteFilePath = path.resolve(absolutePath, filePath)
-    // 			const isIgnored = !chatermIgnoreController.validateAccess(absoluteFilePath)
-    // 			if (isIgnored) {
-    // 				return LOCK_TEXT_SYMBOL + " " + filePath
-    // 			}
-
-    // 			return filePath
-    // 		})
-    // 	: sorted
 
     const clineIgnoreParsed = sorted
     if (didHitLimit) {

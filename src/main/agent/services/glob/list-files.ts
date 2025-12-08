@@ -95,7 +95,6 @@ export interface GlobSearchResult {
 
 /**
  * High-level glob search for local filesystem.
- * - Respects `.clineignore` via an optional validator (caller can pass ChatermIgnoreController)
  * - Does not apply .gitignore by default (can be added by callers by changing options)
  * - Sorting: default by path; 'none' preserves globby's order
  */
