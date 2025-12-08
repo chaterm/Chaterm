@@ -1181,7 +1181,7 @@ const connectLocalSSH = async () => {
     }
   }
 
-  connectionId.value = `localhost@127.0.0.1:local:${Base64Util.encode(props.serverInfo.data.key)}`
+  connectionId.value = `localhost@127.0.0.1:local:${props.currentConnectionId}`
 
   try {
     const email = userInfoStore().userInfo.email
