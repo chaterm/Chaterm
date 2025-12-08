@@ -36,6 +36,30 @@ import path from 'path'
 import fs from 'fs'
 import { SSHAgentManager } from './ssh-agent/ChatermSSHAgent'
 
+// Hybrid buffer strategy configuration
+const FLUSH_CONFIG = {
+  INSTANT_SIZE: 16, // < 16 bytes: send immediately (user input)
+  INSTANT_DELAY: 0, // 0ms
+  SMALL_SIZE: 256, // < 256 bytes: short delay
+  SMALL_DELAY: 10, // 10ms
+  LARGE_SIZE: 1024, // < 1KB: medium delay
+  LARGE_DELAY: 30, // 30ms
+  BULK_DELAY: 50 // >= 1KB: long delay (bulk output)
+}
+
+// Helper function to determine delay based on buffer size
+const getDelayByBufferSize = (size: number): number => {
+  if (size < FLUSH_CONFIG.INSTANT_SIZE) {
+    return FLUSH_CONFIG.INSTANT_DELAY
+  } else if (size < FLUSH_CONFIG.SMALL_SIZE) {
+    return FLUSH_CONFIG.SMALL_DELAY
+  } else if (size < FLUSH_CONFIG.LARGE_SIZE) {
+    return FLUSH_CONFIG.LARGE_DELAY
+  } else {
+    return FLUSH_CONFIG.BULK_DELAY
+  }
+}
+
 // Store SSH connections
 export const sshConnections = new Map()
 
@@ -772,20 +796,30 @@ export const registerSSHHandlers = () => {
       stream.removeAllListeners('data')
 
       let buffer = ''
-      let sending = false
+      let flushTimer: NodeJS.Timeout | null = null
 
       const flushBuffer = () => {
         if (!buffer) return
         const chunk = buffer
         buffer = ''
-        sending = true
         event.sender.send(`ssh:shell:data:${id}`, { data: chunk, marker: '' })
-        sending = false
+        flushTimer = null
       }
 
       const scheduleFlush = () => {
-        if (!sending) {
-          setTimeout(flushBuffer, 50)
+        // Clear existing timer to prevent multiple timers
+        if (flushTimer) {
+          clearTimeout(flushTimer)
+        }
+
+        const delay = getDelayByBufferSize(buffer.length)
+
+        if (delay === 0) {
+          // Send immediately for small data (likely user input)
+          flushBuffer()
+        } else {
+          // Schedule delayed flush for larger data
+          flushTimer = setTimeout(flushBuffer, delay)
         }
       }
 
@@ -865,19 +899,31 @@ export const registerSSHHandlers = () => {
       shellStreams.set(id, stream)
 
       let buffer = ''
-      let sending = false
+      let flushTimer: NodeJS.Timeout | null = null
 
       const flushBuffer = () => {
         if (!buffer) return
         const chunk = buffer
         buffer = ''
-        sending = true
         event.sender.send(`ssh:shell:data:${id}`, { data: chunk, marker: '' })
-        sending = false
+        flushTimer = null
       }
 
       const scheduleFlush = () => {
-        if (!sending) setTimeout(flushBuffer, 50)
+        // Clear existing timer to prevent multiple timers
+        if (flushTimer) {
+          clearTimeout(flushTimer)
+        }
+
+        const delay = getDelayByBufferSize(buffer.length)
+
+        if (delay === 0) {
+          // Send immediately for small data (likely user input)
+          flushBuffer()
+        } else {
+          // Schedule delayed flush for larger data
+          flushTimer = setTimeout(flushBuffer, delay)
+        }
       }
 
       stream.on('data', (data) => {
