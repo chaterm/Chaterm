@@ -23,8 +23,7 @@ export default defineConfig({
         '@services': resolve('src/main/agent/services'),
         '@integrations': resolve('src/main/agent/integrations'),
         '@utils': resolve('src/main/agent/utils'),
-        '@api': resolve('src/main/agent/api'),
-        vscode: resolve('src/main/agent/vscode-mock.ts')
+        '@api': resolve('src/main/agent/api')
       }
     },
     build: {

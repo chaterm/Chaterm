@@ -2,7 +2,6 @@ import { PostHog } from 'posthog-node'
 import { version as extensionVersion } from '../../../../../package.json'
 
 import type { TaskFeedbackType } from '@shared/WebviewMessage'
-import type { BrowserSettings } from '@shared/BrowserSettings'
 import os from 'os'
 import crypto from 'crypto'
 import { app } from 'electron'
@@ -12,7 +11,7 @@ import fs from 'fs'
 /**
  * PostHogClient handles telemetry event tracking for the Cline extension
  * Uses PostHog analytics to track user interactions and system events
- * Respects user privacy settings and VSCode's global telemetry configuration
+ * Respects user privacy settings
  */
 class PostHogClient {
   // Event constants for tracking user interactions and system events
@@ -95,7 +94,7 @@ class PostHogClient {
   private client: PostHog
   /** Unique identifier for the current user */
   private distinctId: string = generatePersistentMachineId()
-  /** Whether telemetry is currently enabled based on user and VSCode settings */
+  /** Whether telemetry is currently enabled based on user  */
   private telemetryEnabled: boolean = false
   /** Current version of the extension */
   private readonly version: string = extensionVersion
@@ -508,79 +507,6 @@ class PostHogClient {
       event: PostHogClient.EVENTS.TASK.RETRY_CLICKED,
       properties: {
         taskId
-      }
-    })
-  }
-
-  /**
-   * Records when the browser tool is started
-   * @param taskId Unique identifier for the task
-   * @param browserSettings The browser settings being used
-   */
-  public captureBrowserToolStart(taskId: string, browserSettings: BrowserSettings) {
-    this.capture({
-      event: PostHogClient.EVENTS.TASK.BROWSER_TOOL_START,
-      properties: {
-        taskId,
-        viewport: browserSettings.viewport,
-        isRemote: !!browserSettings.remoteBrowserEnabled,
-        remoteBrowserHost: browserSettings.remoteBrowserHost,
-        timestamp: new Date().toISOString()
-      }
-    })
-  }
-
-  /**
-   * Records when the browser tool is completed
-   * @param taskId Unique identifier for the task
-   * @param stats Statistics about the browser session
-   */
-  public captureBrowserToolEnd(
-    taskId: string,
-    stats: {
-      actionCount: number
-      duration: number
-      actions?: string[]
-    }
-  ) {
-    this.capture({
-      event: PostHogClient.EVENTS.TASK.BROWSER_TOOL_END,
-      properties: {
-        taskId,
-        actionCount: stats.actionCount,
-        duration: stats.duration,
-        actions: stats.actions,
-        timestamp: new Date().toISOString()
-      }
-    })
-  }
-
-  /**
-   * Records when browser errors occur during a task
-   * @param taskId Unique identifier for the task
-   * @param errorType Type of error that occurred (e.g., "launch_error", "connection_error", "navigation_error")
-   * @param errorMessage The error message
-   * @param context Additional context about where the error occurred
-   */
-  public captureBrowserError(
-    taskId: string,
-    errorType: string,
-    errorMessage: string,
-    context?: {
-      action?: string
-      url?: string
-      isRemote?: boolean
-      [key: string]: any
-    }
-  ) {
-    this.capture({
-      event: PostHogClient.EVENTS.TASK.BROWSER_ERROR,
-      properties: {
-        taskId,
-        errorType,
-        errorMessage,
-        context,
-        timestamp: new Date().toISOString()
       }
     })
   }

@@ -1,25 +1,14 @@
 import { Anthropic } from '@anthropic-ai/sdk'
-import axios from 'axios'
-import type { AxiosRequestConfig } from 'axios'
 
-import fs from 'fs/promises'
-import { setTimeout as setTimeoutPromise } from 'node:timers/promises'
 import pWaitFor from 'p-wait-for'
-import * as path from 'path'
-import * as vscode from 'vscode'
 import { buildApiHandler, ApiHandler } from '@api/index'
 import { McpHub } from '@services/mcp/McpHub'
 import { version as extensionVersion } from '../../../../../package.json'
-import { cleanupLegacyCheckpoints } from '@integrations/checkpoints/CheckpointMigration'
-import { downloadTask } from '@integrations/misc/export-markdown'
-import WorkspaceTracker from '@integrations/workspace/WorkspaceTracker'
 import { TelemetrySetting } from '@shared/TelemetrySetting'
 import { telemetryService } from '@services/telemetry/TelemetryService'
 import { ExtensionMessage, Platform } from '@shared/ExtensionMessage'
 import { HistoryItem } from '@shared/HistoryItem'
 import { WebviewMessage } from '@shared/WebviewMessage'
-import { fileExistsAtPath } from '@utils/fs'
-import { getTotalTasksSize } from '@utils/storage'
 import type { Host } from '@shared/WebviewMessage'
 import {
   ensureTaskExists,
@@ -29,15 +18,7 @@ import {
   saveTaskMetadata,
   ensureMcpServersDirectoryExists
 } from '../storage/disk'
-import {
-  getAllExtensionState,
-  getGlobalState,
-  resetExtensionState,
-  storeSecret,
-  updateApiConfiguration,
-  updateGlobalState,
-  getUserConfig
-} from '../storage/state'
+import { getAllExtensionState, getGlobalState, updateApiConfiguration, updateGlobalState, getUserConfig } from '../storage/state'
 import { Task } from '../task'
 import { ApiConfiguration } from '@shared/api'
 import { TITLE_GENERATION_PROMPT, TITLE_GENERATION_PROMPT_CN } from '../prompts/system'
@@ -46,22 +27,12 @@ import { DEFAULT_LANGUAGE_SETTINGS } from '@shared/Languages'
 export class Controller {
   private postMessage: (message: ExtensionMessage) => Promise<boolean> | undefined
 
-  private disposables: vscode.Disposable[] = []
   private tasks: Map<string, Task> = new Map()
   mcpHub: McpHub
-  workspaceTracker: WorkspaceTracker
 
-  constructor(
-    readonly context: vscode.ExtensionContext,
-    private readonly outputChannel: vscode.OutputChannel,
-    postMessage: (message: ExtensionMessage) => Promise<boolean> | undefined,
-    getMcpSettingsFilePath: () => Promise<string>
-  ) {
+  constructor(postMessage: (message: ExtensionMessage) => Promise<boolean> | undefined, getMcpSettingsFilePath: () => Promise<string>) {
     console.log('Controller instantiated')
-    this.outputChannel.appendLine('ClineProvider instantiated')
     this.postMessage = postMessage
-
-    this.workspaceTracker = new WorkspaceTracker((msg) => this.postMessageToWebview(msg))
 
     this.mcpHub = new McpHub(
       () => ensureMcpServersDirectoryExists(),
@@ -69,11 +40,6 @@ export class Controller {
       extensionVersion,
       (msg) => this.postMessageToWebview(msg)
     )
-
-    // Clean up legacy checkpoints
-    cleanupLegacyCheckpoints(this.context.globalStorageUri.fsPath, this.outputChannel).catch((error) => {
-      console.error('Failed to cleanup legacy checkpoints:', error)
-    })
   }
 
   private getTaskFromId(tabId?: string): Task | undefined {
@@ -105,8 +71,6 @@ export class Controller {
   }
 
   async dispose() {
-    this.outputChannel.appendLine('Disposing ClineProvider...')
-
     // Release terminal resources for all tasks
     for (const task of this.tasks.values()) {
       const terminalManager = task.getTerminalManager()
@@ -117,28 +81,6 @@ export class Controller {
 
     await this.clearTask()
     this.mcpHub.dispose()
-    this.outputChannel.appendLine('Cleared task')
-    while (this.disposables.length) {
-      const x = this.disposables.pop()
-      if (x) {
-        x.dispose()
-      }
-    }
-    this.workspaceTracker.dispose()
-    this.outputChannel.appendLine('Disposed all disposables')
-  }
-
-  // Auth methods
-  async handleSignOut() {
-    try {
-      await storeSecret('clineApiKey', undefined)
-      await updateGlobalState('userInfo', undefined)
-      await updateGlobalState('apiProvider', 'openrouter')
-      await this.postStateToWebview()
-      vscode.window.showInformationMessage('Successfully logged out of Cline')
-    } catch (error) {
-      vscode.window.showErrorMessage('Logout failed')
-    }
   }
 
   async setUserInfo(info?: { displayName: string | null; email: string | null; photoURL: string | null }) {
@@ -160,7 +102,6 @@ export class Controller {
     const postMessage = (message: ExtensionMessage) => this.postMessageToWebview(message, newTask?.taskId ?? resolvedTaskId)
 
     newTask = new Task(
-      this.workspaceTracker,
       (historyItem) => this.updateTaskHistory(historyItem),
       postState,
       postMessage,
@@ -336,149 +277,6 @@ export class Controller {
     }
   }
 
-  async getOllamaModels(baseUrl?: string) {
-    try {
-      if (!baseUrl) {
-        baseUrl = 'http://localhost:11434'
-      }
-      if (!URL.canParse(baseUrl)) {
-        return []
-      }
-      const response = await axios.get(`${baseUrl}/api/tags`)
-      const modelsArray = response.data?.models?.map((model: any) => model.name) || []
-      const models = [...new Set<string>(modelsArray)]
-      return models
-    } catch (error) {
-      return []
-    }
-  }
-
-  // LM Studio
-
-  async getLmStudioModels(baseUrl?: string) {
-    try {
-      if (!baseUrl) {
-        baseUrl = 'http://localhost:1234'
-      }
-      if (!URL.canParse(baseUrl)) {
-        return []
-      }
-      const response = await axios.get(`${baseUrl}/v1/models`)
-      const modelsArray = response.data?.data?.map((model: any) => model.id) || []
-      const models = [...new Set<string>(modelsArray)]
-      return models
-    } catch (error) {
-      return []
-    }
-  }
-
-  async getOpenAiModels(baseUrl?: string, apiKey?: string) {
-    try {
-      if (!baseUrl) {
-        return []
-      }
-
-      if (!URL.canParse(baseUrl)) {
-        return []
-      }
-
-      const config: AxiosRequestConfig = {}
-      if (apiKey) {
-        config['headers'] = { Authorization: `Bearer ${apiKey}` }
-      }
-
-      const response = await axios.get(`${baseUrl}/models`, config)
-      const modelsArray = response.data?.data?.map((model: any) => model.id) || []
-      const models = [...new Set<string>(modelsArray)]
-      return models
-    } catch (error) {
-      return []
-    }
-  }
-
-  getFileMentionFromPath(filePath: string) {
-    const cwd = vscode.workspace.workspaceFolders?.map((folder) => folder.uri.fsPath).at(0)
-    if (!cwd) {
-      return '@/' + filePath
-    }
-    const relativePath = path.relative(cwd, filePath)
-    return '@/' + relativePath
-  }
-
-  // 'Add to Cline' context menu in editor and code action
-  async addSelectedCodeToChat(code: string, filePath: string, languageId: string, diagnostics?: vscode.Diagnostic[]) {
-    // Ensure the sidebar view is visible
-    await vscode.commands.executeCommand('claude-dev.SidebarProvider.focus')
-    await setTimeoutPromise(100)
-
-    // Post message to webview with the selected code
-    const fileMention = this.getFileMentionFromPath(filePath)
-
-    let input = `${fileMention}\n\`\`\`\n${code}\n\`\`\``
-    if (diagnostics) {
-      const problemsString = this.convertDiagnosticsToProblemsString(diagnostics)
-      input += `\nProblems:\n${problemsString}`
-    }
-
-    await this.postMessageToWebview({
-      type: 'addToInput',
-      text: input
-    })
-
-    console.log('addSelectedCodeToChat', code, filePath, languageId)
-  }
-
-  // 'Add to Cline' context menu in Terminal
-  async addSelectedTerminalOutputToChat(output: string, terminalName: string) {
-    // Ensure the sidebar view is visible
-    await vscode.commands.executeCommand('claude-dev.SidebarProvider.focus')
-    await setTimeoutPromise(100)
-
-    // Post message to webview with the selected terminal output
-    // await this.postMessageToWebview({
-    //     type: "addSelectedTerminalOutput",
-    //     output,
-    //     terminalName
-    // })
-
-    await this.postMessageToWebview({
-      type: 'addToInput',
-      text: `Terminal output:\n\`\`\`\n${output}\n\`\`\``
-    })
-
-    console.log('addSelectedTerminalOutputToChat', output, terminalName)
-  }
-
-  convertDiagnosticsToProblemsString(diagnostics: vscode.Diagnostic[]) {
-    let problemsString = ''
-    for (const diagnostic of diagnostics) {
-      let label: string
-      switch (diagnostic.severity) {
-        case vscode.DiagnosticSeverity.Error:
-          label = 'Error'
-          break
-        case vscode.DiagnosticSeverity.Warning:
-          label = 'Warning'
-          break
-        case vscode.DiagnosticSeverity.Information:
-          label = 'Information'
-          break
-        case vscode.DiagnosticSeverity.Hint:
-          label = 'Hint'
-          break
-        default:
-          label = 'Diagnostic'
-      }
-      const line = diagnostic.range.start.line + 1 // VSCode lines are 0-indexed
-      const source = diagnostic.source ? `${diagnostic.source} ` : ''
-      problemsString += `\n- [${source}${label}] Line ${line}: ${diagnostic.message}`
-    }
-    problemsString = problemsString.trim()
-    return problemsString
-  }
-
-  // Task history
-
   async getTaskWithId(id: string): Promise<{
     historyItem: HistoryItem
     taskId: string
@@ -515,51 +313,10 @@ export class Controller {
     await this.initTask(hosts, undefined, historyItem, cwd, id)
   }
 
-  async exportTaskWithId(id: string) {
-    const { historyItem, apiConversationHistory } = await this.getTaskWithId(id)
-    await downloadTask(historyItem.ts, apiConversationHistory)
-  }
-
-  async deleteAllTaskHistory() {
-    await this.clearTask()
-    await updateGlobalState('taskHistory', undefined)
-    try {
-      // Remove all contents of tasks directory
-      const taskDirPath = path.join(this.context.globalStorageUri.fsPath, 'tasks')
-      if (await fileExistsAtPath(taskDirPath)) {
-        await fs.rm(taskDirPath, { recursive: true, force: true })
-      }
-      // Remove checkpoints directory contents
-      const checkpointsDirPath = path.join(this.context.globalStorageUri.fsPath, 'checkpoints')
-      if (await fileExistsAtPath(checkpointsDirPath)) {
-        await fs.rm(checkpointsDirPath, { recursive: true, force: true })
-      }
-    } catch (error) {
-      vscode.window.showErrorMessage(
-        `Encountered error while deleting task history, there may be some files left behind. Error: ${error instanceof Error ? error.message : String(error)}`
-      )
-    }
-    await this.postStateToWebview()
-  }
-
-  async refreshTotalTasksSize() {
-    getTotalTasksSize(this.context.globalStorageUri.fsPath)
-      .then((newTotalSize) => {
-        this.postMessageToWebview({
-          type: 'totalTasksSize',
-          totalTasksSize: newTotalSize
-        })
-      })
-      .catch((error) => {
-        console.error('Error calculating total tasks size:', error)
-      })
-  }
-
   async deleteTaskWithId(id: string) {
     console.info('deleteTaskWithId: ', id)
     await deleteChatermHistoryByTaskId(id)
     await this.clearTask(id)
-    this.refreshTotalTasksSize()
   }
 
   async deleteTaskFromState(id: string) {
@@ -580,10 +337,9 @@ export class Controller {
     const activeTask = this.getTaskFromId(taskId)
 
     const state = {
-      version: this.context.extension?.packageJSON?.version ?? '',
+      version: extensionVersion,
       apiConfiguration,
       customInstructions,
-      uriScheme: vscode.env.uriScheme,
       checkpointTrackerErrorMessage: activeTask?.checkpointTrackerErrorMessage,
       chatermMessages: activeTask?.chatermMessages || [],
       shouldShowAnnouncement: false,
@@ -592,7 +348,6 @@ export class Controller {
       chatSettings,
       userInfo,
       mcpMarketplaceEnabled,
-      vscMachineId: vscode.env.machineId,
       shellIntegrationTimeout: 30,
       isNewUser: true
     }
@@ -654,14 +409,6 @@ export class Controller {
       taskId: item.id
     })
     return history
-  }
-
-  async resetState() {
-    vscode.window.showInformationMessage('Resetting state...')
-    await resetExtensionState()
-    await this.clearTask()
-    vscode.window.showInformationMessage('State reset')
-    await this.postStateToWebview()
   }
 
   async validateApiKey(configuration: ApiConfiguration): Promise<{ isValid: boolean; error?: string }> {

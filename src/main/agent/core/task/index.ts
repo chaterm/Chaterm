@@ -1,6 +1,5 @@
 import { Anthropic } from '@anthropic-ai/sdk'
 import cloneDeep from 'clone-deep'
-// import { setTimeout as setTimeoutPromise } from 'node:timers/promises'
 import os from 'os'
 import { telemetryService } from '@services/telemetry/TelemetryService'
 import pWaitFor from 'p-wait-for'
@@ -64,7 +63,6 @@ import { ContextManager } from '@core/context/context-management/ContextManager'
 import { getSavedApiConversationHistory, getChatermMessages, saveApiConversationHistory, saveChatermMessages } from '@core/storage/disk'
 
 import { getGlobalState, getUserConfig } from '@core/storage/state'
-import WorkspaceTracker from '@integrations/workspace/WorkspaceTracker'
 import { connectAssetInfo } from '../../../storage/database'
 import { getMessages, formatMessage, Messages } from './messages'
 import { decodeHtmlEntities } from '@utils/decodeHtmlEntities'
@@ -78,7 +76,6 @@ type ToolResponse = string | Array<Anthropic.TextBlockParam | Anthropic.ImageBlo
 type UserContent = Array<Anthropic.ContentBlockParam>
 
 export class Task {
-  private workspaceTracker: WorkspaceTracker
   private updateTaskHistory: (historyItem: HistoryItem) => Promise<HistoryItem[]>
   private postStateToWebview: () => Promise<void>
   private postMessageToWebview: (message: ExtensionMessage) => Promise<void>
@@ -155,7 +152,6 @@ export class Task {
   private messages: Messages = getMessages(DEFAULT_LANGUAGE_SETTINGS)
 
   constructor(
-    workspaceTracker: WorkspaceTracker,
     updateTaskHistory: (historyItem: HistoryItem) => Promise<HistoryItem[]>,
     postStateToWebview: () => Promise<void>,
     postMessageToWebview: (message: ExtensionMessage) => Promise<void>,
@@ -171,7 +167,6 @@ export class Task {
     chatTitle?: string,
     taskId?: string
   ) {
-    this.workspaceTracker = workspaceTracker
     this.updateTaskHistory = updateTaskHistory
     this.postStateToWebview = postStateToWebview
     this.postMessageToWebview = postMessageToWebview
@@ -482,7 +477,6 @@ export class Task {
         cacheReads: apiMetrics.totalCacheReads,
         totalCost: apiMetrics.totalCost,
         size: 0, // TODO: temporarily set to 0, consider changing or removing later
-        //shadowGitConfigWorkTree: await this.checkpointTracker?.getShadowGitConfigWorkTree(),
         conversationHistoryDeletedRange: this.conversationHistoryDeletedRange,
         isFavorited: this.taskIsFavorited
       })
@@ -1029,7 +1023,6 @@ export class Task {
       }
     } else {
       // attempt completion requires checkpoint to be sync so that we can present button after attempt_completion
-      // const commitHash = await this.checkpointTracker?.commit()
       // For attempt_completion, find the last completion_result message and set its checkpoint hash. This will be used to present the 'see new changes' button
       const lastCompletionResultMessage = findLast(this.chatermMessages, (m) => m.say === 'completion_result' || m.ask === 'completion_result')
       if (lastCompletionResultMessage) {
@@ -1563,7 +1556,6 @@ export class Task {
 
     await this.say('checkpoint_created')
 
-    // Update checkpoint message (waiting for CheckpointTracker initialization)
     const lastCheckpointMessage = findLast(this.chatermMessages, (m) => m.say === 'checkpoint_created')
     if (lastCheckpointMessage) {
       await this.saveChatermMessagesAndUpdateHistory()
@@ -2104,8 +2096,6 @@ export class Task {
         if (timeoutId) {
           clearTimeout(timeoutId)
         }
-
-        this.workspaceTracker.populateFilePaths()
 
         this.pushToolResult(toolDescription, result)
 

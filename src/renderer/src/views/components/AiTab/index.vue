@@ -47,7 +47,7 @@
           v-if="filteredChatHistory.length > 0"
           :ref="
             (el) => {
-              chatContainer = el
+              chatContainer = el as HTMLElement
             }
           "
           class="chat-response-container"
@@ -55,7 +55,7 @@
           <div
             :ref="
               (el) => {
-                chatResponse = el
+                chatResponse = el as HTMLElement
               }
             "
             class="chat-response"
