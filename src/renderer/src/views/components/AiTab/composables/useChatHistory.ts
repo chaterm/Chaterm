@@ -197,8 +197,7 @@ export function useChatHistory(createNewEmptyTab?: () => Promise<string>) {
     const message = {
       type: 'deleteTaskWithId',
       text: history.id,
-      taskId: history.id,
-      cwd: currentCwd.value
+      taskId: history.id
     }
     console.log('Send message to main process:', message)
     const finalMessage = attachTabContext(message)
@@ -313,7 +312,7 @@ export function useChatHistory(createNewEmptyTab?: () => Promise<string>) {
       }
 
       // Directly call logic to delete Tab and notify main process
-      await handleHistoryDelete(history)
+      await handleHistoryDelete({ ...history })
     } catch (err) {
       console.error('Failed to delete history:', err)
     }
