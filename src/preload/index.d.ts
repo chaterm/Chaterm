@@ -68,9 +68,6 @@ interface ApiType {
   onCommandGenerationResponse: (callback: (response: { command?: string; error?: string; tabId: string }) => void) => () => void
   cancelTask: (tabContext?: { tabId?: string } | string) => Promise<any>
   gracefulCancelTask: (tabContext?: { tabId?: string } | string) => Promise<any>
-  openHeartbeatWindow: (heartbeatId: string, interval: number) => Promise<any>
-  closeHeartbeatWindow: (heartbeatId: string) => Promise<any>
-  heartBeatTick: (callback: (heartbeatId: string) => void) => () => void
   userSnippetOperation: (data: { operation: 'list' | 'create' | 'delete' | 'update' | 'swap'; params?: any }) => Promise<{
     code: number
     message?: string

@@ -20,7 +20,6 @@ import { Controller } from './agent/core/controller'
 import { executeRemoteCommand } from './agent/integrations/remote-terminal/example'
 import { initializeStorageMain, testStorageFromMain as testRendererStorageFromMain, getGlobalState } from './agent/core/storage/state'
 import { getTaskMetadata } from './agent/core/storage/disk'
-import { HeartbeatManager } from './heartBeatManager'
 import { createMainWindow } from './windowManager'
 import { registerUpdater } from './updater'
 import { telemetryService, checkIsFirstLaunch, getMacAddress } from './agent/services/telemetry/TelemetryService'
@@ -300,16 +299,6 @@ app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {
     app.quit()
   }
-})
-
-const hbManager = new HeartbeatManager()
-ipcMain.handle('heartbeat-start', (event, { heartbeatId, interval }) => {
-  hbManager.start(heartbeatId, interval, event.sender)
-})
-
-// 2. Renderer process requests to stop heartbeat
-ipcMain.handle('heartbeat-stop', (_, { heartbeatId }) => {
-  hbManager.stop(heartbeatId)
 })
 
 // Add the before-quit event listener here or towards the end of the file
