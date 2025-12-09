@@ -1,12 +1,12 @@
-import { watch, Ref } from 'vue'
+import { watch } from 'vue'
 import { useSessionState } from './useSessionState'
 
 /**
  * Composable for state snapshot
  * Handles state snapshot creation, restoration and change notifications
  */
-export function useStateSnapshot(chatAiModelValue: Ref<string>, emit: (event: 'state-changed', ...args: any[]) => void) {
-  const { chatTabs, currentChatId, hosts, chatInputValue } = useSessionState()
+export function useStateSnapshot(emit: (event: 'state-changed', ...args: any[]) => void) {
+  const { chatTabs, currentChatId, hosts, chatInputValue, chatAiModelValue } = useSessionState()
 
   let suppressStateChange = false
 
@@ -21,6 +21,7 @@ export function useStateSnapshot(chatAiModelValue: Ref<string>, emit: (event: 's
         chatType: tab.chatType,
         autoUpdateHost: tab.autoUpdateHost,
         inputValue: tab.inputValue,
+        modelValue: tab.modelValue,
         session: {
           chatHistory: [...tab.session.chatHistory],
           lastChatMessageId: tab.session.lastChatMessageId,
@@ -35,8 +36,7 @@ export function useStateSnapshot(chatAiModelValue: Ref<string>, emit: (event: 's
           messageFeedbacks: { ...tab.session.messageFeedbacks },
           shouldStickToBottom: tab.session.shouldStickToBottom
         }
-      })),
-      chatAiModelValue: chatAiModelValue.value
+      }))
     }
   }
 
@@ -60,6 +60,7 @@ export function useStateSnapshot(chatAiModelValue: Ref<string>, emit: (event: 's
           chatType: savedTab.chatType,
           autoUpdateHost: savedTab.autoUpdateHost,
           inputValue: savedTab.inputValue,
+          modelValue: savedTab.modelValue || '',
           session: {
             chatHistory: [...savedTab.session.chatHistory],
             lastChatMessageId: savedTab.session.lastChatMessageId,
@@ -86,10 +87,6 @@ export function useStateSnapshot(chatAiModelValue: Ref<string>, emit: (event: 's
         } else if (chatTabs.value.length > 0) {
           currentChatId.value = chatTabs.value[0].id
         }
-      }
-
-      if (savedState.chatAiModelValue) {
-        chatAiModelValue.value = savedState.chatAiModelValue
       }
     } finally {
       suppressStateChange = false

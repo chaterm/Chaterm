@@ -4,6 +4,7 @@ import type { HistoryItem, Host, AssetInfo, ChatMessage } from '../types'
 import type { ChatTab, SessionState } from './useSessionState'
 import { useSessionState } from './useSessionState'
 import { getGlobalState } from '@renderer/agent/storage/state'
+import type { GlobalStateKey } from '@renderer/agent/storage/state-keys'
 import { ChatermMessage } from '@/types/ChatermMessage'
 
 interface TabManagementOptions {
@@ -36,9 +37,30 @@ export function useTabManagement(options: TabManagementOptions) {
     console.log('createNewEmptyTab   begin')
     const newChatId = uuidv4()
 
-    const [chatSetting, assetInfo] = await Promise.all([
+    const placeholderTab: ChatTab = {
+      id: newChatId,
+      title: 'New chat',
+      hosts: [
+        {
+          host: '127.0.0.1',
+          uuid: 'localhost',
+          connection: 'localhost'
+        }
+      ],
+      chatType: 'agent',
+      autoUpdateHost: true,
+      session: createEmptySessionState(),
+      inputValue: '',
+      modelValue: ''
+    }
+
+    chatTabs.value.push(placeholderTab)
+
+    // 异步获取实际数据
+    const [chatSetting, assetInfo, apiProvider] = await Promise.all([
       getGlobalState('chatSettings').catch(() => ({ mode: 'agent' })),
-      getCurentTabAssetInfo().catch(() => null)
+      getCurentTabAssetInfo().catch(() => null),
+      getGlobalState('apiProvider').catch(() => 'default')
     ])
 
     const chatType = (chatSetting as { mode?: string })?.mode || 'agent'
@@ -59,17 +81,25 @@ export function useTabManagement(options: TabManagementOptions) {
             }
           ]
 
-    const newTab: ChatTab = {
-      id: newChatId,
-      title: 'New chat',
-      hosts,
-      chatType,
-      autoUpdateHost: true,
-      session: createEmptySessionState(),
-      inputValue: ''
+    // 获取当前选择的模型作为新 Tab 的默认值
+    const PROVIDER_MODEL_KEY_MAP: Record<string, GlobalStateKey> = {
+      bedrock: 'apiModelId',
+      litellm: 'liteLlmModelId',
+      deepseek: 'apiModelId',
+      openai: 'openAiModelId',
+      default: 'defaultModelId'
+    }
+    const key = PROVIDER_MODEL_KEY_MAP[(apiProvider as string) || 'default'] || 'defaultModelId'
+    const currentModelValue = (await getGlobalState(key).catch(() => '')) as string
+
+    // 更新占位tab的实际数据
+    const tab = chatTabs.value.find((t) => t.id === newChatId)
+    if (tab) {
+      tab.chatType = chatType
+      tab.hosts = hosts
+      tab.modelValue = currentModelValue || ''
     }
 
-    chatTabs.value.push(newTab)
     currentChatId.value = newChatId
 
     emitStateChange?.()
@@ -97,14 +127,25 @@ export function useTabManagement(options: TabManagementOptions) {
       }
 
       let loadedHosts: Host[] = []
+      let savedChatType = history.chatType
+      let savedModelValue = ''
       try {
         const metadataResult = await window.api.getTaskMetadata(history.id)
-        if (metadataResult.success && metadataResult.data && Array.isArray(metadataResult.data.hosts)) {
-          loadedHosts = metadataResult.data.hosts.map((item: Host) => ({
-            host: item.host,
-            uuid: item.uuid || '',
-            connection: item.connection
-          }))
+        console.log('Metadata:', metadataResult)
+        if (metadataResult.success && metadataResult.data) {
+          if (metadataResult.data.hosts?.length > 0) {
+            loadedHosts = metadataResult.data.hosts.map((item: Host) => ({
+              host: item.host,
+              uuid: item.uuid || '',
+              connection: item.connection
+            }))
+          }
+
+          if (metadataResult.data.model_usage?.length > 0) {
+            const lastModelUsage = metadataResult.data.model_usage[metadataResult.data.model_usage.length - 1]
+            savedChatType = lastModelUsage.mode || savedChatType
+            savedModelValue = lastModelUsage.model_id || ''
+          }
         }
       } catch (e) {
         console.error('Failed to get metadata:', e)
@@ -192,18 +233,21 @@ export function useTabManagement(options: TabManagementOptions) {
         messageFeedbacks: {},
         lastStreamMessage: null,
         lastPartialMessage: null,
-        shouldStickToBottom: true
+        shouldStickToBottom: true,
+        isCancelled: false
       }
 
       const finalHosts = loadedHosts.length > 0 ? loadedHosts : (currentTab.value?.hosts ?? [])
+
       const historyTab: ChatTab = {
         id: history.id,
         title: history.chatTitle,
         hosts: finalHosts,
-        chatType: history.chatType,
+        chatType: savedChatType,
         autoUpdateHost: false,
         session: historySession,
-        inputValue: ''
+        inputValue: '',
+        modelValue: savedModelValue || currentTab.value?.modelValue || ''
       }
 
       const isCurrentNewTab = currentTab.value && currentTab.value.title === 'New chat' && currentTab.value.session.chatHistory.length === 0
