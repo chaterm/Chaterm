@@ -20,7 +20,6 @@
       "@utils/*": ["src/main/agent/utils/*"],
       "@shared/*": ["src/main/agent/shared/*"],
       "@core/*": ["src/main/agent/core/*"],
-      "vscode": ["src/main/agent/vscode-mock.ts"]
     }
   }
 }

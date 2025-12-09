@@ -17,8 +17,6 @@ import { registerRemoteTerminalHandlers } from './ssh/agentHandle'
 import { autoCompleteDatabaseService, ChatermDatabaseService, setCurrentUserId } from './storage/database'
 import { getGuestUserId } from './storage/db/connection'
 import { Controller } from './agent/core/controller'
-import { createExtensionContext } from './agent/core/controller/context'
-import { ElectronOutputChannel } from './agent/core/controller/outputChannel'
 import { executeRemoteCommand } from './agent/integrations/remote-terminal/example'
 import { initializeStorageMain, testStorageFromMain as testRendererStorageFromMain, getGlobalState } from './agent/core/storage/state'
 import { getTaskMetadata } from './agent/core/storage/disk'
@@ -190,9 +188,6 @@ app.whenReady().then(async () => {
   })
 
   try {
-    const context = createExtensionContext()
-    const outputChannel = new ElectronOutputChannel()
-
     // Create a message sender that routes messages to dedicated IPC channels
     const messageSender = (message) => {
       if (mainWindow && !mainWindow.isDestroyed()) {
@@ -231,7 +226,7 @@ app.whenReady().then(async () => {
       return Promise.resolve(false)
     }
 
-    controller = new Controller(context, outputChannel, messageSender, ensureMcpConfigFileExists)
+    controller = new Controller(messageSender, ensureMcpConfigFileExists)
   } catch (error) {
     console.error('Failed to initialize Controller:', error)
   }

@@ -113,14 +113,13 @@ export interface ExtensionState {
   platform: Platform
   shouldShowAnnouncement: boolean
   shellIntegrationTimeout: number
-  uriScheme?: string
   userInfo?: {
     displayName: string | null
     email: string | null
     photoURL: string | null
   }
   version: string
-  vscMachineId: string
+  vscMachineId?: string
 }
 
 export interface ChatermMessage {

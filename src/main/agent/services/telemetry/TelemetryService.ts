@@ -12,7 +12,7 @@ import fs from 'fs'
 /**
  * PostHogClient handles telemetry event tracking for the Cline extension
  * Uses PostHog analytics to track user interactions and system events
- * Respects user privacy settings and VSCode's global telemetry configuration
+ * Respects user privacy settings
  */
 class PostHogClient {
   // Event constants for tracking user interactions and system events
@@ -95,7 +95,7 @@ class PostHogClient {
   private client: PostHog
   /** Unique identifier for the current user */
   private distinctId: string = generatePersistentMachineId()
-  /** Whether telemetry is currently enabled based on user and VSCode settings */
+  /** Whether telemetry is currently enabled based on user  */
   private telemetryEnabled: boolean = false
   /** Current version of the extension */
   private readonly version: string = extensionVersion
