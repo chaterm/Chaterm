@@ -26,9 +26,9 @@ export interface JumpServerUser {
 }
 
 /**
- * 解析资产信息 - 支持中英文表头
- * 中文表头: ID | 名称 | 地址 | 平台 | 组织 | 备注
- * 英文表头: ID | NAME | ADDRESS | PLATFORM | ORGANIZATION | COMMENT
+ * Parse asset information - supports Chinese and English headers
+ * Chinese header: ID | 名称 | 地址 | 平台 | 组织 | 备注
+ * English header: ID | NAME | ADDRESS | PLATFORM | ORGANIZATION | COMMENT
  */
 function parseAssets(output: string): Asset[] {
   const assets: Asset[] = []
@@ -38,23 +38,23 @@ function parseAssets(output: string): Asset[] {
   let foundAssetHeader = false
 
   for (const line of lines) {
-    // 仅在未找到表头时进行检测
+    // Only detect header if not found yet
     if (!foundAssetHeader) {
       const upperLine = line.toUpperCase()
 
-      // 优先检测中文表头
+      // Try Chinese header first
       if (line.includes('ID') && (line.includes('名称') || line.includes('地址'))) {
         foundAssetHeader = true
         continue
       }
 
-      // 回退到英文表头 - 使用 ADDRESS 区分资产表和用户表
+      // Fallback to English header - use ADDRESS to distinguish from user table
       if (upperLine.includes('ID') && upperLine.includes('ADDRESS') && !upperLine.includes('USERNAME')) {
         foundAssetHeader = true
         continue
       }
 
-      // 通用分隔符检测
+      // Generic separator detection
       if (line.includes('-----+--')) {
         foundAssetHeader = true
         continue
@@ -75,7 +75,7 @@ function parseAssets(output: string): Asset[] {
           }
           assets.push(asset)
         } catch (e) {
-          console.error('解析资产行失败:', line, e)
+          console.error('Failed to parse asset line:', line, e)
         }
       }
     }
@@ -84,12 +84,12 @@ function parseAssets(output: string): Asset[] {
 }
 
 /**
- * 解析分页信息 - 支持中英文格式
- * 中文: 页码：1，每页行数：10，总页数：2
- * 英文: Page: 1, Count: 10, Total Page: 2, Total Count: 18
+ * Parse pagination information - supports Chinese and English formats
+ * Chinese: 页码：1，每页行数：10，总页数：2
+ * English: Page: 1, Count: 10, Total Page: 2, Total Count: 18
  */
 function parsePagination(output: string): PaginationInfo {
-  // 优先尝试中文格式
+  // Try Chinese format first
   const chineseRegex = /页码：\s*(\d+).*?总页数：\s*(\d+)/
   const chineseMatch = output.match(chineseRegex)
   if (chineseMatch) {
@@ -99,7 +99,7 @@ function parsePagination(output: string): PaginationInfo {
     }
   }
 
-  // 回退到英文格式
+  // Fallback to English format
   const englishRegex = /Page:\s*(\d+).*?Total Page:\s*(\d+)/
   const englishMatch = output.match(englishRegex)
   if (englishMatch) {
@@ -109,14 +109,14 @@ function parsePagination(output: string): PaginationInfo {
     }
   }
 
-  // 默认值
+  // Default value
   return { currentPage: 1, totalPages: 1 }
 }
 
 /**
- * 解析 Jumpserver 的原始输出
- * @param output Jumpserver shell 的原始输出字符串
- * @returns 解析后的资产和分页信息
+ * Parse JumpServer raw output
+ * @param output JumpServer shell raw output string
+ * @returns Parsed assets and pagination information
  */
 export function parseJumpserverOutput(output: string): ParsedOutput {
   const assets = parseAssets(output)
