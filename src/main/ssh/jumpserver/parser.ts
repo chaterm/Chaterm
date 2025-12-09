@@ -26,7 +26,9 @@ export interface JumpServerUser {
 }
 
 /**
- * 解析资产信息
+ * 解析资产信息 - 支持中英文表头
+ * 中文表头: ID | 名称 | 地址 | 平台 | 组织 | 备注
+ * 英文表头: ID | NAME | ADDRESS | PLATFORM | ORGANIZATION | COMMENT
  */
 function parseAssets(output: string): Asset[] {
   const assets: Asset[] = []
@@ -36,9 +38,27 @@ function parseAssets(output: string): Asset[] {
   let foundAssetHeader = false
 
   for (const line of lines) {
-    if (line.includes('ID | 名称') || line.includes('-----+--')) {
-      foundAssetHeader = true
-      continue
+    // 仅在未找到表头时进行检测
+    if (!foundAssetHeader) {
+      const upperLine = line.toUpperCase()
+
+      // 优先检测中文表头
+      if (line.includes('ID') && (line.includes('名称') || line.includes('地址'))) {
+        foundAssetHeader = true
+        continue
+      }
+
+      // 回退到英文表头 - 使用 ADDRESS 区分资产表和用户表
+      if (upperLine.includes('ID') && upperLine.includes('ADDRESS') && !upperLine.includes('USERNAME')) {
+        foundAssetHeader = true
+        continue
+      }
+
+      // 通用分隔符检测
+      if (line.includes('-----+--')) {
+        foundAssetHeader = true
+        continue
+      }
     }
 
     if (foundAssetHeader) {
@@ -64,18 +84,33 @@ function parseAssets(output: string): Asset[] {
 }
 
 /**
- * 解析分页信息
+ * 解析分页信息 - 支持中英文格式
+ * 中文: 页码：1，每页行数：10，总页数：2
+ * 英文: Page: 1, Count: 10, Total Page: 2, Total Count: 18
  */
 function parsePagination(output: string): PaginationInfo {
-  const paginationRegex = /页码：\s*(\d+)，每页行数：\d+，总页数：\s*(\d+)/
-  const match = output.match(paginationRegex)
-  if (match) {
+  // 优先尝试中文格式
+  const chineseRegex = /页码：\s*(\d+).*?总页数：\s*(\d+)/
+  const chineseMatch = output.match(chineseRegex)
+  if (chineseMatch) {
     return {
-      currentPage: parseInt(match[1], 10),
-      totalPages: parseInt(match[2], 10)
+      currentPage: parseInt(chineseMatch[1], 10),
+      totalPages: parseInt(chineseMatch[2], 10)
     }
   }
-  return { currentPage: 1, totalPages: 1 } // 默认值
+
+  // 回退到英文格式
+  const englishRegex = /Page:\s*(\d+).*?Total Page:\s*(\d+)/
+  const englishMatch = output.match(englishRegex)
+  if (englishMatch) {
+    return {
+      currentPage: parseInt(englishMatch[1], 10),
+      totalPages: parseInt(englishMatch[2], 10)
+    }
+  }
+
+  // 默认值
+  return { currentPage: 1, totalPages: 1 }
 }
 
 /**
