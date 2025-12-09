@@ -148,6 +148,16 @@ interface ApiType {
   // File dialog and local file operations
   openSaveDialog: (opts: { fileName: string }) => Promise<string | null>
   writeLocalFile: (filePath: string, content: string) => Promise<void>
+  getLocalWorkingDirectory: () => Promise<{ success: boolean; cwd: string }>
+  getShellsLocal: () => Promise<any>
+  agentEnableAndConfigure: (opts: { enabled: boolean }) => Promise<any>
+  addKey: (opts: { keyData: string; passphrase?: string; comment?: string }) => Promise<any>
+  getSecurityConfigPath: () => Promise<string>
+  readSecurityConfig: () => Promise<string>
+  writeSecurityConfig: (content: string) => Promise<void>
+  onSecurityConfigFileChanged: (callback: (content: string) => void) => () => void
+  setDataSyncEnabled: (enabled: boolean) => Promise<any>
+  getSystemInfo: (id: string) => Promise<any>
 }
 
 declare global {
