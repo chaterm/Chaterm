@@ -1187,10 +1187,12 @@ onUnmounted(() => {
   flex-wrap: wrap;
   background-color: var(--bg-color);
   color: var(--text-color);
+  overflow-x: hidden;
 
   .term_host_header {
     width: 100%;
     height: auto;
+    overflow: hidden;
   }
 
   .manage {
@@ -1231,6 +1233,7 @@ onUnmounted(() => {
 .tree-container {
   margin-top: 8px;
   overflow-y: auto;
+  overflow-x: hidden;
   border-radius: 2px;
   background-color: transparent;
   max-height: calc(100vh - 120px);
