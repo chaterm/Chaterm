@@ -1,17 +1,5 @@
 import { getUserInfo } from '@/utils/permission'
 
-// 声明全局 window.electron 类型（来自 preload/index.d.ts）
-declare global {
-  interface Window {
-    electron?: {
-      ipcRenderer: {
-        on: (channel: string, listener: (event: any, ...args: any[]) => void) => void
-        send: (channel: string, ...args: any[]) => void
-      }
-    }
-  }
-}
-
 /**
  * 初始化 IndexedDB 迁移监听器
  * 监听主进程的迁移数据请求，直接从 IndexedDB 读取数据并响应

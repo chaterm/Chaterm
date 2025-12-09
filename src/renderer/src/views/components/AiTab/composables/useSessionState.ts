@@ -36,6 +36,7 @@ export interface ChatTab {
   autoUpdateHost: boolean // Whether to auto-update host
   session: SessionState // Session state
   inputValue: string // Input value
+  modelValue: string // Selected AI model for this tab
 }
 
 /**
@@ -166,6 +167,15 @@ export const useSessionState = createGlobalState(() => {
     return trimmedValue.length >= 1 && !/^\s*$/.test(trimmedValue)
   })
 
+  const chatAiModelValue = computed({
+    get: () => currentTab.value?.modelValue ?? '',
+    set: (value: string) => {
+      if (currentTab.value) {
+        currentTab.value.modelValue = value
+      }
+    }
+  })
+
   watch(
     () => currentSession.value?.chatHistory.length,
     () => {
@@ -212,6 +222,7 @@ export const useSessionState = createGlobalState(() => {
     createEmptySessionState,
     currentChatTitle,
     chatTypeValue,
+    chatAiModelValue,
     hosts,
     autoUpdateHost,
     chatInputValue,
