@@ -12,7 +12,7 @@ export const otpAttempts = ref(0)
 export const isSubmitting = ref(false)
 
 // 常量
-const OTP_TIMEOUT = 30000 // 30秒
+const OTP_TIMEOUT = 180000 // 180秒
 const MAX_OTP_ATTEMPTS = 3
 
 let otpTimerInterval: NodeJS.Timeout | null = null

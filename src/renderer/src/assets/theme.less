@@ -131,7 +131,25 @@ body {
   &.has-custom-bg {
     // Use rgba for background colors to allow the image to show through
     // The opacity is controlled by --custom-opacity variable
-    
+
+    // ===================================================================================
+    // Custom Background Mode - Dropdown & Menu Transparency Fix
+    // ===================================================================================
+    // When custom background is enabled, dropdown menus (Select, Menu, etc.) need special
+    // handling to prevent text overlap issues while maintaining visual harmony with the
+    // background image.
+    //
+    // Solution: Use semi-transparent backgrounds (0.85 opacity) with strong blur effect
+    // (glassmorphism style) to:
+    // 1. Allow the background image to subtly show through
+    // 2. Ensure text remains readable with sufficient contrast
+    // 3. Create a cohesive visual experience that doesn't feel jarring
+    //
+    // The fixed opacity values (0.85) are used instead of --custom-opacity variable
+    // because dropdown menus require higher opacity for text readability regardless
+    // of the user's background transparency preference.
+    // ===================================================================================
+
     // Dark theme overrides
     &.theme-dark, .theme-dark & {
       --bg-color: rgba(20, 20, 20, var(--custom-opacity, 0.8));
@@ -166,12 +184,87 @@ body {
       .terminal-container, .terminal, .xterm-viewport, .xterm-screen {
         background-color: transparent !important;
       }
-      
+
       .tabs-content, .tab-content, .inner-split-pane {
         background-color: transparent !important;
       }
+
+      // -----------------------------------------------------------------------------------
+      // Glassmorphism style for dropdowns - Dark Theme
+      // Background: rgba(37, 37, 38, 0.85) - 85% opacity dark gray
+      // Blur: 20px with 180% saturation for frosted glass effect
+      // -----------------------------------------------------------------------------------
+
+      // Select dropdown (e.g., font selection, proxy settings)
+      .ant-select-dropdown {
+        background-color: rgba(37, 37, 38, 0.85) !important;
+        backdrop-filter: blur(20px) saturate(180%);
+        -webkit-backdrop-filter: blur(20px) saturate(180%);
+
+        .ant-select-item-option {
+          background-color: transparent !important;
+        }
+
+        .ant-select-item-option-selected {
+          background-color: rgba(255, 255, 255, 0.1) !important;
+        }
+
+        .ant-select-item-option:hover,
+        .ant-select-item-option-active {
+          background-color: rgba(255, 255, 255, 0.08) !important;
+        }
+      }
+
+      // History dropdown menu (AI chat history in Agent mode)
+      .history-dropdown-menu {
+        background-color: rgba(37, 37, 38, 0.85) !important;
+        backdrop-filter: blur(20px) saturate(180%);
+        -webkit-backdrop-filter: blur(20px) saturate(180%);
+
+        .ant-input {
+          background-color: rgba(30, 30, 30, 0.6) !important;
+        }
+
+        .history-search-input {
+          background-color: rgba(30, 30, 30, 0.6) !important;
+
+          :deep(.ant-input) {
+            background-color: rgba(30, 30, 30, 0.6) !important;
+          }
+        }
+      }
+
+      // Ant Design Menu and Dropdown components
+      .ant-menu, .ant-dropdown-menu {
+        background-color: rgba(37, 37, 38, 0.85) !important;
+        backdrop-filter: blur(20px) saturate(180%);
+        -webkit-backdrop-filter: blur(20px) saturate(180%);
+
+        .ant-menu-item, .ant-dropdown-menu-item {
+          background-color: transparent !important;
+
+          &:hover {
+            background-color: rgba(255, 255, 255, 0.08) !important;
+          }
+        }
+      }
+
+      // User menu (personal info and logout options in left sidebar)
+      .user-menu {
+        background-color: rgba(37, 37, 38, 0.85) !important;
+        backdrop-filter: blur(20px) saturate(180%);
+        -webkit-backdrop-filter: blur(20px) saturate(180%);
+
+        .menu-item {
+          background-color: transparent !important;
+
+          &:hover {
+            background-color: rgba(255, 255, 255, 0.08) !important;
+          }
+        }
+      }
     }
-  
+
     // Light theme overrides
     &.theme-light, .theme-light & {
       --bg-color: rgba(255, 255, 255, var(--custom-opacity, 0.8));
@@ -205,9 +298,84 @@ body {
       .terminal-container, .terminal, .xterm-viewport, .xterm-screen {
         background-color: transparent !important;
       }
-      
+
       .tabs-content, .tab-content, .inner-split-pane {
         background-color: transparent !important;
+      }
+
+      // -----------------------------------------------------------------------------------
+      // Glassmorphism style for dropdowns - Light Theme
+      // Background: rgba(255, 255, 255, 0.85) - 85% opacity white
+      // Blur: 20px with 180% saturation for frosted glass effect
+      // -----------------------------------------------------------------------------------
+
+      // Select dropdown (e.g., font selection, proxy settings)
+      .ant-select-dropdown {
+        background-color: rgba(255, 255, 255, 0.85) !important;
+        backdrop-filter: blur(20px) saturate(180%);
+        -webkit-backdrop-filter: blur(20px) saturate(180%);
+
+        .ant-select-item-option {
+          background-color: transparent !important;
+        }
+
+        .ant-select-item-option-selected {
+          background-color: rgba(0, 0, 0, 0.06) !important;
+        }
+
+        .ant-select-item-option:hover,
+        .ant-select-item-option-active {
+          background-color: rgba(0, 0, 0, 0.04) !important;
+        }
+      }
+
+      // History dropdown menu (AI chat history in Agent mode)
+      .history-dropdown-menu {
+        background-color: rgba(255, 255, 255, 0.85) !important;
+        backdrop-filter: blur(20px) saturate(180%);
+        -webkit-backdrop-filter: blur(20px) saturate(180%);
+
+        .ant-input {
+          background-color: rgba(248, 250, 252, 0.6) !important;
+        }
+
+        .history-search-input {
+          background-color: rgba(248, 250, 252, 0.6) !important;
+
+          :deep(.ant-input) {
+            background-color: rgba(248, 250, 252, 0.6) !important;
+          }
+        }
+      }
+
+      // Ant Design Menu and Dropdown components
+      .ant-menu, .ant-dropdown-menu {
+        background-color: rgba(255, 255, 255, 0.85) !important;
+        backdrop-filter: blur(20px) saturate(180%);
+        -webkit-backdrop-filter: blur(20px) saturate(180%);
+
+        .ant-menu-item, .ant-dropdown-menu-item {
+          background-color: transparent !important;
+
+          &:hover {
+            background-color: rgba(0, 0, 0, 0.04) !important;
+          }
+        }
+      }
+
+      // User menu (personal info and logout options in left sidebar)
+      .user-menu {
+        background-color: rgba(255, 255, 255, 0.85) !important;
+        backdrop-filter: blur(20px) saturate(180%);
+        -webkit-backdrop-filter: blur(20px) saturate(180%);
+
+        .menu-item {
+          background-color: transparent !important;
+
+          &:hover {
+            background-color: rgba(0, 0, 0, 0.04) !important;
+          }
+        }
       }
     }
   }
@@ -361,14 +529,14 @@ body {
 }
 
 // Dropdown menu styles - Global base styles
-:deep(.ant-dropdown-menu) {
+.ant-dropdown-menu {
   border-radius: 8px !important;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15) !important;
   backdrop-filter: blur(10px) !important;
   padding: 4px !important;
 }
 
-:deep(.ant-dropdown-menu-item) {
+.ant-dropdown-menu-item {
   border-radius: 6px !important;
   margin: 2px 0 !important;
   padding: 8px 12px !important;
@@ -393,36 +561,48 @@ body {
   }
 }
 
-// Dark theme specific dropdown menu styles
-.theme-dark {
-  :deep(.ant-dropdown-menu) {
-    background-color: #252526 !important;
-    border: 1px solid #3c3c3c !important;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4) !important;
+// Dark theme dropdown menu styles (dropdown renders at body level, need html selector)
+html.theme-dark .ant-dropdown-menu {
+  background-color: #252526 !important;
+  border: 1px solid #3c3c3c !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4) !important;
+}
+
+html.theme-dark .ant-dropdown-menu-item {
+  color: #ffffff !important;
+  background-color: transparent !important;
+
+  &:hover {
+    background-color: rgba(255, 255, 255, 0.08) !important;
   }
 
-  :deep(.ant-dropdown-menu-item) {
+  .anticon {
     color: #ffffff !important;
-    background-color: transparent !important;
+  }
+}
 
-    &:hover {
-      background-color: rgba(255, 255, 255, 0.08) !important;
-      color: #ffffff !important;
-      transform: translateX(2px) !important;
-    }
+// Light theme dropdown menu styles
+html.theme-light .ant-dropdown-menu {
+  background-color: #f8fafc !important;
+  border: 1px solid #e8e8e8 !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1) !important;
+}
 
-    &:active {
-      background-color: rgba(255, 255, 255, 0.12) !important;
-      transform: translateX(2px) scale(0.98) !important;
-    }
+html.theme-light .ant-dropdown-menu-item {
+  color: #334155 !important;
+  background-color: transparent !important;
 
-    .anticon {
-      color: #ffffff !important;
-    }
+  &:hover {
+    background-color: rgba(0, 0, 0, 0.06) !important;
+    color: #0f172a !important;
+  }
 
-    &:hover .anticon {
-      color: #ffffff !important;
-    }
+  .anticon {
+    color: #94a3b8 !important;
+  }
+
+  &:hover .anticon {
+    color: #0f172a !important;
   }
 }
 // Input box clear icon styles
@@ -728,35 +908,6 @@ body {
       &:hover {
         background-color: var(--button-hover-bg) !important;
       }
-    }
-  }
-
-  // Light theme dropdown menu styles
-  :deep(.ant-dropdown-menu) {
-    background-color: var(--bg-color-secondary) !important;
-    border: 1px solid var(--border-color-light) !important;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1) !important;
-  }
-
-  :deep(.ant-dropdown-menu-item) {
-    color: var(--text-color-secondary) !important;
-    background-color: transparent !important;
-
-    &:hover {
-      background-color: rgba(0, 0, 0, 0.08) !important;
-      color: var(--text-color) !important;
-    }
-
-    &:active {
-      background-color: rgba(0, 0, 0, 0.12) !important;
-    }
-
-    .anticon {
-      color: var(--text-color-tertiary) !important;
-    }
-
-    &:hover .anticon {
-      color: var(--text-color) !important;
     }
   }
 }
