@@ -477,6 +477,7 @@ export default {
       switchToPrevTab: 'Previous Tab',
       switchToSpecificTab: 'Switch to specific Tab[1...9]',
       openCommandDialog: 'Open AI Command Generator',
+      searchHost: 'Search Host',
       newTab: 'New Tab',
       openFileManager: 'Open File Manager',
       clearTerminal: 'Clear Terminal',

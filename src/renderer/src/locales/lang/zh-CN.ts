@@ -477,6 +477,7 @@ export default {
       switchToPrevTab: '切换到上一个标签页',
       switchToSpecificTab: '切换到指定标签页[1...9]',
       openCommandDialog: '打开AI命令生成对话框',
+      searchHost: '搜索主机',
       newTab: '新Tab页',
       openFileManager: '打开文件管理',
       clearTerminal: '清屏',

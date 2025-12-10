@@ -637,6 +637,7 @@ onMounted(async () => {
   eventBus.on('switchToSpecificTab', switchToSpecificTab)
   eventBus.on('createNewTerminal', handleCreateNewTerminal)
   eventBus.on('open-user-tab', openUserTab)
+  eventBus.on('searchHost', handleSearchHost)
   eventBus.on('save-state-before-switch', (params: { from: string; to: string }) => {
     if (params.from === 'terminal' && params.to === 'agents' && aiTabRef.value) {
       try {
@@ -796,6 +797,37 @@ const toggleSideBar = (value: string) => {
       }
       break
   }
+}
+
+// Handle host search shortcut
+const handleSearchHost = () => {
+  const container = document.querySelector('.splitpanes') as HTMLElement
+  const containerWidth = container.offsetWidth
+
+  const needsMenuSwitch = currentMenu.value !== 'workspace'
+  const needsSidebarOpen = leftPaneSize.value === 0
+
+  // Ensure left sidebar is open
+  if (needsSidebarOpen) {
+    leftPaneSize.value = (DEFAULT_WIDTH_PX / containerWidth) * 100
+    headerRef.value?.switchIcon('left', true)
+  }
+
+  // Switch to workspace menu if not already
+  if (needsMenuSwitch) {
+    currentMenu.value = 'workspace'
+  }
+
+  // Calculate delay based on what needs to happen
+  // If menu switch or sidebar open is needed, wait longer for DOM to be ready
+  const delay = needsMenuSwitch || needsSidebarOpen ? 200 : 50
+
+  // Focus search input after appropriate delay to ensure DOM is ready
+  nextTick(() => {
+    setTimeout(() => {
+      eventBus.emit('focusHostSearch')
+    }, delay)
+  })
 }
 
 const toggleMenu = function (params) {
@@ -1063,6 +1095,7 @@ onUnmounted(() => {
   eventBus.off('switchToSpecificTab', switchToSpecificTab)
   eventBus.off('createNewTerminal', handleCreateNewTerminal)
   eventBus.off('open-user-tab', openUserTab)
+  eventBus.off('searchHost', handleSearchHost)
 })
 const openUserTab = async function (value) {
   if (
