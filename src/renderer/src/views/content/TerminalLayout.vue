@@ -1758,17 +1758,17 @@ defineExpose({
   }
 
   ::-webkit-scrollbar-track {
-    background-color: #202020;
+    background-color: var(--bg-color-secondary) !important;
     border-radius: 5px;
   }
 
   ::-webkit-scrollbar-thumb {
-    background-color: #202020;
+    background-color: var(--bg-color-secondary) !important;
     border-radius: 5px;
   }
 
   ::-webkit-scrollbar-thumb:hover {
-    background-color: #202020;
+    background-color: var(--bg-color-secondary) !important;
   }
 
   .term_header {

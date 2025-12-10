@@ -1227,7 +1227,7 @@ onUnmounted(() => {
   flex-wrap: wrap;
   background-color: var(--bg-color);
   color: var(--text-color);
-  overflow-x: hidden;
+  overflow: hidden;
 
   .term_host_header {
     width: 100%;
