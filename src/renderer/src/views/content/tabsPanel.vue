@@ -60,8 +60,7 @@
           <SecurityConfigEditor v-if="localTab.content === 'securityConfigEditor'" />
           <PluginDetail
             v-if="localTab.content.startsWith('plugins:')"
-            :plugin-name="localTab.title"
-            :tab-id="localTab.id"
+            :plugin-info="localTab"
             @uninstall-plugin="uninstallPlugin"
           />
         </template>

@@ -901,6 +901,13 @@ const api = {
     return ipcRenderer.invoke('plugins.details', pluginName)
   },
 
+  installPluginFromBuffer(payload: { pluginId: string; version?: string; fileName?: string; data: ArrayBuffer }) {
+    return ipcRenderer.invoke('plugin:installFromBuffer', payload)
+  },
+
+  getInstallHint(pluginId: string) {
+    return ipcRenderer.invoke('plugins:get-install-hint', pluginId)
+  },
   // XTS 文件解析
   parseXtsFile: (data: { data: number[]; fileName: string }) => ipcRenderer.invoke('parseXtsFile', data)
 }

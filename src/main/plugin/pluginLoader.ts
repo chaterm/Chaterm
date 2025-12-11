@@ -1,15 +1,20 @@
 import * as fs from 'fs'
 import path from 'path'
-import { clearVersionProviders, listPlugins, PluginManifest, registerVersionProvider } from './pluginManager'
+import { clearInstallHints, clearVersionProviders, listPlugins, PluginManifest, registerInstallHint, registerVersionProvider } from './pluginManager'
 
-interface PluginHost {
-  registerVersionProvider: (fn: () => string | null | Promise<string | null>) => void
+import type { PluginHost, VersionProviderFn } from './pluginHost'
+import { PluginStorageContext } from './pluginGlobalState'
+
+export interface PluginModule {
+  register(host: PluginHost): void | Promise<void>
 }
 
 export function loadAllPlugins() {
   const plugins = listPlugins()
 
   clearVersionProviders()
+  clearInstallHints()
+  const storage = new PluginStorageContext()
 
   for (const p of plugins) {
     if (!p.enabled) continue
@@ -30,15 +35,19 @@ export function loadAllPlugins() {
       console.error('[pluginLoader] main entry not found for', p.id)
       continue
     }
-
     const host: PluginHost = {
-      registerVersionProvider(fn) {
+      registerVersionProvider(fn: VersionProviderFn) {
         registerVersionProvider(p.id, fn)
-      }
+      },
+      registerInstallHint(hint) {
+        registerInstallHint(p.id, hint)
+      },
+      globalState: storage.globalState,
+      workspaceState: storage.workspaceState,
+      secrets: storage.secrets
     }
-
     try {
-      const mod = require(entry)
+      const mod: PluginModule = require(entry)
       if (typeof mod.register === 'function') {
         mod.register(host)
         console.log('[pluginLoader] plugin registered:', p.id)
