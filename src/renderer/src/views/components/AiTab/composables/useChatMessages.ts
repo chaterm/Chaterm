@@ -1,4 +1,4 @@
-import { ref, onMounted, onUnmounted, computed } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 import { v4 as uuidv4 } from 'uuid'
 import { notification } from 'ant-design-vue'
 import eventBus from '@/utils/eventBus'
@@ -12,6 +12,7 @@ import { useSessionState } from './useSessionState'
 import { getGlobalState, updateGlobalState } from '@renderer/agent/storage/state'
 import i18n from '@/locales'
 const { t } = i18n.global
+let globalIpcListenerInitialized = false
 
 /**
  * Composable for chat message core logic
@@ -31,8 +32,6 @@ export function useChatMessages(
   const markdownRendererRefs = ref<Array<{ setThinkingLoading: (loading: boolean) => void }>>([])
 
   const isCurrentChatMessage = ref(true)
-
-  let removeListener: (() => void) | null = null
 
   const setMarkdownRendererRef = (el: any, index: number) => {
     if (el) {
@@ -475,26 +474,21 @@ export function useChatMessages(
   }
 
   const initializeListener = () => {
-    removeListener = window.api.onMainMessage((message: any) => {
+    // Only register IPC listener once globally to prevent duplicate event handling
+    if (globalIpcListenerInitialized) {
+      return
+    }
+    globalIpcListenerInitialized = true
+
+    window.api.onMainMessage((message: any) => {
       processMainMessage(message).catch((error) => {
         console.error('Failed to process main process message:', error)
       })
     })
   }
 
-  const cleanup = () => {
-    if (typeof removeListener === 'function') {
-      removeListener()
-      removeListener = null
-    }
-  }
-
   onMounted(() => {
     initializeListener()
-  })
-
-  onUnmounted(() => {
-    cleanup()
   })
 
   const handleFeedback = async (message: ChatMessage, type: 'like' | 'dislike') => {
