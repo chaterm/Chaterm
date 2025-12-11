@@ -29,7 +29,7 @@ import { versionPromptService } from './version/versionPromptService'
 import * as fsSync from 'fs'
 import { pathToFileURL } from 'url'
 import { loadAllPlugins } from './plugin/pluginLoader'
-import { installPlugin, listPlugins, PluginManifest, uninstallPlugin, getAllPluginVersions } from './plugin/pluginManager'
+import { getAllPluginVersions, installPlugin, listPlugins, PluginManifest, uninstallPlugin, getInstallHint } from './plugin/pluginManager'
 import { getPluginDetailsByName } from './plugin/pluginDetails'
 import { getActualTheme, applyThemeToTitleBar, loadUserTheme } from './themeManager'
 
@@ -2084,10 +2084,51 @@ ipcMain.handle('plugins.install', async (_event, pluginFilePath: string) => {
   return record
 })
 
-ipcMain.handle('plugins.uninstall', async (_event, pluginName: string) => {
-  uninstallPlugin(pluginName)
+ipcMain.handle(
+  'plugin:installFromBuffer',
+  async (
+    _event,
+    payload: {
+      pluginId: string
+      version?: string
+      fileName?: string
+      data: ArrayBuffer
+    }
+  ) => {
+    const { pluginId, version, fileName, data } = payload
+
+    // Uninstall the old version
+    try {
+      await uninstallPlugin(pluginId)
+    } catch (e) {
+      console.warn('uninstall before update failed, continue install', e)
+    }
+
+    // cache dir
+    const baseDir = path.join(app.getPath('userData'), 'plugin-downloads', pluginId, version || 'latest')
+    await fsSync.promises.mkdir(baseDir, { recursive: true })
+
+    const finalFileName = fileName || `${pluginId}-${version || 'latest'}.chaterm`
+    const tmpFilePath = path.join(baseDir, finalFileName)
+
+    // write
+    const buffer = Buffer.from(data) // ArrayBuffer -> Buffer
+    await fsSync.promises.writeFile(tmpFilePath, buffer)
+
+    const record = installPlugin(tmpFilePath)
+    loadAllPlugins()
+    return record
+  }
+)
+
+ipcMain.handle('plugins.uninstall', async (_event, pluginId: string) => {
+  uninstallPlugin(pluginId)
   loadAllPlugins()
   return { ok: true }
+})
+
+ipcMain.handle('plugins:get-install-hint', (_event, pluginId: string) => {
+  return getInstallHint(pluginId)
 })
 
 ipcMain.handle('plugins.listUi', async () => {

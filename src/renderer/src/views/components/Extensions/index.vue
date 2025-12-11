@@ -35,7 +35,7 @@
       >
         <template
           v-for="item in filteredList"
-          :key="item.tabName"
+          :key="item.pluginId"
         >
           <a-menu-item class="extension_item">
             <div class="item_wrapper">
@@ -67,6 +67,30 @@
                   {{ item.description || $t('extensions.noDescription') }}
                 </div>
               </div>
+
+              <div class="item_actions">
+                <a-button
+                  v-if="item.isPlugin && !item.installed"
+                  size="small"
+                  type="primary"
+                  class="op_btn"
+                  :loading="!!installLoadingMap[item.pluginId]"
+                  @click.stop="onInstallClick(item)"
+                >
+                  {{ $t('extensions.install') }}
+                </a-button>
+
+                <a-button
+                  v-else-if="item.isPlugin && item.installed && item.hasUpdate"
+                  size="small"
+                  class="op_btn"
+                  type="primary"
+                  :loading="!!updateLoadingMap[item.pluginId]"
+                  @click.stop="onUpdateClick(item)"
+                >
+                  {{ $t('extensions.update') }}
+                </a-button>
+              </div>
             </div>
           </a-menu-item>
         </template>
@@ -78,13 +102,15 @@
 </template>
 
 <script setup lang="ts">
-import { SearchOutlined, LoadingOutlined } from '@ant-design/icons-vue'
-import { computed, ref, watch, onMounted, onBeforeUnmount, h } from 'vue'
+import { LoadingOutlined, SearchOutlined } from '@ant-design/icons-vue'
+import { computed, h, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { notification } from 'ant-design-vue'
 import i18n from '@/locales'
 import iconAlias from '@/assets/img/alias.svg'
 import { userConfigStore } from '@/services/userConfigStoreService'
 import eventBus from '@/utils/eventBus'
+import { getPluginDownload, getPluginIconUrl } from '@/api/plugin/plugin'
+import { type DisplayPluginItem, usePluginStore } from './usePlugins'
 
 const api = (window as any).api
 const { t } = i18n.global
@@ -95,25 +121,76 @@ const userConfig = ref({
   aliasStatus: 2
 })
 const currentTheme = ref('dark')
-
 const isInstalling = ref(false)
 
-// 内置图标映射
 const iconMap: Record<string, string> = {
   'alias.svg': iconAlias
 }
 
-const handleSelect = (item) => {
-  const key = item.key
-  if (item.key != 'aliasConfig') {
-    emit('open-user-tab', 'plugins:' + key)
-  } else {
-    emit('open-user-tab', key)
-  }
-}
+const { pluginList, loadPlugins, loadStorePlugins, uninstallLocalPlugin } = usePluginStore()
 
 const selectedKeys = ref<string[]>([])
 const openKeys = ref<string[]>([])
+
+const createdBlobUrls = new Set<string>()
+
+const preloadedKeys = new Set<string>()
+const iconUrls = reactive<Record<string, string>>({})
+function getPluginKey(item: DisplayPluginItem) {
+  return `${item.pluginId}@${item.latestVersion || item.installedVersion || ''}`
+}
+
+async function preloadIcons(list: DisplayPluginItem[]) {
+  for (const item of list) {
+    if (!item.isPlugin) continue
+
+    const key = getPluginKey(item)
+    if (preloadedKeys.has(key)) continue
+
+    preloadedKeys.add(key)
+
+    if (item.installed && item.iconUrl) {
+      continue
+    }
+
+    try {
+      iconUrls[item.pluginId] = await getPluginIconUrl(item.pluginId, item.latestVersion)
+    } catch (e) {
+      console.error('preload icon failed', item.pluginId, e)
+    }
+  }
+}
+
+async function getIcons(item: DisplayPluginItem) {
+  if (!item.isPlugin) return
+
+  if (item.installed && item.iconUrl) {
+    return
+  }
+  try {
+    iconUrls[item.pluginId] = await getPluginIconUrl(item.pluginId, item.latestVersion)
+  } catch (e) {
+    console.error('preload icon failed', item.pluginId, e)
+  }
+}
+
+const handleSelect = (item) => {
+  const key = item.key
+  if (key !== 'Alias') {
+    const active = filteredList.value.find((i) => i.pluginId === key)
+    if (!active) return
+
+    const fromLocal = active.installed
+    const pluginId = active.pluginId
+    emit('open-user-tab', {
+      key: 'plugins:' + active.name,
+      fromLocal,
+      pluginId
+    })
+  } else {
+    emit('open-user-tab', 'aliasConfig')
+  }
+}
 
 const handleExplorerActive = (tabId: string) => {
   const index = selectedKeys.value.findIndex((item) => item === tabId)
@@ -126,19 +203,6 @@ defineExpose({
   handleExplorerActive
 })
 
-// 插件列表
-interface PluginUiItem {
-  id: string
-  name: string
-  description: string
-  iconUrl: string | null
-  tabName: string
-  enabled: boolean
-}
-
-const pluginItems = ref<PluginUiItem[]>([])
-
-// 通知
 const showNotification = (type: 'success' | 'error' | 'info' | 'open' | 'warning', message: string, description?: string) => {
   notification[type]({
     message,
@@ -148,7 +212,7 @@ const showNotification = (type: 'success' | 'error' | 'info' | 'open' | 'warning
   })
 }
 
-// 拖拽安装插件
+// Drag and drop to install the plugin
 const onDrop = async (e: DragEvent) => {
   const fileList = e.dataTransfer?.files
   if (!fileList || fileList.length === 0) {
@@ -183,7 +247,6 @@ const onDrop = async (e: DragEvent) => {
   try {
     await api.installPlugin(filePath)
 
-    // 更新通知
     notification.success({
       key: notificationKey,
       message: t('extensions.installSuccess'),
@@ -192,6 +255,7 @@ const onDrop = async (e: DragEvent) => {
       duration: 3
     })
 
+    // Reinstall the local plugin after installation
     await loadPlugins()
   } catch (err: any) {
     notification.error({
@@ -209,7 +273,25 @@ const refreshPlugins = () => {
   loadPlugins()
 }
 
-// 加载配置
+const uninstallPluginEvent = (pluginId: string) => {
+  uninstallLocalPlugin(pluginId)
+  getIcons(pluginList.value[0])
+}
+
+const updatePluginEvent = (pluginId: string) => {
+  const active = filteredList.value.find((i) => i.pluginId === pluginId)
+  if (!active) return
+  const latestVersion = active.latestVersion
+  onUpdateClick({ pluginId, latestVersion })
+}
+
+const installPluginEvent = (pluginId: string) => {
+  const active = filteredList.value.find((i) => i.pluginId === pluginId)
+  if (!active) return
+  const latestVersion = active.latestVersion
+  onInstallClick({ pluginId, latestVersion })
+}
+
 const loadConfig = async () => {
   try {
     const config = await userConfigStore.getConfig()
@@ -222,29 +304,9 @@ const loadConfig = async () => {
   }
 }
 
-// 加载已安装插件列表
-const loadPlugins = async () => {
-  try {
-    if (!api?.listPlugins) return
-    const list = await api.listPlugins()
-    pluginItems.value = (list || [])
-      .filter((p: any) => p.enabled)
-      .map((p: any) => ({
-        id: p.id,
-        name: p.name,
-        description: p.description,
-        iconUrl: p.iconUrl || null,
-        tabName: p.tabName || p.id,
-        enabled: p.enabled
-      }))
-  } catch (e) {
-    console.error('loadPlugins error', e)
-  }
-}
-
-// 初始加载
 onMounted(() => {
   loadConfig()
+  loadStorePlugins()
   loadPlugins()
 
   eventBus.on('aliasStatusChanged', () => {
@@ -254,25 +316,21 @@ onMounted(() => {
     currentTheme.value = theme
   })
   eventBus.on('reloadPlugins', refreshPlugins)
+  eventBus.on('uninstallPluginEvent', uninstallPluginEvent)
+  eventBus.on('installPluginEvent', installPluginEvent)
+  eventBus.on('updatePluginEvent', updatePluginEvent)
 })
 
-onBeforeUnmount(() => {
-  eventBus.off('aliasStatusChanged')
-  eventBus.off('reloadPlugins', refreshPlugins)
-})
-
-// 配置变更时重载
 watch(
   () => userConfig.value.aliasStatus,
   () => {
-    // 当 aliasStatus 变化时，重新加载配置
     loadConfig()
   }
 )
 
-// 合并内置扩展 + 插件
-const list = computed(() => {
-  const base = [
+// Used for rendering list：Alias + pluginList
+const list = computed<DisplayPluginItem[]>(() => {
+  const base: DisplayPluginItem[] = [
     {
       name: 'Alias',
       description: t('extensions.aliasDescription'),
@@ -281,30 +339,35 @@ const list = computed(() => {
       tabName: 'aliasConfig',
       show: userConfig.value.aliasStatus === 1,
       isPlugin: false,
-      pluginId: ''
+      pluginId: 'Alias',
+      installed: false,
+      hasUpdate: false,
+      isDraggedOnly: false,
+      installedVersion: '',
+      latestVersion: ''
     }
   ]
-  const plugins = pluginItems.value.map((p) => ({
-    name: p.name,
-    description: p.description,
-    iconKey: '',
-    iconUrl: p.iconUrl || '',
-    tabName: p.name,
-    show: true,
-    isPlugin: true,
-    pluginId: p.id
-  }))
 
-  return [...base, ...plugins]
+  return [...base, ...pluginList.value]
 })
 
-// 搜索过滤
 const filteredList = computed(() => {
   const all = list.value.filter((item) => item.show)
   if (!searchValue.value) return all
   const query = searchValue.value.toLowerCase().trim()
+  console.log('all', all)
   return all.filter((item) => item.name.toLowerCase().includes(query))
 })
+
+watch(
+  () => filteredList.value,
+  (list) => {
+    if (Array.isArray(list)) {
+      preloadIcons(list)
+    }
+  },
+  { immediate: false, deep: false }
+)
 
 const convertFileSrc = (path: string | null): string => {
   if (!path || path.startsWith('http') || path.startsWith('data:')) {
@@ -321,16 +384,110 @@ const convertFileSrc = (path: string | null): string => {
   return `local-resource://${cleanPath}`
 }
 
-// 获取图标
-const getIconSrc = (item: { iconKey: string; iconUrl: string; isPlugin: boolean }) => {
-  if (item.isPlugin && item.iconUrl) {
-    return convertFileSrc(item.iconUrl)
-  }
+const getIconSrc = (item: any) => {
+  console.log('getIconSrc:', item)
   if (!item.isPlugin && item.iconKey) {
     return iconMap[item.iconKey] || ''
   }
-  return ''
+  if (item.installed && item.iconUrl) {
+    return convertFileSrc(item.iconUrl)
+  }
+  const blobUrl = iconUrls[item.pluginId]
+  console.log('blobUrl:', iconUrls, item.pluginId, blobUrl)
+  return blobUrl || ''
 }
+
+const installOrUpdateFromStore = async (pluginId: string, version: string) => {
+  const res: any = await getPluginDownload(pluginId, version)
+  const data: ArrayBuffer = res
+
+  const disposition = res.headers?.['content-disposition'] || res.headers?.['Content-Disposition']
+  let fileName = ''
+  if (disposition) {
+    const match = /filename="?([^"]+)"?/.exec(disposition)
+    if (match && match[1]) {
+      fileName = decodeURIComponent(match[1])
+    }
+  }
+  if (!fileName) {
+    fileName = `${pluginId}-${version || 'latest'}.chaterm`
+  }
+
+  await api.installPluginFromBuffer({
+    pluginId,
+    version,
+    fileName,
+    data
+  })
+}
+
+const installLoadingMap = ref<Record<string, boolean>>({})
+const updateLoadingMap = ref<Record<string, boolean>>({})
+const setInstallLoading = (id: string, v: boolean) => {
+  if (v) {
+    installLoadingMap.value[id] = true
+  } else {
+    delete installLoadingMap.value[id]
+  }
+}
+
+const onInstallClick = async (item: any) => {
+  const id = item.pluginId as string
+
+  setInstallLoading(id, true)
+
+  try {
+    await installOrUpdateFromStore(id, item.latestVersion)
+
+    await loadPlugins()
+
+    const installHint = await api.getInstallHint(id)
+
+    if (!installHint || !installHint.message) {
+      showNotification('success', t('extensions.installSuccess'))
+    } else {
+      showNotification('success', t('extensions.installSuccess'), installHint.message)
+    }
+  } catch (e: any) {
+    showNotification('error', t('extensions.installFailed'), e?.message ?? String(e))
+    throw e
+  } finally {
+    setInstallLoading(id, false)
+  }
+}
+const setUpdateLoading = (id: string, v: boolean) => {
+  if (v) {
+    updateLoadingMap.value[id] = true
+  } else {
+    delete updateLoadingMap.value[id]
+  }
+}
+
+const onUpdateClick = async (item: any) => {
+  const id = item.pluginId as string
+
+  setUpdateLoading(id, true)
+
+  try {
+    await installOrUpdateFromStore(id, item.latestVersion)
+    await loadPlugins()
+    showNotification('success', t('extensions.updateSuccess'))
+  } catch (e: any) {
+    showNotification('error', t('extensions.updateFailed'), e?.message ?? String(e))
+    throw e
+  } finally {
+    setUpdateLoading(id, false)
+  }
+}
+onBeforeUnmount(() => {
+  eventBus.off('aliasStatusChanged')
+  eventBus.off('reloadPlugins', refreshPlugins)
+  eventBus.off('uninstallPluginEvent', uninstallPluginEvent)
+  eventBus.off('installPluginEvent', installPluginEvent)
+  eventBus.off('updatePluginEvent', updatePluginEvent)
+  createdBlobUrls.forEach((url) => URL.revokeObjectURL(url))
+  createdBlobUrls.clear()
+})
 </script>
 <style scoped lang="less">
 :deep(.extension_full_height) {
@@ -468,6 +625,29 @@ const getIconSrc = (item: { iconKey: string; iconUrl: string; isPlugin: boolean 
   }
   :deep(.ant-input-suffix) {
     color: var(--text-color-tertiary) !important;
+  }
+}
+
+.item_actions {
+  flex-shrink: 0;
+  display: flex;
+  gap: 10px;
+  margin-left: auto;
+  align-self: flex-end;
+}
+.op_btn {
+  background-color: var(--button-bg-color) !important;
+  border-color: var(--button-bg-color) !important;
+  color: #fff !important;
+  &:hover {
+    background-color: var(--button-hover-bg) !important;
+  }
+
+  &.ant-btn.ant-btn-sm {
+    font-size: 13px;
+    height: 20px;
+    padding: 0px 10px 20px 10px;
+    border-radius: 4px;
   }
 }
 </style>

@@ -1722,7 +1722,7 @@ const setupTerminalInput = () => {
         terminal.value?.scrollToBottom()
         terminal.value?.focus()
       })
-    } else if (JSON.stringify(data) === '"\\u001b[A"' && terminalMode.value === 'none') {
+    } else if (JSON.stringify(data) === '"\\u001b[A"') {
       if (suggestions.value.length && suggestionSelectionMode.value) {
         if (data == '\u001b[A') {
           // Up arrow key: cycle up navigation - only when in selection mode
@@ -1733,9 +1733,13 @@ const setupTerminalInput = () => {
           }
         }
       } else {
-        sendMarkedData(data, 'Chaterm:[A')
+        if (config.quickVimStatus === 1) {
+          sendMarkedData(data, 'Chaterm:[A')
+        } else {
+          sendData(data)
+        }
       }
-    } else if (JSON.stringify(data) === '"\\u001b[B"' && terminalMode.value === 'none') {
+    } else if (JSON.stringify(data) === '"\\u001b[B"') {
       if (suggestions.value.length && suggestionSelectionMode.value) {
         if (data == '\u001b[B') {
           // Down arrow key: cycle down navigation - only when in selection mode
@@ -1746,7 +1750,11 @@ const setupTerminalInput = () => {
           }
         }
       } else {
-        sendMarkedData(data, 'Chaterm:[B')
+        if (config.quickVimStatus === 1) {
+          sendMarkedData(data, 'Chaterm:[B')
+        } else {
+          sendData(data)
+        }
       }
     } else if (data == '\u001b[C') {
       // Right arrow key - enter selection mode or select suggestion

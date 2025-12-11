@@ -957,7 +957,8 @@ const currentClickServer = async (item) => {
     type: item.type ? item.type : 'term',
     organizationId: item.organizationId ? item.organizationId : '',
     ip: item.ip ? item.ip : '',
-    data: item
+    data: item,
+    props: item?.props
   }
   if (focusedPane.value.type === 'rightVertical' && focusedPane.value.index !== undefined && focusedPane.value.rightPaneIndex !== undefined) {
     const rightPane = splitPanes.value[focusedPane.value.rightPaneIndex]
@@ -1097,7 +1098,17 @@ onUnmounted(() => {
   eventBus.off('open-user-tab', openUserTab)
   eventBus.off('searchHost', handleSearchHost)
 })
-const openUserTab = async function (value) {
+
+type OpenUserTabArg =
+  | string
+  | {
+      key: string
+      fromLocal?: boolean
+      pluginId?: string
+    }
+const openUserTab = async function (arg: OpenUserTabArg) {
+  const value = typeof arg === 'string' ? arg : arg.key
+
   if (
     value === 'assetConfig' ||
     value === 'keyChainConfig' ||
@@ -1118,7 +1129,8 @@ const openUserTab = async function (value) {
   const p = {
     title: value,
     key: value,
-    type: value
+    type: value,
+    props: {}
   }
   switch (value) {
     case 'aliasConfig':
@@ -1141,9 +1153,15 @@ const openUserTab = async function (value) {
     }
   }
   if (value.startsWith('plugins:')) {
+    const fromLocal = typeof arg === 'string' ? true : (arg.fromLocal ?? true)
     p.title = value.split(':')[1]
+    const pluginId = typeof arg === 'string' ? p.title : (arg.pluginId ?? p.title)
     p.type = 'extensions'
     p.key = value
+    p.props = {
+      fromLocal,
+      pluginId
+    }
   }
   currentClickServer(p)
 }
