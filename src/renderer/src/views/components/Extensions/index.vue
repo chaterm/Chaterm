@@ -74,7 +74,7 @@
                   size="small"
                   type="primary"
                   class="op_btn"
-                  :loading="!!installLoadingMap[item.pluginId]"
+                  :loading="item.pluginId ? !!installLoadingMap[item.pluginId] : false"
                   @click.stop="onInstallClick(item)"
                 >
                   {{ $t('extensions.install') }}
@@ -85,7 +85,7 @@
                   size="small"
                   class="op_btn"
                   type="primary"
-                  :loading="!!updateLoadingMap[item.pluginId]"
+                  :loading="item.pluginId ? !!updateLoadingMap[item.pluginId] : false"
                   @click.stop="onUpdateClick(item)"
                 >
                   {{ $t('extensions.update') }}
@@ -153,6 +153,10 @@ async function preloadIcons(list: DisplayPluginItem[]) {
       continue
     }
 
+    if (!item.pluginId) {
+      continue
+    }
+
     try {
       iconUrls[item.pluginId] = await getPluginIconUrl(item.pluginId, item.latestVersion)
     } catch (e) {
@@ -167,6 +171,11 @@ async function getIcons(item: DisplayPluginItem) {
   if (item.installed && item.iconUrl) {
     return
   }
+
+  if (!item.pluginId) {
+    return
+  }
+
   try {
     iconUrls[item.pluginId] = await getPluginIconUrl(item.pluginId, item.latestVersion)
   } catch (e) {
@@ -391,6 +400,9 @@ const getIconSrc = (item: any) => {
   }
   if (item.installed && item.iconUrl) {
     return convertFileSrc(item.iconUrl)
+  }
+  if (!item.pluginId) {
+    return ''
   }
   const blobUrl = iconUrls[item.pluginId]
   console.log('blobUrl:', iconUrls, item.pluginId, blobUrl)
