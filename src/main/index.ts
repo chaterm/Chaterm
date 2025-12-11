@@ -17,12 +17,9 @@ import { registerRemoteTerminalHandlers } from './ssh/agentHandle'
 import { autoCompleteDatabaseService, ChatermDatabaseService, setCurrentUserId } from './storage/database'
 import { getGuestUserId } from './storage/db/connection'
 import { Controller } from './agent/core/controller'
-import { createExtensionContext } from './agent/core/controller/context'
-import { ElectronOutputChannel } from './agent/core/controller/outputChannel'
 import { executeRemoteCommand } from './agent/integrations/remote-terminal/example'
 import { initializeStorageMain, testStorageFromMain as testRendererStorageFromMain, getGlobalState } from './agent/core/storage/state'
 import { getTaskMetadata } from './agent/core/storage/disk'
-import { HeartbeatManager } from './heartBeatManager'
 import { createMainWindow } from './windowManager'
 import { registerUpdater } from './updater'
 import { telemetryService, checkIsFirstLaunch, getMacAddress } from './agent/services/telemetry/TelemetryService'
@@ -32,7 +29,7 @@ import { versionPromptService } from './version/versionPromptService'
 import * as fsSync from 'fs'
 import { pathToFileURL } from 'url'
 import { loadAllPlugins } from './plugin/pluginLoader'
-import { installPlugin, listPlugins, PluginManifest, uninstallPlugin, getAllPluginVersions } from './plugin/pluginManager'
+import { getAllPluginVersions, installPlugin, listPlugins, PluginManifest, uninstallPlugin, getInstallHint } from './plugin/pluginManager'
 import { getPluginDetailsByName } from './plugin/pluginDetails'
 import { getActualTheme, applyThemeToTitleBar, loadUserTheme } from './themeManager'
 
@@ -190,9 +187,6 @@ app.whenReady().then(async () => {
   })
 
   try {
-    const context = createExtensionContext()
-    const outputChannel = new ElectronOutputChannel()
-
     // Create a message sender that routes messages to dedicated IPC channels
     const messageSender = (message) => {
       if (mainWindow && !mainWindow.isDestroyed()) {
@@ -231,7 +225,7 @@ app.whenReady().then(async () => {
       return Promise.resolve(false)
     }
 
-    controller = new Controller(context, outputChannel, messageSender, ensureMcpConfigFileExists)
+    controller = new Controller(messageSender, ensureMcpConfigFileExists)
   } catch (error) {
     console.error('Failed to initialize Controller:', error)
   }
@@ -305,16 +299,6 @@ app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {
     app.quit()
   }
-})
-
-const hbManager = new HeartbeatManager()
-ipcMain.handle('heartbeat-start', (event, { heartbeatId, interval }) => {
-  hbManager.start(heartbeatId, interval, event.sender)
-})
-
-// 2. Renderer process requests to stop heartbeat
-ipcMain.handle('heartbeat-stop', (_, { heartbeatId }) => {
-  hbManager.stop(heartbeatId)
 })
 
 // Add the before-quit event listener here or towards the end of the file
@@ -2100,10 +2084,51 @@ ipcMain.handle('plugins.install', async (_event, pluginFilePath: string) => {
   return record
 })
 
-ipcMain.handle('plugins.uninstall', async (_event, pluginName: string) => {
-  uninstallPlugin(pluginName)
+ipcMain.handle(
+  'plugin:installFromBuffer',
+  async (
+    _event,
+    payload: {
+      pluginId: string
+      version?: string
+      fileName?: string
+      data: ArrayBuffer
+    }
+  ) => {
+    const { pluginId, version, fileName, data } = payload
+
+    // Uninstall the old version
+    try {
+      await uninstallPlugin(pluginId)
+    } catch (e) {
+      console.warn('uninstall before update failed, continue install', e)
+    }
+
+    // cache dir
+    const baseDir = path.join(app.getPath('userData'), 'plugin-downloads', pluginId, version || 'latest')
+    await fsSync.promises.mkdir(baseDir, { recursive: true })
+
+    const finalFileName = fileName || `${pluginId}-${version || 'latest'}.chaterm`
+    const tmpFilePath = path.join(baseDir, finalFileName)
+
+    // write
+    const buffer = Buffer.from(data) // ArrayBuffer -> Buffer
+    await fsSync.promises.writeFile(tmpFilePath, buffer)
+
+    const record = installPlugin(tmpFilePath)
+    loadAllPlugins()
+    return record
+  }
+)
+
+ipcMain.handle('plugins.uninstall', async (_event, pluginId: string) => {
+  uninstallPlugin(pluginId)
   loadAllPlugins()
   return { ok: true }
+})
+
+ipcMain.handle('plugins:get-install-hint', (_event, pluginId: string) => {
+  return getInstallHint(pluginId)
 })
 
 ipcMain.handle('plugins.listUi', async () => {

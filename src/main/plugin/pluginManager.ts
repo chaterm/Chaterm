@@ -86,11 +86,11 @@ export function installPlugin(pluginFilePath: string): InstalledPlugin {
   return record
 }
 
-export function uninstallPlugin(pluginName: string) {
+export function uninstallPlugin(pluginId: string) {
   const registry = readRegistry()
   const rest: InstalledPlugin[] = []
   for (const p of registry) {
-    if (p.displayName === pluginName) {
+    if (p.id === pluginId) {
       if (fs.existsSync(p.path)) {
         fs.rmSync(p.path, { recursive: true, force: true })
       }
@@ -145,4 +145,22 @@ export async function getAllPluginVersions(): Promise<Record<string, string>> {
   }
 
   return result
+}
+
+export interface InstallHint {
+  message?: string
+}
+
+const installHints = new Map<string, InstallHint>()
+
+export function registerInstallHint(pluginId: string, hint: InstallHint) {
+  installHints.set(pluginId, hint)
+}
+
+export function getInstallHint(pluginId: string): InstallHint | null {
+  return installHints.get(pluginId) ?? null
+}
+
+export function clearInstallHints() {
+  installHints.clear()
 }

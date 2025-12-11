@@ -637,6 +637,7 @@ onMounted(async () => {
   eventBus.on('switchToSpecificTab', switchToSpecificTab)
   eventBus.on('createNewTerminal', handleCreateNewTerminal)
   eventBus.on('open-user-tab', openUserTab)
+  eventBus.on('searchHost', handleSearchHost)
   eventBus.on('save-state-before-switch', (params: { from: string; to: string }) => {
     if (params.from === 'terminal' && params.to === 'agents' && aiTabRef.value) {
       try {
@@ -798,6 +799,37 @@ const toggleSideBar = (value: string) => {
   }
 }
 
+// Handle host search shortcut
+const handleSearchHost = () => {
+  const container = document.querySelector('.splitpanes') as HTMLElement
+  const containerWidth = container.offsetWidth
+
+  const needsMenuSwitch = currentMenu.value !== 'workspace'
+  const needsSidebarOpen = leftPaneSize.value === 0
+
+  // Ensure left sidebar is open
+  if (needsSidebarOpen) {
+    leftPaneSize.value = (DEFAULT_WIDTH_PX / containerWidth) * 100
+    headerRef.value?.switchIcon('left', true)
+  }
+
+  // Switch to workspace menu if not already
+  if (needsMenuSwitch) {
+    currentMenu.value = 'workspace'
+  }
+
+  // Calculate delay based on what needs to happen
+  // If menu switch or sidebar open is needed, wait longer for DOM to be ready
+  const delay = needsMenuSwitch || needsSidebarOpen ? 200 : 50
+
+  // Focus search input after appropriate delay to ensure DOM is ready
+  nextTick(() => {
+    setTimeout(() => {
+      eventBus.emit('focusHostSearch')
+    }, delay)
+  })
+}
+
 const toggleMenu = function (params) {
   const type = params?.type
   const container = document.querySelector('.splitpanes') as HTMLElement
@@ -925,7 +957,8 @@ const currentClickServer = async (item) => {
     type: item.type ? item.type : 'term',
     organizationId: item.organizationId ? item.organizationId : '',
     ip: item.ip ? item.ip : '',
-    data: item
+    data: item,
+    props: item?.props
   }
   if (focusedPane.value.type === 'rightVertical' && focusedPane.value.index !== undefined && focusedPane.value.rightPaneIndex !== undefined) {
     const rightPane = splitPanes.value[focusedPane.value.rightPaneIndex]
@@ -1063,8 +1096,19 @@ onUnmounted(() => {
   eventBus.off('switchToSpecificTab', switchToSpecificTab)
   eventBus.off('createNewTerminal', handleCreateNewTerminal)
   eventBus.off('open-user-tab', openUserTab)
+  eventBus.off('searchHost', handleSearchHost)
 })
-const openUserTab = async function (value) {
+
+type OpenUserTabArg =
+  | string
+  | {
+      key: string
+      fromLocal?: boolean
+      pluginId?: string
+    }
+const openUserTab = async function (arg: OpenUserTabArg) {
+  const value = typeof arg === 'string' ? arg : arg.key
+
   if (
     value === 'assetConfig' ||
     value === 'keyChainConfig' ||
@@ -1085,7 +1129,8 @@ const openUserTab = async function (value) {
   const p = {
     title: value,
     key: value,
-    type: value
+    type: value,
+    props: {}
   }
   switch (value) {
     case 'aliasConfig':
@@ -1108,9 +1153,15 @@ const openUserTab = async function (value) {
     }
   }
   if (value.startsWith('plugins:')) {
+    const fromLocal = typeof arg === 'string' ? true : (arg.fromLocal ?? true)
     p.title = value.split(':')[1]
+    const pluginId = typeof arg === 'string' ? p.title : (arg.pluginId ?? p.title)
     p.type = 'extensions'
     p.key = value
+    p.props = {
+      fromLocal,
+      pluginId
+    }
   }
   currentClickServer(p)
 }
@@ -1725,17 +1776,17 @@ defineExpose({
   }
 
   ::-webkit-scrollbar-track {
-    background-color: #202020;
+    background-color: var(--bg-color-secondary) !important;
     border-radius: 5px;
   }
 
   ::-webkit-scrollbar-thumb {
-    background-color: #202020;
+    background-color: var(--bg-color-secondary) !important;
     border-radius: 5px;
   }
 
   ::-webkit-scrollbar-thumb:hover {
-    background-color: #202020;
+    background-color: var(--bg-color-secondary) !important;
   }
 
   .term_header {

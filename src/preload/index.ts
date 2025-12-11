@@ -765,17 +765,7 @@ const api = {
       return { success: false, error: { message: 'An unknown error occurred in preload' } }
     }
   },
-  closeHeartbeatWindow: (heartbeatId: string) => {
-    ipcRenderer.invoke('heartbeat-stop', { heartbeatId })
-  },
-  openHeartbeatWindow: (heartbeatId: string, interval: number = 5000) => {
-    ipcRenderer.invoke('heartbeat-start', { heartbeatId, interval })
-  },
-  heartBeatTick: (callback: (heartbeatId: string) => void) => {
-    ipcRenderer.on('heartbeat-tick', (event, heartbeatId) => {
-      callback(heartbeatId)
-    })
-  },
+
   validateApiKey: async (configuration?: Record<string, unknown>) => {
     try {
       const result = await ipcRenderer.invoke('validate-api-key', configuration)
@@ -911,6 +901,13 @@ const api = {
     return ipcRenderer.invoke('plugins.details', pluginName)
   },
 
+  installPluginFromBuffer(payload: { pluginId: string; version?: string; fileName?: string; data: ArrayBuffer }) {
+    return ipcRenderer.invoke('plugin:installFromBuffer', payload)
+  },
+
+  getInstallHint(pluginId: string) {
+    return ipcRenderer.invoke('plugins:get-install-hint', pluginId)
+  },
   // XTS 文件解析
   parseXtsFile: (data: { data: number[]; fileName: string }) => ipcRenderer.invoke('parseXtsFile', data)
 }

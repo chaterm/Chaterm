@@ -20,6 +20,7 @@
       <div style="width: 100%; margin-top: 4px">
         <div class="manage">
           <a-input
+            ref="searchInputRef"
             v-model:value="searchValue"
             class="transparent-Input"
             :placeholder="t('common.search')"
@@ -408,7 +409,7 @@
 
 <script setup lang="ts">
 import { deepClone } from '@/utils/util'
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue'
 import {
   StarFilled,
   StarOutlined,
@@ -434,6 +435,7 @@ const company = ref('personal_user_id')
 const selectedKeys = ref<string[]>([])
 const expandedKeys = ref<string[]>([])
 const searchValue = ref('')
+const searchInputRef = ref()
 const editingNode = ref(null)
 const editingTitle = ref('')
 const refreshingNode = ref(null)
@@ -655,6 +657,41 @@ const onSearchInput = () => {
     enterpriseData.value = filterTreeNodes(searchValue.value)
     expandedKeys.value = getAllKeys(enterpriseData.value)
   }
+}
+
+const focusSearchInput = async () => {
+  let retries = 0
+  const maxRetries = 10
+
+  const tryFocus = async () => {
+    await nextTick()
+    let inputElement: HTMLInputElement | null = null
+    if (searchInputRef.value) {
+      inputElement =
+        (searchInputRef.value.$el?.querySelector('input') as HTMLInputElement) ||
+        (searchInputRef.value.input as HTMLInputElement) ||
+        (searchInputRef.value.$el?.querySelector('.ant-input') as HTMLInputElement) ||
+        null
+    }
+
+    if (inputElement && inputElement.offsetParent !== null) {
+      inputElement.focus()
+      inputElement.select()
+      return true
+    }
+
+    return false
+  }
+
+  const attemptFocus = async () => {
+    const success = await tryFocus()
+    if (!success && retries < maxRetries) {
+      retries++
+      setTimeout(attemptFocus, 50 * retries)
+    }
+  }
+
+  await attemptFocus()
 }
 
 const getAllKeys = (nodes: AssetNode[]): string[] => {
@@ -1163,6 +1200,8 @@ onMounted(() => {
     console.log('Language changed, refreshing asset menu...')
     refreshAssetMenu()
   })
+  // Listen for host search focus event
+  eventBus.on('focusHostSearch', focusSearchInput)
   loadCustomFolders()
 
   // Add click outside listener to close context menu
@@ -1174,6 +1213,7 @@ onMounted(() => {
 onUnmounted(() => {
   eventBus.off('LocalAssetMenu', refreshAssetMenu)
   eventBus.off('languageChanged')
+  eventBus.off('focusHostSearch', focusSearchInput)
 })
 </script>
 
@@ -1187,7 +1227,7 @@ onUnmounted(() => {
   flex-wrap: wrap;
   background-color: var(--bg-color);
   color: var(--text-color);
-  overflow-x: hidden;
+  overflow: hidden;
 
   .term_host_header {
     width: 100%;

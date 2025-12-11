@@ -117,6 +117,17 @@ export const shortcutActions: Omit<ShortcutAction, 'name'>[] = [
     }
   },
   {
+    id: 'searchHost',
+    nameKey: 'shortcuts.actions.searchHost',
+    defaultKey: {
+      mac: 'Command+Shift+P',
+      other: 'Ctrl+Shift+P'
+    },
+    handler: () => {
+      eventBus.emit('searchHost')
+    }
+  },
+  {
     id: 'newTab',
     nameKey: 'shortcuts.actions.newTab',
     defaultKey: {

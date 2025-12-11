@@ -460,7 +460,13 @@ export default {
     uninstallFailed: 'Uninstall failed',
     uninstalling: 'Uninstalling',
     uninstall: 'Uninstall',
-    uninstallError: 'An error occurred during uninstallation'
+    uninstallError: 'An error occurred during uninstallation',
+    install: 'Install',
+    update: 'Update',
+    updateFailed: 'Update failed',
+    updateSuccess: 'Update success',
+    sourceStore: 'Plugin Store',
+    sourceLocal: 'Local'
   },
   commandDialog: {
     placeholder: 'Command instructions',
@@ -477,6 +483,7 @@ export default {
       switchToPrevTab: 'Previous Tab',
       switchToSpecificTab: 'Switch to specific Tab[1...9]',
       openCommandDialog: 'Open AI Command Generator',
+      searchHost: 'Search Host',
       newTab: 'New Tab',
       openFileManager: 'Open File Manager',
       clearTerminal: 'Clear Terminal',
