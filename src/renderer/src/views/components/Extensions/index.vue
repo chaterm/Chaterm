@@ -599,6 +599,7 @@ onBeforeUnmount(() => {
 .item_name {
   font-size: 14px;
   font-weight: 500;
+  color: var(--text-color);
   white-space: nowrap;
   text-overflow: ellipsis;
   overflow: hidden;
