@@ -584,7 +584,6 @@ onBeforeUnmount(() => {
   overflow: hidden;
 }
 .item_icon img {
-  width: 100%;
   height: 100%;
 }
 
