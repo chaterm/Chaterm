@@ -69,27 +69,36 @@
               </div>
 
               <div class="item_actions">
-                <a-button
-                  v-if="item.isPlugin && !item.installed"
-                  size="small"
-                  type="primary"
-                  class="op_btn"
-                  :loading="item.pluginId ? !!installLoadingMap[item.pluginId] : false"
-                  @click.stop="onInstallClick(item)"
-                >
-                  {{ $t('extensions.install') }}
-                </a-button>
-
-                <a-button
-                  v-else-if="item.isPlugin && item.installed && item.hasUpdate"
-                  size="small"
-                  class="op_btn"
-                  type="primary"
-                  :loading="item.pluginId ? !!updateLoadingMap[item.pluginId] : false"
-                  @click.stop="onUpdateClick(item)"
-                >
-                  {{ $t('extensions.update') }}
-                </a-button>
+                <template v-if="item.isPlugin && !item.installed">
+                  <a-tooltip :title="$t('extensions.install')">
+                    <a-button
+                      size="small"
+                      type="primary"
+                      class="op_btn icon_btn"
+                      :loading="item.pluginId ? !!installLoadingMap[item.pluginId] : false"
+                      @click.stop="onInstallClick(item)"
+                    >
+                      <template #icon>
+                        <CloudDownloadOutlined />
+                      </template>
+                    </a-button>
+                  </a-tooltip>
+                </template>
+                <template v-else-if="item.isPlugin && item.installed && item.hasUpdate">
+                  <a-tooltip :title="$t('extensions.update')">
+                    <a-button
+                      size="small"
+                      class="op_btn icon_btn"
+                      type="primary"
+                      :loading="item.pluginId ? !!updateLoadingMap[item.pluginId] : false"
+                      @click.stop="onUpdateClick(item)"
+                    >
+                      <template #icon>
+                        <CloudSyncOutlined />
+                      </template>
+                    </a-button>
+                  </a-tooltip>
+                </template>
               </div>
             </div>
           </a-menu-item>
@@ -102,7 +111,7 @@
 </template>
 
 <script setup lang="ts">
-import { LoadingOutlined, SearchOutlined } from '@ant-design/icons-vue'
+import { CloudDownloadOutlined, LoadingOutlined, SearchOutlined, CloudSyncOutlined } from '@ant-design/icons-vue'
 import { computed, h, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { notification } from 'ant-design-vue'
 import i18n from '@/locales'
@@ -610,6 +619,7 @@ onBeforeUnmount(() => {
   color: var(--text-color);
   white-space: nowrap;
   overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .item_action {
@@ -660,6 +670,15 @@ onBeforeUnmount(() => {
     height: 20px;
     padding: 0px 10px 20px 10px;
     border-radius: 4px;
+  }
+
+  &.icon_btn.ant-btn.ant-btn-sm {
+    padding: 0;
+    width: 20px;
+    height: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
   }
 }
 </style>
