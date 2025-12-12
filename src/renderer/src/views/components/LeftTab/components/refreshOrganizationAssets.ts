@@ -4,7 +4,6 @@ import i18n from '@/locales'
 
 const { t } = i18n.global
 
-// 刷新企业资产的核心函数
 export const handleRefreshOrganizationAssets = async (host: any, onSuccess?: () => void) => {
   if (!host || host.asset_type !== 'organization') {
     console.warn('无效的企业资产节点:', host)
@@ -30,13 +29,11 @@ export const handleRefreshOrganizationAssets = async (host: any, onSuccess?: () 
     console.log('刷新企业资产结果:', result)
 
     if (result?.data?.message === 'success') {
-      hide() // 只隐藏加载消息
+      hide()
       message.success(t('personal.refreshSuccess'))
 
-      // 触发资产列表刷新
       eventBus.emit('LocalAssetMenu')
 
-      // 如果有成功回调，执行它
       if (onSuccess && typeof onSuccess === 'function') {
         onSuccess()
       }
@@ -45,12 +42,11 @@ export const handleRefreshOrganizationAssets = async (host: any, onSuccess?: () 
     }
   } catch (error) {
     console.error('刷新企业资产失败:', error)
-    hide() // 隐藏加载消息
+    hide()
     message.error(t('personal.refreshError'))
   }
 }
 
-// 根据节点信息查找对应的企业资产配置
 export const findOrganizationAssetByKey = async (nodeKey: string): Promise<any | null> => {
   try {
     const api = window.api as any
@@ -103,19 +99,14 @@ export const findOrganizationAssetByKey = async (nodeKey: string): Promise<any |
   return null
 }
 
-// 从 Workspace 组件调用的刷新函数
 export const refreshOrganizationAssetFromWorkspace = async (dataRef: any, onSuccess?: () => void) => {
   console.log('从 Workspace 刷新企业资产节点:', dataRef)
 
-  // 尝试从节点信息中获取企业资产配置
   let organizationAsset = null
 
-  // 如果节点本身就是企业资产配置（有 children 属性，说明是企业资产配置）
   if (dataRef.asset_type === 'organization' && dataRef.children) {
-    // 即使有 children 属性，我们也需要从 assetConfig 获取完整配置信息
     organizationAsset = await findOrganizationAssetByKey(dataRef.key)
   } else {
-    // 否则根据 key 查找对应的企业资产配置
     organizationAsset = await findOrganizationAssetByKey(dataRef.key)
   }
 

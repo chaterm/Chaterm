@@ -154,7 +154,6 @@ const handleFileSelect = (event: Event) => {
   const fileName = file.name.toLowerCase()
   const fileExtension = fileName.split('.').pop()
 
-  //Intelligent recognition of file types
   let importType = 'unknown'
 
   if (fileExtension === 'json') {
@@ -173,9 +172,7 @@ const handleFileSelect = (event: Event) => {
     return
   }
 
-  //Process files
   if (importType === 'json') {
-    //Existing JSON processing logic
     const reader = new FileReader()
     reader.onload = (e) => {
       try {
@@ -194,7 +191,6 @@ const handleFileSelect = (event: Event) => {
     }
     reader.readAsText(file)
   } else {
-    // //XShell, SecureCRT, and MobaXterm file processing
     emit('import-file', { file, type: importType })
   }
 

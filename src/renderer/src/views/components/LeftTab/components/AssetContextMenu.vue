@@ -55,11 +55,10 @@
 import { ref, computed, nextTick, watch } from 'vue'
 import { ApiOutlined, EditOutlined, ReloadOutlined, DeleteOutlined, CopyOutlined } from '@ant-design/icons-vue'
 import i18n from '@/locales'
-import type { AssetNode, Position } from '../types'
+import type { AssetNode, Position } from '../utils/types'
 
 const { t } = i18n.global
 
-// Props
 interface Props {
   visible: boolean
   position: Position
@@ -68,13 +67,10 @@ interface Props {
 
 const props = defineProps<Props>()
 
-// Refs
 const contextMenuRef = ref<HTMLElement | null>(null)
 
-// State
 const actualMenuSize = ref({ width: 150, height: 200 })
 
-// Computed
 const menuStyle = computed(() => {
   if (!props.visible) return {}
 
@@ -82,15 +78,12 @@ const menuStyle = computed(() => {
   const { width: menuWidth, height: menuHeight } = actualMenuSize.value
   const padding = 10 // margin
 
-  // Get window dimensions
   const windowWidth = window.innerWidth
   const windowHeight = window.innerHeight
 
-  // Calculate adjusted position
   let adjustedX = x
   let adjustedY = y
 
-  // Horizontal position adjustment
   if (x + menuWidth + padding > windowWidth) {
     adjustedX = windowWidth - menuWidth - padding
   }
@@ -98,7 +91,6 @@ const menuStyle = computed(() => {
     adjustedX = padding
   }
 
-  // Vertical position adjustment
   if (y + menuHeight + padding > windowHeight) {
     adjustedY = windowHeight - menuHeight - padding
   }
@@ -112,7 +104,6 @@ const menuStyle = computed(() => {
   }
 })
 
-// Emits
 const emit = defineEmits<{
   close: []
   connect: []
@@ -122,7 +113,6 @@ const emit = defineEmits<{
   remove: []
 }>()
 
-// Methods
 const handleClose = () => {
   emit('close')
 }
@@ -147,7 +137,6 @@ const handleRemove = () => {
   emit('remove')
 }
 
-// Update actual menu size
 const updateMenuSize = () => {
   if (contextMenuRef.value) {
     const rect = contextMenuRef.value.getBoundingClientRect()
@@ -158,7 +147,6 @@ const updateMenuSize = () => {
   }
 }
 
-// Watch menu visibility state and update size
 watch(
   () => props.visible,
   (visible) => {

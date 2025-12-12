@@ -1,20 +1,15 @@
 <template>
   <div class="asset-list-container">
-    <!-- 遍历每个组 -->
     <template
       v-for="group in filteredAssetGroups"
       :key="group.key"
     >
-      <!-- 组标题 -->
       <div class="group-title">{{ group.title }}</div>
-
-      <!-- 组内主机卡片列表 -->
       <div
         class="host-cards"
         :class="{ 'wide-layout': wideLayout }"
       >
-        <!-- 主机列表卡片 -->
-        <AssetCard
+        <assetCard
           v-for="host in group.children"
           :key="host.key"
           :asset="host"
@@ -26,7 +21,6 @@
       </div>
     </template>
 
-    <!-- 空状态 -->
     <div
       v-if="filteredAssetGroups.length === 0"
       class="empty-state"
@@ -44,14 +38,13 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { DatabaseOutlined } from '@ant-design/icons-vue'
-import AssetCard from './AssetCard.vue'
+import assetCard from './AssetCard.vue'
 import { deepClone } from '@/utils/util'
 import i18n from '@/locales'
-import type { AssetNode } from '../types'
+import type { AssetNode } from '../utils/types'
 
 const { t } = i18n.global
 
-// Props
 interface Props {
   assetGroups: AssetNode[]
   searchValue?: string
@@ -63,7 +56,6 @@ const props = withDefaults(defineProps<Props>(), {
   wideLayout: false
 })
 
-// Emits
 const emit = defineEmits<{
   'asset-click': [asset: AssetNode]
   'asset-double-click': [asset: AssetNode]
@@ -71,7 +63,6 @@ const emit = defineEmits<{
   'asset-context-menu': [event: MouseEvent, asset: AssetNode]
 }>()
 
-// Computed
 const filteredAssetGroups = computed(() => {
   try {
     if (!props.searchValue.trim()) return props.assetGroups || []
@@ -111,7 +102,6 @@ const filteredAssetGroups = computed(() => {
   }
 })
 
-// Methods
 const handleAssetClick = (asset: AssetNode) => {
   emit('asset-click', asset)
 }
@@ -149,25 +139,22 @@ const handleAssetContextMenu = (event: MouseEvent, asset: AssetNode) => {
   margin-bottom: 16px;
 }
 
-/* 当右侧面板关闭时，显示更多卡片 */
 .host-cards.wide-layout {
   :deep(.card-wrapper) {
-    width: calc(33.33% - 8px); /* 一行显示3个 */
+    width: calc(33.33% - 8px);
   }
 }
 
-/* 当右侧面板打开时，显示较少卡片 */
 .host-cards:not(.wide-layout) {
   :deep(.card-wrapper) {
-    width: calc(50% - 6px); /* 一行显示2个 */
+    width: calc(50% - 6px);
   }
 }
 
-/* 移动端适配 */
 @media (max-width: 768px) {
   .host-cards {
     :deep(.card-wrapper) {
-      width: 100% !important; /* 小屏幕一行显示1个 */
+      width: 100% !important;
     }
   }
 }

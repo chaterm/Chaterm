@@ -57,14 +57,14 @@
 <script setup lang="ts">
 import { Modal, message, notification } from 'ant-design-vue'
 import { ref, onMounted, onBeforeUnmount, reactive, watch, h } from 'vue'
-import AssetSearch from './components/AssetSearch.vue'
-import AssetList from './components/AssetList.vue'
-import AssetForm from './components/AssetForm.vue'
-import AssetContextMenu from './components/AssetContextMenu.vue'
+import AssetSearch from '../components/AssetSearch.vue'
+import AssetList from '../components/AssetList.vue'
+import AssetForm from '../components/AssetForm.vue'
+import AssetContextMenu from '../components/AssetContextMenu.vue'
 import eventBus from '@/utils/eventBus'
 import i18n from '@/locales'
-import { handleRefreshOrganizationAssets } from './components/refreshOrganizationAssets'
-import type { AssetNode, AssetFormData, KeyChainItem, SshProxyConfigItem } from './types'
+import { handleRefreshOrganizationAssets } from '../components/refreshOrganizationAssets'
+import type { AssetNode, AssetFormData, KeyChainItem, SshProxyConfigItem } from '../utils/types'
 
 interface ParsedSession {
   name: string
@@ -312,7 +312,6 @@ const handleAssetRemove = (asset: AssetNode) => {
   })
 }
 
-// 显示重复数据确认对话框
 const showDuplicateConfirmDialog = async (duplicateAssets: any[]): Promise<boolean> => {
   return new Promise((resolve) => {
     Modal.confirm({
@@ -360,7 +359,6 @@ const handleImportAssets = async (assets: any[]) => {
     let duplicateCount = 0
     const duplicateAssets: any[] = []
 
-    // 第一轮：检查重复数据
     for (const asset of assets) {
       try {
         if (!asset.ip || !asset.username) {
@@ -406,7 +404,6 @@ const handleImportAssets = async (assets: any[]) => {
       }
     }
 
-    // 如果有重复数据，询问用户是否要覆盖
     if (duplicateAssets.length > 0) {
       const shouldOverwrite = await showDuplicateConfirmDialog(duplicateAssets)
       if (shouldOverwrite) {
@@ -444,7 +441,6 @@ const handleImportAssets = async (assets: any[]) => {
       }
     }
 
-    // 显示导入结果
     if (successCount > 0) {
       message.success(t('personal.importSuccessCount', { count: successCount }))
       getAssetList()

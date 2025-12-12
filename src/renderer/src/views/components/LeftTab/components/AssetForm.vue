@@ -266,12 +266,10 @@ import { ToTopOutlined } from '@ant-design/icons-vue'
 import { message } from 'ant-design-vue'
 import i18n from '@/locales'
 import eventBus from '@/utils/eventBus'
-import type { AssetFormData, KeyChainItem } from '../types'
-import { SshProxyConfigItem } from '../types'
+import type { AssetFormData, KeyChainItem, SshProxyConfigItem } from '../utils/types'
 
 const { t } = i18n.global
 
-// Props
 interface Props {
   isEditMode?: boolean
   initialData?: Partial<AssetFormData>
@@ -288,7 +286,6 @@ const props = withDefaults(defineProps<Props>(), {
   defaultGroups: () => ['development', 'production', 'staging', 'testing', 'database']
 })
 
-// Emits
 const emit = defineEmits<{
   close: []
   submit: [data: AssetFormData]
@@ -296,7 +293,6 @@ const emit = defineEmits<{
   'auth-change': [authType: string]
 }>()
 
-// State
 const formData = reactive<AssetFormData>({
   username: '',
   password: '',
@@ -312,7 +308,6 @@ const formData = reactive<AssetFormData>({
   ...props.initialData
 })
 
-// Validation errors state
 const validationErrors = reactive({
   ip: '',
   port: '',
@@ -320,7 +315,6 @@ const validationErrors = reactive({
   password: ''
 })
 
-// Set default group name after component mount
 watch(
   () => props.initialData,
   (newData) => {
@@ -331,7 +325,6 @@ watch(
   { immediate: true }
 )
 
-// Watch for asset type changes
 watch(
   () => formData.asset_type,
   (newAssetType) => {
@@ -343,7 +336,6 @@ watch(
   }
 )
 
-// Watch for edit mode and asset type
 watch(
   [() => props.isEditMode, () => formData.asset_type],
   ([editing, assetType]) => {
@@ -354,7 +346,6 @@ watch(
   { immediate: true }
 )
 
-// Methods
 const handleClose = () => {
   emit('close')
 }
@@ -382,17 +373,14 @@ const handleGroupChange = (val: any) => {
   } else if (typeof val === 'number') {
     formData.group_name = String(val)
   } else {
-    // When cleared, set to empty string (will be set to default on submit)
     formData.group_name = ''
   }
 }
 
-// Check if input contains spaces
 const hasSpaces = (value: string): boolean => {
   return Boolean(value && value.includes(' '))
 }
 
-// Validate field for spaces
 const validateField = (field: keyof typeof validationErrors, value: string) => {
   if (hasSpaces(value)) {
     switch (field) {
@@ -415,7 +403,6 @@ const validateField = (field: keyof typeof validationErrors, value: string) => {
 }
 
 const validateForm = (): boolean => {
-  // Enterprise asset validation
   if (formData.asset_type === 'organization') {
     if (!formData.ip || !formData.ip.trim()) {
       message.error(t('personal.validationRemoteHostRequired'))
@@ -435,13 +422,11 @@ const validateForm = (): boolean => {
     }
   }
 
-  // Space validation
   validateField('ip', formData.ip)
   validateField('port', String(formData.port))
   validateField('username', formData.username)
   validateField('password', formData.password)
 
-  // Check if any validation errors exist
   if (Object.values(validationErrors).some((error) => error !== '')) {
     return false
   }
@@ -452,7 +437,6 @@ const validateForm = (): boolean => {
 const handleSubmit = () => {
   if (!validateForm()) return
 
-  // If group_name is empty or undefined, set it to the default group
   const submitData = { ...formData }
   if (!submitData.group_name || submitData.group_name.trim() === '') {
     submitData.group_name = t('personal.defaultGroup')
@@ -475,7 +459,6 @@ const handleAddProxyConfig = () => {
   }, 100)
 }
 
-// Input handler functions - real-time space detection
 const handleIpInput = (event: Event) => {
   const target = event.target as HTMLInputElement
   const value = target.value
@@ -500,7 +483,6 @@ const handlePasswordInput = (event: Event) => {
   validateField('password', value)
 }
 
-// Reset form data when initialData changes
 watch(
   () => props.initialData,
   (newData) => {
@@ -519,7 +501,6 @@ watch(
       proxyName: '',
       ...newData
     })
-    // Reset validation errors
     Object.assign(validationErrors, {
       ip: '',
       port: '',

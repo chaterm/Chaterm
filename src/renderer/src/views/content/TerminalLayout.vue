@@ -109,7 +109,6 @@
               />
               <Extensions
                 v-if="currentMenu == 'extensions'"
-                ref="extensionsRef"
                 :toggle-sidebar="toggleSideBar"
                 @open-user-tab="openUserTab"
               />
@@ -231,36 +230,30 @@ import Header from '@views/components/Header/index.vue'
 import LeftTab from '@views/components/LeftTab/index.vue'
 import Workspace from '@views/components/Workspace/index.vue'
 import Extensions from '@views/components/Extensions/index.vue'
-import Snippets from '@views/components/LeftTab/components/snippets.vue'
+import Snippets from '@views/components/LeftTab/config/snippets.vue'
 import TabsPanel from './tabsPanel.vue'
-
 import { reactive } from 'vue'
 import { v4 as uuidv4 } from 'uuid'
 import { userInfoStore } from '@/store'
 import { aliasConfigStore } from '@/store/aliasConfigStore'
 import eventBus from '@/utils/eventBus'
 import { initializeThemeFromDatabase, getActualTheme } from '@/utils/themeUtils'
-import { Notice } from '../components/Notice'
 import { isGlobalInput, isShowCommandBar, componentInstances } from '@renderer/views/components/Ssh/termInputManager'
 import { inputManager } from '../components/Ssh/termInputManager'
-import { useRouter } from 'vue-router'
 import { shortcutService } from '@/services/shortcutService'
 import { captureExtensionUsage, ExtensionNames, ExtensionStatus } from '@/utils/telemetry'
 import Dashboard from '@views/components/Ssh/dashboard.vue'
 
-// Define props
 const props = defineProps<{
   currentMode: 'terminal' | 'agents'
 }>()
 
-const router = useRouter()
 const api = window.api as any
 const { t } = useI18n()
 const aliasConfig = aliasConfigStore()
 const configStore = piniaUserConfigStore()
 const isTransparent = computed(() => !!configStore.getUserConfig.background.image)
 const headerRef = ref<InstanceType<typeof Header> | null>(null)
-const extensionsRef = ref<InstanceType<typeof Extensions> | null>(null)
 const allTabs = ref<InstanceType<typeof TabsPanel> | null>(null)
 const isSkippedLogin = computed(() => {
   return localStorage.getItem('login-skipped') === 'true'
@@ -930,23 +923,6 @@ interface TabItem {
 const openedTabs = ref<TabItem[]>([])
 const activeTabId = ref('')
 const currentClickServer = async (item) => {
-  if (isSkippedLogin.value && needsAuth(item)) {
-    Notice.open({
-      type: 'warning',
-      description: t('common.pleaseLoginFirst'),
-      duration: 3,
-      btns: [
-        {
-          text: t('common.login'),
-          action: () => {
-            router.push('/login')
-          }
-        }
-      ]
-    })
-    return
-  }
-
   if (item.children) return
 
   const id_ = uuidv4()
@@ -986,15 +962,6 @@ const currentClickServer = async (item) => {
   }
 
   checkActiveTab(item.type || 'term')
-}
-
-const needsAuth = (item) => {
-  return false
-  // const authRequiredTypes = ['extensions']
-  // if (item.type === 'term' && item.data?.type === 'ssh') {
-  //   return false
-  // }
-  // return authRequiredTypes.includes(item.type || 'term')
 }
 
 const createTab = (infos) => {
@@ -1314,14 +1281,6 @@ const handleModeChange = (mode: 'terminal' | 'agents') => {
     }
   }
   eventBus.emit('switch-mode', mode)
-}
-
-const getCurrentActiveTabId = (): string | null => {
-  if (!dockApi) {
-    return null
-  }
-  const activePanel = dockApi.activePanel
-  return activePanel.params.id
 }
 
 import 'dockview-vue/dist/styles/dockview.css'
