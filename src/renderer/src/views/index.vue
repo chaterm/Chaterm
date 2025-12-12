@@ -10,8 +10,8 @@
 </template>
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, nextTick } from 'vue'
-import TerminalLayout from './content/TerminalLayout.vue'
-import AgentsLayout from './content/AgentsLayout.vue'
+import TerminalLayout from './layouts/TerminalLayout.vue'
+import AgentsLayout from './layouts/AgentsLayout.vue'
 import eventBus from '@/utils/eventBus'
 import { userConfigStore } from '@/services/userConfigStoreService'
 
