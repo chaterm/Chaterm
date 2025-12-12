@@ -40,17 +40,13 @@
           <a-menu-item class="extension_item">
             <div class="item_wrapper">
               <div class="item_icon">
-                <img
-                  v-if="getIconSrc(item)"
-                  :src="getIconSrc(item)"
-                  alt="icon"
-                />
-                <div
-                  v-else
-                  class="icon_placeholder"
-                >
-                  {{ item.name ? item.name[0].toUpperCase() : '?' }}
-                </div>
+                <Transition name="icon-fade">
+                  <img
+                    v-if="getIconSrc(item)"
+                    :src="getIconSrc(item)"
+                    alt="icon"
+                  />
+                </Transition>
               </div>
 
               <div class="item_info">
@@ -145,53 +141,58 @@ const createdBlobUrls = new Set<string>()
 
 const preloadedKeys = new Set<string>()
 const iconUrls = reactive<Record<string, string>>({})
-function getPluginKey(item: DisplayPluginItem) {
+const getPluginKey = (item: DisplayPluginItem) => {
   return `${item.pluginId}@${item.latestVersion || item.installedVersion || ''}`
 }
 
-async function preloadIcons(list: DisplayPluginItem[]) {
+const getIcons = async (item: DisplayPluginItem): Promise<string> => {
+  // Non-plug-in + built-in iconKey
+  if (!item.isPlugin && item.iconKey) {
+    return iconMap[item.iconKey] ?? ''
+  }
+
+  // Installed
+  if (item.installed && item.iconUrl) {
+    const src = convertFileSrc(item.iconUrl)
+    if (item.pluginId) {
+      iconUrls[item.pluginId] = src
+    }
+    return src
+  }
+
+  if (!item.pluginId) return ''
+
+  if (iconUrls[item.pluginId] !== undefined) {
+    return iconUrls[item.pluginId]
+  }
+
+  const key = getPluginKey(item)
+  if (preloadedKeys.has(key)) {
+    return iconUrls[item.pluginId] ?? ''
+  }
+  preloadedKeys.add(key)
+
+  try {
+    const url = await getPluginIconUrl(item.pluginId, item.latestVersion)
+    iconUrls[item.pluginId] = url
+    return url
+  } catch (e) {
+    console.error('getIcons: preload icon failed', item.pluginId, e)
+    iconUrls[item.pluginId] = ''
+    return ''
+  }
+}
+
+const preloadIcons = async (list: DisplayPluginItem[]): Promise<void> => {
   for (const item of list) {
     if (!item.isPlugin) continue
 
     const key = getPluginKey(item)
     if (preloadedKeys.has(key)) continue
 
-    preloadedKeys.add(key)
-
-    if (item.installed && item.iconUrl) {
-      continue
-    }
-
-    if (!item.pluginId) {
-      continue
-    }
-
-    try {
-      iconUrls[item.pluginId] = await getPluginIconUrl(item.pluginId, item.latestVersion)
-    } catch (e) {
-      console.error('preload icon failed', item.pluginId, e)
-    }
+    void getIcons(item)
   }
 }
-
-async function getIcons(item: DisplayPluginItem) {
-  if (!item.isPlugin) return
-
-  if (item.installed && item.iconUrl) {
-    return
-  }
-
-  if (!item.pluginId) {
-    return
-  }
-
-  try {
-    iconUrls[item.pluginId] = await getPluginIconUrl(item.pluginId, item.latestVersion)
-  } catch (e) {
-    console.error('preload icon failed', item.pluginId, e)
-  }
-}
-
 const handleSelect = (item) => {
   const key = item.key
   if (key !== 'Alias') {
@@ -373,7 +374,6 @@ const filteredList = computed(() => {
   const all = list.value.filter((item) => item.show)
   if (!searchValue.value) return all
   const query = searchValue.value.toLowerCase().trim()
-  console.log('all', all)
   return all.filter((item) => item.name.toLowerCase().includes(query))
 })
 
@@ -403,7 +403,6 @@ const convertFileSrc = (path: string | null): string => {
 }
 
 const getIconSrc = (item: any) => {
-  console.log('getIconSrc:', item)
   if (!item.isPlugin && item.iconKey) {
     return iconMap[item.iconKey] || ''
   }
@@ -414,7 +413,6 @@ const getIconSrc = (item: any) => {
     return ''
   }
   const blobUrl = iconUrls[item.pluginId]
-  console.log('blobUrl:', iconUrls, item.pluginId, blobUrl)
   return blobUrl || ''
 }
 
@@ -680,5 +678,19 @@ onBeforeUnmount(() => {
     align-items: center;
     justify-content: center;
   }
+}
+.icon-fade-enter-active,
+.icon-fade-leave-active {
+  transition: opacity 1s ease-out;
+}
+
+.icon-fade-enter-from,
+.icon-fade-leave-to {
+  opacity: 0;
+}
+
+.icon-fade-enter-to,
+.icon-fade-leave-from {
+  opacity: 1;
 }
 </style>
