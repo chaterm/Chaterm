@@ -147,11 +147,9 @@
 </template>
 <script setup lang="ts">
 import { removeToken } from '@/utils/permission'
-
 const snippetsIcon = new URL('@/assets/menu/snippet.svg', import.meta.url).href
-
 const emit = defineEmits(['toggle-menu', 'open-user-tab'])
-import { menuTabsData } from './data'
+import { menuTabsData } from './constants/data'
 import { onMounted, onUnmounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { userLogOut } from '@/api/user/user'
@@ -162,7 +160,6 @@ import { shortcutService } from '@/services/shortcutService'
 import { dataSyncService } from '@/services/dataSyncService'
 import { useI18n } from 'vue-i18n'
 
-// 声明存储事件处理函数的变量
 let storageEventHandler: ((e: StorageEvent) => void) | null = null
 
 const { locale } = useI18n()
@@ -171,12 +168,9 @@ const keychainConfigClick = () => {
   emit('open-user-tab', 'keyChainConfig')
 }
 
-// Open documentation based on current language
 const openDocumentation = () => {
   const currentLang = locale.value
   const docUrl = currentLang === 'zh-CN' ? 'https://chaterm.ai/cn/docs/' : 'https://chaterm.ai/docs/'
-
-  // Open documentation in external browser
   window.open(docUrl, '_blank')
 }
 const userStore = userInfoStore(pinia)
@@ -251,13 +245,11 @@ const files = () => {
 }
 const logout = async () => {
   const isSkippedLogin = localStorage.getItem('login-skipped') === 'true'
-
-  // 检查数据同步状态，如果开启则停止
   try {
     if (dataSyncService.getInitializationStatus()) {
       console.log('登出时检测到数据同步已启用，正在停止...')
       await dataSyncService.disableDataSync()
-      dataSyncService.reset() // 重置初始化状态
+      dataSyncService.reset()
       console.log('数据同步已停止')
     }
   } catch (error) {
@@ -265,7 +257,6 @@ const logout = async () => {
   }
 
   if (isSkippedLogin) {
-    // 如果是跳过登录的用户，直接清除状态并跳转
     localStorage.removeItem('login-skipped')
     removeToken()
     shortcutService.init()
@@ -274,7 +265,6 @@ const logout = async () => {
     return
   }
 
-  // 正常登录用户的登出流程
   userLogOut()
     .then((res) => {
       console.log(res, 'logout')
@@ -284,7 +274,6 @@ const logout = async () => {
     })
     .catch((err) => {
       console.log(err, 'err')
-      // 即使登出 API 失败，也应该清理本地状态并跳转到登录页
       removeToken()
       shortcutService.init()
       router.push('/login')
@@ -298,7 +287,6 @@ onMounted(() => {
     emit('open-user-tab', tab)
   })
 
-  // 监听登录状态变化
   storageEventHandler = (e: StorageEvent) => {
     if (e.key === 'login-skipped') {
       isSkippedLogin.value = e.newValue === 'true'
@@ -310,7 +298,6 @@ onMounted(() => {
 onUnmounted(() => {
   eventBus.off('openAiRight')
   eventBus.off('openUserTab')
-  // 使用保存的引用移除事件监听器
   if (storageEventHandler) {
     window.removeEventListener('storage', storageEventHandler)
     storageEventHandler = null

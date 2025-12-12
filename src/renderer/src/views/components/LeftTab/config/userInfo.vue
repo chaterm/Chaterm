@@ -247,13 +247,12 @@ const getUserInfo = () => {
         userInfo.value.isOfficeDevice = res.data.isOfficeDevice
       }
     })
-    if (userInfo.value.uid !== 2000001) unChange.value = false // 初始化表单数据
+    if (userInfo.value.uid !== 2000001) unChange.value = false
     formState.username = userInfo.value.username
     formState.name = userInfo.value.name
     formState.mobile = userInfo.value.mobile
   })
 }
-// const strength = zxcvbn(password)
 const strength = computed(() => {
   if (formState.newPassword === '') return null
   else return zxcvbn(formState.newPassword).score
@@ -272,7 +271,6 @@ const startEditingPassword = () => {
 const cancelEditing = () => {
   isEditing.value = false
   isEditingPassword.value = false
-  // 重置表单数据
   formState.name = userInfo.value.name
   formState.mobile = userInfo.value.mobile
   formState.newPassword = ''
@@ -350,12 +348,10 @@ const handleSave = async () => {
   }
 }
 
-// 初始化终端
 onMounted(() => {
   getUserInfo()
 })
 
-// 销毁时清理资源
 onBeforeUnmount(() => {})
 </script>
 
@@ -401,7 +397,6 @@ onBeforeUnmount(() => {})
   scrollbar-color: var(--scrollbar-thumb-color, rgba(0, 0, 0, 0.2)) transparent;
 }
 
-/* 自定义滚动条样式 */
 :deep(.ant-card-body)::-webkit-scrollbar {
   width: 6px;
 }
@@ -415,7 +410,6 @@ onBeforeUnmount(() => {})
   border-radius: 3px;
 }
 
-/* 表单样式 */
 .custom-form {
   color: var(--text-color);
   align-content: center;
@@ -430,7 +424,6 @@ onBeforeUnmount(() => {})
   color: var(--text-color);
 }
 
-/* 输入框样式 */
 .custom-input,
 :deep(.ant-input-password),
 :deep(.ant-input-password .ant-input) {
@@ -456,7 +449,6 @@ onBeforeUnmount(() => {})
   color: #f8f8f8 !important;
 }
 
-/* 错误提示样式 */
 .custom-form :deep(.ant-form-item-explain-error) {
   color: #ff4d4f;
 }
@@ -465,7 +457,6 @@ onBeforeUnmount(() => {})
   color: #ff4d4f;
 }
 
-/* 表单项样式 */
 .user_my-ant-form-item {
   -webkit-box-sizing: border-box;
   box-sizing: border-box;
@@ -483,12 +474,10 @@ onBeforeUnmount(() => {})
   width: 100%;
 }
 
-/* 密码强度表单项样式覆盖 */
 .custom-form :deep(.ant-form-item) {
   margin-bottom: 8px;
 }
 
-/* 头像样式 */
 .user_avatar {
   width: 18vmin;
   height: 18vmin;
@@ -526,7 +515,6 @@ onBeforeUnmount(() => {})
   text-shadow: 0 1px 1px rgba(0, 0, 0, 0.1);
 }
 
-/* 按钮容器样式 */
 .button-container {
   margin-top: 20px;
   text-align: center;
@@ -536,7 +524,6 @@ onBeforeUnmount(() => {})
   min-width: 80px;
 }
 
-/* 响应式样式 */
 @media (max-width: 768px) {
   .user_avatar {
     width: 20vmin;

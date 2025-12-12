@@ -1,4 +1,3 @@
-// 共享类型定义文件
 export interface AssetNode {
   key: string
   title: string

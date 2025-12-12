@@ -78,7 +78,6 @@
           </div>
         </div>
 
-        <!-- 右键菜单 -->
         <div
           v-if="contextMenuVisible"
           class="context-menu"
@@ -101,7 +100,6 @@
         </div>
       </div>
 
-      <!-- 右侧面板 -->
       <div
         v-if="isRightSectionVisible"
         class="right-section"
@@ -296,7 +294,6 @@ const createForm = reactive<CreateFormType>({
   passphrase: ''
 })
 
-// Validation states
 const validationErrors = reactive({
   label: '',
   publicKey: '',
@@ -311,7 +308,6 @@ const resetForm = () => {
     type: 'RSA',
     passphrase: ''
   })
-  // Clear validation errors
   Object.assign(validationErrors, {
     label: '',
     publicKey: '',
@@ -319,7 +315,6 @@ const resetForm = () => {
   })
 }
 
-// Validation functions
 const validateField = (field: keyof typeof validationErrors, value: string) => {
   if (value.includes(' ')) {
     switch (field) {
@@ -509,7 +504,6 @@ const handleUpdateKeyChain = async () => {
   if (!editingKeyChainId.value) return message.error(t('keyChain.missingKeyId'))
 
   try {
-    // Validate all fields first
     if (!validateAllFields()) {
       return message.error(t('keyChain.nameContainsSpace'))
     }
@@ -593,7 +587,6 @@ function handleDrop(e: DragEvent) {
     reader.onload = (event) => {
       const text = event.target?.result as string
       createForm.privateKey = text
-      validateField('privateKey', text)
       message.success('密钥文件已导入')
     }
     reader.onerror = () => {
@@ -618,7 +611,6 @@ function handleFileChange(e: Event) {
     reader.onload = (event) => {
       const text = event.target?.result as string
       createForm.privateKey = text
-      validateField('privateKey', text)
       message.success('密钥文件已导入')
     }
     reader.onerror = () => {

@@ -35,18 +35,16 @@
 <script setup lang="ts">
 import { DatabaseOutlined, EditOutlined, ApiOutlined } from '@ant-design/icons-vue'
 import i18n from '@/locales'
-import type { AssetNode } from '../types'
+import type { AssetNode } from '../utils/types'
 
 const { t } = i18n.global
 
-// Props
 interface Props {
   asset: AssetNode
 }
 
 const props = defineProps<Props>()
 
-// Emits
 const emit = defineEmits<{
   click: [asset: AssetNode]
   'double-click': [asset: AssetNode]
@@ -54,9 +52,6 @@ const emit = defineEmits<{
   'context-menu': [event: MouseEvent, asset: AssetNode]
 }>()
 
-// 移除本地状态，右键菜单状态由父组件管理
-
-// Methods
 const handleClick = () => {
   emit('click', props.asset)
 }
