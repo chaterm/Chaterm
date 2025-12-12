@@ -279,9 +279,9 @@ onMounted(async () => {
         await nextTick()
         setTimeout(async () => {
           await restoreStateFromTerminal()
-          if (aiTabRef.value && typeof aiTabRef.value.updateHostsForCommandMode === 'function') {
-            await aiTabRef.value.updateHostsForCommandMode()
-          }
+          // if (aiTabRef.value && typeof aiTabRef.value.updateHostsForCommandMode === 'function') {
+          //   await aiTabRef.value.updateHostsForCommandMode()
+          // }
         }, 100)
       }
     },
