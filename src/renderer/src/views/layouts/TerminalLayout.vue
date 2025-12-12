@@ -238,11 +238,10 @@ import { userInfoStore } from '@/store'
 import { aliasConfigStore } from '@/store/aliasConfigStore'
 import eventBus from '@/utils/eventBus'
 import { initializeThemeFromDatabase, getActualTheme } from '@/utils/themeUtils'
-import { isGlobalInput, isShowCommandBar, componentInstances } from '@renderer/views/components/Ssh/termInputManager'
-import { inputManager } from '../components/Ssh/termInputManager'
+import { isGlobalInput, isShowCommandBar, componentInstances, inputManager } from '@renderer/views/components/Ssh/utils/termInputManager'
 import { shortcutService } from '@/services/shortcutService'
 import { captureExtensionUsage, ExtensionNames, ExtensionStatus } from '@/utils/telemetry'
-import Dashboard from '@views/components/Ssh/dashboard.vue'
+import Dashboard from '@renderer/views/components/Ssh/components/dashboard.vue'
 
 const props = defineProps<{
   currentMode: 'terminal' | 'agents'

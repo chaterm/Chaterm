@@ -96,7 +96,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
-import { isGlobalInput } from './termInputManager'
+import { isGlobalInput } from '../utils/termInputManager'
 import {
   getCopyShortcut,
   getPasteShortcut,

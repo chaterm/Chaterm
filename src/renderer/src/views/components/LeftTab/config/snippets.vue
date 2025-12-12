@@ -412,8 +412,8 @@ import {
   CloseOutlined
 } from '@ant-design/icons-vue'
 import snippetIcon from '@/assets/menu/snippet.svg'
-import { executeScript } from '../../Ssh/commandScript'
-import { inputManager } from '../../Ssh/termInputManager'
+import { executeScript } from '../../Ssh/utils/commandScript'
+import { inputManager } from '../../Ssh/utils/termInputManager'
 
 const { t } = useI18n()
 

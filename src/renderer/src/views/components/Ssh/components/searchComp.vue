@@ -127,7 +127,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, nextTick, onBeforeUnmount, reactive, watch } from 'vue'
+import { ref, onMounted, nextTick, onBeforeUnmount, watch } from 'vue'
 import { SearchAddon } from 'xterm-addon-search'
 import { useI18n } from 'vue-i18n'
 
