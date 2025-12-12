@@ -62,6 +62,7 @@
     <EditorCode
       :editor="editor"
       :is-active="editor.key === activeEditorKey"
+      :boundary-el="terminalElement"
       @close-vim-editor="closeVimEditor"
       @handle-save="handleSave"
       @focus-editor="() => handleFocusEditor(editor)"
@@ -887,23 +888,27 @@ const createEditor = async (filePath, contentType) => {
     message.error('Permission denied')
   } else {
     const existingEditor = openEditors.find((editor) => editor.filePath === filePath)
-    if (!existingEditor) {
+    const rect = terminalContainer.value?.getBoundingClientRect()
+    if (!existingEditor && rect && rect.width > 0 && rect.height > 0) {
+      const w = Math.round(rect.width * 0.7)
+      const h = Math.round(rect.height * 0.7)
       openEditors.push({
         filePath: filePath,
         visible: true,
         vimText: stdout,
         originVimText: stdout,
         action: action,
-        vimEditorX: Math.round(window.innerWidth * 0.5) - Math.round(window.innerWidth * 0.7 * 0.5),
-        vimEditorY: Math.round(window.innerHeight * 0.5) - Math.round(window.innerHeight * 0.7 * 0.5),
+        vimEditorX: Math.round(rect.width * 0.5 - w * 0.5),
+        vimEditorY: Math.round(rect.height * 0.5 - h * 0.5),
         contentType: contentType,
-        vimEditorHeight: Math.round(window.innerHeight * 0.7),
-        vimEditorWidth: Math.round(window.innerWidth * 0.7),
+        vimEditorHeight: h,
+        vimEditorWidth: w,
         loading: false,
         fileChange: false,
         saved: false,
         key: connectionId.value + '-' + filePath,
-        terminalId: connectionId.value
+        terminalId: connectionId.value,
+        userResized: false
       } as editorData)
     } else {
       existingEditor.visible = true
@@ -948,6 +953,28 @@ const debounce = (func, wait, immediate = false) => {
     }
   }
 }
+
+const clamp = (v: number, min: number, max: number) => Math.min(Math.max(v, min), max)
+
+const resizeEditor = (ed: editorData, rect: DOMRect) => {
+  if (!ed.userResized) {
+    ed.vimEditorWidth = Math.round(rect.width * 0.7)
+    ed.vimEditorHeight = Math.round(rect.height * 0.7)
+  } else {
+    const scale = Math.min(1, rect.width / Math.max(ed.vimEditorWidth, 1), rect.height / Math.max(ed.vimEditorHeight, 1))
+    if (scale < 1) {
+      // Passively reduced clearing user adjustment status
+      ed.userResized = false
+      ed.vimEditorWidth = Math.floor(ed.vimEditorWidth * scale)
+      ed.vimEditorHeight = Math.floor(ed.vimEditorHeight * scale)
+    }
+  }
+
+  // boundary clamping
+  ed.vimEditorX = clamp(ed.vimEditorX, 0, Math.max(0, rect.width - ed.vimEditorWidth))
+  ed.vimEditorY = clamp(ed.vimEditorY, 0, Math.max(0, rect.height - ed.vimEditorHeight))
+}
+
 const autoExecuteCode = (payload: { command: string; tabId: string }) => {
   if (payload.tabId !== props.currentConnectionId) return
   sendData(payload.command)
@@ -964,6 +991,7 @@ const handleResize = debounce(() => {
         } else {
           resizeSSH(cols, rows)
         }
+        openEditors.forEach((ed) => resizeEditor(ed, rect))
       }
     } catch (error) {
       console.error('Failed to resize terminal:', error)

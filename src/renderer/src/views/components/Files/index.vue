@@ -1,5 +1,8 @@
 <template>
-  <div class="tree-container">
+  <div
+    ref="fileElement"
+    class="tree-container"
+  >
     <a-tree
       v-if="treeData && treeData.length"
       v-model:expanded-keys="expandedKeys"
@@ -104,6 +107,79 @@ const handleActiveTabChanged = async (tabInfo: ActiveTerminalInfo) => {
   }
 }
 
+const clamp = (v: number, min: number, max: number) => Math.min(Math.max(v, min), max)
+
+const resizeEditor = (ed: editorData, rect: DOMRect) => {
+  if (!ed.userResized) {
+    ed.vimEditorWidth = Math.round(rect.width * 0.7)
+    ed.vimEditorHeight = Math.round(rect.height * 0.7)
+  } else {
+    const scale = Math.min(1, rect.width / Math.max(ed.vimEditorWidth, 1), rect.height / Math.max(ed.vimEditorHeight, 1))
+    if (scale < 1) {
+      // Passively reduced clearing user adjustment status
+      ed.userResized = false
+      ed.vimEditorWidth = Math.floor(ed.vimEditorWidth * scale)
+      ed.vimEditorHeight = Math.floor(ed.vimEditorHeight * scale)
+    }
+  }
+  // boundary clamping
+  ed.vimEditorX = clamp(ed.vimEditorX, 0, Math.max(0, rect.width - ed.vimEditorWidth))
+  ed.vimEditorY = clamp(ed.vimEditorY, 0, Math.max(0, rect.height - ed.vimEditorHeight))
+}
+const fileElement = ref<HTMLDivElement | null>(null)
+const debounce = (func, wait, immediate = false) => {
+  let timeout
+  let isFirstCall = true
+  let isDragging = false
+  let lastCallTime = 0
+
+  return function executedFunction(...args) {
+    const now = Date.now()
+    const timeSinceLastCall = now - lastCallTime
+    lastCallTime = now
+    isDragging = timeSinceLastCall < 50
+    const later = () => {
+      clearTimeout(timeout)
+      timeout = null
+      if (!immediate) func(...args)
+      isDragging = false
+    }
+    const callNow = immediate && !timeout
+    clearTimeout(timeout)
+    let dynamicWait
+    if (isDragging) {
+      dynamicWait = 5
+    } else if (isFirstCall) {
+      dynamicWait = 0
+    } else {
+      dynamicWait = wait
+    }
+
+    timeout = setTimeout(later, dynamicWait)
+
+    if (callNow) {
+      func(...args)
+      isFirstCall = false
+    }
+  }
+}
+
+const handleResize = () => {
+  const el = fileElement.value
+  if (!el) return
+  try {
+    const rect = fileElement.value.getBoundingClientRect()
+    if (rect && rect.width > 0 && rect.height > 0) {
+      openEditors.forEach((ed) => resizeEditor(ed, rect))
+    }
+  } catch (error) {
+    console.error('Failed to resize terminal:', error)
+  }
+}
+
+let resizeObserver = null
+const debouncedUpdate = debounce(handleResize, 100)
+
 onMounted(async () => {
   const activeTerminal = await getCurrentActiveTerminalInfo()
   if (activeTerminal) {
@@ -111,10 +187,20 @@ onMounted(async () => {
   }
   await listUserSessions()
   eventBus.on('activeTabChanged', handleActiveTabChanged)
+  resizeObserver = new ResizeObserver((entries) => {
+    debouncedUpdate()
+  })
+
+  if (fileElement.value) {
+    resizeObserver.observe(fileElement.value)
+  }
 })
 
 onBeforeUnmount(() => {
   eventBus.off('activeTabChanged', handleActiveTabChanged)
+  if (resizeObserver) {
+    resizeObserver.disconnect()
+  }
 })
 const api = (window as any).api
 const expandedKeys = ref<string[]>([])
@@ -221,24 +307,28 @@ const openFile = async (data) => {
   } else {
     const contentType = getFileExt(filePath) ? getFileExt(filePath) : '.python'
     const existingEditor = openEditors.find((editor) => editor?.filePath === filePath)
-    if (!existingEditor) {
+    const rect = fileElement.value?.getBoundingClientRect()
+    if (!existingEditor && rect && rect.width > 0 && rect.height > 0) {
+      const w = Math.round(rect.width * 0.7)
+      const h = Math.round(rect.height * 0.7)
       openEditors.push({
         filePath: filePath,
         visible: true,
         vimText: stdout,
         originVimText: stdout,
         action: action,
-        vimEditorX: Math.round(window.innerWidth * 0.5) - Math.round(window.innerWidth * 0.7 * 0.5),
-        vimEditorY: Math.round(window.innerHeight * 0.5) - Math.round(window.innerHeight * 0.7 * 0.5),
+        vimEditorX: Math.round(rect.width * 0.5 - w * 0.5),
+        vimEditorY: Math.round(rect.height * 0.5 - h * 0.5),
         contentType: LanguageMap[contentType] ? LanguageMap[contentType] : 'python',
-        vimEditorHeight: Math.round(window.innerHeight * 0.7),
-        vimEditorWidth: Math.round(window.innerWidth * 0.7),
+        vimEditorHeight: h,
+        vimEditorWidth: w,
         loading: false,
         fileChange: false,
         saved: false,
         key: terminalId + '-' + filePath,
         terminalId: terminalId,
-        editorType: contentType
+        editorType: contentType,
+        userResized: false
       } as UnwrapRef<editorData>)
     } else {
       existingEditor.visible = true
