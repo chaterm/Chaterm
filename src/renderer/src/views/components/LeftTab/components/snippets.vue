@@ -443,7 +443,7 @@ const editingCommand = ref(false) // 控制是否显示编辑面板
 const showAddCommandDialog = ref(false)
 const newCommandLabel = ref('')
 const newCommandValue = ref('')
-const newCommandGroupUuid = ref<string | null>(null)
+const newCommandGroupUuid = ref<string | undefined>(undefined)
 const selectedCommandId = ref<number | null>(null)
 const isEditMode = ref(false)
 
@@ -534,7 +534,7 @@ onUnmounted(() => {
 const openAddCommandDialog = () => {
   newCommandLabel.value = ''
   newCommandValue.value = ''
-  newCommandGroupUuid.value = selectedGroupUuid.value // Default to selected group
+  newCommandGroupUuid.value = selectedGroupUuid.value ?? undefined // Default to selected group
   editingCommand.value = true
   isEditMode.value = false
   selectedCommandId.value = null
@@ -546,7 +546,7 @@ const handleEditCommand = async (id: number | null) => {
   if (!cmd) return
   newCommandLabel.value = cmd.snippet_name
   newCommandValue.value = cmd.snippet_content
-  newCommandGroupUuid.value = cmd.group_uuid || null
+  newCommandGroupUuid.value = cmd.group_uuid || undefined
   isEditMode.value = true
   editingCommand.value = true
   selectedCommandId.value = id
@@ -629,7 +629,7 @@ const cancelEditCommand = () => {
   selectedCommandId.value = null
   newCommandLabel.value = ''
   newCommandValue.value = ''
-  newCommandGroupUuid.value = null
+  newCommandGroupUuid.value = undefined
 }
 
 // Group Operations
