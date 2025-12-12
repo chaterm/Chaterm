@@ -97,17 +97,17 @@
 
 <script setup lang="ts">
 import { ref, onMounted, onBeforeUnmount } from 'vue'
-import General from '@/views/components/LeftTab/components/general.vue'
-import Terminal from '@/views/components/LeftTab/components/terminal.vue'
-import Extensions from '@/views/components/LeftTab/components/extensions.vue'
-import AI from '@/views/components/LeftTab/components/ai.vue'
-import Billing from '@/views/components/LeftTab/components/billing.vue'
-import Model from '@/views/components/LeftTab/components/model.vue'
-import Shortcuts from '@/views/components/LeftTab/components/shortcuts.vue'
-import Privacy from '@/views/components/LeftTab/components/privacy.vue'
-import Rules from '@/views/components/LeftTab/components/rules.vue'
-import About from '@/views/components/LeftTab/components/about.vue'
-import Mcp from '@/views/components/LeftTab/components/mcp.vue'
+import General from '@/views/components/LeftTab/setting/general.vue'
+import Terminal from '@/views/components/LeftTab/setting/terminal.vue'
+import Extensions from '@/views/components/LeftTab/setting/extensions.vue'
+import AI from '@/views/components/LeftTab/setting/ai.vue'
+import Billing from '@/views/components/LeftTab/setting/billing.vue'
+import Model from '@/views/components/LeftTab/setting/model.vue'
+import Shortcuts from '@/views/components/LeftTab/setting/shortcuts.vue'
+import Privacy from '@/views/components/LeftTab/setting/privacy.vue'
+import Rules from '@/views/components/LeftTab/setting/rules.vue'
+import About from '@/views/components/LeftTab/setting/about.vue'
+import Mcp from '@/views/components/LeftTab/setting/mcp.vue'
 import eventBus from '@/utils/eventBus'
 
 const isSkippedLogin = ref(localStorage.getItem('login-skipped') === 'true')
