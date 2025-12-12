@@ -46,15 +46,15 @@
           />
         </template>
         <template v-else>
-          <userInfo v-if="localTab.content === 'userInfo'" />
-          <userConfig v-if="localTab.content === 'userConfig'" />
-          <files v-if="localTab.content === 'files'" />
-          <aliasConfig v-if="localTab.content === 'aliasConfig'" />
-          <assetConfig v-if="localTab.content === 'assetConfig'" />
-          <keyChainConfig v-if="localTab.content === 'keyChainConfig'" />
-          <mcpConfigEditor v-if="localTab.content === 'mcpConfigEditor'" />
-          <securityConfigEditor v-if="localTab.content === 'securityConfigEditor'" />
-          <pluginDetail
+          <UserInfo v-if="localTab.content === 'userInfo'" />
+          <UserConfig v-if="localTab.content === 'userConfig'" />
+          <Files v-if="localTab.content === 'files'" />
+          <AliasConfig v-if="localTab.content === 'aliasConfig'" />
+          <AssetConfig v-if="localTab.content === 'assetConfig'" />
+          <KeyChainConfig v-if="localTab.content === 'keyChainConfig'" />
+          <McpConfigEditor v-if="localTab.content === 'mcpConfigEditor'" />
+          <SecurityConfigEditor v-if="localTab.content === 'securityConfigEditor'" />
+          <PluginDetail
             v-if="localTab.content.startsWith('plugins:') && localTab.props"
             :plugin-info="localTab as TabItem & { props: { pluginId: string; fromLocal?: boolean } }"
             @uninstall-plugin="uninstallPlugin"
@@ -68,17 +68,17 @@
 import { computed, ref, ComponentPublicInstance, onMounted, onUnmounted, watch, nextTick } from 'vue'
 import { userConfigStore } from '@/store/userConfigStore'
 import 'splitpanes/dist/splitpanes.css'
-import userInfo from '@views/components/LeftTab/config/userInfo.vue'
-import userConfig from '@views/components/LeftTab/config/userConfig.vue'
-import assetConfig from '@views/components/LeftTab/config/assetConfig.vue'
-import aliasConfig from '@views/components/Extensions/aliasConfig.vue'
-import keyChainConfig from '@views/components/LeftTab/config/keyChainConfig.vue'
-import sshConnect from '@views/components/Ssh/sshConnect.vue'
-import files from '@views/components/Files/index.vue'
-import mcpConfigEditor from '@views/components/McpConfigEditor/index.vue'
-import securityConfigEditor from '@views/components/SecurityConfigEditor/index.vue'
+import UserInfo from '@views/components/LeftTab/config/userInfo.vue'
+import UserConfig from '@views/components/LeftTab/config/userConfig.vue'
+import AssetConfig from '@views/components/LeftTab/config/assetConfig.vue'
+import AliasConfig from '@views/components/Extensions/aliasConfig.vue'
+import KeyChainConfig from '@views/components/LeftTab/config/keyChainConfig.vue'
+import SshConnect from '@views/components/Ssh/sshConnect.vue'
+import Files from '@views/components/Files/index.vue'
+import McpConfigEditor from '@views/components/McpConfigEditor/index.vue'
+import SecurityConfigEditor from '@views/components/SecurityConfigEditor/index.vue'
+import PluginDetail from '@views/components/Extensions/pluginDetail.vue'
 import type { IDockviewPanelProps } from 'dockview-vue'
-import pluginDetail from '@views/components/Extensions/pluginDetail.vue'
 import { isFocusInAiTab } from '@/utils/domUtils'
 
 interface TabItem {

@@ -42,7 +42,7 @@ import { notification } from 'ant-design-vue'
 import { securityConfigService } from '@/services/securityConfigService'
 import { useI18n } from 'vue-i18n'
 import { ExclamationCircleOutlined } from '@ant-design/icons-vue'
-import MonacoEditor from '@renderer/views/components/Ssh/Editor/monacoEditor.vue'
+import MonacoEditor from '@renderer/views/components/Ssh/editors/monacoEditor.vue'
 import { getMonacoTheme } from '@/utils/themeUtils'
 
 const { t } = useI18n()
