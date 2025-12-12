@@ -1,54 +1,56 @@
 <template>
-  <div
-    v-if="visible"
-    ref="contextMenuRef"
-    class="context-menu"
-    :style="menuStyle"
-    @click="handleClose"
-  >
+  <Teleport to="body">
     <div
-      v-if="asset?.asset_type !== 'organization'"
-      class="context-menu-item"
-      @click.stop="handleConnect"
+      v-if="visible"
+      ref="contextMenuRef"
+      class="context-menu"
+      :style="menuStyle"
+      @click="handleClose"
     >
-      <div class="context-menu-icon"><ApiOutlined /></div>
-      <div>{{ t('common.connect') }}</div>
-    </div>
+      <div
+        v-if="asset?.asset_type !== 'organization'"
+        class="context-menu-item"
+        @click.stop="handleConnect"
+      >
+        <div class="context-menu-icon"><ApiOutlined /></div>
+        <div>{{ t('common.connect') }}</div>
+      </div>
 
-    <div
-      class="context-menu-item"
-      @click.stop="handleEdit"
-    >
-      <div class="context-menu-icon"><EditOutlined /></div>
-      <div>{{ t('common.edit') }}</div>
-    </div>
+      <div
+        class="context-menu-item"
+        @click.stop="handleEdit"
+      >
+        <div class="context-menu-icon"><EditOutlined /></div>
+        <div>{{ t('common.edit') }}</div>
+      </div>
 
-    <div
-      v-if="asset?.asset_type !== 'organization'"
-      class="context-menu-item"
-      @click.stop="handleClone"
-    >
-      <div class="context-menu-icon"><CopyOutlined /></div>
-      <div>{{ t('common.clone') }}</div>
-    </div>
+      <div
+        v-if="asset?.asset_type !== 'organization'"
+        class="context-menu-item"
+        @click.stop="handleClone"
+      >
+        <div class="context-menu-icon"><CopyOutlined /></div>
+        <div>{{ t('common.clone') }}</div>
+      </div>
 
-    <div
-      v-if="asset?.asset_type === 'organization'"
-      class="context-menu-item"
-      @click.stop="handleRefresh"
-    >
-      <div class="context-menu-icon"><ReloadOutlined /></div>
-      <div>{{ t('personal.refreshAssets') }}</div>
-    </div>
+      <div
+        v-if="asset?.asset_type === 'organization'"
+        class="context-menu-item"
+        @click.stop="handleRefresh"
+      >
+        <div class="context-menu-icon"><ReloadOutlined /></div>
+        <div>{{ t('personal.refreshAssets') }}</div>
+      </div>
 
-    <div
-      class="context-menu-item delete"
-      @click.stop="handleRemove"
-    >
-      <div class="context-menu-icon"><DeleteOutlined /></div>
-      <div>{{ t('common.remove') }}</div>
+      <div
+        class="context-menu-item delete"
+        @click.stop="handleRemove"
+      >
+        <div class="context-menu-icon"><DeleteOutlined /></div>
+        <div>{{ t('common.remove') }}</div>
+      </div>
     </div>
-  </div>
+  </Teleport>
 </template>
 
 <script setup lang="ts">
