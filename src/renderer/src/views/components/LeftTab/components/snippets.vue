@@ -402,11 +402,9 @@ import { useI18n } from 'vue-i18n'
 import {
   EditOutlined,
   DeleteOutlined,
-  MoreOutlined,
   PlayCircleOutlined,
   CopyOutlined,
   SearchOutlined,
-  PlusOutlined,
   ArrowLeftOutlined,
   FolderOutlined,
   FolderAddOutlined,
@@ -416,7 +414,6 @@ import {
 import snippetIcon from '@/assets/menu/snippet.svg'
 import { executeScript } from '../../Ssh/commandScript'
 import { inputManager } from '../../Ssh/termInputManager'
-import { Modal } from 'ant-design-vue'
 
 const { t } = useI18n()
 
@@ -439,8 +436,7 @@ interface SnippetGroup {
 const quickCommands = ref<QuickCommand[]>([])
 const groups = ref<SnippetGroup[]>([])
 const selectedGroupUuid = ref<string | null>(null)
-const editingCommand = ref(false) // 控制是否显示编辑面板
-const showAddCommandDialog = ref(false)
+const editingCommand = ref(false)
 const newCommandLabel = ref('')
 const newCommandValue = ref('')
 const newCommandGroupUuid = ref<string | undefined>(undefined)
@@ -579,8 +575,9 @@ const handleContextMenu = (e: MouseEvent, cmd: QuickCommand) => {
   setTimeout(() => {
     const menus = document.querySelectorAll('.v-contextmenu')
     menus.forEach((menu) => {
-      if (menu.style.display !== 'none') {
-        menu.classList.add('snippet-context-menu')
+      const htmlMenu = menu as HTMLElement
+      if (htmlMenu.style.display !== 'none') {
+        htmlMenu.classList.add('snippet-context-menu')
       }
     })
   }, 0)
@@ -614,7 +611,12 @@ const addQuickCommand = async () => {
       group_uuid: newCommandGroupUuid.value
     }
     if (isEditMode.value && selectedCommandId.value !== null) {
-      await editCommand({ id: selectedCommandId.value, ...cmd })
+      const existingCommand = quickCommands.value.find((item) => item.id === selectedCommandId.value)
+      if (!existingCommand) {
+        console.error('Command not found for editing')
+        return
+      }
+      await editCommand({ id: selectedCommandId.value, uuid: existingCommand.uuid, ...cmd })
     } else {
       await addCommand(cmd)
     }
