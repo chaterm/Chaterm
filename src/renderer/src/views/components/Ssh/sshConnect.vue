@@ -2007,6 +2007,13 @@ const checkEditorMode = (response: MarkedResponse) => {
   }
 
   if (terminalMode.value === 'ui') {
+    const hasShellPrompt = /[@:].*[$#%>]\s*$/.test(text) || /\]\$\s*$/.test(text) || /~[$#]\s*$/.test(text)
+    if (hasShellPrompt) {
+      terminalMode.value = 'none'
+      dataBuffer.value = []
+      nextTick(handleResize)
+      return
+    }
     let score = 0
     if (text.includes('\x1b[?2004h')) score += 2
     if (text.includes('\x1b[?1034h')) score += 2
