@@ -23,6 +23,7 @@ export async function executeRemoteCommand() {
     privateKey: ``,
     passphrase: ''
   }
+  console.log('Connection info:', connectionInfo)
 
   const cwd = '/home'
   const remoteManager = new RemoteTerminalManager()

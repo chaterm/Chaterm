@@ -18,7 +18,55 @@ export interface SingleCompletionHandler {
   completePrompt(prompt: string): Promise<string>
 }
 
+class MockApiHandler implements ApiHandler {
+  private lastUsage?: ApiStreamUsageChunk
+
+  async *createMessage(_systemPrompt: string, messages: Anthropic.Messages.MessageParam[]): ApiStream {
+    const last = messages[messages.length - 1]
+    const lastText =
+      typeof last?.content === 'string'
+        ? last.content
+        : Array.isArray(last?.content)
+          ? last.content
+              .map((c: any) => (typeof c?.text === 'string' ? c.text : ''))
+              .filter(Boolean)
+              .join(' ')
+          : ''
+
+    const reply = /\bping\b/i.test(lastText) ? 'pong' : 'ok'
+
+    // Keep it deterministic and lightweight for CI smoke
+    yield { type: 'text', text: reply }
+    this.lastUsage = { type: 'usage', inputTokens: 1, outputTokens: 1 }
+    yield this.lastUsage
+  }
+
+  getModel(): { id: string; info: ModelInfo } {
+    return {
+      id: 'mock-llm',
+      info: {
+        supportsPromptCache: false,
+        maxTokens: 8192,
+        contextWindow: 8192,
+        description: 'Deterministic mock LLM for tests'
+      }
+    }
+  }
+
+  async getApiStreamUsage(): Promise<ApiStreamUsageChunk | undefined> {
+    return this.lastUsage
+  }
+
+  async validateApiKey(): Promise<{ isValid: boolean; error?: string }> {
+    return { isValid: true }
+  }
+}
+
 export function buildApiHandler(configuration: ApiConfiguration): ApiHandler {
+  if (process.env.CHATERM_TEST_MOCK_LLM === '1') {
+    return new MockApiHandler()
+  }
+
   const { apiProvider, ...options } = configuration
   switch (apiProvider) {
     case 'bedrock':
