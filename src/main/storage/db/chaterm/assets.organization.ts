@@ -56,12 +56,13 @@ export function connectAssetInfoLogic(db: Database.Database, uuid: string): any 
   }
 }
 
-export function getUserHostsLogic(db: Database.Database, search: string, limit: number = 50, offset: number = 0): any {
+export function getUserHostsLogic(db: Database.Database, search: string, limit: number = 50): any {
   try {
     const safeSearch = search ?? ''
     const searchPattern = safeSearch ? `%${safeSearch}%` : '%'
+    const maxItems = Math.max(1, Math.floor(limit) || 50)
 
-    // 自动清理孤立的组织资产
+    // Auto cleanup orphaned organization assets
     const deleteOrphanedStmt = db.prepare(`
       DELETE FROM t_organization_assets
       WHERE uuid IN (
@@ -73,42 +74,129 @@ export function getUserHostsLogic(db: Database.Database, search: string, limit: 
     `)
     deleteOrphanedStmt.run()
 
-    // 查询个人资产
+    // Step 1: Query personal assets (asset_type='person')
     const personalStmt = db.prepare(`
-        SELECT asset_ip as host, uuid, 'person' as asset_type
+        SELECT asset_ip as host, uuid
         FROM t_assets
         WHERE asset_ip LIKE ? AND asset_type = 'person'
-        GROUP BY asset_ip
+        GROUP BY asset_ip, uuid
       `)
     const personalResults = personalStmt.all(searchPattern) || []
 
-    // Query organization assets (jump server resources) with parameterized query
-    const orgStmt = db.prepare(`
-        SELECT host, uuid, jump_server_type as asset_type
-        FROM t_organization_assets
-        WHERE host LIKE ?
-        GROUP BY host
+    // Step 2: Query jumpserver nodes (asset_type='organization')
+    const jumpserverStmt = db.prepare(`
+        SELECT uuid, asset_ip as host
+        FROM t_assets
+        WHERE asset_type = 'organization'
       `)
-    const orgResults = orgStmt.all(searchPattern) || []
+    const jumpserverResults = jumpserverStmt.all() || []
 
-    // Merge results: prioritize personal assets, but ensure organization assets are also included
-    const allResults = [...personalResults, ...orgResults]
+    // Step 3: Query jumpserver child assets with optional search filter
+    const orgAssetsStmt = db.prepare(`
+        SELECT
+          oa.uuid as asset_uuid,
+          oa.host,
+          oa.organization_uuid,
+          oa.jump_server_type as connection_type
+        FROM t_organization_assets oa
+        JOIN t_assets a ON oa.organization_uuid = a.uuid
+        WHERE oa.host LIKE ?
+      `)
+    const orgAssetResults = orgAssetsStmt.all(searchPattern) || []
 
-    // Remove duplicates by host (keep first occurrence)
-    const uniqueResults = Array.from(new Map(allResults.map((item) => [item.host, item])).values())
+    // Step 4: Build tree structure
 
-    // Apply pagination
-    const total = uniqueResults.length
-    const paginatedResults = uniqueResults.slice(offset, offset + limit)
+    // Format personal assets
+    const personalData = personalResults.map((item: any) => ({
+      key: `personal_${item.uuid}`,
+      label: item.host,
+      type: 'personal',
+      selectable: true,
+      uuid: item.uuid,
+      connection: 'person'
+    }))
+
+    // Group org assets by organization_uuid
+    const orgAssetsMap = new Map<string, any[]>()
+    for (const asset of orgAssetResults) {
+      const orgUuid = (asset as any).organization_uuid
+      if (!orgAssetsMap.has(orgUuid)) {
+        orgAssetsMap.set(orgUuid, [])
+      }
+      orgAssetsMap.get(orgUuid)!.push(asset)
+    }
+
+    // Build jumpserver tree nodes
+    const jumpserverData = (jumpserverResults as any[])
+      .filter((js: any) => {
+        // Include jumpserver if it has matching children or no search term
+        return !safeSearch || orgAssetsMap.has(js.uuid)
+      })
+      .map((js: any) => ({
+        key: `jumpserver_${js.uuid}`,
+        label: js.host,
+        type: 'jumpserver',
+        selectable: false,
+        uuid: js.uuid,
+        connection: 'organization',
+        children: (orgAssetsMap.get(js.uuid) || []).map((child: any) => ({
+          key: `jumpserver_${js.uuid}_${child.asset_uuid}`,
+          label: child.host,
+          type: 'jumpserver_child',
+          selectable: true,
+          uuid: child.asset_uuid,
+          connection: child.connection_type || 'jumpserver',
+          organizationUuid: js.uuid
+        }))
+      }))
+      .filter((js: any) => js.children.length > 0) // Only include jumpservers with children
+
+    // Calculate total count
+    const childrenCount = jumpserverData.reduce((sum: number, js: any) => sum + js.children.length, 0)
+    const total = personalData.length + jumpserverData.length + childrenCount
+
+    // Step 5: Apply maxItems limit while keeping tree integrity
+    const trimmedPersonal: any[] = []
+    let remaining = maxItems
+
+    for (const p of personalData) {
+      if (remaining <= 0) break
+      trimmedPersonal.push(p)
+      remaining -= 1
+    }
+
+    const trimmedJumpservers: any[] = []
+
+    for (const js of jumpserverData) {
+      if (remaining <= 1) break // need at least space for parent + one child
+
+      const availableForChildren = remaining - 1
+      const children: any[] = []
+      for (const child of js.children) {
+        if (children.length >= availableForChildren) break
+        children.push(child)
+      }
+
+      if (children.length === 0) {
+        continue
+      }
+
+      trimmedJumpservers.push({
+        ...js,
+        children
+      })
+
+      remaining -= 1 + children.length
+      if (remaining <= 0) break
+    }
 
     return {
-      data: paginatedResults.map((item: any) => ({
-        host: item.host,
-        uuid: item.uuid,
-        asset_type: item.asset_type
-      })),
-      total,
-      hasMore: offset + limit < total
+      data: {
+        personal: trimmedPersonal,
+        jumpservers: trimmedJumpservers
+      },
+      total: total > maxItems ? maxItems : total,
+      hasMore: false // No pagination; rely on search to narrow results
     }
   } catch (error) {
     console.error('Chaterm database get user hosts error:', error)

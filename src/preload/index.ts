@@ -361,9 +361,9 @@ const getTaskMetadata = async (taskId) => {
   }
 }
 
-const getUserHosts = async (search: string, limit?: number, offset?: number) => {
+const getUserHosts = async (search: string, limit?: number) => {
   try {
-    const result = await ipcRenderer.invoke('get-user-hosts', { search, limit, offset })
+    const result = await ipcRenderer.invoke('get-user-hosts', { search, limit })
     return result
   } catch (error) {
     return Promise.reject(error)

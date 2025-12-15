@@ -448,28 +448,58 @@
                 allow-clear
                 @keydown="handleHostSearchKeyDown"
               />
-              <div
-                class="host-select-list"
-                @scroll="handleHostListScroll"
-              >
-                <div
+              <div class="host-select-list">
+                <template
                   v-for="(item, index) in filteredHostOptions"
                   :key="item.value"
-                  class="host-select-item"
-                  :class="{
-                    hovered: hovered === item.value,
-                    'keyboard-selected': keyboardSelectedIndex === index
-                  }"
-                  @mouseover="handleMouseOver(item.value, index)"
-                  @mouseleave="hovered = null"
-                  @click="onHostClick(item)"
                 >
-                  <span class="host-label">{{ item.label }}</span>
-                  <CheckOutlined
-                    v-if="isHostSelected(item)"
-                    class="host-selected-icon"
-                  />
-                </div>
+                  <!-- Jumpserver parent node (non-selectable, expandable) -->
+                  <div
+                    v-if="item.type === 'jumpserver'"
+                    class="host-select-item host-select-group"
+                    :class="{
+                      hovered: hovered === item.value,
+                      'keyboard-selected': keyboardSelectedIndex === index,
+                      expanded: item.expanded
+                    }"
+                    @mouseover="handleMouseOver(item.value, index)"
+                    @mouseleave="hovered = null"
+                    @click="toggleJumpserverExpand(item.key)"
+                  >
+                    <span class="host-label host-group-label">{{ item.label }}</span>
+                    <span class="host-group-badge">{{ item.childrenCount || 0 }}</span>
+                    <span class="host-group-toggle">
+                      <DownOutlined
+                        v-if="item.expanded"
+                        class="toggle-icon"
+                      />
+                      <RightOutlined
+                        v-else
+                        class="toggle-icon"
+                      />
+                    </span>
+                  </div>
+                  <!-- Normal selectable items (personal or jumpserver_child) -->
+                  <div
+                    v-else
+                    class="host-select-item"
+                    :class="{
+                      hovered: hovered === item.value,
+                      'keyboard-selected': keyboardSelectedIndex === index,
+                      'host-select-child': item.level === 1
+                    }"
+                    :style="{ paddingLeft: item.level === 1 ? '24px' : '6px' }"
+                    @mouseover="handleMouseOver(item.value, index)"
+                    @mouseleave="hovered = null"
+                    @click="onHostClick(item)"
+                  >
+                    <span class="host-label">{{ item.label }}</span>
+                    <CheckOutlined
+                      v-if="isHostSelected(item)"
+                      class="host-selected-icon"
+                    />
+                  </div>
+                </template>
                 <div
                   v-if="hostOptionsLoading && filteredHostOptions.length > 0"
                   class="host-select-loading"
@@ -479,7 +509,8 @@
                 <div
                   v-if="filteredHostOptions.length === 0 && !hostOptionsLoading"
                   class="host-select-empty"
-                  >{{ $t('ai.noMatchingHosts') }}
+                >
+                  {{ $t('ai.noMatchingHosts') }}
                 </div>
               </div>
             </div>
@@ -844,6 +875,7 @@ import {
   CopyOutlined,
   DeleteOutlined,
   DislikeOutlined,
+  DownOutlined,
   EditOutlined,
   EllipsisOutlined,
   ExportOutlined,
@@ -854,6 +886,7 @@ import {
   PlusOutlined,
   RedoOutlined,
   ReloadOutlined,
+  RightOutlined,
   SearchOutlined,
   StarFilled,
   StarOutlined
@@ -940,12 +973,12 @@ const {
   handleHostSearchKeyDown,
   handleMouseOver,
   handleInputChange,
-  handleHostListScroll,
   handleAddHostClick,
   updateHosts,
   updateHostsForCommandMode,
   hostSearchInputRef,
-  getCurentTabAssetInfo
+  getCurentTabAssetInfo,
+  toggleJumpserverExpand
 } = useHostManagement()
 
 // Auto scroll
