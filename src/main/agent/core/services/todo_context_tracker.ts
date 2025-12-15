@@ -2,7 +2,9 @@ export class TodoContextTracker {
   private static instances = new Map<string, TodoContextTracker>()
   private activeTodoId: string | null = null
 
-  private constructor(private readonly sessionId: string) {}
+  private constructor(_sessionId: string) {
+    // sessionId parameter is reserved for future use in session-scoped operations
+  }
 
   static forSession(sessionId: string): TodoContextTracker {
     if (!this.instances.has(sessionId)) {

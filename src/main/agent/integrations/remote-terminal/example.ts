@@ -21,7 +21,8 @@ export async function executeRemoteCommand() {
     username: '',
     password: '',
     privateKey: ``,
-    passphrase: ''
+    passphrase: '',
+    needProxy: false
   }
   console.log('Connection info:', connectionInfo)
 

@@ -1,5 +1,5 @@
 import * as crypto from 'crypto'
-import { buildClient, CommitmentPolicy, RawAesKeyringNode, RawAesWrappingSuiteIdentifier, KmsKeyringNode } from '@aws-crypto/client-node'
+import { buildClient, CommitmentPolicy, RawAesKeyringNode, RawAesWrappingSuiteIdentifier } from '@aws-crypto/client-node'
 import config from '../config'
 
 interface EncryptionResult {
@@ -141,7 +141,6 @@ class CryptoUtils {
       try {
         // 尝试读取加密上下文长度
         if (encryptedBuffer.length > 10) {
-          const contextLength = encryptedBuffer.readUInt16BE(8)
         }
       } catch (e) {
         console.log('  密文结构分析失败:', (e as Error).message)
@@ -198,10 +197,10 @@ class CryptoUtils {
    * @returns 解密后的明文
    */
   static async decryptDataWithAutoKeyResolution(
-    encryptedData: any,
-    encryptionContext: any,
-    apiClient: any,
-    authToken: string | null
+    _encryptedData: any,
+    _encryptionContext: any,
+    _apiClient: any,
+    _authToken: string | null
   ): Promise<string> {
     try {
       console.log('开始自动解析数据密钥解密...')

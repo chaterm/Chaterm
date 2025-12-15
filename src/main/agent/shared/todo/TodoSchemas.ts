@@ -62,7 +62,7 @@ export const TodoArraySchema = z.array(TodoSchema)
 // 序列化/反序列化辅助函数
 export class TodoSerializer {
   static serialize(todos: Todo[]): string {
-    return JSON.stringify(todos, (key, value) => {
+    return JSON.stringify(todos, (_key, value) => {
       if (value instanceof Date) {
         return value.toISOString()
       }

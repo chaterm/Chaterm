@@ -175,16 +175,12 @@ export function parseAssistantMessageV1(assistantMessage: string): AssistantMess
         } else {
           // Re-calculate based on the actual start of the current text segment
           // Find the end of the last block
-          let lastBlockEndIndex = 0
           if (contentBlocks.length > 0) {
-            const lastBlock = contentBlocks[contentBlocks.length - 1]
             // Approximation: find where the accumulator matches the end of the message string representation of the last block. This is complex.
             // Simpler: Assume text starts right after the last block ended implicitly at index i.
-            lastBlockEndIndex = i // Where the loop *was* when the last block finished processing
             // Need a more robust way to track the end index of the *raw string* corresponding to the last block.
             // Let's stick to the accumulator slice approach for simplicity in this version.
             // The start index should be where the current *unmatched* text began.
-            let lastProcessedIndex = -1
             if (contentBlocks.length > 0) {
               // This requires knowing the raw string length of the previous block, which V1 doesn't explicitly track easily.
               // We'll approximate based on the current accumulator and start index logic.

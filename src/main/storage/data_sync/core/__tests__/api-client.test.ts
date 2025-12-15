@@ -7,12 +7,12 @@ vi.mock('axios', () => {
       request: { use: vi.fn() },
       response: { use: vi.fn() }
     },
-    post: vi.fn(async (url: string, data?: any, config?: any) => {
-      calls.push({ url, data, config })
+    post: vi.fn(async (_url: string, _data?: any, _config?: any) => {
+      calls.push({ url: _url, data: _data, config: _config })
       return { data: { ok: true } }
     }),
-    get: vi.fn(async (url: string, config?: any) => ({ data: { ok: true } })),
-    delete: vi.fn(async (url: string, config?: any) => ({ data: { ok: true } }))
+    get: vi.fn(async (_url: string, _config?: any) => ({ data: { ok: true } })),
+    delete: vi.fn(async (_url: string, _config?: any) => ({ data: { ok: true } }))
   }
   return {
     default: { create: () => client },
@@ -54,7 +54,7 @@ describe('ApiClient authentication and compression', () => {
 
   it('should use gzip for large request bodies when compression is enabled', async () => {
     const api = new ApiClient()
-    const big = Array.from({ length: 2000 }).map((i, idx) => ({ id: idx, x: 'x'.repeat(10) }))
+    const big = Array.from({ length: 2000 }).map((_i, idx) => ({ id: idx, x: 'x'.repeat(10) }))
     const res = await api.incrementalSync('t_assets_sync', big as any)
     expect(res).toEqual({ ok: true })
     const call = (axiosModule as any).__calls.find((c: any) => c.url.includes('/sync/incremental-sync'))

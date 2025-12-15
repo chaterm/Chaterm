@@ -1,8 +1,6 @@
 import { getContextWindowInfo } from './context-window-utils'
 import { formatResponse } from '../../prompts/responses'
 import { saveContextHistoryStorage, ensureTaskExists, getContextHistoryStorage } from '../../storage/disk'
-import * as path from 'path'
-import fs from 'fs/promises'
 import cloneDeep from 'clone-deep'
 import { ChatermApiReqInfo, ChatermMessage } from '../../../shared/ExtensionMessage'
 import { ApiHandler } from '../../../api'

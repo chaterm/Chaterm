@@ -618,7 +618,7 @@ export class RemoteTerminalManager {
 
   // Set SSH connection information
   setConnectionInfo(info: ConnectionInfo): void {
-    const rawInfo = info as Record<string, unknown>
+    const rawInfo = info as unknown as Record<string, unknown>
     const assetUuid =
       info.assetUuid ??
       (typeof rawInfo.organization_uuid === 'string' ? (rawInfo.organization_uuid as string) : undefined) ??

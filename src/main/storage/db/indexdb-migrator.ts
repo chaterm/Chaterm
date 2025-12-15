@@ -241,7 +241,7 @@ export class IndexDBMigrator {
 
       this.sender.send('indexdb-migration:request-data', dataSource)
 
-      ipcMain.once(`indexdb-migration:data-response:${dataSource}`, (event, data) => {
+      ipcMain.once(`indexdb-migration:data-response:${dataSource}`, (_event, data) => {
         clearTimeout(timeout)
         const elapsed = Date.now() - startTime
         console.log(`[Migration] [OK] Received ${dataSource} data in ${elapsed}ms`)

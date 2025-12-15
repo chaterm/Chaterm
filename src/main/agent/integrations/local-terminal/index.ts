@@ -14,7 +14,7 @@ export interface LocalTerminalInfo {
 }
 
 export interface LocalCommandProcess extends EventEmitter {
-  stdin: NodeJS.WriteStream | null
+  stdin: NodeJS.WritableStream | null
   kill: () => void
 }
 
@@ -162,7 +162,7 @@ export class LocalTerminalManager {
    * 在本地主机上运行命令
    */
   runCommand(terminal: LocalTerminalInfo, command: string, cwd?: string): LocalCommandProcess {
-    const process = new EventEmitter() as LocalCommandProcess
+    const commandProcess = new EventEmitter() as LocalCommandProcess
     const workingDir = cwd || os.homedir()
 
     console.log(`[LocalTerminal ${terminal.id}] Executing command: ${command}`)
@@ -199,35 +199,35 @@ export class LocalTerminalManager {
     childProcess.stdout?.on('data', (data: Buffer) => {
       const chunk = data.toString()
       output += chunk
-      process.emit('line', chunk)
+      commandProcess.emit('line', chunk)
     })
 
     // 处理标准错误
     childProcess.stderr?.on('data', (data: Buffer) => {
       const chunk = data.toString()
       output += chunk
-      process.emit('line', chunk)
+      commandProcess.emit('line', chunk)
     })
 
     // 处理进程退出
     childProcess.on('close', (code: number | null) => {
       console.log(`[LocalTerminal ${terminal.id}] Command completed with code: ${code}`)
-      process.emit('completed', { code, output })
+      commandProcess.emit('completed', { code, output })
     })
 
     // 处理进程错误
     childProcess.on('error', (error: Error) => {
       console.error(`[LocalTerminal ${terminal.id}] Command error:`, error)
-      process.emit('error', error)
+      commandProcess.emit('error', error)
     })
 
-    // 为process添加stdin和kill方法
-    process.stdin = childProcess.stdin
-    process.kill = () => {
+    // 为commandProcess添加stdin和kill方法
+    commandProcess.stdin = childProcess.stdin
+    commandProcess.kill = () => {
       childProcess.kill()
     }
 
-    return process
+    return commandProcess
   }
 
   /**

@@ -1,4 +1,3 @@
-import { Todo } from '../../../shared/todo/TodoSchemas'
 import { TodoStorage } from '../../storage/todo/TodoStorage'
 import { TodoReminderService } from '../../services/todo_reminder_service'
 import { TodoWriteTool } from './todo_write_tool'
@@ -17,7 +16,7 @@ export class TodoReadTool {
     required: []
   }
 
-  static async execute(params: TodoReadParams, taskId: string): Promise<string> {
+  static async execute(_params: TodoReadParams, taskId: string): Promise<string> {
     try {
       const storage = new TodoStorage(taskId)
       const todos = await storage.readTodos()
