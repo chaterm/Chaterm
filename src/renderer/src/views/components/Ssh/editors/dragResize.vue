@@ -36,7 +36,7 @@ const position = reactive({
   y: props.y || 100,
   width: props.width || 200,
   height: props.height || 200,
-  boundaryEl: HTMLElement | null
+  boundaryEl: null
 })
 
 watch(

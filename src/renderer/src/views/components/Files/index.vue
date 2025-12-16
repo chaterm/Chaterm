@@ -168,7 +168,7 @@ const handleResize = () => {
   const el = fileElement.value
   if (!el) return
   try {
-    const rect = fileElement.value.getBoundingClientRect()
+    const rect = el.getBoundingClientRect()
     if (rect && rect.width > 0 && rect.height > 0) {
       openEditors.forEach((ed) => resizeEditor(ed, rect))
     }
@@ -177,7 +177,7 @@ const handleResize = () => {
   }
 }
 
-let resizeObserver = null
+let resizeObserver: ResizeObserver | null = null
 const debouncedUpdate = debounce(handleResize, 100)
 
 onMounted(async () => {
@@ -187,7 +187,7 @@ onMounted(async () => {
   }
   await listUserSessions()
   eventBus.on('activeTabChanged', handleActiveTabChanged)
-  resizeObserver = new ResizeObserver((entries) => {
+  resizeObserver = new ResizeObserver(() => {
     debouncedUpdate()
   })
 
@@ -266,11 +266,11 @@ const updateTreeData = (newData: object) => {
 }
 
 const resolvePaths = (value: string) => {
-  const [username, rest] = value.split('@')
+  const [username] = value.split('@')
   return username === 'root' ? '/root' : `/home/${username}`
 }
 const getBasePath = (value: string) => {
-  const [username, rest] = value.split('@')
+  const [, rest] = value.split('@')
   const parts = rest.split(':')
 
   if (value.includes('local-team')) {
@@ -292,7 +292,7 @@ const getFileExt = (filePath: string) => {
   return filePath.slice(idx).toLowerCase()
 }
 const openFile = async (data) => {
-  const { filePath, terminalId, connectType } = data
+  const { filePath, terminalId } = data
 
   const { stdout, stderr } = await api.sshConnExec({
     cmd: `cat ${filePath}`,
@@ -330,7 +330,7 @@ const openFile = async (data) => {
         editorType: contentType,
         userResized: false
       } as UnwrapRef<editorData>)
-    } else {
+    } else if (existingEditor) {
       existingEditor.visible = true
       existingEditor.vimText = data
     }
@@ -367,7 +367,7 @@ const closeVimEditor = (data) => {
 }
 
 const handleSave = async (data) => {
-  const { key, needClose, editorType } = data
+  const { key, needClose } = data
   const editor = openEditors.find((editor) => editor?.key === key)
   if (!editor) return
   let errMsg = ''

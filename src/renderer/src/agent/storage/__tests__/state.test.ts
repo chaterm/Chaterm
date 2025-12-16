@@ -228,7 +228,7 @@ describe('State Management', () => {
         if (key === 'apiModelId') return 'claude-3'
         return undefined
       })
-      ;(storageContext.secrets.get as any).mockImplementation(async (key) => {
+      ;(storageContext.secrets.get as any).mockImplementation(async () => {
         // No apiKey is set since updateApiConfiguration doesn't save it
         return undefined
       })

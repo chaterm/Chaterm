@@ -1,5 +1,5 @@
-import { ref, reactive } from 'vue'
-import type { Todo, TodoUpdateEvent, TodoDisplayPreference, TodoWebviewMessage } from '../types/todo'
+import { ref } from 'vue'
+import type { Todo, TodoDisplayPreference, TodoWebviewMessage } from '../types/todo'
 
 class TodoService {
   // 响应式状态
@@ -9,12 +9,7 @@ class TodoService {
   // 跟踪最后一次 todo 更新的时间戳，确保只显示最新的
   private lastTodoUpdateTimestamp = ref<number>(0)
 
-  // 待处理的 todos（当 assistant 消息还未出现时）
-  private pendingTodos: Todo[] | null = null
-  private pendingTodoTimestamp: number = 0
-
   // 事件监听器
-  private messageHandler: ((message: any) => void) | null = null
   private unsubscribeFromMain: (() => void) | null = null
 
   constructor() {
@@ -49,7 +44,7 @@ class TodoService {
   /**
    * 处理 todo 更新事件
    */
-  private handleTodoUpdate(message: TodoWebviewMessage, serviceId: string) {
+  private handleTodoUpdate(message: TodoWebviewMessage, _serviceId: string) {
     const timestamp = Date.now()
 
     // 更新当前 todos
@@ -141,9 +136,8 @@ class TodoService {
       latestAssistantMessage.hasTodoUpdate = true
       latestAssistantMessage.relatedTodos = todos
     } else {
-      // 如果没有找到 assistant 消息，存储 todos 等待下一个 assistant 消息
-      this.pendingTodos = todos
-      this.pendingTodoTimestamp = Date.now()
+      // 如果没有找到 assistant 消息，等待下一个 assistant 消息
+      console.warn('[Todo Debug] No assistant message found to attach todos')
     }
   }
 
@@ -183,8 +177,6 @@ class TodoService {
         }
       })
     }
-    this.pendingTodos = null
-    this.pendingTodoTimestamp = 0
     // console.log('[Todo Debug] Todo state cleared')
   }
 

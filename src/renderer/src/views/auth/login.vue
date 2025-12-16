@@ -286,6 +286,7 @@ const onAccountLogin = async () => {
   }
   try {
     loading.value = true
+    const api = window.api as any
     const localPlugins = await api.getPluginsVersion()
     const res = await userLogin({
       username: accountForm.username,
@@ -324,6 +325,7 @@ const onEmailLogin = async () => {
   }
   try {
     loading.value = true
+    const api = window.api as any
     const localPlugins = await api.getPluginsVersion()
     const res = await emailLogin({
       email: emailForm.email,
@@ -436,7 +438,7 @@ onMounted(async () => {
   }
   if (!isDev.value) {
     const ipcRenderer = (window as any).electron?.ipcRenderer
-    ipcRenderer?.on('external-login-success', async (event, data) => {
+    ipcRenderer?.on('external-login-success', async (_event, data) => {
       const { userInfo, method } = data
       try {
         if (userInfo) {

@@ -63,7 +63,6 @@ const props = defineProps<{
   currentMode: 'terminal' | 'agents'
 }>()
 
-const api = window.api as any
 const headerRef = ref<InstanceType<typeof Header> | null>(null)
 const aiTabRef = ref<InstanceType<typeof AiTab> | null>(null)
 

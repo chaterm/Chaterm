@@ -145,7 +145,7 @@ export class ShortcutService {
       if (this.isRecording) return
 
       // Check all registered shortcuts
-      for (const [shortcutKey, { parsed, handler }] of this.shortcutMappings) {
+      for (const { parsed, handler } of this.shortcutMappings.values()) {
         if (this.matchesShortcut(event, parsed)) {
           event.preventDefault()
           event.stopPropagation()

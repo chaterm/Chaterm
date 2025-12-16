@@ -1,7 +1,7 @@
 import { getUserInfo } from '@/utils/permission'
 import { dataSyncService } from '@/services/dataSyncService'
 
-export const beforeEach = async (to, from, next) => {
+export const beforeEach = async (to, _from, next) => {
   const token = localStorage.getItem('ctm-token')
   const isSkippedLogin = localStorage.getItem('login-skipped') === 'true'
   const isDev = import.meta.env.MODE === 'development'
@@ -69,8 +69,11 @@ export const beforeEach = async (to, from, next) => {
       }
     } catch (error) {
       console.error('处理失败:', error)
+
+      const message = error instanceof Error ? error.message : String(error)
+
       // In the development environment, bypass the relevant errors (usually caused by hot updates)
-      if (isDev && (error.message.includes('nextSibling') || error.message.includes('getUserInfo'))) {
+      if (isDev && (message.includes('nextSibling') || message.includes('getUserInfo'))) {
         next()
         return
       }

@@ -1,6 +1,5 @@
 import { ref, computed, watch, nextTick } from 'vue'
 import { getGlobalState, updateGlobalState } from '@renderer/agent/storage/state'
-import { useCurrentCwdStore } from '@/store/currentCwdStore'
 import type { HistoryItem, TaskHistoryItem } from '../types'
 import { useSessionState } from './useSessionState'
 import { getDateLabel } from '../utils'
@@ -24,9 +23,6 @@ export function useChatHistory(createNewEmptyTab?: () => Promise<string>) {
   // Get required state from global singleton state
   const { chatTabs, currentChatId, attachTabContext } = useSessionState()
 
-  // Get currentCwd from store
-  const currentCwdStore = useCurrentCwdStore()
-  const currentCwd = computed(() => currentCwdStore.keyValueMap)
   // History list
   const historyList = ref<HistoryItem[]>([])
 
