@@ -127,6 +127,9 @@
                   :say="message.say"
                   :partial="message.partial"
                   :executed-command="message.executedCommand"
+                  :host-id="message.hostId"
+                  :host-name="message.hostName"
+                  :color-tag="message.colorTag"
                 />
                 <MarkdownRenderer
                   v-else
@@ -137,6 +140,9 @@
                   :say="message.say"
                   :partial="message.partial"
                   :executed-command="message.executedCommand"
+                  :host-id="message.hostId"
+                  :host-name="message.hostName"
+                  :color-tag="message.colorTag"
                 />
 
                 <div

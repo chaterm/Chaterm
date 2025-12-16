@@ -32,6 +32,10 @@ export interface ChatMessage {
   executedCommand?: string
   // MCP tool call info
   mcpToolCall?: McpToolCallInfo
+  // Multi-host execution identification
+  hostId?: string
+  hostName?: string
+  colorTag?: string
 }
 
 export interface AssetInfo {

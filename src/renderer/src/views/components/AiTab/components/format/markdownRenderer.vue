@@ -111,6 +111,9 @@
       <TerminalOutputRenderer
         v-else-if="props.say === 'command_output'"
         :content="props.content"
+        :host-id="props.hostId"
+        :host-name="props.hostName"
+        :color-tag="props.colorTag"
       />
       <div
         v-else-if="props.say === 'search_result'"
@@ -455,6 +458,10 @@ const props = defineProps<{
   say?: string
   partial?: boolean
   executedCommand?: string
+  // Multi-host execution identification
+  hostId?: string
+  hostName?: string
+  colorTag?: string
 }>()
 
 // Detect if content is code - reuse existing detectLanguage method

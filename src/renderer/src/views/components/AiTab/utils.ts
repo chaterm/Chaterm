@@ -1,5 +1,6 @@
 import { v4 as uuidv4 } from 'uuid'
 import type { ChatMessage, MessageContent, HostOption, TreeHostOption, HostItemType } from './types'
+import type { HostInfo } from '@shared/ExtensionMessage'
 
 export const createNewMessage = (
   role: 'user' | 'assistant',
@@ -8,7 +9,8 @@ export const createNewMessage = (
   ask = '',
   say = '',
   ts = 0,
-  partial = false
+  partial = false,
+  hostInfo?: HostInfo
 ): ChatMessage => ({
   id: uuidv4(),
   role,
@@ -17,8 +19,18 @@ export const createNewMessage = (
   ask,
   say,
   ts,
-  partial
+  partial,
+  ...(hostInfo && {
+    hostId: hostInfo.hostId,
+    hostName: hostInfo.hostName,
+    colorTag: hostInfo.colorTag
+  })
 })
+
+export const pickHostInfo = (partial: Partial<ChatMessage>): HostInfo | undefined => {
+  const { hostId, hostName, colorTag } = partial
+  return hostId || hostName || colorTag ? { hostId, hostName, colorTag } : undefined
+}
 
 export const parseMessageContent = (text: string): string | MessageContent => {
   try {

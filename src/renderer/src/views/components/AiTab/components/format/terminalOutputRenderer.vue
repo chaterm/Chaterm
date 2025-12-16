@@ -17,6 +17,16 @@
           <CaretRightOutlined v-else />
         </a-button>
         <span class="output-title">OUTPUT</span>
+        <span
+          v-if="props.hostName || props.hostId"
+          class="host-tag"
+        >
+          <span
+            class="host-color-dot"
+            :style="{ backgroundColor: props.colorTag || '#888' }"
+          ></span>
+          <span class="host-name">{{ props.hostName || props.hostId }}</span>
+        </span>
       </div>
       <div class="output-controls">
         <span class="output-lines">{{ outputLines }} lines</span>
@@ -56,6 +66,10 @@ const { t } = i18n.global
 
 const props = defineProps<{
   content: string
+  // Multi-host execution identification
+  hostId?: string
+  hostName?: string
+  colorTag?: string
 }>()
 
 const terminalContainer = ref<HTMLElement | null>(null)
@@ -3506,6 +3520,32 @@ const highlightSimpleLsColumnsPreserveSpacing = (line: string): string => {
 .output-title {
   font-weight: 500;
   color: #7e8ba3;
+}
+
+.host-tag {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: 8px;
+  padding: 1px 6px;
+  background: rgba(0, 0, 0, 0.1);
+  border-radius: 3px;
+}
+
+.host-color-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.host-name {
+  font-size: 10px;
+  color: #7e8ba3;
+  max-width: 150px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .output-controls {
