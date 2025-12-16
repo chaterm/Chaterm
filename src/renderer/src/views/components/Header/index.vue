@@ -114,9 +114,9 @@ const deviceStore = useDeviceStore()
 const instance = getCurrentInstance()!
 const { appContext } = instance
 
-const isLeftSidebarCollapsed = ref(false)
+const isLeftSidebarCollapsed = ref(true)
 const isRightSidebarCollapsed = ref(false)
-const isAgentsLeftSidebarCollapsed = ref(false)
+const isAgentsLeftSidebarCollapsed = ref(true)
 const isAvailable = ref(false)
 const currentMode = ref<'terminal' | 'agents'>('terminal')
 const emit = defineEmits(['toggle-sidebar', 'mode-change'])
@@ -127,7 +127,6 @@ const toggleSidebarRight = (params) => {
 
 const toggleSidebarLeft = (params: 'left' | 'right') => {
   emit('toggle-sidebar', params)
-  isLeftSidebarCollapsed.value = !isLeftSidebarCollapsed.value
 }
 
 const toggleAgentsSidebarLeft = (params: 'agentsLeft') => {

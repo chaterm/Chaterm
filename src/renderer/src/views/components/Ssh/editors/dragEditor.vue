@@ -8,6 +8,7 @@
       :y="editor.vimEditorY"
       :width="editor.vimEditorWidth"
       :height="editor.vimEditorHeight"
+      :boundary-el="boundaryEl"
       class="file-vim-content"
       :drag-handle="'.drag-handle'"
       :z-index="isActive ? 100 : 10"
@@ -105,6 +106,7 @@ export interface editorData {
   key: string
   terminalId: string
   editorType: string
+  userResized?: boolean
 }
 // 定义属性
 const props = defineProps({
@@ -115,6 +117,10 @@ const props = defineProps({
   isActive: {
     type: Boolean,
     default: false
+  },
+  boundaryEl: {
+    type: HTMLElement,
+    default: null
   }
 })
 
@@ -195,15 +201,17 @@ const exitFullScreenVimEditor = () => {
   showVimFullScreenExitEditor.value = false
 }
 
-const onDragStop = (args, editor) => {
+function onDragStop(args: { x: number; y: number }, editor: editorData) {
   editor.vimEditorX = args.x
   editor.vimEditorY = args.y
 }
-const onResizeStop = (args, editor) => {
+
+function onResizeStop(args: { x: number; y: number; width: number; height: number }, editor: editorData) {
   editor.vimEditorX = args.x
   editor.vimEditorY = args.y
   editor.vimEditorWidth = args.width
   editor.vimEditorHeight = args.height
+  editor.userResized = true
 }
 const editorFilter = (action) => {
   if (action === 'editor') {
