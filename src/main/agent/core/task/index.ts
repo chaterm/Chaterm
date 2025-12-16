@@ -129,8 +129,8 @@ export class Task {
   // Host color cache for consistent multi-host display
   private hostColorMap: Map<string, string> = new Map()
 
-  // SSH connection status tracking
-  private lastConnectionHost: string | null = null
+  // SSH connection status tracking - tracks all connected hosts in this session
+  private connectedHosts: Set<string> = new Set()
 
   // Interactive command input handling
   private currentRunningProcess:
@@ -395,7 +395,7 @@ export class Task {
       const hostLabel = connectionInfo?.host || targetHost.host || ip || 'unknown'
       // Create a unique connection identifier
       const currentConnectionId = `${connectionInfo.host}:${connectionInfo.port}:${connectionInfo.username}`
-      const isNewConnection = this.lastConnectionHost !== currentConnectionId
+      const isNewConnection = !this.connectedHosts.has(currentConnectionId)
 
       // Check if this is an agent mode + local connection scenario that will fail
       const chatSettings = await getGlobalState('chatSettings')
@@ -438,8 +438,8 @@ export class Task {
           })
         }
 
-        // Update the last connection host
-        this.lastConnectionHost = currentConnectionId
+        // Mark this host as connected
+        this.connectedHosts.add(currentConnectionId)
       }
 
       return terminalInfo
@@ -853,6 +853,7 @@ export class Task {
   private async startTask(task?: string): Promise<void> {
     this.chatermMessages = []
     this.apiConversationHistory = []
+    this.connectedHosts.clear()
 
     await this.postStateToWebview()
 
