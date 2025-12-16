@@ -6,9 +6,10 @@
     >
       <div
         class="output-title-section"
-        @click="toggleOutput"
+        @click="isCollapsible ? toggleOutput() : null"
       >
         <a-button
+          v-if="isCollapsible"
           class="toggle-button"
           type="text"
           size="small"
@@ -3513,8 +3514,8 @@ const highlightSimpleLsColumnsPreserveSpacing = (line: string): string => {
   display: flex;
   align-items: center;
   gap: 4px;
-  cursor: pointer;
   flex: 1;
+  cursor: pointer;
 }
 
 .output-title {
