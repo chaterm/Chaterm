@@ -33,7 +33,7 @@
     </a-tree>
     <a-empty
       v-else
-      description="暂无数据，请先连接服务器~"
+      description="No data available, please connect to a server first"
     />
   </div>
   <div
@@ -204,7 +204,7 @@ onBeforeUnmount(() => {
 })
 const api = (window as any).api
 const expandedKeys = ref<string[]>([])
-// editor绑定
+// Editor binding
 const activeEditorKey = ref(null)
 const handleFocusEditor = (key) => {
   activeEditorKey.value = key
@@ -282,13 +282,13 @@ const getBasePath = (value: string) => {
   return ''
 }
 
-// 定义编辑器接口
-// 使用接口类型化响应式数组
+// Define editor interface
+// Use interface-typed reactive array
 const openEditors = reactive<editorData[]>([])
 
 const getFileExt = (filePath: string) => {
   const idx = filePath.lastIndexOf('.')
-  if (idx === -1) return '' // 没有扩展名
+  if (idx === -1) return '' // No extension
   return filePath.slice(idx).toLowerCase()
 }
 const openFile = async (data) => {
@@ -298,9 +298,9 @@ const openFile = async (data) => {
     cmd: `cat ${filePath}`,
     id: terminalId
   })
-  let action = '编辑'
+  let action = 'edit'
   if (stderr.indexOf('No such file or directory') !== '-1') {
-    action = '创建'
+    action = 'create'
   }
   if (stderr.indexOf('Permission denied') !== -1) {
     message.error(t('common.permissionDenied'))
@@ -385,7 +385,7 @@ const handleSave = async (data) => {
       editor.loading = false
     } else {
       message.success(t('common.saveSuccess'))
-      // 关闭
+      // Close
       if (editor) {
         if (needClose) {
           const index = openEditors.indexOf(editor)
@@ -554,7 +554,7 @@ defineExpose({
   }
 }
 
-/* 高亮显示当前活跃的终端 */
+/* Highlight the currently active terminal */
 :deep(.active-terminal) {
   background-color: var(--primary-color) !important;
   color: white !important;

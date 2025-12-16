@@ -10,17 +10,17 @@
       :class="{ active: index === activeSuggestion }"
       class="suggestion-item"
     >
-      <!-- 图标 -->
+      <!-- Icon -->
       <span
         class="icon"
         :class="suggestion.source"
       ></span>
-      <!-- 命令文本 -->
+      <!-- Command text -->
       <span class="text">{{ suggestion.command }}</span>
       <span
         v-if="index === activeSuggestion"
         class="arrow-icon"
-        title="按回车键补全命令"
+        title="Press Enter to complete command"
       ></span>
     </div>
     <div class="keyboard-hints">
@@ -28,7 +28,7 @@
         <kbd class="key esc-key">Esc</kbd>
         {{ $t('common.close') }}
       </div>
-      <!-- 未进入选择模式：不允许确认，提示右键选中 -->
+      <!-- Not in selection mode: confirmation not allowed, prompt to select with right arrow -->
       <div
         v-if="!selectionMode"
         class="hint-item"
@@ -48,7 +48,7 @@
         </div>
         {{ $t('common.select') }}
       </div>
-      <!-- 仅当已有选中项时才显示确认 -->
+      <!-- Only show confirmation when there is a selected item -->
       <div
         v-if="selectionMode && activeSuggestion >= 0"
         class="hint-item"
@@ -78,39 +78,39 @@ const updateSuggestionsPosition = (term) => {
   if (!hintBox) return
   const cursorX = term.buffer.active.cursorX
   const cursorY = term.buffer.active.cursorY
-  // 获取终端字符的像素尺寸
+  // Get terminal character pixel dimensions
   const charWidth = term._core._renderService.dimensions.css.cell.width
   const charHeight = term._core._renderService.dimensions.css.cell.height
 
-  // 获取终端容器的尺寸
+  // Get terminal container dimensions
   const termContainer = term.element
   const containerHeight = termContainer.clientHeight
 
-  // 计算光标在终端容器中的像素坐标
+  // Calculate cursor pixel coordinates in terminal container
   const x = cursorX * charWidth
   const y = cursorY * charHeight
 
-  // 计算提示框的高度
+  // Calculate hint box height
   const hintBoxHeight = hintBox.offsetHeight
 
-  // 设置缓冲距离，避免遮挡命令内容
-  const bufferDistance = charHeight * 0.2 // 0.2个字符高度的缓冲距离
+  // Set buffer distance to avoid obscuring command content
+  const bufferDistance = charHeight * 0.2 // 0.2 character height buffer distance
 
-  // 判断是否应该显示在光标上方（考虑缓冲距离）
+  // Determine if should display above cursor (considering buffer distance)
   const shouldShowAbove = y + hintBoxHeight + bufferDistance > containerHeight
 
-  // 设置提示框位置
+  // Set hint box position
   hintBox.style.left = `${x}px`
   hintBox.style.top = shouldShowAbove
-    ? `${y - hintBoxHeight - bufferDistance}px` // 显示在光标上方，增加缓冲距离
-    : `${y + charHeight + bufferDistance}px` // 显示在光标下方，增加缓冲距离
+    ? `${y - hintBoxHeight - bufferDistance}px` // Display above cursor, add buffer distance
+    : `${y + charHeight + bufferDistance}px` // Display below cursor, add buffer distance
 }
 defineExpose({ updateSuggestionsPosition })
 </script>
 <style scoped lang="less">
 .suggestions {
   position: absolute;
-  /* 绝对定位 */
+  /* Absolute positioning */
   background: var(--bg-color-quinary);
   color: var(--text-color-secondary);
   padding: 6px 8px 0;
@@ -121,7 +121,7 @@ defineExpose({ updateSuggestionsPosition })
   max-width: 500px;
   border: 2px solid transparent;
   transition: border-color 0.2s ease-in-out;
-  /* 确保提示框在终端内容上方 */
+  /* Ensure hint box is above terminal content */
 }
 
 .suggestions.selection-mode {

@@ -57,12 +57,12 @@ let saveTimer: NodeJS.Timeout | null = null
 let statusTimer: NodeJS.Timeout | null = null
 let removeFileChangeListener: (() => void) | undefined
 
-// 根据当前主题设置编辑器主题
+// Set editor theme based on current theme
 const currentTheme = computed(() => {
   return getMonacoTheme()
 })
 
-// 显示完整的绝对路径
+// Display full absolute path
 const displayPath = computed(() => {
   return configPath.value || ''
 })
@@ -72,17 +72,17 @@ onMounted(async () => {
   try {
     isLoading.value = true
 
-    // 获取配置文件路径
+    // Get config file path
     configPath.value = await securityConfigService.getConfigPath()
 
-    // 读取配置内容
+    // Read config content
     const rawContent = await securityConfigService.readConfigFile()
 
-    // 确保内容不为空
+    // Ensure content is not empty
     if (rawContent && rawContent.trim()) {
       configContent.value = rawContent
     } else {
-      // 使用默认配置
+      // Use default config
       configContent.value = JSON.stringify(
         {
           security: {
@@ -105,13 +105,13 @@ onMounted(async () => {
       )
     }
 
-    // 标记加载完成，允许编辑器渲染
+    // Mark loading complete, allow editor to render
     isLoading.value = false
 
-    // 等待编辑器渲染完成后再设置监听
+    // Wait for editor to finish rendering before setting listener
     await nextTick()
 
-    // 设置文件变更监听
+    // Set file change listener
     if (securityConfigService.onFileChanged) {
       removeFileChangeListener = securityConfigService.onFileChanged((newContent: string) => {
         if (newContent !== configContent.value) {
@@ -127,7 +127,7 @@ onMounted(async () => {
       message: t('user.error') || 'Error',
       description: errorMessage
     })
-    // 即使出错也设置默认内容，让编辑器至少可以显示
+    // Even if error occurs, set default content so editor can at least display
     configContent.value = JSON.stringify(
       {
         security: {
@@ -149,7 +149,7 @@ onMounted(async () => {
       2
     )
 
-    // 即使出错也标记加载完成
+    // Even if error occurs, mark loading as complete
     isLoading.value = false
   }
 })
@@ -205,7 +205,7 @@ const saveConfig = async () => {
     isSaving.value = false
     lastSaved.value = true
 
-    // 3秒后隐藏保存成功提示
+    // Hide save success message after 3 seconds
     if (statusTimer) {
       clearTimeout(statusTimer)
     }
@@ -318,7 +318,7 @@ const saveConfig = async () => {
     gap: 8px;
     flex-shrink: 0;
 
-    /* 适配主题 */
+    /* Adapt to theme */
     .theme-dark & {
       background-color: rgba(255, 77, 79, 0.1);
       border-color: rgba(255, 77, 79, 0.3);

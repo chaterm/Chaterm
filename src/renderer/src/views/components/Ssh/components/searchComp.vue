@@ -151,7 +151,7 @@ const props = defineProps({
   }
 })
 
-// 防抖搜索函数
+// Debounced search function
 const debouncedSearch = (callback: () => void, delay: number = 150) => {
   if (searchTimeout) {
     clearTimeout(searchTimeout)
@@ -165,11 +165,11 @@ const findNext = () => {
       caseSensitive: false
     })
     if (result) {
-      // 如果找到下一个匹配项，更新索引
+      // If next match found, update index
       if (currentResultIndex.value < searchResultsCount.value) {
         currentResultIndex.value++
       } else {
-        // 如果已经是最后一个，回到第一个
+        // If already at last, go back to first
         currentResultIndex.value = 1
       }
     }
@@ -182,11 +182,11 @@ const findPrevious = () => {
       caseSensitive: false
     })
     if (result) {
-      // 如果找到上一个匹配项，更新索引
+      // If previous match found, update index
       if (currentResultIndex.value > 1) {
         currentResultIndex.value--
       } else {
-        // 如果已经是第一个，跳到最后一个
+        // If already at first, jump to last
         currentResultIndex.value = searchResultsCount.value
       }
     }
@@ -229,7 +229,7 @@ onBeforeUnmount(() => {
   }
 })
 
-// 计算实际匹配数量
+// Calculate actual match count
 const calculateMatches = () => {
   if (!props.terminal || !searchTerm.value) {
     searchResultsCount.value = 0
@@ -238,7 +238,7 @@ const calculateMatches = () => {
   }
 
   try {
-    // 尝试从 SearchAddon 获取匹配信息
+    // Try to get match info from SearchAddon
     if (props.searchAddon && (props.searchAddon as any)._searchResults) {
       const results = (props.searchAddon as any)._searchResults
       if (Array.isArray(results)) {
@@ -248,17 +248,17 @@ const calculateMatches = () => {
       }
     }
 
-    // 备用方法：手动计算匹配数量
+    // Fallback method: manually calculate match count
     const buffer = props.terminal._core._bufferService.buffer
     const lines = buffer.lines
     let totalMatches = 0
     const searchLower = searchTerm.value.toLowerCase()
 
-    // 遍历所有可见行
+    // Iterate through all visible lines
     for (let i = 0; i < lines.length; i++) {
       const line = lines.get(i).translateToString(true)
       if (line.toLowerCase().includes(searchLower)) {
-        // 计算这一行中的匹配次数
+        // Calculate number of matches in this line
         const matches = (line.toLowerCase().match(new RegExp(searchLower.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g')) || []).length
         totalMatches += matches
       }
@@ -267,8 +267,8 @@ const calculateMatches = () => {
     searchResultsCount.value = totalMatches
     currentResultIndex.value = totalMatches > 0 ? 1 : 0
   } catch (error) {
-    console.error('计算匹配数量时出错:', error)
-    // 如果计算失败，尝试从终端内容估算
+    console.error('Error calculating match count:', error)
+    // If calculation fails, try to estimate from terminal content
     try {
       const terminalText = props.terminal.buffer.active.translateToString()
       const searchLower = searchTerm.value.toLowerCase()
@@ -276,7 +276,7 @@ const calculateMatches = () => {
       searchResultsCount.value = matches
       currentResultIndex.value = matches > 0 ? 1 : 0
     } catch (fallbackError) {
-      console.error('备用计算方法也失败:', fallbackError)
+      console.error('Fallback calculation method also failed:', fallbackError)
       searchResultsCount.value = 0
       currentResultIndex.value = 0
     }
@@ -290,7 +290,7 @@ watch(searchTerm, (newTerm) => {
         incremental: true,
         caseSensitive: false
       })
-      // 使用防抖来延迟计算匹配数量
+      // Use debounce to delay match count calculation
       debouncedSearch(() => {
         calculateMatches()
       }, 200)
@@ -529,7 +529,7 @@ watch(searchTerm, (newTerm) => {
   }
 }
 
-// 响应式设计
+// Responsive design
 @media (max-width: 768px) {
   .search-bar {
     min-width: 280px;
@@ -539,11 +539,11 @@ watch(searchTerm, (newTerm) => {
   }
 
   .search-input {
-    font-size: 16px; // 防止iOS缩放
+    font-size: 16px; // Prevent iOS zoom
   }
 }
 
-// 暗色主题优化
+// Dark theme optimization
 .theme-dark & {
   .search-bar {
     background: rgba(30, 30, 30, 0.95);
@@ -559,7 +559,7 @@ watch(searchTerm, (newTerm) => {
   }
 }
 
-// 亮色主题优化
+// Light theme optimization
 .theme-light & {
   .search-bar {
     background: rgba(245, 245, 245, 0.95);

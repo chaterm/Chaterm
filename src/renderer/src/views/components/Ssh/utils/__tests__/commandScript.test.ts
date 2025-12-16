@@ -15,146 +15,146 @@ describe('commandScript', () => {
     }
   })
 
-  describe('基础命令解析', () => {
-    it('应该执行普通命令并添加回车', async () => {
+  describe('Basic command parsing', () => {
+    it('should execute normal commands and add carriage return', async () => {
       await executeScript('ls -la', mockTerminal)
       expect(mockTerminal.write).toHaveBeenCalledWith('ls -la\r')
     })
 
-    it('应该处理多行命令', async () => {
+    it('should handle multi-line commands', async () => {
       await executeScript('echo hello\necho world', mockTerminal)
       expect(mockTerminal.writtenData).toContain('echo hello\r')
       expect(mockTerminal.writtenData).toContain('echo world\r')
     })
 
-    it('当 autoExecute=false 时最后一条命令不应添加回车', async () => {
+    it('should not add carriage return to last command when autoExecute=false', async () => {
       await executeScript('echo hello\necho world', mockTerminal, false)
       expect(mockTerminal.writtenData).toContain('echo hello\r')
-      expect(mockTerminal.writtenData).toContain('echo world') // 无 \r
+      expect(mockTerminal.writtenData).toContain('echo world') // no \r
       expect(mockTerminal.writtenData).not.toContain('echo world\r')
     })
   })
 
-  describe('注释处理', () => {
-    it('应该跳过 # 开头的注释', async () => {
+  describe('Comment handling', () => {
+    it('should skip comments starting with #', async () => {
       await executeScript('# This is a comment\necho hello', mockTerminal)
       expect(mockTerminal.write).toHaveBeenCalledTimes(1)
       expect(mockTerminal.writtenData).toContain('echo hello\r')
     })
 
-    it('应该跳过 // 开头的注释', async () => {
+    it('should skip comments starting with //', async () => {
       await executeScript('// This is a comment\necho hello', mockTerminal)
       expect(mockTerminal.write).toHaveBeenCalledTimes(1)
       expect(mockTerminal.writtenData).toContain('echo hello\r')
     })
 
-    it('应该跳过空行', async () => {
+    it('should skip empty lines', async () => {
       await executeScript('echo hello\n\necho world', mockTerminal)
       expect(mockTerminal.write).toHaveBeenCalledTimes(2)
     })
   })
 
-  describe('sleep 命令', () => {
-    it('应该解析 sleep==100 格式的延时命令', async () => {
+  describe('sleep command', () => {
+    it('should parse sleep==100 format delay command', async () => {
       const startTime = Date.now()
       await executeScript('sleep==110', mockTerminal)
       const elapsed = Date.now() - startTime
 
-      // 应该等待约100ms (加上50ms的基础延迟，允许一些误差)
-      // 下界：至少等待100ms
+      // Should wait approximately 100ms (plus 50ms base delay, allowing some error)
+      // Lower bound: at least wait 100ms
       expect(elapsed).toBeGreaterThanOrEqual(100)
-      // 上界：不应该超过300ms (100ms sleep + 50ms delay + 误差)
+      // Upper bound: should not exceed 300ms (100ms sleep + 50ms delay + error)
       expect(elapsed).toBeLessThan(300)
-      // 不应该向终端写入任何内容
+      // Should not write any content to terminal
       expect(mockTerminal.write).not.toHaveBeenCalled()
     })
 
-    it('sleep 命令应该是大小写不敏感的', async () => {
+    it('sleep command should be case-insensitive', async () => {
       await executeScript('SLEEP==50', mockTerminal)
       expect(mockTerminal.write).not.toHaveBeenCalled()
     })
   })
 
-  describe('特殊按键', () => {
-    it('应该处理 esc 键', async () => {
+  describe('Special keys', () => {
+    it('should handle esc key', async () => {
       await executeScript('esc', mockTerminal)
       expect(mockTerminal.writtenData).toContain('\x1b')
     })
 
-    it('应该处理 tab 键', async () => {
+    it('should handle tab key', async () => {
       await executeScript('tab', mockTerminal)
       expect(mockTerminal.writtenData).toContain('\t')
     })
 
-    it('应该处理 return 键', async () => {
+    it('should handle return key', async () => {
       await executeScript('return', mockTerminal)
       expect(mockTerminal.writtenData).toContain('\r')
     })
 
-    it('应该处理 backspace 键', async () => {
+    it('should handle backspace key', async () => {
       await executeScript('backspace', mockTerminal)
       expect(mockTerminal.writtenData).toContain('\b')
     })
 
-    it('特殊按键应该大小写不敏感', async () => {
+    it('special keys should be case-insensitive', async () => {
       await executeScript('TAB', mockTerminal)
       expect(mockTerminal.writtenData).toContain('\t')
     })
   })
 
-  describe('方向键', () => {
-    it('应该处理 up 键', async () => {
+  describe('Arrow keys', () => {
+    it('should handle up key', async () => {
       await executeScript('up', mockTerminal)
       expect(mockTerminal.writtenData).toContain('\x1b[A')
     })
 
-    it('应该处理 down 键', async () => {
+    it('should handle down key', async () => {
       await executeScript('down', mockTerminal)
       expect(mockTerminal.writtenData).toContain('\x1b[B')
     })
 
-    it('应该处理 left 键', async () => {
+    it('should handle left key', async () => {
       await executeScript('left', mockTerminal)
       expect(mockTerminal.writtenData).toContain('\x1b[D')
     })
 
-    it('应该处理 right 键', async () => {
+    it('should handle right key', async () => {
       await executeScript('right', mockTerminal)
       expect(mockTerminal.writtenData).toContain('\x1b[C')
     })
   })
 
-  describe('Ctrl 组合键', () => {
-    it('应该处理 ctrl+c', async () => {
+  describe('Ctrl key combinations', () => {
+    it('should handle ctrl+c', async () => {
       await executeScript('ctrl+c', mockTerminal)
       expect(mockTerminal.writtenData).toContain('\x03')
     })
 
-    it('应该处理 ctrl+d', async () => {
+    it('should handle ctrl+d', async () => {
       await executeScript('ctrl+d', mockTerminal)
       expect(mockTerminal.writtenData).toContain('\x04')
     })
 
-    it('应该处理 ctrl+z', async () => {
+    it('should handle ctrl+z', async () => {
       await executeScript('ctrl+z', mockTerminal)
       expect(mockTerminal.writtenData).toContain('\x1a')
     })
 
-    it('应该处理 ctrl+l (清屏)', async () => {
+    it('should handle ctrl+l (clear screen)', async () => {
       await executeScript('ctrl+l', mockTerminal)
       expect(mockTerminal.writtenData).toContain('\x0c')
     })
 
-    it('ctrl 组合键应该大小写不敏感', async () => {
+    it('ctrl key combinations should be case-insensitive', async () => {
       await executeScript('CTRL+C', mockTerminal)
       expect(mockTerminal.writtenData).toContain('\x03')
     })
   })
 
-  describe('复杂脚本', () => {
-    it('应该按顺序执行混合脚本', async () => {
+  describe('Complex scripts', () => {
+    it('should execute mixed scripts in order', async () => {
       const script = `
-# 这是注释
+# This is a comment
 echo hello
 sleep==50
 ctrl+c
@@ -163,7 +163,7 @@ echo world
 `
       await executeScript(script, mockTerminal)
 
-      // 验证执行顺序
+      // Verify execution order
       const calls = mockTerminal.writtenData
       expect(calls[0]).toBe('echo hello\r')
       expect(calls[1]).toBe('\x03') // ctrl+c
@@ -171,34 +171,34 @@ echo world
       expect(calls[3]).toBe('echo world\r')
     })
 
-    it('应该处理 Windows 风格换行符 (CRLF)', async () => {
+    it('should handle Windows-style line breaks (CRLF)', async () => {
       await executeScript('echo hello\r\necho world', mockTerminal)
       expect(mockTerminal.write).toHaveBeenCalledTimes(2)
     })
 
-    it('应该处理 Mac 旧风格换行符 (CR)', async () => {
+    it('should handle old Mac-style line breaks (CR)', async () => {
       await executeScript('echo hello\recho world', mockTerminal)
       expect(mockTerminal.write).toHaveBeenCalledTimes(2)
     })
   })
 
-  describe('边界情况', () => {
-    it('空脚本不应该执行任何命令', async () => {
+  describe('Edge cases', () => {
+    it('empty script should not execute any commands', async () => {
       await executeScript('', mockTerminal)
       expect(mockTerminal.write).not.toHaveBeenCalled()
     })
 
-    it('只有空白字符的脚本不应该执行任何命令', async () => {
+    it('script with only whitespace should not execute any commands', async () => {
       await executeScript('   \n   \n   ', mockTerminal)
       expect(mockTerminal.write).not.toHaveBeenCalled()
     })
 
-    it('只有注释的脚本不应该执行任何命令', async () => {
+    it('script with only comments should not execute any commands', async () => {
       await executeScript('# comment\n// another comment', mockTerminal)
       expect(mockTerminal.write).not.toHaveBeenCalled()
     })
 
-    it('应该去除命令前后的空白', async () => {
+    it('should trim whitespace before and after commands', async () => {
       await executeScript('   echo hello   ', mockTerminal)
       expect(mockTerminal.writtenData).toContain('echo hello\r')
     })
