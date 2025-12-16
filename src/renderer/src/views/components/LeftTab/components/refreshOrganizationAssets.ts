@@ -6,7 +6,7 @@ const { t } = i18n.global
 
 export const handleRefreshOrganizationAssets = async (host: any, onSuccess?: () => void) => {
   if (!host || host.asset_type !== 'organization') {
-    console.warn('无效的企业资产节点:', host)
+    console.warn('Invalid organization asset node:', host)
     return
   }
 
@@ -26,7 +26,7 @@ export const handleRefreshOrganizationAssets = async (host: any, onSuccess?: () 
       }
     })
 
-    console.log('刷新企业资产结果:', result)
+    console.log('Refresh organization assets result:', result)
 
     if (result?.data?.message === 'success') {
       hide()
@@ -38,10 +38,10 @@ export const handleRefreshOrganizationAssets = async (host: any, onSuccess?: () 
         onSuccess()
       }
     } else {
-      throw new Error('刷新失败')
+      throw new Error('Refresh failed')
     }
   } catch (error) {
-    console.error('刷新企业资产失败:', error)
+    console.error('Failed to refresh organization assets:', error)
     hide()
     message.error(t('personal.refreshError'))
   }
@@ -59,11 +59,11 @@ export const findOrganizationAssetByKey = async (nodeKey: string): Promise<any |
             for (const asset of group.children) {
               if (asset.asset_type === 'organization') {
                 if (asset.uuid === nodeKey) {
-                  console.log('通过 uuid 找到匹配的企业资产配置:', asset)
+                  console.log('Found matching organization asset config by uuid:', asset)
                   return asset
                 }
                 if (asset.key === nodeKey) {
-                  console.log('通过 key 找到匹配的企业资产配置:', asset)
+                  console.log('Found matching organization asset config by key:', asset)
                   return asset
                 }
               }
@@ -93,14 +93,14 @@ export const findOrganizationAssetByKey = async (nodeKey: string): Promise<any |
       return result
     }
   } catch (error) {
-    console.error('查找企业资产失败:', error)
+    console.error('Failed to find organization asset:', error)
   }
 
   return null
 }
 
 export const refreshOrganizationAssetFromWorkspace = async (dataRef: any, onSuccess?: () => void) => {
-  console.log('从 Workspace 刷新企业资产节点:', dataRef)
+  console.log('Refresh organization asset node from Workspace:', dataRef)
 
   let organizationAsset = null
 
@@ -113,7 +113,7 @@ export const refreshOrganizationAssetFromWorkspace = async (dataRef: any, onSucc
   if (organizationAsset) {
     await handleRefreshOrganizationAssets(organizationAsset, onSuccess)
   } else {
-    console.warn('未找到对应的企业资产配置:', dataRef)
-    message.warning('未找到对应的企业资产配置')
+    console.warn('No matching organization asset config found:', dataRef)
+    message.warning('No matching organization asset config found')
   }
 }

@@ -291,7 +291,7 @@ const changeLanguage = async () => {
   localStorage.setItem('lang', userConfig.value.language)
   configStore().updateLanguage(userConfig.value.language)
 
-  // 通知其他组件语言已更改，需要刷新数据
+  // Notify other components that language has changed, need to refresh data
   eventBus.emit('languageChanged', userConfig.value.language)
 }
 

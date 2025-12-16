@@ -1,36 +1,20 @@
 import eventBus from '@/utils/eventBus'
 import type { ShortcutAction } from '@/services/shortcutService'
 
-export const shortcutHints = {
-  sendOrToggleAi: {
-    zh: '与AI对话',
-    en: 'Chat With AI'
-  },
-  toggleLeftSidebar: {
-    zh: '资产列表',
-    en: 'Asset List'
-  },
-  openSettings: {
-    zh: '打开设置',
-    en: 'Open Settings'
-  },
-  openCommandDialog: {
-    zh: '内联命令生成',
-    en: 'Inline Command Generator'
-  },
-  openFileManager: {
-    zh: '打开文件管理',
-    en: 'Open File Manager'
-  },
-  clearTerminal: {
-    zh: '清屏',
-    en: 'Clear Terminal'
-  },
-  toggleLayout: {
-    zh: '切换布局（Terminal/Agents）',
-    en: 'Toggle Layout (Terminal/Agents)'
-  }
-}
+/**
+ * Shortcut hint i18n keys mapping
+ * Use these keys with i18n t() function to get translated text
+ * Example: t(`shortcuts.hints.${shortcutHintKeys.sendOrToggleAi}`)
+ */
+export const shortcutHintKeys = {
+  sendOrToggleAi: 'sendOrToggleAi',
+  toggleLeftSidebar: 'toggleLeftSidebar',
+  openSettings: 'openSettings',
+  openCommandDialog: 'openCommandDialog',
+  openFileManager: 'openFileManager',
+  clearTerminal: 'clearTerminal',
+  toggleLayout: 'toggleLayout'
+} as const
 
 /**
  * Centralized definition of all keyboard shortcuts in the application.

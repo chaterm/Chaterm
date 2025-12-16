@@ -12,7 +12,7 @@ type ApiResponsePromise<T> = Promise<ApiResponse<T>>
 
 interface LoginResponse {
   token: string
-  // 其他用户信息
+  // Other user information
 }
 
 const urls = {

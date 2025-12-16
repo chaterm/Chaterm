@@ -30,7 +30,7 @@
             {{ $t('user.userRulesDescription') }}
           </p>
           <div class="rules-list">
-            <!-- 空状态显示 -->
+            <!-- Empty state display -->
             <div
               v-if="userRules.length === 0"
               class="empty-state"
@@ -49,13 +49,13 @@
               </div>
             </div>
 
-            <!-- 规则列表 -->
+            <!-- Rules list -->
             <div
               v-for="(rule, index) in userRules"
               :key="rule.id"
               class="rule-item"
             >
-              <!-- 编辑状态 -->
+              <!-- Edit state -->
               <template v-if="rule.isEditing">
                 <a-textarea
                   v-model:value="rule.content"
@@ -83,7 +83,7 @@
                 </div>
               </template>
 
-              <!-- 显示状态 -->
+              <!-- Display state -->
               <template v-else>
                 <div class="rule-display">
                   <div
@@ -157,24 +157,24 @@ const generateRuleId = () => {
 // Load rules from global state
 const loadUserRules = async () => {
   try {
-    // 同时获取 userRules 和 customInstructions
+    // Get both userRules and customInstructions
     const [saved, customInstructions] = await Promise.all([getGlobalState('userRules'), getGlobalState('customInstructions')])
 
-    // 处理现有的 userRules
+    // Process existing userRules
     if (saved && Array.isArray(saved)) {
       userRules.value = saved.map((rule) => ({
-        id: rule.id || generateRuleId(), // 如果没有ID则生成一个
+        id: rule.id || generateRuleId(), // Generate one if no ID
         content: rule.content || '',
-        enabled: rule.enabled !== undefined ? rule.enabled : true, // 默认启用
-        isEditing: false // 加载时总是设置为非编辑状态
+        enabled: rule.enabled !== undefined ? rule.enabled : true, // Default enabled
+        isEditing: false // Always set to non-editing state when loading
       }))
     } else {
       userRules.value = []
     }
 
-    // 迁移 customInstructions 到 userRules
+    // Migrate customInstructions to userRules
     if (customInstructions && typeof customInstructions === 'string' && customInstructions.trim() !== '') {
-      // 将 customInstructions 作为新规则添加到列表顶部
+      // Add customInstructions as new rule at top of list
       const migratedRule = {
         id: generateRuleId(),
         content: customInstructions.trim(),
@@ -183,10 +183,10 @@ const loadUserRules = async () => {
       }
       userRules.value.unshift(migratedRule)
 
-      // 清空 customInstructions 字段
+      // Clear customInstructions field
       await updateGlobalState('customInstructions', '')
 
-      // 保存更新后的 userRules
+      // Save updated userRules
       await saveUserRules()
 
       console.log('Successfully migrated customInstructions to userRules')
@@ -201,12 +201,12 @@ const loadUserRules = async () => {
 const saveUserRules = async () => {
   try {
     const rulesToSave = userRules.value
-      .filter((rule) => rule.content.trim() !== '') // 过滤掉空内容的规则
+      .filter((rule) => rule.content.trim() !== '') // Filter out rules with empty content
       .map((rule) => ({
         id: rule.id,
         content: rule.content,
         enabled: rule.enabled !== undefined ? rule.enabled : true
-      })) // 保存ID、内容和启用状态，不保存编辑状态
+      })) // Save ID, content and enabled state, do not save editing state
     await updateGlobalState('userRules', rulesToSave)
   } catch (error) {
     console.error('Failed to save user rules:', error)
@@ -215,17 +215,17 @@ const saveUserRules = async () => {
 
 // Add new rule
 const addUserRule = () => {
-  // 检查是否已经有规则处于编辑状态
+  // Check if there is already a rule in editing state
   const hasEditingRule = userRules.value.some((rule) => rule.isEditing)
   if (hasEditingRule) {
-    return // 如果已有编辑状态的规则，不添加新的
+    return // If there is already a rule in editing state, do not add new one
   }
 
-  // 在列表最上方添加新规则，设置为编辑状态
+  // Add new rule at top of list, set to editing state
   userRules.value.unshift({
     id: generateRuleId(),
     content: '',
-    enabled: true, // 默认启用
+    enabled: true, // Default enabled
     isEditing: true
   })
 }
@@ -240,10 +240,10 @@ const removeUserRule = async (index: number) => {
 const saveUserRule = async (index: number) => {
   const rule = userRules.value[index]
   if (rule.content.trim() === '') {
-    // 如果内容为空，删除该规则
+    // If content is empty, delete the rule
     userRules.value.splice(index, 1)
   } else {
-    // 保存并设置为非编辑状态
+    // Save and set to non-editing state
     rule.isEditing = false
   }
   await saveUserRules()
@@ -253,29 +253,29 @@ const saveUserRule = async (index: number) => {
 const cancelUserRuleEdit = async (index: number) => {
   const rule = userRules.value[index]
   if (rule.isEditing && rule.content.trim() === '') {
-    // 如果是新添加的空规则，直接删除
+    // If it's a newly added empty rule, delete directly
     userRules.value.splice(index, 1)
   } else {
-    // 重新加载数据以丢弃更改
+    // Reload data to discard changes
     await loadUserRules()
   }
 }
 
-// 切换规则启用状态
+// Toggle rule enabled state
 const toggleUserRule = async (_index: number) => {
-  // a-switch 组件已经自动更新了 rule.enabled 的值，这里只需要保存
+  // a-switch component has already updated rule.enabled value, just need to save here
   await saveUserRules()
 }
 
-// 编辑规则
+// Edit rule
 const editUserRule = (index: number) => {
-  // 取消其他正在编辑的规则
+  // Cancel other rules being edited
   userRules.value.forEach((rule, i) => {
     if (i !== index) {
       rule.isEditing = false
     }
   })
-  // 设置当前规则为编辑状态
+  // Set current rule to editing state
   userRules.value[index].isEditing = true
 }
 </script>
@@ -471,7 +471,7 @@ const editUserRule = (index: number) => {
   width: 100% !important;
 }
 
-// 确保父级label容器也支持flex布局
+// Ensure parent label container also supports flex layout
 :deep(.ant-form-item-label > label) {
   width: 100% !important;
   display: flex !important;
@@ -629,14 +629,14 @@ const editUserRule = (index: number) => {
         line-height: 1.5;
         white-space: pre-wrap;
         cursor: pointer;
-        min-height: 21px; // 约等于1行的高度 (14px * 1.5)
+        min-height: 21px; // Approximately 1 line height (14px * 1.5)
         display: -webkit-box;
-        -webkit-line-clamp: 2; // 显示2行
+        -webkit-line-clamp: 2; // Display 2 lines
         line-clamp: 2;
         -webkit-box-orient: vertical;
         overflow: hidden;
         text-overflow: ellipsis;
-        min-width: 0; // 允许文本缩小
+        min-width: 0; // Allow text to shrink
 
         &:hover {
           color: var(--text-color-secondary);
@@ -721,7 +721,7 @@ const editUserRule = (index: number) => {
   }
 }
 
-// 强制覆盖开关样式
+// Force override switch styles
 :deep(.ant-switch) {
   background-color: var(--bg-color-quaternary) !important;
 }
@@ -734,7 +734,7 @@ const editUserRule = (index: number) => {
   background-color: #1890ff !important;
 }
 
-/* 覆盖按钮内部所有可能的元素 */
+/* Override all possible elements inside button */
 .header-add-btn *,
 .header-add-btn .anticon,
 .header-add-btn span {

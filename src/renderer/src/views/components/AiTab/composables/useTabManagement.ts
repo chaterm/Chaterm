@@ -56,7 +56,7 @@ export function useTabManagement(options: TabManagementOptions) {
 
     chatTabs.value.push(placeholderTab)
 
-    // 异步获取实际数据
+    // Asynchronously get actual data
     const [chatSetting, assetInfo, apiProvider] = await Promise.all([
       getGlobalState('chatSettings').catch(() => ({ mode: 'agent' })),
       getCurentTabAssetInfo().catch(() => null),
@@ -81,7 +81,7 @@ export function useTabManagement(options: TabManagementOptions) {
             }
           ]
 
-    // 获取当前选择的模型作为新 Tab 的默认值
+    // Get currently selected model as default value for new Tab
     const PROVIDER_MODEL_KEY_MAP: Record<string, GlobalStateKey> = {
       bedrock: 'apiModelId',
       litellm: 'liteLlmModelId',
@@ -92,7 +92,7 @@ export function useTabManagement(options: TabManagementOptions) {
     const key = PROVIDER_MODEL_KEY_MAP[(apiProvider as string) || 'default'] || 'defaultModelId'
     const currentModelValue = (await getGlobalState(key).catch(() => '')) as string
 
-    // 更新占位tab的实际数据
+    // Update actual data of placeholder tab
     const tab = chatTabs.value.find((t) => t.id === newChatId)
     if (tab) {
       tab.chatType = chatType

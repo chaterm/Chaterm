@@ -42,7 +42,7 @@ export interface TodoDisplayConfig {
   maxItemsToShow: number
 }
 
-// 用于与主进程通信的消息类型
+// Message type for communication with main process
 export interface TodoWebviewMessage {
   type: 'todoUpdated'
   todos: Todo[]

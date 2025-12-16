@@ -25,7 +25,7 @@ export interface ChatMessage {
   selectedOption?: string
   partial?: boolean
   actioned?: boolean
-  // Todo 相关属性
+  // Todo related properties
   hasTodoUpdate?: boolean
   relatedTodos?: any[]
   // Command execution tracking
