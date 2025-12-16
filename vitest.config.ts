@@ -23,7 +23,6 @@ export default defineConfig({
   },
   test: {
     environment: 'node',
-    setupFiles: ['./vitest.setup.ts'],
     include: ['src/**/*.test.ts', 'src/**/*.spec.ts'],
     exclude: ['tests/e2e/**', 'di st/**', 'node_modules/**', 'src/renderer/src/utils/terminalOutputExtractor.test.ts'],
     coverage: {
