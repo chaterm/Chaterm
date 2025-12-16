@@ -6,11 +6,12 @@ describe('commandScript', () => {
 
   beforeEach(() => {
     const writtenData: string[] = []
+    const writeFn = vi.fn((data: string) => {
+      writtenData.push(data)
+    })
     mockTerminal = {
       writtenData,
-      write: vi.fn<[string], void>((data: string) => {
-        writtenData.push(data)
-      })
+      write: writeFn as (data: string) => void
     }
   })
 
