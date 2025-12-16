@@ -288,7 +288,11 @@ export class Task {
     try {
       const terminalInfo = await this.connectTerminal(ip)
       if (!terminalInfo) {
-        await this.ask('ssh_con_failed', this.messages.sshConnectionFailed, false)
+        const hostLabel = ip || 'unknown'
+        const failedMsg = this.messages.sshConnectionFailed
+          ? formatMessage(this.messages.sshConnectionFailed, { host: hostLabel })
+          : `服务器连接失败(${hostLabel})`
+        await this.ask('ssh_con_failed', failedMsg, false)
         await this.abortTask()
         throw new Error('Failed to connect to terminal')
       }
@@ -388,6 +392,7 @@ export class Task {
       const connectionInfo = await connectAssetInfo(terminalUuid)
       this.remoteTerminalManager.setConnectionInfo(connectionInfo)
 
+      const hostLabel = connectionInfo?.host || targetHost.host || ip || 'unknown'
       // Create a unique connection identifier
       const currentConnectionId = `${connectionInfo.host}:${connectionInfo.port}:${connectionInfo.username}`
       const isNewConnection = this.lastConnectionHost !== currentConnectionId
@@ -406,7 +411,9 @@ export class Task {
             ts: Date.now(),
             type: 'say',
             say: 'sshInfo',
-            text: this.messages.sshConnectionStarting || ' 开始连接服务器...',
+            text: this.messages.sshConnectionStarting
+              ? formatMessage(this.messages.sshConnectionStarting, { host: hostLabel })
+              : ` 开始连接服务器(${hostLabel})...`,
             partial: false
           }
         })
@@ -423,7 +430,9 @@ export class Task {
               ts: Date.now(),
               type: 'say',
               say: 'sshInfo',
-              text: this.messages.sshConnectionSuccess || '服务器连接成功',
+              text: this.messages.sshConnectionSuccess
+                ? formatMessage(this.messages.sshConnectionSuccess, { host: hostLabel })
+                : `服务器连接成功(${hostLabel})`,
               partial: false
             }
           })
@@ -436,13 +445,16 @@ export class Task {
       return terminalInfo
     } catch (error) {
       // Send connection failed message
+      const hostLabel = ip || targetHost?.host || 'unknown'
       await this.postMessageToWebview({
         type: 'partialMessage',
         partialMessage: {
           ts: Date.now(),
           type: 'say',
           say: 'sshInfo',
-          text: this.messages.sshConnectionFailed || `服务器连接失败: ${error instanceof Error ? error.message : String(error)}`,
+          text: this.messages.sshConnectionFailed
+            ? formatMessage(this.messages.sshConnectionFailed, { host: hostLabel })
+            : `服务器连接失败(${hostLabel}): ${error instanceof Error ? error.message : String(error)}`,
           partial: false
         }
       })
@@ -1228,7 +1240,11 @@ export class Task {
     try {
       const terminalInfo = await this.connectTerminal(ip)
       if (!terminalInfo) {
-        await this.ask('ssh_con_failed', this.messages.sshConnectionFailed, false)
+        const hostLabel = ip || 'unknown'
+        const failedMsg = this.messages.sshConnectionFailed
+          ? formatMessage(this.messages.sshConnectionFailed, { host: hostLabel })
+          : `服务器连接失败(${hostLabel})`
+        await this.ask('ssh_con_failed', failedMsg, false)
         await this.abortTask()
         return 'Failed to connect to terminal'
       }

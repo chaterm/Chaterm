@@ -137,11 +137,11 @@ export interface Messages {
 
 export const messagesEN: Messages = {
   // SSH connection related
-  sshConnectionFailed: 'Unable to connect to the remote server',
+  sshConnectionFailed: 'Unable to connect to the remote server ({{host}})',
   sshConnectionFailedDetails: 'Please check your network settings and server configuration',
-  sshConnectionStarting: 'Connecting to remote server...',
-  sshConnectionProgress: 'Establishing secure connection...',
-  sshConnectionSuccess: 'Successfully connected to server, please wait...',
+  sshConnectionStarting: 'Connecting to remote server ({{host}})...',
+  sshConnectionProgress: 'Establishing secure connection to {{host}}...',
+  sshConnectionSuccess: 'Successfully connected to server ({{host}}), please wait...',
 
   // Error messages
   consecutiveMistakesError: 'Chaterm is having trouble. Would you like to continue the task?',
@@ -281,11 +281,11 @@ export const messagesEN: Messages = {
 
 export const messagesCN: Messages = {
   // SSH连接相关
-  sshConnectionFailed: '无法连接到远程服务器',
+  sshConnectionFailed: '无法连接到远程服务器({{host}})',
   sshConnectionFailedDetails: '请检查网络设置和服务器配置',
-  sshConnectionStarting: '正在连接到远程服务器...',
-  sshConnectionProgress: '正在建立安全连接...',
-  sshConnectionSuccess: '已成功连接到服务器，请稍等...',
+  sshConnectionStarting: '正在连接到远程服务器({{host}})...',
+  sshConnectionProgress: '正在与{{host}}建立安全连接...',
+  sshConnectionSuccess: '已成功连接到服务器({{host}})，请稍等...',
 
   // 错误消息
   consecutiveMistakesError: 'Chaterm遇到了问题。您是否希望继续这个任务？',
