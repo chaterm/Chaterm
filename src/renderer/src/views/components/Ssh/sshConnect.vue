@@ -219,7 +219,7 @@ const connectionId = ref('')
 const connectionHasSudo = ref(false)
 const connectionSftpAvailable = ref(false)
 const cleanupListeners = ref<Array<() => void>>([])
-const terminalElement = ref<HTMLDivElement | null>(null)
+const terminalElement = ref<HTMLDivElement | undefined>(undefined)
 const terminalContainer = ref<HTMLDivElement | null>(null)
 const contextmenu = ref()
 const cursorStartX = ref(0)
@@ -910,7 +910,7 @@ const createEditor = async (filePath, contentType) => {
         terminalId: connectionId.value,
         userResized: false
       } as editorData)
-    } else {
+    } else if (existingEditor) {
       existingEditor.visible = true
       existingEditor.vimText = stdout
     }

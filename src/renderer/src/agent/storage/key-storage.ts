@@ -1,7 +1,7 @@
 import { getUserInfo } from '@/utils/permission'
 
 // Get current user ID
-function getCurrentUserId(): number {
+export function getCurrentUserId(): number {
   const userInfo = getUserInfo()
   if (!userInfo || !userInfo.uid) {
     throw new Error('User not logged in. Please login first to use storage.')

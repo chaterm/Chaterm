@@ -1,4 +1,4 @@
-import { ClineMessage } from './ExtensionMessage'
+import { ChatermMessage } from './ExtensionMessage'
 
 /**
  * Combines sequences of command and command_output messages in an array of ClineMessages.
@@ -20,8 +20,8 @@ import { ClineMessage } from './ExtensionMessage'
  * const result = simpleCombineCommandSequences(messages);
  * // Result: [{ type: 'ask', ask: 'command', text: 'ls\nfile1.txt\nfile2.txt', ts: 1625097600000 }]
  */
-export function combineCommandSequences(messages: ClineMessage[]): ClineMessage[] {
-  const combinedCommands: ClineMessage[] = []
+export function combineCommandSequences(messages: ChatermMessage[]): ChatermMessage[] {
+  const combinedCommands: ChatermMessage[] = []
 
   // First pass: combine commands with their outputs
   for (let i = 0; i < messages.length; i++) {

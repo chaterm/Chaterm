@@ -41,10 +41,7 @@ interface Props {
   autoSendAfterVoice?: boolean
 }
 
-const props = withDefaults(defineProps<Props>(), {
-  disabled: false
-  // autoSendAfterVoice: true
-})
+defineProps<Props>()
 
 // Emits
 const emit = defineEmits<{

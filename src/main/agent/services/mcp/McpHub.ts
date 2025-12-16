@@ -49,7 +49,7 @@ import { ChatermDatabaseService } from '../../../storage/db/chaterm.service'
  * - 'python -m "my module"' -> { command: "python", args: ["-m", "my module"] }
  * - "  uvx  package  " -> { command: "uvx", args: ["package"] }
  */
-function parseCommand(commandString: string): { command: string; args: string[] } {
+export function parseCommand(commandString: string): { command: string; args: string[] } {
   // Trim the input to handle leading/trailing whitespace
   const trimmed = commandString.trim()
 
@@ -808,53 +808,6 @@ export class McpHub {
     }
   }
 
-  async updateServerConnectionsRPC(newServers: Record<string, McpServerConfig>): Promise<void> {
-    this.isConnecting = true
-    this.removeAllFileWatchers()
-    const currentNames = new Set(this.connections.map((conn) => conn.server.name))
-    const newNames = new Set(Object.keys(newServers))
-
-    // Delete removed servers
-    for (const name of currentNames) {
-      if (!newNames.has(name)) {
-        await this.deleteConnection(name)
-        console.log(`Deleted MCP server: ${name}`)
-      }
-    }
-
-    // Update or add servers
-    for (const [name, config] of Object.entries(newServers)) {
-      const currentConnection = this.connections.find((conn) => conn.server.name === name)
-
-      if (!currentConnection) {
-        // New server
-        try {
-          if (config.type === 'stdio') {
-            this.setupFileWatcher(name, config)
-          }
-          await this.connectToServer(name, config, 'rpc')
-        } catch (error) {
-          console.error(`Failed to connect to new MCP server ${name}:`, error)
-        }
-      } else if (!deepEqual(JSON.parse(currentConnection.server.config), JSON.parse(JSON.stringify(config)))) {
-        // Existing server with changed config
-        try {
-          if (config.type === 'stdio') {
-            this.setupFileWatcher(name, config)
-          }
-          await this.deleteConnection(name)
-          await this.connectToServer(name, config, 'rpc')
-          console.log(`Reconnected MCP server with updated config: ${name}`)
-        } catch (error) {
-          console.error(`Failed to reconnect MCP server ${name}:`, error)
-        }
-      }
-      // If server exists with same config, do nothing
-    }
-
-    this.isConnecting = false
-  }
-
   async updateServerConnections(newServers: Record<string, McpServerConfig>): Promise<void> {
     this.isConnecting = true
     this.removeAllFileWatchers()
@@ -957,36 +910,6 @@ export class McpHub {
     this.fileWatchers.clear()
   }
 
-  async restartConnectionRPC(serverName: string): Promise<McpServer[]> {
-    this.isConnecting = true
-
-    // Get existing connection and update its status
-    const connection = this.connections.find((conn) => conn.server.name === serverName)
-    const inMemoryConfig = connection?.server.config
-    if (inMemoryConfig) {
-      connection.server.status = 'connecting'
-      connection.server.error = ''
-      await setTimeoutPromise(500) // artificial delay to show user that server is restarting
-      try {
-        await this.deleteConnection(serverName)
-        // Try to connect again using existing config
-        await this.connectToServer(serverName, JSON.parse(inMemoryConfig), 'rpc')
-      } catch (error) {
-        console.error(`Failed to restart connection for ${serverName}:`, error)
-      }
-    }
-
-    this.isConnecting = false
-
-    const config = await this.readAndValidateMcpSettingsFile()
-    if (!config) {
-      throw new Error('Failed to read or validate MCP settings')
-    }
-
-    const serverOrder = Object.keys(config.mcpServers || {})
-    return this.getSortedMcpServers(serverOrder)
-  }
-
   async restartConnection(serverName: string): Promise<void> {
     this.isConnecting = true
 
@@ -1079,21 +1002,6 @@ export class McpHub {
   async sendLatestMcpServers() {
     await this.notifyWebviewOfServerChanges()
   }
-
-  async getLatestMcpServersRPC(): Promise<McpServer[]> {
-    const settings = await this.readAndValidateMcpSettingsFile()
-    if (!settings) {
-      // Return empty array if settings can't be read or validated
-      return []
-    }
-
-    const serverOrder = Object.keys(settings.mcpServers || {})
-    return this.getSortedMcpServers(serverOrder)
-  }
-
-  // Using server
-
-  // Public methods for server management
 
   /**
    * Toggle server disabled state with optimized updates (only target server, no full reconciliation)

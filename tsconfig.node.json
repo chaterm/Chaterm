@@ -19,6 +19,7 @@
       "@integrations/*": ["src/main/agent/integrations/*"],
       "@utils/*": ["src/main/agent/utils/*"],
       "@shared/*": ["src/main/agent/shared/*"],
+      "@storage/*": ["src/main/storage/*"],
       "@core/*": ["src/main/agent/core/*"],
     }
   }

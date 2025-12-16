@@ -39,9 +39,7 @@ interface Props {
   disabled?: boolean
 }
 
-const props = withDefaults(defineProps<Props>(), {
-  disabled: false
-})
+defineProps<Props>()
 
 // Emits
 const emit = defineEmits<{

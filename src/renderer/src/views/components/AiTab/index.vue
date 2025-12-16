@@ -67,6 +67,7 @@
               <div
                 v-if="message.role === 'assistant'"
                 class="assistant-message-container"
+                data-testid="ai-message"
                 :class="{
                   'has-history-copy-btn': chatTypeValue === 'cmd' && message.ask === 'command' && message.actioned,
                   'last-message': message.say === 'completion_result'
@@ -436,6 +437,11 @@
           </div>
           <div class="input-send-container">
             <div
+              class="ai-tab-test-hook"
+              data-testid="ai-tab"
+              style="display: none"
+            ></div>
+            <div
               v-if="showHostSelect"
               class="host-select-popup"
             >
@@ -528,6 +534,7 @@
                   chatTypeValue === 'agent' ? $t('ai.agentMessage') : chatTypeValue === 'chat' ? $t('ai.chatMessage') : $t('ai.cmdMessage')
                 "
                 class="chat-textarea"
+                data-testid="ai-message-input"
                 :auto-size="{ minRows: 2, maxRows: 5 }"
                 @keydown="handleKeyDown"
                 @input="handleInputChange"
@@ -592,6 +599,7 @@
                     <a-button
                       size="small"
                       class="custom-round-button compact-button"
+                      data-testid="send-message-btn"
                       @click="responseLoading ? handleInterrupt() : sendMessage('send')"
                     >
                       <img

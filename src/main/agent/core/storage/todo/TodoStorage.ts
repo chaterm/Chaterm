@@ -1,4 +1,4 @@
-import { Todo, TodoArraySchema, TodoSerializer } from '../../../shared/todo/TodoSchemas'
+import { Todo, TodoArraySchema } from '../../../shared/todo/TodoSchemas'
 import { ChatermDatabaseService } from '../../../../storage/database'
 import { TaskMetadataHelper } from '../../context/context-tracking/ContextTrackerTypes'
 

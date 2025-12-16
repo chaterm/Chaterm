@@ -247,7 +247,6 @@ const props = defineProps<{
   currentMode: 'terminal' | 'agents'
 }>()
 
-const api = window.api as any
 const { t } = useI18n()
 const aliasConfig = aliasConfigStore()
 const configStore = piniaUserConfigStore()

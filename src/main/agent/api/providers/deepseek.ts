@@ -1,7 +1,7 @@
 import { Anthropic } from '@anthropic-ai/sdk'
 import OpenAI from 'openai'
 import { ApiHandler } from '../'
-import { ApiHandlerOptions, DeepSeekModelId, ModelInfo, deepSeekDefaultModelId, deepSeekModels } from '@shared/api'
+import { ApiHandlerOptions, DeepSeekModelId, ModelInfo, deepSeekModels } from '@shared/api'
 import { calculateApiCostOpenAI } from '../../utils/cost'
 import { convertToOpenAiMessages } from '../transform/openai-format'
 import { ApiStream } from '../transform/stream'

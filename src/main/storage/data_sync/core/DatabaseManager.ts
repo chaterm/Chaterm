@@ -10,7 +10,7 @@ export class DatabaseManager {
   private updateVersionStmt: Database.Statement
   private updateChainVersionStmt: Database.Statement
 
-  constructor(private dbPath: string) {
+  constructor(dbPath: string) {
     this.db = new Database(dbPath)
     this.db.pragma('journal_mode = WAL')
     this.db.pragma('synchronous = NORMAL')
@@ -35,7 +35,7 @@ export class DatabaseManager {
    * @param enabled 是否启用远程应用保护
    */
   setRemoteApplyGuard(enabled: boolean) {
-    const flag = enabled ? '1' : null
+    // const flag = enabled ? '1' : null
     // 创建/更新标记
     if (enabled) {
       this.db.prepare(`INSERT INTO sync_meta(key, value) VALUES('apply_remote_guard', '1') ON CONFLICT(key) DO UPDATE SET value='1'`).run()

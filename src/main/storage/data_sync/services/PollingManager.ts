@@ -1,7 +1,6 @@
 import { ApiClient } from '../core/ApiClient'
 import { DatabaseManager } from '../core/DatabaseManager'
 import { SyncEngine } from '../core/SyncEngine'
-import { syncConfig } from '../config/sync.config'
 import { logger } from '../utils/logger'
 
 export interface PollingConfig {
@@ -30,7 +29,7 @@ export class PollingManager {
 
   constructor(
     private db: DatabaseManager,
-    private api: ApiClient,
+    _api: ApiClient,
     private syncEngine: SyncEngine,
     config?: Partial<PollingConfig>
   ) {
@@ -120,10 +119,13 @@ export class PollingManager {
 
   /**
    * 检查是否有正在进行的轮询操作
+   * 目前未使用，保留供将来参考
    */
-  private isPollingInProgress(): boolean {
+  /*
+  private _isPollingInProgress(): boolean {
     return this.status.isPerforming
   }
+  */
 
   /**
    * 立即执行一次轮询

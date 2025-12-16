@@ -346,8 +346,10 @@ export class SyncController {
 
   /**
    * 执行定时全量同步（由FullSyncTimerManager调用）- 原始版本，保持兼容性
+   * 目前未使用，保留供将来参考
    */
-  private async performScheduledFullSync(): Promise<void> {
+  /*
+  private async _performScheduledFullSync(): Promise<void> {
     const wasRunning = this.pollingManager.getStatus().isRunning
     try {
       logger.info('开始定时全量同步...')
@@ -372,6 +374,7 @@ export class SyncController {
       }
     }
   }
+  */
 
   /**
    * 带状态管理的定时全量同步（新版本）
@@ -587,13 +590,16 @@ export class SyncController {
 
   /**
    * 检查是否有正在进行的同步操作（原始版本，保持兼容性）
+   * 目前未使用，保留供将来参考
    */
-  private isSyncInProgressLegacy(): boolean {
+  /*
+  private _isSyncInProgressLegacy(): boolean {
     // 检查轮询状态和全量同步状态
     const pollingStatus = this.pollingManager.getStatus()
     const fullSyncStatus = this.fullSyncTimer.getStatus()
     return pollingStatus.isRunning || fullSyncStatus.isRunning
   }
+  */
 
   /**
    * 检查认证状态
