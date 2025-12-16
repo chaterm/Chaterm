@@ -1,31 +1,31 @@
 import mitt from 'mitt'
 
 /**
- * 定义事件类型
+ * Define event types
  */
 export interface AppEvents {
-  currentClickServer: any // 可根据实际 item 类型替换 any
-  updateRightIcon: boolean // 更新右侧图标状态
-  executeTerminalCommand: { command: string; tabId?: string } // 执行终端命令
+  currentClickServer: any // Can be replaced with actual item type instead of any
+  updateRightIcon: boolean // Update right icon status
+  executeTerminalCommand: { command: string; tabId?: string } // Execute terminal command
   autoExecuteCode: { command: string; tabId: string }
-  focusActiveTerminal: string | undefined // 将焦点返回到当前活跃的终端
-  getActiveTabAssetInfo: void | { tabId?: string } // 请求获取当前活跃tab的资产信息
-  assetInfoResult: any | { assetInfo: any; tabId?: string } // 返回资产信息结果
-  LocalAssetMenu: any // 更新资产目录
-  SettingModelChanged: any // 设置页面模型变更事件
-  AiTabModelChanged: any // AI Tab模型变更事件
+  focusActiveTerminal: string | undefined // Return focus to currently active terminal
+  getActiveTabAssetInfo: void | { tabId?: string } // Request to get asset information of current active tab
+  assetInfoResult: any | { assetInfo: any; tabId?: string } // Return asset information result
+  LocalAssetMenu: any // Update asset directory
+  SettingModelChanged: any // Setting page model change event
+  AiTabModelChanged: any // AI Tab model change event
   apiProviderChanged: any
   activeTabChanged: any
   chatToAi: any
   sendMessageToAi: { content: string; tabId?: string }
   toggleMenu: any
-  updateWatermark: string // 更新水印状态
-  updateSecretRedaction: string // 更新密文脱敏状态
-  updateDataSync: string // 更新数据同步状态
-  keyChainUpdated: void // 密钥更新事件，用于同步主机配置中的密钥选项
-  aliasStatusChanged: number // 别名状态变更事件，1表示启用，2表示禁用
-  openUserTab: any // 打开Tab
-  // 可扩展更多事件
+  updateWatermark: string // Update watermark status
+  updateSecretRedaction: string // Update secret redaction status
+  updateDataSync: string // Update data sync status
+  keyChainUpdated: void // Keychain update event, used to sync key options in host configuration
+  aliasStatusChanged: number // Alias status change event, 1 means enabled, 2 means disabled
+  openUserTab: any // Open Tab
+  // Can extend more events
   [key: string | symbol]: any
 }
 

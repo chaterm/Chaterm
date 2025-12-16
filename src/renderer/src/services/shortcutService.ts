@@ -47,7 +47,7 @@ export class ShortcutService {
 
   public init() {
     console.log('Initializing ShortcutService...')
-    this.destroy() // 清理旧状态
+    this.destroy() // Clean up old state
     this.initializeShortcuts()
   }
 

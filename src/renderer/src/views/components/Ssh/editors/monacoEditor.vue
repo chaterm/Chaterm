@@ -43,7 +43,7 @@ self.MonacoEnvironment = {
   }
 }
 
-// 定义属性
+// Define props
 const props = defineProps({
   modelValue: {
     type: String,
@@ -75,10 +75,10 @@ const editorContainer = ref<HTMLElement | null>(null)
 let editor: monaco.editor.IStandaloneCodeEditor | null = null
 const monacoVimInstance: any = null
 
-// 根据主题设置不同的颜色配置
+// Set different color config based on theme
 const getThemeColors = (): monaco.editor.IColors => {
   if (props.theme === 'vs') {
-    // 亮色主题配置
+    // Light theme config
     return {
       'editor.background': '#ffffff',
       'editor.foreground': '#000000',
@@ -90,13 +90,13 @@ const getThemeColors = (): monaco.editor.IColors => {
       'editor.inactiveSelectionBackground': '#e5ebf1'
     }
   }
-  return {} // 暗色主题保持默认
+  return {} // Dark theme keeps default
 }
 
 const createEditor = (): void => {
   if (!editorContainer.value) return
 
-  // 如果是亮色主题，先定义自定义主题
+  // If it's light theme, define custom theme first
   if (props.theme === 'vs') {
     const themeColors = getThemeColors()
     monaco.editor.defineTheme('custom-light', {
@@ -122,7 +122,7 @@ const createEditor = (): void => {
     },
     padding: {
       top: 0,
-      bottom: 400 // 在底部留出约200px的空白区域，类似VSCode的效果
+      bottom: 400 // Leave about 200px blank space at bottom, similar to VSCode effect
     },
     lineHeight: 0,
     tabSize: 4,
@@ -208,7 +208,7 @@ watch(
   (newValue) => {
     if (editor) {
       if (newValue === 'vs') {
-        // 亮色主题：应用自定义颜色配置
+        // Light theme: apply custom color config
         const themeColors = getThemeColors()
         monaco.editor.defineTheme('custom-light', {
           base: 'vs',
@@ -218,7 +218,7 @@ watch(
         })
         editor.updateOptions({ theme: 'custom-light' })
       } else {
-        // 暗色主题：使用默认主题
+        // Dark theme: use default theme
         editor.updateOptions({ theme: newValue })
       }
     }

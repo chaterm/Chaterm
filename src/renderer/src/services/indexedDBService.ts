@@ -28,7 +28,7 @@ class IndexedDBService {
   }
 
   async initDatabase(config: DBConfig): Promise<IDBDatabase> {
-    // 如果已经有连接，直接返回
+    // If connection already exists, return directly
     const existingConnection = this.dbConnections.get(config.name)
     if (existingConnection) {
       return existingConnection
@@ -53,13 +53,13 @@ class IndexedDBService {
         request.onupgradeneeded = (event: IDBVersionChangeEvent) => {
           const db = (event.target as IDBOpenDBRequest).result
 
-          // 处理所有store的创建
+          // Handle creation of all stores
           config.stores.forEach((store) => {
             if (!db.objectStoreNames.contains(store.name)) {
               console.log(`Creating store: ${store.name}`)
               const objectStore = db.createObjectStore(store.name, { keyPath: store.keyPath })
 
-              // 创建索引
+              // Create indexes
               store.indexes?.forEach((index) => {
                 objectStore.createIndex(index.name, index.keyPath, index.options)
               })
@@ -86,10 +86,10 @@ class IndexedDBService {
   }
 }
 
-// 导出单例实例
+// Export singleton instance
 export const indexedDBService = IndexedDBService.getInstance()
 
-// 导出通用的数据库配置
+// Export common database config
 export const DB_CONFIG: DBConfig = {
   name: 'chatermDB',
   version: 2,

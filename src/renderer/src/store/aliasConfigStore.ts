@@ -3,27 +3,27 @@ import { commandStore } from '@/services/commandStoreService'
 
 export const aliasConfigStore = defineStore('aliasConfig', {
   state: () => ({
-    // 以 Map 形式存储别名，key 是别名名称，value 是命令
+    // Store aliases in Map format, key is alias name, value is command
     aliasMap: new Map(),
-    // 存储所有别名列表，用于显示和其他操作
+    // Store all alias list for display and other operations
     loading: false,
     initialized: false
   }),
 
   getters: {
-    // 检查别名是否存在
+    // Check if alias exists
     hasAlias: (state) => (name) => {
       return state.aliasMap.has(name)
     },
 
-    // 根据别名名称获取命令
+    // Get command by alias name
     getCommand: (state) => (name) => {
       return state.aliasMap.get(name) || null
     }
   },
 
   actions: {
-    // 初始化 store，从 IndexedDB 加载数据
+    // Initialize store, load data from IndexedDB
     async initialize() {
       if (this.initialized) return
 
@@ -38,15 +38,15 @@ export const aliasConfigStore = defineStore('aliasConfig', {
       }
     },
 
-    // 从 IndexedDB 刷新别名数据到 Pinia
+    // Refresh alias data from IndexedDB to Pinia
     async refreshAliasesFromDB() {
       try {
         const aliases = await commandStore.getAll()
 
-        // 清空现有数据
+        // Clear existing data
         this.aliasMap.clear()
 
-        // 重新填充数据
+        // Refill data
         aliases.forEach((alias) => {
           this.aliasMap.set(alias.alias, alias.command)
         })
@@ -56,7 +56,7 @@ export const aliasConfigStore = defineStore('aliasConfig', {
       }
     },
 
-    // 执行命令（如果是别名则返回实际命令，否则返回原命令）
+    // Execute command (if it's an alias, return the actual command, otherwise return the original command)
     resolveCommand(input) {
       return this.aliasMap.get(input) || input
     }

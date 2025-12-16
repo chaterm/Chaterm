@@ -242,7 +242,7 @@ const chatSettings = ref<ChatSettings>(DEFAULT_CHAT_SETTINGS)
 const customInstructions = ref('')
 const inputError = ref('')
 const needProxy = ref(false)
-const securityConfigLoading = ref(false) // 安全配置按钮loading状态
+const securityConfigLoading = ref(false) // Security config button loading state
 const defaultProxyConfig: ProxyConfig = {
   type: 'SOCKS5',
   host: '',
@@ -505,7 +505,7 @@ const handleEnableExtendedThinking = (checked: boolean) => {
 const openSecurityConfig = async () => {
   try {
     securityConfigLoading.value = true
-    // 通过 eventBus 打开标签页
+    // Open tab via eventBus
     eventBus.emit('open-user-tab', 'securityConfigEditor')
   } catch (error) {
     console.error('Failed to open security config editor:', error)

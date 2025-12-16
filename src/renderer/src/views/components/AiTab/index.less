@@ -69,33 +69,33 @@
       background-color 0.2s;
   }
 
-  // 控制标签页标题的宽度和文字省略
+  // Control tab title width and text ellipsis
   :deep(.ant-tabs-tab-btn) {
-    max-width: 200px; // 设置最大宽度
+    max-width: 200px; // Set max width
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
     display: inline-block;
   }
 
-  // 自定义标签页样式：标题和关闭按钮
-  // 使用flex布局确保关闭按钮始终可见
+  // Custom tab styles: title and close button
+  // Use flex layout to ensure close button is always visible
   :deep(.ant-tabs-tab-btn) {
     display: flex !important;
     align-items: center;
-    gap: 4px; // 减小间距
+    gap: 4px; // Reduce spacing
     padding: 0 8px;
     border-radius: 4px;
   }
 
-  // 隐藏下划线指示器，使用背景色代替
+  // Hide underline indicator, use background color instead
   :deep(.ant-tabs-ink-bar) {
     display: none !important;
   }
 
   .tab-title {
     flex: 1;
-    min-width: 0; // 允许flex子元素收缩
+    min-width: 0; // Allow flex child to shrink
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -104,7 +104,7 @@
 
   .tab-close-icon {
     margin: 0;
-    flex-shrink: 0; // 防止关闭按钮被压缩
+    flex-shrink: 0; // Prevent close button from being compressed
     font-size: 12px;
     cursor: pointer;
     opacity: 0;
@@ -121,9 +121,9 @@
     }
   }
 
-  // Tab样式 - Cursor风格
+  // Tab styles - Cursor style
   :deep(.ant-tabs-tab) {
-    margin: 0 2px 0 0; // 减小Tab间距
+    margin: 0 2px 0 0; // Reduce tab spacing
     padding: 0 !important;
     height: 32px;
     line-height: 32px;
@@ -134,7 +134,7 @@
     position: relative;
     transition: background-color 0.2s ease-in-out;
 
-    // Tab之间的分隔线
+    // Separator between tabs
     &:not(:last-child)::after {
       content: '';
       position: absolute;
@@ -147,23 +147,23 @@
       opacity: 0.5;
     }
 
-    // 激活的Tab
+    // Active tab
     &.ant-tabs-tab-active {
       background-color: var(--bg-color-secondary);
       box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
 
-      // 激活的Tab不显示分隔线
+      // Active tab doesn't show separator
       &::after {
         display: none;
       }
 
-      // 激活的Tab的前一个Tab也不显示分隔线
+      // Previous tab of active tab also doesn't show separator
       & + .ant-tabs-tab::after {
         display: none;
       }
     }
 
-    // Hover效果
+    // Hover effect
     &:hover {
       background-color: var(--hover-bg-color);
 
@@ -171,13 +171,13 @@
         opacity: 1;
       }
 
-      // hover时隐藏分隔线
+      // Hide separator on hover
       &::after {
         opacity: 0;
       }
     }
 
-    // 选中的Tab - 关闭按钮始终显示
+    // Selected tab - close button always visible
     &.ant-tabs-tab-active {
       .tab-close-icon {
         opacity: 1;
@@ -185,7 +185,7 @@
     }
   }
 
-  // 隐藏标签页操作容器（包括更多按钮等）
+  // Hide tab operation container (including more button, etc.)
   :deep(.ant-tabs-nav-operations) {
     display: none !important;
   }
@@ -199,7 +199,7 @@
   }
 
   :deep(.ant-tabs-nav-list) {
-    gap: 0; // 移除Tab之间的额外间距
+    gap: 0; // Remove extra spacing between tabs
   }
 
   :deep(.ant-tabs-content-holder) {
@@ -509,13 +509,13 @@
   flex-wrap: nowrap;
   min-height: 32px;
 
-  // 分隔符占据中间空间，实现左右分布
+  // Separator occupies middle space to achieve left-right distribution
   .action-buttons-container-separator {
     flex: 1;
     min-width: 0;
   }
 
-  // 确保按钮组不会被压缩
+  // Ensure button group won't be compressed
   .action-buttons-container {
     flex-shrink: 0;
   }
@@ -798,8 +798,8 @@
 
             .custom-radio {
               margin: 0;
-              margin-top: 2px; // 微调对齐到输入框的第一行文本
-              flex-shrink: 0; // 防止单选按钮被压缩
+              margin-top: 2px; // Fine-tune alignment to first line of input text
+              flex-shrink: 0; // Prevent radio button from being compressed
             }
 
             .custom-input {
@@ -808,7 +808,7 @@
               border: none;
               color: var(--text-color);
               padding: 0;
-              min-height: 20px; // 设置最小高度与其他选项一致
+              min-height: 20px; // Set min height to match other options
 
               &:focus {
                 border: none;
@@ -831,7 +831,7 @@
                 resize: none !important;
               }
 
-              // 确保单行时的高度一致
+              // Ensure consistent height for single line
               :deep(textarea) {
                 line-height: 1.4 !important;
                 min-height: 20px !important;
@@ -1789,7 +1789,7 @@
   transition: filter 0.2s ease;
 }
 
-// Todo 相关样式
+// Todo related styles
 .ai-tab-container {
   position: relative;
   height: 100%;

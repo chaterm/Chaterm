@@ -13,7 +13,7 @@
           class="shortcut-item"
         >
           <div class="shortcut-description">
-            {{ getCurrentLanguage() === 'zh' ? shortcut.description.zh : shortcut.description.en }}
+            {{ shortcut.description }}
           </div>
 
           <div class="shortcut-key">
@@ -32,7 +32,7 @@
 
 <script setup lang="ts">
 import { computed, ref, onMounted, onUnmounted } from 'vue'
-import { shortcutActions, shortcutHints } from '@/config/shortcutActions'
+import { shortcutActions, shortcutHintKeys } from '@/config/shortcutActions'
 import { shortcutService } from '@/services/shortcutService'
 import type { ShortcutConfig } from '@/services/userConfigStoreService'
 import { useI18n } from 'vue-i18n'
@@ -44,15 +44,10 @@ const isDark = ref(document.documentElement.className.includes('theme-dark'))
 
 const logoSrc = computed(() => (isDark.value ? logoDark : logoLight))
 
-const { locale } = useI18n()
+const { t } = useI18n()
 
 // Store current shortcuts configuration
 const currentShortcuts = ref<ShortcutConfig | null>(null)
-
-// Detect current language
-const getCurrentLanguage = () => {
-  return locale.value === 'zh' || locale.value === 'zh-CN' ? 'zh' : 'en'
-}
 
 // Detect if it's Mac system
 const isMac = computed(() => {
@@ -88,7 +83,9 @@ const shortcuts = computed(() => {
       // Use shortcutService to format the shortcut consistently with settings page
       const formattedShortcut = shortcutService.formatShortcut(shortcutKey, id)
       const keys = formattedShortcut.split('+').map((k) => k.trim())
-      const description = shortcutHints[id as keyof typeof shortcutHints]
+      // Get i18n key for this shortcut hint
+      const hintKey = shortcutHintKeys[id as keyof typeof shortcutHintKeys]
+      const description = hintKey ? t(`shortcuts.hints.${hintKey}`) : ''
 
       return {
         id,

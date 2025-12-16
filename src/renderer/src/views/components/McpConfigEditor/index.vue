@@ -38,22 +38,22 @@ const configPath = ref('')
 let saveTimer: NodeJS.Timeout | null = null
 let statusTimer: NodeJS.Timeout | null = null
 let removeFileChangeListener: (() => void) | undefined
-let isFormatting = ref(false) // 标记是否正在格式化
+let isFormatting = ref(false) // Flag indicating if formatting is in progress
 
-// 根据当前主题设置编辑器主题
+// Set editor theme based on current theme
 const currentTheme = computed(() => {
   return getMonacoTheme()
 })
 
-// 显示完整的绝对路径
+// Display full absolute path
 const displayPath = computed(() => {
   return configPath.value || ''
 })
 
-// 键盘事件处理：Ctrl+S / Cmd+S 快捷键保存
+// Keyboard event handling: Ctrl+S / Cmd+S shortcut to save
 const handleKeydown = (e: KeyboardEvent) => {
   if ((e.ctrlKey || e.metaKey) && e.key === 's') {
-    e.preventDefault() // 阻止浏览器默认保存行为
+    e.preventDefault() // Prevent browser default save behavior
 
     if (saveTimer) {
       clearTimeout(saveTimer)
@@ -68,9 +68,9 @@ const handleKeydown = (e: KeyboardEvent) => {
 onMounted(async () => {
   console.log('Loading MCP config...')
   try {
-    // 获取配置文件路径
+    // Get config file path
     configPath.value = await mcpConfigService.getConfigPath()
-    // 读取配置内容
+    // Read config content
     configContent.value = await mcpConfigService.readConfigFile()
 
     if (window.api && window.api.onMcpConfigFileChanged) {
@@ -134,7 +134,7 @@ const handleContentChange = (newValue: string) => {
   }
 }
 
-// @param isManualSave - 是否为手动保存（Ctrl+S），手动保存时会格式化 JSON
+// @param isManualSave - Whether it's manual save (Ctrl+S), manual save will format JSON
 const saveConfig = async (isManualSave = false) => {
   // Validate JSON before saving
   let parsedJson: Record<string, unknown>
@@ -150,8 +150,8 @@ const saveConfig = async (isManualSave = false) => {
     isSaving.value = false
     lastSaved.value = true
 
-    // 只有手动保存（Ctrl+S）时才格式化 JSON，让用户直观感受到已保存
-    // 自动保存不格式化，避免打断用户编辑流程
+    // Only format JSON when manually saving (Ctrl+S), so users can visually see it's saved
+    // Auto-save doesn't format, to avoid interrupting user editing flow
     if (isManualSave) {
       isFormatting.value = true
       try {
@@ -160,7 +160,7 @@ const saveConfig = async (isManualSave = false) => {
           configContent.value = formatted
         }
       } finally {
-        // 确保格式化标志被重置
+        // Ensure formatting flag is reset
         setTimeout(() => {
           isFormatting.value = false
         }, 100)

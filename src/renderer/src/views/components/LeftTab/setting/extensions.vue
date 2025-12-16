@@ -164,7 +164,7 @@ const handleAliasStatusChange = async (checked) => {
     const status = checked ? ExtensionStatus.ENABLED : ExtensionStatus.DISABLED
     await captureExtensionUsage(ExtensionNames.ALIAS, status)
   } catch (error) {
-    console.error('保存别名状态失败:', error)
+    console.error('Failed to save alias status:', error)
     notification.error({
       message: t('user.error'),
       description: t('user.saveAliasStatusFailed')

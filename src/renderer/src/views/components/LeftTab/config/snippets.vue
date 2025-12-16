@@ -712,7 +712,7 @@ const handleEditGroupFromMenu = () => {
 
 const handleRemoveGroupFromMenu = async () => {
   if (currentContextGroup.value) {
-    // 首先删除该组下的所有命令
+    // First delete all commands under this group
     const groupCommands = quickCommands.value.filter((cmd) => cmd.group_uuid === currentContextGroup.value!.uuid)
     for (const cmd of groupCommands) {
       await api.userSnippetOperation({
@@ -721,7 +721,7 @@ const handleRemoveGroupFromMenu = async () => {
       })
     }
 
-    // 然后删除组本身
+    // Then delete the group itself
     await api.userSnippetOperation({
       operation: 'deleteGroup',
       params: { uuid: currentContextGroup.value.uuid }

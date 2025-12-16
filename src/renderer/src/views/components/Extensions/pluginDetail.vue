@@ -246,7 +246,7 @@ const loadPluginDetails = async () => {
     if (!isInstalled.value) {
       const storeDetails = await getPluginDetailsFromStore()
 
-      // 未安装：展示商店信息
+      // Not installed: show store information
       if (storeDetails && storeDetails.versions && storeDetails.versions.length > 0) {
         const latest = storeDetails.versions[0]
         plugin.value = {
@@ -593,7 +593,7 @@ onMounted(() => {
 }
 
 .rendered_markdown {
-  // 模拟 Markdown 基础样式
+  // Simulate Markdown basic styles
   font-size: 14px;
   line-height: 1.6;
 

@@ -1,42 +1,42 @@
 import { extractFinalOutput } from './terminalOutputExtractor'
 
-// 测试用例
+// Test cases
 const testCases = [
   {
-    name: '标准格式测试',
+    name: 'Standard format test',
     input: `Terminal output:\n\`\`\`\nls -la\n-rw-r--r--  1 user  staff  1234 Jan 1 12:00 file.txt\n\`\`\``,
     expected: 'ls -la\n-rw-r--r--  1 user  staff  1234 Jan 1 12:00 file.txt'
   },
   {
-    name: '简单格式测试',
+    name: 'Simple format test',
     input: `\`\`\`\npwd\n/home/user\n\`\`\``,
     expected: 'pwd\n/home/user'
   },
   {
-    name: '多行输出测试',
+    name: 'Multi-line output test',
     input: `Terminal output:\n\`\`\`\nCommand 1\nOutput 1\nCommand 2\nOutput 2\n\`\`\``,
     expected: 'Command 1\nOutput 1\nCommand 2\nOutput 2'
   },
   {
-    name: '空输出测试',
+    name: 'Empty output test',
     input: `Terminal output:\n\`\`\`\n\n\`\`\``,
     expected: ''
   },
   {
-    name: '无格式输出测试',
-    input: '没有格式化的输出',
+    name: 'Unformatted output test',
+    input: 'Unformatted output',
     expected: ''
   },
   {
-    name: '空字符串测试',
+    name: 'Empty string test',
     input: '',
     expected: ''
   }
 ]
 
-// 运行测试
+// Run tests
 export const runTests = () => {
-  console.log('开始测试 extractFinalOutput 函数...')
+  console.log('Starting tests for extractFinalOutput function...')
 
   let passedTests = 0
   let totalTests = testCases.length
@@ -45,13 +45,13 @@ export const runTests = () => {
     const result = extractFinalOutput(testCase.input)
     const isPassed = result === testCase.expected
 
-    console.log(`\n测试 ${index + 1}: ${testCase.name}`)
-    console.log(`结果: ${isPassed ? '✅ 通过' : '❌ 失败'}`)
+    console.log(`\nTest ${index + 1}: ${testCase.name}`)
+    console.log(`Result: ${isPassed ? '✅ Passed' : '❌ Failed'}`)
 
     if (!isPassed) {
-      console.log(`输入: ${JSON.stringify(testCase.input)}`)
-      console.log(`期望: ${JSON.stringify(testCase.expected)}`)
-      console.log(`实际: ${JSON.stringify(result)}`)
+      console.log(`Input: ${JSON.stringify(testCase.input)}`)
+      console.log(`Expected: ${JSON.stringify(testCase.expected)}`)
+      console.log(`Actual: ${JSON.stringify(result)}`)
     }
 
     if (isPassed) {
@@ -59,13 +59,13 @@ export const runTests = () => {
     }
   })
 
-  console.log(`\n测试完成: ${passedTests}/${totalTests} 通过`)
+  console.log(`\nTests completed: ${passedTests}/${totalTests} passed`)
 
   return passedTests === totalTests
 }
 
-// 如果直接运行此文件，执行测试
+// If this file is run directly, execute tests
 if (typeof window !== 'undefined') {
-  // 在浏览器环境中，可以通过控制台调用
+  // In browser environment, can be called via console
   ;(window as any).runTerminalOutputTests = runTests
 }

@@ -1,7 +1,7 @@
 import { userConfigStore } from './userConfigStoreService'
 
 /**
- * 数据同步服务 - 在渲染进程中管理数据同步的启动和停止
+ * Data sync service - manages data sync start and stop in renderer process
  */
 export class DataSyncService {
   private static instance: DataSyncService | null = null
@@ -20,123 +20,123 @@ export class DataSyncService {
   }
 
   /**
-   * 初始化数据同步服务（同步版本，会阻塞调用者）
-   * 在用户登录后调用，检查用户配置并决定是否启动数据同步
-   * 只有正常登录的用户才会启用数据同步，guest用户跳过
+   * Initialize data sync service (synchronous version, blocks caller)
+   * Called after user login, checks user config and decides whether to start data sync
+   * Only normally logged-in users will enable data sync, guest users are skipped
    */
   async initialize(): Promise<void> {
     if (this.isInitialized) {
-      console.log('数据同步服务已初始化，跳过重复初始化')
+      console.log('Data sync service already initialized, skipping duplicate initialization')
       return
     }
 
     try {
-      console.log('初始化数据同步服务...')
+      console.log('Initializing data sync service...')
 
-      // 检查是否为guest用户
+      // Check if it's a guest user
       const isSkippedLogin = localStorage.getItem('login-skipped') === 'true'
       const token = localStorage.getItem('ctm-token')
 
       if (isSkippedLogin || token === 'guest_token') {
-        console.log('检测到guest用户，跳过数据同步初始化')
+        console.log('Guest user detected, skipping data sync initialization')
         this.isInitialized = true
         return
       }
 
-      // 获取用户配置
+      // Get user config
       const userConfig = await userConfigStore.getConfig()
 
       if (!userConfig) {
-        console.log('无法获取用户配置，跳过数据同步初始化')
+        console.log('Unable to get user config, skipping data sync initialization')
         return
       }
 
-      // 检查数据同步是否启用
+      // Check if data sync is enabled
       const isDataSyncEnabled = userConfig.dataSync === 'enabled'
-      console.log(`用户数据同步配置: ${isDataSyncEnabled ? '启用' : '禁用'}`)
+      console.log(`User data sync config: ${isDataSyncEnabled ? 'enabled' : 'disabled'}`)
 
       if (isDataSyncEnabled) {
         await this.enableDataSync()
       } else {
-        console.log('数据同步已禁用，不启动同步服务')
+        console.log('Data sync is disabled, not starting sync service')
       }
 
       this.isInitialized = true
-      console.log('数据同步服务初始化完成')
+      console.log('Data sync service initialization completed')
     } catch (error) {
-      console.error('数据同步服务初始化失败:', error)
+      console.error('Data sync service initialization failed:', error)
     }
   }
 
   /**
-   * 启用数据同步
+   * Enable data sync
    */
   async enableDataSync(): Promise<boolean> {
     try {
-      console.log('启用数据同步...')
+      console.log('Enabling data sync...')
 
       if (!window.api?.setDataSyncEnabled) {
-        console.error('数据同步API不可用')
+        console.error('Data sync API not available')
         return false
       }
 
       const result = await window.api.setDataSyncEnabled(true)
 
       if (result?.success) {
-        console.log('数据同步已成功启用，后台同步任务正在进行中...')
+        console.log('Data sync successfully enabled, background sync task is in progress...')
         return true
       } else {
-        console.error('启用数据同步失败:', result?.error)
+        console.error('Failed to enable data sync:', result?.error)
         return false
       }
     } catch (error) {
-      console.error('启用数据同步时发生错误:', error)
+      console.error('Error occurred while enabling data sync:', error)
       return false
     }
   }
 
   /**
-   * 禁用数据同步
+   * Disable data sync
    */
   async disableDataSync(): Promise<boolean> {
     try {
-      console.log('禁用数据同步...')
+      console.log('Disabling data sync...')
 
       if (!window.api?.setDataSyncEnabled) {
-        console.error('数据同步API不可用')
+        console.error('Data sync API not available')
         return false
       }
 
       const result = await window.api.setDataSyncEnabled(false)
 
       if (result?.success) {
-        console.log('数据同步已成功禁用')
+        console.log('Data sync successfully disabled')
         return true
       } else {
-        console.error('禁用数据同步失败:', result?.error)
+        console.error('Failed to disable data sync:', result?.error)
         return false
       }
     } catch (error) {
-      console.error('禁用数据同步时发生错误:', error)
+      console.error('Error occurred while disabling data sync:', error)
       return false
     }
   }
 
   /**
-   * 重置初始化状态（用于用户切换等场景）
+   * Reset initialization status (for scenarios like user switching)
    */
   reset(): void {
     this.isInitialized = false
-    console.log('数据同步服务状态已重置')
+    console.log('Data sync service status has been reset')
   }
 
   /**
-   * 检查是否已初始化
+   * Check if already initialized
    */
   getInitializationStatus(): boolean {
     return this.isInitialized
   }
 }
 
-// 导出单例实例
+// Export singleton instance
 export const dataSyncService = DataSyncService.getInstance()

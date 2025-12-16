@@ -108,7 +108,7 @@ function doOpen(opts: NoticeOptions | NoticeProgressOptions) {
 
 function showNext() {
   if (queue.length === 0) return
-  // 限制最多同时展示3条
+  // Limit to maximum 3 displayed simultaneously
   if (activeKeys.size >= 3) return
 
   const opts = queue.shift()!
@@ -122,7 +122,7 @@ function openImmediate(opts: NoticeOptions | NoticeProgressOptions) {
 
 export const Notice = {
   open(opts: NoticeOptions) {
-    // 有按钮就立刻打开，否则进入队列
+    // Open immediately if there are buttons, otherwise enter queue
     if (opts.btns) {
       openImmediate(opts)
     } else {

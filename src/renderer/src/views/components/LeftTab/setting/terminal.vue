@@ -500,7 +500,7 @@ const handlePinchZoomStatusChange = async (checked) => {
   eventBus.emit('pinchZoomStatusChanged', checked)
 }
 
-// ssh代理
+// SSH proxy
 const sshProxyConfigAddModalVisible = ref(false)
 const sshProxyConfigShowModalVisible = ref(false)
 const openProxyConfig = async () => {

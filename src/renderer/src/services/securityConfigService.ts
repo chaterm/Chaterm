@@ -2,7 +2,7 @@ export class SecurityConfigService {
   private configPath: string | null = null
 
   /**
-   * 获取配置文件路径
+   * Get config file path
    */
   async getConfigPath(): Promise<string> {
     if (!this.configPath) {
@@ -12,8 +12,8 @@ export class SecurityConfigService {
   }
 
   /**
-   * 读取配置文件原始内容（用于文本编辑器）
-   * 注意：安全配置文件可能包含 JSON 注释，需要在读取时处理
+   * Read config file raw content (for text editor)
+   * Note: Security config file may contain JSON comments, need to handle when reading
    */
   async readConfigFile(): Promise<string> {
     try {
@@ -21,7 +21,7 @@ export class SecurityConfigService {
 
       if (!content || content.trim() === '') {
         console.warn('Security config file is empty or does not exist')
-        // 返回默认的 JSON 结构
+        // Return default JSON structure
         return JSON.stringify(
           {
             security: {
@@ -44,21 +44,21 @@ export class SecurityConfigService {
         )
       }
 
-      // 移除注释以便 Monaco Editor 能够正确验证 JSON
+      // Remove comments so Monaco Editor can properly validate JSON
       const cleaned = this.removeComments(content)
 
-      // 如果移除注释后内容为空或无效，尝试返回原始内容
+      // If content is empty or invalid after removing comments, try returning original content
       if (!cleaned || cleaned.trim() === '') {
         console.warn('After removing comments, content is empty, returning original')
         return content
       }
 
-      // 验证是否为有效 JSON
+      // Validate if it's valid JSON
       try {
         JSON.parse(cleaned)
         return cleaned
       } catch {
-        // JSON 无效，返回原始内容（可能用户需要手动修复）
+        // JSON is invalid, return original content (user may need to manually fix)
         console.warn('Cleaned content is not valid JSON, returning original')
         return content
       }
@@ -69,19 +69,19 @@ export class SecurityConfigService {
   }
 
   /**
-   * 写入配置文件
+   * Write config file
    */
   async writeConfigFile(content: string): Promise<void> {
     await window.api.writeSecurityConfig(content)
   }
 
   /**
-   * 文件变更监听器（可选）
+   * File change listener (optional)
    */
   onFileChanged(callback: (newContent: string) => void): (() => void) | undefined {
     if (window.api?.onSecurityConfigFileChanged) {
       return window.api.onSecurityConfigFileChanged((newContent: string) => {
-        // 移除注释后回调
+        // Callback after removing comments
         const cleanedContent = this.removeComments(newContent)
         callback(cleanedContent)
       })
@@ -90,21 +90,21 @@ export class SecurityConfigService {
   }
 
   /**
-   * 移除 JSON 注释
-   * 支持行注释 (//) 和块注释
-   * 参考 SecurityConfigManager 的实现方式
+   * Remove JSON comments
+   * Supports line comments (//) and block comments
+   * Reference SecurityConfigManager implementation
    */
   private removeComments(jsonString: string): string {
     if (!jsonString || !jsonString.trim()) {
       return jsonString
     }
-    // 移除单行注释 //（保留字符串中的 //）
+    // Remove single-line comments // (preserve // in strings)
     let cleaned = jsonString.replace(/\/\/.*$/gm, '')
 
-    // 移除多行注释 /* */
+    // Remove multi-line comments /* */
     cleaned = cleaned.replace(/\/\*[\s\S]*?\*\//g, '')
 
-    // 移除空行
+    // Remove empty lines
     cleaned = cleaned.replace(/^\s*[\r\n]/gm, '')
 
     return cleaned.trim()
