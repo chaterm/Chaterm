@@ -2,7 +2,7 @@ import { ipcMain } from 'electron'
 import { Client, ConnectConfig } from 'ssh2'
 import { ConnectionInfo } from '../agent/integrations/remote-terminal'
 import { createProxySocket } from './proxy'
-import { getReusableSshConnection, registerReusableSshSession, releaseReusableSshSession } from './sshHandle'
+import { getReusableSshConnection, registerReusableSshSession, releaseReusableSshSession, LEGACY_ALGORITHMS } from './sshHandle'
 import net from 'net'
 import tls from 'tls'
 import { getUserConfigFromRenderer } from '../index'
@@ -93,7 +93,8 @@ export async function remoteSshConnect(connectionInfo: ConnectionInfo): Promise<
       port: normalizedPort,
       username,
       keepaliveInterval: 10000, // Keep connection alive
-      tryKeyboard: true // Disable keyboard-interactive
+      tryKeyboard: true, // Disable keyboard-interactive
+      algorithms: LEGACY_ALGORITHMS
     }
 
     connectConfig.ident = connectionInfo.ident
