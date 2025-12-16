@@ -21,6 +21,7 @@ interface Props {
   y?: number
   dragHandle?: string
   zIndex?: number
+  boundaryEl?: HTMLElement | null
 }
 const dragResize = ref()
 
@@ -34,7 +35,8 @@ const position = reactive({
   x: props.x || 100,
   y: props.y || 100,
   width: props.width || 200,
-  height: props.height || 200
+  height: props.height || 200,
+  boundaryEl: HTMLElement | null
 })
 
 watch(
@@ -179,30 +181,27 @@ const handleDragging = (event: MouseEvent) => {
   const deltaX = event.clientX - startData.mouseX
   const deltaY = event.clientY - startData.mouseY
 
-  // 计算目标位置
   const targetX = startData.startX + deltaX
   const targetY = startData.startY + deltaY
-  const windowWidth = window.innerWidth
-  const windowHeight = window.innerHeight
 
-  if (targetY < 0) {
-    position.y = 0
-  } else if (targetY > windowHeight - 50) {
-    position.y = windowHeight - 50
-  } else {
-    position.y = targetY
-  }
+  const rect = props.boundaryEl?.getBoundingClientRect()
+  const boundaryW = rect?.width ?? window.innerWidth
+  const boundaryH = rect?.height ?? window.innerHeight
 
-  const minXBoundary = 50
-  const maxXBoundary = windowWidth - 50
-  if (targetX < minXBoundary) {
-    position.x = minXBoundary
-  } else if (targetX > maxXBoundary) {
-    position.x = maxXBoundary
-  } else {
-    position.x = targetX
-  }
+  // 你原来的保留可见区域逻辑（沿用 35/50）
+  const minY = 35
+  const maxY = boundaryH - 50
+  if (targetY < minY) position.y = minY
+  else if (targetY > maxY) position.y = maxY
+  else position.y = targetY
+
+  const minX = 0
+  const maxX = boundaryW - 50
+  if (targetX < minX) position.x = minX
+  else if (targetX > maxX) position.x = maxX
+  else position.x = targetX
 }
+
 const stopDragging = () => {
   isDragging.value = false
   emit('dragStop', { x: position.x, y: position.y })
