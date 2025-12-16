@@ -6,7 +6,7 @@ const request = axios.create({
   baseURL: config.api
 })
 
-// 添加请求拦截器
+// Add request interceptor
 request.interceptors.request.use(
   async function (config) {
     const isSkippedLogin = localStorage.getItem('login-skipped') === 'true'
@@ -19,12 +19,12 @@ request.interceptors.request.use(
     return config
   },
   function (error) {
-    // 对请求错误做些什么
+    // Handle request error
     return Promise.reject(error)
   }
 )
 
-// 添加响应拦截器
+// Add response interceptor
 request.interceptors.response.use(
   (res) => {
     return res.data
@@ -42,8 +42,8 @@ request.interceptors.response.use(
         window.location.hash = '#/login'
       }
     }
-    // 超出 2xx 范围的状态码都会触发该函数。
-    // 对响应错误做点什么
+    // Status codes outside the 2xx range will trigger this function
+    // Handle response error
     return Promise.reject(error)
   }
 )
