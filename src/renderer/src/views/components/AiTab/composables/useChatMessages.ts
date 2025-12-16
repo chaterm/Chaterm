@@ -6,7 +6,7 @@ import type { ChatMessage } from '../types'
 import type { Todo } from '@/types/todo'
 import type { ChatTab } from './useSessionState'
 import type { ExtensionMessage } from '@shared/ExtensionMessage'
-import { createNewMessage, parseMessageContent } from '../utils'
+import { createNewMessage, parseMessageContent, pickHostInfo } from '../utils'
 import { useCurrentCwdStore } from '@/store/currentCwdStore'
 import { useSessionState } from './useSessionState'
 import { getGlobalState, updateGlobalState } from '@renderer/agent/storage/state'
@@ -383,6 +383,8 @@ export function useChatMessages(
       }
 
       if (openNewMessage) {
+        const hostInfo = pickHostInfo(partial as Partial<ChatMessage>)
+
         const newAssistantMessage = createNewMessage(
           'assistant',
           partial.text ?? '',
@@ -390,7 +392,8 @@ export function useChatMessages(
           partial.type === 'ask' ? (partial.ask ?? '') : '',
           partial.type === 'say' ? (partial.say ?? '') : '',
           partial.ts ?? 0,
-          partial.partial
+          partial.partial,
+          hostInfo
         )
 
         if (!partial.partial && partial.type === 'ask' && partial.text) {
@@ -417,6 +420,14 @@ export function useChatMessages(
 
         if (partial.mcpToolCall) {
           lastMessageInChat.mcpToolCall = partial.mcpToolCall
+        }
+
+        // Update host info for existing message
+        const hostInfo = pickHostInfo(partial as Partial<ChatMessage>)
+        if (hostInfo) {
+          lastMessageInChat.hostId = hostInfo.hostId
+          lastMessageInChat.hostName = hostInfo.hostName
+          lastMessageInChat.colorTag = hostInfo.colorTag
         }
 
         if (!partial.partial && partial.type === 'ask' && partial.text) {

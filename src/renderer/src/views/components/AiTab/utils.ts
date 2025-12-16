@@ -1,5 +1,6 @@
 import { v4 as uuidv4 } from 'uuid'
-import type { ChatMessage, MessageContent } from './types'
+import type { ChatMessage, MessageContent, HostOption, TreeHostOption, HostItemType } from './types'
+import type { HostInfo } from '@shared/ExtensionMessage'
 
 export const createNewMessage = (
   role: 'user' | 'assistant',
@@ -8,7 +9,8 @@ export const createNewMessage = (
   ask = '',
   say = '',
   ts = 0,
-  partial = false
+  partial = false,
+  hostInfo?: HostInfo
 ): ChatMessage => ({
   id: uuidv4(),
   role,
@@ -17,8 +19,18 @@ export const createNewMessage = (
   ask,
   say,
   ts,
-  partial
+  partial,
+  ...(hostInfo && {
+    hostId: hostInfo.hostId,
+    hostName: hostInfo.hostName,
+    colorTag: hostInfo.colorTag
+  })
 })
+
+export const pickHostInfo = (partial: Partial<ChatMessage>): HostInfo | undefined => {
+  const { hostId, hostName, colorTag } = partial
+  return hostId || hostName || colorTag ? { hostId, hostName, colorTag } : undefined
+}
 
 export const parseMessageContent = (text: string): string | MessageContent => {
   try {
@@ -32,13 +44,45 @@ export const truncateText = (text: string, maxLength = 15): string => {
   return text.length > maxLength ? `${text.substring(0, maxLength)}...` : text
 }
 
-export const formatHosts = (hosts: any[]): any[] => {
-  return hosts.map((item) => ({
-    label: item.host || '',
-    value: item.uuid,
-    uuid: item.uuid,
-    connection: item.asset_type
-  }))
+// Format tree structure data from backend to flat host options
+export const formatHosts = (data: { personal?: TreeHostOption[]; jumpservers?: TreeHostOption[] }): HostOption[] => {
+  const result: HostOption[] = []
+
+  // Format personal assets (level 0)
+  if (data.personal) {
+    data.personal.forEach((item) => {
+      result.push({
+        key: item.key,
+        label: item.label || '',
+        value: item.key,
+        uuid: item.uuid,
+        connect: item.connection,
+        type: item.type as HostItemType,
+        selectable: item.selectable !== false,
+        level: 0
+      })
+    })
+  }
+
+  // Format jumpserver nodes with children
+  if (data.jumpservers) {
+    data.jumpservers.forEach((js) => {
+      result.push({
+        key: js.key,
+        label: js.label || '',
+        value: js.key,
+        uuid: js.uuid,
+        connect: js.connection,
+        type: 'jumpserver' as HostItemType,
+        selectable: false,
+        level: 0,
+        children: js.children,
+        childrenCount: js.children?.length || 0
+      })
+    })
+  }
+
+  return result
 }
 
 // Type guard to check if content is a string

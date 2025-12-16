@@ -137,6 +137,17 @@ export interface ChatermMessage {
   conversationHistoryIndex?: number
   conversationHistoryDeletedRange?: [number, number]
   mcpToolCall?: ChatermAskMcpToolCall
+  // Multi-host execution identification
+  hostId?: string
+  hostName?: string
+  colorTag?: string
+}
+
+// Shared host info payload for multi-host display
+export interface HostInfo {
+  hostId?: string
+  hostName?: string
+  colorTag?: string
 }
 
 export type ChatermAsk =

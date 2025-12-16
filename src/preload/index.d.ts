@@ -140,7 +140,7 @@ interface ApiType {
     data?: TaskMetadata
     error?: { message: string }
   }>
-  getUserHosts: (search: string, limit?: number, offset?: number) => Promise<any>
+  getUserHosts: (search: string, limit?: number) => Promise<any>
   initUserDatabase: (data: { uid: number }) => Promise<any>
   // File dialog and local file operations
   openSaveDialog: (opts: { fileName: string }) => Promise<string | null>

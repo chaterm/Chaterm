@@ -1,20 +1,17 @@
 import { ref, computed, watch, nextTick, onMounted, onUnmounted } from 'vue'
 import debounce from 'lodash/debounce'
-import type { Host, AssetInfo } from '../types'
+import type { Host, AssetInfo, HostOption, HostItemType } from '../types'
 import { formatHosts } from '../utils'
 import { useSessionState } from './useSessionState'
 import { focusChatInput } from './useTabManagement'
 import i18n from '@/locales'
 import eventBus from '@/utils/eventBus'
+import { Notice } from '@/views/components/Notice'
 
-interface HostOption {
-  label: string
-  value: string
-  uuid: string
-  connect: string
-  title?: string
-  isLocalHost?: boolean
-}
+/**
+ * Maximum number of target hosts allowed for batch execution
+ */
+const MAX_TARGET_HOSTS = 5
 
 /**
  * Composable for host management
@@ -73,45 +70,159 @@ export function useHostManagement() {
 
   const hostSearchValue = ref('')
 
-  const hostOptionsOffset = ref(0)
-  const hostOptionsHasMore = ref(false)
   const hostOptionsLoading = ref(false)
-  const hostOptionsLimit = 30
+  const hostOptionsLimit = 50
 
   const hovered = ref<string | null>(null)
   const keyboardSelectedIndex = ref(-1)
 
-  const filteredHostOptions = computed(() => {
-    if (chatTypeValue.value === 'cmd') {
-      return hostOptions.value
-    } else {
-      return hostOptions.value.filter((item) => item.label.includes(hostSearchValue.value))
-    }
-  })
+  // Track expanded jumpserver nodes (all expanded by default)
+  const expandedJumpservers = ref<Set<string>>(new Set())
 
-  const isHostSelected = (hostOption: HostOption): boolean => {
-    return hosts.value.some((h) => h.host === hostOption.label)
+  // Toggle jumpserver expand/collapse
+  const toggleJumpserverExpand = (key: string) => {
+    if (expandedJumpservers.value.has(key)) {
+      expandedJumpservers.value.delete(key)
+    } else {
+      expandedJumpservers.value.add(key)
+    }
+    // Force reactivity update
+    expandedJumpservers.value = new Set(expandedJumpservers.value)
   }
 
-  const onHostClick = (item: any) => {
+  // Flatten host options with children based on expand state
+  const flattenedHostOptions = computed(() => {
+    const result: HostOption[] = []
+
+    for (const item of hostOptions.value) {
+      // Add the item itself
+      const isExpanded = expandedJumpservers.value.has(item.key)
+      result.push({
+        ...item,
+        expanded: isExpanded
+      })
+
+      // If it's a jumpserver and expanded, add its children
+      if (item.type === 'jumpserver' && isExpanded && item.children) {
+        for (const child of item.children) {
+          result.push({
+            key: child.key,
+            label: child.label,
+            value: child.key,
+            uuid: child.uuid,
+            connect: child.connection,
+            type: child.type as HostItemType,
+            selectable: child.selectable,
+            organizationUuid: child.organizationUuid,
+            level: 1
+          })
+        }
+      }
+    }
+
+    return result
+  })
+
+  const filteredHostOptions = computed(() => {
+    if (chatTypeValue.value === 'cmd') {
+      return flattenedHostOptions.value
+    }
+
+    const searchTerm = hostSearchValue.value.toLowerCase()
+    if (!searchTerm) {
+      return flattenedHostOptions.value
+    }
+
+    // When searching, filter items that match
+    const result: HostOption[] = []
+    for (const item of hostOptions.value) {
+      const labelMatches = item.label.toLowerCase().includes(searchTerm)
+
+      if (item.type === 'jumpserver') {
+        // Check if any children match
+        const matchingChildren = item.children?.filter((child) => child.label.toLowerCase().includes(searchTerm)) || []
+
+        if (labelMatches || matchingChildren.length > 0) {
+          // Add jumpserver node
+          result.push({
+            ...item,
+            expanded: true // Always expanded when searching
+          })
+          // Add all matching children (or all children if jumpserver label matches)
+          const childrenToShow = labelMatches ? item.children || [] : matchingChildren
+          for (const child of childrenToShow) {
+            result.push({
+              key: child.key,
+              label: child.label,
+              value: child.key,
+              uuid: child.uuid,
+              connect: child.connection,
+              type: child.type as HostItemType,
+              selectable: child.selectable,
+              organizationUuid: child.organizationUuid,
+              level: 1
+            })
+          }
+        }
+      } else if (labelMatches) {
+        result.push(item)
+      }
+    }
+
+    return result
+  })
+
+  // Check if host is selected using key for uniqueness (handles duplicate IPs)
+  const isHostSelected = (hostOption: HostOption): boolean => {
+    // Use key-based matching to handle duplicate IPs from different sources
+    return hosts.value.some((h) => {
+      // Match by uuid for unique identification
+      if (h.uuid === hostOption.uuid) return true
+      // Fallback: match by host IP and connection type
+      return h.host === hostOption.label && h.connection === hostOption.connect
+    })
+  }
+
+  const onHostClick = (item: HostOption) => {
+    // Handle jumpserver parent node click - toggle expand/collapse
+    if (item.type === 'jumpserver' && !item.selectable) {
+      toggleJumpserverExpand(item.key)
+      return
+    }
+
     const newHost: Host = {
       host: item.label,
       uuid: item.uuid,
-      connection: item.isLocalHost ? 'localhost' : item.connection || item.connect
+      connection: item.isLocalHost ? 'localhost' : item.connect,
+      organizationUuid: item.organizationUuid
     }
 
     if (chatTypeValue.value === 'cmd') {
       hosts.value = [newHost]
     } else {
-      const existingIndex = hosts.value.findIndex((h) => h.host === item.label)
+      // Use key for unique identification when checking existing selection
+      const existingIndex = hosts.value.findIndex((h) => h.uuid === item.uuid)
 
       if (existingIndex > -1) {
+        // Remove host if already selected (toggle off)
         hosts.value = hosts.value.filter((_, i) => i !== existingIndex)
       } else {
+        // Check if adding new host would exceed the limit
         let updatedHosts = [...hosts.value]
 
         if (!item.isLocalHost && item.label !== '127.0.0.1') {
           updatedHosts = updatedHosts.filter((h) => h.host !== '127.0.0.1')
+        }
+
+        // Validate host count limit before adding
+        if (updatedHosts.length >= MAX_TARGET_HOSTS) {
+          Notice.open({
+            type: 'warning',
+            description: t('ai.maxHostsLimitReached', { max: MAX_TARGET_HOSTS }),
+            placement: 'bottomRight',
+            duration: 2
+          })
+          return
         }
 
         hosts.value = [...updatedHosts, newHost]
@@ -211,10 +322,7 @@ export function useHostManagement() {
       showHostSelect.value = true
       hostSearchValue.value = ''
 
-      hostOptionsOffset.value = 0
-      hostOptionsHasMore.value = false
-
-      await fetchHostOptions('', true)
+      await fetchHostOptions('')
 
       nextTick(() => {
         getElement(hostSearchInputRef.value)?.focus?.()
@@ -228,67 +336,48 @@ export function useHostManagement() {
     if (chatTypeValue.value === 'cmd') {
       fetchHostOptionsForCommandMode(search)
     } else {
-      // Reset pagination
-      hostOptionsOffset.value = 0
-      hostOptionsHasMore.value = false
-      fetchHostOptions(search, true)
+      fetchHostOptions(search)
     }
   }, 300)
 
-  const fetchHostOptions = async (search: string, reset: boolean = true) => {
+  const fetchHostOptions = async (search: string) => {
     if (hostOptionsLoading.value) return
 
     hostOptionsLoading.value = true
 
     try {
-      const offset = reset ? 0 : hostOptionsOffset.value
-      const result = await window.api.getUserHosts(search, hostOptionsLimit, offset)
+      const result = await window.api.getUserHosts(search, hostOptionsLimit)
 
-      if (!result || !result.data) {
-        hostOptions.value = []
-        hostOptionsHasMore.value = false
-        return
+      const formatted = result?.data ? formatHosts(result.data || {}) : []
+
+      const localHostOption: HostOption = {
+        key: 'localhost',
+        label: '127.0.0.1',
+        value: 'localhost',
+        uuid: 'localhost',
+        connect: 'localhost',
+        title: t('ai.localhost'),
+        isLocalHost: true,
+        type: 'personal',
+        selectable: true,
+        level: 0
       }
 
-      let formatted = formatHosts(result.data || [])
+      const shouldShowLocalHost =
+        !search || 'localhost'.includes(search.toLowerCase()) || '127.0.0.1'.includes(search) || t('ai.localhost').includes(search)
 
-      if (reset || hostOptions.value.length === 0) {
-        const localHostOption: HostOption = {
-          label: '127.0.0.1',
-          value: 'localhost',
-          uuid: 'localhost',
-          connect: 'localhost',
-          title: t('ai.localhost'),
-          isLocalHost: true
-        }
-
-        const shouldShowLocalHost =
-          !search || 'localhost'.includes(search.toLowerCase()) || '127.0.0.1'.includes(search) || t('ai.localhost').includes(search)
-
-        if (shouldShowLocalHost) {
-          formatted.unshift(localHostOption)
-        }
-      }
-
-      if (reset) {
-        hostOptions.value = formatted
-        const backendResultCount = result.data?.length || 0
-        hostOptionsOffset.value = backendResultCount
+      if (shouldShowLocalHost) {
+        hostOptions.value = [localHostOption, ...formatted]
       } else {
-        const existingHosts = new Set(hostOptions.value.map((h) => h.uuid))
-        const newItems = formatted.filter((h) => !existingHosts.has(h.uuid))
-        hostOptions.value = [...hostOptions.value, ...newItems]
-        const backendResultCount = result.data?.length || 0
-        hostOptionsOffset.value += backendResultCount
+        hostOptions.value = formatted
       }
 
-      hostOptionsHasMore.value = result.hasMore || false
+      // Initialize all jumpservers as expanded by default
+      const jumpserverKeys = formatted.filter((h) => h.type === 'jumpserver').map((h) => h.key)
+      expandedJumpservers.value = new Set(jumpserverKeys)
     } catch (error) {
       console.error('Failed to fetch host options:', error)
-      if (reset) {
-        hostOptions.value = []
-      }
-      hostOptionsHasMore.value = false
+      hostOptions.value = []
     } finally {
       hostOptionsLoading.value = false
     }
@@ -300,12 +389,16 @@ export function useHostManagement() {
 
       if (assetInfo && assetInfo.ip) {
         const currentHostOption: HostOption = {
-          label: assetInfo.ip,
-          value: assetInfo.ip,
+          key: assetInfo.uuid,
+          value: assetInfo.uuid,
           uuid: assetInfo.uuid,
+          label: assetInfo.ip,
           connect: assetInfo.connection || 'personal',
           title: assetInfo.title || assetInfo.ip,
-          isLocalHost: assetInfo.ip === '127.0.0.1' || assetInfo.ip === 'localhost'
+          isLocalHost: assetInfo.ip === '127.0.0.1' || assetInfo.ip === 'localhost',
+          type: 'personal',
+          selectable: true,
+          level: 0
         }
 
         if (!search || currentHostOption.label.includes(search) || (currentHostOption.title && currentHostOption.title.includes(search))) {
@@ -322,31 +415,14 @@ export function useHostManagement() {
     }
   }
 
-  const handleHostListScroll = (e: Event) => {
-    const target = e.target as HTMLElement
-    if (!target) return
-
-    const scrollBottom = target.scrollHeight - target.scrollTop - target.clientHeight
-    if (scrollBottom < 50 && hostOptionsHasMore.value && !hostOptionsLoading.value) {
-      loadMoreHosts()
-    }
-  }
-
-  const loadMoreHosts = async () => {
-    if (hostOptionsLoading.value || !hostOptionsHasMore.value) return
-    await fetchHostOptions(hostSearchValue.value, false)
-  }
-
   const handleAddHostClick = async () => {
     showHostSelect.value = true
     hostSearchValue.value = ''
-    hostOptionsOffset.value = 0
-    hostOptionsHasMore.value = false
 
     if (chatTypeValue.value === 'cmd') {
       await fetchHostOptionsForCommandMode('')
     } else {
-      await fetchHostOptions('', true)
+      await fetchHostOptions('')
     }
 
     nextTick(() => {
@@ -423,8 +499,6 @@ export function useHostManagement() {
     showHostSelect,
     hostOptions,
     hostSearchValue,
-    hostOptionsOffset,
-    hostOptionsHasMore,
     hostOptionsLoading,
     hovered,
     keyboardSelectedIndex,
@@ -440,11 +514,10 @@ export function useHostManagement() {
     handleInputChange,
     fetchHostOptions,
     fetchHostOptionsForCommandMode,
-    handleHostListScroll,
-    loadMoreHosts,
     handleAddHostClick,
     updateHosts,
     updateHostsForCommandMode,
-    getCurentTabAssetInfo
+    getCurentTabAssetInfo,
+    toggleJumpserverExpand
   }
 }

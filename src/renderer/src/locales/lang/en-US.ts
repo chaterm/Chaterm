@@ -750,7 +750,9 @@ export default {
     exportChatSuccess: 'Chat exported successfully',
     exportChatFailed: 'Export failed',
     exportChatEmpty: 'No chat messages to export',
-    exportedOn: 'Exported on'
+    exportedOn: 'Exported on',
+    maxHostsLimitReached: 'You can select up to {max} hosts',
+    maxHostsLimit: 'Maximum hosts limit reached'
   },
   keyChain: {
     newKey: 'New Key',

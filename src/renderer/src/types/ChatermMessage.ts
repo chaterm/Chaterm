@@ -13,6 +13,10 @@ export interface ChatermMessage {
   conversationHistoryIndex?: number
   conversationHistoryDeletedRange?: [number, number] // for when conversation history is truncated for API requests
   mcpToolCall?: ChatermAskMcpToolCall
+  // Multi-host execution identification
+  hostId?: string
+  hostName?: string
+  colorTag?: string
 }
 
 export type ChatermAsk =

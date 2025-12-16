@@ -32,6 +32,10 @@ export interface ChatMessage {
   executedCommand?: string
   // MCP tool call info
   mcpToolCall?: McpToolCallInfo
+  // Multi-host execution identification
+  hostId?: string
+  hostName?: string
+  colorTag?: string
 }
 
 export interface AssetInfo {
@@ -73,4 +77,46 @@ export interface Host {
   host: string
   uuid: string
   connection: string
+  organizationUuid?: string
+}
+
+// Tree structure types for host list
+export type HostItemType = 'personal' | 'jumpserver' | 'jumpserver_child'
+
+export interface TreeHostOption {
+  key: string
+  label: string
+  type: HostItemType
+  selectable: boolean
+  uuid: string
+  connection: string
+  organizationUuid?: string
+  children?: TreeHostOption[]
+  expanded?: boolean
+}
+
+export interface GetUserHostsResponse {
+  data: {
+    personal: TreeHostOption[]
+    jumpservers: TreeHostOption[]
+  }
+  total: number
+  hasMore: boolean
+}
+
+export interface HostOption {
+  label: string
+  value: string
+  key: string
+  uuid: string
+  connect: string
+  title?: string
+  isLocalHost?: boolean
+  type: HostItemType
+  selectable: boolean
+  organizationUuid?: string
+  children?: TreeHostOption[]
+  expanded?: boolean
+  level: number
+  childrenCount?: number
 }

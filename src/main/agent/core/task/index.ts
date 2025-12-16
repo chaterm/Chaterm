@@ -21,7 +21,8 @@ import {
   ChatermMessage,
   ChatermSay,
   COMPLETION_RESULT_CHANGES_FLAG,
-  ExtensionMessage
+  ExtensionMessage,
+  HostInfo
 } from '@shared/ExtensionMessage'
 import { getApiMetrics } from '@shared/getApiMetrics'
 import { HistoryItem } from '@shared/HistoryItem'
@@ -125,8 +126,11 @@ export class Task {
     }
   > = new Map()
 
-  // SSH connection status tracking
-  private lastConnectionHost: string | null = null
+  // Host color cache for consistent multi-host display
+  private hostColorMap: Map<string, string> = new Map()
+
+  // SSH connection status tracking - tracks all connected hosts in this session
+  private connectedHosts: Set<string> = new Set()
 
   // Interactive command input handling
   private currentRunningProcess:
@@ -246,7 +250,7 @@ export class Task {
   }
 
   /**
-   * 判断是否为本地主机
+   * Check if the given IP is a local host
    */
   private isLocalHost(ip?: string): boolean {
     if (!ip) return false
@@ -254,7 +258,7 @@ export class Task {
   }
 
   /**
-   * 在本地主机执行命令
+   * Execute command in local host
    */
   private async executeCommandInLocalHost(command: string, cwd?: string): Promise<string> {
     try {
@@ -284,7 +288,11 @@ export class Task {
     try {
       const terminalInfo = await this.connectTerminal(ip)
       if (!terminalInfo) {
-        await this.ask('ssh_con_failed', this.messages.sshConnectionFailed, false)
+        const hostLabel = ip || 'unknown'
+        const failedMsg = this.messages.sshConnectionFailed
+          ? formatMessage(this.messages.sshConnectionFailed, { host: hostLabel })
+          : `服务器连接失败(${hostLabel})`
+        await this.ask('ssh_con_failed', failedMsg, false)
         await this.abortTask()
         throw new Error('Failed to connect to terminal')
       }
@@ -335,6 +343,38 @@ export class Task {
     }
   }
 
+  /**
+   * Get a stable color (hex) for a host. Different hostId -> different palette slot.
+   */
+  private getHostColor(hostId: string): string {
+    const existing = this.hostColorMap.get(hostId)
+    if (existing) return existing
+
+    const palette = ['#3B82F6', '#10B981', '#F97316', '#EF4444', '#8B5CF6', '#14B8A6', '#EAB308', '#06B6D4', '#F59E0B', '#6366F1']
+
+    // djb2 hash for stable distribution
+    let hash = 5381
+    for (let i = 0; i < hostId.length; i++) {
+      hash = (hash * 33) ^ hostId.charCodeAt(i)
+    }
+    const color = palette[Math.abs(hash) % palette.length]
+    this.hostColorMap.set(hostId, color)
+    return color
+  }
+
+  private buildHostInfo(hostId: string): HostInfo {
+    return {
+      hostId,
+      hostName: hostId,
+      colorTag: this.getHostColor(hostId)
+    }
+  }
+
+  private isSameHost(message: ChatermMessage | undefined, hostInfo?: HostInfo): boolean {
+    if (!hostInfo) return true
+    return message?.hostId === hostInfo.hostId
+  }
+
   private async connectTerminal(ip?: string) {
     if (!this.hosts) {
       console.log('Terminal UUID is not set')
@@ -352,9 +392,10 @@ export class Task {
       const connectionInfo = await connectAssetInfo(terminalUuid)
       this.remoteTerminalManager.setConnectionInfo(connectionInfo)
 
+      const hostLabel = connectionInfo?.host || targetHost.host || ip || 'unknown'
       // Create a unique connection identifier
       const currentConnectionId = `${connectionInfo.host}:${connectionInfo.port}:${connectionInfo.username}`
-      const isNewConnection = this.lastConnectionHost !== currentConnectionId
+      const isNewConnection = !this.connectedHosts.has(currentConnectionId)
 
       // Check if this is an agent mode + local connection scenario that will fail
       const chatSettings = await getGlobalState('chatSettings')
@@ -370,7 +411,9 @@ export class Task {
             ts: Date.now(),
             type: 'say',
             say: 'sshInfo',
-            text: this.messages.sshConnectionStarting || ' 开始连接服务器...',
+            text: this.messages.sshConnectionStarting
+              ? formatMessage(this.messages.sshConnectionStarting, { host: hostLabel })
+              : ` 开始连接服务器(${hostLabel})...`,
             partial: false
           }
         })
@@ -387,26 +430,31 @@ export class Task {
               ts: Date.now(),
               type: 'say',
               say: 'sshInfo',
-              text: this.messages.sshConnectionSuccess || '服务器连接成功',
+              text: this.messages.sshConnectionSuccess
+                ? formatMessage(this.messages.sshConnectionSuccess, { host: hostLabel })
+                : `服务器连接成功(${hostLabel})`,
               partial: false
             }
           })
         }
 
-        // Update the last connection host
-        this.lastConnectionHost = currentConnectionId
+        // Mark this host as connected
+        this.connectedHosts.add(currentConnectionId)
       }
 
       return terminalInfo
     } catch (error) {
       // Send connection failed message
+      const hostLabel = ip || targetHost?.host || 'unknown'
       await this.postMessageToWebview({
         type: 'partialMessage',
         partialMessage: {
           ts: Date.now(),
           type: 'say',
           say: 'sshInfo',
-          text: this.messages.sshConnectionFailed || `服务器连接失败: ${error instanceof Error ? error.message : String(error)}`,
+          text: this.messages.sshConnectionFailed
+            ? formatMessage(this.messages.sshConnectionFailed, { host: hostLabel })
+            : `服务器连接失败(${hostLabel}): ${error instanceof Error ? error.message : String(error)}`,
           partial: false
         }
       })
@@ -687,7 +735,7 @@ export class Task {
     }
   }
 
-  async say(type: ChatermSay, text?: string, partial?: boolean): Promise<undefined> {
+  async say(type: ChatermSay, text?: string, partial?: boolean, hostInfo?: HostInfo): Promise<undefined> {
     if (this.abort) {
       throw new Error('Chaterm instance aborted')
     }
@@ -697,7 +745,7 @@ export class Task {
     }
 
     if (partial !== undefined) {
-      await this.handleSayPartialMessage(type, text, partial)
+      await this.handleSayPartialMessage(type, text, partial, hostInfo)
     } else {
       // this is a new non-partial message, so add it like normal
       const sayTs = Date.now()
@@ -706,23 +754,20 @@ export class Task {
         ts: sayTs,
         type: 'say',
         say: type,
-        text
+        text,
+        ...(hostInfo ?? {})
       })
       await this.postStateToWebview()
     }
   }
 
-  private async handleSayPartialMessage(type: ChatermSay, text?: string, partial?: boolean): Promise<void> {
+  private async handleSayPartialMessage(type: ChatermSay, text?: string, partial?: boolean, hostInfo?: HostInfo): Promise<void> {
     const lastMessage = this.chatermMessages.at(-1)
-    const isUpdatingPreviousPartial = lastMessage && lastMessage.partial && lastMessage.type === 'say' && lastMessage.say === type
+    // Check if updating previous partial message with same type AND same host
+    const isUpdatingPreviousPartial =
+      lastMessage && lastMessage.partial && lastMessage.type === 'say' && lastMessage.say === type && this.isSameHost(lastMessage, hostInfo)
     if (partial) {
       if (isUpdatingPreviousPartial) {
-        // if (lastMessage.text && lastMessage.type === 'say' && lastMessage.say === 'command_output') {
-        // if (lastMessage.text) {
-        //   lastMessage.text += '\n' + text
-        // } else {
-
-        // }
         lastMessage.text = text
         lastMessage.partial = partial
         await this.postMessageToWebview({
@@ -738,7 +783,8 @@ export class Task {
           type: 'say',
           say: type,
           text,
-          partial
+          partial,
+          ...(hostInfo ?? {})
         })
         await this.postStateToWebview()
         if (type === 'command_output') {
@@ -771,7 +817,8 @@ export class Task {
           ts: sayTs,
           type: 'say',
           say: type,
-          text
+          text,
+          ...(hostInfo ?? {})
         }
         await this.addToChatermMessages(newMessage)
         await this.postMessageToWebview({
@@ -806,6 +853,7 @@ export class Task {
   private async startTask(task?: string): Promise<void> {
     this.chatermMessages = []
     this.apiConversationHistory = []
+    this.connectedHosts.clear()
 
     await this.postStateToWebview()
 
@@ -1187,10 +1235,17 @@ export class Task {
     let result = ''
     let chunkTimer: NodeJS.Timeout | null = null
 
+    // Get host info for multi-host identification (assign stable color per host)
+    const hostInfo = this.buildHostInfo(ip)
+
     try {
       const terminalInfo = await this.connectTerminal(ip)
       if (!terminalInfo) {
-        await this.ask('ssh_con_failed', this.messages.sshConnectionFailed, false)
+        const hostLabel = ip || 'unknown'
+        const failedMsg = this.messages.sshConnectionFailed
+          ? formatMessage(this.messages.sshConnectionFailed, { host: hostLabel })
+          : `服务器连接失败(${hostLabel})`
+        await this.ask('ssh_con_failed', failedMsg, false)
         await this.abortTask()
         return 'Failed to connect to terminal'
       }
@@ -1219,7 +1274,8 @@ export class Task {
         chunkEnroute = true
         try {
           // Send the complete output up to now, for the frontend to replace entirely
-          await this.say('command_output', result, true)
+          // Include host info for multi-host identification
+          await this.say('command_output', result, true, hostInfo)
         } catch (error) {
           console.error('Error while saying for command output:', error) // Log error
         } finally {
@@ -1282,7 +1338,7 @@ export class Task {
 
       const lastMessage = this.chatermMessages.at(-1)
       if (lastMessage?.say === 'command_output') {
-        await this.say('command_output', lastMessage.text, false)
+        await this.say('command_output', lastMessage.text, false, hostInfo)
       }
       result = result.trim()
 

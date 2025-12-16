@@ -748,7 +748,9 @@ export default {
     exportChatSuccess: '聊天记录已导出',
     exportChatFailed: '导出失败',
     exportChatEmpty: '没有可导出的聊天记录',
-    exportedOn: '导出时间'
+    exportedOn: '导出时间',
+    maxHostsLimitReached: '最多只能选择 {max} 台主机',
+    maxHostsLimit: '主机数量已达上限'
   },
   keyChain: {
     newKey: '添加密钥',
