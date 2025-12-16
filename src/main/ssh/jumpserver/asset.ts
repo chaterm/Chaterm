@@ -4,6 +4,7 @@ import * as fs from 'fs'
 import { Asset, parseJumpserverOutput } from './parser'
 
 import { getPackageInfo } from './connectionManager'
+import { LEGACY_ALGORITHMS } from '../sshHandle'
 
 interface ServerInfo {
   name: string
@@ -56,7 +57,8 @@ class JumpServerClient {
         username: this.config.username,
         keepaliveInterval: 10000,
         readyTimeout: 30000,
-        tryKeyboard: true // Enable keyboard interactive authentication for 2FA
+        tryKeyboard: true, // Enable keyboard interactive authentication for 2FA
+        algorithms: LEGACY_ALGORITHMS
       }
 
       const identToken = this.config.connIdentToken ? `_t=${this.config.connIdentToken}` : ''

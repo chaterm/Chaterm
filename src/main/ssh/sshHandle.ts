@@ -1,6 +1,6 @@
 import { BrowserWindow, dialog, ipcMain } from 'electron'
 import { Client } from 'ssh2'
-import type { SFTPWrapper } from 'ssh2'
+import type { SFTPWrapper, Algorithms } from 'ssh2'
 
 const { app } = require('electron')
 const appPath = app.getAppPath()
@@ -46,6 +46,18 @@ const FLUSH_CONFIG = {
   LARGE_DELAY: 30, // 30ms
   BULK_DELAY: 50 // >= 1KB: long delay (bulk output)
 }
+
+// Legacy algorithm support for older SSH servers
+// Using 'append' to keep default secure algorithms with higher priority
+// Note: ssh2 runtime supports partial Record with only 'append', but TypeScript types require all keys
+export const LEGACY_ALGORITHMS = {
+  kex: {
+    append: ['diffie-hellman-group14-sha1', 'diffie-hellman-group-exchange-sha1', 'diffie-hellman-group1-sha1']
+  },
+  serverHostKey: {
+    append: ['ssh-rsa', 'ssh-dss']
+  }
+} as Algorithms
 
 // Helper function to determine delay based on buffer size
 const getDelayByBufferSize = (size: number): number => {
@@ -236,7 +248,8 @@ export const attemptSecondaryConnection = async (event, connectionInfo, ident) =
     username,
     keepaliveInterval: 10000,
     readyTimeout: KeyboardInteractiveTimeout,
-    ident: ident
+    ident: ident,
+    algorithms: LEGACY_ALGORITHMS
   }
 
   if (privateKey) {
@@ -498,7 +511,8 @@ const handleAttemptConnection = async (event, connectionInfo, resolve, reject, r
     username,
     keepaliveInterval: 10000, // Keep connection alive
     tryKeyboard: true, // Enable keyboard interactive authentication
-    readyTimeout: KeyboardInteractiveTimeout // Connection timeout, 30 seconds
+    readyTimeout: KeyboardInteractiveTimeout, // Connection timeout, 30 seconds
+    algorithms: LEGACY_ALGORITHMS
   }
   if (needProxy) {
     connectConfig.sock = await createProxySocket(proxyConfig, host, port)

@@ -4,7 +4,7 @@ import net from 'net'
 import tls from 'tls'
 import type { Readable } from 'stream'
 import { createProxySocket } from '../proxy'
-import { attemptSecondaryConnection, keyboardInteractiveOpts, sftpConnections, connectionStatus } from '../sshHandle'
+import { attemptSecondaryConnection, keyboardInteractiveOpts, sftpConnections, connectionStatus, LEGACY_ALGORITHMS } from '../sshHandle'
 import { jumpserverConnections, jumpserverShellStreams, jumpserverMarkedCommands, jumpserverInputBuffer } from './state'
 import type { JumpServerConnectionInfo } from './constants'
 import { MAX_JUMPSERVER_MFA_ATTEMPTS } from './constants'
@@ -147,6 +147,7 @@ const attemptJumpServerConnection = async (
       password?: string
       ident: string
       sock?: Readable
+      algorithms?: typeof LEGACY_ALGORITHMS
     } = {
       host: connectionInfo.host,
       port: connectionInfo.port || 22,
@@ -154,7 +155,8 @@ const attemptJumpServerConnection = async (
       keepaliveInterval: 10000,
       readyTimeout: 30000,
       tryKeyboard: true,
-      ident: ident
+      ident: ident,
+      algorithms: LEGACY_ALGORITHMS
     }
 
     if (sock) {
