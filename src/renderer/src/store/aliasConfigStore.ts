@@ -48,7 +48,7 @@ export const aliasConfigStore = defineStore('aliasConfig', {
 
         // 重新填充数据
         aliases.forEach((alias) => {
-          this.aliasMap.set(alias.alias || alias.key, alias.command)
+          this.aliasMap.set(alias.alias, alias.command)
         })
       } catch (error) {
         console.error('Failed to refresh aliases from DB:', error)

@@ -790,7 +790,7 @@ const api = {
   download: () => ipcRenderer.invoke('update:download'),
   showOpenDialog: (options) => ipcRenderer.invoke('dialog:openFile', options),
   autoUpdate: (update) => {
-    ipcRenderer.on('update:autoUpdate', (event, params) => update(params))
+    ipcRenderer.on('update:autoUpdate', (_event, params) => update(params))
   },
   quitAndInstall: () => ipcRenderer.invoke('update:quitAndInstall'),
   getVersionPrompt: () => ipcRenderer.invoke('version:operation', 'getPrompt'),

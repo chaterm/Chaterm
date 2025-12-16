@@ -190,7 +190,7 @@ const pluginSourceText = computed(() => {
   const pluginKey = plugin.pluginId
 
   const inStore = storePlugins.value.some((sp) => {
-    const storeKey = sp.pluginId || sp.id || sp.key
+    const storeKey = sp.pluginId
     return storeKey === pluginKey
   })
   return inStore ? t('extensions.sourceStore') : t('extensions.sourceLocal')

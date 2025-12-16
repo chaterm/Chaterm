@@ -732,7 +732,7 @@ const handleCheck = async (provider: string): Promise<void> => {
     console.log('[validateApiKey] checkApiConfiguration', checkApiConfiguration)
     // Ensure correct parameter format is passed
     const result = await (
-      window.api as {
+      window.api as unknown as {
         validateApiKey: (config: unknown) => Promise<{
           isValid: boolean
           error?: string

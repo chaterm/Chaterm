@@ -42,7 +42,7 @@ const findReusableConnection = (jumpserverUuid?: string) => {
     }
   }
 
-  for (const [id, data] of globalJumpserverConnections.entries()) {
+  for (const [_id, data] of globalJumpserverConnections.entries()) {
     const record = data as { conn?: Client; jumpserverUuid?: string } | undefined
     if (record?.jumpserverUuid === jumpserverUuid && record.conn) {
       return { conn: record.conn }

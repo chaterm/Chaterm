@@ -10,6 +10,7 @@ import { ExtensionMessage, Platform } from '@shared/ExtensionMessage'
 import { HistoryItem } from '@shared/HistoryItem'
 import { WebviewMessage } from '@shared/WebviewMessage'
 import type { Host } from '@shared/WebviewMessage'
+import { validateWebviewMessageContract } from '@shared/WebviewMessage'
 import {
   ensureTaskExists,
   getSavedApiConversationHistory,
@@ -160,6 +161,13 @@ export class Controller {
    * @param webview A reference to the extension webview
    */
   async handleWebviewMessage(message: WebviewMessage) {
+    if (process.env.NODE_ENV === 'test' || process.env.CHATERM_E2E === '1') {
+      const check = validateWebviewMessageContract(message)
+      if (!check.ok) {
+        console.warn('[IPC Contract] Invalid WebviewMessage:', check.error)
+      }
+    }
+
     const targetTaskId = message.tabId ?? message.taskId
     const targetTask = targetTaskId ? this.getTaskFromId(targetTaskId) : undefined
 
@@ -703,7 +711,7 @@ function removeSensitiveKeys(obj: any): any {
         key.toLowerCase().includes('accesskey') ||
         key.toLowerCase().includes('secretkey') ||
         key.toLowerCase().includes('endpoint') ||
-        key.toLowerCase().includes('awsProfile')
+        key.toLowerCase().includes('awsprofile')
       ) {
         newObj[key] = undefined // or '***'
       } else {

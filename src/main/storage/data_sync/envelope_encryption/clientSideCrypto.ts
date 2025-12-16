@@ -6,8 +6,8 @@ import config from './config'
 interface EncryptionResult {
   encrypted: string
   algorithm: string
-  iv?: string
-  tag?: string
+  iv?: string | null
+  tag?: string | null
 }
 
 interface ClientStatus {

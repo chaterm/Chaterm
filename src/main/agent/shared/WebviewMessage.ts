@@ -3,6 +3,7 @@ import { ChatSettings } from './ChatSettings'
 // import { UserInfo } from "./UserInfo"
 import { ChatContent } from './ChatContent'
 import { TelemetrySetting } from './TelemetrySetting'
+import { z } from 'zod'
 
 export type Host = { host: string; uuid: string; connection: string }
 
@@ -109,3 +110,21 @@ export type ChatermAskResponse = 'yesButtonClicked' | 'noButtonClicked' | 'messa
 export type ChatermCheckpointRestore = 'task' | 'workspace' | 'taskAndWorkspace'
 
 export type TaskFeedbackType = 'thumbs_up' | 'thumbs_down'
+
+// Runtime contract validation (dev/test only).
+// Keep it lightweight: validate the discriminant and the most safety-critical shapes.
+export const WebviewMessageSchema = z
+  .object({
+    type: z.string(),
+    tabId: z.string().optional(),
+    taskId: z.string().optional(),
+    text: z.string().optional(),
+    apiConfiguration: z.record(z.unknown()).optional()
+  })
+  .passthrough()
+
+export function validateWebviewMessageContract(message: unknown): { ok: true } | { ok: false; error: string } {
+  const res = WebviewMessageSchema.safeParse(message)
+  if (res.success) return { ok: true }
+  return { ok: false, error: res.error.message }
+}

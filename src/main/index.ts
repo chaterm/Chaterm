@@ -161,7 +161,7 @@ app.whenReady().then(async () => {
     })
   })
 
-  app.on('browser-window-created', (_, window) => {})
+  app.on('browser-window-created', (_, _window) => {})
 
   // IPC test
   ipcMain.on('ping', () => console.log('pong'))

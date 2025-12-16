@@ -1441,10 +1441,10 @@ export const registerSSHHandlers = () => {
 
       if (poolKey && reusableConn) {
         // 从会话集合中移除当前会话
-        reusableConn.sessions.delete(id)
+        ;(reusableConn as ReusableConnection).sessions.delete(id)
 
         // 如果没有其他会话使用此连接，则关闭连接并清理连接池
-        if (reusableConn.sessions.size === 0) {
+        if ((reusableConn as ReusableConnection).sessions.size === 0) {
           console.log(`[SSH连接池] 所有会话已关闭，释放连接: ${poolKey}`)
           conn.end()
           sshConnectionPool.delete(poolKey)

@@ -1,15 +1,15 @@
 // jumpserver-client.ts
 import { Client, ConnectConfig } from 'ssh2'
-import * as fs from 'fs'
+// import * as fs from 'fs'
 import { Asset, parseJumpserverOutput } from './parser'
 
 import { getPackageInfo } from './connectionManager'
 import { LEGACY_ALGORITHMS } from '../sshHandle'
 
-interface ServerInfo {
-  name: string
-  address: string
-}
+// interface ServerInfo {
+//   name: string
+//   address: string
+// }
 
 interface JumpServerConfig {
   host: string

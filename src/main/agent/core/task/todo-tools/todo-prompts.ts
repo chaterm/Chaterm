@@ -161,7 +161,7 @@ export class SmartTaskDetector {
 // 为了向后兼容，保持原有的导出接口
 export const TODO_SYSTEM_MESSAGES = {
   // 使用新的优化逻辑替代原有的complexTaskSystemMessage
-  complexTaskSystemMessage: (suggestion: string, isChineseMode: boolean = false, userMessage: string = '') => {
+  complexTaskSystemMessage: (_suggestion: string, isChineseMode: boolean = false, _userMessage: string = '') => {
     return TODO_PROMPTS_OPTIMIZED.coreSystemMessage(isChineseMode)
   }
 }

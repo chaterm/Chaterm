@@ -1,15 +1,28 @@
 {
   "extends": "@electron-toolkit/tsconfig/tsconfig.web.json",
   "include": [
-    "src/**/*",
     "src/renderer/src/env.d.ts",
     "src/renderer/src/**/*",
     "src/renderer/src/**/*.vue",
-    "src/preload/*.d.ts"
+    "src/preload/*.d.ts",
+    "src/main/agent/shared/**/*"
   ],
   "exclude": [
     "node_modules",
-    "dist"
+    "dist",
+    "src/main/agent/core/**/*",
+    "src/main/agent/services/**/*",
+    "src/main/agent/api/**/*",
+    "src/main/agent/integrations/**/*",
+    "src/main/agent/utils/**/*",
+    "src/main/storage/**/*",
+    "src/main/index.ts",
+    "src/main/plugin/**/*",
+    "src/main/ssh/**/*",
+    "src/main/themeManager.ts",
+    "src/main/updater.ts",
+    "src/main/version/**/*",
+    "src/main/windowManager.ts"
   ],
   "compilerOptions": {
     "composite": true,

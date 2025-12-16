@@ -30,3 +30,6 @@ tests/screenshots
 tests/videos
 tests/playwright-report
 tests/test-results
+coverage/
+test_data/
+.Trae/

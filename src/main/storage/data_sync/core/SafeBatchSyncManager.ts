@@ -83,7 +83,7 @@ export class SafeBatchSyncManager {
     tableName: string,
     pageSize: number = 500,
     onProgress?: (current: number, total: number, percentage: number) => void,
-    forceSync: boolean = false
+    _forceSync: boolean = false
   ): Promise<void> {
     let session: FullSyncSession | null = null
 
@@ -657,9 +657,9 @@ export class SafeBatchSyncManager {
    * 为历史数据创建change_log记录
    * 避免重复上传已经同步的历史数据
    */
-  private async createChangeLogForHistoricalData(tableName: string, records: any[]): Promise<void> {
+  private async createChangeLogForHistoricalData(_tableName: string, records: any[]): Promise<void> {
     try {
-      const db = await this.dbManager.getDatabase()
+      // const db = await this.dbManager.getDatabase()
 
       // 过滤掉没有 uuid 的记录
       const validRecords = records.filter((record) => record.uuid && record.uuid.trim() !== '')

@@ -1,11 +1,12 @@
 import { StorageContext } from '../storage-context'
 import * as keyStorage from '../key-storage'
+import { vi, describe, test, beforeEach, expect } from 'vitest'
 
-jest.mock('../key-storage', () => ({
-  setItem: jest.fn(),
-  getItem: jest.fn(),
-  deleteItem: jest.fn(),
-  getAllKeys: jest.fn()
+vi.mock('../key-storage', () => ({
+  setItem: vi.fn(),
+  getItem: vi.fn(),
+  deleteItem: vi.fn(),
+  getAllKeys: vi.fn()
 }))
 
 describe('StorageContext', () => {
@@ -15,12 +16,12 @@ describe('StorageContext', () => {
     // Create a new instance before each test to ensure isolation
     storageCtx = new StorageContext()
     // Clear all mocks before each test
-    jest.clearAllMocks()
+    vi.clearAllMocks()
   })
 
   describe('GlobalState', () => {
     test('get should call keyStorage.getItem with global_ prefix and return string', async () => {
-      ;(keyStorage.getItem as jest.Mock).mockResolvedValueOnce('testValue')
+      ;(keyStorage.getItem as any).mockResolvedValueOnce('testValue')
       const result = await storageCtx.globalState.get('testKey')
       console.log('GlobalState get result (string):', result)
       expect(keyStorage.getItem).toHaveBeenCalledWith('global_testKey')
@@ -29,7 +30,7 @@ describe('StorageContext', () => {
 
     test('get should call keyStorage.getItem with global_ prefix and return JSON object', async () => {
       const testObject = { foo: 'bar', baz: 123 }
-      ;(keyStorage.getItem as jest.Mock).mockResolvedValueOnce(testObject)
+      ;(keyStorage.getItem as any).mockResolvedValueOnce(testObject)
       const result = await storageCtx.globalState.get('testObjectKey')
       console.log('GlobalState get result (JSON):', result)
       expect(keyStorage.getItem).toHaveBeenCalledWith('global_testObjectKey')
@@ -48,7 +49,7 @@ describe('StorageContext', () => {
     })
 
     test('keys should call keyStorage.getAllKeys and filter/map correctly', async () => {
-      ;(keyStorage.getAllKeys as jest.Mock).mockResolvedValueOnce(['global_key1', 'global_key2', 'workspace_key3', 'secret_key4'])
+      ;(keyStorage.getAllKeys as any).mockResolvedValueOnce(['global_key1', 'global_key2', 'workspace_key3', 'secret_key4'])
       const keys = await storageCtx.globalState.keys!()
       expect(keyStorage.getAllKeys).toHaveBeenCalled()
       expect(keys).toEqual(['key1', 'key2'])
@@ -57,7 +58,7 @@ describe('StorageContext', () => {
 
   describe('WorkspaceState', () => {
     test('get should call keyStorage.getItem with workspace_ prefix and return string', async () => {
-      ;(keyStorage.getItem as jest.Mock).mockResolvedValueOnce('wsValue')
+      ;(keyStorage.getItem as any).mockResolvedValueOnce('wsValue')
       const result = await storageCtx.workspaceState.get('testWsKey')
       console.log('WorkspaceState get result (string):', result)
       expect(keyStorage.getItem).toHaveBeenCalledWith('workspace_testWsKey')
@@ -66,7 +67,7 @@ describe('StorageContext', () => {
 
     test('get should call keyStorage.getItem with workspace_ prefix and return JSON object', async () => {
       const testObject = { id: 'ws1', data: { value: 'data' } }
-      ;(keyStorage.getItem as jest.Mock).mockResolvedValueOnce(testObject)
+      ;(keyStorage.getItem as any).mockResolvedValueOnce(testObject)
       const result = await storageCtx.workspaceState.get('testWsObjectKey')
       console.log('WorkspaceState get result (JSON):', result)
       expect(keyStorage.getItem).toHaveBeenCalledWith('workspace_testWsObjectKey')
@@ -85,7 +86,7 @@ describe('StorageContext', () => {
     })
 
     test('keys should call keyStorage.getAllKeys and filter/map correctly', async () => {
-      ;(keyStorage.getAllKeys as jest.Mock).mockResolvedValueOnce(['global_key1', 'workspace_key2', 'workspace_key3', 'secret_key4'])
+      ;(keyStorage.getAllKeys as any).mockResolvedValueOnce(['global_key1', 'workspace_key2', 'workspace_key3', 'secret_key4'])
       const keys = await storageCtx.workspaceState.keys!()
       expect(keyStorage.getAllKeys).toHaveBeenCalled()
       expect(keys).toEqual(['key2', 'key3'])
@@ -94,7 +95,7 @@ describe('StorageContext', () => {
 
   describe('Secrets', () => {
     test('get should call keyStorage.getItem with secret_ prefix and return string', async () => {
-      ;(keyStorage.getItem as jest.Mock).mockResolvedValueOnce('secretValue')
+      ;(keyStorage.getItem as any).mockResolvedValueOnce('secretValue')
       const result = await storageCtx.secrets.get('testSecretKey')
       console.log('Secrets get result (string):', result)
       expect(keyStorage.getItem).toHaveBeenCalledWith('secret_testSecretKey')

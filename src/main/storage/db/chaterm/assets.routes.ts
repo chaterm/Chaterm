@@ -27,9 +27,9 @@ const getTranslation = async (key: string, lang?: string): Promise<string> => {
   return translations[language]?.[key] || translations['zh-CN'][key] || key
 }
 
-interface IRouter {
-  handle: (req: any, res: any) => any
-}
+// interface IRouter {
+//   handle: (req: any, res: any) => any
+// }
 
 /**
  * 数据库迁移函数：检查并添加comment字段和自定义文件夹表
