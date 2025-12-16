@@ -106,7 +106,7 @@ import 'xterm/css/xterm.css'
 import { cloneDeep } from 'lodash'
 import i18n from '@/locales'
 import { notification } from 'ant-design-vue'
-import { commandStore } from '@/services/commandStoreService' // 引入 commandStoreService
+import { commandStore } from '@/services/commandStoreService' // Import commandStoreService
 import { aliasConfigStore } from '@/store/aliasConfigStore'
 import eventBus from '@/utils/eventBus'
 
@@ -139,10 +139,10 @@ const columns = computed(() => [
   }
 ])
 const aliasStore = aliasConfigStore()
-// 使用 CommandStoreService 处理数据
+// Use CommandStoreService to handle data
 const handleTableChange = async () => {
   try {
-    // 使用搜索功能获取过滤后的别名
+    // Use search function to get filtered aliases
     list.value = await commandStore.search(searchText.value)
   } catch (err) {
     console.error('Error loading aliases:', err)
@@ -158,7 +158,7 @@ const handleTableChange = async () => {
 const columnOpt = async (type, record) => {
   switch (type) {
     case 'edit':
-      // 处理编辑前的状态清理
+      // Handle state cleanup before editing
       if (list.value.length > 0 && list.value[0]?.id === 'new') {
         list.value.splice(0, 1)
       } else if (cloneRecord.value.id && cloneRecord.value.id !== 'new') {
@@ -176,7 +176,7 @@ const columnOpt = async (type, record) => {
 
     case 'del':
       try {
-        // 使用 alias 删除记录
+        // Delete record using alias
         await commandStore.delete(record.alias)
         await handleTableChange()
         await aliasConfigRefresh()
@@ -208,9 +208,9 @@ const columnOpt = async (type, record) => {
       }
 
       try {
-        // 如果是编辑现有记录且别名发生了变更
+        // If editing existing record and alias has changed
         if (record.id && record.id !== 'new' && record.alias !== cloneRecord.value.alias) {
-          // 检查新别名是否存在
+          // Check if new alias exists
           const existingAlias = await commandStore.getByAlias(record.alias)
           if (existingAlias) {
             notification.warning({
@@ -226,7 +226,7 @@ const columnOpt = async (type, record) => {
             alias: record.alias,
             command: record.command
           }
-          // 需要重命名别名
+          // Need to rename alias
           const success = await commandStore.renameAlias(cloneRecord.value.alias, recordNew)
           if (!success) {
             throw new Error('Failed to rename alias')
@@ -238,7 +238,7 @@ const columnOpt = async (type, record) => {
             duration: 2
           })
         } else if (record.id === 'new') {
-          // 检查别名是否已存在
+          // Check if alias already exists
           const existingAlias = await commandStore.getByAlias(record.alias)
           if (existingAlias) {
             notification.warning({
@@ -250,7 +250,7 @@ const columnOpt = async (type, record) => {
             return
           }
 
-          // 新建别名
+          // Create new alias
           const newId = Date.now().toString(36) + Math.random().toString(36).substring(2)
           await commandStore.add({
             id: newId,
@@ -264,7 +264,7 @@ const columnOpt = async (type, record) => {
             duration: 2
           })
         } else {
-          // 更新别名内容但不更改别名名称
+          // Update alias content but don't change alias name
           await commandStore.update({
             id: record.id,
             alias: record.alias,
@@ -295,10 +295,10 @@ const columnOpt = async (type, record) => {
 
     case 'cancel':
       if (record.id === 'new') {
-        // 移除新添加的空记录
+        // Remove newly added empty record
         list.value.splice(0, 1)
       } else {
-        // 恢复原始值
+        // Restore original value
         record.alias = cloneRecord.value.alias
         record.command = cloneRecord.value.command
       }
@@ -308,13 +308,13 @@ const columnOpt = async (type, record) => {
   }
 }
 
-// 监听别名状态变化事件
+// Listen to alias status change events
 onMounted(() => {
-  // 初始加载数据
+  // Initial data load
   handleTableChange()
-  // 使用eventBus监听
+  // Use eventBus to listen
   eventBus.on('aliasStatusChanged', () => {
-    // 重新加载数据
+    // Reload data
     handleTableChange()
       .then(() => {})
       .catch((err) => {
@@ -323,7 +323,7 @@ onMounted(() => {
   })
 })
 
-// 移除事件监听
+// Remove event listener
 onBeforeUnmount(() => {
   eventBus.off('aliasStatusChanged')
 })
@@ -338,13 +338,13 @@ const cloneRecordReset = () => {
 }
 
 const handleAdd = () => {
-  // 检查是否已有正在编辑的新记录
+  // Check if there's already a new record being edited
   const existingNewRecord = list.value.find((item) => item.id === 'new')
   if (existingNewRecord) {
-    return // 如果已有新记录正在编辑，不再添加
+    return // If there's already a new record being edited, don't add another
   }
 
-  // 新的记录 ID 使用特殊标识 'new'
+  // New record ID uses special identifier 'new'
   const newRecord = {
     alias: '',
     command: '',
@@ -358,7 +358,7 @@ const handleAdd = () => {
     list.value.push(newRecord)
   }
 
-  // 如果有其他正在编辑的记录，先恢复其状态
+  // If there are other records being edited, restore their state first
   if (cloneRecord.value.edit === true && cloneRecord.value.id && cloneRecord.value.id !== 'new') {
     const index = list.value.findIndex((item) => item.alias === cloneRecord.value.alias)
     if (index !== -1) {
@@ -376,7 +376,7 @@ const handleAdd = () => {
   }
 }
 
-// 刷新别名配置 - 在本地存储环境下，主要是触发其他使用别名的组件刷新
+// Refresh alias config - in local storage environment, mainly triggers refresh of other components using aliases
 const aliasConfigRefresh = async () => {
   await aliasStore.refreshAliasesFromDB()
 }

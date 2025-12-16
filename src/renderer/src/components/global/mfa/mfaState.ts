@@ -1,6 +1,6 @@
 import { ref } from 'vue'
 
-// MFA 弹框状态
+// MFA dialog state
 export const showOtpDialog = ref(false)
 export const showOtpDialogErr = ref(false)
 export const showOtpDialogCheckErr = ref(false)
@@ -11,13 +11,13 @@ export const otpTimeRemaining = ref(0)
 export const otpAttempts = ref(0)
 export const isSubmitting = ref(false)
 
-// 常量
-const OTP_TIMEOUT = 180000 // 180秒
+// Constants
+const OTP_TIMEOUT = 180000 // 180 seconds
 const MAX_OTP_ATTEMPTS = 3
 
 let otpTimerInterval: NodeJS.Timeout | null = null
 
-// 启动 OTP 计时器
+// Start OTP timer
 const startOtpTimer = (durationMs = OTP_TIMEOUT) => {
   if (otpTimerInterval) {
     clearInterval(otpTimerInterval)
@@ -39,20 +39,20 @@ const startOtpTimer = (durationMs = OTP_TIMEOUT) => {
   }, 1000)
 }
 
-// 验证OTP代码格式
+// Validate OTP code format
 const validateOtpCode = (code: string): boolean => {
   return code.trim().length > 0
 }
 
-// 重置错误状态
+// Reset error state
 const resetErrors = () => {
   showOtpDialogErr.value = false
   showOtpDialogCheckErr.value = false
 }
 
-// 重置 MFA 弹框状态
+// Reset MFA dialog state
 export const resetOtpDialog = () => {
-  console.log('重置MFA弹框状态')
+  console.log('Resetting MFA dialog state')
   showOtpDialog.value = false
   showOtpDialogErr.value = false
   showOtpDialogCheckErr.value = false
@@ -61,16 +61,16 @@ export const resetOtpDialog = () => {
   currentOtpId.value = null
   otpAttempts.value = 0
   isSubmitting.value = false
-  // 清理定时器
+  // Clear timer
   if (otpTimerInterval) {
     clearInterval(otpTimerInterval)
     otpTimerInterval = null
   }
 }
 
-// 处理二次验证请求
+// Handle two-factor authentication request
 export const handleOtpRequest = (data: any) => {
-  console.log('收到二次验证请求:', data.id)
+  console.log('Received two-factor authentication request:', data.id)
 
   currentOtpId.value = data.id
   otpPrompt.value = data.prompts.join('\n')
@@ -81,75 +81,75 @@ export const handleOtpRequest = (data: any) => {
   startOtpTimer()
 }
 
-// 处理二次验证超时
+// Handle two-factor authentication timeout
 export const handleOtpTimeout = (data: any) => {
   if (data.id === currentOtpId.value && showOtpDialog.value) {
     resetOtpDialog()
   }
 }
 
-// 处理二次验证结果
+// Handle two-factor authentication result
 export const handleOtpError = (data: any) => {
-  console.log('收到MFA验证结果:', data, '当前OTP ID:', currentOtpId.value)
+  console.log('Received MFA verification result:', data, 'Current OTP ID:', currentOtpId.value)
 
   if (data.id === currentOtpId.value) {
-    // 重置提交状态
+    // Reset submission state
     isSubmitting.value = false
 
     if (data.status === 'success') {
-      console.log('MFA验证成功，关闭弹窗')
+      console.log('MFA verification successful, closing dialog')
       resetOtpDialog()
     } else {
-      console.log('MFA验证失败，显示错误')
+      console.log('MFA verification failed, showing error')
       showOtpDialogErr.value = true
       otpAttempts.value += 1
-      // 不立即清空输入，让用户可以基于现有输入进行修改
+      // Don't clear input immediately, allow user to modify based on existing input
       // otpCode.value = ''
 
       if (otpAttempts.value >= MAX_OTP_ATTEMPTS) {
-        console.log('超过最大尝试次数，关闭弹窗')
+        console.log('Exceeded maximum attempts, closing dialog')
         showOtpDialog.value = false
         cancelOtp()
       }
     }
   } else {
-    console.log('ID不匹配，忽略结果')
+    console.log('ID mismatch, ignoring result')
   }
 }
 
-// OTP输入变化处理
+// Handle OTP input change
 export const handleOtpChange = (value: string) => {
   otpCode.value = value
-  // 当用户输入3个字符以上时清除错误状态，表示用户正在认真重新输入
+  // Clear error state when user inputs 3 or more characters, indicating user is seriously re-entering
   if (value.length >= 3) {
     resetErrors()
   }
-  // 或者当用户完全清空输入时也清除错误状态
+  // Or clear error state when user completely clears input
   if (value.length === 0) {
     resetErrors()
   }
 }
 
-// OTP输入完成处理
+// Handle OTP input completion
 export const handleOtpComplete = (value: string) => {
   otpCode.value = value
   resetErrors()
 
-  // 如果验证码有效，可以自动提交（可选）
+  // If verification code is valid, can auto-submit (optional)
   if (validateOtpCode(value) && currentOtpId.value && !isSubmitting.value) {
     console.log('Auto-submitting complete OTP code')
     submitOtpCode()
   }
 }
 
-// 提交二次验证码
+// Submit two-factor authentication code
 export const submitOtpCode = async () => {
   console.log('Attempting to submit OTP code:', otpCode.value)
 
-  // 重置错误状态
+  // Reset error state
   resetErrors()
 
-  // 验证输入
+  // Validate input
   if (!otpCode.value) {
     console.log('OTP code is empty')
     showOtpDialogCheckErr.value = true
@@ -188,7 +188,7 @@ export const submitOtpCode = async () => {
   }
 }
 
-// 取消二次验证
+// Cancel two-factor authentication
 export const cancelOtp = () => {
   if (currentOtpId.value) {
     const api = (window as any).api

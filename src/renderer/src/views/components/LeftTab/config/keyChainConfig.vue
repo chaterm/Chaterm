@@ -36,13 +36,13 @@
             </div>
           </div>
         </div>
-        <!-- 密钥列表 -->
+        <!-- Keychain list -->
         <div class="keychain-list-container">
           <div
             class="keychain-cards"
             :class="{ 'wide-layout': !isRightSectionVisible }"
           >
-            <!-- 密钥卡片 -->
+            <!-- Keychain card -->
             <div
               v-for="item in filteredKeyChainList"
               :key="item.key_chain_id"
@@ -358,7 +358,7 @@ const fetchKeyChainList = async () => {
       keyChainList.value = result.data.keyChain
     }
   } catch (error) {
-    console.error('获取秘钥列表失败:', error)
+    console.error('Failed to get key list:', error)
     message.error(t('keyChain.getKeyListFailed'))
   }
 }
@@ -492,7 +492,7 @@ const handleCreateKeyChain = async () => {
         fetchKeyChainList()
         eventBus.emit('keyChainUpdated')
       } else {
-        throw new Error('创建失败')
+        throw new Error('Creation failed')
       }
     }
   } catch (e: any) {
@@ -571,7 +571,7 @@ function detectKeyType(privateKey = '', publicKey = ''): 'RSA' | 'ED25519' | 'EC
       if (decoded.includes('ssh-rsa')) return 'RSA'
       if (decoded.includes('ecdsa-sha2')) return 'ECDSA'
     } catch (_) {
-      /* 忽略 */
+      /* Ignore */
     }
   }
 
@@ -587,10 +587,10 @@ function handleDrop(e: DragEvent) {
     reader.onload = (event) => {
       const text = event.target?.result as string
       createForm.privateKey = text
-      message.success('密钥文件已导入')
+      message.success('Key file imported successfully')
     }
     reader.onerror = () => {
-      message.error('读取文件失败')
+      message.error('Failed to read file')
     }
     reader.readAsText(file)
   }
@@ -598,7 +598,7 @@ function handleDrop(e: DragEvent) {
 
 function handleClickUpload() {
   if (fileInputRef.value) {
-    fileInputRef.value.value = '' // 清空，确保可重复选择同一文件
+    fileInputRef.value.value = '' // Clear to ensure same file can be selected again
     fileInputRef.value.click()
   }
 }
@@ -611,10 +611,10 @@ function handleFileChange(e: Event) {
     reader.onload = (event) => {
       const text = event.target?.result as string
       createForm.privateKey = text
-      message.success('密钥文件已导入')
+      message.success('Key file imported successfully')
     }
     reader.onerror = () => {
-      message.error('读取文件失败')
+      message.error('Failed to read file')
     }
     reader.readAsText(file)
   }
@@ -726,31 +726,31 @@ watch(isRightSectionVisible, (val) => {
   margin-bottom: 20px;
 }
 
-/* 当右侧面板关闭时，显示更多卡片 */
+/* Show more cards when right panel is closed */
 .keychain-cards.wide-layout {
   .card-wrapper {
-    width: calc(33.33% - 10px); /* 一行显示3个，考虑15px的间距 */
+    width: calc(33.33% - 10px); /* Display 3 per row, accounting for 15px spacing */
   }
 }
 
-/* 当右侧面板打开时，显示较少卡片 */
+/* Show fewer cards when right panel is open */
 .keychain-cards:not(.wide-layout) {
   .card-wrapper {
-    width: calc(50% - 7.5px); /* 一行显示2个，考虑15px的间距 */
+    width: calc(50% - 7.5px); /* Display 2 per row, accounting for 15px spacing */
   }
 }
 
-/* 卡片包装器，用于控制宽度 */
+/* Card wrapper for controlling width */
 .card-wrapper {
   margin-bottom: 0;
   transition: width 0.3s ease;
 }
 
-/* 移动端适配 */
+/* Mobile adaptation */
 @media (max-width: 768px) {
   .keychain-cards {
     .card-wrapper {
-      width: 100% !important; /* 小屏幕一行显示1个 */
+      width: 100% !important; /* Small screen displays 1 per row */
     }
   }
 }
@@ -785,7 +785,7 @@ watch(isRightSectionVisible, (val) => {
 
 .keychain-card:hover .edit-icon {
   opacity: 1;
-  pointer-events: auto; /* 允许点击 */
+  pointer-events: auto; /* Allow clicking */
 }
 
 .edit-icon:hover {
@@ -795,13 +795,13 @@ watch(isRightSectionVisible, (val) => {
 .keychain-card-content {
   display: flex;
   align-items: center;
-  min-height: 60px; /* 确保卡片有最小高度 */
+  min-height: 60px; /* Ensure card has minimum height */
 }
 
 .keychain-icon {
   width: 40px;
   height: 40px;
-  min-width: 40px; /* 确保图标不会被压缩 */
+  min-width: 40px; /* Ensure icon is not compressed */
   display: flex;
   align-items: center;
   justify-content: center;
@@ -818,7 +818,7 @@ watch(isRightSectionVisible, (val) => {
 
 .keychain-info {
   flex: 1;
-  overflow: hidden; /* 防止内容溢出 */
+  overflow: hidden; /* Prevent content overflow */
 }
 
 .keychain-name {
@@ -828,7 +828,7 @@ watch(isRightSectionVisible, (val) => {
   margin-bottom: 4px;
   white-space: nowrap;
   overflow: hidden;
-  text-overflow: ellipsis; /* 文本过长时显示省略号 */
+  text-overflow: ellipsis; /* Show ellipsis when text is too long */
 }
 
 .keychain-type {
@@ -836,7 +836,7 @@ watch(isRightSectionVisible, (val) => {
   color: var(--text-color-tertiary);
   white-space: nowrap;
   overflow: hidden;
-  text-overflow: ellipsis; /* 文本过长时显示省略号 */
+  text-overflow: ellipsis; /* Show ellipsis when text is too long */
 }
 
 .right-section {
@@ -900,7 +900,7 @@ watch(isRightSectionVisible, (val) => {
   }
 }
 
-/* 右侧表单输入框样式 */
+/* Right section form input styles */
 .right-section {
   :deep(.ant-input),
   :deep(.ant-select:not(.ant-select-customize-input) .ant-select-selector),
@@ -1023,7 +1023,7 @@ watch(isRightSectionVisible, (val) => {
     }
   }
 
-  /* 添加分隔线 */
+  /* Add separator line */
   &:not(:last-child)::after {
     content: '';
     position: absolute;
@@ -1054,7 +1054,7 @@ watch(isRightSectionVisible, (val) => {
   user-select: none;
 }
 
-/* 确保右键菜单在边界内显示 */
+/* Ensure context menu displays within boundaries */
 .context-menu {
   max-width: calc(100vw - 20px);
   max-height: calc(100vh - 20px);

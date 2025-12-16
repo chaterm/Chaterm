@@ -47,12 +47,12 @@ vi.mock('@/utils/permission', () => ({
   getUserInfo: vi.fn(() => ({ uid: 'test-user', name: 'Test User' }))
 }))
 
-// 辅助函数：打印变更前后的数据
+// Helper function: print data before and after changes
 const logDataChange = (operation: string, key: string, beforeValue: any, afterValue: any) => {
-  console.log(`\n=== ${operation} 操作数据变更 ===`)
-  console.log(`键: ${key}`)
-  console.log(`变更前:`, beforeValue)
-  console.log(`变更后:`, afterValue)
+  console.log(`\n=== ${operation} Data Change ===`)
+  console.log(`Key: ${key}`)
+  console.log(`Before:`, beforeValue)
+  console.log(`After:`, afterValue)
   console.log(`===========================\n`)
 }
 
@@ -64,20 +64,20 @@ describe('State Management', () => {
 
   describe('Global State', () => {
     test('updateGlobalState should call storageContext.globalState.update', async () => {
-      // 获取变更前的数据
+      // Get data before change
       const beforeValue = 'oldProvideValue'
       ;(storageContext.globalState.get as any).mockResolvedValueOnce(beforeValue)
       const actualBeforeValue = await getGlobalState('apiProvider')
 
-      // 执行变更操作
+      // Execute change operation
       const newValue = 'testProviderValue'
       await updateGlobalState('apiProvider', newValue)
 
-      // 模拟变更后的数据
+      // Simulate data after change
       ;(storageContext.globalState.get as any).mockResolvedValueOnce(newValue)
       const actualAfterValue = await getGlobalState('apiProvider')
 
-      // 打印前后数据
+      // Print before and after data
       logDataChange('updateGlobalState', 'apiProvider', actualBeforeValue, actualAfterValue)
 
       expect(storageContext.globalState.update).toHaveBeenCalledWith('apiProvider', 'testProviderValue')
@@ -93,40 +93,40 @@ describe('State Management', () => {
 
   describe('Secrets', () => {
     test('storeSecret should call storageContext.secrets.store when value is provided', async () => {
-      // 获取变更前的数据
+      // Get data before change
       const beforeValue = 'oldApiKey'
       ;(storageContext.secrets.get as any).mockResolvedValueOnce(beforeValue)
       const actualBeforeValue = await getSecret('apiKey')
 
-      // 执行变更操作
+      // Execute change operation
       const newValue = 'testKey'
       await storeSecret('apiKey', newValue)
 
-      // 模拟变更后的数据
+      // Simulate data after change
       ;(storageContext.secrets.get as any).mockResolvedValueOnce(newValue)
       const actualAfterValue = await getSecret('apiKey')
 
-      // 打印前后数据
+      // Print before and after data
       logDataChange('storeSecret', 'apiKey', actualBeforeValue, actualAfterValue)
 
       expect(storageContext.secrets.store).toHaveBeenCalledWith('apiKey', 'testKey')
     })
 
     test('storeSecret should call storageContext.secrets.delete when value is not provided', async () => {
-      // 获取变更前的数据
+      // Get data before change
       const beforeValue = 'existingApiKey'
       ;(storageContext.secrets.get as any).mockResolvedValueOnce(beforeValue)
       const actualBeforeValue = await getSecret('apiKey')
 
-      // 执行删除操作
+      // Execute delete operation
       await storeSecret('apiKey', undefined)
 
-      // 模拟删除后的数据
+      // Simulate data after delete
       ;(storageContext.secrets.get as any).mockResolvedValueOnce(undefined)
       const actualAfterValue = await getSecret('apiKey')
 
-      // 打印前后数据
-      logDataChange('storeSecret (删除)', 'apiKey', actualBeforeValue, actualAfterValue)
+      // Print before and after data
+      logDataChange('storeSecret (delete)', 'apiKey', actualBeforeValue, actualAfterValue)
 
       expect(storageContext.secrets.delete).toHaveBeenCalledWith('apiKey')
     })
@@ -141,20 +141,20 @@ describe('State Management', () => {
 
   describe('Workspace State', () => {
     test('updateWorkspaceState should call storageContext.workspaceState.update', async () => {
-      // 获取变更前的数据
+      // Get data before change
       const beforeValue = 'oldValue'
       ;(storageContext.workspaceState.get as any).mockResolvedValueOnce(beforeValue)
       const actualBeforeValue = await getWorkspaceState('testKey')
 
-      // 执行变更操作
+      // Execute change operation
       const newValue = 'testValue'
       await updateWorkspaceState('testKey', newValue)
 
-      // 模拟变更后的数据
+      // Simulate data after change
       ;(storageContext.workspaceState.get as any).mockResolvedValueOnce(newValue)
       const actualAfterValue = await getWorkspaceState('testKey')
 
-      // 打印前后数据
+      // Print before and after data
       logDataChange('updateWorkspaceState', 'testKey', actualBeforeValue, actualAfterValue)
 
       expect(storageContext.workspaceState.update).toHaveBeenCalledWith('testKey', 'testValue')
@@ -207,10 +207,10 @@ describe('State Management', () => {
 
   describe('updateApiConfiguration', () => {
     test('should update relevant global states and secrets', async () => {
-      // 获取变更前的完整状态
-      console.log('\n=== updateApiConfiguration 操作开始 ===')
+      // Get complete state before change
+      console.log('\n=== updateApiConfiguration Operation Start ===')
       const beforeState = await getAllExtensionState()
-      console.log('配置变更前的状态:', JSON.stringify(beforeState.apiConfiguration, null, 2))
+      console.log('State before config change:', JSON.stringify(beforeState.apiConfiguration, null, 2))
 
       const newConfig: any = {
         apiProvider: 'anthropic' as ApiProvider,
@@ -219,10 +219,10 @@ describe('State Management', () => {
         // ... other config fields
       }
 
-      // 执行变更操作
+      // Execute change operation
       await updateApiConfiguration(newConfig)
 
-      // 模拟变更后的状态
+      // Simulate state after change
       ;(storageContext.globalState.get as any).mockImplementation(async (key) => {
         if (key === 'apiProvider') return 'anthropic'
         if (key === 'apiModelId') return 'claude-3'
@@ -234,7 +234,7 @@ describe('State Management', () => {
       })
 
       const afterState = await getAllExtensionState()
-      console.log('配置变更后的状态:', JSON.stringify(afterState.apiConfiguration, null, 2))
+      console.log('State after config change:', JSON.stringify(afterState.apiConfiguration, null, 2))
       console.log('===================================\n')
 
       expect(storageContext.globalState.update).toHaveBeenCalledWith('apiProvider', 'anthropic')
@@ -242,7 +242,7 @@ describe('State Management', () => {
       // Note: apiKey is not saved by updateApiConfiguration in current implementation
 
       // Example for OpenAI specific fields being cleared/set if provider changes
-      console.log('\n=== 切换到 OpenAI 配置 ===')
+      console.log('\n=== Switch to OpenAI Config ===')
       const openAIConfig = {
         ...newConfig,
         apiProvider: 'openai',
@@ -250,7 +250,7 @@ describe('State Management', () => {
         openAiBaseUrl: 'new-url'
       }
       await updateApiConfiguration(openAIConfig)
-      console.log('切换到 OpenAI 配置:', JSON.stringify(openAIConfig, null, 2))
+      console.log('Switched to OpenAI config:', JSON.stringify(openAIConfig, null, 2))
       console.log('=========================\n')
 
       expect(storageContext.secrets.store).toHaveBeenCalledWith('openAiApiKey', 'new-openai-key')
@@ -260,8 +260,8 @@ describe('State Management', () => {
 
   describe('resetExtensionState', () => {
     test('should call keys and update with undefined for globalState, delete for secrets, and keys for workspaceState', async () => {
-      // 获取重置前的状态
-      console.log('\n=== resetExtensionState 操作开始 ===')
+      // Get state before reset
+      console.log('\n=== resetExtensionState Operation Start ===')
 
       // Mock keys to return a list of keys that would be reset
       const globalKeys = ['apiProvider', 'apiModelId', 'someOtherGlobalKey']
@@ -270,7 +270,7 @@ describe('State Management', () => {
       ;(storageContext.globalState.keys as any).mockResolvedValue(globalKeys)
       ;(storageContext.workspaceState.keys as any).mockResolvedValue(workspaceKeys)
 
-      // 模拟重置前的数据
+      // Simulate data before reset
       ;(storageContext.globalState.get as any).mockImplementation(async (key) => {
         const mockData: any = {
           apiProvider: 'anthropic',
@@ -287,7 +287,7 @@ describe('State Management', () => {
         return mockData[key]
       })
 
-      // 记录重置前的所有数据
+      // Record all data before reset
       const beforeGlobalData: any = {}
       const beforeWorkspaceData: any = {}
 
@@ -298,13 +298,13 @@ describe('State Management', () => {
         beforeWorkspaceData[key] = await getWorkspaceState(key)
       }
 
-      console.log('重置前 Global State:', JSON.stringify(beforeGlobalData, null, 2))
-      console.log('重置前 Workspace State:', JSON.stringify(beforeWorkspaceData, null, 2))
+      console.log('Global State before reset:', JSON.stringify(beforeGlobalData, null, 2))
+      console.log('Workspace State before reset:', JSON.stringify(beforeWorkspaceData, null, 2))
 
-      // 执行重置操作
+      // Execute reset operation
       await resetExtensionState()
 
-      // 模拟重置后的数据（全部为undefined）
+      // Simulate data after reset (all undefined)
       ;(storageContext.globalState.get as any).mockResolvedValue(undefined)
       ;(storageContext.workspaceState.get as any).mockResolvedValue(undefined)
 
@@ -318,9 +318,9 @@ describe('State Management', () => {
         afterWorkspaceData[key] = await getWorkspaceState(key)
       }
 
-      console.log('重置后 Global State:', JSON.stringify(afterGlobalData, null, 2))
-      console.log('重置后 Workspace State:', JSON.stringify(afterWorkspaceData, null, 2))
-      console.log('所有 Secrets 已删除')
+      console.log('Global State after reset:', JSON.stringify(afterGlobalData, null, 2))
+      console.log('Workspace State after reset:', JSON.stringify(afterWorkspaceData, null, 2))
+      console.log('All Secrets deleted')
       console.log('==================================\n')
 
       // Check that keys was called for globalState

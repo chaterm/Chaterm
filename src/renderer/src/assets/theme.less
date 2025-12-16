@@ -38,7 +38,7 @@
   --button-default-bg-color: #3c3c3c;
   --bg-color-default: #464647;
 
-  // Form components - 优化表单组件的颜色
+  // Form components - Optimized form component colors
   --input-number-bg: #2d2d30;
   --input-number-hover-bg: #3c3c3c;
   --select-bg: #2d2d30;
@@ -151,22 +151,28 @@ body {
     // ===================================================================================
 
     // Dark theme overrides
-    &.theme-dark, .theme-dark & {
+    &.theme-dark,
+    .theme-dark & {
       --bg-color: rgba(20, 20, 20, var(--custom-opacity, 0.8));
       --bg-color-secondary: rgba(30, 30, 30, var(--custom-opacity, 0.8));
       --bg-color-tertiary: rgba(37, 37, 37, var(--custom-opacity, 0.8));
-      
+
       // Ensure other components that might have hardcoded backgrounds are also transparent
-      .ant-layout, .ant-layout-sider, .ant-layout-header, .ant-layout-content, .ant-layout-footer {
+      .ant-layout,
+      .ant-layout-sider,
+      .ant-layout-header,
+      .ant-layout-content,
+      .ant-layout-footer {
         background: transparent !important;
       }
-      
-      .terminal-layout, .agents-layout {
+
+      .terminal-layout,
+      .agents-layout {
         background: transparent !important;
       }
-  
+
       .left-tab {
-         background-color: var(--bg-color-secondary) !important;
+        background-color: var(--bg-color-secondary) !important;
       }
 
       // Fix right sidebar transparency (AiTab)
@@ -175,17 +181,23 @@ body {
       }
 
       // Fix modals transparency
-      .ant-modal-content, .ant-modal-header {
+      .ant-modal-content,
+      .ant-modal-header {
         background-color: rgba(37, 37, 37, 0.95) !important;
         backdrop-filter: blur(10px);
       }
 
       // Fix terminal area transparency
-      .terminal-container, .terminal, .xterm-viewport, .xterm-screen {
+      .terminal-container,
+      .terminal,
+      .xterm-viewport,
+      .xterm-screen {
         background-color: transparent !important;
       }
 
-      .tabs-content, .tab-content, .inner-split-pane {
+      .tabs-content,
+      .tab-content,
+      .inner-split-pane {
         background-color: transparent !important;
       }
 
@@ -235,12 +247,14 @@ body {
       }
 
       // Ant Design Menu and Dropdown components
-      .ant-menu, .ant-dropdown-menu {
+      .ant-menu,
+      .ant-dropdown-menu {
         background-color: rgba(37, 37, 38, 0.85) !important;
         backdrop-filter: blur(20px) saturate(180%);
         -webkit-backdrop-filter: blur(20px) saturate(180%);
 
-        .ant-menu-item, .ant-dropdown-menu-item {
+        .ant-menu-item,
+        .ant-dropdown-menu-item {
           background-color: transparent !important;
 
           &:hover {
@@ -266,21 +280,27 @@ body {
     }
 
     // Light theme overrides
-    &.theme-light, .theme-light & {
+    &.theme-light,
+    .theme-light & {
       --bg-color: rgba(255, 255, 255, var(--custom-opacity, 0.8));
       --bg-color-secondary: rgba(248, 250, 252, var(--custom-opacity, 0.8));
       --bg-color-tertiary: rgba(241, 245, 249, var(--custom-opacity, 0.8));
-  
-      .ant-layout, .ant-layout-sider, .ant-layout-header, .ant-layout-content, .ant-layout-footer {
+
+      .ant-layout,
+      .ant-layout-sider,
+      .ant-layout-header,
+      .ant-layout-content,
+      .ant-layout-footer {
         background: transparent !important;
       }
-  
-      .terminal-layout, .agents-layout {
+
+      .terminal-layout,
+      .agents-layout {
         background: transparent !important;
       }
-  
+
       .left-tab {
-         background-color: var(--bg-color-secondary) !important;
+        background-color: var(--bg-color-secondary) !important;
       }
 
       // Fix right sidebar transparency (AiTab)
@@ -289,17 +309,23 @@ body {
       }
 
       // Fix modals transparency
-      .ant-modal-content, .ant-modal-header {
+      .ant-modal-content,
+      .ant-modal-header {
         background-color: rgba(255, 255, 255, 0.95) !important;
         backdrop-filter: blur(10px);
       }
 
       // Fix terminal area transparency
-      .terminal-container, .terminal, .xterm-viewport, .xterm-screen {
+      .terminal-container,
+      .terminal,
+      .xterm-viewport,
+      .xterm-screen {
         background-color: transparent !important;
       }
 
-      .tabs-content, .tab-content, .inner-split-pane {
+      .tabs-content,
+      .tab-content,
+      .inner-split-pane {
         background-color: transparent !important;
       }
 
@@ -349,12 +375,14 @@ body {
       }
 
       // Ant Design Menu and Dropdown components
-      .ant-menu, .ant-dropdown-menu {
+      .ant-menu,
+      .ant-dropdown-menu {
         background-color: rgba(255, 255, 255, 0.85) !important;
         backdrop-filter: blur(20px) saturate(180%);
         -webkit-backdrop-filter: blur(20px) saturate(180%);
 
-        .ant-menu-item, .ant-dropdown-menu-item {
+        .ant-menu-item,
+        .ant-dropdown-menu-item {
           background-color: transparent !important;
 
           &:hover {
@@ -654,7 +682,7 @@ html.theme-light .ant-dropdown-menu-item {
   background-color: var(--hover-bg-color) !important;
 }
 
-/* Light theme专用悬浮样式 */
+/* Light theme specific hover styles */
 .theme-light .ant-select-dropdown .ant-select-item-option:hover {
   background-color: rgba(0, 0, 0, 0.12) !important;
 }
