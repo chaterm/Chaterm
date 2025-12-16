@@ -6,6 +6,12 @@ import { useSessionState } from './useSessionState'
 import { focusChatInput } from './useTabManagement'
 import i18n from '@/locales'
 import eventBus from '@/utils/eventBus'
+import { Notice } from '@/views/components/Notice'
+
+/**
+ * Maximum number of target hosts allowed for batch execution
+ */
+const MAX_TARGET_HOSTS = 5
 
 /**
  * Composable for host management
@@ -198,12 +204,25 @@ export function useHostManagement() {
       const existingIndex = hosts.value.findIndex((h) => h.uuid === item.uuid)
 
       if (existingIndex > -1) {
+        // Remove host if already selected (toggle off)
         hosts.value = hosts.value.filter((_, i) => i !== existingIndex)
       } else {
+        // Check if adding new host would exceed the limit
         let updatedHosts = [...hosts.value]
 
         if (!item.isLocalHost && item.label !== '127.0.0.1') {
           updatedHosts = updatedHosts.filter((h) => h.host !== '127.0.0.1')
+        }
+
+        // Validate host count limit before adding
+        if (updatedHosts.length >= MAX_TARGET_HOSTS) {
+          Notice.open({
+            type: 'warning',
+            description: t('ai.maxHostsLimitReached', { max: MAX_TARGET_HOSTS }),
+            placement: 'bottomRight',
+            duration: 2
+          })
+          return
         }
 
         hosts.value = [...updatedHosts, newHost]

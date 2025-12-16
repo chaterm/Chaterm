@@ -2,7 +2,9 @@
   background: var(--bg-color-quinary) !important;
   border-radius: 4px !important;
   box-shadow: 0 3px 8px rgba(0, 0, 0, 0.5) !important;
-  width: 420px !important;
+  width: auto !important;
+  min-width: 200px !important;
+  max-width: 420px !important;
   overflow: hidden;
 }
 
@@ -15,11 +17,13 @@
 .notice-desc {
   color: var(--text-color);
   font-size: 14px;
-  line-height: 1;
+  line-height: 1.4;
+  padding-right: 16px;
 }
 
 .notice-description {
-  width: 320px;
+  width: auto;
+  max-width: 340px;
 }
 
 .notice-btn-wrap {
@@ -70,6 +74,7 @@
 }
 .ant-notification-notice-content {
   padding-bottom: 6px;
+  padding-right: 24px;
 }
 
 .ant-notification-notice-description {
