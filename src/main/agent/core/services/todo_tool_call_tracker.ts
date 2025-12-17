@@ -4,14 +4,14 @@ import { TodoToolCall } from '../../shared/todo/TodoSchemas'
 
 export class TodoToolCallTracker {
   /**
-   * 记录工具调用到活跃的 todo 项
+   * Record tool call to active todo item
    */
   static async recordToolCall(taskId: string, toolName: string, parameters: Record<string, unknown>): Promise<void> {
     try {
       const contextTracker = TodoContextTracker.forSession(taskId)
       const activeTodoId = contextTracker.getActiveTodoId()
       if (!activeTodoId) {
-        return // 没有活跃的 todo，不记录
+        return // No active todo, don't record
       }
       const storage = new TodoStorage(taskId)
       const todos = await storage.readTodos()
@@ -19,31 +19,31 @@ export class TodoToolCallTracker {
       if (!activeTodo) {
         return
       }
-      // 创建工具调用记录
+      // Create tool call record
       const toolCall: TodoToolCall = {
         id: `tool_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
         name: toolName,
         parameters: parameters,
         timestamp: new Date()
       }
-      // 添加到 todo 的工具调用列表
+      // Add to todo's tool call list
       if (!activeTodo.toolCalls) {
         activeTodo.toolCalls = []
       }
       activeTodo.toolCalls.push(toolCall)
-      // 更新 todo 的最后修改时间
+      // Update todo's last modified time
       activeTodo.updatedAt = new Date()
-      // 保存更新后的 todos
+      // Save updated todos
       await storage.writeTodos(todos)
       console.log(`Recorded tool call "${toolName}" for todo "${activeTodo.content}"`)
     } catch (error) {
       console.error('Failed to record tool call:', error)
-      // 不抛出错误，避免影响主要功能
+      // Don't throw error, avoid affecting main functionality
     }
   }
 
   /**
-   * 获取指定 todo 的所有工具调用记录
+   * Get all tool call records for specified todo
    */
   static async getToolCallsForTodo(taskId: string, todoId: string): Promise<TodoToolCall[]> {
     try {
@@ -58,7 +58,7 @@ export class TodoToolCallTracker {
   }
 
   /**
-   * 获取所有 todos 的工具调用统计
+   * Get tool call statistics for all todos
    */
   static async getToolCallStatistics(taskId: string): Promise<{
     totalCalls: number
@@ -95,7 +95,7 @@ export class TodoToolCallTracker {
   }
 
   /**
-   * 清理指定 todo 的工具调用记录
+   * Clear tool call records for specified todo
    */
   static async clearToolCallsForTodo(taskId: string, todoId: string): Promise<void> {
     try {

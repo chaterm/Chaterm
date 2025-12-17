@@ -5,7 +5,7 @@ const MIN_SIGNALS_FOR_COMPLEX = 2 // number of heuristic signals to consider tas
 
 // Domain-intent heuristics: single-sentence but inherently multi-step ops
 const COMPLEX_ACTIONS = [
-  /(部署|安装|搭建|配置|上线|发布|迁移|备份|恢复|初始化|扩容|缩容|集群|加固|监控)/, // zh verbs
+  /(部署|安装|搭建|配置|上线|发布|迁移|备份|恢复|初始化|扩容|缩容|集群|加固|监控)/, // Chinese verbs
   /(deploy|install|setup|configure|provision|migrate|backup|restore|initialize|bootstrap|scale|harden|monitor)/i // en verbs
 ]
 
@@ -13,11 +13,11 @@ const COMPLEX_RESOURCES = [
   /(mysql|postgres|postgresql|redis|mongodb|kafka|zookeeper|nginx|elasticsearch|rabbitmq|consul|etcd|vault|istio|traefik|haproxy|keepalived)/i,
   /(docker|compose|kubernetes|k8s|helm|jenkins|gitlab|harbor|prometheus|grafana)/i,
   /(ssl|tls|证书|防火墙|iptables|vpn|wireguard|openvpn|域名|dns|负载均衡|lb)/i,
-  /(数据库|消息队列|缓存|搜索|网关|代理|服务发现)/ // zh generic resources
+  /(数据库|消息队列|缓存|搜索|网关|代理|服务发现)/ // Chinese generic resources
 ]
 
 const COMPLEX_CONTEXT_HINTS = [
-  /(生产|线上|环境|集群|多节点|高可用|容灾|灾备|灰度|回滚)/, // zh
+  /(生产|线上|环境|集群|多节点|高可用|容灾|灾备|灰度|回滚)/, // Chinese
   /(production|cluster|multi-?node|high\s*availability|dr|disaster\s*recovery|canary|rollback)/i // en
 ]
 
@@ -62,7 +62,7 @@ Key principles:
     return `<system-reminder>\n${templates[isChineseMode ? 'zh' : 'en']}\n</system-reminder>`
   },
 
-  // 智能提醒 - 简化版
+  // Smart reminder - simplified version
   smartReminder: (taskType: string, isChineseMode: boolean = false) => {
     const hints = {
       zh: {
@@ -86,14 +86,14 @@ Key principles:
   }
 }
 
-// 简化的检测器
+// Simplified detector
 export class SmartTaskDetector {
   static shouldCreateTodo(message: string): boolean {
     // console.log('[Todo Debug] SmartTaskDetector analyzing message:', message)
 
     if (message.length <= MIN_MESSAGE_LENGTH) {
       // console.log('[Todo Debug] Message too short, skipping todo creation')
-      return false // 调整阈值，中文表达更简洁
+      return false // Adjust threshold, Chinese expressions are more concise
     }
 
     const lowerMessage = message.toLowerCase()
@@ -106,33 +106,33 @@ export class SmartTaskDetector {
     }
 
     const patterns = [
-      // 中文检测模式
-      /[第一二三四五六七八九十]\s*[步阶段项]/, // 步骤模式
-      /(首先|然后|接下来|最后|依次)/, // 序列词
-      /[1-9]\.|[一二三四五六七八九十]、/, // 列表格式
-      /(排查|优化|部署|升级|迁移|维护|分析|监控).*(问题|故障|性能|异常|日志)/, // 扩展运维+问题
-      /(批量|全部|所有).*(服务器|应用|数据库|系统|配置)/, // 批量操作
-      /(查看|检查|分析|监控).*(分析|检查|查看)/, // 多动作任务
-      /(系统|应用|服务).*(监控|分析|日志|资源|异常)/, // 系统诊断任务
+      // Chinese detection patterns
+      /[第一二三四五六七八九十]\s*[步阶段项]/, // Step pattern
+      /(首先|然后|接下来|最后|依次)/, // Sequence words
+      /[1-9]\.|[一二三四五六七八九十]、/, // List format
+      /(排查|优化|部署|升级|迁移|维护|分析|监控).*(问题|故障|性能|异常|日志)/, // Extended ops + issues
+      /(批量|全部|所有).*(服务器|应用|数据库|系统|配置)/, // Batch operations
+      /(查看|检查|分析|监控).*(分析|检查|查看)/, // Multi-action tasks
+      /(系统|应用|服务).*(监控|分析|日志|资源|异常)/, // System diagnosis tasks
 
-      // 英文检测模式 - 增强版
-      /(first|then|next|finally|step\s*[1-9]|step\s*one)/i, // 序列词
-      /[1-9]\.\s/, // 列表格式
-      /(check|analyze|examine|monitor|troubleshoot|deploy|optimize|migrate).*(and|then|\s+\w+\s+(and|then))/i, // 多动作任务
-      /(system|application|server|database|service).*(monitor|analyze|log|resource|error|issue|anomaly)/i, // 系统诊断
-      /(batch|all|multiple).*(server|application|database|system|config)/i, // 批量操作
-      /(troubleshoot|diagnose|investigate).*(problem|issue|error|failure|performance)/i, // 故障排查
-      /(deploy|migrate|backup|restore|upgrade).*(server|application|database|system|production)/i, // 部署和维护任务
+      // English detection patterns - enhanced
+      /(first|then|next|finally|step\s*[1-9]|step\s*one)/i, // Sequence words
+      /[1-9]\.\s/, // List format
+      /(check|analyze|examine|monitor|troubleshoot|deploy|optimize|migrate).*(and|then|\s+\w+\s+(and|then))/i, // Multi-action tasks
+      /(system|application|server|database|service).*(monitor|analyze|log|resource|error|issue|anomaly)/i, // System diagnosis
+      /(batch|all|multiple).*(server|application|database|system|config)/i, // Batch operations
+      /(troubleshoot|diagnose|investigate).*(problem|issue|error|failure|performance)/i, // Troubleshooting
+      /(deploy|migrate|backup|restore|upgrade).*(server|application|database|system|production)/i, // Deployment and maintenance tasks
 
-      // 新增：更宽泛的英文检测模式
-      /(check|analyze|examine|monitor).*(system|application|server|database|log|resource)/i, // 基础系统检查
-      /(which|what).*(application|process|service).*(consume|using|占用)/i, // 资源占用查询
-      /(examine|analyze|check).*(log|file|error|anomaly)/i // 日志分析
+      // New: broader English detection patterns
+      /(check|analyze|examine|monitor).*(system|application|server|database|log|resource)/i, // Basic system checks
+      /(which|what).*(application|process|service).*(consume|using|占用)/i, // Resource usage queries
+      /(examine|analyze|check).*(log|file|error|anomaly)/i // Log analysis
     ]
 
-    // 规则：
-    // 1) 明确列出编号/序列项达到3个及以上 ⇒ 直接判定需要todo
-    // 2) 否则统计命中信号数量（不同模式的匹配），达到2个以上才认为是复杂任务
+    // Rules:
+    // 1) Explicitly listed numbered/sequence items reaching 3 or more ⇒ directly determine todo needed
+    // 2) Otherwise count matching signal quantity (different pattern matches), consider complex task only when reaching 2 or more
     const countMatches = (regex: RegExp, text: string): number => (text.match(regex) || []).length
 
     const numberedListCount = countMatches(/(?:^|\s)(?:[1-9])[\.]\s/g, lowerMessage)
@@ -158,9 +158,9 @@ export class SmartTaskDetector {
   }
 }
 
-// 为了向后兼容，保持原有的导出接口
+// For backward compatibility, maintain original export interface
 export const TODO_SYSTEM_MESSAGES = {
-  // 使用新的优化逻辑替代原有的complexTaskSystemMessage
+  // Use new optimized logic to replace original complexTaskSystemMessage
   complexTaskSystemMessage: (_suggestion: string, isChineseMode: boolean = false, _userMessage: string = '') => {
     return TODO_PROMPTS_OPTIMIZED.coreSystemMessage(isChineseMode)
   }

@@ -1,6 +1,6 @@
 /**
- * 命令安全管理器
- * 负责验证命令的安全性和执行权限
+ * Command security manager
+ * Responsible for validating command security and execution permissions
  */
 
 import { CommandSecurityResult, SecurityConfig } from './types/SecurityTypes'
@@ -22,7 +22,7 @@ export class CommandSecurityManager {
   }
 
   /**
-   * 初始化安全管理器
+   * Initialize security manager
    */
   async initialize(): Promise<void> {
     await this.configManager.loadConfig()
@@ -30,7 +30,7 @@ export class CommandSecurityManager {
   }
 
   /**
-   * 重新加载配置（用于配置文件更新后立即生效）
+   * Reload configuration (for immediate effect after config file update)
    */
   async reloadConfig(): Promise<void> {
     await this.configManager.loadConfig()
@@ -39,7 +39,7 @@ export class CommandSecurityManager {
   }
 
   /**
-   * 验证命令是否安全
+   * Validate if command is safe
    */
   validateCommandSecurity(command: string): CommandSecurityResult {
     if (!this.config.enableCommandSecurity) {
@@ -48,7 +48,7 @@ export class CommandSecurityManager {
 
     const trimmedCommand = command.trim()
 
-    // 检查命令长度
+    // Check command length
     if (trimmedCommand.length > this.config.maxCommandLength) {
       return {
         isAllowed: false,
@@ -58,29 +58,29 @@ export class CommandSecurityManager {
       }
     }
 
-    // 解析命令结构
+    // Parse command structure
     const parsedCommand = this.commandParser.parse(trimmedCommand)
 
-    // 检查黑名单模式（包括复合命令）
+    // Check blacklist patterns (including compound commands)
     const blacklistResult = this.checkBlacklistWithCompounds(parsedCommand)
     if (blacklistResult) {
       return blacklistResult
     }
 
-    // 检查危险命令
+    // Check dangerous commands
     const dangerousResult = this.checkDangerousCommand(parsedCommand)
     if (dangerousResult) {
       return dangerousResult
     }
 
-    // 如果启用严格模式，检查白名单
+    // If strict mode enabled, check whitelist
     if (this.config.enableStrictMode) {
       const command = parsedCommand.executable + ' ' + parsedCommand.args.join(' ')
       const commandLower = command.toLowerCase()
       const hasWhitelistMatch = this.config.whitelistPatterns.some((pattern) => this.matchesPattern(commandLower, pattern.toLowerCase()))
 
       if (!hasWhitelistMatch) {
-        // 对于白名单检查，默认不需要用户确认，直接阻止
+        // For whitelist check, default to no user confirmation needed, directly block
         return {
           isAllowed: false,
           reason: this.messages.securityErrorNotInWhitelist,
@@ -92,15 +92,15 @@ export class CommandSecurityManager {
       }
     }
 
-    // 所有检查通过，允许执行
+    // All checks passed, allow execution
     return { isAllowed: true }
   }
 
   /**
-   * 检查命令是否为危险命令
+   * Check if command is dangerous
    */
   private checkDangerousCommand(parsedCommand: ParsedCommand): CommandSecurityResult | null {
-    // 如果是复合命令，递归检查每个子命令
+    // If compound command, recursively check each sub-command
     if (parsedCommand.isCompound && parsedCommand.compounds) {
       for (const compound of parsedCommand.compounds) {
         const result = this.checkDangerousCommand(compound)
@@ -111,12 +111,12 @@ export class CommandSecurityManager {
       return null
     }
 
-    // 检查可执行文件是否在危险命令列表中
+    // Check if executable is in dangerous commands list
     const executableLower = parsedCommand.executable.toLowerCase()
     for (const dangerousCmd of this.config.dangerousCommands) {
-      // 只检查命令名称，不检查参数和路径中的字符串
+      // Only check command name, don't check strings in parameters and paths
       if (executableLower === dangerousCmd.toLowerCase()) {
-        // 根据危险程度决定处理方式
+        // Decide handling based on danger level
         const severity = this.getDangerousCommandSeverity(dangerousCmd)
         const shouldAsk = this.shouldAskForSeverity(severity)
 
@@ -135,10 +135,10 @@ export class CommandSecurityManager {
   }
 
   /**
-   * 检查黑名单模式（包括复合命令）
+   * Check blacklist patterns (including compound commands)
    */
   private checkBlacklistWithCompounds(parsedCommand: ParsedCommand): any {
-    // 如果是复合命令，递归检查每个子命令
+    // If compound command, recursively check each sub-command
     if (parsedCommand.isCompound && parsedCommand.compounds) {
       for (const compound of parsedCommand.compounds) {
         const result = this.checkBlacklistWithCompounds(compound)
@@ -152,7 +152,7 @@ export class CommandSecurityManager {
     const command = parsedCommand.executable + ' ' + parsedCommand.args.join(' ')
     const commandLower = command.toLowerCase()
 
-    // 检查单个命令的黑名单模式
+    // Check single command's blacklist patterns
     for (const pattern of this.config.blacklistPatterns) {
       if (this.matchesPattern(commandLower, pattern.toLowerCase())) {
         const shouldAsk = this.config.securityPolicy.askForBlacklist
@@ -171,38 +171,38 @@ export class CommandSecurityManager {
   }
 
   /**
-   * 检查命令是否匹配模式
+   * Check if command matches pattern
    */
   private matchesPattern(command: string, pattern: string): boolean {
-    // 支持通配符匹配
+    // Support wildcard matching
     if (pattern.includes('*')) {
       const regexPattern = pattern.replace(/\*/g, '.*')
       const regex = new RegExp(`^${regexPattern}$`, 'i')
       return regex.test(command)
     }
 
-    // 将模式转换为安全的正则表达式
+    // Convert pattern to safe regular expression
     const escapedPattern = pattern.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 
-    // 对于根目录危险操作，使用精确匹配
+    // For root directory dangerous operations, use exact matching
     if (this.isRootDirectoryPattern(pattern)) {
       return new RegExp(`^${escapedPattern}(\\s|$)`, 'i').test(command)
     }
 
-    // 其他情况下，确保只匹配完整的命令或参数
+    // In other cases, ensure only matching complete commands or parameters
     return new RegExp(`(^|\\s)${escapedPattern}(\\s|$)`, 'i').test(command)
   }
 
   /**
-   * 检查是否为根目录危险操作模式
+   * Check if it's root directory dangerous operation pattern
    */
   private isRootDirectoryPattern(pattern: string): boolean {
-    // 检查是否以 / 或 /  结尾的根目录操作
+    // Check if it's root directory operation ending with / or /
     return pattern.endsWith(' /') || pattern.endsWith(' / ')
   }
 
   /**
-   * 获取危险命令的严重程度
+   * Get dangerous command severity level
    */
   private getDangerousCommandSeverity(command: string): 'low' | 'medium' | 'high' | 'critical' {
     const criticalCommands = ['rm', 'del', 'format', 'shutdown', 'reboot', 'halt', 'poweroff', 'dd', 'mkfs', 'fdisk']
@@ -221,34 +221,34 @@ export class CommandSecurityManager {
   }
 
   /**
-   * 根据严重程度决定是否询问用户
+   * Decide whether to ask user based on severity level
    */
   private shouldAskForSeverity(severity: 'low' | 'medium' | 'high' | 'critical'): boolean {
     switch (severity) {
       case 'critical':
-        // 对于dangerousCommands中的critical命令，始终询问用户而不是直接阻止
-        // blockCritical只影响黑名单模式，不影响dangerousCommands
+        // For critical commands in dangerousCommands, always ask user instead of directly blocking
+        // blockCritical only affects blacklist patterns, doesn't affect dangerousCommands
         return true
       case 'high':
         return this.config.securityPolicy.askForHigh
       case 'medium':
         return this.config.securityPolicy.askForMedium
       case 'low':
-        return true // 低危险命令默认询问
+        return true // Low danger commands default to asking
       default:
         return true
     }
   }
 
   /**
-   * 获取安全配置
+   * Get security configuration
    */
   getSecurityConfig(): SecurityConfig {
     return this.configManager.getConfig()
   }
 
   /**
-   * 更新安全配置
+   * Update security configuration
    */
   updateSecurityConfig(updates: Partial<SecurityConfig>): void {
     this.configManager.updateConfig(updates)

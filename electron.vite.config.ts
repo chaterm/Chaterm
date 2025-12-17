@@ -77,7 +77,7 @@ export default defineConfig({
       Components({
         resolvers: [
           AntDesignVueResolver({
-            importStyle: false // 使用 CSS in JS
+            importStyle: false // Use CSS in JS
           })
         ]
       }),
