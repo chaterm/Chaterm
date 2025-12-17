@@ -348,8 +348,8 @@ function createMockDb(): MockDb {
 
 describe('Assets Mutations', () => {
   let db: MockDb
-  let setImmediateSpy: MockInstance<Parameters<typeof setImmediate>, NodeJS.Immediate>
-  let consoleErrorSpy: MockInstance<Parameters<typeof console.error>, void>
+  let setImmediateSpy: MockInstance
+  let consoleErrorSpy: MockInstance
 
   beforeAll(() => {
     setImmediateSpy = vi.spyOn(global, 'setImmediate').mockImplementation(() => {
