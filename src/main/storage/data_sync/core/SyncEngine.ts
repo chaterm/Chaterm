@@ -16,7 +16,7 @@ export class SyncEngine {
   async incrementalSync(tableName: string): Promise<SyncResponse> {
     const pending = this.db.getPendingChanges().filter((c) => c.table_name === tableName)
     if (pending.length === 0) {
-      return { success: true, message: 'No pending changes', synced_count: 0, failed_count: 0 }
+      return { success: true, message: 'No pending changes to sync', synced_count: 0, failed_count: 0 }
     }
 
     // Intelligently compress change records (if enabled)
@@ -114,7 +114,7 @@ export class SyncEngine {
     const totalChanges = this.db.getTotalPendingChangesCount(tableName)
 
     if (totalChanges === 0) {
-      return { success: true, message: 'No pending changes', synced_count: 0, failed_count: 0 }
+      return { success: true, message: 'No pending changes to sync', synced_count: 0, failed_count: 0 }
     }
 
     // Adaptive page size
