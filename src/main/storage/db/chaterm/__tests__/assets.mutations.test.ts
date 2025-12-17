@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach, beforeAll, afterAll, vi, SpyInstance } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach, beforeAll, afterAll, vi, MockInstance } from 'vitest'
 
 // 避免加载原生依赖 better-sqlite3
 vi.mock('better-sqlite3', () => ({
@@ -348,8 +348,8 @@ function createMockDb(): MockDb {
 
 describe('Assets Mutations', () => {
   let db: MockDb
-  let setImmediateSpy: SpyInstance<Parameters<typeof setImmediate>, NodeJS.Immediate>
-  let consoleErrorSpy: SpyInstance<Parameters<typeof console.error>, void>
+  let setImmediateSpy: MockInstance<Parameters<typeof setImmediate>, NodeJS.Immediate>
+  let consoleErrorSpy: MockInstance<Parameters<typeof console.error>, void>
 
   beforeAll(() => {
     setImmediateSpy = vi.spyOn(global, 'setImmediate').mockImplementation(() => {
