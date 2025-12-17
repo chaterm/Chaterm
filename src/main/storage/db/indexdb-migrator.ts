@@ -1,6 +1,6 @@
 /**
- * IndexedDB 到 SQLite 数据迁移器
- * 处理 aliases、userConfig、keyValueStore 三个数据源的迁移
+ * IndexedDB to SQLite data migrator
+ * Handles migration of three data sources: aliases, userConfig, keyValueStore
  */
 
 import Database from 'better-sqlite3'
@@ -21,19 +21,19 @@ export class IndexDBMigrator {
     private userId: number,
     private sender: Electron.WebContents
   ) {
-    // 构造时验证 userId
+    // Validate userId during construction
     if (!userId || userId <= 0) {
       throw new Error('Invalid userId for migration')
     }
   }
 
   /**
-   * 带重试的同步迁移方法
+   * Synchronous migration method with retry
    */
   async migrateAllDataWithRetry(maxRetries: number = 3): Promise<boolean> {
     console.log('[Migration] Starting migration with retry, max attempts:', maxRetries)
 
-    // 先检查是否已全部迁移完成
+    // First check if all migrations are already complete
     if (this.checkAllMigrationsComplete()) {
       console.log('[Migration] [OK] All data already migrated and validated')
       return true
@@ -45,7 +45,7 @@ export class IndexDBMigrator {
 
         await this.migrateAllData()
 
-        // 验证迁移是否成功(包含数据校验)
+        // Verify migration success (including data validation)
         if (this.checkAllMigrationsComplete()) {
           console.log('[Migration] [OK] Migration completed and validated successfully')
           return true
@@ -55,7 +55,7 @@ export class IndexDBMigrator {
       } catch (error: any) {
         console.error(`[Migration] [ERROR] Attempt ${attempt} failed:`, error.message)
 
-        // 失败时清除所有状态标记
+        // Clear all status markers on failure
         this.db.prepare('DELETE FROM indexdb_migration_status').run()
 
         if (attempt < maxRetries) {
@@ -70,7 +70,7 @@ export class IndexDBMigrator {
   }
 
   /**
-   * 主迁移函数
+   * Main migration function
    */
   async migrateAllData(): Promise<void> {
     console.log(`[Migration] Starting migration for user ${this.userId}`)
@@ -81,7 +81,7 @@ export class IndexDBMigrator {
   }
 
   /**
-   * 迁移别名数据
+   * Migrate aliases data
    */
   private async migrateAliases(): Promise<void> {
     const status = this.getMigrationStatus('aliases')
@@ -103,7 +103,7 @@ export class IndexDBMigrator {
 
       console.log(`[Migration] Read ${data.length} aliases from IndexedDB`)
 
-      // 事务保证原子性
+      // Transaction ensures atomicity
       this.db.transaction(() => {
         const stmt = this.db.prepare(`
  INSERT OR REPLACE INTO t_aliases (id, alias, command, created_at)
@@ -123,7 +123,7 @@ export class IndexDBMigrator {
   }
 
   /**
-   * 迁移用户配置
+   * Migrate user configuration
    */
   private async migrateUserConfig(): Promise<void> {
     const status = this.getMigrationStatus('userConfig')
@@ -145,13 +145,13 @@ export class IndexDBMigrator {
 
       console.log('[Migration] Read userConfig from IndexedDB')
 
-      // 序列化整个配置对象
+      // Serialize entire configuration object
       const result = await safeStringify(data)
       if (!result.success) {
         throw new Error(`Failed to serialize userConfig: ${result.error}`)
       }
 
-      // 插入到 key_value_store 表
+      // Insert into key_value_store table
       this.db
         .prepare(
           `
@@ -170,7 +170,7 @@ export class IndexDBMigrator {
   }
 
   /**
-   * 迁移键值对存储
+   * Migrate key-value store
    */
   private async migrateKeyValueStore(): Promise<void> {
     const status = this.getMigrationStatus('keyValueStore')
@@ -192,7 +192,7 @@ export class IndexDBMigrator {
 
       console.log(`[Migration] Read ${data.length} key-value pairs from IndexedDB`)
 
-      // 先序列化所有数据（必须在事务外完成，因为 safeStringify 是异步的）
+      // First serialize all data (must be done outside transaction because safeStringify is async)
       const serializedData: Array<{ key: string; value: string }> = []
       for (const item of data) {
         const result = await safeStringify(item.value)
@@ -206,7 +206,7 @@ export class IndexDBMigrator {
         }
       }
 
-      // 事务保证原子性
+      // Transaction ensures atomicity
       this.db.transaction(() => {
         const stmt = this.db.prepare(`
  INSERT OR REPLACE INTO key_value_store (key, value, updated_at)
@@ -226,7 +226,7 @@ export class IndexDBMigrator {
   }
 
   /**
-   * 跨进程请求 IndexedDB 数据
+   * Cross-process request for IndexedDB data
    */
   private async requestIndexDBData(dataSource: string): Promise<any> {
     console.log(`[Migration] Requesting ${dataSource} data from renderer...`)
@@ -256,7 +256,7 @@ export class IndexDBMigrator {
   }
 
   /**
-   * 获取迁移状态
+   * Get migration status
    */
   private getMigrationStatus(dataSource: string): MigrationStatus | null {
     const row = this.db.prepare('SELECT * FROM indexdb_migration_status WHERE data_source = ?').get(dataSource) as MigrationStatus | undefined
@@ -265,7 +265,7 @@ export class IndexDBMigrator {
   }
 
   /**
-   * 标记迁移完成
+   * Mark migration as complete
    */
   private markMigrationComplete(dataSource: string, count: number): void {
     this.db
@@ -278,14 +278,14 @@ export class IndexDBMigrator {
       )
       .run(dataSource, Date.now(), count)
 
-    // 立即校验
+    // Immediately validate
     if (!this.validateMigration(dataSource, count)) {
       throw new Error(`Migration validation failed for ${dataSource}`)
     }
   }
 
   /**
-   * 标记迁移失败
+   * Mark migration as failed
    */
   private markMigrationFailed(dataSource: string, error: string): void {
     this.db
@@ -300,23 +300,23 @@ export class IndexDBMigrator {
   }
 
   /**
-   * 验证迁移数据完整性
+   * Validate migration data integrity
    */
   private validateMigration(dataSource: string, expectedCount: number): boolean {
     try {
-      // 1. 检查迁移状态
+      // 1. Check migration status
       const status = this.getMigrationStatus(dataSource)
       if (!status || status.migrated !== 1) {
         return false
       }
 
-      // 2. 验证记录数
+      // 2. Verify record count
       if (status.record_count !== expectedCount) {
         console.error(`[Migration] Record count mismatch for ${dataSource}:`, `expected ${expectedCount}, got ${status.record_count}`)
         return false
       }
 
-      // 3. 验证数据可读性
+      // 3. Verify data readability
       let actualCount = 0
       if (dataSource === 'aliases') {
         const result = this.db.prepare('SELECT COUNT(*) as count FROM t_aliases').get() as { count: number }
@@ -334,7 +334,7 @@ export class IndexDBMigrator {
         return false
       }
 
-      // 4. 验证关键字段非空(以 aliases 为例)
+      // 4. Verify key fields are not null (using aliases as example)
       if (dataSource === 'aliases' && expectedCount > 0) {
         const result = this.db.prepare('SELECT COUNT(*) as count FROM t_aliases WHERE alias IS NULL OR command IS NULL').get() as { count: number }
         if (result.count > 0) {
@@ -352,7 +352,7 @@ export class IndexDBMigrator {
   }
 
   /**
-   * 检查所有迁移是否完成(增强版)
+   * Check if all migrations are complete (enhanced version)
    */
   private checkAllMigrationsComplete(): boolean {
     const sources = ['aliases', 'userConfig', 'keyValueStore']
@@ -363,10 +363,10 @@ export class IndexDBMigrator {
         return false
       }
 
-      // 增加数据完整性校验
+      // Add data integrity validation
       const expectedCount = status.record_count || 0
       if (!this.validateMigration(source, expectedCount)) {
-        // 校验失败,清除状态标记以便下次重试
+        // Validation failed, clear status marker for next retry
         console.warn(`[Migration] Clearing invalid migration status for ${source}`)
         this.db.prepare('DELETE FROM indexdb_migration_status WHERE data_source = ?').run(source)
         return false

@@ -212,7 +212,7 @@ export async function refreshOrganizationAssetsLogic(
   authResultCallback?: any
 ): Promise<any> {
   try {
-    console.log('开始刷新企业资产，组织UUID:', organizationUuid)
+    console.log('Starting to refresh organization assets, organization UUID:', organizationUuid)
 
     let finalConfig = {
       host: jumpServerConfig.host,
@@ -238,35 +238,35 @@ export async function refreshOrganizationAssetsLogic(
           finalConfig.passphrase = keyChainResult.passphrase
         }
       } else {
-        throw new Error('未找到对应的密钥链')
+        throw new Error('Keychain not found')
       }
     } else if (jumpServerConfig.password) {
       finalConfig.password = jumpServerConfig.password
     } else {
-      throw new Error('缺少认证信息：需要私钥或密码')
+      throw new Error('Missing authentication information: private key or password required')
     }
 
-    console.log('最终配置:', { ...finalConfig, privateKey: finalConfig.privateKey ? '[HIDDEN]' : undefined })
+    console.log('Final configuration:', { ...finalConfig, privateKey: finalConfig.privateKey ? '[HIDDEN]' : undefined })
 
-    console.log('创建 JumpServerClient 实例...')
+    console.log('Creating JumpServerClient instance...')
     const client = new JumpServerClient(finalConfig, keyboardInteractiveHandler, authResultCallback)
 
-    console.log('开始调用 getAllAssets()...')
+    console.log('Starting to call getAllAssets()...')
     const assets = await client.getAllAssets()
 
-    console.log('getAllAssets() 调用完成，获取到资产数量:', assets.length)
+    console.log('getAllAssets() call completed, number of assets retrieved:', assets.length)
     if (assets.length > 0) {
-      console.log('前几个资产示例:', assets.slice(0, 3))
+      console.log('First few asset examples:', assets.slice(0, 3))
     }
 
-    console.log('查询现有的组织资产...')
+    console.log('Querying existing organization assets...')
     const existingAssetsStmt = db.prepare(`
       SELECT host, hostname, uuid, favorite
       FROM t_organization_assets
       WHERE organization_uuid = ?
     `)
     const existingAssets = existingAssetsStmt.all(organizationUuid) || []
-    console.log('现有组织资产数量:', existingAssets.length)
+    console.log('Number of existing organization assets:', existingAssets.length)
     const existingAssetsByHost = new Map(existingAssets.map((asset) => [asset.host, asset]))
 
     const updateStmt = db.prepare(`
@@ -282,19 +282,19 @@ export async function refreshOrganizationAssetsLogic(
     `)
 
     const currentAssetHosts = new Set<string>()
-    console.log('开始处理从 JumpServer 获取的资产...')
+    console.log('Starting to process assets retrieved from JumpServer...')
     for (const asset of assets) {
       currentAssetHosts.add(asset.address)
       if (existingAssetsByHost.has(asset.address)) {
-        console.log(`更新现有资产: ${asset.name} (${asset.address})`)
+        console.log(`Updating existing asset: ${asset.name} (${asset.address})`)
         updateStmt.run(asset.name, organizationUuid, asset.address)
       } else {
         const assetUuid = uuidv4()
-        console.log(`插入新资产: ${asset.name} (${asset.address})`)
+        console.log(`Inserting new asset: ${asset.name} (${asset.address})`)
         insertStmt.run(organizationUuid, asset.name, asset.address, assetUuid, 'jumpserver')
       }
     }
-    console.log('资产处理完成')
+    console.log('Asset processing completed')
 
     const deleteStmt = db.prepare(`
       DELETE FROM t_organization_assets
@@ -307,10 +307,10 @@ export async function refreshOrganizationAssetsLogic(
       }
     }
 
-    console.log('关闭 JumpServer 客户端连接')
+    console.log('Closing JumpServer client connection')
     client.close()
 
-    console.log('资产刷新完成，返回成功结果')
+    console.log('Organization asset refresh completed, returning success result')
     return {
       data: {
         message: 'success',
@@ -318,8 +318,8 @@ export async function refreshOrganizationAssetsLogic(
       }
     }
   } catch (error) {
-    console.error('刷新企业资产失败，错误详情:', error)
-    console.error('错误堆栈:', error instanceof Error ? error.stack : 'No stack trace')
+    console.error('Failed to refresh organization assets, error details:', error)
+    console.error('Error stack:', error instanceof Error ? error.stack : 'No stack trace')
     return {
       data: {
         message: 'failed',
@@ -341,7 +341,7 @@ export function updateOrganizationAssetFavoriteLogic(db: Database.Database, orga
       return {
         data: {
           message: 'failed',
-          error: '未找到匹配的记录'
+          error: 'No matching record found'
         }
       }
     }
@@ -360,7 +360,7 @@ export function updateOrganizationAssetFavoriteLogic(db: Database.Database, orga
       }
     }
   } catch (error) {
-    console.error('updateOrganizationAssetFavoriteLogic 错误:', error)
+    console.error('updateOrganizationAssetFavoriteLogic error:', error)
     throw error
   }
 }
@@ -377,7 +377,7 @@ export function updateOrganizationAssetCommentLogic(db: Database.Database, organ
       return {
         data: {
           message: 'failed',
-          error: '未找到匹配的记录'
+          error: 'No matching record found'
         }
       }
     }
@@ -396,7 +396,7 @@ export function updateOrganizationAssetCommentLogic(db: Database.Database, organ
       }
     }
   } catch (error) {
-    console.error('updateOrganizationAssetCommentLogic 错误:', error)
+    console.error('updateOrganizationAssetCommentLogic error:', error)
     throw error
   }
 }
@@ -419,7 +419,7 @@ export function createCustomFolderLogic(db: Database.Database, name: string, des
       }
     }
   } catch (error) {
-    console.error('createCustomFolderLogic 错误:', error)
+    console.error('createCustomFolderLogic error:', error)
     throw error
   }
 }
@@ -440,7 +440,7 @@ export function getCustomFoldersLogic(db: Database.Database): any {
       }
     }
   } catch (error) {
-    console.error('getCustomFoldersLogic 错误:', error)
+    console.error('getCustomFoldersLogic error:', error)
     throw error
   }
 }
@@ -461,7 +461,7 @@ export function updateCustomFolderLogic(db: Database.Database, folderUuid: strin
       }
     }
   } catch (error) {
-    console.error('updateCustomFolderLogic 错误:', error)
+    console.error('updateCustomFolderLogic error:', error)
     throw error
   }
 }
@@ -487,7 +487,7 @@ export function deleteCustomFolderLogic(db: Database.Database, folderUuid: strin
       }
     }
   } catch (error) {
-    console.error('deleteCustomFolderLogic 错误:', error)
+    console.error('deleteCustomFolderLogic error:', error)
     throw error
   }
 }
@@ -504,7 +504,7 @@ export function moveAssetToFolderLogic(db: Database.Database, folderUuid: string
       return {
         data: {
           message: 'failed',
-          error: '未找到指定的资产'
+          error: 'Specified asset not found'
         }
       }
     }
@@ -519,7 +519,7 @@ export function moveAssetToFolderLogic(db: Database.Database, folderUuid: string
       return {
         data: {
           message: 'failed',
-          error: '未找到指定的文件夹'
+          error: 'Specified folder not found'
         }
       }
     }
@@ -537,7 +537,7 @@ export function moveAssetToFolderLogic(db: Database.Database, folderUuid: string
       }
     }
   } catch (error) {
-    console.error('moveAssetToFolderLogic 错误:', error)
+    console.error('moveAssetToFolderLogic error:', error)
     throw error
   }
 }
@@ -557,7 +557,7 @@ export function removeAssetFromFolderLogic(db: Database.Database, folderUuid: st
       }
     }
   } catch (error) {
-    console.error('removeAssetFromFolderLogic 错误:', error)
+    console.error('removeAssetFromFolderLogic error:', error)
     throw error
   }
 }
@@ -588,7 +588,7 @@ export function getAssetsInFolderLogic(db: Database.Database, folderUuid: string
       }
     }
   } catch (error) {
-    console.error('getAssetsInFolderLogic 错误:', error)
+    console.error('getAssetsInFolderLogic error:', error)
     throw error
   }
 }

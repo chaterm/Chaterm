@@ -10,11 +10,11 @@ export interface McpToolState {
 }
 
 /**
- * 获取单个工具的状态
- * @param db 数据库实例
- * @param serverName MCP服务器名称
- * @param toolName 工具名称
- * @returns 工具状态，如果不存在则返回null（默认为启用）
+ * Get state of a single tool
+ * @param db Database instance
+ * @param serverName MCP server name
+ * @param toolName Tool name
+ * @returns Tool state, returns null if not exists (defaults to enabled)
  */
 export function getToolStateLogic(db: Database.Database, serverName: string, toolName: string): McpToolState | null {
   try {
@@ -31,11 +31,11 @@ export function getToolStateLogic(db: Database.Database, serverName: string, too
 }
 
 /**
- * 设置工具的启用/禁用状态
- * @param db 数据库实例
- * @param serverName MCP服务器名称
- * @param toolName 工具名称
- * @param enabled 是否启用（true/false）
+ * Set tool enabled/disabled state
+ * @param db Database instance
+ * @param serverName MCP server name
+ * @param toolName Tool name
+ * @param enabled Whether enabled (true/false)
  */
 export function setToolStateLogic(db: Database.Database, serverName: string, toolName: string, enabled: boolean): void {
   try {
@@ -55,10 +55,10 @@ export function setToolStateLogic(db: Database.Database, serverName: string, too
 }
 
 /**
- * 获取指定服务器所有工具的状态
- * @param db 数据库实例
- * @param serverName MCP服务器名称
- * @returns 工具状态列表
+ * Get states of all tools for specified server
+ * @param db Database instance
+ * @param serverName MCP server name
+ * @returns List of tool states
  */
 export function getServerToolStatesLogic(db: Database.Database, serverName: string): McpToolState[] {
   try {
@@ -75,9 +75,9 @@ export function getServerToolStatesLogic(db: Database.Database, serverName: stri
 }
 
 /**
- * 获取所有工具的状态
- * @param db 数据库实例
- * @returns 所有工具状态的Map，key为 "serverName:toolName"
+ * Get states of all tools
+ * @param db Database instance
+ * @returns Map of all tool states, key is "serverName:toolName"
  */
 export function getAllToolStatesLogic(db: Database.Database): Record<string, boolean> {
   try {
@@ -101,9 +101,9 @@ export function getAllToolStatesLogic(db: Database.Database): Record<string, boo
 }
 
 /**
- * 删除指定服务器的所有工具状态（当服务器被删除时使用）
- * @param db 数据库实例
- * @param serverName MCP服务器名称
+ * Delete all tool states for specified server (used when server is deleted)
+ * @param db Database instance
+ * @param serverName MCP server name
  */
 export function deleteServerToolStatesLogic(db: Database.Database, serverName: string): void {
   try {
