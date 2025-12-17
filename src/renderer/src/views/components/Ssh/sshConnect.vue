@@ -110,6 +110,28 @@ const { t } = useI18n()
 const selectFlag = ref(false)
 const configStore = userConfigStore()
 const isTransparent = computed(() => !!configStore.getUserConfig.background.image)
+let viewportScrollbarHideTimer: number | null = null
+
+const showTerminalScrollbarTemporarily = () => {
+  const container = terminalContainer.value
+  if (!container) return
+
+  container.classList.add('scrollbar-visible')
+
+  if (viewportScrollbarHideTimer) {
+    window.clearTimeout(viewportScrollbarHideTimer)
+  }
+
+  viewportScrollbarHideTimer = window.setTimeout(() => {
+    container.classList.remove('scrollbar-visible')
+    viewportScrollbarHideTimer = null
+  }, 2000)
+}
+
+const handleViewportScroll = () => {
+  updateSelectionButtonPosition()
+  showTerminalScrollbarTemporarily()
+}
 
 interface CommandSuggestion {
   command: string
@@ -356,7 +378,7 @@ onMounted(async () => {
   nextTick(() => {
     const viewport = terminalElement.value?.querySelector('.xterm-viewport')
     if (viewport) {
-      viewport.addEventListener('scroll', () => updateSelectionButtonPosition())
+      viewport.addEventListener('scroll', handleViewportScroll, { passive: true })
     }
   })
 
@@ -733,7 +755,12 @@ onBeforeUnmount(() => {
 
   const viewport = terminalElement.value?.querySelector('.xterm-viewport')
   if (viewport) {
-    viewport.removeEventListener('scroll', () => updateSelectionButtonPosition())
+    viewport.removeEventListener('scroll', handleViewportScroll)
+  }
+
+  if (viewportScrollbarHideTimer) {
+    window.clearTimeout(viewportScrollbarHideTimer)
+    viewportScrollbarHideTimer = null
   }
 })
 const getFileExt = (fileName: string): string => {
@@ -3230,18 +3257,36 @@ const isDeleteKeyData = (d: string) => d === '\x7f' || d === '\b' || d === '\x1b
 }
 
 .terminal ::-webkit-scrollbar-thumb {
-  background-color: var(--border-color-light);
+  background-color: transparent;
   border-radius: 3px;
-}
-
-.terminal ::-webkit-scrollbar-thumb:hover {
-  background-color: var(--text-color-tertiary);
 }
 
 /* Firefox scrollbar styles */
 .terminal {
   scrollbar-width: thin;
+  scrollbar-color: transparent transparent;
+}
+
+.terminal .xterm-viewport {
+  scrollbar-width: thin !important;
+  scrollbar-color: transparent transparent !important;
+}
+
+/* Show scrollbar only while content is scrolling (hide after 2s of no scrolling) */
+.terminal-container.scrollbar-visible .terminal ::-webkit-scrollbar-thumb {
+  background-color: var(--border-color-light);
+}
+
+.terminal-container.scrollbar-visible .terminal ::-webkit-scrollbar-thumb:hover {
+  background-color: var(--text-color-tertiary);
+}
+
+.terminal-container.scrollbar-visible .terminal {
   scrollbar-color: var(--border-color-light) transparent;
+}
+
+.terminal-container.scrollbar-visible .terminal .xterm-viewport {
+  scrollbar-color: var(--border-color-light) transparent !important;
 }
 
 .select-button {
