@@ -9,7 +9,7 @@ export interface TodoStateChange {
 }
 
 export class TodoReminderService {
-  private static readonly EMPTY_TODO_REMINDER = `提醒：当前 todo 列表为空。仅当任务包含 3 个或以上明确步骤时，才需要使用 TodoWrite 创建清单；简单任务请直接执行。`
+  private static readonly EMPTY_TODO_REMINDER = `Reminder: Current todo list is empty. Only use TodoWrite to create a checklist when tasks contain 3 or more explicit steps; for simple tasks, execute directly.`
 
   getReminderForEmptyTodos(isComplexTask: boolean = false): string | null {
     if (!isComplexTask) {
@@ -45,11 +45,11 @@ export class TodoReminderService {
     const messages: string[] = []
 
     if (stateChange.added.length > 0) {
-      messages.push(`新增 ${stateChange.added.length} 个任务`)
+      messages.push(`Added ${stateChange.added.length} tasks`)
     }
 
     if (stateChange.removed.length > 0) {
-      messages.push(`删除 ${stateChange.removed.length} 个任务`)
+      messages.push(`Removed ${stateChange.removed.length} tasks`)
     }
 
     if (stateChange.statusChanged.length > 0) {
@@ -58,16 +58,16 @@ export class TodoReminderService {
       const pendingCount = stateChange.statusChanged.filter((t) => t.status === 'pending').length
 
       if (completedCount > 0) {
-        messages.push(`完成 ${completedCount} 个任务`)
+        messages.push(`Completed ${completedCount} tasks`)
       }
       if (inProgressCount > 0) {
-        messages.push(`开始执行 ${inProgressCount} 个任务`)
+        messages.push(`Started executing ${inProgressCount} tasks`)
       }
       if (pendingCount > 0) {
-        messages.push(`暂停 ${pendingCount} 个任务`)
+        messages.push(`Paused ${pendingCount} tasks`)
       }
     }
 
-    return messages.length > 0 ? `任务状态更新：${messages.join('，')}` : ''
+    return messages.length > 0 ? `Task status updated: ${messages.join(', ')}` : ''
   }
 }

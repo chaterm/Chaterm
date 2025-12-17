@@ -18,7 +18,7 @@ export class TodoStorage {
         return []
       }
 
-      // 处理日期字段转换
+      // Handle date field conversion
       const processedTodos = Array.isArray(metadata.todos)
         ? metadata.todos.map((todo: any) => ({
             ...todo,
@@ -38,7 +38,7 @@ export class TodoStorage {
           }))
         : []
 
-      // 验证数据格式
+      // Validate data format
       const result = TodoArraySchema.safeParse(processedTodos)
       if (!result.success) {
         console.warn(`Invalid todo data format for task ${this.taskId}:`, result.error)
@@ -54,26 +54,26 @@ export class TodoStorage {
 
   async writeTodos(todos: Todo[]): Promise<void> {
     try {
-      // 验证数据格式
+      // Validate data format
       const result = TodoArraySchema.safeParse(todos)
       if (!result.success) {
-        console.error(`[TodoStorage] 数据验证失败:`, result.error)
+        console.error(`[TodoStorage] Data validation failed:`, result.error)
         throw new Error(`Invalid todo data: ${result.error.message}`)
       }
 
       const dbService = await ChatermDatabaseService.getInstance()
 
-      // 获取现有元数据
+      // Get existing metadata
       const existingMetadata = (await dbService.getTaskMetadata(this.taskId)) || TaskMetadataHelper.createEmptyMetadata()
 
-      // 更新 todos 字段
+      // Update todos field
       const updatedMetadata = TaskMetadataHelper.updateTodos(existingMetadata, result.data)
 
-      // 保存回数据库
+      // Save back to database
       await dbService.saveTaskMetadata(this.taskId, updatedMetadata)
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : String(error)
-      console.error(`[TodoStorage] 写入 todos 失败，taskId: ${this.taskId}:`, error)
+      console.error(`[TodoStorage] Failed to write todos, taskId: ${this.taskId}:`, error)
       throw new Error(`Failed to write todos for task ${this.taskId}: ${errorMessage}`)
     }
   }

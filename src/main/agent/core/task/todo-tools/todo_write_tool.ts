@@ -9,11 +9,11 @@ export interface TodoWriteParams {
 export class TodoWriteTool {
   static readonly name = 'todo_write'
   static readonly description =
-    '创建和管理结构化任务列表，更新整个 todo 列表。每个任务必须包含 content（任务标题）和 description（详细描述）字段。content 应简洁明了，description 应包含具体执行步骤或详细说明。'
+    'Create and manage structured task lists, update the entire todo list. Each task must include content (task title) and description (detailed description) fields. content should be concise and clear, description should contain specific execution steps or detailed instructions.'
 
   static async execute(params: TodoWriteParams, taskId: string): Promise<string> {
     try {
-      // 1. 预处理参数 - 添加缺失的时间戳字段
+      // 1. Preprocess params - add missing timestamp fields
       const now = new Date()
       const processedTodos = params.todos.map((todo) => ({
         ...todo,
@@ -21,46 +21,46 @@ export class TodoWriteTool {
         updatedAt: (todo as { updatedAt?: Date }).updatedAt || now
       }))
 
-      // 2. 验证参数
+      // 2. Validate params
       const result = TodoArraySchema.safeParse(processedTodos)
       if (!result.success) {
-        console.error(`[TodoWriteTool] 参数验证失败:`, result.error)
-        throw new Error(`参数验证失败: ${result.error.message}`)
+        console.error(`[TodoWriteTool] Parameter validation failed:`, result.error)
+        throw new Error(`Parameter validation failed: ${result.error.message}`)
       }
 
-      // 使用处理后的todos
+      // Use processed todos
       params.todos = result.data
 
-      // 3. 保存到存储
+      // 3. Save to storage
       const storage = new TodoStorage(taskId)
       await storage.writeTodos(params.todos)
 
-      // 4. 更新活跃 todo
+      // 4. Update active todo
       const contextTracker = TodoContextTracker.forSession(taskId)
       const inProgressTodo = params.todos.find((t) => t.status === 'in_progress')
       contextTracker.setActiveTodo(inProgressTodo?.id || null)
 
-      // 5. 生成返回消息
+      // 5. Generate return message
       let output = TodoWriteTool.generateOutput(params.todos)
 
-      // 6. 检查是否是新创建的 todo 列表，添加开始提醒
+      // 6. Check if it's a newly created todo list, add start reminder
       const allPending = params.todos.every((todo) => todo.status === 'pending')
       const hasMultipleTasks = params.todos.length > 1
 
       if (allPending && hasMultipleTasks) {
-        // 新创建的多任务 todo 列表，添加开始提醒
+        // Newly created multi-task todo list, add start reminder
         const firstTask = params.todos[0]
-        output += `\n\n⚠️ **重要提醒**：Todo 列表已创建完成。现在你必须立即使用 todo_write 工具将第一个任务 "${firstTask.content}" 的状态从 "pending" 更新为 "in_progress"，然后开始执行该任务。这是强制性的工作流程要求。`
+        output += `\n\n⚠️ **Important Reminder**: Todo list has been created. You must now immediately use the todo_write tool to update the first task "${firstTask.content}" status from "pending" to "in_progress", then start executing that task. This is a mandatory workflow requirement.`
       }
       return output
     } catch (error) {
-      console.error(`[TodoWriteTool] todo_write 工具执行失败:`, error)
-      throw new Error(`Todo 写入失败: ${error instanceof Error ? error.message : String(error)}`)
+      console.error(`[TodoWriteTool] todo_write tool execution failed:`, error)
+      throw new Error(`Todo write failed: ${error instanceof Error ? error.message : String(error)}`)
     }
   }
 
   static generateOutput(todos: Todo[]): string {
-    // 检测是否包含中文内容来决定使用哪种语言
+    // Detect if contains Chinese content to decide which language to use
     const hasChineseContent = todos.some(
       (todo) => /[\u4e00-\u9fff]/.test(todo.content) || (todo.description && /[\u4e00-\u9fff]/.test(todo.description))
     )
@@ -93,7 +93,7 @@ export class TodoWriteTool {
 
     let output = labels.title
 
-    // 按状态分组显示
+    // Group by status for display
     const inProgress = todos.filter((t) => t.status === 'in_progress')
     const pending = todos.filter((t) => t.status === 'pending')
     const completed = todos.filter((t) => t.status === 'completed')
@@ -139,7 +139,7 @@ export class TodoWriteTool {
       output += '\n'
     }
 
-    // 添加统计信息
+    // Add statistics
     output += labels.statistics
     output += labels.total
     output += labels.inProgressCount + `${inProgress.length}\n`
