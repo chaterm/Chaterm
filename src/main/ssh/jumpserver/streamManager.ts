@@ -24,7 +24,7 @@ export async function navigateToJumpServerAsset(
     const handleNavigationSuccess = (reason: string) => {
       if (connectionEstablished) return
       connectionEstablished = true
-      console.log(`JumpServer exec 流导航成功 (${jumpserverUuid}): ${reason}`)
+      console.log(`JumpServer exec stream navigation successful (${jumpserverUuid}): ${reason}`)
       connectionPhase = 'connected'
       outputBuffer = ''
       cleanup()
@@ -37,7 +37,7 @@ export async function navigateToJumpServerAsset(
       outputBuffer += chunk
 
       if (connectionPhase === 'connecting' && outputBuffer.includes('Opt>')) {
-        console.log(`JumpServer exec 流：检测到菜单，输入 IP ${targetIp}`)
+        console.log(`JumpServer exec stream: Menu detected, entering IP ${targetIp}`)
         connectionPhase = 'inputIp'
         outputBuffer = ''
         stream.write(targetIp + '\r')
@@ -47,20 +47,20 @@ export async function navigateToJumpServerAsset(
       if (connectionPhase === 'inputIp') {
         if (hasUserSelectionPrompt(outputBuffer)) {
           if (navigationPath.selectedUserId !== undefined) {
-            console.log(`JumpServer exec 流：检测到用户选择提示，自动选择 userId=${navigationPath.selectedUserId}`)
+            console.log(`JumpServer exec stream: User selection prompt detected, auto-selecting userId=${navigationPath.selectedUserId}`)
             connectionPhase = 'selectUser'
             outputBuffer = ''
             stream.write(navigationPath.selectedUserId.toString() + '\r')
           } else {
             cleanup()
-            reject(new Error('JumpServer exec 流：检测到多用户场景但未提供 selectedUserId'))
+            reject(new Error('JumpServer exec stream: Multiple user scenario detected but selectedUserId not provided'))
           }
           return
         }
 
         if (hasPasswordPrompt(outputBuffer)) {
           if (navigationPath.password) {
-            console.log('JumpServer exec 流：检测到密码提示，使用保存的密码')
+            console.log('JumpServer exec stream: Password prompt detected, using saved password')
             connectionPhase = 'inputPassword'
             outputBuffer = ''
             setTimeout(() => {
@@ -69,10 +69,10 @@ export async function navigateToJumpServerAsset(
           } else {
             const reason = detectDirectConnectionReason(outputBuffer)
             if (reason) {
-              console.log(`JumpServer exec 流：检测到密码提示但无密码，尝试直接连接（${reason}）`)
-              handleNavigationSuccess(`无密码直接连接 - ${reason}`)
+              console.log(`JumpServer exec stream: Password prompt detected but no password, attempting direct connection (${reason})`)
+              handleNavigationSuccess(`Direct connection without password - ${reason}`)
             } else {
-              console.warn('JumpServer exec 流：需要密码但主连接未记录密码，等待进一步输出...')
+              console.warn('JumpServer exec stream: Password required but main connection did not record password, waiting for further output...')
             }
           }
           return
@@ -80,7 +80,7 @@ export async function navigateToJumpServerAsset(
 
         const reason = detectDirectConnectionReason(outputBuffer)
         if (reason) {
-          handleNavigationSuccess(`无需密码 - ${reason}`)
+          handleNavigationSuccess(`No password required - ${reason}`)
         }
         return
       }
@@ -88,7 +88,7 @@ export async function navigateToJumpServerAsset(
       if (connectionPhase === 'selectUser') {
         if (hasPasswordPrompt(outputBuffer)) {
           if (navigationPath.password) {
-            console.log('JumpServer exec 流：用户选择后检测到密码提示，使用保存的密码')
+            console.log('JumpServer exec stream: Password prompt detected after user selection, using saved password')
             connectionPhase = 'inputPassword'
             outputBuffer = ''
             setTimeout(() => {
@@ -97,10 +97,14 @@ export async function navigateToJumpServerAsset(
           } else {
             const reason = detectDirectConnectionReason(outputBuffer)
             if (reason) {
-              console.log(`JumpServer exec 流：用户选择后检测到密码提示但无密码，尝试直接连接（${reason}）`)
-              handleNavigationSuccess(`用户选择后无密码直接连接 - ${reason}`)
+              console.log(
+                `JumpServer exec stream: Password prompt detected after user selection but no password, attempting direct connection (${reason})`
+              )
+              handleNavigationSuccess(`Direct connection without password after user selection - ${reason}`)
             } else {
-              console.warn('JumpServer exec 流：用户选择后需要密码但主连接未记录密码，等待进一步输出...')
+              console.warn(
+                'JumpServer exec stream: Password required after user selection but main connection did not record password, waiting for further output...'
+              )
             }
           }
           return
@@ -108,7 +112,7 @@ export async function navigateToJumpServerAsset(
 
         const reason = detectDirectConnectionReason(outputBuffer)
         if (reason) {
-          handleNavigationSuccess(`用户选择后 - ${reason}`)
+          handleNavigationSuccess(`After user selection - ${reason}`)
         }
         return
       }
@@ -116,30 +120,30 @@ export async function navigateToJumpServerAsset(
       if (connectionPhase === 'inputPassword') {
         if (hasPasswordError(outputBuffer)) {
           cleanup()
-          reject(new Error('JumpServer exec 流：密码认证失败'))
+          reject(new Error('JumpServer exec stream: Password authentication failed'))
           return
         }
 
         const reason = detectDirectConnectionReason(outputBuffer)
         if (reason) {
-          handleNavigationSuccess(`密码验证后 - ${reason}`)
+          handleNavigationSuccess(`After password verification - ${reason}`)
         }
       }
     }
 
     const errorHandler = (error: Error) => {
-      console.error('JumpServer exec 流导航错误:', error)
+      console.error('JumpServer exec stream navigation error:', error)
       cleanup()
       clearTimeout(timeout)
       reject(error)
     }
 
     const closeHandler = () => {
-      console.log('JumpServer exec 流在导航过程中关闭')
+      console.log('JumpServer exec stream closed during navigation')
       cleanup()
       if (connectionPhase !== 'connected') {
         clearTimeout(timeout)
-        reject(new Error('exec 流在导航完成前被关闭'))
+        reject(new Error('exec stream closed before navigation completed'))
       }
     }
 
@@ -149,7 +153,7 @@ export async function navigateToJumpServerAsset(
 
     const timeout = setTimeout(() => {
       cleanup()
-      reject(new Error('JumpServer exec 流导航超时'))
+      reject(new Error('JumpServer exec stream navigation timeout'))
     }, JUMPSERVER_CONSTANTS.NAVIGATION_TIMEOUT)
     const clearNavigationTimeout = () => clearTimeout(timeout)
 
@@ -169,43 +173,43 @@ export async function navigateToJumpServerAsset(
 
 export async function createJumpServerExecStream(connectionId: string): Promise<any> {
   if (jumpserverExecStreams.has(connectionId)) {
-    console.log(`[JumpServer:ExecStream] 复用已有流: ${connectionId}`)
+    console.log(`[JumpServer:ExecStream] Reusing existing stream: ${connectionId}`)
     return jumpserverExecStreams.get(connectionId)
   }
 
   const existingPromise = getExecStreamPromise(connectionId)
   if (existingPromise) {
-    console.log(`[JumpServer:ExecStream] 等待正在创建的流: ${connectionId}`)
+    console.log(`[JumpServer:ExecStream] Waiting for stream being created: ${connectionId}`)
     return existingPromise
   }
 
-  console.log(`[JumpServer:ExecStream] 开始创建新流: ${connectionId}`)
+  console.log(`[JumpServer:ExecStream] Starting to create new stream: ${connectionId}`)
 
   const creationPromise = (async () => {
     try {
       const connData = jumpserverConnections.get(connectionId)
       if (!connData) {
-        console.error(`[JumpServer:ExecStream] 连接数据未找到!`)
-        console.error(`[JumpServer:ExecStream] 可用的连接ID列表:`, Array.from(jumpserverConnections.keys()))
-        throw new Error(`JumpServer 连接未找到: ${connectionId}`)
+        console.error(`[JumpServer:ExecStream] Connection data not found!`)
+        console.error(`[JumpServer:ExecStream] Available connection ID list:`, Array.from(jumpserverConnections.keys()))
+        throw new Error(`JumpServer connection not found: ${connectionId}`)
       }
 
       const { conn, jumpserverUuid, targetIp, navigationPath } = connData
 
       if (!targetIp) {
-        console.error(`[JumpServer:ExecStream] 目标资产信息缺失: targetIp=${targetIp}`)
-        throw new Error(`JumpServer 无法获取目标资产信息: ${connectionId}`)
+        console.error(`[JumpServer:ExecStream] Target asset information missing: targetIp=${targetIp}`)
+        throw new Error(`JumpServer unable to get target asset information: ${connectionId}`)
       }
 
       if (!navigationPath) {
-        console.error(`[JumpServer] 导航路径未记录`)
-        throw new Error(`JumpServer 连接缺少导航路径: ${connectionId}`)
+        console.error(`[JumpServer] Navigation path not recorded`)
+        throw new Error(`JumpServer connection missing navigation path: ${connectionId}`)
       }
 
       const execStream: any = await new Promise((resolve, reject) => {
         conn.shell({ term: 'xterm-256color' }, (err: Error | undefined, stream: any) => {
           if (err) {
-            console.error(`[JumpServer] Exec流创建失败:`, err)
+            console.error(`[JumpServer] Exec stream creation failed:`, err)
             reject(err)
           } else {
             resolve(stream)
@@ -269,7 +273,7 @@ export async function executeCommandOnJumpServerExec(
             const markerMatch = outputBuffer.match(markerPattern)
 
             if (!markerMatch || markerMatch.index === undefined) {
-              throw new Error('标记未找到或格式不正确')
+              throw new Error('Marker not found or format incorrect')
             }
 
             const rawOutput = outputBuffer.substring(0, markerMatch.index + 1)
@@ -283,7 +287,7 @@ export async function executeCommandOnJumpServerExec(
               exitCode
             })
           } catch (parseError) {
-            console.error('[JumpServer] 命令输出解析错误:', parseError)
+            console.error('[JumpServer] Command output parsing error:', parseError)
             resolve({
               success: false,
               error: `Failed to parse command output: ${parseError}`,
@@ -302,7 +306,7 @@ export async function executeCommandOnJumpServerExec(
     }
 
     timeoutHandle = setTimeout(() => {
-      console.warn(`[JumpServer] 命令执行超时 (${JUMPSERVER_CONSTANTS.COMMAND_EXEC_TIMEOUT}ms)`)
+      console.warn(`[JumpServer] Command execution timeout (${JUMPSERVER_CONSTANTS.COMMAND_EXEC_TIMEOUT}ms)`)
       cleanup()
       resolve({
         success: false,

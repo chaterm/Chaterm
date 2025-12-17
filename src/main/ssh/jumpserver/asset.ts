@@ -15,7 +15,7 @@ interface JumpServerConfig {
   host: string
   port?: number
   username: string
-  privateKey?: string // 改为直接传入私钥内容
+  privateKey?: string // Changed to directly pass private key content
   password?: string
   passphrase?: string
   connIdentToken?: string
@@ -31,13 +31,13 @@ interface AuthResultCallback {
 
 class JumpServerClient {
   private conn: Client | null = null
-  private stream: import('ssh2').ClientChannel | null = null // 持久化的 shell stream
+  private stream: import('ssh2').ClientChannel | null = null // Persistent shell stream
   private config: JumpServerConfig
   private isConnected: boolean = false
-  private outputBuffer: string = '' // 用于存储 stream 的输出
-  private dataResolve: ((data: string) => void) | null = null // 用于 resolve executeCommand 的 Promise
-  private keyboardInteractiveHandler?: KeyboardInteractiveHandler // 二次验证处理器
-  private authResultCallback?: AuthResultCallback // 验证结果回调
+  private outputBuffer: string = '' // Buffer for storing stream output
+  private dataResolve: ((data: string) => void) | null = null // Resolver for executeCommand Promise
+  private keyboardInteractiveHandler?: KeyboardInteractiveHandler // Two-factor authentication handler
+  private authResultCallback?: AuthResultCallback // Authentication result callback
 
   constructor(config: JumpServerConfig, keyboardInteractiveHandler?: KeyboardInteractiveHandler, authResultCallback?: AuthResultCallback) {
     this.config = config
@@ -46,10 +46,10 @@ class JumpServerClient {
   }
 
   /**
-   * 连接到JumpServer并建立一个持久的shell
+   * Connect to JumpServer and establish a persistent shell
    */
   async connect(): Promise<void> {
-    console.log('JumpServerClient.connect: 开始连接到 JumpServer')
+    console.log('JumpServerClient.connect: Starting connection to JumpServer')
     return new Promise((resolve, reject) => {
       const connectConfig: ConnectConfig = {
         host: this.config.host,
@@ -65,7 +65,7 @@ class JumpServerClient {
       const packageInfo = getPackageInfo()
       connectConfig.ident = `${packageInfo.name}_${packageInfo.version}` + identToken
 
-      // 根据配置选择认证方式
+      // Select authentication method based on configuration
       if (this.config.privateKey) {
         connectConfig.privateKey = Buffer.from(this.config.privateKey)
         if (this.config.passphrase) {
@@ -74,7 +74,7 @@ class JumpServerClient {
       } else if (this.config.password) {
         connectConfig.password = this.config.password
       } else {
-        return reject(new Error('缺少认证信息：需要私钥或密码'))
+        return reject(new Error('Missing authentication info: private key or password required'))
       }
 
       this.conn = new Client()
@@ -82,25 +82,25 @@ class JumpServerClient {
       // Handle keyboard-interactive authentication for 2FA
       this.conn.on('keyboard-interactive', (_name, _instructions, _instructionsLang, prompts, finish) => {
         if (this.keyboardInteractiveHandler) {
-          console.log('JumpServerClient: 需要二次验证，调用处理器...')
-          // 调用处理器，但不等待它的结果，因为验证结果会通过 ready 或 error 事件来确定
+          console.log('JumpServerClient: Two-factor authentication required, calling handler...')
+          // Call handler but don't wait for its result, as authentication result will be determined by ready or error event
           this.keyboardInteractiveHandler(prompts, finish).catch((err) => {
-            console.error('JumpServerClient: 二次验证处理器出错', err)
+            console.error('JumpServerClient: Two-factor authentication handler error', err)
             this.conn?.end()
             reject(err)
           })
         } else {
-          console.log('JumpServerClient: 需要二次验证但没有处理器，拒绝连接')
+          console.log('JumpServerClient: Two-factor authentication required but no handler provided, rejecting connection')
           finish([])
-          reject(new Error('需要二次验证但没有提供处理器'))
+          reject(new Error('Two-factor authentication required but no handler provided'))
         }
       })
 
       this.conn.on('ready', () => {
         this.isConnected = true
-        console.log('JumpServerClient: SSH 连接已建立')
+        console.log('JumpServerClient: SSH connection established')
 
-        // 如果有验证结果回调，通知验证成功
+        // If authentication result callback exists, notify success
         if (this.authResultCallback) {
           this.authResultCallback(true)
         }
@@ -111,18 +111,18 @@ class JumpServerClient {
           }
           this.stream = stream
 
-          // 设置统一的数据处理器
+          // Set up unified data handler
           this.stream.on('data', (data: Buffer) => {
             const ansiRegex = /[\u001b\u009b][[()#;?]*.{0,2}(?:[0-9]{1,4}(?:;[0-9]{0,4})*)?[0-9A-ORZcf-nry=><]/g
             const chunk = data.toString().replace(ansiRegex, '')
             this.outputBuffer += chunk
 
-            // 如果有正在等待的命令，检查是否结束
+            // If there's a waiting command, check if it's finished
             if (this.dataResolve && (this.outputBuffer.includes('[Host]>') || this.outputBuffer.includes('Opt>'))) {
-              console.log('JumpServerClient: 检测到命令结束标志，返回输出，长度:', this.outputBuffer.length)
+              console.log('JumpServerClient: Command end marker detected, returning output, length:', this.outputBuffer.length)
               this.dataResolve(this.outputBuffer)
-              this.outputBuffer = '' // 清空缓冲区
-              this.dataResolve = null // 重置 resolver
+              this.outputBuffer = '' // Clear buffer
+              this.dataResolve = null // Reset resolver
             }
           })
 
@@ -140,29 +140,31 @@ class JumpServerClient {
             }
           })
 
-          // 等待初始菜单出现
+          // Wait for initial menu to appear
           const waitForMenu = (retries = 10) => {
-            console.log(`JumpServerClient: 等待初始菜单，剩余重试次数: ${retries}, 当前缓冲区内容长度: ${this.outputBuffer.length}`)
+            console.log(
+              `JumpServerClient: Waiting for initial menu, remaining retries: ${retries}, current buffer length: ${this.outputBuffer.length}`
+            )
             if (retries === 0) {
-              console.log('JumpServerClient: 等待初始菜单超时，缓冲区内容:', this.outputBuffer)
+              console.log('JumpServerClient: Timeout waiting for initial menu, buffer content:', this.outputBuffer)
               return reject(new Error('Failed to get initial menu prompt.'))
             }
             if (this.outputBuffer.includes('Opt>')) {
-              console.log('JumpServerClient: 初始菜单加载完毕，缓冲区内容:', this.outputBuffer)
-              this.outputBuffer = '' // 清空初始菜单的 buffer
+              console.log('JumpServerClient: Initial menu loaded, buffer content:', this.outputBuffer)
+              this.outputBuffer = '' // Clear initial menu buffer
               resolve()
             } else {
               setTimeout(() => waitForMenu(retries - 1), 500)
             }
           }
-          setTimeout(waitForMenu, 500) // 启动等待
+          setTimeout(waitForMenu, 500) // Start waiting
         })
       })
 
       this.conn.on('error', (err) => {
-        console.log('JumpServerClient: SSH 连接错误', err)
+        console.log('JumpServerClient: SSH connection error', err)
 
-        // 如果有验证结果回调，通知验证失败
+        // If authentication result callback exists, notify failure
         if (this.authResultCallback) {
           this.authResultCallback(false, err.message)
         }
@@ -175,32 +177,32 @@ class JumpServerClient {
   }
 
   /**
-   * 在持久化的 shell 中执行命令并获取输出
+   * Execute command in persistent shell and get output
    */
   private async executeCommand(command: string): Promise<string> {
-    console.log(`JumpServerClient.executeCommand: 执行命令 "${command}"`)
+    console.log(`JumpServerClient.executeCommand: Executing command "${command}"`)
 
     if (!this.stream) {
-      console.log('JumpServerClient.executeCommand: Shell stream 不可用')
+      console.log('JumpServerClient.executeCommand: Shell stream not available')
       throw new Error('Shell stream is not available.')
     }
 
     return new Promise((resolve, reject) => {
       this.dataResolve = resolve
 
-      console.log(`JumpServerClient.executeCommand: 发送命令到 stream: "${command}"`)
+      console.log(`JumpServerClient.executeCommand: Sending command to stream: "${command}"`)
       this.stream!.write(command + '\r')
 
-      // 设置超时
+      // Set timeout
       const timeoutId = setTimeout(() => {
         if (this.dataResolve) {
-          console.log(`JumpServerClient.executeCommand: 命令 "${command}" 超时`)
+          console.log(`JumpServerClient.executeCommand: Command "${command}" timed out`)
           this.dataResolve = null
           reject(new Error(`Command '${command}' timed out.`))
         }
-      }, 15000) // 减少到15秒超时
+      }, 15000) // Reduced to 15 second timeout
 
-      // 保存原始的 resolve 函数，以便在成功时清除超时
+      // Save original resolve function to clear timeout on success
       const originalResolve = this.dataResolve
       this.dataResolve = (data: string) => {
         clearTimeout(timeoutId)
@@ -210,28 +212,28 @@ class JumpServerClient {
   }
 
   /**
-   * 获取所有资产
+   * Get all assets
    */
   async getAllAssets(): Promise<Asset[]> {
-    console.log('JumpServerClient.getAllAssets: 开始获取资产')
+    console.log('JumpServerClient.getAllAssets: Starting to fetch assets')
 
     if (!this.isConnected) {
-      console.log('JumpServerClient.getAllAssets: 连接未建立，开始连接...')
+      console.log('JumpServerClient.getAllAssets: Connection not established, starting connection...')
       await this.connect()
-      console.log('JumpServerClient.getAllAssets: 连接已建立')
+      console.log('JumpServerClient.getAllAssets: Connection established')
     } else {
-      console.log('JumpServerClient.getAllAssets: 连接已存在')
+      console.log('JumpServerClient.getAllAssets: Connection already exists')
     }
 
     const allAssets: Asset[] = []
     const seenAssetAddresses = new Set<string>()
 
-    console.log('JumpServerClient.getAllAssets: 执行命令 "p" 获取第一页资产...')
-    // 获取第一页
+    console.log('JumpServerClient.getAllAssets: Executing command "p" to get first page of assets...')
+    // Get first page
     let output = await this.executeCommand('p')
-    console.log('JumpServerClient.getAllAssets: 收到第一页输出，长度:', output.length)
+    console.log('JumpServerClient.getAllAssets: Received first page output, length:', output.length)
     let { assets: pageAssets, pagination } = parseJumpserverOutput(output)
-    console.log('JumpServerClient.getAllAssets: 解析第一页结果，资产数量:', pageAssets.length, '分页信息:', pagination)
+    console.log('JumpServerClient.getAllAssets: Parsed first page result, asset count:', pageAssets.length, 'pagination info:', pagination)
 
     pageAssets.forEach((asset) => {
       if (!seenAssetAddresses.has(asset.address)) {
@@ -240,31 +242,31 @@ class JumpServerClient {
       }
     })
 
-    // 设置最大页数限制，避免获取过多页面
-    const MAX_PAGES = 100 // 进一步减少到100页，更保守
+    // Set maximum page limit to avoid fetching too many pages
+    const MAX_PAGES = 100 // Further reduced to 100 pages, more conservative
     const maxPagesToFetch = Math.min(pagination.totalPages, MAX_PAGES)
 
-    console.log(`JumpServerClient.getAllAssets: 总页数 ${pagination.totalPages}，限制获取 ${maxPagesToFetch} 页`)
+    console.log(`JumpServerClient.getAllAssets: Total pages ${pagination.totalPages}, limiting fetch to ${maxPagesToFetch} pages`)
 
-    // 如果有多页，继续获取后续页面
+    // If there are multiple pages, continue fetching subsequent pages
     let consecutiveFailures = 0
-    const MAX_CONSECUTIVE_FAILURES = 2 // 减少到2次连续失败就停止
+    const MAX_CONSECUTIVE_FAILURES = 2 // Reduced to 2 consecutive failures before stopping
     const startTime = Date.now()
-    const MAX_TOTAL_TIME = 5 * 60 * 1000 // 最多5分钟
+    const MAX_TOTAL_TIME = 5 * 60 * 1000 // Maximum 5 minutes
 
     while (pagination.currentPage < maxPagesToFetch && consecutiveFailures < MAX_CONSECUTIVE_FAILURES) {
-      // 检查总时间限制
+      // Check total time limit
       if (Date.now() - startTime > MAX_TOTAL_TIME) {
-        console.log(`JumpServerClient.getAllAssets: 已运行超过5分钟，停止获取更多页面`)
+        console.log(`JumpServerClient.getAllAssets: Running for more than 5 minutes, stopping fetch of more pages`)
         break
       }
       const nextPage = pagination.currentPage + 1
-      console.log(`JumpServerClient.getAllAssets: 获取第 ${nextPage} 页...`)
+      console.log(`JumpServerClient.getAllAssets: Fetching page ${nextPage}...`)
 
       try {
         const pageStartTime = Date.now()
 
-        // 尝试执行命令，如果失败则重试一次
+        // Try to execute command, retry once if it fails
         let commandSuccess = false
         let retryCount = 0
         const maxRetries = 1
@@ -276,8 +278,8 @@ class JumpServerClient {
           } catch (cmdError) {
             retryCount++
             if (retryCount <= maxRetries) {
-              console.log(`JumpServerClient.getAllAssets: 第 ${nextPage} 页命令失败，重试 ${retryCount}/${maxRetries}`)
-              await new Promise((resolve) => setTimeout(resolve, 2000)) // 等待2秒再重试
+              console.log(`JumpServerClient.getAllAssets: Page ${nextPage} command failed, retrying ${retryCount}/${maxRetries}`)
+              await new Promise((resolve) => setTimeout(resolve, 2000)) // Wait 2 seconds before retry
             } else {
               throw cmdError
             }
@@ -287,43 +289,43 @@ class JumpServerClient {
         const pageEndTime = Date.now()
         const pageTime = pageEndTime - pageStartTime
 
-        console.log(`JumpServerClient.getAllAssets: 第 ${nextPage} 页输出长度: ${output.length}，耗时: ${pageTime}ms`)
-        consecutiveFailures = 0 // 重置失败计数
+        console.log(`JumpServerClient.getAllAssets: Page ${nextPage} output length: ${output.length}, time taken: ${pageTime}ms`)
+        consecutiveFailures = 0 // Reset failure count
 
-        // 如果单页耗时过长，考虑停止
+        // If single page takes too long, consider stopping
         if (pageTime > 15000) {
-          // 超过15秒
-          console.log(`JumpServerClient.getAllAssets: 第 ${nextPage} 页耗时过长 (${pageTime}ms)，可能后续页面会更慢，停止获取`)
+          // Exceeds 15 seconds
+          console.log(`JumpServerClient.getAllAssets: Page ${nextPage} took too long (${pageTime}ms), subsequent pages may be slower, stopping fetch`)
           break
         }
       } catch (error) {
         consecutiveFailures++
-        console.error(`JumpServerClient.getAllAssets: 获取第 ${nextPage} 页失败 (连续失败 ${consecutiveFailures} 次):`, error)
+        console.error(`JumpServerClient.getAllAssets: Failed to fetch page ${nextPage} (consecutive failures ${consecutiveFailures}):`, error)
 
         if (consecutiveFailures >= MAX_CONSECUTIVE_FAILURES) {
-          console.log(`JumpServerClient.getAllAssets: 连续失败 ${MAX_CONSECUTIVE_FAILURES} 次，停止获取更多页面`)
+          console.log(`JumpServerClient.getAllAssets: ${MAX_CONSECUTIVE_FAILURES} consecutive failures, stopping fetch of more pages`)
           break
         }
 
-        // 手动增加页码，继续尝试下一页
+        // Manually increment page number, continue trying next page
         pagination.currentPage++
         continue
       }
 
       const { assets: newPageAssets, pagination: newPagination } = parseJumpserverOutput(output)
 
-      // 总是更新分页信息
+      // Always update pagination info
       if (newPagination.totalPages > 1) {
         pagination = newPagination
       } else {
-        // 如果Jumpserver在后续页面不再返回分页信息，我们需要手动增加页码
+        // If JumpServer no longer returns pagination info on subsequent pages, we need to manually increment page number
         pagination.currentPage++
       }
 
-      console.log(`JumpServerClient.getAllAssets: 第 ${nextPage} 页解析结果，资产数量: ${newPageAssets.length}`)
+      console.log(`JumpServerClient.getAllAssets: Page ${nextPage} parsed result, asset count: ${newPageAssets.length}`)
 
       if (newPageAssets.length === 0) {
-        console.log(`JumpServerClient.getAllAssets: 第 ${nextPage} 页无资产，停止翻页`)
+        console.log(`JumpServerClient.getAllAssets: Page ${nextPage} has no assets, stopping pagination`)
         break
       }
 
@@ -337,19 +339,19 @@ class JumpServerClient {
       })
 
       if (!newAssetsAdded) {
-        console.log(`JumpServerClient.getAllAssets: 第 ${nextPage} 页未发现新资产，可能是重复数据，停止翻页`)
+        console.log(`JumpServerClient.getAllAssets: Page ${nextPage} found no new assets, may be duplicate data, stopping pagination`)
         break
       }
 
-      console.log(`JumpServerClient.getAllAssets: 第 ${nextPage} 页处理完成，当前总资产数: ${allAssets.length}`)
+      console.log(`JumpServerClient.getAllAssets: Page ${nextPage} processing complete, current total asset count: ${allAssets.length}`)
     }
 
-    console.log(`JumpServerClient.getAllAssets: 完成，总共获取 ${allAssets.length} 个资产`)
+    console.log(`JumpServerClient.getAllAssets: Complete, total assets fetched: ${allAssets.length}`)
     return allAssets
   }
 
   /**
-   * 关闭连接
+   * Close connection
    */
   close(): void {
     if (this.isConnected) {
@@ -361,7 +363,7 @@ class JumpServerClient {
         this.conn.end()
       }
       this.isConnected = false
-      console.log('连接已关闭')
+      console.log('Connection closed')
     }
   }
 }

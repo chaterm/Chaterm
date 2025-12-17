@@ -14,7 +14,7 @@ const sendPasswordToStream = (stream: any, password: string, navigationPath: Jum
   navigationPath.password = actualPassword
 
   setTimeout(() => {
-    console.log(`[JumpServer] 发送密码${context ? ` (${context})` : ''}`)
+    console.log(`[JumpServer] Sending password${context ? ` (${context})` : ''}`)
     stream.write(actualPassword + '\r')
   }, JUMPSERVER_CONSTANTS.PASSWORD_INPUT_DELAY)
 }
@@ -41,11 +41,11 @@ export const setupJumpServerInteraction = (
   const handleConnectionSuccess = (reason: string) => {
     if (connectionEstablished) return
     connectionEstablished = true
-    sendStatusUpdate('已成功连接到目标服务器，请开始操作', 'success')
+    sendStatusUpdate('Successfully connected to target server, you can start operating', 'success')
     connectionPhase = 'connected'
     outputBuffer = ''
 
-    console.log(`[JumpServer] 连接成功: ${connectionId} -> ${connectionInfo.targetIp} (${reason})`)
+    console.log(`[JumpServer] Connection successful: ${connectionId} -> ${connectionInfo.targetIp} (${reason})`)
     jumpserverConnections.set(connectionId, {
       conn,
       stream,
@@ -82,17 +82,17 @@ export const setupJumpServerInteraction = (
             readyResult.commandList = stdout.split('\n').filter(Boolean)
 
             if (readyResult.commandList.length === 0) {
-              console.warn(`[JumpServer] 警告: 命令列表为空`)
+              console.warn(`[JumpServer] Warning: Command list is empty`)
             }
           } else if (commandListResult.status === 'fulfilled') {
-            console.error('[JumpServer] 命令列表获取失败:', commandListResult.value.error)
+            console.error('[JumpServer] Failed to get command list:', commandListResult.value.error)
           }
 
           if (sudoCheckResult.status === 'fulfilled' && sudoCheckResult.value.success) {
             readyResult.hasSudo = (sudoCheckResult.value.stdout || '').trim() === 'true'
           }
         } catch (error) {
-          console.error('[JumpServer] 获取命令列表时出错:', error)
+          console.error('[JumpServer] Error getting command list:', error)
         }
 
         const mainWindow = BrowserWindow.getAllWindows()[0]
@@ -101,7 +101,7 @@ export const setupJumpServerInteraction = (
         }
       })
       .catch((error) => {
-        console.error(`[JumpServer:ExecStream] 创建失败: ${connectionId}`, error)
+        console.error(`[JumpServer:ExecStream] Creation failed: ${connectionId}`, error)
 
         const mainWindow = BrowserWindow.getAllWindows()[0]
         if (mainWindow && !mainWindow.isDestroyed()) {
@@ -109,13 +109,13 @@ export const setupJumpServerInteraction = (
             hasSudo: false,
             commandList: []
           })
-          console.log(`[JumpServer:Connect] 已发送空命令列表到前端（exec 流创建失败）`)
+          console.log(`[JumpServer:Connect] Sent empty command list to frontend (exec stream creation failed)`)
         } else {
-          console.error('[JumpServer:Connect] 无法发送空命令列表: 窗口不存在或已销毁')
+          console.error('[JumpServer:Connect] Cannot send empty command list: window does not exist or is destroyed')
         }
       })
 
-    resolve({ status: 'connected', message: '连接成功' })
+    resolve({ status: 'connected', message: 'Connection successful' })
   }
 
   stream.on('data', (data: Buffer) => {
@@ -124,8 +124,8 @@ export const setupJumpServerInteraction = (
     outputBuffer += chunk
 
     if (connectionPhase === 'connecting' && outputBuffer.includes('Opt>')) {
-      console.log('检测到 JumpServer 菜单，输入目标 IP')
-      sendStatusUpdate(`正在连接到目标服务器...`, 'info')
+      console.log('JumpServer menu detected, entering target IP')
+      sendStatusUpdate(`Connecting to target server...`, 'info')
       connectionPhase = 'inputIp'
       outputBuffer = ''
       stream.write(connectionInfo.targetIp + '\r')
@@ -134,14 +134,14 @@ export const setupJumpServerInteraction = (
 
     if (connectionPhase === 'inputIp') {
       if (hasUserSelectionPrompt(outputBuffer)) {
-        console.log('检测到多用户提示，需要用户选择账号')
-        sendStatusUpdate('检测到多个用户账号，请选择...', 'info')
+        console.log('Multiple user prompt detected, user selection required')
+        sendStatusUpdate('Multiple user accounts detected, please select...', 'info')
         connectionPhase = 'selectUser'
         const users = parseJumpServerUsers(outputBuffer)
-        console.log('解析到的用户列表:', users)
+        console.log('Parsed user list:', users)
 
         if (users.length === 0) {
-          console.error('解析用户列表失败，缓冲区内容:', outputBuffer)
+          console.error('Failed to parse user list, buffer content:', outputBuffer)
           conn.end()
           reject(new Error('Failed to parse user list'))
           return
@@ -150,7 +150,7 @@ export const setupJumpServerInteraction = (
         outputBuffer = ''
 
         if (!event) {
-          console.error('JumpServer 用户选择需要 event 对象')
+          console.error('JumpServer user selection requires event object')
           conn.end()
           reject(new Error('User selection requires event object'))
           return
@@ -158,8 +158,8 @@ export const setupJumpServerInteraction = (
 
         handleJumpServerUserSelectionWithEvent(event, connectionId, users)
           .then((selectedUserId) => {
-            console.log('用户选择了账号 ID:', selectedUserId)
-            sendStatusUpdate('正在使用选择的账号连接...', 'info')
+            console.log('User selected account ID:', selectedUserId)
+            sendStatusUpdate('Connecting with selected account...', 'info')
             connectionPhase = 'inputPassword'
 
             navigationPath.selectedUserId = selectedUserId
@@ -167,8 +167,8 @@ export const setupJumpServerInteraction = (
             stream.write(selectedUserId.toString() + '\r')
           })
           .catch((err) => {
-            console.error('用户选择失败:', err)
-            sendStatusUpdate('用户选择已取消', 'error')
+            console.error('User selection failed:', err)
+            sendStatusUpdate('User selection cancelled', 'error')
             conn.end()
             reject(err)
           })
@@ -176,44 +176,44 @@ export const setupJumpServerInteraction = (
       }
 
       if (hasPasswordPrompt(outputBuffer)) {
-        sendStatusUpdate('正在进行身份验证...', 'info')
+        sendStatusUpdate('Authenticating...', 'info')
         connectionPhase = 'inputPassword'
         outputBuffer = ''
-        sendPasswordToStream(stream, connectionInfo.password || '', navigationPath, 'IP输入后')
+        sendPasswordToStream(stream, connectionInfo.password || '', navigationPath, 'After IP input')
         return
       }
 
       const reason = detectDirectConnectionReason(outputBuffer)
       if (reason) {
-        console.log(`JumpServer 目标资产无需密码，直接建立连接（${reason}）`)
-        handleConnectionSuccess(`无需密码 - ${reason}`)
+        console.log(`JumpServer target asset requires no password, establishing direct connection (${reason})`)
+        handleConnectionSuccess(`No password required - ${reason}`)
       } else {
         const preview = outputBuffer.slice(-200).replace(/\r?\n/g, '\\n')
-        console.log(`JumpServer inputIp 阶段输出预览: "${preview}"`)
+        console.log(`JumpServer inputIp phase output preview: "${preview}"`)
       }
       return
     }
 
     if (connectionPhase === 'selectUser') {
       if (hasPasswordPrompt(outputBuffer)) {
-        sendStatusUpdate('正在进行身份验证...', 'info')
+        sendStatusUpdate('Authenticating...', 'info')
         connectionPhase = 'inputPassword'
         outputBuffer = ''
-        sendPasswordToStream(stream, connectionInfo.password || '', navigationPath, '用户选择后')
+        sendPasswordToStream(stream, connectionInfo.password || '', navigationPath, 'After user selection')
         return
       }
 
       const reason = detectDirectConnectionReason(outputBuffer)
       if (reason) {
-        console.log(`JumpServer 用户选择后直接建立连接（${reason}）`)
-        handleConnectionSuccess(`用户选择 - ${reason}`)
+        console.log(`JumpServer established direct connection after user selection (${reason})`)
+        handleConnectionSuccess(`User selection - ${reason}`)
       }
       return
     }
 
     if (connectionPhase === 'inputPassword') {
       if (hasPasswordError(outputBuffer)) {
-        console.log('JumpServer 密码认证失败')
+        console.log('JumpServer password authentication failed')
 
         if (event) {
           event.sender.send('ssh:keyboard-interactive-result', {
@@ -223,14 +223,14 @@ export const setupJumpServerInteraction = (
         }
 
         conn.end()
-        reject(new Error('JumpServer 密码认证失败，请检查密码是否正确'))
+        reject(new Error('JumpServer password authentication failed, please check if password is correct'))
         return
       }
 
       const reason = detectDirectConnectionReason(outputBuffer)
       if (reason) {
-        console.log(`JumpServer 密码验证后成功进入目标服务器（${reason}）`)
-        handleConnectionSuccess(`密码验证后 - ${reason}`)
+        console.log(`JumpServer successfully entered target server after password verification (${reason})`)
+        handleConnectionSuccess(`After password verification - ${reason}`)
       }
     }
   })
@@ -242,12 +242,12 @@ export const setupJumpServerInteraction = (
   stream.on('close', () => {
     console.log(`JumpServer stream closed for connection ${connectionId}`)
 
-    // 检查是否需要关闭底层 SSH 连接
+    // Check if underlying SSH connection needs to be closed
     const connData = jumpserverConnections.get(connectionId)
     if (connData) {
       const connToClose = connData.conn
 
-      // 检查是否还有其他会话在使用同一个连接
+      // Check if other sessions are still using the same connection
       let isConnStillInUse = false
       for (const [otherId, otherData] of jumpserverConnections.entries()) {
         if (otherId !== connectionId && otherData.conn === connToClose) {
@@ -256,16 +256,16 @@ export const setupJumpServerInteraction = (
         }
       }
 
-      // 只有没有其他会话使用时才关闭底层连接
+      // Only close underlying connection when no other sessions are using it
       if (!isConnStillInUse) {
-        console.log(`[堡垒机] 所有会话已关闭，释放底层连接: ${connectionId}`)
+        console.log(`[Bastion Host] All sessions closed, releasing underlying connection: ${connectionId}`)
         connToClose.end()
       } else {
-        console.log(`[堡垒机] 会话已关闭，但底层连接仍被其他会话使用: ${connectionId}`)
+        console.log(`[Bastion Host] Session closed, but underlying connection still in use by other sessions: ${connectionId}`)
       }
     }
 
-    // 清理会话数据
+    // Clean up session data
     jumpserverShellStreams.delete(connectionId)
     jumpserverConnections.delete(connectionId)
     jumpserverConnectionStatus.delete(connectionId)
@@ -273,7 +273,7 @@ export const setupJumpServerInteraction = (
     jumpserverInputBuffer.delete(connectionId)
 
     if (connectionPhase !== 'connected') {
-      reject(new Error('连接在完成前被关闭'))
+      reject(new Error('Connection closed before completion'))
     }
   })
 
