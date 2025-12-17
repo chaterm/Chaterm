@@ -1,86 +1,86 @@
-# Chaterm 测试指南
+# Chaterm Testing Guide
 
-这是一个完整的测试文档，说明如何运行和扩展Chaterm项目的各种测试。
+This is a comprehensive testing documentation that explains how to run and extend various tests for the Chaterm project.
 
-## 🎯 测试架构概览
+## 🎯 Test Architecture Overview
 
 ```
 tests/
-├── unit/                    # 单元测试
-│   ├── components/AiTab/   # AI组件测试
-│   ├── api/                # API提供商测试
-│   └── utils/              # 工具函数测试
-├── integration/            # 集成测试
-│   ├── ssh-database.test.ts    # SSH服务与数据库集成
-│   └── ai-message.test.ts      # AI服务与消息存储集成
-├── e2e/                    # 端到端测试
-│   └── AI-functions.test.ts   # AI工作流程测试
-├── setup/                  # 测试环境配置
-│   ├── unit.ts            # 单元测试配置
-│   └── integration.ts     # 集成测试配置
-├── helpers/                # 测试辅助工具
-│   └── electron-helper.ts # Electron测试辅助类
-├── fixtures/               # 测试数据
-│   └── test-connections.json  # 测试连接配置
-├── mocks/                  # Mock数据和服务
-└── screenshots/            # E2E测试截图
+├── unit/                    # Unit tests
+│   ├── components/AiTab/   # AI component tests
+│   ├── api/                # API provider tests
+│   └── utils/              # Utility function tests
+├── integration/            # Integration tests
+│   ├── ssh-database.test.ts    # SSH service and database integration
+│   └── ai-message.test.ts      # AI service and message storage integration
+├── e2e/                    # End-to-end tests
+│   └── AI-functions.test.ts   # AI workflow tests
+├── setup/                  # Test environment configuration
+│   ├── unit.ts            # Unit test configuration
+│   └── integration.ts     # Integration test configuration
+├── helpers/                # Test helper utilities
+│   └── electron-helper.ts # Electron test helper class
+├── fixtures/               # Test data
+│   └── test-connections.json  # Test connection configuration
+├── mocks/                  # Mock data and services
+└── screenshots/            # E2E test screenshots
 ```
 
-## 🚀 快速开始
+## 🚀 Quick Start
 
-### 1. 安装依赖
+### 1. Install Dependencies
 
 ```bash
 npm install
 ```
 
-### 2. 运行所有测试
+### 2. Run All Tests
 
 ```bash
 npm run test:all
 ```
 
-### 3. 分别运行不同类型的测试
+### 3. Run Different Types of Tests Separately
 
 ```bash
-# 单元测试
+# Unit tests
 npm run test:unit
 
-# 集成测试
+# Integration tests
 npm run test:integration
 
-# E2E测试
+# E2E tests
 npm run test:e2e
 ```
 
-## 📋 可用测试命令
+## 📋 Available Test Commands
 
-| 命令                         | 描述                     | 用途              |
-| ---------------------------- | ------------------------ | ----------------- |
-| `npm test`                   | 运行单元测试（监视模式） | 开发时使用        |
-| `npm run test:unit`          | 运行所有单元测试         | 快速验证代码逻辑  |
-| `npm run test:integration`   | 运行集成测试             | 验证模块间交互    |
-| `npm run test:e2e`           | 运行E2E测试              | 验证完整用户流程  |
-| `npm run test:e2e:ui`        | 运行E2E测试（UI模式）    | 可视化调试E2E测试 |
-| `npm run test:e2e:headed`    | 运行E2E测试（有头模式）  | 观察测试执行过程  |
-| `npm run test:watch`         | 监视模式运行测试         | 开发时持续测试    |
-| `npm run test:coverage`      | 运行测试并生成覆盖率报告 | 检查测试覆盖率    |
-| `npm run test:ai`            | 运行AI相关测试           | 专项测试AI功能    |
-| `npm run test:all`           | 运行所有测试             | CI/CD流水线使用   |
-| `npm run test:build-and-e2e` | 构建后运行E2E测试        | 生产环境验证      |
+| Command                      | Description                            | Use Case                              |
+| ---------------------------- | -------------------------------------- | ------------------------------------- |
+| `npm test`                   | Run unit tests (watch mode)            | Development                           |
+| `npm run test:unit`          | Run all unit tests                     | Quick code validation                 |
+| `npm run test:integration`   | Run integration tests                  | Verify module interaction             |
+| `npm run test:e2e`           | Run E2E tests                          | Verify complete user flow             |
+| `npm run test:e2e:ui`        | Run E2E tests (UI mode)                | Visual E2E debugging                  |
+| `npm run test:e2e:headed`    | Run E2E tests (headed mode)            | Observe test execution                |
+| `npm run test:watch`         | Run tests in watch mode                | Continuous testing during development |
+| `npm run test:coverage`      | Run tests and generate coverage report | Check test coverage                   |
+| `npm run test:ai`            | Run AI-related tests                   | AI feature testing                    |
+| `npm run test:all`           | Run all tests                          | CI/CD pipeline                        |
+| `npm run test:build-and-e2e` | Run E2E tests after build              | Production validation                 |
 
-## 🧪 测试类型详解
+## 🧪 Test Types Explained
 
-### 单元测试 (Unit Tests)
+### Unit Tests
 
-**目的**: 测试单个函数、类或组件的功能
-**工具**: Vitest + Vue Test Utils
-**位置**: `tests/unit/`
+**Purpose**: Test the functionality of individual functions, classes, or components
+**Tools**: Vitest + Vue Test Utils
+**Location**: `tests/unit/`
 
-**示例**:
+**Example**:
 
 ```typescript
-test('应该正确创建ChatMessage', () => {
+test('should correctly create ChatMessage', () => {
   const message = createNewMessage('user', 'Hello AI')
   expect(message).toMatchObject({
     role: 'user',
@@ -90,163 +90,163 @@ test('应该正确创建ChatMessage', () => {
 })
 ```
 
-**覆盖范围**:
+**Coverage**:
 
-- ✅ AI工具函数 (`utils.test.ts`)
-- ✅ 类型验证 (`types.test.ts`)
-- ✅ Vue组件 (`index.test.ts`)
-- ✅ API提供商 (`providers/`)
+- ✅ AI utility functions (`utils.test.ts`)
+- ✅ Type validation (`types.test.ts`)
+- ✅ Vue components (`index.test.ts`)
+- ✅ API providers (`providers/`)
 
-### 集成测试 (Integration Tests)
+### Integration Tests
 
-**目的**: 测试不同模块之间的交互和数据流
-**工具**: Vitest + Better-sqlite3 + Mock服务
-**位置**: `tests/integration/`
+**Purpose**: Test interactions and data flow between different modules
+**Tools**: Vitest + Better-sqlite3 + Mock services
+**Location**: `tests/integration/`
 
-**示例**:
+**Example**:
 
 ```typescript
-test('SSH服务与数据库集成', async () => {
+test('SSH service and database integration', async () => {
   const connection = await sshService.createConnection(config)
   await sshService.connect(connection.id)
 
   const result = await sshService.executeCommand(connection.id, 'ls -la')
 
-  // 验证命令执行和数据库存储
+  // Verify command execution and database storage
   expect(result.code).toBe(0)
   const history = sshService.getCommandHistory(connection.id)
   expect(history).toHaveLength(1)
 })
 ```
 
-**覆盖范围**:
+**Coverage**:
 
-- ✅ SSH服务与数据库交互 (`ssh-database.test.ts`)
-- ✅ AI服务与消息存储 (`ai-message.test.ts`)
+- ✅ SSH service and database interaction (`ssh-database.test.ts`)
+- ✅ AI service and message storage (`ai-message.test.ts`)
 
-### 端到端测试 (E2E Tests)
+### End-to-End Tests (E2E Tests)
 
-**目的**: 从用户角度测试完整的应用工作流程
-**工具**: Playwright + Electron
-**位置**: `tests/e2e/`
+**Purpose**: Test complete application workflows from a user perspective
+**Tools**: Playwright + Electron
+**Location**: `tests/e2e/`
 
-**示例**:
+**Example**:
 
 ```typescript
-test('完整的SSH连接→命令执行→AI对话流程', async () => {
-  // 1. 启动应用
+test('Complete SSH connection → command execution → AI conversation flow', async () => {
+  // 1. Launch application
   await electronHelper.launch()
 
-  // 2. 创建SSH连接
+  // 2. Create SSH connection
   await electronHelper.createSSHConnection(config)
 
-  // 3. 执行命令
+  // 3. Execute command
   await electronHelper.executeCommand('ls -la')
 
-  // 4. AI对话
-  await electronHelper.sendAIMessage('解释ls命令输出')
+  // 4. AI conversation
+  await electronHelper.sendAIMessage('Explain the ls command output')
   const response = await electronHelper.waitForAIResponse()
 
   expect(response.length).toBeGreaterThan(0)
 })
 ```
 
-**覆盖范围**:
+**Coverage**:
 
-- ✅ 应用启动和初始化 (`app-startup.test.ts`)
-- ✅ 键盘快捷键和交互
-- ✅ 错误处理和恢复
+- ✅ Application startup and initialization (`app-startup.test.ts`)
+- ✅ Keyboard shortcuts and interactions
+- ✅ Error handling and recovery
 
-## 📊 测试覆盖率
+## 📊 Test Coverage
 
-当前设置的覆盖率目标：
+Current coverage targets:
 
-- **分支覆盖率**: 70%
-- **函数覆盖率**: 70%
-- **行覆盖率**: 70%
-- **语句覆盖率**: 70%
+- **Branch Coverage**: 70%
+- **Function Coverage**: 70%
+- **Line Coverage**: 70%
+- **Statement Coverage**: 70%
 
-查看详细覆盖率报告：
+View detailed coverage report:
 
 ```bash
 npm run test:coverage
-open coverage/index.html  # 打开HTML报告
+open coverage/index.html  # Open HTML report
 ```
 
-## 🛠️ 开发工作流程
+## 🛠️ Development Workflow
 
-### 1. 新功能开发
+### 1. New Feature Development
 
 ```bash
-# 启动监视模式
+# Start watch mode
 npm run test:watch
 
-# 编写代码和测试...
-# 测试会自动运行并显示结果
+# Write code and tests...
+# Tests will automatically run and display results
 ```
 
-### 2. 提交代码前
+### 2. Before Committing Code
 
 ```bash
-# 运行完整测试套件
+# Run complete test suite
 npm run test:all
 
-# 检查测试覆盖率
+# Check test coverage
 npm run test:coverage
 ```
 
-### 3. 调试E2E测试
+### 3. Debugging E2E Tests
 
 ```bash
-# 运行带界面的E2E测试
+# Run E2E tests with UI
 npm run test:e2e:headed
 
-# 使用Playwright UI模式
+# Use Playwright UI mode
 npm run test:e2e:ui
 ```
 
-### 4. 修复Bug时
+### 4. When Fixing Bugs
 
 ```bash
-# 先写回归测试
-# 再修复代码
-# 确保测试通过
+# Write regression test first
+# Then fix the code
+# Ensure tests pass
 npm run test:all
 ```
 
-## 🔧 扩展测试
+## 🔧 Extending Tests
 
-### 添加新的单元测试
+### Adding New Unit Tests
 
-1. 在 `tests/unit/` 下创建测试文件
-2. 遵循命名约定: `*.test.ts`
-3. 使用现有的工具函数和Mock数据
+1. Create test file under `tests/unit/`
+2. Follow naming convention: `*.test.ts`
+3. Use existing utility functions and mock data
 
 ```typescript
 // tests/unit/new-feature.test.ts
 import { describe, test, expect } from 'vitest'
 import { newFeature } from '@/path/to/feature'
 
-describe('新功能测试', () => {
-  test('应该正确处理输入', () => {
+describe('New Feature Tests', () => {
+  test('should correctly handle input', () => {
     const result = newFeature('input')
     expect(result).toBe('expected output')
   })
 })
 ```
 
-### 添加新的集成测试
+### Adding New Integration Tests
 
-1. 在 `tests/integration/` 下创建测试文件
-2. 使用 `tests/setup/integration.ts` 中的辅助函数
-3. 创建真实的数据库和服务交互
+1. Create test file under `tests/integration/`
+2. Use helper functions from `tests/setup/integration.ts`
+3. Create real database and service interactions
 
 ```typescript
 // tests/integration/new-integration.test.ts
 import { describe, test, expect, beforeEach, afterEach } from 'vitest'
 import { createTestDatabase } from '../setup/integration'
 
-describe('新服务集成测试', () => {
+describe('New Service Integration Tests', () => {
   let db: Database
 
   beforeEach(() => {
@@ -257,24 +257,24 @@ describe('新服务集成测试', () => {
     db.close()
   })
 
-  test('应该正确集成新服务', async () => {
-    // 测试代码
+  test('should correctly integrate new service', async () => {
+    // Test code
   })
 })
 ```
 
-### 添加新的E2E测试
+### Adding New E2E Tests
 
-1. 在 `tests/e2e/` 下创建测试文件
-2. 使用 `ElectronHelper` 类进行应用交互
-3. 为关键用户流程编写测试
+1. Create test file under `tests/e2e/`
+2. Use `ElectronHelper` class for application interaction
+3. Write tests for critical user flows
 
 ```typescript
 // tests/e2e/new-workflow.test.ts
 import { test, expect } from '@playwright/test'
 import { ElectronHelper } from '../helpers/electron-helper'
 
-test.describe('新工作流程E2E测试', () => {
+test.describe('New Workflow E2E Tests', () => {
   let electronHelper: ElectronHelper
 
   test.beforeEach(async () => {
@@ -287,103 +287,103 @@ test.describe('新工作流程E2E测试', () => {
     await electronHelper.close()
   })
 
-  test('新功能完整流程', async () => {
-    // 测试步骤
+  test('Complete new feature flow', async () => {
+    // Test steps
   })
 })
 ```
 
-## 🐛 常见问题解决
+## 🐛 Troubleshooting
 
-### Q: 单元测试运行失败
+### Q: Unit tests fail to run
 
-**可能原因**:
+**Possible causes**:
 
-- 依赖导入路径错误
-- Mock数据配置问题
-- 组件依赖未正确处理
+- Incorrect dependency import paths
+- Mock data configuration issues
+- Component dependencies not handled correctly
 
-**解决方案**:
+**Solutions**:
 
 ```bash
-# 检查配置
+# Check configuration
 cat vitest.config.ts
 
-# 验证路径别名
+# Verify path aliases
 npm run typecheck
 ```
 
-### Q: 集成测试数据库错误
+### Q: Integration test database errors
 
-**可能原因**:
+**Possible causes**:
 
-- 测试数据库路径问题
-- SQLite权限问题
-- 并发访问冲突
+- Test database path issues
+- SQLite permission problems
+- Concurrent access conflicts
 
-**解决方案**:
+**Solutions**:
 
 ```bash
-# 清理测试数据
+# Clean test data
 rm -rf tests/fixtures/test.db
 
-# 单独运行集成测试
+# Run integration tests separately
 npm run test:integration
 ```
 
-### Q: E2E测试超时或失败
+### Q: E2E tests timeout or fail
 
-**可能原因**:
+**Possible causes**:
 
-- 应用构建不完整
-- Electron启动超时
-- UI元素选择器变化
+- Incomplete application build
+- Electron startup timeout
+- UI element selector changes
 
-**解决方案**:
+**Solutions**:
 
 ```bash
-# 确保应用已构建
+# Ensure application is built
 npm run build
 
-# 运行有头模式查看问题
+# Run in headed mode to see the issue
 npm run test:e2e:headed
 
-# 更新截图
+# Update screenshots
 npm run test:e2e
 ```
 
-### Q: 测试覆盖率不足
+### Q: Insufficient test coverage
 
-**解决方案**:
+**Solutions**:
 
 ```bash
-# 查看详细覆盖率报告
+# View detailed coverage report
 npm run test:coverage
 open coverage/index.html
 
-# 识别未覆盖的代码
-# 编写相应测试用例
+# Identify uncovered code
+# Write corresponding test cases
 ```
 
-## 📈 性能测试
+## 📈 Performance Testing
 
-### 内存使用监控
+### Memory Usage Monitoring
 
 ```bash
-# 运行带内存监控的测试
+# Run tests with memory monitoring
 NODE_OPTIONS="--max-old-space-size=4096" npm run test:all
 ```
 
-### 测试执行时间分析
+### Test Execution Time Analysis
 
 ```bash
-# 生成测试性能报告
+# Generate test performance report
 npm run test:coverage -- --reporter=verbose
 ```
 
-## 🔄 持续集成 (CI/CD)
+## 🔄 Continuous Integration (CI/CD)
 
-### GitHub Actions 配置示例
+### GitHub Actions Configuration Example
 
 ```yaml
 # .github/workflows/test.yml
@@ -406,58 +406,58 @@ jobs:
       - run: npm run test:e2e
 ```
 
-## 📝 最佳实践
+## 📝 Best Practices
 
-### 1. 测试命名规范
+### 1. Test Naming Conventions
 
-- 描述性的测试名称
-- 使用"应该..."的格式
-- 中文描述更清晰
+- Descriptive test names
+- Use "should..." format
+- Clear English descriptions
 
-### 2. 测试结构
+### 2. Test Structure
 
 ```typescript
-describe('功能模块', () => {
+describe('Feature Module', () => {
   beforeEach(() => {
-    // 每个测试前的准备工作
+    // Setup before each test
   })
 
-  test('应该在正常情况下工作', () => {
-    // Arrange - 准备数据
-    // Act - 执行操作
-    // Assert - 验证结果
+  test('should work under normal conditions', () => {
+    // Arrange - Prepare data
+    // Act - Execute operation
+    // Assert - Verify result
   })
 
-  test('应该正确处理错误情况', () => {
-    // 错误情况测试
+  test('should correctly handle error cases', () => {
+    // Error case testing
   })
 })
 ```
 
-### 3. Mock数据管理
+### 3. Mock Data Management
 
-- 使用 `tests/fixtures/` 存储测试数据
-- 保持Mock数据的真实性
-- 定期更新测试数据
+- Use `tests/fixtures/` to store test data
+- Keep mock data realistic
+- Regularly update test data
 
-### 4. 测试隔离
+### 4. Test Isolation
 
-- 每个测试独立运行
-- 清理测试副作用
-- 避免测试间相互依赖
+- Each test runs independently
+- Clean up test side effects
+- Avoid interdependencies between tests
 
-## 🎉 总结
+## 🎉 Summary
 
-通过这套完整的测试方案，您可以：
+With this comprehensive testing solution, you can:
 
-- ✅ **快速验证**代码逻辑（单元测试）
-- ✅ **确保模块协作**正常（集成测试）
-- ✅ **验证用户体验**完整（E2E测试）
-- ✅ **持续监控**代码质量（覆盖率报告）
-- ✅ **自动化**测试流程（CI/CD集成）
+- ✅ **Quickly validate** code logic (Unit tests)
+- ✅ **Ensure modules collaborate** correctly (Integration tests)
+- ✅ **Verify user experience** is complete (E2E tests)
+- ✅ **Continuously monitor** code quality (Coverage reports)
+- ✅ **Automate** testing workflows (CI/CD integration)
 
-现在您拥有了一套完整、可靠的测试体系，可以大大提高代码质量和开发效率！ 🚀
+Now you have a complete and reliable testing system that can greatly improve code quality and development efficiency! 🚀
 
 ---
 
-**需要帮助？** 查看具体测试文件中的示例代码，或参考 `TESTING_SETUP.md` 获取更多详细信息。
+**Need help?** Check the example code in specific test files, or refer to `TESTING_SETUP.md` for more detailed information.
