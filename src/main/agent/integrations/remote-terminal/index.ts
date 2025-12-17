@@ -95,7 +95,7 @@ export class RemoteTerminalProcess extends BrownEventEmitter<RemoteTerminalProce
     const cmdBase64 = Buffer.from(trimmedCommand, 'utf-8').toString('base64')
     const evalCmd = `eval "$(echo ${cmdBase64} | base64 -d)"`
 
-    // 构建带工作目录切换的命令
+    // Build command with working directory change
     const sudoCommand = `cd "${cleanCwd}" && ${evalCmd}`
     const sudoCmdBase64 = Buffer.from(sudoCommand, 'utf-8').toString('base64')
 
@@ -649,7 +649,7 @@ export class RemoteTerminalManager {
     try {
       let connectResult: { id?: string; status?: string; message?: string; error?: string } | undefined
 
-      // 添加连接ident
+      // Add connection ident
       let identToken = ''
       const wc = webContents.getFocusedWebContents()
       if (wc) {
