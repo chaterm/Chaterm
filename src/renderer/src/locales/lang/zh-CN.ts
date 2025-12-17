@@ -410,7 +410,13 @@ export default {
     securityConfigOpened: '安全配置文件正在打开...',
     openSecurityConfigFailed: '打开安全配置失败',
     success: '成功',
-    background: '背景'
+    background: '背景',
+    backgroundNone: '无',
+    backgroundEnable: '开启',
+    backgroundUpload: '上传',
+    backgroundOpacity: '透明度',
+    backgroundBrightness: '亮度',
+    saveBackgroundFailed: '保存背景图片失败'
   },
   extensions: {
     extensions: '扩展',

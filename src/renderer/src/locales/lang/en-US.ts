@@ -412,7 +412,13 @@ export default {
     securityConfigOpened: 'Opening security configuration file...',
     openSecurityConfigFailed: 'Failed to open security configuration',
     success: 'Success',
-    background: 'Background'
+    background: 'Background',
+    backgroundNone: 'None',
+    backgroundEnable: 'Enable',
+    backgroundUpload: 'Upload',
+    backgroundOpacity: 'Opacity',
+    backgroundBrightness: 'Brightness',
+    saveBackgroundFailed: 'Failed to save background image'
   },
   extensions: {
     extensions: 'Extensions',
