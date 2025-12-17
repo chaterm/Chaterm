@@ -27,7 +27,7 @@ export default defineConfig({
     exclude: ['tests/e2e/**', 'di st/**', 'node_modules/**', 'src/renderer/src/utils/terminalOutputExtractor.test.ts'],
     coverage: {
       provider: 'v8',
-      enabled: false, // 默认关闭，使用 npm run test:coverage 时会自动开启
+      enabled: false, // Default is disabled, will be automatically enabled when using npm run test:coverage
       reporter: ['text', 'html', 'json'],
       exclude: ['tests/**', 'dist/**', 'electron.vite.config.ts', 'src/renderer/src/env.d.ts']
     }
