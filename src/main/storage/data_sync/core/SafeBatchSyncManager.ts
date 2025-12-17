@@ -1,7 +1,7 @@
 /**
- * 安全分批同步管理器
- * 结合分批处理的高性能和OneDrive风格的数据保护
- * 统一解决方案：适用于所有数据量场景
+ * Safe Batch Sync Manager
+ * Combines high-performance batch processing with OneDrive-style data protection
+ * Unified solution: suitable for all data volume scenarios
  */
 
 import { ApiClient } from './ApiClient'
@@ -49,12 +49,12 @@ interface FullSyncBatchResponse {
 }
 
 /**
- * 安全分批同步管理器
- * 核心特点：
- * 1. 分批处理 - 内存友好，适合大数据量
- * 2. 智能合并 - 保护本地数据，自动解决冲突
- * 3. 原子操作 - 确保数据一致性
- * 4. 断点续传 - 支持会话恢复
+ * Safe Batch Sync Manager
+ * Core features:
+ * 1. Batch processing - memory-friendly, suitable for large data volumes
+ * 2. Intelligent merging - protects local data, automatically resolves conflicts
+ * 3. Atomic operations - ensures data consistency
+ * 4. Resume capability - supports session recovery
  */
 export class SafeBatchSyncManager {
   private apiClient: ApiClient
@@ -63,7 +63,7 @@ export class SafeBatchSyncManager {
   private processedChecksums: Set<string> = new Set()
   private syncSessions: Map<string, FullSyncSession> = new Map()
 
-  // 远程表名到本地表名的映射
+  // Mapping from remote table names to local table names
   private readonly tableMapping: Record<string, string> = {
     t_assets_sync: 't_assets',
     t_asset_chains_sync: 't_asset_chains'
@@ -76,8 +76,8 @@ export class SafeBatchSyncManager {
   }
 
   /**
-   * 执行安全分批同步 - 统一入口
-   * 自动根据数据量调整处理策略
+   * Perform safe batch sync - unified entry point
+   * Automatically adjusts processing strategy based on data volume
    */
   async performSafeBatchSync(
     tableName: string,
@@ -88,9 +88,9 @@ export class SafeBatchSyncManager {
     let session: FullSyncSession | null = null
 
     try {
-      logger.info(`开始安全分批同步: ${tableName}`)
+      logger.info(`Starting safe batch sync: ${tableName}`)
 
-      // 第1步：检查同步必要性和准备环境
+      // Step 1: Check sync necessity and prepare environment
       const syncMetadata = await this.getSyncMetadata(tableName)
       let needsSync: boolean
 
@@ -98,29 +98,29 @@ export class SafeBatchSyncManager {
         needsSync = await this.checkSyncNecessity(tableName, syncMetadata)
       } catch (error: any) {
         if (error.message === 'SERVER_UNAVAILABLE') {
-          logger.warn(`服务器不可用，停止 ${tableName} 的同步操作`)
+          logger.warn(`Server unavailable, stopping sync operation for ${tableName}`)
           return
         }
         throw error
       }
 
-      // 检查是否有历史数据需要上传
+      // Check if there is historical data that needs to be uploaded
       const localTableName = tableName.replace('_sync', '')
       const hasHistoricalData = this.dbManager.getHistoricalDataCount(localTableName) > 0
 
       if (!needsSync && !hasHistoricalData) {
-        logger.info(`${tableName} 无需同步，服务端无更新且无历史数据`)
+        logger.info(`${tableName} does not need sync, server has no updates and no historical data`)
         return
       }
 
       if (!needsSync && hasHistoricalData) {
-        logger.info(`${tableName} 服务端无更新，但检测到历史数据，仅上传历史数据`)
-        // 直接上传历史数据，不需要下载服务端数据
+        logger.info(`${tableName} server has no updates, but historical data detected, uploading historical data only`)
+        // Upload historical data directly, no need to download server data
         try {
           await this.uploadHistoricalDataIfNeeded(tableName)
         } catch (error: any) {
           if (error.message === 'NETWORK_UNAVAILABLE' || error.isNetworkError) {
-            logger.warn(`服务器不可用，跳过 ${tableName} 历史数据上传`)
+            logger.warn(`Server unavailable, skipping historical data upload for ${tableName}`)
             return
           }
           throw error
@@ -130,42 +130,42 @@ export class SafeBatchSyncManager {
 
       await this.prepareSyncEnvironment(tableName)
 
-      // 第2步：启动分批同步会话
+      // Step 2: Start batch sync session
       try {
         session = await this.startFullSync(tableName, pageSize)
-        logger.info(`同步会话启动: ${session.session_id}, 总数据量: ${session.total_count}`)
+        logger.info(`Sync session started: ${session.session_id}, total records: ${session.total_count}`)
       } catch (error: any) {
         if (error.message === 'NETWORK_UNAVAILABLE' || error.isNetworkError) {
-          logger.warn(`服务器不可用，无法启动 ${tableName} 同步会话`)
+          logger.warn(`Server unavailable, cannot start sync session for ${tableName}`)
           return
         }
         throw error
       }
 
-      // 第3步：根据数据量选择处理策略
+      // Step 3: Choose processing strategy based on data volume
       const recordCount = session.total_count
 
       if (recordCount <= 1000) {
-        // 小数据量：快速批量处理
+        // Small data volume: fast batch processing
         await this.performFastBatchSync(session, syncMetadata, onProgress)
       } else {
-        // 大数据量：安全智能合并
+        // Large data volume: safe intelligent merging
         await this.performIntelligentBatchSync(session, syncMetadata, onProgress)
       }
 
-      // 第4步：处理历史数据上传（在所有同步路径中都执行）
+      // Step 4: Handle historical data upload (executed in all sync paths)
       await this.uploadHistoricalDataIfNeeded(tableName)
 
-      // 第5步：更新同步元数据
+      // Step 5: Update sync metadata
       await this.updateSyncMetadata(tableName, {
         lastSyncTime: new Date().toISOString(),
         lastSyncVersion: session.total_count,
         syncStatus: 'completed'
       })
 
-      logger.info(`安全分批同步完成: ${tableName}，处理 ${recordCount} 条记录`)
+      logger.info(`Safe batch sync completed: ${tableName}, processed ${recordCount} records`)
     } catch (error) {
-      logger.error('安全分批同步失败:', error)
+      logger.error('Safe batch sync failed:', error)
       if (session) {
         await this.updateSyncMetadata(tableName, { syncStatus: 'failed' })
       }
@@ -179,61 +179,61 @@ export class SafeBatchSyncManager {
   }
 
   /**
-   * 快速批量处理 - 小数据量场景
-   * 直接替换，但会先检查本地是否有未同步修改
+   * Fast batch processing - for small data volume scenarios
+   * Direct replacement, but first checks if there are unsynced local changes
    */
   private async performFastBatchSync(
     session: FullSyncSession,
     metadata: SyncMetadata,
     onProgress?: (current: number, total: number, percentage: number) => void
   ): Promise<void> {
-    logger.info(`使用快速批量处理模式: ${session.total_count} 条记录`)
+    logger.info(`Using fast batch processing mode: ${session.total_count} records`)
 
-    // 检查是否有本地未同步修改
+    // Check if there are unsynced local changes
     const hasLocalChanges = await this.hasUnsynedLocalChanges(metadata.tableName)
 
     if (!hasLocalChanges) {
-      // 无本地修改，使用高效的原子替换
+      // No local changes, use efficient atomic replacement
       await this.performAtomicReplacement(session, metadata, onProgress)
     } else {
-      // 有本地修改，使用智能合并
-      logger.info('检测到本地未同步修改，切换到智能合并模式')
+      // Has local changes, use intelligent merging
+      logger.info('Detected unsynced local changes, switching to intelligent merge mode')
       await this.performIntelligentBatchSync(session, metadata, onProgress)
     }
   }
 
   /**
-   * 智能批量处理 - 大数据量或有冲突场景
-   * 分批下载，逐批智能合并，保护所有本地数据
+   * Intelligent batch processing - for large data volume or conflict scenarios
+   * Downloads in batches, intelligently merges batch by batch, protects all local data
    */
   private async performIntelligentBatchSync(
     session: FullSyncSession,
     metadata: SyncMetadata,
     onProgress?: (current: number, total: number, percentage: number) => void
   ): Promise<void> {
-    logger.info(`使用智能批量处理模式: ${session.total_count} 条记录`)
+    logger.info(`Using intelligent batch processing mode: ${session.total_count} records`)
 
     const totalPages = Math.ceil(session.total_count / session.page_size)
     let currentPage = 1
     let processedRecords = 0
 
-    // 分批处理每一页
+    // Process each page in batches
     while (currentPage <= totalPages) {
       try {
-        // 获取当前批次数据
+        // Get current batch data
         const batchData = await this.getBatchData(session.session_id, currentPage)
 
-        // 防重复检查
+        // Duplicate check
         if (this.processedChecksums.has(batchData.checksum)) {
-          logger.info(`批次 ${currentPage} 已处理过，跳过`)
+          logger.info(`Batch ${currentPage} already processed, skipping`)
           currentPage++
           continue
         }
 
-        // 智能合并当前批次
+        // Intelligently merge current batch
         const mergeResults = await this.intelligentMergeRecords(metadata.tableName, batchData.data, metadata)
 
-        // 在应用云端数据时关闭本地触发器，防止回声
+        // Disable local triggers when applying cloud data to prevent echo
         this.dbManager.setRemoteApplyGuard(true)
         try {
           await this.applyMergeResultsBatch(metadata.tableName, mergeResults)
@@ -244,25 +244,25 @@ export class SafeBatchSyncManager {
         processedRecords += batchData.data.length
         this.processedChecksums.add(batchData.checksum)
 
-        // 进度回调
+        // Progress callback
         if (onProgress) {
           const percentage = Math.round((currentPage / totalPages) * 100)
           onProgress(currentPage, totalPages, percentage)
         }
 
-        logger.info(`处理批次 ${currentPage}/${totalPages}，本批: ${batchData.data.length}，累计: ${processedRecords}`)
+        logger.info(`Processing batch ${currentPage}/${totalPages}, current batch: ${batchData.data.length}, total: ${processedRecords}`)
 
         if (batchData.is_last) break
         currentPage++
 
-        // 小延迟避免服务器压力
+        // Small delay to avoid server pressure
         await this.delay(50)
       } catch (error) {
-        logger.error(`处理批次 ${currentPage} 失败:`, error)
+        logger.error(`Failed to process batch ${currentPage}:`, error)
 
-        // 重试逻辑
+        // Retry logic
         if (currentPage <= 3) {
-          logger.info(`重试批次 ${currentPage}`)
+          logger.info(`Retrying batch ${currentPage}`)
           await this.delay(1000)
           continue
         } else {
@@ -273,8 +273,8 @@ export class SafeBatchSyncManager {
   }
 
   /**
-   * 上传历史数据（如果需要）
-   * 历史数据指：存在于本地数据表中但不在change_log中的数据
+   * Upload historical data (if needed)
+   * Historical data refers to: data that exists in local data tables but not in change_log
    */
   private async uploadHistoricalDataIfNeeded(tableName: string): Promise<void> {
     try {
@@ -282,19 +282,19 @@ export class SafeBatchSyncManager {
       const historicalCount = this.dbManager.getHistoricalDataCount(localTableName)
 
       if (historicalCount === 0) {
-        logger.info(`${localTableName} 无历史数据需要上传`)
+        logger.info(`${localTableName} has no historical data to upload`)
         return
       }
 
-      // 获取历史数据
+      // Get historical data
       const historicalData = await this.getHistoricalData(localTableName)
 
       if (historicalData.length === 0) {
-        logger.warn(` 检测到 ${historicalCount} 条历史数据，但实际获取到 0 条`)
+        logger.warn(`Detected ${historicalCount} historical records, but actually retrieved 0`)
         return
       }
 
-      // 分批上传历史数据
+      // Upload historical data in batches
       const batchSize = 100
       let uploadedCount = 0
       let failedCount = 0
@@ -304,50 +304,50 @@ export class SafeBatchSyncManager {
         const batchIndex = Math.floor(i / batchSize) + 1
         const totalBatches = Math.ceil(historicalData.length / batchSize)
 
-        logger.info(`📦 处理批次 ${batchIndex}/${totalBatches}: ${batch.length} 条记录`)
+        logger.info(`📦 Processing batch ${batchIndex}/${totalBatches}: ${batch.length} records`)
 
-        // 为每条记录添加操作类型并进行加密处理
+        // Add operation type to each record and perform encryption
         const uploadData = await Promise.all(
           batch.map(async (record) => {
             const recordWithOp = {
               ...record,
               operation_type: 'INSERT'
             }
-            // 修复：对历史数据也进行加密处理
+            // Fix: encrypt historical data as well
             return await this.prepareRecordForUpload(tableName, recordWithOp)
           })
         )
 
-        // 调用增量同步API上传
+        // Call incremental sync API to upload
         try {
           const response = await this.apiClient.incrementalSync(tableName, uploadData)
           if (response.success) {
             uploadedCount += batch.length
-            logger.info(`批次 ${batchIndex} 上传成功: ${batch.length} 条`)
+            logger.info(`Batch ${batchIndex} uploaded successfully: ${batch.length} records`)
 
-            // 为上传成功的数据创建change_log记录，避免重复上传
+            // Create change_log records for successfully uploaded data to avoid duplicate uploads
             await this.createChangeLogForHistoricalData(localTableName, batch)
           } else {
             failedCount += batch.length
-            logger.warn(` 批次 ${batchIndex} 上传失败: ${response.message}`)
+            logger.warn(`Batch ${batchIndex} upload failed: ${response.message}`)
           }
         } catch (error) {
           failedCount += batch.length
-          logger.error(`批次 ${batchIndex} 上传异常:`, error)
+          logger.error(`Batch ${batchIndex} upload exception:`, error)
         }
 
-        // 小延迟避免服务器压力
+        // Small delay to avoid server pressure
         await this.delay(100)
       }
 
-      logger.info(` ${localTableName} 历史数据上传完成: 成功=${uploadedCount}条, 失败=${failedCount}条`)
+      logger.info(`${localTableName} historical data upload completed: success=${uploadedCount} records, failed=${failedCount} records`)
     } catch (error) {
-      logger.error(` 上传历史数据失败:`, error)
+      logger.error(`Failed to upload historical data:`, error)
     }
   }
 
   /**
-   * 原子替换处理 - 无本地修改时的高效方案
+   * Atomic replacement processing - efficient solution when there are no local changes
    */
   private async performAtomicReplacement(
     session: FullSyncSession,
@@ -360,23 +360,23 @@ export class SafeBatchSyncManager {
     let currentPage = 1
 
     try {
-      logger.info(`创建临时表: ${tempTableName}`)
+      logger.info(`Creating temporary table: ${tempTableName}`)
 
-      // 分批下载数据到临时表
+      // Download data to temporary table in batches
       while (currentPage <= totalPages) {
         const batchData = await this.getBatchData(session.session_id, currentPage)
 
-        // 防重复检查
+        // Duplicate check
         if (this.processedChecksums.has(batchData.checksum)) {
           currentPage++
           continue
         }
 
-        // 存储到临时表
+        // Store to temporary table
         await this.storeBatchData(tempTableName, batchData.data)
         this.processedChecksums.add(batchData.checksum)
 
-        // 进度回调
+        // Progress callback
         if (onProgress) {
           const percentage = Math.round((currentPage / totalPages) * 100)
           onProgress(currentPage, totalPages, percentage)
@@ -387,49 +387,49 @@ export class SafeBatchSyncManager {
         await this.delay(50)
       }
 
-      // 原子性替换（云数据下行，抑制触发器防回声）
+      // Atomic replacement (cloud data downlink, suppress triggers to prevent echo)
       this.dbManager.setRemoteApplyGuard(true)
       try {
-        // 获取本地表名进行替换操作
+        // Get local table name for replacement operation
         const localTableName = this.getLocalTableName(tableName)
         await this.atomicReplaceData(localTableName, tempTableName)
       } finally {
         this.dbManager.setRemoteApplyGuard(false)
       }
-      logger.info(`原子替换完成: ${tableName}`)
+      logger.info(`Atomic replacement completed: ${tableName}`)
     } catch (error) {
-      // 清理临时表
+      // Clean up temporary table
       try {
         const db = await this.dbManager.getDatabase()
         await db.exec(`DROP TABLE IF EXISTS ${tempTableName}`)
       } catch (cleanupError) {
-        logger.error('清理临时表失败:', cleanupError)
+        logger.error('Failed to clean up temporary table:', cleanupError)
       }
       throw error
     }
   }
 
   /**
-   * 智能合并记录 - 批量版本，性能优化
+   * Intelligent record merging - batch version, performance optimized
    */
   private async intelligentMergeRecords(tableName: string, serverRecords: any[], metadata: SyncMetadata): Promise<MergeResult[]> {
     const results: MergeResult[] = []
     // Database instance available if needed for advanced queries
     // const db = await this.dbManager.getDatabase()
 
-    // 性能优化：批量查询本地记录
+    // Performance optimization: batch query local records
     const serverUUIDs = serverRecords.map((r) => r.uuid)
     const localRecordsMap = await this.batchGetLocalRecords(tableName, serverUUIDs)
     const pendingChangesMap = await this.batchCheckPendingChanges(tableName, serverUUIDs)
 
-    // 并行处理每条记录
+    // Process each record in parallel
     for (const serverRecord of serverRecords) {
       try {
         const localRecord = localRecordsMap.get(serverRecord.uuid)
         const hasPendingChanges = pendingChangesMap.has(serverRecord.uuid)
 
         if (!localRecord) {
-          // 本地没有此记录，直接应用服务端数据
+          // Local does not have this record, directly apply server data
           results.push({
             action: 'apply_server',
             record: serverRecord
@@ -438,7 +438,7 @@ export class SafeBatchSyncManager {
         }
 
         if (!hasPendingChanges) {
-          // 本地无修改，直接应用服务端数据
+          // No local changes, directly apply server data
           results.push({
             action: 'apply_server',
             record: serverRecord
@@ -446,17 +446,17 @@ export class SafeBatchSyncManager {
           continue
         }
 
-        // 有冲突，进行智能合并
+        // Has conflict, perform intelligent merge
         const mergeResult = await this.resolveConflict(tableName, localRecord, serverRecord, metadata)
 
         results.push(mergeResult)
       } catch (error) {
-        logger.error(`处理记录 ${serverRecord.uuid} 时出错:`, error)
-        // 出错时保守处理：保留本地数据
+        logger.error(`Error processing record ${serverRecord.uuid}:`, error)
+        // Conservative handling on error: keep local data
         results.push({
           action: 'keep_local',
           record: serverRecord,
-          conflictReason: `处理出错: ${error instanceof Error ? error.message : String(error)}`
+          conflictReason: `Processing error: ${error instanceof Error ? error.message : String(error)}`
         })
       }
     }
@@ -465,7 +465,7 @@ export class SafeBatchSyncManager {
   }
 
   /**
-   * 批量获取本地记录 - 性能优化
+   * Batch get local records - performance optimization
    */
   private async batchGetLocalRecords(tableName: string, uuids: string[]): Promise<Map<string, any>> {
     const db = await this.dbManager.getDatabase()
@@ -485,7 +485,7 @@ export class SafeBatchSyncManager {
   }
 
   /**
-   * 批量检查待同步变更 - 性能优化
+   * Batch check pending changes - performance optimization
    */
   private async batchCheckPendingChanges(tableName: string, uuids: string[]): Promise<Set<string>> {
     const db = await this.dbManager.getDatabase()
@@ -509,12 +509,12 @@ export class SafeBatchSyncManager {
   }
 
   /**
-   * 批量应用合并结果 - 事务优化
+   * Batch apply merge results - transaction optimization
    */
   private async applyMergeResultsBatch(tableName: string, results: MergeResult[]): Promise<void> {
     const db = await this.dbManager.getDatabase()
 
-    // 按操作类型分组，批量处理
+    // Group by operation type, process in batches
     const applyServerRecords: any[] = []
     const mergeRecords: any[] = []
     const conflictRecords: MergeResult[] = []
@@ -532,30 +532,32 @@ export class SafeBatchSyncManager {
         case 'conflict':
           conflictRecords.push(result)
           break
-        // 'keep_local' 不需要操作
+        // 'keep_local' requires no operation
       }
     })
 
-    // 批量事务处理
+    // Batch transaction processing
     await db.transaction(async (tx: any) => {
-      // 批量处理服务端数据
+      // Batch process server data
       for (const record of [...applyServerRecords, ...mergeRecords]) {
         await this.upsertRecord(tx, tableName, record)
       }
 
-      // 批量记录冲突
+      // Batch record conflicts
       for (const conflict of conflictRecords) {
         await this.recordConflict(tx, tableName, conflict.record, conflict.conflictReason)
       }
     })
 
-    logger.info(`批量应用完成: 应用${applyServerRecords.length + mergeRecords.length}条，冲突${conflictRecords.length}条`)
+    logger.info(
+      `Batch apply completed: applied ${applyServerRecords.length + mergeRecords.length} records, conflicts ${conflictRecords.length} records`
+    )
   }
 
-  // ... 其他辅助方法（从原有的OneDriveSyncManager和BatchSyncManager复制和优化）
+  // ... Other helper methods (copied and optimized from original OneDriveSyncManager and BatchSyncManager)
 
   /**
-   * 检查同步必要性
+   * Check sync necessity
    */
   private async checkSyncNecessity(tableName: string, metadata: SyncMetadata): Promise<boolean> {
     try {
@@ -569,38 +571,38 @@ export class SafeBatchSyncManager {
       }
       return true
     } catch (error: any) {
-      // 检查是否是网络连接错误
+      // Check if it's a network connection error
       if (error.message === 'NETWORK_UNAVAILABLE' || error.isNetworkError) {
-        logger.warn('服务器不可用，跳过同步检查')
+        logger.warn('Server unavailable, skipping sync check')
         throw new Error('SERVER_UNAVAILABLE')
       }
-      logger.warn('检查同步必要性失败，默认执行同步:', error)
+      logger.warn('Failed to check sync necessity, defaulting to sync:', error)
       return true
     }
   }
 
   /**
-   * 检查是否有本地未同步修改（包括历史数据）
+   * Check if there are unsynced local changes (including historical data)
    */
   private async hasUnsynedLocalChanges(tableName: string): Promise<boolean> {
-    // 安全检查：确保 tableName 存在
+    // Safety check: ensure tableName exists
     if (!tableName || typeof tableName !== 'string') {
-      logger.warn(`hasUnsynedLocalChanges: 无效的表名 "${tableName}"`)
+      logger.warn(`hasUnsynedLocalChanges: invalid table name "${tableName}"`)
       return false
     }
 
-    // 检查待同步的变更记录
+    // Check pending change records
     const pendingChanges = this.dbManager.getTotalPendingChangesCount(tableName)
     if (pendingChanges > 0) {
-      logger.info(`检测到 ${pendingChanges} 条待同步变更`)
+      logger.info(`Detected ${pendingChanges} pending changes`)
       return true
     }
 
-    // 检查历史数据（存在于数据表中但不在change_log中的数据）
+    // Check historical data (data that exists in data table but not in change_log)
     const localTableName = this.getLocalTableName(tableName)
     const historicalCount = this.dbManager.getHistoricalDataCount(localTableName)
     if (historicalCount > 0) {
-      logger.info(`检测到 ${historicalCount} 条历史数据需要同步`)
+      logger.info(`Detected ${historicalCount} historical records that need sync`)
       return true
     }
 
@@ -608,14 +610,14 @@ export class SafeBatchSyncManager {
   }
 
   /**
-   * 获取历史数据
-   * 历史数据指：存在于数据表中但不在change_log中的数据
+   * Get historical data
+   * Historical data refers to: data that exists in data table but not in change_log
    */
   private async getHistoricalData(tableName: string): Promise<any[]> {
     try {
       const db = await this.dbManager.getDatabase()
 
-      // 检查表是否存在
+      // Check if table exists
       const tableExists = await db.get(
         `
         SELECT name FROM sqlite_master
@@ -625,12 +627,12 @@ export class SafeBatchSyncManager {
       )
 
       if (!tableExists) {
-        logger.info(`表 ${tableName} 不存在`)
+        logger.info(`Table ${tableName} does not exist`)
         return []
       }
 
-      // 查询存在于数据表中但不在change_log中的记录
-      // 需要同时检查本地表名和同步表名
+      // Query records that exist in data table but not in change_log
+      // Need to check both local table name and sync table name
       const syncTableName = tableName + '_sync'
       const rows = await db.all(
         `
@@ -645,41 +647,41 @@ export class SafeBatchSyncManager {
         [tableName, syncTableName]
       )
 
-      logger.info(`从 ${tableName} 获取到 ${rows.length} 条历史数据`)
+      logger.info(`Retrieved ${rows.length} historical records from ${tableName}`)
       return rows
     } catch (error) {
-      logger.error(`获取历史数据失败 (${tableName}):`, error)
+      logger.error(`Failed to get historical data (${tableName}):`, error)
       return []
     }
   }
 
   /**
-   * 为历史数据创建change_log记录
-   * 避免重复上传已经同步的历史数据
+   * Create change_log records for historical data
+   * Avoid duplicate uploads of already synced historical data
    */
   private async createChangeLogForHistoricalData(_tableName: string, records: any[]): Promise<void> {
     try {
       // const db = await this.dbManager.getDatabase()
 
-      // 过滤掉没有 uuid 的记录
+      // Filter out records without uuid
       const validRecords = records.filter((record) => record.uuid && record.uuid.trim() !== '')
 
       if (validRecords.length === 0) {
-        logger.warn(`没有有效的记录需要创建 change_log`)
+        logger.warn(`No valid records to create change_log for`)
         return
       }
 
-      // 临时注释：跳过创建 change_log 记录，避免参数错误
-      logger.warn(`临时跳过为 ${validRecords.length} 条历史数据创建 change_log 记录`)
+      // Temporarily commented: skip creating change_log records to avoid parameter errors
+      logger.warn(`Temporarily skipping creation of change_log records for ${validRecords.length} historical records`)
 
-      logger.info(`为 ${validRecords.length} 条历史数据创建了change_log记录`)
+      logger.info(`Created change_log records for ${validRecords.length} historical records`)
     } catch (error) {
-      logger.error(`创建历史数据change_log记录失败:`, error)
+      logger.error(`Failed to create change_log records for historical data:`, error)
     }
   }
 
   /**
-   * 获取服务端表信息
+   * Get server table info
    */
   private async getServerTableInfo(tableName: string): Promise<{ lastModified: string; version: number }> {
     const response = await this.apiClient.get(`/sync/table-info/${tableName}`)
@@ -690,7 +692,7 @@ export class SafeBatchSyncManager {
   }
 
   /**
-   * 启动全量同步会话
+   * Start full sync session
    */
   private async startFullSync(tableName: string, pageSize: number): Promise<FullSyncSession> {
     const response = await this.apiClient.post('/sync/full-sync/start', {
@@ -699,7 +701,7 @@ export class SafeBatchSyncManager {
     })
 
     if (!response.success) {
-      throw new Error(`启动同步会话失败: ${response.message}`)
+      throw new Error(`Failed to start sync session: ${response.message}`)
     }
 
     const session = response.session
@@ -708,7 +710,7 @@ export class SafeBatchSyncManager {
   }
 
   /**
-   * 获取批次数据
+   * Get batch data
    */
   private async getBatchData(sessionId: string, page: number): Promise<FullSyncBatchResponse> {
     const response = await this.apiClient.post('/sync/full-sync/batch', {
@@ -717,37 +719,37 @@ export class SafeBatchSyncManager {
     })
 
     if (!response.success) {
-      throw new Error(`获取批次数据失败: ${response.message}`)
+      throw new Error(`Failed to get batch data: ${response.message}`)
     }
 
     return response as FullSyncBatchResponse
   }
 
   /**
-   * 完成同步会话
+   * Finish sync session
    */
   private async finishSync(sessionId: string): Promise<void> {
     try {
       await this.apiClient.delete(`/sync/full-sync/finish/${sessionId}`)
       this.syncSessions.delete(sessionId)
     } catch (error) {
-      logger.error('完成同步会话失败:', error)
+      logger.error('Failed to finish sync session:', error)
     }
   }
 
-  // ... 其他必要的辅助方法（createTempTable, storeBatchData, atomicReplaceData,
+  // ... Other necessary helper methods (createTempTable, storeBatchData, atomicReplaceData,
   // resolveConflict, getSyncMetadata, updateSyncMetadata, prepareSyncEnvironment,
-  // recordConflict, upsertRecord, initializeConflictRules, delay等）
+  // recordConflict, upsertRecord, initializeConflictRules, delay, etc.)
 
   private delay(ms: number): Promise<void> {
     return new Promise((resolve) => setTimeout(resolve, ms))
   }
 
   /**
-   * 初始化冲突解决规则
+   * Initialize conflict resolution rules
    */
   private initializeConflictRules(): void {
-    // 资产表的冲突解决规则
+    // Conflict resolution rules for assets table
     this.conflictRules.set('t_assets_sync', [
       { field: 'label', strategy: 'latest_wins', priority: 1 },
       { field: 'asset_ip', strategy: 'server_wins', priority: 1 },
@@ -758,7 +760,7 @@ export class SafeBatchSyncManager {
       { field: 'group_name', strategy: 'merge', priority: 2 }
     ])
 
-    // 资产链表的冲突解决规则
+    // Conflict resolution rules for asset chains table
     this.conflictRules.set('t_asset_chains_sync', [
       { field: 'chain_name', strategy: 'latest_wins', priority: 1 },
       { field: 'chain_type', strategy: 'server_wins', priority: 1 },
@@ -769,24 +771,24 @@ export class SafeBatchSyncManager {
   }
 
   /**
-   * 获取本地表名
+   * Get local table name
    */
   private getLocalTableName(remoteTableName: string): string {
     const localTableName = this.tableMapping[remoteTableName]
     if (!localTableName) {
-      throw new Error(`未找到远程表 ${remoteTableName} 对应的本地表`)
+      throw new Error(`Local table not found for remote table ${remoteTableName}`)
     }
     return localTableName
   }
 
   /**
-   * 创建临时表（基于本地表结构）
+   * Create temporary table (based on local table structure)
    */
   private async createTempTable(remoteTableName: string): Promise<string> {
     const tempTableName = `${remoteTableName}_temp_${Date.now()}`
     const db = await this.dbManager.getDatabase()
 
-    // 将远程同步表名映射到本地表名
+    // Map remote sync table name to local table name
     const localTableName = this.getLocalTableName(remoteTableName)
 
     const tableSchema = await db.get(
@@ -798,10 +800,10 @@ export class SafeBatchSyncManager {
     )
 
     if (!tableSchema) {
-      throw new Error(`无法获取本地表结构: ${localTableName} (对应远程表: ${remoteTableName})`)
+      throw new Error(`Cannot get local table structure: ${localTableName} (corresponding remote table: ${remoteTableName})`)
     }
 
-    // 使用本地表结构创建临时表
+    // Create temporary table using local table structure
     const escapedLocalTableName = localTableName.replace(/([.*+?^${}()|\[\]\\])/g, '\\$1')
     const createTablePattern = new RegExp(`(CREATE TABLE\\s+(?:IF NOT EXISTS\\s+)?)(["']?)${escapedLocalTableName}\\2`, 'i')
 
@@ -814,24 +816,24 @@ export class SafeBatchSyncManager {
     } else {
       const firstOccurrence = tableSchema.sql.indexOf(localTableName)
       if (firstOccurrence === -1) {
-        throw new Error(`无法在表结构中定位表名: ${localTableName} (对应远程表: ${remoteTableName})`)
+        throw new Error(`Cannot locate table name in table structure: ${localTableName} (corresponding remote table: ${remoteTableName})`)
       }
       tempTableSql = tableSchema.sql.slice(0, firstOccurrence) + tempTableName + tableSchema.sql.slice(firstOccurrence + localTableName.length)
     }
 
     await db.exec(tempTableSql)
-    logger.info(`临时表创建成功: ${tempTableName} (基于本地表: ${localTableName})`)
+    logger.info(`Temporary table created successfully: ${tempTableName} (based on local table: ${localTableName})`)
     return tempTableName
   }
 
   /**
-   * 存储批次数据到临时表（复用 BatchSyncManager 逻辑）
+   * Store batch data to temporary table (reuse BatchSyncManager logic)
    */
   private async storeBatchData(tempTableName: string, data: any[]): Promise<void> {
     if (!data || data.length === 0) return
     const db = await this.dbManager.getDatabase()
 
-    // 云数据下行，抑制触发器防回声
+    // Cloud data downlink, suppress triggers to prevent echo
     this.dbManager.setRemoteApplyGuard(true)
     try {
       await db.transaction(async (tx: any) => {
@@ -849,17 +851,17 @@ export class SafeBatchSyncManager {
     } finally {
       this.dbManager.setRemoteApplyGuard(false)
     }
-    logger.info(`批次数据存储完成，记录数: ${data.length}`)
+    logger.info(`Batch data storage completed, record count: ${data.length}`)
   }
 
   /**
-   * 原子性替换（复用 BatchSyncManager 逻辑）
+   * Atomic replacement (reuse BatchSyncManager logic)
    */
   private async atomicReplaceData(originalTableName: string, tempTableName: string): Promise<void> {
     const db = await this.dbManager.getDatabase()
     const backupTableName = `${originalTableName}_backup_${Date.now()}`
 
-    // 检查原始表是否存在
+    // Check if original table exists
     const tableExists = await db.get(
       `
       SELECT name FROM sqlite_master
@@ -871,27 +873,27 @@ export class SafeBatchSyncManager {
     await db.transaction(async (tx: any) => {
       try {
         if (tableExists) {
-          // 原始表存在，进行标准的原子替换
+          // Original table exists, perform standard atomic replacement
           await tx.exec(`ALTER TABLE ${originalTableName} RENAME TO ${backupTableName}`)
           await tx.exec(`ALTER TABLE ${tempTableName} RENAME TO ${originalTableName}`)
           await tx.exec(`DROP TABLE ${backupTableName}`)
-          logger.info(`数据替换成功: ${originalTableName} (原表存在)`)
+          logger.info(`Data replacement successful: ${originalTableName} (original table exists)`)
         } else {
-          // 原始表不存在，直接重命名临时表
+          // Original table does not exist, directly rename temporary table
           await tx.exec(`ALTER TABLE ${tempTableName} RENAME TO ${originalTableName}`)
-          logger.info(`数据替换成功: ${originalTableName} (原表不存在，直接创建)`)
+          logger.info(`Data replacement successful: ${originalTableName} (original table does not exist, created directly)`)
         }
       } catch (error) {
-        logger.error('原子替换失败，尝试回滚:', error)
+        logger.error('Atomic replacement failed, attempting rollback:', error)
         try {
           if (tableExists) {
-            // 如果原表存在，尝试恢复
+            // If original table exists, try to restore
             await tx.exec(`ALTER TABLE ${backupTableName} RENAME TO ${originalTableName}`)
           }
           await tx.exec(`DROP TABLE IF EXISTS ${tempTableName}`)
-          logger.info('回滚成功')
+          logger.info('Rollback successful')
         } catch (rollbackError) {
-          logger.error('回滚也失败了:', rollbackError)
+          logger.error('Rollback also failed:', rollbackError)
         }
         throw error
       }
@@ -899,7 +901,7 @@ export class SafeBatchSyncManager {
   }
 
   /**
-   * 记录冲突（复用 OneDrive 逻辑）
+   * Record conflict (reuse OneDrive logic)
    */
   private async recordConflict(tx: any, tableName: string, record: any, reason?: string): Promise<void> {
     await tx.run(
@@ -907,12 +909,12 @@ export class SafeBatchSyncManager {
             INSERT INTO sync_conflicts (table_name, record_uuid, conflict_reason, server_data)
             VALUES (?, ?, ?, ?)
         `,
-      [tableName, record.uuid, reason || '未知冲突', JSON.stringify(record)]
+      [tableName, record.uuid, reason || 'Unknown conflict', JSON.stringify(record)]
     )
   }
 
   /**
-   * 插入或更新记录（复用 OneDrive 逻辑）
+   * Insert or update record (reuse OneDrive logic)
    */
   private async upsertRecord(tx: any, tableName: string, record: any): Promise<void> {
     const fields = Object.keys(record).filter((key) => key !== 'id')
@@ -928,7 +930,7 @@ export class SafeBatchSyncManager {
   }
 
   /**
-   * 准备同步环境（复用 OneDrive 逻辑）
+   * Prepare sync environment (reuse OneDrive logic)
    */
   private async prepareSyncEnvironment(_tableName: string): Promise<void> {
     const db = await this.dbManager.getDatabase()
@@ -959,7 +961,7 @@ export class SafeBatchSyncManager {
   }
 
   /**
-   * 获取/更新同步元数据（复用 OneDrive 逻辑）
+   * Get/update sync metadata (reuse OneDrive logic)
    */
   private async getSyncMetadata(tableName: string): Promise<SyncMetadata> {
     const db = await this.dbManager.getDatabase()
@@ -970,7 +972,7 @@ export class SafeBatchSyncManager {
       [tableName]
     )
     if (result) {
-      // 映射数据库字段名到 TypeScript 接口属性名
+      // Map database field names to TypeScript interface property names
       return {
         tableName: result.table_name,
         lastSyncTime: result.last_sync_time,
@@ -1012,7 +1014,7 @@ export class SafeBatchSyncManager {
   }
 
   /**
-   * 冲突解决/字段级合并（复用 OneDrive 逻辑）
+   * Conflict resolution/field-level merging (reuse OneDrive logic)
    */
   private async resolveConflict(tableName: string, localRecord: any, serverRecord: any, _metadata: SyncMetadata): Promise<MergeResult> {
     const rules = this.conflictRules.get(tableName) || []
@@ -1032,7 +1034,7 @@ export class SafeBatchSyncManager {
     }
     const merged = await this.performFieldLevelMerge(tableName, localRecord, serverRecord, rules)
     if (merged) return { action: 'merge', record: merged }
-    return { action: 'conflict', record: localRecord, conflictReason: '版本和时间戳都相同，需要手动解决' }
+    return { action: 'conflict', record: localRecord, conflictReason: 'Version and timestamp are the same, requires manual resolution' }
   }
 
   private async performFieldLevelMerge(
@@ -1075,14 +1077,14 @@ export class SafeBatchSyncManager {
       }
       return hasChanges ? merged : null
     } catch (e) {
-      logger.error('字段级合并失败:', e)
+      logger.error('Field-level merge failed:', e)
       return null
     }
   }
 
   /**
-   * 准备记录用于上传 - 处理敏感字段加密
-   * 修复历史数据上传时缺少加密的问题
+   * Prepare record for upload - handle sensitive field encryption
+   * Fix: missing encryption when uploading historical data
    */
   private async prepareRecordForUpload(tableName: string, record: any): Promise<any> {
     try {
@@ -1099,7 +1101,7 @@ export class SafeBatchSyncManager {
             const { password, username, need_proxy, proxy_name, ...rest } = record
             return { ...rest, data_cipher_text: combined }
           } catch {
-            // 如果敏感字段存在但加密失败，抛出错误以防止明文上行
+            // If sensitive fields exist but encryption fails, throw error to prevent plaintext upload
             throw new Error('Failed to encrypt sensitive fields for t_assets_sync')
           }
         }
@@ -1113,16 +1115,16 @@ export class SafeBatchSyncManager {
             const { chain_private_key, passphrase, ...rest } = record
             return { ...rest, data_cipher_text: combined }
           } catch {
-            // 如果敏感字段存在但加密失败，抛出错误以防止明文上行
+            // If sensitive fields exist but encryption fails, throw error to prevent plaintext upload
             throw new Error('Failed to encrypt sensitive fields for t_asset_chains_sync')
           }
         }
       }
     } catch (e) {
-      // 加密或服务获取失败都应该中断同步，防止明文外泄
+      // Encryption or service retrieval failure should interrupt sync to prevent plaintext leakage
       throw e instanceof Error ? e : new Error(String(e))
     }
-    // 无需加密的数据直接返回
+    // Return data that doesn't need encryption directly
     return record
   }
 }

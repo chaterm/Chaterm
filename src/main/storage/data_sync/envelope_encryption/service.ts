@@ -1,18 +1,18 @@
 /**
- * 信封加密服务
- * 提供统一的加密/解密接口，在主进程中注册使用
+ * Envelope Encryption Service
+ * Provides unified encryption/decryption interface, registered for use in main process
  */
 
 import type { EncryptionResult } from './clientSideCrypto'
 
-// 在运行时动态加载模块
+// Dynamically load modules at runtime
 let ClientSideCrypto: any
 let chatermAuthAdapter: any
 let config: any
 
 async function loadModules() {
   try {
-    // 导入 TypeScript 模块
+    // Import TypeScript modules
     const configModule = await import('./config')
     config = configModule.default
 
@@ -22,8 +22,8 @@ async function loadModules() {
     const cryptoModule = await import('./clientSideCrypto')
     ClientSideCrypto = cryptoModule.default || cryptoModule.ClientSideCrypto
   } catch (error) {
-    console.error('模块加载失败:', error)
-    throw new Error('无法加载加密模块')
+    console.error('Failed to load modules:', error)
+    throw new Error('Unable to load encryption modules')
   }
 }
 
@@ -47,10 +47,10 @@ export class EnvelopeEncryptionService {
   private initializationPromise: Promise<{ success: boolean; message: string }> | null = null
 
   constructor(serverUrl?: string) {
-    // 保存服务器URL，等模块加载后再初始化
+    // Save server URL, initialize after modules are loaded
     this.serverUrl = serverUrl
 
-    // 异步加载模块
+    // Load modules asynchronously
     this.initializeModules()
   }
 
@@ -58,146 +58,146 @@ export class EnvelopeEncryptionService {
     try {
       await loadModules()
 
-      // 使用默认的 KMS 服务器地址，或从配置中获取
+      // Use default KMS server URL or get from config
       const kmsServerUrl = this.serverUrl || config?.serverUrl
       if (!kmsServerUrl) {
-        console.warn(' KMS 服务器地址未配置，加密功能将不可用')
+        console.warn('KMS server URL not configured, encryption will be unavailable')
         this.modulesLoaded = true
         this.initializationFailed = true
-        this.lastInitError = 'KMS 服务器地址未配置'
+        this.lastInitError = 'KMS server URL not configured'
         return
       }
 
       this._clientCrypto = new ClientSideCrypto(kmsServerUrl)
       this.modulesLoaded = true
     } catch (error) {
-      console.error('加密服务模块初始化失败:', error)
+      console.error('Failed to initialize encryption service modules:', error)
       this.initializationFailed = true
       this.lastInitError = (error as Error).message
     }
   }
 
   /**
-   * 等待模块加载完成
+   * Wait for modules to finish loading
    */
   private async waitForModules(): Promise<void> {
     if (!this.modulesLoaded) {
-      console.log('等待加密模块加载完成...')
+      console.log('Waiting for encryption modules to finish loading...')
       let attempts = 0
-      const maxAttempts = 50 // 最多等待5秒
+      const maxAttempts = 50 // Wait up to 5 seconds
 
       while (!this.modulesLoaded && attempts < maxAttempts) {
         if (this.initializationFailed) {
-          throw new Error(`模块加载失败: ${this.lastInitError}`)
+          throw new Error(`Module loading failed: ${this.lastInitError}`)
         }
         await new Promise((resolve) => setTimeout(resolve, 100))
         attempts++
       }
 
       if (!this.modulesLoaded) {
-        throw new Error('模块加载超时')
+        throw new Error('Module loading timeout')
       }
     }
   }
 
   /**
-   * 简化的初始化加密服务
-   * @param userId 用户ID，如果不提供则从认证适配器获取
-   * @param silent 是否静默初始化（不抛出错误）
+   * Simplified initialization of encryption service
+   * @param userId User ID, if not provided will be obtained from auth adapter
+   * @param silent Whether to initialize silently (without throwing errors)
    */
   async initialize(userId?: string, silent: boolean = false): Promise<{ success: boolean; message: string }> {
     try {
-      // 等待模块加载完成
+      // Wait for modules to finish loading
       await this.waitForModules()
 
-      // 检查客户端加密是否可用
+      // Check if client encryption is available
       if (!this._clientCrypto) {
-        throw new Error('加密客户端不可用，请检查 KMS 服务器配置')
+        throw new Error('Encryption client unavailable, please check KMS server configuration')
       }
 
-      // 获取用户ID
+      // Get user ID
       const targetUserId = userId || (await chatermAuthAdapter.getCurrentUserId())
       if (!targetUserId) {
-        throw new Error('无法获取用户ID')
+        throw new Error('Unable to get user ID')
       }
 
-      // 获取认证令牌
+      // Get authentication token
       const authToken = await chatermAuthAdapter.getAuthToken()
 
-      // 强制密钥轮换：每次启动时清理旧的密钥数据
+      // Force key rotation: clear old key data on each startup
       await this.clearStoredKeys(targetUserId)
 
-      // 初始化客户端加密
+      // Initialize client encryption
       await this._clientCrypto.initialize(targetUserId, authToken)
 
-      // 初始化成功
+      // Initialization successful
       this.isInitialized = true
       this.currentUserId = targetUserId
       this.initializationFailed = false
       this.lastInitError = null
 
-      return { success: true, message: '加密服务初始化成功' }
+      return { success: true, message: 'Encryption service initialized successfully' }
     } catch (error) {
       const errorMessage = (error as Error).message
 
-      // 获取用户ID（即使初始化失败也要保存，用于后续重试）
+      // Get user ID (save even if initialization fails, for retry purposes)
       const targetUserId = userId || (await chatermAuthAdapter.getCurrentUserId().catch(() => null))
 
-      // 记录失败状态
+      // Record failure status
       this.isInitialized = false
       this.initializationFailed = true
       this.lastInitError = errorMessage
-      this.currentUserId = targetUserId // 保存用户ID用于重试
+      this.currentUserId = targetUserId // Save user ID for retry
 
       if (silent) {
-        // 静默模式：只记录简要信息
-        console.warn('加密服务初始化失败:', errorMessage)
+        // Silent mode: only log brief information
+        console.warn('Encryption service initialization failed:', errorMessage)
         return { success: false, message: errorMessage }
       } else {
-        // 非静默模式：抛出错误，但不重复记录详细日志
-        throw new Error(`初始化失败: ${errorMessage}`)
+        // Non-silent mode: throw error, but don't duplicate detailed logs
+        throw new Error(`Initialization failed: ${errorMessage}`)
       }
     }
   }
 
   /**
-   * 智能加密数据方法（支持等待后台初始化）
-   * @param plaintext 要加密的明文数据
-   * @returns 加密结果
+   * Smart encryption method (supports waiting for background initialization)
+   * @param plaintext Plaintext data to encrypt
+   * @returns Encryption result
    */
   async encrypt(plaintext: string): Promise<EncryptionResult> {
-    // 检查数据有效性
+    // Check data validity
     if (!plaintext || typeof plaintext !== 'string') {
-      throw new Error('无效的明文数据')
+      throw new Error('Invalid plaintext data')
     }
 
-    // 等待模块加载完成
+    // Wait for modules to finish loading
     await this.waitForModules()
 
-    // 检查服务是否已初始化
+    // Check if service is initialized
     if (!this.isInitialized) {
-      // 如果正在后台初始化，等待一下
+      // If background initialization is in progress, wait a bit
       if (this.isInitializing) {
-        console.log('等待后台初始化完成...')
-        const waitResult = await this.waitForBackgroundInit(3000) // 最多等3秒
+        console.log('Waiting for background initialization to complete...')
+        const waitResult = await this.waitForBackgroundInit(3000) // Wait up to 3 seconds
         if (!waitResult) {
-          console.warn('等待后台初始化超时，尝试快速重新初始化')
+          console.warn('Background initialization timeout, attempting quick re-initialization')
         }
       }
 
-      // 如果还是未初始化，尝试快速重新初始化
+      // If still not initialized, attempt quick re-initialization
       if (!this.isInitialized && this.currentUserId) {
-        console.log(' 尝试快速重新初始化加密服务...')
+        console.log('Attempting quick re-initialization of encryption service...')
         try {
           const result = await this.initialize(this.currentUserId, true)
           if (!result.success) {
-            throw new Error(`重新初始化失败: ${result.message}`)
+            throw new Error(`Re-initialization failed: ${result.message}`)
           }
         } catch (error) {
-          throw new Error(`加密服务不可用: ${(error as Error).message}`)
+          throw new Error(`Encryption service unavailable: ${(error as Error).message}`)
         }
       } else if (!this.isInitialized) {
-        throw new Error(`加密服务未初始化: ${this.lastInitError || '请先初始化加密服务'}`)
+        throw new Error(`Encryption service not initialized: ${this.lastInitError || 'Please initialize encryption service first'}`)
       }
     }
 
@@ -206,42 +206,42 @@ export class EnvelopeEncryptionService {
   }
 
   /**
-   * 智能解密数据方法（支持等待后台初始化）
-   * @param encryptedData 加密的数据对象
-   * @returns 解密后的明文
+   * Smart decryption method (supports waiting for background initialization)
+   * @param encryptedData Encrypted data object
+   * @returns Decrypted plaintext
    */
   async decrypt(encryptedData: any): Promise<string> {
-    // 检查数据有效性
+    // Check data validity
     if (!encryptedData || typeof encryptedData !== 'object') {
-      console.error(' 无效的加密数据')
-      throw new Error('无效的加密数据')
+      console.error('Invalid encrypted data')
+      throw new Error('Invalid encrypted data')
     }
 
-    // 检查服务是否已初始化
+    // Check if service is initialized
     if (!this.isInitialized) {
-      console.log(' 服务未初始化，尝试初始化...')
-      // 如果正在后台初始化，等待一下
+      console.log('Service not initialized, attempting initialization...')
+      // If background initialization is in progress, wait a bit
       if (this.isInitializing) {
-        console.log('等待后台初始化完成...')
-        const waitResult = await this.waitForBackgroundInit(3000) // 最多等3秒
+        console.log('Waiting for background initialization to complete...')
+        const waitResult = await this.waitForBackgroundInit(3000) // Wait up to 3 seconds
         if (!waitResult) {
-          console.warn('等待后台初始化超时，尝试快速重新初始化')
+          console.warn('Background initialization timeout, attempting quick re-initialization')
         }
       }
 
-      // 如果还是未初始化，尝试快速重新初始化
+      // If still not initialized, attempt quick re-initialization
       if (!this.isInitialized && this.currentUserId) {
-        console.log('尝试快速重新初始化加密服务...')
+        console.log('Attempting quick re-initialization of encryption service...')
         try {
           const result = await this.initialize(this.currentUserId, true)
           if (!result.success) {
-            throw new Error(`重新初始化失败: ${result.message}`)
+            throw new Error(`Re-initialization failed: ${result.message}`)
           }
         } catch (error) {
-          throw new Error(`加密服务不可用: ${(error as Error).message}`)
+          throw new Error(`Encryption service unavailable: ${(error as Error).message}`)
         }
       } else if (!this.isInitialized) {
-        throw new Error(`加密服务未初始化: ${this.lastInitError || '请先初始化加密服务'}`)
+        throw new Error(`Encryption service not initialized: ${this.lastInitError || 'Please initialize encryption service first'}`)
       }
     }
 
@@ -250,24 +250,24 @@ export class EnvelopeEncryptionService {
   }
 
   /**
-   * 轮换数据密钥
+   * Rotate data key
    */
   async rotateDataKey(): Promise<{ success: boolean; message: string }> {
     if (!this.isInitialized) {
-      throw new Error('加密服务未初始化')
+      throw new Error('Encryption service not initialized')
     }
 
     try {
       await this._clientCrypto.rotateDataKey()
-      return { success: true, message: '密钥轮换成功' }
+      return { success: true, message: 'Key rotation successful' }
     } catch (error) {
-      console.error('密钥轮换失败:', error)
-      return { success: false, message: `密钥轮换失败: ${(error as Error).message}` }
+      console.error('Key rotation failed:', error)
+      return { success: false, message: `Key rotation failed: ${(error as Error).message}` }
     }
   }
 
   /**
-   * 健康检查
+   * Health check
    */
   async healthCheck(): Promise<any> {
     try {
@@ -283,7 +283,7 @@ export class EnvelopeEncryptionService {
         }
       }
     } catch (error) {
-      console.error('健康检查失败:', error)
+      console.error('Health check failed:', error)
       return {
         service: {
           status: 'error',
@@ -296,7 +296,7 @@ export class EnvelopeEncryptionService {
   }
 
   /**
-   * 获取服务状态
+   * Get service status
    */
   getStatus(): EncryptionServiceStatus {
     const clientStatus = this._clientCrypto?.getStatus() || {}
@@ -312,16 +312,16 @@ export class EnvelopeEncryptionService {
   }
 
   /**
-   * 获取客户端加密实例（用于访问缓存等高级功能）
-   * @returns 客户端加密实例
+   * Get client encryption instance (for accessing cache and other advanced features)
+   * @returns Client encryption instance
    */
   get clientCrypto(): any {
     return this._clientCrypto
   }
 
   /**
-   * 获取缓存统计信息
-   * @returns 缓存统计信息，如果客户端未初始化则返回null
+   * Get cache statistics
+   * @returns Cache statistics, returns null if client is not initialized
    */
   getCacheStats(): any {
     if (this._clientCrypto && typeof this._clientCrypto.getCacheStats === 'function') {
@@ -331,8 +331,8 @@ export class EnvelopeEncryptionService {
   }
 
   /**
-   * 清理缓存
-   * @param clearStats - 是否同时清理统计信息
+   * Clear cache
+   * @param clearStats - Whether to also clear statistics
    */
   clearCache(clearStats: boolean = false): void {
     if (this._clientCrypto && typeof this._clientCrypto.clearCache === 'function') {
@@ -341,8 +341,8 @@ export class EnvelopeEncryptionService {
   }
 
   /**
-   * 清理服务
-   * @param clearStorage 是否清理存储
+   * Cleanup service
+   * @param clearStorage Whether to clear storage
    */
   cleanup(clearStorage: boolean = false): { success: boolean; message: string } {
     try {
@@ -357,62 +357,64 @@ export class EnvelopeEncryptionService {
         chatermAuthAdapter.clearAuthInfo()
       }
 
-      console.log('加密服务清理完成')
-      return { success: true, message: '服务清理完成' }
+      console.log('Encryption service cleanup completed')
+      return { success: true, message: 'Service cleanup completed' }
     } catch (error) {
-      console.error('服务清理失败:', error)
-      return { success: false, message: `清理失败: ${(error as Error).message}` }
+      console.error('Service cleanup failed:', error)
+      return { success: false, message: `Cleanup failed: ${(error as Error).message}` }
     }
   }
 
   /**
-   * 清理存储的密钥数据
-   * @param userId 用户ID
+   * Clear stored key data
+   * @param userId User ID
    */
   private async clearStoredKeys(userId: string): Promise<void> {
     try {
-      // 导入存储管理器
+      // Import storage manager
       const { StorageManager } = await import('./utils/storage')
       const storage = new StorageManager()
 
-      // 清理所有存储数据（包括加密的数据密钥和会话信息）
+      // Clear all stored data (including encrypted data keys and session information)
       await storage.cleanup(userId)
     } catch (error) {
-      console.warn('清理存储密钥时出错:', error)
-      // 不抛出错误，允许继续初始化
+      console.warn('Error clearing stored keys:', error)
+      // Don't throw error, allow initialization to continue
     }
   }
 
   /**
-   * 设置认证信息（用于初始化时）
+   * Set authentication information (for initialization)
    */
   setAuthInfo(token: string, userId: string, expiry?: number): void {
     chatermAuthAdapter.setAuthInfo(token, userId, expiry)
   }
 
   /**
-   * 后台异步初始化（不阻塞主线程）
-   * @param userId 用户ID
-   * @param timeout 超时时间（毫秒），默认10秒
+   * Background asynchronous initialization (non-blocking main thread)
+   * @param userId User ID
+   * @param timeout Timeout in milliseconds, default 10 seconds
    */
   async initializeInBackground(userId?: string, timeout: number = 10000): Promise<void> {
-    // 防止重复初始化
+    // Prevent duplicate initialization
     if (this.isInitializing) {
-      console.log('加密服务正在后台初始化中，跳过重复请求')
+      console.log('Encryption service is initializing in background, skipping duplicate request')
       return
     }
 
     if (this.isInitialized) {
-      console.log('加密服务已初始化，跳过后台初始化')
+      console.log('Encryption service already initialized, skipping background initialization')
       return
     }
 
     this.isInitializing = true
 
-    // 创建带超时的初始化 Promise
+    // Create initialization Promise with timeout
     this.initializationPromise = Promise.race([
       this.initialize(userId, true),
-      new Promise<{ success: boolean; message: string }>((_, reject) => setTimeout(() => reject(new Error('后台初始化超时')), timeout))
+      new Promise<{ success: boolean; message: string }>((_, reject) =>
+        setTimeout(() => reject(new Error('Background initialization timeout')), timeout)
+      )
     ]).finally(() => {
       this.isInitializing = false
       this.initializationPromise = null
@@ -421,16 +423,16 @@ export class EnvelopeEncryptionService {
     try {
       const result = await this.initializationPromise
       if (!result.success) {
-        console.warn('后台加密服务初始化失败:', result.message)
+        console.warn('Background encryption service initialization failed:', result.message)
       }
     } catch (error) {
-      console.warn('后台加密服务初始化超时:', (error as Error).message)
+      console.warn('Background encryption service initialization timeout:', (error as Error).message)
     }
   }
 
   /**
-   * 等待后台初始化完成（如果正在进行）
-   * @param maxWait 最大等待时间（毫秒），默认5秒
+   * Wait for background initialization to complete (if in progress)
+   * @param maxWait Maximum wait time in milliseconds, default 5 seconds
    */
   async waitForBackgroundInit(maxWait: number = 5000): Promise<boolean> {
     if (this.isInitialized) {
@@ -444,15 +446,15 @@ export class EnvelopeEncryptionService {
     try {
       const result = await Promise.race([
         this.initializationPromise,
-        new Promise<{ success: boolean; message: string }>((_, reject) => setTimeout(() => reject(new Error('等待超时')), maxWait))
+        new Promise<{ success: boolean; message: string }>((_, reject) => setTimeout(() => reject(new Error('Wait timeout')), maxWait))
       ])
       return result.success
     } catch (error) {
-      console.warn('等待后台初始化超时:', (error as Error).message)
+      console.warn('Waiting for background initialization timeout:', (error as Error).message)
       return false
     }
   }
 }
 
-// 导出单例实例 - 不传入serverUrl，让服务自己从配置中获取
+// Export singleton instance - don't pass serverUrl, let service get it from config
 export const envelopeEncryptionService = new EnvelopeEncryptionService()

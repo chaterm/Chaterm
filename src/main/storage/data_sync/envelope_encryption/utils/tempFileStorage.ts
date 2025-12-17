@@ -9,20 +9,20 @@ interface StorageStats {
 }
 
 /**
- *  临时文件存储提供者
- * 用于持久化存储会话ID和数据密钥，解决内存存储重启丢失的问题
+ * Temporary file storage provider
+ * Used for persisting session IDs and data keys, solving the problem of memory storage loss on restart
  */
 class TempFileStorageProvider {
   private storageDir: string
 
   constructor() {
-    // 使用系统安全的应用数据目录
+    // Use system secure application data directory
     let appDataPath: string
     try {
       const { app } = require('electron')
       appDataPath = app.getPath('userData')
     } catch (error) {
-      // 测试环境fallback
+      // Fallback for test environment
       appDataPath = path.join(process.cwd(), 'test_data')
     }
     this.storageDir = path.join(appDataPath, '.chaterm-encryption', 'keys')
@@ -30,54 +30,54 @@ class TempFileStorageProvider {
   }
 
   /**
-   * 确保存储目录存在
+   * Ensure storage directory exists
    */
   private async ensureStorageDir(): Promise<void> {
     try {
       await fs.access(this.storageDir)
     } catch (error) {
-      // 目录不存在，创建它
-      await fs.mkdir(this.storageDir, { recursive: true, mode: 0o700 }) // 仅所有者可访问
-      console.log(` 创建安全存储目录: ${this.storageDir}`)
+      // Directory doesn't exist, create it
+      await fs.mkdir(this.storageDir, { recursive: true, mode: 0o700 }) // Owner access only
+      console.log(`Created secure storage directory: ${this.storageDir}`)
     }
 
-    // 确保目录权限正确
+    // Ensure directory permissions are correct
     await fs.chmod(this.storageDir, 0o700)
   }
 
   /**
-   * 获取文件路径
+   * Get file path
    */
   private getFilePath(key: string): string {
-    // 将key中的特殊字符替换为安全字符，并添加随机后缀防止猜测
+    // Replace special characters in key with safe characters to prevent guessing
     const safeKey = key.replace(/[^a-zA-Z0-9_-]/g, '_')
     return path.join(this.storageDir, `${safeKey}.enc`)
   }
 
   /**
-   * 简单的内容混淆（非加密，仅防止直接读取）
+   * Simple content obfuscation (not encryption, only prevents direct reading)
    */
   private obfuscateContent(content: string): string {
     const buffer = Buffer.from(content, 'utf8')
     for (let i = 0; i < buffer.length; i++) {
-      buffer[i] ^= 0x42 // 简单异或混淆
+      buffer[i] ^= 0x42 // Simple XOR obfuscation
     }
     return buffer.toString('base64')
   }
 
   /**
-   * 解混淆内容
+   * Deobfuscate content
    */
   private deobfuscateContent(obfuscated: string): string {
     const buffer = Buffer.from(obfuscated, 'base64')
     for (let i = 0; i < buffer.length; i++) {
-      buffer[i] ^= 0x42 // 还原异或
+      buffer[i] ^= 0x42 // Restore XOR
     }
     return buffer.toString('utf8')
   }
 
   /**
-   * 存储数据到文件
+   * Store data to file
    */
   async setItem(key: string, value: string): Promise<void> {
     try {
@@ -86,36 +86,36 @@ class TempFileStorageProvider {
       const obfuscatedValue = this.obfuscateContent(value)
       await fs.writeFile(filePath, obfuscatedValue, 'utf8')
 
-      // 设置严格的文件权限：仅所有者可读写
+      // Set strict file permissions: owner read/write only
       await fs.chmod(filePath, 0o600)
     } catch (error) {
-      console.error(`存储数据失败 - Key: ${key}`, error)
+      console.error(`Failed to store data - Key: ${key}`, error)
       throw error
     }
   }
 
   /**
-   * 从文件读取数据
+   * Read data from file
    */
   async getItem(key: string): Promise<string | null> {
     try {
       const filePath = this.getFilePath(key)
       const obfuscatedData = await fs.readFile(filePath, 'utf8')
       const data = this.deobfuscateContent(obfuscatedData)
-      console.log(`从文件读取数据: ${key}`)
+      console.log(`Read data from file: ${key}`)
       return data
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
-        // 文件不存在
+        // File doesn't exist
         return null
       }
-      console.error(`读取数据失败 (${key}):`, error)
+      console.error(`Failed to read data (${key}):`, error)
       throw error
     }
   }
 
   /**
-   * 删除文件
+   * Delete file
    */
   async removeItem(key: string): Promise<void> {
     try {
@@ -123,60 +123,60 @@ class TempFileStorageProvider {
       await fs.unlink(filePath)
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
-        // 文件不存在，忽略错误
+        // File doesn't exist, ignore error
         return
       }
-      console.error(`删除文件失败 (${key}):`, error)
+      console.error(`Failed to delete file (${key}):`, error)
       throw error
     }
   }
 
   /**
-   * 清除所有文件
+   * Clear all files
    */
   async clear(): Promise<void> {
     try {
       const files = await fs.readdir(this.storageDir)
       const deletePromises = files
-        .filter((file) => file.endsWith('.enc')) // 只删除混淆文件
+        .filter((file) => file.endsWith('.enc')) // Only delete obfuscated files
         .map((file) => fs.unlink(path.join(this.storageDir, file)))
 
       await Promise.all(deletePromises)
-      console.log(` 已清除所有存储文件 (${files.length} 个文件)`)
+      console.log(`Cleared all storage files (${files.length} files)`)
     } catch (error) {
-      console.error('清除存储文件失败:', error)
+      console.error('Failed to clear storage files:', error)
       throw error
     }
   }
 
   /**
-   * 获取所有键
+   * Get all keys
    */
   async keys(): Promise<string[]> {
     try {
       const files = await fs.readdir(this.storageDir)
       const keys = files
-        .filter((file) => file.endsWith('.enc')) // 只处理混淆文件
+        .filter((file) => file.endsWith('.enc')) // Only process obfuscated files
         .map((file) => file.replace('.enc', ''))
         .map((safeKey) => this.restoreKeyFromSafeKey(safeKey))
 
       return keys
     } catch (error) {
-      console.error('获取键列表失败:', error)
+      console.error('Failed to get key list:', error)
       return []
     }
   }
 
   /**
-   * 从安全键名恢复原始键名
+   * Restore original key name from safe key name
    */
   private restoreKeyFromSafeKey(safeKey: string): string {
-    // 这是一个简化的恢复方法，实际应用中可能需要更复杂的映射
+    // This is a simplified restoration method, actual applications may need more complex mapping
     return safeKey.replace(/_/g, '_')
   }
 
   /**
-   * 检查键是否存在
+   * Check if key exists
    */
   async hasItem(key: string): Promise<boolean> {
     try {
@@ -189,13 +189,13 @@ class TempFileStorageProvider {
   }
 
   /**
-   * 获取存储统计信息
+   * Get storage statistics
    */
   async getStats(): Promise<StorageStats> {
     try {
       const keys = await this.keys()
       const files = await fs.readdir(this.storageDir)
-      const jsonFiles = files.filter((file) => file.endsWith('.enc')) // 只统计混淆文件
+      const jsonFiles = files.filter((file) => file.endsWith('.enc')) // Only count obfuscated files
 
       let totalSize = 0
       for (const file of jsonFiles) {
@@ -204,7 +204,7 @@ class TempFileStorageProvider {
           const stats = await fs.stat(filePath)
           totalSize += stats.size
         } catch (error) {
-          // 忽略单个文件的错误
+          // Ignore errors for individual files
         }
       }
 
@@ -215,7 +215,7 @@ class TempFileStorageProvider {
         storageDir: this.storageDir
       }
     } catch (error) {
-      console.error('获取存储统计失败:', error)
+      console.error('Failed to get storage statistics:', error)
       return {
         keys: [],
         fileCount: 0,
@@ -226,7 +226,7 @@ class TempFileStorageProvider {
   }
 
   /**
-   * 获取文件大小
+   * Get file size
    */
   async getItemSize(key: string): Promise<number> {
     try {
@@ -239,7 +239,7 @@ class TempFileStorageProvider {
   }
 
   /**
-   * 获取文件修改时间
+   * Get file modification time
    */
   async getItemModifiedTime(key: string): Promise<Date | null> {
     try {
@@ -252,7 +252,7 @@ class TempFileStorageProvider {
   }
 
   /**
-   * 备份存储目录
+   * Backup storage directory
    */
   async backup(backupDir: string): Promise<void> {
     try {
@@ -261,22 +261,22 @@ class TempFileStorageProvider {
 
       for (const file of files) {
         if (file.endsWith('.enc')) {
-          // 只备份混淆文件
+          // Only backup obfuscated files
           const sourcePath = path.join(this.storageDir, file)
           const destPath = path.join(backupDir, file)
           await fs.copyFile(sourcePath, destPath)
         }
       }
 
-      console.log(` 存储目录已备份到: ${backupDir}`)
+      console.log(`Storage directory backed up to: ${backupDir}`)
     } catch (error) {
-      console.error('备份存储目录失败:', error)
+      console.error('Failed to backup storage directory:', error)
       throw error
     }
   }
 
   /**
-   * 从备份恢复
+   * Restore from backup
    */
   async restore(backupDir: string): Promise<void> {
     try {
@@ -284,22 +284,22 @@ class TempFileStorageProvider {
 
       for (const file of files) {
         if (file.endsWith('.enc')) {
-          // 只从备份恢复混淆文件
+          // Only restore obfuscated files from backup
           const sourcePath = path.join(backupDir, file)
           const destPath = path.join(this.storageDir, file)
           await fs.copyFile(sourcePath, destPath)
         }
       }
 
-      console.log(` 已从备份恢复存储目录: ${backupDir}`)
+      console.log(`Storage directory restored from backup: ${backupDir}`)
     } catch (error) {
-      console.error('从备份恢复失败:', error)
+      console.error('Failed to restore from backup:', error)
       throw error
     }
   }
 
   /**
-   * 清理过期文件
+   * Clean up expired files
    */
   async cleanupExpired(maxAge: number = 24 * 60 * 60 * 1000): Promise<void> {
     try {
@@ -309,7 +309,7 @@ class TempFileStorageProvider {
 
       for (const file of files) {
         if (file.endsWith('.enc')) {
-          // 只清理混淆文件
+          // Only clean up obfuscated files
           const filePath = path.join(this.storageDir, file)
           const stats = await fs.stat(filePath)
           const age = now - stats.mtime.getTime()
@@ -322,15 +322,15 @@ class TempFileStorageProvider {
       }
 
       if (cleanedCount > 0) {
-        console.log(` 已清理 ${cleanedCount} 个过期文件`)
+        console.log(`Cleaned up ${cleanedCount} expired files`)
       }
     } catch (error) {
-      console.error('清理过期文件失败:', error)
+      console.error('Failed to clean up expired files:', error)
     }
   }
 
   /**
-   * 获取存储目录路径
+   * Get storage directory path
    */
   getStorageDir(): string {
     return this.storageDir

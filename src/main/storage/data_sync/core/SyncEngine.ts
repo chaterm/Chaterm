@@ -16,16 +16,16 @@ export class SyncEngine {
   async incrementalSync(tableName: string): Promise<SyncResponse> {
     const pending = this.db.getPendingChanges().filter((c) => c.table_name === tableName)
     if (pending.length === 0) {
-      return { success: true, message: '无待同步变更', synced_count: 0, failed_count: 0 }
+      return { success: true, message: 'No pending changes', synced_count: 0, failed_count: 0 }
     }
 
-    // 智能压缩变更记录（如果启用）
+    // Intelligently compress change records (if enabled)
     const compressedChanges = syncConfig.compressionEnabled ? this.compressChanges(pending) : pending
     if (syncConfig.compressionEnabled) {
-      this.logCompressionStats(pending, compressedChanges, '批量增量')
+      this.logCompressionStats(pending, compressedChanges, 'Batch incremental')
     }
 
-    // 分批
+    // Batch processing
     const batches: ChangeRecord[][] = []
     for (let i = 0; i < compressedChanges.length; i += syncConfig.batchSize) {
       batches.push(compressedChanges.slice(i, i + syncConfig.batchSize))
@@ -48,23 +48,23 @@ export class SyncEngine {
           const conflictIds = batch.filter((b) => conflictUUIDs.has(b.record_uuid)).map((b) => b.id)
           const successIds = batch.filter((b) => !conflictUUIDs.has(b.record_uuid)).map((b) => b.id)
 
-          // 标记状态
+          // Mark status
           this.db.markChangesSynced(successIds)
           if (conflictIds.length > 0) {
             const reason = (res.conflicts || []).map((c) => `${c.uuid}:${c.reason}`).join(',')
             this.db.markChangesConflict(conflictIds, reason)
           }
 
-          // 对成功的 UPDATE 记录，更新本地版本号为服务器版本号
+          // For successful UPDATE records, update local version number to server version number
           for (const b of batch) {
             if (!conflictUUIDs.has(b.record_uuid) && b.operation_type === 'UPDATE') {
               const current = b.change_data?.version
               if (typeof current === 'number' && current > 0) {
                 const newVersion = current + 1
-                // 服务器更新成功后版本号会递增，所以本地也要同步到服务器的版本号
+                // Version number increments after server update succeeds, so local should sync to server version number
                 this.db.setVersion(tableName, b.record_uuid, newVersion)
               } else {
-                console.log(` 跳过版本号更新: UUID=${b.record_uuid}, 版本=${current} (类型=${typeof current})`)
+                console.log(`Skip version update: UUID=${b.record_uuid}, version=${current} (type=${typeof current})`)
               }
             }
           }
@@ -72,12 +72,12 @@ export class SyncEngine {
           totalSynced += successIds.length
           totalFailed += conflictIds.length
         } catch (e: any) {
-          // 检查是否是网络连接错误
+          // Check if it's a network connection error
           if (e?.message === 'NETWORK_UNAVAILABLE' || e?.isNetworkError) {
-            logger.warn('服务器不可用，跳过批次上传')
-            // 网络错误不计入失败次数
+            logger.warn('Server unavailable, skip batch upload')
+            // Network errors are not counted as failures
           } else {
-            logger.error('批次上传失败', e?.message)
+            logger.error('Batch upload failed', e?.message)
             totalFailed += batch.length
           }
         } finally {
@@ -86,49 +86,49 @@ export class SyncEngine {
       })
     )
 
-    return { success: totalFailed === 0, message: '增量同步完成', synced_count: totalSynced, failed_count: totalFailed }
+    return { success: totalFailed === 0, message: 'Incremental sync completed', synced_count: totalSynced, failed_count: totalFailed }
   }
 
   /**
-   * 智能增量同步 - 根据数据量自动选择最优处理策略
+   * Smart incremental sync - automatically select optimal processing strategy based on data volume
    */
   async incrementalSyncSmart(tableName: string): Promise<SyncResponse> {
     const totalChanges = this.db.getTotalPendingChangesCount(tableName)
 
-    logger.info(`智能同步分析: ${tableName} 有 ${totalChanges} 条待同步变更`)
+    logger.info(`Smart sync analysis: ${tableName} has ${totalChanges} pending changes`)
 
-    // 根据配置的阈值动态选择策略
+    // Dynamically select strategy based on configured threshold
     if (totalChanges <= syncConfig.largeDataThreshold) {
       return await this.incrementalSync(tableName)
     }
-    // 大数据量：使用增强的分页处理
+    // Large data volume: use enhanced pagination processing
     return await this.incrementalSyncLargeData(tableName)
   }
 
   /**
-   * 大数据量增量同步 - 增强版分页处理
-   * 集成 PagedIncrementalSyncManager 的核心优势
+   * Large data volume incremental sync - enhanced pagination processing
+   * Integrates core advantages of PagedIncrementalSyncManager
    */
   private async incrementalSyncLargeData(tableName: string): Promise<SyncResponse> {
     const startTime = Date.now()
     const totalChanges = this.db.getTotalPendingChangesCount(tableName)
 
     if (totalChanges === 0) {
-      return { success: true, message: '无待同步变更', synced_count: 0, failed_count: 0 }
+      return { success: true, message: 'No pending changes', synced_count: 0, failed_count: 0 }
     }
 
-    // 自适应页面大小
+    // Adaptive page size
     const adaptivePageSize = this.calculateOptimalPageSize(totalChanges)
     const totalPages = Math.ceil(totalChanges / adaptivePageSize)
 
-    logger.info(`大数据量同步开始: ${tableName}, 总计 ${totalChanges} 条, 分 ${totalPages} 页, 页大小 ${adaptivePageSize}`)
+    logger.info(`Large data sync started: ${tableName}, total ${totalChanges} records, ${totalPages} pages, page size ${adaptivePageSize}`)
 
     let totalSynced = 0
     let totalFailed = 0
     let currentPage = 1
     let offset = 0
 
-    // 并发控制
+    // Concurrency control
     const semaphore = new Semaphore(syncConfig.maxConcurrentPages)
     const pagePromises: Promise<void>[] = []
 
@@ -136,7 +136,7 @@ export class SyncEngine {
       const pageOffset = offset
       const pageNumber = currentPage
 
-      // 创建页面处理任务
+      // Create page processing task
       const pagePromise = semaphore.acquire().then(async (release) => {
         try {
           const pageResult = await this.processLargeDataPage(tableName, adaptivePageSize, pageOffset, pageNumber, totalPages)
@@ -144,8 +144,8 @@ export class SyncEngine {
           totalSynced += pageResult.synced
           totalFailed += pageResult.failed
         } catch (error) {
-          logger.error(`页面 ${pageNumber} 处理失败:`, error)
-          totalFailed += adaptivePageSize // 估算失败数量
+          logger.error(`Page ${pageNumber} processing failed:`, error)
+          totalFailed += adaptivePageSize // Estimate failed count
         } finally {
           release()
         }
@@ -156,19 +156,19 @@ export class SyncEngine {
       offset += adaptivePageSize
       currentPage++
 
-      // 控制并发数量，避免创建过多Promise
+      // Control concurrency count, avoid creating too many Promises
       if (pagePromises.length >= syncConfig.maxConcurrentPages * 2) {
         await Promise.all(pagePromises.splice(0, syncConfig.maxConcurrentPages))
       }
     }
 
-    // 等待所有页面处理完成
+    // Wait for all pages to complete processing
     await Promise.all(pagePromises)
 
     const duration = Date.now() - startTime
     const throughput = Math.round(totalSynced / (duration / 1000))
 
-    const message = `大数据量同步完成: ${totalPages} 页, 成功 ${totalSynced}, 失败 ${totalFailed}, 耗时 ${duration}ms, 吞吐量 ${throughput} 条/秒`
+    const message = `Large data sync completed: ${totalPages} pages, ${totalSynced} succeeded, ${totalFailed} failed, duration ${duration}ms, throughput ${throughput} records/sec`
 
     return {
       success: totalFailed === 0,
@@ -179,20 +179,20 @@ export class SyncEngine {
   }
 
   /**
-   * 处理一批变更记录
+   * Process a batch of change records
    */
   private async processBatchChanges(tableName: string, changes: ChangeRecord[]): Promise<SyncResponse> {
     const semaphore = new Semaphore(syncConfig.maxConcurrentBatches)
     let batchSynced = 0
     let batchFailed = 0
 
-    // 智能压缩当前页的变更记录（如果启用）
+    // Intelligently compress current page's change records (if enabled)
     const compressedChanges = syncConfig.compressionEnabled ? this.compressChanges(changes) : changes
     if (syncConfig.compressionEnabled) {
-      this.logCompressionStats(changes, compressedChanges, '分页')
+      this.logCompressionStats(changes, compressedChanges, 'Pagination')
     }
 
-    // 将页面数据再分成小批次
+    // Split page data into smaller batches
     const batches: ChangeRecord[][] = []
     for (let i = 0; i < compressedChanges.length; i += syncConfig.batchSize) {
       batches.push(compressedChanges.slice(i, i + syncConfig.batchSize))
@@ -211,7 +211,7 @@ export class SyncEngine {
           const conflictIds = batch.filter((b) => conflictUUIDs.has(b.record_uuid)).map((b) => b.id)
           const successIds = batch.filter((b) => !conflictUUIDs.has(b.record_uuid)).map((b) => b.id)
 
-          // 标记状态
+          // Mark status
           this.db.markChangesSynced(successIds)
           if (conflictIds.length > 0) {
             const reason = (res.conflicts || []).map((c) => `${c.uuid}:${c.reason}`).join(',')
@@ -221,12 +221,12 @@ export class SyncEngine {
           batchSynced += successIds.length
           batchFailed += conflictIds.length
         } catch (e: any) {
-          // 检查是否是网络连接错误
+          // Check if it's a network connection error
           if (e?.message === 'NETWORK_UNAVAILABLE' || e?.isNetworkError) {
-            logger.warn('服务器不可用，跳过批次上传')
-            // 网络错误不计入失败次数
+            logger.warn('Server unavailable, skip batch upload')
+            // Network errors are not counted as failures
           } else {
-            logger.error('批次上传失败', e?.message)
+            logger.error('Batch upload failed', e?.message)
             batchFailed += batch.length
           }
         } finally {
@@ -237,7 +237,7 @@ export class SyncEngine {
 
     return {
       success: batchFailed === 0,
-      message: '批次处理完成',
+      message: 'Batch processing completed',
       synced_count: batchSynced,
       failed_count: batchFailed
     }
@@ -262,7 +262,7 @@ export class SyncEngine {
     let applied = 0
     let lastSeq = since
 
-    // 开启远端应用守卫，抑制触发器写入change_log
+    // Enable remote apply guard to suppress trigger writing to change_log
     this.db.setRemoteApplyGuard(true)
     try {
       let hasMore = true
@@ -289,12 +289,12 @@ export class SyncEngine {
       this.db.setRemoteApplyGuard(false)
     }
 
-    logger.info(`下载并应用云端变更完成: ${applied} 条, lastSeq=${lastSeq}`)
+    logger.info(`Download and apply cloud changes completed: ${applied} records, lastSeq=${lastSeq}`)
     return { applied, lastSeq }
   }
 
   async fullSyncAndApply(tableName: string): Promise<number> {
-    // 全量拉取并应用，默认按 INSERT 方式 upsert
+    // Full pull and apply, default to INSERT mode upsert
     this.db.setRemoteApplyGuard(true)
     try {
       const res = await this.api.fullSync(tableName)
@@ -309,7 +309,7 @@ export class SyncEngine {
         }
         applied += 1
       }
-      logger.info(`全量同步应用完成: ${tableName} 共 ${applied} 条`)
+      logger.info(`Full sync application completed: ${tableName}, total ${applied} records`)
       return applied
     } finally {
       this.db.setRemoteApplyGuard(false)
@@ -319,7 +319,7 @@ export class SyncEngine {
   private async applySingleChange(ch: ServerChangeLog) {
     const raw = ch.change_data ? JSON.parse(ch.change_data) : {}
 
-    // 支持多种表名格式（客户端和服务端命名约定）
+    // Support multiple table name formats (client and server naming conventions)
     let baseTable: string
     let shouldApplyToAssets = false
     let shouldApplyToChains = false
@@ -332,7 +332,7 @@ export class SyncEngine {
       shouldApplyToChains = true
     } else {
       baseTable = ch.target_table
-      logger.warn(`无法识别的表名: ${ch.target_table}，跳过应用`)
+      logger.warn(`Unrecognized table name: ${ch.target_table}, skip application`)
       return
     }
 
@@ -349,12 +349,12 @@ export class SyncEngine {
     if (!data) return data
     try {
       const service = getEncryptionService()
-      logger.info('加密服务状态:', service ? '已获取' : '未获取')
+      logger.info('Encryption service status:', service ? 'Obtained' : 'Not obtained')
 
       if (tableName === 't_assets_sync') {
         const cipher: string | undefined = typeof data.data_cipher_text === 'string' ? data.data_cipher_text : undefined
         if (cipher) {
-          logger.info('开始解密 t_assets_sync 数据...')
+          logger.info('Starting to decrypt t_assets_sync data...')
           const sensitive = await decryptPayload(cipher, service)
           if (sensitive && sensitive.password !== undefined) {
             data.password = sensitive.password
@@ -372,7 +372,7 @@ export class SyncEngine {
       } else if (tableName === 't_asset_chains_sync') {
         const cipher: string | undefined = typeof data.data_cipher_text === 'string' ? data.data_cipher_text : undefined
         if (cipher) {
-          logger.info('开始解密 t_asset_chains_sync 数据...')
+          logger.info('Starting to decrypt t_asset_chains_sync data...')
           const sensitive = await decryptPayload(cipher, service)
           if (sensitive.chain_private_key !== undefined) {
             data.chain_private_key = sensitive.chain_private_key
@@ -389,11 +389,11 @@ export class SyncEngine {
         delete data.data_cipher_text
       }
 
-      // 修复：根据表名过滤字段，只保留对应表的字段
+      // Fix: Filter fields by table name, only keep fields for the corresponding table
       data = this.filterFieldsByTable(tableName, data)
     } catch (e) {
-      logger.warn('新格式密文解密失败，按原样应用', e)
-      logger.error('解密异常详情:', {
+      logger.warn('New format ciphertext decryption failed, apply as-is', e)
+      logger.error('Decryption exception details:', {
         error: e,
         message: e instanceof Error ? e.message : String(e),
         stack: e instanceof Error ? e.stack : undefined
@@ -404,15 +404,15 @@ export class SyncEngine {
   }
 
   /**
-   * 根据表名过滤字段，只保留对应表的字段
-   * @param tableName 表名
-   * @param data 数据对象
-   * @returns 过滤后的数据对象
+   * Filter fields by table name, only keep fields for the corresponding table
+   * @param tableName Table name
+   * @param data Data object
+   * @returns Filtered data object
    */
   private filterFieldsByTable(tableName: string, data: any): any {
     if (!data || typeof data !== 'object') return data
 
-    // 定义各表的有效字段
+    // Define valid fields for each table
     const tableFields = {
       t_assets_sync: [
         'uuid',
@@ -447,11 +447,11 @@ export class SyncEngine {
 
     const validFields = tableFields[tableName as keyof typeof tableFields]
     if (!validFields) {
-      logger.warn(`未知的表名: ${tableName}，返回原始数据`)
+      logger.warn(`Unknown table name: ${tableName}, return original data`)
       return data
     }
 
-    // 只保留有效字段
+    // Only keep valid fields
     const filteredData: any = {}
     validFields.forEach((field) => {
       if (field in data) {
@@ -476,7 +476,7 @@ export class SyncEngine {
             const { password, username, need_proxy, proxy_name, ...rest } = record
             return { ...rest, data_cipher_text: combined }
           } catch {
-            // 如果敏感字段存在但加密失败，抛出错误以防止明文上行
+            // If sensitive fields exist but encryption fails, throw error to prevent plaintext upload
             throw new Error('Failed to encrypt sensitive fields for t_assets_sync')
           }
         }
@@ -491,16 +491,16 @@ export class SyncEngine {
             const { chain_private_key, passphrase, chain_public_key, ...rest } = record
             return { ...rest, data_cipher_text: combined }
           } catch {
-            // 如果敏感字段存在但加密失败，抛出错误以防止明文上行
+            // If sensitive fields exist but encryption fails, throw error to prevent plaintext upload
             throw new Error('Failed to encrypt sensitive fields for t_asset_chains_sync')
           }
         }
       }
     } catch (e) {
-      // 加密或服务获取失败都应该中断同步，防止明文外泄
+      // Encryption or service acquisition failure should interrupt sync to prevent plaintext leakage
       throw e instanceof Error ? e : new Error(String(e))
     }
-    // 后端已支持原始数据格式，无需标准化
+    // Backend already supports raw data format, no need for standardization
     return record
   }
 
@@ -519,10 +519,10 @@ export class SyncEngine {
           username: data.username,
           password: data.password,
           key_chain_id: data.key_chain_id ?? undefined,
-          favorite: data.favorite ?? 2, // 保持原始整数值，默认为2（未收藏）
+          favorite: data.favorite ?? 2, // Keep original integer value, default to 2 (not favorited)
           asset_type: data.asset_type,
-          need_proxy: data.need_proxy ?? 0, // 修复：使用下划线命名，默认为0（不需要代理）
-          proxy_name: data.proxy_name ?? '', // 修复：使用下划线命名，默认为空字符串
+          need_proxy: data.need_proxy ?? 0, // Fix: Use underscore naming, default to 0 (no proxy needed)
+          proxy_name: data.proxy_name ?? '', // Fix: Use underscore naming, default to empty string
           created_at: data.created_at ?? new Date().toISOString(),
           updated_at: data.updated_at ?? new Date().toISOString(),
           version: typeof data.version === 'number' ? data.version : 1
@@ -559,26 +559,26 @@ export class SyncEngine {
   }
 
   /**
-   * 智能压缩变更记录
-   * 将同一记录的多次变更合并为最终状态，减少同步工作量
+   * Intelligently compress change records
+   * Merge multiple changes for the same record into final state, reducing sync workload
    *
-   * 压缩规则：
-   * 1. DELETE 操作覆盖之前的所有操作
-   * 2. INSERT + UPDATE = INSERT（使用最新数据）
-   * 3. 多个 UPDATE 合并为最后一个 UPDATE
-   * 4. 已删除的记录忽略后续操作
-   * 5. INSERT + DELETE = 无操作（记录从未存在过）
+   * Compression rules:
+   * 1. DELETE operation overrides all previous operations
+   * 2. INSERT + UPDATE = INSERT (use latest data)
+   * 3. Multiple UPDATEs merge into the last UPDATE
+   * 4. Deleted records ignore subsequent operations
+   * 5. INSERT + DELETE = no operation (record never existed)
    *
-   * @param changes 原始变更记录数组
-   * @returns 压缩后的变更记录数组
+   * @param changes Original change record array
+   * @returns Compressed change record array
    */
   private compressChanges(changes: ChangeRecord[]): ChangeRecord[] {
     if (changes.length <= 1) {
-      return changes // 无需压缩
+      return changes // No compression needed
     }
 
     const recordMap = new Map<string, ChangeRecord>()
-    const deletedRecords = new Set<string>() // 跟踪被删除的记录
+    const deletedRecords = new Set<string>() // Track deleted records
 
     for (const change of changes) {
       const key = `${change.table_name}-${change.record_uuid}`
@@ -592,10 +592,10 @@ export class SyncEngine {
         continue
       }
 
-      // 合并变更逻辑
+      // Merge change logic
       if (change.operation_type === 'DELETE') {
         if (existing.operation_type === 'INSERT') {
-          // INSERT + DELETE = 无操作（记录从未真正存在过）
+          // INSERT + DELETE = no operation (record never truly existed)
           recordMap.delete(key)
           deletedRecords.add(key)
         } else {
@@ -604,36 +604,36 @@ export class SyncEngine {
           deletedRecords.add(key)
         }
       } else if (deletedRecords.has(key)) {
-        // 如果记录已被删除，忽略后续的 INSERT/UPDATE 操作
-        // 这种情况在实际应用中很少见，但为了数据一致性需要处理
+        // If record has been deleted, ignore subsequent INSERT/UPDATE operations
+        // This is rare in practice, but needs to be handled for data consistency
         continue
       } else if (existing.operation_type === 'INSERT' && change.operation_type === 'UPDATE') {
-        // INSERT + UPDATE = INSERT（使用最新数据）
+        // INSERT + UPDATE = INSERT (use latest data)
         recordMap.set(key, {
           ...change,
           operation_type: 'INSERT',
           change_data: change.change_data,
-          // 保留原始 INSERT 的 ID 以维持顺序
+          // Keep original INSERT ID to maintain order
           id: existing.id
         })
       } else if (existing.operation_type === 'UPDATE' && change.operation_type === 'UPDATE') {
-        // UPDATE + UPDATE = UPDATE（使用最新数据）
+        // UPDATE + UPDATE = UPDATE (use latest data)
         recordMap.set(key, {
           ...change,
-          // 保留第一个 UPDATE 的 ID 以维持顺序
+          // Keep first UPDATE ID to maintain order
           id: existing.id
         })
       } else {
-        // 其他情况使用最新的变更
+        // Other cases use the latest change
         recordMap.set(key, change)
       }
     }
 
     const compressed = Array.from(recordMap.values())
 
-    // 按原始 ID 排序，保持操作顺序的一致性
+    // Sort by original ID to maintain operation order consistency
     compressed.sort((a, b) => {
-      // 使用数字 ID 排序，如果 ID 不是数字则按字符串排序
+      // Use numeric ID sorting, if ID is not a number then sort as string
       const aId = typeof a.id === 'number' ? a.id : parseInt(a.id as string, 10)
       const bId = typeof b.id === 'number' ? b.id : parseInt(b.id as string, 10)
 
@@ -641,7 +641,7 @@ export class SyncEngine {
         return aId - bId
       }
 
-      // 如果无法转换为数字，则按字符串排序
+      // If cannot convert to number, sort as string
       return String(a.id).localeCompare(String(b.id))
     })
 
@@ -649,27 +649,27 @@ export class SyncEngine {
   }
 
   /**
-   * 计算最优页面大小
-   * 根据数据量和系统配置自适应调整
+   * Calculate optimal page size
+   * Adaptively adjust based on data volume and system configuration
    */
   private calculateOptimalPageSize(totalChanges: number): number {
     if (!syncConfig.adaptivePageSize) {
       return syncConfig.pageSize
     }
 
-    // 基于总数据量的自适应算法
+    // Adaptive algorithm based on total data volume
     if (totalChanges <= 10000) {
-      return Math.min(syncConfig.pageSize, 1000) // 小数据量用较小页面
+      return Math.min(syncConfig.pageSize, 1000) // Small data volume uses smaller pages
     } else if (totalChanges <= 50000) {
-      return Math.min(syncConfig.pageSize * 1.5, 1500) // 中等数据量
+      return Math.min(syncConfig.pageSize * 1.5, 1500) // Medium data volume
     } else {
-      return Math.min(syncConfig.pageSize * 2, 2000) // 大数据量用较大页面
+      return Math.min(syncConfig.pageSize * 2, 2000) // Large data volume uses larger pages
     }
   }
 
   /**
-   * 处理大数据量的单个页面
-   * 集成智能压缩和内存优化
+   * Process a single page of large data volume
+   * Integrates intelligent compression and memory optimization
    */
   private async processLargeDataPage(
     tableName: string,
@@ -679,28 +679,28 @@ export class SyncEngine {
     totalPages: number
   ): Promise<{ synced: number; failed: number }> {
     try {
-      // 分页获取数据（内存优化）
+      // Paginated data retrieval (memory optimization)
       const pageChanges = this.db.getPendingChangesPage(tableName, pageSize, offset)
 
       if (pageChanges.length === 0) {
         return { synced: 0, failed: 0 }
       }
 
-      logger.debug(`处理页面 ${pageNumber}/${totalPages}: ${pageChanges.length} 条变更`)
+      logger.debug(`Processing page ${pageNumber}/${totalPages}: ${pageChanges.length} changes`)
 
-      // 应用智能压缩
+      // Apply intelligent compression
       const compressedChanges = syncConfig.compressionEnabled ? this.compressChanges(pageChanges) : pageChanges
 
       if (syncConfig.compressionEnabled && compressedChanges.length < pageChanges.length) {
-        logger.debug(`页面 ${pageNumber} 压缩: ${pageChanges.length} -> ${compressedChanges.length}`)
+        logger.debug(`Page ${pageNumber} compressed: ${pageChanges.length} -> ${compressedChanges.length}`)
       }
 
-      // 处理压缩后的变更
+      // Process compressed changes
       const result = await this.processBatchChanges(tableName, compressedChanges)
 
-      // 内存优化：及时清理大对象
+      // Memory optimization: timely cleanup of large objects
       if (syncConfig.memoryOptimization) {
-        // 强制垃圾回收提示（在支持的环境中）
+        // Force garbage collection hint (in supported environments)
         if (global.gc && pageNumber % 10 === 0) {
           global.gc()
         }
@@ -711,43 +711,43 @@ export class SyncEngine {
         failed: result.failed_count || 0
       }
     } catch (error) {
-      logger.error(`页面 ${pageNumber} 处理异常:`, error)
+      logger.error(`Page ${pageNumber} processing exception:`, error)
       return { synced: 0, failed: pageSize }
     }
   }
 
   /**
-   * 分析压缩效果并记录详细统计信息
-   * @param original 原始变更记录
-   * @param compressed 压缩后的变更记录
-   * @param context 上下文信息（如 "批量同步" 或 "页面同步"）
+   * Analyze compression effectiveness and record detailed statistics
+   * @param original Original change records
+   * @param compressed Compressed change records
+   * @param context Context information (e.g., "Batch sync" or "Page sync")
    */
-  private logCompressionStats(original: ChangeRecord[], compressed: ChangeRecord[], context: string = '同步'): void {
+  private logCompressionStats(original: ChangeRecord[], compressed: ChangeRecord[], context: string = 'Sync'): void {
     if (original.length === compressed.length) {
-      return // 无压缩效果，不记录
+      return // No compression effect, don't log
     }
 
     const reduction = original.length - compressed.length
     const reductionPercentage = Math.round((reduction / original.length) * 100)
 
-    // 统计操作类型分布
+    // Statistics of operation type distribution
     const originalStats = this.getOperationStats(original)
     const compressedStats = this.getOperationStats(compressed)
 
-    logger.info(`${context}压缩统计:`, {
-      原始记录数: original.length,
-      压缩后记录数: compressed.length,
-      减少数量: reduction,
-      压缩率: `${reductionPercentage}%`,
-      原始分布: originalStats,
-      压缩后分布: compressedStats
+    logger.info(`${context} compression statistics:`, {
+      originalCount: original.length,
+      compressedCount: compressed.length,
+      reduction: reduction,
+      compressionRate: `${reductionPercentage}%`,
+      originalDistribution: originalStats,
+      compressedDistribution: compressedStats
     })
   }
 
   /**
-   * 统计操作类型分布
-   * @param changes 变更记录数组
-   * @returns 操作类型统计对象
+   * Statistics of operation type distribution
+   * @param changes Change record array
+   * @returns Operation type statistics object
    */
   private getOperationStats(changes: ChangeRecord[]): Record<string, number> {
     const stats: Record<string, number> = { INSERT: 0, UPDATE: 0, DELETE: 0 }

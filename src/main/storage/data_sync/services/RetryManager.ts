@@ -1,12 +1,12 @@
 import { logger } from '../utils/logger'
 
 export interface RetryConfig {
-  maxAttempts: number // 最大重试次数
-  baseDelay: number // 基础延迟(ms)
-  maxDelay: number // 最大延迟(ms)
-  backoffMultiplier: number // 退避倍数
-  jitter: boolean // 是否添加随机抖动
-  retryableErrors: string[] // 可重试的错误类型
+  maxAttempts: number // Maximum retry attempts
+  baseDelay: number // Base delay (ms)
+  maxDelay: number // Maximum delay (ms)
+  backoffMultiplier: number // Backoff multiplier
+  jitter: boolean // Whether to add random jitter
+  retryableErrors: string[] // Retryable error types
 }
 
 export interface RetryResult<T> {
@@ -33,7 +33,7 @@ export class RetryManager {
   }
 
   /**
-   * 执行带重试的操作
+   * Execute operation with retry
    */
   async executeWithRetry<T>(operation: () => Promise<T>, operationName: string = 'operation'): Promise<RetryResult<T>> {
     let lastError: Error | null = null
@@ -41,12 +41,12 @@ export class RetryManager {
 
     for (let attempt = 1; attempt <= this.config.maxAttempts; attempt++) {
       try {
-        logger.debug(`执行操作 ${operationName}, 尝试 ${attempt}/${this.config.maxAttempts}`)
+        logger.debug(`Executing operation ${operationName}, attempt ${attempt}/${this.config.maxAttempts}`)
 
         const result = await operation()
 
         if (attempt > 1) {
-          logger.info(`操作 ${operationName} 在第 ${attempt} 次尝试后成功`)
+          logger.info(`Operation ${operationName} succeeded after ${attempt} attempts`)
         }
 
         return {
@@ -58,11 +58,11 @@ export class RetryManager {
       } catch (error: any) {
         lastError = error
 
-        logger.warn(`操作 ${operationName} 第 ${attempt} 次尝试失败: ${error?.message}`)
+        logger.warn(`Operation ${operationName} attempt ${attempt} failed: ${error?.message}`)
 
-        // 检查是否为可重试的错误
+        // Check if error is retryable
         if (!this.isRetryableError(error)) {
-          logger.error(`操作 ${operationName} 遇到不可重试错误: ${error?.message}`)
+          logger.error(`Operation ${operationName} encountered non-retryable error: ${error?.message}`)
           return {
             success: false,
             error,
@@ -71,18 +71,18 @@ export class RetryManager {
           }
         }
 
-        // 如果不是最后一次尝试，则等待后重试
+        // If not the last attempt, wait and retry
         if (attempt < this.config.maxAttempts) {
           const delay = this.calculateDelay(attempt)
           totalDelay += delay
 
-          logger.debug(`等待 ${delay}ms 后重试操作 ${operationName}`)
+          logger.debug(`Waiting ${delay}ms before retrying operation ${operationName}`)
           await this.sleep(delay)
         }
       }
     }
 
-    logger.error(`操作 ${operationName} 在 ${this.config.maxAttempts} 次尝试后仍然失败`)
+    logger.error(`Operation ${operationName} still failed after ${this.config.maxAttempts} attempts`)
 
     return {
       success: false,
@@ -93,7 +93,7 @@ export class RetryManager {
   }
 
   /**
-   * 检查错误是否可重试
+   * Check if error is retryable
    */
   private isRetryableError(error: any): boolean {
     if (!error) return false
@@ -101,39 +101,39 @@ export class RetryManager {
     const errorCode = error.code || error.errno || ''
     const errorMessage = error.message || ''
 
-    // 检查错误代码
+    // Check error code
     if (this.config.retryableErrors.some((code) => errorCode.includes(code))) {
       return true
     }
 
-    // 检查HTTP状态码
+    // Check HTTP status code
     if (error.response?.status) {
       const status = error.response.status
-      // 5xx服务器错误和部分4xx错误可重试
+      // 5xx server errors and some 4xx errors are retryable
       if (status >= 500 || status === 408 || status === 429) {
         return true
       }
     }
 
-    // 检查错误消息
+    // Check error message
     const retryableMessages = ['timeout', 'connection reset', 'connection refused', 'network error', 'socket hang up']
 
     return retryableMessages.some((msg) => errorMessage.toLowerCase().includes(msg))
   }
 
   /**
-   * 计算延迟时间
+   * Calculate delay time
    */
   private calculateDelay(attempt: number): number {
-    // 指数退避
+    // Exponential backoff
     let delay = this.config.baseDelay * Math.pow(this.config.backoffMultiplier, attempt - 1)
 
-    // 限制最大延迟
+    // Limit maximum delay
     delay = Math.min(delay, this.config.maxDelay)
 
-    // 添加随机抖动，避免惊群效应
+    // Add random jitter to avoid thundering herd effect
     if (this.config.jitter) {
-      const jitterRange = delay * 0.1 // 10%的抖动
+      const jitterRange = delay * 0.1 // 10% jitter
       const jitter = (Math.random() - 0.5) * 2 * jitterRange
       delay += jitter
     }
@@ -142,32 +142,32 @@ export class RetryManager {
   }
 
   /**
-   * 睡眠指定时间
+   * Sleep for specified time
    */
   private sleep(ms: number): Promise<void> {
     return new Promise((resolve) => setTimeout(resolve, ms))
   }
 
   /**
-   * 更新配置
+   * Update configuration
    */
   updateConfig(config: Partial<RetryConfig>): void {
     this.config = { ...this.config, ...config }
   }
 
   /**
-   * 获取当前配置
+   * Get current configuration
    */
   getConfig(): RetryConfig {
     return { ...this.config }
   }
 }
 
-// 创建默认的重试管理器实例
+// Create default retry manager instance
 export const defaultRetryManager = new RetryManager()
 
 /**
- * 便捷的重试函数
+ * Convenient retry function
  */
 export async function withRetry<T>(operation: () => Promise<T>, config?: Partial<RetryConfig>, operationName?: string): Promise<T> {
   const retryManager = config ? new RetryManager(config) : defaultRetryManager

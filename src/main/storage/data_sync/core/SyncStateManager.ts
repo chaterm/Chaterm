@@ -1,7 +1,7 @@
 /**
- * 同步状态管理器
- * 负责全量同步和增量同步的互斥控制，确保数据一致性
- * 支持同步开关管理和用户切换处理
+ * Sync State Manager
+ * Manages mutual exclusion control between full sync and incremental sync to ensure data consistency
+ * Supports sync toggle management and user switching handling
  */
 
 import { logger } from '../utils/logger'
@@ -13,28 +13,28 @@ export enum SyncType {
 }
 
 export enum SyncState {
-  DISABLED = 'disabled', // 同步已禁用
-  IDLE = 'idle', // 空闲状态
-  RUNNING = 'running', // 同步进行中
-  PAUSED = 'paused', // 暂停状态
-  ERROR = 'error' // 错误状态
+  DISABLED = 'disabled', // Sync is disabled
+  IDLE = 'idle', // Idle state
+  RUNNING = 'running', // Sync in progress
+  PAUSED = 'paused', // Paused state
+  ERROR = 'error' // Error state
 }
 
 export interface SyncStatus {
   type: SyncType
   state: SyncState
-  enabled: boolean // 同步是否启用
-  currentUserId?: number // 当前用户ID
+  enabled: boolean // Whether sync is enabled
+  currentUserId?: number // Current user ID
   startTime?: Date
   progress?: number // 0-100
   message?: string
   error?: Error
-  lastSyncTime?: Date // 最后同步时间
+  lastSyncTime?: Date // Last sync time
 }
 
 /**
- * 同步状态管理器
- * 实现同步操作的互斥控制和状态管理
+ * Sync State Manager
+ * Implements mutual exclusion control and state management for sync operations
  */
 export class SyncStateManager {
   private currentStatus: SyncStatus = {
@@ -53,30 +53,30 @@ export class SyncStateManager {
   private listeners: Array<(status: SyncStatus) => void> = []
 
   /**
-   * 获取当前同步状态
+   * Get current sync status
    */
   getCurrentStatus(): SyncStatus {
     return { ...this.currentStatus }
   }
 
   /**
-   * 启用同步
+   * Enable sync
    */
   enableSync(userId?: number): void {
     this.updateStatus({
       enabled: true,
       currentUserId: userId,
       state: SyncState.IDLE,
-      message: '同步已启用'
+      message: 'Sync enabled'
     })
-    logger.info(`同步已启用${userId ? ` (用户: ${userId})` : ''}`)
+    logger.info(`Sync enabled${userId ? ` (user: ${userId})` : ''}`)
   }
 
   /**
-   * 禁用同步
+   * Disable sync
    */
   disableSync(): void {
-    // 如果有正在进行的同步，先停止
+    // If sync is in progress, stop it first
     if (this.currentStatus.state === SyncState.RUNNING) {
       this.forceStop()
     }
@@ -85,64 +85,64 @@ export class SyncStateManager {
       enabled: false,
       state: SyncState.DISABLED,
       type: SyncType.NONE,
-      message: '同步已禁用'
+      message: 'Sync disabled'
     })
-    logger.info('同步已禁用')
+    logger.info('Sync disabled')
   }
 
   /**
-   * 检查同步是否启用
+   * Check if sync is enabled
    */
   isSyncEnabled(): boolean {
     return this.currentStatus.enabled
   }
 
   /**
-   * 用户切换处理
+   * Handle user switching
    */
   async switchUser(newUserId: number): Promise<void> {
     const previousUserId = this.currentStatus.currentUserId
 
     if (previousUserId === newUserId) {
-      logger.info(`用户未变化 (${newUserId})，无需切换`)
+      logger.info(`User unchanged (${newUserId}), no switch needed`)
       return
     }
 
-    logger.info(`用户切换: ${previousUserId} -> ${newUserId}`)
+    logger.info(`User switching: ${previousUserId} -> ${newUserId}`)
 
-    // 停止当前所有同步操作
+    // Stop all current sync operations
     await this.forceStop()
 
-    // 更新用户ID，保持同步启用状态
+    // Update user ID, keep sync enabled state
     this.updateStatus({
       currentUserId: newUserId,
       state: this.currentStatus.enabled ? SyncState.IDLE : SyncState.DISABLED,
       type: SyncType.NONE,
-      message: `已切换到用户 ${newUserId}`
+      message: `Switched to user ${newUserId}`
     })
   }
 
   /**
-   * 检查是否可以开始指定类型的同步
+   * Check if sync of specified type can be started
    */
   canStartSync(type: SyncType): boolean {
-    // 如果同步未启用，不能开始同步
+    // If sync is not enabled, cannot start sync
     if (!this.currentStatus.enabled) {
       return false
     }
 
-    // 空闲状态可以开始任何同步
+    // Idle state can start any sync
     if (this.currentStatus.state === SyncState.IDLE) {
       return true
     }
 
-    // 如果当前正在进行同步，需要检查优先级
+    // If sync is currently in progress, need to check priority
     if (this.currentStatus.state === SyncState.RUNNING) {
-      // 全量同步优先级最高，可以中断增量同步
+      // Full sync has highest priority, can interrupt incremental sync
       if (type === SyncType.FULL && this.currentStatus.type === SyncType.INCREMENTAL) {
         return true
       }
-      // 其他情况不允许中断
+      // Other cases do not allow interruption
       return false
     }
 
@@ -150,34 +150,34 @@ export class SyncStateManager {
   }
 
   /**
-   * 请求开始同步（带排队机制）
+   * Request to start sync (with queuing mechanism)
    */
   async requestSync(type: SyncType): Promise<void> {
     if (this.canStartSync(type)) {
-      // 如果可以立即开始，直接执行
+      // If can start immediately, execute directly
       await this.startSync(type)
       return
     }
 
-    // 否则进入等待队列
+    // Otherwise enter waiting queue
     return new Promise((resolve, reject) => {
-      const priority = type === SyncType.FULL ? 1 : 2 // 全量同步优先级更高
+      const priority = type === SyncType.FULL ? 1 : 2 // Full sync has higher priority
       this.pendingOperations.push({ type, priority, resolve, reject })
 
-      // 按优先级排序
+      // Sort by priority
       this.pendingOperations.sort((a, b) => a.priority - b.priority)
 
-      logger.info(`同步请求已排队: ${type}, 队列长度: ${this.pendingOperations.length}`)
+      logger.info(`Sync request queued: ${type}, queue length: ${this.pendingOperations.length}`)
     })
   }
 
   /**
-   * 开始同步
+   * Start sync
    */
   private async startSync(type: SyncType): Promise<void> {
-    // 如果需要中断当前同步
+    // If need to interrupt current sync
     if (this.currentStatus.state === SyncState.RUNNING && type === SyncType.FULL && this.currentStatus.type === SyncType.INCREMENTAL) {
-      logger.warn('全量同步中断增量同步')
+      logger.warn('Full sync interrupting incremental sync')
       await this.pauseCurrentSync()
     }
 
@@ -186,14 +186,14 @@ export class SyncStateManager {
       state: SyncState.RUNNING,
       startTime: new Date(),
       progress: 0,
-      message: `开始${type === SyncType.FULL ? '全量' : '增量'}同步`
+      message: `Starting ${type === SyncType.FULL ? 'full' : 'incremental'} sync`
     })
 
-    logger.info(`开始${type === SyncType.FULL ? '全量' : '增量'}同步`)
+    logger.info(`Starting ${type === SyncType.FULL ? 'full' : 'incremental'} sync`)
   }
 
   /**
-   * 更新同步进度
+   * Update sync progress
    */
   updateProgress(progress: number, message?: string): void {
     if (this.currentStatus.state === SyncState.RUNNING) {
@@ -206,11 +206,11 @@ export class SyncStateManager {
   }
 
   /**
-   * 完成同步
+   * Finish sync
    */
   async finishSync(): Promise<void> {
     if (this.currentStatus.state !== SyncState.RUNNING) {
-      logger.warn('尝试完成非运行状态的同步')
+      logger.warn('Attempting to finish sync that is not in running state')
       return
     }
 
@@ -222,17 +222,17 @@ export class SyncStateManager {
       state: SyncState.IDLE,
       progress: 100,
       lastSyncTime: new Date(),
-      message: `${syncType === SyncType.FULL ? '全量' : '增量'}同步完成`
+      message: `${syncType === SyncType.FULL ? 'Full' : 'Incremental'} sync completed`
     })
 
-    logger.info(`${syncType === SyncType.FULL ? '全量' : '增量'}同步完成，耗时: ${duration}ms`)
+    logger.info(`${syncType === SyncType.FULL ? 'Full' : 'Incremental'} sync completed, duration: ${duration}ms`)
 
-    // 处理等待队列
+    // Process waiting queue
     await this.processNextInQueue()
   }
 
   /**
-   * 同步失败
+   * Sync failed
    */
   async failSync(error: Error): Promise<void> {
     const syncType = this.currentStatus.type
@@ -241,12 +241,12 @@ export class SyncStateManager {
       type: SyncType.NONE,
       state: SyncState.ERROR,
       error,
-      message: `${syncType === SyncType.FULL ? '全量' : '增量'}同步失败: ${error.message}`
+      message: `${syncType === SyncType.FULL ? 'Full' : 'Incremental'} sync failed: ${error.message}`
     })
 
-    logger.error(`${syncType === SyncType.FULL ? '全量' : '增量'}同步失败:`, error)
+    logger.error(`${syncType === SyncType.FULL ? 'Full' : 'Incremental'} sync failed:`, error)
 
-    // 短暂等待后恢复空闲状态（仅在同步启用时）
+    // Restore idle state after brief wait (only when sync is enabled)
     setTimeout(async () => {
       if (this.currentStatus.enabled) {
         this.updateStatus({
@@ -255,26 +255,26 @@ export class SyncStateManager {
         })
         await this.processNextInQueue()
       }
-    }, 5000) // 5秒后恢复
+    }, 5000) // Restore after 5 seconds
   }
 
   /**
-   * 暂停当前同步
+   * Pause current sync
    */
   private async pauseCurrentSync(): Promise<void> {
     if (this.currentStatus.state === SyncState.RUNNING) {
       this.updateStatus({
         ...this.currentStatus,
         state: SyncState.PAUSED,
-        message: '同步已暂停'
+        message: 'Sync paused'
       })
 
-      logger.info(`${this.currentStatus.type}同步已暂停`)
+      logger.info(`${this.currentStatus.type} sync paused`)
     }
   }
 
   /**
-   * 处理等待队列中的下一个操作
+   * Process next operation in waiting queue
    */
   private async processNextInQueue(): Promise<void> {
     if (this.pendingOperations.length === 0) {
@@ -292,14 +292,14 @@ export class SyncStateManager {
   }
 
   /**
-   * 添加状态监听器
+   * Add status listener
    */
   addStatusListener(listener: (status: SyncStatus) => void): void {
     this.listeners.push(listener)
   }
 
   /**
-   * 移除状态监听器
+   * Remove status listener
    */
   removeStatusListener(listener: (status: SyncStatus) => void): void {
     const index = this.listeners.indexOf(listener)
@@ -309,43 +309,43 @@ export class SyncStateManager {
   }
 
   /**
-   * 更新状态并通知监听器
+   * Update status and notify listeners
    */
   private updateStatus(status: Partial<SyncStatus>): void {
     this.currentStatus = { ...this.currentStatus, ...status }
 
-    // 通知所有监听器
+    // Notify all listeners
     this.listeners.forEach((listener) => {
       try {
         listener(this.getCurrentStatus())
       } catch (error) {
-        logger.error('状态监听器执行失败:', error)
+        logger.error('Status listener execution failed:', error)
       }
     })
   }
 
   /**
-   * 强制停止所有同步
+   * Force stop all sync operations
    */
   async forceStop(): Promise<void> {
-    // 清空等待队列
+    // Clear waiting queue
     this.pendingOperations.forEach((op) => {
-      op.reject(new Error('同步被强制停止'))
+      op.reject(new Error('Sync force stopped'))
     })
     this.pendingOperations = []
 
-    // 重置状态，保持启用状态
+    // Reset state, keep enabled state
     this.updateStatus({
       type: SyncType.NONE,
       state: this.currentStatus.enabled ? SyncState.IDLE : SyncState.DISABLED,
-      message: '同步已停止'
+      message: 'Sync stopped'
     })
 
-    logger.info('所有同步操作已强制停止')
+    logger.info('All sync operations force stopped')
   }
 
   /**
-   * 获取等待队列信息
+   * Get waiting queue information
    */
   getQueueInfo(): { length: number; types: SyncType[] } {
     return {

@@ -34,20 +34,20 @@ class StructuredLogger {
   private fileLoggingEnabled: boolean
 
   constructor() {
-    // 使用与数据库相同的用户数据目录
+    // Use the same user data directory as the database
     let userDataPath: string
     try {
       const { app } = require('electron')
       userDataPath = app.getPath('userData')
     } catch (error) {
-      // 测试环境fallback
+      // Test environment fallback
       userDataPath = path.join(process.cwd(), 'test_data')
     }
     this.logDir = path.join(userDataPath, 'logs', 'sync')
     this.currentDate = new Date().toISOString().split('T')[0] // YYYY-MM-DD format
     this.logFile = path.join(this.logDir, `sync-${this.currentDate}.log`)
 
-    // 从环境变量或配置中读取是否启用文件日志
+    // Read whether to enable file logging from environment variables or config
     this.fileLoggingEnabled = process.env.ENABLE_FILE_LOGGING !== 'false' && syncConfig.fileLoggingEnabled !== false
 
     this.ensureLogDirectory()
@@ -127,7 +127,7 @@ class StructuredLogger {
       const logLine = JSON.stringify(entry) + '\n'
       fs.appendFileSync(logFile, logLine)
     } catch (error) {
-      // 如果写文件失败，至少输出到控制台
+      // If file write fails, at least output to console
       console.error('Failed to write to log file:', error)
     }
   }
@@ -149,7 +149,7 @@ class StructuredLogger {
 
     const entry = this.formatLogEntry(level, message, meta, options)
 
-    // 控制台输出（格式化）
+    // Console output (formatted)
     const consoleMessage = `[${entry.timestamp}] [${level.toUpperCase()}] ${message}`
     const consoleMethod = level === 'error' ? console.error : level === 'warn' ? console.warn : level === 'debug' ? console.debug : console.log
 
@@ -159,7 +159,7 @@ class StructuredLogger {
       consoleMethod(consoleMessage)
     }
 
-    // 写入文件（结构化）
+    // Write to file (structured)
     this.writeToFile(entry)
   }
 
@@ -179,7 +179,7 @@ class StructuredLogger {
     this.log('error', message, meta, options)
   }
 
-  // 性能监控日志
+  // Performance monitoring log
   performance(operation: string, duration: number, success: boolean, meta?: any): void {
     this.info(
       `Performance: ${operation}`,
@@ -196,7 +196,7 @@ class StructuredLogger {
     )
   }
 
-  // 同步操作日志
+  // Sync operation log
   sync(operation: string, message: string, meta?: any): void {
     this.info(message, meta, {
       component: 'sync',
@@ -204,7 +204,7 @@ class StructuredLogger {
     })
   }
 
-  // 网络请求日志
+  // Network request log
   network(method: string, url: string, status: number, duration: number, error?: Error): void {
     const level = error ? 'error' : status >= 400 ? 'warn' : 'info'
     this.log(
@@ -226,8 +226,8 @@ class StructuredLogger {
   }
 
   /**
-   * 设置是否启用文件日志
-   * @param enabled 是否启用文件日志
+   * Set whether to enable file logging
+   * @param enabled Whether to enable file logging
    */
   setFileLoggingEnabled(enabled: boolean): void {
     this.fileLoggingEnabled = enabled
@@ -237,15 +237,15 @@ class StructuredLogger {
   }
 
   /**
-   * 获取当前日志文件路径
+   * Get current log file path
    */
   getCurrentLogFilePath(): string {
     return this.getCurrentLogFile()
   }
 
   /**
-   * 清理旧的日志文件（保留最近N天的日志）
-   * @param daysToKeep 保留的天数，默认7天
+   * Clean up old log files (keep logs from the last N days)
+   * @param daysToKeep Number of days to keep, default 7 days
    */
   cleanupOldLogs(daysToKeep: number = 7): void {
     if (!this.fileLoggingEnabled || !fs.existsSync(this.logDir)) {

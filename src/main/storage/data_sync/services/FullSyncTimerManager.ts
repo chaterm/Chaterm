@@ -1,23 +1,23 @@
 import { logger } from '../utils/logger'
 
 export interface FullSyncTimerConfig {
-  intervalHours: number // 定时器间隔（小时）
-  enableOnStart: boolean // 启动时是否自动开启定时器
+  intervalHours: number // Timer interval in hours
+  enableOnStart: boolean // Whether to automatically enable timer on start
 }
 
 export interface FullSyncTimerStatus {
-  isEnabled: boolean // 定时器是否启用
-  isRunning: boolean // 是否正在执行全量同步
-  intervalMs: number // 定时器间隔（毫秒）
-  lastFullSyncTime: Date | null // 上次全量同步时间
-  nextFullSyncTime: Date | null // 下次全量同步时间
-  totalFullSyncs: number // 总全量同步次数
-  successfulFullSyncs: number // 成功的全量同步次数
+  isEnabled: boolean // Whether the timer is enabled
+  isRunning: boolean // Whether full sync is currently running
+  intervalMs: number // Timer interval in milliseconds
+  lastFullSyncTime: Date | null // Last full sync time
+  nextFullSyncTime: Date | null // Next full sync time
+  totalFullSyncs: number // Total number of full syncs
+  successfulFullSyncs: number // Number of successful full syncs
 }
 
 /**
- * 全量同步定时器管理器
- * 负责定期执行全量同步，确保本地数据与服务端保持一致
+ * Full sync timer manager
+ * Responsible for periodically executing full sync to ensure local data stays consistent with server
  */
 export class FullSyncTimerManager {
   private config: FullSyncTimerConfig
@@ -29,15 +29,15 @@ export class FullSyncTimerManager {
 
   constructor(config?: Partial<FullSyncTimerConfig>, fullSyncCallback?: () => Promise<void>, conflictCheckCallback?: () => Promise<boolean>) {
     this.config = {
-      intervalHours: 1, // 默认每1小时执行一次
-      enableOnStart: false, // 默认不自动启动
+      intervalHours: 1, // Default: execute every 1 hour
+      enableOnStart: false, // Default: do not auto-start
       ...config
     }
 
     this.status = {
       isEnabled: false,
       isRunning: false,
-      intervalMs: this.config.intervalHours * 60 * 60 * 1000, // 转换为毫秒
+      intervalMs: this.config.intervalHours * 60 * 60 * 1000, // Convert to milliseconds
       lastFullSyncTime: null,
       nextFullSyncTime: null,
       totalFullSyncs: 0,
@@ -49,116 +49,118 @@ export class FullSyncTimerManager {
   }
 
   /**
-   * 设置全量同步回调函数
+   * Set full sync callback function
    */
   setFullSyncCallback(callback: () => Promise<void>): void {
     this.fullSyncCallback = callback
-    logger.debug('全量同步回调函数已设置')
+    logger.debug('Full sync callback function has been set')
   }
 
   /**
-   * 设置冲突检查回调函数
-   * 返回true表示有冲突（增量同步正在进行），应该跳过全量同步
+   * Set conflict check callback function
+   * Returns true if there is a conflict (incremental sync is in progress), should skip full sync
    */
   setConflictCheckCallback(callback: () => Promise<boolean>): void {
     this.conflictCheckCallback = callback
-    logger.debug('冲突检查回调函数已设置')
+    logger.debug('Conflict check callback function has been set')
   }
 
   /**
-   * 启动全量同步定时器
+   * Start full sync timer
    */
   async start(): Promise<void> {
     if (this.status.isEnabled) {
-      logger.warn('全量同步定时器已在运行中')
+      logger.warn('Full sync timer is already running')
       return
     }
 
     if (!this.fullSyncCallback) {
-      throw new Error('全量同步回调函数未设置，无法启动定时器')
+      throw new Error('Full sync callback function not set, cannot start timer')
     }
 
     this.status.isEnabled = true
     this.isShuttingDown = false
 
-    // 计算下次执行时间
+    // Calculate next execution time
     this.updateNextFullSyncTime()
 
-    logger.info(`全量同步定时器已启动，间隔: ${this.config.intervalHours}小时，下次执行: ${this.status.nextFullSyncTime?.toLocaleString()}`)
+    logger.info(
+      `Full sync timer started, interval: ${this.config.intervalHours} hours, next execution: ${this.status.nextFullSyncTime?.toLocaleString()}`
+    )
 
     this.scheduleNextFullSync()
   }
 
   /**
-   * 停止全量同步定时器
+   * Stop full sync timer
    */
   async stop(): Promise<void> {
     if (!this.status.isEnabled) {
-      logger.debug('全量同步定时器未运行')
+      logger.debug('Full sync timer is not running')
       return
     }
 
-    logger.info('开始停止全量同步定时器...')
+    logger.info('Stopping full sync timer...')
 
-    // 标记停止状态
+    // Mark shutdown state
     this.isShuttingDown = true
     this.status.isEnabled = false
 
-    // 清除定时器
+    // Clear timer
     if (this.timer) {
       clearTimeout(this.timer)
       this.timer = null
     }
 
-    // 等待当前正在进行的全量同步操作完成（最多等待30秒）
+    // Wait for current full sync operation to complete (max 30 seconds)
     await this.waitForCurrentFullSync(30000)
 
-    // 重置状态
+    // Reset state
     this.status.nextFullSyncTime = null
 
-    logger.info('全量同步定时器已停止')
+    logger.info('Full sync timer stopped')
   }
 
   /**
-   * 立即执行一次全量同步
+   * Execute full sync immediately
    */
   async syncNow(): Promise<boolean> {
     if (!this.fullSyncCallback) {
-      logger.error('全量同步回调函数未设置，无法执行全量同步')
+      logger.error('Full sync callback function not set, cannot execute full sync')
       return false
     }
 
     if (this.status.isRunning) {
-      logger.warn('全量同步正在进行中，跳过本次请求')
+      logger.warn('Full sync is already in progress, skipping this request')
       return false
     }
 
-    logger.info('手动触发全量同步...')
+    logger.info('Manually triggering full sync...')
     return await this.performFullSync()
   }
 
   /**
-   * 获取定时器状态
+   * Get timer status
    */
   getStatus(): FullSyncTimerStatus {
     return { ...this.status }
   }
 
   /**
-   * 更新定时器间隔
+   * Update timer interval
    */
   updateInterval(intervalHours: number): void {
     if (intervalHours <= 0) {
-      throw new Error('定时器间隔必须大于0小时')
+      throw new Error('Timer interval must be greater than 0 hours')
     }
 
     const oldInterval = this.config.intervalHours
     this.config.intervalHours = intervalHours
     this.status.intervalMs = intervalHours * 60 * 60 * 1000
 
-    logger.info(`全量同步定时器间隔已更新: ${oldInterval}小时 -> ${intervalHours}小时`)
+    logger.info(`Full sync timer interval updated: ${oldInterval} hours -> ${intervalHours} hours`)
 
-    // 如果定时器正在运行，重新调度
+    // If timer is running, reschedule
     if (this.status.isEnabled) {
       this.updateNextFullSyncTime()
       this.rescheduleNextFullSync()
@@ -166,7 +168,7 @@ export class FullSyncTimerManager {
   }
 
   /**
-   * 调度下次全量同步
+   * Schedule next full sync
    */
   private scheduleNextFullSync(): void {
     if (this.isShuttingDown || !this.status.isEnabled) {
@@ -181,66 +183,67 @@ export class FullSyncTimerManager {
 
       await this.performFullSync()
 
-      // 调度下次执行
+      // Schedule next execution
       if (this.status.isEnabled && !this.isShuttingDown) {
         this.updateNextFullSyncTime()
         this.scheduleNextFullSync()
       }
     }, delay)
 
-    logger.debug(`下次全量同步将在 ${Math.round(delay / 1000)} 秒后执行`)
+    logger.debug(`Next full sync will execute in ${Math.round(delay / 1000)} seconds`)
   }
 
   /**
-   * 重新调度下次全量同步
+   * Reschedule next full sync
    */
   private rescheduleNextFullSync(): void {
-    // 清除当前定时器
+    // Clear current timer
     if (this.timer) {
       clearTimeout(this.timer)
       this.timer = null
     }
 
-    // 重新调度
+    // Reschedule
     this.scheduleNextFullSync()
   }
 
   /**
-   * 执行全量同步
+   * Perform full sync
    */
   private async performFullSync(): Promise<boolean> {
     if (!this.fullSyncCallback) {
-      logger.error('全量同步回调函数未设置')
+      logger.error('Full sync callback function not set')
       return false
     }
 
     const startTime = Date.now()
     this.status.totalFullSyncs++
 
-    // 检查是否有冲突检查回调
+    // Check if there is a conflict check callback
     if (this.conflictCheckCallback && (await this.conflictCheckCallback())) {
-      logger.warn('检测到增量同步正在进行中，跳过本次全量同步')
+      logger.warn('Incremental sync is in progress, skipping this full sync')
       return false
     }
 
     this.status.isRunning = true
 
     try {
-      logger.info('开始执行定时全量同步...')
+      logger.info('Starting scheduled full sync...')
 
       await this.fullSyncCallback()
 
-      // 更新成功统计
+      // Update success statistics
       this.status.successfulFullSyncs++
       this.status.lastFullSyncTime = new Date()
 
       const duration = Date.now() - startTime
-      logger.info(`定时全量同步完成，耗时: ${Math.round(duration / 1000)}秒`)
+      logger.info(`Scheduled full sync completed, duration: ${Math.round(duration / 1000)} seconds`)
 
       return true
-    } catch (error: any) {
+    } catch (error: unknown) {
       const duration = Date.now() - startTime
-      logger.error(`定时全量同步失败，耗时: ${Math.round(duration / 1000)}秒`, error?.message)
+      const errorMessage = error instanceof Error ? error.message : String(error)
+      logger.error(`Scheduled full sync failed, duration: ${Math.round(duration / 1000)} seconds`, errorMessage)
       return false
     } finally {
       this.status.isRunning = false
@@ -248,7 +251,7 @@ export class FullSyncTimerManager {
   }
 
   /**
-   * 更新下次全量同步时间
+   * Update next full sync time
    */
   private updateNextFullSyncTime(): void {
     const now = new Date()
@@ -256,7 +259,7 @@ export class FullSyncTimerManager {
   }
 
   /**
-   * 等待当前全量同步操作完成
+   * Wait for current full sync operation to complete
    */
   private async waitForCurrentFullSync(timeoutMs: number = 30000): Promise<void> {
     if (!this.status.isRunning) {
@@ -266,36 +269,36 @@ export class FullSyncTimerManager {
     try {
       const startTime = Date.now()
 
-      logger.info('等待当前全量同步操作完成...')
+      logger.info('Waiting for current full sync operation to complete...')
 
       while (this.status.isRunning && Date.now() - startTime < timeoutMs) {
         await new Promise((resolve) => setTimeout(resolve, 500))
       }
 
       if (this.status.isRunning) {
-        logger.warn('全量同步操作超时，强制停止')
+        logger.warn('Full sync operation timed out, forcing stop')
       } else {
-        logger.info('当前全量同步操作已完成')
+        logger.info('Current full sync operation completed')
       }
     } catch (error) {
-      logger.error('等待全量同步操作完成时出错:', error)
+      logger.error('Error while waiting for full sync operation to complete:', error)
     }
   }
 
   /**
-   * 清理资源
+   * Clean up resources
    */
   async destroy(): Promise<void> {
     try {
-      logger.info('开始清理全量同步定时器资源...')
+      logger.info('Starting cleanup of full sync timer resources...')
 
       await this.stop()
       this.fullSyncCallback = null
       this.conflictCheckCallback = null
 
-      logger.info('全量同步定时器资源已清理完成')
+      logger.info('Full sync timer resources cleanup completed')
     } catch (error) {
-      logger.error('清理全量同步定时器资源时出错:', error)
+      logger.error('Error while cleaning up full sync timer resources:', error)
     }
   }
 }

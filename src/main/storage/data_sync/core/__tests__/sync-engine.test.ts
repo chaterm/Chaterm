@@ -59,7 +59,7 @@ describe('SyncEngine.incrementalSync', () => {
     db.getPendingChanges.mockReturnValue([])
     const engine = new SyncEngine(db, api)
     const res = await engine.incrementalSync(table)
-    expect(res).toEqual({ success: true, message: '无待同步变更', synced_count: 0, failed_count: 0 })
+    expect(res).toEqual({ success: true, message: 'No pending changes to sync', synced_count: 0, failed_count: 0 })
     expect(api.incrementalSync).not.toHaveBeenCalled()
   })
 })
