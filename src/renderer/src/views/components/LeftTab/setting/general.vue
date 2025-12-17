@@ -41,8 +41,8 @@
             class="custom-radio-group"
             @change="changeBackgroundMode"
           >
-            <a-radio value="none">无</a-radio>
-            <a-radio value="image">开启</a-radio>
+            <a-radio value="none">{{ $t('user.backgroundNone') }}</a-radio>
+            <a-radio value="image">{{ $t('user.backgroundEnable') }}</a-radio>
           </a-radio-group>
 
           <div
@@ -74,7 +74,7 @@
                   class="upload-placeholder"
                 >
                   <plus-outlined style="font-size: 20px; margin-bottom: 4px" />
-                  <span style="font-size: 10px">上传</span>
+                  <span style="font-size: 10px">{{ $t('user.backgroundUpload') }}</span>
                 </div>
               </div>
 
@@ -99,7 +99,7 @@
               class="bg-sliders-section mt-2"
             >
               <div class="slider-item">
-                <span class="slider-label">透明度</span>
+                <span class="slider-label">{{ $t('user.backgroundOpacity') }}</span>
                 <a-slider
                   v-model:value="userConfig.background.opacity"
                   :min="0"
@@ -109,7 +109,7 @@
                 />
               </div>
               <div class="slider-item">
-                <span class="slider-label">亮度</span>
+                <span class="slider-label">{{ $t('user.backgroundBrightness') }}</span>
                 <a-slider
                   v-model:value="userConfig.background.brightness"
                   :min="0"
@@ -408,7 +408,7 @@ const selectBackgroundImage = async () => {
         await saveConfig()
       } else {
         notification.error({
-          message: '保存背景图片失败',
+          message: t('user.saveBackgroundFailed'),
           description: saveResult.error
         })
       }
@@ -648,7 +648,7 @@ const changeBackgroundBrightness = async () => {
 .slider-label {
   font-size: 12px;
   color: var(--text-color);
-  width: 45px;
+  width: 60px;
   flex-shrink: 0;
 }
 
