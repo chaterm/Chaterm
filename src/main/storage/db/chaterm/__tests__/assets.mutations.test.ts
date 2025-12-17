@@ -1,16 +1,16 @@
 import { describe, it, expect, beforeEach, afterEach, beforeAll, afterAll, vi, MockInstance } from 'vitest'
 
-// 避免加载原生依赖 better-sqlite3
+// Mock better-sqlite3 native dependency
 vi.mock('better-sqlite3', () => ({
   default: class MockBetterSqlite3 {}
 }))
 
-// Mock uuid 以确保返回稳定的 UUID
+// Mock uuid to ensure deterministic UUID
 vi.mock('uuid', () => ({
   v4: vi.fn(() => 'test-uuid-1234')
 }))
 
-// Mock SyncController 避免触发真实增量同步
+// Mock SyncController to avoid triggering real incremental sync
 vi.mock('../../../data_sync/core/SyncController', () => ({
   SyncController: {
     triggerIncrementalSync: vi.fn()
@@ -97,7 +97,7 @@ function createMockDb(): MockDb {
     prepare(sql: string): Statement {
       const normalized = normalizeSql(sql)
 
-      // 重复资产检测
+      // Duplicate asset detection
       if (normalized.startsWith('select uuid, label, created_at from t_assets where asset_ip')) {
         return createStatement({
           get(...args: unknown[]) {
@@ -116,7 +116,7 @@ function createMockDb(): MockDb {
         })
       }
 
-      // 插入资产（列顺序可变）
+      // Insert asset with flexible column order
       if (normalized.startsWith('insert into t_assets')) {
         const columns = extractInsertColumns(sql)
         return createStatement({
@@ -142,7 +142,7 @@ function createMockDb(): MockDb {
         })
       }
 
-      // 重复时更新资产（createOrUpdate 分支）
+      // Update asset on duplicate (createOrUpdate branch)
       if (normalized.startsWith('update t_assets set label = ?') && normalized.includes('version = version + 1')) {
         return createStatement({
           run(...args: unknown[]) {
@@ -177,7 +177,7 @@ function createMockDb(): MockDb {
         })
       }
 
-      // 全量更新资产
+      // Full asset update
       if (normalized.startsWith('update t_assets set label = ?, asset_ip')) {
         return createStatement({
           run(...args: unknown[]) {
@@ -216,7 +216,7 @@ function createMockDb(): MockDb {
         })
       }
 
-      // 更新标签
+      // Update label
       if (normalized.startsWith('update t_assets set label = ?') && normalized.includes('updated_at') && !normalized.includes('asset_ip')) {
         return createStatement({
           run(...args: unknown[]) {
@@ -230,7 +230,7 @@ function createMockDb(): MockDb {
         })
       }
 
-      // 更新收藏
+      // Update favorite flag
       if (normalized.startsWith('update t_assets set favorite')) {
         return createStatement({
           run(...args: unknown[]) {
@@ -244,7 +244,7 @@ function createMockDb(): MockDb {
         })
       }
 
-      // 删除组织资产
+      // Delete organization assets
       if (normalized.startsWith('delete from t_organization_assets')) {
         return createStatement({
           run(...args: unknown[]) {
@@ -260,7 +260,7 @@ function createMockDb(): MockDb {
         })
       }
 
-      // 删除资产
+      // Delete asset
       if (normalized.startsWith('delete from t_assets')) {
         return createStatement({
           run(...args: unknown[]) {
@@ -273,7 +273,7 @@ function createMockDb(): MockDb {
         })
       }
 
-      // 查询资产类型
+      // Query asset type
       if (normalized.startsWith('select asset_type from t_assets where uuid = ?')) {
         return createStatement<{ asset_type: string } | undefined>({
           get(...args: unknown[]) {
@@ -284,7 +284,7 @@ function createMockDb(): MockDb {
         })
       }
 
-      // 分组查询
+      // Query distinct groups
       if (normalized.startsWith('select distinct group_name from t_assets')) {
         return createStatement({
           all() {
@@ -296,7 +296,7 @@ function createMockDb(): MockDb {
         })
       }
 
-      // 查询组织资产
+      // Query organization assets
       if (normalized.startsWith('select * from t_organization_assets where organization_uuid = ?')) {
         return createStatement({
           all(...args: unknown[]) {
@@ -306,7 +306,7 @@ function createMockDb(): MockDb {
         })
       }
 
-      // 按 UUID 查询资产（通用）
+      // Query asset by UUID (generic)
       if (normalized.includes('from t_assets') && normalized.includes('where uuid = ?')) {
         return createStatement({
           get(...args: unknown[]) {
@@ -321,7 +321,7 @@ function createMockDb(): MockDb {
         })
       }
 
-      // 插入组织资产
+      // Insert organization asset
       if (normalized.startsWith('insert into t_organization_assets')) {
         const columns = (sql.match(/insert\s+into\s+t_organization_assets\s*\(([^)]+)\)/i)?.[1] || '').split(',').map((c) => c.trim())
         return createStatement({
@@ -353,7 +353,7 @@ describe('Assets Mutations', () => {
 
   beforeAll(() => {
     setImmediateSpy = vi.spyOn(global, 'setImmediate').mockImplementation(() => {
-      // 跳过异步增量同步，避免引入真实依赖
+      // Skip async incremental sync to avoid real dependency
       return 1 as unknown as NodeJS.Immediate
     })
     consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
@@ -373,7 +373,7 @@ describe('Assets Mutations', () => {
   })
 
   describe('createAssetLogic', () => {
-    it('应该成功创建新资产', () => {
+    it('should create a new asset successfully', () => {
       const params = {
         ip: '192.168.1.100',
         label: 'Test Server',
@@ -393,7 +393,7 @@ describe('Assets Mutations', () => {
       expect(result.data.message).toBe('success')
       expect(result.data.uuid).toBe('test-uuid-1234')
 
-      // 验证数据库中的记录
+      // Verify record in mock DB
       const record = db.prepare('SELECT * FROM t_assets WHERE uuid = ?').get('test-uuid-1234') as Asset | undefined
       expect(record).toBeDefined()
       if (!record) {
@@ -404,7 +404,7 @@ describe('Assets Mutations', () => {
       expect(record.username).toBe('root')
     })
 
-    it('应该检测到重复资产并返回duplicate', () => {
+    it('should detect duplicate asset and return duplicate', () => {
       const params = {
         ip: '192.168.1.100',
         label: 'Test Server',
@@ -415,24 +415,25 @@ describe('Assets Mutations', () => {
         asset_type: 'person'
       }
 
-      // 先创建一个资产
+      // Create an asset first
+      // Create an asset first
       createAssetLogic(db, params)
 
-      // 再次尝试创建相同的资产
+      // Try creating the same asset again
       const result = createAssetLogic(db, params)
 
       expect(result.data.message).toBe('duplicate')
       expect(result.data.uuid).toBe('test-uuid-1234')
     })
 
-    it('参数为空时应该抛出错误', () => {
+    it('should throw when params are null', () => {
       expect(() => createAssetLogic(db, null)).toThrow('No asset data provided')
     })
   })
 
   describe('updateAssetLogic', () => {
-    it('应该成功更新资产', () => {
-      // 先创建一个资产
+    it('should update asset successfully', () => {
+      // Create an asset first
       db.prepare(
         `
         INSERT INTO t_assets (uuid, label, asset_ip, auth_type, port, username, password, group_name, created_at, updated_at)
@@ -469,7 +470,7 @@ describe('Assets Mutations', () => {
 
       expect(result.data.message).toBe('success')
 
-      // 验证更新后的数据
+      // Verify updated data
       const record = db.prepare('SELECT * FROM t_assets WHERE uuid = ?').get('existing-uuid') as Asset | undefined
       expect(record).toBeDefined()
       if (!record) {
@@ -481,7 +482,7 @@ describe('Assets Mutations', () => {
       expect(record.need_proxy).toBe(1)
     })
 
-    it('UUID不存在时应该返回failed', () => {
+    it('should return failed when UUID does not exist', () => {
       const result = updateAssetLogic(db, {
         uuid: 'non-existent-uuid',
         ip: '192.168.1.1',
@@ -491,13 +492,13 @@ describe('Assets Mutations', () => {
       expect(result.data.message).toBe('failed')
     })
 
-    it('缺少UUID时应该抛出错误', () => {
+    it('should throw when UUID is missing', () => {
       expect(() => updateAssetLogic(db, { ip: '192.168.1.1' })).toThrow('No asset data or UUID provided')
     })
   })
 
   describe('deleteAssetLogic', () => {
-    it('应该成功删除个人资产', () => {
+    it('should delete personal asset successfully', () => {
       db.prepare(
         `
         INSERT INTO t_assets (uuid, label, asset_ip, asset_type, created_at, updated_at)
@@ -509,13 +510,13 @@ describe('Assets Mutations', () => {
 
       expect(result.data.message).toBe('success')
 
-      // 验证记录已删除
+      // Verify record removed
       const record = db.prepare('SELECT * FROM t_assets WHERE uuid = ?').get('to-delete-uuid')
       expect(record).toBeUndefined()
     })
 
-    it('删除组织资产时应该级联清理关联的组织资产', () => {
-      // 创建组织类型资产
+    it('should cascade delete related organization assets', () => {
+      // Create organization-type asset
       db.prepare(
         `
         INSERT INTO t_assets (uuid, label, asset_ip, asset_type, created_at, updated_at)
@@ -523,7 +524,7 @@ describe('Assets Mutations', () => {
       `
       ).run('org-uuid', 'Organization', '10.0.0.1', 'organization', new Date().toISOString(), new Date().toISOString())
 
-      // 创建关联的组织子资产
+      // Create related organization child assets
       db.prepare(
         `
         INSERT INTO t_organization_assets (uuid, organization_uuid, hostname, host, created_at, updated_at)
@@ -542,16 +543,16 @@ describe('Assets Mutations', () => {
 
       expect(result.data.message).toBe('success')
 
-      // 验证组织资产已删除
+      // Verify organization asset removed
       const orgRecord = db.prepare('SELECT * FROM t_assets WHERE uuid = ?').get('org-uuid')
       expect(orgRecord).toBeUndefined()
 
-      // 验证关联的子资产也已删除
+      // Verify related child assets removed
       const childRecords = db.prepare('SELECT * FROM t_organization_assets WHERE organization_uuid = ?').all('org-uuid')
       expect(childRecords).toHaveLength(0)
     })
 
-    it('删除不存在的资产应该返回failed', () => {
+    it('should return failed when deleting non-existent asset', () => {
       const result = deleteAssetLogic(db, 'non-existent-uuid')
 
       expect(result.data.message).toBe('failed')
@@ -559,8 +560,8 @@ describe('Assets Mutations', () => {
   })
 
   describe('getAssetGroupLogic', () => {
-    it('应该返回所有不重复的分组名称', () => {
-      // 创建多个资产，有些分组相同
+    it('should return all unique group names', () => {
+      // Create multiple assets with some duplicate groups
       db.prepare(`INSERT INTO t_assets (uuid, label, asset_ip, group_name) VALUES (?, ?, ?, ?)`).run('uuid-1', 'Server1', '192.168.1.1', 'Production')
       db.prepare(`INSERT INTO t_assets (uuid, label, asset_ip, group_name) VALUES (?, ?, ?, ?)`).run('uuid-2', 'Server2', '192.168.1.2', 'Production')
       db.prepare(`INSERT INTO t_assets (uuid, label, asset_ip, group_name) VALUES (?, ?, ?, ?)`).run(
@@ -579,7 +580,7 @@ describe('Assets Mutations', () => {
       expect(result.data.groups).toContain('Staging')
     })
 
-    it('没有分组时应该返回空数组', () => {
+    it('should return empty array when no group exists', () => {
       const result = getAssetGroupLogic(db)
 
       expect(result.data.groups).toEqual([])
@@ -587,7 +588,7 @@ describe('Assets Mutations', () => {
   })
 
   describe('updateLocalAssetLabelLogic', () => {
-    it('应该成功更新资产标签', () => {
+    it('should update asset label successfully', () => {
       db.prepare(`INSERT INTO t_assets (uuid, label, asset_ip) VALUES (?, ?, ?)`).run('uuid-1', 'Old Label', '192.168.1.1')
 
       const result = updateLocalAssetLabelLogic(db, 'uuid-1', 'New Label')
@@ -602,7 +603,7 @@ describe('Assets Mutations', () => {
       expect(record.label).toBe('New Label')
     })
 
-    it('UUID不存在时应该返回failed', () => {
+    it('should return failed when UUID does not exist', () => {
       const result = updateLocalAssetLabelLogic(db, 'non-existent', 'New Label')
 
       expect(result.data.message).toBe('failed')
@@ -610,7 +611,7 @@ describe('Assets Mutations', () => {
   })
 
   describe('updateLocalAsseFavoriteLogic', () => {
-    it('应该成功更新收藏状态为收藏', () => {
+    it('should update favorite to starred', () => {
       db.prepare(`INSERT INTO t_assets (uuid, label, asset_ip, favorite) VALUES (?, ?, ?, ?)`).run('uuid-1', 'Server', '192.168.1.1', 2)
 
       const result = updateLocalAsseFavoriteLogic(db, 'uuid-1', 1)
@@ -625,7 +626,7 @@ describe('Assets Mutations', () => {
       expect(record.favorite).toBe(1)
     })
 
-    it('应该成功取消收藏', () => {
+    it('should unstar successfully', () => {
       db.prepare(`INSERT INTO t_assets (uuid, label, asset_ip, favorite) VALUES (?, ?, ?, ?)`).run('uuid-1', 'Server', '192.168.1.1', 1)
 
       const result = updateLocalAsseFavoriteLogic(db, 'uuid-1', 2)
@@ -642,7 +643,7 @@ describe('Assets Mutations', () => {
   })
 
   describe('createOrUpdateAssetLogic', () => {
-    it('不存在重复时应该创建新资产', () => {
+    it('should create new asset when no duplicate exists', () => {
       const params = {
         ip: '192.168.1.100',
         label: 'New Server',
@@ -659,8 +660,8 @@ describe('Assets Mutations', () => {
       expect(result.data.action).toBe('created')
     })
 
-    it('存在重复时应该更新现有资产', () => {
-      // 先创建一个资产
+    it('should update existing asset when duplicate found', () => {
+      // Create an asset first
       db.prepare(
         `
         INSERT INTO t_assets (uuid, label, asset_ip, auth_type, port, username, password, asset_type, version, created_at, updated_at)
@@ -696,7 +697,7 @@ describe('Assets Mutations', () => {
       expect(result.data.action).toBe('updated')
       expect(result.data.uuid).toBe('existing-uuid')
 
-      // 验证版本号增加
+      // Verify version increments
       const record = db.prepare('SELECT version, auth_type FROM t_assets WHERE uuid = ?').get('existing-uuid') as Asset | undefined
       expect(record).toBeDefined()
       if (!record) {
