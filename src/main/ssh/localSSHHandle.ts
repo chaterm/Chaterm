@@ -195,7 +195,7 @@ const getAvailableShells = async (): Promise<LocalShellsResult> => {
         key: `local-shell-${candidate.name.toLowerCase().replace(/\s+/g, '-')}`,
         title: candidate.name,
         ip: '127.0.0.1',
-        uuid: actualPath, // 使用shell路径作为uuid
+        uuid: actualPath, // Use shell path as uuid
         group_name: await getTranslation('localhost'),
         label: await getTranslation('localhost'),
         authType: '',
@@ -223,23 +223,23 @@ const findExecutable = (commands: string[]): string | null => {
         const searchPaths: string[] = []
 
         if (cmd === 'pwsh.exe') {
-          //查找 PowerShell 7+路径
+          // Find PowerShell 7+ path
           searchPaths.push(
             path.join(process.env.PROGRAMFILES || 'C:\\Program Files', 'PowerShell', '7', cmd),
             path.join(process.env['PROGRAMFILES(X86)'] || 'C:\\Program Files (x86)', 'PowerShell', '7', cmd),
             path.join(process.env.PROGRAMFILES || 'C:\\Program Files', 'PowerShell', '6', cmd)
           )
         } else if (cmd === 'powershell.exe') {
-          // 查找PowerShell路径
+          // Find PowerShell path
           searchPaths.push(
             path.join(process.env.SYSTEMROOT || 'C:\\Windows', 'System32', 'WindowsPowerShell', 'v1.0', cmd),
             path.join(process.env.SYSTEMROOT || 'C:\\Windows', 'System32', cmd)
           )
         } else if (cmd === 'cmd.exe') {
-          // 查找Command路径
+          // Find Command path
           searchPaths.push(path.join(process.env.SYSTEMROOT || 'C:\\Windows', 'System32', cmd))
         } else if (cmd === 'bash.exe') {
-          // 查找Git Bash路径
+          // Find Git Bash path
           searchPaths.push(
             path.join(process.env.PROGRAMFILES || 'C:\\Program Files', 'Git', 'bin', cmd),
             path.join(process.env['PROGRAMFILES(X86)'] || 'C:\\Program Files (x86)', 'Git', 'bin', cmd),
@@ -262,7 +262,7 @@ const findExecutable = (commands: string[]): string | null => {
           }
         } catch {}
       } else {
-        // Unix/Linux/macOS 系统
+        // Unix/Linux/macOS systems
         if (fs.existsSync(cmd) && fs.statSync(cmd).mode & parseInt('111', 8)) {
           return cmd
         }
@@ -348,7 +348,7 @@ export const registerLocalSSHHandlers = () => {
         output: output.toString()
       }
     } catch (error: unknown) {
-      let errorMessage = '未知错误'
+      let errorMessage = 'Unknown error'
       let outputMessage = ''
       if (error instanceof Error) {
         errorMessage = error.message
@@ -365,7 +365,7 @@ export const registerLocalSSHHandlers = () => {
       } else if (typeof error === 'string') {
         errorMessage = error
       } else if (error && typeof error === 'object') {
-        errorMessage = (error as Record<string, unknown>).message?.toString() || '命令执行失败'
+        errorMessage = (error as Record<string, unknown>).message?.toString() || 'Command execution failed'
 
         if ('stdout' in error) {
           const stdout = (error as Record<string, unknown>).stdout

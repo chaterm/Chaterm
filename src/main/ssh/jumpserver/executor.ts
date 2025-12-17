@@ -1,45 +1,45 @@
 /**
- * JumpServer 命令执行和输出解析工具
+ * JumpServer command execution and output parsing utilities
  */
 
 /**
- * 输出解析器 - 清理命令输出中的控制字符和回显
+ * Output parser - cleans control characters and echo from command output
  */
 export class OutputParser {
   /**
-   * 清理命令输出，移除回显和控制字符
-   * @param rawOutput 原始输出
-   * @returns 清理后的输出
+   * Clean command output, remove echo and control characters
+   * @param rawOutput Raw output
+   * @returns Cleaned output
    */
   static cleanCommandOutput(rawOutput: string): string {
-    // 按行分割
+    // Split by lines
     const lines = rawOutput.split(/\r?\n/)
 
-    // 过滤掉控制字符、空行、命令回显片段
+    // Filter out control characters, empty lines, command echo fragments
     const cleanLines = lines.filter((line, index) => {
       const trimmed = line.trim()
 
-      // 保留非空行
+      // Keep non-empty lines
       if (!trimmed || trimmed === '\r') {
         return false
       }
 
-      // 移除控制字符
+      // Remove control characters
       if (trimmed === '\x1b[?2004l' || trimmed.startsWith('\x1b]')) {
         return false
       }
 
-      // 移除 echo 标记的行
+      // Remove echo marker lines
       if (trimmed.includes('echo "') && trimmed.includes('__CHATERM_')) {
         return false
       }
 
-      // 移除标记本身
+      // Remove marker itself
       if (trimmed.startsWith('__CHATERM_')) {
         return false
       }
 
-      // 移除命令回显（第一行通常是命令本身）
+      // Remove command echo (first line is usually the command itself)
       if (index === 0 && (trimmed.includes('ls ') || trimmed.includes('sudo '))) {
         return false
       }
@@ -47,7 +47,7 @@ export class OutputParser {
       return true
     })
 
-    // 拼接并清理行尾的 \r
+    // Join and clean trailing \r
     const result = cleanLines
       .map((line) => line.replace(/\r$/, ''))
       .join('\n')
@@ -57,10 +57,10 @@ export class OutputParser {
   }
 
   /**
-   * 从输出中提取退出码
-   * @param output 完整输出
-   * @param exitCodeMarker 退出码标记
-   * @returns 退出码，默认为 0
+   * Extract exit code from output
+   * @param output Complete output
+   * @param exitCodeMarker Exit code marker
+   * @returns Exit code, defaults to 0
    */
   static extractExitCode(output: string, exitCodeMarker: string): number {
     const exitCodePattern = new RegExp(`${exitCodeMarker}(\\d+)`)
@@ -69,7 +69,7 @@ export class OutputParser {
   }
 
   /**
-   * 生成唯一的命令标记
+   * Generate unique command marker
    * @returns { marker, exitCodeMarker }
    */
   static generateMarkers(): { marker: string; exitCodeMarker: string } {

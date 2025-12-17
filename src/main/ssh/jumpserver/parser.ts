@@ -25,11 +25,6 @@ export interface JumpServerUser {
   username: string
 }
 
-/**
- * Parse asset information - supports Chinese and English headers
- * Chinese header: ID | 名称 | 地址 | 平台 | 组织 | 备注
- * English header: ID | NAME | ADDRESS | PLATFORM | ORGANIZATION | COMMENT
- */
 function parseAssets(output: string): Asset[] {
   const assets: Asset[] = []
   const lines = output.split('\n')
@@ -83,11 +78,6 @@ function parseAssets(output: string): Asset[] {
   return assets
 }
 
-/**
- * Parse pagination information - supports Chinese and English formats
- * Chinese: 页码：1，每页行数：10，总页数：2
- * English: Page: 1, Count: 10, Total Page: 2, Total Count: 18
- */
 function parsePagination(output: string): PaginationInfo {
   // Try Chinese format first
   const chineseRegex = /页码：\s*(\d+).*?总页数：\s*(\d+)/

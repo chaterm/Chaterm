@@ -37,12 +37,12 @@ interface DecryptDataKeyResponse {
 }
 
 /**
- * API客户端 - 使用axios与KMS服务端通信
+ * API client - communicates with KMS server using axios
  *
- * 安全原则：
- * 1. 使用axios拦截器统一处理认证Token
- * 2. 自动处理401未授权错误
- * 3. 请求超时保护
+ * Security principles:
+ * 1. Use axios interceptors to handle authentication tokens uniformly
+ * 2. Automatically handle 401 unauthorized errors
+ * 3. Request timeout protection
  */
 class ApiClient {
   private client: AxiosInstance
@@ -52,13 +52,13 @@ class ApiClient {
   constructor(serverUrl?: string) {
     this.serverUrl = serverUrl || config.serverUrl
 
-    // 创建axios实例
+    // Create axios instance
     this.client = axios.create({
       baseURL: this.serverUrl,
       timeout: config.timeout.apiRequest
     })
 
-    // 初始化重试管理器，针对KMS服务的特殊配置
+    // Initialize retry manager with special configuration for KMS service
     this.retryManager = new RetryManager({
       maxAttempts: 3,
       baseDelay: 1000,
@@ -72,13 +72,13 @@ class ApiClient {
   }
 
   /**
-   * 设置请求和响应拦截器
+   * Setup request and response interceptors
    */
   private setupInterceptors(): void {
-    // 请求拦截器：自动附加Authorization头
+    // Request interceptor: automatically attach Authorization header
     this.client.interceptors.request.use(
       async (config: InternalAxiosRequestConfig) => {
-        // 使用统一的认证适配器获取token
+        // Use unified auth adapter to get token
         const token = await chatermAuthAdapter.getAuthToken()
         if (token) {
           if (!config.headers) {
@@ -89,20 +89,20 @@ class ApiClient {
         return config
       },
       (error) => {
-        console.error('KMS请求拦截器错误:', error)
+        console.error('KMS request interceptor error:', error)
         return Promise.reject(error)
       }
     )
 
-    // 响应拦截器：处理全局错误，特别是401
+    // Response interceptor: handle global errors, especially 401
     this.client.interceptors.response.use(
       (response: AxiosResponse) => {
         return response.data
       },
       async (error) => {
         if (error.response && error.response.status === 401) {
-          console.warn('KMS认证失败 (401)，清除认证信息')
-          // 使用统一的认证适配器清除认证信息
+          console.warn('KMS authentication failed (401), clearing auth info')
+          // Use unified auth adapter to clear auth info
           chatermAuthAdapter.clearAuthInfo()
         }
         const errorMessage = error.response?.data?.error || error.message
@@ -112,9 +112,9 @@ class ApiClient {
   }
 
   /**
-   * 生成数据密钥
-   * @param request - 生成数据密钥请求
-   * @returns 生成数据密钥响应
+   * Generate data key
+   * @param request - Generate data key request
+   * @returns Generate data key response
    */
   async generateDataKey(request: GenerateDataKeyRequest): Promise<GenerateDataKeyResponse> {
     try {
@@ -122,7 +122,7 @@ class ApiClient {
         const requestData = {
           encryptionContext: request.encryptionContext
         }
-        // 如果提供了authToken，使用它覆盖默认的token
+        // If authToken is provided, use it to override the default token
         const headers: any = {}
         if (request.authToken) {
           headers['Authorization'] = request.authToken.startsWith('Bearer ') ? request.authToken : `Bearer ${request.authToken}`
@@ -144,9 +144,9 @@ class ApiClient {
         }
       }
     } catch (error) {
-      // 只输出基础错误信息，避免详细堆栈
+      // Only output basic error information, avoid detailed stack trace
       const errorMessage = (error as Error).message
-      console.warn('数据密钥生成失败:', errorMessage)
+      console.warn('Data key generation failed:', errorMessage)
       return {
         success: false,
         error: errorMessage
@@ -155,9 +155,9 @@ class ApiClient {
   }
 
   /**
-   * 解密数据密钥
-   * @param request - 解密数据密钥请求
-   * @returns 解密数据密钥响应
+   * Decrypt data key
+   * @param request - Decrypt data key request
+   * @returns Decrypt data key response
    */
   async decryptDataKey(request: DecryptDataKeyRequest): Promise<DecryptDataKeyResponse> {
     try {
@@ -167,7 +167,7 @@ class ApiClient {
           encryptionContext: request.encryptionContext
         }
 
-        // 如果提供了authToken，使用它覆盖默认的token
+        // If authToken is provided, use it to override the default token
         const headers: any = {}
         if (request.authToken) {
           headers['Authorization'] = request.authToken.startsWith('Bearer ') ? request.authToken : `Bearer ${request.authToken}`
@@ -189,9 +189,9 @@ class ApiClient {
         }
       }
     } catch (error) {
-      // 简化错误日志输出
+      // Simplify error log output
       const errorMessage = (error as Error).message
-      console.warn('数据密钥解密失败:', errorMessage)
+      console.warn('Data key decryption failed:', errorMessage)
       return {
         success: false,
         error: errorMessage
@@ -200,105 +200,105 @@ class ApiClient {
   }
 
   /**
-   * 健康检查
-   * @returns 健康状态
+   * Health check
+   * @returns Health status
    */
   async healthCheck(): Promise<any> {
     try {
-      console.log('执行健康检查...')
+      console.log('Executing health check...')
       const result = await this.retryManager.executeWithRetry(async () => {
         return await this.client.get('/kms/health')
       }, 'healthCheck')
 
       if (result.success) {
-        console.log('健康检查通过')
+        console.log('Health check passed')
         return result.result
       } else {
         throw result.error
       }
     } catch (error) {
-      console.error('健康检查失败:', error)
+      console.error('Health check failed:', error)
       throw error
     }
   }
 
   /**
-   * 轮换主密钥
-   * @returns 轮换结果
+   * Rotate master key
+   * @returns Rotation result
    */
   async rotateMasterKey(): Promise<any> {
     try {
-      console.log('请求轮换主密钥...')
+      console.log('Requesting master key rotation...')
       const response = await this.client.post('/kms/rotate-master-key')
-      console.log('主密钥轮换成功')
+      console.log('Master key rotation successful')
       return response
     } catch (error) {
-      console.error('主密钥轮换失败:', error)
+      console.error('Master key rotation failed:', error)
       throw error
     }
   }
 
   /**
-   * 获取KMS统计信息
-   * @returns 统计信息
+   * Get KMS statistics
+   * @returns Statistics information
    */
   async getStats(): Promise<any> {
     try {
-      console.log('获取KMS统计信息...')
+      console.log('Fetching KMS statistics...')
       const response = await this.client.get('/kms/stats')
-      console.log('获取统计信息成功')
+      console.log('Statistics fetched successfully')
       return response
     } catch (error) {
-      console.error('获取统计信息失败:', error)
+      console.error('Failed to fetch statistics:', error)
       throw error
     }
   }
 
   /**
-   * 验证数据密钥
-   * @param encryptedDataKey - 加密的数据密钥
-   * @param encryptionContext - 加密上下文
-   * @returns 验证结果
+   * Validate data key
+   * @param encryptedDataKey - Encrypted data key
+   * @param encryptionContext - Encryption context
+   * @returns Validation result
    */
   async validateDataKey(encryptedDataKey: string, encryptionContext: any): Promise<any> {
     try {
-      console.log('验证数据密钥...')
+      console.log('Validating data key...')
       const response = await this.client.post('/kms/validate-data-key', {
         encryptedDataKey,
         encryptionContext
       })
-      console.log('数据密钥验证成功')
+      console.log('Data key validation successful')
       return response
     } catch (error) {
-      console.error('数据密钥验证失败:', error)
+      console.error('Data key validation failed:', error)
       throw error
     }
   }
 
   /**
-   *  撤销数据密钥
-   * @param keyFingerprint - 密钥指纹
-   * @returns 撤销结果
+   * Revoke data key
+   * @param keyFingerprint - Key fingerprint
+   * @returns Revocation result
    */
   async revokeDataKey(keyFingerprint: string): Promise<any> {
     try {
-      console.log(' 撤销数据密钥...')
+      console.log('Revoking data key...')
       const response = await this.client.post('/kms/revoke-data-key', {
         keyFingerprint
       })
-      console.log('数据密钥撤销成功')
+      console.log('Data key revoked successfully')
       return response
     } catch (error) {
-      console.error('数据密钥撤销失败:', error)
+      console.error('Data key revocation failed:', error)
       throw error
     }
   }
 
   /**
-   * 记录审计日志
-   * @param action - 操作类型
-   * @param details - 操作详情
-   * @returns 记录结果
+   * Log audit event
+   * @param action - Action type
+   * @param details - Action details
+   * @returns Logging result
    */
   async logAudit(action: string, details: any): Promise<any> {
     try {
@@ -309,38 +309,38 @@ class ApiClient {
       })
       return response
     } catch (error) {
-      console.error('记录审计日志失败:', error)
-      // 审计日志失败不应该影响主要功能
+      console.error('Failed to log audit event:', error)
+      // Audit log failure should not affect main functionality
       return { success: false, error: (error as Error).message }
     }
   }
 
   /**
-   * 更新服务器URL
-   * @param newUrl - 新的服务器URL
+   * Update server URL
+   * @param newUrl - New server URL
    */
   updateServerUrl(newUrl: string): void {
     this.serverUrl = newUrl
     this.client.defaults.baseURL = newUrl
-    console.log(`API服务器URL已更新为: ${newUrl}`)
+    console.log(`API server URL updated to: ${newUrl}`)
   }
 
   /**
-   * 获取客户端状态
-   * @returns 客户端状态
+   * Get client status
+   * @returns Client status
    */
   getStatus(): any {
     return {
       serverUrl: this.serverUrl,
       timeout: config.timeout.apiRequest,
       retryConfig: this.retryManager.getConfig(),
-      connected: true // 这里可以添加连接状态检查
+      connected: true // Connection status check can be added here
     }
   }
 
   /**
-   * 检查连接状态
-   * @returns 连接状态
+   * Check connection status
+   * @returns Connection status
    */
   async checkConnection(): Promise<{ connected: boolean; latency?: number; error?: string }> {
     const startTime = Date.now()

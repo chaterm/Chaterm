@@ -2,14 +2,14 @@ import config from '../config'
 import TempFileStorageProvider from './tempFileStorage'
 
 /**
- * 💾 客户端存储管理器
+ * Client-side storage manager
  *
- * 安全原则：
- * 1. 只存储加密后的数据密钥
- * 2. 支持多种存储后端
- * 3. 自动过期清理
- * 4. 安全删除
- * 5. 安全存储认证Token
+ * Security principles:
+ * 1. Only store encrypted data keys
+ * 2. Support multiple storage backends
+ * 3. Automatic expiration cleanup
+ * 4. Secure deletion
+ * 5. Securely store authentication tokens
  */
 class StorageManager {
   private provider: any
@@ -19,7 +19,7 @@ class StorageManager {
   }
 
   /**
-   * 初始化存储提供者
+   * Initialize storage provider
    */
   private initializeProvider(): any {
     return new TempFileStorageProvider()
@@ -28,7 +28,7 @@ class StorageManager {
   async storeAuthToken(token: string): Promise<void> {
     const key = `${config.storage.keyPrefix}auth_token`
     await this.provider.setItem(key, token)
-    console.log('认证Token已存储')
+    console.log('Auth token stored')
   }
 
   async getAuthToken(): Promise<string | null> {
@@ -39,7 +39,7 @@ class StorageManager {
   async clearAuthToken(): Promise<void> {
     const key = `${config.storage.keyPrefix}auth_token`
     await this.provider.removeItem(key)
-    console.log(' 认证Token已清除')
+    console.log('Auth token cleared')
   }
 
   async storeSession(userId: string, sessionId: string): Promise<void> {
@@ -71,7 +71,7 @@ class StorageManager {
       const keys = stats.keys || []
       const users: string[] = []
 
-      //  简化逻辑：只从会话信息中列出用户
+      // Simplified logic: only list users from session info
       for (const key of keys) {
         if (key.startsWith(config.storage.sessionPrefix)) {
           const userId = key.replace(config.storage.sessionPrefix, '')
@@ -83,24 +83,24 @@ class StorageManager {
 
       return users
     } catch (error) {
-      console.error('列出用户失败:', error)
+      console.error('Failed to list users:', error)
       return []
     }
   }
 
   async cleanup(userId: string): Promise<void> {
     try {
-      //  简化清理逻辑：只清理会话信息
-      // 数据密钥现在只存在于内存中，由ClientSideCrypto管理
+      // Simplified cleanup logic: only clear session info
+      // Data keys now only exist in memory, managed by ClientSideCrypto
       await this.clearSession(userId)
     } catch (error) {
-      console.error(` 清理用户 ${userId} 的存储数据失败:`, error)
+      console.error(`Failed to cleanup storage data for user ${userId}:`, error)
       throw error
     }
   }
 }
 
-// 导出便捷函数
+// Export convenience functions
 async function storeAuthToken(token: string): Promise<void> {
   const storage = new StorageManager()
   await storage.storeAuthToken(token)

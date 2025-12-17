@@ -1,6 +1,6 @@
 import { EnvelopeEncryptionService } from '../envelope_encryption/service'
 
-// 这是信封加密的核心：meta 就是加密的数据密钥本身
+// This is the core of envelope encryption: meta is the encrypted data key itself
 export interface CombinedMeta {
   v: number
   alg: string
@@ -30,13 +30,13 @@ export async function encryptPayload(payload: Record<string, any>, service: Enve
   const plaintext = JSON.stringify(payload)
   const r = await service.encrypt(plaintext)
 
-  // 修复：获取加密的数据密钥，这是信封加密的核心
+  // Fix: Get the encrypted data key, which is the core of envelope encryption
   const encryptedDataKey = service.clientCrypto?.getEncryptedDataKey()
   if (!encryptedDataKey) {
-    throw new Error('无法获取加密的数据密钥')
+    throw new Error('Failed to get encrypted data key')
   }
 
-  // 信封加密的正确实现：直接将加密的数据密钥作为 meta 部分
+  // Correct implementation of envelope encryption: directly use the encrypted data key as the meta part
   return buildCombinedString(r.encrypted, encryptedDataKey)
 }
 
@@ -45,16 +45,16 @@ export async function decryptPayload(encString: string, service: EnvelopeEncrypt
   if (!parsed) {
     throw new Error('Invalid combined string')
   }
-  // 步骤2: 从 meta 获取加密的数据密钥
+  // Step 2: Get the encrypted data key from meta
   const encryptedDataKey = parsed.meta
   if (!encryptedDataKey || typeof encryptedDataKey !== 'string') {
-    throw new Error('缺少有效的加密数据密钥')
+    throw new Error('Missing valid encrypted data key')
   }
 
-  // 步骤3: 构造解密请求，让 ClientSideCrypto 通过 KMS 解密数据密钥
+  // Step 3: Construct decryption request to let ClientSideCrypto decrypt the data key through KMS
   const userId = service.clientCrypto?.getUserId()
   if (!userId) {
-    throw new Error('无法获取用户ID')
+    throw new Error('Failed to get user ID')
   }
 
   const sessionId = userId.slice(-2).padStart(2, '0')

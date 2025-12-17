@@ -75,18 +75,18 @@ const getDelayByBufferSize = (size: number): number => {
 // Store SSH connections
 export const sshConnections = new Map()
 
-// SSH 连接复用池：存储已通过 MFA 认证的连接
+// SSH connection reuse pool: stores connections that have passed MFA authentication
 interface ReusableConnection {
   conn: any // SSH Client
-  sessions: Set<string> // 使用此连接的会话 ID 集合
+  sessions: Set<string> // Set of session IDs using this connection
   host: string
   port: number
   username: string
-  hasMfaAuth: boolean // 标记是否经过 MFA 认证
+  hasMfaAuth: boolean // Flag indicating whether MFA authentication has been completed
 }
 const sshConnectionPool = new Map<string, ReusableConnection>()
 
-// 生成连接池的唯一 key
+// Generate unique key for connection pool
 const getConnectionPoolKey = (host: string, port: number, username: string): string => {
   return `${host}:${port}:${username}`
 }
@@ -121,7 +121,7 @@ const MaxKeyboardInteractiveAttempts = 5 // Max KeyboardInteractive attempts
 const EventEmitter = require('events')
 const connectionEvents = new EventEmitter()
 
-// 缓存
+// Cache
 export const keyboardInteractiveOpts = new Map<string, string[]>()
 
 export const getReusableSshConnection = (host: string, port: number, username: string) => {
@@ -159,13 +159,13 @@ export const releaseReusableSshSession = (poolKey: string, sessionId: string) =>
 
 export const handleRequestKeyboardInteractive = (event, id, prompts, finish) => {
   return new Promise((_resolve, reject) => {
-    // 获取当前重试次数
+    // Get current retry count
     const attemptCount = KeyboardInteractiveAttempts.get(id) || 0
 
-    // 检查是否超过最大重试次数
+    // Check if maximum retry attempts exceeded
     if (attemptCount >= MaxKeyboardInteractiveAttempts) {
       KeyboardInteractiveAttempts.delete(id)
-      // 发送最终失败事件
+      // Send final failure event
       event.sender.send('ssh:keyboard-interactive-result', {
         id,
         attempts: attemptCount,
@@ -176,16 +176,16 @@ export const handleRequestKeyboardInteractive = (event, id, prompts, finish) => 
       return
     }
 
-    // 设置重试计数
+    // Set retry count
     KeyboardInteractiveAttempts.set(id, attemptCount + 1)
 
-    // 发送MFA请求到前端
+    // Send MFA request to frontend
     event.sender.send('ssh:keyboard-interactive-request', {
       id,
       prompts: prompts.map((p) => p.prompt)
     })
 
-    // 设置超时
+    // Set timeout
     const timeoutId = setTimeout(() => {
       // Remove listener
       ipcMain.removeAllListeners(`ssh:keyboard-interactive-response:${id}`)
@@ -198,15 +198,15 @@ export const handleRequestKeyboardInteractive = (event, id, prompts, finish) => 
       reject(new Error('Authentication timed out, please try connecting again'))
     }, KeyboardInteractiveTimeout)
 
-    // 监听用户响应
+    // Listen for user response
     ipcMain.once(`ssh:keyboard-interactive-response:${id}`, (_evt, responses) => {
       clearTimeout(timeoutId) // Clear timeout timer
       finish(responses)
 
-      // 监听连接状态变化来判断验证结果
+      // Listen for connection status changes to determine verification result
       const statusHandler = (status) => {
         if (status.isVerified) {
-          // 验证成功
+          // Verification successful
           keyboardInteractiveOpts.set(id, responses)
           KeyboardInteractiveAttempts.delete(id)
           event.sender.send('ssh:keyboard-interactive-result', {
@@ -214,14 +214,14 @@ export const handleRequestKeyboardInteractive = (event, id, prompts, finish) => 
             status: 'success'
           })
         } else {
-          // 验证失败
+          // Verification failed
           const currentAttempts = KeyboardInteractiveAttempts.get(id) || 0
           event.sender.send('ssh:keyboard-interactive-result', {
             id,
             attempts: currentAttempts,
             status: 'failed'
           })
-          // SSH连接会自动重新触发keyboard-interactive事件进行重试
+          // SSH connection will automatically retrigger keyboard-interactive event for retry
         }
         connectionEvents.removeListener(`connection-status-changed:${id}`, statusHandler)
       }
@@ -229,7 +229,7 @@ export const handleRequestKeyboardInteractive = (event, id, prompts, finish) => 
       connectionEvents.once(`connection-status-changed:${id}`, statusHandler)
     })
 
-    // 监听用户取消
+    // Listen for user cancellation
     ipcMain.once(`ssh:keyboard-interactive-cancel:${id}`, () => {
       KeyboardInteractiveAttempts.delete(id)
       clearTimeout(timeoutId)
@@ -417,28 +417,28 @@ const handleAttemptConnection = async (event, connectionInfo, resolve, reject, r
   const identToken = connIdentToken ? `_t=${connIdentToken}` : ''
   const ident = `${packageInfo.name}_${packageInfo.version}` + identToken
 
-  // 检查连接复用池：仅当使用 keyboard-interactive 认证时才尝试复用
+  // Check connection reuse pool: only attempt reuse when using keyboard-interactive authentication
   const poolKey = getConnectionPoolKey(host, port || 22, username)
   const reusableConn = sshConnectionPool.get(poolKey)
 
   if (reusableConn && reusableConn.hasMfaAuth) {
-    console.log(`[SSH复用] 检测到可复用的 MFA 连接: ${poolKey}`)
+    console.log(`[SSH Reuse] Detected reusable MFA connection: ${poolKey}`)
 
-    // 使用现有连接
+    // Use existing connection
     const conn = reusableConn.conn
 
-    // 将当前会话标记为已连接
+    // Mark current session as connected
     sshConnections.set(id, conn)
     connectionStatus.set(id, { isVerified: true })
     reusableConn.sessions.add(id)
 
-    // 触发连接成功事件
+    // Trigger connection success event
     connectionEvents.emit(`connection-status-changed:${id}`, { isVerified: true })
 
-    // 执行辅助连接（sudo检查、SFTP等）
+    // Execute secondary connection (sudo check, SFTP, etc.)
     attemptSecondaryConnection(event, connectionInfo, ident)
 
-    console.log(`[SSH复用] 成功复用连接，跳过 MFA 认证`)
+    console.log(`[SSH Reuse] Successfully reused connection, skipping MFA authentication`)
     resolve({ status: 'connected', message: 'Connection successful (reused)' })
     return
   }
@@ -450,14 +450,14 @@ const handleAttemptConnection = async (event, connectionInfo, resolve, reject, r
     connectionStatus.set(id, { isVerified: true })
     connectionEvents.emit(`connection-status-changed:${id}`, { isVerified: true })
 
-    // 检查是否使用了 keyboard-interactive 认证
-    // 必须在 attemptSecondaryConnection 之前检查，因为它会清理 keyboardInteractiveOpts
+    // Check if keyboard-interactive authentication was used
+    // Must check before attemptSecondaryConnection as it will clear keyboardInteractiveOpts
     const hasKeyboardInteractive = keyboardInteractiveOpts.has(id)
 
-    // 如果使用了 keyboard-interactive 认证，立即保存到连接池供后续复用
+    // If keyboard-interactive authentication was used, immediately save to connection pool for future reuse
     if (hasKeyboardInteractive) {
       const poolKey = getConnectionPoolKey(host, port || 22, username)
-      console.log(`[SSH连接池] 保存 MFA 认证连接: ${poolKey}`)
+      console.log(`[SSH Connection Pool] Saving MFA authenticated connection: ${poolKey}`)
 
       sshConnectionPool.set(poolKey, {
         conn: conn,
@@ -468,19 +468,19 @@ const handleAttemptConnection = async (event, connectionInfo, resolve, reject, r
         hasMfaAuth: true
       })
 
-      // 监听连接关闭事件，清理连接池
+      // Listen for connection close event to clean up connection pool
       conn.on('close', () => {
-        console.log(`[SSH连接池] 连接关闭，清理复用池: ${poolKey}`)
+        console.log(`[SSH Connection Pool] Connection closed, cleaning up reuse pool: ${poolKey}`)
         sshConnectionPool.delete(poolKey)
       })
 
       conn.on('error', (err) => {
-        console.error(`[SSH连接池] 连接错误，清理复用池: ${poolKey}`, err.message)
+        console.error(`[SSH Connection Pool] Connection error, cleaning up reuse pool: ${poolKey}`, err.message)
         sshConnectionPool.delete(poolKey)
       })
     }
 
-    // 执行辅助连接（这会清理 keyboardInteractiveOpts，所以必须放在检查之后）
+    // Execute secondary connection (this will clear keyboardInteractiveOpts, so must be placed after the check)
     attemptSecondaryConnection(event, connectionInfo, ident)
 
     resolve({ status: 'connected', message: 'Connection successful' })
@@ -522,7 +522,7 @@ const handleAttemptConnection = async (event, connectionInfo, resolve, reject, r
 
   if (agentForward) {
     const manager = SSHAgentManager.getInstance()
-    // 如果使用 Agent 认证
+    // If using Agent authentication
     connectConfig.agent = manager.getAgent()
     connectConfig.agentForward = true
   }
@@ -535,12 +535,12 @@ const handleAttemptConnection = async (event, connectionInfo, resolve, reject, r
       const errorMessage = err instanceof Error ? err.message : String(err)
       console.log('SSH keyboard-interactive error:', errorMessage)
 
-      // 只有在超过最大重试次数、用户取消或超时时才关闭连接
+      // Only close connection when max retries exceeded, user cancelled, or timeout
       if (errorMessage.includes('Maximum authentication attempts') || errorMessage.includes('cancelled') || errorMessage.includes('timed out')) {
         conn.end() // Close connection
         reject(err)
       }
-      // 对于其他错误，让SSH连接自然处理，可能会重新触发keyboard-interactive
+      // For other errors, let SSH connection handle naturally, may retrigger keyboard-interactive
     }
   })
 
@@ -604,7 +604,7 @@ export const getSftpConnection = (id: string): any => {
 }
 
 export const cleanSftpConnection = (id) => {
-  // 清理sftp
+  // Clean up SFTP
   if (sftpConnections.get(id)) {
     const sftp = getSftpConnection(id)
     sftp.end()
@@ -685,7 +685,7 @@ const handleDownloadFile = (_event, id, remotePath, localPath, resolve, reject) 
     return reject('Sftp Not connected')
   }
 
-  // 使用链式 Promise 替代 async/await
+  // Use chained Promise instead of async/await
   new Promise<void>((res, rej) => {
     sftp.fastGet(remotePath, localPath, {}, (err) => {
       if (err) return rej(err)
@@ -765,7 +765,7 @@ export const registerSSHHandlers = () => {
     const { sshType } = connectionInfo
 
     if (sshType === 'jumpserver') {
-      // 路由到 JumpServer 连接
+      // Route to JumpServer connection
       try {
         const result = await handleJumpServerConnection(connectionInfo, _event)
         return result
@@ -773,7 +773,7 @@ export const registerSSHHandlers = () => {
         return { status: 'error', message: error instanceof Error ? error.message : String(error) }
       }
     } else {
-      // 默认走 SSH 连接
+      // Default to SSH connection
       const retryCount = 0
       return new Promise((resolve, reject) => {
         handleAttemptConnection(_event, connectionInfo, resolve, reject, retryCount)
@@ -798,15 +798,15 @@ export const registerSSHHandlers = () => {
   })
 
   ipcMain.handle('ssh:shell', async (event, { id, terminalType }) => {
-    // 检查是否为 JumpServer 连接
+    // Check if it's a JumpServer connection
     if (jumpserverConnections.has(id)) {
-      // 使用 JumpServer 的 shell 处理
+      // Use JumpServer shell handling
       const stream = jumpserverShellStreams.get(id)
       if (!stream) {
-        return { status: 'error', message: '未找到 JumpServer 连接' }
+        return { status: 'error', message: 'JumpServer connection not found' }
       }
 
-      // 清除旧监听器
+      // Clear old listeners
       stream.removeAllListeners('data')
 
       let buffer = ''
@@ -842,12 +842,12 @@ export const registerSSHHandlers = () => {
         const lastCommand = jumpserverLastCommand.get(id)
         const exitCommands = ['exit', 'logout', '\x04']
 
-        // JumpServer 菜单退出检测
+        // JumpServer menu exit detection
         if (dataStr.includes('[Host]>') && lastCommand && exitCommands.includes(lastCommand)) {
           jumpserverLastCommand.delete(id)
           stream.write('q\r', (err) => {
-            if (err) console.error(`[JumpServer ${id}] 发送 "q" 失败:`, err)
-            else console.log(`[JumpServer ${id}] 已发送 "q" 终止会话。`)
+            if (err) console.error(`[JumpServer ${id}] Failed to send "q":`, err)
+            else console.log(`[JumpServer ${id}] Sent "q" to terminate session.`)
             stream.end()
             const connData = jumpserverConnections.get(id)
             connData?.conn?.end()
@@ -894,10 +894,10 @@ export const registerSSHHandlers = () => {
         jumpserverShellStreams.delete(id)
       })
 
-      return { status: 'success', message: 'JumpServer Shell 已就绪' }
+      return { status: 'success', message: 'JumpServer Shell ready' }
     }
 
-    // 默认 SSH shell 处理
+    // Default SSH shell handling
     const conn = sshConnections.get(id)
     if (!conn) {
       return { status: 'error', message: 'Not connected to the server' }
@@ -1016,22 +1016,22 @@ export const registerSSHHandlers = () => {
 
   // Resize handling
   ipcMain.handle('ssh:shell:resize', async (_event, { id, cols, rows }) => {
-    // 检查是否为 JumpServer 连接
+    // Check if it's a JumpServer connection
     if (jumpserverConnections.has(id)) {
       const stream = jumpserverShellStreams.get(id)
       if (!stream) {
-        return { status: 'error', message: 'JumpServer Shell未找到' }
+        return { status: 'error', message: 'JumpServer Shell not found' }
       }
 
       try {
         stream.setWindow(rows, cols, 0, 0)
-        return { status: 'success', message: `JumpServer窗口大小已设置为 ${cols}x${rows}` }
+        return { status: 'success', message: `JumpServer window size set to ${cols}x${rows}` }
       } catch (error: unknown) {
         return { status: 'error', message: error instanceof Error ? error.message : String(error) }
       }
     }
 
-    // 默认 SSH 处理
+    // Default SSH handling
     const stream = shellStreams.get(id)
     if (!stream) {
       return { status: 'error', message: 'Shell not found' }
@@ -1047,11 +1047,11 @@ export const registerSSHHandlers = () => {
   })
 
   ipcMain.on('ssh:shell:write', (_event, { id, data, marker, lineCommand, isBinary }) => {
-    // 检查是否为 JumpServer 连接
+    // Check if it's a JumpServer connection
     if (jumpserverConnections.has(id)) {
       const stream = jumpserverShellStreams.get(id)
       if (stream) {
-        // 使用 lineCommand 进行命令检测，如果没有则回退到 data.trim()
+        // Use lineCommand for command detection, fallback to data.trim() if not available
         const command = lineCommand || data.trim()
 
         if (['exit', 'logout', '\x04'].includes(command)) {
@@ -1078,16 +1078,16 @@ export const registerSSHHandlers = () => {
           stream.write(data)
         }
       } else {
-        console.warn('尝试写入不存在的JumpServer stream:', id)
+        console.warn('Attempting to write to non-existent JumpServer stream:', id)
       }
       return
     }
 
-    // 默认 SSH 处理
+    // Default SSH handling
     const stream = shellStreams.get(id)
     if (stream) {
       console.log(`ssh:shell:write (default) raw data: "${data}"`)
-      // 对于默认SSH连接，不做退出命令检测，让终端自然处理退出
+      // For default SSH connections, don't detect exit commands, let terminal handle exit naturally
       if (markedCommands.has(id)) {
         markedCommands.delete(id)
       }
@@ -1113,10 +1113,10 @@ export const registerSSHHandlers = () => {
   })
 
   /**
-   * 在 JumpServer 资产上执行命令（通过 shell 流模拟 exec）
-   * @param id - 连接 ID
-   * @param cmd - 要执行的命令
-   * @returns 执行结果（兼容标准 exec 格式）
+   * Execute command on JumpServer asset (simulate exec via shell stream)
+   * @param id - Connection ID
+   * @param cmd - Command to execute
+   * @returns Execution result (compatible with standard exec format)
    */
   async function executeCommandOnJumpServerAsset(
     id: string,
@@ -1129,7 +1129,7 @@ export const registerSSHHandlers = () => {
     exitSignal?: string
     error?: string
   }> {
-    // 获取或创建专用 exec 流（而非用户交互流）
+    // Get or create dedicated exec stream (not user interaction stream)
     let execStream: any
     try {
       execStream = await createJumpServerExecStream(id)
@@ -1162,29 +1162,29 @@ export const registerSSHHandlers = () => {
       let outputBuffer = ''
       let timeoutHandle: NodeJS.Timeout
 
-      // 输出监听器
+      // Output listener
       const dataHandler = (data: Buffer) => {
         outputBuffer += data.toString()
 
-        // 检测到结束标记
+        // End marker detected
         if (outputBuffer.includes(marker)) {
           cleanup()
 
           try {
-            // 提取输出内容（移除命令回显和标记）
+            // Extract output content (remove command echo and markers)
             const lines = outputBuffer.split('\n')
 
-            // 找到命令行的位置（命令回显）
+            // Find command line position (command echo)
             const commandIndex = lines.findIndex((line) => line.trim().includes(cmd.trim()))
 
-            // 找到结束标记的位置
+            // Find end marker position
             const markerIndex = lines.findIndex((line) => line.includes(marker))
 
-            // 提取命令输出（在命令行和标记之间）
+            // Extract command output (between command line and marker)
             const outputLines = lines.slice(commandIndex + 1, markerIndex)
             const stdout = outputLines.join('\n').trim()
 
-            // 提取退出码（从 exitCodeMarker 后的内容）
+            // Extract exit code (from content after exitCodeMarker)
             const exitCodePattern = new RegExp(`${exitCodeMarker}(\\d+)`)
             const exitCodeMatch = outputBuffer.match(exitCodePattern)
             const exitCode = exitCodeMatch ? parseInt(exitCodeMatch[1], 10) : 0
@@ -1197,7 +1197,7 @@ export const registerSSHHandlers = () => {
               exitSignal: undefined
             })
           } catch (parseError) {
-            // 解析失败时返回原始输出
+            // Return raw output on parse failure
             resolve({
               success: false,
               error: `Failed to parse command output: ${parseError}`,
@@ -1210,13 +1210,13 @@ export const registerSSHHandlers = () => {
         }
       }
 
-      // 清理函数
+      // Cleanup function
       const cleanup = () => {
         execStream.removeListener('data', dataHandler)
         clearTimeout(timeoutHandle)
       }
 
-      // 超时保护（30秒）
+      // Timeout protection (30 seconds)
       timeoutHandle = setTimeout(() => {
         cleanup()
         resolve({
@@ -1229,23 +1229,23 @@ export const registerSSHHandlers = () => {
         })
       }, 30000)
 
-      // 注册监听器
+      // Register listener
       execStream.on('data', dataHandler)
 
-      // 发送命令（捕获退出码）
-      // 使用 bash 技巧：命令; echo marker; echo exitcode_marker$?
+      // Send command (capture exit code)
+      // Use bash trick: command; echo marker; echo exitcode_marker$?
       const fullCommand = `${cmd}; echo "${marker}"; echo "${exitCodeMarker}$?"\r`
       execStream.write(fullCommand)
     })
   }
 
   ipcMain.handle('ssh:conn:exec', async (_event, { id, cmd }) => {
-    // 检测是否为 JumpServer 连接，优先处理
+    // Detect if it's a JumpServer connection, handle with priority
     if (jumpserverShellStreams.has(id)) {
       return executeCommandOnJumpServerAsset(id, cmd)
     }
 
-    // 标准 SSH 连接处理
+    // Standard SSH connection handling
     const conn = sshConnections.get(id)
     if (!conn) {
       return {
@@ -1307,7 +1307,7 @@ export const registerSSHHandlers = () => {
 
         // Handle stream errors
         stream.on('error', (streamErr) => {
-          // 优化：错误时也使用相同的拼接方式
+          // Optimization: use same concatenation method on error
           const stdout = Buffer.concat(stdoutChunks).toString()
           const stderr = Buffer.concat(stderrChunks).toString()
 
@@ -1373,7 +1373,7 @@ export const registerSSHHandlers = () => {
   })
 
   ipcMain.handle('ssh:disconnect', async (_event, { id }) => {
-    // 检查是否为 JumpServer 连接
+    // Check if it's a JumpServer connection
     if (jumpserverConnections.has(id)) {
       const stream = jumpserverShellStreams.get(id)
       if (stream) {
@@ -1381,10 +1381,10 @@ export const registerSSHHandlers = () => {
         jumpserverShellStreams.delete(id)
       }
 
-      // 清理 exec 流
+      // Clean up exec stream
       const execStream = jumpserverExecStreams.get(id)
       if (execStream) {
-        console.log(`清理 JumpServer exec 流: ${id}`)
+        console.log(`Cleaning up JumpServer exec stream: ${id}`)
         execStream.end()
         jumpserverExecStreams.delete(id)
       }
@@ -1393,7 +1393,7 @@ export const registerSSHHandlers = () => {
       if (connData) {
         const connToClose = connData.conn
 
-        // 检查是否还有其他会话在使用同一个连接
+        // Check if other sessions are using the same connection
         let isConnStillInUse = false
         for (const [otherId, otherData] of jumpserverConnections.entries()) {
           if (otherId !== id && otherData.conn === connToClose) {
@@ -1402,23 +1402,23 @@ export const registerSSHHandlers = () => {
           }
         }
 
-        // 只有没有其他会话使用时才关闭底层连接
+        // Only close underlying connection when no other sessions are using it
         if (!isConnStillInUse) {
-          console.log(`[堡垒机] 所有会话已关闭，释放底层连接: ${id}`)
+          console.log(`[JumpServer] All sessions closed, releasing underlying connection: ${id}`)
           connToClose.end()
         } else {
-          console.log(`[堡垒机] 会话已断开，但底层连接仍被其他会话使用: ${id}`)
+          console.log(`[JumpServer] Session disconnected, but underlying connection still in use by other sessions: ${id}`)
         }
         cleanSftpConnection(id)
         jumpserverConnections.delete(id)
         jumpserverConnectionStatus.delete(id)
-        return { status: 'success', message: 'JumpServer 连接已断开' }
+        return { status: 'success', message: 'JumpServer connection disconnected' }
       }
 
-      return { status: 'warning', message: '没有活动的 JumpServer 连接' }
+      return { status: 'warning', message: 'No active JumpServer connection' }
     }
 
-    // 默认 SSH 处理
+    // Default SSH handling
     const stream = shellStreams.get(id)
     if (stream) {
       stream.end()
@@ -1427,11 +1427,11 @@ export const registerSSHHandlers = () => {
 
     const conn = sshConnections.get(id)
     if (conn) {
-      // 检查此连接是否在复用池中
+      // Check if this connection is in the reuse pool
       let poolKey: string | null = null
       let reusableConn: ReusableConnection | null = null
 
-      // 遍历连接池查找匹配的连接
+      // Iterate through connection pool to find matching connection
       sshConnectionPool.forEach((value, key) => {
         if (value.conn === conn) {
           poolKey = key
@@ -1440,17 +1440,17 @@ export const registerSSHHandlers = () => {
       })
 
       if (poolKey && reusableConn) {
-        // 从会话集合中移除当前会话
+        // Remove current session from session set
         ;(reusableConn as ReusableConnection).sessions.delete(id)
 
-        // 如果没有其他会话使用此连接，则关闭连接并清理连接池
+        // If no other sessions are using this connection, close connection and clean up pool
         if ((reusableConn as ReusableConnection).sessions.size === 0) {
-          console.log(`[SSH连接池] 所有会话已关闭，释放连接: ${poolKey}`)
+          console.log(`[SSH Connection Pool] All sessions closed, releasing connection: ${poolKey}`)
           conn.end()
           sshConnectionPool.delete(poolKey)
         }
       } else {
-        // 不在复用池中的普通连接，直接关闭
+        // Regular connection not in reuse pool, close directly
         conn.end()
       }
       cleanSftpConnection(id)

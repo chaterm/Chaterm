@@ -1,10 +1,10 @@
 /**
- * 安全的 JSON 序列化工具
- * 使用 superjson 处理特殊类型：Date、undefined、NaN、Infinity、循环引用、RegExp、Set、Map、BigInt 等
+ * Safe JSON serialization utility
+ * Uses superjson to handle special types: Date, undefined, NaN, Infinity, circular references, RegExp, Set, Map, BigInt, etc.
  */
 
 interface SerializationOptions {
-  /** 是否严格模式(遇到无法序列化的值时抛出错误) */
+  /** Whether strict mode (throws error when encountering non-serializable values) */
   strict?: boolean
 }
 
@@ -14,12 +14,12 @@ interface SerializationResult {
   error?: string
 }
 
-// 延迟加载 superjson（使用动态 import 解决 ESM/CommonJS 兼容问题）
+// Lazy load superjson (use dynamic import to solve ESM/CommonJS compatibility issues)
 let superjsonInstance: any = null
 
 async function getSuperjson() {
   if (!superjsonInstance) {
-    // 动态导入 ESM 模块
+    // Dynamically import ESM module
     const module = await import('superjson')
     superjsonInstance = module.default || module
   }
@@ -27,21 +27,21 @@ async function getSuperjson() {
 }
 
 /**
- * 安全的序列化
+ * Safe serialization
  *
- * 支持的特殊类型：
- * - Date 对象
+ * Supported special types:
+ * - Date objects
  * - undefined, NaN, Infinity, -Infinity
- * - RegExp 正则表达式
- * - Set, Map 集合
- * - BigInt 大整数
- * - TypedArray (Uint8Array 等)
- * - Error 对象
- * - 循环引用
+ * - RegExp regular expressions
+ * - Set, Map collections
+ * - BigInt large integers
+ * - TypedArray (Uint8Array, etc.)
+ * - Error objects
+ * - Circular references
  *
- * @param value 要序列化的值
- * @param options 序列化选项
- * @returns 序列化结果
+ * @param value Value to serialize
+ * @param options Serialization options
+ * @returns Serialization result
  */
 export async function safeStringify(value: any, options: SerializationOptions = {}): Promise<SerializationResult> {
   const { strict = false } = options
@@ -62,20 +62,20 @@ export async function safeStringify(value: any, options: SerializationOptions = 
 }
 
 /**
- * 安全的反序列化
+ * Safe deserialization
  *
- * 自动恢复特殊类型：
- * - Date 对象
+ * Automatically restores special types:
+ * - Date objects
  * - undefined, NaN, Infinity, -Infinity
- * - RegExp 正则表达式
- * - Set, Map 集合
- * - BigInt 大整数
- * - TypedArray (Uint8Array 等)
- * - Error 对象
- * - 循环引用
+ * - RegExp regular expressions
+ * - Set, Map collections
+ * - BigInt large integers
+ * - TypedArray (Uint8Array, etc.)
+ * - Error objects
+ * - Circular references
  *
- * @param jsonString JSON 字符串
- * @returns 反序列化后的对象，失败返回 null
+ * @param jsonString JSON string
+ * @returns Deserialized object, returns null on failure
  */
 export async function safeParse<T = any>(jsonString: string): Promise<T | null> {
   try {

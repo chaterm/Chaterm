@@ -15,12 +15,12 @@ export interface VersionPromptState {
 }
 
 function shouldShowPrompt(state: VersionPromptState, currentVersion: string): boolean {
-  // 首次安装不显示更新提示
+  // Don't show update prompt on first install
   if (!state.lastKnownVersion) {
     return false
   }
 
-  // 如果当前版本已经显示过提示,则不再显示
+  // Don't show if current version has already been shown
   return state.lastShownVersion !== currentVersion
 }
 
@@ -36,20 +36,20 @@ async function getUserLanguage(): Promise<string> {
 function getLocalizedHighlights(highlights: Record<string, string[]> | string[] | undefined, language: string): string[] {
   if (!highlights) return []
 
-  // 如果是旧格式（数组），直接返回
+  // If it's old format (array), return directly
   if (Array.isArray(highlights)) {
     return highlights
   }
 
-  // 新格式（多语言对象）
-  // 尝试使用当前语言，如果不存在则尝试中文，最后返回第一个可用语言
+  // New format (multi-language object)
+  // Try to use current language, fallback to Chinese if not available, finally return first available language
   return highlights[language] || highlights['zh-CN'] || highlights['en-US'] || Object.values(highlights)[0] || []
 }
 
 export interface VersionReleaseNote {
   version: string
   date?: string
-  highlights?: Record<string, string[]> | string[] // 支持多语言对象或旧格式数组
+  highlights?: Record<string, string[]> | string[] // Support multi-language object or old format array
 }
 
 export interface VersionPromptPayload {

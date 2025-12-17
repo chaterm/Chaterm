@@ -7,13 +7,13 @@ import { upgradeMcpToolStateSupport } from './migrations/add-mcp-tool-state-supp
 import { upgradeMcpToolCallSupport } from './migrations/add-mcp-tool-call-support'
 import { IndexDBMigrator } from './indexdb-migrator'
 
-// 在测试环境中，app可能不可用，使用fallback路径
+// In test environment, app may not be available, use fallback path
 let USER_DATA_PATH: string
 try {
   const { app } = require('electron')
   USER_DATA_PATH = app.getPath('userData')
 } catch (error) {
-  // 测试环境或非Electron环境的fallback
+  // Fallback for test environment or non-Electron environment
   USER_DATA_PATH = join(process.cwd(), 'test_data')
 }
 const INIT_DB_PATH = getInitDbPath()
@@ -23,7 +23,7 @@ let currentUserId: number | null = null
 let mainWindowWebContents: Electron.WebContents | null = null
 
 /**
- * 设置主窗口的 WebContents 引用,用于迁移时的跨进程通信
+ * Set main window WebContents reference for cross-process communication during migration
  */
 export function setMainWindowWebContents(webContents: Electron.WebContents | null): void {
   mainWindowWebContents = webContents
@@ -82,7 +82,7 @@ function getInitChatermDbPath(): string {
       return join(__dirname, '../../src/renderer/src/assets/db/init_chaterm.db')
     }
   } catch (error) {
-    // 测试环境fallback
+    // Fallback for test environment
     return join(process.cwd(), 'test_data', 'init_chaterm.db')
   }
 }
@@ -96,7 +96,7 @@ function getInitDbPath(): string {
       return join(__dirname, '../../src/renderer/src/assets/db/init_data.db')
     }
   } catch (error) {
-    // 测试环境fallback
+    // Fallback for test environment
     return join(process.cwd(), 'test_data', 'init_data.db')
   }
 }
@@ -146,13 +146,13 @@ function upgradeUserSnippetTable(db: Database.Database): void {
 
 function upgradeTAssetsTable(db: Database.Database): void {
   try {
-    // 检查 asset_type 列是否存在
+    // Check if asset_type column exists
     try {
       db.prepare('SELECT asset_type FROM t_assets LIMIT 1').get()
     } catch (error) {
-      // 列不存在，需要升级表结构
+      // Column does not exist, need to upgrade table structure
       db.transaction(() => {
-        // 添加 asset_type 列
+        // Add asset_type column
         db.exec("ALTER TABLE t_assets ADD COLUMN asset_type TEXT DEFAULT 'person'")
         console.log('Added asset_type column to t_assets')
       })()
@@ -160,7 +160,7 @@ function upgradeTAssetsTable(db: Database.Database): void {
       console.log('t_assets table upgrade completed')
     }
 
-    // 追加列升级：t_assets.version
+    // Additional column upgrade: t_assets.version
     try {
       db.prepare('SELECT version FROM t_assets LIMIT 1').get()
     } catch (e) {
@@ -168,11 +168,11 @@ function upgradeTAssetsTable(db: Database.Database): void {
       console.log('Added version column to t_assets')
     }
 
-    // 追加列升级：t_asset_chains.uuid
+    // Additional column upgrade: t_asset_chains.uuid
     try {
       db.prepare('SELECT uuid FROM t_asset_chains LIMIT 1').get()
     } catch (e) {
-      // uuid 列不存在，需要添加
+      // uuid column does not exist, need to add
       db.transaction(() => {
         try {
           db.exec('ALTER TABLE t_asset_chains ADD COLUMN uuid TEXT')
@@ -184,7 +184,7 @@ function upgradeTAssetsTable(db: Database.Database): void {
       })()
     }
 
-    // 检查并填充缺失的 UUID
+    // Check and fill missing UUIDs
     try {
       const existingRecords = db.prepare("SELECT key_chain_id FROM t_asset_chains WHERE uuid IS NULL OR uuid = ''").all()
 
@@ -201,7 +201,7 @@ function upgradeTAssetsTable(db: Database.Database): void {
       console.error('Error filling uuid for t_asset_chains:', fillError)
     }
 
-    // 追加列：t_assets.need_proxy
+    // Additional column: t_assets.need_proxy
     try {
       db.prepare('SELECT need_proxy FROM t_assets LIMIT 1').get()
     } catch (e) {
@@ -209,7 +209,7 @@ function upgradeTAssetsTable(db: Database.Database): void {
       console.log('Added need_proxy column to t_assets')
     }
 
-    // 追加列升级：t_assets.proxy_name
+    // Additional column upgrade: t_assets.proxy_name
     try {
       db.prepare('SELECT proxy_name FROM t_assets LIMIT 1').get()
     } catch (e) {
@@ -217,20 +217,20 @@ function upgradeTAssetsTable(db: Database.Database): void {
       console.log('Added proxy_name column to t_assets')
     }
 
-    // 添加复合唯一约束：asset_ip + username + port + label + asset_type
+    // Add composite unique constraint: asset_ip + username + port + label + asset_type
     try {
-      // 总是删除旧索引（如果存在）
+      // Always drop old indexes if they exist
       db.exec('DROP INDEX IF EXISTS idx_assets_unique_ip_user_port')
       db.exec('DROP INDEX IF EXISTS idx_assets_unique_ip_user_port_label')
 
-      // 检查新索引是否已存在
+      // Check if new index already exists
       const newIdx = db.prepare("SELECT name FROM sqlite_master WHERE type='index' AND name='idx_assets_unique_ip_user_port_label_type'").get()
 
       if (!newIdx) {
-        // 确保所有 asset_type 为 NULL 的记录都设置为默认值 'person'
+        // Ensure all records with NULL asset_type are set to default value 'person'
         db.exec("UPDATE t_assets SET asset_type = 'person' WHERE asset_type IS NULL OR asset_type = ''")
 
-        // 先清理可能的重复数据（在五元组维度上），保留最新的记录
+        // First clean up possible duplicate data (on quintuple dimension), keep the latest record
         db.exec(`
  DELETE FROM t_assets 
  WHERE id NOT IN (
@@ -240,7 +240,7 @@ function upgradeTAssetsTable(db: Database.Database): void {
  )
  `)
 
-        // 创建新的复合唯一索引（包含 asset_type）
+        // Create new composite unique index (including asset_type)
         db.exec(`
  CREATE UNIQUE INDEX idx_assets_unique_ip_user_port_label_type 
  ON t_assets(asset_ip, username, port, label, asset_type)
@@ -380,7 +380,7 @@ export async function initChatermDatabase(userId?: number): Promise<Database.Dat
           }
         }
 
-        // 进行必要的升级
+        // Perform necessary upgrades
         upgradeTAssetsTable(mainDb)
         upgradeUserSnippetTable(mainDb)
         upgradeAgentTaskMetadataSupport(mainDb)
@@ -396,7 +396,7 @@ export async function initChatermDatabase(userId?: number): Promise<Database.Dat
     const db = new Database(Chaterm_DB_PATH)
     console.log('Chaterm database connection established at:', Chaterm_DB_PATH)
 
-    // ==================== IndexedDB 到 SQLite 数据迁移 ====================
+    // ==================== IndexedDB to SQLite Data Migration ====================
     if (mainWindowWebContents && !mainWindowWebContents.isDestroyed()) {
       try {
         console.log('[Init] Starting IndexedDB migration check for user:', targetUserId)

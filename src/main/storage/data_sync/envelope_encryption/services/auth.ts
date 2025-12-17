@@ -1,5 +1,5 @@
 /**
- * Chaterm 认证适配器
+ * Chaterm Authentication Adapter
  */
 
 interface TokenData {
@@ -22,50 +22,50 @@ class ChatermAuthAdapter {
   private tokenExpiry: number | null = null
 
   constructor() {
-    // 构造函数保持简单
+    // Keep constructor simple
   }
 
   /**
-   * 获取当前用户的 JWT Token
+   * Get the current user's JWT Token
    * @returns JWT Token
    */
   async getAuthToken(): Promise<string | null> {
-    // 直接返回缓存的token，由外部负责设置和更新
+    // Return cached token directly, external code is responsible for setting and updating
     if (this.cachedToken && this.isTokenValid()) {
       return this.cachedToken
     }
 
-    // 如果token无效或不存在，返回null
+    // Return null if token is invalid or doesn't exist
     if (this.cachedToken) {
-      console.warn('缓存的Token已过期')
+      console.warn('Cached token has expired')
     }
 
     return null
   }
 
   /**
-   * 获取当前用户ID
-   * @returns 用户ID
+   * Get the current user ID
+   * @returns User ID
    */
   async getCurrentUserId(): Promise<string | null> {
     return this.cachedUserId || 'guest_user'
   }
 
   /**
-   * 检查 token 是否有效
-   * @returns token 是否有效
+   * Check if token is valid
+   * @returns Whether the token is valid
    */
   private isTokenValid(): boolean {
     if (!this.cachedToken) {
       return false
     }
 
-    // guest token 永远有效
+    // Guest token is always valid
     if (this.cachedToken === 'guest_token') {
       return true
     }
 
-    // 检查是否过期（提前5分钟认为过期）
+    // Check if expired (consider expired 5 minutes early)
     if (!this.tokenExpiry) {
       return false
     }
@@ -75,10 +75,10 @@ class ChatermAuthAdapter {
   }
 
   /**
-   * 设置认证信息
+   * Set authentication information
    * @param token JWT Token
-   * @param userId 用户ID
-   * @param expiry 过期时间（可选，默认24小时）
+   * @param userId User ID
+   * @param expiry Expiration time (optional, default 24 hours)
    */
   setAuthInfo(token: string, userId: string, expiry?: number): void {
     this.cachedToken = token
@@ -87,7 +87,7 @@ class ChatermAuthAdapter {
   }
 
   /**
-   * 清除认证信息
+   * Clear authentication information
    */
   clearAuthInfo(): void {
     this.cachedToken = null
@@ -96,8 +96,8 @@ class ChatermAuthAdapter {
   }
 
   /**
-   * 获取认证状态（用于调试和状态检查）
-   * @returns 认证状态信息
+   * Get authentication status (for debugging and status checking)
+   * @returns Authentication status information
    */
   getAuthStatus(): AuthStatus {
     return {
@@ -110,7 +110,7 @@ class ChatermAuthAdapter {
   }
 }
 
-// 创建单例实例
+// Create singleton instance
 const chatermAuthAdapter = new ChatermAuthAdapter()
 
 export { ChatermAuthAdapter, chatermAuthAdapter }

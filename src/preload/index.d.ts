@@ -75,7 +75,7 @@ interface ApiType {
   }>
   updateOrganizationAssetFavorite: (data: { organizationUuid: string; host: string; status: number }) => Promise<any>
   updateOrganizationAssetComment: (data: { organizationUuid: string; host: string; comment: string }) => Promise<any>
-  // 自定义文件夹管理API
+  // Custom folder management API
   createCustomFolder: (data: { name: string; description?: string }) => Promise<any>
   getCustomFolders: () => Promise<any>
   updateCustomFolder: (data: { folderUuid: string; name: string; description?: string }) => Promise<any>
@@ -128,7 +128,7 @@ interface ApiType {
   onMcpServerUpdate: (callback: (server: any) => void) => () => void
   onMcpConfigFileChanged: (callback: (content: string) => void) => () => void
 
-  // IndexedDB 迁移相关 API
+  // IndexedDB migration related API
   getMigrationStatus: (params: { dataSource?: string }) => Promise<any>
   aliasesQuery: (params: { action: string; searchText?: string; alias?: string }) => Promise<any[]>
   aliasesMutate: (params: { action: string; data?: any; alias?: string }) => Promise<void>

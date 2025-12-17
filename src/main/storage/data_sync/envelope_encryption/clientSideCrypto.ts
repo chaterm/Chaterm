@@ -32,14 +32,14 @@ interface CacheStats {
 }
 
 /**
- * 客户端加密库 - 核心类
+ * Client-side encryption library - Core class
  *
- * 安全架构：
- * 1. 数据不离开客户端：所有敏感数据在客户端加密
- * 2. 密钥分离：主密钥在KMS，数据密钥临时下发
- * 3. 零信任：服务端无法看到用户数据
- * 4. 密钥轮换：支持定期更换数据密钥
- * 5. 安全存储：只存储加密后的数据密钥
+ * Security architecture:
+ * 1. Data never leaves client: All sensitive data is encrypted on the client side
+ * 2. Key separation: Master key in KMS, data keys are temporarily issued
+ * 3. Zero trust: Server cannot see user data
+ * 4. Key rotation: Supports periodic data key rotation
+ * 5. Secure storage: Only stores encrypted data keys
  */
 class ClientSideCrypto {
   private apiClient: any
@@ -50,7 +50,7 @@ class ClientSideCrypto {
   private sessionId: string | null = null
   private authToken: string | null = null
 
-  // 数据密钥缓存机制
+  // Data key cache mechanism
   private dataKeyCache: Map<string, DataKeyCache> = new Map()
   private cacheStats = {
     totalRequests: 0,
@@ -58,7 +58,7 @@ class ClientSideCrypto {
     cacheMisses: 0
   }
   private readonly CACHE_EXPIRY_MS = config?.timeout?.keyExpiry
-  private readonly MAX_CACHE_SIZE = 1000 // 最大缓存条目数
+  private readonly MAX_CACHE_SIZE = 1000 // Maximum cache entries
 
   constructor(serverUrl: string) {
     this.apiClient = new ApiClient(serverUrl)
@@ -66,40 +66,40 @@ class ClientSideCrypto {
   }
 
   /**
-   * 初始化客户端加密
-   * @param userId - 用户ID
-   * @param authToken - 认证令牌（可选）
+   * Initialize client-side encryption
+   * @param userId - User ID
+   * @param authToken - Authentication token (optional)
    */
   async initialize(userId: string, authToken: string | null = null): Promise<void> {
     try {
       this.userId = userId
-      this.authToken = authToken // 保存认证令牌
+      this.authToken = authToken // Store authentication token
 
       this.sessionId = CryptoUtils.generateSessionId(userId)
 
-      // 直接生成新的数据密钥，不再依赖本地存储
+      // Generate new data key directly, no longer relying on local storage
       await this.generateNewDataKey()
 
-      // 存储会话信息
+      // Store session information
       await this.storage.storeSession(userId, this.sessionId)
 
-      console.log('客户端加密初始化完成')
+      console.log('Client-side encryption initialized successfully')
     } catch (error) {
-      // 简化错误日志，避免重复输出
+      // Simplify error logging to avoid duplicate output
       const errorMessage = (error as Error).message
-      throw new Error(`客户端加密初始化失败: ${errorMessage}`)
+      throw new Error(`Client-side encryption initialization failed: ${errorMessage}`)
     }
   }
 
   /**
-   * 解密数据密钥（使用内存缓存机制）
-   * @param encryptedDataKey - 加密的数据密钥
-   * @param encryptionContext - 加密上下文
-   * @returns 解密后的数据密钥
+   * Decrypt data key (using in-memory cache mechanism)
+   * @param encryptedDataKey - Encrypted data key
+   * @param encryptionContext - Encryption context
+   * @returns Decrypted data key
    */
   private async decryptDataKey(encryptedDataKey: string, encryptionContext: any): Promise<Buffer> {
     try {
-      // 尝试从内存缓存获取数据密钥
+      // Try to get data key from in-memory cache
       const cachedKey = await this.getDataKeyFromCache(encryptedDataKey, encryptionContext)
       if (cachedKey) {
         return cachedKey
@@ -111,73 +111,73 @@ class ClientSideCrypto {
         authToken: this.authToken
       })
       if (response.success) {
-        // 将Base64编码的密钥转换为Buffer
+        // Convert Base64-encoded key to Buffer
         const plaintextDataKey = Buffer.from(response.plaintextDataKey, 'base64')
-        // 将解密结果添加到内存缓存
+        // Add decryption result to in-memory cache
         await this.addDataKeyToCache(encryptedDataKey, encryptionContext, plaintextDataKey)
 
         return plaintextDataKey
       } else {
-        console.error(' KMS 解密失败:')
-        console.error('  - 错误信息:', response.error)
-        throw new Error(`解密数据密钥失败: ${response.error}`)
+        console.error('KMS decryption failed:')
+        console.error('  - Error:', response.error)
+        throw new Error(`Failed to decrypt data key: ${response.error}`)
       }
     } catch (error) {
-      console.error(' 数据密钥解密失败:', (error as Error).message)
-      console.error(' 错误堆栈:', (error as Error).stack)
+      console.error('Data key decryption failed:', (error as Error).message)
+      console.error('Error stack:', (error as Error).stack)
       const errorMessage = (error as Error).message
-      throw new Error(errorMessage.includes('解密数据密钥失败') ? errorMessage : `解密数据密钥失败: ${errorMessage}`)
+      throw new Error(errorMessage.includes('Failed to decrypt data key') ? errorMessage : `Failed to decrypt data key: ${errorMessage}`)
     }
   }
 
   /**
-   *  生成新的数据密钥
+   * Generate new data key
    */
   private async generateNewDataKey(): Promise<void> {
     try {
-      // 构建加密上下文
+      // Build encryption context
       const encryptionContext = {
         userId: this.userId,
         sessionId: this.sessionId,
         purpose: 'client-side-encryption'
       }
 
-      // 调用KMS服务生成数据密钥
+      // Call KMS service to generate data key
       const response = await this.apiClient.generateDataKey({
         encryptionContext,
         authToken: this.authToken
       })
 
       if (response.success) {
-        // 将Base64编码的密钥转换为Buffer
+        // Convert Base64-encoded key to Buffer
         this.dataKey = Buffer.from(response.plaintextDataKey, 'base64')
         this.encryptedDataKey = response.encryptedDataKey
 
-        // 将新生成的密钥添加到内存缓存
+        // Add newly generated key to in-memory cache
         if (this.encryptedDataKey && this.dataKey) {
           await this.addDataKeyToCache(this.encryptedDataKey, encryptionContext, this.dataKey)
         }
 
-        console.log('新数据密钥生成成功并已缓存')
+        console.log('New data key generated successfully and cached')
       } else {
-        throw new Error(`生成数据密钥失败: ${response.error}`)
+        throw new Error(`Failed to generate data key: ${response.error}`)
       }
     } catch (error) {
-      // 简化错误日志输出
+      // Simplify error log output
       const errorMessage = (error as Error).message
-      console.warn('数据密钥生成失败:', errorMessage)
-      throw new Error(errorMessage.includes('生成数据密钥失败') ? errorMessage : `生成数据密钥失败: ${errorMessage}`)
+      console.warn('Data key generation failed:', errorMessage)
+      throw new Error(errorMessage.includes('Failed to generate data key') ? errorMessage : `Failed to generate data key: ${errorMessage}`)
     }
   }
 
   /**
-   * 使用 AWS Encryption SDK 加密敏感数据
-   * @param plaintext - 要加密的明文数据
-   * @returns 加密结果
+   * Encrypt sensitive data using AWS Encryption SDK
+   * @param plaintext - Plaintext data to encrypt
+   * @returns Encryption result
    */
   async encryptData(plaintext: string): Promise<EncryptionResult> {
     if (!this.dataKey || !this.userId) {
-      throw new Error('客户端加密未初始化')
+      throw new Error('Client-side encryption not initialized')
     }
 
     const dataKeyBase64 = this.dataKey.toString('base64')
@@ -188,39 +188,39 @@ class ClientSideCrypto {
   }
 
   /**
-   * 使用 AWS Encryption SDK 解密敏感数据
-   * @param encryptedData - 加密的数据对象
-   * @returns 解密后的明文
+   * Decrypt sensitive data using AWS Encryption SDK
+   * @param encryptedData - Encrypted data object
+   * @returns Decrypted plaintext
    */
   async decryptData(encryptedData: any): Promise<string> {
     if (!this.userId) {
-      console.error(' 客户端加密未初始化')
-      throw new Error('客户端加密未初始化')
+      console.error('Client-side encryption not initialized')
+      throw new Error('Client-side encryption not initialized')
     }
 
-    // 修复：检查是否是信封加密的解密请求
+    // Fix: Check if this is an envelope encryption decryption request
     if (encryptedData.encryptedDataKey) {
       return await this.decryptWithKmsDataKey(encryptedData)
     }
 
-    // 关键修复：检测密文格式，决定使用哪种解密方式
+    // Critical fix: Detect ciphertext format to determine which decryption method to use
     const encryptedBase64 = encryptedData.encrypted
     let shouldTryKmsResolution = false
 
     if (encryptedBase64) {
       try {
         const encryptedBuffer = Buffer.from(encryptedBase64, 'base64')
-        // 检查 AWS Encryption SDK 密文格式特征
+        // Check AWS Encryption SDK ciphertext format characteristics
         if (encryptedBuffer.length > 4) {
           const version = encryptedBuffer.readUInt8(0)
           const type = encryptedBuffer.readUInt8(1)
-          // AWS Encryption SDK 的典型版本和类型
+          // Typical version and type for AWS Encryption SDK
           if (version === 0x02 && type === 0x05) {
             shouldTryKmsResolution = true
           }
         }
       } catch (e) {
-        console.log('密文格式检查失败，继续使用当前会话密钥')
+        console.log('Ciphertext format check failed, continuing with current session key')
       }
     }
 
@@ -229,14 +229,14 @@ class ClientSideCrypto {
         const result = await this.decryptWithKmsResolution(encryptedData)
         return result
       } catch (error) {
-        console.warn(' KMS 解密失败，尝试使用当前会话密钥:', (error as Error).message)
+        console.warn('KMS decryption failed, trying current session key:', (error as Error).message)
       }
     }
 
-    // 回退到使用当前会话密钥解密
+    // Fallback to using current session key for decryption
     if (!this.dataKey) {
-      console.error(' 当前会话密钥未初始化，且 KMS 解密失败')
-      throw new Error('当前会话密钥未初始化，且 KMS 解密失败')
+      console.error('Current session key not initialized and KMS decryption failed')
+      throw new Error('Current session key not initialized and KMS decryption failed')
     }
 
     const dataKeyBase64 = this.dataKey.toString('base64')
@@ -245,35 +245,35 @@ class ClientSideCrypto {
   }
 
   /**
-   * 使用 KMS 解密数据密钥的方式解密数据（信封加密的正确实现）
-   * @param encryptedData - 包含加密数据密钥的加密数据对象
-   * @returns 解密后的明文
+   * Decrypt data using KMS data key decryption method (correct implementation of envelope encryption)
+   * @param encryptedData - Encrypted data object containing encrypted data key
+   * @returns Decrypted plaintext
    */
   private async decryptWithKmsDataKey(encryptedData: any): Promise<string> {
     try {
-      // 步骤1: 使用 KMS 解密数据密钥
+      // Step 1: Decrypt data key using KMS
       const plaintextDataKey = await this.decryptDataKey(encryptedData.encryptedDataKey, encryptedData.encryptionContext || {})
 
-      // 步骤2: 使用明文数据密钥解密实际数据
+      // Step 2: Decrypt actual data using plaintext data key
       const dataKeyBase64 = plaintextDataKey.toString('base64')
       const result = await CryptoUtils.decryptDataWithAwsSdk(encryptedData, dataKeyBase64, this.userId || undefined)
       return result
     } catch (error) {
-      console.error(' 信封解密失败:', (error as Error).message)
-      throw new Error(`信封解密失败: ${(error as Error).message}`)
+      console.error('Envelope decryption failed:', (error as Error).message)
+      throw new Error(`Envelope decryption failed: ${(error as Error).message}`)
     }
   }
 
   /**
-   * 使用 KMS 解析方式解密数据（适用于包含 KMS 加密数据密钥的密文）
-   * @param encryptedData - 加密的数据对象
-   * @returns 解密后的明文
+   * Decrypt data using KMS resolution method (for ciphertext containing KMS-encrypted data keys)
+   * @param encryptedData - Encrypted data object
+   * @returns Decrypted plaintext
    */
   private async decryptWithKmsResolution(encryptedData: any): Promise<string> {
     try {
-      // 关键修复：检查是否有完整的 ENC1 格式数据
+      // Critical fix: Check if complete ENC1 format data exists
       if (encryptedData.originalCombinedString && encryptedData.parsedMeta) {
-        // 从元数据中获取加密上下文
+        // Get encryption context from metadata
         const encryptionContext = encryptedData.parsedMeta.encryptionContext || {}
 
         try {
@@ -287,9 +287,9 @@ class ClientSideCrypto {
             purpose: 'client-side-encryption'
           }
 
-          // 修复：使用现有的解密方法
+          // Fix: Use existing decryption method
           if (!this.dataKey) {
-            throw new Error('当前会话密钥未初始化')
+            throw new Error('Current session key not initialized')
           }
 
           const dataKeyBase64 = this.dataKey.toString('base64')
@@ -303,86 +303,86 @@ class ClientSideCrypto {
           )
           return result
         } catch (decryptError) {
-          console.log('  解密失败:', (decryptError as Error).message)
-          throw new Error(`解密失败: ${(decryptError as Error).message}`)
+          console.log('Decryption failed:', (decryptError as Error).message)
+          throw new Error(`Decryption failed: ${(decryptError as Error).message}`)
         }
       } else {
-        console.error(' 没有完整的 ENC1 格式数据，无法进行 KMS 解析')
+        console.error('No complete ENC1 format data, cannot perform KMS resolution')
         console.log('  - originalCombinedString:', !!encryptedData.originalCombinedString)
         console.log('  - parsedMeta:', !!encryptedData.parsedMeta)
-        throw new Error('缺少完整的 ENC1 格式数据')
+        throw new Error('Missing complete ENC1 format data')
       }
     } catch (error) {
-      console.error(' KMS 解析解密失败:', (error as Error).message)
-      console.error(' 错误堆栈:', (error as Error).stack)
-      throw new Error(`KMS 解析解密失败: ${(error as Error).message}`)
+      console.error('KMS resolution decryption failed:', (error as Error).message)
+      console.error('Error stack:', (error as Error).stack)
+      throw new Error(`KMS resolution decryption failed: ${(error as Error).message}`)
     }
   }
 
   /**
-   * 轮换数据密钥
+   * Rotate data key
    */
   async rotateDataKey(): Promise<void> {
     if (!this.userId) {
-      throw new Error('未设置用户ID')
+      throw new Error('User ID not set')
     }
 
     try {
-      console.log('开始轮换数据密钥...')
+      console.log('Starting data key rotation...')
 
-      // 清理当前密钥
+      // Clear current key
       this.clearDataKey()
 
-      // 修复：使用基于用户ID的固定 sessionId
+      // Fix: Use fixed sessionId based on user ID
       this.sessionId = CryptoUtils.generateSessionId(this.userId || undefined)
 
-      // 生成新的数据密钥
+      // Generate new data key
       await this.generateNewDataKey()
 
-      console.log('数据密钥轮换成功')
+      console.log('Data key rotation successful')
     } catch (error) {
-      console.error('数据密钥轮换失败:', error)
+      console.error('Data key rotation failed:', error)
       throw error
     }
   }
 
   /**
-   *  清理内存中的敏感数据
-   * @param clearSession - 是否同时清理会话信息
+   * Clean up sensitive data in memory
+   * @param clearSession - Whether to also clear session information
    */
   cleanup(clearSession: boolean = false): void {
-    console.log('清理客户端加密资源...')
+    console.log('Cleaning up client-side encryption resources...')
 
-    // 清理内存中的敏感数据
+    // Clear sensitive data in memory
     this.clearDataKey()
     this.encryptedDataKey = null
     this.authToken = null
 
-    // 清理数据密钥缓存
+    // Clear data key cache
     this.clearCache(true)
 
     if (clearSession && this.userId) {
-      // 只清理会话信息，不再管理本地数据密钥存储
+      // Only clear session information, no longer managing local data key storage
       this.storage.clearSession(this.userId)
-      console.log('已清理会话信息')
+      console.log('Session information cleared')
     }
 
-    console.log(' 资源清理完成')
+    console.log('Resource cleanup completed')
   }
 
   /**
-   *  安全清理数据密钥
+   * Securely clear data key
    */
   private clearDataKey(): void {
     if (this.dataKey) {
-      // 用随机数据覆盖密钥内存
+      // Overwrite key memory with random data
       this.dataKey.fill(0)
       this.dataKey = null
     }
   }
 
   /**
-   * 获取客户端状态
+   * Get client status
    */
   getStatus(): ClientStatus {
     return {
@@ -394,24 +394,24 @@ class ClientSideCrypto {
   }
 
   /**
-   * 获取当前的加密数据密钥（用于信封加密）
-   * @returns 加密的数据密钥，如果未初始化则返回null
+   * Get current encrypted data key (for envelope encryption)
+   * @returns Encrypted data key, or null if not initialized
    */
   getEncryptedDataKey(): string | null {
     return this.encryptedDataKey
   }
 
   /**
-   * 获取当前用户ID
-   * @returns 用户ID，如果未初始化则返回null
+   * Get current user ID
+   * @returns User ID, or null if not initialized
    */
   getUserId(): string | null {
     return this.userId
   }
 
   /**
-   * 健康检查
-   * @returns 客户端加密服务的健康状态
+   * Health check
+   * @returns Health status of client-side encryption service
    */
   async healthCheck(): Promise<any> {
     try {
@@ -448,15 +448,15 @@ class ClientSideCrypto {
   }
 
   /**
-   * 从缓存获取数据密钥
-   * @param encryptedDataKey - 加密的数据密钥
-   * @param encryptionContext - 加密上下文
-   * @returns 缓存的明文数据密钥，如果未找到则返回null
+   * Get data key from cache
+   * @param encryptedDataKey - Encrypted data key
+   * @param encryptionContext - Encryption context
+   * @returns Cached plaintext data key, or null if not found
    */
   private async getDataKeyFromCache(encryptedDataKey: string, encryptionContext: any): Promise<Buffer | null> {
     this.cacheStats.totalRequests++
 
-    // 生成缓存键
+    // Generate cache key
     const cacheKey = this.generateCacheKey(encryptedDataKey, encryptionContext)
     const cached = this.dataKeyCache.get(cacheKey)
 
@@ -465,17 +465,17 @@ class ClientSideCrypto {
       return null
     }
 
-    // 检查缓存是否过期
+    // Check if cache is expired
     if (Date.now() - cached.timestamp > this.CACHE_EXPIRY_MS) {
-      console.log(' 缓存已过期，移除缓存条目')
+      console.log('Cache expired, removing cache entry')
       this.dataKeyCache.delete(cacheKey)
       this.cacheStats.cacheMisses++
       return null
     }
 
-    // 验证加密上下文是否匹配
+    // Verify encryption context matches
     if (!this.compareEncryptionContext(cached.encryptionContext, encryptionContext)) {
-      console.warn('⚠️加密上下文不匹配，跳过缓存')
+      console.warn('⚠️Encryption context mismatch, skipping cache')
       this.cacheStats.cacheMisses++
       return null
     }
@@ -485,46 +485,46 @@ class ClientSideCrypto {
   }
 
   /**
-   * 将数据密钥添加到缓存
-   * @param encryptedDataKey - 加密的数据密钥
-   * @param encryptionContext - 加密上下文
-   * @param plaintextDataKey - 明文数据密钥
+   * Add data key to cache
+   * @param encryptedDataKey - Encrypted data key
+   * @param encryptionContext - Encryption context
+   * @param plaintextDataKey - Plaintext data key
    */
   private async addDataKeyToCache(encryptedDataKey: string, encryptionContext: any, plaintextDataKey: Buffer): Promise<void> {
     try {
-      // 检查缓存大小限制
+      // Check cache size limit
       if (this.dataKeyCache.size >= this.MAX_CACHE_SIZE) {
         this.evictOldestCacheEntry()
       }
 
       const cacheKey = this.generateCacheKey(encryptedDataKey, encryptionContext)
 
-      // 创建密钥副本以避免原始密钥被修改
+      // Create key copy to avoid modifying original key
       const keyBuffer = Buffer.alloc(plaintextDataKey.length)
       plaintextDataKey.copy(keyBuffer)
 
       const cacheEntry: DataKeyCache = {
         encryptedDataKey,
         plaintextDataKey: keyBuffer,
-        encryptionContext: { ...encryptionContext }, // 深拷贝
+        encryptionContext: { ...encryptionContext }, // Deep copy
         timestamp: Date.now()
       }
 
       this.dataKeyCache.set(cacheKey, cacheEntry)
     } catch (error) {
-      console.warn('添加缓存失败:', (error as Error).message)
-      // 缓存失败不应该影响主要功能
+      console.warn('Failed to add to cache:', (error as Error).message)
+      // Cache failure should not affect main functionality
     }
   }
 
   /**
-   * 生成缓存键
-   * @param encryptedDataKey - 加密的数据密钥
-   * @param encryptionContext - 加密上下文
-   * @returns 缓存键
+   * Generate cache key
+   * @param encryptedDataKey - Encrypted data key
+   * @param encryptionContext - Encryption context
+   * @returns Cache key
    */
   private generateCacheKey(encryptedDataKey: string, encryptionContext: any): string {
-    // 使用加密数据密钥的哈希作为主键，加密上下文作为辅助键
+    // Use hash of encrypted data key as primary key, encryption context as secondary key
     const crypto = require('crypto')
     const contextStr = JSON.stringify(encryptionContext, Object.keys(encryptionContext).sort())
     const combined = `${encryptedDataKey}:${contextStr}`
@@ -532,10 +532,10 @@ class ClientSideCrypto {
   }
 
   /**
-   * 比较两个加密上下文是否相等
-   * @param context1 - 第一个加密上下文
-   * @param context2 - 第二个加密上下文
-   * @returns 是否相等
+   * Compare if two encryption contexts are equal
+   * @param context1 - First encryption context
+   * @param context2 - Second encryption context
+   * @returns Whether they are equal
    */
   private compareEncryptionContext(context1: any, context2: any): boolean {
     try {
@@ -543,19 +543,19 @@ class ClientSideCrypto {
       const str2 = JSON.stringify(context2, Object.keys(context2 || {}).sort())
       return str1 === str2
     } catch (error) {
-      console.warn('比较加密上下文失败:', (error as Error).message)
+      console.warn('Failed to compare encryption contexts:', (error as Error).message)
       return false
     }
   }
 
   /**
-   * 清除最旧的缓存条目
+   * Evict oldest cache entry
    */
   private evictOldestCacheEntry(): void {
     let oldestKey: string | null = null
     let oldestTimestamp = Date.now()
 
-    // 使用 Array.from 转换 Map 迭代器以兼容不同的 TypeScript 目标版本
+    // Use Array.from to convert Map iterator for compatibility with different TypeScript target versions
     const entries = Array.from(this.dataKeyCache.entries())
     for (const [key, entry] of entries) {
       if (entry.timestamp < oldestTimestamp) {
@@ -567,17 +567,17 @@ class ClientSideCrypto {
     if (oldestKey) {
       const entry = this.dataKeyCache.get(oldestKey)
       if (entry) {
-        // 安全清理密钥内存
+        // Securely clear key memory
         entry.plaintextDataKey.fill(0)
       }
       this.dataKeyCache.delete(oldestKey)
-      console.log('已清除最旧的缓存条目')
+      console.log('Evicted oldest cache entry')
     }
   }
 
   /**
-   * 获取缓存统计信息
-   * @returns 缓存统计信息
+   * Get cache statistics
+   * @returns Cache statistics
    */
   getCacheStats(): CacheStats {
     const hitRate = this.cacheStats.totalRequests > 0 ? (this.cacheStats.cacheHits / this.cacheStats.totalRequests) * 100 : 0
@@ -591,12 +591,12 @@ class ClientSideCrypto {
   }
 
   /**
-   * 清理缓存
-   * @param clearStats - 是否同时清理统计信息
+   * Clear cache
+   * @param clearStats - Whether to also clear statistics
    */
   clearCache(clearStats: boolean = false): void {
-    // 安全清理所有缓存的密钥
-    // 使用 Array.from 转换 Map 迭代器以兼容不同的 TypeScript 目标版本
+    // Securely clear all cached keys
+    // Use Array.from to convert Map iterator for compatibility with different TypeScript target versions
     const entries = Array.from(this.dataKeyCache.values())
     for (const entry of entries) {
       entry.plaintextDataKey.fill(0)
@@ -612,7 +612,7 @@ class ClientSideCrypto {
       }
     }
 
-    console.log('数据密钥缓存已清理')
+    console.log('Data key cache cleared')
   }
 }
 

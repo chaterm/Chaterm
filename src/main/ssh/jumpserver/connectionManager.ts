@@ -39,7 +39,7 @@ export function getPackageInfo(
   }
 }
 
-// 建立sftp
+// Establish SFTP
 const sftpAsync = (conn, connectionId) => {
   return new Promise<void>((resolve) => {
     conn.sftp((err, sftp) => {
@@ -104,17 +104,17 @@ const attemptJumpServerConnection = async (
     if (connectionInfo.assetUuid) {
       for (const [, existingData] of jumpserverConnections.entries()) {
         if (existingData.jumpserverUuid === jumpserverUuid) {
-          sendStatusUpdate('复用现有连接，正在创建新的Shell会话...', 'info')
+          sendStatusUpdate('Reusing existing connection, creating new shell session...', 'info')
 
           const conn = existingData.conn
           conn.shell({ term: connectionInfo.terminalType || 'vt100' }, (err, newStream) => {
             if (err) {
-              console.error('复用连接创建 shell 失败:', err)
-              reject(new Error(`复用连接创建 shell 失败: ${err.message}`))
+              console.error('Failed to create shell with reused connection:', err)
+              reject(new Error(`Failed to create shell with reused connection: ${err.message}`))
               return
             }
-            // 建立sftp连接
-            // TODO jumpserver下复用conn实现,其他堡垒机可能需要new conn
+            // Establish SFTP connection
+            // TODO: Reuse conn implementation for JumpServer, other bastion hosts may need new conn
             try {
               sftpAsync(conn, connectionId)
             } catch (e) {
@@ -131,7 +131,7 @@ const attemptJumpServerConnection = async (
       }
     }
 
-    sendStatusUpdate('正在连接到远程堡垒机...', 'info')
+    sendStatusUpdate('Connecting to remote bastion host...', 'info')
 
     const conn = new Client()
 
@@ -170,39 +170,42 @@ const attemptJumpServerConnection = async (
           connectConfig.passphrase = connectionInfo.passphrase
         }
       } catch (err: unknown) {
-        reject(new Error(`私钥格式错误: ${err instanceof Error ? err.message : String(err)}`))
+        reject(new Error(`Private key format error: ${err instanceof Error ? err.message : String(err)}`))
         return
       }
     } else if (connectionInfo.password) {
       connectConfig.password = connectionInfo.password
     } else {
-      reject(new Error('缺少认证信息：需要私钥或密码'))
+      reject(new Error('Missing authentication info: private key or password required'))
       return
     }
 
     conn.on('keyboard-interactive', async (_name, _instructions, _instructionsLang, prompts, finish) => {
       try {
         if (attemptCount === 0) {
-          sendStatusUpdate('需要二次验证，请输入验证码...', 'info')
+          sendStatusUpdate('Two-factor authentication required, please enter verification code...', 'info')
         } else {
-          sendStatusUpdate(`验证失败，请重新输入验证码 (${attemptCount + 1}/${MAX_JUMPSERVER_MFA_ATTEMPTS})...`, 'warning')
+          sendStatusUpdate(
+            `Verification failed, please re-enter verification code (${attemptCount + 1}/${MAX_JUMPSERVER_MFA_ATTEMPTS})...`,
+            'warning'
+          )
         }
 
         await handleJumpServerKeyboardInteractive(event, connectionId, prompts, finish)
       } catch (err) {
-        sendStatusUpdate('二次验证失败', 'error')
+        sendStatusUpdate('Two-factor authentication failed', 'error')
         conn.end()
         reject(err as Error)
       }
     })
 
     conn.on('ready', () => {
-      console.log('JumpServer 连接建立，开始创建 shell')
-      sendStatusUpdate('已成功连接到堡垒机，请稍等...', 'success')
+      console.log('JumpServer connection established, starting to create shell')
+      sendStatusUpdate('Successfully connected to bastion host, please wait...', 'success')
       attemptSecondaryConnection(event, connectionInfo, ident)
 
       if (event && keyboardInteractiveOpts.has(connectionId)) {
-        console.log('发送MFA验证成功事件:', { connectionId, status: 'success' })
+        console.log('Sending MFA verification success event:', { connectionId, status: 'success' })
         event.sender.send('ssh:keyboard-interactive-result', {
           id: connectionId,
           status: 'success'
@@ -211,7 +214,7 @@ const attemptJumpServerConnection = async (
 
       conn.shell({ term: connectionInfo.terminalType || 'vt100' }, (err, stream) => {
         if (err) {
-          reject(new Error(`创建 shell 失败: ${err.message}`))
+          reject(new Error(`Failed to create shell: ${err.message}`))
           return
         }
 
@@ -223,7 +226,7 @@ const attemptJumpServerConnection = async (
       console.error('JumpServer connection error:', err)
 
       if ((err as any).level === 'client-authentication') {
-        console.log(`JumpServer MFA认证失败，尝试次数: ${attemptCount + 1}/${MAX_JUMPSERVER_MFA_ATTEMPTS}`)
+        console.log(`JumpServer MFA authentication failed, attempt count: ${attemptCount + 1}/${MAX_JUMPSERVER_MFA_ATTEMPTS}`)
 
         if (event) {
           event.sender.send('ssh:keyboard-interactive-result', {
@@ -234,7 +237,7 @@ const attemptJumpServerConnection = async (
         }
 
         if (attemptCount < MAX_JUMPSERVER_MFA_ATTEMPTS - 1) {
-          const retryError = new Error(`JumpServer MFA认证失败`)
+          const retryError = new Error(`JumpServer MFA authentication failed`)
           ;(retryError as any).shouldRetry = true
           ;(retryError as any).attemptCount = attemptCount
           reject(retryError)
@@ -250,7 +253,7 @@ const attemptJumpServerConnection = async (
         })
       }
 
-      reject(new Error(`JumpServer 连接失败: ${err.message}`))
+      reject(new Error(`JumpServer connection failed: ${err.message}`))
     })
 
     conn.connect(connectConfig)
@@ -265,15 +268,15 @@ export const handleJumpServerConnection = async (
 
   for (let attempt = 0; attempt < MAX_JUMPSERVER_MFA_ATTEMPTS; attempt++) {
     try {
-      console.log(`JumpServer连接尝试 ${attempt + 1}/${MAX_JUMPSERVER_MFA_ATTEMPTS}`)
+      console.log(`JumpServer connection attempt ${attempt + 1}/${MAX_JUMPSERVER_MFA_ATTEMPTS}`)
       const result = await attemptJumpServerConnection(connectionInfo, event, attempt)
       return result
     } catch (error) {
       lastError = error as Error
-      console.log(`JumpServer连接尝试 ${attempt + 1} 失败:`, lastError.message)
+      console.log(`JumpServer connection attempt ${attempt + 1} failed:`, lastError.message)
 
       if ((lastError as any).shouldRetry && attempt < MAX_JUMPSERVER_MFA_ATTEMPTS - 1) {
-        console.log(`将进行第 ${attempt + 2} 次重试...`)
+        console.log(`Will retry attempt ${attempt + 2}...`)
         await new Promise((resolve) => setTimeout(resolve, 1000))
         continue
       }
@@ -289,7 +292,7 @@ export const handleJumpServerConnection = async (
     })
   }
 
-  throw lastError || new Error('JumpServer连接失败')
+  throw lastError || new Error('JumpServer connection failed')
 }
 
 export const registerJumpServerHandlers = () => {
@@ -304,10 +307,10 @@ export const registerJumpServerHandlers = () => {
   ipcMain.handle('jumpserver:shell', async (_event, { id }) => {
     const stream = jumpserverShellStreams.get(id)
     if (!stream) {
-      return { status: 'error', message: '未找到 JumpServer 连接' }
+      return { status: 'error', message: 'JumpServer connection not found' }
     }
 
-    return { status: 'success', message: 'JumpServer Shell 已就绪' }
+    return { status: 'success', message: 'JumpServer Shell is ready' }
   })
 
   ipcMain.on('jumpserver:shell:write', (_event, { id, data, marker }) => {
@@ -331,7 +334,7 @@ export const registerJumpServerHandlers = () => {
       }
       stream.write(data)
     } else {
-      console.warn('尝试写入不存在的 JumpServer stream:', id)
+      console.warn('Attempting to write to non-existent JumpServer stream:', id)
     }
   })
 
@@ -390,12 +393,12 @@ export const registerJumpServerHandlers = () => {
   ipcMain.handle('jumpserver:shell:resize', async (_event, { id, cols, rows }) => {
     const stream = jumpserverShellStreams.get(id)
     if (!stream) {
-      return { status: 'error', message: 'JumpServer Shell 未找到' }
+      return { status: 'error', message: 'JumpServer Shell not found' }
     }
 
     try {
       stream.setWindow(rows, cols, 0, 0)
-      return { status: 'success', message: `JumpServer 窗口大小已设置为 ${cols}x${rows}` }
+      return { status: 'success', message: `JumpServer window size set to ${cols}x${rows}` }
     } catch (error: unknown) {
       return { status: 'error', message: error instanceof Error ? error.message : String(error) }
     }

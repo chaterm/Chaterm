@@ -11,14 +11,14 @@ export interface Asset {
   port: number
   username: string
   password: string
-  key_chain_id: number // 改为必填，匹配后端 uint32
-  favorite: number // 1=收藏, 2=未收藏
+  key_chain_id: number // Required field, matches backend uint32
+  favorite: number // 1=favorite, 2=not favorite
   asset_type?: string
-  need_proxy?: number // 是否需要代理，0=不需要，1=需要
-  proxy_name?: string // 代理名称
+  need_proxy?: number // Whether proxy is needed, 0=no, 1=yes
+  proxy_name?: string // Proxy name
   created_at: string | Date
   updated_at: string | Date
-  version: number // 改为必填，匹配后端 int32
+  version: number // Required field, matches backend int32
   data_cipher_text?: string
   sync_status?: 'pending' | 'synced' | 'conflict'
   last_sync_time?: string | Date
@@ -35,7 +35,7 @@ export interface AssetChain {
   passphrase: string
   created_at: string | Date
   updated_at: string | Date
-  version: number // 改为必填，匹配后端 int32
+  version: number // Required field, matches backend int32
   sync_status?: 'pending' | 'synced' | 'conflict'
   last_sync_time?: string | Date
   operation_type?: OperationType
@@ -76,7 +76,7 @@ export interface BackupInitResponse {
 
 export interface ServerChangeLog {
   id?: number
-  sequence_id: number // 匹配后端 uint64 类型
+  sequence_id: number // Matches backend uint64 type
   target_table: string
   record_id: string
   operation_type: OperationType

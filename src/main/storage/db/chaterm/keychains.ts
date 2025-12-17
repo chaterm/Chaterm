@@ -2,18 +2,18 @@ import Database from 'better-sqlite3'
 import { randomUUID } from 'crypto'
 
 /**
- * 触发增量同步
- * 数据变更后调用，触发立即同步
+ * Trigger incremental sync
+ * Called after data changes to trigger immediate sync
  */
 function triggerIncrementalSync(): void {
-  // 使用动态导入避免循环依赖
+  // Use dynamic import to avoid circular dependencies
   setImmediate(async () => {
     try {
       const { SyncController } = await import('../../data_sync/core/SyncController')
       await SyncController.triggerIncrementalSync()
     } catch (error) {
-      console.warn('触发增量同步失败:', error)
-      // 不抛出异常，避免影响数据库操作
+      console.warn('Failed to trigger incremental sync:', error)
+      // Don't throw exception to avoid affecting database operations
     }
   })
 }
@@ -74,7 +74,7 @@ export function createKeyChainLogic(db: Database.Database, params: any): any {
 
 export function deleteKeyChainLogic(db: Database.Database, id: number): any {
   try {
-    // 删除资产链记录
+    // Delete keychain record
     const stmt = db.prepare(`
         DELETE FROM t_asset_chains
         WHERE key_chain_id = ?
@@ -129,7 +129,7 @@ export function updateKeyChainLogic(db: Database.Database, params: any): any {
       `)
     const result = stmt.run(form.chain_name, form.private_key, form.public_key, form.chain_type, form.passphrase, form.key_chain_id)
 
-    //  数据更新成功后，触发增量同步
+    // Trigger incremental sync after successful data update
     if (result.changes > 0) {
       triggerIncrementalSync()
     }

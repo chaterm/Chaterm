@@ -58,15 +58,15 @@ const createSocksConnection = async (config: ProxyConfig, targetHost: string, ta
       type: type === 'SOCKS4' ? 4 : 5
     }
 
-    // 修复认证信息配置
+    // Fix authentication configuration
     if (enableProxyIdentity) {
       if (type === 'SOCKS4') {
-        // SOCKS4 只支持 userId，不支持密码
+        // SOCKS4 only supports userId, not password
         if (username) {
           proxyConfig.userId = username
         }
       } else if (type === 'SOCKS5') {
-        // SOCKS5 支持用户名密码认证
+        // SOCKS5 supports username/password authentication
         if (username && password) {
           proxyConfig.userId = username
           proxyConfig.password = password
@@ -93,7 +93,7 @@ const createSocksConnection = async (config: ProxyConfig, targetHost: string, ta
   } catch (error) {
     console.error(`[ERROR] ${type} proxy connection failed:`, error)
 
-    // 提供更详细的错误信息
+    // Provide more detailed error information
     if (error instanceof Error) {
       if (error.message.includes('timeout')) {
         throw new ProxyConnectionError(`${type} proxy connection timeout - check proxy server availability`, type)
@@ -136,7 +136,7 @@ const createHttpConnection = (config: ProxyConfig, targetHost: string, targetPor
         let headers = `CONNECT ${targetHost}:${targetPort} HTTP/1.1\r\n`
         headers += `Host: ${targetHost}:${targetPort}\r\n`
 
-        // 添加认证
+        // Add authentication
         if (enableProxyIdentity && username && password) {
           const auth = Buffer.from(`${username}:${password}`).toString('base64')
           headers += `Proxy-Authorization: Basic ${auth}\r\n`

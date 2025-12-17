@@ -1,111 +1,112 @@
-# JumpServer Exec 功能实现文档
+# JumpServer Exec Implementation Documentation
 
-> 本文档详细说明 JumpServer 堡垒机环境下的命令执行 (exec) 实现逻辑，用于后续维护和调整参考。
+> This document details the command execution (exec) implementation logic in the JumpServer bastion host environment, for future maintenance and adjustment reference.
 
-## 目录
+## Table of Contents
 
-- [背景与挑战](#背景与挑战)
-- [核心架构](#核心架构)
-- [模块说明](#模块说明)
-- [实现流程](#实现流程)
-- [关键技术点](#关键技术点)
-- [故障排查](#故障排查)
-- [扩展指南](#扩展指南)
+- [Background and Challenges](#background-and-challenges)
+- [Core Architecture](#core-architecture)
+- [Module Description](#module-description)
+- [Implementation Flow](#implementation-flow)
+- [Key Technical Points](#key-technical-points)
+- [Troubleshooting](#troubleshooting)
+- [Extension Guide](#extension-guide)
 
 ---
 
-## 背景与挑战
+## Background and Challenges
 
-### 为什么需要特殊的 Exec 实现？
+### Why is a Special Exec Implementation Needed?
 
-**标准 SSH 连接：**
+**Standard SSH Connection:**
 
 ```typescript
-// 标准 SSH 可以直接使用 conn.exec()
+// Standard SSH can directly use conn.exec()
 conn.exec('ls /usr/bin', (err, stream) => {
   stream.on('data', (data) => console.log(data))
   stream.on('close', (code) => console.log('Exit code:', code))
 })
 ```
 
-**JumpServer 堡垒机：**
+**JumpServer Bastion Host:**
 
 ```
-用户 → SSH 连接 → JumpServer → 选择用户 → 输入密码 → 目标服务器
-     (ssh2)      (交互式菜单)                              (shell 流)
+User → SSH Connection → JumpServer → Select User → Enter Password → Target Server
+     (ssh2)            (Interactive Menu)                          (Shell Stream)
 ```
 
-**核心问题：**
+**Core Issues:**
 
-1. JumpServer 连接没有直接的 `conn.exec()` 能力
-2. 所有交互必须通过 **交互式 shell 流** 完成
-3. 命令输出混杂回显、提示符、控制字符
-4. 无法直接获取命令退出码
+1. JumpServer connections do not have direct `conn.exec()` capability
+2. All interactions must be completed through **interactive shell streams**
+3. Command output is mixed with echo, prompts, and control characters
+4. Cannot directly obtain command exit codes
 
 ---
 
-## 核心架构
+## Core Architecture
 
-### 整体设计图
+### Overall Design Diagram
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                    Renderer Process (前端)                   │
-│  - 调用: window.api.sshConnExec({ id, cmd })               │
+│                    Renderer Process (Frontend)               │
+│  - Call: window.api.sshConnExec({ id, cmd })               │
 └────────────────────────────┬────────────────────────────────┘
                              │ IPC
 ┌────────────────────────────┴────────────────────────────────┐
-│                    Preload (桥接层)                          │
-│  - 转发: ipcRenderer.invoke('ssh:conn:exec', { id, cmd })  │
+│                    Preload (Bridge Layer)                    │
+│  - Forward: ipcRenderer.invoke('ssh:conn:exec', { id, cmd }) │
 └────────────────────────────┬────────────────────────────────┘
                              │
 ┌────────────────────────────┴────────────────────────────────┐
-│                Main Process (主进程 - sshHandle.ts)          │
+│                Main Process (sshHandle.ts)                  │
 │  ┌──────────────────────────────────────────────────────┐  │
 │  │ IPC Handler: ipcMain.handle('ssh:conn:exec')        │  │
 │  │  ↓                                                    │  │
 │  │  if (jumpserverShellStreams.has(id)) {              │  │
 │  │    return executeCommandOnJumpServerAsset(id, cmd)  │  │
 │  │  } else {                                            │  │
-│  │    return conn.exec(cmd)  // 标准 SSH               │  │
+│  │    return conn.exec(cmd)  // Standard SSH           │  │
 │  │  }                                                    │  │
 │  └──────────────────────────────────────────────────────┘  │
 │                             ↓                                │
 │  ┌──────────────────────────────────────────────────────┐  │
 │  │ executeCommandOnJumpServerAsset()                    │  │
-│  │  1. 获取或创建 exec 流                               │  │
-│  │  2. 生成唯一标记 (marker)                           │  │
-│  │  3. 发送命令 + 标记                                  │  │
-│  │  4. 监听输出，检测标记                               │  │
-│  │  5. 清理输出，提取退出码                             │  │
+│  │  1. Get or create exec stream                       │  │
+│  │  2. Generate unique marker                          │  │
+│  │  3. Send command + marker                           │  │
+│  │  4. Listen for output, detect marker                │  │
+│  │  5. Clean output, extract exit code                 │  │
 │  └──────────────────────────────────────────────────────┘  │
 │                             ↓                                │
 │  ┌──────────────────────────────────────────────────────┐  │
 │  │ createJumpServerExecStream(connectionId)             │  │
-│  │  - 检查缓存 (jumpserverExecStreams)                 │  │
-│  │  - 检查创建中 Promise (防止竞态)                    │  │
-│  │  - 创建新 shell 流                                   │  │
-│  │  - 自动导航到目标资产                               │  │
-│  │  - 缓存流对象                                        │  │
+│  │  - Check cache (jumpserverExecStreams)               │  │
+│  │  - Check creation Promise (prevent race condition) │  │
+│  │  - Create new shell stream                          │  │
+│  │  - Auto-navigate to target asset                    │  │
+│  │  - Cache stream object                              │  │
 │  └──────────────────────────────────────────────────────┘  │
 │                             ↓                                │
 │  ┌──────────────────────────────────────────────────────┐  │
-│  │ navigateToJumpServerAsset()                          │  │
-│  │  - 状态机: connecting → inputIp → selectUser →      │  │
-│  │            inputPassword → connected                 │  │
-│  │  - 复刻主连接的导航路径 (navigationPath)            │  │
-│  │  - 自动输入 IP/用户/密码                            │  │
+│  │ navigateToJumpServerAsset()                         │  │
+│  │  - State machine: connecting → inputIp → selectUser │  │
+│  │            → inputPassword → connected              │  │
+│  │  - Replicate main connection navigation path        │  │
+│  │    (navigationPath)                                 │  │
+│  │  - Auto-input IP/user/password                      │  │
 │  └──────────────────────────────────────────────────────┘  │
 └─────────────────────────────────────────────────────────────┘
 
 ┌─────────────────────────────────────────────────────────────┐
-│              Utility Modules (工具模块)                      │
+│              Utility Modules                                 │
 │  ┌──────────────────────┐  ┌──────────────────────┐        │
-│  │ executor.ts          │  │ navigator.ts         │        │
-│  │ - OutputParser       │  │ - hasPasswordPrompt  │        │
-│  │ - cleanCommandOutput │  │ - hasPasswordError   │        │
-│  │ - extractExitCode    │  │ - detectConnection   │        │
-│  │ - generateMarkers    │  │                      │        │
+│  │ executor.ts          │  │ navigator.ts          │        │
+│  │ - OutputParser       │  │ - hasPasswordPrompt   │        │
+│  │ - cleanCommandOutput │  │ - hasPasswordError    │        │
+│  │ - extractExitCode    │  │ - detectConnection    │        │
+│  │ - generateMarkers    │  │                       │        │
 │  └──────────────────────┘  └──────────────────────┘        │
 └─────────────────────────────────────────────────────────────┘
 ```

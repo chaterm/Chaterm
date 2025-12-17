@@ -1,5 +1,5 @@
 /**
- * 简化的客户端配置
+ * Simplified client-side configuration
  */
 
 interface EncryptionConfig {
@@ -28,13 +28,13 @@ interface Config {
 }
 
 const config: Config = {
-  // 主进程中的默认配置，优先使用环境变量，否则使用开发环境默认值
+  // Default configuration in main process, prioritize environment variables, otherwise use development environment defaults
   serverUrl: 'http://demo.chaterm.ai/v1',
   encryption: {
     algorithm: 'aes-256-gcm',
-    keyLength: 32, // 256位
-    ivLength: 16, // 128位
-    tagLength: 16 // 128位
+    keyLength: 32, // 256 bits
+    ivLength: 16, // 128 bits
+    tagLength: 16 // 128 bits
   },
 
   storage: {
@@ -43,8 +43,8 @@ const config: Config = {
   },
 
   timeout: {
-    apiRequest: 10000, // API请求超时 10秒
-    keyExpiry: 24 * 60 * 60 * 1000 // 密钥过期时间 24小时
+    apiRequest: 10000, // API request timeout 10 seconds
+    keyExpiry: 24 * 60 * 60 * 1000 // Key expiry time 24 hours
   },
 
   security: {
