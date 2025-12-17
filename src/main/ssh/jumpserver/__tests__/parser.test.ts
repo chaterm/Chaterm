@@ -7,11 +7,11 @@ describe('JumpServer Parser', () => {
       const chineseOutput = `
   ID | 名称                             | 地址        | 平台           | 组织            | 备注                          
 -----+----------------------------------+-------------+----------------+-----------------+-------------------------------
-  1  | centos_CcCsync_d3335             | 10.0.0.194  | Linux          | Default         | 由CMDB创建                    
-  2  | centos_SalesforceDbproxy_d3368   | 10.0.0.254  | Linux          | Default         | 由CMDB创建                    
-  3  | centos_AutomNlog_d3297           | 10.0.2.202  | Linux          | Default         |                               
-  4  | centos_AutomNgx_1024             | 10.2.1.24   | Linux          | Default         |                               
-  5  | centos-CcbEsZdaoUserRedis-11029  | 10.2.11.29  | Linux          | Default         |                               
+  1  | demo-app-01                      | 192.0.2.10   | Linux          | ExampleOrg      | 示例资产A                     
+  2  | demo-db-01                       | 198.51.100.20| Linux          | ExampleOrg      | 数据库节点                    
+  3  | demo-cache-01                    | 203.0.113.30 | Linux          | ExampleOrg      |                               
+  4  | qa-proxy-01                      | 192.0.2.40   | Linux          | ExampleOrg      | 代理                          
+  5  | ops-bastion-01                   | 198.51.100.50| Linux          | ExampleOrg      | 跳板                          
 页码：1，每页行数：15，总页数：6，总数量：88
 提示：输入资产ID直接登录，二级搜索使用 // + 字段，如：//192 上一页：b 下一页：n
 搜索：
@@ -23,18 +23,18 @@ describe('JumpServer Parser', () => {
         expect(result.assets).toHaveLength(5)
         expect(result.assets[0]).toEqual({
           id: 1,
-          name: 'centos_CcCsync_d3335',
-          address: '10.0.0.194',
+          name: 'demo-app-01',
+          address: '192.0.2.10',
           platform: 'Linux',
-          organization: 'Default',
-          comment: '由CMDB创建'
+          organization: 'ExampleOrg',
+          comment: '示例资产A'
         })
         expect(result.assets[2]).toEqual({
           id: 3,
-          name: 'centos_AutomNlog_d3297',
-          address: '10.0.2.202',
+          name: 'demo-cache-01',
+          address: '203.0.113.30',
           platform: 'Linux',
-          organization: 'Default',
+          organization: 'ExampleOrg',
           comment: ''
         })
       })
@@ -53,12 +53,12 @@ describe('JumpServer Parser', () => {
       const englishOutput = `
   ID | NAME                             | ADDRESS     | PLATFORM       | ORGANIZATION       | COMMENT                    
 -----+----------------------------------+-------------+----------------+--------------------+----------------------------
-  1  | centos_CcCsync_d3335             | 10.0.0.194  | Linux          | Default            | 由CMDB创建                 
-  2  | centos_SalesforceDbproxy_d3368   | 10.0.0.254  | Linux          | Default            | 由CMDB创建                 
-  3  | centos_AutomNlog_d3297           | 10.0.2.202  | Linux          | Default            |                            
-  4  | centos_AutomNgx_1024             | 10.2.1.24   | Linux          | Default            |                            
-  5  | centos-CcbEsZdaoUserRedis-11029  | 10.2.11.29  | Linux          | Default            |                            
-  6  | SsgDFRedis03-20137               | 10.2.20.137 | Linux          | Default            | 由Cloud平台创建            
+  1  | demo-app-01                      | 192.0.2.10   | Linux          | ExampleOrg      | sample asset A                
+  2  | demo-db-01                       | 198.51.100.20| Linux          | ExampleOrg      | database node                 
+  3  | demo-cache-01                    | 203.0.113.30 | Linux          | ExampleOrg      | cache layer                   
+  4  | qa-proxy-01                      | 192.0.2.40   | Linux          | ExampleOrg      | proxy                         
+  5  | ops-bastion-01                   | 198.51.100.50| Linux          | ExampleOrg      | bastion host                  
+  6  | staging-worker-02                | 203.0.113.60 | Linux          | ExampleOrg      | autoscale node                
 Page: 1, Count: 15, Total Page: 6, Total Count: 88
 Enter ID number directly login, multiple search use // + field, such as: //16 Page up: b        Page down: n
 Search: 
@@ -70,19 +70,19 @@ Search:
         expect(result.assets).toHaveLength(6)
         expect(result.assets[0]).toEqual({
           id: 1,
-          name: 'centos_CcCsync_d3335',
-          address: '10.0.0.194',
+          name: 'demo-app-01',
+          address: '192.0.2.10',
           platform: 'Linux',
-          organization: 'Default',
-          comment: '由CMDB创建'
+          organization: 'ExampleOrg',
+          comment: 'sample asset A'
         })
         expect(result.assets[5]).toEqual({
           id: 6,
-          name: 'SsgDFRedis03-20137',
-          address: '10.2.20.137',
+          name: 'staging-worker-02',
+          address: '203.0.113.60',
           platform: 'Linux',
-          organization: 'Default',
-          comment: '由Cloud平台创建'
+          organization: 'ExampleOrg',
+          comment: 'autoscale node'
         })
       })
 
