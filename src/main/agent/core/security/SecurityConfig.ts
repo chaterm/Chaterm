@@ -1,5 +1,5 @@
 /**
- * 安全配置管理
+ * Security configuration management
  */
 
 import { SecurityConfig } from './types/SecurityTypes'
@@ -14,13 +14,13 @@ export class SecurityConfigManager {
     if (configPath) {
       this.configPath = configPath
     } else {
-      // 使用Electron的用户数据目录，与其他配置文件保持一致
+      // Use Electron's user data directory, consistent with other config files
       let userDataPath: string
       try {
         const { app } = require('electron')
         userDataPath = app.getPath('userData')
       } catch (error) {
-        // 测试环境或非Electron环境的fallback
+        // Fallback for test environment or non-Electron environment
         userDataPath = path.join(process.cwd(), 'test_data')
       }
       this.configPath = path.join(userDataPath, 'chaterm-security.json')
@@ -29,14 +29,14 @@ export class SecurityConfigManager {
   }
 
   /**
-   * 获取默认安全配置
+   * Get default security configuration
    */
   private getDefaultConfig(): SecurityConfig {
     return {
       enableCommandSecurity: true,
-      enableStrictMode: false, // 默认关闭严格模式
+      enableStrictMode: false, // Strict mode disabled by default
       blacklistPatterns: [
-        // 系统级危险命令
+        // System-level dangerous commands
         // 'format c:',
         // 'del /s /q c:\\ ',
         // 'shutdown',
@@ -52,11 +52,11 @@ export class SecurityConfigManager {
         // 'mkfs',
         // 'fdisk',
         // 'parted',
-        // 网络相关危险命令
+        // Network-related dangerous commands
         // 'iptables -F',
         // 'ufw --force reset',
         // 'firewall-cmd --reload',
-        // 权限提升相关 - 只阻止删除根目录
+        // Privilege escalation related - only block root directory deletion
         // 'sudo rm -rf /',
         // 'sudo rm -rf / ',
         // 'rm -rf /',
@@ -64,33 +64,33 @@ export class SecurityConfigManager {
         // 'sudo format',
         // 'sudo shutdown',
         // 'sudo reboot',
-        // 文件系统操作 - 禁止对根目录使用
+        // File system operations - prohibit use on root directory
         // 'chmod 777 /',
         // 'chmod 777 / ',
         // 'chown -R root:root /',
         // 'chown -R root:root / ',
         // 'mount -o remount,rw /',
         // 'mount -o remount,rw / ',
-        // 进程管理
+        // Process management
         // 'kill -9 -1',
         // 'killall -9',
         // 'pkill -f',
-        // 网络服务
+        // Network services
         // 'systemctl stop',
         // 'service stop',
         // 'systemctl disable',
-        // 数据库相关
+        // Database related
         // 'DROP DATABASE'
         // 'TRUNCATE TABLE',
         // 'DELETE FROM',
-        // 其他危险操作
+        // Other dangerous operations
         // 'curl -X DELETE',
         // 'wget --delete-after',
         // 'nc -l -p',
         // 'netcat -l -p'
       ],
       whitelistPatterns: [
-        // 安全的查看命令
+        // Safe viewing commands
         'ls',
         'pwd',
         'whoami',
@@ -157,77 +157,77 @@ export class SecurityConfigManager {
         'DELETE'
       ],
       maxCommandLength: 10000,
-      // 安全策略配置
+      // Security policy configuration
       securityPolicy: {
-        blockCritical: true, // 严重危险命令直接阻止
-        askForMedium: true, // 中等危险命令询问用户
-        askForHigh: true, // 高危险命令询问用户
-        askForBlacklist: false // 黑名单命令直接阻止
+        blockCritical: true, // Block critical dangerous commands directly
+        askForMedium: true, // Ask user for medium danger commands
+        askForHigh: true, // Ask user for high danger commands
+        askForBlacklist: false // Block blacklist commands directly
       }
     }
   }
 
   /**
-   * 移除JSON中的注释
+   * Remove comments from JSON
    */
   private removeComments(jsonString: string): string {
-    // 移除单行注释 //
+    // Remove single-line comments //
     let cleaned = jsonString.replace(/\/\/.*$/gm, '')
 
-    // 移除多行注释 /* */
+    // Remove multi-line comments /* */
     cleaned = cleaned.replace(/\/\*[\s\S]*?\*\//g, '')
 
-    // 移除空行
+    // Remove empty lines
     cleaned = cleaned.replace(/^\s*[\r\n]/gm, '')
 
     return cleaned.trim()
   }
 
   /**
-   * 加载配置文件
+   * Load configuration file
    */
   async loadConfig(): Promise<void> {
     try {
-      // 尝试读取配置文件
+      // Try to read configuration file
       const configData = await fs.readFile(this.configPath, 'utf-8')
 
-      // 检查文件是否为空
+      // Check if file is empty
       if (!configData.trim()) {
-        console.log('配置文件为空，生成默认配置...')
+        console.log('Config file is empty, generating default config...')
         await this.generateDefaultConfigFile()
         return
       }
 
-      // 移除注释后解析JSON
+      // Parse JSON after removing comments
       const cleanedData = this.removeComments(configData)
       const externalConfig = JSON.parse(cleanedData)
 
       if (externalConfig.security) {
-        // 安全地合并配置，确保默认配置的完整性和安全性
+        // Safely merge configuration, ensuring integrity and security of default config
         this.config = this.mergeConfigSafely(this.config, externalConfig.security)
       } else {
-        // 如果没有 security 配置部分，生成默认配置
-        console.log('配置文件中没有安全配置部分，生成默认配置...')
+        // If no security config section, generate default config
+        console.log('No security config section in config file, generating default config...')
         await this.generateDefaultConfigFile()
       }
     } catch (error) {
-      // 文件不存在或其他错误，生成默认配置文件
+      // File doesn't exist or other error, generate default config file
       if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
-        console.log('配置文件不存在，生成默认配置...')
+        console.log("Config file doesn't exist, generating default config...")
         await this.generateDefaultConfigFile()
       } else {
-        console.warn('无法加载安全配置文件，使用默认配置:', error)
+        console.warn('Failed to load security config file, using default config:', error)
       }
     }
   }
 
   /**
-   * 安全地合并配置，确保默认配置的完整性和安全性
+   * Safely merge configuration, ensuring integrity and security of default config
    */
   private mergeConfigSafely(defaultConfig: SecurityConfig, userConfig: any): SecurityConfig {
     const mergedConfig = { ...defaultConfig }
 
-    // 安全地合并基本字段
+    // Safely merge basic fields
     if (typeof userConfig.enableCommandSecurity === 'boolean') {
       mergedConfig.enableCommandSecurity = userConfig.enableCommandSecurity
     }
@@ -240,28 +240,28 @@ export class SecurityConfigManager {
       mergedConfig.maxCommandLength = userConfig.maxCommandLength
     }
 
-    // 安全地合并数组字段（白名单、黑名单、危险命令）- 允许用户完全自定义
+    // Safely merge array fields (whitelist, blacklist, dangerous commands) - allow full user customization
     if (Array.isArray(userConfig.blacklistPatterns)) {
-      // 用户可以完全自定义黑名单
+      // Users can fully customize blacklist
       mergedConfig.blacklistPatterns = userConfig.blacklistPatterns.filter((item: any) => typeof item === 'string')
     }
 
     if (Array.isArray(userConfig.whitelistPatterns)) {
-      // 用户可以完全自定义白名单
+      // Users can fully customize whitelist
       mergedConfig.whitelistPatterns = userConfig.whitelistPatterns.filter((item: any) => typeof item === 'string')
     }
 
     if (Array.isArray(userConfig.dangerousCommands)) {
-      // 用户可以完全自定义危险命令列表
+      // Users can fully customize dangerous commands list
       mergedConfig.dangerousCommands = userConfig.dangerousCommands.filter((item: any) => typeof item === 'string')
     }
 
-    // 安全地合并安全策略 - 允许用户完全自定义
+    // Safely merge security policy - allow full user customization
     if (userConfig.securityPolicy && typeof userConfig.securityPolicy === 'object') {
       const userPolicy = userConfig.securityPolicy
 
       if (typeof userPolicy.blockCritical === 'boolean') {
-        // 允许用户自定义关键命令的阻止策略
+        // Allow users to customize blocking policy for critical commands
         mergedConfig.securityPolicy.blockCritical = userPolicy.blockCritical
       }
 
@@ -278,41 +278,41 @@ export class SecurityConfigManager {
       }
     }
 
-    console.log('配置已安全合并，保持默认安全设置的完整性')
+    console.log('Config safely merged, maintaining integrity of default security settings')
     return mergedConfig
   }
 
   /**
-   * 生成默认配置文件
+   * Generate default configuration file
    */
   private async generateDefaultConfigFile(): Promise<void> {
     try {
-      // 使用默认配置
+      // Use default configuration
       this.config = this.getDefaultConfig()
-      // 生成带注释的配置文件
+      // Generate configuration file with comments
       await this.saveConfigWithComments()
-      console.log('默认安全配置文件已生成')
+      console.log('Default security config file generated')
     } catch (error) {
-      console.error('生成默认配置文件失败:', error)
+      console.error('Failed to generate default config file:', error)
     }
   }
 
   /**
-   * 获取当前配置
+   * Get current configuration
    */
   getConfig(): SecurityConfig {
     return { ...this.config }
   }
 
   /**
-   * 获取配置文件路径
+   * Get configuration file path
    */
   getConfigPath(): string {
     return this.configPath
   }
 
   /**
-   * 打开配置文件所在目录
+   * Open configuration file directory
    */
   async openConfigDirectory(): Promise<void> {
     try {
@@ -320,108 +320,108 @@ export class SecurityConfigManager {
       const configDir = path.dirname(this.configPath)
       await shell.openPath(configDir)
     } catch (error) {
-      console.error('无法打开配置目录:', error)
+      console.error('Failed to open config directory:', error)
     }
   }
 
   /**
-   * 直接打开配置文件
+   * Open configuration file directly
    */
   async openConfigFile(): Promise<void> {
     try {
       const { shell } = require('electron')
-      // 确保配置文件存在
+      // Ensure configuration file exists
       await fs.access(this.configPath)
-      // 直接打开配置文件
+      // Open configuration file directly
       await shell.openPath(this.configPath)
     } catch (error) {
-      console.error('无法打开配置文件:', error)
+      console.error('Failed to open config file:', error)
       throw error
     }
   }
 
   /**
-   * 生成带注释的配置文件内容
+   * Generate configuration file content with comments
    */
   private generateConfigWithComments(): string {
     const config = this.config
 
-    return `// Chaterm AI 安全配置文件
-// 此文件用于配置 AI 助手的安全策略，防止执行危险命令
-// 修改此文件后重启应用即可生效，或在设置界面中修改
+    return `// Chaterm AI Security Configuration File
+// This file is used to configure the security policy of the AI assistant to prevent execution of dangerous commands
+// Changes to this file take effect after restarting the application, or modify in the settings interface
 
 {
   "security": {
-    // 是否启用命令安全检查
+    // Whether to enable command security check
     "enableCommandSecurity": ${config.enableCommandSecurity},
 
-    // 是否启用严格模式
+    // Whether to enable strict mode
     "enableStrictMode": ${config.enableStrictMode},
 
-    // 黑名单：匹配这些模式的命令将被阻止
+    // Blacklist: Commands matching these patterns will be blocked
     "blacklistPatterns": [
 ${config.blacklistPatterns.map((pattern) => `      "${pattern.replace(/\\/g, '\\\\')}"`).join(',\n')}
     ],
 
-    // 白名单：这些命令被认为是安全的，不会被阻止
+    // Whitelist: These commands are considered safe and will not be blocked
     "whitelistPatterns": [
 ${config.whitelistPatterns.map((pattern) => `      "${pattern.replace(/\\/g, '\\\\')}"`).join(',\n')}
     ],
 
-    // 危险命令关键词：包含这些关键词的命令需要用户确认
+    // Dangerous command keywords: Commands containing these keywords require user confirmation
     "dangerousCommands": [
 ${config.dangerousCommands.map((cmd) => `      "${cmd.replace(/\\/g, '\\\\')}"`).join(',\n')}
     ],
 
-    // 命令最大长度限制
+    // Maximum command length limit
     "maxCommandLength": ${config.maxCommandLength},
 
-    // 安全策略配置
+    // Security policy configuration
     "securityPolicy": {
-      // 是否阻止严重危险命令
+      // Whether to block critical dangerous commands
       "blockCritical": ${config.securityPolicy.blockCritical},
 
-      // 中等危险命令是否询问用户
+      // Whether to ask user for medium danger commands
       "askForMedium": ${config.securityPolicy.askForMedium},
 
-      // 高危险命令是否询问用户
+      // Whether to ask user for high danger commands
       "askForHigh": ${config.securityPolicy.askForHigh},
 
-      // 黑名单命令是否询问用户
+      // Whether to ask user for blacklist commands
       "askForBlacklist": ${config.securityPolicy.askForBlacklist}
     }
   }
 }
 
-// 配置说明：
-// - 添加安全命令到白名单：在 whitelistPatterns 数组中添加命令模式
-// - 添加危险命令到黑名单：在 blacklistPatterns 数组中添加命令模式
-// - 修改危险命令列表：在 dangerousCommands 数组中添加或删除命令关键词
-// - 调整安全策略：修改 securityPolicy 对象中的布尔值`
+// Configuration instructions:
+// - Add safe commands to whitelist: Add command patterns to the whitelistPatterns array
+// - Add dangerous commands to blacklist: Add command patterns to the blacklistPatterns array
+// - Modify dangerous commands list: Add or remove command keywords in the dangerousCommands array
+// - Adjust security policy: Modify boolean values in the securityPolicy object`
   }
 
   /**
-   * 保存带注释的配置到文件
+   * Save configuration with comments to file
    */
   private async saveConfigWithComments(): Promise<void> {
     try {
-      // 确保目录存在
+      // Ensure directory exists
       const configDir = path.dirname(this.configPath)
       await fs.mkdir(configDir, { recursive: true })
 
-      // 生成带注释的配置内容
+      // Generate configuration content with comments
       const configContent = this.generateConfigWithComments()
 
       await fs.writeFile(this.configPath, configContent, 'utf-8')
-      console.log('带注释的安全配置已保存到:', this.configPath)
+      console.log('Security config with comments saved to:', this.configPath)
     } catch (error) {
-      console.error('保存带注释的安全配置失败:', error)
+      console.error('Failed to save security config with comments:', error)
       throw error
     }
   }
 
   /**
-   * 更新配置
+   * Update configuration
    */
   updateConfig(updates: Partial<SecurityConfig>): void {
     this.config = { ...this.config, ...updates }
