@@ -238,7 +238,7 @@
                       index === filteredChatHistory.length - 1 &&
                       lastChatMessageId === message.id &&
                       (message.ask === 'command' || message.ask === 'mcp_tool_call') &&
-                      !showCancelButton
+                      !responseLoading
                     "
                   >
                     <div class="bottom-buttons">
@@ -285,7 +285,7 @@
                       index === filteredChatHistory.length - 1 &&
                       lastChatMessageId === message.id &&
                       message.ask === 'command' &&
-                      !showCancelButton
+                      !responseLoading
                     "
                   >
                     <div class="bottom-buttons">
@@ -318,7 +318,7 @@
                       index === filteredChatHistory.length - 1 &&
                       lastChatMessageId === message.id &&
                       message.ask === 'mcp_tool_call' &&
-                      !showCancelButton
+                      !responseLoading
                     "
                   >
                     <div class="bottom-buttons">
@@ -377,21 +377,6 @@
           </div>
         </div>
         <div class="bottom-container">
-          <div
-            v-if="currentTab?.session.showCancelButton"
-            class="bottom-buttons cancel-row"
-          >
-            <a-button
-              size="small"
-              class="cancel-btn"
-              @click="handleCancel"
-            >
-              <template #icon>
-                <CloseOutlined />
-              </template>
-              {{ $t('ai.cancel') }}
-            </a-button>
-          </div>
           <div
             v-if="showResumeButton"
             class="bottom-buttons"
@@ -957,7 +942,6 @@ const {
   chatInputValue,
   lastChatMessageId,
   responseLoading,
-  showCancelButton,
   chatHistory,
   filteredChatHistory,
   buttonsDisabled,
