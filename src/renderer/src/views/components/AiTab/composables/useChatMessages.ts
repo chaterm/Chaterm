@@ -338,7 +338,6 @@ export function useChatMessages(
       if (partial.type === 'ask' && partial.ask === 'completion_result') {
         session.showNewTaskButton = true
         session.responseLoading = false
-        session.showCancelButton = false
         if (isActiveTab) {
           scrollToBottom()
         }
@@ -365,7 +364,6 @@ export function useChatMessages(
 
       session.showRetryButton = false
       session.showSendButton = false
-      session.showCancelButton = partial.partial === true && session.responseLoading === true
       const lastMessageInChat = session.chatHistory.at(-1)
 
       const openNewMessage =
@@ -442,7 +440,6 @@ export function useChatMessages(
       session.lastPartialMessage = message
       if (!partial.partial) {
         session.showSendButton = true
-        session.showCancelButton = false
         if ((partial.type === 'ask' && partial.ask === 'command') || partial.say === 'command_blocked') {
           session.responseLoading = false
         }

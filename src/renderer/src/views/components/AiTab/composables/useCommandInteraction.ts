@@ -240,7 +240,6 @@ export function useCommandInteraction(params: CommandInteractionOptions) {
     if (!session) return
 
     session.responseLoading = false
-    session.showCancelButton = false
     session.showSendButton = true
     session.lastChatMessageId = ''
     const wasExecutingCommand = session.isExecutingCommand

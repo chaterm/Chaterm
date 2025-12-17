@@ -223,7 +223,6 @@ export function useTabManagement(options: TabManagementOptions) {
         chatHistory: historyChatMessages,
         lastChatMessageId: '',
         responseLoading: false,
-        showCancelButton: false,
         showRetryButton: false,
         showNewTaskButton: false,
         showSendButton: true,
