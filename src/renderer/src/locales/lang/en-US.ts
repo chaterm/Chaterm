@@ -497,6 +497,15 @@ export default {
       fontSizeDecrease: 'Font Size Decrease',
       toggleLayout: 'Toggle Layout (Terminal/Agents)',
       toggleAgentsLeftSidebar: 'Toggle Agents Left Sidebar'
+    },
+    hints: {
+      sendOrToggleAi: 'Chat With AI',
+      toggleLeftSidebar: 'Asset List',
+      openSettings: 'Open Settings',
+      openCommandDialog: 'Inline Command Generator',
+      openFileManager: 'Open File Manager',
+      clearTerminal: 'Clear Terminal',
+      toggleLayout: 'Toggle Layout (Terminal/Agents)'
     }
   },
   personal: {

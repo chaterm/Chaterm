@@ -497,6 +497,15 @@ export default {
       fontSizeDecrease: '字体缩小',
       toggleLayout: '切换布局（Terminal/Agents）',
       toggleAgentsLeftSidebar: '切换Agents布局左侧边栏'
+    },
+    hints: {
+      sendOrToggleAi: '与AI对话',
+      toggleLeftSidebar: '资产列表',
+      openSettings: '打开设置',
+      openCommandDialog: '内联命令生成',
+      openFileManager: '打开文件管理',
+      clearTerminal: '清屏',
+      toggleLayout: '切换布局（Terminal/Agents）'
     }
   },
   personal: {

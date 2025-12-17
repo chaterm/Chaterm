@@ -61,7 +61,7 @@ export function useModelConfiguration() {
   }
 
   const initModel = async () => {
-    // 先初始化模型选项列表
+    // First initialize model options list
     const modelOptions = (await getGlobalState('modelOptions')) as ModelOption[]
 
     modelOptions.sort((a, b) => {

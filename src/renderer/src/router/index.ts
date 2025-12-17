@@ -3,16 +3,16 @@ import { createRouter, createWebHashHistory } from 'vue-router'
 import { AppRoutes } from '@/router/routes'
 import { beforeEach, afterEach } from '@/router/guards'
 
-// 创建路由实例
+// Create router instance
 const AppRouter = createRouter({
-  history: createWebHashHistory(), //哈希模式
+  history: createWebHashHistory(), // Hash mode
   routes: AppRoutes,
   scrollBehavior: () => ({ left: 0, top: 0 })
 })
 
-// 添加错误处理
+// Add error handling
 AppRouter.onError((error) => {
-  console.error('路由错误:', error)
+  console.error('Router error:', error)
 })
 
 AppRouter.beforeEach(beforeEach)

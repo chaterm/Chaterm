@@ -247,13 +247,13 @@ const logout = async () => {
   const isSkippedLogin = localStorage.getItem('login-skipped') === 'true'
   try {
     if (dataSyncService.getInitializationStatus()) {
-      console.log('登出时检测到数据同步已启用，正在停止...')
+      console.log('Data sync is enabled during logout, stopping...')
       await dataSyncService.disableDataSync()
       dataSyncService.reset()
-      console.log('数据同步已停止')
+      console.log('Data sync has been stopped')
     }
   } catch (error) {
-    console.error('登出时停止数据同步失败:', error)
+    console.error('Failed to stop data sync during logout:', error)
   }
 
   if (isSkippedLogin) {

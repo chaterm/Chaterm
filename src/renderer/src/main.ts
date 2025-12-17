@@ -55,7 +55,7 @@ if (import.meta.hot) {
 
 import { userConfigStore } from '@/services/userConfigStoreService'
 
-// 渲染进程启动时注册 IPC 处理器
+// Register IPC handlers when renderer process starts
 function setupIPCHandlers() {
   const electronAPI = (window as any).electron
 

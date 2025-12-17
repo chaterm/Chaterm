@@ -52,7 +52,7 @@ export const inputManager = {
       componentInstances.value.push({ target, key })
       this.setActiveTerm(key)
     } else {
-      console.warn(`key "${key}" 已存在，跳过注册`)
+      console.warn(`key "${key}" already exists, skipping registration`)
     }
   },
 
@@ -64,7 +64,7 @@ export const inputManager = {
         this.updateActiveTerm()
       }
     } else {
-      console.warn(`无法注销，未找到 key "${key}"`)
+      console.warn(`Cannot unregister, key "${key}" not found`)
     }
   },
 
@@ -74,7 +74,7 @@ export const inputManager = {
       activeTermId.value = key
       activeTermOndata.value = instance.target.termOndata
     } else {
-      console.warn(`设置失败，未找到 key "${key}"`)
+      console.warn(`Failed to set, key "${key}" not found`)
     }
   },
 
@@ -99,7 +99,7 @@ export const inputManager = {
     if (activeTermOndata.value && typeof activeTermOndata.value === 'function') {
       activeTermOndata.value(data)
     } else {
-      console.warn('没有激活的term或termOndata不可用')
+      console.warn('No active term or termOndata is not available')
     }
   },
 

@@ -58,10 +58,10 @@ export class UserConfigStoreService {
 
   async initDB(): Promise<void> {
     try {
-      // 确保默认配置存在
+      // Ensure default config exists
       const config = await window.api.kvGet({ key: 'userConfig' })
       if (!config) {
-        // 不存在则创建默认配置
+        // Create default config if it doesn't exist
         await window.api.kvMutate({
           action: 'set',
           key: 'userConfig',
@@ -74,10 +74,10 @@ export class UserConfigStoreService {
   }
 
   private getDefaultConfig(): UserConfig {
-    // 检测是否是Mac系统
+    // Detect if it's a Mac system
     const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0
 
-    // 从 shortcutActions 动态生成默认快捷键配置
+    // Dynamically generate default shortcut config from shortcutActions
     const defaultShortcuts: ShortcutConfig = {}
     shortcutActions.forEach((action) => {
       defaultShortcuts[action.id] = isMac ? action.defaultKey.mac : action.defaultKey.other

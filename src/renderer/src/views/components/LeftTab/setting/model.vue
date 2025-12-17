@@ -1258,7 +1258,7 @@ const handleSave = async (provider) => {
   padding: 4px 8px;
   border-radius: 4px;
   transition: background-color 0.2s;
-  height: 28px; /* 固定高度 */
+  height: 28px; /* Fixed height */
   box-sizing: border-box;
 }
 

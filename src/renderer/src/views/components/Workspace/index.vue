@@ -181,7 +181,7 @@
                   >
                     <laptop-outlined class="computer-icon" />
                     <span class="hostname-text">{{ title }}</span>
-                    <!-- 备注显示 -->
+                    <!-- Comment display -->
                     <span
                       v-if="dataRef.comment"
                       class="comment-text"
@@ -190,7 +190,7 @@
                       ({{ dataRef.comment }})
                     </span>
                   </span>
-                  <!-- 备注编辑输入框 -->
+                  <!-- Comment edit input -->
                   <span
                     v-else-if="commentNode === dataRef.key"
                     class="title-with-icon"
@@ -250,7 +250,7 @@
     </div>
   </div>
 
-  <!-- 创建文件夹模态框 -->
+  <!-- Create folder modal -->
   <Modal
     v-model:open="showCreateFolderModal"
     :title="t('personal.createFolder')"
@@ -342,7 +342,7 @@
     </div>
   </Modal>
 
-  <!-- 右键菜单 -->
+  <!-- Right-click menu -->
   <div
     v-if="contextMenuVisible && contextMenuData"
     class="context-menu"
@@ -496,7 +496,7 @@ const machines = ref<MachineOption | null>(null)
 
 const companyChange = (item) => {
   company.value = item.key
-  // 重置树相关状态
+  // Reset tree-related state
   selectedKeys.value = []
   expandedKeys.value = []
   searchValue.value = ''
@@ -559,14 +559,14 @@ const isPersonalWorkspace = computed(() => {
   return currentWorkspace?.type === 'personal'
 })
 const handleFavoriteClick = (dataRef: any) => {
-  // 检查是否有必要的字段
+  // Check if necessary fields exist
   if (!dataRef) {
-    console.error('dataRef 为空')
+    console.error('dataRef is empty')
     return
   }
 
   if (dataRef.favorite === undefined) {
-    console.error('dataRef.favorite 未定义')
+    console.error('dataRef.favorite is undefined')
     return
   }
 
@@ -727,7 +727,7 @@ const isSecondLevel = (node) => {
 const getOriginalChildrenCount = (dataRef: any): number => {
   if (!dataRef || !dataRef.key) return 0
 
-  // 在原始数据中查找对应的节点
+  // Find corresponding node in original data
   const findNodeInOriginal = (nodes: AssetNode[], targetKey: string): AssetNode | null => {
     if (!nodes) return null
 
@@ -749,11 +749,11 @@ const getOriginalChildrenCount = (dataRef: any): number => {
 
 const toggleFavorite = (dataRef: any): void => {
   if (isPersonalWorkspace.value) {
-    console.log('执行个人资产收藏逻辑')
+    console.log('Executing personal asset favorite logic')
     window.api
       .updateLocalAsseFavorite({ uuid: dataRef.uuid, status: dataRef.favorite ? 2 : 1 })
       .then((res) => {
-        console.log('个人资产收藏响应:', res)
+        console.log('Personal asset favorite response:', res)
         if (res.data.message === 'success') {
           dataRef.favorite = !dataRef.favorite
           getLocalAssetMenu()
@@ -761,13 +761,13 @@ const toggleFavorite = (dataRef: any): void => {
       })
       .catch((err) => console.error(t('common.personalAssetFavoriteError'), err))
   } else {
-    console.log('执行企业资产收藏逻辑')
+    console.log('Executing organization asset favorite logic')
     if (dataRef.asset_type === 'organization' && !dataRef.organizationId) {
-      console.log('更新组织本身收藏状态')
+      console.log('Updating organization itself favorite status')
       window.api
         .updateLocalAsseFavorite({ uuid: dataRef.uuid, status: dataRef.favorite ? 2 : 1 })
         .then((res) => {
-          console.log('组织本身收藏响应:', res)
+          console.log('Organization itself favorite response:', res)
           if (res.data.message === 'success') {
             dataRef.favorite = !dataRef.favorite
             getUserAssetMenu()
@@ -775,7 +775,7 @@ const toggleFavorite = (dataRef: any): void => {
         })
         .catch((err) => console.error(t('common.organizationAssetFavoriteError'), err))
     } else {
-      console.log('更新组织子资产收藏状态:', {
+      console.log('Updating organization sub-asset favorite status:', {
         organizationUuid: dataRef.organizationId,
         host: dataRef.ip,
         status: dataRef.favorite ? 2 : 1
@@ -793,9 +793,9 @@ const toggleFavorite = (dataRef: any): void => {
           status: dataRef.favorite ? 2 : 1
         })
         .then((res) => {
-          console.log('updateOrganizationAssetFavorite 响应:', res)
+          console.log('updateOrganizationAssetFavorite response:', res)
           if (res && res.data && res.data.message === 'success') {
-            console.log('收藏状态更新成功，刷新菜单')
+            console.log('Favorite status updated successfully, refreshing menu')
             dataRef.favorite = !dataRef.favorite
             getUserAssetMenu()
           } else {
@@ -807,7 +807,7 @@ const toggleFavorite = (dataRef: any): void => {
         })
     }
   }
-  console.log('=== toggleFavorite 结束 ===')
+  console.log('=== toggleFavorite end ===')
 }
 
 const clickServer = (item) => {
@@ -846,7 +846,7 @@ const handleDblClick = (dataRef: any) => {
 }
 
 const handleRefresh = async (dataRef: any) => {
-  console.log('刷新企业资产节点:', dataRef)
+  console.log('Refreshing organization asset node:', dataRef)
   refreshingNode.value = dataRef.key
 
   try {
@@ -871,7 +871,7 @@ const handleCommentClick = (dataRef: any) => {
 const saveComment = async (dataRef: any) => {
   try {
     if (!window.api.updateOrganizationAssetComment) {
-      console.error('window.api.updateOrganizationAssetComment 方法不存在!')
+      console.error('window.api.updateOrganizationAssetComment method does not exist!')
       return
     }
 
@@ -885,13 +885,13 @@ const saveComment = async (dataRef: any) => {
       dataRef.comment = editingComment.value
       commentNode.value = null
       editingComment.value = ''
-      // 刷新菜单以显示更新
+      // Refresh menu to show updates
       getUserAssetMenu()
     } else {
-      console.error('备注保存失败:', result)
+      console.error('Comment save failed:', result)
     }
   } catch (error) {
-    console.error('保存备注错误:', error)
+    console.error('Save comment error:', error)
   }
 }
 
@@ -907,7 +907,7 @@ const loadCustomFolders = async () => {
       customFolders.value = result.data.folders || []
     }
   } catch (error) {
-    console.error('加载自定义文件夹失败:', error)
+    console.error('Failed to load custom folders:', error)
   }
 }
 
@@ -933,7 +933,7 @@ const handleCreateFolder = async () => {
       message.error(t('personal.folderCreateFailed'))
     }
   } catch (error) {
-    console.error('创建文件夹失败:', error)
+    console.error('Failed to create folder:', error)
     message.error(t('personal.folderCreateFailed'))
   }
 }
@@ -970,7 +970,7 @@ const handleUpdateFolder = async () => {
       message.error(t('personal.folderUpdateFailed'))
     }
   } catch (error) {
-    console.error('更新文件夹失败:', error)
+    console.error('Failed to update folder:', error)
     message.error(t('personal.folderUpdateFailed'))
   }
 }
@@ -999,7 +999,7 @@ const handleDeleteFolder = (dataRef: any) => {
           message.error(t('personal.folderDeleteFailed'))
         }
       } catch (error) {
-        console.error('删除文件夹失败:', error)
+        console.error('Failed to delete folder:', error)
         message.error(t('personal.folderDeleteFailed'))
       }
     }
@@ -1030,7 +1030,7 @@ const handleMoveAssetToFolder = async (folderUuid: string) => {
       message.error(t('personal.assetMoveFailed'))
     }
   } catch (error) {
-    console.error('移动资产失败:', error)
+    console.error('Failed to move asset:', error)
     message.error(t('personal.assetMoveFailed'))
   }
 }
@@ -1050,7 +1050,7 @@ const handleRemoveFromFolder = async (dataRef: any) => {
       message.error(t('personal.assetRemoveFailed'))
     }
   } catch (error) {
-    console.error('从文件夹移除资产失败:', error)
+    console.error('Failed to remove asset from folder:', error)
     message.error(t('personal.assetRemoveFailed'))
   }
 }
@@ -1195,7 +1195,7 @@ const refreshAssetMenu = () => {
 
 onMounted(() => {
   eventBus.on('LocalAssetMenu', refreshAssetMenu)
-  // 监听语言变更事件，重新加载资产数据
+  // Listen for language change event, reload asset data
   eventBus.on('languageChanged', () => {
     console.log('Language changed, refreshing asset menu...')
     refreshAssetMenu()
@@ -1279,7 +1279,7 @@ onUnmounted(() => {
   max-height: calc(100vh - 120px);
   height: auto;
 
-  /* 滚动条样式 */
+  /* Scrollbar styles */
   &::-webkit-scrollbar {
     width: 6px;
   }
@@ -1297,7 +1297,7 @@ onUnmounted(() => {
     background-color: var(--text-color-tertiary);
   }
 
-  /* Firefox 滚动条样式 */
+  /* Firefox scrollbar styles */
   scrollbar-width: thin;
   scrollbar-color: var(--border-color-light) transparent;
 }

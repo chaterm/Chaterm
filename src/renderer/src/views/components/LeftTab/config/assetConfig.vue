@@ -1321,11 +1321,11 @@ onMounted(() => {
   eventBus.on('sshProxyConfigsUpdated', () => {
     getProxyConfigData()
   })
-  // 监听语言变更事件，重新加载资产数据
+  // Listen to language change event, reload asset data
   eventBus.on('languageChanged', () => {
     console.log('Language changed in asset config, refreshing asset list...')
     getAssetList()
-    eventBus.emit('LocalAssetMenu') // 通知工作空间组件也刷新
+    eventBus.emit('LocalAssetMenu') // Notify workspace component to refresh as well
   })
 })
 
