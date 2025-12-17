@@ -97,7 +97,7 @@ const filteredAssetGroups = computed(() => {
 
     return filterNodes(deepClone(props.assetGroups || []) as AssetNode[])
   } catch (error) {
-    console.error('过滤资产组时出错:', error)
+    console.error('Error filtering asset groups:', error)
     return []
   }
 })

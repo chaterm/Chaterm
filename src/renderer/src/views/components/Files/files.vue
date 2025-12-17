@@ -646,7 +646,7 @@ function getLoadFilePath(filePath: string): string {
 const rowClick = (record: FileRecord): void => {
   if (record.isDir || record.isLink) {
     if (record.path === '..') {
-      // 获取当前目录的上级目录
+      // Get parent directory of current directory
       const currentDirectory = basePath.value + currentDirectoryInput.value
       let parentDirectory = currentDirectory.substring(0, currentDirectory.lastIndexOf('/'))
       if (parentDirectory === '') {
@@ -873,7 +873,7 @@ const handleMoreButtonEnter = (recordName: string) => {
 // Handle "More" button mouse leave
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 const handleMoreButtonLeave = (_recordName: string) => {
-  // 按钮离开时不立即清理，让其他事件处理
+  // Don't clean up immediately when button leaves, let other events handle it
 }
 
 const handleDropdownVisibleChange = (visible: boolean, recordName: string) => {
@@ -911,7 +911,7 @@ const handleDropdownMenuLeave = (recordName: string) => {
   handleDropdownVisibleChange(false, recordName)
 }
 
-// 处理菜单项点击
+// Handle menu item click
 const handleMenuClick = () => {
   currentHoverRow.value = null
   Object.keys(dropdownVisible).forEach((key) => {
@@ -920,7 +920,7 @@ const handleMenuClick = () => {
   })
 }
 
-// 操作方法
+// Operation methods
 const currentRecord = ref<FileRecord | null>(null)
 const chmodFileDialog = ref<boolean>(false)
 const permissions = reactive({

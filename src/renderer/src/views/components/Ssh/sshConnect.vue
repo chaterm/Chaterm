@@ -110,6 +110,28 @@ const { t } = useI18n()
 const selectFlag = ref(false)
 const configStore = userConfigStore()
 const isTransparent = computed(() => !!configStore.getUserConfig.background.image)
+let viewportScrollbarHideTimer: number | null = null
+
+const showTerminalScrollbarTemporarily = () => {
+  const container = terminalContainer.value
+  if (!container) return
+
+  container.classList.add('scrollbar-visible')
+
+  if (viewportScrollbarHideTimer) {
+    window.clearTimeout(viewportScrollbarHideTimer)
+  }
+
+  viewportScrollbarHideTimer = window.setTimeout(() => {
+    container.classList.remove('scrollbar-visible')
+    viewportScrollbarHideTimer = null
+  }, 2000)
+}
+
+const handleViewportScroll = () => {
+  updateSelectionButtonPosition()
+  showTerminalScrollbarTemporarily()
+}
 
 interface CommandSuggestion {
   command: string
@@ -356,7 +378,7 @@ onMounted(async () => {
   nextTick(() => {
     const viewport = terminalElement.value?.querySelector('.xterm-viewport')
     if (viewport) {
-      viewport.addEventListener('scroll', () => updateSelectionButtonPosition())
+      viewport.addEventListener('scroll', handleViewportScroll, { passive: true })
     }
   })
 
@@ -678,11 +700,11 @@ const getCmdList = async (systemCommands) => {
   commands.value = [...new Set(allCommands)].sort()
 
   if (config.highlightStatus !== 1) {
-    console.warn('[Vue] 高亮功能已禁用')
+    console.warn('[Vue] Highlight feature is disabled')
   }
 
   if (!queryCommandFlag.value) {
-    console.warn('[Vue] 自动补全功能已禁用')
+    console.warn('[Vue] Auto-completion feature is disabled')
   }
 }
 
@@ -733,7 +755,12 @@ onBeforeUnmount(() => {
 
   const viewport = terminalElement.value?.querySelector('.xterm-viewport')
   if (viewport) {
-    viewport.removeEventListener('scroll', () => updateSelectionButtonPosition())
+    viewport.removeEventListener('scroll', handleViewportScroll)
+  }
+
+  if (viewportScrollbarHideTimer) {
+    window.clearTimeout(viewportScrollbarHideTimer)
+    viewportScrollbarHideTimer = null
   }
 })
 const getFileExt = (fileName: string): string => {
@@ -1046,7 +1073,7 @@ const connectSSH = async () => {
     const hostnameBase64 =
       props.serverInfo.organizationId === 'personal' ? Base64Util.encode(assetInfo.asset_ip) : Base64Util.encode(assetInfo.hostname)
 
-    const sessionId = uuidv4() // 每个标签页不同
+    const sessionId = uuidv4() // Different for each tab
     const jumpserverUuid = assetInfo.organization_uuid || props.connectData.uuid
 
     connectionId.value = `${assetInfo.username}@${props.connectData.ip}:${orgType}:${hostnameBase64}:${sessionId}`
@@ -1059,8 +1086,8 @@ const connectSSH = async () => {
     const jmsToken = ref(localStorage.getItem('jms-token'))
 
     const connData: any = {
-      id: connectionId.value, // 会话 ID (每个标签页唯一)
-      assetUuid: jumpserverUuid, // JumpServer UUID (用于连接池复用)
+      id: connectionId.value, // Session ID (unique for each tab)
+      assetUuid: jumpserverUuid, // JumpServer UUID (for connection pool reuse)
       host: assetInfo.asset_ip,
       port: assetInfo.port,
       username: assetInfo.username,
@@ -1093,7 +1120,7 @@ const connectSSH = async () => {
         getCmdList(connectReadyData?.commandList)
       })
       .catch((error) => {
-        console.error('[Vue] 命令列表接收失败:', error)
+        console.error('[Vue] Failed to receive command list:', error)
         connectionHasSudo.value = false
         getCmdList([])
       })
@@ -2095,7 +2122,7 @@ const handleServerOutput = (response: MarkedResponse) => {
 
     const tabId = commandMarkerToTabId.value.get(response.marker) ?? commandMarkerToTabId.value.get('Chaterm:command') ?? undefined
 
-    // 保存当前命令的 marker 和 tabId
+    // Save current command marker and tabId
     currentCommandMarker.value = response.marker
     currentCommandTabId.value = tabId
 
@@ -2112,12 +2139,12 @@ const handleCommandOutput = (data: string, isInitialCommand: boolean) => {
   const cleanOutput = stripAnsi(data).trim()
   commandOutput.value += cleanOutput + '\n'
 
-  // 检测 SSH 命令提示符，用于判断命令输出是否结束
-  // 支持四种常见的提示符格式：
-  // 1. [user@host]$ 或 [user@host]# - 带方括号的标准格式
-  // 2. user@host:path$ 或 user@host:path# - 带路径的格式
-  // 3. [user@host path]$ 或 [user@host path]# - 带路径的方括号格式
-  // 4. $ 或 # - 简单提示符格式
+  // Detect SSH command prompt to determine if command output has ended
+  // Supports four common prompt formats:
+  // 1. [user@host]$ or [user@host]# - Standard format with brackets
+  // 2. user@host:path$ or user@host:path# - Format with path
+  // 3. [user@host path]$ or [user@host path]# - Bracket format with path
+  // 4. $ or # - Simple prompt format
   const promptRegex = /(?:\[([^@]+)@([^\]]+)\][#$]|([^@]+)@([^:]+):(?:[^$]*|\s*~)\s*[$#]|\[([^@]+)@([^\]]+)\s+[^\]]*\][#$]|^[$#]$)\s*$/
 
   if (promptRegex.test(cleanOutput)) {
@@ -2194,9 +2221,9 @@ const calculateDisplayPosition = (str: string, charIndex: number): number => {
 }
 
 const getRowColByDisplayOffset = (
-  startRow: number, //命令起始所在行
+  startRow: number, // Row where command starts
   cursorStartX: number,
-  displayOffset: number //显示偏移
+  displayOffset: number // Display offset
 ) => {
   const term = terminal.value as any
   const cols: number = term?.cols ?? 80
@@ -2210,7 +2237,7 @@ const getRowColByDisplayOffset = (
     row = startRow
     col = cursorStartX + 1 + displayOffset
   } else {
-    // 换行
+    // Line break
     const rest = displayOffset - firstRowCapacity
     const extraRows = Math.floor(rest / cols)
     const offsetInRow = rest % cols
@@ -2222,18 +2249,18 @@ const getRowColByDisplayOffset = (
 }
 
 const DEFAULT_ZSH_COLORS = {
-  // 命令
+  // Command
   command: {
     valid: '32',
     invalid: '31'
   },
 
-  // 参数
+  // Argument
   argument: {
     default: '38;2;135;206;250'
   },
 
-  // 引号
+  // String
   string: {
     matched: '33',
     unmatched: '31',
@@ -2241,7 +2268,7 @@ const DEFAULT_ZSH_COLORS = {
   }
 } as const
 
-// TODO 用户自定义
+// TODO User customization
 type SyntaxHighlightConfig = {
   command?: {
     valid?: string
@@ -2280,7 +2307,7 @@ const highlightSyntax = (allData: any, userConfig?: SyntaxHighlightConfig) => {
   const { content, cursorPosition } = allData
   let command = ''
   let arg = ''
-  // 解析命令和参数
+  // Parse command and arguments
   const firstSpaceIndex = content.indexOf(' ')
   if (firstSpaceIndex !== -1) {
     command = content.slice(0, firstSpaceIndex)
@@ -2290,7 +2317,7 @@ const highlightSyntax = (allData: any, userConfig?: SyntaxHighlightConfig) => {
     arg = ''
   }
 
-  // 当前行行号
+  // Current line number
   let startY = (terminal.value as any)?._core.buffer.y
   if (allData.contentCrossRowStatus) {
     startY = allData.contentCrossStartLine
@@ -2298,17 +2325,17 @@ const highlightSyntax = (allData: any, userConfig?: SyntaxHighlightConfig) => {
 
   const isValidCommand = commands.value?.includes(command)
 
-  // 高亮主命令
+  // Highlight main command
   if (command) {
     const cmdRow = startY + 1
     const cmdCol = cursorStartX.value + 1
 
-    // 移动到命令起始位置
+    // Move to command start position
     cusWrite?.(`\x1b[${cmdRow};${cmdCol}H`, { isUserCall: true })
 
     const colorCode = isValidCommand ? colors.command.valid : colors.command.invalid
 
-    // 渲染
+    // Render
     cusWrite?.(`\x1b[${colorCode}m${command}\x1b[0m`, { isUserCall: true })
 
     setTimeout(() => {
@@ -2320,21 +2347,21 @@ const highlightSyntax = (allData: any, userConfig?: SyntaxHighlightConfig) => {
 
   if (!arg) return
 
-  // 分词
+  // Tokenize
   type Token = {
     content: string
     type: 'matched' | 'unmatched' | 'other' | string
     startIndex: number
   }
 
-  // 处理管道符
+  // Handle pipe operators
   const highlightPipeCommands = (argStr: string, tokens?: Token[], unmatchedStartIndex?: number | null) => {
     if (!argStr.includes('|')) return
 
     const commandDisplayWidth = calculateDisplayPosition(command, command.length)
-    const pipeColorCode = '38;5;33' // 深蓝色
+    const pipeColorCode = '38;5;33' // Dark blue
 
-    // 记录所有字符串区间
+    // Record all string ranges
     const stringRanges: { start: number; end: number }[] = []
     if (tokens) {
       for (const t of tokens) {
@@ -2346,7 +2373,7 @@ const highlightSyntax = (allData: any, userConfig?: SyntaxHighlightConfig) => {
         }
       }
     }
-    // 未闭合状态：unmatched 之后的都当成字符串
+    // Unclosed state: everything after unmatched is treated as string
     if (typeof unmatchedStartIndex === 'number') {
       stringRanges.push({
         start: unmatchedStartIndex,
@@ -2361,7 +2388,7 @@ const highlightSyntax = (allData: any, userConfig?: SyntaxHighlightConfig) => {
       let pipeIndex = argStr.indexOf('|', searchStart)
       if (pipeIndex === -1) break
 
-      // 跳过字符串中的 |
+      // Skip | inside strings
       if (inStringRange(pipeIndex)) {
         const range = stringRanges.find((r) => pipeIndex >= r.start && pipeIndex < r.end)
         if (!range) {
@@ -2382,7 +2409,7 @@ const highlightSyntax = (allData: any, userConfig?: SyntaxHighlightConfig) => {
 
       cusWrite?.(`\x1b[${pipeColorCode}m|\x1b[0m`, { isUserCall: true })
 
-      // 处理子命令
+      // Handle sub-commands
       let k = pipeIndex + 1
       while (k < argStr.length) {
         if (inStringRange(k)) {
@@ -2406,7 +2433,7 @@ const highlightSyntax = (allData: any, userConfig?: SyntaxHighlightConfig) => {
 
       const subCmdStart = k
 
-      // 记录子命令结束位置
+      // Record sub-command end position
       let m = subCmdStart
       while (m < argStr.length && !inStringRange(m)) {
         const ch = argStr[m]
@@ -2443,7 +2470,7 @@ const highlightSyntax = (allData: any, userConfig?: SyntaxHighlightConfig) => {
     const tokens: Token[] = processString(arg)
     const commandDisplayWidth = calculateDisplayPosition(command, command.length)
 
-    // 找到第一个unmatched的起始位置
+    // Find the start position of the first unmatched
     let unmatchedStartIndex: number | null = null
     for (const t of tokens) {
       if (t.type === 'unmatched') {
@@ -2454,7 +2481,7 @@ const highlightSyntax = (allData: any, userConfig?: SyntaxHighlightConfig) => {
     }
 
     if (unmatchedStartIndex === null) {
-      // 没有unmatched
+      // No unmatched
       for (const token of tokens) {
         const displayPos = calculateDisplayPosition(arg, token.startIndex)
         const totalOffset = commandDisplayWidth + displayPos
@@ -2479,12 +2506,12 @@ const highlightSyntax = (allData: any, userConfig?: SyntaxHighlightConfig) => {
 
       highlightPipeCommands(arg, tokens, null)
 
-      // 处理光标
+      // Handle cursor
       const finalRow = cursorPosition.row + 1
       const finalCol = cursorPosition.col + 1
       cusWrite?.(`\x1b[${finalRow};${finalCol}H`, { isUserCall: true })
     } else {
-      // 有unmatched
+      // Has unmatched
       for (const token of tokens) {
         if (token.startIndex >= unmatchedStartIndex) continue
 
@@ -2508,7 +2535,7 @@ const highlightSyntax = (allData: any, userConfig?: SyntaxHighlightConfig) => {
           cusWrite?.(`\x1b[${colorCode}m${token.content}\x1b[0m`, { isUserCall: true })
         }
       }
-      // unmatchedStartIndex后为unmatched
+      // Everything after unmatchedStartIndex is unmatched
       const unmatchedContent = arg.slice(unmatchedStartIndex)
       const unmatchedDisplayPos = calculateDisplayPosition(arg, unmatchedStartIndex)
       const totalOffset = commandDisplayWidth + unmatchedDisplayPos
@@ -2519,7 +2546,7 @@ const highlightSyntax = (allData: any, userConfig?: SyntaxHighlightConfig) => {
 
       cusWrite?.(`\x1b[${colors.string.unmatched}m${unmatchedContent}\x1b[0m`, { isUserCall: true })
 
-      // unmatched之后整个当成字符串，管道不特殊处理
+      // Everything after unmatched is treated as string, pipes are not specially handled
       highlightPipeCommands(arg, tokens, unmatchedStartIndex)
 
       const finalRow = cursorPosition.row + 1
@@ -3143,7 +3170,7 @@ defineExpose({
 
 const commandOutput = ref('')
 const isCollectingOutput = ref(false)
-// 命令 marker 到 tabId 的映射关系，用于将命令执行结果回传到对应的 Tab
+// Mapping from command marker to tabId, used to send command execution results back to the corresponding Tab
 const commandMarkerToTabId = ref(new Map<string, string | undefined>())
 const currentCommandMarker = ref<string | null>(null)
 const currentCommandTabId = ref<string | undefined>(undefined)
@@ -3230,18 +3257,36 @@ const isDeleteKeyData = (d: string) => d === '\x7f' || d === '\b' || d === '\x1b
 }
 
 .terminal ::-webkit-scrollbar-thumb {
-  background-color: var(--border-color-light);
+  background-color: transparent;
   border-radius: 3px;
-}
-
-.terminal ::-webkit-scrollbar-thumb:hover {
-  background-color: var(--text-color-tertiary);
 }
 
 /* Firefox scrollbar styles */
 .terminal {
   scrollbar-width: thin;
+  scrollbar-color: transparent transparent;
+}
+
+.terminal .xterm-viewport {
+  scrollbar-width: thin !important;
+  scrollbar-color: transparent transparent !important;
+}
+
+/* Show scrollbar only while content is scrolling (hide after 2s of no scrolling) */
+.terminal-container.scrollbar-visible .terminal ::-webkit-scrollbar-thumb {
+  background-color: var(--border-color-light);
+}
+
+.terminal-container.scrollbar-visible .terminal ::-webkit-scrollbar-thumb:hover {
+  background-color: var(--text-color-tertiary);
+}
+
+.terminal-container.scrollbar-visible .terminal {
   scrollbar-color: var(--border-color-light) transparent;
+}
+
+.terminal-container.scrollbar-visible .terminal .xterm-viewport {
+  scrollbar-color: var(--border-color-light) transparent !important;
 }
 
 .select-button {

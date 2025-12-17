@@ -108,7 +108,7 @@ export interface editorData {
   editorType: string
   userResized?: boolean
 }
-// 定义属性
+// Define properties
 const props = defineProps({
   editor: {
     type: Object as PropType<editorData>,
@@ -128,7 +128,7 @@ const handleKeydown = (e: KeyboardEvent) => {
   const isSaveShortcut = (e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 's'
   if (isSaveShortcut) {
     e.preventDefault()
-    // 调用保存方法
+    // Call save method
     handleSave(editor.key, false)
   }
 }
@@ -166,7 +166,7 @@ const closeVimEditor = (key) => {
 const showVimFullScreenEditor = shallowRef(true)
 const showVimFullScreenExitEditor = shallowRef(false)
 
-// 根据当前主题设置编辑器主题
+// Set editor theme based on current theme
 const currentTheme = computed(() => {
   return getMonacoTheme()
 })

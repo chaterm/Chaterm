@@ -63,7 +63,7 @@
       </a-collapse>
     </div>
     <div v-else>
-      <!-- command_output 的代码内容使用 markdown 渲染 -->
+      <!-- Code content of command_output uses markdown rendering -->
       <div
         v-if="props.say === 'command_output' && codeDetection.isCode"
         class="terminal-output-container"

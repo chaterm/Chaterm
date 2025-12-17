@@ -385,14 +385,14 @@ const switchToNextTab = () => {
     return
   }
 
-  // 获取所有 panels
+  // Get all panels
   const panels = dockApi.panels
 
   if (panels.length <= 1) {
     return
   }
 
-  // 获取当前活跃的 panel
+  // Get the currently active panel
   const activePanel = dockApi.activePanel
 
   if (!activePanel) {
@@ -402,14 +402,14 @@ const switchToNextTab = () => {
     return
   }
 
-  // 寻找当前活跃 panel 的索引
+  // Find the index of the currently active panel
   const currentIndex = panels.findIndex((panel) => panel.id === activePanel.id)
 
   if (currentIndex === -1) {
     return
   }
 
-  // 计算下一个索引（循环）
+  // Calculate the next index (circular)
   const nextIndex = (currentIndex + 1) % panels.length
   const nextPanel = panels[nextIndex]
 
@@ -1103,16 +1103,16 @@ const openUserTab = async function (arg: OpenUserTabArg) {
       p.type = 'extensions'
       break
     case 'securityConfigEditor': {
-      // 获取配置文件路径并提取文件名
+      // Get config file path and extract file name
       try {
         const { securityConfigService } = await import('@/services/securityConfigService')
         const configPath = await securityConfigService.getConfigPath()
-        // 提取文件名（兼容 Windows 和 Unix 路径）
+        // Extract file name (compatible with Windows and Unix paths)
         const fileName = configPath.split(/[/\\]/).pop() || 'chaterm-security.json'
         p.title = fileName
       } catch (error) {
         console.error('Failed to get security config path:', error)
-        p.title = 'chaterm-security.json' // 默认文件名
+        p.title = 'chaterm-security.json' // Default file name
       }
       break
     }
@@ -1412,7 +1412,7 @@ const hideContextMenu = () => {
   contextMenu.value.visible = false
 }
 const setupTabContextMenu = () => {
-  // 监听dockview 容器
+  // Listen to dockview container
   const container = dockviewRef.value?.$el
   if (!container) return
   container.addEventListener('contextmenu', (e: MouseEvent) => {

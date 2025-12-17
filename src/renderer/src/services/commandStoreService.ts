@@ -11,7 +11,7 @@ interface AliasItemInput extends Partial<AliasItem> {
 
 export class CommandStoreService {
   constructor() {
-    // SQLite 通过主进程初始化，无需在此处初始化
+    // SQLite is initialized through main process, no need to initialize here
   }
 
   private sanitizeForStorage(item: AliasItemInput): AliasItem {
@@ -26,7 +26,7 @@ export class CommandStoreService {
   async getAll(): Promise<AliasItem[]> {
     try {
       const result = await window.api.aliasesQuery({ action: 'getAll' })
-      // 转换字段名: created_at → createdAt
+      // Convert field name: created_at → createdAt
       return result.map((item: any) => ({
         id: item.id,
         alias: item.alias,
@@ -143,7 +143,7 @@ export class CommandStoreService {
 
   async clear(): Promise<void> {
     try {
-      // 获取所有别名并逐个删除
+      // Get all aliases and delete them one by one
       const allItems = await this.getAll()
       for (const item of allItems) {
         await this.delete(item.alias)

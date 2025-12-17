@@ -20,7 +20,7 @@ export const beforeEach = async (to, _from, next) => {
     try {
       const api = window.api as any
       const dbResult = await api.initUserDatabase({ uid: 999999999 })
-      console.log('数据库初始化结果:', dbResult)
+      console.log('Database initialization result:', dbResult)
 
       if (dbResult.success) {
         if (to.path === '/') {
@@ -29,7 +29,7 @@ export const beforeEach = async (to, _from, next) => {
           next('/')
         }
       } else {
-        console.error('数据库初始化失败，重定向到登录页')
+        console.error('Database initialization failed, redirecting to login page')
         localStorage.removeItem('login-skipped')
         localStorage.removeItem('ctm-token')
         localStorage.removeItem('jms-token')
@@ -37,7 +37,7 @@ export const beforeEach = async (to, _from, next) => {
         next('/login')
       }
     } catch (error) {
-      console.error('数据库初始化失败:', error)
+      console.error('Database initialization failed:', error)
       localStorage.removeItem('login-skipped')
       localStorage.removeItem('ctm-token')
       localStorage.removeItem('jms-token')
@@ -55,20 +55,20 @@ export const beforeEach = async (to, _from, next) => {
         const dbResult = await api.initUserDatabase({ uid: userInfo.uid })
 
         if (dbResult.success) {
-          // 数据库初始化成功后，异步初始化数据同步服务（不阻塞界面显示）
+          // After database initialization succeeds, asynchronously initialize data sync service (non-blocking UI display)
           dataSyncService.initialize().catch((error) => {
-            console.error('数据同步服务初始化失败:', error)
+            console.error('Data sync service initialization failed:', error)
           })
           next()
         } else {
-          console.error('数据库初始化失败，重定向到登录页')
+          console.error('Database initialization failed, redirecting to login page')
           next('/login')
         }
       } else {
         next('/login')
       }
     } catch (error) {
-      console.error('处理失败:', error)
+      console.error('Processing failed:', error)
 
       const message = error instanceof Error ? error.message : String(error)
 

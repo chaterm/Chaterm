@@ -36,7 +36,7 @@
       </div>
       <div class="term_login_input">
         <template v-if="isDev">
-          <!-- 登录方式切换 -->
+          <!-- Login method switch -->
           <div class="login-tabs">
             <div
               class="tab-item"
@@ -54,9 +54,9 @@
             </div>
           </div>
 
-          <!-- 登录表单 -->
+          <!-- Login form -->
           <div class="login-form">
-            <!-- 账号密码登录 -->
+            <!-- Account password login -->
             <div
               v-if="activeTab === 'account'"
               class="form-content"
@@ -101,7 +101,7 @@
               </button>
             </div>
 
-            <!-- 邮箱验证码登录 -->
+            <!-- Email verification code login -->
             <div
               v-if="activeTab === 'email'"
               class="form-content"
@@ -699,7 +699,7 @@ onBeforeUnmount(() => {
     letter-spacing: 1px;
   }
 
-  // 基础样式
+  // Base styles
 
   :deep(.ant-input-affix-wrapper) {
     border: none !important;
@@ -997,7 +997,7 @@ onBeforeUnmount(() => {
   justify-content: center;
 }
 
-// Tab切换样式 - 参考设计图样式
+// Tab switch styles - reference design styles
 .login-tabs {
   display: flex;
   width: 320px;

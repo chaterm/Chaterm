@@ -1,12 +1,12 @@
 import { getUserInfo } from '@/utils/permission'
 
 /**
- * 初始化 IndexedDB 迁移监听器
- * 监听主进程的迁移数据请求，直接从 IndexedDB 读取数据并响应
+ * Initialize IndexedDB migration listener
+ * Listen to migration data requests from main process, read data directly from IndexedDB and respond
  */
 export function setupIndexDBMigrationListener(): void {
-  // ===== IndexedDB 迁移 IPC 监听器 =====
-  // 注册迁移数据请求监听器（直接操作 IndexedDB，不依赖简化后的服务）
+  // ===== IndexedDB Migration IPC Listener =====
+  // Register migration data request listener (directly operate IndexedDB, not dependent on simplified services)
   if (window.electron?.ipcRenderer) {
     window.electron.ipcRenderer.on('indexdb-migration:request-data', async (_event, dataSource) => {
       console.log(`[Renderer] Received migration request for: ${dataSource}`)
@@ -15,9 +15,9 @@ export function setupIndexDBMigrationListener(): void {
         let data
 
         if (dataSource === 'aliases') {
-          // 直接从 IndexedDB 读取别名数据（不指定版本号，使用当前版本）
+          // Read alias data directly from IndexedDB (no version specified, use current version)
           const db = await new Promise<IDBDatabase>((resolve, reject) => {
-            const request = indexedDB.open('chatermDB') // 不指定版本号
+            const request = indexedDB.open('chatermDB') // No version specified
             request.onerror = () => reject(request.error)
             request.onsuccess = () => resolve(request.result)
           })
@@ -34,9 +34,9 @@ export function setupIndexDBMigrationListener(): void {
           db.close()
           console.log(`[Renderer] Read ${data.length} aliases from IndexedDB`)
         } else if (dataSource === 'userConfig') {
-          // 直接从 IndexedDB 读取用户配置（不指定版本号，使用当前版本）
+          // Read user config directly from IndexedDB (no version specified, use current version)
           const db = await new Promise<IDBDatabase>((resolve, reject) => {
-            const request = indexedDB.open('chatermDB') // 不指定版本号
+            const request = indexedDB.open('chatermDB') // No version specified
             request.onerror = () => reject(request.error)
             request.onsuccess = () => resolve(request.result)
           })
@@ -53,70 +53,70 @@ export function setupIndexDBMigrationListener(): void {
           db.close()
           console.log(`[Renderer] Read userConfig from IndexedDB`)
         } else if (dataSource === 'keyValueStore') {
-          // 直接从 IndexedDB 读取 KeyValueStore（智能查找数据库）
-          console.log('[Renderer] 开始智能查找 KeyValueStore 数据库...')
+          // Read KeyValueStore directly from IndexedDB (intelligent database lookup)
+          console.log('[Renderer] Starting intelligent KeyValueStore database lookup...')
 
-          // 第一步：列出所有 IndexedDB 数据库
+          // Step 1: List all IndexedDB databases
           let allDatabases: IDBDatabaseInfo[] = []
           try {
             allDatabases = await indexedDB.databases()
             console.log(
-              `[Renderer] 找到 ${allDatabases.length} 个数据库:`,
+              `[Renderer] Found ${allDatabases.length} databases:`,
               allDatabases.map((db) => db.name)
             )
           } catch (error) {
-            console.error('[Renderer] 无法列出数据库，将使用备用方案:', error)
+            console.error('[Renderer] Unable to list databases, will use fallback:', error)
           }
 
-          // 第二步：查找包含 KeyValueStore 的数据库
+          // Step 2: Find database containing KeyValueStore
           let foundDb: IDBDatabase | null = null
           let foundDbName = ''
 
-          // 优先尝试匹配 ChatermStorage_user_* 模式的数据库（排除 unknown）
+          // Prioritize matching ChatermStorage_user_* pattern databases (exclude unknown)
           const chatermDbs = allDatabases
             .filter((db) => db.name && db.name.startsWith('ChatermStorage_user_'))
-            .filter((db) => !db.name!.includes('_unknown')) // 过滤掉之前失败时创建的 unknown 数据库
+            .filter((db) => !db.name!.includes('_unknown')) // Filter out unknown databases created during previous failures
 
-          console.log(`[Renderer] 找到 ${chatermDbs.length} 个有效的 ChatermStorage 数据库（已排除 unknown）`)
+          console.log(`[Renderer] Found ${chatermDbs.length} valid ChatermStorage databases (unknown excluded)`)
 
-          // 获取当前用户 ID（使用 getUserInfo）
+          // Get current user ID (using getUserInfo)
           let currentUserId: number | undefined
           try {
             const userInfo = getUserInfo()
             currentUserId = userInfo?.uid
-            console.log(`[Renderer] 当前登录用户 ID: ${currentUserId || '无法获取'}`)
+            console.log(`[Renderer] Current logged-in user ID: ${currentUserId || 'Unable to get'}`)
           } catch (error) {
-            console.warn('[Renderer] 无法获取当前用户 ID:', error)
+            console.warn('[Renderer] Unable to get current user ID:', error)
           }
 
-          // 排序策略：优先当前用户，其次按数字 ID 降序
+          // Sorting strategy: prioritize current user, then by numeric ID descending
           const sortedDbs = chatermDbs.sort((a, b) => {
             const idA = parseInt(a.name!.split('_').pop() || '0')
             const idB = parseInt(b.name!.split('_').pop() || '0')
 
-            // 如果 a 是当前用户，优先
+            // If a is current user, prioritize
             if (currentUserId && idA === currentUserId) return -1
-            // 如果 b 是当前用户，优先
+            // If b is current user, prioritize
             if (currentUserId && idB === currentUserId) return 1
 
-            // 否则按数字降序
+            // Otherwise sort by numeric ID descending
             return idB - idA
           })
 
           if (sortedDbs.length > 0) {
-            console.log('[Renderer] 数据库优先级顺序:')
+            console.log('[Renderer] Database priority order:')
             sortedDbs.forEach((db) => {
               const userId = db.name!.split('_').pop()
               const isCurrent = currentUserId && parseInt(userId || '0') === currentUserId
-              console.log(`[Renderer]   ${isCurrent ? '[当前用户]' : '  '} ${db.name} (用户ID: ${userId})`)
+              console.log(`[Renderer]   ${isCurrent ? '[Current User]' : '  '} ${db.name} (User ID: ${userId})`)
             })
           }
 
-          // 尝试打开每个候选数据库
+          // Try to open each candidate database
           for (const dbInfo of chatermDbs) {
             try {
               const dbName = dbInfo.name!
-              console.log(`[Renderer] 尝试打开数据库: ${dbName}`)
+              console.log(`[Renderer] Attempting to open database: ${dbName}`)
 
               const db = await new Promise<IDBDatabase>((resolve, reject) => {
                 const request = indexedDB.open(dbName)
@@ -124,12 +124,12 @@ export function setupIndexDBMigrationListener(): void {
                 request.onsuccess = () => resolve(request.result)
               })
 
-              console.log(`[Renderer] 数据库 ${dbName} 打开成功`)
+              console.log(`[Renderer] Database ${dbName} opened successfully`)
               console.log(`[Renderer] Object stores:`, Array.from(db.objectStoreNames))
 
-              // 检查是否包含 KeyValueStore
+              // Check if KeyValueStore is included
               if (db.objectStoreNames.contains('KeyValueStore')) {
-                // 检查是否有数据
+                // Check if there is data
                 const tx = db.transaction('KeyValueStore', 'readonly')
                 const store = tx.objectStore('KeyValueStore')
                 const count = await new Promise<number>((resolve, reject) => {
@@ -138,26 +138,26 @@ export function setupIndexDBMigrationListener(): void {
                   req.onerror = () => reject(req.error)
                 })
 
-                console.log(`[Renderer] 在 ${dbName} 中找到 KeyValueStore，包含 ${count} 条记录`)
+                console.log(`[Renderer] Found KeyValueStore in ${dbName}, containing ${count} records`)
 
                 if (count > 0) {
                   foundDb = db
                   foundDbName = dbName
                   break
                 } else {
-                  console.log(`[Renderer] Warning: ${dbName} 中的 KeyValueStore 为空，继续查找...`)
+                  console.log(`[Renderer] Warning: KeyValueStore in ${dbName} is empty, continuing search...`)
                   db.close()
                 }
               } else {
-                console.log(`[Renderer] ${dbName} 不包含 KeyValueStore`)
+                console.log(`[Renderer] ${dbName} does not contain KeyValueStore`)
                 db.close()
               }
             } catch (error) {
-              console.error(`[Renderer] 打开数据库失败:`, error)
+              console.error(`[Renderer] Failed to open database:`, error)
             }
           }
 
-          // 第三步：读取数据
+          // Step 3: Read data
           if (foundDb) {
             try {
               const transaction = foundDb.transaction(['KeyValueStore'], 'readonly')
@@ -169,35 +169,35 @@ export function setupIndexDBMigrationListener(): void {
                 getAllRequest.onerror = () => reject(getAllRequest.error)
               })
 
-              // 转换为 { key, value } 格式
+              // Convert to { key, value } format
               data = kvPairs.map((item) => ({
                 key: item.key || item.id,
                 value: item.value
               }))
 
               foundDb.close()
-              console.log(`[Renderer] 成功从 ${foundDbName} 读取 ${data.length} 条 KeyValueStore 记录`)
+              console.log(`[Renderer] Successfully read ${data.length} KeyValueStore records from ${foundDbName}`)
             } catch (error) {
-              console.error(`[Renderer] 读取 KeyValueStore 数据失败:`, error)
+              console.error(`[Renderer] Failed to read KeyValueStore data:`, error)
               if (foundDb) foundDb.close()
               throw error
             }
           } else {
-            console.warn(`[Renderer] Warning: 未找到包含有效 KeyValueStore 数据的数据库，返回空数组`)
+            console.warn(`[Renderer] Warning: No database with valid KeyValueStore data found, returning empty array`)
             data = []
           }
         } else {
           throw new Error(`Unknown data source: ${dataSource}`)
         }
 
-        // 发送响应
+        // Send response
         console.log(`[Renderer] Sending response for ${dataSource}...`)
         window.electron?.ipcRenderer.send(`indexdb-migration:data-response:${dataSource}`, data)
         console.log(`[Renderer] Response sent for ${dataSource}`)
       } catch (error: any) {
         console.error(`[Renderer] Error reading ${dataSource} from IndexedDB:`, error)
         console.error(`[Renderer] Error stack:`, error.stack)
-        // 发送错误响应
+        // Send error response
         window.electron?.ipcRenderer.send(`indexdb-migration:data-response:${dataSource}`, {
           error: error.message || 'Unknown error'
         })
@@ -205,5 +205,5 @@ export function setupIndexDBMigrationListener(): void {
     })
     console.log('[Renderer] IndexedDB migration listener registered')
   }
-  // ===== 迁移监听器结束 =====
+  // ===== Migration Listener End =====
 }

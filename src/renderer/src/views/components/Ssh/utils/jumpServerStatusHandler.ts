@@ -18,7 +18,7 @@ export class JumpServerStatusHandler {
   }
 
   /**
-   * 格式化状态消息
+   * Format status message
    */
   private formatStatusMessage(message: string, type: string = 'info'): string {
     const timestamp = new Date().toLocaleTimeString('zh-CN', {
@@ -28,25 +28,25 @@ export class JumpServerStatusHandler {
       second: '2-digit'
     })
 
-    let colorCode = '36' // 默认青色
+    let colorCode = '36' // Default cyan
     let prefix = '●'
 
     switch (type) {
       case 'success':
-        colorCode = '32' // 绿色
+        colorCode = '32' // Green
         prefix = '✓'
         break
       case 'warning':
-        colorCode = '33' // 黄色
+        colorCode = '33' // Yellow
         prefix = '⚠'
         break
       case 'error':
-        colorCode = '31' // 红色
+        colorCode = '31' // Red
         prefix = '✗'
         break
       case 'info':
       default:
-        colorCode = '36' // 青色
+        colorCode = '36' // Cyan
         prefix = '●'
         break
     }
@@ -55,7 +55,7 @@ export class JumpServerStatusHandler {
   }
 
   /**
-   * 设置状态监听器
+   * Setup status listener
    */
   setupStatusListener(api: any): void {
     this.removeStatusListener = api.onJumpServerStatusUpdate((data: JumpServerStatusData) => {
@@ -67,7 +67,7 @@ export class JumpServerStatusHandler {
   }
 
   /**
-   * 清理监听器
+   * Cleanup listener
    */
   cleanup(): void {
     if (this.removeStatusListener) {
@@ -77,36 +77,36 @@ export class JumpServerStatusHandler {
   }
 
   /**
-   * 显示连接错误信息
+   * Show connection error message
    */
   showConnectionError(error: Error | string): void {
     if (this.terminal) {
       const errorMessage = error instanceof Error ? error.message : error
-      const formattedError = this.formatStatusMessage(`连接错误: ${errorMessage}`, 'error')
+      const formattedError = this.formatStatusMessage(`Connection error: ${errorMessage}`, 'error')
       this.terminal.writeln(formattedError)
     }
   }
 
   /**
-   * 显示连接失败信息
+   * Show connection failure message
    */
   showConnectionFailure(message: string): void {
     if (this.terminal) {
-      const formattedMessage = this.formatStatusMessage(`连接失败: ${message}`, 'error')
+      const formattedMessage = this.formatStatusMessage(`Connection failed: ${message}`, 'error')
       this.terminal.writeln(formattedMessage)
     }
   }
 }
 
 /**
- * 创建 JumpServer 状态处理器的工厂函数
+ * Factory function to create JumpServer status handler
  */
 export function createJumpServerStatusHandler(terminal: Terminal, connectionId: string): JumpServerStatusHandler {
   return new JumpServerStatusHandler(terminal, connectionId)
 }
 
 /**
- * 通用状态消息格式化函数（用于非 JumpServer 连接）
+ * Generic status message formatting function (for non-JumpServer connections)
  */
 export function formatStatusMessage(message: string, type: string = 'info'): string {
   const timestamp = new Date().toLocaleTimeString('zh-CN', {
@@ -116,25 +116,25 @@ export function formatStatusMessage(message: string, type: string = 'info'): str
     second: '2-digit'
   })
 
-  let colorCode = '36' // 默认青色
+  let colorCode = '36' // Default cyan
   let prefix = '●'
 
   switch (type) {
     case 'success':
-      colorCode = '32' // 绿色
+      colorCode = '32' // Green
       prefix = '✓'
       break
     case 'warning':
-      colorCode = '33' // 黄色
+      colorCode = '33' // Yellow
       prefix = '⚠'
       break
     case 'error':
-      colorCode = '31' // 红色
+      colorCode = '31' // Red
       prefix = '✗'
       break
     case 'info':
     default:
-      colorCode = '36' // 青色
+      colorCode = '36' // Cyan
       prefix = '●'
       break
   }
