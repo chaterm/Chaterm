@@ -3,7 +3,7 @@ import { parseJumpserverOutput, parseJumpServerUsers, hasUserSelectionPrompt } f
 
 describe('JumpServer Parser', () => {
   describe('parseJumpserverOutput', () => {
-    describe('中文格式解析', () => {
+    describe('parse Chinese format', () => {
       const chineseOutput = `
   ID | 名称                             | 地址        | 平台           | 组织            | 备注                          
 -----+----------------------------------+-------------+----------------+-----------------+-------------------------------
@@ -17,7 +17,7 @@ describe('JumpServer Parser', () => {
 搜索：
 `
 
-      it('应该正确解析中文表头的资产列表', () => {
+      it('should parse asset list with Chinese headers', () => {
         const result = parseJumpserverOutput(chineseOutput)
 
         expect(result.assets).toHaveLength(5)
@@ -39,7 +39,7 @@ describe('JumpServer Parser', () => {
         })
       })
 
-      it('应该正确解析中文分页信息', () => {
+      it('should parse Chinese pagination info', () => {
         const result = parseJumpserverOutput(chineseOutput)
 
         expect(result.pagination).toEqual({
@@ -49,7 +49,7 @@ describe('JumpServer Parser', () => {
       })
     })
 
-    describe('英文格式解析', () => {
+    describe('parse English format', () => {
       const englishOutput = `
   ID | NAME                             | ADDRESS     | PLATFORM       | ORGANIZATION       | COMMENT                    
 -----+----------------------------------+-------------+----------------+--------------------+----------------------------
@@ -64,7 +64,7 @@ Enter ID number directly login, multiple search use // + field, such as: //16 Pa
 Search: 
 `
 
-      it('应该正确解析英文表头的资产列表', () => {
+      it('should parse asset list with English headers', () => {
         const result = parseJumpserverOutput(englishOutput)
 
         expect(result.assets).toHaveLength(6)
@@ -86,7 +86,7 @@ Search:
         })
       })
 
-      it('应该正确解析英文分页信息', () => {
+      it('should parse English pagination info', () => {
         const result = parseJumpserverOutput(englishOutput)
 
         expect(result.pagination).toEqual({
@@ -96,8 +96,8 @@ Search:
       })
     })
 
-    describe('边界情况', () => {
-      it('空输出应该返回空资产列表和默认分页', () => {
+    describe('edge cases', () => {
+      it('empty output should return empty assets and default pagination', () => {
         const result = parseJumpserverOutput('')
 
         expect(result.assets).toEqual([])
@@ -107,7 +107,7 @@ Search:
         })
       })
 
-      it('无表头内容应该返回空资产列表', () => {
+      it('output without header should return empty assets', () => {
         const noHeaderOutput = `
 Some random text
 Another line without table format
@@ -117,7 +117,7 @@ Another line without table format
         expect(result.assets).toEqual([])
       })
 
-      it('仅有分隔符应该返回空资产列表', () => {
+      it('separator only output should return empty assets', () => {
         const separatorOnlyOutput = `-----+----------------------------------+-------------+----------------+-----------------+-------------------------------`
         const result = parseJumpserverOutput(separatorOnlyOutput)
 
@@ -138,7 +138,7 @@ Back: b
 ID> 
 `
 
-    it('应该正确解析用户列表', () => {
+    it('should correctly parse user list', () => {
       const users = parseJumpServerUsers(userSelectionOutput)
 
       expect(users).toHaveLength(3)
@@ -159,7 +159,7 @@ ID>
       })
     })
 
-    it('遇到 Tips 时应该停止解析', () => {
+    it('should stop parsing when encountering Tips', () => {
       const outputWithTips = `
   ID | NAME          | USERNAME     
 -----+---------------+--------------
@@ -173,7 +173,7 @@ Tips: Some tips here
       expect(users[0].name).toBe('admin')
     })
 
-    it('遇到 Back: 时应该停止解析', () => {
+    it('should stop parsing when encountering Back prompt', () => {
       const outputWithBack = `
   ID | NAME          | USERNAME     
 -----+---------------+--------------
@@ -186,7 +186,7 @@ Back: b
       expect(users).toHaveLength(1)
     })
 
-    it('遇到 ID> 提示符时应该停止解析', () => {
+    it('should stop parsing when encountering ID prompt', () => {
       const outputWithIdPrompt = `
   ID | NAME          | USERNAME     
 -----+---------------+--------------
@@ -199,20 +199,20 @@ ID>
       expect(users).toHaveLength(1)
     })
 
-    it('空输出应该返回空用户列表', () => {
+    it('empty output should return empty user list', () => {
       const users = parseJumpServerUsers('')
 
       expect(users).toEqual([])
     })
 
-    it('无表头输出应该返回空用户列表', () => {
+    it('output without header should return empty user list', () => {
       const noHeaderOutput = 'Some random text without user table'
       const users = parseJumpServerUsers(noHeaderOutput)
 
       expect(users).toEqual([])
     })
 
-    it('应该跳过分隔符行', () => {
+    it('should skip separator lines', () => {
       const outputWithSeparator = `
   ID | NAME          | USERNAME     
 ---+---+---
@@ -226,7 +226,7 @@ ID>
   })
 
   describe('hasUserSelectionPrompt', () => {
-    it('应该检测包含用户选择提示的输出', () => {
+    it('should detect output containing user selection prompt', () => {
       const promptOutput = `
 Please select account ID to connect:
   ID | NAME          | USERNAME     
@@ -236,7 +236,7 @@ Please select account ID to connect:
       expect(hasUserSelectionPrompt(promptOutput)).toBe(true)
     })
 
-    it('应该检测完整格式的用户选择提示', () => {
+    it('should detect full user selection prompt', () => {
       const fullPromptOutput = `
 Select account ID to login:
   ID | NAME          | USERNAME     
@@ -247,7 +247,7 @@ Select account ID to login:
       expect(hasUserSelectionPrompt(fullPromptOutput)).toBe(true)
     })
 
-    it('不包含 account ID 时应该返回 false', () => {
+    it('should return false when account ID is missing', () => {
       const noAccountIdOutput = `
   ID | NAME          | USERNAME     
 -----+---------------+--------------
@@ -256,7 +256,7 @@ Select account ID to login:
       expect(hasUserSelectionPrompt(noAccountIdOutput)).toBe(false)
     })
 
-    it('不包含表头时应该返回 false', () => {
+    it('should return false when header is missing', () => {
       const noHeaderOutput = `
 Please select account ID to connect:
 Some other content
@@ -264,14 +264,14 @@ Some other content
       expect(hasUserSelectionPrompt(noHeaderOutput)).toBe(false)
     })
 
-    it('空输出应该返回 false', () => {
+    it('should return false for empty output', () => {
       expect(hasUserSelectionPrompt('')).toBe(false)
     })
 
-    it('只包含部分关键字时应该返回 false', () => {
-      // 只有 account ID，没有表头
+    it('should return false when only partial keywords exist', () => {
+      // only account ID without header
       expect(hasUserSelectionPrompt('account ID')).toBe(false)
-      // 只有 ID 和 NAME，没有 account ID
+      // only ID and NAME without account ID
       expect(hasUserSelectionPrompt('ID | NAME')).toBe(false)
     })
   })
