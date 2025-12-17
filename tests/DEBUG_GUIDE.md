@@ -1,290 +1,290 @@
-# Playwright E2E 测试调试指南
+# Playwright E2E Testing Debug Guide
 
-本指南将帮助你调试 Chaterm 项目中的 Playwright E2E 测试，包括 `tests/e2e/AI-functions.test.ts` 等测试文件。
+This guide will help you debug Playwright E2E tests in the Chaterm project, including test files such as `tests/e2e/AI-functions.test.ts`.
 
-## 前置准备
+## Prerequisites
 
-### 1. 确保项目已编译
+### 1. Ensure the project is built
 
 ```bash
-# 构建项目
+# Build the project
 npm run build
 ```
 
-### 2. 检查测试文件路径
+### 2. Check test file paths
 
-确保以下文件存在：
+Ensure the following files exist:
 
 - `tests/e2e/AI-functions.test.ts`
 - `tests/helpers/electron-helper.ts`
 - `playwright.config.ts`
 
-### 3. 环境准备
+### 3. Environment setup
 
-- 已配置好1台主机名为test的可连接的测试服务器
+- A test server with hostname "test" that can be connected to is configured
 
-## 调试方法
+## Debugging Methods
 
-### 方法一：命令行调试（推荐）
+### Method 1: Command Line Debugging (Recommended)
 
-#### 1. 基本运行（无头模式）
+#### 1. Basic run (headless mode)
 
 ```bash
-# 运行所有 E2E 测试
+# Run all E2E tests
 npx playwright test tests/e2e/
 
-# 运行特定测试文件
+# Run a specific test file
 npx playwright test tests/e2e/AI-functions.test.ts
 ```
 
-#### 2. 带界面运行（可视化调试）
+#### 2. Run with UI (visual debugging)
 
 ```bash
-# 显示浏览器窗口运行 AI 功能测试
+# Run AI function tests with browser window visible
 npx playwright test tests/e2e/AI-functions.test.ts --headed
 
-# 包含详细日志
+# With detailed logs
 npx playwright test tests/e2e/AI-functions.test.ts --headed --reporter=line
 ```
 
-#### 3. 调试模式（逐步执行）
+#### 3. Debug mode (step-by-step execution)
 
 ```bash
-# 进入调试模式，可以逐步执行
+# Enter debug mode for step-by-step execution
 npx playwright test tests/e2e/AI-functions.test.ts --debug
 ```
 
-#### 4. UI 模式（最直观）
+#### 4. UI mode (most intuitive)
 
 ```bash
-# 使用 Playwright 的图形界面调试 AI 测试
+# Use Playwright's graphical interface to debug AI tests
 npx playwright test tests/e2e/AI-functions.test.ts --ui
 ```
 
-#### 5. 运行特定测试用例
+#### 5. Run specific test cases
 
 ```bash
 
-# 运行特定的 AI 模式测试
+# Run specific AI mode tests
 npx playwright test tests/e2e/AI-functions.test.ts --grep "测试Chat模式"
 npx playwright test tests/e2e/AI-functions.test.ts --grep "测试 Command 模式"
 npx playwright test tests/e2e/AI-functions.test.ts --grep "测试 Agent 模式"
 
-# Debug特定测试用例
+# Debug specific test cases
 npx playwright test tests/e2e/AI-functions.test.ts --grep "系统资源监控" --debug
 ```
 
-#### 6. 详细日志调试
+#### 6. Detailed log debugging
 
 ```bash
-# 启用详细的API日志调试 AI 测试
+# Enable detailed API logs for debugging AI tests
 DEBUG=pw:api npx playwright test tests/e2e/AI-functions.test.ts --headed
 
-# 启用所有Playwright日志
+# Enable all Playwright logs
 DEBUG=pw:* npx playwright test tests/e2e/AI-functions.test.ts --headed
 
-# 仅显示浏览器日志
+# Show browser logs only
 DEBUG=pw:browser npx playwright test tests/e2e/AI-functions.test.ts --headed
 ```
 
-### 方法二：VSCode 调试
+### Method 2: VSCode Debugging
 
-#### 1. 使用预设的调试配置
+#### 1. Use preset debug configurations
 
-1. 打开任意 E2E 测试文件（如 `tests/e2e/AI-functions.test.ts`）
-2. 按 `F5` 或点击调试菜单
-3. 选择合适的调试配置
-4. 设置断点并开始调试
+1. Open any E2E test file (e.g., `tests/e2e/AI-functions.test.ts`)
+2. Press `F5` or click the debug menu
+3. Select an appropriate debug configuration
+4. Set breakpoints and start debugging
 
-#### 2. 调试当前文件
+#### 2. Debug current file
 
-1. 在 VSCode 中打开任意 E2E 测试文件
-2. 选择 "Debug Playwright E2E Tests" 配置
-3. 将会调试当前打开的测试文件
+1. Open any E2E test file in VSCode
+2. Select the "Debug Playwright E2E Tests" configuration
+3. This will debug the currently open test file
 
-### 方法三：使用 package.json 脚本
+### Method 3: Using package.json scripts
 
 ```bash
-# 使用项目预定义的脚本
+# Use project predefined scripts
 npm run test:e2e
 
-# UI模式
+# UI mode
 npm run test:e2e:ui
 
-# 带界面运行
+# Run with UI
 npm run test:e2e:headed
 ```
 
-## 常见问题排查
+## Common Issues Troubleshooting
 
-### 1. 应用启动失败
+### 1. Application launch failure
 
-**现象**: ElectronApplication.launch() 失败
-**解决方案**:
+**Symptom**: ElectronApplication.launch() fails
+**Solution**:
 
 ```bash
-# 确保项目已构建
+# Ensure the project is built
 npm run build
 
-# 检查 out/main/index.js 是否存在
+# Check if out/main/index.js exists
 ls -la out/main/
 
-# 如果文件不存在，重新构建
+# If the file doesn't exist, rebuild
 npm run build
 ```
 
-### 2. 元素选择器不工作
+### 2. Element selectors not working
 
-**现象**: 找不到页面元素（特别是 AI 模式切换、模型选择等）
-**解决方案**:
+**Symptom**: Cannot find page elements (especially AI mode switching, model selection, etc.)
+**Solution**:
 
-- 使用 `--headed` 模式查看实际的UI
-- 检查 `data-testid` 属性是否存在
-- 使用浏览器开发者工具检查元素选择器
-- 对于 AI 功能测试，注意检查模式选择器和模型下拉框的可见性
+- Use `--headed` mode to view the actual UI
+- Check if `data-testid` attributes exist
+- Use browser developer tools to inspect element selectors
+- For AI function tests, pay attention to checking the visibility of mode selectors and model dropdowns
 
-### 3. 测试超时
+### 3. Test timeout
 
-**现象**: 测试执行超时（AI 测试通常需要更长时间）
-**解决方案**:
+**Symptom**: Test execution times out (AI tests typically require longer time)
+**Solution**:
 
 ```bash
-# AI 测试增加超时时间（默认已设置为300秒-600秒）
+# Increase timeout for AI tests (default is set to 300-600 seconds)
 npx playwright test tests/e2e/AI-functions.test.ts --timeout=600000
 
-# 对于长时间运行的 Agent 模式测试
+# For long-running Agent mode tests
 npx playwright test tests/e2e/AI-functions.test.ts --grep "智能系统诊断" --timeout=900000
 ```
 
-### 4. AI 模式切换失败
+### 4. AI mode switching failure
 
-**现象**: 无法正确切换到 Chat/Command/Agent 模式
-**解决方案**:
+**Symptom**: Cannot correctly switch to Chat/Command/Agent mode
+**Solution**:
 
-- 检查模式选择器是否可见和可点击
-- 使用 `--headed` 模式观察UI状态变化
-- 检查控制台是否有JavaScript错误
+- Check if the mode selector is visible and clickable
+- Use `--headed` mode to observe UI state changes
+- Check the console for JavaScript errors
 
-### 5. AI 模型选择失败
+### 5. AI model selection failure
 
-**现象**: 无法选择指定的 AI 模型（Qwen-Plus、Deepseek-V3等）
-**解决方案**:
+**Symptom**: Cannot select the specified AI model (Qwen-Plus, Deepseek-V3, etc.)
+**Solution**:
 
-- 确认模型在下拉列表中可用
-- 检查模型名称拼写是否正确
-- 使用调试模式观察下拉框的展开过程
+- Confirm the model is available in the dropdown list
+- Check if the model name spelling is correct
+- Use debug mode to observe the dropdown expansion process
 
-### 6. Electron 应用无法正常关闭
+### 6. Electron application cannot close properly
 
-**现象**: 测试结束后进程残留
-**解决方案**:
+**Symptom**: Processes remain after test completion
+**Solution**:
 
 ```bash
-# 手动杀死相关进程
+# Manually kill related processes
 pkill -f electron
 pkill -f chaterm
 ```
 
-## AI 功能测试专门调试技巧
+## AI Function Testing Specific Debugging Tips
 
-### 1. 调试 AI 任务执行过程
+### 1. Debug AI task execution process
 
 ```typescript
-// 在 handleTaskExecution 函数中添加调试信息
-console.log('等待执行按钮或任务完成...')
+// Add debug information in the handleTaskExecution function
+console.log('Waiting for execute button or task completion...')
 await electronHelper.screenshot('before-task-execution')
 
-// 检查任务状态
+// Check task status
 const isProcessing = await electronHelper.window?.evaluate(() => {
   const processingElement = document.querySelector('.processing-text')
   return processingElement !== null
 })
-console.log('任务处理中:', isProcessing)
+console.log('Task processing:', isProcessing)
 ```
 
-### 2. 调试模式切换
+### 2. Debug mode switching
 
 ```typescript
-// 在 switchToModeAndCreateNewChat 函数中添加调试
-console.log(`当前模式: ${currentMode}, 目标模式: ${targetMode}`)
+// Add debugging in the switchToModeAndCreateNewChat function
+console.log(`Current mode: ${currentMode}, Target mode: ${targetMode}`)
 await electronHelper.screenshot(`before-switch-to-${targetMode}`)
 
-// 验证模式切换结果
+// Verify mode switching result
 const actualMode = await electronHelper.window?.locator('.input-controls .ant-select:first-child .ant-select-selection-item')?.textContent()
-console.log(`模式切换结果: ${actualMode}`)
+console.log(`Mode switching result: ${actualMode}`)
 ```
 
-### 3. 调试 AI 模型选择
+### 3. Debug AI model selection
 
 ```typescript
-// 在 selectAiModel 函数中添加调试
-console.log(`选择AI模型: ${modelName}`)
+// Add debugging in the selectAiModel function
+console.log(`Selecting AI model: ${modelName}`)
 await electronHelper.screenshot('before-model-selection')
 
-// 获取可用模型列表
+// Get available model list
 const availableModels = await electronHelper.window?.locator('.ant-select-item .model-label').allTextContents()
-console.log('可用模型:', availableModels)
+console.log('Available models:', availableModels)
 
 await electronHelper.screenshot('after-model-selection')
 ```
 
-### 4. 调试主机选择
+### 4. Debug host selection
 
 ```typescript
-// 在 selectFirstHost 函数中添加调试
-console.log('等待主机列表加载...')
+// Add debugging in the selectFirstHost function
+console.log('Waiting for host list to load...')
 await electronHelper.screenshot('host-list-state')
 
-// 检查主机可用性
+// Check host availability
 const hostCount = await electronHelper.window?.locator('.dark-tree .title-with-icon .computer-icon + span').count()
-console.log(`可用主机数量: ${hostCount}`)
+console.log(`Available host count: ${hostCount}`)
 ```
 
-## 调试技巧
+## Debugging Tips
 
-### 1. 添加调试语句
+### 1. Add debug statements
 
-在测试代码中添加调试信息：
+Add debug information in test code:
 
 ```typescript
-console.log('DEBUG: 当前步骤执行中')
+console.log('DEBUG: Current step executing')
 await electronHelper.screenshot('debug-step-1')
-await electronHelper.window?.waitForTimeout(5000) // 暂停观察
+await electronHelper.window?.waitForTimeout(5000) // Pause for observation
 ```
 
-### 2. 使用截图调试
+### 2. Use screenshots for debugging
 
 ```typescript
-// 在关键步骤截图
+// Take screenshots at key steps
 await electronHelper.screenshot('before-ai-task')
 await executeTask('Agent', 'execute top command')
 await electronHelper.screenshot('after-ai-task')
 ```
 
-### 3. 检查元素可见性
+### 3. Check element visibility
 
 ```typescript
-// 调试元素选择器问题
+// Debug element selector issues
 const isVisible = await electronHelper.window?.locator('[data-testid="terminal-container"]').isVisible()
 console.log('Terminal visible:', isVisible)
 
-// 检查AI控件状态
+// Check AI control status
 const modeSelector = electronHelper.window?.locator('.input-controls .ant-select:first-child')
 const isModeVisible = await modeSelector?.isVisible()
 console.log('Mode selector visible:', isModeVisible)
 ```
 
-### 4. 获取页面信息
+### 4. Get page information
 
 ```typescript
-// 在测试中获取页面信息
+// Get page information in tests
 if (electronHelper.window) {
   const url = electronHelper.window.url()
   const title = await electronHelper.window.title()
   console.log('Page URL:', url)
   console.log('Page Title:', title)
 
-  // 获取当前AI模式和模型
+  // Get current AI mode and model
   const currentMode = await electronHelper.window.locator('.input-controls .ant-select:first-child .ant-select-selection-item').textContent()
   const currentModel = await electronHelper.window.locator('.input-controls .ant-select:nth-child(2) .ant-select-selection-item').textContent()
   console.log('Current AI Mode:', currentMode)
@@ -292,10 +292,10 @@ if (electronHelper.window) {
 }
 ```
 
-### 5. AI 特定调试技巧
+### 5. AI-specific debugging tips
 
 ```typescript
-// 检查AI响应状态
+// Check AI response status
 const checkAiResponseStatus = async () => {
   const isProcessing = await electronHelper.window?.evaluate(() => {
     const processingElement = document.querySelector('.processing-text')
@@ -314,125 +314,125 @@ const checkAiResponseStatus = async () => {
 }
 ```
 
-## 生成测试报告
+## Generate Test Reports
 
-### HTML 报告
+### HTML Report
 
 ```bash
-# 运行测试并生成报告
+# Run tests and generate report
 npx playwright test tests/e2e/AI-functions.test.ts
 
-# 查看报告
+# View report
 npx playwright show-report
 ```
 
-### 自定义报告
+### Custom Reports
 
 ```bash
-# 生成详细的JSON报告
+# Generate detailed JSON report
 npx playwright test tests/e2e/AI-functions.test.ts --reporter=json
 
-# 生成JUnit报告
+# Generate JUnit report
 npx playwright test tests/e2e/AI-functions.test.ts --reporter=junit
 ```
 
-## 高级调试选项
+## Advanced Debugging Options
 
-### 1. 录制视频
+### 1. Video recording
 
-在 `playwright.config.ts` 中已配置视频录制，失败时会自动录制。
+Video recording is configured in `playwright.config.ts` and will automatically record on failure.
 
-### 2. 网络调试
+### 2. Network debugging
 
 ```bash
-# 查看网络请求
+# View network requests
 DEBUG=pw:api npx playwright test tests/e2e/AI-functions.test.ts --headed
 ```
 
-### 3. 慢动作模式
+### 3. Slow motion mode
 
 ```typescript
-// 在测试中添加慢动作
+// Add slow motion in tests
 await electronHelper.app?.launch({
   args: [...],
-  slowMo: 1000 // 每个操作延迟1秒
+  slowMo: 1000 // Delay each operation by 1 second
 })
 ```
 
-### 4. AI 测试专用调试选项
+### 4. AI test-specific debugging options
 
 ```bash
-# 长时间运行的AI测试，启用所有调试信息
+# Long-running AI tests with all debug information enabled
 DEBUG=pw:* npx playwright test tests/e2e/AI-functions.test.ts --grep "智能系统诊断" --headed --timeout=900000
 
-# 仅调试模式切换相关测试
+# Debug only mode switching related tests
 npx playwright test tests/e2e/AI-functions.test.ts --grep "AI模式切换" --debug
 
-# 调试特定AI模型的测试
+# Debug tests for specific AI models
 npx playwright test tests/e2e/AI-functions.test.ts --grep "Deepseek-R1" --headed --reporter=line
 ```
 
-## 故障排除清单
+## Troubleshooting Checklist
 
-在遇到问题时，请按以下顺序检查：
+When encountering issues, check in the following order:
 
-### 基础环境检查
+### Basic Environment Check
 
-1. ✅ 项目是否已构建 (`npm run build`)
-2. ✅ `out/main/index.js` 文件是否存在
-3. ✅ Node.js 和 npm 版本是否符合要求
-4. ✅ Playwright 依赖是否正确安装
-5. ✅ Electron 应用是否能够正常启动
+1. ✅ Is the project built (`npm run build`)
+2. ✅ Does the `out/main/index.js` file exist
+3. ✅ Do Node.js and npm versions meet requirements
+4. ✅ Are Playwright dependencies correctly installed
+5. ✅ Can the Electron application start normally
 
-### AI 功能特定检查
+### AI Function Specific Checks
 
-6. ✅ 是否已配置 AI API 密钥
-7. ✅ 网络连接是否正常（AI API 调用需要）
-8. ✅ AI 模型列表是否正确加载
-9. ✅ 主机连接是否正常建立
-10. ✅ 测试用例的超时设置是否合理
+6. ✅ Is the AI API key configured
+7. ✅ Is the network connection normal (required for AI API calls)
+8. ✅ Is the AI model list loaded correctly
+9. ✅ Is the host connection established normally
+10. ✅ Are the test case timeout settings reasonable
 
-### 测试执行检查
+### Test Execution Checks
 
-11. ✅ 测试文件路径是否正确
-12. ✅ 选择器是否匹配当前UI状态
-13. ✅ 是否有进程冲突或端口占用
-14. ✅ 截图和视频记录是否正常工作
+11. ✅ Is the test file path correct
+12. ✅ Do selectors match the current UI state
+13. ✅ Are there process conflicts or port usage
+14. ✅ Are screenshots and video recording working normally
 
-## 常用调试命令汇总
+## Common Debugging Commands Summary
 
 ```bash
-# 快速诊断命令
-npx playwright test tests/e2e/AI-functions.test.ts --list  # 列出所有测试用例
-npx playwright test tests/e2e/AI-functions.test.ts --dry-run  # 预运行测试（不执行）
+# Quick diagnostic commands
+npx playwright test tests/e2e/AI-functions.test.ts --list  # List all test cases
+npx playwright test tests/e2e/AI-functions.test.ts --dry-run  # Pre-run tests (without execution)
 
-# 常用调试命令组合
-npx playwright test tests/e2e/AI-functions.test.ts --headed --debug --timeout=0  # 无超时调试
-npx playwright test tests/e2e/AI-functions.test.ts --ui --timeout=600000  # UI模式长超时
-DEBUG=pw:* npx playwright test tests/e2e/AI-functions.test.ts --headed --reporter=line  # 全量日志
+# Common debugging command combinations
+npx playwright test tests/e2e/AI-functions.test.ts --headed --debug --timeout=0  # Debug without timeout
+npx playwright test tests/e2e/AI-functions.test.ts --ui --timeout=600000  # UI mode with long timeout
+DEBUG=pw:* npx playwright test tests/e2e/AI-functions.test.ts --headed --reporter=line  # Full logs
 
-# 特定功能调试
-npx playwright test tests/e2e/AI-functions.test.ts --grep "Chat" --headed  # 仅Chat模式
-npx playwright test tests/e2e/AI-functions.test.ts --grep "Agent" --debug  # Agent模式调试
-npx playwright test tests/e2e/AI-functions.test.ts --grep "模式切换" --ui  # 模式切换UI调试
+# Specific function debugging
+npx playwright test tests/e2e/AI-functions.test.ts --grep "Chat" --headed  # Chat mode only
+npx playwright test tests/e2e/AI-functions.test.ts --grep "Agent" --debug  # Agent mode debugging
+npx playwright test tests/e2e/AI-functions.test.ts --grep "模式切换" --ui  # Mode switching UI debugging
 ```
 
-## 性能调试
+## Performance Debugging
 
-### 1. 测试执行时间分析
+### 1. Test execution time analysis
 
 ```bash
-# 生成带时间的详细报告
+# Generate detailed report with timing
 npx playwright test tests/e2e/AI-functions.test.ts --reporter=html,line
 
-# 分析慢速测试
+# Analyze slow tests
 npx playwright test tests/e2e/AI-functions.test.ts --reporter=json --output-dir=test-results
 ```
 
-### 2. 内存使用监控
+### 2. Memory usage monitoring
 
 ```typescript
-// 在测试中监控内存使用
+// Monitor memory usage in tests
 const memoryBefore = process.memoryUsage()
 await runAgentTest('执行系统诊断')
 const memoryAfter = process.memoryUsage()
@@ -443,41 +443,41 @@ console.log('Memory usage:', {
 })
 ```
 
-## 最佳实践
+## Best Practices
 
-### 1. 测试组织
+### 1. Test organization
 
-- 按功能模块组织测试（Chat、Command、Agent）
-- 使用 `.skip` 跳过不稳定的测试
-- 合理设置超时时间（AI测试通常需要更长时间）
+- Organize tests by functional modules (Chat, Command, Agent)
+- Use `.skip` to skip unstable tests
+- Set reasonable timeout times (AI tests typically require longer time)
 
-### 2. 调试效率
+### 2. Debugging efficiency
 
-- 优先使用 `--headed` 模式观察UI行为
-- 使用截图记录关键状态
-- 添加有意义的 console.log 信息
+- Prioritize using `--headed` mode to observe UI behavior
+- Use screenshots to record key states
+- Add meaningful console.log information
 
-### 3. 问题定位
+### 3. Issue localization
 
-- 从简单测试开始调试
-- 逐步增加复杂度
-- 保存失败时的截图和视频
+- Start debugging from simple tests
+- Gradually increase complexity
+- Save screenshots and videos when tests fail
 
-### 4. 持续集成
+### 4. Continuous integration
 
-- 在CI/CD中使用无头模式
-- 配置合适的重试机制
-- 保存测试制品（截图、视频、报告）
+- Use headless mode in CI/CD
+- Configure appropriate retry mechanisms
+- Save test artifacts (screenshots, videos, reports)
 
-## 参考资源
+## Reference Resources
 
-- [Playwright官方文档](https://playwright.dev/)
-- [Electron测试指南](https://www.electronjs.org/docs/latest/tutorial/automated-testing)
-- [AI-functions.test.ts 测试文件](./tests/e2e/AI-functions.test.ts)
-- [Electron Helper工具](./tests/helpers/electron-helper.ts)
+- [Playwright Official Documentation](https://playwright.dev/)
+- [Electron Testing Guide](https://www.electronjs.org/docs/latest/tutorial/automated-testing)
+- [AI-functions.test.ts Test File](./tests/e2e/AI-functions.test.ts)
+- [Electron Helper Tool](./tests/helpers/electron-helper.ts)
 
 ---
 
-**注意**: 本指南基于当前的 Chaterm 项目结构和 AI 功能设计。如果项目结构发生变化，请相应更新此指南。
+**Note**: This guide is based on the current Chaterm project structure and AI function design. If the project structure changes, please update this guide accordingly.
 
-如果遇到本指南未涵盖的问题，请参考项目的 [测试文档](./tests/README.md) 或提交 issue。
+If you encounter issues not covered in this guide, please refer to the project's [Test Documentation](./tests/README.md) or submit an issue.
