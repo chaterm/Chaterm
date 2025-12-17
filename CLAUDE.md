@@ -2,24 +2,24 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-## 项目概览
+## Project Overview
 
-Chaterm 是一个基于 Electron 的 AI 驱动终端工具，提供智能命令补全、多设备管理、AI Agent 能力和企业级安全特性。
+Chaterm is an Electron-based AI-driven terminal tool that provides intelligent command completion, multi-device management, AI Agent capabilities, and enterprise-grade security features.
 
-**技术栈：**
+**Tech Stack:**
 
-- **前端框架：** Vue 3 + TypeScript + Pinia + Vue Router + Vue I18n
-- **UI 组件：** Ant Design Vue (自动导入) + Monaco Editor + xterm.js
-- **桌面应用：** Electron 30 + electron-vite + electron-builder
-- **数据存储：** better-sqlite3 (本地数据库) + 迁移系统
-- **SSH/终端：** ssh2 + node-pty + 自定义 SSH 代理
-- **AI 集成：** Anthropic Claude + OpenAI + AWS Bedrock + Ollama
-- **测试框架：** Vitest (单元测试) + Playwright (E2E)
-- **代码质量：** ESLint + Prettier + TypeScript + Husky (pre-commit hooks)
+- **Frontend Framework:** Vue 3 + TypeScript + Pinia + Vue Router + Vue I18n
+- **UI Components:** Ant Design Vue (auto-imported) + Monaco Editor + xterm.js
+- **Desktop Application:** Electron 30 + electron-vite + electron-builder
+- **Data Storage:** better-sqlite3 (local database) + migration system
+- **SSH/Terminal:** ssh2 + node-pty + custom SSH agent
+- **AI Integration:** Anthropic Claude + OpenAI + AWS Bedrock + Ollama
+- **Testing Framework:** Vitest (unit tests) + Playwright (E2E)
+- **Code Quality:** ESLint + Prettier + TypeScript + Husky (pre-commit hooks)
 
-## 核心架构
+## Core Architecture
 
-### 三层架构
+### Three-Layer Architecture
 
 ```
 ┌─────────────────────────────────────────────────────┐
@@ -56,9 +56,9 @@ Chaterm 是一个基于 Electron 的 AI 驱动终端工具，提供智能命令�
 └─────────────────────────────────────────────────────┘
 ```
 
-### 关键路径别名 (electron.vite.config.ts)
+### Key Path Aliases (electron.vite.config.ts)
 
-**主进程别名：**
+**Main Process Aliases:**
 
 - `@shared` → `src/main/agent/shared`
 - `@core` → `src/main/agent/core`
@@ -67,7 +67,7 @@ Chaterm 是一个基于 Electron 的 AI 驱动终端工具，提供智能命令�
 - `@utils` → `src/main/agent/utils`
 - `@api` → `src/main/agent/api`
 
-**渲染进程别名：**
+**Renderer Process Aliases:**
 
 - `@renderer` → `src/renderer/src`
 - `@views` → `src/renderer/src/views`
@@ -78,197 +78,197 @@ Chaterm 是一个基于 Electron 的 AI 驱动终端工具，提供智能命令�
 - `@config` → `src/renderer/src/config`
 - `@` → `src/renderer/src`
 
-## 常用开发命令
+## Common Development Commands
 
-### 环境准备
+### Environment Setup
 
 ```bash
-# 安装前必须运行此脚本修复 package-lock.json
+# Must run this script before installation to fix package-lock.json
 node scripts/patch-package-lock.js
 npm install
 ```
 
-### 开发与调试
+### Development and Debugging
 
 ```bash
-npm run dev # 启动开发服务器 (热重载)
-npm run dev:watch # 启动开发服务器 (文件监听模式)
-npm run start # 预览构建结果
+npm run dev # Start development server (hot reload)
+npm run dev:watch # Start development server (file watch mode)
+npm run start # Preview build results
 ```
 
-### 代码质量检查
+### Code Quality Checks
 
 ```bash
-npm run format # Prettier 格式化所有文件
-npm run lint # ESLint 检查并自动修复
-npm run lint:staged # 仅检查暂存文件 (pre-commit hook)
-npm run typecheck # TypeScript 类型检查 (主进程+渲染进程)
-npm run typecheck:node # 仅检查主进程类型
-npm run typecheck:web # 仅检查渲染进程类型
+npm run format # Prettier format all files
+npm run lint # ESLint check and auto-fix
+npm run lint:staged # Check staged files only (pre-commit hook)
+npm run typecheck # TypeScript type checking (main + renderer processes)
+npm run typecheck:node # Check main process types only
+npm run typecheck:web # Check renderer process types only
 ```
 
-### 测试
+### Testing
 
 ```bash
-npm test # Vitest 单元测试 (watch 模式)
-npm run test:e2e # Playwright E2E 测试 (headless)
-npm run test:e2e:headed # Playwright E2E 测试 (显示浏览器)
-npm run test:e2e:ui # Playwright E2E 测试 (UI 模式)
+npm test # Vitest unit tests (watch mode)
+npm run test:e2e # Playwright E2E tests (headless)
+npm run test:e2e:headed # Playwright E2E tests (with browser)
+npm run test:e2e:ui # Playwright E2E tests (UI mode)
 ```
 
-### 构建与打包
+### Build and Package
 
 ```bash
-npm run build # 构建所有源码 (不打包应用)
-npm run build:unpack # 构建并生成解压目录 (用于验证)
-npm run build:win # 构建 Windows 安装包
-npm run build:mac # 构建 macOS 应用
-npm run build:linux # 构建 Linux 包
+npm run build # Build all source code (without packaging)
+npm run build:unpack # Build and generate unpacked directory (for verification)
+npm run build:win # Build Windows installer
+npm run build:mac # Build macOS application
+npm run build:linux # Build Linux package
 ```
 
-## 开发规范与约束
+## Development Standards and Constraints
 
-### 代码改动原则
+### Code Change Principles
 
-1. **最小化变更范围：** 仅修改与当前需求直接相关的文件，避免"顺手"重构无关代码
-2. **类型安全优先：** 严格 TypeScript 类型定义，避免 `any`；新增 IPC 通道必须在 `src/preload/index.d.ts` 中定义类型
-3. **保持契约稳定：** 不破坏现有 IPC 接口、Pinia Store、数据库表结构
-4. **测试覆盖：** 核心逻辑变更需添加或更新单元测试
-5. **文档同步：** 用户可见的功能变更需更新 README.md/README_zh.md 和相关注释
-6. **禁止表情符号：** 代码中（包括注释、日志、字符串）严禁使用表情符号（emoji），应使用纯文本描述；可使用文本标记如 `[INFO]`、`[ERROR]`、`[WARNING]` 等替代
-7. **代码注释语言：** 新加入的代码注释必须使用英文编写，保持代码库的国际化标准
+1. **Minimize Change Scope:** Only modify files directly related to current requirements, avoid "incidental" refactoring of unrelated code
+2. **Type Safety First:** Strict TypeScript type definitions, avoid `any`; new IPC channels must define types in `src/preload/index.d.ts`
+3. **Maintain Contract Stability:** Do not break existing IPC interfaces, Pinia Stores, or database table structures
+4. **Test Coverage:** Core logic changes require adding or updating unit tests
+5. **Documentation Sync:** User-visible feature changes require updating README.md/README_zh.md and related comments
+6. **No Emojis:** Emojis are strictly prohibited in code (including comments, logs, strings); use plain text descriptions instead; text markers like `[INFO]`, `[ERROR]`, `[WARNING]` can be used as alternatives
+7. **Code Comment Language:** Newly added code comments must be written in English to maintain the codebase's internationalization standards
 
-### Git 操作规范
+### Git Operation Standards
 
-**严禁自动 Git 操作：**
+**Strictly Prohibit Automatic Git Operations:**
 
-- **禁止使用 `git add`：** 生成代码变更后，严禁自动执行 `git add` 命令将文件加入暂存区
-- **禁止使用 `git commit`：** 严禁自动创建提交，所有提交操作必须由用户手动完成
-- **用户审查优先：** 代码变更必须先由用户审查，确认无误后再由用户决定是否提交
-- **仅展示变更：** 完成代码修改后，仅使用 `git status` 和 `git diff` 展示变更内容供用户查看
+- **Prohibit `git add`:** After generating code changes, strictly prohibit automatically executing `git add` to stage files
+- **Prohibit `git commit`:** Strictly prohibit automatically creating commits; all commit operations must be performed manually by the user
+- **User Review First:** Code changes must be reviewed by the user first, and only after confirmation should the user decide whether to commit
+- **Show Changes Only:** After completing code modifications, only use `git status` and `git diff` to display changes for user review
 
-**原因说明：**
-代码变更涉及项目的核心逻辑和功能，必须经过人工审查以确保质量和安全性。自动执行 git 操作可能导致：
+**Reason:**
+Code changes involve the project's core logic and functionality, and must undergo manual review to ensure quality and security. Automatically executing git operations may lead to:
 
-- 未经审查的代码被提交
-- 意外的文件被加入版本控制
-- 提交信息不准确或不符合规范
-- 难以回滚的错误变更
+- Unreviewed code being committed
+- Unexpected files being added to version control
+- Inaccurate commit messages or non-compliant formats
+- Difficult-to-rollback erroneous changes
 
-### Electron 特有约束
+### Electron-Specific Constraints
 
-**主进程 (src/main)：**
+**Main Process (src/main):**
 
-- 禁止阻塞事件循环，长时任务使用异步或子进程
-- 与渲染层通信必须走 IPC，保持信道命名唯一且负载可序列化
-- 窗口管理逻辑见 `src/main/windowManager.ts`
-- 入口文件：`src/main/index.ts`
+- Prohibit blocking the event loop; use async or child processes for long-running tasks
+- Communication with renderer layer must go through IPC, keep channel names unique and payloads serializable
+- Window management logic: see `src/main/windowManager.ts`
+- Entry file: `src/main/index.ts`
 
-**预加载脚本 (src/preload)：**
+**Preload Scripts (src/preload):**
 
-- 使用 `contextBridge` 暴露最小 API 集合
-- 所有暴露的 API 必须在 `src/preload/index.d.ts` 中定义类型
-- 不直接暴露 Node.js 能力给渲染层
+- Use `contextBridge` to expose minimal API set
+- All exposed APIs must define types in `src/preload/index.d.ts`
+- Do not directly expose Node.js capabilities to renderer layer
 
-**渲染进程 (src/renderer)：**
+**Renderer Process (src/renderer):**
 
-- 使用 Vue 3 Composition API
-- 状态管理使用 Pinia，配置持久化插件
-- 路由配置：`src/renderer/src/router/routes.ts`
-- 路由守卫：`src/renderer/src/router/guards.ts`
-- 入口文件：`src/renderer/src/main.ts`
+- Use Vue 3 Composition API
+- State management uses Pinia with persistence plugin
+- Route configuration: `src/renderer/src/router/routes.ts`
+- Route guards: `src/renderer/src/router/guards.ts`
+- Entry file: `src/renderer/src/main.ts`
 
-### Agent 子系统开发 (src/main/agent)
+### Agent Subsystem Development (src/main/agent)
 
-**目录结构：**
+**Directory Structure:**
 
-- `api/` - AI provider 适配层 (Anthropic, OpenAI, AWS Bedrock, Ollama)
-- `core/` - 核心逻辑 (controller, prompts, storage, context)
-- `services/` - 服务层 (telemetry, diff, terminal)
-- `integrations/` - 集成功能 (remote-terminal, tools)
-- `shared/` - 共享类型与常量
-- `utils/` - 工具函数
+- `api/` - AI provider adapter layer (Anthropic, OpenAI, AWS Bedrock, Ollama)
+- `core/` - Core logic (controller, prompts, storage, context)
+- `services/` - Service layer (telemetry, diff, terminal)
+- `integrations/` - Integration features (remote-terminal, tools)
+- `shared/` - Shared types and constants
+- `utils/` - Utility functions
 
-**扩展 AI Provider：**
+**Extending AI Provider:**
 
-1. 在 `api/providers/` 创建新 provider 文件
-2. 在 `api/providers/types.ts` 注册类型
-3. 在 `api/index.ts` 完成注册
-4. 网络请求统一走 `api/retry.ts` 与 `api/transform/` 封装
+1. Create new provider file in `api/providers/`
+2. Register type in `api/providers/types.ts`
+3. Complete registration in `api/index.ts`
+4. Network requests should uniformly go through `api/retry.ts` and `api/transform/` wrappers
 
-### 数据库与迁移 (src/main/storage/db)
+### Database and Migrations (src/main/storage/db)
 
-**关键文件：**
+**Key Files:**
 
-- `connection.ts` - 数据库连接与路径管理
-- `chaterm.service.ts` - 数据库服务层
-- `autocomplete.service.ts` - 自动补全数据服务
-- `migrations/` - 数据库迁移文件
-- `types.ts` - 数据库类型定义
+- `connection.ts` - Database connection and path management
+- `chaterm.service.ts` - Database service layer
+- `autocomplete.service.ts` - Autocomplete data service
+- `migrations/` - Database migration files
+- `types.ts` - Database type definitions
 
-**添加新表或修改表结构：**
+**Adding New Tables or Modifying Table Structure:**
 
-1. 在 `migrations/` 创建新迁移文件 (按时间戳命名)
-2. 确保迁移是幂等的且可重放
-3. 在对应 `.service.ts` 添加服务层方法
-4. 在 `types.ts` 定义相关类型
+1. Create new migration file in `migrations/` (named by timestamp)
+2. Ensure migrations are idempotent and replayable
+3. Add service layer methods in corresponding `.service.ts`
+4. Define related types in `types.ts`
 
-### i18n 国际化
+### i18n Internationalization
 
-**文案位置：**
+**Text Location:**
 
-- 中文：`src/renderer/src/locales/lang/zh-CN.ts`
-- 英文：`src/renderer/src/locales/lang/en-US.ts`
+- Chinese: `src/renderer/src/locales/lang/zh-CN.ts`
+- English: `src/renderer/src/locales/lang/en-US.ts`
 
-**使用方式：**
+**Usage:**
 
 ```typescript
-// 在 Vue 组件中
+// In Vue components
 const { t } = useI18n()
 const text = t('key.subkey')
 ```
 
-### 环境变量
+### Environment Variables
 
-- 渲染进程仅能访问以 `RENDERER_` 开头的环境变量
-- 配置位置：`build/.env` 文件 (gitignored)
-- 通过 `electron.vite.config.ts` 的 `envPrefix: 'RENDERER_'` 控制
+- Renderer process can only access environment variables starting with `RENDERER_`
+- Configuration location: `build/.env` file (gitignored)
+- Controlled via `envPrefix: 'RENDERER_'` in `electron.vite.config.ts`
 
-## 提交前检查清单
+## Pre-commit Checklist
 
-在提交代码前必须确认：
+Before committing code, must confirm:
 
-1. [OK] 通过所有检查：`npm run lint && npm run typecheck && npm test`
-2. [OK] 未引入无关文件的格式化变更 (检查 git diff)
-3. [OK] 提交信息符合 Conventional Commits 格式
-4. [OK] 如涉及 UI 变更，已更新双语文案 (zh-CN + en-US)
-5. [OK] 如修改数据库，已创建迁移文件
-6. [OK] 如新增 IPC 通道，已在 `src/preload/index.d.ts` 定义类型
-7. [OK] 未提交敏感信息 (密钥、Token、私有域名)
+1. [OK] Pass all checks: `npm run lint && npm run typecheck && npm test`
+2. [OK] No formatting changes to unrelated files (check git diff)
+3. [OK] Commit message follows Conventional Commits format
+4. [OK] If UI changes are involved, bilingual text has been updated (zh-CN + en-US)
+5. [OK] If database is modified, migration files have been created
+6. [OK] If new IPC channels are added, types have been defined in `src/preload/index.d.ts`
+7. [OK] No sensitive information committed (keys, tokens, private domains)
 
-## 安全注意事项
+## Security Considerations
 
-1. **禁止提交敏感数据：** API 密钥、Token、私有域名、账号信息
-2. **IPC 安全：** 所有主进程与渲染进程通信必须通过 `contextBridge` 暴露的 API
-3. **输入验证：** 对所有来自渲染进程的 IPC 消息进行严格验证
-4. **依赖安全：** 新增第三方库前评估安全性与包体积
+1. **Prohibit Committing Sensitive Data:** API keys, tokens, private domains, account information
+2. **IPC Security:** All communication between main and renderer processes must go through APIs exposed by `contextBridge`
+3. **Input Validation:** Strictly validate all IPC messages from renderer process
+4. **Dependency Security:** Evaluate security and package size before adding third-party libraries
 
-## 常见问题
+## Common Questions
 
-**Q: 为什么 `npm install` 前要运行 `node scripts/patch-package-lock.js`？**
-A: 项目使用自定义脚本修复 package-lock.json 以解决特定依赖问题。
+**Q: Why run `node scripts/patch-package-lock.js` before `npm install`?**
+A: The project uses a custom script to fix package-lock.json to resolve specific dependency issues.
 
-**Q: 如何调试主进程代码？**
-A: 在 VS Code 中使用 Electron 调试配置，或在代码中使用 `console.log` 并查看终端输出。
+**Q: How to debug main process code?**
+A: Use Electron debug configuration in VS Code, or use `console.log` in code and check terminal output.
 
-**Q: 如何查看渲染进程日志？**
-A: 在应用中按 `Cmd+Option+I` (macOS) 或 `Ctrl+Shift+I` (Windows/Linux) 打开 DevTools。
+**Q: How to view renderer process logs?**
+A: Press `Cmd+Option+I` (macOS) or `Ctrl+Shift+I` (Windows/Linux) in the application to open DevTools.
 
-**Q: 数据库文件存放在哪里？**
-A: 通过 `getChatermDbPathForUser()` 获取路径，通常在用户数据目录下。
+**Q: Where is the database file stored?**
+A: Get the path via `getChatermDbPathForUser()`, usually in the user data directory.
 
-## 相关文档
+## Related Documentation
 
-- **贡献指南：** `CONTRIBUTING.md` (英文) / `CONTRIBUTING_zh.md` (中文)
-- **Agent 开发指南：** `AGENTS.md` (详细的 AI Agent 开发规范)
-- **安全策略：** `SECURITY.md`
+- **Contribution Guide:** `CONTRIBUTING.md` (English) / `CONTRIBUTING_zh.md` (Chinese)
+- **Agent Development Guide:** `AGENTS.md` (detailed AI Agent development standards)
+- **Security Policy:** `SECURITY.md`
