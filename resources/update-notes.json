@@ -32,6 +32,28 @@
       }
     },
     {
+      "version": "0.7.2",
+      "date": "2025-12-18",
+      "highlights": {
+        "zh-CN": [
+          "修复上传自定义的背景图片失败问题",
+          "堡垒机资产列表获取不全问题修复",
+          "AI对话多tab保存和显示对应的对话模式和AI模型",
+          "降低终端输入延迟",
+          "支持Command+Shift+P快捷键进行主机搜索",
+          "优化本地连接分屏功能"
+        ],
+        "en-US": [
+          "Fix the problem of uploading custom background images failed",
+          "Fix the problem of getting all the assets in the jump server list",
+          "AI conversation multi-tab save and display the corresponding conversation mode and AI model",
+          "Reduce the terminal input delay",
+          "Support Command+Shift+P shortcut key to search for hosts",
+          "Optimize the localhost split-screen feature"
+        ]
+      }
+    },
+    {
       "version": "0.6.2",
       "date": "2025-11-13",
       "highlights": {
