@@ -551,8 +551,6 @@ ipcMain.handle('dialog:openFile', async (event, options) => {
 
 ipcMain.handle('saveCustomBackground', async (_, sourcePath: string) => {
   try {
-    const fs = require('fs/promises')
-    const path = require('path')
     const userDataPath = app.getPath('userData')
     const targetDir = path.join(userDataPath, 'backgrounds')
 
@@ -577,7 +575,9 @@ ipcMain.handle('saveCustomBackground', async (_, sourcePath: string) => {
 
     await fs.copyFile(sourcePath, targetPath)
 
-    return { success: true, path: targetPath, fileName }
+    const fileUrl = pathToFileURL(targetPath).toString()
+
+    return { success: true, path: targetPath, fileName, url: fileUrl }
   } catch (error) {
     console.error('Failed to save custom background:', error)
     return { success: false, error: error instanceof Error ? error.message : String(error) }

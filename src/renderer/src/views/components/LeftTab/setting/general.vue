@@ -401,7 +401,9 @@ const selectBackgroundImage = async () => {
 
       if (saveResult.success) {
         // Use the new path with cache busting
-        const newPath = `file://${saveResult.path}?t=${Date.now()}`
+        const baseUrl = saveResult.url
+        const separator = baseUrl.includes('?') ? '&' : '?'
+        const newPath = baseUrl ? `${baseUrl}${separator}t=${Date.now()}` : ''
         customBackgroundImage.value = newPath
         userConfig.value.background.image = newPath
         configStore().updateBackgroundImage(userConfig.value.background.image)

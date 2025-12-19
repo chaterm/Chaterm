@@ -143,6 +143,13 @@ interface ApiType {
   getUserHosts: (search: string, limit?: number) => Promise<any>
   initUserDatabase: (data: { uid: number }) => Promise<any>
   // File dialog and local file operations
+  saveCustomBackground: (sourcePath: string) => Promise<{
+    success: boolean
+    path?: string
+    fileName?: string
+    url?: string
+    error?: string
+  }>
   openSaveDialog: (opts: { fileName: string }) => Promise<string | null>
   writeLocalFile: (filePath: string, content: string) => Promise<void>
   getLocalWorkingDirectory: () => Promise<{ success: boolean; cwd: string }>
