@@ -20,44 +20,33 @@ const MAX_TARGET_HOSTS = 5
 export function useHostManagement() {
   const { t } = i18n.global
 
-  const { hosts, chatTypeValue, autoUpdateHost, chatInputValue, currentChatId } = useSessionState()
+  const { hosts, chatTypeValue, autoUpdateHost, chatInputValue } = useSessionState()
 
   const getCurentTabAssetInfo = async (): Promise<AssetInfo | null> => {
+    const TIMEOUT_MS = 5000
+
     try {
       const assetInfo = await new Promise<AssetInfo | null>((resolve, reject) => {
         const timeout = setTimeout(() => {
           eventBus.off('assetInfoResult', handleResult)
           reject(new Error(t('ai.timeoutGettingAssetInfo')))
-        }, 5000)
+        }, TIMEOUT_MS)
 
-        const handleResult = (payload: { assetInfo: AssetInfo | null; tabId?: string } | AssetInfo | null) => {
-          const { assetInfo, tabId } =
-            payload && typeof payload === 'object' && 'assetInfo' in payload
-              ? { assetInfo: payload.assetInfo as AssetInfo | null, tabId: payload.tabId }
-              : { assetInfo: (payload as AssetInfo | null) ?? null, tabId: undefined }
-
-          if (tabId && tabId !== currentChatId.value) {
-            return
-          }
-
+        const handleResult = (assetInfo: AssetInfo | null) => {
           clearTimeout(timeout)
           eventBus.off('assetInfoResult', handleResult)
           resolve(assetInfo)
         }
         eventBus.on('assetInfoResult', handleResult)
-        eventBus.emit('getActiveTabAssetInfo', { tabId: currentChatId.value ?? undefined })
+        eventBus.emit('getActiveTabAssetInfo')
       })
 
-      if (assetInfo) {
-        if (assetInfo.organizationId != 'personal') {
-          assetInfo.connection = 'jumpserver'
-        } else {
-          assetInfo.connection = 'personal'
-        }
-        return assetInfo
-      } else {
+      if (!assetInfo) {
         return null
       }
+
+      assetInfo.connection = assetInfo.organizationId !== 'personal' ? 'jumpserver' : 'personal'
+      return assetInfo
     } catch (error) {
       console.error('Error getting asset information:', error)
       return null

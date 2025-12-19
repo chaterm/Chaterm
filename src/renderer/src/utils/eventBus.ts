@@ -1,4 +1,5 @@
 import mitt from 'mitt'
+import type { AssetInfo } from '@/views/components/AiTab/types'
 
 /**
  * Define event types
@@ -9,8 +10,8 @@ export interface AppEvents {
   executeTerminalCommand: { command: string; tabId?: string } // Execute terminal command
   autoExecuteCode: { command: string; tabId: string }
   focusActiveTerminal: string | undefined // Return focus to currently active terminal
-  getActiveTabAssetInfo: void | { tabId?: string } // Request to get asset information of current active tab
-  assetInfoResult: any | { assetInfo: any; tabId?: string } // Return asset information result
+  getActiveTabAssetInfo: void // Request to get asset information of current active tab
+  assetInfoResult: AssetInfo | null // Return asset information result
   LocalAssetMenu: any // Update asset directory
   SettingModelChanged: any // Setting page model change event
   AiTabModelChanged: any // AI Tab model change event
