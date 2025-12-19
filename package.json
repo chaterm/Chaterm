@@ -25,9 +25,13 @@
     "build:linux": "npm run check:release-notes && node scripts/fix-fsevents-linux.js --linux && npm run build && electron-builder --linux",
     "prepare": "husky",
     "test": "vitest",
+    "test:main": "vitest --project=main-process",
+    "test:renderer": "vitest --project=renderer-process",
     "test:unit": "vitest --ui",
     "test:watch": "vitest --watch",
     "test:coverage": "vitest --run --coverage",
+    "test:coverage:main": "vitest --project=main-process --coverage",
+    "test:coverage:renderer": "vitest --project=renderer-process --coverage",
     "test:e2e": "playwright test --config playwright.config.ts",
     "test:e2e:ui": "playwright test --config playwright.config.ts --ui",
     "test:e2e:headed": "playwright test --config playwright.config.ts --headed"
