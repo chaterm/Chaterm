@@ -11,6 +11,7 @@
         </div>
         <a-button
           type="primary"
+          data-testid="add-server-btn"
           @click="openConfigInEditor"
         >
           <PlusOutlined />
@@ -56,6 +57,7 @@
                   <a-button
                     size="small"
                     type="text"
+                    data-testid="server-edit-btn"
                     :disabled="loadingServers.has(server.name)"
                     @click="openConfigInEditor"
                   >
