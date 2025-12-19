@@ -19,7 +19,7 @@ yarn-error.log
 yarn.lock
 debug.log
 src/renderer/src/assets/backgroup/custom/custom_bg.jpg
-# 加密存储相关文件
+# Encrypted storage related files
 temp-storage/
 .chaterm-encryption/
 *.enc

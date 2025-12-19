@@ -16,24 +16,24 @@ export interface SyncConfig {
   compressionEnabled: boolean
   logLevel: 'debug' | 'info' | 'warn' | 'error'
   encryptionKey?: string // passphrase to derive AES key
-  fileLoggingEnabled?: boolean // 是否启用文件日志
-  logRetentionDays?: number // 日志保留天数
+  fileLoggingEnabled?: boolean // Whether to enable file logging
+  logRetentionDays?: number // Log retention days
 
-  // 大数据量处理配置
-  largeDataThreshold: number // 大数据量阈值
-  pageSize: number // 分页大小
-  maxConcurrentPages: number // 最大并发页面数
-  adaptivePageSize: boolean // 自适应页面大小
-  memoryOptimization: boolean // 内存优化模式
+  // Large data volume processing configuration
+  largeDataThreshold: number // Large data volume threshold
+  pageSize: number // Page size
+  maxConcurrentPages: number // Maximum concurrent pages
+  adaptivePageSize: boolean // Adaptive page size
+  memoryOptimization: boolean // Memory optimization mode
 }
 
-// 获取当前用户的数据库路径
+// Get current user's database path
 function getCurrentUserDbPath(): string {
   const currentUserId = getCurrentUserId()
   if (currentUserId) {
     return getChatermDbPathForUser(currentUserId)
   }
-  // 如果没有当前用户ID，使用环境变量或默认路径
+  // If no current user ID, use environment variable or default path
   return process.env.DB_PATH || './sqliteDB/chaterm_data.db'
 }
 
@@ -41,22 +41,22 @@ export const syncConfig: SyncConfig = {
   serverUrl: 'http://demo.chaterm.ai', //http://localhost:8001
   apiVersion: 'v1',
   dbPath: getCurrentUserDbPath(),
-  deviceId: getDeviceId(), // 使用主板id
+  deviceId: getDeviceId(), // Use motherboard ID
   username: process.env.USERNAME,
   password: process.env.PASSWORD,
   syncIntervalMs: 120000, // 2 minutes
   batchSize: 100,
   maxConcurrentBatches: 3,
-  compressionEnabled: true, // 启用数据智能压缩
+  compressionEnabled: true, // Enable intelligent data compression
   logLevel: 'info',
   encryptionKey: process.env.ENCRYPTION_KEY,
-  fileLoggingEnabled: process.env.ENABLE_FILE_LOGGING !== 'false', // 默认启用文件日志
-  logRetentionDays: 7, // 默认保留7天日志
+  fileLoggingEnabled: process.env.ENABLE_FILE_LOGGING !== 'false', // Enable file logging by default
+  logRetentionDays: 7, // Retain logs for 7 days by default
 
-  // 大数据量处理配置
-  largeDataThreshold: 5000, // 5000条以上为大数据量
-  pageSize: 1000, // 分页大小1000条
-  maxConcurrentPages: 2, // 最多2个页面并发
-  adaptivePageSize: true, // 自适应页面大小
-  memoryOptimization: true // 内存优化模式
+  // Large data volume processing configuration
+  largeDataThreshold: 5000, // More than 5000 records is considered large data volume
+  pageSize: 1000, // Page size: 1000 records
+  maxConcurrentPages: 2, // Maximum 2 concurrent pages
+  adaptivePageSize: true, // Adaptive page size
+  memoryOptimization: true // Memory optimization mode
 }

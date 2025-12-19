@@ -15,21 +15,21 @@ interface EncryptionResult {
 }
 
 /**
- * 客户端加密工具类 - 使用 AWS Encryption SDK
+ * Client-side encryption utility class - using AWS Encryption SDK
  *
- * 安全原则：
- * 1. 所有加密操作在客户端本地进行
- * 2. 敏感数据永远不发送到服务端
- * 3. 完全使用 AWS Encryption SDK 官方实现
- * 4. 使用 Raw Keyring，无需客户端访问 KMS
- * 5. 密钥在内存中及时清理
+ * Security principles:
+ * 1. All encryption operations are performed locally on the client
+ * 2. Sensitive data is never sent to the server
+ * 3. Fully use AWS Encryption SDK official implementation
+ * 4. Use Raw Keyring, no client access to KMS required
+ * 5. Keys are cleaned up in memory promptly
  */
 class CryptoUtils {
   private static _awsClient: any
 
   /**
-   * 获取 AWS Encryption SDK 客户端
-   * @returns AWS Encryption SDK 客户端
+   * Get AWS Encryption SDK client
+   * @returns AWS Encryption SDK client
    * @private
    */
   static _getAwsClient(): any {
@@ -40,15 +40,15 @@ class CryptoUtils {
   }
 
   /**
-   * 使用 AWS Encryption SDK 加密数据（使用 Raw Keyring）
-   * @param plaintext - 明文数据
-   * @param dataKey - Base64编码的数据密钥
-   * @param userId - 用户ID（用于加密上下文）
-   * @returns 加密结果
+   * Encrypt data using AWS Encryption SDK (using Raw Keyring)
+   * @param plaintext - Plaintext data
+   * @param dataKey - Base64 encoded data key
+   * @param userId - User ID (for encryption context)
+   * @returns Encryption result
    */
   static async encryptDataWithAwsSdk(plaintext: string, dataKey: string, userId: string): Promise<EncryptionResult> {
     try {
-      // 创建包含用户ID的数据包
+      // Create data packet containing user ID
       const dataPacket = {
         data: plaintext,
         userId: userId,
@@ -57,15 +57,15 @@ class CryptoUtils {
 
       const dataToEncrypt = JSON.stringify(dataPacket)
 
-      // 将Base64编码的数据密钥转换为Buffer，并拷贝到“隔离”的 Uint8Array
-      // AWS Encryption SDK 要求 unencryptedMasterKey 必须是 isolated buffer（不与其他视图共享底层内存）
+      // Convert Base64 encoded data key to Buffer and copy to "isolated" Uint8Array
+      // AWS Encryption SDK requires unencryptedMasterKey to be an isolated buffer (not sharing underlying memory with other views)
       const keyBuffer = Buffer.from(dataKey, 'base64')
-      const isolatedKeyBytes = new Uint8Array(keyBuffer) // 拷贝一份，确保是独立的 ArrayBuffer
+      const isolatedKeyBytes = new Uint8Array(keyBuffer) // Copy to ensure independent ArrayBuffer
 
       const keyName = `user-${userId}-key`
       const keyNamespace = 'client-side-encryption'
 
-      // 创建Raw AES Keyring
+      // Create Raw AES Keyring
       const keyring = new RawAesKeyringNode({
         keyName,
         keyNamespace,
@@ -73,17 +73,17 @@ class CryptoUtils {
         wrappingSuite: RawAesWrappingSuiteIdentifier.AES256_GCM_IV12_TAG16_NO_PADDING
       })
 
-      // 获取AWS Encryption SDK客户端
+      // Get AWS Encryption SDK client
       const client = this._getAwsClient()
 
-      // 设置加密上下文
+      // Set encryption context
       const encryptionContext = {
         userId: userId,
         purpose: 'client-side-encryption',
         algorithm: config.encryption.algorithm
       }
 
-      // 使用AWS Encryption SDK加密
+      // Encrypt using AWS Encryption SDK
       const { result } = await client.encrypt(keyring, dataToEncrypt, {
         encryptionContext
       })
@@ -95,34 +95,34 @@ class CryptoUtils {
         encryptionContext: encryptionContext,
         keyName: keyName,
         keyNamespace: keyNamespace,
-        // 保持与现有格式的兼容性
+        // Maintain compatibility with existing format
         iv: undefined,
         tag: undefined
       }
     } catch (error) {
-      // 简化错误日志输出
+      // Simplify error log output
       const errorMessage = (error as Error).message
-      console.warn('AWS Encryption SDK 加密失败:', errorMessage)
-      throw new Error(`AWS Encryption SDK 加密失败: ${errorMessage}`)
+      console.warn('AWS Encryption SDK encryption failed:', errorMessage)
+      throw new Error(`AWS Encryption SDK encryption failed: ${errorMessage}`)
     }
   }
 
   /**
-   * 使用 AWS Encryption SDK 解密数据
-   * @param encryptedData - 加密的数据对象
-   * @param dataKey - Base64编码的数据密钥
-   * @returns 解密后的明文
+   * Decrypt data using AWS Encryption SDK
+   * @param encryptedData - Encrypted data object
+   * @param dataKey - Base64 encoded data key
+   * @returns Decrypted plaintext
    */
   static async decryptDataWithAwsSdk(encryptedData: any, dataKey: string, userId?: string): Promise<string> {
     try {
-      // 将Base64编码的数据密钥转换为Buffer，并拷贝到“隔离”的 Uint8Array
+      // Convert Base64 encoded data key to Buffer and copy to "isolated" Uint8Array
       const keyBuffer = Buffer.from(dataKey, 'base64')
       const isolatedKeyBytes = new Uint8Array(keyBuffer)
 
-      // 关键修复：完全按照原项目的逻辑，优先使用 encryptionContext 中的 userId
+      // Critical fix: Follow original project logic exactly, prioritize userId from encryptionContext
       const keyName = encryptedData.keyName || `user-${encryptedData.encryptionContext?.userId || userId || 'unknown'}-key`
       const keyNamespace = encryptedData.keyNamespace || 'client-side-encryption'
-      // 创建Raw AES Keyring
+      // Create Raw AES Keyring
       const keyring = new RawAesKeyringNode({
         keyName: keyName,
         keyNamespace: keyNamespace,
@@ -130,47 +130,47 @@ class CryptoUtils {
         wrappingSuite: RawAesWrappingSuiteIdentifier.AES256_GCM_IV12_TAG16_NO_PADDING
       })
 
-      // 获取AWS Encryption SDK客户端
+      // Get AWS Encryption SDK client
       const client = this._getAwsClient()
 
-      // 关键修复：AWS Encryption SDK 的密文应该是完整的二进制数据
-      // encryptedData.encrypted 是 Base64 编码的 AWS SDK 密文
+      // Critical fix: AWS Encryption SDK ciphertext should be complete binary data
+      // encryptedData.encrypted is Base64 encoded AWS SDK ciphertext
       const encryptedBuffer = Buffer.from(encryptedData.encrypted, 'base64')
 
-      // 🔍 尝试解析 AWS Encryption SDK 密文头部
+      // 🔍 Try to parse AWS Encryption SDK ciphertext header
       try {
-        // 尝试读取加密上下文长度
+        // Try to read encryption context length
         if (encryptedBuffer.length > 10) {
         }
       } catch (e) {
-        console.log('  密文结构分析失败:', (e as Error).message)
+        console.log('  Ciphertext structure analysis failed:', (e as Error).message)
       }
 
-      // 使用AWS Encryption SDK解密
+      // Decrypt using AWS Encryption SDK
       const { plaintext } = await client.decrypt(keyring, encryptedBuffer)
 
-      // 解析数据包
+      // Parse data packet
       const dataPacket = JSON.parse(plaintext.toString())
       return dataPacket.data
     } catch (error) {
-      // 简化错误日志输出
+      // Simplify error log output
       const errorMessage = (error as Error).message
-      console.warn('AWS Encryption SDK 解密失败:', errorMessage)
-      console.error('解密异常详情:', {
+      console.warn('AWS Encryption SDK decryption failed:', errorMessage)
+      console.error('Decryption exception details:', {
         error,
         message: errorMessage,
         stack: (error as Error).stack
       })
-      throw new Error(`AWS Encryption SDK 解密失败: ${errorMessage}`)
+      throw new Error(`AWS Encryption SDK decryption failed: ${errorMessage}`)
     }
   }
 
   /**
-   * 简化的加密方法（向后兼容）
-   * @param plaintext - 明文数据
-   * @param dataKey - 数据密钥Buffer
-   * @param userId - 用户ID
-   * @returns 加密结果
+   * Simplified encryption method (backward compatible)
+   * @param plaintext - Plaintext data
+   * @param dataKey - Data key Buffer
+   * @param userId - User ID
+   * @returns Encryption result
    */
   static async encryptData(plaintext: string, dataKey: Buffer, userId: string): Promise<EncryptionResult> {
     const dataKeyBase64 = dataKey.toString('base64')
@@ -178,10 +178,10 @@ class CryptoUtils {
   }
 
   /**
-   * 简化的解密方法（向后兼容）
-   * @param encryptedData - 加密的数据对象
-   * @param dataKey - 数据密钥Buffer
-   * @returns 解密后的明文
+   * Simplified decryption method (backward compatible)
+   * @param encryptedData - Encrypted data object
+   * @param dataKey - Data key Buffer
+   * @returns Decrypted plaintext
    */
   static async decryptData(encryptedData: any, dataKey: Buffer, userId?: string): Promise<string> {
     const dataKeyBase64 = dataKey.toString('base64')
@@ -189,12 +189,12 @@ class CryptoUtils {
   }
 
   /**
-   * 自动解析数据密钥的解密方法
-   * @param encryptedData - 加密的数据对象
-   * @param encryptionContext - 加密上下文
-   * @param apiClient - API客户端
-   * @param authToken - 认证令牌
-   * @returns 解密后的明文
+   * Decryption method with automatic data key resolution
+   * @param encryptedData - Encrypted data object
+   * @param encryptionContext - Encryption context
+   * @param apiClient - API client
+   * @param authToken - Authentication token
+   * @returns Decrypted plaintext
    */
   static async decryptDataWithAutoKeyResolution(
     _encryptedData: any,
@@ -203,51 +203,51 @@ class CryptoUtils {
     _authToken: string | null
   ): Promise<string> {
     try {
-      console.log('开始自动解析数据密钥解密...')
+      console.log('Starting automatic data key resolution decryption...')
 
-      // AWS Encryption SDK 的密文包含了加密的数据密钥
-      // 我们需要让 SDK 自动解密数据密钥，但这需要正确的 Keyring 配置
+      // AWS Encryption SDK ciphertext contains encrypted data key
+      // We need to let SDK automatically decrypt data key, but this requires correct Keyring configuration
 
-      // 临时方案：尝试使用一个通用的数据密钥
-      // 在实际场景中，应该从密文中提取加密的数据密钥，然后调用 KMS 解密
+      // Temporary solution: try using a generic data key
+      // In actual scenarios, should extract encrypted data key from ciphertext, then call KMS to decrypt
 
-      console.log('⚠️ 自动密钥解析功能尚未完全实现，回退到错误处理')
-      throw new Error('无法自动解析数据密钥，请确保客户端加密已正确初始化')
+      console.log('⚠️ Automatic key resolution feature not fully implemented, falling back to error handling')
+      throw new Error('Unable to automatically resolve data key, please ensure client encryption is properly initialized')
     } catch (error) {
-      console.error('自动密钥解析失败:', (error as Error).message)
+      console.error('Automatic key resolution failed:', (error as Error).message)
       throw error
     }
   }
 
   /**
-   * 生成会话ID（基于用户ID的固定值）
-   * @param userId - 用户ID
-   * @returns 会话ID
+   * Generate session ID (fixed value based on user ID)
+   * @param userId - User ID
+   * @returns Session ID
    */
   static generateSessionId(userId?: string): string {
     if (userId) {
-      // 修复：使用用户ID的最后两位数作为 sessionId，确保加密和解密时一致
+      // Fix: Use last two digits of user ID as sessionId to ensure consistency during encryption and decryption
       const lastTwoDigits = userId.slice(-2).padStart(2, '0')
       return lastTwoDigits
     }
-    // 回退到随机生成（用于兼容性）
+    // Fallback to random generation (for compatibility)
     return crypto.randomBytes(16).toString('hex')
   }
 
   /**
-   * 生成随机密钥
-   * @param length - 密钥长度（字节）
-   * @returns 密钥Buffer
+   * Generate random key
+   * @param length - Key length (bytes)
+   * @returns Key Buffer
    */
   static generateKey(length: number = 32): Buffer {
     return crypto.randomBytes(length)
   }
 
   /**
-   * 计算数据的哈希值
-   * @param data - 要计算哈希的数据
-   * @param algorithm - 哈希算法（默认sha256）
-   * @returns 哈希值（hex格式）
+   * Calculate data hash value
+   * @param data - Data to calculate hash
+   * @param algorithm - Hash algorithm (default sha256)
+   * @returns Hash value (hex format)
    */
   static hash(data: string | Buffer, algorithm: string = 'sha256'): string {
     const hash = crypto.createHash(algorithm)
@@ -256,17 +256,17 @@ class CryptoUtils {
   }
 
   /**
-   * 计算密钥指纹
-   * @param key - 密钥Buffer
-   * @returns 密钥指纹
+   * Calculate key fingerprint
+   * @param key - Key Buffer
+   * @returns Key fingerprint
    */
   static getKeyFingerprint(key: Buffer): string {
     return this.hash(key).substring(0, 16)
   }
 
   /**
-   *  安全清理Buffer
-   * @param buffer - 要清理的Buffer
+   * Securely wipe Buffer
+   * @param buffer - Buffer to wipe
    */
   static secureWipe(buffer: Buffer): void {
     if (buffer && Buffer.isBuffer(buffer)) {

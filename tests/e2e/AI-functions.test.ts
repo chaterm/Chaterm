@@ -15,7 +15,7 @@ test.describe('AI完整工作流程E2E测试', () => {
       try {
         // Wait for either execute button or completion message to appear
         const executeButton = electronHelper.window?.getByRole('button', { name: 'play-circle 执行' })
-        const completionElement = electronHelper.window?.getByText('开始新任务')
+        const completionElement = electronHelper.window?.getByText('开始新任务').first()
 
         // Race between execute button and completion message
         const result = await Promise.race([
@@ -46,7 +46,7 @@ test.describe('AI完整工作流程E2E测试', () => {
       } catch (error) {
         // Final attempt to check for completion
         try {
-          await electronHelper.window?.getByText('开始新任务').waitFor({ timeout: finalCheckTimeout })
+          await electronHelper.window?.getByText('开始新任务').first().waitFor({ timeout: finalCheckTimeout })
           taskCompleted = true
         } catch (completionError) {
           throw new Error('Task execution failed: Neither execute button nor completion message found')

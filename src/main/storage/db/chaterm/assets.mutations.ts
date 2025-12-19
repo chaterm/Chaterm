@@ -1,14 +1,14 @@
 import Database from 'better-sqlite3'
 import { v4 as uuidv4 } from 'uuid'
 
-// 使用动态导入的增量同步触发器，保持与原实现一致
+// Use dynamically imported incremental sync trigger, keep consistent with original implementation
 function triggerIncrementalSync(): void {
   setImmediate(async () => {
     try {
       const { SyncController } = await import('../../data_sync/core/SyncController')
       await SyncController.triggerIncrementalSync()
     } catch (error) {
-      console.warn('触发增量同步失败:', error)
+      console.warn('Failed to trigger incremental sync:', error)
     }
   })
 }
@@ -93,7 +93,7 @@ export function createOrUpdateAssetLogic(db: Database.Database, params: any): an
 
     const now = new Date().toISOString()
 
-    // 首先检查是否存在重复的资产（基于 IP + 用户名 + 端口 + 别名 + asset_type）
+    // First check if duplicate asset exists (based on IP + username + port + label + asset_type)
     const checkDuplicateStmt = db.prepare(`
       SELECT uuid, label, created_at FROM t_assets 
       WHERE asset_ip = ? AND username = ? AND port = ? AND label = ? AND asset_type = ?
@@ -101,7 +101,7 @@ export function createOrUpdateAssetLogic(db: Database.Database, params: any): an
     const existingAsset = checkDuplicateStmt.get(form.ip, form.username, form.port, form.label || form.ip, form.asset_type || 'person')
 
     if (existingAsset) {
-      // 如果存在重复资产，更新现有记录
+      // If duplicate asset exists, update existing record
       const updateStmt = db.prepare(`
         UPDATE t_assets SET
           label = ?,
@@ -211,7 +211,7 @@ export function createAssetLogic(db: Database.Database, params: any): any {
 
     const now = new Date().toISOString()
 
-    // 首先检查是否存在重复的资产（基于 IP + 用户名 + 端口 + 别名 + asset_type）
+    // First check if duplicate asset exists (based on IP + username + port + label + asset_type)
     const checkDuplicateStmt = db.prepare(`
       SELECT uuid, label, created_at FROM t_assets 
       WHERE asset_ip = ? AND username = ? AND port = ? AND label = ? AND asset_type = ?
@@ -219,7 +219,7 @@ export function createAssetLogic(db: Database.Database, params: any): any {
     const existingAsset = checkDuplicateStmt.get(form.ip, form.username, form.port, form.label || form.ip, form.asset_type || 'person')
 
     if (existingAsset) {
-      // 如果存在重复资产，返回重复信息而不是创建新记录
+      // If duplicate asset exists, return duplicate information instead of creating new record
       return {
         data: {
           message: 'duplicate',
@@ -230,7 +230,7 @@ export function createAssetLogic(db: Database.Database, params: any): any {
       }
     }
 
-    // 如果不存在重复，创建新资产
+    // If no duplicate exists, create new asset
     const uuid = uuidv4()
     const insertStmt = db.prepare(`
         INSERT INTO t_assets (

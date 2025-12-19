@@ -36,27 +36,27 @@ if (!fs.existsSync(envPath)) {
 // Load environment variables
 dotenv.config({ path: envPath })
 
-// 全局变量跟踪vim模式状态
+// Global variable to track vim mode state
 let isVimMode = false
 
-// 监听来自渲染进程的vim模式状态更新
+// Listen for vim mode state updates from renderer process
 window.addEventListener('message', (event) => {
   if (event.data && event.data.type === 'VIM_MODE_UPDATE') {
     isVimMode = event.data.isVimMode
   }
 })
 
-// 拦截 Ctrl+F 和 Ctrl+W 快捷键，阻止浏览器默认行为并触发应用内功能（仅Windows）
+// Intercept Ctrl+F and Ctrl+W shortcuts, prevent browser default behavior and trigger in-app functionality (Windows only)
 window.addEventListener(
   'keydown',
   (e) => {
-    // 只在Windows系统上拦截快捷键，Mac系统保持默认行为
-    // 在vim模式下不拦截快捷键，让vim保持默认行为
+    // Only intercept shortcuts on Windows, keep default behavior on Mac
+    // Don't intercept shortcuts in vim mode, let vim keep default behavior
     if (process.platform === 'win32' && e.ctrlKey && !isVimMode) {
       if (e.key === 'f') {
         e.preventDefault()
         e.stopPropagation()
-        // 通过 postMessage 发送给渲染进程
+        // Send to renderer process via postMessage
         window.postMessage({ type: 'TRIGGER_SEARCH' }, '*')
       }
     }
@@ -416,7 +416,7 @@ const updateOrganizationAssetComment = async (data: { organizationUuid: string; 
   }
 }
 
-// 自定义文件夹管理API
+// Custom folder management API
 const createCustomFolder = async (data: { name: string; description?: string }) => {
   try {
     const result = await ipcRenderer.invoke('create-custom-folder', data)
@@ -556,7 +556,7 @@ const api = {
   onNavigationStateChanged: (callback: (state: { canGoBack: boolean; canGoForward: boolean }) => void): void => {
     ipcRenderer.on('navigation-state-changed', (_event, state) => callback(state))
   },
-  // 添加处理协议 URL 的函数，特别用于 Linux 系统
+  // Add function to handle protocol URLs, especially for Linux systems
   handleProtocolUrl: (url: string): Promise<{ success: boolean; error?: string }> => {
     return ipcRenderer.invoke('handle-protocol-url', url)
   },
@@ -648,11 +648,11 @@ const api = {
     return () => ipcRenderer.removeListener('mcp:config-file-changed', listener)
   },
 
-  // 本地主机API
+  // Local host API
   getLocalWorkingDirectory: () => ipcRenderer.invoke('local:get-working-directory'),
   executeLocalCommand: (command: string) => ipcRenderer.invoke('local:execute-command', command),
 
-  // sshAPI
+  // SSH API
   connect: (connectionInfo) => ipcRenderer.invoke('ssh:connect', connectionInfo),
   connectReadyData: (id) => {
     return new Promise((resolve) => {
@@ -804,7 +804,7 @@ const api = {
     ipcRenderer.on('system-theme-changed', listener)
     return () => ipcRenderer.removeListener('system-theme-changed', listener)
   },
-  // 添加 JumpServer 状态更新监听
+  // Add JumpServer status update listener
   onJumpServerStatusUpdate: (callback) => {
     const listener = (_event, data) => {
       callback(data)
@@ -871,7 +871,7 @@ const api = {
     return () => ipcRenderer.removeListener('security-config-file-changed', listener)
   },
 
-  // IndexedDB 迁移相关 API
+  // IndexedDB migration related API
   getMigrationStatus: (params: { dataSource?: string }) => ipcRenderer.invoke('db:migration:status', params),
   aliasesQuery: (params: { action: string; searchText?: string; alias?: string }) => ipcRenderer.invoke('db:aliases:query', params),
   aliasesMutate: (params: { action: string; data?: any; alias?: string }) => ipcRenderer.invoke('db:aliases:mutate', params),
@@ -879,12 +879,12 @@ const api = {
   kvMutate: (params: { action: string; key: string; value?: string }) => ipcRenderer.invoke('db:kv:mutate', params),
   saveCustomBackground: (sourcePath: string) => ipcRenderer.invoke('saveCustomBackground', sourcePath),
 
-  // 插件
+  // Plugin
   installPlugin(filePath: string) {
     return ipcRenderer.invoke('plugins.install', filePath)
   },
 
-  // 卸载插件
+  // Uninstall plugin
   uninstallPlugin(pluginId: string) {
     return ipcRenderer.invoke('plugins.uninstall', pluginId)
   },
@@ -908,10 +908,10 @@ const api = {
   getInstallHint(pluginId: string) {
     return ipcRenderer.invoke('plugins:get-install-hint', pluginId)
   },
-  // XTS 文件解析
+  // XTS file parsing
   parseXtsFile: (data: { data: number[]; fileName: string }) => ipcRenderer.invoke('parseXtsFile', data)
 }
-// 自定义 API 用于浏览器控制
+// Custom API for browser control
 
 // Use `contextBridge` APIs to expose Electron APIs to
 // renderer only if context isolation is enabled, otherwise
@@ -925,7 +925,7 @@ if (process.contextIsolated) {
         on: (channel, listener) => ipcRenderer.on(channel, listener),
         removeAllListeners: (channel) => ipcRenderer.removeAllListeners(channel)
       },
-      getCurrentURL: () => window.location.href // 通过 window.location 获取当前 URL
+      getCurrentURL: () => window.location.href // Get current URL via window.location
     })
     contextBridge.exposeInMainWorld('api', api)
   } catch (error) {

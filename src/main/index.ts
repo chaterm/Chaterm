@@ -1851,51 +1851,51 @@ ipcMain.handle('refresh-organization-assets', async (event, data) => {
   try {
     const { organizationUuid, jumpServerConfig } = data
 
-    // 生成唯一的连接ID用于二次验证
+    // Generate unique connection ID for two-factor authentication
     const connectionId = `refresh-assets-${organizationUuid}-${Date.now()}`
 
-    // 创建二次验证处理器，用于与渲染进程交互
+    // Create two-factor authentication handler for interaction with renderer process
     const keyboardInteractiveHandler = async (prompts: any[], finish: (responses: string[]) => void) => {
       return new Promise<void>((resolve, reject) => {
-        // 发送二次验证请求到渲染进程
+        // Send two-factor authentication request to renderer process
         event.sender.send('ssh:keyboard-interactive-request', {
           id: connectionId,
           prompts: prompts.map((p) => p.prompt)
         })
 
-        // 设置超时
+        // Set timeout
         const timeoutId = setTimeout(() => {
           ipcMain.removeAllListeners(`ssh:keyboard-interactive-response:${connectionId}`)
           ipcMain.removeAllListeners(`ssh:keyboard-interactive-cancel:${connectionId}`)
           finish([])
           event.sender.send('ssh:keyboard-interactive-timeout', { id: connectionId })
-          reject(new Error('二次验证超时'))
-        }, 30000) // 30秒超时
+          reject(new Error('Two-factor authentication timeout'))
+        }, 30000) // 30 second timeout
 
-        // 监听用户响应
+        // Listen for user response
         ipcMain.once(`ssh:keyboard-interactive-response:${connectionId}`, (_evt, responses) => {
           clearTimeout(timeoutId)
           finish(responses)
-          resolve() // 立即 resolve，验证结果会通过 authResultCallback 处理
+          resolve() // Resolve immediately, verification result will be handled by authResultCallback
         })
 
-        // 监听用户取消
+        // Listen for user cancellation
         ipcMain.once(`ssh:keyboard-interactive-cancel:${connectionId}`, () => {
           clearTimeout(timeoutId)
           finish([])
-          reject(new Error('用户取消了二次验证'))
+          reject(new Error('User cancelled two-factor authentication'))
         })
       })
     }
 
-    // 创建验证结果回调
+    // Create authentication result callback
     const authResultCallback = (success: boolean, error?: string) => {
-      console.log('主进程: authResultCallback 被调用，success:', success, 'error:', error)
+      console.log('Main process: authResultCallback called, success:', success, 'error:', error)
       if (success) {
-        console.log('主进程: 二次验证成功，发送成功事件到前端')
+        console.log('Main process: Two-factor authentication succeeded, sending success event to frontend')
         event.sender.send('ssh:keyboard-interactive-result', { id: connectionId, status: 'success' })
       } else {
-        console.log('主进程: 二次验证失败，发送失败事件到前端', error)
+        console.log('Main process: Two-factor authentication failed, sending failure event to frontend', error)
         event.sender.send('ssh:keyboard-interactive-result', { id: connectionId, status: 'failed' })
       }
     }
@@ -1908,7 +1908,7 @@ ipcMain.handle('refresh-organization-assets', async (event, data) => {
     )
     return result
   } catch (error) {
-    console.error('刷新企业资产失败:', error)
+    console.error('Failed to refresh organization assets:', error)
     return { data: { message: 'failed', error: error instanceof Error ? error.message : String(error) } }
   }
 })
@@ -1918,14 +1918,14 @@ ipcMain.handle('organization-asset-favorite', async (_, data) => {
     const { organizationUuid, host, status } = data
 
     if (!organizationUuid || !host || status === undefined) {
-      console.error('参数不完整:', { organizationUuid, host, status })
-      return { data: { message: 'failed', error: '参数不完整' } }
+      console.error('Incomplete parameters:', { organizationUuid, host, status })
+      return { data: { message: 'failed', error: 'Incomplete parameters' } }
     }
 
     const result = chatermDbService.updateOrganizationAssetFavorite(organizationUuid, host, status)
     return result
   } catch (error) {
-    console.error('主进程 organization-asset-favorite 错误:', error)
+    console.error('Main process organization-asset-favorite error:', error)
     return { data: { message: 'failed', error: error instanceof Error ? error.message : String(error) } }
   }
 })
@@ -1935,32 +1935,32 @@ ipcMain.handle('organization-asset-comment', async (_, data) => {
     const { organizationUuid, host, comment } = data
 
     if (!organizationUuid || !host) {
-      console.error('参数不完整:', { organizationUuid, host, comment })
-      return { data: { message: 'failed', error: '参数不完整' } }
+      console.error('Incomplete parameters:', { organizationUuid, host, comment })
+      return { data: { message: 'failed', error: 'Incomplete parameters' } }
     }
 
     const result = chatermDbService.updateOrganizationAssetComment(organizationUuid, host, comment || '')
     return result
   } catch (error) {
-    console.error('主进程 organization-asset-comment 错误:', error)
+    console.error('Main process organization-asset-comment error:', error)
     return { data: { message: 'failed', error: error instanceof Error ? error.message : String(error) } }
   }
 })
 
-// 自定义文件夹管理IPC处理器
+// Custom folder management IPC handlers
 ipcMain.handle('create-custom-folder', async (_, data) => {
   try {
     const { name, description } = data
 
     if (!name) {
-      console.error('参数不完整:', { name, description })
-      return { data: { message: 'failed', error: '文件夹名称不能为空' } }
+      console.error('Incomplete parameters:', { name, description })
+      return { data: { message: 'failed', error: 'Folder name cannot be empty' } }
     }
 
     const result = chatermDbService.createCustomFolder(name, description)
     return result
   } catch (error) {
-    console.error('主进程 create-custom-folder 错误:', error)
+    console.error('Main process create-custom-folder error:', error)
     return { data: { message: 'failed', error: error instanceof Error ? error.message : String(error) } }
   }
 })
@@ -1970,7 +1970,7 @@ ipcMain.handle('get-custom-folders', async () => {
     const result = chatermDbService.getCustomFolders()
     return result
   } catch (error) {
-    console.error('主进程 get-custom-folders 错误:', error)
+    console.error('Main process get-custom-folders error:', error)
     return { data: { message: 'failed', error: error instanceof Error ? error.message : String(error) } }
   }
 })
@@ -1980,14 +1980,14 @@ ipcMain.handle('update-custom-folder', async (_, data) => {
     const { folderUuid, name, description } = data
 
     if (!folderUuid || !name) {
-      console.error('参数不完整:', { folderUuid, name, description })
-      return { data: { message: 'failed', error: '文件夹UUID和名称不能为空' } }
+      console.error('Incomplete parameters:', { folderUuid, name, description })
+      return { data: { message: 'failed', error: 'Folder UUID and name cannot be empty' } }
     }
 
     const result = chatermDbService.updateCustomFolder(folderUuid, name, description)
     return result
   } catch (error) {
-    console.error('主进程 update-custom-folder 错误:', error)
+    console.error('Main process update-custom-folder error:', error)
     return { data: { message: 'failed', error: error instanceof Error ? error.message : String(error) } }
   }
 })
@@ -1997,14 +1997,14 @@ ipcMain.handle('delete-custom-folder', async (_, data) => {
     const { folderUuid } = data
 
     if (!folderUuid) {
-      console.error('参数不完整:', { folderUuid })
-      return { data: { message: 'failed', error: '文件夹UUID不能为空' } }
+      console.error('Incomplete parameters:', { folderUuid })
+      return { data: { message: 'failed', error: 'Folder UUID cannot be empty' } }
     }
 
     const result = chatermDbService.deleteCustomFolder(folderUuid)
     return result
   } catch (error) {
-    console.error('主进程 delete-custom-folder 错误:', error)
+    console.error('Main process delete-custom-folder error:', error)
     return { data: { message: 'failed', error: error instanceof Error ? error.message : String(error) } }
   }
 })
@@ -2014,14 +2014,14 @@ ipcMain.handle('move-asset-to-folder', async (_, data) => {
     const { folderUuid, organizationUuid, assetHost } = data
 
     if (!folderUuid || !organizationUuid || !assetHost) {
-      console.error('参数不完整:', { folderUuid, organizationUuid, assetHost })
-      return { data: { message: 'failed', error: '参数不完整' } }
+      console.error('Incomplete parameters:', { folderUuid, organizationUuid, assetHost })
+      return { data: { message: 'failed', error: 'Incomplete parameters' } }
     }
 
     const result = chatermDbService.moveAssetToFolder(folderUuid, organizationUuid, assetHost)
     return result
   } catch (error) {
-    console.error('主进程 move-asset-to-folder 错误:', error)
+    console.error('Main process move-asset-to-folder error:', error)
     return { data: { message: 'failed', error: error instanceof Error ? error.message : String(error) } }
   }
 })
@@ -2031,14 +2031,14 @@ ipcMain.handle('remove-asset-from-folder', async (_, data) => {
     const { folderUuid, organizationUuid, assetHost } = data
 
     if (!folderUuid || !organizationUuid || !assetHost) {
-      console.error('参数不完整:', { folderUuid, organizationUuid, assetHost })
-      return { data: { message: 'failed', error: '参数不完整' } }
+      console.error('Incomplete parameters:', { folderUuid, organizationUuid, assetHost })
+      return { data: { message: 'failed', error: 'Incomplete parameters' } }
     }
 
     const result = chatermDbService.removeAssetFromFolder(folderUuid, organizationUuid, assetHost)
     return result
   } catch (error) {
-    console.error('主进程 remove-asset-from-folder 错误:', error)
+    console.error('Main process remove-asset-from-folder error:', error)
     return { data: { message: 'failed', error: error instanceof Error ? error.message : String(error) } }
   }
 })
@@ -2048,14 +2048,14 @@ ipcMain.handle('get-assets-in-folder', async (_, data) => {
     const { folderUuid } = data
 
     if (!folderUuid) {
-      console.error('参数不完整:', { folderUuid })
-      return { data: { message: 'failed', error: '文件夹UUID不能为空' } }
+      console.error('Incomplete parameters:', { folderUuid })
+      return { data: { message: 'failed', error: 'Folder UUID cannot be empty' } }
     }
 
     const result = chatermDbService.getAssetsInFolder(folderUuid)
     return result
   } catch (error) {
-    console.error('主进程 get-assets-in-folder 错误:', error)
+    console.error('Main process get-assets-in-folder error:', error)
     return { data: { message: 'failed', error: error instanceof Error ? error.message : String(error) } }
   }
 })
@@ -2078,7 +2078,7 @@ ipcMain.handle('capture-telemetry-event', async (_, { eventType, data }) => {
   }
 })
 
-// 插件
+// Plugins
 
 ipcMain.handle('plugins.install', async (_event, pluginFilePath: string) => {
   const record = installPlugin(pluginFilePath)
@@ -2176,25 +2176,25 @@ if (!app.isDefaultProtocolClient('chaterm')) {
   app.setAsDefaultProtocolClient('chaterm')
 }
 
-// Linux 下处理 chaterm:// 协议参数
+// Handle chaterm:// protocol parameters on Linux
 if (process.platform === 'linux') {
-  // 为 Linux 平台实现单实例锁，确保只有一个应用实例运行
+  // Implement single instance lock for Linux platform to ensure only one app instance runs
   const gotTheLock = app.requestSingleInstanceLock()
 
   if (!gotTheLock) {
-    // 如果无法获取锁，说明已经有一个实例在运行，退出当前实例
+    // If lock cannot be acquired, another instance is already running, exit current instance
     app.quit()
   } else {
-    // 监听第二个实例的启动
+    // Listen for second instance startup
     app.on('second-instance', (_event, commandLine, _workingDirectory) => {
-      // 有人试图运行第二个实例，我们应该聚焦到我们的窗口
+      // Someone is trying to run a second instance, we should focus on our window
       const mainWindow = BrowserWindow.getAllWindows()[0]
       if (mainWindow) {
         if (mainWindow.isMinimized()) mainWindow.restore()
         mainWindow.focus()
       }
 
-      // 处理协议 URL
+      // Handle protocol URL
       const protocolUrl = commandLine.find((arg) => arg.startsWith('chaterm://'))
       if (protocolUrl) {
         handleProtocolRedirect(protocolUrl)
@@ -2202,7 +2202,7 @@ if (process.platform === 'linux') {
     })
   }
 
-  // 处理应用启动时的协议参数
+  // Handle protocol parameters when app starts
   const protocolArg = process.argv.find((arg) => arg.startsWith('chaterm://'))
   if (protocolArg) {
     app.whenReady().then(() => {
@@ -2210,7 +2210,7 @@ if (process.platform === 'linux') {
     })
   }
 
-  // 为 Linux 添加额外的 IPC 处理程序，用于处理应用运行过程中的协议调用
+  // Add additional IPC handler for Linux to handle protocol calls during app runtime
   ipcMain.handle('handle-protocol-url', async (_, url) => {
     if (url && url.startsWith('chaterm://')) {
       handleProtocolRedirect(url)
@@ -2222,13 +2222,13 @@ if (process.platform === 'linux') {
 
 // Process protocol redirection
 const handleProtocolRedirect = async (url: string) => {
-  // 获取主窗口
+  // Get main window
   let targetWindow = BrowserWindow.getAllWindows()[0]
 
-  // 在 Linux 平台上，尝试找到发起登录的原始窗口
+  // On Linux platform, try to find the original window that initiated login
   if (process.platform === 'linux') {
     try {
-      // 尝试从 cookie 中获取原始窗口 ID
+      // Try to get original window ID from cookie
       const authStateCookie = await session.defaultSession.cookies.get({
         url: COOKIE_URL,
         name: 'chaterm_auth_state'
@@ -2238,51 +2238,51 @@ const handleProtocolRedirect = async (url: string) => {
         const authState = JSON.parse(authStateCookie[0].value)
         const originalWindowId = authState.windowId
 
-        // 尝试找到原始窗口
+        // Try to find original window
         const originalWindow = BrowserWindow.fromId(originalWindowId)
         if (originalWindow && !originalWindow.isDestroyed()) {
           targetWindow = originalWindow
-          console.log('找到原始窗口，ID:', originalWindowId)
+          console.log('Found original window, ID:', originalWindowId)
 
-          // 清除认证状态 cookie
+          // Clear authentication state cookie
           await session.defaultSession.cookies.remove(COOKIE_URL, 'chaterm_auth_state')
         }
       }
     } catch (error) {
-      console.error('获取原始窗口失败:', error)
+      console.error('Failed to get original window:', error)
     }
   }
 
   if (!targetWindow) {
-    console.error('找不到可用窗口来处理协议重定向')
+    console.error('No available window found to handle protocol redirection')
     return
   }
 
-  // 解析 URL 中的令牌和用户信息
+  // Parse token and user info from URL
   const urlObj = new URL(url)
   const userInfo = urlObj.searchParams.get('userInfo')
   const method = urlObj.searchParams.get('method')
 
   if (userInfo) {
     try {
-      // 将数据发送到渲染进程
+      // Send data to renderer process
       targetWindow.webContents.send('external-login-success', {
         userInfo: JSON.parse(userInfo),
         method: method
       })
 
-      // 确保窗口可见并聚焦
+      // Ensure window is visible and focused
       if (targetWindow.isMinimized()) {
         targetWindow.restore()
       }
       targetWindow.focus()
 
-      // 外部登录成功后，检查是否需要重启数据同步服务
-      // 注意：这里我们不能直接获取用户ID，因为渲染进程还没有处理完登录逻辑
-      // 所以我们在渲染进程处理完登录后，通过init-user-database来处理数据同步重启
-      console.log('外部登录成功，等待渲染进程处理用户初始化...')
+      // After external login succeeds, check if data sync service needs to be restarted
+      // Note: We cannot directly get user ID here because renderer process hasn't finished login logic
+      // So we handle data sync restart through init-user-database after renderer process finishes login
+      console.log('External login succeeded, waiting for renderer process to handle user initialization...')
     } catch (error) {
-      console.error('处理外部登录数据失败:', error)
+      console.error('Failed to process external login data:', error)
     }
   }
 }

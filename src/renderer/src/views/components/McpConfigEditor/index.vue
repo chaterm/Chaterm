@@ -18,6 +18,13 @@
         @update:model-value="handleContentChange"
       />
     </div>
+    <div
+      v-if="error"
+      class="error-bar"
+    >
+      <span class="error-icon">⚠️</span>
+      <span class="error-text">{{ error }}</span>
+    </div>
   </div>
 </template>
 
@@ -27,7 +34,7 @@ import { notification } from 'ant-design-vue'
 import { mcpConfigService } from '@/services/mcpService'
 import { useI18n } from 'vue-i18n'
 import MonacoEditor from '@renderer/views/components/Ssh/editors/monacoEditor.vue'
-import { getMonacoTheme } from '@/utils/themeUtils'
+import { getMonacoTheme, addSystemThemeListener } from '@/utils/themeUtils'
 
 const { t } = useI18n()
 const configContent = ref('')
@@ -39,10 +46,14 @@ let saveTimer: NodeJS.Timeout | null = null
 let statusTimer: NodeJS.Timeout | null = null
 let removeFileChangeListener: (() => void) | undefined
 let isFormatting = ref(false) // Flag indicating if formatting is in progress
+let removeSystemThemeListener: (() => void) | undefined
+
+// Reactive theme state that will trigger re-renders
+const themeState = ref(getMonacoTheme())
 
 // Set editor theme based on current theme
 const currentTheme = computed(() => {
-  return getMonacoTheme()
+  return themeState.value
 })
 
 // Display full absolute path
@@ -90,6 +101,26 @@ onMounted(async () => {
     })
   }
 
+  // Add theme change listener
+  const systemThemeRemover = addSystemThemeListener(() => {
+    themeState.value = getMonacoTheme()
+  })
+
+  // Listen for document class changes (manual theme switching)
+  const observer = new MutationObserver(() => {
+    themeState.value = getMonacoTheme()
+  })
+  observer.observe(document.documentElement, {
+    attributes: true,
+    attributeFilter: ['class']
+  })
+
+  // Store cleanup functions
+  removeSystemThemeListener = () => {
+    systemThemeRemover()
+    observer.disconnect()
+  }
+
   window.addEventListener('keydown', handleKeydown)
 })
 
@@ -103,6 +134,9 @@ onBeforeUnmount(() => {
   }
   if (removeFileChangeListener) {
     removeFileChangeListener()
+  }
+  if (removeSystemThemeListener) {
+    removeSystemThemeListener()
   }
   window.removeEventListener('keydown', handleKeydown)
 })
@@ -130,7 +164,7 @@ const handleContentChange = (newValue: string) => {
     }, 2000)
   } catch (err: unknown) {
     const errorMessage = err instanceof Error ? err.message : String(err)
-    error.value = t('mcp.invalidJson') + ': ' + errorMessage
+    error.value = errorMessage
   }
 }
 
@@ -141,6 +175,8 @@ const saveConfig = async (isManualSave = false) => {
   try {
     parsedJson = JSON.parse(configContent.value)
   } catch (err) {
+    const errorMessage = err instanceof Error ? err.message : String(err)
+    error.value = errorMessage
     return // Don't save invalid JSON
   }
 
@@ -239,6 +275,31 @@ const saveConfig = async (isManualSave = false) => {
     flex: 1;
     overflow: hidden;
     position: relative;
+  }
+
+  .error-bar {
+    display: flex;
+    align-items: center;
+    padding: 8px 12px;
+    background-color: var(--error-bg, #fef2f2);
+    border-top: 1px solid var(--error-border, #fecaca);
+    color: var(--error-text, #dc2626);
+    font-size: 12px;
+    font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', 'Consolas', monospace;
+    min-height: 32px;
+    max-height: 80px;
+    overflow-y: auto;
+
+    .error-icon {
+      margin-right: 8px;
+      flex-shrink: 0;
+    }
+
+    .error-text {
+      flex: 1;
+      line-height: 1.4;
+      word-break: break-all;
+    }
   }
 }
 </style>

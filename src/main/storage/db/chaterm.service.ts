@@ -208,7 +208,7 @@ export class ChatermDatabaseService {
       const result = updateOrganizationAssetFavoriteLogic(this.db, organizationUuid, host, status)
       return result
     } catch (error) {
-      console.error('ChatermDatabaseService.updateOrganizationAssetFavorite 错误:', error)
+      console.error('ChatermDatabaseService.updateOrganizationAssetFavorite error:', error)
       throw error
     }
   }
@@ -218,18 +218,18 @@ export class ChatermDatabaseService {
       const result = updateOrganizationAssetCommentLogic(this.db, organizationUuid, host, comment)
       return result
     } catch (error) {
-      console.error('ChatermDatabaseService.updateOrganizationAssetComment 错误:', error)
+      console.error('ChatermDatabaseService.updateOrganizationAssetComment error:', error)
       throw error
     }
   }
 
-  // 自定义文件夹管理方法
+  // Custom folder management methods
   createCustomFolder(name: string, description?: string): any {
     try {
       const result = createCustomFolderLogic(this.db, name, description)
       return result
     } catch (error) {
-      console.error('ChatermDatabaseService.createCustomFolder 错误:', error)
+      console.error('ChatermDatabaseService.createCustomFolder error:', error)
       throw error
     }
   }
@@ -239,7 +239,7 @@ export class ChatermDatabaseService {
       const result = getCustomFoldersLogic(this.db)
       return result
     } catch (error) {
-      console.error('ChatermDatabaseService.getCustomFolders 错误:', error)
+      console.error('ChatermDatabaseService.getCustomFolders error:', error)
       throw error
     }
   }
@@ -249,7 +249,7 @@ export class ChatermDatabaseService {
       const result = updateCustomFolderLogic(this.db, folderUuid, name, description)
       return result
     } catch (error) {
-      console.error('ChatermDatabaseService.updateCustomFolder 错误:', error)
+      console.error('ChatermDatabaseService.updateCustomFolder error:', error)
       throw error
     }
   }
@@ -259,7 +259,7 @@ export class ChatermDatabaseService {
       const result = deleteCustomFolderLogic(this.db, folderUuid)
       return result
     } catch (error) {
-      console.error('ChatermDatabaseService.deleteCustomFolder 错误:', error)
+      console.error('ChatermDatabaseService.deleteCustomFolder error:', error)
       throw error
     }
   }
@@ -269,7 +269,7 @@ export class ChatermDatabaseService {
       const result = moveAssetToFolderLogic(this.db, folderUuid, organizationUuid, assetHost)
       return result
     } catch (error) {
-      console.error('ChatermDatabaseService.moveAssetToFolder 错误:', error)
+      console.error('ChatermDatabaseService.moveAssetToFolder error:', error)
       throw error
     }
   }
@@ -279,7 +279,7 @@ export class ChatermDatabaseService {
       const result = removeAssetFromFolderLogic(this.db, folderUuid, organizationUuid, assetHost)
       return result
     } catch (error) {
-      console.error('ChatermDatabaseService.removeAssetFromFolder 错误:', error)
+      console.error('ChatermDatabaseService.removeAssetFromFolder error:', error)
       throw error
     }
   }
@@ -289,18 +289,18 @@ export class ChatermDatabaseService {
       const result = getAssetsInFolderLogic(this.db, folderUuid)
       return result
     } catch (error) {
-      console.error('ChatermDatabaseService.getAssetsInFolder 错误:', error)
+      console.error('ChatermDatabaseService.getAssetsInFolder error:', error)
       throw error
     }
   }
 
-  // MCP工具状态管理方法
+  // MCP tool state management methods
   getMcpToolState(serverName: string, toolName: string): any {
     try {
       const result = getToolStateLogic(this.db, serverName, toolName)
       return result
     } catch (error) {
-      console.error('ChatermDatabaseService.getMcpToolState 错误:', error)
+      console.error('ChatermDatabaseService.getMcpToolState error:', error)
       throw error
     }
   }
@@ -309,7 +309,7 @@ export class ChatermDatabaseService {
     try {
       setToolStateLogic(this.db, serverName, toolName, enabled)
     } catch (error) {
-      console.error('ChatermDatabaseService.setMcpToolState 错误:', error)
+      console.error('ChatermDatabaseService.setMcpToolState error:', error)
       throw error
     }
   }
@@ -319,7 +319,7 @@ export class ChatermDatabaseService {
       const result = getServerToolStatesLogic(this.db, serverName)
       return result
     } catch (error) {
-      console.error('ChatermDatabaseService.getServerMcpToolStates 错误:', error)
+      console.error('ChatermDatabaseService.getServerMcpToolStates error:', error)
       throw error
     }
   }
@@ -329,7 +329,7 @@ export class ChatermDatabaseService {
       const result = getAllToolStatesLogic(this.db)
       return result
     } catch (error) {
-      console.error('ChatermDatabaseService.getAllMcpToolStates 错误:', error)
+      console.error('ChatermDatabaseService.getAllMcpToolStates error:', error)
       throw error
     }
   }
@@ -338,75 +338,75 @@ export class ChatermDatabaseService {
     try {
       deleteServerToolStatesLogic(this.db, serverName)
     } catch (error) {
-      console.error('ChatermDatabaseService.deleteServerMcpToolStates 错误:', error)
+      console.error('ChatermDatabaseService.deleteServerMcpToolStates error:', error)
       throw error
     }
   }
 
-  // ==================== IndexedDB 迁移状态查询方法 ====================
+  // ==================== IndexedDB Migration Status Query Methods ====================
 
   /**
-   * 获取迁移状态
+   * Get migration status
    */
   getMigrationStatus(dataSource: string): any {
     try {
       const row = this.db.prepare('SELECT * FROM indexdb_migration_status WHERE data_source = ?').get(dataSource)
       return row || null
     } catch (error) {
-      console.error('ChatermDatabaseService.getMigrationStatus 错误:', error)
+      console.error('ChatermDatabaseService.getMigrationStatus error:', error)
       throw error
     }
   }
 
   /**
-   * 获取所有迁移状态
+   * Get all migration status
    */
   getAllMigrationStatus(): any[] {
     try {
       const rows = this.db.prepare('SELECT * FROM indexdb_migration_status').all()
       return rows
     } catch (error) {
-      console.error('ChatermDatabaseService.getAllMigrationStatus 错误:', error)
+      console.error('ChatermDatabaseService.getAllMigrationStatus error:', error)
       throw error
     }
   }
 
-  // ==================== Aliases CRUD 方法（核心业务逻辑，永久保留）====================
-  // 注意：这些方法不仅用于 IndexedDB 迁移，更重要的是被正常业务逻辑使用
-  // 依赖方：commandStoreService.ts 通过 IPC handler 'db:aliases:query' 和 'db:aliases:mutate' 调用
-  // 迁移完成后这些方法仍需保留，作为 SQLite 数据库的标准 CRUD 接口
+  // ==================== Aliases CRUD Methods (Core Business Logic, Permanently Reserved) ====================
+  // Note: These methods are not only used for IndexedDB migration, but more importantly by normal business logic
+  // Dependencies: commandStoreService.ts calls via IPC handlers 'db:aliases:query' and 'db:aliases:mutate'
+  // These methods should remain after migration is complete, as standard CRUD interfaces for SQLite database
 
   /**
-   * 获取所有别名
-   * 用途：渲染进程通过 window.api.aliasesQuery({ action: 'getAll' }) 调用
+   * Get all aliases
+   * Usage: Renderer process calls via window.api.aliasesQuery({ action: 'getAll' })
    */
   getAliases(): any[] {
     try {
       const rows = this.db.prepare('SELECT * FROM t_aliases ORDER BY created_at DESC').all()
       return rows
     } catch (error) {
-      console.error('ChatermDatabaseService.getAliases 错误:', error)
+      console.error('ChatermDatabaseService.getAliases error:', error)
       throw error
     }
   }
 
   /**
-   * 根据别名名称获取
-   * 用途：渲染进程通过 window.api.aliasesQuery({ action: 'getByAlias', alias }) 调用
+   * Get by alias name
+   * Usage: Renderer process calls via window.api.aliasesQuery({ action: 'getByAlias', alias })
    */
   getAliasByName(alias: string): any {
     try {
       const row = this.db.prepare('SELECT * FROM t_aliases WHERE alias = ?').get(alias)
       return row || null
     } catch (error) {
-      console.error('ChatermDatabaseService.getAliasByName 错误:', error)
+      console.error('ChatermDatabaseService.getAliasByName error:', error)
       throw error
     }
   }
 
   /**
-   * 搜索别名
-   * 用途：渲染进程通过 window.api.aliasesQuery({ action: 'search', searchText }) 调用
+   * Search aliases
+   * Usage: Renderer process calls via window.api.aliasesQuery({ action: 'search', searchText })
    */
   searchAliases(searchText: string): any[] {
     try {
@@ -415,14 +415,14 @@ export class ChatermDatabaseService {
         .all(`%${searchText}%`, `%${searchText}%`)
       return rows
     } catch (error) {
-      console.error('ChatermDatabaseService.searchAliases 错误:', error)
+      console.error('ChatermDatabaseService.searchAliases error:', error)
       throw error
     }
   }
 
   /**
-   * 保存别名
-   * 用途：渲染进程通过 window.api.aliasesMutate({ action: 'save', data }) 调用
+   * Save alias
+   * Usage: Renderer process calls via window.api.aliasesMutate({ action: 'save', data })
    */
   saveAlias(data: any): void {
     try {
@@ -435,60 +435,60 @@ export class ChatermDatabaseService {
         )
         .run(data.id, data.alias, data.command, data.created_at || Date.now())
     } catch (error) {
-      console.error('ChatermDatabaseService.saveAlias 错误:', error)
+      console.error('ChatermDatabaseService.saveAlias error:', error)
       throw error
     }
   }
 
   /**
-   * 删除别名
-   * 用途：渲染进程通过 window.api.aliasesMutate({ action: 'delete', alias }) 调用
+   * Delete alias
+   * Usage: Renderer process calls via window.api.aliasesMutate({ action: 'delete', alias })
    */
   deleteAlias(alias: string): void {
     try {
       this.db.prepare('DELETE FROM t_aliases WHERE alias = ?').run(alias)
     } catch (error) {
-      console.error('ChatermDatabaseService.deleteAlias 错误:', error)
+      console.error('ChatermDatabaseService.deleteAlias error:', error)
       throw error
     }
   }
 
-  // ==================== Key-Value Store CRUD 方法（核心业务逻辑，永久保留）====================
-  // 注意：这些方法不仅用于 IndexedDB 迁移，更重要的是被正常业务逻辑使用
-  // 依赖方：userConfigStoreService.ts 和 key-storage.ts 通过 IPC handler 'db:kv:get' 和 'db:kv:mutate' 调用
-  // 迁移完成后这些方法仍需保留，作为 SQLite 数据库的标准 CRUD 接口
+  // ==================== Key-Value Store CRUD Methods (Core Business Logic, Permanently Reserved) ====================
+  // Note: These methods are not only used for IndexedDB migration, but more importantly by normal business logic
+  // Dependencies: userConfigStoreService.ts and key-storage.ts call via IPC handlers 'db:kv:get' and 'db:kv:mutate'
+  // These methods should remain after migration is complete, as standard CRUD interfaces for SQLite database
 
   /**
-   * 获取键值对
-   * 用途：渲染进程通过 window.api.kvGet({ key }) 调用
+   * Get key-value pair
+   * Usage: Renderer process calls via window.api.kvGet({ key })
    */
   getKeyValue(key: string): any {
     try {
       const row = this.db.prepare('SELECT * FROM key_value_store WHERE key = ?').get(key)
       return row || null
     } catch (error) {
-      console.error('ChatermDatabaseService.getKeyValue 错误:', error)
+      console.error('ChatermDatabaseService.getKeyValue error:', error)
       throw error
     }
   }
 
   /**
-   * 获取所有键
-   * 用途：渲染进程通过 window.api.kvGet() (不传 key 参数) 调用
+   * Get all keys
+   * Usage: Renderer process calls via window.api.kvGet() (without key parameter)
    */
   getAllKeys(): string[] {
     try {
       const rows = this.db.prepare('SELECT key FROM key_value_store').all() as Array<{ key: string }>
       return rows.map((row) => row.key)
     } catch (error) {
-      console.error('ChatermDatabaseService.getAllKeys 错误:', error)
+      console.error('ChatermDatabaseService.getAllKeys error:', error)
       throw error
     }
   }
 
   /**
-   * 设置键值对
-   * 用途：渲染进程通过 window.api.kvMutate({ action: 'set', key, value }) 调用
+   * Set key-value pair
+   * Usage: Renderer process calls via window.api.kvMutate({ action: 'set', key, value })
    */
   setKeyValue(data: any): void {
     try {
@@ -501,20 +501,20 @@ export class ChatermDatabaseService {
         )
         .run(data.key, data.value, data.updated_at || Date.now())
     } catch (error) {
-      console.error('ChatermDatabaseService.setKeyValue 错误:', error)
+      console.error('ChatermDatabaseService.setKeyValue error:', error)
       throw error
     }
   }
 
   /**
-   * 删除键值对
-   * 用途：渲染进程通过 window.api.kvMutate({ action: 'delete', key }) 调用
+   * Delete key-value pair
+   * Usage: Renderer process calls via window.api.kvMutate({ action: 'delete', key })
    */
   deleteKeyValue(key: string): void {
     try {
       this.db.prepare('DELETE FROM key_value_store WHERE key = ?').run(key)
     } catch (error) {
-      console.error('ChatermDatabaseService.deleteKeyValue 错误:', error)
+      console.error('ChatermDatabaseService.deleteKeyValue error:', error)
       throw error
     }
   }

@@ -4,7 +4,7 @@ import { logger } from '../utils/logger'
 
 export class DatabaseManager {
   private db: Database.Database
-  // 预编译常用SQL语句以提高性能
+  // Pre-compile frequently used SQL statements for better performance
   private markSyncedStmt: Database.Statement
   private markConflictStmt: Database.Statement
   private updateVersionStmt: Database.Statement
@@ -15,7 +15,7 @@ export class DatabaseManager {
     this.db.pragma('journal_mode = WAL')
     this.db.pragma('synchronous = NORMAL')
 
-    // 预编译常用SQL语句
+    // Pre-compile frequently used SQL statements
     this.markSyncedStmt = this.db.prepare(`UPDATE change_log SET sync_status = 'synced' WHERE id = ?`)
     this.markConflictStmt = this.db.prepare(`UPDATE change_log SET sync_status = 'failed', error_message = ? WHERE id = ?`)
     this.updateVersionStmt = this.db.prepare(`UPDATE t_assets SET version = ?, updated_at = datetime('now') WHERE uuid = ?`)
@@ -26,17 +26,17 @@ export class DatabaseManager {
   }
 
   private ensureMetaTables() {
-    // 同步相关的表和索引已在数据库服务初始化时自动检测并创建
-    // 这里不需要额外操作
+    // Sync-related tables and indexes are automatically detected and created during database service initialization
+    // No additional operations needed here
   }
 
   /**
-   * 控制是否记录触发器（用于应用远端变更时抑制回声）
-   * @param enabled 是否启用远程应用保护
+   * Control whether to record triggers (used to suppress echo when applying remote changes)
+   * @param enabled Whether to enable remote apply guard
    */
   setRemoteApplyGuard(enabled: boolean) {
     // const flag = enabled ? '1' : null
-    // 创建/更新标记
+    // Create/update flag
     if (enabled) {
       this.db.prepare(`INSERT INTO sync_meta(key, value) VALUES('apply_remote_guard', '1') ON CONFLICT(key) DO UPDATE SET value='1'`).run()
     } else {
@@ -45,7 +45,7 @@ export class DatabaseManager {
   }
 
   private ensureChangeTriggers() {
-    // 资产表 INSERT/UPDATE/DELETE
+    // Asset table INSERT/UPDATE/DELETE triggers
     this.db.exec(`
       DROP TRIGGER IF EXISTS tr_assets_insert;
       CREATE TRIGGER IF NOT EXISTS tr_assets_insert AFTER INSERT ON t_assets
@@ -71,7 +71,7 @@ export class DatabaseManager {
                   'updated_at', NEW.updated_at,
                   'version', NEW.version
               ));
-        -- 设置同步信号标记
+        -- Set sync signal flag
         INSERT INTO sync_meta(key, value) VALUES('sync_signal', datetime('now'))
         ON CONFLICT(key) DO UPDATE SET value=datetime('now');
       END;
@@ -119,7 +119,7 @@ export class DatabaseManager {
                   'updated_at', OLD.updated_at,
                   'version', OLD.version
                 ));
-        -- 设置同步信号标记
+        -- Set sync signal flag
         INSERT INTO sync_meta(key, value) VALUES('sync_signal', datetime('now'))
         ON CONFLICT(key) DO UPDATE SET value=datetime('now');
       END;
@@ -133,13 +133,13 @@ export class DatabaseManager {
         INSERT INTO change_log (id, table_name, record_uuid, operation_type, change_data, before_data)
         VALUES (hex(randomblob(8)) || '-' || hex(randomblob(4)) || '-' || hex(randomblob(4)) || '-' || hex(randomblob(4)) || '-' || hex(randomblob(12)),
                 't_assets_sync', OLD.uuid, 'DELETE', json_object('uuid', OLD.uuid, 'version', OLD.version), json_object('uuid', OLD.uuid, 'version', OLD.version));
-        -- 设置同步信号标记
+        -- Set sync signal flag
         INSERT INTO sync_meta(key, value) VALUES('sync_signal', datetime('now'))
         ON CONFLICT(key) DO UPDATE SET value=datetime('now');
       END;
     `)
 
-    // 资产链表触发器
+    // Asset chain table triggers
     this.db.exec(`
       DROP TRIGGER IF EXISTS tr_chains_insert;
       CREATE TRIGGER IF NOT EXISTS tr_chains_insert AFTER INSERT ON t_asset_chains
@@ -159,7 +159,7 @@ export class DatabaseManager {
                   'updated_at', NEW.updated_at,
                   'version', NEW.version
                 ));
-        -- 设置同步信号标记
+        -- Set sync signal flag
         INSERT INTO sync_meta(key, value) VALUES('sync_signal', datetime('now'))
         ON CONFLICT(key) DO UPDATE SET value=datetime('now');
       END;
@@ -195,7 +195,7 @@ export class DatabaseManager {
                   'updated_at', OLD.updated_at,
                   'version', OLD.version
                 ));
-        -- 设置同步信号标记
+        -- Set sync signal flag
         INSERT INTO sync_meta(key, value) VALUES('sync_signal', datetime('now'))
         ON CONFLICT(key) DO UPDATE SET value=datetime('now');
       END;
@@ -209,7 +209,7 @@ export class DatabaseManager {
         INSERT INTO change_log (id, table_name, record_uuid, operation_type, change_data, before_data)
         VALUES (hex(randomblob(8)) || '-' || hex(randomblob(4)) || '-' || hex(randomblob(4)) || '-' || hex(randomblob(4)) || '-' || hex(randomblob(12)),
                 't_asset_chains_sync', OLD.uuid, 'DELETE', json_object('uuid', OLD.uuid, 'version', OLD.version), json_object('uuid', OLD.uuid, 'version', OLD.version));
-        -- 设置同步信号标记
+        -- Set sync signal flag
         INSERT INTO sync_meta(key, value) VALUES('sync_signal', datetime('now'))
         ON CONFLICT(key) DO UPDATE SET value=datetime('now');
       END;
@@ -241,8 +241,8 @@ export class DatabaseManager {
   }
 
   /**
-   * 获取待同步的变更记录
-   * @returns 待同步的变更记录数组
+   * Get pending change records to be synced
+   * @returns Array of pending change records
    */
   getPendingChanges(): ChangeRecord[] {
     const stmt = this.db.prepare(`
@@ -257,7 +257,7 @@ export class DatabaseManager {
   }
 
   /**
-   * 分页获取待同步变更
+   * Get pending changes with pagination
    */
   getPendingChangesPage(tableName: string, limit: number, offset: number): ChangeRecord[] {
     const stmt = this.db.prepare(`
@@ -275,7 +275,7 @@ export class DatabaseManager {
   }
 
   /**
-   * 获取待同步变更总数
+   * Get total count of pending changes
    */
   getTotalPendingChangesCount(tableName: string): number {
     const result = this.db
@@ -291,12 +291,12 @@ export class DatabaseManager {
   }
 
   /**
-   * 获取历史数据数量
-   * 历史数据指：存在于数据表中但不在change_log中的数据
+   * Get count of historical data
+   * Historical data refers to data that exists in the data table but not in change_log
    */
   getHistoricalDataCount(tableName: string): number {
     try {
-      // 检查表是否存在
+      // Check if table exists
       const tableExists = this.db
         .prepare(
           `
@@ -307,22 +307,22 @@ export class DatabaseManager {
         .get(tableName)
 
       if (!tableExists) {
-        console.log(`表 ${tableName} 不存在`)
+        console.log(`Table ${tableName} does not exist`)
         return 0
       }
 
-      // 获取表中的总记录数
+      // Get total record count in the table
       const totalStmt = this.db.prepare(`SELECT COUNT(*) as count FROM ${tableName}`)
       const totalResult = totalStmt.get() as { count: number }
       const totalCount = totalResult.count
 
       if (totalCount === 0) {
-        console.log(`表 ${tableName} 为空`)
+        console.log(`Table ${tableName} is empty`)
         return 0
       }
 
-      // 查询在change_log中已记录的数据数量
-      // 需要同时检查本地表名和同步表名
+      // Query the count of data already recorded in change_log
+      // Need to check both local table name and sync table name
       const syncTableName = tableName + '_sync'
       const loggedStmt = this.db.prepare(`
         SELECT COUNT(DISTINCT record_uuid) as count
@@ -336,18 +336,18 @@ export class DatabaseManager {
 
       const historicalCount = totalCount - loggedCount
 
-      console.log(`表 ${tableName} 历史数据检测: 总数=${totalCount}, 已记录=${loggedCount}, 历史数据=${historicalCount}`)
+      console.log(`Table ${tableName} historical data check: total=${totalCount}, logged=${loggedCount}, historical=${historicalCount}`)
 
       return Math.max(0, historicalCount)
     } catch (error) {
-      console.warn(`检查历史数据失败 (${tableName}):`, error)
+      console.warn(`Failed to check historical data (${tableName}):`, error)
       return 0
     }
   }
 
   /**
-   * 标记变更记录为已同步
-   * @param ids 变更记录ID数组
+   * Mark change records as synced
+   * @param ids Array of change record IDs
    */
   markChangesSynced(ids: string[]) {
     if (ids.length === 0) return
@@ -358,9 +358,9 @@ export class DatabaseManager {
   }
 
   /**
-   * 标记变更记录为冲突状态
-   * @param ids 变更记录ID数组
-   * @param reason 冲突原因
+   * Mark change records as conflicted
+   * @param ids Array of change record IDs
+   * @param reason Conflict reason
    */
   markChangesConflict(ids: string[], reason: string) {
     if (ids.length === 0) return
@@ -371,17 +371,17 @@ export class DatabaseManager {
   }
 
   /**
-   * 设置记录版本号
-   * @param tableName 表名
-   * @param uuid 记录UUID
-   * @param newVersion 新版本号
+   * Set record version number
+   * @param tableName Table name
+   * @param uuid Record UUID
+   * @param newVersion New version number
    */
   setVersion(tableName: string, uuid: string, newVersion: number) {
     if (!uuid || !newVersion) {
       return
     }
 
-    // 启用远程应用保护，避免版本号更新触发变更记录
+    // Enable remote apply guard to prevent version update from triggering change records
     this.setRemoteApplyGuard(true)
     try {
       if (tableName === 't_assets_sync') {
@@ -389,19 +389,19 @@ export class DatabaseManager {
       } else if (tableName === 't_asset_chains_sync') {
         this.updateChainVersionStmt.run(newVersion, uuid)
       } else {
-        console.log(`⚠️ 未知表名: ${tableName}`)
+        console.log(`⚠️ Unknown table name: ${tableName}`)
       }
     } finally {
-      // 确保在任何情况下都会关闭远程应用保护
+      // Ensure remote apply guard is disabled in all cases
       this.setRemoteApplyGuard(false)
     }
   }
 
   /**
-   * 递增记录版本号（保留向后兼容）
-   * @param tableName 表名
-   * @param uuid 记录UUID
-   * @param currentVersion 当前版本号
+   * Increment record version number (maintains backward compatibility)
+   * @param tableName Table name
+   * @param uuid Record UUID
+   * @param currentVersion Current version number
    */
   bumpVersion(tableName: string, uuid: string, currentVersion: number) {
     this.setVersion(tableName, uuid, currentVersion + 1)
@@ -428,18 +428,18 @@ export class DatabaseManager {
     ]
     const placeholders = columns.map(() => '?').join(',')
 
-    // 修复：确保所有值都是 SQLite 支持的类型
+    // Fix: Ensure all values are SQLite-supported types
     const values = columns.map((c) => {
       const value = (asset as any)[c]
-      // 将 undefined 转换为 null
+      // Convert undefined to null
       if (value === undefined) return null
-      // 确保数字类型正确
+      // Ensure number type is correct
       if (typeof value === 'number') return value
-      // 确保字符串类型正确
+      // Ensure string type is correct
       if (typeof value === 'string') return value
-      // 确保布尔值转换为数字
+      // Ensure boolean values are converted to numbers
       if (typeof value === 'boolean') return value ? 1 : 0
-      // 其他类型转换为字符串
+      // Convert other types to strings
       if (value !== null && typeof value === 'object') {
         return JSON.stringify(value)
       }
@@ -457,13 +457,13 @@ export class DatabaseManager {
     try {
       this.db.prepare(sql).run(...values)
     } catch (error) {
-      console.error(' SQLite 执行失败:', error)
-      console.error(' SQL:', sql)
-      console.error(' Values:', values)
+      console.error('SQLite execution failed:', error)
+      console.error('SQL:', sql)
+      console.error('Values:', values)
       throw error
     }
 
-    // 直接触发增量同步
+    // Trigger incremental sync directly
     this.triggerIncrementalSync()
   }
 
@@ -482,75 +482,75 @@ export class DatabaseManager {
     ]
     const placeholders = columns.map(() => '?').join(',')
 
-    // 修复：确保所有值都是 SQLite 支持的类型
+    // Fix: Ensure all values are SQLite-supported types
     const values = columns.map((c) => {
       const value = (chain as any)[c]
-      // 将 undefined 转换为 null
+      // Convert undefined to null
       if (value === undefined) return null
-      // 确保数字类型正确
+      // Ensure number type is correct
       if (typeof value === 'number') return value
-      // 确保字符串类型正确
+      // Ensure string type is correct
       if (typeof value === 'string') return value
-      // 确保布尔值转换为数字
+      // Ensure boolean values are converted to numbers
       if (typeof value === 'boolean') return value ? 1 : 0
-      // 其他类型转换为字符串
+      // Convert other types to strings
       if (value !== null && typeof value === 'object') {
         return JSON.stringify(value)
       }
       return value
     })
 
-    // 修复：使用 INSERT OR REPLACE 替代 ON CONFLICT，避免约束问题
+    // Fix: Use INSERT OR REPLACE instead of ON CONFLICT to avoid constraint issues
     const sql = `INSERT OR REPLACE INTO t_asset_chains (${columns.join(',')}) VALUES (${placeholders})`
 
     try {
       this.db.prepare(sql).run(...values)
     } catch (error) {
-      console.error(' SQLite 执行失败:', error)
-      console.error(' SQL:', sql)
-      console.error(' Values:', values)
+      console.error('SQLite execution failed:', error)
+      console.error('SQL:', sql)
+      console.error('Values:', values)
       throw error
     }
 
-    // 直接触发增量同步
+    // Trigger incremental sync directly
     this.triggerIncrementalSync()
   }
 
   deleteAssetByUUID(uuid: string) {
     this.db.prepare(`DELETE FROM t_assets WHERE uuid = ?`).run(uuid)
 
-    // 直接触发增量同步
+    // Trigger incremental sync directly
     this.triggerIncrementalSync()
   }
 
   deleteAssetChainByUUID(uuid: string) {
     this.db.prepare(`DELETE FROM t_asset_chains WHERE uuid = ?`).run(uuid)
 
-    // 直接触发增量同步
+    // Trigger incremental sync directly
     this.triggerIncrementalSync()
   }
 
   /**
-   * 触发增量同步
-   * 数据变更后调用，触发立即同步
+   * Trigger incremental sync
+   * Called after data changes to trigger immediate sync
    */
   private triggerIncrementalSync(): void {
-    // 检查是否处于远程应用保护状态，如果是则跳过触发
+    // Check if in remote apply guard state, skip trigger if so
     try {
       const guardResult = this.db.prepare(`SELECT value FROM sync_meta WHERE key = 'apply_remote_guard'`).get()
       if (guardResult) return
     } catch (error) {
-      // 查询失败时继续执行同步
+      // Continue sync execution if query fails
     }
 
-    // 使用动态导入避免循环依赖
+    // Use dynamic import to avoid circular dependencies
     setImmediate(async () => {
       try {
         const { SyncController } = await import('./SyncController')
         await SyncController.triggerIncrementalSync()
       } catch (error) {
-        logger.warn('触发增量同步失败:', error)
-        // 不抛出异常，避免影响数据库操作
+        logger.warn('Failed to trigger incremental sync:', error)
+        // Don't throw exception to avoid affecting database operations
       }
     })
   }
@@ -574,8 +574,8 @@ export class DatabaseManager {
   }
 
   /**
-   * 获取数据库实例
-   * 提供给新的同步管理器使用
+   * Get database instance
+   * Provided for use by the new sync manager
    */
   async getDatabase(): Promise<DatabaseTransaction> {
     return new DatabaseTransaction(this.db)
@@ -583,8 +583,8 @@ export class DatabaseManager {
 }
 
 /**
- * 数据库事务包装器
- * 提供与新同步管理器兼容的接口
+ * Database transaction wrapper
+ * Provides interface compatible with the new sync manager
  */
 class DatabaseTransaction {
   constructor(private db: Database.Database) {}
@@ -618,8 +618,8 @@ class DatabaseTransaction {
   }
 
   async transaction<T>(callback: (tx: DatabaseTransaction) => Promise<T>): Promise<T> {
-    // better-sqlite3 事务必须是同步的，所以我们需要特殊处理
-    // 对于异步操作，我们不使用 better-sqlite3 的事务，而是手动管理
+    // better-sqlite3 transactions must be synchronous, so we need special handling
+    // For async operations, we don't use better-sqlite3 transactions, but manage them manually
     try {
       await this.run('BEGIN TRANSACTION')
       const result = await callback(this)

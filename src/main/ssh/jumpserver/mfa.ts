@@ -13,7 +13,7 @@ export const handleJumpServerKeyboardInteractive = (event, id, prompts, finish) 
       ipcMain.removeAllListeners(`ssh:keyboard-interactive-cancel:${id}`)
       finish([])
       event.sender.send('ssh:keyboard-interactive-timeout', { id })
-      reject(new Error('二次验证超时'))
+      reject(new Error('Two-factor authentication timeout'))
     }, 30000)
 
     ipcMain.once(`ssh:keyboard-interactive-response:${id}`, (_evt, responses) => {
@@ -26,7 +26,7 @@ export const handleJumpServerKeyboardInteractive = (event, id, prompts, finish) 
     ipcMain.once(`ssh:keyboard-interactive-cancel:${id}`, () => {
       clearTimeout(timeoutId)
       finish([])
-      reject(new Error('用户取消了二次验证'))
+      reject(new Error('User cancelled two-factor authentication'))
     })
   })
 }

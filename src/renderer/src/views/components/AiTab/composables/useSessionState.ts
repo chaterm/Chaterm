@@ -11,7 +11,6 @@ export interface SessionState {
   chatHistory: ChatMessage[] // Chat history list
   lastChatMessageId: string // ID of the last message
   responseLoading: boolean // Whether response is loading
-  showCancelButton: boolean // Whether to show cancel button
   showRetryButton: boolean // Whether to show retry button
   showNewTaskButton: boolean // Whether to show new task button
   showSendButton: boolean // Whether to show send button
@@ -53,7 +52,6 @@ export const useSessionState = createGlobalState(() => {
     chatHistory: [],
     lastChatMessageId: '',
     responseLoading: false,
-    showCancelButton: false,
     showRetryButton: false,
     showNewTaskButton: false,
     showSendButton: true,
@@ -129,7 +127,6 @@ export const useSessionState = createGlobalState(() => {
 
   const lastChatMessageId = computed(() => currentSession.value?.lastChatMessageId ?? '')
   const responseLoading = computed(() => currentSession.value?.responseLoading ?? false)
-  const showCancelButton = computed(() => currentSession.value?.showCancelButton ?? false)
   const chatHistory = computed(() => currentSession.value?.chatHistory ?? [])
   const showSendButton = computed(() => currentSession.value?.showSendButton ?? true)
   const buttonsDisabled = computed(() => currentSession.value?.buttonsDisabled ?? false)
@@ -229,7 +226,6 @@ export const useSessionState = createGlobalState(() => {
     shouldStickToBottom,
     lastChatMessageId,
     responseLoading,
-    showCancelButton,
     chatHistory,
     filteredChatHistory,
     showSendButton,

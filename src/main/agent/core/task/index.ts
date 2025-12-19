@@ -281,7 +281,7 @@ export class Task {
   }
 
   private async executeCommandInRemoteServer(command: string, ip?: string, cwd?: string): Promise<string> {
-    // 如果是本地主机，使用本地执行
+    // If it's local host, use local execution
     if (this.isLocalHost(ip)) {
       return this.executeCommandInLocalHost(command, cwd)
     }
@@ -413,7 +413,7 @@ export class Task {
             say: 'sshInfo',
             text: this.messages.sshConnectionStarting
               ? formatMessage(this.messages.sshConnectionStarting, { host: hostLabel })
-              : ` 开始连接服务器(${hostLabel})...`,
+              : ` Connecting to server (${hostLabel})...`,
             partial: false
           }
         })
@@ -432,7 +432,7 @@ export class Task {
               say: 'sshInfo',
               text: this.messages.sshConnectionSuccess
                 ? formatMessage(this.messages.sshConnectionSuccess, { host: hostLabel })
-                : `服务器连接成功(${hostLabel})`,
+                : `Server connected successfully (${hostLabel})`,
               partial: false
             }
           })
@@ -454,7 +454,7 @@ export class Task {
           say: 'sshInfo',
           text: this.messages.sshConnectionFailed
             ? formatMessage(this.messages.sshConnectionFailed, { host: hostLabel })
-            : `服务器连接失败(${hostLabel}): ${error instanceof Error ? error.message : String(error)}`,
+            : `Server connection failed (${hostLabel}): ${error instanceof Error ? error.message : String(error)}`,
           partial: false
         }
       })
@@ -469,7 +469,7 @@ export class Task {
 
   // Get terminal manager (public method)
   /**
-   * 重新加载安全配置（用于配置文件更新后立即生效）
+   * Reload security configuration (for immediate effect after config file update)
    */
   async reloadSecurityConfig(): Promise<void> {
     if (this.commandSecurityManager) {
@@ -861,23 +861,23 @@ export class Task {
 
     this.isInitialized = true
 
-    // 构建初始用户内容
+    // Build initial user content
     let initialUserContent: UserContent = [
       {
         type: 'text',
         text: `<task>\n${task}\n</task>`
       }
     ]
-    // 智能检测：检查是否需要创建 todo
+    // Smart detection: check if todo needs to be created
     if (task) {
       await this.checkAndCreateTodoIfNeeded(task)
-      // 将智能检测添加的系统消息包含到初始用户内容中
+      // Include system messages added by smart detection into initial user content
       if (this.userMessageContent.length > 0) {
         initialUserContent.push(...this.userMessageContent)
       }
     }
 
-    // 检查是否有系统提醒需要包含在初始请求中
+    // Check if there are system reminders that need to be included in initial request
     if (this.apiConversationHistory.length > 0) {
       const lastMessage = this.apiConversationHistory[this.apiConversationHistory.length - 1]
       if (lastMessage.role === 'user') {
@@ -889,9 +889,9 @@ export class Task {
         )
 
         if (hasSystemCommand) {
-          // 将系统提醒添加到初始用户内容中
+          // Add system reminder to initial user content
           initialUserContent.push(...lastContent)
-          // 从对话历史中移除，避免重复
+          // Remove from conversation history to avoid duplication
           this.apiConversationHistory.pop()
         }
       }
@@ -1109,7 +1109,7 @@ export class Task {
   }
 
   /**
-   * 在本地主机执行命令工具
+   * Execute command tool on local host
    */
   async executeLocalCommandTool(command: string): Promise<ToolResponse> {
     let result = ''
@@ -1227,7 +1227,7 @@ export class Task {
   }
 
   async executeCommandTool(command: string, ip: string): Promise<ToolResponse> {
-    // 如果是本地主机，使用本地执行
+    // If it's local host, use local execution
     if (this.isLocalHost(ip)) {
       return this.executeLocalCommandTool(command)
     }
@@ -1506,7 +1506,7 @@ export class Task {
       throw new Error('Chaterm instance aborted')
     }
 
-    // 检查用户输入是否需要创建 todo（用于后续对话）
+    // Check if user input needs todo creation (for subsequent conversations)
     await this.checkUserContentForTodo(userContent)
 
     await this.recordModelUsage()
@@ -2070,7 +2070,7 @@ export class Task {
         if (!ip) return this.handleMissingParam('ip', toolDescription)
         if (!requiresApprovalRaw) return this.handleMissingParam('requires_approval', toolDescription)
         command = decodeHtmlEntities(command)
-        // 执行安全检查
+        // Perform security check
         const securityCheck = await this.performCommandSecurityCheck(command, toolDescription)
         if (securityCheck.shouldReturn) {
           return
@@ -2082,13 +2082,13 @@ export class Task {
         const chatSettings = await getGlobalState('chatSettings')
 
         if (chatSettings?.mode === 'cmd' || needsSecurityApproval) {
-          // 如果需要安全确认，先显示安全警告
+          // If security confirmation needed, show security warning first
           if (needsSecurityApproval) {
             this.removeLastPartialMessageIfExistsWithType('ask', 'command')
             await this.say('error', securityMessage, false)
           }
 
-          // 统一进行用户确认（包括安全确认和命令执行确认）
+          // Unified user confirmation (including security confirmation and command execution confirmation)
           const didApprove = await this.askApproval(toolDescription, 'command', command)
           if (!didApprove) {
             if (needsSecurityApproval) {
@@ -2098,12 +2098,12 @@ export class Task {
             return
           }
 
-          // 只有cmd模式才直接返回，等待前端执行命令
+          // Only cmd mode returns directly, wait for frontend to execute command
           if (chatSettings?.mode === 'cmd') {
             // Wait for frontend to execute command and return result
             return
           }
-          // agent模式下继续执行后续逻辑
+          // In agent mode, continue executing subsequent logic
         }
 
         const autoApproveResult = this.shouldAutoApproveTool(block.name)
@@ -2113,12 +2113,12 @@ export class Task {
         if (isInteractive && chatSettings?.mode === 'agent') {
           await this.say('interactive_command_notification', `${this.messages.interactiveCommandNotification}`, false)
         }
-        // 如果已经通过安全确认，跳过自动批准逻辑
+        // If security confirmation already passed, skip auto-approval logic
         if (
           !needsSecurityApproval &&
           ((!requiresApprovalPerLLM && autoApproveSafe) || (requiresApprovalPerLLM && autoApproveSafe && autoApproveAll))
         ) {
-          // 自动批准模式下，无安全风险的命令直接执行
+          // In auto-approval mode, commands without security risks execute directly
           this.removeLastPartialMessageIfExistsWithType('ask', 'command')
           await this.say('command', command, false)
           this.consecutiveAutoApprovedRequestsCount++
@@ -2155,7 +2155,7 @@ export class Task {
 
         this.pushToolResult(toolDescription, result)
 
-        // 记录工具调用到活跃的 todo
+        // Record tool call to active todo
         try {
           await TodoToolCallTracker.recordToolCall(this.taskId, 'execute_command', {
             command: command!,
@@ -2163,10 +2163,10 @@ export class Task {
           })
         } catch (error) {
           console.error('Failed to track tool call:', error)
-          // 不影响主要功能，只记录错误
+          // Don't affect main functionality, only log error
         }
 
-        // 添加 todo 状态更新提醒
+        // Add todo status update reminder
         await this.addTodoStatusUpdateReminder(result)
 
         await this.saveCheckpoint()
@@ -2183,10 +2183,10 @@ export class Task {
     return this.saveCheckpoint()
   }
   /**
-   * 执行命令安全检查
-   * @param command 要检查的命令
-   * @param toolDescription 工具描述，用于错误报告
-   * @returns 安全检查结果
+   * Perform command security check
+   * @param command Command to check
+   * @param toolDescription Tool description, used for error reporting
+   * @returns Security check result
    */
   private async performCommandSecurityCheck(
     command: string,
@@ -2198,34 +2198,34 @@ export class Task {
   }> {
     console.log('this.commandSecurityManager.getSecurityConfig()', this.commandSecurityManager.getSecurityConfig())
 
-    // 安全检查：验证命令是否在黑名单中
+    // Security check: verify if command is in blacklist
     const securityResult = this.commandSecurityManager.validateCommandSecurity(command)
     console.log('securityResult', securityResult)
 
-    // 标识是否需要安全确认
+    // Identify if security confirmation is needed
     let needsSecurityApproval = false
     let securityMessage = ''
 
     if (!securityResult.isAllowed) {
       if (securityResult.requiresApproval) {
-        // 需要用户确认的危险命令
+        // Dangerous command requiring user confirmation
         needsSecurityApproval = true
         securityMessage = `${this.messages.dangerousCommandDetected}\n${formatMessage(this.messages.securityReason, { reason: securityResult.reason })}\n${formatMessage(this.messages.securityDegree, { severity: securityResult.severity })}\n${this.messages.securityConfirmationRequired}\n\n${this.messages.securitySettingsLink}`
       } else {
-        // 直接阻止的命令
+        // Command that is directly blocked
         const blockedMessage = formatMessage(this.messages.commandBlocked, {
           command: command,
           reason: securityResult.reason
         })
         const fullBlockedMessage = `${blockedMessage}\n\n${this.messages.securitySettingsLink}`
         await this.say('command_blocked', fullBlockedMessage, false)
-        // 向LLM返回工具执行被阻止的结果，使用关键词触发安全停止机制
+        // Return tool execution blocked result to LLM, use keyword to trigger security stop mechanism
         this.pushToolResult(toolDescription, `command_blocked! ${blockedMessage}`)
         await this.saveCheckpoint()
         return { needsSecurityApproval: false, securityMessage: '', shouldReturn: true }
       }
     } else if (securityResult.requiresApproval) {
-      // 命令被允许但需要用户确认
+      // Command is allowed but requires user confirmation
       needsSecurityApproval = true
       securityMessage = `${this.messages.dangerousCommandDetected}\n${formatMessage(this.messages.securityReason, { reason: securityResult.reason })}\n${formatMessage(this.messages.securityDegree, { severity: securityResult.severity })}\n${this.messages.securityConfirmationRequired}\n\n${this.messages.securitySettingsLink}`
     }
@@ -2653,9 +2653,9 @@ export class Task {
       }
     }
 
-    // 处理不完整的工具调用
+    // Handle incomplete tool calls
     if (block.partial) {
-      // 对于不完整的工具调用，我们不执行，等待完整的调用
+      // For incomplete tool calls, we don't execute, wait for complete call
       return
     }
 
@@ -2694,7 +2694,7 @@ export class Task {
         await this.handleAccessMcpResourceUse(block)
         break
       default:
-        console.error(`[Task] 未知的工具名称: ${block.name}`)
+        console.error(`[Task] Unknown tool name: ${block.name}`)
     }
     if (!block.name.startsWith('todo_') && block.name !== 'ask_followup_question' && block.name !== 'attempt_completion') {
       await this.addTodoStatusUpdateReminder('')
@@ -2839,7 +2839,7 @@ export class Task {
           }
         }
 
-        // 检查是否需要显示（非自动批准的工具才显示）
+        // Check if needs to display (only non-auto-approved tools display)
         const autoApproveResult = this.shouldAutoApproveMcpTool(partialServerName, partialToolName)
         if (!autoApproveResult) {
           await this.ask('mcp_tool_call', '', block.partial, {
@@ -2918,7 +2918,7 @@ export class Task {
       const autoApprove = (server.autoApprove || []).includes(toolName)
 
       if (!autoApprove) {
-        // 需要用户批准
+        // Requires user approval
         const { response, text } = await this.ask('mcp_tool_call', '', false, {
           serverName,
           toolName,
@@ -2941,7 +2941,7 @@ export class Task {
           await this.saveCheckpoint()
         }
       } else {
-        // 自动批准 - 移除可能存在的 partial mcp_tool_call 消息
+        // Auto approve - remove possible partial mcp_tool_call message
         this.removeLastPartialMessageIfExistsWithType('ask', 'mcp_tool_call')
       }
 
@@ -2951,7 +2951,7 @@ export class Task {
       const resultText = this.formatMcpToolCallResponse(result)
       this.pushToolResult(toolDescription, resultText)
 
-      // 发送工具执行结果到前端
+      // Send tool execution result to frontend
       await this.say('command_output', resultText, false)
 
       await this.saveCheckpoint()
@@ -2991,11 +2991,11 @@ export class Task {
 
       const resourceResponse = await this.mcpHub.readResource(serverName, uri)
 
-      // 6. 处理返回结果
+      // 6. Handle return result
       const resultText = this.formatMcpResourceResponse(resourceResponse)
       this.pushToolResult(toolDescription, resultText)
 
-      // 发送资源访问结果到前端
+      // Send resource access result to frontend
       await this.say('command_output', resultText, false)
 
       await this.saveCheckpoint()
@@ -3006,7 +3006,7 @@ export class Task {
   }
 
   /**
-   * 检查 MCP 工具是否应该自动批准
+   * Check if MCP tool should be auto-approved
    */
   private shouldAutoApproveMcpTool(serverName: string, toolName: string): boolean {
     const mcpServers = this.mcpHub.getActiveServers()
@@ -3018,7 +3018,7 @@ export class Task {
   }
 
   /**
-   * 格式化 MCP 工具调用响应
+   * Format MCP tool call response
    */
   private formatMcpToolCallResponse(response: import('@shared/mcp').McpToolCallResponse): string {
     if (response.isError) {
@@ -3042,7 +3042,7 @@ export class Task {
   }
 
   /**
-   * 格式化 MCP 资源响应
+   * Format MCP resource response
    */
   private formatMcpResourceResponse(response: import('@shared/mcp').McpResourceResponse): string {
     const parts: string[] = []
@@ -3209,7 +3209,7 @@ export class Task {
 
             let systemInfoOutput: string
 
-            // 如果是本地主机，直接获取系统信息
+            // If it's local host, directly get system information
             if (this.isLocalHost(host.host)) {
               const localSystemInfo = await this.localTerminalManager.getSystemInfo()
               systemInfoOutput = `OS_VERSION:${localSystemInfo.osVersion}
@@ -3307,7 +3307,7 @@ SUDO_CHECK:${localSystemInfo.sudoCheck}`
           const isLocalConnection = host.connection?.toLowerCase?.() === 'localhost' || this.isLocalHost(host.host) || host.uuid === 'localhost'
 
           if (chatSettings?.mode === 'agent' && isLocalConnection) {
-            const errorMessage = 'Error: Agent模式下连不上本地连接的目标机器，请新建任务选择Command模式操作。'
+            const errorMessage = 'Error: Cannot connect to local target machine in Agent mode, please create a new task and select Command mode.'
             await this.ask('ssh_con_failed', errorMessage, false)
             await this.abortTask()
           }
@@ -3348,7 +3348,7 @@ SUDO_CHECK:${localSystemInfo.sudoCheck}`
   }
 
   /**
-   * 构建 MCP 工具和资源的系统提示词部分
+   * Build MCP tools and resources system prompt section
    */
   private async buildMcpToolsSection(userLanguage: string): Promise<string | null> {
     try {
@@ -3403,7 +3403,7 @@ SUDO_CHECK:${localSystemInfo.sudoCheck}`
 
         let serverDesc = `### Server: ${server.name}\n`
 
-        // 添加工具列表
+        // Add tools list
         if (enabledTools.length > 0) {
           const toolsLabel = isChinese ? '工具' : 'Tools'
           serverDesc += `- **${toolsLabel}** (${enabledTools.length} available):\n`
@@ -3419,7 +3419,7 @@ SUDO_CHECK:${localSystemInfo.sudoCheck}`
           })
         }
 
-        // 添加资源列表
+        // Add resources list
         if (resources.length > 0 || resourceTemplates.length > 0) {
           const resourcesLabel = isChinese ? '资源' : 'Resources'
           serverDesc += `- **${resourcesLabel}** (${resources.length + resourceTemplates.length} available):\n`
@@ -3452,39 +3452,39 @@ SUDO_CHECK:${localSystemInfo.sudoCheck}`
     }
   }
 
-  // Todo 工具处理方法
+  // Todo tool handling methods
   private async handleTodoWriteToolUse(block: ToolUse): Promise<void> {
     try {
       const todosParam = (block as { params?: { todos?: unknown } }).params?.todos
 
       if (todosParam === undefined || todosParam === null) {
-        this.pushToolResult(this.getToolDescription(block), 'Todo 写入失败: 缺少 todos 参数', { dontLock: true })
+        this.pushToolResult(this.getToolDescription(block), 'Todo write failed: missing todos parameter', { dontLock: true })
         return
       }
 
       let todos: Todo[]
-      // 支持字符串(JSON文本)和已结构化的数组/对象两种形式
+      // Support both string (JSON text) and structured array/object forms
       if (typeof todosParam === 'string') {
         try {
           todos = JSON.parse(todosParam) as Todo[]
         } catch (parseError) {
-          this.pushToolResult(this.getToolDescription(block), `Todo 写入失败: JSON 解析错误 - ${parseError}`, { dontLock: true })
+          this.pushToolResult(this.getToolDescription(block), `Todo write failed: JSON parse error - ${parseError}`, { dontLock: true })
           return
         }
       } else if (Array.isArray(todosParam)) {
         todos = todosParam as Todo[]
       } else if (typeof todosParam === 'object') {
-        // 某些模型/解析器可能直接传对象（例如 { todos: [...] }），这里做兼容
-        // 若对象本身看起来就是 todos 数组的包装，则尝试提取
+        // Some models/parsers may directly pass objects (e.g., { todos: [...] }), handle compatibility here
+        // If the object itself looks like a wrapper for todos array, try to extract
         if (Array.isArray((todosParam as { todos?: unknown[] }).todos)) {
           todos = (todosParam as { todos: Todo[] }).todos
         } else {
-          // 也可能直接是单个 todo 对象，统一包裹为数组
+          // Could also be a single todo object directly, wrap uniformly as array
           todos = [todosParam as Todo]
         }
       } else {
-        console.error(`[Task] 不支持的 todos 参数类型: ${typeof todosParam}`)
-        this.pushToolResult(this.getToolDescription(block), 'Todo 写入失败: todos 参数类型不受支持', { dontLock: true })
+        console.error(`[Task] Unsupported todos parameter type: ${typeof todosParam}`)
+        this.pushToolResult(this.getToolDescription(block), 'Todo write failed: todos parameter type not supported', { dontLock: true })
         return
       }
 
@@ -3494,7 +3494,7 @@ SUDO_CHECK:${localSystemInfo.sudoCheck}`
       // Allow todo_write to be combined with another tool in the same message
       this.pushToolResult(this.getToolDescription(block), result, { dontLock: true })
 
-      // 发送 todo 更新事件到渲染进程
+      // Send todo update event to renderer process
       await this.postMessageToWebview({
         type: 'todoUpdated',
         todos: todos,
@@ -3504,8 +3504,8 @@ SUDO_CHECK:${localSystemInfo.sudoCheck}`
         triggerReason: 'agent_update'
       })
     } catch (error) {
-      console.error(`[Task] todo_write 工具调用处理失败:`, error)
-      this.pushToolResult(this.getToolDescription(block), `Todo 写入失败: ${error instanceof Error ? error.message : String(error)}`, {
+      console.error(`[Task] todo_write tool call handling failed:`, error)
+      this.pushToolResult(this.getToolDescription(block), `Todo write failed: ${error instanceof Error ? error.message : String(error)}`, {
         dontLock: true
       })
     }
@@ -3513,7 +3513,7 @@ SUDO_CHECK:${localSystemInfo.sudoCheck}`
 
   private async handleTodoReadToolUse(block: ToolUse): Promise<void> {
     try {
-      const params: TodoReadParams = {} // TodoRead 不需要参数
+      const params: TodoReadParams = {} // TodoRead doesn't need parameters
       const result = await TodoReadTool.execute(params, this.taskId)
       // Allow todo_read to be combined with another tool in the same message
       this.pushToolResult(this.getToolDescription(block), result, { dontLock: true })

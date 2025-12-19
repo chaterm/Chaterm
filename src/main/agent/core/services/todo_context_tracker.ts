@@ -29,7 +29,7 @@ export class TodoContextTracker {
     return this.activeTodoId !== null
   }
 
-  // 清理会话实例（可选，用于内存管理）
+  // Clear session instance (optional, for memory management)
   static clearSession(sessionId: string): void {
     this.instances.delete(sessionId)
   }

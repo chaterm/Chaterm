@@ -3,12 +3,12 @@ import { TodoReminderService } from '../../services/todo_reminder_service'
 import { TodoWriteTool } from './todo_write_tool'
 
 export type TodoReadParams = {
-  // 空参数，读取当前任务的所有 todos
+  // Empty params, read all todos for current task
 }
 
 export class TodoReadTool {
   static readonly name = 'todo_read'
-  static readonly description = '读取当前会话的 todo 列表，返回所有任务的状态和内容'
+  static readonly description = 'Read the todo list for the current session, return all task statuses and content'
 
   static readonly parameterSchema = {
     type: 'object',
@@ -25,10 +25,10 @@ export class TodoReadTool {
         const reminderService = new TodoReminderService()
         const reminder = reminderService.getReminderForEmptyTodos(true)
 
-        return `## 运维任务列表\n\n暂无任务。\n\n对于复杂的服务端运维操作，建议使用 todo_write 工具创建任务列表来确保所有步骤都被正确执行。${reminder ? '\n\n' + reminder : ''}`
+        return `## Operations Task List\n\nNo tasks yet.\n\nFor complex server operations, it is recommended to use the todo_write tool to create a task list to ensure all steps are executed correctly.${reminder ? '\n\n' + reminder : ''}`
       }
 
-      // 少于 3 项时不展示清单，提示直接执行
+      // Don't show checklist when less than 3 items, prompt to execute directly
       if (todos.length < 3) {
         const hasChinese = todos.some((t) => /[\u4e00-\u9fff]/.test(t.content) || (t.description && /[\u4e00-\u9fff]/.test(t.description)))
         return hasChinese
@@ -38,7 +38,7 @@ export class TodoReadTool {
 
       return TodoWriteTool.generateOutput(todos)
     } catch (error) {
-      throw new Error(`Todo 读取失败: ${error instanceof Error ? error.message : String(error)}`)
+      throw new Error(`Todo read failed: ${error instanceof Error ? error.message : String(error)}`)
     }
   }
 }

@@ -2,7 +2,7 @@ import Database from 'better-sqlite3'
 
 export async function upgradeAgentTaskMetadataSupport(db: Database.Database): Promise<void> {
   try {
-    // 检查 todos 字段是否已存在
+    // Check if todos field already exists
     const tableInfo = db.prepare('PRAGMA table_info(agent_task_metadata_v1)').all()
     const todosColumnExists = tableInfo.some((col: any) => col.name === 'todos')
 
@@ -14,7 +14,7 @@ export async function upgradeAgentTaskMetadataSupport(db: Database.Database): Pr
       console.log('Todos column already exists, skipping migration')
     }
 
-    // 为现有任务初始化空的 todos 数组
+    // Initialize empty todos array for existing tasks
     const updateStmt = db.prepare(`
       UPDATE agent_task_metadata_v1 
       SET todos = '[]' 

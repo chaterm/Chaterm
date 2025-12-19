@@ -76,9 +76,9 @@ async function getAllKeys(): Promise<string[]> {
 }
 
 /**
- * - globalState：global_
- * - workspaceState：workspace_
- * - secrets：secret_
+ * - globalState: global_
+ * - workspaceState: workspace_
+ * - secrets: secret_
  */
 export class PluginStorageContext {
   public globalState: StateLike

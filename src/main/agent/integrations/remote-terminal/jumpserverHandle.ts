@@ -8,10 +8,10 @@ import { parseJumpServerUsers, hasUserSelectionPrompt } from '../../../ssh/jumps
 import { handleJumpServerUserSelectionWithWindow } from '../../../ssh/jumpserver/userSelection'
 import { jumpserverConnections as globalJumpserverConnections } from '../../../ssh/jumpserverHandle'
 
-// 存储 JumpServer 连接
+// Store JumpServer connections
 export const jumpserverConnections = new Map()
 
-// 执行命令结果
+// Command execution result
 export interface JumpServerExecResult {
   stdout: string
   stderr: string
@@ -19,11 +19,11 @@ export interface JumpServerExecResult {
   exitSignal?: string
 }
 
-// 存储 shell 会话流
+// Store shell session streams
 export const jumpserverShellStreams = new Map()
 export const jumpserverMarkedCommands = new Map()
 export const jumpserverLastCommand = new Map()
-const jumpserverInputBuffer = new Map() // 为每个会话创建输入缓冲区
+const jumpserverInputBuffer = new Map() // Create input buffer for each session
 
 export const jumpserverConnectionStatus = new Map()
 
@@ -78,7 +78,7 @@ const initializeJumpServerShell = (
     jumpserverUuid: string
   }
 ) => {
-  console.log(`[JumpServer ${connectionId}] Shell创建成功，等待JumpServer菜单`)
+  console.log(`[JumpServer ${connectionId}] Shell created successfully, waiting for JumpServer menu`)
 
   let connectionEstablished = false
   let outputBuffer = ''
@@ -90,7 +90,7 @@ const initializeJumpServerShell = (
     }
     connectionEstablished = true
     const totalElapsed = Date.now() - startTime
-    console.log(`[JumpServer ${connectionId}] 连接成功（${reason}），到达目标服务器，总耗时 ${totalElapsed}ms`)
+    console.log(`[JumpServer ${connectionId}] Connection successful (${reason}), reached target server, total time: ${totalElapsed}ms`)
     if (connectionTimeout) {
       clearTimeout(connectionTimeout)
     }
@@ -105,7 +105,7 @@ const initializeJumpServerShell = (
       jumpserverUuid
     })
 
-    resolve({ status: 'connected', message: '连接成功' })
+    resolve({ status: 'connected', message: 'Connection successful' })
   }
 
   const hasPasswordPrompt = (text: string): boolean => {
@@ -119,11 +119,11 @@ const initializeJumpServerShell = (
   const detectDirectConnectionReason = (text: string): string | null => {
     if (!text) return null
 
-    const indicators = ['Connecting to', '连接到', 'Last login:', 'Last failed login:']
+    const indicators = ['Connecting to', 'Last login:', 'Last failed login:']
     for (const indicator of indicators) {
       if (text.includes(indicator)) {
-        console.log(`[JumpServer ${connectionId}] 检测到成功指示关键字: "${indicator.trim()}"`)
-        return `指示器 ${indicator.trim()}`
+        console.log(`[JumpServer ${connectionId}] Detected success indicator keyword: "${indicator.trim()}"`)
+        return `Indicator ${indicator.trim()}`
       }
     }
 
@@ -136,38 +136,38 @@ const initializeJumpServerShell = (
         (trimmed.endsWith('$') || trimmed.endsWith('#') || trimmed.endsWith(']$') || trimmed.endsWith(']#') || trimmed.endsWith('>$')) &&
         (trimmed.includes('@') || trimmed.includes(':~') || trimmed.startsWith('['))
       if (isPrompt) {
-        console.log(`[JumpServer ${connectionId}] 检测到疑似 shell 提示符: "${trimmed}"`)
-        return `提示符 ${trimmed}`
+        console.log(`[JumpServer ${connectionId}] Detected suspected shell prompt: "${trimmed}"`)
+        return `Prompt ${trimmed}`
       }
     }
 
     return null
   }
 
-  // 处理数据输出
+  // Handle data output
   stream.on('data', (data: Buffer) => {
     const ansiRegex = /[\u001b\u009b][[()#;?]*.{0,2}(?:[0-9]{1,4}(?:;[0-9]{0,4})*)?[0-9A-ORZcf-nry=><]/g
     const chunk = data.toString().replace(ansiRegex, '')
     outputBuffer += chunk
 
-    console.log(`[JumpServer ${connectionId}] 收到数据 (阶段: ${connectionPhase}): "${chunk.replace(/\r?\n/g, '\\n')}"`)
+    console.log(`[JumpServer ${connectionId}] Received data (phase: ${connectionPhase}): "${chunk.replace(/\r?\n/g, '\\n')}"`)
 
-    // 根据连接阶段处理不同的响应
+    // Handle different responses based on connection phase
     if (connectionPhase === 'connecting' && outputBuffer.includes('Opt>')) {
-      console.log(`[JumpServer ${connectionId}] 检测到 JumpServer 菜单，输入目标 IP: ${connectionInfo.targetIp}`)
+      console.log(`[JumpServer ${connectionId}] Detected JumpServer menu, entering target IP: ${connectionInfo.targetIp}`)
       connectionPhase = 'inputIp'
       outputBuffer = ''
       stream.write(connectionInfo.targetIp + '\r')
     } else if (connectionPhase === 'inputIp') {
       // Check if user selection is required
       if (hasUserSelectionPrompt(outputBuffer)) {
-        console.log(`[JumpServer ${connectionId}] 检测到多用户提示，需要用户选择账号`)
+        console.log(`[JumpServer ${connectionId}] Detected multi-user prompt, user needs to select account`)
         connectionPhase = 'selectUser'
         const users = parseJumpServerUsers(outputBuffer)
-        console.log(`[JumpServer ${connectionId}] 解析到的用户列表:`, users)
+        console.log(`[JumpServer ${connectionId}] Parsed user list:`, users)
 
         if (users.length === 0) {
-          console.error(`[JumpServer ${connectionId}] 解析用户列表失败，缓冲区内容:`, outputBuffer)
+          console.error(`[JumpServer ${connectionId}] Failed to parse user list, buffer content:`, outputBuffer)
           if (connectionTimeout) {
             clearTimeout(connectionTimeout)
           }
@@ -183,12 +183,12 @@ const initializeJumpServerShell = (
         // Request user selection from frontend
         handleJumpServerUserSelectionWithWindow(connectionId, users)
           .then((selectedUserId) => {
-            console.log(`[JumpServer ${connectionId}] 用户选择了账号 ID:`, selectedUserId)
+            console.log(`[JumpServer ${connectionId}] User selected account ID:`, selectedUserId)
             connectionPhase = 'inputPassword'
             stream.write(selectedUserId.toString() + '\r')
           })
           .catch((err) => {
-            console.error(`[JumpServer ${connectionId}] 用户选择失败:`, err)
+            console.error(`[JumpServer ${connectionId}] User selection failed:`, err)
             if (connectionTimeout) {
               clearTimeout(connectionTimeout)
             }
@@ -198,46 +198,46 @@ const initializeJumpServerShell = (
             reject(err)
           })
       } else if (hasPasswordPrompt(outputBuffer)) {
-        console.log(`[JumpServer ${connectionId}] 检测到密码提示，准备输入密码`)
+        console.log(`[JumpServer ${connectionId}] Detected password prompt, preparing to enter password`)
         connectionPhase = 'inputPassword'
         outputBuffer = ''
         setTimeout(() => {
-          console.log(`[JumpServer ${connectionId}] 发送目标服务器密码`)
+          console.log(`[JumpServer ${connectionId}] Sending target server password`)
           stream.write(connectionInfo.password + '\r')
         }, 100)
       } else {
         const reason = detectDirectConnectionReason(outputBuffer)
         if (reason) {
-          console.log(`[JumpServer ${connectionId}] 目标资产无需密码直接进入目标主机，原因: ${reason}`)
-          handleConnectionSuccess(`无需密码 - ${reason}`)
+          console.log(`[JumpServer ${connectionId}] Target asset directly enters target host without password, reason: ${reason}`)
+          handleConnectionSuccess(`No password - ${reason}`)
         } else {
           const preview = outputBuffer.slice(-200).replace(/\r?\n/g, '\\n')
-          console.log(`[JumpServer ${connectionId}] inputIp 阶段缓冲区预览: "${preview}"`)
+          console.log(`[JumpServer ${connectionId}] inputIp phase buffer preview: "${preview}"`)
         }
       }
     } else if (connectionPhase === 'selectUser') {
       // After user selection, check for password prompt or direct connection
       if (hasPasswordPrompt(outputBuffer)) {
-        console.log(`[JumpServer ${connectionId}] 用户选择后检测到密码提示，准备输入密码`)
+        console.log(`[JumpServer ${connectionId}] Detected password prompt after user selection, preparing to enter password`)
         connectionPhase = 'inputPassword'
         outputBuffer = ''
         setTimeout(() => {
-          console.log(`[JumpServer ${connectionId}] 发送目标服务器密码`)
+          console.log(`[JumpServer ${connectionId}] Sending target server password`)
           stream.write(connectionInfo.password + '\r')
         }, 100)
       } else {
         const reason = detectDirectConnectionReason(outputBuffer)
         if (reason) {
-          console.log(`[JumpServer ${connectionId}] 用户选择后直接建立连接，原因: ${reason}`)
-          handleConnectionSuccess(`用户选择 - ${reason}`)
+          console.log(`[JumpServer ${connectionId}] Direct connection established after user selection, reason: ${reason}`)
+          handleConnectionSuccess(`User selection - ${reason}`)
         }
       }
     } else if (connectionPhase === 'inputPassword') {
-      // 检测密码认证错误
+      // Detect password authentication error
       if (hasPasswordError(outputBuffer)) {
-        console.error(`[JumpServer ${connectionId}] 目标服务器密码认证失败`)
+        console.error(`[JumpServer ${connectionId}] Target server password authentication failed`)
 
-        // 发送MFA验证失败事件到前端
+        // Send MFA verification failure event to frontend
         const { BrowserWindow } = require('electron')
         const mainWindow = BrowserWindow.getAllWindows()[0]
         if (mainWindow) {
@@ -253,14 +253,14 @@ const initializeJumpServerShell = (
         if (connectionSource === 'agent') {
           conn.end()
         }
-        reject(new Error('JumpServer 密码认证失败，请检查密码是否正确'))
+        reject(new Error('JumpServer password authentication failed, please check if password is correct'))
         return
       }
-      // 检测连接成功
+      // Detect connection success
       const reason = detectDirectConnectionReason(outputBuffer)
       if (reason) {
-        console.log(`[JumpServer ${connectionId}] 密码验证完成后进入目标主机，原因: ${reason}`)
-        handleConnectionSuccess(`密码验证后 - ${reason}`)
+        console.log(`[JumpServer ${connectionId}] Entered target host after password verification, reason: ${reason}`)
+        handleConnectionSuccess(`After password verification - ${reason}`)
       }
     }
   })
@@ -271,7 +271,7 @@ const initializeJumpServerShell = (
 
   stream.on('close', () => {
     const elapsed = Date.now() - startTime
-    console.log(`[JumpServer ${connectionId}] stream关闭，连接阶段: ${connectionPhase}，耗时: ${elapsed}ms`)
+    console.log(`[JumpServer ${connectionId}] Stream closed, connection phase: ${connectionPhase}, elapsed: ${elapsed}ms`)
     if (connectionTimeout) {
       clearTimeout(connectionTimeout)
     }
@@ -281,12 +281,12 @@ const initializeJumpServerShell = (
     jumpserverLastCommand.delete(connectionId)
     jumpserverInputBuffer.delete(connectionId)
     if (connectionPhase !== 'connected') {
-      reject(new Error('连接在完成前被关闭'))
+      reject(new Error('Connection closed before completion'))
     }
   })
 
   stream.on('error', (error: Error) => {
-    console.error(`[JumpServer ${connectionId}] stream错误:`, error)
+    console.error(`[JumpServer ${connectionId}] Stream error:`, error)
     if (connectionTimeout) {
       clearTimeout(connectionTimeout)
     }
@@ -295,7 +295,7 @@ const initializeJumpServerShell = (
   })
 }
 
-// JumpServer 连接处理 - 导出供其他模块使用
+// JumpServer connection handling - exported for use by other modules
 export const handleJumpServerConnection = async (connectionInfo: {
   id: string
   host: string
@@ -313,10 +313,10 @@ export const handleJumpServerConnection = async (connectionInfo: {
   const connectionId = connectionInfo.id
   const jumpserverUuid = connectionInfo.assetUuid || connectionId
 
-  console.log(`[JumpServer ${connectionId}] 开始连接到 ${connectionInfo.host}:${connectionInfo.port || 22}`)
-  console.log(`[JumpServer ${connectionId}] 用户名: ${connectionInfo.username}`)
-  console.log(`[JumpServer ${connectionId}] 目标IP: ${connectionInfo.targetIp}`)
-  console.log(`[JumpServer ${connectionId}] 认证方式: ${connectionInfo.privateKey ? '私钥' : '密码'}`)
+  console.log(`[JumpServer ${connectionId}] Starting connection to ${connectionInfo.host}:${connectionInfo.port || 22}`)
+  console.log(`[JumpServer ${connectionId}] Username: ${connectionInfo.username}`)
+  console.log(`[JumpServer ${connectionId}] Target IP: ${connectionInfo.targetIp}`)
+  console.log(`[JumpServer ${connectionId}] Authentication method: ${connectionInfo.privateKey ? 'Private key' : 'Password'}`)
 
   let sock: net.Socket | tls.TLSSocket
   if (connectionInfo.needProxy) {
@@ -329,31 +329,31 @@ export const handleJumpServerConnection = async (connectionInfo: {
 
   return new Promise((resolve, reject) => {
     if (jumpserverConnections.has(connectionId)) {
-      console.log(`[JumpServer ${connectionId}] 复用现有连接`)
+      console.log(`[JumpServer ${connectionId}] Reusing existing connection`)
       jumpserverConnectionStatus.set(connectionId, {
         isVerified: true,
         source: 'agent',
         jumpserverUuid
       })
-      return resolve({ status: 'connected', message: '复用现有JumpServer连接' })
+      return resolve({ status: 'connected', message: 'Reusing existing JumpServer connection' })
     }
 
     if (connectionInfo.assetUuid) {
       const reusable = findReusableConnection(jumpserverUuid)
       if (reusable) {
-        console.log(`[JumpServer ${connectionId}] 发现全局已认证连接，尝试复用`)
+        console.log(`[JumpServer ${connectionId}] Found globally authenticated connection, attempting to reuse`)
         const startTime = Date.now()
         const connectionTimeout = setTimeout(() => {
           const elapsed = Date.now() - startTime
-          console.error(`[JumpServer ${connectionId}] 复用连接创建 shell 超时，已等待 ${elapsed}ms`)
-          reject(new Error('JumpServer 复用连接失败: Shell 创建超时'))
+          console.error(`[JumpServer ${connectionId}] Reused connection shell creation timeout, waited ${elapsed}ms`)
+          reject(new Error('JumpServer reused connection failed: Shell creation timeout'))
         }, 35000)
 
         reusable.conn.shell((err, stream) => {
           if (err) {
             clearTimeout(connectionTimeout)
-            console.error(`[JumpServer ${connectionId}] 复用连接创建 shell 失败:`, err)
-            reject(new Error(`复用连接创建 shell 失败: ${err.message}`))
+            console.error(`[JumpServer ${connectionId}] Reused connection shell creation failed:`, err)
+            reject(new Error(`Reused connection shell creation failed: ${err.message}`))
             return
           }
 
@@ -375,13 +375,13 @@ export const handleJumpServerConnection = async (connectionInfo: {
     const conn = new Client()
     const startTime = Date.now()
 
-    // 添加连接超时监控
+    // Add connection timeout monitoring
     const connectionTimeout = setTimeout(() => {
       const elapsed = Date.now() - startTime
-      console.error(`[JumpServer ${connectionId}] 连接超时，已等待 ${elapsed}ms`)
+      console.error(`[JumpServer ${connectionId}] Connection timeout, waited ${elapsed}ms`)
       conn.end()
-      reject(new Error(`JumpServer 连接超时: 在 ${elapsed}ms 后仍未完成握手`))
-    }, 35000) // 35秒超时
+      reject(new Error(`JumpServer connection timeout: Handshake not completed after ${elapsed}ms`))
+    }, 35000) // 35 second timeout
 
     const connectConfig: {
       host: string
@@ -409,37 +409,37 @@ export const handleJumpServerConnection = async (connectionInfo: {
       connectConfig.sock = sock
     }
 
-    // 处理私钥认证
+    // Handle private key authentication
     if (connectionInfo.privateKey) {
       try {
         connectConfig.privateKey = Buffer.from(connectionInfo.privateKey)
         if (connectionInfo.passphrase) {
           connectConfig.passphrase = connectionInfo.passphrase
         }
-        console.log(`[JumpServer ${connectionId}] 私钥认证配置完成`)
+        console.log(`[JumpServer ${connectionId}] Private key authentication configured`)
       } catch (err: unknown) {
         clearTimeout(connectionTimeout)
-        console.error(`[JumpServer ${connectionId}] 私钥格式错误:`, err)
-        return reject(new Error(`私钥格式错误: ${err instanceof Error ? err.message : String(err)}`))
+        console.error(`[JumpServer ${connectionId}] Private key format error:`, err)
+        return reject(new Error(`Private key format error: ${err instanceof Error ? err.message : String(err)}`))
       }
     } else if (connectionInfo.password) {
       connectConfig.password = connectionInfo.password
-      console.log(`[JumpServer ${connectionId}] 密码认证配置完成`)
+      console.log(`[JumpServer ${connectionId}] Password authentication configured`)
     } else {
       clearTimeout(connectionTimeout)
-      console.error(`[JumpServer ${connectionId}] 缺少认证信息`)
-      return reject(new Error('缺少认证信息：需要私钥或密码'))
+      console.error(`[JumpServer ${connectionId}] Missing authentication information`)
+      return reject(new Error('Missing authentication information: Private key or password required'))
     }
 
     // Handle keyboard-interactive authentication for 2FA
     conn.on('keyboard-interactive', async (_name, _instructions, _instructionsLang, prompts, finish) => {
       try {
-        console.log(`[JumpServer ${connectionId}] 需要二次验证，请输入验证码...`)
+        console.log(`[JumpServer ${connectionId}] Two-factor authentication required, please enter verification code...`)
 
-        // 直接使用简化的 MFA 处理
+        // Use simplified MFA handling directly
         const promptTexts = prompts.map((p: any) => p.prompt)
 
-        // 发送 MFA 请求到前端
+        // Send MFA request to frontend
         const { BrowserWindow } = require('electron')
         const mainWindow = BrowserWindow.getAllWindows()[0]
         if (mainWindow) {
@@ -449,7 +449,7 @@ export const handleJumpServerConnection = async (connectionInfo: {
           })
         }
 
-        // 设置超时
+        // Set timeout
         const timeoutId = setTimeout(() => {
           ipcMain.removeAllListeners(`ssh:keyboard-interactive-response:${connectionId}`)
           ipcMain.removeAllListeners(`ssh:keyboard-interactive-cancel:${connectionId}`)
@@ -457,23 +457,23 @@ export const handleJumpServerConnection = async (connectionInfo: {
           if (mainWindow) {
             mainWindow.webContents.send('ssh:keyboard-interactive-timeout', { id: connectionId })
           }
-          reject(new Error('二次验证超时'))
-        }, 30000) // 30秒超时
+          reject(new Error('Two-factor authentication timeout'))
+        }, 30000) // 30 second timeout
 
-        // 监听用户响应
+        // Listen for user response
         ipcMain.once(`ssh:keyboard-interactive-response:${connectionId}`, (_evt: any, responses: string[]) => {
           clearTimeout(timeoutId)
           finish(responses)
         })
 
-        // 监听用户取消
+        // Listen for user cancellation
         ipcMain.once(`ssh:keyboard-interactive-cancel:${connectionId}`, () => {
           clearTimeout(timeoutId)
           finish([])
-          reject(new Error('用户取消了二次验证'))
+          reject(new Error('User cancelled two-factor authentication'))
         })
       } catch (err) {
-        console.error(`[JumpServer ${connectionId}] 二次验证失败:`, err)
+        console.error(`[JumpServer ${connectionId}] Two-factor authentication failed:`, err)
         conn.end() // Close connection
         reject(err)
       }
@@ -481,13 +481,13 @@ export const handleJumpServerConnection = async (connectionInfo: {
 
     conn.on('ready', () => {
       const elapsed = Date.now() - startTime
-      console.log(`[JumpServer ${connectionId}] SSH连接建立成功，耗时 ${elapsed}ms，开始创建 shell`)
+      console.log(`[JumpServer ${connectionId}] SSH connection established successfully, elapsed ${elapsed}ms, starting shell creation`)
 
-      // 发送MFA验证成功事件到前端
+      // Send MFA verification success event to frontend
       const { BrowserWindow } = require('electron')
       const mainWindow = BrowserWindow.getAllWindows()[0]
       if (mainWindow) {
-        console.log(`[JumpServer ${connectionId}] 发送MFA验证成功事件:`, { connectionId, status: 'success' })
+        console.log(`[JumpServer ${connectionId}] Sending MFA verification success event:`, { connectionId, status: 'success' })
         mainWindow.webContents.send('ssh:keyboard-interactive-result', {
           id: connectionId,
           status: 'success'
@@ -497,8 +497,8 @@ export const handleJumpServerConnection = async (connectionInfo: {
       conn.shell((err, stream) => {
         if (err) {
           clearTimeout(connectionTimeout)
-          console.error(`[JumpServer ${connectionId}] 创建shell失败:`, err)
-          return reject(new Error(`创建 shell 失败: ${err.message}`))
+          console.error(`[JumpServer ${connectionId}] Shell creation failed:`, err)
+          return reject(new Error(`Shell creation failed: ${err.message}`))
         }
 
         initializeJumpServerShell(conn, stream, {
@@ -516,31 +516,31 @@ export const handleJumpServerConnection = async (connectionInfo: {
 
     conn.on('error', (err: any) => {
       const elapsed = Date.now() - startTime
-      console.error(`[JumpServer ${connectionId}] 连接错误，耗时 ${elapsed}ms:`, err)
-      console.error(`[JumpServer ${connectionId}] 错误详情 - 代码: ${err.code}, 级别: ${err.level}`)
+      console.error(`[JumpServer ${connectionId}] Connection error, elapsed ${elapsed}ms:`, err)
+      console.error(`[JumpServer ${connectionId}] Error details - code: ${err.code}, level: ${err.level}`)
 
-      // 发送MFA验证失败事件到前端
+      // Send MFA verification failure event to frontend
       const { BrowserWindow } = require('electron')
       const mainWindow = BrowserWindow.getAllWindows()[0]
       if (mainWindow) {
         mainWindow.webContents.send('ssh:keyboard-interactive-result', {
           id: connectionId,
           status: 'failed',
-          message: 'MFA验证失败，请重新输入验证码'
+          message: 'MFA verification failed, please re-enter verification code'
         })
       }
 
       clearTimeout(connectionTimeout)
       jumpserverConnectionStatus.delete(connectionId)
-      reject(new Error(`JumpServer 连接失败: ${err.message}`))
+      reject(new Error(`JumpServer connection failed: ${err.message}`))
     })
 
-    console.log(`[JumpServer ${connectionId}] 开始建立SSH连接...`)
+    console.log(`[JumpServer ${connectionId}] Starting SSH connection...`)
     conn.connect(connectConfig)
   })
 }
 
-// JumpServer 命令执行
+// JumpServer command execution
 export const jumpServerExec = async (sessionId: string, command: string): Promise<JumpServerExecResult> => {
   const conn = jumpserverConnections.get(sessionId)
   if (!conn) {
@@ -581,7 +581,7 @@ export const jumpServerExec = async (sessionId: string, command: string): Promis
   })
 }
 
-// JumpServer 断开连接
+// JumpServer disconnect
 export const jumpServerDisconnect = async (sessionId: string): Promise<{ status: string; message: string }> => {
   const status = jumpserverConnectionStatus.get(sessionId) as { source?: string } | undefined
   const stream = jumpserverShellStreams.get(sessionId)
@@ -598,13 +598,13 @@ export const jumpServerDisconnect = async (sessionId: string): Promise<{ status:
 
   if (stream || conn) {
     console.log(`JumpServer disconnect initiated for id: ${sessionId}`)
-    return { status: 'success', message: 'JumpServer 连接已断开' }
+    return { status: 'success', message: 'JumpServer connection disconnected' }
   }
 
-  return { status: 'warning', message: '没有活动的 JumpServer 连接' }
+  return { status: 'warning', message: 'No active JumpServer connection' }
 }
 
-// Shell 写入
+// Shell write
 export const jumpServerShellWrite = (sessionId: string, data: string, marker?: string): void => {
   const stream = jumpserverShellStreams.get(sessionId)
   if (stream) {
@@ -626,20 +626,20 @@ export const jumpServerShellWrite = (sessionId: string, data: string, marker?: s
     }
     stream.write(data)
   } else {
-    console.warn('尝试写入不存在的 JumpServer stream:', sessionId)
+    console.warn('Attempting to write to non-existent JumpServer stream:', sessionId)
   }
 }
 
-// Shell 窗口大小调整
+// Shell window resize
 export const jumpServerShellResize = (sessionId: string, cols: number, rows: number): { status: string; message: string } => {
   const stream = jumpserverShellStreams.get(sessionId)
   if (!stream) {
-    return { status: 'error', message: 'JumpServer Shell 未找到' }
+    return { status: 'error', message: 'JumpServer Shell not found' }
   }
 
   try {
     stream.setWindow(rows, cols, 0, 0)
-    return { status: 'success', message: `JumpServer 窗口大小已设置为 ${cols}x${rows}` }
+    return { status: 'success', message: `JumpServer window size set to ${cols}x${rows}` }
   } catch (error: unknown) {
     return { status: 'error', message: error instanceof Error ? error.message : String(error) }
   }

@@ -32,24 +32,24 @@ const getTranslation = async (key: string, lang?: string): Promise<string> => {
 // }
 
 /**
- * 数据库迁移函数：检查并添加comment字段和自定义文件夹表
- * 仅在路由构建时使用
+ * Database migration function: Check and add comment field and custom folder tables
+ * Only used during route construction
  */
 function migrateDatabaseIfNeeded(db: Database.Database) {
   try {
-    // 检查comment字段是否存在
+    // Check if comment field exists
     const pragmaStmt = db.prepare('PRAGMA table_info(t_organization_assets)')
     const columns = pragmaStmt.all()
     const hasCommentColumn = columns.some((col: any) => col.name === 'comment')
 
     if (!hasCommentColumn) {
-      console.log('正在添加comment字段到t_organization_assets表...')
+      console.log('Adding comment field to t_organization_assets table...')
       const alterStmt = db.prepare('ALTER TABLE t_organization_assets ADD COLUMN comment TEXT')
       alterStmt.run()
-      console.log('comment字段添加成功')
+      console.log('Comment field added successfully')
     }
 
-    // 检查并创建自定义文件夹表
+    // Check and create custom folders table
     const checkCustomFoldersTable = db.prepare(`
       SELECT name FROM sqlite_master
       WHERE type='table' AND name='t_custom_folders'
@@ -57,7 +57,7 @@ function migrateDatabaseIfNeeded(db: Database.Database) {
     const customFoldersTable = checkCustomFoldersTable.get()
 
     if (!customFoldersTable) {
-      console.log('正在创建自定义文件夹表...')
+      console.log('Creating custom folders table...')
       const createCustomFoldersTable = db.prepare(`
         CREATE TABLE IF NOT EXISTS t_custom_folders (
           id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -69,10 +69,10 @@ function migrateDatabaseIfNeeded(db: Database.Database) {
         )
       `)
       createCustomFoldersTable.run()
-      console.log('自定义文件夹表创建成功')
+      console.log('Custom folders table created successfully')
     }
 
-    // 检查并创建资产文件夹映射表
+    // Check and create asset folder mapping table
     const checkAssetFolderMappingTable = db.prepare(`
       SELECT name FROM sqlite_master
       WHERE type='table' AND name='t_asset_folder_mapping'
@@ -80,7 +80,7 @@ function migrateDatabaseIfNeeded(db: Database.Database) {
     const assetFolderMappingTable = checkAssetFolderMappingTable.get()
 
     if (!assetFolderMappingTable) {
-      console.log('正在创建资产文件夹映射表...')
+      console.log('Creating asset folder mapping table...')
       const createAssetFolderMappingTable = db.prepare(`
         CREATE TABLE IF NOT EXISTS t_asset_folder_mapping (
           id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -92,16 +92,16 @@ function migrateDatabaseIfNeeded(db: Database.Database) {
         )
       `)
       createAssetFolderMappingTable.run()
-      console.log('资产文件夹映射表创建成功')
+      console.log('Asset folder mapping table created successfully')
     }
   } catch (error) {
-    console.error('数据库迁移失败:', error)
+    console.error('Database migration failed:', error)
   }
 }
 
 export async function getLocalAssetRouteLogic(db: Database, searchType: string, params: any[] = []): Promise<any> {
   try {
-    // 执行数据库迁移
+    // Execute database migration
     migrateDatabaseIfNeeded(db)
     const result: any = {
       code: 200,
@@ -111,9 +111,9 @@ export async function getLocalAssetRouteLogic(db: Database, searchType: string, 
       ts: new Date().toString()
     }
 
-    // 如果是 assetConfig 页面，获取所有资产类型
+    // If assetConfig page, get all asset types
     if (searchType === 'assetConfig') {
-      // 获取所有分组（所有类型）
+      // Get all groups (all types)
       const groupsStmt = db.prepare(`
         SELECT DISTINCT group_name
         FROM t_assets
@@ -160,7 +160,7 @@ export async function getLocalAssetRouteLogic(db: Database, searchType: string, 
       return result
     }
 
-    // 原有的按 asset_type 过滤逻辑（用于 Workspace）
+    // Original asset_type filtering logic (for Workspace)
     const assetType = params[0] || 'person'
 
     if (assetType === 'person') {
@@ -242,11 +242,11 @@ export async function getLocalAssetRouteLogic(db: Database, searchType: string, 
         }
       }
     } else if (assetType === 'organization') {
-      // 企业资产逻辑 - 添加收藏栏支持
+      // Organization asset logic - add favorites bar support
       if (searchType !== 'assetConfig') {
         const favoriteAssets: any[] = []
 
-        // 收藏的组织
+        // Favorite organizations
         const favoriteOrgsStmt = db.prepare(`
           SELECT uuid, label, asset_ip, port, username, password, key_chain_id, auth_type, favorite
           FROM t_assets
@@ -272,7 +272,7 @@ export async function getLocalAssetRouteLogic(db: Database, searchType: string, 
           })
         }
 
-        // 收藏的组织子资产
+        // Favorite organization sub-assets
         const favoriteSubAssetsStmt = db.prepare(`
           SELECT oa.hostname as asset_name, oa.host as asset_ip, oa.organization_uuid, oa.uuid, oa.favorite, oa.comment,
                  a.label as org_label, a.asset_ip as org_ip
@@ -305,7 +305,7 @@ export async function getLocalAssetRouteLogic(db: Database, searchType: string, 
           })
         }
 
-        // 自定义文件夹
+        // Custom folders
         const customFoldersStmt = db.prepare(`
           SELECT uuid, name, description
           FROM t_custom_folders
@@ -355,7 +355,7 @@ export async function getLocalAssetRouteLogic(db: Database, searchType: string, 
         }
       }
 
-      // 企业组织资产
+      // Organization assets
       const organizationAssetsStmt = db.prepare(`
         SELECT uuid, label, asset_ip, port, username, password, key_chain_id, auth_type, favorite
         FROM t_assets

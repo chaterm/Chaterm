@@ -1,13 +1,13 @@
 import Database from 'better-sqlite3'
 
 /**
- * 为 MCP 工具调用信息添加数据库支持
- * 在 agent_ui_messages_v1 表中添加 mcp_tool_call_data 字段
- * 用于存储 MCP 工具调用的详细信息（服务器名、工具名、参数）
+ * Add database support for MCP tool call information
+ * Add mcp_tool_call_data field to agent_ui_messages_v1 table
+ * Used to store detailed information of MCP tool calls (server name, tool name, parameters)
  */
 export async function upgradeMcpToolCallSupport(db: Database.Database): Promise<void> {
   try {
-    // 检查 mcp_tool_call_data 字段是否已存在
+    // Check if mcp_tool_call_data field already exists
     const tableInfo = db.prepare('PRAGMA table_info(agent_ui_messages_v1)').all()
     const mcpToolCallColumnExists = tableInfo.some((col: any) => col.name === 'mcp_tool_call_data')
 

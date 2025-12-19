@@ -1,4 +1,4 @@
-# JumpServer 连接流程概览
+# JumpServer Connection Flow Overview
 
 ```
 ┌──────────────────────┐
@@ -7,27 +7,29 @@
            │
            ▼
  ┌────────────────────┐
- │ 缓存存在?           │
+ │ Cache exists?       │
  │ (jumpserverConnections.has)│
  └───────┬────────────┘
          │Yes
          ▼
  ┌────────────────────┐
- │ 复用连接并返回     │
+ │ Reuse connection   │
+ │ and return         │
  └────────────────────┘
          │No
          ▼
  ┌────────────────────┐
- │ 构建 ConnectConfig │
+ │ Build ConnectConfig│
  │ (host/port/user/   │
- │ 密码或私钥/代理)   │
+ │ password or private│
+ │ key/proxy)         │
  └─────────┬──────────┘
            │
            ▼
  ┌────────────────────┐
- │ 建立 ssh2.Client   │
- │ 监听 keyboard-     │
- │ interactive/MFA    │
+ │ Create ssh2.Client │
+ │ Listen for keyboard│
+ │ -interactive/MFA   │
  └─────────┬──────────┘
            │
            ▼
@@ -39,65 +41,75 @@
  ┌────────────────────┐
  │ ready?             │
  └──────┬─────────────┘
-        │No → 错误/重试
+        │No → error/retry
         │
         ▼Yes
  ┌────────────────────┐
- │ 发送“已连到堡垒机” │
- │ 状态，启动 shell    │
+ │ Send "connected to │
+ │ bastion" status,   │
+ │ start shell        │
  └─────────┬──────────┘
            │
            ▼
  ┌────────────────────┐
- │ shell 数据状态机   │
- │ connectionPhase:    │
+ │ Shell data state   │
+ │ machine            │
+ │ connectionPhase:   │
  │ connecting/inputIp/ │
- │ inputPassword       │
+ │ inputPassword      │
  └─────────┬──────────┘
            │
            ▼
  ┌────────────────────────────────────┐
  │ connecting                         │
- │ └ 检测 'Opt>' → 写入 targetIp →   │
+ │ └ Detect 'Opt>' → write targetIp →│
  │    phase=inputIp                  │
  └─────────┬──────────────────────────┘
            │
            ▼
  ┌────────────────────────────────────┐
  │ inputIp                            │
- │ ├ 若出现 Password 提示 → phase=input│
- │ │ Password → 延迟写入密码          │
- │ └ 若捕获 “Connecting to/Last login/提示符│
- │    等” → handleConnectionSuccess   │
+ │ ├ If Password prompt appears →     │
+ │ │   phase=inputPassword → delay   │
+ │ │   writing password               │
+ │ └ If "Connecting to/Last login/    │
+ │    prompt" captured →              │
+ │    handleConnectionSuccess         │
  └─────────┬──────────────────────────┘
            │
            ▼
  ┌────────────────────────────────────┐
  │ inputPassword                      │
- │ ├ 若出现 password auth error 或     │
- │ │ [Host]> → 关闭连接并报错         │
- │ └ 若捕获成功指示 → handleConnection │
- │    Success                         │
+ │ ├ If password auth error or       │
+ │ │ [Host]> appears → close         │
+ │ │ connection and report error     │
+ │ └ If success indicator captured → │
+ │    handleConnectionSuccess         │
  └─────────┬──────────────────────────┘
            │
            ▼
  ┌────────────────────┐
  │ handleConnection   │
  │ Success            │
- │ • 清理 timeout     │
- │ • 记录连接与 stream│
+ │ • Clear timeout    │
+ │ • Record connection│
+ │   and stream       │
  │ • jumpserverConnectionStatus.set  │
- │ • 发送“已连到目标”状态            │
+ │ • Send "connected  │
+ │   to target" status│
  │ • resolve({connected})            │
  └─────────┬──────────┘
            │
            ▼
  ┌────────────────────┐
- │ 错误场景            │
- │ • 连接/验证失败     │
- │ • shell close/error │
- │ → 清理 Map 并 reject│
+ │ Error scenarios    │
+ │ • Connection/      │
+ │   authentication   │
+ │   failure          │
+ │ • shell close/error│
+ │ → Clear Map and    │
+ │   reject           │
  └────────────────────┘
 ```
 
-> 该流程图总结了 `src/main/ssh/jumpserverHandle.ts` 与 `src/main/agent/integrations/remote-terminal/jumpserverHandle.ts` 中相同的 JumpServer 建连状态机。两处实现均通过 `handleConnectionSuccess` 统一管理成功后的资源注册与状态通知，确保既兼容免密资产也覆盖需要密码的场景。
+> This flowchart summarizes the same JumpServer connection state machine in `src/main/ssh/jumpserverHandle.ts` and `src/main/agent/integrations/remote-terminal/jumpserverHandle.ts`. Both implementations use `handleConnectionSuccess` to uniformly manage resource registration and status notifications after success, ensuring compatibility with both passwordless assets and scenarios requiring passwords.

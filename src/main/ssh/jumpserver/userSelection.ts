@@ -26,7 +26,7 @@ export const handleJumpServerUserSelectionWithEvent = (
       ipcMain.removeAllListeners(`jumpserver:user-selection-response:${connectionId}`)
       ipcMain.removeAllListeners(`jumpserver:user-selection-cancel:${connectionId}`)
       event.sender.send('jumpserver:user-selection-timeout', { id: connectionId })
-      reject(new Error('用户选择超时'))
+      reject(new Error('User selection timeout'))
     }, 30000)
 
     // Listen for user response

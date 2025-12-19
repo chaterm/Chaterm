@@ -42,7 +42,7 @@ function calcDirInfo(rootDir: string): { size: number; lastUpdated: number } {
   return { size: totalSize, lastUpdated }
 }
 
-// 读取 README 内容
+// Read README content
 function readReadme(rootDir: string): string {
   const candidates = ['README.md', 'readme.md', 'README.txt', 'readme.txt']
   for (const name of candidates) {
@@ -58,7 +58,7 @@ function readReadme(rootDir: string): string {
   return ''
 }
 
-// 获取详情
+// Get plugin details
 export function getPluginDetailsByName(pluginName: string): PluginDetails | null {
   const registry = listPlugins()
 

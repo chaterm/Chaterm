@@ -1,6 +1,6 @@
 import { z } from 'zod'
 
-// 基础数据结构
+// Basic data structures
 export interface Todo {
   id: string
   content: string
@@ -27,7 +27,7 @@ export interface TodoToolCall {
   timestamp: Date
 }
 
-// Zod 验证 schemas
+// Zod validation schemas
 export const TodoStatusSchema = z.enum(['pending', 'in_progress', 'completed'])
 export const TodoPrioritySchema = z.enum(['high', 'medium', 'low'])
 
@@ -59,7 +59,7 @@ export const TodoSchema = z.object({
 
 export const TodoArraySchema = z.array(TodoSchema)
 
-// 序列化/反序列化辅助函数
+// Serialization/deserialization helper functions
 export class TodoSerializer {
   static serialize(todos: Todo[]): string {
     return JSON.stringify(todos, (_key, value) => {

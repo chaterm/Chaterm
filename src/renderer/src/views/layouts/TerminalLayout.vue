@@ -308,7 +308,6 @@ interface AiSidebarState {
       chatHistory: any[]
       lastChatMessageId: string
       responseLoading: boolean
-      showCancelButton: boolean
       showSendButton: boolean
       buttonsDisabled: boolean
       resumeDisabled: boolean

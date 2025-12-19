@@ -19,7 +19,7 @@ export interface LocalCommandProcess extends EventEmitter {
 }
 
 /**
- * 本地终端管理器，专门处理AI代理与本地主机的连接和命令执行
+ * Local terminal manager for handling AI agent connections and command execution on local host
  */
 export class LocalTerminalManager {
   private terminals: Map<number, LocalTerminalInfo> = new Map()
@@ -27,7 +27,7 @@ export class LocalTerminalManager {
   private static instance: LocalTerminalManager | null = null
 
   constructor() {
-    // 单例模式
+    // Singleton pattern
     if (LocalTerminalManager.instance) {
       return LocalTerminalManager.instance
     }
@@ -35,7 +35,7 @@ export class LocalTerminalManager {
   }
 
   /**
-   * 获取单例实例
+   * Get singleton instance
    */
   static getInstance(): LocalTerminalManager {
     if (!LocalTerminalManager.instance) {
@@ -45,14 +45,14 @@ export class LocalTerminalManager {
   }
 
   /**
-   * 检测本地主机是否可用
+   * Check if local host is available
    */
   isLocalHostAvailable(): boolean {
-    return true // 本地主机总是可用的
+    return true // Local host is always available
   }
 
   /**
-   * 获取本地主机信息
+   * Get local host information
    */
   getLocalHostInfo(): {
     host: string
@@ -67,9 +67,9 @@ export class LocalTerminalManager {
     const defaultShell = this.getDefaultShell()
 
     return {
-      host: '127.0.0.1', // 本地主机IP
-      uuid: 'localhost', // 特殊UUID标识本地主机
-      connection: 'localhost', // 连接类型
+      host: '127.0.0.1', // Local host IP
+      uuid: 'localhost', // Special UUID identifier for local host
+      connection: 'localhost', // Connection type
       platform: platform,
       defaultShell: defaultShell,
       homeDir: homeDir
@@ -77,7 +77,7 @@ export class LocalTerminalManager {
   }
 
   /**
-   * 获取默认Shell
+   * Get default shell
    */
   private getDefaultShell(): string {
     const platform = os.platform()
@@ -93,13 +93,13 @@ export class LocalTerminalManager {
   }
 
   /**
-   * 查找可执行文件
+   * Find executable file
    */
   private findExecutable(commands: string[]): string | null {
     for (const cmd of commands) {
       try {
         if (os.platform() === 'win32') {
-          // Windows 系统的查找逻辑
+          // Windows system search logic
           if (cmd === 'pwsh.exe') {
             const searchPaths = [
               path.join(process.env.PROGRAMFILES || 'C:\\Program Files', 'PowerShell', '7', cmd),
@@ -128,7 +128,7 @@ export class LocalTerminalManager {
             }
           }
         } else {
-          // Unix/Linux/macOS 系统
+          // Unix/Linux/macOS systems
           if (fs.existsSync(cmd) && fs.statSync(cmd).mode & parseInt('111', 8)) {
             return cmd
           }
@@ -139,7 +139,7 @@ export class LocalTerminalManager {
   }
 
   /**
-   * 创建本地终端连接
+   * Create local terminal connection
    */
   async createTerminal(): Promise<LocalTerminalInfo> {
     const shell = this.getDefaultShell()
@@ -159,7 +159,7 @@ export class LocalTerminalManager {
   }
 
   /**
-   * 在本地主机上运行命令
+   * Run command on local host
    */
   runCommand(terminal: LocalTerminalInfo, command: string, cwd?: string): LocalCommandProcess {
     const commandProcess = new EventEmitter() as LocalCommandProcess
@@ -168,12 +168,12 @@ export class LocalTerminalManager {
     console.log(`[LocalTerminal ${terminal.id}] Executing command: ${command}`)
     console.log(`[LocalTerminal ${terminal.id}] Working directory: ${workingDir}`)
 
-    // 根据平台调整命令执行方式
+    // Adjust command execution method based on platform
     let shellCommand: string
     let shellArgs: string[]
 
     if (os.platform() === 'win32') {
-      // Windows 平台
+      // Windows platform
       shellCommand = terminal.shell
       if (terminal.shell.includes('cmd.exe')) {
         shellArgs = ['/c', command]
@@ -182,7 +182,7 @@ export class LocalTerminalManager {
         shellArgs = ['-Command', command]
       }
     } else {
-      // Unix-like 平台
+      // Unix-like platforms
       shellCommand = terminal.shell
       shellArgs = ['-c', command]
     }
@@ -195,33 +195,33 @@ export class LocalTerminalManager {
 
     let output = ''
 
-    // 处理标准输出
+    // Handle standard output
     childProcess.stdout?.on('data', (data: Buffer) => {
       const chunk = data.toString()
       output += chunk
       commandProcess.emit('line', chunk)
     })
 
-    // 处理标准错误
+    // Handle standard error
     childProcess.stderr?.on('data', (data: Buffer) => {
       const chunk = data.toString()
       output += chunk
       commandProcess.emit('line', chunk)
     })
 
-    // 处理进程退出
+    // Handle process exit
     childProcess.on('close', (code: number | null) => {
       console.log(`[LocalTerminal ${terminal.id}] Command completed with code: ${code}`)
       commandProcess.emit('completed', { code, output })
     })
 
-    // 处理进程错误
+    // Handle process error
     childProcess.on('error', (error: Error) => {
       console.error(`[LocalTerminal ${terminal.id}] Command error:`, error)
       commandProcess.emit('error', error)
     })
 
-    // 为commandProcess添加stdin和kill方法
+    // Add stdin and kill methods to commandProcess
     commandProcess.stdin = childProcess.stdin
     commandProcess.kill = () => {
       childProcess.kill()
@@ -231,7 +231,7 @@ export class LocalTerminalManager {
   }
 
   /**
-   * 执行命令并获取完整输出
+   * Execute command and get complete output
    */
   async executeCommand(
     command: string,
@@ -258,7 +258,7 @@ export class LocalTerminalManager {
           this.terminals.delete(terminal.id)
         }
 
-        // 设置超时
+        // Set timeout
         timeoutHandler = setTimeout(() => {
           process.kill()
           cleanup()
@@ -268,12 +268,12 @@ export class LocalTerminalManager {
           })
         }, timeoutMs)
 
-        // 收集输出
+        // Collect output
         process.on('line', (chunk: string) => {
           output += chunk
         })
 
-        // 处理完成
+        // Handle completion
         process.on('completed', ({ code }: { code: number | null }) => {
           cleanup()
           resolve({
@@ -283,7 +283,7 @@ export class LocalTerminalManager {
           })
         })
 
-        // 处理错误
+        // Handle error
         process.on('error', (error: Error) => {
           cleanup()
           resolve({
@@ -301,7 +301,7 @@ export class LocalTerminalManager {
   }
 
   /**
-   * 关闭终端
+   * Close terminal
    */
   closeTerminal(terminalId: number): boolean {
     const terminal = this.terminals.get(terminalId)
@@ -317,7 +317,7 @@ export class LocalTerminalManager {
   }
 
   /**
-   * 获取当前工作目录
+   * Get current working directory
    */
   async getCurrentWorkingDirectory(): Promise<string> {
     const result = await this.executeCommand('pwd')
@@ -328,11 +328,11 @@ export class LocalTerminalManager {
   }
 
   /**
-   * 检查sudo权限
+   * Check sudo permission
    */
   async checkSudoPermission(): Promise<boolean> {
     if (os.platform() === 'win32') {
-      return false // Windows没有sudo概念
+      return false // Windows does not have sudo concept
     }
 
     const result = await this.executeCommand('sudo -n true', undefined, 5000)
@@ -340,7 +340,7 @@ export class LocalTerminalManager {
   }
 
   /**
-   * 获取系统信息
+   * Get system information
    */
   async getSystemInfo(): Promise<{
     osVersion: string
@@ -358,7 +358,7 @@ export class LocalTerminalManager {
 
     let osVersion = `${platform} ${os.release()}`
 
-    // 尝试获取更详细的系统信息
+    // Try to get more detailed system information
     if (platform !== 'win32') {
       const unameResult = await this.executeCommand('uname -a')
       if (unameResult.success && unameResult.output) {

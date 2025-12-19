@@ -1,6 +1,6 @@
 /**
- * 命令解析器
- * 用于解析命令结构，避免误判
+ * Command parser
+ * Used to parse command structure, avoid misjudgment
  */
 
 export interface ParsedCommand {
@@ -12,26 +12,26 @@ export interface ParsedCommand {
 
 export class CommandParser {
   /**
-   * 解析命令字符串为结构化对象
+   * Parse command string into structured object
    */
   parse(commandStr: string): ParsedCommand {
-    // 去除前后空格
+    // Remove leading and trailing spaces
     const trimmedCommand = commandStr.trim()
 
-    // 检查是否为复合命令
+    // Check if it's a compound command
     if (this.isCompoundCommand(trimmedCommand)) {
       return this.parseCompoundCommand(trimmedCommand)
     }
 
-    // 解析基本命令
+    // Parse basic command
     return this.parseBasicCommand(trimmedCommand)
   }
 
   /**
-   * 解析基本命令
+   * Parse basic command
    */
   private parseBasicCommand(commandStr: string): ParsedCommand {
-    // 将命令拆分为词组，保留引号内的整体
+    // Split command into tokens, preserve quoted content as whole
     const tokens = this.tokenizeCommand(commandStr)
 
     if (tokens.length === 0) {
@@ -42,10 +42,10 @@ export class CommandParser {
       }
     }
 
-    // 第一个词组是可执行文件/命令名
+    // First token is executable/command name
     const executable = tokens[0]
 
-    // 剩余的词组是参数
+    // Remaining tokens are arguments
     const args = tokens.slice(1)
 
     return {
@@ -56,10 +56,10 @@ export class CommandParser {
   }
 
   /**
-   * 解析复合命令
+   * Parse compound command
    */
   private parseCompoundCommand(commandStr: string): ParsedCommand {
-    // 查找分隔符位置（&&, ||, ;）
+    // Find separator positions (&&, ||, ;)
     const compounds: ParsedCommand[] = []
     let currentPos = 0
     let inQuotes = false
@@ -78,23 +78,23 @@ export class CommandParser {
         }
       }
 
-      // 只在不在引号内的情况下检查分隔符
+      // Only check separator when not inside quotes
       if (!inQuotes) {
         if (
           (char === '&' && i + 1 < commandStr.length && commandStr[i + 1] === '&') ||
           (char === '|' && i + 1 < commandStr.length && commandStr[i + 1] === '|') ||
           char === ';'
         ) {
-          // 找到分隔符，解析前面的命令
+          // Found separator, parse preceding command
           const subCommand = commandStr.substring(currentPos, i).trim()
           if (subCommand) {
             compounds.push(this.parse(subCommand))
           }
 
-          // 更新当前位置
+          // Update current position
           currentPos = char === ';' ? i + 1 : i + 2
 
-          // 跳过第二个字符（如果是 && 或 ||）
+          // Skip second character (if && or ||)
           if (char !== ';') {
             i++
           }
@@ -102,13 +102,13 @@ export class CommandParser {
       }
     }
 
-    // 处理最后一个子命令
+    // Handle last sub-command
     const lastSubCommand = commandStr.substring(currentPos).trim()
     if (lastSubCommand) {
       compounds.push(this.parse(lastSubCommand))
     }
 
-    // 创建复合命令对象
+    // Create compound command object
     return {
       executable: compounds.length > 0 ? compounds[0].executable : '',
       args: [],
@@ -118,7 +118,7 @@ export class CommandParser {
   }
 
   /**
-   * 将命令拆分为词组，保留引号内的整体
+   * Split command into tokens, preserve quoted content as whole
    */
   private tokenizeCommand(commandStr: string): string[] {
     const tokens: string[] = []
@@ -134,29 +134,29 @@ export class CommandParser {
         if (!inQuotes) {
           inQuotes = true
           quoteChar = char
-          // 不将引号添加到词组中
+          // Don't add quote to token
         } else if (char === quoteChar) {
           inQuotes = false
-          // 不将引号添加到词组中
+          // Don't add quote to token
           continue
         } else {
           currentToken += char
         }
       }
-      // 处理空格
+      // Handle spaces
       else if (char === ' ' && !inQuotes) {
         if (currentToken) {
           tokens.push(currentToken)
           currentToken = ''
         }
       }
-      // 其他字符
+      // Other characters
       else {
         currentToken += char
       }
     }
 
-    // 添加最后一个词组
+    // Add last token
     if (currentToken) {
       tokens.push(currentToken)
     }
@@ -165,10 +165,10 @@ export class CommandParser {
   }
 
   /**
-   * 检查是否为复合命令
+   * Check if it's a compound command
    */
   private isCompoundCommand(commandStr: string): boolean {
-    // 检查是否包含 && 或 || 或 ;
+    // Check if contains && or || or ;
     for (let i = 0; i < commandStr.length; i++) {
       const char = commandStr[i]
 
@@ -177,7 +177,7 @@ export class CommandParser {
         (char === '|' && i + 1 < commandStr.length && commandStr[i + 1] === '|') ||
         char === ';'
       ) {
-        // 确保不在引号内
+        // Ensure not inside quotes
         if (!this.isInsideQuotes(commandStr, i)) {
           return true
         }
@@ -188,7 +188,7 @@ export class CommandParser {
   }
 
   /**
-   * 检查字符是否在引号内
+   * Check if character is inside quotes
    */
   private isInsideQuotes(str: string, pos: number): boolean {
     let inQuotes = false

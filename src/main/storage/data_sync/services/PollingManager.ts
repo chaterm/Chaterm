@@ -4,11 +4,11 @@ import { SyncEngine } from '../core/SyncEngine'
 import { logger } from '../utils/logger'
 
 export interface PollingConfig {
-  initialInterval: number // 初始轮询间隔(ms)
-  maxInterval: number // 最大轮询间隔(ms)
-  minInterval: number // 最小轮询间隔(ms)
-  backoffMultiplier: number // 退避倍数
-  adaptivePolling: boolean // 是否启用自适应轮询
+  initialInterval: number // Initial polling interval (ms)
+  maxInterval: number // Maximum polling interval (ms)
+  minInterval: number // Minimum polling interval (ms)
+  backoffMultiplier: number // Backoff multiplier
+  adaptivePolling: boolean // Whether to enable adaptive polling
 }
 
 export interface PollingStatus {
@@ -34,9 +34,9 @@ export class PollingManager {
     config?: Partial<PollingConfig>
   ) {
     this.config = {
-      initialInterval: 30000, // 30秒
-      maxInterval: 300000, // 5分钟
-      minInterval: 10000, // 10秒
+      initialInterval: 30000, // 30 seconds
+      maxInterval: 300000, // 5 minutes
+      minInterval: 10000, // 10 seconds
       backoffMultiplier: 1.5,
       adaptivePolling: true,
       ...config
@@ -54,72 +54,72 @@ export class PollingManager {
   }
 
   /**
-   * 启动轮询
+   * Start polling
    */
   async startPolling(): Promise<void> {
     if (this.status.isRunning) {
-      logger.warn('轮询已在运行中')
+      logger.warn('Polling is already running')
       return
     }
 
     this.status.isRunning = true
     this.isShuttingDown = false
-    logger.info(`开始轮询同步，间隔: ${this.status.currentInterval}ms`)
+    logger.info(`Starting polling sync, interval: ${this.status.currentInterval}ms`)
 
     this.scheduleNextPoll()
   }
 
   /**
-   * 停止轮询
+   * Stop polling
    */
   async stopPolling(): Promise<void> {
     if (!this.status.isRunning) {
       return
     }
 
-    logger.info('开始停止轮询同步...')
+    logger.info('Stopping polling sync...')
 
-    // 标记停止状态
+    // Mark stop status
     this.isShuttingDown = true
     this.status.isRunning = false
 
-    // 清除定时器
+    // Clear timer
     if (this.pollingTimer) {
       clearTimeout(this.pollingTimer)
       this.pollingTimer = null
     }
 
-    // 等待当前正在进行的轮询操作完成（最多等待1.5秒）
+    // Wait for current polling operation to complete (max 1.5 seconds)
     await this.waitForCurrentPoll(1500)
 
-    logger.info('轮询同步已停止')
+    logger.info('Polling sync stopped')
   }
 
   /**
-   * 等待当前轮询操作完成
+   * Wait for current polling operation to complete
    */
   private async waitForCurrentPoll(timeoutMs: number = 1500): Promise<void> {
     try {
       const startTime = Date.now()
 
-      // 检查是否有正在进行的轮询操作
+      // Check if there is a polling operation in progress
       while (this.status.isPerforming && Date.now() - startTime < timeoutMs) {
         await new Promise((resolve) => setTimeout(resolve, 100))
       }
 
       if (this.status.isPerforming) {
-        logger.warn('轮询操作超时，强制停止')
+        logger.warn('Polling operation timeout, forcing stop')
       } else {
-        logger.info('当前轮询操作已完成')
+        logger.info('Current polling operation completed')
       }
     } catch (error) {
-      logger.error('等待轮询操作完成时出错:', error)
+      logger.error('Error waiting for polling operation to complete:', error)
     }
   }
 
   /**
-   * 检查是否有正在进行的轮询操作
-   * 目前未使用，保留供将来参考
+   * Check if there is a polling operation in progress
+   * Currently unused, kept for future reference
    */
   /*
   private _isPollingInProgress(): boolean {
@@ -128,21 +128,21 @@ export class PollingManager {
   */
 
   /**
-   * 立即执行一次轮询
+   * Execute polling immediately
    */
   async pollNow(): Promise<boolean> {
     return await this.performPoll()
   }
 
   /**
-   * 获取轮询状态
+   * Get polling status
    */
   getStatus(): PollingStatus {
     return { ...this.status }
   }
 
   /**
-   * 调度下次轮询
+   * Schedule next poll
    */
   private scheduleNextPoll(): void {
     if (this.isShuttingDown || !this.status.isRunning) {
@@ -158,61 +158,61 @@ export class PollingManager {
   }
 
   /**
-   * 执行轮询检查
+   * Execute polling check
    */
   private async performPoll(): Promise<boolean> {
     const startTime = Date.now()
     this.status.totalPolls++
     this.status.lastPollTime = new Date()
 
-    // 标记轮询进行中
+    // Mark polling in progress
     this.status.isPerforming = true
 
     try {
-      logger.debug('开始轮询检查')
+      logger.debug('Starting polling check')
 
-      // 1. 上传本地变更
+      // 1. Upload local changes
       const uploadResult = await this.uploadLocalChanges()
 
-      // 2. 下载云端变更
+      // 2. Download cloud changes
       const downloadResult = await this.downloadCloudChanges()
 
-      // 3. 处理成功
+      // 3. Handle success
       this.handlePollSuccess(uploadResult.hasChanges || downloadResult.hasChanges)
 
       const duration = Date.now() - startTime
-      logger.info(`轮询完成: 上传${uploadResult.count}条, 下载${downloadResult.count}条, 耗时${duration}ms`)
+      logger.info(`Polling completed: uploaded ${uploadResult.count} items, downloaded ${downloadResult.count} items, took ${duration}ms`)
 
       return true
     } catch (error: any) {
-      // 检查是否是网络连接错误
+      // Check if it's a network connection error
       if (error.message === 'NETWORK_UNAVAILABLE' || error.isNetworkError) {
-        // 网络错误时，不记录为失败，只记录警告
-        logger.debug('服务器不可用，本次轮询跳过')
+        // For network errors, don't record as failure, only log warning
+        logger.debug('Server unavailable, skipping this poll')
         this.handlePollError(error)
-        return true // 返回 true 表示轮询正常完成，只是服务器不可用
+        return true // Return true to indicate polling completed normally, just server unavailable
       }
 
       this.handlePollError(error)
       return false
     } finally {
-      // 清除进行中标志
+      // Clear in-progress flag
       this.status.isPerforming = false
     }
   }
 
   /**
-   * 上传本地变更
+   * Upload local changes
    */
   private async uploadLocalChanges(): Promise<{ hasChanges: boolean; count: number }> {
     try {
-      // 检查是否有待同步的变更
+      // Check if there are pending changes to sync
       const pendingChanges = this.db.getPendingChanges()
       if (pendingChanges.length === 0) {
         return { hasChanges: false, count: 0 }
       }
 
-      // 按表名分组上传
+      // Group uploads by table name
       const assetChanges = pendingChanges.filter((c) => c.table_name === 't_assets_sync')
       const chainChanges = pendingChanges.filter((c) => c.table_name === 't_asset_chains_sync')
 
@@ -224,7 +224,7 @@ export class PollingManager {
           totalUploaded += result.synced_count || 0
         } catch (error: any) {
           if (error.message === 'NETWORK_UNAVAILABLE' || error.isNetworkError) {
-            logger.warn('服务器不可用，跳过 t_assets_sync 上传')
+            logger.warn('Server unavailable, skipping t_assets_sync upload')
           } else {
             throw error
           }
@@ -237,7 +237,7 @@ export class PollingManager {
           totalUploaded += result.synced_count || 0
         } catch (error: any) {
           if (error.message === 'NETWORK_UNAVAILABLE' || error.isNetworkError) {
-            logger.warn('服务器不可用，跳过 t_asset_chains_sync 上传')
+            logger.warn('Server unavailable, skipping t_asset_chains_sync upload')
           } else {
             throw error
           }
@@ -246,36 +246,36 @@ export class PollingManager {
 
       return { hasChanges: totalUploaded > 0, count: totalUploaded }
     } catch (error: any) {
-      // 检查是否是网络连接错误
+      // Check if it's a network connection error
       if (error.message === 'NETWORK_UNAVAILABLE' || error.isNetworkError) {
-        logger.warn('服务器不可用，跳过本地变更上传')
+        logger.warn('Server unavailable, skipping local changes upload')
         return { hasChanges: false, count: 0 }
       }
-      logger.error('上传本地变更失败', error)
+      logger.error('Failed to upload local changes', error)
       throw error
     }
   }
 
   /**
-   * 下载云端变更
+   * Download cloud changes
    */
   private async downloadCloudChanges(): Promise<{ hasChanges: boolean; count: number }> {
     try {
       const result = await this.syncEngine.downloadAndApplyCloudChanges()
       return { hasChanges: result.applied > 0, count: result.applied }
     } catch (error: any) {
-      // 检查是否是网络连接错误
+      // Check if it's a network connection error
       if (error.message === 'NETWORK_UNAVAILABLE' || error.isNetworkError) {
-        logger.warn('服务器不可用，跳过云端变更下载')
+        logger.warn('Server unavailable, skipping cloud changes download')
         return { hasChanges: false, count: 0 }
       }
-      logger.error('下载云端变更失败', error)
+      logger.error('Failed to download cloud changes', error)
       throw error
     }
   }
 
   /**
-   * 处理轮询成功
+   * Handle polling success
    */
   private handlePollSuccess(hasChanges: boolean): void {
     this.status.successfulPolls++
@@ -287,42 +287,42 @@ export class PollingManager {
   }
 
   /**
-   * 处理轮询错误
+   * Handle polling error
    */
   private handlePollError(error: any): void {
-    // 检查是否是网络连接错误
+    // Check if it's a network connection error
     if (error.message === 'NETWORK_UNAVAILABLE' || error.isNetworkError) {
-      // 网络错误不计入连续错误次数，但记录警告
-      logger.warn('服务器不可用，轮询将继续尝试')
+      // Network errors don't count towards consecutive errors, but log warning
+      logger.warn('Server unavailable, polling will continue to retry')
       return
     }
 
     this.status.consecutiveErrors++
-    logger.error(`轮询失败 (连续${this.status.consecutiveErrors}次)`, error?.message)
+    logger.error(`Polling failed (consecutive ${this.status.consecutiveErrors} times)`, error?.message)
 
-    // 指数退避
+    // Exponential backoff
     if (this.status.consecutiveErrors > 1) {
       const backoffInterval = Math.min(
         this.config.maxInterval,
         this.status.currentInterval * Math.pow(this.config.backoffMultiplier, this.status.consecutiveErrors - 1)
       )
       this.status.currentInterval = backoffInterval
-      logger.warn(`调整轮询间隔为: ${this.status.currentInterval}ms`)
+      logger.warn(`Adjusted polling interval to: ${this.status.currentInterval}ms`)
     }
   }
 
   /**
-   * 自适应调整轮询间隔
+   * Adaptively adjust polling interval
    */
   private adjustPollingInterval(hasChanges: boolean): void {
     if (hasChanges) {
-      // 有变更时缩短间隔
+      // Shorten interval when there are changes
       this.status.currentInterval = Math.max(this.config.minInterval, this.status.currentInterval * 0.8)
     } else {
-      // 无变更时延长间隔
+      // Extend interval when there are no changes
       this.status.currentInterval = Math.min(this.config.maxInterval, this.status.currentInterval * 1.2)
     }
 
-    logger.debug(`调整轮询间隔为: ${this.status.currentInterval}ms`)
+    logger.debug(`Adjusted polling interval to: ${this.status.currentInterval}ms`)
   }
 }

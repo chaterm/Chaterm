@@ -8,7 +8,7 @@ const getSystemUUID = (): string => {
   try {
     switch (platform) {
       case 'win32': {
-        // 1. 优先用 WMIC
+        // 1. Prefer WMIC
         try {
           const output = execSync('wmic csproduct get UUID', { encoding: 'utf8', timeout: 5000 })
           const lines = output
@@ -19,7 +19,7 @@ const getSystemUUID = (): string => {
             uuid = lines[1]
           }
         } catch {
-          // 2. 兼容 PowerShell
+          // 2. Fallback to PowerShell
           try {
             const output = execSync('powershell -Command "(Get-WmiObject Win32_ComputerSystemProduct).UUID"', { encoding: 'utf8', timeout: 5000 })
             uuid = output.trim()
@@ -29,7 +29,7 @@ const getSystemUUID = (): string => {
       }
 
       case 'darwin': {
-        // 优先 ioreg（快）
+        // Prefer ioreg (faster)
         try {
           uuid = execSync("ioreg -rd1 -c IOPlatformExpertDevice | awk '/IOPlatformUUID/ {print $3}'", { encoding: 'utf8', timeout: 5000 })
             .replace(/"/g, '')
@@ -44,8 +44,8 @@ const getSystemUUID = (): string => {
 
       case 'linux': {
         const cmds = [
-          'cat /sys/class/dmi/id/product_uuid', // 最常用，普通用户可读
-          'dmidecode -s system-uuid' // 需要 root
+          'cat /sys/class/dmi/id/product_uuid', // Most common, readable by regular users
+          'dmidecode -s system-uuid' // Requires root
         ]
         for (const cmd of cmds) {
           try {
@@ -64,7 +64,7 @@ const getSystemUUID = (): string => {
     console.error('[System UUID] Error obtaining UUID:', error)
   }
 
-  // UUID 格式校验
+  // UUID format validation
   if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(uuid)) {
     return uuid.toLowerCase()
   }
@@ -79,7 +79,7 @@ const generateFallbackDeviceId = (): string => {
     let hash = 0
     for (let i = 0; i < combined.length; i++) {
       hash = (hash << 5) - hash + combined.charCodeAt(i)
-      hash |= 0 // 转 32 位
+      hash |= 0 // Convert to 32-bit
     }
     const hashStr = Math.abs(hash).toString(16).padStart(8, '0')
     return `device-fallback-${hashStr}`

@@ -21,10 +21,10 @@ export interface TaskMetadata {
   hosts: Host[]
   files_in_context: FileMetadataEntry[]
   model_usage: ModelMetadataEntry[]
-  todos?: Todo[] // 新增字段，可选以保持向后兼容
+  todos?: Todo[] // New field, optional to maintain backward compatibility
 }
 
-// 辅助方法
+// Helper methods
 export class TaskMetadataHelper {
   static createEmptyMetadata(): TaskMetadata {
     return {
