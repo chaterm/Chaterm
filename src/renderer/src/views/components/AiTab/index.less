@@ -1866,3 +1866,12 @@
     }
   }
 }
+
+// Tab content wrapper - ensure hidden tabs don't take up layout space
+.tab-content-wrapper {
+  display: contents;
+
+  &[style*='display: none'] {
+    display: none !important;
+  }
+}
