@@ -15,10 +15,13 @@
           @click.stop="handleTabRemove(tab.id)"
         />
       </template>
-      <!-- Only render the currently active tab content to avoid performance issues from duplicate rendering -->
-      <template v-if="tab.id === currentChatId">
+      <!-- Use v-show instead of v-if to keep tab content in DOM and avoid re-rendering on tab switch -->
+      <div
+        v-show="tab.id === currentChatId"
+        class="tab-content-wrapper"
+      >
         <div
-          v-if="filteredChatHistory.length === 0"
+          v-if="getTabFilteredChatHistory(tab.id).length === 0"
           class="ai-welcome-container"
         >
           <div class="ai-welcome-icon">
@@ -44,7 +47,7 @@
           </template>
         </div>
         <div
-          v-if="filteredChatHistory.length > 0"
+          v-if="getTabFilteredChatHistory(tab.id).length > 0"
           :ref="
             (el) => {
               if (tab.id === currentChatId) {
@@ -65,7 +68,7 @@
             class="chat-response"
           >
             <template
-              v-for="(message, index) in filteredChatHistory"
+              v-for="(message, index) in getTabFilteredChatHistory(tab.id)"
               :key="message"
             >
               <div
@@ -73,7 +76,7 @@
                 class="assistant-message-container"
                 data-testid="ai-message"
                 :class="{
-                  'has-history-copy-btn': chatTypeValue === 'cmd' && message.ask === 'command' && message.actioned,
+                  'has-history-copy-btn': getTabChatTypeValue(tab.id) === 'cmd' && message.ask === 'command' && message.actioned,
                   'last-message': message.say === 'completion_result'
                 }"
               >
@@ -86,7 +89,7 @@
                     {{ $t('ai.taskCompleted') }}
                   </div>
                   <div
-                    v-if="index === filteredChatHistory.length - 1"
+                    v-if="index === getTabFilteredChatHistory(tab.id).length - 1"
                     class="message-feedback"
                   >
                     <a-button
@@ -125,7 +128,7 @@
                 </div>
                 <MarkdownRenderer
                   v-if="typeof message.content === 'object' && 'question' in message.content"
-                  :ref="(el) => setMarkdownRendererRef(el, index)"
+                  :ref="(el) => tab.id === currentChatId && setMarkdownRendererRef(el, index)"
                   :content="(message.content as MessageContent).question"
                   :class="`message ${message.role} ${message.say === 'completion_result' ? 'completion-result' : ''} ${message.say === 'interactive_command_notification' ? 'interactive-notification' : ''}`"
                   :ask="message.ask"
@@ -138,7 +141,7 @@
                 />
                 <MarkdownRenderer
                   v-else
-                  :ref="(el) => setMarkdownRendererRef(el, index)"
+                  :ref="(el) => tab.id === currentChatId && setMarkdownRendererRef(el, index)"
                   :content="typeof message.content === 'string' ? message.content : ''"
                   :class="`message ${message.role} ${message.say === 'completion_result' ? 'completion-result' : ''} ${message.say === 'interactive_command_notification' ? 'interactive-notification' : ''}`"
                   :ask="message.ask"
@@ -181,7 +184,11 @@
                 </div>
 
                 <div class="message-actions">
-                  <template v-if="typeof message.content === 'object' && 'options' in message.content && index === filteredChatHistory.length - 1">
+                  <template
+                    v-if="
+                      typeof message.content === 'object' && 'options' in message.content && index === getTabFilteredChatHistory(tab.id).length - 1
+                    "
+                  >
                     <div class="options-container">
                       <!-- Display original options as radio buttons -->
                       <div class="options-radio-group">
@@ -238,11 +245,11 @@
                   <!-- Inline approval buttons for Agent mode: attach to the pending command message -->
                   <template
                     v-if="
-                      chatTypeValue === 'agent' &&
-                      index === filteredChatHistory.length - 1 &&
-                      lastChatMessageId === message.id &&
+                      getTabChatTypeValue(tab.id) === 'agent' &&
+                      index === getTabFilteredChatHistory(tab.id).length - 1 &&
+                      getTabLastChatMessageId(tab.id) === message.id &&
                       (message.ask === 'command' || message.ask === 'mcp_tool_call') &&
-                      !responseLoading
+                      !getTabResponseLoading(tab.id)
                     "
                   >
                     <div class="bottom-buttons">
@@ -285,11 +292,11 @@
                   <!-- Inline copy/run buttons for Command mode - command type -->
                   <template
                     v-if="
-                      chatTypeValue === 'cmd' &&
-                      index === filteredChatHistory.length - 1 &&
-                      lastChatMessageId === message.id &&
+                      getTabChatTypeValue(tab.id) === 'cmd' &&
+                      index === getTabFilteredChatHistory(tab.id).length - 1 &&
+                      getTabLastChatMessageId(tab.id) === message.id &&
                       message.ask === 'command' &&
-                      !responseLoading
+                      !getTabResponseLoading(tab.id)
                     "
                   >
                     <div class="bottom-buttons">
@@ -318,11 +325,11 @@
                   <!-- Inline approval buttons for Command mode - mcp_tool_call type -->
                   <template
                     v-if="
-                      chatTypeValue === 'cmd' &&
-                      index === filteredChatHistory.length - 1 &&
-                      lastChatMessageId === message.id &&
+                      getTabChatTypeValue(tab.id) === 'cmd' &&
+                      index === getTabFilteredChatHistory(tab.id).length - 1 &&
+                      getTabLastChatMessageId(tab.id) === message.id &&
                       message.ask === 'mcp_tool_call' &&
-                      !responseLoading
+                      !getTabResponseLoading(tab.id)
                     "
                   >
                     <div class="bottom-buttons">
@@ -648,7 +655,7 @@
             </div>
           </div>
         </div>
-      </template>
+      </div>
     </a-tab-pane>
     <template #rightExtra>
       <div class="right-extra-buttons">
@@ -896,7 +903,7 @@ import {
 } from '@ant-design/icons-vue'
 import { isFocusInAiTab } from '@/utils/domUtils'
 import { getGlobalState } from '@renderer/agent/storage/state'
-import type { MessageContent } from './types'
+import type { MessageContent, ChatMessage } from './types'
 import i18n from '@/locales'
 import historyIcon from '@/assets/icons/history.svg'
 import plusIcon from '@/assets/icons/plus.svg'
@@ -944,10 +951,8 @@ const {
   chatAiModelValue,
   hosts,
   chatInputValue,
-  lastChatMessageId,
   responseLoading,
   chatHistory,
-  filteredChatHistory,
   buttonsDisabled,
   showResumeButton
 } = useSessionState()
@@ -1067,6 +1072,56 @@ const {
   toggleFavorite,
   refreshHistoryList
 } = useChatHistory(createNewEmptyTab)
+
+// Helper function to get filtered chat history for a specific tab
+// Using a Map to cache results for better performance
+const tabFilteredHistoryCache = new Map<string, ChatMessage[]>()
+const getTabFilteredChatHistory = (tabId: string) => {
+  const tab = chatTabs.value.find((t) => t.id === tabId)
+  if (!tab) return []
+  const history = tab.session.chatHistory ?? []
+  const cacheKey = `${tabId}-${history.length}`
+
+  // Check cache first
+  if (tabFilteredHistoryCache.has(cacheKey)) {
+    const cached = tabFilteredHistoryCache.get(cacheKey)
+    if (cached && cached.length === history.length) {
+      return cached
+    }
+  }
+
+  const hasAgentReply = history.some(
+    (msg) => msg.role === 'assistant' && msg.say !== 'sshInfo' && (msg.say === 'text' || msg.say === 'completion_result' || msg.ask === 'command')
+  )
+  const filtered = hasAgentReply ? history.filter((msg) => msg.say !== 'sshInfo') : history
+
+  // Cache result (limit cache size to prevent memory issues)
+  if (tabFilteredHistoryCache.size > 50) {
+    const firstKey = tabFilteredHistoryCache.keys().next().value
+    if (firstKey) {
+      tabFilteredHistoryCache.delete(firstKey)
+    }
+  }
+  tabFilteredHistoryCache.set(cacheKey, filtered)
+
+  return filtered
+}
+
+// Helper function to get tab-specific values
+const getTabChatTypeValue = (tabId: string) => {
+  const tab = chatTabs.value.find((t) => t.id === tabId)
+  return tab?.chatType ?? ''
+}
+
+const getTabLastChatMessageId = (tabId: string) => {
+  const tab = chatTabs.value.find((t) => t.id === tabId)
+  return tab?.session.lastChatMessageId ?? ''
+}
+
+const getTabResponseLoading = (tabId: string) => {
+  const tab = chatTabs.value.find((t) => t.id === tabId)
+  return tab?.session.responseLoading ?? false
+}
 
 // i18n
 const { t } = i18n.global

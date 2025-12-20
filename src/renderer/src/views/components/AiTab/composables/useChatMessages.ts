@@ -1,4 +1,4 @@
-import { ref, onMounted, computed } from 'vue'
+import { ref, onMounted, computed, watch } from 'vue'
 import { v4 as uuidv4 } from 'uuid'
 import { notification } from 'ant-design-vue'
 import eventBus from '@/utils/eventBus'
@@ -32,6 +32,11 @@ export function useChatMessages(
   const markdownRendererRefs = ref<Array<{ setThinkingLoading: (loading: boolean) => void }>>([])
 
   const isCurrentChatMessage = ref(true)
+
+  // Clear refs when tab switches to avoid index conflicts
+  watch(currentChatId, () => {
+    markdownRendererRefs.value = []
+  })
 
   const setMarkdownRendererRef = (el: any, index: number) => {
     if (el) {
