@@ -75,7 +75,7 @@
     </div>
     <div
       class="terminal-layout"
-      :class="{ 'transparent-bg': isTransparent }"
+      :class="{ 'transparent-bg': isTransparent, 'agents-mode': props.currentMode === 'agents' }"
     >
       <div class="term_header">
         <Header
@@ -85,131 +85,162 @@
         ></Header>
       </div>
       <div class="term_body">
-        <div class="term_left_menu">
-          <LeftTab
-            @toggle-menu="toggleMenu"
-            @open-user-tab="openUserTab"
-          ></LeftTab>
-        </div>
-        <div class="term_content">
-          <splitpanes
-            class="left-sidebar-container"
-            @resize="(params: ResizeParams) => handleLeftPaneResize(params)"
-          >
-            <pane
-              class="term_content_left"
-              :size="leftPaneSize"
+        <!-- Agents Mode Layout -->
+        <template v-if="props.currentMode === 'agents'">
+          <div class="term_content">
+            <splitpanes
+              class="left-sidebar-container"
+              @resize="(params: ResizeParams) => handleLeftPaneResize(params)"
             >
-              <Workspace
-                v-if="currentMenu == 'workspace'"
-                :toggle-sidebar="toggleSideBar"
-                @change-company="changeCompany"
-                @current-click-server="currentClickServer"
-                @open-user-tab="openUserTab"
-              />
-              <Extensions
-                v-if="currentMenu == 'extensions'"
-                :toggle-sidebar="toggleSideBar"
-                @open-user-tab="openUserTab"
-              />
-              <Snippets v-if="currentMenu == 'snippets'" />
-            </pane>
-            <pane :size="100 - leftPaneSize">
-              <splitpanes @resize="onMainSplitResize">
-                <!-- Main terminal area (including vertical split) -->
-                <pane
-                  :size="mainTerminalSize"
-                  :min-size="30"
-                >
-                  <!-- Vertical split container, only affects main terminal area -->
-                  <splitpanes
-                    horizontal
-                    @resize="onVerticalSplitResize"
+              <pane :size="agentsLeftPaneSize">
+                <AgentsSidebar
+                  @conversation-select="handleConversationSelect"
+                  @new-chat="handleNewChat"
+                  @conversation-delete="handleConversationDelete"
+                />
+              </pane>
+              <pane :size="100 - agentsLeftPaneSize">
+                <div class="agents-chat-container">
+                  <AiTab
+                    ref="aiTabRef"
+                    :toggle-sidebar="() => {}"
+                    :saved-state="savedAiSidebarState || undefined"
+                    :is-agent-mode="true"
+                    @state-changed="handleAiTabStateChanged"
+                  />
+                </div>
+              </pane>
+            </splitpanes>
+          </div>
+        </template>
+        <!-- Terminal Mode Layout -->
+        <template v-else>
+          <div class="term_left_menu">
+            <LeftTab
+              @toggle-menu="toggleMenu"
+              @open-user-tab="openUserTab"
+            ></LeftTab>
+          </div>
+          <div class="term_content">
+            <splitpanes
+              class="left-sidebar-container"
+              @resize="(params: ResizeParams) => handleLeftPaneResize(params)"
+            >
+              <pane
+                class="term_content_left"
+                :size="leftPaneSize"
+              >
+                <Workspace
+                  v-if="currentMenu == 'workspace'"
+                  :toggle-sidebar="toggleSideBar"
+                  @change-company="changeCompany"
+                  @current-click-server="currentClickServer"
+                  @open-user-tab="openUserTab"
+                />
+                <Extensions
+                  v-if="currentMenu == 'extensions'"
+                  :toggle-sidebar="toggleSideBar"
+                  @open-user-tab="openUserTab"
+                />
+                <Snippets v-if="currentMenu == 'snippets'" />
+              </pane>
+              <pane :size="100 - leftPaneSize">
+                <splitpanes @resize="onMainSplitResize">
+                  <!-- Main terminal area (including vertical split) -->
+                  <pane
+                    :size="mainTerminalSize"
+                    :min-size="30"
                   >
-                    <!-- Main terminal window -->
-                    <pane
-                      :size="mainVerticalSize"
-                      :min-size="30"
+                    <!-- Vertical split container, only affects main terminal area -->
+                    <splitpanes
+                      horizontal
+                      @resize="onVerticalSplitResize"
                     >
-                      <div
-                        class="main-terminal-area"
-                        @mousedown="handleMainPaneFocus"
+                      <!-- Main terminal window -->
+                      <pane
+                        :size="mainVerticalSize"
+                        :min-size="30"
                       >
-                        <transition name="fade">
-                          <div
-                            v-if="!hasPanels"
-                            class="dashboard-overlay"
-                          >
-                            <Dashboard />
-                          </div>
-                        </transition>
-                        <DockviewVue
-                          v-if="configLoaded"
-                          ref="dockviewRef"
-                          :class="currentTheme === 'light' ? 'dockview-theme-light' : 'dockview-theme-dark'"
-                          :style="{
-                            width: '100%',
-                            height: '100%',
-                            visibility: hasPanels ? 'visible' : 'hidden'
-                          }"
-                          @ready="onDockReady"
-                        />
-                      </div>
-                    </pane>
-                  </splitpanes>
-                </pane>
-                <!-- AI sidebar -->
-                <pane
-                  v-if="showAiSidebar"
-                  :size="aiSidebarSize"
-                >
-                  <div
-                    class="rigth-sidebar"
-                    tabindex="0"
+                        <div
+                          class="main-terminal-area"
+                          @mousedown="handleMainPaneFocus"
+                        >
+                          <transition name="fade">
+                            <div
+                              v-if="!hasPanels"
+                              class="dashboard-overlay"
+                            >
+                              <Dashboard />
+                            </div>
+                          </transition>
+                          <DockviewVue
+                            v-if="configLoaded"
+                            ref="dockviewRef"
+                            :class="currentTheme === 'light' ? 'dockview-theme-light' : 'dockview-theme-dark'"
+                            :style="{
+                              width: '100%',
+                              height: '100%',
+                              visibility: hasPanels ? 'visible' : 'hidden'
+                            }"
+                            @ready="onDockReady"
+                          />
+                        </div>
+                      </pane>
+                    </splitpanes>
+                  </pane>
+                  <!-- AI sidebar -->
+                  <pane
+                    v-if="showAiSidebar"
+                    :size="aiSidebarSize"
                   >
-                    <AiTab
-                      ref="aiTabRef"
-                      :toggle-sidebar="toggleAiSidebar"
-                      :saved-state="savedAiSidebarState || undefined"
-                      @state-changed="handleAiTabStateChanged"
-                    />
-                  </div>
-                </pane>
-              </splitpanes>
-            </pane>
-          </splitpanes>
-          <div
-            v-if="isShowCommandBar"
-            class="toolbar"
-            :style="{ width: commandBarStyle.width + 'px', left: commandBarStyle.left + 'px' }"
-          >
+                    <div
+                      class="rigth-sidebar"
+                      tabindex="0"
+                    >
+                      <AiTab
+                        ref="aiTabRef"
+                        :toggle-sidebar="toggleAiSidebar"
+                        :saved-state="savedAiSidebarState || undefined"
+                        @state-changed="handleAiTabStateChanged"
+                      />
+                    </div>
+                  </pane>
+                </splitpanes>
+              </pane>
+            </splitpanes>
             <div
-              v-if="isGlobalInput"
-              class="globalInput"
+              v-if="isShowCommandBar"
+              class="toolbar"
+              :style="{ width: commandBarStyle.width + 'px', left: commandBarStyle.left + 'px' }"
             >
-              <div class="broadcast-indicator">
-                <span class="broadcast-icon">&#128226;</span>
-                <span class="broadcast-text">{{ t('common.broadcastTo', { count: terminalCount }) }}</span>
+              <div
+                v-if="isGlobalInput"
+                class="globalInput"
+              >
+                <div class="broadcast-indicator">
+                  <span class="broadcast-icon">&#128226;</span>
+                  <span class="broadcast-text">{{ t('common.broadcastTo', { count: terminalCount }) }}</span>
+                </div>
+                <a-input
+                  v-model:value="globalInput"
+                  size="small"
+                  class="command-input"
+                  :placeholder="t('common.executeCommandToAllWindows')"
+                  allow-clear
+                  @press-enter="sendGlobalCommand"
+                >
+                </a-input>
+                <button
+                  class="close-btn"
+                  :title="t('common.close')"
+                  @click="closeGlobalInput"
+                >
+                  &times;
+                </button>
               </div>
-              <a-input
-                v-model:value="globalInput"
-                size="small"
-                class="command-input"
-                :placeholder="t('common.executeCommandToAllWindows')"
-                allow-clear
-                @press-enter="sendGlobalCommand"
-              >
-              </a-input>
-              <button
-                class="close-btn"
-                :title="t('common.close')"
-                @click="closeGlobalInput"
-              >
-                &times;
-              </button>
             </div>
           </div>
-        </div>
+        </template>
       </div>
     </div>
   </a-watermark>
@@ -231,6 +262,7 @@ import LeftTab from '@views/components/LeftTab/index.vue'
 import Workspace from '@views/components/Workspace/index.vue'
 import Extensions from '@views/components/Extensions/index.vue'
 import Snippets from '@views/components/LeftTab/config/snippets.vue'
+import AgentsSidebar from '@views/components/AgentsSidebar/index.vue'
 import TabsPanel from './tabsPanel.vue'
 import { reactive } from 'vue'
 import { v4 as uuidv4 } from 'uuid'
@@ -242,6 +274,7 @@ import { isGlobalInput, isShowCommandBar, componentInstances, inputManager } fro
 import { shortcutService } from '@/services/shortcutService'
 import { captureExtensionUsage, ExtensionNames, ExtensionStatus } from '@/utils/telemetry'
 import Dashboard from '@renderer/views/components/Ssh/components/dashboard.vue'
+import { getGlobalState } from '@/agent/storage/state'
 
 const props = defineProps<{
   currentMode: 'terminal' | 'agents'
@@ -272,6 +305,7 @@ const watermarkContent = reactive({
 })
 
 const leftPaneSize = ref(21.097)
+const agentsLeftPaneSize = ref(27)
 const mainTerminalSize = ref(100)
 const showWatermark = ref(true)
 const currentTheme = ref('dark')
@@ -531,45 +565,53 @@ onMounted(async () => {
     })
   }
   nextTick(() => {
-    updatePaneSize()
-    if (headerRef.value) {
-      headerRef.value.switchIcon('right', showAiSidebar.value)
-      headerRef.value.setMode(props.currentMode)
+    if (props.currentMode === 'terminal') {
+      updatePaneSize()
+      if (headerRef.value) {
+        headerRef.value.switchIcon('right', showAiSidebar.value)
+        headerRef.value.switchIcon('left', leftPaneSize.value > 0)
+        headerRef.value.setMode(props.currentMode)
+      }
+    } else {
+      if (headerRef.value) {
+        headerRef.value.switchIcon('agentsLeft', agentsLeftPaneSize.value > 0)
+        headerRef.value.setMode(props.currentMode)
+      }
     }
   })
 
-  // Restore AI state from agents mode if available
-  const restoreStateFromAgents = async () => {
+  // Restore AI state (unified function since both modes use the same aiTabRef)
+  const restoreAiTabState = async () => {
     try {
       const savedStateStr = localStorage.getItem('sharedAiTabState')
-      if (savedStateStr) {
+      if (savedStateStr && aiTabRef.value && aiTabRef.value.restoreState) {
         const savedState = JSON.parse(savedStateStr)
+        // Update savedAiSidebarState to match
         savedAiSidebarState.value = savedState
-
-        if (showAiSidebar.value && aiTabRef.value && aiTabRef.value.restoreState) {
-          await nextTick()
-          await aiTabRef.value.restoreState(savedState)
-        }
-
+        // Restore state to the unified AiTab instance
+        await nextTick()
+        await aiTabRef.value.restoreState(savedState)
+        // Clear the shared state after restoring to avoid restoring again
         localStorage.removeItem('sharedAiTabState')
         return true
       }
     } catch (error) {
-      console.warn('Failed to restore AI state from agents mode:', error)
+      console.warn('Failed to restore AI Tab state:', error)
       // Clear invalid state
       localStorage.removeItem('sharedAiTabState')
     }
     return false
   }
 
-  // Watch currentMode changes and sync to Header, also restore AI state when switching to terminal
+  // Watch currentMode changes and sync to Header, also restore AI state when switching modes
   watch(
     () => props.currentMode,
     async (newMode, oldMode) => {
       if (headerRef.value) {
         headerRef.value.setMode(newMode)
       }
-      // When switching from agents to terminal, restore AI state and reset layout
+
+      // When switching from agents to terminal, reset layout state
       if (newMode === 'terminal' && oldMode === 'agents') {
         await nextTick()
         // Reset layout state to ensure proper display
@@ -601,11 +643,19 @@ onMounted(async () => {
             }
           }
         }
-        // Wait a bit for aiTabRef to be ready
-        setTimeout(async () => {
-          await restoreStateFromAgents()
-        }, 200)
+      } else if (newMode === 'agents' && oldMode === 'terminal') {
+        await nextTick()
+        // Initialize agents left pane state
+        if (headerRef.value) {
+          headerRef.value.switchIcon('agentsLeft', agentsLeftPaneSize.value > 0)
+        }
       }
+
+      // Restore AI state after mode switch (unified for both directions since same aiTabRef)
+      // Wait a bit for aiTabRef to be ready after DOM update
+      setTimeout(async () => {
+        await restoreAiTabState()
+      }, 200)
     },
     { immediate: false }
   )
@@ -628,12 +678,15 @@ onMounted(async () => {
   eventBus.on('createNewTerminal', handleCreateNewTerminal)
   eventBus.on('open-user-tab', openUserTab)
   eventBus.on('searchHost', handleSearchHost)
-  eventBus.on('save-state-before-switch', (params: { from: string; to: string }) => {
-    if (params.from === 'terminal' && params.to === 'agents' && aiTabRef.value) {
+  eventBus.on('save-state-before-switch', () => {
+    // Save AI state before layout switch (unified since same aiTabRef)
+    if (aiTabRef.value) {
       try {
         const currentState = aiTabRef.value.getCurrentState?.()
         if (currentState) {
           localStorage.setItem('sharedAiTabState', JSON.stringify(currentState))
+          // Also update savedAiSidebarState for immediate use
+          savedAiSidebarState.value = currentState
         }
       } catch (error) {
         console.warn('Failed to save AI state before layout switch:', error)
@@ -641,10 +694,12 @@ onMounted(async () => {
     }
   })
 
+  // Try to restore state on initial mount (unified for both modes)
   nextTick(async () => {
-    if (!(await restoreStateFromAgents())) {
+    if (!(await restoreAiTabState())) {
+      // If not restored yet, wait a bit more and try again
       setTimeout(async () => {
-        await restoreStateFromAgents()
+        await restoreAiTabState()
       }, 200)
     }
   })
@@ -710,10 +765,13 @@ const updatePaneSize = () => {
 // Handle left pane resize and auto-hide when width is less than 160px
 const handleLeftPaneResize = (params: ResizeParams) => {
   // Always update the size first
-  leftPaneSize.value = params.prevPane.size
-
-  // Then check if we need to auto-hide with debouncing
-  debouncedResizeCheck()
+  if (props.currentMode === 'agents') {
+    agentsLeftPaneSize.value = params.prevPane.size
+  } else {
+    leftPaneSize.value = params.prevPane.size
+    // Then check if we need to auto-hide with debouncing
+    debouncedResizeCheck()
+  }
 }
 
 // Add debounced monitoring for smooth resize
@@ -777,12 +835,33 @@ const toggleSideBar = (value: string) => {
       break
     case 'left':
       {
-        if (leftPaneSize.value) {
-          leftPaneSize.value = 0
-          headerRef.value?.switchIcon('left', false)
+        if (props.currentMode === 'agents') {
+          if (agentsLeftPaneSize.value) {
+            agentsLeftPaneSize.value = 0
+            headerRef.value?.switchIcon('agentsLeft', true)
+          } else {
+            agentsLeftPaneSize.value = 27
+            headerRef.value?.switchIcon('agentsLeft', false)
+          }
         } else {
-          leftPaneSize.value = (DEFAULT_WIDTH_PX / containerWidth) * 100
-          headerRef.value?.switchIcon('left', true)
+          if (leftPaneSize.value) {
+            leftPaneSize.value = 0
+            headerRef.value?.switchIcon('left', false)
+          } else {
+            leftPaneSize.value = (DEFAULT_WIDTH_PX / containerWidth) * 100
+            headerRef.value?.switchIcon('left', true)
+          }
+        }
+      }
+      break
+    case 'agentsLeft':
+      {
+        if (agentsLeftPaneSize.value) {
+          agentsLeftPaneSize.value = 0
+          headerRef.value?.switchIcon('agentsLeft', true)
+        } else {
+          agentsLeftPaneSize.value = 27
+          headerRef.value?.switchIcon('agentsLeft', false)
         }
       }
       break
@@ -1265,19 +1344,82 @@ const handleSendOrToggleAiFromTerminal = () => {
 }
 
 const handleModeChange = (mode: 'terminal' | 'agents') => {
-  // Save AI state before switching to agents mode
-  if (mode === 'agents' && aiTabRef.value) {
+  // Save AI state before switching modes (unified since same aiTabRef)
+  if (aiTabRef.value) {
     try {
       const currentState = aiTabRef.value.getCurrentState?.()
       if (currentState) {
         // Save state to localStorage for persistence across mode switches
         localStorage.setItem('sharedAiTabState', JSON.stringify(currentState))
+        // Also update savedAiSidebarState for immediate use
+        savedAiSidebarState.value = currentState
       }
     } catch (error) {
       console.warn('Failed to save AI state before mode switch:', error)
     }
   }
   eventBus.emit('switch-mode', mode)
+}
+
+// Agents mode handlers
+const handleConversationSelect = async (conversationId: string) => {
+  if (aiTabRef.value) {
+    try {
+      const taskHistory = ((await getGlobalState('taskHistory')) as any[]) || []
+      const task = taskHistory.find((h) => h.id === conversationId)
+
+      if (task) {
+        // Convert TaskHistoryItem to HistoryItem format to ensure chatTitle is present
+        const history = {
+          id: task.id,
+          chatTitle: task?.chatTitle || task?.task || 'New Chat',
+          chatType: task.chatType || 'agent',
+          chatContent: [],
+          isFavorite: task.isFavorite || false,
+          ts: task.ts
+        }
+
+        const aiTabInstance = aiTabRef.value as any
+        if (aiTabInstance && typeof aiTabInstance.restoreHistoryTab === 'function') {
+          await aiTabInstance.restoreHistoryTab(history)
+        } else {
+          eventBus.emit('restore-history-tab', history)
+        }
+      }
+    } catch (error) {
+      console.error('Failed to select conversation:', error)
+    }
+  }
+}
+
+const handleNewChat = async () => {
+  if (aiTabRef.value) {
+    try {
+      const aiTabInstance = aiTabRef.value as any
+      if (aiTabInstance && typeof aiTabInstance.createNewEmptyTab === 'function') {
+        await aiTabInstance.createNewEmptyTab()
+      } else {
+        eventBus.emit('create-new-empty-tab')
+      }
+    } catch (error) {
+      console.error('Failed to create new chat:', error)
+    }
+  }
+}
+
+const handleConversationDelete = async (conversationId: string) => {
+  if (aiTabRef.value) {
+    try {
+      const aiTabInstance = aiTabRef.value as any
+      if (aiTabInstance && typeof aiTabInstance.handleTabRemove === 'function') {
+        await aiTabInstance.handleTabRemove(conversationId)
+      } else {
+        eventBus.emit('remove-tab', conversationId)
+      }
+    } catch (error) {
+      console.error('Failed to delete conversation tab:', error)
+    }
+  }
 }
 
 import 'dockview-vue/dist/styles/dockview.css'
@@ -1712,6 +1854,22 @@ defineExpose({
   color: var(--text-color);
   margin: 0;
 
+  &.agents-mode {
+    .term_body {
+      .term_content {
+        width: 100%;
+        height: 100%;
+        box-sizing: border-box;
+
+        .agents-chat-container {
+          width: 100%;
+          height: 100%;
+          background: var(--bg-color);
+        }
+      }
+    }
+  }
+
   &.transparent-bg {
     background: transparent !important;
 
@@ -1772,6 +1930,14 @@ defineExpose({
 
       .term_content_left {
         width: 250px;
+      }
+    }
+  }
+
+  &.agents-mode {
+    .term_body {
+      .term_content {
+        width: 100%;
       }
     }
   }

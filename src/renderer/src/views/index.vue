@@ -1,17 +1,9 @@
 <template>
-  <TerminalLayout
-    v-show="currentMode === 'terminal'"
-    :current-mode="currentMode"
-  />
-  <AgentsLayout
-    v-show="currentMode === 'agents'"
-    :current-mode="currentMode"
-  />
+  <TerminalLayout :current-mode="currentMode" />
 </template>
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, nextTick } from 'vue'
 import TerminalLayout from './layouts/TerminalLayout.vue'
-import AgentsLayout from './layouts/AgentsLayout.vue'
 import eventBus from '@/utils/eventBus'
 import { userConfigStore } from '@/services/userConfigStoreService'
 
