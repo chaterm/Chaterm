@@ -1,0 +1,25 @@
+name: Issue Labeler
+
+on:
+  issues:
+    types: [opened, edited]
+
+jobs:
+  label:
+    name: Auto Label Issues
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+      contents: read
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Add labels based on keywords
+        uses: github/issue-labeler@v3
+        with:
+          repo-token: '${{ secrets.GITHUB_TOKEN }}'
+          configuration-path: .github/issue-labeler-config.yml
+          enable-versioned-regex: 0
+          enable-global-title-regex: 1
+          enable-global-body-regex: 1

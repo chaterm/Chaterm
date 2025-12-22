@@ -1,0 +1,51 @@
+name: Issue Triage
+
+on:
+  issues:
+    types: [opened, edited]
+
+jobs:
+  triage:
+    name: Triage Issues
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+      contents: read
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Check for duplicate issues
+        uses: actions-cool/issues-helper@v3
+        with:
+          actions: 'check-issue'
+          token: ${{ secrets.GITHUB_TOKEN }}
+          filter-created: '>7d'
+          state: 'open'
+          body-includes: |
+            Please check if this issue is a duplicate of an existing one.
+
+      - name: Add needs-info label if incomplete
+        uses: actions-cool/issues-helper@v3
+        if: |
+          !contains(github.event.issue.body, 'OS:') &&
+          !contains(github.event.issue.body, 'Version:') &&
+          !contains(github.event.issue.body, 'Steps to reproduce')
+        with:
+          actions: 'add-labels'
+          token: ${{ secrets.GITHUB_TOKEN }}
+          issue-number: ${{ github.event.issue.number }}
+          labels: 'needs-info'
+
+      - name: Add priority:high label for critical issues
+        uses: actions-cool/issues-helper@v3
+        if: |
+          contains(github.event.issue.title, 'critical') ||
+          contains(github.event.issue.title, 'urgent') ||
+          contains(github.event.issue.title, 'crash') ||
+          contains(github.event.issue.title, 'security')
+        with:
+          actions: 'add-labels'
+          token: ${{ secrets.GITHUB_TOKEN }}
+          issue-number: ${{ github.event.issue.number }}
+          labels: 'priority:high'

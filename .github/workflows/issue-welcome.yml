@@ -1,0 +1,33 @@
+name: Issue Welcome
+
+on:
+  issues:
+    types: [opened]
+
+jobs:
+  welcome:
+    name: Welcome New Issues
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+      contents: read
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Welcome message
+        uses: actions-cool/issues-helper@v3
+        with:
+          actions: 'create-comment'
+          token: ${{ secrets.GITHUB_TOKEN }}
+          issue-number: ${{ github.event.issue.number }}
+          body: |
+            👋 Thanks for opening an issue!
+
+            To help us better understand and resolve your issue, please ensure:
+            - ✅ You've searched existing issues to avoid duplicates
+            - ✅ You've provided a clear description and reproduction steps
+            - ✅ For bugs, please provide environment info (OS, version, etc.)
+            - ✅ For feature requests, please describe the use case
+
+            We'll review and respond as soon as possible. 🙏

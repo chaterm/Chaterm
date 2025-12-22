@@ -1,0 +1,37 @@
+# Configuration for auto-assign-action
+# Automatically assigns issues based on labels
+
+# Default assignees for all issues (optional)
+# assignees:
+#   - username1
+#   - username2
+
+# Assignees based on labels
+label-to-assignees:
+  'area: agent':
+    - 'assignee-for-agent' # Replace with actual GitHub username
+  'area: renderer':
+    - 'assignee-for-renderer' # Replace with actual GitHub username
+  'area: main':
+    - 'assignee-for-main' # Replace with actual GitHub username
+  'area: storage':
+    - 'assignee-for-storage' # Replace with actual GitHub username
+  'area: build':
+    - 'assignee-for-build' # Replace with actual GitHub username
+  'area: docs':
+    - 'assignee-for-docs' # Replace with actual GitHub username
+  'area: test':
+    - 'assignee-for-test' # Replace with actual GitHub username
+  'security':
+    - 'assignee-for-security' # Replace with actual GitHub username
+  'bug':
+    - 'assignee-for-bugs' # Replace with actual GitHub username
+  'enhancement':
+    - 'assignee-for-enhancements' # Replace with actual GitHub username
+
+# Number of assignees to add (default: 1)
+number-of-assignees: 1
+# Fallback assignees if no label matches
+# fallback-assignees:
+#   - default-assignee  # Replace with actual GitHub username
+
