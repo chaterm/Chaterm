@@ -1,0 +1,69 @@
+# Configuration for github/issue-labeler
+# Automatically labels issues based on title and body content
+
+bug:
+  title:
+    - '(?i)(bug|error|crash|exception|fail|broken|issue|problem)'
+  body:
+    - '(?i)(bug|error|crash|exception|fail|broken|doesn\'t work|not working)'
+
+enhancement:
+  title:
+    - '(?i)(feature|enhancement|improvement|add|new|request|suggestion|proposal)'
+  body:
+    - '(?i)(feature|enhancement|improvement|add|new functionality|would be nice|should have)'
+
+documentation:
+  title:
+    - '(?i)(doc|documentation|readme|guide|tutorial|example)'
+  body:
+    - '(?i)(documentation|docs|readme|guide|tutorial|example|how to)'
+
+question:
+  title:
+    - '(?i)(question|how|why|what|help|support|ask)'
+  body:
+    - '(?i)(\?|question|how do|how to|why|what|help|support|ask)'
+
+security:
+  title:
+    - '(?i)(security|vulnerability|exploit|attack|leak|expose|secret|credential)'
+  body:
+    - '(?i)(security|vulnerability|exploit|attack|leak|expose|secret|credential|password|token|key)'
+
+performance:
+  title:
+    - '(?i)(performance|slow|speed|optimization|optimize|lag|bottleneck)'
+  body:
+    - '(?i)(performance|slow|speed|optimization|optimize|lag|bottleneck|takes too long)'
+
+ui/ux:
+  title:
+    - '(?i)(ui|ux|interface|design|layout|style|theme|appearance|visual)'
+  body:
+    - '(?i)(ui|ux|interface|design|layout|style|theme|appearance|visual|look|feel)'
+
+priority:high:
+  title:
+    - '(?i)(critical|urgent|important|blocker|p0|high priority|asap)'
+  body:
+    - '(?i)(critical|urgent|important|blocker|p0|high priority|asap|production|breaking)'
+
+priority:low:
+  title:
+    - '(?i)(nice to have|low priority|minor|p3|p4|optional)'
+  body:
+    - '(?i)(nice to have|low priority|minor|p3|p4|optional|when possible)'
+
+needs-info:
+  body:
+    - '(?i)(^$|tbd|todo|will add|coming soon|待补充)'
+
+good first issue:
+  body:
+    - '(?i)(good first issue|beginner|starter|easy|simple|first contribution)'
+
+help wanted:
+  body:
+    - '(?i)(help wanted|contribution|pull request|pr welcome|community)'
+
