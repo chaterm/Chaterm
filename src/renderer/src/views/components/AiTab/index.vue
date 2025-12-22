@@ -583,6 +583,7 @@
                 <a-select
                   v-model:value="chatAiModelValue"
                   size="small"
+                  class="model-select-responsive"
                   style="width: 160px"
                   show-search
                   @change="handleChatAiModelChange"
