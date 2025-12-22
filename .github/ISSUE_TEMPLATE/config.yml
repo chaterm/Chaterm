@@ -1,8 +1,8 @@
 blank_issues_enabled: false
 contact_links:
-  - name: GitHub Discussions
+  - name: 💬 GitHub Discussions
     url: https://github.com/chaterm/Chaterm/discussions
     about: Ask questions, share ideas, or start a discussion with the community
-  - name: Documentation
+  - name: 📖 Documentation
     url: https://chaterm.ai/docs/
     about: Check out our documentation and guides
