@@ -1,0 +1,74 @@
+name: Feature Request
+description: Suggest an idea for this project
+title: '[FEATURE] '
+labels: [enhancement]
+body:
+  - type: textarea
+    id: feature-description
+    attributes:
+      label: Feature Description
+      description: A clear and concise description of the feature you'd like to see.
+      placeholder: Describe the feature...
+    validations:
+      required: true
+
+  - type: textarea
+    id: problem-statement
+    attributes:
+      label: Problem Statement
+      description: Is your feature request related to a problem? Please describe.
+      placeholder: |
+        Example: I'm always frustrated when [...]
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposed-solution
+    attributes:
+      label: Proposed Solution
+      description: Describe the solution you'd like.
+      placeholder: How would you like this to work?
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives-considered
+    attributes:
+      label: Alternatives Considered
+      description: Describe any alternative solutions or features you've considered.
+      placeholder: What other approaches have you thought about?
+
+  - type: textarea
+    id: use-cases
+    attributes:
+      label: Use Cases
+      description: Describe specific use cases or scenarios where this feature would be helpful.
+      placeholder: |
+        1. 
+        2. 
+        3.
+    validations:
+      required: true
+
+  - type: textarea
+    id: additional-context
+    attributes:
+      label: Additional Context
+      description: Add any other context, mockups, or examples about the feature request here.
+      placeholder: Any other information, mockups, or examples...
+
+  - type: textarea
+    id: implementation-notes
+    attributes:
+      label: Implementation Notes
+      description: If you have technical suggestions or implementation ideas, please share them here.
+      placeholder: Technical implementation suggestions...
+
+  - type: textarea
+    id: related-issues
+    attributes:
+      label: Related Issues
+      description: Link to any related issues or discussions.
+      placeholder: |
+        - Related issue #123
+        - Discussion link
