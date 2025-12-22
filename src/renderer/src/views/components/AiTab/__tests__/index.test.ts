@@ -1,8 +1,4 @@
 /**
- * @vitest-environment jsdom
- */
-
-/**
  * AiTab Component Integration Tests
  *
  * This test suite focuses on integration testing of the AiTab component,

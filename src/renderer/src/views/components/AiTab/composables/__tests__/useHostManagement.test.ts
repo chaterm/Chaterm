@@ -306,16 +306,27 @@ describe('useHostManagement', () => {
     })
 
     it('should handle timeout when getting asset info', async () => {
+      // Enable fake timers to speed up timeout test
+      vi.useFakeTimers()
+
       const { getCurentTabAssetInfo } = useHostManagement()
 
       // Don't trigger the callback to simulate timeout
       vi.mocked(eventBus.on).mockImplementation(() => {})
 
+      // Start the async operation
+      const resultPromise = getCurentTabAssetInfo()
+
+      vi.advanceTimersToNextTimer()
+
       // The function should return null on timeout due to error handling
-      const result = await getCurentTabAssetInfo()
+      const result = await resultPromise
 
       expect(result).toBeNull()
-    }, 10000) // Set test timeout to 10 seconds
+
+      // Restore real timers
+      vi.useRealTimers()
+    })
 
     it('should set connection type based on organizationId', async () => {
       const { getCurentTabAssetInfo } = useHostManagement()

@@ -29,7 +29,7 @@ export default defineConfig({
           name: 'renderer-process',
           include: ['src/renderer/**/*.test.ts', 'src/renderer/**/*.spec.ts'],
           exclude: ['src/renderer/src/utils/terminalOutputExtractor.test.ts'],
-          environment: 'node'
+          environment: 'jsdom'
         },
         plugins: [vue()],
         resolve: {
@@ -49,7 +49,7 @@ export default defineConfig({
     ],
     coverage: {
       provider: 'v8',
-      enabled: false,
+      enabled: true,
       reporter: ['text', 'html', 'json'],
       exclude: ['tests/**', 'dist/**', 'electron.vite.config.ts', 'src/renderer/src/env.d.ts']
     }

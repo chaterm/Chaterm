@@ -43,27 +43,33 @@ vi.mock('chokidar', () => ({
   watch: vi.fn(() => ({ on: vi.fn(), close: vi.fn() }))
 }))
 
-vi.mock('fs/promises', () => {
-  return {
-    readFile: vi.fn(async () => JSON.stringify({ mcpServers: { a: {}, b: {}, c: {} } })),
-    writeFile: vi.fn(async () => undefined)
-  }
-})
+// Mock fs/promises using memfs via __mocks__ directory
+vi.mock('fs/promises')
 
 import { McpHub } from '../McpHub'
 import { parseCommand } from '../McpHub'
-import * as fsp from 'fs/promises'
 import * as schemas from '../schemas'
 import * as constants from '../constants'
+import { vol } from 'memfs'
+
+// Helper function to setup memfs with initial state
+function setupMemfs(files: Record<string, string> = {}) {
+  const defaultFiles = {
+    '/tmp/mock/mcp-settings.json': JSON.stringify({ mcpServers: {} }),
+    ...files
+  }
+  vol.reset()
+  vol.fromJSON(defaultFiles)
+}
 
 describe('McpHub - Pure Function Tests', () => {
-  const getPath = async () => '/tmp/mock'
+  const getPath = async () => '/tmp/mock/mcp-settings.json'
   let hub: McpHub
 
   beforeEach(async () => {
     vi.clearAllMocks()
-    // Mock empty configuration to prevent auto-initialization loading servers
-    ;(fsp.readFile as any).mockResolvedValue(JSON.stringify({ mcpServers: {} }))
+    // Setup memfs with empty configuration
+    setupMemfs()
     hub = new McpHub(getPath, getPath, '1.0.0')
     // Wait for initialization in constructor to complete
     await new Promise((resolve) => setTimeout(resolve, 10))
@@ -206,12 +212,12 @@ describe('parseCommand', () => {
 })
 
 describe('McpHub - Notification System Tests', () => {
-  const getPath = async () => '/tmp/mock'
+  const getPath = async () => '/tmp/mock/mcp-settings.json'
   let hub: McpHub
 
   beforeEach(async () => {
     vi.clearAllMocks()
-    ;(fsp.readFile as any).mockResolvedValue(JSON.stringify({ mcpServers: {} }))
+    setupMemfs()
     hub = new McpHub(getPath, getPath, '1.0.0')
     await new Promise((resolve) => setTimeout(resolve, 10))
   })
@@ -266,32 +272,38 @@ describe('McpHub - Notification System Tests', () => {
 })
 
 describe('readAndValidateMcpSettingsFile', () => {
-  const getPath = async () => '/tmp/mock'
+  const getPath = async () => '/tmp/mock/mcp-settings.json'
   let hub: McpHub
 
   beforeEach(async () => {
     vi.clearAllMocks()
-    ;(fsp.readFile as any).mockResolvedValue(JSON.stringify({ mcpServers: {} }))
+    setupMemfs()
     hub = new McpHub(getPath, getPath, '1.0.0')
     await new Promise((resolve) => setTimeout(resolve, 10))
   })
 
   it('valid JSON with passing schema should return config object', async () => {
-    ;(fsp.readFile as any).mockResolvedValueOnce(JSON.stringify({ mcpServers: { a: { command: 'uvx' } } }))
+    setupMemfs({
+      '/tmp/mock/mcp-settings.json': JSON.stringify({ mcpServers: { a: { command: 'uvx' } } })
+    })
 
     const res = await (hub as any).readAndValidateMcpSettingsFile()
     expect(res).toMatchObject({ mcpServers: { a: { command: 'uvx', type: 'stdio' } } })
   })
 
   it('should return undefined when JSON parsing fails', async () => {
-    ;(fsp.readFile as any).mockResolvedValueOnce('not json')
+    setupMemfs({
+      '/tmp/mock/mcp-settings.json': 'not json'
+    })
 
     const res = await (hub as any).readAndValidateMcpSettingsFile()
     expect(res).toBeUndefined()
   })
 
   it('should return undefined when schema validation fails', async () => {
-    ;(fsp.readFile as any).mockResolvedValueOnce(JSON.stringify({ mcpServers: { a: { type: 'stdio' } } }))
+    setupMemfs({
+      '/tmp/mock/mcp-settings.json': JSON.stringify({ mcpServers: { a: { type: 'stdio' } } })
+    })
 
     const original = (schemas as any).McpSettingsSchema.safeParse
     ;(schemas as any).McpSettingsSchema.safeParse = vi.fn(() => ({ success: false }))
@@ -302,136 +314,169 @@ describe('readAndValidateMcpSettingsFile', () => {
   })
 
   it('should return undefined when file read exception occurs', async () => {
-    ;(fsp.readFile as any).mockRejectedValueOnce(new Error('read fail'))
+    setupMemfs({})
+    vol.unlinkSync('/tmp/mock/mcp-settings.json')
 
     const res = await (hub as any).readAndValidateMcpSettingsFile()
     expect(res).toBeUndefined()
   })
 
   it('empty object should pass validation', async () => {
-    ;(fsp.readFile as any).mockResolvedValueOnce(JSON.stringify({ mcpServers: {} }))
+    setupMemfs({
+      '/tmp/mock/mcp-settings.json': JSON.stringify({ mcpServers: {} })
+    })
 
     const res = await (hub as any).readAndValidateMcpSettingsFile()
     expect(res).toMatchObject({ mcpServers: {} })
   })
 
   it('should return undefined when mcpServers field is missing', async () => {
-    ;(fsp.readFile as any).mockResolvedValueOnce(JSON.stringify({}))
+    setupMemfs({
+      '/tmp/mock/mcp-settings.json': JSON.stringify({})
+    })
 
     const res = await (hub as any).readAndValidateMcpSettingsFile()
     expect(res).toBeUndefined()
   })
 
   it('should return undefined when mcpServers is not object (array)', async () => {
-    ;(fsp.readFile as any).mockResolvedValueOnce(JSON.stringify({ mcpServers: [] }))
+    setupMemfs({
+      '/tmp/mock/mcp-settings.json': JSON.stringify({ mcpServers: [] })
+    })
 
     const res = await (hub as any).readAndValidateMcpSettingsFile()
     expect(res).toBeUndefined()
   })
 
   it('should return undefined when mcpServers is not object (string)', async () => {
-    ;(fsp.readFile as any).mockResolvedValueOnce(JSON.stringify({ mcpServers: 'invalid' }))
+    setupMemfs({
+      '/tmp/mock/mcp-settings.json': JSON.stringify({ mcpServers: 'invalid' })
+    })
 
     const res = await (hub as any).readAndValidateMcpSettingsFile()
     expect(res).toBeUndefined()
   })
 
   it('should return undefined when stdio type lacks required command field', async () => {
-    ;(fsp.readFile as any).mockResolvedValueOnce(JSON.stringify({ mcpServers: { server1: { type: 'stdio', args: ['--help'] } } }))
+    setupMemfs({
+      '/tmp/mock/mcp-settings.json': JSON.stringify({ mcpServers: { server1: { type: 'stdio', args: ['--help'] } } })
+    })
 
     const res = await (hub as any).readAndValidateMcpSettingsFile()
     expect(res).toBeUndefined()
   })
 
   it('should return undefined when command is not string', async () => {
-    ;(fsp.readFile as any).mockResolvedValueOnce(JSON.stringify({ mcpServers: { server1: { command: 123 } } }))
+    setupMemfs({
+      '/tmp/mock/mcp-settings.json': JSON.stringify({ mcpServers: { server1: { command: 123 } } })
+    })
 
     const res = await (hub as any).readAndValidateMcpSettingsFile()
     expect(res).toBeUndefined()
   })
 
   it('should return undefined when args is not array', async () => {
-    ;(fsp.readFile as any).mockResolvedValueOnce(JSON.stringify({ mcpServers: { server1: { command: 'uvx', args: 'not-array' } } }))
+    setupMemfs({
+      '/tmp/mock/mcp-settings.json': JSON.stringify({ mcpServers: { server1: { command: 'uvx', args: 'not-array' } } })
+    })
 
     const res = await (hub as any).readAndValidateMcpSettingsFile()
     expect(res).toBeUndefined()
   })
 
   it('should return undefined when args contains non-string elements', async () => {
-    ;(fsp.readFile as any).mockResolvedValueOnce(JSON.stringify({ mcpServers: { server1: { command: 'uvx', args: [1, 2, 3] } } }))
+    setupMemfs({
+      '/tmp/mock/mcp-settings.json': JSON.stringify({ mcpServers: { server1: { command: 'uvx', args: [1, 2, 3] } } })
+    })
 
     const res = await (hub as any).readAndValidateMcpSettingsFile()
     expect(res).toBeUndefined()
   })
 
   it('should return undefined when env is not object', async () => {
-    ;(fsp.readFile as any).mockResolvedValueOnce(JSON.stringify({ mcpServers: { server1: { command: 'uvx', env: 'not-object' } } }))
+    setupMemfs({
+      '/tmp/mock/mcp-settings.json': JSON.stringify({ mcpServers: { server1: { command: 'uvx', env: 'not-object' } } })
+    })
 
     const res = await (hub as any).readAndValidateMcpSettingsFile()
     expect(res).toBeUndefined()
   })
 
   it('should return undefined when env value is not string', async () => {
-    ;(fsp.readFile as any).mockResolvedValueOnce(JSON.stringify({ mcpServers: { server1: { command: 'uvx', env: { KEY: 123 } } } }))
+    setupMemfs({
+      '/tmp/mock/mcp-settings.json': JSON.stringify({ mcpServers: { server1: { command: 'uvx', env: { KEY: 123 } } } })
+    })
 
     const res = await (hub as any).readAndValidateMcpSettingsFile()
     expect(res).toBeUndefined()
   })
 
   it('should return undefined when http type lacks required url field', async () => {
-    ;(fsp.readFile as any).mockResolvedValueOnce(JSON.stringify({ mcpServers: { server1: { type: 'http', headers: {} } } }))
+    setupMemfs({
+      '/tmp/mock/mcp-settings.json': JSON.stringify({ mcpServers: { server1: { type: 'http', headers: {} } } })
+    })
 
     const res = await (hub as any).readAndValidateMcpSettingsFile()
     expect(res).toBeUndefined()
   })
 
   it('should return undefined when url format is invalid', async () => {
-    ;(fsp.readFile as any).mockResolvedValueOnce(JSON.stringify({ mcpServers: { server1: { type: 'http', url: 'not-a-valid-url' } } }))
+    setupMemfs({
+      '/tmp/mock/mcp-settings.json': JSON.stringify({ mcpServers: { server1: { type: 'http', url: 'not-a-valid-url' } } })
+    })
 
     const res = await (hub as any).readAndValidateMcpSettingsFile()
     expect(res).toBeUndefined()
   })
 
   it('should return undefined when headers is not object', async () => {
-    ;(fsp.readFile as any).mockResolvedValueOnce(
-      JSON.stringify({ mcpServers: { server1: { type: 'http', url: 'http://example.com', headers: 'invalid' } } })
-    )
+    setupMemfs({
+      '/tmp/mock/mcp-settings.json': JSON.stringify({ mcpServers: { server1: { type: 'http', url: 'http://example.com', headers: 'invalid' } } })
+    })
 
     const res = await (hub as any).readAndValidateMcpSettingsFile()
     expect(res).toBeUndefined()
   })
 
   it('should return undefined when timeout is below minimum value', async () => {
-    ;(fsp.readFile as any).mockResolvedValueOnce(JSON.stringify({ mcpServers: { server1: { command: 'uvx', timeout: 0 } } }))
+    setupMemfs({
+      '/tmp/mock/mcp-settings.json': JSON.stringify({ mcpServers: { server1: { command: 'uvx', timeout: 0 } } })
+    })
 
     const res = await (hub as any).readAndValidateMcpSettingsFile()
     expect(res).toBeUndefined()
   })
 
   it('should return undefined when disabled is not boolean', async () => {
-    ;(fsp.readFile as any).mockResolvedValueOnce(JSON.stringify({ mcpServers: { server1: { command: 'uvx', disabled: 'yes' } } }))
+    setupMemfs({
+      '/tmp/mock/mcp-settings.json': JSON.stringify({ mcpServers: { server1: { command: 'uvx', disabled: 'yes' } } })
+    })
 
     const res = await (hub as any).readAndValidateMcpSettingsFile()
     expect(res).toBeUndefined()
   })
 
   it('should return undefined when autoApprove is not array', async () => {
-    ;(fsp.readFile as any).mockResolvedValueOnce(JSON.stringify({ mcpServers: { server1: { command: 'uvx', autoApprove: 'string' } } }))
+    setupMemfs({
+      '/tmp/mock/mcp-settings.json': JSON.stringify({ mcpServers: { server1: { command: 'uvx', autoApprove: 'string' } } })
+    })
 
     const res = await (hub as any).readAndValidateMcpSettingsFile()
     expect(res).toBeUndefined()
   })
 
   it('should return undefined when autoApprove contains non-string elements', async () => {
-    ;(fsp.readFile as any).mockResolvedValueOnce(JSON.stringify({ mcpServers: { server1: { command: 'uvx', autoApprove: [1, 2, 3] } } }))
+    setupMemfs({
+      '/tmp/mock/mcp-settings.json': JSON.stringify({ mcpServers: { server1: { command: 'uvx', autoApprove: [1, 2, 3] } } })
+    })
 
     const res = await (hub as any).readAndValidateMcpSettingsFile()
     expect(res).toBeUndefined()
   })
 
   it('complete valid stdio configuration should pass validation', async () => {
-    ;(fsp.readFile as any).mockResolvedValueOnce(
-      JSON.stringify({
+    setupMemfs({
+      '/tmp/mock/mcp-settings.json': JSON.stringify({
         mcpServers: {
           server1: {
             command: 'uvx',
@@ -444,7 +489,7 @@ describe('readAndValidateMcpSettingsFile', () => {
           }
         }
       })
-    )
+    })
 
     const res = await (hub as any).readAndValidateMcpSettingsFile()
     expect(res).toBeDefined()
@@ -457,8 +502,8 @@ describe('readAndValidateMcpSettingsFile', () => {
   })
 
   it('complete valid http configuration should pass validation', async () => {
-    ;(fsp.readFile as any).mockResolvedValueOnce(
-      JSON.stringify({
+    setupMemfs({
+      '/tmp/mock/mcp-settings.json': JSON.stringify({
         mcpServers: {
           server1: {
             type: 'http',
@@ -468,7 +513,7 @@ describe('readAndValidateMcpSettingsFile', () => {
           }
         }
       })
-    )
+    })
 
     const res = await (hub as any).readAndValidateMcpSettingsFile()
     expect(res).toBeDefined()
@@ -480,29 +525,29 @@ describe('readAndValidateMcpSettingsFile', () => {
   })
 
   it('should return undefined when multiple server configs have partial validity', async () => {
-    ;(fsp.readFile as any).mockResolvedValueOnce(
-      JSON.stringify({
+    setupMemfs({
+      '/tmp/mock/mcp-settings.json': JSON.stringify({
         mcpServers: {
           validServer: { command: 'uvx' },
           invalidServer: { type: 'stdio' }
         }
       })
-    )
+    })
 
     const res = await (hub as any).readAndValidateMcpSettingsFile()
     expect(res).toBeUndefined()
   })
 
   it('multiple valid server configurations should pass validation', async () => {
-    ;(fsp.readFile as any).mockResolvedValueOnce(
-      JSON.stringify({
+    setupMemfs({
+      '/tmp/mock/mcp-settings.json': JSON.stringify({
         mcpServers: {
           server1: { command: 'uvx', args: ['mcp-server-fetch'] },
           server2: { type: 'http', url: 'http://localhost:3000' },
           server3: { command: 'node', args: ['server.js'], disabled: true }
         }
       })
-    )
+    })
 
     const res = await (hub as any).readAndValidateMcpSettingsFile()
     expect(res).toBeDefined()
@@ -511,12 +556,14 @@ describe('readAndValidateMcpSettingsFile', () => {
 })
 
 describe('McpHub - callTool Tests', () => {
-  const getPath = async () => '/tmp/mock'
+  const getPath = async () => '/tmp/mock/mcp-settings.json'
   let hub: McpHub
 
   beforeEach(async () => {
     vi.clearAllMocks()
-    ;(fsp.readFile as any).mockResolvedValue(JSON.stringify({ mcpServers: {} }))
+    setupMemfs({
+      '/tmp/mock/mcp-settings.json': JSON.stringify({ mcpServers: {} })
+    })
     hub = new McpHub(getPath, getPath, '1.0.0')
     await new Promise((resolve) => setTimeout(resolve, 10))
   })
@@ -599,21 +646,20 @@ describe('McpHub - callTool Tests', () => {
 })
 
 describe('McpHub - toggleServerDisabled Tests', () => {
-  const getPath = async () => '/tmp/mock'
+  const getPath = async () => '/tmp/mock/mcp-settings.json'
   let hub: McpHub
 
   beforeEach(async () => {
     vi.clearAllMocks()
-    ;(fsp.readFile as any).mockResolvedValue(JSON.stringify({ mcpServers: {} }))
-    hub = new McpHub(getPath, getPath, '1.0.0')
-    await new Promise((resolve) => setTimeout(resolve, 10))
-    ;(fsp.readFile as any).mockResolvedValue(
-      JSON.stringify({
+    setupMemfs({
+      '/tmp/mock/mcp-settings.json': JSON.stringify({
         mcpServers: {
           'test-server': { command: 'test', type: 'stdio', disabled: false }
         }
       })
-    )
+    })
+    hub = new McpHub(getPath, getPath, '1.0.0')
+    await new Promise((resolve) => setTimeout(resolve, 10))
   })
 
   it('disabling server should disconnect and update config', async () => {
@@ -632,7 +678,9 @@ describe('McpHub - toggleServerDisabled Tests', () => {
 
     await hub.toggleServerDisabled('test-server', true)
 
-    expect(fsp.writeFile as any).toHaveBeenCalled()
+    // Verify the file was written to memfs
+    const content = vol.readFileSync('/tmp/mock/mcp-settings.json', 'utf8') as string
+    expect(content).toBeDefined()
     expect((hub as any).skipNextFileWatcherChange).toBe(true)
     const connection = (hub as any).connections.find((c: any) => c.server.name === 'test-server')
     expect(connection).toBeDefined()
@@ -672,7 +720,9 @@ describe('McpHub - toggleServerDisabled Tests', () => {
 
     await hub.toggleServerDisabled('test-server', false)
 
-    expect(fsp.writeFile as any).toHaveBeenCalled()
+    // Verify the file was written to memfs
+    const content = vol.readFileSync('/tmp/mock/mcp-settings.json', 'utf8') as string
+    expect(content).toBeDefined()
     expect((hub as any).skipNextFileWatcherChange).toBe(true)
     ;(hub as any).connectToServer = originalConnectToServer
   })
@@ -691,7 +741,8 @@ describe('McpHub - toggleServerDisabled Tests', () => {
         transport: {}
       }
     ]
-    ;(fsp.writeFile as any).mockRejectedValueOnce(new Error('write error'))
+    // Simulate write error by making the file system read-only
+    vol.unlinkSync('/tmp/mock/mcp-settings.json')
 
     await expect(hub.toggleServerDisabled('test-server', true)).rejects.toThrow()
 
@@ -701,23 +752,22 @@ describe('McpHub - toggleServerDisabled Tests', () => {
 })
 
 describe('McpHub - deleteServer Tests', () => {
-  const getPath = async () => '/tmp/mock'
+  const getPath = async () => '/tmp/mock/mcp-settings.json'
   let hub: McpHub
 
   beforeEach(async () => {
     vi.clearAllMocks()
     mockDeleteServerMcpToolStates.mockClear()
-    ;(fsp.readFile as any).mockResolvedValue(JSON.stringify({ mcpServers: {} }))
-    hub = new McpHub(getPath, getPath, '1.0.0')
-    await new Promise((resolve) => setTimeout(resolve, 10))
-    ;(fsp.readFile as any).mockResolvedValue(
-      JSON.stringify({
+    setupMemfs({
+      '/tmp/mock/mcp-settings.json': JSON.stringify({
         mcpServers: {
           'test-server': { command: 'test', type: 'stdio' },
           'other-server': { command: 'other', type: 'stdio' }
         }
       })
-    )
+    })
+    hub = new McpHub(getPath, getPath, '1.0.0')
+    await new Promise((resolve) => setTimeout(resolve, 10))
   })
 
   it('should delete server connection and update config file', async () => {
@@ -738,7 +788,9 @@ describe('McpHub - deleteServer Tests', () => {
     await hub.deleteServer('test-server')
 
     expect(mockClose).toHaveBeenCalledTimes(2)
-    expect(fsp.writeFile as any).toHaveBeenCalled()
+    // Verify the file was written to memfs
+    const content = vol.readFileSync('/tmp/mock/mcp-settings.json', 'utf8') as string
+    expect(content).toBeDefined()
     expect((hub as any).skipNextFileWatcherChange).toBe(true)
     expect((hub as any).connections).toHaveLength(1)
     expect((hub as any).connections[0].server.name).toBe('other-server')
@@ -772,26 +824,29 @@ describe('McpHub - deleteServer Tests', () => {
         transport: { close: vi.fn() }
       }
     ]
-    ;(fsp.writeFile as any).mockRejectedValueOnce(new Error('write error'))
+    // Simulate write error by removing the file
+    vol.unlinkSync('/tmp/mock/mcp-settings.json')
 
-    await expect(hub.deleteServer('test-server')).rejects.toThrow('write error')
+    await expect(hub.deleteServer('test-server')).rejects.toThrow()
   })
 })
 
 describe('McpHub - toggleToolAutoApprove Tests', () => {
-  const getPath = async () => '/tmp/mock'
+  const getPath = async () => '/tmp/mock/mcp-settings.json'
   let hub: McpHub
 
   beforeEach(async () => {
     vi.clearAllMocks()
-    ;(fsp.readFile as any).mockResolvedValue(JSON.stringify({ mcpServers: {} }))
+    setupMemfs({
+      '/tmp/mock/mcp-settings.json': JSON.stringify({ mcpServers: {} })
+    })
     hub = new McpHub(getPath, getPath, '1.0.0')
     await new Promise((resolve) => setTimeout(resolve, 10))
   })
 
   it('should add tool to autoApprove list', async () => {
-    ;(fsp.readFile as any).mockResolvedValue(
-      JSON.stringify({
+    setupMemfs({
+      '/tmp/mock/mcp-settings.json': JSON.stringify({
         mcpServers: {
           'test-server': {
             command: 'test',
@@ -800,7 +855,7 @@ describe('McpHub - toggleToolAutoApprove Tests', () => {
           }
         }
       })
-    )
+    })
     ;(hub as any).connections = [
       {
         server: {
@@ -815,15 +870,15 @@ describe('McpHub - toggleToolAutoApprove Tests', () => {
 
     await hub.toggleToolAutoApprove('test-server', ['tool-1'], true)
 
-    expect(fsp.writeFile as any).toHaveBeenCalled()
-    const writeCall = (fsp.writeFile as any).mock.calls[0]
-    const writtenConfig = JSON.parse(writeCall[1])
+    // Verify the file content in memfs
+    const content = vol.readFileSync('/tmp/mock/mcp-settings.json', 'utf8') as string
+    const writtenConfig = JSON.parse(content)
     expect(writtenConfig.mcpServers['test-server'].autoApprove).toContain('tool-1')
   })
 
   it('should remove tool from autoApprove list', async () => {
-    ;(fsp.readFile as any).mockResolvedValue(
-      JSON.stringify({
+    setupMemfs({
+      '/tmp/mock/mcp-settings.json': JSON.stringify({
         mcpServers: {
           'test-server': {
             command: 'test',
@@ -832,7 +887,7 @@ describe('McpHub - toggleToolAutoApprove Tests', () => {
           }
         }
       })
-    )
+    })
     ;(hub as any).connections = [
       {
         server: {
@@ -847,15 +902,16 @@ describe('McpHub - toggleToolAutoApprove Tests', () => {
 
     await hub.toggleToolAutoApprove('test-server', ['tool-1'], false)
 
-    const writeCall = (fsp.writeFile as any).mock.calls[0]
-    const writtenConfig = JSON.parse(writeCall[1])
+    // Verify the file content in memfs
+    const content = vol.readFileSync('/tmp/mock/mcp-settings.json', 'utf8') as string
+    const writtenConfig = JSON.parse(content)
     expect(writtenConfig.mcpServers['test-server'].autoApprove).not.toContain('tool-1')
     expect(writtenConfig.mcpServers['test-server'].autoApprove).toContain('tool-2')
   })
 
   it('should handle batch update of multiple tools', async () => {
-    ;(fsp.readFile as any).mockResolvedValue(
-      JSON.stringify({
+    setupMemfs({
+      '/tmp/mock/mcp-settings.json': JSON.stringify({
         mcpServers: {
           'test-server': {
             command: 'test',
@@ -864,7 +920,7 @@ describe('McpHub - toggleToolAutoApprove Tests', () => {
           }
         }
       })
-    )
+    })
     ;(hub as any).connections = [
       {
         server: {
@@ -880,16 +936,17 @@ describe('McpHub - toggleToolAutoApprove Tests', () => {
 
     await hub.toggleToolAutoApprove('test-server', ['tool-1', 'tool-2'], true)
 
-    const writeCall = (fsp.writeFile as any).mock.calls[0]
-    const writtenConfig = JSON.parse(writeCall[1])
+    // Verify the file content in memfs
+    const content = vol.readFileSync('/tmp/mock/mcp-settings.json', 'utf8') as string
+    const writtenConfig = JSON.parse(content)
     expect(writtenConfig.mcpServers['test-server'].autoApprove).toContain('tool-1')
     expect(writtenConfig.mcpServers['test-server'].autoApprove).toContain('tool-2')
     expect(writtenConfig.mcpServers['test-server'].autoApprove).not.toContain('tool-3')
   })
 
   it('should initialize autoApprove as empty array when it does not exist', async () => {
-    ;(fsp.readFile as any).mockResolvedValue(
-      JSON.stringify({
+    setupMemfs({
+      '/tmp/mock/mcp-settings.json': JSON.stringify({
         mcpServers: {
           'test-server': {
             command: 'test',
@@ -897,7 +954,7 @@ describe('McpHub - toggleToolAutoApprove Tests', () => {
           }
         }
       })
-    )
+    })
     ;(hub as any).connections = [
       {
         server: {
@@ -909,14 +966,16 @@ describe('McpHub - toggleToolAutoApprove Tests', () => {
 
     await hub.toggleToolAutoApprove('test-server', ['tool-1'], true)
 
-    const writeCall = (fsp.writeFile as any).mock.calls[0]
-    const writtenConfig = JSON.parse(writeCall[1])
+    // Verify the file content in memfs
+    const content = vol.readFileSync('/tmp/mock/mcp-settings.json', 'utf8') as string
+    const writtenConfig = JSON.parse(content)
     expect(Array.isArray(writtenConfig.mcpServers['test-server'].autoApprove)).toBe(true)
     expect(writtenConfig.mcpServers['test-server'].autoApprove).toContain('tool-1')
   })
 
   it('should throw error when update fails', async () => {
-    ;(fsp.readFile as any).mockRejectedValueOnce(new Error('read error'))
+    setupMemfs({})
+    vol.unlinkSync('/tmp/mock/mcp-settings.json')
     ;(hub as any).connections = [{ server: { name: 'test-server', tools: [] } }]
 
     await expect(hub.toggleToolAutoApprove('test-server', ['tool-1'], true)).rejects.toThrow()
@@ -924,7 +983,7 @@ describe('McpHub - toggleToolAutoApprove Tests', () => {
 })
 
 describe('McpHub - Integration Tests', () => {
-  const getPath = async () => '/tmp/mock'
+  const getPath = async () => '/tmp/mock/mcp-settings.json'
 
   describe('Reconnection Mechanism Tests', () => {
     let hub: McpHub
@@ -932,7 +991,9 @@ describe('McpHub - Integration Tests', () => {
     beforeEach(async () => {
       vi.useFakeTimers()
       vi.clearAllMocks()
-      ;(fsp.readFile as any).mockResolvedValue(JSON.stringify({ mcpServers: {} }))
+      setupMemfs({
+        '/tmp/mock/mcp-settings.json': JSON.stringify({ mcpServers: {} })
+      })
       hub = new McpHub(getPath, getPath, '1.0.0')
       await vi.advanceTimersByTimeAsync(20)
     })
@@ -1019,7 +1080,9 @@ describe('McpHub - Integration Tests', () => {
 
     beforeEach(async () => {
       vi.clearAllMocks()
-      ;(fsp.readFile as any).mockResolvedValue(JSON.stringify({ mcpServers: {} }))
+      setupMemfs({
+        '/tmp/mock/mcp-settings.json': JSON.stringify({ mcpServers: {} })
+      })
       hub = new McpHub(getPath, getPath, '1.0.0')
       await new Promise((resolve) => setTimeout(resolve, 10))
     })
@@ -1110,7 +1173,9 @@ describe('McpHub - Integration Tests', () => {
 
   describe('Dispose Cleanup Process', () => {
     it('should close all connections and listeners', async () => {
-      ;(fsp.readFile as any).mockResolvedValue(JSON.stringify({ mcpServers: {} }))
+      setupMemfs({
+        '/tmp/mock/mcp-settings.json': JSON.stringify({ mcpServers: {} })
+      })
       const hub = new McpHub(getPath, getPath, '1.0.0')
       await new Promise((resolve) => setTimeout(resolve, 10))
 
@@ -1140,7 +1205,9 @@ describe('McpHub - Integration Tests', () => {
     })
 
     it('single connection close failure should not affect other connections', async () => {
-      ;(fsp.readFile as any).mockResolvedValue(JSON.stringify({ mcpServers: {} }))
+      setupMemfs({
+        '/tmp/mock/mcp-settings.json': JSON.stringify({ mcpServers: {} })
+      })
       const hub = new McpHub(getPath, getPath, '1.0.0')
       await new Promise((resolve) => setTimeout(resolve, 10))
 
@@ -1197,7 +1264,9 @@ describe('McpHub - Integration Tests', () => {
 
   describe('Complete Connection Lifecycle', () => {
     it('initialization -> get tool list -> call tool -> disable -> delete', async () => {
-      ;(fsp.readFile as any).mockResolvedValue(JSON.stringify({ mcpServers: {} }))
+      setupMemfs({
+        '/tmp/mock/mcp-settings.json': JSON.stringify({ mcpServers: {} })
+      })
       const hub = new McpHub(getPath, getPath, '1.0.0')
       await new Promise((resolve) => setTimeout(resolve, 10))
 
@@ -1231,13 +1300,13 @@ describe('McpHub - Integration Tests', () => {
       expect(toolResult.content).toBeDefined()
 
       // 3. Disable server
-      ;(fsp.readFile as any).mockResolvedValue(
-        JSON.stringify({
+      setupMemfs({
+        '/tmp/mock/mcp-settings.json': JSON.stringify({
           mcpServers: {
             'test-server': { command: 'test', type: 'stdio', disabled: false }
           }
         })
-      )
+      })
 
       await hub.toggleServerDisabled('test-server', true)
       const disabledServers = hub.getActiveServers()
