@@ -1,12 +1,22 @@
 name: Bug Report
-description: Create a report to help us improve
+description: Report an issue that should be fixed
 title: '[BUG] '
-labels: [bug]
+labels:
+  - bug
+  - needs triage
 body:
   - type: markdown
     attributes:
       value: |
-        Thanks for reporting a bug! Please provide the following information to help us fix it.
+        Thank you for submitting a bug report! Please provide the following information to help us fix it.
+
+  - type: input
+    id: chaterm-version
+    attributes:
+      label: Chaterm Version
+      placeholder: e.g. v0.7.2
+    validations:
+      required: true
 
   - type: textarea
     id: what-happened
@@ -28,12 +38,6 @@ body:
         1. 
         2. 
         3.
-
-  - type: input
-    id: chaterm-version
-    attributes:
-      label: Chaterm Version
-      placeholder: e.g. 0.7.2
 
   - type: input
     id: os
