@@ -1,0 +1,82 @@
+name: 📚 Documentation Issue
+description: Report documentation problems or suggest improvements
+title: '[DOCS] '
+labels:
+  - documentation
+  - needs triage
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for helping improve our documentation! Please provide the following information.
+
+  - type: dropdown
+    id: doc-type
+    attributes:
+      label: Documentation Type
+      description: What type of documentation is affected?
+      options:
+        - README
+        - User Guide
+        - API Documentation
+        - Code Comments
+        - Error Messages
+        - Installation Guide
+        - Configuration Guide
+        - Other
+    validations:
+      required: true
+
+  - type: dropdown
+    id: issue-type
+    attributes:
+      label: Issue Type
+      description: What kind of documentation issue is this?
+      options:
+        - Missing information
+        - Incorrect information
+        - Unclear or confusing
+        - Outdated content
+        - Typo or grammar error
+        - Formatting issue
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: what-is-wrong
+    attributes:
+      label: What's wrong?
+      description: Describe the documentation issue clearly.
+      placeholder: |
+        **Current state:** What does the documentation currently say or show?
+        **Problem:** What's wrong with it?
+        **Expected:** What should it say or show instead?
+    validations:
+      required: true
+
+  - type: input
+    id: doc-location
+    attributes:
+      label: Documentation Location
+      description: Where is this documentation located? (URL, file path, or section name)
+      placeholder: e.g. README.md, https://chaterm.ai/docs/..., "Installation" section
+    validations:
+      required: true
+
+  - type: textarea
+    id: suggested-fix
+    attributes:
+      label: Suggested Fix
+      description: If you have a suggestion for how to fix this, please describe it. (Optional)
+      placeholder: How would you improve this documentation?
+
+  - type: textarea
+    id: additional-info
+    attributes:
+      label: Additional Information
+      description: Any other context, screenshots, or links that might be helpful.
+      placeholder: |
+        - Screenshots of the documentation
+        - Links to related issues or discussions
+        - Any other relevant information

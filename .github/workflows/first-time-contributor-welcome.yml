@@ -1,0 +1,57 @@
+name: First Time Contributor Welcome
+
+on:
+  issues:
+    types: [opened]
+
+jobs:
+  welcome-contributor:
+    name: Welcome First Time Contributor
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+      contents: read
+    steps:
+      - name: Check if first time contributor
+        id: check
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { data: issues } = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              creator: context.payload.issue.user.login,
+              state: 'all',
+              per_page: 2
+            });
+
+            // Check if this is the first issue (only 1 issue total, which is the current one)
+            const isFirstTime = issues.length === 1 && issues[0].number === context.payload.issue.number;
+
+            core.setOutput('isFirstTime', isFirstTime);
+            console.log(`Is first time contributor: ${isFirstTime}`);
+
+      - name: Welcome first time contributor
+        if: steps.check.outputs.isFirstTime == 'true'
+        uses: actions-cool/issues-helper@v3
+        with:
+          actions: 'create-comment'
+          token: ${{ secrets.GITHUB_TOKEN }}
+          issue-number: ${{ github.event.issue.number }}
+          body: |
+            🎉 Welcome to Chaterm! This appears to be your first contribution to this repository.
+
+            We're excited to have you here! Here are some helpful resources to get you started:
+
+            - 📖 **[Contributing Guide](https://github.com/${{ github.repository }}/blob/main/CONTRIBUTING.md)** - Learn how to contribute to Chaterm
+            - 💬 **[GitHub Discussions](https://github.com/${{ github.repository }}/discussions)** - Ask questions, share ideas, or start a discussion
+            - 📚 **[Documentation](https://chaterm.ai/docs/)** - Check out our documentation and guides
+            - 🐛 **[Issue Templates](https://github.com/${{ github.repository }}/issues/new/choose)** - Use our templates for bug reports and feature requests
+
+            **Tips for a great issue:**
+            - ✅ Search existing issues to avoid duplicates
+            - ✅ Provide clear descriptions and reproduction steps (for bugs)
+            - ✅ Include environment info (OS, Chaterm version, etc.)
+            - ✅ Be patient - maintainers are volunteers and will respond as soon as possible
+
+            Don't hesitate to ask questions if you need help! We're here to support you. 🙏

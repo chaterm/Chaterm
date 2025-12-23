@@ -1,0 +1,82 @@
+name: Duplicate Issue Detection
+
+on:
+  issues:
+    types: [opened]
+
+jobs:
+  detect-duplicate:
+    name: Detect Duplicate Issues
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+      contents: read
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Search and comment on potential duplicates
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const issue = context.payload.issue;
+            const title = issue.title.toLowerCase();
+            const body = issue.body?.toLowerCase() || '';
+            const repo = context.repo;
+
+            // Extract keywords from title and body (words longer than 3 characters)
+            const keywords = title.split(/\s+/).filter(word => word.length > 3);
+            const bodyKeywords = body.split(/\s+/).filter(word => word.length > 3);
+            const allKeywords = [...new Set([...keywords, ...bodyKeywords])].slice(0, 5);
+
+            // Skip if no keywords found
+            if (allKeywords.length === 0) {
+              console.log('No keywords found, skipping duplicate detection');
+              return;
+            }
+
+            // Search for similar issues
+            const query = `repo:${repo.owner}/${repo.repo} is:issue is:open ${allKeywords.join(' ')}`;
+
+            try {
+              const { data: searchResults } = await github.rest.search.issuesAndPullRequests({
+                q: query,
+                sort: 'updated',
+                order: 'desc'
+              });
+              
+              // Filter out the current issue and get top 3 similar issues
+              const similarIssues = searchResults.items
+                .filter(item => item.number !== issue.number && item.state === 'open')
+                .slice(0, 3);
+              
+              if (similarIssues.length === 0) {
+                console.log('No similar issues found');
+                return;
+              }
+
+              // Build comment body with similar issues
+              let commentBody = `🤔 This issue might be similar to existing open issues. Please check the following:\n\n`;
+              
+              similarIssues.forEach((item, index) => {
+                commentBody += `${index + 1}. [#${item.number}](${item.html_url}) - ${item.title}\n`;
+              });
+              
+              commentBody += `\n**Please review these issues:**\n`;
+              commentBody += `- If your issue is a duplicate, please close this issue and comment on the existing one\n`;
+              commentBody += `- If your issue is different, please add a comment explaining how it differs\n`;
+              commentBody += `- You can also search [all existing issues](https://github.com/${repo.owner}/${repo.repo}/issues) to avoid duplicates\n\n`;
+              commentBody += `This helps maintainers focus on unique issues and reduces duplicate work. 🙏`;
+              
+              await github.rest.issues.createComment({
+                owner: repo.owner,
+                repo: repo.repo,
+                issue_number: issue.number,
+                body: commentBody
+              });
+              
+              console.log(`Commented on issue #${issue.number} with ${similarIssues.length} similar issues`);
+            } catch (error) {
+              console.log('Error searching for similar issues:', error);
+              // Don't fail the workflow if search fails
+            }
