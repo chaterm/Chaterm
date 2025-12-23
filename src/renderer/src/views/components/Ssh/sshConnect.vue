@@ -1126,7 +1126,7 @@ const connectSSH = async () => {
       })
 
     if (result.status === 'connected') {
-      const welcomeName = email.split('@')[0]
+      const welcomeName = email.split('@')[0] || userInfoStore().userInfo.name
       const welcome = '\x1b[38;2;22;119;255m' + t('ssh.welcomeMessage', { username: welcomeName }) + ' \x1b[m\r\n'
       terminal.value?.writeln('') // Add empty line separator
       terminal.value?.writeln(welcome)
@@ -1249,7 +1249,7 @@ const connectLocalSSH = async () => {
 
     const result = await api.connectLocal(localConfig)
     if (result.success) {
-      const welcomeName = email.split('@')[0]
+      const welcomeName = email.split('@')[0] || userInfoStore().userInfo.name
       const welcome = '\x1b[38;2;22;119;255m' + t('ssh.welcomeMessage', { username: welcomeName }) + ' \x1b[m\r\n'
       terminal.value?.writeln('') // Add empty line separator
       terminal.value?.writeln(welcome)
