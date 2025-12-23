@@ -344,7 +344,8 @@ const handleSave = async () => {
       }
     }
   } catch (error) {
-    message.error(isEditingPassword.value ? t('userInfo.passwordResetFailed') : t('userInfo.updateFailed'))
+    const errorMessage = error?.response?.data?.message || (isEditingPassword.value ? t('userInfo.passwordResetFailed') : t('userInfo.updateFailed'))
+    message.error(errorMessage)
   }
 }
 
