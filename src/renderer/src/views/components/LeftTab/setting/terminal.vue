@@ -405,7 +405,8 @@ const fontFamilyOptions = [
   { value: '"SF Mono", Monaco, "Courier New", Courier, monospace', label: 'SF Mono' },
   { value: '"Hack", "Courier New", Courier, monospace', label: 'Hack' },
   { value: '"Inconsolata", "Courier New", Courier, monospace', label: 'Inconsolata' },
-  { value: '"Roboto Mono", "Courier New", Courier, monospace', label: 'Roboto Mono' }
+  { value: '"Roboto Mono", "Courier New", Courier, monospace', label: 'Roboto Mono' },
+  { value: '"Maple Mono", "Courier New", Courier, monospace', label: 'Maple Mono' }
 ]
 
 const columns = [
