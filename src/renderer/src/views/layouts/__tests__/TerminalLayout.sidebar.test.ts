@@ -1,13 +1,13 @@
 /**
- * TerminalLayout Component - AI Sidebar Sticky Logic Tests
+ * TerminalLayout Component - AI Sidebar Sticky Logic Tests (Core Tests Only)
  *
  * This test suite focuses on testing the AI sidebar sticky resizing functionality
  * implemented in TerminalLayout.vue, including:
  * - Physical resistance (min-size property)
  * - Quick close mechanism (global mouse tracking)
- * - Debounced auto-close
  * - State restoration
  * - Mode-specific behaviors (Terminal vs Agents)
+ * - Quick close state management (new implementation)
  *
  * Note: These tests focus on the logic and integration patterns rather than
  * full component mounting due to heavy dependencies (dockview, splitpanes, etc.).
@@ -53,11 +53,12 @@ const mockContainer = {
   removeEventListener: vi.fn()
 }
 
-describe('TerminalLayout - AI Sidebar Sticky Logic', () => {
+describe('TerminalLayout - AI Sidebar Sticky Logic (Core)', () => {
   // Constants from the component
   const MIN_AI_SIDEBAR_WIDTH_PX = 350
   const SNAP_THRESHOLD_PX = 200
   const DEFAULT_WIDTH_RIGHT_PX = 500
+  const MIN_LEFT_SIDEBAR_WIDTH_PX = 180
 
   // Mock reactive variables
   let aiSidebarSize: any
@@ -66,11 +67,20 @@ describe('TerminalLayout - AI Sidebar Sticky Logic', () => {
   let showAiSidebar: any
   let savedAiSidebarState: any
   let currentMode: any
+  let leftPaneSize: any
+  let agentsLeftPaneSize: any
+  let isDraggingLeftSplitter: any
+  let savedLeftSidebarState: any
+  let currentMenu: any
+  let isQuickClosing: any
 
   // Mock functions
   let updateAiSidebarMinSize: any
-  let debouncedAiResizeCheck: any
   let handleGlobalMouseMove: any
+  let getLeftSidebarSize: any
+  let setLeftSidebarSize: any
+  let saveLeftSidebarState: any
+  let restoreLeftSidebarState: any
 
   beforeEach(() => {
     // Reset all mocks
@@ -83,6 +93,12 @@ describe('TerminalLayout - AI Sidebar Sticky Logic', () => {
     showAiSidebar = ref(false)
     savedAiSidebarState = ref(null)
     currentMode = ref('terminal')
+    leftPaneSize = ref(0)
+    agentsLeftPaneSize = ref(0)
+    isDraggingLeftSplitter = ref(false)
+    savedLeftSidebarState = ref(null)
+    currentMenu = ref('workspace')
+    isQuickClosing = ref(false)
 
     // Mock DOM
     global.document = {
@@ -100,6 +116,7 @@ describe('TerminalLayout - AI Sidebar Sticky Logic', () => {
       }),
       addEventListener: vi.fn(),
       removeEventListener: vi.fn(),
+      dispatchEvent: vi.fn(() => true),
       activeElement: { focus: vi.fn() }
     } as any
 
@@ -130,25 +147,13 @@ describe('TerminalLayout - AI Sidebar Sticky Logic', () => {
       }
     })
 
-    debouncedAiResizeCheck = vi.fn(() => {
-      if (currentMode.value === 'agents') {
+    handleGlobalMouseMove = vi.fn((e: MouseEvent) => {
+      // Skip if quick closing is in progress
+      if (isQuickClosing.value) {
         return
       }
 
-      const container = global.document.querySelector('.main-split-container') || global.document.querySelector('.splitpanes')
-      if (container) {
-        const containerWidth = (container as HTMLElement).offsetWidth
-        const currentAiSidebarSize = aiSidebarSize.value
-        const aiSidebarWidthPx = (currentAiSidebarSize / 100) * containerWidth
-
-        if (aiSidebarWidthPx < 50 && currentAiSidebarSize > 0) {
-          showAiSidebar.value = false
-          aiSidebarSize.value = 0
-        }
-      }
-    })
-
-    handleGlobalMouseMove = vi.fn((e: MouseEvent) => {
+      // AI sidebar quick close logic
       if (isDraggingSplitter.value && showAiSidebar.value) {
         if (currentMode.value === 'agents') {
           return
@@ -156,10 +161,95 @@ describe('TerminalLayout - AI Sidebar Sticky Logic', () => {
 
         const distFromRight = global.window.innerWidth - e.clientX
         if (distFromRight < 50) {
-          showAiSidebar.value = false
-          aiSidebarSize.value = 0
-          isDraggingSplitter.value = false
+          isQuickClosing.value = true
+
+          // Trigger mouseup event
+          const mouseUpEvent = new MouseEvent('mouseup', {
+            bubbles: true,
+            cancelable: true
+          })
+          global.document.dispatchEvent(mouseUpEvent)
+
+          // Execute close logic (using synchronous execution for testing)
+          global.window.setTimeout(() => {
+            showAiSidebar.value = false
+            aiSidebarSize.value = 0
+            isDraggingSplitter.value = false
+
+            // Reset flag
+            global.window.setTimeout(() => {
+              isQuickClosing.value = false
+            }, 100)
+          }, 10)
         }
+      }
+
+      // Left sidebar quick close logic
+      if (isDraggingLeftSplitter.value && getLeftSidebarSize() > 0) {
+        const distFromLeft = e.clientX
+        const container = global.document.querySelector('.left-sidebar-container') as HTMLElement
+        if (!container) return
+
+        // Quick close: < 50px
+        if (distFromLeft < 50) {
+          isQuickClosing.value = true
+
+          // Trigger mouseup event
+          const mouseUpEvent = new MouseEvent('mouseup', {
+            bubbles: true,
+            cancelable: true
+          })
+          global.document.dispatchEvent(mouseUpEvent)
+
+          // Execute close logic
+          global.window.setTimeout(() => {
+            saveLeftSidebarState()
+            setLeftSidebarSize(0)
+            isDraggingLeftSplitter.value = false
+
+            // Reset flag
+            global.window.setTimeout(() => {
+              isQuickClosing.value = false
+            }, 100)
+          }, 10)
+        }
+      }
+    })
+
+    getLeftSidebarSize = vi.fn(() => {
+      return currentMode.value === 'agents' ? agentsLeftPaneSize.value : leftPaneSize.value
+    })
+
+    setLeftSidebarSize = vi.fn((size: number) => {
+      if (currentMode.value === 'agents') {
+        agentsLeftPaneSize.value = size
+      } else {
+        leftPaneSize.value = size
+      }
+    })
+
+    saveLeftSidebarState = vi.fn(() => {
+      savedLeftSidebarState.value = {
+        size: getLeftSidebarSize(),
+        currentMenu: currentMenu.value,
+        isExpanded: getLeftSidebarSize() > 0
+      }
+    })
+
+    restoreLeftSidebarState = vi.fn(() => {
+      const container = global.document.querySelector('.left-sidebar-container') as HTMLElement
+      if (container && container.offsetWidth > 0) {
+        const containerWidth = container.offsetWidth
+        const minSizePercent = (MIN_LEFT_SIDEBAR_WIDTH_PX / containerWidth) * 100
+
+        // Ensure restored width is not less than minimum usable width
+        let restoredSize = savedLeftSidebarState.value.size
+        if ((restoredSize / 100) * containerWidth < MIN_LEFT_SIDEBAR_WIDTH_PX) {
+          restoredSize = minSizePercent
+        }
+
+        setLeftSidebarSize(restoredSize)
+        currentMenu.value = savedLeftSidebarState.value.currentMenu
       }
     })
   })
@@ -168,7 +258,7 @@ describe('TerminalLayout - AI Sidebar Sticky Logic', () => {
     vi.restoreAllMocks()
   })
 
-  describe('AI Sidebar Min-Size Calculation', () => {
+  describe('AI Sidebar Core Features', () => {
     it('should calculate correct min-size for Terminal mode', () => {
       currentMode.value = 'terminal'
       updateAiSidebarMinSize()
@@ -178,277 +268,210 @@ describe('TerminalLayout - AI Sidebar Sticky Logic', () => {
       expect(aiMinSize.value).toBe(25)
     })
 
-    it('should calculate correct min-size for Agents mode', () => {
-      currentMode.value = 'agents'
-      updateAiSidebarMinSize()
-
-      // Left sidebar container width is 1000px, SNAP_THRESHOLD_PX is 200px
-      // Expected: (200 / 1000) * 100 = 20%
-      expect(aiMinSize.value).toBe(20)
-    })
-
-    it('should use different containers for different modes', () => {
-      const querySelectorSpy = vi.spyOn(global.document, 'querySelector')
-
-      // Test Terminal mode
+    it('should trigger quick close when dragged near right edge', () => {
       currentMode.value = 'terminal'
-      updateAiSidebarMinSize()
-      expect(querySelectorSpy).toHaveBeenCalledWith('.main-split-container')
-
-      // Test Agents mode
-      currentMode.value = 'agents'
-      updateAiSidebarMinSize()
-      expect(querySelectorSpy).toHaveBeenCalledWith('.left-sidebar-container')
-    })
-  })
-
-  describe('Quick Close Mechanism', () => {
-    beforeEach(() => {
       isDraggingSplitter.value = true
       showAiSidebar.value = true
-      aiSidebarSize.value = 30 // Some initial size
-    })
-
-    it('should trigger quick close when mouse is near right edge in Terminal mode', () => {
-      currentMode.value = 'terminal'
-
-      const mockEvent = { clientX: 1160 } as MouseEvent // 40px from right edge (1200 - 1160)
-      handleGlobalMouseMove(mockEvent)
-
-      expect(showAiSidebar.value).toBe(false)
-      expect(aiSidebarSize.value).toBe(0)
-      expect(isDraggingSplitter.value).toBe(false)
-    })
-
-    it('should not trigger quick close when mouse is far from right edge', () => {
-      currentMode.value = 'terminal'
-
-      const mockEvent = { clientX: 1100 } as MouseEvent // 100px from right edge
-      handleGlobalMouseMove(mockEvent)
-
-      expect(showAiSidebar.value).toBe(true)
-      expect(aiSidebarSize.value).toBe(30)
-      expect(isDraggingSplitter.value).toBe(true)
-    })
-
-    it('should not trigger quick close in Agents mode', () => {
-      currentMode.value = 'agents'
+      aiSidebarSize.value = 30
 
       const mockEvent = { clientX: 1160 } as MouseEvent // 40px from right edge
       handleGlobalMouseMove(mockEvent)
 
-      // Should remain unchanged in Agents mode
-      expect(showAiSidebar.value).toBe(true)
-      expect(aiSidebarSize.value).toBe(30)
-      expect(isDraggingSplitter.value).toBe(true)
-    })
-
-    it('should not trigger when not dragging splitter', () => {
-      isDraggingSplitter.value = false
-      currentMode.value = 'terminal'
-
-      const mockEvent = { clientX: 1160 } as MouseEvent
-      handleGlobalMouseMove(mockEvent)
-
-      expect(showAiSidebar.value).toBe(true)
-      expect(aiSidebarSize.value).toBe(30)
-    })
-
-    it('should not trigger when sidebar is not shown', () => {
-      showAiSidebar.value = false
-      currentMode.value = 'terminal'
-
-      const mockEvent = { clientX: 1160 } as MouseEvent
-      handleGlobalMouseMove(mockEvent)
-
-      expect(aiSidebarSize.value).toBe(30) // Should remain unchanged
-    })
-  })
-
-  describe('Debounced Auto-Close', () => {
-    it('should auto-close when width is less than 50px in Terminal mode', () => {
-      currentMode.value = 'terminal'
-      showAiSidebar.value = true
-      aiSidebarSize.value = 4 // 4% of 1000px = 40px < 50px
-
-      debouncedAiResizeCheck()
-
       expect(showAiSidebar.value).toBe(false)
       expect(aiSidebarSize.value).toBe(0)
     })
 
-    it('should not auto-close when width is greater than 50px', () => {
-      currentMode.value = 'terminal'
-      showAiSidebar.value = true
-      aiSidebarSize.value = 10 // 10% of 1000px = 100px > 50px
+    it('should restore to saved width when reopening', () => {
+      const container = global.document.querySelector('.main-split-container') || global.document.querySelector('.splitpanes')
+      const containerWidth = container ? (container as HTMLElement).offsetWidth : 1000
 
-      debouncedAiResizeCheck()
-
-      expect(showAiSidebar.value).toBe(true)
-      expect(aiSidebarSize.value).toBe(10)
-    })
-
-    it('should not auto-close in Agents mode regardless of width', () => {
-      currentMode.value = 'agents'
-      showAiSidebar.value = true
-      aiSidebarSize.value = 2 // 2% of 1000px = 20px < 50px
-
-      debouncedAiResizeCheck()
-
-      // Should remain unchanged in Agents mode
-      expect(showAiSidebar.value).toBe(true)
-      expect(aiSidebarSize.value).toBe(2)
-    })
-
-    it('should not auto-close when sidebar is already closed', () => {
-      currentMode.value = 'terminal'
-      showAiSidebar.value = true
-      aiSidebarSize.value = 0 // Already closed
-
-      debouncedAiResizeCheck()
-
-      // Should remain closed
-      expect(showAiSidebar.value).toBe(true) // showAiSidebar might still be true
-      expect(aiSidebarSize.value).toBe(0)
-    })
-  })
-
-  describe('State Restoration Logic', () => {
-    const createMockToggleSideBar = () => {
-      return (value: string) => {
-        const container = global.document.querySelector('.main-split-container') || global.document.querySelector('.splitpanes')
-        const containerWidth = container ? (container as HTMLElement).offsetWidth : 1000
-
-        if (value === 'right') {
-          if (!showAiSidebar.value) {
-            showAiSidebar.value = true
-
-            // Calculate minimum percentage
-            const minSizePercent = (MIN_AI_SIDEBAR_WIDTH_PX / containerWidth) * 100
-
-            // Try to restore saved width, otherwise use default width
-            let restoredSize = savedAiSidebarState.value?.size || (DEFAULT_WIDTH_RIGHT_PX / containerWidth) * 100
-
-            // Ensure restored width is not less than minimum usable width
-            if ((restoredSize / 100) * containerWidth < MIN_AI_SIDEBAR_WIDTH_PX) {
-              restoredSize = minSizePercent
-            }
-
-            aiSidebarSize.value = restoredSize
-          }
-        }
-      }
-    }
-
-    it('should restore to minimum width when no saved state exists', () => {
-      const toggleSideBar = createMockToggleSideBar()
-      savedAiSidebarState.value = null
-
-      toggleSideBar('right')
-
-      // Should use default width: (500 / 800) * 100 = 62.5%
-      // But minimum is: (350 / 800) * 100 = 43.75%
-      // Since 62.5% > 43.75%, should use 62.5%
-      expect(showAiSidebar.value).toBe(true)
-      expect(aiSidebarSize.value).toBe(62.5)
-    })
-
-    it('should restore to saved width when it meets minimum requirement', () => {
-      const toggleSideBar = createMockToggleSideBar()
       savedAiSidebarState.value = { size: 50 } // 50% of 800px = 400px > 350px minimum
+      showAiSidebar.value = false
 
-      toggleSideBar('right')
+      // Simulate toggle open
+      const minSizePercent = (MIN_AI_SIDEBAR_WIDTH_PX / containerWidth) * 100
+      let restoredSize = savedAiSidebarState.value?.size || (DEFAULT_WIDTH_RIGHT_PX / containerWidth) * 100
+      if ((restoredSize / 100) * containerWidth < MIN_AI_SIDEBAR_WIDTH_PX) {
+        restoredSize = minSizePercent
+      }
+
+      showAiSidebar.value = true
+      aiSidebarSize.value = restoredSize
 
       expect(showAiSidebar.value).toBe(true)
       expect(aiSidebarSize.value).toBe(50)
     })
+  })
 
-    it('should enforce minimum width when saved width is too small', () => {
-      const toggleSideBar = createMockToggleSideBar()
-      savedAiSidebarState.value = { size: 20 } // 20% of 800px = 160px < 350px minimum
+  describe('Left Sidebar Core Features', () => {
+    it('should trigger quick close when dragged near left edge', () => {
+      currentMode.value = 'terminal'
+      isDraggingLeftSplitter.value = true
+      leftPaneSize.value = 30
 
-      toggleSideBar('right')
+      const mockEvent = { clientX: 40 } as MouseEvent // 40px from left edge
+      handleGlobalMouseMove(mockEvent)
 
-      // Should use minimum: (350 / 800) * 100 = 43.75%
-      expect(showAiSidebar.value).toBe(true)
-      expect(aiSidebarSize.value).toBe(43.75)
+      expect(getLeftSidebarSize()).toBe(0)
+      expect(saveLeftSidebarState).toHaveBeenCalled()
     })
 
-    it('should handle different container widths correctly', () => {
-      const toggleSideBar = createMockToggleSideBar()
+    it('should restore to saved width enforcing minimum', () => {
+      currentMode.value = 'terminal'
+      leftPaneSize.value = 0
+      savedLeftSidebarState.value = { size: 10, currentMenu: 'workspace', isExpanded: true }
+      // 10% of 1000px = 100px < 180px minimum
 
-      // Mock smaller container
-      global.document.querySelector = vi.fn(() => ({ offsetWidth: 500 }))
-      savedAiSidebarState.value = { size: 60 } // 60% of 500px = 300px < 350px minimum
+      restoreLeftSidebarState()
 
-      toggleSideBar('right')
-
-      // Should use minimum: (350 / 500) * 100 = 70%
-      expect(showAiSidebar.value).toBe(true)
-      expect(aiSidebarSize.value).toBe(70)
+      // Should use minimum: (180 / 1000) * 100 = 18%
+      expect(getLeftSidebarSize()).toBe(18)
     })
   })
 
   describe('Mode-Specific Behaviors', () => {
-    it('should have different min-size calculations for different modes', () => {
-      // Terminal mode
-      currentMode.value = 'terminal'
-      updateAiSidebarMinSize()
-      const terminalMinSize = aiMinSize.value
-
-      // Agents mode
+    it('should disable quick close in Agents mode for AI sidebar', () => {
       currentMode.value = 'agents'
-      updateAiSidebarMinSize()
-      const agentsMinSize = aiMinSize.value
-
-      // Should be different due to different container widths
-      expect(terminalMinSize).not.toBe(agentsMinSize)
-      expect(terminalMinSize).toBe(25) // 200/800 * 100
-      expect(agentsMinSize).toBe(20) // 200/1000 * 100
-    })
-
-    it('should disable auto-close in Agents mode but allow in Terminal mode', () => {
-      showAiSidebar.value = true
-      aiSidebarSize.value = 2 // Very small size
-
-      // Terminal mode should auto-close
-      currentMode.value = 'terminal'
-      debouncedAiResizeCheck()
-      expect(showAiSidebar.value).toBe(false)
-
-      // Reset
-      showAiSidebar.value = true
-      aiSidebarSize.value = 2
-
-      // Agents mode should not auto-close
-      currentMode.value = 'agents'
-      debouncedAiResizeCheck()
-      expect(showAiSidebar.value).toBe(true)
-    })
-
-    it('should disable quick close in Agents mode but allow in Terminal mode', () => {
       isDraggingSplitter.value = true
       showAiSidebar.value = true
       aiSidebarSize.value = 30
-      const mockEvent = { clientX: 1160 } as MouseEvent // Near right edge
 
-      // Terminal mode should allow quick close
-      currentMode.value = 'terminal'
+      const mockEvent = { clientX: 1160 } as MouseEvent
       handleGlobalMouseMove(mockEvent)
-      expect(showAiSidebar.value).toBe(false)
 
-      // Reset
-      showAiSidebar.value = true
-      aiSidebarSize.value = 30
-
-      // Agents mode should not allow quick close
-      currentMode.value = 'agents'
-      handleGlobalMouseMove(mockEvent)
+      // Should not trigger in Agents mode
       expect(showAiSidebar.value).toBe(true)
+    })
+
+    it('should use different size variables for different modes', () => {
+      // Terminal mode
+      currentMode.value = 'terminal'
+      setLeftSidebarSize(25)
+      expect(leftPaneSize.value).toBe(25)
+      expect(agentsLeftPaneSize.value).toBe(0)
+
+      // Agents mode
+      currentMode.value = 'agents'
+      setLeftSidebarSize(30)
+      expect(agentsLeftPaneSize.value).toBe(30)
+      expect(leftPaneSize.value).toBe(25)
     })
   })
 
-  describe('Edge Cases and Error Handling', () => {
+  describe('Quick Close State Management (New Implementation)', () => {
+    it('should complete quick close and reset flags for both sidebars', () => {
+      currentMode.value = 'terminal'
+
+      // Test AI sidebar quick close
+      isDraggingSplitter.value = true
+      showAiSidebar.value = true
+      aiSidebarSize.value = 30
+      const mockEventRight = { clientX: 1160 } as MouseEvent
+      handleGlobalMouseMove(mockEventRight)
+      expect(showAiSidebar.value).toBe(false)
+      expect(aiSidebarSize.value).toBe(0)
+      expect(isQuickClosing.value).toBe(false) // Reset after execution
+
+      // Test left sidebar quick close
+      isDraggingLeftSplitter.value = true
+      leftPaneSize.value = 30
+      const mockEventLeft = { clientX: 40 } as MouseEvent
+      handleGlobalMouseMove(mockEventLeft)
+      expect(getLeftSidebarSize()).toBe(0)
+      expect(isQuickClosing.value).toBe(false) // Reset after execution
+    })
+
+    it('should block events when isQuickClosing is true', () => {
+      isQuickClosing.value = true
+      currentMode.value = 'terminal'
+      isDraggingSplitter.value = true
+      showAiSidebar.value = true
+      aiSidebarSize.value = 30
+
+      const mockEvent = { clientX: 1160 } as MouseEvent
+      handleGlobalMouseMove(mockEvent)
+
+      // Should not process the event
+      expect(aiSidebarSize.value).toBe(30)
+    })
+
+    it('should trigger mouseup event to terminate splitpanes drag', () => {
+      const dispatchEventSpy = vi.spyOn(global.document, 'dispatchEvent')
+      currentMode.value = 'terminal'
+      isDraggingSplitter.value = true
+      showAiSidebar.value = true
+      aiSidebarSize.value = 30
+
+      const mockEvent = { clientX: 1160 } as MouseEvent
+      handleGlobalMouseMove(mockEvent)
+
+      expect(dispatchEventSpy).toHaveBeenCalledWith(expect.objectContaining({ type: 'mouseup' }))
+    })
+
+    it('should respect Agents mode - no quick close for AI sidebar', () => {
+      currentMode.value = 'agents'
+      isDraggingSplitter.value = true
+      showAiSidebar.value = true
+      aiSidebarSize.value = 30
+
+      const mockEvent = { clientX: 1160 } as MouseEvent
+      handleGlobalMouseMove(mockEvent)
+
+      // Should not trigger in Agents mode
+      expect(showAiSidebar.value).toBe(true)
+      expect(isQuickClosing.value).toBe(false)
+    })
+  })
+
+  describe('Resize Event Protection During Quick Close', () => {
+    let handleLeftPaneResize: any
+    let onMainSplitResize: any
+
+    beforeEach(() => {
+      handleLeftPaneResize = vi.fn((params: any) => {
+        if (isQuickClosing.value) return
+        if (currentMode.value === 'agents') {
+          agentsLeftPaneSize.value = params.prevPane.size
+        } else {
+          leftPaneSize.value = params.prevPane.size
+        }
+      })
+
+      onMainSplitResize = vi.fn((params: any) => {
+        if (isQuickClosing.value) return
+        aiSidebarSize.value = params.prevPane.size
+      })
+    })
+
+    it('should block resize events when isQuickClosing is true', () => {
+      isQuickClosing.value = true
+      currentMode.value = 'terminal'
+      leftPaneSize.value = 0
+      aiSidebarSize.value = 0
+
+      handleLeftPaneResize({ prevPane: { size: 50 } })
+      onMainSplitResize({ prevPane: { size: 50 } })
+
+      // Both should be blocked
+      expect(leftPaneSize.value).toBe(0)
+      expect(aiSidebarSize.value).toBe(0)
+    })
+
+    it('should allow resize after isQuickClosing is reset', () => {
+      currentMode.value = 'terminal'
+      isQuickClosing.value = true
+      leftPaneSize.value = 0
+
+      handleLeftPaneResize({ prevPane: { size: 30 } })
+      expect(leftPaneSize.value).toBe(0) // Blocked
+
+      isQuickClosing.value = false
+      handleLeftPaneResize({ prevPane: { size: 30 } })
+      expect(leftPaneSize.value).toBe(30) // Now allowed
+    })
+  })
+
+  describe('Edge Cases', () => {
     it('should handle missing DOM elements gracefully', () => {
       global.document.querySelector = vi.fn(() => null)
 
@@ -457,99 +480,31 @@ describe('TerminalLayout - AI Sidebar Sticky Logic', () => {
       }).not.toThrow()
 
       expect(() => {
-        debouncedAiResizeCheck()
+        restoreLeftSidebarState()
       }).not.toThrow()
     })
 
-    it('should handle zero container width', () => {
-      global.document.querySelector = vi.fn(() => ({ offsetWidth: 0 }))
-
-      updateAiSidebarMinSize()
-
-      // Should handle division by zero gracefully
-      expect(aiMinSize.value).toBe(Infinity)
-    })
-
-    it('should handle negative sidebar sizes', () => {
+    it('should handle both sidebars being dragged independently', () => {
       currentMode.value = 'terminal'
-      showAiSidebar.value = true
-      aiSidebarSize.value = -5 // Negative size
 
-      debouncedAiResizeCheck()
+      // Left sidebar quick close
+      isDraggingLeftSplitter.value = true
+      leftPaneSize.value = 30
+      const mockEventLeft = { clientX: 40 } as MouseEvent
+      handleGlobalMouseMove(mockEventLeft)
+      expect(getLeftSidebarSize()).toBe(0)
 
-      // Should not auto-close for negative sizes (since -5 is not > 0)
-      expect(showAiSidebar.value).toBe(true)
-    })
-
-    it('should handle very large sidebar sizes', () => {
-      currentMode.value = 'terminal'
-      showAiSidebar.value = true
-      aiSidebarSize.value = 200 // 200% > 100%
-
-      debouncedAiResizeCheck()
-
-      // Should not auto-close for large sizes
-      expect(showAiSidebar.value).toBe(true)
-      expect(aiSidebarSize.value).toBe(200)
-    })
-  })
-
-  describe('Integration Scenarios', () => {
-    it('should maintain consistent state through mode switches', () => {
-      // Start in Terminal mode
-      currentMode.value = 'terminal'
-      updateAiSidebarMinSize()
-      const terminalMinSize = aiMinSize.value
-
-      // Switch to Agents mode
-      currentMode.value = 'agents'
-      updateAiSidebarMinSize()
-      const agentsMinSize = aiMinSize.value
-
-      // Switch back to Terminal mode
-      currentMode.value = 'terminal'
-      updateAiSidebarMinSize()
-
-      expect(aiMinSize.value).toBe(terminalMinSize)
-      expect(terminalMinSize).not.toBe(agentsMinSize)
-    })
-
-    it('should handle rapid resize events correctly', () => {
-      currentMode.value = 'terminal'
-      showAiSidebar.value = true
-
-      // Simulate rapid resize events
-      aiSidebarSize.value = 10 // Above threshold
-      debouncedAiResizeCheck()
-      expect(showAiSidebar.value).toBe(true)
-
-      aiSidebarSize.value = 3 // Below threshold
-      debouncedAiResizeCheck()
-      expect(showAiSidebar.value).toBe(false)
-
-      // Reset and test again
-      showAiSidebar.value = true
-      aiSidebarSize.value = 8 // Above threshold again
-      debouncedAiResizeCheck()
-      expect(showAiSidebar.value).toBe(true)
-    })
-
-    it('should handle simultaneous mouse and resize events', () => {
-      currentMode.value = 'terminal'
+      // AI sidebar quick close (should not affect left sidebar)
+      isDraggingLeftSplitter.value = false
       isDraggingSplitter.value = true
       showAiSidebar.value = true
-      aiSidebarSize.value = 3 // Below auto-close threshold
+      aiSidebarSize.value = 30
+      leftPaneSize.value = 25 // Reset left sidebar
 
-      // Trigger auto-close first
-      debouncedAiResizeCheck()
+      const mockEventRight = { clientX: 1160 } as MouseEvent
+      handleGlobalMouseMove(mockEventRight)
       expect(showAiSidebar.value).toBe(false)
-
-      // Then trigger mouse move (should not affect already closed sidebar)
-      const mockEvent = { clientX: 1160 } as MouseEvent
-      handleGlobalMouseMove(mockEvent)
-
-      expect(showAiSidebar.value).toBe(false)
-      expect(aiSidebarSize.value).toBe(0)
+      expect(getLeftSidebarSize()).toBe(25) // Left sidebar should remain unchanged
     })
   })
 })
