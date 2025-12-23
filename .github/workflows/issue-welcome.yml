@@ -25,9 +25,9 @@ jobs:
             👋 Thanks for opening an issue!
 
             To help us better understand and resolve your issue, please ensure:
-            - ✅ You've searched existing issues to avoid duplicates
+            - ✅ You've searched [existing issues](https://github.com/${{ github.repository }}/issues) to avoid duplicates
             - ✅ You've provided a clear description and reproduction steps
-            - ✅ For bugs, please provide environment info (OS, version, etc.)
-            - ✅ For feature requests, please describe the use case
+            - ✅ For bugs, please provide environment info (OS, Chaterm version, etc.)
+            - ✅ For feature requests, please describe the use case and expected behavior
 
             We'll review and respond as soon as possible. 🙏
