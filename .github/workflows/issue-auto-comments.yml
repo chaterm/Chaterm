@@ -1,0 +1,55 @@
+name: Issue Auto Comment
+
+on:
+  issues:
+    types:
+      - opened
+      - closed
+      - assigned
+  pull_request_target:
+    types:
+      - opened
+      - closed
+
+permissions:
+  contents: read
+
+jobs:
+  run:
+    permissions:
+      issues: write
+      pull-requests: write
+    runs-on: ubuntu-latest
+    steps:
+      - name: Auto Comment on Issues Closed
+        if: github.event.issue.state == 'closed'
+        uses: wow-actions/auto-comment@v1
+        with:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          issuesClosed: |
+            ✅ @{{ author }}
+
+            This issue has been closed. If you have any questions or concerns, please feel free to comment and we'll be happy to help!
+
+      - name: Auto Comment on Pull Request Merged
+        if: github.event.pull_request.merged == true
+        uses: actions-cool/pr-welcome@v1
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          comment: |
+            ❤️ Great PR @${{ github.event.pull_request.user.login }} ❤️
+
+            Thank you for your contribution to Chaterm! The growth of this project is inseparable from community feedback and contributions like yours.
+
+            We appreciate your time and effort in making Chaterm better! 🎉
+          emoji: 'hooray'
+          pr-emoji: '+1, heart'
+
+      - name: Remove inactive label
+        if: github.event.issue.state == 'open' && github.actor == github.event.issue.user.login
+        uses: actions-cool/issues-helper@v3
+        with:
+          actions: 'remove-labels'
+          token: ${{ secrets.GITHUB_TOKEN }}
+          issue-number: ${{ github.event.issue.number }}
+          labels: 'Inactive'
