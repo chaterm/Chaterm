@@ -22,6 +22,7 @@ export function useStateSnapshot(emit: (event: 'state-changed', ...args: any[]) 
         autoUpdateHost: tab.autoUpdateHost,
         inputValue: tab.inputValue,
         modelValue: tab.modelValue,
+        welcomeTip: tab.welcomeTip,
         session: {
           chatHistory: [...tab.session.chatHistory],
           lastChatMessageId: tab.session.lastChatMessageId,
@@ -60,6 +61,7 @@ export function useStateSnapshot(emit: (event: 'state-changed', ...args: any[]) 
           autoUpdateHost: savedTab.autoUpdateHost,
           inputValue: savedTab.inputValue,
           modelValue: savedTab.modelValue || '',
+          welcomeTip: savedTab.welcomeTip || '',
           session: {
             chatHistory: [...savedTab.session.chatHistory],
             lastChatMessageId: savedTab.session.lastChatMessageId,

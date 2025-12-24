@@ -1,14 +1,13 @@
 import { v4 as uuidv4 } from 'uuid'
 import { nextTick, onMounted, onUnmounted } from 'vue'
 import { Modal } from 'ant-design-vue'
+import { useI18n } from 'vue-i18n'
 import type { HistoryItem, Host, AssetInfo, ChatMessage } from '../types'
 import type { ChatTab, SessionState } from './useSessionState'
 import { useSessionState } from './useSessionState'
 import { getGlobalState } from '@renderer/agent/storage/state'
 import type { GlobalStateKey } from '@renderer/agent/storage/state-keys'
 import { ChatermMessage } from '@/types/ChatermMessage'
-import i18n from '@/locales'
-const { t } = i18n.global
 
 interface TabManagementOptions {
   getCurentTabAssetInfo: () => Promise<AssetInfo | null>
@@ -18,11 +17,12 @@ interface TabManagementOptions {
 }
 
 export const focusChatInput = () => {
+  const { chatTextareaRef } = useSessionState()
+
   nextTick(() => {
-    const textarea = document.getElementsByClassName('chat-textarea')[0] as HTMLTextAreaElement | null
-    if (textarea) {
-      textarea.scrollTop = textarea.scrollHeight
-      textarea.focus({ preventScroll: true })
+    if (chatTextareaRef.value) {
+      chatTextareaRef.value.scrollTop = chatTextareaRef.value.scrollHeight
+      chatTextareaRef.value.focus({ preventScroll: true })
     }
   })
 }
@@ -35,6 +35,23 @@ export function useTabManagement(options: TabManagementOptions) {
   const { chatTabs, currentChatId, currentTab, createEmptySessionState, chatInputValue } = useSessionState()
 
   const { getCurentTabAssetInfo, emitStateChange, handleClose, isFocusInAiTab } = options
+
+  // Get i18n instance
+  const { t, locale, messages } = useI18n()
+
+  /**
+   * Generate a random welcome tip from i18n messages
+   */
+  const generateRandomWelcomeTip = (): string => {
+    const currentMessages = messages.value[locale.value] as any
+    const tips = currentMessages?.ai?.welcomeTips
+
+    if (Array.isArray(tips) && tips.length > 0) {
+      const randomIndex = Math.floor(Math.random() * tips.length)
+      return tips[randomIndex]
+    }
+    return (t('ai.welcome') as string) || ''
+  }
 
   const createNewEmptyTab = async (): Promise<string> => {
     console.log('createNewEmptyTab   begin')
@@ -54,7 +71,8 @@ export function useTabManagement(options: TabManagementOptions) {
       autoUpdateHost: true,
       session: createEmptySessionState(),
       inputValue: '',
-      modelValue: ''
+      modelValue: '',
+      welcomeTip: generateRandomWelcomeTip()
     }
 
     chatTabs.value.push(placeholderTab)
@@ -249,7 +267,8 @@ export function useTabManagement(options: TabManagementOptions) {
         autoUpdateHost: false,
         session: historySession,
         inputValue: '',
-        modelValue: savedModelValue || currentTab.value?.modelValue || ''
+        modelValue: savedModelValue || currentTab.value?.modelValue || '',
+        welcomeTip: ''
       }
 
       const isCurrentNewTab = currentTab.value && currentTab.value.title === 'New chat' && currentTab.value.session.chatHistory.length === 0

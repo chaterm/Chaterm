@@ -675,6 +675,7 @@ export default {
     yesterday: 'Yesterday',
     favorite: 'Favorites',
     welcome: 'What can I do for you in the terminal?',
+    welcomeTips: ['What can I do for you in the terminal?', 'Type @ to select more hosts in Agent mode', 'Press Shift + Tab to switch mode'],
     loginPrompt: 'Login to use AI features, new users can use for free for two weeks',
     searchHost: 'Search by IP',
     noMatchingHosts: 'No matching hosts',

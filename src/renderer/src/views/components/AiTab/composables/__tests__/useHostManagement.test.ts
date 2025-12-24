@@ -353,7 +353,7 @@ describe('useHostManagement', () => {
   })
 
   describe('handleInputChange', () => {
-    it('should show host select when @ is typed', async () => {
+    it('should show host select when only @ is typed', async () => {
       const { handleInputChange, showHostSelect } = useHostManagement()
 
       const mockEvent = {
@@ -365,6 +365,50 @@ describe('useHostManagement', () => {
       await handleInputChange(mockEvent)
 
       expect(showHostSelect.value).toBe(true)
+    })
+
+    it('should show host select when @ is typed at the end', async () => {
+      const { handleInputChange, showHostSelect } = useHostManagement()
+
+      const mockEvent = {
+        target: {
+          value: 'hello @'
+        }
+      } as unknown as Event
+
+      await handleInputChange(mockEvent)
+
+      expect(showHostSelect.value).toBe(true)
+    })
+
+    it('should not show host select when @ is in the middle', async () => {
+      const { handleInputChange, showHostSelect } = useHostManagement()
+
+      const mockEvent = {
+        target: {
+          value: '@ hello'
+        }
+      } as unknown as Event
+
+      await handleInputChange(mockEvent)
+
+      expect(showHostSelect.value).toBe(false)
+    })
+
+    it('should hide host select when trailing @ is removed', async () => {
+      const { handleInputChange, showHostSelect } = useHostManagement()
+
+      showHostSelect.value = true
+
+      const mockEvent = {
+        target: {
+          value: 'hello'
+        }
+      } as unknown as Event
+
+      await handleInputChange(mockEvent)
+
+      expect(showHostSelect.value).toBe(false)
     })
 
     it('should hide host select when @ is removed', async () => {
@@ -380,6 +424,44 @@ describe('useHostManagement', () => {
       await handleInputChange(mockEvent)
 
       expect(showHostSelect.value).toBe(false)
+    })
+  })
+
+  describe('onHostClick with @ handling', () => {
+    it('should remove trailing @ when host is selected', () => {
+      const { onHostClick } = useHostManagement()
+
+      chatInputValue.value = 'hello @'
+      chatTypeValue.value = 'agent'
+
+      onHostClick(mockHostOption)
+
+      expect(chatInputValue.value).toBe('hello ')
+      expect(hosts.value).toHaveLength(1)
+    })
+
+    it('should not modify input if no trailing @ when host is selected', () => {
+      const { onHostClick } = useHostManagement()
+
+      chatInputValue.value = 'hello world'
+      chatTypeValue.value = 'agent'
+
+      onHostClick(mockHostOption)
+
+      expect(chatInputValue.value).toBe('hello world')
+      expect(hosts.value).toHaveLength(1)
+    })
+
+    it('should remove @ even with just @', () => {
+      const { onHostClick } = useHostManagement()
+
+      chatInputValue.value = '@'
+      chatTypeValue.value = 'agent'
+
+      onHostClick(mockHostOption)
+
+      expect(chatInputValue.value).toBe('')
+      expect(hosts.value).toHaveLength(1)
     })
   })
 

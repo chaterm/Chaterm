@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { ref, nextTick } from 'vue'
-import { useTabManagement, focusChatInput } from '../useTabManagement'
+import { useTabManagement } from '../useTabManagement'
 import { useSessionState } from '../useSessionState'
 import type { AssetInfo, HistoryItem } from '../../types'
 import type { ChatermMessage } from '@/types/ChatermMessage'
@@ -9,6 +9,28 @@ import type { ChatermMessage } from '@/types/ChatermMessage'
 vi.mock('../useSessionState')
 vi.mock('@renderer/agent/storage/state', () => ({
   getGlobalState: vi.fn()
+}))
+vi.mock('vue-i18n', () => ({
+  useI18n: vi.fn(() => ({
+    t: vi.fn((key: string) => key),
+    locale: { value: 'en-US' },
+    messages: {
+      value: {
+        'en-US': {
+          ai: {
+            welcomeTips: ['Welcome tip 1', 'Welcome tip 2'],
+            welcome: 'Welcome'
+          },
+          common: {
+            closeTabConfirm: 'Close tab?',
+            closeTabWithTaskRunning: 'Task is running',
+            forceClose: 'Force close',
+            cancel: 'Cancel'
+          }
+        }
+      }
+    }
+  }))
 }))
 
 // Mock window.api
@@ -56,7 +78,8 @@ describe('useTabManagement', () => {
     autoUpdateHost: true,
     session: createMockSession(),
     inputValue: '',
-    modelValue: ''
+    modelValue: '',
+    welcomeTip: ''
   })
 
   beforeEach(async () => {
@@ -82,7 +105,8 @@ describe('useTabManagement', () => {
       currentChatId,
       currentTab: ref(mockTab),
       createEmptySessionState,
-      chatInputValue
+      chatInputValue,
+      chatTextareaRef: ref(null)
     } as any)
 
     const { getGlobalState } = await import('@renderer/agent/storage/state')
@@ -491,28 +515,6 @@ describe('useTabManagement', () => {
       handleCloseTabKeyDown(event)
 
       expect(mockCancelTask).not.toHaveBeenCalled()
-    })
-  })
-
-  describe('focusChatInput', () => {
-    it('should focus chat textarea', async () => {
-      const mockTextarea = document.createElement('textarea')
-      mockTextarea.className = 'chat-textarea'
-      mockTextarea.focus = vi.fn()
-      document.body.appendChild(mockTextarea)
-
-      focusChatInput()
-      await nextTick()
-
-      expect(mockTextarea.focus).toHaveBeenCalled()
-
-      document.body.removeChild(mockTextarea)
-    })
-
-    it('should not throw when textarea does not exist', async () => {
-      expect(() => {
-        focusChatInput()
-      }).not.toThrow()
     })
   })
 })

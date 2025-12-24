@@ -220,7 +220,9 @@ export function useHostManagement() {
 
     autoUpdateHost.value = false
 
-    chatInputValue.value = ''
+    if (chatInputValue.value.endsWith('@')) {
+      chatInputValue.value = chatInputValue.value.slice(0, -1)
+    }
   }
 
   const removeHost = (hostToRemove: Host) => {
@@ -302,7 +304,7 @@ export function useHostManagement() {
   const handleInputChange = async (e: Event) => {
     const value = (e.target as HTMLTextAreaElement).value
 
-    if (value === '@') {
+    if (value.endsWith('@')) {
       if (chatTypeValue.value === 'cmd' || chatTypeValue.value === 'chat') {
         showHostSelect.value = false
         return

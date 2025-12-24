@@ -61,7 +61,8 @@ describe('useSessionState', () => {
         autoUpdateHost: true,
         session: createEmptySessionState(),
         inputValue: '',
-        modelValue: 'claude-3-5-sonnet'
+        modelValue: 'claude-3-5-sonnet',
+        welcomeTip: ''
       }
 
       chatTabs.value.push(newTab)
@@ -81,7 +82,8 @@ describe('useSessionState', () => {
           autoUpdateHost: true,
           session: createEmptySessionState(),
           inputValue: '',
-          modelValue: ''
+          modelValue: '',
+          welcomeTip: ''
         },
         {
           id: 'tab-2',
@@ -91,7 +93,8 @@ describe('useSessionState', () => {
           autoUpdateHost: true,
           session: createEmptySessionState(),
           inputValue: '',
-          modelValue: ''
+          modelValue: '',
+          welcomeTip: ''
         }
       ]
 
@@ -119,7 +122,8 @@ describe('useSessionState', () => {
         autoUpdateHost: true,
         session: createEmptySessionState(),
         inputValue: '',
-        modelValue: ''
+        modelValue: '',
+        welcomeTip: ''
       }
       chatTabs.value = [tab]
       currentChatId.value = 'tab-1'
@@ -138,7 +142,8 @@ describe('useSessionState', () => {
           autoUpdateHost: true,
           session: createEmptySessionState(),
           inputValue: '',
-          modelValue: ''
+          modelValue: '',
+          welcomeTip: ''
         }
       ]
       currentChatId.value = 'non-existent'
@@ -166,7 +171,8 @@ describe('useSessionState', () => {
           autoUpdateHost: true,
           session,
           inputValue: '',
-          modelValue: ''
+          modelValue: '',
+          welcomeTip: ''
         }
       ]
       currentChatId.value = 'tab-1'
@@ -194,7 +200,8 @@ describe('useSessionState', () => {
             autoUpdateHost: true,
             session: createEmptySessionState(),
             inputValue: '',
-            modelValue: ''
+            modelValue: '',
+            welcomeTip: ''
           }
         ]
         currentChatId.value = 'tab-1'
@@ -213,7 +220,8 @@ describe('useSessionState', () => {
             autoUpdateHost: true,
             session: createEmptySessionState(),
             inputValue: '',
-            modelValue: ''
+            modelValue: '',
+            welcomeTip: ''
           }
         ]
         currentChatId.value = 'tab-1'
@@ -242,7 +250,8 @@ describe('useSessionState', () => {
             autoUpdateHost: true,
             session: createEmptySessionState(),
             inputValue: '',
-            modelValue: ''
+            modelValue: '',
+            welcomeTip: ''
           }
         ]
         currentChatId.value = 'tab-1'
@@ -261,7 +270,8 @@ describe('useSessionState', () => {
             autoUpdateHost: true,
             session: createEmptySessionState(),
             inputValue: '',
-            modelValue: ''
+            modelValue: '',
+            welcomeTip: ''
           }
         ]
         currentChatId.value = 'tab-1'
@@ -291,7 +301,8 @@ describe('useSessionState', () => {
             autoUpdateHost: true,
             session: createEmptySessionState(),
             inputValue: '',
-            modelValue: ''
+            modelValue: '',
+            welcomeTip: ''
           }
         ]
         currentChatId.value = 'tab-1'
@@ -310,7 +321,8 @@ describe('useSessionState', () => {
             autoUpdateHost: true,
             session: createEmptySessionState(),
             inputValue: '',
-            modelValue: ''
+            modelValue: '',
+            welcomeTip: ''
           }
         ]
         currentChatId.value = 'tab-1'
@@ -340,7 +352,8 @@ describe('useSessionState', () => {
             autoUpdateHost: true,
             session: createEmptySessionState(),
             inputValue: 'Hello AI',
-            modelValue: ''
+            modelValue: '',
+            welcomeTip: ''
           }
         ]
         currentChatId.value = 'tab-1'
@@ -359,7 +372,8 @@ describe('useSessionState', () => {
             autoUpdateHost: true,
             session: createEmptySessionState(),
             inputValue: '',
-            modelValue: ''
+            modelValue: '',
+            welcomeTip: ''
           }
         ]
         currentChatId.value = 'tab-1'
@@ -395,7 +409,8 @@ describe('useSessionState', () => {
           autoUpdateHost: true,
           session,
           inputValue: '',
-          modelValue: ''
+          modelValue: '',
+          welcomeTip: ''
         }
       ]
       currentChatId.value = 'tab-1'
@@ -421,7 +436,8 @@ describe('useSessionState', () => {
           autoUpdateHost: true,
           session,
           inputValue: '',
-          modelValue: ''
+          modelValue: '',
+          welcomeTip: ''
         }
       ]
       currentChatId.value = 'tab-1'
@@ -449,7 +465,8 @@ describe('useSessionState', () => {
           autoUpdateHost: true,
           session: createEmptySessionState(),
           inputValue: '',
-          modelValue: ''
+          modelValue: '',
+          welcomeTip: ''
         }
       ]
       currentChatId.value = 'tab-1'
@@ -473,7 +490,8 @@ describe('useSessionState', () => {
           autoUpdateHost: true,
           session,
           inputValue: '',
-          modelValue: ''
+          modelValue: '',
+          welcomeTip: ''
         }
       ]
       currentChatId.value = 'tab-1'
@@ -497,7 +515,8 @@ describe('useSessionState', () => {
           autoUpdateHost: true,
           session,
           inputValue: '',
-          modelValue: ''
+          modelValue: '',
+          welcomeTip: ''
         }
       ]
       currentChatId.value = 'tab-1'

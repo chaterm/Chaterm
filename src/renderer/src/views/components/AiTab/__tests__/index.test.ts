@@ -104,7 +104,8 @@ describe('AiTab Component - Composable Integration Tests', () => {
         autoUpdateHost: true,
         session: createEmptySessionState(),
         inputValue: '',
-        modelValue: 'claude-3-5-sonnet'
+        modelValue: 'claude-3-5-sonnet',
+        welcomeTip: ''
       }
 
       chatTabs.value.push(newTab)
@@ -126,7 +127,8 @@ describe('AiTab Component - Composable Integration Tests', () => {
         autoUpdateHost: true,
         session: createEmptySessionState(),
         inputValue: 'Input 1',
-        modelValue: 'claude-3-5-sonnet'
+        modelValue: 'claude-3-5-sonnet',
+        welcomeTip: ''
       }
       tab1.session.responseLoading = true
 
@@ -138,7 +140,8 @@ describe('AiTab Component - Composable Integration Tests', () => {
         autoUpdateHost: true,
         session: createEmptySessionState(),
         inputValue: 'Input 2',
-        modelValue: 'gpt-4'
+        modelValue: 'gpt-4',
+        welcomeTip: ''
       }
       tab2.session.responseLoading = false
 
@@ -164,7 +167,8 @@ describe('AiTab Component - Composable Integration Tests', () => {
         autoUpdateHost: true,
         session: createEmptySessionState(),
         inputValue: '',
-        modelValue: 'claude-3-5-sonnet'
+        modelValue: 'claude-3-5-sonnet',
+        welcomeTip: ''
       }
 
       const tab2 = {
@@ -175,7 +179,8 @@ describe('AiTab Component - Composable Integration Tests', () => {
         autoUpdateHost: true,
         session: createEmptySessionState(),
         inputValue: '',
-        modelValue: 'gpt-4'
+        modelValue: 'gpt-4',
+        welcomeTip: ''
       }
 
       chatTabs.value = [tab1, tab2]
@@ -442,7 +447,8 @@ describe('AiTab Component - Composable Integration Tests', () => {
           autoUpdateHost: true,
           session,
           inputValue: '',
-          modelValue: 'claude-3-5-sonnet'
+          modelValue: 'claude-3-5-sonnet',
+          welcomeTip: ''
         }
       ]
       currentChatId.value = 'tab-1'
@@ -472,7 +478,8 @@ describe('AiTab Component - Composable Integration Tests', () => {
           autoUpdateHost: true,
           session,
           inputValue: '',
-          modelValue: 'claude-3-5-sonnet'
+          modelValue: 'claude-3-5-sonnet',
+          welcomeTip: ''
         }
       ]
       currentChatId.value = 'tab-1'
@@ -504,7 +511,8 @@ describe('AiTab Component - Composable Integration Tests', () => {
             autoUpdateHost: true,
             session,
             inputValue: '',
-            modelValue: 'claude-3-5-sonnet'
+            modelValue: 'claude-3-5-sonnet',
+            welcomeTip: ''
           }
         ]
         currentChatId.value = 'tab-1'
@@ -530,7 +538,8 @@ describe('AiTab Component - Composable Integration Tests', () => {
             autoUpdateHost: true,
             session,
             inputValue: '',
-            modelValue: 'claude-3-5-sonnet'
+            modelValue: 'claude-3-5-sonnet',
+            welcomeTip: ''
           }
         ]
         currentChatId.value = 'tab-1'
@@ -557,7 +566,8 @@ describe('AiTab Component - Composable Integration Tests', () => {
             autoUpdateHost: true,
             session,
             inputValue: '',
-            modelValue: 'claude-3-5-sonnet'
+            modelValue: 'claude-3-5-sonnet',
+            welcomeTip: ''
           }
         ]
         currentChatId.value = 'tab-1'
@@ -582,7 +592,8 @@ describe('AiTab Component - Composable Integration Tests', () => {
             autoUpdateHost: true,
             session,
             inputValue: '',
-            modelValue: 'claude-3-5-sonnet'
+            modelValue: 'claude-3-5-sonnet',
+            welcomeTip: ''
           }
         ]
         currentChatId.value = 'tab-1'
@@ -605,7 +616,8 @@ describe('AiTab Component - Composable Integration Tests', () => {
             autoUpdateHost: true,
             session,
             inputValue: '',
-            modelValue: 'claude-3-5-sonnet'
+            modelValue: 'claude-3-5-sonnet',
+            welcomeTip: ''
           }
         ]
         currentChatId.value = 'tab-1'
@@ -635,7 +647,8 @@ describe('AiTab Component - Composable Integration Tests', () => {
             autoUpdateHost: true,
             session,
             inputValue: '',
-            modelValue: 'claude-3-5-sonnet'
+            modelValue: 'claude-3-5-sonnet',
+            welcomeTip: ''
           }
         ]
         currentChatId.value = 'tab-1'
@@ -675,7 +688,8 @@ describe('AiTab Component - Composable Integration Tests', () => {
             autoUpdateHost: true,
             session,
             inputValue: '',
-            modelValue: 'claude-3-5-sonnet'
+            modelValue: 'claude-3-5-sonnet',
+            welcomeTip: ''
           }
         ]
         currentChatId.value = 'tab-1'
@@ -702,7 +716,8 @@ describe('AiTab Component - Composable Integration Tests', () => {
             autoUpdateHost: true,
             session,
             inputValue: '',
-            modelValue: 'claude-3-5-sonnet'
+            modelValue: 'claude-3-5-sonnet',
+            welcomeTip: ''
           }
         ]
         currentChatId.value = 'tab-1'
@@ -726,7 +741,8 @@ describe('AiTab Component - Composable Integration Tests', () => {
             autoUpdateHost: true,
             session,
             inputValue: '',
-            modelValue: 'claude-3-5-sonnet'
+            modelValue: 'claude-3-5-sonnet',
+            welcomeTip: ''
           }
         ]
         currentChatId.value = 'tab-1'
@@ -783,7 +799,8 @@ describe('AiTab Component - Composable Integration Tests', () => {
             autoUpdateHost: true,
             session,
             inputValue: '',
-            modelValue: 'claude-3-5-sonnet'
+            modelValue: 'claude-3-5-sonnet',
+            welcomeTip: ''
           }
         ]
         currentChatId.value = 'tab-1'
@@ -866,7 +883,8 @@ describe('AiTab Component - Composable Integration Tests', () => {
             autoUpdateHost: true,
             session,
             inputValue: '',
-            modelValue: 'claude-3-5-sonnet'
+            modelValue: 'claude-3-5-sonnet',
+            welcomeTip: ''
           }
         ]
         currentChatId.value = 'tab-1'
@@ -896,7 +914,8 @@ describe('AiTab Component - Composable Integration Tests', () => {
             autoUpdateHost: true,
             session,
             inputValue: '',
-            modelValue: 'claude-3-5-sonnet'
+            modelValue: 'claude-3-5-sonnet',
+            welcomeTip: ''
           }
         ]
         currentChatId.value = 'tab-1'
@@ -1038,7 +1057,8 @@ describe('AiTab Component - Composable Integration Tests', () => {
             autoUpdateHost: true,
             session,
             inputValue: '',
-            modelValue: 'claude-3-5-sonnet'
+            modelValue: 'claude-3-5-sonnet',
+            welcomeTip: ''
           }
         ]
         currentChatId.value = 'tab-1'
@@ -1061,7 +1081,8 @@ describe('AiTab Component - Composable Integration Tests', () => {
             autoUpdateHost: true,
             session,
             inputValue: '',
-            modelValue: 'claude-3-5-sonnet'
+            modelValue: 'claude-3-5-sonnet',
+            welcomeTip: ''
           }
         ]
         currentChatId.value = 'tab-1'
@@ -1084,7 +1105,8 @@ describe('AiTab Component - Composable Integration Tests', () => {
             autoUpdateHost: true,
             session,
             inputValue: '',
-            modelValue: 'claude-3-5-sonnet'
+            modelValue: 'claude-3-5-sonnet',
+            welcomeTip: ''
           }
         ]
         currentChatId.value = 'tab-1'
@@ -1117,7 +1139,8 @@ describe('AiTab Component - Composable Integration Tests', () => {
             autoUpdateHost: true,
             session,
             inputValue: '',
-            modelValue: 'claude-3-5-sonnet'
+            modelValue: 'claude-3-5-sonnet',
+            welcomeTip: ''
           }
         ]
         currentChatId.value = 'tab-1'
@@ -1148,7 +1171,8 @@ describe('AiTab Component - Composable Integration Tests', () => {
             autoUpdateHost: true,
             session,
             inputValue: '',
-            modelValue: 'claude-3-5-sonnet'
+            modelValue: 'claude-3-5-sonnet',
+            welcomeTip: ''
           }
         ]
         currentChatId.value = 'tab-1'
@@ -1172,7 +1196,8 @@ describe('AiTab Component - Composable Integration Tests', () => {
           autoUpdateHost: true,
           session: createEmptySessionState(),
           inputValue: '',
-          modelValue: 'claude-3-5-sonnet'
+          modelValue: 'claude-3-5-sonnet',
+          welcomeTip: ''
         }
       ]
       currentChatId.value = 'tab-1'
@@ -1202,7 +1227,8 @@ describe('AiTab Component - Composable Integration Tests', () => {
           autoUpdateHost: true,
           session: createEmptySessionState(),
           inputValue: '',
-          modelValue: 'claude-3-5-sonnet'
+          modelValue: 'claude-3-5-sonnet',
+          welcomeTip: ''
         }
       ]
       currentChatId.value = 'tab-1'
@@ -1222,7 +1248,8 @@ describe('AiTab Component - Composable Integration Tests', () => {
           autoUpdateHost: true,
           session: createEmptySessionState(),
           inputValue: '',
-          modelValue: 'claude-3-5-sonnet'
+          modelValue: 'claude-3-5-sonnet',
+          welcomeTip: ''
         }
       ]
       currentChatId.value = 'tab-1'
@@ -1256,7 +1283,8 @@ describe('AiTab Component - Composable Integration Tests', () => {
           autoUpdateHost: true,
           session: createEmptySessionState(),
           inputValue: '',
-          modelValue: 'claude-3-5-sonnet'
+          modelValue: 'claude-3-5-sonnet',
+          welcomeTip: ''
         }
       ]
       currentChatId.value = 'tab-1'
@@ -1288,7 +1316,8 @@ describe('AiTab Component - Composable Integration Tests', () => {
           autoUpdateHost: false,
           session: createEmptySessionState(),
           inputValue: '',
-          modelValue: 'claude-3-5-sonnet'
+          modelValue: 'claude-3-5-sonnet',
+          welcomeTip: ''
         }
       ]
       currentChatId.value = 'tab-1'
@@ -1320,7 +1349,8 @@ describe('AiTab Component - Composable Integration Tests', () => {
           autoUpdateHost: true,
           session,
           inputValue: '',
-          modelValue: 'claude-3-5-sonnet'
+          modelValue: 'claude-3-5-sonnet',
+          welcomeTip: ''
         }
       ]
       currentChatId.value = 'tab-1'
@@ -1355,7 +1385,8 @@ describe('AiTab Component - Composable Integration Tests', () => {
           autoUpdateHost: true,
           session,
           inputValue: '',
-          modelValue: 'claude-3-5-sonnet'
+          modelValue: 'claude-3-5-sonnet',
+          welcomeTip: ''
         }
       ]
       currentChatId.value = 'tab-1'
@@ -1389,7 +1420,8 @@ describe('AiTab Component - Composable Integration Tests', () => {
           autoUpdateHost: true,
           session,
           inputValue: '',
-          modelValue: 'claude-3-5-sonnet'
+          modelValue: 'claude-3-5-sonnet',
+          welcomeTip: ''
         }
       ]
       currentChatId.value = 'tab-1'
