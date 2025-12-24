@@ -36,6 +36,7 @@ export interface ChatTab {
   session: SessionState // Session state
   inputValue: string // Input value
   modelValue: string // Selected AI model for this tab
+  welcomeTip: string // Welcome tip for this tab
 }
 
 /**

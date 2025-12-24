@@ -56,7 +56,7 @@
             </div>
           </template>
           <template v-else>
-            <div class="ai-welcome-text">{{ $t('ai.welcome') }}</div>
+            <div class="ai-welcome-text">{{ tab.welcomeTip }}</div>
           </template>
         </div>
         <div
@@ -699,6 +699,7 @@
           <a-button
             type="text"
             class="action-icon-btn"
+            data-testid="new-tab-button"
             @click="createNewEmptyTab"
           >
             <img
