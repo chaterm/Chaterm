@@ -371,6 +371,7 @@ export default {
     checkModelConfigFailDescription: 'Please fill in the necessary model configuration, Setting -> Models -> Add Model -> API Configuration',
     noAvailableModelMessage: 'No available models',
     noAvailableModelDescription: 'Please login to use the provided built-in models or configure available models',
+    noAvailableModelDescriptionLoggedIn: 'Please configure available models',
     configureModel: 'Configure Model',
     billingLoginPrompt: 'Please login to view billing information',
     checkSuccessMessage: 'Connection successful',

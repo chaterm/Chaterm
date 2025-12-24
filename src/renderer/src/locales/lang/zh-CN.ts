@@ -370,6 +370,7 @@ export default {
     checkModelConfigFailDescription: '请填写必要的模型配置，设置->模型->添加模型->API 配置',
     noAvailableModelMessage: '没有可用的模型',
     noAvailableModelDescription: '请登录使用提供的内置模型或配置可用模型',
+    noAvailableModelDescriptionLoggedIn: '请配置可用模型',
     configureModel: '配置模型',
     billingLoginPrompt: '请先登录以查看计费信息',
     checkSuccessMessage: '连接成功',

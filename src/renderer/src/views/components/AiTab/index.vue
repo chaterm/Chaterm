@@ -33,7 +33,9 @@
           <template v-if="!hasAvailableModels">
             <div class="ai-login-prompt">
               <p>{{ $t('user.noAvailableModelMessage') }}</p>
-              <p class="ai-prompt-description">{{ $t('user.noAvailableModelDescription') }}</p>
+              <p class="ai-prompt-description">
+                {{ isSkippedLogin ? $t('user.noAvailableModelDescription') : $t('user.noAvailableModelDescriptionLoggedIn') }}
+              </p>
               <div class="ai-prompt-buttons">
                 <a-button
                   v-if="isSkippedLogin"
