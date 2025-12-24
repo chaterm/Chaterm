@@ -496,7 +496,8 @@ export default {
       fontSizeIncrease: 'Font Size Increase',
       fontSizeDecrease: 'Font Size Decrease',
       toggleLayout: 'Toggle Layout (Terminal/Agents)',
-      toggleAgentsLeftSidebar: 'Toggle Agents Left Sidebar'
+      toggleAgentsLeftSidebar: 'Toggle Agents Left Sidebar',
+      switchAiMode: 'Switch AI Mode'
     },
     hints: {
       sendOrToggleAi: 'Chat With AI',
@@ -679,6 +680,7 @@ export default {
     agentMessage: 'Command query,troubleshoot errors,handle tasks,anything',
     cmdMessage: 'Work on explicitly opened terminal',
     chatMessage: 'Ask, learn, brainstorm ',
+    switchAiModeHint: 'Switch AI Mode (⇧+Tab)',
     localhost: 'Localhost',
     newChat: 'New Chat',
     showChatHistory: 'Show History',

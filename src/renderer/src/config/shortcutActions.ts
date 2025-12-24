@@ -187,5 +187,16 @@ export const shortcutActions: Omit<ShortcutAction, 'name'>[] = [
     handler: () => {
       eventBus.emit('toggleSideBar', 'agentsLeft')
     }
+  },
+  {
+    id: 'switchAiMode',
+    nameKey: 'shortcuts.actions.switchAiMode',
+    defaultKey: {
+      mac: 'Shift+Tab',
+      other: 'Shift+Tab'
+    },
+    handler: () => {
+      eventBus.emit('switchAiMode')
+    }
   }
 ]

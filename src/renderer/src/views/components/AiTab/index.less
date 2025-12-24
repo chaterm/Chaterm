@@ -578,9 +578,7 @@
     }
 
     :deep(.ant-select-selection-item) {
-      font-size: 12px !important;
-      line-height: 24px !important;
-      color: var(--text-color) !important;
+      pointer-events: none;
     }
 
     :deep(.ant-select-arrow) {
@@ -1919,4 +1917,21 @@
   &[style*='display: none'] {
     display: none !important;
   }
+}
+
+:deep(.ant-tooltip .ant-tooltip-inner) {
+  font-size: 12px !important;
+  line-height: 1.2 !important;
+  padding: 6px 8px !important;
+  min-height: auto !important;
+  background-color: var(--bg-color-secondary) !important;
+  color: var(--text-color) !important;
+}
+
+:deep(.ant-tooltip .ant-tooltip-arrow) {
+  height: 6px !important;
+}
+
+:deep(.ant-tooltip .ant-tooltip-arrow-content) {
+  background-color: var(--bg-color-secondary) !important;
 }
