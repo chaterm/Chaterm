@@ -1,21 +1,37 @@
 /**
  * Check if the focus is currently within the AITab component
- * @param event - The keyboard event
+ * @param event - The keyboard event (may have null target for synthetic events)
  * @returns true if focus is within AITab component, false otherwise
  */
 export function isFocusInAiTab(event: KeyboardEvent): boolean {
-  const target = event.target as HTMLElement
-  const activeElement = document.activeElement as HTMLElement
+  const target = event.target as HTMLElement | null
+  const activeElement = document.activeElement as HTMLElement | null
 
-  // Check if event target or active element is within AITab component
-  // AITab component is wrapped in .rigth-sidebar container
-  const rightSidebar = document.querySelector('.rigth-sidebar')
-  const isInAiTab =
-    (rightSidebar && (rightSidebar.contains(target) || rightSidebar.contains(activeElement))) ||
-    target.closest('.ai-chat-custom-tabs') !== null ||
-    activeElement?.closest('.ai-chat-custom-tabs') !== null ||
-    target.classList.contains('chat-textarea') ||
-    activeElement?.classList.contains('chat-textarea')
+  // Helper function to check if an element is within AITab
+  const isElementInAiTab = (element: HTMLElement | null): boolean => {
+    if (!element) {
+      return false
+    }
 
-  return isInAiTab
+    // Check if element is within right sidebar
+    const rightSidebar = document.querySelector('.rigth-sidebar')
+    if (rightSidebar?.contains(element)) {
+      return true
+    }
+
+    // Check if element is within AI chat tabs
+    if (element.closest('.ai-chat-custom-tabs')) {
+      return true
+    }
+
+    // Check if element is the chat textarea
+    if (element.classList.contains('chat-textarea')) {
+      return true
+    }
+
+    return false
+  }
+
+  // Check both event target and active element
+  return isElementInAiTab(target) || isElementInAiTab(activeElement)
 }

@@ -573,13 +573,28 @@
                 @input="handleInputChange"
               />
               <div class="input-controls">
-                <a-select
-                  v-model:value="chatTypeValue"
-                  size="small"
-                  style="width: 100px"
-                  :options="AiTypeOptions"
-                  show-search
-                ></a-select>
+                <a-tooltip
+                  :title="$t('ai.switchAiModeHint')"
+                  placement="top"
+                  :get-popup-container="(triggerNode) => triggerNode.parentElement"
+                  :mouse-enter-delay="0.3"
+                  :visible="aiModeTooltipVisible && !aiModeSelectOpen"
+                  overlay-class-name="ai-mode-tooltip"
+                  @visible-change="
+                    (visible: boolean) => {
+                      aiModeTooltipVisible = visible
+                    }
+                  "
+                >
+                  <a-select
+                    v-model:value="chatTypeValue"
+                    size="small"
+                    style="width: 100px"
+                    :options="AiTypeOptions"
+                    data-testid="ai-mode-select"
+                    @dropdown-visible-change="handleAiModeSelectOpenChange"
+                  ></a-select>
+                </a-tooltip>
                 <a-select
                   v-model:value="chatAiModelValue"
                   size="small"
@@ -866,7 +881,7 @@ import { useAutoScroll } from './composables/useAutoScroll'
 import { useChatHistory } from './composables/useChatHistory'
 import { useChatMessages } from './composables/useChatMessages'
 import { useCommandInteraction } from './composables/useCommandInteraction'
-import { useEventBusListeners } from './composables/useEventBusListeners'
+import { useEventBusListeners, AiTypeOptions } from './composables/useEventBusListeners'
 import { useHostManagement } from './composables/useHostManagement'
 import { useMessageOptions } from './composables/useMessageOptions'
 import { useModelConfiguration } from './composables/useModelConfiguration'
@@ -942,6 +957,10 @@ const MarkdownRenderer = defineAsyncComponent(() => import('./components/format/
 const TodoInlineDisplay = defineAsyncComponent(() => import('./components/todo/TodoInlineDisplay.vue'))
 
 const isSkippedLogin = ref(localStorage.getItem('login-skipped') === 'true')
+
+// Control AI mode tooltip visibility
+const aiModeTooltipVisible = ref(false)
+const aiModeSelectOpen = ref(false)
 
 const {
   currentChatId,
@@ -1042,6 +1061,13 @@ const handleInterrupt = () => {
   handleCancel()
 }
 
+// Handle AI mode select dropdown visibility change
+const handleAiModeSelectOpenChange = (open: boolean) => {
+  aiModeSelectOpen.value = open
+
+  aiModeTooltipVisible.value = false
+}
+
 // Export chat functionality
 const { exportChat } = useExportChat()
 
@@ -1136,12 +1162,6 @@ useEventBusListeners({
   updateHosts,
   isAgentMode: props.isAgentMode
 })
-
-const AiTypeOptions = [
-  { label: 'Chat', value: 'chat' },
-  { label: 'Command', value: 'cmd' },
-  { label: 'Agent', value: 'agent' }
-]
 
 const goToLogin = () => {
   router.push('/login')

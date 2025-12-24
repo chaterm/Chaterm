@@ -496,7 +496,8 @@ export default {
       fontSizeIncrease: '字体放大',
       fontSizeDecrease: '字体缩小',
       toggleLayout: '切换布局（Terminal/Agents）',
-      toggleAgentsLeftSidebar: '切换Agents布局左侧边栏'
+      toggleAgentsLeftSidebar: '切换Agents布局左侧边栏',
+      switchAiMode: '切换AI模式'
     },
     hints: {
       sendOrToggleAi: '与AI对话',
@@ -677,6 +678,7 @@ export default {
     agentMessage: '到任意主机执行命令查询，排查错误和任务处理等任何事情',
     cmdMessage: '需要到当前活跃终端执行命令，请先在终端窗口中连接目标主机',
     chatMessage: '与AI对话，学习，头脑风暴（无法操作服务器）',
+    switchAiModeHint: '切换AI模式 (⇧+Tab)',
     localhost: '本地主机',
     newChat: '新建对话',
     showChatHistory: '显示历史记录',
