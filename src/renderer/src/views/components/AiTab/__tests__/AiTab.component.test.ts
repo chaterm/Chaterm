@@ -36,7 +36,8 @@ function setupWindowApi() {
     onMcpServerUpdate: vi.fn().mockReturnValue(() => {}),
     getAllMcpToolStates: vi.fn().mockResolvedValue({}),
     onMainMessage: vi.fn().mockReturnValue(() => {}),
-    getLocalWorkingDirectory: vi.fn().mockResolvedValue('/test')
+    getLocalWorkingDirectory: vi.fn().mockResolvedValue('/test'),
+    cancelTask: vi.fn().mockResolvedValue({ success: true })
   }
 
   // Set window.api in browser environment
@@ -255,6 +256,60 @@ describe('AiTab Component - Browser Mode Integration', () => {
 
       const expectedValue = 'My existing question\n' + newText
       expect((chatInput.element() as HTMLTextAreaElement).value).toBe(expectedValue)
+    })
+  })
+
+  describe('Close AI Tab with Command+W (Cmd+W)', () => {
+    beforeEach(() => {
+      // Mock macOS platform
+      Object.defineProperty(navigator, 'platform', {
+        value: 'MacIntel',
+        configurable: true,
+        writable: true
+      })
+    })
+
+    it('should close tabs one by one with Cmd+W, and close entire AiTab when last tab is closed', async () => {
+      const newTabButton = page.getByTestId('new-tab-button')
+      await expect.element(newTabButton).toBeInTheDocument()
+
+      await newTabButton.click()
+      await new Promise((resolve) => setTimeout(resolve, 200))
+
+      await newTabButton.click()
+      await new Promise((resolve) => setTimeout(resolve, 200))
+
+      const getAllTabs = () => document.querySelectorAll('.ant-tabs-tab')
+      expect(getAllTabs().length).toBe(3)
+
+      const chatInput = page.getByTestId('ai-message-input')
+      await chatInput.click()
+
+      await userEvent.keyboard('{Meta>}w{/Meta}')
+      await new Promise((resolve) => setTimeout(resolve, 200))
+
+      expect(getAllTabs().length).toBe(2)
+
+      await chatInput.click() // Re-focus to ensure focus is in AiTab
+      await userEvent.keyboard('{Meta>}w{/Meta}')
+      await new Promise((resolve) => setTimeout(resolve, 200))
+
+      expect(getAllTabs().length).toBe(1)
+
+      await chatInput.click() // Re-focus to ensure focus is in AiTab
+      await userEvent.keyboard('{Meta>}w{/Meta}')
+      await new Promise((resolve) => setTimeout(resolve, 200))
+
+      expect(getAllTabs().length).toBe(0)
+    })
+
+    afterEach(() => {
+      // Restore platform if needed
+      Object.defineProperty(navigator, 'platform', {
+        value: 'MacIntel',
+        configurable: true,
+        writable: true
+      })
     })
   })
 })
