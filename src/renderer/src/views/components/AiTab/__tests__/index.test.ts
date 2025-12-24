@@ -82,6 +82,11 @@ describe('AiTab Component - Composable Integration Tests', () => {
       return null
     })
     Storage.prototype.setItem = vi.fn()
+
+    // Reset global session state to ensure clean state for each test
+    const { chatTabs, currentChatId } = useSessionState()
+    chatTabs.value = []
+    currentChatId.value = undefined
   })
 
   describe('Session State and Tab Management Integration', () => {
@@ -1264,7 +1269,10 @@ describe('AiTab Component - Composable Integration Tests', () => {
     })
 
     it('should return empty string for chatAiModelValue when no tab is selected', () => {
-      const { chatAiModelValue } = useSessionState()
+      const { chatAiModelValue, chatTabs, currentChatId } = useSessionState()
+      // Ensure no tab is selected
+      chatTabs.value = []
+      currentChatId.value = undefined
       expect(chatAiModelValue.value).toBe('')
     })
 
@@ -1370,6 +1378,8 @@ describe('AiTab Component - Composable Integration Tests', () => {
       const { chatTabs, currentChatId, chatInputValue, currentSession, createEmptySessionState } = useSessionState()
 
       const session = createEmptySessionState()
+      // Set showSendButton to false initially to match empty input
+      session.showSendButton = false
       chatTabs.value = [
         {
           id: 'tab-1',

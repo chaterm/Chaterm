@@ -311,8 +311,8 @@ describe('useChatMessages', () => {
         duration: 5
       })
 
-      // Wait for setTimeout to execute
-      await new Promise((resolve) => setTimeout(resolve, 600))
+      // Wait for nested setTimeout to execute (500ms + 200ms = 700ms)
+      await new Promise((resolve) => setTimeout(resolve, 800))
       expect(eventBus.emit).toHaveBeenCalledWith('openUserTab', 'userConfig')
       expect(eventBus.emit).toHaveBeenCalledWith('switchToModelSettingsTab')
     })
