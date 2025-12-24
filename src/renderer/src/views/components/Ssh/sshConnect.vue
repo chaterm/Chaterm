@@ -18,6 +18,20 @@
       @mousedown="handleMouseDown"
     >
     </div>
+    <ZmodemProgress
+      v-model:visible="progressModalVisible"
+      :get-container="getContainerFunc"
+      :type="progressType"
+      :progress="currentProgress"
+      :file-name="currentFileName"
+      :is-canceling="isSzCanceling"
+      :total-size="totalSize"
+      :transfer-size="transferSize"
+      :transfer-speed="transferSpeed"
+      :status="progressStatus"
+      @cancel="handleProgressCancel"
+      @close="handleProgressClose"
+    />
     <a-button
       v-show="showAiButton"
       :id="`${connectionId}Button`"
@@ -75,6 +89,7 @@
 <script lang="ts" setup>
 const copyText = ref('')
 import SearchComp from './components/searchComp.vue'
+import ZmodemProgress from './utils/zmodemProgress.vue'
 import Context from './components/contextComp.vue'
 import SuggComp from './components/suggestion.vue'
 import eventBus from '@/utils/eventBus'
@@ -131,6 +146,10 @@ const showTerminalScrollbarTemporarily = () => {
 const handleViewportScroll = () => {
   updateSelectionButtonPosition()
   showTerminalScrollbarTemporarily()
+}
+
+const getContainerFunc = () => {
+  return (terminalContainer.value as HTMLElement) || document.body
 }
 
 interface CommandSuggestion {
@@ -610,6 +629,12 @@ onMounted(async () => {
     const position = getCursorLinePosition()
     callback(position)
   }
+
+  initZmodemHooks({
+    checkEditorMode: checkEditorMode,
+    handleServerOutput: handleServerOutput,
+    sendBinaryData: sendBinaryData
+  })
 
   eventBus.on('executeTerminalCommand', handleExecuteCommand)
   eventBus.on('autoExecuteCode', autoExecuteCode)
@@ -1153,17 +1178,36 @@ const connectSSH = async () => {
     const errorMsg = formatStatusMessage(t('ssh.connectionError', { message: error.message || t('ssh.unknownError') }), 'error')
     terminal.value?.writeln(errorMsg)
   }
+  connectionSftpAvailable.value = await api.checkSftpConnAvailable(connectionId.value)
   emit('connectSSH', { isConnected: isConnected })
 }
+
+import { useZmodem } from './utils/chatermZmodem'
+const {
+  progressModalVisible,
+  progressType,
+  currentProgress,
+  currentFileName,
+  transferSpeed,
+  totalSize,
+  isSzCanceling,
+  transferSize,
+  progressStatus,
+  initZmodemHooks,
+  initZmodem,
+  consumeZmodemIncoming,
+  handleProgressCancel,
+  handleProgressClose
+} = useZmodem()
 
 const startShell = async () => {
   try {
     const result = await api.shell({ id: connectionId.value, terminalType: config.terminalType })
+    initZmodem()
     if (result.status === 'success') {
       isConnected.value = true
       const removeDataListener = api.onShellData(connectionId.value, (response: MarkedResponse) => {
-        checkEditorMode(response)
-        handleServerOutput(response)
+        consumeZmodemIncoming(response)
       })
       const removeErrorListener = api.onShellError(connectionId.value, (data) => {
         cusWrite?.(data)
@@ -1190,6 +1234,7 @@ const startShell = async () => {
       )
     }
   } catch (error: any) {
+    console.log(error)
     terminal.value?.writeln(
       JSON.stringify({
         cmd: t('ssh.shellError', { message: error.message || t('ssh.unknownError') }),
@@ -1733,7 +1778,7 @@ const setupTerminalInput = () => {
         if (dbConfigStash.aliasStatus === 1 && newCommand !== null) {
           sendData(delData.repeat(command.length) + newCommand + '\r')
         } else if (config.quickVimStatus === 1) {
-          connectionSftpAvailable.value = await api.checkSftpConnAvailable(connectionId.value)
+          // connectionSftpAvailable.value = await api.checkSftpConnAvailable(connectionId.value)
           const vimMatch = command.match(/^\s*vim\s+(.+)$/i)
           // Trigger condition: Applies to non-local connections.
           // SFTP check reserved — vim editing will be implemented via SFTP.
@@ -1788,7 +1833,7 @@ const setupTerminalInput = () => {
           }
         }
       } else {
-        if (config.quickVimStatus === 1) {
+        if (config.quickVimStatus === 1 && !connectionSftpAvailable.value && connectionId.value.includes('local-team')) {
           sendMarkedData(data, 'Chaterm:[A')
         } else {
           sendData(data)
@@ -1805,7 +1850,7 @@ const setupTerminalInput = () => {
           }
         }
       } else {
-        if (config.quickVimStatus === 1) {
+        if (config.quickVimStatus === 1 && !connectionSftpAvailable.value && connectionId.value.includes('local-team')) {
           sendMarkedData(data, 'Chaterm:[B')
         } else {
           sendData(data)
@@ -1892,6 +1937,7 @@ const sendMarkedData = (data, marker) => {
 
 export interface MarkedResponse {
   data: string
+  raw: Buffer[]
   marker?: string
 }
 

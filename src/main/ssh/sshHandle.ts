@@ -811,12 +811,17 @@ export const registerSSHHandlers = () => {
 
       let buffer = ''
       let flushTimer: NodeJS.Timeout | null = null
-
+      let rawChunks: Buffer[] = []
+      let rawBytes = 0
       const flushBuffer = () => {
-        if (!buffer) return
+        if (!buffer && rawBytes === 0) return
         const chunk = buffer
         buffer = ''
-        event.sender.send(`ssh:shell:data:${id}`, { data: chunk, marker: '' })
+        const raw = rawBytes ? Buffer.concat(rawChunks, rawBytes) : undefined
+
+        rawChunks = []
+        rawBytes = 0
+        event.sender.send(`ssh:shell:data:${id}`, { data: chunk, raw, marker: '' })
         flushTimer = null
       }
 
@@ -838,16 +843,18 @@ export const registerSSHHandlers = () => {
       }
 
       stream.on('data', (data) => {
+        rawChunks.push(data)
+        rawBytes += data.length
         const dataStr = data.toString()
         const lastCommand = jumpserverLastCommand.get(id)
         const exitCommands = ['exit', 'logout', '\x04']
 
-        // JumpServer menu exit detection
+        // JumpServer 菜单退出检测
         if (dataStr.includes('[Host]>') && lastCommand && exitCommands.includes(lastCommand)) {
           jumpserverLastCommand.delete(id)
           stream.write('q\r', (err) => {
-            if (err) console.error(`[JumpServer ${id}] Failed to send "q":`, err)
-            else console.log(`[JumpServer ${id}] Sent "q" to terminate session.`)
+            if (err) console.error(`[JumpServer ${id}] 发送 "q" 失败:`, err)
+            else console.log(`[JumpServer ${id}] 已发送 "q" 终止会话。`)
             stream.end()
             const connData = jumpserverConnections.get(id)
             connData?.conn?.end()
@@ -860,18 +867,23 @@ export const registerSSHHandlers = () => {
           if (markedCmd.marker === 'Chaterm:command') {
             event.sender.send(`ssh:shell:data:${id}`, {
               data: dataStr,
+              raw: data,
               marker: markedCmd.marker
             })
             return
           }
           markedCmd.output += dataStr
+          markedCmd.rawChunks.push(data)
+          markedCmd.rawBytes += data.length
           markedCmd.lastActivity = Date.now()
           if (markedCmd.idleTimer) clearTimeout(markedCmd.idleTimer)
           markedCmd.idleTimer = setTimeout(() => {
             if (markedCmd && !markedCmd.completed) {
               markedCmd.completed = true
+              const markedRaw = markedCmd.rawBytes ? Buffer.concat(markedCmd.rawChunks, markedCmd.rawBytes) : undefined
               event.sender.send(`ssh:shell:data:${id}`, {
                 data: markedCmd.output,
+                raw: markedRaw,
                 marker: markedCmd.marker
               })
               jumpserverMarkedCommands.delete(id)
@@ -914,12 +926,19 @@ export const registerSSHHandlers = () => {
 
       let buffer = ''
       let flushTimer: NodeJS.Timeout | null = null
-
+      let rawChunks: Buffer[] = []
+      let rawBytes = 0
       const flushBuffer = () => {
-        if (!buffer) return
+        if (!buffer && rawBytes === 0) return
+
         const chunk = buffer
         buffer = ''
-        event.sender.send(`ssh:shell:data:${id}`, { data: chunk, marker: '' })
+
+        const raw = rawBytes ? Buffer.concat(rawChunks, rawBytes) : undefined
+
+        rawChunks = []
+        rawBytes = 0
+        event.sender.send(`ssh:shell:data:${id}`, { data: chunk, raw, marker: '' })
         flushTimer = null
       }
 
@@ -942,17 +961,24 @@ export const registerSSHHandlers = () => {
 
       stream.on('data', (data) => {
         const markedCmd = markedCommands.get(id)
+        rawChunks.push(data)
+        rawBytes += data.length
+
         const chunk = data.toString()
 
         if (markedCmd !== undefined) {
           markedCmd.output += chunk
+          markedCmd.rawChunks.push(data)
+          markedCmd.rawBytes += data.length
           markedCmd.lastActivity = Date.now()
           if (markedCmd.idleTimer) clearTimeout(markedCmd.idleTimer)
           markedCmd.idleTimer = setTimeout(() => {
             if (markedCmd && !markedCmd.completed) {
               markedCmd.completed = true
+              const markedRaw = markedCmd.rawBytes ? Buffer.concat(markedCmd.rawChunks, markedCmd.rawBytes) : undefined
               event.sender.send(`ssh:shell:data:${id}`, {
                 data: markedCmd.output,
+                raw: markedRaw,
                 marker: markedCmd.marker
               })
               markedCommands.delete(id)
@@ -1051,30 +1077,33 @@ export const registerSSHHandlers = () => {
     if (jumpserverConnections.has(id)) {
       const stream = jumpserverShellStreams.get(id)
       if (stream) {
-        // Use lineCommand for command detection, fallback to data.trim() if not available
-        const command = lineCommand || data.trim()
-
-        if (['exit', 'logout', '\x04'].includes(command)) {
-          jumpserverLastCommand.set(id, command)
-        } else {
-          jumpserverLastCommand.delete(id)
-        }
-        if (jumpserverMarkedCommands.has(id)) {
-          jumpserverMarkedCommands.delete(id)
-        }
-        if (marker) {
-          jumpserverMarkedCommands.set(id, {
-            marker,
-            output: '',
-            completed: false,
-            lastActivity: Date.now(),
-            idleTimer: null
-          })
-        }
         if (isBinary) {
           const buf = Buffer.from(data, 'binary')
           stream.write(buf)
         } else {
+          // 使用 lineCommand 进行命令检测，如果没有则回退到 data.trim()
+          const command = lineCommand || data.trim()
+          if (['exit', 'logout', '\x04'].includes(command)) {
+            jumpserverLastCommand.set(id, command)
+          } else {
+            jumpserverLastCommand.delete(id)
+          }
+          if (jumpserverMarkedCommands.has(id)) {
+            jumpserverMarkedCommands.delete(id)
+          }
+          if (marker) {
+            jumpserverMarkedCommands.set(id, {
+              marker,
+              output: '',
+              rawChunks: [] as Uint8Array[],
+              rawBytes: 0,
+              raw: [] as Uint8Array[],
+              completed: false,
+              lastActivity: Date.now(),
+              idleTimer: null
+            })
+          }
+
           stream.write(data)
         }
       } else {
@@ -1086,7 +1115,7 @@ export const registerSSHHandlers = () => {
     // Default SSH handling
     const stream = shellStreams.get(id)
     if (stream) {
-      console.log(`ssh:shell:write (default) raw data: "${data}"`)
+      // console.log(`ssh:shell:write (default) raw data: "${data}"`)
       // For default SSH connections, don't detect exit commands, let terminal handle exit naturally
       if (markedCommands.has(id)) {
         markedCommands.delete(id)
@@ -1095,6 +1124,9 @@ export const registerSSHHandlers = () => {
         markedCommands.set(id, {
           marker,
           output: '',
+          rawChunks: [] as Uint8Array[],
+          rawBytes: 0,
+          raw: [] as Uint8Array[],
           completed: false,
           lastActivity: Date.now(),
           idleTimer: null
@@ -1657,6 +1689,58 @@ export const registerSSHHandlers = () => {
         success: false,
         error: error instanceof Error ? error.message : 'Failed to get system info'
       }
+    }
+  })
+
+  // zmodem
+  ipcMain.handle('zmodem:pickUploadFiles', async (evt) => {
+    const win = require('electron').BrowserWindow.fromWebContents(evt.sender)
+    const { canceled, filePaths } = await dialog.showOpenDialog(win, {
+      properties: ['openFile', 'multiSelections']
+    })
+    if (canceled) return []
+
+    return filePaths.map((p) => ({
+      name: path.basename(p),
+      lastModified: fs.statSync(p).mtimeMs,
+      data: new Uint8Array(fs.readFileSync(p))
+    }))
+  })
+
+  ipcMain.handle('zmodem:pickSavePath', async (evt, defaultName) => {
+    const win = require('electron').BrowserWindow.fromWebContents(evt.sender)
+    const { canceled, filePath } = await dialog.showSaveDialog(win, {
+      defaultPath: defaultName
+    })
+    return canceled ? null : filePath
+  })
+
+  const activeStreams = new Map()
+
+  ipcMain.handle('zmodem:openStream', (_event, savePath) => {
+    try {
+      const stream = fs.createWriteStream(savePath)
+      const streamId = Math.random().toString(36).slice(2)
+      activeStreams.set(streamId, stream)
+      return streamId
+    } catch (err) {
+      console.error('Failed to open stream:', err)
+      return null
+    }
+  })
+
+  ipcMain.handle('zmodem:writeChunk', (_event, streamId, chunk) => {
+    const stream = activeStreams.get(streamId)
+    if (stream) {
+      stream.write(Buffer.from(chunk))
+    }
+  })
+
+  ipcMain.handle('zmodem:closeStream', (_event, streamId) => {
+    const stream = activeStreams.get(streamId)
+    if (stream) {
+      stream.end()
+      activeStreams.delete(streamId)
     }
   })
 }

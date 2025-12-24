@@ -965,7 +965,20 @@ export default {
     connectingTo: 'Connecting to {ip}',
     welcomeMessage: '{username}, Welcome to use Chaterm',
     reconnecting: 'Reconnecting...',
-    terminalConnectionError: 'Connection error. Please check if the terminal server is running.'
+    terminalConnectionError: 'Connection error. Please check if the terminal server is running.',
+    transferFailed: 'Transfer failed',
+    fileName: 'File Name',
+    fileSize: 'File size',
+    transferSpeed: 'Transfer rate',
+    cancelTransfer: 'Cancel transfer',
+    close: 'Close',
+    uploadSuccess: 'Upload completed',
+    downloadSuccess: 'Download completed',
+    fileUploading: 'File uploading in progress',
+    fileDownloading: 'File downloading in progress',
+    uploadProgress: 'Upload Progress',
+    downloadProgress: 'Download Progress',
+    complete: 'Complete'
   },
   quickCommand: {
     scriptName: 'Script Name',
