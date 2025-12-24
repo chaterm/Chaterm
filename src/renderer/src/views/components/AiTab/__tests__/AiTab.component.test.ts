@@ -104,12 +104,21 @@ describe('AiTab Component - Browser Mode Integration', () => {
     const { getGlobalState } = await import('@renderer/agent/storage/state')
     vi.mocked(getGlobalState).mockImplementation((key: string) => {
       const stateMap: Record<string, unknown> = {
-        modelOptions: [],
+        // Provide at least one model with checked: true to ensure hasAvailableModels is true
+        modelOptions: [
+          {
+            id: 'test-model-1',
+            name: 'test-model-1',
+            checked: true,
+            type: 'standard',
+            apiProvider: 'default'
+          }
+        ],
         chatSettings: { mode: 'chat' },
         apiProvider: 'default',
         defaultBaseUrl: 'http://localhost',
         currentModel: null,
-        defaultModelId: '',
+        defaultModelId: 'test-model-1',
         apiModelId: '',
         liteLlmModelId: '',
         openAiModelId: '',
