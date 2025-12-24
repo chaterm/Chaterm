@@ -104,12 +104,21 @@ describe('AiTab Component - Browser Mode Integration', () => {
     const { getGlobalState } = await import('@renderer/agent/storage/state')
     vi.mocked(getGlobalState).mockImplementation((key: string) => {
       const stateMap: Record<string, unknown> = {
-        modelOptions: [],
+        // Provide at least one model with checked: true to ensure hasAvailableModels is true
+        modelOptions: [
+          {
+            id: 'test-model-1',
+            name: 'test-model-1',
+            checked: true,
+            type: 'standard',
+            apiProvider: 'default'
+          }
+        ],
         chatSettings: { mode: 'chat' },
         apiProvider: 'default',
         defaultBaseUrl: 'http://localhost',
         currentModel: null,
-        defaultModelId: '',
+        defaultModelId: 'test-model-1',
         apiModelId: '',
         liteLlmModelId: '',
         openAiModelId: '',
@@ -174,12 +183,12 @@ describe('AiTab Component - Browser Mode Integration', () => {
   describe('AI Mode Switching (Shift+Tab)', () => {
     it('should switch AI mode when Shift+Tab is pressed', async () => {
       const chatInput = page.getByTestId('ai-message-input')
-      await expect.element(chatInput).toBeInTheDocument()
+      await (expect as any).element(chatInput).toBeInTheDocument()
 
       await chatInput.click()
 
       const aiModeSelect = page.getByTestId('ai-mode-select')
-      await expect.element(aiModeSelect).toBeInTheDocument()
+      await (expect as any).element(aiModeSelect).toBeInTheDocument()
 
       const getSelectLabel = () => {
         const element = aiModeSelect.element()
@@ -215,7 +224,7 @@ describe('AiTab Component - Browser Mode Integration', () => {
 
     it('should populate empty input when chatToAi event is emitted', async () => {
       const chatInput = page.getByTestId('ai-message-input')
-      await expect.element(chatInput).toBeInTheDocument()
+      await (expect as any).element(chatInput).toBeInTheDocument()
 
       expect((chatInput.element() as HTMLTextAreaElement).value).toBe('')
 
@@ -234,7 +243,7 @@ describe('AiTab Component - Browser Mode Integration', () => {
 
     it('should append text with newline when input is not empty', async () => {
       const chatInput = page.getByTestId('ai-message-input')
-      await expect.element(chatInput).toBeInTheDocument()
+      await (expect as any).element(chatInput).toBeInTheDocument()
 
       await chatInput.fill('My existing question')
       expect((chatInput.element() as HTMLTextAreaElement).value).toBe('My existing question')

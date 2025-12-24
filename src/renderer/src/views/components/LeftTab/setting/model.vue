@@ -830,6 +830,28 @@ const sortModelOptions = () => {
 
 const loadModelOptions = async () => {
   try {
+    const isSkippedLogin = localStorage.getItem('login-skipped') === 'true'
+
+    // Skip loading built-in models if user skipped login
+    if (isSkippedLogin) {
+      const savedModelOptions = (await getGlobalState('modelOptions')) || []
+      if (savedModelOptions && Array.isArray(savedModelOptions)) {
+        // Only load custom models for guest users
+        modelOptions.value = savedModelOptions
+          .filter((option) => option.type !== 'standard')
+          .map((option) => ({
+            id: option.id || '',
+            name: option.name || '',
+            checked: Boolean(option.checked),
+            type: option.type || 'custom',
+            apiProvider: option.apiProvider || 'default'
+          }))
+        sortModelOptions()
+      }
+      await saveModelOptions()
+      return
+    }
+
     let defaultModels: DefaultModel[] = []
     await getUser({}).then((res) => {
       defaultModels = res?.data?.models || []

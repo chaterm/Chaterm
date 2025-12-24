@@ -9,7 +9,24 @@
       class="settings-section"
       :bordered="false"
     >
-      <div class="setting-item">
+      <div
+        v-if="isSkippedLogin"
+        class="login-prompt-container"
+      >
+        <div class="login-prompt-content">
+          <p class="login-prompt-text">{{ $t('user.billingLoginPrompt') }}</p>
+          <a-button
+            type="primary"
+            @click="goToLogin"
+          >
+            {{ $t('common.login') }}
+          </a-button>
+        </div>
+      </div>
+      <div
+        v-else
+        class="setting-item"
+      >
         <div class="info-row lr-row">
           <span class="info-label">{{ $t('user.email') }}</span>
           <span class="info-value">{{ userInfo.email || '-' }}</span>
@@ -47,7 +64,10 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue'
 import { getUser } from '@/api/user/user'
+import { useRouter } from 'vue-router'
 
+const router = useRouter()
+const isSkippedLogin = ref(localStorage.getItem('login-skipped') === 'true')
 const userInfo = ref<any>({})
 const getRatioPercent = computed(() => {
   const ratio = userInfo.value.ratio
@@ -62,8 +82,34 @@ const getProgressColor = computed(() => {
   return '#52c41a' // Green, normal
 })
 
+const goToLogin = () => {
+  router.push('/login')
+}
+
 onMounted(() => {
-  getUserInfo()
+  if (!isSkippedLogin.value) {
+    getUserInfo()
+  }
+
+  // Listen for login status changes
+  const handleStorageChange = (e: StorageEvent) => {
+    if (e.key === 'login-skipped') {
+      isSkippedLogin.value = e.newValue === 'true'
+      if (!isSkippedLogin.value) {
+        getUserInfo()
+      }
+    }
+  }
+  window.addEventListener('storage', handleStorageChange)
+
+  // Also check on mount
+  const currentSkippedStatus = localStorage.getItem('login-skipped') === 'true'
+  if (currentSkippedStatus !== isSkippedLogin.value) {
+    isSkippedLogin.value = currentSkippedStatus
+    if (!isSkippedLogin.value) {
+      getUserInfo()
+    }
+  }
 })
 
 const getUserInfo = () => {
@@ -176,5 +222,23 @@ const getUserInfo = () => {
 :deep(.ant-progress-line) {
   margin: 0 !important;
   line-height: 1 !important;
+}
+
+.login-prompt-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 200px;
+  padding: 40px 20px;
+}
+
+.login-prompt-content {
+  text-align: center;
+}
+
+.login-prompt-text {
+  color: var(--text-color-secondary);
+  font-size: 14px;
+  margin-bottom: 20px;
 }
 </style>
