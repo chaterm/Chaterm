@@ -188,7 +188,7 @@ const handleDragging = (event: MouseEvent) => {
   const boundaryW = rect?.width ?? window.innerWidth
   const boundaryH = rect?.height ?? window.innerHeight
 
-  // Your original logic to preserve visible area (keep 35/50)
+  // Original logic to preserve visible area (keep 35/50)
   const minY = 35
   const maxY = boundaryH - 50
   if (targetY < minY) position.y = minY

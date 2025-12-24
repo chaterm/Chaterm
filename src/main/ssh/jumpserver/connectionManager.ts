@@ -327,6 +327,9 @@ export const registerJumpServerHandlers = () => {
         jumpserverMarkedCommands.set(id, {
           marker,
           output: '',
+          rawChunks: [] as Uint8Array[],
+          rawBytes: 0,
+          raw: [] as Uint8Array[],
           completed: false,
           lastActivity: Date.now(),
           idleTimer: null

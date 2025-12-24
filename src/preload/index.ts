@@ -909,7 +909,13 @@ const api = {
     return ipcRenderer.invoke('plugins:get-install-hint', pluginId)
   },
   // XTS file parsing
-  parseXtsFile: (data: { data: number[]; fileName: string }) => ipcRenderer.invoke('parseXtsFile', data)
+  parseXtsFile: (data: { data: number[]; fileName: string }) => ipcRenderer.invoke('parseXtsFile', data),
+
+  pickUploadFiles: () => ipcRenderer.invoke('zmodem:pickUploadFiles'),
+  pickSavePath: (name) => ipcRenderer.invoke('zmodem:pickSavePath', name),
+  openStream: (savePath) => ipcRenderer.invoke('zmodem:openStream', savePath),
+  writeChunk: (streamId, chunk) => ipcRenderer.invoke('zmodem:writeChunk', streamId, chunk),
+  closeStream: (streamId) => ipcRenderer.invoke('zmodem:closeStream', streamId)
 }
 // Custom API for browser control
 

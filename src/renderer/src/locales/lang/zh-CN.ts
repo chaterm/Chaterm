@@ -966,7 +966,20 @@ export default {
     connectingTo: '连接到 {ip}',
     welcomeMessage: '{username}, 欢迎您使用Chaterm智能终端',
     reconnecting: '正在重新连接...',
-    terminalConnectionError: '连接错误。请检查终端服务器是否运行。'
+    terminalConnectionError: '连接错误。请检查终端服务器是否运行。',
+    transferFailed: '传输失败',
+    fileName: '文件名',
+    fileSize: '文件大小',
+    transferSpeed: '传输速率',
+    cancelTransfer: '取消传输',
+    close: '关闭',
+    uploadSuccess: '上传完成',
+    downloadSuccess: '下载完成',
+    fileUploading: '文件上传中',
+    fileDownloading: '文件下载中',
+    uploadProgress: '上传进度',
+    downloadProgress: '下载进度',
+    complete: '完成'
   },
   quickCommand: {
     scriptName: '脚本名称',
