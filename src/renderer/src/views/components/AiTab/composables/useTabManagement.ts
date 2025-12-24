@@ -1,11 +1,14 @@
 import { v4 as uuidv4 } from 'uuid'
 import { nextTick, onMounted, onUnmounted } from 'vue'
+import { Modal } from 'ant-design-vue'
 import type { HistoryItem, Host, AssetInfo, ChatMessage } from '../types'
 import type { ChatTab, SessionState } from './useSessionState'
 import { useSessionState } from './useSessionState'
 import { getGlobalState } from '@renderer/agent/storage/state'
 import type { GlobalStateKey } from '@renderer/agent/storage/state-keys'
 import { ChatermMessage } from '@/types/ChatermMessage'
+import i18n from '@/locales'
+const { t } = i18n.global
 
 interface TabManagementOptions {
   getCurentTabAssetInfo: () => Promise<AssetInfo | null>
@@ -276,9 +279,28 @@ export function useTabManagement(options: TabManagementOptions) {
     }
   }
 
-  const handleTabRemove = async (tabId: string) => {
+  const handleTabRemove = async (tabId: string, skipConfirm: boolean = false) => {
     const tabIndex = chatTabs.value.findIndex((tab) => tab.id === tabId)
     if (tabIndex === -1) return
+
+    const targetTab = chatTabs.value[tabIndex]
+    const isExecuting = targetTab.session.responseLoading
+
+    if (isExecuting && !skipConfirm) {
+      Modal.confirm({
+        title: t('common.closeTabConfirm'),
+        content: t('common.closeTabWithTaskRunning'),
+        okText: t('common.forceClose'),
+        okType: 'danger',
+        cancelText: `${t('common.cancel')} (ESC)`,
+        maskClosable: true,
+        onOk: async () => {
+          // After user confirms, recursively call with skipConfirm=true
+          await handleTabRemove(tabId, true)
+        }
+      })
+      return
+    }
 
     console.log('handleTabRemove: cancel task for tab', tabId)
     await window.api.cancelTask(tabId)
