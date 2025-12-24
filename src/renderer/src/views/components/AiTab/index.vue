@@ -575,6 +575,13 @@
                 </span>
               </div>
               <a-textarea
+                :ref="
+                  (el: HTMLTextAreaElement | null) => {
+                    if (tab.id === currentChatId) {
+                      chatTextareaRef = el
+                    }
+                  }
+                "
                 v-model:value="chatInputValue"
                 :placeholder="
                   chatTypeValue === 'agent' ? $t('ai.agentMessage') : chatTypeValue === 'chat' ? $t('ai.chatMessage') : $t('ai.cmdMessage')
@@ -988,7 +995,8 @@ const {
   responseLoading,
   chatHistory,
   buttonsDisabled,
-  showResumeButton
+  showResumeButton,
+  chatTextareaRef
 } = useSessionState()
 
 // Model configuration management

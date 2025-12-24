@@ -48,6 +48,8 @@ export const useSessionState = createGlobalState(() => {
 
   const chatTabs = ref<ChatTab[]>([])
 
+  const chatTextareaRef = ref<HTMLTextAreaElement | null>(null)
+
   const createEmptySessionState = (): SessionState => ({
     chatHistory: [],
     lastChatMessageId: '',
@@ -236,6 +238,7 @@ export const useSessionState = createGlobalState(() => {
     showNewTaskButton,
     showResumeButton,
     shouldShowSendButton,
-    attachTabContext
+    attachTabContext,
+    chatTextareaRef
   }
 })

@@ -18,11 +18,12 @@ interface TabManagementOptions {
 }
 
 export const focusChatInput = () => {
+  const { chatTextareaRef } = useSessionState()
+
   nextTick(() => {
-    const textarea = document.getElementsByClassName('chat-textarea')[0] as HTMLTextAreaElement | null
-    if (textarea) {
-      textarea.scrollTop = textarea.scrollHeight
-      textarea.focus({ preventScroll: true })
+    if (chatTextareaRef.value) {
+      chatTextareaRef.value.scrollTop = chatTextareaRef.value.scrollHeight
+      chatTextareaRef.value.focus({ preventScroll: true })
     }
   })
 }
