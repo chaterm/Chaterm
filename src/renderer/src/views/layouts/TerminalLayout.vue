@@ -86,7 +86,14 @@
       </div>
       <div class="term_body">
         <!-- Agents Mode Layout -->
-        <template v-if="props.currentMode === 'agents'">
+        <div
+          class="agents-mode-layout"
+          :style="{
+            visibility: props.currentMode === 'agents' ? 'visible' : 'hidden',
+            opacity: props.currentMode === 'agents' ? 1 : 0,
+            pointerEvents: props.currentMode === 'agents' ? 'auto' : 'none'
+          }"
+        >
           <div class="term_content">
             <splitpanes
               class="left-sidebar-container"
@@ -120,9 +127,16 @@
               </pane>
             </splitpanes>
           </div>
-        </template>
+        </div>
         <!-- Terminal Mode Layout -->
-        <template v-else>
+        <div
+          class="terminal-mode-layout"
+          :style="{
+            visibility: props.currentMode === 'terminal' ? 'visible' : 'hidden',
+            opacity: props.currentMode === 'terminal' ? 1 : 0,
+            pointerEvents: props.currentMode === 'terminal' ? 'auto' : 'none'
+          }"
+        >
           <div class="term_left_menu">
             <LeftTab
               @toggle-menu="toggleMenu"
@@ -254,7 +268,7 @@
               </div>
             </div>
           </div>
-        </template>
+        </div>
       </div>
     </div>
   </a-watermark>
@@ -768,35 +782,42 @@ onMounted(async () => {
       // When switching from agents to terminal, reset layout state
       if (newMode === 'terminal' && oldMode === 'agents') {
         await nextTick()
-        // Reset layout state to ensure proper display
-        const container = document.querySelector('.splitpanes') as HTMLElement
-        if (container) {
-          const containerWidth = container.offsetWidth
-          // Preserve left pane collapsed state, only recalculate if expanded
-          const wasCollapsed = leftPaneSize.value === 0
-          if (!wasCollapsed) {
-            // Reset left pane size to default only if it was expanded
-            leftPaneSize.value = (DEFAULT_WIDTH_PX / containerWidth) * 100
-            // Update pane size to ensure correct layout
-            updatePaneSize()
-          }
-          // Update header icon state to match left pane state
-          if (headerRef.value) {
-            headerRef.value.switchIcon('left', !wasCollapsed)
-          }
-          // Reset main terminal size based on split panes and AI sidebar state
-          if (showSplitPane.value) {
-            // If there are split panes, adjust them to equal width
-            adjustSplitPaneToEqualWidth()
-          } else {
-            // Otherwise, set main terminal size based on AI sidebar
-            if (showAiSidebar.value) {
-              mainTerminalSize.value = 100 - aiSidebarSize.value
+        // Wait for element to become visible before recalculating
+        setTimeout(async () => {
+          // Reset layout state to ensure proper display
+          const container = document.querySelector('.terminal-mode-layout .splitpanes') as HTMLElement
+          if (container) {
+            const containerWidth = container.offsetWidth
+            // Preserve left pane collapsed state, only recalculate if expanded
+            const wasCollapsed = leftPaneSize.value === 0
+            if (!wasCollapsed) {
+              // Reset left pane size to default only if it was expanded
+              leftPaneSize.value = (DEFAULT_WIDTH_PX / containerWidth) * 100
+              // Update pane size to ensure correct layout
+              updatePaneSize()
+            }
+            // Update header icon state to match left pane state
+            if (headerRef.value) {
+              headerRef.value.switchIcon('left', !wasCollapsed)
+            }
+            // Reset main terminal size based on split panes and AI sidebar state
+            if (showSplitPane.value) {
+              // If there are split panes, adjust them to equal width
+              adjustSplitPaneToEqualWidth()
             } else {
-              mainTerminalSize.value = 100
+              // Otherwise, set main terminal size based on AI sidebar
+              if (showAiSidebar.value) {
+                mainTerminalSize.value = 100 - aiSidebarSize.value
+              } else {
+                mainTerminalSize.value = 100
+              }
+            }
+            // Force resize of terminal components
+            if (allTabs.value) {
+              allTabs.value.resizeTerm()
             }
           }
-        }
+        }, 50)
       } else if (newMode === 'agents' && oldMode === 'terminal') {
         await nextTick()
         // Initialize agents left pane state
@@ -2256,7 +2277,32 @@ defineExpose({
   .term_body {
     width: 100%;
     height: calc(100% - 29px);
-    display: flex;
+    position: relative;
+
+    .agents-mode-layout {
+      width: 100%;
+      height: 100%;
+      position: absolute;
+      top: 0;
+      left: 0;
+      transition: opacity 0.2s ease;
+
+      .term_content {
+        width: 100%;
+        height: 100%;
+        box-sizing: border-box;
+      }
+    }
+
+    .terminal-mode-layout {
+      width: 100%;
+      height: 100%;
+      position: absolute;
+      top: 0;
+      left: 0;
+      display: flex;
+      transition: opacity 0.2s ease;
+    }
 
     .term_left_menu {
       width: 40px;
@@ -2294,8 +2340,10 @@ defineExpose({
 
   &.agents-mode {
     .term_body {
-      .term_content {
-        width: 100%;
+      .agents-mode-layout {
+        .term_content {
+          width: 100%;
+        }
       }
     }
   }
