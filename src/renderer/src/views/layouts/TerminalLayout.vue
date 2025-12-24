@@ -86,7 +86,10 @@
       </div>
       <div class="term_body">
         <!-- Agents Mode Layout -->
-        <template v-if="props.currentMode === 'agents'">
+        <div
+          class="agents-mode-layout"
+          :style="getLayoutStyle('agents')"
+        >
           <div class="term_content">
             <splitpanes
               class="left-sidebar-container"
@@ -120,9 +123,12 @@
               </pane>
             </splitpanes>
           </div>
-        </template>
+        </div>
         <!-- Terminal Mode Layout -->
-        <template v-else>
+        <div
+          class="terminal-mode-layout"
+          :style="getLayoutStyle('terminal')"
+        >
           <div class="term_left_menu">
             <LeftTab
               @toggle-menu="toggleMenu"
@@ -254,7 +260,7 @@
               </div>
             </div>
           </div>
-        </template>
+        </div>
       </div>
     </div>
   </a-watermark>
@@ -298,6 +304,22 @@ const props = defineProps<{
 }>()
 
 const { t } = useI18n()
+
+// Computed styles for layout visibility
+const getLayoutStyle = (
+  mode: 'terminal' | 'agents'
+): {
+  visibility: 'visible' | 'hidden'
+  opacity: number
+  pointerEvents: 'auto' | 'none'
+} => {
+  const isVisible = props.currentMode === mode
+  return {
+    visibility: isVisible ? 'visible' : 'hidden',
+    opacity: isVisible ? 1 : 0,
+    pointerEvents: isVisible ? 'auto' : 'none'
+  }
+}
 const aliasConfig = aliasConfigStore()
 const configStore = piniaUserConfigStore()
 const isTransparent = computed(() => !!configStore.getUserConfig.background.image)
@@ -768,35 +790,42 @@ onMounted(async () => {
       // When switching from agents to terminal, reset layout state
       if (newMode === 'terminal' && oldMode === 'agents') {
         await nextTick()
-        // Reset layout state to ensure proper display
-        const container = document.querySelector('.splitpanes') as HTMLElement
-        if (container) {
-          const containerWidth = container.offsetWidth
-          // Preserve left pane collapsed state, only recalculate if expanded
-          const wasCollapsed = leftPaneSize.value === 0
-          if (!wasCollapsed) {
-            // Reset left pane size to default only if it was expanded
-            leftPaneSize.value = (DEFAULT_WIDTH_PX / containerWidth) * 100
-            // Update pane size to ensure correct layout
-            updatePaneSize()
-          }
-          // Update header icon state to match left pane state
-          if (headerRef.value) {
-            headerRef.value.switchIcon('left', !wasCollapsed)
-          }
-          // Reset main terminal size based on split panes and AI sidebar state
-          if (showSplitPane.value) {
-            // If there are split panes, adjust them to equal width
-            adjustSplitPaneToEqualWidth()
-          } else {
-            // Otherwise, set main terminal size based on AI sidebar
-            if (showAiSidebar.value) {
-              mainTerminalSize.value = 100 - aiSidebarSize.value
+        // Wait for element to become visible before recalculating
+        setTimeout(async () => {
+          // Reset layout state to ensure proper display
+          const container = document.querySelector('.terminal-mode-layout .splitpanes') as HTMLElement
+          if (container) {
+            const containerWidth = container.offsetWidth
+            // Preserve left pane collapsed state, only recalculate if expanded
+            const wasCollapsed = leftPaneSize.value === 0
+            if (!wasCollapsed) {
+              // Reset left pane size to default only if it was expanded
+              leftPaneSize.value = (DEFAULT_WIDTH_PX / containerWidth) * 100
+              // Update pane size to ensure correct layout
+              updatePaneSize()
+            }
+            // Update header icon state to match left pane state
+            if (headerRef.value) {
+              headerRef.value.switchIcon('left', !wasCollapsed)
+            }
+            // Reset main terminal size based on split panes and AI sidebar state
+            if (showSplitPane.value) {
+              // If there are split panes, adjust them to equal width
+              adjustSplitPaneToEqualWidth()
             } else {
-              mainTerminalSize.value = 100
+              // Otherwise, set main terminal size based on AI sidebar
+              if (showAiSidebar.value) {
+                mainTerminalSize.value = 100 - aiSidebarSize.value
+              } else {
+                mainTerminalSize.value = 100
+              }
+            }
+            // Force resize of terminal components
+            if (allTabs.value) {
+              allTabs.value.resizeTerm()
             }
           }
-        }
+        }, 50)
       } else if (newMode === 'agents' && oldMode === 'terminal') {
         await nextTick()
         // Initialize agents left pane state
@@ -2256,7 +2285,29 @@ defineExpose({
   .term_body {
     width: 100%;
     height: calc(100% - 29px);
-    display: flex;
+    position: relative;
+
+    .agents-mode-layout,
+    .terminal-mode-layout {
+      width: 100%;
+      height: 100%;
+      position: absolute;
+      top: 0;
+      left: 0;
+      transition: opacity 0.2s ease;
+    }
+
+    .agents-mode-layout {
+      .term_content {
+        width: 100%;
+        height: 100%;
+        box-sizing: border-box;
+      }
+    }
+
+    .terminal-mode-layout {
+      display: flex;
+    }
 
     .term_left_menu {
       width: 40px;
@@ -2288,14 +2339,6 @@ defineExpose({
         &.collapsed {
           min-width: 0 !important;
         }
-      }
-    }
-  }
-
-  &.agents-mode {
-    .term_body {
-      .term_content {
-        width: 100%;
       }
     }
   }
