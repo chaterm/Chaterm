@@ -56,7 +56,7 @@
             </div>
           </template>
           <template v-else>
-            <div class="ai-welcome-text">{{ $t('ai.welcome') }}</div>
+            <div class="ai-welcome-text">{{ tab.welcomeTip }}</div>
           </template>
         </div>
         <div
@@ -575,6 +575,13 @@
                 </span>
               </div>
               <a-textarea
+                :ref="
+                  (el: HTMLTextAreaElement | null) => {
+                    if (tab.id === currentChatId) {
+                      chatTextareaRef = el
+                    }
+                  }
+                "
                 v-model:value="chatInputValue"
                 :placeholder="
                   chatTypeValue === 'agent' ? $t('ai.agentMessage') : chatTypeValue === 'chat' ? $t('ai.chatMessage') : $t('ai.cmdMessage')
@@ -692,6 +699,7 @@
           <a-button
             type="text"
             class="action-icon-btn"
+            data-testid="new-tab-button"
             @click="createNewEmptyTab"
           >
             <img
@@ -988,7 +996,8 @@ const {
   responseLoading,
   chatHistory,
   buttonsDisabled,
-  showResumeButton
+  showResumeButton,
+  chatTextareaRef
 } = useSessionState()
 
 // Model configuration management
