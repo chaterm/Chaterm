@@ -174,12 +174,12 @@ describe('AiTab Component - Browser Mode Integration', () => {
   describe('AI Mode Switching (Shift+Tab)', () => {
     it('should switch AI mode when Shift+Tab is pressed', async () => {
       const chatInput = page.getByTestId('ai-message-input')
-      await expect.element(chatInput).toBeInTheDocument()
+      await (expect as any).element(chatInput).toBeInTheDocument()
 
       await chatInput.click()
 
       const aiModeSelect = page.getByTestId('ai-mode-select')
-      await expect.element(aiModeSelect).toBeInTheDocument()
+      await (expect as any).element(aiModeSelect).toBeInTheDocument()
 
       const getSelectLabel = () => {
         const element = aiModeSelect.element()
@@ -215,7 +215,7 @@ describe('AiTab Component - Browser Mode Integration', () => {
 
     it('should populate empty input when chatToAi event is emitted', async () => {
       const chatInput = page.getByTestId('ai-message-input')
-      await expect.element(chatInput).toBeInTheDocument()
+      await (expect as any).element(chatInput).toBeInTheDocument()
 
       expect((chatInput.element() as HTMLTextAreaElement).value).toBe('')
 
@@ -234,7 +234,7 @@ describe('AiTab Component - Browser Mode Integration', () => {
 
     it('should append text with newline when input is not empty', async () => {
       const chatInput = page.getByTestId('ai-message-input')
-      await expect.element(chatInput).toBeInTheDocument()
+      await (expect as any).element(chatInput).toBeInTheDocument()
 
       await chatInput.fill('My existing question')
       expect((chatInput.element() as HTMLTextAreaElement).value).toBe('My existing question')

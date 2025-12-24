@@ -107,7 +107,6 @@ import About from '@/views/components/LeftTab/setting/about.vue'
 import Mcp from '@/views/components/LeftTab/setting/mcp.vue'
 import eventBus from '@/utils/eventBus'
 
-const isSkippedLogin = ref(localStorage.getItem('login-skipped') === 'true')
 const activeKey = ref('0')
 
 const switchToTerminalTab = () => {
