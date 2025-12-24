@@ -104,19 +104,10 @@ export function useModelConfiguration() {
     const availableModels = modelOptions.filter((model) => model.checked)
 
     if (availableModels.length === 0) {
-      const isSkippedLogin = localStorage.getItem('login-skipped') === 'true'
-      if (isSkippedLogin) {
-        return {
-          success: false,
-          message: 'user.noAvailableModelMessage',
-          description: 'user.noAvailableModelDescription'
-        }
-      } else {
-        return {
-          success: false,
-          message: 'user.noAvailableModelMessage',
-          description: 'user.noAvailableModelDescriptionLogin'
-        }
+      return {
+        success: false,
+        message: 'user.noAvailableModelMessage',
+        description: 'user.noAvailableModelDescription'
       }
     }
 
