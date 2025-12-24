@@ -336,31 +336,6 @@ export const attemptSecondaryConnection = async (event, connectionInfo, ident) =
         })
       }
 
-      // Perform sudo check
-      try {
-        conn.exec('sudo -n true 2>/dev/null && echo true || echo false', (err, stream) => {
-          if (err) {
-            readyResult.hasSudo = false
-            sendReadyData(false)
-          } else {
-            stream
-              .on('data', (data: Buffer) => {
-                const result = data.toString().trim()
-                readyResult.hasSudo = result === 'true'
-              })
-              .stderr.on('data', () => {
-                readyResult.hasSudo = false
-              })
-              .on('close', () => {
-                sendReadyData(false)
-              })
-          }
-        })
-      } catch (e) {
-        readyResult.hasSudo = false
-        sendReadyData(false)
-      }
-
       // Perform cmd check
       try {
         let stdout = ''
@@ -392,6 +367,31 @@ export const attemptSecondaryConnection = async (event, connectionInfo, ident) =
         )
       } catch (e) {
         readyResult.commandList = []
+        sendReadyData(false)
+      }
+
+      // Perform sudo check
+      try {
+        conn.exec('sudo -n true 2>/dev/null && echo true || echo false', (err, stream) => {
+          if (err) {
+            readyResult.hasSudo = false
+            sendReadyData(false)
+          } else {
+            stream
+              .on('data', (data: Buffer) => {
+                const result = data.toString().trim()
+                readyResult.hasSudo = result === 'true'
+              })
+              .stderr.on('data', () => {
+                readyResult.hasSudo = false
+              })
+              .on('close', () => {
+                sendReadyData(false)
+              })
+          }
+        })
+      } catch (e) {
+        readyResult.hasSudo = false
         sendReadyData(false)
       }
     })
@@ -849,12 +849,12 @@ export const registerSSHHandlers = () => {
         const lastCommand = jumpserverLastCommand.get(id)
         const exitCommands = ['exit', 'logout', '\x04']
 
-        // JumpServer 菜单退出检测
+        // JumpServer menu exit detection
         if (dataStr.includes('[Host]>') && lastCommand && exitCommands.includes(lastCommand)) {
           jumpserverLastCommand.delete(id)
           stream.write('q\r', (err) => {
-            if (err) console.error(`[JumpServer ${id}] 发送 "q" 失败:`, err)
-            else console.log(`[JumpServer ${id}] 已发送 "q" 终止会话。`)
+            if (err) console.error(`[JumpServer ${id}] Failed to send "q":`, err)
+            else console.log(`[JumpServer ${id}] Sent "q" to terminate session.`)
             stream.end()
             const connData = jumpserverConnections.get(id)
             connData?.conn?.end()
@@ -1081,7 +1081,7 @@ export const registerSSHHandlers = () => {
           const buf = Buffer.from(data, 'binary')
           stream.write(buf)
         } else {
-          // 使用 lineCommand 进行命令检测，如果没有则回退到 data.trim()
+          // Use lineCommand for command detection, if not, fallback to data-trim()
           const command = lineCommand || data.trim()
           if (['exit', 'logout', '\x04'].includes(command)) {
             jumpserverLastCommand.set(id, command)
