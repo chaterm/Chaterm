@@ -11,6 +11,7 @@
           v-for="shortcut in shortcuts"
           :key="shortcut.id"
           class="shortcut-item"
+          @click="handleShortcutClick(shortcut.id)"
         >
           <div class="shortcut-description">
             {{ shortcut.description }}
@@ -95,6 +96,14 @@ const shortcuts = computed(() => {
     })
     .filter((item): item is NonNullable<typeof item> => item !== null)
 })
+
+// Handle shortcut click event
+const handleShortcutClick = (actionId: string) => {
+  const action = shortcutActions.find((a) => a.id === actionId)
+  if (action && action.handler) {
+    action.handler()
+  }
+}
 
 // Load shortcuts on component mount
 onMounted(() => {
@@ -181,6 +190,17 @@ onMounted(() => {
   padding: 10px 20px;
   border-radius: 8px;
   transition: all 0.2s ease;
+  cursor: pointer;
+
+  &:hover {
+    background: rgba(255, 255, 255, 0.05);
+    transform: translateX(4px);
+  }
+
+  &:active {
+    transform: translateX(2px);
+    background: rgba(255, 255, 255, 0.08);
+  }
 
   @media (max-width: 600px) {
     flex-direction: column;
