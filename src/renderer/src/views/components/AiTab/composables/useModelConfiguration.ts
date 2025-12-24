@@ -98,7 +98,28 @@ export function useModelConfiguration() {
     }
   }
 
-  const checkModelConfig = async (): Promise<boolean> => {
+  const checkModelConfig = async (): Promise<{ success: boolean; message?: string; description?: string }> => {
+    // Check if there are any available models
+    const modelOptions = (await getGlobalState('modelOptions')) as ModelOption[]
+    const availableModels = modelOptions.filter((model) => model.checked)
+
+    if (availableModels.length === 0) {
+      const isSkippedLogin = localStorage.getItem('login-skipped') === 'true'
+      if (isSkippedLogin) {
+        return {
+          success: false,
+          message: 'user.noAvailableModelMessage',
+          description: 'user.noAvailableModelDescription'
+        }
+      } else {
+        return {
+          success: false,
+          message: 'user.noAvailableModelMessage',
+          description: 'user.noAvailableModelDescriptionLogin'
+        }
+      }
+    }
+
     const apiProvider = (await getGlobalState('apiProvider')) as string
 
     switch (apiProvider) {
@@ -108,7 +129,11 @@ export function useModelConfiguration() {
         const awsRegion = await getGlobalState('awsRegion')
         const apiModelId = await getGlobalState('apiModelId')
         if (isEmptyValue(apiModelId) || isEmptyValue(awsAccessKey) || isEmptyValue(awsSecretKey) || isEmptyValue(awsRegion)) {
-          return false
+          return {
+            success: false,
+            message: 'user.checkModelConfigFailMessage',
+            description: 'user.checkModelConfigFailDescription'
+          }
         }
         break
       case 'litellm':
@@ -116,14 +141,22 @@ export function useModelConfiguration() {
         const liteLlmApiKey = await getSecret('liteLlmApiKey')
         const liteLlmModelId = await getGlobalState('liteLlmModelId')
         if (isEmptyValue(liteLlmBaseUrl) || isEmptyValue(liteLlmApiKey) || isEmptyValue(liteLlmModelId)) {
-          return false
+          return {
+            success: false,
+            message: 'user.checkModelConfigFailMessage',
+            description: 'user.checkModelConfigFailDescription'
+          }
         }
         break
       case 'deepseek':
         const deepSeekApiKey = await getSecret('deepSeekApiKey')
         const apiModelIdDeepSeek = await getGlobalState('apiModelId')
         if (isEmptyValue(deepSeekApiKey) || isEmptyValue(apiModelIdDeepSeek)) {
-          return false
+          return {
+            success: false,
+            message: 'user.checkModelConfigFailMessage',
+            description: 'user.checkModelConfigFailDescription'
+          }
         }
         break
       case 'openai':
@@ -131,19 +164,31 @@ export function useModelConfiguration() {
         const openAiApiKey = await getSecret('openAiApiKey')
         const openAiModelId = await getGlobalState('openAiModelId')
         if (isEmptyValue(openAiBaseUrl) || isEmptyValue(openAiApiKey) || isEmptyValue(openAiModelId)) {
-          return false
+          return {
+            success: false,
+            message: 'user.checkModelConfigFailMessage',
+            description: 'user.checkModelConfigFailDescription'
+          }
         }
         break
     }
-    return true
+    return { success: true }
   }
 
   const initModelOptions = async () => {
     try {
+      const isSkippedLogin = localStorage.getItem('login-skipped') === 'true'
       const savedModelOptions = ((await getGlobalState('modelOptions')) || []) as ModelOption[]
       console.log('savedModelOptions', savedModelOptions)
 
       if (savedModelOptions.length !== 0) {
+        return
+      }
+
+      // Skip loading built-in models if user skipped login
+      if (isSkippedLogin) {
+        // Initialize with empty model options for guest users
+        await updateGlobalState('modelOptions', [])
         return
       }
 

@@ -1808,12 +1808,28 @@
 
   p {
     color: var(--text-color);
-    font-size: 12px;
-    margin-bottom: 20px;
+    font-size: 14px;
+    margin-bottom: 8px;
+    font-weight: 500;
   }
 
-  .login-button {
-    min-width: 150px;
+  .ai-prompt-description {
+    color: var(--text-color-secondary);
+    font-size: 12px;
+    margin-bottom: 20px;
+    opacity: 0.8;
+  }
+
+  .ai-prompt-buttons {
+    display: flex;
+    gap: 12px;
+    justify-content: center;
+    align-items: center;
+  }
+
+  .login-button,
+  .configure-model-button {
+    min-width: 120px;
     height: 32px;
     font-size: 14px;
   }

@@ -32,7 +32,6 @@
           <Extensions />
         </a-tab-pane>
         <a-tab-pane
-          v-if="!isSkippedLogin"
           key="3"
           :tab="$t('user.models')"
           type="card"
@@ -40,7 +39,6 @@
           <Model />
         </a-tab-pane>
         <a-tab-pane
-          v-if="!isSkippedLogin"
           key="4"
           :tab="$t('user.billing')"
           type="card"
@@ -48,7 +46,6 @@
           <Billing />
         </a-tab-pane>
         <a-tab-pane
-          v-if="!isSkippedLogin"
           key="5"
           :tab="$t('user.aiPreferences')"
           type="card"
@@ -117,12 +114,18 @@ const switchToTerminalTab = () => {
   activeKey.value = '1'
 }
 
+const switchToModelSettingsTab = () => {
+  activeKey.value = '3'
+}
+
 onMounted(() => {
   eventBus.on('switchToTerminalTab', switchToTerminalTab)
+  eventBus.on('switchToModelSettingsTab', switchToModelSettingsTab)
 })
 
 onBeforeUnmount(() => {
   eventBus.off('switchToTerminalTab', switchToTerminalTab)
+  eventBus.off('switchToModelSettingsTab', switchToModelSettingsTab)
 })
 </script>
 

@@ -30,16 +30,27 @@
               alt="AI"
             />
           </div>
-          <template v-if="isSkippedLogin">
+          <template v-if="!hasAvailableModels">
             <div class="ai-login-prompt">
-              <p>{{ $t('ai.loginPrompt') }}</p>
-              <a-button
-                type="primary"
-                class="login-button"
-                @click="goToLogin"
-              >
-                {{ $t('common.login') }}
-              </a-button>
+              <p>{{ $t('user.noAvailableModelMessage') }}</p>
+              <p class="ai-prompt-description">{{ $t('user.noAvailableModelDescription') }}</p>
+              <div class="ai-prompt-buttons">
+                <a-button
+                  v-if="isSkippedLogin"
+                  type="primary"
+                  class="login-button"
+                  @click="goToLogin"
+                >
+                  {{ $t('common.login') }}
+                </a-button>
+                <a-button
+                  type="primary"
+                  class="configure-model-button"
+                  @click="goToModelSettings"
+                >
+                  {{ $t('user.configureModel') }}
+                </a-button>
+              </div>
             </div>
           </template>
           <template v-else>
@@ -523,7 +534,7 @@
               </div>
             </div>
             <div
-              v-if="!isSkippedLogin"
+              v-if="hasAvailableModels"
               class="input-container"
             >
               <div class="hosts-display-container">
@@ -921,6 +932,7 @@ import { isFocusInAiTab } from '@/utils/domUtils'
 import { getGlobalState } from '@renderer/agent/storage/state'
 import type { MessageContent, ChatMessage } from './types'
 import i18n from '@/locales'
+import eventBus from '@/utils/eventBus'
 import historyIcon from '@/assets/icons/history.svg'
 import plusIcon from '@/assets/icons/plus.svg'
 import sendIcon from '@/assets/icons/send.svg'
@@ -1166,6 +1178,18 @@ useEventBusListeners({
 const goToLogin = () => {
   router.push('/login')
 }
+
+const goToModelSettings = () => {
+  eventBus.emit('openUserTab', 'userConfig')
+  setTimeout(() => {
+    eventBus.emit('switchToModelSettingsTab')
+  }, 200)
+}
+
+// Check if there are available models
+const hasAvailableModels = computed(() => {
+  return AgentAiModelsOptions.value && AgentAiModelsOptions.value.length > 0
+})
 
 watch(
   () => localStorage.getItem('login-skipped'),
