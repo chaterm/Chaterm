@@ -88,11 +88,7 @@
         <!-- Agents Mode Layout -->
         <div
           class="agents-mode-layout"
-          :style="{
-            visibility: props.currentMode === 'agents' ? 'visible' : 'hidden',
-            opacity: props.currentMode === 'agents' ? 1 : 0,
-            pointerEvents: props.currentMode === 'agents' ? 'auto' : 'none'
-          }"
+          :style="getLayoutStyle('agents')"
         >
           <div class="term_content">
             <splitpanes
@@ -131,11 +127,7 @@
         <!-- Terminal Mode Layout -->
         <div
           class="terminal-mode-layout"
-          :style="{
-            visibility: props.currentMode === 'terminal' ? 'visible' : 'hidden',
-            opacity: props.currentMode === 'terminal' ? 1 : 0,
-            pointerEvents: props.currentMode === 'terminal' ? 'auto' : 'none'
-          }"
+          :style="getLayoutStyle('terminal')"
         >
           <div class="term_left_menu">
             <LeftTab
@@ -312,6 +304,22 @@ const props = defineProps<{
 }>()
 
 const { t } = useI18n()
+
+// Computed styles for layout visibility
+const getLayoutStyle = (
+  mode: 'terminal' | 'agents'
+): {
+  visibility: 'visible' | 'hidden'
+  opacity: number
+  pointerEvents: 'auto' | 'none'
+} => {
+  const isVisible = props.currentMode === mode
+  return {
+    visibility: isVisible ? 'visible' : 'hidden',
+    opacity: isVisible ? 1 : 0,
+    pointerEvents: isVisible ? 'auto' : 'none'
+  }
+}
 const aliasConfig = aliasConfigStore()
 const configStore = piniaUserConfigStore()
 const isTransparent = computed(() => !!configStore.getUserConfig.background.image)
@@ -2279,14 +2287,17 @@ defineExpose({
     height: calc(100% - 29px);
     position: relative;
 
-    .agents-mode-layout {
+    .agents-mode-layout,
+    .terminal-mode-layout {
       width: 100%;
       height: 100%;
       position: absolute;
       top: 0;
       left: 0;
       transition: opacity 0.2s ease;
+    }
 
+    .agents-mode-layout {
       .term_content {
         width: 100%;
         height: 100%;
@@ -2295,13 +2306,7 @@ defineExpose({
     }
 
     .terminal-mode-layout {
-      width: 100%;
-      height: 100%;
-      position: absolute;
-      top: 0;
-      left: 0;
       display: flex;
-      transition: opacity 0.2s ease;
     }
 
     .term_left_menu {
@@ -2333,16 +2338,6 @@ defineExpose({
 
         &.collapsed {
           min-width: 0 !important;
-        }
-      }
-    }
-  }
-
-  &.agents-mode {
-    .term_body {
-      .agents-mode-layout {
-        .term_content {
-          width: 100%;
         }
       }
     }
