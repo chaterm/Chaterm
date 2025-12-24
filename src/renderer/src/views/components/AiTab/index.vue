@@ -1001,7 +1001,7 @@ const {
 } = useSessionState()
 
 // Model configuration management
-const { AgentAiModelsOptions, initModel, handleChatAiModelChange, checkModelConfig, initModelOptions } = useModelConfiguration()
+const { AgentAiModelsOptions, modelsLoading, initModel, handleChatAiModelChange, checkModelConfig, initModelOptions } = useModelConfiguration()
 
 // State snapshot
 const { getCurrentState, restoreState, emitStateChange } = useStateSnapshot(emit)
@@ -1199,6 +1199,9 @@ const goToModelSettings = () => {
 
 // Check if there are available models
 const hasAvailableModels = computed(() => {
+  if (modelsLoading.value) {
+    return true
+  }
   return AgentAiModelsOptions.value && AgentAiModelsOptions.value.length > 0
 })
 

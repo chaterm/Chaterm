@@ -36,6 +36,7 @@ export function useModelConfiguration() {
   const { chatAiModelValue } = useSessionState()
 
   const AgentAiModelsOptions = ref<ModelSelectOption[]>([])
+  const modelsLoading = ref(true)
 
   const PROVIDER_MODEL_KEY_MAP: Record<string, GlobalStateKey> = {
     bedrock: 'apiModelId',
@@ -61,40 +62,44 @@ export function useModelConfiguration() {
   }
 
   const initModel = async () => {
-    // First initialize model options list
-    const modelOptions = (await getGlobalState('modelOptions')) as ModelOption[]
+    try {
+      // First initialize model options list
+      const modelOptions = (await getGlobalState('modelOptions')) as ModelOption[]
 
-    modelOptions.sort((a, b) => {
-      const aIsThinking = a.name.endsWith('-Thinking')
-      const bIsThinking = b.name.endsWith('-Thinking')
+      modelOptions.sort((a, b) => {
+        const aIsThinking = a.name.endsWith('-Thinking')
+        const bIsThinking = b.name.endsWith('-Thinking')
 
-      if (aIsThinking && !bIsThinking) return -1
-      if (!aIsThinking && bIsThinking) return 1
+        if (aIsThinking && !bIsThinking) return -1
+        if (!aIsThinking && bIsThinking) return 1
 
-      return a.name.localeCompare(b.name)
-    })
+        return a.name.localeCompare(b.name)
+      })
 
-    AgentAiModelsOptions.value = modelOptions
-      .filter((item) => item.checked)
-      .map((item) => ({
-        label: item.name,
-        value: item.name
-      }))
+      AgentAiModelsOptions.value = modelOptions
+        .filter((item) => item.checked)
+        .map((item) => ({
+          label: item.name,
+          value: item.name
+        }))
 
-    if (chatAiModelValue.value && chatAiModelValue.value !== '') {
-      const isValidModel = AgentAiModelsOptions.value.some((option) => option.value === chatAiModelValue.value)
-      if (isValidModel) {
-        return
+      if (chatAiModelValue.value && chatAiModelValue.value !== '') {
+        const isValidModel = AgentAiModelsOptions.value.some((option) => option.value === chatAiModelValue.value)
+        if (isValidModel) {
+          return
+        }
       }
-    }
 
-    const apiProvider = (await getGlobalState('apiProvider')) as string
-    const key = PROVIDER_MODEL_KEY_MAP[apiProvider || 'default'] || 'defaultModelId'
-    chatAiModelValue.value = (await getGlobalState(key)) as string
+      const apiProvider = (await getGlobalState('apiProvider')) as string
+      const key = PROVIDER_MODEL_KEY_MAP[apiProvider || 'default'] || 'defaultModelId'
+      chatAiModelValue.value = (await getGlobalState(key)) as string
 
-    if ((chatAiModelValue.value === undefined || chatAiModelValue.value === '') && AgentAiModelsOptions.value[0]) {
-      chatAiModelValue.value = AgentAiModelsOptions.value[0].label
-      await handleChatAiModelChange()
+      if ((chatAiModelValue.value === undefined || chatAiModelValue.value === '') && AgentAiModelsOptions.value[0]) {
+        chatAiModelValue.value = AgentAiModelsOptions.value[0].label
+        await handleChatAiModelChange()
+      }
+    } finally {
+      modelsLoading.value = false
     }
   }
 
@@ -168,6 +173,7 @@ export function useModelConfiguration() {
 
   const initModelOptions = async () => {
     try {
+      modelsLoading.value = true
       const isSkippedLogin = localStorage.getItem('login-skipped') === 'true'
       const savedModelOptions = ((await getGlobalState('modelOptions')) || []) as ModelOption[]
       console.log('savedModelOptions', savedModelOptions)
@@ -215,6 +221,7 @@ export function useModelConfiguration() {
         message: 'Error',
         description: 'Failed to get/save model options'
       })
+      modelsLoading.value = false
     }
   }
 
@@ -233,6 +240,7 @@ export function useModelConfiguration() {
 
   return {
     AgentAiModelsOptions,
+    modelsLoading,
     initModel,
     handleChatAiModelChange,
     checkModelConfig,
