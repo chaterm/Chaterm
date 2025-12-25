@@ -424,7 +424,7 @@ onMounted(async () => {
   api.mainWindowShow()
 
   platform.value = await api.getPlatform()
-  isDev.value = import.meta.env.MODE === 'development' || ((window as any).api?.isE2E?.() ?? false)
+  isDev.value = import.meta.env.MODE === 'development.cn' || ((window as any).api?.isE2E?.() ?? false)
   await captureButtonClick(LoginFunnelEvents.ENTER_LOGIN_PAGE)
   if (!isDev.value) {
     const ipcRenderer = (window as any).electron?.ipcRenderer
