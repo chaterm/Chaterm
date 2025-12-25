@@ -13,7 +13,7 @@ interface TabManagementOptions {
   getCurentTabAssetInfo: () => Promise<AssetInfo | null>
   emitStateChange?: () => void
   handleClose?: () => void
-  isFocusInAiTab?: (event: KeyboardEvent) => boolean
+  isFocusInAiTab?: (event?: KeyboardEvent) => boolean
 }
 
 export const focusChatInput = () => {
