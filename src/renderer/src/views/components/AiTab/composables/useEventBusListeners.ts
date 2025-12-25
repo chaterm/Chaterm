@@ -115,7 +115,7 @@ export function useEventBusListeners(params: UseEventBusListenersParams) {
   }
 
   const handleSwitchAiMode = () => {
-    if (!isFocusInAiTab(new KeyboardEvent('keydown'))) {
+    if (!isFocusInAiTab()) {
       return
     }
 

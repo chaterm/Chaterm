@@ -13,7 +13,7 @@ interface TabManagementOptions {
   getCurentTabAssetInfo: () => Promise<AssetInfo | null>
   emitStateChange?: () => void
   handleClose?: () => void
-  isFocusInAiTab?: (event: KeyboardEvent) => boolean
+  isFocusInAiTab?: (event?: KeyboardEvent) => boolean
 }
 
 export const focusChatInput = () => {
@@ -77,6 +77,9 @@ export function useTabManagement(options: TabManagementOptions) {
 
     chatTabs.value.push(placeholderTab)
 
+    // Set currentChatId immediately so input box can display right away
+    currentChatId.value = newChatId
+
     // Asynchronously get actual data
     const [chatSetting, assetInfo, apiProvider] = await Promise.all([
       getGlobalState('chatSettings').catch(() => ({ mode: 'agent' })),
@@ -120,8 +123,6 @@ export function useTabManagement(options: TabManagementOptions) {
       tab.hosts = hosts
       tab.modelValue = currentModelValue || ''
     }
-
-    currentChatId.value = newChatId
 
     emitStateChange?.()
 

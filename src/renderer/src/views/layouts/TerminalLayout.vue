@@ -842,6 +842,14 @@ onMounted(async () => {
       // Wait a bit for aiTabRef to be ready after DOM update
       setTimeout(async () => {
         await restoreAiTabState()
+        if (newMode === 'agents') {
+          await nextTick()
+          const textarea = document.querySelector('[data-testid="ai-message-input"]') as HTMLTextAreaElement
+          if (textarea) {
+            textarea.scrollTop = textarea.scrollHeight
+            textarea.focus({ preventScroll: true })
+          }
+        }
       }, 200)
     },
     { immediate: false }
@@ -895,7 +903,26 @@ onMounted(async () => {
       // If not restored yet, wait a bit more and try again
       setTimeout(async () => {
         await restoreAiTabState()
+        if (props.currentMode === 'agents') {
+          await nextTick()
+          const textarea = document.querySelector('[data-testid="ai-message-input"]') as HTMLTextAreaElement
+          if (textarea) {
+            textarea.scrollTop = textarea.scrollHeight
+            textarea.focus({ preventScroll: true })
+          }
+        }
       }, 200)
+    } else {
+      if (props.currentMode === 'agents') {
+        setTimeout(async () => {
+          await nextTick()
+          const textarea = document.querySelector('[data-testid="ai-message-input"]') as HTMLTextAreaElement
+          if (textarea) {
+            textarea.scrollTop = textarea.scrollHeight
+            textarea.focus({ preventScroll: true })
+          }
+        }, 200)
+      }
     }
   })
 

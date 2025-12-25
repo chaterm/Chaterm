@@ -51,7 +51,7 @@ describe('useTabManagement', () => {
   let mockGetCurentTabAssetInfo: ReturnType<typeof vi.fn<() => Promise<AssetInfo | null>>>
   let mockEmitStateChange: ReturnType<typeof vi.fn<() => void>>
   let mockHandleClose: ReturnType<typeof vi.fn<() => void>>
-  let mockIsFocusInAiTab: ReturnType<typeof vi.fn<(event: KeyboardEvent) => boolean>>
+  let mockIsFocusInAiTab: ReturnType<typeof vi.fn<(event?: KeyboardEvent) => boolean>>
 
   const createMockSession = () => ({
     chatHistory: [],
