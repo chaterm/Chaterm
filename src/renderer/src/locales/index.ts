@@ -1,6 +1,8 @@
 import { createI18n } from 'vue-i18n'
 import zhCN from './lang/zh-CN'
 import enUS from './lang/en-US'
+import jaJP from './lang/ja-JP'
+import koKR from './lang/ko-KR'
 import { getDefaultLanguage } from '@utils/edition'
 
 const messages = {
@@ -9,6 +11,12 @@ const messages = {
   },
   'en-US': {
     ...enUS
+  },
+  'ja-JP': {
+    ...jaJP
+  },
+  'ko-KR': {
+    ...koKR
   }
 }
 
@@ -30,6 +38,20 @@ const i18n = createI18n({
       }
     },
     'en-US': {
+      short: {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric'
+      }
+    },
+    'ja-JP': {
+      short: {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric'
+      }
+    },
+    'ko-KR': {
       short: {
         year: 'numeric',
         month: 'short',

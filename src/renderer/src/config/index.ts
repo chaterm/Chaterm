@@ -4,7 +4,9 @@ const config = {
   // Internationalization
   LANG: [
     { name: '简体中文', value: 'zh-CN' },
-    { name: 'English', value: 'en-US' }
+    { name: 'English', value: 'en-US' },
+    { name: '日本語', value: 'ja-JP' },
+    { name: '한국어', value: 'ko-KR' }
   ]
 }
 export default config

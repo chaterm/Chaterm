@@ -12,6 +12,12 @@ const translations = {
   },
   'en-US': {
     localhost: 'Localhost'
+  },
+  'ja-JP': {
+    localhost: 'ローカルホスト'
+  },
+  'ko-KR': {
+    localhost: '로컬 호스트'
   }
 }
 
