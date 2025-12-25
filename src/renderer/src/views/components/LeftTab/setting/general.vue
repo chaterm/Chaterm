@@ -146,6 +146,8 @@
           >
             <a-radio value="zh-CN">简体中文</a-radio>
             <a-radio value="en-US">English</a-radio>
+            <a-radio value="ja-JP">日本語</a-radio>
+            <a-radio value="ko-KR">한국어</a-radio>
           </a-radio-group>
         </a-form-item>
         <a-form-item

@@ -8,6 +8,12 @@ const translations = {
   },
   'en-US': {
     favoriteBar: 'Favorites'
+  },
+  'ja-JP': {
+    favoriteBar: 'お気に入り'
+  },
+  'ko-KR': {
+    favoriteBar: '즐겨찾기'
   }
 }
 
