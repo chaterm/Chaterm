@@ -508,6 +508,9 @@
   padding: 8px 8px;
   flex-wrap: nowrap;
   min-height: 32px;
+  // Set container query context
+  container-type: inline-size;
+  container-name: input-controls;
 
   // Separator occupies middle space to achieve left-right distribution
   .action-buttons-container-separator {
@@ -518,6 +521,48 @@
   // Ensure button group won't be compressed
   .action-buttons-container {
     flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+
+  // Protect core element: chatTypeValue selector (first one)
+  .ant-select:first-child {
+    flex-shrink: 0;
+    min-width: 80px; // Reduced from 100px to accommodate wider model select
+  }
+
+  // Responsive hiding: chatAiModelValue selector
+  .model-select-responsive {
+    flex-shrink: 1;
+    min-width: 145px; // User requested min 160px
+    max-width: 240px; // Increased max width since it has a robust min
+
+    // Allow inner selector to shrink and truncate text
+    :deep(.ant-select-selector) {
+      min-width: 0;
+    }
+
+    :deep(.ant-select-selection-item) {
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      overflow: hidden;
+      padding-right: 24px !important; // Increased reserve space for the arrow
+    }
+  }
+
+  // Container query: hide model-select-responsive when container width < 320px
+  @container input-controls (max-width: 320px) {
+    .model-select-responsive {
+      display: none;
+    }
+  }
+
+  // Media query fallback (when container query is not supported)
+  @media (max-width: 600px) {
+    .model-select-responsive {
+      display: none;
+    }
   }
 
   .ant-select {
@@ -533,9 +578,7 @@
     }
 
     :deep(.ant-select-selection-item) {
-      font-size: 12px !important;
-      line-height: 24px !important;
-      color: var(--text-color) !important;
+      pointer-events: none;
     }
 
     :deep(.ant-select-arrow) {
@@ -1765,12 +1808,28 @@
 
   p {
     color: var(--text-color);
-    font-size: 12px;
-    margin-bottom: 20px;
+    font-size: 14px;
+    margin-bottom: 8px;
+    font-weight: 500;
   }
 
-  .login-button {
-    min-width: 150px;
+  .ai-prompt-description {
+    color: var(--text-color-secondary);
+    font-size: 12px;
+    margin-bottom: 20px;
+    opacity: 0.8;
+  }
+
+  .ai-prompt-buttons {
+    display: flex;
+    gap: 12px;
+    justify-content: center;
+    align-items: center;
+  }
+
+  .login-button,
+  .configure-model-button {
+    min-width: 120px;
     height: 32px;
     font-size: 14px;
   }
@@ -1874,4 +1933,21 @@
   &[style*='display: none'] {
     display: none !important;
   }
+}
+
+:deep(.ant-tooltip .ant-tooltip-inner) {
+  font-size: 12px !important;
+  line-height: 1.2 !important;
+  padding: 6px 8px !important;
+  min-height: auto !important;
+  background-color: var(--bg-color-secondary) !important;
+  color: var(--text-color) !important;
+}
+
+:deep(.ant-tooltip .ant-tooltip-arrow) {
+  height: 6px !important;
+}
+
+:deep(.ant-tooltip .ant-tooltip-arrow-content) {
+  background-color: var(--bg-color-secondary) !important;
 }

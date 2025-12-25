@@ -46,7 +46,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0  # Full history for better detection
+          fetch-depth: 0 # Full history for better detection
 
       - name: Run Gitleaks
         uses: gitleaks/gitleaks-action@v2

@@ -23,7 +23,7 @@ export function useChatMessages(
   clearTodoState: (messages: ChatMessage[]) => void,
   markLatestMessageWithTodoUpdate: (messages: ChatMessage[], todos: Todo[]) => void,
   currentTodos: any,
-  checkModelConfig: () => Promise<boolean>
+  checkModelConfig: () => Promise<{ success: boolean; message?: string; description?: string }>
 ) {
   const { chatTabs, currentChatId, currentTab, currentSession, chatInputValue, hosts, chatTypeValue } = useSessionState()
 
@@ -190,12 +190,24 @@ export function useChatMessages(
 
   const sendMessage = async (sendType: string) => {
     const checkModelConfigResult = await checkModelConfig()
-    if (!checkModelConfigResult) {
+    if (!checkModelConfigResult.success) {
+      const messageKey = checkModelConfigResult.message || 'user.checkModelConfigFailMessage'
+      const descriptionKey = checkModelConfigResult.description || 'user.checkModelConfigFailDescription'
+
       notification.error({
-        message: t('user.checkModelConfigFailMessage'),
-        description: t('user.checkModelConfigFailDescription'),
-        duration: 3
+        message: t(messageKey),
+        description: t(descriptionKey),
+        duration: 5
       })
+
+      // Open model settings after a short delay
+      setTimeout(() => {
+        eventBus.emit('openUserTab', 'userConfig')
+        setTimeout(() => {
+          eventBus.emit('switchToModelSettingsTab')
+        }, 200)
+      }, 500)
+
       return 'SEND_ERROR'
     }
 

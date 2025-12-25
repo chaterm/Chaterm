@@ -57,7 +57,7 @@ describe('useChatMessages', () => {
   let mockScrollToBottom: (force?: boolean) => void
   let mockClearTodoState: (messages: ChatMessage[]) => void
   let mockMarkLatestMessageWithTodoUpdate: (messages: ChatMessage[], todos: Todo[]) => void
-  let mockCheckModelConfig: ReturnType<typeof vi.fn<() => Promise<boolean>>>
+  let mockCheckModelConfig: ReturnType<typeof vi.fn<() => Promise<{ success: boolean; message?: string; description?: string }>>>
   let mockCurrentTodos: ReturnType<typeof ref<any[]>>
 
   const createMockSession = () => ({
@@ -94,7 +94,7 @@ describe('useChatMessages', () => {
     mockScrollToBottom = vi.fn()
     mockClearTodoState = vi.fn()
     mockMarkLatestMessageWithTodoUpdate = vi.fn()
-    mockCheckModelConfig = vi.fn().mockResolvedValue(true)
+    mockCheckModelConfig = vi.fn().mockResolvedValue({ success: true })
     mockCurrentTodos = ref([])
 
     const mockTab = createMockTab('test-tab-1')
@@ -285,7 +285,10 @@ describe('useChatMessages', () => {
 
   describe('sendMessage', () => {
     it('should return error when model config check fails', async () => {
-      mockCheckModelConfig.mockResolvedValue(false)
+      const { notification } = await import('ant-design-vue')
+      const eventBus = (await import('@/utils/eventBus')).default
+
+      mockCheckModelConfig.mockResolvedValue({ success: false })
 
       const { sendMessage } = useChatMessages(
         mockScrollToBottom,
@@ -302,6 +305,46 @@ describe('useChatMessages', () => {
 
       expect(result).toBe('SEND_ERROR')
       expect(mockSendToMain).not.toHaveBeenCalled()
+      expect(notification.error).toHaveBeenCalledWith({
+        message: 'user.checkModelConfigFailMessage',
+        description: 'user.checkModelConfigFailDescription',
+        duration: 5
+      })
+
+      // Wait for nested setTimeout to execute (500ms + 200ms = 700ms)
+      await new Promise((resolve) => setTimeout(resolve, 800))
+      expect(eventBus.emit).toHaveBeenCalledWith('openUserTab', 'userConfig')
+      expect(eventBus.emit).toHaveBeenCalledWith('switchToModelSettingsTab')
+    })
+
+    it('should use custom message and description when provided', async () => {
+      const { notification } = await import('ant-design-vue')
+
+      mockCheckModelConfig.mockResolvedValue({
+        success: false,
+        message: 'user.noAvailableModelMessage',
+        description: 'user.noAvailableModelDescription'
+      })
+
+      const { sendMessage } = useChatMessages(
+        mockScrollToBottom,
+        mockClearTodoState,
+        mockMarkLatestMessageWithTodoUpdate,
+        mockCurrentTodos,
+        mockCheckModelConfig
+      )
+
+      const mockState = vi.mocked(useSessionState)()
+      mockState.chatInputValue.value = 'Test message'
+
+      const result = await sendMessage('send')
+
+      expect(result).toBe('SEND_ERROR')
+      expect(notification.error).toHaveBeenCalledWith({
+        message: 'user.noAvailableModelMessage',
+        description: 'user.noAvailableModelDescription',
+        duration: 5
+      })
     })
 
     it('should return error when input is empty', async () => {

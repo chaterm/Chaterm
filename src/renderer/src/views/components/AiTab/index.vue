@@ -30,20 +30,33 @@
               alt="AI"
             />
           </div>
-          <template v-if="isSkippedLogin">
+          <template v-if="!hasAvailableModels">
             <div class="ai-login-prompt">
-              <p>{{ $t('ai.loginPrompt') }}</p>
-              <a-button
-                type="primary"
-                class="login-button"
-                @click="goToLogin"
-              >
-                {{ $t('common.login') }}
-              </a-button>
+              <p>{{ $t('user.noAvailableModelMessage') }}</p>
+              <p class="ai-prompt-description">
+                {{ isSkippedLogin ? $t('user.noAvailableModelDescription') : $t('user.noAvailableModelDescriptionLoggedIn') }}
+              </p>
+              <div class="ai-prompt-buttons">
+                <a-button
+                  v-if="isSkippedLogin"
+                  type="primary"
+                  class="login-button"
+                  @click="goToLogin"
+                >
+                  {{ $t('common.login') }}
+                </a-button>
+                <a-button
+                  type="primary"
+                  class="configure-model-button"
+                  @click="goToModelSettings"
+                >
+                  {{ $t('user.configureModel') }}
+                </a-button>
+              </div>
             </div>
           </template>
           <template v-else>
-            <div class="ai-welcome-text">{{ $t('ai.welcome') }}</div>
+            <div class="ai-welcome-text">{{ tab.welcomeTip }}</div>
           </template>
         </div>
         <div
@@ -523,7 +536,7 @@
               </div>
             </div>
             <div
-              v-if="!isSkippedLogin"
+              v-if="hasAvailableModels"
               class="input-container"
             >
               <div class="hosts-display-container">
@@ -562,6 +575,13 @@
                 </span>
               </div>
               <a-textarea
+                :ref="
+                  (el: HTMLTextAreaElement | null) => {
+                    if (tab.id === currentChatId) {
+                      chatTextareaRef = el
+                    }
+                  }
+                "
                 v-model:value="chatInputValue"
                 :placeholder="
                   chatTypeValue === 'agent' ? $t('ai.agentMessage') : chatTypeValue === 'chat' ? $t('ai.chatMessage') : $t('ai.cmdMessage')
@@ -573,16 +593,32 @@
                 @input="handleInputChange"
               />
               <div class="input-controls">
-                <a-select
-                  v-model:value="chatTypeValue"
-                  size="small"
-                  style="width: 100px"
-                  :options="AiTypeOptions"
-                  show-search
-                ></a-select>
+                <a-tooltip
+                  :title="$t('ai.switchAiModeHint')"
+                  placement="top"
+                  :get-popup-container="(triggerNode) => triggerNode.parentElement"
+                  :mouse-enter-delay="0.3"
+                  :visible="aiModeTooltipVisible && !aiModeSelectOpen"
+                  overlay-class-name="ai-mode-tooltip"
+                  @visible-change="
+                    (visible: boolean) => {
+                      aiModeTooltipVisible = visible
+                    }
+                  "
+                >
+                  <a-select
+                    v-model:value="chatTypeValue"
+                    size="small"
+                    style="width: 100px"
+                    :options="AiTypeOptions"
+                    data-testid="ai-mode-select"
+                    @dropdown-visible-change="handleAiModeSelectOpenChange"
+                  ></a-select>
+                </a-tooltip>
                 <a-select
                   v-model:value="chatAiModelValue"
                   size="small"
+                  class="model-select-responsive"
                   style="width: 160px"
                   show-search
                   @change="handleChatAiModelChange"
@@ -663,6 +699,7 @@
           <a-button
             type="text"
             class="action-icon-btn"
+            data-testid="new-tab-button"
             @click="createNewEmptyTab"
           >
             <img
@@ -865,7 +902,7 @@ import { useAutoScroll } from './composables/useAutoScroll'
 import { useChatHistory } from './composables/useChatHistory'
 import { useChatMessages } from './composables/useChatMessages'
 import { useCommandInteraction } from './composables/useCommandInteraction'
-import { useEventBusListeners } from './composables/useEventBusListeners'
+import { useEventBusListeners, AiTypeOptions } from './composables/useEventBusListeners'
 import { useHostManagement } from './composables/useHostManagement'
 import { useMessageOptions } from './composables/useMessageOptions'
 import { useModelConfiguration } from './composables/useModelConfiguration'
@@ -905,6 +942,7 @@ import { isFocusInAiTab } from '@/utils/domUtils'
 import { getGlobalState } from '@renderer/agent/storage/state'
 import type { MessageContent, ChatMessage } from './types'
 import i18n from '@/locales'
+import eventBus from '@/utils/eventBus'
 import historyIcon from '@/assets/icons/history.svg'
 import plusIcon from '@/assets/icons/plus.svg'
 import sendIcon from '@/assets/icons/send.svg'
@@ -942,6 +980,10 @@ const TodoInlineDisplay = defineAsyncComponent(() => import('./components/todo/T
 
 const isSkippedLogin = ref(localStorage.getItem('login-skipped') === 'true')
 
+// Control AI mode tooltip visibility
+const aiModeTooltipVisible = ref(false)
+const aiModeSelectOpen = ref(false)
+
 const {
   currentChatId,
   chatTabs,
@@ -954,11 +996,12 @@ const {
   responseLoading,
   chatHistory,
   buttonsDisabled,
-  showResumeButton
+  showResumeButton,
+  chatTextareaRef
 } = useSessionState()
 
 // Model configuration management
-const { AgentAiModelsOptions, initModel, handleChatAiModelChange, checkModelConfig, initModelOptions } = useModelConfiguration()
+const { AgentAiModelsOptions, modelsLoading, initModel, handleChatAiModelChange, checkModelConfig, initModelOptions } = useModelConfiguration()
 
 // State snapshot
 const { getCurrentState, restoreState, emitStateChange } = useStateSnapshot(emit)
@@ -1039,6 +1082,13 @@ const {
 
 const handleInterrupt = () => {
   handleCancel()
+}
+
+// Handle AI mode select dropdown visibility change
+const handleAiModeSelectOpenChange = (open: boolean) => {
+  aiModeSelectOpen.value = open
+
+  aiModeTooltipVisible.value = false
 }
 
 // Export chat functionality
@@ -1136,15 +1186,24 @@ useEventBusListeners({
   isAgentMode: props.isAgentMode
 })
 
-const AiTypeOptions = [
-  { label: 'Chat', value: 'chat' },
-  { label: 'Command', value: 'cmd' },
-  { label: 'Agent', value: 'agent' }
-]
-
 const goToLogin = () => {
   router.push('/login')
 }
+
+const goToModelSettings = () => {
+  eventBus.emit('openUserTab', 'userConfig')
+  setTimeout(() => {
+    eventBus.emit('switchToModelSettingsTab')
+  }, 200)
+}
+
+// Check if there are available models
+const hasAvailableModels = computed(() => {
+  if (modelsLoading.value) {
+    return true
+  }
+  return AgentAiModelsOptions.value && AgentAiModelsOptions.value.length > 0
+})
 
 watch(
   () => localStorage.getItem('login-skipped'),

@@ -28,6 +28,9 @@ export interface JumpServerMarkedCommand {
   marker: string
   output: string
   completed: boolean
+  rawChunks: Uint8Array[]
+  rawBytes: number
+  raw: Uint8Array[]
   lastActivity: number
   idleTimer: NodeJS.Timeout | null
 }

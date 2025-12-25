@@ -2,6 +2,7 @@ import { onMounted, onUnmounted } from 'vue'
 import eventBus from '@/utils/eventBus'
 import { useSessionState } from './useSessionState'
 import { focusChatInput } from './useTabManagement'
+import { isFocusInAiTab } from '@/utils/domUtils'
 import type { AssetInfo } from '../types'
 
 interface UseEventBusListenersParams {
@@ -11,6 +12,12 @@ interface UseEventBusListenersParams {
   updateHosts: (hostInfo: { ip: string; uuid: string; connection: string } | null) => void
   isAgentMode?: boolean
 }
+
+export const AiTypeOptions = [
+  { label: 'Chat', value: 'chat' },
+  { label: 'Command', value: 'cmd' },
+  { label: 'Agent', value: 'agent' }
+]
 
 interface TabInfo {
   ip?: string
@@ -26,7 +33,7 @@ interface TabInfo {
  */
 export function useEventBusListeners(params: UseEventBusListenersParams) {
   const { sendMessageWithContent, initModel, getCurentTabAssetInfo, updateHosts, isAgentMode = false } = params
-  const { chatTabs, chatInputValue, currentSession, autoUpdateHost } = useSessionState()
+  const { chatTabs, chatInputValue, currentSession, autoUpdateHost, chatTypeValue } = useSessionState()
 
   // Initialize asset information
   const initAssetInfo = async () => {
@@ -107,11 +114,22 @@ export function useEventBusListeners(params: UseEventBusListenersParams) {
     await initModel()
   }
 
+  const handleSwitchAiMode = () => {
+    if (!isFocusInAiTab(new KeyboardEvent('keydown'))) {
+      return
+    }
+
+    const currentIndex = AiTypeOptions.findIndex((option) => option.value === chatTypeValue.value)
+    const nextIndex = (currentIndex + 1) % AiTypeOptions.length
+    chatTypeValue.value = AiTypeOptions[nextIndex].value
+  }
+
   onMounted(async () => {
     eventBus.on('sendMessageToAi', handleSendMessageToAi)
     eventBus.on('chatToAi', handleChatToAi)
     eventBus.on('activeTabChanged', handleActiveTabChanged)
     eventBus.on('SettingModelOptionsChanged', handleSettingModelOptionsChanged)
+    eventBus.on('switchAiMode', handleSwitchAiMode)
     await initAssetInfo()
   })
 
@@ -120,5 +138,6 @@ export function useEventBusListeners(params: UseEventBusListenersParams) {
     eventBus.off('chatToAi', handleChatToAi)
     eventBus.off('activeTabChanged', handleActiveTabChanged)
     eventBus.off('SettingModelOptionsChanged', handleSettingModelOptionsChanged)
+    eventBus.off('switchAiMode', handleSwitchAiMode)
   })
 }

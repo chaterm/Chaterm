@@ -233,6 +233,7 @@ describe('useModelConfiguration', () => {
       vi.mocked(stateModule.getGlobalState).mockImplementation(async (key) => {
         if (key === 'apiProvider') return 'anthropic'
         if (key === 'defaultModelId') return 'claude-3-5-sonnet'
+        if (key === 'modelOptions') return [{ id: '1', name: 'test', checked: true, type: 'standard', apiProvider: 'default' }]
         return null
       })
 
@@ -240,16 +241,21 @@ describe('useModelConfiguration', () => {
       const result = await checkModelConfig()
 
       expect(result).toBeDefined()
+      expect(result.success).toBe(true)
     })
 
     it('should show notification when model config is invalid', async () => {
-      vi.mocked(stateModule.getGlobalState).mockResolvedValue(null)
+      vi.mocked(stateModule.getGlobalState).mockImplementation(async (key) => {
+        if (key === 'modelOptions') return []
+        return null
+      })
 
       const { checkModelConfig } = useModelConfiguration()
       const result = await checkModelConfig()
 
       // Verify that the function handles invalid config gracefully
       expect(result).toBeDefined()
+      expect(result.success).toBe(false)
     })
   })
 })

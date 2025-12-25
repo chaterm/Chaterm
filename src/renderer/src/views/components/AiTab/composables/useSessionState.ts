@@ -36,6 +36,7 @@ export interface ChatTab {
   session: SessionState // Session state
   inputValue: string // Input value
   modelValue: string // Selected AI model for this tab
+  welcomeTip: string // Welcome tip for this tab
 }
 
 /**
@@ -47,6 +48,8 @@ export const useSessionState = createGlobalState(() => {
   const currentChatId = ref<string | undefined>(undefined)
 
   const chatTabs = ref<ChatTab[]>([])
+
+  const chatTextareaRef = ref<HTMLTextAreaElement | null>(null)
 
   const createEmptySessionState = (): SessionState => ({
     chatHistory: [],
@@ -236,6 +239,7 @@ export const useSessionState = createGlobalState(() => {
     showNewTaskButton,
     showResumeButton,
     shouldShowSendButton,
-    attachTabContext
+    attachTabContext,
+    chatTextareaRef
   }
 })

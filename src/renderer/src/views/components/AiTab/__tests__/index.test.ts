@@ -82,6 +82,11 @@ describe('AiTab Component - Composable Integration Tests', () => {
       return null
     })
     Storage.prototype.setItem = vi.fn()
+
+    // Reset global session state to ensure clean state for each test
+    const { chatTabs, currentChatId } = useSessionState()
+    chatTabs.value = []
+    currentChatId.value = undefined
   })
 
   describe('Session State and Tab Management Integration', () => {
@@ -99,7 +104,8 @@ describe('AiTab Component - Composable Integration Tests', () => {
         autoUpdateHost: true,
         session: createEmptySessionState(),
         inputValue: '',
-        modelValue: 'claude-3-5-sonnet'
+        modelValue: 'claude-3-5-sonnet',
+        welcomeTip: ''
       }
 
       chatTabs.value.push(newTab)
@@ -121,7 +127,8 @@ describe('AiTab Component - Composable Integration Tests', () => {
         autoUpdateHost: true,
         session: createEmptySessionState(),
         inputValue: 'Input 1',
-        modelValue: 'claude-3-5-sonnet'
+        modelValue: 'claude-3-5-sonnet',
+        welcomeTip: ''
       }
       tab1.session.responseLoading = true
 
@@ -133,7 +140,8 @@ describe('AiTab Component - Composable Integration Tests', () => {
         autoUpdateHost: true,
         session: createEmptySessionState(),
         inputValue: 'Input 2',
-        modelValue: 'gpt-4'
+        modelValue: 'gpt-4',
+        welcomeTip: ''
       }
       tab2.session.responseLoading = false
 
@@ -159,7 +167,8 @@ describe('AiTab Component - Composable Integration Tests', () => {
         autoUpdateHost: true,
         session: createEmptySessionState(),
         inputValue: '',
-        modelValue: 'claude-3-5-sonnet'
+        modelValue: 'claude-3-5-sonnet',
+        welcomeTip: ''
       }
 
       const tab2 = {
@@ -170,7 +179,8 @@ describe('AiTab Component - Composable Integration Tests', () => {
         autoUpdateHost: true,
         session: createEmptySessionState(),
         inputValue: '',
-        modelValue: 'gpt-4'
+        modelValue: 'gpt-4',
+        welcomeTip: ''
       }
 
       chatTabs.value = [tab1, tab2]
@@ -437,7 +447,8 @@ describe('AiTab Component - Composable Integration Tests', () => {
           autoUpdateHost: true,
           session,
           inputValue: '',
-          modelValue: 'claude-3-5-sonnet'
+          modelValue: 'claude-3-5-sonnet',
+          welcomeTip: ''
         }
       ]
       currentChatId.value = 'tab-1'
@@ -467,7 +478,8 @@ describe('AiTab Component - Composable Integration Tests', () => {
           autoUpdateHost: true,
           session,
           inputValue: '',
-          modelValue: 'claude-3-5-sonnet'
+          modelValue: 'claude-3-5-sonnet',
+          welcomeTip: ''
         }
       ]
       currentChatId.value = 'tab-1'
@@ -499,7 +511,8 @@ describe('AiTab Component - Composable Integration Tests', () => {
             autoUpdateHost: true,
             session,
             inputValue: '',
-            modelValue: 'claude-3-5-sonnet'
+            modelValue: 'claude-3-5-sonnet',
+            welcomeTip: ''
           }
         ]
         currentChatId.value = 'tab-1'
@@ -525,7 +538,8 @@ describe('AiTab Component - Composable Integration Tests', () => {
             autoUpdateHost: true,
             session,
             inputValue: '',
-            modelValue: 'claude-3-5-sonnet'
+            modelValue: 'claude-3-5-sonnet',
+            welcomeTip: ''
           }
         ]
         currentChatId.value = 'tab-1'
@@ -552,7 +566,8 @@ describe('AiTab Component - Composable Integration Tests', () => {
             autoUpdateHost: true,
             session,
             inputValue: '',
-            modelValue: 'claude-3-5-sonnet'
+            modelValue: 'claude-3-5-sonnet',
+            welcomeTip: ''
           }
         ]
         currentChatId.value = 'tab-1'
@@ -577,7 +592,8 @@ describe('AiTab Component - Composable Integration Tests', () => {
             autoUpdateHost: true,
             session,
             inputValue: '',
-            modelValue: 'claude-3-5-sonnet'
+            modelValue: 'claude-3-5-sonnet',
+            welcomeTip: ''
           }
         ]
         currentChatId.value = 'tab-1'
@@ -600,7 +616,8 @@ describe('AiTab Component - Composable Integration Tests', () => {
             autoUpdateHost: true,
             session,
             inputValue: '',
-            modelValue: 'claude-3-5-sonnet'
+            modelValue: 'claude-3-5-sonnet',
+            welcomeTip: ''
           }
         ]
         currentChatId.value = 'tab-1'
@@ -630,7 +647,8 @@ describe('AiTab Component - Composable Integration Tests', () => {
             autoUpdateHost: true,
             session,
             inputValue: '',
-            modelValue: 'claude-3-5-sonnet'
+            modelValue: 'claude-3-5-sonnet',
+            welcomeTip: ''
           }
         ]
         currentChatId.value = 'tab-1'
@@ -670,7 +688,8 @@ describe('AiTab Component - Composable Integration Tests', () => {
             autoUpdateHost: true,
             session,
             inputValue: '',
-            modelValue: 'claude-3-5-sonnet'
+            modelValue: 'claude-3-5-sonnet',
+            welcomeTip: ''
           }
         ]
         currentChatId.value = 'tab-1'
@@ -697,7 +716,8 @@ describe('AiTab Component - Composable Integration Tests', () => {
             autoUpdateHost: true,
             session,
             inputValue: '',
-            modelValue: 'claude-3-5-sonnet'
+            modelValue: 'claude-3-5-sonnet',
+            welcomeTip: ''
           }
         ]
         currentChatId.value = 'tab-1'
@@ -721,7 +741,8 @@ describe('AiTab Component - Composable Integration Tests', () => {
             autoUpdateHost: true,
             session,
             inputValue: '',
-            modelValue: 'claude-3-5-sonnet'
+            modelValue: 'claude-3-5-sonnet',
+            welcomeTip: ''
           }
         ]
         currentChatId.value = 'tab-1'
@@ -778,7 +799,8 @@ describe('AiTab Component - Composable Integration Tests', () => {
             autoUpdateHost: true,
             session,
             inputValue: '',
-            modelValue: 'claude-3-5-sonnet'
+            modelValue: 'claude-3-5-sonnet',
+            welcomeTip: ''
           }
         ]
         currentChatId.value = 'tab-1'
@@ -861,7 +883,8 @@ describe('AiTab Component - Composable Integration Tests', () => {
             autoUpdateHost: true,
             session,
             inputValue: '',
-            modelValue: 'claude-3-5-sonnet'
+            modelValue: 'claude-3-5-sonnet',
+            welcomeTip: ''
           }
         ]
         currentChatId.value = 'tab-1'
@@ -891,7 +914,8 @@ describe('AiTab Component - Composable Integration Tests', () => {
             autoUpdateHost: true,
             session,
             inputValue: '',
-            modelValue: 'claude-3-5-sonnet'
+            modelValue: 'claude-3-5-sonnet',
+            welcomeTip: ''
           }
         ]
         currentChatId.value = 'tab-1'
@@ -1033,7 +1057,8 @@ describe('AiTab Component - Composable Integration Tests', () => {
             autoUpdateHost: true,
             session,
             inputValue: '',
-            modelValue: 'claude-3-5-sonnet'
+            modelValue: 'claude-3-5-sonnet',
+            welcomeTip: ''
           }
         ]
         currentChatId.value = 'tab-1'
@@ -1056,7 +1081,8 @@ describe('AiTab Component - Composable Integration Tests', () => {
             autoUpdateHost: true,
             session,
             inputValue: '',
-            modelValue: 'claude-3-5-sonnet'
+            modelValue: 'claude-3-5-sonnet',
+            welcomeTip: ''
           }
         ]
         currentChatId.value = 'tab-1'
@@ -1079,7 +1105,8 @@ describe('AiTab Component - Composable Integration Tests', () => {
             autoUpdateHost: true,
             session,
             inputValue: '',
-            modelValue: 'claude-3-5-sonnet'
+            modelValue: 'claude-3-5-sonnet',
+            welcomeTip: ''
           }
         ]
         currentChatId.value = 'tab-1'
@@ -1112,7 +1139,8 @@ describe('AiTab Component - Composable Integration Tests', () => {
             autoUpdateHost: true,
             session,
             inputValue: '',
-            modelValue: 'claude-3-5-sonnet'
+            modelValue: 'claude-3-5-sonnet',
+            welcomeTip: ''
           }
         ]
         currentChatId.value = 'tab-1'
@@ -1143,7 +1171,8 @@ describe('AiTab Component - Composable Integration Tests', () => {
             autoUpdateHost: true,
             session,
             inputValue: '',
-            modelValue: 'claude-3-5-sonnet'
+            modelValue: 'claude-3-5-sonnet',
+            welcomeTip: ''
           }
         ]
         currentChatId.value = 'tab-1'
@@ -1167,7 +1196,8 @@ describe('AiTab Component - Composable Integration Tests', () => {
           autoUpdateHost: true,
           session: createEmptySessionState(),
           inputValue: '',
-          modelValue: 'claude-3-5-sonnet'
+          modelValue: 'claude-3-5-sonnet',
+          welcomeTip: ''
         }
       ]
       currentChatId.value = 'tab-1'
@@ -1197,12 +1227,220 @@ describe('AiTab Component - Composable Integration Tests', () => {
           autoUpdateHost: true,
           session: createEmptySessionState(),
           inputValue: '',
-          modelValue: 'claude-3-5-sonnet'
+          modelValue: 'claude-3-5-sonnet',
+          welcomeTip: ''
         }
       ]
       currentChatId.value = 'tab-1'
 
       expect(chatTypeValue.value).toBe('cmd')
+    })
+
+    it('should compute shouldShowSendButton based on input value', () => {
+      const { chatTabs, currentChatId, chatInputValue, shouldShowSendButton, createEmptySessionState } = useSessionState()
+
+      chatTabs.value = [
+        {
+          id: 'tab-1',
+          title: 'Test',
+          hosts: [],
+          chatType: 'chat',
+          autoUpdateHost: true,
+          session: createEmptySessionState(),
+          inputValue: '',
+          modelValue: 'claude-3-5-sonnet',
+          welcomeTip: ''
+        }
+      ]
+      currentChatId.value = 'tab-1'
+
+      // Empty input should not show send button
+      chatInputValue.value = ''
+      expect(shouldShowSendButton.value).toBe(false)
+
+      // Whitespace only should not show send button
+      chatInputValue.value = '   '
+      expect(shouldShowSendButton.value).toBe(false)
+
+      // Valid input should show send button
+      chatInputValue.value = 'Hello'
+      expect(shouldShowSendButton.value).toBe(true)
+
+      // Single character should show send button
+      chatInputValue.value = 'a'
+      expect(shouldShowSendButton.value).toBe(true)
+    })
+
+    it('should compute chatAiModelValue correctly', () => {
+      const { chatTabs, currentChatId, chatAiModelValue, createEmptySessionState } = useSessionState()
+
+      chatTabs.value = [
+        {
+          id: 'tab-1',
+          title: 'Test',
+          hosts: [],
+          chatType: 'agent',
+          autoUpdateHost: true,
+          session: createEmptySessionState(),
+          inputValue: '',
+          modelValue: 'claude-3-5-sonnet',
+          welcomeTip: ''
+        }
+      ]
+      currentChatId.value = 'tab-1'
+
+      expect(chatAiModelValue.value).toBe('claude-3-5-sonnet')
+
+      // Should allow updating model value
+      chatAiModelValue.value = 'gpt-4'
+      expect(chatTabs.value[0].modelValue).toBe('gpt-4')
+    })
+
+    it('should return empty string for chatAiModelValue when no tab is selected', () => {
+      const { chatAiModelValue, chatTabs, currentChatId } = useSessionState()
+      // Ensure no tab is selected
+      chatTabs.value = []
+      currentChatId.value = undefined
+      expect(chatAiModelValue.value).toBe('')
+    })
+
+    it('should compute autoUpdateHost correctly', () => {
+      const { chatTabs, currentChatId, autoUpdateHost, createEmptySessionState } = useSessionState()
+
+      chatTabs.value = [
+        {
+          id: 'tab-1',
+          title: 'Test',
+          hosts: [],
+          chatType: 'agent',
+          autoUpdateHost: false,
+          session: createEmptySessionState(),
+          inputValue: '',
+          modelValue: 'claude-3-5-sonnet',
+          welcomeTip: ''
+        }
+      ]
+      currentChatId.value = 'tab-1'
+
+      expect(autoUpdateHost.value).toBe(false)
+
+      // Should allow updating autoUpdateHost
+      autoUpdateHost.value = true
+      expect(chatTabs.value[0].autoUpdateHost).toBe(true)
+    })
+
+    it('should return true for autoUpdateHost when no tab is selected', () => {
+      const { autoUpdateHost } = useSessionState()
+      expect(autoUpdateHost.value).toBe(true)
+    })
+
+    it('should compute shouldStickToBottom correctly', () => {
+      const { chatTabs, currentChatId, shouldStickToBottom, createEmptySessionState } = useSessionState()
+
+      const session = createEmptySessionState()
+      session.shouldStickToBottom = false
+
+      chatTabs.value = [
+        {
+          id: 'tab-1',
+          title: 'Test',
+          hosts: [],
+          chatType: 'agent',
+          autoUpdateHost: true,
+          session,
+          inputValue: '',
+          modelValue: 'claude-3-5-sonnet',
+          welcomeTip: ''
+        }
+      ]
+      currentChatId.value = 'tab-1'
+
+      expect(shouldStickToBottom.value).toBe(false)
+
+      // Should allow updating shouldStickToBottom
+      shouldStickToBottom.value = true
+      expect(session.shouldStickToBottom).toBe(true)
+    })
+
+    it('should return true for shouldStickToBottom when no tab is selected', () => {
+      const { shouldStickToBottom } = useSessionState()
+      expect(shouldStickToBottom.value).toBe(true)
+    })
+  })
+
+  describe('Watch Effects', () => {
+    it('should reset buttonsDisabled and resumeDisabled when chat history changes', async () => {
+      const { chatTabs, currentChatId, currentSession, createEmptySessionState } = useSessionState()
+
+      const session = createEmptySessionState()
+      session.buttonsDisabled = true
+      session.resumeDisabled = true
+
+      chatTabs.value = [
+        {
+          id: 'tab-1',
+          title: 'Test',
+          hosts: [],
+          chatType: 'agent',
+          autoUpdateHost: true,
+          session,
+          inputValue: '',
+          modelValue: 'claude-3-5-sonnet',
+          welcomeTip: ''
+        }
+      ]
+      currentChatId.value = 'tab-1'
+
+      // Add a message to trigger watch
+      session.chatHistory.push({
+        id: 'msg-1',
+        role: 'user',
+        content: 'Test message'
+      })
+
+      // Wait for next tick to allow watch to execute
+      await new Promise((resolve) => setTimeout(resolve, 0))
+
+      expect(currentSession.value?.buttonsDisabled).toBe(false)
+      expect(currentSession.value?.resumeDisabled).toBe(false)
+    })
+
+    it('should sync shouldShowSendButton to session.showSendButton', async () => {
+      const { chatTabs, currentChatId, chatInputValue, currentSession, createEmptySessionState } = useSessionState()
+
+      const session = createEmptySessionState()
+      // Set showSendButton to false initially to match empty input
+      session.showSendButton = false
+      chatTabs.value = [
+        {
+          id: 'tab-1',
+          title: 'Test',
+          hosts: [],
+          chatType: 'chat',
+          autoUpdateHost: true,
+          session,
+          inputValue: '',
+          modelValue: 'claude-3-5-sonnet',
+          welcomeTip: ''
+        }
+      ]
+      currentChatId.value = 'tab-1'
+
+      // Wait for immediate watch to execute
+      await new Promise((resolve) => setTimeout(resolve, 0))
+
+      // Initially empty, should be false
+      expect(currentSession.value?.showSendButton).toBe(false)
+
+      // Set valid input
+      chatInputValue.value = 'Hello'
+      await new Promise((resolve) => setTimeout(resolve, 0))
+      expect(currentSession.value?.showSendButton).toBe(true)
+
+      // Clear input
+      chatInputValue.value = ''
+      await new Promise((resolve) => setTimeout(resolve, 0))
+      expect(currentSession.value?.showSendButton).toBe(false)
     })
   })
 })

@@ -581,7 +581,10 @@ const getLocalAssetMenu = () => {
         originalTreeData.value = deepClone(data) as AssetNode[]
         assetTreeData.value = deepClone(data) as AssetNode[]
         const localShell = await window.api.getShellsLocal()
-        assetTreeData.value.push(localShell)
+        const isExist = assetTreeData.value.some((node) => node.key === 'localTerm')
+        if (!isExist && localShell) {
+          assetTreeData.value.push(localShell)
+        }
         setTimeout(async () => {
           await expandDefaultNodes()
         }, 200)

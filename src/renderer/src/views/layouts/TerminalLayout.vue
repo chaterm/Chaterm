@@ -86,20 +86,31 @@
       </div>
       <div class="term_body">
         <!-- Agents Mode Layout -->
-        <template v-if="props.currentMode === 'agents'">
+        <div
+          class="agents-mode-layout"
+          :style="getLayoutStyle('agents')"
+        >
           <div class="term_content">
             <splitpanes
               class="left-sidebar-container"
               @resize="(params: ResizeParams) => handleLeftPaneResize(params)"
             >
-              <pane :size="agentsLeftPaneSize">
+              <pane
+                class="agents_content_left"
+                :class="{ collapsed: agentsLeftPaneSize <= 0 }"
+                :size="agentsLeftPaneSize"
+                :min-size="leftMinSize"
+              >
                 <AgentsSidebar
                   @conversation-select="handleConversationSelect"
                   @new-chat="handleNewChat"
                   @conversation-delete="handleConversationDelete"
                 />
               </pane>
-              <pane :size="100 - agentsLeftPaneSize">
+              <pane
+                :size="100 - agentsLeftPaneSize"
+                :min-size="aiMinSize"
+              >
                 <div class="agents-chat-container">
                   <AiTab
                     ref="aiTabRef"
@@ -112,9 +123,12 @@
               </pane>
             </splitpanes>
           </div>
-        </template>
+        </div>
         <!-- Terminal Mode Layout -->
-        <template v-else>
+        <div
+          class="terminal-mode-layout"
+          :style="getLayoutStyle('terminal')"
+        >
           <div class="term_left_menu">
             <LeftTab
               @toggle-menu="toggleMenu"
@@ -128,7 +142,9 @@
             >
               <pane
                 class="term_content_left"
+                :class="{ collapsed: leftPaneSize <= 0 }"
                 :size="leftPaneSize"
+                :min-size="leftMinSize"
               >
                 <Workspace
                   v-if="currentMenu == 'workspace'"
@@ -145,7 +161,10 @@
                 <Snippets v-if="currentMenu == 'snippets'" />
               </pane>
               <pane :size="100 - leftPaneSize">
-                <splitpanes @resize="onMainSplitResize">
+                <splitpanes
+                  class="main-split-container"
+                  @resize="onMainSplitResize"
+                >
                   <!-- Main terminal area (including vertical split) -->
                   <pane
                     :size="mainTerminalSize"
@@ -192,6 +211,7 @@
                   <pane
                     v-if="showAiSidebar"
                     :size="aiSidebarSize"
+                    :min-size="aiMinSize"
                   >
                     <div
                       class="rigth-sidebar"
@@ -240,7 +260,7 @@
               </div>
             </div>
           </div>
-        </template>
+        </div>
       </div>
     </div>
   </a-watermark>
@@ -250,11 +270,12 @@ interface ResizeParams {
   prevPane: { size: number }
   nextPane: { size: number }
 }
+
 import { useI18n } from 'vue-i18n'
 import { userConfigStore } from '@/services/userConfigStoreService'
 import { userConfigStore as piniaUserConfigStore } from '@/store/userConfigStore'
-import { ref, onMounted, nextTick, onUnmounted, watch, computed, onBeforeUnmount } from 'vue'
-import { Splitpanes, Pane } from 'splitpanes'
+import { computed, nextTick, onBeforeUnmount, onMounted, onUnmounted, reactive, ref, watch } from 'vue'
+import { Pane, Splitpanes } from 'splitpanes'
 import 'splitpanes/dist/splitpanes.css'
 import AiTab from '@views/components/AiTab/index.vue'
 import Header from '@views/components/Header/index.vue'
@@ -264,23 +285,41 @@ import Extensions from '@views/components/Extensions/index.vue'
 import Snippets from '@views/components/LeftTab/config/snippets.vue'
 import AgentsSidebar from '@views/components/AgentsSidebar/index.vue'
 import TabsPanel from './tabsPanel.vue'
-import { reactive } from 'vue'
+import tabsPanel from './tabsPanel.vue'
 import { v4 as uuidv4 } from 'uuid'
 import { userInfoStore } from '@/store'
 import { aliasConfigStore } from '@/store/aliasConfigStore'
 import eventBus from '@/utils/eventBus'
-import { initializeThemeFromDatabase, getActualTheme } from '@/utils/themeUtils'
-import { isGlobalInput, isShowCommandBar, componentInstances, inputManager } from '@renderer/views/components/Ssh/utils/termInputManager'
+import { getActualTheme, initializeThemeFromDatabase } from '@/utils/themeUtils'
+import { componentInstances, inputManager, isGlobalInput, isShowCommandBar } from '@renderer/views/components/Ssh/utils/termInputManager'
 import { shortcutService } from '@/services/shortcutService'
 import { captureExtensionUsage, ExtensionNames, ExtensionStatus } from '@/utils/telemetry'
 import Dashboard from '@renderer/views/components/Ssh/components/dashboard.vue'
 import { getGlobalState } from '@/agent/storage/state'
+import 'dockview-vue/dist/styles/dockview.css'
+import { type DockviewReadyEvent, DockviewVue } from 'dockview-vue'
 
 const props = defineProps<{
   currentMode: 'terminal' | 'agents'
 }>()
 
 const { t } = useI18n()
+
+// Computed styles for layout visibility
+const getLayoutStyle = (
+  mode: 'terminal' | 'agents'
+): {
+  visibility: 'visible' | 'hidden'
+  opacity: number
+  pointerEvents: 'auto' | 'none'
+} => {
+  const isVisible = props.currentMode === mode
+  return {
+    visibility: isVisible ? 'visible' : 'hidden',
+    opacity: isVisible ? 1 : 0,
+    pointerEvents: isVisible ? 'auto' : 'none'
+  }
+}
 const aliasConfig = aliasConfigStore()
 const configStore = piniaUserConfigStore()
 const isTransparent = computed(() => !!configStore.getUserConfig.background.image)
@@ -310,6 +349,13 @@ const mainTerminalSize = ref(100)
 const showWatermark = ref(true)
 const currentTheme = ref('dark')
 const aiSidebarSize = ref(0)
+const aiMinSize = ref(0) // AI sidebar minimum size percentage
+const isDraggingSplitter = ref(false) // Whether the splitter is being dragged
+// Left sidebar state variables
+const leftMinSize = ref(0) // Left sidebar minimum size percentage
+const isDraggingLeftSplitter = ref(false) // Whether the left splitter is being dragged
+const savedLeftSidebarState = ref<LeftSidebarState | null>(null) // Saved left sidebar state
+const isQuickClosing = ref(false) // Flag to prevent resize events during quick close
 interface SplitPaneItem {
   size: number
   tabs: TabItem[]
@@ -317,6 +363,7 @@ interface SplitPaneItem {
   verticalSplitPanes?: { size: number; tabs: TabItem[]; activeTabId: string }[]
   mainVerticalSize?: number
 }
+
 const splitPanes = ref<SplitPaneItem[]>([])
 const showAiSidebar = ref(false)
 const showSplitPane = ref(false)
@@ -324,7 +371,11 @@ const verticalSplitPanes = ref<{ size: number; tabs: TabItem[]; activeTabId: str
 const mainVerticalSize = ref(100)
 const globalInput = ref('')
 const focusedSplitPaneIndex = ref<number | null>(null)
-const focusedPane = ref<{ type: 'main' | 'horizontal' | 'vertical' | 'rightVertical'; index?: number; rightPaneIndex?: number }>({ type: 'main' })
+const focusedPane = ref<{
+  type: 'main' | 'horizontal' | 'vertical' | 'rightVertical'
+  index?: number
+  rightPaneIndex?: number
+}>({ type: 'main' })
 const lastFocusedElement = ref<HTMLElement | null>(null)
 
 interface AiSidebarState {
@@ -351,6 +402,12 @@ interface AiSidebarState {
       messageFeedbacks: Record<string, 'like' | 'dislike'>
     }
   }>
+}
+
+interface LeftSidebarState {
+  size: number
+  currentMenu: string
+  isExpanded: boolean
 }
 
 const savedAiSidebarState = ref<AiSidebarState | null>(null)
@@ -402,6 +459,122 @@ const restorePreviousFocus = () => {
       }
     })
   }
+}
+
+// Left sidebar unified management functions
+const getLeftSidebarSize = () => {
+  return props.currentMode === 'agents' ? agentsLeftPaneSize.value : leftPaneSize.value
+}
+
+const setLeftSidebarSize = (size: number) => {
+  if (props.currentMode === 'agents') {
+    agentsLeftPaneSize.value = size
+  } else {
+    leftPaneSize.value = size
+  }
+}
+
+// Detect if splitter was clicked
+const handleMouseDown = (e: MouseEvent) => {
+  const target = e.target as HTMLElement
+  if (target.classList.contains('splitpanes__splitter') && target.closest('.main-split-container')) {
+    isDraggingSplitter.value = true
+  }
+  // Detect left sidebar splitter
+  if (target.classList.contains('splitpanes__splitter') && target.closest('.left-sidebar-container')) {
+    isDraggingLeftSplitter.value = true
+  }
+}
+
+// Global mouse move listener
+const handleGlobalMouseMove = (e: MouseEvent) => {
+  // Skip if already quick closing
+  if (isQuickClosing.value) {
+    return
+  }
+
+  // AI sidebar quick close logic
+  if (isDraggingSplitter.value && showAiSidebar.value) {
+    // In Agents mode, do not execute quick close logic
+    if (props.currentMode === 'agents') {
+      return
+    }
+
+    const distFromRight = window.innerWidth - e.clientX
+    // Close threshold: 50px (only in Terminal mode)
+    if (distFromRight < 50) {
+      isQuickClosing.value = true
+
+      // Force end the drag by triggering mouseup on document
+      const mouseUpEvent = new MouseEvent('mouseup', {
+        bubbles: true,
+        cancelable: true,
+        view: window
+      })
+      document.dispatchEvent(mouseUpEvent)
+
+      // Execute close after a short delay to let splitpanes finish its mouseup handling
+      setTimeout(() => {
+        saveAiSidebarState()
+        showAiSidebar.value = false
+        aiSidebarSize.value = 0
+        headerRef.value?.switchIcon('right', false)
+        if (showSplitPane.value) {
+          adjustSplitPaneToEqualWidth()
+        } else {
+          mainTerminalSize.value = 100
+        }
+        restorePreviousFocus()
+        isDraggingSplitter.value = false
+
+        // Reset flag
+        setTimeout(() => {
+          isQuickClosing.value = false
+        }, 100)
+      }, 10)
+    }
+  }
+
+  // Left sidebar sticky resistance and quick close logic
+  if (isDraggingLeftSplitter.value && getLeftSidebarSize() > 0) {
+    const distFromLeft = e.clientX
+    const container = document.querySelector('.left-sidebar-container') as HTMLElement
+    if (!container) return
+
+    // Sticky resistance controlled by CSS min-width
+    // Quick close: < 50px
+    if (distFromLeft < LEFT_QUICK_CLOSE_THRESHOLD_PX) {
+      isQuickClosing.value = true
+
+      // Force end the drag by triggering mouseup on document
+      const mouseUpEvent = new MouseEvent('mouseup', {
+        bubbles: true,
+        cancelable: true,
+        view: window
+      })
+      document.dispatchEvent(mouseUpEvent)
+
+      // Execute close after a short delay to let splitpanes finish its mouseup handling
+      setTimeout(() => {
+        saveLeftSidebarState()
+        setLeftSidebarSize(0)
+        const iconKey = props.currentMode === 'agents' ? 'agentsLeft' : 'left'
+        headerRef.value?.switchIcon(iconKey, false)
+        isDraggingLeftSplitter.value = false
+
+        // Reset flag
+        setTimeout(() => {
+          isQuickClosing.value = false
+        }, 100)
+      }, 10)
+    }
+  }
+}
+
+// Release mouse
+const handleGlobalMouseUp = () => {
+  isDraggingSplitter.value = false
+  isDraggingLeftSplitter.value = false
 }
 
 const focusRightSidebar = () => {
@@ -565,6 +738,7 @@ onMounted(async () => {
     })
   }
   nextTick(() => {
+    updateLeftSidebarMinSize()
     if (props.currentMode === 'terminal') {
       updatePaneSize()
       if (headerRef.value) {
@@ -577,6 +751,8 @@ onMounted(async () => {
         headerRef.value.switchIcon('agentsLeft', agentsLeftPaneSize.value > 0)
         headerRef.value.setMode(props.currentMode)
       }
+      // In Agents mode, also need to initialize AI sidebar min-size
+      updateAiSidebarMinSize()
     }
   })
 
@@ -614,41 +790,52 @@ onMounted(async () => {
       // When switching from agents to terminal, reset layout state
       if (newMode === 'terminal' && oldMode === 'agents') {
         await nextTick()
-        // Reset layout state to ensure proper display
-        const container = document.querySelector('.splitpanes') as HTMLElement
-        if (container) {
-          const containerWidth = container.offsetWidth
-          // Preserve left pane collapsed state, only recalculate if expanded
-          const wasCollapsed = leftPaneSize.value === 0
-          if (!wasCollapsed) {
-            // Reset left pane size to default only if it was expanded
-            leftPaneSize.value = (DEFAULT_WIDTH_PX / containerWidth) * 100
-            // Update pane size to ensure correct layout
-            updatePaneSize()
-          }
-          // Update header icon state to match left pane state
-          if (headerRef.value) {
-            headerRef.value.switchIcon('left', !wasCollapsed)
-          }
-          // Reset main terminal size based on split panes and AI sidebar state
-          if (showSplitPane.value) {
-            // If there are split panes, adjust them to equal width
-            adjustSplitPaneToEqualWidth()
-          } else {
-            // Otherwise, set main terminal size based on AI sidebar
-            if (showAiSidebar.value) {
-              mainTerminalSize.value = 100 - aiSidebarSize.value
+        // Wait for element to become visible before recalculating
+        setTimeout(async () => {
+          // Reset layout state to ensure proper display
+          const container = document.querySelector('.terminal-mode-layout .splitpanes') as HTMLElement
+          if (container) {
+            const containerWidth = container.offsetWidth
+            // Preserve left pane collapsed state, only recalculate if expanded
+            const wasCollapsed = leftPaneSize.value === 0
+            if (!wasCollapsed) {
+              // Reset left pane size to default only if it was expanded
+              leftPaneSize.value = (DEFAULT_WIDTH_PX / containerWidth) * 100
+              // Update pane size to ensure correct layout
+              updatePaneSize()
+            }
+            // Update header icon state to match left pane state
+            if (headerRef.value) {
+              headerRef.value.switchIcon('left', !wasCollapsed)
+            }
+            // Reset main terminal size based on split panes and AI sidebar state
+            if (showSplitPane.value) {
+              // If there are split panes, adjust them to equal width
+              adjustSplitPaneToEqualWidth()
             } else {
-              mainTerminalSize.value = 100
+              // Otherwise, set main terminal size based on AI sidebar
+              if (showAiSidebar.value) {
+                mainTerminalSize.value = 100 - aiSidebarSize.value
+              } else {
+                mainTerminalSize.value = 100
+              }
+            }
+            // Force resize of terminal components
+            if (allTabs.value) {
+              allTabs.value.resizeTerm()
             }
           }
-        }
+        }, 50)
       } else if (newMode === 'agents' && oldMode === 'terminal') {
         await nextTick()
         // Initialize agents left pane state
         if (headerRef.value) {
           headerRef.value.switchIcon('agentsLeft', agentsLeftPaneSize.value > 0)
         }
+        // When switching to Agents mode, recalculate AI sidebar min-size
+        updateAiSidebarMinSize()
+        // Update left sidebar min-size
+        updateLeftSidebarMinSize()
       }
 
       // Restore AI state after mode switch (unified for both directions since same aiTabRef)
@@ -660,6 +847,14 @@ onMounted(async () => {
     { immediate: false }
   )
   window.addEventListener('resize', updatePaneSize)
+  window.addEventListener('resize', updateAiSidebarMinSize)
+  window.addEventListener('resize', updateLeftSidebarMinSize)
+
+  // Register global mouse event listeners for sticky resizing
+  document.addEventListener('mousedown', handleMouseDown)
+  document.addEventListener('mouseup', handleGlobalMouseUp)
+  document.addEventListener('mousemove', handleGlobalMouseMove)
+
   aliasConfig.initialize()
 
   // Initialize shortcut service
@@ -750,57 +945,185 @@ const closeGlobalInput = () => {
   isGlobalInput.value = false
 }
 const DEFAULT_WIDTH_PX = 250
-const DEFAULT_WIDTH_RIGHT_PX = 500
+const DEFAULT_WIDTH_RIGHT_PX = 350
+const MIN_AI_SIDEBAR_WIDTH_PX = 350 // AI sidebar minimum usable width
+const SNAP_THRESHOLD_PX = 200 // Sticky resistance threshold
+// Left sidebar constants
+const MIN_LEFT_SIDEBAR_WIDTH_PX = 200 // Left sidebar minimum usable width
+const LEFT_QUICK_CLOSE_THRESHOLD_PX = 50 // Left sidebar quick close threshold
 const currentMenu = ref('workspace')
 const updatePaneSize = () => {
   const container = document.querySelector('.splitpanes') as HTMLElement
   if (container) {
-    if (leftPaneSize.value > 0) {
+    // Only update left pane size if it's expanded and we're in terminal mode
+    if (leftPaneSize.value > 0 && props.currentMode === 'terminal') {
       const containerWidth = container.offsetWidth
-      leftPaneSize.value = (DEFAULT_WIDTH_PX / containerWidth) * 100
+      const currentWidthPx = (leftPaneSize.value / 100) * containerWidth
+      // Only adjust if current width is significantly different from default
+      if (Math.abs(currentWidthPx - DEFAULT_WIDTH_PX) > 50) {
+        leftPaneSize.value = (DEFAULT_WIDTH_PX / containerWidth) * 100
+      }
     }
+    // Update AI sidebar min-size
+    updateAiSidebarMinSize()
+    // Update left sidebar min-size
+    updateLeftSidebarMinSize()
   }
 }
 
-// Handle left pane resize and auto-hide when width is less than 160px
-const handleLeftPaneResize = (params: ResizeParams) => {
-  // Always update the size first
+// Calculate AI sidebar min-size percentage
+const updateAiSidebarMinSize = () => {
+  // In Agents mode, AI sidebar uses different container and stricter minimum width
   if (props.currentMode === 'agents') {
-    agentsLeftPaneSize.value = params.prevPane.size
+    const container = document.querySelector('.left-sidebar-container') as HTMLElement
+    if (container) {
+      const containerWidth = container.offsetWidth
+      // In Agents mode, AI sidebar occupies right panel with stricter minimum width limit
+      aiMinSize.value = (SNAP_THRESHOLD_PX / containerWidth) * 100
+    }
+    return
+  }
+
+  // Terminal mode logic remains unchanged
+  const mainContainer = document.querySelector('.main-split-container') as HTMLElement
+  if (mainContainer) {
+    const mainWidth = mainContainer.offsetWidth
+    // Convert sticky resistance threshold to percentage relative to main container
+    aiMinSize.value = (SNAP_THRESHOLD_PX / mainWidth) * 100
   } else {
-    leftPaneSize.value = params.prevPane.size
-    // Then check if we need to auto-hide with debouncing
-    debouncedResizeCheck()
-  }
-}
-
-// Add debounced monitoring for smooth resize
-let resizeTimeout: number | null = null
-const debouncedResizeCheck = () => {
-  if (resizeTimeout) {
-    clearTimeout(resizeTimeout)
-  }
-
-  resizeTimeout = window.setTimeout(() => {
+    // Fallback to using entire splitpanes container
     const container = document.querySelector('.splitpanes') as HTMLElement
     if (container) {
       const containerWidth = container.offsetWidth
-      const currentLeftPaneSize = leftPaneSize.value
-      const leftPaneWidthPx = (currentLeftPaneSize / 100) * containerWidth
+      // Consider left sidebar width
+      const availableWidth = (containerWidth * (100 - leftPaneSize.value)) / 100
+      aiMinSize.value = (SNAP_THRESHOLD_PX / availableWidth) * 100
+    }
+  }
+}
 
-      // Auto-hide if width is less than 120px
-      if (leftPaneWidthPx < 120 && currentLeftPaneSize > 0) {
-        leftPaneSize.value = 0
-        headerRef.value?.switchIcon('left', false)
+// Calculate left sidebar min-size percentage
+const updateLeftSidebarMinSize = () => {
+  // Left sidebar does not use minSize limit, sticky resistance controlled by logic
+  leftMinSize.value = 0
+}
+
+// Save left sidebar state
+const saveLeftSidebarState = () => {
+  savedLeftSidebarState.value = {
+    size: getLeftSidebarSize(),
+    currentMenu: currentMenu.value,
+    isExpanded: getLeftSidebarSize() > 0
+  }
+}
+
+// Restore left sidebar state
+const restoreLeftSidebarState = () => {
+  if (savedLeftSidebarState.value) {
+    const container = document.querySelector('.left-sidebar-container') as HTMLElement
+    if (container && container.offsetWidth > 0) {
+      const containerWidth = container.offsetWidth
+      const minSizePercent = (MIN_LEFT_SIDEBAR_WIDTH_PX / containerWidth) * 100
+
+      // Ensure restored width is not less than minimum usable width
+      let restoredSize = savedLeftSidebarState.value.size
+      if ((restoredSize / 100) * containerWidth < MIN_LEFT_SIDEBAR_WIDTH_PX) {
+        restoredSize = minSizePercent
+      }
+
+      setLeftSidebarSize(restoredSize)
+      currentMenu.value = savedLeftSidebarState.value.currentMenu
+      const iconKey = props.currentMode === 'agents' ? 'agentsLeft' : 'left'
+      headerRef.value?.switchIcon(iconKey, true)
+    }
+  }
+}
+
+// Handle left pane resize
+const handleLeftPaneResize = (params: ResizeParams) => {
+  // Skip resize handling during quick close
+  if (isQuickClosing.value) {
+    return
+  }
+
+  const container = document.querySelector('.left-sidebar-container') as HTMLElement
+  const containerWidth = container ? container.offsetWidth : 1000
+  const sizePx = (params.prevPane.size / 100) * containerWidth
+
+  // Normal size update
+  if (props.currentMode === 'agents') {
+    agentsLeftPaneSize.value = params.prevPane.size
+    updateAiSidebarMinSize()
+    updateLeftSidebarMinSize()
+
+    // Sync icon state (use threshold to avoid conflict)
+    if (sizePx >= LEFT_QUICK_CLOSE_THRESHOLD_PX) {
+      headerRef.value?.switchIcon('agentsLeft', true)
+    } else {
+      headerRef.value?.switchIcon('agentsLeft', false)
+    }
+  } else {
+    leftPaneSize.value = params.prevPane.size
+    updateAiSidebarMinSize()
+    updateLeftSidebarMinSize()
+
+    // Sync icon state (use threshold to avoid conflict)
+    if (sizePx >= LEFT_QUICK_CLOSE_THRESHOLD_PX) {
+      headerRef.value?.switchIcon('left', true)
+    } else {
+      headerRef.value?.switchIcon('left', false)
+    }
+  }
+}
+
+// AI sidebar debounced auto-close
+let aiResizeTimeout: number | null = null
+const debouncedAiResizeCheck = () => {
+  if (aiResizeTimeout) {
+    clearTimeout(aiResizeTimeout)
+  }
+
+  aiResizeTimeout = window.setTimeout(() => {
+    // In Agents mode, do not execute auto-close logic
+    if (props.currentMode === 'agents') {
+      aiResizeTimeout = null
+      return
+    }
+
+    // Skip if we're in the middle of dragging (quick close will be handled by mouseup)
+    if (isDraggingSplitter.value) {
+      aiResizeTimeout = null
+      return
+    }
+
+    const container = (document.querySelector('.main-split-container') as HTMLElement) || (document.querySelector('.splitpanes') as HTMLElement)
+    if (container) {
+      const containerWidth = container.offsetWidth
+      const currentAiSidebarSize = aiSidebarSize.value
+      const aiSidebarWidthPx = (currentAiSidebarSize / 100) * containerWidth
+
+      // Auto-close if width < 50px (only in Terminal mode, and not during drag)
+      if (aiSidebarWidthPx < 50 && currentAiSidebarSize > 0) {
+        saveAiSidebarState()
+        showAiSidebar.value = false
+        aiSidebarSize.value = 0
+        headerRef.value?.switchIcon('right', false)
+        if (showSplitPane.value) {
+          adjustSplitPaneToEqualWidth()
+        } else {
+          mainTerminalSize.value = 100
+        }
+        restorePreviousFocus()
       }
     }
-    resizeTimeout = null
-  }, 50) // Debounce for 50ms to avoid flickering
+    aiResizeTimeout = null
+  }, 50) // 50ms debounce
 }
 
 const toggleSideBar = (value: string) => {
-  const container = document.querySelector('.splitpanes') as HTMLElement
-  const containerWidth = container.offsetWidth
+  const container = (document.querySelector('.main-split-container') as HTMLElement) || (document.querySelector('.splitpanes') as HTMLElement)
+  const containerWidth = container ? container.offsetWidth : 1000
+
   switch (value) {
     case 'right':
       if (showAiSidebar.value) {
@@ -817,7 +1140,14 @@ const toggleSideBar = (value: string) => {
       } else {
         savePreviousFocus()
         showAiSidebar.value = true
-        const restoredSize = savedAiSidebarState.value?.size || (DEFAULT_WIDTH_RIGHT_PX / containerWidth) * 100
+        // Calculate minimum percentage
+        const minSizePercent = (MIN_AI_SIDEBAR_WIDTH_PX / containerWidth) * 100
+        // Try to restore saved width, otherwise use default width
+        let restoredSize = savedAiSidebarState.value?.size || (DEFAULT_WIDTH_RIGHT_PX / containerWidth) * 100
+        // Ensure restored width is not less than minimum usable width
+        if ((restoredSize / 100) * containerWidth < MIN_AI_SIDEBAR_WIDTH_PX) {
+          restoredSize = minSizePercent
+        }
         aiSidebarSize.value = restoredSize
         headerRef.value?.switchIcon('right', true)
         if (showSplitPane.value) {
@@ -834,34 +1164,36 @@ const toggleSideBar = (value: string) => {
       }
       break
     case 'left':
-      {
-        if (props.currentMode === 'agents') {
-          if (agentsLeftPaneSize.value) {
-            agentsLeftPaneSize.value = 0
-            headerRef.value?.switchIcon('agentsLeft', true)
-          } else {
-            agentsLeftPaneSize.value = 27
-            headerRef.value?.switchIcon('agentsLeft', false)
-          }
-        } else {
-          if (leftPaneSize.value) {
-            leftPaneSize.value = 0
-            headerRef.value?.switchIcon('left', false)
-          } else {
-            leftPaneSize.value = (DEFAULT_WIDTH_PX / containerWidth) * 100
-            headerRef.value?.switchIcon('left', true)
-          }
-        }
-      }
-      break
     case 'agentsLeft':
       {
-        if (agentsLeftPaneSize.value) {
-          agentsLeftPaneSize.value = 0
-          headerRef.value?.switchIcon('agentsLeft', true)
+        const currentSize = getLeftSidebarSize()
+        if (currentSize > 0) {
+          // Close sidebar
+          saveLeftSidebarState()
+          setLeftSidebarSize(0)
+          const iconKey = props.currentMode === 'agents' ? 'agentsLeft' : 'left'
+          headerRef.value?.switchIcon(iconKey, false)
         } else {
-          agentsLeftPaneSize.value = 27
-          headerRef.value?.switchIcon('agentsLeft', false)
+          // Open sidebar
+          const leftContainer = document.querySelector('.left-sidebar-container') as HTMLElement
+          const leftContainerWidth = leftContainer ? leftContainer.offsetWidth : containerWidth
+          const minSizePercent = (MIN_LEFT_SIDEBAR_WIDTH_PX / leftContainerWidth) * 100
+
+          // Try to restore saved state, otherwise use default width
+          if (savedLeftSidebarState.value) {
+            restoreLeftSidebarState()
+          } else {
+            let defaultSize = props.currentMode === 'agents' ? 27 : (DEFAULT_WIDTH_PX / leftContainerWidth) * 100
+
+            // Ensure default width is not less than minimum usable width
+            if ((defaultSize / 100) * leftContainerWidth < MIN_LEFT_SIDEBAR_WIDTH_PX) {
+              defaultSize = minSizePercent
+            }
+
+            setLeftSidebarSize(defaultSize)
+            const iconKey = props.currentMode === 'agents' ? 'agentsLeft' : 'left'
+            headerRef.value?.switchIcon(iconKey, true)
+          }
         }
       }
       break
@@ -870,16 +1202,13 @@ const toggleSideBar = (value: string) => {
 
 // Handle host search shortcut
 const handleSearchHost = () => {
-  const container = document.querySelector('.splitpanes') as HTMLElement
-  const containerWidth = container.offsetWidth
-
   const needsMenuSwitch = currentMenu.value !== 'workspace'
-  const needsSidebarOpen = leftPaneSize.value === 0
+  const needsSidebarOpen = getLeftSidebarSize() === 0
 
   // Ensure left sidebar is open
   if (needsSidebarOpen) {
-    leftPaneSize.value = (DEFAULT_WIDTH_PX / containerWidth) * 100
-    headerRef.value?.switchIcon('left', true)
+    // Use the unified toggle function to open the sidebar
+    toggleSideBar('left')
   }
 
   // Switch to workspace menu if not already
@@ -905,11 +1234,29 @@ const toggleMenu = function (params) {
   const containerWidth = container.offsetWidth
   const expandFn = (dir) => {
     if (dir == 'left') {
-      leftPaneSize.value = (DEFAULT_WIDTH_PX / containerWidth) * 100
-      headerRef.value?.switchIcon('left', true)
+      // Use unified function to set left sidebar size
+      const leftContainer = document.querySelector('.left-sidebar-container') as HTMLElement
+      const leftContainerWidth = leftContainer ? leftContainer.offsetWidth : containerWidth
+      const minSizePercent = (MIN_LEFT_SIDEBAR_WIDTH_PX / leftContainerWidth) * 100
+      let defaultSize = (DEFAULT_WIDTH_PX / leftContainerWidth) * 100
+
+      if ((defaultSize / 100) * leftContainerWidth < MIN_LEFT_SIDEBAR_WIDTH_PX) {
+        defaultSize = minSizePercent
+      }
+
+      setLeftSidebarSize(defaultSize)
+      const iconKey = props.currentMode === 'agents' ? 'agentsLeft' : 'left'
+      headerRef.value?.switchIcon(iconKey, true)
     } else {
       showAiSidebar.value = true
-      const restoredSize = savedAiSidebarState.value?.size || (DEFAULT_WIDTH_RIGHT_PX / containerWidth) * 100
+      // Calculate minimum percentage
+      const minSizePercent = (MIN_AI_SIDEBAR_WIDTH_PX / containerWidth) * 100
+      // Try to restore saved width, otherwise use default width
+      let restoredSize = savedAiSidebarState.value?.size || (DEFAULT_WIDTH_RIGHT_PX / containerWidth) * 100
+      // Ensure restored width is not less than minimum usable width
+      if ((restoredSize / 100) * containerWidth < MIN_AI_SIDEBAR_WIDTH_PX) {
+        restoredSize = minSizePercent
+      }
       aiSidebarSize.value = restoredSize
       mainTerminalSize.value =
         100 - aiSidebarSize.value - (splitPanes.value.length > 0 ? splitPanes.value.reduce((acc, pane) => acc + pane.size, 0) : 0)
@@ -923,8 +1270,9 @@ const toggleMenu = function (params) {
   }
   const shrinkFn = (dir) => {
     if (dir == 'left') {
-      leftPaneSize.value = 0
-      headerRef.value?.switchIcon('left', false)
+      setLeftSidebarSize(0)
+      const iconKey = props.currentMode === 'agents' ? 'agentsLeft' : 'left'
+      headerRef.value?.switchIcon(iconKey, false)
     } else {
       showAiSidebar.value = false
       aiSidebarSize.value = 0
@@ -936,11 +1284,18 @@ const toggleMenu = function (params) {
     currentMenu.value = params.beforeActive
     if (!showAiSidebar.value) {
       savePreviousFocus()
-      const container = document.querySelector('.splitpanes') as HTMLElement
+      const container = (document.querySelector('.main-split-container') as HTMLElement) || (document.querySelector('.splitpanes') as HTMLElement)
       if (container) {
         const containerWidth = container.offsetWidth
         showAiSidebar.value = true
-        const restoredSize = savedAiSidebarState.value?.size || (DEFAULT_WIDTH_RIGHT_PX / containerWidth) * 100
+        // Calculate minimum percentage
+        const minSizePercent = (MIN_AI_SIDEBAR_WIDTH_PX / containerWidth) * 100
+        // Try to restore saved width, otherwise use default width
+        let restoredSize = savedAiSidebarState.value?.size || (DEFAULT_WIDTH_RIGHT_PX / containerWidth) * 100
+        // Ensure restored width is not less than minimum usable width
+        if ((restoredSize / 100) * containerWidth < MIN_AI_SIDEBAR_WIDTH_PX) {
+          restoredSize = minSizePercent
+        }
         aiSidebarSize.value = restoredSize
         headerRef.value?.switchIcon('right', true)
         if (showSplitPane.value) {
@@ -1128,6 +1483,14 @@ onUnmounted(() => {
   eventBus.off('save-state-before-switch')
   shortcutService.destroy()
   window.removeEventListener('resize', updatePaneSize)
+  window.removeEventListener('resize', updateAiSidebarMinSize)
+  window.removeEventListener('resize', updateLeftSidebarMinSize)
+
+  // Unregister global mouse event listeners
+  document.removeEventListener('mousedown', handleMouseDown)
+  document.removeEventListener('mouseup', handleGlobalMouseUp)
+  document.removeEventListener('mousemove', handleGlobalMouseMove)
+
   eventBus.off('currentClickServer', currentClickServer)
   eventBus.off('getActiveTabAssetInfo', handleGetActiveTabAssetInfo)
   eventBus.off('toggleSideBar', toggleSideBar)
@@ -1254,10 +1617,11 @@ const handleGetActiveTabAssetInfo = async () => {
 }
 
 const toggleAiSidebar = () => {
-  const container = document.querySelector('.splitpanes') as HTMLElement
+  const container = (document.querySelector('.main-split-container') as HTMLElement) || (document.querySelector('.splitpanes') as HTMLElement)
   if (container) {
     const containerWidth = container.offsetWidth
     if (showAiSidebar.value) {
+      saveAiSidebarState()
       showAiSidebar.value = false
       aiSidebarSize.value = 0
       headerRef.value?.switchIcon('right', false)
@@ -1270,7 +1634,15 @@ const toggleAiSidebar = () => {
     } else {
       savePreviousFocus()
       showAiSidebar.value = true
-      aiSidebarSize.value = (DEFAULT_WIDTH_RIGHT_PX / containerWidth) * 100
+      // Calculate minimum percentage
+      const minSizePercent = (MIN_AI_SIDEBAR_WIDTH_PX / containerWidth) * 100
+      // Try to restore saved width, otherwise use default width
+      let restoredSize = savedAiSidebarState.value?.size || (DEFAULT_WIDTH_RIGHT_PX / containerWidth) * 100
+      // Ensure restored width is not less than minimum usable width
+      if ((restoredSize / 100) * containerWidth < MIN_AI_SIDEBAR_WIDTH_PX) {
+        restoredSize = minSizePercent
+      }
+      aiSidebarSize.value = restoredSize
       headerRef.value?.switchIcon('right', true)
       if (showSplitPane.value) {
         adjustSplitPaneToEqualWidth()
@@ -1283,9 +1655,15 @@ const toggleAiSidebar = () => {
 }
 
 const onMainSplitResize = (params) => {
+  // Skip resize handling during quick close
+  if (isQuickClosing.value) {
+    return
+  }
+
   mainTerminalSize.value = params.prevPane.size
   if (showAiSidebar.value) {
     aiSidebarSize.value = params.panes[params.panes.length - 1].size
+    debouncedAiResizeCheck()
   }
   if (splitPanes.value.length > 0) {
     const startIndex = 1
@@ -1422,10 +1800,6 @@ const handleConversationDelete = async (conversationId: string) => {
   }
 }
 
-import 'dockview-vue/dist/styles/dockview.css'
-import { DockviewVue, type DockviewReadyEvent } from 'dockview-vue'
-
-import tabsPanel from './tabsPanel.vue'
 const dockviewRef = ref<InstanceType<typeof DockviewVue> | null>(null)
 const panelCount = ref(0)
 const hasPanels = computed(() => panelCount.value > 0)
@@ -1911,7 +2285,29 @@ defineExpose({
   .term_body {
     width: 100%;
     height: calc(100% - 29px);
-    display: flex;
+    position: relative;
+
+    .agents-mode-layout,
+    .terminal-mode-layout {
+      width: 100%;
+      height: 100%;
+      position: absolute;
+      top: 0;
+      left: 0;
+      transition: opacity 0.2s ease;
+    }
+
+    .agents-mode-layout {
+      .term_content {
+        width: 100%;
+        height: 100%;
+        box-sizing: border-box;
+      }
+    }
+
+    .terminal-mode-layout {
+      display: flex;
+    }
 
     .term_left_menu {
       width: 40px;
@@ -1930,14 +2326,19 @@ defineExpose({
 
       .term_content_left {
         width: 250px;
-      }
-    }
-  }
+        min-width: 200px;
 
-  &.agents-mode {
-    .term_body {
-      .term_content {
-        width: 100%;
+        &.collapsed {
+          min-width: 0 !important;
+        }
+      }
+
+      .agents_content_left {
+        min-width: 200px;
+
+        &.collapsed {
+          min-width: 0 !important;
+        }
       }
     }
   }
@@ -1999,6 +2400,7 @@ defineExpose({
     }
   }
 }
+
 .toolbar {
   position: absolute;
   left: 0;
@@ -2007,15 +2409,18 @@ defineExpose({
   width: 100%;
   z-index: 10;
 }
+
 .globalInput {
   width: 100%;
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 8px;
+
   .ant-input {
     background-color: transparent;
     color: var(--text-color);
+
     &::placeholder {
       color: var(--text-color-tertiary);
     }
@@ -2024,6 +2429,7 @@ defineExpose({
   .ant-input-affix-wrapper {
     background-color: var(--globalInput-bg-color);
     border-color: var(--border-color-light);
+
     &:hover,
     &:focus,
     &:active {
@@ -2089,6 +2495,7 @@ defineExpose({
   color: var(--text-color);
   height: 32px !important;
   margin-left: 8px;
+
   &:hover,
   &:focus,
   &:active {
@@ -2175,6 +2582,7 @@ defineExpose({
   border-color: #007acc;
   box-shadow: 0 0 0 1px #007acc;
 }
+
 .dockview-theme-light {
   --dv-paneview-active-outline-color: dodgerblue;
   --dv-tabs-and-actions-container-font-size: 13px;
@@ -2207,6 +2615,7 @@ defineExpose({
   --dv-paneview-header-border-color: rgb(51, 51, 51);
   --dv-scrollbar-background-color: rgba(0, 0, 0, 0.25);
 }
+
 .dockview-theme-light .dv-drop-target-container .dv-drop-target-anchor.dv-drop-target-anchor-container-changed {
   opacity: 0;
   transition: none;
@@ -2243,6 +2652,7 @@ defineExpose({
   --dv-separator-border: rgb(68, 68, 68);
   --dv-paneview-header-border-color: rgba(204, 204, 204, 0.2);
 }
+
 .dockview-theme-dark .dv-drop-target-container .dv-drop-target-anchor.dv-drop-target-anchor-container-changed {
   opacity: 0;
   transition: none;

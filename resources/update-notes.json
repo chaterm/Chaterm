@@ -2,6 +2,34 @@
   "releaseNotesUrl": "https://github.com/chaterm/Chaterm/releases/tag/v",
   "versions": [
     {
+      "version": "0.7.3",
+      "date": "2025-12-24",
+      "highlights": {
+        "zh-CN": [
+          "支持用户跳过登陆配置模型使用AI能力",
+          "终端中rz/sz命令支持",
+          "支持Shift+Tab快捷键切换AI对话模式",
+          "新增Maple Mono字体支持",
+          "命令输出结果OUTPUT区域新增主机IP显示标记",
+          "修复Vim可视化编辑器显示不全问题",
+          "优化AiTab页面缩放和多Tab切换体验",
+          "自定义背景内容国际化支持",
+          "优化若干问题，提升应用稳定性"
+        ],
+        "en-US": [
+          "Support user skip login to configure model to use AI ability",
+          "Support rz/sz commands in terminal",
+          "Support Shift+Tab shortcut key to switch AI conversation mode",
+          "Add Maple Mono font support",
+          "Add host IP display mark in the OUTPUT area of the command output results",
+          "Fix the problem of Vim visual editor display not fully problem",
+          "Optimize the AiTab page zoom and multi-Tab switching experience",
+          "Custom background content internationalization support",
+          "Optimize some issues and improve the application stability"
+        ]
+      }
+    },
+    {
       "version": "0.7.2",
       "date": "2025-12-18",
       "highlights": {
