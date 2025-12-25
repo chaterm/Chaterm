@@ -20,11 +20,21 @@
 <img src="https://img.shields.io/github/package-json/dependency-version/chaterm/Chaterm/dev/typescript" alt="typescript-version" />
 </p>
 <p align="center">
+  <a href="https://chaterm.ai/download/">
   <img src="https://img.shields.io/badge/macOS-000000?style=for-the-badge&logo=apple&logoColor=white" alt="macOS">
+  </a>
+  <a href="https://chaterm.ai/download/">
   <img src="https://img.shields.io/badge/Windows-0078D6?style=for-the-badge&logo=windows&logoColor=white" alt="Windows">
+  </a>
+  <a href="https://chaterm.ai/download/">
   <img src="https://img.shields.io/badge/Linux-FCC624?style=for-the-badge&logo=linux&logoColor=black" alt="Linux">
+  </a>
+  <a href="https://apps.apple.com/us/app/chaterm/id6754307456">
   <img src="https://img.shields.io/badge/iOS-000000?style=for-the-badge&logo=apple&logoColor=white" alt="iOS">
+  </a>
+  <a href="https://play.google.com/store/apps/details?id=com.intsig.chaterm.global">
   <img src="https://img.shields.io/badge/Android-3DDC84?style=for-the-badge&logo=android&logoColor=white" alt="Android">
+  </a>
 </p>
 
 # Introduction
