@@ -158,20 +158,17 @@ import { pinia } from '@/main'
 import eventBus from '@/utils/eventBus'
 import { shortcutService } from '@/services/shortcutService'
 import { dataSyncService } from '@/services/dataSyncService'
-import { useI18n } from 'vue-i18n'
+import { getDocsBaseUrl } from '@/utils/edition'
 
 let storageEventHandler: ((e: StorageEvent) => void) | null = null
-
-const { locale } = useI18n()
 
 const keychainConfigClick = () => {
   emit('open-user-tab', 'keyChainConfig')
 }
 
 const openDocumentation = () => {
-  const currentLang = locale.value
-  const docUrl = currentLang === 'zh-CN' ? 'https://chaterm.ai/cn/docs/' : 'https://chaterm.ai/docs/'
-  window.open(docUrl, '_blank')
+  const baseUrl = getDocsBaseUrl()
+  window.open(`${baseUrl}/`, '_blank')
 }
 const userStore = userInfoStore(pinia)
 const activeKey = ref('workspace')

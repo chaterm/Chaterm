@@ -38,7 +38,7 @@
           <div class="description">
             {{ $t('user.telemetryDescriptionText') }}
             <a
-              href="https://docs.chaterm.ai/user/privacy"
+              :href="privacyUrl"
               target="_blank"
               rel="noopener noreferrer"
               class="privacy-link"
@@ -127,8 +127,11 @@ import { notification } from 'ant-design-vue'
 import { userConfigStore } from '@/services/userConfigStoreService'
 import { dataSyncService } from '@/services/dataSyncService'
 import { useI18n } from 'vue-i18n'
+import { getPrivacyPolicyUrl } from '@/utils/edition'
 
 const { t } = useI18n()
+
+const privacyUrl = getPrivacyPolicyUrl()
 
 const userConfig = ref({
   secretRedaction: 'disabled',

@@ -2,7 +2,6 @@ import { app, shell, BrowserWindow, ipcMain, session, net, protocol } from 'elec
 import path, { join } from 'path'
 import { electronApp } from '@electron-toolkit/utils'
 import { is } from '@electron-toolkit/utils'
-import axios from 'axios'
 import * as fs from 'fs/promises'
 import { startDataSync } from './storage/data_sync/index'
 import type { SyncController as DataSyncController } from './storage/data_sync/core/SyncController'
@@ -32,6 +31,7 @@ import { loadAllPlugins } from './plugin/pluginLoader'
 import { getAllPluginVersions, installPlugin, listPlugins, PluginManifest, uninstallPlugin, getInstallHint } from './plugin/pluginManager'
 import { getPluginDetailsByName } from './plugin/pluginDetails'
 import { getActualTheme, applyThemeToTitleBar, loadUserTheme } from './themeManager'
+import { getLoginBaseUrl, getEdition } from './config/edition'
 
 let mainWindow: BrowserWindow
 let COOKIE_URL = 'http://localhost'
@@ -464,29 +464,6 @@ ipcMain.handle('mcp:get-all-tool-states', async () => {
   } catch (error) {
     console.error('Failed to get all MCP tool states:', error)
     throw error
-  }
-})
-
-// Execute IP detection asynchronously
-ipcMain.handle('detect-ip-location', async () => {
-  try {
-    const isMainlandChina = await detectIPLocation()
-
-    // Cache detection result, valid for 24 hours
-    global.ipDetectionCache = {
-      isMainlandChina,
-      timestamp: Date.now()
-    }
-
-    return { success: true, isMainlandChina }
-  } catch (error) {
-    console.error('[Main Process] IP detection failed:', error)
-    // Set default value
-    global.ipDetectionCache = {
-      isMainlandChina: true,
-      timestamp: Date.now()
-    }
-    return { success: false, isMainlandChina: true, error: error instanceof Error ? error.message : 'Unknown error' }
   }
 })
 
@@ -2326,13 +2303,10 @@ ipcMain.handle('open-external-login', async () => {
     // Store status values for subsequent verification
     global.authState = state
 
-    // 检测IP地址并选择合适的登录URL
-    const isMainlandChinaIpAddress = global.ipDetectionCache?.isMainlandChina ?? true
-
-    // 获取MAC地址
+    // Get MAC address
     const macAddress = getMacAddress()
 
-    // 获取本地插件版本信息
+    // Get local plugin versions
     let localPluginsEncoded = ''
     try {
       const localPlugins = await getAllPluginVersions()
@@ -2340,37 +2314,32 @@ ipcMain.handle('open-external-login', async () => {
       localPluginsEncoded = encodeURIComponent(localPluginsJson)
     } catch (error) {
       console.error('Failed to get plugin versions:', error)
-      // 如果获取失败，使用空对象
       localPluginsEncoded = encodeURIComponent(JSON.stringify({}))
     }
 
-    // 根据IP地址选择不同的登录URL
-    let externalLoginUrl
-    if (isMainlandChinaIpAddress) {
-      // 中国大陆IP使用国内服务器
-      externalLoginUrl = `https://chaterm.intsig.net/login?client_id=chaterm&state=${state}&redirect_uri=chaterm://auth/callback&mac_address=${encodeURIComponent(macAddress)}&local_plugins=${localPluginsEncoded}`
-    } else {
-      // 非中国大陆IP使用国际服务器
-      externalLoginUrl = `https://login.chaterm.ai/login?client_id=chaterm&state=${state}&redirect_uri=chaterm://auth/callback&mac_address=${encodeURIComponent(macAddress)}&local_plugins=${localPluginsEncoded}`
-    }
+    // Build login URL based on edition configuration (no IP detection)
+    const loginBaseUrl = getLoginBaseUrl()
+    const externalLoginUrl = `${loginBaseUrl}/login?client_id=chaterm&state=${state}&redirect_uri=chaterm://auth/callback&mac_address=${encodeURIComponent(macAddress)}&local_plugins=${localPluginsEncoded}`
 
-    // 在 Linux 平台上，将状态保存到本地存储，以便新实例可以访问
+    console.log(`[Login] Using edition: ${getEdition()}, login URL base: ${loginBaseUrl}`)
+
+    // On Linux platform, save state to local storage for new instances to access
     if (process.platform === 'linux') {
       try {
-        // 保存当前窗口 ID，以便回调时可以找到正确的窗口
+        // Save current window ID for callback to find the correct window
         const windowId = mainWindow.id
         await session.defaultSession.cookies.set({
           url: COOKIE_URL,
           name: 'chaterm_auth_state',
           value: JSON.stringify({ state, windowId }),
-          expirationDate: Date.now() / 1000 + 600 // 10分钟过期
+          expirationDate: Date.now() / 1000 + 600 // 10 minutes expiry
         })
       } catch (error) {
         console.error('Failed to save auth state:', error)
       }
     }
 
-    // 打开外部登录页面
+    // Open external login page
     await shell.openExternal(externalLoginUrl)
     return { success: true }
   } catch (error) {
@@ -2379,168 +2348,11 @@ ipcMain.handle('open-external-login', async () => {
   }
 })
 
-// 全局类型声明
+// Global type declarations
 declare global {
   namespace NodeJS {
     interface Global {
       authState: string
-      ipDetectionCache:
-        | {
-            isMainlandChina: boolean
-            timestamp: number
-          }
-        | undefined
     }
-  }
-}
-
-// IP检测相关的类型定义
-interface IPDetectionResponse {
-  status: string
-  country: string
-  countryCode: string
-  region: string
-  regionName: string
-  city: string
-  query: string
-  isp: string
-}
-
-// IP检测函数
-async function detectIPLocation(): Promise<boolean> {
-  try {
-    // 获取系统代理设置
-    const proxySettings = await session.defaultSession.resolveProxy('https://api.ipify.org')
-    console.log('[IP检测] 系统代理设置:', proxySettings)
-
-    // 配置axios代理
-    let axiosConfig: any = {
-      timeout: 2000, // 增加超时时间到2秒
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
-      }
-    }
-
-    // 如果系统有代理设置，配置axios使用代理
-    if (proxySettings && proxySettings !== 'DIRECT') {
-      let proxyConfig: any = {}
-
-      if (proxySettings.startsWith('PROXY ')) {
-        // HTTP代理
-        const proxyUrl = proxySettings.replace('PROXY ', '')
-        const [host, port] = proxyUrl.split(':')
-        proxyConfig = {
-          host: host,
-          port: parseInt(port) || 80,
-          protocol: 'http'
-        }
-      } else if (proxySettings.startsWith('SOCKS ')) {
-        // SOCKS代理
-        const proxyUrl = proxySettings.replace('SOCKS ', '')
-        const [host, port] = proxyUrl.split(':')
-        proxyConfig = {
-          host: host,
-          port: parseInt(port) || 1080,
-          protocol: 'socks'
-        }
-      } else if (proxySettings.startsWith('HTTPS ')) {
-        // HTTPS代理
-        const proxyUrl = proxySettings.replace('HTTPS ', '')
-        const [host, port] = proxyUrl.split(':')
-        proxyConfig = {
-          host: host,
-          port: parseInt(port) || 443,
-          protocol: 'https'
-        }
-      }
-
-      if (Object.keys(proxyConfig).length > 0) {
-        axiosConfig.proxy = proxyConfig
-        console.log('[IP检测] 使用系统代理:', proxyConfig)
-      }
-    }
-
-    // 尝试多个IP检测服务
-    let clientIP: string | null = null
-
-    // 定义多个IP检测服务
-    const ipServices = [
-      {
-        name: 'icanhazip',
-        url: 'https://icanhazip.com',
-        extract: (data: any) => data.trim()
-      },
-      {
-        name: 'httpbin',
-        url: 'https://httpbin.org/ip',
-        extract: (data: any) => data.origin
-      },
-      {
-        name: 'ipify',
-        url: 'https://api.ipify.org?format=json',
-        extract: (data: any) => data.ip
-      },
-      {
-        name: 'ip-api',
-        url: 'http://ip-api.com/json',
-        extract: (data: any) => data.query
-      },
-      {
-        name: 'ipinfo',
-        url: 'https://ipinfo.io/json',
-        extract: (data: any) => data.ip
-      }
-    ]
-
-    // 依次尝试每个服务
-    for (const service of ipServices) {
-      try {
-        console.log(`[IP检测] 尝试服务: ${service.name}`)
-        const response = await axios.get(service.url, axiosConfig)
-        clientIP = service.extract(response.data)
-        console.log(`[IP检测] ${service.name} 获取到IP地址:`, clientIP)
-        break // 成功获取后跳出循环
-      } catch (error) {
-        console.warn(`[IP检测] ${service.name} 服务失败:`, error instanceof Error ? error.message : 'Unknown error')
-      }
-    }
-
-    if (!clientIP) {
-      console.error('[IP检测] 所有IP服务都失败')
-      throw new Error('无法获取公网IP地址')
-    }
-
-    // 使用ip-api.com检测IP位置
-    const ipDetectionResponseOrigin = await axios.get<IPDetectionResponse>(`http://ip-api.com/json/${clientIP}`, {
-      timeout: 2000, // 2秒超时
-      proxy: axiosConfig.proxy // 使用相同的代理设置
-    })
-    const ipDetectionResponse = ipDetectionResponseOrigin.data
-    if (ipDetectionResponse.status === 'success') {
-      // 判断是否为中国大陆（排除台湾、香港、澳门）
-      const isMainlandChina =
-        ipDetectionResponse.countryCode === 'CN' &&
-        ipDetectionResponse.country === 'China' &&
-        !['Taiwan', 'Hong Kong', 'Macao'].includes(ipDetectionResponse.regionName)
-      console.log('[IP检测] 检测结果:', {
-        ip: ipDetectionResponse.query,
-        country: ipDetectionResponse.country,
-        countryCode: ipDetectionResponse.countryCode,
-        region: ipDetectionResponse.regionName,
-        city: ipDetectionResponse.city,
-        isp: ipDetectionResponse.isp,
-        isMainlandChina: isMainlandChina
-      })
-
-      return isMainlandChina
-    } else {
-      console.warn('[IP检测] API返回错误')
-      // 如果API失败，默认返回true
-      return true
-    }
-  } catch (error) {
-    console.error('[IP检测] 检测失败:', error)
-    // 如果检测失败，默认返回true
-    return true
   }
 }

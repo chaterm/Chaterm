@@ -1,6 +1,7 @@
 /**
  * Simplified client-side configuration
  */
+import { getKmsUrl } from '../../../config/edition'
 
 interface EncryptionConfig {
   algorithm: string
@@ -28,8 +29,8 @@ interface Config {
 }
 
 const config: Config = {
-  // Default configuration in main process, prioritize environment variables, otherwise use development environment defaults
-  serverUrl: 'http://demo.chaterm.ai/v1',
+  // Edition-specific KMS server URL (CN or Global)
+  serverUrl: getKmsUrl(),
   encryption: {
     algorithm: 'aes-256-gcm',
     keyLength: 32, // 256 bits

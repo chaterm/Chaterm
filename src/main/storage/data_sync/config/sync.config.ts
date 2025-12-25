@@ -1,6 +1,7 @@
 import * as dotenv from 'dotenv'
 import { getDeviceId } from './devideId'
 import { getChatermDbPathForUser, getCurrentUserId } from '../../db/connection'
+import { getSyncUrl } from '../../../config/edition'
 dotenv.config()
 
 export interface SyncConfig {
@@ -38,7 +39,7 @@ function getCurrentUserDbPath(): string {
 }
 
 export const syncConfig: SyncConfig = {
-  serverUrl: 'http://demo.chaterm.ai', //http://localhost:8001
+  serverUrl: getSyncUrl(), // Edition-specific sync server URL
   apiVersion: 'v1',
   dbPath: getCurrentUserDbPath(),
   deviceId: getDeviceId(), // Use motherboard ID

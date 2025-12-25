@@ -1,7 +1,41 @@
 import { defineConfig } from 'vitest/config'
 import { resolve } from 'path'
+import { readFileSync } from 'fs'
 import vue from '@vitejs/plugin-vue'
 import { playwright } from '@vitest/browser-playwright'
+import pkg from './package.json'
+
+// Load edition config for tests (default to 'cn' edition)
+const loadEditionConfig = (edition: string) => {
+  const configPath = resolve(`build/edition-config/${edition}.json`)
+  try {
+    const content = readFileSync(configPath, 'utf-8')
+    return JSON.parse(content)
+  } catch {
+    // Fallback config for tests
+    return {
+      edition,
+      displayName: 'Chaterm',
+      api: { baseUrl: '', kmsUrl: '', syncUrl: '' },
+      update: { serverUrl: '', releaseNotesUrl: '' },
+      auth: { loginBaseUrl: '' },
+      defaults: { language: 'en-US' },
+      legal: { privacyPolicyUrl: '', termsOfServiceUrl: '' },
+      speech: { wsUrl: '' },
+      docs: { baseUrl: '' }
+    }
+  }
+}
+
+const edition = process.env.APP_EDITION || 'cn'
+const editionConfig = loadEditionConfig(edition)
+
+// Shared defines for renderer tests
+const rendererDefines = {
+  __APP_INFO__: JSON.stringify({ version: pkg.version }),
+  __EDITION_CONFIG__: JSON.stringify(editionConfig),
+  'import.meta.env.RENDERER_APP_EDITION': JSON.stringify(edition)
+}
 
 // Shared renderer process aliases
 const rendererAliases = {
@@ -17,10 +51,13 @@ const rendererAliases = {
 }
 
 export default defineConfig({
+  // Root-level define for all projects to inherit
+  define: rendererDefines,
   test: {
     // Projects configuration for different test contexts
     projects: [
       {
+        extends: true,
         test: {
           name: 'main-process',
           include: ['src/main/**/*.test.ts', 'src/main/**/*.spec.ts'],
@@ -39,6 +76,7 @@ export default defineConfig({
         }
       },
       {
+        extends: true,
         test: {
           name: 'renderer-process',
           include: ['src/renderer/**/*.test.ts', 'src/renderer/**/*.spec.ts'],
@@ -54,6 +92,7 @@ export default defineConfig({
         }
       },
       {
+        extends: true,
         test: {
           name: 'renderer-browser',
           include: ['src/renderer/**/*.component.test.ts'],
