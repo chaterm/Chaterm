@@ -1719,6 +1719,7 @@ const setupTerminalInput = () => {
       selectFlag.value = true
       sendData(data)
     } else if (data === '\x1b') {
+      selectFlag.value = true
       if (contextmenu.value && typeof contextmenu.value.hide === 'function') {
         contextmenu.value.hide()
       }

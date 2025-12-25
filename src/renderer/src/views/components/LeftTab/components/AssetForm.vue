@@ -308,6 +308,11 @@ const formData = reactive<AssetFormData>({
   ...props.initialData
 })
 
+const cachedAuth = reactive<{ password: string; keyChain?: number }>({
+  password: '',
+  keyChain: undefined
+})
+
 const validationErrors = reactive({
   ip: '',
   port: '',
@@ -352,12 +357,20 @@ const handleClose = () => {
 
 const handleAuthChange = () => {
   if (formData.auth_type === 'keyBased') {
+    cachedAuth.password = formData.password
     emit('auth-change', 'keyBased')
   }
   if (formData.auth_type === 'password') {
+    cachedAuth.keyChain = formData.keyChain
     formData.keyChain = undefined
   } else {
     formData.password = ''
+  }
+  if (formData.auth_type === 'keyBased' && cachedAuth.keyChain !== undefined) {
+    formData.keyChain = cachedAuth.keyChain
+  }
+  if (formData.auth_type === 'password') {
+    formData.password = cachedAuth.password
   }
 }
 
@@ -487,6 +500,8 @@ watch(
   () => props.initialData,
   (newData) => {
     const defaultGroupName = t('personal.defaultGroup')
+    cachedAuth.password = newData?.password ?? ''
+    cachedAuth.keyChain = newData?.keyChain
     Object.assign(formData, {
       username: '',
       password: '',
