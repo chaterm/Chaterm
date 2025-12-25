@@ -410,11 +410,6 @@ const handleExternalLogin = async () => {
   try {
     externalLoginLoading.value = true
     const api = window.api as any
-    try {
-      await api.detectIpLocation()
-    } catch (error) {
-      console.error(t('login.externalLoginIPDetectionError'), error)
-    }
     await api.openExternalLogin()
   } catch (err) {
     console.error(t('login.startExternalLoginFailed'), err)
@@ -431,11 +426,6 @@ onMounted(async () => {
   platform.value = await api.getPlatform()
   isDev.value = import.meta.env.MODE === 'development' || ((window as any).api?.isE2E?.() ?? false)
   await captureButtonClick(LoginFunnelEvents.ENTER_LOGIN_PAGE)
-  try {
-    await api.detectIpLocation()
-  } catch (error) {
-    console.error(t('login.loginPageIPDetectionError'), error)
-  }
   if (!isDev.value) {
     const ipcRenderer = (window as any).electron?.ipcRenderer
     ipcRenderer?.on('external-login-success', async (_event, data) => {

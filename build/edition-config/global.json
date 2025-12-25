@@ -1,0 +1,29 @@
+{
+  "edition": "global",
+  "displayName": "Chaterm",
+  "api": {
+    "baseUrl": "https://api.chaterm.net/v1",
+    "kmsUrl": "https://api.chaterm.net/v1",
+    "syncUrl": "https://api.chaterm.net"
+  },
+  "update": {
+    "serverUrl": "https://static-download.chaterm.net/",
+    "releaseNotesUrl": "https://chaterm.net/release-notes"
+  },
+  "auth": {
+    "loginBaseUrl": "https://login.chaterm.ai"
+  },
+  "defaults": {
+    "language": "en-US"
+  },
+  "legal": {
+    "privacyPolicyUrl": "https://chaterm.ai/docs/user/privacy",
+    "termsOfServiceUrl": "https://chaterm.ai/docs/user/terms"
+  },
+  "speech": {
+    "wsUrl": "wss://api.chaterm.net/v1/speech/asr"
+  },
+  "docs": {
+    "baseUrl": "https://chaterm.ai/docs"
+  }
+}

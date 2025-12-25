@@ -1,6 +1,7 @@
 import { createI18n } from 'vue-i18n'
 import zhCN from './lang/zh-CN'
 import enUS from './lang/en-US'
+import { getDefaultLanguage } from '@utils/edition'
 
 const messages = {
   'zh-CN': {
@@ -11,9 +12,12 @@ const messages = {
   }
 }
 
+// Get default language from edition config (cn -> zh-CN, global -> en-US)
+const defaultLanguage = getDefaultLanguage()
+
 const i18n = createI18n({
   legacy: false,
-  locale: localStorage.getItem('lang') || 'zh-CN',
+  locale: localStorage.getItem('lang') || defaultLanguage,
   fallbackLocale: 'en-US',
   messages,
   globalInjection: true,

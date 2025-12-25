@@ -232,7 +232,7 @@ export default {
     telemetryEnabled: 'Enabled',
     telemetryDisabled: 'Disabled',
     telemetryDescription:
-      'Help improve Chaterm by sending anonymous usage data and error reports. We never send any code, prompt content, or personal information. For more information, please see our <a href="https://docs.chaterm.ai/user/privacy" target="_blank" rel="noopener noreferrer">privacy policy</a>.',
+      'Help improve Chaterm by sending anonymous usage data and error reports. We never send any code, prompt content, or personal information. For more information, please see our privacy policy.',
     telemetryDescriptionText:
       'Help improve Chaterm by sending anonymous usage data and error reports. We never send any code, prompt content, or personal information. For more information, please see our',
     privacyPolicy: 'privacy policy',
