@@ -13,7 +13,6 @@ export function useUserInteractions(sendMessage: (sendType: string) => Promise<a
   const { chatInputValue } = useSessionState()
 
   const fileInputRef = ref<HTMLInputElement>()
-  const voiceInputRef = ref()
   const autoSendAfterVoice = ref(false)
   const currentEditingId = ref<string | null>(null)
 
@@ -139,7 +138,6 @@ export function useUserInteractions(sendMessage: (sendType: string) => Promise<a
 
   return {
     fileInputRef,
-    voiceInputRef,
     autoSendAfterVoice,
     currentEditingId,
     handleTranscriptionComplete,

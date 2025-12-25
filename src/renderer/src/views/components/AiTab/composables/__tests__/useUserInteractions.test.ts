@@ -382,13 +382,6 @@ describe('useUserInteractions', () => {
       expect(fileInputRef.value).toBeUndefined()
     })
 
-    it('should provide voiceInputRef', () => {
-      const { voiceInputRef } = useUserInteractions(mockSendMessage, mockToggleSidebar)
-
-      expect(voiceInputRef).toBeDefined()
-      expect(voiceInputRef.value).toBeUndefined()
-    })
-
     it('should provide autoSendAfterVoice', () => {
       const { autoSendAfterVoice } = useUserInteractions(mockSendMessage, mockToggleSidebar)
 
