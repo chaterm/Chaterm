@@ -30,6 +30,7 @@
 import { ref, onUnmounted } from 'vue'
 import { notification } from 'ant-design-vue'
 import { useI18n } from 'vue-i18n'
+import { getSpeechWsUrl } from '@/utils/edition'
 
 // i18n
 const { t } = useI18n()
@@ -51,8 +52,7 @@ const emit = defineEmits<{
 
 // Configuration
 const CONFIG = {
-  // WS_URL: 'ws://localhost:8801/v1/speech/asr',
-  WS_URL: 'ws://demo.chaterm.ai/v1/speech/asr',
+  WS_URL: getSpeechWsUrl(),
   SAMPLE_RATE: 16000,
   CHANNELS: 1,
   BITS_PER_SAMPLE: 16,

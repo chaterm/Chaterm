@@ -813,7 +813,6 @@ const api = {
     return () => ipcRenderer.removeListener('jumpserver:status-update', listener)
   },
   openExternalLogin: () => ipcRenderer.invoke('open-external-login'),
-  detectIpLocation: () => ipcRenderer.invoke('detect-ip-location'),
 
   // sftp
   uploadFile: (opts: { id: string; remotePath: string; localPath: string }) => ipcRenderer.invoke('ssh:sftp:upload-file', opts),

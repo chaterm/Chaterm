@@ -1,5 +1,6 @@
 import { ipcMain } from 'electron'
 import { autoUpdater } from 'electron-updater'
+import { getUpdateServerUrl } from './config/edition'
 
 export const registerUpdater = (targetWindow) => {
   // Status
@@ -14,11 +15,11 @@ export const registerUpdater = (targetWindow) => {
   autoUpdater.autoDownload = false
   autoUpdater.autoInstallOnAppQuit = false
 
-  // Configure update server for Mac
+  // Configure update server based on edition
   if (process.platform === 'darwin') {
     autoUpdater.setFeedURL({
       provider: 'generic',
-      url: 'https://chaterm-static.intsig.net/download/'
+      url: getUpdateServerUrl()
     })
   }
 

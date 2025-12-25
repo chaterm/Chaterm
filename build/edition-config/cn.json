@@ -1,0 +1,29 @@
+{
+  "edition": "cn",
+  "displayName": "Chaterm CN",
+  "api": {
+    "baseUrl": "https://api8.chaterm.net/v1",
+    "kmsUrl": "https://api8.chaterm.net/v1",
+    "syncUrl": "https://api8.chaterm.net"
+  },
+  "update": {
+    "serverUrl": "https://static-download8.chaterm.net/",
+    "releaseNotesUrl": "https://chaterm.net/release-notes"
+  },
+  "auth": {
+    "loginBaseUrl": "https://login.chaterm.cn"
+  },
+  "defaults": {
+    "language": "zh-CN"
+  },
+  "legal": {
+    "privacyPolicyUrl": "https://chaterm.cn/docs/user/privacy",
+    "termsOfServiceUrl": "https://chaterm.cn/docs/user/terms"
+  },
+  "speech": {
+    "wsUrl": "wss://api8.chaterm.net/v1/speech/asr"
+  },
+  "docs": {
+    "baseUrl": "https://chaterm.cn/docs"
+  }
+}

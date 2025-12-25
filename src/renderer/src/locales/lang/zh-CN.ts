@@ -229,7 +229,7 @@ export default {
     telemetryEnabled: '开启',
     telemetryDisabled: '关闭',
     telemetryDescription:
-      '通过发送匿名使用数据和错误报告帮助改进 Chaterm。我们绝不会发送任何代码、提示内容或个人信息。如需了解详细信息，请查看我们的<a href="https://docs.chaterm.ai/user/privacy" target="_blank" rel="noopener noreferrer">隐私政策</a>。',
+      '通过发送匿名使用数据和错误报告帮助改进 Chaterm。我们绝不会发送任何代码、提示内容或个人信息。如需了解详细信息，请查看我们的隐私政策。',
     telemetryDescriptionText:
       '通过发送匿名使用数据和错误报告帮助改进 Chaterm。我们绝不会发送任何代码、提示内容或个人信息。如需了解详细信息，请查看我们的',
     privacyPolicy: '隐私政策',

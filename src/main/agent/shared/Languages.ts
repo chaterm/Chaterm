@@ -1,5 +1,6 @@
 export type LanguageKey =
   | 'en'
+  | 'en-US'
   | 'ar'
   | 'pt-BR'
   | 'cs'
@@ -38,7 +39,15 @@ export type LanguageDisplay =
   | 'Traditional Chinese - 繁體中文'
   | 'Turkish - Türkçe'
 
-export const DEFAULT_LANGUAGE_SETTINGS: LanguageKey = 'zh-CN'
+// Default language based on edition (cn -> zh-CN, global -> en-US)
+// Uses APP_EDITION env variable set at build time
+// Returns locale code consistent with renderer i18n (zh-CN, en-US)
+function getDefaultLanguageFromEdition(): LanguageKey {
+  const edition = process.env.APP_EDITION || 'cn'
+  return edition === 'global' ? 'en-US' : 'zh-CN'
+}
+
+export const DEFAULT_LANGUAGE_SETTINGS: LanguageKey = getDefaultLanguageFromEdition()
 
 export const languageOptions: { key: LanguageKey; display: LanguageDisplay }[] = [
   { key: 'en', display: 'English' },

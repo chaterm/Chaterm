@@ -1,0 +1,37 @@
+extends: electron-builder.yml
+
+appId: ai.chaterm.app
+productName: Chaterm
+
+directories:
+  output: dist/global
+
+extraResources:
+  - from: 'src/renderer/src/assets/db/'
+    to: 'db/'
+    filter: '**/*.db'
+  - from: 'resources/update-notes.json'
+    to: 'update-notes.json'
+  - from: 'build/edition-config/'
+    to: 'edition-config/'
+    filter: '**/*.json'
+
+publish:
+  provider: generic
+  url: https://static-download.chaterm.net/
+  channel: latest
+
+win:
+  artifactName: ${name}-${version}-setup-${arch}.${ext}
+
+nsis:
+  artifactName: ${name}-${version}-setup-${arch}.${ext}
+
+dmg:
+  artifactName: ${name}-${version}-macos-${arch}.${ext}
+
+mac:
+  artifactName: ${name}-${version}-macos-${arch}.${ext}
+
+linux:
+  artifactName: ${name}-${version}-linux-${arch}.${ext}
