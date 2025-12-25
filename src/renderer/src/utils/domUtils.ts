@@ -1,10 +1,10 @@
 /**
  * Check if the focus is currently within the AITab component
- * @param event - The keyboard event (may have null target for synthetic events)
+ * @param event - The keyboard event (optional, may have null target for synthetic events)
  * @returns true if focus is within AITab component, false otherwise
  */
-export function isFocusInAiTab(event: KeyboardEvent): boolean {
-  const target = event.target as HTMLElement | null
+export function isFocusInAiTab(event?: KeyboardEvent): boolean {
+  const target = event?.target as HTMLElement | null
   const activeElement = document.activeElement as HTMLElement | null
 
   // Helper function to check if an element is within AITab

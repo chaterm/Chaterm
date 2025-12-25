@@ -2,6 +2,15 @@
   <a href="./README_zh.md">中文</a> / English
 </div>
 <br>
+
+<p align="center">
+  <a href="https://www.tbench.ai/leaderboard/terminal-bench/1.0">
+    <img src="https://img.shields.io/badge/Terminal--Bench-Ranked_%232-00D94E?style=for-the-badge&logo=github&logoColor=white" alt="Terminal-Bench">
+  </a>
+  <a href="https://landscape.cncf.io/">
+    <img src="https://img.shields.io/badge/CNCF-Landscape-0086FF?style=for-the-badge&logo=kubernetes&logoColor=white" alt="CNCF Landscape">
+  </a>
+</p>
 <p align="center">
 <img src="https://img.shields.io/github/package-json/dependency-version/chaterm/Chaterm/dev/electron" alt="electron-version">
 <img src="https://img.shields.io/github/package-json/dependency-version/chaterm/Chaterm/dev/electron-vite" alt="electron-vite-version" />
@@ -10,38 +19,41 @@
 <img src="https://img.shields.io/github/package-json/dependency-version/chaterm/Chaterm/dev/vue" alt="vue-version" />
 <img src="https://img.shields.io/github/package-json/dependency-version/chaterm/Chaterm/dev/typescript" alt="typescript-version" />
 </p>
+<p align="center">
+  <img src="https://img.shields.io/badge/macOS-000000?style=for-the-badge&logo=apple&logoColor=white" alt="macOS">
+  <img src="https://img.shields.io/badge/Windows-0078D6?style=for-the-badge&logo=windows&logoColor=white" alt="Windows">
+  <img src="https://img.shields.io/badge/Linux-FCC624?style=for-the-badge&logo=linux&logoColor=black" alt="Linux">
+  <img src="https://img.shields.io/badge/iOS-000000?style=for-the-badge&logo=apple&logoColor=white" alt="iOS">
+  <img src="https://img.shields.io/badge/Android-3DDC84?style=for-the-badge&logo=android&logoColor=white" alt="Android">
+</p>
 
-# Chaterm
+# Introduction
 
-A terminal tool with AI Agent, makes you no need to learn complicated regular expressions, Perl and Python, switches and Linux commands, SQL syntax can easily manage thousands of devices!
+Chaterm: Your Next-Generation AI Terminal Co-pilot!
 
-Is the full screen of errors difficult to understand? Massive log output, don't know how to locate the problem? Ask Agent with @host directly!
+Chaterm is an AI-native intelligent terminal agent designed to reshape the traditional command-line experience through natural language interaction. Its goal is to be your intelligent DevOps co-pilot, not just a dialog-based SSH client.
 
-Want syntax highlighting and smart completion, but don't have root privileges, and don't want to install fish thousands of times, use Chaterm to solve it with one click!
+With its built-in expert knowledge base and powerful agent inference capabilities, Chaterm understands your business topology and operational intentions. No need to memorize complex shell commands, SQL syntax, or script parameters; it automatically completes the entire chain of operations, including code building, service deployment, troubleshooting, and automatic rollback, all through natural language. Chaterm aims to eliminate the cognitive barriers of the technology stack, enabling every developer to immediately possess the operational capabilities of a seasoned SRE.
 
-## Demo Display
+![Preview image](resources/hero.webp)
 
-![Preview image](resources/demo.jpg)
+## Key Features
 
-## Usecase
+- 🤖 Autonomous Agent Engine: Capable of breaking down and planning complex tasks, supporting closed-loop automated operations from log analysis to service rollback.
 
-![Preview image](resources/deploy.jpg)
+- 🧠 Intelligent Contextual Completion: Going beyond traditional history recording, it provides more personalized intelligent command suggestions based on user habits, current business context, and cross-server environment.
 
-## Main Features
+- 🎙️ Real-time Voice Interaction: Breaking keyboard limitations, it supports voice command input on mobile devices, significantly improving remote maintenance and emergency response efficiency.
 
-- 🤖️ AI Agent：Use natural language to instead of remember the complex command line.
-- ✅ Smart Completion：Command suggestion base your personal knowledge across multiple os platform.
-- 💬 Voice Command: High accuracy speech recognition and knowledge base enables input without a keyboard.
-- 🌟 Global Syntax Highlight：Personalization syntax highlighting on no matter whatever shell you use.
-- 📄 Visual Vim Editor：Get visual text editor experience in terminal Vim like Sublime Text.
-- 🎹 Short aliases：instead of complex code snippets across multiple terminal.
+- 🎨 Globally Consistent Experience: Configuration Roaming: Configure syntax highlighting and environment preferences once, and automatically synchronize upon login from any host. Visual Vim: Provides a modern IDE-like file editing experience within the terminal, supporting multi-language syntax highlighting.
 
-## Security Features
+- 🛡️ Enterprise-Grade Zero-Trust Security: Integrates a session-level seamless authentication system, fully supporting a zero-trust security architecture to ensure every operation is compliant and traceable.
 
-- 🔐 Zero Trust：No need to worry about update passwords and SSH certificates monthly again.
-- 💼 IAM and Workspace：Make collaboration easier in same team and isolation between different teams.
-- 🔏 Privacy watermark：screen recording, Clipboard and data transmission control.
-- 🔎 Behavior Audits：Advanced pattern recognition and anomaly detection in user operations.
+- 🔗 MCP Protocol Ecosystem: Fully supports the Model Context Protocol (MCP), enabling low-cost access to enterprise knowledge bases such as Notion and GitHub, achieving unlimited expansion of AI skills.
+
+- 🏢 Unified Workspace: Supports Alias ​​shortcut sharing and enterprise-level SSO unified authorization, efficiently managing digital assets across organizations.
+
+![Preview image](resources/features.webp)
 
 ## Development Guide
 
@@ -81,4 +93,4 @@ npm run build:linux
 
 Thank you for your contribution!
 Please refer to the <a href="./CONTRIBUTING.md">Contribution Guide</a> for more information.
-![Preview image](resources/contributors.png)
+![Preview image](resources/contributors.webp)
