@@ -422,6 +422,11 @@ export function useHostManagement() {
   }
 
   const updateHosts = (hostInfo: { ip: string; uuid: string; connection: string } | null) => {
+    // Don't update hosts in chat mode
+    if (chatTypeValue.value === 'chat') {
+      hosts.value = []
+      return
+    }
     if (hostInfo) {
       const newHost: Host = {
         host: hostInfo.ip,

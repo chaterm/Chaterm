@@ -30,12 +30,12 @@ export interface SessionState {
 export interface ChatTab {
   id: string // Tab ID (UUID)
   title: string // Tab title
-  hosts: Host[] // Associated host list
-  chatType: string // Chat type (agent/cmd/chat)
+  hosts?: Host[] // Associated host list
+  chatType?: string // Chat type (agent/cmd/chat)
   autoUpdateHost: boolean // Whether to auto-update host
   session: SessionState // Session state
   inputValue: string // Input value
-  modelValue: string // Selected AI model for this tab
+  modelValue?: string // Selected AI model for this tab
   welcomeTip: string // Welcome tip for this tab
 }
 

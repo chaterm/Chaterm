@@ -16,7 +16,7 @@ interface WatcherDeps {
  * This maintains autonomy of each composable while avoiding bloating the component layer.
  */
 export function useWatchers(deps: WatcherDeps) {
-  const { currentChatId, chatTypeValue } = useSessionState()
+  const { currentChatId, chatTypeValue, hosts } = useSessionState()
 
   watch(currentChatId, () => {
     deps.emitStateChange()
@@ -29,7 +29,9 @@ export function useWatchers(deps: WatcherDeps) {
       if (!newValue || newValue.trim() === '') {
         return
       }
-      if (newValue === 'cmd') {
+      if (newValue === 'chat') {
+        hosts.value = []
+      } else if (newValue === 'cmd') {
         await deps.updateHostsForCommandMode()
       }
       try {

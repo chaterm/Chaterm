@@ -17,7 +17,7 @@ export function useStateSnapshot(emit: (event: 'state-changed', ...args: any[]) 
       chatTabs: chatTabs.value.map((tab: any) => ({
         id: tab.id,
         title: tab.title,
-        hosts: [...tab.hosts],
+        hosts: tab.hosts ? [...tab.hosts] : [],
         chatType: tab.chatType,
         autoUpdateHost: tab.autoUpdateHost,
         inputValue: tab.inputValue,
@@ -56,7 +56,7 @@ export function useStateSnapshot(emit: (event: 'state-changed', ...args: any[]) 
         chatTabs.value = savedState.chatTabs.map((savedTab: any) => ({
           id: savedTab.id,
           title: savedTab.title,
-          hosts: [...savedTab.hosts],
+          hosts: savedTab.hosts ? [...savedTab.hosts] : [],
           chatType: savedTab.chatType,
           autoUpdateHost: savedTab.autoUpdateHost,
           inputValue: savedTab.inputValue,
