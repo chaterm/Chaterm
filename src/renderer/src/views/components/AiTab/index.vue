@@ -657,7 +657,6 @@
                   </a-tooltip>
                   <a-tooltip :title="$t('ai.startVoiceInput')">
                     <VoiceInput
-                      ref="voiceInputRef"
                       :disabled="responseLoading"
                       :auto-send-after-voice="autoSendAfterVoice"
                       @transcription-complete="handleTranscriptionComplete"
@@ -1052,7 +1051,6 @@ const {
 // User interactions
 const {
   fileInputRef,
-  voiceInputRef,
   autoSendAfterVoice,
   handleTranscriptionComplete,
   handleTranscriptionError,

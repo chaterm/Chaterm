@@ -215,9 +215,15 @@ Code changes involve the project's core logic and functionality, and must underg
 
 ### i18n Internationalization
 
+**Supported Languages:**
+
+The project supports four languages: Chinese, Japanese, Korean, and English. All user-facing text must be translated into all four languages.
+
 **Text Location:**
 
 - Chinese: `src/renderer/src/locales/lang/zh-CN.ts`
+- Japanese: `src/renderer/src/locales/lang/ja-JP.ts`
+- Korean: `src/renderer/src/locales/lang/ko-KR.ts`
 - English: `src/renderer/src/locales/lang/en-US.ts`
 
 **Usage:**
@@ -227,6 +233,12 @@ Code changes involve the project's core logic and functionality, and must underg
 const { t } = useI18n()
 const text = t('key.subkey')
 ```
+
+**Translation Requirements:**
+
+- When adding new user-facing text, translations must be added to all four locale files (zh-CN, ja-JP, ko-KR, en-US)
+- Translation keys must be identical across all language files
+- Maintain consistent structure and ordering across all locale files for easier maintenance
 
 ### Environment Variables
 
@@ -241,7 +253,7 @@ Before committing code, must confirm:
 1. [OK] Pass all checks: `npm run lint && npm run typecheck && npm test`
 2. [OK] No formatting changes to unrelated files (check git diff)
 3. [OK] Commit message follows Conventional Commits format
-4. [OK] If UI changes are involved, bilingual text has been updated (zh-CN + en-US)
+4. [OK] If UI changes are involved, all four language files have been updated (zh-CN, ja-JP, ko-KR, en-US)
 5. [OK] If database is modified, migration files have been created
 6. [OK] If new IPC channels are added, types have been defined in `src/preload/index.d.ts`
 7. [OK] No sensitive information committed (keys, tokens, private domains)
