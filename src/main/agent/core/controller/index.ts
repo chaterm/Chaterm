@@ -468,11 +468,9 @@ export class Controller {
             [modelKey]: selectedModel.name
           }
         } else {
-          // Fallback to current user configuration if model not found
           commandApiConfiguration = apiConfiguration
         }
       } else {
-        // No model specified, use current configuration (backwards compatibility)
         commandApiConfiguration = apiConfiguration
       }
 

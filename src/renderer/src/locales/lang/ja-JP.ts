@@ -485,7 +485,10 @@ export default {
   commandDialog: {
     placeholder: 'コマンド指示',
     generating: 'コマンドを生成しています...',
-    submit: '生成'
+    submit: '生成',
+    generationFailed: 'コマンド生成に失敗しました',
+    noModelsConfigured: 'モデルが設定されていません。設定でモデルを設定してください',
+    selectModel: 'モデルを選択'
   },
   shortcuts: {
     actions: {
