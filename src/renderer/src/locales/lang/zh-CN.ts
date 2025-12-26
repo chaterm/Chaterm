@@ -485,7 +485,10 @@ export default {
   commandDialog: {
     placeholder: '描述您想要执行的操作...',
     generating: '正在生成命令...',
-    submit: '生成'
+    submit: '生成',
+    generationFailed: '命令生成失败',
+    noModelsConfigured: '未配置模型，请前往设置配置模型',
+    selectModel: '选择模型'
   },
   shortcuts: {
     actions: {

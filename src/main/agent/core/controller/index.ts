@@ -19,9 +19,9 @@ import {
   saveTaskMetadata,
   ensureMcpServersDirectoryExists
 } from '../storage/disk'
-import { getAllExtensionState, getGlobalState, updateApiConfiguration, updateGlobalState, getUserConfig } from '../storage/state'
+import { getAllExtensionState, getGlobalState, updateApiConfiguration, updateGlobalState, getUserConfig, getModelOptions } from '../storage/state'
 import { Task } from '../task'
-import { ApiConfiguration } from '@shared/api'
+import { ApiConfiguration, ApiProvider, PROVIDER_MODEL_KEY_MAP } from '@shared/api'
 import { TITLE_GENERATION_PROMPT, TITLE_GENERATION_PROMPT_CN } from '../prompts/system'
 import { DEFAULT_LANGUAGE_SETTINGS } from '@shared/Languages'
 
@@ -219,7 +219,7 @@ export class Controller {
         break
       case 'commandGeneration':
         if (message.instruction) {
-          await this.handleCommandGeneration(message.instruction, message.context, message.tabId)
+          await this.handleCommandGeneration(message.instruction, message.context, message.tabId, message.modelName)
         }
         break
       case 'telemetrySetting': {
@@ -443,7 +443,7 @@ export class Controller {
    * Handle command generation request from webview
    * Converts natural language instruction to executable terminal command
    */
-  async handleCommandGeneration(instruction: string, context?: { cwd: string; platform: string; shell: string }, tabId?: string) {
+  async handleCommandGeneration(instruction: string, context?: { cwd: string; platform: string; shell: string }, tabId?: string, modelName?: string) {
     try {
       // Get API configuration
       const { apiConfiguration } = await getAllExtensionState()
@@ -451,11 +451,29 @@ export class Controller {
         throw new Error('API configuration not found')
       }
 
-      // Build a new API configuration for command generation
-      const commandApiConfiguration = {
-        ...apiConfiguration,
-        apiProvider: 'default' as const,
-        defaultModelId: 'Qwen-Plus'
+      // Build API configuration based on selected model
+      let commandApiConfiguration: ApiConfiguration
+
+      if (modelName) {
+        // Get model options to find the selected model's provider (exclude thinking models)
+        const modelOptions = await getModelOptions(true)
+        const selectedModel = modelOptions.find((m) => m.name === modelName)
+
+        if (selectedModel && selectedModel.apiProvider) {
+          const modelKey = PROVIDER_MODEL_KEY_MAP[selectedModel.apiProvider] || 'defaultModelId'
+
+          commandApiConfiguration = {
+            ...apiConfiguration,
+            apiProvider: selectedModel.apiProvider as ApiProvider,
+            [modelKey]: selectedModel.name
+          }
+        } else {
+          // Fallback to current user configuration if model not found
+          commandApiConfiguration = apiConfiguration
+        }
+      } else {
+        // No model specified, use current configuration (backwards compatibility)
+        commandApiConfiguration = apiConfiguration
       }
 
       const api = buildApiHandler(commandApiConfiguration)

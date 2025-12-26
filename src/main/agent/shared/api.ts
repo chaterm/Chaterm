@@ -45,6 +45,15 @@ export type ApiConfiguration = ApiHandlerOptions & {
   favoritedModelIds?: string[]
 }
 
+// Map API provider to corresponding model ID configuration key
+export const PROVIDER_MODEL_KEY_MAP: Record<string, string> = {
+  default: 'defaultModelId',
+  litellm: 'liteLlmModelId',
+  openai: 'openAiModelId',
+  deepseek: 'apiModelId',
+  bedrock: 'apiModelId'
+}
+
 // Models
 
 interface PriceTier {

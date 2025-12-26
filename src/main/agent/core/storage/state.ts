@@ -1,6 +1,14 @@
 import type { BrowserWindow } from 'electron'
 import type { GlobalStateKey, SecretKey, ApiConfiguration } from './types'
 
+export interface ModelOption {
+  id: string
+  name: string
+  checked: boolean
+  type: string
+  apiProvider: string
+}
+
 let mainWindow: BrowserWindow | null = null
 
 export function initializeStorageMain(window: BrowserWindow): void {
@@ -186,6 +194,44 @@ export async function getUserConfig(): Promise<any> {
     `
 
   return await mainWindow.webContents.executeJavaScript(script)
+}
+
+/**
+ * Get model options from renderer process global state
+ * @param excludeThinking - Whether to exclude models with "-Thinking" suffix
+ * @returns Array of model options
+ */
+export async function getModelOptions(excludeThinking = false): Promise<ModelOption[]> {
+  try {
+    if (!mainWindow) {
+      console.error('Main window not initialized')
+      return []
+    }
+
+    const script = `
+      (async () => {
+        if (window.storageAPI && window.storageAPI.getGlobalState) {
+          return await window.storageAPI.getGlobalState('modelOptions') || [];
+        }
+        return [];
+      })()
+    `
+    const modelOptions = await mainWindow.webContents.executeJavaScript(script)
+
+    if (!Array.isArray(modelOptions)) {
+      return []
+    }
+
+    // Filter out thinking models if requested
+    if (excludeThinking) {
+      return modelOptions.filter((model: ModelOption) => !model.name.endsWith('-Thinking'))
+    }
+
+    return modelOptions
+  } catch (error) {
+    console.error('Failed to get model options:', error)
+    return []
+  }
 }
 
 // Test function
