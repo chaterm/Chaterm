@@ -26,7 +26,12 @@ export const setupJumpServerInteraction = (
   jumpserverUuid: string,
   conn: Client,
   event: Electron.IpcMainInvokeEvent | undefined,
-  sendStatusUpdate: (message: string, type: 'info' | 'success' | 'warning' | 'error') => void,
+  sendStatusUpdate: (
+    message: string,
+    type: 'info' | 'success' | 'warning' | 'error',
+    messageKey?: string,
+    messageParams?: Record<string, string | number>
+  ) => void,
   resolve: (value: { status: string; message: string }) => void,
   reject: (reason: Error) => void
 ) => {
@@ -41,7 +46,7 @@ export const setupJumpServerInteraction = (
   const handleConnectionSuccess = (reason: string) => {
     if (connectionEstablished) return
     connectionEstablished = true
-    sendStatusUpdate('Successfully connected to target server, you can start operating', 'success')
+    sendStatusUpdate('Successfully connected to target server, you can start operating', 'success', 'ssh.jumpserver.connectedToTarget')
     connectionPhase = 'connected'
     outputBuffer = ''
 
@@ -125,7 +130,7 @@ export const setupJumpServerInteraction = (
 
     if (connectionPhase === 'connecting' && outputBuffer.includes('Opt>')) {
       console.log('JumpServer menu detected, entering target IP')
-      sendStatusUpdate(`Connecting to target server...`, 'info')
+      sendStatusUpdate('Connecting to target server...', 'info', 'ssh.jumpserver.connectingToTarget')
       connectionPhase = 'inputIp'
       outputBuffer = ''
       stream.write(connectionInfo.targetIp + '\r')
@@ -135,7 +140,7 @@ export const setupJumpServerInteraction = (
     if (connectionPhase === 'inputIp') {
       if (hasUserSelectionPrompt(outputBuffer)) {
         console.log('Multiple user prompt detected, user selection required')
-        sendStatusUpdate('Multiple user accounts detected, please select...', 'info')
+        sendStatusUpdate('Multiple user accounts detected, please select...', 'info', 'ssh.jumpserver.multipleUsersDetected')
         connectionPhase = 'selectUser'
         const users = parseJumpServerUsers(outputBuffer)
         console.log('Parsed user list:', users)
@@ -159,7 +164,7 @@ export const setupJumpServerInteraction = (
         handleJumpServerUserSelectionWithEvent(event, connectionId, users)
           .then((selectedUserId) => {
             console.log('User selected account ID:', selectedUserId)
-            sendStatusUpdate('Connecting with selected account...', 'info')
+            sendStatusUpdate('Connecting with selected account...', 'info', 'ssh.jumpserver.connectingWithSelectedAccount')
             connectionPhase = 'inputPassword'
 
             navigationPath.selectedUserId = selectedUserId
@@ -168,7 +173,7 @@ export const setupJumpServerInteraction = (
           })
           .catch((err) => {
             console.error('User selection failed:', err)
-            sendStatusUpdate('User selection cancelled', 'error')
+            sendStatusUpdate('User selection cancelled', 'error', 'ssh.jumpserver.userSelectionCanceled')
             conn.end()
             reject(err)
           })
@@ -176,7 +181,7 @@ export const setupJumpServerInteraction = (
       }
 
       if (hasPasswordPrompt(outputBuffer)) {
-        sendStatusUpdate('Authenticating...', 'info')
+        sendStatusUpdate('Authenticating...', 'info', 'ssh.jumpserver.authenticating')
         connectionPhase = 'inputPassword'
         outputBuffer = ''
         sendPasswordToStream(stream, connectionInfo.password || '', navigationPath, 'After IP input')
@@ -196,7 +201,7 @@ export const setupJumpServerInteraction = (
 
     if (connectionPhase === 'selectUser') {
       if (hasPasswordPrompt(outputBuffer)) {
-        sendStatusUpdate('Authenticating...', 'info')
+        sendStatusUpdate('Authenticating...', 'info', 'ssh.jumpserver.authenticating')
         connectionPhase = 'inputPassword'
         outputBuffer = ''
         sendPasswordToStream(stream, connectionInfo.password || '', navigationPath, 'After user selection')

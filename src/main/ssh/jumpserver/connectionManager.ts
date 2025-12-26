@@ -79,11 +79,18 @@ const attemptJumpServerConnection = async (
 ): Promise<{ status: string; message: string }> => {
   const connectionId = connectionInfo.id
 
-  const sendStatusUpdate = (message: string, type: 'info' | 'success' | 'warning' | 'error' = 'info') => {
+  const sendStatusUpdate = (
+    message: string,
+    type: 'info' | 'success' | 'warning' | 'error' = 'info',
+    messageKey?: string,
+    messageParams?: Record<string, string | number>
+  ) => {
     if (event) {
       event.sender.send('jumpserver:status-update', {
         id: connectionId,
         message,
+        messageKey,
+        messageParams,
         type,
         timestamp: new Date().toLocaleTimeString()
       })
@@ -104,7 +111,7 @@ const attemptJumpServerConnection = async (
     if (connectionInfo.assetUuid) {
       for (const [, existingData] of jumpserverConnections.entries()) {
         if (existingData.jumpserverUuid === jumpserverUuid) {
-          sendStatusUpdate('Reusing existing connection, creating new shell session...', 'info')
+          sendStatusUpdate('Reusing existing connection, creating new shell session...', 'info', 'ssh.jumpserver.reuseConnection')
 
           const conn = existingData.conn
           conn.shell({ term: connectionInfo.terminalType || 'vt100' }, (err, newStream) => {
@@ -131,7 +138,7 @@ const attemptJumpServerConnection = async (
       }
     }
 
-    sendStatusUpdate('Connecting to remote bastion host...', 'info')
+    sendStatusUpdate('Connecting to remote bastion host...', 'info', 'ssh.jumpserver.connectingToBastionHost')
 
     const conn = new Client()
 
@@ -183,17 +190,22 @@ const attemptJumpServerConnection = async (
     conn.on('keyboard-interactive', async (_name, _instructions, _instructionsLang, prompts, finish) => {
       try {
         if (attemptCount === 0) {
-          sendStatusUpdate('Two-factor authentication required, please enter verification code...', 'info')
+          sendStatusUpdate('Two-factor authentication required, please enter verification code...', 'info', 'ssh.jumpserver.mfaRequired')
         } else {
           sendStatusUpdate(
             `Verification failed, please re-enter verification code (${attemptCount + 1}/${MAX_JUMPSERVER_MFA_ATTEMPTS})...`,
-            'warning'
+            'warning',
+            'ssh.jumpserver.mfaRetry',
+            {
+              attempt: attemptCount + 1,
+              max: MAX_JUMPSERVER_MFA_ATTEMPTS
+            }
           )
         }
 
         await handleJumpServerKeyboardInteractive(event, connectionId, prompts, finish)
       } catch (err) {
-        sendStatusUpdate('Two-factor authentication failed', 'error')
+        sendStatusUpdate('Two-factor authentication failed', 'error', 'ssh.jumpserver.mfaFailed')
         conn.end()
         reject(err as Error)
       }
@@ -201,7 +213,7 @@ const attemptJumpServerConnection = async (
 
     conn.on('ready', () => {
       console.log('JumpServer connection established, starting to create shell')
-      sendStatusUpdate('Successfully connected to bastion host, please wait...', 'success')
+      sendStatusUpdate('Successfully connected to bastion host, please wait...', 'success', 'ssh.jumpserver.connectedToBastionHost')
       attemptSecondaryConnection(event, connectionInfo, ident)
 
       if (event && keyboardInteractiveOpts.has(connectionId)) {
