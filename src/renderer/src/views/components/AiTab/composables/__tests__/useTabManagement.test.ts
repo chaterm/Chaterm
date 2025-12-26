@@ -10,28 +10,32 @@ vi.mock('../useSessionState')
 vi.mock('@renderer/agent/storage/state', () => ({
   getGlobalState: vi.fn()
 }))
-vi.mock('vue-i18n', () => ({
-  useI18n: vi.fn(() => ({
-    t: vi.fn((key: string) => key),
-    locale: { value: 'en-US' },
-    messages: {
-      value: {
-        'en-US': {
-          ai: {
-            welcomeTips: ['Welcome tip 1', 'Welcome tip 2'],
-            welcome: 'Welcome'
-          },
-          common: {
-            closeTabConfirm: 'Close tab?',
-            closeTabWithTaskRunning: 'Task is running',
-            forceClose: 'Force close',
-            cancel: 'Cancel'
+vi.mock('vue-i18n', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('vue-i18n')>()
+  return {
+    ...actual,
+    useI18n: vi.fn(() => ({
+      t: vi.fn((key: string) => key),
+      locale: { value: 'en-US' },
+      messages: {
+        value: {
+          'en-US': {
+            ai: {
+              welcomeTips: ['Welcome tip 1', 'Welcome tip 2'],
+              welcome: 'Welcome'
+            },
+            common: {
+              closeTabConfirm: 'Close tab?',
+              closeTabWithTaskRunning: 'Task is running',
+              forceClose: 'Force close',
+              cancel: 'Cancel'
+            }
           }
         }
       }
-    }
-  }))
-}))
+    }))
+  }
+})
 
 // Mock window.api
 const mockGetTaskMetadata = vi.fn()

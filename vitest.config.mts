@@ -88,7 +88,16 @@ export default defineConfig({
         },
         plugins: [vue()],
         resolve: {
-          alias: rendererAliases
+          alias: [
+            {
+              find: /^monaco-editor$/,
+              replacement: resolve(__dirname, 'node_modules/monaco-editor/esm/vs/editor/editor.api')
+            },
+            ...Object.entries(rendererAliases).map(([find, replacement]) => ({
+              find,
+              replacement
+            }))
+          ]
         }
       },
       {
