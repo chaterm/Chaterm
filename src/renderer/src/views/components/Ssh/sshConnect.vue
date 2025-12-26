@@ -109,6 +109,7 @@ import { LanguageMap } from './editors/languageMap'
 import EditorCode from './editors/dragEditor.vue'
 import { message, Modal } from 'ant-design-vue'
 import { aliasConfigStore } from '@/store/aliasConfigStore'
+import { useMacroRecorderStore } from '@/store/macroRecorderStore'
 import { userConfigStore } from '../../../store/userConfigStore'
 import { userConfigStore as serviceUserConfig } from '@/services/userConfigStoreService'
 import { v4 as uuidv4 } from 'uuid'
@@ -1685,6 +1686,19 @@ const setupTerminalInput = () => {
     if (startStr.value == '') {
       startStr.value = beginStr.value
     }
+
+    // Macro recording: capture input for macro recorder
+    const macroRecorder = useMacroRecorderStore()
+    if (macroRecorder.isRecording && macroRecorder.terminalId === connectionId.value) {
+      macroRecorder.appendInput(connectionId.value, data)
+      // Check if recording should auto-stop due to limits
+      const limitCheck = macroRecorder.checkLimits()
+      if (limitCheck.shouldStop) {
+        // Emit event to notify UI about auto-stop
+        eventBus.emit('macroRecordingLimitReached', { reason: limitCheck.reason })
+      }
+    }
+
     // Intercept Delete/Backspace when suggestions are visible: clear and forward once to actually delete char
     if (isDeleteKeyData(data) && suggestions.value.length > 0) {
       suggestions.value = []

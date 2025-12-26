@@ -1071,5 +1071,20 @@ export default {
     noResources: 'リソースがありません',
     toolDescription: 'ツール説明',
     autoApproveHelp: '自動承認されたツールはユーザーの確認なしに実行されます'
+  },
+  macro: {
+    startRecording: 'マクロ記録',
+    stopRecording: '記録を停止',
+    saveRecording: '記録を保存',
+    noActiveTerminal: 'アクティブなターミナルがありません。先にターミナルへ接続してください',
+    recordingStarted: 'コマンドの記録を開始しました',
+    noCommandsRecorded: '記録されたコマンドがありません',
+    timeLimitReached: '記録時間の上限（5分）に達したため自動停止しました',
+    commandLimitReached: 'コマンド数の上限（50件）に達したため自動停止しました',
+    pleaseEnterName: 'スニペット名を入力してください',
+    snippetSaved: 'スニペットが正常に保存されました',
+    commandCount: '合計 {count} 件のコマンド',
+    recording: '記録中',
+    commands: 'コマンド'
   }
 }

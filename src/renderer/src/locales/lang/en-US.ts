@@ -1075,5 +1075,20 @@ export default {
     noResources: 'No resources',
     toolDescription: 'Tool Description',
     autoApproveHelp: 'Auto-approved tools will execute without user confirmation'
+  },
+  macro: {
+    startRecording: 'Macro Record',
+    stopRecording: 'Stop Recording',
+    saveRecording: 'Save Recording',
+    noActiveTerminal: 'No active terminal, please connect to a terminal first',
+    recordingStarted: 'Started recording commands',
+    noCommandsRecorded: 'No commands recorded',
+    timeLimitReached: 'Recording time limit reached (5 minutes), auto-stopped',
+    commandLimitReached: 'Command count limit reached (50 commands), auto-stopped',
+    pleaseEnterName: 'Please enter snippet name',
+    snippetSaved: 'Snippet saved successfully',
+    commandCount: '{count} command(s) recorded',
+    recording: 'Recording',
+    commands: 'commands'
   }
 }
