@@ -60,12 +60,9 @@ export function useTabManagement(options: TabManagementOptions) {
     const placeholderTab: ChatTab = {
       id: newChatId,
       title: 'New chat',
-      hosts: undefined as unknown as Host[],
-      chatType: undefined as unknown as string,
       autoUpdateHost: true,
       session: createEmptySessionState(),
       inputValue: '',
-      modelValue: undefined as unknown as string,
       welcomeTip: generateRandomWelcomeTip()
     }
 

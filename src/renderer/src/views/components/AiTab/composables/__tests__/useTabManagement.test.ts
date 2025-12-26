@@ -170,7 +170,7 @@ describe('useTabManagement', () => {
       await nextTick()
 
       const newTab = mockState.chatTabs.value[1]
-      expect(newTab.hosts[0].host).toBe('127.0.0.1')
+      expect(newTab.hosts?.[0]?.host).toBe('127.0.0.1')
     })
 
     it('should set model value from global state', async () => {
@@ -266,7 +266,7 @@ describe('useTabManagement', () => {
       const restoredTab = mockState.chatTabs.value.find((t) => t.id === 'history-1')
       expect(restoredTab).toBeDefined()
       expect(restoredTab!.title).toBe('Previous Chat')
-      expect(restoredTab!.hosts[0].host).toBe('192.168.1.50')
+      expect(restoredTab!.hosts?.[0]?.host).toBe('192.168.1.50')
       expect(restoredTab!.chatType).toBe('cmd')
       expect(restoredTab!.modelValue).toBe('gpt-4')
     })
