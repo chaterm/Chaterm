@@ -29,6 +29,17 @@ interface DefaultModel {
 const isEmptyValue = (value: unknown): boolean => value === undefined || value === ''
 
 /**
+ * Mapping from API provider to corresponding model ID global state key
+ */
+export const PROVIDER_MODEL_KEY_MAP: Record<string, GlobalStateKey> = {
+  bedrock: 'apiModelId',
+  litellm: 'liteLlmModelId',
+  deepseek: 'apiModelId',
+  openai: 'openAiModelId',
+  default: 'defaultModelId'
+}
+
+/**
  * Composable for AI model configuration management
  * Handles model selection, configuration and initialization
  */
@@ -37,14 +48,6 @@ export function useModelConfiguration() {
 
   const AgentAiModelsOptions = ref<ModelSelectOption[]>([])
   const modelsLoading = ref(true)
-
-  const PROVIDER_MODEL_KEY_MAP: Record<string, GlobalStateKey> = {
-    bedrock: 'apiModelId',
-    litellm: 'liteLlmModelId',
-    deepseek: 'apiModelId',
-    openai: 'openAiModelId',
-    default: 'defaultModelId'
-  }
 
   const handleChatAiModelChange = async () => {
     const modelOptions = (await getGlobalState('modelOptions')) as ModelOption[]
