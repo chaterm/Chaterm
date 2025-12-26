@@ -7,11 +7,6 @@ directories:
   output: dist/global
 
 extraResources:
-  - from: 'src/renderer/src/assets/db/'
-    to: 'db/'
-    filter: '**/*.db'
-  - from: 'resources/update-notes.json'
-    to: 'update-notes.json'
   - from: 'build/edition-config/'
     to: 'edition-config/'
     filter: '**/*.json'
