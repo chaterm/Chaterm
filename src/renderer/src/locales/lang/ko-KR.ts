@@ -1051,5 +1051,20 @@ export default {
     noResources: '리소스 없음',
     toolDescription: '도구 설명',
     autoApproveHelp: '자동 승인된 도구는 사용자 확인 없이 실행됩니다'
+  },
+  macro: {
+    startRecording: '매크로 기록',
+    stopRecording: '기록 중지',
+    saveRecording: '기록 저장',
+    noActiveTerminal: '활성 터미널이 없습니다. 먼저 터미널에 연결해주세요',
+    recordingStarted: '명령 기록을 시작했습니다',
+    noCommandsRecorded: '기록된 명령이 없습니다',
+    timeLimitReached: '기록 시간 제한(5분)에 도달하여 자동으로 중지되었습니다',
+    commandLimitReached: '명령 수 제한(50개)에 도달하여 자동으로 중지되었습니다',
+    pleaseEnterName: '스니펫 이름을 입력해주세요',
+    snippetSaved: '스니펫이 성공적으로 저장되었습니다',
+    commandCount: '{count}개 명령 기록됨',
+    recording: '기록 중',
+    commands: '명령'
   }
 }

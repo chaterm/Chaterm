@@ -1,5 +1,26 @@
 <template>
   <div class="snippets-panel">
+    <!-- Recording Status Bar -->
+    <div
+      v-if="macroRecorder.isRecording"
+      class="recording-status-bar"
+    >
+      <div class="recording-info">
+        <span class="recording-indicator"></span>
+        <span class="recording-text">{{ $t('macro.recording') }}</span>
+        <span class="recording-divider">|</span>
+        <span class="recording-count">{{ macroRecorder.getCommandCount }}</span>
+      </div>
+      <a-button
+        type="text"
+        size="small"
+        class="stop-btn"
+        @click="stopMacroRecording"
+      >
+        {{ $t('macro.stopRecording') }}
+      </a-button>
+    </div>
+
     <div
       v-if="!editingCommand"
       class="panel-header"
@@ -36,6 +57,17 @@
           </template>
         </div>
         <div class="header-right">
+          <a-tooltip :title="macroRecorder.isRecording ? $t('macro.stopRecording') : $t('macro.startRecording')">
+            <a-button
+              type="text"
+              size="small"
+              class="icon-btn macro-btn"
+              :class="{ recording: macroRecorder.isRecording }"
+              @click="toggleMacroRecording"
+            >
+              <VideoCameraOutlined />
+            </a-button>
+          </a-tooltip>
           <a-tooltip
             v-if="!selectedGroupUuid"
             :title="$t('common.command_add')"
@@ -134,12 +166,26 @@
             >{{ g.group_name }}</a-select-option
           >
         </a-select>
-        <a-textarea
-          v-model:value="newCommandValue"
-          :placeholder="$t('quickCommand.scriptContent')"
-          :auto-size="{ minRows: 6, maxRows: 10 }"
-          style="margin-bottom: 12px"
-        />
+        <div class="script-editor-container">
+          <div
+            ref="lineNumbersRef"
+            class="line-numbers"
+          >
+            <div
+              v-for="n in scriptLineCount"
+              :key="n"
+              class="line-number"
+              >{{ n }}</div
+            >
+          </div>
+          <textarea
+            ref="scriptTextareaRef"
+            v-model="newCommandValue"
+            class="script-textarea"
+            :placeholder="$t('quickCommand.scriptContent')"
+            @scroll="syncScroll"
+          ></textarea>
+        </div>
 
         <!-- Script syntax help -->
         <div class="script-help">
@@ -409,13 +455,20 @@ import {
   FolderOutlined,
   FolderAddOutlined,
   CheckOutlined,
-  CloseOutlined
+  CloseOutlined,
+  VideoCameraOutlined
 } from '@ant-design/icons-vue'
 import snippetIcon from '@/assets/menu/snippet.svg'
 import { executeScript } from '../../Ssh/utils/commandScript'
 import { inputManager } from '../../Ssh/utils/termInputManager'
+import { useMacroRecorderStore } from '@/store/macroRecorderStore'
+import eventBus from '@/utils/eventBus'
+import { message } from 'ant-design-vue'
 
 const { t } = useI18n()
+
+// Macro recording state
+const macroRecorder = useMacroRecorderStore()
 
 interface QuickCommand {
   id: number
@@ -456,6 +509,22 @@ const currentContextCommand = ref<QuickCommand | null>(null)
 const searchQuery = ref('')
 const isSearchActive = ref(false)
 const searchInputRef = ref()
+const lineNumbersRef = ref<HTMLElement>()
+const scriptTextareaRef = ref<HTMLTextAreaElement>()
+
+// Computed property for line count in script editor
+const scriptLineCount = computed(() => {
+  if (!newCommandValue.value) return 1
+  const lines = newCommandValue.value.split('\n').length
+  return Math.max(lines, 1)
+})
+
+// Sync scroll between line numbers and textarea
+const syncScroll = () => {
+  if (lineNumbersRef.value && scriptTextareaRef.value) {
+    lineNumbersRef.value.scrollTop = scriptTextareaRef.value.scrollTop
+  }
+}
 
 const filteredCommands = computed(() => {
   let cmds = quickCommands.value
@@ -521,10 +590,14 @@ const closeContextMenu = () => {
 onMounted(async () => {
   await refresh()
   window.addEventListener('click', closeContextMenu)
+
+  // Listen for macro recording limit events
+  eventBus.on('macroRecordingLimitReached', handleMacroLimitReached)
 })
 
 onUnmounted(() => {
   window.removeEventListener('click', closeContextMenu)
+  eventBus.off('macroRecordingLimitReached', handleMacroLimitReached)
 })
 
 const openAddCommandDialog = () => {
@@ -810,6 +883,72 @@ const removeCommand = async (id: number) => {
   })
   await refresh()
 }
+
+// Macro recording functions
+const startMacroRecording = () => {
+  const activeTerm = inputManager.getActiveTerm()
+  if (!activeTerm.id) {
+    message.warning(t('macro.noActiveTerminal'))
+    return
+  }
+
+  const success = macroRecorder.startRecording(activeTerm.id, selectedGroupUuid.value)
+  if (success) {
+    message.success(t('macro.recordingStarted'))
+  }
+}
+
+const stopMacroRecording = async () => {
+  // Guard: skip if already stopped (e.g., by autoStop)
+  if (!macroRecorder.isRecording) {
+    return
+  }
+
+  const result = macroRecorder.stopRecording()
+  if (result && result.content) {
+    // Save directly without dialog
+    await api.userSnippetOperation({
+      operation: 'create',
+      params: {
+        snippet_name: result.name,
+        snippet_content: result.content,
+        group_uuid: result.groupUuid
+      }
+    })
+    await refresh()
+    message.success(t('macro.snippetSaved'))
+  } else {
+    message.info(t('macro.noCommandsRecorded'))
+  }
+}
+
+const handleMacroLimitReached = async (payload: { reason: string; result?: { content: string; name: string; groupUuid: string | null } }) => {
+  const { result } = payload
+
+  // autoStop already stopped recording and provided result
+  // Save the recorded content directly, only show one success message
+  if (result && result.content) {
+    await api.userSnippetOperation({
+      operation: 'create',
+      params: {
+        snippet_name: result.name,
+        snippet_content: result.content,
+        group_uuid: result.groupUuid
+      }
+    })
+    await refresh()
+    message.success(t('macro.snippetSaved'))
+  }
+  // Don't show "no commands" message for auto-stop to avoid confusion
+}
+
+const toggleMacroRecording = () => {
+  if (macroRecorder.isRecording) {
+    stopMacroRecording()
+  } else {
+    startMacroRecording()
+  }
+}
 </script>
 
 <style scoped lang="less">
@@ -819,6 +958,70 @@ const removeCommand = async (id: number) => {
   flex-direction: column;
   background-color: var(--bg-color);
   color: var(--text-color);
+
+  .recording-status-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 12px;
+    background-color: rgba(255, 77, 79, 0.1);
+    border-bottom: 1px solid rgba(255, 77, 79, 0.3);
+
+    .recording-info {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .recording-indicator {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background-color: #ff4d4f;
+      animation: blink 1s ease-in-out infinite;
+    }
+
+    .recording-text {
+      font-size: 12px;
+      color: #ff4d4f;
+      font-weight: 500;
+    }
+
+    .recording-divider {
+      color: var(--text-secondary-color);
+      font-size: 12px;
+      opacity: 0.5;
+    }
+
+    .recording-count {
+      font-size: 11px;
+      color: var(--text-secondary-color);
+      position: relative;
+      top: 2px;
+    }
+
+    .stop-btn {
+      color: #ff4d4f;
+      font-size: 12px;
+      padding: 2px 8px;
+      height: auto;
+      flex-shrink: 0;
+
+      &:hover {
+        background-color: rgba(255, 77, 79, 0.2);
+      }
+    }
+
+    @keyframes blink {
+      0%,
+      100% {
+        opacity: 1;
+      }
+      50% {
+        opacity: 0.3;
+      }
+    }
+  }
 
   .panel-header {
     padding: 12px 16px;
@@ -876,6 +1079,25 @@ const removeCommand = async (id: number) => {
       &:hover {
         color: var(--text-color);
         background-color: var(--hover-bg-color);
+      }
+    }
+
+    .macro-btn {
+      &.recording {
+        color: #ff4d4f;
+        animation: pulse 1.5s ease-in-out infinite;
+      }
+    }
+
+    @keyframes pulse {
+      0% {
+        opacity: 1;
+      }
+      50% {
+        opacity: 0.5;
+      }
+      100% {
+        opacity: 1;
       }
     }
 
@@ -993,6 +1215,61 @@ const removeCommand = async (id: number) => {
           border-color: #1890ff;
           box-shadow: 0 0 0 2px rgba(24, 144, 255, 0.2);
         }
+      }
+    }
+
+    .script-editor-container {
+      display: flex;
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      background-color: var(--bg-color-secondary);
+      margin-bottom: 12px;
+      overflow: hidden;
+      min-height: 150px;
+      max-height: 250px;
+
+      .line-numbers {
+        padding: 8px 0;
+        background-color: var(--bg-color);
+        border-right: 1px solid var(--border-color);
+        overflow: hidden;
+        user-select: none;
+        min-width: 24px;
+
+        .line-number {
+          padding: 0 4px 0 6px;
+          text-align: right;
+          font-family: 'Consolas', 'Monaco', monospace;
+          font-size: 12px;
+          line-height: 20px;
+          color: var(--text-secondary-color);
+        }
+      }
+
+      .script-textarea {
+        flex: 1;
+        padding: 8px 12px;
+        border: none;
+        outline: none;
+        resize: none;
+        background-color: transparent;
+        color: var(--text-color);
+        font-family: 'Consolas', 'Monaco', monospace;
+        font-size: 12px;
+        line-height: 20px;
+        overflow: auto;
+        white-space: pre;
+        word-wrap: normal;
+        overflow-wrap: normal;
+
+        &::placeholder {
+          color: var(--text-secondary-color);
+        }
+      }
+
+      &:focus-within {
+        border-color: #1890ff;
+        box-shadow: 0 0 0 2px rgba(24, 144, 255, 0.2);
       }
     }
 
@@ -1473,6 +1750,15 @@ const removeCommand = async (id: number) => {
       opacity: 1;
       transform: translateY(0);
     }
+  }
+}
+
+// Macro save dialog styles
+.macro-save-content {
+  .macro-info {
+    margin-top: 8px;
+    font-size: 12px;
+    color: var(--text-secondary-color);
   }
 }
 </style>

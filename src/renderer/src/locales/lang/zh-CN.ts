@@ -1073,5 +1073,20 @@ export default {
     noResources: '暂无资源',
     toolDescription: '工具描述',
     autoApproveHelp: '自动批准的工具将不需要用户确认即可执行'
+  },
+  macro: {
+    startRecording: '宏录制',
+    stopRecording: '停止录制',
+    saveRecording: '保存录制',
+    noActiveTerminal: '没有活动终端，请先连接终端',
+    recordingStarted: '开始录制命令',
+    noCommandsRecorded: '未录制到任何命令',
+    timeLimitReached: '录制时间已达上限（5分钟），自动停止',
+    commandLimitReached: '录制命令数已达上限（50条），自动停止',
+    pleaseEnterName: '请输入命令片段名称',
+    snippetSaved: '命令片段保存成功',
+    commandCount: '共 {count} 条命令',
+    recording: '录制中',
+    commands: '条命令'
   }
 }
