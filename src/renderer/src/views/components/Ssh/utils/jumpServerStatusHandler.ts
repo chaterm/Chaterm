@@ -3,18 +3,24 @@ import type { Terminal } from 'xterm'
 export interface JumpServerStatusData {
   id: string
   message: string
+  messageKey?: string
+  messageParams?: Record<string, string | number>
   type: 'info' | 'success' | 'warning' | 'error'
   timestamp?: string
 }
+
+export type JumpServerStatusTranslator = (data: JumpServerStatusData) => string
 
 export class JumpServerStatusHandler {
   private removeStatusListener: (() => void) | null = null
   private terminal: Terminal | null = null
   private connectionId: string = ''
+  private translateMessage: JumpServerStatusTranslator | null = null
 
-  constructor(terminal: Terminal, connectionId: string) {
+  constructor(terminal: Terminal, connectionId: string, translateMessage?: JumpServerStatusTranslator) {
     this.terminal = terminal
     this.connectionId = connectionId
+    this.translateMessage = translateMessage || null
   }
 
   /**
@@ -60,7 +66,8 @@ export class JumpServerStatusHandler {
   setupStatusListener(api: any): void {
     this.removeStatusListener = api.onJumpServerStatusUpdate((data: JumpServerStatusData) => {
       if (data.id === this.connectionId && this.terminal) {
-        const formattedMessage = this.formatStatusMessage(data.message, data.type)
+        const resolvedMessage = this.translateMessage ? this.translateMessage(data) : data.message
+        const formattedMessage = this.formatStatusMessage(resolvedMessage, data.type)
         this.terminal.writeln(formattedMessage)
       }
     })
@@ -101,8 +108,12 @@ export class JumpServerStatusHandler {
 /**
  * Factory function to create JumpServer status handler
  */
-export function createJumpServerStatusHandler(terminal: Terminal, connectionId: string): JumpServerStatusHandler {
-  return new JumpServerStatusHandler(terminal, connectionId)
+export function createJumpServerStatusHandler(
+  terminal: Terminal,
+  connectionId: string,
+  translateMessage?: JumpServerStatusTranslator
+): JumpServerStatusHandler {
+  return new JumpServerStatusHandler(terminal, connectionId, translateMessage)
 }
 
 /**

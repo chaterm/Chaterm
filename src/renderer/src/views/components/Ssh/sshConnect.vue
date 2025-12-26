@@ -117,7 +117,7 @@ import { userInfoStore } from '@/store/index'
 import stripAnsi from 'strip-ansi'
 import { inputManager, commandBarHeight } from './utils/termInputManager'
 import { shellCommands } from './utils/shellCmd'
-import { createJumpServerStatusHandler, formatStatusMessage } from './utils/jumpServerStatusHandler'
+import { createJumpServerStatusHandler, formatStatusMessage, type JumpServerStatusData } from './utils/jumpServerStatusHandler'
 import { useDeviceStore } from '@/store/useDeviceStore'
 import { isFocusInAiTab } from '@/utils/domUtils'
 import { checkUserDevice } from '@api/user/user'
@@ -272,6 +272,12 @@ const showSearch = ref(false)
 const searchAddon = ref<SearchAddon | null>(null)
 const showAiButton = ref(false)
 let jumpServerStatusHandler: ReturnType<typeof createJumpServerStatusHandler> | null = null
+const translateJumpServerStatus = (data: JumpServerStatusData) => {
+  if (data.messageKey) {
+    return t(data.messageKey, data.messageParams || {})
+  }
+  return data.message
+}
 const isCommandDialogVisible = ref(false)
 const wasDialogVisibleBeforeDeactivation = ref(false)
 
@@ -1104,7 +1110,7 @@ const connectSSH = async () => {
     connectionId.value = `${assetInfo.username}@${props.connectData.ip}:${orgType}:${hostnameBase64}:${sessionId}`
 
     if (assetInfo.sshType === 'jumpserver' && terminal.value) {
-      jumpServerStatusHandler = createJumpServerStatusHandler(terminal.value, connectionId.value)
+      jumpServerStatusHandler = createJumpServerStatusHandler(terminal.value, connectionId.value, translateJumpServerStatus)
       jumpServerStatusHandler.setupStatusListener(api)
     }
 
