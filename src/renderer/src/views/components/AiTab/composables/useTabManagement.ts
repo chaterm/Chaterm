@@ -57,13 +57,27 @@ export function useTabManagement(options: TabManagementOptions) {
     console.log('createNewEmptyTab   begin')
     const newChatId = uuidv4()
 
+    // Use current tab's values as defaults to prevent UI flickering
+    const defaultChatType = currentTab.value?.chatType || 'agent'
+    const defaultHosts = currentTab.value?.hosts || [
+      {
+        host: '127.0.0.1',
+        uuid: 'localhost',
+        connection: 'localhost'
+      }
+    ]
+    const defaultModelValue = currentTab.value?.modelValue || ''
+
     const placeholderTab: ChatTab = {
       id: newChatId,
       title: 'New chat',
       autoUpdateHost: true,
       session: createEmptySessionState(),
       inputValue: '',
-      welcomeTip: generateRandomWelcomeTip()
+      welcomeTip: generateRandomWelcomeTip(),
+      chatType: defaultChatType,
+      hosts: defaultHosts,
+      modelValue: defaultModelValue
     }
 
     chatTabs.value.push(placeholderTab)
@@ -71,7 +85,6 @@ export function useTabManagement(options: TabManagementOptions) {
     // Set currentChatId immediately so input box can display right away
     currentChatId.value = newChatId
 
-    // Asynchronously get actual data
     const [chatSetting, assetInfo, apiProvider] = await Promise.all([
       getGlobalState('chatSettings').catch(() => ({ mode: 'agent' })),
       getCurentTabAssetInfo().catch(() => null),
@@ -109,12 +122,18 @@ export function useTabManagement(options: TabManagementOptions) {
     const key = PROVIDER_MODEL_KEY_MAP[(apiProvider as string) || 'default'] || 'defaultModelId'
     const currentModelValue = (await getGlobalState(key).catch(() => '')) as string
 
-    // Update actual data of placeholder tab
+    // Update actual data of placeholder tab only if different from defaults
     const tab = chatTabs.value.find((t) => t.id === newChatId)
     if (tab) {
-      tab.chatType = chatType
-      tab.hosts = hosts
-      tab.modelValue = currentModelValue || ''
+      if (tab.chatType !== chatType) {
+        tab.chatType = chatType
+      }
+      if (JSON.stringify(tab.hosts) !== JSON.stringify(hosts)) {
+        tab.hosts = hosts
+      }
+      if (tab.modelValue !== currentModelValue) {
+        tab.modelValue = currentModelValue || ''
+      }
     }
 
     emitStateChange?.()
