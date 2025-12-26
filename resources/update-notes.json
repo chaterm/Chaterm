@@ -2,6 +2,34 @@
   "releaseNotesUrl": "https://github.com/chaterm/Chaterm/releases/tag/v",
   "versions": [
     {
+      "version": "0.8.0",
+      "date": "2025-12-26",
+      "highlights": {
+        "zh-CN": [
+          "区分中国版(chaterm.cn)/全球版(chaterm.ai)",
+          "新增日语和韩语国际化支持",
+          "堡垒机连接提示多语言支持",
+          "AI Tab新增欢迎提示功能",
+          "优化模型配置加载状态显示",
+          "修复重复按ESC键启用命令补全的问题",
+          "修复切换资产认证方法时的显示问题",
+          "修复Agents模式下输入框滚动和焦点问题",
+          "修复Tab切换时输入框焦点问题"
+        ],
+        "en-US": [
+          "Support Chinese edition(chaterm.cn)/Global edition(chaterm.ai)",
+          "Add Japanese and Korean internationalization support",
+          "Bastion connection prompt multi-language support",
+          "Add welcome tips for AI tab",
+          "Optimize model configuration loading state display",
+          "Fix the issue of enabling command completion when ESC is repeatedly pressed",
+          "Fix display bug when switching asset authentication methods",
+          "Fix textarea scroll and focus issues in Agents mode",
+          "Fix input focus issue when switching tabs"
+        ]
+      }
+    },
+    {
       "version": "0.7.3",
       "date": "2025-12-24",
       "highlights": {
