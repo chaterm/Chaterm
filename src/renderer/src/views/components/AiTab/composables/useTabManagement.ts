@@ -6,8 +6,8 @@ import type { HistoryItem, Host, AssetInfo, ChatMessage } from '../types'
 import type { ChatTab, SessionState } from './useSessionState'
 import { useSessionState } from './useSessionState'
 import { getGlobalState } from '@renderer/agent/storage/state'
-import type { GlobalStateKey } from '@renderer/agent/storage/state-keys'
 import { ChatermMessage } from '@/types/ChatermMessage'
+import { PROVIDER_MODEL_KEY_MAP } from './useModelConfiguration'
 
 interface TabManagementOptions {
   getCurentTabAssetInfo: () => Promise<AssetInfo | null>
@@ -25,6 +25,15 @@ export const focusChatInput = () => {
       chatTextareaRef.value.focus({ preventScroll: true })
     }
   })
+}
+
+/**
+ * Default localhost host configuration
+ */
+const DEFAULT_LOCALHOST_HOST: Host = {
+  host: '127.0.0.1',
+  uuid: 'localhost',
+  connection: 'localhost'
 }
 
 /**
@@ -57,15 +66,8 @@ export function useTabManagement(options: TabManagementOptions) {
     console.log('createNewEmptyTab   begin')
     const newChatId = uuidv4()
 
-    // Use current tab's values as defaults to prevent UI flickering
     const defaultChatType = currentTab.value?.chatType || 'agent'
-    const defaultHosts = currentTab.value?.hosts || [
-      {
-        host: '127.0.0.1',
-        uuid: 'localhost',
-        connection: 'localhost'
-      }
-    ]
+    const defaultHosts = currentTab.value?.hosts || [DEFAULT_LOCALHOST_HOST]
     const defaultModelValue = currentTab.value?.modelValue || ''
 
     const placeholderTab: ChatTab = {
@@ -103,22 +105,9 @@ export function useTabManagement(options: TabManagementOptions) {
                 connection: assetInfo.connection || 'personal'
               }
             ]
-          : [
-              {
-                host: '127.0.0.1',
-                uuid: 'localhost',
-                connection: 'localhost'
-              }
-            ]
+          : [DEFAULT_LOCALHOST_HOST]
 
     // Get currently selected model as default value for new Tab
-    const PROVIDER_MODEL_KEY_MAP: Record<string, GlobalStateKey> = {
-      bedrock: 'apiModelId',
-      litellm: 'liteLlmModelId',
-      deepseek: 'apiModelId',
-      openai: 'openAiModelId',
-      default: 'defaultModelId'
-    }
     const key = PROVIDER_MODEL_KEY_MAP[(apiProvider as string) || 'default'] || 'defaultModelId'
     const currentModelValue = (await getGlobalState(key).catch(() => '')) as string
 
