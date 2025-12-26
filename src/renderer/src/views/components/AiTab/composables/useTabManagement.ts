@@ -60,18 +60,12 @@ export function useTabManagement(options: TabManagementOptions) {
     const placeholderTab: ChatTab = {
       id: newChatId,
       title: 'New chat',
-      hosts: [
-        {
-          host: '127.0.0.1',
-          uuid: 'localhost',
-          connection: 'localhost'
-        }
-      ],
-      chatType: 'agent',
+      hosts: undefined as unknown as Host[],
+      chatType: undefined as unknown as string,
       autoUpdateHost: true,
       session: createEmptySessionState(),
       inputValue: '',
-      modelValue: '',
+      modelValue: undefined as unknown as string,
       welcomeTip: generateRandomWelcomeTip()
     }
 
@@ -89,21 +83,23 @@ export function useTabManagement(options: TabManagementOptions) {
 
     const chatType = (chatSetting as { mode?: string })?.mode || 'agent'
     const hosts: Host[] =
-      assetInfo && assetInfo.ip
-        ? [
-            {
-              host: assetInfo.ip,
-              uuid: assetInfo.uuid,
-              connection: assetInfo.connection || 'personal'
-            }
-          ]
-        : [
-            {
-              host: '127.0.0.1',
-              uuid: 'localhost',
-              connection: 'localhost'
-            }
-          ]
+      chatType === 'chat'
+        ? []
+        : assetInfo && assetInfo.ip
+          ? [
+              {
+                host: assetInfo.ip,
+                uuid: assetInfo.uuid,
+                connection: assetInfo.connection || 'personal'
+              }
+            ]
+          : [
+              {
+                host: '127.0.0.1',
+                uuid: 'localhost',
+                connection: 'localhost'
+              }
+            ]
 
     // Get currently selected model as default value for new Tab
     const PROVIDER_MODEL_KEY_MAP: Record<string, GlobalStateKey> = {
