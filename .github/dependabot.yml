@@ -1,0 +1,67 @@
+version: 2
+updates:
+  # Check for npm dependency updates
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "10:00"
+    open-pull-requests-limit: 10
+    reviewers:
+      - "chaterm/maintainers"
+    labels:
+      - "dependencies"
+      - "npm"
+    # Rebase strategy to keep PRs clean
+    rebase-strategy: "auto"
+    commit-message:
+      prefix: "chore"
+      prefix-development: "chore"
+      include: "scope"
+    # Grouping configuration to reduce PR count
+    groups:
+      # Development dependencies group
+      dev-dependencies:
+        patterns:
+          - "@types/*"
+          - "@testing-library/*"
+          - "@vue/*"
+          - "@vitest/*"
+          - "@playwright/*"
+          - "eslint*"
+          - "prettier"
+          - "typescript"
+          - "vitest"
+          - "vue-tsc"
+        update-types:
+          - "minor"
+          - "patch"
+      # Build tools group
+      build-tools:
+        patterns:
+          - "electron*"
+          - "vite*"
+          - "electron-vite"
+          - "electron-builder"
+        update-types:
+          - "minor"
+          - "patch"
+
+  # Check for GitHub Actions dependency updates
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "10:00"
+    open-pull-requests-limit: 5
+    reviewers:
+      - "chaterm/maintainers"
+    labels:
+      - "dependencies"
+      - "github-actions"
+    commit-message:
+      prefix: "ci"
+      include: "scope"
+
