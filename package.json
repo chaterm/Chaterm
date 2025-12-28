@@ -82,7 +82,7 @@
     "globby": "^14.1.0",
     "ignore": "^7.0.3",
     "memfs": "^4.51.1",
-    "monaco-editor": "^0.52.2",
+    "monaco-editor": "^0.55.1",
     "node-pty": "^1.0.0",
     "ollama": "^0.6.0",
     "openai": "^4.100.0",
