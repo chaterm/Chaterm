@@ -1,4 +1,4 @@
-import { ref, computed, watch } from 'vue'
+import { ref, computed, watch, type ComputedRef } from 'vue'
 import { createGlobalState } from '@vueuse/core'
 import type { ChatMessage, Host } from '../types'
 import type { ExtensionMessage } from '@shared/ExtensionMessage'
@@ -39,6 +39,16 @@ export interface ChatTab {
   welcomeTip: string // Welcome tip for this tab
 }
 
+export interface UserAssistantPairItem {
+  message: ChatMessage
+  historyIndex: number
+}
+
+export interface UserAssistantPair {
+  user?: UserAssistantPairItem
+  assistants: UserAssistantPairItem[]
+}
+
 /**
  * Composable for session state management (core - global singleton)
  * Manages all Tabs and session states
@@ -50,6 +60,9 @@ export const useSessionState = createGlobalState(() => {
   const chatTabs = ref<ChatTab[]>([])
 
   const chatTextareaRef = ref<HTMLTextAreaElement | null>(null)
+
+  // Per-tab computed cache for user-assistant pairs
+  const tabPairsCache = new Map<string, ComputedRef<UserAssistantPair[]>>()
 
   const createEmptySessionState = (): SessionState => ({
     chatHistory: [],
@@ -214,6 +227,118 @@ export const useSessionState = createGlobalState(() => {
     }
   }
 
+  const isEmptyTab = (tabId: string): boolean => {
+    const tab = chatTabs.value.find((t) => t.id === tabId)
+    if (!tab) {
+      return false
+    }
+    return tab.session.chatHistory.length === 0
+  }
+
+  /**
+   * Check if a message is the last one in the chat history
+   */
+  const isLastMessage = (tabId: string, messageId: string): boolean => {
+    const tab = chatTabs.value.find((t) => t.id === tabId)
+    if (!tab || !tab.session.chatHistory || tab.session.chatHistory.length === 0) {
+      return false
+    }
+
+    const lastMessage = tab.session.chatHistory[tab.session.chatHistory.length - 1]
+    return lastMessage?.id === messageId
+  }
+
+  /**
+   * Create or get computed pairs for a specific tab
+   * Ensures fine-grained reactivity - only recompute when specific tab's data changes
+   */
+  const getOrCreateTabPairsComputed = (tab: ChatTab): ComputedRef<UserAssistantPair[]> => {
+    if (tabPairsCache.has(tab.id)) {
+      return tabPairsCache.get(tab.id)!
+    }
+
+    // Create new computed for this tab
+    const pairsComputed = computed(() => {
+      console.log('[DEBUG] Computing pairs for tab:', tab.id)
+
+      let history = tab.session.chatHistory ?? []
+
+      const hasAgentReply = history.some(
+        (msg) => msg.role === 'assistant' && msg.say !== 'sshInfo' && (msg.say === 'text' || msg.say === 'completion_result' || msg.ask === 'command')
+      )
+      history = hasAgentReply ? history.filter((msg) => msg.say !== 'sshInfo') : history
+
+      // Group into user-assistant pairs
+      const pairs: UserAssistantPair[] = []
+      let currentPair: UserAssistantPair | null = null
+
+      history.forEach((msg, idx) => {
+        if (msg.role !== 'assistant') {
+          currentPair = { user: { message: msg, historyIndex: idx }, assistants: [] }
+          pairs.push(currentPair)
+          return
+        }
+
+        if (!currentPair) {
+          currentPair = { assistants: [] }
+          pairs.push(currentPair)
+        }
+        currentPair.assistants.push({ message: msg, historyIndex: idx })
+      })
+
+      return pairs
+    })
+
+    tabPairsCache.set(tab.id, pairsComputed)
+
+    return pairsComputed
+  }
+
+  /**
+   * Clean up computed cache for removed tabs
+   */
+  const cleanupTabPairsCache = (tabId: string) => {
+    if (tabPairsCache.has(tabId)) {
+      console.log('[DEBUG] Cleaning up pairs cache for tab:', tabId)
+      tabPairsCache.delete(tabId)
+    }
+  }
+
+  /**
+   * Group messages into user + assistant(s) pairs for rendering
+   */
+  const getTabUserAssistantPairs = (tabId: string): UserAssistantPair[] => {
+    const tab = chatTabs.value.find((t) => t.id === tabId)
+    if (!tab) return []
+
+    const pairsComputed = getOrCreateTabPairsComputed(tab)
+    return pairsComputed.value
+  }
+
+  /**
+   * Get chat type value for a specific tab
+   */
+  const getTabChatTypeValue = (tabId: string): string => {
+    const tab = chatTabs.value.find((t) => t.id === tabId)
+    return tab?.chatType ?? ''
+  }
+
+  /**
+   * Get last chat message ID for a specific tab
+   */
+  const getTabLastChatMessageId = (tabId: string): string => {
+    const tab = chatTabs.value.find((t) => t.id === tabId)
+    return tab?.session.lastChatMessageId ?? ''
+  }
+
+  /**
+   * Get response loading state for a specific tab
+   */
+  const getTabResponseLoading = (tabId: string): boolean => {
+    const tab = chatTabs.value.find((t) => t.id === tabId)
+    return tab?.session.responseLoading ?? false
+  }
+
   return {
     currentChatId,
     chatTabs,
@@ -240,6 +365,13 @@ export const useSessionState = createGlobalState(() => {
     showResumeButton,
     shouldShowSendButton,
     attachTabContext,
-    chatTextareaRef
+    isEmptyTab,
+    chatTextareaRef,
+    isLastMessage,
+    getTabUserAssistantPairs,
+    getTabChatTypeValue,
+    getTabLastChatMessageId,
+    getTabResponseLoading,
+    cleanupTabPairsCache
   }
 })

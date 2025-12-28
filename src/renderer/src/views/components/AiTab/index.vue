@@ -21,7 +21,7 @@
         class="tab-content-wrapper"
       >
         <div
-          v-if="getTabFilteredChatHistory(tab.id).length === 0"
+          v-if="isEmptyTab(tab.id)"
           class="ai-welcome-container"
         >
           <div class="ai-welcome-icon">
@@ -60,7 +60,7 @@
           </template>
         </div>
         <div
-          v-if="getTabFilteredChatHistory(tab.id).length > 0"
+          v-else
           :ref="
             (el) => {
               if (tab.id === currentChatId) {
@@ -81,322 +81,323 @@
             class="chat-response"
           >
             <template
-              v-for="(message, index) in getTabFilteredChatHistory(tab.id)"
-              :key="message"
+              v-for="pair in getTabUserAssistantPairs(tab.id)"
+              :key="pair.user?.message.id"
             >
-              <div
-                v-if="message.role === 'assistant'"
-                class="assistant-message-container"
-                data-testid="ai-message"
-                :class="{
-                  'has-history-copy-btn': getTabChatTypeValue(tab.id) === 'cmd' && message.ask === 'command' && message.actioned,
-                  'last-message': message.say === 'completion_result'
-                }"
-              >
-                <div
-                  v-if="message.say === 'completion_result'"
-                  class="message-header"
-                >
-                  <div class="message-title">
-                    <CheckCircleFilled style="color: #52c41a; margin-right: 4px" />
-                    {{ $t('ai.taskCompleted') }}
-                  </div>
-                  <div
-                    v-if="index === getTabFilteredChatHistory(tab.id).length - 1"
-                    class="message-feedback"
-                  >
-                    <a-button
-                      type="text"
-                      class="feedback-btn like-btn"
-                      size="small"
-                      :disabled="isMessageFeedbackSubmitted(message.id)"
-                      @click="handleFeedback(message, 'like')"
-                    >
-                      <template #icon>
-                        <LikeOutlined
-                          :style="{
-                            color: getMessageFeedback(message.id) === 'like' ? '#52c41a' : '',
-                            opacity: getMessageFeedback(message.id) === 'like' ? 1 : ''
-                          }"
-                        />
-                      </template>
-                    </a-button>
-                    <a-button
-                      type="text"
-                      class="feedback-btn dislike-btn"
-                      size="small"
-                      :disabled="isMessageFeedbackSubmitted(message.id)"
-                      @click="handleFeedback(message, 'dislike')"
-                    >
-                      <template #icon>
-                        <DislikeOutlined
-                          :style="{
-                            color: getMessageFeedback(message.id) === 'dislike' ? '#ff4d4f' : '',
-                            opacity: getMessageFeedback(message.id) === 'dislike' ? 1 : ''
-                          }"
-                        />
-                      </template>
-                    </a-button>
-                  </div>
-                </div>
-                <MarkdownRenderer
-                  v-if="typeof message.content === 'object' && 'question' in message.content"
-                  :ref="(el) => tab.id === currentChatId && setMarkdownRendererRef(el, index)"
-                  :content="(message.content as MessageContent).question"
-                  :class="`message ${message.role} ${message.say === 'completion_result' ? 'completion-result' : ''} ${message.say === 'interactive_command_notification' ? 'interactive-notification' : ''}`"
-                  :ask="message.ask"
-                  :say="message.say"
-                  :partial="message.partial"
-                  :executed-command="message.executedCommand"
-                  :host-id="message.hostId"
-                  :host-name="message.hostName"
-                  :color-tag="message.colorTag"
-                />
-                <MarkdownRenderer
-                  v-else
-                  :ref="(el) => tab.id === currentChatId && setMarkdownRendererRef(el, index)"
-                  :content="typeof message.content === 'string' ? message.content : ''"
-                  :class="`message ${message.role} ${message.say === 'completion_result' ? 'completion-result' : ''} ${message.say === 'interactive_command_notification' ? 'interactive-notification' : ''}`"
-                  :ask="message.ask"
-                  :say="message.say"
-                  :partial="message.partial"
-                  :executed-command="message.executedCommand"
-                  :host-id="message.hostId"
-                  :host-name="message.hostName"
-                  :color-tag="message.colorTag"
+              <div class="user-assistant-pair-message">
+                <UserMessage
+                  v-if="pair.user"
+                  :message="pair.user.message"
                 />
 
-                <div
-                  v-if="message.ask === 'mcp_tool_call' && message.mcpToolCall"
-                  class="mcp-tool-call-info"
+                <template
+                  v-for="{ message, historyIndex } in pair.assistants"
+                  :key="message.id"
                 >
-                  <div class="mcp-info-section">
-                    <div class="mcp-info-label">MCP Server:</div>
-                    <div class="mcp-info-value">{{ message.mcpToolCall.serverName }}</div>
-                  </div>
-                  <div class="mcp-info-section">
-                    <div class="mcp-info-label">Tool:</div>
-                    <div class="mcp-info-value">{{ message.mcpToolCall.toolName }}</div>
-                  </div>
                   <div
-                    v-if="message.mcpToolCall.arguments && Object.keys(message.mcpToolCall.arguments).length > 0"
-                    class="mcp-info-section"
+                    class="assistant-message-container"
+                    data-testid="ai-message"
+                    :class="{
+                      'has-history-copy-btn': getTabChatTypeValue(tab.id) === 'cmd' && message.ask === 'command' && message.actioned,
+                      'last-message': message.say === 'completion_result'
+                    }"
                   >
-                    <div class="mcp-info-label">Parameters:</div>
-                    <div class="mcp-info-params">
-                      <div
-                        v-for="(value, key) in message.mcpToolCall.arguments"
-                        :key="key"
-                        class="mcp-param-item"
-                      >
-                        <span class="mcp-param-key">{{ key }}:</span>
-                        <span class="mcp-param-value">{{ formatParamValue(value) }}</span>
+                    <div
+                      v-if="message.say === 'completion_result'"
+                      class="message-header"
+                    >
+                      <div class="message-title">
+                        <CheckCircleFilled style="color: #52c41a; margin-right: 4px" />
+                        {{ $t('ai.taskCompleted') }}
                       </div>
-                    </div>
-                  </div>
-                </div>
-
-                <div class="message-actions">
-                  <template
-                    v-if="
-                      typeof message.content === 'object' && 'options' in message.content && index === getTabFilteredChatHistory(tab.id).length - 1
-                    "
-                  >
-                    <div class="options-container">
-                      <!-- Display original options as radio buttons -->
-                      <div class="options-radio-group">
-                        <a-radio-group
-                          :value="getSelectedOption(message)"
-                          @change="(e) => handleOptionSelect(message, e.target.value)"
-                        >
-                          <a-radio
-                            v-for="(option, optionIndex) in (message.content as MessageContent).options"
-                            :key="optionIndex"
-                            :value="option"
-                            class="option-radio"
-                          >
-                            {{ option }}
-                          </a-radio>
-                          <!-- Add custom input option when there are more than 1 options -->
-                          <div
-                            v-if="(message.content as MessageContent).options && (message.content as MessageContent).options!.length > 1"
-                            class="option-radio custom-option"
-                          >
-                            <a-radio
-                              value="__custom__"
-                              class="custom-radio"
-                            />
-                            <a-textarea
-                              :value="getCustomInput(message)"
-                              :placeholder="$t('ai.enterCustomOption')"
-                              :auto-size="{ minRows: 1, maxRows: 4 }"
-                              class="custom-input"
-                              @input="(e) => handleCustomInputChange(message, (e.target as HTMLInputElement).value || '')"
-                              @focus="() => handleOptionSelect(message, '__custom__')"
-                            />
-                          </div>
-                        </a-radio-group>
-                      </div>
-
-                      <!-- Submit button - shown after selecting any option -->
                       <div
-                        v-if="(message.content as MessageContent).options && !message.selectedOption && getSelectedOption(message)"
-                        class="submit-button-container"
+                        v-if="isLastMessage(tab.id, message.id)"
+                        class="message-feedback"
                       >
                         <a-button
-                          type="primary"
+                          type="text"
+                          class="feedback-btn like-btn"
                           size="small"
-                          :disabled="!canSubmitOption(message)"
-                          class="submit-option-btn"
-                          @click="handleOptionSubmit(message)"
+                          :disabled="isMessageFeedbackSubmitted(message.id)"
+                          @click="handleFeedback(message, 'like')"
                         >
-                          {{ $t('ai.submit') }}
+                          <template #icon>
+                            <LikeOutlined
+                              :style="{
+                                color: getMessageFeedback(message.id) === 'like' ? '#52c41a' : '',
+                                opacity: getMessageFeedback(message.id) === 'like' ? 1 : ''
+                              }"
+                            />
+                          </template>
+                        </a-button>
+                        <a-button
+                          type="text"
+                          class="feedback-btn dislike-btn"
+                          size="small"
+                          :disabled="isMessageFeedbackSubmitted(message.id)"
+                          @click="handleFeedback(message, 'dislike')"
+                        >
+                          <template #icon>
+                            <DislikeOutlined
+                              :style="{
+                                color: getMessageFeedback(message.id) === 'dislike' ? '#ff4d4f' : '',
+                                opacity: getMessageFeedback(message.id) === 'dislike' ? 1 : ''
+                              }"
+                            />
+                          </template>
                         </a-button>
                       </div>
                     </div>
-                  </template>
-                  <!-- Inline approval buttons for Agent mode: attach to the pending command message -->
-                  <template
-                    v-if="
-                      getTabChatTypeValue(tab.id) === 'agent' &&
-                      index === getTabFilteredChatHistory(tab.id).length - 1 &&
-                      getTabLastChatMessageId(tab.id) === message.id &&
-                      (message.ask === 'command' || message.ask === 'mcp_tool_call') &&
-                      !getTabResponseLoading(tab.id)
-                    "
-                  >
-                    <div class="bottom-buttons">
-                      <a-button
-                        size="small"
-                        class="reject-btn"
-                        :disabled="buttonsDisabled"
-                        @click="handleRejectContent"
-                      >
-                        <template #icon>
-                          <CloseOutlined />
-                        </template>
-                        {{ $t('ai.reject') }}
-                      </a-button>
-                      <a-button
-                        v-if="message.ask === 'mcp_tool_call'"
-                        size="small"
-                        class="approve-auto-btn"
-                        :disabled="buttonsDisabled"
-                        @click="handleApproveAndAutoApprove"
-                      >
-                        <template #icon>
-                          <CheckCircleOutlined />
-                        </template>
-                        {{ $t('ai.addAutoApprove') }}
-                      </a-button>
-                      <a-button
-                        size="small"
-                        class="approve-btn"
-                        :disabled="buttonsDisabled"
-                        @click="handleApproveCommand"
-                      >
-                        <template #icon>
-                          <PlayCircleOutlined />
-                        </template>
-                        {{ message.ask === 'mcp_tool_call' ? $t('ai.approve') : $t('ai.run') }}
-                      </a-button>
-                    </div>
-                  </template>
-                  <!-- Inline copy/run buttons for Command mode - command type -->
-                  <template
-                    v-if="
-                      getTabChatTypeValue(tab.id) === 'cmd' &&
-                      index === getTabFilteredChatHistory(tab.id).length - 1 &&
-                      getTabLastChatMessageId(tab.id) === message.id &&
-                      message.ask === 'command' &&
-                      !getTabResponseLoading(tab.id)
-                    "
-                  >
-                    <div class="bottom-buttons">
-                      <a-button
-                        size="small"
-                        class="reject-btn"
-                        @click="handleCopyContent"
-                      >
-                        <template #icon>
-                          <CopyOutlined />
-                        </template>
-                        {{ $t('ai.copy') }}
-                      </a-button>
-                      <a-button
-                        size="small"
-                        class="approve-btn"
-                        @click="handleApplyCommand"
-                      >
-                        <template #icon>
-                          <PlayCircleOutlined />
-                        </template>
-                        {{ $t('ai.run') }}
-                      </a-button>
-                    </div>
-                  </template>
-                  <!-- Inline approval buttons for Command mode - mcp_tool_call type -->
-                  <template
-                    v-if="
-                      getTabChatTypeValue(tab.id) === 'cmd' &&
-                      index === getTabFilteredChatHistory(tab.id).length - 1 &&
-                      getTabLastChatMessageId(tab.id) === message.id &&
-                      message.ask === 'mcp_tool_call' &&
-                      !getTabResponseLoading(tab.id)
-                    "
-                  >
-                    <div class="bottom-buttons">
-                      <a-button
-                        size="small"
-                        class="reject-btn"
-                        :disabled="buttonsDisabled"
-                        @click="handleRejectContent"
-                      >
-                        <template #icon>
-                          <CloseOutlined />
-                        </template>
-                        {{ $t('ai.reject') }}
-                      </a-button>
-                      <a-button
-                        size="small"
-                        class="approve-auto-btn"
-                        :disabled="buttonsDisabled"
-                        @click="handleApproveAndAutoApprove"
-                      >
-                        <template #icon>
-                          <CheckCircleOutlined />
-                        </template>
-                        {{ $t('ai.addAutoApprove') }}
-                      </a-button>
-                      <a-button
-                        size="small"
-                        class="approve-btn"
-                        :disabled="buttonsDisabled"
-                        @click="handleApproveCommand"
-                      >
-                        <template #icon>
-                          <PlayCircleOutlined />
-                        </template>
-                        {{ $t('ai.approve') }}
-                      </a-button>
-                    </div>
-                  </template>
-                </div>
-              </div>
-              <div
-                v-else
-                :class="`message ${message.role}`"
-              >
-                {{ message.content }}
-              </div>
+                    <MarkdownRenderer
+                      v-if="typeof message.content === 'object' && 'question' in message.content"
+                      :ref="(el) => tab.id === currentChatId && setMarkdownRendererRef(el, historyIndex)"
+                      :content="(message.content as MessageContent).question"
+                      :class="`message ${message.role} ${message.say === 'completion_result' ? 'completion-result' : ''} ${message.say === 'interactive_command_notification' ? 'interactive-notification' : ''}`"
+                      :ask="message.ask"
+                      :say="message.say"
+                      :partial="message.partial"
+                      :executed-command="message.executedCommand"
+                      :host-id="message.hostId"
+                      :host-name="message.hostName"
+                      :color-tag="message.colorTag"
+                    />
+                    <MarkdownRenderer
+                      v-else
+                      :ref="(el) => tab.id === currentChatId && setMarkdownRendererRef(el, historyIndex)"
+                      :content="typeof message.content === 'string' ? message.content : ''"
+                      :class="`message ${message.role} ${message.say === 'completion_result' ? 'completion-result' : ''} ${message.say === 'interactive_command_notification' ? 'interactive-notification' : ''}`"
+                      :ask="message.ask"
+                      :say="message.say"
+                      :partial="message.partial"
+                      :executed-command="message.executedCommand"
+                      :host-id="message.hostId"
+                      :host-name="message.hostName"
+                      :color-tag="message.colorTag"
+                    />
 
-              <!-- Dynamically insert Todo display -->
-              <TodoInlineDisplay
-                v-if="shouldShowTodoAfterMessage(message)"
-                :todos="getTodosForMessage(message)"
-                :show-trigger="message.role === 'assistant' && message.hasTodoUpdate"
-                class="todo-inline"
-              />
+                    <div
+                      v-if="message.ask === 'mcp_tool_call' && message.mcpToolCall"
+                      class="mcp-tool-call-info"
+                    >
+                      <div class="mcp-info-section">
+                        <div class="mcp-info-label">MCP Server:</div>
+                        <div class="mcp-info-value">{{ message.mcpToolCall.serverName }}</div>
+                      </div>
+                      <div class="mcp-info-section">
+                        <div class="mcp-info-label">Tool:</div>
+                        <div class="mcp-info-value">{{ message.mcpToolCall.toolName }}</div>
+                      </div>
+                      <div
+                        v-if="message.mcpToolCall.arguments && Object.keys(message.mcpToolCall.arguments).length > 0"
+                        class="mcp-info-section"
+                      >
+                        <div class="mcp-info-label">Parameters:</div>
+                        <div class="mcp-info-params">
+                          <div
+                            v-for="(value, key) in message.mcpToolCall.arguments"
+                            :key="key"
+                            class="mcp-param-item"
+                          >
+                            <span class="mcp-param-key">{{ key }}:</span>
+                            <span class="mcp-param-value">{{ formatParamValue(value) }}</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="message-actions">
+                      <template v-if="typeof message.content === 'object' && 'options' in message.content && isLastMessage(tab.id, message.id)">
+                        <div class="options-container">
+                          <!-- Display original options as radio buttons -->
+                          <div class="options-radio-group">
+                            <a-radio-group
+                              :value="getSelectedOption(message)"
+                              @change="(e) => handleOptionSelect(message, e.target.value)"
+                            >
+                              <a-radio
+                                v-for="(option, optionIndex) in (message.content as MessageContent).options"
+                                :key="optionIndex"
+                                :value="option"
+                                class="option-radio"
+                              >
+                                {{ option }}
+                              </a-radio>
+                              <!-- Add custom input option when there are more than 1 options -->
+                              <div
+                                v-if="(message.content as MessageContent).options && (message.content as MessageContent).options!.length > 1"
+                                class="option-radio custom-option"
+                              >
+                                <a-radio
+                                  value="__custom__"
+                                  class="custom-radio"
+                                />
+                                <a-textarea
+                                  :value="getCustomInput(message)"
+                                  :placeholder="$t('ai.enterCustomOption')"
+                                  :auto-size="{ minRows: 1, maxRows: 4 }"
+                                  class="custom-input"
+                                  @input="(e) => handleCustomInputChange(message, (e.target as HTMLInputElement).value || '')"
+                                  @focus="() => handleOptionSelect(message, '__custom__')"
+                                />
+                              </div>
+                            </a-radio-group>
+                          </div>
+
+                          <!-- Submit button - shown after selecting any option -->
+                          <div
+                            v-if="(message.content as MessageContent).options && !message.selectedOption && getSelectedOption(message)"
+                            class="submit-button-container"
+                          >
+                            <a-button
+                              type="primary"
+                              size="small"
+                              :disabled="!canSubmitOption(message)"
+                              class="submit-option-btn"
+                              @click="handleOptionSubmit(message)"
+                            >
+                              {{ $t('ai.submit') }}
+                            </a-button>
+                          </div>
+                        </div>
+                      </template>
+                      <!-- Inline approval buttons for Agent mode: attach to the pending command message -->
+                      <template
+                        v-if="
+                          getTabChatTypeValue(tab.id) === 'agent' &&
+                          isLastMessage(tab.id, message.id) &&
+                          getTabLastChatMessageId(tab.id) === message.id &&
+                          (message.ask === 'command' || message.ask === 'mcp_tool_call') &&
+                          !getTabResponseLoading(tab.id)
+                        "
+                      >
+                        <div class="bottom-buttons">
+                          <a-button
+                            size="small"
+                            class="reject-btn"
+                            :disabled="buttonsDisabled"
+                            @click="handleRejectContent"
+                          >
+                            <template #icon>
+                              <CloseOutlined />
+                            </template>
+                            {{ $t('ai.reject') }}
+                          </a-button>
+                          <a-button
+                            v-if="message.ask === 'mcp_tool_call'"
+                            size="small"
+                            class="approve-auto-btn"
+                            :disabled="buttonsDisabled"
+                            @click="handleApproveAndAutoApprove"
+                          >
+                            <template #icon>
+                              <CheckCircleOutlined />
+                            </template>
+                            {{ $t('ai.addAutoApprove') }}
+                          </a-button>
+                          <a-button
+                            size="small"
+                            class="approve-btn"
+                            :disabled="buttonsDisabled"
+                            @click="handleApproveCommand"
+                          >
+                            <template #icon>
+                              <PlayCircleOutlined />
+                            </template>
+                            {{ message.ask === 'mcp_tool_call' ? $t('ai.approve') : $t('ai.run') }}
+                          </a-button>
+                        </div>
+                      </template>
+                      <!-- Inline copy/run buttons for Command mode - command type -->
+                      <template
+                        v-if="
+                          getTabChatTypeValue(tab.id) === 'cmd' &&
+                          isLastMessage(tab.id, message.id) &&
+                          getTabLastChatMessageId(tab.id) === message.id &&
+                          message.ask === 'command' &&
+                          !getTabResponseLoading(tab.id)
+                        "
+                      >
+                        <div class="bottom-buttons">
+                          <a-button
+                            size="small"
+                            class="reject-btn"
+                            @click="handleCopyContent"
+                          >
+                            <template #icon>
+                              <CopyOutlined />
+                            </template>
+                            {{ $t('ai.copy') }}
+                          </a-button>
+                          <a-button
+                            size="small"
+                            class="approve-btn"
+                            @click="handleApplyCommand"
+                          >
+                            <template #icon>
+                              <PlayCircleOutlined />
+                            </template>
+                            {{ $t('ai.run') }}
+                          </a-button>
+                        </div>
+                      </template>
+                      <!-- Inline approval buttons for Command mode - mcp_tool_call type -->
+                      <template
+                        v-if="
+                          getTabChatTypeValue(tab.id) === 'cmd' &&
+                          isLastMessage(tab.id, message.id) &&
+                          getTabLastChatMessageId(tab.id) === message.id &&
+                          message.ask === 'mcp_tool_call' &&
+                          !getTabResponseLoading(tab.id)
+                        "
+                      >
+                        <div class="bottom-buttons">
+                          <a-button
+                            size="small"
+                            class="reject-btn"
+                            :disabled="buttonsDisabled"
+                            @click="handleRejectContent"
+                          >
+                            <template #icon>
+                              <CloseOutlined />
+                            </template>
+                            {{ $t('ai.reject') }}
+                          </a-button>
+                          <a-button
+                            size="small"
+                            class="approve-auto-btn"
+                            :disabled="buttonsDisabled"
+                            @click="handleApproveAndAutoApprove"
+                          >
+                            <template #icon>
+                              <CheckCircleOutlined />
+                            </template>
+                            {{ $t('ai.addAutoApprove') }}
+                          </a-button>
+                          <a-button
+                            size="small"
+                            class="approve-btn"
+                            :disabled="buttonsDisabled"
+                            @click="handleApproveCommand"
+                          >
+                            <template #icon>
+                              <PlayCircleOutlined />
+                            </template>
+                            {{ $t('ai.approve') }}
+                          </a-button>
+                        </div>
+                      </template>
+                    </div>
+                  </div>
+
+                  <!-- Dynamically insert Todo display -->
+                  <TodoInlineDisplay
+                    v-if="shouldShowTodoAfterMessage(message)"
+                    :todos="getTodosForMessage(message)"
+                    :show-trigger="message.role === 'assistant' && message.hasTodoUpdate"
+                    class="todo-inline"
+                  />
+                </template>
+              </div>
             </template>
           </div>
         </div>
@@ -939,7 +940,7 @@ import {
 } from '@ant-design/icons-vue'
 import { isFocusInAiTab } from '@/utils/domUtils'
 import { getGlobalState } from '@renderer/agent/storage/state'
-import type { MessageContent, ChatMessage } from './types'
+import type { MessageContent } from './types'
 import i18n from '@/locales'
 import eventBus from '@/utils/eventBus'
 import historyIcon from '@/assets/icons/history.svg'
@@ -976,6 +977,7 @@ const emit = defineEmits(['state-changed'])
 const router = useRouter()
 const MarkdownRenderer = defineAsyncComponent(() => import('./components/format/markdownRenderer.vue'))
 const TodoInlineDisplay = defineAsyncComponent(() => import('./components/todo/TodoInlineDisplay.vue'))
+const UserMessage = defineAsyncComponent(() => import('./components/message/UserMessage.vue'))
 
 const isSkippedLogin = ref(localStorage.getItem('login-skipped') === 'true')
 
@@ -987,6 +989,8 @@ const {
   currentChatId,
   chatTabs,
   currentTab,
+  isEmptyTab,
+  isLastMessage,
   currentSession,
   chatTypeValue,
   chatAiModelValue,
@@ -996,7 +1000,11 @@ const {
   chatHistory,
   buttonsDisabled,
   showResumeButton,
-  chatTextareaRef
+  chatTextareaRef,
+  getTabUserAssistantPairs,
+  getTabChatTypeValue,
+  getTabLastChatMessageId,
+  getTabResponseLoading
 } = useSessionState()
 
 // Model configuration management
@@ -1029,7 +1037,7 @@ const {
   getCurentTabAssetInfo,
   toggleJumpserverExpand
 } = useHostManagement()
-
+void hostSearchInputRef
 // Auto scroll
 const { chatContainer, chatResponse, scrollToBottom, initializeAutoScroll, handleTabSwitch } = useAutoScroll()
 
@@ -1059,6 +1067,8 @@ const {
   handleKeyDown,
   handleClose
 } = useUserInteractions(sendMessage, props.toggleSidebar)
+
+void fileInputRef
 
 // Command interactions
 const {
@@ -1120,56 +1130,6 @@ const {
   toggleFavorite,
   refreshHistoryList
 } = useChatHistory(createNewEmptyTab)
-
-// Helper function to get filtered chat history for a specific tab
-// Using a Map to cache results for better performance
-const tabFilteredHistoryCache = new Map<string, ChatMessage[]>()
-const getTabFilteredChatHistory = (tabId: string) => {
-  const tab = chatTabs.value.find((t) => t.id === tabId)
-  if (!tab) return []
-  const history = tab.session.chatHistory ?? []
-  const cacheKey = `${tabId}-${history.length}`
-
-  // Check cache first
-  if (tabFilteredHistoryCache.has(cacheKey)) {
-    const cached = tabFilteredHistoryCache.get(cacheKey)
-    if (cached && cached.length === history.length) {
-      return cached
-    }
-  }
-
-  const hasAgentReply = history.some(
-    (msg) => msg.role === 'assistant' && msg.say !== 'sshInfo' && (msg.say === 'text' || msg.say === 'completion_result' || msg.ask === 'command')
-  )
-  const filtered = hasAgentReply ? history.filter((msg) => msg.say !== 'sshInfo') : history
-
-  // Cache result (limit cache size to prevent memory issues)
-  if (tabFilteredHistoryCache.size > 50) {
-    const firstKey = tabFilteredHistoryCache.keys().next().value
-    if (firstKey) {
-      tabFilteredHistoryCache.delete(firstKey)
-    }
-  }
-  tabFilteredHistoryCache.set(cacheKey, filtered)
-
-  return filtered
-}
-
-// Helper function to get tab-specific values
-const getTabChatTypeValue = (tabId: string) => {
-  const tab = chatTabs.value.find((t) => t.id === tabId)
-  return tab?.chatType ?? ''
-}
-
-const getTabLastChatMessageId = (tabId: string) => {
-  const tab = chatTabs.value.find((t) => t.id === tabId)
-  return tab?.session.lastChatMessageId ?? ''
-}
-
-const getTabResponseLoading = (tabId: string) => {
-  const tab = chatTabs.value.find((t) => t.id === tabId)
-  return tab?.session.responseLoading ?? false
-}
 
 // i18n
 const { t } = i18n.global
