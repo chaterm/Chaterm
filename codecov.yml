@@ -1,0 +1,66 @@
+# Codecov configuration for Chaterm project
+# https://docs.codecov.com/docs/codecov-yaml
+
+coverage:
+  # Status checks configuration
+  status:
+    project:
+      default:
+        # Require coverage to be reported, but don't fail CI if coverage decreases
+        target: auto
+        threshold: 1%
+        base: auto
+        branches:
+          - main
+    patch:
+      default:
+        # Allow patch coverage to decrease slightly without failing
+        target: auto
+        threshold: 1%
+        base: auto
+
+  # Ignore certain files/directories from coverage
+  ignore:
+    # Test files and test data
+    - "tests/**"
+    - "test_data/**"
+    # Build outputs
+    - "dist/**"
+    - "out/**"
+    - "coverage/**"
+    # Dependencies
+    - "node_modules/**"
+    # Type definitions (auto-generated)
+    - "**/*.d.ts"
+    - "src/renderer/auto-imports.d.ts"
+    - "src/renderer/components.d.ts"
+    - "src/renderer/src/env.d.ts"
+    # Configuration files
+    - "**/*.config.*"
+    - "**/*.config.js"  # Matches babel.config.js (no dot before config)
+    # Build and script files
+    - "build/**"
+    - "scripts/**"
+    # Resources and documentation
+    - "resources/**"
+    - "docs/**"
+    - "**/*.md"
+    # Config file formats
+    - "**/*.json"
+    - "**/*.yml"
+    - "**/*.yaml"
+    # Mock files
+    - "**/__mocks__/**"
+
+  # Round coverage values
+  round: down
+  precision: 2
+
+# Comment configuration for PRs
+comment:
+  layout: "reach,diff,flags,tree"
+  behavior: default
+  require_changes: false
+  require_base: false
+  require_head: true
+
