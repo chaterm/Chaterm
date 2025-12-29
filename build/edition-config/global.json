@@ -11,7 +11,7 @@
     "releaseNotesUrl": "https://chaterm.net/release-notes"
   },
   "auth": {
-    "loginBaseUrl": "https://login.chaterm.ai"
+    "loginBaseUrl": "https://auth.chaterm.ai/login"
   },
   "defaults": {
     "language": "en-US"
