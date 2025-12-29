@@ -1,6 +1,7 @@
 import { syncConfig } from '../config/sync.config'
 import * as fs from 'fs'
 import * as path from 'path'
+import { getUserDataPath } from '../../../config/edition'
 
 type Level = 'debug' | 'info' | 'warn' | 'error'
 
@@ -34,16 +35,8 @@ class StructuredLogger {
   private fileLoggingEnabled: boolean
 
   constructor() {
-    // Use the same user data directory as the database
-    let userDataPath: string
-    try {
-      const { app } = require('electron')
-      userDataPath = app.getPath('userData')
-    } catch (error) {
-      // Test environment fallback
-      userDataPath = path.join(process.cwd(), 'test_data')
-    }
-    this.logDir = path.join(userDataPath, 'logs', 'sync')
+    // Use the global userData path configuration
+    this.logDir = path.join(getUserDataPath(), 'logs', 'sync')
     this.currentDate = new Date().toISOString().split('T')[0] // YYYY-MM-DD format
     this.logFile = path.join(this.logDir, `sync-${this.currentDate}.log`)
 

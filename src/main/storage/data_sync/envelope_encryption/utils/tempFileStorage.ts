@@ -1,5 +1,6 @@
 import { promises as fs } from 'fs'
 import * as path from 'path'
+import { getUserDataPath } from '../../../../config/edition'
 
 interface StorageStats {
   keys: string[]
@@ -16,16 +17,8 @@ class TempFileStorageProvider {
   private storageDir: string
 
   constructor() {
-    // Use system secure application data directory
-    let appDataPath: string
-    try {
-      const { app } = require('electron')
-      appDataPath = app.getPath('userData')
-    } catch (error) {
-      // Fallback for test environment
-      appDataPath = path.join(process.cwd(), 'test_data')
-    }
-    this.storageDir = path.join(appDataPath, '.chaterm-encryption', 'keys')
+    // Use the global userData path configuration
+    this.storageDir = path.join(getUserDataPath(), '.chaterm-encryption', 'keys')
     this.ensureStorageDir()
   }
 

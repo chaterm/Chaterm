@@ -5,6 +5,7 @@
  * IMPORTANT: All edition-specific URLs are defined in build/edition-config/*.json
  * This is the single source of truth - do NOT hardcode URLs elsewhere
  */
+import { app } from 'electron'
 import * as path from 'path'
 import * as fs from 'fs'
 
@@ -41,6 +42,8 @@ export interface EditionConfig {
 }
 
 let cachedConfig: EditionConfig | null = null
+let userDataPath: string | null = null
+let userDataPathInitialized = false
 
 /**
  * Get current edition from environment variable
@@ -62,6 +65,47 @@ export function isChineseEdition(): boolean {
  */
 export function isGlobalEdition(): boolean {
   return getEdition() === 'global'
+}
+
+/**
+ * Initialize the userData path based on edition.
+ * This function MUST be called at the very beginning of the app startup,
+ * before any other module tries to access userData.
+ *
+ * Path mapping:
+ * - CN edition:     ~/Library/Application Support/chaterm (default, backward compatible)
+ * - Global edition: ~/Library/Application Support/chaterm-global
+ */
+export function initUserDataPath(): void {
+  if (userDataPathInitialized) {
+    return
+  }
+
+  const edition = getEdition()
+
+  if (edition === 'global') {
+    // Global edition uses a separate directory
+    const basePath = app.getPath('appData')
+    const customPath = path.join(basePath, 'chaterm-global')
+    app.setPath('userData', customPath)
+    userDataPath = customPath
+  } else {
+    // CN edition uses the default 'chaterm' directory (backward compatible)
+    userDataPath = app.getPath('userData')
+  }
+
+  userDataPathInitialized = true
+}
+
+/**
+ * Get the userData path.
+ * If not initialized, it will initialize automatically (for backward compatibility).
+ */
+export function getUserDataPath(): string {
+  if (!userDataPathInitialized) {
+    initUserDataPath()
+  }
+  return userDataPath as string
 }
 
 /**
