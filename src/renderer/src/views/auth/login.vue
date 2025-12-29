@@ -229,7 +229,7 @@ const accountForm = reactive({
   password: ''
 })
 
-const checkUrlForAuthCallback = () => {
+const checkUrlForAuthCallback = async () => {
   const url = window.location.href
   const urlObj = new URL(url)
   if (urlObj.pathname.includes('auth/callback')) {
@@ -238,8 +238,10 @@ const checkUrlForAuthCallback = () => {
     const method = urlObj.searchParams.get('method')
 
     if (userInfo) {
-      const chatermUrl = `chaterm://auth/callback?userInfo=${userInfo}&method=${method || ''}&state=${urlObj.searchParams.get('state') || ''}`
       const api = window.api as any
+      // Get protocol prefix dynamically based on edition
+      const protocolPrefix = await api.getProtocolPrefix()
+      const chatermUrl = `${protocolPrefix}auth/callback?userInfo=${userInfo}&method=${method || ''}&state=${urlObj.searchParams.get('state') || ''}`
       if (platform.value === 'linux') {
         console.log(t('login.linuxPlatformHandleAuth'))
         api.handleProtocolUrl(chatermUrl).catch((error: any) => {
