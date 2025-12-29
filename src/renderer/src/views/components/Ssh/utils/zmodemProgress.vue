@@ -1,6 +1,6 @@
 <template>
   <a-modal
-    v-model:open="visible"
+    v-model:open="localVisible"
     class="progress-body"
     :get-container="getContainer"
     :title="modalTitle"
@@ -78,7 +78,7 @@
   </a-modal>
 </template>
 <script setup lang="ts">
-import { computed, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 const { t } = useI18n()
 
@@ -126,9 +126,19 @@ const emit = defineEmits<{
   (e: 'close'): void
 }>()
 
-const visible = computed({
-  get: () => props.visible,
-  set: () => {}
+const localVisible = ref(props.visible)
+
+watch(
+  () => props.visible,
+  (newVal) => {
+    localVisible.value = newVal
+  }
+)
+
+watch(localVisible, (newVal) => {
+  if (!newVal) {
+    emit('close')
+  }
 })
 const localModalStyles = {
   mask: { position: 'absolute' } as any,

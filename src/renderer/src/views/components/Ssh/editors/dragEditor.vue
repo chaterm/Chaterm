@@ -67,7 +67,7 @@
           </div>
         </div>
         <EditorCode
-          v-model="editor.vimText"
+          :model-value="editor.vimText"
           :language="editor.contentType"
           :theme="currentTheme"
           @update:model-value="(newValue) => handleTextChange(editor, newValue)"

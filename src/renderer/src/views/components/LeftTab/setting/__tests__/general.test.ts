@@ -94,7 +94,6 @@ const mockGetActualTheme = vi.fn((theme: string) => {
   return theme
 })
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 const mockAddSystemThemeListener = vi.fn((_callback: (theme: string) => void) => {
   // Return cleanup function
   return () => {}

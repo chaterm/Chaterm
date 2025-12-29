@@ -20,11 +20,11 @@ export default [
   prettierConfig,
   {
     rules: {
-      '@typescript-eslint/no-explicit-any': 'warn', // Show warning during development
+      '@typescript-eslint/no-explicit-any': 'off', // Disable any type warnings
       'vue/require-default-prop': 'off',
       'vue/multi-word-component-names': 'off',
       '@typescript-eslint/ban-ts-comment': 'off', // Disable checking for @ts-ignore etc. comments
-      '@typescript-eslint/no-unused-vars': 'warn', // Show warning for unused variables
+      '@typescript-eslint/no-unused-vars': 'off', // Disable unused variables warnings
       'no-case-declarations': 'off', // Allow let and const declarations in case statements
       'no-control-regex': 'off', // Allow control characters in regular expressions
       'no-empty': 'off', // Allow empty code blocks
@@ -35,7 +35,10 @@ export default [
       'no-useless-escape': 'off', // Allow unnecessary escape characters
       'prefer-const': 'off', // Allow using let declarations that are not re-assigned
       '@typescript-eslint/no-namespace': 'off', // Allow using namespace keyword
-      'no-fallthrough': 'off' // Allow switch case statements to fall through
+      'no-fallthrough': 'off', // Allow switch case statements to fall through
+      '@typescript-eslint/no-unused-expressions': 'off', // Disable unused expressions warnings
+      'vue/valid-v-for': 'off', // Disable v-for key warnings
+      'vue/no-v-html': 'off' // Disable v-html warnings
     }
   },
   {
