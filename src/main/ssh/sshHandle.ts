@@ -117,7 +117,6 @@ export const connectionStatus = new Map()
 const KeyboardInteractiveTimeout = 300000 // 5 minutes timeout
 const MaxKeyboardInteractiveAttempts = 5 // Max KeyboardInteractive attempts
 
-// eslint-disable-next-line @typescript-eslint/no-var-requires
 const EventEmitter = require('events')
 const connectionEvents = new EventEmitter()
 

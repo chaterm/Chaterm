@@ -7,7 +7,6 @@ export class DataSyncService {
   private static instance: DataSyncService | null = null
   private isInitialized = false
 
-  // eslint-disable-next-line @typescript-eslint/no-empty-function
   private constructor() {
     // Private constructor for singleton pattern
   }

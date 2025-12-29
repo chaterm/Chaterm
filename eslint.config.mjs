@@ -1,0 +1,53 @@
+import { FlatCompat } from '@eslint/eslintrc'
+import js from '@eslint/js'
+import path from 'node:path'
+import { fileURLToPath } from 'node:url'
+import pluginVue from 'eslint-plugin-vue'
+import { defineConfigWithVueTs, vueTsConfigs } from '@vue/eslint-config-typescript'
+import prettierConfig from '@vue/eslint-config-prettier'
+
+const __filename = fileURLToPath(import.meta.url)
+const __dirname = path.dirname(__filename)
+
+const compat = new FlatCompat({
+  baseDirectory: __dirname
+})
+
+export default [
+  js.configs.recommended,
+  ...compat.extends('@electron-toolkit', '@electron-toolkit/eslint-config-ts/eslint-recommended', 'plugin:prettier/recommended'),
+  ...defineConfigWithVueTs(pluginVue.configs['flat/recommended'], vueTsConfigs.recommended),
+  prettierConfig,
+  {
+    rules: {
+      '@typescript-eslint/no-explicit-any': 'warn', // Show warning during development
+      'vue/require-default-prop': 'off',
+      'vue/multi-word-component-names': 'off',
+      '@typescript-eslint/ban-ts-comment': 'off', // Disable checking for @ts-ignore etc. comments
+      '@typescript-eslint/no-unused-vars': 'warn', // Show warning for unused variables
+      'no-case-declarations': 'off', // Allow let and const declarations in case statements
+      'no-control-regex': 'off', // Allow control characters in regular expressions
+      'no-empty': 'off', // Allow empty code blocks
+      '@typescript-eslint/no-var-requires': 'off', // Allow using require statements
+      '@typescript-eslint/no-require-imports': 'off', // Allow using require() style imports
+      '@typescript-eslint/explicit-function-return-type': 'off', // Allow functions without explicit return types
+      'no-ex-assign': 'off', // Allow modifying exception parameters
+      'no-useless-escape': 'off', // Allow unnecessary escape characters
+      'prefer-const': 'off', // Allow using let declarations that are not re-assigned
+      '@typescript-eslint/no-namespace': 'off', // Allow using namespace keyword
+      'no-fallthrough': 'off' // Allow switch case statements to fall through
+    }
+  },
+  {
+    ignores: [
+      'node_modules/**',
+      'dist/**',
+      'out/**',
+      '.gitignore',
+      '**/*.cjs', // Ignore CommonJS files that use require()
+      'scripts/**', // Ignore script files that use CommonJS
+      'coverage/**',
+      'build/**'
+    ]
+  }
+]
