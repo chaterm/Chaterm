@@ -1360,10 +1360,16 @@ const toggleMenu = function (params) {
     currentMenu.value = params.menu
     switch (type) {
       case 'same':
-        leftPaneSize.value == 0 ? expandFn('left') : shrinkFn('left')
+        if (leftPaneSize.value == 0) {
+          expandFn('left')
+        } else {
+          shrinkFn('left')
+        }
         break
       case 'dif':
-        leftPaneSize.value == 0 ? expandFn('left') : ''
+        if (leftPaneSize.value == 0) {
+          expandFn('left')
+        }
         break
     }
   }

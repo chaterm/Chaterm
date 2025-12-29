@@ -352,13 +352,14 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { ref, onMounted, onBeforeUnmount, watch, nextTick } from 'vue'
 import { notification } from 'ant-design-vue'
 import { userConfigStore } from '@/services/userConfigStoreService'
 import { useI18n } from 'vue-i18n'
 import eventBus from '@/utils/eventBus'
 const { t } = useI18n()
+const api = (window as any).api
 
 const defaultProxyConfig = {
   name: '',
@@ -374,7 +375,30 @@ const defaultProxyConfig = {
 
 const proxyConfig = ref(defaultProxyConfig)
 
-const userConfig = ref({
+interface ProxyConfig {
+  name: string
+  type?: 'HTTP' | 'HTTPS' | 'SOCKS4' | 'SOCKS5'
+  host?: string
+  port?: number
+  enableProxyIdentity?: boolean
+  username?: string
+  password?: string
+}
+
+const userConfig = ref<{
+  fontSize: number
+  fontFamily: string
+  scrollBack: number
+  cursorStyle: string
+  middleMouseEvent: string
+  rightMouseEvent: string
+  terminalType: string
+  pinchZoomStatus: number
+  sshAgentsStatus: number
+  sshAgentsMap: string
+  sshProxyStatus: boolean
+  sshProxyConfigs: ProxyConfig[]
+}>({
   fontSize: 12,
   fontFamily: 'Menlo, Monaco, "Courier New", Consolas, Courier, monospace',
   scrollBack: 1000,
@@ -472,7 +496,9 @@ const loadSavedConfig = async () => {
     if (savedConfig) {
       userConfig.value = {
         ...userConfig.value,
-        ...savedConfig
+        ...savedConfig,
+        cursorStyle: (savedConfig.cursorStyle || 'block') as string,
+        sshProxyConfigs: (savedConfig.sshProxyConfigs || []) as ProxyConfig[]
       }
     }
   } catch (error) {
@@ -516,7 +542,7 @@ const proxyConfigRules = {
   name: [
     { required: true, message: t('user.pleaseInputProxyName'), trigger: 'blur' },
     {
-      validator: (rule, value) => {
+      validator: (_rule: any, value: string) => {
         if (!value) return Promise.resolve()
 
         const nameExists = userConfig.value.sshProxyConfigs.some((config) => config.name === value)
@@ -546,7 +572,7 @@ const handleSshProxyIdentityChange = async (checked) => {
 const proxyForm = ref()
 const handleAddSshProxyConfigConfirm = async () => {
   await proxyForm.value.validateFields()
-  userConfig.value.sshProxyConfigs.push({ ...proxyConfig.value })
+  userConfig.value.sshProxyConfigs.push({ ...proxyConfig.value } as ProxyConfig)
   sshProxyConfigAddModalVisible.value = false
   proxyConfig.value = { ...defaultProxyConfig }
   proxyForm.value?.resetFields()
@@ -577,9 +603,22 @@ const handleAddSshProxyConfigClose = async () => {
 
 const agentConfigModalVisible = ref(false)
 
-const keyChainOptions = ref([])
-const agentKeys = ref([])
-const keyChainData = ref()
+interface KeyChainOption {
+  label: string
+  key: string
+  value?: string
+}
+
+const keyChainOptions = ref<KeyChainOption[]>([])
+interface AgentKey {
+  id: string
+  comment?: string
+  label?: string
+  key?: string
+}
+
+const agentKeys = ref<AgentKey[]>([])
+const keyChainData = ref<string | null>(null)
 
 const openAgentConfig = async () => {
   agentConfigModalVisible.value = true
@@ -591,7 +630,7 @@ const handleAgentConfigClose = async () => {
   agentConfigModalVisible.value = false
 }
 
-const removeKey = async (record) => {
+const removeKey = async (record: AgentKey) => {
   await api.removeKey({ keyId: record.id })
   const target = keyChainOptions.value.find((item) => item.label === record.comment)
 
@@ -635,7 +674,7 @@ const addKey = async () => {
           keyChainData.value = null
           getAgentKeys()
         })
-        .catch((error) => {
+        .catch(() => {
           notification.error({
             message: t('user.addFailed')
           })
@@ -671,7 +710,7 @@ const saveConfig = async () => {
       sshProxyConfigs: userConfig.value.sshProxyConfigs
     }
 
-    await userConfigStore.saveConfig(configToStore)
+    await userConfigStore.saveConfig(configToStore as any)
   } catch (error) {
     console.error('Failed to save config:', error)
     notification.error({

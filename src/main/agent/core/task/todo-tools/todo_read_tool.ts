@@ -2,9 +2,7 @@ import { TodoStorage } from '../../storage/todo/TodoStorage'
 import { TodoReminderService } from '../../services/todo_reminder_service'
 import { TodoWriteTool } from './todo_write_tool'
 
-export type TodoReadParams = {
-  // Empty params, read all todos for current task
-}
+export type TodoReadParams = Record<string, never> // Empty params, read all todos for current task
 
 export class TodoReadTool {
   static readonly name = 'todo_read'

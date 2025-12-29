@@ -49,6 +49,7 @@
       @focus-editor="() => handleFocusEditor(editor.key)"
     />
   </div>
+  <TransferPanel />
 </template>
 
 <script lang="ts" setup>
@@ -62,6 +63,8 @@ import { message, Modal } from 'ant-design-vue'
 import { LanguageMap } from '../Ssh/editors/languageMap'
 import { Base64Util } from '../../../utils/base64'
 import eventBus from '../../../utils/eventBus'
+import { initTransferListener } from './fileTransfer'
+import TransferPanel from './fileTransferProgress.vue'
 
 const { t } = useI18n()
 
@@ -181,6 +184,7 @@ let resizeObserver: ResizeObserver | null = null
 const debouncedUpdate = debounce(handleResize, 100)
 
 onMounted(async () => {
+  initTransferListener()
   const activeTerminal = await getCurrentActiveTerminalInfo()
   if (activeTerminal) {
     currentActiveTerminal.value = activeTerminal
