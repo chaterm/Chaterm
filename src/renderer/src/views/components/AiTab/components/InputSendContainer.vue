@@ -278,6 +278,7 @@ watch(
 
 const {
   showHostSelect,
+  hostSearchInputRef,
   hostSearchValue,
   hostOptionsLoading,
   filteredHostOptions,
@@ -292,6 +293,7 @@ const {
   handleAddHostClick,
   handleInputChange
 } = useHostManagement()
+void hostSearchInputRef
 
 const { AgentAiModelsOptions, handleChatAiModelChange } = useModelConfiguration()
 
