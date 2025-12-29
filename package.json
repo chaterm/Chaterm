@@ -147,7 +147,7 @@
     "@vue/eslint-config-typescript": "^14.6.0",
     "@vue/test-utils": "^2.4.6",
     "ant-design-vue": "^4.2.6",
-    "chai": "^4.3.10",
+    "chai": "^6.2.2",
     "cross-env": "^10.1.0",
     "electron": "^30.5.1",
     "electron-builder": "^26.0.12",
