@@ -5,7 +5,7 @@
     "baseUrl": ".",
     "experimentalDecorators": true,
     "emitDecoratorMetadata": true,
-    "types": ["marked", "shiki","node", "mocha", "should","jest","expect"],
+    "types": ["marked", "shiki","node", "should","jest","expect"],
     "paths": {
       "@/*": ["src/*"]
     }
