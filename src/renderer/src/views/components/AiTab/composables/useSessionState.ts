@@ -259,8 +259,6 @@ export const useSessionState = createGlobalState(() => {
 
     // Create new computed for this tab
     const pairsComputed = computed(() => {
-      console.log('[DEBUG] Computing pairs for tab:', tab.id)
-
       let history = tab.session.chatHistory ?? []
 
       const hasAgentReply = history.some(
@@ -299,7 +297,6 @@ export const useSessionState = createGlobalState(() => {
    */
   const cleanupTabPairsCache = (tabId: string) => {
     if (tabPairsCache.has(tabId)) {
-      console.log('[DEBUG] Cleaning up pairs cache for tab:', tabId)
       tabPairsCache.delete(tabId)
     }
   }

@@ -8,12 +8,13 @@ import { useSessionState } from './useSessionState'
 import { getGlobalState } from '@renderer/agent/storage/state'
 import { ChatermMessage } from '@/types/ChatermMessage'
 import { PROVIDER_MODEL_KEY_MAP } from './useModelConfiguration'
+import eventBus from '@/utils/eventBus'
 
 interface TabManagementOptions {
   getCurentTabAssetInfo: () => Promise<AssetInfo | null>
   emitStateChange?: () => void
-  handleClose?: () => void
   isFocusInAiTab?: (event?: KeyboardEvent) => boolean
+  toggleSidebar: () => void
 }
 
 export const focusChatInput = () => {
@@ -43,7 +44,7 @@ const DEFAULT_LOCALHOST_HOST: Host = {
 export function useTabManagement(options: TabManagementOptions) {
   const { chatTabs, currentChatId, currentTab, createEmptySessionState, chatInputValue, cleanupTabPairsCache } = useSessionState()
 
-  const { getCurentTabAssetInfo, emitStateChange, handleClose, isFocusInAiTab } = options
+  const { getCurentTabAssetInfo, emitStateChange, isFocusInAiTab, toggleSidebar } = options
 
   // Get i18n instance
   const { t, locale, messages } = useI18n()
@@ -323,7 +324,6 @@ export function useTabManagement(options: TabManagementOptions) {
       return
     }
 
-    console.log('handleTabRemove: cancel task for tab', tabId)
     await window.api.cancelTask(tabId)
 
     // Clean up computed cache before removing tab
@@ -334,7 +334,9 @@ export function useTabManagement(options: TabManagementOptions) {
     if (chatTabs.value.length === 0) {
       currentChatId.value = undefined
       emitStateChange?.()
-      handleClose?.()
+      // handleClose?.()
+      toggleSidebar()
+      eventBus.emit('updateRightIcon', false)
       return
     }
 
