@@ -908,6 +908,9 @@ export default {
     moveFileSuccess: '移动文件成功',
     moveFileFailed: '移动文件失败',
     moveFileError: '移动文件异常',
+    downloadCancel: '下载已取消',
+    uploadCancel: '上传已取消',
+    downloadSkipped: '已跳过下载',
     modifyFilePermissionsSuccess: '修改文件权限成功',
     modifyFilePermissionsFailed: '修改文件权限失败',
     modifyFilePermissionsError: '修改文件权限异常',
@@ -924,6 +927,8 @@ export default {
     copy: '复制',
     more: '更多',
     download: '下载',
+    upload: '上传',
+    taskList: '传输列表',
     doubleClickToOpen: '双击打开',
     sftpConnectFailed: 'SFTP连接失败',
     pleaseInputNewFileName: '请输入新文件名'
