@@ -127,7 +127,6 @@
     "@testing-library/vue": "^8.1.0",
     "@types/chai": "^5.0.1",
     "@types/clone-deep": "^4.0.4",
-    "@types/diff": "^8.0.0",
     "@types/fs-extra": "^11.0.4",
     "@types/get-folder-size": "^3.0.4",
     "@types/jest": "^29.5.14",
