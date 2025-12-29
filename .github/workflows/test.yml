@@ -53,7 +53,7 @@ jobs:
         run: npm run test:coverage
 
       - name: Save Coverage Reports
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         # Only upload artifacts on macOS - We only need coverage from one OS
         if: runner.os == 'macOS'
         with:
