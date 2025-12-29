@@ -113,6 +113,7 @@
               >
                 <div class="agents-chat-container">
                   <AiTab
+                    v-if="props.currentMode === 'agents'"
                     ref="aiTabRef"
                     :toggle-sidebar="() => {}"
                     :saved-state="savedAiSidebarState || undefined"
@@ -209,7 +210,7 @@
                   </pane>
                   <!-- AI sidebar -->
                   <pane
-                    v-if="showAiSidebar"
+                    v-if="props.currentMode === 'terminal' && showAiSidebar"
                     :size="aiSidebarSize"
                     :min-size="aiMinSize"
                   >
