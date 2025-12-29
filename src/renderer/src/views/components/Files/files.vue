@@ -22,7 +22,7 @@
         </div>
         <div class="fs-header-left">
           <a-input
-            v-model:value="currentDirectoryInput"
+            v-model:value="localCurrentDirectoryInput"
             class="input-search"
             @press-enter="handleRefresh"
             @mousedown.stop
@@ -448,7 +448,7 @@ export interface FileRecord {
   disabled?: boolean
 }
 
-const currentDirectoryInput = ref(props.currentDirectoryInput)
+const localCurrentDirectoryInput = ref(props.currentDirectoryInput)
 const basePath = ref(props.basePath)
 const files = ref<FileRecord[]>([])
 const loading = ref(false)
@@ -631,7 +631,7 @@ const loadFiles = async (uuid: string, filePath: string): Promise<void> => {
   }
 
   files.value = dirs
-  currentDirectoryInput.value = getLoadFilePath(filePath)
+  localCurrentDirectoryInput.value = getLoadFilePath(filePath)
 }
 
 function getLoadFilePath(filePath: string): string {
@@ -650,10 +650,10 @@ const rowClick = (record: FileRecord): void => {
   if (record.isDir || record.isLink) {
     if (record.path === '..') {
       // Get parent directory of current directory
-      const currentDirectory = basePath.value + currentDirectoryInput.value
+      const currentDirectory = basePath.value + localCurrentDirectoryInput.value
       let parentDirectory = currentDirectory.substring(0, currentDirectory.lastIndexOf('/'))
       if (parentDirectory === '') {
-        currentDirectoryInput.value = '/'
+        localCurrentDirectoryInput.value = '/'
         parentDirectory = '/'
       }
       loadFiles(props.uuid, parentDirectory)
@@ -672,7 +672,7 @@ const openFile = (record: FileRecord): void => {
 }
 
 const refresh = (): void => {
-  loadFiles(props.uuid, basePath.value + currentDirectoryInput.value)
+  loadFiles(props.uuid, basePath.value + localCurrentDirectoryInput.value)
 }
 
 // instead of path.dirname()
@@ -689,7 +689,7 @@ const joinPath = (...parts: string[]) => {
   return parts.join('/').replace(/\/+/g, '/')
 }
 const rollback = (): void => {
-  loadFiles(props.uuid, getDirname(basePath.value + currentDirectoryInput.value))
+  loadFiles(props.uuid, getDirname(basePath.value + localCurrentDirectoryInput.value))
 }
 
 const handleRefresh = (): void => {
@@ -698,7 +698,7 @@ const handleRefresh = (): void => {
 
 onMounted(async () => {
   isTeamCheck(props.uuid)
-  await loadFiles(props.uuid, basePath.value + currentDirectoryInput.value)
+  await loadFiles(props.uuid, basePath.value + localCurrentDirectoryInput.value)
 })
 
 // TODO Delete
@@ -754,7 +754,7 @@ const uploadFile = async () => {
   try {
     const res = await api.uploadFile({
       id: key,
-      remotePath: basePath.value + currentDirectoryInput.value,
+      remotePath: basePath.value + localCurrentDirectoryInput.value,
       localPath: localPath
     })
     refresh()
@@ -782,7 +782,7 @@ const uploadFolder = async () => {
     const res = await api.uploadDirectory({
       id: props.uuid,
       localPath: localPath,
-      remotePath: (basePath.value + currentDirectoryInput.value).replace(/\/+/g, '/')
+      remotePath: (basePath.value + localCurrentDirectoryInput.value).replace(/\/+/g, '/')
     })
 
     const statusMap = {
@@ -931,7 +931,7 @@ const handleMoreButtonEnter = (recordName: string) => {
 }
 
 // Handle "More" button mouse leave
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
+
 const handleMoreButtonLeave = (_recordName: string) => {
   // Don't clean up immediately when button leaves, let other events handle it
 }
@@ -1286,7 +1286,7 @@ const copyOrMoveModalOk = async (targetPath: string) => {
         message.error(`${t('files.copyFileFailed')}：${stderr}`)
       } else {
         message.success(t('files.copyFileSuccess'))
-        currentDirectoryInput.value = getDirname(dest)
+        localCurrentDirectoryInput.value = getDirname(dest)
         refresh()
       }
     } catch (error) {
@@ -1306,7 +1306,7 @@ const copyOrMoveModalOk = async (targetPath: string) => {
         message.error(`${t('files.moveFileFailed')}：${stderr}`)
       } else {
         message.success(t('files.moveFileSuccess'))
-        currentDirectoryInput.value = getDirname(dest)
+        localCurrentDirectoryInput.value = getDirname(dest)
         refresh()
       }
     } catch (error) {
@@ -1327,7 +1327,7 @@ defineExpose({
   downloadFile,
   refresh,
   basePath,
-  currentDirectoryInput
+  localCurrentDirectoryInput
 })
 </script>
 

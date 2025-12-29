@@ -167,7 +167,7 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { ref, onMounted, watch, onBeforeUnmount } from 'vue'
 import { notification } from 'ant-design-vue'
 import { DeleteOutlined, PlusOutlined } from '@ant-design/icons-vue'
@@ -202,15 +202,15 @@ const loadSavedConfig = async () => {
       userConfig.value = {
         ...userConfig.value,
         ...savedConfig,
-        ...savedConfig,
         defaultLayout: savedConfig.defaultLayout || 'terminal',
         background: savedConfig.background || {
           image: '',
           opacity: 0.8,
           brightness: 1.0,
           mode: 'none'
-        }
-      }
+        },
+        watermark: (savedConfig.watermark || 'open') as 'open' | 'close'
+      } as any
 
       // Initialize custom background image if current bg is not a system one
       if (userConfig.value.background.image && !userConfig.value.background.image.includes('assets/backgroup/wall-')) {
@@ -237,12 +237,12 @@ const saveConfig = async () => {
   try {
     const configToStore = {
       language: userConfig.value.language,
-      watermark: userConfig.value.watermark,
+      watermark: (userConfig.value.watermark || 'open') as 'open' | 'close',
       theme: userConfig.value.theme,
       defaultLayout: userConfig.value.defaultLayout,
       background: userConfig.value.background
     }
-    await userConfigStore.saveConfig(configToStore)
+    await userConfigStore.saveConfig(configToStore as any)
     eventBus.emit('updateWatermark', configToStore.watermark)
     eventBus.emit('updateTheme', configToStore.theme)
   } catch (error) {
@@ -262,7 +262,7 @@ watch(
   { deep: true }
 )
 
-let systemThemeListener = null
+let systemThemeListener: (() => void) | null = null
 
 onMounted(async () => {
   await loadSavedConfig()
@@ -299,7 +299,7 @@ const changeLanguage = async () => {
 
 // Setup system theme change listener
 const setupSystemThemeListener = () => {
-  systemThemeListener = addSystemThemeListener(async (newSystemTheme) => {
+  const listener = addSystemThemeListener(async (newSystemTheme: string) => {
     // Only update theme if user has selected 'auto' mode
     if (userConfig.value.theme === 'auto') {
       const actualTheme = getActualTheme(userConfig.value.theme)
@@ -315,6 +315,7 @@ const setupSystemThemeListener = () => {
       }
     }
   })
+  systemThemeListener = listener as () => void
 
   // Listen for system theme changes from main process (Windows)
   if (window.api && window.api.onSystemThemeChanged) {
@@ -390,7 +391,7 @@ const handleCustomItemClick = () => {
 
 const selectBackgroundImage = async () => {
   try {
-    const result = await api.showOpenDialog({
+    const result = await (api as any).showOpenDialog({
       properties: ['openFile'],
       filters: [{ name: 'Images', extensions: ['jpg', 'png', 'gif', 'jpeg', 'webp'] }]
     })
@@ -404,12 +405,14 @@ const selectBackgroundImage = async () => {
       if (saveResult.success) {
         // Use the new path with cache busting
         const baseUrl = saveResult.url
-        const separator = baseUrl.includes('?') ? '&' : '?'
-        const newPath = baseUrl ? `${baseUrl}${separator}t=${Date.now()}` : ''
-        customBackgroundImage.value = newPath
-        userConfig.value.background.image = newPath
-        configStore().updateBackgroundImage(userConfig.value.background.image)
-        await saveConfig()
+        if (baseUrl) {
+          const separator = baseUrl.includes('?') ? '&' : '?'
+          const newPath = `${baseUrl}${separator}t=${Date.now()}`
+          customBackgroundImage.value = newPath
+          userConfig.value.background.image = newPath
+          configStore().updateBackgroundImage(userConfig.value.background.image)
+          await saveConfig()
+        }
       } else {
         notification.error({
           message: t('user.saveBackgroundFailed'),

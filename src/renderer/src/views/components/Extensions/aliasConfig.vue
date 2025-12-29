@@ -99,7 +99,7 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { ref, computed, onMounted, onBeforeUnmount, h } from 'vue'
 import { PlusOutlined, CloseOutlined, EditOutlined, CheckOutlined, CloseSquareOutlined, SearchOutlined } from '@ant-design/icons-vue'
 import 'xterm/css/xterm.css'
@@ -110,8 +110,17 @@ import { commandStore } from '@/services/commandStoreService' // Import commandS
 import { aliasConfigStore } from '@/store/aliasConfigStore'
 import eventBus from '@/utils/eventBus'
 
+interface AliasItem {
+  id: string
+  alias: string
+  command: string
+  edit?: boolean
+  createdAt?: number
+}
+
 const searchText = ref('')
-const list = ref([])
+const searchValue = ref('')
+const list = ref<AliasItem[]>([])
 const cloneRecord = ref({
   alias: '',
   command: '',
@@ -135,7 +144,8 @@ const columns = computed(() => [
     title: t('extensions.action'),
     dataIndex: 'action',
     key: 'action',
-    width: '15%'
+    width: '15%',
+    customRender: () => h('span')
   }
 ])
 const aliasStore = aliasConfigStore()
@@ -143,7 +153,7 @@ const aliasStore = aliasConfigStore()
 const handleTableChange = async () => {
   try {
     // Use search function to get filtered aliases
-    list.value = await commandStore.search(searchText.value)
+    list.value = await commandStore.search(searchValue.value || searchText.value)
   } catch (err) {
     console.error('Error loading aliases:', err)
     notification.error({
@@ -286,7 +296,7 @@ const columnOpt = async (type, record) => {
         console.error('Error saving alias:', err)
         notification.error({
           message: t('extensions.error'),
-          description: err,
+          description: String(err),
           placement: 'topRight',
           duration: 3
         })

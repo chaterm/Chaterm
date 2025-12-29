@@ -121,7 +121,7 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { ref, onMounted, watch, computed } from 'vue'
 import { notification } from 'ant-design-vue'
 import { userConfigStore } from '@/services/userConfigStoreService'
@@ -224,8 +224,11 @@ const loadSavedConfig = async () => {
     if (savedConfig) {
       userConfig.value = {
         ...userConfig.value,
-        ...savedConfig
-      }
+        ...savedConfig,
+        secretRedaction: (savedConfig.secretRedaction || 'enabled') as 'enabled' | 'disabled',
+        dataSync: (savedConfig.dataSync || 'enabled') as 'enabled' | 'disabled',
+        telemetry: ((savedConfig as any).telemetry || 'unset') as 'unset' | 'enabled' | 'disabled'
+      } as any
     }
   } catch (error) {
     console.error('Failed to load config:', error)
@@ -239,11 +242,11 @@ const loadSavedConfig = async () => {
 const saveConfig = async () => {
   try {
     const configToStore = {
-      secretRedaction: userConfig.value.secretRedaction,
-      dataSync: userConfig.value.dataSync,
-      telemetry: userConfig.value.telemetry
+      secretRedaction: (userConfig.value.secretRedaction || 'enabled') as 'enabled' | 'disabled',
+      dataSync: (userConfig.value.dataSync || 'enabled') as 'enabled' | 'disabled',
+      telemetry: ((userConfig.value as any).telemetry || 'unset') as 'unset' | 'enabled' | 'disabled'
     }
-    await userConfigStore.saveConfig(configToStore)
+    await userConfigStore.saveConfig(configToStore as any)
   } catch (error) {
     console.error('Failed to save config:', error)
     notification.error({

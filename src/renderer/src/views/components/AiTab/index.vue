@@ -195,7 +195,7 @@
                         <div class="mcp-info-params">
                           <div
                             v-for="(value, key) in message.mcpToolCall.arguments"
-                            :key="key"
+                            :key="`mcp-param-${key}-${value}`"
                             class="mcp-param-item"
                           >
                             <span class="mcp-param-key">{{ key }}:</span>
@@ -216,7 +216,7 @@
                             >
                               <a-radio
                                 v-for="(option, optionIndex) in (message.content as MessageContent).options"
-                                :key="optionIndex"
+                                :key="`option-${optionIndex}-${option}`"
                                 :value="option"
                                 class="option-radio"
                               >

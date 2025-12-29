@@ -4,7 +4,6 @@
 //   protoc               v3.19.1
 // source: account.proto
 
-/* eslint-disable */
 import { EmptyRequest, String } from './common'
 
 export const protobufPackage = 'cline'
