@@ -849,7 +849,22 @@ export default {
     cancel: '取消',
     resetPassword: '重置密码',
     expirationTime: '过期时间',
-    enterpriseCertification: '企业认证'
+    enterpriseCertification: '企业认证',
+    bindEmail: '绑定邮箱',
+    modifyEmail: '修改邮箱',
+    pleaseInputEmail: '请输入邮箱',
+    pleaseInputEmailCode: '请输入邮箱验证码',
+    sendEmailCode: '发送验证码',
+    emailCodeSent: '验证码已发送',
+    emailBindSuccess: '邮箱绑定成功',
+    emailBindFailed: '邮箱绑定失败',
+    bindMobile: '绑定手机号',
+    modifyMobile: '修改手机号',
+    pleaseInputMobileCode: '请输入手机号验证码',
+    sendMobileCode: '发送验证码',
+    mobileCodeSent: '验证码已发送',
+    mobileBindSuccess: '手机号绑定成功',
+    mobileBindFailed: '手机号绑定失败'
   },
   update: {
     available: '有最新版本可以更新',

@@ -851,7 +851,22 @@ export default {
     cancel: 'Cancel',
     resetPassword: 'Reset Password',
     expirationTime: 'Expiration Time',
-    enterpriseCertification: 'Enterprise Certification'
+    enterpriseCertification: 'Enterprise Certification',
+    bindEmail: 'Bind Email',
+    modifyEmail: 'Modify Email',
+    pleaseInputEmail: 'Please input email',
+    pleaseInputEmailCode: 'Please input email verification code',
+    sendEmailCode: 'Send Code',
+    emailCodeSent: 'Verification code sent',
+    emailBindSuccess: 'Email bound successfully',
+    emailBindFailed: 'Failed to bind email',
+    bindMobile: 'Bind Mobile',
+    modifyMobile: 'Modify Mobile',
+    pleaseInputMobileCode: 'Please input mobile verification code',
+    sendMobileCode: 'Send Code',
+    mobileCodeSent: 'Verification code sent',
+    mobileBindSuccess: 'Mobile bound successfully',
+    mobileBindFailed: 'Failed to bind mobile'
   },
   update: {
     available: 'A new version is available',
