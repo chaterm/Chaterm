@@ -38,7 +38,7 @@
     "test:browser": "vitest --project=renderer-browser",
     "test:unit": "vitest --ui",
     "test:watch": "vitest --watch",
-    "test:coverage": "vitest --run --coverage",
+    "test:coverage": "vitest --run --coverage --project=main-process --project=renderer-process",
     "test:coverage:main": "vitest --project=main-process --coverage",
     "test:coverage:renderer": "vitest --project=renderer-process --coverage",
     "test:e2e": "playwright test --config playwright.config.ts",
