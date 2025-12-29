@@ -37,17 +37,73 @@ vi.mock('vue-i18n', async (importOriginal) => {
   }
 })
 
+// Mock UserConfigStoreService to avoid database initialization in tests
+vi.mock('@/services/userConfigStoreService', () => {
+  return {
+    UserConfigStoreService: vi.fn().mockImplementation(() => ({
+      getConfig: vi.fn().mockResolvedValue({
+        language: 'en-US',
+        defaultLayout: 'terminal',
+        background: {
+          mode: 'none',
+          image: '',
+          opacity: 0.5,
+          brightness: 0.45
+        }
+      }),
+      saveConfig: vi.fn().mockResolvedValue(undefined),
+      initDB: vi.fn().mockResolvedValue(undefined)
+    })),
+    userConfigStore: {
+      getConfig: vi.fn().mockResolvedValue({
+        language: 'en-US',
+        defaultLayout: 'terminal',
+        background: {
+          mode: 'none',
+          image: '',
+          opacity: 0.5,
+          brightness: 0.45
+        }
+      }),
+      saveConfig: vi.fn().mockResolvedValue(undefined),
+      initDB: vi.fn().mockResolvedValue(undefined)
+    }
+  }
+})
+
+// In-memory storage for testing
+const storage = new Map<string, string>()
+
 // Mock window.api
 const mockGetTaskMetadata = vi.fn()
 const mockChatermGetChatermMessages = vi.fn()
 const mockSendToMain = vi.fn()
 const mockCancelTask = vi.fn()
+const mockKvGet = vi.fn(async (params: { key?: string }) => {
+  if (params.key) {
+    const value = storage.get(params.key)
+    return Promise.resolve(value ? { value } : null)
+  } else {
+    return Promise.resolve(Array.from(storage.keys()))
+  }
+})
+const mockKvMutate = vi.fn(async (params: { action: string; key: string; value?: string }) => {
+  if (params.action === 'set') {
+    storage.set(params.key, params.value || '')
+  } else if (params.action === 'delete') {
+    storage.delete(params.key)
+  }
+  return Promise.resolve(undefined)
+})
+
 global.window = {
   api: {
     getTaskMetadata: mockGetTaskMetadata,
     chatermGetChatermMessages: mockChatermGetChatermMessages,
     sendToMain: mockSendToMain,
-    cancelTask: mockCancelTask
+    cancelTask: mockCancelTask,
+    kvGet: mockKvGet,
+    kvMutate: mockKvMutate
   }
 } as any
 
