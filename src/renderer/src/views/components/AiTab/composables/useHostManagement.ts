@@ -1,4 +1,5 @@
 import { ref, computed, watch, nextTick, onMounted, onUnmounted } from 'vue'
+import { createGlobalState } from '@vueuse/core'
 import debounce from 'lodash/debounce'
 import type { Host, AssetInfo, HostOption, HostItemType } from '../types'
 import { formatHosts } from '../utils'
@@ -17,7 +18,7 @@ const MAX_TARGET_HOSTS = 5
  * Composable for host management
  * Handles host selection, search, pagination loading and other functionalities
  */
-export function useHostManagement() {
+export const useHostManagement = createGlobalState(() => {
   const { t } = i18n.global
 
   const { hosts, chatTypeValue, autoUpdateHost, chatInputValue } = useSessionState()
@@ -516,4 +517,4 @@ export function useHostManagement() {
     getCurentTabAssetInfo,
     toggleJumpserverExpand
   }
-}
+})

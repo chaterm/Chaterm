@@ -17,13 +17,48 @@ import eventBus from '@/utils/eventBus'
 
 // Mock heavy dependencies
 vi.mock('xterm')
-vi.mock('@/services/userConfigStoreService')
+vi.mock('@/services/userConfigStoreService', () => {
+  return {
+    UserConfigStoreService: vi.fn().mockImplementation(() => ({
+      getConfig: vi.fn().mockResolvedValue({
+        language: 'en-US',
+        defaultLayout: 'terminal',
+        background: {
+          mode: 'none',
+          image: '',
+          opacity: 0.5,
+          brightness: 0.45
+        }
+      }),
+      saveConfig: vi.fn().mockResolvedValue(undefined),
+      initDB: vi.fn().mockResolvedValue(undefined)
+    })),
+    userConfigStore: {
+      getConfig: vi.fn().mockResolvedValue({
+        language: 'en-US',
+        defaultLayout: 'terminal',
+        background: {
+          mode: 'none',
+          image: '',
+          opacity: 0.5,
+          brightness: 0.45
+        }
+      }),
+      saveConfig: vi.fn().mockResolvedValue(undefined),
+      initDB: vi.fn().mockResolvedValue(undefined)
+    }
+  }
+})
 vi.mock('@renderer/agent/storage/state')
 vi.mock('@api/user/user')
 
-// Helper functions
-function setupWindowApi() {
-  const mockWindowApi = {
+// In-memory storage for testing (shared across all tests)
+const storage = new Map<string, string>()
+
+// Setup global window.api before any modules are loaded
+// This ensures it's available when UserConfigStoreService initializes
+if (typeof window !== 'undefined') {
+  ;(window as any).api = {
     sendToMain: vi.fn((channel: string) => {
       if (channel === 'get-cur-asset-info') {
         return Promise.resolve({ success: false })
@@ -37,12 +72,31 @@ function setupWindowApi() {
     getAllMcpToolStates: vi.fn().mockResolvedValue({}),
     onMainMessage: vi.fn().mockReturnValue(() => {}),
     getLocalWorkingDirectory: vi.fn().mockResolvedValue('/test'),
-    cancelTask: vi.fn().mockResolvedValue({ success: true })
+    cancelTask: vi.fn().mockResolvedValue({ success: true }),
+    kvMutate: vi.fn(async (params: { action: string; key: string; value?: string }) => {
+      if (params.action === 'set') {
+        storage.set(params.key, params.value || '')
+      } else if (params.action === 'delete') {
+        storage.delete(params.key)
+      }
+      return Promise.resolve(undefined)
+    }),
+    kvGet: vi.fn(async (params: { key?: string }) => {
+      if (params.key) {
+        const value = storage.get(params.key)
+        return Promise.resolve(value ? { value } : null)
+      } else {
+        // Return all keys
+        return Promise.resolve(Array.from(storage.keys()))
+      }
+    })
   }
+}
 
-  // Set window.api in browser environment
-  ;(window as any).api = mockWindowApi
-  return mockWindowApi
+// Helper functions
+function setupWindowApi() {
+  // Return the existing window.api (already set up globally)
+  return (window as any).api
 }
 
 function createTestRouter() {
@@ -68,7 +122,36 @@ function createTestI18n() {
         ai: {
           welcome: 'Welcome',
           loginPrompt: 'Please login',
-          taskCompleted: 'Task Completed'
+          taskCompleted: 'Task Completed',
+          startVoiceInput: 'Start Voice Input',
+          stopRecording: 'Stop Voice Recording',
+          newChat: 'New Chat',
+          showChatHistory: 'Show History',
+          addHost: 'Add Host',
+          agentMessage: 'Command query,troubleshoot errors,handle tasks,anything',
+          chatMessage: 'Ask, learn, brainstorm ',
+          cmdMessage: 'Work on explicitly opened terminal',
+          switchAiModeHint: 'Switch AI Mode (⇧+Tab)',
+          uploadFile: 'Upload File',
+          enterCustomOption: 'Enter your answer...',
+          submit: 'Submit',
+          reject: 'Reject',
+          addAutoApprove: 'add Auto-Approve',
+          approve: 'Approve',
+          run: 'Run',
+          copy: 'Copy',
+          resume: 'Resume',
+          retry: 'Retry',
+          newTask: 'Start New Task',
+          searchHost: 'Search by IP',
+          loading: 'loading...',
+          noMatchingHosts: 'No matching hosts',
+          processing: 'processing...',
+          interruptTask: 'Interrupt Task',
+          searchHistoryPH: 'Please Input',
+          favorite: 'Favorites',
+          loadMore: 'load more',
+          exportChat: 'Export Chat'
         },
         common: {
           login: 'Login'
@@ -83,10 +166,13 @@ describe('AiTab Component - Browser Mode Integration', () => {
   let router: any
 
   beforeEach(async () => {
-    // 1. Setup global dependencies
+    // 1. Clear storage before each test
+    storage.clear()
+
+    // 2. Setup global dependencies
     setupWindowApi()
 
-    // Mock localStorage - Set to logged-in state (login-skipped should NOT be 'true')
+    // 3. Mock localStorage - Set to logged-in state (login-skipped should NOT be 'true')
     // This ensures the input textarea is visible in the component
     // Important: The component checks if login-skipped === 'true', so we should NOT set it at all
     // or set it to 'false' to ensure isSkippedLogin.value === false

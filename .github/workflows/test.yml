@@ -62,12 +62,10 @@ jobs:
 
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v4
-        # Only upload from macOS to avoid duplicate uploads
         if: runner.os == 'macOS'
         with:
           files: ./coverage/coverage-final.json
           flags: unittests
           name: codecov-umbrella
           fail_ci_if_error: false
-          token: ${{ secrets.CODECOV_TOKEN }}
           verbose: true

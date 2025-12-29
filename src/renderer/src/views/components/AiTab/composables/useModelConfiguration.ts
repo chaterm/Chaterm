@@ -1,4 +1,5 @@
 import { ref, watch } from 'vue'
+import { createGlobalState } from '@vueuse/core'
 import { getGlobalState, updateGlobalState, storeSecret, getSecret } from '@renderer/agent/storage/state'
 import { GlobalStateKey } from '@renderer/agent/storage/state-keys'
 import { notification } from 'ant-design-vue'
@@ -43,7 +44,7 @@ export const PROVIDER_MODEL_KEY_MAP: Record<string, GlobalStateKey> = {
  * Composable for AI model configuration management
  * Handles model selection, configuration and initialization
  */
-export function useModelConfiguration() {
+export const useModelConfiguration = createGlobalState(() => {
   const { chatAiModelValue } = useSessionState()
 
   const AgentAiModelsOptions = ref<ModelSelectOption[]>([])
@@ -249,4 +250,4 @@ export function useModelConfiguration() {
     checkModelConfig,
     initModelOptions
   }
-}
+})

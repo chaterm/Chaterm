@@ -37,25 +37,81 @@ vi.mock('vue-i18n', async (importOriginal) => {
   }
 })
 
+// Mock UserConfigStoreService to avoid database initialization in tests
+vi.mock('@/services/userConfigStoreService', () => {
+  return {
+    UserConfigStoreService: vi.fn().mockImplementation(() => ({
+      getConfig: vi.fn().mockResolvedValue({
+        language: 'en-US',
+        defaultLayout: 'terminal',
+        background: {
+          mode: 'none',
+          image: '',
+          opacity: 0.5,
+          brightness: 0.45
+        }
+      }),
+      saveConfig: vi.fn().mockResolvedValue(undefined),
+      initDB: vi.fn().mockResolvedValue(undefined)
+    })),
+    userConfigStore: {
+      getConfig: vi.fn().mockResolvedValue({
+        language: 'en-US',
+        defaultLayout: 'terminal',
+        background: {
+          mode: 'none',
+          image: '',
+          opacity: 0.5,
+          brightness: 0.45
+        }
+      }),
+      saveConfig: vi.fn().mockResolvedValue(undefined),
+      initDB: vi.fn().mockResolvedValue(undefined)
+    }
+  }
+})
+
+// In-memory storage for testing
+const storage = new Map<string, string>()
+
 // Mock window.api
 const mockGetTaskMetadata = vi.fn()
 const mockChatermGetChatermMessages = vi.fn()
 const mockSendToMain = vi.fn()
 const mockCancelTask = vi.fn()
+const mockKvGet = vi.fn(async (params: { key?: string }) => {
+  if (params.key) {
+    const value = storage.get(params.key)
+    return Promise.resolve(value ? { value } : null)
+  } else {
+    return Promise.resolve(Array.from(storage.keys()))
+  }
+})
+const mockKvMutate = vi.fn(async (params: { action: string; key: string; value?: string }) => {
+  if (params.action === 'set') {
+    storage.set(params.key, params.value || '')
+  } else if (params.action === 'delete') {
+    storage.delete(params.key)
+  }
+  return Promise.resolve(undefined)
+})
+
 global.window = {
   api: {
     getTaskMetadata: mockGetTaskMetadata,
     chatermGetChatermMessages: mockChatermGetChatermMessages,
     sendToMain: mockSendToMain,
-    cancelTask: mockCancelTask
+    cancelTask: mockCancelTask,
+    kvGet: mockKvGet,
+    kvMutate: mockKvMutate
   }
 } as any
 
 describe('useTabManagement', () => {
   let mockGetCurentTabAssetInfo: ReturnType<typeof vi.fn<() => Promise<AssetInfo | null>>>
   let mockEmitStateChange: ReturnType<typeof vi.fn<() => void>>
-  let mockHandleClose: ReturnType<typeof vi.fn<() => void>>
   let mockIsFocusInAiTab: ReturnType<typeof vi.fn<(event?: KeyboardEvent) => boolean>>
+  let mockToggleSidebar: ReturnType<typeof vi.fn<() => void>>
 
   const createMockSession = () => ({
     chatHistory: [],
@@ -95,8 +151,8 @@ describe('useTabManagement', () => {
       connection: 'personal'
     } as AssetInfo)
     mockEmitStateChange = vi.fn()
-    mockHandleClose = vi.fn()
     mockIsFocusInAiTab = vi.fn().mockReturnValue(true)
+    mockToggleSidebar = vi.fn()
 
     const mockTab = createMockTab('tab-1')
     const chatTabs = ref([mockTab])
@@ -130,7 +186,8 @@ describe('useTabManagement', () => {
     it('should create new tab with default values', async () => {
       const { createNewEmptyTab } = useTabManagement({
         getCurentTabAssetInfo: mockGetCurentTabAssetInfo,
-        emitStateChange: mockEmitStateChange
+        emitStateChange: mockEmitStateChange,
+        toggleSidebar: mockToggleSidebar
       })
 
       const mockState = vi.mocked(useSessionState)()
@@ -145,7 +202,8 @@ describe('useTabManagement', () => {
 
     it('should populate tab with current asset info', async () => {
       const { createNewEmptyTab } = useTabManagement({
-        getCurentTabAssetInfo: mockGetCurentTabAssetInfo
+        getCurentTabAssetInfo: mockGetCurentTabAssetInfo,
+        toggleSidebar: mockToggleSidebar
       })
 
       const mockState = vi.mocked(useSessionState)()
@@ -167,7 +225,8 @@ describe('useTabManagement', () => {
       mockGetCurentTabAssetInfo.mockResolvedValue(null)
 
       const { createNewEmptyTab } = useTabManagement({
-        getCurentTabAssetInfo: mockGetCurentTabAssetInfo
+        getCurentTabAssetInfo: mockGetCurentTabAssetInfo,
+        toggleSidebar: mockToggleSidebar
       })
 
       const mockState = vi.mocked(useSessionState)()
@@ -181,7 +240,8 @@ describe('useTabManagement', () => {
 
     it('should set model value from global state', async () => {
       const { createNewEmptyTab } = useTabManagement({
-        getCurentTabAssetInfo: mockGetCurentTabAssetInfo
+        getCurentTabAssetInfo: mockGetCurentTabAssetInfo,
+        toggleSidebar: mockToggleSidebar
       })
 
       const mockState = vi.mocked(useSessionState)()
@@ -195,7 +255,8 @@ describe('useTabManagement', () => {
 
     it('should clear chat input value', async () => {
       const { createNewEmptyTab } = useTabManagement({
-        getCurentTabAssetInfo: mockGetCurentTabAssetInfo
+        getCurentTabAssetInfo: mockGetCurentTabAssetInfo,
+        toggleSidebar: mockToggleSidebar
       })
 
       const mockState = vi.mocked(useSessionState)()
@@ -210,7 +271,8 @@ describe('useTabManagement', () => {
   describe('restoreHistoryTab', () => {
     it('should switch to existing tab if already open', async () => {
       const { restoreHistoryTab } = useTabManagement({
-        getCurentTabAssetInfo: mockGetCurentTabAssetInfo
+        getCurentTabAssetInfo: mockGetCurentTabAssetInfo,
+        toggleSidebar: mockToggleSidebar
       })
 
       const mockState = vi.mocked(useSessionState)()
@@ -252,7 +314,8 @@ describe('useTabManagement', () => {
       mockChatermGetChatermMessages.mockResolvedValue(mockMessages)
 
       const { restoreHistoryTab } = useTabManagement({
-        getCurentTabAssetInfo: mockGetCurentTabAssetInfo
+        getCurentTabAssetInfo: mockGetCurentTabAssetInfo,
+        toggleSidebar: mockToggleSidebar
       })
 
       const mockState = vi.mocked(useSessionState)()
@@ -282,7 +345,8 @@ describe('useTabManagement', () => {
       mockGetTaskMetadata.mockResolvedValue({ success: true, data: {} })
 
       const { restoreHistoryTab } = useTabManagement({
-        getCurentTabAssetInfo: mockGetCurentTabAssetInfo
+        getCurentTabAssetInfo: mockGetCurentTabAssetInfo,
+        toggleSidebar: mockToggleSidebar
       })
 
       const mockState = vi.mocked(useSessionState)()
@@ -316,7 +380,8 @@ describe('useTabManagement', () => {
       })
 
       const { restoreHistoryTab } = useTabManagement({
-        getCurentTabAssetInfo: mockGetCurentTabAssetInfo
+        getCurentTabAssetInfo: mockGetCurentTabAssetInfo,
+        toggleSidebar: mockToggleSidebar
       })
 
       const history: HistoryItem = {
@@ -355,7 +420,8 @@ describe('useTabManagement', () => {
       mockGetTaskMetadata.mockResolvedValue({ success: true, data: {} })
 
       const { restoreHistoryTab } = useTabManagement({
-        getCurentTabAssetInfo: mockGetCurentTabAssetInfo
+        getCurentTabAssetInfo: mockGetCurentTabAssetInfo,
+        toggleSidebar: mockToggleSidebar
       })
 
       const history: HistoryItem = {
@@ -381,7 +447,8 @@ describe('useTabManagement', () => {
   describe('handleTabRemove', () => {
     it('should remove tab and cancel task', async () => {
       const { handleTabRemove } = useTabManagement({
-        getCurentTabAssetInfo: mockGetCurentTabAssetInfo
+        getCurentTabAssetInfo: mockGetCurentTabAssetInfo,
+        toggleSidebar: mockToggleSidebar
       })
 
       const mockState = vi.mocked(useSessionState)()
@@ -396,7 +463,8 @@ describe('useTabManagement', () => {
 
     it('should switch to adjacent tab after removing current', async () => {
       const { handleTabRemove } = useTabManagement({
-        getCurentTabAssetInfo: mockGetCurentTabAssetInfo
+        getCurentTabAssetInfo: mockGetCurentTabAssetInfo,
+        toggleSidebar: mockToggleSidebar
       })
 
       const mockState = vi.mocked(useSessionState)()
@@ -412,8 +480,8 @@ describe('useTabManagement', () => {
     it('should close AiTab when removing last tab', async () => {
       const { handleTabRemove } = useTabManagement({
         getCurentTabAssetInfo: mockGetCurentTabAssetInfo,
-        handleClose: mockHandleClose,
-        emitStateChange: mockEmitStateChange
+        emitStateChange: mockEmitStateChange,
+        toggleSidebar: mockToggleSidebar
       })
 
       const mockState = vi.mocked(useSessionState)()
@@ -422,12 +490,13 @@ describe('useTabManagement', () => {
 
       expect(mockState.currentChatId.value).toBeUndefined()
       expect(mockEmitStateChange).toHaveBeenCalled()
-      expect(mockHandleClose).toHaveBeenCalled()
+      expect(mockToggleSidebar).toHaveBeenCalled()
     })
 
     it('should not remove non-existent tab', async () => {
       const { handleTabRemove } = useTabManagement({
-        getCurentTabAssetInfo: mockGetCurentTabAssetInfo
+        getCurentTabAssetInfo: mockGetCurentTabAssetInfo,
+        toggleSidebar: mockToggleSidebar
       })
 
       const mockState = vi.mocked(useSessionState)()
@@ -440,7 +509,8 @@ describe('useTabManagement', () => {
 
     it('should select last tab when removing middle tab', async () => {
       const { handleTabRemove } = useTabManagement({
-        getCurentTabAssetInfo: mockGetCurentTabAssetInfo
+        getCurentTabAssetInfo: mockGetCurentTabAssetInfo,
+        toggleSidebar: mockToggleSidebar
       })
 
       const mockState = vi.mocked(useSessionState)()
@@ -458,7 +528,8 @@ describe('useTabManagement', () => {
     it('should close tab with Cmd+W on macOS', async () => {
       const { handleCloseTabKeyDown } = useTabManagement({
         getCurentTabAssetInfo: mockGetCurentTabAssetInfo,
-        isFocusInAiTab: mockIsFocusInAiTab
+        isFocusInAiTab: mockIsFocusInAiTab,
+        toggleSidebar: mockToggleSidebar
       })
 
       const mockState = vi.mocked(useSessionState)()
@@ -486,7 +557,8 @@ describe('useTabManagement', () => {
 
       const { handleCloseTabKeyDown } = useTabManagement({
         getCurentTabAssetInfo: mockGetCurentTabAssetInfo,
-        isFocusInAiTab: mockIsFocusInAiTab
+        isFocusInAiTab: mockIsFocusInAiTab,
+        toggleSidebar: mockToggleSidebar
       })
 
       const event = new KeyboardEvent('keydown', {
@@ -510,7 +582,8 @@ describe('useTabManagement', () => {
 
       const { handleCloseTabKeyDown } = useTabManagement({
         getCurentTabAssetInfo: mockGetCurentTabAssetInfo,
-        isFocusInAiTab: mockIsFocusInAiTab
+        isFocusInAiTab: mockIsFocusInAiTab,
+        toggleSidebar: mockToggleSidebar
       })
 
       const event = new KeyboardEvent('keydown', {

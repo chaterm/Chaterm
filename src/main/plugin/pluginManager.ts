@@ -1,7 +1,7 @@
-import { app } from 'electron'
 import * as fs from 'fs'
 import path from 'path'
 import AdmZip from 'adm-zip'
+import { getUserDataPath } from '../config/edition'
 
 export interface PluginManifest {
   id: string
@@ -21,13 +21,20 @@ export interface InstalledPlugin {
   enabled: boolean
 }
 
-const extensionsRoot = path.join(app.getPath('userData'), 'extensions')
-const registryPath = path.join(extensionsRoot, 'plugins.json')
+// Lazy getters to ensure path is resolved after initUserDataPath() is called
+function getExtensionsRoot(): string {
+  return path.join(getUserDataPath(), 'extensions')
+}
+
+function getRegistryPath(): string {
+  return path.join(getExtensionsRoot(), 'plugins.json')
+}
 
 function readRegistry(): InstalledPlugin[] {
-  if (!fs.existsSync(registryPath)) return []
+  const regPath = getRegistryPath()
+  if (!fs.existsSync(regPath)) return []
   try {
-    const raw = fs.readFileSync(registryPath, 'utf8')
+    const raw = fs.readFileSync(regPath, 'utf8')
     return JSON.parse(raw) as InstalledPlugin[]
   } catch {
     return []
@@ -35,10 +42,11 @@ function readRegistry(): InstalledPlugin[] {
 }
 
 function writeRegistry(list: InstalledPlugin[]) {
-  if (!fs.existsSync(extensionsRoot)) {
-    fs.mkdirSync(extensionsRoot, { recursive: true })
+  const extRoot = getExtensionsRoot()
+  if (!fs.existsSync(extRoot)) {
+    fs.mkdirSync(extRoot, { recursive: true })
   }
-  fs.writeFileSync(registryPath, JSON.stringify(list, null, 2), 'utf8')
+  fs.writeFileSync(getRegistryPath(), JSON.stringify(list, null, 2), 'utf8')
 }
 
 export function listPlugins(): InstalledPlugin[] {
@@ -46,11 +54,12 @@ export function listPlugins(): InstalledPlugin[] {
 }
 
 export function installPlugin(pluginFilePath: string): InstalledPlugin {
-  if (!fs.existsSync(extensionsRoot)) {
-    fs.mkdirSync(extensionsRoot, { recursive: true })
+  const extRoot = getExtensionsRoot()
+  if (!fs.existsSync(extRoot)) {
+    fs.mkdirSync(extRoot, { recursive: true })
   }
 
-  const tmpDir = fs.mkdtempSync(path.join(extensionsRoot, 'tmp-'))
+  const tmpDir = fs.mkdtempSync(path.join(extRoot, 'tmp-'))
   const zip = new AdmZip(pluginFilePath)
   zip.extractAllTo(tmpDir, true)
 
@@ -65,7 +74,7 @@ export function installPlugin(pluginFilePath: string): InstalledPlugin {
   }
 
   const finalDirName = `${manifest.id}-${manifest.version}`
-  const finalDir = path.join(extensionsRoot, finalDirName)
+  const finalDir = path.join(extRoot, finalDirName)
 
   if (fs.existsSync(finalDir)) {
     fs.rmSync(finalDir, { recursive: true, force: true })

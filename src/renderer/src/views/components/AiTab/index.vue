@@ -451,245 +451,11 @@
               {{ $t('ai.newTask') }}
             </a-button>
           </div>
-          <div class="input-send-container">
-            <div
-              class="ai-tab-test-hook"
-              data-testid="ai-tab"
-              style="display: none"
-            ></div>
-            <div
-              v-if="showHostSelect"
-              class="host-select-popup"
-            >
-              <a-input
-                ref="hostSearchInputRef"
-                v-model:value="hostSearchValue"
-                :placeholder="$t('ai.searchHost')"
-                size="small"
-                class="mini-host-search-input"
-                allow-clear
-                @keydown="handleHostSearchKeyDown"
-              />
-              <div class="host-select-list">
-                <template
-                  v-for="(item, index) in filteredHostOptions"
-                  :key="item.value"
-                >
-                  <!-- Jumpserver parent node (non-selectable, expandable) -->
-                  <div
-                    v-if="item.type === 'jumpserver'"
-                    class="host-select-item host-select-group"
-                    :class="{
-                      hovered: hovered === item.value,
-                      'keyboard-selected': keyboardSelectedIndex === index,
-                      expanded: item.expanded
-                    }"
-                    @mouseover="handleMouseOver(item.value, index)"
-                    @mouseleave="hovered = null"
-                    @click="toggleJumpserverExpand(item.key)"
-                  >
-                    <span class="host-label host-group-label">{{ item.label }}</span>
-                    <span class="host-group-badge">{{ item.childrenCount || 0 }}</span>
-                    <span class="host-group-toggle">
-                      <DownOutlined
-                        v-if="item.expanded"
-                        class="toggle-icon"
-                      />
-                      <RightOutlined
-                        v-else
-                        class="toggle-icon"
-                      />
-                    </span>
-                  </div>
-                  <!-- Normal selectable items (personal or jumpserver_child) -->
-                  <div
-                    v-else
-                    class="host-select-item"
-                    :class="{
-                      hovered: hovered === item.value,
-                      'keyboard-selected': keyboardSelectedIndex === index,
-                      'host-select-child': item.level === 1
-                    }"
-                    :style="{ paddingLeft: item.level === 1 ? '24px' : '6px' }"
-                    @mouseover="handleMouseOver(item.value, index)"
-                    @mouseleave="hovered = null"
-                    @click="onHostClick(item)"
-                  >
-                    <span class="host-label">{{ item.label }}</span>
-                    <CheckOutlined
-                      v-if="isHostSelected(item)"
-                      class="host-selected-icon"
-                    />
-                  </div>
-                </template>
-                <div
-                  v-if="hostOptionsLoading && filteredHostOptions.length > 0"
-                  class="host-select-loading"
-                >
-                  {{ $t('ai.loading') }}...
-                </div>
-                <div
-                  v-if="filteredHostOptions.length === 0 && !hostOptionsLoading"
-                  class="host-select-empty"
-                >
-                  {{ $t('ai.noMatchingHosts') }}
-                </div>
-              </div>
-            </div>
-            <div
-              v-if="hasAvailableModels"
-              class="input-container"
-            >
-              <div class="hosts-display-container">
-                <span
-                  v-if="chatTypeValue === 'agent' && chatHistory.length === 0"
-                  class="hosts-display-container-host-tag"
-                  @click.stop="handleAddHostClick"
-                >
-                  {{ hosts && hosts.length > 0 ? '@' : `@ ${$t('ai.addHost')}` }}
-                </span>
-                <a-tag
-                  v-for="item in hosts"
-                  :key="item.uuid"
-                  color="blue"
-                  class="host-tag-with-delete"
-                >
-                  <template #icon>
-                    <laptop-outlined />
-                  </template>
-                  {{ item.host }}
-                  <CloseOutlined
-                    v-if="chatTypeValue === 'agent' && chatHistory.length === 0"
-                    class="host-delete-btn"
-                    @click.stop="removeHost(item)"
-                  />
-                </a-tag>
-                <span
-                  v-if="currentTab?.session.responseLoading"
-                  class="processing-text"
-                >
-                  <HourglassOutlined
-                    spin
-                    style="color: #1890ff; margin-right: 2px"
-                  />
-                  {{ $t('ai.processing') }}
-                </span>
-              </div>
-              <a-textarea
-                :ref="
-                  (el: HTMLTextAreaElement | null) => {
-                    if (tab.id === currentChatId) {
-                      chatTextareaRef = el
-                    }
-                  }
-                "
-                v-model:value="chatInputValue"
-                :placeholder="
-                  chatTypeValue === 'agent' ? $t('ai.agentMessage') : chatTypeValue === 'chat' ? $t('ai.chatMessage') : $t('ai.cmdMessage')
-                "
-                class="chat-textarea"
-                data-testid="ai-message-input"
-                :auto-size="{ minRows: 2, maxRows: 5 }"
-                @keydown="handleKeyDown"
-                @input="handleInputChange"
-              />
-              <div class="input-controls">
-                <a-tooltip
-                  :title="$t('ai.switchAiModeHint')"
-                  placement="top"
-                  :get-popup-container="(triggerNode) => triggerNode.parentElement"
-                  :mouse-enter-delay="0.3"
-                  :visible="aiModeTooltipVisible && !aiModeSelectOpen"
-                  overlay-class-name="ai-mode-tooltip"
-                  @visible-change="
-                    (visible: boolean) => {
-                      aiModeTooltipVisible = visible
-                    }
-                  "
-                >
-                  <a-select
-                    v-model:value="chatTypeValue"
-                    size="small"
-                    style="width: 100px"
-                    :options="AiTypeOptions"
-                    data-testid="ai-mode-select"
-                    @dropdown-visible-change="handleAiModeSelectOpenChange"
-                  ></a-select>
-                </a-tooltip>
-                <a-select
-                  v-model:value="chatAiModelValue"
-                  size="small"
-                  class="model-select-responsive"
-                  style="width: 160px"
-                  show-search
-                  @change="handleChatAiModelChange"
-                >
-                  <a-select-option
-                    v-for="model in AgentAiModelsOptions"
-                    :key="model.value"
-                    :value="model.value"
-                  >
-                    <span class="model-label">
-                      <img
-                        v-if="model.label.endsWith('-Thinking')"
-                        src="@/assets/icons/thinking.svg"
-                        alt="Thinking"
-                        class="thinking-icon"
-                      />
-                      {{ model.label.replace(/-Thinking$/, '') }}
-                    </span>
-                  </a-select-option>
-                </a-select>
-                <div class="action-buttons-container-separator"></div>
-                <div class="action-buttons-container">
-                  <a-tooltip :title="$t('ai.uploadFile')">
-                    <a-button
-                      :disabled="responseLoading"
-                      size="small"
-                      class="custom-round-button compact-button"
-                      @click="handleFileUpload"
-                    >
-                      <img
-                        :src="uploadIcon"
-                        alt="upload"
-                        style="width: 14px; height: 14px"
-                      />
-                    </a-button>
-                  </a-tooltip>
-                  <a-tooltip :title="$t('ai.startVoiceInput')">
-                    <VoiceInput
-                      :disabled="responseLoading"
-                      :auto-send-after-voice="autoSendAfterVoice"
-                      @transcription-complete="handleTranscriptionComplete"
-                      @transcription-error="handleTranscriptionError"
-                    />
-                  </a-tooltip>
-                  <a-tooltip :title="responseLoading ? $t('ai.interruptTask') : ''">
-                    <a-button
-                      size="small"
-                      class="custom-round-button compact-button"
-                      data-testid="send-message-btn"
-                      @click="responseLoading ? handleInterrupt() : sendMessage('send')"
-                    >
-                      <img
-                        v-if="responseLoading"
-                        :src="stopIcon"
-                        alt="stop"
-                        class="interrupt-icon"
-                        style="width: 18px; height: 18px"
-                      />
-                      <img
-                        v-else
-                        :src="sendIcon"
-                        alt="send"
-                        style="width: 18px; height: 18px"
-                      />
-                    </a-button>
-                  </a-tooltip>
-                </div>
-              </div>
-            </div>
-          </div>
+          <InputSendContainer
+            :is-active-tab="tab.id === currentChatId"
+            :send-message="sendMessage"
+            :handle-interrupt="handleInterrupt"
+          />
         </div>
       </div>
     </a-tab-pane>
@@ -886,13 +652,6 @@
       </div>
     </template>
   </a-tabs>
-  <input
-    ref="fileInputRef"
-    type="file"
-    accept=".txt,.md,.js,.ts,.py,.java,.cpp,.c,.html,.css,.json,.xml,.yaml,.yml,.sql,.sh,.bat,.ps1,.log,.csv,.tsv"
-    style="display: none"
-    @change="handleFileSelected"
-  />
 </template>
 
 <script setup lang="ts">
@@ -902,7 +661,7 @@ import { useAutoScroll } from './composables/useAutoScroll'
 import { useChatHistory } from './composables/useChatHistory'
 import { useChatMessages } from './composables/useChatMessages'
 import { useCommandInteraction } from './composables/useCommandInteraction'
-import { useEventBusListeners, AiTypeOptions } from './composables/useEventBusListeners'
+import { useEventBusListeners } from './composables/useEventBusListeners'
 import { useHostManagement } from './composables/useHostManagement'
 import { useMessageOptions } from './composables/useMessageOptions'
 import { useModelConfiguration } from './composables/useModelConfiguration'
@@ -910,10 +669,9 @@ import { useSessionState } from './composables/useSessionState'
 import { useStateSnapshot } from './composables/useStateSnapshot'
 import { useTabManagement } from './composables/useTabManagement'
 import { useTodo } from './composables/useTodo'
-import { useUserInteractions } from './composables/useUserInteractions'
 import { useWatchers } from './composables/useWatchers'
 import { useExportChat } from './composables/useExportChat'
-import VoiceInput from './components/voice/voiceInput.vue'
+import InputSendContainer from './components/InputSendContainer.vue'
 import {
   CheckCircleFilled,
   CheckCircleOutlined,
@@ -922,18 +680,14 @@ import {
   CopyOutlined,
   DeleteOutlined,
   DislikeOutlined,
-  DownOutlined,
   EditOutlined,
   EllipsisOutlined,
   ExportOutlined,
-  HourglassOutlined,
-  LaptopOutlined,
   LikeOutlined,
   PlayCircleOutlined,
   PlusOutlined,
   RedoOutlined,
   ReloadOutlined,
-  RightOutlined,
   SearchOutlined,
   StarFilled,
   StarOutlined
@@ -945,9 +699,6 @@ import i18n from '@/locales'
 import eventBus from '@/utils/eventBus'
 import historyIcon from '@/assets/icons/history.svg'
 import plusIcon from '@/assets/icons/plus.svg'
-import sendIcon from '@/assets/icons/send.svg'
-import stopIcon from '@/assets/icons/stop.svg'
-import uploadIcon from '@/assets/icons/upload.svg'
 
 interface TabInfo {
   id: string
@@ -981,10 +732,6 @@ const UserMessage = defineAsyncComponent(() => import('./components/message/User
 
 const isSkippedLogin = ref(localStorage.getItem('login-skipped') === 'true')
 
-// Control AI mode tooltip visibility
-const aiModeTooltipVisible = ref(false)
-const aiModeSelectOpen = ref(false)
-
 const {
   currentChatId,
   chatTabs,
@@ -992,15 +739,8 @@ const {
   isEmptyTab,
   isLastMessage,
   currentSession,
-  chatTypeValue,
-  chatAiModelValue,
-  hosts,
-  chatInputValue,
-  responseLoading,
-  chatHistory,
   buttonsDisabled,
   showResumeButton,
-  chatTextareaRef,
   getTabUserAssistantPairs,
   getTabChatTypeValue,
   getTabLastChatMessageId,
@@ -1008,7 +748,7 @@ const {
 } = useSessionState()
 
 // Model configuration management
-const { AgentAiModelsOptions, modelsLoading, initModel, handleChatAiModelChange, checkModelConfig, initModelOptions } = useModelConfiguration()
+const { AgentAiModelsOptions, modelsLoading, initModel, checkModelConfig, initModelOptions } = useModelConfiguration()
 
 // State snapshot
 const { getCurrentState, restoreState, emitStateChange } = useStateSnapshot(emit)
@@ -1017,27 +757,7 @@ const { getCurrentState, restoreState, emitStateChange } = useStateSnapshot(emit
 const { currentTodos, shouldShowTodoAfterMessage, getTodosForMessage, markLatestMessageWithTodoUpdate, clearTodoState } = useTodo()
 
 // Host management
-const {
-  showHostSelect,
-  hostSearchValue,
-  hostOptionsLoading,
-  hovered,
-  keyboardSelectedIndex,
-  filteredHostOptions,
-  isHostSelected,
-  onHostClick,
-  removeHost,
-  handleHostSearchKeyDown,
-  handleMouseOver,
-  handleInputChange,
-  handleAddHostClick,
-  updateHosts,
-  updateHostsForCommandMode,
-  hostSearchInputRef,
-  getCurentTabAssetInfo,
-  toggleJumpserverExpand
-} = useHostManagement()
-void hostSearchInputRef
+const { updateHosts, updateHostsForCommandMode, getCurentTabAssetInfo } = useHostManagement()
 // Auto scroll
 const { chatContainer, chatResponse, scrollToBottom, initializeAutoScroll, handleTabSwitch } = useAutoScroll()
 
@@ -1055,20 +775,6 @@ const {
   getMessageFeedback,
   isMessageFeedbackSubmitted
 } = useChatMessages(scrollToBottom, clearTodoState, markLatestMessageWithTodoUpdate, currentTodos, checkModelConfig)
-
-// User interactions
-const {
-  fileInputRef,
-  autoSendAfterVoice,
-  handleTranscriptionComplete,
-  handleTranscriptionError,
-  handleFileUpload,
-  handleFileSelected,
-  handleKeyDown,
-  handleClose
-} = useUserInteractions(sendMessage, props.toggleSidebar)
-
-void fileInputRef
 
 // Command interactions
 const {
@@ -1092,13 +798,6 @@ const handleInterrupt = () => {
   handleCancel()
 }
 
-// Handle AI mode select dropdown visibility change
-const handleAiModeSelectOpenChange = (open: boolean) => {
-  aiModeSelectOpen.value = open
-
-  aiModeTooltipVisible.value = false
-}
-
 // Export chat functionality
 const { exportChat } = useExportChat()
 
@@ -1110,8 +809,8 @@ const handleExportChat = () => {
 const { createNewEmptyTab, restoreHistoryTab, handleTabRemove } = useTabManagement({
   getCurentTabAssetInfo,
   emitStateChange,
-  handleClose,
-  isFocusInAiTab
+  isFocusInAiTab,
+  toggleSidebar: props.toggleSidebar
 })
 
 // Chat history
