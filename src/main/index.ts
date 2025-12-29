@@ -1,3 +1,8 @@
+// ============ Initialize userData path FIRST (MUST be before all other imports) ============
+import { initUserDataPath } from './config/edition'
+initUserDataPath()
+// ============ userData path initialization complete ============
+
 import { app, shell, BrowserWindow, ipcMain, session, net, protocol } from 'electron'
 import path, { join } from 'path'
 import { electronApp } from '@electron-toolkit/utils'

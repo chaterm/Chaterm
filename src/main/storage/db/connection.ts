@@ -6,16 +6,8 @@ import { upgradeAgentTaskMetadataSupport } from './migrations/add-todos-support'
 import { upgradeMcpToolStateSupport } from './migrations/add-mcp-tool-state-support'
 import { upgradeMcpToolCallSupport } from './migrations/add-mcp-tool-call-support'
 import { IndexDBMigrator } from './indexdb-migrator'
+import { getUserDataPath } from '../../config/edition'
 
-// In test environment, app may not be available, use fallback path
-let USER_DATA_PATH: string
-try {
-  const { app } = require('electron')
-  USER_DATA_PATH = app.getPath('userData')
-} catch (error) {
-  // Fallback for test environment or non-Electron environment
-  USER_DATA_PATH = join(process.cwd(), 'test_data')
-}
 const INIT_DB_PATH = getInitDbPath()
 const INIT_CDB_PATH = getInitChatermDbPath()
 
@@ -30,7 +22,7 @@ export function setMainWindowWebContents(webContents: Electron.WebContents | nul
 }
 
 function getUserDatabasePath(userId: number, dbType: 'complete' | 'chaterm'): string {
-  const userDir = join(USER_DATA_PATH, 'databases', `${userId}`)
+  const userDir = join(getUserDataPath(), 'databases', `${userId}`)
   const dbName = dbType === 'complete' ? 'complete_data.db' : 'chaterm_data.db'
   return join(userDir, dbName)
 }
@@ -40,7 +32,7 @@ export function getChatermDbPathForUser(userId: number): string {
 }
 
 function ensureUserDatabaseDir(userId: number): string {
-  const userDir = join(USER_DATA_PATH, 'databases', `${userId}`)
+  const userDir = join(getUserDataPath(), 'databases', `${userId}`)
   if (!fs.existsSync(userDir)) {
     fs.mkdirSync(userDir, { recursive: true })
   }
@@ -49,7 +41,7 @@ function ensureUserDatabaseDir(userId: number): string {
 
 function getLegacyDatabasePath(dbType: 'complete' | 'chaterm'): string {
   const dbName = dbType === 'complete' ? 'complete_data.db' : 'chaterm_data.db'
-  return join(USER_DATA_PATH, 'databases', dbName)
+  return join(getUserDataPath(), 'databases', dbName)
 }
 
 function migrateLegacyDatabase(userId: number, dbType: 'complete' | 'chaterm'): boolean {

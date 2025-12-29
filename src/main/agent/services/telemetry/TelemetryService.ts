@@ -4,9 +4,9 @@ import { version as extensionVersion } from '../../../../../package.json'
 import type { TaskFeedbackType } from '@shared/WebviewMessage'
 import os from 'os'
 import crypto from 'crypto'
-import { app } from 'electron'
 import path from 'path'
 import fs from 'fs'
+import { getUserDataPath } from '../../../config/edition'
 
 /**
  * PostHogClient handles telemetry event tracking for the Cline extension
@@ -573,7 +573,7 @@ class PostHogClient {
  * Generates a unique and persistent identifier based on machine hardware and system information
  */
 function generatePersistentMachineId(): string {
-  const userDataPath = app.getPath('userData')
+  const userDataPath = getUserDataPath()
   const machineIdPath = path.join(userDataPath, '.machine-id')
 
   // Try to read existing machine ID
@@ -622,7 +622,7 @@ function generatePersistentMachineId(): string {
  * Determines by checking the first launch flag file
  */
 export function checkIsFirstLaunch(): boolean {
-  const userDataPath = app.getPath('userData')
+  const userDataPath = getUserDataPath()
   const firstLaunchFlagPath = path.join(userDataPath, '.first-launch-completed')
 
   try {

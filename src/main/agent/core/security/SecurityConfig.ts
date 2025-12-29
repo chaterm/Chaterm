@@ -5,6 +5,7 @@
 import { SecurityConfig } from './types/SecurityTypes'
 import * as fs from 'fs/promises'
 import * as path from 'path'
+import { getUserDataPath } from '../../../config/edition'
 
 export class SecurityConfigManager {
   private config: SecurityConfig
@@ -14,16 +15,8 @@ export class SecurityConfigManager {
     if (configPath) {
       this.configPath = configPath
     } else {
-      // Use Electron's user data directory, consistent with other config files
-      let userDataPath: string
-      try {
-        const { app } = require('electron')
-        userDataPath = app.getPath('userData')
-      } catch (error) {
-        // Fallback for test environment or non-Electron environment
-        userDataPath = path.join(process.cwd(), 'test_data')
-      }
-      this.configPath = path.join(userDataPath, 'chaterm-security.json')
+      // Use the global userData path configuration
+      this.configPath = path.join(getUserDataPath(), 'chaterm-security.json')
     }
     this.config = this.getDefaultConfig()
   }
