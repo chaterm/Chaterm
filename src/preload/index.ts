@@ -560,6 +560,10 @@ const api = {
   handleProtocolUrl: (url: string): Promise<{ success: boolean; error?: string }> => {
     return ipcRenderer.invoke('handle-protocol-url', url)
   },
+  // Get protocol prefix based on edition
+  getProtocolPrefix: (): Promise<string> => {
+    return ipcRenderer.invoke('get-protocol-prefix')
+  },
 
   // keyboard-interactive authentication
   onKeyboardInteractiveTimeout: (callback) => {

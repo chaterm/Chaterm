@@ -114,6 +114,22 @@ export function getUserDataPath(): string {
 }
 
 /**
+ * Get protocol prefix based on edition
+ * Returns 'chaterm-cn://' for Chinese edition, 'chaterm://' for others
+ */
+export function getProtocolPrefix(): string {
+  return isChineseEdition() ? 'chaterm-cn://' : 'chaterm://'
+}
+
+/**
+ * Get protocol name (without ://) based on edition
+ * Returns 'chaterm-cn' for Chinese edition, 'chaterm' for others
+ */
+export function getProtocolName(): string {
+  return isChineseEdition() ? 'chaterm-cn' : 'chaterm'
+}
+
+/**
  * Load edition configuration from JSON file
  * This is the single source of truth for all edition-specific URLs
  */
