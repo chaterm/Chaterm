@@ -1,5 +1,5 @@
 <div align="center">
-  中文 / <a href="./README.md">English</a> 
+  中文 / <a href="./README.md">English</a>
 </div>
 <br>
 
@@ -9,12 +9,12 @@
 </p>
 
 <p align="center">
-<img src="https://img.shields.io/github/package-json/dependency-version/chaterm/Chaterm/dev/electron" alt="electron-version">
-<img src="https://img.shields.io/github/package-json/dependency-version/chaterm/Chaterm/dev/electron-vite" alt="electron-vite-version" />
-<img src="https://img.shields.io/github/package-json/dependency-version/chaterm/Chaterm/dev/electron-builder" alt="electron-builder-version" />
-<img src="https://img.shields.io/github/package-json/dependency-version/chaterm/Chaterm/dev/vite" alt="vite-version" />
-<img src="https://img.shields.io/github/package-json/dependency-version/chaterm/Chaterm/dev/vue" alt="vue-version" />
-<img src="https://img.shields.io/github/package-json/dependency-version/chaterm/Chaterm/dev/typescript" alt="typescript-version" />
+  <a href="https://github.com/chaterm/Chaterm/blob/main/LICENSE"><img src="https://img.shields.io/github/license/chaterm/Chaterm" alt="LICENSE"></a>
+  <a href="https://github.com/chaterm/Chaterm/releases"><img src="https://img.shields.io/github/v/release/chaterm/Chaterm" alt="Releases"></a>
+  <a href="https://www.electronjs.org/"><img src="https://img.shields.io/github/package-json/dependency-version/chaterm/Chaterm/dev/electron" alt="electron-version"></a>
+  <a href="https://vitejs.dev/"><img src="https://img.shields.io/github/package-json/dependency-version/chaterm/Chaterm/dev/vite" alt="vite-version"></a>
+  <a href="https://vuejs.org/"><img src="https://img.shields.io/github/package-json/dependency-version/chaterm/Chaterm/dev/vue" alt="vue-version"></a>
+  <a href="https://www.typescriptlang.org/"><img src="https://img.shields.io/github/package-json/dependency-version/chaterm/Chaterm/dev/typescript" alt="typescript-version"></a>
 </p>
 
 <p align="center">
