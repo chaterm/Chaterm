@@ -81,17 +81,22 @@ export function initUserDataPath(): void {
     return
   }
 
-  const edition = getEdition()
+  try {
+    const edition = getEdition()
 
-  if (edition === 'global') {
-    // Global edition uses a separate directory
-    const basePath = app.getPath('appData')
-    const customPath = path.join(basePath, 'chaterm-global')
-    app.setPath('userData', customPath)
-    userDataPath = customPath
-  } else {
-    // CN edition uses the default 'chaterm' directory (backward compatible)
-    userDataPath = app.getPath('userData')
+    if (edition === 'global') {
+      // Global edition uses a separate directory
+      const basePath = app.getPath('appData')
+      const customPath = path.join(basePath, 'chaterm-global')
+      app.setPath('userData', customPath)
+      userDataPath = customPath
+    } else {
+      // CN edition uses the default 'chaterm' directory (backward compatible)
+      userDataPath = app.getPath('userData')
+    }
+  } catch (error) {
+    // Fallback for test environment or non-Electron environment
+    userDataPath = path.join(process.cwd(), 'test_data')
   }
 
   userDataPathInitialized = true
