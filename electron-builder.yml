@@ -18,7 +18,7 @@ files:
   - '!{.eslintignore,.eslintrc.cjs,.prettierignore,.prettierrc.yaml,dev-app-update.yml,CHANGELOG.md,README.md}'
   - '!{.env,.env.*,.npmrc,pnpm-lock.yaml}'
   - '!{tsconfig.json,tsconfig.node.json,tsconfig.web.json}'
-  - '!{babel.config.js,playwright.config.ts,.mocharc.json}'
+  - '!{babel.config.js,playwright.config.ts}'
   - '!{AGENTS.md,CLAUDE.md,CODE_OF_CONDUCT.md,CONTRIBUTING.md,CONTRIBUTING_zh.md,README_zh.md,SECURITY.md}'
   - '!node_modules/**/*.ts'
   - '!node_modules/**/*.map'
