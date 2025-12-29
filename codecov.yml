@@ -22,35 +22,35 @@ coverage:
   # Ignore certain files/directories from coverage
   ignore:
     # Test files and test data
-    - "tests/**"
-    - "test_data/**"
+    - 'tests/**'
+    - 'test_data/**'
     # Build outputs
-    - "dist/**"
-    - "out/**"
-    - "coverage/**"
+    - 'dist/**'
+    - 'out/**'
+    - 'coverage/**'
     # Dependencies
-    - "node_modules/**"
+    - 'node_modules/**'
     # Type definitions (auto-generated)
-    - "**/*.d.ts"
-    - "src/renderer/auto-imports.d.ts"
-    - "src/renderer/components.d.ts"
-    - "src/renderer/src/env.d.ts"
+    - '**/*.d.ts'
+    - 'src/renderer/auto-imports.d.ts'
+    - 'src/renderer/components.d.ts'
+    - 'src/renderer/src/env.d.ts'
     # Configuration files
-    - "**/*.config.*"
-    - "**/*.config.js"  # Matches babel.config.js (no dot before config)
+    - '**/*.config.*'
+    - '**/*.config.js' # Matches babel.config.js (no dot before config)
     # Build and script files
-    - "build/**"
-    - "scripts/**"
+    - 'build/**'
+    - 'scripts/**'
     # Resources and documentation
-    - "resources/**"
-    - "docs/**"
-    - "**/*.md"
+    - 'resources/**'
+    - 'docs/**'
+    - '**/*.md'
     # Config file formats
-    - "**/*.json"
-    - "**/*.yml"
-    - "**/*.yaml"
+    - '**/*.json'
+    - '**/*.yml'
+    - '**/*.yaml'
     # Mock files
-    - "**/__mocks__/**"
+    - '**/__mocks__/**'
 
   # Round coverage values
   round: down
@@ -58,9 +58,8 @@ coverage:
 
 # Comment configuration for PRs
 comment:
-  layout: "reach,diff,flags,tree"
+  layout: 'reach,diff,flags,tree'
   behavior: default
   require_changes: false
   require_base: false
   require_head: true
-
