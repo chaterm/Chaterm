@@ -467,7 +467,10 @@ export default {
   commandDialog: {
     placeholder: '명령 지시',
     generating: '명령 생성 중...',
-    submit: '생성'
+    submit: '생성',
+    generationFailed: '명령 생성 실패',
+    noModelsConfigured: '모델이 구성되지 않았습니다. 설정에서 모델을 구성하세요',
+    selectModel: '모델 선택'
   },
   shortcuts: {
     actions: {

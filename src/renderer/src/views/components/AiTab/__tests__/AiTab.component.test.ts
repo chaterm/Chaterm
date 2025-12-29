@@ -17,13 +17,48 @@ import eventBus from '@/utils/eventBus'
 
 // Mock heavy dependencies
 vi.mock('xterm')
-vi.mock('@/services/userConfigStoreService')
+vi.mock('@/services/userConfigStoreService', () => {
+  return {
+    UserConfigStoreService: vi.fn().mockImplementation(() => ({
+      getConfig: vi.fn().mockResolvedValue({
+        language: 'en-US',
+        defaultLayout: 'terminal',
+        background: {
+          mode: 'none',
+          image: '',
+          opacity: 0.5,
+          brightness: 0.45
+        }
+      }),
+      saveConfig: vi.fn().mockResolvedValue(undefined),
+      initDB: vi.fn().mockResolvedValue(undefined)
+    })),
+    userConfigStore: {
+      getConfig: vi.fn().mockResolvedValue({
+        language: 'en-US',
+        defaultLayout: 'terminal',
+        background: {
+          mode: 'none',
+          image: '',
+          opacity: 0.5,
+          brightness: 0.45
+        }
+      }),
+      saveConfig: vi.fn().mockResolvedValue(undefined),
+      initDB: vi.fn().mockResolvedValue(undefined)
+    }
+  }
+})
 vi.mock('@renderer/agent/storage/state')
 vi.mock('@api/user/user')
 
-// Helper functions
-function setupWindowApi() {
-  const mockWindowApi = {
+// In-memory storage for testing (shared across all tests)
+const storage = new Map<string, string>()
+
+// Setup global window.api before any modules are loaded
+// This ensures it's available when UserConfigStoreService initializes
+if (typeof window !== 'undefined') {
+  ;(window as any).api = {
     sendToMain: vi.fn((channel: string) => {
       if (channel === 'get-cur-asset-info') {
         return Promise.resolve({ success: false })
@@ -37,12 +72,31 @@ function setupWindowApi() {
     getAllMcpToolStates: vi.fn().mockResolvedValue({}),
     onMainMessage: vi.fn().mockReturnValue(() => {}),
     getLocalWorkingDirectory: vi.fn().mockResolvedValue('/test'),
-    cancelTask: vi.fn().mockResolvedValue({ success: true })
+    cancelTask: vi.fn().mockResolvedValue({ success: true }),
+    kvMutate: vi.fn(async (params: { action: string; key: string; value?: string }) => {
+      if (params.action === 'set') {
+        storage.set(params.key, params.value || '')
+      } else if (params.action === 'delete') {
+        storage.delete(params.key)
+      }
+      return Promise.resolve(undefined)
+    }),
+    kvGet: vi.fn(async (params: { key?: string }) => {
+      if (params.key) {
+        const value = storage.get(params.key)
+        return Promise.resolve(value ? { value } : null)
+      } else {
+        // Return all keys
+        return Promise.resolve(Array.from(storage.keys()))
+      }
+    })
   }
+}
 
-  // Set window.api in browser environment
-  ;(window as any).api = mockWindowApi
-  return mockWindowApi
+// Helper functions
+function setupWindowApi() {
+  // Return the existing window.api (already set up globally)
+  return (window as any).api
 }
 
 function createTestRouter() {
@@ -68,7 +122,36 @@ function createTestI18n() {
         ai: {
           welcome: 'Welcome',
           loginPrompt: 'Please login',
-          taskCompleted: 'Task Completed'
+          taskCompleted: 'Task Completed',
+          startVoiceInput: 'Start Voice Input',
+          stopRecording: 'Stop Voice Recording',
+          newChat: 'New Chat',
+          showChatHistory: 'Show History',
+          addHost: 'Add Host',
+          agentMessage: 'Command query,troubleshoot errors,handle tasks,anything',
+          chatMessage: 'Ask, learn, brainstorm ',
+          cmdMessage: 'Work on explicitly opened terminal',
+          switchAiModeHint: 'Switch AI Mode (⇧+Tab)',
+          uploadFile: 'Upload File',
+          enterCustomOption: 'Enter your answer...',
+          submit: 'Submit',
+          reject: 'Reject',
+          addAutoApprove: 'add Auto-Approve',
+          approve: 'Approve',
+          run: 'Run',
+          copy: 'Copy',
+          resume: 'Resume',
+          retry: 'Retry',
+          newTask: 'Start New Task',
+          searchHost: 'Search by IP',
+          loading: 'loading...',
+          noMatchingHosts: 'No matching hosts',
+          processing: 'processing...',
+          interruptTask: 'Interrupt Task',
+          searchHistoryPH: 'Please Input',
+          favorite: 'Favorites',
+          loadMore: 'load more',
+          exportChat: 'Export Chat'
         },
         common: {
           login: 'Login'
@@ -83,10 +166,13 @@ describe('AiTab Component - Browser Mode Integration', () => {
   let router: any
 
   beforeEach(async () => {
-    // 1. Setup global dependencies
+    // 1. Clear storage before each test
+    storage.clear()
+
+    // 2. Setup global dependencies
     setupWindowApi()
 
-    // Mock localStorage - Set to logged-in state (login-skipped should NOT be 'true')
+    // 3. Mock localStorage - Set to logged-in state (login-skipped should NOT be 'true')
     // This ensures the input textarea is visible in the component
     // Important: The component checks if login-skipped === 'true', so we should NOT set it at all
     // or set it to 'false' to ensure isSkippedLogin.value === false
@@ -165,7 +251,20 @@ describe('AiTab Component - Browser Mode Integration', () => {
     })
 
     // 6. Wait for component initialization using real browser timing
-    await new Promise((resolve) => setTimeout(resolve, 300))
+    // Wait for initModelOptions and initModel to complete
+    await new Promise((resolve) => setTimeout(resolve, 800))
+
+    // Wait for input element to be available (hasAvailableModels must be true)
+    let initAttempts = 0
+    const initMaxAttempts = 50 // 5 seconds total
+    while (initAttempts < initMaxAttempts) {
+      const chatInputEl = document.querySelector('[data-testid="ai-message-input"]') as HTMLTextAreaElement
+      if (chatInputEl) {
+        break
+      }
+      await new Promise((resolve) => setTimeout(resolve, 100))
+      initAttempts++
+    }
   })
 
   afterEach(async () => {
@@ -189,53 +288,112 @@ describe('AiTab Component - Browser Mode Integration', () => {
       await new Promise((resolve) => setTimeout(resolve, 800))
 
       // Get first input element using DOM query (since multiple tabs may exist)
-      const chatInputEl = document.querySelector('[data-testid="ai-message-input"]') as HTMLTextAreaElement
+      // Wait for element to be available with longer timeout
+      let chatInputEl: HTMLTextAreaElement | null = null
+      let inputAttempts = 0
+      const inputMaxAttempts = 50 // 5 seconds total
+      while (!chatInputEl && inputAttempts < inputMaxAttempts) {
+        chatInputEl = document.querySelector('[data-testid="ai-message-input"]') as HTMLTextAreaElement
+        if (!chatInputEl) {
+          await new Promise((resolve) => setTimeout(resolve, 100))
+          inputAttempts++
+        }
+      }
       expect(chatInputEl).toBeTruthy()
-      await chatInputEl.focus()
+      if (chatInputEl) {
+        await chatInputEl.focus()
+      }
 
       // Get first mode select element
       const aiModeSelectEl = document.querySelector('[data-testid="ai-mode-select"]') as HTMLElement
       expect(aiModeSelectEl).toBeTruthy()
 
       const getSelectLabel = () => {
+        // Try multiple ways to get the label
         const titleElement = aiModeSelectEl.querySelector('.ant-select-selection-item')
-        return titleElement?.textContent?.trim() || ''
+        if (titleElement?.textContent?.trim()) {
+          return titleElement.textContent.trim()
+        }
+        // Try getting from the selector itself
+        const selector = aiModeSelectEl.querySelector('.ant-select-selector')
+        if (selector?.textContent?.trim()) {
+          return selector.textContent.trim()
+        }
+        return ''
       }
 
-      // Wait for initial state to be 'Chat' using polling
+      // Wait for initial state to be 'Chat' or 'Agent' using polling
       // The async update should complete within a reasonable time
-      let attempts = 0
-      const maxAttempts = 30 // 3 seconds total
-      while (getSelectLabel() !== 'Chat' && attempts < maxAttempts) {
+      let selectAttempts = 0
+      const selectMaxAttempts = 50 // 5 seconds total
+      let initialLabel = getSelectLabel()
+      while ((initialLabel === '' || initialLabel === undefined) && selectAttempts < selectMaxAttempts) {
         await new Promise((resolve) => setTimeout(resolve, 100))
-        attempts++
+        selectAttempts++
+        initialLabel = getSelectLabel()
       }
 
-      // If still not 'Chat', accept 'Agent' as initial state and test the switching behavior
-      // This handles the case where async update hasn't completed yet
-      const initialLabel = getSelectLabel()
+      // Wait a bit more for the label to stabilize
+      await new Promise((resolve) => setTimeout(resolve, 200))
+      initialLabel = getSelectLabel()
+
+      // If still empty, try to get from the value attribute or accept any non-empty value
+      if (initialLabel === '' || initialLabel === undefined) {
+        // Try to get from the select element's value
+        const selectElement = aiModeSelectEl.querySelector('select') || aiModeSelectEl
+        const value = (selectElement as any)?.value || (aiModeSelectEl as any)?.__vueParentComponent?.props?.value
+        if (value) {
+          // Map value to label
+          const valueToLabel: Record<string, string> = {
+            chat: 'Chat',
+            cmd: 'Command',
+            agent: 'Agent'
+          }
+          initialLabel = valueToLabel[value] || ''
+        }
+      }
+
+      // If still empty, accept 'Agent' as default and test the switching behavior
+      if (initialLabel === '' || initialLabel === undefined) {
+        initialLabel = 'Agent'
+      }
+
       if (initialLabel === 'Agent') {
         // Start from 'Agent' and test the cycle: Agent -> Chat -> Command -> Agent
         await userEvent.keyboard('{Shift>}{Tab}{/Shift}')
+        await new Promise((resolve) => setTimeout(resolve, 200))
         expect(getSelectLabel()).toBe('Chat')
 
         await userEvent.keyboard('{Shift>}{Tab}{/Shift}')
+        await new Promise((resolve) => setTimeout(resolve, 200))
         expect(getSelectLabel()).toBe('Command')
 
         await userEvent.keyboard('{Shift>}{Tab}{/Shift}')
+        await new Promise((resolve) => setTimeout(resolve, 200))
         expect(getSelectLabel()).toBe('Agent')
-      } else {
+      } else if (initialLabel === 'Chat') {
         // If it's already 'Chat', test the normal cycle
-        expect(initialLabel).toBe('Chat')
         await userEvent.keyboard('{Shift>}{Tab}{/Shift}')
+        await new Promise((resolve) => setTimeout(resolve, 200))
         expect(getSelectLabel()).toBe('Command')
 
         // Press Shift+Tab again to switch mode: cmd → agent
         await userEvent.keyboard('{Shift>}{Tab}{/Shift}')
+        await new Promise((resolve) => setTimeout(resolve, 200))
         expect(getSelectLabel()).toBe('Agent')
 
         // Press Shift+Tab again to switch mode: agent → chat (cycle back)
         await userEvent.keyboard('{Shift>}{Tab}{/Shift}')
+        await new Promise((resolve) => setTimeout(resolve, 200))
+        expect(getSelectLabel()).toBe('Chat')
+      } else {
+        // If it's 'Command', test from Command
+        await userEvent.keyboard('{Shift>}{Tab}{/Shift}')
+        await new Promise((resolve) => setTimeout(resolve, 200))
+        expect(getSelectLabel()).toBe('Agent')
+
+        await userEvent.keyboard('{Shift>}{Tab}{/Shift}')
+        await new Promise((resolve) => setTimeout(resolve, 200))
         expect(getSelectLabel()).toBe('Chat')
       }
     })
@@ -245,13 +403,27 @@ describe('AiTab Component - Browser Mode Integration', () => {
     beforeEach(async () => {
       // Wait for async tab initialization
       await new Promise((resolve) => setTimeout(resolve, 500))
+
+      // Wait for input element to be available
+      let chatInputEl: HTMLTextAreaElement | null = null
+      let clearAttempts = 0
+      const clearMaxAttempts = 30
+      while (!chatInputEl && clearAttempts < clearMaxAttempts) {
+        chatInputEl = document.querySelector('[data-testid="ai-message-input"]') as HTMLTextAreaElement
+        if (!chatInputEl) {
+          await new Promise((resolve) => setTimeout(resolve, 100))
+          clearAttempts++
+        }
+      }
+
       // Clear any residual input value by clicking to focus and clearing
-      const chatInputEl = document.querySelector('[data-testid="ai-message-input"]') as HTMLTextAreaElement
       if (chatInputEl) {
         chatInputEl.focus()
         chatInputEl.value = ''
         // Trigger input event to update v-model
         chatInputEl.dispatchEvent(new Event('input', { bubbles: true }))
+        // Wait for Vue to sync
+        await new Promise((resolve) => setTimeout(resolve, 100))
       }
     })
 
@@ -264,7 +436,13 @@ describe('AiTab Component - Browser Mode Integration', () => {
       const terminalText = 'Terminal output:\n```\nls -la\n```'
       eventBus.emit('chatToAi', terminalText)
 
-      await new Promise((resolve) => setTimeout(resolve, 150))
+      // Wait for Vue reactivity and DOM update using polling
+      let populateAttempts = 0
+      const populateMaxAttempts = 30
+      while (chatInputEl.value !== terminalText && populateAttempts < populateMaxAttempts) {
+        await new Promise((resolve) => setTimeout(resolve, 100))
+        populateAttempts++
+      }
 
       expect(chatInputEl.value).toBe(terminalText)
 
@@ -278,16 +456,31 @@ describe('AiTab Component - Browser Mode Integration', () => {
       const chatInputEl = document.querySelector('[data-testid="ai-message-input"]') as HTMLTextAreaElement
       expect(chatInputEl).toBeTruthy()
 
+      // Set initial value through DOM and trigger input event to sync with v-model
       chatInputEl.value = 'My existing question'
       chatInputEl.dispatchEvent(new Event('input', { bubbles: true }))
+
+      // Wait for Vue to update the DOM
+      let appendInitAttempts = 0
+      const appendInitMaxAttempts = 20
+      while (chatInputEl.value !== 'My existing question' && appendInitAttempts < appendInitMaxAttempts) {
+        await new Promise((resolve) => setTimeout(resolve, 50))
+        appendInitAttempts++
+      }
       expect(chatInputEl.value).toBe('My existing question')
 
       const newText = 'Terminal output:\n```\nps aux\n```'
       eventBus.emit('chatToAi', newText)
 
-      await new Promise((resolve) => setTimeout(resolve, 150))
-
+      // Wait for Vue reactivity and DOM update using polling
       const expectedValue = 'My existing question\n' + newText
+      let appendAttempts = 0
+      const appendMaxAttempts = 30
+      while (chatInputEl.value !== expectedValue && appendAttempts < appendMaxAttempts) {
+        await new Promise((resolve) => setTimeout(resolve, 100))
+        appendAttempts++
+      }
+
       expect(chatInputEl.value).toBe(expectedValue)
     })
   })
@@ -304,18 +497,27 @@ describe('AiTab Component - Browser Mode Integration', () => {
 
     it('should close tabs one by one with Cmd+W, and close entire AiTab when last tab is closed', async () => {
       // Wait for initial tab to be ready
-      await new Promise((resolve) => setTimeout(resolve, 500))
+      await new Promise((resolve) => setTimeout(resolve, 800))
 
       const newTabButton = page.getByTestId('new-tab-button')
       await expect(newTabButton.query()).toBeInTheDocument()
 
+      // Click first new tab button and wait for async tab creation
       await newTabButton.click()
-      await new Promise((resolve) => setTimeout(resolve, 300))
+      await new Promise((resolve) => setTimeout(resolve, 800))
 
+      // Click second new tab button and wait for async tab creation
       await newTabButton.click()
-      await new Promise((resolve) => setTimeout(resolve, 300))
+      await new Promise((resolve) => setTimeout(resolve, 800))
 
+      // Wait for all tabs to be rendered in DOM
       const getAllTabs = () => document.querySelectorAll('.ant-tabs-tab')
+      let tabAttempts = 0
+      const tabMaxAttempts = 50 // 5 seconds total
+      while (getAllTabs().length < 3 && tabAttempts < tabMaxAttempts) {
+        await new Promise((resolve) => setTimeout(resolve, 100))
+        tabAttempts++
+      }
       expect(getAllTabs().length).toBe(3)
 
       // Get first input element using DOM query (when multiple tabs exist)

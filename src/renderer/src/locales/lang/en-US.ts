@@ -485,7 +485,10 @@ export default {
   commandDialog: {
     placeholder: 'Command instructions',
     generating: 'Generating command...',
-    submit: 'Generate'
+    submit: 'Generate',
+    generationFailed: 'Command generation failed',
+    noModelsConfigured: 'No models configured. Please configure models in settings',
+    selectModel: 'Select Model'
   },
   shortcuts: {
     actions: {

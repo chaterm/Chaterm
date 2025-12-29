@@ -126,7 +126,7 @@ export function useChatMessages(
       }
 
       const session = targetTab.session
-      const targetHosts = targetTab.hosts
+      const targetHosts = targetTab.hosts || []
 
       await updateCwdForAllHosts()
 

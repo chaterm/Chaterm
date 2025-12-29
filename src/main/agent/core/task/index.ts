@@ -2627,6 +2627,18 @@ export class Task {
   private async handleToolUse(block: ToolUse): Promise<void> {
     const toolDescription = this.getToolDescription(block)
 
+    // In chat mode, tools are not allowed - this is a pure conversation mode
+    const chatSettings = await getGlobalState('chatSettings')
+    if (chatSettings?.mode === 'chat') {
+      this.userMessageContent.push({
+        type: 'text',
+        text: formatResponse.toolError('Chat mode does not support tool execution. This mode is for conversation, learning, and brainstorming only.')
+      })
+      await this.say('error', 'Chat mode does not support tool execution. This mode is for conversation, learning, and brainstorming only.', false)
+      await this.saveCheckpoint()
+      return
+    }
+
     if (this.didRejectTool) {
       if (!block.partial) {
         this.userMessageContent.push({
@@ -3193,8 +3205,11 @@ export class Task {
 
     let systemInformation = `# ${this.messages.systemInformationTitle}\n\n`
 
-    // Check if hosts exist and are not empty
-    if (!this.hosts || this.hosts.length === 0) {
+    // In chat mode, skip system information collection (no server operations)
+    if (chatSettings?.mode === 'chat') {
+      systemInformation +=
+        'Chat mode: No server connection or system information available. This mode is for conversation, learning, and brainstorming only.\n'
+    } else if (!this.hosts || this.hosts.length === 0) {
       console.warn('No hosts configured, skipping system information collection')
       systemInformation += this.messages.noHostsConfigured + '\n'
     } else {

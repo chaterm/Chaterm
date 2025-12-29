@@ -327,7 +327,7 @@ import 'monaco-editor/esm/vs/basic-languages/ruby/ruby.contribution'
 import 'monaco-editor/esm/vs/basic-languages/php/php.contribution'
 import 'monaco-editor/esm/vs/basic-languages/rust/rust.contribution'
 import 'monaco-editor/esm/vs/basic-languages/sql/sql.contribution'
-import { LoadingOutlined, CaretDownOutlined, CaretRightOutlined } from '@ant-design/icons-vue'
+import { LoadingOutlined, CaretDownOutlined, CaretRightOutlined, CodeOutlined } from '@ant-design/icons-vue'
 import thinkingSvg from '@/assets/icons/thinking.svg'
 import copySvg from '@/assets/icons/copy.svg'
 import { message } from 'ant-design-vue'
@@ -1721,7 +1721,7 @@ code {
   position: absolute;
   top: -1px;
   right: -4px;
-  z-index: 100;
+  z-index: 2;
 }
 
 .copy-button:hover {

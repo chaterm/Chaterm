@@ -37,6 +37,10 @@ export function useEventBusListeners(params: UseEventBusListenersParams) {
 
   // Initialize asset information
   const initAssetInfo = async () => {
+    // Skip host initialization in chat mode
+    if (chatTypeValue.value === 'chat') {
+      return
+    }
     const session = currentSession.value
     if (!autoUpdateHost.value || (session && session.chatHistory.length > 0)) {
       return
@@ -95,6 +99,10 @@ export function useEventBusListeners(params: UseEventBusListenersParams) {
   }
 
   const handleActiveTabChanged = async (tabInfo: TabInfo) => {
+    // Skip host update in chat mode
+    if (chatTypeValue.value === 'chat') {
+      return
+    }
     const session = currentSession.value
     if (!autoUpdateHost.value || (session && session.chatHistory.length > 0)) {
       return

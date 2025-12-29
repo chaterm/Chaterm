@@ -53,16 +53,35 @@
           <div class="loading-spinner"></div>
           <span class="loading-text">{{ t('commandDialog.generating') }}</span>
         </div>
-        <div class="footer-hint"> <kbd>Enter</kbd> {{ t('commandDialog.submit') }} · <kbd>Esc</kbd> {{ t('common.close') }} </div>
+        <div class="footer-controls">
+          <a-select
+            v-model:value="selectedCommandModel"
+            size="small"
+            class="command-model-selector"
+            :disabled="isLoading || commandModelOptions.length === 0"
+            :dropdown-match-select-width="false"
+            :dropdown-style="{ width: 'auto' }"
+          >
+            <a-select-option
+              v-for="model in commandModelOptions"
+              :key="model.value"
+              :value="model.value"
+            >
+              {{ model.label }}
+            </a-select-option>
+          </a-select>
+          <div class="footer-hint"> <kbd>Enter</kbd> {{ t('commandDialog.submit') }} · <kbd>Esc</kbd> {{ t('common.close') }} </div>
+        </div>
       </div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, nextTick, onMounted, onUnmounted, watch } from 'vue'
+import { ref, nextTick, onMounted, onUnmounted, watch, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import eventBus from '@/utils/eventBus'
+import { useModelConfiguration } from '@/views/components/AiTab/composables/useModelConfiguration'
 
 interface Props {
   visible: boolean
@@ -84,6 +103,14 @@ const emit = defineEmits<Emits>()
 
 const { t } = useI18n()
 
+const { AgentAiModelsOptions, initModel } = useModelConfiguration()
+const selectedCommandModel = ref<string>('')
+
+// Filter out thinking models for command generation
+const commandModelOptions = computed(() => {
+  return AgentAiModelsOptions.value.filter((option) => !option.label.endsWith('-Thinking'))
+})
+
 const dialogRef = ref<HTMLDivElement>()
 const dialogWidth = ref(520)
 const dialogPositionStyle = ref<{ top: string; left: string }>({ top: '0px', left: '0px' })
@@ -97,6 +124,13 @@ const error = ref('')
 const lastInjectedLength = ref(0)
 // Track IME composition state
 const isComposing = ref(false)
+
+// Persist selected model to localStorage
+watch(selectedCommandModel, (newValue) => {
+  if (newValue) {
+    localStorage.setItem('commandDialogSelectedModel', newValue)
+  }
+})
 
 // Watch visibility to focus input and reposition dialog scoped to active terminal
 watch(
@@ -221,6 +255,12 @@ const handleTextareaKeydown = (e: KeyboardEvent) => {
 const handleSubmit = async () => {
   if (!inputValue.value.trim() || isLoading.value) return
 
+  // Check if models are configured
+  if (commandModelOptions.value.length === 0) {
+    error.value = t('commandDialog.noModelsConfigured')
+    return
+  }
+
   const instruction = inputValue.value.trim()
   isLoading.value = true
   error.value = ''
@@ -232,7 +272,8 @@ const handleSubmit = async () => {
       type: 'commandGeneration',
       tabId: props.connectionId,
       instruction: instruction,
-      context: await getCurrentContext()
+      context: await getCurrentContext(),
+      modelName: selectedCommandModel.value
     })
   } catch (err) {
     console.error('Command generation failed:', err)
@@ -437,6 +478,16 @@ const handleGlobalKeyDown = (e: KeyboardEvent) => {
 let unsubscribeCommandGeneration: (() => void) | undefined
 
 onMounted(() => {
+  // Initialize model configuration
+  initModel().then(() => {
+    const savedModel = localStorage.getItem('commandDialogSelectedModel')
+    if (savedModel && commandModelOptions.value.some((opt) => opt.value === savedModel)) {
+      selectedCommandModel.value = savedModel
+    } else if (commandModelOptions.value.length > 0) {
+      selectedCommandModel.value = commandModelOptions.value[0].value
+    }
+  })
+
   // Directly subscribe to IPC channel instead of using eventBus
   if (window.api && window.api.onCommandGenerationResponse) {
     unsubscribeCommandGeneration = window.api.onCommandGenerationResponse(handleCommandGenerationResponse)
@@ -580,6 +631,28 @@ const handleCommandGenerationResponse = (response: { tabId?: string; command?: s
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 8px;
+}
+
+.footer-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  justify-content: flex-end;
+}
+
+.command-model-selector {
+  width: auto;
+  flex-shrink: 0;
+
+  :deep(.ant-select-selector) {
+    background: var(--hover-bg-color) !important;
+    border-color: var(--border-color-light) !important;
+    color: var(--text-color) !important;
+    font-size: 12px;
+    width: auto;
+  }
 }
 
 .loading-content {

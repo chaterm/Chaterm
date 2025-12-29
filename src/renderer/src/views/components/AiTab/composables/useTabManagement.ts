@@ -6,14 +6,15 @@ import type { HistoryItem, Host, AssetInfo, ChatMessage } from '../types'
 import type { ChatTab, SessionState } from './useSessionState'
 import { useSessionState } from './useSessionState'
 import { getGlobalState } from '@renderer/agent/storage/state'
-import type { GlobalStateKey } from '@renderer/agent/storage/state-keys'
 import { ChatermMessage } from '@/types/ChatermMessage'
+import { PROVIDER_MODEL_KEY_MAP } from './useModelConfiguration'
+import eventBus from '@/utils/eventBus'
 
 interface TabManagementOptions {
   getCurentTabAssetInfo: () => Promise<AssetInfo | null>
   emitStateChange?: () => void
-  handleClose?: () => void
   isFocusInAiTab?: (event?: KeyboardEvent) => boolean
+  toggleSidebar: () => void
 }
 
 export const focusChatInput = () => {
@@ -28,13 +29,22 @@ export const focusChatInput = () => {
 }
 
 /**
+ * Default localhost host configuration
+ */
+const DEFAULT_LOCALHOST_HOST: Host = {
+  host: '127.0.0.1',
+  uuid: 'localhost',
+  connection: 'localhost'
+}
+
+/**
  * Composable for Tab management
  * Handles Tab creation, deletion, switching, history restoration and other operations
  */
 export function useTabManagement(options: TabManagementOptions) {
-  const { chatTabs, currentChatId, currentTab, createEmptySessionState, chatInputValue } = useSessionState()
+  const { chatTabs, currentChatId, currentTab, createEmptySessionState, chatInputValue, cleanupTabPairsCache } = useSessionState()
 
-  const { getCurentTabAssetInfo, emitStateChange, handleClose, isFocusInAiTab } = options
+  const { getCurentTabAssetInfo, emitStateChange, isFocusInAiTab, toggleSidebar } = options
 
   // Get i18n instance
   const { t, locale, messages } = useI18n()
@@ -57,22 +67,20 @@ export function useTabManagement(options: TabManagementOptions) {
     console.log('createNewEmptyTab   begin')
     const newChatId = uuidv4()
 
+    const defaultChatType = currentTab.value?.chatType || 'agent'
+    const defaultHosts = currentTab.value?.hosts || [DEFAULT_LOCALHOST_HOST]
+    const defaultModelValue = currentTab.value?.modelValue || ''
+
     const placeholderTab: ChatTab = {
       id: newChatId,
       title: 'New chat',
-      hosts: [
-        {
-          host: '127.0.0.1',
-          uuid: 'localhost',
-          connection: 'localhost'
-        }
-      ],
-      chatType: 'agent',
       autoUpdateHost: true,
       session: createEmptySessionState(),
       inputValue: '',
-      modelValue: '',
-      welcomeTip: generateRandomWelcomeTip()
+      welcomeTip: generateRandomWelcomeTip(),
+      chatType: defaultChatType,
+      hosts: defaultHosts,
+      modelValue: defaultModelValue
     }
 
     chatTabs.value.push(placeholderTab)
@@ -80,7 +88,6 @@ export function useTabManagement(options: TabManagementOptions) {
     // Set currentChatId immediately so input box can display right away
     currentChatId.value = newChatId
 
-    // Asynchronously get actual data
     const [chatSetting, assetInfo, apiProvider] = await Promise.all([
       getGlobalState('chatSettings').catch(() => ({ mode: 'agent' })),
       getCurentTabAssetInfo().catch(() => null),
@@ -89,39 +96,34 @@ export function useTabManagement(options: TabManagementOptions) {
 
     const chatType = (chatSetting as { mode?: string })?.mode || 'agent'
     const hosts: Host[] =
-      assetInfo && assetInfo.ip
-        ? [
-            {
-              host: assetInfo.ip,
-              uuid: assetInfo.uuid,
-              connection: assetInfo.connection || 'personal'
-            }
-          ]
-        : [
-            {
-              host: '127.0.0.1',
-              uuid: 'localhost',
-              connection: 'localhost'
-            }
-          ]
+      chatType === 'chat'
+        ? []
+        : assetInfo && assetInfo.ip
+          ? [
+              {
+                host: assetInfo.ip,
+                uuid: assetInfo.uuid,
+                connection: assetInfo.connection || 'personal'
+              }
+            ]
+          : [DEFAULT_LOCALHOST_HOST]
 
     // Get currently selected model as default value for new Tab
-    const PROVIDER_MODEL_KEY_MAP: Record<string, GlobalStateKey> = {
-      bedrock: 'apiModelId',
-      litellm: 'liteLlmModelId',
-      deepseek: 'apiModelId',
-      openai: 'openAiModelId',
-      default: 'defaultModelId'
-    }
     const key = PROVIDER_MODEL_KEY_MAP[(apiProvider as string) || 'default'] || 'defaultModelId'
     const currentModelValue = (await getGlobalState(key).catch(() => '')) as string
 
-    // Update actual data of placeholder tab
+    // Update actual data of placeholder tab only if different from defaults
     const tab = chatTabs.value.find((t) => t.id === newChatId)
     if (tab) {
-      tab.chatType = chatType
-      tab.hosts = hosts
-      tab.modelValue = currentModelValue || ''
+      if (tab.chatType !== chatType) {
+        tab.chatType = chatType
+      }
+      if (JSON.stringify(tab.hosts) !== JSON.stringify(hosts)) {
+        tab.hosts = hosts
+      }
+      if (tab.modelValue !== currentModelValue) {
+        tab.modelValue = currentModelValue || ''
+      }
     }
 
     emitStateChange?.()
@@ -322,15 +324,19 @@ export function useTabManagement(options: TabManagementOptions) {
       return
     }
 
-    console.log('handleTabRemove: cancel task for tab', tabId)
     await window.api.cancelTask(tabId)
+
+    // Clean up computed cache before removing tab
+    cleanupTabPairsCache(tabId)
 
     chatTabs.value.splice(tabIndex, 1)
 
     if (chatTabs.value.length === 0) {
       currentChatId.value = undefined
       emitStateChange?.()
-      handleClose?.()
+      // handleClose?.()
+      toggleSidebar()
+      eventBus.emit('updateRightIcon', false)
       return
     }
 

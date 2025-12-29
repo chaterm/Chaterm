@@ -91,6 +91,7 @@ export interface WebviewMessage {
   input?: string
   // For command generation
   instruction?: string
+  modelName?: string
   tabId?: string
   context?: {
     cwd: string
