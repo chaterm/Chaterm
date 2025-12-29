@@ -89,7 +89,7 @@
     "p-wait-for": "^3.2.0",
     "pinia": "^3.0.1",
     "pinia-plugin-persistedstate": "^4.2.0",
-    "posthog-node": "^4.8.1",
+    "posthog-node": "^5.18.0",
     "reconnecting-eventsource": "^1.6.4",
     "serialize-error": "^11.0.3",
     "simple-git": "^3.27.0",
