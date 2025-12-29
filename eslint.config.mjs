@@ -1,10 +1,12 @@
-import { FlatCompat } from '@eslint/eslintrc'
 import js from '@eslint/js'
+import { FlatCompat } from '@eslint/eslintrc'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import pluginVue from 'eslint-plugin-vue'
 import { defineConfigWithVueTs, vueTsConfigs } from '@vue/eslint-config-typescript'
 import prettierConfig from '@vue/eslint-config-prettier'
+import electronToolkitConfig from '@electron-toolkit/eslint-config'
+import electronToolkitTs from '@electron-toolkit/eslint-config-ts'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -15,7 +17,9 @@ const compat = new FlatCompat({
 
 export default [
   js.configs.recommended,
-  ...compat.extends('@electron-toolkit', '@electron-toolkit/eslint-config-ts/eslint-recommended', 'plugin:prettier/recommended'),
+  electronToolkitConfig,
+  ...electronToolkitTs.configs.recommended,
+  ...compat.extends('plugin:prettier/recommended'),
   ...defineConfigWithVueTs(pluginVue.configs['flat/recommended'], vueTsConfigs.recommended),
   prettierConfig,
   {
