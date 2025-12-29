@@ -2,13 +2,12 @@ import { ref, nextTick } from 'vue'
 import { notification } from 'ant-design-vue'
 import { useSessionState } from './useSessionState'
 import i18n from '@/locales'
-import eventBus from '@/utils/eventBus'
 
 /**
  * Composable for user interaction events
  * Handles file upload, voice input, keyboard events and other user interactions
  */
-export function useUserInteractions(sendMessage: (sendType: string) => Promise<any>, toggleSidebar: () => void) {
+export function useUserInteractions(sendMessage: (sendType: string) => Promise<any>) {
   const { t } = i18n.global
   const { chatInputValue } = useSessionState()
 
@@ -131,11 +130,6 @@ export function useUserInteractions(sendMessage: (sendType: string) => Promise<a
     }
   }
 
-  const handleClose = () => {
-    toggleSidebar()
-    eventBus.emit('updateRightIcon', false)
-  }
-
   return {
     fileInputRef,
     autoSendAfterVoice,
@@ -145,7 +139,6 @@ export function useUserInteractions(sendMessage: (sendType: string) => Promise<a
     handleFileUpload,
     handleFileSelected,
     readFileContent,
-    handleKeyDown,
-    handleClose
+    handleKeyDown
   }
 }

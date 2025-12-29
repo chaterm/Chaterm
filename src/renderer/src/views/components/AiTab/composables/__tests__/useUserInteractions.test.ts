@@ -2,7 +2,6 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { ref, nextTick } from 'vue'
 import { useUserInteractions } from '../useUserInteractions'
 import { useSessionState } from '../useSessionState'
-import eventBus from '@/utils/eventBus'
 
 // Mock dependencies
 vi.mock('../useSessionState')
@@ -39,14 +38,12 @@ vi.mock('ant-design-vue', () => ({
 
 describe('useUserInteractions', () => {
   let mockSendMessage: (sendType: string) => Promise<any>
-  let mockToggleSidebar: () => void
   let chatInputValue: ReturnType<typeof ref<string>>
 
   beforeEach(() => {
     vi.clearAllMocks()
 
     mockSendMessage = vi.fn().mockResolvedValue(undefined)
-    mockToggleSidebar = vi.fn()
     chatInputValue = ref('')
 
     vi.mocked(useSessionState).mockReturnValue({
@@ -56,7 +53,7 @@ describe('useUserInteractions', () => {
 
   describe('handleTranscriptionComplete', () => {
     it('should append transcribed text to existing content', () => {
-      const { handleTranscriptionComplete } = useUserInteractions(mockSendMessage, mockToggleSidebar)
+      const { handleTranscriptionComplete } = useUserInteractions(mockSendMessage)
 
       chatInputValue.value = 'Hello'
       handleTranscriptionComplete('world')
@@ -65,7 +62,7 @@ describe('useUserInteractions', () => {
     })
 
     it('should set transcribed text when input is empty', () => {
-      const { handleTranscriptionComplete } = useUserInteractions(mockSendMessage, mockToggleSidebar)
+      const { handleTranscriptionComplete } = useUserInteractions(mockSendMessage)
 
       handleTranscriptionComplete('Hello world')
 
@@ -73,7 +70,7 @@ describe('useUserInteractions', () => {
     })
 
     it('should auto-send when enabled', async () => {
-      const { handleTranscriptionComplete, autoSendAfterVoice } = useUserInteractions(mockSendMessage, mockToggleSidebar)
+      const { handleTranscriptionComplete, autoSendAfterVoice } = useUserInteractions(mockSendMessage)
 
       autoSendAfterVoice.value = true
       handleTranscriptionComplete('Test message')
@@ -85,7 +82,7 @@ describe('useUserInteractions', () => {
     })
 
     it('should not auto-send when disabled', async () => {
-      const { handleTranscriptionComplete, autoSendAfterVoice } = useUserInteractions(mockSendMessage, mockToggleSidebar)
+      const { handleTranscriptionComplete, autoSendAfterVoice } = useUserInteractions(mockSendMessage)
 
       autoSendAfterVoice.value = false
       handleTranscriptionComplete('Test message')
@@ -100,7 +97,7 @@ describe('useUserInteractions', () => {
     it('should log error', () => {
       const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
 
-      const { handleTranscriptionError } = useUserInteractions(mockSendMessage, mockToggleSidebar)
+      const { handleTranscriptionError } = useUserInteractions(mockSendMessage)
 
       handleTranscriptionError('Transcription failed')
 
@@ -111,7 +108,7 @@ describe('useUserInteractions', () => {
 
   describe('handleFileUpload', () => {
     it('should trigger file input click', () => {
-      const { handleFileUpload, fileInputRef } = useUserInteractions(mockSendMessage, mockToggleSidebar)
+      const { handleFileUpload, fileInputRef } = useUserInteractions(mockSendMessage)
 
       const mockClick = vi.fn()
       fileInputRef.value = { click: mockClick } as any
@@ -122,7 +119,7 @@ describe('useUserInteractions', () => {
     })
 
     it('should not throw when file input is not set', () => {
-      const { handleFileUpload } = useUserInteractions(mockSendMessage, mockToggleSidebar)
+      const { handleFileUpload } = useUserInteractions(mockSendMessage)
 
       expect(() => handleFileUpload()).not.toThrow()
     })
@@ -130,7 +127,7 @@ describe('useUserInteractions', () => {
 
   describe('readFileContent', () => {
     it('should read file content as text', async () => {
-      const { readFileContent } = useUserInteractions(mockSendMessage, mockToggleSidebar)
+      const { readFileContent } = useUserInteractions(mockSendMessage)
 
       const mockFile = new File(['test content'], 'test.txt', { type: 'text/plain' })
 
@@ -142,7 +139,7 @@ describe('useUserInteractions', () => {
 
   describe('handleFileSelected', () => {
     it('should handle no file selected', async () => {
-      const { handleFileSelected } = useUserInteractions(mockSendMessage, mockToggleSidebar)
+      const { handleFileSelected } = useUserInteractions(mockSendMessage)
 
       const mockEvent = {
         target: {
@@ -157,7 +154,7 @@ describe('useUserInteractions', () => {
 
     it('should warn when file is too large', async () => {
       const { notification } = await import('ant-design-vue')
-      const { handleFileSelected } = useUserInteractions(mockSendMessage, mockToggleSidebar)
+      const { handleFileSelected } = useUserInteractions(mockSendMessage)
 
       const largeFile = new File(['x'.repeat(2 * 1024 * 1024)], 'large.txt', { type: 'text/plain' })
       const mockEvent = {
@@ -175,7 +172,7 @@ describe('useUserInteractions', () => {
 
     it('should format JSON file content', async () => {
       const { notification } = await import('ant-design-vue')
-      const { handleFileSelected } = useUserInteractions(mockSendMessage, mockToggleSidebar)
+      const { handleFileSelected } = useUserInteractions(mockSendMessage)
 
       const jsonContent = { key: 'value', nested: { prop: 123 } }
       const jsonFile = new File([JSON.stringify(jsonContent)], 'test.json', { type: 'application/json' })
@@ -197,7 +194,7 @@ describe('useUserInteractions', () => {
 
     it('should format markdown file content', async () => {
       const { notification } = await import('ant-design-vue')
-      const { handleFileSelected } = useUserInteractions(mockSendMessage, mockToggleSidebar)
+      const { handleFileSelected } = useUserInteractions(mockSendMessage)
 
       const mdFile = new File(['# Title\n\nContent'], 'test.md', { type: 'text/markdown' })
 
@@ -217,7 +214,7 @@ describe('useUserInteractions', () => {
 
     it('should format code file content with language', async () => {
       const { notification } = await import('ant-design-vue')
-      const { handleFileSelected } = useUserInteractions(mockSendMessage, mockToggleSidebar)
+      const { handleFileSelected } = useUserInteractions(mockSendMessage)
 
       const pyFile = new File(['def hello():\n    print("world")'], 'test.py', { type: 'text/x-python' })
 
@@ -236,7 +233,7 @@ describe('useUserInteractions', () => {
     })
 
     it('should append to existing input', async () => {
-      const { handleFileSelected } = useUserInteractions(mockSendMessage, mockToggleSidebar)
+      const { handleFileSelected } = useUserInteractions(mockSendMessage)
 
       chatInputValue.value = 'Existing content'
 
@@ -256,7 +253,7 @@ describe('useUserInteractions', () => {
 
     it('should handle invalid JSON gracefully', async () => {
       const { notification } = await import('ant-design-vue')
-      const { handleFileSelected } = useUserInteractions(mockSendMessage, mockToggleSidebar)
+      const { handleFileSelected } = useUserInteractions(mockSendMessage)
 
       const invalidJsonFile = new File(['{ invalid json }'], 'test.json', { type: 'application/json' })
       const mockEvent = {
@@ -275,7 +272,7 @@ describe('useUserInteractions', () => {
 
   describe('handleKeyDown', () => {
     it('should send message on Enter key', async () => {
-      const { handleKeyDown } = useUserInteractions(mockSendMessage, mockToggleSidebar)
+      const { handleKeyDown } = useUserInteractions(mockSendMessage)
 
       chatInputValue.value = 'Test message'
 
@@ -293,7 +290,7 @@ describe('useUserInteractions', () => {
     })
 
     it('should not send on Shift+Enter', () => {
-      const { handleKeyDown } = useUserInteractions(mockSendMessage, mockToggleSidebar)
+      const { handleKeyDown } = useUserInteractions(mockSendMessage)
 
       chatInputValue.value = 'Test message'
 
@@ -310,7 +307,7 @@ describe('useUserInteractions', () => {
     })
 
     it('should not send when composing', () => {
-      const { handleKeyDown } = useUserInteractions(mockSendMessage, mockToggleSidebar)
+      const { handleKeyDown } = useUserInteractions(mockSendMessage)
 
       chatInputValue.value = 'Test message'
 
@@ -327,7 +324,7 @@ describe('useUserInteractions', () => {
     })
 
     it('should not send when input is empty', () => {
-      const { handleKeyDown } = useUserInteractions(mockSendMessage, mockToggleSidebar)
+      const { handleKeyDown } = useUserInteractions(mockSendMessage)
 
       chatInputValue.value = '   '
 
@@ -345,7 +342,7 @@ describe('useUserInteractions', () => {
     })
 
     it('should do nothing for other keys', () => {
-      const { handleKeyDown } = useUserInteractions(mockSendMessage, mockToggleSidebar)
+      const { handleKeyDown } = useUserInteractions(mockSendMessage)
 
       chatInputValue.value = 'Test message'
 
@@ -363,27 +360,16 @@ describe('useUserInteractions', () => {
     })
   })
 
-  describe('handleClose', () => {
-    it('should toggle sidebar and emit event', () => {
-      const { handleClose } = useUserInteractions(mockSendMessage, mockToggleSidebar)
-
-      handleClose()
-
-      expect(mockToggleSidebar).toHaveBeenCalled()
-      expect(eventBus.emit).toHaveBeenCalledWith('updateRightIcon', false)
-    })
-  })
-
   describe('refs', () => {
     it('should provide fileInputRef', () => {
-      const { fileInputRef } = useUserInteractions(mockSendMessage, mockToggleSidebar)
+      const { fileInputRef } = useUserInteractions(mockSendMessage)
 
       expect(fileInputRef).toBeDefined()
       expect(fileInputRef.value).toBeUndefined()
     })
 
     it('should provide autoSendAfterVoice', () => {
-      const { autoSendAfterVoice } = useUserInteractions(mockSendMessage, mockToggleSidebar)
+      const { autoSendAfterVoice } = useUserInteractions(mockSendMessage)
 
       expect(autoSendAfterVoice.value).toBe(false)
 
@@ -392,7 +378,7 @@ describe('useUserInteractions', () => {
     })
 
     it('should provide currentEditingId', () => {
-      const { currentEditingId } = useUserInteractions(mockSendMessage, mockToggleSidebar)
+      const { currentEditingId } = useUserInteractions(mockSendMessage)
 
       expect(currentEditingId.value).toBeNull()
 
