@@ -1327,7 +1327,7 @@ defineExpose({
   downloadFile,
   refresh,
   basePath,
-  currentDirectoryInput
+  localCurrentDirectoryInput
 })
 </script>
 
