@@ -91,7 +91,7 @@
     "pinia-plugin-persistedstate": "^4.2.0",
     "posthog-node": "^5.18.0",
     "reconnecting-eventsource": "^1.6.4",
-    "serialize-error": "^11.0.3",
+    "serialize-error": "^12.0.0",
     "simple-git": "^3.27.0",
     "sortablejs": "^1.15.6",
     "splitpanes": "^4.0.3",
