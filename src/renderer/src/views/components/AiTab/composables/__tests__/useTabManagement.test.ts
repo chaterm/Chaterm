@@ -103,6 +103,7 @@ describe('useTabManagement', () => {
     const currentChatId = ref('tab-1')
     const chatInputValue = ref('')
     const createEmptySessionState = vi.fn(() => createMockSession())
+    const cleanupTabPairsCache = vi.fn()
 
     vi.mocked(useSessionState).mockReturnValue({
       chatTabs,
@@ -110,7 +111,8 @@ describe('useTabManagement', () => {
       currentTab: ref(mockTab),
       createEmptySessionState,
       chatInputValue,
-      chatTextareaRef: ref(null)
+      chatTextareaRef: ref(null),
+      cleanupTabPairsCache
     } as any)
 
     const { getGlobalState } = await import('@renderer/agent/storage/state')

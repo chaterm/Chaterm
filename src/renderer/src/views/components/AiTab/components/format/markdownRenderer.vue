@@ -1721,7 +1721,7 @@ code {
   position: absolute;
   top: -1px;
   right: -4px;
-  z-index: 100;
+  z-index: 2;
 }
 
 .copy-button:hover {

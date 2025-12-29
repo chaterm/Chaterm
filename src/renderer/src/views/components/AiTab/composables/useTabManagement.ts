@@ -41,7 +41,7 @@ const DEFAULT_LOCALHOST_HOST: Host = {
  * Handles Tab creation, deletion, switching, history restoration and other operations
  */
 export function useTabManagement(options: TabManagementOptions) {
-  const { chatTabs, currentChatId, currentTab, createEmptySessionState, chatInputValue } = useSessionState()
+  const { chatTabs, currentChatId, currentTab, createEmptySessionState, chatInputValue, cleanupTabPairsCache } = useSessionState()
 
   const { getCurentTabAssetInfo, emitStateChange, handleClose, isFocusInAiTab } = options
 
@@ -325,6 +325,9 @@ export function useTabManagement(options: TabManagementOptions) {
 
     console.log('handleTabRemove: cancel task for tab', tabId)
     await window.api.cancelTask(tabId)
+
+    // Clean up computed cache before removing tab
+    cleanupTabPairsCache(tabId)
 
     chatTabs.value.splice(tabIndex, 1)
 
