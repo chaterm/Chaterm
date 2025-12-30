@@ -24,11 +24,15 @@ export function convertToR1Format(messages: Anthropic.Messages.MessageParam[]): 
           textParts.push(part.text)
         }
         if (part.type === 'image') {
-          hasImages = true
-          imageParts.push({
-            type: 'image_url',
-            image_url: { url: `data:${part.source.media_type};base64,${part.source.data}` }
-          })
+          if (part.source.type === 'base64') {
+            hasImages = true
+            imageParts.push({
+              type: 'image_url',
+              image_url: { url: `data:${part.source.media_type};base64,${part.source.data}` }
+            })
+          } else {
+            console.warn('Unsupported image source type in R1 format, only base64 is supported')
+          }
         }
       })
 

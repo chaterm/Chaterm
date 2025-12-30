@@ -3,7 +3,7 @@
   "versions": [
     {
       "version": "0.8.0",
-      "date": "2025-12-26",
+      "date": "2025-12-30",
       "highlights": {
         "zh-CN": [
           "区分中国版(chaterm.cn)/全球版(chaterm.ai)",
@@ -11,10 +11,18 @@
           "堡垒机连接提示多语言支持",
           "AI Tab新增欢迎提示功能",
           "优化模型配置加载状态显示",
+          "命令片段支持宏录制功能",
+          "内联命令生成支持模型选择",
+          "实现聊天模式限制，禁用主机管理和工具执行",
+          "SFTP上传下载功能重构和优化",
+          "优化用户消息在滚动时的交互体验",
           "修复重复按ESC键启用命令补全的问题",
           "修复切换资产认证方法时的显示问题",
           "修复Agents模式下输入框滚动和焦点问题",
-          "修复Tab切换时输入框焦点问题"
+          "修复Tab切换时输入框焦点问题",
+          "修复Command+W快捷键关闭两个标签页的问题",
+          "修复本地连接重复加载问题",
+          "修复命令集获取失败问题"
         ],
         "en-US": [
           "Support Chinese edition(chaterm.cn)/Global edition(chaterm.ai)",
@@ -22,10 +30,18 @@
           "Bastion connection prompt multi-language support",
           "Add welcome tips for AI tab",
           "Optimize model configuration loading state display",
+          "Command snippet supports macro recording",
+          "Provide model selection in inline command generation",
+          "Implement chat mode restrictions to disable host management and tool execution",
+          "SFTP upload download refactoring and optimization",
+          "Optimize user message interaction experience while scrolling",
           "Fix the issue of enabling command completion when ESC is repeatedly pressed",
           "Fix display bug when switching asset authentication methods",
           "Fix textarea scroll and focus issues in Agents mode",
-          "Fix input focus issue when switching tabs"
+          "Fix input focus issue when switching tabs",
+          "Fix the issue where Command+W closes two tabs",
+          "Fix local connection duplicate loading issue",
+          "Fix command set acquisition failure issue"
         ]
       }
     },
