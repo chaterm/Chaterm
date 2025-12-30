@@ -1557,6 +1557,8 @@ const openUserTab = async function (arg: OpenUserTabArg) {
     value === 'mcpConfigEditor' ||
     value === 'securityConfigEditor' ||
     value === 'keywordHighlightEditor' ||
+    value === 'jumpserverSupport' ||
+    value === 'aliasConfig' ||
     value.startsWith('plugins:')
   ) {
     if (!dockApi) return
