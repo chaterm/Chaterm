@@ -53,7 +53,7 @@ jobs:
         run: npm run test:coverage
 
       - name: Save Coverage Reports
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         # Only upload artifacts on macOS - We only need coverage from one OS
         if: runner.os == 'macOS'
         with:
@@ -61,7 +61,7 @@ jobs:
           path: coverage
 
       - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v4
+        uses: codecov/codecov-action@v5
         if: runner.os == 'macOS'
         with:
           files: ./coverage/coverage-final.json

@@ -36,7 +36,7 @@ import { loadAllPlugins } from './plugin/pluginLoader'
 import { getAllPluginVersions, installPlugin, listPlugins, PluginManifest, uninstallPlugin, getInstallHint } from './plugin/pluginManager'
 import { getPluginDetailsByName } from './plugin/pluginDetails'
 import { getActualTheme, applyThemeToTitleBar, loadUserTheme } from './themeManager'
-import { getLoginBaseUrl, getEdition } from './config/edition'
+import { getLoginBaseUrl, getEdition, getProtocolPrefix, getProtocolName } from './config/edition'
 
 let mainWindow: BrowserWindow
 let COOKIE_URL = 'http://localhost'
@@ -291,7 +291,8 @@ app.whenReady().then(async () => {
   }
 
   mainWindow.webContents.on('will-navigate', (event, url) => {
-    const isExternal = !url.startsWith('http://localhost') && !url.startsWith('file://') && !url.startsWith('chaterm://')
+    const protocolPrefix = getProtocolPrefix()
+    const isExternal = !url.startsWith('http://localhost') && !url.startsWith('file://') && !url.startsWith(protocolPrefix)
 
     if (isExternal) {
       event.preventDefault()
@@ -2157,14 +2158,16 @@ ipcMain.handle('plugins.details', async (_event, pluginName: string) => {
 })
 
 // Register the agreement before the app is ready
-if (!app.isDefaultProtocolClient('chaterm')) {
-  app.setAsDefaultProtocolClient('chaterm')
+const protocolName = getProtocolName()
+if (!app.isDefaultProtocolClient(protocolName)) {
+  app.setAsDefaultProtocolClient(protocolName)
 }
 
-// Handle chaterm:// protocol parameters on Linux
+// Handle protocol parameters on Linux
 if (process.platform === 'linux') {
   // Implement single instance lock for Linux platform to ensure only one app instance runs
   const gotTheLock = app.requestSingleInstanceLock()
+  const protocolPrefix = getProtocolPrefix()
 
   if (!gotTheLock) {
     // If lock cannot be acquired, another instance is already running, exit current instance
@@ -2180,7 +2183,7 @@ if (process.platform === 'linux') {
       }
 
       // Handle protocol URL
-      const protocolUrl = commandLine.find((arg) => arg.startsWith('chaterm://'))
+      const protocolUrl = commandLine.find((arg) => arg.startsWith(protocolPrefix))
       if (protocolUrl) {
         handleProtocolRedirect(protocolUrl)
       }
@@ -2188,7 +2191,7 @@ if (process.platform === 'linux') {
   }
 
   // Handle protocol parameters when app starts
-  const protocolArg = process.argv.find((arg) => arg.startsWith('chaterm://'))
+  const protocolArg = process.argv.find((arg) => arg.startsWith(protocolPrefix))
   if (protocolArg) {
     app.whenReady().then(() => {
       handleProtocolRedirect(protocolArg)
@@ -2197,7 +2200,7 @@ if (process.platform === 'linux') {
 
   // Add additional IPC handler for Linux to handle protocol calls during app runtime
   ipcMain.handle('handle-protocol-url', async (_, url) => {
-    if (url && url.startsWith('chaterm://')) {
+    if (url && url.startsWith(protocolPrefix)) {
       handleProtocolRedirect(url)
       return { success: true }
     }
@@ -2275,6 +2278,7 @@ const handleProtocolRedirect = async (url: string) => {
 // Activation of Processing Protocol in Windows
 if (process.platform === 'win32') {
   const gotTheLock = app.requestSingleInstanceLock()
+  const protocolPrefix = getProtocolPrefix()
 
   if (!gotTheLock) {
     app.quit()
@@ -2289,7 +2293,7 @@ if (process.platform === 'win32') {
 
       // Processing Protocol URL
       const url = commandLine.pop()
-      if (url && url.startsWith('chaterm://')) {
+      if (url && url.startsWith(protocolPrefix)) {
         handleProtocolRedirect(url)
       }
     })
@@ -2298,9 +2302,15 @@ if (process.platform === 'win32') {
 
 // Protocol Activation in macOS Processing
 app.on('open-url', (_event, url) => {
-  if (url.startsWith('chaterm://')) {
+  const protocolPrefix = getProtocolPrefix()
+  if (url.startsWith(protocolPrefix)) {
     handleProtocolRedirect(url)
   }
+})
+
+// Add IPC handler to get protocol prefix
+ipcMain.handle('get-protocol-prefix', async () => {
+  return getProtocolPrefix()
 })
 
 // Add IPC handler after creating Window function
@@ -2327,7 +2337,9 @@ ipcMain.handle('open-external-login', async () => {
 
     // Build login URL based on edition configuration (no IP detection)
     const loginBaseUrl = getLoginBaseUrl()
-    const externalLoginUrl = `${loginBaseUrl}/login?client_id=chaterm&state=${state}&redirect_uri=chaterm://auth/callback&mac_address=${encodeURIComponent(macAddress)}&local_plugins=${localPluginsEncoded}`
+    const protocolPrefix = getProtocolPrefix()
+    const protocolName = getProtocolName()
+    const externalLoginUrl = `${loginBaseUrl}/login?client_id=${protocolName}&state=${state}&redirect_uri=${protocolPrefix}auth/callback&mac_address=${encodeURIComponent(macAddress)}&local_plugins=${localPluginsEncoded}`
 
     console.log(`[Login] Using edition: ${getEdition()}, login URL base: ${loginBaseUrl}`)
 

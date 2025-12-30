@@ -23,6 +23,8 @@ interface Props {
   zIndex?: number
   boundaryEl?: HTMLElement | null
 }
+// Template ref used in template
+// @ts-expect-error - Template ref, used in template via ref="dragResize"
 const dragResize = ref()
 
 const dragStatus = shallowRef(true)

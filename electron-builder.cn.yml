@@ -19,6 +19,10 @@ publish:
 win:
   executableName: Chaterm CN
   artifactName: ${name}-${version}-cn-setup-${arch}.${ext}
+  protocols:
+    - name: Chaterm CN
+      schemes:
+        - chaterm-cn
 
 nsis:
   artifactName: ${name}-${version}-cn-setup-${arch}.${ext}
@@ -33,6 +37,10 @@ dmg:
 
 mac:
   artifactName: ${name}-${version}-cn-macos-${arch}.${ext}
+  protocols:
+    - name: Chaterm CN
+      schemes:
+        - chaterm-cn
 
 linux:
   executableName: chaterm-cn

@@ -22,7 +22,7 @@
         </div>
         <div class="fs-header-left">
           <a-input
-            v-model:value="currentDirectoryInput"
+            v-model:value="localCurrentDirectoryInput"
             class="input-search"
             @press-enter="handleRefresh"
             @mousedown.stop
@@ -54,7 +54,7 @@
                   type="primary"
                   size="small"
                   ghost
-                  @click="uploadDirectory"
+                  @click="uploadFolder"
                 >
                   <template #icon>
                     <UploadOutlined />
@@ -266,7 +266,10 @@
                         <ScissorOutlined />
                         {{ $t('files.move') }}
                       </a-menu-item>
-                      <a-menu-item @click="deleteFile(record as FileRecord)">
+                      <a-menu-item
+                        v-if="!record.isDir && !record.isLink"
+                        @click="deleteFile(record as FileRecord)"
+                      >
                         <DeleteOutlined />
                         {{ $t('files.delete') }}
                       </a-menu-item>
@@ -445,12 +448,14 @@ export interface FileRecord {
   disabled?: boolean
 }
 
-const currentDirectoryInput = ref(props.currentDirectoryInput)
+const localCurrentDirectoryInput = ref(props.currentDirectoryInput)
 const basePath = ref(props.basePath)
 const files = ref<FileRecord[]>([])
 const loading = ref(false)
 const showErr = ref(false)
 const errTips = ref('')
+// Template ref used in template
+// @ts-expect-error - Template ref, used in template via ref="tableRef"
 const tableRef = ref<HTMLElement | null>(null)
 
 type FlexibleColumn = Partial<ColumnsType<FileRecord>[number]>
@@ -628,7 +633,7 @@ const loadFiles = async (uuid: string, filePath: string): Promise<void> => {
   }
 
   files.value = dirs
-  currentDirectoryInput.value = getLoadFilePath(filePath)
+  localCurrentDirectoryInput.value = getLoadFilePath(filePath)
 }
 
 function getLoadFilePath(filePath: string): string {
@@ -647,10 +652,10 @@ const rowClick = (record: FileRecord): void => {
   if (record.isDir || record.isLink) {
     if (record.path === '..') {
       // Get parent directory of current directory
-      const currentDirectory = basePath.value + currentDirectoryInput.value
+      const currentDirectory = basePath.value + localCurrentDirectoryInput.value
       let parentDirectory = currentDirectory.substring(0, currentDirectory.lastIndexOf('/'))
       if (parentDirectory === '') {
-        currentDirectoryInput.value = '/'
+        localCurrentDirectoryInput.value = '/'
         parentDirectory = '/'
       }
       loadFiles(props.uuid, parentDirectory)
@@ -669,7 +674,7 @@ const openFile = (record: FileRecord): void => {
 }
 
 const refresh = (): void => {
-  loadFiles(props.uuid, basePath.value + currentDirectoryInput.value)
+  loadFiles(props.uuid, basePath.value + localCurrentDirectoryInput.value)
 }
 
 // instead of path.dirname()
@@ -686,7 +691,7 @@ const joinPath = (...parts: string[]) => {
   return parts.join('/').replace(/\/+/g, '/')
 }
 const rollback = (): void => {
-  loadFiles(props.uuid, getDirname(basePath.value + currentDirectoryInput.value))
+  loadFiles(props.uuid, getDirname(basePath.value + localCurrentDirectoryInput.value))
 }
 
 const handleRefresh = (): void => {
@@ -695,50 +700,107 @@ const handleRefresh = (): void => {
 
 onMounted(async () => {
   isTeamCheck(props.uuid)
-  await loadFiles(props.uuid, basePath.value + currentDirectoryInput.value)
+  await loadFiles(props.uuid, basePath.value + localCurrentDirectoryInput.value)
 })
 
-const uploadFile = async (): Promise<void> => {
-  const selected = await api.openFileDialog()
-  if (!selected) return
-  const key = props.uuid
+// TODO Delete
+//
+// const uploadFile = async (): Promise<void> => {
+//   const selected = await api.openFileDialog()
+//   if (!selected) return
+//   const key = props.uuid
+//   try {
+//     message.loading({ content: t('files.uploading'), key, duration: 0 })
+//     const res = await api.uploadFile({
+//       id: key,
+//       remotePath: basePath.value + currentDirectoryInput.value,
+//       localPath: selected
+//     })
+//     refresh()
+//     message.success({
+//       content: res.status === 'success' ? t('files.uploadSuccess') : `${t('files.uploadFailed')}：${res.message}`,
+//       key,
+//       duration: 3
+//     })
+//   } catch (err) {
+//     message.error({ content: `${t('files.uploadError')}：${(err as Error).message}`, key, duration: 3 })
+//   }
+// }
+//
+// const uploadDirectory = async (): Promise<void> => {
+//   const selected = await api.openDirectoryDialog()
+//   if (!selected) return
+//   const key = props.uuid
+//   try {
+//     message.loading({ content: t('files.uploading'), key, duration: 0 })
+//     const res = await api.uploadDirectory({
+//       id: key,
+//       localDir: selected,
+//       remoteDir: basePath.value + currentDirectoryInput.value
+//     })
+//     refresh()
+//     message.success({
+//       content: res.status === 'success' ? t('files.uploadSuccess') : `${t('files.uploadFailed')}：${res.message}`,
+//       key,
+//       duration: 3
+//     })
+//   } catch (err) {
+//     message.error({ content: `${t('files.uploadError')}：${(err as Error).message}`, key, duration: 3 })
+//   }
+// }
+
+const uploadFile = async () => {
+  const localPath = await api.openFileDialog()
+  if (!localPath) return
+
   try {
-    message.loading({ content: t('files.uploading'), key, duration: 0 })
     const res = await api.uploadFile({
       id: key,
-      remotePath: basePath.value + currentDirectoryInput.value,
-      localPath: selected
+      remotePath: basePath.value + localCurrentDirectoryInput.value,
+      localPath: localPath
     })
     refresh()
-    message.success({
-      content: res.status === 'success' ? t('files.uploadSuccess') : `${t('files.uploadFailed')}：${res.message}`,
+    const config = {
+      success: { type: 'success', text: t('files.uploadSuccess') },
+      cancelled: { type: 'info', text: t('files.uploadCancel') },
+      skipped: { type: 'info', text: t('files.downloadSkipped') }
+    }[res.status] || { type: 'error', text: `${t('files.downloadFailed')}：${res.message}` }
+
+    message[config.type]({
+      content: config.text,
       key,
       duration: 3
     })
-  } catch (err) {
+  } catch (err: any) {
     message.error({ content: `${t('files.uploadError')}：${(err as Error).message}`, key, duration: 3 })
   }
 }
 
-const uploadDirectory = async (): Promise<void> => {
-  const selected = await api.openDirectoryDialog()
-  if (!selected) return
-  const key = props.uuid
+const uploadFolder = async () => {
+  const localPath = await api.openDirectoryDialog()
+  if (!localPath) return
+
   try {
-    message.loading({ content: t('files.uploading'), key, duration: 0 })
     const res = await api.uploadDirectory({
-      id: key,
-      localDir: selected,
-      remoteDir: basePath.value + currentDirectoryInput.value
+      id: props.uuid,
+      localPath: localPath,
+      remotePath: (basePath.value + localCurrentDirectoryInput.value).replace(/\/+/g, '/')
     })
-    refresh()
+
+    const statusMap = {
+      success: t('files.uploadSuccess'),
+      cancelled: t('files.uploadCancel')
+    }
+
+    const content = statusMap[res.status] || `${t('files.uploadFailed')}：${res.message}`
+
     message.success({
-      content: res.status === 'success' ? t('files.uploadSuccess') : `${t('files.uploadFailed')}：${res.message}`,
+      content,
       key,
       duration: 3
     })
-  } catch (err) {
-    message.error({ content: `${t('files.uploadError')}：${(err as Error).message}`, key, duration: 3 })
+  } catch (err: any) {
+    message.error('Directory Upload Error:', err)
   }
 }
 
@@ -871,7 +933,7 @@ const handleMoreButtonEnter = (recordName: string) => {
 }
 
 // Handle "More" button mouse leave
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
+
 const handleMoreButtonLeave = (_recordName: string) => {
   // Don't clean up immediately when button leaves, let other events handle it
 }
@@ -1033,24 +1095,70 @@ watch(
   { deep: true }
 )
 
-const downloadFile = async (record: FileRecord) => {
-  const key = props.uuid
+const downloadFile = async (record: any) => {
   const remotePath = record.path
-  const savePath = await api.openSaveDialog({ fileName: record.name })
-  if (!savePath) return
+  const fileName = record.name
+
+  const localPath = await api.openSaveDialog({ fileName })
+  if (!localPath) return
+
+  // TODO Delete
+  // const taskKey =`${props.uuid}:up:${remotePath}:${localPath}`
+  // transferTasks.value[taskKey] = {
+  //   id: props.uuid,
+  //   taskKey: taskKey,
+  //   name: fileName,
+  //   remotePath: remotePath,
+  //   progress: 0,
+  //   speed: '0 KB/s',
+  //   type: 'download',
+  //   lastBytes: 0,
+  //   lastTime: Date.now()
+  // }
 
   try {
-    message.loading({ content: t('files.downloading'), key, duration: 0 })
-    const res = await api.downloadFile({ id: key, remotePath: remotePath, localPath: savePath })
-    message.success({
-      content: res.status === 'success' ? t('files.downloadSuccess') : `${t('files.downloadFailed')}：${res.message}`,
+    const res = await api.downloadFile({
+      id: props.uuid,
+      remotePath: remotePath,
+      localPath: localPath
+    })
+
+    const config = {
+      success: { type: 'success', text: t('files.downloadSuccess') },
+      cancelled: { type: 'info', text: t('files.downloadCancel') },
+      skipped: { type: 'info', text: t('files.downloadSkipped') }
+    }[res.status] || { type: 'error', text: `${t('files.downloadFailed')}：${res.message}` }
+
+    message[config.type]({
+      content: config.text,
       key,
       duration: 3
     })
-  } catch (err) {
+  } catch (err: any) {
+    console.error('Download Error:', err)
     message.error({ content: `${t('files.downloadError')}：${(err as Error).message}`, key, duration: 3 })
   }
 }
+
+// TODO Delete
+// const downloadFile = async (record: FileRecord) => {
+//   const key = props.uuid
+//   const remotePath = record.path
+//   const savePath = await api.openSaveDialog({ fileName: record.name })
+//   if (!savePath) return
+//
+//   try {
+//     message.loading({ content: t('files.downloading'), key, duration: 0 })
+//     const res = await api.downloadFile({ id: key, remotePath: remotePath, localPath: savePath })
+//     message.success({
+//       content: res.status === 'success' ? t('files.downloadSuccess') : `${t('files.downloadFailed')}：${res.message}`,
+//       key,
+//       duration: 3
+//     })
+//   } catch (err) {
+//     message.error({ content: `${t('files.downloadError')}：${(err as Error).message}`, key, duration: 3 })
+//   }
+// }
 
 const editableData = reactive({})
 const renameFile = (record: FileRecord): void => {
@@ -1180,7 +1288,7 @@ const copyOrMoveModalOk = async (targetPath: string) => {
         message.error(`${t('files.copyFileFailed')}：${stderr}`)
       } else {
         message.success(t('files.copyFileSuccess'))
-        currentDirectoryInput.value = getDirname(dest)
+        localCurrentDirectoryInput.value = getDirname(dest)
         refresh()
       }
     } catch (error) {
@@ -1200,7 +1308,7 @@ const copyOrMoveModalOk = async (targetPath: string) => {
         message.error(`${t('files.moveFileFailed')}：${stderr}`)
       } else {
         message.success(t('files.moveFileSuccess'))
-        currentDirectoryInput.value = getDirname(dest)
+        localCurrentDirectoryInput.value = getDirname(dest)
         refresh()
       }
     } catch (error) {
@@ -1216,8 +1324,12 @@ const moveFile = (record: FileRecord) => {
 }
 
 defineExpose({
+  uploadFile,
+  uploadFolder,
+  downloadFile,
   refresh,
-  loadFiles
+  basePath,
+  localCurrentDirectoryInput
 })
 </script>
 

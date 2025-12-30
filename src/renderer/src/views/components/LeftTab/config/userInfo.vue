@@ -212,7 +212,7 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { ref, onMounted, onBeforeUnmount, reactive, computed, h } from 'vue'
 import 'xterm/css/xterm.css'
 import i18n from '@/locales'
@@ -223,9 +223,28 @@ import { message } from 'ant-design-vue'
 import zxcvbn from 'zxcvbn'
 import enterpriseCertificationIcon from '@/assets/icons/enterprise-certification.svg'
 
+interface UserInfo {
+  avatar?: string
+  subscription?: string
+  registrationType?: number
+  expires?: string
+  uid?: number
+  name?: string
+  username?: string
+  mobile?: string
+  email?: string
+  secondaryOrganization?: string
+  tertiaryOrganization?: string
+  team?: string
+  localIp?: string
+  macAddress?: string
+  isOfficeDevice?: boolean
+  response?: any
+}
+
 const { t } = i18n.global
 const deviceStore = useDeviceStore()
-const userInfo = ref({})
+const userInfo = ref<UserInfo>({})
 const isEditing = ref(false)
 const isEditingPassword = ref(false)
 const unChange = ref(true)
@@ -238,19 +257,19 @@ const formState = reactive({
 })
 
 const getUserInfo = () => {
-  getUser().then((res) => {
-    userInfo.value = res.data
+  getUser({}).then((res: any) => {
+    userInfo.value = res.data as UserInfo
     userInfo.value.localIp = deviceStore.getDeviceIp
     userInfo.value.macAddress = deviceStore.getMacAddress
-    checkUserDevice({ ip: userInfo.value.localIp, macAddress: userInfo.value.macAddress }).then((res) => {
+    checkUserDevice({ ip: userInfo.value.localIp || '', macAddress: userInfo.value.macAddress || '' }).then((res: any) => {
       if (res && res.code === 200) {
         userInfo.value.isOfficeDevice = res.data.isOfficeDevice
       }
     })
     if (userInfo.value.uid !== 2000001) unChange.value = false
-    formState.username = userInfo.value.username
-    formState.name = userInfo.value.name
-    formState.mobile = userInfo.value.mobile
+    formState.username = userInfo.value.username || ''
+    formState.name = userInfo.value.name || ''
+    formState.mobile = userInfo.value.mobile || ''
   })
 }
 const strength = computed(() => {
@@ -271,8 +290,8 @@ const startEditingPassword = () => {
 const cancelEditing = () => {
   isEditing.value = false
   isEditingPassword.value = false
-  formState.name = userInfo.value.name
-  formState.mobile = userInfo.value.mobile
+  formState.name = userInfo.value.name || ''
+  formState.mobile = userInfo.value.mobile || ''
   formState.newPassword = ''
 }
 
@@ -318,7 +337,7 @@ const handleSave = async () => {
       if (!validatePassword()) {
         return
       }
-      const response = await changePassword({
+      const response: any = await changePassword({
         password: formState.newPassword
       })
       if (response.code == 200) {
@@ -329,7 +348,7 @@ const handleSave = async () => {
       }
     } else {
       if (!validateSave()) return
-      const response = await updateUser({
+      const response: any = await updateUser({
         username: formState.username,
         name: formState.name,
         mobile: formState.mobile
@@ -343,7 +362,7 @@ const handleSave = async () => {
         message.error(response.message || t('userInfo.updateFailed'))
       }
     }
-  } catch (error) {
+  } catch (error: any) {
     const errorMessage = error?.response?.data?.message || (isEditingPassword.value ? t('userInfo.passwordResetFailed') : t('userInfo.updateFailed'))
     message.error(errorMessage)
   }
