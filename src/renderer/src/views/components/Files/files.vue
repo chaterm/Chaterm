@@ -454,6 +454,8 @@ const files = ref<FileRecord[]>([])
 const loading = ref(false)
 const showErr = ref(false)
 const errTips = ref('')
+// Template ref used in template
+// @ts-expect-error - Template ref, used in template via ref="tableRef"
 const tableRef = ref<HTMLElement | null>(null)
 
 type FlexibleColumn = Partial<ColumnsType<FileRecord>[number]>

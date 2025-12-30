@@ -72,6 +72,8 @@ const isRecording = ref(false)
 const mediaRecorder = ref<MediaRecorder | null>(null)
 const audioChunks = ref<Blob[]>([])
 const recordingTimeout = ref<NodeJS.Timeout | null>(null)
+// Template ref used in template
+// @ts-expect-error - Template ref, used in template via ref="voiceButton"
 const voiceButton = ref<HTMLElement | null>(null)
 
 // Get best audio format
