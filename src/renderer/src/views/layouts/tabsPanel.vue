@@ -50,6 +50,7 @@
           <UserConfig v-if="localTab.content === 'userConfig'" />
           <Files v-if="localTab.content === 'files'" />
           <AliasConfig v-if="localTab.content === 'aliasConfig'" />
+          <jumpserverSupport v-if="localTab.content === 'jumpserverSupport'" />
           <AssetConfig v-if="localTab.content === 'assetConfig'" />
           <KeyChainConfig v-if="localTab.content === 'keyChainConfig'" />
           <McpConfigEditor v-if="localTab.content === 'mcpConfigEditor'" />
@@ -72,6 +73,7 @@ import UserInfo from '@views/components/LeftTab/config/userInfo.vue'
 import UserConfig from '@views/components/LeftTab/config/userConfig.vue'
 import AssetConfig from '@views/components/LeftTab/config/assetConfig.vue'
 import AliasConfig from '@views/components/Extensions/aliasConfig.vue'
+import jumpserverSupport from '@views/components/Extensions/jumpserverSupport.vue'
 import KeyChainConfig from '@views/components/LeftTab/config/keyChainConfig.vue'
 import SshConnect from '@views/components/Ssh/sshConnect.vue'
 import Files from '@views/components/Files/index.vue'
