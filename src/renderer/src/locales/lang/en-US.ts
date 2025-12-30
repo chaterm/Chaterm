@@ -115,7 +115,8 @@ export default {
     terminalMode: 'Terminal',
     agentsMode: 'Agents',
     daysAgo: ' days ago',
-    run: 'Run'
+    run: 'Run',
+    jumpserverSupportPlugin: 'Jumpserver Support'
   },
   term: {
     welcome: 'Welcome to use Chaterm',
@@ -480,7 +481,33 @@ export default {
     updateFailed: 'Update failed',
     updateSuccess: 'Update success',
     sourceStore: 'Plugin Store',
-    sourceLocal: 'Local'
+    sourceLocal: 'Local',
+    jumpserverSupport: {
+      jmsPluginDesc: 'Support asset synchronization and direct asset connection',
+      jmsPluginDoc: 'Plugin Overview',
+      jmsPluginHeader: 'Jumpserver Support is a bastion machine support tool specifically designed for Chaterm.',
+      jmsPluginFunc: 'Core Features',
+      jmsPluginFuncAsset: 'Permission Mapping Sync',
+      jmsPluginFuncAssetDetail:
+        'Synchronizes bastion host account permissions to ensure local asset lists are strictly aligned with cloud authorizations.',
+      jmsPluginFuncCon: 'One-Click Direct Connect',
+      jmsPluginFuncConDetail:
+        'Hosting JumpServer private key credentials, one click connection to the target server, greatly simplifying the login path from the bastion machine to the target server',
+      jmsPluginFuncAuth: 'Persistent Auth State',
+      jmsPluginFuncAuthDetail:
+        'Automatically maintains login sessions after successful authentication, eliminating the need for repeated MFA codes for multiple connections and boosting operational efficiency.',
+      jmsPluginFuncAgent: 'Agent Connection Enhancement',
+      jmsPluginFuncAgentDetail:
+        'Support AI agents to penetrate fortress machines and directly connect to target servers, breaking through operational isolation limitations and achieving target machine instruction execution and deep AI interaction.',
+      jmsPluginFuncAgentLog: 'Operation Demo (Mock Logs)',
+      jmsStep1: "1. Open 'Key Management' in the sidebar, click 'Add Key' and save the configuration.",
+      jmsStep2: "2. Click 'Server List' in the sidebar, then go to 'Asset Management' and click 'Add Host'.",
+      jmsStep3: "3. Select 'Enterprise Asset', fill in the Address, User, Port, and Key (configure the password if MFA is required), then save.",
+      jmsStep4:
+        "4. Click the 'Bastion Resources' tab in the Server List, then click the 'Refresh' button on the right side of the corresponding bastion host.",
+      jmsStep5: '5. Once asset synchronization is complete, click on any asset in the list to enable direct connection.'
+    },
+    system: 'System'
   },
   commandDialog: {
     placeholder: 'Command instructions',
