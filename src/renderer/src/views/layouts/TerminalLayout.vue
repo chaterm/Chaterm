@@ -1556,6 +1556,8 @@ const openUserTab = async function (arg: OpenUserTabArg) {
     value === 'userConfig' ||
     value === 'mcpConfigEditor' ||
     value === 'securityConfigEditor' ||
+    value === 'jumpserverSupport' ||
+    value === 'aliasConfig' ||
     value.startsWith('plugins:')
   ) {
     if (!dockApi) return
@@ -1575,6 +1577,10 @@ const openUserTab = async function (arg: OpenUserTabArg) {
   switch (value) {
     case 'aliasConfig':
       p.title = 'alias'
+      p.type = 'extensions'
+      break
+    case 'jumpserverSupport':
+      p.title = 'jumpserverSupportPlugin'
       p.type = 'extensions'
       break
     case 'securityConfigEditor': {
