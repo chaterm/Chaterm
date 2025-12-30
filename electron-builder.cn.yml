@@ -28,6 +28,9 @@ nsis:
   artifactName: ${name}-${version}-cn-setup-${arch}.${ext}
   shortcutName: Chaterm CN
   uninstallDisplayName: Chaterm CN
+  guid: ai.chaterm.cn.app
+  oneClick: false
+  allowToChangeInstallationDirectory: true
 
 dmg:
   artifactName: ${name}-${version}-cn-macos-${arch}.${ext}
@@ -40,8 +43,8 @@ mac:
         - chaterm-cn
 
 linux:
+  executableName: chaterm-cn
   artifactName: ${name}-${version}-cn-linux-${arch}.${ext}
-  protocols:
-    - name: Chaterm CN
-      schemes:
-        - chaterm-cn
+
+deb:
+  packageName: chaterm-cn

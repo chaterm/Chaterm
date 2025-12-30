@@ -2,17 +2,23 @@ import { BrowserWindow, shell, session } from 'electron'
 import { join } from 'path'
 import { is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
+import { getEdition } from './config/edition'
 
 /**
  * Create and manage the main BrowserWindow.
  * The latest Cookie URL will be passed back via callback to avoid circular dependencies.
  */
 export async function createMainWindow(onCookieUrlChange?: (url: string) => void, shouldPreventClose?: () => boolean): Promise<BrowserWindow> {
+  // Set window title based on edition
+  const edition = getEdition()
+  const windowTitle = edition === 'cn' ? 'Chaterm CN' : 'Chaterm'
+
   const mainWindow = new BrowserWindow({
     width: 1344,
     height: 756,
     minWidth: 1060,
     minHeight: 600,
+    title: windowTitle,
     icon: join(__dirname, '../../resources/icon.png'),
     titleBarStyle: 'hidden',
     ...(process.platform !== 'darwin'
