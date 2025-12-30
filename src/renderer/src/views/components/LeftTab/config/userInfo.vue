@@ -49,6 +49,41 @@
         class="custom-form"
         :model="formState"
       >
+        <div
+          v-if="!unChange"
+          class="action-buttons-container"
+        >
+          <a-button
+            v-if="!isEditing"
+            type="text"
+            size="small"
+            class="edit-icon-btn"
+            :title="t('userInfo.edit')"
+            @click="startEditing"
+          >
+            <FormOutlined />
+          </a-button>
+          <template v-else>
+            <a-button
+              type="text"
+              size="small"
+              class="edit-icon-btn"
+              :title="t('userInfo.save')"
+              @click="handleSave"
+            >
+              <CheckOutlined />
+            </a-button>
+            <a-button
+              type="text"
+              size="small"
+              class="edit-icon-btn"
+              :title="t('userInfo.cancel')"
+              @click="cancelEditing"
+            >
+              <CloseOutlined />
+            </a-button>
+          </template>
+        </div>
         <a-form-item
           label="UID"
           class="user_my-ant-form-item"
@@ -99,6 +134,7 @@
           </a-button>
         </a-form-item>
         <a-form-item
+          v-if="isChineseEdition()"
           :label="t('userInfo.mobile')"
           class="user_my-ant-form-item"
           name="mobile"
@@ -144,35 +180,11 @@
           {{ userInfo.macAddress }}
         </a-form-item>
       </a-form>
-      <div
-        v-if="!unChange"
-        class="button-container"
-      >
-        <template v-if="!isEditing">
-          <a-button
-            type="primary"
-            @click="startEditing"
-          >
-            {{ t('userInfo.edit') }}
-          </a-button>
-        </template>
-        <template v-else>
-          <a-button
-            type="primary"
-            style="margin-right: 8px"
-            @click="handleSave"
-          >
-            {{ t('userInfo.save') }}
-          </a-button>
-          <a-button @click="cancelEditing">
-            {{ t('userInfo.cancel') }}
-          </a-button>
-        </template>
-      </div>
     </a-card>
 
     <!-- 手机号绑定弹框 -->
     <a-modal
+      v-if="isChineseEdition()"
       v-model:open="showMobileModal"
       :title="userInfo.mobile ? t('userInfo.modifyMobile') : t('userInfo.bindMobile')"
       :width="420"
@@ -228,36 +240,54 @@
       @cancel="cancelResetPassword"
     >
       <div class="modal-form-container">
-        <a-form-item
-          :label="t('userInfo.password')"
-          class="compact-form-item"
+        <a-form
+          :label-col="{ span: 8 }"
+          :wrapper-col="{ span: 16 }"
         >
-          <a-input-password
-            v-model:value="formState.newPassword"
-            :placeholder="t('userInfo.pleaseInputNewPassword')"
-            size="small"
-          />
-        </a-form-item>
-        <a-form-item
-          :label="t('userInfo.passwordStrength')"
-          class="compact-form-item"
-        >
-          <span
-            v-if="strength == 1"
-            style="color: red; font-size: 12px"
-            >{{ t('userInfo.passwordStrengthWeak') }}</span
+          <a-form-item
+            :label="t('userInfo.password')"
+            class="compact-form-item"
           >
-          <span
-            v-if="strength == 2"
-            style="color: #d46b08; font-size: 12px"
-            >{{ t('userInfo.passwordStrengthMedium') }}</span
+            <a-input-password
+              v-model:value="formState.newPassword"
+              :placeholder="t('userInfo.pleaseInputNewPassword')"
+              size="small"
+            />
+          </a-form-item>
+          <a-form-item
+            :label="t('userInfo.confirmPassword')"
+            class="compact-form-item"
+            :validate-status="formState.confirmPassword && !passwordMatch ? 'error' : ''"
+            :help="formState.confirmPassword && !passwordMatch ? t('userInfo.passwordMismatch') : ''"
           >
-          <span
-            v-if="strength > 2"
-            style="color: rgb(50, 100, 237); font-size: 12px"
-            >{{ t('userInfo.passwordStrengthStrong') }}</span
+            <a-input-password
+              v-model:value="formState.confirmPassword"
+              :placeholder="t('userInfo.pleaseInputConfirmPassword')"
+              size="small"
+            />
+          </a-form-item>
+          <a-form-item
+            v-if="formState.newPassword"
+            :label="t('userInfo.passwordStrength')"
+            class="compact-form-item"
           >
-        </a-form-item>
+            <span
+              v-if="strength === 0 || strength === 1"
+              style="color: red; font-size: 12px"
+              >{{ t('userInfo.passwordStrengthWeak') }}</span
+            >
+            <span
+              v-else-if="strength === 2"
+              style="color: #d46b08; font-size: 12px"
+              >{{ t('userInfo.passwordStrengthMedium') }}</span
+            >
+            <span
+              v-else-if="strength === 3 || strength === 4"
+              style="color: rgb(50, 100, 237); font-size: 12px"
+              >{{ t('userInfo.passwordStrengthStrong') }}</span
+            >
+          </a-form-item>
+        </a-form>
       </div>
     </a-modal>
 
@@ -308,7 +338,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onBeforeUnmount, reactive, computed, h } from 'vue'
+import { ref, onMounted, onBeforeUnmount, reactive, computed } from 'vue'
 import 'xterm/css/xterm.css'
 import i18n from '@/locales'
 import {
@@ -321,11 +351,17 @@ import {
   sendMobileBindCode,
   verifyAndBindMobile
 } from '@api/user/user'
-import { EditOutlined } from '@ant-design/icons-vue'
+import { EditOutlined, CheckOutlined, CloseOutlined, FormOutlined } from '@ant-design/icons-vue'
 import { useDeviceStore } from '@/store/useDeviceStore'
 import { message } from 'ant-design-vue'
 import zxcvbn from 'zxcvbn'
-import enterpriseCertificationIcon from '@/assets/icons/enterprise-certification.svg'
+import { isChineseEdition } from '@/utils/edition'
+
+interface ApiResponse {
+  code: number
+  message?: string
+  data?: any
+}
 
 interface UserInfo {
   avatar?: string
@@ -359,7 +395,8 @@ const formState = reactive({
   username: '',
   name: '',
   mobile: '',
-  newPassword: ''
+  newPassword: '',
+  confirmPassword: ''
 })
 
 const emailBindForm = reactive({
@@ -398,6 +435,11 @@ const strength = computed(() => {
   else return zxcvbn(formState.newPassword).score
 })
 
+const passwordMatch = computed(() => {
+  if (formState.confirmPassword === '') return true
+  return formState.newPassword === formState.confirmPassword
+})
+
 const startEditing = () => {
   isEditing.value = true
 }
@@ -408,6 +450,7 @@ const cancelEditing = () => {
   formState.username = userInfo.value.username || ''
   formState.mobile = userInfo.value.mobile || ''
   formState.newPassword = ''
+  formState.confirmPassword = ''
 }
 
 // 邮箱绑定相关方法
@@ -437,7 +480,7 @@ const handleSendEmailBindCode = async () => {
 
   try {
     emailCodeSending.value = true
-    const response = await sendEmailBindCode({ email: emailBindForm.email })
+    const response = (await sendEmailBindCode({ email: emailBindForm.email })) as unknown as ApiResponse
     if (response.code === 200) {
       message.success(t('userInfo.emailCodeSent'))
       // 开始倒计时
@@ -451,7 +494,7 @@ const handleSendEmailBindCode = async () => {
     } else {
       message.error(response.message || t('userInfo.emailBindFailed'))
     }
-  } catch (error) {
+  } catch (error: any) {
     const errorMessage = error?.response?.data?.message || t('userInfo.emailBindFailed')
     message.error(errorMessage)
   } finally {
@@ -466,7 +509,7 @@ const handleVerifyAndBindEmail = async () => {
   }
 
   try {
-    const response = await verifyAndBindEmail({ email: emailBindForm.email, code: emailBindForm.code })
+    const response = (await verifyAndBindEmail({ email: emailBindForm.email, code: emailBindForm.code })) as unknown as ApiResponse
     if (response.code === 200) {
       message.success(t('userInfo.emailBindSuccess'))
       showEmailModal.value = false
@@ -474,7 +517,7 @@ const handleVerifyAndBindEmail = async () => {
     } else {
       message.error(response.message || t('userInfo.emailBindFailed'))
     }
-  } catch (error) {
+  } catch (error: any) {
     const errorMessage = error?.response?.data?.message || t('userInfo.emailBindFailed')
     message.error(errorMessage)
   }
@@ -505,7 +548,7 @@ const handleSendMobileBindCode = async () => {
 
   try {
     mobileCodeSending.value = true
-    const response = await sendMobileBindCode({ mobile: mobileBindForm.mobile })
+    const response = (await sendMobileBindCode({ mobile: mobileBindForm.mobile })) as unknown as ApiResponse
     if (response.code === 200) {
       message.success(t('userInfo.mobileCodeSent'))
       // 开始倒计时
@@ -519,7 +562,7 @@ const handleSendMobileBindCode = async () => {
     } else {
       message.error(response.message || t('userInfo.mobileBindFailed'))
     }
-  } catch (error) {
+  } catch (error: any) {
     const errorMessage = error?.response?.data?.message || t('userInfo.mobileBindFailed')
     message.error(errorMessage)
   } finally {
@@ -534,7 +577,7 @@ const handleVerifyAndBindMobile = async () => {
   }
 
   try {
-    const response = await verifyAndBindMobile({ mobile: mobileBindForm.mobile, code: mobileBindForm.code })
+    const response = (await verifyAndBindMobile({ mobile: mobileBindForm.mobile, code: mobileBindForm.code })) as unknown as ApiResponse
     if (response.code === 200) {
       message.success(t('userInfo.mobileBindSuccess'))
       showMobileModal.value = false
@@ -542,7 +585,7 @@ const handleVerifyAndBindMobile = async () => {
     } else {
       message.error(response.message || t('userInfo.mobileBindFailed'))
     }
-  } catch (error) {
+  } catch (error: any) {
     const errorMessage = error?.response?.data?.message || t('userInfo.mobileBindFailed')
     message.error(errorMessage)
   }
@@ -552,6 +595,7 @@ const handleVerifyAndBindMobile = async () => {
 const cancelResetPassword = () => {
   showPasswordModal.value = false
   formState.newPassword = ''
+  formState.confirmPassword = ''
 }
 
 const handleResetPassword = async () => {
@@ -559,17 +603,18 @@ const handleResetPassword = async () => {
     return
   }
   try {
-    const response = await changePassword({
+    const response = (await changePassword({
       password: formState.newPassword
-    })
+    })) as unknown as ApiResponse
     if (response.code == 200) {
       message.success(t('userInfo.passwordResetSuccess'))
       showPasswordModal.value = false
       formState.newPassword = ''
+      formState.confirmPassword = ''
     } else {
       message.error(response.message || t('userInfo.passwordResetFailed'))
     }
-  } catch (error) {
+  } catch (error: any) {
     const errorMessage = error?.response?.data?.message || t('userInfo.passwordResetFailed')
     message.error(errorMessage)
   }
@@ -582,6 +627,10 @@ const validatePassword = () => {
   }
   if (strength.value < 1) {
     message.error(t('userInfo.passwordStrengthError'))
+    return false
+  }
+  if (formState.newPassword !== formState.confirmPassword) {
+    message.error(t('userInfo.passwordMismatch'))
     return false
   }
   return true
@@ -610,11 +659,11 @@ const validateSave = () => {
 const handleSave = async () => {
   try {
     if (!validateSave()) return
-    const response = await updateUser({
+    const response = (await updateUser({
       username: formState.username,
       name: formState.name
       // mobile 字段移除，手机号通过绑定接口更新
-    })
+    })) as unknown as ApiResponse
     console.log(response)
     if (response.code == 200) {
       message.success(t('userInfo.updateSuccess'))
@@ -654,6 +703,7 @@ onBeforeUnmount(() => {})
   box-shadow: none;
   color: var(--text-color);
   border: none;
+  position: relative;
 }
 
 :deep(.ant-card) {
@@ -692,6 +742,7 @@ onBeforeUnmount(() => {})
 }
 
 .custom-form {
+  position: relative;
   color: var(--text-color);
   align-content: center;
   width: 100%;
@@ -705,9 +756,7 @@ onBeforeUnmount(() => {})
   color: var(--text-color);
 }
 
-.custom-input,
-:deep(.ant-input-password),
-:deep(.ant-input-password .ant-input) {
+.custom-input {
   background-color: var(--bg-color) !important;
   color: var(--text-color) !important;
   border-radius: 4px !important;
@@ -796,13 +845,20 @@ onBeforeUnmount(() => {})
   text-shadow: 0 1px 1px rgba(0, 0, 0, 0.1);
 }
 
-.button-container {
-  margin-top: 20px;
-  text-align: center;
+.action-buttons-container {
+  position: absolute;
+  top: 0;
+  right: 15%;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  z-index: 10;
 }
 
-.button-container .ant-btn {
-  min-width: 80px;
+.edit-icon {
+  width: 14px;
+  height: 14px;
+  filter: var(--icon-filter);
 }
 
 @media (max-width: 768px) {
@@ -818,6 +874,7 @@ onBeforeUnmount(() => {})
 }
 
 .divider-container {
+  position: relative;
   width: 70%;
   margin: 0 auto;
   text-align: center;
@@ -872,18 +929,18 @@ onBeforeUnmount(() => {})
 }
 
 .modal-form-container {
-  padding: 0;
+  padding: 8px 0;
 }
 
 .compact-form-item {
-  margin-bottom: 12px !important;
+  margin-bottom: 16px !important;
 
   &:last-child {
     margin-bottom: 0 !important;
   }
 
   :deep(.ant-form-item-label) {
-    padding-bottom: 4px;
+    padding-bottom: 6px;
 
     > label {
       font-size: 13px;
@@ -938,9 +995,12 @@ onBeforeUnmount(() => {})
 
   // 输入框样式
   .ant-input {
-    background-color: var(--bg-color-secondary) !important;
+    background-color: var(--bg-color-quinary) !important;
     border-color: var(--border-color) !important;
     color: var(--text-color) !important;
+    width: 100% !important;
+    height: 28px !important;
+    line-height: 28px !important;
 
     &::placeholder {
       color: var(--text-color-tertiary) !important;
@@ -987,14 +1047,21 @@ onBeforeUnmount(() => {})
 
   // 密码输入框特殊处理
   .ant-input-password {
-    background-color: var(--bg-color-secondary) !important;
+    background-color: var(--bg-color-quinary) !important;
     border-color: var(--border-color) !important;
     color: var(--text-color) !important;
+    width: 100% !important;
+    min-height: 28px !important;
+    height: auto !important;
 
     .ant-input {
-      background-color: var(--bg-color-secondary) !important;
+      background-color: var(--bg-color-quinary) !important;
       border-color: transparent !important;
       color: var(--text-color) !important;
+      width: 100% !important;
+      height: 28px !important;
+      line-height: 28px !important;
+      padding: 0 30px 0 0 !important;
 
       &::placeholder {
         color: var(--text-color-tertiary) !important;
