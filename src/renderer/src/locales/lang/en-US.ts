@@ -419,6 +419,10 @@ export default {
       'Click the button to directly open the security configuration file and manage command execution security policies and whitelist/blacklist settings.',
     securityConfigOpened: 'Opening security configuration file...',
     openSecurityConfigFailed: 'Failed to open security configuration',
+    keywordHighlight: 'Keyword Highlighting',
+    openConfig: 'Open Config',
+    keywordHighlightDescribe:
+      'Click the button to directly open the keyword highlighting configuration file and customize highlighting rules for terminal output.',
     success: 'Success',
     background: 'Background',
     backgroundNone: 'None',

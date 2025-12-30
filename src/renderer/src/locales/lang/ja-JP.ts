@@ -419,6 +419,10 @@ export default {
       'セキュリティ設定ファイルを直接開いて、コマンド実行のセキュリティポリシーとホワイトリスト/ブラックリストの設定を管理します。',
     securityConfigOpened: 'セキュリティ設定ファイルを開いています...',
     openSecurityConfigFailed: 'セキュリティ設定ファイルの開きに失敗しました',
+    keywordHighlight: 'キーワードハイライト',
+    openConfig: '設定を開く',
+    keywordHighlightDescribe:
+      'ボタンをクリックして、キーワードハイライト設定ファイルを直接開き、ターミナル出力のハイライトルールをカスタマイズします。',
     success: '成功',
     background: '背景',
     backgroundNone: 'なし',

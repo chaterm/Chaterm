@@ -57,6 +57,21 @@
             @change="handleHighlightChange"
           />
         </a-form-item>
+
+        <!-- Keyword Highlighting Configuration -->
+        <a-form-item
+          :label="$t('user.keywordHighlight')"
+          class="user_my-ant-form-item"
+        >
+          <a-button
+            size="small"
+            class="keyword-highlight-config-btn"
+            :loading="keywordHighlightConfigLoading"
+            @click="openKeywordHighlightConfig"
+          >
+            {{ $t('user.openConfig') }}
+          </a-button>
+        </a-form-item>
       </a-form>
     </a-card>
   </div>
@@ -81,6 +96,8 @@ const userConfig = ref({
   aliasStatus: 1,
   highlightStatus: 1
 })
+
+const keywordHighlightConfigLoading = ref(false)
 
 const loadSavedConfig = async () => {
   try {
@@ -178,6 +195,23 @@ const handleHighlightChange = async (checked) => {
 
   const status = checked ? ExtensionStatus.ENABLED : ExtensionStatus.DISABLED
   await captureExtensionUsage(ExtensionNames.HIGHLIGHT, status)
+}
+
+// Handle opening keyword highlight configuration file
+const openKeywordHighlightConfig = async () => {
+  try {
+    keywordHighlightConfigLoading.value = true
+    // Open tab via eventBus
+    eventBus.emit('open-user-tab', 'keywordHighlightEditor')
+  } catch (error) {
+    console.error('Failed to open keyword highlight config editor:', error)
+    notification.error({
+      message: t('user.error'),
+      description: t('user.openConfigFailed')
+    })
+  } finally {
+    keywordHighlightConfigLoading.value = false
+  }
 }
 </script>
 
@@ -333,5 +367,9 @@ const handleHighlightChange = async (checked) => {
 .checkbox-md :deep(.ant-checkbox-inner) {
   width: 20px;
   height: 20px;
+}
+
+.keyword-highlight-config-btn {
+  min-width: 80px;
 }
 </style>

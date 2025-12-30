@@ -53,6 +53,8 @@ extraResources:
     filter: '**/*.db'
   - from: 'resources/update-notes.json'
     to: 'update-notes.json'
+  - from: 'keyword-highlight.json'
+    to: 'keyword-highlight.json'
 asarUnpack:
   - resources/**
 icon: resources/icon.ico

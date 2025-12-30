@@ -1556,6 +1556,7 @@ const openUserTab = async function (arg: OpenUserTabArg) {
     value === 'userConfig' ||
     value === 'mcpConfigEditor' ||
     value === 'securityConfigEditor' ||
+    value === 'keywordHighlightEditor' ||
     value.startsWith('plugins:')
   ) {
     if (!dockApi) return
@@ -1588,6 +1589,20 @@ const openUserTab = async function (arg: OpenUserTabArg) {
       } catch (error) {
         console.error('Failed to get security config path:', error)
         p.title = 'chaterm-security.json' // Default file name
+      }
+      break
+    }
+    case 'keywordHighlightEditor': {
+      // Get config file path and extract file name
+      try {
+        const { keywordHighlightConfigService } = await import('@/services/keywordHighlightConfigService')
+        const configPath = await keywordHighlightConfigService.getConfigPath()
+        // Extract file name (compatible with Windows and Unix paths)
+        const fileName = configPath.split(/[/\\]/).pop() || 'keyword-highlight.json'
+        p.title = fileName
+      } catch (error) {
+        console.error('Failed to get keyword highlight config path:', error)
+        p.title = 'keyword-highlight.json' // Default file name
       }
       break
     }

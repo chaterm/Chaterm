@@ -54,6 +54,7 @@
           <KeyChainConfig v-if="localTab.content === 'keyChainConfig'" />
           <McpConfigEditor v-if="localTab.content === 'mcpConfigEditor'" />
           <SecurityConfigEditor v-if="localTab.content === 'securityConfigEditor'" />
+          <KeywordHighlightEditor v-if="localTab.content === 'keywordHighlightEditor'" />
           <PluginDetail
             v-if="localTab.content.startsWith('plugins:') && localTab.props"
             :plugin-info="localTab as any"
@@ -77,6 +78,7 @@ import SshConnect from '@views/components/Ssh/sshConnect.vue'
 import Files from '@views/components/Files/index.vue'
 import McpConfigEditor from '@views/components/McpConfigEditor/index.vue'
 import SecurityConfigEditor from '@views/components/SecurityConfigEditor/index.vue'
+import KeywordHighlightEditor from '@views/components/KeywordHighlightEditor/index.vue'
 import PluginDetail from '@views/components/Extensions/pluginDetail.vue'
 import type { IDockviewPanelProps } from 'dockview-vue'
 import { isFocusInAiTab } from '@/utils/domUtils'
