@@ -17,6 +17,7 @@ publish:
   channel: latest
 
 win:
+  executableName: Chaterm CN
   artifactName: ${name}-${version}-cn-setup-${arch}.${ext}
   protocols:
     - name: Chaterm CN
@@ -25,6 +26,8 @@ win:
 
 nsis:
   artifactName: ${name}-${version}-cn-setup-${arch}.${ext}
+  shortcutName: Chaterm CN
+  uninstallDisplayName: Chaterm CN
 
 dmg:
   artifactName: ${name}-${version}-cn-macos-${arch}.${ext}
