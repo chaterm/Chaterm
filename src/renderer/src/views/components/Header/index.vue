@@ -134,9 +134,13 @@ const toggleAgentsSidebarLeft = (params: 'agentsLeft') => {
 }
 
 const switchIcon = (dir, value) => {
-  dir == 'left' ? (isLeftSidebarCollapsed.value = value) : ''
-  dir == 'right' ? (isRightSidebarCollapsed.value = value) : ''
-  dir == 'agentsLeft' ? (isAgentsLeftSidebarCollapsed.value = value) : ''
+  if (dir == 'left') {
+    isLeftSidebarCollapsed.value = value
+  } else if (dir == 'right') {
+    isRightSidebarCollapsed.value = value
+  } else if (dir == 'agentsLeft') {
+    isAgentsLeftSidebarCollapsed.value = value
+  }
 }
 const checkVersion = async () => {
   try {

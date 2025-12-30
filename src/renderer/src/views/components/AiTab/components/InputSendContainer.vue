@@ -129,7 +129,7 @@
         :placeholder="inputPlaceholder"
         class="chat-textarea"
         data-testid="ai-message-input"
-        :auto-size="{ minRows: 2, maxRows: 5 }"
+        :auto-size="{ minRows: 2, maxRows: 12 }"
         @keydown="handleKeyDown"
         @input="handleInputChange"
       />
@@ -278,6 +278,7 @@ watch(
 
 const {
   showHostSelect,
+  hostSearchInputRef,
   hostSearchValue,
   hostOptionsLoading,
   filteredHostOptions,
@@ -292,6 +293,7 @@ const {
   handleAddHostClick,
   handleInputChange
 } = useHostManagement()
+void hostSearchInputRef
 
 const { AgentAiModelsOptions, handleChatAiModelChange } = useModelConfiguration()
 
@@ -776,5 +778,23 @@ const inputPlaceholder = computed(() => {
   text-align: center;
   padding: 8px 0;
   font-size: 12px;
+}
+
+.model-label {
+  display: inline-flex;
+  align-items: center;
+}
+
+.thinking-icon {
+  width: 16px;
+  height: 16px;
+  margin-right: 6px;
+  filter: var(--icon-filter);
+  transition: filter 0.2s ease;
+}
+
+.processing-text {
+  font-size: 10px;
+  color: var(--text-color);
 }
 </style>

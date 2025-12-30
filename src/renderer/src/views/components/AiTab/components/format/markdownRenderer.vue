@@ -446,6 +446,8 @@ const isCancelled = ref(false)
 const commandOutputActiveKey = ref<string[]>(['1'])
 const activeKey = ref<string[]>(['1'])
 const contentRef = ref<HTMLElement | null>(null)
+// Template ref used in template
+// @ts-expect-error - Template ref, used in template via ref="editorContainer"
 const editorContainer = ref<HTMLElement | null>(null)
 const codeActiveKey = ref<string[]>(['1'])
 const monacoContainer = ref<HTMLElement | null>(null)

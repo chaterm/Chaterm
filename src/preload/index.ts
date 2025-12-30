@@ -560,6 +560,10 @@ const api = {
   handleProtocolUrl: (url: string): Promise<{ success: boolean; error?: string }> => {
     return ipcRenderer.invoke('handle-protocol-url', url)
   },
+  // Get protocol prefix based on edition
+  getProtocolPrefix: (): Promise<string> => {
+    return ipcRenderer.invoke('get-protocol-prefix')
+  },
 
   // keyboard-interactive authentication
   onKeyboardInteractiveTimeout: (callback) => {
@@ -815,9 +819,14 @@ const api = {
   openExternalLogin: () => ipcRenderer.invoke('open-external-login'),
 
   // sftp
+  onTransferProgress: (callback: (data: { id: string; remotePath: string; bytes: number; total: number; type: 'download' | 'upload' }) => void) => {
+    ipcRenderer.removeAllListeners('ssh:sftp:transfer-progress')
+    ipcRenderer.on('ssh:sftp:transfer-progress', (_event, data) => callback(data))
+  },
   uploadFile: (opts: { id: string; remotePath: string; localPath: string }) => ipcRenderer.invoke('ssh:sftp:upload-file', opts),
+  uploadDirectory: (opts: { id: string; localDir: string; remoteDir: string }) => ipcRenderer.invoke('ssh:sftp:upload-directory', opts),
   downloadFile: (opts: { id: string; remotePath: string; localPath: string }) => ipcRenderer.invoke('ssh:sftp:download-file', opts),
-  uploadDirectory: (opts: { id: string; remoteDir: string; localDir: string }) => ipcRenderer.invoke('ssh:sftp:upload-dir', opts),
+  cancelFileTask: (opts: { taskKey: string }) => ipcRenderer.invoke('ssh:sftp:cancel-task', opts),
   renameFile: (opts: { id: string; oldPath: string; newPath: string }) => ipcRenderer.invoke('ssh:sftp:rename-move', opts),
   deleteFile: (opts: { id: string; remotePath: string }) => ipcRenderer.invoke('ssh:sftp:delete-file', opts),
   chmodFile: (opts: { id: string; remotePath: string; mode: number; recursive: boolean }) => ipcRenderer.invoke('ssh:sftp:chmod', opts),

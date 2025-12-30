@@ -495,54 +495,80 @@ describe('AiTab Component - Browser Mode Integration', () => {
       })
     })
 
-    it('should close tabs one by one with Cmd+W, and close entire AiTab when last tab is closed', async () => {
+    it('should close only the active middle tab (3 tabs) with a single Cmd+W press', async () => {
       // Wait for initial tab to be ready
+      await new Promise((resolve) => setTimeout(resolve, 500))
+
+      const newTabButton = page.getByTestId('new-tab-button')
+      await expect(newTabButton.query()).toBeInTheDocument()
+
+      // Create total 3 tabs
+      await newTabButton.click()
+      await new Promise((resolve) => setTimeout(resolve, 500))
+
+      await newTabButton.click()
+      await new Promise((resolve) => setTimeout(resolve, 500))
+
+      const getAllTabs = () => Array.from(document.querySelectorAll('.ant-tabs-tab')) as HTMLElement[]
+
+      expect(getAllTabs().length).toBe(3)
+
+      // Activate the middle tab (B)
+      const tabEls = getAllTabs()
+      tabEls[1].click()
+      await new Promise((resolve) => setTimeout(resolve, 500))
+
+      expect(getAllTabs()[1]?.classList.contains('ant-tabs-tab-active')).toBe(true)
+
+      await userEvent.keyboard('{Meta>}w{/Meta}')
+      await new Promise((resolve) => setTimeout(resolve, 300))
+
+      const afterTabs = getAllTabs()
+      // Regression: a single Cmd+W must close only ONE tab (previous bug would close B and C -> leaving 1)
+      expect(afterTabs.length).toBe(2)
+    })
+
+    it('should close tabs one by one with Cmd+W, and close entire AiTab when last tab is closed', async () => {
       await new Promise((resolve) => setTimeout(resolve, 800))
 
       const newTabButton = page.getByTestId('new-tab-button')
       await expect(newTabButton.query()).toBeInTheDocument()
 
-      // Click first new tab button and wait for async tab creation
+      await newTabButton.click()
+      await new Promise((resolve) => setTimeout(resolve, 800))
       await newTabButton.click()
       await new Promise((resolve) => setTimeout(resolve, 800))
 
-      // Click second new tab button and wait for async tab creation
-      await newTabButton.click()
-      await new Promise((resolve) => setTimeout(resolve, 800))
-
-      // Wait for all tabs to be rendered in DOM
-      const getAllTabs = () => document.querySelectorAll('.ant-tabs-tab')
-      let tabAttempts = 0
-      const tabMaxAttempts = 50 // 5 seconds total
-      while (getAllTabs().length < 3 && tabAttempts < tabMaxAttempts) {
-        await new Promise((resolve) => setTimeout(resolve, 100))
-        tabAttempts++
+      const getCurrentTabInput = (tab: HTMLElement): HTMLTextAreaElement | null => {
+        return tab.querySelector('[data-testid="ai-message-input"]') as HTMLTextAreaElement | null
       }
-      expect(getAllTabs().length).toBe(3)
+      const getAllTabs = () => document.querySelectorAll('.ant-tabs-tabpane')
+      const allTabs = Array.from(getAllTabs()) as HTMLElement[]
 
-      // Get first input element using DOM query (when multiple tabs exist)
-      const chatInputEl = document.querySelector('[data-testid="ai-message-input"]') as HTMLTextAreaElement
-      expect(chatInputEl).toBeTruthy()
-      await chatInputEl.focus()
+      expect(allTabs.length).toBe(3)
+      const chatInputEl2 = getCurrentTabInput(allTabs[2])
+      expect(chatInputEl2).toBeTruthy()
+      expect(document.activeElement).toBe(chatInputEl2)
 
+      // Close first tab and verify focus transfers to input
       await userEvent.keyboard('{Meta>}w{/Meta}')
       await new Promise((resolve) => setTimeout(resolve, 300))
 
       expect(getAllTabs().length).toBe(2)
+      const chatInputEl1 = getCurrentTabInput(allTabs[1])
+      expect(chatInputEl1).toBeTruthy()
+      expect(document.activeElement).toBe(chatInputEl1)
 
-      // Re-focus the first input (now there are 2 tabs)
-      const chatInputEl2 = document.querySelector('[data-testid="ai-message-input"]') as HTMLTextAreaElement
-      expect(chatInputEl2).toBeTruthy()
-      await chatInputEl2.focus()
+      // Close second tab and verify focus transfers to input
       await userEvent.keyboard('{Meta>}w{/Meta}')
       await new Promise((resolve) => setTimeout(resolve, 300))
 
       expect(getAllTabs().length).toBe(1)
+      const chatInputEl = getCurrentTabInput(allTabs[0])
+      expect(chatInputEl).toBeTruthy()
+      expect(document.activeElement).toBe(chatInputEl)
 
-      // Re-focus the first input (now there is 1 tab)
-      const chatInputEl3 = document.querySelector('[data-testid="ai-message-input"]') as HTMLTextAreaElement
-      expect(chatInputEl3).toBeTruthy()
-      await chatInputEl3.focus()
+      // Close last tab and verify entire AiTab is closed
       await userEvent.keyboard('{Meta>}w{/Meta}')
       await new Promise((resolve) => setTimeout(resolve, 300))
 

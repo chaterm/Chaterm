@@ -18,6 +18,10 @@ publish:
 
 win:
   artifactName: ${name}-${version}-setup-${arch}.${ext}
+  protocols:
+    - name: Chaterm
+      schemes:
+        - chaterm
 
 nsis:
   artifactName: ${name}-${version}-setup-${arch}.${ext}
@@ -27,6 +31,14 @@ dmg:
 
 mac:
   artifactName: ${name}-${version}-macos-${arch}.${ext}
+  protocols:
+    - name: Chaterm
+      schemes:
+        - chaterm
 
 linux:
   artifactName: ${name}-${version}-linux-${arch}.${ext}
+  protocols:
+    - name: Chaterm
+      schemes:
+        - chaterm

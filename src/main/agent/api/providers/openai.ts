@@ -34,7 +34,7 @@ export class OpenAiHandler implements ApiHandler {
         apiKey: this.options.openAiApiKey,
         apiVersion: this.options.azureApiVersion || azureOpenAiDefaultApiVersion,
         defaultHeaders: this.options.openAiHeaders,
-        httpAgent: httpAgent,
+        ...(httpAgent && { fetchOptions: { agent: httpAgent } as any }),
         timeout: timeoutMs
       })
     } else {
@@ -42,7 +42,7 @@ export class OpenAiHandler implements ApiHandler {
         baseURL: this.options.openAiBaseUrl,
         apiKey: this.options.openAiApiKey,
         defaultHeaders: this.options.openAiHeaders,
-        httpAgent: httpAgent,
+        ...(httpAgent && { fetchOptions: { agent: httpAgent } as any }),
         timeout: timeoutMs
       })
     }

@@ -58,7 +58,7 @@ export class LiteLlmHandler implements ApiHandler {
     this.client = new OpenAI({
       baseURL: this.options.liteLlmBaseUrl || 'http://localhost:4000',
       apiKey: this.options.liteLlmApiKey || 'noop',
-      httpAgent: httpAgent,
+      ...(httpAgent && { fetchOptions: { agent: httpAgent } as any }),
       timeout: timeoutMs // Set timeout (milliseconds)
     })
   }
@@ -112,7 +112,7 @@ export class LiteLlmHandler implements ApiHandler {
         this.client = new OpenAI({
           baseURL: this.options.liteLlmBaseUrl || 'http://localhost:4000',
           apiKey: this.options.liteLlmApiKey || 'noop',
-          httpAgent,
+          ...(httpAgent && { fetchOptions: { agent: httpAgent } as any }),
           timeout: timeoutMs
         })
 
