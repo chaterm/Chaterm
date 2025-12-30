@@ -115,7 +115,8 @@ export default {
     terminalMode: 'ターミナル',
     agentsMode: 'エージェント',
     daysAgo: ' 日前',
-    run: '実行'
+    run: '実行',
+    jumpserverSupportPlugin: 'Jumpserver Support'
   },
   term: {
     welcome: 'Chaterm へようこそ',
@@ -484,7 +485,31 @@ export default {
     updateFailed: '更新に失敗しました',
     updateSuccess: '更新成功',
     sourceStore: 'プラグインストア',
-    sourceLocal: 'ローカル'
+    sourceLocal: 'ローカル',
+    jumpserverSupport: {
+      jmsPluginDesc: '資産の同期化と資産の直接接続をサポート',
+      jmsPluginDoc: 'プラグインの概要',
+      jmsPluginHeader: 'Jumpserver SupportはChaterm用に作られた砦機の補助ツールです。',
+      jmsPluginFunc: '主な機能',
+      jmsPluginFuncAsset: '権限マッピング同期',
+      jmsPluginFuncAssetDetail: '踏み台サーバーのアカウント権限を同期し、ローカルの資産リストをクラウドの権限設定と厳密に一致させます。',
+      jmsPluginFuncCon: '資産へのワンクリック直結',
+      jmsPluginFuncConDetail:
+        'ホストされるJumpServer秘密鍵証明書、ターゲット・サーバへのワンタッチ接続、ターゲット・サーバへの砦マシンのログイン・パスの大幅な簡略化',
+      jmsPluginFuncAuth: '認証状態の永続化',
+      jmsPluginFuncAuthDetail: '認証成功後にログイン状態を自動保持。複数回の接続でも認証コードの再入力を不要にし、運用効率を飛躍的に向上させます。',
+      jmsPluginFuncAgent: 'Agent 接続の強化',
+      jmsPluginFuncAgentDetail:
+        'AIエージェントがバリアマシンを貫通してターゲットサーバーに直接接続し、操作隔離制限を突破し、ターゲットマシンの命令実行と深さAIインタラクションを実現することをサポートする。',
+      jmsPluginFuncAgentLog: '接続デモ（シミュレーションログ）',
+      jmsPluginGuide: '構成ガイド',
+      jmsStep1: '1. サイドバーの「鍵管理」を開き、「鍵を追加」をクリックして設定を保存します。',
+      jmsStep2: '2. サイドバーの「サーバーリスト」をクリックし、「資産管理」から「ホストを追加」を選択します。',
+      jmsStep3: '3. 「企業資産」を選択し、アドレス、ユーザー、ポート、鍵情報を入力（二要素認証が必要な場合はパスワードを設定）して保存します。',
+      jmsStep4: '4. サーバーリストの「踏み台サーバーリソース」タブをクリックし、対象の踏み台サーバーの右側にある「更新」ボタンをクリックします。',
+      jmsStep5: '5. 資産の同期完了後、リスト内の資産をクリックすることで直接接続が可能になります。'
+    },
+    system: 'システム'
   },
   commandDialog: {
     placeholder: 'コマンド指示',

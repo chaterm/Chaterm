@@ -106,7 +106,8 @@ export default {
     terminalMode: '터미널',
     agentsMode: '에이전트',
     daysAgo: ' 일 전',
-    run: '실행'
+    run: '실행',
+    jumpserverSupportPlugin: 'Jumpserver Support'
   },
   term: {
     welcome: 'Chaterm 사용을 환영합니다',
@@ -465,7 +466,30 @@ export default {
     updateFailed: '업데이트 실패',
     updateSuccess: '업데이트 성공',
     sourceStore: '플러그인 스토어',
-    sourceLocal: '로컬'
+    sourceLocal: '로컬',
+    jumpserverSupport: {
+      jmsPluginDesc: '자산 동시 및 직접 연결 지원',
+      jmsPluginDoc: '플러그인 개요',
+      jmsPluginHeader: 'Jumpserver Support는 Chaterm을 위해 특별히 제작된 요새기 보조 도구입니다.',
+      jmsPluginFunc: '핵심 기능',
+      jmsPluginFuncAsset: '권한 매핑 동기화',
+      jmsPluginFuncAssetDetail: '배스천 호스트 계정 권한을 동기화하여 로컬 자산 목록과 클라우드 권한 설정이 엄격히 일치하도록 보장합니다.',
+      jmsPluginFuncCon: '원클릭 자산 직련결',
+      jmsPluginFuncConDetail: '관리되는 JumpServer 개인 키 자격 증명, 원클릭으로 대상 서버에 연결, 대상 서버에 대한 요새의 로그인 경로 대폭 간소화.',
+      jmsPluginFuncAuth: '인증 상태 유지',
+      jmsPluginFuncAuthDetail:
+        '인증 성공 후 로그인 상태를 자동으로 유지하여, 여러 번 연결 시 OTP 번호를 반복 입력할 필요 없이 업무 효율을 극대화합니다.',
+      jmsPluginFuncAgent: '에이전트 연결 강화',
+      jmsPluginFuncAgentDetail:
+        'AI Agent가 요새기를 관통하여 대상 서버에 직접 연결하고, 조작 격리 제한을 돌파하여 목표기 명령 실행과 심도 있는 AI 인터렉션을 실현할 수 있도록 지원한다.',
+      jmsPluginFuncAgentLog: '작업 시연 (로그 시뮬레이션)',
+      jmsStep1: '1. 사이드바에서 「키 관리」를 열고 「키 추가」를 클릭한 후 설정을 저장합니다.',
+      jmsStep2: '2. 사이드바에서 「서버 목록」을 클릭하고 「자산 관리」로 들어가 「호스트 추가」를 클릭합니다.',
+      jmsStep3: '3. 「기업 자산」을 선택하고 주소, 사용자, 포트, 키 정보를 입력(2단계 인증이 필요한 경우 비밀번호 설정)한 후 저장합니다.',
+      jmsStep4: '4. 서버 목록에서 「배스천 리소스」 탭을 클릭하고, 해당 배스천 호스트 우측의 「새로고침」 버튼을 클릭합니다.',
+      jmsStep5: '5. 자산 동기화가 완료되면 목록에서 자산을 클릭하여 직접 연결할 수 있습니다.'
+    },
+    system: '시스템'
   },
   commandDialog: {
     placeholder: '명령 지시',

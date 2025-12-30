@@ -11,6 +11,7 @@ import * as fs from 'fs/promises'
 import { startDataSync } from './storage/data_sync/index'
 import type { SyncController as DataSyncController } from './storage/data_sync/core/SyncController'
 import { getChatermDbPathForUser, getCurrentUserId, setMainWindowWebContents } from './storage/db/connection'
+import { migrateCnUserDataOnFirstLaunch } from './storage/editionDataMigration'
 
 // Set environment variables
 process.env.IS_DEV = is.dev ? 'true' : 'false'
@@ -103,6 +104,8 @@ app.whenReady().then(async () => {
   const edition = getEdition()
   const appUserModelId = edition === 'global' ? 'ai.chaterm.global' : 'ai.chaterm.cn'
   electronApp.setAppUserModelId(appUserModelId)
+
+  await migrateCnUserDataOnFirstLaunch()
 
   if (process.platform === 'darwin') {
     app.dock.setIcon(join(__dirname, '../../resources/icon.png'))

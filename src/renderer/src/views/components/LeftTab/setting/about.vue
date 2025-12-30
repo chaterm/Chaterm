@@ -9,7 +9,7 @@
         src="@/assets/logo.svg"
       />
       <div v-if="isUpdate">
-        <div class="about-title">Chaterm {{ newVersion }}</div>
+        <div class="about-title">{{ editionConfig.displayName }} {{ newVersion }}</div>
         <a-progress
           class="about-progress"
           :percent="progress"
@@ -20,7 +20,7 @@
         <div class="about-progress-text">{{ t('about.downloading') }} ({{ progress }}%)</div>
       </div>
       <div v-else>
-        <div class="about-title">Chaterm</div>
+        <div class="about-title">{{ editionConfig.displayName }}</div>
         <div class="about-description">{{ t('about.version') }} {{ appInfo.version }}</div>
         <div class="about-update-btn-wrapper">
           <button
@@ -45,7 +45,9 @@
 import { ref } from 'vue'
 import { Notice } from '../../Notice'
 import i18n from '@/locales'
+import { getEditionConfig } from '@/utils/edition'
 const { t } = i18n.global
+const editionConfig = getEditionConfig()
 
 const appInfo = {
   ...__APP_INFO__

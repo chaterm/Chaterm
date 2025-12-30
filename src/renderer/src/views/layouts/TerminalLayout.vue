@@ -1580,6 +1580,10 @@ const openUserTab = async function (arg: OpenUserTabArg) {
       p.title = 'alias'
       p.type = 'extensions'
       break
+    case 'jumpserverSupport':
+      p.title = 'jumpserverSupportPlugin'
+      p.type = 'extensions'
+      break
     case 'securityConfigEditor': {
       // Get config file path and extract file name
       try {
