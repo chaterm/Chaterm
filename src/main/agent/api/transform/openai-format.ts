@@ -48,10 +48,19 @@ export function convertToOpenAiMessages(anthropicMessages: Anthropic.Messages.Me
               toolMessage.content
                 ?.map((part) => {
                   if (part.type === 'image') {
-                    toolResultImages.push(part)
-                    return '(see following user message for image)'
+                    // Only push base64 images (URL images are not supported in tool results)
+                    if (part.source.type === 'base64') {
+                      toolResultImages.push(part)
+                      return '(see following user message for image)'
+                    } else {
+                      console.warn('Unsupported image source type in tool result, only base64 is supported')
+                      return '(image not supported)'
+                    }
                   }
-                  return part.text
+                  if (part.type === 'text') {
+                    return part.text
+                  }
+                  return ''
                 })
                 .join('\n') ?? ''
           }
@@ -84,14 +93,22 @@ export function convertToOpenAiMessages(anthropicMessages: Anthropic.Messages.Me
             role: 'user',
             content: nonToolMessages.map((part) => {
               if (part.type === 'image') {
-                return {
-                  type: 'image_url',
-                  image_url: {
-                    url: `data:${part.source.media_type};base64,${part.source.data}`
+                if (part.source.type === 'base64') {
+                  return {
+                    type: 'image_url',
+                    image_url: {
+                      url: `data:${part.source.media_type};base64,${part.source.data}`
+                    }
                   }
+                } else {
+                  console.warn('Unsupported image source type, only base64 is supported')
+                  return { type: 'text', text: '' }
                 }
               }
-              return { type: 'text', text: part.text }
+              if (part.type === 'text') {
+                return { type: 'text', text: part.text }
+              }
+              return { type: 'text', text: '' }
             })
           })
         }
@@ -119,7 +136,10 @@ export function convertToOpenAiMessages(anthropicMessages: Anthropic.Messages.Me
               if (part.type === 'image') {
                 return '' // impossible as the assistant cannot send images
               }
-              return part.text
+              if (part.type === 'text') {
+                return part.text
+              }
+              return ''
             })
             .join('\n')
         }
@@ -181,7 +201,10 @@ export function convertToAnthropicMessage(completion: OpenAI.Chat.Completions.Ch
       input_tokens: completion.usage?.prompt_tokens || 0,
       output_tokens: completion.usage?.completion_tokens || 0,
       cache_creation_input_tokens: null,
-      cache_read_input_tokens: null
+      cache_read_input_tokens: null,
+      cache_creation: null,
+      server_tool_use: null,
+      service_tier: null
     }
   }
 
