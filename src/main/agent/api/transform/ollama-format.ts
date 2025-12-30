@@ -40,10 +40,18 @@ export function convertToOllamaMessages(anthropicMessages: Anthropic.Messages.Me
               toolMessage.content
                 ?.map((part) => {
                   if (part.type === 'image') {
-                    toolResultImages.push(`data:${part.source.media_type};base64,${part.source.data}`)
-                    return '(see following user message for image)'
+                    if (part.source.type === 'base64') {
+                      toolResultImages.push(`data:${part.source.media_type};base64,${part.source.data}`)
+                      return '(see following user message for image)'
+                    } else {
+                      console.warn('Unsupported image source type in tool result, only base64 is supported')
+                      return '(image not supported)'
+                    }
                   }
-                  return part.text
+                  if (part.type === 'text') {
+                    return part.text
+                  }
+                  return ''
                 })
                 .join('\n') ?? ''
           }
@@ -61,9 +69,17 @@ export function convertToOllamaMessages(anthropicMessages: Anthropic.Messages.Me
             content: nonToolMessages
               .map((part) => {
                 if (part.type === 'image') {
-                  return `data:${part.source.media_type};base64,${part.source.data}`
+                  if (part.source.type === 'base64') {
+                    return `data:${part.source.media_type};base64,${part.source.data}`
+                  } else {
+                    console.warn('Unsupported image source type, only base64 is supported')
+                    return ''
+                  }
                 }
-                return part.text
+                if (part.type === 'text') {
+                  return part.text
+                }
+                return ''
               })
               .join('\n')
           })
@@ -90,7 +106,10 @@ export function convertToOllamaMessages(anthropicMessages: Anthropic.Messages.Me
               if (part.type === 'image') {
                 return '' // impossible as the assistant cannot send images
               }
-              return part.text
+              if (part.type === 'text') {
+                return part.text
+              }
+              return ''
             })
             .join('\n')
         }

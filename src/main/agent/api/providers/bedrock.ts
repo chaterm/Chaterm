@@ -664,6 +664,12 @@ ${combinedContent}
             // Image content
             if (item.type === 'image') {
               // Handle different image source formats
+              // Check if source is base64 type
+              if (item.source.type !== 'base64') {
+                console.error('Unsupported image source type, only base64 is supported')
+                return null // Skip this item if format is not supported
+              }
+
               let imageData: Uint8Array
               let format = 'jpeg' // default format
 
