@@ -1,6 +1,6 @@
 extends: electron-builder.yml
 
-appId: ai.chaterm.app
+appId: ai.chaterm.global.app
 productName: Chaterm
 
 directories:
@@ -21,6 +21,9 @@ win:
 
 nsis:
   artifactName: ${name}-${version}-setup-${arch}.${ext}
+  guid: ai.chaterm.global.app
+  oneClick: false
+  allowToChangeInstallationDirectory: true
 
 dmg:
   artifactName: ${name}-${version}-macos-${arch}.${ext}

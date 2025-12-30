@@ -99,7 +99,10 @@ export async function getUserConfigFromRenderer(): Promise<any> {
 }
 
 app.whenReady().then(async () => {
-  electronApp.setAppUserModelId('com.electron')
+  // Set edition-specific AppUserModelId for Windows taskbar grouping and process identification
+  const edition = getEdition()
+  const appUserModelId = edition === 'global' ? 'ai.chaterm.global' : 'ai.chaterm.cn'
+  electronApp.setAppUserModelId(appUserModelId)
 
   if (process.platform === 'darwin') {
     app.dock.setIcon(join(__dirname, '../../resources/icon.png'))
