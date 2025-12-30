@@ -136,6 +136,7 @@ export class LiteLlmHandler implements ApiHandler {
     }
     const modelId = this.options.liteLlmModelId || liteLlmDefaultModelId
     const isOminiModel = modelId.includes('o1-mini') || modelId.includes('o3-mini') || modelId.includes('o4-mini')
+    const isGpt5OrAbove = modelId.startsWith('gpt-5') || modelId.startsWith('gpt-6')
 
     // Configuration for extended thinking
     const budgetTokens = 1024
@@ -143,11 +144,8 @@ export class LiteLlmHandler implements ApiHandler {
     const reasoningOn = isThinkingModel
     const thinkingConfig = reasoningOn ? { type: 'enabled', budget_tokens: budgetTokens } : undefined
 
-    let temperature: number | undefined = this.options.liteLlmModelInfo?.temperature ?? 0
-
-    if (isOminiModel && reasoningOn) {
-      temperature = undefined // Thinking mode doesn't support temperature
-    }
+    const temperature: number | undefined = this.options.liteLlmModelInfo?.temperature ?? 0
+    const supportsTemperature = !(isOminiModel && reasoningOn) && !isGpt5OrAbove
 
     const cacheControl = { cache_control: { type: 'ephemeral' as const } }
 
@@ -176,7 +174,7 @@ export class LiteLlmHandler implements ApiHandler {
     const params: OpenAI.Chat.ChatCompletionCreateParamsStreaming = {
       model: this.options.liteLlmModelId || liteLlmDefaultModelId,
       messages: [enhancedSystemMessage, ...enhancedMessages],
-      temperature,
+      ...(supportsTemperature && { temperature }),
       stream: true,
       stream_options: { include_usage: true },
       max_tokens: this.options.liteLlmModelInfo?.maxTokens || 8192
