@@ -1143,5 +1143,17 @@ export default {
     commandCount: '合計 {count} 件のコマンド',
     recording: '記録中',
     commands: 'コマンド'
+  },
+  kubernetes: {
+    title: 'Kubernetes',
+    active: '現在',
+    cluster: 'クラスタ',
+    namespace: 'ネームスペース',
+    server: 'サーバー',
+    switchTo: '切り替え',
+    noContexts: 'Kubernetes コンテキストが見つかりません。~/.kube/config を設定してください',
+    refreshSuccess: 'コンテキストの更新に成功しました',
+    switchSuccess: 'コンテキストを切り替えました: {context}',
+    switchFailed: 'コンテキストの切り替えに失敗しました: {error}'
   }
 }

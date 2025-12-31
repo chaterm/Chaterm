@@ -61,6 +61,7 @@
     "@bufbuild/protobuf": "^2.2.5",
     "@electron-toolkit/preload": "^3.0.0",
     "@electron-toolkit/utils": "^3.0.0",
+    "@kubernetes/client-node": "^1.4.0",
     "@modelcontextprotocol/sdk": "^1.25.1",
     "@types/ssh2": "^1.15.5",
     "@vueuse/core": "^14.0.0",

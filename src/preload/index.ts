@@ -933,7 +933,15 @@ const api = {
   pickSavePath: (name) => ipcRenderer.invoke('zmodem:pickSavePath', name),
   openStream: (savePath) => ipcRenderer.invoke('zmodem:openStream', savePath),
   writeChunk: (streamId, chunk) => ipcRenderer.invoke('zmodem:writeChunk', streamId, chunk),
-  closeStream: (streamId) => ipcRenderer.invoke('zmodem:closeStream', streamId)
+  closeStream: (streamId) => ipcRenderer.invoke('zmodem:closeStream', streamId),
+
+  // K8s APIs
+  k8sGetContexts: () => ipcRenderer.invoke('k8s:get-contexts'),
+  k8sGetContextDetail: (contextName: string) => ipcRenderer.invoke('k8s:get-context-detail', contextName),
+  k8sSwitchContext: (contextName: string) => ipcRenderer.invoke('k8s:switch-context', contextName),
+  k8sReloadConfig: () => ipcRenderer.invoke('k8s:reload-config'),
+  k8sValidateContext: (contextName: string) => ipcRenderer.invoke('k8s:validate-context', contextName),
+  k8sInitialize: () => ipcRenderer.invoke('k8s:initialize')
 }
 // Custom API for browser control
 
