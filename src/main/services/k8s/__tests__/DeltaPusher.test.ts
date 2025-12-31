@@ -662,5 +662,306 @@ describe('DeltaPusher', () => {
       const callArgs = mockMainWindow.webContents.send.mock.calls[0]
       expect(callArgs[1].deltas.length).toBe(5)
     })
+
+    it('should respect maxBatchSize and create multiple batches', async () => {
+      const pusher = new DeltaPusher(mockInformerPool as any, {
+        throttleWindowMs: 50,
+        maxBatchSize: 3
+      })
+
+      pusher.setMainWindow(mockMainWindow as any)
+
+      const events: K8sResourceEvent[] = Array.from({ length: 10 }, (_, i) => ({
+        type: K8sEventType.ADDED,
+        contextName: 'test-context',
+        resource: {
+          kind: 'Pod',
+          metadata: {
+            uid: `pod-${i}`,
+            name: `test-pod-${i}`,
+            namespace: 'default'
+          },
+          spec: {},
+          status: {}
+        }
+      }))
+
+      const eventListener = eventListeners.get('event')
+      events.forEach((event) => eventListener!(event))
+
+      await new Promise((resolve) => setTimeout(resolve, 150))
+
+      expect(mockMainWindow.webContents.send).toHaveBeenCalledTimes(4)
+
+      pusher.destroy()
+    })
+
+    it('should create separate batches after throttle window expires', async () => {
+      mockMainWindow.webContents.send.mockClear()
+
+      const eventListener = eventListeners.get('event')
+
+      eventListener!({
+        type: K8sEventType.ADDED,
+        contextName: 'test-context',
+        resource: {
+          kind: 'Pod',
+          metadata: {
+            uid: 'pod-1',
+            name: 'pod-1',
+            namespace: 'default'
+          },
+          spec: {},
+          status: {}
+        }
+      })
+
+      await new Promise((resolve) => setTimeout(resolve, 100))
+
+      expect(mockMainWindow.webContents.send).toHaveBeenCalledTimes(1)
+      mockMainWindow.webContents.send.mockClear()
+
+      eventListener!({
+        type: K8sEventType.ADDED,
+        contextName: 'test-context',
+        resource: {
+          kind: 'Pod',
+          metadata: {
+            uid: 'pod-2',
+            name: 'pod-2',
+            namespace: 'default'
+          },
+          spec: {},
+          status: {}
+        }
+      })
+
+      await new Promise((resolve) => setTimeout(resolve, 100))
+
+      expect(mockMainWindow.webContents.send).toHaveBeenCalledTimes(1)
+    })
+
+    it('should handle rapid burst of events', async () => {
+      mockMainWindow.webContents.send.mockClear()
+
+      const eventListener = eventListeners.get('event')
+
+      for (let i = 0; i < 100; i++) {
+        eventListener!({
+          type: K8sEventType.ADDED,
+          contextName: 'test-context',
+          resource: {
+            kind: 'Pod',
+            metadata: {
+              uid: `pod-burst-${i}`,
+              name: `pod-burst-${i}`,
+              namespace: 'default'
+            },
+            spec: {},
+            status: {}
+          }
+        })
+      }
+
+      await new Promise((resolve) => setTimeout(resolve, 200))
+
+      expect(mockMainWindow.webContents.send).toHaveBeenCalled()
+
+      let totalDeltas = 0
+      mockMainWindow.webContents.send.mock.calls.forEach((call: any[]) => {
+        if (call[0] === 'k8s:delta-batch') {
+          totalDeltas += call[1].deltas.length
+        }
+      })
+
+      expect(totalDeltas).toBe(100)
+    })
+
+    it('should batch UPDATE events with patches', async () => {
+      mockMainWindow.webContents.send.mockClear()
+
+      const eventListener = eventListeners.get('event')
+
+      const addEvent: K8sResourceEvent = {
+        type: K8sEventType.ADDED,
+        contextName: 'test-context',
+        resource: {
+          kind: 'Pod',
+          metadata: {
+            uid: 'pod-update',
+            name: 'test-pod',
+            namespace: 'default'
+          },
+          spec: {},
+          status: { phase: 'Pending' }
+        }
+      }
+
+      eventListener!(addEvent)
+      await new Promise((resolve) => setTimeout(resolve, 100))
+
+      mockMainWindow.webContents.send.mockClear()
+
+      for (let i = 0; i < 5; i++) {
+        eventListener!({
+          type: K8sEventType.MODIFIED,
+          contextName: 'test-context',
+          resource: {
+            kind: 'Pod',
+            metadata: {
+              uid: 'pod-update',
+              name: 'test-pod',
+              namespace: 'default'
+            },
+            spec: {},
+            status: { phase: 'Running', restartCount: i }
+          }
+        })
+      }
+
+      await new Promise((resolve) => setTimeout(resolve, 100))
+
+      expect(mockMainWindow.webContents.send).toHaveBeenCalled()
+
+      const updateCalls = mockMainWindow.webContents.send.mock.calls.filter((call: any[]) => call[0] === 'k8s:delta-batch')
+
+      expect(updateCalls.length).toBeGreaterThan(0)
+    })
+  })
+
+  describe('performance optimization', () => {
+    beforeEach(() => {
+      deltaPusher.setMainWindow(mockMainWindow as any)
+    })
+
+    it('should reduce IPC calls through batching', async () => {
+      mockMainWindow.webContents.send.mockClear()
+
+      const eventListener = eventListeners.get('event')
+      const eventCount = 50
+
+      for (let i = 0; i < eventCount; i++) {
+        eventListener!({
+          type: K8sEventType.ADDED,
+          contextName: 'test-context',
+          resource: {
+            kind: 'Pod',
+            metadata: {
+              uid: `pod-${i}`,
+              name: `pod-${i}`,
+              namespace: 'default'
+            },
+            spec: {},
+            status: {}
+          }
+        })
+      }
+
+      await new Promise((resolve) => setTimeout(resolve, 200))
+
+      const ipcCalls = mockMainWindow.webContents.send.mock.calls.filter((call: any[]) => call[0] === 'k8s:delta-batch').length
+
+      expect(ipcCalls).toBeLessThan(eventCount)
+      expect(ipcCalls).toBeGreaterThan(0)
+    })
+
+    it('should handle mixed event types efficiently', async () => {
+      mockMainWindow.webContents.send.mockClear()
+
+      const eventListener = eventListeners.get('event')
+
+      const addEvent: K8sResourceEvent = {
+        type: K8sEventType.ADDED,
+        contextName: 'test-context',
+        resource: {
+          kind: 'Pod',
+          metadata: {
+            uid: 'pod-mixed',
+            name: 'test-pod',
+            namespace: 'default'
+          },
+          spec: {},
+          status: {}
+        }
+      }
+
+      eventListener!(addEvent)
+      await new Promise((resolve) => setTimeout(resolve, 100))
+
+      mockMainWindow.webContents.send.mockClear()
+
+      for (let i = 0; i < 10; i++) {
+        eventListener!({
+          type: K8sEventType.MODIFIED,
+          contextName: 'test-context',
+          resource: {
+            ...addEvent.resource,
+            status: { phase: 'Running', restartCount: i }
+          }
+        })
+      }
+
+      eventListener!({
+        type: K8sEventType.DELETED,
+        contextName: 'test-context',
+        resource: addEvent.resource
+      })
+
+      await new Promise((resolve) => setTimeout(resolve, 100))
+
+      const calls = mockMainWindow.webContents.send.mock.calls.filter((call: any[]) => call[0] === 'k8s:delta-batch')
+
+      expect(calls.length).toBeGreaterThan(0)
+    })
+  })
+
+  describe('edge cases in batching', () => {
+    beforeEach(() => {
+      deltaPusher.setMainWindow(mockMainWindow as any)
+    })
+
+    it('should handle empty batches gracefully', () => {
+      expect(() => deltaPusher.flushAll()).not.toThrow()
+    })
+
+    it('should handle events for unknown resource types', async () => {
+      mockMainWindow.webContents.send.mockClear()
+
+      const eventListener = eventListeners.get('event')
+
+      eventListener!({
+        type: K8sEventType.ADDED,
+        contextName: 'test-context',
+        resource: {
+          kind: 'CustomResource',
+          metadata: {
+            uid: 'custom-1',
+            name: 'custom-resource'
+          },
+          spec: {},
+          status: {}
+        }
+      })
+
+      await new Promise((resolve) => setTimeout(resolve, 100))
+
+      expect(mockMainWindow.webContents.send).not.toHaveBeenCalled()
+    })
+
+    it('should handle resources without metadata gracefully', async () => {
+      const eventListener = eventListeners.get('event')
+
+      const malformedEvent: any = {
+        type: K8sEventType.ADDED,
+        contextName: 'test-context',
+        resource: {
+          kind: 'Pod',
+          spec: {},
+          status: {}
+        }
+      }
+
+      expect(() => eventListener!(malformedEvent)).not.toThrow()
+    })
   })
 })

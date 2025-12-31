@@ -261,5 +261,198 @@ describe('KubeConfigLoader', () => {
       expect(result.success).toBe(true)
       expect(result.contexts[0].server).toBe('unknown')
     })
+
+    it('should handle contexts with null/undefined properties', async () => {
+      mockGetContexts.mockReturnValue([
+        {
+          name: 'minimal-context',
+          cluster: null,
+          user: null,
+          namespace: null
+        }
+      ])
+
+      const result = await loader.loadFromDefault()
+
+      expect(result.success).toBe(true)
+      expect(result.contexts[0].namespace).toBe('default')
+      expect(result.contexts[0].server).toBe('unknown')
+    })
+
+    it('should handle missing user information', async () => {
+      mockGetUsers.mockReturnValue([])
+
+      await loader.loadFromDefault()
+
+      const detail = loader.getContextDetail('context1')
+
+      expect(detail).toBeDefined()
+      expect(detail?.userInfo).toBeUndefined()
+    })
+
+    it('should handle mixed authentication types', async () => {
+      mockGetUsers.mockReturnValue([
+        {
+          name: 'user-with-certs',
+          certFile: '/path/to/cert.pem',
+          keyFile: '/path/to/key.pem'
+        },
+        {
+          name: 'user-with-token',
+          token: 'bearer-token-123'
+        },
+        {
+          name: 'user-with-basic',
+          username: 'admin',
+          password: 'secret'
+        }
+      ])
+
+      await loader.loadFromDefault()
+
+      const certDetail = loader.getContextDetail('context1')
+      expect(certDetail?.userInfo?.clientCertificate).toBe('/path/to/cert.pem')
+      expect(certDetail?.userInfo?.clientKey).toBe('/path/to/key.pem')
+    })
+  })
+
+  describe('loadFromFile', () => {
+    it('should load from custom path', async () => {
+      const customPath = '/custom/path/kubeconfig'
+      const result = await loader.loadFromFile(customPath)
+
+      expect(mockLoadFromFile).toHaveBeenCalledWith(customPath)
+      expect(result.success).toBe(true)
+    })
+
+    it('should return error for non-existent file', async () => {
+      const nonExistentPath = '/does/not/exist/config'
+      const result = await loader.loadFromFile(nonExistentPath)
+
+      expect(result.success).toBe(false)
+      expect(result.error).toContain('not found')
+    })
+  })
+
+  describe('validateContext', () => {
+    it('should validate a working context', async () => {
+      await loader.loadFromDefault()
+      mockMakeApiClient.mockReturnValue({
+        getAPIResources: vi.fn().mockResolvedValue({})
+      })
+
+      const isValid = await loader.validateContext('context1')
+
+      expect(isValid).toBe(true)
+      expect(mockSetCurrentContext).toHaveBeenCalledWith('context1')
+    })
+
+    it('should return false for invalid context', async () => {
+      await loader.loadFromDefault()
+      mockMakeApiClient.mockReturnValue({
+        getAPIResources: vi.fn().mockRejectedValue(new Error('Connection refused'))
+      })
+
+      const isValid = await loader.validateContext('context1')
+
+      expect(isValid).toBe(false)
+    })
+
+    it('should restore original context after validation', async () => {
+      await loader.loadFromDefault()
+      mockGetCurrentContext.mockReturnValue('context2')
+      mockMakeApiClient.mockReturnValue({
+        getAPIResources: vi.fn().mockResolvedValue({})
+      })
+
+      await loader.validateContext('context1')
+
+      expect(mockSetCurrentContext).toHaveBeenCalledWith('context2')
+    })
+
+    it('should handle validation before initialization', async () => {
+      const freshLoader = new KubeConfigLoader()
+      mockMakeApiClient.mockReturnValue({
+        getAPIResources: vi.fn().mockResolvedValue({})
+      })
+
+      const isValid = await freshLoader.validateContext('context1')
+
+      expect(isValid).toBe(true)
+    })
+  })
+
+  describe('getKubeConfig', () => {
+    it('should return the internal KubeConfig instance', async () => {
+      await loader.loadFromDefault()
+
+      const kc = loader.getKubeConfig()
+
+      expect(kc).toBeDefined()
+      expect(kc.getContexts).toBeDefined()
+    })
+
+    it('should return undefined before initialization', () => {
+      const freshLoader = new KubeConfigLoader()
+      const kc = freshLoader.getKubeConfig()
+
+      expect(kc).toBeUndefined()
+    })
+  })
+
+  describe('concurrent operations', () => {
+    it('should handle multiple simultaneous loadFromDefault calls', async () => {
+      const results = await Promise.all([loader.loadFromDefault(), loader.loadFromDefault(), loader.loadFromDefault()])
+
+      results.forEach((result) => {
+        expect(result.success).toBe(true)
+        expect(result.contexts).toHaveLength(2)
+      })
+    })
+
+    it('should handle rapid context switching', async () => {
+      await loader.loadFromDefault()
+
+      const results = [loader.setCurrentContext('context1'), loader.setCurrentContext('context2'), loader.setCurrentContext('context1')]
+
+      expect(results.every((r) => r === true)).toBe(true)
+    })
+  })
+
+  describe('cluster information extraction', () => {
+    it('should extract full cluster details', async () => {
+      mockGetClusters.mockReturnValue([
+        {
+          name: 'cluster1',
+          server: 'https://192.168.1.100:6443',
+          caFile: '/path/to/ca.crt',
+          skipTLSVerify: false
+        }
+      ])
+
+      await loader.loadFromDefault()
+
+      const detail = loader.getContextDetail('context1')
+
+      expect(detail?.clusterInfo?.server).toBe('https://192.168.1.100:6443')
+      expect(detail?.clusterInfo?.certificateAuthority).toBe('/path/to/ca.crt')
+      expect(detail?.clusterInfo?.skipTLSVerify).toBe(false)
+    })
+
+    it('should handle insecure clusters with skipTLSVerify', async () => {
+      mockGetClusters.mockReturnValue([
+        {
+          name: 'cluster1',
+          server: 'https://dev-cluster:6443',
+          skipTLSVerify: true
+        }
+      ])
+
+      await loader.loadFromDefault()
+
+      const detail = loader.getContextDetail('context1')
+
+      expect(detail?.clusterInfo?.skipTLSVerify).toBe(true)
+    })
   })
 })
