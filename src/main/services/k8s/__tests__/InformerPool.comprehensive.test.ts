@@ -50,62 +50,65 @@ class MockInformer extends EventEmitter {
 
 let mockInformerInstance: MockInformer | null = null
 
+// Create a mock KubeConfig instance
+const mockKubeConfig = {
+  loadFromDefault: vi.fn(),
+  loadFromFile: vi.fn(),
+  setCurrentContext: vi.fn(),
+  getCurrentContext: vi.fn().mockReturnValue('test-context'),
+  getContexts: vi.fn().mockReturnValue([
+    {
+      name: 'test-context',
+      cluster: 'test-cluster',
+      user: 'test-user',
+      namespace: 'default'
+    },
+    {
+      name: 'prod-context',
+      cluster: 'prod-cluster',
+      user: 'prod-user',
+      namespace: 'default'
+    }
+  ]),
+  getClusters: vi.fn().mockReturnValue([
+    {
+      name: 'test-cluster',
+      server: 'https://127.0.0.1:6443',
+      skipTLSVerify: true
+    },
+    {
+      name: 'prod-cluster',
+      server: 'https://prod.example.com:6443'
+    }
+  ]),
+  getUsers: vi.fn().mockReturnValue([
+    {
+      name: 'test-user',
+      token: 'test-token'
+    },
+    {
+      name: 'prod-user',
+      token: 'prod-token'
+    }
+  ]),
+  makeApiClient: vi.fn().mockReturnValue({
+    listPodForAllNamespaces: vi.fn().mockResolvedValue({
+      body: {
+        items: []
+      }
+    }),
+    listNode: vi.fn().mockResolvedValue({
+      body: {
+        items: []
+      }
+    })
+  })
+}
+
 // Mock @kubernetes/client-node
 vi.mock('@kubernetes/client-node', () => {
   return {
-    KubeConfig: vi.fn().mockImplementation(() => ({
-      loadFromDefault: vi.fn(),
-      loadFromFile: vi.fn(),
-      setCurrentContext: vi.fn(),
-      getCurrentContext: vi.fn().mockReturnValue('test-context'),
-      getContexts: vi.fn().mockReturnValue([
-        {
-          name: 'test-context',
-          cluster: 'test-cluster',
-          user: 'test-user',
-          namespace: 'default'
-        },
-        {
-          name: 'prod-context',
-          cluster: 'prod-cluster',
-          user: 'prod-user',
-          namespace: 'default'
-        }
-      ]),
-      getClusters: vi.fn().mockReturnValue([
-        {
-          name: 'test-cluster',
-          server: 'https://127.0.0.1:6443',
-          skipTLSVerify: true
-        },
-        {
-          name: 'prod-cluster',
-          server: 'https://prod.example.com:6443'
-        }
-      ]),
-      getUsers: vi.fn().mockReturnValue([
-        {
-          name: 'test-user',
-          token: 'test-token'
-        },
-        {
-          name: 'prod-user',
-          token: 'prod-token'
-        }
-      ]),
-      makeApiClient: vi.fn().mockReturnValue({
-        listPodForAllNamespaces: vi.fn().mockResolvedValue({
-          body: {
-            items: []
-          }
-        }),
-        listNode: vi.fn().mockResolvedValue({
-          body: {
-            items: []
-          }
-        })
-      })
-    })),
+    KubeConfig: vi.fn().mockImplementation(() => mockKubeConfig),
     CoreV1Api: vi.fn(),
     makeInformer: vi.fn().mockImplementation(() => {
       mockInformerInstance = new MockInformer()
@@ -126,7 +129,12 @@ describe('InformerPool - Comprehensive Tests', () => {
     vi.clearAllMocks()
     mockInformerInstance = null
     configLoader = new KubeConfigLoader()
-    await configLoader.loadFromDefault()
+
+    // Mock getKubeConfig to return the mockKubeConfig
+    // @ts-ignore - mocking private property
+    configLoader['initialized'] = true
+    vi.spyOn(configLoader, 'getKubeConfig').mockReturnValue(mockKubeConfig)
+
     informerPool = new InformerPool(configLoader)
   })
 
@@ -491,6 +499,11 @@ describe('InformerPool - Comprehensive Tests', () => {
     })
 
     it('should track errors correctly', async () => {
+      // Add error handler to prevent unhandled error
+      informerPool.on('error', () => {
+        // Error is expected, do nothing
+      })
+
       await informerPool.startInformer('Pod', { contextName: 'test-context' })
 
       await new Promise((resolve) => setTimeout(resolve, 50))

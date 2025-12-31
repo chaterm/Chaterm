@@ -51,41 +51,44 @@ class MockInformerWithReconnect extends EventEmitter {
 
 let mockInformerInstance: MockInformerWithReconnect | null = null
 
+// Create a mock KubeConfig instance
+const mockKubeConfig = {
+  loadFromDefault: vi.fn(),
+  setCurrentContext: vi.fn(),
+  getCurrentContext: vi.fn().mockReturnValue('test-context'),
+  getContexts: vi.fn().mockReturnValue([
+    {
+      name: 'test-context',
+      cluster: 'test-cluster',
+      user: 'test-user',
+      namespace: 'default'
+    }
+  ]),
+  getClusters: vi.fn().mockReturnValue([
+    {
+      name: 'test-cluster',
+      server: 'https://127.0.0.1:6443'
+    }
+  ]),
+  getUsers: vi.fn().mockReturnValue([
+    {
+      name: 'test-user'
+    }
+  ]),
+  makeApiClient: vi.fn().mockReturnValue({
+    listPodForAllNamespaces: vi.fn().mockResolvedValue({
+      body: { items: [] }
+    }),
+    listNode: vi.fn().mockResolvedValue({
+      body: { items: [] }
+    })
+  })
+}
+
 // Mock @kubernetes/client-node
 vi.mock('@kubernetes/client-node', () => {
   return {
-    KubeConfig: vi.fn().mockImplementation(() => ({
-      loadFromDefault: vi.fn(),
-      setCurrentContext: vi.fn(),
-      getCurrentContext: vi.fn().mockReturnValue('test-context'),
-      getContexts: vi.fn().mockReturnValue([
-        {
-          name: 'test-context',
-          cluster: 'test-cluster',
-          user: 'test-user',
-          namespace: 'default'
-        }
-      ]),
-      getClusters: vi.fn().mockReturnValue([
-        {
-          name: 'test-cluster',
-          server: 'https://127.0.0.1:6443'
-        }
-      ]),
-      getUsers: vi.fn().mockReturnValue([
-        {
-          name: 'test-user'
-        }
-      ]),
-      makeApiClient: vi.fn().mockReturnValue({
-        listPodForAllNamespaces: vi.fn().mockResolvedValue({
-          body: { items: [] }
-        }),
-        listNode: vi.fn().mockResolvedValue({
-          body: { items: [] }
-        })
-      })
-    })),
+    KubeConfig: vi.fn().mockImplementation(() => mockKubeConfig),
     CoreV1Api: vi.fn(),
     makeInformer: vi.fn().mockImplementation(() => {
       mockInformerInstance = new MockInformerWithReconnect()
@@ -106,8 +109,18 @@ describe('Informer Reconnection Logic', () => {
     vi.clearAllMocks()
     mockInformerInstance = null
     configLoader = new KubeConfigLoader()
-    await configLoader.loadFromDefault()
+
+    // Mock getKubeConfig to return the mockKubeConfig
+    // @ts-ignore - mocking private property
+    configLoader['initialized'] = true
+    vi.spyOn(configLoader, 'getKubeConfig').mockReturnValue(mockKubeConfig)
+
     informerPool = new InformerPool(configLoader)
+
+    // Add default error handler to prevent unhandled errors in tests
+    informerPool.on('error', () => {
+      // Expected errors, do nothing
+    })
   })
 
   afterEach(async () => {

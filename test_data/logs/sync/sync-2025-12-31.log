@@ -1,0 +1,9 @@
+{"timestamp":"2025-12-31T12:03:14.511Z","level":"warn","message":"Operation test attempt 1 failed: unknown","deviceId":"device-b48444d5-8b10-558c-b8c9-c1c789135f76"}
+{"timestamp":"2025-12-31T12:03:14.512Z","level":"error","message":"Operation test encountered non-retryable error: unknown","deviceId":"device-b48444d5-8b10-558c-b8c9-c1c789135f76"}
+{"timestamp":"2025-12-31T12:03:14.512Z","level":"warn","message":"Operation net attempt 1 failed: timeout","deviceId":"device-b48444d5-8b10-558c-b8c9-c1c789135f76"}
+{"timestamp":"2025-12-31T12:03:14.612Z","level":"warn","message":"Operation net attempt 2 failed: timeout","deviceId":"device-b48444d5-8b10-558c-b8c9-c1c789135f76"}
+{"timestamp":"2025-12-31T12:03:14.812Z","level":"warn","message":"Operation net attempt 3 failed: timeout","deviceId":"device-b48444d5-8b10-558c-b8c9-c1c789135f76"}
+{"timestamp":"2025-12-31T12:03:14.812Z","level":"error","message":"Operation net still failed after 3 attempts","deviceId":"device-b48444d5-8b10-558c-b8c9-c1c789135f76"}
+{"timestamp":"2025-12-31T12:03:14.515Z","level":"warn","message":"Operation net attempt 1 failed: timeout","deviceId":"device-b48444d5-8b10-558c-b8c9-c1c789135f76"}
+{"timestamp":"2025-12-31T12:03:14.565Z","level":"info","message":"Operation net succeeded after 2 attempts","deviceId":"device-b48444d5-8b10-558c-b8c9-c1c789135f76"}
+{"timestamp":"2025-12-31T12:03:14.677Z","level":"info","message":"Smart sync analysis: t_assets_sync has 1 pending changes","deviceId":"device-b48444d5-8b10-558c-b8c9-c1c789135f76"}

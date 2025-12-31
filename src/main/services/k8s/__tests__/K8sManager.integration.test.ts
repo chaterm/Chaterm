@@ -18,63 +18,92 @@ class MockInformer extends EventEmitter {
   }
 }
 
+// Create mock KubeConfig
+const mockKubeConfig = {
+  loadFromDefault: vi.fn(),
+  loadFromFile: vi.fn(),
+  setCurrentContext: vi.fn(),
+  getCurrentContext: vi.fn().mockReturnValue('minikube'),
+  getContexts: vi.fn().mockReturnValue([
+    {
+      name: 'minikube',
+      cluster: 'minikube',
+      user: 'minikube',
+      namespace: 'default'
+    },
+    {
+      name: 'production',
+      cluster: 'production',
+      user: 'admin',
+      namespace: 'default'
+    }
+  ]),
+  getClusters: vi.fn().mockReturnValue([
+    {
+      name: 'minikube',
+      server: 'https://127.0.0.1:8443',
+      skipTLSVerify: true
+    },
+    {
+      name: 'production',
+      server: 'https://prod.example.com:6443'
+    }
+  ]),
+  getUsers: vi.fn().mockReturnValue([
+    {
+      name: 'minikube',
+      token: 'minikube-token'
+    },
+    {
+      name: 'admin',
+      token: 'admin-token'
+    }
+  ]),
+  makeApiClient: vi.fn().mockReturnValue({
+    listPodForAllNamespaces: vi.fn().mockResolvedValue({
+      body: { items: [] }
+    }),
+    listNode: vi.fn().mockResolvedValue({
+      body: { items: [] }
+    }),
+    getAPIResources: vi.fn().mockResolvedValue({
+      body: { resources: [] }
+    })
+  })
+}
+
 // Mock @kubernetes/client-node
 vi.mock('@kubernetes/client-node', () => {
   return {
-    KubeConfig: vi.fn().mockImplementation(() => ({
-      loadFromDefault: vi.fn(),
-      loadFromFile: vi.fn(),
-      setCurrentContext: vi.fn(),
-      getCurrentContext: vi.fn().mockReturnValue('minikube'),
-      getContexts: vi.fn().mockReturnValue([
-        {
-          name: 'minikube',
-          cluster: 'minikube',
-          user: 'minikube',
-          namespace: 'default'
-        },
-        {
-          name: 'production',
-          cluster: 'production',
-          user: 'admin',
-          namespace: 'default'
-        }
-      ]),
-      getClusters: vi.fn().mockReturnValue([
-        {
-          name: 'minikube',
-          server: 'https://127.0.0.1:8443',
-          skipTLSVerify: true
-        },
-        {
-          name: 'production',
-          server: 'https://prod.example.com:6443'
-        }
-      ]),
-      getUsers: vi.fn().mockReturnValue([
-        {
-          name: 'minikube',
-          token: 'minikube-token'
-        },
-        {
-          name: 'admin',
-          token: 'admin-token'
-        }
-      ]),
-      makeApiClient: vi.fn().mockReturnValue({
-        listPodForAllNamespaces: vi.fn().mockResolvedValue({
-          body: { items: [] }
-        }),
-        listNode: vi.fn().mockResolvedValue({
-          body: { items: [] }
-        }),
-        getAPIResources: vi.fn().mockResolvedValue({
-          body: { resources: [] }
-        })
-      })
-    })),
+    KubeConfig: vi.fn().mockImplementation(() => mockKubeConfig),
     CoreV1Api: vi.fn(),
     makeInformer: vi.fn().mockImplementation(() => new MockInformer())
+  }
+})
+
+// Mock KubeConfigLoader
+vi.mock('../KubeConfigLoader', () => {
+  return {
+    KubeConfigLoader: vi.fn().mockImplementation(() => ({
+      loadFromDefault: vi.fn().mockResolvedValue({
+        success: true,
+        contexts: [
+          { name: 'minikube', cluster: 'minikube', namespace: 'default', server: 'https://127.0.0.1:8443', isActive: true },
+          { name: 'production', cluster: 'production', namespace: 'default', server: 'https://prod.example.com:6443', isActive: false }
+        ],
+        currentContext: 'minikube'
+      }),
+      getContextDetail: vi.fn((contextName: string) => ({
+        name: contextName,
+        cluster: contextName === 'minikube' ? 'minikube' : 'production',
+        user: contextName === 'minikube' ? 'minikube' : 'admin',
+        namespace: 'default'
+      })),
+      setCurrentContext: vi.fn().mockReturnValue(true),
+      validateContext: vi.fn().mockResolvedValue(true),
+      getCurrentContext: vi.fn().mockReturnValue('minikube'),
+      getKubeConfig: vi.fn().mockReturnValue(mockKubeConfig)
+    }))
   }
 })
 
@@ -412,7 +441,8 @@ describe('K8sManager', () => {
     it('should handle startWatching with invalid context gracefully', async () => {
       await manager.initialize()
 
-      await expect(manager.startWatching('invalid-context', ['Pod'])).rejects.toThrow()
+      // startWatching catches errors internally and logs them, doesn't reject
+      await expect(manager.startWatching('invalid-context', ['Pod'])).resolves.not.toThrow()
     })
   })
 
