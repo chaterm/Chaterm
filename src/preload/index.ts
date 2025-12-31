@@ -879,6 +879,16 @@ const api = {
     return () => ipcRenderer.removeListener('security-config-file-changed', listener)
   },
 
+  // Keyword Highlight configuration
+  getKeywordHighlightConfigPath: () => ipcRenderer.invoke('keyword-highlight-get-config-path'),
+  readKeywordHighlightConfig: () => ipcRenderer.invoke('keyword-highlight-read-config'),
+  writeKeywordHighlightConfig: (content: string) => ipcRenderer.invoke('keyword-highlight-write-config', content),
+  onKeywordHighlightConfigFileChanged: (callback: (content: string) => void) => {
+    const listener = (_event, content) => callback(content)
+    ipcRenderer.on('keyword-highlight-config-file-changed', listener)
+    return () => ipcRenderer.removeListener('keyword-highlight-config-file-changed', listener)
+  },
+
   // IndexedDB migration related API
   getMigrationStatus: (params: { dataSource?: string }) => ipcRenderer.invoke('db:migration:status', params),
   aliasesQuery: (params: { action: string; searchText?: string; alias?: string }) => ipcRenderer.invoke('db:aliases:query', params),

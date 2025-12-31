@@ -160,6 +160,10 @@ interface ApiType {
   readSecurityConfig: () => Promise<string>
   writeSecurityConfig: (content: string) => Promise<void>
   onSecurityConfigFileChanged: (callback: (content: string) => void) => () => void
+  getKeywordHighlightConfigPath: () => Promise<string>
+  readKeywordHighlightConfig: () => Promise<string>
+  writeKeywordHighlightConfig: (content: string) => Promise<{ success: boolean }>
+  onKeywordHighlightConfigFileChanged: (callback: (content: string) => void) => () => void
   setDataSyncEnabled: (enabled: boolean) => Promise<any>
   getSystemInfo: (id: string) => Promise<any>
 }

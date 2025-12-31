@@ -122,6 +122,7 @@ import { createJumpServerStatusHandler, formatStatusMessage, type JumpServerStat
 import { useDeviceStore } from '@/store/useDeviceStore'
 import { isFocusInAiTab } from '@/utils/domUtils'
 import { checkUserDevice } from '@api/user/user'
+import { keywordHighlightService } from '@/services/keywordHighlightService'
 const { t } = useI18n()
 const selectFlag = ref(false)
 const configStore = userConfigStore()
@@ -361,6 +362,14 @@ onMounted(async () => {
   config = await serviceUserConfig.getConfig()
   dbConfigStash = config
   queryCommandFlag.value = config.autoCompleteStatus == 1
+
+  // Load keyword highlight configuration
+  try {
+    await keywordHighlightService.loadConfig()
+  } catch (error) {
+    console.error('[SSH] Failed to load keyword highlight config:', error)
+  }
+
   const actualTheme = getActualTheme(config.theme)
   const termInstance = markRaw(
     new Terminal({
@@ -482,12 +491,19 @@ onMounted(async () => {
   cusWrite = function (data: string, options?: { isUserCall?: boolean }): void {
     const currentIsUserCall = options?.isUserCall ?? false
     userInputFlag.value = currentIsUserCall
+
+    // Apply keyword highlighting only to output (not user input)
+    let processedData = data
+    if (!currentIsUserCall && keywordHighlightService.isEnabled()) {
+      processedData = keywordHighlightService.applyHighlight(data)
+    }
+
     const originalRequestRefresh = renderService.refreshRows.bind(renderService)
     const originalTriggerRedraw = renderService._renderDebouncer.refresh.bind(renderService._renderDebouncer)
     renderService.refreshRows = () => {}
     renderService._renderDebouncer.refresh = () => {}
 
-    originalWrite(data, () => {
+    originalWrite(processedData, () => {
       if (!currentIsUserCall) {
         debouncedUpdateTerminalState(data, currentIsUserCall)
       }
