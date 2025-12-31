@@ -182,7 +182,6 @@
       </a-form>
     </a-card>
 
-    <!-- 手机号绑定弹框 -->
     <a-modal
       v-if="isChineseEdition()"
       v-model:open="showMobileModal"
@@ -227,7 +226,6 @@
       </div>
     </a-modal>
 
-    <!-- 密码重置弹框 -->
     <a-modal
       v-model:open="showPasswordModal"
       :title="t('userInfo.resetPassword')"
@@ -291,7 +289,6 @@
       </div>
     </a-modal>
 
-    <!-- 邮箱绑定弹框 -->
     <a-modal
       v-model:open="showEmailModal"
       :title="userInfo.email ? t('userInfo.modifyEmail') : t('userInfo.bindEmail')"
