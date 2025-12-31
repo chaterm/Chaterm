@@ -84,26 +84,43 @@ vi.mock('@kubernetes/client-node', () => {
 // Mock KubeConfigLoader
 vi.mock('../KubeConfigLoader', () => {
   return {
-    KubeConfigLoader: vi.fn().mockImplementation(() => ({
-      loadFromDefault: vi.fn().mockResolvedValue({
-        success: true,
-        contexts: [
-          { name: 'minikube', cluster: 'minikube', namespace: 'default', server: 'https://127.0.0.1:8443', isActive: true },
-          { name: 'production', cluster: 'production', namespace: 'default', server: 'https://prod.example.com:6443', isActive: false }
-        ],
-        currentContext: 'minikube'
-      }),
-      getContextDetail: vi.fn((contextName: string) => ({
-        name: contextName,
-        cluster: contextName === 'minikube' ? 'minikube' : 'production',
-        user: contextName === 'minikube' ? 'minikube' : 'admin',
-        namespace: 'default'
-      })),
-      setCurrentContext: vi.fn().mockReturnValue(true),
-      validateContext: vi.fn().mockResolvedValue(true),
-      getCurrentContext: vi.fn().mockReturnValue('minikube'),
-      getKubeConfig: vi.fn().mockReturnValue(mockKubeConfig)
-    }))
+    KubeConfigLoader: class MockKubeConfigLoader {
+      async loadFromDefault() {
+        return {
+          success: true,
+          contexts: [
+            { name: 'minikube', cluster: 'minikube', namespace: 'default', server: 'https://127.0.0.1:8443', isActive: true },
+            { name: 'production', cluster: 'production', namespace: 'default', server: 'https://prod.example.com:6443', isActive: false }
+          ],
+          currentContext: 'minikube'
+        }
+      }
+
+      getContextDetail(contextName: string) {
+        return {
+          name: contextName,
+          cluster: contextName === 'minikube' ? 'minikube' : 'production',
+          user: contextName === 'minikube' ? 'minikube' : 'admin',
+          namespace: 'default'
+        }
+      }
+
+      setCurrentContext() {
+        return true
+      }
+
+      async validateContext() {
+        return true
+      }
+
+      getCurrentContext() {
+        return 'minikube'
+      }
+
+      getKubeConfig() {
+        return mockKubeConfig
+      }
+    }
   }
 })
 
