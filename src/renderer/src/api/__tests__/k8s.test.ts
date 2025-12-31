@@ -346,6 +346,21 @@ describe('K8s API', () => {
     })
 
     it('should handle optional fields correctly', async () => {
+      // Ensure mock has currentContext
+      mockK8sGetContexts.mockResolvedValue({
+        success: true,
+        data: [
+          {
+            name: 'context1',
+            cluster: 'cluster1',
+            namespace: 'default',
+            server: 'https://cluster1.example.com',
+            isActive: true
+          }
+        ],
+        currentContext: 'context1'
+      })
+
       const result = await k8sApi.getContexts()
 
       // These fields should be optional
@@ -356,6 +371,21 @@ describe('K8s API', () => {
 
   describe('integration scenarios', () => {
     it('should handle rapid successive calls', async () => {
+      // Ensure mock works for all 10 calls
+      mockK8sGetContexts.mockResolvedValue({
+        success: true,
+        data: [
+          {
+            name: 'context1',
+            cluster: 'cluster1',
+            namespace: 'default',
+            server: 'https://cluster1.example.com',
+            isActive: true
+          }
+        ],
+        currentContext: 'context1'
+      })
+
       const promises = Array.from({ length: 10 }, () => k8sApi.getContexts())
 
       const results = await Promise.all(promises)

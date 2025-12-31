@@ -3,7 +3,9 @@
  * Wraps IPC calls to main process
  */
 
-const api = (window as any).api
+// Use a getter to ensure we always access the current window.api value
+// This is important for testing where window.api may be mocked
+const getApi = () => (window as any).api
 
 export interface K8sContextInfo {
   name: string
@@ -25,7 +27,7 @@ export interface K8sApiResponse<T = any> {
  */
 export async function getContexts(): Promise<K8sApiResponse<K8sContextInfo[]>> {
   try {
-    return await api.k8sGetContexts()
+    return await getApi().k8sGetContexts()
   } catch (error) {
     console.error('[K8s API] Failed to get contexts:', error)
     return {
@@ -40,7 +42,7 @@ export async function getContexts(): Promise<K8sApiResponse<K8sContextInfo[]>> {
  */
 export async function getContextDetail(contextName: string): Promise<K8sApiResponse> {
   try {
-    return await api.k8sGetContextDetail(contextName)
+    return await getApi().k8sGetContextDetail(contextName)
   } catch (error) {
     console.error('[K8s API] Failed to get context detail:', error)
     return {
@@ -55,7 +57,7 @@ export async function getContextDetail(contextName: string): Promise<K8sApiRespo
  */
 export async function switchContext(contextName: string): Promise<K8sApiResponse> {
   try {
-    return await api.k8sSwitchContext(contextName)
+    return await getApi().k8sSwitchContext(contextName)
   } catch (error) {
     console.error('[K8s API] Failed to switch context:', error)
     return {
@@ -70,7 +72,7 @@ export async function switchContext(contextName: string): Promise<K8sApiResponse
  */
 export async function reloadConfig(): Promise<K8sApiResponse<K8sContextInfo[]>> {
   try {
-    return await api.k8sReloadConfig()
+    return await getApi().k8sReloadConfig()
   } catch (error) {
     console.error('[K8s API] Failed to reload config:', error)
     return {
@@ -85,7 +87,7 @@ export async function reloadConfig(): Promise<K8sApiResponse<K8sContextInfo[]>> 
  */
 export async function validateContext(contextName: string): Promise<K8sApiResponse<boolean>> {
   try {
-    const result = await api.k8sValidateContext(contextName)
+    const result = await getApi().k8sValidateContext(contextName)
     return {
       success: result.success,
       data: result.isValid,
@@ -105,7 +107,7 @@ export async function validateContext(contextName: string): Promise<K8sApiRespon
  */
 export async function initialize(): Promise<K8sApiResponse<K8sContextInfo[]>> {
   try {
-    return await api.k8sInitialize()
+    return await getApi().k8sInitialize()
   } catch (error) {
     console.error('[K8s API] Failed to initialize:', error)
     return {
