@@ -1,5 +1,5 @@
 import { ref, computed, watch, nextTick, onMounted, onUnmounted } from 'vue'
-import { createGlobalState } from '@vueuse/core'
+import type { Ref } from 'vue'
 import debounce from 'lodash/debounce'
 import type { Host, AssetInfo, HostOption, HostItemType } from '../types'
 import { formatHosts } from '../utils'
@@ -18,10 +18,16 @@ const MAX_TARGET_HOSTS = 5
  * Composable for host management
  * Handles host selection, search, pagination loading and other functionalities
  */
-export const useHostManagement = createGlobalState(() => {
+export const useHostManagement = () => {
   const { t } = i18n.global
 
   const { hosts, chatTypeValue, autoUpdateHost, chatInputValue } = useSessionState()
+
+  // Popup position in viewport coordinates (used with position: fixed)
+  const popupPosition = ref<{ top: number; left: number } | null>(null)
+  // Edit mode popup: keep it hidden until it has a final position.
+  const popupReady = ref(false)
+  const currentMode = ref<'create' | 'edit'>('create')
 
   const getCurentTabAssetInfo = async (): Promise<AssetInfo | null> => {
     const TIMEOUT_MS = 5000
@@ -173,7 +179,7 @@ export const useHostManagement = createGlobalState(() => {
     })
   }
 
-  const onHostClick = (item: HostOption) => {
+  const onHostClick = (item: HostOption, inputValueRef?: Ref<string>) => {
     // Handle jumpserver parent node click - toggle expand/collapse
     if (item.type === 'jumpserver' && !item.selectable) {
       toggleJumpserverExpand(item.key)
@@ -221,8 +227,9 @@ export const useHostManagement = createGlobalState(() => {
 
     autoUpdateHost.value = false
 
-    if (chatInputValue.value.endsWith('@')) {
-      chatInputValue.value = chatInputValue.value.slice(0, -1)
+    const targetInputValueRef = inputValueRef ?? chatInputValue
+    if (targetInputValueRef.value.endsWith('@')) {
+      targetInputValueRef.value = targetInputValueRef.value.slice(0, -1)
     }
   }
 
@@ -234,7 +241,7 @@ export const useHostManagement = createGlobalState(() => {
     }
   }
 
-  const handleHostSearchKeyDown = (e: KeyboardEvent) => {
+  const handleHostSearchKeyDown = (e: KeyboardEvent, inputValueRef?: Ref<string>) => {
     if (!showHostSelect.value || filteredHostOptions.value.length === 0) return
 
     switch (e.key) {
@@ -261,12 +268,12 @@ export const useHostManagement = createGlobalState(() => {
       case 'Enter':
         e.preventDefault()
         if (keyboardSelectedIndex.value >= 0 && keyboardSelectedIndex.value < filteredHostOptions.value.length) {
-          onHostClick(filteredHostOptions.value[keyboardSelectedIndex.value])
+          onHostClick(filteredHostOptions.value[keyboardSelectedIndex.value], inputValueRef)
         }
         break
-
       case 'Escape':
         e.preventDefault()
+        e.stopPropagation()
         closeHostSelect()
         break
     }
@@ -274,18 +281,19 @@ export const useHostManagement = createGlobalState(() => {
 
   const scrollToSelectedItem = () => {
     nextTick(() => {
-      const hostSelectList = document.querySelector('.host-select-list')
-      const selectedItem = document.querySelector('.host-select-item.keyboard-selected')
+      const selectedItem = document.querySelector('.host-select-item.keyboard-selected') as HTMLElement
+      if (!selectedItem) return
 
-      if (hostSelectList && selectedItem) {
-        const listRect = hostSelectList.getBoundingClientRect()
-        const itemRect = selectedItem.getBoundingClientRect()
+      const hostSelectList = selectedItem.closest('.host-select-list') as HTMLElement
+      if (!hostSelectList) return
 
-        if (itemRect.top < listRect.top) {
-          selectedItem.scrollIntoView({ block: 'start', behavior: 'smooth' })
-        } else if (itemRect.bottom > listRect.bottom) {
-          selectedItem.scrollIntoView({ block: 'end', behavior: 'smooth' })
-        }
+      const listRect = hostSelectList.getBoundingClientRect()
+      const itemRect = selectedItem.getBoundingClientRect()
+
+      if (itemRect.top < listRect.top) {
+        hostSelectList.scrollTop -= listRect.top - itemRect.top
+      } else if (itemRect.bottom > listRect.bottom) {
+        hostSelectList.scrollTop += itemRect.bottom - listRect.bottom
       }
     })
   }
@@ -293,6 +301,8 @@ export const useHostManagement = createGlobalState(() => {
   const closeHostSelect = () => {
     showHostSelect.value = false
     keyboardSelectedIndex.value = -1
+    popupPosition.value = null
+    popupReady.value = false
 
     focusChatInput()
   }
@@ -302,25 +312,197 @@ export const useHostManagement = createGlobalState(() => {
     keyboardSelectedIndex.value = index
   }
 
-  const handleInputChange = async (e: Event) => {
+  const clamp = (val: number, min: number, max: number) => {
+    if (max < min) return min
+    return Math.min(max, Math.max(min, val))
+  }
+
+  const calculatePopupPosition = (textarea: HTMLTextAreaElement) => {
+    try {
+      const cursorPosition = textarea.selectionStart
+
+      // Create a temporary div to measure cursor position (mirror technique)
+      const tempDiv = document.createElement('div')
+      const computed = window.getComputedStyle(textarea)
+
+      // Copy all textarea styles for accurate measurement
+      const stylesToCopy = [
+        'font-family',
+        'font-size',
+        'font-weight',
+        'font-style',
+        'font-variant',
+        'line-height',
+        'padding-top',
+        'padding-right',
+        'padding-bottom',
+        'padding-left',
+        'border-top-width',
+        'border-right-width',
+        'border-bottom-width',
+        'border-left-width',
+        'border-style',
+        'box-sizing',
+        'width',
+        'text-transform',
+        'text-indent',
+        'letter-spacing',
+        'word-spacing',
+        'white-space',
+        'word-break',
+        'overflow-wrap'
+      ]
+
+      stylesToCopy.forEach((prop) => {
+        tempDiv.style[prop as any] = computed[prop as any]
+      })
+
+      // Mirror container setup
+      tempDiv.style.position = 'absolute'
+      tempDiv.style.visibility = 'hidden'
+      tempDiv.style.pointerEvents = 'none'
+      tempDiv.style.whiteSpace = 'pre-wrap'
+      tempDiv.style.wordWrap = 'break-word'
+      tempDiv.style.height = 'auto'
+      tempDiv.style.overflow = 'hidden'
+
+      document.body.appendChild(tempDiv)
+
+      // Get text before cursor
+      const textBeforeCursor = textarea.value.substring(0, cursorPosition)
+      tempDiv.textContent = textBeforeCursor
+
+      // Create a span to mark cursor position
+      const span = document.createElement('span')
+      // Use a character or dot to ensure span has height/width
+      span.textContent = textarea.value.substring(cursorPosition, cursorPosition + 1) || '.'
+      tempDiv.appendChild(span)
+
+      // Get positions relative to the mirror div
+      const spanRect = span.getBoundingClientRect()
+      const tempDivRect = tempDiv.getBoundingClientRect()
+
+      // Calculate cursor position relative to textarea's content top-left
+      const cursorX = spanRect.left - tempDivRect.left
+      const cursorY = spanRect.top - tempDivRect.top
+
+      // Calculate line height for vertical offset
+      const lineHeightValue = computed.lineHeight
+      const lineHeight = lineHeightValue === 'normal' ? parseFloat(computed.fontSize) * 1.2 : parseFloat(lineHeightValue)
+
+      // Clean up mirror element
+      document.body.removeChild(tempDiv)
+
+      // Get container and textarea rects to calculate relative positioning
+      const textareaRect = textarea.getBoundingClientRect()
+
+      // Caret position in viewport coordinates
+      const caretAbsY = textareaRect.top + cursorY - textarea.scrollTop
+      const caretAbsX = textareaRect.left + cursorX - textarea.scrollLeft
+
+      // Use chat scroll container as the visible boundary (fallback to window viewport)
+      const scrollContainer = textarea.closest('.chat-response-container') as HTMLElement | null
+      const scrollRect = scrollContainer?.getBoundingClientRect() ?? {
+        top: 0,
+        left: 0,
+        right: window.innerWidth,
+        bottom: window.innerHeight
+      }
+
+      // Popup dimensions (prefer real rendered size; fallback to max constraints)
+      const popupEl = document.querySelector('.host-select-popup.is-edit-mode') as HTMLElement | null
+      const popupRect = popupEl?.getBoundingClientRect()
+      const popupHeight = popupRect?.height ?? 240
+      const popupWidth = popupRect?.width ?? 229
+      const bufferDistance = 4
+
+      // Below-first decision based on available space inside scrollRect
+      const spaceBelow = scrollRect.bottom - (caretAbsY + lineHeight)
+      const spaceAbove = caretAbsY - scrollRect.top
+
+      const shouldShowBelow = spaceBelow >= popupHeight + bufferDistance
+      const shouldShowAbove = !shouldShowBelow && spaceAbove >= popupHeight + bufferDistance
+
+      // Desired popup position in viewport coordinates
+      let popupAbsTop = shouldShowAbove ? caretAbsY - popupHeight - bufferDistance : caretAbsY + lineHeight + bufferDistance
+      let popupAbsLeft = caretAbsX
+
+      // Clamp into visible scrollRect to reduce clipping
+      const minAbsTop = scrollRect.top + 8
+      const maxAbsTop = scrollRect.bottom - popupHeight - 8
+      popupAbsTop = clamp(popupAbsTop, minAbsTop, maxAbsTop)
+
+      const minAbsLeft = scrollRect.left + 8
+      const maxAbsLeft = scrollRect.right - popupWidth - 8
+      popupAbsLeft = clamp(popupAbsLeft, minAbsLeft, maxAbsLeft)
+
+      popupPosition.value = {
+        top: popupAbsTop,
+        left: popupAbsLeft
+      }
+    } catch (error) {
+      console.error('Error calculating popup position:', error)
+      popupPosition.value = null
+    }
+  }
+
+  const calculateCreateModePopupPosition = (anchorRect: DOMRect) => {
+    try {
+      const popupEl = document.querySelector('.host-select-popup') as HTMLElement | null
+      const popupRect = popupEl?.getBoundingClientRect()
+      const popupHeight = popupRect?.height ?? 240
+      const popupWidth = popupRect?.width ?? 229
+      const bufferDistance = 4
+      const padding = 8
+
+      // Match the previous layout: show above the trigger; fallback to below if not enough space.
+      let top = anchorRect.top - popupHeight - bufferDistance
+      let left = anchorRect.left
+
+      // If not enough space above, show below.
+      if (top < padding) {
+        top = anchorRect.bottom + bufferDistance
+      }
+
+      top = clamp(top, padding, window.innerHeight - popupHeight - padding)
+      left = clamp(left, padding, window.innerWidth - popupWidth - padding)
+
+      popupPosition.value = { top, left }
+    } catch (error) {
+      console.error('Error calculating create mode popup position:', error)
+      popupPosition.value = null
+    }
+  }
+
+  const handleInputChange = async (e: Event, mode: 'create' | 'edit' = 'create') => {
     const value = (e.target as HTMLTextAreaElement).value
+    const textarea = e.target as HTMLTextAreaElement
+
+    currentMode.value = mode
 
     if (value.endsWith('@')) {
       if (chatTypeValue.value === 'cmd' || chatTypeValue.value === 'chat') {
         showHostSelect.value = false
+        popupReady.value = false
         return
       }
 
       showHostSelect.value = true
+      popupReady.value = false
       hostSearchValue.value = ''
-
       await fetchHostOptions('')
 
-      nextTick(() => {
-        getElement(hostSearchInputRef.value)?.focus?.()
-      })
+      if (mode === 'edit') {
+        calculatePopupPosition(textarea)
+      } else {
+        calculateCreateModePopupPosition(textarea.getBoundingClientRect())
+      }
+
+      popupReady.value = true
+      getElement(hostSearchInputRef.value)?.focus?.()
     } else {
       showHostSelect.value = false
+      popupPosition.value = null
     }
   }
 
@@ -407,8 +589,10 @@ export const useHostManagement = createGlobalState(() => {
     }
   }
 
-  const handleAddHostClick = async () => {
+  const handleAddHostClick = async (anchorEl?: HTMLElement | null) => {
+    currentMode.value = 'create'
     showHostSelect.value = true
+    popupReady.value = false
     hostSearchValue.value = ''
 
     if (chatTypeValue.value === 'cmd') {
@@ -418,6 +602,14 @@ export const useHostManagement = createGlobalState(() => {
     }
 
     nextTick(() => {
+      const anchorRect = anchorEl?.getBoundingClientRect()
+
+      if (anchorRect) {
+        calculateCreateModePopupPosition(anchorRect)
+      } else {
+        popupPosition.value = null
+      }
+      popupReady.value = true
       getElement(hostSearchInputRef.value)?.focus?.()
     })
   }
@@ -515,6 +707,9 @@ export const useHostManagement = createGlobalState(() => {
     updateHosts,
     updateHostsForCommandMode,
     getCurentTabAssetInfo,
-    toggleJumpserverExpand
+    toggleJumpserverExpand,
+    popupPosition,
+    popupReady,
+    currentMode
   }
-})
+}

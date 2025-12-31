@@ -358,7 +358,16 @@ describe('useHostManagement', () => {
 
       const mockEvent = {
         target: {
-          value: '@'
+          value: '@',
+          getBoundingClientRect: vi.fn().mockReturnValue({
+            top: 100,
+            left: 100,
+            bottom: 200,
+            right: 200,
+            width: 100,
+            height: 100
+          }),
+          selectionStart: 1
         }
       } as unknown as Event
 
@@ -372,7 +381,16 @@ describe('useHostManagement', () => {
 
       const mockEvent = {
         target: {
-          value: 'hello @'
+          value: 'hello @',
+          getBoundingClientRect: vi.fn().mockReturnValue({
+            top: 100,
+            left: 100,
+            bottom: 200,
+            right: 200,
+            width: 100,
+            height: 100
+          }),
+          selectionStart: 7
         }
       } as unknown as Event
 
@@ -386,7 +404,16 @@ describe('useHostManagement', () => {
 
       const mockEvent = {
         target: {
-          value: '@ hello'
+          value: '@ hello',
+          getBoundingClientRect: vi.fn().mockReturnValue({
+            top: 100,
+            left: 100,
+            bottom: 200,
+            right: 200,
+            width: 100,
+            height: 100
+          }),
+          selectionStart: 7
         }
       } as unknown as Event
 
@@ -402,7 +429,16 @@ describe('useHostManagement', () => {
 
       const mockEvent = {
         target: {
-          value: 'hello'
+          value: 'hello',
+          getBoundingClientRect: vi.fn().mockReturnValue({
+            top: 100,
+            left: 100,
+            bottom: 200,
+            right: 200,
+            width: 100,
+            height: 100
+          }),
+          selectionStart: 5
         }
       } as unknown as Event
 
@@ -416,7 +452,16 @@ describe('useHostManagement', () => {
 
       const mockEvent = {
         target: {
-          value: 'test'
+          value: 'test',
+          getBoundingClientRect: vi.fn().mockReturnValue({
+            top: 100,
+            left: 100,
+            bottom: 200,
+            right: 200,
+            width: 100,
+            height: 100
+          }),
+          selectionStart: 4
         }
       } as unknown as Event
 
