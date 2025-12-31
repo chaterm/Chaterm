@@ -54,6 +54,8 @@ export class OpenAiHandler implements ApiHandler {
     const isDeepseekReasoner = modelId.includes('deepseek-reasoner')
     const isR1FormatRequired = this.options.openAiModelInfo?.isR1FormatRequired ?? false
     const isReasoningModelFamily = modelId.includes('o1') || modelId.includes('o3') || modelId.includes('o4')
+    const isGpt5OrAbove = modelId.startsWith('gpt-5') || modelId.startsWith('gpt-6')
+    const supportsTemperature = !isReasoningModelFamily && !isGpt5OrAbove
 
     let openAiMessages: OpenAI.Chat.ChatCompletionMessageParam[] = [{ role: 'system', content: systemPrompt }, ...convertToOpenAiMessages(messages)]
     let temperature: number | undefined = this.options.openAiModelInfo?.temperature ?? openAiModelInfoSaneDefaults.temperature
@@ -72,14 +74,13 @@ export class OpenAiHandler implements ApiHandler {
 
     if (isReasoningModelFamily) {
       openAiMessages = [{ role: 'developer', content: systemPrompt }, ...convertToOpenAiMessages(messages)]
-      temperature = undefined // does not support temperature
       reasoningEffort = (this.options.o3MiniReasoningEffort as ChatCompletionReasoningEffort) || 'medium'
     }
 
     const stream = await this.client.chat.completions.create({
       model: modelId,
       messages: openAiMessages,
-      temperature,
+      ...(supportsTemperature && { temperature }),
       max_tokens: maxTokens,
       reasoning_effort: reasoningEffort,
       stream: true,

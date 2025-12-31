@@ -28,6 +28,10 @@ export async function migrateCnUserDataOnFirstLaunch(): Promise<void> {
   }
 
   const targetUserDataPath = getUserDataPath()
+  if (!isGlobalUserDataPath(targetUserDataPath)) {
+    console.warn(`[Migration] Target userData is not chaterm-global (${targetUserDataPath}), skipping migration.`)
+    return
+  }
   const markerPath = path.join(targetUserDataPath, MIGRATION_MARKER_FILE)
 
   const existingMarker = await readMigrationMarker(markerPath)
@@ -54,7 +58,7 @@ export async function migrateCnUserDataOnFirstLaunch(): Promise<void> {
     return
   }
 
-  if (await isOtherEditionRunning(sourceUserDataPath)) {
+  if (await isOtherEditionRunning()) {
     await showOtherEditionRunningDialog()
     await writeMigrationMarker(markerPath, {
       status: 'blocked',
@@ -64,34 +68,18 @@ export async function migrateCnUserDataOnFirstLaunch(): Promise<void> {
       targetPath: targetUserDataPath
     })
     console.warn('[Migration] Detected other edition running, please close it and retry.')
+    app.quit()
     return
   }
 
   const targetHasDatabases = await hasDatabaseFiles(path.join(targetUserDataPath, 'databases'))
   if (targetHasDatabases) {
-    await writeMigrationMarker(markerPath, {
-      status: 'skipped',
-      timestamp: new Date().toISOString(),
-      reason: 'target-has-databases',
-      sourcePath: sourceUserDataPath,
-      targetPath: targetUserDataPath
-    })
-    console.log('[Migration] Target userData already has databases, skipping migration.')
-    return
+    console.warn('[Migration] Target userData already has databases, overwriting with CN data.')
   }
 
   const walOrShmDetected = await hasWalOrShmFiles(path.join(sourceUserDataPath, 'databases'))
   if (walOrShmDetected) {
-    await showOtherEditionRunningDialog()
-    await writeMigrationMarker(markerPath, {
-      status: 'blocked',
-      timestamp: new Date().toISOString(),
-      reason: 'wal-shm-detected',
-      sourcePath: sourceUserDataPath,
-      targetPath: targetUserDataPath
-    })
-    console.warn('[Migration] Detected WAL/SHM files in source databases, skipping migration.')
-    return
+    console.warn('[Migration] WAL/SHM files detected in source databases. Ensure the other edition is closed before continuing.')
   }
 
   console.log('[Migration] Starting CN -> Global userData migration...')
@@ -278,14 +266,10 @@ async function readMigrationMarker(markerPath: string): Promise<MigrationMarker 
   }
 }
 
-async function isOtherEditionRunning(sourceUserDataPath: string): Promise<boolean> {
+async function isOtherEditionRunning(): Promise<boolean> {
   const processNames = getOtherEditionProcessNames()
   const processCheck = await isProcessRunning(processNames)
-  if (processCheck !== null) {
-    return processCheck
-  }
-
-  return await hasSingletonFiles(sourceUserDataPath)
+  return processCheck ?? false
 }
 
 function getOtherEditionProcessNames(): string[] {
@@ -320,25 +304,20 @@ async function isProcessRunning(processNames: string[]): Promise<boolean | null>
   }
 }
 
-async function hasSingletonFiles(userDataPath: string): Promise<boolean> {
-  for (const entryName of SKIP_ENTRY_NAMES) {
-    if (await pathExists(path.join(userDataPath, entryName))) {
-      return true
-    }
-  }
-  return false
-}
-
 async function showOtherEditionRunningDialog(): Promise<void> {
   try {
     await dialog.showMessageBox({
       type: 'warning',
-      buttons: ['确定'],
+      buttons: ['ok'],
       defaultId: 0,
-      title: '数据迁移',
+      title: 'Data migration',
       message: 'Another version of Chaterm is currently running. Please close it and try again.'
     })
   } catch (error) {
     console.warn('[Migration] Failed to show running edition dialog:', error)
   }
+}
+
+function isGlobalUserDataPath(userDataPath: string): boolean {
+  return path.basename(userDataPath).toLowerCase() === 'chaterm-global'
 }
