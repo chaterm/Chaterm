@@ -49,6 +49,7 @@
           <UserInfo v-if="localTab.content === 'userInfo'" />
           <UserConfig v-if="localTab.content === 'userConfig'" />
           <Files v-if="localTab.content === 'files'" />
+          <Kubernetes v-if="localTab.content === 'kubernetes'" />
           <AliasConfig v-if="localTab.content === 'aliasConfig'" />
           <jumpserverSupport v-if="localTab.content === 'jumpserverSupport'" />
           <AssetConfig v-if="localTab.content === 'assetConfig'" />
@@ -78,6 +79,7 @@ import jumpserverSupport from '@views/components/Extensions/jumpserverSupport.vu
 import KeyChainConfig from '@views/components/LeftTab/config/keyChainConfig.vue'
 import SshConnect from '@views/components/Ssh/sshConnect.vue'
 import Files from '@views/components/Files/index.vue'
+import Kubernetes from '@views/components/Kubernetes/index.vue'
 import McpConfigEditor from '@views/components/McpConfigEditor/index.vue'
 import SecurityConfigEditor from '@views/components/SecurityConfigEditor/index.vue'
 import KeywordHighlightEditor from '@views/components/KeywordHighlightEditor/index.vue'

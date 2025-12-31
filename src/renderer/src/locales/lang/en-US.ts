@@ -1129,5 +1129,17 @@ export default {
     commandCount: '{count} command(s) recorded',
     recording: 'Recording',
     commands: 'commands'
+  },
+  kubernetes: {
+    title: 'Kubernetes',
+    active: 'Active',
+    cluster: 'Cluster',
+    namespace: 'Namespace',
+    server: 'Server',
+    switchTo: 'Switch',
+    noContexts: 'No Kubernetes contexts found. Please configure ~/.kube/config',
+    refreshSuccess: 'Contexts refreshed successfully',
+    switchSuccess: 'Switched to context: {context}',
+    switchFailed: 'Failed to switch context: {error}'
   }
 }

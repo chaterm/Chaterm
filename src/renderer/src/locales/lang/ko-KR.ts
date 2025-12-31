@@ -1101,5 +1101,17 @@ export default {
     commandCount: '{count}개 명령 기록됨',
     recording: '기록 중',
     commands: '명령'
+  },
+  kubernetes: {
+    title: 'Kubernetes',
+    active: '현재',
+    cluster: '클러스터',
+    namespace: '네임스페이스',
+    server: '서버',
+    switchTo: '전환',
+    noContexts: 'Kubernetes 컨텍스트를 찾을 수 없습니다. ~/.kube/config를 설정해주세요',
+    refreshSuccess: '컨텍스트가 성공적으로 새로고침되었습니다',
+    switchSuccess: '컨텍스트로 전환했습니다: {context}',
+    switchFailed: '컨텍스트 전환 실패: {error}'
   }
 }

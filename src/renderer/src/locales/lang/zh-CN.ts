@@ -1122,5 +1122,17 @@ export default {
     commandCount: '共 {count} 条命令',
     recording: '录制中',
     commands: '条命令'
+  },
+  kubernetes: {
+    title: 'Kubernetes',
+    active: '当前',
+    cluster: '集群',
+    namespace: '命名空间',
+    server: '服务器',
+    switchTo: '切换',
+    noContexts: '未找到 Kubernetes 上下文配置，请配置 ~/.kube/config',
+    refreshSuccess: '上下文刷新成功',
+    switchSuccess: '已切换到上下文：{context}',
+    switchFailed: '切换上下文失败：{error}'
   }
 }

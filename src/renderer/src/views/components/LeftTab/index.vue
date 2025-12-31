@@ -45,6 +45,7 @@
           v-else-if="i.key === 'kubernetes'"
           class="term_menu"
           :class="{ active: activeKey === i.key }"
+          @click="kubernetes"
         >
           <img
             :src="i.icon"
@@ -238,6 +239,11 @@ const userConfig = () => {
 
 const files = () => {
   emit('open-user-tab', 'files')
+  showUserMenu.value = false
+}
+
+const kubernetes = () => {
+  emit('open-user-tab', 'kubernetes')
   showUserMenu.value = false
 }
 const logout = async () => {
