@@ -1,5 +1,11 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest'
 import { KubeConfigLoader } from '../KubeConfigLoader'
+import * as fs from 'fs'
+
+// Mock fs module
+vi.mock('fs', () => ({
+  existsSync: vi.fn().mockReturnValue(true)
+}))
 
 // Mock @kubernetes/client-node module
 const mockLoadFromFile = vi.fn()
@@ -106,7 +112,7 @@ describe('KubeConfigLoader', () => {
       }
     ])
 
-    loader = new KubeConfigLoader()
+    loader = new KubeConfigLoader(() => new MockKubeConfig())
   })
 
   afterEach(() => {
@@ -233,7 +239,7 @@ describe('KubeConfigLoader', () => {
 
     it('should handle errors when setting context', async () => {
       await loader.loadFromDefault()
-      mockSetCurrentContext.mockImplementation(() => {
+      mockSetCurrentContext.mockImplementationOnce(() => {
         throw new Error('Invalid context')
       })
 
@@ -328,6 +334,7 @@ describe('KubeConfigLoader', () => {
   describe('loadFromFile', () => {
     it('should load from custom path', async () => {
       const customPath = '/custom/path/kubeconfig'
+      vi.mocked(fs.existsSync).mockReturnValue(true)
       const result = await loader.loadFromFile(customPath)
 
       expect(mockLoadFromFile).toHaveBeenCalledWith(customPath)
@@ -336,6 +343,7 @@ describe('KubeConfigLoader', () => {
 
     it('should return error for non-existent file', async () => {
       const nonExistentPath = '/does/not/exist/config'
+      vi.mocked(fs.existsSync).mockReturnValue(false)
       const result = await loader.loadFromFile(nonExistentPath)
 
       expect(result.success).toBe(false)
@@ -382,7 +390,7 @@ describe('KubeConfigLoader', () => {
     })
 
     it('should handle validation before initialization', async () => {
-      const freshLoader = new KubeConfigLoader()
+      const freshLoader = new KubeConfigLoader(() => new MockKubeConfig())
       mockMakeApiClient.mockReturnValue({
         getAPIResources: vi.fn().mockResolvedValue({})
       })
@@ -404,7 +412,7 @@ describe('KubeConfigLoader', () => {
     })
 
     it('should return undefined before initialization', () => {
-      const freshLoader = new KubeConfigLoader()
+      const freshLoader = new KubeConfigLoader(() => new MockKubeConfig())
       const kc = freshLoader.getKubeConfig()
 
       expect(kc).toBeUndefined()

@@ -26,9 +26,11 @@ export class KubeConfigLoader {
   private kc: any
   private defaultConfigPath: string
   private initialized: boolean = false
+  private kubeConfigFactory: (() => any) | null = null
 
-  constructor() {
+  constructor(kubeConfigFactory?: () => any) {
     this.defaultConfigPath = path.join(os.homedir(), '.kube', 'config')
+    this.kubeConfigFactory = kubeConfigFactory || null
   }
 
   /**
@@ -37,8 +39,12 @@ export class KubeConfigLoader {
   private async initialize(): Promise<void> {
     if (this.initialized) return
 
-    const { KubeConfigClass } = await ensureK8sModule()
-    this.kc = new KubeConfigClass()
+    if (this.kubeConfigFactory) {
+      this.kc = this.kubeConfigFactory()
+    } else {
+      const { KubeConfigClass } = await ensureK8sModule()
+      this.kc = new KubeConfigClass()
+    }
     this.initialized = true
   }
 

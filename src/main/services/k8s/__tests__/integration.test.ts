@@ -134,7 +134,7 @@ describe('K8s Integration Tests - Steps 1-3', () => {
     vi.clearAllMocks()
     mockInformerInstance = null
 
-    configLoader = new KubeConfigLoader()
+    configLoader = new KubeConfigLoader(() => mockKubeConfig)
 
     // Properly mock initialization
     await configLoader.loadFromDefault()
