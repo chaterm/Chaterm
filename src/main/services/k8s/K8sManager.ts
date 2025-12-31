@@ -1,5 +1,6 @@
 import { KubeConfigLoader } from './KubeConfigLoader'
-import { K8sContext, K8sContextInfo, K8sManagerState, LoadConfigResult } from './types'
+import { InformerPool } from './InformerPool'
+import { K8sContext, K8sContextInfo, K8sManagerState, LoadConfigResult, K8sResourceEvent, InformerOptions } from './types'
 
 /**
  * K8sManager handles the lifecycle of Kubernetes connections and contexts
@@ -8,14 +9,18 @@ import { K8sContext, K8sContextInfo, K8sManagerState, LoadConfigResult } from '.
 export class K8sManager {
   private static instance: K8sManager | null = null
   private configLoader: KubeConfigLoader
+  private informerPool: InformerPool
   private state: K8sManagerState
 
   private constructor() {
     this.configLoader = new KubeConfigLoader()
+    this.informerPool = new InformerPool(this.configLoader)
     this.state = {
       initialized: false,
       contexts: new Map<string, K8sContext>()
     }
+
+    this.setupInformerEventHandlers()
   }
 
   /**
@@ -156,10 +161,77 @@ export class K8sManager {
   /**
    * Cleanup resources
    */
-  public cleanup(): void {
+  public async cleanup(): Promise<void> {
     console.log('[K8s] Cleaning up K8s Manager...')
+    await this.informerPool.stopAll()
     this.state.contexts.clear()
     this.state.initialized = false
     this.state.currentContext = undefined
+  }
+
+  /**
+   * Setup event handlers for informer events
+   */
+  private setupInformerEventHandlers(): void {
+    this.informerPool.on('event', (event: K8sResourceEvent) => {
+      console.log(`[K8s] Resource event: ${event.type} ${event.resource.kind}/${event.resource.metadata.name} in ${event.contextName}`)
+    })
+
+    this.informerPool.on('error', (error: Error, event: K8sResourceEvent) => {
+      console.error(`[K8s] Informer error in ${event.contextName}:`, error.message)
+    })
+  }
+
+  /**
+   * Start watching resources for a context
+   */
+  public async startWatching(
+    contextName: string,
+    resourceTypes: Array<'Pod' | 'Node'> = ['Pod', 'Node'],
+    options: Partial<InformerOptions> = {}
+  ): Promise<void> {
+    console.log(`[K8s] Starting watchers for ${contextName}...`)
+
+    const informerOptions: InformerOptions = {
+      contextName,
+      ...options
+    }
+
+    for (const resourceType of resourceTypes) {
+      try {
+        await this.informerPool.startInformer(resourceType, informerOptions)
+      } catch (error) {
+        console.error(`[K8s] Failed to start ${resourceType} watcher:`, error)
+      }
+    }
+  }
+
+  /**
+   * Stop watching resources for a context
+   */
+  public async stopWatching(contextName: string): Promise<void> {
+    console.log(`[K8s] Stopping watchers for ${contextName}...`)
+    await this.informerPool.stopContextInformers(contextName)
+  }
+
+  /**
+   * Get cached resources from informers
+   */
+  public getResources(contextName: string, resourceType: string): any[] {
+    return this.informerPool.getResources(contextName, resourceType)
+  }
+
+  /**
+   * Get informer pool instance
+   */
+  public getInformerPool(): InformerPool {
+    return this.informerPool
+  }
+
+  /**
+   * Get informer statistics
+   */
+  public getInformerStatistics() {
+    return this.informerPool.getStatistics()
   }
 }
