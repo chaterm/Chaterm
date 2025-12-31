@@ -291,6 +291,15 @@ describe('KubeConfigLoader', () => {
     })
 
     it('should handle mixed authentication types', async () => {
+      mockGetContexts.mockReturnValue([
+        {
+          name: 'context1',
+          cluster: 'cluster1',
+          user: 'user-with-certs',
+          namespace: 'default'
+        }
+      ])
+
       mockGetUsers.mockReturnValue([
         {
           name: 'user-with-certs',
@@ -367,7 +376,9 @@ describe('KubeConfigLoader', () => {
 
       await loader.validateContext('context1')
 
-      expect(mockSetCurrentContext).toHaveBeenCalledWith('context2')
+      expect(mockSetCurrentContext).toHaveBeenCalledTimes(2)
+      expect(mockSetCurrentContext).toHaveBeenNthCalledWith(1, 'context1')
+      expect(mockSetCurrentContext).toHaveBeenNthCalledWith(2, 'context2')
     })
 
     it('should handle validation before initialization', async () => {

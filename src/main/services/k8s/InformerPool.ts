@@ -339,6 +339,11 @@ export class InformerPool extends EventEmitter {
       const k8sModule = await ensureK8sModule()
       const kc = this.configLoader.getKubeConfig()
 
+      if (!kc) {
+        console.error('[K8s InformerPool] KubeConfig not initialized for context:', options.contextName)
+        return
+      }
+
       kc.setCurrentContext(options.contextName)
 
       const api = kc.makeApiClient(k8sModule.CoreV1Api)

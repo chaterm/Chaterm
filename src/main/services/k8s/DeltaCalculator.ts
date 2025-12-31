@@ -75,12 +75,13 @@ export class DeltaCalculator {
    */
   public processEvent(event: K8sResourceEvent, resourceType: string): void {
     const { type, resource, contextName } = event
-    const uid = resource.metadata.uid
 
-    if (!uid) {
-      console.warn('[DeltaCalculator] Resource without UID, skipping delta calculation')
+    if (!resource.metadata || !resource.metadata.uid) {
+      console.warn('[DeltaCalculator] Resource without metadata or UID, skipping delta calculation')
       return
     }
+
+    const uid = resource.metadata.uid
 
     const cacheKey = `${contextName}:${resourceType}:${uid}`
     const cachedResource = this.resourceCache.get(cacheKey)
