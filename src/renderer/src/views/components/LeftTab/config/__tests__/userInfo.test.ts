@@ -30,61 +30,61 @@ vi.mock('ant-design-vue', () => ({
 vi.mock('@/locales', () => {
   const mockT = (key: string) => {
     const mockTranslations: Record<string, string> = {
-      'userInfo.enterprise': '企业用户',
-      'userInfo.personal': '个人用户',
-      'userInfo.vip': 'VIP用户',
-      'userInfo.name': '名称',
-      'userInfo.username': '用户名',
-      'userInfo.mobile': '手机',
-      'userInfo.email': '邮箱',
-      'userInfo.ip': 'IP地址',
-      'userInfo.macAddress': 'Mac地址',
-      'userInfo.password': '密码',
-      'userInfo.pleaseInputName': '请输入名称',
-      'userInfo.pleaseInputUsername': '请输入用户名',
-      'userInfo.pleaseInputMobile': '请输入手机号',
-      'userInfo.pleaseInputNewPassword': '请输入新密码',
-      'userInfo.confirmPassword': '确认密码',
-      'userInfo.pleaseInputConfirmPassword': '请再次输入密码',
-      'userInfo.passwordMismatch': '两次输入的密码不一致',
-      'userInfo.nameRequired': '名称不得为空',
-      'userInfo.nameTooLong': '名称长度不能超过20位',
-      'userInfo.usernameLengthError': '用户名长度需在6-20位之间',
-      'userInfo.usernameFormatError': '用户名只能包含字母、数字和下划线',
-      'userInfo.mobileInvalid': '请输入有效的手机号',
-      'userInfo.passwordLengthError': '密码长度不能小于6位',
-      'userInfo.passwordStrengthError': '请具有弱以上的密码强度',
-      'userInfo.passwordStrength': '密码强度',
-      'userInfo.passwordStrengthWeak': '弱',
-      'userInfo.passwordStrengthMedium': '中',
-      'userInfo.passwordStrengthStrong': '强',
-      'userInfo.updateSuccess': '更新成功',
-      'userInfo.updateFailed': '更新失败',
-      'userInfo.passwordResetSuccess': '密码重置成功',
-      'userInfo.passwordResetFailed': '密码重置失败',
-      'userInfo.edit': '编辑',
-      'userInfo.save': '保存',
-      'userInfo.cancel': '取消',
-      'userInfo.resetPassword': '重置密码',
-      'userInfo.expirationTime': '过期时间',
-      'userInfo.bindEmail': '绑定邮箱',
-      'userInfo.modifyEmail': '修改邮箱',
-      'userInfo.pleaseInputEmail': '请输入邮箱',
-      'userInfo.pleaseInputEmailCode': '请输入邮箱验证码',
-      'userInfo.sendEmailCode': '获取验证码',
-      'userInfo.emailCodeSent': '验证码已发送',
-      'userInfo.emailBindSuccess': '邮箱绑定成功',
-      'userInfo.emailBindFailed': '邮箱绑定失败',
-      'userInfo.bindMobile': '绑定手机号',
-      'userInfo.modifyMobile': '修改手机号',
-      'userInfo.pleaseInputMobileCode': '请输入手机号验证码',
-      'userInfo.sendMobileCode': '获取验证码',
-      'userInfo.mobileCodeSent': '验证码已发送',
-      'userInfo.mobileBindSuccess': '手机号绑定成功',
-      'userInfo.mobileBindFailed': '手机号绑定失败',
-      'common.confirm': '确认',
-      'common.cancel': '取消',
-      'common.invalidEmail': '邮箱格式不正确'
+      'userInfo.enterprise': 'Enterprise User',
+      'userInfo.personal': 'Personal User',
+      'userInfo.vip': 'VIP User',
+      'userInfo.name': 'Name',
+      'userInfo.username': 'Username',
+      'userInfo.mobile': 'Mobile',
+      'userInfo.email': 'Email',
+      'userInfo.ip': 'IP Address',
+      'userInfo.macAddress': 'MAC Address',
+      'userInfo.password': 'Password',
+      'userInfo.pleaseInputName': 'Please enter name',
+      'userInfo.pleaseInputUsername': 'Please enter username',
+      'userInfo.pleaseInputMobile': 'Please enter mobile number',
+      'userInfo.pleaseInputNewPassword': 'Please enter new password',
+      'userInfo.confirmPassword': 'Confirm Password',
+      'userInfo.pleaseInputConfirmPassword': 'Please enter password again',
+      'userInfo.passwordMismatch': 'Passwords do not match',
+      'userInfo.nameRequired': 'Name cannot be empty',
+      'userInfo.nameTooLong': 'Name cannot exceed 20 characters',
+      'userInfo.usernameLengthError': 'Username must be between 6 and 20 characters',
+      'userInfo.usernameFormatError': 'Username can only contain letters, numbers, and underscores',
+      'userInfo.mobileInvalid': 'Please enter a valid mobile number',
+      'userInfo.passwordLengthError': 'Password must be at least 6 characters',
+      'userInfo.passwordStrengthError': 'Password strength must be at least weak',
+      'userInfo.passwordStrength': 'Password Strength',
+      'userInfo.passwordStrengthWeak': 'Weak',
+      'userInfo.passwordStrengthMedium': 'Medium',
+      'userInfo.passwordStrengthStrong': 'Strong',
+      'userInfo.updateSuccess': 'Update successful',
+      'userInfo.updateFailed': 'Update failed',
+      'userInfo.passwordResetSuccess': 'Password reset successful',
+      'userInfo.passwordResetFailed': 'Password reset failed',
+      'userInfo.edit': 'Edit',
+      'userInfo.save': 'Save',
+      'userInfo.cancel': 'Cancel',
+      'userInfo.resetPassword': 'Reset Password',
+      'userInfo.expirationTime': 'Expiration Time',
+      'userInfo.bindEmail': 'Bind Email',
+      'userInfo.modifyEmail': 'Modify Email',
+      'userInfo.pleaseInputEmail': 'Please enter email',
+      'userInfo.pleaseInputEmailCode': 'Please enter email verification code',
+      'userInfo.sendEmailCode': 'Get Verification Code',
+      'userInfo.emailCodeSent': 'Verification code sent',
+      'userInfo.emailBindSuccess': 'Email binding successful',
+      'userInfo.emailBindFailed': 'Email binding failed',
+      'userInfo.bindMobile': 'Bind Mobile',
+      'userInfo.modifyMobile': 'Modify Mobile',
+      'userInfo.pleaseInputMobileCode': 'Please enter mobile verification code',
+      'userInfo.sendMobileCode': 'Get Verification Code',
+      'userInfo.mobileCodeSent': 'Verification code sent',
+      'userInfo.mobileBindSuccess': 'Mobile binding successful',
+      'userInfo.mobileBindFailed': 'Mobile binding failed',
+      'common.confirm': 'Confirm',
+      'common.cancel': 'Cancel',
+      'common.invalidEmail': 'Invalid email format'
     }
     return mockTranslations[key] || key
   }
@@ -161,7 +161,7 @@ describe('UserInfo Component', () => {
           },
           'a-modal': {
             template:
-              '<div v-if="open" class="a-modal"><div class="ant-modal-header"><slot name="title" /></div><div class="ant-modal-body"><slot /></div><div class="ant-modal-footer"><button @click="$emit(\'cancel\')">取消</button><button @click="$emit(\'ok\')">确认</button></div></div>',
+              '<div v-if="open" class="a-modal"><div class="ant-modal-header"><slot name="title" /></div><div class="ant-modal-body"><slot /></div><div class="ant-modal-footer"><button @click="$emit(\'cancel\')">Cancel</button><button @click="$emit(\'ok\')">Confirm</button></div></div>',
             props: ['open', 'title', 'width', 'centered', 'ok-text', 'cancel-text']
           },
           FormOutlined: { template: '<span class="form-outlined-icon" />' },
@@ -304,7 +304,7 @@ describe('UserInfo Component', () => {
         username: 'updateduser',
         name: 'Updated Name'
       })
-      expect(vi.mocked(message.success)).toHaveBeenCalledWith('更新成功')
+      expect(vi.mocked(message.success)).toHaveBeenCalledWith('Update successful')
       expect(vm.isEditing).toBe(false)
     })
 
@@ -341,7 +341,7 @@ describe('UserInfo Component', () => {
       vm.formState.username = 'short'
       const result = vm.validateSave()
       expect(result).toBe(false)
-      expect(vi.mocked(message.error)).toHaveBeenCalledWith('用户名长度需在6-20位之间')
+      expect(vi.mocked(message.error)).toHaveBeenCalledWith('Username must be between 6 and 20 characters')
 
       vm.formState.username = 'a'.repeat(21)
       const result2 = vm.validateSave()
@@ -361,7 +361,7 @@ describe('UserInfo Component', () => {
       vm.formState.username = 'invalid-user!'
       result = vm.validateSave()
       expect(result).toBe(false)
-      expect(vi.mocked(message.error)).toHaveBeenCalledWith('用户名只能包含字母、数字和下划线')
+      expect(vi.mocked(message.error)).toHaveBeenCalledWith('Username can only contain letters, numbers, and underscores')
     })
 
     it('should validate name is not empty', async () => {
@@ -373,7 +373,7 @@ describe('UserInfo Component', () => {
       vm.formState.username = 'validuser'
       const result = vm.validateSave()
       expect(result).toBe(false)
-      expect(vi.mocked(message.error)).toHaveBeenCalledWith('名称不得为空')
+      expect(vi.mocked(message.error)).toHaveBeenCalledWith('Name cannot be empty')
     })
 
     it('should validate name length (max 20 characters)', async () => {
@@ -385,7 +385,7 @@ describe('UserInfo Component', () => {
       vm.formState.username = 'validuser'
       const result = vm.validateSave()
       expect(result).toBe(false)
-      expect(vi.mocked(message.error)).toHaveBeenCalledWith('名称长度不能超过20位')
+      expect(vi.mocked(message.error)).toHaveBeenCalledWith('Name cannot exceed 20 characters')
     })
 
     it('should validate password length (min 6 characters)', async () => {
@@ -396,7 +396,7 @@ describe('UserInfo Component', () => {
       vm.formState.newPassword = '12345'
       const result = vm.validatePassword()
       expect(result).toBe(false)
-      expect(vi.mocked(message.error)).toHaveBeenCalledWith('密码长度不能小于6位')
+      expect(vi.mocked(message.error)).toHaveBeenCalledWith('Password must be at least 6 characters')
     })
 
     it('should validate password strength', async () => {
@@ -408,7 +408,7 @@ describe('UserInfo Component', () => {
       vm.formState.newPassword = '123456'
       const result = vm.validatePassword()
       expect(result).toBe(false)
-      expect(vi.mocked(message.error)).toHaveBeenCalledWith('请具有弱以上的密码强度')
+      expect(vi.mocked(message.error)).toHaveBeenCalledWith('Password strength must be at least weak')
     })
 
     it('should validate password match', async () => {
@@ -420,7 +420,7 @@ describe('UserInfo Component', () => {
       vm.formState.confirmPassword = 'password456'
       const result = vm.validatePassword()
       expect(result).toBe(false)
-      expect(vi.mocked(message.error)).toHaveBeenCalledWith('两次输入的密码不一致')
+      expect(vi.mocked(message.error)).toHaveBeenCalledWith('Passwords do not match')
     })
   })
 
@@ -444,7 +444,7 @@ describe('UserInfo Component', () => {
       expect(vi.mocked(changePassword)).toHaveBeenCalledWith({
         password: 'newpassword123'
       })
-      expect(vi.mocked(message.success)).toHaveBeenCalledWith('密码重置成功')
+      expect(vi.mocked(message.success)).toHaveBeenCalledWith('Password reset successful')
       expect(vm.showPasswordModal).toBe(false)
     })
 
@@ -492,7 +492,7 @@ describe('UserInfo Component', () => {
       await vm.handleSendEmailBindCode()
       await nextTick()
 
-      expect(vi.mocked(message.error)).toHaveBeenCalledWith('邮箱格式不正确')
+      expect(vi.mocked(message.error)).toHaveBeenCalledWith('Invalid email format')
       expect(vi.mocked(sendEmailBindCode)).not.toHaveBeenCalled()
     })
 
@@ -508,7 +508,7 @@ describe('UserInfo Component', () => {
       expect(vi.mocked(sendEmailBindCode)).toHaveBeenCalledWith({
         email: 'newemail@example.com'
       })
-      expect(vi.mocked(message.success)).toHaveBeenCalledWith('验证码已发送')
+      expect(vi.mocked(message.success)).toHaveBeenCalledWith('Verification code sent')
       expect(vm.emailCodeCountdown).toBe(300)
     })
 
@@ -549,7 +549,7 @@ describe('UserInfo Component', () => {
         email: 'newemail@example.com',
         code: '123456'
       })
-      expect(vi.mocked(message.success)).toHaveBeenCalledWith('邮箱绑定成功')
+      expect(vi.mocked(message.success)).toHaveBeenCalledWith('Email binding successful')
       expect(vm.showEmailModal).toBe(false)
       expect(vi.mocked(getUser)).toHaveBeenCalled()
     })
@@ -593,7 +593,7 @@ describe('UserInfo Component', () => {
       await vm.handleSendMobileBindCode()
       await nextTick()
 
-      expect(vi.mocked(message.error)).toHaveBeenCalledWith('请输入有效的手机号')
+      expect(vi.mocked(message.error)).toHaveBeenCalledWith('Please enter a valid mobile number')
       expect(vi.mocked(sendMobileBindCode)).not.toHaveBeenCalled()
     })
 
@@ -609,7 +609,7 @@ describe('UserInfo Component', () => {
       expect(vi.mocked(sendMobileBindCode)).toHaveBeenCalledWith({
         mobile: '13900139000'
       })
-      expect(vi.mocked(message.success)).toHaveBeenCalledWith('验证码已发送')
+      expect(vi.mocked(message.success)).toHaveBeenCalledWith('Verification code sent')
       expect(vm.mobileCodeCountdown).toBe(300)
     })
 
@@ -646,7 +646,7 @@ describe('UserInfo Component', () => {
         mobile: '13900139000',
         code: '123456'
       })
-      expect(vi.mocked(message.success)).toHaveBeenCalledWith('手机号绑定成功')
+      expect(vi.mocked(message.success)).toHaveBeenCalledWith('Mobile binding successful')
       expect(vm.showMobileModal).toBe(false)
       expect(vi.mocked(getUser)).toHaveBeenCalled()
     })
