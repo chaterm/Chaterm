@@ -61,6 +61,8 @@ export const useSessionState = createGlobalState(() => {
 
   const chatTextareaRef = ref<HTMLTextAreaElement | null>(null)
 
+  const chatContainerScrollSignal = ref(0)
+
   // Per-tab computed cache for user-assistant pairs
   const tabPairsCache = new Map<string, ComputedRef<UserAssistantPair[]>>()
 
@@ -364,6 +366,7 @@ export const useSessionState = createGlobalState(() => {
     attachTabContext,
     isEmptyTab,
     chatTextareaRef,
+    chatContainerScrollSignal,
     isLastMessage,
     getTabUserAssistantPairs,
     getTabChatTypeValue,
