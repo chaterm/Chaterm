@@ -87,3 +87,77 @@ export interface K8sManagerState {
   contexts: Map<string, K8sContext>
   currentContext?: string
 }
+
+/**
+ * Kubernetes resource event types
+ */
+export enum K8sEventType {
+  ADDED = 'ADDED',
+  MODIFIED = 'MODIFIED',
+  DELETED = 'DELETED',
+  ERROR = 'ERROR'
+}
+
+/**
+ * Generic K8s resource interface
+ */
+export interface K8sResource {
+  apiVersion?: string
+  kind?: string
+  metadata: {
+    uid: string
+    name: string
+    namespace?: string
+    resourceVersion?: string
+    creationTimestamp?: string
+    labels?: Record<string, string>
+    annotations?: Record<string, string>
+    [key: string]: any
+  }
+  spec?: any
+  status?: any
+  [key: string]: any
+}
+
+/**
+ * K8s resource event
+ */
+export interface K8sResourceEvent {
+  type: K8sEventType
+  resource: K8sResource
+  contextName: string
+}
+
+/**
+ * Informer configuration options
+ */
+export interface InformerOptions {
+  contextName: string
+  namespace?: string
+  labelSelector?: string
+  fieldSelector?: string
+  resyncPeriod?: number
+}
+
+/**
+ * Informer state
+ */
+export interface InformerState {
+  contextName: string
+  resourceType: string
+  running: boolean
+  connected: boolean
+  lastSyncTime?: Date
+  resourceCount: number
+  errorCount: number
+  lastError?: string
+}
+
+/**
+ * Resource cache snapshot
+ */
+export interface ResourceSnapshot {
+  uid: string
+  resource: K8sResource
+  lastUpdated: Date
+}

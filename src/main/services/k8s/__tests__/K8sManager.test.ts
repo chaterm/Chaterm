@@ -340,7 +340,7 @@ describe('K8sManager', () => {
 
     it('should return false after cleanup', async () => {
       await manager.initialize()
-      manager.cleanup()
+      await manager.cleanup()
 
       expect(manager.isInitialized()).toBe(false)
     })
@@ -387,7 +387,7 @@ describe('K8sManager', () => {
     it('should clear all state', async () => {
       await manager.initialize()
 
-      manager.cleanup()
+      await manager.cleanup()
 
       const state = manager.getState()
       expect(state.initialized).toBe(false)
@@ -399,7 +399,7 @@ describe('K8sManager', () => {
       await manager.initialize()
       const consoleSpy = vi.spyOn(console, 'log')
 
-      manager.cleanup()
+      await manager.cleanup()
 
       expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('[K8s] Cleaning up'))
 
@@ -409,11 +409,11 @@ describe('K8sManager', () => {
     it('should be safe to call multiple times', async () => {
       await manager.initialize()
 
-      manager.cleanup()
-      manager.cleanup()
-      manager.cleanup()
+      await manager.cleanup()
+      await manager.cleanup()
+      await manager.cleanup()
 
-      expect(() => manager.cleanup()).not.toThrow()
+      await expect(manager.cleanup()).resolves.not.toThrow()
     })
   })
 

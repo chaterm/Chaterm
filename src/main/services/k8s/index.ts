@@ -5,4 +5,5 @@
 
 export { K8sManager } from './K8sManager'
 export { KubeConfigLoader } from './KubeConfigLoader'
+export { InformerPool } from './InformerPool'
 export * from './types'
