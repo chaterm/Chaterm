@@ -184,7 +184,6 @@ export function checkUserDevice(data) {
   })
 }
 
-// 邮箱绑定相关
 export function sendEmailBindCode(params) {
   return request({
     method: 'post',
@@ -201,7 +200,6 @@ export function verifyAndBindEmail(params) {
   })
 }
 
-// 手机号绑定相关
 export function sendMobileBindCode(params) {
   return request({
     method: 'post',

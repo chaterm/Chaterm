@@ -453,7 +453,6 @@ const cancelEditing = () => {
   formState.confirmPassword = ''
 }
 
-// 邮箱绑定相关方法
 const cancelBindingEmail = () => {
   showEmailModal.value = false
   emailBindForm.email = userInfo.value.email || ''
@@ -471,7 +470,7 @@ const handleSendEmailBindCode = async () => {
     message.error(t('userInfo.pleaseInputEmail'))
     return
   }
-  // 简单的邮箱格式验证
+
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
   if (!emailRegex.test(emailBindForm.email)) {
     message.error(t('common.invalidEmail'))
@@ -483,7 +482,6 @@ const handleSendEmailBindCode = async () => {
     const response = (await sendEmailBindCode({ email: emailBindForm.email })) as unknown as ApiResponse
     if (response.code === 200) {
       message.success(t('userInfo.emailCodeSent'))
-      // 开始倒计时
       emailCodeCountdown.value = 300
       const timer = setInterval(() => {
         emailCodeCountdown.value--
@@ -523,7 +521,6 @@ const handleVerifyAndBindEmail = async () => {
   }
 }
 
-// 手机号绑定相关方法
 const cancelBindingMobile = () => {
   showMobileModal.value = false
   mobileBindForm.mobile = userInfo.value.mobile || ''
@@ -551,7 +548,6 @@ const handleSendMobileBindCode = async () => {
     const response = (await sendMobileBindCode({ mobile: mobileBindForm.mobile })) as unknown as ApiResponse
     if (response.code === 200) {
       message.success(t('userInfo.mobileCodeSent'))
-      // 开始倒计时
       mobileCodeCountdown.value = 300
       const timer = setInterval(() => {
         mobileCodeCountdown.value--
@@ -591,7 +587,6 @@ const handleVerifyAndBindMobile = async () => {
   }
 }
 
-// 密码重置相关方法
 const cancelResetPassword = () => {
   showPasswordModal.value = false
   formState.newPassword = ''
@@ -636,7 +631,6 @@ const validatePassword = () => {
   return true
 }
 const validateSave = () => {
-  // 手机号验证已移除，手机号通过绑定接口更新
   if (!formState.username || formState.username.length < 6 || formState.username.length > 20) {
     message.error(t('userInfo.usernameLengthError'))
     return false
@@ -662,7 +656,6 @@ const handleSave = async () => {
     const response = (await updateUser({
       username: formState.username,
       name: formState.name
-      // mobile 字段移除，手机号通过绑定接口更新
     })) as unknown as ApiResponse
     console.log(response)
     if (response.code == 200) {
@@ -962,8 +955,6 @@ onBeforeUnmount(() => {})
 </style>
 
 <style lang="less">
-// 弹框全局样式（因为 Modal 挂载在 body 上，需要全局样式）
-// 只修改背景色，保留其他默认样式
 .ant-modal-wrap .ant-modal.compact-modal {
   .ant-modal-content {
     background-color: var(--bg-color-senary) !important;
@@ -993,7 +984,6 @@ onBeforeUnmount(() => {})
     background-color: var(--bg-color-senary) !important;
   }
 
-  // 输入框样式
   .ant-input {
     background-color: var(--bg-color-quinary) !important;
     border-color: var(--border-color) !important;
@@ -1017,7 +1007,6 @@ onBeforeUnmount(() => {})
     }
   }
 
-  // 验证码输入框：移除聚焦样式
   .code-input-row .ant-input {
     &:focus,
     &.ant-input-focused {
@@ -1030,7 +1019,6 @@ onBeforeUnmount(() => {})
     }
   }
 
-  // 倒计时按钮样式
   .code-input-row .ant-btn-primary[disabled] {
     color: var(--text-color) !important;
     background-color: var(--bg-color-secondary) !important;
@@ -1045,7 +1033,6 @@ onBeforeUnmount(() => {})
     }
   }
 
-  // 密码输入框特殊处理
   .ant-input-password {
     background-color: var(--bg-color-quinary) !important;
     border-color: var(--border-color) !important;
