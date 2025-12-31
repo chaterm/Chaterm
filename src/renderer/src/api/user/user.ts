@@ -29,6 +29,8 @@ const urls = {
   ssoToBearerToken: '/user/login-sso',
   sendEmailCode: '/user/login-email/send-code',
   emailLogin: '/user/login-email',
+  sendMobileLoginCode: '/user/login-mobile/send-code',
+  mobileLogin: '/user/login-mobile',
   updateUser: '/user/info',
   changePassword: '/user/password',
   checkUserDevice: '/user/check-device'
@@ -48,6 +50,23 @@ export function emailLogin(params) {
     data: params
   })
 }
+
+export function sendMobileLoginCode(params) {
+  return request({
+    method: 'post',
+    url: urls.sendMobileLoginCode,
+    data: params
+  })
+}
+
+export function mobileLogin(params) {
+  return request({
+    method: 'post',
+    url: urls.mobileLogin,
+    data: params
+  })
+}
+
 export function sayHello(params) {
   return request({
     method: 'get',
