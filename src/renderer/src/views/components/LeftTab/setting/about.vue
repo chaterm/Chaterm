@@ -35,19 +35,20 @@
       <div
         class="about-description"
         style="margin-top: 32px"
-        >Copyright © 2025 Chaterm.ai All rights reserved.</div
+        >Copyright © 2025 {{ copyrightDomain }} All rights reserved.</div
       >
     </a-card>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import { Notice } from '../../Notice'
 import i18n from '@/locales'
-import { getEditionConfig } from '@/utils/edition'
+import { getEditionConfig, isChineseEdition } from '@/utils/edition'
 const { t } = i18n.global
 const editionConfig = getEditionConfig()
+const copyrightDomain = computed(() => (isChineseEdition() ? 'Chaterm.cn' : 'Chaterm.ai'))
 
 const appInfo = {
   ...__APP_INFO__
