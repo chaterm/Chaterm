@@ -941,7 +941,17 @@ const api = {
   k8sSwitchContext: (contextName: string) => ipcRenderer.invoke('k8s:switch-context', contextName),
   k8sReloadConfig: () => ipcRenderer.invoke('k8s:reload-config'),
   k8sValidateContext: (contextName: string) => ipcRenderer.invoke('k8s:validate-context', contextName),
-  k8sInitialize: () => ipcRenderer.invoke('k8s:initialize')
+  k8sInitialize: () => ipcRenderer.invoke('k8s:initialize'),
+
+  // K8s watch stream APIs
+  k8sStartWatch: (contextName: string, resourceType: string, options?: any) =>
+    ipcRenderer.invoke('k8s:start-watch', contextName, resourceType, options),
+  k8sStopWatch: (contextName: string, resourceType: string) => ipcRenderer.invoke('k8s:stop-watch', contextName, resourceType),
+  k8sOnDeltaBatch: (callback: (batch: any) => void) => {
+    const listener = (_event: any, batch: any) => callback(batch)
+    ipcRenderer.on('k8s:delta-batch', listener)
+    return () => ipcRenderer.removeListener('k8s:delta-batch', listener)
+  }
 }
 // Custom API for browser control
 

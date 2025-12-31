@@ -442,4 +442,52 @@ describe('K8sManager', () => {
       expect(results.every((r) => ('success' in r && r.success) || Array.isArray(r))).toBe(true)
     })
   })
+
+  describe('DeltaPusher integration', () => {
+    it('should have DeltaPusher instance', () => {
+      const deltaPusher = manager.getDeltaPusher()
+
+      expect(deltaPusher).toBeDefined()
+      expect(deltaPusher).toHaveProperty('setMainWindow')
+      expect(deltaPusher).toHaveProperty('flushAll')
+      expect(deltaPusher).toHaveProperty('getStatistics')
+      expect(deltaPusher).toHaveProperty('removeCalculator')
+      expect(deltaPusher).toHaveProperty('destroy')
+    })
+
+    it('should set main window for DeltaPusher', () => {
+      const mockWindow = {
+        webContents: {
+          send: vi.fn()
+        },
+        isDestroyed: vi.fn().mockReturnValue(false)
+      }
+
+      expect(() => manager.setMainWindow(mockWindow as any)).not.toThrow()
+    })
+
+    it('should accept null window', () => {
+      expect(() => manager.setMainWindow(null)).not.toThrow()
+    })
+
+    it('should destroy DeltaPusher on cleanup', async () => {
+      await manager.initialize()
+
+      const deltaPusher = manager.getDeltaPusher()
+      const destroySpy = vi.spyOn(deltaPusher, 'destroy')
+
+      await manager.cleanup()
+
+      expect(destroySpy).toHaveBeenCalled()
+    })
+
+    it('should get DeltaPusher statistics', () => {
+      const deltaPusher = manager.getDeltaPusher()
+      const stats = deltaPusher.getStatistics()
+
+      expect(stats).toHaveProperty('totalCalculators')
+      expect(stats).toHaveProperty('calculators')
+      expect(stats.totalCalculators).toBe(0)
+    })
+  })
 })

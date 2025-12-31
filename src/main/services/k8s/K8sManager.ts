@@ -1,6 +1,8 @@
 import { KubeConfigLoader } from './KubeConfigLoader'
 import { InformerPool } from './InformerPool'
+import { DeltaPusher } from './DeltaPusher'
 import { K8sContext, K8sContextInfo, K8sManagerState, LoadConfigResult, K8sResourceEvent, InformerOptions } from './types'
+import { BrowserWindow } from 'electron'
 
 /**
  * K8sManager handles the lifecycle of Kubernetes connections and contexts
@@ -10,11 +12,16 @@ export class K8sManager {
   private static instance: K8sManager | null = null
   private configLoader: KubeConfigLoader
   private informerPool: InformerPool
+  private deltaPusher: DeltaPusher
   private state: K8sManagerState
 
   private constructor() {
     this.configLoader = new KubeConfigLoader()
     this.informerPool = new InformerPool(this.configLoader)
+    this.deltaPusher = new DeltaPusher(this.informerPool, {
+      throttleWindowMs: 100,
+      maxBatchSize: 100
+    })
     this.state = {
       initialized: false,
       contexts: new Map<string, K8sContext>()
@@ -164,9 +171,24 @@ export class K8sManager {
   public async cleanup(): Promise<void> {
     console.log('[K8s] Cleaning up K8s Manager...')
     await this.informerPool.stopAll()
+    this.deltaPusher.destroy()
     this.state.contexts.clear()
     this.state.initialized = false
     this.state.currentContext = undefined
+  }
+
+  /**
+   * Set main window for delta pusher IPC
+   */
+  public setMainWindow(window: BrowserWindow | null): void {
+    this.deltaPusher.setMainWindow(window)
+  }
+
+  /**
+   * Get delta pusher instance
+   */
+  public getDeltaPusher(): DeltaPusher {
+    return this.deltaPusher
   }
 
   /**
