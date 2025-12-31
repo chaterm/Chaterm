@@ -308,9 +308,9 @@ async function showOtherEditionRunningDialog(): Promise<void> {
   try {
     await dialog.showMessageBox({
       type: 'warning',
-      buttons: ['确定'],
+      buttons: ['ok'],
       defaultId: 0,
-      title: '数据迁移',
+      title: 'Data migration',
       message: 'Another version of Chaterm is currently running. Please close it and try again.'
     })
   } catch (error) {
