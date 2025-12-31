@@ -11,24 +11,50 @@ const mockGetUsers = vi.fn()
 const mockSetCurrentContext = vi.fn()
 const mockMakeApiClient = vi.fn()
 
-const mockKubeConfig = {
-  loadFromFile: mockLoadFromFile,
-  loadFromDefault: mockLoadFromDefault,
-  getContexts: mockGetContexts,
-  getCurrentContext: mockGetCurrentContext,
-  getClusters: mockGetClusters,
-  getUsers: mockGetUsers,
-  setCurrentContext: mockSetCurrentContext,
-  makeApiClient: mockMakeApiClient
+class MockKubeConfig {
+  loadFromFile = mockLoadFromFile
+  loadFromDefault = mockLoadFromDefault
+  contexts: any[] = []
+  clusters: any[] = []
+  users: any[] = []
+  currentContext = ''
+
+  getContexts() {
+    return mockGetContexts()
+  }
+
+  getCurrentContext() {
+    return mockGetCurrentContext()
+  }
+
+  getClusters() {
+    return mockGetClusters()
+  }
+
+  getUsers() {
+    return mockGetUsers()
+  }
+
+  setCurrentContext(name: string) {
+    return mockSetCurrentContext(name)
+  }
+
+  makeApiClient(type: any) {
+    return mockMakeApiClient(type)
+  }
+
+  getContextObject(name: string) {
+    return this.getContexts().find((c: any) => c.name === name)
+  }
+
+  getCluster(name: string) {
+    return this.getClusters().find((c: any) => c.name === name)
+  }
 }
 
 // Mock the ES module import
 vi.mock('@kubernetes/client-node', () => ({
-  default: {
-    KubeConfig: vi.fn(() => mockKubeConfig),
-    CoreV1Api: vi.fn()
-  },
-  KubeConfig: vi.fn(() => mockKubeConfig),
+  KubeConfig: MockKubeConfig,
   CoreV1Api: vi.fn()
 }))
 
@@ -118,7 +144,7 @@ describe('KubeConfigLoader', () => {
     })
 
     it('should handle errors gracefully', async () => {
-      mockLoadFromDefault.mockImplementation(() => {
+      mockLoadFromDefault.mockImplementationOnce(() => {
         throw new Error('Failed to load config')
       })
 

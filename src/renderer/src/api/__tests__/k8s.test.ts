@@ -1,74 +1,75 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
-import * as k8sApi from '../k8s'
 
-// Mock window.api
-const mockK8sGetContexts = vi.fn()
-const mockK8sGetContextDetail = vi.fn()
-const mockK8sSwitchContext = vi.fn()
-const mockK8sReloadConfig = vi.fn()
-const mockK8sValidateContext = vi.fn()
-const mockK8sInitialize = vi.fn()
+// Mock window.api BEFORE importing the module
+const mockK8sGetContexts = vi.fn().mockResolvedValue({
+  success: true,
+  data: [
+    {
+      name: 'context1',
+      cluster: 'cluster1',
+      namespace: 'default',
+      server: 'https://cluster1.example.com',
+      isActive: true
+    }
+  ],
+  currentContext: 'context1'
+})
 
-;(global as any).window = {
-  api: {
-    k8sGetContexts: mockK8sGetContexts,
-    k8sGetContextDetail: mockK8sGetContextDetail,
-    k8sSwitchContext: mockK8sSwitchContext,
-    k8sReloadConfig: mockK8sReloadConfig,
-    k8sValidateContext: mockK8sValidateContext,
-    k8sInitialize: mockK8sInitialize
+const mockK8sGetContextDetail = vi.fn().mockResolvedValue({
+  success: true,
+  data: {
+    name: 'context1',
+    cluster: 'cluster1',
+    user: 'user1'
   }
+})
+
+const mockK8sSwitchContext = vi.fn().mockResolvedValue({
+  success: true,
+  currentContext: 'context2'
+})
+
+const mockK8sReloadConfig = vi.fn().mockResolvedValue({
+  success: true,
+  data: [],
+  currentContext: 'context1'
+})
+
+const mockK8sValidateContext = vi.fn().mockResolvedValue({
+  success: true,
+  isValid: true
+})
+
+const mockK8sInitialize = vi.fn().mockResolvedValue({
+  success: true,
+  data: [],
+  currentContext: 'context1'
+})
+
+// Set up global.window before any imports
+if (typeof window === 'undefined') {
+  ;(global as any).window = {}
 }
+;(window as any).api = {
+  k8sGetContexts: mockK8sGetContexts,
+  k8sGetContextDetail: mockK8sGetContextDetail,
+  k8sSwitchContext: mockK8sSwitchContext,
+  k8sReloadConfig: mockK8sReloadConfig,
+  k8sValidateContext: mockK8sValidateContext,
+  k8sInitialize: mockK8sInitialize
+}
+
+import * as k8sApi from '../k8s'
 
 describe('K8s API', () => {
   beforeEach(() => {
-    vi.clearAllMocks()
-
-    // Setup default mock responses
-    mockK8sGetContexts.mockResolvedValue({
-      success: true,
-      data: [
-        {
-          name: 'context1',
-          cluster: 'cluster1',
-          namespace: 'default',
-          server: 'https://cluster1.example.com',
-          isActive: true
-        }
-      ],
-      currentContext: 'context1'
-    })
-
-    mockK8sGetContextDetail.mockResolvedValue({
-      success: true,
-      data: {
-        name: 'context1',
-        cluster: 'cluster1',
-        user: 'user1'
-      }
-    })
-
-    mockK8sSwitchContext.mockResolvedValue({
-      success: true,
-      currentContext: 'context2'
-    })
-
-    mockK8sReloadConfig.mockResolvedValue({
-      success: true,
-      data: [],
-      currentContext: 'context1'
-    })
-
-    mockK8sValidateContext.mockResolvedValue({
-      success: true,
-      isValid: true
-    })
-
-    mockK8sInitialize.mockResolvedValue({
-      success: true,
-      data: [],
-      currentContext: 'context1'
-    })
+    // Clear mock call history
+    mockK8sGetContexts.mockClear()
+    mockK8sGetContextDetail.mockClear()
+    mockK8sSwitchContext.mockClear()
+    mockK8sReloadConfig.mockClear()
+    mockK8sValidateContext.mockClear()
+    mockK8sInitialize.mockClear()
   })
 
   describe('getContexts', () => {
