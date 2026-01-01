@@ -26,9 +26,11 @@ export class KubeConfigLoader {
   private kc: any
   private defaultConfigPath: string
   private initialized: boolean = false
+  private kubeConfigFactory: (() => any) | null = null
 
-  constructor() {
+  constructor(kubeConfigFactory?: () => any) {
     this.defaultConfigPath = path.join(os.homedir(), '.kube', 'config')
+    this.kubeConfigFactory = kubeConfigFactory || null
   }
 
   /**
@@ -37,8 +39,12 @@ export class KubeConfigLoader {
   private async initialize(): Promise<void> {
     if (this.initialized) return
 
-    const { KubeConfigClass } = await ensureK8sModule()
-    this.kc = new KubeConfigClass()
+    if (this.kubeConfigFactory) {
+      this.kc = this.kubeConfigFactory()
+    } else {
+      const { KubeConfigClass } = await ensureK8sModule()
+      this.kc = new KubeConfigClass()
+    }
     this.initialized = true
   }
 
@@ -187,6 +193,10 @@ export class KubeConfigLoader {
    * Get the KubeConfig instance for creating API clients
    */
   public getKubeConfig(): any {
+    if (!this.initialized) {
+      console.warn('[K8s] Attempting to get KubeConfig before initialization')
+      return undefined
+    }
     return this.kc
   }
 
@@ -219,15 +229,19 @@ export class KubeConfigLoader {
    * @param contextName Name of the context to validate
    */
   public async validateContext(contextName: string): Promise<boolean> {
+    let originalContext: string | undefined
     try {
       if (!this.initialized) {
-        await this.initialize()
+        const result = await this.loadFromDefault()
+        if (!result.success) {
+          return false
+        }
       }
 
       const { k8sModule } = await ensureK8sModule()
       const CoreV1Api = k8sModule.CoreV1Api
 
-      const originalContext = this.kc.getCurrentContext()
+      originalContext = this.kc.getCurrentContext()
       this.kc.setCurrentContext(contextName)
 
       const k8sApi = this.kc.makeApiClient(CoreV1Api)
@@ -237,6 +251,14 @@ export class KubeConfigLoader {
       this.kc.setCurrentContext(originalContext)
       return true
     } catch (error) {
+      // Try to restore original context even on error
+      if (originalContext !== undefined && this.initialized && this.kc) {
+        try {
+          this.kc.setCurrentContext(originalContext)
+        } catch (restoreError) {
+          console.error(`[K8s] Failed to restore context:`, restoreError)
+        }
+      }
       console.error(`[K8s] Context validation failed for ${contextName}:`, error)
       return false
     }

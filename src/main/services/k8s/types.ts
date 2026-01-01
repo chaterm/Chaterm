@@ -161,3 +161,35 @@ export interface ResourceSnapshot {
   resource: K8sResource
   lastUpdated: Date
 }
+
+/**
+ * Delta operation types for incremental updates
+ */
+export enum DeltaOperationType {
+  ADD = 'ADD',
+  UPDATE = 'UPDATE',
+  DELETE = 'DELETE'
+}
+
+/**
+ * Delta patch for a single resource
+ */
+export interface ResourceDelta {
+  type: DeltaOperationType
+  uid: string
+  contextName: string
+  resourceType: string
+  name: string
+  namespace?: string
+  patches?: any[]
+  fullResource?: K8sResource
+}
+
+/**
+ * Batched delta update
+ */
+export interface DeltaBatch {
+  timestamp: Date
+  deltas: ResourceDelta[]
+  totalChanges: number
+}

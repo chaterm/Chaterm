@@ -207,6 +207,24 @@ interface ApiType {
     currentContext?: string
     error?: string
   }>
+
+  // K8s watch stream APIs
+  k8sStartWatch: (
+    contextName: string,
+    resourceType: string,
+    options?: { namespace?: string; labelSelector?: string }
+  ) => Promise<{
+    success: boolean
+    error?: string
+  }>
+  k8sStopWatch: (
+    contextName: string,
+    resourceType: string
+  ) => Promise<{
+    success: boolean
+    error?: string
+  }>
+  k8sOnDeltaBatch: (callback: (batch: any) => void) => () => void
 }
 
 declare global {

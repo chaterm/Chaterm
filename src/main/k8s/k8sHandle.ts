@@ -139,5 +139,59 @@ export function registerK8sHandlers(): void {
     }
   })
 
+  /**
+   * Start watching resources
+   * Channel: k8s:start-watch
+   */
+  ipcMain.handle('k8s:start-watch', async (_event, contextName: string, resourceType: string, options?: any) => {
+    try {
+      console.log(`[K8s IPC] Starting watch for ${resourceType} in ${contextName}`)
+
+      const resourceTypes: Array<'Pod' | 'Node'> = []
+      if (resourceType === 'Pod' || resourceType === 'Node') {
+        resourceTypes.push(resourceType)
+      } else {
+        throw new Error(`Unsupported resource type: ${resourceType}`)
+      }
+
+      await k8sManager.startWatching(contextName, resourceTypes, options)
+
+      return {
+        success: true
+      }
+    } catch (error) {
+      console.error('[K8s IPC] Failed to start watch:', error)
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      }
+    }
+  })
+
+  /**
+   * Stop watching resources
+   * Channel: k8s:stop-watch
+   */
+  ipcMain.handle('k8s:stop-watch', async (_event, contextName: string, resourceType: string) => {
+    try {
+      console.log(`[K8s IPC] Stopping watch for ${resourceType} in ${contextName}`)
+
+      await k8sManager.stopWatching(contextName)
+
+      const deltaPusher = k8sManager.getDeltaPusher()
+      deltaPusher.removeCalculator(contextName, resourceType)
+
+      return {
+        success: true
+      }
+    } catch (error) {
+      console.error('[K8s IPC] Failed to stop watch:', error)
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      }
+    }
+  })
+
   console.log('[K8s IPC] All K8s IPC handlers registered')
 }
