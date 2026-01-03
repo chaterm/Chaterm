@@ -23,6 +23,7 @@ export function useStateSnapshot(emit: (event: 'state-changed', ...args: any[]) 
         inputValue: tab.inputValue,
         modelValue: tab.modelValue,
         welcomeTip: tab.welcomeTip,
+        agentHosts: tab.agentHosts ? [...tab.agentHosts] : undefined,
         session: {
           chatHistory: [...tab.session.chatHistory],
           lastChatMessageId: tab.session.lastChatMessageId,
@@ -62,6 +63,7 @@ export function useStateSnapshot(emit: (event: 'state-changed', ...args: any[]) 
           inputValue: savedTab.inputValue,
           modelValue: savedTab.modelValue || '',
           welcomeTip: savedTab.welcomeTip || '',
+          agentHosts: savedTab.agentHosts ? [...savedTab.agentHosts] : undefined,
           session: {
             chatHistory: [...savedTab.session.chatHistory],
             lastChatMessageId: savedTab.session.lastChatMessageId,
