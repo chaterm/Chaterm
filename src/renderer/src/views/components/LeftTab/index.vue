@@ -243,8 +243,7 @@ const files = () => {
 }
 
 const kubernetes = () => {
-  emit('open-user-tab', 'kubernetes')
-  showUserMenu.value = false
+  // K8s feature is under development, no action on click
 }
 const logout = async () => {
   const isSkippedLogin = localStorage.getItem('login-skipped') === 'true'
