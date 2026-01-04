@@ -81,6 +81,7 @@ export interface WebviewMessage {
   taskId?: string
   changeType?: 'created' | 'updated' | 'completed' | 'progress'
   triggerReason?: 'agent_update' | 'user_request' | 'auto_progress'
+  truncateAtMessageTs?: number // For truncate and resend
 }
 
 export type ChatermAskResponse = 'yesButtonClicked' | 'noButtonClicked' | 'messageResponse'
