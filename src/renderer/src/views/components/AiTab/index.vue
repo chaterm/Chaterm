@@ -88,6 +88,7 @@
                 <UserMessage
                   v-if="pair.user"
                   :message="pair.user.message"
+                  @truncate-and-send="handleTruncateAndSend"
                 />
 
                 <template
@@ -694,7 +695,7 @@ import {
 } from '@ant-design/icons-vue'
 import { isFocusInAiTab } from '@/utils/domUtils'
 import { getGlobalState } from '@renderer/agent/storage/state'
-import type { MessageContent } from './types'
+import type { MessageContent, ChatMessage } from './types'
 import i18n from '@/locales'
 import eventBus from '@/utils/eventBus'
 import historyIcon from '@/assets/icons/history.svg'
@@ -842,6 +843,22 @@ useEventBusListeners({
   updateHosts,
   isAgentMode: props.isAgentMode
 })
+
+/**
+ * Handle edit and resend from UserMessage
+ */
+const handleTruncateAndSend = async ({ message, newContent }: { message: ChatMessage; newContent: string }) => {
+  if (!currentSession.value) return
+
+  const chatHistory = currentSession.value.chatHistory
+
+  const index = chatHistory.findIndex((m) => m.id === message.id)
+  if (index === -1) return
+
+  chatHistory.splice(index)
+
+  await sendMessageWithContent(newContent, 'send')
+}
 
 const goToLogin = () => {
   router.push('/login')

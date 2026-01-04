@@ -45,6 +45,7 @@
           v-else-if="i.key === 'kubernetes'"
           class="term_menu"
           :class="{ active: activeKey === i.key }"
+          @click="kubernetes"
         >
           <img
             :src="i.icon"
@@ -239,6 +240,10 @@ const userConfig = () => {
 const files = () => {
   emit('open-user-tab', 'files')
   showUserMenu.value = false
+}
+
+const kubernetes = () => {
+  // K8s feature is under development, no action on click
 }
 const logout = async () => {
   const isSkippedLogin = localStorage.getItem('login-skipped') === 'true'

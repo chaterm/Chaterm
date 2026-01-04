@@ -19,6 +19,7 @@ process.env.IS_DEV = is.dev ? 'true' : 'false'
 import { registerSSHHandlers } from './ssh/sshHandle'
 import { registerLocalSSHHandlers } from './ssh/localSSHHandle'
 import { registerRemoteTerminalHandlers } from './ssh/agentHandle'
+import { registerK8sHandlers } from './k8s/k8sHandle'
 import { autoCompleteDatabaseService, ChatermDatabaseService, setCurrentUserId } from './storage/database'
 import { getGuestUserId } from './storage/db/connection'
 import { Controller } from './agent/core/controller'
@@ -187,6 +188,9 @@ app.whenReady().then(async () => {
   registerLocalSSHHandlers()
   registerRemoteTerminalHandlers()
   registerUpdater(mainWindow)
+
+  // Register K8s handlers
+  registerK8sHandlers()
   // Load all plugins
   loadAllPlugins()
   app.on('activate', function () {

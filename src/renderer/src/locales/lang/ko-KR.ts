@@ -834,6 +834,9 @@ export default {
     pleaseInputUsername: '사용자 이름을 입력해주세요',
     pleaseInputMobile: '전화번호를 입력해주세요',
     pleaseInputNewPassword: '새 비밀번호를 입력해주세요',
+    confirmPassword: '확인 비밀번호',
+    pleaseInputConfirmPassword: '비밀번호를 다시 입력해주세요',
+    passwordMismatch: '비밀번호가 일치하지 않습니다',
     nameRequired: '이름은 필수입니다',
     nameTooLong: '이름 길이는 20자를 초과할 수 없습니다',
     usernameLengthError: '사용자 이름 길이는 6-20자 사이여야 합니다',
@@ -854,7 +857,22 @@ export default {
     cancel: '취소',
     resetPassword: '비밀번호 초기화',
     expirationTime: '만료 시간',
-    enterpriseCertification: '엔터프라이즈 인증'
+    enterpriseCertification: '엔터프라이즈 인증',
+    bindEmail: '이메일 바인딩',
+    modifyEmail: '이메일 수정',
+    pleaseInputEmail: '이메일을 입력해주세요',
+    pleaseInputEmailCode: '이메일 인증 코드를 입력해주세요',
+    sendEmailCode: '인증 코드 전송',
+    emailCodeSent: '인증 코드가 전송되었습니다',
+    emailBindSuccess: '이메일 바인딩 성공',
+    emailBindFailed: '이메일 바인딩 실패',
+    bindMobile: '전화번호 바인딩',
+    modifyMobile: '전화번호 수정',
+    pleaseInputMobileCode: '전화번호 인증 코드를 입력해주세요',
+    sendMobileCode: '인증 코드 전송',
+    mobileCodeSent: '인증 코드가 전송되었습니다',
+    mobileBindSuccess: '전화번호 바인딩 성공',
+    mobileBindFailed: '전화번호 바인딩 실패'
   },
   update: {
     available: '새 버전이 있습니다',
@@ -1101,5 +1119,17 @@ export default {
     commandCount: '{count}개 명령 기록됨',
     recording: '기록 중',
     commands: '명령'
+  },
+  kubernetes: {
+    title: 'Kubernetes',
+    active: '현재',
+    cluster: '클러스터',
+    namespace: '네임스페이스',
+    server: '서버',
+    switchTo: '전환',
+    noContexts: 'Kubernetes 컨텍스트를 찾을 수 없습니다. ~/.kube/config를 설정해주세요',
+    refreshSuccess: '컨텍스트가 성공적으로 새로고침되었습니다',
+    switchSuccess: '컨텍스트로 전환했습니다: {context}',
+    switchFailed: '컨텍스트 전환 실패: {error}'
   }
 }

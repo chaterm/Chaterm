@@ -862,6 +862,9 @@ export default {
     pleaseInputUsername: 'Please input username',
     pleaseInputMobile: 'Please input mobile number',
     pleaseInputNewPassword: 'Please input new password',
+    confirmPassword: 'Confirm Password',
+    pleaseInputConfirmPassword: 'Please input password again',
+    passwordMismatch: 'Passwords do not match',
     nameRequired: 'Name is required',
     nameTooLong: 'Name length cannot exceed 20 characters',
     usernameLengthError: 'Username length must be between 6-20 characters',
@@ -882,7 +885,22 @@ export default {
     cancel: 'Cancel',
     resetPassword: 'Reset Password',
     expirationTime: 'Expiration Time',
-    enterpriseCertification: 'Enterprise Certification'
+    enterpriseCertification: 'Enterprise Certification',
+    bindEmail: 'Bind Email',
+    modifyEmail: 'Modify Email',
+    pleaseInputEmail: 'Please input email',
+    pleaseInputEmailCode: 'Please input email verification code',
+    sendEmailCode: 'Send Code',
+    emailCodeSent: 'Verification code sent',
+    emailBindSuccess: 'Email bound successfully',
+    emailBindFailed: 'Failed to bind email',
+    bindMobile: 'Bind Mobile',
+    modifyMobile: 'Modify Mobile',
+    pleaseInputMobileCode: 'Please input mobile verification code',
+    sendMobileCode: 'Send Code',
+    mobileCodeSent: 'Verification code sent',
+    mobileBindSuccess: 'Mobile bound successfully',
+    mobileBindFailed: 'Failed to bind mobile'
   },
   update: {
     available: 'A new version is available',
@@ -1129,5 +1147,17 @@ export default {
     commandCount: '{count} command(s) recorded',
     recording: 'Recording',
     commands: 'commands'
+  },
+  kubernetes: {
+    title: 'Kubernetes',
+    active: 'Active',
+    cluster: 'Cluster',
+    namespace: 'Namespace',
+    server: 'Server',
+    switchTo: 'Switch',
+    noContexts: 'No Kubernetes contexts found. Please configure ~/.kube/config',
+    refreshSuccess: 'Contexts refreshed successfully',
+    switchSuccess: 'Switched to context: {context}',
+    switchFailed: 'Failed to switch context: {error}'
   }
 }

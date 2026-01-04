@@ -855,6 +855,9 @@ export default {
     pleaseInputUsername: '请输入用户名',
     pleaseInputMobile: '请输入手机号',
     pleaseInputNewPassword: '请输入新密码',
+    confirmPassword: '确认密码',
+    pleaseInputConfirmPassword: '请再次输入密码',
+    passwordMismatch: '两次输入的密码不一致',
     nameRequired: '名称不得为空',
     nameTooLong: '名称长度不能超过20位',
     usernameLengthError: '用户名长度需在6-20位之间',
@@ -875,7 +878,22 @@ export default {
     cancel: '取消',
     resetPassword: '重置密码',
     expirationTime: '过期时间',
-    enterpriseCertification: '企业认证'
+    enterpriseCertification: '企业认证',
+    bindEmail: '绑定邮箱',
+    modifyEmail: '修改邮箱',
+    pleaseInputEmail: '请输入邮箱',
+    pleaseInputEmailCode: '请输入邮箱验证码',
+    sendEmailCode: '获取验证码',
+    emailCodeSent: '验证码已发送',
+    emailBindSuccess: '邮箱绑定成功',
+    emailBindFailed: '邮箱绑定失败',
+    bindMobile: '绑定手机号',
+    modifyMobile: '修改手机号',
+    pleaseInputMobileCode: '请输入手机号验证码',
+    sendMobileCode: '获取验证码',
+    mobileCodeSent: '验证码已发送',
+    mobileBindSuccess: '手机号绑定成功',
+    mobileBindFailed: '手机号绑定失败'
   },
   update: {
     available: '有最新版本可以更新',
@@ -1122,5 +1140,17 @@ export default {
     commandCount: '共 {count} 条命令',
     recording: '录制中',
     commands: '条命令'
+  },
+  kubernetes: {
+    title: 'Kubernetes',
+    active: '当前',
+    cluster: '集群',
+    namespace: '命名空间',
+    server: '服务器',
+    switchTo: '切换',
+    noContexts: '未找到 Kubernetes 上下文配置，请配置 ~/.kube/config',
+    refreshSuccess: '上下文刷新成功',
+    switchSuccess: '已切换到上下文：{context}',
+    switchFailed: '切换上下文失败：{error}'
   }
 }
