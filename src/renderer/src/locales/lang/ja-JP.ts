@@ -115,7 +115,8 @@ export default {
     terminalMode: 'ターミナル',
     agentsMode: 'エージェント',
     daysAgo: ' 日前',
-    run: '実行'
+    run: '実行',
+    jumpserverSupportPlugin: 'Jumpserver Support'
   },
   term: {
     welcome: 'Chaterm へようこそ',
@@ -426,6 +427,10 @@ export default {
       'セキュリティ設定ファイルを直接開いて、コマンド実行のセキュリティポリシーとホワイトリスト/ブラックリストの設定を管理します。',
     securityConfigOpened: 'セキュリティ設定ファイルを開いています...',
     openSecurityConfigFailed: 'セキュリティ設定ファイルの開きに失敗しました',
+    keywordHighlight: 'キーワードハイライト',
+    openConfig: '設定を開く',
+    keywordHighlightDescribe:
+      'ボタンをクリックして、キーワードハイライト設定ファイルを直接開き、ターミナル出力のハイライトルールをカスタマイズします。',
     success: '成功',
     background: '背景',
     backgroundNone: 'なし',
@@ -487,7 +492,31 @@ export default {
     updateFailed: '更新に失敗しました',
     updateSuccess: '更新成功',
     sourceStore: 'プラグインストア',
-    sourceLocal: 'ローカル'
+    sourceLocal: 'ローカル',
+    jumpserverSupport: {
+      jmsPluginDesc: '資産の同期化と資産の直接接続をサポート',
+      jmsPluginDoc: 'プラグインの概要',
+      jmsPluginHeader: 'Jumpserver SupportはChaterm用に作られた砦機の補助ツールです。',
+      jmsPluginFunc: '主な機能',
+      jmsPluginFuncAsset: '権限マッピング同期',
+      jmsPluginFuncAssetDetail: '踏み台サーバーのアカウント権限を同期し、ローカルの資産リストをクラウドの権限設定と厳密に一致させます。',
+      jmsPluginFuncCon: '資産へのワンクリック直結',
+      jmsPluginFuncConDetail:
+        'ホストされるJumpServer秘密鍵証明書、ターゲット・サーバへのワンタッチ接続、ターゲット・サーバへの砦マシンのログイン・パスの大幅な簡略化',
+      jmsPluginFuncAuth: '認証状態の永続化',
+      jmsPluginFuncAuthDetail: '認証成功後にログイン状態を自動保持。複数回の接続でも認証コードの再入力を不要にし、運用効率を飛躍的に向上させます。',
+      jmsPluginFuncAgent: 'Agent 接続の強化',
+      jmsPluginFuncAgentDetail:
+        'AIエージェントがバリアマシンを貫通してターゲットサーバーに直接接続し、操作隔離制限を突破し、ターゲットマシンの命令実行と深さAIインタラクションを実現することをサポートする。',
+      jmsPluginFuncAgentLog: '接続デモ（シミュレーションログ）',
+      jmsPluginGuide: '構成ガイド',
+      jmsStep1: '1. サイドバーの「鍵管理」を開き、「鍵を追加」をクリックして設定を保存します。',
+      jmsStep2: '2. サイドバーの「サーバーリスト」をクリックし、「資産管理」から「ホストを追加」を選択します。',
+      jmsStep3: '3. 「企業資産」を選択し、アドレス、ユーザー、ポート、鍵情報を入力（二要素認証が必要な場合はパスワードを設定）して保存します。',
+      jmsStep4: '4. サーバーリストの「踏み台サーバーリソース」タブをクリックし、対象の踏み台サーバーの右側にある「更新」ボタンをクリックします。',
+      jmsStep5: '5. 資産の同期完了後、リスト内の資産をクリックすることで直接接続が可能になります。'
+    },
+    system: 'システム'
   },
   commandDialog: {
     placeholder: 'コマンド指示',
@@ -838,10 +867,15 @@ export default {
     pleaseInputUsername: 'ユーザー名を入力してください',
     pleaseInputMobile: '携帯電話番号を入力してください',
     pleaseInputNewPassword: '新しいパスワードを入力してください',
+    confirmPassword: '確認パスワード',
+    pleaseInputConfirmPassword: 'パスワードを再度入力してください',
+    passwordMismatch: 'パスワードが一致しません',
     nameRequired: '名前は必須です',
     nameTooLong: '名前の長さは20文字を超えることはできません',
     usernameLengthError: 'ユーザー名の長さは6-20文字の間でなければなりません',
     usernameFormatError: 'ユーザー名は英数字とアンダースコアのみ使用できます',
+    passwordStrengthError: 'パスワード強度は最低でも弱以上である必要があります',
+    passwordStrength: 'パスワード強度',
     passwordStrengthWeak: '弱',
     passwordStrengthMedium: '中',
     passwordStrengthStrong: '強',
@@ -854,7 +888,22 @@ export default {
     cancel: 'キャンセル',
     resetPassword: 'パスワードをリセット',
     expirationTime: '有効期限',
-    enterpriseCertification: 'エンタープライズ認証'
+    enterpriseCertification: 'エンタープライズ認証',
+    bindEmail: 'メールをバインド',
+    modifyEmail: 'メールを変更',
+    pleaseInputEmail: 'メールアドレスを入力してください',
+    pleaseInputEmailCode: 'メール確認コードを入力してください',
+    sendEmailCode: '確認コードを送信',
+    emailCodeSent: '確認コードが送信されました',
+    emailBindSuccess: 'メールのバインドに成功しました',
+    emailBindFailed: 'メールのバインドに失敗しました',
+    bindMobile: '携帯電話番号をバインド',
+    modifyMobile: '携帯電話番号を変更',
+    pleaseInputMobileCode: '携帯電話確認コードを入力してください',
+    sendMobileCode: '確認コードを送信',
+    mobileCodeSent: '確認コードが送信されました',
+    mobileBindSuccess: '携帯電話番号のバインドに成功しました',
+    mobileBindFailed: '携帯電話番号のバインドに失敗しました'
   },
   update: {
     available: '新しいバージョンが利用可能です',
@@ -1101,5 +1150,17 @@ export default {
     commandCount: '合計 {count} 件のコマンド',
     recording: '記録中',
     commands: 'コマンド'
+  },
+  kubernetes: {
+    title: 'Kubernetes',
+    active: '現在',
+    cluster: 'クラスタ',
+    namespace: 'ネームスペース',
+    server: 'サーバー',
+    switchTo: '切り替え',
+    noContexts: 'Kubernetes コンテキストが見つかりません。~/.kube/config を設定してください',
+    refreshSuccess: 'コンテキストの更新に成功しました',
+    switchSuccess: 'コンテキストを切り替えました: {context}',
+    switchFailed: 'コンテキストの切り替えに失敗しました: {error}'
   }
 }

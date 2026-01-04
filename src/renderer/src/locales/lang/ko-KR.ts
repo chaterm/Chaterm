@@ -106,7 +106,8 @@ export default {
     terminalMode: '터미널',
     agentsMode: '에이전트',
     daysAgo: ' 일 전',
-    run: '실행'
+    run: '실행',
+    jumpserverSupportPlugin: 'Jumpserver Support'
   },
   term: {
     welcome: 'Chaterm 사용을 환영합니다',
@@ -118,7 +119,7 @@ export default {
     enterprise: '기업',
     personal: '개인',
     contact: '연락처',
-    welcome: 'Chaterm 사용을 환영합니다',
+    welcome: '사용을 환영합니다',
     title: 'Chaterm',
     accountLogin: '계정 로그인',
     emailLogin: '이메일 로그인',
@@ -408,6 +409,9 @@ export default {
     securityConfigDescribe: '보안 설정 파일을 직접 열어 명령 실행 보안 정책과 허용 목록/거절 목록 설정을 관리합니다.',
     securityConfigOpened: '보안 설정 파일 열기...',
     openSecurityConfigFailed: '보안 설정 파일 열기 실패',
+    keywordHighlight: '키워드 강조',
+    openConfig: '설정 열기',
+    keywordHighlightDescribe: '버튼을 클릭하여 키워드 강조 설정 파일을 직접 열고 터미널 출력의 강조 규칙을 사용자 정의합니다.',
     success: '성공',
     background: '배경',
     backgroundNone: '없음',
@@ -469,7 +473,30 @@ export default {
     updateFailed: '업데이트 실패',
     updateSuccess: '업데이트 성공',
     sourceStore: '플러그인 스토어',
-    sourceLocal: '로컬'
+    sourceLocal: '로컬',
+    jumpserverSupport: {
+      jmsPluginDesc: '자산 동시 및 직접 연결 지원',
+      jmsPluginDoc: '플러그인 개요',
+      jmsPluginHeader: 'Jumpserver Support는 Chaterm을 위해 특별히 제작된 요새기 보조 도구입니다.',
+      jmsPluginFunc: '핵심 기능',
+      jmsPluginFuncAsset: '권한 매핑 동기화',
+      jmsPluginFuncAssetDetail: '배스천 호스트 계정 권한을 동기화하여 로컬 자산 목록과 클라우드 권한 설정이 엄격히 일치하도록 보장합니다.',
+      jmsPluginFuncCon: '원클릭 자산 직련결',
+      jmsPluginFuncConDetail: '관리되는 JumpServer 개인 키 자격 증명, 원클릭으로 대상 서버에 연결, 대상 서버에 대한 요새의 로그인 경로 대폭 간소화.',
+      jmsPluginFuncAuth: '인증 상태 유지',
+      jmsPluginFuncAuthDetail:
+        '인증 성공 후 로그인 상태를 자동으로 유지하여, 여러 번 연결 시 OTP 번호를 반복 입력할 필요 없이 업무 효율을 극대화합니다.',
+      jmsPluginFuncAgent: '에이전트 연결 강화',
+      jmsPluginFuncAgentDetail:
+        'AI Agent가 요새기를 관통하여 대상 서버에 직접 연결하고, 조작 격리 제한을 돌파하여 목표기 명령 실행과 심도 있는 AI 인터렉션을 실현할 수 있도록 지원한다.',
+      jmsPluginFuncAgentLog: '작업 시연 (로그 시뮬레이션)',
+      jmsStep1: '1. 사이드바에서 「키 관리」를 열고 「키 추가」를 클릭한 후 설정을 저장합니다.',
+      jmsStep2: '2. 사이드바에서 「서버 목록」을 클릭하고 「자산 관리」로 들어가 「호스트 추가」를 클릭합니다.',
+      jmsStep3: '3. 「기업 자산」을 선택하고 주소, 사용자, 포트, 키 정보를 입력(2단계 인증이 필요한 경우 비밀번호 설정)한 후 저장합니다.',
+      jmsStep4: '4. 서버 목록에서 「배스천 리소스」 탭을 클릭하고, 해당 배스천 호스트 우측의 「새로고침」 버튼을 클릭합니다.',
+      jmsStep5: '5. 자산 동기화가 완료되면 목록에서 자산을 클릭하여 직접 연결할 수 있습니다.'
+    },
+    system: '시스템'
   },
   commandDialog: {
     placeholder: '명령 지시',
@@ -814,6 +841,9 @@ export default {
     pleaseInputUsername: '사용자 이름을 입력해주세요',
     pleaseInputMobile: '전화번호를 입력해주세요',
     pleaseInputNewPassword: '새 비밀번호를 입력해주세요',
+    confirmPassword: '확인 비밀번호',
+    pleaseInputConfirmPassword: '비밀번호를 다시 입력해주세요',
+    passwordMismatch: '비밀번호가 일치하지 않습니다',
     nameRequired: '이름은 필수입니다',
     nameTooLong: '이름 길이는 20자를 초과할 수 없습니다',
     usernameLengthError: '사용자 이름 길이는 6-20자 사이여야 합니다',
@@ -834,7 +864,22 @@ export default {
     cancel: '취소',
     resetPassword: '비밀번호 초기화',
     expirationTime: '만료 시간',
-    enterpriseCertification: '엔터프라이즈 인증'
+    enterpriseCertification: '엔터프라이즈 인증',
+    bindEmail: '이메일 바인딩',
+    modifyEmail: '이메일 수정',
+    pleaseInputEmail: '이메일을 입력해주세요',
+    pleaseInputEmailCode: '이메일 인증 코드를 입력해주세요',
+    sendEmailCode: '인증 코드 전송',
+    emailCodeSent: '인증 코드가 전송되었습니다',
+    emailBindSuccess: '이메일 바인딩 성공',
+    emailBindFailed: '이메일 바인딩 실패',
+    bindMobile: '전화번호 바인딩',
+    modifyMobile: '전화번호 수정',
+    pleaseInputMobileCode: '전화번호 인증 코드를 입력해주세요',
+    sendMobileCode: '인증 코드 전송',
+    mobileCodeSent: '인증 코드가 전송되었습니다',
+    mobileBindSuccess: '전화번호 바인딩 성공',
+    mobileBindFailed: '전화번호 바인딩 실패'
   },
   update: {
     available: '새 버전이 있습니다',
@@ -1081,5 +1126,17 @@ export default {
     commandCount: '{count}개 명령 기록됨',
     recording: '기록 중',
     commands: '명령'
+  },
+  kubernetes: {
+    title: 'Kubernetes',
+    active: '현재',
+    cluster: '클러스터',
+    namespace: '네임스페이스',
+    server: '서버',
+    switchTo: '전환',
+    noContexts: 'Kubernetes 컨텍스트를 찾을 수 없습니다. ~/.kube/config를 설정해주세요',
+    refreshSuccess: '컨텍스트가 성공적으로 새로고침되었습니다',
+    switchSuccess: '컨텍스트로 전환했습니다: {context}',
+    switchFailed: '컨텍스트 전환 실패: {error}'
   }
 }

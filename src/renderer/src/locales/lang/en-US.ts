@@ -115,7 +115,8 @@ export default {
     terminalMode: 'Terminal',
     agentsMode: 'Agents',
     daysAgo: ' days ago',
-    run: 'Run'
+    run: 'Run',
+    jumpserverSupportPlugin: 'Jumpserver Support'
   },
   term: {
     welcome: 'Welcome to use Chaterm',
@@ -426,6 +427,10 @@ export default {
       'Click the button to directly open the security configuration file and manage command execution security policies and whitelist/blacklist settings.',
     securityConfigOpened: 'Opening security configuration file...',
     openSecurityConfigFailed: 'Failed to open security configuration',
+    keywordHighlight: 'Keyword Highlighting',
+    openConfig: 'Open Config',
+    keywordHighlightDescribe:
+      'Click the button to directly open the keyword highlighting configuration file and customize highlighting rules for terminal output.',
     success: 'Success',
     background: 'Background',
     backgroundNone: 'None',
@@ -487,7 +492,33 @@ export default {
     updateFailed: 'Update failed',
     updateSuccess: 'Update success',
     sourceStore: 'Plugin Store',
-    sourceLocal: 'Local'
+    sourceLocal: 'Local',
+    jumpserverSupport: {
+      jmsPluginDesc: 'Support asset synchronization and direct asset connection',
+      jmsPluginDoc: 'Plugin Overview',
+      jmsPluginHeader: 'Jumpserver Support is a bastion machine support tool specifically designed for Chaterm.',
+      jmsPluginFunc: 'Core Features',
+      jmsPluginFuncAsset: 'Permission Mapping Sync',
+      jmsPluginFuncAssetDetail:
+        'Synchronizes bastion host account permissions to ensure local asset lists are strictly aligned with cloud authorizations.',
+      jmsPluginFuncCon: 'One-Click Direct Connect',
+      jmsPluginFuncConDetail:
+        'Hosting JumpServer private key credentials, one click connection to the target server, greatly simplifying the login path from the bastion machine to the target server',
+      jmsPluginFuncAuth: 'Persistent Auth State',
+      jmsPluginFuncAuthDetail:
+        'Automatically maintains login sessions after successful authentication, eliminating the need for repeated MFA codes for multiple connections and boosting operational efficiency.',
+      jmsPluginFuncAgent: 'Agent Connection Enhancement',
+      jmsPluginFuncAgentDetail:
+        'Support AI agents to penetrate fortress machines and directly connect to target servers, breaking through operational isolation limitations and achieving target machine instruction execution and deep AI interaction.',
+      jmsPluginFuncAgentLog: 'Operation Demo (Mock Logs)',
+      jmsStep1: "1. Open 'Key Management' in the sidebar, click 'Add Key' and save the configuration.",
+      jmsStep2: "2. Click 'Server List' in the sidebar, then go to 'Asset Management' and click 'Add Host'.",
+      jmsStep3: "3. Select 'Enterprise Asset', fill in the Address, User, Port, and Key (configure the password if MFA is required), then save.",
+      jmsStep4:
+        "4. Click the 'Bastion Resources' tab in the Server List, then click the 'Refresh' button on the right side of the corresponding bastion host.",
+      jmsStep5: '5. Once asset synchronization is complete, click on any asset in the list to enable direct connection.'
+    },
+    system: 'System'
   },
   commandDialog: {
     placeholder: 'Command instructions',
@@ -838,6 +869,9 @@ export default {
     pleaseInputUsername: 'Please input username',
     pleaseInputMobile: 'Please input mobile number',
     pleaseInputNewPassword: 'Please input new password',
+    confirmPassword: 'Confirm Password',
+    pleaseInputConfirmPassword: 'Please input password again',
+    passwordMismatch: 'Passwords do not match',
     nameRequired: 'Name is required',
     nameTooLong: 'Name length cannot exceed 20 characters',
     usernameLengthError: 'Username length must be between 6-20 characters',
@@ -858,7 +892,22 @@ export default {
     cancel: 'Cancel',
     resetPassword: 'Reset Password',
     expirationTime: 'Expiration Time',
-    enterpriseCertification: 'Enterprise Certification'
+    enterpriseCertification: 'Enterprise Certification',
+    bindEmail: 'Bind Email',
+    modifyEmail: 'Modify Email',
+    pleaseInputEmail: 'Please input email',
+    pleaseInputEmailCode: 'Please input email verification code',
+    sendEmailCode: 'Send Code',
+    emailCodeSent: 'Verification code sent',
+    emailBindSuccess: 'Email bound successfully',
+    emailBindFailed: 'Failed to bind email',
+    bindMobile: 'Bind Mobile',
+    modifyMobile: 'Modify Mobile',
+    pleaseInputMobileCode: 'Please input mobile verification code',
+    sendMobileCode: 'Send Code',
+    mobileCodeSent: 'Verification code sent',
+    mobileBindSuccess: 'Mobile bound successfully',
+    mobileBindFailed: 'Failed to bind mobile'
   },
   update: {
     available: 'A new version is available',
@@ -1105,5 +1154,17 @@ export default {
     commandCount: '{count} command(s) recorded',
     recording: 'Recording',
     commands: 'commands'
+  },
+  kubernetes: {
+    title: 'Kubernetes',
+    active: 'Active',
+    cluster: 'Cluster',
+    namespace: 'Namespace',
+    server: 'Server',
+    switchTo: 'Switch',
+    noContexts: 'No Kubernetes contexts found. Please configure ~/.kube/config',
+    refreshSuccess: 'Contexts refreshed successfully',
+    switchSuccess: 'Switched to context: {context}',
+    switchFailed: 'Failed to switch context: {error}'
   }
 }

@@ -1,0 +1,102 @@
+{
+  "keyword-highlight": {
+    "enabled": true,
+    "applyTo": {
+      "output": true,
+      "input": false
+    },
+    "rules": [
+      {
+        "name": "Dangerous Operations (Output Only)",
+        "enabled": true,
+        "scope": "output",
+        "matchType": "regex",
+        "pattern": "\\b(rm\\s+-rf|dd\\s+if=|mkfs(\\.|\\s|$)|shutdown(\\s|$)|reboot(\\s|$)|poweroff(\\s|$)|kill\\s+-9)\\b",
+        "style": {
+          "foreground": "#FF3B30",
+          "fontStyle": "bold"
+        }
+      },
+      {
+        "name": "Errors and Failures (Output Only)",
+        "enabled": true,
+        "scope": "output",
+        "matchType": "regex",
+        "pattern": "(?i)\\b(error|failed|failure|panic|segfault|exception|denied|permission denied|no such file|not found)\\b",
+        "style": {
+          "foreground": "#FF453A",
+          "fontStyle": "normal"
+        }
+      },
+      {
+        "name": "Warnings (Output Only)",
+        "enabled": true,
+        "scope": "output",
+        "matchType": "regex",
+        "pattern": "(?i)\\b(warn|warning|deprecated|timeout|retry|unreachable|throttl)\\w*\\b",
+        "style": {
+          "foreground": "#FF9F0A",
+          "fontStyle": "normal"
+        }
+      },
+      {
+        "name": "Success / Healthy States (Output Only)",
+        "enabled": true,
+        "scope": "output",
+        "matchType": "regex",
+        "pattern": "(?i)\\b(success|successful|ok|okay|done|completed|running|started|listening|ready|connected|passed)\\b",
+        "style": {
+          "foreground": "#34C759",
+          "fontStyle": "normal"
+        }
+      },
+      {
+        "name": "Auth / Privilege / Identity (Output Only)",
+        "enabled": true,
+        "scope": "output",
+        "matchType": "regex",
+        "pattern": "(?i)(^|\\s)(root|sudo|uid=0|gid=0)(\\s|$)",
+        "style": {
+          "foreground": "#AF52DE",
+          "fontStyle": "bold"
+        }
+      },
+      {
+        "name": "Network / Connectivity (Output Only)",
+        "enabled": true,
+        "scope": "output",
+        "matchType": "regex",
+        "pattern": "(?i)\\b(connection (refused|reset)|timed out|timeout|host unreachable|network is unreachable|broken pipe|tls|ssl)\\b",
+        "style": {
+          "foreground": "#0A84FF",
+          "fontStyle": "normal"
+        }
+      },
+      {
+        "name": "Paths & Config Files (Output Only)",
+        "enabled": true,
+        "scope": "output",
+        "matchType": "wildcard",
+        "pattern": [
+          "/etc/*",
+          "/var/*",
+          "/usr/*",
+          "/opt/*",
+          "/bin/*",
+          "/sbin/*",
+          "*.conf",
+          "*.service",
+          "*.timer",
+          "*.yml",
+          "*.yaml",
+          "*.json",
+          "*.log"
+        ],
+        "style": {
+          "foreground": "#64D2FF",
+          "fontStyle": "normal"
+        }
+      }
+    ]
+  }
+}

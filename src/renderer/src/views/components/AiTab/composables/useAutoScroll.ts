@@ -7,7 +7,7 @@ import { focusChatInput } from './useTabManagement'
  * Handles automatic scrolling to bottom functionality for chat container (sticky scroll)
  */
 export function useAutoScroll() {
-  const { shouldStickToBottom } = useSessionState()
+  const { shouldStickToBottom, chatContainerScrollSignal } = useSessionState()
   const chatContainer = ref<HTMLElement | null>(null)
   const chatResponse = ref<HTMLElement | null>(null)
 
@@ -174,6 +174,8 @@ export function useAutoScroll() {
       // Update tracking values
       lastScrollTop.value = currentScrollTop
       lastScrollHeight.value = currentScrollHeight
+
+      chatContainerScrollSignal.value += 1
     }
   }
 
