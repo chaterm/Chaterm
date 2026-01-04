@@ -9,7 +9,6 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/chaterm/Chaterm/blob/main/LICENSE"><img src="https://img.shields.io/github/license/chaterm/Chaterm" alt="LICENSE"></a>
   <a href="https://github.com/chaterm/Chaterm/releases"><img src="https://img.shields.io/github/v/release/chaterm/Chaterm" alt="Releases"></a>
   <a href="https://www.electronjs.org/"><img src="https://img.shields.io/github/package-json/dependency-version/chaterm/Chaterm/dev/electron" alt="electron-version"></a>
   <a href="https://vitejs.dev/"><img src="https://img.shields.io/github/package-json/dependency-version/chaterm/Chaterm/dev/vite" alt="vite-version"></a>
