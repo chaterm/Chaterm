@@ -1,3 +1,9 @@
+//  Copyright (c) 2025-present, chaterm.ai  All rights reserved.
+//  This source code is licensed under the GPL-3.0
+//
+// Copyright (c) 2025 cline Authors, All rights reserved.
+// Licensed under the Apache License, Version 2.0
+
 import { ApiConfiguration } from './api'
 import { ChatSettings } from './ChatSettings'
 // import { UserInfo } from "./UserInfo"
@@ -10,23 +16,10 @@ export type Host = { host: string; uuid: string; connection: string }
 export interface WebviewMessage {
   type:
     | 'apiConfiguration'
-    | 'webviewDidLaunch'
     | 'newTask'
     | 'condense'
-    | 'reportBug'
-    // | "openInBrowser"
-    | 'showChatView'
-    | 'requestVsCodeLmModels'
-    | 'authCallback'
-    // | "fetchMcpMarketplace"
-    | 'searchCommits'
-    // | "fetchLatestMcpServersFromHub"
     | 'telemetrySetting'
-    | 'fetchUserCreditsData'
     | 'searchFiles'
-    | 'grpc_request'
-    | 'grpc_request_cancel'
-    | 'toggleWorkflow'
     | 'askResponse'
     | 'deleteTaskWithId'
     | 'showTaskWithId'
@@ -63,22 +56,6 @@ export interface WebviewMessage {
   query?: string
   // For toggleFavoriteModel
   modelId?: string
-  grpc_request?: {
-    service: string
-    method: string
-    message: unknown // JSON serialized protobuf message
-    request_id: string // For correlating requests and responses
-    is_streaming?: boolean // Whether this is a streaming request
-  }
-  grpc_request_cancel?: {
-    request_id: string // ID of the request to cancel
-  }
-  // For cline rules and workflows
-  isGlobal?: boolean
-  rulePath?: string
-  workflowPath?: string
-  enabled?: boolean
-  filename?: string
 
   offset?: number
   shellIntegrationTimeout?: number

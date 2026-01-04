@@ -141,7 +141,7 @@
         >
           <span>{{ userInfo.mobile || '-' }}</span>
           <a-button
-            v-if="!unChange && !isEditing"
+            v-if="!unChange && !isEditing && canEditMobile"
             type="text"
             size="small"
             class="edit-icon-btn"
@@ -157,7 +157,7 @@
         >
           <span>{{ userInfo.email || '-' }}</span>
           <a-button
-            v-if="!unChange && !isEditing"
+            v-if="!unChange && !isEditing && canEditEmail"
             type="text"
             size="small"
             class="edit-icon-btn"
@@ -338,16 +338,7 @@
 import { ref, onMounted, onBeforeUnmount, reactive, computed } from 'vue'
 import 'xterm/css/xterm.css'
 import i18n from '@/locales'
-import {
-  getUser,
-  updateUser,
-  changePassword,
-  checkUserDevice,
-  sendEmailBindCode,
-  verifyAndBindEmail,
-  sendMobileBindCode,
-  verifyAndBindMobile
-} from '@api/user/user'
+import { getUser, updateUser, changePassword, sendEmailBindCode, verifyAndBindEmail, sendMobileBindCode, verifyAndBindMobile } from '@api/user/user'
 import { EditOutlined, CheckOutlined, CloseOutlined, FormOutlined } from '@ant-design/icons-vue'
 import { useDeviceStore } from '@/store/useDeviceStore'
 import { message } from 'ant-design-vue'
@@ -376,6 +367,7 @@ interface UserInfo {
   localIp?: string
   macAddress?: string
   isOfficeDevice?: boolean
+  needDeviceVerification?: boolean
   response?: any
 }
 
@@ -416,11 +408,6 @@ const getUserInfo = () => {
     userInfo.value = res.data as UserInfo
     userInfo.value.localIp = deviceStore.getDeviceIp
     userInfo.value.macAddress = deviceStore.getMacAddress
-    checkUserDevice({ ip: userInfo.value.localIp || '', macAddress: userInfo.value.macAddress || '' }).then((res: any) => {
-      if (res && res.code === 200) {
-        userInfo.value.isOfficeDevice = res.data.isOfficeDevice
-      }
-    })
     if (userInfo.value.uid !== 2000001) unChange.value = false
     formState.username = userInfo.value.username || ''
     formState.name = userInfo.value.name || ''
@@ -435,6 +422,18 @@ const strength = computed(() => {
 const passwordMatch = computed(() => {
   if (formState.confirmPassword === '') return true
   return formState.newPassword === formState.confirmPassword
+})
+
+// Check if mobile editing is allowed
+// Users registered with mobile (registrationType === 7) cannot modify their mobile number
+const canEditMobile = computed(() => {
+  return userInfo.value.registrationType !== 7
+})
+
+// Check if email editing is allowed
+// Users registered with email (registrationType === 2) cannot modify their email
+const canEditEmail = computed(() => {
+  return userInfo.value.registrationType !== 2
 })
 
 const startEditing = () => {

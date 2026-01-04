@@ -1,28 +1,16 @@
+//  Copyright (c) 2025-present, chaterm.ai  All rights reserved.
+//  This source code is licensed under the GPL-3.0
+//
+// Copyright (c) 2025 cline Authors, All rights reserved.
+// Licensed under the Apache License, Version 2.0
+
 import { ApiConfiguration } from './api'
 import { AutoApprovalSettings } from './AutoApprovalSettings'
 import { ChatSettings } from './ChatSettings'
 export interface ExtensionMessage {
   type:
-    | 'action'
     | 'state'
-    | 'selectedImages'
-    | 'theme'
-    | 'workspaceUpdated'
     | 'partialMessage'
-    | 'relinquishControl'
-    | 'authCallback'
-    | 'commitSearchResults'
-    | 'openGraphData'
-    | 'didUpdateSettings'
-    | 'userCreditsBalance'
-    | 'userCreditsUsage'
-    | 'userCreditsPayments'
-    | 'totalTasksSize'
-    | 'addToInput'
-    | 'browserConnectionResult'
-    | 'fileSearchResults'
-    | 'grpc_response'
-    | 'requestyModels'
     | 'commandGenerationResponse'
     | 'todoUpdated'
     | 'chatTitleGenerated'
@@ -31,48 +19,9 @@ export interface ExtensionMessage {
     | 'taskHistoryUpdated'
 
   text?: string
-  action?:
-    | 'mcpButtonClicked'
-    | 'settingsButtonClicked'
-    | 'historyButtonClicked'
-    | 'didBecomeVisible'
-    | 'accountLogoutClicked'
-    | 'accountButtonClicked'
-    | 'focusChatInput'
   state?: ExtensionState
-  filePaths?: string[]
   partialMessage?: ChatermMessage
-  customToken?: string
   error?: string
-  openGraphData?: {
-    title?: string
-    description?: string
-    image?: string
-    url?: string
-    siteName?: string
-    type?: string
-  }
-  url?: string
-  totalTasksSize?: number | null
-  success?: boolean
-  endpoint?: string
-  isBundled?: boolean
-  isConnected?: boolean
-  isRemote?: boolean
-  host?: string
-  mentionsRequestId?: string
-  results?: Array<{
-    path: string
-    type: 'file' | 'folder'
-    label?: string
-  }>
-  grpc_response?: {
-    message?: any
-    request_id: string
-    error?: string
-    is_streaming?: boolean
-    sequence_number?: number
-  }
   // For command generation response
   command?: string
   tabId?: string
@@ -103,13 +52,11 @@ export interface ExtensionState {
   isNewUser: boolean
   apiConfiguration?: ApiConfiguration
   autoApprovalSettings: AutoApprovalSettings
-  remoteBrowserHost?: string
   chatSettings: ChatSettings
   checkpointTrackerErrorMessage?: string
   chatermMessages: ChatermMessage[]
   customInstructions?: string
   mcpMarketplaceEnabled?: boolean
-  enableCheckpointsSetting?: boolean
   platform: Platform
   shouldShowAnnouncement: boolean
   shellIntegrationTimeout: number
@@ -119,7 +66,6 @@ export interface ExtensionState {
     photoURL: string | null
   }
   version: string
-  vscMachineId?: string
 }
 
 export interface ChatermMessage {
