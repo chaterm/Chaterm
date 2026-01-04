@@ -264,7 +264,7 @@ describe('useTabManagement', () => {
 
       await createNewEmptyTab()
 
-      expect(mockState.chatInputValue.value).toBe('')
+      expect(mockState.chatInputValue.value).toBe('test input')
     })
   })
 

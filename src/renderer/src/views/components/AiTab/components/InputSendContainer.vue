@@ -5,6 +5,10 @@
       data-testid="ai-tab"
       style="display: none"
     ></div>
+    <!-- Use teleport to render popup in body. Key reason: UserMessage uses position: sticky and z-index: 3,
+         which would occlude the popup if it stays within the component. By teleporting to body, the popup can use
+         a higher z-index (1000) to ensure it appears above all message content, while also avoiding positioning
+         issues from parent container's overflow, transform, and other CSS properties -->
     <teleport to="body">
       <div
         v-if="showHostSelect"
@@ -267,8 +271,8 @@ import stopIcon from '@/assets/icons/stop.svg'
 
 interface Props {
   isActiveTab: boolean
-  sendMessage: (sendType: string) => Promise<unknown>
-  handleInterrupt: () => void
+  sendMessage?: (sendType: string) => Promise<unknown>
+  handleInterrupt?: () => void
   // New properties for edit mode
   mode?: 'create' | 'edit'
   initialValue?: string
@@ -276,6 +280,8 @@ interface Props {
 }
 
 const props = withDefaults(defineProps<Props>(), {
+  sendMessage: async () => {},
+  handleInterrupt: () => {},
   mode: 'create',
   initialValue: '',
   onConfirmEdit: () => {}
@@ -573,6 +579,7 @@ const inputPlaceholder = computed(() => {
   display: inline-flex;
   align-items: center;
   border: 1px solid #3a3a3a;
+  user-select: none;
 
   &:hover {
     background-color: var(--hover-bg-color) !important;
