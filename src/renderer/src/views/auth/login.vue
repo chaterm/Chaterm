@@ -40,17 +40,25 @@
           <div class="login-tabs">
             <div
               class="tab-item"
-              :class="{ active: activeTab === 'account' }"
-              @click="activeTab = 'account'"
-            >
-              {{ $t('login.accountLogin') }}
-            </div>
-            <div
-              class="tab-item"
               :class="{ active: activeTab === 'email' }"
               @click="activeTab = 'email'"
             >
               {{ $t('login.emailLogin') }}
+            </div>
+            <div
+              v-if="isChineseEdition()"
+              class="tab-item"
+              :class="{ active: activeTab === 'mobile' }"
+              @click="activeTab = 'mobile'"
+            >
+              {{ $t('login.mobileLogin') }}
+            </div>
+            <div
+              class="tab-item"
+              :class="{ active: activeTab === 'account' }"
+              @click="activeTab = 'account'"
+            >
+              {{ $t('login.accountLogin') }}
             </div>
           </div>
 
@@ -153,6 +161,59 @@
               </button>
             </div>
 
+            <!-- Mobile verification code login -->
+            <div
+              v-if="isChineseEdition() && activeTab === 'mobile'"
+              class="form-content"
+            >
+              <div class="input-group">
+                <div class="input-field">
+                  <span class="input-icon">
+                    <MobileOutlined />
+                  </span>
+                  <span class="mobile-prefix">+86</span>
+                  <input
+                    v-model="mobileForm.mobile"
+                    type="tel"
+                    :placeholder="$t('login.pleaseInputMobile')"
+                    class="form-input mobile-input"
+                  />
+                </div>
+                <div class="input-divider"></div>
+                <div class="input-field">
+                  <span class="input-icon">
+                    <SafetyOutlined />
+                  </span>
+                  <input
+                    v-model="mobileForm.code"
+                    type="text"
+                    :placeholder="$t('login.pleaseInputCode')"
+                    class="form-input"
+                  />
+                  <button
+                    class="code-btn"
+                    :disabled="mobileCodeSending || mobileCountdown > 0"
+                    @click="sendMobileCode"
+                  >
+                    {{ mobileCountdown > 0 ? `${mobileCountdown}s` : $t('login.getCode') }}
+                  </button>
+                </div>
+                <div class="input-divider"></div>
+              </div>
+
+              <button
+                class="login-btn primary"
+                :disabled="loading"
+                @click="onMobileLogin"
+              >
+                <span
+                  v-if="loading"
+                  class="loading-spinner"
+                ></span>
+                {{ loading ? $t('login.loggingIn') : $t('login.login') }}
+              </button>
+            </div>
+
             <div class="skip-login">
               {{ $t('login.skip') }}
               <a
@@ -200,16 +261,17 @@
 import { removeToken } from '@/utils/permission'
 import { useRouter } from 'vue-router'
 import { ref, onMounted, nextTick, onBeforeUnmount, reactive } from 'vue'
-import { GlobalOutlined, MailOutlined, SafetyOutlined, UserOutlined, LockOutlined } from '@ant-design/icons-vue'
+import { GlobalOutlined, MailOutlined, SafetyOutlined, UserOutlined, LockOutlined, MobileOutlined } from '@ant-design/icons-vue'
 import type { MenuProps } from 'ant-design-vue'
 import { setUserInfo } from '@/utils/permission'
 import { message } from 'ant-design-vue'
 import { captureButtonClick, LoginFunnelEvents, LoginMethods, LoginFailureReasons } from '@/utils/telemetry'
 import { shortcutService } from '@/services/shortcutService'
 import config from '@renderer/config'
-import { sendEmailCode, emailLogin, userLogin } from '@/api/user/user'
+import { sendEmailCode, emailLogin, userLogin, sendMobileCode as sendMobileCodeApi, mobileLogin } from '@/api/user/user'
 import { useI18n } from 'vue-i18n'
 import { useDeviceStore } from '@/store/useDeviceStore'
+import { isChineseEdition } from '@/utils/edition'
 
 const { t, locale } = useI18n()
 const platform = ref<string>('')
@@ -224,10 +286,16 @@ const emailForm = reactive({
   email: '',
   code: ''
 })
+const mobileForm = reactive({
+  mobile: '',
+  code: ''
+})
 const accountForm = reactive({
   username: '',
   password: ''
 })
+const mobileCodeSending = ref(false)
+const mobileCountdown = ref(0)
 
 const checkUrlForAuthCallback = async () => {
   const url = window.location.href
@@ -296,20 +364,30 @@ const onAccountLogin = async () => {
       macAddress: deviceStore.getMacAddress,
       localPlugins: localPlugins
     })
-    if (res && (res as any).code === 200 && (res as any).data && (res as any).data.token) {
-      localStorage.setItem('ctm-token', (res as any).data.token)
-      localStorage.setItem('jms-token', (res as any).data.jmsToken)
-      setUserInfo((res as any).data)
-      const api = window.api as any
-      const dbResult = await api.initUserDatabase({ uid: (res as any).data.uid })
-      if (!dbResult.success) {
-        message.error(t('login.databaseInitFailed'))
+    if (res && (res as any).code === 200 && (res as any).data) {
+      // Check if device verification is required first
+      if ((res as any).data.needDeviceVerification === true) {
+        message.error(t('login.deviceVerificationRequired'))
         return
       }
+      // Then check if token exists
+      if ((res as any).data.token) {
+        localStorage.setItem('ctm-token', (res as any).data.token)
+        localStorage.setItem('jms-token', (res as any).data.jmsToken)
+        setUserInfo((res as any).data)
+        const api = window.api as any
+        const dbResult = await api.initUserDatabase({ uid: (res as any).data.uid })
+        if (!dbResult.success) {
+          message.error(t('login.databaseInitFailed'))
+          return
+        }
 
-      shortcutService.init()
-      await nextTick()
-      await router.replace({ path: '/', replace: true })
+        shortcutService.init()
+        await nextTick()
+        await router.replace({ path: '/', replace: true })
+      } else {
+        message.error(res && (res as any).Message ? (res as any).Message : t('login.loginFailed'))
+      }
     } else {
       message.error(res && (res as any).Message ? (res as any).Message : t('login.loginFailed'))
     }
@@ -349,6 +427,84 @@ const onEmailLogin = async () => {
       shortcutService.init()
       await nextTick()
       await router.replace({ path: '/', replace: true })
+    } else {
+      message.error(res && (res as any).Message ? (res as any).Message : t('login.loginFailed'))
+    }
+  } catch (err: any) {
+    message.error(err?.response?.data?.message || err?.message || t('login.loginFailed'))
+  } finally {
+    loading.value = false
+  }
+}
+
+const sendMobileCode = async () => {
+  if (!mobileForm.mobile) {
+    message.error(t('login.pleaseInputMobile'))
+    return
+  }
+  // 验证手机号格式（中国手机号：1[3-9]xxxxxxxxx）
+  const mobileRegex = /^1[3-9]\d{9}$/
+  if (!mobileRegex.test(mobileForm.mobile)) {
+    message.error(t('login.invalidMobile'))
+    return
+  }
+  try {
+    mobileCodeSending.value = true
+    await sendMobileCodeApi({ mobile: mobileForm.mobile })
+    message.success(t('login.codeSent'))
+    mobileCountdown.value = 300
+    const timer = setInterval(() => {
+      mobileCountdown.value--
+      if (mobileCountdown.value <= 0) {
+        clearInterval(timer)
+      }
+    }, 1000)
+  } catch (err: any) {
+    message.error(err?.response?.data?.message || err?.message || t('login.loginFailed'))
+  } finally {
+    mobileCodeSending.value = false
+  }
+}
+
+const onMobileLogin = async () => {
+  if (!mobileForm.mobile || !mobileForm.code) {
+    message.error(t('login.pleaseInputMobileAndCode'))
+    return
+  }
+  try {
+    loading.value = true
+    const api = window.api as any
+    const localPlugins = await api.getPluginsVersion()
+    const res = await mobileLogin({
+      mobile: mobileForm.mobile,
+      code: mobileForm.code,
+      macAddress: deviceStore.getMacAddress,
+      localPlugins: localPlugins
+    })
+    if (res && (res as any).code === 200 && (res as any).data) {
+      // Check if device verification is required first
+      if ((res as any).data.needDeviceVerification === true) {
+        message.error(t('login.deviceVerificationRequired'))
+        return
+      }
+      // Then check if token exists
+      if ((res as any).data.token) {
+        localStorage.setItem('ctm-token', (res as any).data.token)
+        localStorage.setItem('jms-token', (res as any).data.jmsToken)
+        setUserInfo((res as any).data)
+        const api = window.api as any
+        const dbResult = await api.initUserDatabase({ uid: (res as any).data.uid })
+        if (!dbResult.success) {
+          message.error(t('login.databaseInitFailed'))
+          return
+        }
+
+        shortcutService.init()
+        await nextTick()
+        await router.replace({ path: '/', replace: true })
+      } else {
+        message.error(res && (res as any).Message ? (res as any).Message : t('login.loginFailed'))
+      }
     } else {
       message.error(res && (res as any).Message ? (res as any).Message : t('login.loginFailed'))
     }
@@ -426,7 +582,8 @@ onMounted(async () => {
   api.mainWindowShow()
 
   platform.value = await api.getPlatform()
-  isDev.value = import.meta.env.MODE === 'development.cn' || ((window as any).api?.isE2E?.() ?? false)
+  isDev.value =
+    import.meta.env.MODE === 'development.cn' || import.meta.env.MODE === 'development.global' || ((window as any).api?.isE2E?.() ?? false)
   await captureButtonClick(LoginFunnelEvents.ENTER_LOGIN_PAGE)
   if (!isDev.value) {
     const ipcRenderer = (window as any).electron?.ipcRenderer
@@ -891,6 +1048,18 @@ onBeforeUnmount(() => {
   align-items: center;
 }
 
+.mobile-prefix {
+  color: rgba(255, 255, 255, 0.8);
+  font-size: 14px;
+  margin-right: 16px;
+  flex-shrink: 0;
+  user-select: none;
+}
+
+.mobile-input {
+  padding-left: 0;
+}
+
 .form-input {
   flex: 1;
   background: transparent !important;
@@ -1003,7 +1172,7 @@ onBeforeUnmount(() => {
 .tab-item {
   flex: 1;
   text-align: center;
-  padding: 12px 20px;
+  padding: 12px 12px;
   cursor: pointer;
   transition: all 0.3s ease;
   color: rgba(255, 255, 255, 0.6);
