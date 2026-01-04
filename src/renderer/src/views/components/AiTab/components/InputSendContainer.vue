@@ -5,85 +5,93 @@
       data-testid="ai-tab"
       style="display: none"
     ></div>
-    <div
-      v-if="showHostSelect"
-      class="host-select-popup"
-    >
-      <a-input
-        ref="hostSearchInputRef"
-        v-model:value="hostSearchValue"
-        :placeholder="$t('ai.searchHost')"
-        size="small"
-        class="mini-host-search-input"
-        allow-clear
-        @keydown="handleHostSearchKeyDown"
-      />
-      <div class="host-select-list">
-        <template
-          v-for="(item, index) in filteredHostOptions"
-          :key="item.value"
-        >
-          <!-- Jumpserver parent node (non-selectable, expandable) -->
-          <div
-            v-if="item.type === 'jumpserver'"
-            class="host-select-item host-select-group"
-            :class="{
-              hovered: hovered === item.value,
-              'keyboard-selected': keyboardSelectedIndex === index,
-              expanded: item.expanded
-            }"
-            @mouseover="handleMouseOver(item.value, index)"
-            @mouseleave="hovered = null"
-            @click="toggleJumpserverExpand(item.key)"
+    <!-- Use teleport to render popup in body. Key reason: UserMessage uses position: sticky and z-index: 3,
+         which would occlude the popup if it stays within the component. By teleporting to body, the popup can use
+         a higher z-index (1000) to ensure it appears above all message content, while also avoiding positioning
+         issues from parent container's overflow, transform, and other CSS properties -->
+    <teleport to="body">
+      <div
+        v-if="showHostSelect"
+        class="host-select-popup"
+        :class="hostSelectPopupClass"
+        :style="hostSelectPopupStyle"
+      >
+        <a-input
+          ref="hostSearchInputRef"
+          v-model:value="hostSearchValue"
+          :placeholder="$t('ai.searchHost')"
+          size="small"
+          class="mini-host-search-input"
+          allow-clear
+          @keydown="handleHostSearchKeyDownWithInput"
+        />
+        <div class="host-select-list">
+          <template
+            v-for="(item, index) in filteredHostOptions"
+            :key="item.value"
           >
-            <span class="host-label host-group-label">{{ item.label }}</span>
-            <span class="host-group-badge">{{ item.childrenCount || 0 }}</span>
-            <span class="host-group-toggle">
-              <DownOutlined
-                v-if="item.expanded"
-                class="toggle-icon"
+            <!-- Jumpserver parent node (non-selectable, expandable) -->
+            <div
+              v-if="item.type === 'jumpserver'"
+              class="host-select-item host-select-group"
+              :class="{
+                hovered: hovered === item.value,
+                'keyboard-selected': keyboardSelectedIndex === index,
+                expanded: item.expanded
+              }"
+              @mouseover="handleMouseOver(item.value, index)"
+              @mouseleave="hovered = null"
+              @click="toggleJumpserverExpand(item.key)"
+            >
+              <span class="host-label host-group-label">{{ item.label }}</span>
+              <span class="host-group-badge">{{ item.childrenCount || 0 }}</span>
+              <span class="host-group-toggle">
+                <DownOutlined
+                  v-if="item.expanded"
+                  class="toggle-icon"
+                />
+                <RightOutlined
+                  v-else
+                  class="toggle-icon"
+                />
+              </span>
+            </div>
+            <!-- Normal selectable items (personal or jumpserver_child) -->
+            <div
+              v-else
+              class="host-select-item"
+              :class="{
+                hovered: hovered === item.value,
+                'keyboard-selected': keyboardSelectedIndex === index,
+                'host-select-child': item.level === 1
+              }"
+              :style="{ paddingLeft: item.level === 1 ? '24px' : '6px' }"
+              @mouseover="handleMouseOver(item.value, index)"
+              @mouseleave="hovered = null"
+              @click="handleHostClick(item)"
+            >
+              <span class="host-label">{{ item.label }}</span>
+              <CheckOutlined
+                v-if="isHostSelected(item)"
+                class="host-selected-icon"
               />
-              <RightOutlined
-                v-else
-                class="toggle-icon"
-              />
-            </span>
-          </div>
-          <!-- Normal selectable items (personal or jumpserver_child) -->
+            </div>
+          </template>
           <div
-            v-else
-            class="host-select-item"
-            :class="{
-              hovered: hovered === item.value,
-              'keyboard-selected': keyboardSelectedIndex === index,
-              'host-select-child': item.level === 1
-            }"
-            :style="{ paddingLeft: item.level === 1 ? '24px' : '6px' }"
-            @mouseover="handleMouseOver(item.value, index)"
-            @mouseleave="hovered = null"
-            @click="onHostClick(item)"
+            v-if="hostOptionsLoading && filteredHostOptions.length > 0"
+            class="host-select-loading"
           >
-            <span class="host-label">{{ item.label }}</span>
-            <CheckOutlined
-              v-if="isHostSelected(item)"
-              class="host-selected-icon"
-            />
+            {{ $t('ai.loading') }}...
           </div>
-        </template>
-        <div
-          v-if="hostOptionsLoading && filteredHostOptions.length > 0"
-          class="host-select-loading"
-        >
-          {{ $t('ai.loading') }}...
-        </div>
-        <div
-          v-if="filteredHostOptions.length === 0 && !hostOptionsLoading"
-          class="host-select-empty"
-        >
-          {{ $t('ai.noMatchingHosts') }}
+          <div
+            v-if="filteredHostOptions.length === 0 && !hostOptionsLoading"
+            class="host-select-empty"
+          >
+            {{ $t('ai.noMatchingHosts') }}
+          </div>
         </div>
       </div>
-    </div>
+    </teleport>
     <div
       v-if="hasAvailableModels"
       class="input-container"
@@ -92,7 +100,7 @@
         <span
           v-if="chatTypeValue === 'agent' && chatHistory.length === 0"
           class="hosts-display-container-host-tag"
-          @click.stop="handleAddHostClick"
+          @click.stop="(e) => handleAddHostClick(e.currentTarget as HTMLElement)"
         >
           {{ hosts && hosts.length > 0 ? '@' : `@ ${$t('ai.addHost')}` }}
         </span>
@@ -129,9 +137,9 @@
         :placeholder="inputPlaceholder"
         class="chat-textarea"
         data-testid="ai-message-input"
-        :auto-size="{ minRows: 2, maxRows: 12 }"
+        :auto-size="{ minRows: 1, maxRows: 12 }"
         @keydown="handleKeyDown"
-        @input="handleInputChange"
+        @input="onInputChange"
       />
       <div class="input-controls">
         <a-tooltip
@@ -149,20 +157,25 @@
         >
           <a-select
             v-model:value="chatTypeValue"
+            v-model:open="aiModeSelectOpen"
             size="small"
             style="width: 100px"
             :options="AiTypeOptions"
             data-testid="ai-mode-select"
             @dropdown-visible-change="handleAiModeSelectOpenChange"
+            @keydown.esc.stop
           ></a-select>
         </a-tooltip>
         <a-select
           v-model:value="chatAiModelValue"
+          v-model:open="modelSelectOpen"
           size="small"
           class="model-select-responsive"
           style="width: 160px"
           show-search
+          @dropdown-visible-change="modelSelectOpen = $event"
           @change="handleChatAiModelChange"
+          @keydown.esc.stop
         >
           <a-select-option
             v-for="model in AgentAiModelsOptions"
@@ -209,7 +222,7 @@
               size="small"
               class="custom-round-button compact-button"
               data-testid="send-message-btn"
-              @click="responseLoading ? props.handleInterrupt() : props.sendMessage('send')"
+              @click="handleSendClick('send')"
             >
               <img
                 v-if="responseLoading"
@@ -241,27 +254,78 @@
 
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
+import type { CSSProperties } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { notification } from 'ant-design-vue'
 import VoiceInput from '../components/voice/voiceInput.vue'
 import { useSessionState } from '../composables/useSessionState'
 import { useHostManagement } from '../composables/useHostManagement'
 import { useModelConfiguration } from '../composables/useModelConfiguration'
 import { useUserInteractions } from '../composables/useUserInteractions'
 import { AiTypeOptions } from '../composables/useEventBusListeners'
+import type { HostOption } from '../types'
 import { CheckOutlined, CloseOutlined, DownOutlined, HourglassOutlined, LaptopOutlined, RightOutlined } from '@ant-design/icons-vue'
 import uploadIcon from '@/assets/icons/upload.svg'
 import sendIcon from '@/assets/icons/send.svg'
 import stopIcon from '@/assets/icons/stop.svg'
 
-const props = defineProps<{
+interface Props {
   isActiveTab: boolean
-  sendMessage: (sendType: string) => Promise<unknown>
-  handleInterrupt: () => void
-}>()
+  sendMessage?: (sendType: string) => Promise<unknown>
+  handleInterrupt?: () => void
+  // New properties for edit mode
+  mode?: 'create' | 'edit'
+  initialValue?: string
+  onConfirmEdit?: (content: string) => void
+}
+
+const props = withDefaults(defineProps<Props>(), {
+  sendMessage: async () => {},
+  handleInterrupt: () => {},
+  mode: 'create',
+  initialValue: '',
+  onConfirmEdit: () => {}
+})
 
 const { t } = useI18n()
 
-const { chatTextareaRef, chatInputValue, currentTab, chatTypeValue, chatAiModelValue, hosts, responseLoading, chatHistory } = useSessionState()
+const {
+  chatTextareaRef,
+  chatInputValue: globalChatInputValue,
+  currentTab,
+  chatTypeValue,
+  chatAiModelValue,
+  chatContainerScrollSignal,
+  hosts,
+  responseLoading,
+  chatHistory
+} = useSessionState()
+
+// Local state for edit mode
+const localInputValue = ref('')
+
+// Watch initialValue changes
+watch(
+  () => props.initialValue,
+  (val) => {
+    if (props.mode === 'edit') {
+      localInputValue.value = val || ''
+    }
+  },
+  { immediate: true }
+)
+
+// Create unified computed proxy
+const chatInputValue = computed({
+  get: () => (props.mode === 'edit' ? localInputValue.value : globalChatInputValue.value),
+  set: (val) => {
+    if (props.mode === 'edit') {
+      localInputValue.value = val
+    } else {
+      globalChatInputValue.value = val
+    }
+  }
+})
 
 const textareaRef = ref<HTMLTextAreaElement | null>(null)
 
@@ -291,23 +355,92 @@ const {
   isHostSelected,
   removeHost,
   handleAddHostClick,
-  handleInputChange
+  handleInputChange,
+  popupPosition,
+  popupReady,
+  currentMode
 } = useHostManagement()
+
+// Ensure keyboard "Enter" selection also uses the current component's input ref
+// (edit mode uses local value, create mode uses global value via the computed proxy).
+const handleHostSearchKeyDownWithInput = (e: KeyboardEvent) => {
+  handleHostSearchKeyDown(e, chatInputValue)
+}
+
+// Vue templates automatically unwrap refs/computed refs, so passing `chatInputValue` directly
+// would pass a string. Wrap it here to pass the reactive ref itself.
+const handleHostClick = (item: HostOption) => {
+  onHostClick(item, chatInputValue)
+}
+
+const hostSelectPopupStyle = computed<CSSProperties>(() => {
+  if (!popupPosition.value) {
+    return {}
+  }
+
+  return {
+    top: `${popupPosition.value.top}px`,
+    left: `${popupPosition.value.left}px`
+  }
+})
+
+const hostSelectPopupClass = computed(() => ({
+  'is-edit-mode': currentMode.value === 'edit',
+  'is-positioning': !popupReady.value
+}))
 void hostSearchInputRef
 
 const { AgentAiModelsOptions, handleChatAiModelChange } = useModelConfiguration()
 
 // Use user interactions composable
-const {
-  fileInputRef,
-  autoSendAfterVoice,
-  handleTranscriptionComplete,
-  handleTranscriptionError,
-  handleFileUpload,
-  handleFileSelected,
-  handleKeyDown
-} = useUserInteractions(props.sendMessage)
+const { fileInputRef, autoSendAfterVoice, handleTranscriptionComplete, handleTranscriptionError, handleFileUpload, handleFileSelected } =
+  useUserInteractions(props.sendMessage)
 void fileInputRef
+
+// New: Send click handler supporting both modes
+const handleSendClick = async (type: string) => {
+  if (responseLoading.value) {
+    props.handleInterrupt()
+    return
+  }
+
+  if (props.mode === 'edit') {
+    // Edit mode: call confirm edit callback
+    const content = localInputValue.value.trim()
+    if (!content) {
+      notification.warning({
+        message: t('ai.sendContentEmpty'),
+        duration: 2
+      })
+      return
+    }
+    props.onConfirmEdit?.(content)
+  } else {
+    // Create mode: original logic
+    props.sendMessage(type)
+  }
+}
+
+// New: Wrapper for handleInputChange to pass mode
+const onInputChange = (e: Event) => {
+  handleInputChange(e, props.mode)
+}
+
+// New: Override handleKeyDown to support edit mode
+const handleKeyDown = (e: KeyboardEvent) => {
+  if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) {
+    e.preventDefault()
+    handleSendClick('send')
+  }
+}
+
+const focus = () => {
+  textareaRef.value?.focus()
+}
+
+defineExpose({
+  focus
+})
 
 const aiModeTooltipVisible = ref(false)
 const aiModeSelectOpen = ref(false)
@@ -315,6 +448,18 @@ const handleAiModeSelectOpenChange = (open: boolean) => {
   aiModeSelectOpen.value = open
   aiModeTooltipVisible.value = false
 }
+
+const modelSelectOpen = ref(false)
+
+watch(
+  () => chatContainerScrollSignal.value,
+  () => {
+    aiModeSelectOpen.value = false
+    modelSelectOpen.value = false
+    showHostSelect.value = false
+    aiModeTooltipVisible.value = false
+  }
+)
 
 const hasAvailableModels = computed(() => AgentAiModelsOptions.value && AgentAiModelsOptions.value.length > 0)
 
@@ -326,7 +471,8 @@ const inputPlaceholder = computed(() => {
 <style lang="less" scoped>
 .hosts-display-container {
   position: relative;
-  background-color: var(--bg-color);
+  // Let the parent container background show through to create a "card" feel.
+  background-color: transparent;
   display: flex;
   flex-wrap: wrap;
   gap: 4px;
@@ -433,6 +579,7 @@ const inputPlaceholder = computed(() => {
   display: inline-flex;
   align-items: center;
   border: 1px solid #3a3a3a;
+  user-select: none;
 
   &:hover {
     background-color: var(--hover-bg-color) !important;
@@ -445,13 +592,42 @@ const inputPlaceholder = computed(() => {
   display: flex;
   flex-direction: column;
   gap: 4px;
-  background-color: var(--bg-color);
+  // Make the input area stand out from the message list while staying theme-friendly.
+  background-color: var(--bg-color-secondary);
   border-radius: 8px;
-  border: 1px solid var(--border-color);
+  border: 1px solid var(--border-color-light);
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease,
+    background-color 0.2s ease;
   width: 100%;
 
+  .theme-dark & {
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
+  }
+
+  .theme-light & {
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.08);
+  }
+
+  &:focus-within {
+    border-color: #1890ff;
+  }
+
+  .theme-dark &:focus-within {
+    box-shadow:
+      0 0 0 2px rgba(24, 144, 255, 0.18),
+      0 8px 24px rgba(0, 0, 0, 0.45);
+  }
+
+  .theme-light &:focus-within {
+    box-shadow:
+      0 0 0 2px rgba(24, 144, 255, 0.18),
+      0 8px 24px rgba(0, 0, 0, 0.12);
+  }
+
   .chat-textarea {
-    background-color: var(--bg-color) !important;
+    background-color: transparent !important;
     color: var(--text-color) !important;
     border: none !important;
     box-shadow: none !important;
@@ -463,7 +639,7 @@ const inputPlaceholder = computed(() => {
   }
 
   .ant-textarea {
-    background-color: var(--bg-color) !important;
+    background-color: transparent !important;
     border: none !important;
     border-radius: 8px !important;
     color: var(--text-color) !important;
@@ -617,12 +793,14 @@ const inputPlaceholder = computed(() => {
 .mini-host-search-input {
   background-color: var(--bg-color-secondary) !important;
   border: 1px solid var(--border-color) !important;
+  visibility: visible !important;
 
   :deep(.ant-input) {
     height: 22px !important;
     font-size: 12px !important;
     background-color: var(--bg-color-secondary) !important;
     color: var(--text-color-secondary) !important;
+    visibility: visible !important;
 
     &::placeholder {
       color: var(--text-color-tertiary) !important;
@@ -634,26 +812,26 @@ const inputPlaceholder = computed(() => {
 }
 
 .host-select-popup {
-  position: absolute;
-  bottom: 100%;
-  left: 0;
   width: 229px;
   background: var(--bg-color);
   border-radius: 4px;
   box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.15);
   border: 1px solid var(--border-color);
-  margin-bottom: 4px;
-  margin-left: 8px;
   max-height: 240px;
-}
+  z-index: 1000;
+  position: fixed;
 
-.is-sticky {
-  .host-select-popup {
-    top: 100%;
-    bottom: auto;
-    margin-top: 4px;
-    margin-bottom: 0;
+  // Edit mode: keep visual style consistent
+  &.is-edit-mode {
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+    transition: opacity 0.05s ease-in;
+  }
+
+  // Hide until final position is ready (keep in DOM for measurement)
+  &.is-positioning {
+    opacity: 0;
+    pointer-events: none;
+    transition: none;
   }
 }
 

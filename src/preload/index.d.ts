@@ -160,8 +160,71 @@ interface ApiType {
   readSecurityConfig: () => Promise<string>
   writeSecurityConfig: (content: string) => Promise<void>
   onSecurityConfigFileChanged: (callback: (content: string) => void) => () => void
+  getKeywordHighlightConfigPath: () => Promise<string>
+  readKeywordHighlightConfig: () => Promise<string>
+  writeKeywordHighlightConfig: (content: string) => Promise<{ success: boolean }>
+  onKeywordHighlightConfigFileChanged: (callback: (content: string) => void) => () => void
   setDataSyncEnabled: (enabled: boolean) => Promise<any>
   getSystemInfo: (id: string) => Promise<any>
+
+  // K8s related APIs
+  k8sGetContexts: () => Promise<{
+    success: boolean
+    data?: Array<{
+      name: string
+      cluster: string
+      namespace: string
+      server: string
+      isActive: boolean
+    }>
+    currentContext?: string
+    error?: string
+  }>
+  k8sGetContextDetail: (contextName: string) => Promise<{
+    success: boolean
+    data?: any
+    error?: string
+  }>
+  k8sSwitchContext: (contextName: string) => Promise<{
+    success: boolean
+    currentContext?: string
+    error?: string
+  }>
+  k8sReloadConfig: () => Promise<{
+    success: boolean
+    data?: any[]
+    currentContext?: string
+    error?: string
+  }>
+  k8sValidateContext: (contextName: string) => Promise<{
+    success: boolean
+    isValid?: boolean
+    error?: string
+  }>
+  k8sInitialize: () => Promise<{
+    success: boolean
+    data?: any[]
+    currentContext?: string
+    error?: string
+  }>
+
+  // K8s watch stream APIs
+  k8sStartWatch: (
+    contextName: string,
+    resourceType: string,
+    options?: { namespace?: string; labelSelector?: string }
+  ) => Promise<{
+    success: boolean
+    error?: string
+  }>
+  k8sStopWatch: (
+    contextName: string,
+    resourceType: string
+  ) => Promise<{
+    success: boolean
+    error?: string
+  }>
+  k8sOnDeltaBatch: (callback: (batch: any) => void) => () => void
 }
 
 declare global {

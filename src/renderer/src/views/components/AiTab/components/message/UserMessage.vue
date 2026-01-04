@@ -1,13 +1,30 @@
 <template>
-  <div class="user-message-wrapper">
+  <div
+    ref="wrapperRef"
+    class="user-message-wrapper"
+  >
     <!-- Opaque backdrop (always rendered for sticky positioning) -->
     <div class="user-message-backdrop"></div>
 
-    <!-- Content wrapper with max-height and gradient mask -->
     <div
+      v-if="isEditing"
+      class="user-message-edit-container"
+      @keydown.esc="cancelEditing"
+    >
+      <InputSendContainer
+        ref="inputSendContainerRef"
+        :is-active-tab="true"
+        mode="edit"
+        :initial-value="typeof message.content === 'string' ? message.content : ''"
+        :on-confirm-edit="handleConfirmEdit"
+      />
+    </div>
+    <div
+      v-else
       ref="contentRef"
       class="user-message-content"
       :class="{ 'user-message-content--masked': shouldShowMask }"
+      @click="startEditing"
     >
       <!-- User message content -->
       <div class="user-message">
@@ -18,23 +35,109 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref, onMounted, onUnmounted, nextTick } from 'vue'
+import { isElementInAiTab } from '@/utils/domUtils'
 import type { ChatMessage } from '../../types'
+import InputSendContainer from '../InputSendContainer.vue'
 
 interface Props {
   message: ChatMessage
 }
 
-defineProps<Props>()
+const props = withDefaults(defineProps<Props>(), {})
 
-// Template ref for the content container
+// Define events
+const emit = defineEmits<{
+  (e: 'truncate-and-send', payload: { message: ChatMessage; newContent: string }): void
+}>()
+
+// Template refs
 const contentRef = ref<HTMLElement | null>(null)
+const wrapperRef = ref<HTMLElement | null>(null)
 
 // Reactive state to control mask visibility
 const shouldShowMask = ref(false)
 
 // ResizeObserver instance
 let resizeObserver: ResizeObserver | null = null
+
+// Editing state
+const isEditing = ref(false)
+const inputSendContainerRef = ref<InstanceType<typeof InputSendContainer> | null>(null)
+
+const startEditing = async () => {
+  isEditing.value = true
+  await nextTick()
+  inputSendContainerRef.value?.focus()
+}
+
+// Custom global click handler to replace onClickOutside
+const handleGlobalClick = (e: MouseEvent) => {
+  if (!isEditing.value) return
+
+  const target = e.target as HTMLElement
+
+  if (wrapperRef.value?.contains(target)) {
+    return
+  }
+
+  if (!isElementInAiTab(target)) {
+    return
+  }
+
+  const antPopupClasses = [
+    'ant-select-dropdown',
+    'ant-select-item',
+    'ant-select-item-option',
+    'ant-dropdown-menu',
+    'ant-dropdown-menu-item',
+    'ant-picker-dropdown',
+    'ant-modal-wrap',
+    'ant-tooltip',
+    'ant-popover',
+    'ant-notification',
+    'ant-message'
+  ]
+
+  for (const className of antPopupClasses) {
+    if (target.closest(`.${className}`)) {
+      return
+    }
+  }
+
+  const antPopupSelectors = [
+    '.ant-select-dropdown',
+    '.ant-dropdown-menu',
+    '.ant-picker-dropdown',
+    '.ant-modal-wrap',
+    '.ant-tooltip',
+    '.ant-popover',
+    '.ant-notification',
+    '.ant-message'
+  ]
+
+  for (const selector of antPopupSelectors) {
+    const popup = document.querySelector(selector)
+    if (popup?.contains(target)) {
+      return
+    }
+  }
+
+  cancelEditing()
+}
+
+const cancelEditing = () => {
+  isEditing.value = false
+}
+
+const handleConfirmEdit = (newContent: string) => {
+  emit('truncate-and-send', {
+    message: props.message,
+    newContent
+  })
+
+  isEditing.value = false
+}
 
 // Check if content overflows the container
 const checkOverflow = () => {
@@ -52,13 +155,15 @@ onMounted(() => {
     resizeObserver = new ResizeObserver(() => {
       checkOverflow()
     })
-
-    // Start observing the content container
     resizeObserver.observe(contentRef.value)
-
-    // Initial check
     checkOverflow()
   }
+
+  // Add global click listener for handling clicks outside edit mode
+  // Use nextTick to avoid triggering immediately on mount
+  nextTick(() => {
+    document.addEventListener('click', handleGlobalClick, true)
+  })
 })
 
 // Cleanup ResizeObserver when component is unmounted
@@ -67,6 +172,8 @@ onUnmounted(() => {
     resizeObserver.disconnect()
     resizeObserver = null
   }
+
+  document.removeEventListener('click', handleGlobalClick, true)
 })
 </script>
 
@@ -124,6 +231,18 @@ onUnmounted(() => {
     mask-image: linear-gradient(to bottom, black 65%, transparent 100%);
     -webkit-mask-image: linear-gradient(to bottom, black 65%, transparent 100%);
   }
+
+  // Editable style
+  cursor: pointer;
+  transition: opacity 0.2s;
+
+  &:hover {
+    opacity: 0.85;
+
+    .user-message {
+      background-color: var(--hover-bg-color);
+    }
+  }
 }
 
 .user-message {
@@ -143,5 +262,11 @@ onUnmounted(() => {
   overflow-wrap: break-word;
   word-break: break-word;
   user-select: text;
+}
+
+.user-message-edit-container {
+  position: relative;
+  z-index: 5;
+  width: 100%;
 }
 </style>

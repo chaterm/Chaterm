@@ -115,7 +115,8 @@ export default {
     terminalMode: 'Terminal',
     agentsMode: 'Agents',
     daysAgo: '天前',
-    run: '执行'
+    run: '执行',
+    jumpserverSupportPlugin: 'Jumpserver Support'
   },
   term: {
     welcome: '欢迎使用 Chaterm',
@@ -422,6 +423,9 @@ export default {
     securityConfigDescribe: '点击按钮直接打开安全配置文件，管理命令执行的安全策略和白名单/黑名单设置。',
     securityConfigOpened: '安全配置文件正在打开...',
     openSecurityConfigFailed: '打开安全配置失败',
+    keywordHighlight: '关键词高亮',
+    openConfig: '打开配置',
+    keywordHighlightDescribe: '点击按钮直接打开关键词高亮配置文件，自定义终端输出的高亮规则。',
     success: '成功',
     background: '背景',
     backgroundNone: '无',
@@ -485,7 +489,29 @@ export default {
     updateFailed: '更新失败',
     updateSuccess: '更新成功',
     sourceStore: '插件商店',
-    sourceLocal: '本地'
+    sourceLocal: '本地',
+    jumpserverSupport: {
+      jmsPluginDesc: '支持资产同步与资产直连',
+      jmsPluginDoc: '插件概述',
+      jmsPluginHeader: 'Jumpserver Support 是专为Chaterm打造的堡垒机辅助工具。',
+      jmsPluginFunc: '核心功能',
+      jmsPluginFuncAsset: '权限映射同步',
+      jmsPluginFuncAssetDetail: '支持同步堡垒机账号权限，确保本地资产列表与云端授权严格一致',
+      jmsPluginFuncCon: '资产一键直连',
+      jmsPluginFuncConDetail: '托管 JumpServer 私钥凭据，一键连接目标服务器，大幅简化堡垒机到目标服务器的登录路径。',
+      jmsPluginFuncAuth: '持久化认证状态',
+      jmsPluginFuncAuthDetail: '认证成功后自动保持登录态，多次连接无需重复输入动态码，大幅提升操作效率。',
+      jmsPluginFuncAgent: 'Agent连接增强',
+      jmsPluginFuncAgentDetail: '支持 AI Agent 穿透堡垒机直连目标服务器，突破操作隔离限制，实现目标机指令执行与深度 AI 交互。',
+      jmsPluginFuncAgentLog: '连接演示 (模拟日志)',
+      jmsPluginGuide: '配置指南',
+      jmsStep1: '1. 侧边栏打开「密钥管理」，点击「添加密钥」并保存配置。',
+      jmsStep2: '2. 侧边栏点击「服务器列表」，进入「资产管理」点击「添加主机」。',
+      jmsStep3: '3. 选择「企业资产」，填写地址、用户、端口及密钥（如有二次认证需配置密码）并保存。',
+      jmsStep4: '4. 在服务器列表点击「堡垒机资源」Tab 页，点击对应堡垒机右侧的「刷新」按钮。',
+      jmsStep5: '5. 资产同步完成后，点击列表中的资产即可实现直连。'
+    },
+    system: '系统'
   },
   commandDialog: {
     placeholder: '描述您想要执行的操作...',
@@ -1119,5 +1145,17 @@ export default {
     commandCount: '共 {count} 条命令',
     recording: '录制中',
     commands: '条命令'
+  },
+  kubernetes: {
+    title: 'Kubernetes',
+    active: '当前',
+    cluster: '集群',
+    namespace: '命名空间',
+    server: '服务器',
+    switchTo: '切换',
+    noContexts: '未找到 Kubernetes 上下文配置，请配置 ~/.kube/config',
+    refreshSuccess: '上下文刷新成功',
+    switchSuccess: '已切换到上下文：{context}',
+    switchFailed: '切换上下文失败：{error}'
   }
 }

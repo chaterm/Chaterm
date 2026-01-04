@@ -16,7 +16,7 @@ interface WatcherDeps {
  * This maintains autonomy of each composable while avoiding bloating the component layer.
  */
 export function useWatchers(deps: WatcherDeps) {
-  const { currentChatId, chatTypeValue, hosts } = useSessionState()
+  const { currentChatId, chatTypeValue, hosts, chatTabs } = useSessionState()
 
   watch(currentChatId, () => {
     deps.emitStateChange()
@@ -25,14 +25,29 @@ export function useWatchers(deps: WatcherDeps) {
 
   watch(
     () => chatTypeValue.value,
-    async (newValue) => {
+    async (newValue, oldValue) => {
       if (!newValue || newValue.trim() === '') {
         return
       }
+      const currentTab = chatTabs.value.find((tab) => tab.id === currentChatId.value)
+      if (!currentTab) {
+        return
+      }
+
       if (newValue === 'chat') {
+        if (oldValue === 'agent' && hosts.value.length > 0) {
+          currentTab.agentHosts = [...hosts.value]
+        }
         hosts.value = []
       } else if (newValue === 'cmd') {
+        if (oldValue === 'agent' && hosts.value.length > 0) {
+          currentTab.agentHosts = [...hosts.value]
+        }
         await deps.updateHostsForCommandMode()
+      } else {
+        if (currentTab.agentHosts && currentTab.agentHosts.length > 0) {
+          hosts.value = [...currentTab.agentHosts]
+        }
       }
       try {
         await updateGlobalState('chatSettings', {

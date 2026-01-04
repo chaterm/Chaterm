@@ -50,12 +50,22 @@
               </div>
 
               <div class="item_info">
-                <div
-                  class="item_name"
-                  :title="item.name"
-                >
-                  {{ item.name }}
+                <div class="item_name_container">
+                  <div
+                    class="item_name"
+                    :title="item.name"
+                  >
+                    {{ item.name }}
+                  </div>
+
+                  <a-tag
+                    v-if="['Jumpserver Support', 'Alias'].includes(item.name)"
+                    class="right-tag"
+                  >
+                    {{ $t('extensions.system') }}
+                  </a-tag>
                 </div>
+
                 <div
                   class="item_desc"
                   :title="item.description"
@@ -112,6 +122,7 @@ import { computed, h, onBeforeUnmount, onMounted, reactive, ref, watch } from 'v
 import { notification } from 'ant-design-vue'
 import i18n from '@/locales'
 import iconAlias from '@/assets/img/alias.svg'
+import iconJumpserver from '@/assets/img/jumpserver.svg'
 import { userConfigStore } from '@/services/userConfigStoreService'
 import eventBus from '@/utils/eventBus'
 import { getPluginDownload, getPluginIconUrl } from '@/api/plugin/plugin'
@@ -129,7 +140,8 @@ const currentTheme = ref('dark')
 const isInstalling = ref(false)
 
 const iconMap: Record<string, string> = {
-  'alias.svg': iconAlias
+  'alias.svg': iconAlias,
+  'jumpserver.svg': iconJumpserver
 }
 
 const { pluginList, loadPlugins, loadStorePlugins, uninstallLocalPlugin } = usePluginStore()
@@ -194,21 +206,28 @@ const preloadIcons = async (list: DisplayPluginItem[]): Promise<void> => {
   }
 }
 const handleSelect = (item) => {
-  const key = item.key
-  if (key !== 'Alias') {
-    const active = filteredList.value.find((i) => i.pluginId === key)
-    if (!active) return
+  const { key } = item
 
-    const fromLocal = active.installed
-    const pluginId = active.pluginId
-    emit('open-user-tab', {
-      key: 'plugins:' + active.name,
-      fromLocal,
-      pluginId
-    })
-  } else {
-    emit('open-user-tab', 'aliasConfig')
+  const specialRoutes = {
+    Alias: 'aliasConfig',
+    jumpserverSupport: 'jumpserverSupport'
   }
+
+  if (specialRoutes[key]) {
+    emit('open-user-tab', specialRoutes[key])
+    return
+  }
+
+  const activePlugin = filteredList.value.find((i) => i.pluginId === key)
+  if (!activePlugin) return
+
+  const { installed: fromLocal, pluginId, name } = activePlugin
+
+  emit('open-user-tab', {
+    key: `plugins:${name}`,
+    fromLocal,
+    pluginId
+  })
 }
 
 const handleExplorerActive = (tabId: string) => {
@@ -350,6 +369,21 @@ watch(
 // Used for rendering list：Alias + pluginList
 const list = computed<DisplayPluginItem[]>(() => {
   const base: DisplayPluginItem[] = [
+    {
+      name: 'Jumpserver Support',
+      description: t('extensions.jumpserverSupport.jmsPluginDesc'),
+      iconKey: 'jumpserver.svg',
+      iconUrl: '',
+      tabName: 'jumpserverSupport',
+      show: true,
+      isPlugin: false,
+      pluginId: 'jumpserverSupport',
+      installed: false,
+      hasUpdate: false,
+      isDraggedOnly: false,
+      installedVersion: '',
+      latestVersion: ''
+    },
     {
       name: 'Alias',
       description: t('extensions.aliasDescription'),
@@ -602,16 +636,6 @@ onBeforeUnmount(() => {
   justify-content: center;
 }
 
-.item_name {
-  font-size: 14px;
-  font-weight: 500;
-  color: var(--text-color);
-  white-space: nowrap;
-  text-overflow: ellipsis;
-  overflow: hidden;
-  margin-bottom: 2px;
-}
-
 .item_desc {
   font-size: 12px;
   color: var(--text-color);
@@ -692,5 +716,35 @@ onBeforeUnmount(() => {
 .icon-fade-enter-to,
 .icon-fade-leave-from {
   opacity: 1;
+}
+
+.item_name_container {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+}
+
+.item_name {
+  flex: 1;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-color);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  overflow: hidden;
+  margin-bottom: 2px;
+}
+
+.right-tag {
+  margin: 0;
+  height: 20px;
+  line-height: 18px;
+  font-size: 12px;
+  border-radius: 7px;
+  font-weight: normal;
+  color: var(--text-color-tertiary);
+  border-color: var(--text-color-quaternary);
+  align-self: flex-start;
 }
 </style>

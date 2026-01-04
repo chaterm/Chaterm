@@ -457,7 +457,7 @@ export function useChatMessages(
       session.lastPartialMessage = message
       if (!partial.partial) {
         session.showSendButton = true
-        if ((partial.type === 'ask' && partial.ask === 'command') || partial.say === 'command_blocked') {
+        if ((partial.type === 'ask' && (partial.ask === 'command' || partial.ask === 'mcp_tool_call')) || partial.say === 'command_blocked') {
           session.responseLoading = false
         }
       }

@@ -1,5 +1,5 @@
 // ============ Initialize userData path FIRST (MUST be before all other imports) ============
-import { initUserDataPath } from './config/edition'
+import { initUserDataPath, getUserDataPath } from './config/edition'
 initUserDataPath()
 // ============ userData path initialization complete ============
 
@@ -11,6 +11,7 @@ import * as fs from 'fs/promises'
 import { startDataSync } from './storage/data_sync/index'
 import type { SyncController as DataSyncController } from './storage/data_sync/core/SyncController'
 import { getChatermDbPathForUser, getCurrentUserId, setMainWindowWebContents } from './storage/db/connection'
+import { migrateCnUserDataOnFirstLaunch } from './storage/editionDataMigration'
 
 // Set environment variables
 process.env.IS_DEV = is.dev ? 'true' : 'false'
@@ -18,6 +19,7 @@ process.env.IS_DEV = is.dev ? 'true' : 'false'
 import { registerSSHHandlers } from './ssh/sshHandle'
 import { registerLocalSSHHandlers } from './ssh/localSSHHandle'
 import { registerRemoteTerminalHandlers } from './ssh/agentHandle'
+import { registerK8sHandlers } from './k8s/k8sHandle'
 import { autoCompleteDatabaseService, ChatermDatabaseService, setCurrentUserId } from './storage/database'
 import { getGuestUserId } from './storage/db/connection'
 import { Controller } from './agent/core/controller'
@@ -99,7 +101,12 @@ export async function getUserConfigFromRenderer(): Promise<any> {
 }
 
 app.whenReady().then(async () => {
-  electronApp.setAppUserModelId('com.electron')
+  // Set edition-specific AppUserModelId for Windows taskbar grouping and process identification
+  const edition = getEdition()
+  const appUserModelId = edition === 'global' ? 'ai.chaterm.global' : 'ai.chaterm.cn'
+  electronApp.setAppUserModelId(appUserModelId)
+
+  await migrateCnUserDataOnFirstLaunch()
 
   if (process.platform === 'darwin') {
     app.dock.setIcon(join(__dirname, '../../resources/icon.png'))
@@ -181,6 +188,9 @@ app.whenReady().then(async () => {
   registerLocalSSHHandlers()
   registerRemoteTerminalHandlers()
   registerUpdater(mainWindow)
+
+  // Register K8s handlers
+  registerK8sHandlers()
   // Load all plugins
   loadAllPlugins()
   app.on('activate', function () {
@@ -1232,6 +1242,87 @@ function setupIPC(): void {
     } catch (error) {
       console.error('Failed to write security config:', error)
       throw new Error(`Failed to write security config: ${error instanceof Error ? error.message : String(error)}`)
+    }
+  })
+
+  // Keyword Highlight Config - Get Path
+  ipcMain.handle('keyword-highlight-get-config-path', async () => {
+    try {
+      const path = await import('path')
+      const configPath = path.join(getUserDataPath(), 'keyword-highlight.json')
+      return configPath
+    } catch (error) {
+      console.error('Failed to get keyword highlight config path:', error)
+      throw new Error(`Failed to get keyword highlight config path: ${error instanceof Error ? error.message : String(error)}`)
+    }
+  })
+
+  // Keyword Highlight Config - Read
+  ipcMain.handle('keyword-highlight-read-config', async () => {
+    try {
+      const fs = await import('fs/promises')
+      const path = await import('path')
+      const configPath = path.join(getUserDataPath(), 'keyword-highlight.json')
+
+      // Check if file exists, if not copy from default
+      try {
+        await fs.access(configPath)
+      } catch {
+        // Copy default config from project root
+        // In production, extraResources are in process.resourcesPath
+        // In development, they are in project root
+        const defaultConfigPath = app.isPackaged
+          ? path.join(process.resourcesPath, 'keyword-highlight.json')
+          : path.join(__dirname, '../../keyword-highlight.json')
+
+        try {
+          const defaultContent = await fs.readFile(defaultConfigPath, 'utf-8')
+          await fs.writeFile(configPath, defaultContent, 'utf-8')
+          console.log('[KeywordHighlight] Created default configuration file from template')
+        } catch (copyError) {
+          console.warn('[KeywordHighlight] Failed to copy default config, will use empty config:', copyError)
+          // If copy fails, create empty config
+          const emptyConfig = JSON.stringify(
+            {
+              'keyword-highlight': {
+                enabled: true,
+                applyTo: {
+                  output: true,
+                  input: false
+                },
+                rules: []
+              }
+            },
+            null,
+            2
+          )
+          await fs.writeFile(configPath, emptyConfig, 'utf-8')
+        }
+      }
+
+      const content = await fs.readFile(configPath, 'utf-8')
+      return content
+    } catch (error) {
+      console.error('Failed to read keyword highlight config:', error)
+      throw new Error(`Failed to read keyword highlight config: ${error instanceof Error ? error.message : String(error)}`)
+    }
+  })
+
+  // Keyword Highlight Config - Write
+  ipcMain.handle('keyword-highlight-write-config', async (_, content: string) => {
+    try {
+      const fs = await import('fs/promises')
+      const path = await import('path')
+      const configPath = path.join(getUserDataPath(), 'keyword-highlight.json')
+
+      await fs.writeFile(configPath, content, 'utf-8')
+
+      console.log('[KeywordHighlight] Configuration file saved')
+
+      return { success: true }
+    } catch (error) {
+      console.error('Failed to write keyword highlight config:', error)
+      throw new Error(`Failed to write keyword highlight config: ${error instanceof Error ? error.message : String(error)}`)
     }
   })
 }
