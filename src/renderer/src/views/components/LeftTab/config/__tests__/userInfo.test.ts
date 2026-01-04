@@ -3,16 +3,7 @@ import { mount, VueWrapper } from '@vue/test-utils'
 import { nextTick } from 'vue'
 import { createPinia, setActivePinia } from 'pinia'
 import UserInfoComponent from '../userInfo.vue'
-import {
-  getUser,
-  updateUser,
-  changePassword,
-  checkUserDevice,
-  sendEmailBindCode,
-  verifyAndBindEmail,
-  sendMobileBindCode,
-  verifyAndBindMobile
-} from '@api/user/user'
+import { getUser, updateUser, changePassword, sendEmailBindCode, verifyAndBindEmail, sendMobileBindCode, verifyAndBindMobile } from '@api/user/user'
 import { useDeviceStore } from '@/store/useDeviceStore'
 import { message } from 'ant-design-vue'
 import zxcvbn from 'zxcvbn'
@@ -102,7 +93,6 @@ vi.mock('@api/user/user', () => ({
   getUser: vi.fn(),
   updateUser: vi.fn(),
   changePassword: vi.fn(),
-  checkUserDevice: vi.fn(),
   sendEmailBindCode: vi.fn(),
   verifyAndBindEmail: vi.fn(),
   sendMobileBindCode: vi.fn(),
@@ -202,13 +192,6 @@ describe('UserInfo Component', () => {
         registrationType: 0,
         localIp: '192.168.1.1',
         macAddress: '00:11:22:33:44:55'
-      }
-    } as any)
-
-    vi.mocked(checkUserDevice).mockResolvedValue({
-      code: 200,
-      data: {
-        isOfficeDevice: false
       }
     } as any)
 
@@ -679,17 +662,6 @@ describe('UserInfo Component', () => {
       expect(vi.mocked(getUser)).toHaveBeenCalledWith({})
     })
 
-    it('should check user device after fetching user info', async () => {
-      wrapper = createWrapper()
-      await nextTick()
-      await nextTick()
-
-      expect(vi.mocked(checkUserDevice)).toHaveBeenCalledWith({
-        ip: '192.168.1.1',
-        macAddress: '00:11:22:33:44:55'
-      })
-    })
-
     it('should update device info from store', async () => {
       deviceStore.setDeviceIp('10.0.0.1')
       deviceStore.setMacAddress('AA:BB:CC:DD:EE:FF')
@@ -701,22 +673,6 @@ describe('UserInfo Component', () => {
       const vm = wrapper.vm as any
       expect(vm.userInfo.localIp).toBe('10.0.0.1')
       expect(vm.userInfo.macAddress).toBe('AA:BB:CC:DD:EE:FF')
-    })
-
-    it('should update isOfficeDevice from checkUserDevice response', async () => {
-      vi.mocked(checkUserDevice).mockResolvedValue({
-        code: 200,
-        data: {
-          isOfficeDevice: true
-        }
-      } as any)
-
-      wrapper = createWrapper()
-      await nextTick()
-      await nextTick()
-
-      const vm = wrapper.vm as any
-      expect(vm.userInfo.isOfficeDevice).toBe(true)
     })
 
     it('should refresh user info after successful update', async () => {
@@ -783,6 +739,133 @@ describe('UserInfo Component', () => {
       await nextTick()
 
       expect(vi.mocked(message.error)).toHaveBeenCalled()
+    })
+  })
+
+  describe('Registration Type - Edit Button Visibility', () => {
+    it('should not allow mobile editing for mobile registered users (registrationType === 7)', async () => {
+      vi.mocked(getUser).mockResolvedValue({
+        code: 200,
+        data: {
+          uid: 1001,
+          name: 'Test User',
+          username: 'testuser',
+          mobile: '13800138000',
+          registrationType: 7
+        }
+      } as any)
+
+      wrapper = createWrapper()
+      await nextTick()
+      await nextTick()
+
+      const vm = wrapper.vm as any
+      expect(vm.canEditMobile).toBe(false)
+    })
+
+    it('should not allow email editing for email registered users (registrationType === 2)', async () => {
+      vi.mocked(getUser).mockResolvedValue({
+        code: 200,
+        data: {
+          uid: 1001,
+          name: 'Test User',
+          username: 'testuser',
+          email: 'test@example.com',
+          registrationType: 2
+        }
+      } as any)
+
+      wrapper = createWrapper()
+      await nextTick()
+      await nextTick()
+
+      const vm = wrapper.vm as any
+      expect(vm.canEditEmail).toBe(false)
+    })
+
+    it('should allow mobile editing for non-mobile registered users', async () => {
+      vi.mocked(getUser).mockResolvedValue({
+        code: 200,
+        data: {
+          uid: 1001,
+          name: 'Test User',
+          username: 'testuser',
+          mobile: '13800138000',
+          registrationType: 2 // Email registered, can edit mobile
+        }
+      } as any)
+
+      wrapper = createWrapper()
+      await nextTick()
+      await nextTick()
+
+      const vm = wrapper.vm as any
+      expect(vm.canEditMobile).toBe(true)
+    })
+
+    it('should allow email editing for non-email registered users', async () => {
+      vi.mocked(getUser).mockResolvedValue({
+        code: 200,
+        data: {
+          uid: 1001,
+          name: 'Test User',
+          username: 'testuser',
+          email: 'test@example.com',
+          registrationType: 7 // Mobile registered, can edit email
+        }
+      } as any)
+
+      wrapper = createWrapper()
+      await nextTick()
+      await nextTick()
+
+      const vm = wrapper.vm as any
+      expect(vm.canEditEmail).toBe(true)
+    })
+
+    it('should allow both mobile and email editing for username registered users', async () => {
+      vi.mocked(getUser).mockResolvedValue({
+        code: 200,
+        data: {
+          uid: 1001,
+          name: 'Test User',
+          username: 'testuser',
+          email: 'test@example.com',
+          mobile: '13800138000',
+          registrationType: 0 // Username registered, can edit both
+        }
+      } as any)
+
+      wrapper = createWrapper()
+      await nextTick()
+      await nextTick()
+
+      const vm = wrapper.vm as any
+      expect(vm.canEditMobile).toBe(true)
+      expect(vm.canEditEmail).toBe(true)
+    })
+
+    it('should allow editing when registrationType is undefined', async () => {
+      vi.mocked(getUser).mockResolvedValue({
+        code: 200,
+        data: {
+          uid: 1001,
+          name: 'Test User',
+          username: 'testuser',
+          email: 'test@example.com',
+          mobile: '13800138000'
+          // registrationType is undefined
+        }
+      } as any)
+
+      wrapper = createWrapper()
+      await nextTick()
+      await nextTick()
+
+      const vm = wrapper.vm as any
+      // When registrationType is undefined, should default to allowing edits
+      expect(vm.canEditMobile).toBe(true)
+      expect(vm.canEditEmail).toBe(true)
     })
   })
 
