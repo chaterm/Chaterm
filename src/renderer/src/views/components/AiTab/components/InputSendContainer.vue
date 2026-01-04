@@ -137,7 +137,7 @@
         :placeholder="inputPlaceholder"
         class="chat-textarea"
         data-testid="ai-message-input"
-        :auto-size="{ minRows: 1, maxRows: 12 }"
+        :auto-size="{ minRows: 2, maxRows: 12 }"
         @keydown="handleKeyDown"
         @input="onInputChange"
       />
@@ -253,7 +253,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed, ref, watch, nextTick } from 'vue'
 import type { CSSProperties } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { notification } from 'ant-design-vue'
@@ -332,9 +332,19 @@ const textareaRef = ref<HTMLTextAreaElement | null>(null)
 // Synchronize the current tab's textarea ref to the global state when active
 watch(
   [() => props.isActiveTab, textareaRef],
-  ([isActive, el]) => {
+  ([isActive, el], [, prevEl]) => {
     if (isActive && el) {
       chatTextareaRef.value = el as unknown as HTMLTextAreaElement
+      // Auto-focus when textarea first becomes available on active tab.
+      // This handles the case where textarea is conditionally rendered via v-if="hasAvailableModels".
+      // When models finish loading, hasAvailableModels becomes true and textarea renders,
+      // but onMounted has already executed. This watch detects when textareaRef transitions
+      // from null to a valid element and triggers focus automatically.
+      if (!prevEl && props.mode !== 'edit') {
+        nextTick(() => {
+          el?.focus?.()
+        })
+      }
     }
   },
   { immediate: true }
