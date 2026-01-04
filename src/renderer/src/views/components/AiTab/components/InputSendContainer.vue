@@ -579,6 +579,7 @@ const inputPlaceholder = computed(() => {
   display: inline-flex;
   align-items: center;
   border: 1px solid #3a3a3a;
+  user-select: none;
 
   &:hover {
     background-color: var(--hover-bg-color) !important;
