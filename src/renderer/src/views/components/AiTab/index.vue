@@ -455,7 +455,7 @@
           <InputSendContainer
             :is-active-tab="tab.id === currentChatId"
             :send-message="sendMessage"
-            :handle-interrupt="handleInterrupt"
+            :handle-interrupt="handleCancel"
           />
         </div>
       </div>
@@ -642,7 +642,7 @@
             <a-menu>
               <a-menu-item
                 key="export"
-                @click="handleExportChat"
+                @click="exportChat"
               >
                 <ExportOutlined style="font-size: 12px" />
                 <span style="margin-left: 8px; font-size: 12px">{{ $t('ai.exportChat') }}</span>
@@ -795,16 +795,8 @@ const {
   scrollToBottom
 })
 
-const handleInterrupt = () => {
-  handleCancel()
-}
-
 // Export chat functionality
 const { exportChat } = useExportChat()
-
-const handleExportChat = () => {
-  exportChat()
-}
 
 // Tab management
 const { createNewEmptyTab, restoreHistoryTab, handleTabRemove } = useTabManagement({
