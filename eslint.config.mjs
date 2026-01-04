@@ -54,7 +54,9 @@ export default [
       '**/*.cjs', // Ignore CommonJS files that use require()
       'scripts/**', // Ignore script files that use CommonJS
       'coverage/**',
-      'build/**'
+      'build/**',
+      '**/auto-imports.d.ts', // Ignore auto-generated files from unplugin-auto-import
+      '**/components.d.ts' // Ignore auto-generated files from unplugin-vue-components
     ]
   }
 ]
