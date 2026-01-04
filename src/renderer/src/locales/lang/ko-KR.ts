@@ -119,7 +119,7 @@ export default {
     enterprise: '기업',
     personal: '개인',
     contact: '연락처',
-    welcome: 'Chaterm 사용을 환영합니다',
+    welcome: '사용을 환영합니다',
     title: 'Chaterm',
     accountLogin: '계정 로그인',
     emailLogin: '이메일 로그인',
