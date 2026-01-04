@@ -510,6 +510,29 @@ export class Task {
     await this.saveChatermMessagesAndUpdateHistory()
   }
 
+  /**
+   * Truncate chatermMessages and apiConversationHistory at the given timestamp.
+   * Messages with ts >= the given timestamp will be removed.
+   */
+  private async truncateHistoryAtTimestamp(ts: number): Promise<void> {
+    // console.log('Truncating history at timestamp', ts)
+    const msgIndex = this.chatermMessages.findIndex((m) => m.ts >= ts)
+    if (msgIndex <= 0) return
+
+    const targetMsg = this.chatermMessages[msgIndex]
+    const apiIndex = targetMsg.conversationHistoryIndex
+
+    this.chatermMessages = this.chatermMessages.slice(0, msgIndex)
+
+    if (apiIndex !== undefined && apiIndex >= 0) {
+      this.apiConversationHistory = this.apiConversationHistory.slice(0, apiIndex)
+      await saveApiConversationHistory(this.taskId, this.apiConversationHistory)
+    }
+
+    await this.saveChatermMessagesAndUpdateHistory()
+    await this.postStateToWebview()
+  }
+
   private async saveChatermMessagesAndUpdateHistory() {
     try {
       await saveChatermMessages(this.taskId, this.chatermMessages)
@@ -712,7 +735,11 @@ export class Task {
     }
   }
 
-  async handleWebviewAskResponse(askResponse: ChatermAskResponse, text?: string, cwd?: Map<string, string>) {
+  async handleWebviewAskResponse(askResponse: ChatermAskResponse, text?: string, cwd?: Map<string, string>, truncateAtMessageTs?: number) {
+    if (truncateAtMessageTs !== undefined) {
+      await this.truncateHistoryAtTimestamp(truncateAtMessageTs)
+    }
+
     this.askResponse = askResponse
     this.askResponseText = text
     if (!cwd) return

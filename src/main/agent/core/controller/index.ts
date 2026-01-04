@@ -204,7 +204,7 @@ export class Controller {
           if (message.askResponse === 'messageResponse') {
             await targetTask.clearTodos('new_user_input')
           }
-          await targetTask.handleWebviewAskResponse(message.askResponse!, message.text, message.cwd)
+          await targetTask.handleWebviewAskResponse(message.askResponse!, message.text, message.cwd, message.truncateAtMessageTs)
         }
         break
       case 'showTaskWithId':
