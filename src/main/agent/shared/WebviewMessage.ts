@@ -5,9 +5,6 @@
 // Licensed under the Apache License, Version 2.0
 
 import { ApiConfiguration } from './api'
-import { ChatSettings } from './ChatSettings'
-// import { UserInfo } from "./UserInfo"
-import { ChatContent } from './ChatContent'
 import { TelemetrySetting } from './TelemetrySetting'
 import { z } from 'zod'
 
@@ -19,7 +16,6 @@ export interface WebviewMessage {
     | 'newTask'
     | 'condense'
     | 'telemetrySetting'
-    | 'searchFiles'
     | 'askResponse'
     | 'deleteTaskWithId'
     | 'showTaskWithId'
@@ -28,46 +24,14 @@ export interface WebviewMessage {
     | 'commandGeneration'
     | 'todoUpdated'
   text?: string
-  disabled?: boolean
   apiConfiguration?: ApiConfiguration
-  images?: string[]
-  bool?: boolean
-  number?: number
-  chatSettings?: ChatSettings
-  chatContent?: ChatContent
-  mcpId?: string
-  timeout?: number
-  // For toggleToolAutoApprove
-  serverName?: string
-  serverUrl?: string
-  toolNames?: string[]
-  autoApprove?: boolean
-
-  // For auth
-  // user?: UserInfo | null
-  customToken?: string
-  // For openInBrowser
-  // url?: string
-  planActSeparateModelsSetting?: boolean
-  enableCheckpointsSetting?: boolean
   telemetrySetting?: TelemetrySetting
-  customInstructionsSetting?: string
-  mentionsRequestId?: string
-  query?: string
-  // For toggleFavoriteModel
-  modelId?: string
-
-  offset?: number
-  shellIntegrationTimeout?: number
   askResponse?: ChatermAskResponse
-  terminalOutput?: string
   hosts?: Host[]
   cwd?: Map<string, string>
   feedbackType?: TaskFeedbackType
-  // For interactive command input
-  input?: string
-  // For command generation
-  instruction?: string
+  input?: string // For interactive command input
+  instruction?: string // For command generation
   modelName?: string
   tabId?: string
   context?: {
@@ -75,12 +39,13 @@ export interface WebviewMessage {
     platform: string
     shell: string
   }
-  // For todo updates
-  todos?: unknown[]
+
+  todos?: unknown[] // For todo updates
   sessionId?: string
   taskId?: string
   changeType?: 'created' | 'updated' | 'completed' | 'progress'
   triggerReason?: 'agent_update' | 'user_request' | 'auto_progress'
+  truncateAtMessageTs?: number // For truncate and resend
 }
 
 export type ChatermAskResponse = 'yesButtonClicked' | 'noButtonClicked' | 'messageResponse'

@@ -847,9 +847,11 @@ const handleTruncateAndSend = async ({ message, newContent }: { message: ChatMes
   const index = chatHistory.findIndex((m) => m.id === message.id)
   if (index === -1) return
 
+  const truncateAtMessageTs = message.ts
+
   chatHistory.splice(index)
 
-  await sendMessageWithContent(newContent, 'send')
+  await sendMessageWithContent(newContent, 'send', undefined, truncateAtMessageTs)
 }
 
 const goToLogin = () => {
