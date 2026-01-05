@@ -21,8 +21,6 @@ export async function initializeThemeFromDatabase() {
   // Set document theme class
   document.documentElement.className = `theme-${actualTheme}`
 
-  // Initialize main window
-  window.api.mainWindowInit(dbTheme)
   window.api.mainWindowShow()
 }
 
