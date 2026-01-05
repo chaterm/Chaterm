@@ -20,6 +20,13 @@ const mockWindowApi = {
   getPlatform: vi.fn(),
   getLocalIP: vi.fn(),
   getMacAddress: vi.fn(),
+  isMaximized: vi.fn(),
+  onMaximized: vi.fn(),
+  onUnmaximized: vi.fn(),
+  minimizeWindow: vi.fn(),
+  maximizeWindow: vi.fn(),
+  unmaximizeWindow: vi.fn(),
+  closeWindow: vi.fn(),
   checkUpdate: vi.fn(),
   download: vi.fn(),
   autoUpdate: vi.fn(),
@@ -120,6 +127,9 @@ describe('Header Component', () => {
     mockWindowApi.getPlatform.mockResolvedValue('darwin')
     mockWindowApi.getLocalIP.mockResolvedValue('192.168.1.1')
     mockWindowApi.getMacAddress.mockResolvedValue('00:11:22:33:44:55')
+    mockWindowApi.isMaximized.mockResolvedValue(false)
+    mockWindowApi.onMaximized.mockImplementation(() => () => {})
+    mockWindowApi.onUnmaximized.mockImplementation(() => () => {})
     mockWindowApi.checkUpdate.mockResolvedValue({ isUpdateAvailable: false })
     mockWindowApi.autoUpdate.mockImplementation((callback) => {
       // Simulate autoUpdate callback
@@ -414,7 +424,7 @@ describe('Header Component', () => {
       expect(modeSwitcher.classes()).not.toContain('mode-switcher-mac')
     })
 
-    it('should adjust margin for non-macOS platforms', async () => {
+    it('should render window controls on non-macOS platforms', async () => {
       mockWindowApi.getPlatform.mockResolvedValue('win32')
 
       wrapper = createWrapper()
@@ -422,8 +432,8 @@ describe('Header Component', () => {
       await wrapper.vm.$nextTick()
       await new Promise((resolve) => setTimeout(resolve, 100))
 
-      const termTabInfo = wrapper.find('.term_tab_Info')
-      expect(termTabInfo.attributes('style')).toContain('margin-right: 140px')
+      const windowControls = wrapper.find('.window-controls')
+      expect(windowControls.exists()).toBe(true)
     })
   })
 

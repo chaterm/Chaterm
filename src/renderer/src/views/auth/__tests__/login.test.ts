@@ -140,7 +140,14 @@ const mockWindowApi = {
   getProtocolPrefix: vi.fn().mockResolvedValue('chaterm-cn://'),
   handleProtocolUrl: vi.fn(),
   isE2E: vi.fn().mockReturnValue(false),
-  openExternalLogin: vi.fn()
+  openExternalLogin: vi.fn(),
+  isMaximized: vi.fn(),
+  onMaximized: vi.fn(),
+  onUnmaximized: vi.fn(),
+  minimizeWindow: vi.fn(),
+  maximizeWindow: vi.fn(),
+  unmaximizeWindow: vi.fn(),
+  closeWindow: vi.fn()
 }
 
 describe('Login Component', () => {
@@ -243,6 +250,9 @@ describe('Login Component', () => {
         uid: 1001
       }
     } as any)
+    mockWindowApi.isMaximized.mockResolvedValue(false)
+    mockWindowApi.onMaximized.mockImplementation(() => () => {})
+    mockWindowApi.onUnmaximized.mockImplementation(() => () => {})
 
     // Mock import.meta.env
     Object.defineProperty(global, 'import', {
@@ -284,6 +294,15 @@ describe('Login Component', () => {
         await nextTick()
       }
       expect(wrapper.find('.login-tabs').exists()).toBe(true)
+    })
+
+    it('should render title bar controls on non-mac platforms', async () => {
+      mockWindowApi.getPlatform.mockResolvedValue('win32')
+      wrapper = createWrapper()
+      await nextTick()
+      await new Promise((resolve) => setTimeout(resolve, 0))
+
+      expect(wrapper.find('.window-controls').exists()).toBe(true)
     })
   })
 
