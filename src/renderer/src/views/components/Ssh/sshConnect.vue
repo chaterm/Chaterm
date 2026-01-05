@@ -672,7 +672,8 @@ onMounted(async () => {
   const handlePostMessage = (event: MessageEvent) => {
     if (event.data?.type === 'TRIGGER_SEARCH') {
       // Only the currently active terminal responds to search events
-      if (props.activeTabId === props.currentConnectionId) {
+      const activeTerm = inputManager.getActiveTerm()
+      if (activeTerm.id && connectionId.value && activeTerm.id === connectionId.value) {
         openSearch()
       }
     }
@@ -3026,7 +3027,8 @@ const handleGlobalKeyDown = (e: KeyboardEvent) => {
   if (contextmenu.value && typeof contextmenu.value.hide === 'function') {
     contextmenu.value.hide()
   }
-  if (!props.isActive || props.activeTabId !== props.currentConnectionId) return
+  const activeTerm = inputManager.getActiveTerm()
+  if (!activeTerm.id || !connectionId.value || activeTerm.id !== connectionId.value) return
 
   const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0
 
