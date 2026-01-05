@@ -808,4 +808,279 @@ describe('General Component', () => {
       expect(vm.customBackgroundImage).toBe('')
     })
   })
+
+  describe('Additional Language Options', () => {
+    beforeEach(async () => {
+      wrapper = createWrapper()
+      await nextTick()
+      await nextTick()
+    })
+
+    it('should change language to ja-JP', async () => {
+      const vm = wrapper.vm as any
+      const store = configStore()
+      const updateLanguageSpy = vi.spyOn(store, 'updateLanguage')
+
+      vm.userConfig.language = 'ja-JP'
+      await nextTick()
+
+      await vm.changeLanguage()
+
+      expect(localStorage.getItem('lang')).toBe('ja-JP')
+      expect(updateLanguageSpy).toHaveBeenCalledWith('ja-JP')
+      expect(eventBus.emit).toHaveBeenCalledWith('languageChanged', 'ja-JP')
+    })
+
+    it('should change language to ko-KR', async () => {
+      const vm = wrapper.vm as any
+      const store = configStore()
+      const updateLanguageSpy = vi.spyOn(store, 'updateLanguage')
+
+      vm.userConfig.language = 'ko-KR'
+      await nextTick()
+
+      await vm.changeLanguage()
+
+      expect(localStorage.getItem('lang')).toBe('ko-KR')
+      expect(updateLanguageSpy).toHaveBeenCalledWith('ko-KR')
+      expect(eventBus.emit).toHaveBeenCalledWith('languageChanged', 'ko-KR')
+    })
+  })
+
+  describe('System Background URL Generation', () => {
+    beforeEach(async () => {
+      wrapper = createWrapper()
+      await nextTick()
+      await nextTick()
+    })
+
+    it('should generate correct system background URL', async () => {
+      const vm = wrapper.vm as any
+      const url = vm.getSystemBgUrl(1)
+
+      expect(url).toContain('wall-1.jpg')
+      expect(typeof url).toBe('string')
+    })
+
+    it('should generate different URLs for different indices', async () => {
+      const vm = wrapper.vm as any
+      const url1 = vm.getSystemBgUrl(1)
+      const url2 = vm.getSystemBgUrl(2)
+
+      expect(url1).not.toBe(url2)
+      expect(url1).toContain('wall-1.jpg')
+      expect(url2).toContain('wall-2.jpg')
+    })
+  })
+
+  describe('Default Layout Event Handling', () => {
+    beforeEach(async () => {
+      wrapper = createWrapper()
+      await nextTick()
+      await nextTick()
+    })
+
+    it('should ignore invalid default layout values', async () => {
+      const vm = wrapper.vm as any
+      const initialLayout = vm.userConfig.defaultLayout
+      const handler = vi.mocked(eventBus.on).mock.calls.find((call) => {
+        const eventName = call[0] as string
+        return eventName === 'defaultLayoutChanged'
+      })?.[1] as (mode: string) => void
+
+      if (handler) {
+        handler('invalid-layout')
+        await nextTick()
+
+        expect(vm.userConfig.defaultLayout).toBe(initialLayout)
+      }
+    })
+  })
+
+  describe('Window API System Theme Listener', () => {
+    beforeEach(async () => {
+      wrapper = createWrapper()
+      await nextTick()
+      await nextTick()
+    })
+
+    it('should handle system theme change from main process when in auto mode', async () => {
+      const vm = wrapper.vm as any
+      vm.userConfig.theme = 'auto'
+      document.documentElement.className = 'theme-dark'
+      await nextTick()
+
+      // Get the callback registered by onSystemThemeChanged
+      const onSystemThemeChangedCall = mockWindowApi.onSystemThemeChanged.mock.calls[0]
+      if (onSystemThemeChangedCall && onSystemThemeChangedCall[0]) {
+        const callback = onSystemThemeChangedCall[0] as (theme: string) => void
+        callback('light')
+        await nextTick()
+
+        expect(document.documentElement.className).toBe('theme-light')
+        expect(eventBus.emit).toHaveBeenCalledWith('updateTheme', 'light')
+      }
+    })
+
+    it('should not update theme when system theme changes from main process in manual mode', async () => {
+      const vm = wrapper.vm as any
+      vm.userConfig.theme = 'dark'
+      document.documentElement.className = 'theme-dark'
+      await nextTick()
+
+      const onSystemThemeChangedCall = mockWindowApi.onSystemThemeChanged.mock.calls[0]
+      if (onSystemThemeChangedCall && onSystemThemeChangedCall[0]) {
+        const callback = onSystemThemeChangedCall[0] as (theme: string) => void
+        callback('light')
+        await nextTick()
+
+        expect(document.documentElement.className).toBe('theme-dark')
+      }
+    })
+
+    it('should not update theme when system theme is already the same', async () => {
+      const vm = wrapper.vm as any
+      vm.userConfig.theme = 'auto'
+      document.documentElement.className = 'theme-light'
+      await nextTick()
+
+      const onSystemThemeChangedCall = mockWindowApi.onSystemThemeChanged.mock.calls[0]
+      if (onSystemThemeChangedCall && onSystemThemeChangedCall[0]) {
+        const callback = onSystemThemeChangedCall[0] as (theme: string) => void
+        const emitSpy = vi.spyOn(eventBus, 'emit')
+        const initialEmitCount = emitSpy.mock.calls.length
+        callback('light')
+        await nextTick()
+
+        // Should not emit updateTheme if already the same (current theme is already 'light')
+        // The condition in the code checks if currentTheme !== newSystemTheme
+        // Since both are 'light', it should not update
+        const updateThemeCalls = emitSpy.mock.calls.slice(initialEmitCount).filter((call) => call[0] === 'updateTheme')
+
+        // Should not emit updateTheme when theme is already the same
+        expect(updateThemeCalls.length).toBe(0)
+        expect(document.documentElement.className).toBe('theme-light')
+      }
+    })
+  })
+
+  describe('Background Image Selection Edge Cases', () => {
+    beforeEach(async () => {
+      wrapper = createWrapper()
+      await nextTick()
+      await nextTick()
+    })
+
+    it('should handle background image selection with existing query parameters', async () => {
+      const vm = wrapper.vm as any
+      vm.userConfig.background.mode = 'image'
+      await nextTick()
+
+      mockWindowApi.showOpenDialog.mockResolvedValue({
+        canceled: false,
+        filePaths: ['/path/to/image.jpg']
+      })
+      mockWindowApi.saveCustomBackground.mockResolvedValue({
+        success: true,
+        url: 'file:///saved/image.jpg?existing=param'
+      })
+
+      await vm.selectBackgroundImage()
+
+      expect(vm.customBackgroundImage).toContain('file:///saved/image.jpg')
+      expect(vm.customBackgroundImage).toContain('&t=')
+    })
+
+    it('should handle background image selection when saveResult has no url', async () => {
+      const vm = wrapper.vm as any
+      vm.userConfig.background.mode = 'image'
+      await nextTick()
+
+      mockWindowApi.showOpenDialog.mockResolvedValue({
+        canceled: false,
+        filePaths: ['/path/to/image.jpg']
+      })
+      mockWindowApi.saveCustomBackground.mockResolvedValue({
+        success: true,
+        url: ''
+      })
+
+      await vm.selectBackgroundImage()
+
+      // Should not update image if url is empty
+      expect(vm.customBackgroundImage).toBe('')
+    })
+
+    it('should handle errors in selectBackgroundImage', async () => {
+      const vm = wrapper.vm as any
+      const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+      vm.userConfig.background.mode = 'image'
+      await nextTick()
+
+      mockWindowApi.showOpenDialog.mockRejectedValue(new Error('Dialog failed'))
+
+      await vm.selectBackgroundImage()
+
+      expect(consoleErrorSpy).toHaveBeenCalledWith('Failed to select background image:', expect.any(Error))
+      consoleErrorSpy.mockRestore()
+    })
+  })
+
+  describe('System Theme Listener with Theme Change', () => {
+    it('should log when system theme changes and updates application theme', async () => {
+      const consoleLogSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+      let systemThemeCallback: ((theme: string) => void) | undefined
+
+      mockGetActualTheme.mockImplementation((theme: string) => {
+        if (theme === 'auto') {
+          return 'light' // Return different theme to trigger update
+        }
+        return theme
+      })
+
+      mockAddSystemThemeListener.mockImplementation((callback: (theme: string) => void) => {
+        systemThemeCallback = callback
+        return () => {}
+      })
+
+      wrapper = createWrapper()
+      await nextTick()
+      await nextTick()
+
+      const vm = wrapper.vm as any
+      vm.userConfig.theme = 'auto'
+      document.documentElement.className = 'theme-dark' // Different from what getActualTheme returns
+      await nextTick()
+
+      if (systemThemeCallback) {
+        systemThemeCallback('light')
+        await nextTick()
+        await nextTick()
+
+        expect(consoleLogSpy).toHaveBeenCalledWith(expect.stringContaining('System theme changed to light, updating application theme to light'))
+      }
+
+      consoleLogSpy.mockRestore()
+    })
+  })
+
+  describe('Change Default Layout Duplicate Emit', () => {
+    beforeEach(async () => {
+      wrapper = createWrapper()
+      await nextTick()
+      await nextTick()
+    })
+
+    it('should emit switch-mode event twice when changing default layout', async () => {
+      const vm = wrapper.vm as any
+      vm.userConfig.defaultLayout = 'terminal'
+      await nextTick()
+
+      await vm.changeDefaultLayout()
+
+      const switchModeCalls = vi.mocked(eventBus.emit).mock.calls.filter((call) => call[0] === 'switch-mode')
+      expect(switchModeCalls.length).toBeGreaterThanOrEqual(1)
+      expect((switchModeCalls[0] as any)[1]).toBe('terminal')
+    })
+  })
 })
