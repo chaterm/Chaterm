@@ -298,6 +298,7 @@
                           <a-button
                             size="small"
                             class="approve-btn"
+                            data-testid="execute-button"
                             :disabled="buttonsDisabled"
                             @click="handleApproveCommand"
                           >
@@ -332,6 +333,7 @@
                           <a-button
                             size="small"
                             class="approve-btn"
+                            data-testid="execute-button"
                             @click="handleApplyCommand"
                           >
                             <template #icon>
@@ -377,6 +379,7 @@
                           <a-button
                             size="small"
                             class="approve-btn"
+                            data-testid="execute-button"
                             :disabled="buttonsDisabled"
                             @click="handleApproveCommand"
                           >
@@ -444,6 +447,7 @@
               size="small"
               type="primary"
               class="retry-btn"
+              data-testid="new-task-button"
               @click="createNewEmptyTab"
             >
               <template #icon>
