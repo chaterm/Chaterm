@@ -1,9 +1,6 @@
 <template>
   <div class="term_login">
-    <div
-      class="connetus"
-      :style="{ right: platform.includes('darwin') ? '0px' : '120px' }"
-    >
+    <div class="connetus">
       <a-dropdown overlay-class-name="app-region-no-drag">
         <a
           class="ant-dropdown-link"
@@ -21,6 +18,7 @@
           </a-menu>
         </template>
       </a-dropdown>
+      <TitleBar />
     </div>
     <div class="term_login_content">
       <div>
@@ -272,6 +270,7 @@ import { sendEmailCode, emailLogin, userLogin, sendMobileCode as sendMobileCodeA
 import { useI18n } from 'vue-i18n'
 import { useDeviceStore } from '@/store/useDeviceStore'
 import { isChineseEdition } from '@/utils/edition'
+import TitleBar from '@views/components/Header/titleBar.vue'
 
 const { t, locale } = useI18n()
 const platform = ref<string>('')
@@ -707,8 +706,9 @@ onBeforeUnmount(() => {
 
   .connetus {
     position: absolute;
-    width: 60px;
+    display: flex;
     top: 5px;
+    right: 0px;
     height: 20px;
     color: #dddddd;
     font-size: 16px;
@@ -718,7 +718,7 @@ onBeforeUnmount(() => {
       display: flex;
       align-items: center;
       justify-content: center;
-      width: 100%;
+      width: 40px;
       height: 100%;
 
       .anticon {

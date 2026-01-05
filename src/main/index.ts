@@ -37,7 +37,7 @@ import { pathToFileURL } from 'url'
 import { loadAllPlugins } from './plugin/pluginLoader'
 import { getAllPluginVersions, installPlugin, listPlugins, PluginManifest, uninstallPlugin, getInstallHint } from './plugin/pluginManager'
 import { getPluginDetailsByName } from './plugin/pluginDetails'
-import { getActualTheme, applyThemeToTitleBar, loadUserTheme } from './themeManager'
+import { getActualTheme, loadUserTheme } from './themeManager'
 import { getLoginBaseUrl, getEdition, getProtocolPrefix, getProtocolName } from './config/edition'
 
 let mainWindow: BrowserWindow
@@ -659,9 +659,6 @@ function setupIPC(): void {
 
       // Load and apply user theme configuration
       const dbTheme = await loadUserTheme(chatermDbService)
-      if (dbTheme) {
-        applyThemeToTitleBar(mainWindow, dbTheme)
-      }
 
       // Sync authentication info, ensure completion before data sync starts
       try {
@@ -940,6 +937,18 @@ function setupIPC(): void {
     return false
   })
 
+  ipcMain.handle('window:minimize', () => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.minimize()
+    }
+  })
+
+  ipcMain.handle('window:close', () => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.close()
+    }
+  })
+
   ipcMain.handle('cancel-task', async (_event, payload?: { tabId?: string }) => {
     console.log('cancel-task', payload)
     if (controller) {
@@ -1123,7 +1132,6 @@ function setupIPC(): void {
 
   ipcMain.handle('update-theme', (_, theme) => {
     if (mainWindow && !mainWindow.isDestroyed()) {
-      applyThemeToTitleBar(mainWindow, theme)
       // Notify renderer process that theme has been updated
       const actualTheme = getActualTheme(theme)
       mainWindow.webContents.send('theme-updated', actualTheme)
@@ -1143,11 +1151,6 @@ function setupIPC(): void {
       }
     })
   }
-
-  ipcMain.handle('main-window-init', async (_, theme) => {
-    await winReady
-    applyThemeToTitleBar(mainWindow, theme)
-  })
 
   ipcMain.handle('main-window-show', async () => {
     await winReady

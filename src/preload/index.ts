@@ -538,6 +538,18 @@ const api = {
   maximizeWindow: () => ipcRenderer.invoke('window:maximize'),
   unmaximizeWindow: () => ipcRenderer.invoke('window:unmaximize'),
   isMaximized: () => ipcRenderer.invoke('window:is-maximized'),
+  minimizeWindow: () => ipcRenderer.invoke('window:minimize'),
+  closeWindow: () => ipcRenderer.invoke('window:close'),
+  onMaximized: (callback: () => void) => {
+    const listener = (_event) => callback()
+    ipcRenderer.on('window:maximized', listener)
+    return () => ipcRenderer.removeListener('window:maximized', listener)
+  },
+  onUnmaximized: (callback: () => void) => {
+    const listener = (_event) => callback()
+    ipcRenderer.on('window:unmaximized', listener)
+    return () => ipcRenderer.removeListener('window:unmaximized', listener)
+  },
   openBrowserWindow: (url: string): void => {
     ipcRenderer.send('open-browser-window', url)
   },
@@ -801,7 +813,6 @@ const api = {
   dismissVersionPrompt: () => ipcRenderer.invoke('version:operation', 'dismissPrompt'),
   getReleaseNotes: (version?: string) => ipcRenderer.invoke('version:operation', 'getReleaseNotes', { version }),
   updateTheme: (params) => ipcRenderer.invoke('update-theme', params),
-  mainWindowInit: (params) => ipcRenderer.invoke('main-window-init', params),
   mainWindowShow: () => ipcRenderer.invoke('main-window-show'),
   onSystemThemeChanged: (callback: (theme: string) => void) => {
     const listener = (_event: unknown, theme: string) => callback(theme)

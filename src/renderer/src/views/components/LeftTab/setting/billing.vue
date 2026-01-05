@@ -113,9 +113,13 @@ onMounted(() => {
 })
 
 const getUserInfo = () => {
-  getUser({}).then((res: any) => {
-    userInfo.value = res.data
-  })
+  getUser({})
+    .then((res: any) => {
+      userInfo.value = res.data
+    })
+    .catch(() => {
+      // Silently handle API errors - userInfo will remain empty/default
+    })
 }
 </script>
 
