@@ -660,7 +660,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, defineAsyncComponent, watch } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAutoScroll } from './composables/useAutoScroll'
 import { useChatHistory } from './composables/useChatHistory'
@@ -677,6 +677,9 @@ import { useTodo } from './composables/useTodo'
 import { useWatchers } from './composables/useWatchers'
 import { useExportChat } from './composables/useExportChat'
 import InputSendContainer from './components/InputSendContainer.vue'
+import MarkdownRenderer from './components/format/markdownRenderer.vue'
+import TodoInlineDisplay from './components/todo/TodoInlineDisplay.vue'
+import UserMessage from './components/message/UserMessage.vue'
 import {
   CheckCircleFilled,
   CheckCircleOutlined,
@@ -731,9 +734,6 @@ const props = withDefaults(defineProps<Props>(), {
 const emit = defineEmits(['state-changed'])
 
 const router = useRouter()
-const MarkdownRenderer = defineAsyncComponent(() => import('./components/format/markdownRenderer.vue'))
-const TodoInlineDisplay = defineAsyncComponent(() => import('./components/todo/TodoInlineDisplay.vue'))
-const UserMessage = defineAsyncComponent(() => import('./components/message/UserMessage.vue'))
 
 const isSkippedLogin = ref(localStorage.getItem('login-skipped') === 'true')
 
