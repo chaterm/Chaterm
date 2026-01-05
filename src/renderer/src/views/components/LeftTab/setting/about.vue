@@ -35,23 +35,19 @@
       <div
         class="about-description"
         style="margin-top: 32px"
-        >Copyright © {{ new Date().getFullYear() }} {{ domain }} All rights reserved.</div
+        >Copyright © {{ new Date().getFullYear() }} {{ editionConfig.displayName }} All rights reserved.</div
       >
     </a-card>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref } from 'vue'
 import { Notice } from '../../Notice'
 import i18n from '@/locales'
 import { getEditionConfig } from '@/utils/edition'
 const { t } = i18n.global
 const editionConfig = getEditionConfig()
-
-const domain = computed(() => {
-  return editionConfig.edition === 'cn' ? 'Chaterm.cn' : 'Chaterm.ai'
-})
 
 const appInfo = {
   ...__APP_INFO__
