@@ -1,5 +1,8 @@
 <template>
-  <div class="input-send-container">
+  <div
+    class="input-send-container"
+    :class="{ 'is-edit-mode': mode === 'edit' }"
+  >
     <div
       class="ai-tab-test-hook"
       data-testid="ai-tab"
@@ -610,7 +613,15 @@ const inputPlaceholder = computed(() => {
     border-color 0.2s ease,
     box-shadow 0.2s ease,
     background-color 0.2s ease;
-  width: 100%;
+  width: calc(100% - 16px);
+  margin: 4px 8px 8px 8px;
+
+  &.is-edit-mode {
+    margin: 0;
+    width: 100%;
+    box-shadow: none;
+    background-color: transparent;
+  }
 
   .theme-dark & {
     box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
@@ -621,7 +632,7 @@ const inputPlaceholder = computed(() => {
   }
 
   &:focus-within {
-    border-color: #1890ff;
+    border-color: rgba(24, 143, 255, 0.75);
   }
 
   .theme-dark &:focus-within {
