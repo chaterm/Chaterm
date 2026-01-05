@@ -67,12 +67,16 @@ vi.mock('@/views/components/Notice', () => ({
   }
 }))
 
-// Mock getEditionConfig
+// Mock getEditionConfig - use mutable config for testing different editions
+const mockEditionConfig: {
+  edition: 'cn' | 'global'
+  displayName: string
+} = {
+  edition: 'cn',
+  displayName: 'Chaterm CN'
+}
+
 vi.mock('@/utils/edition', () => {
-  const mockEditionConfig = {
-    edition: 'cn' as const,
-    displayName: 'Chaterm CN'
-  }
   return {
     getEditionConfig: () => mockEditionConfig
   }
@@ -120,6 +124,9 @@ describe('About Component', () => {
     // Setup Pinia
     pinia = createPinia()
     setActivePinia(pinia)
+
+    // Reset edition config to default (CN)
+    mockEditionConfig.displayName = 'Chaterm CN'
 
     // Setup window.api mock
     global.window = global.window || ({} as Window & typeof globalThis)
@@ -190,28 +197,15 @@ describe('About Component', () => {
       expect(versionText).toBeDefined()
     })
 
-    it('should display copyright with correct domain for CN edition', async () => {
+    it('should display copyright with correct displayName for CN edition', async () => {
       // Default mock is CN edition
       wrapper = createWrapper()
       await nextTick()
 
       const copyright = wrapper.find('.about-description:last-child')
       expect(copyright.exists()).toBe(true)
-      expect(copyright.text()).toContain('Chaterm.cn')
-    })
-
-    it('should display copyright with correct domain for global edition', async () => {
-      // Test that domain logic works - CN edition shows Chaterm.cn (tested above)
-      // Global edition would show Chaterm.ai, but we can't easily change the mock
-      // This test verifies the CN case works correctly
-      wrapper = createWrapper()
-      await nextTick()
-
-      const copyright = wrapper.find('.about-description:last-child')
-      expect(copyright.exists()).toBe(true)
-      // Verify the domain is computed based on edition
-      // CN edition (default mock) should show Chaterm.cn
-      expect(copyright.text()).toContain('Chaterm.cn')
+      expect(copyright.text()).toContain('Chaterm CN')
+      expect(copyright.text()).toContain('All rights reserved')
     })
 
     it('should display update button initially', async () => {
@@ -927,23 +921,34 @@ describe('About Component', () => {
       expect(copyright.text()).toContain(currentYear.toString())
     })
 
-    it('should display correct domain based on edition', async () => {
-      // Test CN edition (default mock)
+    it('should display correct displayName for CN edition', async () => {
+      // Reset to CN edition (default)
+      mockEditionConfig.displayName = 'Chaterm CN'
+
       wrapper = createWrapper()
       await nextTick()
 
-      let copyright = wrapper.find('.about-description:last-child')
-      expect(copyright.text()).toContain('Chaterm.cn')
+      const copyright = wrapper.find('.about-description:last-child')
+      expect(copyright.exists()).toBe(true)
+      expect(copyright.text()).toContain('Chaterm CN')
+      expect(copyright.text()).toContain('All rights reserved')
+    })
 
-      wrapper.unmount()
+    it('should display correct displayName for global edition', async () => {
+      // Change to global edition
+      mockEditionConfig.displayName = 'Chaterm'
 
-      // Test Global edition by checking the computed domain logic
-      // The domain is computed based on editionConfig.edition
-      // Since we can't easily change the mock mid-test, we verify the logic
-      // by checking that CN edition shows Chaterm.cn (which we already tested)
-      // For global edition, it would show Chaterm.ai, but we'd need to remock
-      // This test verifies the CN case works correctly
-      expect(copyright.text()).toContain('Chaterm.cn')
+      wrapper = createWrapper()
+      await nextTick()
+
+      const copyright = wrapper.find('.about-description:last-child')
+      expect(copyright.exists()).toBe(true)
+      expect(copyright.text()).toContain('Chaterm')
+      expect(copyright.text()).not.toContain('Chaterm CN')
+      expect(copyright.text()).toContain('All rights reserved')
+
+      // Reset to CN for other tests
+      mockEditionConfig.displayName = 'Chaterm CN'
     })
   })
 })
