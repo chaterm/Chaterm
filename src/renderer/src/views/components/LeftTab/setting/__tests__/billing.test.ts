@@ -14,7 +14,7 @@
  * - API error handling
  */
 
-import { describe, it, expect, vi, beforeEach, afterEach, beforeAll, afterAll } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { mount, VueWrapper } from '@vue/test-utils'
 import { nextTick } from 'vue'
 import { createPinia, setActivePinia } from 'pinia'
@@ -51,12 +51,21 @@ vi.mock('@/api/user/user', () => ({
 // Set up global unhandled rejection handler for the entire test file
 // This handles cases where the component doesn't catch promise rejections
 if (typeof window !== 'undefined') {
-  window.addEventListener('unhandledrejection', (event) => {
+  const unhandledRejectionHandler = (event: PromiseRejectionEvent) => {
     // Only prevent default for API errors in error handling tests
     if (event.reason?.message === 'API Error') {
       event.preventDefault()
+      // Stop propagation to prevent Vitest from reporting it
+      if (event.stopImmediatePropagation) {
+        event.stopImmediatePropagation()
+      }
     }
-  })
+  }
+  // Use capture phase to catch errors early
+  window.addEventListener('unhandledrejection', unhandledRejectionHandler, true)
+
+  // Also add in bubble phase as fallback
+  window.addEventListener('unhandledrejection', unhandledRejectionHandler, false)
 }
 
 // Create router for navigation testing
@@ -791,46 +800,20 @@ describe('Billing Component', () => {
   })
 
   describe('API Error Handling', () => {
-    let rejectionHandler: ((event: PromiseRejectionEvent) => void) | null = null
-
-    beforeAll(() => {
-      // Set up global handler to catch unhandled rejections for all tests in this describe block
-      rejectionHandler = (event: PromiseRejectionEvent) => {
-        // Prevent the error from being logged as unhandled
-        event.preventDefault()
-      }
-      window.addEventListener('unhandledrejection', rejectionHandler)
-    })
-
-    afterAll(() => {
-      if (rejectionHandler) {
-        window.removeEventListener('unhandledrejection', rejectionHandler)
-        rejectionHandler = null
-      }
-    })
-
     beforeEach(() => {
       localStorage.removeItem('login-skipped')
     })
 
     it('should handle getUser API errors gracefully', async () => {
       const error = new Error('API Error')
-      // Use mockImplementation to return a promise that's already handled
-      mockGetUser.mockImplementationOnce(() => {
-        const promise = Promise.reject(error)
-        // Immediately catch to prevent unhandled rejection
-        // This is safe because we're testing that the component doesn't handle errors
-        promise.catch(() => {
-          // Silently handle - component doesn't catch this
-        })
-        return promise
-      })
+      // Component now handles errors with .catch()
+      mockGetUser.mockRejectedValueOnce(error)
 
       wrapper = createWrapper()
       await nextTick()
       await nextTick()
 
-      // Wait a bit for the rejection to be processed
+      // Wait for async operations to complete
       await new Promise((resolve) => setTimeout(resolve, 50))
 
       // Component should still render, just without user data
@@ -840,13 +823,7 @@ describe('Billing Component', () => {
 
     it('should display dash values when API fails', async () => {
       const error = new Error('API Error')
-      mockGetUser.mockImplementationOnce(() => {
-        const promise = Promise.reject(error)
-        promise.catch(() => {
-          // Silently handle - component doesn't catch this
-        })
-        return promise
-      })
+      mockGetUser.mockRejectedValueOnce(error)
 
       wrapper = createWrapper()
       await nextTick()
@@ -861,13 +838,7 @@ describe('Billing Component', () => {
 
     it('should not update userInfo when API fails', async () => {
       const error = new Error('API Error')
-      mockGetUser.mockImplementationOnce(() => {
-        const promise = Promise.reject(error)
-        promise.catch(() => {
-          // Silently handle - component doesn't catch this
-        })
-        return promise
-      })
+      mockGetUser.mockRejectedValueOnce(error)
 
       wrapper = createWrapper()
       await nextTick()
