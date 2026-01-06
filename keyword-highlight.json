@@ -3,9 +3,20 @@
     "enabled": true,
     "applyTo": {
       "output": true,
-      "input": false // input will conflict with command syntax highlighting.
+      "input": false
     },
     "rules": [
+      {
+        "name": "Dangerous Operations",
+        "enabled": true,
+        "scope": "output",
+        "matchType": "regex",
+        "pattern": "\\b(rm\\s+-rf|dd\\s+if=|mkfs(\\.|\\s|$)|shutdown(\\s|$)|reboot(\\s|$)|poweroff(\\s|$)|kill\\s+-9)\\b",
+        "style": {
+          "foreground": "#FF3B30",
+          "fontStyle": "bold"
+        }
+      },
       {
         "name": "Errors and Failures",
         "enabled": true,
@@ -37,6 +48,17 @@
         "style": {
           "foreground": "#34C759",
           "fontStyle": "normal"
+        }
+      },
+      {
+        "name": "Auth / Privilege / Identity",
+        "enabled": true,
+        "scope": "output",
+        "matchType": "regex",
+        "pattern": "(?i)(^|\\s)(root|sudo|uid=0|gid=0)(\\s|$)",
+        "style": {
+          "foreground": "#AF52DE",
+          "fontStyle": "bold"
         }
       },
       {

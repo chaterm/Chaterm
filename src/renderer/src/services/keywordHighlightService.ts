@@ -170,43 +170,52 @@ class KeywordHighlightService {
     let accumulatedAnsi = '' // Accumulate all ANSI codes to maintain full state
     let plainTextOffset = 0
 
-    while (lastIndex < text.length) {
-      const match = ansiRegex.exec(text)
+    let match
+    while ((match = ansiRegex.exec(text)) !== null) {
+      // Text before ANSI code
+      if (match.index > lastIndex) {
+        const textSegment = text.substring(lastIndex, match.index)
+        segments.push({
+          text: textSegment,
+          ansiPrefix: accumulatedAnsi,
+          originalStart: plainTextOffset
+        })
+        plainTextOffset += textSegment.length
+      }
 
-      if (match) {
-        // Text before ANSI code
-        if (match.index > lastIndex) {
-          const textSegment = text.substring(lastIndex, match.index)
-          segments.push({
-            text: textSegment,
-            ansiPrefix: accumulatedAnsi,
-            originalStart: plainTextOffset
-          })
-          plainTextOffset += textSegment.length
-        }
-
-        // Check if this is a reset code
-        const code = match[0]
+      // Check if this is a reset code
+      // A reset can be:
+      // - \x1b[0m or \x1b[m - explicit reset
+      // - \x1b[0;...m - reset followed by other attributes (the 0 resets first)
+      const code = match[0]
+      if (code === '\x1b[0m' || code === '\x1b[m' || /^\x1b\[0[;m]/.test(code)) {
+        // Reset all accumulated state, then apply any new attributes after the 0
         if (code === '\x1b[0m' || code === '\x1b[m') {
-          // Reset all accumulated state
           accumulatedAnsi = ''
         } else {
-          // Accumulate ANSI codes to maintain full state
-          accumulatedAnsi += code
+          // Extract attributes after the leading 0 and rebuild the code
+          // e.g., \x1b[0;1;32m -> reset, then apply \x1b[1;32m
+          const attrs = code.slice(3, -1) // Remove \x1b[ and m
+          const parts = attrs.split(';').slice(1) // Remove the leading 0
+          accumulatedAnsi = parts.length > 0 ? `\x1b[${parts.join(';')}m` : ''
         }
-
-        lastIndex = match.index + match[0].length
       } else {
-        // Remaining text
-        const textSegment = text.substring(lastIndex)
-        if (textSegment.length > 0) {
-          segments.push({
-            text: textSegment,
-            ansiPrefix: accumulatedAnsi,
-            originalStart: plainTextOffset
-          })
-        }
-        break
+        // Accumulate ANSI codes to maintain full state
+        accumulatedAnsi += code
+      }
+
+      lastIndex = match.index + match[0].length
+    }
+
+    // Remaining text after last ANSI code
+    if (lastIndex < text.length) {
+      const textSegment = text.substring(lastIndex)
+      if (textSegment.length > 0) {
+        segments.push({
+          text: textSegment,
+          ansiPrefix: accumulatedAnsi,
+          originalStart: plainTextOffset
+        })
       }
     }
 
@@ -254,15 +263,32 @@ class KeywordHighlightService {
 
   /**
    * Apply keyword matches to text segments while preserving native colors
+   * Tracks ANSI state across segments to ensure proper reset between segments
    */
   private applyMatchesToSegments(segments: Array<{ text: string; ansiPrefix: string; originalStart: number }>, matches: HighlightMatch[]): string {
     let result = ''
     let matchIndex = 0
+    let lastAnsiState = '' // Track the last ANSI state output
 
     for (const segment of segments) {
       const segmentStart = segment.originalStart
       const segmentEnd = segmentStart + segment.text.length
       let segmentPos = 0
+
+      // Ensure correct ANSI state at segment start
+      // If the current state differs from what this segment expects, do a transition
+      if (lastAnsiState !== segment.ansiPrefix) {
+        if (segment.ansiPrefix === '') {
+          // Need to reset to default state
+          if (lastAnsiState !== '') {
+            result += '\x1b[0m'
+          }
+        } else {
+          // Need to set new ANSI state
+          result += '\x1b[0m' + segment.ansiPrefix
+        }
+        lastAnsiState = segment.ansiPrefix
+      }
 
       // Process matches that overlap with this segment
       while (matchIndex < matches.length && matches[matchIndex].start < segmentEnd) {
@@ -278,25 +304,22 @@ class KeywordHighlightService {
         const matchStartInSegment = Math.max(0, match.start - segmentStart)
         const matchEndInSegment = Math.min(segment.text.length, match.end - segmentStart)
 
-        // Add text before match with native color
+        // Add text before match (ANSI state already set at segment start)
         if (matchStartInSegment > segmentPos) {
-          result += segment.ansiPrefix + segment.text.substring(segmentPos, matchStartInSegment)
+          result += segment.text.substring(segmentPos, matchStartInSegment)
         }
 
         // Add matched text with keyword highlight color
         const ansiCode = this.getAnsiCode(match.style.foreground, match.style.fontStyle)
         result += ansiCode + segment.text.substring(matchStartInSegment, matchEndInSegment)
 
-        // Restore state after highlighting
-        // If segment has ANSI prefix, do full reset then restore; otherwise just reset our attributes
+        // Restore segment's ANSI state after highlighting
         if (segment.ansiPrefix) {
-          // Full reset + restore original ANSI state to preserve all attributes
           result += '\x1b[0m' + segment.ansiPrefix
         } else {
-          // Only reset the attributes we modified (foreground and bold)
-          // SGR 22 (normal intensity) + SGR 39 (default foreground color)
-          result += '\x1b[22;39m'
+          result += '\x1b[0m'
         }
+        lastAnsiState = segment.ansiPrefix
 
         segmentPos = matchEndInSegment
 
@@ -308,10 +331,16 @@ class KeywordHighlightService {
         }
       }
 
-      // Add remaining text in segment with native color
+      // Add remaining text in segment (ANSI state already correct)
       if (segmentPos < segment.text.length) {
-        result += segment.ansiPrefix + segment.text.substring(segmentPos)
+        result += segment.text.substring(segmentPos)
       }
+    }
+
+    // Ensure we end with a clean state to prevent color leakage
+    // If the last segment had an ANSI prefix, we need to reset it
+    if (lastAnsiState !== '') {
+      result += '\x1b[0m'
     }
 
     return result

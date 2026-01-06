@@ -565,8 +565,8 @@ describe('KeywordHighlightService', () => {
       const input = 'sudo command'
       const output = keywordHighlightService.applyHighlight(input, 'output')
 
-      // For plain text without ANSI codes, should use partial reset \x1b[22;39m
-      expect(output).toContain('\x1b[22;39m')
+      // For plain text without ANSI codes, should use full reset \x1b[0m
+      expect(output).toContain('\x1b[0m')
       expect(output).toContain('sudo')
     })
 
@@ -574,9 +574,9 @@ describe('KeywordHighlightService', () => {
       const input = 'sudo umount /tmp/jfs_temp'
       const output = keywordHighlightService.applyHighlight(input, 'output')
 
-      // Should highlight 'sudo' and use partial reset for plain text
+      // Should highlight 'sudo' and use full reset for plain text
       expect(output).toContain('sudo')
-      expect(output).toContain('\x1b[22;39m')
+      expect(output).toContain('\x1b[0m')
     })
 
     it('should preserve accumulated ANSI state with foreground and background colors', () => {
