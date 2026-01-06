@@ -184,7 +184,7 @@ export default {
     quickVimStatus: '빠른 vim',
     commonVimStatus: '공통 vim',
     aliasStatus: '전역 별칭',
-    highlightStatus: '하이라이트',
+    highlightStatus: '명령 구문 강조',
     pinchZoomStatus: '폰트 확대/축소',
     fontSize: '글꼴 크기',
     fontFamily: '글꼴 종류',
