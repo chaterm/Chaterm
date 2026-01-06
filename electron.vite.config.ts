@@ -151,6 +151,17 @@ export default defineConfig(({ mode }) => {
           }
         }
       },
+      optimizeDeps: {
+        include: [
+          'monaco-editor',
+          'monaco-editor/esm/vs/editor/editor.all.js',
+          'monaco-editor/esm/vs/basic-languages/shell/shell.contribution',
+          'monaco-editor/esm/vs/basic-languages/javascript/javascript.contribution',
+          'monaco-editor/esm/vs/basic-languages/python/python.contribution',
+          'monaco-editor/esm/vs/basic-languages/go/go.contribution',
+          'monaco-editor/esm/vs/basic-languages/typescript/typescript.contribution'
+        ]
+      },
       build: {
         sourcemap: true
       },

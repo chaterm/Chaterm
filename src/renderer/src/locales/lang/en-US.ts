@@ -193,7 +193,7 @@ export default {
     quickVimStatus: 'Quick vim',
     commonVimStatus: 'Common vim',
     aliasStatus: 'Global alias',
-    highlightStatus: 'Highlight',
+    highlightStatus: 'Command Syntax Highlighting',
     pinchZoomStatus: 'Pinch to zoom font',
     fontSize: 'Font size',
     fontFamily: 'Font family',

@@ -3,22 +3,11 @@
     "enabled": true,
     "applyTo": {
       "output": true,
-      "input": false
+      "input": false // input will conflict with command syntax highlighting.
     },
     "rules": [
       {
-        "name": "Dangerous Operations (Output Only)",
-        "enabled": true,
-        "scope": "output",
-        "matchType": "regex",
-        "pattern": "\\b(rm\\s+-rf|dd\\s+if=|mkfs(\\.|\\s|$)|shutdown(\\s|$)|reboot(\\s|$)|poweroff(\\s|$)|kill\\s+-9)\\b",
-        "style": {
-          "foreground": "#FF3B30",
-          "fontStyle": "bold"
-        }
-      },
-      {
-        "name": "Errors and Failures (Output Only)",
+        "name": "Errors and Failures",
         "enabled": true,
         "scope": "output",
         "matchType": "regex",
@@ -29,7 +18,7 @@
         }
       },
       {
-        "name": "Warnings (Output Only)",
+        "name": "Warnings",
         "enabled": true,
         "scope": "output",
         "matchType": "regex",
@@ -40,7 +29,7 @@
         }
       },
       {
-        "name": "Success / Healthy States (Output Only)",
+        "name": "Success / Healthy States",
         "enabled": true,
         "scope": "output",
         "matchType": "regex",
@@ -51,49 +40,13 @@
         }
       },
       {
-        "name": "Auth / Privilege / Identity (Output Only)",
-        "enabled": true,
-        "scope": "output",
-        "matchType": "regex",
-        "pattern": "(?i)(^|\\s)(root|sudo|uid=0|gid=0)(\\s|$)",
-        "style": {
-          "foreground": "#AF52DE",
-          "fontStyle": "bold"
-        }
-      },
-      {
-        "name": "Network / Connectivity (Output Only)",
+        "name": "Network / Connectivity",
         "enabled": true,
         "scope": "output",
         "matchType": "regex",
         "pattern": "(?i)\\b(connection (refused|reset)|timed out|timeout|host unreachable|network is unreachable|broken pipe|tls|ssl)\\b",
         "style": {
           "foreground": "#0A84FF",
-          "fontStyle": "normal"
-        }
-      },
-      {
-        "name": "Paths & Config Files (Output Only)",
-        "enabled": true,
-        "scope": "output",
-        "matchType": "wildcard",
-        "pattern": [
-          "/etc/*",
-          "/var/*",
-          "/usr/*",
-          "/opt/*",
-          "/bin/*",
-          "/sbin/*",
-          "*.conf",
-          "*.service",
-          "*.timer",
-          "*.yml",
-          "*.yaml",
-          "*.json",
-          "*.log"
-        ],
-        "style": {
-          "foreground": "#64D2FF",
           "fontStyle": "normal"
         }
       }
