@@ -10,6 +10,9 @@ const PROMPT_PATTERNS: Array<{ type: PromptType; pattern: RegExp }> = [
   { type: 'linux', pattern: /^([^@]+)@([^:]+):(?:[^$]*|\s*~)\s*[$#]\s*$/ },
   { type: 'linux', pattern: /^\[([^@]+)@([^\]]+)\s+[^\]]*\][#$]\s*$/ },
   { type: 'linux', pattern: /^[$#]\s*$/ },
+  { type: 'linux', pattern: /^([^@]+)@([^\s]+)\s+(?:[^\s]+\s+)?[%$#]\s*$/ },
+  { type: 'linux', pattern: /^[^\s]+@[^\s]+\s+[%$#]\s*$/ },
+  { type: 'linux', pattern: /^[%$#]\s*$/ },
   { type: 'cisco', pattern: /^[A-Za-z][A-Za-z0-9_-]*(?:\([A-Za-z0-9_-]+\))?[#>]\s*$/ },
   { type: 'huaweiUser', pattern: /^<[A-Za-z][A-Za-z0-9_-]*>\s*$/ },
   { type: 'huaweiSystem', pattern: /^\[[~*]*[A-Za-z][A-Za-z0-9_/-]*\]\s*$/ }

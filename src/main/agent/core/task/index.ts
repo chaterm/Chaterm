@@ -1149,6 +1149,9 @@ export class Task {
     let result = ''
     let chunkTimer: NodeJS.Timeout | null = null
 
+    // Get host info for local host (127.0.0.1) for multi-host identification
+    const hostInfo = this.buildHostInfo('127.0.0.1')
+
     try {
       const terminal = await this.localTerminalManager.createTerminal()
       const process = this.localTerminalManager.runCommand(terminal, command, this.cwd.get('127.0.0.1') || undefined)
@@ -1174,7 +1177,8 @@ export class Task {
         chunkEnroute = true
         try {
           // Send the complete output up to now, for the frontend to replace entirely
-          await this.say('command_output', result, true)
+          // Include host info for multi-host identification
+          await this.say('command_output', result, true, hostInfo)
         } catch (error) {
           console.error('Error while saying for command output:', error) // Log error
         } finally {
@@ -1243,6 +1247,17 @@ export class Task {
         }
         checkCompletion()
       })
+
+      // Wait for a short delay to ensure all messages are sent to the webview
+      // This delay allows time for non-awaited promises to be created and
+      // for their associated messages to be sent to the webview, maintaining
+      // the correct order of messages
+      await new Promise((resolve) => setTimeout(resolve, 100))
+
+      const lastMessage = this.chatermMessages.at(-1)
+      if (lastMessage?.say === 'command_output') {
+        await this.say('command_output', lastMessage.text, false, hostInfo)
+      }
 
       const truncatedResult = this.truncateCommandOutput(result)
 
