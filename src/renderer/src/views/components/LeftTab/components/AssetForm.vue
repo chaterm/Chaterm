@@ -18,8 +18,36 @@
         layout="vertical"
         class="custom-form"
       >
-        <!-- Asset type selection -->
-        <a-form-item v-if="!isEditMode">
+        <!-- Device category selection (Cascader) -->
+        <a-form-item
+          v-if="!isEditMode"
+          :label="t('personal.deviceCategory')"
+        >
+          <a-cascader
+            v-model:value="deviceTypePath"
+            :options="deviceOptions"
+            :placeholder="t('personal.selectDeviceType')"
+            style="width: 100%"
+            :allow-clear="false"
+            @change="handleDeviceTypeChange"
+          />
+        </a-form-item>
+
+        <!-- Switch brand selection (only when device is switch) -->
+        <a-form-item v-if="!isEditMode && deviceTypePath[0] === 'network' && deviceTypePath[1] === 'switch'">
+          <a-radio-group
+            v-model:value="switchBrand"
+            button-style="solid"
+            style="width: 100%"
+            @change="handleSwitchBrandChange"
+          >
+            <a-radio-button value="cisco">{{ t('personal.switchCisco') }}</a-radio-button>
+            <a-radio-button value="huawei">{{ t('personal.switchHuawei') }}</a-radio-button>
+          </a-radio-group>
+        </a-form-item>
+
+        <!-- Asset type selection (Personal / Enterprise) - only for servers -->
+        <a-form-item v-if="!isEditMode && deviceTypePath[0] === 'server'">
           <a-radio-group
             v-model:value="formData.asset_type"
             button-style="solid"
@@ -74,7 +102,7 @@
         <!-- Authentication information -->
         <div class="form-section">
           <a-form-item
-            v-if="formData.asset_type === 'person'"
+            v-if="formData.asset_type === 'person' || formData.asset_type?.startsWith('person-switch-')"
             :label="t('personal.verificationMethod')"
           >
             <a-radio-group
@@ -261,12 +289,13 @@
 </template>
 
 <script setup lang="ts">
-import { reactive, watch } from 'vue'
+import { reactive, watch, ref, computed } from 'vue'
 import { ToTopOutlined } from '@ant-design/icons-vue'
 import { message } from 'ant-design-vue'
 import i18n from '@/locales'
 import eventBus from '@/utils/eventBus'
-import type { AssetFormData, KeyChainItem, SshProxyConfigItem } from '../utils/types'
+import type { AssetFormData, KeyChainItem, SshProxyConfigItem, AssetType } from '../utils/types'
+import { getSwitchBrand } from '../utils/types'
 
 const { t } = i18n.global
 
@@ -292,6 +321,33 @@ const emit = defineEmits<{
   'add-keychain': []
   'auth-change': [authType: string]
 }>()
+
+// Device type path for Cascader: ['server'] or ['network', 'switch']
+const deviceTypePath = ref<string[]>([])
+
+const deviceOptions = computed(() => [
+  { value: 'server', label: t('personal.deviceServer') },
+  {
+    value: 'network',
+    label: t('personal.deviceNetwork'),
+    children: [{ value: 'switch', label: t('personal.deviceSwitch') }]
+  }
+])
+
+// Initialize deviceTypePath based on initialData
+const initDeviceTypePath = () => {
+  if (props.initialData?.asset_type?.startsWith('person-switch-')) {
+    deviceTypePath.value = ['network', 'switch']
+  } else {
+    deviceTypePath.value = ['server']
+  }
+}
+
+// Call initialization
+initDeviceTypePath()
+
+// Switch brand: 'cisco' or 'huawei'
+const switchBrand = ref<'cisco' | 'huawei'>(getSwitchBrand(props.initialData?.asset_type) || 'cisco')
 
 const formData = reactive<AssetFormData>({
   username: '',
@@ -350,6 +406,28 @@ watch(
   },
   { immediate: true }
 )
+
+// Handle device type change from Cascader
+const handleDeviceTypeChange = (val: string[]) => {
+  if (!val || val.length === 0) return
+
+  if (val[0] === 'server') {
+    // Switching to server
+    formData.asset_type = 'person'
+    formData.auth_type = 'password'
+  } else if (val[0] === 'network' && val[1] === 'switch') {
+    // Switching to network switch
+    formData.asset_type = `person-switch-${switchBrand.value}` as AssetType
+    formData.auth_type = 'password'
+  }
+}
+
+// Handle switch brand change (cisco/huawei)
+const handleSwitchBrandChange = () => {
+  if (deviceTypePath.value[0] === 'network' && deviceTypePath.value[1] === 'switch') {
+    formData.asset_type = `person-switch-${switchBrand.value}` as AssetType
+  }
+}
 
 const handleClose = () => {
   emit('close')

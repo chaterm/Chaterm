@@ -47,6 +47,7 @@ export interface AssetInfo {
   outputContext?: string
   tabSessionId?: string
   connection?: string
+  assetType?: string
 }
 
 export interface HistoryItem {
@@ -78,6 +79,7 @@ export interface Host {
   uuid: string
   connection: string
   organizationUuid?: string
+  assetType?: string
 }
 
 // Tree structure types for host list
@@ -91,6 +93,7 @@ export interface TreeHostOption {
   uuid: string
   connection: string
   organizationUuid?: string
+  assetType?: string
   children?: TreeHostOption[]
   expanded?: boolean
 }
@@ -115,6 +118,7 @@ export interface HostOption {
   type: HostItemType
   selectable: boolean
   organizationUuid?: string
+  assetType?: string
   children?: TreeHostOption[]
   expanded?: boolean
   level: number

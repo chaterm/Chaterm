@@ -6,7 +6,8 @@ import type { ChatMessage } from '../types'
 import type { Todo } from '@/types/todo'
 import type { ChatTab } from './useSessionState'
 import type { ExtensionMessage } from '@shared/ExtensionMessage'
-import { createNewMessage, parseMessageContent, pickHostInfo } from '../utils'
+import { createNewMessage, parseMessageContent, pickHostInfo, isSwitchAssetType } from '../utils'
+import { Notice } from '@/views/components/Notice'
 import { useCurrentCwdStore } from '@/store/currentCwdStore'
 import { useSessionState } from './useSessionState'
 import { getGlobalState, updateGlobalState } from '@renderer/agent/storage/state'
@@ -139,7 +140,8 @@ export function useChatMessages(
       const hostsArray = targetHosts.map((h) => ({
         host: h.host,
         uuid: h.uuid,
-        connection: h.connection
+        connection: h.connection,
+        ...(h.assetType ? { assetType: h.assetType } : {})
       }))
 
       let message
@@ -164,14 +166,16 @@ export function useChatMessages(
           type: 'askResponse',
           askResponse: 'yesButtonClicked',
           text: userContent,
-          cwd: filteredCwd
+          cwd: filteredCwd,
+          hosts: hostsArray
         }
       } else {
         message = {
           type: 'askResponse',
           askResponse: 'messageResponse',
           text: userContent,
-          cwd: filteredCwd
+          cwd: filteredCwd,
+          hosts: hostsArray
         }
       }
 
@@ -222,6 +226,16 @@ export function useChatMessages(
 
     const userContent = chatInputValue.value.trim()
     if (!userContent) return
+
+    if (chatTypeValue.value === 'agent' && hosts.value.some((host) => isSwitchAssetType(host.assetType))) {
+      chatTypeValue.value = 'cmd'
+      Notice.open({
+        type: 'info',
+        description: t('ai.switchNotSupportAgent'),
+        placement: 'bottomRight'
+      })
+      return 'SEND_ERROR'
+    }
 
     chatInputValue.value = ''
 

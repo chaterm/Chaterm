@@ -103,7 +103,8 @@ export function useTabManagement(options: TabManagementOptions) {
               {
                 host: assetInfo.ip,
                 uuid: assetInfo.uuid,
-                connection: assetInfo.connection || 'personal'
+                connection: assetInfo.connection || 'personal',
+                ...(assetInfo.assetType ? { assetType: assetInfo.assetType } : {})
               }
             ]
           : [DEFAULT_LOCALHOST_HOST]
@@ -161,7 +162,8 @@ export function useTabManagement(options: TabManagementOptions) {
             loadedHosts = metadataResult.data.hosts.map((item: Host) => ({
               host: item.host,
               uuid: item.uuid || '',
-              connection: item.connection
+              connection: item.connection,
+              ...(item.assetType ? { assetType: item.assetType } : {})
             }))
           }
 
@@ -291,7 +293,8 @@ export function useTabManagement(options: TabManagementOptions) {
         hosts: finalHosts.map((h) => ({
           host: h.host,
           uuid: h.uuid,
-          connection: h.connection
+          connection: h.connection,
+          ...(h.assetType ? { assetType: h.assetType } : {})
         }))
       })
 

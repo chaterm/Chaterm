@@ -599,6 +599,16 @@ export default {
     personalAsset: 'Personal Asset',
     enterpriseAsset: 'Enterprise Asset',
     organizationTip: 'Connect to enterprise assets via Jumpserver',
+    // Device type selection
+    deviceCategory: 'Device Type',
+    selectDeviceType: 'Select device type',
+    deviceServer: 'Server',
+    deviceNetwork: 'Network Device',
+    deviceSwitch: 'Switch',
+    switchBrand: 'Switch Brand',
+    switchCisco: 'Cisco',
+    switchHuawei: 'Huawei',
+    switchTip: 'Switches only support Command mode',
     refreshAssets: 'Refresh Assets',
     refreshingAssets: 'Refreshing assets...',
     refreshSuccess: 'Assets refreshed successfully',
@@ -812,7 +822,8 @@ export default {
     exportChatEmpty: 'No chat messages to export',
     exportedOn: 'Exported on',
     maxHostsLimitReached: 'You can select up to {max} hosts',
-    maxHostsLimit: 'Maximum hosts limit reached'
+    maxHostsLimit: 'Maximum hosts limit reached',
+    switchNotSupportAgent: 'Network devices do not support Agent mode, automatically switched to Command mode'
   },
   keyChain: {
     newKey: 'New Key',

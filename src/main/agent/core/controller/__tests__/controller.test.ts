@@ -119,6 +119,7 @@ vi.mock('@core/task', () => {
 
 import { Controller } from '../index'
 import type { Host } from '@shared/WebviewMessage'
+import { saveTaskMetadata } from '@core/storage/disk'
 
 // Test helper: 创建测试用的 Host 对象
 // 当 Host 类型定义变更时，只需修改这个函数
@@ -208,6 +209,32 @@ describe('Controller', () => {
     expect(result).toHaveLength(2)
     expect(result[0].taskId).toBe('task-1')
     expect(result[1].taskId).toBe('task-2')
+  })
+
+  it('askResponse should update task hosts when provided', async () => {
+    const controller = new Controller(
+      async () => true,
+      async () => '/tmp/mcp_settings.json'
+    )
+
+    await controller.initTask([createMockHost('1')], 'task 1', undefined, undefined, 'task-1')
+
+    const newHosts = [createMockHost('2')]
+    const cwd = new Map([['host-2', '/var/tmp']])
+
+    await controller.handleWebviewMessage({
+      type: 'askResponse',
+      askResponse: 'messageResponse',
+      text: 'switch host',
+      tabId: 'task-1',
+      hosts: newHosts,
+      cwd
+    } as WebviewMessage)
+
+    const updatedTask = controller.getAllTasks().find((task) => task.taskId === 'task-1')
+    expect(updatedTask?.hosts).toEqual(newHosts)
+    expect(updatedTask?.cwd.get('host-2')).toBe('/var/tmp')
+    expect(saveTaskMetadata).toHaveBeenCalled()
   })
 
   it('clearTask should remove specific task when taskId is provided', async () => {

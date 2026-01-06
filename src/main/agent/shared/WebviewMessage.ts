@@ -5,7 +5,7 @@ import { ChatContent } from './ChatContent'
 import { TelemetrySetting } from './TelemetrySetting'
 import { z } from 'zod'
 
-export type Host = { host: string; uuid: string; connection: string }
+export type Host = { host: string; uuid: string; connection: string; assetType?: string }
 
 export interface WebviewMessage {
   type:

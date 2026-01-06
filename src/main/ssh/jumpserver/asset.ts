@@ -4,7 +4,7 @@ import { Client, ConnectConfig } from 'ssh2'
 import { Asset, parseJumpserverOutput } from './parser'
 
 import { getPackageInfo } from './connectionManager'
-import { LEGACY_ALGORITHMS } from '../sshHandle'
+import { LEGACY_ALGORITHMS } from '../algorithms'
 
 // interface ServerInfo {
 //   name: string

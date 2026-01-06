@@ -1662,7 +1662,8 @@ const getActiveTabAssetInfo = async () => {
     organizationId: params.organizationId || params.data?.organizationId,
     type: params.type || params.data?.type,
     outputContext: outputContext,
-    tabSessionId: activePanel.id
+    tabSessionId: activePanel.id,
+    assetType: params.data?.asset_type
   }
 }
 
@@ -1913,7 +1914,8 @@ const handleActivePanelChange = async () => {
     eventBus.emit('activeTabChanged', {
       ip,
       data: {
-        uuid
+        uuid,
+        asset_type: params.data?.asset_type
       },
       connection: params.data?.connection || 'personal',
       title: activePanel.api.title || params.title,

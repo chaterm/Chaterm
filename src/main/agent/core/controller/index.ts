@@ -195,6 +195,19 @@ export class Controller {
       case 'askResponse':
         console.log('askResponse', message)
         if (targetTask) {
+          if (message.hosts) {
+            targetTask.hosts = message.hosts
+            if (message.cwd) {
+              for (const host of message.hosts) {
+                if (!targetTask.cwd.has(host.host)) {
+                  targetTask.cwd.set(host.host, message.cwd.get(host.host) || '')
+                }
+              }
+            }
+            if (targetTaskId) {
+              await updateTaskHosts(targetTaskId, message.hosts)
+            }
+          }
           if (message.askResponse === 'messageResponse') {
             await targetTask.clearTodos('new_user_input')
           }
