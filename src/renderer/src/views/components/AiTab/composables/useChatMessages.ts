@@ -118,7 +118,7 @@ export function useChatMessages(
     }
   }
 
-  const sendMessageToMain = async (userContent: string, sendType: string, tabId?: string) => {
+  const sendMessageToMain = async (userContent: string, sendType: string, tabId?: string, truncateAtMessageTs?: number) => {
     try {
       const targetTab = tabId ? chatTabs.value.find((tab) => tab.id === tabId) : currentTab.value
 
@@ -156,7 +156,6 @@ export function useChatMessages(
           type: 'newTask',
           askResponse: 'messageResponse',
           text: userContent,
-          terminalOutput: '',
           hosts: hostsArray,
           cwd: filteredCwd,
           taskId: tabId || currentChatId.value
@@ -175,7 +174,8 @@ export function useChatMessages(
           askResponse: 'messageResponse',
           text: userContent,
           cwd: filteredCwd,
-          hosts: hostsArray
+          hosts: hostsArray,
+          truncateAtMessageTs
         }
       }
 
@@ -257,7 +257,7 @@ export function useChatMessages(
     return await sendMessageWithContent(userContent, sendType)
   }
 
-  const sendMessageWithContent = async (userContent: string, sendType: string, tabId?: string) => {
+  const sendMessageWithContent = async (userContent: string, sendType: string, tabId?: string, truncateAtMessageTs?: number) => {
     const targetTab = tabId ? chatTabs.value.find((tab: ChatTab) => tab.id === tabId) : currentTab.value
 
     if (!targetTab || !targetTab.session) {
@@ -267,7 +267,7 @@ export function useChatMessages(
     const session = targetTab.session
     session.isCancelled = false
 
-    await sendMessageToMain(userContent, sendType, tabId)
+    await sendMessageToMain(userContent, sendType, tabId, truncateAtMessageTs)
 
     const userMessage: ChatMessage = {
       id: uuidv4(),

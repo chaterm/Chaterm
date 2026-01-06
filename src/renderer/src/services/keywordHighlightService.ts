@@ -157,6 +157,7 @@ class KeywordHighlightService {
 
   /**
    * Parse text with ANSI codes into segments
+   * Tracks the complete ANSI state by accumulating all codes until a reset
    */
   private parseAnsiText(text: string): Array<{
     text: string
@@ -166,7 +167,7 @@ class KeywordHighlightService {
     const segments: Array<{ text: string; ansiPrefix: string; originalStart: number }> = []
     const ansiRegex = /\x1b\[[0-9;]*m/g
     let lastIndex = 0
-    let currentAnsi = ''
+    let accumulatedAnsi = '' // Accumulate all ANSI codes to maintain full state
     let plainTextOffset = 0
 
     while (lastIndex < text.length) {
@@ -178,14 +179,22 @@ class KeywordHighlightService {
           const textSegment = text.substring(lastIndex, match.index)
           segments.push({
             text: textSegment,
-            ansiPrefix: currentAnsi,
+            ansiPrefix: accumulatedAnsi,
             originalStart: plainTextOffset
           })
           plainTextOffset += textSegment.length
         }
 
-        // Update current ANSI state
-        currentAnsi = match[0]
+        // Check if this is a reset code
+        const code = match[0]
+        if (code === '\x1b[0m' || code === '\x1b[m') {
+          // Reset all accumulated state
+          accumulatedAnsi = ''
+        } else {
+          // Accumulate ANSI codes to maintain full state
+          accumulatedAnsi += code
+        }
+
         lastIndex = match.index + match[0].length
       } else {
         // Remaining text
@@ -193,7 +202,7 @@ class KeywordHighlightService {
         if (textSegment.length > 0) {
           segments.push({
             text: textSegment,
-            ansiPrefix: currentAnsi,
+            ansiPrefix: accumulatedAnsi,
             originalStart: plainTextOffset
           })
         }
@@ -278,8 +287,16 @@ class KeywordHighlightService {
         const ansiCode = this.getAnsiCode(match.style.foreground, match.style.fontStyle)
         result += ansiCode + segment.text.substring(matchStartInSegment, matchEndInSegment)
 
-        // Reset to native color after match
-        result += '\x1b[0m'
+        // Restore state after highlighting
+        // If segment has ANSI prefix, do full reset then restore; otherwise just reset our attributes
+        if (segment.ansiPrefix) {
+          // Full reset + restore original ANSI state to preserve all attributes
+          result += '\x1b[0m' + segment.ansiPrefix
+        } else {
+          // Only reset the attributes we modified (foreground and bold)
+          // SGR 22 (normal intensity) + SGR 39 (default foreground color)
+          result += '\x1b[22;39m'
+        }
 
         segmentPos = matchEndInSegment
 

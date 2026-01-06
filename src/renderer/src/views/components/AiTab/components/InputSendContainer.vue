@@ -1,10 +1,17 @@
 <template>
-  <div class="input-send-container">
+  <div
+    class="input-send-container"
+    :class="{ 'is-edit-mode': mode === 'edit' }"
+  >
     <div
       class="ai-tab-test-hook"
       data-testid="ai-tab"
       style="display: none"
     ></div>
+    <!-- Use teleport to render popup in body. Key reason: UserMessage uses position: sticky and z-index: 3,
+         which would occlude the popup if it stays within the component. By teleporting to body, the popup can use
+         a higher z-index (1000) to ensure it appears above all message content, while also avoiding positioning
+         issues from parent container's overflow, transform, and other CSS properties -->
     <teleport to="body">
       <div
         v-if="showHostSelect"
@@ -133,7 +140,7 @@
         :placeholder="inputPlaceholder"
         class="chat-textarea"
         data-testid="ai-message-input"
-        :auto-size="{ minRows: 1, maxRows: 12 }"
+        :auto-size="{ minRows: 2, maxRows: 12 }"
         @keydown="handleKeyDown"
         @input="onInputChange"
       />
@@ -249,7 +256,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed, ref, watch, nextTick } from 'vue'
 import type { CSSProperties } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { notification } from 'ant-design-vue'
@@ -267,8 +274,8 @@ import stopIcon from '@/assets/icons/stop.svg'
 
 interface Props {
   isActiveTab: boolean
-  sendMessage: (sendType: string) => Promise<unknown>
-  handleInterrupt: () => void
+  sendMessage?: (sendType: string) => Promise<unknown>
+  handleInterrupt?: () => void
   // New properties for edit mode
   mode?: 'create' | 'edit'
   initialValue?: string
@@ -276,6 +283,8 @@ interface Props {
 }
 
 const props = withDefaults(defineProps<Props>(), {
+  sendMessage: async () => {},
+  handleInterrupt: () => {},
   mode: 'create',
   initialValue: '',
   onConfirmEdit: () => {}
@@ -326,9 +335,19 @@ const textareaRef = ref<HTMLTextAreaElement | null>(null)
 // Synchronize the current tab's textarea ref to the global state when active
 watch(
   [() => props.isActiveTab, textareaRef],
-  ([isActive, el]) => {
+  ([isActive, el], [, prevEl]) => {
     if (isActive && el) {
       chatTextareaRef.value = el as unknown as HTMLTextAreaElement
+      // Auto-focus when textarea first becomes available on active tab.
+      // This handles the case where textarea is conditionally rendered via v-if="hasAvailableModels".
+      // When models finish loading, hasAvailableModels becomes true and textarea renders,
+      // but onMounted has already executed. This watch detects when textareaRef transitions
+      // from null to a valid element and triggers focus automatically.
+      if (!prevEl && props.mode !== 'edit') {
+        nextTick(() => {
+          el?.focus?.()
+        })
+      }
     }
   },
   { immediate: true }
@@ -573,6 +592,7 @@ const inputPlaceholder = computed(() => {
   display: inline-flex;
   align-items: center;
   border: 1px solid #3a3a3a;
+  user-select: none;
 
   &:hover {
     background-color: var(--hover-bg-color) !important;
@@ -593,7 +613,15 @@ const inputPlaceholder = computed(() => {
     border-color 0.2s ease,
     box-shadow 0.2s ease,
     background-color 0.2s ease;
-  width: 100%;
+  width: calc(100% - 16px);
+  margin: 4px 8px 8px 8px;
+
+  &.is-edit-mode {
+    margin: 0;
+    width: 100%;
+    box-shadow: none;
+    background-color: transparent;
+  }
 
   .theme-dark & {
     box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
@@ -604,7 +632,7 @@ const inputPlaceholder = computed(() => {
   }
 
   &:focus-within {
-    border-color: #1890ff;
+    border-color: rgba(24, 143, 255, 0.75);
   }
 
   .theme-dark &:focus-within {

@@ -35,7 +35,7 @@
       <div
         class="about-description"
         style="margin-top: 32px"
-        >Copyright © 2025 {{ copyrightDomain }} All rights reserved.</div
+        >Copyright © {{ new Date().getFullYear() }} {{ editionConfig.displayName }} All rights reserved.</div
       >
     </a-card>
   </div>

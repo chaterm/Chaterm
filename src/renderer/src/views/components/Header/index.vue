@@ -25,10 +25,7 @@
         </a-button-group>
       </div>
     </div>
-    <div
-      class="term_tab_Info"
-      :style="{ marginRight: platform.includes('darwin') ? '0px' : '140px' }"
-    >
+    <div class="term_tab_Info">
       <div
         v-if="isAvailable"
         class="update-badge"
@@ -96,6 +93,7 @@
           :class="platform.includes('darwin') ? 'sidebar-toggle-icon_mac' : 'sidebar-toggle-icon'"
         />
       </div>
+      <TitleBar />
     </div>
   </div>
 </template>
@@ -105,6 +103,8 @@ import { useI18n } from 'vue-i18n'
 import { ArrowDownOutlined, RightOutlined } from '@ant-design/icons-vue'
 import { useDeviceStore } from '@/store/useDeviceStore'
 import { userConfigStore } from '@/services/userConfigStoreService'
+import TitleBar from './titleBar.vue'
+
 import eventBus from '@/utils/eventBus'
 const api = window.api as any
 const { t } = useI18n()

@@ -14,6 +14,7 @@ import Antd from 'ant-design-vue'
 import AiTab from '../index.vue'
 import { ShortcutService } from '@/services/shortcutService'
 import eventBus from '@/utils/eventBus'
+import { useSessionState } from '../composables/useSessionState'
 
 // Mock heavy dependencies
 vi.mock('xterm')
@@ -166,8 +167,11 @@ describe('AiTab Component - Browser Mode Integration', () => {
   let router: any
 
   beforeEach(async () => {
-    // 1. Clear storage before each test
     storage.clear()
+
+    const { chatTabs, currentChatId } = useSessionState()
+    chatTabs.value = []
+    currentChatId.value = undefined
 
     // 2. Setup global dependencies
     setupWindowApi()
@@ -509,7 +513,7 @@ describe('AiTab Component - Browser Mode Integration', () => {
       await newTabButton.click()
       await new Promise((resolve) => setTimeout(resolve, 500))
 
-      const getAllTabs = () => Array.from(document.querySelectorAll('.ant-tabs-tab')) as HTMLElement[]
+      const getAllTabs = () => Array.from(document.querySelectorAll('.ai-chat-custom-tabs .ant-tabs-tab')) as HTMLElement[]
 
       expect(getAllTabs().length).toBe(3)
 
@@ -534,36 +538,71 @@ describe('AiTab Component - Browser Mode Integration', () => {
       const newTabButton = page.getByTestId('new-tab-button')
       await expect(newTabButton.query()).toBeInTheDocument()
 
-      await newTabButton.click()
-      await new Promise((resolve) => setTimeout(resolve, 800))
-      await newTabButton.click()
-      await new Promise((resolve) => setTimeout(resolve, 800))
-
       const getCurrentTabInput = (tab: HTMLElement): HTMLTextAreaElement | null => {
         return tab.querySelector('[data-testid="ai-message-input"]') as HTMLTextAreaElement | null
       }
-      const getAllTabs = () => document.querySelectorAll('.ant-tabs-tabpane')
-      const allTabs = Array.from(getAllTabs()) as HTMLElement[]
+      const getAllTabs = () => document.querySelectorAll('.ai-chat-custom-tabs .ant-tabs-tabpane')
 
+      // Verify initial tab has focus
+      let allTabs = Array.from(getAllTabs()) as HTMLElement[]
+      expect(allTabs.length).toBe(1)
+      const initialInput = getCurrentTabInput(allTabs[0])
+      expect(initialInput).toBeTruthy()
+      expect(document.activeElement).toBe(initialInput)
+
+      // Create first new tab and verify focus
+      await newTabButton.click()
+      await new Promise((resolve) => setTimeout(resolve, 1000))
+      allTabs = Array.from(getAllTabs()) as HTMLElement[]
+      expect(allTabs.length).toBe(2)
+      const firstInput = getCurrentTabInput(allTabs[1])
+      expect(firstInput).toBeTruthy()
+      expect(document.activeElement).toBe(firstInput)
+
+      // Create second new tab and verify focus
+      await newTabButton.click()
+      await new Promise((resolve) => setTimeout(resolve, 1000))
+      allTabs = Array.from(getAllTabs()) as HTMLElement[]
       expect(allTabs.length).toBe(3)
-      const chatInputEl2 = getCurrentTabInput(allTabs[2])
-      expect(chatInputEl2).toBeTruthy()
-      expect(document.activeElement).toBe(chatInputEl2)
+      const secondInput = getCurrentTabInput(allTabs[2])
+      expect(secondInput).toBeTruthy()
+      expect(document.activeElement).toBe(secondInput)
+
+      // Create third new tab and verify focus
+      await newTabButton.click()
+      await new Promise((resolve) => setTimeout(resolve, 1000))
+      allTabs = Array.from(getAllTabs()) as HTMLElement[]
+      expect(allTabs.length).toBe(4)
+      const chatInputEl3 = getCurrentTabInput(allTabs[3])
+      expect(chatInputEl3).toBeTruthy()
+      expect(document.activeElement).toBe(chatInputEl3)
 
       // Close first tab and verify focus transfers to input
       await userEvent.keyboard('{Meta>}w{/Meta}')
       await new Promise((resolve) => setTimeout(resolve, 300))
 
-      expect(getAllTabs().length).toBe(2)
-      const chatInputEl1 = getCurrentTabInput(allTabs[1])
-      expect(chatInputEl1).toBeTruthy()
-      expect(document.activeElement).toBe(chatInputEl1)
+      allTabs = Array.from(getAllTabs()) as HTMLElement[]
+      expect(allTabs.length).toBe(3)
+      const chatInputEl2 = getCurrentTabInput(allTabs[2])
+      expect(chatInputEl2).toBeTruthy()
+      expect(document.activeElement).toBe(chatInputEl2)
 
       // Close second tab and verify focus transfers to input
       await userEvent.keyboard('{Meta>}w{/Meta}')
       await new Promise((resolve) => setTimeout(resolve, 300))
 
-      expect(getAllTabs().length).toBe(1)
+      allTabs = Array.from(getAllTabs()) as HTMLElement[]
+      expect(allTabs.length).toBe(2)
+      const chatInputEl1 = getCurrentTabInput(allTabs[1])
+      expect(chatInputEl1).toBeTruthy()
+      expect(document.activeElement).toBe(chatInputEl1)
+
+      // Close third tab and verify focus transfers to input
+      await userEvent.keyboard('{Meta>}w{/Meta}')
+      await new Promise((resolve) => setTimeout(resolve, 300))
+
+      allTabs = Array.from(getAllTabs()) as HTMLElement[]
+      expect(allTabs.length).toBe(1)
       const chatInputEl = getCurrentTabInput(allTabs[0])
       expect(chatInputEl).toBeTruthy()
       expect(document.activeElement).toBe(chatInputEl)

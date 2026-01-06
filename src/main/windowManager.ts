@@ -23,11 +23,7 @@ export async function createMainWindow(onCookieUrlChange?: (url: string) => void
     titleBarStyle: 'hidden',
     ...(process.platform !== 'darwin'
       ? {
-          titleBarOverlay: {
-            color: '#141414',
-            symbolColor: '#fff',
-            height: 27
-          }
+          frame: false
         }
       : {}),
     show: false,
@@ -97,6 +93,15 @@ export async function createMainWindow(onCookieUrlChange?: (url: string) => void
    */
   session.defaultSession.webRequest.onBeforeRequest({ urls: ['ws://*/*'] }, (details, callback) => {
     callback({ cancel: false, redirectURL: details.url })
+  })
+
+  // Listen for window state changes
+  mainWindow.on('maximize', () => {
+    mainWindow.webContents.send('window:maximized')
+  })
+
+  mainWindow.on('unmaximize', () => {
+    mainWindow.webContents.send('window:unmaximized')
   })
 
   return mainWindow
