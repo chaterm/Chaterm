@@ -384,7 +384,7 @@ describe('useTabManagement', () => {
       mockGetTaskMetadata.mockResolvedValue({
         success: true,
         data: {
-          hosts: [{ host: '10.0.0.1', uuid: 'srv-1', connection: 'jumpserver' }]
+          hosts: [{ host: '10.0.0.1', uuid: 'srv-1', connection: 'jumpserver', assetType: 'person-switch-cisco' }]
         }
       })
 
@@ -409,7 +409,7 @@ describe('useTabManagement', () => {
         expect.objectContaining({
           type: 'showTaskWithId',
           text: 'history-3',
-          hosts: [{ host: '10.0.0.1', uuid: 'srv-1', connection: 'jumpserver' }]
+          hosts: [{ host: '10.0.0.1', uuid: 'srv-1', connection: 'jumpserver', assetType: 'person-switch-cisco' }]
         })
       )
     })

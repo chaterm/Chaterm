@@ -582,6 +582,16 @@ export default {
     personalAsset: '개인',
     enterpriseAsset: '기업',
     organizationTip: 'Jumpserver를 통해 기업 자산에 연결',
+    // Device type selection
+    deviceCategory: '장치 유형',
+    selectDeviceType: '장치 유형을 선택하세요',
+    deviceServer: '서버',
+    deviceNetwork: '네트워크 장치',
+    deviceSwitch: '스위치',
+    switchBrand: '스위치 브랜드',
+    switchCisco: '시스코',
+    switchHuawei: '화웨이',
+    switchTip: '스위치는 명령 모드만 지원합니다',
     refreshAssets: '자산',
     refreshingAssets: '자산 새로고침 중...',
     refreshSuccess: '자산 새로고침 성공',
@@ -789,7 +799,8 @@ export default {
     exportChatEmpty: '내보낼 채팅 메시지 없음',
     exportedOn: '내보낸 시간',
     maxHostsLimitReached: '최대 {max} 호스트까지 선택할 수 있습니다',
-    maxHostsLimit: '최대 호스트 수 제한 도달'
+    maxHostsLimit: '최대 호스트 수 제한 도달',
+    switchNotSupportAgent: '네트워크 장치는 Agent 모드를 지원하지 않습니다. Command 모드로 자동 전환되었습니다'
   },
   keyChain: {
     newKey: '새 키',

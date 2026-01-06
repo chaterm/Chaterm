@@ -2,7 +2,7 @@ import { ref, computed, watch, nextTick, onMounted, onUnmounted } from 'vue'
 import type { Ref } from 'vue'
 import debounce from 'lodash/debounce'
 import type { Host, AssetInfo, HostOption, HostItemType } from '../types'
-import { formatHosts } from '../utils'
+import { formatHosts, isSwitchAssetType } from '../utils'
 import { useSessionState } from './useSessionState'
 import { focusChatInput } from './useTabManagement'
 import i18n from '@/locales'
@@ -110,6 +110,7 @@ export const useHostManagement = () => {
             type: child.type as HostItemType,
             selectable: child.selectable,
             organizationUuid: child.organizationUuid,
+            assetType: child.assetType,
             level: 1
           })
         }
@@ -190,11 +191,23 @@ export const useHostManagement = () => {
       host: item.label,
       uuid: item.uuid,
       connection: item.isLocalHost ? 'localhost' : item.connect,
-      organizationUuid: item.organizationUuid
+      organizationUuid: item.organizationUuid,
+      assetType: item.assetType
     }
+
+    const isSwitchHost = isSwitchAssetType(item.assetType)
 
     if (chatTypeValue.value === 'cmd') {
       hosts.value = [newHost]
+    } else if (isSwitchHost) {
+      chatTypeValue.value = 'cmd'
+      hosts.value = [newHost]
+      autoUpdateHost.value = false
+      Notice.open({
+        type: 'info',
+        description: t('ai.switchNotSupportAgent'),
+        placement: 'bottomRight'
+      })
     } else {
       // Use key for unique identification when checking existing selection
       const existingIndex = hosts.value.findIndex((h) => h.uuid === item.uuid)
@@ -578,7 +591,8 @@ export const useHostManagement = () => {
           isLocalHost: assetInfo.ip === '127.0.0.1' || assetInfo.ip === 'localhost',
           type: 'personal',
           selectable: true,
-          level: 0
+          level: 0,
+          assetType: assetInfo.assetType
         }
 
         if (!search || currentHostOption.label.includes(search) || (currentHostOption.title && currentHostOption.title.includes(search))) {
@@ -619,17 +633,26 @@ export const useHostManagement = () => {
     })
   }
 
-  const updateHosts = (hostInfo: { ip: string; uuid: string; connection: string } | null) => {
+  const updateHosts = (hostInfo: { ip: string; uuid: string; connection: string; assetType?: string } | null) => {
     // Don't update hosts in chat mode
     if (chatTypeValue.value === 'chat') {
       hosts.value = []
       return
     }
     if (hostInfo) {
+      if (chatTypeValue.value === 'agent' && isSwitchAssetType(hostInfo.assetType)) {
+        chatTypeValue.value = 'cmd'
+        Notice.open({
+          type: 'info',
+          description: t('ai.switchNotSupportAgent'),
+          placement: 'bottomRight'
+        })
+      }
       const newHost: Host = {
         host: hostInfo.ip,
         uuid: hostInfo.uuid,
-        connection: hostInfo.connection
+        connection: hostInfo.connection,
+        assetType: hostInfo.assetType
       }
       hosts.value = [newHost]
     } else {
@@ -644,7 +667,8 @@ export const useHostManagement = () => {
       updateHosts({
         ip: assetInfo.ip,
         uuid: assetInfo.uuid,
-        connection: assetInfo.connection || 'personal'
+        connection: assetInfo.connection || 'personal',
+        assetType: assetInfo.assetType
       })
     } else {
       updateHosts(null)

@@ -1,3 +1,18 @@
+// Asset type definition: person (server), organization (jumpserver), person-switch-* (network switches)
+export type AssetType = 'person' | 'organization' | 'person-switch-cisco' | 'person-switch-huawei'
+
+// Helper function to check if asset type is a switch device
+export function isSwitch(assetType: string | undefined): boolean {
+  return assetType?.startsWith('person-switch-') ?? false
+}
+
+// Helper function to get switch brand from asset type
+export function getSwitchBrand(assetType: string | undefined): 'cisco' | 'huawei' | null {
+  if (assetType === 'person-switch-cisco') return 'cisco'
+  if (assetType === 'person-switch-huawei') return 'huawei'
+  return null
+}
+
 export interface AssetNode {
   key: string
   title: string
@@ -5,7 +20,7 @@ export interface AssetNode {
   ip?: string
   uuid?: string
   username?: string
-  asset_type?: string
+  asset_type?: AssetType
   children?: AssetNode[]
   group_name?: string
   label?: string
@@ -25,7 +40,7 @@ export interface AssetFormData {
   auth_type: string
   keyChain?: number
   port: number
-  asset_type: string
+  asset_type: AssetType
   needProxy: boolean
   proxyName: string
 }

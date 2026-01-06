@@ -4,12 +4,15 @@ import { useSessionState } from './useSessionState'
 import { focusChatInput } from './useTabManagement'
 import { isFocusInAiTab } from '@/utils/domUtils'
 import type { AssetInfo } from '../types'
+import { isSwitchAssetType } from '../utils'
+import i18n from '@/locales'
+import { Notice } from '@/views/components/Notice'
 
 interface UseEventBusListenersParams {
   sendMessageWithContent: (content: string, sendType: string, tabId?: string) => Promise<void>
   initModel: () => Promise<void>
   getCurentTabAssetInfo: () => Promise<AssetInfo | null>
-  updateHosts: (hostInfo: { ip: string; uuid: string; connection: string } | null) => void
+  updateHosts: (hostInfo: { ip: string; uuid: string; connection: string; assetType?: string } | null) => void
   isAgentMode?: boolean
 }
 
@@ -23,6 +26,7 @@ interface TabInfo {
   ip?: string
   data?: {
     uuid: string
+    asset_type?: string
   }
   connection?: string
 }
@@ -32,8 +36,28 @@ interface TabInfo {
  * Centralizes all eventBus-related listener registration and cleanup
  */
 export function useEventBusListeners(params: UseEventBusListenersParams) {
+  const { t } = i18n.global
   const { sendMessageWithContent, initModel, getCurentTabAssetInfo, updateHosts, isAgentMode = false } = params
   const { chatTabs, chatInputValue, currentSession, autoUpdateHost, chatTypeValue } = useSessionState()
+
+  // Check and handle network switch device mode restriction
+  const checkAndHandleSwitchMode = async (): Promise<boolean> => {
+    if (chatTypeValue.value !== 'agent') {
+      return true // Not in agent mode, proceed normally
+    }
+
+    const assetInfo = await getCurentTabAssetInfo()
+    if (assetInfo && isSwitchAssetType(assetInfo.assetType)) {
+      chatTypeValue.value = 'cmd'
+      Notice.open({
+        type: 'info',
+        description: t('ai.switchNotSupportAgent'),
+        placement: 'bottomRight'
+      })
+      return false // Mode was switched, caller should handle accordingly
+    }
+    return true // Continue with agent mode
+  }
 
   // Initialize asset information
   const initAssetInfo = async () => {
@@ -41,6 +65,10 @@ export function useEventBusListeners(params: UseEventBusListenersParams) {
     if (chatTypeValue.value === 'chat') {
       return
     }
+
+    // Always check for switch mode restriction first
+    await checkAndHandleSwitchMode()
+
     const session = currentSession.value
     if (!autoUpdateHost.value || (session && session.chatHistory.length > 0)) {
       return
@@ -50,7 +78,8 @@ export function useEventBusListeners(params: UseEventBusListenersParams) {
       updateHosts({
         ip: assetInfo.ip,
         uuid: assetInfo.uuid,
-        connection: assetInfo.connection ? assetInfo.connection : 'personal'
+        connection: assetInfo.connection ? assetInfo.connection : 'personal',
+        assetType: assetInfo.assetType
       })
     } else {
       updateHosts(null)
@@ -111,7 +140,8 @@ export function useEventBusListeners(params: UseEventBusListenersParams) {
       updateHosts({
         ip: tabInfo.ip,
         uuid: tabInfo.data.uuid,
-        connection: tabInfo.connection || 'personal'
+        connection: tabInfo.connection || 'personal',
+        assetType: tabInfo.data.asset_type
       })
     } else {
       updateHosts(null)
@@ -122,13 +152,22 @@ export function useEventBusListeners(params: UseEventBusListenersParams) {
     await initModel()
   }
 
-  const handleSwitchAiMode = () => {
+  const handleSwitchAiMode = async () => {
     if (!isFocusInAiTab()) {
       return
     }
 
     const currentIndex = AiTypeOptions.findIndex((option) => option.value === chatTypeValue.value)
-    const nextIndex = (currentIndex + 1) % AiTypeOptions.length
+    let nextIndex = (currentIndex + 1) % AiTypeOptions.length
+
+    // Check if current host is a network switch device, skip Agent mode if so
+    const assetInfo = await getCurentTabAssetInfo()
+    if (assetInfo && isSwitchAssetType(assetInfo.assetType)) {
+      while (AiTypeOptions[nextIndex].value === 'agent') {
+        nextIndex = (nextIndex + 1) % AiTypeOptions.length
+      }
+    }
+
     chatTypeValue.value = AiTypeOptions[nextIndex].value
   }
 

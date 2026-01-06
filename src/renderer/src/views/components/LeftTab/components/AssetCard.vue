@@ -9,7 +9,17 @@
     >
       <div class="asset-card-content">
         <div class="asset-icon">
-          <DatabaseOutlined style="font-size: 24px" />
+          <!-- Switch icon for network switches -->
+          <ClusterOutlined
+            v-if="isSwitch(asset.asset_type)"
+            style="font-size: 24px"
+          />
+          <!-- Default server icon -->
+          <DatabaseOutlined
+            v-else
+            style="font-size: 24px"
+          />
+          <!-- Enterprise indicator -->
           <div
             v-if="asset.asset_type === 'organization'"
             class="enterprise-indicator"
@@ -18,7 +28,9 @@
           </div>
         </div>
         <div class="asset-info">
-          <div class="asset-name">{{ asset.title }}</div>
+          <div class="asset-name">
+            {{ asset.title }}
+          </div>
           <div class="asset-type"> {{ t('personal.hostType') }}{{ asset.username ? ', ' + asset.username : '' }} </div>
         </div>
         <div
@@ -33,9 +45,10 @@
 </template>
 
 <script setup lang="ts">
-import { DatabaseOutlined, EditOutlined, ApiOutlined } from '@ant-design/icons-vue'
+import { DatabaseOutlined, EditOutlined, ApiOutlined, ClusterOutlined } from '@ant-design/icons-vue'
 import i18n from '@/locales'
 import type { AssetNode } from '../utils/types'
+import { isSwitch } from '../utils/types'
 
 const { t } = i18n.global
 
@@ -167,6 +180,9 @@ const handleContextMenu = (event: MouseEvent) => {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
 
 .asset-type {

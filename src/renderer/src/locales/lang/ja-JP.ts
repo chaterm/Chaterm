@@ -602,6 +602,16 @@ export default {
     personalAsset: '個人資産',
     enterpriseAsset: '企業資産',
     organizationTip: 'Jumpserverを介して企業資産に接続します',
+    // Device type selection
+    deviceCategory: 'デバイスタイプ',
+    selectDeviceType: 'デバイスタイプを選択',
+    deviceServer: 'サーバー',
+    deviceNetwork: 'ネットワーク機器',
+    deviceSwitch: 'スイッチ',
+    switchBrand: 'スイッチブランド',
+    switchCisco: 'シスコ',
+    switchHuawei: 'ファーウェイ',
+    switchTip: 'スイッチはコマンドモードのみサポートしています',
     refreshAssets: '資産を更新',
     refreshingAssets: '資産を更新しています...',
     refreshSuccess: '資産が正常に更新されました',
@@ -815,7 +825,8 @@ export default {
     exportChatEmpty: 'エクスポートするチャットメッセージがありません',
     exportedOn: 'エクスポート日時',
     maxHostsLimitReached: '{max} 台まで選択できます',
-    maxHostsLimit: '最大ホスト数に達しました'
+    maxHostsLimit: '最大ホスト数に達しました',
+    switchNotSupportAgent: 'ネットワーク機器はAgentモードをサポートしていません。Commandモードに自動切り替えしました'
   },
   keyChain: {
     newKey: '新しいキー',

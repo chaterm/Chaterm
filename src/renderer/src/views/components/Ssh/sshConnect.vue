@@ -119,6 +119,7 @@ import stripAnsi from 'strip-ansi'
 import { inputManager, commandBarHeight } from './utils/termInputManager'
 import { shellCommands } from './utils/shellCmd'
 import { createJumpServerStatusHandler, formatStatusMessage, type JumpServerStatusData } from './utils/jumpServerStatusHandler'
+import { getLastNonEmptyLine, isTerminalPromptLine } from './utils/terminalPrompt'
 import { useDeviceStore } from '@/store/useDeviceStore'
 import { isFocusInAiTab } from '@/utils/domUtils'
 import { checkUserDevice } from '@api/user/user'
@@ -621,6 +622,7 @@ onMounted(async () => {
 
   const handleRequestUpdateCwdForHost = (hostIp: string) => {
     if (props.connectData.ip !== hostIp) return
+    if (props.connectData.asset_type?.startsWith('person-switch-')) return
 
     sendMarkedData('pwd\r', 'Chaterm:pwd')
   }
@@ -1148,7 +1150,8 @@ const connectSSH = async () => {
       terminalType: config.terminalType,
       agentForward: config.sshAgentsStatus === 1,
       isOfficeDevice: isOfficeDevice.value,
-      connIdentToken: jmsToken.value || ''
+      connIdentToken: jmsToken.value || '',
+      asset_type: assetInfo.asset_type // Pass asset_type to main process for switch handling
     }
     connData.needProxy = assetInfo.need_proxy === 1 || false
     if (connData.needProxy) {
@@ -1162,17 +1165,23 @@ const connectSSH = async () => {
       jumpServerStatusHandler = null
     }
 
-    api
-      .connectReadyData(connectionId.value)
-      .then((connectReadyData) => {
-        connectionHasSudo.value = connectReadyData?.hasSudo
-        getCmdList(connectReadyData?.commandList)
-      })
-      .catch((error) => {
-        console.error('[Vue] Failed to receive command list:', error)
-        connectionHasSudo.value = false
-        getCmdList([])
-      })
+    const isSwitchDevice = assetInfo.asset_type?.startsWith('person-switch-') ?? false
+    if (isSwitchDevice) {
+      connectionHasSudo.value = false
+      getCmdList([])
+    } else {
+      api
+        .connectReadyData(connectionId.value)
+        .then((connectReadyData) => {
+          connectionHasSudo.value = connectReadyData?.hasSudo
+          getCmdList(connectReadyData?.commandList)
+        })
+        .catch((error) => {
+          console.error('[Vue] Failed to receive command list:', error)
+          connectionHasSudo.value = false
+          getCmdList([])
+        })
+    }
 
     if (result.status === 'connected') {
       const welcomeName = email.split('@')[0] || userInfoStore().userInfo.name
@@ -2220,18 +2229,14 @@ const handleServerOutput = (response: MarkedResponse) => {
 
 // Helper function to handle command output processing
 const handleCommandOutput = (data: string, isInitialCommand: boolean) => {
-  const cleanOutput = stripAnsi(data).trim()
-  commandOutput.value += cleanOutput + '\n'
+  const cleanOutput = stripAnsi(data)
+  const trimmedOutput = cleanOutput.trim()
+  commandOutput.value += trimmedOutput + '\n'
 
-  // Detect SSH command prompt to determine if command output has ended
-  // Supports four common prompt formats:
-  // 1. [user@host]$ or [user@host]# - Standard format with brackets
-  // 2. user@host:path$ or user@host:path# - Format with path
-  // 3. [user@host path]$ or [user@host path]# - Bracket format with path
-  // 4. $ or # - Simple prompt format
-  const promptRegex = /(?:\[([^@]+)@([^\]]+)\][#$]|([^@]+)@([^:]+):(?:[^$]*|\s*~)\s*[$#]|\[([^@]+)@([^\]]+)\s+[^\]]*\][#$]|^[$#]$)\s*$/
+  // Detect SSH command prompt to determine if command output has ended.
+  const lastNonEmptyLine = getLastNonEmptyLine(cleanOutput)
 
-  if (promptRegex.test(cleanOutput)) {
+  if (lastNonEmptyLine && isTerminalPromptLine(lastNonEmptyLine)) {
     isCollectingOutput.value = false
 
     const tabId = currentCommandTabId.value
@@ -2816,10 +2821,13 @@ const queryCommand = async (cmd = '') => {
     if (suggestionSelectionMode.value) {
       return
     }
+
+    const commandText = cmd ? cmd : terminalState.value.beforeCursor
     const result = await (window.api as any).queryCommand({
-      command: cmd ? cmd : terminalState.value.beforeCursor,
+      command: commandText,
       ip: props.connectData.ip
     })
+
     if (result) {
       suggestions.value = result as CommandSuggestion[]
       setTimeout(() => {

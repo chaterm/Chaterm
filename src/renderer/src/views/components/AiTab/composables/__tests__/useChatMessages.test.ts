@@ -53,6 +53,12 @@ vi.mock('ant-design-vue', () => ({
   }
 }))
 
+vi.mock('@/views/components/Notice', () => ({
+  Notice: {
+    open: vi.fn()
+  }
+}))
+
 describe('useChatMessages', () => {
   let mockScrollToBottom: (force?: boolean) => void
   let mockClearTodoState: (messages: ChatMessage[]) => void
@@ -389,6 +395,34 @@ describe('useChatMessages', () => {
       expect(notification.error).toHaveBeenCalled()
     })
 
+    it('should switch to cmd when switch host is selected in agent mode', async () => {
+      const { Notice } = await import('@/views/components/Notice')
+
+      const { sendMessage } = useChatMessages(
+        mockScrollToBottom,
+        mockClearTodoState,
+        mockMarkLatestMessageWithTodoUpdate,
+        mockCurrentTodos,
+        mockCheckModelConfig
+      )
+
+      const mockState = vi.mocked(useSessionState)()
+      mockState.chatInputValue.value = 'Test message'
+      mockState.chatTypeValue.value = 'agent'
+      mockState.hosts.value = [{ host: '10.0.0.1', uuid: 'switch-uuid', connection: 'ssh', assetType: 'person-switch-huawei' }]
+
+      const result = await sendMessage('send')
+
+      expect(result).toBe('SEND_ERROR')
+      expect(mockState.chatTypeValue.value).toBe('cmd')
+      expect(vi.mocked(Notice.open)).toHaveBeenCalledWith(
+        expect.objectContaining({
+          description: 'ai.switchNotSupportAgent'
+        })
+      )
+      expect(mockSendToMain).not.toHaveBeenCalled()
+    })
+
     it('should send message successfully', async () => {
       const { sendMessage } = useChatMessages(
         mockScrollToBottom,
@@ -405,6 +439,32 @@ describe('useChatMessages', () => {
 
       expect(mockSendToMain).toHaveBeenCalled()
       expect(mockState.chatInputValue.value).toBe('')
+    })
+
+    it('should include assetType in hosts when creating a new task', async () => {
+      // Set up hosts with assetType on currentTab before calling useChatMessages
+      const mockState = vi.mocked(useSessionState)()
+      mockState.chatInputValue.value = 'Test message'
+      mockState.chatTypeValue.value = 'cmd'
+      // The useChatMessages uses targetTab.hosts, not hosts from useSessionState
+      mockState.currentTab.value!.hosts = [{ host: '10.0.0.1', uuid: 'switch-uuid', connection: 'ssh', assetType: 'person-switch-huawei' }]
+
+      const { sendMessage } = useChatMessages(
+        mockScrollToBottom,
+        mockClearTodoState,
+        mockMarkLatestMessageWithTodoUpdate,
+        mockCurrentTodos,
+        mockCheckModelConfig
+      )
+
+      await sendMessage('send')
+
+      expect(mockSendToMain).toHaveBeenCalledWith(
+        expect.objectContaining({
+          type: 'newTask',
+          hosts: [{ host: '10.0.0.1', uuid: 'switch-uuid', connection: 'ssh', assetType: 'person-switch-huawei' }]
+        })
+      )
     })
 
     it('should clear todo state when sending new message', async () => {

@@ -44,6 +44,11 @@ export const truncateText = (text: string, maxLength = 15): string => {
   return text.length > maxLength ? `${text.substring(0, maxLength)}...` : text
 }
 
+// Check if asset type is a network switch device
+export const isSwitchAssetType = (assetType?: string): boolean => {
+  return assetType?.startsWith('person-switch-') ?? false
+}
+
 // Format tree structure data from backend to flat host options
 export const formatHosts = (data: { personal?: TreeHostOption[]; jumpservers?: TreeHostOption[] }): HostOption[] => {
   const result: HostOption[] = []
@@ -59,7 +64,8 @@ export const formatHosts = (data: { personal?: TreeHostOption[]; jumpservers?: T
         connect: item.connection,
         type: item.type as HostItemType,
         selectable: item.selectable !== false,
-        level: 0
+        level: 0,
+        assetType: item.assetType
       })
     })
   }
