@@ -21,9 +21,15 @@ export const focusChatInput = () => {
   const { chatTextareaRef } = useSessionState()
 
   nextTick(() => {
+    const el = chatTextareaRef.value
+    // Get the actual textarea DOM element (Ant Design's a-textarea exposes it via $el)
+    const textareaEl = (el as any)?.$el as HTMLTextAreaElement | undefined
+
     if (chatTextareaRef.value) {
-      chatTextareaRef.value.scrollTop = chatTextareaRef.value.scrollHeight
       chatTextareaRef.value.focus({ preventScroll: true })
+      if (textareaEl) {
+        textareaEl.scrollTop = textareaEl.scrollHeight
+      }
     }
   })
 }
