@@ -4,13 +4,13 @@ import { getLastNonEmptyLine, isTerminalPromptLine, matchPrompt } from '../termi
 describe('terminalPrompt utils', () => {
   describe('getLastNonEmptyLine', () => {
     it('returns last non-empty line', () => {
-      const output = 'line1\\n\\nline2\\n'
+      const output = 'line1\n\nline2\n'
       expect(getLastNonEmptyLine(output)).toBe('line2')
     })
 
     it('returns empty string for empty input', () => {
       expect(getLastNonEmptyLine('')).toBe('')
-      expect(getLastNonEmptyLine('\\n\\n')).toBe('')
+      expect(getLastNonEmptyLine('\n\n')).toBe('')
     })
   })
 

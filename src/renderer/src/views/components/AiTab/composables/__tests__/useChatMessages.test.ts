@@ -442,6 +442,13 @@ describe('useChatMessages', () => {
     })
 
     it('should include assetType in hosts when creating a new task', async () => {
+      // Set up hosts with assetType on currentTab before calling useChatMessages
+      const mockState = vi.mocked(useSessionState)()
+      mockState.chatInputValue.value = 'Test message'
+      mockState.chatTypeValue.value = 'cmd'
+      // The useChatMessages uses targetTab.hosts, not hosts from useSessionState
+      mockState.currentTab.value!.hosts = [{ host: '10.0.0.1', uuid: 'switch-uuid', connection: 'ssh', assetType: 'person-switch-huawei' }]
+
       const { sendMessage } = useChatMessages(
         mockScrollToBottom,
         mockClearTodoState,
@@ -449,11 +456,6 @@ describe('useChatMessages', () => {
         mockCurrentTodos,
         mockCheckModelConfig
       )
-
-      const mockState = vi.mocked(useSessionState)()
-      mockState.chatInputValue.value = 'Test message'
-      mockState.chatTypeValue.value = 'cmd'
-      mockState.hosts.value = [{ host: '10.0.0.1', uuid: 'switch-uuid', connection: 'ssh', assetType: 'person-switch-huawei' }]
 
       await sendMessage('send')
 
