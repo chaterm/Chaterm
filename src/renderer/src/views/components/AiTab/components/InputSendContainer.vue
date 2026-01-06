@@ -198,7 +198,6 @@
             </span>
           </a-select-option>
         </a-select>
-        <div class="action-buttons-container-separator"></div>
         <div class="action-buttons-container">
           <a-tooltip :title="$t('ai.uploadFile')">
             <a-button
@@ -668,11 +667,6 @@ const inputPlaceholder = computed(() => {
   container-type: inline-size;
   container-name: input-controls;
 
-  .action-buttons-container-separator {
-    flex: 1;
-    min-width: 0;
-  }
-
   .action-buttons-container {
     flex-shrink: 0;
     display: flex;
@@ -687,7 +681,7 @@ const inputPlaceholder = computed(() => {
 
   .model-select-responsive {
     flex-shrink: 1;
-    min-width: 130px;
+    min-width: 40px;
     max-width: 200px;
 
     :deep(.ant-select-selector) {
@@ -702,7 +696,7 @@ const inputPlaceholder = computed(() => {
     }
   }
 
-  @container input-controls (max-width: 320px) {
+  @container input-controls (max-width: 260px) {
     .model-select-responsive {
       display: none;
     }
