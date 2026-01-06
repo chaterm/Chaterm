@@ -871,8 +871,6 @@ export const registerSSHHandlers = () => {
       }
 
       stream.on('data', (data) => {
-        rawChunks.push(data)
-        rawBytes += data.length
         const dataStr = data.toString()
         const lastCommand = jumpserverLastCommand.get(id)
         const exitCommands = ['exit', 'logout', '\x04']
@@ -918,6 +916,9 @@ export const registerSSHHandlers = () => {
             }
           }, 200)
         } else {
+          // Only add to shared buffer for non-marked data
+          rawChunks.push(data)
+          rawBytes += data.length
           buffer += dataStr
           scheduleFlush()
         }
@@ -989,9 +990,6 @@ export const registerSSHHandlers = () => {
 
       stream.on('data', (data) => {
         const markedCmd = markedCommands.get(id)
-        rawChunks.push(data)
-        rawBytes += data.length
-
         const chunk = data.toString()
 
         if (markedCmd !== undefined) {
@@ -1013,6 +1011,9 @@ export const registerSSHHandlers = () => {
             }
           }, 200)
         } else {
+          // Only add to shared buffer for non-marked data
+          rawChunks.push(data)
+          rawBytes += data.length
           buffer += chunk
           scheduleFlush()
         }
