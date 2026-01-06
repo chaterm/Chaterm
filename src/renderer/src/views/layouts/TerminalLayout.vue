@@ -974,7 +974,7 @@ const closeGlobalInput = () => {
 }
 const DEFAULT_WIDTH_PX = 250
 const DEFAULT_WIDTH_RIGHT_PX = 350
-const MIN_AI_SIDEBAR_WIDTH_PX = 350 // AI sidebar minimum usable width
+const MIN_AI_SIDEBAR_WIDTH_PX = 280 // AI sidebar minimum usable width
 const SNAP_THRESHOLD_PX = 200 // Sticky resistance threshold
 // Left sidebar constants
 const MIN_LEFT_SIDEBAR_WIDTH_PX = 200 // Left sidebar minimum usable width

@@ -162,9 +162,10 @@
             v-model:value="chatTypeValue"
             v-model:open="aiModeSelectOpen"
             size="small"
-            style="width: 100px"
+            style="width: 95px"
             :options="AiTypeOptions"
             data-testid="ai-mode-select"
+            dropdown-class-name="input-controls-select-dropdown"
             @dropdown-visible-change="handleAiModeSelectOpenChange"
             @keydown.esc.stop
           ></a-select>
@@ -174,8 +175,9 @@
           v-model:open="modelSelectOpen"
           size="small"
           class="model-select-responsive"
-          style="width: 160px"
+          style="width: 140px"
           show-search
+          dropdown-class-name="input-controls-select-dropdown"
           @dropdown-visible-change="modelSelectOpen = $event"
           @change="handleChatAiModelChange"
           @keydown.esc.stop
@@ -196,7 +198,6 @@
             </span>
           </a-select-option>
         </a-select>
-        <div class="action-buttons-container-separator"></div>
         <div class="action-buttons-container">
           <a-tooltip :title="$t('ai.uploadFile')">
             <a-button
@@ -666,11 +667,6 @@ const inputPlaceholder = computed(() => {
   container-type: inline-size;
   container-name: input-controls;
 
-  .action-buttons-container-separator {
-    flex: 1;
-    min-width: 0;
-  }
-
   .action-buttons-container {
     flex-shrink: 0;
     display: flex;
@@ -680,13 +676,13 @@ const inputPlaceholder = computed(() => {
 
   .ant-select:first-child {
     flex-shrink: 0;
-    min-width: 80px;
+    min-width: 85px;
   }
 
   .model-select-responsive {
     flex-shrink: 1;
-    min-width: 145px;
-    max-width: 240px;
+    min-width: 40px;
+    max-width: 200px;
 
     :deep(.ant-select-selector) {
       min-width: 0;
@@ -700,7 +696,7 @@ const inputPlaceholder = computed(() => {
     }
   }
 
-  @container input-controls (max-width: 320px) {
+  @container input-controls (max-width: 260px) {
     .model-select-responsive {
       display: none;
     }
@@ -713,7 +709,7 @@ const inputPlaceholder = computed(() => {
   }
 
   .ant-select {
-    width: 120px;
+    width: 95px;
 
     :deep(.ant-select-selector) {
       background-color: transparent !important;
@@ -726,6 +722,8 @@ const inputPlaceholder = computed(() => {
 
     :deep(.ant-select-selection-item) {
       pointer-events: none;
+      font-size: 12px !important;
+      color: var(--text-color) !important;
     }
 
     :deep(.ant-select-arrow) {
@@ -981,5 +979,16 @@ const inputPlaceholder = computed(() => {
 .processing-text {
   font-size: 10px;
   color: var(--text-color);
+}
+</style>
+
+<style lang="less">
+// Global styles for select dropdown menu
+// Use specific class name to target only these dropdowns
+.input-controls-select-dropdown {
+  .ant-select-item,
+  .ant-select-item-option {
+    font-size: 12px !important;
+  }
 }
 </style>
