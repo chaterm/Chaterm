@@ -905,11 +905,12 @@ export default {
     emailBindFailed: '邮箱绑定失败',
     bindMobile: '绑定手机号',
     modifyMobile: '修改手机号',
-    pleaseInputMobileCode: '请输入手机号验证码',
+    pleaseInputMobileCode: '请输入验证码',
     sendMobileCode: '获取验证码',
     mobileCodeSent: '验证码已发送',
     mobileBindSuccess: '手机号绑定成功',
-    mobileBindFailed: '手机号绑定失败'
+    mobileBindFailed: '手机号绑定失败',
+    verificationCode: '验证码'
   },
   update: {
     available: '有最新版本可以更新',

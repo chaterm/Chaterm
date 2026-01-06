@@ -1956,6 +1956,9 @@ const addDockPanel = (params) => {
     displayTitle = params.title
   } else if (params.title === 'mcpConfigEditor') {
     displayTitle = t('mcp.configEditor')
+  } else if (params.content === 'securityConfigEditor' || params.content === 'keywordHighlightEditor') {
+    // For config editors, title is already set to file name in switch statement, use it directly
+    displayTitle = params.title
   } else {
     displayTitle = t(`common.${params.title}`)
   }
