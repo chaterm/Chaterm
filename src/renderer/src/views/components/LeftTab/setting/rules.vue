@@ -483,30 +483,25 @@ const editUserRule = (index: number) => {
   border-radius: 4px;
   font-size: 12px;
   font-weight: 400;
-  background-color: var(--bg-color-secondary);
-  color: var(--text-color-secondary);
-  border: 1px solid var(--border-color-light);
-  transition: all 0.2s;
+  background-color: var(--bg-color-octonary) !important;
+  color: var(--text-color) !important;
+  border: none !important;
+  box-shadow: none !important;
+  transition: background 0.2s;
 
   .anticon {
     font-size: 12px;
   }
 
-  &:hover {
-    background-color: var(--hover-bg-color);
-    border-color: var(--text-color-quaternary);
-    color: var(--text-color);
+  &:hover,
+  &:focus {
+    background-color: var(--bg-color-novenary) !important;
+    color: var(--text-color) !important;
   }
 
   &:active {
-    background-color: var(--active-bg-color);
-    border-color: var(--text-color-tertiary);
-    color: var(--text-color);
-  }
-
-  &:focus {
-    box-shadow: none !important;
-    outline: none !important;
+    background-color: var(--bg-color-novenary) !important;
+    color: var(--text-color) !important;
   }
 
   &:focus-visible {
