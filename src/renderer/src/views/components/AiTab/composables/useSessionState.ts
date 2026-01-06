@@ -31,6 +31,7 @@ export interface ChatTab {
   id: string // Tab ID (UUID)
   title: string // Tab title
   hosts: Host[] // Associated host list
+  agentHosts?: Host[] // Saved hosts for agent mode (restored when switching back from chat mode)
   chatType: string // Chat type (agent/cmd/chat)
   autoUpdateHost: boolean // Whether to auto-update host
   session: SessionState // Session state

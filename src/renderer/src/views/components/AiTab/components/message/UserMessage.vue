@@ -16,8 +16,6 @@
         :is-active-tab="true"
         mode="edit"
         :initial-value="typeof message.content === 'string' ? message.content : ''"
-        :send-message="async () => {}"
-        :handle-interrupt="() => {}"
         :on-confirm-edit="handleConfirmEdit"
       />
     </div>

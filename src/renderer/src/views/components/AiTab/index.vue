@@ -298,6 +298,7 @@
                           <a-button
                             size="small"
                             class="approve-btn"
+                            data-testid="execute-button"
                             :disabled="buttonsDisabled"
                             @click="handleApproveCommand"
                           >
@@ -332,6 +333,7 @@
                           <a-button
                             size="small"
                             class="approve-btn"
+                            data-testid="execute-button"
                             @click="handleApplyCommand"
                           >
                             <template #icon>
@@ -377,6 +379,7 @@
                           <a-button
                             size="small"
                             class="approve-btn"
+                            data-testid="execute-button"
                             :disabled="buttonsDisabled"
                             @click="handleApproveCommand"
                           >
@@ -444,6 +447,7 @@
               size="small"
               type="primary"
               class="retry-btn"
+              data-testid="new-task-button"
               @click="createNewEmptyTab"
             >
               <template #icon>
@@ -455,7 +459,7 @@
           <InputSendContainer
             :is-active-tab="tab.id === currentChatId"
             :send-message="sendMessage"
-            :handle-interrupt="handleInterrupt"
+            :handle-interrupt="handleCancel"
           />
         </div>
       </div>
@@ -642,7 +646,7 @@
             <a-menu>
               <a-menu-item
                 key="export"
-                @click="handleExportChat"
+                @click="exportChat"
               >
                 <ExportOutlined style="font-size: 12px" />
                 <span style="margin-left: 8px; font-size: 12px">{{ $t('ai.exportChat') }}</span>
@@ -656,7 +660,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, defineAsyncComponent, watch } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAutoScroll } from './composables/useAutoScroll'
 import { useChatHistory } from './composables/useChatHistory'
@@ -673,6 +677,9 @@ import { useTodo } from './composables/useTodo'
 import { useWatchers } from './composables/useWatchers'
 import { useExportChat } from './composables/useExportChat'
 import InputSendContainer from './components/InputSendContainer.vue'
+import MarkdownRenderer from './components/format/markdownRenderer.vue'
+import TodoInlineDisplay from './components/todo/TodoInlineDisplay.vue'
+import UserMessage from './components/message/UserMessage.vue'
 import {
   CheckCircleFilled,
   CheckCircleOutlined,
@@ -727,9 +734,6 @@ const props = withDefaults(defineProps<Props>(), {
 const emit = defineEmits(['state-changed'])
 
 const router = useRouter()
-const MarkdownRenderer = defineAsyncComponent(() => import('./components/format/markdownRenderer.vue'))
-const TodoInlineDisplay = defineAsyncComponent(() => import('./components/todo/TodoInlineDisplay.vue'))
-const UserMessage = defineAsyncComponent(() => import('./components/message/UserMessage.vue'))
 
 const isSkippedLogin = ref(localStorage.getItem('login-skipped') === 'true')
 
@@ -795,16 +799,8 @@ const {
   scrollToBottom
 })
 
-const handleInterrupt = () => {
-  handleCancel()
-}
-
 // Export chat functionality
 const { exportChat } = useExportChat()
-
-const handleExportChat = () => {
-  exportChat()
-}
 
 // Tab management
 const { createNewEmptyTab, restoreHistoryTab, handleTabRemove } = useTabManagement({
@@ -855,9 +851,11 @@ const handleTruncateAndSend = async ({ message, newContent }: { message: ChatMes
   const index = chatHistory.findIndex((m) => m.id === message.id)
   if (index === -1) return
 
+  const truncateAtMessageTs = message.ts
+
   chatHistory.splice(index)
 
-  await sendMessageWithContent(newContent, 'send')
+  await sendMessageWithContent(newContent, 'send', undefined, truncateAtMessageTs)
 }
 
 const goToLogin = () => {

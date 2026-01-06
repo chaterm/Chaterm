@@ -459,26 +459,32 @@ export const useHostManagement = () => {
     }
   }
 
-  const calculateCreateModePopupPosition = (anchorRect: DOMRect) => {
+  const calculateCreateModePopupPosition = (triggerEl?: HTMLElement | null) => {
     try {
-      const popupEl = document.querySelector('.host-select-popup') as HTMLElement | null
-      const popupRect = popupEl?.getBoundingClientRect()
-      const popupHeight = popupRect?.height ?? 240
-      const popupWidth = popupRect?.width ?? 229
-      const bufferDistance = 4
-      const padding = 8
-
-      // Match the previous layout: show above the trigger; fallback to below if not enough space.
-      let top = anchorRect.top - popupHeight - bufferDistance
-      let left = anchorRect.left
-
-      // If not enough space above, show below.
-      if (top < padding) {
-        top = anchorRect.bottom + bufferDistance
+      // Find the input container from the trigger element
+      let inputContainer: HTMLElement | null = null
+      if (triggerEl) {
+        inputContainer = triggerEl.closest('.input-send-container') as HTMLElement | null
       }
 
-      top = clamp(top, padding, window.innerHeight - popupHeight - padding)
-      left = clamp(left, padding, window.innerWidth - popupWidth - padding)
+      if (!inputContainer) {
+        popupPosition.value = null
+        return
+      }
+
+      const inputRect = inputContainer.getBoundingClientRect()
+      const marginBottom = 4
+      const marginLeft = 8
+
+      // Get popup element to calculate its height for positioning
+      const popupEl = document.querySelector('.host-select-popup') as HTMLElement | null
+      const popupHeight = popupEl?.getBoundingClientRect().height ?? 240
+
+      // Position popup above the input container
+      // Popup bottom should be at input top - marginBottom
+      // So popup top = input top - popup height - marginBottom
+      const top = inputRect.top - popupHeight - marginBottom
+      const left = inputRect.left + marginLeft
 
       popupPosition.value = { top, left }
     } catch (error) {
@@ -508,7 +514,7 @@ export const useHostManagement = () => {
       if (mode === 'edit') {
         calculatePopupPosition(textarea)
       } else {
-        calculateCreateModePopupPosition(textarea.getBoundingClientRect())
+        calculateCreateModePopupPosition(textarea)
       }
 
       popupReady.value = true
@@ -603,7 +609,12 @@ export const useHostManagement = () => {
     }
   }
 
-  const handleAddHostClick = async (anchorEl?: HTMLElement | null) => {
+  const handleAddHostClick = async (triggerEl?: HTMLElement | null) => {
+    if (showHostSelect.value) {
+      closeHostSelect()
+      return
+    }
+
     currentMode.value = 'create'
     showHostSelect.value = true
     popupReady.value = false
@@ -616,13 +627,7 @@ export const useHostManagement = () => {
     }
 
     nextTick(() => {
-      const anchorRect = anchorEl?.getBoundingClientRect()
-
-      if (anchorRect) {
-        calculateCreateModePopupPosition(anchorRect)
-      } else {
-        popupPosition.value = null
-      }
+      calculateCreateModePopupPosition(triggerEl)
       popupReady.value = true
       getElement(hostSearchInputRef.value)?.focus?.()
     })

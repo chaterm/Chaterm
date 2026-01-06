@@ -70,13 +70,14 @@ export function useTabManagement(options: TabManagementOptions) {
     const defaultChatType = currentTab.value?.chatType || 'agent'
     const defaultHosts = currentTab.value?.hosts || [DEFAULT_LOCALHOST_HOST]
     const defaultModelValue = currentTab.value?.modelValue || ''
+    const currentInputValue = chatInputValue.value || ''
 
     const placeholderTab: ChatTab = {
       id: newChatId,
       title: 'New chat',
       autoUpdateHost: true,
       session: createEmptySessionState(),
-      inputValue: '',
+      inputValue: currentInputValue,
       welcomeTip: generateRandomWelcomeTip(),
       chatType: defaultChatType,
       hosts: defaultHosts,
@@ -128,10 +129,6 @@ export function useTabManagement(options: TabManagementOptions) {
     }
 
     emitStateChange?.()
-
-    if (chatInputValue) {
-      chatInputValue.value = ''
-    }
 
     focusChatInput()
     console.log('createNewEmptyTab   end')

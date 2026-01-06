@@ -1,3 +1,9 @@
+//  Copyright (c) 2025-present, chaterm.ai  All rights reserved.
+//  This source code is licensed under the GPL-3.0
+//
+// Copyright (c) 2025 cline Authors, All rights reserved.
+// Licensed under the Apache License, Version 2.0
+
 import { Anthropic } from '@anthropic-ai/sdk'
 
 import pWaitFor from 'p-wait-for'
@@ -211,7 +217,7 @@ export class Controller {
           if (message.askResponse === 'messageResponse') {
             await targetTask.clearTodos('new_user_input')
           }
-          await targetTask.handleWebviewAskResponse(message.askResponse!, message.text, message.cwd)
+          await targetTask.handleWebviewAskResponse(message.askResponse!, message.text, message.cwd, message.truncateAtMessageTs)
         }
         break
       case 'showTaskWithId':

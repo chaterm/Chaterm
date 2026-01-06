@@ -184,23 +184,17 @@ const REGEX_PATTERNS = {
 /**
  * Calculate string display width (considering full-width characters like Chinese)
  * Chinese, Japanese, Korean characters occupy 2 columns in terminal
+ * Tab characters are expanded to align to the next tab stop (8 columns)
  */
 function getStringDisplayWidth(str: string): number {
+  const TAB_STOP = 8
   let width = 0
   for (let i = 0; i < str.length; i++) {
     const code = str.charCodeAt(i)
-    // Determine if it's a wide character (CJK characters, full-width characters, etc.)
-    // Unicode ranges:
-    // - 0x1100-0x115F: Korean
-    // - 0x2E80-0x9FFF: CJK unified ideographs, symbols
-    // - 0xA960-0xA97F: Korean extended
-    // - 0xAC00-0xD7AF: Korean syllables
-    // - 0xF900-0xFAFF: CJK compatibility ideographs
-    // - 0xFE10-0xFE19: Vertical punctuation
-    // - 0xFE30-0xFE6F: CJK compatibility forms
-    // - 0xFF00-0xFF60: Full-width ASCII, full-width punctuation
-    // - 0xFFE0-0xFFE6: Full-width symbols
-    if (
+    if (code === 0x09) {
+      // Tab character: align to next tab stop
+      width = Math.ceil((width + 1) / TAB_STOP) * TAB_STOP
+    } else if (
       (code >= 0x1100 && code <= 0x115f) ||
       (code >= 0x2e80 && code <= 0x9fff) ||
       (code >= 0xa960 && code <= 0xa97f) ||

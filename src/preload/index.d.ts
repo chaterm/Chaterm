@@ -85,7 +85,6 @@ interface ApiType {
   getAssetsInFolder: (data: { folderUuid: string }) => Promise<any>
   refreshOrganizationAssets: (data: { organizationUuid: string; jumpServerConfig: any }) => Promise<any>
   updateTheme: (params: any) => Promise<boolean>
-  mainWindowInit: (params: any) => Promise<void>
   mainWindowShow: () => Promise<void>
   getVersionPrompt: () => Promise<{
     shouldShow: boolean

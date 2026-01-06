@@ -532,6 +532,64 @@ describe('KeywordHighlightService', () => {
     })
   })
 
+  describe('background color preservation', () => {
+    beforeEach(async () => {
+      const config = JSON.stringify({
+        'keyword-highlight': {
+          enabled: true,
+          applyTo: {
+            output: true,
+            input: false
+          },
+          rules: [
+            {
+              name: 'Test Keyword',
+              enabled: true,
+              scope: 'output',
+              matchType: 'regex',
+              pattern: 'sudo',
+              style: {
+                foreground: '#AF52DE',
+                fontStyle: 'bold'
+              }
+            }
+          ]
+        }
+      })
+
+      mockReadKeywordHighlightConfig.mockResolvedValue(config)
+      await keywordHighlightService.loadConfig()
+    })
+
+    it('should restore original ANSI state after highlighting', () => {
+      const input = 'sudo command'
+      const output = keywordHighlightService.applyHighlight(input, 'output')
+
+      // For plain text without ANSI codes, should use partial reset \x1b[22;39m
+      expect(output).toContain('\x1b[22;39m')
+      expect(output).toContain('sudo')
+    })
+
+    it('should preserve background color in commands like "sudo umount /tmp/jfs_temp"', () => {
+      const input = 'sudo umount /tmp/jfs_temp'
+      const output = keywordHighlightService.applyHighlight(input, 'output')
+
+      // Should highlight 'sudo' and use partial reset for plain text
+      expect(output).toContain('sudo')
+      expect(output).toContain('\x1b[22;39m')
+    })
+
+    it('should preserve accumulated ANSI state with foreground and background colors', () => {
+      // Simulate Ubuntu terminal with both foreground and background colors
+      const input = '\x1b[31m\x1b[47msudo command\x1b[0m'
+      const output = keywordHighlightService.applyHighlight(input, 'output')
+
+      // Should accumulate \x1b[31m (red fg) and \x1b[47m (white bg) and restore them after highlighting
+      expect(output).toContain('\x1b[31m\x1b[47m')
+      expect(output).toContain('sudo')
+    })
+  })
+
   describe('reload', () => {
     it('should reload config successfully', async () => {
       const config1 = JSON.stringify({

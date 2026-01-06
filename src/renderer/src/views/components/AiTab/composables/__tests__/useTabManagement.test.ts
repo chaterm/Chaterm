@@ -7,6 +7,15 @@ import type { ChatermMessage } from '@/types/ChatermMessage'
 
 // Mock dependencies
 vi.mock('../useSessionState')
+vi.mock('../../components/format/markdownRenderer.vue', () => ({
+  default: {
+    name: 'MarkdownRenderer',
+    render: () => null,
+    setup: () => ({
+      setThinkingLoading: vi.fn()
+    })
+  }
+}))
 vi.mock('@renderer/agent/storage/state', () => ({
   getGlobalState: vi.fn()
 }))
@@ -264,7 +273,7 @@ describe('useTabManagement', () => {
 
       await createNewEmptyTab()
 
-      expect(mockState.chatInputValue.value).toBe('')
+      expect(mockState.chatInputValue.value).toBe('test input')
     })
   })
 
