@@ -68,7 +68,7 @@ vi.mock('@/locales', () => {
       'userInfo.emailBindFailed': 'Email binding failed',
       'userInfo.bindMobile': 'Bind Mobile',
       'userInfo.modifyMobile': 'Modify Mobile',
-      'userInfo.pleaseInputMobileCode': 'Please enter mobile verification code',
+      'userInfo.pleaseInputMobileCode': 'Please enter code',
       'userInfo.sendMobileCode': 'Get Verification Code',
       'userInfo.mobileCodeSent': 'Verification code sent',
       'userInfo.mobileBindSuccess': 'Mobile binding successful',

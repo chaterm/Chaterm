@@ -370,6 +370,17 @@ const openKeywordHighlightConfig = async () => {
 }
 
 .keyword-highlight-config-btn {
-  min-width: 80px;
+  width: 100px;
+  background-color: var(--bg-color-octonary) !important;
+  color: var(--text-color) !important;
+  border: none !important;
+  box-shadow: none !important;
+  transition: background 0.2s;
+}
+
+.keyword-highlight-config-btn:hover,
+.keyword-highlight-config-btn:focus {
+  background-color: var(--bg-color-novenary) !important;
+  color: var(--text-color) !important;
 }
 </style>

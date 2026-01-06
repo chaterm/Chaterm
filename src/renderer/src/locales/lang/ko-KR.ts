@@ -877,7 +877,8 @@ export default {
     sendMobileCode: '인증 코드 전송',
     mobileCodeSent: '인증 코드가 전송되었습니다',
     mobileBindSuccess: '전화번호 바인딩 성공',
-    mobileBindFailed: '전화번호 바인딩 실패'
+    mobileBindFailed: '전화번호 바인딩 실패',
+    verificationCode: '인증 코드'
   },
   update: {
     available: '새 버전이 있습니다',

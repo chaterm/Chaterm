@@ -901,11 +901,12 @@ export default {
     emailBindFailed: 'Failed to bind email',
     bindMobile: 'Bind Mobile',
     modifyMobile: 'Modify Mobile',
-    pleaseInputMobileCode: 'Please input mobile verification code',
+    pleaseInputMobileCode: 'Please input code',
     sendMobileCode: 'Send Code',
     mobileCodeSent: 'Verification code sent',
     mobileBindSuccess: 'Mobile bound successfully',
-    mobileBindFailed: 'Failed to bind mobile'
+    mobileBindFailed: 'Failed to bind mobile',
+    verificationCode: 'Verification Code'
   },
   update: {
     available: 'A new version is available',

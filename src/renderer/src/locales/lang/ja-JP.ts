@@ -901,7 +901,8 @@ export default {
     sendMobileCode: '確認コードを送信',
     mobileCodeSent: '確認コードが送信されました',
     mobileBindSuccess: '携帯電話番号のバインドに成功しました',
-    mobileBindFailed: '携帯電話番号のバインドに失敗しました'
+    mobileBindFailed: '携帯電話番号のバインドに失敗しました',
+    verificationCode: '確認コード'
   },
   update: {
     available: '新しいバージョンが利用可能です',

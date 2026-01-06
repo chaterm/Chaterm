@@ -195,34 +195,42 @@
       @cancel="cancelBindingMobile"
     >
       <div class="modal-form-container">
-        <a-form-item
-          :label="t('userInfo.mobile')"
-          class="compact-form-item"
+        <a-form
+          :label-col="{ span: 7 }"
+          :wrapper-col="{ span: 17 }"
         >
-          <a-input
-            v-model:value="mobileBindForm.mobile"
-            :placeholder="t('userInfo.pleaseInputMobile')"
-            size="small"
-          />
-        </a-form-item>
-        <a-form-item class="compact-form-item">
-          <div class="code-input-row">
+          <a-form-item
+            :label="t('userInfo.mobile')"
+            class="compact-form-item"
+          >
             <a-input
-              v-model:value="mobileBindForm.code"
-              :placeholder="t('userInfo.pleaseInputMobileCode')"
+              v-model:value="mobileBindForm.mobile"
+              :placeholder="t('userInfo.pleaseInputMobile')"
               size="small"
-              style="flex: 1"
             />
-            <a-button
-              type="primary"
-              size="small"
-              :disabled="mobileCodeSending || mobileCodeCountdown > 0"
-              @click="handleSendMobileBindCode"
-            >
-              {{ mobileCodeCountdown > 0 ? `${mobileCodeCountdown}s` : t('userInfo.sendMobileCode') }}
-            </a-button>
-          </div>
-        </a-form-item>
+          </a-form-item>
+          <a-form-item
+            :label="t('userInfo.verificationCode')"
+            class="compact-form-item"
+          >
+            <div class="code-input-row">
+              <a-input
+                v-model:value="mobileBindForm.code"
+                :placeholder="t('userInfo.pleaseInputMobileCode')"
+                size="small"
+                style="flex: 1"
+              />
+              <a-button
+                type="primary"
+                size="small"
+                :disabled="mobileCodeSending || mobileCodeCountdown > 0"
+                @click="handleSendMobileBindCode"
+              >
+                {{ mobileCodeCountdown > 0 ? `${mobileCodeCountdown}s` : t('userInfo.sendMobileCode') }}
+              </a-button>
+            </div>
+          </a-form-item>
+        </a-form>
       </div>
     </a-modal>
 
@@ -301,34 +309,42 @@
       @cancel="cancelBindingEmail"
     >
       <div class="modal-form-container">
-        <a-form-item
-          :label="t('userInfo.email')"
-          class="compact-form-item"
+        <a-form
+          :label-col="{ span: 7 }"
+          :wrapper-col="{ span: 17 }"
         >
-          <a-input
-            v-model:value="emailBindForm.email"
-            :placeholder="t('userInfo.pleaseInputEmail')"
-            size="small"
-          />
-        </a-form-item>
-        <a-form-item class="compact-form-item">
-          <div class="code-input-row">
+          <a-form-item
+            :label="t('userInfo.email')"
+            class="compact-form-item"
+          >
             <a-input
-              v-model:value="emailBindForm.code"
-              :placeholder="t('userInfo.pleaseInputEmailCode')"
+              v-model:value="emailBindForm.email"
+              :placeholder="t('userInfo.pleaseInputEmail')"
               size="small"
-              style="flex: 1"
             />
-            <a-button
-              type="primary"
-              size="small"
-              :disabled="emailCodeSending || emailCodeCountdown > 0"
-              @click="handleSendEmailBindCode"
-            >
-              {{ emailCodeCountdown > 0 ? `${emailCodeCountdown}s` : t('userInfo.sendEmailCode') }}
-            </a-button>
-          </div>
-        </a-form-item>
+          </a-form-item>
+          <a-form-item
+            :label="t('userInfo.verificationCode')"
+            class="compact-form-item"
+          >
+            <div class="code-input-row">
+              <a-input
+                v-model:value="emailBindForm.code"
+                :placeholder="t('userInfo.pleaseInputEmailCode')"
+                size="small"
+                style="flex: 1"
+              />
+              <a-button
+                type="primary"
+                size="small"
+                :disabled="emailCodeSending || emailCodeCountdown > 0"
+                @click="handleSendEmailBindCode"
+              >
+                {{ emailCodeCountdown > 0 ? `${emailCodeCountdown}s` : t('userInfo.sendEmailCode') }}
+              </a-button>
+            </div>
+          </a-form-item>
+        </a-form>
       </div>
     </a-modal>
   </div>
