@@ -193,7 +193,7 @@ export default {
     quickVimStatus: 'クイックVim',
     commonVimStatus: '通常のVim',
     aliasStatus: 'グローバルエイリアス',
-    highlightStatus: 'ハイライト',
+    highlightStatus: 'コマンド構文ハイライト',
     pinchZoomStatus: 'ピンチでフォントをズーム',
     fontSize: 'フォントサイズ',
     fontFamily: 'フォントファミリー',
