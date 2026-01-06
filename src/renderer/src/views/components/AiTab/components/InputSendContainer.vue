@@ -403,7 +403,7 @@ const hostSelectPopupClass = computed(() => ({
 }))
 void hostSearchInputRef
 
-const { AgentAiModelsOptions, handleChatAiModelChange } = useModelConfiguration()
+const { AgentAiModelsOptions, hasAvailableModels, handleChatAiModelChange } = useModelConfiguration()
 
 // Use user interactions composable
 const { fileInputRef, autoSendAfterVoice, handleTranscriptionComplete, handleTranscriptionError, handleFileUpload, handleFileSelected } =
@@ -473,8 +473,6 @@ watch(
     aiModeTooltipVisible.value = false
   }
 )
-
-const hasAvailableModels = computed(() => AgentAiModelsOptions.value && AgentAiModelsOptions.value.length > 0)
 
 const inputPlaceholder = computed(() => {
   return chatTypeValue.value === 'agent' ? t('ai.agentMessage') : chatTypeValue.value === 'chat' ? t('ai.chatMessage') : t('ai.cmdMessage')
@@ -633,18 +631,6 @@ const inputPlaceholder = computed(() => {
 
   &:focus-within {
     border-color: rgba(24, 143, 255, 0.75);
-  }
-
-  .theme-dark &:focus-within {
-    box-shadow:
-      0 0 0 2px rgba(24, 144, 255, 0.18),
-      0 8px 24px rgba(0, 0, 0, 0.45);
-  }
-
-  .theme-light &:focus-within {
-    box-shadow:
-      0 0 0 2px rgba(24, 144, 255, 0.18),
-      0 8px 24px rgba(0, 0, 0, 0.12);
   }
 
   .chat-textarea {
