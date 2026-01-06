@@ -1357,8 +1357,25 @@ const connectLocalSSH = async () => {
 const startLocalShell = async () => {
   isConnected.value = true
   const removeDataListener = api.onDataLocal(connectionId.value, (data: string) => {
-    if (terminal.value) {
-      terminal.value.write(data)
+    // For local connections, handle command output collection if needed
+    if (isCollectingOutput.value) {
+      handleCommandOutput(data, false)
+    } else {
+      // Also check if this data contains a command marker (for initial command)
+      // This handles the case where the command itself is echoed back
+      if (
+        currentCommandMarker.value &&
+        (currentCommandMarker.value === 'Chaterm:command' || currentCommandMarker.value?.startsWith('Chaterm:command:'))
+      ) {
+        // Command was just sent, start collecting output
+        isCollectingOutput.value = true
+        handleCommandOutput(data, true)
+      } else {
+        // Normal data output, just write to terminal
+        if (terminal.value) {
+          terminal.value.write(data)
+        }
+      }
     }
   })
   const removeErrorListener = api.onErrorLocal?.(connectionId.value, (error: any) => {
@@ -1973,13 +1990,27 @@ const sendBinaryData = (data) => {
 }
 
 const sendMarkedData = (data, marker) => {
-  api.writeToShell({
-    id: connectionId.value,
-    data: data,
-    marker: marker,
-    lineCommand: terminalState.value.content,
-    isBinary: false
-  })
+  // Local terminal doesn't support markers, use sendDataLocal instead
+  if (props.connectData.asset_type === 'shell') {
+    // For local connections, we need to handle markers on the frontend
+    // If this is a command marker, set up output collection
+    if (marker && (marker === 'Chaterm:command' || marker?.startsWith('Chaterm:command:'))) {
+      isCollectingOutput.value = true
+      const tabId = commandMarkerToTabId.value.get(marker) ?? commandMarkerToTabId.value.get('Chaterm:command') ?? undefined
+      currentCommandMarker.value = marker
+      currentCommandTabId.value = tabId
+      commandOutput.value = '' // Reset output buffer
+    }
+    api.sendDataLocal(connectionId.value, data)
+  } else {
+    api.writeToShell({
+      id: connectionId.value,
+      data: data,
+      marker: marker,
+      lineCommand: terminalState.value.content,
+      isBinary: false
+    })
+  }
 }
 
 export interface MarkedResponse {
@@ -2124,19 +2155,9 @@ const checkEditorMode = (response: MarkedResponse) => {
     const lastLine = lines[lines.length - 1] || ''
     const secondLastLine = lines[lines.length - 2] || ''
 
-    // Check for typical shell prompt patterns (username@hostname, path, etc.)
-    // These patterns indicate we're back to a shell prompt, not just content with $ symbols
-    const hasShellPrompt =
-      lastLine.match(/^[^@]*@[^:]*:.*[$#]\s*$/) || // user@host:path$
-      lastLine.match(/^\[[^@]*@[^\]]*\][$#]\s*$/) || // [user@host]$
-      lastLine.match(/^[^@]*@[^:]*:.*~[$#]\s*$/) || // user@host:~$
-      lastLine.match(/^.*:\s*[$#]\s*$/) || // path:$
-      lastLine.match(/^\s*[$#]\s*$/) || // simple $ or # prompt
-      secondLastLine.match(/^[^@]*@[^:]*:.*[$#]\s*$/) || // check second last line too
-      secondLastLine.match(/^\[[^@]*@[^\]]*\][$#]\s*$/) ||
-      secondLastLine.match(/^[^@]*@[^:]*:.*~[$#]\s*$/) ||
-      secondLastLine.match(/^.*:\s*[$#]\s*$/) ||
-      secondLastLine.match(/^\s*[$#]\s*$/)
+    // Check for typical shell prompt patterns using unified prompt detection
+    // Check both last line and second last line (in case prompt appears across boundaries)
+    const hasShellPrompt = isTerminalPromptLine(lastLine) || isTerminalPromptLine(secondLastLine)
 
     if (hasShellPrompt) {
       terminalMode.value = 'none'
@@ -2234,7 +2255,10 @@ const handleCommandOutput = (data: string, isInitialCommand: boolean) => {
   commandOutput.value += trimmedOutput + '\n'
 
   // Detect SSH command prompt to determine if command output has ended.
-  const lastNonEmptyLine = getLastNonEmptyLine(cleanOutput)
+  // For local connections, check the accumulated output instead of just the current chunk
+  // This is important because prompts may appear across chunk boundaries
+  const accumulatedOutput = commandOutput.value
+  const lastNonEmptyLine = getLastNonEmptyLine(accumulatedOutput)
 
   if (lastNonEmptyLine && isTerminalPromptLine(lastNonEmptyLine)) {
     isCollectingOutput.value = false
