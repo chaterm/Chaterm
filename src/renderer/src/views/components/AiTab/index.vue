@@ -753,7 +753,7 @@ const {
 } = useSessionState()
 
 // Model configuration management
-const { AgentAiModelsOptions, modelsLoading, initModel, checkModelConfig, initModelOptions } = useModelConfiguration()
+const { hasAvailableModels, initModel, checkModelConfig, initModelOptions } = useModelConfiguration()
 
 // State snapshot
 const { getCurrentState, restoreState, emitStateChange } = useStateSnapshot(emit)
@@ -868,14 +868,6 @@ const goToModelSettings = () => {
     eventBus.emit('switchToModelSettingsTab')
   }, 200)
 }
-
-// Check if there are available models
-const hasAvailableModels = computed(() => {
-  if (modelsLoading.value) {
-    return true
-  }
-  return AgentAiModelsOptions.value && AgentAiModelsOptions.value.length > 0
-})
 
 watch(
   () => localStorage.getItem('login-skipped'),

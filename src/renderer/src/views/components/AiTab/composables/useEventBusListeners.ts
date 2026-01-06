@@ -115,14 +115,11 @@ export function useEventBusListeners(params: UseEventBusListenersParams) {
       console.log('Ignoring chatToAi event in agent mode')
       return
     }
-    console.log('before handleChatToAi:', text)
-    console.log('current chatInputValue:', chatInputValue.value)
     if (chatInputValue.value.trim()) {
-      chatInputValue.value = chatInputValue.value + '\n' + text
+      chatInputValue.value = chatInputValue.value + '\n' + text + '\n'
     } else {
-      chatInputValue.value = text
+      chatInputValue.value = text + '\n'
     }
-    console.log('after handleChatToAi:', chatInputValue.value)
     await initAssetInfo()
     focusChatInput()
   }

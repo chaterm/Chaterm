@@ -1,4 +1,4 @@
-import { ref, watch } from 'vue'
+import { ref, watch, computed } from 'vue'
 import { createGlobalState } from '@vueuse/core'
 import { getGlobalState, updateGlobalState, storeSecret, getSecret } from '@renderer/agent/storage/state'
 import { GlobalStateKey } from '@renderer/agent/storage/state-keys'
@@ -229,6 +229,14 @@ export const useModelConfiguration = createGlobalState(() => {
     }
   }
 
+  // Check if there are available models
+  const hasAvailableModels = computed(() => {
+    if (modelsLoading.value) {
+      return true
+    }
+    return AgentAiModelsOptions.value && AgentAiModelsOptions.value.length > 0
+  })
+
   watch(
     AgentAiModelsOptions,
     async (newOptions) => {
@@ -245,6 +253,7 @@ export const useModelConfiguration = createGlobalState(() => {
   return {
     AgentAiModelsOptions,
     modelsLoading,
+    hasAvailableModels,
     initModel,
     handleChatAiModelChange,
     checkModelConfig,
